@@ -47,5 +47,6 @@ public class SingleResEnergy implements EnergyFunction {
     
     void initFFE(){
         ffEnergy = new ForcefieldEnergy(true,res.atoms,res.atoms,ffParams);
+        templ = res.template;
     }
 }

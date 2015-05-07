@@ -9,6 +9,7 @@ import edu.duke.cs.osprey.confspace.PositionConfSpace;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
+import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import java.util.ArrayList;
 
@@ -22,7 +23,7 @@ public class EnergyFunctionGenerator {
     
     //Start with AMBER/EEF1, add Poisson-Boltzmann (instead of EEF1), and ultimately QM and explicit water hopefully
     
-    ForcefieldParams ffParams;
+    public ForcefieldParams ffParams;
     
     public double distCutoff;//distance cutoff for interactions (angstroms)
     
@@ -104,4 +105,24 @@ public class EnergyFunctionGenerator {
         return fullEFunc;
     }
     
+    
+    
+    public EnergyFunction fullMolecEnergy(Molecule molec){
+        //full energy of a molecule, with all residues interacting
+        
+        MultiTermEnergyFunction fullEFunc = new MultiTermEnergyFunction();
+        
+        //intra terms
+        for(Residue res : molec.residues)
+            fullEFunc.addTerm( singleResEnergy(res) );
+        
+        //pairwise terms
+        for(int res1=0; res1<molec.residues.size(); res1++){
+            for(int res2=0; res2<res1; res2++){
+                fullEFunc.addTerm(resPairEnergy(molec.residues.get(res1),molec.residues.get(res2)));
+            }
+        }
+        
+        return fullEFunc;
+    }
 }

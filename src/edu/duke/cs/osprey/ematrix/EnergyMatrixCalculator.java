@@ -45,11 +45,16 @@ public class EnergyMatrixCalculator {
         
         for(int res=0; res<searchSpace.numPos; res++){
             
+            System.out.println("Starting intra+shell energy calculations for residue "+res);
+            
             TermMinECalculator oneBodyECalc = new TermMinECalculator(searchSpace,shellResidues,false,false,res);
             Object oneBodyE = oneBodyECalc.doCalculation();
             ans.oneBody.set( res, (ArrayList<Double>)oneBodyE );
 
             for(int res2=0; res2<res; res2++){
+                
+                System.out.println("Starting pairwise energy calculations for residues "+res+", "+res2);
+                
                 TermMinECalculator pairECalc = new TermMinECalculator(searchSpace,shellResidues,false,false,res,res2);
                 Object pairE = pairECalc.doCalculation();
                 ans.pairwise.get(res).set( res2, (ArrayList<ArrayList<Double>>)pairE );

@@ -37,10 +37,10 @@ public class SearchSpace {
     //EPICMatrix epicm = null;//EPIC matrix, to be used if appropriate
     //ADD SOON...
     
-    EnergyFunction fullConfE;//full energy for any conformation
-    ArrayList<Residue> shellResidues;//non-flexible residues to be accounted for in energy calculations
+    public EnergyFunction fullConfE;//full energy for any conformation
+    public ArrayList<Residue> shellResidues;//non-flexible residues to be accounted for in energy calculations
     
-    String name;//a human-readable name, which will also be used to name stored energy matrices, etc.
+    public String name;//a human-readable name, which will also be used to name stored energy matrices, etc.
     
     public PruningMatrix pruneMat;
     
@@ -119,8 +119,14 @@ public class SearchSpace {
     public double minimizedEnergy(int[] conf){
         //Minimized energy of the conformation
         //whose RCs are listed for all flexible positions in conf
-        double E = confSpace.minimizedEnergy(conf, fullConfE);
+        double E = confSpace.minimizeEnergy(conf, fullConfE, null);
         return E;
+    }
+    
+    public void outputMinimizedStruct(int[] conf, String PDBFileName){
+        //Output minimized conformation to specified file
+        //RCs are listed for all flexible positions in conf
+        confSpace.minimizeEnergy(conf, fullConfE, PDBFileName);
     }
     
     

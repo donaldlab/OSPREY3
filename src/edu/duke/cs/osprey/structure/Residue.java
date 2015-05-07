@@ -311,6 +311,12 @@ public class Residue {
         return -1;
     }
     
+    public double[] getCoordsByAtomName(String n){
+        //assuming atom with name n exists
+        //return its coordinates
+        return atoms.get(getAtomIndexByName(n)).getCoords();
+    }
+    
     
     public double distanceTo(Residue res2){
         //distance between the residues (measured at the closest atoms)

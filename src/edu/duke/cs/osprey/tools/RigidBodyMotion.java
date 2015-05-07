@@ -29,8 +29,8 @@ public class RigidBodyMotion {
         //we're given three sets of 3-D coordinates, in an initial and a final state
         //we superimpose them, matching the first pair of coordinates exactly, then the direction for the
         //difference between the first pair exactly
-        center1 = initCoords[0];
-        center2 = finalCoords[0];
+        center1 = initCoords[0].clone();
+        center2 = finalCoords[0].clone();
         
         //vectors to superimpose by a rotation
         double uold[] = VectorAlgebra.subtract(initCoords[1], initCoords[0]);

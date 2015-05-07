@@ -59,7 +59,7 @@ public class AtomNeighbors {
     }
     
     
-    NEIGHBORTYPE classifyAtom(Atom atom){
+    public NEIGHBORTYPE classifyAtom(Atom atom){
         //what kind of neighbor to mainAtom (if any) is atom?
         if(neighbors14.contains(atom))
             return NEIGHBORTYPE.BONDED14;

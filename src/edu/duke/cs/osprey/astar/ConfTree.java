@@ -30,7 +30,7 @@ public class ConfTree extends AStarTree {
     //get from searchSpace when initializing!
     //These are lists of residue-specific RC numbers for the unpruned RCs at each residue
     
-       
+    
     
     
     //ADVANCED SCORING METHODS: TO CHANGE LATER (EPIC, MPLP, etc.)

@@ -4,6 +4,8 @@
  */
 package edu.duke.cs.osprey.energy.forcefield;
 
+import edu.duke.cs.osprey.control.EnvironmentVars;
+import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.tools.StringParsing;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
@@ -88,12 +90,10 @@ import java.util.StringTokenizer;
 
 
 
-/*
+
 
 public class EEF1 implements Serializable {
-	
-	Molecule m = null;
-	
+		
 	//Variables to store the EEF1 solvation paramaters;
 	//These values are specific to eef1parm.dat, and may have to be modified for different
 	//		versions of the parameter file
@@ -110,8 +110,8 @@ public class EEF1 implements Serializable {
 
 	
 	//constructor
-	EEF1(Molecule mol){
-		m = mol;
+	public EEF1(){
+            
 	}
 	
 	//Reads the solvation parameters for EEF1 from the file eef1parm.dat;
@@ -162,11 +162,9 @@ public class EEF1 implements Serializable {
 	//The groups in eef1 are based on the natural amino acids. Additional groups may have to be included, 
 	//		and the current groups may have to be modified if new non-natural amino acids or other
 	//		atom types or molecules (such as AMP or ATP) are included 
-	public boolean getSolvationParameters(int atom1,double dGref[],double dGfree[],
+	public boolean getSolvationParameters(Atom at1,double dGref[],double dGfree[],
 			double atVolume[],double lambda[], double vdWr[]){
-		
-		Atom at1 = m.atom[atom1];
-		
+				
 		int solvGroupIndex = getSolvGroupIndex(at1);
 		
 		//System.out.print(m.residue[at1.moleculeResidueNumber].fullName+" "+at1.name);
@@ -192,7 +190,7 @@ public class EEF1 implements Serializable {
 	private int getSolvGroupIndex(Atom at1){
 		
 		String elementType = at1.elementType;
-		String AAname = m.residue[at1.moleculeResidueNumber].name; //the AA name to which this atom belongs
+		String AAname = at1.res.template.name; //the AA name to which this atom belongs
 		boolean aromatic = isAromatic(at1);
 		int numBoundH = getNumBoundH(at1);
 		
@@ -290,10 +288,10 @@ public class EEF1 implements Serializable {
 			
 			int numBoundC = 0;
 			boolean isCarboxylO = false;
-			if (at1.bond!=null){ //check bonds
-				for (int i=0; i<at1.bond.length; i++){		
+			if (at1.bonds!=null){ //check bonds
+				for (int i=0; i<at1.bonds.size(); i++){		
 					
-					Atom at2 = m.atom[at1.bond[i]];
+					Atom at2 = at1.bonds.get(i);
 					
 					if (at2.elementType.equalsIgnoreCase("C")){ //found a bound C
 						
@@ -313,9 +311,9 @@ public class EEF1 implements Serializable {
 	private boolean isCOhelper(Atom at2){		
 		
 		int numBoundO = 0;
-		if (at2.bond!=null){ //check bonds
-			for (int j=0; j<at2.bond.length; j++){
-				if (m.atom[at2.bond[j]].elementType.equalsIgnoreCase("O"))
+		if (at2.bonds!=null){ //check bonds
+			for (int j=0; j<at2.bonds.size(); j++){
+				if (at2.bonds.get(j).elementType.equalsIgnoreCase("O"))
 					numBoundO++;
 			}
 		}
@@ -329,7 +327,7 @@ public class EEF1 implements Serializable {
 	//Determines if the given heavy atom is aromatic
 	private boolean isAromatic(Atom at1){
 		
-		String AAname = m.residue[at1.moleculeResidueNumber].name; //the AA name of the residue to which this atom belongs
+		String AAname = at1.res.template.name; //the AA name of the residue to which this atom belongs
 		
 		boolean isHis = (AAname.equalsIgnoreCase("HIS") || AAname.equalsIgnoreCase("HIP") || AAname.equalsIgnoreCase("HID") || AAname.equalsIgnoreCase("HIE"));
 		
@@ -360,8 +358,8 @@ public class EEF1 implements Serializable {
 	private int getNumBoundH(Atom at1){
 		
 		int numBoundH = 0;
-		for (int i=0; i<at1.bond.length; i++){
-			if (m.atom[at1.bond[i]].elementType.equalsIgnoreCase("H"))
+		for (int i=0; i<at1.bonds.size(); i++){
+			if (at1.bonds.get(i).elementType.equalsIgnoreCase("H"))
 				numBoundH++;
 		}
 		
@@ -370,4 +368,3 @@ public class EEF1 implements Serializable {
 	
 
 }
-*/

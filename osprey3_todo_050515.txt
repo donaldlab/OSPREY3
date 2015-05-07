@@ -1,0 +1,30 @@
+OSPREY 3 TODO
+
+
+1. More iMinDEE and rigid tests.  Get up to enormous, impressive things that stop continuous easily but can be done by rigid.  (These will then be used to test tuple expander).  Big 1CC8, ubiquitin, Pablo's dynamic A* system
+When these and unit tests are working we can be fairly confident in the current core of OSPREY 3.  
+
+2. Other features; coordinate w/ others; add to above test classes accordingly 
+Principal things I could use help with (though other things on list all cool to recruit people for):
+
+BIG THING:
+-K* (Needs to accommodate plans by Pablo, JJ, and Goke; for my tup exp purposes just needs to use the conf enumeration framework already used for GMEC)
+
+
+OTHER STUFF:
+-BWM* (work w/ JJ as discussed)
+-MPI
+-Less-used functions: DACS, fitEParams, self-consistent calc, compute mol energy, identify rotamers, generate random confs
+
+PROBS BETTER TO DO MYSELF:
+-DEEPer, EPIC, COMETS
+-Gradient-based minimization (a lot of this involves DEEPer gradients that are more my territory?)
+-Other pruning methods?  (Indirect is mine and is probably the toughest?)
+-Structure fixer?  (I wrote this, maybe should transfer it too)
+
+Most others things on list easy, at least if can copy (e.g. MPLP classes) from people's codebases.  
+
+3. tuple expander --> PB, big SC-flex designs
+4. w/i vox entropy: G pert theory; self-provide ordering (consult JJ about automating)
+5. Consult JJ & Pablo to get SC (/DEEPer) tup exp/cont entropy working, including PB and poly-time cont-entropy k*. 
+6. Backbone branch-and-bound; try fitting this to tuple expander.  

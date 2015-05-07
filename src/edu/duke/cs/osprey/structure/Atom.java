@@ -86,6 +86,16 @@ public class Atom {
     }
     
     
+    public double[] getCoords(){
+        //x,y, and z coordinates, pulled from the residue
+        double x = res.coords[3*indexInRes];
+        double y = res.coords[3*indexInRes+1];
+        double z = res.coords[3*indexInRes+2];
+        
+        return new double[] {x,y,z};
+    }
+    
+    
     
 
 }

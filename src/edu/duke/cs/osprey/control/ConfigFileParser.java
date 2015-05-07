@@ -118,7 +118,7 @@ public class ConfigFileParser {
         return new PruningControl(searchSpace, curEw, params.getBool("TYPEDEP",false), 
             params.getDouble("BOUNDSTHRESH",100), params.getInt("ALGOPTION",1), 
             params.getBool("USEFLAGS",true),
-            params.getBool("USETRIPLES",false), false);//FOR NOW NO DCAS
+            params.getBool("USETRIPLES",false), false);//FOR NOW NO DACS
     }
     
     

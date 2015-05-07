@@ -60,9 +60,25 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
         double newCoords[] = newTemplate.templateRes.coords.clone();
         double templateMAACords[][] = extractCoords(mutAlignAtoms[1],newCoords);
         
+        //we now construct a rigid-body motion that will map the sidechain (or generally,
+        //the non-"backbone" part, if not a standard amino acid) from the template to the residue's
+        //curent frame of reference
         RigidBodyMotion templMotion = new RigidBodyMotion(templateMAACords,oldMAACoords);
         
         templMotion.transform(newCoords);
+        
+        //the backbone atoms will be kept exactly as before the mutation
+        //if the sidechain attaches only to the first mutAlignAtoms, this method keeps bond lengths
+        //exactly as in the template for sidechain, and as in the old backbone otherwise
+        ArrayList<String> BBAtomNames =  HardCodedResidueInfo.listBBAtomsForMut(newTemplate);
+        for(String BBAtomName : BBAtomNames){
+            int BBAtomIndexOld = oldTemplate.templateRes.getAtomIndexByName(BBAtomName);
+            int BBAtomIndexNew = newTemplate.templateRes.getAtomIndexByName(BBAtomName);
+            
+            //copy coordinates of the BB atom from old to new coordinates
+            System.arraycopy(res.coords, 3*BBAtomIndexOld, newCoords, 3*BBAtomIndexNew, 3);
+        }
+        
         res.coords = newCoords;
         
         //finally, update atoms in res to match new template

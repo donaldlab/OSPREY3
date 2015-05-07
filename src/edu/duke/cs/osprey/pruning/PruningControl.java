@@ -140,7 +140,7 @@ public class PruningControl {
 
         long pruneTime = System.currentTimeMillis() - startTime;
         
-        System.out.println("Pruning time: " + pruneTime );
+        System.out.println("Pruning time: " + pruneTime + " ms" );
     }
     
     

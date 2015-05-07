@@ -63,7 +63,7 @@ public class ForcefieldParams {
 
     
     //The solvation parameters object
-    //EEF1 eef1parms = null;
+    EEF1 eef1parms = null;
 
     String amberDatInFile = "";
 
@@ -73,7 +73,7 @@ public class ForcefieldParams {
     double solvScale = 1.0; //the scale factor for the solvation energies
     double dielectric = 1.0;	
     boolean distDepDielect = true;
-    boolean doSolvationE = false; //should solvation energies be computed
+    public boolean doSolvationE = false; //should solvation energies be computed
     boolean hElect = true;
     boolean hVDW = true;
     
@@ -124,16 +124,15 @@ public class ForcefieldParams {
         
                 
         // Read in the EEF1 solvation parameters
-        //SOLVATION, DIHEDRAL ENERGIES LATER
-        /*try {
-                eef1parms = new EEF1(m);
+        try {
+                eef1parms = new EEF1();
                 eef1parms.readEEF1parm();
         }
         catch ( Exception e ){
-                System.out.println("ERROR: An error occurred while reading file: "+e);
+                System.err.println("ERROR: An error occurred while reading file: "+e);
                 e.printStackTrace();
                 System.exit(0);
-        }*/
+        }
     }
 		
     

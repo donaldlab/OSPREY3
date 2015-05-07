@@ -52,12 +52,18 @@ public class ForcefieldEnergy {
 	int numHalfNonBondedTerms = 0;
 	int number12Terms = 0;
 	int number13Terms = 0;
-	int numSolvationTerms = 0;
-	int halfNBeval[], NBeval[];
+
+        int halfNBeval[], NBeval[];
 	double bondStretchTerms[], angleBendTerms[], dihedralAngleTerms[];
 	double nonBondedTerms[], halfNonBondedTerms[];
-	double solvationTerms[];
-	boolean solvExcludePairs[][];
+	
+        double solvationTerms1[];
+        double solvationTerms2[];
+        //each solvation interaction is between one of the solvationTerms1 and one of the solvationTerms2
+        //in res1 and res2 respectively
+	boolean solvExcludePairs[][];//which of the solvationTerms(1,2) pairs to exclude
+        //takes care of close interactions, and avoids double-counting
+        
 	double D2R = 0.01745329251994329576;
 	double R2D = 57.29577951308232090712;
 	double vdwMultiplier = 1.0f;
@@ -235,24 +241,12 @@ public class ForcefieldEnergy {
 		double equilibriumDistance[] = new double[1];
 		double epsilon[] = new double[1];
 		double smallerArray[];
-		//boolean evalAtom[];
 		
 		numHalfNonBondedTerms = 0;
                 
                 
 		if (debug)
 			System.out.println("Starting initializeEVCalculation");
-
-		// Build array of atom based energy evaluation booleans
-		// If energy terms involving atom i are to be computed then
-		//  evalAtom[i] == true
-		/*evalAtom = new boolean[m.numberOfAtoms];
-		for(int i=0;i<m.numberOfAtoms;i++){
-			evalAtom[i] = false;
-		}
-		for(int i=0;i<m.numberOfResidues;i++){
-			evalAtom = getEvalForRes(m.residue[i],evalAtom);
-		}*/
 		
 
 		halfNonBondedTerms = new double[numberOf14Connections * 4];
@@ -396,111 +390,101 @@ public class ForcefieldEnergy {
 	//	we use the isProtein flag of the Strand class. In KSParser, this flag is
 	//	set to true for the protein and the ligand, but not for the cofactor
 	private void initializeSolvationCalculation(ArrayList<Atom> atoms1, ArrayList<Atom> atoms2){
-		
-            throw new RuntimeException("SOLVATION NOT SUPPORTED YET");
-            
-            /*
-            
-            
-		int atom1, ix6, numTerms;
-		double smallerArray[];
-		boolean evalAtom[];
-
+		            
 		if (debug)
 			System.out.println("Starting initializeSolvationCalculation");
-
-		// Build array of atom based energy evaluation booleans
-		// If energy terms involving atom i are to be computed then
-		//  evalAtom[i] == true
-		evalAtom = new boolean[m.numberOfAtoms];
-		for(int i=0;i<m.numberOfAtoms;i++){
-			evalAtom[i] = false;
-		}
-		for(int i=0;i<m.numberOfResidues;i++){			
-			if (m.strand[m.residue[i].strandNumber].isProtein && !m.residue[i].cofactor) //only compute solvation energies for the protein and an AA ligand
-				evalAtom = getEvalForRes(m.residue[i],evalAtom);
-		}
 		
-		
-		//Count the number of atoms to be evaluated
-		numSolvationTerms = 0;
-		for (int i=0; i<evalAtom.length; i++){
-			if (evalAtom[i])
-				numSolvationTerms++;
-		}
-
 		// Setup an array of 6 terms: 1=atom1(moleculeAtomNumber), 2=dG(ref), 3=dG(free), 4=volume, 5=lambda,
 		//  6=vdW radius
-		solvationTerms = new double[numSolvationTerms * 6];
-
-		if (debug)
-			System.out.println("Initial number of solvation terms: " + numSolvationTerms);
-
-		ix6 = -6;
-		numTerms = 0;
-		for(int i=0; i<m.numberOfAtoms; i++){
-			atom1 = m.atom[i].moleculeAtomNumber;
-
-			if (evalAtom[atom1]) { 
-				
-				if (!m.atom[atom1].elementType.equalsIgnoreCase("H")){//solvation terms do not include H
-				
-					ix6 += 6;
-					
-					double dGref[] = new double[1];
-					double dGfree[] = new double[1];
-					double atVolume[] = new double[1];
-					double lambda[] = new double[1];
-					double vdWradiusExt[] = new double[1]; //extended vdWradius (uses the EEF1 parameters)
-					
-					if (!(eef1parms.getSolvationParameters(atom1,dGref,dGfree,atVolume,lambda,vdWradiusExt))){
-						System.out.println("WARNING: Could not find solvation parameters for atom: " + atom1+" ("+m.atom[atom1].name+") res: "+m.atom[atom1].moleculeResidueNumber+" ("+m.residue[m.atom[atom1].moleculeResidueNumber].name+")");
-						System.exit(1);
-					}
-					else {
-						
-						solvationTerms[ix6] = atom1;
-						solvationTerms[ix6 + 1] = dGref[0];
-						solvationTerms[ix6 + 2] = dGfree[0];
-						solvationTerms[ix6 + 3] = atVolume[0];
-						solvationTerms[ix6 + 4] = lambda[0];
-						solvationTerms[ix6 + 5] = vdWradiusExt[0];
-						numTerms++;
-					}
-				}
-			}
-		}
-		
-		// Shrink the dihedralAngleTerms array down
-		smallerArray = new double[numTerms * 6];
-		System.arraycopy(solvationTerms,0,smallerArray,0,numTerms*6);
-		solvationTerms = smallerArray;
-		numSolvationTerms = numTerms;
-
-		if (debug)
-			System.out.println("Final number of solvation terms: " + numSolvationTerms);
-		
+		//solvationTerms = new double[numSolvationTerms * 6];
+                solvationTerms1 = listSolvationTerms(atoms1);
+                solvationTerms2 = listSolvationTerms(atoms2);
+                
 		//Determine which pairs of atoms can be excluded from the solvation energy computation
-		solvExcludePairs = new boolean[numSolvationTerms][numSolvationTerms];
+		solvExcludePairs = new boolean[solvationTerms1.length/6][solvationTerms2.length/6];
 		for (int i=0; i<solvExcludePairs.length; i++){
 			
-			int atomi = (int)solvationTerms[i*6];
+			int atomi = (int)solvationTerms1[i*6];
+                        Atom ati = res1.atoms.get(atomi);
+                        AtomNeighbors iNeighbors = new AtomNeighbors(ati);
 			
-			for (int j=0; j<solvExcludePairs.length; j++){
+			for (int j=0; j<solvExcludePairs[i].length; j++){
 				
-				if (i!=j){
-					
-					int atomj = (int)solvationTerms[j*6];
-					if ( (!m.are12connected(atomi,atomj)) && (!m.are13connected(atomi,atomj)) ) //(not 1-2) and (not 1-3) connected
-						solvExcludePairs[i][j] = false;
-					else
-						solvExcludePairs[i][j] = true;
-				}
+                            if(isInternal){//for internal energies,
+                                //need to avoid double-counting, and don't include self-energies here
+                                if(j<=i){
+                                    solvExcludePairs[i][j] = true;
+                                    continue;
+                                }
+                            }
+                            
+
+                            int atomj = (int)solvationTerms2[j*6];
+                            Atom atj = res2.atoms.get(atomj);
+
+                            AtomNeighbors.NEIGHBORTYPE ijType = iNeighbors.classifyAtom(atj);
+
+                            if( ijType==AtomNeighbors.NEIGHBORTYPE.BONDED12 ||  
+                                   ijType==AtomNeighbors.NEIGHBORTYPE.BONDED13 ){
+                                //exclude solvation interactions for 1,2- or 1,3-bonded pairs
+                                
+                                solvExcludePairs[i][j] = true;
+                            }
 			}
 		}
-                
-                */
 	}
+        
+        
+        private double[] listSolvationTerms(ArrayList<Atom> atomList){
+            //list the solvation terms (atom numbers within residue, and params) for the specified atoms
+            //in the specified residue
+            
+            double termList[] = new double[atomList.size() * 6];
+
+
+            int ix6 = -6;
+            int numTerms = 0;
+            for(int i=0; i<atomList.size(); i++){
+                    
+                    int atom1 = atomList.get(i).indexInRes;
+
+                    //if (evalAtom[atom1]) { 
+
+                            if (!atomList.get(i).elementType.equalsIgnoreCase("H")){//solvation terms do not include H
+
+                                    ix6 += 6;
+
+                                    double dGref[] = new double[1];
+                                    double dGfree[] = new double[1];
+                                    double atVolume[] = new double[1];
+                                    double lambda[] = new double[1];
+                                    double vdWradiusExt[] = new double[1]; //extended vdWradius (uses the EEF1 parameters)
+
+                                    if (!(params.eef1parms.getSolvationParameters(atomList.get(i),dGref,
+                                            dGfree,atVolume,lambda,vdWradiusExt))){
+                                        
+                                            throw new RuntimeException("WARNING: Could not find solvation parameters for atom: " 
+                                                    + atom1 + " (" + atomList.get(i).name+") res: " + atomList.get(i).res.fullName);
+                                    }
+                                    else {
+
+                                            termList[ix6] = atom1;
+                                            termList[ix6 + 1] = dGref[0];
+                                            termList[ix6 + 2] = dGfree[0];
+                                            termList[ix6 + 3] = atVolume[0];
+                                            termList[ix6 + 4] = lambda[0];
+                                            termList[ix6 + 5] = vdWradiusExt[0];
+                                            numTerms++;
+                                    }
+                            }
+                    //}
+            }
+
+            // Shrink the dihedralAngleTerms array down
+            double[] smallerArray = new double[numTerms * 6];
+            System.arraycopy(termList,0,smallerArray,0,numTerms*6);
+            return smallerArray;
+        }
         
         
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -709,53 +693,45 @@ public class ForcefieldEnergy {
 	//Calculates the solvation energies for the system with given coordinates[]
 	private void calculateSolvationEnergy(double energyTerms[]){
 		
-            throw new RuntimeException("SOLVATION NOT SUPPORTED YET");
-            /*
-            
 		double energy = 0.0;
 		int atomix3, atomjx3, atomi, atomj;
 		double rij, rij2;
 		double rijx, rijy, rijz;
 		int indMult = 6;
 		
-		int numSolvTerms = 0;
-		double solvTerms[] = null;
-		
-		numSolvTerms = numSolvationTerms;
-		solvTerms = solvationTerms;
-		
-		for ( int i = 0; i < numSolvTerms; i++ ){
+		for ( int i = 0; i < solvationTerms1.length/6; i++ ){
 
-			atomi = (int)solvTerms[ i*indMult ];
+			atomi = (int)solvationTerms1[ i*indMult ];
 			atomix3 = atomi * 3;
 			
-			energy += solvTerms[i*indMult+1]; //dGi(ref)
+                        if(isInternal)//only count this term for within-residue energies
+                            energy += solvationTerms1[i*indMult+1]; //dGi(ref)
 			
-			double dGi_free = solvTerms[i*indMult+2]; //dGi(free)
-			double V_i = solvTerms[i*indMult+3]; //Vi
-			double lambda_i = solvTerms[i*indMult+4]; //lambdai
-			double vdWr_i = solvTerms[i*indMult+5]; //vdWri
+			double dGi_free = solvationTerms1[i*indMult+2]; //dGi(free)
+			double V_i = solvationTerms1[i*indMult+3]; //Vi
+			double lambda_i = solvationTerms1[i*indMult+4]; //lambdai
+			double vdWr_i = solvationTerms1[i*indMult+5]; //vdWri
 			
-			for (int j=i+1; j<numSolvationTerms; j++){ //the pairwise solvation energies
+			for (int j=0; j<solvationTerms2.length/6; j++){ //the pairwise solvation energies
 				
-				atomj = (int)solvationTerms[j*indMult];
+				atomj = (int)solvationTerms2[j*indMult];
 				atomjx3 = atomj*3;
 				
 				//atoms 1 or 2 bonds apart are excluded from each other's calculation of solvation free energy
 				if (!solvExcludePairs[i][j]){
 					
-					rijx = coordinates[ atomix3 ] - coordinates[ atomjx3 ];
-					rijy = coordinates[ atomix3 + 1 ] - coordinates[ atomjx3 + 1 ];
-					rijz = coordinates[ atomix3 + 2 ] - coordinates[ atomjx3 + 2 ];
+					rijx = res1.coords[ atomix3 ] - res2.coords[ atomjx3 ];
+					rijy = res1.coords[ atomix3 + 1 ] - res2.coords[ atomjx3 + 1 ];
+					rijz = res1.coords[ atomix3 + 2 ] - res2.coords[ atomjx3 + 2 ];
 					rij2 = rijx * rijx + rijy * rijy + rijz * rijz;
 					rij = Math.sqrt( rij2 ); //distance between the two atoms
 					
 					if (rij < solvCutoff){
 						
-						double dGj_free = solvationTerms[j*indMult+2]; //dGj(free)
-						double V_j = solvationTerms[j*indMult+3]; //Vj
-						double lambda_j = solvationTerms[j*indMult+4]; //lambdaj
-						double vdWr_j = solvationTerms[j*indMult+5]; //vdWrj
+						double dGj_free = solvationTerms2[j*indMult+2]; //dGj(free)
+						double V_j = solvationTerms2[j*indMult+3]; //Vj
+						double lambda_j = solvationTerms2[j*indMult+4]; //lambdaj
+						double vdWr_j = solvationTerms2[j*indMult+5]; //vdWrj
 					
 						double coeff = 1/(4*Math.PI*Math.sqrt(Math.PI));
 						
@@ -771,8 +747,6 @@ public class ForcefieldEnergy {
 		
 		//store computed energy
 		energyTerms[3] = solvScale*energy; //solvation
-                
-                */
 	}
 	
         //probably want to handle gradient at some point...below is from Amber96ext

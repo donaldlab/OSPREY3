@@ -39,6 +39,8 @@ public class GMECFinder {
     //(used I0 to prune a lot, need to check if the conformations we enumerate violate iMinDEE condition)
     
     
+    boolean outputGMECStruct;//write the GMEC structure to a PDB file
+    
     boolean useEPIC = false;//FOR NOW!
     boolean useTupExp = false;//FOR NOW!
     
@@ -57,6 +59,11 @@ public class GMECFinder {
         
         useContFlex = cfgP.params.getBool("doMinimize",false);
         
+        if(doIMinDEE && !useContFlex)
+            throw new RuntimeException("ERROR: iMinDEE requires continuous flexibility");
+        
+        outputGMECStruct = cfgP.params.getBool("OUTPUTGMECSTRUCT", false);
+        
         //FOR NOW minimization-aware is by lower bound...
         enumByLowerBound = useContFlex;
     }
@@ -70,6 +77,11 @@ public class GMECFinder {
         //on GMEC-lowestBound
         //but we can start with an estimate I0 and raise if needed
         boolean needToRepeat;
+        
+        //GMEC is the lowest-energy conformation enumerated in this whole search
+        int GMECConf[] = null;
+        double bestESoFar = Double.POSITIVE_INFINITY;
+
         
         do {
             needToRepeat = false;
@@ -93,10 +105,9 @@ public class GMECFinder {
             ConfSearch search = initSearch(searchSpace);//e.g. new AStarTree from searchSpace & params
             //can have options to instantiate other kinds of search here too...choose based on params
 
-            double bestESoFar = Double.POSITIVE_INFINITY;
             double lowestBound  = Double.POSITIVE_INFINITY;
             double lowerBound;
-
+            
             do {
                 int conf[] = search.nextConf();
                 
@@ -111,11 +122,15 @@ public class GMECFinder {
                         lowerBound = searchSpace.lowerBound(conf);
                     else//we have effectively a 
                         lowerBound = confE;
+                    
+                    if(confE<bestESoFar){
+                        bestESoFar = confE;
+                        GMECConf = conf;
+                    }
 
-                    bestESoFar = Math.min(bestESoFar,confE);
                     lowestBound = Math.min(lowestBound,lowerBound);
 
-                    printConf(conf,confE,lowerBound);
+                    printConf(conf,confE,lowerBound,bestESoFar);
                     //if doing a fit true energy (e.g. EPIC),
                     //this is the only place we may want the actual 
                     //searchSpace.minimizedEnergy(conf).  compute if needed.
@@ -143,6 +158,9 @@ public class GMECFinder {
             
         } while(needToRepeat);
         
+        if(outputGMECStruct && GMECConf!=null)
+            searchSpace.outputMinimizedStruct( GMECConf, searchSpace.name+".GMEC.pdb" );
+        
         System.out.println("GMEC calculation complete.  ");
     }
     
@@ -161,13 +179,28 @@ public class GMECFinder {
             return searchSpace.lowerBound(conf);
     }
     
-    void printConf(int[] conf, double confE, double lowerBound){
-        System.out.println("ENUMERATING CONFORMATION.  RCs (residue-based numbers:)");
+    void printConf(int[] conf, double confE, double lowerBound, double bestESoFar){
+        
+        System.out.println("ENUMERATING CONFORMATION.  RCs (residue-based numbers):");
         for(int rc : conf)
             System.out.print(rc + " ");
         System.out.println();
         
-        System.out.println("Lower bound: "+lowerBound+" Energy: "+confE);
+        System.out.println("Residue types: ");
+        for(int pos=0; pos<searchSpace.confSpace.numPos; pos++){
+            String resType = searchSpace.confSpace.posFlex.get(pos).RCs.get(conf[pos]).AAType;
+            System.out.print( resType + " " );
+        }
+        System.out.println();
+        
+        System.out.println("Rotamer numbers: ");
+        for(int pos=0; pos<searchSpace.confSpace.numPos; pos++){
+            int rotNum = searchSpace.confSpace.posFlex.get(pos).RCs.get(conf[pos]).rotNum;
+            System.out.print( rotNum + " " );
+        }
+        System.out.println();
+        
+        System.out.println("Lower bound: "+lowerBound+" Energy: "+confE+" Best so far: "+bestESoFar);
         //if doing a fit true energy (e.g. EPIC),
         //this is the only place we may want the actual 
         //searchSpace.minimizedEnergy(conf).  compute if needed.

@@ -60,7 +60,7 @@ public class ParamSet implements Serializable {
 						done = true;
 				}
 				if (curLine != null){
-					String paramName = StringParsing.getToken(curLine,1);
+					String paramName = StringParsing.getToken(curLine,1).trim();
                                         paramName = paramName.toUpperCase();
                                         
                                         if(params.containsKey(paramName))
@@ -109,7 +109,7 @@ public class ParamSet implements Serializable {
             else
                 MPIMaster.printIfMaster("Parameter "+paramName+" set to "+val);
             
-            return val;
+            return val.trim();
 	}
         
         //getting values with no defaults

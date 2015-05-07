@@ -15,8 +15,10 @@ import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MolecEObjFunction;
+import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
+import edu.duke.cs.osprey.structure.PDBFileWriter;
 import edu.duke.cs.osprey.structure.Residue;
 import java.util.ArrayList;
 
@@ -84,23 +86,39 @@ public class ConfSpace {
             
             Residue res = m.getResByPDBResNumber( flexibleRes.get(pos) );
             
-            ArrayList<DegreeOfFreedom> resDOFs = mutablePosDOFs(res,allowedAAs.get(pos));//add mutation and dihedral confDOFs
-            
-            ResidueTypeDOF resMutDOF = (ResidueTypeDOF)resDOFs.remove(0);//first mutable pos DOF is the mutation-type DOF
-            confDOFs.addAll(resDOFs);//record the conformational confDOFs here
-            mutDOFs.add(resMutDOF);
-            
             if(addWT){//at this point, m has all wild-type residues, so just see what res is now
                 String wtName = res.template.name;
                 if(!allowedAAs.get(pos).contains(wtName))
                     allowedAAs.get(pos).add(wtName);
             }
             
+            ArrayList<DegreeOfFreedom> resDOFs = mutablePosDOFs(res,allowedAAs.get(pos));//add mutation and dihedral confDOFs
+            
+            ResidueTypeDOF resMutDOF = (ResidueTypeDOF)resDOFs.remove(0);//first mutable pos DOF is the mutation-type DOF
+            confDOFs.addAll(resDOFs);//record the conformational confDOFs here
+            mutDOFs.add(resMutDOF);
+            
+            
             PositionConfSpace rcs = new PositionConfSpace(res,resDOFs,allowedAAs.get(pos),contSCFlex);
             posFlex.add(rcs);
         }
+        
+        standardizeMutatableRes();
     }
     
+    
+    private void standardizeMutatableRes(){
+        //"mutate" all mutatable residues to the template version of their residue type
+        //this ensures that the non-adjustable DOFs (bond angles, etc.) will be as in the template
+        //(for consistency purposes)
+        for(int pos=0; pos<numPos; pos++){
+            Residue res = posFlex.get(pos).res;
+            if(HardCodedResidueInfo.canMutateTo(res.template)){
+                ResidueTypeDOF mutDOF = mutDOFs.get(pos);
+                mutDOF.mutateTo(res.template.name);
+            }
+        }
+    }
     
     static ArrayList<DegreeOfFreedom> mutablePosDOFs(Residue res, ArrayList<String> allowedAAs){//mutation and dihedral confDOFs for the specified position
         
@@ -122,12 +140,11 @@ public class ConfSpace {
     }
     
     
-    public double minimizedEnergy(int[] conf, EnergyFunction efunc){
+    public double minimizeEnergy(int[] conf, EnergyFunction efunc, String outputPDBFile){
+        //minimize the energy of a conformation, within the DOF bounds indicated by conf (a list of RCs)
+        //return the minimized energy
+        //if outputPDBFile isn't null, then output the minimized conformation to that file
         
-        //each RC is defined by bounds on confDOFs
-        //for discrete confDOFs (e.g. amino-acid type) these bounds define a single value
-        //DoubleMatrix1D[] DOFBounds = convertConfToDOFBounds(conf);
-        //MolecEObjFunction energy = new MolecEObjFunction(efunc,DOFBounds,m,confDOFs);
         RCTuple RCs = new RCTuple(conf);
         MolecEObjFunction energy = new MolecEObjFunction(efunc,this,RCs);
         
@@ -142,7 +159,12 @@ public class ConfSpace {
         else//molecule is already in the right, rigid conformation
             optDOFVals = DoubleFactory1D.dense.make(0);
         
-        return energy.getValue(optDOFVals);
+        double minE = energy.getValue(optDOFVals);//this will put m into the minimized conformation
+        
+        if(outputPDBFile!=null)
+            PDBFileWriter.writePDBFile(m, outputPDBFile, minE);
+        
+        return minE;
     }
     
     

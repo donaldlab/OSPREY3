@@ -4,6 +4,14 @@
  */
 package edu.duke.cs.osprey.control;
 
+import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.structure.PDBFileReader;
+import edu.duke.cs.osprey.structure.PDBFileWriter;
+import edu.duke.cs.osprey.tests.DOFTests;
+import edu.duke.cs.osprey.tests.EnergyTests;
+import edu.duke.cs.osprey.tests.ToolTests;
+import edu.duke.cs.osprey.tests.UnitTestSuite;
+
 /**
  *
  * @author mhall44
@@ -14,21 +22,12 @@ public class Main {
     //These will each be controlled by dedicated classes, unlike in the old KSParser
     //to keep this class more concise, and to separate these functions for modularity purposes
     
-    /*TODO (as of 3/26/15):
-    1. Figure out template structure & assignment
-    2. Figure out energy/pruning matrix structure including higher-order
-    3. Pass through everything and try to handle incomplete stuff, except what is to be deferred til after gotten working
-    4. List stuff for deferral, comment out
-    5. Get working, debug/test, and show everybody
-    6. Make changes based on comments and distribute to people who want to help
-    7. Implement additional features and concurrently start building up tuple expander (in very modular way
-    * so don't have to change rest of code), etc.  
-    (Tuple expander can go directly for two goals: huge designs, Poisson-Boltzmann.  Entropy, BB after that).  
-    */
-    
     
     public static void main(String[] args){
         //args expected to be "-c KStar.cfg command config_file_1.cfg ..."
+        
+        debuggingCommands(args);
+        
         String command = args[2];
         long startTime = System.currentTimeMillis();
         
@@ -49,6 +48,9 @@ public class Main {
             //KStarCalculator ksc = new KStarCalculator(params);
             //ksc.calcKStarScores();
         }
+        else if(command.equalsIgnoreCase("RunTests")){
+            UnitTestSuite.runAllTests();
+        }
         //etc.
         else
             throw new RuntimeException("ERROR: OSPREY command unrecognized: "+command);
@@ -58,6 +60,18 @@ public class Main {
         System.out.println("OSPREY finished");
     }
     
+    
+    private static void debuggingCommands(String[] args){
+        //anything we want to try as an alternate main function, for debugging purposes
+        //likely will want to exit after doing this (specify here)
+        //for normal operation, leave no uncommented code in this function
+        
+        /*EnvironmentVars.assignTemplatesToStruct = false;//this would change things
+        Molecule m = PDBFileReader.readPDBFile("1CC8.ss.pdb");
+        PDBFileWriter.writePDBFile(m, "1CC8.copy.pdb");
+        
+        System.exit(0);*/
+    }
     
     
 }

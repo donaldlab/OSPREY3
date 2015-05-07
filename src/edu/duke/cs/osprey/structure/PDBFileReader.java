@@ -112,6 +112,13 @@ public class PDBFileReader {
 
                 curLine = bufread.readLine(); 
             }
+            
+            //make last residue
+            if( ! curResAtoms.isEmpty() ){
+                Residue newRes = new Residue( curResAtoms, curResCoords, curResFullName, m );
+                newRes.indexInMolecule = m.residues.size();
+                m.residues.add(newRes);
+            }
 
 
             bufread.close();  // close the buffer

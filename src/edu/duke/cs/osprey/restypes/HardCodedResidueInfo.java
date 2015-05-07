@@ -8,6 +8,7 @@ import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.VectorAlgebra;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 /**
@@ -65,6 +66,42 @@ public class HardCodedResidueInfo {
         
         
         
+    //Here's some stuff we need to mutate amino acid protein residues
+    public static boolean canMutateTo(ResidueTemplate templ){
+        //do we currently support mutations to the given amino-acid type?
+        if(templ.templateRes.coords==null)
+            return false;
+        if(!hasAminoAcidBB(templ.templateRes))
+            return false;
+        if(templ.name.equalsIgnoreCase("PRO"))//when we support this, will need to treat CD as backbone, then re-idealize the ring
+            return false;
+        
+        return true;//can currently mutate to any amino acid (D or L, naturally occurring sidechain or not) 
+        //whose sidechain attaches only to CA and for which we have template coords
+    }
+    
+    
+    public static ArrayList<String> listBBAtomsForMut(ResidueTemplate templ){
+        //list the backbone atom names in the residue template
+        //(in the sense of atoms that don't move at all when we mutate)
+        
+        if(!canMutateTo(templ))
+            throw new UnsupportedOperationException("ERROR: Can't currently mutate to "+templ.name);
+        
+        String[] possibleBBAtoms = new String[] {
+            "N", "H", "CA", "C", "O", "OXT", "H1", "H2", "H3"
+        };
+        //We'll move HA with the sidechain, so it's not included here.  
+                
+        ArrayList<String> ans = new ArrayList<>();
+        
+        for(String atName : possibleBBAtoms){
+            if(templ.templateRes.getAtomIndexByName(atName) != -1)//atom name appears in template
+                ans.add(atName);
+        }
+        
+        return ans;
+    }
         
         
     public static int[][] findMutAlignmentAtoms(ResidueTemplate template1, ResidueTemplate template2){
