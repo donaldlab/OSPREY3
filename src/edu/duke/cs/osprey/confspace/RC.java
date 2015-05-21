@@ -5,6 +5,10 @@
 package edu.duke.cs.osprey.confspace;
 
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
+import edu.duke.cs.osprey.tools.MinVolEllipse;
+import cern.colt.matrix.DoubleMatrix2D;
+import cern.colt.matrix.impl.DenseDoubleMatrix2D;
+
 import java.util.ArrayList;
 
 /**
@@ -36,6 +40,18 @@ public class RC {
         this.RCIndex = RCIndex;
     }
     
-    
+    public RC() {
+    	double tol = 0.1;
+    	// rows = dimensionality, columns = num of points
+    	double[][] testmat = {
+    			{0, 1, 0, -1},
+    			{1, 0, -1, 0}
+    	};
+    	DoubleMatrix2D mat = new DenseDoubleMatrix2D(testmat);
+    	MinVolEllipse mve = new MinVolEllipse(mat, tol, false);
+    	System.out.println(mve.getA());
+    	System.out.println(mve.getC());
+    	System.out.println(mve.getNC());
+    }
     
 }

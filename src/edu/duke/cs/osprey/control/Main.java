@@ -11,6 +11,7 @@ import edu.duke.cs.osprey.tests.DOFTests;
 import edu.duke.cs.osprey.tests.EnergyTests;
 import edu.duke.cs.osprey.tests.ToolTests;
 import edu.duke.cs.osprey.tests.UnitTestSuite;
+import edu.duke.cs.osprey.confspace.RC;
 
 /**
  *
@@ -29,11 +30,21 @@ public class Main {
         debuggingCommands(args);
         
         String command = args[2];
+        
+        // adi debugging
+        if (command.equalsIgnoreCase("mve")) {
+        	System.out.println("TEST");
+        	RC test = new RC();
+        	return;
+        }
+        
+        
+        
         long startTime = System.currentTimeMillis();
         
         ConfigFileParser cfp = new ConfigFileParser(args);//args 1, 3+ are configuration files
         
-        //load data files
+        //load data filescloneclone
         cfp.loadData();
         
         if(command.equalsIgnoreCase("findGMEC")){
