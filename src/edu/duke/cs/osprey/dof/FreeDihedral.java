@@ -22,13 +22,14 @@ public class FreeDihedral extends DegreeOfFreedom {
     
     Residue res;//residue we're moving
     int dihedralNum;//is this chi1, chi2 or what?
+    double curVal;
 
     public FreeDihedral(Residue res, int dihedralNum) {
         this.res = res;
         this.dihedralNum = dihedralNum;
     }
 
-    
+    public double getCurVal() { return curVal; }
     
     
     @Override

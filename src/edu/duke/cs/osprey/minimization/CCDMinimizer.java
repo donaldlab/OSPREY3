@@ -371,11 +371,14 @@ public class CCDMinimizer implements Minimizer {
             if(rescalingGC != null)
                 rescaleValues();
         }
+        
+        
 
         minTime = System.currentTimeMillis() - minStartTime;
         return x;
 
     }
+    
 
     
 

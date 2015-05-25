@@ -33,7 +33,7 @@ public class Main {
         
         // adi debugging
         if (command.equalsIgnoreCase("mve")) {
-        	System.out.println("TEST");
+        	System.out.println("Testing min vol ellipse...");
         	RC test = new RC();
         	return;
         }
