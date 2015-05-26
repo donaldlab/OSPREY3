@@ -44,6 +44,8 @@ public class GMECFinder {
     boolean useEPIC = false;//FOR NOW!
     boolean useTupExp = false;//FOR NOW!
     
+    boolean useEllipses = false;
+    
     
     public GMECFinder (ConfigFileParser cfgP){
         //fill in all the settings
@@ -63,6 +65,8 @@ public class GMECFinder {
             throw new RuntimeException("ERROR: iMinDEE requires continuous flexibility");
         
         outputGMECStruct = cfgP.params.getBool("OUTPUTGMECSTRUCT", false);
+        
+        useEllipses = cfgP.params.getBool("useEllipses", false);
         
         //FOR NOW minimization-aware is by lower bound...
         enumByLowerBound = useContFlex;

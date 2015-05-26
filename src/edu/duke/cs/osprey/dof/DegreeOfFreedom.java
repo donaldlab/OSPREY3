@@ -20,10 +20,11 @@ public abstract class DegreeOfFreedom {
     //Let's say molecule, once created, can only be changed by DegreeOfFreedom.apply!
     
     
-    /*Molecule molec;
-    double curVal;*/
+    /*Molecule molec;*/
+    double curVal;
     
     public abstract void apply(double paramVal);//apply the given parameter value
     //(some degrees of freedom may have convenience methods to call this, e.g. mutation called by aa type)
     
+    public double getCurVal() { return curVal; }
 }

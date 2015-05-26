@@ -31,7 +31,7 @@ public class ConfSpaceTests {
         
         //let's start with just wild-type
         
-        ConfSpace cs = new ConfSpace("1CC8.ss.pdb", flexibleRes, allowedAAs, true, true);
+        ConfSpace cs = new ConfSpace("1CC8.ss.pdb", flexibleRes, allowedAAs, true, true, false);
         
         //assert some things about the space
         //these are based on the Lovell Rotamer library
@@ -49,7 +49,7 @@ public class ConfSpaceTests {
         //try adding additional AA types
         allowedAAs.get(0).add("PHE");//2 dihedrals, 4 rotamers.  So now two dihedrals needed for res 22
         allowedAAs.get(1).add("ALA");//no dihedrals or rotamers (but should add one RC)
-        cs = new ConfSpace("1CC8.ss.pdb", flexibleRes, allowedAAs, true, false);
+        cs = new ConfSpace("1CC8.ss.pdb", flexibleRes, allowedAAs, true, false, false);
         assert cs.confDOFs.size()==10;
         assert cs.mutDOFs.size()==4;
         assert cs.posFlex.get(0).RCs.size()==7;

@@ -53,7 +53,8 @@ public class ConfigFileParser {
         return new SearchSpace( name, params.getValue("PDBNAME"), 
                 flexRes, allowedAAs,
                 params.getBool("AddWT",true), 
-                params.getBool("doMinimize",false) );//CURRENTLY JUST SC MINIMIZATION...
+                params.getBool("doMinimize",false),
+                params.getBool("useEllipses", false));//CURRENTLY JUST SC MINIMIZATION...
     }
     
     

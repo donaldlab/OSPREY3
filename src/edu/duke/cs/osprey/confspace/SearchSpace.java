@@ -64,10 +64,20 @@ public class SearchSpace {
     boolean useEPIC = false;
     boolean useTupExpForSearch = false;//use a tuple expansion to approximate the energy as we search
     
+    boolean useEllipses = false; 
     
-    public SearchSpace(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
-            boolean contSCFlex){
-        confSpace = new ConfSpace(PDBFile,flexibleRes,allowedAAs,addWT,contSCFlex);
+    public SearchSpace(
+    		String name,
+    		String PDBFile,
+    		ArrayList<String> flexibleRes,
+    		ArrayList<ArrayList<String>> allowedAAs,
+    		boolean addWT,
+            boolean contSCFlex,
+            boolean ellipses){
+    	
+    	useEllipses = ellipses;
+    	
+        confSpace = new ConfSpace(PDBFile,flexibleRes,allowedAAs,addWT,contSCFlex, useEllipses);
         this.name = name;
         
         //initialize matrices
@@ -84,8 +94,6 @@ public class SearchSpace {
         decideShellResidues(eGen.distCutoff);
         fullConfE = eGen.fullConfEnergy(confSpace,shellResidues);
     }
-    
-    
     
     private void decideShellResidues(double distCutoff){
         //Decide what non-flexible residues need to be accounted for in energy calculations

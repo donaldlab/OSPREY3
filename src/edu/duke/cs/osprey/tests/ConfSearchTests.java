@@ -117,7 +117,7 @@ public class ConfSearchTests {
         
         SearchSpace ans = new SearchSpace( "CONFSEARCHTEST", "1CC8.ss.pdb", 
                 flexRes, allowedAAs,
-                false, false );//don't add WT, and no minimization
+                false, false, false);//don't add WT, and no minimization
         
         if(randomizeEnergies){
             //we don't need real energies, just make some up (in fact the randomization will be good)

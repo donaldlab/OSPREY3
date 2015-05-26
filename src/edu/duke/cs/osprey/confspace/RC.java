@@ -39,28 +39,5 @@ public class RC {
         this.DOFmin = DOFmin;
         this.DOFmax = DOFmax;
         this.RCIndex = RCIndex;
-    }
-    
-    // Given a set of N points defining a rotamer, use MinVolEllipse to find the center of the rotamer
-    // c and the associated matrix in chi-space A such that the ellipse is defined by 
-    // (x-c)' * A * (x-c) = 1. Then, given that, parametrize each point in chi-space by the angles
-    // theta 1, theta 2, etc so that the angles can be bounded. Use that parametrization to jump
-    // between the box in theta-space and the ellipse in chi-space. 
-    
-    // 
-    
-    public RC() {
-    	double tol = 0.01;
-    	// rows = dimensionality, columns = num of points
-    	double[][] points = {
-    			{2, -2, -1, 1},
-    			{2, -2, 1, -1}
-    	};
-    	double[] testPoint = {0.5, 0.5};
-    	
-    	DoubleMatrix2D mat = new DenseDoubleMatrix2D(points);
-    	MinVolEllipse mve = new MinVolEllipse(mat, tol, false);
-    	System.out.println(mve.getA());   	
-    }
-    
+    }    
 }

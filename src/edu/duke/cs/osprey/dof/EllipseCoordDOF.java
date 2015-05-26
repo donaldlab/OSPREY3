@@ -24,7 +24,7 @@ public class EllipseCoordDOF extends DegreeOfFreedom {
 	boolean isFinalTheta;
 	double maxValue;
 	double minValue = 0;
-	double value; // current value of the parameter
+	double curVal; // current value of the parameter
 	ArrayList<FreeDihedral> dihedrals; // a vector of dihedrals in chi-space
 									   // representing the residue being 
 									   // parametrized. 
@@ -40,14 +40,11 @@ public class EllipseCoordDOF extends DegreeOfFreedom {
 		isRadius = r;
 		isFinalTheta = ft;
 		maxValue = (isRadius) ? 1 : (isFinalTheta) ? 2*Math.PI : Math.PI;
-		value = val;
+		curVal = val;
 		A = mat;
 		c = center;
 	}
 	
-	/* (non-Javadoc)
-	 * @see edu.duke.cs.osprey.dof.DegreeOfFreedom#apply(double)
-	 */
 	@Override
 	public void apply(double paramVal) {
 		int dim = dihedrals.size(); // dimensionality
@@ -58,15 +55,7 @@ public class EllipseCoordDOF extends DegreeOfFreedom {
 		DoubleMatrix2D qT = Q.viewDice().copy();
 		Algebra alg = new Algebra();
 		
-
-		// note: as of right now, either each dihedral will have to start
-		// recording its value OR we need to add an arraylist of ellipsecorddofs 
-		// in order to properly apply a given parameter. probably easier to just
-		// add a tracking variable to each dihedral. this is because changing
-		// one dihedral changes every ellipse coordinate, and changing one
-		// ellipse coordinate changes every dihedral. 
-		
-		// get dihedrals
+		// get current dihedrals to generate old polar coordinates
 		double[] o = new double[dim];
 		for (int i=0; i<dim; i++) { o[i] = dihedrals.get(i).getCurVal(); };
 		// subtract center vector
@@ -82,14 +71,15 @@ public class EllipseCoordDOF extends DegreeOfFreedom {
 		// set radius
 		for (int i=0; i<dim; i++) { phi[0] += u[i]*u[i]; }
 		phi[0] = Math.sqrt(phi[0]);
-		// set angles
+		// determine old polar coordinates
 		for (int i=0; i<dim; i++) { phi[i+1] = Math.acos(u[i]/phi[0]); }
+		
 		// divide the first d-2 angles by cos(value), the last one by sin(value)
 		double[] a = phi.clone();
-		for (int i=1; i<dim-1; i++) { a[i] = a[i]/Math.cos(value); }
-		a[dim-1] = a[dim-1]/Math.sin(value);
+		for (int i=1; i<dim-1; i++) { a[i] = a[i]/Math.cos(curVal); }
+		a[dim-1] = a[dim-1]/Math.sin(curVal);
 		
-		// now, multiply the first d-2 angles by cos(param< the last one by sin(param)
+		// now, multiply the first d-2 angles by cos(param, the last one by sin(param)
 		for (int i=1; i<dim-1; i++) { a[i] = a[i]*Math.cos(paramVal); }
 		a[dim-1] = a[dim-1] * Math.sin(paramVal);
 		u = new double[dim];
@@ -114,11 +104,11 @@ public class EllipseCoordDOF extends DegreeOfFreedom {
 		for (int i=0; i<dim; i++) { dihedrals.get(i).apply(t[i]); }
 		
 		// set the value
-		value = paramVal;
+		curVal = paramVal;
 	}
 
 	public double getMaxValue() { return this.maxValue; }
 	public double getMinValue() { return this.minValue; }
-	
+	public double getCurVal() { return this.curVal; }
 	
 }

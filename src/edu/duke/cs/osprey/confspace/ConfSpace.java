@@ -9,6 +9,7 @@ import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
+import edu.duke.cs.osprey.dof.EllipseCoordDOF;
 import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.energy.EnergyFunction;
@@ -20,6 +21,7 @@ import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.PDBFileWriter;
 import edu.duke.cs.osprey.structure.Residue;
+
 import java.util.ArrayList;
 
 /**
@@ -63,9 +65,16 @@ public class ConfSpace {
     
     public int numPos;//number of flexible positions
     
+    public boolean useEllipses = false;
     
-    public ConfSpace(String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
-            boolean contSCFlex){
+    
+    public ConfSpace(
+    		String PDBFile,
+    		ArrayList<String> flexibleRes,
+    		ArrayList<ArrayList<String>> allowedAAs,
+    		boolean addWT,
+            boolean contSCFlex,
+            boolean ellipses){
         //initialize a new conformational space, defining all its flexibility
         //we use one residue per position here
         //PDBFile: the structure to read from
@@ -77,6 +86,8 @@ public class ConfSpace {
         //contSCFlex means allow continuous sidechain flexibility
         //ADD OTHER OPTIONS: WT ROTAMERS, DIFFERENT ROT WIDTHS, DEEPER, RIGID-BODY MOTIONS
         
+    	useEllipses = ellipses;  	
+    	
         numPos = flexibleRes.size();
         
         //read the structure and assign templates, deleting unassignable res...
@@ -94,8 +105,37 @@ public class ConfSpace {
             
             ArrayList<DegreeOfFreedom> resDOFs = mutablePosDOFs(res,allowedAAs.get(pos));//add mutation and dihedral confDOFs
             
+            // ellipse
+            // 
+            
             ResidueTypeDOF resMutDOF = (ResidueTypeDOF)resDOFs.remove(0);//first mutable pos DOF is the mutation-type DOF
-            confDOFs.addAll(resDOFs);//record the conformational confDOFs here
+            
+            if (useEllipses) {
+            	// resDOFs --> generate elliptical DOFs
+            	double radius = 0;
+            	for (DegreeOfFreedom resDOF : resDOFs) { 
+            		radius += resDOF.getCurVal()*resDOF.getCurVal();
+            	}
+            	radius = Math.sqrt(radius);            	
+            	double[] angles = new double[resDOFs.size()-1];
+            	int n = angles.length;
+            	
+            	for (int i=0; i<n-1; i++) {
+            		angles[i]=Math.acos(resDOFs.get(i).getCurVal()/radius);
+            	}
+            	angles[n-1] = 2*Math.atan(resDOFs.get(n-1).getCurVal() / 
+            			(resDOFs.get(n-2).getCurVal() + 
+            					Math.sqrt(resDOFs.get(n-1).getCurVal()*resDOFs.get(n-1).getCurVal() +
+            							  resDOFs.get(n-2).getCurVal()*resDOFs.get(n-2).getCurVal())));
+            	
+            	ArrayList<EllipseCoordDOF> ellDOFs = new ArrayList<EllipseCoordDOF>();
+            	
+            	//TODO: generate A matrix, center 
+            	
+            	confDOFs.addAll(resDOFs);
+            } else { 
+            	confDOFs.addAll(resDOFs);//record the conformational confDOFs here
+            }
             mutDOFs.add(resMutDOF);
             
             
