@@ -143,6 +143,15 @@ public class ConfSpace {
 	            	// 		perhaps use the dihedrals to identify a point, and derive the
 	            	// 		cluster from what surrounds that point? 
 	            	
+	            	// get amino acid type
+	            	String aa = resMutDOF.getCurResType();
+	            	// mat A = getEllipseMatrix(aa, dihedrals)
+	            	// double[] c = getEllipseCenter(aa, dihedrals)
+	            	// double[] rad = dihedrals - c
+	            	// add(new EllipseCoordDOF(true, 0, a, rad, resDOFs))
+	            	
+	            	
+	            	
 	            	// make the EllipseCoordDOF array and add it to ConfDOFs
 	            	ArrayList<EllipseCoordDOF> ellipseDOFs = new ArrayList<EllipseCoordDOF>();
 	            	ellipseDOFs.add(new EllipseCoordDOF(true, 0, a, c, resDOFs)); //radius
