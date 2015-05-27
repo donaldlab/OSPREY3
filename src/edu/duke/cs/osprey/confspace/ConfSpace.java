@@ -110,17 +110,15 @@ public class ConfSpace {
             ResidueTypeDOF resMutDOF = (ResidueTypeDOF)resDOFs.remove(0);//first mutable pos DOF is the mutation-type DOF
             
             if (useEllipses) {
-            	if (resDOFs.size() == 0) { // empty ArrayList if no DOFs
+            	if (resDOFs.size() == 0) { 
             		confDOFs.addAll(new ArrayList<EllipseCoordDOF>());
             	} else {   	
-	            	// generate radius
 	            	double radius = 0;
 	            	for (DegreeOfFreedom resDOF : resDOFs) { 
 	            		radius += resDOF.getCurVal()*resDOF.getCurVal();
 	            	}
 	            	radius = Math.sqrt(radius);            	
 	            	
-	            	// generate angles
 	            	double[] angles = new double[resDOFs.size()-1];
 	            	int n = angles.length;
 	            	for (int i=0; i<n; i++) {
@@ -130,6 +128,18 @@ public class ConfSpace {
 	            		angles[i]=Math.acos(resDOFs.get(i).getCurVal()/den);
 	            	}            	
 	            	            	
+	            	// TODO:
+	            	// 		identify what rotamer each RC is at to get the right ellipse
+	            	// 		load the matrices from some other data construct (i.e. a class)
+	            	// 		perhaps use the dihedrals to identify a point, and derive the
+	            	// 		cluster from what surrounds that point? 
+	            	// 		get amino acid type
+	            	// 		String aa = resMutDOF.getCurResType();
+	            	// 		mat A = getEllipseMatrix(aa, dihedrals)
+	            	// 		double[] c = getEllipseCenter(aa, dihedrals)
+	            	// 		double[] rad = dihedrals - c
+	            	// 		add(new EllipseCoordDOF(true, 0, a, rad, resDOFs))
+	            	
 	            	// for now, just using a basic sphere with radius 0.5 radians
 	            	double[] center = new double[n+1];
 	            	for (int i=0; i<resDOFs.size(); i++) { 
@@ -137,22 +147,7 @@ public class ConfSpace {
 	            	}
 	            	DoubleMatrix1D c = DoubleFactory1D.dense.make(center);
 	            	DoubleMatrix2D a = DoubleFactory2D.dense.identity(n+1);
-	            	// TODO:
-	            	// 		identify what rotamer each RC is at to get the right ellipse
-	            	// 		load the matrices from some other data construct (i.e. a class)
-	            	// 		perhaps use the dihedrals to identify a point, and derive the
-	            	// 		cluster from what surrounds that point? 
-	            	
-	            	// get amino acid type
-	            	String aa = resMutDOF.getCurResType();
-	            	// mat A = getEllipseMatrix(aa, dihedrals)
-	            	// double[] c = getEllipseCenter(aa, dihedrals)
-	            	// double[] rad = dihedrals - c
-	            	// add(new EllipseCoordDOF(true, 0, a, rad, resDOFs))
-	            	
-	            	
-	            	
-	            	// make the EllipseCoordDOF array and add it to ConfDOFs
+
 	            	ArrayList<EllipseCoordDOF> ellipseDOFs = new ArrayList<EllipseCoordDOF>();
 	            	ellipseDOFs.add(new EllipseCoordDOF(true, 0, a, c, resDOFs)); //radius
 	            	for (int i=0; i<angles.length; i++) {
@@ -160,9 +155,8 @@ public class ConfSpace {
 	            	}
 	            	confDOFs.addAll(ellipseDOFs);
             	}
-            } else { 
-            	confDOFs.addAll(resDOFs);//record the conformational confDOFs here
-            }
+            } else { confDOFs.addAll(resDOFs); }
+            
             mutDOFs.add(resMutDOF);
             
             PositionConfSpace rcs = new PositionConfSpace(res,resDOFs,allowedAAs.get(pos),contSCFlex);
