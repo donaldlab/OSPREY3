@@ -5,7 +5,9 @@
 package edu.duke.cs.osprey.confspace;
 
 import cern.colt.matrix.DoubleFactory1D;
+import cern.colt.matrix.DoubleFactory2D;
 import cern.colt.matrix.DoubleMatrix1D;
+import cern.colt.matrix.DoubleMatrix2D;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
@@ -75,7 +77,7 @@ public class ConfSpace {
     		boolean addWT,
             boolean contSCFlex,
             boolean ellipses){
-        //initialize a new conformational space, defining all its flexibility
+        //initialize a new conformational space, desomefining all its flexibility
         //we use one residue per position here
         //PDBFile: the structure to read from
         //flexibleRes: list of residue numbers to be made flexible (as in PDB file)
@@ -92,7 +94,7 @@ public class ConfSpace {
         
         //read the structure and assign templates, deleting unassignable res...
         m = PDBFileReader.readPDBFile(PDBFile);
-        
+                
         for(int pos=0; pos<numPos; pos++){
             
             Residue res = m.getResByPDBResNumber( flexibleRes.get(pos) );
@@ -104,40 +106,55 @@ public class ConfSpace {
             }
             
             ArrayList<DegreeOfFreedom> resDOFs = mutablePosDOFs(res,allowedAAs.get(pos));//add mutation and dihedral confDOFs
-            
-            // ellipse
-            // 
-            
+                        
             ResidueTypeDOF resMutDOF = (ResidueTypeDOF)resDOFs.remove(0);//first mutable pos DOF is the mutation-type DOF
             
             if (useEllipses) {
-            	// resDOFs --> generate elliptical DOFs
-            	double radius = 0;
-            	for (DegreeOfFreedom resDOF : resDOFs) { 
-            		radius += resDOF.getCurVal()*resDOF.getCurVal();
+            	if (resDOFs.size() == 0) { // empty ArrayList if no DOFs
+            		confDOFs.addAll(new ArrayList<EllipseCoordDOF>());
+            	} else {   	
+	            	// generate radius
+	            	double radius = 0;
+	            	for (DegreeOfFreedom resDOF : resDOFs) { 
+	            		radius += resDOF.getCurVal()*resDOF.getCurVal();
+	            	}
+	            	radius = Math.sqrt(radius);            	
+	            	
+	            	// generate angles
+	            	double[] angles = new double[resDOFs.size()-1];
+	            	int n = angles.length;
+	            	for (int i=0; i<n; i++) {
+	            		double diff = 0;
+	            		for (int j=0; j<i; j++) { diff += Math.pow(resDOFs.get(j).getCurVal(), 2); }
+	            		double den = Math.sqrt(radius*radius - diff);
+	            		angles[i]=Math.acos(resDOFs.get(i).getCurVal()/den);
+	            	}            	
+	            	            	
+	            	// for now, just using a basic sphere with radius 0.5 radians
+	            	double[] center = new double[n+1];
+	            	for (int i=0; i<resDOFs.size(); i++) { 
+	            		center[i] = resDOFs.get(i).getCurVal();
+	            	}
+	            	DoubleMatrix1D c = DoubleFactory1D.dense.make(center);
+	            	DoubleMatrix2D a = DoubleFactory2D.dense.identity(n+1);
+	            	// TODO:
+	            	// 		identify what rotamer each RC is at to get the right ellipse
+	            	// 		load the matrices from some other data construct (i.e. a class)
+	            	// 		perhaps use the dihedrals to identify a point, and derive the
+	            	// 		cluster from what surrounds that point? 
+	            	
+	            	// make the EllipseCoordDOF array and add it to ConfDOFs
+	            	ArrayList<EllipseCoordDOF> ellipseDOFs = new ArrayList<EllipseCoordDOF>();
+	            	ellipseDOFs.add(new EllipseCoordDOF(true, 0, a, c, resDOFs)); //radius
+	            	for (int i=0; i<angles.length; i++) {
+	            		ellipseDOFs.add(new EllipseCoordDOF(false, angles[i], a, c, resDOFs));
+	            	}
+	            	confDOFs.addAll(ellipseDOFs);
             	}
-            	radius = Math.sqrt(radius);            	
-            	double[] angles = new double[resDOFs.size()-1];
-            	int n = angles.length;
-            	
-            	for (int i=0; i<n-1; i++) {
-            		angles[i]=Math.acos(resDOFs.get(i).getCurVal()/radius);
-            	}
-            	angles[n-1] = 2*Math.atan(resDOFs.get(n-1).getCurVal() / 
-            			(resDOFs.get(n-2).getCurVal() + 
-            					Math.sqrt(resDOFs.get(n-1).getCurVal()*resDOFs.get(n-1).getCurVal() +
-            							  resDOFs.get(n-2).getCurVal()*resDOFs.get(n-2).getCurVal())));
-            	
-            	ArrayList<EllipseCoordDOF> ellDOFs = new ArrayList<EllipseCoordDOF>();
-            	
-            	//TODO: generate A matrix, center 
-            	
-            	confDOFs.addAll(resDOFs);
             } else { 
             	confDOFs.addAll(resDOFs);//record the conformational confDOFs here
             }
             mutDOFs.add(resMutDOF);
-            
             
             PositionConfSpace rcs = new PositionConfSpace(res,resDOFs,allowedAAs.get(pos),contSCFlex);
             posFlex.add(rcs);

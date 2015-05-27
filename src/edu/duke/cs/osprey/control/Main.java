@@ -31,14 +31,6 @@ public class Main {
         
         String command = args[2];
         
-        // adi debugging
-        if (command.equalsIgnoreCase("mve")) {
-        	System.out.println("Testing min vol ellipse...");
-        	return;
-        }
-        
-        
-        
         long startTime = System.currentTimeMillis();
         
         ConfigFileParser cfp = new ConfigFileParser(args);//args 1, 3+ are configuration files

@@ -21,11 +21,10 @@ public class EllipseCoordDOF extends DegreeOfFreedom {
 	// and the d-1th dihedral angle ranges from 0 to 2pi. 
 	
 	boolean isRadius; 
-	boolean isFinalTheta;
 	double maxValue;
-	double minValue = 0;
+	double minValue;
 	double curVal; // current value of the parameter
-	ArrayList<FreeDihedral> dihedrals; // a vector of dihedrals in chi-space
+	ArrayList<DegreeOfFreedom> dihedrals; // a vector of dihedrals in chi-space
 									   // representing the residue being 
 									   // parametrized. 
 	DoubleMatrix2D A;
@@ -33,16 +32,17 @@ public class EllipseCoordDOF extends DegreeOfFreedom {
 
 	public EllipseCoordDOF(
 			boolean r,
-			boolean ft,
-			int val,
+			double val,
 			DoubleMatrix2D mat,
-			DoubleMatrix1D center) {
+			DoubleMatrix1D center,
+			ArrayList<DegreeOfFreedom> dofs) {
 		isRadius = r;
-		isFinalTheta = ft;
-		maxValue = (isRadius) ? 1 : (isFinalTheta) ? 2*Math.PI : Math.PI;
+		maxValue = (isRadius) ? 0.5 : Double.POSITIVE_INFINITY; // wrap angles around
+		minValue = (isRadius) ? -0.5 : Double.NEGATIVE_INFINITY;
 		curVal = val;
 		A = mat;
 		c = center;
+		dihedrals = dofs;
 	}
 	
 	@Override
