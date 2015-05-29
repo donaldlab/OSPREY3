@@ -228,9 +228,9 @@ public class HardCodedResidueInfo {
     
     public static void tryToMakePeptideBond(Residue res1, Residue res2){
         //Given consecutive residues res1 and res2, make a peptide bond between them if appropriate
-        if(res1.template==null || res2.template==null)
+        if(res1.template==null || res2.template==null) {
             throw new RuntimeException("ERROR: Trying to peptide-bond residue without template");
-        
+        }
         if( (hasAminoAcidBB(res1) && hasAminoAcidBB(res2)) ){//can only peptide-bond amino acids
             
             int CIndex = res1.getAtomIndexByName("C");

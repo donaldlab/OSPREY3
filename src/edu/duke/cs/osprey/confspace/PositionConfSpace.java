@@ -105,14 +105,8 @@ public class PositionConfSpace {
     		int numRot = templateLib.numRotForResType(AAType);
 
     		ArrayList<DegreeOfFreedom> dofListForRC = new ArrayList<>();
-    		
-    		// ok seriously why is it mixing up MET and LEU???
-    		
-    		for (int dih=0; dih<numDihedrals; dih++) {
-    			dofListForRC.add(resDOFs.get(dih));
-				FreeDihedral x = (FreeDihedral) dofListForRC.get(dih);
 
-    		}
+    		for (int dih=0; dih<numDihedrals; dih++) { dofListForRC.add(resDOFs.get(dih)); }
     		
     		if (numRot==0) { //if GLY or ALA, just put in a standard rigid rotamer - don't bother with ellipsing
             	ellipsoidalDOFs = new ArrayList<EllipseCoordDOF>();
