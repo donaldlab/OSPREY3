@@ -135,7 +135,7 @@ public class PDBFileReader {
         if(EnvironmentVars.assignTemplatesToStruct){
             for(Residue res : m.residues) {
                  if (res.assignTemplate()) { 
-                 	System.out.println("Assigned "+res.fullName);
+                 	//System.out.println("Assigned "+res.fullName);
                  }//using ResidueTemplateLibrary
             }
             HardCodedResidueInfo.markInterResBonds(m);//assigning templates marks intra-res bonds; we can now mark inter-res too

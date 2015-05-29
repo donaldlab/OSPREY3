@@ -4,6 +4,8 @@
  */
 package edu.duke.cs.osprey.control;
 
+import java.util.ArrayList;
+
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.confspace.SearchSpace;
 import edu.duke.cs.osprey.confspace.ConfSearch;
@@ -85,6 +87,8 @@ public class GMECFinder {
         //GMEC is the lowest-energy conformation enumerated in this whole search
         int GMECConf[] = null;
         double bestESoFar = Double.POSITIVE_INFINITY;
+        
+        ArrayList<Double> energies = new ArrayList<Double>();
 
         
         do {
@@ -124,6 +128,8 @@ public class GMECFinder {
                     double startTime = System.currentTimeMillis();
 
                 	double confE = getConfEnergy(conf);//MINIMIZED, EPIC, OR MATRIX E AS APPROPRIATE
+                	
+                	energies.add(confE);
                 	
                     if(enumByLowerBound) { 
                         lowerBound = searchSpace.lowerBound(conf); }
@@ -172,6 +178,10 @@ public class GMECFinder {
             searchSpace.outputMinimizedStruct( GMECConf, searchSpace.name+".GMEC.pdb" );
         
         System.out.println("GMEC calculation complete.  ");
+        double avg = 0;
+        for (Double d : energies) { avg += d; }
+        avg = avg/energies.size();
+        System.out.println("Average conformation energy: "+avg);
     }
     
     
