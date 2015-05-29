@@ -121,6 +121,7 @@ public class GMECFinder {
                     lowerBound = Double.POSITIVE_INFINITY;
                 }
                 else {//tree not empty
+                    double startTime = System.currentTimeMillis();
 
                 	double confE = getConfEnergy(conf);//MINIMIZED, EPIC, OR MATRIX E AS APPROPRIATE
                 	
@@ -136,6 +137,9 @@ public class GMECFinder {
 
                     lowestBound = Math.min(lowestBound,lowerBound);
 
+                    System.out.println("");
+                    System.out.println("Time taken: "+((System.currentTimeMillis()-startTime)/1000));
+                    System.out.println("CONFORMATION "+(++conformationCount));
                     printConf(conf,confE,lowerBound,bestESoFar);
                     //if doing a fit true energy (e.g. EPIC),
                     //this is the only place we may want the actual 
