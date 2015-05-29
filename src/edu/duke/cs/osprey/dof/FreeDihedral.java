@@ -34,7 +34,7 @@ public class FreeDihedral extends DegreeOfFreedom {
     
     @Override
     public void apply(double paramVal) {
-        
+            	
         //get indices (within res) of the 4 atoms defining this dihedral
         int[] dihAtomIndices = res.template.getDihedralDefiningAtoms(dihedralNum);
         
@@ -59,9 +59,11 @@ public class FreeDihedral extends DegreeOfFreedom {
         
         for(int index : rotatedAtomIndices)
             dihRotation.transform(res.coords, index);
+
+    	curVal = paramVal; // store the value
     }
     
-    
+    public Residue getResidue() { return res; }
     
     
     

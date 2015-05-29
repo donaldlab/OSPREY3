@@ -104,14 +104,16 @@ public class GMECFinder {
             
             pruning.prune();//pass in DEE options, and run the specified types of DEE
             //These will be subclasses of the abstract class DEE
-
             //Finally, do A*, which will output the top conformations
             ConfSearch search = initSearch(searchSpace);//e.g. new AStarTree from searchSpace & params
             //can have options to instantiate other kinds of search here too...choose based on params
 
+            
             double lowestBound  = Double.POSITIVE_INFINITY;
             double lowerBound;
-            
+            int conformationCount=0;
+
+
             do {
                 int conf[] = search.nextConf();
                 
@@ -119,11 +121,11 @@ public class GMECFinder {
                     lowerBound = Double.POSITIVE_INFINITY;
                 }
                 else {//tree not empty
-                
-                    double confE = getConfEnergy(conf);//MINIMIZED, EPIC, OR MATRIX E AS APPROPRIATE
 
-                    if(enumByLowerBound)
-                        lowerBound = searchSpace.lowerBound(conf);
+                	double confE = getConfEnergy(conf);//MINIMIZED, EPIC, OR MATRIX E AS APPROPRIATE
+                	
+                    if(enumByLowerBound) { 
+                        lowerBound = searchSpace.lowerBound(conf); }
                     else//we have effectively a 
                         lowerBound = confE;
                     

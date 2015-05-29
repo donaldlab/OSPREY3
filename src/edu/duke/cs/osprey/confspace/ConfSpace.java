@@ -84,7 +84,7 @@ public class ConfSpace {
         //allowedAAs: list of allowed residue types at each flexible position
         //addWT: whether to add wild-type to the allowed AA types
         
-        //FLEXIBILITY: We do a rotamer search in all cases
+        //FLEXIBILITY: We do a rotamer search inx all cases
         //contSCFlex means allow continuous sidechain flexibility
         //ADD OTHER OPTIONS: WT ROTAMERS, DIFFERENT ROT WIDTHS, DEEPER, RIGID-BODY MOTIONS
         
@@ -108,59 +108,25 @@ public class ConfSpace {
             ArrayList<DegreeOfFreedom> resDOFs = mutablePosDOFs(res,allowedAAs.get(pos));//add mutation and dihedral confDOFs
                         
             ResidueTypeDOF resMutDOF = (ResidueTypeDOF)resDOFs.remove(0);//first mutable pos DOF is the mutation-type DOF
-            
-            if (useEllipses) {
-            	if (resDOFs.size() == 0) { 
-            		confDOFs.addAll(new ArrayList<EllipseCoordDOF>());
-            	} else {   	
-	            	double radius = 0;
-	            	for (DegreeOfFreedom resDOF : resDOFs) { 
-	            		radius += resDOF.getCurVal()*resDOF.getCurVal();
-	            	}
-	            	radius = Math.sqrt(radius);            	
-	            	
-	            	double[] angles = new double[resDOFs.size()-1];
-	            	int n = angles.length;
-	            	for (int i=0; i<n; i++) {
-	            		double diff = 0;
-	            		for (int j=0; j<i; j++) { diff += Math.pow(resDOFs.get(j).getCurVal(), 2); }
-	            		double den = Math.sqrt(radius*radius - diff);
-	            		angles[i]=Math.acos(resDOFs.get(i).getCurVal()/den);
-	            	}            	
-	            	            	
-	            	// TODO:
-	            	// 		identify what rotamer each RC is at to get the right ellipse
-	            	// 		load the matrices from some other data construct (i.e. a class)
-	            	// 		perhaps use the dihedrals to identify a point, and derive the
-	            	// 		cluster from what surrounds that point? 
-	            	// 		get amino acid type
-	            	// 		String aa = resMutDOF.getCurResType();
-	            	// 		mat A = getEllipseMatrix(aa, dihedrals)
-	            	// 		double[] c = getEllipseCenter(aa, dihedrals)
-	            	// 		double[] rad = dihedrals - c
-	            	// 		add(new EllipseCoordDOF(true, 0, a, rad, resDOFs))
-	            	
-	            	// for now, just using a basic sphere with radius 0.5 radians
-	            	double[] center = new double[n+1];
-	            	for (int i=0; i<resDOFs.size(); i++) { 
-	            		center[i] = resDOFs.get(i).getCurVal();
-	            	}
-	            	DoubleMatrix1D c = DoubleFactory1D.dense.make(center);
-	            	DoubleMatrix2D a = DoubleFactory2D.dense.identity(n+1);
-
-	            	ArrayList<EllipseCoordDOF> ellipseDOFs = new ArrayList<EllipseCoordDOF>();
-	            	ellipseDOFs.add(new EllipseCoordDOF(true, 0, a, c, resDOFs)); //radius
-	            	for (int i=0; i<angles.length; i++) {
-	            		ellipseDOFs.add(new EllipseCoordDOF(false, angles[i], a, c, resDOFs));
-	            	}
-	            	confDOFs.addAll(ellipseDOFs);
-            	}
-            } else { confDOFs.addAll(resDOFs); }
-            
+ 
             mutDOFs.add(resMutDOF);
+
             
-            PositionConfSpace rcs = new PositionConfSpace(res,resDOFs,allowedAAs.get(pos),contSCFlex);
+            PositionConfSpace rcs = new PositionConfSpace(
+            		res,
+            		resDOFs,
+            		allowedAAs.get(pos),
+            		contSCFlex,
+            		useEllipses);
+            
             posFlex.add(rcs);
+                        
+            if (useEllipses) {
+            	confDOFs.addAll(rcs.getEllipsoidalArray());
+            } else {
+            	confDOFs.addAll(resDOFs);
+            }
+            
         }
         
         standardizeMutatableRes();

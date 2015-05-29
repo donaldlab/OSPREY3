@@ -55,7 +55,7 @@ public class ResidueTemplate {
     //information on dihedrals
     public int[] getDihedralDefiningAtoms(int dihedralNum){
         //numbers (indices among the atoms in this template) of the 4 atoms defining the dihedral
-        return dihedral4Atoms[dihedralNum];
+    	return dihedral4Atoms[dihedralNum];
     }
     
     public ArrayList<Integer> getDihedralRotatedAtoms(int dihedralNum){
