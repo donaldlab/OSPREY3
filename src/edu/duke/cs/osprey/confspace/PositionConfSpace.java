@@ -124,6 +124,7 @@ public class PositionConfSpace {
     			}
     			
     			// generate the list of ellipsoidal DOFs
+    			// TODO: move getellipsoidalcoords to ellipsetransform
     			double[] ellValues = getEllipsoidalCoords(dihValues);
     			ArrayList<EllipseCoordDOF> ellCoords = new ArrayList<EllipseCoordDOF>();
     	    	DoubleMatrix2D A = DoubleFactory2D.dense.identity(ellValues.length);
@@ -134,7 +135,6 @@ public class PositionConfSpace {
     	    				i,
     	    				ellValues[i],
     	    				A,
-    	    				c,
     	    				dofListForRC,
     	    				dihValues);
     	    		ellCoords.add(ellDOF);
@@ -144,7 +144,7 @@ public class PositionConfSpace {
     	    	for (int i=0; i<numDihedrals; i++) {
     	    		if (contSCFlex) {
     	    			dofLB.add(0.0);
-    	    			dofUB.add((i==0) ? 300 : 
+    	    			dofUB.add((i==0) ? 30 : // TODO: make this better
     	    					(i==numDihedrals-1) ? 2*Math.PI : Math.PI);
     	    		} else {
     	    			dofLB.add(ellCoords.get(i).getCurVal());

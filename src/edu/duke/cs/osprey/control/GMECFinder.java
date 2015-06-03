@@ -88,8 +88,6 @@ public class GMECFinder {
         int GMECConf[] = null;
         double bestESoFar = Double.POSITIVE_INFINITY;
         
-        ArrayList<Double> energies = new ArrayList<Double>();
-
         
         do {
             needToRepeat = false;
@@ -111,12 +109,11 @@ public class GMECFinder {
             //Finally, do A*, which will output the top conformations
             ConfSearch search = initSearch(searchSpace);//e.g. new AStarTree from searchSpace & params
             //can have options to instantiate other kinds of search here too...choose based on params
-
             
             double lowestBound  = Double.POSITIVE_INFINITY;
             double lowerBound;
             int conformationCount=0;
-
+            
 
             do {
                 int conf[] = search.nextConf();
@@ -129,8 +126,6 @@ public class GMECFinder {
 
                 	double confE = getConfEnergy(conf);//MINIMIZED, EPIC, OR MATRIX E AS APPROPRIATE
                 	
-                	energies.add(confE);
-                	
                     if(enumByLowerBound) { 
                         lowerBound = searchSpace.lowerBound(conf); }
                     else//we have effectively a 
@@ -139,6 +134,7 @@ public class GMECFinder {
                     if(confE<bestESoFar){
                         bestESoFar = confE;
                         GMECConf = conf;
+                        System.out.println("New best energy: "+confE);
                     }
 
                     lowestBound = Math.min(lowestBound,lowerBound);
@@ -178,10 +174,8 @@ public class GMECFinder {
             searchSpace.outputMinimizedStruct( GMECConf, searchSpace.name+".GMEC.pdb" );
         
         System.out.println("GMEC calculation complete.  ");
-        double avg = 0;
-        for (Double d : energies) { avg += d; }
-        avg = avg/energies.size();
-        System.out.println("Average conformation energy: "+avg);
+        double gmecE = searchSpace.minimizedEnergy(GMECConf);
+        System.out.println("GMEC energy: "+gmecE);
     }
     
     
