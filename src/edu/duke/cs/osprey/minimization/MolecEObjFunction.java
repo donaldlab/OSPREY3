@@ -198,8 +198,10 @@ public class MolecEObjFunction implements ObjectiveFunction {
         DegreeOfFreedom curDOF = DOFs.get(dof);
         if(curDOF instanceof FreeDihedral)
             return 0.25;
-        else if (curDOF instanceof EllipseCoordDOF)
-        	return 0.3;
+        else if (curDOF instanceof EllipseCoordDOF) {
+        	EllipseCoordDOF e = (EllipseCoordDOF) curDOF;
+        	return (e.getIndex()==0) ? 10 : 0.3; 
+        }
         else
             throw new UnsupportedOperationException("ERROR: DOF type not recognized for step size purposes");
     }

@@ -93,9 +93,9 @@ public class SearchProblem implements Serializable {
     
     
     public SearchProblem(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
-            boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp){
+            boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, boolean useEllipses){
         
-        confSpace = new ConfSpace(PDBFile,flexibleRes,allowedAAs,addWT,contSCFlex);
+        confSpace = new ConfSpace(PDBFile,flexibleRes,allowedAAs,addWT,contSCFlex, useEllipses);
         this.name = name;
         
         

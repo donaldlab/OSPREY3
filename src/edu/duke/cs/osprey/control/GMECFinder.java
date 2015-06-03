@@ -74,9 +74,6 @@ public class GMECFinder {
         outputGMECStruct = cfgP.params.getBool("OUTPUTGMECSTRUCT", false);
         
         useEllipses = cfgP.params.getBool("useEllipses", false);
-        
-        //FOR NOW minimization-aware is by lower bound...
-        enumByLowerBound = useContFlex;
     }
     
     
@@ -151,9 +148,6 @@ public class GMECFinder {
 
                     lowestBound = Math.min(lowestBound,lowerBound);
 
-                    System.out.println("");
-                    System.out.println("Time taken: "+((System.currentTimeMillis()-startTime)/1000));
-                    System.out.println("CONFORMATION "+(++conformationCount));
                     printConf(conf,confE,lowerBound,bestESoFar);
                 }
                 

@@ -26,8 +26,10 @@ public class UnitTestSuite {
         ConfSpaceTests.testConfSpaceGeneration();
         PDBTests.testPDBReadWrite();
         
-        ConfSearchTests.testDEE();
-        ConfSearchTests.testExhaustive();
+        ConfSearchTests.testDEE(true);
+        ConfSearchTests.testDEE(false);
+        ConfSearchTests.testExhaustive(true);
+        ConfSearchTests.testExhaustive(false);
     }
     
 }

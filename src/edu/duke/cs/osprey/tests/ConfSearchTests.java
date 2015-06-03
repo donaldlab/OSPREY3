@@ -20,11 +20,11 @@ public class ConfSearchTests {
     //and that DEE pruning does not change the overall minimum
     //this is testing discrete conformational search
     
-    public static void testExhaustive(){
+    public static void testExhaustive(boolean useEllipses){
         //For a small, simple search space, ensure that the ConfSearch object
         //enumerates all conformations in ascending order
         
-        SearchProblem searchSpace = makeTestSearchSpace(5,false,false);//3^5 confs.  No clashes (would make some weird confs)
+        SearchProblem searchSpace = makeTestSearchSpace(5,false,false, useEllipses);//3^5 confs.  No clashes (would make some weird confs)
         int totNumResults = 3*3*3*3*3;
         
         searchSpace.pruneMat = new PruningMatrix(searchSpace.confSpace,-1);//no pruning
@@ -54,11 +54,11 @@ public class ConfSearchTests {
     }
     
     
-    public static void testDEE(){
+    public static void testDEE(boolean useEllipses){
         //ensure that DEE does not prune the best conf, by comparing A* results with and without DEE
         //might run this a few time with random energies, to be more sure
         
-        SearchProblem searchSpace = makeTestSearchSpace(6/*10*/,true,false);
+        SearchProblem searchSpace = makeTestSearchSpace(6/*10*/,true,false, useEllipses);
         //bigger search space, and leaving clashes will create more realistic test conditions
         
         searchSpace.pruneMat = new PruningMatrix(searchSpace.confSpace,-1);//no pruning
@@ -103,7 +103,8 @@ public class ConfSearchTests {
     
     
     
-    private static SearchProblem makeTestSearchSpace(int numPos, boolean doMut, boolean randomizeEnergies){
+    private static SearchProblem makeTestSearchSpace(int numPos, boolean doMut, boolean randomizeEnergies,
+    		boolean useEllipses){
         //generate a search space for test purposes with the given number of positions
         //If doMut, allow a bunch of options per position, else allow only val (3 RCs) at each position
         //We'll randomize the energies to get a fresh test every time, but 
@@ -129,7 +130,7 @@ public class ConfSearchTests {
         
         SearchProblem ans = new SearchProblem( "testResults/CONFSEARCHTEST"+numPos, "1CC8.ss.pdb", 
                 flexRes, allowedAAs,false, false, false, null, 
-                false);//don't add WT, and no minimization, EPIC, or tuple expansion
+                false, useEllipses);//don't add WT, and no minimization, EPIC, or tuple expansion
         
         if(randomizeEnergies){
             //we don't need real energies, just make some up (in fact the randomization will be good)

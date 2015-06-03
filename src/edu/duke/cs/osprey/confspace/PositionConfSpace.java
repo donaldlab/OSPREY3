@@ -36,6 +36,9 @@ public class PositionConfSpace implements Serializable {
     
     static double dihedFlexInterval = 9;// +/- 9 degree sidechain dihedral continuous flexibility...
     //later can allow this to vary across different dihedrals
+    static double ellipseAngMax = Math.PI;
+    static double ellipseFinAngMax = Math.PI * 2;
+    static double ellipseMin = 0;
     
     ArrayList<EllipseCoordDOF> ellipsoidalDOFs;
     
@@ -143,9 +146,10 @@ public class PositionConfSpace implements Serializable {
     	    	
     	    	for (int i=0; i<numDihedrals; i++) {
     	    		if (contSCFlex) {
-    	    			dofLB.add(0.0);
-    	    			dofUB.add((i==0) ? 30 : // TODO: make this better
-    	    					(i==numDihedrals-1) ? 2*Math.PI : Math.PI);
+    	    			dofLB.add(ellipseMin);
+    	    			double radMax = 30;
+    	    			dofUB.add((i==0) ? radMax : // TODO: make this better
+    	    					(i==numDihedrals-1) ? ellipseFinAngMax : ellipseAngMax);
     	    		} else {
     	    			dofLB.add(ellCoords.get(i).getCurVal());
     	    			dofUB.add(ellCoords.get(i).getCurVal());
@@ -187,9 +191,9 @@ public class PositionConfSpace implements Serializable {
     	dihedrals = x;
     	
     	// now get elliptical coordinates
-    	double radius = 0;
+/*    	double radius = 0;
     	for (double d : dihedrals) { radius += d*d; }
-    	radius = Math.sqrt(radius);
+    	radius = Math.sqrt(radius);*/
     	int n = dihedrals.length;
     	double[] phi = new double[n-1];
     	for (int i=0; i<n-1; i++) {
@@ -200,7 +204,7 @@ public class PositionConfSpace implements Serializable {
     	}
     	if (dihedrals[n-1] < 0) { phi[n-2] = 2*Math.PI - phi[n-2]; }
     	double[] ellCoords = new double[n];
-    	ellCoords[0] = radius;
+    	ellCoords[0] = 0; //radius;
     	for (int i=1; i<n; i++) { ellCoords[i] = phi[i-1]; }
     	return ellCoords;
     }
