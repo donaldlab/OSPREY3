@@ -10,11 +10,13 @@ import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
+import edu.duke.cs.osprey.dof.EllipseCoordDOF;
 import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.ematrix.epic.EPICEnergyFunction;
 import edu.duke.cs.osprey.structure.Molecule;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -105,7 +107,7 @@ public class MolecEObjFunction implements ObjectiveFunction {
             }
         }
         
-        //collect constraints, and apply fixed DOF values
+        //collect constraints, and apply fixed DOF valuestrue
         DOFs = new ArrayList<>();
         constraints = new DoubleMatrix1D[] 
             {DoubleFactory1D.dense.make(numMinDOFs), DoubleFactory1D.dense.make(numMinDOFs)};
@@ -196,6 +198,8 @@ public class MolecEObjFunction implements ObjectiveFunction {
         DegreeOfFreedom curDOF = DOFs.get(dof);
         if(curDOF instanceof FreeDihedral)
             return 0.25;
+        else if (curDOF instanceof EllipseCoordDOF)
+        	return 0.3;
         else
             throw new UnsupportedOperationException("ERROR: DOF type not recognized for step size purposes");
     }

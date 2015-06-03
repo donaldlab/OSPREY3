@@ -5,10 +5,13 @@
 package edu.duke.cs.osprey.confspace;
 
 import cern.colt.matrix.DoubleFactory1D;
+import cern.colt.matrix.DoubleFactory2D;
 import cern.colt.matrix.DoubleMatrix1D;
+import cern.colt.matrix.DoubleMatrix2D;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
+import edu.duke.cs.osprey.dof.EllipseCoordDOF;
 import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.energy.EnergyFunction;
@@ -64,25 +67,34 @@ public class ConfSpace implements Serializable {
     
     public int numPos;//number of flexible positions
     
+    public boolean useEllipses = false;
     
-    public ConfSpace(String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
-            boolean contSCFlex){
-        //initialize a new conformational space, defining all its flexibility
+    
+    public ConfSpace(
+    		String PDBFile,
+    		ArrayList<String> flexibleRes,
+    		ArrayList<ArrayList<String>> allowedAAs,
+    		boolean addWT,
+            boolean contSCFlex,
+            boolean ellipses){
+        //initialize a new conformational space, desomefining all its flexibility
         //we use one residue per position here
         //PDBFile: the structure to read from
         //flexibleRes: list of residue numbers to be made flexible (as in PDB file)
         //allowedAAs: list of allowed residue types at each flexible position
         //addWT: whether to add wild-type to the allowed AA types
         
-        //FLEXIBILITY: We do a rotamer search in all cases
+        //FLEXIBILITY: We do a rotamer search inx all cases
         //contSCFlex means allow continuous sidechain flexibility
         //ADD OTHER OPTIONS: WT ROTAMERS, DIFFERENT ROT WIDTHS, DEEPER, RIGID-BODY MOTIONS
         
+    	useEllipses = ellipses;  	
+    	
         numPos = flexibleRes.size();
         
         //read the structure and assign templates, deleting unassignable res...
         m = PDBFileReader.readPDBFile(PDBFile);
-        
+                
         for(int pos=0; pos<numPos; pos++){
             
             Residue res = m.getResByPDBResNumber( flexibleRes.get(pos) );
@@ -94,14 +106,27 @@ public class ConfSpace implements Serializable {
             }
             
             ArrayList<DegreeOfFreedom> resDOFs = mutablePosDOFs(res,allowedAAs.get(pos));//add mutation and dihedral confDOFs
-            
+                        
             ResidueTypeDOF resMutDOF = (ResidueTypeDOF)resDOFs.remove(0);//first mutable pos DOF is the mutation-type DOF
-            confDOFs.addAll(resDOFs);//record the conformational confDOFs here
+ 
             mutDOFs.add(resMutDOF);
+
             
+            PositionConfSpace rcs = new PositionConfSpace(
+            		res,
+            		resDOFs,
+            		allowedAAs.get(pos),
+            		contSCFlex,
+            		useEllipses);
             
-            PositionConfSpace rcs = new PositionConfSpace(res,resDOFs,allowedAAs.get(pos),contSCFlex);
             posFlex.add(rcs);
+                        
+            if (useEllipses) {
+            	confDOFs.addAll(rcs.getEllipsoidalArray());
+            } else {
+            	confDOFs.addAll(resDOFs);
+            }
+            
         }
         
         standardizeMutatableRes();

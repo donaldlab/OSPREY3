@@ -62,6 +62,7 @@ public class ConfigFileParser {
                 params.getBool("UseEPIC",false),
                 new EPICSettings(params),
                 params.getBool("UseTupExp",false));//CURRENTLY JUST SC MINIMIZATION...
+                params.getBool("useEllipses", false));//CURRENTLY JUST SC MINIMIZATION...
     }
     
     

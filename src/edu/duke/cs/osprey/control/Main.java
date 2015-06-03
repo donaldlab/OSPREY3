@@ -4,6 +4,10 @@
  */
 package edu.duke.cs.osprey.control;
 
+import java.util.ArrayList;
+
+import cern.colt.matrix.DoubleFactory1D;
+import cern.colt.matrix.DoubleFactory2D;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.PDBFileWriter;
@@ -11,6 +15,10 @@ import edu.duke.cs.osprey.tests.DOFTests;
 import edu.duke.cs.osprey.tests.EnergyTests;
 import edu.duke.cs.osprey.tests.ToolTests;
 import edu.duke.cs.osprey.tests.UnitTestSuite;
+import edu.duke.cs.osprey.confspace.RC;
+import edu.duke.cs.osprey.dof.DegreeOfFreedom;
+import edu.duke.cs.osprey.dof.EllipseCoordDOF;
+import edu.duke.cs.osprey.dof.FreeDihedral;
 
 /**
  *
@@ -29,12 +37,13 @@ public class Main {
         debuggingCommands(args);
         
         String command = args[2];
+        
         long startTime = System.currentTimeMillis();
         
         ConfigFileParser cfp = new ConfigFileParser(args);//args 1, 3+ are configuration files
         
-        //load data files
-        cfp.loadData();
+        //load data filescloneclone
+        cfp.loadData();        
         
         if(command.equalsIgnoreCase("findGMEC")){
             //I recommend that we change the command names a little to be more intuitive, e.g. 

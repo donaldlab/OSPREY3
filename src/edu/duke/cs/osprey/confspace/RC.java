@@ -6,11 +6,15 @@ package edu.duke.cs.osprey.confspace;
 
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import java.io.Serializable;
+import edu.duke.cs.osprey.tools.MinVolEllipse;
+import cern.colt.matrix.DoubleMatrix2D;
+import cern.colt.matrix.impl.DenseDoubleMatrix2D;
 import java.util.ArrayList;
 
 /**
  *
  * @author mhall44
+ * @author am439
  */
 public class RC implements Serializable {
     //A residue conformation.  Meant to be part of a PositionConfSpace
@@ -35,8 +39,5 @@ public class RC implements Serializable {
         this.DOFmin = DOFmin;
         this.DOFmax = DOFmax;
         this.RCIndex = RCIndex;
-    }
-    
-    
-    
+    }    
 }

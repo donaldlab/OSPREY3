@@ -22,18 +22,19 @@ public class FreeDihedral extends DegreeOfFreedom {
     
     Residue res;//residue we're moving
     int dihedralNum;//is this chi1, chi2 or what?
+    double curVal;
 
     public FreeDihedral(Residue res, int dihedralNum) {
         this.res = res;
         this.dihedralNum = dihedralNum;
     }
 
-    
+    public double getCurVal() { return curVal; }
     
     
     @Override
     public void apply(double paramVal) {
-        
+            	
         //get indices (within res) of the 4 atoms defining this dihedral
         int[] dihAtomIndices = res.template.getDihedralDefiningAtoms(dihedralNum);
         
@@ -58,9 +59,11 @@ public class FreeDihedral extends DegreeOfFreedom {
         
         for(int index : rotatedAtomIndices)
             dihRotation.transform(res.coords, index);
+
+    	curVal = paramVal; // store the value
     }
     
-    
+    public Residue getResidue() { return res; }
     
     
     

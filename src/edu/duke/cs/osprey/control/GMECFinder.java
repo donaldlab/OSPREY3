@@ -4,6 +4,8 @@
  */
 package edu.duke.cs.osprey.control;
 
+import java.util.ArrayList;
+
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.ConfSearch;
@@ -46,6 +48,8 @@ public class GMECFinder {
     boolean checkApproxE = true;//Use the actual energy function to evaluate
     //each enumerated conformation rather than just relying on the EPIC or tup-exp approximation
     
+    boolean useEllipses = false;
+    
     
     public GMECFinder (ConfigFileParser cfgP){
         //fill in all the settings
@@ -68,6 +72,11 @@ public class GMECFinder {
             throw new RuntimeException("ERROR: iMinDEE requires continuous flexibility");
         
         outputGMECStruct = cfgP.params.getBool("OUTPUTGMECSTRUCT", false);
+        
+        useEllipses = cfgP.params.getBool("useEllipses", false);
+        
+        //FOR NOW minimization-aware is by lower bound...
+        enumByLowerBound = useContFlex;
     }
     
     
@@ -92,19 +101,19 @@ public class GMECFinder {
             //initialize a search problem with current Ival
             checkEPICThresh2(curInterval);//Make sure EPIC thresh 2 matches current interval
 
-
             precomputeMatrices(Ew+curInterval);//precompute the energy, pruning, and maybe EPIC or tup-exp matrices
             //must be done separately for each round of iMinDEE
             
             //Finally, do A*, which will output the top conformations
             ConfSearch search = initSearch(searchSpace);//e.g. new AStarTree from searchSpace & params
             //can have options to instantiate other kinds of search here too...choose based on params
-
+            
             double lowestBound  = Double.POSITIVE_INFINITY;
             if( (useEPIC||useTupExp) && doIMinDEE)//lowest bound must be calculated without EPIC/tup exp, to ensure valid iMinDEE interval
                 lowestBound = lowestPairwiseBound(searchSpace);
             
             double lowerBound;
+            int conformationCount=0;
             
             System.out.println();
             System.out.println("BEGINNING CONFORMATION ENUMERATION");
@@ -137,10 +146,14 @@ public class GMECFinder {
                     if(confE<bestESoFar){
                         bestESoFar = confE;
                         GMECConf = conf;
+                        System.out.println("New best energy: "+confE);
                     }
 
                     lowestBound = Math.min(lowestBound,lowerBound);
 
+                    System.out.println("");
+                    System.out.println("Time taken: "+((System.currentTimeMillis()-startTime)/1000));
+                    System.out.println("CONFORMATION "+(++conformationCount));
                     printConf(conf,confE,lowerBound,bestESoFar);
                 }
                 
@@ -170,6 +183,8 @@ public class GMECFinder {
             searchSpace.outputMinimizedStruct( GMECConf, searchSpace.name+".GMEC.pdb" );
         
         System.out.println("GMEC calculation complete.  ");
+        double gmecE = searchSpace.minimizedEnergy(GMECConf);
+        System.out.println("GMEC energy: "+gmecE);
     }
     
     
