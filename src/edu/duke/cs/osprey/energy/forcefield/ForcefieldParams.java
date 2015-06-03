@@ -11,13 +11,14 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.Serializable;
 import java.util.StringTokenizer;
 
 /**
  *
  * @author mhall44
  */
-public class ForcefieldParams {
+public class ForcefieldParams implements Serializable {
     
     
     final int atomTypeX = -2; //the atom type number for the X wildcard atom type

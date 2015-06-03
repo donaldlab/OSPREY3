@@ -36,6 +36,9 @@ public class PruningMethod {
         else if(name.equalsIgnoreCase("GOLDSTEIN PAIRS"))
             return new PruningMethod(true,2,CheckSumType.GOLDSTEIN);
         
+        else if(name.equalsIgnoreCase("GOLDSTEIN PAIRS FULL"))//SYNONYM FOR PAIRS
+            return new PruningMethod(true,2,CheckSumType.GOLDSTEIN);
+        
         else if(name.equalsIgnoreCase("GOLDSTEIN TRIPLES"))
             return new PruningMethod(true,3,CheckSumType.GOLDSTEIN);
         

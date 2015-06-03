@@ -13,10 +13,11 @@ import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.energy.EnergyFunction;
+import edu.duke.cs.osprey.ematrix.epic.EPICEnergyFunction;
 import edu.duke.cs.osprey.structure.Molecule;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 /**
  *
@@ -63,7 +64,10 @@ public class MolecEObjFunction implements ObjectiveFunction {
         molec = cSpace.m;
         
         
-        HashMap<DegreeOfFreedom,double[]> DOFBounds = new HashMap<>();//bounds for each conformational DOF
+        LinkedHashMap<DegreeOfFreedom,double[]> DOFBounds = new LinkedHashMap<>();//bounds for each conformational DOF
+        //LinkedHashMap used to achieve consistency between runs (iterating over a regular HashMap
+        //would yield a different order from run to run depending on what DegreeOfFreedom pointers are available)
+        
         int numMinDOFs = 0;//number of minimizable confDOFs (bounded but not to a single value)
         
         for(int indexInTup=0; indexInTup<RCTup.RCs.size(); indexInTup++){
@@ -123,6 +127,10 @@ public class MolecEObjFunction implements ObjectiveFunction {
         }
         
         curDOFVals = DoubleFactory1D.dense.make(DOFs.size());
+        
+        if(efunc instanceof EPICEnergyFunction){
+            ((EPICEnergyFunction)efunc).assignConfReference(curDOFVals,DOFs,molec);
+        }
     }
     
     
@@ -199,6 +207,22 @@ public class MolecEObjFunction implements ObjectiveFunction {
     
     
     //Will likely want gradient and Hessian too...
+
+    public EnergyFunction getEfunc() {
+        return efunc;
+    }
+
+    public void setEfunc(EnergyFunction efunc) {
+        this.efunc = efunc;
+    }
+
+    public Molecule getMolec() {
+        return molec;
+    }
+
+    public ArrayList<DegreeOfFreedom> getDOFs() {
+        return DOFs;
+    }
     
     
     

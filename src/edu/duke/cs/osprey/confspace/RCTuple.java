@@ -4,18 +4,25 @@
  */
 package edu.duke.cs.osprey.confspace;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
  *
  * @author mhall44
  */
-public class RCTuple {
+public class RCTuple implements Serializable {
     
     //a tuple of RCs
     public ArrayList<Integer> pos;//which flexible positions
     public ArrayList<Integer> RCs;//the RCs themselves (residue-specific numbering, as in the TupleMatrices)
 
+    
+    public RCTuple(){
+        //empty pos, RCs (basically tuple of nothing
+        pos = new ArrayList<>();
+        RCs = new ArrayList<>();
+    }
     
     
     public RCTuple(ArrayList<Integer> pos, ArrayList<Integer> RCs) {
@@ -82,6 +89,18 @@ public class RCTuple {
         
         //if we get here they're the same
         return true;
+    }
+    
+    
+    public String stringListing(){
+        //Listing the RCs in a string
+        String ans = "";
+        
+        for(int posNum=0; posNum<pos.size(); posNum++){
+            ans = ans + "Res " + pos.get(posNum) + " RC " + RCs.get(posNum) + " ";
+        }
+        
+        return ans;
     }
     
     

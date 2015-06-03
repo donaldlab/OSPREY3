@@ -8,13 +8,14 @@ import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Residue;
+import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
  *
  * @author mhall44
  */
-public class PositionConfSpace {
+public class PositionConfSpace implements Serializable {
     //This class defines the conformational space of a flexible residue
     //including allowed amino-acid types, and rotamers/RCs for each type 
     //subclass PositionConfSpace to make super-residues with super-RCs...

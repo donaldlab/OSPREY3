@@ -24,8 +24,8 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
     //maybe separate intra too?
     
         
-    public PruningMatrix(ConfSpace cSpace){
-        super(cSpace);
+    public PruningMatrix(ConfSpace cSpace, double pruningInterval){
+        super(cSpace, pruningInterval);
         
         //We'll want to initialize everything to be unpruned, because this will be looked up during pruning
         //currently all entries in oneBody and pairwise are null
@@ -101,7 +101,7 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
     }
     
     
-    boolean isPruned(RCTuple tup){
+    public boolean isPruned(RCTuple tup){
         //can be prune per se, or check if some singles in it are pruned, or pairs, etc.
         for(int indexInTup=0; indexInTup<tup.pos.size(); indexInTup++){
             int pos1 = tup.pos.get(indexInTup);
@@ -125,7 +125,7 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
     }
     
     
-    void markAsPruned(RCTuple tup){
+    public void markAsPruned(RCTuple tup){
         int tupSize = tup.pos.size();
         if(tupSize==1)
             setOneBody(tup.pos.get(0), tup.RCs.get(0), true);

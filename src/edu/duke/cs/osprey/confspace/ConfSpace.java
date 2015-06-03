@@ -20,13 +20,14 @@ import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.PDBFileWriter;
 import edu.duke.cs.osprey.structure.Residue;
+import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
  *
  * @author mhall44
  */
-public class ConfSpace {
+public class ConfSpace implements Serializable {
     //This class represents the conformational search space for a design
     //used for GMEC-based design, K*, or anything else we want to do with a conformational space
     //This class just defines the conformational space itself (the molecule + all kinds of flexibility
@@ -167,6 +168,16 @@ public class ConfSpace {
         return minE;
     }
     
+    
+    public int[] getNumRCsAtPos(){
+        //list number of RCs at each position
+        int[] numAllowed = new int[numPos];
+        
+        for(int pos=0; pos<numPos; pos++)
+            numAllowed[pos] = posFlex.get(pos).RCs.size();
+        
+        return numAllowed;
+    }
     
     
     /*DoubleMatrix1D[] convertConfToDOFBounds(int[] conf){

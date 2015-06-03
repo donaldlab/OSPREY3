@@ -13,6 +13,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.StringTokenizer;
 
@@ -20,7 +21,7 @@ import java.util.StringTokenizer;
  *
  * @author mhall44
  */
-public class ForcefieldEnergy {
+public class ForcefieldEnergy implements Serializable {
     
     
     //This can represent either the internal energy of a residue, or the interaction energy of two
@@ -98,6 +99,45 @@ public class ForcefieldEnergy {
             //set up actual energies 
             //(interaction between atoms1 & atoms2, or internal of atoms1 if atoms2==null)
             initializeCalculation(atoms1,atoms2);
+            
+            setNBEval(params.hElect,params.hVDW);
+	}
+        
+        
+        
+        public ForcefieldEnergy(ArrayList<Atom[]> atomPairs, ForcefieldParams params){
+            /* Sparse energy function that includes only the electrostatic and VDW interactions between the specified atom pairs
+             * Used for SAPE
+             */
+            
+            res1 = atomPairs.get(0)[0].res;
+            res2 = atomPairs.get(0)[1].res;
+            
+            isInternal = (res1==res2);
+            
+            //check that all the atom pairs are at the same residue pair (assumed by structure of ForcefieldEnergy)
+            for(Atom[] pair : atomPairs){
+                if ( pair[0].res!=res1 || pair[1].res!=res2 ){
+                    throw new RuntimeException("ERROR: Sparse forcefield energy given atom pairs with inconsistent residues");
+                }
+            }
+            
+            
+            this.params = params;
+            
+            //copy over some things from the params for easier access
+            distDepDielect = params.distDepDielect;
+            dielectric = params.dielectric;
+            vdwMultiplier = params.vdwMultiplier;
+            solvScale = params.solvScale;
+            
+            doSolvationE = false;//not including solvation in these sparse energies
+            
+            //so initialize just the EV energies
+            ArrayList<Atom[]> pairs14 = AtomNeighbors.getPairs14(atomPairs);
+            ArrayList<Atom[]> pairsNonBonded = AtomNeighbors.getPairsNonBonded(atomPairs);
+            
+            initializeEVCalculation(pairs14, pairsNonBonded);
             
             setNBEval(params.hElect,params.hVDW);
 	}
@@ -211,28 +251,26 @@ public class ForcefieldEnergy {
 	// It prepares terms for bond, angle, and dihedral, vdw, and electrostatic
 	// Terms involving residues with energyEval == false
 	//  are not included
-	public void initializeCalculation(ArrayList<Atom> atoms1, ArrayList<Atom> atoms2){
-		
-		initializeEVCalculation(atoms1,atoms2); //initialize the calculation of the electrostatic and vdW terms
-		
-		if (doSolvationE) //initialize solvation energy calculation
-			initializeSolvationCalculation(atoms1,atoms2);		
-	}
-
-	// This function sets up the arrays for energy evaluation
-	//  for electrostatics and vdW only (EV)
-	// Terms involving residues with energyEval == false
-	//  are not included
         //we're looking at the interaction between atoms1 and atoms2 (or internal energy of atom1
         //if atoms2 is null)
-	private void initializeEVCalculation(ArrayList<Atom> atoms1, ArrayList<Atom> atoms2){
-
+	public void initializeCalculation(ArrayList<Atom> atoms1, ArrayList<Atom> atoms2){
+		
             //enumerate interacting pairs of atoms
             ArrayList<Atom[]> pairs14 = AtomNeighbors.getPairs14(atoms1, atoms2, (res1==res2));
             ArrayList<Atom[]> pairsNonBonded = AtomNeighbors.getPairsNonBonded(atoms1, atoms2, (res1==res2));
             //these pairs should exclude any SC or BB components we don't want
             
-            
+            initializeEVCalculation(pairs14,pairsNonBonded); //initialize the calculation of the electrostatic and vdW terms
+
+            if (doSolvationE) //initialize solvation energy calculation
+                    initializeSolvationCalculation(atoms1,atoms2);		
+	}
+
+	// This function sets up the arrays for energy evaluation
+	//  for electrostatics and vdW only (EV)
+        //we initialize using lists of interacting pairs of atoms (1,4-bonded and non-bonded)
+	private void initializeEVCalculation(ArrayList<Atom[]> pairs14, ArrayList<Atom[]> pairsNonBonded){
+
             int numberOf14Connections = pairs14.size();
             numberNonBonded = pairsNonBonded.size();
             

@@ -14,15 +14,24 @@ import edu.duke.cs.osprey.confspace.TupleMatrix;
  */
 public class EnergyMatrix extends TupleMatrix<Double> {
     
-    public EnergyMatrix(ConfSpace cSpace){
-        super(cSpace);
+    private double constTerm = 0;
+    
+    
+    public EnergyMatrix(ConfSpace cSpace, double pruningInterval){
+        //For a normal, precomputed energy matrix we expect infinite pruning interval
+        //(matrix valid for all RCs),
+        //but EnergyMatrix objects from tup-exp may only be valid for a finite pruning interval
+        super(cSpace, pruningInterval);
     }
     
+    public EnergyMatrix(int numPos, int[] numRCsAtPos, double pruningInterval){
+        super(numPos, numRCsAtPos, pruningInterval);
+    }
     
     public double confE(int conf[]){
         //value of energy represented in energy matrix, for specified conformation
         //expressed as residue-specific RC indices (as in the storage matrices)
-        return getInternalEnergy(new RCTuple(conf));
+        return getInternalEnergy(new RCTuple(conf)) + constTerm;
     }
     
     
@@ -55,15 +64,23 @@ public class EnergyMatrix extends TupleMatrix<Double> {
     
     /*
     public double getPairwiseE(int res1, int AA1, int rot1, int res2, int AA2, int rot2){
-        //lookup by residue number, amino-acid index (for the residue's rotamer library),
-        //and RC index for that residue and AA type (rotamer index for AA type if rigid backbone,
-        //otherwise defined in the ConfSearchSpace)
-        
-        //RETURN ERROR IF RES1 AND RES2 ARE NOT SINGLE RESIDUES
-        
-        return getPairwise(res1, index1, res2, index2);
+    //lookup by residue number, amino-acid index (for the residue's rotamer library),
+    //and RC index for that residue and AA type (rotamer index for AA type if rigid backbone,
+    //otherwise defined in the ConfSearchSpace)
+    //RETURN ERROR IF RES1 AND RES2 ARE NOT SINGLE RESIDUES
+    return getPairwise(res1, index1, res2, index2);
     }
-    */
+     */
     //intra+shell similar...
+    public double getConstTerm() {
+        return constTerm;
+    }
+
+    public void setConstTerm(double constTerm) {
+        this.constTerm = constTerm;
+    }
+    
+    
+    
     
 }

@@ -4,7 +4,7 @@
  */
 package edu.duke.cs.osprey.pruning;
 
-import edu.duke.cs.osprey.confspace.SearchSpace;
+import edu.duke.cs.osprey.confspace.SearchProblem;
 
 /**
  *
@@ -17,8 +17,8 @@ public class PruningControl {
     
     
     
-    SearchSpace searchSpace;
-    double Ew;//relative energy threshold for pruning (includes I for iMinDEE)
+    SearchProblem searchSpace;
+    double pruningInterval;//relative energy threshold for pruning (includes I for iMinDEE)
     boolean typeDep;//type-dependent pruning
     double boundsThresh;//absolute threshold (for Bounds pruning)
     int algOption;//1-4, for different levels of pruning
@@ -29,10 +29,10 @@ public class PruningControl {
     
     
     
-    public PruningControl(SearchSpace searchSpace, double Ew, boolean typeDep, 
+    public PruningControl(SearchProblem searchSpace, double pruningInterval, boolean typeDep, 
             double boundsThresh, int algOption, boolean useFlags, boolean useTriples, boolean preDACS) {
         this.searchSpace = searchSpace;
-        this.Ew = Ew;
+        this.pruningInterval = pruningInterval;
         this.typeDep = typeDep;
         this.boundsThresh = boundsThresh;
         this.algOption = algOption;
@@ -47,9 +47,13 @@ public class PruningControl {
     
     public void prune(){
         
+        System.out.println();
+        System.out.println("BEGINNING PRUNING.  PRUNING INTERVAL: "+pruningInterval);
+        System.out.println();
+        
         long startTime = System.currentTimeMillis();
         
-        Pruner dee = new Pruner(searchSpace,typeDep,boundsThresh,Ew);
+        Pruner dee = new Pruner(searchSpace,typeDep,boundsThresh,pruningInterval);
         
         //now go through the various types of pruning that we support
         //see KSParser

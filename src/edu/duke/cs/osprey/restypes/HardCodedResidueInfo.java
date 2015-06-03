@@ -9,7 +9,7 @@ import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.VectorAlgebra;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 /**
  *
@@ -26,7 +26,7 @@ public class HardCodedResidueInfo {
     
     
     
-    public static HashMap<String,String> three2one = null;
+    public static LinkedHashMap<String,String> three2one = null;
 
     static {
         initThree2One();
@@ -34,7 +34,7 @@ public class HardCodedResidueInfo {
     
     
     public static void initThree2One(){
-            three2one = new HashMap<String,String>();
+            three2one = new LinkedHashMap<String,String>();
             three2one.put("ALA","A");
             three2one.put("CYS","C");
             three2one.put("ASP","D");
@@ -277,6 +277,50 @@ public class HardCodedResidueInfo {
         }
         return false;//didn't find them all
     }
+    
+    
+    public static String getTemplateName(Residue res){
+        //some residues may have template names different than what's in the full name for the residue
+        //we identify those here
+        //we cover HIS and CYS; we assume templates follow the HID/HIE/HIP and CYS/CYX conventions as in
+        //all_amino94.in
+        
+        String resName = res.fullName.substring(0,3);
+        
+        if( resName.equalsIgnoreCase("HIS") ){
+
+            int HDCount = 0;//Count delta and epsilon hydrogens
+            int HECount = 0;
+
+            for( Atom at : res.atoms ){
+                if( at.name.contains("HD") )
+                    HDCount++;
+                else if(at.name.contains("HE"))
+                    HECount++;
+            }
+            
+            //Determine protonation state, assign template name accordingly
+            if( ( HDCount == 1 ) && ( HECount == 2 ) )
+                return "HIE";
+            else if( ( HDCount == 2 ) && ( HECount == 1 ) )
+                return "HID";
+            else if( ( HDCount == 2 ) && ( HECount == 2 ) )
+                return "HIP";
+            else{
+                throw new RuntimeException("ERROR: Invalid protonation state for " + res.fullName );
+            }
+        }
+        else if( resName.equalsIgnoreCase("CYS") ){
+            
+            if(res.getAtomIndexByName("HG")>=0)//there is a gamma hydrogen
+                return "CYS";
+            else
+                return "CYX";
+        }
+        else//by default, the template name is just the first three letters of the full name
+            return resName;
+    }
+    
     
     //Stuff about protonation-dependent rotamers for K* (Hie,Hid,etc.) could go in this class too...
     

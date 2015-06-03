@@ -4,13 +4,14 @@
  */
 package edu.duke.cs.osprey.structure;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
  *
  * @author mhall44
  */
-public class Molecule {
+public class Molecule implements Serializable {
     
     public ArrayList<Residue> residues = new ArrayList<>();
     

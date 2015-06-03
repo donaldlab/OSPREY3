@@ -5,12 +5,13 @@
 package edu.duke.cs.osprey.dof;
 
 import edu.duke.cs.osprey.structure.Molecule;
+import java.io.Serializable;
 
 /**
  *
  * @author mhall44
  */
-public abstract class DegreeOfFreedom {
+public abstract class DegreeOfFreedom implements Serializable {
     //This class represents a conformational degree of freedom
     //It is used to abstract out flexibility: for purposes of all the conformational search machinery,
     //the conformation can be represented as a vector of degree-of-freedom values

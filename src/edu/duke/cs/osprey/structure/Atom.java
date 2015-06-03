@@ -5,13 +5,14 @@
 package edu.duke.cs.osprey.structure;
 
 import edu.duke.cs.osprey.tools.PeriodicTable;
+import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
  *
  * @author mhall44
  */
-public class Atom {
+public class Atom implements Serializable {
     //this atom is part of a residue.  It can be assigned a forcefield type but doesn't have to be.
     //coordinates are stored by the residue, not here
     

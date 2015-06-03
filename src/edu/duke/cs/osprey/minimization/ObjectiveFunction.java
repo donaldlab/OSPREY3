@@ -5,13 +5,14 @@
 package edu.duke.cs.osprey.minimization;
 
 import cern.colt.matrix.DoubleMatrix1D;
+import java.io.Serializable;
 
 /**
  *
  * @author mhall44
  */
 //Objective function for CCDMinimizer or another general minimizer
-public interface ObjectiveFunction {
+public interface ObjectiveFunction extends Serializable {
 
     //Return number of degrees of freedom
     public int getNumDOFs();

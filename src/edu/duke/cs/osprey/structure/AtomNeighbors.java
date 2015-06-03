@@ -6,7 +6,7 @@ package edu.duke.cs.osprey.structure;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 
 /**
  *
@@ -17,7 +17,7 @@ public class AtomNeighbors {
     //directly bonded (1,2) or indirectly bonded (1,3 and 1,4)
     
     Atom mainAtom;//the atom whose neighbors is listed
-    HashSet<Atom> neighbors12, neighbors13, neighbors14;
+    LinkedHashSet<Atom> neighbors12, neighbors13, neighbors14;
     
     
     public enum NEIGHBORTYPE {
@@ -29,12 +29,12 @@ public class AtomNeighbors {
     public AtomNeighbors(Atom mainAtom){
         this.mainAtom = mainAtom;
         
-        neighbors12 = new HashSet<>();
+        neighbors12 = new LinkedHashSet<>();
         //1,2-neighbors are just the atoms bonded to mainAtom
         neighbors12.addAll(mainAtom.bonds);
         
         
-        neighbors13 = new HashSet<>();
+        neighbors13 = new LinkedHashSet<>();
         
         for(Atom bondedAtom : neighbors12){
             for(Atom atom13 : bondedAtom.bonds){
@@ -45,7 +45,7 @@ public class AtomNeighbors {
             }
         }
         
-        neighbors14 = new HashSet<>();
+        neighbors14 = new LinkedHashSet<>();
         
         for(Atom atom13 : neighbors13){
             for(Atom atom14 : atom13.bonds){
@@ -125,5 +125,33 @@ public class AtomNeighbors {
         
         return ans;
     }
+    
+    
+    //sometimes we have a list of selected atom pairs, and we want to separate out the ones that have a certain neighbory type
+    public static ArrayList<Atom[]> getPairsByType( ArrayList<Atom[]> atomPairs, NEIGHBORTYPE type ){
+        
+        ArrayList<Atom[]> ans = new ArrayList<>();
+        
+        for(Atom[] pair : atomPairs){
+            
+            AtomNeighbors neighbors = new AtomNeighbors(pair[0]);
+            if(neighbors.classifyAtom(pair[1]) == type){
+                ans.add(pair);
+            }
+        }
+        
+        return ans;
+    }
+    
+    //special versions
+     public static ArrayList<Atom[]> getPairs14( ArrayList<Atom[]> atomPairs ){
+        return getPairsByType(atomPairs, NEIGHBORTYPE.BONDED14);
+    }
+        
+    public static ArrayList<Atom[]> getPairsNonBonded( ArrayList<Atom[]> atomPairs ){
+        return getPairsByType(atomPairs, NEIGHBORTYPE.NONBONDED);
+    }
+        
+      
     
 }

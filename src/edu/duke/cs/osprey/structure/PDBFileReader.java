@@ -74,7 +74,7 @@ public class PDBFileReader {
 
                 if ( (curLine.regionMatches(true,0,"ATOM  ",0,6)) || (curLine.regionMatches(true,0,"HETATM",0,6)) ){
 
-                    if( EnvironmentVars.fixNonTemplateResidues ){//Ignore alternates other than A; treat A alternates as the real structure
+                    if( EnvironmentVars.deleteNonTemplateResidues ){//Ignore alternates other than A; treat A alternates as the real structure
                         char alt = curLine.charAt(16);//This specifies which alternate the atom is (space if not an alternate)
                         if( ( alt != ' ' ) && ( alt != 'A' ) ){
                             curLine = bufread.readLine();
@@ -130,18 +130,30 @@ public class PDBFileReader {
 
         
                 //assign proline puckers?  if treated as DOF might handle along with regular dihedrals
-
-        
-        if(EnvironmentVars.assignTemplatesToStruct){
-            for(Residue res : m.residues)
-                res.assignTemplate();//using ResidueTemplateLibrary
-            
-            HardCodedResidueInfo.markInterResBonds(m);//assigning templates marks intra-res bonds; we can now mark inter-res too
-        }
-        
+        if(EnvironmentVars.assignTemplatesToStruct)
+            assignTemplates(m);
+                
         return m;
     }
     
+    
+    static void assignTemplates(Molecule m){
+        
+        for(int resNum=m.residues.size()-1; resNum>=0; resNum--){
+            //go through residues backwards so we can delete some if needed
+            
+            Residue res = m.residues.get(resNum);
+            boolean templateAssigned = res.assignTemplate();
+            
+            if(EnvironmentVars.deleteNonTemplateResidues && !templateAssigned){
+                //residue unrecognized or incomplete...delete it
+                m.residues.remove(resNum);
+            }
+        }
+
+        HardCodedResidueInfo.markInterResBonds(m);//assigning templates marks intra-res bonds; we can now mark inter-res too
+    }
+            
     
     
     

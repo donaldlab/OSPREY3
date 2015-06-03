@@ -6,8 +6,9 @@ package edu.duke.cs.osprey.tests;
 
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.SearchSpace;
+import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.pruning.PruningControl;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
 import java.util.ArrayList;
 
 /**
@@ -23,9 +24,10 @@ public class ConfSearchTests {
         //For a small, simple search space, ensure that the ConfSearch object
         //enumerates all conformations in ascending order
         
-        SearchSpace searchSpace = makeTestSearchSpace(5,false,false);//3^5 confs.  No clashes (would make some weird confs)
+        SearchProblem searchSpace = makeTestSearchSpace(5,false,false);//3^5 confs.  No clashes (would make some weird confs)
         int totNumResults = 3*3*3*3*3;
         
+        searchSpace.pruneMat = new PruningMatrix(searchSpace.confSpace,-1);//no pruning
         ArrayList<ConfSearch> searches = confSearchesToTest(searchSpace);
         
         for(ConfSearch search : searches){
@@ -42,9 +44,10 @@ public class ConfSearchTests {
                 
                 assert newConfE > curE - 1e-3;//enumerating in ascending order (within numerical tolerance)
                 curE = Math.max(curE,newConfE);
+                resultCount++;
             }
             
-            assert resultCount==totNumResults;//check right number of confs enumerated
+            assert (resultCount==totNumResults);//check right number of confs enumerated
         }
         
         System.out.println("EXHAUSTIVE CONFORMATIONAL SEARCH TEST PASSED");
@@ -55,14 +58,17 @@ public class ConfSearchTests {
         //ensure that DEE does not prune the best conf, by comparing A* results with and without DEE
         //might run this a few time with random energies, to be more sure
         
-        SearchSpace searchSpace = makeTestSearchSpace(6/*10*/,true,false);
+        SearchProblem searchSpace = makeTestSearchSpace(6/*10*/,true,false);
         //bigger search space, and leaving clashes will create more realistic test conditions
         
+        searchSpace.pruneMat = new PruningMatrix(searchSpace.confSpace,-1);//no pruning
         ConfSearch aStar = new ConfTree(searchSpace);//Regular A* is cool for this purpose
         
         int topConf[] = aStar.nextConf();
         
-        int algOption = 1;
+        System.out.println("Conf E: "+searchSpace.emat.confE(topConf));
+        
+        int algOption = 3;
         double boundsThresh = Double.POSITIVE_INFINITY;//could also try energy of topConf...
         
         //now prune and rerun A*
@@ -71,16 +77,22 @@ public class ConfSearchTests {
                 
         pruning.prune();
         
+        aStar = new ConfTree(searchSpace);
         
         int topConfWithPruning[] = aStar.nextConf();
         
-        for(int pos=0; pos<searchSpace.confSpace.numPos; pos++)
-            assert topConf[pos] == topConfWithPruning[pos];
+        System.out.println("Conf E: "+searchSpace.emat.confE(topConf));
+
+        
+        for(int pos=0; pos<searchSpace.confSpace.numPos; pos++){
+            boolean match = ( topConf[pos] == topConfWithPruning[pos] );
+            assert match;
+        }
         
         System.out.println("DEE TEST PASSED");
     }
     
-    private static ArrayList<ConfSearch> confSearchesToTest(SearchSpace searchSpace){
+    private static ArrayList<ConfSearch> confSearchesToTest(SearchProblem searchSpace){
         //for a given search space, enumerate the ConfSearch objects we want to test for it
         ArrayList<ConfSearch> ans = new ArrayList<>();
         ans.add(new ConfTree(searchSpace));
@@ -91,7 +103,7 @@ public class ConfSearchTests {
     
     
     
-    private static SearchSpace makeTestSearchSpace(int numPos, boolean doMut, boolean randomizeEnergies){
+    private static SearchProblem makeTestSearchSpace(int numPos, boolean doMut, boolean randomizeEnergies){
         //generate a search space for test purposes with the given number of positions
         //If doMut, allow a bunch of options per position, else allow only val (3 RCs) at each position
         //We'll randomize the energies to get a fresh test every time, but 
@@ -115,9 +127,9 @@ public class ConfSearchTests {
             allowedAAs.add(AAatPos);
         }
         
-        SearchSpace ans = new SearchSpace( "CONFSEARCHTEST", "1CC8.ss.pdb", 
-                flexRes, allowedAAs,
-                false, false );//don't add WT, and no minimization
+        SearchProblem ans = new SearchProblem( "testResults/CONFSEARCHTEST"+numPos, "1CC8.ss.pdb", 
+                flexRes, allowedAAs,false, false, false, null, 
+                false);//don't add WT, and no minimization, EPIC, or tuple expansion
         
         if(randomizeEnergies){
             //we don't need real energies, just make some up (in fact the randomization will be good)

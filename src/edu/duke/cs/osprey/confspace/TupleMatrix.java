@@ -6,7 +6,6 @@ package edu.duke.cs.osprey.confspace;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.TreeMap;
 
 /**
  *
@@ -42,16 +41,36 @@ public class TupleMatrix<T> implements Serializable {
     //Return the residue-based RC number
     ArrayList<TreeMap<String,TreeMap<Integer,
     */
-        
-    public TupleMatrix (ConfSpace cSpace){
+    
+    
+    double pruningInterval;//This matrix needs to hold entries for all RCs
+    //that cannot be pruned with the specified pruning interval (Ew + Ival)
+    //i.e. the matrix must describe all conformations within pruningInterval 
+    //of the lowest pairwise lower bound
+    
+    public TupleMatrix(ConfSpace cSpace, double pruningInterval){
         //allocate the matrix based on the provided conformational space
+        init(cSpace.numPos, cSpace.getNumRCsAtPos(), pruningInterval);
+    }
+    
+    
+    public TupleMatrix(int numPos, int[] numAllowedAtPos, double pruningInterval){
+        //allocate the matrix based on the provided conformational space size
+        //also specify what pruningInterval it's valid up to
+        init(numPos,numAllowedAtPos,pruningInterval);
+    }
+    
+    
+    private void init(int numPos, int[] numAllowedAtPos, double pruningInterval) {
+        
+        this.pruningInterval = pruningInterval;
         
         oneBody = new ArrayList<>();
         pairwise = new ArrayList<>();
         
-        for(int pos=0; pos<cSpace.numPos; pos++){
+        for(int pos=0; pos<numPos; pos++){
                         
-            int numRCs = cSpace.posFlex.get(pos).RCs.size();
+            int numRCs = numAllowedAtPos[pos];
             
             //preallocate oneBody for this position
             ArrayList<T> oneBodyAtPos = new ArrayList<>();
@@ -67,7 +86,7 @@ public class TupleMatrix<T> implements Serializable {
             //handle later though
             for(int pos2=0; pos2<pos; pos2++){
                 
-                int numRCs2 = cSpace.posFlex.get(pos2).RCs.size();
+                int numRCs2 = numAllowedAtPos[pos2];
 
                 ArrayList<ArrayList<T>> pairwiseAtPair = new ArrayList<>();
                 
@@ -124,6 +143,24 @@ public class TupleMatrix<T> implements Serializable {
         return oneBody.get(pos).size();
     }
     
+    
+    public void setTupleValue(RCTuple tup, T val){
+        //assign the given value to the specified RC tuple
+        int tupSize = tup.pos.size();
+        
+        if(tupSize==1)//just a one-body quantity
+            setOneBody( tup.pos.get(0), tup.RCs.get(0), val);
+        if(tupSize==2)//two-body
+            setPairwise( tup.pos.get(0), tup.RCs.get(0), tup.pos.get(1), tup.RCs.get(1), val );
+        else
+            throw new UnsupportedOperationException( "ERROR: Not supporting tuple size " + tupSize );
+    }
+
+    public double getPruningInterval() {
+        return pruningInterval;
+    }
  
+    
+    
     
 }

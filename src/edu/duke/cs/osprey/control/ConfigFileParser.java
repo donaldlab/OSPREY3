@@ -4,11 +4,13 @@
  */
 package edu.duke.cs.osprey.control;
 
-import edu.duke.cs.osprey.confspace.SearchSpace;
+import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.pruning.PruningControl;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.StringTokenizer;
@@ -37,7 +39,7 @@ public class ConfigFileParser {
     
     
     //creation of objects needed in calculations like GMEC and K*
-    SearchSpace getSearchSpace(){//this version is for a single search space...can modify for
+    SearchProblem getSearchProblem(){//this version is for a single search problem...can modify for
         //additional states (unbound, etc.)
         
         String name = params.getValue("RUNNAME");
@@ -50,10 +52,16 @@ public class ConfigFileParser {
                     + "and allowed AA type parameters!");
         }
         
-        return new SearchSpace( name, params.getValue("PDBNAME"), 
+        System.out.println("CREATING SEARCH PROBLEM.  NAME: "+name);
+        
+        
+        return new SearchProblem( name, params.getValue("PDBNAME"), 
                 flexRes, allowedAAs,
                 params.getBool("AddWT",true), 
-                params.getBool("doMinimize",false) );//CURRENTLY JUST SC MINIMIZATION...
+                params.getBool("doMinimize",false),
+                params.getBool("UseEPIC",false),
+                new EPICSettings(params),
+                params.getBool("UseTupExp",false));//CURRENTLY JUST SC MINIMIZATION...
     }
     
     
@@ -112,10 +120,13 @@ public class ConfigFileParser {
     
     
     
-    PruningControl setupPruning(SearchSpace searchSpace, double curEw){
-        //setup pruning.  Conformations in searchSpace more than curEw over the GMEC are liable to pruning
+    PruningControl setupPruning(SearchProblem searchSpace, double pruningInterval){
+        //setup pruning.  Conformations in searchSpace more than (Ew+Ival) over the GMEC are liable to pruning
         
-        return new PruningControl(searchSpace, curEw, params.getBool("TYPEDEP",false), 
+        //initialize the pruning matrix for searchSpace
+        searchSpace.pruneMat = new PruningMatrix(searchSpace.confSpace, pruningInterval);
+        
+        return new PruningControl(searchSpace, pruningInterval, params.getBool("TYPEDEP",false), 
             params.getDouble("BOUNDSTHRESH",100), params.getInt("ALGOPTION",1), 
             params.getBool("USEFLAGS",true),
             params.getBool("USETRIPLES",false), false);//FOR NOW NO DACS

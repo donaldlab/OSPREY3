@@ -21,10 +21,10 @@ public class PDBTests {
         EnvironmentVars.assignTemplatesToStruct = false;//this would create changes that would go to copy2
         Molecule m = PDBFileReader.readPDBFile("1CC8.copy.pdb");
         EnvironmentVars.assignTemplatesToStruct = true;
-        PDBFileWriter.writePDBFile(m, "1CC8.copy2.pdb");
+        PDBFileWriter.writePDBFile(m, "testResults/1CC8.copy2.pdb");
                 
         try {
-            int diffState = Runtime.getRuntime().exec("diff 1CC8.copy.pdb 1CC8.copy2.pdb").getInputStream().read();
+            int diffState = Runtime.getRuntime().exec("diff 1CC8.copy.pdb testResults/1CC8.copy2.pdb").getInputStream().read();
             if(diffState==-1)//indicates no difference
                 System.out.println("PDB READ/WRITE TEST PASSED");
             else

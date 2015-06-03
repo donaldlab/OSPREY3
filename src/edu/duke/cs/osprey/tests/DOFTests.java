@@ -25,8 +25,8 @@ public class DOFTests {
         Molecule m = PDBFileReader.readPDBFile("1CC8.ss.pdb");
         ResidueTypeDOF mutDOF = new ResidueTypeDOF(m.residues.get(37));//Ser 39 originally
         mutDOF.mutateTo("ALA");
-        PDBFileWriter.writePDBFile(m, "1CC8.S39A.pdb");
-        System.out.println("Wrote mutation test output: 1CC8.S39A.pdb");
+        PDBFileWriter.writePDBFile(m, "testResults/1CC8.S39A.pdb");
+        System.out.println("Wrote mutation test output: testResults/1CC8.S39A.pdb");
     }
     
     public static void testDihedral(){
@@ -52,8 +52,8 @@ public class DOFTests {
         
         System.out.println("chi1 applied as 45, measured as "+chi1Measured);
         System.out.println("chi2 applied as -121, measured as "+chi2Measured);
-        System.out.println("Outputting dihedral-adjusted structure as 1CC8.dih.pdb");
-        PDBFileWriter.writePDBFile(m, "1CC8.dih.pdb");
+        System.out.println("Outputting dihedral-adjusted structure as testResults/1CC8.dih.pdb");
+        PDBFileWriter.writePDBFile(m, "testResults/1CC8.dih.pdb");
     }
     
 }

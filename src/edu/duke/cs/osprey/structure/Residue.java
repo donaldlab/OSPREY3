@@ -6,18 +6,20 @@ package edu.duke.cs.osprey.structure;
 
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResTemplateMatching;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.tools.StringParsing;
 import edu.duke.cs.osprey.tools.VectorAlgebra;
+import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
  *
  * @author mhall44
  */
-public class Residue {
+public class Residue implements Serializable {
     //This is a residue
     //in the general sense: it's a piece of a molecular system that can mutate, take on RCs, etc.
     //and is the basic unit for energy calculations: energy is broken down to intra-residue energies,
@@ -106,9 +108,13 @@ public class Residue {
         
         //first see if there are any templates matching this name
         ArrayList<ResidueTemplate> templCandidates = new ArrayList<>();
-        String resName = fullName.substring(0,3);
+        
+        String templateName = HardCodedResidueInfo.getTemplateName(this);
+        //Residues will usually have a template name that's the first three residue of their full name,
+        //but there are a few exceptions
+        
         for(ResidueTemplate templ : templateLib.templates){
-            if(templ.name.equalsIgnoreCase(resName))//OR ALT NAME OF TEMPLATE??
+            if(templ.name.equalsIgnoreCase(templateName))
                 templCandidates.add(templ);
         }
         

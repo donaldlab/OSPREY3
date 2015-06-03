@@ -4,11 +4,13 @@
  */
 package edu.duke.cs.osprey.energy;
 
+import java.io.Serializable;
+
 /**
  *
  * @author mhall44
  */
-public interface EnergyFunction {
+public interface EnergyFunction extends Serializable {
     
     public abstract double getEnergy();
     

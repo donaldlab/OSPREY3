@@ -43,8 +43,8 @@ public class ConfSpaceTests {
         RC rot1 = cs.posFlex.get(1).RCs.get(1);
         assert rot1.rotNum==1;
         assert rot1.DOFs.size()==4;
-        assert rot1.DOFmax.get(0)==189;
-        assert rot1.DOFmin.get(0)==171;
+        assert Math.round( rot1.DOFmax.get(0) ) == 71;
+        assert Math.round( rot1.DOFmin.get(0) ) == 53;
         
         //try adding additional AA types
         allowedAAs.get(0).add("PHE");//2 dihedrals, 4 rotamers.  So now two dihedrals needed for res 22
@@ -58,8 +58,8 @@ public class ConfSpaceTests {
         RC rot0 = cs.posFlex.get(2).RCs.get(0);
         assert rot0.rotNum==0;
         assert rot0.DOFs.size()==2;
-        assert rot1.DOFmax.get(1)==89;
-        assert rot1.DOFmin.get(1)==71;
+        assert Math.round( rot0.DOFmax.get(1) ) == 80;
+        assert Math.round( rot0.DOFmin.get(1) ) == 80;
         
         //if we get here, test passed
         System.out.println("CONFSPACE GENERATION TEST PASSED");

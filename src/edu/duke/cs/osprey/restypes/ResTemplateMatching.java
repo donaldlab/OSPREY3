@@ -91,7 +91,7 @@ public class ResTemplateMatching {
     
     void searchForMatching(int level){
         //DFS over permutations of atoms, starting at current level (indicates which atom
-        //in the template we want to match next
+        //in the template we want to match next)
         
         if(level==numAtoms){//all atoms defined...let's score this matching
             //when we get a full permutation, we score it based on least-square length difference for the template bonds.
@@ -108,7 +108,7 @@ public class ResTemplateMatching {
                     
                     //make sure element types match
                     String templateEleType = template.templateRes.atoms.get(level).elementType;
-                    String resEleType = res.atoms.get(level).elementType;
+                    String resEleType = res.atoms.get(resAtNum).elementType;
                     
                     if(templateEleType.equalsIgnoreCase(resEleType)){
                     

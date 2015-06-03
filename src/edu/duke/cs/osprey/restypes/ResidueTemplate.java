@@ -6,13 +6,14 @@ package edu.duke.cs.osprey.restypes;
 
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Residue;
+import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
  *
  * @author mhall44
  */
-public class ResidueTemplate {
+public class ResidueTemplate implements Serializable {
     //This class defines a residue type, like ARG or H2O or whatever
     //structures are composed entirely of residues. 
     //We need to identify the type of each residue whenever we want to move it it a residue-specific way

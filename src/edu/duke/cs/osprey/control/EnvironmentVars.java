@@ -19,8 +19,7 @@ public class EnvironmentVars {
         //Regulation of structure read-in/template assignment
         public static boolean assignTemplatesToStruct = true;//Assign templates when we read in a template.
         //We'll keep this true unless explicitly set otherwise since most calculations require templates
-        public static boolean fixNonTemplateResidues = true;//Make sure each residue is assigned a template
-        //fix incomplete ones, and delete those that can't be assigned or fixed
+        public static boolean deleteNonTemplateResidues = true;//Delete residues for which we don't have a template
         
         public static boolean useMPI = false;//distribute things like energy matrix calculations, K* calculation for sequences using MPI
         

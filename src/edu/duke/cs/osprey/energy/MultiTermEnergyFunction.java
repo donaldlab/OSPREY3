@@ -62,6 +62,9 @@ public class MultiTermEnergyFunction implements EnergyFunction {
         return E;
     }
 
+    public ArrayList<EnergyFunction> getTerms() {
+        return terms;
+    }
 
 }
 

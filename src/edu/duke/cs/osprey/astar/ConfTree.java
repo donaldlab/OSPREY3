@@ -4,8 +4,11 @@
  */
 package edu.duke.cs.osprey.astar;
 
-import edu.duke.cs.osprey.confspace.SearchSpace;
+import edu.duke.cs.osprey.confspace.ConfSpace;
+import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.RCTuple;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -22,7 +25,7 @@ public class ConfTree extends AStarTree {
     //we may also want to allow other negative indices, to indicate partially assigned RCs
 
     int numPos;
-    SearchSpace searchSpace;
+    EnergyMatrix emat;
     
     
     
@@ -40,13 +43,30 @@ public class ConfTree extends AStarTree {
     boolean useDynamicAStar = false;
 
     
+    EPICMatrix epicMat = null;//to use in refinement
+    ConfSpace confSpace = null;//conf space to use with epicMat if we're doing EPIC minimization w/ SAPE
+    boolean minPartialConfs = false;//whether to minimize partially defined confs with EPIC, or just fully defined
     
-    public ConfTree(SearchSpace acs) {
-        searchSpace = acs;
-        numPos = searchSpace.confSpace.numPos;
+    public ConfTree(SearchProblem sp) {
+        numPos = sp.confSpace.numPos;
         
+        //see which RCs are unpruned and thus available for consideration
         for(int pos=0; pos<numPos; pos++){
-            unprunedRCsAtPos.add( searchSpace.pruneMat.unprunedRCsAtPos(pos) );
+            unprunedRCsAtPos.add( sp.pruneMat.unprunedRCsAtPos(pos) );
+        }
+        
+        //get the appropriate energy matrix to use in this A* search
+        if(sp.useTupExpForSearch)
+            emat = sp.tupExpEMat;
+        else {
+            emat = sp.emat;
+            
+            if(sp.useEPIC){//include EPIC in the search
+                useRefinement = true;
+                epicMat = sp.epicMat;
+                confSpace = sp.confSpace;
+                minPartialConfs = sp.epicSettings.minPartialConfs;
+            }
         }
     }
     
@@ -162,7 +182,7 @@ public class ConfTree extends AStarTree {
         if(traditionalScore){
             RCTuple definedTuple = new RCTuple(partialConf);
             
-            double score = searchSpace.emat.getInternalEnergy( definedTuple );//"g-score"
+            double score = emat.getConstTerm() + emat.getInternalEnergy( definedTuple );//"g-score"
             
             //score works by breaking up the full energy into the energy of the defined set of residues ("g-score"),
             //plus contributions associated with each of the undefined res ("h-score")
@@ -196,7 +216,7 @@ public class ConfTree extends AStarTree {
         //Provide a lower bound on what the given rc at the given level can contribute to the energy
         //assume partialConf and definedTuple
         
-        double rcContrib = searchSpace.emat.getOneBody(level,rc);
+        double rcContrib = emat.getOneBody(level,rc);
         
         //for this kind of lower bound, we need to split up the energy into the defined-tuple energy
         //plus "contributions" for each undefined residue
@@ -221,7 +241,7 @@ public class ConfTree extends AStarTree {
                 
                 for( int rc2 : allowedRCs ){
                     
-                    double interactionE = searchSpace.emat.getPairwise(level,rc,level2,rc2);
+                    double interactionE = emat.getPairwise(level,rc,level2,rc2);
                     
                     //double higherLB = higherOrderContribLB(partialConf,level,rc,level2,rc2,);
                     //add higher-order terms that involve rc, rc2, and
@@ -253,10 +273,23 @@ public class ConfTree extends AStarTree {
     
     
     
-    
     @Override
     void refineScore(AStarNode node){//e.g. add the EPIC contribution
         node.score = betterScore();//or this could be a good place for MPLP or sthg
     }
     */
+    
+    
+     @Override
+    void refineScore(AStarNode node){
+        
+        if(epicMat==null)
+            throw new UnsupportedOperationException("ERROR: Trying to call refinement w/o EPIC matrix");
+            //later can do MPLP, etc. here
+        
+        if(minPartialConfs || isFullyAssigned(node))
+            node.score += epicMat.minContE(node.nodeAssignments);
+        
+        node.scoreNeedsRefinement = false;
+    }
 }

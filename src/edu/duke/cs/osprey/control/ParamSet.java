@@ -50,7 +50,10 @@ public class ParamSet implements Serializable {
 			while (curLine != null){
 				done = false;
 				while (!done) {
-					if (curLine.charAt(0) == '%'){
+                                        if(curLine.isEmpty()){//skip blank lines
+                                            curLine = bufread.readLine();
+                                        }
+                                        else if (curLine.charAt(0) == '%'){
 						curLine = bufread.readLine();
 					}
 					else {

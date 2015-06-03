@@ -5,13 +5,14 @@
 package edu.duke.cs.osprey.confspace;
 
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
+import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
  *
  * @author mhall44
  */
-public class RC {
+public class RC implements Serializable {
     //A residue conformation.  Meant to be part of a PositionConfSpace
     
     public String AAType;//amino-acid type

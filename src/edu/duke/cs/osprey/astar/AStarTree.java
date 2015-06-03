@@ -49,12 +49,21 @@ public abstract class AStarTree implements ConfSearch {
                 
                 while(curNode.scoreNeedsRefinement){
                     refineScore(curNode);
-                    pq.add(curNode);
+                    
+                    if(curNode.score!=Double.POSITIVE_INFINITY)//remove node if refinement showed it's impossible
+                        pq.add(curNode);
+                    
                     curNode = pq.poll();
+                    if(curNode==null){
+                        System.out.println("A* tree empty...returning empty signal");
+                        return null;//signal for empty tree
+                    }
                 }
                 
-                if(isFullyAssigned(curNode))
+                if(isFullyAssigned(curNode)){
+                    System.out.println("A* returning conf.  "+pq.size()+" nodes in A* tree.  Score: "+curNode.score);
                     return outputNode(curNode);
+                }
 
                 //expand
                 ArrayList<AStarNode> children = getChildren(curNode);

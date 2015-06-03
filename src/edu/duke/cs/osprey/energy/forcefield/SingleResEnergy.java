@@ -49,4 +49,15 @@ public class SingleResEnergy implements EnergyFunction {
         ffEnergy = new ForcefieldEnergy(true,res.atoms,res.atoms,ffParams);
         templ = res.template;
     }
+
+    public Residue getRes() {
+        return res;
+    }
+
+    public ForcefieldParams getFFParams() {
+        return ffParams;
+    }
+    
+    
+    
 }

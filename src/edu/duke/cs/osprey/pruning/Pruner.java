@@ -4,7 +4,7 @@
  */
 package edu.duke.cs.osprey.pruning;
 
-import edu.duke.cs.osprey.confspace.SearchSpace;
+import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.pruning.PruningMethod.CheckSumType;
@@ -23,21 +23,21 @@ public class Pruner {
     //(usually we just need an iterator over rotamers, or an iterator over pairs)
     //and then each type of Pruner has its own pruning condition
     
-    SearchSpace searchSpace;
+    SearchProblem searchSpace;
     
     boolean typeDep;//use type-dependent pruning
     double boundsThreshold;//any conformations above this threshold are liable to Bounds pruning
     
-    double Ew;//any conformations more than Ew above optimal are liable to competitive pruning
+    double pruningInterval;//any conformations more than Ew above optimal are liable to competitive pruning
     //(this includes I in iMinDEE, since in this case we are using the pairwise-minimal energies
     //and "optimal" refers to the lowest pairwise bound)
     
     
-    public Pruner(SearchSpace searchSpace, boolean typeDep, double boundsThreshold, double Ew) {
+    public Pruner(SearchProblem searchSpace, boolean typeDep, double boundsThreshold, double pruningInterval) {
         this.searchSpace = searchSpace;
         this.typeDep = typeDep;
         this.boundsThreshold = boundsThreshold;
-        this.Ew = Ew;
+        this.pruningInterval = pruningInterval;
     }
     
     
@@ -160,7 +160,7 @@ public class Pruner {
             throw new RuntimeException("ERROR: Not supporting indirect and conf-splitting pruning yet...");
         }
         
-        return (checkSum>Ew);
+        return (checkSum>pruningInterval);
     }
     
     
@@ -191,7 +191,7 @@ public class Pruner {
             throw new RuntimeException("ERROR: Unrecognized checksum type for non-competitive pruning: "+checkSumType.name());
         }
         
-        return ( checkSum > boundsThreshold+Ew );
+        return ( checkSum > boundsThreshold+pruningInterval );
     }
     
     

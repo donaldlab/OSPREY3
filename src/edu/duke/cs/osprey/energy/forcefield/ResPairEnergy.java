@@ -50,7 +50,19 @@ public class ResPairEnergy implements EnergyFunction {
         templ1 = res1.template;
         templ2 = res2.template;
     }
+
+    public Residue getRes1() {
+        return res1;
+    }
+
+    public Residue getRes2() {
+        return res2;
+    }
     
+    
+    public ForcefieldParams getFFParams() {
+        return ffParams;
+    }
     
     
     

@@ -4,6 +4,8 @@
  */
 package edu.duke.cs.osprey.tools;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.ObjectInputStream;
@@ -15,6 +17,7 @@ import java.io.ObjectOutputStream;
  */
 
 //tools for storing objects, like an energy matrix
+//We can also deep-copy objects by passing them through a stream, as if to store to/load from a file
 
 public class ObjectIO {
     
@@ -54,5 +57,41 @@ public class ObjectIO {
                 System.exit(0);
         }
     }
+    
+    
+    
+    
+    	//Function adapted from: http://www.javaworld.com/javaworld/javatips/jw-javatip76.html?page=2
+	//Java Tip 76: An alternative to the deep copy technique
+	//Author: Dave Miller
+	static public Object deepCopy(Object oldObj) {
+          ObjectOutputStream oos = null;
+          ObjectInputStream ois = null;
+          try
+          {
+             ByteArrayOutputStream bos = 
+                   new ByteArrayOutputStream(); // A
+             oos = new ObjectOutputStream(bos); // B
+             // serialize and pass the object
+             oos.writeObject(oldObj);   // C
+             oos.flush();               // D
+             ByteArrayInputStream bin = 
+                   new ByteArrayInputStream(bos.toByteArray()); // E
+             ois = new ObjectInputStream(bin);                  // F
+             
+             // return the new object
+             Object ans = ois.readObject(); // G
+             
+             oos.close();
+             ois.close();
+             
+             return ans;
+          }
+          catch(Exception e)
+          {
+             e.printStackTrace();
+             throw new RuntimeException("Deep-copy error: "+e.getMessage());
+          }
+       }
     
 }
