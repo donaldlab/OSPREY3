@@ -5,6 +5,7 @@
 package edu.duke.cs.osprey.pruning;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
+import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.TupleMatrix;
 import java.util.ArrayList;
@@ -25,7 +26,7 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
     
         
     public PruningMatrix(ConfSpace cSpace, double pruningInterval){
-        super(cSpace, pruningInterval);
+        super(cSpace, pruningInterval, false);//higher tuples are unpruned unless otherwise indicated
         
         //We'll want to initialize everything to be unpruned, because this will be looked up during pruning
         //currently all entries in oneBody and pairwise are null
@@ -58,7 +59,7 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
     }
     
     
-    ArrayList<RCTuple> unprunedRCTuplesAtPos(ArrayList<Integer> pos){
+    public ArrayList<RCTuple> unprunedRCTuplesAtPos(ArrayList<Integer> pos){
         //get a list of unpruned RCTuples with the given positions
         //this method tests a few things more than once, so it could be sped up if needed, but it is convenient
         
@@ -117,22 +118,65 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
             
                 if(getPairwise(pos1,rc1,pos2,rc2))
                     return true;
+                
+                HigherTupleFinder<Boolean> htf = getHigherOrderTerms(pos1,rc1,pos2,rc2);
+                if(htf != null){
+                    if(isPrunedHigherOrder(tup,index2,htf))
+                        return true;
+                }
             }
             
-            //check higher-order here...
         }
         return false;
     }
     
     
+    boolean isPrunedHigherOrder(RCTuple tup, int curIndex, HigherTupleFinder<Boolean> htf){
+        //Checks if tup is pruned based on interactions in htf (corresponds to some sub-tuple of tup)
+        //with RCs whose indices in tup are < curIndex
+        ArrayList<Integer> interactingPos = htf.getInteractingPos();
+        
+        for(int ipos : interactingPos){
+            
+            //see if ipos is in tup with index < curIndex
+            int iposIndex = -1;
+            for(int ind=0; ind<curIndex; ind++){
+                if(tup.pos.get(ind)==ipos){
+                    iposIndex = ind;
+                    break;
+                }
+            }
+
+            if(iposIndex > -1){//ipos interactions need to be counted
+                int iposRC = tup.RCs.get(iposIndex);
+                if( htf.getInteraction(ipos, iposRC) )//sub-tuple plus (ipos,iposRC) is pruned
+                    return true;
+                
+                //see if need to go up to highers order again...
+                HigherTupleFinder htf2 = htf.getHigherInteractions(ipos,iposRC);
+                if(htf2!=null){
+                    if( isPrunedHigherOrder(tup,iposIndex,htf2) )
+                        return true;
+                }
+            }
+        }
+        
+        //if we get here, not pruned
+        return false;
+    }
+    
+    
+    
     public void markAsPruned(RCTuple tup){
+        setTupleValue(tup, true);
+        /*
         int tupSize = tup.pos.size();
         if(tupSize==1)
             setOneBody(tup.pos.get(0), tup.RCs.get(0), true);
         else if(tupSize==2)
             setPairwise(tup.pos.get(0), tup.RCs.get(0), tup.pos.get(1), tup.RCs.get(1), true);
         else
-            throw new RuntimeException("ERROR: Can't record pruned tuples of size "+tupSize+" yet");
+        */
     }
     
     

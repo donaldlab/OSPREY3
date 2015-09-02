@@ -1,0 +1,2 @@
+dataDir ../dataFiles
+doSolvationE false

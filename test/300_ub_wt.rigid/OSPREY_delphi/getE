@@ -1,0 +1,12 @@
+#!/bin/bash
+
+#cd /usr/project/xtmp/mah43/testpb/rigid13/OSPREY_delphi
+cd OSPREY_delphi #this script will be run from the parent directory
+delphi=/usr/project/dlab/Users/mah43/solvation/Delphi_Linux_SP_Linux_5.1_Palmetto_June_27_2011/delphi
+$delphi param > out
+ans=`awk '/corrected reaction field energy/{print $5;}' out`
+echo $ans
+echo $ans >> Elog.txt
+rm struct.pdb
+rm out
+cd ..

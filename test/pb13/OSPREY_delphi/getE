@@ -1,0 +1,8 @@
+#!/bin/bash
+
+#delphi=~/Mark/solvation/Delphi_MAC_F95/executable/delphi95
+delphi=~/Mark/solvation/DelPhi_MAC_F95_0514/delphi95
+$delphi param > out
+awk '/corrected reaction field energy/{print $5;}' out
+rm struct.pdb
+rm out

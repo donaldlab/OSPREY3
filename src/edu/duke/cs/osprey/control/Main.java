@@ -4,6 +4,8 @@
  */
 package edu.duke.cs.osprey.control;
 
+import edu.duke.cs.osprey.bbfree.BBFreeBlock;
+import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.PDBFileWriter;
@@ -11,6 +13,9 @@ import edu.duke.cs.osprey.tests.DOFTests;
 import edu.duke.cs.osprey.tests.EnergyTests;
 import edu.duke.cs.osprey.tests.ToolTests;
 import edu.duke.cs.osprey.tests.UnitTestSuite;
+import edu.duke.cs.osprey.tools.ObjectIO;
+import edu.duke.cs.osprey.tupexp.ConfETupleExpander;
+import edu.duke.cs.osprey.tupexp.TupleExpander;
 
 /**
  *
@@ -36,6 +41,18 @@ public class Main {
         //load data files
         cfp.loadData();
         
+        
+        
+        //DEBUG!!
+        // set number of threads for energy function evaluation
+        MultiTermEnergyFunction.setNumThreads( cfp.params.getInt("eEvalThreads", 4) );
+        if( MultiTermEnergyFunction.getNumThreads() > 1 ) {
+                System.setProperty( "java.util.concurrent.ForkJoinPool.common.parallelism", 
+                                String.valueOf(MultiTermEnergyFunction.getNumThreads()) );
+        }
+        
+        
+        
         if(command.equalsIgnoreCase("findGMEC")){
             //I recommend that we change the command names a little to be more intuitive, e.g. 
             //"findGMEC" instead of doDEE
@@ -51,6 +68,10 @@ public class Main {
         else if(command.equalsIgnoreCase("RunTests")){
             UnitTestSuite.runAllTests();
         }
+        /*else if(command.equalsIgnoreCase("doCOMETS")){
+            COMETSDoer cd = new COMETSDoer(cfp);
+            cd.calcBestSequences();
+        }*/
         //etc.
         else
             throw new RuntimeException("ERROR: OSPREY command unrecognized: "+command);
@@ -65,6 +86,85 @@ public class Main {
         //anything we want to try as an alternate main function, for debugging purposes
         //likely will want to exit after doing this (specify here)
         //for normal operation, leave no uncommented code in this function
+        
+        
+        /*ConfETupleExpander te = (ConfETupleExpander)ObjectIO.readObject("TUPLE_EXPANDER.dat", false);
+        te.calcExpansion(null);
+        
+        System.exit(0);*/
+        
+        /*
+        long startTime = System.currentTimeMillis();
+        int numReps = 16;
+        final double ans[] = new double[numReps];
+        final long times[] = new long[numReps];
+        
+        boolean useThreaded = false;
+
+        //threaded version:
+        if(useThreaded){
+            
+            Thread[] threads = new Thread[numReps];
+            
+            for(int rep=0; rep<numReps; rep++){
+                
+                final int repNum = rep;
+                threads[rep] = new Thread(){
+                    
+                    @Override
+                    public void run(){
+                        long st = System.currentTimeMillis();
+                        double b = 0;
+
+                        for(int a=0; a<1e7; a++){
+                            b += Math.sin(Math.cos(Math.tan(Math.cos(b))));
+                        }
+                        
+                        long runTime = System.currentTimeMillis()-st;
+                        
+                        synchronized(ans){
+                            times[repNum] = runTime;
+                            ans[repNum] = b;
+                        }
+                    }
+                };
+            }
+            
+            for(int rep=0; rep<numReps; rep++)//start all the threads
+                threads[rep].start();
+            
+            try {
+                for(int rep=0; rep<numReps; rep++)//wait for all the threads to finish
+                    threads[rep].join();
+            }
+            catch(InterruptedException e){
+                throw new RuntimeException("ERROR: Threaded calc interrupted!");
+            }
+            
+
+        }
+        //unthreaded version:
+        else {
+            for(int rep=0; rep<numReps; rep++){
+                double b = 0;
+
+                for(int a=0; a<1e7; a++){
+                    b +=  Math.sin(Math.cos(Math.tan(Math.cos(b))));
+                }
+
+                ans[rep] = b;
+            }
+        }
+        
+        
+        System.out.println(System.currentTimeMillis() - startTime);
+        for(int rep=0; rep<numReps; rep++){
+            System.out.println(ans[rep]+" "+times[rep]);
+        }
+       
+        
+        System.exit(0);
+        */
         
         /*EnvironmentVars.assignTemplatesToStruct = false;//this would change things
         Molecule m = PDBFileReader.readPDBFile("1CC8.ss.pdb");

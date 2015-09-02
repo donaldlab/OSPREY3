@@ -5,12 +5,15 @@
 package edu.duke.cs.osprey.control;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
+import edu.duke.cs.osprey.dof.deeper.RamachandranChecker;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.tools.StringParsing;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.StringTokenizer;
@@ -38,6 +41,69 @@ public class ConfigFileParser {
     }
     
     
+    DEEPerSettings setupDEEPer(){
+        //Set up the DEEPerSettings object, including the PertSet (describes the perturbations)
+        String runName = params.getValue("runName");
+        
+        DEEPerSettings dset = new DEEPerSettings(
+                params.getBool("doPerturbations", false),
+                params.getValue("perturbationFile", runName+".pert"),
+                params.getBool("selectPerturbations", true),
+                params.getValue("startingPerturbationFile", "none"),
+                params.getBool("onlyStartingPerturbations", false),
+                params.getDouble("maxShearParam", 2.5),
+                params.getDouble("maxBackrubParam", 2.5),
+                params.getBool("selectLCAs", false),
+                getFlexRes(), 
+                params.getValue("PDBNAME")
+        );
+        
+        dset.loadPertFile();//load the PertSet from its file
+        return dset;
+    }
+    
+    
+    private ArrayList<String[]> freeBBZoneTermini(){
+        //Read the termini of the BBFreeBlocks, if any
+        ArrayList<String[]> ans = new ArrayList<>();
+        
+        for(String rt : params.searchParams("BBFREEBLOCK")){
+            //So for example BBFREEBLOCK0 120 125 would mean make a BBFreeBlock for res 120-125
+            String strandLimitsString = params.getValue(rt);
+
+            String[] termini = 
+                { StringParsing.getToken(strandLimitsString, 1),
+                    StringParsing.getToken(strandLimitsString, 2) };
+
+            ans.add(termini);
+        }
+        
+        return ans;
+    }
+    
+    
+    private ArrayList<String[]> moveableStrandTermini(){
+        //Read the strands that are going to translate and rotate
+        //Let's say they can do this regardless of what doMinimize says (that's for sidechains)
+        ArrayList<String[]> ans = new ArrayList<>();
+        
+        for(String rt : params.searchParams("STRANDROTTRANS")){
+            if(params.getBool(rt, false)){
+                //So rt = STRANDROTTRANS0 here means strand 0 should translate & rotate
+                String strandNum = rt.substring(14);
+                String strandLimitsString = params.getValue("STRAND"+strandNum);
+                
+                String[] termini = 
+                    { StringParsing.getToken(strandLimitsString, 1),
+                        StringParsing.getToken(strandLimitsString, 2) };
+                
+                ans.add(termini);
+            }
+        }
+        
+        return ans;
+    }
+    
     //creation of objects needed in calculations like GMEC and K*
     SearchProblem getSearchProblem(){//this version is for a single search problem...can modify for
         //additional states (unbound, etc.)
@@ -54,6 +120,9 @@ public class ConfigFileParser {
         
         System.out.println("CREATING SEARCH PROBLEM.  NAME: "+name);
         
+        ArrayList<String[]> moveableStrands = moveableStrandTermini();
+        ArrayList<String[]> freeBBZones = freeBBZoneTermini();
+        DEEPerSettings dset = setupDEEPer();
         
         return new SearchProblem( name, params.getValue("PDBNAME"), 
                 flexRes, allowedAAs,
@@ -61,7 +130,8 @@ public class ConfigFileParser {
                 params.getBool("doMinimize",false),
                 params.getBool("UseEPIC",false),
                 new EPICSettings(params),
-                params.getBool("UseTupExp",false));//CURRENTLY JUST SC MINIMIZATION...
+                params.getBool("UseTupExp",false),
+                dset, moveableStrands, freeBBZones);
     }
     
     
@@ -120,16 +190,26 @@ public class ConfigFileParser {
     
     
     
-    PruningControl setupPruning(SearchProblem searchSpace, double pruningInterval){
+    PruningControl setupPruning(SearchProblem searchSpace, double pruningInterval, boolean useEPIC, boolean useTupExp){
         //setup pruning.  Conformations in searchSpace more than (Ew+Ival) over the GMEC are liable to pruning
         
-        //initialize the pruning matrix for searchSpace
-        searchSpace.pruneMat = new PruningMatrix(searchSpace.confSpace, pruningInterval);
+        //initialize the pruning matrix for searchSpace, if not already initialized
+        //or if pruningInterval lower (so it may have pruned tuples that shouldn't
+        //be pruned with our new pruningInterval)
+        boolean initPruneMat = false;
+        if(searchSpace.pruneMat==null)
+            initPruneMat = true;
+        else if(searchSpace.pruneMat.getPruningInterval() < pruningInterval)
+            initPruneMat = true;
         
-        return new PruningControl(searchSpace, pruningInterval, params.getBool("TYPEDEP",false), 
+        if(initPruneMat)
+            searchSpace.pruneMat = new PruningMatrix(searchSpace.confSpace, pruningInterval);
+        
+        return new PruningControl( searchSpace, pruningInterval, params.getBool("TYPEDEP",false), 
             params.getDouble("BOUNDSTHRESH",100), params.getInt("ALGOPTION",1), 
             params.getBool("USEFLAGS",true),
-            params.getBool("USETRIPLES",false), false);//FOR NOW NO DACS
+            params.getBool("USETRIPLES",false), false, useEPIC, useTupExp,
+            params.getDouble("STERICTHRESH",100) );//FOR NOW NO DACS
     }
     
     
@@ -142,6 +222,9 @@ public class ConfigFileParser {
         
         EnvironmentVars.setDataDir(params.getValue("DataDir"));
         
+        boolean usePoissonBoltzmann = params.getBool("USEPOISSONBOLTZMANN",false);
+        boolean useEEF1 = params.getBool("DOSOLVATIONE",true) && (!usePoissonBoltzmann);
+        
         //a lot of this depends on forcefield type so figure that out first
         //general forcefield data loaded into the ForcefieldParams in EnvironmentVars
         ForcefieldParams curForcefieldParams = new ForcefieldParams(
@@ -149,7 +232,7 @@ public class ConfigFileParser {
                 params.getBool("DISTDEPDIELECT",true),
 		params.getDouble("DIELECTCONST",6.0),
                 params.getDouble("VDWMULT",0.95),
-		params.getBool("DOSOLVATIONE",true),
+		useEEF1,//Only EEF1 solvation is part of the forcefield (P-B calls Delphi)
 		params.getDouble("SOLVSCALE",0.5),
                 params.getBool("HELECT",true),
                 params.getBool("HVDW",true) );
@@ -157,7 +240,8 @@ public class ConfigFileParser {
         
         EnvironmentVars.curEFcnGenerator = new EnergyFunctionGenerator( 
                 curForcefieldParams,
-                params.getDouble("SHELLDISTCUTOFF",Double.POSITIVE_INFINITY) );
+                params.getDouble("SHELLDISTCUTOFF",Double.POSITIVE_INFINITY),
+                usePoissonBoltzmann );
         
         String[] resTemplateFiles = getResidueTemplateFiles(curForcefieldParams.forcefld);
         
@@ -173,7 +257,16 @@ public class ConfigFileParser {
         EnvironmentVars.resTemplates = resTemplates;
         
         
-        //load RamachandranChecker here!
+        String ramaGlyFile = params.getValue("RAMAGLYFILE","rama500-gly-sym.data");
+
+        if( ! ramaGlyFile.equalsIgnoreCase("none") ){
+            String ramaFiles[] = { EnvironmentVars.getDataDir() + ramaGlyFile,
+            EnvironmentVars.getDataDir() + params.getValue("RAMAPROFILE","rama500-pro.data"),
+            EnvironmentVars.getDataDir() + params.getValue("RAMAGENFILE","rama500-general.data"),
+            EnvironmentVars.getDataDir() + params.getValue("RAMAPREPROFILE","rama500-prepro.data")
+            };
+            RamachandranChecker.getInstance().readInputFiles( ramaFiles );
+        }
         
         
         /*

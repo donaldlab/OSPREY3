@@ -7,7 +7,12 @@ package edu.duke.cs.osprey.control;
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.RCTuple;
+import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningControl;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.structure.PDBFileReader;
 
 /**
  *
@@ -47,6 +52,8 @@ public class GMECFinder {
     //each enumerated conformation rather than just relying on the EPIC or tup-exp approximation
     
     
+    boolean EFullConfOnly = false;//energy function only can be evaluated for full conf
+    
     public GMECFinder (ConfigFileParser cfgP){
         //fill in all the settings
         
@@ -68,6 +75,9 @@ public class GMECFinder {
             throw new RuntimeException("ERROR: iMinDEE requires continuous flexibility");
         
         outputGMECStruct = cfgP.params.getBool("OUTPUTGMECSTRUCT", false);
+        
+        //for now only full-conf-only E-fcn supported is Poisson-Boltzmann
+        EFullConfOnly = cfgP.params.getBool("UsePoissonBoltzmann",false);
     }
     
     
@@ -133,6 +143,8 @@ public class GMECFinder {
                         else
                             lowerBound = searchSpace.lowerBound(conf);
                     }
+                    else if(EFullConfOnly && checkApproxE)//get tup-exp approx
+                        lowerBound = searchSpace.approxMinimizedEnergy(conf);
                     
                     if(confE<bestESoFar){
                         bestESoFar = confE;
@@ -143,6 +155,25 @@ public class GMECFinder {
 
                     printConf(conf,confE,lowerBound,bestESoFar);
                 }
+                
+                
+                
+                                
+                
+                //DEBUG!!!!
+                /*
+                int conf2[] = new int[] {5,7,12,5,0,7,4};
+                boolean b2 = searchSpace.pruneMat.isPruned(new RCTuple(conf2));
+                double LB2 = searchSpace.lowerBound(conf2);
+                double E2 = searchSpace.approxMinimizedEnergy(conf2);
+                double EPIC2 = searchSpace.EPICMinimizedEnergy(conf2);
+                int aaa = 0;
+                */
+
+                
+                
+                
+                
                 
                 if(doIMinDEE){//if there are no conformations with minimized energy
                     //within curInterval of the lowestBound
@@ -161,7 +192,7 @@ public class GMECFinder {
                     System.out.println("A* returned no conformations.");
                     break;
                 }
-
+                
             } while( bestESoFar+Ew >= lowerBound );//lower bound above GMEC + Ew...can stop enumerating
             
         } while(needToRepeat);
@@ -178,36 +209,114 @@ public class GMECFinder {
             //All of these matrices except the basic pairwise energy matrix are pruning-dependent:
             //we can prune conformations whose energies are within pruningInterval
             //of the lowest pairwise lower bound
-        
+            
+            if(EFullConfOnly){
+                fullConfOnlyTupExp();
+                return;
+            }
         
             //First calculate the pairwise energy matrix, if not already present
             searchSpace.loadEnergyMatrix();
             
+            
+            
+            //DEBUG!!! Timing/profiling minimization for 40.cont...about 1/3 SAPE, small EPIC terms probably unimportant...
+            /*searchSpace.pruneMat = new PruningMatrix(searchSpace.confSpace,0);
+            searchSpace.loadEPICMatrix();
+            long startTime = System.currentTimeMillis();
+            int conf[] = new int[] { 0, 24, 1, 6, 4, 0, 9, 11, 4, 4, 4, 9, 3, 2, 22, 6, 
+                4, 1, 4, 1, 4, 6, 13, 0, 3, 4, 1, 3, 1, 3, 2, 6, 21, 8, 5, 0, 26, 3, 1, 19 };
+
+            //int conf[] = new int[] {0, 26, 1, 6, 2, 0, 7, 8, 6, 4, 4, 14, 4, 3, 26, 6, 3, 1, 2, 1, 
+            //    5, 9, 13, 1, 2, 4, 1, 3, 2, 7, 2, 6, 17, 21, 4, 0, 15, 6, 1, 32 };
+            
+            
+            System.out.println("EPIC MIN: "+searchSpace.EPICMinimizedEnergy(conf));
+            long minDoneTime = System.currentTimeMillis();
+            System.out.println("MIN TIME: "+(minDoneTime-startTime));
+            System.exit(0);*/
+            
+
+            //Doing competitor pruning now
+            //will limit us to a smaller, but effective, set of competitors in all future DEE
+            if(searchSpace.competitorPruneMat == null){
+                System.out.println("PRECOMPUTING COMPETITOR PRUNING MATRIX");
+                PruningControl compPruning = cfp.setupPruning(searchSpace,0,false,false);
+                compPruning.setOnlyGoldstein(true);
+                compPruning.prune();
+                searchSpace.competitorPruneMat = searchSpace.pruneMat;
+                searchSpace.pruneMat = null;
+                System.out.println("COMPETITOR PRUNING DONE");
+            }
+            
+            
             //Next, do DEE, which will fill in the pruning matrix
-            PruningControl pruning = cfp.setupPruning(searchSpace,pruningInterval);
+            PruningControl pruning = cfp.setupPruning(searchSpace,pruningInterval,false,false);
             
             pruning.prune();//pass in DEE options, and run the specified types of DEE            
             
             //precomputing EPIC or tuple-expander matrices is much faster
             //if only done for unpruned RCs.  Less RCs to handle, and the fits are far simpler.  
-            if(useEPIC)
+            if(useEPIC){
                 searchSpace.loadEPICMatrix();
-            if(useTupExp)//preferably do this one EPIC loaded (much faster if can fit to EPIC)
+                
+                //we can prune more using the EPIC matrix
+                System.out.println("Beginning post-EPIC pruning.");
+                PruningControl postEPICPruning = cfp.setupPruning(searchSpace, pruningInterval,true,false);
+                postEPICPruning.prune();
+                System.out.println("Finished post-EPIC pruning.");
+            }
+            if(useTupExp){//preferably do this one EPIC loaded (much faster if can fit to EPIC)
                 searchSpace.loadTupExpEMatrix();
+                
+                //we can prune even more with tup-exp!
+                //we can prune more using the EPIC matrix
+                //no iMinDEE interval needed here
+                System.out.println("Beginning post-tup-exp pruning.");
+                PruningControl postTEPruning = cfp.setupPruning(searchSpace, Ew,false,true);
+                postTEPruning.prune();
+                System.out.println("Finished post-tup-exp pruning.");
+            }
+    }
+    
+    
+    private void fullConfOnlyTupExp(){
+        //precompute the tuple expansion
+        if(!useTupExp)
+            throw new RuntimeException("ERROR: Need tuple expansion to handle full-conf-only E-function");
+        if(useEPIC)//later consider using differencing scheme to do EPIC for these
+            throw new RuntimeException("ERROR: EPIC for full-conf-only E-function not yet supported");
+        if(doIMinDEE)//don't have concept of pairwise lower bound, so not doing iMinDEE 
+            //(can just do rigid pruning on tup-exp matrix, even if using cont flex)
+            throw new RuntimeException("ERROR: iMinDEE + full-conf-only E-function not supported");
+        
+        
+        //Let's compute a matrix from the pairwise terms (no P-B), to use in selecting triples
+        searchSpace.loadEnergyMatrix();
+        
+        //initialize pruning matrix.  Nothing pruned yet because don't have pairwise energies
+        searchSpace.pruneMat = new PruningMatrix(searchSpace.confSpace,Ew);//not iMinDEE
+        
+        //We can only do steric pruning
+        double stericThresh = cfp.params.getDouble("STERICTHRESH", 30);
+        Pruner pruner = new Pruner(searchSpace, false, 0, 0, false, false);
+        pruner.pruneSteric(stericThresh);
+                
+        searchSpace.loadTupExpEMatrix();
     }
     
     
     double getConfEnergy(int[] conf){
         //MINIMIZED, EPIC, OR MATRIX E AS APPROPRIATE
         //whatever is being used as the "true" energy while enumerating
-        if(useContFlex){
+        if(useContFlex || EFullConfOnly){
             if( (useEPIC||useTupExp) && (!checkApproxE) )
                 return searchSpace.approxMinimizedEnergy(conf);
             else
                 return searchSpace.minimizedEnergy(conf);
         }
         else
-            return searchSpace.lowerBound(conf);
+            return searchSpace.lowerBound(conf);//for rigid calc w/ pairwise E-mtx, can just calc from mtx
     }
     
     void printConf(int[] conf, double confE, double lowerBound, double bestESoFar){
@@ -235,6 +344,9 @@ public class GMECFinder {
         String energyStatement = "Lower bound/enumeration energy: "+lowerBound+" Energy: "+confE+" Best so far: "+bestESoFar;
         //Lower bound/enumeration energy is what we enumerate in order of
         //(either a lower bound on the actual energy, or the same as Energy)
+        
+        if(checkApproxE && useEPIC && useTupExp)//useful to see EPIC energy (confE is regular E, lowerBound is tup-exp)
+            energyStatement = energyStatement + " EPIC energy: " + searchSpace.EPICMinimizedEnergy(conf);
         
         System.out.println(energyStatement);
     }

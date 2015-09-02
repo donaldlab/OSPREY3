@@ -26,7 +26,13 @@ public class VectorAlgebra {
     
     
     
+    
     //A bunch of 3-D vector operations
+    
+    //special case of distance for two 3-D vectors
+    public static double distance(double[] vec1, double[] vec2){
+        return distance(vec1,0,vec2,0);
+    }
 
     public static double dot(double[] vec1, double[] vec2){
         return vec1[0]*vec2[0]+vec1[1]*vec2[1]+vec1[2]*vec2[2];
@@ -114,7 +120,7 @@ public class VectorAlgebra {
     * return D
     * Used in sidechain idealization
     */
-    /*
+
     public static double[] get4thPoint(double[] a, double[] b, double[] c, double len, double ang, double dihe)
     {
         double d[] = subtract(b,c);
@@ -126,17 +132,16 @@ public class VectorAlgebra {
         double x2[] = subtract(c,b);
         x1 = cross(x1,x2);
 
-        double[][] rot1  = new double[3][3];
-        getRotMatrix(x1[0], x1[1], x1[2], ang, rot1);
-        d = applyRotMatrix(rot1,d);
+        RotationMatrix rot1 = new RotationMatrix(x1[0], x1[1], x1[2], ang, false);
+        d = rot1.rotateVector(d);
 
-        getRotMatrix(x2[0], x2[1], x2[2], dihe, rot1);
-        d = applyRotMatrix(rot1,d);
+        rot1 = new RotationMatrix(x2[0], x2[1], x2[2], dihe, false);
+        d = rot1.rotateVector(d);
 
         return add(d,c);
     }
-    */
 
+    
 
     //Given three points of the form (x,y,z),
     //return the coefficients for z in terms of x and y

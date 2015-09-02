@@ -38,5 +38,31 @@ public class RC implements Serializable {
     }
     
     
+    public boolean isParametricallyIncompatibleWith(RC rc2){
+        //Two RCs are parametrically incompatible if and only if there is a DOF that they share
+        //for which they have different intervals
+        //Thus, a conformation has a well-defined voxel if and only if it contains no parametrically
+        //incompatible pairs of RCs
+        
+        final double tol = 1e-8;
+        
+        for(int dof=0; dof<DOFs.size(); dof++){
+            for(int dof2=0; dof2<rc2.DOFs.size(); dof2++){
+                
+                if(DOFs.get(dof)==rc2.DOFs.get(dof2)){//same DOF
+                    
+                    if( Math.abs( DOFmin.get(dof) - rc2.DOFmin.get(dof2) ) > tol )
+                        return true;
+                    if( Math.abs( DOFmax.get(dof) - rc2.DOFmax.get(dof2) ) > tol )
+                        return true;
+                }
+            }
+        }
+        
+        //no incompatibility found!
+        return false;
+    }
+    
+    
     
 }

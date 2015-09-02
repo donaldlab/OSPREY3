@@ -24,7 +24,9 @@ public class TupleMatrix<T> implements Serializable {
     //indices: res1, res2, RC1, RC2 where res1>res2
     public ArrayList<ArrayList<T>> oneBody;//intra+shell
     
-    //public ArrayList<ArrayList<ArrayList<ArrayList<HigherTupleFinder<T>>>>> higherTerms;//look up higher terms by pair
+    ArrayList<ArrayList<ArrayList<ArrayList<HigherTupleFinder<T>>>>> higherTerms;//look up higher terms by pair
+    //same indices as pairwise
+    //can be null if no interactions
     
     //maybe separate intra too?
     
@@ -48,25 +50,31 @@ public class TupleMatrix<T> implements Serializable {
     //i.e. the matrix must describe all conformations within pruningInterval 
     //of the lowest pairwise lower bound
     
-    public TupleMatrix(ConfSpace cSpace, double pruningInterval){
+    T defaultHigherInteraction;//We only mark sparse higher interactions;
+    //if unmarked we assume this value (e.g., 0 for energy, false for pruning)
+    
+    public TupleMatrix(ConfSpace cSpace, double pruningInterval, T defaultHigherInteraction){
         //allocate the matrix based on the provided conformational space
-        init(cSpace.numPos, cSpace.getNumRCsAtPos(), pruningInterval);
+        init(cSpace.numPos, cSpace.getNumRCsAtPos(), pruningInterval, defaultHigherInteraction);
     }
     
     
-    public TupleMatrix(int numPos, int[] numAllowedAtPos, double pruningInterval){
+    public TupleMatrix(int numPos, int[] numAllowedAtPos, double pruningInterval, T defaultHigherInteraction){
         //allocate the matrix based on the provided conformational space size
         //also specify what pruningInterval it's valid up to
-        init(numPos,numAllowedAtPos,pruningInterval);
+        init(numPos, numAllowedAtPos, pruningInterval, defaultHigherInteraction);
     }
     
     
-    private void init(int numPos, int[] numAllowedAtPos, double pruningInterval) {
+    private void init(int numPos, int[] numAllowedAtPos, double pruningInterval, T defaultHigherInteraction) {
         
         this.pruningInterval = pruningInterval;
+        this.defaultHigherInteraction = defaultHigherInteraction;
         
         oneBody = new ArrayList<>();
         pairwise = new ArrayList<>();
+        
+        higherTerms = new ArrayList<>();//preallocate these too, but all null for now (no higher-order terms yet)
         
         for(int pos=0; pos<numPos; pos++){
                         
@@ -84,31 +92,49 @@ public class TupleMatrix<T> implements Serializable {
             ArrayList<ArrayList<ArrayList<T>>> pairwiseAtPos = new ArrayList<>();
             //may want to leave some pairs of positions null if negligible interaction expected...
             //handle later though
+            
+            ArrayList<ArrayList<ArrayList<HigherTupleFinder<T>>>> higherOrderAtPos = new ArrayList<>();
+            
             for(int pos2=0; pos2<pos; pos2++){
                 
                 int numRCs2 = numAllowedAtPos[pos2];
 
                 ArrayList<ArrayList<T>> pairwiseAtPair = new ArrayList<>();
+                ArrayList<ArrayList<HigherTupleFinder<T>>> higherOrderAtPair = new ArrayList<>();
                 
                 for(int rc=0; rc<numRCs; rc++){
                     ArrayList<T> pairwiseAtRC = new ArrayList<>();
-                    for(int rc2=0; rc2<numRCs2; rc2++)
+                    ArrayList<HigherTupleFinder<T>> higherOrderAtRC = new ArrayList<>();
+                    
+                    for(int rc2=0; rc2<numRCs2; rc2++){
                         pairwiseAtRC.add(null);
+                        higherOrderAtRC.add(null);
+                    }
                     
                     pairwiseAtRC.trimToSize();
                     pairwiseAtPair.add(pairwiseAtRC);
+                    
+                    higherOrderAtRC.trimToSize();
+                    higherOrderAtPair.add(higherOrderAtRC);
                 }
                 
                 pairwiseAtPair.trimToSize();
                 pairwiseAtPos.add(pairwiseAtPair);
+                
+                higherOrderAtPair.trimToSize();
+                higherOrderAtPos.add(higherOrderAtPair);
             }
             
             pairwiseAtPos.trimToSize();
             pairwise.add(pairwiseAtPos);
+            
+            higherOrderAtPos.trimToSize();
+            higherTerms.add(higherOrderAtPos);
         }
         
         oneBody.trimToSize();
         pairwise.trimToSize();
+        higherTerms.trimToSize();
     }
     
     
@@ -150,17 +176,62 @@ public class TupleMatrix<T> implements Serializable {
         
         if(tupSize==1)//just a one-body quantity
             setOneBody( tup.pos.get(0), tup.RCs.get(0), val);
-        if(tupSize==2)//two-body
+        else if(tupSize==2)//two-body
             setPairwise( tup.pos.get(0), tup.RCs.get(0), tup.pos.get(1), tup.RCs.get(1), val );
+        else if(tupSize>2){//higher-order
+            setHigherOrder(tup,val);
+        }
         else
             throw new UnsupportedOperationException( "ERROR: Not supporting tuple size " + tupSize );
     }
-
+    
+    
+    public void setHigherOrder(RCTuple tup, T val){
+        //set a higher-order term
+        //we need all pairs contained in tup to know about it
+        
+        //loop over pairs
+        for(int index1=0; index1<tup.pos.size(); index1++){
+            for(int index2=0; index2<index1; index2++){
+                
+                int pos1 = tup.pos.get(index1);
+                int rc1 = tup.RCs.get(index1);
+                int pos2 = tup.pos.get(index2);
+                int rc2 = tup.RCs.get(index2);
+                
+                //put tup into the HigherTupleFinder for this pair
+                HigherTupleFinder<T> htf = getHigherOrderTerms(pos1,rc1,pos2,rc2);
+                
+                //create a HigherTupleFinder if there is none yet
+                if(htf==null){
+                    htf = new HigherTupleFinder(defaultHigherInteraction);
+                    
+                    if(pos1>pos2)
+                        higherTerms.get(pos1).get(pos2).get(rc1).set(rc2,htf);
+                    else
+                        higherTerms.get(pos2).get(pos1).get(rc2).set(rc1,htf);
+                }
+                
+                RCTuple subTup = tup.subtractMember(index1).subtractMember(index2);
+                
+                htf.setInteraction(subTup,val);
+            }
+        }
+        
+    }
+    
     public double getPruningInterval() {
         return pruningInterval;
     }
- 
+    
+    public HigherTupleFinder<T> getHigherOrderTerms(int res1, int index1, int res2, int index2){
+        //working with residue-specific RC indices directly.  
+        if(res1>res2)
+            return higherTerms.get(res1).get(res2).get(index1).get(index2);
+        else
+            return higherTerms.get(res2).get(res1).get(index2).get(index1);
+    }
     
     
-    
+  
 }

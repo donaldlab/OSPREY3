@@ -31,7 +31,7 @@ public class ForcefieldEnergy implements Serializable {
     Residue res1, res2;//res1==res2 if internal energy of res1.  Else this is interaction of res1, res2
     
     ForcefieldParams params;
-    
+        
 	// If the debug flag is set to true then additional debug statements are
 	//  printed to standard out. I'm hoping that by making it a public static
 	//  final variable that the compiler will be smart and not compile/include
@@ -720,7 +720,7 @@ public class ForcefieldEnergy implements Serializable {
                         
 			Eenergy += coulombTerm;
 			Venergy += vdwTerm;
-		}
+                }
 		
 		//store computed energies
 		energyTerms[1] = Eenergy; //electrostatics

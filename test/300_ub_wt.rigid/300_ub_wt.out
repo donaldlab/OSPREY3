@@ -1,0 +1,88 @@
+Warning: no access to tty (Bad file descriptor).
+Thus no job control in this shell.
+stty: standard input: Inappropriate ioctl for device
+term: Undefined variable.
+Parameter DATADIR set to ../refac050715/dataFiles
+Parameter USEPOISSONBOLTZMANN set to true
+Parameter DOSOLVATIONE not set. Using default value true
+Parameter FORCEFIELD not set. Using default value AMBER
+Parameter DISTDEPDIELECT not set. Using default value true
+Parameter DIELECTCONST not set. Using default value 6.0
+Parameter VDWMULT not set. Using default value 0.95
+Parameter SOLVSCALE not set. Using default value 0.5
+Parameter HELECT not set. Using default value true
+Parameter HVDW not set. Using default value true
+ERROR: File Not Found: java.io.FileNotFoundException: ../refac050715/dataFiles/parm96a.dat (No such file or directory)
+Warning: no access to tty (Bad file descriptor).
+Thus no job control in this shell.
+stty: standard input: Inappropriate ioctl for device
+term: Undefined variable.
+Parameter DATADIR set to ../tecb/test/refac050715/dataFiles
+Parameter USEPOISSONBOLTZMANN set to true
+Parameter DOSOLVATIONE not set. Using default value true
+Parameter FORCEFIELD not set. Using default value AMBER
+Parameter DISTDEPDIELECT not set. Using default value true
+Parameter DIELECTCONST not set. Using default value 6.0
+Parameter VDWMULT not set. Using default value 0.95
+Parameter SOLVSCALE not set. Using default value 0.5
+Parameter HELECT not set. Using default value true
+Parameter HVDW not set. Using default value true
+Parameter SHELLDISTCUTOFF not set. Using default value Infinity
+Parameter ROTFILE not set. Using default value LovellRotamer.dat
+Parameter EW not set. Using default value 0.0
+Parameter IMINDEE set to false
+Parameter DOMINIMIZE set to false
+Parameter USETUPEXP set to true
+Parameter USEEPIC not set. Using default value false
+Parameter CHECKAPPROXE not set. Using default value true
+Parameter OUTPUTGMECSTRUCT set to true
+Parameter USEPOISSONBOLTZMANN set to true
+Parameter RUNNAME set to 300_ub_wt
+Parameter STRANDMUT0 set to 79 82 462 464 465 705
+Parameter RESALLOWED0_0 set to 
+Parameter RESALLOWED0_1 set to 
+Parameter RESALLOWED0_2 set to 
+Parameter RESALLOWED0_3 set to 
+Parameter RESALLOWED0_4 set to 
+Parameter RESALLOWED0_5 set to 
+CREATING SEARCH PROBLEM.  NAME: 300_ub_wt
+Parameter PDBNAME set to 2p1q_shell_noihp.pdb
+Parameter ADDWT set to true
+Parameter DOMINIMIZE set to false
+Parameter USEEPIC not set. Using default value false
+Parameter USEEPIC not set. Using default value false
+Parameter EPICTHRESH1 not set. Using default value 10.0
+Parameter EPICTHRESH2 not set. Using default value 25.0
+Parameter EPICGOALRESID not set. Using default value 1.0E-4
+Parameter USESAPE not set. Using default value true
+Parameter EPICUSEPC not set. Using default value true
+Parameter MINPARTIALCONFS not set. Using default value true
+Parameter USETUPEXP set to true
+
+BEGINNING ENERGY MATRIX PRECOMPUTATION
+
+Starting intra+shell energy calculations for residue 0
+Starting intra+shell energy calculations for residue 1
+Starting pairwise energy calculations for residues 1, 0
+Starting intra+shell energy calculations for residue 2
+Starting pairwise energy calculations for residues 2, 0
+Starting pairwise energy calculations for residues 2, 1
+Starting intra+shell energy calculations for residue 3
+Starting pairwise energy calculations for residues 3, 0
+Starting pairwise energy calculations for residues 3, 1
+Starting pairwise energy calculations for residues 3, 2
+Starting intra+shell energy calculations for residue 4
+Starting pairwise energy calculations for residues 4, 0
+Starting pairwise energy calculations for residues 4, 1
+Starting pairwise energy calculations for residues 4, 2
+Starting pairwise energy calculations for residues 4, 3
+Starting intra+shell energy calculations for residue 5
+Starting pairwise energy calculations for residues 5, 0
+Starting pairwise energy calculations for residues 5, 1
+Starting pairwise energy calculations for residues 5, 2
+Starting pairwise energy calculations for residues 5, 3
+Starting pairwise energy calculations for residues 5, 4
+Starting steric pruning.
+Pruned 16 in 1-body steric pruning
+Pruned 0 in 2-body steric pruning
+Computing initial GMEC estimate...

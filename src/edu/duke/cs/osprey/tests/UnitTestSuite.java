@@ -27,7 +27,8 @@ public class UnitTestSuite {
         PDBTests.testPDBReadWrite();
         
         ConfSearchTests.testDEE();
-        ConfSearchTests.testExhaustive();
+        ConfSearchTests.testExhaustive(false);
+        ConfSearchTests.testExhaustive(true);
     }
     
 }

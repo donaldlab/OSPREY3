@@ -11,6 +11,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Collections;
 
 /**
  *
@@ -51,13 +52,14 @@ public class PDBFileReader {
             
             String curLine = bufread.readLine();
 
-            ArrayList<Integer> helixStarts = new ArrayList<Integer>();//Residues where helices start
-            ArrayList<Integer> helixEnds = new ArrayList<Integer>();//Residues where they end
-            ArrayList<Character> helixStrands = new ArrayList<Character>();
-            ArrayList<Integer> sheetStarts = new ArrayList<Integer>();
-            ArrayList<Integer> sheetEnds = new ArrayList<Integer>();
-            ArrayList<Character> sheetStrands = new ArrayList<Character>();
-            //COMPUTE RES 2NDARY STRUCT FROM THESE?
+            ArrayList<String> helixStarts = new ArrayList<>();//Residues where helices start
+            ArrayList<String> helixEnds = new ArrayList<>();//Residues where they end
+            ArrayList<Character> helixChains = new ArrayList<>();
+            ArrayList<String> sheetStarts = new ArrayList<>();
+            ArrayList<String> sheetEnds = new ArrayList<>();
+            ArrayList<Character> sheetChains = new ArrayList<>();
+            //So for each helix/sheet, 
+            //we record its starting and ending residue numbers and its chain
 
 
             ArrayList<Atom> curResAtoms = new ArrayList<>();
@@ -87,8 +89,7 @@ public class PDBFileReader {
                     if( (!fullResName.equalsIgnoreCase(curResFullName)) && !curResAtoms.isEmpty() ){
                         
                         Residue newRes = new Residue( curResAtoms, curResCoords, curResFullName, m );
-                        newRes.indexInMolecule = m.residues.size();
-                        m.residues.add(newRes);
+                        m.appendResidue(newRes);
                         
                         curResAtoms = new ArrayList<>();
                         curResCoords = new ArrayList<>();
@@ -100,14 +101,14 @@ public class PDBFileReader {
                 }
 
                 else if(curLine.regionMatches(true,0,"HELIX  ",0,7)){//Read helix records
-                    helixStarts.add(new Integer(curLine.substring(21,25).trim()));
-                    helixEnds.add(new Integer(curLine.substring(33,37).trim()));
-                    helixStrands.add(curLine.charAt(19));
+                    helixStarts.add( curLine.substring(21,25).trim() );
+                    helixEnds.add( curLine.substring(33,37).trim() );
+                    helixChains.add(curLine.charAt(19));
                 }
                 else if(curLine.regionMatches(true,0,"SHEET  ",0,7)){
-                    sheetStarts.add(new Integer(curLine.substring(22,26).trim()));
-                    sheetEnds.add(new Integer(curLine.substring(33,37).trim()));
-                    sheetStrands.add(curLine.charAt(21));
+                    sheetStarts.add( curLine.substring(22,26).trim() );
+                    sheetEnds.add( curLine.substring(33,37).trim() );
+                    sheetChains.add(curLine.charAt(21));
                 }
 
                 curLine = bufread.readLine(); 
@@ -116,14 +117,16 @@ public class PDBFileReader {
             //make last residue
             if( ! curResAtoms.isEmpty() ){
                 Residue newRes = new Residue( curResAtoms, curResCoords, curResFullName, m );
-                newRes.indexInMolecule = m.residues.size();
-                m.residues.add(newRes);
+                m.appendResidue(newRes);
             }
 
 
             bufread.close();  // close the buffer
+            
+            //Assign the secondary structure we have read
+            assignSecStruct(m, helixStarts, helixEnds, helixChains, sheetStarts, sheetEnds, sheetChains);
         }
-        catch(IOException e){
+        catch(Exception e){
             System.err.println(e.getMessage());
             e.printStackTrace();
         }
@@ -147,7 +150,7 @@ public class PDBFileReader {
             
             if(EnvironmentVars.deleteNonTemplateResidues && !templateAssigned){
                 //residue unrecognized or incomplete...delete it
-                m.residues.remove(resNum);
+                m.deleteResidue(resNum);
             }
         }
 
@@ -212,4 +215,61 @@ public class PDBFileReader {
 				end = i;
 		return(str.substring(start,end+1));
 	}
+        
+        
+        private static void assignSecStruct(Molecule m, ArrayList<String> helixStarts, ArrayList<String> helixEnds,
+                ArrayList<Character> helixChains, ArrayList<String> sheetStarts, ArrayList<String>sheetEnds,
+                ArrayList<Character> sheetChains){
+            
+            //this isn't the most efficient, but I doubt it'll be a bottleneck
+            int curSecStruct = Residue.LOOP;
+            int curHelixNum = -1;//if we're in a helix or sheet, keep track of which one
+            int curSheetNum = -1;
+            
+            for(Residue res : m.residues){
+                //go through residues in molecule in order
+                String curResNum = res.getPDBResNumber();
+                char curChain = res.fullName.charAt(4);
+                
+                if(curSecStruct == Residue.LOOP){
+                    //look for the start of a helix or sheet
+                    for(int helixNum=0; helixNum<helixStarts.size(); helixNum++){
+                        if(helixChains.get(helixNum) == curChain){
+                            if(helixStarts.get(helixNum).equalsIgnoreCase(curResNum)){
+                                curHelixNum = helixNum;
+                                curSecStruct = Residue.HELIX;
+                            }
+                        }
+                    }
+                    for(int sheetNum=0; sheetNum<sheetStarts.size(); sheetNum++){
+                        if(sheetChains.get(sheetNum) == curChain){
+                            if(sheetStarts.get(sheetNum).equalsIgnoreCase(curResNum)){
+                                curSheetNum = sheetNum;
+                                curSecStruct = Residue.SHEET;
+                            }
+                        }
+                    }
+                }
+                
+                res.secondaryStruct = curSecStruct;
+                //if we're at the end residue of a helix or loop, stay in it for this residue
+                //now check if we're at the end so the next residue can be something else
+                
+                if(curSecStruct == Residue.HELIX){
+                    //look for end of helix
+                    if(helixEnds.get(curHelixNum).equalsIgnoreCase(curResNum)){
+                        curHelixNum = -1;
+                        curSecStruct = Residue.LOOP;
+                    }
+                }
+                else if (curSecStruct == Residue.SHEET){ //sheet
+                    if(sheetEnds.get(curSheetNum).equalsIgnoreCase(curResNum)){
+                        curSheetNum = -1;
+                        curSecStruct = Residue.LOOP;
+                    }
+                }
+            }
+        }
+        
+        
 }

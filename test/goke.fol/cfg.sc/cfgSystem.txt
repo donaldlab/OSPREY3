@@ -1,0 +1,15 @@
+pdbName ../pdb/shell.pdb
+numOfStrands 2
+strand0 4 154
+strand1 160 160
+strandMutNums 9 1
+strandMut0 5 7 20 27 28 31 50 54 94
+strandMut1 160
+cofMap0 161
+numCofRes 1
+strandAA0 true
+strandAA1 false
+strandRotTrans0 false
+strandRotTrans1 true
+grotFile1 ../dataFiles/GenericRotamers.folunb.nap.dat
+OutputGMECStruct true

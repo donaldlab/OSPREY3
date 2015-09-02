@@ -5,6 +5,7 @@
 package edu.duke.cs.osprey.structure;
 
 import edu.duke.cs.osprey.control.EnvironmentVars;
+import edu.duke.cs.osprey.dof.ProlinePucker;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResTemplateMatching;
@@ -58,6 +59,21 @@ public class Residue implements Serializable {
     public boolean intraResBondsMarked = false;
     public boolean interResBondsMarked = false;//for bonds between a pair of residues,
     //if interResBondsMarked is true for both, then we expect bonds between the two to be in place
+    
+    
+    public ArrayList<ConfProblem> confProblems = new ArrayList<>();
+    //If the residue has a ring that might need idealization, we need to store its pucker DOF
+    public ProlinePucker pucker = null;
+    
+    
+    
+    public int secondaryStruct;
+    //Types of secondary structure
+    public final static int HELIX = 0;
+    public final static int SHEET = 1;
+    public final static int LOOP = 2;
+    
+    
     
     
     public Residue(ArrayList<Atom> atomList, ArrayList<double[]> coordList, String nameFull, Molecule m){
@@ -308,6 +324,8 @@ public class Residue implements Serializable {
     
     
     public int getAtomIndexByName(String n){
+        //index in atoms of atom with name n
+        //-1 if there is no atom here by that name
         
         for(int atNum=0; atNum<atoms.size(); atNum++){
             if(atoms.get(atNum).name.equalsIgnoreCase(n))
@@ -318,9 +336,20 @@ public class Residue implements Serializable {
     }
     
     public double[] getCoordsByAtomName(String n){
-        //assuming atom with name n exists
-        //return its coordinates
-        return atoms.get(getAtomIndexByName(n)).getCoords();
+        //return coordinates of atom named n
+        //return null if there is none
+        int index = getAtomIndexByName(n);
+        if(index==-1)
+            return null;
+        
+        return atoms.get(index).getCoords();
+    }
+    
+    public void setCoordsByAtomName(String name, double atomCoords[]){
+        //Set the atom with this name to have the specified coordinates
+        //Use this function only if we know this atom exists in this residue!
+        int index = getAtomIndexByName(name);
+        System.arraycopy(atomCoords, 0, coords, 3*index, 3);
     }
     
     
@@ -378,6 +407,11 @@ public class Residue implements Serializable {
                 int atomType2 = atom2.type;
                 
                 ans[atNum1][atNum2] = ffParams.getBondEBL(atomType1, atomType2);
+                
+                if(Double.isNaN(ans[atNum1][atNum2])){//No EBL for these atom types
+                    //so estimate based on element types
+                    ans[atNum1][atNum2] = ffParams.estBondEBL(atomType1, atomType2);
+                }
             }
         }
         

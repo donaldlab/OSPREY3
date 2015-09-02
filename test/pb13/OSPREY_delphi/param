@@ -1,0 +1,14 @@
+gsize=65
+scale=1.0
+in(pdb,file="struct.pdb")
+in(siz,file="parseres_mod.siz")
+in(crg,file="parseres_mod.crg")
+indi=4.0
+exdi=80.0
+prbrad=1.4
+salt=0.00
+bndcon=2
+maxc=0.0001
+linit=800
+!nonit=800
+energy(s,c,g)

@@ -5,6 +5,7 @@
 package edu.duke.cs.osprey.confspace;
 
 import edu.duke.cs.osprey.control.EnvironmentVars;
+import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.EnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
@@ -52,20 +53,11 @@ public class SearchProblem implements Serializable {
     public PruningMatrix pruneMat;
     
     boolean contSCFlex;
-    /*
-    //We'll also store iterators here
-    //These iterators iterate over all RCs, and all pairs and higher tuples with nonnegligible energies
-    Iterator<RC> RCIterator;
-    Iterator<RC[]> pairIterator;
-    Iterator<RC[]> higherIterator;
     
-    //These iterators iterate only over nonpruned RCs and higher tuples
-    Iterator<RC> unprunedRCIterator;//MAKE THIS A SPECIAL CLASS STORING LIST OF WHATS UNPRUNED
-    //(for speed.  Used in A*.  May need one per position)
+    public PruningMatrix competitorPruneMat;//a pruning matrix performed at pruning interval 0,
+    //to decide which RC tuples are valid competitors for pruning
     
-    RCHigherTupleIterator;
-    *///probably not iterators just methods to get list of unpruned RCs, prunable tuples
-    
+        
     
     public boolean useEPIC = false;
     public boolean useTupExpForSearch = false;//use a tuple expansion to approximate the energy as we search
@@ -84,7 +76,8 @@ public class SearchProblem implements Serializable {
     	name = sp1.name + System.currentTimeMillis();//probably will want to change this to something more meaningful
         
     	pruneMat = sp1.pruneMat;
-    	
+    	competitorPruneMat = sp1.competitorPruneMat;
+        
     	contSCFlex = sp1.contSCFlex;
     	useEPIC = sp1.useEPIC;
     	useTupExpForSearch = sp1.useTupExpForSearch;
@@ -93,9 +86,10 @@ public class SearchProblem implements Serializable {
     
     
     public SearchProblem(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
-            boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp){
+            boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset, 
+            ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones){
         
-        confSpace = new ConfSpace(PDBFile,flexibleRes,allowedAAs,addWT,contSCFlex);
+        confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones);
         this.name = name;
         
         
@@ -251,10 +245,24 @@ public class SearchProblem implements Serializable {
             double errorThresh = 0.01;
             
             ConfETupleExpander expander = new ConfETupleExpander(this);//make a tuple expander
-            TupExpChooser chooser = new TupExpChooser(expander);//make a chooser to choose what tuples will be in the expansion
+            TupleEnumerator tupEnum = new TupleEnumerator(pruneMat,emat,confSpace.numPos);
+            TupExpChooser chooser = new TupExpChooser(expander, tupEnum);//make a chooser to choose what tuples will be in the expansion
             
-            chooser.calcPairwiseExpansion();//start simple...
-            //chooser.calcExpansion(errorThresh);//pick tuples and expand
+            double curResid = chooser.calcPairwiseExpansion();//start simple...
+            
+            if(curResid > errorThresh){//go to triples if needed
+                System.out.println("EXPANDING PAIRWISE EXPANSION WITH STRONGLY PAIR-INTERACTING TRIPLES (2 PARTNERS)...");
+                curResid = chooser.calcExpansionResTriples(2);
+            }
+            if(curResid > errorThresh){//go to 5 partners if still need better resid...
+                System.out.println("EXPANDING EXPANSION WITH STRONGLY PAIR-INTERACTING TRIPLES (5 PARTNERS)...");
+                curResid = chooser.calcExpansionResTriples(5);
+            }
+            if(curResid > errorThresh){
+                System.out.println("WARNING: Desired LUTE residual threshold "+
+                        errorThresh+" not reached; best="+curResid);
+            }
+            
             return expander.getEnergyMatrix();//get the final energy matrix from the chosen expansion
         }
     }
