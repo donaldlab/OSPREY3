@@ -54,6 +54,9 @@ public class GMECFinder {
     
     boolean EFullConfOnly = false;//energy function only can be evaluated for full conf
     
+    double lowestBound;//lowest pairwise lower bound for a GMEC run
+    //used to determine I-value needed
+    
     public GMECFinder (ConfigFileParser cfgP){
         //fill in all the settings
         
@@ -82,7 +85,7 @@ public class GMECFinder {
     
     
    
-    void calcGMEC(){
+    double calcGMEC(){
         //Calculate the GMEC
         
         double curInterval = I0;//For iMinDEE.  curInterval will need to be an upper bound
@@ -109,16 +112,14 @@ public class GMECFinder {
             //Finally, do A*, which will output the top conformations
             ConfSearch search = initSearch(searchSpace);//e.g. new AStarTree from searchSpace & params
             //can have options to instantiate other kinds of search here too...choose based on params
-
-            double lowestBound  = Double.POSITIVE_INFINITY;
-            if( (useEPIC||useTupExp) && doIMinDEE)//lowest bound must be calculated without EPIC/tup exp, to ensure valid iMinDEE interval
-                lowestBound = lowestPairwiseBound(searchSpace);
             
             double lowerBound;
             
             System.out.println();
             System.out.println("BEGINNING CONFORMATION ENUMERATION");
             System.out.println();
+            
+            long confSearchStartTime = System.currentTimeMillis();
             
             do {
                 int conf[] = search.nextConf();
@@ -195,16 +196,20 @@ public class GMECFinder {
                 
             } while( bestESoFar+Ew >= lowerBound );//lower bound above GMEC + Ew...can stop enumerating
             
+            double confSearchTimeMinutes = (System.currentTimeMillis()-confSearchStartTime)/60000.0;
+            System.out.println("Conf search time (minutes): "+confSearchTimeMinutes);
+            
         } while(needToRepeat);
         
         if(outputGMECStruct && GMECConf!=null)
             searchSpace.outputMinimizedStruct( GMECConf, searchSpace.name+".GMEC.pdb" );
         
         System.out.println("GMEC calculation complete.  ");
+        return bestESoFar;
     }
     
     
-    private void precomputeMatrices(double pruningInterval){
+    void precomputeMatrices(double pruningInterval){
             //Precalculate TupleMatrices needed for GMEC computation.  Some of these may already be computed.  
             //All of these matrices except the basic pairwise energy matrix are pruning-dependent:
             //we can prune conformations whose energies are within pruningInterval
@@ -254,6 +259,16 @@ public class GMECFinder {
             PruningControl pruning = cfp.setupPruning(searchSpace,pruningInterval,false,false);
             
             pruning.prune();//pass in DEE options, and run the specified types of DEE            
+            
+            
+            //At this point, if we're using pairwise lower bounds, they're ready
+            //Compute the bound now, before starting non-lower-bound-based pruning
+            //(which could mess up the pairwise lowest bound calculation, though
+            //it will speed up the GMEC calculation)
+            lowestBound  = Double.POSITIVE_INFINITY;
+            if( (useEPIC||useTupExp) && doIMinDEE)//lowest bound must be calculated without EPIC/tup exp, to ensure valid iMinDEE interval
+                lowestBound = lowestPairwiseBound(searchSpace);
+            
             
             //precomputing EPIC or tuple-expander matrices is much faster
             //if only done for unpruned RCs.  Less RCs to handle, and the fits are far simpler.  
@@ -361,7 +376,7 @@ public class GMECFinder {
     }
     
     
-    private double lowestPairwiseBound(SearchProblem prob){
+    double lowestPairwiseBound(SearchProblem prob){
         //In an EPIC calculation, our enumeration will probably include much less conformations,
         //but for iMinDEE purposes we still need to know what our lowest bound would have been
         //if we enumerated w/o EPIC (i.e., what is the minimum energy calculated using the lower-bound energy matrix)

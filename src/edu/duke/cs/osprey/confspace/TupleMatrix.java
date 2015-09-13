@@ -53,6 +53,13 @@ public class TupleMatrix<T> implements Serializable {
     T defaultHigherInteraction;//We only mark sparse higher interactions;
     //if unmarked we assume this value (e.g., 0 for energy, false for pruning)
     
+    
+    public TupleMatrix(T defaultHigherInteraction){
+        //no allocation (for overriding)
+        this.defaultHigherInteraction = defaultHigherInteraction;
+    }
+    
+    
     public TupleMatrix(ConfSpace cSpace, double pruningInterval, T defaultHigherInteraction){
         //allocate the matrix based on the provided conformational space
         init(cSpace.numPos, cSpace.getNumRCsAtPos(), pruningInterval, defaultHigherInteraction);
@@ -169,6 +176,9 @@ public class TupleMatrix<T> implements Serializable {
         return oneBody.get(pos).size();
     }
     
+    public int numPos(){
+        return oneBody.size();
+    }
     
     public void setTupleValue(RCTuple tup, T val){
         //assign the given value to the specified RC tuple

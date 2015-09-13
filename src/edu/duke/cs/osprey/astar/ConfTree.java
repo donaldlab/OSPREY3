@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -48,12 +49,23 @@ public class ConfTree extends AStarTree {
     ConfSpace confSpace = null;//conf space to use with epicMat if we're doing EPIC minimization w/ SAPE
     boolean minPartialConfs = false;//whether to minimize partially defined confs with EPIC, or just fully defined
     
-    public ConfTree(SearchProblem sp) {
+    
+    public ConfTree(SearchProblem sp){
+        init(sp, sp.pruneMat, sp.useEPIC);
+    }
+    
+    public ConfTree(SearchProblem sp, PruningMatrix pruneMat, boolean useEPIC){
+        //Conf search over RC's in sp that are unpruned in pruneMat
+        init(sp,pruneMat,useEPIC);
+    }
+    
+    
+    private void init(SearchProblem sp, PruningMatrix pruneMat, boolean useEPIC) {
         numPos = sp.confSpace.numPos;
         
         //see which RCs are unpruned and thus available for consideration
         for(int pos=0; pos<numPos; pos++){
-            unprunedRCsAtPos.add( sp.pruneMat.unprunedRCsAtPos(pos) );
+            unprunedRCsAtPos.add( pruneMat.unprunedRCsAtPos(pos) );
         }
         
         //get the appropriate energy matrix to use in this A* search
@@ -62,7 +74,7 @@ public class ConfTree extends AStarTree {
         else {
             emat = sp.emat;
             
-            if(sp.useEPIC){//include EPIC in the search
+            if(useEPIC){//include EPIC in the search
                 useRefinement = true;
                 epicMat = sp.epicMat;
                 confSpace = sp.confSpace;
@@ -75,7 +87,7 @@ public class ConfTree extends AStarTree {
     
     
     @Override
-    ArrayList<AStarNode> getChildren(AStarNode curNode) {
+    public ArrayList<AStarNode> getChildren(AStarNode curNode) {
         
         if(isFullyAssigned(curNode))
             throw new RuntimeException("ERROR: Can't expand a fully assigned A* node");
@@ -95,7 +107,7 @@ public class ConfTree extends AStarTree {
 
 
     @Override
-    AStarNode rootNode() {
+    public AStarNode rootNode() {
         //no residues assigned, so all -1's
         int[] conf = new int[numPos];
         Arrays.fill(conf,-1);
@@ -106,7 +118,7 @@ public class ConfTree extends AStarTree {
     
 
     @Override
-    boolean isFullyAssigned(AStarNode node) {
+    public boolean isFullyAssigned(AStarNode node) {
         for(int rc : node.nodeAssignments){
             if(rc<0)//not fully assigned
                 return false;
@@ -119,7 +131,7 @@ public class ConfTree extends AStarTree {
     
     //operations supporting special features like dynamic A*
     
-    int nextLevelToExpand(int[] partialConf){
+    public int nextLevelToExpand(int[] partialConf){
         //given a partially defined conformation, what level should be expanded next?
         
         if(useDynamicAStar){

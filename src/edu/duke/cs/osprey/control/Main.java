@@ -68,10 +68,10 @@ public class Main {
         else if(command.equalsIgnoreCase("RunTests")){
             UnitTestSuite.runAllTests();
         }
-        /*else if(command.equalsIgnoreCase("doCOMETS")){
-            COMETSDoer cd = new COMETSDoer(cfp);
+        else if(command.equalsIgnoreCase("doCOMETS")){
+            COMETSDoer cd = new COMETSDoer(args);
             cd.calcBestSequences();
-        }*/
+        }
         //etc.
         else
             throw new RuntimeException("ERROR: OSPREY command unrecognized: "+command);

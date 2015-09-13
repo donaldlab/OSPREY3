@@ -32,6 +32,7 @@ import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.PDBFileWriter;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.tools.StringParsing;
 import java.io.Serializable;
 import java.util.ArrayList;
 
@@ -105,9 +106,10 @@ public class ConfSpace implements Serializable {
         for(int pos=0; pos<numPos; pos++){
             Residue res = m.getResByPDBResNumber( flexibleRes.get(pos) );
             
-            if(addWT){//at this point, m has all wild-type residues, so just see what res is now
+            if(addWT || allowedAAs.get(pos).isEmpty()){//at this point, m has all wild-type residues, so just see what res is now
+                //we can also do this to fill in a blank AA type
                 String wtName = res.template.name;
-                if(!allowedAAs.get(pos).contains(wtName))
+                if( ! StringParsing.containsIgnoreCase(allowedAAs.get(pos), wtName) )
                     allowedAAs.get(pos).add(wtName);
             }
             

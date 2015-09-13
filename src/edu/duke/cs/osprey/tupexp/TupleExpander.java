@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Random;
+import java.util.TreeSet;
 
 /**
  *
@@ -148,8 +149,9 @@ public abstract class TupleExpander implements Serializable {
         System.out.println("CV SAMPLES: ");
         CVSamples.printResids();
         
+         
+        //checkHighEnergyConfs();//DEBUG!!!!
         
-
         //DEBUG!!!!
         /*System.out.println("OUTPUTTING TUPLE EXPANDER");
         ObjectIO.writeObject(this, "TUPLE_EXPANDER.dat");
@@ -174,12 +176,182 @@ public abstract class TupleExpander implements Serializable {
         return CVSamples.totalResid;
     }
     
+    
+    
+    private void checkHighEnergyConfs(){
+        //This is a function for debugging inadequate fit quality
+        //Checks what kinds of high-energy confs each tuple has in the training set
+        //Then, tries to redo the fitting with problem tuples removed--
+        //first, tuples whose confs are all high-energy, then who have some high-energy confs
+        //(high-energy here defined as lowest-energy sample + 100)
+        
+        System.out.println("Checking high-energy confs");
+        
+        double lowestSampleE = Collections.min( trainingSamples.trueVals );
+        
+        System.out.println("Lowest sample E: "+lowestSampleE);
+        
+        //figure out the lowest sample energy for each tuple
+        double tupleBestE[] = new double[tuples.size()];
+        Arrays.fill(tupleBestE, Double.POSITIVE_INFINITY);
+        
+        //also lowest LB and lowest contTerm.  Since pruning can be based on either of these
+        //in different combinations.  
+        //these here go with the bestE
+        double tupleBestELB[] = new double[tuples.size()];
+        double tupleBestEContE[] = new double[tuples.size()];
+        
+        //and then, for pruning purposes, I'd like to know the best LB and cont E overerall
+        double tupleBestLB[] = new double[tuples.size()];
+        double tupleBestContE[] = new double[tuples.size()];
+        Arrays.fill(tupleBestLB, Double.POSITIVE_INFINITY);
+        Arrays.fill(tupleBestContE, Double.POSITIVE_INFINITY);
+        
+        
+        
+        
+        for(int s=0; s<trainingSamples.samples.size(); s++){
+            double E = trainingSamples.trueVals.get(s);
+            ArrayList<Integer> sampTups = trainingSamples.calcSampleTuples(trainingSamples.samples.get(s));
+            
+            double LB = ((ConfETupleExpander)this).sp.lowerBound(trainingSamples.samples.get(s));
+            double contE = E - LB;
+            
+            for(int t : sampTups){
+                if(E < tupleBestE[t]){
+                    tupleBestE[t] = E;
+                    tupleBestELB[t] = LB;
+                    tupleBestEContE[t] = contE;
+                }
+                tupleBestLB[t] = Math.min(tupleBestLB[t], LB);
+                tupleBestContE[t] = Math.min(tupleBestContE[t], contE);
+            }
+        }
+        
+        TreeSet<Integer> badTuples100 = new TreeSet<>();//tuples whose samples are all > lowestSampleE + 100
+        TreeSet<Integer> badTuples50 = new TreeSet<>();//tuples whose samples are all
+
+        
+        
+        //Now print these lowest energies and also figure out which tuples we might prune on this basis
+        //This will tell us about what tuples might really be "bad"
+        //(i.e., have no confs w/ reasonable energy)
+        System.out.println("Tuple Best E's (then bestE LB and cont E; best LB, contE): ");
+        for(int t=0; t<tuples.size(); t++){
+            System.out.println(tupleBestE[t] + " " + 
+                    tupleBestELB[t] + " " + tupleBestEContE[t] + " " + 
+                    tupleBestLB[t] + " " + tupleBestContE[t] + " " + tuples.get(t).stringListing());
+           
+            if(tupleBestE[t] > lowestSampleE + 50)
+                badTuples50.add(t);
+            if(tupleBestE[t] > lowestSampleE + 100)
+                badTuples100.add(t);
+        }
+        System.out.println("End Tuple Best E's");
+        
+        
+        
+        //OK now see if there are confs over 100 that have no "bad" tuples (in the 50 sense)
+        //for each of these, the tuple with the worst tupleBestE is suspect
+        TreeSet<Integer> suspectTuples = new TreeSet<>();
+        suspectTuples.addAll(badTuples50);
+        
+        System.out.println("Bad samples w/o bad tuples (E, LB, worstTupE, worstTup): ");
+        for(int s=0; s<trainingSamples.samples.size(); s++){
+            if(trainingSamples.trueVals.get(s) > lowestSampleE+100){
+                ArrayList<Integer> sampTups = trainingSamples.calcSampleTuples(trainingSamples.samples.get(s));
+                
+                double worstTupE = Double.NEGATIVE_INFINITY;
+                int worstTup = -1;
+                for(int t : sampTups){
+                    if(tupleBestE[t]>worstTupE){
+                        worstTup = t;
+                        worstTupE = tupleBestE[t];
+                        if(worstTupE > lowestSampleE + 50)
+                            break;
+                    }
+                }
+                
+                if(worstTupE <= lowestSampleE + 50){//seriously bad conf E but tuple ok
+                    //hmm...
+                    double E = trainingSamples.trueVals.get(s);
+                    double LB = ((ConfETupleExpander)this).sp.lowerBound(trainingSamples.samples.get(s));
+                    System.out.println(E+" "+LB+" "+worstTupE+" "+tuples.get(worstTup).stringListing());
+                    suspectTuples.add(worstTup);
+                }
+            }
+        }
+        System.out.println("End Bad samples w/o bad tuples");
+        
+
+        
+        //OK the bad tuple sets will be wrong indices once we start deleting tuples
+        //But we can fix this by converting to lists of tuples
+        ArrayList<RCTuple> badList100 = new ArrayList<>();
+        for(int t : badTuples100)
+            badList100.add(tuples.get(t));
+        
+        ArrayList<RCTuple> badList50 = new ArrayList<>();
+        for(int t : badTuples50)
+            badList50.add(tuples.get(t));
+        
+        ArrayList<RCTuple> suspectList = new ArrayList<>();
+        for(int t : suspectTuples)
+            suspectList.add(tuples.get(t));
+        
+        
+        
+        System.out.println("REDOING FITTING W/O BAD TUPLES100");
+        redoFittingWithoutTuples(badList100);
+        System.out.println("REDOING FITTING W/O BAD TUPLES50");
+        redoFittingWithoutTuples(badList50);
+        System.out.println("REDOING FITTING W/O SUSPECT TUPLES");
+        redoFittingWithoutTuples(suspectList);
+        System.out.println("HIGH CONF-E CHECK DONE");
+    }
+    
+    private void redoFittingWithoutTuples(ArrayList<RCTuple> badTuples){
+        //OK now redo the fitting 
+        trainingSamples = null;
+        CVSamples = null;
+        
+        for(RCTuple t : badTuples){
+            tuples.remove(t);
+            pruneTuple(t);
+        }
+        
+        ArrayList<RCTuple> tuplesToFit = tuples;
+        tuples = new ArrayList<>();
+        numSampsPerTuple = 10;
+        
+        setupSamples(tuplesToFit);//set up the training set (in the process, prune tuples that don't provide reasonable energies)
+                
+        fitLeastSquares();
+        
+        trainingSamples.updateFitVals();
+        CVSamples.updateFitVals();
+        
+        System.out.println("TRAINING SAMPLES: ");
+        trainingSamples.printResids();
+        
+        System.out.println("CV SAMPLES: ");
+        CVSamples.printResids();
+    }
+    
+    
+    
+    
+    
+    
+    
+    
     //DEBUG!!
     int ezPruneCount = 0;
     
     void setupSamples(ArrayList<RCTuple> tuplesToFit){
         //generate the training sample set, and for each tuple we want to fit, either prune it or get samples for it
         
+        numSampsPerTuple = 10;
         
         
         //137DEBUG!!!!!

@@ -69,6 +69,7 @@ public class ConfigFileParser {
         
         for(String rt : params.searchParams("BBFREEBLOCK")){
             //So for example BBFREEBLOCK0 120 125 would mean make a BBFreeBlock for res 120-125
+            //lexical ordering for blocks is OK
             String strandLimitsString = params.getValue(rt);
 
             String[] termini = 
@@ -90,6 +91,7 @@ public class ConfigFileParser {
         for(String rt : params.searchParams("STRANDROTTRANS")){
             if(params.getBool(rt, false)){
                 //So rt = STRANDROTTRANS0 here means strand 0 should translate & rotate
+                //OK to go through these params in lexical ordering
                 String strandNum = rt.substring(14);
                 String strandLimitsString = params.getValue("STRAND"+strandNum);
                 
@@ -140,12 +142,16 @@ public class ConfigFileParser {
         //list of flexible residues.  PDB-based residue numbers
         //we'll include all flexible residues: for compatibility (MAY BE TEMPORARY),
         //all residues in a "StrandMut" record will be included here
+        //"StrandMutNums" means something different and thus will be excluded
         ArrayList<String> flexResList = new ArrayList<>();
         
-        for(String param : params.searchParams("STRANDMUT")){//STRANDMUT0, etc.
-            
-            if(param.equalsIgnoreCase("STRANDMUTNUMS"))//means something different
-                continue;
+        int numStrands = params.searchParams("STRANDMUT").size() 
+                - params.searchParams("STRANDMUTNUMS").size();
+        
+        //must go through the strands in order to get the right residues 
+        for(int smNum=0; smNum<numStrands; smNum++){//must do these in order
+            //so we get the right residues
+            String param = "STRANDMUT"+smNum;//STRANDMUT0, etc
             
             String resListString = params.getValue(param);
             StringTokenizer tokenizer = new StringTokenizer(resListString);
@@ -167,10 +173,15 @@ public class ConfigFileParser {
         
         ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
         
-        //handle better later (now assuming old-style numbering and no more than 10 strands)...
-        for(int str=0; str<10; str++){
+        //handle better later (now assuming old-style numbering)...
+        for(int str=0; true; str++){
             ArrayList<String> resAllowedRecords = params.searchParams("RESALLOWED"+str);
-            for(String param : resAllowedRecords){
+            int numRecordsInStrand = resAllowedRecords.size();
+            
+            //must go through residues in numerical order
+            for(int recNum=0; recNum<numRecordsInStrand; recNum++){
+                String param = "RESALLOWED" + str + "_" + recNum;
+                    
                 String allowedAAString = params.getValue(param);
                 
                 //parse AA types from allowedAAString
@@ -183,6 +194,9 @@ public class ConfigFileParser {
                 
                 allowedAAs.add(resAllowedAAs);
             }
+            
+            if(numRecordsInStrand==0)//finished with strands that have flexible residues
+                break;
         }
         
         return allowedAAs;

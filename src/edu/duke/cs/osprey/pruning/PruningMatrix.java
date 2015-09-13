@@ -24,6 +24,9 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
     
     //maybe separate intra too?
     
+    public PruningMatrix(){//no allocation (for overriding by UpdatedPruningMatrix)
+        super(false);
+    }
         
     public PruningMatrix(ConfSpace cSpace, double pruningInterval){
         super(cSpace, pruningInterval, false);//higher tuples are unpruned unless otherwise indicated
@@ -68,7 +71,7 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
         
         if(numPos==1){
             int posNum = pos.get(0);
-            for(int rc=0; rc<oneBody.get(posNum).size(); rc++){
+            for(int rc=0; rc<numRCsAtPos(posNum); rc++){
                 if(!getOneBody(posNum,rc))
                     unpruned.add(new RCTuple(posNum,rc));
             }
@@ -83,7 +86,7 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
             
             int lastPos = pos.get(numPos-1);
             
-            for(int rc=0; rc<oneBody.get(lastPos).size(); rc++){
+            for(int rc=0; rc<numRCsAtPos(lastPos); rc++){
                 if(!getOneBody(lastPos,rc)){
                     for(RCTuple reducedTup : tupsReduced){//try to combine into an unpruned RC
                         

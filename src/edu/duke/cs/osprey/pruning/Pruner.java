@@ -4,6 +4,7 @@
  */
 package edu.duke.cs.osprey.pruning;
 
+import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.RC;
@@ -28,7 +29,6 @@ public class Pruner {
     //(usually we just need an iterator over rotamers, or an iterator over pairs)
     //and then each type of Pruner has its own pruning condition
     
-    SearchProblem searchSpace;
     
     boolean typeDep;//use type-dependent pruning
     double boundsThreshold;//any conformations above this threshold are liable to Bounds pruning
@@ -37,7 +37,11 @@ public class Pruner {
     //(this includes I in iMinDEE, since in this case we are using the pairwise-minimal energies
     //and "optimal" refers to the lowest pairwise bound)
     
+    PruningMatrix pruneMat;//pruning matrix to prune in
+    PruningMatrix competitorPruneMat;//matrix defining what competitors are allowed.  (Can be same as pruneMat)
     EnergyMatrix emat;//energy matrix to prune based on
+    EPICMatrix epicMat;//EPIC matrix to go with emat, if applicable
+    ConfSpace confSpace;//Conformation space over which these matrices are defined
     
     TupleEnumerator tupEnum;//use to enumerate candidate RC tuples, etc.
     
@@ -45,11 +49,45 @@ public class Pruner {
     
     static int triplesNumPartners = 5;//2//let's do sparse triples, considering like 5 interactions per pos to be strong
     
+    boolean verbose = true;//print what we're doing
+    
     
     public Pruner(SearchProblem searchSpace, boolean typeDep, double boundsThreshold, 
             double pruningInterval, boolean useEPIC, boolean useTupExp) {
         
-        this.searchSpace = searchSpace; 
+        init(searchSpace, searchSpace.pruneMat, typeDep, boundsThreshold, pruningInterval,
+                useEPIC, useTupExp);
+    }
+    
+    
+    //In COMETS we may be using a node-specific pruning matrix
+    //that has more stuff pruned compared to the searchSpace.pruningMatrix
+    //Also may not want verbosity
+    public Pruner(SearchProblem searchSpace, PruningMatrix pruneMat, boolean typeDep, 
+            double boundsThreshold, 
+            double pruningInterval, boolean useEPIC, boolean useTupExp, boolean verbose) {
+        
+        this.verbose = verbose;
+        init(searchSpace, pruneMat, typeDep, boundsThreshold, pruningInterval,
+                useEPIC, useTupExp);
+    }
+    
+
+    
+    
+    private void init(SearchProblem searchSpace, PruningMatrix pruneMat, boolean typeDep, 
+            double boundsThreshold, 
+            double pruningInterval, boolean useEPIC, boolean useTupExp) {
+        
+        this.pruneMat = pruneMat;
+        epicMat = searchSpace.epicMat;
+        confSpace = searchSpace.confSpace;
+        
+        competitorPruneMat = searchSpace.competitorPruneMat;
+        if(competitorPruneMat == null)
+            competitorPruneMat = pruneMat;
+        
+        
         this.typeDep = typeDep;
         this.boundsThreshold = boundsThreshold;
         this.pruningInterval = pruningInterval;
@@ -64,11 +102,11 @@ public class Pruner {
             //EPIC is meant to be added to pairwise lower-bound energy
             throw new RuntimeException("ERROR: Can't prune with both EPIC and tup-exp at the same time");
         
-        tupEnum = new TupleEnumerator(searchSpace.pruneMat, emat, searchSpace.confSpace.numPos);
+        tupEnum = new TupleEnumerator(pruneMat, emat, searchSpace.confSpace.numPos);
     }
     
     
-    boolean prune(String methodName){
+    public boolean prune(String methodName){
         //convenience method
         return prune(PruningMethod.getMethod(methodName));
     }
@@ -79,12 +117,8 @@ public class Pruner {
         //A PruningMethod will just contain settings specifying the kind of Pruner
         //and return the right kinds of iterators and evaluate pruning conditions
         
-        System.out.println("Starting pruning with " + method.name());
-        
-        PruningMatrix competitorPruneMat = searchSpace.competitorPruneMat;
-        if(competitorPruneMat == null)
-            competitorPruneMat = searchSpace.pruneMat;
-        
+        if(verbose)
+            System.out.println("Starting pruning with " + method.name());
         
         boolean prunedSomething = false;
         boolean prunedSomethingThisCycle;
@@ -98,9 +132,9 @@ public class Pruner {
                 
                 double contELB = 0;
                 if(useEPIC && cand.pos.size()>1)//EPIC gives us nothing for 1-pos pruning
-                    contELB = searchSpace.epicMat.minContE(cand);
+                    contELB = epicMat.minContE(cand);
                 
-                if( ! searchSpace.pruneMat.isPruned(cand) ){
+                if( ! pruneMat.isPruned(cand) ){
                     
                     boolean prunedCandidate = false;
                     
@@ -132,7 +166,7 @@ public class Pruner {
                     }
                     
                     if(prunedCandidate){
-                        searchSpace.pruneMat.markAsPruned(cand);
+                        pruneMat.markAsPruned(cand);
                         prunedSomething = true;
                         prunedSomethingThisCycle = true;
                     }
@@ -168,11 +202,11 @@ public class Pruner {
             
             int pos1 = tup1.pos.get(indexInTup);
             int rc1 = tup1.RCs.get(indexInTup);
-            String type1 = searchSpace.confSpace.posFlex.get(pos1).RCs.get(rc1).AAType;
+            String type1 = confSpace.posFlex.get(pos1).RCs.get(rc1).AAType;
             
             int pos2 = tup2.pos.get(indexInTup);
             int rc2 = tup2.RCs.get(indexInTup);
-            String type2 = searchSpace.confSpace.posFlex.get(pos2).RCs.get(rc2).AAType;
+            String type2 = confSpace.posFlex.get(pos2).RCs.get(rc2).AAType;
             
             if(!type1.equalsIgnoreCase(type2))//this position doesn't match
                 return false;
@@ -212,15 +246,15 @@ public class Pruner {
         
         if(checkSumType == CheckSumType.GOLDSTEIN ){            
             
-            for(int pos=0; pos<searchSpace.confSpace.numPos; pos++){
+            for(int pos=0; pos<confSpace.numPos; pos++){
                 if(!cand.pos.contains(pos)){
                     
                     double bestInteraction = Double.POSITIVE_INFINITY;
                     //if no rc's at pos are compatible with cand, we can set infinite checkSum --> prune cand
                     
-                    for(int rc: searchSpace.pruneMat.unprunedRCsAtPos(pos)){
+                    for(int rc: pruneMat.unprunedRCsAtPos(pos)){
                         
-                        if(searchSpace.pruneMat.isPruned(cand.addRC(pos,rc)))//(pos,rc) not compatible with cand
+                        if(pruneMat.isPruned(cand.addRC(pos,rc)))//(pos,rc) not compatible with cand
                             continue;
                         
                         double diffBound = minInteractionDiff(cand,comp,pos,rc);
@@ -312,7 +346,7 @@ public class Pruner {
                 
                 double levelBestE = Double.POSITIVE_INFINITY;//best value of contribution
                 //from tup-iPos interaction
-                ArrayList<Integer> allowedRCs = searchSpace.pruneMat.unprunedRCsAtPos(iPos);
+                ArrayList<Integer> allowedRCs = pruneMat.unprunedRCsAtPos(iPos);
                 
                 for( int rc : allowedRCs ){
                     
@@ -374,11 +408,11 @@ public class Pruner {
             
             //this is like the lower bound in the A* ConfTree
             //break up the full energy into contributions associated with different res
-            for(int level=0; level<searchSpace.confSpace.numPos; level++){
+            for(int level=0; level<confSpace.numPos; level++){
                 double resContribLB = Double.POSITIVE_INFINITY;//lower bound on contribution of this residue
                 //resContribLB will be the minimum_{rc} of the lower bound assuming rc assigned to this level
                 if(!cand.pos.contains(level)){//level not fully defined
-                    for ( int rc : searchSpace.pruneMat.unprunedRCsAtPos(level) ) {//cache this?
+                    for ( int rc : pruneMat.unprunedRCsAtPos(level) ) {//cache this?
                         resContribLB = Math.min( resContribLB, RCContributionLB(level,rc,cand) );
                     }
                 }
@@ -421,7 +455,7 @@ public class Pruner {
                     allowedRCs.add(definedRC);
                 }
                 else
-                    allowedRCs = searchSpace.pruneMat.unprunedRCsAtPos(level2);
+                    allowedRCs = pruneMat.unprunedRCsAtPos(level2);
                 
                 for( int rc2 : allowedRCs ){
                     
@@ -448,7 +482,9 @@ public class Pruner {
     
     public void pruneSteric(double stericThresh){
         //Prune 1- and 2-body terms exceeding steric thresh
-        System.out.println("Starting steric pruning.");
+        
+        if(verbose)
+            System.out.println("Starting steric pruning.");
         
         for(int numBodies=1; numBodies<=2; numBodies++){
             int numPruned = 0;
@@ -463,12 +499,13 @@ public class Pruner {
                     E = emat.getPairwise(cand.pos.get(0), cand.RCs.get(0), cand.pos.get(1), cand.RCs.get(1));
                 
                 if( E > stericThresh ){
-                    searchSpace.pruneMat.markAsPruned(cand);
+                    pruneMat.markAsPruned(cand);
                     numPruned++;
                 }
             }
             
-            System.out.println("Pruned "+numPruned+" in "+numBodies+"-body steric pruning");
+            if(verbose)
+                System.out.println("Pruned "+numPruned+" in "+numBodies+"-body steric pruning");
         }
     }
 
