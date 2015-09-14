@@ -41,7 +41,7 @@ public class ResidueTemplate implements Serializable {
     
     
     //rotamer information
-    public int numRotamers = -1;
+    public int numRotamers = 0;//if no rotamers loaded, count as 0 (e.g. for a rigid ligand)
     double rotamericDihedrals[][];//numRotamers x numDihedrals array. 
     //For each rotamer, gives the ideal values of all dihedrals
     

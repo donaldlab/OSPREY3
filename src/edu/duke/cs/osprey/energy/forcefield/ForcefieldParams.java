@@ -741,8 +741,38 @@ public class ForcefieldParams implements Serializable {
                 }
             }
             
-            throw new RuntimeException("ERROR: No equilibrium bond length listed for atom types "
+            System.out.println("Warning: No equilibrium bond length listed for atom types "
                     +atomType1+" and "+atomType2);
+            //this is used to get an estimated bond distance matrix, in which case
+            //we can estimate using other atom types for the same elements
+            
+            return Double.NaN;
+        }
+        
+        
+        public double estBondEBL(int atomType1, int atomType2){
+            //if we don't know the true equilibrium bond length, we can try to estimate it
+            //based on another pair of atom types from the same element types
+            
+            double mass1 = atomAtomicMasses[atomType1];
+            double mass2 = atomAtomicMasses[atomType2];
+            
+            for(int altAtomType1=0; altAtomType1<atomTypeNames.length; altAtomType1++){
+                if(atomAtomicMasses[altAtomType1] == mass1){//same element
+                    
+                    for(int altAtomType2=0; altAtomType2<atomTypeNames.length; altAtomType2++){
+                        if(atomAtomicMasses[altAtomType2] == mass2){
+                            //Let's try using the alt types as a substitute
+                            double bondEBL = getBondEBL(altAtomType1, altAtomType2);
+                            if(!Double.isNaN(bondEBL))
+                                return bondEBL;
+                        }
+                    }
+                }
+            }
+            
+            throw new RuntimeException("ERROR: Couldn't find any equilibrium bond length"
+                    + " for atoms with masses " + mass1 + " and " + mass2);
         }
         
         
@@ -807,7 +837,10 @@ public class ForcefieldParams implements Serializable {
 		}
 		return tmp;
 	}
+
+        public double getSolvScale() {
+            return solvScale;
+        }
 	
-	        
-        
+               
 }

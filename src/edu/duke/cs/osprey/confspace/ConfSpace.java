@@ -8,13 +8,25 @@ import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleFactory2D;
 import cern.colt.matrix.DoubleMatrix1D;
 import cern.colt.matrix.DoubleMatrix2D;
+import cern.colt.matrix.linalg.Algebra;
+import cern.jet.math.Functions;
+import edu.duke.cs.osprey.bbfree.BBFreeBlock;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.EllipseCoordDOF;
 import edu.duke.cs.osprey.dof.FreeDihedral;
+import edu.duke.cs.osprey.dof.MoveableStrand;
+import edu.duke.cs.osprey.dof.ProlinePucker;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
+import edu.duke.cs.osprey.dof.StrandRotation;
+import edu.duke.cs.osprey.dof.StrandTranslation;
+import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
+import edu.duke.cs.osprey.dof.deeper.SidechainIdealizer;
+import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.energy.EnergyFunction;
+import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
+import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MolecEObjFunction;
@@ -23,6 +35,7 @@ import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.PDBFileWriter;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.tools.StringParsing;
 import java.io.Serializable;
 import java.util.ArrayList;
 
@@ -69,15 +82,11 @@ public class ConfSpace implements Serializable {
     
     public boolean useEllipses = false;
     
-    
-    public ConfSpace(
-    		String PDBFile,
-    		ArrayList<String> flexibleRes,
-    		ArrayList<ArrayList<String>> allowedAAs,
-    		boolean addWT,
-            boolean contSCFlex,
-            boolean ellipses){
-        //initialize a new conformational space, desomefining all its flexibility
+
+    public ConfSpace(String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, 
+            boolean addWT, boolean contSCFlex, DEEPerSettings dset, ArrayList<String[]> moveableStrands, 
+            ArrayList<String[]> freeBBZones, boolean ellipses){
+        //initialize a new conformational space, defining all its flexibility
         //we use one residue per position here
         //PDBFile: the structure to read from
         //flexibleRes: list of residue numbers to be made flexible (as in PDB file)
@@ -94,14 +103,21 @@ public class ConfSpace implements Serializable {
         
         //read the structure and assign templates, deleting unassignable res...
         m = PDBFileReader.readPDBFile(PDBFile);
-                
+        
+        //Make all the degrees of freedom
+        //start with proline puckers (added to res)
+        makeRingPuckers(allowedAAs, flexibleRes);
+        
+        //now the single-res degrees of freedom (mutations, sidechain dihedrals)
+        ArrayList<ArrayList<DegreeOfFreedom>> singleResDOFs = new ArrayList<>();
+
         for(int pos=0; pos<numPos; pos++){
-            
             Residue res = m.getResByPDBResNumber( flexibleRes.get(pos) );
             
-            if(addWT){//at this point, m has all wild-type residues, so just see what res is now
+            if(addWT || allowedAAs.get(pos).isEmpty()){//at this point, m has all wild-type residues, so just see what res is now
+                //we can also do this to fill in a blank AA type
                 String wtName = res.template.name;
-                if(!allowedAAs.get(pos).contains(wtName))
+                if( ! StringParsing.containsIgnoreCase(allowedAAs.get(pos), wtName) )
                     allowedAAs.get(pos).add(wtName);
             }
             
@@ -111,14 +127,47 @@ public class ConfSpace implements Serializable {
  
             mutDOFs.add(resMutDOF);
 
+            singleResDOFs.add(resDOFs);
+        }
+        
+        
+        //now rigid-body strand motions...
+        ArrayList<DegreeOfFreedom> strandDOFs = strandMotionDOFs(moveableStrands,flexibleRes);
+        confDOFs.addAll(strandDOFs);
+        
+        //...and perturbations
+        //standardize conformations first since we'll record initial resBBState here
+        standardizeMutatableRes(allowedAAs, flexibleRes);
+
+        ArrayList<Perturbation> perts = dset.makePerturbations(m);//will make pert block here
+        confDOFs.addAll(perts);
+        
+        
+        
+        //DEBUG!!!!!!!
+        //TRYING BFB ON ALL FLEX RES!!!
+        /*ArrayList<Residue> bfbRes = new ArrayList<>();
+        for(String fr : flexibleRes)
+            bfbRes.add( m.getResByPDBResNumber(fr) );
+        BBFreeBlock bfb = new BBFreeBlock(bfbRes);
+        confDOFs.addAll( bfb.getDOFs() );*/
+        //DEBUG!!!
+        ArrayList<BBFreeBlock> bfbList = getBBFreeBlocks(freeBBZones,flexibleRes);
+        for(BBFreeBlock bfb : bfbList)
+            confDOFs.addAll( bfb.getDOFs() );
+        
+        
+        //OK now make RCs using these DOFs
+        for(int pos=0; pos<numPos; pos++){
+            Residue res = m.getResByPDBResNumber( flexibleRes.get(pos) );
             
-            PositionConfSpace rcs = new PositionConfSpace(
-            		res,
-            		resDOFs,
-            		allowedAAs.get(pos),
-            		contSCFlex,
-            		useEllipses);
+            ArrayList<DegreeOfFreedom> resDOFs = singleResDOFs.get(pos);
+            ArrayList<DegreeOfFreedom> resStrandDOFs = strandDOFsForRes(res,strandDOFs);//and check that all res flex on moving strands!
             
+            BBFreeBlock curBFB = getCurBFB(bfbList,res);
+            
+            PositionConfSpace rcs = new PositionConfSpace(res, resDOFs, allowedAAs.get(pos), contSCFlex,
+                    resStrandDOFs, perts, dset.getPertIntervals(), dset.getPertStates(pos), curBFB, useEllipses);
             posFlex.add(rcs);
                         
             if (useEllipses) {
@@ -129,24 +178,152 @@ public class ConfSpace implements Serializable {
             
         }
         
-        standardizeMutatableRes();
+        
+        //DEBUG!!!
+        /*PDBFileWriter.writePDBFile(m, "STRUCT1.pdb");
+        perts.get(0).apply(5);
+        PDBFileWriter.writePDBFile(m, "STRUCT2.pdb");
+        perts.get(0).apply(0);
+        PDBFileWriter.writePDBFile(m, "STRUCT3.pdb");*/
     }
     
     
-    private void standardizeMutatableRes(){
-        //"mutate" all mutatable residues to the template version of their residue type
-        //this ensures that the non-adjustable DOFs (bond angles, etc.) will be as in the template
-        //(for consistency purposes)
+    private ArrayList<BBFreeBlock> getBBFreeBlocks(ArrayList<String[]> freeBBZones, ArrayList<String> flexibleRes){
+        //create a BFB for each (start res, end res) pair.  PDB residue numbers provided.  
+        ArrayList<BBFreeBlock> ans = new ArrayList<>();
+        
+        for(String[] termini : freeBBZones){
+            ArrayList<Residue> curBFBRes = resListFromTermini(termini, flexibleRes);
+            BBFreeBlock bfb = new BBFreeBlock(curBFBRes);
+            ans.add(bfb);
+        }
+        
+        return ans;
+    }
+    
+    private BBFreeBlock getCurBFB(ArrayList<BBFreeBlock> bfbList, Residue res){
+        //If res is in one of the BFB's, return that BFB; else return null;
+        for(BBFreeBlock bfb : bfbList){
+            if(bfb.getResidues().contains(res)){//current res is in this BFB
+                return bfb;
+            }
+        }
+        
+        return null;//not in a BFB
+    }
+    
+    
+    private void makeRingPuckers(ArrayList<ArrayList<String>> allowedAAs, ArrayList<String> flexibleRes){
+        //For each residue, create a Pro pucker DOF if Pro is allowed
+        
         for(int pos=0; pos<numPos; pos++){
-            Residue res = posFlex.get(pos).res;
-            if(HardCodedResidueInfo.canMutateTo(res.template)){
-                ResidueTypeDOF mutDOF = mutDOFs.get(pos);
-                mutDOF.mutateTo(res.template.name);
+            Residue res = m.getResByPDBResNumber( flexibleRes.get(pos) );
+            
+            for(String AAType : allowedAAs.get(pos)){
+                if(AAType.equalsIgnoreCase("PRO")){
+                    res.pucker = new ProlinePucker(res);
+                    break;
+                }
             }
         }
     }
     
-    static ArrayList<DegreeOfFreedom> mutablePosDOFs(Residue res, ArrayList<String> allowedAAs){//mutation and dihedral confDOFs for the specified position
+    private ArrayList<Residue> resListFromTermini(String[] termini, ArrayList<String> flexibleRes){
+        //Return a list of residues given the PDB numbers of the first and last
+        //All of these residues are expected to be flexible (used for rot/trans strands and BBFreeBlocks)
+        
+        ArrayList<Residue> resList = new ArrayList<>();//res in current moving strand
+            
+        Residue curRes = m.getResByPDBResNumber(termini[0]);
+        resList.add(curRes);
+
+        while ( ! curRes.getPDBResNumber().equalsIgnoreCase(termini[1]) ) {//not at other end
+
+            int curIndex = curRes.indexInMolecule;
+            if(curIndex==m.residues.size()-1){
+                throw new RuntimeException("ERROR: Reached end of molecule"
+                        + " in rot/trans strand or BBFreeBlock without finding res "+termini[1]);
+            }
+
+            curRes = m.residues.get( curRes.indexInMolecule+1 );
+            String curPDBNum = curRes.getPDBResNumber();
+            if( ! flexibleRes.contains(curPDBNum) )
+                throw new RuntimeException("ERROR: Res "+curPDBNum+" in rot/trans strand or BBFreeBlock but not flexible!");
+
+            resList.add(curRes);
+        }
+        
+        return resList;
+    }
+    
+    
+    private ArrayList<DegreeOfFreedom> strandMotionDOFs(ArrayList<String[]> moveableStrands,
+            ArrayList<String> flexibleRes){
+        //Generate all the strand rotation/translation DOFs,
+        //given the termini of the moving strands
+        
+        ArrayList<DegreeOfFreedom> ans = new ArrayList<>();
+        
+        for(String[] termini : moveableStrands){
+            ArrayList<Residue> curStrandRes = resListFromTermini(termini, flexibleRes);
+            MoveableStrand str = new MoveableStrand(curStrandRes);
+            ans.addAll(str.getDOFs());
+        }
+        
+        return ans;
+    }
+    
+    
+    private ArrayList<DegreeOfFreedom> strandDOFsForRes(Residue res, ArrayList<DegreeOfFreedom> strandDOFs){
+        //List the strandDOFs that move res
+        ArrayList<DegreeOfFreedom> ans = new ArrayList<>();
+        
+        for(DegreeOfFreedom dof : strandDOFs){
+            MoveableStrand str;
+            if(dof instanceof StrandRotation)
+                str = ((StrandRotation)dof).getMoveableStrand();
+            else//must be translation
+                str = ((StrandTranslation)dof).getMoveableStrand();
+            
+            if(str.getResidues().contains(res))
+                ans.add(dof);
+        }
+        
+        return ans;
+    }
+    
+    
+    private void standardizeMutatableRes(ArrayList<ArrayList<String>> allowedAAs, ArrayList<String> flexibleRes){
+        //"mutate" all mutatable residues to the template version of their residue type
+        //this ensures that the non-adjustable DOFs (bond angles, etc.) will be as in the template
+        //(for consistency purposes)
+        for(int pos=0; pos<numPos; pos++){
+            Residue res = m.getResByPDBResNumber( flexibleRes.get(pos) );
+            String resName = res.template.name;
+            
+            if(EnvironmentVars.resTemplates.getTemplateForMutation(resName, res, false) != null){
+                //mutation to current residue type is possible, i.e., this position is mutatable
+            //if(HardCodedResidueInfo.canMutateTo(res.template)){//this messes up for N-term mutations
+                
+                ResidueTypeDOF mutDOF = mutDOFs.get(pos);
+                
+                for(String allowedAA : allowedAAs.get(pos)){
+                    if(allowedAA.equalsIgnoreCase("PRO")){
+                        //mutating to and from PRO alters the sidechain a little, including idealization
+                        //(because the sidechain connects in two places, it behaves a little different)
+                        //Once we mutate to Pro and back we have a consistent conformation
+                        mutDOF.mutateTo("PRO");
+                        break;
+                    }
+                }                
+                
+                mutDOF.mutateTo(resName);
+            }
+        }
+    }
+    
+    static ArrayList<DegreeOfFreedom> mutablePosDOFs(Residue res, ArrayList<String> allowedAAs){
+        //mutation and dihedral confDOFs for the specified position
         
         ArrayList<DegreeOfFreedom> ans = new ArrayList<>();
         //assuming for now that this is a single-residue position...if multiple just add the following confDOFs for each residue
@@ -161,6 +338,9 @@ public class ConfSpace implements Serializable {
         
         for(int dih=0; dih<maxNumDihedrals; dih++)
             ans.add( new FreeDihedral(res,dih) );
+                
+        if(res.pucker!=null)
+            ans.add(res.pucker);
         
         return ans;
     }
@@ -180,7 +360,23 @@ public class ConfSpace implements Serializable {
             Minimizer min = new CCDMinimizer(energy,false);
             //with the generic objective function interface we can easily include other minimizers though
 
-            optDOFVals = min.minimize();
+            
+            //DEBUG!!!!!  Timing pre-minimization without PB
+            /*ArrayList<EnergyFunction> terms = ((MultiTermEnergyFunction)energy.getEfunc()).getTerms();
+            ArrayList<Double> coeffs = ((MultiTermEnergyFunction)energy.getEfunc()).getCoeffs();
+            if( terms.get(terms.size()-1) instanceof PoissonBoltzmannEnergy ){
+                PoissonBoltzmannEnergy pbe = (PoissonBoltzmannEnergy)terms.remove(terms.size()-1);
+                double pbcoeff = coeffs.remove(terms.size()-1);
+                long startTime = System.currentTimeMillis();
+                DoubleMatrix1D startDOFVals = min.minimize();
+                long time1 = System.currentTimeMillis();
+                terms.add(pbe);
+                coeffs.add(pbcoeff);
+                ((CCDMinimizer)min).setInitVals(startDOFVals);
+                optDOFVals = min.minimize();
+            }
+            else//NON-DEBUG!*/
+                optDOFVals = min.minimize();
         }
         else//molecule is already in the right, rigid conformation
             optDOFVals = DoubleFactory1D.dense.make(0);

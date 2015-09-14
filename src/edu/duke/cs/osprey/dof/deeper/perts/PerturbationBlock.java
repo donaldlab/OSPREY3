@@ -1,0 +1,183 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package edu.duke.cs.osprey.dof.deeper.perts;
+
+import edu.duke.cs.osprey.dof.deeper.GenChi1Calc;
+import edu.duke.cs.osprey.dof.deeper.ResBBState;
+import edu.duke.cs.osprey.dof.deeper.SidechainIdealizer;
+import edu.duke.cs.osprey.structure.Residue;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.TreeSet;
+
+/**
+ *
+ * In DEEPer, perturbations don't necessarily commute
+ * We'll put them into "perturbation blocks," which do
+ * this way, when we want to apply a parameter value for a perturbation,
+ * we can appropriately handle any perturbations that come after it
+ * 
+ * 
+ * Note: All sidechains within a perturbation block will be idealized (in the C-beta sense)
+ * since the original sidechain conformations are no longer valid for perturbed backbones
+ * 
+ * @author mhall44
+ */
+public class PerturbationBlock implements Serializable {
+    
+    
+    ArrayList<Perturbation> perts;
+    //perturbations, in order of application
+    
+    
+    ArrayList<LinkedHashMap<Residue,ResBBState>> prePertBBStates;
+    //Backbone states immediately prior to application of each perturbation
+    //same order of perturbation as in perts
+    
+    
+    ArrayList<ArrayList<Perturbation>> successors;
+    //a successor s of a perturbation p is a perturbation whose starting point 
+    //depends on the parameter value of p
+    //(i.e. s must come after p in perts, 
+    //and there must be a chain p,q,...,r,s (in the same order as perts)
+    //such that p and q have overlapping res, ... , r and s have overlapping res)
+    
+    
+    ArrayList<ArrayList<Residue>> dependentResidues;
+    //for each perturbation p, a list of all the residues whose conformations depend on the parameter value of p
+    
+    ArrayList<Residue> allResidues;//all residues in the block
+    
+    //initialize block with all sidechains idealized (preserving gen chi1),
+    //but all perturbations at 0 parameter (so no backbone motion
+    //and thus all pre-pert states are just the initial BB state)
+    public PerturbationBlock(ArrayList<Perturbation> perts){
+        
+        this.perts = perts;
+        
+        prePertBBStates = new ArrayList<>();
+        
+        //assign the perturbations to this block
+        for(int pertNum=0; pertNum<perts.size(); pertNum++){
+            Perturbation pert = perts.get(pertNum);
+            pert.block = this;
+            pert.indexInBlock = pertNum;
+            
+            prePertBBStates.add(new LinkedHashMap<>());
+        }
+                
+        computeSuccessors();
+        computeDependentResidues();
+        
+        //Before any perturbing begins, we have the current BB conformation.  Record it.
+        initPrePertStates();
+        
+        //we also need to idealize all the sidechains
+        for(Residue res : allResidues){
+            double chi1 = GenChi1Calc.getGenChi1(res);
+            SidechainIdealizer.idealizeSidechain(res);
+            GenChi1Calc.setGenChi1(res, chi1);
+        }
+    }
+    
+    
+    
+    void updateSuccessorPrePertStates(int indexInBlock){
+        //we've just applied the perturbation with the specified index in block
+        //so the current molecular geometry defines the starting BB states for
+        //ensuing perturbations
+        for( Residue res : dependentResidues.get(indexInBlock) ){
+            ResBBState state = new ResBBState(res);
+            
+            //set as pre-pert state for all perturbations after current one
+            for(int index=indexInBlock+1; index<perts.size(); index++){
+                prePertBBStates.get(index).put(res, state);
+            }
+        }
+    }
+    
+    private void initPrePertStates(){
+        //No perturbations have been performed yet
+        //so initialize the current conformation to be the pre-pert state
+        //for all perturbations
+        for(Residue res : allResidues){
+            ResBBState state = new ResBBState(res);
+            
+            //set as pre-pert state for all perturbations
+            for(int index=0; index<perts.size(); index++){
+                prePertBBStates.get(index).put(res, state);
+            }
+        }
+    }
+    
+    
+    private void computeSuccessors(){
+        //compute the successors for all the perturbations
+        
+        successors = new ArrayList<>();//initialize list with null so can add in reverse order
+        for(int pertNum=0; pertNum<perts.size(); pertNum++)
+            successors.add(new ArrayList<>());
+        
+        for(int pertNum=perts.size()-1; pertNum>=0; pertNum--){
+            TreeSet<Integer> successorIndices = new TreeSet<>();
+            
+            for(int pert2=pertNum+1; pert2<perts.size(); pert2++){
+                if(perturbationsOverlap(pertNum,pert2)){//if pert2 overlaps pertNum, then it's a successor, and so are (indirectly) all its successors
+                    successorIndices.add(pert2);
+                    for(Perturbation pert2Successor : successors.get(pert2))
+                        successorIndices.add(pert2Successor.indexInBlock);
+                }
+            }
+            
+            //now convert successorIndices to list of perturbations (in same order as perts, because using TreeSet)
+            for(int ind : successorIndices)
+                successors.get(pertNum).add(perts.get(ind));
+        }
+    }
+    
+    
+    private void computeDependentResidues(){
+        //compute the dependent residues for all perturbations
+        
+        dependentResidues = new ArrayList<>();
+        LinkedHashSet<Residue> allRes = new LinkedHashSet<>();
+        
+        for(int pertNum=0; pertNum<perts.size(); pertNum++){
+            
+            Perturbation pert = perts.get(pertNum);
+            LinkedHashSet<Residue> pertDep = new LinkedHashSet<>();
+            
+            for(Residue res : pert.resDirectlyAffected)
+                pertDep.add(res);
+            
+            for(Perturbation successor : successors.get(pertNum)){
+                for(Residue res : successor.resDirectlyAffected)
+                    pertDep.add(res);
+            }
+            
+            dependentResidues.add(new ArrayList<>(pertDep));
+            allRes.addAll(pertDep);
+        }
+        
+        allResidues = new ArrayList<>(allRes);
+    }
+    
+    
+    private boolean perturbationsOverlap(int index1, int index2){
+        //Do the perturbations with the specified indices overlap in terms of their directly affected residues?
+        for(Residue res1 : perts.get(index1).resDirectlyAffected){
+            for(Residue res2 : perts.get(index2).resDirectlyAffected){
+                if(res1==res2)
+                    return true;
+            }
+        }
+        
+        return false;
+    }
+    
+}

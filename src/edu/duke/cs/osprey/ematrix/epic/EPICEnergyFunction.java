@@ -117,4 +117,33 @@ public class EPICEnergyFunction implements EnergyFunction {
     
     
     
+    public ArrayList<EnergyFunction> getDOFPartialEFuncs(ArrayList<DegreeOfFreedom> DOFs, Molecule molec){
+        //make a list of energy functions that only include the terms involving each of the specified DOFs
+        //of the specified molecule
+        //these are assumed to be the same DOFs and molecule used by this energy function
+        //these are suitable for minimizing this energy function with respect to a single DOF
+        
+        ArrayList<EnergyFunction> ans = new ArrayList<>();
+        
+        for(DegreeOfFreedom dof : DOFs){
+            ArrayList<EPoly> dofTerms = new ArrayList<>();
+            for(EPoly term : terms){
+                if(term.DOFs.contains(dof)){
+                    dofTerms.add(term);
+                }
+            }
+            
+            EPICEnergyFunction partial = new EPICEnergyFunction(dofTerms);
+            partial.assignConfReference(curDOFVals, DOFs, molec);
+            
+            ans.add(partial);
+        }
+        
+        
+        return ans;
+    }
+    
+    
+    
+    
 }

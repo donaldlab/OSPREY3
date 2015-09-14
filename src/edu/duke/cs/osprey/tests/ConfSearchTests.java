@@ -6,10 +6,14 @@ package edu.duke.cs.osprey.tests;
 
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import java.util.ArrayList;
+import java.util.Random;
 
 /**
  *
@@ -20,11 +24,11 @@ public class ConfSearchTests {
     //and that DEE pruning does not change the overall minimum
     //this is testing discrete conformational search
     
-    public static void testExhaustive(boolean useEllipses){
+    public static void testExhaustive(boolean useTriples, boolean useEllipses){
         //For a small, simple search space, ensure that the ConfSearch object
         //enumerates all conformations in ascending order
         
-        SearchProblem searchSpace = makeTestSearchSpace(5,false,false, useEllipses);//3^5 confs.  No clashes (would make some weird confs)
+        SearchProblem searchSpace = makeTestSearchSpace(5,false,true,useTriples,useEllipses);//3^5 confs.  No clashes (would make some weird confs)
         int totNumResults = 3*3*3*3*3;
         
         searchSpace.pruneMat = new PruningMatrix(searchSpace.confSpace,-1);//no pruning
@@ -50,7 +54,7 @@ public class ConfSearchTests {
             assert (resultCount==totNumResults);//check right number of confs enumerated
         }
         
-        System.out.println("EXHAUSTIVE CONFORMATIONAL SEARCH TEST PASSED");
+        System.out.println("EXHAUSTIVE CONFORMATIONAL SEARCH TEST PASSED.  useTriples: "+useTriples+" useEllipses: "+useEllipses);
     }
     
     
@@ -58,7 +62,8 @@ public class ConfSearchTests {
         //ensure that DEE does not prune the best conf, by comparing A* results with and without DEE
         //might run this a few time with random energies, to be more sure
         
-        SearchProblem searchSpace = makeTestSearchSpace(6/*10*/,true,false, useEllipses);
+        SearchProblem searchSpace = makeTestSearchSpace(6/*10*/,true,false,false,useEllipses);
+
         //bigger search space, and leaving clashes will create more realistic test conditions
         
         searchSpace.pruneMat = new PruningMatrix(searchSpace.confSpace,-1);//no pruning
@@ -73,7 +78,7 @@ public class ConfSearchTests {
         
         //now prune and rerun A*
         PruningControl pruning = new PruningControl(searchSpace, 0, false, boundsThresh,
-                algOption, true, false, false);
+                algOption, true, true, false, false, false, Double.POSITIVE_INFINITY);
                 
         pruning.prune();
         
@@ -103,13 +108,17 @@ public class ConfSearchTests {
     
     
     
-    private static SearchProblem makeTestSearchSpace(int numPos, boolean doMut, boolean randomizeEnergies,
-    		boolean useEllipses){
+    private static SearchProblem makeTestSearchSpace(int numPos, boolean doMut, boolean randomizeEnergies, boolean includeTriples,
+                boolean useEllipses){
+
         //generate a search space for test purposes with the given number of positions
         //If doMut, allow a bunch of options per position, else allow only val (3 RCs) at each position
         //We'll randomize the energies to get a fresh test every time, but 
         //if allowClashes the really big energies will be left alone (to simulate
         //real energies that have clashes)
+        
+        if(includeTriples && !randomizeEnergies)//unrandomized search space is pairwise precomp, no triples
+            throw new RuntimeException("ERROR: Can't make unrandomized search space with triples");
         
         //options for mutations at each position
         ArrayList<String> AAatPos = new ArrayList<>();
@@ -130,10 +139,14 @@ public class ConfSearchTests {
         
         SearchProblem ans = new SearchProblem( "testResults/CONFSEARCHTEST"+numPos, "1CC8.ss.pdb", 
                 flexRes, allowedAAs,false, false, false, null, 
-                false, useEllipses);//don't add WT, and no minimization, EPIC, or tuple expansion
+                false, new DEEPerSettings(), new ArrayList<>(), new ArrayList<>(), useEllipses );
+                //don't add WT, and no minimization, EPIC, tuple expansion, DEEPer, or strand motions
+
         
         if(randomizeEnergies){
             //we don't need real energies, just make some up (in fact the randomization will be good)
+            ans.emat = new EnergyMatrix(ans.confSpace,0);
+            
             for(ArrayList<Double> resE : ans.emat.oneBody)
                 fillInRandomly(resE);
             for(ArrayList<ArrayList<ArrayList<Double>>> resE : ans.emat.pairwise){
@@ -142,12 +155,68 @@ public class ConfSearchTests {
                         fillInRandomly(rotE);
                 }
             }
+            
+            
+            if(includeTriples){
+                int numTriples = 5*numPos;
+                
+                for(int t=0; t<numTriples; t++){
+                    //draw a random triple of RCs and set it to a random value
+                    //we can throw in a few quadruples too actually
+                    RCTuple randomTuple = randomTriple(ans,true);
+                    ans.emat.setTupleValue( randomTuple, 20*(Math.random()-0.5) );
+                }
+            }
         }
         else {
             ans.loadEnergyMatrix();
         }
         
         return ans;
+    }
+    
+    
+    private static RCTuple randomTriple(SearchProblem sp, boolean allowQuad){
+        //draw a random RC triple from sp
+        //consider quadruples too if indicated
+        Random rand = new Random();
+        
+        if(sp.confSpace.numPos<3)
+            throw new RuntimeException("ERROR: Can't make triples in a <3-residue conf space");
+        if(sp.confSpace.numPos<4)//quads impossible
+            allowQuad = false;
+        
+        int numPos = 3;
+        if(allowQuad){
+            if(Math.random()>.5)//equal changes of triple or quad if allowQuad
+                numPos = 4;
+        }
+        
+        ArrayList<Integer> posList = new ArrayList<>();
+        ArrayList<Integer> RCList = new ArrayList<>();
+        
+        for(int posCount=0; posCount<numPos; posCount++){
+            
+            //randomly draw position
+            int pos;
+            boolean posOK;
+            
+            do {
+                posOK = true;
+                pos = rand.nextInt(sp.confSpace.numPos);
+                for(int count2=0; count2<posCount; count2++){//posList cannot repeat
+                    if(pos == posList.get(count2))
+                        posOK = false;
+                }
+            } while(!posOK);
+            
+            posList.add(pos);
+            
+            int rc = rand.nextInt( sp.confSpace.posFlex.get(pos).RCs.size() );
+            RCList.add(rc);
+        }
+        
+        return new RCTuple(posList, RCList);
     }
     
     

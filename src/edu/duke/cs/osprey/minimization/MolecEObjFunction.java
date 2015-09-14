@@ -6,6 +6,7 @@ package edu.duke.cs.osprey.minimization;
 
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
+import edu.duke.cs.osprey.bbfree.BBFreeDOF;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.confspace.RCTuple;
@@ -13,6 +14,10 @@ import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.EllipseCoordDOF;
 import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
+import edu.duke.cs.osprey.dof.StrandRotation;
+import edu.duke.cs.osprey.dof.StrandTranslation;
+import edu.duke.cs.osprey.dof.deeper.perts.Backrub;
+import edu.duke.cs.osprey.dof.deeper.perts.Shear;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.ematrix.epic.EPICEnergyFunction;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -43,6 +48,8 @@ public class MolecEObjFunction implements ObjectiveFunction {
     
     maybe keep an unmoved molecule;
     */
+    
+    ArrayList<EnergyFunction> partialEFuncs = null;//if not null, can use when searching along a single DOF
     
     public MolecEObjFunction(EnergyFunction ef, DoubleMatrix1D[] constr, Molecule m, 
             ArrayList<DegreeOfFreedom> DOFList){
@@ -132,6 +139,9 @@ public class MolecEObjFunction implements ObjectiveFunction {
         
         if(efunc instanceof EPICEnergyFunction){
             ((EPICEnergyFunction)efunc).assignConfReference(curDOFVals,DOFs,molec);
+            
+            //let's make partial energy functions too for speed...
+            partialEFuncs = ((EPICEnergyFunction)efunc).getDOFPartialEFuncs(DOFs,molec);
         }
     }
     
@@ -189,7 +199,9 @@ public class MolecEObjFunction implements ObjectiveFunction {
         
         setDOF(dof,val);
         
-        //return partialEFunc.evaluate();
+        if(partialEFuncs != null)
+            return partialEFuncs.get(dof).getEnergy();
+        
         return efunc.getEnergy();
     }
 
@@ -202,13 +214,37 @@ public class MolecEObjFunction implements ObjectiveFunction {
         	EllipseCoordDOF e = (EllipseCoordDOF) curDOF;
         	return (e.getIndex()==0) ? 10 : 0.3; 
         }
+        else if(curDOF instanceof StrandRotation)
+            return 0.0625;
+        else if(curDOF instanceof StrandTranslation)
+            return 0.025;
+        else if(curDOF instanceof Shear)
+            return 0.125;
+        else if(curDOF instanceof Backrub)
+            return 0.125;
+        else if(curDOF instanceof BBFreeDOF)
+            return 0.05;
         else
             throw new UnsupportedOperationException("ERROR: DOF type not recognized for step size purposes");
     }
 
     @Override
     public boolean isDOFAngle(int dof) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        
+        DegreeOfFreedom curDOF = DOFs.get(dof);
+        
+        if(curDOF instanceof FreeDihedral)
+            return true;
+        else if(curDOF instanceof StrandRotation)
+            return true;
+        else if(curDOF instanceof StrandTranslation)
+            return false;
+        else if(curDOF instanceof Shear)
+            return true;
+        else if(curDOF instanceof Backrub)
+            return true;
+        
+        throw new UnsupportedOperationException("Degree of freedom type not support here yet: "+DOFs.get(dof).toString());
     }
     
     

@@ -5,8 +5,9 @@ import cern.colt.matrix.DoubleMatrix1D;
 import cern.colt.matrix.DoubleMatrix2D;
 import cern.colt.matrix.linalg.Algebra;
 import cern.colt.matrix.linalg.EigenvalueDecomposition;
+import java.io.Serializable;
 
-public class EllipseTransform {
+public class EllipseTransform implements Serializable {
 
 	DoubleMatrix1D c;
 	DoubleMatrix2D A;

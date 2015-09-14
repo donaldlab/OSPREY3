@@ -27,9 +27,15 @@ public class EnergyFunctionGenerator {
     
     public double distCutoff;//distance cutoff for interactions (angstroms)
     
-    public EnergyFunctionGenerator(ForcefieldParams fParams, double distC){
+    public boolean usePoissonBoltzmann;//Use Poisson-Boltzmann energies for solvation
+    //Note: these will not be included in the single-res and pair energy functions,
+    //so we need to do only full-conf energies to get the Poisson-Boltzmann term
+    
+    
+    public EnergyFunctionGenerator(ForcefieldParams fParams, double distC, boolean usePB){
         ffParams = fParams;
         distCutoff = distC;
+        usePoissonBoltzmann = usePB;
     }
     
     
@@ -100,6 +106,12 @@ public class EnergyFunctionGenerator {
                 EnergyFunction pairE = resPairEnergy(flexRes,shellRes);
                 fullEFunc.addTerm(pairE);
             }
+        }
+        
+        //now add Poisson-Boltzmann energy, if applicable
+        if(usePoissonBoltzmann){
+            PoissonBoltzmannEnergy pbe = new PoissonBoltzmannEnergy(cSpace.m);
+            fullEFunc.addTermWithCoeff(pbe, ffParams.getSolvScale());
         }
         
         return fullEFunc;

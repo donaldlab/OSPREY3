@@ -52,8 +52,7 @@ public class FreeDihedral extends DegreeOfFreedom {
         double dihedralChange = paramVal - curDihedralVal;
         //should we update curVal?
         
-        double[] dihBondVector = VectorAlgebra.subtract(curCoords[2],curCoords[1]);
-        RigidBodyMotion dihRotation = new RigidBodyMotion (curCoords[2], dihBondVector, dihedralChange, false);
+        RigidBodyMotion dihRotation = new DihedralRotation(curCoords[1], curCoords[2], dihedralChange);
         //rotate about third atom, axis = third-second atom (i.e. bond vector),
         //rotate by dihedralChange
         

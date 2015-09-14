@@ -156,10 +156,19 @@ public class TermECalculator implements MPISlaveTask {
         //store it in our list of results
 
         boolean skipTuple = false;
-        double minEnergy = 0;//rigid or voxel-minimum energy
+        double minEnergy = Double.POSITIVE_INFINITY;//rigid or voxel-minimum energy
         EPoly EPICFit = null;//can use null poly for pruned term
         
-        if(pruneMat!=null){
+        if(RCs.pos.size()==2){//pair: need to check for parametric incompatibility
+            //If there are DOFs spanning multiple residues, then parametric incompatibility
+            //is whether the pair is mathematically possible (i.e. has a well-defined voxel)
+            RC rc1 = confSpace.posFlex.get( RCs.pos.get(0) ).RCs.get( RCs.RCs.get(0) );
+            RC rc2 = confSpace.posFlex.get( RCs.pos.get(1) ).RCs.get( RCs.RCs.get(1) );
+            if(rc1.isParametricallyIncompatibleWith(rc2)){
+                skipTuple = true;
+            }
+        }
+        if( (pruneMat!=null) && (!skipTuple) ){
             if(pruneMat.isPruned(RCs))
                 skipTuple = true;
         }

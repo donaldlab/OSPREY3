@@ -5,12 +5,15 @@
 package edu.duke.cs.osprey.control;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
+import edu.duke.cs.osprey.dof.deeper.RamachandranChecker;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.tools.StringParsing;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.StringTokenizer;
@@ -38,6 +41,71 @@ public class ConfigFileParser {
     }
     
     
+    DEEPerSettings setupDEEPer(){
+        //Set up the DEEPerSettings object, including the PertSet (describes the perturbations)
+        String runName = params.getValue("runName");
+        
+        DEEPerSettings dset = new DEEPerSettings(
+                params.getBool("doPerturbations", false),
+                params.getValue("perturbationFile", runName+".pert"),
+                params.getBool("selectPerturbations", true),
+                params.getValue("startingPerturbationFile", "none"),
+                params.getBool("onlyStartingPerturbations", false),
+                params.getDouble("maxShearParam", 2.5),
+                params.getDouble("maxBackrubParam", 2.5),
+                params.getBool("selectLCAs", false),
+                getFlexRes(), 
+                params.getValue("PDBNAME")
+        );
+        
+        dset.loadPertFile();//load the PertSet from its file
+        return dset;
+    }
+    
+    
+    private ArrayList<String[]> freeBBZoneTermini(){
+        //Read the termini of the BBFreeBlocks, if any
+        ArrayList<String[]> ans = new ArrayList<>();
+        
+        for(String rt : params.searchParams("BBFREEBLOCK")){
+            //So for example BBFREEBLOCK0 120 125 would mean make a BBFreeBlock for res 120-125
+            //lexical ordering for blocks is OK
+            String strandLimitsString = params.getValue(rt);
+
+            String[] termini = 
+                { StringParsing.getToken(strandLimitsString, 1),
+                    StringParsing.getToken(strandLimitsString, 2) };
+
+            ans.add(termini);
+        }
+        
+        return ans;
+    }
+    
+    
+    private ArrayList<String[]> moveableStrandTermini(){
+        //Read the strands that are going to translate and rotate
+        //Let's say they can do this regardless of what doMinimize says (that's for sidechains)
+        ArrayList<String[]> ans = new ArrayList<>();
+        
+        for(String rt : params.searchParams("STRANDROTTRANS")){
+            if(params.getBool(rt, false)){
+                //So rt = STRANDROTTRANS0 here means strand 0 should translate & rotate
+                //OK to go through these params in lexical ordering
+                String strandNum = rt.substring(14);
+                String strandLimitsString = params.getValue("STRAND"+strandNum);
+                
+                String[] termini = 
+                    { StringParsing.getToken(strandLimitsString, 1),
+                        StringParsing.getToken(strandLimitsString, 2) };
+                
+                ans.add(termini);
+            }
+        }
+        
+        return ans;
+    }
+    
     //creation of objects needed in calculations like GMEC and K*
     SearchProblem getSearchProblem(){//this version is for a single search problem...can modify for
         //additional states (unbound, etc.)
@@ -54,6 +122,9 @@ public class ConfigFileParser {
         
         System.out.println("CREATING SEARCH PROBLEM.  NAME: "+name);
         
+        ArrayList<String[]> moveableStrands = moveableStrandTermini();
+        ArrayList<String[]> freeBBZones = freeBBZoneTermini();
+        DEEPerSettings dset = setupDEEPer();
         
         return new SearchProblem( name, params.getValue("PDBNAME"), 
                 flexRes, allowedAAs,
@@ -61,8 +132,9 @@ public class ConfigFileParser {
                 params.getBool("doMinimize",false),
                 params.getBool("UseEPIC",false),
                 new EPICSettings(params),
-                params.getBool("UseTupExp",false),//CURRENTLY JUST SC MINIMIZATION...
-                params.getBool("useEllipses", false));//CURRENTLY JUST SC MINIMIZATION...
+                params.getBool("UseTupExp",false),
+                dset, moveableStrands, freeBBZones,
+                params.getBool("useEllipses", false) );
     }
     
     
@@ -71,12 +143,16 @@ public class ConfigFileParser {
         //list of flexible residues.  PDB-based residue numbers
         //we'll include all flexible residues: for compatibility (MAY BE TEMPORARY),
         //all residues in a "StrandMut" record will be included here
+        //"StrandMutNums" means something different and thus will be excluded
         ArrayList<String> flexResList = new ArrayList<>();
         
-        for(String param : params.searchParams("STRANDMUT")){//STRANDMUT0, etc.
-            
-            if(param.equalsIgnoreCase("STRANDMUTNUMS"))//means something different
-                continue;
+        int numStrands = params.searchParams("STRANDMUT").size() 
+                - params.searchParams("STRANDMUTNUMS").size();
+        
+        //must go through the strands in order to get the right residues 
+        for(int smNum=0; smNum<numStrands; smNum++){//must do these in order
+            //so we get the right residues
+            String param = "STRANDMUT"+smNum;//STRANDMUT0, etc
             
             String resListString = params.getValue(param);
             StringTokenizer tokenizer = new StringTokenizer(resListString);
@@ -98,10 +174,15 @@ public class ConfigFileParser {
         
         ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
         
-        //handle better later (now assuming old-style numbering and no more than 10 strands)...
-        for(int str=0; str<10; str++){
+        //handle better later (now assuming old-style numbering)...
+        for(int str=0; true; str++){
             ArrayList<String> resAllowedRecords = params.searchParams("RESALLOWED"+str);
-            for(String param : resAllowedRecords){
+            int numRecordsInStrand = resAllowedRecords.size();
+            
+            //must go through residues in numerical order
+            for(int recNum=0; recNum<numRecordsInStrand; recNum++){
+                String param = "RESALLOWED" + str + "_" + recNum;
+                    
                 String allowedAAString = params.getValue(param);
                 
                 //parse AA types from allowedAAString
@@ -114,6 +195,9 @@ public class ConfigFileParser {
                 
                 allowedAAs.add(resAllowedAAs);
             }
+            
+            if(numRecordsInStrand==0)//finished with strands that have flexible residues
+                break;
         }
         
         return allowedAAs;
@@ -121,16 +205,26 @@ public class ConfigFileParser {
     
     
     
-    PruningControl setupPruning(SearchProblem searchSpace, double pruningInterval){
+    PruningControl setupPruning(SearchProblem searchSpace, double pruningInterval, boolean useEPIC, boolean useTupExp){
         //setup pruning.  Conformations in searchSpace more than (Ew+Ival) over the GMEC are liable to pruning
         
-        //initialize the pruning matrix for searchSpace
-        searchSpace.pruneMat = new PruningMatrix(searchSpace.confSpace, pruningInterval);
+        //initialize the pruning matrix for searchSpace, if not already initialized
+        //or if pruningInterval lower (so it may have pruned tuples that shouldn't
+        //be pruned with our new pruningInterval)
+        boolean initPruneMat = false;
+        if(searchSpace.pruneMat==null)
+            initPruneMat = true;
+        else if(searchSpace.pruneMat.getPruningInterval() < pruningInterval)
+            initPruneMat = true;
         
-        return new PruningControl(searchSpace, pruningInterval, params.getBool("TYPEDEP",false), 
+        if(initPruneMat)
+            searchSpace.pruneMat = new PruningMatrix(searchSpace.confSpace, pruningInterval);
+        
+        return new PruningControl( searchSpace, pruningInterval, params.getBool("TYPEDEP",false), 
             params.getDouble("BOUNDSTHRESH",100), params.getInt("ALGOPTION",1), 
             params.getBool("USEFLAGS",true),
-            params.getBool("USETRIPLES",false), false);//FOR NOW NO DACS
+            params.getBool("USETRIPLES",false), false, useEPIC, useTupExp,
+            params.getDouble("STERICTHRESH",100) );//FOR NOW NO DACS
     }
     
     
@@ -143,6 +237,9 @@ public class ConfigFileParser {
         
         EnvironmentVars.setDataDir(params.getValue("DataDir"));
         
+        boolean usePoissonBoltzmann = params.getBool("USEPOISSONBOLTZMANN",false);
+        boolean useEEF1 = params.getBool("DOSOLVATIONE",true) && (!usePoissonBoltzmann);
+        
         //a lot of this depends on forcefield type so figure that out first
         //general forcefield data loaded into the ForcefieldParams in EnvironmentVars
         ForcefieldParams curForcefieldParams = new ForcefieldParams(
@@ -150,7 +247,7 @@ public class ConfigFileParser {
                 params.getBool("DISTDEPDIELECT",true),
 		params.getDouble("DIELECTCONST",6.0),
                 params.getDouble("VDWMULT",0.95),
-		params.getBool("DOSOLVATIONE",true),
+		useEEF1,//Only EEF1 solvation is part of the forcefield (P-B calls Delphi)
 		params.getDouble("SOLVSCALE",0.5),
                 params.getBool("HELECT",true),
                 params.getBool("HVDW",true) );
@@ -158,7 +255,8 @@ public class ConfigFileParser {
         
         EnvironmentVars.curEFcnGenerator = new EnergyFunctionGenerator( 
                 curForcefieldParams,
-                params.getDouble("SHELLDISTCUTOFF",Double.POSITIVE_INFINITY) );
+                params.getDouble("SHELLDISTCUTOFF",Double.POSITIVE_INFINITY),
+                usePoissonBoltzmann );
         
         String[] resTemplateFiles = getResidueTemplateFiles(curForcefieldParams.forcefld);
         
@@ -174,7 +272,16 @@ public class ConfigFileParser {
         EnvironmentVars.resTemplates = resTemplates;
         
         
-        //load RamachandranChecker here!
+        String ramaGlyFile = params.getValue("RAMAGLYFILE","rama500-gly-sym.data");
+
+        if( ! ramaGlyFile.equalsIgnoreCase("none") ){
+            String ramaFiles[] = { EnvironmentVars.getDataDir() + ramaGlyFile,
+            EnvironmentVars.getDataDir() + params.getValue("RAMAPROFILE","rama500-pro.data"),
+            EnvironmentVars.getDataDir() + params.getValue("RAMAGENFILE","rama500-general.data"),
+            EnvironmentVars.getDataDir() + params.getValue("RAMAPREPROFILE","rama500-prepro.data")
+            };
+            RamachandranChecker.getInstance().readInputFiles( ramaFiles );
+        }
         
         
         /*

@@ -5,10 +5,12 @@
 package edu.duke.cs.osprey.astar;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
+import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -40,19 +42,30 @@ public class ConfTree extends AStarTree {
     boolean traditionalScore = true;
     boolean useRefinement = false;//refine nodes (might want EPIC, MPLP, or something else)
     
-    boolean useDynamicAStar = false;
+    boolean useDynamicAStar = true;
 
     
     EPICMatrix epicMat = null;//to use in refinement
     ConfSpace confSpace = null;//conf space to use with epicMat if we're doing EPIC minimization w/ SAPE
     boolean minPartialConfs = false;//whether to minimize partially defined confs with EPIC, or just fully defined
     
-    public ConfTree(SearchProblem sp) {
+    
+    public ConfTree(SearchProblem sp){
+        init(sp, sp.pruneMat, sp.useEPIC);
+    }
+    
+    public ConfTree(SearchProblem sp, PruningMatrix pruneMat, boolean useEPIC){
+        //Conf search over RC's in sp that are unpruned in pruneMat
+        init(sp,pruneMat,useEPIC);
+    }
+    
+    
+    private void init(SearchProblem sp, PruningMatrix pruneMat, boolean useEPIC) {
         numPos = sp.confSpace.numPos;
         
         //see which RCs are unpruned and thus available for consideration
         for(int pos=0; pos<numPos; pos++){
-            unprunedRCsAtPos.add( sp.pruneMat.unprunedRCsAtPos(pos) );
+            unprunedRCsAtPos.add( pruneMat.unprunedRCsAtPos(pos) );
         }
         
         //get the appropriate energy matrix to use in this A* search
@@ -61,7 +74,7 @@ public class ConfTree extends AStarTree {
         else {
             emat = sp.emat;
             
-            if(sp.useEPIC){//include EPIC in the search
+            if(useEPIC){//include EPIC in the search
                 useRefinement = true;
                 epicMat = sp.epicMat;
                 confSpace = sp.confSpace;
@@ -74,7 +87,7 @@ public class ConfTree extends AStarTree {
     
     
     @Override
-    ArrayList<AStarNode> getChildren(AStarNode curNode) {
+    public ArrayList<AStarNode> getChildren(AStarNode curNode) {
         
         if(isFullyAssigned(curNode))
             throw new RuntimeException("ERROR: Can't expand a fully assigned A* node");
@@ -94,7 +107,7 @@ public class ConfTree extends AStarTree {
 
 
     @Override
-    AStarNode rootNode() {
+    public AStarNode rootNode() {
         //no residues assigned, so all -1's
         int[] conf = new int[numPos];
         Arrays.fill(conf,-1);
@@ -105,7 +118,7 @@ public class ConfTree extends AStarTree {
     
 
     @Override
-    boolean isFullyAssigned(AStarNode node) {
+    public boolean isFullyAssigned(AStarNode node) {
         for(int rc : node.nodeAssignments){
             if(rc<0)//not fully assigned
                 return false;
@@ -118,7 +131,7 @@ public class ConfTree extends AStarTree {
     
     //operations supporting special features like dynamic A*
     
-    int nextLevelToExpand(int[] partialConf){
+    public int nextLevelToExpand(int[] partialConf){
         //given a partially defined conformation, what level should be expanded next?
         
         if(useDynamicAStar){
@@ -127,13 +140,15 @@ public class ConfTree extends AStarTree {
             double bestLevelScore = Double.NEGATIVE_INFINITY;
             
             for(int level=0; level<numPos; level++){
-                double levelScore = scoreExpansionLevel(level,partialConf);
-                
-                if(levelScore>bestLevelScore){//higher score is better
-                    bestLevelScore = levelScore;
-                    bestLevel = level;
-                }
+                if(partialConf[level]<0){//position isn't already all expanded
                     
+                    double levelScore = scoreExpansionLevel(level,partialConf);
+
+                    if(levelScore>bestLevelScore){//higher score is better
+                        bestLevelScore = levelScore;
+                        bestLevel = level;
+                    }
+                }
             }
             
             if(bestLevel==-1)
@@ -177,7 +192,7 @@ public class ConfTree extends AStarTree {
     }
     
     
-    
+        
     double scoreConf(int[] partialConf){
         if(traditionalScore){
             RCTuple definedTuple = new RCTuple(partialConf);
@@ -222,31 +237,21 @@ public class ConfTree extends AStarTree {
         //plus "contributions" for each undefined residue
         //so we'll say the "contribution" consists of any interactions that include that residue
         //but do not include higher-numbered undefined residues
-        for(int level2=0; level2<level; level2++){
+        for(int level2=0; level2<numPos; level2++){
             
             if(partialConf[level2]>=0 || level2<level){//lower-numbered or defined residues
                 
                 double levelBestE = Double.POSITIVE_INFINITY;//best pairwise energy
-                
-                ArrayList<Integer> allowedRCs;
-                if(partialConf[level2]==-1)//position undefined: consider all RCs
-                    allowedRCs = unprunedRCsAtPos.get(level2);
-                else if(partialConf[level2]>=0){
-                    allowedRCs = new ArrayList<>();
-                    allowedRCs.add(partialConf[level2]);
-                }
-                else
-                    throw new UnsupportedOperationException("ERROR: Partially assigned position not yet supported in A*");
-
+                ArrayList<Integer> allowedRCs = allowedRCsAtLevel(level2,partialConf);
                 
                 for( int rc2 : allowedRCs ){
                     
                     double interactionE = emat.getPairwise(level,rc,level2,rc2);
                     
-                    //double higherLB = higherOrderContribLB(partialConf,level,rc,level2,rc2,);
-                    //add higher-order terms that involve rc, rc2, and
+                    double higherLB = higherOrderContribLB(partialConf,level,rc,level2,rc2);
+                    //add higher-order terms that involve rc, rc2, and parts of partialConf
                     
-                    //interactionE += higherLB;
+                    interactionE += higherLB;
                     
                     //besides that only residues in definedTuple or levels below level2
                     levelBestE = Math.min(levelBestE,interactionE);
@@ -259,13 +264,86 @@ public class ConfTree extends AStarTree {
         return rcContrib;
     }
     
-    /*
-    double higherOrderContribLB(){
-        //recursive function to get lower bound, in min-sum-min fashion, on triples+ terms
+    
+    ArrayList<Integer> allowedRCsAtLevel(int level, int[] partialConf){
+        //What RCs are allowed at the specified level (i.e., position num) in the given partial conf?
+        ArrayList<Integer> allowedRCs;
+        
+        if(partialConf[level]==-1)//position undefined: consider all RCs
+            allowedRCs = unprunedRCsAtPos.get(level);
+        else if(partialConf[level]>=0){
+            allowedRCs = new ArrayList<>();
+            allowedRCs.add(partialConf[level]);
+        }
+        else
+            throw new UnsupportedOperationException("ERROR: Partially assigned position not yet supported in A*");
+        
+        return allowedRCs;
+    }
+
+    
+    double higherOrderContribLB(int[] partialConf, int pos1, int rc1, int pos2, int rc2){
+        //higher-order contribution for a given RC pair, when scoring a partial conf
+        
+        HigherTupleFinder<Double> htf = emat.getHigherOrderTerms(pos1,rc1,pos2,rc2);
+        
+        if(htf==null)
+            return 0;//no higher-order interactions
+        else
+            return higherOrderContribLB(partialConf, htf, pos2);
     }
     
     
+    double higherOrderContribLB(int[] partialConf, HigherTupleFinder<Double> htf, int level2){
+        //recursive function to get lower bound on higher-than-pairwise terms
+        //this is the contribution to the lower bound due to higher-order interactions
+        //of the RC tuple corresponding to htf with "lower-numbered" residues (numbering as in scoreConf:
+        //these are residues that are fully defined in partialConf, or are actually numbered <level2)
+
+        double contrib = 0;
+                
+        for(int iPos : htf.getInteractingPos() ){//position has higher-order interaction with tup
+            if(posComesBefore(iPos,level2,partialConf)){//interaction in right order
+                //(want to avoid double-counting)
+                
+                double levelBestE = Double.POSITIVE_INFINITY;//best value of contribution
+                //from tup-iPos interaction
+                ArrayList<Integer> allowedRCs = allowedRCsAtLevel(iPos,partialConf);
+                
+                for( int rc : allowedRCs ){
+                    
+                    double interactionE = htf.getInteraction(iPos, rc);
+                    
+                    //see if need to go up to highers order again...
+                    HigherTupleFinder htf2 = htf.getHigherInteractions(iPos, rc);
+                    if(htf2!=null){
+                        interactionE += higherOrderContribLB(partialConf, htf2, iPos);
+                    }
+                    
+                    //besides that only residues in definedTuple or levels below level2
+                    levelBestE = Math.min(levelBestE,interactionE);
+                }
+
+                contrib += levelBestE;//add up contributions from different interacting positions iPos
+            }
+        }
+        
+        return contrib;
+    }
     
+    
+    private boolean posComesBefore(int pos1, int pos2, int partialConf[]){
+        //for purposes of contributions to traditional conf score, 
+        //we go through defined and then through undefined positions (in partialConf);
+        //within each of these groups we go in order of position number
+        if(partialConf[pos2]>=0){//pos2 defined
+            return (pos1<pos2 && partialConf[pos1]>=0);//pos1 must be defined to come before pos2
+        }
+        else//pos1 comes before pos2 if it's defined, or if pos1<pos2
+            return (pos1<pos2 || partialConf[pos1]>=0);
+    }
+    
+    /*
     @Override
     boolean canPruneNode(AStarNode node){
         check seq dev from wt;
@@ -291,5 +369,26 @@ public class ConfTree extends AStarTree {
             node.score += epicMat.minContE(node.nodeAssignments);
         
         node.scoreNeedsRefinement = false;
+    }
+     
+     
+     
+    //this function computes the minimum over all full conf E's consistent with partialConf
+    //for debugging only of course
+    double exhaustiveScore(int[] partialConf){
+        for(int pos=0; pos<partialConf.length; pos++){
+            if(partialConf[pos]==-1){
+                //recurse to get all options
+                double score = Double.POSITIVE_INFINITY;
+                for(int rc : allowedRCsAtLevel(pos,partialConf)){
+                    int partialConf2[] = partialConf.clone();
+                    partialConf2[pos] = rc;
+                    score = Math.min(score,exhaustiveScore(partialConf2));
+                }
+                return score;
+            }
+        }
+        //if we get here, conf fully defined
+        return emat.getInternalEnergy( new RCTuple(partialConf) );
     }
 }
