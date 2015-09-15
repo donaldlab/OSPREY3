@@ -100,11 +100,11 @@ public class DEEPerSettings {
         return perts.pertIntervals;
     }
     
-    public ArrayList<ArrayList<int[]>> getPertStates(int pos){
+    public ArrayList<ArrayList<int[]>> getPertStates(int resNum){
         if(perts==null)
             return null;
         
-        return perts.pertStates.get(pos);
+        return perts.pertStates.get(resNum);
     }
     
     

@@ -103,6 +103,7 @@ public class PositionConfSpace implements Serializable {
         
     }
     
+    public PositionConfSpace(){}
     
     private void createRC(int numDihedrals, String AAType, int rot, boolean contSCFlex, ArrayList<DegreeOfFreedom> dofListForRot,
             int proPucker, ArrayList<DegreeOfFreedom> strandDOFs, BBFreeBlock bfb, ArrayList<int[]> pertState, 

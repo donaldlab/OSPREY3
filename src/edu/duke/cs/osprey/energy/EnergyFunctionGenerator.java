@@ -5,7 +5,9 @@
 package edu.duke.cs.osprey.energy;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
+import edu.duke.cs.osprey.confspace.ConfSpaceSuper;
 import edu.duke.cs.osprey.confspace.PositionConfSpace;
+import edu.duke.cs.osprey.confspace.PositionConfSpaceSuper;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
@@ -117,7 +119,41 @@ public class EnergyFunctionGenerator {
         return fullEFunc;
     }
     
-    
+  //HMN: Created new fullConfEnergy to hand ConfSpaceSuper input
+    public EnergyFunction fullConfEnergy(ConfSpaceSuper cSpace, ArrayList<Residue> shellResidues){
+        ArrayList<Residue> flexibleResidues = new ArrayList<>();
+        for (PositionConfSpaceSuper pcs : cSpace.posFlex){
+            for (Residue res : pcs.resList){
+                flexibleResidues.add(res);
+            }
+        }
+        
+        MultiTermEnergyFunction fullEfun = new MultiTermEnergyFunction();
+        
+        //interaction among flexible residues
+        for (int flexResNum=0; flexResNum<flexibleResidues.size(); flexResNum++){
+            
+            Residue flexres = flexibleResidues.get(flexResNum);
+            EnergyFunction oneBodyE = singleResEnergy(flexres);
+            fullEfun.addTerm(oneBodyE);
+            
+            for (int flexResNum2=0; flexResNum2<flexResNum; flexResNum2++){
+                Residue flexRes2 = flexibleResidues.get(flexResNum2);
+                EnergyFunction pairE = resPairEnergy(flexres, flexRes2);
+                fullEfun.addTerm(pairE);
+            }
+        }
+        
+        //flexible-to-shell interaction
+        for (Residue flexRes : flexibleResidues){
+            for (Residue shellRes : shellResidues){
+                EnergyFunction pairE = resPairEnergy(flexRes, shellRes);
+                fullEfun.addTerm(pairE);
+            }
+        }
+        
+        return fullEfun;
+    }   
     
     public EnergyFunction fullMolecEnergy(Molecule molec){
         //full energy of a molecule, with all residues interacting

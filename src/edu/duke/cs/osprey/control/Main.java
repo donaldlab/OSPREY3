@@ -63,6 +63,10 @@ public class Main {
             COMETSDoer cd = new COMETSDoer(args);
             cd.calcBestSequences();
         }
+        else if(command.equalsIgnoreCase("KaDEETest")){
+            KaDEEFinder kdf = new KaDEEFinder(cfp);
+            kdf.doKaDEE();
+        }
         //etc.
         else
             throw new RuntimeException("ERROR: OSPREY command unrecognized: "+command);

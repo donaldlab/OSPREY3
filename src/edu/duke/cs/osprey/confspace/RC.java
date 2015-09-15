@@ -41,6 +41,8 @@ public class RC implements Serializable {
         this.RCIndex = RCIndex;
     }
     
+    public RC(){}
+    
     
     public boolean isParametricallyIncompatibleWith(RC rc2){
         //Two RCs are parametrically incompatible if and only if there is a DOF that they share

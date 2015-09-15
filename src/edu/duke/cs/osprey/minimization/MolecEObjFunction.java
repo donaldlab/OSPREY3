@@ -8,8 +8,11 @@ import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.bbfree.BBFreeDOF;
 import edu.duke.cs.osprey.confspace.ConfSpace;
+import edu.duke.cs.osprey.confspace.ConfSpaceSuper;
 import edu.duke.cs.osprey.confspace.RC;
+import edu.duke.cs.osprey.confspace.SuperRC;
 import edu.duke.cs.osprey.confspace.RCTuple;
+import edu.duke.cs.osprey.confspace.SuperRCTuple;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.EllipseCoordDOF;
 import edu.duke.cs.osprey.dof.FreeDihedral;
@@ -145,6 +148,90 @@ public class MolecEObjFunction implements ObjectiveFunction {
         }
     }
     
+    //HMN: MolecEObjFunction from ConfSpaceSuper and SuperRCTuple
+    public MolecEObjFunction(EnergyFunction ef, ConfSpaceSuper cSpace, SuperRCTuple superRCTup) {
+        /*Initialize an objective function to evaluate ef over the portion of cSpace
+         * defined by the RCs in RCTup.  Ensure that all confDOFs of residues in RCTup are bounded
+         * (if able to vary continuously) or set correctly (if not)
+         */
+
+        efunc = ef;
+        molec = cSpace.m;
+
+        LinkedHashMap<DegreeOfFreedom, double[]> DOFBounds = new LinkedHashMap<>();//bounds for each conformational DOF
+        //LinkedHashMap used to achieve consistency between runs (iterating over a regular HashMap
+        //would yield a different order from run to run depending on what DegreeOfFreedom pointers are available)
+
+        int numMinDOFs = 0;//number of minimizable confDOFs (bounded but not to a single value)
+
+        for (int indexInTup = 0; indexInTup < superRCTup.RCs.size(); indexInTup++) {
+
+            int posNum = superRCTup.pos.get(indexInTup);
+            int superRCNum = superRCTup.RCs.get(indexInTup);
+            SuperRC superRC = cSpace.posFlex.get(posNum).superRCs.get(superRCNum);
+            
+            ArrayList<Integer> DOFIndicesPerRes = cSpace.posFlex.get(posNum).DOFIndices;
+            //iterate over each residue that makes up the superRC
+            for (int resNum=0; resNum<superRC.DOFsPerRes.size(); resNum++){
+                //Get the DOF index to index into mutDOFs
+                int DOFindex = DOFIndicesPerRes.get(resNum);
+                
+                //make sure the amino-acid type is set correctly
+                ResidueTypeDOF mutDOF = cSpace.mutDOFs.get(DOFindex);
+                if (!mutDOF.getCurResType().equalsIgnoreCase(superRC.AATypePerRes.get(resNum))) {
+                    mutDOF.mutateTo(superRC.AATypePerRes.get(resNum));
+                }
+
+                for (int dofIndexInSingleResRC = 0; dofIndexInSingleResRC < superRC.DOFsPerRes.get(resNum).size(); dofIndexInSingleResRC++) {
+
+                    //get the DOF bounds
+                    double maxVal = superRC.DOFmax.get(dofIndexInSingleResRC);
+                    double minVal = superRC.DOFmin.get(dofIndexInSingleResRC);
+
+                    DegreeOfFreedom curDOF = superRC.DOFsPerRes.get(resNum).get(dofIndexInSingleResRC);
+
+                    //make sure DOF bounds don't contradict bounds from some other RC
+                    if (DOFBounds.containsKey(curDOF)) {
+                        double[] prevBounds = DOFBounds.get(curDOF);
+                        if (prevBounds[0] != minVal || prevBounds[1] != maxVal) {
+                            throw new RuntimeException("ERROR: Disagreement in DOF bounds between RCs!");
+                        }
+                    } else {//store bounds
+                        DOFBounds.put(curDOF, new double[]{minVal, maxVal});
+                        numMinDOFs++;
+                    }
+                }
+            }
+        }
+
+        //collect constraints, and apply fixed DOF valuestrue
+        DOFs = new ArrayList<>();
+        constraints = new DoubleMatrix1D[]{DoubleFactory1D.dense.make(numMinDOFs), DoubleFactory1D.dense.make(numMinDOFs)};
+
+        int minDOFCount = 0;
+
+        for (DegreeOfFreedom dof : DOFBounds.keySet()) {
+            double bounds[] = DOFBounds.get(dof);
+
+            if (bounds[0] == bounds[1]) {//fixed DOF
+                dof.apply(bounds[0]);//apply fixed value
+            } else {//minimizable DOF: record DOF and constraints for this objective function
+                constraints[0].set(minDOFCount, bounds[0]);
+                constraints[1].set(minDOFCount, bounds[1]);
+                DOFs.add(dof);
+                minDOFCount++;
+            }
+        }
+
+        curDOFVals = DoubleFactory1D.dense.make(DOFs.size());
+
+        if (efunc instanceof EPICEnergyFunction) {
+            ((EPICEnergyFunction) efunc).assignConfReference(curDOFVals, DOFs, molec);
+
+            //let's make partial energy functions too for speed...
+            partialEFuncs = ((EPICEnergyFunction) efunc).getDOFPartialEFuncs(DOFs, molec);
+        }
+    }
     
     
     
