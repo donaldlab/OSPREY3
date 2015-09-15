@@ -281,33 +281,57 @@ public class ResidueTemplateLibrary {
         
     }
     
-    
-    public void loadRotamerLibrary(String fileName){
-        //load rotamer information into templates we have
-        RotamerLibraryReader.readRotLibrary(fileName, this);
+    /** 
+     * PGC 2015: Supporting two rotamer libraries right now, Lovell and Dunbrack backbone dependent rotamers.
+     * load rotamer information into templates.
+     * @param filename for Lovell-style or Dunbrack Rotamer Library.
+     * @param backbone_dependent_rotamers Use Dunbrack Rotamer Library? 
+     */
+    public void loadRotamerLibrary(String fileName, boolean dunbrack_backbone_dependent_rotamers){
+        if(dunbrack_backbone_dependent_rotamers){
+        	RotamerLibraryReader.readDunbrackRotamerLibraryForResiduePosition(fileName, this);
+        }
+        else{
+        	RotamerLibraryReader.readRotLibrary(fileName, this);
+        }
         //read volume here too?
+        
     }
     
     
     
-    //Functions to get templates and information from them
-    
+    //Functions to get templates and information from them    
     public int numDihedralsForResType(String resType){
         //number of free dihedrals (sidechain dihedrals for actual amino acids)
         return firstTemplate(resType).numDihedrals;
     }
-    
-    public int numRotForResType(String resType){
-        //number of rotamers
-        return firstTemplate(resType).numRotamers;
+
+    /**
+     * PGC 2015: 
+     * Returns the number of rotamers for the specified residue type, for backbone dependent or backbone independent rotamers.
+     * @param resType in three letter amino acid type
+     * @param phi The backbone phi angle for backbone dependent rotamers; will be ignored if backbone dependent rotamer libraries are not used.
+     * @param psi The backbone psi angle for backbone dependent rotamers; will be ignored if backbone dependent rotamer libraries are not used.
+     * @return The number of rotamers.  
+     */
+    public int numRotForResType(String resType, double phi, double psi){
+        return firstTemplate(resType).getNumRotamers(phi, psi);
     }
-    
-    public double getDihedralForRotamer(String resType, int rotNum, int dihedralNum){
-        //get ideal dihedral value for a particular rotamer of a particular residue type
-        //rotNum, dihedralNum both specific to resType
-        return firstTemplate(resType).rotamericDihedrals[rotNum][dihedralNum];
-    }
-    
+    /**
+     * PGC 2015:
+     * get ideal dihedral value for a particular rotamer of a particular residue type, for backbone dependent or backbone independent rotamers.
+     * 
+     * @param resType in three letter amino acid type
+     * @param phi The backbone phi angle for backbone dependent rotamers; will be ignored if backbone dependent rotamer libraries are not used.
+     * @param psi The backbone psi angle for backbone dependent rotamers; will be ignored if backbone dependent rotamer libraries are not used.
+     * @param rotNum The rotamer number within this residue type.
+     * @param dihedralNum The dihedral number within this rotamer.
+     * @return
+     */
+    public double getDihedralForRotamer(String resType, double phi, double psi, int rotNum, int dihedralNum){
+        return firstTemplate(resType).getRotamericDihedrals(phi, psi, rotNum, dihedralNum);
+    } 
+
     
     public ResidueTemplate firstTemplate(String resType){
         //get the first template with the given residue type 

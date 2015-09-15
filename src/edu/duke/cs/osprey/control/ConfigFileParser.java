@@ -168,8 +168,14 @@ public class ConfigFileParser {
         //these will be matched to templates
         resTemplates.loadTemplateCoords("all_amino_coords.in");
         
-        //load rotamer libraries; residues mentioned here will be matched to templates
-        resTemplates.loadRotamerLibrary(params.getValue("ROTFILE","LovellRotamer.dat"));//see below; also gRotFile0 etc
+        //load rotamer libraries; the names of residues as they appear in the rotamer library file will be matched to templates
+        boolean dunbrackRots = params.getBool("UseDunbrackRotamers", false);
+        if(dunbrackRots){ // Use the dunbrack rotamer library
+        	resTemplates.loadRotamerLibrary(params.getValue("ROTFILE","ALL.bbdep.rotamers.lib"), true);//see below; also gRotFile0 etc
+        }
+        else{
+        	resTemplates.loadRotamerLibrary(params.getValue("ROTFILE","LovellRotamer.dat"), false);//see below; also gRotFile0 etc
+        }
         
         EnvironmentVars.resTemplates = resTemplates;
         
@@ -258,7 +264,10 @@ public class ConfigFileParser {
             aaFilename, aaNTFilename, aaCTFilename, grFilename
         };
     }
-    
+    // Getter function for the params.
+    public ParamSet getParams(){
+    	return this.params;
+    }
     
     
 }

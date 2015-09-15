@@ -10,6 +10,7 @@ import static edu.duke.cs.osprey.tools.VectorAlgebra.norm;
 import static edu.duke.cs.osprey.tools.VectorAlgebra.normsq;
 import static edu.duke.cs.osprey.tools.VectorAlgebra.perpendicularComponent;
 import static edu.duke.cs.osprey.tools.VectorAlgebra.subtract;
+import edu.duke.cs.osprey.structure.Residue;
 
 /**
  *
@@ -145,5 +146,36 @@ public class Protractor {
         return ans;
     }
     
-    
+    /** Returns {phi,psi} for the residue.
+     * 
+     * @param res: the residue to compute phi and psi
+     * @return an array where the first field is phi and the second field is psi
+     */
+    public static double[] getPhiPsi(Residue res){
+
+        double ans[] = new double[2];
+
+        //Get coordinates of relevant atoms
+        //return null (undefined) if can't find one or more atoms
+        if(res.indexInMolecule==0 || res.indexInMolecule==res.molec.residues.size()-1)//first or last res
+            return null;
+
+        Residue prevRes = res.molec.residues.get(res.indexInMolecule-1);
+        Residue nextRes = res.molec.residues.get(res.indexInMolecule+1);
+
+
+        double[] CLast = prevRes.getCoordsByAtomName("C");
+        double[] NCur = res.getCoordsByAtomName("N");
+        double[] CACur = res.getCoordsByAtomName("CA");
+        double[] CCur = res.getCoordsByAtomName("C");
+        double[] NNext = nextRes.getCoordsByAtomName("N");
+
+        if ( CLast==null || NCur==null || CACur==null || CCur==null || NNext==null )
+            return null;//atom not found
+
+        ans[0] = Protractor.measureDihedral( new double[][] {CLast,NCur,CACur,CCur} );//phi
+        ans[1] = Protractor.measureDihedral( new double[][] {NCur,CACur,CCur,NNext} );//psi
+
+        return ans;
+    }
 }

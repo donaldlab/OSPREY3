@@ -69,7 +69,18 @@ public class ConfSpace implements Serializable {
     
     public boolean useEllipses = false;
     
-    
+    /** initialize a new conformational space, desomefining all its flexibility
+    //we use one residue per position here
+    //contSCFlex 
+    //ADD OTHER OPTIONS: WT ROTAMERS, DIFFERENT ROT WIDTHS, DEEPER, RIGID-BODY MOTIONS
+     * 
+     * @param PDBFile the structure to read from
+     * @param flexibleRes list of residue numbers to be made flexible (as in PDB file)
+     * @param allowedAAs list of allowed residue types at each flexible position
+     * @param addWT whether to add wild-type to the allowed AA types 
+     * @param contSCFlex means allow continuous sidechain flexibility
+     * @param ellipses model elipses
+     */
     public ConfSpace(
     		String PDBFile,
     		ArrayList<String> flexibleRes,
@@ -77,16 +88,8 @@ public class ConfSpace implements Serializable {
     		boolean addWT,
             boolean contSCFlex,
             boolean ellipses){
-        //initialize a new conformational space, desomefining all its flexibility
-        //we use one residue per position here
-        //PDBFile: the structure to read from
-        //flexibleRes: list of residue numbers to be made flexible (as in PDB file)
-        //allowedAAs: list of allowed residue types at each flexible position
-        //addWT: whether to add wild-type to the allowed AA types
-        
-        //FLEXIBILITY: We do a rotamer search inx all cases
-        //contSCFlex means allow continuous sidechain flexibility
-        //ADD OTHER OPTIONS: WT ROTAMERS, DIFFERENT ROT WIDTHS, DEEPER, RIGID-BODY MOTIONS
+
+
         
     	useEllipses = ellipses;  	
     	

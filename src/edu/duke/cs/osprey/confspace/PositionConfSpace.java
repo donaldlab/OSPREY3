@@ -10,6 +10,8 @@ import edu.duke.cs.osprey.dof.EllipseCoordDOF;
 import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.tools.Protractor;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 
@@ -58,8 +60,11 @@ public class PositionConfSpace implements Serializable {
         
         for(String AAType : allowedAAs){
         	System.out.println("Loading AAType "+AAType);
+        	// Compute phi and psi, necessary for backbone dependent rotamers.        
+        	double phipsi [] = Protractor.getPhiPsi(this.res);
+        	
             int numDihedrals = templateLib.numDihedralsForResType(AAType);
-            int numRot = templateLib.numRotForResType(AAType);
+            int numRot = templateLib.numRotForResType(AAType, phipsi[0], phipsi[1]);
                         
             //resDOFs is all sidechain DOFs, for now
             ArrayList<DegreeOfFreedom> dofListForRC = new ArrayList<>();
@@ -80,7 +85,7 @@ public class PositionConfSpace implements Serializable {
                 ArrayList<Double> dofUB = new ArrayList<>();//upper bounds
 
                 for(int dih=0; dih<numDihedrals; dih++){
-                    double dihedralValForRot = templateLib.getDihedralForRotamer(AAType,rot,dih);
+                    double dihedralValForRot = templateLib.getDihedralForRotamer(AAType,phipsi[0], phipsi[1], rot,dih);
                     
                     if(contSCFlex){//allow continuous flexibility up to dihedFlexInterval in each direction
                         dofLB.add(dihedralValForRot-dihedFlexInterval);
@@ -104,8 +109,12 @@ public class PositionConfSpace implements Serializable {
     	ResidueTemplateLibrary templateLib = EnvironmentVars.resTemplates;
     	
     	for (String AAType : allowedAAs) {
-    		int numDihedrals = templateLib.numDihedralsForResType(AAType);
-    		int numRot = templateLib.numRotForResType(AAType);
+    		
+        	// Compute phi and psi, necessary for backbone dependent rotamers.        
+        	double phipsi [] = Protractor.getPhiPsi(this.res);
+    		
+    		int numDihedrals = templateLib.numDihedralsForResType(AAType);    		
+    		int numRot = templateLib.numRotForResType(AAType, phipsi[0], phipsi[1]);
 
     		ArrayList<DegreeOfFreedom> dofListForRC = new ArrayList<>();
 
@@ -123,7 +132,7 @@ public class PositionConfSpace implements Serializable {
     			
     			double[] dihValues = new double[numDihedrals];
     			for (int dih=0; dih<numDihedrals; dih++) {
-    				dihValues[dih] = templateLib.getDihedralForRotamer(AAType, rot, dih);
+    				dihValues[dih] = templateLib.getDihedralForRotamer(AAType, phipsi[0], phipsi[1], rot, dih);
     			}
     			
     			// generate the list of ellipsoidal DOFs
