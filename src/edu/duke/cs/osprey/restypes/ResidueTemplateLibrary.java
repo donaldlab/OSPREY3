@@ -146,8 +146,12 @@ public class ResidueTemplateLibrary {
         Residue templateRes = new Residue(atomList,null,templateName,null);//no molecule or coordinates yets
 
 
+        do {//we expect one or more blank lines before the LOOP and IMPROPER records
+            curLine = bufread.readLine();
+        }
+        while(curLine.trim().isEmpty());
+        
         //KER: Read LOOP data if any
-        curLine = bufread.readLine();
         if (curLine.length() >= 4){
                 if(StringParsing.getToken(curLine, 1).equalsIgnoreCase("LOOP")){
                         curLine = bufread.readLine();
@@ -345,7 +349,7 @@ public class ResidueTemplateLibrary {
     }
     
     
-    public ResidueTemplate getTemplateForMutation(String resTypeName, Residue res){
+    public ResidueTemplate getTemplateForMutation(String resTypeName, Residue res, boolean errorIfNone){
         //We want to mutate res to type resTypeName.  Get the appropriate template.
         //Currently only one template capable of being mutated to (i.e., having coordinates)
         //is available for each residue type.  If this changes update here!
@@ -358,8 +362,12 @@ public class ResidueTemplateLibrary {
             }
         }
         
-        throw new RuntimeException("ERROR: Couldn't find a template for mutating "+res.fullName
-                +" to "+resTypeName);
+        if(errorIfNone){//actually trying to mutate...throw an error if can't get a mutation
+            throw new RuntimeException("ERROR: Couldn't find a template for mutating "+res.fullName
+                    +" to "+resTypeName);
+        }
+        else//just checking if template available for mutation...return null to indicate not possible
+            return null;
     }
     
     

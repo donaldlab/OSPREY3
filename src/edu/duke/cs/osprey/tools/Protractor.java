@@ -20,7 +20,7 @@ public class Protractor {
     //Measure angles
     
     
-    
+
     public static double getAngleRadians(double vec1[], double vec2[]){//Get the angle, in radians, between two vectors
 
         double costh = dot(vec1,vec2) / ( norm(vec1) * norm(vec2) );
@@ -32,6 +32,11 @@ public class Protractor {
         return (double) Math.acos( costh );
     }
 
+    
+    public static double getAngleDegrees(double A[], double B[], double C[]){
+        return 180. * getAngleRadians(A,B,C) / Math.PI;
+    }
+    
     public static double getAngleRadians(double A[], double B[], double C[]){//Get the angle ABC
         double BA[] = subtract(A,B);
         double BC[] = subtract(C,B);

@@ -15,6 +15,15 @@ public class RigidBodyMotion {
     double center1[];
     RotationMatrix rotation;
     double center2[];
+
+    
+    public RigidBodyMotion(double[] center1, RotationMatrix rotation, double[] center2) {
+        this.center1 = center1;
+        this.rotation = rotation;
+        this.center2 = center2;
+    }
+    
+    
     
     public RigidBodyMotion(double[] center, double[] axis, double angle, boolean angleInRadians){
         //rotate about center with the specified axis and angle (in degrees or radians as specified)
@@ -28,7 +37,7 @@ public class RigidBodyMotion {
     public RigidBodyMotion(double[][] initCoords, double[][] finalCoords){
         //we're given three sets of 3-D coordinates, in an initial and a final state
         //we superimpose them, matching the first pair of coordinates exactly, then the direction for the
-        //difference between the first pair exactly
+        //difference between the second pair exactly
         center1 = initCoords[0].clone();
         center2 = finalCoords[0].clone();
         

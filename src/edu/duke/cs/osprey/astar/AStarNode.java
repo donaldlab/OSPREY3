@@ -17,6 +17,14 @@ public class AStarNode implements Comparable {
     boolean scoreNeedsRefinement;
 
     
+    //These are used in COMETS
+    public double UB = Double.POSITIVE_INFINITY;//upper bound
+    public int UBConf[] = null;//can have an upper bound on GMEC energy for this node's conf space
+    //(and thus on the overall GMEC energy)
+    //that is the energy of the conf denoted by UBConf
+    
+    
+    
     //indicates the score needs to be refined (e.g. with EPIC continuous terms)
     //always false in simpler versions of A*
     public AStarNode(int[] nodeAssignments, double score, boolean scoreNeedsRefinement) {
@@ -30,10 +38,31 @@ public class AStarNode implements Comparable {
         AStarNode node2 = (AStarNode)o;//we can only compare to other AStarNodes, and expect no other cases
         return Double.valueOf(score).compareTo(node2.score);
     }
+
+    public int[] getNodeAssignments() {
+        return nodeAssignments;
+    }
+
+    public void setScore(double score) {
+        this.score = score;
+    }
+
+    public double getScore() {
+        return score;
+    }
     
     
     
     
+    public boolean isFullyDefined(){
+        //Assuming assignments greater than 0 denote fully defined positions,
+        //determine if this node is fully defined or not
+        for(int a : nodeAssignments){
+            if(a<0)
+                return false;
+        }
+        return true;
+    }
     
     
 }

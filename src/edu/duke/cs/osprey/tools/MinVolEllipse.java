@@ -16,6 +16,7 @@ import com.joptimizer.functions.LogarithmicBarrier;
 import com.joptimizer.optimizers.BarrierMethod;
 import com.joptimizer.optimizers.JOptimizer;
 import com.joptimizer.optimizers.OptimizationRequest;
+import edu.duke.cs.osprey.ematrix.epic.SeriesFitter;
 import java.io.Serializable;
 import java.util.ArrayList;
 

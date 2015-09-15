@@ -41,6 +41,9 @@ public class SingleResEnergy implements EnergyFunction {
         if(res.template!=templ)
             initFFE();
         
+        if( ! res.confProblems.isEmpty() )
+            return Double.POSITIVE_INFINITY;//conformation geometrically impossible
+        
         return ffEnergy.calculateTotalEnergy()[0];
     }
     

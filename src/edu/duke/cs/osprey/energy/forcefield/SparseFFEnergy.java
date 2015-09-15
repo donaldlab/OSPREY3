@@ -46,6 +46,9 @@ public class SparseFFEnergy implements EnergyFunction {
             throw new RuntimeException("ERROR: Cannot calculate a SparseFFEnergy on residues mutated since the SparseFFEnergy was initialized");
         }
         
+        if( ! (res1.confProblems.isEmpty() && res2.confProblems.isEmpty()) )
+            return Double.POSITIVE_INFINITY;//conformation geometrically impossible
+        
         return ffEnergy.calculateTotalEnergy()[0];
     }
     

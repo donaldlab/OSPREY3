@@ -5,8 +5,10 @@
 package edu.duke.cs.osprey.ematrix;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
+import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.TupleMatrix;
+import java.util.ArrayList;
 
 /**
  *
@@ -21,11 +23,11 @@ public class EnergyMatrix extends TupleMatrix<Double> {
         //For a normal, precomputed energy matrix we expect infinite pruning interval
         //(matrix valid for all RCs),
         //but EnergyMatrix objects from tup-exp may only be valid for a finite pruning interval
-        super(cSpace, pruningInterval);
+        super(cSpace, pruningInterval, 0.);//default higher interaction for energies is 0
     }
     
     public EnergyMatrix(int numPos, int[] numRCsAtPos, double pruningInterval){
-        super(numPos, numRCsAtPos, pruningInterval);
+        super(numPos, numRCsAtPos, pruningInterval, 0.);
     }
     
     public double confE(int conf[]){
@@ -55,13 +57,49 @@ public class EnergyMatrix extends TupleMatrix<Double> {
                 double pairwiseE = getPairwise(posNum,RCNum,pos2,rc2);
                 E += pairwiseE;
                 
-                //higher-order energies will go here
+                HigherTupleFinder<Double> htf = getHigherOrderTerms(posNum,RCNum,pos2,rc2);
+                if(htf != null)
+                    E += internalEHigherOrder(tup,index2,htf);
             }
         }
         
         return E;
     }
     
+    
+    double internalEHigherOrder(RCTuple tup, int curIndex, HigherTupleFinder<Double> htf){
+        //Computes the portion of the internal energy for tuple tup
+        //that consists of interactions in htf (corresponds to some sub-tuple of tup)
+        //with RCs whose indices in tup are < curIndex
+        double E = 0;
+        ArrayList<Integer> interactingPos = htf.getInteractingPos();
+        
+        for(int ipos : interactingPos){
+            
+            //see if ipos is in tup with index < curIndex
+            int iposIndex = -1;
+            for(int ind=0; ind<curIndex; ind++){
+                if(tup.pos.get(ind)==ipos){
+                    iposIndex = ind;
+                    break;
+                }
+            }
+
+            if(iposIndex > -1){//ipos interactions need to be counted
+                int iposRC = tup.RCs.get(iposIndex);
+                E += htf.getInteraction(ipos, iposRC);
+                
+                //see if need to go up to highers order again...
+                HigherTupleFinder htf2 = htf.getHigherInteractions(ipos,iposRC);
+                if(htf2!=null){
+                    E += internalEHigherOrder(tup,iposIndex,htf2);
+                }
+            }
+        }
+        
+        return E;
+    }
+        
     /*
     public double getPairwiseE(int res1, int AA1, int rot1, int res2, int AA2, int rot2){
     //lookup by residue number, amino-acid index (for the residue's rotamer library),
@@ -80,6 +118,28 @@ public class EnergyMatrix extends TupleMatrix<Double> {
         this.constTerm = constTerm;
     }
     
+    
+    
+    public double[][] topPairwiseInteractions(){
+        //return the top absolute values of the pairwise interactions
+        //between all pairs of positions
+        int numPos = oneBody.size();
+        
+        double strongestPairE[][] = new double[numPos][numPos];
+        
+        for(int pos=0; pos<numPos; pos++){
+            for(int pos2=0; pos2<pos; pos2++){
+                for(int rc=0; rc<numRCsAtPos(pos); rc++){
+                    for(int rc2=0; rc2<numRCsAtPos(pos2); rc2++){
+                        strongestPairE[pos][pos2] = Math.max( strongestPairE[pos][pos2], Math.abs(getPairwise(pos, rc, pos2, rc2)) );
+                        strongestPairE[pos2][pos] = strongestPairE[pos][pos2];
+                    }
+                }
+            }
+        }
+        
+        return strongestPairE;
+    }
     
     
     

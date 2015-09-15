@@ -26,13 +26,15 @@ public abstract class AStarTree implements ConfSearch {
     //and thus what the int[] means
     //Methods like COMETS can of course subclass AStarNode to include more information in the node
             
+    public int numExpanded = 0;//counting number of nodes expanded
+    public int numPruned = 0;//counting number of nodes pruned
+    
     @Override
     public int[] nextConf(){
         //return best conformation remaining in tree
         
         if(pq==null){//need to initialize tree (indicates haven't enumerated anything from this tree yet)
-            pq = new PriorityQueue<>();
-            pq.add(rootNode());
+            initQueue(rootNode());
         }
         
         AStarNode curNode;
@@ -45,7 +47,9 @@ public abstract class AStarTree implements ConfSearch {
                 return null;//signal for empty tree
             }
             
-            if(!canPruneNode(curNode)){//like, too many AA changes
+            if(canPruneNode(curNode))//like, too many AA changes
+                numPruned++;
+            else {
                 
                 while(curNode.scoreNeedsRefinement){
                     refineScore(curNode);
@@ -61,7 +65,6 @@ public abstract class AStarTree implements ConfSearch {
                 }
                 
                 if(isFullyAssigned(curNode)){
-                    System.out.println("A* returning conf.  "+pq.size()+" nodes in A* tree.  Score: "+curNode.score);
                     return outputNode(curNode);
                 }
 
@@ -70,6 +73,8 @@ public abstract class AStarTree implements ConfSearch {
                 //note: in a method like COMETS that refines nodes,
                 //expandNode may return a singleton list consisting of curNode with improved bound
 
+                numExpanded++;
+                
                 for(AStarNode child : children)
                     pq.add(child);
             }
@@ -78,18 +83,25 @@ public abstract class AStarTree implements ConfSearch {
     }
     
     
+    public void initQueue(AStarNode node){
+        pq = new PriorityQueue<>();
+        pq.add(node);
+    }
+    
+    
     //methods with default implementations that may need to be overridden:
     
-    boolean canPruneNode(AStarNode node){
+    public boolean canPruneNode(AStarNode node){
         //By default we don't have node pruning
         //but subclasses may allow this
         return false;
     }
     
     
-    int[] outputNode(AStarNode node){
+    public int[] outputNode(AStarNode node){
         //by default, the output of the A* tree will be simply the node assignments for the optimal node
         //but we may sometimes want to process it in some way
+        System.out.println("A* returning conf.  "+pq.size()+" nodes in A* tree.  Score: "+node.score);
         return node.nodeAssignments;
     }
     
@@ -108,13 +120,23 @@ public abstract class AStarTree implements ConfSearch {
     //the score can be a quick, possibly loose lower bound for now; 
     //mark scoreNeedRefinement if we'll want to refine any nodes that get to be head node
     
-    abstract ArrayList<AStarNode> getChildren(AStarNode curNode);
+    public abstract ArrayList<AStarNode> getChildren(AStarNode curNode);
         //Get children for a node
         //this can be either static or dynamic ordering, depending on implementation
     
-    abstract AStarNode rootNode();
+    public abstract AStarNode rootNode();
     
     
-    abstract boolean isFullyAssigned(AStarNode node);//is the node fully assigned (i.e., returnable?)
+    public abstract boolean isFullyAssigned(AStarNode node);//is the node fully assigned (i.e., returnable?)
+
+    
+    
+    public PriorityQueue<AStarNode> getQueue() {
+        //direct access to queue.  Use with caution.  
+        return pq;
+    }
+    
+    
+    
         
 }

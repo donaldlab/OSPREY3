@@ -4,21 +4,8 @@
  */
 package edu.duke.cs.osprey.control;
 
-import java.util.ArrayList;
-
-import cern.colt.matrix.DoubleFactory1D;
-import cern.colt.matrix.DoubleFactory2D;
-import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.structure.PDBFileReader;
-import edu.duke.cs.osprey.structure.PDBFileWriter;
-import edu.duke.cs.osprey.tests.DOFTests;
-import edu.duke.cs.osprey.tests.EnergyTests;
-import edu.duke.cs.osprey.tests.ToolTests;
+import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.tests.UnitTestSuite;
-import edu.duke.cs.osprey.confspace.RC;
-import edu.duke.cs.osprey.dof.DegreeOfFreedom;
-import edu.duke.cs.osprey.dof.EllipseCoordDOF;
-import edu.duke.cs.osprey.dof.FreeDihedral;
 
 /**
  *
@@ -55,6 +42,18 @@ public class Main {
         //load data filescloneclone
         cfp.loadData();        
         
+        
+        
+        //DEBUG!!
+        // set number of threads for energy function evaluation
+        MultiTermEnergyFunction.setNumThreads( cfp.params.getInt("eEvalThreads", 4) );
+        if( MultiTermEnergyFunction.getNumThreads() > 1 ) {
+                System.setProperty( "java.util.concurrent.ForkJoinPool.common.parallelism", 
+                                String.valueOf(MultiTermEnergyFunction.getNumThreads()) );
+        }
+        
+        
+        
         if(command.equalsIgnoreCase("findGMEC")){
             //I recommend that we change the command names a little to be more intuitive, e.g. 
             //"findGMEC" instead of doDEE
@@ -69,6 +68,10 @@ public class Main {
         }
         else if(command.equalsIgnoreCase("RunTests")){
             UnitTestSuite.runAllTests();
+        }
+        else if(command.equalsIgnoreCase("doCOMETS")){
+            COMETSDoer cd = new COMETSDoer(args);
+            cd.calcBestSequences();
         }
         //etc.
         else
@@ -85,11 +88,6 @@ public class Main {
         //likely will want to exit after doing this (specify here)
         //for normal operation, leave no uncommented code in this function
         
-        /*EnvironmentVars.assignTemplatesToStruct = false;//this would change things
-        Molecule m = PDBFileReader.readPDBFile("1CC8.ss.pdb");
-        PDBFileWriter.writePDBFile(m, "1CC8.copy.pdb");
-        
-        System.exit(0);*/
     }
     
     

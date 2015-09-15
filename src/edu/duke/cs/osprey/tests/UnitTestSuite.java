@@ -28,8 +28,9 @@ public class UnitTestSuite {
         
         ConfSearchTests.testDEE(true);
         ConfSearchTests.testDEE(false);
-        ConfSearchTests.testExhaustive(true);
-        ConfSearchTests.testExhaustive(false);
+        ConfSearchTests.testExhaustive(false, false);
+        ConfSearchTests.testExhaustive(false, true);
+        ConfSearchTests.testExhaustive(true, false);
     }
     
 }

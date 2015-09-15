@@ -35,4 +35,19 @@ public class Molecule implements Serializable {
     }
     
     
+    public void appendResidue(Residue res){
+        //Add a residue to the end of the molecule
+        res.indexInMolecule = residues.size();
+        residues.add(res);
+    }
+    
+    public void deleteResidue(int resIndex){
+        //delete the residue with the specified index in residues
+        residues.remove(resIndex);
+        //this changes the indexInMolecule for all subsequent residues
+        for(int index2=resIndex; index2<residues.size(); index2++)
+            residues.get(index2).indexInMolecule--;
+    }
+    
+    
 }
