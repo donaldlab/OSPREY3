@@ -31,6 +31,7 @@ public class MarkovRandomField {
 
         ConfSpaceSuper cSpace = searchProblem.confSpaceSuper;
         int numNodes = cSpace.numPos;
+        
         //create nodeList
         for (int pos=0; pos<numNodes; pos++){
             MRFNode node = new MRFNode(pos, pruneMat.unprunedRCsAtPos(pos));
@@ -40,10 +41,13 @@ public class MarkovRandomField {
         
         //create interaction graph
         this.interactionGraph = createEnergyInteractionGraph(eCut);
-        //TODO CREAT NEIGHBORS
+        //create neighborList for each node
+        for (MRFNode node : this.nodeList){
+            node.neighborList = getNeighbors(node, this.interactionGraph);
+        }
     }
     
-    public boolean[][] createEnergyInteractionGraph(double eCut){
+    private boolean[][] createEnergyInteractionGraph(double eCut){
         boolean[][] interactionGraph = new boolean[numNodes][numNodes];
         int countInteraction = 0;
         int possibleInteraction = 0;
@@ -81,6 +85,17 @@ public class MarkovRandomField {
         System.out.println("Markov Random Field has "+countInteraction+
                             " pairs out of "+possibleInteraction+" possible pairs");
         return interactionGraph;
+    }
+    
+    private ArrayList<MRFNode> getNeighbors(MRFNode node, boolean[][] interactionGraph){
+        ArrayList<MRFNode> neighbors = new ArrayList<>();
+        for (int nodeIndex=0;nodeIndex<this.numNodes;nodeIndex++){
+            //check if node is neighbor with node indexed by nodeIndex
+            if (interactionGraph[node.nodeNum][nodeIndex]){
+                neighbors.add(this.nodeList.get(nodeIndex));
+            }
+        }
+        return neighbors;
     }
     
 }

@@ -86,7 +86,6 @@ public class MultiTermEnergyFunction implements EnergyFunction {
             //with infinite energy...we assume this to be an impossible conformation
             //and thus return inifinity
             return Double.POSITIVE_INFINITY;
-        System.out.println(E);
         return E;
     }
 

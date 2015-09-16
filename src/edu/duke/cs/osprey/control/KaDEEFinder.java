@@ -13,6 +13,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.confspace.PositionConfSpaceSuper;
 import edu.duke.cs.osprey.confspace.ConfSpaceSuper;
+import edu.duke.cs.osprey.confspace.SuperRCTuple;
 /**
  *
  * @author hmn5
@@ -71,8 +72,6 @@ public class KaDEEFinder {
 
         searchSpace = cfp.getSearchProblemSuper();
         ConfSpaceSuper confSpaceSuper = searchSpace.confSpaceSuper;
-        searchSpace.loadEnergyMatrix();
-            
         ArrayList<ArrayList<Integer>> posToMerge = new ArrayList<>();
         for (int i=0; i<confSpaceSuper.posFlex.size();i++){
             ArrayList<Integer> newPos = new ArrayList<>();
@@ -87,6 +86,8 @@ public class KaDEEFinder {
             posToMerge.add(newPos);
         }
         confSpaceSuper.mergePosition(posToMerge);
-
+        searchSpace.loadEnergyMatrix();
+        SuperRCTuple superRCTup2 = new SuperRCTuple(0,0);
+        System.out.println(searchSpace.emat.getInternalEnergy(superRCTup2)); 
     }
 }

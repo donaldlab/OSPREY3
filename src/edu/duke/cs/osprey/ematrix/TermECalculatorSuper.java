@@ -253,7 +253,7 @@ public class TermECalculatorSuper implements MPISlaveTask {
                 */
             }
             else{
-                if(twoBodyE.size()<=2){
+                if(twoBodyE.size()<=firstSuperRCNum){
                     twoBodyE.add(new ArrayList<Double>());
                 }
                 twoBodyE.get(firstSuperRCNum).add(minEnergy);
