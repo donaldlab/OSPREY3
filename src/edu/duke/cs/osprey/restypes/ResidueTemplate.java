@@ -4,8 +4,10 @@
  */
 package edu.duke.cs.osprey.restypes;
 
+import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Residue;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 
@@ -40,14 +42,20 @@ public class ResidueTemplate implements Serializable {
     public ArrayList<ArrayList<Integer>> dihedralMovingAtoms;//list of atoms that move for each dihedral
     
     
-    //rotamer information
-    public int numRotamers = 0;//if no rotamers loaded, count as 0 (e.g. for a rigid ligand)
-    double rotamericDihedrals[][];//numRotamers x numDihedrals array. 
+    // Rotameric information for this residue template. ResidueTemplate supports both backbone dependent and backbone independent rotamer libraries.
+    // PGC 2015: If backbone dependent rotamer libraries are used, the number of rotamers is dependent on the backbone dihedrals.
+    // Dimensions: (# phi increments)x(# psi increments)
+    public int numRotamers[][] = null;
     //For each rotamer, gives the ideal values of all dihedrals
-    
     //note: this is just the standard set of ideal rotamers, we can modify this as desired
-    
-    public ResidueTemplate(Residue res, String name){
+    double rotamericDihedrals[][][][];// (# phi increments)x(# psi increments) x numRotamers x numDihedrals array.
+    // Number of "bins" for Phi and Psi angles for backbone dependent rotamer libraries. For example, in the Dunbrack library there are 37 bins for each dihedral.
+    // We assume that the number of bins will always be the same for phi or psi.
+    public int numberOfPhiPsiBins = -1;
+    // Resolution of phi and psi backbone dihedrals in the backbone dependent rotamer library. For example, in the Dunbrack rotamer library the resolution is 10. 
+    public double phiPsiResolution = -1;
+
+	public ResidueTemplate(Residue res, String name){
         //initializes only with info from a template file.  res won't even have coordinates yet
         templateRes = res;
         this.name = name;
@@ -63,9 +71,6 @@ public class ResidueTemplate implements Serializable {
         //the atoms that actually move (including the 4th of the dihedral-defining atoms)
         return dihedralMovingAtoms.get(dihedralNum);
     }
-    
-   
-    
     
     void computeDihedralMovingAtoms(){
         //compute what atoms move when a dihedral is changed
@@ -121,6 +126,94 @@ public class ResidueTemplate implements Serializable {
         for(Atom distalAtom : atom.bonds)
             movingAtomsDFS(distalAtom,movingAtoms,dihedAtoms);
     }
+    /**
+     * Returns the dihedral angle dihedralNum, for rotamer rotNum, for the backbone closest to the values phi and psi.
+     * If the rotamer library is backbone independent, then phi and psi are ignored.
+     * @param phi The backbone phi angle 
+     * @param psi The backbone psi angle
+     * @param rotNum The rotamer's index number
+     * @param dihedralNum The dihedral's index number.
+     * @return the angle value for the desired dihedral.
+     */
+    public double getRotamericDihedrals(double phi, double psi, int rotNum, int dihedralNum){
+    	
+
+		// Under the dunbrack rotamer library, backbone dependent rotamers have a resolution of 10 degrees, 
+		//    while in backbone-independent rotamer libraries they have a resolution of 360.    		
+		//  Therefore, we round to the closest "bin" and add numberOfPhiPsiBins/2 (to make all numbers positive)
+		int phiBin = (int)(Math.round(phi/this.phiPsiResolution)) + this.numberOfPhiPsiBins/2;
+		int psiBin = (int)(Math.round(psi/this.phiPsiResolution)) + this.numberOfPhiPsiBins/2;
+		return rotamericDihedrals[phiBin][psiBin][rotNum][dihedralNum];
+
+    }
+    /**
+     * Returns the number of rotamers for a backbone-dependent or backbone independent rotamer library.
+     * @param phi The backbone phi angle, ignored if backbone independent rotamer library.
+     * @param psi The backbone psi angle, ignored if backbone independent rotamer library.
+     * @return The number of rotamers.
+     */
+    public int getNumRotamers(double phi, double psi){
+		// Under the dunbrack rotamer library, backbone dependent rotamers have a resolution of 10 degrees, 
+		//    while in backbone-independent rotamer libraries they have a resolution of 360.    		
+		//  Therefore, we round to the closest "bin" and add numberOfPhiPsiBins/2 (to make all numbers positive)
+		int phiBin = (int)((Math.round(phi/this.phiPsiResolution))) + this.numberOfPhiPsiBins/2;
+		int psiBin = (int)((Math.round(psi/this.phiPsiResolution))) + this.numberOfPhiPsiBins/2;
+		return this.numRotamers[phiBin][psiBin];
+    }
+    /**
+     * Number of "bins" for Phi/Psi angles for backbone dependent rotamer libraries. For example, in the Dunbrack library there are 37 bins.
+     * @param numberOfPsiBins
+     */
+	public void setNumberOfPhiPsiBins(int numberOfPhiPsiBins) {
+		this.numberOfPhiPsiBins = numberOfPhiPsiBins;
+	}
+    /**
+     * Resolution of backbone "bins" in the rotamer library. For example in a backbone independent rotamer library this should be "360". 
+     * For the Dunbrack rotamer library this is 10. Set in the corresponding parser of the rotamer library. 
+     * @param phiPsiResolution.
+     */
+    public void setRLphiPsiResolution(double phiPsiResolution) {
+		this.phiPsiResolution = phiPsiResolution;
+	}
+
+    /**
+     * Initialize the numRotamers and rotamericDihedrals arrays to the number of bins according to each rotamer library. 
+     */
+	public void initializeRotamerArrays(){
+		assert (numberOfPhiPsiBins > 0);
+    	this.numRotamers= new int [numberOfPhiPsiBins][];
+    	this.rotamericDihedrals = new double[numberOfPhiPsiBins][][][];
+    	for (int i = 0; i < numberOfPhiPsiBins; i++){
+    		this.numRotamers[i] = new int [numberOfPhiPsiBins];
+    		this.rotamericDihedrals[i] = new double[numberOfPhiPsiBins][][];
+    	}   	
+    	
+    }
+
+    /**
+     * PGC 2015: 
+     * Sets the number of rotamers for a residue template; phi and psi are only 
+     * used when using a backbone dependent rotamer library.
+     * @param numRotamers Number of rotamers
+     * @param phiBin Bin in the rotamer array where the rotameric dihedrals will be stored. 
+     * @param psiBin Bin in the rotamer array where the rotameric dihedrals will be stored. 
+     */
+    public void setNumRotamers(int numRotamers, int phiBin, int psiBin){
+
+		this.numRotamers[phiBin][psiBin] = numRotamers;
+
+    }
+    /**
+     * PGC 2015: 
+     * Sets the number of rotamers for a residue template; phi and psi are only 
+     * used when using a backbone dependent rotamer library.
+     * @param numRotamers Number of rotamers
+     * @param phiBin Bin in the rotamer array where the rotameric dihedrals will be stored. 
+     * @param psiBin Bin in the rotamer array where the rotameric dihedrals will be stored. 
+     */
+    public void setRotamericDihedrals(double newRotamericDihedrals[][], int phiBin, int psiBin){
+		this.rotamericDihedrals[phiBin][psiBin] = newRotamericDihedrals;
+    }
     
-    
+
 }

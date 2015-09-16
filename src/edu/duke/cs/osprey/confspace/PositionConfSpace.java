@@ -20,8 +20,10 @@ import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.tools.*;
 import java.io.Serializable;
 import java.util.ArrayList;
+
 
 /**
  *
@@ -66,7 +68,11 @@ public class PositionConfSpace implements Serializable {
         
         for(String AAType : allowedAAs){
             int numDihedrals = templateLib.numDihedralsForResType(AAType);
-            int numRot = templateLib.numRotForResType(AAType);
+            
+        	// PGC 2015: Support backbone dependent rotamers.  
+        	//	Compute phi and psi, necessary for backbone dependent rotamers.        
+        	double phipsi [] = Protractor.getPhiPsi(this.res);
+            int numRot = templateLib.numRotForResType(AAType, phipsi[0], phipsi[1]);
             
             //resDOFs is all sidechain DOFs, for now
             ArrayList<DegreeOfFreedom> dofListForRot = new ArrayList<>();
@@ -117,9 +123,12 @@ public class PositionConfSpace implements Serializable {
         
         //we'll start with the sidechain dihedral DOFs
         
+    	// PGC 2015: Support backbone dependent rotamers.  
+    	//	Compute phi and psi, necessary for backbone dependent rotamers.        
+    	double phipsi [] = Protractor.getPhiPsi(this.res);
         double dihValues[] = new double[numDihedrals];
         for(int dih=0; dih<numDihedrals; dih++){
-            dihValues[dih] = templateLib.getDihedralForRotamer(AAType,rot,dih);
+            dihValues[dih] = templateLib.getDihedralForRotamer(AAType,phipsi[0], phipsi[1], rot,dih);
         }
         
         ArrayList<EllipseCoordDOF> ellCoords = makeEllCoords(useEllipses, dihValues, dofListForRot);

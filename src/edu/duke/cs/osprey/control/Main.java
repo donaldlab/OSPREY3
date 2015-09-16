@@ -10,12 +10,13 @@ import edu.duke.cs.osprey.tests.UnitTestSuite;
 /**
  *
  * @author mhall44
+ * Parse arguments and call high-level functions like DEE/A* and K*
+   These will each be controlled by dedicated classes, unlike in the old KSParser
+   to keep this class more concise, and to separate these functions for modularity purposes
  */
+
 public class Main {
-    //Parse arguments and call high-level functions
-    //like DEE/A* and K*
-    //These will each be controlled by dedicated classes, unlike in the old KSParser
-    //to keep this class more concise, and to separate these functions for modularity purposes
+
     
     
     public static void main(String[] args){
@@ -23,7 +24,16 @@ public class Main {
         
         debuggingCommands(args);
         
-        String command = args[2];
+        String command = "";
+        try{
+        	command = args[2];
+        }
+        catch(Exception e){
+        	System.out.println("Command expects arguments (e.g. -c KStar.cfg {findGMEC|fcalcKStar} System.cfg DEE.cfg");
+        	System.exit(1);
+        }
+        
+        
         
         long startTime = System.currentTimeMillis();
         
