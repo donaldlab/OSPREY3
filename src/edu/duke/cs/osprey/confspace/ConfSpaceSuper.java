@@ -406,4 +406,48 @@ public class ConfSpaceSuper {//extends ConfSpace{
         }
         return numAllowed;
     }
+    
+    
+     public double minimizeEnergy(int[] conf, EnergyFunction efunc, String outputPDBFile){
+        //minimize the energy of a conformation, within the DOF bounds indicated by conf (a list of RCs)
+        //return the minimized energy
+        //if outputPDBFile isn't null, then output the minimized conformation to that file
+        
+        SuperRCTuple RCs = new SuperRCTuple(conf);
+        MolecEObjFunction energy = new MolecEObjFunction(efunc,this,RCs);
+        
+        DoubleMatrix1D optDOFVals;
+        
+        if(energy.getNumDOFs()>0){//there are continuously flexible DOFs to minimize
+            Minimizer min = new CCDMinimizer(energy,false);
+            //with the generic objective function interface we can easily include other minimizers though
+
+            
+            //DEBUG!!!!!  Timing pre-minimization without PB
+            /*ArrayList<EnergyFunction> terms = ((MultiTermEnergyFunction)energy.getEfunc()).getTerms();
+            ArrayList<Double> coeffs = ((MultiTermEnergyFunction)energy.getEfunc()).getCoeffs();
+            if( terms.get(terms.size()-1) instanceof PoissonBoltzmannEnergy ){
+                PoissonBoltzmannEnergy pbe = (PoissonBoltzmannEnergy)terms.remove(terms.size()-1);
+                double pbcoeff = coeffs.remove(terms.size()-1);
+                long startTime = System.currentTimeMillis();
+                DoubleMatrix1D startDOFVals = min.minimize();
+                long time1 = System.currentTimeMillis();
+                terms.add(pbe);
+                coeffs.add(pbcoeff);
+                ((CCDMinimizer)min).setInitVals(startDOFVals);
+                optDOFVals = min.minimize();
+            }
+            else//NON-DEBUG!*/
+                optDOFVals = min.minimize();
+        }
+        else//molecule is already in the right, rigid conformation
+            optDOFVals = DoubleFactory1D.dense.make(0);
+        
+        double minE = energy.getValue(optDOFVals);//this will put m into the minimized conformation
+        
+        if(outputPDBFile!=null)
+            PDBFileWriter.writePDBFile(m, outputPDBFile, minE);
+        
+        return minE;
+    }
 }

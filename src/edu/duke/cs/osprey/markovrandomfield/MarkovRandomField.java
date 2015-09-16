@@ -11,7 +11,7 @@ import edu.duke.cs.osprey.confspace.SuperRC;
 import edu.duke.cs.osprey.confspace.SuperRCTuple;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.confspace.SearchProblemSuper;
 import java.util.ArrayList;
 /**
  *
@@ -25,7 +25,7 @@ public class MarkovRandomField {
     
     EnergyMatrix emat;
     PruningMatrix pruneMat;
-    public MarkovRandomField(SearchProblem searchProblem, double eCut){
+    public MarkovRandomField(SearchProblemSuper searchProblem, double eCut){
         this.emat = searchProblem.emat;
         this.pruneMat = searchProblem.pruneMat;
 

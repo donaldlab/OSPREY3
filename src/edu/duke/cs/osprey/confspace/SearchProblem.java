@@ -33,10 +33,6 @@ public class SearchProblem implements Serializable {
     //annotations are based on RCs and indicate pairwise energies, pruning information, etc.
     //they also include iterators over RCs and pairs of interest
     public ConfSpace confSpace;
-    //HMN
-    public ConfSpaceSuper confSpaceSuper;
-    public boolean useSuperRCs = false;
-    //should we use superRCs/confSpaceSuper -> needed for energy matrix calculation
 
     public EnergyMatrix emat;//energy matrix.  Meanings:
     //-Defines full energy in the rigid case
@@ -65,9 +61,6 @@ public class SearchProblem implements Serializable {
 
     public SearchProblem(SearchProblem sp1) {//shallow copy
         confSpace = sp1.confSpace;
-        //HMN: add confSpaceSuper
-        confSpaceSuper = sp1.confSpaceSuper;
-        useSuperRCs = true;
 
         emat = sp1.emat;
         epicMat = sp1.epicMat;
@@ -90,10 +83,7 @@ public class SearchProblem implements Serializable {
             boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset,
             ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses) {
 
-        //confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses);
-        //HMN: add confSpaceSuper
-        confSpaceSuper = new ConfSpaceSuper(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses);
-        useSuperRCs = true;
+        this.confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses);
 
         this.name = name;
 
@@ -105,9 +95,7 @@ public class SearchProblem implements Serializable {
         //energy function setup
         EnergyFunctionGenerator eGen = EnvironmentVars.curEFcnGenerator;
         decideShellResidues(eGen.distCutoff);
-        //fullConfE = eGen.fullConfEnergy(confSpace,shellResidues);
-        //HMN: use confSpaceSuper as input instead of confSpace
-        fullConfE = eGen.fullConfEnergy(confSpaceSuper, shellResidues);
+        fullConfE = eGen.fullConfEnergy(confSpace,shellResidues);
     }
 
     private void decideShellResidues(double distCutoff) {
@@ -221,17 +209,9 @@ public class SearchProblem implements Serializable {
 
         if (type == MatrixType.EMAT) {
             //If we don't want super-RCs...
-            if (!useSuperRCs) {
-                EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(confSpace, shellResidues);
-                emCalc.calcPEM();
-                return emCalc.getEMatrix();
-            }
-            //If we want super-RCs
-            else{
-                EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(confSpaceSuper, shellResidues);
-                emCalc.calcPEM();
-                return emCalc.getEMatrix();
-            }
+            EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(confSpace, shellResidues);
+            emCalc.calcPEM();
+            return emCalc.getEMatrix();
         } else if (type == MatrixType.EPICMAT) {
             EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(confSpace, shellResidues,
                     pruneMat, epicSettings);

@@ -8,7 +8,7 @@ package edu.duke.cs.osprey.control;
 import java.util.ArrayList;
 
 import edu.duke.cs.osprey.astar.ConfTree;
-import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.confspace.SearchProblemSuper;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.confspace.PositionConfSpaceSuper;
@@ -20,7 +20,7 @@ import edu.duke.cs.osprey.confspace.ConfSpaceSuper;
 public class KaDEEFinder {
      ConfigFileParser cfp;
     
-    SearchProblem searchSpace;
+    SearchProblemSuper searchSpace;
     
     double Ew;//energy window for enumerating conformations: 0 for just GMEC
     double I0=0;//initial value of iMinDEE pruning interval
@@ -69,12 +69,8 @@ public class KaDEEFinder {
         
         double curInterval = I0;//For iMinDEE.  curInterval will need to be an upper bound
 
-        //HMN: I changed getSearchProblem() to automatically use super-RCs
-        searchSpace = cfp.getSearchProblem();
-        //searchSpace.useSuperRCs = false;
-        //searchSpace.loadEnergyMatrix();
+        searchSpace = cfp.getSearchProblemSuper();
         ConfSpaceSuper confSpaceSuper = searchSpace.confSpaceSuper;
-        //searchSpace.useSuperRCs = true;
         searchSpace.loadEnergyMatrix();
             
         ArrayList<ArrayList<Integer>> posToMerge = new ArrayList<>();

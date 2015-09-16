@@ -5,6 +5,7 @@
 package edu.duke.cs.osprey.control;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.confspace.SearchProblemSuper;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.dof.deeper.RamachandranChecker;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
@@ -138,7 +139,36 @@ public class ConfigFileParser {
         );
     }
     
-    
+    //HMN: same as getSearchProblem() but supports super-RCs
+    SearchProblemSuper getSearchProblemSuper(){
+        
+        String name = params.getValue("RUNNAME");
+        
+        ArrayList<String> flexRes = getFlexRes();
+        ArrayList<ArrayList<String>> allowedAAs = getAllowedAAs();
+        
+        if(flexRes.size() != allowedAAs.size()){
+            throw new RuntimeException("ERROR: Number of flexible positions different in flexible residue "
+                    + "and allowed AA type parameters!");
+        }
+        
+        System.out.println("CREATING SEARCH PROBLEM.  NAME: "+name);
+        
+        ArrayList<String[]> moveableStrands = moveableStrandTermini();
+        ArrayList<String[]> freeBBZones = freeBBZoneTermini();
+        DEEPerSettings dset = setupDEEPer();
+        
+        return new SearchProblemSuper( name, params.getValue("PDBNAME"), 
+                flexRes, allowedAAs,
+                params.getBool("AddWT",true), 
+                params.getBool("doMinimize",false),
+                params.getBool("UseEPIC",false),
+                new EPICSettings(params),
+                params.getBool("UseTupExp",false),
+                dset, moveableStrands, freeBBZones,
+                params.getBool("useEllipses", false) 
+        );
+    }
     
     ArrayList<String> getFlexRes(){
         //list of flexible residues.  PDB-based residue numbers
