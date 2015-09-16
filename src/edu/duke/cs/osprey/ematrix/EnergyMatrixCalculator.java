@@ -81,7 +81,7 @@ public class EnergyMatrixCalculator {
             }
             //Otherwise, calculate with super-RCs
             else{
-                //calcPEMSuperDistributed();
+                calcPEMSuperDistributed();
             }
         } 
         else {
@@ -91,7 +91,7 @@ public class EnergyMatrixCalculator {
             }
             //Otherwise, calculate with super-RCs
             else{
-                //calcPEMSuperLocall();
+                calcPEMSuperLocally();
             }
         }
     }
@@ -121,9 +121,27 @@ public class EnergyMatrixCalculator {
         }
     }
     
-    //HMN: 
+    //HMN: This is the same as calcPEMLocally(), but supports super-RCs
     public void calcPEMSuperLocally(){
-        
+        for (int pos1=0; pos1<searchSpaceSuper.numPos; pos1++){
+            
+            System.out.println("Starting one-body calculation for position "+pos1);
+            
+            TermECalculatorSuper oneBodyECalc =  new TermECalculatorSuper(searchSpaceSuper, shellResidues, 
+                                                                doEPIC, false, pruneMat, epicSettings, pos1);
+            Object oneBodyE = oneBodyECalc.doCalculation();
+            storeEnergy(oneBodyE, pos1);
+            
+            for (int pos2=0; pos2<pos1; pos2++){
+                
+                System.out.println("Starting two-body calculation for positions "+pos1+", "+pos2);
+                
+                TermECalculatorSuper twoBodyECalc = new TermECalculatorSuper(searchSpaceSuper, shellResidues, 
+                                                                doEPIC, false, pruneMat, epicSettings, pos1, pos2);
+                Object twoBodyE = twoBodyECalc.doCalculation();
+                storeEnergy(twoBodyE, pos1, pos2);
+            }
+        }
     }
     
     public void calcPEMDistributed() {
@@ -162,6 +180,43 @@ public class EnergyMatrixCalculator {
         }
     }
 
+    //HMN: This is the same as calcPEMDistributed(), but supports super-RCs
+    public void calcPEMSuperDistributed(){
+        //do energy calculatoin on slave nodes via MPI
+        
+        MPIMaster mm = MPIMaster.getInstance();
+        ArrayList<MPISlaveTask> tasks = new ArrayList<>();
+        
+                //generate TermMinECalc objects, in the same order as for local calculation,
+        //but this time pass them off to MPI
+        for (int pos1 = 0; pos1 < searchSpace.numPos; pos1++) {
+
+            tasks.add(new TermECalculatorSuper(searchSpaceSuper, shellResidues, doEPIC, false,
+                    pruneMat, epicSettings, pos1));
+
+            for (int pos2 = 0; pos2 < pos1; pos2++) {
+                tasks.add(new TermECalculatorSuper(searchSpaceSuper, shellResidues, doEPIC, false,
+                        pruneMat, epicSettings, pos1, pos2));
+            }
+        }
+
+        ArrayList<Object> calcResults = mm.handleTasks(tasks);
+
+        //Now go through our task results in the same order and put the energies in our matrix
+        int resultCount = 0;
+
+        for (int pos1 = 0; pos1 < searchSpace.numPos; pos1++) {
+
+            storeEnergy(calcResults.get(resultCount), pos1);
+            resultCount++;
+
+            for (int pos2 = 0; pos2 < pos1; pos2++) {
+                storeEnergy(calcResults.get(resultCount), pos1, pos2);
+                resultCount++;
+            }
+        }
+    }
+    
     private void initMatrix() {
         //initialize the matrix we're calculating
         if (doEPIC) {
@@ -182,26 +237,27 @@ public class EnergyMatrixCalculator {
             }
         }
     }
-
-    private void storeEnergy(Object calcResult, int... res) {
-        //eCalc has performed its calculations, for the residue or pair denoted by res.
+    
+    
+    private void storeEnergy(Object calcResult, int... pos) {
+        //eCalc has performed its calculations, for the residue or pair denoted by pos.
         //store the results of this calculation in our matrix.  
 
         if (doEPIC) {
-            if (res.length == 1)//intra+shell energy
+            if (pos.length == 1)//intra+shell energy
             {
-                epicMat.oneBody.set(res[0], (ArrayList<EPoly>) calcResult);
+                epicMat.oneBody.set(pos[0], (ArrayList<EPoly>) calcResult);
             } else//pairwise
             {
-                epicMat.pairwise.get(res[0]).set(res[1], (ArrayList<ArrayList<EPoly>>) calcResult);
+                epicMat.pairwise.get(pos[0]).set(pos[1], (ArrayList<ArrayList<EPoly>>) calcResult);
             }
         } else {
-            if (res.length == 1)//intra+shell energy
+            if (pos.length == 1)//intra+shell energy
             {
-                emat.oneBody.set(res[0], (ArrayList<Double>) calcResult);
+                emat.oneBody.set(pos[0], (ArrayList<Double>) calcResult);
             } else//pairwise
             {
-                emat.pairwise.get(res[0]).set(res[1], (ArrayList<ArrayList<Double>>) calcResult);
+                emat.pairwise.get(pos[0]).set(pos[1], (ArrayList<ArrayList<Double>>) calcResult);
             }
         }
 

@@ -69,9 +69,14 @@ public class KaDEEFinder {
         
         double curInterval = I0;//For iMinDEE.  curInterval will need to be an upper bound
 
+        //HMN: I changed getSearchProblem() to automatically use super-RCs
         searchSpace = cfp.getSearchProblem();
+        //searchSpace.useSuperRCs = false;
+        //searchSpace.loadEnergyMatrix();
         ConfSpaceSuper confSpaceSuper = searchSpace.confSpaceSuper;
-
+        //searchSpace.useSuperRCs = true;
+        searchSpace.loadEnergyMatrix();
+            
         ArrayList<ArrayList<Integer>> posToMerge = new ArrayList<>();
         for (int i=0; i<confSpaceSuper.posFlex.size();i++){
             ArrayList<Integer> newPos = new ArrayList<>();

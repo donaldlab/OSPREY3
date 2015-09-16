@@ -35,7 +35,7 @@ public class SearchProblem implements Serializable {
     public ConfSpace confSpace;
     //HMN
     public ConfSpaceSuper confSpaceSuper;
-    boolean useSuperRCs = false;
+    public boolean useSuperRCs = false;
     //should we use superRCs/confSpaceSuper -> needed for energy matrix calculation
 
     public EnergyMatrix emat;//energy matrix.  Meanings:
@@ -90,7 +90,7 @@ public class SearchProblem implements Serializable {
             boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset,
             ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses) {
 
-        confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses);
+        //confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses);
         //HMN: add confSpaceSuper
         confSpaceSuper = new ConfSpaceSuper(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses);
         useSuperRCs = true;
@@ -229,6 +229,7 @@ public class SearchProblem implements Serializable {
             //If we want super-RCs
             else{
                 EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(confSpaceSuper, shellResidues);
+                emCalc.calcPEM();
                 return emCalc.getEMatrix();
             }
         } else if (type == MatrixType.EPICMAT) {

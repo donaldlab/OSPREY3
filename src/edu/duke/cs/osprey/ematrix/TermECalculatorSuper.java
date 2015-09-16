@@ -84,7 +84,9 @@ public class TermECalculatorSuper implements MPISlaveTask {
         pos = posToCalc;
         pruneMat = prm;
         epicSettings = es;
-
+        
+        termE = new MultiTermEnergyFunction();
+        
         //Since we do not simply have single and pair residues, we use a multi-term energy function
         PositionConfSpaceSuper firstPosition = confSpaceSuper.posFlex.get(posToCalc[0]);
         int numResAtFirstPos = firstPosition.resList.size();
@@ -147,7 +149,7 @@ public class TermECalculatorSuper implements MPISlaveTask {
         }
         else if(pos.length==2){//pairwise calculation
             
-            //pairwiseCalc();
+            twoBodyCalc();
             
             if(doingEPIC){
                 //return pairwisePoly;

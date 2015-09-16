@@ -185,8 +185,8 @@ public class MolecEObjFunction implements ObjectiveFunction {
                 for (int dofIndexInSingleResRC = 0; dofIndexInSingleResRC < superRC.DOFsPerRes.get(resNum).size(); dofIndexInSingleResRC++) {
 
                     //get the DOF bounds
-                    double maxVal = superRC.DOFmax.get(dofIndexInSingleResRC);
-                    double minVal = superRC.DOFmin.get(dofIndexInSingleResRC);
+                    double maxVal = superRC.DOFmaxPerRes.get(resNum).get(dofIndexInSingleResRC);
+                    double minVal = superRC.DOFminPerRes.get(resNum).get(dofIndexInSingleResRC);
 
                     DegreeOfFreedom curDOF = superRC.DOFsPerRes.get(resNum).get(dofIndexInSingleResRC);
 

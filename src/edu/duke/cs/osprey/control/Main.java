@@ -33,10 +33,10 @@ public class Main {
         cfp.loadData();        
         
         
-        
+        //HMN: set default setNumThreads to 1 for debugging purposes
         //DEBUG!!
         // set number of threads for energy function evaluation
-        MultiTermEnergyFunction.setNumThreads( cfp.params.getInt("eEvalThreads", 4) );
+        MultiTermEnergyFunction.setNumThreads( cfp.params.getInt("eEvalThreads", 1) );
         if( MultiTermEnergyFunction.getNumThreads() > 1 ) {
                 System.setProperty( "java.util.concurrent.ForkJoinPool.common.parallelism", 
                                 String.valueOf(MultiTermEnergyFunction.getNumThreads()) );

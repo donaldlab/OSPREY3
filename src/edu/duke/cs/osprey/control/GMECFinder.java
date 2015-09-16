@@ -103,7 +103,8 @@ public class GMECFinder {
         double bestESoFar = Double.POSITIVE_INFINITY;
         
         searchSpace = cfp.getSearchProblem();
-        
+        //super-RCs not yet supported for GMEC
+        searchSpace.useSuperRCs = false;
         do {
             needToRepeat = false;
             
