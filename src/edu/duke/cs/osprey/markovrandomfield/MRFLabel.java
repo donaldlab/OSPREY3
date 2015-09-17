@@ -18,8 +18,6 @@ public class MRFLabel {
     int labelNum;
     //the current belief (probability) of the label;
     double currentBelief;
-    //the old belief (probability) from time t-1;
-    double oldBelief;
     
     public MRFLabel(int labelNum){
         this.labelNum = labelNum;

@@ -72,7 +72,7 @@ public class ExpFunction {
 	BigDecimal exp = new BigDecimal("2.71828182845904523536"); //Euler's number to 20 decimal digits
 	
 	final int maxPrecision = 8; //the number of decimal digits to which the BigDecimal numbers must be accurate
-
+        public static MathContext mc = new MathContext(100, RoundingMode.HALF_EVEN);
 	//constructor
 	public ExpFunction() {
 	
