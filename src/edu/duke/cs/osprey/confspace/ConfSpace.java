@@ -222,12 +222,19 @@ public class ConfSpace implements Serializable {
         for(int pos=0; pos<numPos; pos++){
             Residue res = m.getResByPDBResNumber( flexibleRes.get(pos) );
             
-            for(String AAType : allowedAAs.get(pos)){
-                if(AAType.equalsIgnoreCase("PRO")){
-                    res.pucker = new ProlinePucker(res);
-                    break;
+            if(res.template.name.equalsIgnoreCase("PRO"))//the reisdue is a proline
+                res.pucker = new ProlinePucker(res);
+            else {//see if it can mutate to a proline
+                for(String AAType : allowedAAs.get(pos)){
+                    if(AAType.equalsIgnoreCase("PRO")){
+                        res.pucker = new ProlinePucker(res);
+                        break;
+                    }
                 }
             }
+            
+            if(res.pucker != null)
+                confDOFs.add(res.pucker);
         }
     }
     

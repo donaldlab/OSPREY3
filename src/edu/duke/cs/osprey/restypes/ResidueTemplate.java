@@ -158,7 +158,7 @@ public class ResidueTemplate implements Serializable {
 		//  Therefore, we round to the closest "bin" and add numberOfPhiPsiBins/2 (to make all numbers positive)
 		int phiBin = (int)((Math.round(phi/this.phiPsiResolution))) + this.numberOfPhiPsiBins/2;
 		int psiBin = (int)((Math.round(psi/this.phiPsiResolution))) + this.numberOfPhiPsiBins/2;
-		return this.numRotamers[phiBin][psiBin];
+                return this.numRotamers[phiBin][psiBin];
     }
     /**
      * Number of "bins" for Phi/Psi angles for backbone dependent rotamer libraries. For example, in the Dunbrack library there are 37 bins.
