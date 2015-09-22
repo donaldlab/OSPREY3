@@ -43,6 +43,7 @@ public class PositionConfSpaceSuper extends PositionConfSpace{
     ArrayList<ArrayList<EllipseCoordDOF>> ellipsoidalDOFsPerPos;
     boolean useEllipses = false;
     
+    
     public PositionConfSpaceSuper(
     		ArrayList<Residue> resList,//perRes
     		ArrayList<ArrayList<DegreeOfFreedom>> resDOFsList,//perRes

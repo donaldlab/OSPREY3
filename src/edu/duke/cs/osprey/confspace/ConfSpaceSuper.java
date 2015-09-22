@@ -299,8 +299,53 @@ public class ConfSpaceSuper {//extends ConfSpace{
         return ans;
     }    
     
-    //newPosList defines which positions go with what new position so [[1,2] [3] [4]...] means merge 1 and 2
-    //This method will merge positions and create corresponding super-RCs
+    //newPostList is an ArrayList that contains the positions to be merges 
+    //(i.e., [1,3,4] means merge positions 1, 3, and 4
+    public void mergePositions(ArrayList<Integer> posToMerge){
+        //newPosList will be passed to helper function mergePosition
+        //In this example it will be [[0],[1,3,4],[2],[5]]
+        ArrayList<ArrayList<Integer>> newPosList = new ArrayList<>();
+        
+        //index into newPostList of new merged position
+        //if newPosList is [[0],[1,3,4],[2],[5]], then newPosIndex = 1;
+        int newPosIndex= -1;
+        //new merge position consisting of multiple old positions
+        ArrayList<Integer> newPos = new ArrayList<>();
+        
+        //iterate overall positions
+        for (int i = 0; i<this.numPos; i++){
+            //if this position is not going to be merged create a arraylist
+            //that contains only this element
+            if (! posToMerge.contains(i)){
+                ArrayList<Integer> pos = new ArrayList<>();
+                pos.add(i);
+                newPosList.add(pos);
+            }
+            //if this position is going to be merged
+            else{
+                //check if newPosIndex has been set
+                if (newPosIndex > -1){
+                    //if it has been, then we add this position to the arraylist
+                    //at the index of newPosList specified by newPosIndex
+                    newPosList.get(newPosIndex).add(i);
+                }
+                else{
+                    //if it has not been set then we set it and create the arraylist
+                    //in this example i = 1 will reach this step.
+                    newPosIndex = i;
+                    ArrayList<Integer> mergePos = new ArrayList<>();
+                    mergePos.add(i);
+                    newPosList.add(mergePos);
+                }
+            }
+        }
+        mergePosition(newPosList);
+    }
+    
+    //MergePositions is called by mergePositions to actually do the merging, 
+    //Input: Arraylist of new position organization (i.e., [[0],[1,3],[2],[4]] 
+    //       means merge positions 1,3
+    //Creates a new PosFlex and overrides old PosFlex
     public void mergePosition(ArrayList<ArrayList<Integer>> newPosList){
         
         //Begin: Create new posFlex

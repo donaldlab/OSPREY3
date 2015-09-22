@@ -14,6 +14,8 @@ import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.confspace.PositionConfSpaceSuper;
 import edu.duke.cs.osprey.confspace.ConfSpaceSuper;
 import edu.duke.cs.osprey.confspace.SuperRCTuple;
+import edu.duke.cs.osprey.markovrandomfield.MarkovRandomField;
+import edu.duke.cs.osprey.markovrandomfield.SelfConsistentMeanField;
 /**
  *
  * @author hmn5
@@ -72,6 +74,16 @@ public class KaDEEFinder {
 
         searchSpace = cfp.getSearchProblemSuper();
         ConfSpaceSuper confSpaceSuper = searchSpace.confSpaceSuper;
+        searchSpace.loadEnergyMatrix();
+        MarkovRandomField mrf = new MarkovRandomField(searchSpace, 0.0);
+        SelfConsistentMeanField scmf = new SelfConsistentMeanField(mrf);
+        scmf.run();
+        
+        double intraE_0_0 = searchSpace.emat.getOneBody(0, 0);
+        double intraE_1_0 = searchSpace.emat.getOneBody(1, 0);
+        double pairwise_0_0 = searchSpace.emat.getPairwise(0, 0, 1,0);
+        double pairwise_0_2 = searchSpace.emat.getPairwise(0, 0, 2, 0);
+        double pairsise_1_2 = searchSpace.emat.getPairwise(1, 0, 2, 0);
         ArrayList<ArrayList<Integer>> posToMerge = new ArrayList<>();
         for (int i=0; i<confSpaceSuper.posFlex.size();i++){
             ArrayList<Integer> newPos = new ArrayList<>();
@@ -85,9 +97,6 @@ public class KaDEEFinder {
             }
             posToMerge.add(newPos);
         }
-        confSpaceSuper.mergePosition(posToMerge);
-        searchSpace.loadEnergyMatrix();
-        SuperRCTuple superRCTup2 = new SuperRCTuple(0,0);
-        System.out.println(searchSpace.emat.getInternalEnergy(superRCTup2)); 
+        searchSpace.mergePositionContinuous(posToMerge.get(0));
     }
 }
