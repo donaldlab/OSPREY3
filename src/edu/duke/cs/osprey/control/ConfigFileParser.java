@@ -258,7 +258,27 @@ public class ConfigFileParser {
             params.getDouble("STERICTHRESH",100) );//FOR NOW NO DACS
     }
     
-    
+    PruningControl setupPruning(SearchProblemSuper searchSpace, double pruningInterval, boolean useEPIC, boolean useTupExp){
+        //setup pruning.  Conformations in searchSpace more than (Ew+Ival) over the GMEC are liable to pruning
+        
+        //initialize the pruning matrix for searchSpace, if not already initialized
+        //or if pruningInterval lower (so it may have pruned tuples that shouldn't
+        //be pruned with our new pruningInterval)
+        boolean initPruneMat = false;
+        if(searchSpace.pruneMat==null)
+            initPruneMat = true;
+        else if(searchSpace.pruneMat.getPruningInterval() < pruningInterval)
+            initPruneMat = true;
+        
+        if(initPruneMat)
+            searchSpace.pruneMat = new PruningMatrix(searchSpace.confSpaceSuper, pruningInterval);
+        
+        return new PruningControl( searchSpace, pruningInterval, params.getBool("TYPEDEP",false), 
+            params.getDouble("BOUNDSTHRESH",100), params.getInt("ALGOPTION",1), 
+            params.getBool("USEFLAGS",true),
+            params.getBool("USETRIPLES",false), false, useEPIC, useTupExp,
+            params.getDouble("STERICTHRESH",100) );//FOR NOW NO DACS
+    }
     
     
     

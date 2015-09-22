@@ -1,15 +1,14 @@
 /*
- * To change this template, choose Tools | Templates
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
 package edu.duke.cs.osprey.pruning;
 
-import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.ConfSpaceSuper;
+import edu.duke.cs.osprey.confspace.SuperRC;
+import edu.duke.cs.osprey.confspace.SuperRCTuple;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
-import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.confspace.RC;
-import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblemSuper;
 import edu.duke.cs.osprey.confspace.TupleEnumerator;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -17,20 +16,12 @@ import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.pruning.PruningMethod.CheckSumType;
 import java.util.ArrayList;
 import java.util.TreeSet;
-
 /**
  *
- * @author mhall44
+ * @author hmn5
  */
-public class Pruner {
-    //This representation based on "candidate" and "competitor" objects and iterators
-    //will let us cut down a lot on the code redundancy
-    //and will make it way easier to update things when we need to
-    //"DEECandidate", etc. can represent either a rotamer or a pair (or a triple?)
-    //the candidate, competitor, and witness iterators can be reused between most types of Pruner
-    //(usually we just need an iterator over rotamers, or an iterator over pairs)
-    //and then each type of Pruner has its own pruning condition
-    
+public class PrunerSuper {
+    //This class extends the Pruner class to allow for SuperRCs
     
     boolean typeDep;//use type-dependent pruning
     double boundsThreshold;//any conformations above this threshold are liable to Bounds pruning
@@ -43,7 +34,7 @@ public class Pruner {
     PruningMatrix competitorPruneMat;//matrix defining what competitors are allowed.  (Can be same as pruneMat)
     EnergyMatrix emat;//energy matrix to prune based on
     EPICMatrix epicMat;//EPIC matrix to go with emat, if applicable
-    ConfSpace confSpace;//Conformation space over which these matrices are defined
+    ConfSpaceSuper confSpaceSuper;//Conformation space over which these matrices are defined
     
     TupleEnumerator tupEnum;//use to enumerate candidate RC tuples, etc.
     
@@ -54,7 +45,7 @@ public class Pruner {
     boolean verbose = true;//print what we're doing
     
     
-    public Pruner(SearchProblem searchSpace, boolean typeDep, double boundsThreshold, 
+    public PrunerSuper(SearchProblemSuper searchSpace, boolean typeDep, double boundsThreshold, 
             double pruningInterval, boolean useEPIC, boolean useTupExp) {
         
         init(searchSpace, searchSpace.pruneMat, typeDep, boundsThreshold, pruningInterval,
@@ -65,7 +56,7 @@ public class Pruner {
     //In COMETS we may be using a node-specific pruning matrix
     //that has more stuff pruned compared to the searchSpace.pruningMatrix
     //Also may not want verbosity
-    public Pruner(SearchProblem searchSpace, PruningMatrix pruneMat, boolean typeDep, 
+    public PrunerSuper(SearchProblemSuper searchSpace, PruningMatrix pruneMat, boolean typeDep, 
             double boundsThreshold, 
             double pruningInterval, boolean useEPIC, boolean useTupExp, boolean verbose) {
         
@@ -77,13 +68,13 @@ public class Pruner {
 
     
     
-    private void init(SearchProblem searchSpace, PruningMatrix pruneMat, boolean typeDep, 
+    private void init(SearchProblemSuper searchSpace, PruningMatrix pruneMat, boolean typeDep, 
             double boundsThreshold, 
             double pruningInterval, boolean useEPIC, boolean useTupExp) {
         
         this.pruneMat = pruneMat;
         epicMat = searchSpace.epicMat;
-        confSpace = searchSpace.confSpace;
+        confSpaceSuper = searchSpace.confSpaceSuper;
         
         competitorPruneMat = searchSpace.competitorPruneMat;
         if(competitorPruneMat == null)
@@ -104,7 +95,7 @@ public class Pruner {
             //EPIC is meant to be added to pairwise lower-bound energy
             throw new RuntimeException("ERROR: Can't prune with both EPIC and tup-exp at the same time");
         
-        tupEnum = new TupleEnumerator(pruneMat, emat, searchSpace.confSpace.numPos);
+        tupEnum = new TupleEnumerator(pruneMat, emat, searchSpace.confSpaceSuper.numPos);
     }
     
     
@@ -122,9 +113,9 @@ public class Pruner {
         do {
             prunedSomethingThisCycle = false;
             
-            ArrayList<RCTuple> candidates = enumerateCandidates(method);
+            ArrayList<SuperRCTuple> candidates = enumerateCandidates(method);
 
-            for( RCTuple cand : candidates ){
+            for( SuperRCTuple cand : candidates ){
                 
                 double contELB = 0;
                 if(useEPIC && cand.pos.size()>1)//EPIC gives us nothing for 1-pos pruning
@@ -138,7 +129,7 @@ public class Pruner {
                         //any of the candidates may also be used as a competitor...
                         //for(RCTuple competitor : searchSpace.pruneMat.unprunedRCTuplesAtPos(cand.pos)){
                         //try having more competitors eliminated for speed
-                        for(RCTuple competitor : competitorPruneMat.unprunedRCTuplesAtPos(cand.pos)){
+                        for(SuperRCTuple competitor : competitorPruneMat.unprunedRCTuplesAtPos(cand.pos)){
                             
                             if(cand.isSameTuple(competitor) && contELB==0)//you can't prune yourself
                                 //except if using EPIC (where we would be checking if contELB >= pruningInterval)
@@ -175,7 +166,7 @@ public class Pruner {
     }
     
     
-    public ArrayList<RCTuple> enumerateCandidates(PruningMethod method){
+    public ArrayList<SuperRCTuple> enumerateCandidates(PruningMethod method){
         //enumerate RC tuples that are candidates for pruning by the specified method
         if(method.numPos<=2)//we can afford to do all pairs
             return tupEnum.enumerateUnprunedTuples(method.numPos);
@@ -198,11 +189,11 @@ public class Pruner {
             
             int pos1 = tup1.pos.get(indexInTup);
             int rc1 = tup1.RCs.get(indexInTup);
-            String type1 = confSpace.posFlex.get(pos1).RCs.get(rc1).AAType;
+            String type1 = confSpaceSuper.posFlex.get(pos1).RCs.get(rc1).AAType;
             
             int pos2 = tup2.pos.get(indexInTup);
             int rc2 = tup2.RCs.get(indexInTup);
-            String type2 = confSpace.posFlex.get(pos2).RCs.get(rc2).AAType;
+            String type2 = confSpaceSuper.posFlex.get(pos2).RCs.get(rc2).AAType;
             
             if(!type1.equalsIgnoreCase(type2))//this position doesn't match
                 return false;
@@ -242,7 +233,7 @@ public class Pruner {
         
         if(checkSumType == CheckSumType.GOLDSTEIN ){            
             
-            for(int pos=0; pos<confSpace.numPos; pos++){
+            for(int pos=0; pos<confSpaceSuper.numPos; pos++){
                 if(!cand.pos.contains(pos)){
                     
                     double bestInteraction = Double.POSITIVE_INFINITY;
@@ -404,7 +395,7 @@ public class Pruner {
             
             //this is like the lower bound in the A* ConfTree
             //break up the full energy into contributions associated with different res
-            for(int level=0; level<confSpace.numPos; level++){
+            for(int level=0; level<confSpaceSuper.numPos; level++){
                 double resContribLB = Double.POSITIVE_INFINITY;//lower bound on contribution of this residue
                 //resContribLB will be the minimum_{rc} of the lower bound assuming rc assigned to this level
                 if(!cand.pos.contains(level)){//level not fully defined
@@ -511,7 +502,5 @@ public class Pruner {
      * 3. Goldstein higher-order awareness (so can do after tup-exp)
      * 4. Bounds (w/ higher-order)
      */
-    
-    
         
 }
