@@ -26,6 +26,7 @@ public class MRFNode {
         this.nodeNum = posNum;
 
         //create label
+        this.labelList = new ArrayList<>();
         for (int superRC : unprunedSuperRCs){
             MRFLabel label = new MRFLabel(superRC);
             labelList.add(label);

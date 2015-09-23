@@ -137,7 +137,39 @@ public class EnergyMatrix extends TupleMatrix<Double> {
         
         return E;
     }
+ 
+     double internalEHigherOrder(SuperRCTuple tup, int curIndex, HigherTupleFinder<Double> htf){
+        //Computes the portion of the internal energy for tuple tup
+        //that consists of interactions in htf (corresponds to some sub-tuple of tup)
+        //with RCs whose indices in tup are < curIndex
+        double E = 0;
+        ArrayList<Integer> interactingPos = htf.getInteractingPos();
         
+        for(int ipos : interactingPos){
+            
+            //see if ipos is in tup with index < curIndex
+            int iposIndex = -1;
+            for(int ind=0; ind<curIndex; ind++){
+                if(tup.pos.get(ind)==ipos){
+                    iposIndex = ind;
+                    break;
+                }
+            }
+
+            if(iposIndex > -1){//ipos interactions need to be counted
+                int iposRC = tup.superRCs.get(iposIndex);
+                E += htf.getInteraction(ipos, iposRC);
+                
+                //see if need to go up to highers order again...
+                HigherTupleFinder htf2 = htf.getHigherInteractions(ipos,iposRC);
+                if(htf2!=null){
+                    E += internalEHigherOrder(tup,iposIndex,htf2);
+                }
+            }
+        }
+        return E;
+    }   
+    
     /*
     public double getPairwiseE(int res1, int AA1, int rot1, int res2, int AA2, int rot2){
     //lookup by residue number, amino-acid index (for the residue's rotamer library),

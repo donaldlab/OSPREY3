@@ -13,6 +13,8 @@ import java.util.ArrayList;
  */
 public class SuperRCTuple extends RCTuple{
     public ArrayList<Integer> superRCs;//sthe RCs themselves (residue-specific numbering, as in the TupleMatrices)
+    public ArrayList<Integer> pos;
+    public ArrayList<Integer> RCs;
     
     public SuperRCTuple(){
         super();
@@ -96,4 +98,30 @@ public class SuperRCTuple extends RCTuple{
         return ans;
     }
     
+   public SuperRCTuple subtractMember(int index){
+        //Make a copy of this SuperRCTuple with the given member removed
+        //index is an index in pos and superRCs
+        ArrayList<Integer> newPos = new ArrayList<>();
+        ArrayList<Integer> newSuperRCs = new ArrayList<>();
+        
+        for(int ind=0; ind<pos.size(); ind++){
+            if(ind!=index){
+                newPos.add(pos.get(ind));
+                newSuperRCs.add(superRCs.get(ind));
+            }
+        }
+        
+        return new SuperRCTuple(newPos,newSuperRCs);
+    }
+   
+    public SuperRCTuple addRC(int addedPos, int addedSuperRC){
+        //Make a copy of this RCTuple with (addPos,addRC) added
+        ArrayList<Integer> newPos = (ArrayList<Integer>) pos.clone();
+        ArrayList<Integer> newSuperRCs = (ArrayList<Integer>) superRCs.clone();
+        
+        newPos.add(addedPos);
+        newSuperRCs.add(addedSuperRC);
+        
+        return new SuperRCTuple(newPos,newSuperRCs);
+    }   
 }

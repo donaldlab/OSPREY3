@@ -28,7 +28,7 @@ public class SelfConsistentMeanField implements InferenceCalculator {
 
     //threshold for convergence (change in beliefs must be less than threshold)
     double threshold = 1e-6;
-    final int minNumberIterations = 50;
+    final int minNumberIterations = 200;
     final int maxNumberIterations = 10000;
 
     double constRT = PoissonBoltzmannEnergy.constRT;
@@ -43,11 +43,13 @@ public class SelfConsistentMeanField implements InferenceCalculator {
     public void run() {
         int iter = 0;
         boolean hasConverged = false;
+        initializeBeliefs();
         //set the temperature to be high
-        this.constRT = this.constRT * 1000;
+        this.constRT = this.constRT * 100;
         //while we haven't converged and are below maxNumberIteration;
         while (!hasConverged && (iter < this.maxNumberIterations)) {
             //update all beliefs
+
             hasConverged = updateAllBeliefs();
             //lower the temperature
             lowerTemperature();
@@ -94,12 +96,15 @@ public class SelfConsistentMeanField implements InferenceCalculator {
     //updates all beliefs and returns true if 
     //max difference in beliefs is less than threshold
     private boolean updateAllBeliefs() {
-        boolean hasConverged = true;
+        boolean allNodesConverged = true;
         for (MRFNode node : this.nodeList) {
             //We converge if and only if every node has converged
-            hasConverged = hasConverged && updateNodeBeliefs(node);
+            boolean nodeConverged = updateNodeBeliefs(node);
+            if(!(allNodesConverged && nodeConverged)){
+                allNodesConverged = false;
+            }
         }
-        return hasConverged;
+        return allNodesConverged;
     }
 
     //update all of the beliefs belonging to node
@@ -118,7 +123,7 @@ public class SelfConsistentMeanField implements InferenceCalculator {
             //unnormalized updateBelief
             BigDecimal updateBelief = this.ef.exp(-(oneBodyE + meanFieldE) / constRT);
             //update partition function
-            partFunction.add(updateBelief);
+            partFunction = partFunction.add(updateBelief);
             //store unnormalizedBeliefs
             unNormalizedBeliefs.add(updateBelief);
         }
@@ -148,7 +153,7 @@ public class SelfConsistentMeanField implements InferenceCalculator {
 
     //lower the temperature, never getting below the true value;
     private void lowerTemperature() {
-        this.constRT = this.constRT * 0.99;
+        this.constRT = this.constRT * 0.90;
         if (this.constRT < PoissonBoltzmannEnergy.constRT) {
             this.constRT = PoissonBoltzmannEnergy.constRT;
         }

@@ -13,6 +13,7 @@ import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.pruning.PruningControl;
+import edu.duke.cs.osprey.pruning.PruningControlSuper;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.StringParsing;
 import java.util.ArrayList;
@@ -258,7 +259,7 @@ public class ConfigFileParser {
             params.getDouble("STERICTHRESH",100) );//FOR NOW NO DACS
     }
     
-    PruningControl setupPruning(SearchProblemSuper searchSpace, double pruningInterval, boolean useEPIC, boolean useTupExp){
+    PruningControlSuper setupPruning(SearchProblemSuper searchSpace, double pruningInterval, boolean useEPIC, boolean useTupExp){
         //setup pruning.  Conformations in searchSpace more than (Ew+Ival) over the GMEC are liable to pruning
         
         //initialize the pruning matrix for searchSpace, if not already initialized
@@ -273,7 +274,7 @@ public class ConfigFileParser {
         if(initPruneMat)
             searchSpace.pruneMat = new PruningMatrix(searchSpace.confSpaceSuper, pruningInterval);
         
-        return new PruningControl( searchSpace, pruningInterval, params.getBool("TYPEDEP",false), 
+        return new PruningControlSuper( searchSpace, pruningInterval, params.getBool("TYPEDEP",false), 
             params.getDouble("BOUNDSTHRESH",100), params.getInt("ALGOPTION",1), 
             params.getBool("USEFLAGS",true),
             params.getBool("USETRIPLES",false), false, useEPIC, useTupExp,

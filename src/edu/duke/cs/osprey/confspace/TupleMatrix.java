@@ -270,7 +270,7 @@ public class TupleMatrix<T> implements Serializable {
                     }
                 }
 
-                RCTuple subTup = tup.subtractMember(index1).subtractMember(index2);
+                SuperRCTuple subTup = tup.subtractMember(index1).subtractMember(index2);
 
                 htf.setInteraction(subTup, val);
             }

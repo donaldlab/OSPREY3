@@ -6,6 +6,7 @@ package edu.duke.cs.osprey.pruning;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.ConfSpaceSuper;
+import edu.duke.cs.osprey.confspace.SuperRCTuple;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.TupleMatrix;
@@ -121,6 +122,49 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
         return unpruned;
     }
 
+    public ArrayList<SuperRCTuple> unprunedSuperRCTuplesAtPos(ArrayList<Integer> pos) {
+        //get a list of unpruned RCTuples with the given positions
+        //this method tests a few things more than once, so it could be sped up if needed, but it is convenient
+
+        int numPos = pos.size();
+        ArrayList<SuperRCTuple> unpruned = new ArrayList<>();
+
+        if (numPos == 1) {
+            int posNum = pos.get(0);
+            for (int rc = 0; rc < numRCsAtPos(posNum); rc++) {
+                if (!getOneBody(posNum, rc)) {
+                    unpruned.add(new SuperRCTuple(posNum, rc));
+                }
+            }
+        } else {
+            //get unpruned tuples of RCs at all but the last position
+            //then see what RCs at the last position we can add
+            ArrayList<Integer> posReduced = (ArrayList<Integer>) pos.clone();
+            posReduced.remove(numPos - 1);
+
+            ArrayList<SuperRCTuple> tupsReduced = unprunedSuperRCTuplesAtPos(posReduced);
+
+            int lastPos = pos.get(numPos - 1);
+
+            for (int rc = 0; rc < numRCsAtPos(lastPos); rc++) {
+                if (!getOneBody(lastPos, rc)) {
+                    for (SuperRCTuple reducedTup : tupsReduced) {//try to combine into an unpruned RC
+
+                        ArrayList<Integer> fullRCList = (ArrayList<Integer>) reducedTup.RCs.clone();
+                        fullRCList.add(rc);
+
+                        SuperRCTuple fullTup = new SuperRCTuple(pos, fullRCList);
+                        if (!isPruned(fullTup)) {
+                            unpruned.add(fullTup);
+                        }
+                    }
+                }
+            }
+        }
+
+        return unpruned;
+    }
+
     public boolean isPruned(RCTuple tup) {
         //can be prune per se, or check if some singles in it are pruned, or pairs, etc.
         for (int indexInTup = 0; indexInTup < tup.pos.size(); indexInTup++) {
@@ -136,6 +180,38 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
             for (int index2 = 0; index2 < indexInTup; index2++) {
                 int pos2 = tup.pos.get(index2);
                 int rc2 = tup.RCs.get(index2);
+
+                if (getPairwise(pos1, rc1, pos2, rc2)) {
+                    return true;
+                }
+
+                HigherTupleFinder<Boolean> htf = getHigherOrderTerms(pos1, rc1, pos2, rc2);
+                if (htf != null) {
+                    if (isPrunedHigherOrder(tup, index2, htf)) {
+                        return true;
+                    }
+                }
+            }
+
+        }
+        return false;
+    }
+
+    public boolean isPruned(SuperRCTuple tup) {
+        //can be prune per se, or check if some singles in it are pruned, or pairs, etc.
+        for (int indexInTup = 0; indexInTup < tup.pos.size(); indexInTup++) {
+            int pos1 = tup.pos.get(indexInTup);
+            int rc1 = tup.superRCs.get(indexInTup);
+
+            if (getOneBody(pos1, rc1))//rc1 pruned by itself
+            {
+                return true;
+            }
+
+            //check if any pairs pruned
+            for (int index2 = 0; index2 < indexInTup; index2++) {
+                int pos2 = tup.pos.get(index2);
+                int rc2 = tup.superRCs.get(index2);
 
                 if (getPairwise(pos1, rc1, pos2, rc2)) {
                     return true;
@@ -190,7 +266,56 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
         return false;
     }
 
+    boolean isPrunedHigherOrder(SuperRCTuple tup, int curIndex, HigherTupleFinder<Boolean> htf) {
+        //Checks if tup is pruned based on interactions in htf (corresponds to some sub-tuple of tup)
+        //with RCs whose indices in tup are < curIndex
+        ArrayList<Integer> interactingPos = htf.getInteractingPos();
+
+        for (int ipos : interactingPos) {
+
+            //see if ipos is in tup with index < curIndex
+            int iposIndex = -1;
+            for (int ind = 0; ind < curIndex; ind++) {
+                if (tup.pos.get(ind) == ipos) {
+                    iposIndex = ind;
+                    break;
+                }
+            }
+
+            if (iposIndex > -1) {//ipos interactions need to be counted
+                int iposRC = tup.superRCs.get(iposIndex);
+                if (htf.getInteraction(ipos, iposRC))//sub-tuple plus (ipos,iposRC) is pruned
+                {
+                    return true;
+                }
+
+                //see if need to go up to highers order again...
+                HigherTupleFinder htf2 = htf.getHigherInteractions(ipos, iposRC);
+                if (htf2 != null) {
+                    if (isPrunedHigherOrder(tup, iposIndex, htf2)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        //if we get here, not pruned
+        return false;
+    }
+
     public void markAsPruned(RCTuple tup) {
+        setTupleValue(tup, true);
+        /*
+         int tupSize = tup.pos.size();
+         if(tupSize==1)
+         setOneBody(tup.pos.get(0), tup.RCs.get(0), true);
+         else if(tupSize==2)
+         setPairwise(tup.pos.get(0), tup.RCs.get(0), tup.pos.get(1), tup.RCs.get(1), true);
+         else
+         */
+    }
+
+    public void markAsPruned(SuperRCTuple tup) {
         setTupleValue(tup, true);
         /*
          int tupSize = tup.pos.size();

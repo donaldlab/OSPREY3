@@ -10,12 +10,13 @@ import java.util.ArrayList;
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.confspace.SearchProblemSuper;
 import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.pruning.PruningControl;
+import edu.duke.cs.osprey.pruning.PruningControlSuper;
 import edu.duke.cs.osprey.confspace.PositionConfSpaceSuper;
 import edu.duke.cs.osprey.confspace.ConfSpaceSuper;
 import edu.duke.cs.osprey.confspace.SuperRCTuple;
 import edu.duke.cs.osprey.markovrandomfield.MarkovRandomField;
 import edu.duke.cs.osprey.markovrandomfield.SelfConsistentMeanField;
+import java.math.BigDecimal;
 
 /**
  *
@@ -77,24 +78,27 @@ public class KaDEEFinder {
         searchSpace = cfp.getSearchProblemSuper();
         ConfSpaceSuper confSpaceSuper = searchSpace.confSpaceSuper;
         searchSpace.loadEnergyMatrix();
-
+        
+        double pruningInterval = Double.POSITIVE_INFINITY;
         //Doing competitor pruning now
         //will limit us to a smaller, but effective, set of competitors in all future DEE
         if (searchSpace.competitorPruneMat == null) {
             System.out.println("PRECOMPUTING COMPETITOR PRUNING MATRIX");
-            PruningControl compPruning = cfp.setupPruning(searchSpace, 0, false, false);
+            PruningControlSuper compPruning = cfp.setupPruning(searchSpace, 0, false, false);
             compPruning.setOnlyGoldstein(true);
-            compPruning.pruneSuperRC();
+            compPruning.prune();
             searchSpace.competitorPruneMat = searchSpace.pruneMat;
             searchSpace.pruneMat = null;
             System.out.println("COMPETITOR PRUNING DONE");
         }
-
+        //Next, do DEE, which will fill in the pruning matrix
+        PruningControlSuper pruning = cfp.setupPruning(searchSpace,pruningInterval,false,false);
+        pruning.prune();//pass in DEE options, and run the specified types of DEE 
 
         MarkovRandomField mrf = new MarkovRandomField(searchSpace, 0.0);
         SelfConsistentMeanField scmf = new SelfConsistentMeanField(mrf);
         scmf.run();
-
+        BigDecimal Z = scmf.calcPartitionFunction();
         double intraE_0_0 = searchSpace.emat.getOneBody(0, 0);
         double intraE_1_0 = searchSpace.emat.getOneBody(1, 0);
         double pairwise_0_0 = searchSpace.emat.getPairwise(0, 0, 1, 0);
