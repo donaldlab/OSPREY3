@@ -41,11 +41,11 @@ public class UpdatedPruningMatrix extends PruningMatrix {
         int numPos = parent.numPos();
         
         for(int pos=0; pos<numPos; pos++){
-            prunedRCUpdates.add(new TreeSet<>());
-            prunedPairUpdates.add(new ArrayList<>());
+            prunedRCUpdates.add(new TreeSet<Integer>());
+            prunedPairUpdates.add(new ArrayList<TreeMap<Integer,TreeSet<Integer>>>());
             
             for(int pos2=0; pos2<pos; pos2++){
-                prunedPairUpdates.get(pos).add(new TreeMap<>());
+                prunedPairUpdates.get(pos).add(new TreeMap<Integer,TreeSet<Integer>>());
             }
         }
     }
@@ -78,7 +78,7 @@ public class UpdatedPruningMatrix extends PruningMatrix {
             TreeMap<Integer,TreeSet<Integer>> pairs = prunedPairUpdates.get(pos1).get(pos2);
             
             if(!pairs.containsKey(rc1))//allocate the treeset for pairs involving rc1
-                pairs.put(rc1, new TreeSet<>());
+                pairs.put(rc1, new TreeSet<Integer>());
             
             pairs.get(rc1).add(rc2);
         }

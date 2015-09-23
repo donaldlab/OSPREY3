@@ -490,9 +490,9 @@ public class BBFreeBlock implements Serializable {
         int numFullDOFs = 6*numRes-9;
         int numFreeDOFs = 2*numRes-6;
         
-        jacDerivs = new ArrayList<>();
+        jacDerivs = new ArrayList<ArrayList<JacDerivEntry>>();
         for(int f=0; f<numFullDOFs; f++)
-            jacDerivs.add(new ArrayList<>());
+            jacDerivs.add(new ArrayList<JacDerivEntry>());
         
         DoubleMatrix2D ans = DoubleFactory2D.dense.make(numFullDOFs-numFreeDOFs,numFullDOFs);
         

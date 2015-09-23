@@ -854,7 +854,7 @@ public class COMETSTree extends AStarTree {
                 double bestISE = Double.POSITIVE_INFINITY;
                 int bestRC = allowedRCs.get(level).get(0);
                 for(int rc : allowedRCs.get(level) ){
-                    double ise = stateSP[state].emat.getOneBody(level, rc);
+                    double ise = getEnergyMatrix(state).getOneBody(level, rc);
                     if( ise < bestISE){
                         bestISE = ise;
                         bestRC = rc;

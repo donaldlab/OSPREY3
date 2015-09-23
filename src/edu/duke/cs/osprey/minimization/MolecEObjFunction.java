@@ -63,6 +63,8 @@ public class MolecEObjFunction implements ObjectiveFunction {
         DOFs = DOFList;
         
         curDOFVals = DoubleFactory1D.dense.make(DOFs.size());
+        
+        initEPIC();
     }
     
     
@@ -140,6 +142,11 @@ public class MolecEObjFunction implements ObjectiveFunction {
         
         curDOFVals = DoubleFactory1D.dense.make(DOFs.size());
         
+        
+        initEPIC();
+    }
+    
+    private void initEPIC(){//Initialize EPIC stuff if needed
         if(efunc instanceof EPICEnergyFunction){
             ((EPICEnergyFunction)efunc).assignConfReference(curDOFVals,DOFs,molec);
             

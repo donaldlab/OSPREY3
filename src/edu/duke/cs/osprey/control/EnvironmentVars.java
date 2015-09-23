@@ -7,6 +7,7 @@ package edu.duke.cs.osprey.control;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
+
 import java.math.BigInteger;
 
 
@@ -22,6 +23,8 @@ public class EnvironmentVars {
         public static boolean deleteNonTemplateResidues = true;//Delete residues for which we don't have a template
         
         public static boolean useMPI = false;//distribute things like energy matrix calculations, K* calculation for sequences using MPI
+        
+        public static double DUNBRACK_PROBABILTY_CUTOFF = 0.001;
         
         
         //data files directory
