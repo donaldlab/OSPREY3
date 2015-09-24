@@ -142,6 +142,7 @@ public class KaDEEFinder {
             posToMerge.add(newPos);
         }
         searchSpace.mergePositionRigid(posToMerge.get(0));
+        BigDecimal Zpart = calcRigidPartFunction(searchSpace);
         double logZUBMerged = calcLogPartMapPert(searchSpace);
         
     }
@@ -164,7 +165,7 @@ public class KaDEEFinder {
             double E = searchSpace.lowerBound(conf);
             partFunction = partFunction.add(ef.exp(-(E)/constRT));
             iter++;
-            if (iter > 100){
+            if (iter > 1){
                 needToRepeat=false;
             }
         } while(needToRepeat);
@@ -175,7 +176,7 @@ public class KaDEEFinder {
         boolean needToRepeat;
         int[] GMECConf = null;
         double bestESoFar = Double.POSITIVE_INFINITY;
-        int numSamples = 100;
+        int numSamples = 10;
         SearchProblemSuper searchSpace = aSearchSpace;
         double averageGMECs = 0;
         int iter = 0;

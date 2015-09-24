@@ -420,8 +420,8 @@ public class SearchProblemSuper {
         if (posNumList1.size() == 1 && posNumList2.size() == 1) {
             int posNum1 = posNumList1.get(0);
             int posNum2 = posNumList2.get(0);
-            //posNum1 should be greater than posNum2
-            twoBodyE = this.emat.pairwise.get(posNum1).get(posNum2);
+            //posNum2 should be greater than posNum1
+            twoBodyE = this.emat.pairwise.get(posNum2).get(posNum1);
         } else if (posNumList1.size() == 2 && posNumList2.size() == 1) {
             int newPos1_1 = posNumList1.get(0);
             int numRC1_1 = this.emat.numRCsAtPos(newPos1_1);
