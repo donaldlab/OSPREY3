@@ -1,14 +1,14 @@
 /*
- * To change this template, choose Tools | Templates
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
 package edu.duke.cs.osprey.astar;
 
-import edu.duke.cs.osprey.confspace.ConfSpace;
+import edu.duke.cs.osprey.confspace.ConfSpaceSuper;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
-import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblemSuper;
+import edu.duke.cs.osprey.confspace.SuperRCTuple;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -17,9 +17,10 @@ import java.util.Arrays;
 
 /**
  *
- * @author mhall44
+ * @author hmn5
  */
-public class ConfTree extends AStarTree {
+//ConfTree Class but with super-RCs
+public class ConfTreeSuper extends AStarTree {
     //This implementation of an A* tree is intended for conformational search
     //AStarNode.nextAssignment is an array of length numPos; each position
     //stores the assigned RC, or -1 to indicate an unassigned position
@@ -41,20 +42,20 @@ public class ConfTree extends AStarTree {
     boolean useDynamicAStar = true;
 
     EPICMatrix epicMat = null;//to use in refinement
-    ConfSpace confSpace = null;//conf space to use with epicMat if we're doing EPIC minimization w/ SAPE
+    ConfSpaceSuper confSpace = null;//conf space to use with epicMat if we're doing EPIC minimization w/ SAPE
     boolean minPartialConfs = false;//whether to minimize partially defined confs with EPIC, or just fully defined
 
-    public ConfTree(SearchProblem sp) {
+    public ConfTreeSuper(SearchProblemSuper sp) {
         init(sp, sp.pruneMat, sp.useEPIC);
     }
 
-    public ConfTree(SearchProblem sp, PruningMatrix pruneMat, boolean useEPIC) {
+    public ConfTreeSuper(SearchProblemSuper sp, PruningMatrix pruneMat, boolean useEPIC) {
         //Conf search over RC's in sp that are unpruned in pruneMat
         init(sp, pruneMat, useEPIC);
     }
 
-    private void init(SearchProblem sp, PruningMatrix pruneMat, boolean useEPIC) {
-        numPos = sp.confSpace.numPos;
+    private void init(SearchProblemSuper sp, PruningMatrix pruneMat, boolean useEPIC) {
+        numPos = sp.confSpaceSuper.numPos;
 
         //see which RCs are unpruned and thus available for consideration
         for (int pos = 0; pos < numPos; pos++) {
@@ -70,7 +71,7 @@ public class ConfTree extends AStarTree {
             if (useEPIC) {//include EPIC in the search
                 useRefinement = true;
                 epicMat = sp.epicMat;
-                confSpace = sp.confSpace;
+                confSpace = sp.confSpaceSuper;
                 minPartialConfs = sp.epicSettings.minPartialConfs;
             }
         }
@@ -181,7 +182,7 @@ public class ConfTree extends AStarTree {
 
     double scoreConf(int[] partialConf) {
         if (traditionalScore) {
-            RCTuple definedTuple = new RCTuple(partialConf);
+            SuperRCTuple definedTuple = new SuperRCTuple(partialConf);
 
             double score = emat.getConstTerm() + emat.getInternalEnergy(definedTuple);//"g-score"
 
@@ -209,8 +210,8 @@ public class ConfTree extends AStarTree {
             throw new RuntimeException("Advanced A* scoring methods not implemented yet!");
         }
     }
-
-    double RCContributionLB(int level, int rc, RCTuple definedTuple, int[] partialConf) {
+    
+     double RCContributionLB(int level, int rc, SuperRCTuple definedTuple, int[] partialConf) {
         //Provide a lower bound on what the given rc at the given level can contribute to the energy
         //assume partialConf and definedTuple
 
@@ -323,21 +324,8 @@ public class ConfTree extends AStarTree {
         {
             return (pos1 < pos2 || partialConf[pos1] >= 0);
         }
-    }
-
-    /*
-     @Override
-     boolean canPruneNode(AStarNode node){
-     check seq dev from wt;
-     }
+    }   
     
-    
-    
-     @Override
-     void refineScore(AStarNode node){//e.g. add the EPIC contribution
-     node.score = betterScore();//or this could be a good place for MPLP or sthg
-     }
-     */
     @Override
     void refineScore(AStarNode node) {
 
@@ -369,6 +357,6 @@ public class ConfTree extends AStarTree {
             }
         }
         //if we get here, conf fully defined
-        return emat.getInternalEnergy(new RCTuple(partialConf));
-    }
+        return emat.getInternalEnergy(new SuperRCTuple(partialConf));
+    }    
 }

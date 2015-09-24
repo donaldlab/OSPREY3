@@ -298,33 +298,16 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
                 }
             }
         }
-
         //if we get here, not pruned
         return false;
     }
 
     public void markAsPruned(RCTuple tup) {
         setTupleValue(tup, true);
-        /*
-         int tupSize = tup.pos.size();
-         if(tupSize==1)
-         setOneBody(tup.pos.get(0), tup.RCs.get(0), true);
-         else if(tupSize==2)
-         setPairwise(tup.pos.get(0), tup.RCs.get(0), tup.pos.get(1), tup.RCs.get(1), true);
-         else
-         */
     }
 
     public void markAsPruned(SuperRCTuple tup) {
         setTupleValue(tup, true);
-        /*
-         int tupSize = tup.pos.size();
-         if(tupSize==1)
-         setOneBody(tup.pos.get(0), tup.RCs.get(0), true);
-         else if(tupSize==2)
-         setPairwise(tup.pos.get(0), tup.RCs.get(0), tup.pos.get(1), tup.RCs.get(1), true);
-         else
-         */
     }
 
     public int countPrunedRCs() {

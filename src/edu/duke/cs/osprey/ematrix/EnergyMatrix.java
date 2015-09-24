@@ -90,7 +90,7 @@ public class EnergyMatrix extends TupleMatrix<Double> {
 
             for (int index2 = 0; index2 < indexInTuple; index2++) {
                 int pos2 = tup.pos.get(index2);
-                int superRCNum2 = tup.RCs.get(index2);
+                int superRCNum2 = tup.superRCs.get(index2);
 
                 double twoBodyE = getPairwise(posNum, superRCNum, pos2, superRCNum2);
                 E += twoBodyE;

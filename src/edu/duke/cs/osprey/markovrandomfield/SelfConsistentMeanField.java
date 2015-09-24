@@ -32,7 +32,7 @@ public class SelfConsistentMeanField implements InferenceCalculator {
     final int maxNumberIterations = 10000;
 
     double constRT = PoissonBoltzmannEnergy.constRT;
-    ExpFunction ef = new ExpFunction();
+    public ExpFunction ef = new ExpFunction();
 
     public SelfConsistentMeanField(MarkovRandomField mrf) {
         this.nodeList = mrf.nodeList;

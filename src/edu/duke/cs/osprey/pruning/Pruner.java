@@ -436,7 +436,8 @@ public class Pruner {
         //so we'll say the "contribution" consists of any interactions that include that residue
         //but do not include higher-numbered undefined residues
         for (int level2 = 0; level2 < level; level2++) {
-
+            
+            //HMN: DEBUG: I think this if statement needs to be removed because level2 < level is always true
             if (definedTuple.pos.contains(level2) || level2 < level) {//lower-numbered or defined residues
 
                 double levelBestE = Double.POSITIVE_INFINITY;//best pairwise energy
