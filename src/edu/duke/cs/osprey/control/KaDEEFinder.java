@@ -120,15 +120,15 @@ public class KaDEEFinder {
             numConfs=numConfs*searchSpace.pruneMat.unprunedRCsAtPos(pos).size();
         }
         
-        BigDecimal Zpart = calcRigidPartFunction(searchSpace);
-        BigDecimal logZpart = ef.log(Zpart);
+        //BigDecimal Zpart = calcRigidPartFunction(searchSpace);
+        //BigDecimal logZpart = ef.log(Zpart);
         
         double logZUB = calcLogPartMapPert(searchSpace);
         /*double intraE_0_0 = searchSpace.emat.getOneBody(0, 0);
         double intraE_1_0 = searchSpace.emat.getOneBody(1, 0);
         double pairwise_0_0 = searchSpace.emat.getPairwise(0, 0, 1, 0);
         double pairwise_0_2 = searchSpace.emat.getPairwise(0, 0, 2, 0);
-        double pairsise_1_2 = searchSpace.emat.getPairwise(1, 0, 2, 0);
+        double pairsise_1_2 = searchSpace.emat.getPairwise(1, 0, 2, 0);*/
         ArrayList<ArrayList<Integer>> posToMerge = new ArrayList<>();
         for (int i = 0; i < confSpaceSuper.posFlex.size(); i++) {
             ArrayList<Integer> newPos = new ArrayList<>();
@@ -141,7 +141,9 @@ public class KaDEEFinder {
             }
             posToMerge.add(newPos);
         }
-        searchSpace.mergePositionContinuous(posToMerge.get(0));*/
+        searchSpace.mergePositionRigid(posToMerge.get(0));
+        double logZUBMerged = calcLogPartMapPert(searchSpace);
+        
     }
     
     //getGMEC from lower bounds
@@ -162,7 +164,7 @@ public class KaDEEFinder {
             double E = searchSpace.lowerBound(conf);
             partFunction = partFunction.add(ef.exp(-(E)/constRT));
             iter++;
-            if (iter > 1000){
+            if (iter > 100){
                 needToRepeat=false;
             }
         } while(needToRepeat);
