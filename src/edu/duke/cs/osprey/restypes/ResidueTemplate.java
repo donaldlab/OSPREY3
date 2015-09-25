@@ -36,7 +36,7 @@ public class ResidueTemplate implements Serializable {
     public Residue templateRes;
     
     //dihedral information
-    public int numDihedrals = -1;
+    public int numDihedrals = 0;
     public int dihedral4Atoms[][];//for each dihedral, list of 4 atoms defining it
     //these are indices in all our atom-wise arrays
     public ArrayList<ArrayList<Integer>> dihedralMovingAtoms;//list of atoms that move for each dihedral
@@ -202,6 +202,13 @@ public class ResidueTemplate implements Serializable {
 
 		this.numRotamers[phiBin][psiBin] = numRotamers;
 
+    }
+    /**
+     * PGC 2015:
+     * Set the number of dihedrals for this Residue type 
+     */
+    public void setNumDihedrals(int numDihedrals){
+    	this.numDihedrals = numDihedrals;
     }
     /**
      * PGC 2015: 
