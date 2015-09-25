@@ -27,17 +27,18 @@ import java.util.List;
 import javafx.scene.input.KeyCode;
 
 /**
- *
+ * KaDEEFinder computes the sequence with the highest K* score.using probabilistic bounds.
  * @author hmn5
  */
 public class KaDEEFinder {
 
     ConfigFileParser cfp;
 
+    // A search problem for Super RCs.
     SearchProblemSuper searchSpace;
 
-    double Ew;//energy window for enumerating conformations: 0 for just GMEC
-    double I0 = 0;//initial value of iMinDEE pruning interval
+    double Ew; // energy window for enumerating conformations: 0 for just GMEC
+    double I0 = 0; // initial value of iMinDEE pruning interval
     boolean doIMinDEE;//do iMinDEE
 
     boolean useContFlex;
@@ -80,11 +81,11 @@ public class KaDEEFinder {
         useEllipses = cfp.params.getBool("useEllipses", false);
     }
 
+    /**
+     *  Run KaDEE and compute the sequence with the highest K* score.
+     *  TODO: For now this class only computes the partition function for the sequence with the highest K* score. 
+     */
     void doKaDEE() {
-        //Calculate the GMEC
-        ArrayList<Integer> testing = new ArrayList<>();
-        testing.add(1); testing.add(2); testing.add(3);
-        List<Integer> h = testing.stream().map(x->x+1).collect(Collectors.toList());
         
         double curInterval = I0;//For iMinDEE.  curInterval will need to be an upper bound
 
@@ -128,23 +129,7 @@ public class KaDEEFinder {
         double intraE_1_0 = searchSpace.emat.getOneBody(1, 0);
         double pairwise_0_0 = searchSpace.emat.getPairwise(0, 0, 1, 0);
         double pairwise_0_2 = searchSpace.emat.getPairwise(0, 0, 2, 0);
-        double pairsise_1_2 = searchSpace.emat.getPairwise(1, 0, 2, 0);*/
-        ArrayList<ArrayList<Integer>> posToMerge = new ArrayList<>();
-        for (int i = 0; i < confSpaceSuper.posFlex.size(); i++) {
-            ArrayList<Integer> newPos = new ArrayList<>();
-            if (i == 0) {
-                newPos.add(i);
-                i++;
-                newPos.add(i);
-            } else {
-                newPos.add(i);
-            }
-            posToMerge.add(newPos);
-        }
-        searchSpace.mergePositionRigid(posToMerge.get(0));
-        BigDecimal Zpart = calcRigidPartFunction(searchSpace);
-        double logZUBMerged = calcLogPartMapPert(searchSpace);
-        
+        double pairsise_1_2 = searchSpace.emat.getPairwise(1, 0, 2, 0);*/        
     }
     
     //getGMEC from lower bounds
@@ -189,21 +174,32 @@ public class KaDEEFinder {
             averageGMECs+=E;
             iter++;
         }
+        searchSpace.loadEnergyMatrix();
         return averageGMECs/(numSamples*this.constRT);
     }
     
-    //add Gumbel noise to one-body terms
+    /**
+     *  addGumbelNoiseOneBody to all intra-terms in the energy matrix. 
+     * @param aSearchSpace
+     */
     private void addGumbelNoiseOneBody(SearchProblemSuper aSearchSpace){
         SearchProblemSuper searchSpace = aSearchSpace;
         EnergyMatrix emat = searchSpace.emat;
-        GumbelDistribution gumbel = new GumbelDistribution(GumbelDistribution.gamma, 1);
+        double sum = 0.0;
+        double count = 0.0;
         for (int pos = 0; pos<emat.oneBody.size(); pos++){
             for (int superRC : searchSpace.pruneMat.unprunedRCsAtPos(pos)){
                 double currentE = emat.getOneBody(pos, superRC);
-                double noise = gumbel.sample()*this.constRT;
+                double noise = GumbelDistribution.sample(0,1);
+                sum += noise;
+                count += 1.0;
+                noise = noise*this.constRT;
+
                 emat.setOneBody(pos, superRC, currentE-noise);
             }
         }
+        System.out.println("Average noise: "+(sum/count));
+        System.out.println("Count = "+ count);
     }
 
 }
