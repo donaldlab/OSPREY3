@@ -50,7 +50,9 @@ public class TupleMatrix<T> implements Serializable {
         //no allocation (for overriding)
         this.defaultHigherInteraction = defaultHigherInteraction;
     }
-
+    
+    public TupleMatrix(){}
+    
     public TupleMatrix(ConfSpace cSpace, double pruningInterval, T defaultHigherInteraction) {
         //allocate the matrix based on the provided conformational space
         init(cSpace.numPos, cSpace.getNumRCsAtPos(), pruningInterval, defaultHigherInteraction);

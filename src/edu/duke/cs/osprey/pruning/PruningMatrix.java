@@ -192,7 +192,6 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
                     }
                 }
             }
-
         }
         return false;
     }

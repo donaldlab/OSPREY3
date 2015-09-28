@@ -53,7 +53,6 @@ public abstract class AStarTree implements ConfSearch {
                 
                 while(curNode.scoreNeedsRefinement){
                     refineScore(curNode);
-                    
                     if(curNode.score!=Double.POSITIVE_INFINITY)//remove node if refinement showed it's impossible
                         pq.add(curNode);
                     

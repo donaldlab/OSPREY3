@@ -153,4 +153,36 @@ public class ExpFunction {
 		
 		return sum;
 	}
+	// Returns the natural logarithm of a big decimal
+    public double logToDouble(BigDecimal num){
+    	double eDoub = 2.71828182845904523536;
+    	double log10ofE = Math.log10(eDoub);
+		if (num.compareTo(new BigDecimal("0.0"))<0){ //num is negative
+			System.out.println("ERROR: log of a negative number..");
+			System.exit(1);
+		}
+
+		int powerOfTen = num.round(mc).scale() * -1;
+		double fract = num.movePointLeft(powerOfTen).doubleValue();
+		double returnVal = (double) (powerOfTen + Math.log10(fract)) / log10ofE;
+
+		//double realVal = Math.log(num.doubleValue());
+		//System.out.println(returnVal-realVal);
+		return returnVal;
+
+	}
+    // Returns the logarithm in base 10 of a BigDecimal.
+    public double log10(BigDecimal num){
+		if (num.compareTo(new BigDecimal("0.0"))<0){ //num is negative
+			System.out.println("ERROR: log of a negative number..: "+num.toString());
+			System.exit(1);
+		}
+
+		int powerOfTen = num.round(mc).scale() * -1;
+		double fract = num.movePointLeft(powerOfTen).doubleValue();
+		double returnVal = (double) (powerOfTen + Math.log10(fract));
+
+		return returnVal;
+
+	}
 }

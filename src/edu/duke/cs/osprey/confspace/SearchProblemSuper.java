@@ -185,6 +185,7 @@ public class SearchProblemSuper {
     //LOADING AND PRECOMPUTATION OF ENERGY MATRIX-TYPE OBJECTS (regular energy matrix, tup-exp and EPIC matrices)
     public void loadEnergyMatrix() {
         loadMatrix(MatrixType.EMAT);
+
     }
 
     public void loadTupExpEMatrix() {
@@ -323,6 +324,8 @@ public class SearchProblemSuper {
         newEmat.oneBody = oneBody;
         newEmat.pairwise = twoBody;
         this.emat = newEmat;
+        ObjectIO.writeObject(this.emat, name + ".EMAT_MERGED.dat");
+
     }
 
     private ArrayList<Double> getMergedOneBodyContinuousEnergy(ArrayList<Integer> newPos, int newPosNum) {
@@ -384,6 +387,7 @@ public class SearchProblemSuper {
         newEmat.oneBody = oneBody;
         newEmat.pairwise = twoBody;
         this.emat = newEmat;
+        ObjectIO.writeObject(this.emat, name + ".EMAT_MERGED.dat");
     }
 
     private ArrayList<Double> getMergedOneBodyRigidEnergy(ArrayList<Integer> posNumList) {
@@ -477,13 +481,27 @@ public class SearchProblemSuper {
     private void loadMatrix(MatrixType type) {
 
         String matrixFileName = name + "." + type.name() + ".dat";
+        TupleMatrix matrix = new TupleMatrix();
         //matrix file names are determined by the name of the search problem
-
         if (!loadMatrixFromFile(type, matrixFileName)) {
-            TupleMatrix matrix = calcMatrix(type);
+            matrix = calcMatrix(type);
             ObjectIO.writeObject(matrix, matrixFileName);
+            //If we are loading an energy matrix, also write out EMAT_MERGED
+            //This will be useful to have one consistent energy matrix to use during
+            //merging and so we don't need to recompute the original EMAT
             loadMatrixFromFile(type, matrixFileName);
         }
+        String mergedMatrixFileName = name + ".EMAT_MERGED.dat";
+        if (type == MatrixType.EMAT && !loadMatrixFromFile(type, mergedMatrixFileName)) {
+            ObjectIO.writeObject(matrix, mergedMatrixFileName);
+            loadMatrixFromFile(type, mergedMatrixFileName);
+        }
+    }
+
+    public void loadMergedEnergyMatrix() {
+        MatrixType type = MatrixType.EMAT;
+        String matrixFileName = name + ".EMAT_MERGED.dat";
+        loadMatrixFromFile(type, matrixFileName);
     }
 
     //compute the matrix of the specified type

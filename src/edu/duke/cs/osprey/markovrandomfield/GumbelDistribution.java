@@ -13,7 +13,6 @@ public class GumbelDistribution {
     //CDF: F(x;mu,beta) = exp(- exp( -(x-mu)/beta)))
     //E[x] = mu + gamma*beta, gamme = 0.5772 (Euler-Mascheroni constant)
     
-
     final static public double gamma = 0.5772156649;
     
 

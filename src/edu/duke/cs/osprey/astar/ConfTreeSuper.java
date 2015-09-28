@@ -37,14 +37,20 @@ public class ConfTreeSuper extends AStarTree {
 
     //ADVANCED SCORING METHODS: TO CHANGE LATER (EPIC, MPLP, etc.)
     boolean traditionalScore = true;
-    boolean useRefinement = false;//refine nodes (might want EPIC, MPLP, or something else)
+    boolean mplpScore = true;
+    boolean useRefinement = true;//refine nodes (might want EPIC, MPLP, or something else)
+    boolean useEpic;
 
+    
     boolean useDynamicAStar = true;
 
     EPICMatrix epicMat = null;//to use in refinement
     ConfSpaceSuper confSpace = null;//conf space to use with epicMat if we're doing EPIC minimization w/ SAPE
     boolean minPartialConfs = false;//whether to minimize partially defined confs with EPIC, or just fully defined
 
+    // MPLP object for node refinement.
+    Mplp mplpMinimizer;
+    
     public ConfTreeSuper(SearchProblemSuper sp) {
         init(sp, sp.pruneMat, sp.useEPIC);
     }
@@ -61,6 +67,7 @@ public class ConfTreeSuper extends AStarTree {
         for (int pos = 0; pos < numPos; pos++) {
             unprunedRCsAtPos.add(pruneMat.unprunedRCsAtPos(pos));
         }
+        this.useEpic = useEPIC;
 
         //get the appropriate energy matrix to use in this A* search
         if (sp.useTupExpForSearch) {
@@ -74,6 +81,11 @@ public class ConfTreeSuper extends AStarTree {
                 confSpace = sp.confSpaceSuper;
                 minPartialConfs = sp.epicSettings.minPartialConfs;
             }
+        }
+        // Initialize MPLP
+        if(mplpScore){
+        	useRefinement = true;
+        	mplpMinimizer = new Mplp(numPos, unprunedRCsAtPos, emat);
         }
     }
 
@@ -120,8 +132,13 @@ public class ConfTreeSuper extends AStarTree {
     }
 
     //operations supporting special features like dynamic A*
+    /**
+     * given a partially defined conformation, what level should be expanded next?
+     * @param partialConf Partially defined rotamer conformation
+     * @return
+     */
     public int nextLevelToExpand(int[] partialConf) {
-        //given a partially defined conformation, what level should be expanded next?
+
 
         if (useDynamicAStar) {
 
@@ -158,9 +175,15 @@ public class ConfTreeSuper extends AStarTree {
 
     }
 
+    /**
+     * Score expansion at the indicated level for the given partial conformation
+     * for use in dynamic A*.  Higher score is better.
+     * @param level
+     * @param partialConf
+     * @return
+     */
     double scoreExpansionLevel(int level, int[] partialConf) {
-        //Score expansion at the indicated level for the given partial conformation
-        //for use in dynamic A*.  Higher score is better.
+
 
         //best performing score is just 1/(sum of reciprocals of score rises for child nodes)
         double parentScore = scoreConf(partialConf);
@@ -204,6 +227,7 @@ public class ConfTreeSuper extends AStarTree {
 
             return score;
         } else {
+
             //other possibilities include MPLP, etc.
             //But I think these are better used as refinements
             //we may even want multiple-level refinement
@@ -211,10 +235,16 @@ public class ConfTreeSuper extends AStarTree {
         }
     }
     
+    /**
+     *  Provide a lower bound on what the given rc at the given level can contribute to the energy
+     *   assume partialConf and definedTuple
+     * @param level
+     * @param rc
+     * @param definedTuple
+     * @param partialConf
+     * @return
+     */
      double RCContributionLB(int level, int rc, SuperRCTuple definedTuple, int[] partialConf) {
-        //Provide a lower bound on what the given rc at the given level can contribute to the energy
-        //assume partialConf and definedTuple
-
         double rcContrib = emat.getOneBody(level, rc);
 
         //for this kind of lower bound, we need to split up the energy into the defined-tuple energy
@@ -277,11 +307,18 @@ public class ConfTreeSuper extends AStarTree {
         }
     }
 
+    /**
+     * recursive function to get lower bound on higher-than-pairwise terms
+     * this is the contribution to the lower bound due to higher-order interactions
+     * of the RC tuple corresponding to htf with "lower-numbered" residues (numbering as in scoreConf:
+     * these are residues that are fully defined in partialConf, or are actually numbered <level2)
+     * @param partialConf
+     * @param htf
+     * @param level2
+     * @return
+     */
     double higherOrderContribLB(int[] partialConf, HigherTupleFinder<Double> htf, int level2) {
-        //recursive function to get lower bound on higher-than-pairwise terms
-        //this is the contribution to the lower bound due to higher-order interactions
-        //of the RC tuple corresponding to htf with "lower-numbered" residues (numbering as in scoreConf:
-        //these are residues that are fully defined in partialConf, or are actually numbered <level2)
+
 
         double contrib = 0;
 
@@ -314,10 +351,17 @@ public class ConfTreeSuper extends AStarTree {
         return contrib;
     }
 
+    /**
+     * posComesBefore: for purposes of contributions to traditional conf score, 
+     * we go through defined and then through undefined positions (in partialConf);
+     * within each of these groups we go in order of position number
+     * @param pos1
+     * @param pos2
+     * @param partialConf
+     * @return
+     */
     private boolean posComesBefore(int pos1, int pos2, int partialConf[]) {
-        //for purposes of contributions to traditional conf score, 
-        //we go through defined and then through undefined positions (in partialConf);
-        //within each of these groups we go in order of position number
+
         if (partialConf[pos2] >= 0) {//pos2 defined
             return (pos1 < pos2 && partialConf[pos1] >= 0);//pos1 must be defined to come before pos2
         } else//pos1 comes before pos2 if it's defined, or if pos1<pos2
@@ -329,12 +373,15 @@ public class ConfTreeSuper extends AStarTree {
     @Override
     void refineScore(AStarNode node) {
 
-        if (epicMat == null) {
+        if (useEpic && epicMat == null) {
             throw new UnsupportedOperationException("ERROR: Trying to call refinement w/o EPIC matrix");
         }
-            //later can do MPLP, etc. here
+        // Refine node with MPLP.
+        if(this.mplpScore){
+        	node.score = this.mplpMinimizer.optimizeEMPLP(node.nodeAssignments, 100);
+        }
 
-        if (minPartialConfs || isFullyAssigned(node)) {
+        if (useEpic && (minPartialConfs || isFullyAssigned(node))) {
             node.score += epicMat.minContE(node.nodeAssignments);
         }
 

@@ -1,0 +1,1129 @@
+
+OSPREY Protein Redesign Software Version 2.1 beta
+Copyright (C) 2001-2012 Bruce Donald Lab, Duke University
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Lesser General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Lesser General Public License for more details.
+
+There are additional restrictions imposed on the use and distribution
+of this open-source code, including: (A) this header must be included
+in any modification or extension of the code; (B) you are required to
+cite our papers in any publications that use this code.  The citation
+for the various different modules of our software, together with a
+complete list of requirements and restrictions are found in the
+document license.pdf enclosed with this distribution.
+
+OSPREY running on 44 thread(s)
+
+Parameter HELECT not set. Using default value true
+Parameter HVDW not set. Using default value true
+Parameter HSTERIC not set. Using default value false
+Parameter DISTDEPDIELECT set to true
+Parameter DIELECTCONST set to 6
+Parameter DODIHEDE not set. Using default value false
+Parameter DOSOLVATIONE set to true
+Parameter SOLVSCALE set to 1.0
+Parameter VDWMULT set to 0.96
+Parameter STERICTHRESH not set. Using default value 0.4
+Parameter SOFTSTERICTHRESH not set. Using default value 1.5
+Parameter DATADIR set to /usr/project/dlab/Users/pablo/devel/osprey-GIT/OSPREY/dataFiles/
+Parameter FORCEFIELD not set. Using default value AMBER
+Parameter ENTROPYSCALE set to 0.0
+Parameter SCALE_INTER_STRAND_INTERACTIONS set to false
+Parameter INTER_STRAND_SCALE_FACTOR set to 1.0
+Parameter USE_ATOM_ENERGY_CUTOFF set to false
+Parameter ATOM_ENERGY_CUTOFF set to 0.01
+Parameter SCALE_INTRA_ROTAMER_ENERGIES set to false
+Parameter INTRA_ROTAMER_SCALE_FACTOR set to 0.01
+Parameter SCALE_RT set to 1.0
+Parameter USE_DUNBRACK_ROTAMER_LIBRARY set to true
+Parameter DunbrackRotamer not set. Using default value ALL.bbdep.rotamers.lib
+Parameter DUNBRACK_PROBABILTY_CUTOFF not set. Using default value 0.001
+Parameter REMOVE_CLOSEST_ROTAMER_WT_ROTAMER set to true
+Parameter REMOVE_CLOSEST_ROTAMER_RMS_CUTOFF not set. Using default value 30
+Parameter DIVERSIFY_DUNBRACK_ROTAMERS_CHI1 set to false
+Parameter USE_DUNBRACK_ROTAMER_PROBABILITIES not set. Using default value false
+Parameter LOCALDIR set to /usr/xtmp/pablo
+Parameter HBONDSCALE set to 0.0
+Parameter DSSPFILE not set. Using default value 
+Parameter ROTFILE set to LovellRotamer.dat
+Parameter STORE_FULL_WT_ROT not set. Using default value true
+Parameter AUTOFIX not set. Using default value true
+Parameter RAMAGLYFILE not set. Using default value rama500-gly-sym.data
+Parameter RAMAPROFILE not set. Using default value rama500-pro.data
+Parameter RAMAGENFILE not set. Using default value rama500-general.data
+Parameter RAMAPREPROFILE not set. Using default value rama500-prepro.data
+Parameter ALGOPTION set to 1
+Parameter DODACS not set. Using default value false
+Parameter SPLITFLAGS not set. Using default value false
+Parameter DISTRDACS not set. Using default value false
+Parameter DISTRDEE not set. Using default value false
+Parameter PREPROCPAIRS not set. Using default value true
+Parameter SCALEINT not set. Using default value false
+Parameter INITEW set to 6
+Parameter PRUNINGE not set. Using default value 100.0
+Parameter STERICE not set. Using default value 30.0
+Parameter PAIRST not set. Using default value 100.0
+Parameter TYPEDEP not set. Using default value false
+Parameter MAXFULLPAIRS not set. Using default value -1
+Parameter maxDEELoopNum not set. Using default value 1000000
+Parameter DOGOLD not set. Using default value true
+Parameter DOSPLIT1 not set. Using default value false
+Parameter DOSPLIT2 not set. Using default value false
+Parameter DOMB not set. Using default value false
+Parameter USETRIPLES not set. Using default value false
+Parameter MAGICBULLETTRIPLES not set. Using default value true
+Parameter MAGICBULLETNUMTRIPLES not set. Using default value 5
+Parameter imindee not set. Using default value true
+Parameter IVAL set to 0
+Parameter DOMINIMIZE not set. Using default value false
+Parameter MINIMIZEBB not set. Using default value false
+Parameter DOBACKRUBS not set. Using default value false
+Parameter DOPERTURBATIONS not set. Using default value false
+Parameter PERTURBATIONSCREEN not set. Using default value false
+Parameter PERTURBATIONFILE not set. Using default value defaultPerturbationFileName.pert
+Parameter MINIMIZEPERTURBATIONS not set. Using default value false
+Parameter SCREENOUTFILE not set. Using default value screenOutFileDefaultName.pert
+Parameter SELECTPERTURBATIONS not set. Using default value false
+Parameter IDEALIZESIDECHAINS not set. Using default value true
+Parameter USECCD not set. Using default value true
+Parameter ECONVTOL not set. Using default value 0.01
+Parameter MINIMIZATIONSCHEME not set. Using default value PAIRWISE
+Parameter USEEPIC not set. Using default value false
+Parameter CHECKEPIC not set. Using default value false
+Parameter EPICTHRESH1 not set. Using default value 10
+Parameter EPICTHRESH2 not set. Using default value 25
+Parameter ENFORCEEPICTHRESH not set. Using default value true
+Parameter EPICGOALRESID not set. Using default value 0.0001
+Parameter EPICUSESVE not set. Using default value true
+Parameter EPICUSEPC not set. Using default value true
+Parameter MINPARTIALCONFS not set. Using default value true
+Parameter EPICPBTEST not set. Using default value false
+Parameter EPICQUANTUMTEST not set. Using default value false
+Parameter USEMPLP not set. Using default value false
+Parameter APPROXMINGMEC not set. Using default value false
+Parameter LAMBDA not set. Using default value 0
+Parameter USEFLAGSASTAR not set. Using default value false
+Parameter ASTARMETHOD set to ASORIG
+Parameter VARORDER not set. Using default value MINFSCORE
+Parameter NUMMAXMUT not set. Using default value 1000
+Parameter BESTE not set. Using default value 10000000
+Parameter MINENERGYMATRIXNAME set to ematrix/emat
+Parameter SAVELATESTPRUNED not set. Using default value false
+Parameter USEEREF not set. Using default value true
+Parameter ADDWTROTS set to true
+Parameter GENINTERACTIONGRAPH not set. Using default value false
+Parameter NEIGHBORLIST set to false
+Parameter OUTPUTCONFINFO set to c_seqs6
+Parameter OUTPUTPRUNEINFO not set. Using default value p_D11-1NMA_hp
+Parameter pdbOutDir not set. Using default value pdbs
+Parameter NUMMUTATIONS set to 3
+Parameter MUTFILENAME not set. Using default value D11-1NMA_hp.mut
+Parameter REPEATSEARCH not set. Using default value true
+Parameter PROBABILISTICKS set to true
+Parameter PKSITERATIONS not set. Using default value 100
+Parameter TARGETVOLUME not set. Using default value 0.0
+Parameter VOLUMEWINDOW not set. Using default value 50000000
+Parameter RESUMESEARCH not set. Using default value false
+Parameter GAMMA not set. Using default value 0
+Parameter EPSILON set to 0.01
+Parameter SAVETOPCONFSASPDB not set. Using default value false
+Parameter SAVETOPCONFSROTS not set. Using default value false
+Parameter NUMTOPCONFSTOSAVE not set. Using default value 0
+Parameter useMaxKSconfs set to false
+Parameter RESUMESEARCH not set. Using default value false
+Run Name: D11-1NMA_hp
+Precomputed Min Energy Matrix: ematrix/emat
+Volume Center: 0.0
+Volume Window Size: 5.0E7
+Num Residues Allowed to Mutate: 3
+Parameter COFMAP0 not set. Using default value -1
+Parameter COFMAP1 not set. Using default value -1
+Parameter ADDWT set to true
+Parameter ADDWTROTS set to true
+Parameter ADDWT set to true
+Parameter RESALLOWED120 not set. Using default value 
+Parameter RESALLOWED122 not set. Using default value 
+Parameter RESALLOWED200 not set. Using default value 
+Parameter RESALLOWED325 not set. Using default value 
+Parameter RESALLOWED327 not set. Using default value 
+Parameter RESALLOWED328 not set. Using default value 
+Parameter RESALLOWED368 not set. Using default value 
+Parameter RESALLOWED372 not set. Using default value 
+Parameter RESALLOWED373 not set. Using default value 
+Parameter RESALLOWED419 not set. Using default value 
+Parameter RESALLOWED421 not set. Using default value 
+Parameter RESALLOWED422 not set. Using default value 
+Parameter RESALLOWED423 not set. Using default value 
+Parameter RESALLOWED425 not set. Using default value 
+Parameter RESALLOWED430 not set. Using default value 
+Parameter RESALLOWED432 not set. Using default value 
+Parameter RESALLOWED434 not set. Using default value 
+Parameter RESALLOWED628 not set. Using default value 
+Parameter RESALLOWED695B not set. Using default value 
+Parameter RESALLOWED695C not set. Using default value 
+Parameter RESALLOWED695E not set. Using default value 
+Parameter RESALLOWED695G not set. Using default value 
+Parameter RESALLOWED697 not set. Using default value 
+Parameter RESALLOWED698 not set. Using default value 
+Parameter RESALLOWED699B not set. Using default value 
+Parameter RESALLOWED699C not set. Using default value 
+Parameter RESALLOWED699E not set. Using default value 
+Parameter RESALLOWED830 not set. Using default value 
+Parameter RESALLOWED849 not set. Using default value 
+Parameter RESALLOWED850 not set. Using default value 
+Parameter RESALLOWED853 not set. Using default value 
+Parameter COFMAP0 not set. Using default value -1
+Parameter ADDWT set to true
+Parameter ADDWTROTS set to true
+Parameter RESALLOWED120 not set. Using default value 
+Parameter RESALLOWED122 not set. Using default value 
+Parameter RESALLOWED200 not set. Using default value 
+Parameter RESALLOWED325 not set. Using default value 
+Parameter RESALLOWED327 not set. Using default value 
+Parameter RESALLOWED328 not set. Using default value 
+Parameter RESALLOWED368 not set. Using default value 
+Parameter RESALLOWED372 not set. Using default value 
+Parameter RESALLOWED373 not set. Using default value 
+Parameter RESALLOWED419 not set. Using default value 
+Parameter RESALLOWED421 not set. Using default value 
+Parameter RESALLOWED422 not set. Using default value 
+Parameter RESALLOWED423 not set. Using default value 
+Parameter RESALLOWED425 not set. Using default value 
+Parameter RESALLOWED430 not set. Using default value 
+Parameter RESALLOWED432 not set. Using default value 
+Parameter RESALLOWED434 not set. Using default value 
+No Emat found for generalized rotamers:null
+Parameter COFMAP1 not set. Using default value -1
+Parameter ADDWT set to true
+Parameter ADDWTROTS set to true
+Parameter RESALLOWED628 not set. Using default value 
+Parameter RESALLOWED695B not set. Using default value 
+Parameter RESALLOWED695C not set. Using default value 
+Parameter RESALLOWED695E not set. Using default value 
+Parameter RESALLOWED695G not set. Using default value 
+Parameter RESALLOWED697 not set. Using default value 
+Parameter RESALLOWED698 not set. Using default value 
+Parameter RESALLOWED699B not set. Using default value 
+Parameter RESALLOWED699C not set. Using default value 
+Parameter RESALLOWED699E not set. Using default value 
+Parameter RESALLOWED830 not set. Using default value 
+Parameter RESALLOWED849 not set. Using default value 
+Parameter RESALLOWED850 not set. Using default value 
+Parameter RESALLOWED853 not set. Using default value 
+No Emat found for generalized rotamers:null
+done
+Parameter ADDWT set to true
+Parameter ADDWTROTS set to true
+No Emat found for generalized rotamers:null
+
+Looking for mutation list file  ... read 1 mutations from mutation list D11-1NMA_hp.mut
+Retrieving 0 of 1
+Sent to proc 1
+
+## CurMut: 0 Starting Sequence:  1 2 1 16 12 19 16 1 10 12 11 19 3 18 1 11 8 16 10 16 10 16 9 2 5 1 16 12 4 5 18 &&
+No Emat found for generalized rotamers:null
+Starting sequence: VAL LEU VAL ASP ARG GLN ASP VAL THR ARG LYS GLN ILE ASN VAL LYS MET 
+4 0 7
+4 0 8
+4 0 10
+4 0 15
+4 0 17
+4 0 18
+4 0 19
+4 0 24
+4 0 25
+4 0 27
+4 0 29
+6 0 3
+6 0 5
+6 0 6
+6 0 7
+6 0 9
+6 0 11
+6 0 14
+6 0 15
+8 0 1
+8 0 2
+9 0 39
+9 0 40
+9 0 44
+10 0 20
+11 0 1
+11 0 2
+11 0 4
+11 0 8
+11 0 12
+11 0 16
+11 0 18
+11 0 19
+11 0 23
+11 0 24
+11 0 25
+11 0 26
+11 0 28
+11 0 32
+11 0 33
+11 0 37
+11 0 40
+11 0 41
+11 0 43
+11 0 50
+13 0 21
+13 0 22
+13 0 23
+15 0 21
+15 0 30
+15 0 32
+15 0 38
+16 0 11
+Number of rotamers pruned due to incompatibility with the template: 53
+Number of pairs pruned due to incompatibility with the template: 4120
+Number of rotamers pruned due to incompatibility with the template: 0
+Number of pairs pruned due to incompatibility with the template: 0
+Starting DEE cycle run: 0
+Starting Goldstein (singles): 
+UnprunedRot: 298 UnprunedPairs: 106392
+Goldstein (singles) Pruned: 44 rotamers
+UnprunedRot: 254
+Goldstein (singles) Pruned: 0 rotamers
+UnprunedRot: 254
+Goldstein Pruning took: 0 seconds
+Starting DEE cycle run: 1
+Starting Goldstein (singles): 
+UnprunedRot: 254 UnprunedPairs: 106392
+Goldstein (singles) Pruned: 0 rotamers
+UnprunedRot: 254
+Goldstein Pruning took: 0 seconds
+MPLP Using an interaction cutoff of 1.0
+Interaction between 29 pairs
+No interaction between 107 pairs
+
+gmecEnergy at: -379.70999798958746 -1679.1645100929302
+MPLP Using an interaction cutoff of 1.0
+Interaction between 29 pairs
+No interaction between 107 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 29 pairs
+No interaction between 107 pairs
+
+Number of blanks for 0.5: 421
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 0.5 at: 41.455349739514176
+Took 572s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 29 pairs
+No interaction between 107 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 29 pairs
+No interaction between 107 pairs
+
+Number of blanks for 1.0: 454
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 1.0 at: 455.66854620024367
+Took 783s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 29 pairs
+No interaction between 107 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 29 pairs
+No interaction between 107 pairs
+
+Number of blanks for 2.0: 482
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 2.0 at: 30640.697835534516
+Took 922s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 29 pairs
+No interaction between 107 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 29 pairs
+No interaction between 107 pairs
+
+Number of blanks for 4.0: 464
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 4.0 at: 1050060.8528419
+Took 999s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 29 pairs
+No interaction between 107 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 29 pairs
+No interaction between 107 pairs
+
+Number of blanks for 8.0: 319
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 8.0 at: 1.5500041159304962E8
+Took 1067s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 29 pairs
+No interaction between 107 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 29 pairs
+No interaction between 107 pairs
+
+Number of blanks for 12.0: 214
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 12.0 at: 8.781069435208347E9
+Took 1112s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 29 pairs
+No interaction between 107 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 29 pairs
+No interaction between 107 pairs
+
+Number of blanks for 16.0: 170
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 16.0 at: 1.1955917022997163E11
+Took 1147s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 29 pairs
+No interaction between 107 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 29 pairs
+No interaction between 107 pairs
+
+Number of blanks for 20.0: 114
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 20.0 at: 6.352651545781072E11
+Took 1179s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 29 pairs
+No interaction between 107 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 29 pairs
+No interaction between 107 pairs
+
+Number of blanks for 24.0: 88
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 24.0 at: 2.222469632051302E12
+Took 1181s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 29 pairs
+No interaction between 107 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 29 pairs
+No interaction between 107 pairs
+
+Number of blanks for 28.0: 80
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 28.0 at: 5.888889388796277E12
+Took 1184s
+No Emat found for generalized rotamers:null
+Starting sequence: ASP THR ASP THR ASP SER LEU TYR VAL ASP ARG PHE TYR ASN 
+1 0 1
+9 0 8
+9 0 10
+9 0 12
+10 0 3
+11 0 3
+12 0 1
+12 0 2
+12 0 3
+12 0 5
+12 0 8
+12 0 9
+12 0 11
+12 0 12
+12 0 13
+Number of rotamers pruned due to incompatibility with the template: 15
+Number of pairs pruned due to incompatibility with the template: 552
+Number of rotamers pruned due to incompatibility with the template: 0
+Number of pairs pruned due to incompatibility with the template: 0
+Starting DEE cycle run: 0
+Starting Goldstein (singles): 
+UnprunedRot: 132 UnprunedPairs: 18912
+Goldstein (singles) Pruned: 11 rotamers
+UnprunedRot: 121
+Goldstein (singles) Pruned: 0 rotamers
+UnprunedRot: 121
+Goldstein Pruning took: 0 seconds
+Starting DEE cycle run: 1
+Starting Goldstein (singles): 
+UnprunedRot: 121 UnprunedPairs: 18912
+Goldstein (singles) Pruned: 0 rotamers
+UnprunedRot: 121
+Goldstein Pruning took: 0 seconds
+MPLP Using an interaction cutoff of 1.0
+Interaction between 14 pairs
+No interaction between 77 pairs
+
+gmecEnergy at: -294.4314864983123 -1623.254169840967
+MPLP Using an interaction cutoff of 1.0
+Interaction between 14 pairs
+No interaction between 77 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 14 pairs
+No interaction between 77 pairs
+
+Number of blanks for 0.5: 0
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 0.5 at: 45.78229145528638
+Took 18s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 14 pairs
+No interaction between 77 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 14 pairs
+No interaction between 77 pairs
+
+Number of blanks for 1.0: 1
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 1.0 at: 598.477929815016
+Took 31s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 14 pairs
+No interaction between 77 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 14 pairs
+No interaction between 77 pairs
+
+Number of blanks for 2.0: 0
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 2.0 at: 24175.341906737223
+Took 43s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 14 pairs
+No interaction between 77 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 14 pairs
+No interaction between 77 pairs
+
+Number of blanks for 4.0: 2
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 4.0 at: 1246576.0428139255
+Took 49s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 14 pairs
+No interaction between 77 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 14 pairs
+No interaction between 77 pairs
+
+Number of blanks for 8.0: 4
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 8.0 at: 6.3704950125699095E7
+Took 53s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 14 pairs
+No interaction between 77 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 14 pairs
+No interaction between 77 pairs
+
+Number of blanks for 12.0: 3
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 12.0 at: 3.957098987170014E8
+Took 61s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 14 pairs
+No interaction between 77 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 14 pairs
+No interaction between 77 pairs
+
+Number of blanks for 16.0: 2
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 16.0 at: 1.1381164459645705E9
+Took 63s
+No Emat found for generalized rotamers:null
+Starting sequence: VAL LEU VAL ASP ARG GLN ASP VAL THR ARG LYS GLN ILE ASN VAL LYS MET ASP THR ASP THR ASP SER LEU TYR VAL ASP ARG PHE TYR ASN 
+1 0 3
+4 0 7
+4 0 8
+4 0 10
+4 0 11
+4 0 15
+4 0 17
+4 0 18
+4 0 19
+4 0 24
+4 0 26
+4 0 28
+6 0 3
+6 0 5
+6 0 6
+6 0 7
+6 0 9
+6 0 11
+6 0 14
+6 0 15
+8 0 1
+8 0 2
+9 0 39
+9 0 40
+9 0 44
+10 0 20
+11 0 1
+11 0 2
+11 0 4
+11 0 8
+11 0 12
+11 0 16
+11 0 18
+11 0 19
+11 0 23
+11 0 24
+11 0 25
+11 0 26
+11 0 28
+11 0 32
+11 0 33
+11 0 37
+11 0 40
+11 0 41
+11 0 43
+11 0 50
+13 0 21
+13 0 22
+13 0 23
+15 0 21
+15 0 30
+15 0 32
+15 0 38
+16 0 11
+18 0 1
+24 0 10
+24 0 13
+24 0 15
+26 0 1
+26 0 3
+26 0 6
+26 0 7
+26 0 8
+26 0 9
+26 0 10
+26 0 11
+26 0 12
+26 0 13
+28 0 3
+29 0 1
+29 0 2
+29 0 3
+29 0 5
+29 0 8
+29 0 9
+29 0 11
+29 0 12
+29 0 13
+Number of rotamers pruned due to incompatibility with the template: 78
+Number of pairs pruned due to incompatibility with the template: 8554
+Number of rotamers pruned due to incompatibility with the template: 0
+Number of pairs pruned due to incompatibility with the template: 0
+Starting DEE cycle run: 0
+Starting Goldstein (singles): 
+UnprunedRot: 413 UnprunedPairs: 217916
+Goldstein (singles) Pruned: 171 rotamers
+UnprunedRot: 242
+Goldstein (singles) Pruned: 0 rotamers
+UnprunedRot: 242
+Goldstein Pruning took: 0 seconds
+Starting DEE cycle run: 1
+Starting Goldstein (singles): 
+UnprunedRot: 242 UnprunedPairs: 217916
+Goldstein (singles) Pruned: 0 rotamers
+UnprunedRot: 242
+Goldstein Pruning took: 0 seconds
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+gmecEnergy at: -713.2820590238376 -3347.246947506174
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 0.5: 1090
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 0.5 at: 30.913424606240714
+Took 224s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 1.0: 1552
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 1.0 at: 138.9526013398654
+Took 350s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 2.0: 1157
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 2.0 at: 1560.1698390243862
+Took 458s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 4.0: 1073
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 4.0 at: 39480.66413350085
+Took 691s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 8.0: 969
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 8.0 at: 2047666.7831457187
+Took 763s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 12.0: 800
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 12.0 at: 2.4754289991069752E8
+Took 819s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 16.0: 735
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 16.0 at: 1.6065159459387803E9
+Took 839s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 20.0: 558
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 20.0 at: 1.3135157419997507E10
+Took 879s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 24.0: 576
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 24.0 at: 1.4806480694323492E11
+Took 815s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 28.0: 466
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 28.0 at: 1.0584439726967786E12
+Took 830s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 32.0: 448
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 32.0 at: 3.570052834911402E12
+Took 830s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 36.0: 379
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 36.0 at: 1.3464344947177746E13
+Took 840s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 38.0: 333
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 38.0 at: 1.874410327432321E13
+Took 846s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 42.0: 287
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 42.0 at: 4.88894761819898E13
+Took 852s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 0.5: 123
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 0.5 at: 5.993969849246231
+Took 63s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 1.0: 506
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 1.0 at: 11.170854271356784
+Took 100s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 2.0: 266
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 2.0 at: 119.85326633165829
+Took 132s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 4.0: 217
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 4.0 at: 1255.278391959799
+Took 202s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 8.0: 178
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 8.0 at: 14988.146733668342
+Took 230s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 12.0: 151
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 12.0 at: 89137.0703517588
+Took 242s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 16.0: 142
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 16.0 at: 882997.5949748744
+Took 251s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 20.0: 132
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 20.0 at: 4425264.855276382
+Took 254s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 24.0: 108
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 24.0 at: 2.846951668241206E7
+Took 262s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 28.0: 83
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 28.0 at: 8.017160231356783E7
+Took 280s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 32.0: 89
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 32.0 at: 1.2653209091055277E8
+Took 274s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 36.0: 72
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 36.0 at: 3.276852372331658E8
+Took 277s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 38.0: 60
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 38.0 at: 5.819346647236181E8
+Took 281s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 42.0: 63
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 42.0 at: 6.800396942462312E8
+Took 280s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 46.0: 68
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 46.0 at: 1.4378454914291458E9
+Took 290s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 0.5: 83
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 0.5 at: 13.230150753768845
+Took 62s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 1.0: 231
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 1.0 at: 32.65628140703517
+Took 102s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 2.0: 113
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 2.0 at: 159.23316582914572
+Took 148s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 4.0: 118
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 4.0 at: 965.8381909547738
+Took 218s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 8.0: 93
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 8.0 at: 12057.843216080402
+Took 246s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 12.0: 94
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 12.0 at: 48536.43718592965
+Took 262s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 16.0: 85
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 16.0 at: 138089.36984924623
+Took 268s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 20.0: 65
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 20.0 at: 304740.2361809045
+Took 286s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 24.0: 53
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 24.0 at: 780384.359798995
+Took 292s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 28.0: 73
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 28.0 at: 1230256.1085427136
+Took 293s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 32.0: 62
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 32.0 at: 2213233.510552764
+Took 322s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 36.0: 51
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 36.0 at: 3534733.382914573
+Took 336s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 38.0: 58
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 38.0 at: 4892893.869346733
+Took 327s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 42.0: 43
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 42.0 at: 6355338.490452262
+Took 340s
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+MPLP Using an interaction cutoff of 1.0
+Interaction between 67 pairs
+No interaction between 398 pairs
+
+Number of blanks for 46.0: 47
+Average estimate (after 1000 iterations) for the number of conformations between the GMEC and a threshold of 46.0 at: 8450886.08040201
+Took 351s
+## CurMut: 0 Finished Sequence:  1 2 1 16 12 19 16 1 10 12 11 19 3 18 1 11 8 16 10 16 10 16 9 2 5 1 16 12 4 5 18 &&
+Processing curMut: 0
+MutNUM: 0
+Finished: 0, Time: 0.0
+DONE: K* computation
+KStar Finished.
