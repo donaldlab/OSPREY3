@@ -28,10 +28,10 @@ public class SelfConsistentMeanField implements InferenceCalculator {
 
     //threshold for convergence (change in beliefs must be less than threshold)
     double threshold = 1e-6;
-    final int minNumberIterations = 200;
+    final int minNumberIterations = 500;
     final int maxNumberIterations = 10000;
 
-    double constRT = PoissonBoltzmannEnergy.constRT;
+    double scmfTemp = PoissonBoltzmannEnergy.constRT;
     public ExpFunction ef = new ExpFunction();
 
     public SelfConsistentMeanField(MarkovRandomField mrf) {
@@ -45,7 +45,7 @@ public class SelfConsistentMeanField implements InferenceCalculator {
         boolean hasConverged = false;
         initializeBeliefs();
         //set the temperature to be high
-        this.constRT = this.constRT * 100;
+        this.scmfTemp = this.scmfTemp * 1000;
         //while we haven't converged and are below maxNumberIteration;
         while (!hasConverged && (iter < this.maxNumberIterations)) {
             //update all beliefs
@@ -116,12 +116,24 @@ public class SelfConsistentMeanField implements InferenceCalculator {
         double maxEpsilon = 0.0;
         //keep track of unnormalized Beliefs so we don't need to recompute
         ArrayList<BigDecimal> unNormalizedBeliefs = new ArrayList<>();
+        //We keep track of best energy to avoid numerical innacuracy
+        double bestE = Double.NEGATIVE_INFINITY;
         //iterate over labels to get partition function value
         for (MRFLabel label : node.labelList) {
             double oneBodyE = this.emat.getOneBody(node.nodeNum, label.labelNum);
             double meanFieldE = getMeanFieldEnergy(node, label);
             //unnormalized updateBelief
-            BigDecimal updateBelief = this.ef.exp(-(oneBodyE + meanFieldE) / constRT);
+            double logUnnormalizedBelief = -(oneBodyE + meanFieldE)/scmfTemp;
+            if (logUnnormalizedBelief > bestE){
+                bestE = logUnnormalizedBelief;
+            }
+        }
+        //TODO: This needs to be optimized better by caching results in first for loop
+        for (MRFLabel label : node.labelList){
+            double oneBodyE = this.emat.getOneBody(node.nodeNum, label.labelNum);
+            double meanFieldE = getMeanFieldEnergy(node, label);
+            double rescaleE = -bestE +  -(oneBodyE + meanFieldE)/scmfTemp;
+            BigDecimal updateBelief = this.ef.exp(rescaleE);
             //update partition function
             partFunction = partFunction.add(updateBelief);
             //store unnormalizedBeliefs
@@ -153,14 +165,14 @@ public class SelfConsistentMeanField implements InferenceCalculator {
 
     //lower the temperature, never getting below the true value;
     private void lowerTemperature() {
-        this.constRT = this.constRT * 0.90;
-        if (this.constRT < PoissonBoltzmannEnergy.constRT) {
-            this.constRT = PoissonBoltzmannEnergy.constRT;
+        this.scmfTemp = this.scmfTemp * 0.98;
+        if (this.scmfTemp < PoissonBoltzmannEnergy.constRT) {
+            this.scmfTemp = PoissonBoltzmannEnergy.constRT;
         }
     }
 
     private void resetTemperature() {
-        this.constRT = PoissonBoltzmannEnergy.constRT;
+        this.scmfTemp = PoissonBoltzmannEnergy.constRT;
     }
 
     private double getSingleNodeEnthalpy(MRFNode node) {
@@ -222,7 +234,7 @@ public class SelfConsistentMeanField implements InferenceCalculator {
         double enthalpy = getEnthalpy();
         double entropy = getEntropy();
 
-        double freeEnergy = enthalpy - this.constRT * entropy;
+        double freeEnergy = enthalpy - this.scmfTemp * entropy;
 
         return freeEnergy;
     }
@@ -230,7 +242,7 @@ public class SelfConsistentMeanField implements InferenceCalculator {
     @Override
     public BigDecimal calcPartitionFunction() {
         double freeEnergy = calcFreeEnergy();
-        BigDecimal partitionFunction = this.ef.exp(-(freeEnergy / this.constRT));
+        BigDecimal partitionFunction = this.ef.exp(-(freeEnergy / this.scmfTemp));
         return partitionFunction;
     }
     

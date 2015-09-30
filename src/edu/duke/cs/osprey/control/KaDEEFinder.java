@@ -22,6 +22,8 @@ import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import java.awt.Point;
+import java.io.PrintStream;
+import java.io.FileOutputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.stream.Collectors;
@@ -29,7 +31,9 @@ import java.util.List;
 import javafx.scene.input.KeyCode;
 
 /**
- * KaDEEFinder computes the sequence with the highest K* score.using probabilistic bounds.
+ * KaDEEFinder computes the sequence with the highest K* score.using
+ * probabilistic bounds.
+ *
  * @author hmn5
  */
 public class KaDEEFinder {
@@ -85,8 +89,9 @@ public class KaDEEFinder {
     }
 
     /**
-     *  Run KaDEE and compute the sequence with the highest K* score.
-     *  TODO: For now this class only computes the partition function for the sequence with the highest K* score. 
+     * Run KaDEE and compute the sequence with the highest K* score. TODO: For
+     * now this class only computes the partition function for the sequence with
+     * the highest K* score.
      */
     void doKaDEE() {
 
@@ -111,13 +116,15 @@ public class KaDEEFinder {
         //Next, do DEE, which will fill in the pruning matrix
         PruningControlSuper pruning = cfp.setupPruning(searchSpace, pruningInterval, false, false);
         pruning.prune();//pass in DEE options, and run the specified types of DEE 
-
+        //Calculate GMEC
+        double gmecE = -calcGMEC(searchSpace)/this.constRT;
+        //SCMF
         MarkovRandomField mrf = new MarkovRandomField(searchSpace, 0.0);
         SelfConsistentMeanField scmf = new SelfConsistentMeanField(mrf);
         scmf.run();
-        BigDecimal Z = scmf.calcPartitionFunction();        
-        double freeEnergyLB = -ef.logToDouble(Z)*constRT;        
-        System.out.println("Upper bound on free energy (SCMF) = "+freeEnergyLB);
+        BigDecimal Z = scmf.calcPartitionFunction();
+        double logZLB = ef.logToDouble(Z);
+        System.out.println("Lower bound on log partition function (SCMF) = " + logZLB);
 
         double numConfs = 1;
         for (int pos = 0; pos < searchSpace.emat.numPos(); pos++) {
@@ -126,8 +133,13 @@ public class KaDEEFinder {
         //BigDecimal Zpart = calcRigidPartFunction(searchSpace);
         //BigDecimal logZpart = ef.log(Zpart);
         double logZUB = calcLogPartMapPert(searchSpace);
-        System.out.println("Lower bound on free energy (MAP-Pert) = "+logZUB);
-
+        System.out.println("Upper bound on log partition function (MAP-Pert) = " + logZUB);
+        try( PrintStream out = new PrintStream(new FileOutputStream("results.txt", false)) ) {
+            out.println("GMEC: "+Double.toString(gmecE));
+            out.println("Lower Bound: "+Double.toString(logZLB));
+            out.println("Upper Bound: "+Double.toString(logZUB));
+        }
+        catch(Exception e){}
     }
 
     //getGMEC from lower bounds
@@ -156,11 +168,19 @@ public class KaDEEFinder {
     }
 
     //getGMEC from lower bounds
+    private double calcGMEC(SearchProblemSuper aSearchSpace) {
+        SearchProblemSuper searchSpace = aSearchSpace;
+        ConfSearch search = new ConfTreeSuper(searchSpace);
+        int[] conf = search.nextConf();
+        double E = searchSpace.lowerBound(conf);
+        return E;
+    }
+
     private double calcLogPartMapPert(SearchProblemSuper aSearchSpace) {
         boolean needToRepeat;
         int[] GMECConf = null;
         double bestESoFar = Double.POSITIVE_INFINITY;
-        int numSamples = 100;
+        int numSamples = 20;
         SearchProblemSuper searchSpace = aSearchSpace;
         BigDecimal averageGMECs = new BigDecimal(0.0);
         int iter = 0;
@@ -176,7 +196,7 @@ public class KaDEEFinder {
             this.searchSpace.emat.oneBody = originalOneBodyEmat;
             iter++;
         }
-        return averageGMECs.divide(new BigDecimal(numSamples * this.constRT),ef.mc).doubleValue();
+        return averageGMECs.divide(new BigDecimal(numSamples * this.constRT), ef.mc).doubleValue();
     }
 
     //add Gumbel noise to one-body terms
@@ -186,10 +206,10 @@ public class KaDEEFinder {
         for (int pos = 0; pos < emat.oneBody.size(); pos++) {
             for (int superRC : searchSpace.pruneMat.unprunedRCsAtPos(pos)) {
                 double currentE = emat.getOneBody(pos, superRC);
-                double noise = GumbelDistribution.sample(-1.0*GumbelDistribution.gamma,1.0) * this.constRT;
+                double noise = GumbelDistribution.sample(-1.0 * GumbelDistribution.gamma, 1.0) * this.constRT;
                 emat.setOneBody(pos, superRC, currentE - noise);
             }
         }
     }
-    
+
 }
