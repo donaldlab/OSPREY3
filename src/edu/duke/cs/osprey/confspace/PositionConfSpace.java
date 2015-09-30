@@ -59,12 +59,28 @@ public class PositionConfSpace implements Serializable {
         ResidueTemplateLibrary templateLib = EnvironmentVars.resTemplates;
         this.res = res;
         
+
         
         if(pertStates==null){//no DEEPer flexibility...
             pertStates = new ArrayList<>();
             pertStates.add(null);
         }
         
+        // PGC 2015: Add wildtype rotamers.
+        
+        if(false){
+        	int wtRot_Ix = -1;        	
+	        double wtRotDihs[] =  res.getCurrentRotamerDihedrals();
+	        int numDihedrals = wtRotDihs.length;
+	        ArrayList<DegreeOfFreedom> dofListForRot = new ArrayList<>();
+	        for(int dih=0; dih<numDihedrals; dih++)//get the first numDihedrals dihedrals
+	            dofListForRot.add(resDOFs.get(dih));
+	        for(ArrayList<int[]> pertState : pertStates){
+	        	createWTRC(numDihedrals, res.template.name, wtRot_Ix, contSCFlex, dofListForRot, -1, strandDOFs, 
+	                bfb, pertState, perts, pertIntervals, false);
+	        }
+	        
+        }
         
         for(String AAType : allowedAAs){
             int numDihedrals = templateLib.numDihedralsForResType(AAType);
@@ -103,13 +119,59 @@ public class PositionConfSpace implements Serializable {
                         createRC(numDihedrals, AAType, rot, contSCFlex, dofListForRot, -1, strandDOFs, 
                                 bfb, pertState, perts, pertIntervals, AATypeUsesEllipses);
                     }
-                }
+                }                
             }
+
+            
         }
         
     }
     
     public PositionConfSpace(){}
+    
+    private void createWTRC(int numDihedrals, String AAType, int rot, boolean contSCFlex, ArrayList<DegreeOfFreedom> dofListForRot,
+            int proPucker, ArrayList<DegreeOfFreedom> strandDOFs, BBFreeBlock bfb, ArrayList<int[]> pertState, 
+            ArrayList<Perturbation> perts, ArrayList<ArrayList<double[]>> pertIntervals, boolean useEllipses){
+    	double wtRotDihs[] =  res.getCurrentRotamerDihedrals();
+        //Create an RC with the specified rotamer and (if set) perturbation state
+        
+        ResidueTemplateLibrary templateLib = EnvironmentVars.resTemplates;
+        //create RC
+        ArrayList<Double> dofLB = new ArrayList<>();//lower bounds on each DOF for this RC
+        ArrayList<Double> dofUB = new ArrayList<>();//upper bounds
+        
+        //we'll start with the sidechain dihedral DOFs
+        
+   
+        
+        ArrayList<EllipseCoordDOF> ellCoords = makeEllCoords(useEllipses, wtRotDihs, dofListForRot);
+        
+        boundRotDOFs(dofLB, dofUB, numDihedrals, contSCFlex, wtRotDihs, ellCoords, useEllipses);
+        
+        ArrayList<DegreeOfFreedom> dofListForRC = new ArrayList<>();
+        if(useEllipses){
+            dofListForRC.addAll(ellCoords);
+            ellipsoidalDOFs.addAll(ellCoords);
+        }
+        else {   
+            dofListForRC.addAll(dofListForRot);
+        }
+        
+        //Put in proline pucker if this is a proline
+        if(AAType.equalsIgnoreCase("PRO")){
+            dofListForRC.add(res.pucker);
+            dofLB.add( (double) proPucker );
+            dofUB.add( (double) proPucker );
+        }
+        
+        addStrandDOFs(strandDOFs, dofListForRC, dofLB, dofUB);
+        addBFBDOFs(bfb, dofListForRC, dofLB, dofUB);
+        addDEEPerDOFs(pertState, perts, pertIntervals, dofListForRC, dofLB, dofUB);
+        
+        RC newRC = new RC(AAType, rot, dofListForRC, dofLB, dofUB, RCs.size());
+        
+        RCs.add(newRC);
+    }
     
     private void createRC(int numDihedrals, String AAType, int rot, boolean contSCFlex, ArrayList<DegreeOfFreedom> dofListForRot,
             int proPucker, ArrayList<DegreeOfFreedom> strandDOFs, BBFreeBlock bfb, ArrayList<int[]> pertState, 

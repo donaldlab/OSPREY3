@@ -122,8 +122,7 @@ public class ConfSpace implements Serializable {
                 String wtName = res.template.name;
                 if( ! StringParsing.containsIgnoreCase(allowedAAs.get(pos), wtName) )
                     allowedAAs.get(pos).add(wtName);
-            }
-            
+            }            
             ArrayList<DegreeOfFreedom> resDOFs = mutablePosDOFs(res,allowedAAs.get(pos));//add mutation and dihedral confDOFs
                         
             ResidueTypeDOF resMutDOF = (ResidueTypeDOF)resDOFs.remove(0);//first mutable pos DOF is the mutation-type DOF
@@ -133,6 +132,7 @@ public class ConfSpace implements Serializable {
             singleResDOFs.add(resDOFs);
         }
         
+
         
         //now rigid-body strand motions...
         ArrayList<DegreeOfFreedom> strandDOFs = strandMotionDOFs(moveableStrands,flexibleRes);

@@ -121,7 +121,6 @@ public class ConfSpaceSuper {//extends ConfSpace{
                     allowedAAs.get(pos).add(wtName);
             }
 
-
             ArrayList<DegreeOfFreedom> resDOFs = mutableResDOFs(res, allowedAAs.get(pos));//add mutation and dihedral confDOFs for residue
             
             ResidueTypeDOF resMutDOF = (ResidueTypeDOF)resDOFs.remove(0);//first mutable pos DOF is the mutation-type DOF
