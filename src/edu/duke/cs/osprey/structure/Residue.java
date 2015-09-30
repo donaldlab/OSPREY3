@@ -11,8 +11,10 @@ import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResTemplateMatching;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
+import edu.duke.cs.osprey.tools.Protractor;
 import edu.duke.cs.osprey.tools.StringParsing;
 import edu.duke.cs.osprey.tools.VectorAlgebra;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 
@@ -158,7 +160,34 @@ public class Residue implements Serializable {
         return true;//matched successfully!
     }
     
-    
+    /**
+     * Computes the dihedral values for the template that is currently assigned to this type.
+     * @return An array of dihedral values for the wildtype rotamer..
+     */
+    public double[] getCurrentRotamerDihedrals(){
+    	int numDih = this.template.numDihedrals;
+    	double dihedrals[] = new double[this.template.numDihedrals];
+    	for(int dih = 0; dih < numDih; dih++){
+    		// Get the name of the four atoms that move for each dihedral
+    		String atomNamesDihedral[] = new String[4];
+    		for(int i = 0; i < 4; i++){
+    			atomNamesDihedral[i] = this.template.templateRes.atoms.get(template.dihedral4Atoms[dih][i]).name;
+    		}
+    		// Find the four atoms in the arraylist of atoms for this residue.
+    		double curDihCoordinates[][] = new double[4][];
+    		for(Atom at: this.atoms){
+    			for (int i = 0; i < 4; i++){
+    				if(at.name.equals(atomNamesDihedral[i])){
+    					curDihCoordinates[i] = at.getCoords();
+    				}
+    			}
+    		}
+    		// Compute the dihedral of the four atoms.
+    		dihedrals[dih] = Protractor.measureDihedral(curDihCoordinates);
+    		
+    	}
+    	return dihedrals;
+    }
     
     public void markIntraResBondsByTemplate(){
         //assign all the bonds between atoms in this residue, based on the template
