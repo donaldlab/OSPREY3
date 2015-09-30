@@ -21,6 +21,7 @@ import edu.duke.cs.osprey.markovrandomfield.GumbelDistribution;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
+import edu.duke.cs.osprey.markovrandomfield.SCMF_Parallel;
 import java.awt.Point;
 import java.io.PrintStream;
 import java.io.FileOutputStream;
@@ -124,8 +125,11 @@ public class KaDEEFinder {
         scmf.run();
         BigDecimal Z = scmf.calcPartitionFunction();
         double logZLB = ef.logToDouble(Z);
-        System.out.println("Lower bound on log partition function (SCMF) = " + logZLB);
 
+        System.out.println("Lower bound on log partition function (SCMF) = " + logZLB);
+        
+        double logZLB_2 = calcLogPartLBMapPert(searchSpace);
+        
         double numConfs = 1;
         for (int pos = 0; pos < searchSpace.emat.numPos(); pos++) {
             numConfs = numConfs * searchSpace.pruneMat.unprunedRCsAtPos(pos).size();
@@ -136,7 +140,8 @@ public class KaDEEFinder {
         System.out.println("Upper bound on log partition function (MAP-Pert) = " + logZUB);
         try( PrintStream out = new PrintStream(new FileOutputStream("results.txt", false)) ) {
             out.println("GMEC: "+Double.toString(gmecE));
-            out.println("Lower Bound: "+Double.toString(logZLB));
+            out.println("Lower Bound SCMF: "+Double.toString(logZLB));
+            out.println("Lower Bound MAP-Pert: "+Double.toString(logZLB_2));
             out.println("Upper Bound: "+Double.toString(logZUB));
         }
         catch(Exception e){}
@@ -180,10 +185,9 @@ public class KaDEEFinder {
         boolean needToRepeat;
         int[] GMECConf = null;
         double bestESoFar = Double.POSITIVE_INFINITY;
-        int numSamples = 20;
+        int numSamples = 50;
         SearchProblemSuper searchSpace = aSearchSpace;
         BigDecimal averageGMECs = new BigDecimal(0.0);
-        int iter = 0;
         for (int i = 0; i < numSamples; i++) {
             //searchSpace.loadMergedEnergyMatrix();
             ArrayList<ArrayList<Double>> originalOneBodyEmat = (ArrayList<ArrayList<Double>>) ObjectIO.deepCopy(this.searchSpace.emat.oneBody);
@@ -194,7 +198,6 @@ public class KaDEEFinder {
             averageGMECs = averageGMECs.add(new BigDecimal(E));
             //replace oneBody with original to remove the noise added
             this.searchSpace.emat.oneBody = originalOneBodyEmat;
-            iter++;
         }
         return averageGMECs.divide(new BigDecimal(numSamples * this.constRT), ef.mc).doubleValue();
     }
@@ -207,6 +210,40 @@ public class KaDEEFinder {
             for (int superRC : searchSpace.pruneMat.unprunedRCsAtPos(pos)) {
                 double currentE = emat.getOneBody(pos, superRC);
                 double noise = GumbelDistribution.sample(-1.0 * GumbelDistribution.gamma, 1.0) * this.constRT;
+                emat.setOneBody(pos, superRC, currentE - noise);
+            }
+        }
+    }
+
+    private double calcLogPartLBMapPert(SearchProblemSuper aSearchSpace) {
+        boolean needToRepeat;
+        int[] GMECConf = null;
+        double bestESoFar = Double.POSITIVE_INFINITY;
+        int numSamples = 50;
+        SearchProblemSuper searchSpace = aSearchSpace;
+        BigDecimal averageGMECs = new BigDecimal(0.0);
+        for (int i = 0; i < numSamples; i++) {
+            //searchSpace.loadMergedEnergyMatrix();
+            ArrayList<ArrayList<Double>> originalOneBodyEmat = (ArrayList<ArrayList<Double>>) ObjectIO.deepCopy(this.searchSpace.emat.oneBody);
+            addLBGumbelNoiseOneBody(searchSpace);
+            ConfSearch search = new ConfTreeSuper(searchSpace);
+            int[] conf = search.nextConf();
+            double E = -1.0 * searchSpace.lowerBound(conf);
+            averageGMECs = averageGMECs.add(new BigDecimal(E));
+            //replace oneBody with original to remove the noise added
+            this.searchSpace.emat.oneBody = originalOneBodyEmat;
+        }
+        return averageGMECs.divide(new BigDecimal(numSamples * this.constRT), ef.mc).doubleValue();
+    }
+
+    //add Gumbel noise to one-body terms
+    private void addLBGumbelNoiseOneBody(SearchProblemSuper aSearchSpace) {
+        SearchProblemSuper searchSpace = aSearchSpace;
+        EnergyMatrix emat = searchSpace.emat;
+        for (int pos = 0; pos < emat.oneBody.size(); pos++) {
+            for (int superRC : searchSpace.pruneMat.unprunedRCsAtPos(pos)) {
+                double currentE = emat.getOneBody(pos, superRC);
+                double noise = GumbelDistribution.sample(-1.0 * GumbelDistribution.gamma, 1.0) * this.constRT/emat.oneBody.size();
                 emat.setOneBody(pos, superRC, currentE - noise);
             }
         }

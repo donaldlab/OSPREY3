@@ -15,7 +15,7 @@ import java.util.ArrayList;
  *
  * @author hmn5
  */
-public class SelfConsistentMeanField implements InferenceCalculator {
+public class SCMF_Parallel implements InferenceCalculator {
 
     BigDecimal partitionFunction;
 
@@ -34,7 +34,7 @@ public class SelfConsistentMeanField implements InferenceCalculator {
     double scmfTemp = PoissonBoltzmannEnergy.constRT;
     public ExpFunction ef = new ExpFunction();
 
-    public SelfConsistentMeanField(MarkovRandomField mrf) {
+    public SCMF_Parallel(MarkovRandomField mrf) {
         this.nodeList = mrf.nodeList;
         this.emat = mrf.emat;
         this.interactionGraph = mrf.interactionGraph;
@@ -51,6 +51,8 @@ public class SelfConsistentMeanField implements InferenceCalculator {
             //update all beliefs
 
             hasConverged = updateAllBeliefs();
+            //update old Belief to new belief;
+            changeBeliefs();
             checkBeliefs();
             //lower the temperature
             lowerTemperature();
@@ -69,8 +71,16 @@ public class SelfConsistentMeanField implements InferenceCalculator {
             int numLabels = node.labelList.size();
             for (MRFLabel label : node.labelList) {
                 label.currentBelief = 1.0 / (double) numLabels;
+                label.oldBelief = 1.0 / (double) numLabels;
             }
         }
+    }
+    private void changeBeliefs(){
+        for (MRFNode node : this.nodeList) {
+            for (MRFLabel label : node.labelList) {
+                label.oldBelief = label.currentBelief;
+            }
+        }        
     }
 
     //Returns the MeanFieldEnergy for a label
@@ -90,7 +100,7 @@ public class SelfConsistentMeanField implements InferenceCalculator {
         double averageE = 0.0;
         for (MRFLabel label2 : node2.labelList) {
             double E = this.emat.getPairwise(node1.nodeNum, label1.labelNum, node2.nodeNum, label2.labelNum);
-            averageE += E * label2.currentBelief;
+            averageE += E * label2.oldBelief;
         }
         return averageE;
     }
@@ -102,7 +112,7 @@ public class SelfConsistentMeanField implements InferenceCalculator {
         for (MRFNode node : this.nodeList) {
             //We converge if and only if every node has converged
             boolean nodeConverged = updateNodeBeliefs(node);
-            if (!(allNodesConverged && nodeConverged)) {
+            if(!(allNodesConverged && nodeConverged)){
                 allNodesConverged = false;
             }
         }
@@ -122,22 +132,22 @@ public class SelfConsistentMeanField implements InferenceCalculator {
         //We keep track of best energy to avoid numerical innacuracy
         double bestE = Double.NEGATIVE_INFINITY;
         //iterate over labels to get partition function value
-        for (int labelIndex = 0; labelIndex < node.labelList.size(); labelIndex++) {
+        for (int labelIndex=0; labelIndex< node.labelList.size(); labelIndex++) {
             MRFLabel label = node.labelList.get(labelIndex);
             double oneBodyE = this.emat.getOneBody(node.nodeNum, label.labelNum);
             double meanFieldE = getMeanFieldEnergy(node, label);
             //unnormalized updateBelief
-            double logUnnormalizedBelief = -(oneBodyE + meanFieldE) / scmfTemp;
+            double logUnnormalizedBelief = -(oneBodyE + meanFieldE)/scmfTemp;
             logUnnormalizedBeliefs.add(logUnnormalizedBelief);
-            if (logUnnormalizedBelief > bestE) {
+            if (logUnnormalizedBelief > bestE){
                 bestE = logUnnormalizedBelief;
             }
         }
         //TODO: This needs to be optimized better by caching results in first for loop
-        for (int labelIndex = 0; labelIndex < node.labelList.size(); labelIndex++) {
+        for (int labelIndex=0; labelIndex< node.labelList.size(); labelIndex++) {
             MRFLabel label = node.labelList.get(labelIndex);
             double logUnnormalizedBelief = logUnnormalizedBeliefs.get(labelIndex);
-            double rescaleE = -bestE + logUnnormalizedBelief;
+            double rescaleE = -bestE +  logUnnormalizedBelief;
             BigDecimal updateBelief = this.ef.exp(rescaleE);
             //update partition function
             partFunction = partFunction.add(updateBelief);
@@ -148,7 +158,7 @@ public class SelfConsistentMeanField implements InferenceCalculator {
         for (int labelIndex = 0; labelIndex < node.labelList.size(); labelIndex++) {
             MRFLabel label = node.labelList.get(labelIndex);
             //keep track of old belief
-            double oldBelief = label.currentBelief;
+            double oldBelief = label.oldBelief;
             //if partFunction is 0.0, all labels had really bad energies and we will make them uniform
             if (partFunction.doubleValue() == 0.0) {
                 label.currentBelief = 1.0 / node.labelList.size();
@@ -250,38 +260,38 @@ public class SelfConsistentMeanField implements InferenceCalculator {
         BigDecimal partitionFunction = this.ef.exp(-(freeEnergy / this.scmfTemp));
         return partitionFunction;
     }
-
-    public boolean checkBeliefs() {
+    
+    public boolean checkBeliefs(){
         boolean beliefsGood = true;
-        for (MRFNode node : this.nodeList) {
+        for (MRFNode node : this.nodeList){
             double beliefSum = 0.0;
-            for (MRFLabel label : node.labelList) {
+            for (MRFLabel label : node.labelList){
                 beliefSum += label.currentBelief;
             }
-            if (!equals(beliefSum, 1.0, 0.001)) {
+            if (!equals( beliefSum, 1.0, 0.001)){
                 beliefsGood = false;
             }
         }
         return beliefsGood;
     }
-
-    public void printMaxLabel() {
+    
+    public void printMaxLabel(){
         String maxLabels = "";
-        for (MRFNode node : nodeList) {
+        for(MRFNode node: nodeList){
             double max = 0.0;
             int maxLabelNum = -1;
-            for (MRFLabel label : node.labelList) {
-                if (label.currentBelief > max) {
+            for (MRFLabel label : node.labelList){
+                if (label.currentBelief > max){
                     max = label.currentBelief;
                     maxLabelNum = label.labelNum;
                 }
             }
-            maxLabels = maxLabels + maxLabelNum + " ";
+            maxLabels = maxLabels +maxLabelNum+" ";
         }
         System.out.println(maxLabels);
     }
-
-    public boolean equals(double a, double b, double epsilon) {
-        return a == b ? true : Math.abs(a - b) < epsilon;
+    
+    public boolean equals(double a , double b, double epsilon){
+        return a == b ? true : Math.abs(a - b ) < epsilon;
     }
 }

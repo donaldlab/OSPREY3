@@ -18,9 +18,13 @@ public class MRFLabel {
     int labelNum;
     //the current belief (probability) of the label;
     double currentBelief;
-    
+    double oldBelief;
     public MRFLabel(int labelNum){
         this.labelNum = labelNum;
+    }
+    
+    public String toString(){
+        return Double.toString(currentBelief);
     }
 
 }
