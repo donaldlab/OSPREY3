@@ -90,6 +90,8 @@ public class PDBFileReader {
                         
                         Residue newRes = new Residue( curResAtoms, curResCoords, curResFullName, m );
                         m.appendResidue(newRes);
+                        // PGC 2014: Save the wildtype coordinates of each residue;
+                        newRes.saveWTCoords();
                         
                         curResAtoms = new ArrayList<>();
                         curResCoords = new ArrayList<>();

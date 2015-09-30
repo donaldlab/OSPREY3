@@ -62,6 +62,10 @@ public class Residue implements Serializable {
     public boolean interResBondsMarked = false;//for bonds between a pair of residues,
     //if interResBondsMarked is true for both, then we expect bonds between the two to be in place
     
+    // wtcoords: Stores the wildtype coordinates for the atoms index in wtAtomNameIxForWtCoords
+    private ArrayList<double []> wtcoords;
+    // wtAtomNameIxForWtCoords: Stores the names of the atoms as indexed in wtcoords.
+    private ArrayList<String> wtAtomNameIxForWtCoords;
     
     public ArrayList<ConfProblem> confProblems = new ArrayList<>();
     //If the residue has a ring that might need idealization, we need to store its pucker DOF
@@ -160,35 +164,7 @@ public class Residue implements Serializable {
         return true;//matched successfully!
     }
     
-    /**
-     * Computes the dihedral values for the template that is currently assigned to this type.
-     * @return An array of dihedral values for the wildtype rotamer..
-     */
-    public double[] getCurrentRotamerDihedrals(){
-    	int numDih = this.template.numDihedrals;
-    	double dihedrals[] = new double[this.template.numDihedrals];
-    	for(int dih = 0; dih < numDih; dih++){
-    		// Get the name of the four atoms that move for each dihedral
-    		String atomNamesDihedral[] = new String[4];
-    		for(int i = 0; i < 4; i++){
-    			atomNamesDihedral[i] = this.template.templateRes.atoms.get(template.dihedral4Atoms[dih][i]).name;
-    		}
-    		// Find the four atoms in the arraylist of atoms for this residue.
-    		double curDihCoordinates[][] = new double[4][];
-    		for(Atom at: this.atoms){
-    			for (int i = 0; i < 4; i++){
-    				if(at.name.equals(atomNamesDihedral[i])){
-    					curDihCoordinates[i] = at.getCoords();
-    				}
-    			}
-    		}
-    		// Compute the dihedral of the four atoms.
-    		dihedrals[dih] = Protractor.measureDihedral(curDihCoordinates);
-    		
-    	}
-    	return dihedrals;
-    }
-    
+ 
     public void markIntraResBondsByTemplate(){
         //assign all the bonds between atoms in this residue, based on the template
 
@@ -381,6 +357,46 @@ public class Residue implements Serializable {
         System.arraycopy(atomCoords, 0, coords, 3*index, 3);
     }
     
+    /**
+     * PGC2015:
+     * saveWTCoords Saves the current coordinates of this residue as the wildtype coordinates.
+     */
+    public void saveWTCoords(){
+    	wtAtomNameIxForWtCoords = new ArrayList<String>();
+    	wtcoords = new ArrayList<double[]>();
+    	for(Atom at: this.atoms){
+    		wtAtomNameIxForWtCoords.add(at.name);
+    		wtcoords.add(at.getCoords());
+    	}
+    }
+    /**
+     * PGC 2015: getCurrentRotamerDihedrals Computes the dihedral values for the template that is currently assigned to this type.
+     * @return An array of dihedral values for the wildtype rotamer..
+     */
+    public double[] getCurrentRotamerDihedrals(){
+    	int numDih = this.template.numDihedrals;
+    	double dihedrals[] = new double[this.template.numDihedrals];
+    	for(int dih = 0; dih < numDih; dih++){
+    		// Get the name of the four atoms that move for each dihedral
+    		String atomNamesDihedral[] = new String[4];
+    		for(int i = 0; i < 4; i++){
+    			atomNamesDihedral[i] = this.template.templateRes.atoms.get(template.dihedral4Atoms[dih][i]).name;
+    		}
+    		// Find the four atoms in the arraylist of atoms for this residue.
+    		double curDihCoordinates[][] = new double[4][];
+			for (int dihedralAtomNameIx = 0; dihedralAtomNameIx < 4; dihedralAtomNameIx++){
+				for(int atomNameIx = 0; atomNameIx < wtAtomNameIxForWtCoords.size(); atomNameIx++){
+    				if(wtAtomNameIxForWtCoords.get(atomNameIx).equals(atomNamesDihedral[dihedralAtomNameIx])){
+    					curDihCoordinates[dihedralAtomNameIx] = wtcoords.get(atomNameIx);
+    				}
+    			}
+    		}
+    		// Compute the dihedral of the four atoms.
+    		dihedrals[dih] = Protractor.measureDihedral(curDihCoordinates);
+    		
+    	}
+    	return dihedrals;
+    }
     
     public double distanceTo(Residue res2){
         //distance between the residues (measured at the closest atoms)

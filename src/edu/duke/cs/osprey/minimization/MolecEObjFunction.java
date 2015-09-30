@@ -171,10 +171,10 @@ public class MolecEObjFunction implements ObjectiveFunction {
 
         int numMinDOFs = 0;//number of minimizable confDOFs (bounded but not to a single value)
 
-        for (int indexInTup = 0; indexInTup < superRCTup.RCs.size(); indexInTup++) {
+        for (int indexInTup = 0; indexInTup < superRCTup.superRCs.size(); indexInTup++) {
 
             int posNum = superRCTup.pos.get(indexInTup);
-            int superRCNum = superRCTup.RCs.get(indexInTup);
+            int superRCNum = superRCTup.superRCs.get(indexInTup);
             SuperRC superRC = cSpace.posFlex.get(posNum).superRCs.get(superRCNum);
             
             ArrayList<Integer> DOFIndicesPerRes = cSpace.posFlex.get(posNum).DOFIndices;
