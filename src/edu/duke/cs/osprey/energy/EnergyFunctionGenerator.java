@@ -72,7 +72,22 @@ public class EnergyFunctionGenerator {
     
     //want partial versions of the above too?
     
-    
+    //Get just shell-shell energy (useful for debugging energy function with old code)
+    public EnergyFunction shellEnergy(ArrayList<Residue> shellResidues){
+        MultiTermEnergyFunction shellE = new MultiTermEnergyFunction();
+        
+        for (int shell1=0; shell1<shellResidues.size(); shell1++){
+            Residue shellRes1 = shellResidues.get(shell1);
+            EnergyFunction intraE = singleResEnergy(shellRes1);
+            shellE.addTerm(intraE);
+            for (int shell2=0; shell2<shell1; shell2++){
+                Residue shellRes2 = shellResidues.get(shell2);
+                EnergyFunction pairE = resPairEnergy(shellRes1, shellRes2);
+                shellE.addTerm(pairE);
+            }
+        }
+        return shellE;
+    }
     
     public EnergyFunction fullConfEnergy(ConfSpace cSpace, ArrayList<Residue> shellResidues){
         //make an energy function estimating the energy of all flexible residues in cSpace,

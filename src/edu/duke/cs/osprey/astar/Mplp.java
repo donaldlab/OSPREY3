@@ -201,7 +201,7 @@ public class Mplp {
 	private  boolean[][] computeResidueResidueInteractionGraph(EnergyMatrix emat ){
 	    int countTrueInteraction = 0;
 	    int countNoInteraction = 0;
-	    double INTERACTION_CUTOFF = 0.01;
+	    double INTERACTION_CUTOFF = 0.0;
 		boolean [][] interactionGraph = new boolean[numResidues][numResidues];
 		for(int xres = 0; xres< numResidues; xres++){
 			for(int yres = 0; yres < numResidues; yres++){

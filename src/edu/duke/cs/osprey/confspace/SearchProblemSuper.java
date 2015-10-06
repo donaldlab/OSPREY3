@@ -211,8 +211,26 @@ public class SearchProblemSuper {
         //get the index in the list that has multiple positions
         int newPosIndex = getNewPosIndex(newPosList);
 
-        confSpaceSuper.mergePosition(newPosList);
-
+        //If the number of positions to merge is 2, we can merge
+        if (posToMerge.size() == 2) {
+            confSpaceSuper.mergePosition(newPosList);
+            this.pruneMat = null;
+            this.competitorPruneMat = null;
+            this.mergeContinuousEnergyMatrix(newPosList);
+        } //Otherwise, we recurse by merging the first two positoin
+        else {
+            ArrayList<Integer> toMergeNow = new ArrayList<>();
+            toMergeNow.add(posToMerge.get(0));
+            toMergeNow.add(posToMerge.get(1));
+            ArrayList<Integer> remainingPos = new ArrayList<>();
+            remainingPos.add(newPosIndex);
+            for (int posNum = 2; posNum < posToMerge.size(); posNum++) {
+                //posList[posNum]-1 to fix index after merging first two positions
+                remainingPos.add(posToMerge.get(posNum) - 1);
+            }
+            mergePositionContinuous(toMergeNow);
+            mergePositionContinuous(remainingPos);
+        }
     }
 
     //This function will merge the positions and then merge the energy matrix
@@ -228,7 +246,10 @@ public class SearchProblemSuper {
         //If the number of positions to merge is 2, we can merge
         if (posToMerge.size() == 2) {
             confSpaceSuper.mergePosition(newPosList);
+            this.pruneMat = null;
+            this.competitorPruneMat = null;
             this.mergeRigidEnergyMatrix(newPosList);
+
         } //Otherwise, we recurse by merging the first two positoin
         else {
             ArrayList<Integer> toMergeNow = new ArrayList<>();
@@ -313,7 +334,7 @@ public class SearchProblemSuper {
             ArrayList<ArrayList<ArrayList<Double>>> pairwiseAtPos = new ArrayList<>();
             for (int newPosIndex2 = 0; newPosIndex2 < newPosIndex1; newPosIndex2++) {
                 ArrayList<Integer> newPos2 = newPosList.get(newPosIndex2);
-                ArrayList<ArrayList<Double>> pairwiseAtPair = getMergedTwoBodyContinuousEnergy(newPos2, newPosIndex2, newPos1, newPosIndex1);
+                ArrayList<ArrayList<Double>> pairwiseAtPair = getMergedTwoBodyContinuousEnergy(newPos1, newPosIndex1, newPos2, newPosIndex2);
                 pairwiseAtPos.add(pairwiseAtPair);
             }
             pairwiseAtPos.trimToSize();
@@ -343,6 +364,7 @@ public class SearchProblemSuper {
 
     private ArrayList<ArrayList<Double>> getMergedTwoBodyContinuousEnergy(ArrayList<Integer> posNumList1, int newPosNum1, ArrayList<Integer> posNumList2, int newPosNum2) {
         ArrayList<ArrayList<Double>> twoBodyE;
+        //
         //if either of the positions are merged
         if (posNumList1.size() > 1 || posNumList2.size() > 1) {
             TermECalculatorSuper termE = new TermECalculatorSuper(confSpaceSuper, shellResidues, useEPIC, useEPIC, pruneMat, epicSettings, newPosNum1, newPosNum2);
@@ -376,7 +398,7 @@ public class SearchProblemSuper {
             ArrayList<ArrayList<ArrayList<Double>>> pairwiseAtPos = new ArrayList<>();
             for (int newPosIndex2 = 0; newPosIndex2 < newPosIndex1; newPosIndex2++) {
                 ArrayList<Integer> newPos2 = newPosList.get(newPosIndex2);
-                ArrayList<ArrayList<Double>> pairwiseAtPair = getMergedTwoBodyRigidEnergy(newPos2, newPos1);
+                ArrayList<ArrayList<Double>> pairwiseAtPair = getMergedTwoBodyRigidEnergy(newPos1, newPos2);
                 pairwiseAtPos.add(pairwiseAtPair);
             }
             pairwiseAtPos.trimToSize();
@@ -420,48 +442,29 @@ public class SearchProblemSuper {
 
     private ArrayList<ArrayList<Double>> getMergedTwoBodyRigidEnergy(ArrayList<Integer> posNumList1, ArrayList<Integer> posNumList2) {
         ArrayList<ArrayList<Double>> twoBodyE = new ArrayList<>();
+        //posNum1 > posNum 2
+
         //if both are unMerged positions, then we use the old pairwiseE
         if (posNumList1.size() == 1 && posNumList2.size() == 1) {
             int posNum1 = posNumList1.get(0);
             int posNum2 = posNumList2.get(0);
             //posNum2 should be greater than posNum1
-            twoBodyE = this.emat.pairwise.get(posNum2).get(posNum1);
+            twoBodyE = this.emat.pairwise.get(posNum1).get(posNum2);
         } else if (posNumList1.size() == 2 && posNumList2.size() == 1) {
             int newPos1_1 = posNumList1.get(0);
             int numRC1_1 = this.emat.numRCsAtPos(newPos1_1);
             int newPos1_2 = posNumList1.get(1);
             int numRC1_2 = this.emat.numRCsAtPos(newPos1_2);
+
             int posNum2 = posNumList2.get(0);
             int numRC2 = this.emat.numRCsAtPos(posNum2);
 
-            for (int rc2 = 0; rc2 < numRC2; rc2++) {
-                ArrayList<Double> pairwiseE = new ArrayList<>();
-                for (int rc1_1 = 0; rc1_1 < numRC1_1; rc1_1++) {
-                    for (int rc1_2 = 0; rc1_2 < numRC1_2; rc1_2++) {
+            for (int rc1_1 = 0; rc1_1 < numRC1_1; rc1_1++) {
+                for (int rc1_2 = 0; rc1_2 < numRC1_2; rc1_2++) {
+                    ArrayList<Double> pairwiseE = new ArrayList<>();
+                    for (int rc2 = 0; rc2 < numRC2; rc2++) {
                         double pairwise1_2 = this.emat.getPairwise(newPos1_1, rc1_1, posNum2, rc2);
                         double pairwise2_2 = this.emat.getPairwise(newPos1_2, rc1_2, posNum2, rc2);
-                        double newPairwiseE = pairwise1_2 + pairwise2_2;
-                        pairwiseE.add(newPairwiseE);
-                    }
-                }
-                pairwiseE.trimToSize();
-                twoBodyE.add(pairwiseE);
-            }
-        } else if (posNumList1.size()
-                == 1 && posNumList2.size() == 2) {
-            int newPos2_1 = posNumList1.get(0);
-            int numRC2_1 = this.emat.numRCsAtPos(newPos2_1);
-            int newPos2_2 = posNumList1.get(1);
-            int numRC2_2 = this.emat.numRCsAtPos(newPos2_2);
-            int posNum1 = posNumList2.get(0);
-            int numRC1 = this.emat.numRCsAtPos(posNum1);
-
-            for (int rc2_1 = 0; rc2_1 < numRC2_1; rc2_1++) {
-                for (int rc2_2 = 0; rc2_2 < numRC2_2; rc2_2++) {
-                    ArrayList<Double> pairwiseE = new ArrayList<>();
-                    for (int rc1 = 0; rc1 < numRC1; rc1++) {
-                        double pairwise1_2 = this.emat.getPairwise(posNum1, rc1, newPos2_1, rc2_1);
-                        double pairwise2_2 = this.emat.getPairwise(posNum1, rc1, newPos2_2, rc2_2);
                         double newPairwiseE = pairwise1_2 + pairwise2_2;
                         pairwiseE.add(newPairwiseE);
                     }
@@ -469,10 +472,32 @@ public class SearchProblemSuper {
                     twoBodyE.add(pairwiseE);
                 }
             }
+        } else if (posNumList1.size()
+                == 1 && posNumList2.size() == 2) {
+            int newPos2_1 = posNumList2.get(0);
+            int numRC2_1 = this.emat.numRCsAtPos(newPos2_1);
+            int newPos2_2 = posNumList2.get(1);
+            int numRC2_2 = this.emat.numRCsAtPos(newPos2_2);
+
+            int posNum1 = posNumList1.get(0);
+            int numRC1 = this.emat.numRCsAtPos(posNum1);
+
+            for (int rc1 = 0; rc1 < numRC1; rc1++) {
+                ArrayList<Double> pairwiseE = new ArrayList<>();
+                for (int rc2_1 = 0; rc2_1 < numRC2_1; rc2_1++) {
+                    for (int rc2_2 = 0; rc2_2 < numRC2_2; rc2_2++) {
+                        double pairwise1_2 = this.emat.getPairwise(posNum1, rc1, newPos2_1, rc2_1);
+                        double pairwise2_2 = this.emat.getPairwise(posNum1, rc1, newPos2_2, rc2_2);
+                        double newPairwiseE = pairwise1_2 + pairwise2_2;
+                        pairwiseE.add(newPairwiseE);
+                    }
+                }
+                pairwiseE.trimToSize();
+                twoBodyE.add(pairwiseE);
+            }
         } else {
             throw new RuntimeException("Cannot Merge twoBodyE: CAN ONLY MERGE TWO POSITIONS IN RIGID CASE!");
         }
-
         twoBodyE.trimToSize();
         return twoBodyE;
     }
@@ -486,16 +511,9 @@ public class SearchProblemSuper {
         if (!loadMatrixFromFile(type, matrixFileName)) {
             matrix = calcMatrix(type);
             ObjectIO.writeObject(matrix, matrixFileName);
-            //If we are loading an energy matrix, also write out EMAT_MERGED
-            //This will be useful to have one consistent energy matrix to use during
-            //merging and so we don't need to recompute the original EMAT
             loadMatrixFromFile(type, matrixFileName);
         }
-        String mergedMatrixFileName = name + ".EMAT_MERGED.dat";
-        if (type == MatrixType.EMAT && !loadMatrixFromFile(type, mergedMatrixFileName)) {
-            ObjectIO.writeObject(matrix, mergedMatrixFileName);
-            loadMatrixFromFile(type, mergedMatrixFileName);
-        }
+
     }
 
     public void loadMergedEnergyMatrix() {

@@ -15,13 +15,14 @@ import edu.duke.cs.osprey.confspace.PositionConfSpaceSuper;
 import edu.duke.cs.osprey.confspace.ConfSpaceSuper;
 import edu.duke.cs.osprey.confspace.SuperRCTuple;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.markovrandomfield.MarkovRandomField;
-import edu.duke.cs.osprey.markovrandomfield.SelfConsistentMeanField;
-import edu.duke.cs.osprey.markovrandomfield.GumbelDistribution;
+import edu.duke.cs.osprey.partitionfunctionbounds.MarkovRandomField;
+import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField;
+import edu.duke.cs.osprey.partitionfunctionbounds.GumbelDistribution;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
-import edu.duke.cs.osprey.markovrandomfield.SCMF_Parallel;
+import edu.duke.cs.osprey.partitionfunctionbounds.MapPerturbation;
+import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField_Parallel;
 import java.awt.Point;
 import java.io.PrintStream;
 import java.io.FileOutputStream;
@@ -95,56 +96,114 @@ public class KaDEEFinder {
      * the highest K* score.
      */
     void doKaDEE() {
-
         double curInterval = I0;//For iMinDEE.  curInterval will need to be an upper bound
 
         searchSpace = cfp.getSearchProblemSuper();
         ConfSpaceSuper confSpaceSuper = searchSpace.confSpaceSuper;
         searchSpace.loadEnergyMatrix();
+        for (int i = 0; i < 2; i++) {
 
-        double pruningInterval = Double.POSITIVE_INFINITY;
-        //Doing competitor pruning now
-        //will limit us to a smaller, but effective, set of competitors in all future DEE
-        if (searchSpace.competitorPruneMat == null) {
-            System.out.println("PRECOMPUTING COMPETITOR PRUNING MATRIX");
-            PruningControlSuper compPruning = cfp.setupPruning(searchSpace, 0, false, false);
-            compPruning.setOnlyGoldstein(true);
-            compPruning.prune();
-            searchSpace.competitorPruneMat = searchSpace.pruneMat;
-            searchSpace.pruneMat = null;
-            System.out.println("COMPETITOR PRUNING DONE");
-        }
-        //Next, do DEE, which will fill in the pruning matrix
-        PruningControlSuper pruning = cfp.setupPruning(searchSpace, pruningInterval, false, false);
-        pruning.prune();//pass in DEE options, and run the specified types of DEE 
-        //Calculate GMEC
-        double gmecE = -calcGMEC(searchSpace)/this.constRT;
-        //SCMF
-        MarkovRandomField mrf = new MarkovRandomField(searchSpace, 0.0);
-        SelfConsistentMeanField scmf = new SelfConsistentMeanField(mrf);
-        scmf.run();
-        BigDecimal Z = scmf.calcPartitionFunction();
-        double logZLB = ef.logToDouble(Z);
+            double pruningInterval = Double.POSITIVE_INFINITY;
+            //Doing competitor pruning now
+            //will limit us to a smaller, but effective, set of competitors in all future DEE
+            if (searchSpace.competitorPruneMat == null) {
+                System.out.println("PRECOMPUTING COMPETITOR PRUNING MATRIX");
+                PruningControlSuper compPruning = cfp.setupPruning(searchSpace, 0, false, false);
+                compPruning.setOnlyGoldstein(true);
+                compPruning.prune();
+                searchSpace.competitorPruneMat = searchSpace.pruneMat;
+                searchSpace.pruneMat = null;
+                System.out.println("COMPETITOR PRUNING DONE");
+            }
+            //Next, do DEE, which will fill in the pruning matrix
+            PruningControlSuper pruning = cfp.setupPruning(searchSpace, pruningInterval, false, false);
+            pruning.prune();//pass in DEE options, and run the specified types of DEE 
+//        BigInteger confSpace = new BigInteger("1");
+//        for (int pos = 0; pos < searchSpace.emat.numPos(); pos++){
+//            confSpace = confSpace.multiply(new BigInteger(((Integer) searchSpace.emat.oneBody.get(pos).size()).toString()));
+//        }
+            //System.out.println(confSpace);
+            
+            double gmecE = calcGMEC(searchSpace);
+            System.out.println("GMEC Energy = "+gmecE);
+            //Calculate GMEC (0.43429 = log_10(e) puts gmecE in log_10 scale 
+            double gmecScore = -(0.4342944819) * gmecE/this.constRT;
+            System.out.println("GMEC Bound = " + gmecScore);
 
-        System.out.println("Lower bound on log partition function (SCMF) = " + logZLB);
-        
-        double logZLB_2 = calcLogPartLBMapPert(searchSpace);
-        
-        double numConfs = 1;
-        for (int pos = 0; pos < searchSpace.emat.numPos(); pos++) {
-            numConfs = numConfs * searchSpace.pruneMat.unprunedRCsAtPos(pos).size();
+            //SCMF
+            double pruningInterval2 = 30.0;
+            PruningControlSuper pruning2 = cfp.setupPruning(searchSpace, pruningInterval2, false, false);
+            pruning2.prune();//pass in DEE options, and run the specified types of DEE 
+
+            MarkovRandomField mrf = new MarkovRandomField(searchSpace, 0.0);
+            SelfConsistentMeanField scmf = new SelfConsistentMeanField(mrf);
+            scmf.run();
+            BigDecimal Z = scmf.calcPartitionFunction();
+            double logZLB = ef.log10(Z);
+
+            System.out.println("Lower bound on log partition function (SCMF) = " + logZLB);
+            //Next, do DEE, which will fill in the pruning matrix
+
+            double pruningInterval3 = Double.POSITIVE_INFINITY;
+            PruningControlSuper pruning3 = cfp.setupPruning(searchSpace, pruningInterval3, false, false);
+            pruning3.prune();//pass in DEE options, and run the specified types of DEE 
+
+            SelfConsistentMeanField_Parallel scmf2 = new SelfConsistentMeanField_Parallel(mrf);
+            scmf2.run();
+            BigDecimal ZLB2 = scmf2.calcPartitionFunction();
+            double logZLB_2 = ef.log10(ZLB2);
+            System.out.println("Lower bound on log partition function (SCMF Parallel) = " + logZLB_2);
+
+            double numConfs = 1;
+            for (int pos = 0; pos < searchSpace.emat.numPos(); pos++) {
+                numConfs = numConfs * searchSpace.pruneMat.unprunedRCsAtPos(pos).size();
+            }
+            //BigDecimal Zpart = calcRigidPartFunction(searchSpace);
+            //BigDecimal logZpart = ef.log(Zpart);
+            MapPerturbation mapPert = new MapPerturbation(searchSpace);
+            double logZUB = (0.4342944819) * mapPert.calcUBLogZ(100);
+            System.out.println("Upper bound on log partition function (MAP-Pert) = " + logZUB);
+            ArrayList<Integer> toMerge = mapPert.getPairWithMaxMutualInfo(true);
+            searchSpace.mergePositionRigid(toMerge);
+            searchSpace.competitorPruneMat = null;
+
+            try (PrintStream out = new PrintStream(new FileOutputStream("results.txt", true))) {
+                out.println("GMEC: " + Double.toString(gmecScore));
+                out.println("Lower Bound SCMF: " + Double.toString(logZLB));
+                out.println("Lower Bound SCMF_Parallel: " + Double.toString(logZLB_2));
+                out.println("Upper Bound: " + Double.toString(logZUB));
+            } catch (Exception e) {
+            }
         }
-        //BigDecimal Zpart = calcRigidPartFunction(searchSpace);
-        //BigDecimal logZpart = ef.log(Zpart);
-        double logZUB = calcLogPartMapPert(searchSpace);
-        System.out.println("Upper bound on log partition function (MAP-Pert) = " + logZUB);
-        try( PrintStream out = new PrintStream(new FileOutputStream("results.txt", false)) ) {
-            out.println("GMEC: "+Double.toString(gmecE));
-            out.println("Lower Bound SCMF: "+Double.toString(logZLB));
-            out.println("Lower Bound MAP-Pert: "+Double.toString(logZLB_2));
-            out.println("Upper Bound: "+Double.toString(logZUB));
-        }
-        catch(Exception e){}
+        /*
+         try( PrintStream out = new PrintStream(new FileOutputStream("results.txt", false)) ) {
+         out.println("GMEC: "+Double.toString(gmecE));
+         out.println("Lower Bound SCMF: "+Double.toString(logZLB));
+         out.println("Lower Bound SCMF_Parallel: "+Double.toString(logZLB_2));
+         out.println("Upper Bound: "+Double.toString(logZUB));
+         }
+         catch(Exception e){}
+         */
+
+        /*
+         ArrayList<Integer> posToMerge = new ArrayList<>();
+         posToMerge.add(3);
+         posToMerge.add(5);
+         searchSpace.mergePositionContinuous(posToMerge);
+         if (searchSpace.competitorPruneMat == null) {
+         System.out.println("PRECOMPUTING COMPETITOR PRUNING MATRIX");
+         PruningControlSuper compPruning = cfp.setupPruning(searchSpace, 0, false, false);
+         compPruning.setOnlyGoldstein(true);
+         compPruning.prune();
+         searchSpace.competitorPruneMat = searchSpace.pruneMat;
+         searchSpace.pruneMat = null;
+         System.out.println("COMPETITOR PRUNING DONE");
+         }
+         double pruningInterval2 = 30.0;
+         PruningControlSuper pruning2 = cfp.setupPruning(searchSpace, pruningInterval2, false, false);
+         pruning2.prune();//pass in DEE options, and run the specified types of DEE 
+         double gmecE2 = -(0.4342944819) * calcGMEC(searchSpace) / this.constRT;
+         */
     }
 
     //getGMEC from lower bounds
@@ -179,74 +238,6 @@ public class KaDEEFinder {
         int[] conf = search.nextConf();
         double E = searchSpace.lowerBound(conf);
         return E;
-    }
-
-    private double calcLogPartMapPert(SearchProblemSuper aSearchSpace) {
-        boolean needToRepeat;
-        int[] GMECConf = null;
-        double bestESoFar = Double.POSITIVE_INFINITY;
-        int numSamples = 50;
-        SearchProblemSuper searchSpace = aSearchSpace;
-        BigDecimal averageGMECs = new BigDecimal(0.0);
-        for (int i = 0; i < numSamples; i++) {
-            //searchSpace.loadMergedEnergyMatrix();
-            ArrayList<ArrayList<Double>> originalOneBodyEmat = (ArrayList<ArrayList<Double>>) ObjectIO.deepCopy(this.searchSpace.emat.oneBody);
-            addGumbelNoiseOneBody(searchSpace);
-            ConfSearch search = new ConfTreeSuper(searchSpace);
-            int[] conf = search.nextConf();
-            double E = -1.0 * searchSpace.lowerBound(conf);
-            averageGMECs = averageGMECs.add(new BigDecimal(E));
-            //replace oneBody with original to remove the noise added
-            this.searchSpace.emat.oneBody = originalOneBodyEmat;
-        }
-        return averageGMECs.divide(new BigDecimal(numSamples * this.constRT), ef.mc).doubleValue();
-    }
-
-    //add Gumbel noise to one-body terms
-    private void addGumbelNoiseOneBody(SearchProblemSuper aSearchSpace) {
-        SearchProblemSuper searchSpace = aSearchSpace;
-        EnergyMatrix emat = searchSpace.emat;
-        for (int pos = 0; pos < emat.oneBody.size(); pos++) {
-            for (int superRC : searchSpace.pruneMat.unprunedRCsAtPos(pos)) {
-                double currentE = emat.getOneBody(pos, superRC);
-                double noise = GumbelDistribution.sample(-1.0 * GumbelDistribution.gamma, 1.0) * this.constRT;
-                emat.setOneBody(pos, superRC, currentE - noise);
-            }
-        }
-    }
-
-    private double calcLogPartLBMapPert(SearchProblemSuper aSearchSpace) {
-        boolean needToRepeat;
-        int[] GMECConf = null;
-        double bestESoFar = Double.POSITIVE_INFINITY;
-        int numSamples = 50;
-        SearchProblemSuper searchSpace = aSearchSpace;
-        BigDecimal averageGMECs = new BigDecimal(0.0);
-        for (int i = 0; i < numSamples; i++) {
-            //searchSpace.loadMergedEnergyMatrix();
-            ArrayList<ArrayList<Double>> originalOneBodyEmat = (ArrayList<ArrayList<Double>>) ObjectIO.deepCopy(this.searchSpace.emat.oneBody);
-            addLBGumbelNoiseOneBody(searchSpace);
-            ConfSearch search = new ConfTreeSuper(searchSpace);
-            int[] conf = search.nextConf();
-            double E = -1.0 * searchSpace.lowerBound(conf);
-            averageGMECs = averageGMECs.add(new BigDecimal(E));
-            //replace oneBody with original to remove the noise added
-            this.searchSpace.emat.oneBody = originalOneBodyEmat;
-        }
-        return averageGMECs.divide(new BigDecimal(numSamples * this.constRT), ef.mc).doubleValue();
-    }
-
-    //add Gumbel noise to one-body terms
-    private void addLBGumbelNoiseOneBody(SearchProblemSuper aSearchSpace) {
-        SearchProblemSuper searchSpace = aSearchSpace;
-        EnergyMatrix emat = searchSpace.emat;
-        for (int pos = 0; pos < emat.oneBody.size(); pos++) {
-            for (int superRC : searchSpace.pruneMat.unprunedRCsAtPos(pos)) {
-                double currentE = emat.getOneBody(pos, superRC);
-                double noise = GumbelDistribution.sample(-1.0 * GumbelDistribution.gamma, 1.0) * this.constRT/emat.oneBody.size();
-                emat.setOneBody(pos, superRC, currentE - noise);
-            }
-        }
     }
 
 }
