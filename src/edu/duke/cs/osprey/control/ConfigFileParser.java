@@ -134,7 +134,8 @@ public class ConfigFileParser {
                 new EPICSettings(params),
                 params.getBool("UseTupExp",false),
                 dset, moveableStrands, freeBBZones,
-                params.getBool("useEllipses", false) );
+                params.getBool("useEllipses", false),
+                params.getBool("useERef", false) );
     }
     
     

@@ -136,7 +136,13 @@ public class ResidueTemplate implements Serializable {
      * @return the angle value for the desired dihedral.
      */
     public double getRotamericDihedrals(double phi, double psi, int rotNum, int dihedralNum){
-    	
+                
+                if(Double.isNaN(phi) || Double.isNaN(psi)){//dihedrals not defined for this residue
+                    if(numberOfPhiPsiBins > 1)
+                        throw new RuntimeException("ERROR: Can't use Dunbrack library on residues w/o phi/psi defined");
+                    
+                    return rotamericDihedrals[0][0][rotNum][dihedralNum];
+                }
 
 		// Under the dunbrack rotamer library, backbone dependent rotamers have a resolution of 10 degrees, 
 		//    while in backbone-independent rotamer libraries they have a resolution of 360.    		
@@ -153,6 +159,15 @@ public class ResidueTemplate implements Serializable {
      * @return The number of rotamers.
      */
     public int getNumRotamers(double phi, double psi){
+        
+                if(Double.isNaN(phi) || Double.isNaN(psi)){//dihedrals not defined for this residue
+                    if(numberOfPhiPsiBins > 1)
+                        throw new RuntimeException("ERROR: Can't use Dunbrack library on residues w/o phi/psi defined");
+                    
+                    return numRotamers[0][0];
+                }
+        
+        
 		// Under the dunbrack rotamer library, backbone dependent rotamers have a resolution of 10 degrees, 
 		//    while in backbone-independent rotamer libraries they have a resolution of 360.    		
 		//  Therefore, we round to the closest "bin" and add numberOfPhiPsiBins/2 (to make all numbers positive)
