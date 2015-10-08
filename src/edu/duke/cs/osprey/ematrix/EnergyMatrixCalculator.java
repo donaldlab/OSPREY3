@@ -31,6 +31,10 @@ public class EnergyMatrixCalculator {
     EPICSettings epicSettings = null;
     
     
+    boolean useERef = false;
+    //If using E ref, will compute a reference energy for each amino-acid type
+    //and correct the intra+shell energies based on the reference energies
+    
     
     //We are calculating either a scalar or EPIC matrix, so we'll allocate and fill in just one of these
     private EnergyMatrix emat = null;
@@ -38,10 +42,11 @@ public class EnergyMatrixCalculator {
     
     
     //constructor for calculating a scalar energy matrix (rigid or pairwise lower bounds)
-    public EnergyMatrixCalculator(ConfSpace s, ArrayList<Residue> sr) {
+    public EnergyMatrixCalculator(ConfSpace s, ArrayList<Residue> sr, boolean useERef) {
         searchSpace = s;
         shellResidues = sr;
         doEPIC = false;
+        this.useERef = useERef;
     }
     
     
@@ -71,6 +76,15 @@ public class EnergyMatrixCalculator {
            calcPEMDistributed();
        else
            calcPEMLocally();
+       
+       if(useERef){
+           System.out.println("COMPUTING REFERENCE ENERGIES");
+           emat.eRefMat = new ReferenceEnergies(searchSpace);
+           System.out.println("CORRECTING ENERGY MATRIX BASED ON REFERENCE ENERGIES");
+           emat.eRefMat.correctEnergyMatrix(emat);
+       }
+       
+       System.out.println("ENERGY MATRIX CALCULATION DONE");
    }
     
     

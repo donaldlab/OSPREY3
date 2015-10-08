@@ -92,6 +92,9 @@ public class ConfTree extends AStarTree {
         if(isFullyAssigned(curNode))
             throw new RuntimeException("ERROR: Can't expand a fully assigned A* node");
         
+        if(curNode.score == Double.POSITIVE_INFINITY)//node impossible, so no children
+            return new ArrayList<>();
+        
         ArrayList<AStarNode> ans = new ArrayList<>();
         int nextLevel = nextLevelToExpand(curNode.nodeAssignments);
         

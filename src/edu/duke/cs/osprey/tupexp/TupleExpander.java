@@ -84,6 +84,15 @@ public abstract class TupleExpander implements Serializable {
         
         System.out.println("Computing initial GMEC estimate...");
         
+        
+        //Let's make sure, by DFS, that there is at least one unpruned conf
+        //If not then our init GMEC is infinity
+        int testSamp[] = new int[numPos];
+        Arrays.fill(testSamp, -1);
+        if( tss.finishSampleDFS(testSamp) == null )
+            return Double.POSITIVE_INFINITY;
+        
+        
         //DEBUG!!
         for(int iter=0; iter<500/*0*/; iter++){
             int sample[] = new int[numPos];
@@ -121,6 +130,14 @@ public abstract class TupleExpander implements Serializable {
         
         if(Double.isNaN(constTerm))//constTerm not computed yet
             constTerm = computeInitGMECEst();
+        
+        if( constTerm == Double.POSITIVE_INFINITY ){
+            System.out.println("No conformations found for tuple expansion.  ");
+            tupleTerms = new double[0];//no coefficients needed besides constTerm
+            return 0;//all confs are pruned, and will be correctly assigned infinite energy
+        }
+        
+        
         //bCutoff = constTerm+5;//DEBUG!!
         bCutoff = constTerm+20;
         bCutoff2 = constTerm+50;

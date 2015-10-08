@@ -117,6 +117,40 @@ public class EPICEnergyFunction implements EnergyFunction {
     
     
     
+    public ArrayList<Double> allTermValues(){
+        //values of all epic terms at current curDOFVals
+        ArrayList<Double> ans = new ArrayList<>();
+        
+        if(curDOFVals==null){
+            throw new RuntimeException("ERROR: Trying to evaluate an EPICEnergyFunction "
+                    + "before assigning it to a vector of DOF values");
+        }
+        
+        for(int termNum=0; termNum<terms.size(); termNum++){
+            EPoly term = terms.get(termNum);
+            
+            DoubleMatrix1D DOFValsForTerm = DoubleFactory1D.dense.make(term.numDOFs);
+            for(int DOFCount=0; DOFCount<term.numDOFs; DOFCount++)
+                DOFValsForTerm.set( DOFCount, curDOFVals.get(termDOFs.get(termNum).get(DOFCount)) );
+            
+            double termVal = term.evaluate(DOFValsForTerm, includeMinE, useSharedMolec);
+            ans.add(termVal);
+        }
+        
+        return ans;
+    }
+    
+    
+    public void printAllTermValues() {
+        for(double termVal : allTermValues())
+            System.out.println(termVal);
+    }
+    
+    
+    
+    
+    
+    
     public ArrayList<EnergyFunction> getDOFPartialEFuncs(ArrayList<DegreeOfFreedom> DOFs, Molecule molec){
         //make a list of energy functions that only include the terms involving each of the specified DOFs
         //of the specified molecule

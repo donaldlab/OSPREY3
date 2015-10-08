@@ -63,6 +63,8 @@ public class SearchProblem implements Serializable {
     public boolean useTupExpForSearch = false;//use a tuple expansion to approximate the energy as we search
     
     
+    boolean useERef = false;
+    
     
     public SearchProblem(SearchProblem sp1){//shallow copy
     	confSpace = sp1.confSpace;
@@ -81,13 +83,15 @@ public class SearchProblem implements Serializable {
     	contSCFlex = sp1.contSCFlex;
     	useEPIC = sp1.useEPIC;
     	useTupExpForSearch = sp1.useTupExpForSearch;
+        
+        useERef = sp1.useERef;
     }
     
     
     
     public SearchProblem(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
             boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset, 
-            ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses){
+            ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef){
         
         confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses);
         this.name = name;
@@ -98,6 +102,7 @@ public class SearchProblem implements Serializable {
         this.useEPIC = useEPIC;
         this.epicSettings = epicSettings;
         
+        this.useERef = useERef;
         
         //energy function setup
         EnergyFunctionGenerator eGen = EnvironmentVars.curEFcnGenerator;
@@ -140,12 +145,17 @@ public class SearchProblem implements Serializable {
         //Minimized energy of the conformation
         //whose RCs are listed for all flexible positions in conf
         double E = confSpace.minimizeEnergy(conf, fullConfE, null);
+        
+        if(useERef)
+            E -= emat.geteRefMat().confERef(conf);
+        
         return E;
     }
     
     public void outputMinimizedStruct(int[] conf, String PDBFileName){
         //Output minimized conformation to specified file
         //RCs are listed for all flexible positions in conf
+        //Note: eRef not included (just minimizing w/i voxel)
         confSpace.minimizeEnergy(conf, fullConfE, PDBFileName);
     }
     
@@ -229,7 +239,7 @@ public class SearchProblem implements Serializable {
     private TupleMatrix calcMatrix(MatrixType type){
         
         if(type == MatrixType.EMAT){
-            EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(confSpace,shellResidues);
+            EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(confSpace,shellResidues,useERef);
             emCalc.calcPEM();
             return emCalc.getEMatrix();
         }
