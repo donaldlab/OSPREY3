@@ -44,8 +44,7 @@ public class ResPairEnergy implements EnergyFunction {
         if (!(res1.confProblems.isEmpty() && res2.confProblems.isEmpty())) {
             return Double.POSITIVE_INFINITY;//conformation geometrically impossible
         }
-        double[] energy = ffEnergy.calculateTotalEnergy();
-        return energy[0];
+        return ffEnergy.calculateTotalEnergy();
     }
 
     void initFFE() {

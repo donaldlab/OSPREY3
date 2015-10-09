@@ -268,7 +268,7 @@ public class ConfigFileParser {
         boolean initPruneMat = false;
         if(searchSpace.pruneMat==null)
             initPruneMat = true;
-        else if(searchSpace.pruneMat.getPruningInterval() < pruningInterval)
+        else if(searchSpace.pruneMat.getPruningInterval() < pruningInterval || pruningInterval==Double.POSITIVE_INFINITY)
             initPruneMat = true;
         
         if(initPruneMat)

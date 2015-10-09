@@ -537,7 +537,7 @@ public class ForcefieldEnergy implements Serializable {
 	//Evaluate this energy for the sets of interacting atoms
         //use the coordinates in res1 and res2
 	//Depending on the flags, different types of energies are included/excluded
-	public double [] calculateTotalEnergy(){
+	public double calculateTotalEnergy(){
 		
 		double energyTerms[] = new double[4]; //total, electrostatics, vdW, and solvation
 		for (int i=0; i<energyTerms.length; i++)
@@ -570,7 +570,7 @@ public class ForcefieldEnergy implements Serializable {
                    throw new RuntimeException("ERROR: NaN returned by ForcefieldEnergy.  No NaN or infinite coordinates.");
                }
 
-	       return energyTerms;
+	       return energyTerms[0];
 	}
 
 	// This function calculates the electrostatic and vdw (EV) energy of a system
