@@ -45,7 +45,7 @@ public class Main {
         
         //DEBUG!!
         // set number of threads for energy function evaluation
-        MultiTermEnergyFunction.setNumThreads( cfp.params.getInt("eEvalThreads", 4) );
+        MultiTermEnergyFunction.setNumThreads( cfp.params.getInt("eEvalThreads", 1) );
         if( MultiTermEnergyFunction.getNumThreads() > 1 ) {
                 System.setProperty( "java.util.concurrent.ForkJoinPool.common.parallelism", 
                                 String.valueOf(MultiTermEnergyFunction.getNumThreads()) );

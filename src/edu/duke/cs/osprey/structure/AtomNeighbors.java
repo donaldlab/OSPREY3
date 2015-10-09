@@ -79,7 +79,7 @@ public class AtomNeighbors {
     
     
     //for forcefield calculations we need to classify pairs of atoms 
-    //(one in atoms1, one in atoms2) according to if they're nonbonded, 1-4 bonded, or neither
+    //(one in atoms1, one in atoms2) according to if they're nonbonded, 1-4 bonded, or neither.
     //internalE implies that atoms1 and atoms2 are the same, and we're calculating the internal energy
     //of their residue (or part of a residue).  In this case we need to avoid double-counting.
     //Otherwise they're assumed to be different and interacting with each other

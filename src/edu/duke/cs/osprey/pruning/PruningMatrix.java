@@ -64,6 +64,21 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
         }
     }
 
+    public PruningMatrix(int numPos, int[] numRCsAtPos, double pruningInterval) {
+        super(numPos, numRCsAtPos, pruningInterval, false);
+        for (ArrayList<Boolean> oneBodyAtPos : oneBody) {
+            Collections.fill(oneBodyAtPos, false);
+        }
+
+        for (ArrayList<ArrayList<ArrayList<Boolean>>> pairwiseAtPos : pairwise) {
+            for (ArrayList<ArrayList<Boolean>> pairwiseAt2Pos : pairwiseAtPos) {
+                for (ArrayList<Boolean> pairwiseAtRC : pairwiseAt2Pos) {
+                    Collections.fill(pairwiseAtRC, false);
+                }
+            }
+        }
+    }
+
     public ArrayList<Integer> unprunedRCsAtPos(int pos) {
         //which RCs at the given position are unpruned?
         //Return index of the RCs within the position

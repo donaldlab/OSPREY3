@@ -161,11 +161,12 @@ public class KaDEEFinder {
             //BigDecimal Zpart = calcRigidPartFunction(searchSpace);
             //BigDecimal logZpart = ef.log(Zpart);
             MapPerturbation mapPert = new MapPerturbation(searchSpace);
-            double logZUB = (0.4342944819) * mapPert.calcUBLogZ(100);
+            double logZUB = (0.4342944819) * mapPert.calcUBLogZ(10);
             System.out.println("Upper bound on log partition function (MAP-Pert) = " + logZUB);
             ArrayList<Integer> toMerge = mapPert.getPairWithMaxMutualInfo(true);
             searchSpace.mergePositionRigid(toMerge);
             searchSpace.competitorPruneMat = null;
+            searchSpace.pruneMat = null;
 
             try (PrintStream out = new PrintStream(new FileOutputStream("results.txt", true))) {
                 out.println("GMEC: " + Double.toString(gmecScore));

@@ -271,7 +271,7 @@ public class SelfConsistentMeanField_Parallel implements InferenceCalculator {
         if (!hasCalculatedFreeEnergy){
             this.freeEnergy = calcFreeEnergy();
         }
-        BigDecimal partitionFunction = this.ef.exp(-(freeEnergy / this.scmfTemp));
+        BigDecimal partitionFunction = this.ef.exp(-((freeEnergy+this.emat.getConstTerm()) / this.scmfTemp));
         return partitionFunction;
     }
     

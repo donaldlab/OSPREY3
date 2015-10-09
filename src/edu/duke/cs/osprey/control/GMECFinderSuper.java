@@ -11,6 +11,9 @@ import edu.duke.cs.osprey.confspace.SearchProblemSuper;
 import edu.duke.cs.osprey.pruning.PrunerSuper;
 import edu.duke.cs.osprey.pruning.PruningControlSuper;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.structure.PDBFileReader;
+import edu.duke.cs.osprey.structure.PDBFileWriter;
 /**
  *
  * @author hmn5
@@ -149,7 +152,6 @@ public class GMECFinderSuper {
                     }
 
                     lowestBound = Math.min(lowestBound, lowerBound);
-
                     printConf(conf, confE, lowerBound, bestESoFar);
                 }
 

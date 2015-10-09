@@ -68,7 +68,7 @@ public class PositionConfSpace implements Serializable {
         
         // PGC 2015: Add wildtype rotamers.
         
-        if(false){
+        if(true){
         	int wtRot_Ix = -1;        	
 	        double wtRotDihs[] =  res.getCurrentRotamerDihedrals();
 	        int numDihedrals = wtRotDihs.length;

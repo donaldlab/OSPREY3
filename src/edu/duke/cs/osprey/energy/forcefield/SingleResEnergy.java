@@ -15,41 +15,40 @@ import edu.duke.cs.osprey.structure.Residue;
 public class SingleResEnergy implements EnergyFunction {
     //internal energy as a single residue, as modeled by a forcefield
     //very similar to ResPairEnergy
-    
+
     Residue res;
-    
+
     ResidueTemplate templ;//store this so we can tell if there was a mutation
-    
+
     ForcefieldParams ffParams;
     ForcefieldEnergy ffEnergy;
-    
-    
-    public SingleResEnergy(Residue res, ForcefieldParams ffParams){
+
+    public SingleResEnergy(Residue res, ForcefieldParams ffParams) {
         this.res = res;
         this.ffParams = ffParams;
-        
+
         templ = res.template;
-        
+
         initFFE();
     }
 
-    
     @Override
     public double getEnergy() {
-        
+
         //we'll need to re-initialize the ffe if our residues have been mutated
-        if(res.template!=templ)
+        if (res.template != templ) {
             initFFE();
-        
-        if( ! res.confProblems.isEmpty() )
+        }
+
+        if (!res.confProblems.isEmpty()) {
             return Double.POSITIVE_INFINITY;//conformation geometrically impossible
-        
-        return ffEnergy.calculateTotalEnergy()[0];
+        }
+        double[] energy = ffEnergy.calculateTotalEnergy();
+        return energy[0];
     }
-    
-    
-    void initFFE(){
-        ffEnergy = new ForcefieldEnergy(true,res.atoms,res.atoms,ffParams);
+
+    void initFFE() {
+        ffEnergy = new ForcefieldEnergy(true, res.atoms, res.atoms, ffParams);
         templ = res.template;
     }
 
@@ -60,7 +59,5 @@ public class SingleResEnergy implements EnergyFunction {
     public ForcefieldParams getFFParams() {
         return ffParams;
     }
-    
-    
-    
+
 }
