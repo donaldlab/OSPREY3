@@ -20,6 +20,10 @@ public class EnergyMatrix extends TupleMatrix<Double> {
     
     private double constTerm = 0;
     
+    //we may want to have reference energies associated with this matrix
+    ReferenceEnergies eRefMat = null;
+    
+    
     
     public EnergyMatrix(ConfSpace cSpace, double pruningInterval){
         //For a normal, precomputed energy matrix we expect infinite pruning interval
@@ -210,7 +214,10 @@ public class EnergyMatrix extends TupleMatrix<Double> {
         
         return strongestPairE;
     }
-    
-    
-    
+
+    public ReferenceEnergies geteRefMat() {
+        return eRefMat;
+    }
+
+   
 }

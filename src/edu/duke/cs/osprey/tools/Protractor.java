@@ -161,9 +161,9 @@ public class Protractor {
         double ans[] = new double[2];
 
         //Get coordinates of relevant atoms
-        //return null (undefined) if can't find one or more atoms
+        //return nan (undefined) if can't find one or more atoms
         if(res.indexInMolecule==0 || res.indexInMolecule==res.molec.residues.size()-1)//first or last res
-            return null;
+            return new double[] {Double.NaN, Double.NaN};
 
         Residue prevRes = res.molec.residues.get(res.indexInMolecule-1);
         Residue nextRes = res.molec.residues.get(res.indexInMolecule+1);
@@ -176,7 +176,7 @@ public class Protractor {
         double[] NNext = nextRes.getCoordsByAtomName("N");
 
         if ( CLast==null || NCur==null || CACur==null || CCur==null || NNext==null )
-            return null;//atom not found
+            return new double[] {Double.NaN, Double.NaN};//atom not found
 
         ans[0] = Protractor.measureDihedral( new double[][] {CLast,NCur,CACur,CCur} );//phi
         ans[1] = Protractor.measureDihedral( new double[][] {NCur,CACur,CCur,NNext} );//psi

@@ -58,33 +58,39 @@ public class SearchProblem implements Serializable {
 
     public boolean useEPIC = false;
     public boolean useTupExpForSearch = false;//use a tuple expansion to approximate the energy as we search
-
-    public SearchProblem(SearchProblem sp1) {//shallow copy
-        confSpace = sp1.confSpace;
-
-        emat = sp1.emat;
+    
+    
+    boolean useERef = false;
+    
+    
+    public SearchProblem(SearchProblem sp1){//shallow copy
+    	confSpace = sp1.confSpace;
+    	emat = sp1.emat;
         epicMat = sp1.epicMat;
         epicSettings = sp1.epicSettings;
         tupExpEMat = sp1.tupExpEMat;
+        
+    	fullConfE = sp1.fullConfE;
+    	shellResidues = sp1.shellResidues;
+    	name = sp1.name + System.currentTimeMillis();//probably will want to change this to something more meaningful
+        
+    	pruneMat = sp1.pruneMat;
+    	competitorPruneMat = sp1.competitorPruneMat;
+        
+    	contSCFlex = sp1.contSCFlex;
+    	useEPIC = sp1.useEPIC;
+    	useTupExpForSearch = sp1.useTupExpForSearch;
+        
+        useERef = sp1.useERef;
 
-        fullConfE = sp1.fullConfE;
-        shellResidues = sp1.shellResidues;
-        name = sp1.name + System.currentTimeMillis();//probably will want to change this to something more meaningful
-
-        pruneMat = sp1.pruneMat;
-        competitorPruneMat = sp1.competitorPruneMat;
-
-        contSCFlex = sp1.contSCFlex;
-        useEPIC = sp1.useEPIC;
-        useTupExpForSearch = sp1.useTupExpForSearch;
     }
 
     public SearchProblem(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
-            boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset,
-            ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses) {
 
-        this.confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses);
-
+            boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset, 
+            ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef){
+        
+        confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses);
         this.name = name;
 
         this.contSCFlex = contSCFlex;
@@ -92,6 +98,8 @@ public class SearchProblem implements Serializable {
         this.useEPIC = useEPIC;
         this.epicSettings = epicSettings;
 
+        
+        this.useERef = useERef;
         //energy function setup
         EnergyFunctionGenerator eGen = EnvironmentVars.curEFcnGenerator;
         decideShellResidues(eGen.distCutoff);
@@ -131,12 +139,17 @@ public class SearchProblem implements Serializable {
         //Minimized energy of the conformation
         //whose RCs are listed for all flexible positions in conf
         double E = confSpace.minimizeEnergy(conf, fullConfE, null);
+        
+        if(useERef)
+            E -= emat.geteRefMat().confERef(conf);
+        
         return E;
     }
 
     public void outputMinimizedStruct(int[] conf, String PDBFileName) {
         //Output minimized conformation to specified file
         //RCs are listed for all flexible positions in conf
+        //Note: eRef not included (just minimizing w/i voxel)
         confSpace.minimizeEnergy(conf, fullConfE, PDBFileName);
     }
 
@@ -205,11 +218,11 @@ public class SearchProblem implements Serializable {
     }
 
     //compute the matrix of the specified type
-    private TupleMatrix calcMatrix(MatrixType type) {
 
-        if (type == MatrixType.EMAT) {
-            //If we don't want super-RCs...
-            EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(confSpace, shellResidues);
+    private TupleMatrix calcMatrix(MatrixType type){
+        
+        if(type == MatrixType.EMAT){
+            EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(confSpace,shellResidues,useERef);
             emCalc.calcPEM();
             return emCalc.getEMatrix();
         } else if (type == MatrixType.EPICMAT) {

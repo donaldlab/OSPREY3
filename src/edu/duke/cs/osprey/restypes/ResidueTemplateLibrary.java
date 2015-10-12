@@ -292,6 +292,7 @@ public class ResidueTemplateLibrary {
      * @param backbone_dependent_rotamers Use Dunbrack Rotamer Library? 
      */
     public void loadRotamerLibrary(String fileName, boolean dunbrack_backbone_dependent_rotamers){
+
         if(dunbrack_backbone_dependent_rotamers){
         	RotamerLibraryReader.readDunbrackRotamerLibraryForResiduePosition(fileName, this);
         }

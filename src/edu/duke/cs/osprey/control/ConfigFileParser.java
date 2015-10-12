@@ -136,8 +136,8 @@ public class ConfigFileParser {
                 new EPICSettings(params),
                 params.getBool("UseTupExp",false),
                 dset, moveableStrands, freeBBZones,
-                params.getBool("useEllipses", false) 
-        );
+                params.getBool("useEllipses", false),
+                params.getBool("useERef", false) );
     }
     
     //HMN: same as getSearchProblem() but supports super-RCs
@@ -319,7 +319,8 @@ public class ConfigFileParser {
         resTemplates.loadTemplateCoords("all_amino_coords.in");
         
         //load rotamer libraries; the names of residues as they appear in the rotamer library file will be matched to templates
-        boolean dunbrackRots = params.getBool("UseDunbrackRotamers", true);
+        boolean dunbrackRots = params.getBool("UseDunbrackRotamers", false);
+
         // PGC 2015: Always load the Lovell Rotamer Library.
     	resTemplates.loadRotamerLibrary(params.getValue("ROTFILE","LovellRotamer.dat"), false);//see below; also gRotFile0 etc
         if(dunbrackRots){ // Use the dunbrack rotamer library

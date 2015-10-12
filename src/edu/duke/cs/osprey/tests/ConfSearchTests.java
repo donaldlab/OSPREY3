@@ -139,7 +139,7 @@ public class ConfSearchTests {
         
         SearchProblem ans = new SearchProblem( "testResults/CONFSEARCHTEST"+numPos, "1CC8.ss.pdb", 
                 flexRes, allowedAAs,false, false, false, null, 
-                false, new DEEPerSettings(), new ArrayList<>(), new ArrayList<>(), useEllipses );
+                false, new DEEPerSettings(), new ArrayList<>(), new ArrayList<>(), useEllipses, false );
                 //don't add WT, and no minimization, EPIC, tuple expansion, DEEPer, or strand motions
 
         

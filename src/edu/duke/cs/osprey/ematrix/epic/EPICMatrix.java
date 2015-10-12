@@ -11,6 +11,7 @@ import edu.duke.cs.osprey.confspace.TupleMatrix;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MolecEObjFunction;
+import edu.duke.cs.osprey.tools.ObjectIO;
 import java.util.ArrayList;
 
 /**
@@ -65,7 +66,11 @@ public class EPICMatrix extends TupleMatrix<EPoly> {
         DoubleMatrix1D bestDOFVals = minim.minimize();
         double E = objFcn.getValue(bestDOFVals);
         
-        
+        //DEBUG!!!!!!!!
+        /*String objFcnFile = "OBJFCN"+System.currentTimeMillis()+".dat";
+        ObjectIO.writeObject(objFcn, objFcnFile);
+        System.out.println("OUTPUTTED OBJ FCN TO "+objFcnFile+".  E: "+E+" bestDOFVals: "+bestDOFVals);
+        */
         
         //137DEBUG!!!
         long sampTime = System.currentTimeMillis() - startTime;
@@ -138,6 +143,10 @@ public class EPICMatrix extends TupleMatrix<EPoly> {
         
         EPICEnergyFunction efunc = new EPICEnergyFunction(terms);
         return efunc;
+    }
+
+    public ConfSpace getConfSpace() {
+        return confSpace;
     }
     
     

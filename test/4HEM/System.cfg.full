@@ -1,0 +1,9 @@
+pdbname /usr/project/dlab/Users/pablo/Entropy/02b-nanobodies/4HEM/01-structures/04-4HEM_clean.min_renumber.pdb
+numOfStrands 2
+strand0 34 463
+strand1 601 722
+strandMutNums 6 9
+strandrottrans0 false
+strandrottrans1 false
+strandmut0 101 116 117 118 143 366
+strandmut1 644 646 647 657 659 661 662 665 700
