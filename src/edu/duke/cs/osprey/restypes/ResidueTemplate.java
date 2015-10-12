@@ -36,7 +36,7 @@ public class ResidueTemplate implements Serializable {
     public Residue templateRes;
     
     //dihedral information
-    public int numDihedrals = -1;
+    public int numDihedrals = 0;
     public int dihedral4Atoms[][];//for each dihedral, list of 4 atoms defining it
     //these are indices in all our atom-wise arrays
     public ArrayList<ArrayList<Integer>> dihedralMovingAtoms;//list of atoms that move for each dihedral
@@ -136,7 +136,13 @@ public class ResidueTemplate implements Serializable {
      * @return the angle value for the desired dihedral.
      */
     public double getRotamericDihedrals(double phi, double psi, int rotNum, int dihedralNum){
-    	
+                
+                if(Double.isNaN(phi) || Double.isNaN(psi)){//dihedrals not defined for this residue
+                    if(numberOfPhiPsiBins > 1)
+                        throw new RuntimeException("ERROR: Can't use Dunbrack library on residues w/o phi/psi defined");
+                    
+                    return rotamericDihedrals[0][0][rotNum][dihedralNum];
+                }
 
 		// Under the dunbrack rotamer library, backbone dependent rotamers have a resolution of 10 degrees, 
 		//    while in backbone-independent rotamer libraries they have a resolution of 360.    		
@@ -153,6 +159,15 @@ public class ResidueTemplate implements Serializable {
      * @return The number of rotamers.
      */
     public int getNumRotamers(double phi, double psi){
+        
+                if(Double.isNaN(phi) || Double.isNaN(psi)){//dihedrals not defined for this residue
+                    if(numberOfPhiPsiBins > 1)
+                        throw new RuntimeException("ERROR: Can't use Dunbrack library on residues w/o phi/psi defined");
+                    
+                    return numRotamers[0][0];
+                }
+        
+        
 		// Under the dunbrack rotamer library, backbone dependent rotamers have a resolution of 10 degrees, 
 		//    while in backbone-independent rotamer libraries they have a resolution of 360.    		
 		//  Therefore, we round to the closest "bin" and add numberOfPhiPsiBins/2 (to make all numbers positive)
@@ -202,6 +217,13 @@ public class ResidueTemplate implements Serializable {
 
 		this.numRotamers[phiBin][psiBin] = numRotamers;
 
+    }
+    /**
+     * PGC 2015:
+     * Set the number of dihedrals for this Residue type 
+     */
+    public void setNumDihedrals(int numDihedrals){
+    	this.numDihedrals = numDihedrals;
     }
     /**
      * PGC 2015: 

@@ -51,6 +51,10 @@ public class ObjectIO {
                 out.writeObject(outObj);
                 out.close();
         }
+        catch(StackOverflowError e){//For objects with lots of links, might need to raise stack size, 
+              //since writing is recursive
+              throw new RuntimeException("ERROR: Stack overflow in deepCopy.  Consider increasing -Xss");
+        }
         catch (Exception e){
                 System.out.println(e.toString());
                 System.out.println("ERROR: An exception occurred while writing object file");
@@ -86,6 +90,10 @@ public class ObjectIO {
              ois.close();
              
              return ans;
+          }
+          catch(StackOverflowError e){//For objects with lots of links, might need to raise stack size, 
+              //since writing is recursive
+              throw new RuntimeException("ERROR: Stack overflow in deepCopy.  Consider increasing -Xss");
           }
           catch(Exception e)
           {

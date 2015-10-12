@@ -809,20 +809,20 @@ public class TESampleSet implements Serializable {
             
             
             //DEBUG!!!
-        long sampTime = System.currentTimeMillis() - startTime;
-        //taking over 10 s is going to be an issue
-        if(sampTime > 10000){
-            System.out.println();
-            System.out.println("finishSample sampling took over 10 s (ms shown): "+sampTime);
-            System.out.println("Target tuple: "+tup.stringListing());
-            System.out.println("tryNum: "+tryNum);
-            if(finishSampleSuccessful)
-                System.out.println("Sample: "+new RCTuple(sample).stringListing());
-            else
-                System.out.println("No sample found yet.");
-            System.out.println();
-        }
-        //DEBUG!!
+            long sampTime = System.currentTimeMillis() - startTime;
+            //taking over 10 s is going to be an issue
+            if(sampTime > 10000){
+                System.out.println();
+                System.out.println("finishSample sampling took over 10 s (ms shown): "+sampTime);
+                System.out.println("Target tuple: "+tup.stringListing());
+                System.out.println("tryNum: "+tryNum);
+                if(finishSampleSuccessful)
+                    System.out.println("Sample: "+new RCTuple(sample).stringListing());
+                else
+                    System.out.println("No sample found yet.");
+                System.out.println();
+            }
+            //DEBUG!!
         
         
         
@@ -832,12 +832,45 @@ public class TESampleSet implements Serializable {
         }
         
         //ok let's try something more systematic.  Depth-first search.  
+        Arrays.fill(sample,-1);
+        te.assignTupleInSample(sample, tup);
+        
+        //DEBUG!!  Want to see what's taking so long on second-round 30.5, 40.cont
+        long sampStartTime = System.currentTimeMillis();
+        
+        
+        sample = finishSampleDFS(sample);
+        
+        
+        long sampTime = System.currentTimeMillis() - sampStartTime;
+        //taking over 10 s is going to be an issue
+        if(sampTime > 10000){
+            System.out.println();
+            System.out.println("Sampling took over 10 s (ms shown): "+sampTime);
+            System.out.println("Target tuple: "+tup.stringListing());
+            if(sample != null)
+                System.out.println("Sample: "+new RCTuple(sample).stringListing());
+            else
+                System.out.println("No sample found.");
+            System.out.println();
+        }
+        
+        
+        if(errorIfImpossible && sample==null){
+            throw new RuntimeException("ERROR: No unpruned samples available for tuple "
+                    + tup.stringListing());   
+        }
+        
+        return sample;
+    }
+    
+        
+    int[] finishSampleDFS(int[] sample){
+        //Complete the sample by DFS
         //For this we set up the list of RCs available at each position.  
         //Each time we'll search the position with the most eliminated RCs (by pairs+ pruning)
         //this way hopefully can clear out tuples that need pruning relatively quickly
         //random ordering of assignments at each position
-        Arrays.fill(sample,-1);
-        te.assignTupleInSample(sample, tup);
         
         ArrayList<ArrayList<int[]>> allowedRCs = new ArrayList<>();
         ArrayList<Integer> numElim = new ArrayList<>();
@@ -852,41 +885,15 @@ public class TESampleSet implements Serializable {
                 break;
             }
         }
-
-        //DEBUG!!  Want to see what's taking so long on second-round 30.5, 40.cont
-        long sampStartTime = System.currentTimeMillis();
         
         if(tuplePossible)
             tuplePossible = unprunedSampDFS(sample, allowedRCs, numElim);
-        
-        
-        //DEBUG!!!
-        long sampTime = System.currentTimeMillis() - sampStartTime;
-        //taking over 10 s is going to be an issue
-        if(sampTime > 10000){
-            System.out.println();
-            System.out.println("Sampling took over 10 s (ms shown): "+sampTime);
-            System.out.println("Target tuple: "+tup.stringListing());
-            if(tuplePossible)
-                System.out.println("Sample: "+new RCTuple(sample).stringListing());
-            else
-                System.out.println("No sample found.");
-            System.out.println();
-        }
-        
-        
-        
-        
+               
         if(tuplePossible)
             return sample;
-        else {
-            if(errorIfImpossible)
-                throw new RuntimeException("ERROR: No unpruned samples available for tuple "+tup.stringListing());
-            else
-                return null;
-        }
+        else
+            return null;
     }
-    
     
     
     
