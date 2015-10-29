@@ -329,7 +329,7 @@ public class KaDEEFinder {
             mutableState2StatePosNum.add(converted);
         }
 
-        COMETSTree tree = new COMETSTree(numTreeLevels, objFcn, constraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, mutableState2StatePosNum);
+        COMETSTreeSuper tree = new COMETSTreeSuper(numTreeLevels, objFcn, constraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, mutableState2StatePosNum);
         tree.nextConf();
     }
 

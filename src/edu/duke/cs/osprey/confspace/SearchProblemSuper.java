@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
  *
  * @author hmn5
  */
-public class SearchProblemSuper extends SearchProblem {
+public class SearchProblemSuper{
     //This is the super-RC analog of SearchProblem
 
     public ConfSpaceSuper confSpaceSuper;

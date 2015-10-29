@@ -100,27 +100,6 @@ public class COMETSTree extends AStarTree {
         //DEBUG!!!
     }
 
-    public COMETSTree(int numTreeLevels, LME objFcn, LME[] constraints,
-            ArrayList<ArrayList<String>> AATypeOptions, int numMaxMut, String[] wtSeq,
-            int numStates, SearchProblemSuper[] stateSP,
-            ArrayList<ArrayList<Integer>> mutable2StatePosNums) {
-
-        this.numTreeLevels = numTreeLevels;
-        this.objFcn = objFcn;
-        this.constraints = constraints;
-        this.AATypeOptions = AATypeOptions;
-        this.numMaxMut = numMaxMut;
-        this.wtSeq = wtSeq;
-        this.numStates = numStates;
-        this.stateSP = stateSP;
-        this.mutable2StatePosNums = mutable2StatePosNums;
-
-        stateNumPos = new int[numStates];
-        for (int state = 0; state < numStates; state++) {
-            stateNumPos[state] = stateSP[state].confSpaceSuper.numPos;
-        }
-
-    }
 
     @Override
     public ArrayList<AStarNode> getChildren(AStarNode curNode) {

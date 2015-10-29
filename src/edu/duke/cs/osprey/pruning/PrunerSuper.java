@@ -99,7 +99,7 @@ public class PrunerSuper {
         tupEnum = new TupleEnumerator(pruneMat, emat, searchSpace.confSpaceSuper.numPos);
     }
     
-    boolean prune(String methodName){
+    public boolean prune(String methodName){
         return prune(PruningMethod.getMethod(methodName));
     }
     
