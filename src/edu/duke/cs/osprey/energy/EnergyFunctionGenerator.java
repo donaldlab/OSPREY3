@@ -137,7 +137,7 @@ public class EnergyFunctionGenerator {
   //HMN: Created new fullConfEnergy to hand ConfSpaceSuper input
     public EnergyFunction fullConfEnergy(ConfSpaceSuper cSpace, ArrayList<Residue> shellResidues){
         ArrayList<Residue> flexibleResidues = new ArrayList<>();
-        for (PositionConfSpaceSuper pcs : cSpace.posFlex){
+        for (PositionConfSpaceSuper pcs : cSpace.posFlexSuper){
             for (Residue res : pcs.resList){
                 flexibleResidues.add(res);
             }

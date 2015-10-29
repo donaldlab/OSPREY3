@@ -190,6 +190,7 @@ public class ConfSpace implements Serializable {
         PDBFileWriter.writePDBFile(m, "STRUCT3.pdb");*/
     }
     
+    public ConfSpace(){};
     
     private ArrayList<BBFreeBlock> getBBFreeBlocks(ArrayList<String[]> freeBBZones, ArrayList<String> flexibleRes){
         //create a BFB for each (start res, end res) pair.  PDB residue numbers provided.  

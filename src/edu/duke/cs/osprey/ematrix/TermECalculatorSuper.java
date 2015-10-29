@@ -93,7 +93,7 @@ public class TermECalculatorSuper implements MPISlaveTask {
             }
         } else {
             //Since we do not simply have single and pair residues, we use a multi-term energy function
-            PositionConfSpaceSuper firstPosition = confSpaceSuper.posFlex.get(posToCalc[0]);
+            PositionConfSpaceSuper firstPosition = confSpaceSuper.posFlexSuper.get(posToCalc[0]);
             int numResAtFirstPos = firstPosition.resList.size();
             if (doingIntra) { //And intra and pairwise terms WITHIN the position
                 for (int resNum1 = 0; resNum1 < numResAtFirstPos; resNum1++) {
@@ -122,7 +122,7 @@ public class TermECalculatorSuper implements MPISlaveTask {
                     }
                 } else if (pos.length == 2) {//pairwise between resi in pos1 and resj in pos2
                     for (Residue res1 : firstPosition.resList) {
-                        PositionConfSpaceSuper secondPosition = confSpaceSuper.posFlex.get(posToCalc[1]);
+                        PositionConfSpaceSuper secondPosition = confSpaceSuper.posFlexSuper.get(posToCalc[1]);
                         for (Residue res2 : secondPosition.resList) {
                             EnergyFunction eTerm = EnvironmentVars.curEFcnGenerator.resPairEnergy(res1, res2);
                             termE.addTerm(eTerm);
@@ -176,7 +176,7 @@ public class TermECalculatorSuper implements MPISlaveTask {
     }
 
     public void oneBodyCalc() {
-        ArrayList<SuperRC> superRCList = confSpaceSuper.posFlex.get(pos[0]).superRCs;
+        ArrayList<SuperRC> superRCList = confSpaceSuper.posFlexSuper.get(pos[0]).superRCs;
 
         for (int superRCNum = 0; superRCNum < superRCList.size(); superRCNum++) {
             SuperRCTuple superRCTup = new SuperRCTuple(pos[0], superRCNum);
@@ -187,8 +187,8 @@ public class TermECalculatorSuper implements MPISlaveTask {
     public void twoBodyCalc() {
         //list minimized one-body energies for all the RCs in res
 
-        ArrayList<SuperRC> RCList1 = confSpaceSuper.posFlex.get(pos[0]).superRCs;
-        ArrayList<SuperRC> RCList2 = confSpaceSuper.posFlex.get(pos[1]).superRCs;
+        ArrayList<SuperRC> RCList1 = confSpaceSuper.posFlexSuper.get(pos[0]).superRCs;
+        ArrayList<SuperRC> RCList2 = confSpaceSuper.posFlexSuper.get(pos[1]).superRCs;
 
         for (int firstRCNum = 0; firstRCNum < RCList1.size(); firstRCNum++) {
 
@@ -208,8 +208,8 @@ public class TermECalculatorSuper implements MPISlaveTask {
         if (superRCs.pos.size() == 2) {//pair: need to check for parametric incompatibility
             //If there are DOFs spanning multiple residues, then parametric incompatibility
             //is whether the pair is mathematically possible (i.e. has a well-defined voxel)
-            SuperRC rc1 = confSpaceSuper.posFlex.get(superRCs.pos.get(0)).superRCs.get(superRCs.superRCs.get(0));
-            SuperRC rc2 = confSpaceSuper.posFlex.get(superRCs.pos.get(1)).superRCs.get(superRCs.superRCs.get(1));
+            SuperRC rc1 = confSpaceSuper.posFlexSuper.get(superRCs.pos.get(0)).superRCs.get(superRCs.superRCs.get(0));
+            SuperRC rc2 = confSpaceSuper.posFlexSuper.get(superRCs.pos.get(1)).superRCs.get(superRCs.superRCs.get(1));
             if (rc1.isParametricallyIncompatibleWith(rc2)) {
                 skipTuple = true;
             }

@@ -332,7 +332,7 @@ public class GMECFinderSuper {
 
         System.out.println("Residue types: ");
         for (int pos = 0; pos < searchSpace.confSpaceSuper.numPos; pos++) {
-            for (String resType : searchSpace.confSpaceSuper.posFlex.get(pos).superRCs.get(conf[pos]).AATypePerRes) {
+            for (String resType : searchSpace.confSpaceSuper.posFlexSuper.get(pos).superRCs.get(conf[pos]).AATypePerRes) {
                 System.out.print(resType + " ");
             }
         }
@@ -340,7 +340,7 @@ public class GMECFinderSuper {
 
         System.out.println("Rotamer numbers: ");
         for (int pos = 0; pos < searchSpace.confSpaceSuper.numPos; pos++) {
-            for (int rotNum : searchSpace.confSpaceSuper.posFlex.get(pos).superRCs.get(conf[pos]).rotNumPerRes) {
+            for (int rotNum : searchSpace.confSpaceSuper.posFlexSuper.get(pos).superRCs.get(conf[pos]).rotNumPerRes) {
                 System.out.print(rotNum + " ");
             }
         }

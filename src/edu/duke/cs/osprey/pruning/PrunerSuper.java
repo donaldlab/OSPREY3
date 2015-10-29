@@ -199,11 +199,11 @@ public class PrunerSuper {
 
             int pos1 = tup1.pos.get(indexInTup);
             int rc1 = tup1.superRCs.get(indexInTup);
-            ArrayList<String> type1 = confSpaceSuper.posFlex.get(pos1).superRCs.get(rc1).AATypePerRes;
+            ArrayList<String> type1 = confSpaceSuper.posFlexSuper.get(pos1).superRCs.get(rc1).AATypePerRes;
 
             int pos2 = tup2.pos.get(indexInTup);
             int rc2 = tup2.RCs.get(indexInTup);
-            ArrayList<String> type2 = confSpaceSuper.posFlex.get(pos2).superRCs.get(rc2).AATypePerRes;
+            ArrayList<String> type2 = confSpaceSuper.posFlexSuper.get(pos2).superRCs.get(rc2).AATypePerRes;
             for (int AAIndex = 0; AAIndex < type1.size(); AAIndex++) {
                 String AAtype1 = type1.get(AAIndex);
                 String AAtype2 = type2.get(AAIndex);

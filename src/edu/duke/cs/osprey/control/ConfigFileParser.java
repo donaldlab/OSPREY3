@@ -4,6 +4,7 @@
  */
 package edu.duke.cs.osprey.control;
 
+import com.sun.org.apache.xalan.internal.xsltc.compiler.util.Type;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.SearchProblemSuper;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
@@ -11,6 +12,7 @@ import edu.duke.cs.osprey.dof.deeper.RamachandranChecker;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
+import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningControlSuper;
@@ -27,407 +29,671 @@ import java.util.StringTokenizer;
 public class ConfigFileParser {
     //An object that parses configuration files and uses them to initialize objects needed
     //in various calculations (i.e. for data file loading, conf space definition, pruning, etc.)
-    
+
     ParamSet params = new ParamSet();
-    
-    public ConfigFileParser(String[] args){
+
+    public ConfigFileParser(String[] args) {
         //parse all config files into params
-        
+
         //check format of args
-        if(!args[0].equalsIgnoreCase("-c"))
+        if (!args[0].equalsIgnoreCase("-c")) {
             throw new RuntimeException("ERROR: bad arguments (should start with -c)");
-        
+        }
+
         params.addParamsFromFile(args[1]);//KStar.cfg file
-        for(int argNum=3; argNum<args.length; argNum++)//System.cfg, etc.
+        for (int argNum = 3; argNum < args.length; argNum++)//System.cfg, etc.
+        {
             params.addParamsFromFile(args[argNum]);
+        }
     }
-    
-    
-    DEEPerSettings setupDEEPer(){
+
+    DEEPerSettings setupDEEPer() {
         //Set up the DEEPerSettings object, including the PertSet (describes the perturbations)
         String runName = params.getValue("runName");
-        
+
         DEEPerSettings dset = new DEEPerSettings(
                 params.getBool("doPerturbations", false),
-                params.getValue("perturbationFile", runName+".pert"),
+                params.getValue("perturbationFile", runName + ".pert"),
                 params.getBool("selectPerturbations", true),
                 params.getValue("startingPerturbationFile", "none"),
                 params.getBool("onlyStartingPerturbations", false),
                 params.getDouble("maxShearParam", 2.5),
                 params.getDouble("maxBackrubParam", 2.5),
                 params.getBool("selectLCAs", false),
-                getFlexRes(), 
+                getFlexRes(),
                 params.getValue("PDBNAME")
         );
-        
+
         dset.loadPertFile();//load the PertSet from its file
         return dset;
     }
-    
-    
-    private ArrayList<String[]> freeBBZoneTermini(){
+
+    //HMN: create bound/unbound specific version 
+    DEEPerSettings setupDEEPer(ArrayList<String> flexRes) {
+        //Set up the DEEPerSettings object, including the PertSet (describes the perturbations)
+        String runName = params.getValue("runName");
+
+        DEEPerSettings dset = new DEEPerSettings(
+                params.getBool("doPerturbations", false),
+                params.getValue("perturbationFile", runName + ".pert"),
+                params.getBool("selectPerturbations", true),
+                params.getValue("startingPerturbationFile", "none"),
+                params.getBool("onlyStartingPerturbations", false),
+                params.getDouble("maxShearParam", 2.5),
+                params.getDouble("maxBackrubParam", 2.5),
+                params.getBool("selectLCAs", false),
+                flexRes,
+                params.getValue("PDBNAME")
+        );
+
+        dset.loadPertFile();//load the PertSet from its file
+        return dset;
+    }
+
+    private ArrayList<String[]> freeBBZoneTermini() {
         //Read the termini of the BBFreeBlocks, if any
         ArrayList<String[]> ans = new ArrayList<>();
-        
-        for(String rt : params.searchParams("BBFREEBLOCK")){
+
+        for (String rt : params.searchParams("BBFREEBLOCK")) {
             //So for example BBFREEBLOCK0 120 125 would mean make a BBFreeBlock for res 120-125
             //lexical ordering for blocks is OK
             String strandLimitsString = params.getValue(rt);
 
-            String[] termini = 
-                { StringParsing.getToken(strandLimitsString, 1),
-                    StringParsing.getToken(strandLimitsString, 2) };
+            String[] termini
+                    = {StringParsing.getToken(strandLimitsString, 1),
+                        StringParsing.getToken(strandLimitsString, 2)};
 
             ans.add(termini);
         }
-        
+
         return ans;
     }
-    
-    
-    private ArrayList<String[]> moveableStrandTermini(){
+
+    //HMN: create  bound/unbound specific versions of freeBBZoneTermini
+    private ArrayList<String[]> freeBBZoneTerminiBound() {
+        return freeBBZoneTermini();
+    }
+
+    //HMN: freeBBZoneTermini for unbound 0 strand
+    private ArrayList<String[]> freeBBZoneTerminiUnbound0() {
+        //Read the termini of the BBFreeBlocks, if any
+        ArrayList<String[]> ans = new ArrayList<>();
+
+        for (String rt : params.searchParams("BBFREEBLOCK0")) {
+            //So for example BBFREEBLOCK0 120 125 would mean make a BBFreeBlock for res 120-125
+            //lexical ordering for blocks is OK
+            String strandLimitsString = params.getValue(rt);
+
+            String[] termini
+                    = {StringParsing.getToken(strandLimitsString, 1),
+                        StringParsing.getToken(strandLimitsString, 2)};
+
+            ans.add(termini);
+        }
+
+        return ans;
+    }
+
+    //HMN: freeBBZoneTermini for unbound 1 strand
+    private ArrayList<String[]> freeBBZoneTerminiUnbound1() {
+        //Read the termini of the BBFreeBlocks, if any
+        ArrayList<String[]> ans = new ArrayList<>();
+
+        for (String rt : params.searchParams("BBFREEBLOCK1")) {
+            //So for example BBFREEBLOCK0 120 125 would mean make a BBFreeBlock for res 120-125
+            //lexical ordering for blocks is OK
+            String strandLimitsString = params.getValue(rt);
+
+            String[] termini
+                    = {StringParsing.getToken(strandLimitsString, 1),
+                        StringParsing.getToken(strandLimitsString, 2)};
+
+            ans.add(termini);
+        }
+
+        return ans;
+    }
+
+    private ArrayList<String[]> moveableStrandTermini() {
         //Read the strands that are going to translate and rotate
         //Let's say they can do this regardless of what doMinimize says (that's for sidechains)
         ArrayList<String[]> ans = new ArrayList<>();
-        
-        for(String rt : params.searchParams("STRANDROTTRANS")){
-            if(params.getBool(rt, false)){
+
+        for (String rt : params.searchParams("STRANDROTTRANS")) {
+            if (params.getBool(rt, false)) {
                 //So rt = STRANDROTTRANS0 here means strand 0 should translate & rotate
                 //OK to go through these params in lexical ordering
                 String strandNum = rt.substring(14);
-                String strandLimitsString = params.getValue("STRAND"+strandNum);
-                
-                String[] termini = 
-                    { StringParsing.getToken(strandLimitsString, 1),
-                        StringParsing.getToken(strandLimitsString, 2) };
-                
+                String strandLimitsString = params.getValue("STRAND" + strandNum);
+
+                String[] termini
+                        = {StringParsing.getToken(strandLimitsString, 1),
+                            StringParsing.getToken(strandLimitsString, 2)};
+
                 ans.add(termini);
             }
         }
-        
+
         return ans;
     }
-    
+
+    //HMN: Make sure we only get moveable strands for Bound or Unbound states that 
+    ///we are interested in
+    private ArrayList<String[]> moveableStrandTerminiBound() {
+        return moveableStrandTermini();
+    }
+
+    private ArrayList<String[]> moveableStrandTerminiUnboud0() {
+        //Read the strands that are going to translate and rotate
+        //Let's say they can do this regardless of what doMinimize says (that's for sidechains)
+        ArrayList<String[]> ans = new ArrayList<>();
+
+        for (String rt : params.searchParams("STRANDROTTRANS0")) {
+            if (params.getBool(rt, false)) {
+                //So rt = STRANDROTTRANS0 here means strand 0 should translate & rotate
+                //OK to go through these params in lexical ordering
+                String strandNum = rt.substring(14);
+                String strandLimitsString = params.getValue("STRAND" + strandNum);
+
+                String[] termini
+                        = {StringParsing.getToken(strandLimitsString, 1),
+                            StringParsing.getToken(strandLimitsString, 2)};
+
+                ans.add(termini);
+            }
+        }
+        return ans;
+    }
+
+    private ArrayList<String[]> moveableStrandTerminiUnboud1() {
+        //Read the strands that are going to translate and rotate
+        //Let's say they can do this regardless of what doMinimize says (that's for sidechains)
+        ArrayList<String[]> ans = new ArrayList<>();
+
+        for (String rt : params.searchParams("STRANDROTTRANS1")) {
+            if (params.getBool(rt, false)) {
+                //So rt = STRANDROTTRANS0 here means strand 0 should translate & rotate
+                //OK to go through these params in lexical ordering
+                String strandNum = rt.substring(14);
+                String strandLimitsString = params.getValue("STRAND" + strandNum);
+
+                String[] termini
+                        = {StringParsing.getToken(strandLimitsString, 1),
+                            StringParsing.getToken(strandLimitsString, 2)};
+
+                ans.add(termini);
+            }
+        }
+        return ans;
+    }
+
     //creation of objects needed in calculations like GMEC and K*
-    SearchProblem getSearchProblem(){//this version is for a single search problem...can modify for
+    SearchProblem getSearchProblem() {//this version is for a single search problem...can modify for
         //additional states (unbound, etc.)
-        
+
         String name = params.getValue("RUNNAME");
-        
+
         ArrayList<String> flexRes = getFlexRes();
         ArrayList<ArrayList<String>> allowedAAs = getAllowedAAs();
-        
-        if(flexRes.size() != allowedAAs.size()){
+
+        if (flexRes.size() != allowedAAs.size()) {
             throw new RuntimeException("ERROR: Number of flexible positions different in flexible residue "
                     + "and allowed AA type parameters!");
         }
-        
-        System.out.println("CREATING SEARCH PROBLEM.  NAME: "+name);
-        
+
+        System.out.println("CREATING SEARCH PROBLEM.  NAME: " + name);
+
         ArrayList<String[]> moveableStrands = moveableStrandTermini();
         ArrayList<String[]> freeBBZones = freeBBZoneTermini();
         DEEPerSettings dset = setupDEEPer();
-        
-        return new SearchProblem( name, params.getValue("PDBNAME"), 
+
+        return new SearchProblem(name, params.getValue("PDBNAME"),
                 flexRes, allowedAAs,
-                params.getBool("AddWT",true), 
-                params.getBool("doMinimize",false),
-                params.getBool("UseEPIC",false),
+                params.getBool("AddWT", true),
+                params.getBool("doMinimize", false),
+                params.getBool("UseEPIC", false),
                 new EPICSettings(params),
-                params.getBool("UseTupExp",false),
+                params.getBool("UseTupExp", false),
                 dset, moveableStrands, freeBBZones,
                 params.getBool("useEllipses", false),
-                params.getBool("useERef", false) );
+                params.getBool("useERef", false));
     }
-    
+
     //HMN: same as getSearchProblem() but supports super-RCs
-    SearchProblemSuper getSearchProblemSuper(){
-        
+    SearchProblemSuper getSearchProblemSuper() {
+
         String name = params.getValue("RUNNAME");
-        
+
         ArrayList<String> flexRes = getFlexRes();
         ArrayList<ArrayList<String>> allowedAAs = getAllowedAAs();
-        
-        if(flexRes.size() != allowedAAs.size()){
+
+        if (flexRes.size() != allowedAAs.size()) {
             throw new RuntimeException("ERROR: Number of flexible positions different in flexible residue "
                     + "and allowed AA type parameters!");
         }
-        
-        System.out.println("CREATING SEARCH PROBLEM.  NAME: "+name);
-        
+
+        System.out.println("CREATING SEARCH PROBLEM.  NAME: " + name);
+
         ArrayList<String[]> moveableStrands = moveableStrandTermini();
         ArrayList<String[]> freeBBZones = freeBBZoneTermini();
         DEEPerSettings dset = setupDEEPer();
-        
-        return new SearchProblemSuper( name, params.getValue("PDBNAME"), 
+
+        return new SearchProblemSuper(name, params.getValue("PDBNAME"),
                 flexRes, allowedAAs,
-                params.getBool("AddWT",true), 
-                params.getBool("doMinimize",false),
-                params.getBool("UseEPIC",false),
+                params.getBool("AddWT", true),
+                params.getBool("doMinimize", false),
+                params.getBool("UseEPIC", false),
                 new EPICSettings(params),
-                params.getBool("UseTupExp",false),
+                params.getBool("UseTupExp", false),
                 dset, moveableStrands, freeBBZones,
-                params.getBool("useEllipses", false) 
+                params.getBool("useEllipses", false)
         );
     }
-    
-    ArrayList<String> getFlexRes(){
+
+    ArrayList<String> getFlexRes() {
         //list of flexible residues.  PDB-based residue numbers
         //we'll include all flexible residues: for compatibility (MAY BE TEMPORARY),
         //all residues in a "StrandMut" record will be included here
         //"StrandMutNums" means something different and thus will be excluded
         ArrayList<String> flexResList = new ArrayList<>();
-        
-        int numStrands = params.searchParams("STRANDMUT").size() 
+
+        int numStrands = params.searchParams("STRANDMUT").size()
                 - params.searchParams("STRANDMUTNUMS").size();
-        
+
         //must go through the strands in order to get the right residues 
-        for(int smNum=0; smNum<numStrands; smNum++){//must do these in order
+        for (int smNum = 0; smNum < numStrands; smNum++) {//must do these in order
             //so we get the right residues
-            String param = "STRANDMUT"+smNum;//STRANDMUT0, etc
-            
+            String param = "STRANDMUT" + smNum;//STRANDMUT0, etc
+
             String resListString = params.getValue(param);
             StringTokenizer tokenizer = new StringTokenizer(resListString);
-            
-            while(tokenizer.hasMoreTokens()){
-                flexResList.add( tokenizer.nextToken() );
+
+            while (tokenizer.hasMoreTokens()) {
+                flexResList.add(tokenizer.nextToken());
             }
         }
-        
+
         return flexResList;
     }
-    
-    
-    ArrayList<ArrayList<String>> getAllowedAAs(){
+
+    public int getMutableStrand() {
+        int mutStrand = -1;
+        boolean mutStrandSet = false;
+        //handle better later (now assuming old-style numbering)...
+        for (int str = 0; str<2; str++) {
+            ArrayList<String> resAllowedRecords = params.searchParams("RESALLOWED" + str);
+            int numRecordsInStrand = resAllowedRecords.size();
+            //must go through residues in numerical order
+            for (int recNum = 0; recNum < numRecordsInStrand; recNum++) {
+                String param = "RESALLOWED" + str + "_" + recNum;
+                String allowedAAString = params.getValue(param);
+                if ((allowedAAString.trim().split(" ").length > 1) || 
+                        ((allowedAAString.trim().split(" ").length == 1)&&(!allowedAAString.trim().split(" ")[0].isEmpty()))){
+                    if (mutStrandSet && (str != mutStrand)) {
+                        throw new RuntimeException("ERROR: DEE.cfg must have mutations only on strand0");
+                    } else {
+                        mutStrand = str;
+                        mutStrandSet = true;
+                    }
+                }
+            }
+        }
+        return mutStrand;
+    }
+
+    ArrayList<ArrayList<String>> getAllowedAAs() {
         //List allowed AA types for each flexible position
         //for compatibility (MAY BE TEMPORARY),
         //we'll go through all resAllowed records, ordering first by strand num
         //then pos num in strand
-        
+
         ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
-        
+
         //handle better later (now assuming old-style numbering)...
-        for(int str=0; true; str++){
-            ArrayList<String> resAllowedRecords = params.searchParams("RESALLOWED"+str);
+        for (int str = 0; true; str++) {
+            ArrayList<String> resAllowedRecords = params.searchParams("RESALLOWED" + str);
             int numRecordsInStrand = resAllowedRecords.size();
-            
+
             //must go through residues in numerical order
-            for(int recNum=0; recNum<numRecordsInStrand; recNum++){
+            for (int recNum = 0; recNum < numRecordsInStrand; recNum++) {
                 String param = "RESALLOWED" + str + "_" + recNum;
-                    
+
                 String allowedAAString = params.getValue(param);
-                
+
                 //parse AA types from allowedAAString
                 ArrayList<String> resAllowedAAs = new ArrayList<>();
                 StringTokenizer tokenizer = new StringTokenizer(allowedAAString);
-            
-                while(tokenizer.hasMoreTokens()){
-                    resAllowedAAs.add( tokenizer.nextToken() );
+
+                while (tokenizer.hasMoreTokens()) {
+                    resAllowedAAs.add(tokenizer.nextToken());
                 }
-                
+
                 allowedAAs.add(resAllowedAAs);
             }
-            
-            if(numRecordsInStrand==0)//finished with strands that have flexible residues
+
+            if (numRecordsInStrand == 0)//finished with strands that have flexible residues
+            {
                 break;
+            }
         }
-        
+
         return allowedAAs;
     }
-    
-    
-    
-    PruningControl setupPruning(SearchProblem searchSpace, double pruningInterval, boolean useEPIC, boolean useTupExp){
+
+    PruningControl setupPruning(SearchProblem searchSpace, double pruningInterval, boolean useEPIC, boolean useTupExp) {
         //setup pruning.  Conformations in searchSpace more than (Ew+Ival) over the GMEC are liable to pruning
-        
+
         //initialize the pruning matrix for searchSpace, if not already initialized
         //or if pruningInterval lower (so it may have pruned tuples that shouldn't
         //be pruned with our new pruningInterval)
         boolean initPruneMat = false;
-        if(searchSpace.pruneMat==null)
+        if (searchSpace.pruneMat == null) {
             initPruneMat = true;
-        else if(searchSpace.pruneMat.getPruningInterval() < pruningInterval)
+        } else if (searchSpace.pruneMat.getPruningInterval() < pruningInterval) {
             initPruneMat = true;
-        
-        if(initPruneMat)
+        }
+
+        if (initPruneMat) {
             searchSpace.pruneMat = new PruningMatrix(searchSpace.confSpace, pruningInterval);
-        
-        return new PruningControl( searchSpace, pruningInterval, params.getBool("TYPEDEP",false), 
-            params.getDouble("BOUNDSTHRESH",100), params.getInt("ALGOPTION",1), 
-            params.getBool("USEFLAGS",true),
-            params.getBool("USETRIPLES",false), false, useEPIC, useTupExp,
-            params.getDouble("STERICTHRESH",100) );//FOR NOW NO DACS
+        }
+
+        return new PruningControl(searchSpace, pruningInterval, params.getBool("TYPEDEP", false),
+                params.getDouble("BOUNDSTHRESH", 100), params.getInt("ALGOPTION", 1),
+                params.getBool("USEFLAGS", true),
+                params.getBool("USETRIPLES", false), false, useEPIC, useTupExp,
+                params.getDouble("STERICTHRESH", 100));//FOR NOW NO DACS
     }
-    
-    PruningControlSuper setupPruning(SearchProblemSuper searchSpace, double pruningInterval, boolean useEPIC, boolean useTupExp){
+
+    PruningControlSuper setupPruning(SearchProblemSuper searchSpace, double pruningInterval, boolean useEPIC, boolean useTupExp) {
         //setup pruning.  Conformations in searchSpace more than (Ew+Ival) over the GMEC are liable to pruning
-        
+
         //initialize the pruning matrix for searchSpace, if not already initialized
         //or if pruningInterval lower (so it may have pruned tuples that shouldn't
         //be pruned with our new pruningInterval)
         boolean initPruneMat = false;
-        if(searchSpace.pruneMat==null)
+        if (searchSpace.pruneMat == null) {
             initPruneMat = true;
-        else if(searchSpace.pruneMat.getPruningInterval() < pruningInterval || pruningInterval==Double.POSITIVE_INFINITY)
+        } else if (searchSpace.pruneMat.getPruningInterval() < pruningInterval || pruningInterval == Double.POSITIVE_INFINITY) {
             initPruneMat = true;
-        
-        if(initPruneMat)
+        }
+
+        if (initPruneMat) {
             searchSpace.pruneMat = new PruningMatrix(searchSpace.confSpaceSuper, pruningInterval);
-        
-        return new PruningControlSuper( searchSpace, pruningInterval, params.getBool("TYPEDEP",false), 
-            params.getDouble("BOUNDSTHRESH",100), params.getInt("ALGOPTION",1), 
-            params.getBool("USEFLAGS",true),
-            params.getBool("USETRIPLES",false), false, useEPIC, useTupExp,
-            params.getDouble("STERICTHRESH",100) );//FOR NOW NO DACS
+        }
+
+        return new PruningControlSuper(searchSpace, pruningInterval, params.getBool("TYPEDEP", false),
+                params.getDouble("BOUNDSTHRESH", 100), params.getInt("ALGOPTION", 1),
+                params.getBool("USEFLAGS", true),
+                params.getBool("USETRIPLES", false), false, useEPIC, useTupExp,
+                params.getDouble("STERICTHRESH", 100));//FOR NOW NO DACS
     }
-    
-    
-    
+
     //loading of data files
     //residue templates, rotamer libraries, forcefield parameters, and Ramachandran data
-    void loadData(){
-        
+    void loadData() {
+
         EnvironmentVars.setDataDir(params.getValue("DataDir"));
-        
-        boolean usePoissonBoltzmann = params.getBool("USEPOISSONBOLTZMANN",false);
-        boolean useEEF1 = params.getBool("DOSOLVATIONE",true) && (!usePoissonBoltzmann);
-        
+
+        boolean usePoissonBoltzmann = params.getBool("USEPOISSONBOLTZMANN", false);
+        boolean useEEF1 = params.getBool("DOSOLVATIONE", true) && (!usePoissonBoltzmann);
+
         //a lot of this depends on forcefield type so figure that out first
         //general forcefield data loaded into the ForcefieldParams in EnvironmentVars
         ForcefieldParams curForcefieldParams = new ForcefieldParams(
-                params.getValue("Forcefield","AMBER"),
-                params.getBool("DISTDEPDIELECT",true),
-		params.getDouble("DIELECTCONST",6.0),
-                params.getDouble("VDWMULT",0.95),
-		useEEF1,//Only EEF1 solvation is part of the forcefield (P-B calls Delphi)
-		params.getDouble("SOLVSCALE",0.5),
-                params.getBool("HELECT",true),
-                params.getBool("HVDW",true) );
-        
-        
-        EnvironmentVars.curEFcnGenerator = new EnergyFunctionGenerator( 
+                params.getValue("Forcefield", "AMBER"),
+                params.getBool("DISTDEPDIELECT", true),
+                params.getDouble("DIELECTCONST", 6.0),
+                params.getDouble("VDWMULT", 0.95),
+                useEEF1,//Only EEF1 solvation is part of the forcefield (P-B calls Delphi)
+                params.getDouble("SOLVSCALE", 0.5),
+                params.getBool("HELECT", true),
+                params.getBool("HVDW", true));
+
+        EnvironmentVars.curEFcnGenerator = new EnergyFunctionGenerator(
                 curForcefieldParams,
-                params.getDouble("SHELLDISTCUTOFF",Double.POSITIVE_INFINITY),
-                usePoissonBoltzmann );
-        
+                params.getDouble("SHELLDISTCUTOFF", Double.POSITIVE_INFINITY),
+                usePoissonBoltzmann);
+
         String[] resTemplateFiles = getResidueTemplateFiles(curForcefieldParams.forcefld);
-        
-        ResidueTemplateLibrary resTemplates = new ResidueTemplateLibrary( resTemplateFiles, curForcefieldParams );
-        
+
+        ResidueTemplateLibrary resTemplates = new ResidueTemplateLibrary(resTemplateFiles, curForcefieldParams);
+
         //load template coordinates (necessary for all residues we might want to mutate to)
         //these will be matched to templates
         resTemplates.loadTemplateCoords("all_amino_coords.in");
-        
+
         //load rotamer libraries; the names of residues as they appear in the rotamer library file will be matched to templates
         boolean dunbrackRots = params.getBool("UseDunbrackRotamers", false);
 
         // PGC 2015: Always load the Lovell Rotamer Library.
-    	resTemplates.loadRotamerLibrary(params.getValue("ROTFILE","LovellRotamer.dat"), false);//see below; also gRotFile0 etc
-        if(dunbrackRots){ // Use the dunbrack rotamer library
-        	resTemplates.loadRotamerLibrary(params.getValue("DUNBRACKROTFILE","ALL.bbdep.rotamers.lib"), true);//see below; also gRotFile0 etc
+        resTemplates.loadRotamerLibrary(params.getValue("ROTFILE", "LovellRotamer.dat"), false);//see below; also gRotFile0 etc
+        if (dunbrackRots) { // Use the dunbrack rotamer library
+            resTemplates.loadRotamerLibrary(params.getValue("DUNBRACKROTFILE", "ALL.bbdep.rotamers.lib"), true);//see below; also gRotFile0 etc
         }
-        
-        
-        EnvironmentVars.resTemplates = resTemplates;
-        
-        
-        String ramaGlyFile = params.getValue("RAMAGLYFILE","rama500-gly-sym.data");
 
-        if( ! ramaGlyFile.equalsIgnoreCase("none") ){
-            String ramaFiles[] = { EnvironmentVars.getDataDir() + ramaGlyFile,
-            EnvironmentVars.getDataDir() + params.getValue("RAMAPROFILE","rama500-pro.data"),
-            EnvironmentVars.getDataDir() + params.getValue("RAMAGENFILE","rama500-general.data"),
-            EnvironmentVars.getDataDir() + params.getValue("RAMAPREPROFILE","rama500-prepro.data")
+        EnvironmentVars.resTemplates = resTemplates;
+
+        String ramaGlyFile = params.getValue("RAMAGLYFILE", "rama500-gly-sym.data");
+
+        if (!ramaGlyFile.equalsIgnoreCase("none")) {
+            String ramaFiles[] = {EnvironmentVars.getDataDir() + ramaGlyFile,
+                EnvironmentVars.getDataDir() + params.getValue("RAMAPROFILE", "rama500-pro.data"),
+                EnvironmentVars.getDataDir() + params.getValue("RAMAGENFILE", "rama500-general.data"),
+                EnvironmentVars.getDataDir() + params.getValue("RAMAPREPROFILE", "rama500-prepro.data")
             };
-            RamachandranChecker.getInstance().readInputFiles( ramaFiles );
+            RamachandranChecker.getInstance().readInputFiles(ramaFiles);
         }
-        
-        
+
         /*
          * A lot of this is similar to this KSParser.setConfigPars code:
          * 
          hElect = (new Boolean((String)rParams.getValue("HELECT", "true"))).booleanValue();
-		hVDW = (new Boolean((String)rParams.getValue("HVDW", "true"))).booleanValue();
-		hSteric = (new Boolean((String)rParams.getValue("HSTERIC","false"))).booleanValue();
-		distDepDielect = (new Boolean((String)rParams.getValue("DISTDEPDIELECT","true"))).booleanValue();
-		dielectConst = (new Double((String)rParams.getValue("DIELECTCONST","6.0"))).doubleValue();
-		doDihedE = (new Boolean((String)rParams.getValue("DODIHEDE","false"))).booleanValue();
-		doSolvationE = (new Boolean((String)rParams.getValue("DOSOLVATIONE","true"))).booleanValue();
-		solvScale = (new Double((String)rParams.getValue("SOLVSCALE","0.5"))).doubleValue();
-		softvdwMultiplier = (new Double((String)rParams.getValue("VDWMULT","0.95"))).doubleValue();
-		stericThresh = (new Double((String)rParams.getValue("STERICTHRESH","0.4"))).doubleValue();
-		softStericThresh = (new Double((String)rParams.getValue("SOFTSTERICTHRESH","1.5"))).doubleValue();
-		EnvironmentVars.setDataDir(rParams.getValue("DATADIR","./"));
-		EnvironmentVars.setForcefld(rParams.getValue("FORCEFIELD","AMBER"));
-		double entropyScale = (new Double((String)rParams.getValue("ENTROPYSCALE","0.0"))).doubleValue();
-		EnvironmentVars.setEntropyScale(entropyScale);
+         hVDW = (new Boolean((String)rParams.getValue("HVDW", "true"))).booleanValue();
+         hSteric = (new Boolean((String)rParams.getValue("HSTERIC","false"))).booleanValue();
+         distDepDielect = (new Boolean((String)rParams.getValue("DISTDEPDIELECT","true"))).booleanValue();
+         dielectConst = (new Double((String)rParams.getValue("DIELECTCONST","6.0"))).doubleValue();
+         doDihedE = (new Boolean((String)rParams.getValue("DODIHEDE","false"))).booleanValue();
+         doSolvationE = (new Boolean((String)rParams.getValue("DOSOLVATIONE","true"))).booleanValue();
+         solvScale = (new Double((String)rParams.getValue("SOLVSCALE","0.5"))).doubleValue();
+         softvdwMultiplier = (new Double((String)rParams.getValue("VDWMULT","0.95"))).doubleValue();
+         stericThresh = (new Double((String)rParams.getValue("STERICTHRESH","0.4"))).doubleValue();
+         softStericThresh = (new Double((String)rParams.getValue("SOFTSTERICTHRESH","1.5"))).doubleValue();
+         EnvironmentVars.setDataDir(rParams.getValue("DATADIR","./"));
+         EnvironmentVars.setForcefld(rParams.getValue("FORCEFIELD","AMBER"));
+         double entropyScale = (new Double((String)rParams.getValue("ENTROPYSCALE","0.0"))).doubleValue();
+         EnvironmentVars.setEntropyScale(entropyScale);
 		
-		EnvironmentVars.setAArotLib(EnvironmentVars.getDataDir().concat(rParams.getValue("ROTFILE","LovellRotamer.dat")));
+         EnvironmentVars.setAArotLib(EnvironmentVars.getDataDir().concat(rParams.getValue("ROTFILE","LovellRotamer.dat")));
 
-                EnvironmentVars.autoFix = new Boolean((String)rParams.getValue("AUTOFIX","true")).booleanValue();
+         EnvironmentVars.autoFix = new Boolean((String)rParams.getValue("AUTOFIX","true")).booleanValue();
                 
-                String ramaGlyFile = (String)rParams.getValue("RAMAGLYFILE","rama500-gly-sym.data");
+         String ramaGlyFile = (String)rParams.getValue("RAMAGLYFILE","rama500-gly-sym.data");
 
-                if( ! ramaGlyFile.equalsIgnoreCase("none") ){
-                    String ramaFiles[] = { EnvironmentVars.dataDir + ramaGlyFile,
-                    EnvironmentVars.dataDir + (String)rParams.getValue("RAMAPROFILE","rama500-pro.data"),
-                    EnvironmentVars.dataDir + (String)rParams.getValue("RAMAGENFILE","rama500-general.data"),
-                    EnvironmentVars.dataDir + (String)rParams.getValue("RAMAPREPROFILE","rama500-prepro.data")
-                    };
-                    RamachandranChecker.getInstance().readInputFiles( ramaFiles );
-                }
+         if( ! ramaGlyFile.equalsIgnoreCase("none") ){
+         String ramaFiles[] = { EnvironmentVars.dataDir + ramaGlyFile,
+         EnvironmentVars.dataDir + (String)rParams.getValue("RAMAPROFILE","rama500-pro.data"),
+         EnvironmentVars.dataDir + (String)rParams.getValue("RAMAGENFILE","rama500-general.data"),
+         EnvironmentVars.dataDir + (String)rParams.getValue("RAMAPREPROFILE","rama500-prepro.data")
+         };
+         RamachandranChecker.getInstance().readInputFiles( ramaFiles );
+         }
 
          */
     }
-    
-    
-    String[] getResidueTemplateFiles (ForcefieldParams.FORCEFIELD forcefld){
+
+    String[] getResidueTemplateFiles(ForcefieldParams.FORCEFIELD forcefld) {
         //return names of residue template files
-        
+
         //template file names are currently fixed
-        String aaFilename=null, aaNTFilename=null, aaCTFilename=null, grFilename=null;
-        
-        switch(forcefld){
-                case AMBER:
-                        //KER: This is for the standard amber parameters
-                        aaFilename =  "all_amino94.in";
-                        aaNTFilename =  "all_aminont94.in";
-                        aaCTFilename =  "all_aminoct94.in";
-                        grFilename = "all_nuc94_and_gr.in";
-                        break;
-                case CHARMM22:
-                        //KER: This if for using the charmm22 parameters:
-                        aaFilename = "all_amino_charmm22.txt";
-                        aaNTFilename = "all_amino_charmm22_nt.txt";
-                        aaCTFilename = "all_amino_charmm22_ct.txt";
-                        grFilename = "all_nuc_and_gr_charmm.in";
-                        break;
-                case CHARMM19NEUTRAL:
-                        //KER: This is for CHARMM19 parameters:
-                        aaFilename =  "all_amino_charmm19_neutral.in";
-                        aaNTFilename =  "all_amino_charmm19_neutral_nt.in";
-                        aaCTFilename =  "all_amino_charmm19_neutral_ct.in";
-                        grFilename = "all_nuc_and_gr_charmm.in";
-                        break;
-                case CHARMM19:
-                        aaFilename =  "all_amino_charmm19.in";
-                        aaNTFilename =  "all_amino_charmm19_nt.in";
-                        aaCTFilename =  "all_amino_charmm19_ct.in";
-                        grFilename = "all_nuc_and_gr_charmm.in";
-                        break;
-                default:
-                        System.out.println("FORCEFIELD not recognized...Exiting");
-                        System.exit(0);
+        String aaFilename = null, aaNTFilename = null, aaCTFilename = null, grFilename = null;
+
+        switch (forcefld) {
+            case AMBER:
+                //KER: This is for the standard amber parameters
+                aaFilename = "all_amino94.in";
+                aaNTFilename = "all_aminont94.in";
+                aaCTFilename = "all_aminoct94.in";
+                grFilename = "all_nuc94_and_gr.in";
+                break;
+            case CHARMM22:
+                //KER: This if for using the charmm22 parameters:
+                aaFilename = "all_amino_charmm22.txt";
+                aaNTFilename = "all_amino_charmm22_nt.txt";
+                aaCTFilename = "all_amino_charmm22_ct.txt";
+                grFilename = "all_nuc_and_gr_charmm.in";
+                break;
+            case CHARMM19NEUTRAL:
+                //KER: This is for CHARMM19 parameters:
+                aaFilename = "all_amino_charmm19_neutral.in";
+                aaNTFilename = "all_amino_charmm19_neutral_nt.in";
+                aaCTFilename = "all_amino_charmm19_neutral_ct.in";
+                grFilename = "all_nuc_and_gr_charmm.in";
+                break;
+            case CHARMM19:
+                aaFilename = "all_amino_charmm19.in";
+                aaNTFilename = "all_amino_charmm19_nt.in";
+                aaCTFilename = "all_amino_charmm19_ct.in";
+                grFilename = "all_nuc_and_gr_charmm.in";
+                break;
+            default:
+                System.out.println("FORCEFIELD not recognized...Exiting");
+                System.exit(0);
         }
-        
-        return new String[] {
+
+        return new String[]{
             aaFilename, aaNTFilename, aaCTFilename, grFilename
         };
     }
-    // Getter function for the params.
-    public ParamSet getParams(){
-    	return this.params;
+
+    //HMN: get search problems for classic multistate bound vs. unbound states
+    ///Bound, unbound1, unbound2
+    SearchProblemSuper[] getSearchProblemSupers() {
+        String name = params.getValue("RUNNAME");
+
+        //make sure we have two strands
+        if (!(params.getInt("NUMOFSTRANDS", 1) == 2)) {
+            throw new RuntimeException("Cannot get 3 Search Problems since numOfStrans != 2");
+        }
+
+        /*
+        //TODO: Change so either strand can be mutable (but only one)
+        //Currently: only strand0 can be 0
+        if (getMutableStrand() == 1){
+            throw new RuntimeException("Mutable Strand Must Be Strand 0");
+        }
+        */
+        
+        int numMut0 = Integer.parseInt(params.getValue("STRANDMUTNUMS", "0").split(" ")[0]);
+        int numMut1 = Integer.parseInt(params.getValue("STRANDMUTNUMS", "0").split(" ")[1]);
+
+        ArrayList<String> flexResBound = getFlexRes();
+        ArrayList<ArrayList<String>> allowedAAsBound = getAllowedAAs();
+
+        if (!(flexResBound.size() == numMut0 + numMut1)) {
+            throw new RuntimeException("ERROR: strandMutNums does not equal size of strandMut0 and strandMut1");
+        }
+
+        if (flexResBound.size() != allowedAAsBound.size()) {
+            throw new RuntimeException("ERROR: Number of flexible positions different in flexible residue "
+                    + "and allowed AA type parameters!");
+        }
+
+        //Get flexibleRes and allowedAAs for each unbound strand
+        ArrayList<String> flexResUnbound0 = new ArrayList<>();
+        ArrayList<ArrayList<String>> allowedAAsUnbound0 = new ArrayList<>();
+
+        ArrayList<String> flexResUnbound1 = new ArrayList<>();;
+        ArrayList<ArrayList<String>> allowedAAsUnbound1 = new ArrayList<>();
+
+        int iter = 0;
+        for (int i = 0; i < numMut0; i++) {
+            flexResUnbound0.add(flexResBound.get(i));
+            allowedAAsUnbound0.add(allowedAAsBound.get(i));
+            iter++;
+        }
+        for (int j = iter; j < iter + numMut1; j++) {
+            flexResUnbound1.add(flexResBound.get(j));
+            allowedAAsUnbound1.add(allowedAAsBound.get(j));
+        }
+
+        if ((flexResUnbound0.size() != allowedAAsUnbound0.size()) || (flexResUnbound1.size() != allowedAAsUnbound1.size())) {
+            throw new RuntimeException("ERROR: Number of flexible positions at a strand is different "
+                    + "in flexible residue and allowed AA type parameters!");
+        }
+
+        ArrayList<String[]> moveableStrandsBound = moveableStrandTerminiBound();
+        ArrayList<String[]> moveableStrandsUnbound0 = moveableStrandTerminiUnboud0();
+        ArrayList<String[]> moveableStrandsUnbound1 = moveableStrandTerminiUnboud1();
+
+        ArrayList<String[]> freeBBZonesBound = freeBBZoneTerminiBound();
+        ArrayList<String[]> freeBBZonesUnbound0 = freeBBZoneTerminiUnbound0();
+        ArrayList<String[]> freeBBZonesUnbound1 = freeBBZoneTerminiUnbound1();
+
+        DEEPerSettings dsetBound = setupDEEPer(flexResBound);
+        DEEPerSettings dsetUnbound0 = setupDEEPer(flexResUnbound0);
+        DEEPerSettings dsetUnbound1 = setupDEEPer(flexResUnbound1);
+
+        int[] strand0Termini = new int[2];
+        strand0Termini[0] = Integer.parseInt(params.getValue("STRAND0").split(" ")[0]);
+        strand0Termini[1] = Integer.parseInt(params.getValue("STRAND0").split(" ")[1]);
+        int[] strand1Termini = new int[2];
+        strand1Termini[0] = Integer.parseInt(params.getValue("STRAND1").split(" ")[0]);
+        strand1Termini[1] = Integer.parseInt(params.getValue("STRAND1").split(" ")[1]);
+
+        int startResNumComplex = Math.min(strand0Termini[0], strand1Termini[0]);
+        int endResNumComplex = Math.max(strand0Termini[1], strand1Termini[1]);
+
+        SearchProblemSuper[] searchProblems = new SearchProblemSuper[3];
+        searchProblems[0] = new SearchProblemSuper(name + "_Bound", params.getValue("PDBNAME"),
+                flexResBound, allowedAAsBound,
+                params.getBool("AddWT", true),
+                params.getBool("doMinimize", false),
+                params.getBool("UseEPIC", false),
+                new EPICSettings(params),
+                params.getBool("UseTupExp", false),
+                dsetBound, moveableStrandsBound, freeBBZonesBound,
+                params.getBool("useEllipses", false),
+                strand0Termini[0],
+                strand0Termini[1],
+                strand1Termini[0],
+                strand1Termini[1]
+        );
+        //Set shell residues from complex
+        ArrayList<Residue> complexShellRes = searchProblems[0].shellResidues;
+        searchProblems[1] = new SearchProblemSuper(name + "_Unbound0", params.getValue("PDBNAME"),
+                flexResUnbound0, allowedAAsUnbound0,
+                params.getBool("AddWT", true),
+                params.getBool("doMinimize", false),
+                params.getBool("UseEPIC", false),
+                new EPICSettings(params),
+                params.getBool("UseTupExp", false),
+                dsetUnbound0, moveableStrandsUnbound0, freeBBZonesUnbound0,
+                params.getBool("useEllipses", false),
+                strand0Termini[0],
+                strand0Termini[1]
+        );
+        searchProblems[1].getShellResiduesFromComplex(complexShellRes);
+        searchProblems[2] = new SearchProblemSuper(name + "_Unbound1", params.getValue("PDBNAME"),
+                flexResUnbound1, allowedAAsUnbound1,
+                params.getBool("AddWT", true),
+                params.getBool("doMinimize", false),
+                params.getBool("UseEPIC", false),
+                new EPICSettings(params),
+                params.getBool("UseTupExp", false),
+                dsetUnbound1, moveableStrandsUnbound1, freeBBZonesUnbound1,
+                params.getBool("useEllipses", false),
+                strand1Termini[0],
+                strand1Termini[1]
+        );
+        //set shell residues from complex
+        searchProblems[2].getShellResiduesFromComplex(complexShellRes);
+
+        return searchProblems;
     }
     
-    
+    // Getter function for the params.
+    public ParamSet getParams() {
+        return this.params;
+    }
+
 }

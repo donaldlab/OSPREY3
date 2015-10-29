@@ -28,11 +28,12 @@ import java.util.stream.Collectors;
  *
  * @author hmn5
  */
-public class SearchProblemSuper {
+public class SearchProblemSuper extends SearchProblem {
     //This is the super-RC analog of SearchProblem
 
     public ConfSpaceSuper confSpaceSuper;
-
+    public ConfSpace confSpace;
+    
     public EnergyMatrix emat;
 
     public EPICMatrix epicMat = null;
@@ -80,7 +81,55 @@ public class SearchProblemSuper {
             ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses) {
 
         this.confSpaceSuper = new ConfSpaceSuper(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses);
+        this.confSpace = confSpaceSuper;
+        this.name = name;
 
+        this.contSCFlex = contSCFlex;
+        this.useTupExpForSearch = useTupExp;
+        this.useEPIC = useEPIC;
+        this.epicSettings = epicSettings;
+
+        //energy function setup
+        EnergyFunctionGenerator eGen = EnvironmentVars.curEFcnGenerator;
+        decideShellResidues(eGen.distCutoff);
+        //DEBUG
+        //addAllResToShell();
+        //fullConfE = eGen.fullConfEnergy(confSpace,shellResidues);
+        //HMN: use confSpaceSuper as input instead of confSpace
+        fullConfE = eGen.fullConfEnergy(confSpaceSuper, shellResidues);
+    }
+
+    //HMN: Same constructor but specifies starting and ending residue number of molecule in search space
+    public SearchProblemSuper(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
+            boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset,
+            ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses, int startResNum, int endResNum) {
+
+        this.confSpaceSuper = new ConfSpaceSuper(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses, startResNum, endResNum);
+        this.confSpace = confSpaceSuper;
+        this.name = name;
+
+        this.contSCFlex = contSCFlex;
+        this.useTupExpForSearch = useTupExp;
+        this.useEPIC = useEPIC;
+        this.epicSettings = epicSettings;
+
+        //energy function setup
+        EnergyFunctionGenerator eGen = EnvironmentVars.curEFcnGenerator;
+        decideShellResidues(eGen.distCutoff);
+        //DEBUG
+        //addAllResToShell();
+        //fullConfE = eGen.fullConfEnergy(confSpace,shellResidues);
+        //HMN: use confSpaceSuper as input instead of confSpace
+        fullConfE = eGen.fullConfEnergy(confSpaceSuper, shellResidues);
+    }
+
+    //HMN: Same constructor but specifies starting and ending residue number of molecule in search space
+    public SearchProblemSuper(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
+            boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset,
+            ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses, int startResNum1, int endResNum1, int startResNum2, int endResNum2) {
+
+        this.confSpaceSuper = new ConfSpaceSuper(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses, startResNum1, endResNum1, startResNum2, endResNum2);
+        this.confSpace = confSpaceSuper;
         this.name = name;
 
         this.contSCFlex = contSCFlex;
@@ -110,7 +159,7 @@ public class SearchProblemSuper {
 
         //use array list for these so they stay in order
         ArrayList<Residue> flexibleResidues = new ArrayList<>();
-        for (PositionConfSpaceSuper pcs : confSpaceSuper.posFlex) {
+        for (PositionConfSpaceSuper pcs : confSpaceSuper.posFlexSuper) {
             for (Residue res : pcs.resList) {
                 flexibleResidues.add(res);
             }
@@ -134,6 +183,53 @@ public class SearchProblemSuper {
                     }
                 }
             }
+        }
+    }
+
+    //We want to make sure the monomer has the same shell residues as the complex
+    //that are also in the strand
+    //Given: Shell Residues from Complex
+    //Match Residues in this molecule with those in the complex molecule 
+    /////(note the residues are different objects so we compare using fullname)
+    //Output: Shell residues from this molecule
+    public void getShellResiduesFromComplex(ArrayList<Residue> shellResFromComplex) {
+        ArrayList<Residue> newShellResidues = new ArrayList<>();
+
+        //Get flexible residue
+        ArrayList<Residue> flexibleResidues = new ArrayList<>();
+        for (PositionConfSpaceSuper pcs : confSpaceSuper.posFlexSuper) {
+            for (Residue res : pcs.resList) {
+                flexibleResidues.add(res);
+            }
+        }
+
+        for (Residue res : this.confSpaceSuper.m.residues) {
+            if (!flexibleResidues.contains(res)) {
+                for (Residue complexShellRes : shellResFromComplex) {
+                    if (complexShellRes.fullName.equals(res.fullName)) {
+                        newShellResidues.add(res);
+                        break;
+                    }
+                }
+            }
+        }
+        //Are the new shell residues different from what we originall had
+        boolean newShellIsDifferent = false;
+        for (Residue shellRes : newShellResidues) {
+            if (!this.shellResidues.contains(shellRes)) {
+                newShellIsDifferent = true;
+            }
+        }
+        for (Residue oldShellRes : this.shellResidues) {
+            if (!newShellResidues.contains(oldShellRes)) {
+                newShellIsDifferent = true;
+            }
+        }
+        //if the shell residues are different calculate new fullConfE
+        if (newShellIsDifferent) {
+            this.shellResidues = newShellResidues;
+            EnergyFunctionGenerator eGen = EnvironmentVars.curEFcnGenerator;
+            this.fullConfE = eGen.fullConfEnergy(this.confSpaceSuper, shellResidues);
         }
     }
 
@@ -528,6 +624,7 @@ public class SearchProblemSuper {
         //intialize newEmat using info in newPosListCopy
         int[] numRCPerNewPos = this.confSpaceSuper.getNumRCsAtPos();
         EnergyMatrix newEmat = new EnergyMatrix(newPosList.size(), numRCPerNewPos, Double.POSITIVE_INFINITY);
+        newEmat.setConstTerm(this.emat.getConstTerm());
         //one-body
         ArrayList<ArrayList<Double>> oneBody = new ArrayList<>();
         ArrayList<ArrayList<ArrayList<ArrayList<Double>>>> twoBody = new ArrayList<>();
@@ -644,7 +741,7 @@ public class SearchProblemSuper {
                     for (int rc2_2 = 0; rc2_2 < numRC2_2; rc2_2++) {
                         SuperRCTuple tup = new SuperRCTuple(newPosNum2, totalNewRCNum);
                         //if new SuperRC is pruned, we will not add it
-                        if (!pruneMat.isPruned(tup)){
+                        if (!pruneMat.isPruned(tup)) {
                             double pairwise1_2 = this.emat.getPairwise(posNum1, rc1, newPos2_1, rc2_1);
                             double pairwise2_2 = this.emat.getPairwise(posNum1, rc1, newPos2_2, rc2_2);
                             double newPairwiseE = pairwise1_2 + pairwise2_2;

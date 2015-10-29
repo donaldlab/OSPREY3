@@ -175,9 +175,9 @@ public class MolecEObjFunction implements ObjectiveFunction {
 
             int posNum = superRCTup.pos.get(indexInTup);
             int superRCNum = superRCTup.superRCs.get(indexInTup);
-            SuperRC superRC = cSpace.posFlex.get(posNum).superRCs.get(superRCNum);
+            SuperRC superRC = cSpace.posFlexSuper.get(posNum).superRCs.get(superRCNum);
             
-            ArrayList<Integer> DOFIndicesPerRes = cSpace.posFlex.get(posNum).DOFIndices;
+            ArrayList<Integer> DOFIndicesPerRes = cSpace.posFlexSuper.get(posNum).DOFIndices;
             //iterate over each residue that makes up the superRC
             for (int resNum=0; resNum<superRC.DOFsPerRes.size(); resNum++){
                 //Get the DOF index to index into mutDOFs

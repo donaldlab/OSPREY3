@@ -36,7 +36,16 @@ public class LME implements Serializable {
 
         constTerm = Double.valueOf( st.nextToken() );
     }
-
+    
+    public LME(double[] coeffs, double constTerm, int numStates){
+        if (coeffs.length != numStates){
+            throw new RuntimeException("ERROR: SeqTree has "+numStates+" states but GMECLinFunct "+
+                    "specified with "+coeffs.length+" coefficients and 1 constTerm");
+        }
+        this.coeffs = coeffs;
+        this.constTerm = constTerm;
+    }
+    
     public double[] getCoeffs() {
         return coeffs;
     }

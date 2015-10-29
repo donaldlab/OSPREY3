@@ -56,6 +56,7 @@ public class SuperRC extends RC {
             this.DOFminPerRes.add(rc.DOFmin);
             this.DOFmaxPerRes.add(rc.DOFmax);
         }
+        
     }
     
     public SuperRC(SuperRC rc1, SuperRC rc2, int RCIndex){
@@ -95,6 +96,7 @@ public class SuperRC extends RC {
         rcList.addAll(rc1.rcList);
         rcList.addAll(rc2.rcList);
         this.rcList = rcList;
+        this.AAType = null;
         
         this.RCIndex = RCIndex;
     }

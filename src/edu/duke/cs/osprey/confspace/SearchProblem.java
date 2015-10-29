@@ -84,7 +84,8 @@ public class SearchProblem implements Serializable {
         useERef = sp1.useERef;
 
     }
-
+    public SearchProblem(){}
+    
     public SearchProblem(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
 
             boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset, 
