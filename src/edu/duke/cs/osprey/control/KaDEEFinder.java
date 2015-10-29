@@ -275,18 +275,21 @@ public class KaDEEFinder {
 
     private void setupCometsTree() {
         List<List<List<String>>> stateAllowedAAs = new ArrayList<>();
-
+        cfp.params.setValue("TYPEDEP","TRUE");
+        
         for (int state = 0; state < searchSpaces.length; state++) {
             SearchProblemSuper searchProblem = this.searchSpaces[state];
             stateAllowedAAs.add(getAllowedAA(state));
 
             System.out.println("Precomputing Energy Matrix for " + searchProblem.name + " state");
             searchProblem.loadEnergyMatrix();
+            
             System.out.println("Initializing Pruning for " + searchProblem.name + " state");
             initializePruning(searchProblem);
             double pruningInterval = 0.0;
             PruningControlSuper pruning = cfp.setupPruning(searchProblem, pruningInterval, useEPIC, useTupExp);
             pruning.prune();
+            
         }
         //For each state this arraylist gives the mutable pos nums of that state
         List<List<Integer>> mutable2StatePosNum = handleMutable2StatePosNums(stateAllowedAAs);
@@ -332,8 +335,6 @@ public class KaDEEFinder {
         COMETSTreeSuper tree = new COMETSTreeSuper(numTreeLevels, objFcn, constraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, mutableState2StatePosNum);
         tree.nextConf();
     }
-
-
 
     private List<List<String>> getAllowedAA(int state) {
         ArrayList<ArrayList<String>> complexAllowedAAs = cfp.getAllowedAAs();
