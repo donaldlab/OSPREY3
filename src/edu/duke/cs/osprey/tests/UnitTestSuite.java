@@ -4,6 +4,10 @@
  */
 package edu.duke.cs.osprey.tests;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+
 /**
  *
  * @author mhall44
@@ -14,6 +18,18 @@ public class UnitTestSuite {
     //this suite is meant to run in the directory 1CC8
     
     public static void runAllTests(){
+        
+        //Make sure we're in the right directory
+        try {
+            FileInputStream is = new FileInputStream("1CC8.ss.pdb");
+            is.close();
+        }
+        catch(FileNotFoundException e){
+            throw new RuntimeException("ERROR: Tests need to be run in the directory test/1CC8");
+        }
+        catch(IOException e){//this is weird
+            throw new RuntimeException(e.getMessage());
+        }
         
         EnergyTests.test1CC8Energy();
         

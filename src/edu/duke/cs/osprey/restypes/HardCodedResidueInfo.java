@@ -32,9 +32,14 @@ public class HardCodedResidueInfo {
     //We'll move HA with the sidechain, so it's not included here.  
     
     public static LinkedHashMap<String,String> three2one = null;
+    public static LinkedHashMap<String,String> one2three = null;//reverse lookup
 
     static {
         initThree2One();
+        
+        one2three = new LinkedHashMap<String,String>();
+        for(String threeLet : three2one.keySet())
+            one2three.put(three2one.get(threeLet), threeLet);
     }
     
     
@@ -68,9 +73,9 @@ public class HardCodedResidueInfo {
                     res = "X";
             return res;
     }
-        
-        
-        
+    
+    
+
     //Here's some stuff we need to mutate amino acid protein residues
     public static boolean canMutateTo(ResidueTemplate templ){
         //do we currently support mutations to the given amino-acid type?
