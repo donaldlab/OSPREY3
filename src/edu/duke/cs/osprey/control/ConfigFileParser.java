@@ -276,6 +276,9 @@ public class ConfigFileParser {
         	resTemplates.loadRotamerLibrary(params.getValue("ROTFILE","LovellRotamer.dat"), false);//see below; also gRotFile0 etc
         }
         
+        //let's make D-amino acid templates by inverting the L-amino acid templates 
+        resTemplates.makeDAminoAcidTemplates();
+        
         EnvironmentVars.resTemplates = resTemplates;
         
         
