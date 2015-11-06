@@ -54,6 +54,9 @@ public class COMETSTreeSuper extends AStarTree {
     int numSeqsReturned = 0;
     int stateGMECsForPruning = 0;//how many state GMECs have been calculated for nodes that are pruned    
 
+    //HMN: To Help with Interaction E Heuristic
+    int[] numMutPerStrand;
+
     public COMETSTreeSuper(int numTreeLevels, LME objFcn, LME[] constraints,
             ArrayList<ArrayList<String>> AATypeOptions, int numMaxMut, String[] wtSeq,
             int numStates, SearchProblemSuper[] stateSP,
@@ -74,6 +77,31 @@ public class COMETSTreeSuper extends AStarTree {
             stateNumPos[state] = stateSP[state].confSpaceSuper.numPos;
         }
 
+    }
+
+    public COMETSTreeSuper(int numTreeLevels, LME objFcn, LME[] constraints,
+            ArrayList<ArrayList<String>> AATypeOptions, int numMaxMut, String[] wtSeq,
+            int numStates, SearchProblemSuper[] stateSP,
+            ArrayList<ArrayList<Integer>> mutable2StatePosNums, int[] numMutPerStrand) {
+
+        this.numTreeLevels = numTreeLevels;
+        this.objFcn = objFcn;
+        this.constraints = constraints;
+        this.AATypeOptions = AATypeOptions;
+        this.numMaxMut = numMaxMut;
+        this.wtSeq = wtSeq;
+        this.numStates = numStates;
+        this.stateSP = stateSP;
+        this.mutable2StatePosNums = mutable2StatePosNums;
+        this.numMutPerStrand = numMutPerStrand;
+
+        stateNumPos = new int[numStates];
+        for (int state = 0; state < numStates; state++) {
+            stateNumPos[state] = stateSP[state].confSpaceSuper.numPos;
+        }
+        this.stateSP[0].emat.setConstTerm(0.0);
+        this.stateSP[1].emat.setConstTerm(0.0);
+        objFcn.constTerm = -2.5413265522868933;
     }
 
     @Override
@@ -375,9 +403,13 @@ public class COMETSTreeSuper extends AStarTree {
         //Lower-bound func over the sequence space defined by this node
         if (seqNode.isFullyDefined())//fully-defined sequence
         {
-            return calcLBConfTrees(seqNode, func);
+            double originalBound = calcLBConfTrees(seqNode, func);
+            double exactBound = calcLBConfTreeMPLP(seqNode);
+            return originalBound;
         } else {
-            return calcLBPartialSeq(seqNode, func);
+            double interactionEBound = calcLBPartialSeqInteractionE(seqNode);
+            double originalBound = calcLBPartialSeq(seqNode, func);
+            return interactionEBound;
         }
     }
 
@@ -397,6 +429,14 @@ public class COMETSTreeSuper extends AStarTree {
         {
             return new int[]{assignment};
         }
+    }
+
+    private double calcLBPartialSeqInteractionE(COMETSNodeSuper seqNode) {
+        ConfTreeSuper confSearchIE = new ConfTreeSuper(this.stateSP[0], seqNode.pruneMat[0], false);
+        confSearchIE.setMPLPForInteractionEnergy(this.numMutPerStrand[0]);
+        confSearchIE.setMPLPEmatInteractionEnergy();
+        int[] conf = confSearchIE.nextConf();
+        return confSearchIE.interactionENextConf(conf) + (this.stateSP[0].emat.getConstTerm() - this.stateSP[1].emat.getConstTerm());
     }
 
     private double calcLBPartialSeq(COMETSNodeSuper seqNode, LME func) {
@@ -629,6 +669,15 @@ public class COMETSTreeSuper extends AStarTree {
         }
 
         return ans;
+    }
+
+    private double calcLBConfTreeMPLP(COMETSNodeSuper seqNode) {
+        ConfTreeSuper confSearchBound = new ConfTreeSuper(this.stateSP[0], seqNode.pruneMat[0], false);
+        double boundE = confSearchBound.energyNextConf();
+        ConfTreeSuper confSearchUnBound = new ConfTreeSuper(this.stateSP[1], seqNode.pruneMat[1], false);
+        double unBoundE = confSearchUnBound.energyNextConf();
+        return boundE - unBoundE + objFcn.constTerm;
+
     }
 
     private double calcLBConfTrees(COMETSNodeSuper seqNode, LME func) {

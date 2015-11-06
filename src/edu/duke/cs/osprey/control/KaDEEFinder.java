@@ -107,9 +107,10 @@ public class KaDEEFinder {
     void doKaDEE() {
         double curInterval = I0;//For iMinDEE.  curInterval will need to be an upper bound
         this.searchSpaces = cfp.getSearchProblemSupers();
-        if (true) {
-            setupCometsTree();
 
+        if (true) {
+            COMETSTreeSuper tree = setupCometsTree();
+            tree.nextConf();            
         } else {
 
             SearchProblemSuper searchSpace = searchSpaces[0];
@@ -273,7 +274,7 @@ public class KaDEEFinder {
         return E;
     }
 
-    private void setupCometsTree() {
+    private COMETSTreeSuper setupCometsTree() {
         List<List<List<String>>> stateAllowedAAs = new ArrayList<>();
         cfp.params.setValue("TYPEDEP","TRUE");
         
@@ -331,9 +332,10 @@ public class KaDEEFinder {
             ArrayList<Integer> converted = new ArrayList(mutable2PosNum);
             mutableState2StatePosNum.add(converted);
         }
-
-        COMETSTreeSuper tree = new COMETSTreeSuper(numTreeLevels, objFcn, constraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, mutableState2StatePosNum);
-        tree.nextConf();
+        int[] numMutPerStrand = cfp.getNumMutPerStrand();
+        
+        COMETSTreeSuper tree = new COMETSTreeSuper(numTreeLevels, objFcn, constraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, mutableState2StatePosNum, numMutPerStrand);
+        return tree;
     }
 
     private List<List<String>> getAllowedAA(int state) {

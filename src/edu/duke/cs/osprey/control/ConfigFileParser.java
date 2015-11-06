@@ -320,15 +320,15 @@ public class ConfigFileParser {
         int mutStrand = -1;
         boolean mutStrandSet = false;
         //handle better later (now assuming old-style numbering)...
-        for (int str = 0; str<2; str++) {
+        for (int str = 0; str < 2; str++) {
             ArrayList<String> resAllowedRecords = params.searchParams("RESALLOWED" + str);
             int numRecordsInStrand = resAllowedRecords.size();
             //must go through residues in numerical order
             for (int recNum = 0; recNum < numRecordsInStrand; recNum++) {
                 String param = "RESALLOWED" + str + "_" + recNum;
                 String allowedAAString = params.getValue(param);
-                if ((allowedAAString.trim().split(" ").length > 1) || 
-                        ((allowedAAString.trim().split(" ").length == 1)&&(!allowedAAString.trim().split(" ")[0].isEmpty()))){
+                if ((allowedAAString.trim().split(" ").length > 1)
+                        || ((allowedAAString.trim().split(" ").length == 1) && (!allowedAAString.trim().split(" ")[0].isEmpty()))) {
                     if (mutStrandSet && (str != mutStrand)) {
                         throw new RuntimeException("ERROR: DEE.cfg must have mutations only on strand0");
                     } else {
@@ -576,13 +576,12 @@ public class ConfigFileParser {
         }
 
         /*
-        //TODO: Change so either strand can be mutable (but only one)
-        //Currently: only strand0 can be 0
-        if (getMutableStrand() == 1){
-            throw new RuntimeException("Mutable Strand Must Be Strand 0");
-        }
-        */
-        
+         //TODO: Change so either strand can be mutable (but only one)
+         //Currently: only strand0 can be 0
+         if (getMutableStrand() == 1){
+         throw new RuntimeException("Mutable Strand Must Be Strand 0");
+         }
+         */
         int numMut0 = Integer.parseInt(params.getValue("STRANDMUTNUMS", "0").split(" ")[0]);
         int numMut1 = Integer.parseInt(params.getValue("STRANDMUTNUMS", "0").split(" ")[1]);
 
@@ -690,8 +689,17 @@ public class ConfigFileParser {
 
         return searchProblems;
     }
+
+    public int[] getNumMutPerStrand() {
+        int numMut0 = Integer.parseInt(params.getValue("STRANDMUTNUMS", "0").split(" ")[0]);
+        int numMut1 = Integer.parseInt(params.getValue("STRANDMUTNUMS", "0").split(" ")[1]);
+        int[] numMutPerStrand = new int[2];
+        numMutPerStrand[0] = numMut0;
+        numMutPerStrand[1] = numMut1;
+        return numMutPerStrand;
+    }
     
-    // Getter function for the params.
+// Getter function for the params.
     public ParamSet getParams() {
         return this.params;
     }

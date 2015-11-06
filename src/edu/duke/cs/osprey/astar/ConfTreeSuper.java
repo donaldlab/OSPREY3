@@ -41,7 +41,6 @@ public class ConfTreeSuper extends AStarTree {
     boolean useRefinement = true;//refine nodes (might want EPIC, MPLP, or something else)
     boolean useEpic;
 
-    
     boolean useDynamicAStar = true;
 
     EPICMatrix epicMat = null;//to use in refinement
@@ -50,7 +49,7 @@ public class ConfTreeSuper extends AStarTree {
 
     // MPLP object for node refinement.
     Mplp mplpMinimizer;
-    
+
     public ConfTreeSuper(SearchProblemSuper sp) {
         init(sp, sp.pruneMat, sp.useEPIC);
     }
@@ -83,9 +82,9 @@ public class ConfTreeSuper extends AStarTree {
             }
         }
         // Initialize MPLP
-        if(mplpScore){
-        	useRefinement = true;
-        	mplpMinimizer = new Mplp(numPos, unprunedRCsAtPos, emat);
+        if (mplpScore) {
+            useRefinement = true;
+            mplpMinimizer = new Mplp(numPos, unprunedRCsAtPos, emat);
         }
     }
 
@@ -133,12 +132,13 @@ public class ConfTreeSuper extends AStarTree {
 
     //operations supporting special features like dynamic A*
     /**
-     * given a partially defined conformation, what level should be expanded next?
+     * given a partially defined conformation, what level should be expanded
+     * next?
+     *
      * @param partialConf Partially defined rotamer conformation
      * @return
      */
     public int nextLevelToExpand(int[] partialConf) {
-
 
         if (useDynamicAStar) {
 
@@ -177,13 +177,13 @@ public class ConfTreeSuper extends AStarTree {
 
     /**
      * Score expansion at the indicated level for the given partial conformation
-     * for use in dynamic A*.  Higher score is better.
+     * for use in dynamic A*. Higher score is better.
+     *
      * @param level
      * @param partialConf
      * @return
      */
     double scoreExpansionLevel(int level, int[] partialConf) {
-
 
         //best performing score is just 1/(sum of reciprocals of score rises for child nodes)
         double parentScore = scoreConf(partialConf);
@@ -234,17 +234,18 @@ public class ConfTreeSuper extends AStarTree {
             throw new RuntimeException("Advanced A* scoring methods not implemented yet!");
         }
     }
-    
+
     /**
-     *  Provide a lower bound on what the given rc at the given level can contribute to the energy
-     *   assume partialConf and definedTuple
+     * Provide a lower bound on what the given rc at the given level can
+     * contribute to the energy assume partialConf and definedTuple
+     *
      * @param level
      * @param rc
      * @param definedTuple
      * @param partialConf
      * @return
      */
-     double RCContributionLB(int level, int rc, SuperRCTuple definedTuple, int[] partialConf) {
+    double RCContributionLB(int level, int rc, SuperRCTuple definedTuple, int[] partialConf) {
         double rcContrib = emat.getOneBody(level, rc);
 
         //for this kind of lower bound, we need to split up the energy into the defined-tuple energy
@@ -308,17 +309,19 @@ public class ConfTreeSuper extends AStarTree {
     }
 
     /**
-     * recursive function to get lower bound on higher-than-pairwise terms
-     * this is the contribution to the lower bound due to higher-order interactions
-     * of the RC tuple corresponding to htf with "lower-numbered" residues (numbering as in scoreConf:
-     * these are residues that are fully defined in partialConf, or are actually numbered <level2)
-     * @param partialConf
+     * recursive function to get lower bound on higher-than-pairwise terms this
+     * is the contribution to the lower bound due to higher-order interactions
+     * of the RC tuple corresponding to htf with "lower-numbered" residues
+     * (numbering as in scoreConf: these are residues that are fully defined in
+     * partialConf, or are actually numbered <level2) @
+     *
+     *
+     * param partialConf
      * @param htf
      * @param level2
      * @return
      */
     double higherOrderContribLB(int[] partialConf, HigherTupleFinder<Double> htf, int level2) {
-
 
         double contrib = 0;
 
@@ -352,9 +355,11 @@ public class ConfTreeSuper extends AStarTree {
     }
 
     /**
-     * posComesBefore: for purposes of contributions to traditional conf score, 
-     * we go through defined and then through undefined positions (in partialConf);
-     * within each of these groups we go in order of position number
+     * posComesBefore: for purposes of contributions to traditional conf score,
+     * we go through defined and then through undefined positions (in
+     * partialConf); within each of these groups we go in order of position
+     * number
+     *
      * @param pos1
      * @param pos2
      * @param partialConf
@@ -368,8 +373,8 @@ public class ConfTreeSuper extends AStarTree {
         {
             return (pos1 < pos2 || partialConf[pos1] >= 0);
         }
-    }   
-    
+    }
+
     @Override
     void refineScore(AStarNode node) {
 
@@ -377,8 +382,8 @@ public class ConfTreeSuper extends AStarTree {
             throw new UnsupportedOperationException("ERROR: Trying to call refinement w/o EPIC matrix");
         }
         // Refine node with MPLP.
-        if(this.mplpScore){
-        	node.score = this.mplpMinimizer.optimizeEMPLP(node.nodeAssignments, 100);
+        if (this.mplpScore) {
+            node.score = this.mplpMinimizer.optimizeEMPLP(node.nodeAssignments, 100);
         }
 
         if (useEpic && (minPartialConfs || isFullyAssigned(node))) {
@@ -386,6 +391,17 @@ public class ConfTreeSuper extends AStarTree {
         }
 
         node.scoreNeedsRefinement = false;
+    }
+
+    public void setMPLPForInteractionEnergy(int numMut0) {
+        this.mplpMinimizer.setCrossTermInteractionGraph(numMut0);
+    }
+    
+    public void setMPLPEmatInteractionEnergy(){
+        this.mplpMinimizer.createOnlyPairwiseMat(emat);
+    }
+    public void setMPLPEmatInteractionEnergyWithLigand(int numMut0){
+        this.mplpMinimizer.createOnlyPairwiseMatWithIntraLigand(emat, numMut0);
     }
 
     //this function computes the minimum over all full conf E's consistent with partialConf
@@ -405,5 +421,13 @@ public class ConfTreeSuper extends AStarTree {
         }
         //if we get here, conf fully defined
         return emat.getInternalEnergy(new SuperRCTuple(partialConf));
-    }    
+    }
+
+    public double energyNextConf() {
+        return this.scoreConf(this.nextConf());
+    }
+
+    public double interactionENextConf(int[] conf) {
+        return this.mplpMinimizer.optimizeEMPLP(conf,100);
+    }
 }
