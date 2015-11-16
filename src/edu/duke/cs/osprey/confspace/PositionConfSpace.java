@@ -21,6 +21,7 @@ import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.*;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 
@@ -48,7 +49,7 @@ public class PositionConfSpace implements Serializable {
     
     ArrayList<EllipseCoordDOF> ellipsoidalDOFs = new ArrayList<>();
     
-    public PositionConfSpace(Residue res, ArrayList<DegreeOfFreedom> resDOFs, ArrayList<String> allowedAAs, 
+    public PositionConfSpace(int pos, Residue res, ArrayList<DegreeOfFreedom> resDOFs, ArrayList<String> allowedAAs, 
             boolean contSCFlex, ArrayList<DegreeOfFreedom> strandDOFs, 
             ArrayList<Perturbation> perts, ArrayList<ArrayList<double[]>> pertIntervals, 
             ArrayList<ArrayList<int[]>> pertStates, BBFreeBlock bfb, boolean useEllipses ) {
@@ -72,7 +73,7 @@ public class PositionConfSpace implements Serializable {
         	// PGC 2015: Support backbone dependent rotamers.  
         	//	Compute phi and psi, necessary for backbone dependent rotamers.        
         	double phipsi [] = Protractor.getPhiPsi(this.res);
-            int numRot = templateLib.numRotForResType(AAType, phipsi[0], phipsi[1]);
+            int numRot = templateLib.numRotForResType(pos, AAType, phipsi[0], phipsi[1]);
             
             //resDOFs is all sidechain DOFs, for now
             ArrayList<DegreeOfFreedom> dofListForRot = new ArrayList<>();

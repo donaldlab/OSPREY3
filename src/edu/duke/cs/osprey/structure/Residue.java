@@ -10,7 +10,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResTemplateMatching;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
-import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
+import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.tools.StringParsing;
 import edu.duke.cs.osprey.tools.VectorAlgebra;
 import java.io.Serializable;
@@ -120,7 +120,7 @@ public class Residue implements Serializable {
         //return if successful or not
         
         //we'll use the default ResidueTemplateLibrary (from EnvironmentVars)
-        ResidueTemplateLibrary templateLib = EnvironmentVars.resTemplates;
+        GenericResidueTemplateLibrary templateLib = EnvironmentVars.resTemplates;
         
         //first see if there are any templates matching this name
         ArrayList<ResidueTemplate> templCandidates = new ArrayList<>();

@@ -9,7 +9,7 @@ import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.dof.deeper.RamachandranChecker;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
-import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
+import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -261,7 +261,7 @@ public class ConfigFileParser {
         
         String[] resTemplateFiles = getResidueTemplateFiles(curForcefieldParams.forcefld);
         
-        ResidueTemplateLibrary resTemplates = new ResidueTemplateLibrary( resTemplateFiles, curForcefieldParams );
+        GenericResidueTemplateLibrary resTemplates = new GenericResidueTemplateLibrary( resTemplateFiles, curForcefieldParams );
         
         //load template coordinates (necessary for all residues we might want to mutate to)
         //these will be matched to templates
