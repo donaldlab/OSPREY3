@@ -4,6 +4,7 @@
  */
 package edu.duke.cs.osprey.control;
 
+// TODO: Remove unnecessary imports. - JJ
 import cern.colt.matrix.DoubleMatrix1D;
 import cern.jet.math.Functions;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
@@ -34,6 +35,7 @@ public class Main {
         	command = args[2];
         }
         catch(Exception e){
+            // TODO: Replace with usage string, hardcoded outside of this function. - JJ
         	System.out.println("Command expects arguments (e.g. -c KStar.cfg {findGMEC|fcalcKStar} System.cfg DEE.cfg");
         	System.exit(1);
         }
@@ -58,7 +60,7 @@ public class Main {
         }
         
         
-        
+        // TODO: Replace this with either the Factory Pattern, java reflection, or lambda functions. - JJ
         if(command.equalsIgnoreCase("findGMEC")){
             //I recommend that we change the command names a little to be more intuitive, e.g. 
             //"findGMEC" instead of doDEE
@@ -87,7 +89,7 @@ public class Main {
         System.out.println("OSPREY finished");
     }
     
-    
+    // TODO: Move these into a test file, and just call it from the test.
     private static void debuggingCommands(String[] args){
         
         //MolecEObjFunction mof = (MolecEObjFunction)ObjectIO.readObject("OBJFCN1442697734046.dat", true);

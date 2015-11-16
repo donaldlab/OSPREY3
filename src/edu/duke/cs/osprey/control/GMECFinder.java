@@ -33,6 +33,8 @@ public class GMECFinder {
     
     //KStarCalculator will be set up similarly to this class
     
+    //TODO: All of these variables should be PRIVATE in scope, unless they need to be public. -JJ
+    
     ConfigFileParser cfp;
     
     SearchProblem searchSpace;
@@ -72,6 +74,14 @@ public class GMECFinder {
         
         cfp = cfgP;
         
+        //TODO: Arguably, this is the initialization, which should be its own function. The constructor may eventually
+        // do other more interesting things and reading in member variables isn't that interesting. -JJ
+        initializeParametersFromConfigFile(cfgP);
+    }
+
+
+
+    private void initializeParametersFromConfigFile (ConfigFileParser cfgP) {
         Ew = cfgP.params.getDouble("Ew",0);
         doIMinDEE = cfgP.params.getBool("imindee",false);
         if(doIMinDEE){
@@ -118,7 +128,11 @@ public class GMECFinder {
             needToRepeat = false;
             
             //initialize a search problem with current Ival
-            checkEPICThresh2(curInterval);//Make sure EPIC thresh 2 matches current interval
+            // 11/11/2015 JJ: This logic belongs out here. A function that does nothing if a flag is false should 
+            // have its flag promoted outside of the function, unless it's used multiple times. In that case
+            // the function needs to be named accordingly.
+            if(useEPIC)
+                checkEPICThresh2(curInterval);//Make sure EPIC thresh 2 matches current interval
 
             precomputeMatrices(Ew+curInterval);//precompute the energy, pruning, and maybe EPIC or tup-exp matrices
             //must be done separately for each round of iMinDEE
@@ -235,6 +249,7 @@ public class GMECFinder {
             //we can prune conformations whose energies are within pruningInterval
             //of the lowest pairwise lower bound
             
+            // TODO: This feels like a hidden function. What does it actually do? -JJ
             if(EFullConfOnly){
                 fullConfOnlyTupExp();
                 return;
@@ -441,15 +456,12 @@ public class GMECFinder {
 
     
     private void checkEPICThresh2(double curInterval){
-                         
-        if(useEPIC){
-            if(curInterval+Ew>searchSpace.epicSettings.EPICThresh2){//need to raise EPICThresh2 
-                //to the point that we can guarantee no continuous component of the GMEC
-                //or desired ensemble will need to reach it
-                System.out.println("Raising EPICThresh2 to "+(curInterval+Ew)+" based on "
-                        + "iMinDEE interval and energy window");
-                searchSpace.epicSettings.EPICThresh2 = curInterval+Ew;
-            }
+        if(curInterval+Ew>searchSpace.epicSettings.EPICThresh2){//need to raise EPICThresh2 
+            //to the point that we can guarantee no continuous component of the GMEC
+            //or desired ensemble will need to reach it
+            System.out.println("Raising EPICThresh2 to "+(curInterval+Ew)+" based on "
+                    + "iMinDEE interval and energy window");
+            searchSpace.epicSettings.EPICThresh2 = curInterval+Ew;
         }
     }
     

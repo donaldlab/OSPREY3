@@ -78,6 +78,7 @@ public class ParamSet implements Serializable {
 			}
 			bufread.close();
 		}
+		//TODO: This is not where this error should be. The test is a single use case of a general class.
                 catch (FileNotFoundException e){
                     throw new RuntimeException("ERROR: Couldn't find configuration file "+fName+
                             "  Note: runTests must be run in test/1CC8 directory.");
@@ -124,6 +125,17 @@ public class ParamSet implements Serializable {
         public String getValue(String paramName){
             return getValue(paramName,null);
         }
+        
+        /* TODO: We absolutely have to stop passing in the default value as part of the function.
+         * Either we have a real default value which should be in a file of constants, or this is a
+         * function-specific initial value, and is not a constant. In that case our code should read:
+         * 
+         * int intParameter = 0; <- Initial value. 
+         * if(params.containsParameter("ExampleInteger")
+         *      intParameter = params.getInt("ExampleInteger");
+         *      
+         * This is three lines and a hassle to write but getInt("XYZ",4) is inscrutable.
+         */
         
         //The following methods return a parameter expected to be a certain non-string type
         //It's an error if they're not that type

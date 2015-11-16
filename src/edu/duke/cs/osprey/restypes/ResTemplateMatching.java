@@ -49,6 +49,7 @@ public class ResTemplateMatching {
         numAtoms = templateAtoms.size();
         
         if( res.atoms.size() != numAtoms ){//matching impossible: not even number of atoms matches
+            //System.out.println("Missing atoms... Matching will be best, not exact.");
             return;
         }
         
@@ -93,7 +94,7 @@ public class ResTemplateMatching {
         //DFS over permutations of atoms, starting at current level (indicates which atom
         //in the template we want to match next)
         
-        if(level==numAtoms){//all atoms defined...let's score this matching
+        if(level==numAtoms || level >= res.atoms.size()){//all atoms defined...let's score this matching
             //when we get a full permutation, we score it based on least-square length difference for the template bonds.
             double curMatchingScore = scoreCurPartialMatching();
             if(curMatchingScore<score){//best so far
@@ -103,7 +104,7 @@ public class ResTemplateMatching {
         }
         else {//need to search more levels
 
-            for(int resAtNum=0; resAtNum<numAtoms; resAtNum++){
+            for(int resAtNum=0; resAtNum<res.atoms.size(); resAtNum++){
                 if(!atomAlreadyInPartialMatching(resAtNum,level)){
                     
                     //make sure element types match
@@ -176,7 +177,10 @@ public class ResTemplateMatching {
                 int resBondedAtNum = partialMatching[bondedTemplateAtNum];
                 
                 double templateDist = templateDistanceMatrix[templateAtNum][bondedTemplateAtNum];
-                double resDist = residueDistanceMatrix[resAtNum][resBondedAtNum];
+                double resDist = 0;
+
+                if(resAtNum >= 0 && resBondedAtNum >= 0)
+                    resDist = residueDistanceMatrix[resAtNum][resBondedAtNum];
                 
                 double distDiff = templateDist - resDist;
                 ans += distDiff*distDiff;
