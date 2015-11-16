@@ -234,7 +234,7 @@ public class ConfigFileParser {
     
     //loading of data files
     //residue templates, rotamer libraries, forcefield parameters, and Ramachandran data
-    void loadData(){
+    public void loadData(){
         
         EnvironmentVars.setDataDir(params.getValue("DataDir"));
         

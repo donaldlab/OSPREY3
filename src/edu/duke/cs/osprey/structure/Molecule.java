@@ -6,6 +6,8 @@ package edu.duke.cs.osprey.structure;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  *
@@ -14,6 +16,7 @@ import java.util.ArrayList;
 public class Molecule implements Serializable {
     
     public ArrayList<Residue> residues = new ArrayList<>();
+    private Map<Integer,ArrayList<Residue>> alternates = new HashMap<>();
     
     //also might have secondary structure elements...
 
@@ -39,6 +42,13 @@ public class Molecule implements Serializable {
         //Add a residue to the end of the molecule
         res.indexInMolecule = residues.size();
         residues.add(res);
+    }
+    
+    public void addAlternate(int resIndex, Residue res)
+    {
+        if(!alternates.containsKey(resIndex))
+            alternates.put(resIndex, new ArrayList<Residue>());
+        alternates.get(resIndex).add(res);
     }
     
     public void deleteResidue(int resIndex){
