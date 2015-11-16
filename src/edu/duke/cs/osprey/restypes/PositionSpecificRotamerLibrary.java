@@ -13,26 +13,34 @@ import edu.duke.cs.osprey.structure.Residue;
  * @author JJ
  *
  */
-public class PositionSpecificRotamerLibrary {
+public class PositionSpecificRotamerLibrary extends ResidueTemplateLibrary {
     
     public static PositionSpecificRotamerLibrary generateLibraryFromPDB(String pdbFileName)
     {
         Molecule m = PDBFileReader.readPDBFile(pdbFileName);
         PDBRotamerReader.addAlternates(m, pdbFileName);
         
+        PositionSpecificRotamerLibrary library = new PositionSpecificRotamerLibrary();
+        
         for(Residue r: m.residues)
         {
             outputResidueTemplateInfo(r);
+            library.addResidueTemplate(r.template);
         }
-        return new PositionSpecificRotamerLibrary();
+        return library;
     }
     
-    private void PositionSpecificRotamerLibrary()
-    {
-        
-    }
+    // This constructor left intentionally empty. Never create one in a non-static fashion.
+    private void PositionSpecificRotamerLibrary(){}
     
     private static void outputResidueTemplateInfo(Residue r)
     {
     }
+    
+
+	@Override
+	public int numRotForResType(int pos, String resType, double phi, double psi) {
+		// TODO Auto-generated method stub
+		return 0;
+	}
 }

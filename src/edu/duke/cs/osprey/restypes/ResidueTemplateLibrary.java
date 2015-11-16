@@ -52,5 +52,9 @@ public abstract class ResidueTemplateLibrary {
         throw new RuntimeException("ERROR: template not found for residue type "+resType);
     }
     
+    protected void addResidueTemplate(ResidueTemplate template)
+    {
+    	templates.add(template);
+    }
 
 }
