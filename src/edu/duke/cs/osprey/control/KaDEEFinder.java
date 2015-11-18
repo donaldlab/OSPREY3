@@ -110,7 +110,10 @@ public class KaDEEFinder {
 
         if (true) {
             COMETSTreeSuper tree = setupCometsTree();
-            tree.nextConf();            
+            int[] seq1 = tree.nextConf();
+            while (true){
+                int[] seq2 = tree.nextConf();
+            }
         } else {
 
             SearchProblemSuper searchSpace = searchSpaces[0];
@@ -274,32 +277,56 @@ public class KaDEEFinder {
         return E;
     }
 
-    private COMETSTreeSuper setupCometsTree() {
-        List<List<List<String>>> stateAllowedAAs = new ArrayList<>();
-        cfp.params.setValue("TYPEDEP","TRUE");
-        
+    //Loads energy matrices and prune for COMETS
+    private void loadEMatandPruneComets(double pruningInterval) {
+        cfp.params.setValue("TYPEDEP", "TRUE");
+        cfp.params.setValue("BOUNDSTHRESH", "100000000000000");
         for (int state = 0; state < searchSpaces.length; state++) {
             SearchProblemSuper searchProblem = this.searchSpaces[state];
-            stateAllowedAAs.add(getAllowedAA(state));
 
             System.out.println("Precomputing Energy Matrix for " + searchProblem.name + " state");
             searchProblem.loadEnergyMatrix();
-            
+
             System.out.println("Initializing Pruning for " + searchProblem.name + " state");
             initializePruning(searchProblem);
-            double pruningInterval = 0.0;
             PruningControlSuper pruning = cfp.setupPruning(searchProblem, pruningInterval, useEPIC, useTupExp);
             pruning.prune();
-            
         }
+    }
+
+    //Given three search problems (Bound, UnBound Prot, Unbound Lig) this function
+    //sets up the COMETS tree.
+    //The nonmutable unbound state is added and used just as a constant to the objective function
+    private COMETSTreeSuper setupCometsTree() {
+
+        //For each state, for each position, this contains a list of allowed 
+        //amino acids at that position
+        List<List<List<String>>> allowedAAsPerState = new ArrayList<>();
+        for (int state = 0; state < searchSpaces.length; state++) {
+            allowedAAsPerState.add(getAllowedAA(state));
+        }
+
+        //Load the energy matrices and do pruning
+        double pruningInterval = 10.0;
+        loadEMatandPruneComets(pruningInterval);
+        /*
+         for (SearchProblemSuper searchProblem : searchSpaces){
+         searchProblem.emat.setConstTerm(0.0);
+         }
+         */
         //For each state this arraylist gives the mutable pos nums of that state
-        List<List<Integer>> mutable2StatePosNum = handleMutable2StatePosNums(stateAllowedAAs);
+        List<List<Integer>> mutable2StatePosNum = handleMutable2StatePosNums(allowedAAsPerState);
+
+        //determine which states are mutable and which are non-mutable
         boolean[] stateIsMutable = new boolean[this.searchSpaces.length];
         int numMutableState = 0;
+        int numNonMutableState = 0;
         for (int state = 0; state < searchSpaces.length; state++) {
             stateIsMutable[state] = !(mutable2StatePosNum.get(state).isEmpty()); //If not empty, it is mutable
             if (stateIsMutable[state]) {
                 numMutableState++;
+            } else {
+                numNonMutableState++;
             }
         }
 
@@ -310,18 +337,26 @@ public class KaDEEFinder {
         List<List<Integer>> mutableState2StatePosNumList = new ArrayList<>();
         List<List<List<String>>> mutableStateAllowedAAs = new ArrayList<>();
         int mutableStateIndex = 0;
+
+        SearchProblemSuper nonMutableState = searchSpaces[1];
+        double unboundLigandGMECEnergy = 0.0;
         for (int state = 0; state < searchSpaces.length; state++) {
             if (stateIsMutable[state]) {
                 mutableStates[mutableStateIndex] = searchSpaces[state];
                 mutableState2StatePosNumList.add(mutable2StatePosNum.get(state));
-                mutableStateAllowedAAs.add(stateAllowedAAs.get(state));
+                mutableStateAllowedAAs.add(allowedAAsPerState.get(state));
                 mutableStateIndex++;
+            } else {
+                nonMutableState = searchSpaces[state];
+                //For the const term of the LME objective function
+                unboundLigandGMECEnergy = getGMECEnergyLigand(nonMutableState);
             }
         }
+        //For const term of LME objective function
         int numStatesForCOMETS = mutableStates.length;
         int numTreeLevels = getNumMutablePos(mutableState2StatePosNumList);
         ArrayList<ArrayList<String>> AATypeOptions = handleAATypeOptions(mutableStateAllowedAAs);
-        LME objFcn = new LME(new double[]{1, -1}, 0.0, 2);
+        LME objFcn = new LME(new double[]{1, -1}, -unboundLigandGMECEnergy, 2);
         LME[] constraints = new LME[0];
         int numMaxMut = -1;
         String[] wtSeq = null;
@@ -333,20 +368,20 @@ public class KaDEEFinder {
             mutableState2StatePosNum.add(converted);
         }
         int[] numMutPerStrand = cfp.getNumMutPerStrand();
-        
-        COMETSTreeSuper tree = new COMETSTreeSuper(numTreeLevels, objFcn, constraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, mutableState2StatePosNum, numMutPerStrand);
+
+        COMETSTreeSuper tree = new COMETSTreeSuper(numTreeLevels, objFcn, constraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, nonMutableState, mutableState2StatePosNum, numMutPerStrand);
         return tree;
     }
 
     private List<List<String>> getAllowedAA(int state) {
         ArrayList<ArrayList<String>> complexAllowedAAs = cfp.getAllowedAAs();
         ArrayList<String> complexFlexRes = cfp.getFlexRes();
-
+        int numFlexRes = complexFlexRes.size();
         int beginPos = -1;
         int endPos = -1;
         if (state == 0) {
             beginPos = 0;
-            endPos = complexAllowedAAs.size();
+            endPos = numFlexRes;
         } else if (state == 1) {
             beginPos = 0;
             endPos = this.searchSpaces[1].confSpaceSuper.posFlexSuper.size();
@@ -447,6 +482,14 @@ public class KaDEEFinder {
             }
         }
         return AATypeOptions;
+    }
+
+    private double getGMECEnergyLigand(SearchProblemSuper searchProblem) {
+        ConfTreeSuper confTree = new ConfTreeSuper(searchProblem);
+        int[] conf = confTree.nextConf();
+        SuperRCTuple rcTup = new SuperRCTuple(conf);
+        double unboundLigandE = searchProblem.emat.getInternalEnergy(rcTup) + searchProblem.emat.getConstTerm();
+        return unboundLigandE;
     }
 
     private void initializePruning(SearchProblemSuper searchProblem) {

@@ -19,7 +19,7 @@ public abstract class AStarTree implements ConfSearch {
     //can cover the A* variations we're considering:
     //dynamic ordering, different node scoring heuristics, COMETS, super-rotamers, etc.
         
-    private PriorityQueue<AStarNode> pq = null;
+    public PriorityQueue<AStarNode> pq = null;
         
     //AStarNode can be lightweight: just int[], score, and flag for if score needs refinement
     //the meanings are assigned by subclasses of this class, which define things like scoring

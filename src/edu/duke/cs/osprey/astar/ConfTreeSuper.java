@@ -14,6 +14,7 @@ import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  *
@@ -48,7 +49,7 @@ public class ConfTreeSuper extends AStarTree {
     boolean minPartialConfs = false;//whether to minimize partially defined confs with EPIC, or just fully defined
 
     // MPLP object for node refinement.
-    Mplp mplpMinimizer;
+    public Mplp mplpMinimizer;
 
     public ConfTreeSuper(SearchProblemSuper sp) {
         init(sp, sp.pruneMat, sp.useEPIC);
@@ -316,10 +317,12 @@ public class ConfTreeSuper extends AStarTree {
      * partialConf, or are actually numbered <level2) @
      *
      *
-     * param partialConf
-     * @param htf
-     * @param level2
-     * @return
+     * param partialConf @param htf @param level2
+     * @r
+     *
+     * e
+     * t
+     * urn
      */
     double higherOrderContribLB(int[] partialConf, HigherTupleFinder<Double> htf, int level2) {
 
@@ -393,15 +396,10 @@ public class ConfTreeSuper extends AStarTree {
         node.scoreNeedsRefinement = false;
     }
 
-    public void setMPLPForInteractionEnergy(int numMut0) {
-        this.mplpMinimizer.setCrossTermInteractionGraph(numMut0);
-    }
-    
-    public void setMPLPEmatInteractionEnergy(){
-        this.mplpMinimizer.createOnlyPairwiseMat(emat);
-    }
-    public void setMPLPEmatInteractionEnergyWithLigand(int numMut0){
-        this.mplpMinimizer.createOnlyPairwiseMatWithIntraLigand(emat, numMut0);
+    public void setMPLPForInteractionEnergy(List<EnergyMatrix> boundResNumToUnboundEmat, List<Integer> boundResNumToUnboundResNum,
+            List<Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
+        this.mplpMinimizer.setCrossTermInteractionGraph(boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundresNumToIsMutableStrand, belongToSameStrand);
+        this.mplpMinimizer.createOnlyPairwiseMat(this.emat, boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundresNumToIsMutableStrand, belongToSameStrand);
     }
 
     //this function computes the minimum over all full conf E's consistent with partialConf
@@ -428,6 +426,6 @@ public class ConfTreeSuper extends AStarTree {
     }
 
     public double interactionENextConf(int[] conf) {
-        return this.mplpMinimizer.optimizeEMPLP(conf,100);
+        return this.mplpMinimizer.optimizeEMPLP(conf, 100);
     }
 }

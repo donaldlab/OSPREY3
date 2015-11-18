@@ -1,8 +1,9 @@
 package edu.duke.cs.osprey.astar;
 
+import edu.duke.cs.osprey.confspace.SearchProblemSuper;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.tools.CreateMatrix;
-
+import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
 
@@ -107,7 +108,9 @@ public class Mplp {
                             for (int rotJS : availableRots[resJ]) {
                                 msgsFromRotsAtJ_to_rotIR.add(belief[resJ][rotJS] - lambda[resI][resJ][rotJS] + unifiedMinEnergyMatrix[resI][rotIR][resJ][rotJS]);
                             }
-
+                            if (availableRots[resJ].length == 0) {
+                                System.out.println("NO ROTS MPLP CRASHING");
+                            }
                             lambda[resJ][resI][rotIR] = -0.5 * belief[resI][rotIR] + 0.5 * Collections.min(msgsFromRotsAtJ_to_rotIR);
                             belief[resI][rotIR] += lambda[resJ][resI][rotIR];
                         }
@@ -238,8 +241,10 @@ public class Mplp {
 
     }
 
-    // Computes an interaction graph in which residues only interact if they are on different strands 
-    public void setCrossTermInteractionGraph(int numMut0) {
+    // Computes an interaction graph in which residues only interact if they are on different strands
+    // or if the interactions are between the non-mutable strand 
+    public void setCrossTermInteractionGraph(List<EnergyMatrix> boundResNumToUnboundEmat, List<Integer> boundResNumToUnboundResNum,
+            List<Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
         boolean[][] interactionGraph = new boolean[numResidues][numResidues];
         int numInteractions = 0;
         for (int xres = 0; xres < numResidues; xres++) {
@@ -247,18 +252,30 @@ public class Mplp {
                 interactionGraph[xres][yres] = false;
             }
         }
-        for (int xres = 0; xres < numMut0; xres++) {
-            for (int yres = numMut0; yres < numResidues; yres++) {
-                interactionGraph[xres][yres] = true;
-                interactionGraph[yres][xres] = true;
-                numInteractions += 1;
+        for (int xres = 0; xres < numResidues; xres++) {
+            for (int yres = xres + 1; yres < numResidues; yres++) {
+                //If on the same strand (check if it is non-mutable)
+                if (belongToSameStrand[xres][yres]) {
+                    //xres and yres are not on the mutable strand, so create interaction
+                    if (!boundresNumToIsMutableStrand.get(xres)) {
+                        interactionGraph[xres][yres] = true;
+                        interactionGraph[yres][xres] = true;
+                        numInteractions++;
+                    }
+                } //else, they are not on the same strand so create interaction
+                else {
+                    interactionGraph[xres][yres] = true;
+                    interactionGraph[yres][xres] = true;
+                    numInteractions++;
+                }
             }
         }
         System.out.println("MPLP: Cross-Term Interaction Graph Num Interaction: " + numInteractions);
         this.interactionGraph = interactionGraph;
     }
 
-    public void createOnlyPairwiseMat(EnergyMatrix emat) {
+    public void createOnlyPairwiseMat(EnergyMatrix ematBound, List<EnergyMatrix> boundResNumToUnboundEmat, List<Integer> boundResNumToUnboundResNum,
+            List<Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
         double unifiedEmat[][][][] = CreateMatrix.create4DRotMatrix(numResidues, rotsPerPos, 0.0f);
 
         //Build Neighborhood
@@ -274,12 +291,26 @@ public class Mplp {
 
         for (int resI = 0; resI < numResidues; resI++) {
             for (int resJ = resI + 1; resJ < numResidues; resJ++) {
+                //If they are interacting could be because: 1) They are on the same, non-mutable strand
+                //                                          2) They are on opposite strands
                 if (interactionGraph[resI][resJ]) {//If neighbors(resI,resJ)	
                     for (int rotIR_Ix = 0; rotIR_Ix < this.unprunedRotsPerPos.get(resI).size(); rotIR_Ix++) {
                         int rotIR_origMat = this.unprunedRotsPerPos.get(resI).get(rotIR_Ix);
                         for (int rotJS_Ix = 0; rotJS_Ix < this.unprunedRotsPerPos.get(resJ).size(); rotJS_Ix++) {
                             int rotJS_origMat = this.unprunedRotsPerPos.get(resJ).get(rotJS_Ix);
-                            unifiedEmat[resI][rotIR_Ix][resJ][rotJS_Ix] = emat.getPairwise(resI, rotIR_origMat, resJ, rotJS_origMat);
+                            //If the interaction is not pairwise, then we will use only  the pairwise energies
+                            //And the intraE that .getOneBody(resI, rotIR_origMat) + ematBound.getOneBody(resJ, rotJS_origMat);
+                            EnergyMatrix ematUnbound1 = boundResNumToUnboundEmat.get(resI);
+                            EnergyMatrix ematUnbound2 = boundResNumToUnboundEmat.get(resJ);
+                            int resI_unbound = boundResNumToUnboundResNum.get(resI);
+                            int resJ_unbound = boundResNumToUnboundResNum.get(resJ);
+                            double pairwiseE = ematBound.getPairwise(resI, rotIR_origMat, resJ, rotJS_origMat);
+                            double intraE_I = ematBound.getOneBody(resI, rotIR_origMat) / ((double) numNeighbors[resI]);
+                            double intraE_J = ematBound.getOneBody(resJ, rotJS_origMat) / ((double) numNeighbors[resJ]);
+                            double intraE_I_unbound = ematUnbound1.getOneBody(resI_unbound, rotIR_origMat) / ((double) numNeighbors[resI]);
+                            double intraE_J_unbound = ematUnbound2.getOneBody(resJ_unbound, rotJS_origMat) / ((double) numNeighbors[resJ]);
+                            double totalE = pairwiseE + intraE_I + intraE_J - intraE_I_unbound - intraE_J_unbound;
+                            unifiedEmat[resI][rotIR_Ix][resJ][rotJS_Ix] = totalE;
                             unifiedEmat[resJ][rotJS_Ix][resI][rotIR_Ix] = unifiedEmat[resI][rotIR_Ix][resJ][rotJS_Ix];
                         }
                     }
@@ -289,35 +320,63 @@ public class Mplp {
         this.unifiedMinEnergyMatrix = unifiedEmat;
     }
 
-    public void createOnlyPairwiseMatWithIntraLigand(EnergyMatrix emat, int numMut0) {
+    public void createOnlyPairwiseMatWithLigand(EnergyMatrix ematBound, List<EnergyMatrix> boundResNumToUnboundEmat, List<Integer> boundResNumToUnboundResNum,
+            List<Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
         double unifiedEmat[][][][] = CreateMatrix.create4DRotMatrix(numResidues, rotsPerPos, 0.0f);
 
         //Build Neighborhood
         int[] numNeighbors = new int[numResidues];
+        //also keep track of neighbors on opposite strand
+        int[] numNeighborsOppStrand = new int[numResidues];
         for (int xres = 0; xres < numResidues; xres++) {
             numNeighbors[xres] = 0;
+            numNeighborsOppStrand[xres] = 0;
             for (int yres = 0; yres < numResidues; yres++) {
                 if (interactionGraph[xres][yres] && xres != yres) {
                     numNeighbors[xres] += 1;
+                    if (!belongToSameStrand[xres][yres]) {
+                        numNeighborsOppStrand[xres] += 1;
+                    }
                 }
             }
         }
 
         for (int resI = 0; resI < numResidues; resI++) {
             for (int resJ = resI + 1; resJ < numResidues; resJ++) {
+                //If they are interacting could be because: 1) They are on the same, non-mutable strand
+                //                                          2) They are on opposite strands
                 if (interactionGraph[resI][resJ]) {//If neighbors(resI,resJ)	
                     for (int rotIR_Ix = 0; rotIR_Ix < this.unprunedRotsPerPos.get(resI).size(); rotIR_Ix++) {
                         int rotIR_origMat = this.unprunedRotsPerPos.get(resI).get(rotIR_Ix);
                         for (int rotJS_Ix = 0; rotJS_Ix < this.unprunedRotsPerPos.get(resJ).size(); rotJS_Ix++) {
                             int rotJS_origMat = this.unprunedRotsPerPos.get(resJ).get(rotJS_Ix);
-                            unifiedEmat[resI][rotIR_Ix][resJ][rotJS_Ix] = emat.getPairwise(resI, rotIR_origMat, resJ, rotJS_origMat);
-                            if (resI < numMut0) {
-                                unifiedEmat[resI][rotIR_Ix][resJ][rotJS_Ix] += emat.getOneBody(resI, rotIR_origMat);
+                            //If they belong to the same strand and interacting: they are both non-mutable
+                            if (belongToSameStrand[resI][resJ]) {
+                                //For the non-mutable non-mutable interactions we want to use the bound energies
+                                //We will subtract out the unbound GMEC energy using the pre-computed const-term
+                                //of the objective function for COMETS
+                                double pairwiseE = ematBound.getPairwise(resI, rotIR_origMat, resJ, rotJS_origMat);
+                                double intraE_I = ematBound.getOneBody(resI, rotIR_origMat) / ((double) numNeighbors[resI]);
+                                double intraE_J = ematBound.getOneBody(resJ, rotJS_origMat) / ((double) numNeighbors[resJ]);
+                                double totalE = pairwiseE + intraE_I + intraE_J;
+                                unifiedEmat[resI][rotIR_Ix][resJ][rotJS_Ix] = totalE;
+                                unifiedEmat[resJ][rotJS_Ix][resI][rotIR_Ix] = unifiedEmat[resI][rotIR_Ix][resJ][rotJS_Ix];
+                            } else {
+                                //If the interaction is not pairwise, then we will use only  the pairwise energies
+                                //And the intraE that .getOneBody(resI, rotIR_origMat) + ematBound.getOneBody(resJ, rotJS_origMat);
+                                EnergyMatrix ematUnbound1 = boundResNumToUnboundEmat.get(resI);
+                                EnergyMatrix ematUnbound2 = boundResNumToUnboundEmat.get(resJ);
+                                int resI_unbound = boundResNumToUnboundResNum.get(resI);
+                                int resJ_unbound = boundResNumToUnboundResNum.get(resJ);
+                                double pairwiseE = ematBound.getPairwise(resI, rotIR_origMat, resJ, rotJS_origMat);
+                                double intraE_I = ematBound.getOneBody(resI, rotIR_origMat) / ((double) numNeighbors[resI]);
+                                double intraE_J = ematBound.getOneBody(resJ, rotJS_origMat) / ((double) numNeighbors[resJ]);
+                                double intraE_I_unbound = ematUnbound1.getOneBody(resI_unbound, rotIR_origMat) / ((double) numNeighborsOppStrand[resI]);
+                                double intraE_J_unbound = ematUnbound2.getOneBody(resJ_unbound, rotJS_origMat) / ((double) numNeighborsOppStrand[resJ]);
+                                double totalE = pairwiseE + intraE_I + intraE_J - intraE_I_unbound - intraE_J_unbound;
+                                unifiedEmat[resI][rotIR_Ix][resJ][rotJS_Ix] = totalE;
+                                unifiedEmat[resJ][rotJS_Ix][resI][rotIR_Ix] = unifiedEmat[resI][rotIR_Ix][resJ][rotJS_Ix];
                             }
-                            if (resJ < numMut0) {
-                                unifiedEmat[resI][rotIR_Ix][resJ][rotJS_Ix] += emat.getOneBody(resJ, rotJS_origMat);
-                            }
-                            unifiedEmat[resJ][rotJS_Ix][resI][rotIR_Ix] = unifiedEmat[resI][rotIR_Ix][resJ][rotJS_Ix];
                         }
                     }
                 }

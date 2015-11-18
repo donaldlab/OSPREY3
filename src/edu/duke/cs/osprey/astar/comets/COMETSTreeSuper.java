@@ -14,10 +14,16 @@ import edu.duke.cs.osprey.confspace.SearchProblemSuper;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.pruning.PrunerSuper;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+import java.util.HashMap;
 import java.util.PriorityQueue;
 import java.util.Random;
+import java.util.stream.Collectors;
+import org.apache.commons.lang.ArrayUtils;
 
 /**
  * Replica of COMETSTree but supports superRCs
@@ -25,7 +31,6 @@ import java.util.Random;
  * @author hmn5
  */
 public class COMETSTreeSuper extends AStarTree {
-
     int numTreeLevels;//number of residues with sequence changes
 
     LME objFcn;//we are minimizing objFcn...
@@ -43,7 +48,9 @@ public class COMETSTreeSuper extends AStarTree {
     //they have to have the same mutable residues & AA options,
     //though the residues involved may be otherwise different
 
-    SearchProblemSuper stateSP[];//SearchProblems describing them
+    SearchProblemSuper[] mutableSearchProblems;//SearchProblems involved in COMETS search
+
+    public SearchProblemSuper nonMutableSearchProblem;
 
     ArrayList<ArrayList<Integer>> mutable2StatePosNums;
     //mutable2StatePosNum.get(state) maps levels in this tree to flexible positions for state
@@ -56,6 +63,15 @@ public class COMETSTreeSuper extends AStarTree {
 
     //HMN: To Help with Interaction E Heuristic
     int[] numMutPerStrand;
+    //Maps the bound res num to the corresponding unbound emat
+    List<EnergyMatrix> boundResNumToUnboundEmat;
+    //Maps the bound res num to the corresponding unbound res num
+    List<Integer> boundResNumToUnboundResNum;
+    //Maps the bound res num to boolean that is true if res num is part of mutable
+    //strand
+    List<Boolean> boundResNumToIsMutableStrand;
+    //determines if two residues are on the same strand
+    boolean[][] belongToSameStrand;
 
     public COMETSTreeSuper(int numTreeLevels, LME objFcn, LME[] constraints,
             ArrayList<ArrayList<String>> AATypeOptions, int numMaxMut, String[] wtSeq,
@@ -69,7 +85,7 @@ public class COMETSTreeSuper extends AStarTree {
         this.numMaxMut = numMaxMut;
         this.wtSeq = wtSeq;
         this.numStates = numStates;
-        this.stateSP = stateSP;
+        this.mutableSearchProblems = stateSP;
         this.mutable2StatePosNums = mutable2StatePosNums;
 
         stateNumPos = new int[numStates];
@@ -91,7 +107,7 @@ public class COMETSTreeSuper extends AStarTree {
         this.numMaxMut = numMaxMut;
         this.wtSeq = wtSeq;
         this.numStates = numStates;
-        this.stateSP = stateSP;
+        this.mutableSearchProblems = stateSP;
         this.mutable2StatePosNums = mutable2StatePosNums;
         this.numMutPerStrand = numMutPerStrand;
 
@@ -99,9 +115,34 @@ public class COMETSTreeSuper extends AStarTree {
         for (int state = 0; state < numStates; state++) {
             stateNumPos[state] = stateSP[state].confSpaceSuper.numPos;
         }
-        this.stateSP[0].emat.setConstTerm(0.0);
-        this.stateSP[1].emat.setConstTerm(0.0);
-        objFcn.constTerm = -2.5413265522868933;
+    }
+
+    public COMETSTreeSuper(int numTreeLevels, LME objFcn, LME[] constraints,
+            ArrayList<ArrayList<String>> AATypeOptions, int numMaxMut, String[] wtSeq,
+            int numStates, SearchProblemSuper[] stateSP, SearchProblemSuper nonMutableSearchProblem,
+            ArrayList<ArrayList<Integer>> mutable2StatePosNums, int[] numMutPerStrand) {
+
+        this.numTreeLevels = numTreeLevels;
+        this.objFcn = objFcn;
+        this.constraints = constraints;
+        this.AATypeOptions = AATypeOptions;
+        this.numMaxMut = numMaxMut;
+        this.wtSeq = wtSeq;
+        this.numStates = numStates;
+        this.mutableSearchProblems = stateSP;
+        this.mutable2StatePosNums = mutable2StatePosNums;
+        this.numMutPerStrand = numMutPerStrand;
+        this.nonMutableSearchProblem = nonMutableSearchProblem;
+
+        stateNumPos = new int[numStates];
+        for (int state = 0; state < numStates; state++) {
+            stateNumPos[state] = stateSP[state].confSpaceSuper.numPos;
+        }
+
+        this.boundResNumToUnboundEmat = getBoundPosNumToUnboundEmat();
+        this.boundResNumToUnboundResNum = getBoundPosNumToUnboundPosNum();
+        this.boundResNumToIsMutableStrand = getBoundPosNumberToIsMutableStrand();
+        this.belongToSameStrand = getSameStrandMatrix();
     }
 
     @Override
@@ -163,7 +204,7 @@ public class COMETSTreeSuper extends AStarTree {
         for (int rc : parentMat.unprunedRCsAtPos(posAtState)) {
             //HUNTER: TODO: AATYperPerRes should only be one residue for now
             //We should change this to allow for superRCs at the sequence search level
-            String rcAAType = stateSP[state].confSpaceSuper.posFlexSuper.get(posAtState).superRCs.get(rc).AATypePerRes.get(0);
+            String rcAAType = mutableSearchProblems[state].confSpaceSuper.posFlexSuper.get(posAtState).superRCs.get(rc).AATypePerRes.get(0);
 
             if (!rcAAType.equalsIgnoreCase(assignedAAType)) {
                 ans.markAsPruned(new SuperRCTuple(posAtState, rc));
@@ -174,8 +215,8 @@ public class COMETSTreeSuper extends AStarTree {
         int numUpdates = ans.countUpdates();
         int oldNumUpdates;
 
-        PrunerSuper dee = new PrunerSuper(stateSP[state], ans, true, Double.POSITIVE_INFINITY,
-                0, false, stateSP[state].useTupExpForSearch, false);
+        PrunerSuper dee = new PrunerSuper(mutableSearchProblems[state], ans, true, Double.POSITIVE_INFINITY,
+                10.0, false, mutableSearchProblems[state].useTupExpForSearch, false);
         //this is rigid, type-dependent pruning aiming for sequence GMECs
         //So Ew = Ival = 0
 
@@ -209,7 +250,7 @@ public class COMETSTreeSuper extends AStarTree {
             }
 
             if (RCsAvailable) {
-                node.stateTrees[state] = new ConfTreeSuper(stateSP[state], node.pruneMat[state], false);
+                node.stateTrees[state] = new ConfTreeSuper(mutableSearchProblems[state], node.pruneMat[state], false);
 
                 AStarNode rootNode = node.stateTrees[state].rootNode();
 
@@ -234,7 +275,7 @@ public class COMETSTreeSuper extends AStarTree {
 
         PruningMatrix[] pruneMats = new PruningMatrix[numStates];
         for (int state = 0; state < numStates; state++) {
-            pruneMats[state] = stateSP[state].pruneMat;
+            pruneMats[state] = mutableSearchProblems[state].pruneMat;
         }
 
         COMETSNodeSuper root = new COMETSNodeSuper(conf, pruneMats);
@@ -345,6 +386,10 @@ public class COMETSTreeSuper extends AStarTree {
                         + getEnergyMatrix(state).confE(conf));
             }
         }
+        int[] confBound = seqNode.stateTrees[0].getQueue().peek().getNodeAssignments();
+        int[] confUnbound = seqNode.stateTrees[1].getQueue().peek().getNodeAssignments();
+        double LMEscore = getEnergyMatrix(0).confE(confBound) - getEnergyMatrix(1).confE(confUnbound);
+        System.out.println("LME: "+LMEscore);
 
         int numSeqDefNodes = 0;
         for (AStarNode node : getQueue()) {
@@ -363,6 +408,7 @@ public class COMETSTreeSuper extends AStarTree {
         int totGMECsCalcd = stateGMECsRet + stateGMECsInTree + stateGMECsForPruning;
         System.out.println(totGMECsCalcd + " state GMECs calculated: " + stateGMECsRet + " returned, " + stateGMECsInTree
                 + " in tree, " + stateGMECsForPruning + " for pruned sequences.");
+
     }
 
     int countGMECsInTree() {
@@ -388,9 +434,11 @@ public class COMETSTreeSuper extends AStarTree {
         if (seqNode.stateTrees != null) {//fully defined sequence, so there are state trees
             for (ConfTreeSuper ct : seqNode.stateTrees) {
                 if (ct != null) {
-                    AStarNode bestNode = ct.getQueue().peek();
-                    if (bestNode.isFullyDefined()) {
-                        count++;
+                    if (ct.getQueue().peek() != null) {
+                        AStarNode bestNode = ct.getQueue().peek();
+                        if (bestNode.isFullyDefined()) {
+                            count++;
+                        }
                     }
                 }
             }
@@ -404,10 +452,10 @@ public class COMETSTreeSuper extends AStarTree {
         if (seqNode.isFullyDefined())//fully-defined sequence
         {
             double originalBound = calcLBConfTrees(seqNode, func);
-            double exactBound = calcLBConfTreeMPLP(seqNode);
+            //double exactBound = calcLBConfTreeMPLP(seqNode);
             return originalBound;
         } else {
-            double interactionEBound = calcLBPartialSeqInteractionE(seqNode);
+            double interactionEBound = calcLBPartialSeqInteractionE(seqNode, boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundResNumToIsMutableStrand, belongToSameStrand);
             double originalBound = calcLBPartialSeq(seqNode, func);
             return interactionEBound;
         }
@@ -431,12 +479,16 @@ public class COMETSTreeSuper extends AStarTree {
         }
     }
 
-    private double calcLBPartialSeqInteractionE(COMETSNodeSuper seqNode) {
-        ConfTreeSuper confSearchIE = new ConfTreeSuper(this.stateSP[0], seqNode.pruneMat[0], false);
-        confSearchIE.setMPLPForInteractionEnergy(this.numMutPerStrand[0]);
-        confSearchIE.setMPLPEmatInteractionEnergy();
+    private double calcLBPartialSeqInteractionE(COMETSNodeSuper seqNode, List<EnergyMatrix> boundResNumToUnboundEmat, List<Integer> boundResNumToUnboundResNum,
+            List<Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
+        ConfTreeSuper confSearchIE = new ConfTreeSuper(this.mutableSearchProblems[0], seqNode.pruneMat[0], false);
+        confSearchIE.setMPLPForInteractionEnergy(boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundresNumToIsMutableStrand, belongToSameStrand);
+        int[] emptyConf = new int[this.mutableSearchProblems[0].confSpaceSuper.numPos];
+        Arrays.fill(emptyConf, -1);
+//        double lowerBoundInterE = confSearchIE.mplpMinimizer.optimizeEMPLP(emptyConf,100);
         int[] conf = confSearchIE.nextConf();
-        return confSearchIE.interactionENextConf(conf) + (this.stateSP[0].emat.getConstTerm() - this.stateSP[1].emat.getConstTerm());
+        double interactionE = confSearchIE.interactionENextConf(conf);
+        return interactionE + this.mutableSearchProblems[0].emat.getConstTerm() - this.mutableSearchProblems[1].emat.getConstTerm() - this.nonMutableSearchProblem.emat.getConstTerm();
     }
 
     private double calcLBPartialSeq(COMETSNodeSuper seqNode, LME func) {
@@ -660,7 +712,7 @@ public class COMETSTreeSuper extends AStarTree {
         for (int rc : unprunedRCs) {
             //HMN: TODO Change to allow for more than one AA type per superRCs.
             //Currently this does not support merging
-            String rcAAType = stateSP[state].confSpaceSuper.posFlexSuper.get(statePosNum).superRCs.get(rc).AATypePerRes.get(0);
+            String rcAAType = mutableSearchProblems[state].confSpaceSuper.posFlexSuper.get(statePosNum).superRCs.get(rc).AATypePerRes.get(0);
 
             if (rcAAType.equalsIgnoreCase(curAAType))//right type
             {
@@ -672,12 +724,13 @@ public class COMETSTreeSuper extends AStarTree {
     }
 
     private double calcLBConfTreeMPLP(COMETSNodeSuper seqNode) {
-        ConfTreeSuper confSearchBound = new ConfTreeSuper(this.stateSP[0], seqNode.pruneMat[0], false);
-        double boundE = confSearchBound.energyNextConf();
-        ConfTreeSuper confSearchUnBound = new ConfTreeSuper(this.stateSP[1], seqNode.pruneMat[1], false);
-        double unBoundE = confSearchUnBound.energyNextConf();
-        return boundE - unBoundE + objFcn.constTerm;
-
+        if (seqNode.stateTrees[0] == null)//state and sequence impossible
+        {
+            return Double.POSITIVE_INFINITY;
+        }
+        BigDecimal boundE = new BigDecimal(seqNode.stateTrees[0].energyNextConf());
+        BigDecimal unBoundE = new BigDecimal(seqNode.stateTrees[1].energyNextConf());
+        return boundE.subtract(unBoundE).add(new BigDecimal(this.objFcn.constTerm)).doubleValue();
     }
 
     private double calcLBConfTrees(COMETSNodeSuper seqNode, LME func) {
@@ -748,12 +801,12 @@ public class COMETSTreeSuper extends AStarTree {
     }
 
     private EnergyMatrix getEnergyMatrix(int state) {
-        if (stateSP[state].useTupExpForSearch)//Using LUTE
+        if (mutableSearchProblems[state].useTupExpForSearch)//Using LUTE
         {
-            return stateSP[state].tupExpEMat;
+            return mutableSearchProblems[state].tupExpEMat;
         } else//discrete flexibility w/o LUTE
         {
-            return stateSP[state].emat;
+            return mutableSearchProblems[state].emat;
         }
     }
 
@@ -907,5 +960,128 @@ public class COMETSTreeSuper extends AStarTree {
         expNode.UB = getEnergyMatrix(state).confE(UBConf);
 
         return true;
+    }
+
+    //For flexible position in bound matrix (0,1,2,...,numRes-1) we map to the corresponding
+    //unbound energy matrix
+    public List<EnergyMatrix> getBoundPosNumToUnboundEmat() {
+        SearchProblemSuper boundState = this.mutableSearchProblems[0];
+        //Get res number from each flexible position in the bound state
+        List<Integer> resNumsBound = boundState.confSpaceSuper.posFlexSuper.stream()
+                .map(posFlex -> posFlex.resList.get(0).resNum)
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        //Get res number for each flexible position in the unbound mutable state
+        SearchProblemSuper unBoundMutableState = this.mutableSearchProblems[1];
+        List<Integer> resNumsUnboundMutable = unBoundMutableState.confSpaceSuper.posFlexSuper.stream()
+                .map(posFlex -> posFlex.resList.get(0).resNum)
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        //Get res number for each flexible position in the unbound non-mutable state
+        SearchProblemSuper unBoundNonMutableState = this.nonMutableSearchProblem;
+        List<Integer> resNumsUnboundNonMutable = unBoundNonMutableState.confSpaceSuper.posFlexSuper.stream()
+                .map(posFlex -> posFlex.resList.get(0).resNum)
+                .collect(Collectors.toCollection(ArrayList::new));
+        //Map to corresponding energy matrix
+        List<EnergyMatrix> unboundEmatPerPos = resNumsBound.stream()
+                .map(posNum -> ArrayUtils.contains(resNumsUnboundMutable.toArray(), posNum) ? unBoundMutableState.emat : unBoundNonMutableState.emat)
+                .collect(Collectors.toCollection(ArrayList::new));
+        return unboundEmatPerPos;
+    }
+
+    //For flexible position in bound matrix (0,1,2,...,numRes-1) we map to the corresponding
+    //position number in the unbound matrix
+    public List<Integer> getBoundPosNumToUnboundPosNum() {
+        SearchProblemSuper boundState = this.mutableSearchProblems[0];
+        //Get res number from each flexible position in the bound state
+        List<Integer> resNumsBound = boundState.confSpaceSuper.posFlexSuper.stream()
+                .map(posFlex -> posFlex.resList.get(0).resNum)
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        //Get res number for each flexible position in the unbound mutable state
+        SearchProblemSuper unBoundMutableState = this.mutableSearchProblems[1];
+        List<Integer> resNumsUnboundMutable = unBoundMutableState.confSpaceSuper.posFlexSuper.stream()
+                .map(posFlex -> posFlex.resList.get(0).resNum)
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        //Get res number for each flexible position in the unbound non-mutable state
+        SearchProblemSuper unBoundNonMutableState = this.nonMutableSearchProblem;
+        List<Integer> resNumsUnboundNonMutable = unBoundNonMutableState.confSpaceSuper.posFlexSuper.stream()
+                .map(posFlex -> posFlex.resList.get(0).resNum)
+                .collect(Collectors.toCollection(ArrayList::new));
+        //Map to corresponding unbound position number
+        List<Integer> unboundPosNumsPerPos = resNumsBound.stream()
+                .map(posNum -> ArrayUtils.contains(resNumsUnboundMutable.toArray(), posNum) ? ArrayUtils.indexOf(resNumsUnboundMutable.toArray(), posNum)
+                                : ArrayUtils.indexOf(resNumsUnboundNonMutable.toArray(), posNum))
+                .collect(Collectors.toCollection(ArrayList::new));
+        return unboundPosNumsPerPos;
+    }
+
+    //For flexible position in bound matrix (0,1,2,...,numRes-1) we map to the corresponding
+    //strand number
+    public boolean[][] getSameStrandMatrix() {
+        SearchProblemSuper boundState = this.mutableSearchProblems[0];
+        //Get res number from each flexible position in the bound state
+        List<Integer> resNumsBound = boundState.confSpaceSuper.posFlexSuper.stream()
+                .map(posFlex -> posFlex.resList.get(0).resNum)
+                .collect(Collectors.toList());
+
+        //Get res number for each flexible position in the unbound mutable state
+        SearchProblemSuper unBoundMutableState = this.mutableSearchProblems[1];
+        List<Integer> resNumsUnboundMutable = unBoundMutableState.confSpaceSuper.posFlexSuper.stream()
+                .map(posFlex -> posFlex.resList.get(0).resNum)
+                .collect(Collectors.toList());
+
+        //Get res number for each flexible position in the unbound non-mutable state
+        SearchProblemSuper unBoundNonMutableState = this.nonMutableSearchProblem;
+        List<Integer> resNumsUnboundNonMutable = unBoundNonMutableState.confSpaceSuper.posFlexSuper.stream()
+                .map(posFlex -> posFlex.resList.get(0).resNum)
+                .collect(Collectors.toList());
+        //Map to corresponding unbound position number
+        List<Integer> boundPosNumToStrandNum = resNumsBound.stream()
+                .map(posNum -> ArrayUtils.contains(resNumsUnboundMutable.toArray(), posNum) ? 0 : 1)
+                .collect(Collectors.toList());
+
+        int numResidues = boundPosNumToStrandNum.size();
+        boolean[][] belongToSameStrand = new boolean[numResidues][numResidues];
+        for (int i = 0; i < numResidues; i++) {
+            for (int j = i + 1; j < numResidues; j++) {
+                if (boundPosNumToStrandNum.get(i).equals(boundPosNumToStrandNum.get(j))) {
+                    belongToSameStrand[i][j] = true;
+                    belongToSameStrand[j][i] = true;
+                } else {
+                    belongToSameStrand[i][j] = false;
+                    belongToSameStrand[j][i] = false;
+                }
+            }
+        }
+        return belongToSameStrand;
+    }
+
+    //For flexible position in bound matrix (0,1,2,...,numRes-1) we map to the boolean
+    //that is true if the res is part of boolean strand and false otherwise
+    public List<Boolean> getBoundPosNumberToIsMutableStrand() {
+        SearchProblemSuper boundState = this.mutableSearchProblems[0];
+        //Get res number from each flexible position in the bound state
+        List<Integer> resNumsBound = boundState.confSpaceSuper.posFlexSuper.stream()
+                .map(posFlex -> posFlex.resList.get(0).resNum)
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        //Get res number for each flexible position in the unbound mutable state
+        SearchProblemSuper unBoundMutableState = this.mutableSearchProblems[1];
+        List<Integer> resNumsUnboundMutable = unBoundMutableState.confSpaceSuper.posFlexSuper.stream()
+                .map(posFlex -> posFlex.resList.get(0).resNum)
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        //Get res number for each flexible position in the unbound non-mutable state
+        SearchProblemSuper unBoundNonMutableState = this.nonMutableSearchProblem;
+        List<Integer> resNumsUnboundNonMutable = unBoundNonMutableState.confSpaceSuper.posFlexSuper.stream()
+                .map(posFlex -> posFlex.resList.get(0).resNum)
+                .collect(Collectors.toCollection(ArrayList::new));
+        //Map to corresponding unbound position number
+        List<Boolean> unboundPosNumsPerPos = resNumsBound.stream()
+                .map(posNum -> ArrayUtils.contains(resNumsUnboundMutable.toArray(), posNum))
+                .collect(Collectors.toCollection(ArrayList::new));
+        return unboundPosNumsPerPos;
     }
 }
