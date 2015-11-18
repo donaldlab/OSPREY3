@@ -5,6 +5,9 @@
 package edu.duke.cs.osprey.control;
 
 // TODO: Remove unnecessary imports. - JJ
+import java.util.HashMap;
+import java.util.Map;
+
 import cern.colt.matrix.DoubleMatrix1D;
 import cern.jet.math.Functions;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
@@ -23,7 +26,7 @@ import edu.duke.cs.osprey.tools.ObjectIO;
 
 public class Main {
 
-    
+    public static Map<String, Runnable> commands;
     
     public static void main(String[] args){
         //args expected to be "-c KStar.cfg command config_file_1.cfg ..."
@@ -59,28 +62,10 @@ public class Main {
                                 String.valueOf(MultiTermEnergyFunction.getNumThreads()) );
         }
         
+        initCommands(args, cfp);
         
-        // TODO: Replace this with either the Factory Pattern, java reflection, or lambda functions. - JJ
-        if(command.equalsIgnoreCase("findGMEC")){
-            //I recommend that we change the command names a little to be more intuitive, e.g. 
-            //"findGMEC" instead of doDEE
-            GMECFinder gf = new GMECFinder(cfp);
-            gf.calcGMEC();//this can be the n globally minimum-energy conformations for n>1, or just the 1 
-            //These functions will handle their own output
-        }
-        else if(command.equalsIgnoreCase("calcKStar")){
-            throw new UnsupportedOperationException("ERROR: Still need to implement K*");
-            //KStarCalculator ksc = new KStarCalculator(params);
-            //ksc.calcKStarScores();
-        }
-        else if(command.equalsIgnoreCase("RunTests")){
-            UnitTestSuite.runAllTests();
-        }
-        else if(command.equalsIgnoreCase("doCOMETS")){
-            COMETSDoer cd = new COMETSDoer(args);
-            cd.calcBestSequences();
-        }
-        //etc.
+        if(commands.containsKey(command))
+        	commands.get(command).run();
         else
             throw new RuntimeException("ERROR: OSPREY command unrecognized: "+command);
         
@@ -89,7 +74,63 @@ public class Main {
         System.out.println("OSPREY finished");
     }
     
-    // TODO: Move these into a test file, and just call it from the test.
+    private static void initCommands(String[] args, ConfigFileParser cfp) {
+		// TODO Auto-generated method stub
+    	commands = new HashMap<String, Runnable>();
+    	
+    	commands.put("findGMEC",
+    			new Runnable()
+    			{
+
+					@Override
+					public void run() {
+						GMECFinder gf = new GMECFinder(cfp);
+						gf.calcGMEC();
+					}
+    		
+    			}
+    	);
+    	
+    	commands.put("calcKStar",
+    			new Runnable()
+    			{
+
+					@Override
+					public void run() {
+						System.err.println("Feature not implemented in this version.");
+					}
+    		
+    			}
+    	);
+    	
+    	commands.put("RunTests",
+    			new Runnable()
+    			{
+
+					@Override
+					public void run() {
+						UnitTestSuite.runAllTests();
+					}
+    		
+    			}
+    	);
+    	
+    	commands.put("doCOMETS",
+    			new Runnable()
+    			{
+
+					@Override
+					public void run() {
+			            COMETSDoer cd = new COMETSDoer(args);
+			            cd.calcBestSequences();
+					}
+    		
+    			}
+    	);
+		
+	}
+
+	// TODO: Move these into a test file, and just call it from the test.
     private static void debuggingCommands(String[] args){
         
         //MolecEObjFunction mof = (MolecEObjFunction)ObjectIO.readObject("OBJFCN1442697734046.dat", true);
