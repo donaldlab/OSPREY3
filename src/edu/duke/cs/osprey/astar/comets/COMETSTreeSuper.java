@@ -216,7 +216,7 @@ public class COMETSTreeSuper extends AStarTree {
         int oldNumUpdates;
 
         PrunerSuper dee = new PrunerSuper(mutableSearchProblems[state], ans, true, Double.POSITIVE_INFINITY,
-                10.0, false, mutableSearchProblems[state].useTupExpForSearch, false);
+                0.0, false, mutableSearchProblems[state].useTupExpForSearch, false);
         //this is rigid, type-dependent pruning aiming for sequence GMECs
         //So Ew = Ival = 0
 
@@ -456,14 +456,19 @@ public class COMETSTreeSuper extends AStarTree {
             return originalBound;
         } else {
             double interactionEBound = calcLBPartialSeqInteractionE(seqNode, boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundResNumToIsMutableStrand, belongToSameStrand);
+            double interactionEBoundWithLigand = calcLBPartialSeqInteractionEWithLigand(seqNode, boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundResNumToIsMutableStrand, belongToSameStrand);
             double originalBound = calcLBPartialSeq(seqNode, func);
             System.out.println("Interaction E bound: "+ interactionEBound);
+            System.out.println("Interaction E bound with Ligand: "+ interactionEBoundWithLigand);
             System.out.println("Original bound: "+ originalBound);
+            /*
             if (interactionEBound > originalBound){
             	return interactionEBound;
             }
             else
             	return originalBound;
+            */
+            return originalBound;
         }
     }
 
@@ -492,7 +497,7 @@ public class COMETSTreeSuper extends AStarTree {
      * @param boundResNumToUnboundResNum
      * @param boundresNumToIsMutableStrand
      * @param belongToSameStrand
-     * @return
+     * @return lower bound on COMETS objective function for bound vs unbound states
      */    
     private double calcLBPartialSeqInteractionE(COMETSNodeSuper seqNode, List<EnergyMatrix> boundResNumToUnboundEmat, List<Integer> boundResNumToUnboundResNum,
             List<Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
@@ -506,6 +511,29 @@ public class COMETSTreeSuper extends AStarTree {
         return interactionE + this.mutableSearchProblems[0].emat.getConstTerm() - this.mutableSearchProblems[1].emat.getConstTerm() - this.nonMutableSearchProblem.emat.getConstTerm();
     }
 
+     /**
+     * Computes the lower bound based on minimum interaction energy between the two monomers
+     * Here, though, the internal ligand energy is computed and we use the precomputed constant term of 
+     * the COMETS objective function for the ligand monomer energy (Coded by Hunter, 2015)
+     * @param seqNode
+     * @param boundResNumToUnboundEmat
+     * @param boundResNumToUnboundResNum
+     * @param boundresNumToIsMutableStrand
+     * @param belongToSameStrand
+     * @return
+     */    
+    private double calcLBPartialSeqInteractionEWithLigand(COMETSNodeSuper seqNode, List<EnergyMatrix> boundResNumToUnboundEmat, List<Integer> boundResNumToUnboundResNum,
+            List<Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
+        ConfTreeSuper confSearchIE = new ConfTreeSuper(this.mutableSearchProblems[0], seqNode.pruneMat[0], false);
+        confSearchIE.setMPLPForInteractionEnergyWithLigand(boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundresNumToIsMutableStrand, belongToSameStrand);
+        int[] emptyConf = new int[this.mutableSearchProblems[0].confSpaceSuper.numPos];
+        Arrays.fill(emptyConf, -1);
+//        double lowerBoundInterE = confSearchIE.mplpMinimizer.optimizeEMPLP(emptyConf,100);
+        int[] conf = confSearchIE.nextConf();
+        double interactionE = confSearchIE.mplpUpperBound(conf);
+        return interactionE + this.mutableSearchProblems[0].emat.getConstTerm() - this.mutableSearchProblems[1].emat.getConstTerm() + this.objFcn.constTerm;
+    }   
+    
     private double calcLBPartialSeq(COMETSNodeSuper seqNode, LME func) {
 
         int partialSeq[] = seqNode.getNodeAssignments();

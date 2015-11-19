@@ -317,8 +317,7 @@ public class ConfTreeSuper extends AStarTree {
      * partialConf, or are actually numbered <level2) @
      *
      *
-     * param partialConf @param htf @param level2
-     * @r
+     * param partialConf @param htf @param level2 @r
      *
      * e
      * t
@@ -402,6 +401,12 @@ public class ConfTreeSuper extends AStarTree {
         this.mplpMinimizer.createOnlyPairwiseMat(this.emat, boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundresNumToIsMutableStrand, belongToSameStrand);
     }
 
+    public void setMPLPForInteractionEnergyWithLigand(List<EnergyMatrix> boundResNumToUnboundEmat, List<Integer> boundResNumToUnboundResNum,
+            List<Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
+        this.mplpMinimizer.setCrossTermInteractionGraphWithLigand(boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundresNumToIsMutableStrand, belongToSameStrand);
+        this.mplpMinimizer.createOnlyPairwiseMatWithLigand(this.emat, boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundresNumToIsMutableStrand, belongToSameStrand);
+    }
+
     //this function computes the minimum over all full conf E's consistent with partialConf
     //for debugging only of course
     double exhaustiveScore(int[] partialConf) {
@@ -426,8 +431,10 @@ public class ConfTreeSuper extends AStarTree {
     }
 
     /**
-     * Compute a polynomial time, upper bound on the energy of a partial conformation in the conformation tree using MPLP.  
-     * @param conf: 
+     * Compute a polynomial time, upper bound on the energy of a partial
+     * conformation in the conformation tree using MPLP.
+     *
+     * @param conf:
      * @return
      */
     public double mplpUpperBound(int[] conf) {

@@ -46,11 +46,13 @@ public class Mplp {
         unifiedMinEnergyMatrix = mergeIntraAndPairMats(aPairwiseMinEnergyMatrix, interactionGraph);
     }
 
- 
     /**
      * Computes the low-energy bound using the EMPLP algorithm
-     * @param aPartialConf: The partially assigned rotamers. Unassigned residue positions are marked with a -1.
-     * @param iterations: Number of MPLP iterations (more iterations can improve accuracy at a greater computational cost).
+     *
+     * @param aPartialConf: The partially assigned rotamers. Unassigned residue
+     * positions are marked with a -1.
+     * @param iterations: Number of MPLP iterations (more iterations can improve
+     * accuracy at a greater computational cost).
      * @return
      */
     public double optimizeEMPLP(int aPartialConf[], int iterations) {
@@ -146,6 +148,7 @@ public class Mplp {
         }
         return Ebound;
     }
+
     // Compute the minimum value in an array where only a subset of the rotamers are present.
     // Belief is an array for a residue, and availableRots is the indexes in the belief array for which to compute the search.	
     double computeMinBeliefInReducedAvailableRots(double belief[], int availableRots[]) {
@@ -165,8 +168,9 @@ public class Mplp {
      * adding it to the edge. Note that the unified emat is 4D whereas the
      * standard matrices used by A* in OSPREY are 6D.
      *
-     * @param emat  The energy matrix
-     * @param interactionGraph  a boolean interaction graph between residues. Pairs that are set as false are ignored.
+     * @param emat The energy matrix
+     * @param interactionGraph a boolean interaction graph between residues.
+     * Pairs that are set as false are ignored.
      * @return Returns a 4D pairwise energy matrix.
      */
     private double[][][][] mergeIntraAndPairMats(EnergyMatrix emat, boolean interactionGraph[][]) {
@@ -233,23 +237,58 @@ public class Mplp {
                 }
             }
         }
-        if(INTERACTION_CUTOFF > 0.01){
-        	System.out.println("Using an interaction cutoff of " + INTERACTION_CUTOFF);
-        	System.out.println("Interaction between " + countTrueInteraction + " pairs");
-        	System.out.println("No interaction between " + countNoInteraction + " pairs");
+        if (INTERACTION_CUTOFF > 0.01) {
+            System.out.println("Using an interaction cutoff of " + INTERACTION_CUTOFF);
+            System.out.println("Interaction between " + countTrueInteraction + " pairs");
+            System.out.println("No interaction between " + countNoInteraction + " pairs");
         }
         return interactionGraph;
 
     }
 
-    /** Computes an interaction graph in which residues only interact if they are on different strands
-     *    or if the interactions are between the non-mutable strand
+    /**
+     * Computes an interaction graph in which residues only interact if they are
+     * on different strands
+     *
      * @param boundResNumToUnboundEmat
      * @param boundResNumToUnboundResNum
      * @param boundresNumToIsMutableStrand
      * @param belongToSameStrand
      */
     public void setCrossTermInteractionGraph(List<EnergyMatrix> boundResNumToUnboundEmat, List<Integer> boundResNumToUnboundResNum,
+            List<Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
+        boolean[][] interactionGraph = new boolean[numResidues][numResidues];
+        int numInteractions = 0;
+        for (int xres = 0; xres < numResidues; xres++) {
+            for (int yres = 0; yres < numResidues; yres++) {
+                interactionGraph[xres][yres] = false;
+            }
+        }
+        for (int xres = 0; xres < numResidues; xres++) {
+            for (int yres = xres + 1; yres < numResidues; yres++) {
+                //If not on the same strand
+                if (!belongToSameStrand[xres][yres]) {
+                    interactionGraph[xres][yres] = true;
+                    interactionGraph[yres][xres] = true;
+                    numInteractions++;
+                }
+            }
+        }
+        System.out.println("MPLP: Cross-Term Interaction Graph Num Interaction: " + numInteractions);
+        this.interactionGraph = interactionGraph;
+    }
+
+    /**
+     * Computes an interaction graph in which residues only interact if they are
+     * on different strands or if the interactions are between the non-mutable
+     * strand
+     *
+     * @param boundResNumToUnboundEmat
+     * @param boundResNumToUnboundResNum
+     * @param boundresNumToIsMutableStrand
+     * @param belongToSameStrand
+     */
+    public void setCrossTermInteractionGraphWithLigand(List<EnergyMatrix> boundResNumToUnboundEmat, List<Integer> boundResNumToUnboundResNum,
             List<Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
         boolean[][] interactionGraph = new boolean[numResidues][numResidues];
         int numInteractions = 0;
@@ -377,9 +416,15 @@ public class Mplp {
                                 double pairwiseE = ematBound.getPairwise(resI, rotIR_origMat, resJ, rotJS_origMat);
                                 double intraE_I = ematBound.getOneBody(resI, rotIR_origMat) / ((double) numNeighbors[resI]);
                                 double intraE_J = ematBound.getOneBody(resJ, rotJS_origMat) / ((double) numNeighbors[resJ]);
-                                double intraE_I_unbound = ematUnbound1.getOneBody(resI_unbound, rotIR_origMat) / ((double) numNeighborsOppStrand[resI]);
-                                double intraE_J_unbound = ematUnbound2.getOneBody(resJ_unbound, rotJS_origMat) / ((double) numNeighborsOppStrand[resJ]);
-                                double totalE = pairwiseE + intraE_I + intraE_J - intraE_I_unbound - intraE_J_unbound;
+                                //Get mutable residue and subtract internal energy of unbound
+                                double intraE_unbound = 0.0;
+                                if (boundresNumToIsMutableStrand.get(resI)){
+                                    intraE_unbound += ematUnbound1.getOneBody(resI_unbound, rotIR_origMat)/((double) numNeighborsOppStrand[resI]);
+                                }
+                                else{
+                                    intraE_unbound += ematUnbound2.getOneBody(resJ_unbound, rotJS_origMat)/((double) numNeighborsOppStrand[resJ]);
+                                }
+                                double totalE = pairwiseE + intraE_I + intraE_J - intraE_unbound;
                                 unifiedEmat[resI][rotIR_Ix][resJ][rotJS_Ix] = totalE;
                                 unifiedEmat[resJ][rotJS_Ix][resI][rotIR_Ix] = unifiedEmat[resI][rotIR_Ix][resJ][rotJS_Ix];
                             }

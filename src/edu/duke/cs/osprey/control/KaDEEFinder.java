@@ -307,7 +307,7 @@ public class KaDEEFinder {
         }
 
         //Load the energy matrices and do pruning
-        double pruningInterval = 10.0;
+        double pruningInterval = 0.0;
         loadEMatandPruneComets(pruningInterval);
         /*
          for (SearchProblemSuper searchProblem : searchSpaces){
