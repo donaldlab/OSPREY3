@@ -4,6 +4,7 @@ import edu.duke.cs.osprey.confspace.SearchProblemSuper;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.tools.CreateMatrix;
 import java.util.List;
+import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.Collections;
 
@@ -250,13 +251,17 @@ public class Mplp {
      * Computes an interaction graph in which residues only interact if they are
      * on different strands
      *
-     * @param boundResNumToUnboundEmat
-     * @param boundResNumToUnboundResNum
-     * @param boundresNumToIsMutableStrand
-     * @param belongToSameStrand
+     * @param boundPosNumToUnboundEmat hash map between the bound position
+     * number (0,1,...,n-1) and the unbound energy matrix
+     * @param boundPosNumToUnboundPosNum hash map between the bound position
+     * number (0,1,...,n-1) and the unbound position number
+     * @param boundPosNumToIsMutableStrand hash map between the bound position
+     * number (0,1,...,n-1) and boolean
+     * @param belongToSameStrand given two position numbers, returns true if
+     * they belong to the same strand, false otherwise
      */
-    public void setCrossTermInteractionGraph(List<EnergyMatrix> boundResNumToUnboundEmat, List<Integer> boundResNumToUnboundResNum,
-            List<Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
+    public void setCrossTermInteractionGraph(HashMap<Integer, EnergyMatrix> boundPosNumToUnboundEmat, HashMap<Integer, Integer> boundPosNumToUnboundPosNum,
+            HashMap<Integer, Boolean> boundPosNumToIsMutableStrand, boolean[][] belongToSameStrand) {
         boolean[][] interactionGraph = new boolean[numResidues][numResidues];
         int numInteractions = 0;
         for (int xres = 0; xres < numResidues; xres++) {
@@ -281,15 +286,19 @@ public class Mplp {
     /**
      * Computes an interaction graph in which residues only interact if they are
      * on different strands or if the interactions are between the non-mutable
-     * strand
+     * (protein) strand
      *
-     * @param boundResNumToUnboundEmat
-     * @param boundResNumToUnboundResNum
-     * @param boundresNumToIsMutableStrand
-     * @param belongToSameStrand
+     * @param boundPosNumToUnboundEmat hash map between the bound position
+     * number (0,1,...,n-1) and the unbound energy matrix
+     * @param boundPosNumToUnboundPosNum hash map between the bound position
+     * number (0,1,...,n-1) and the unbound position number
+     * @param boundPosNumToIsMutableStrand hash map between the bound position
+     * number (0,1,...,n-1) and boolean
+     * @param belongToSameStrand given two position numbers, returns true if
+     * they belong to the same strand, false otherwise
      */
-    public void setCrossTermInteractionGraphWithLigand(List<EnergyMatrix> boundResNumToUnboundEmat, List<Integer> boundResNumToUnboundResNum,
-            List<Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
+    public void setCrossTermInteractionGraphWithProtein(HashMap<Integer, EnergyMatrix> boundPosNumToUnboundEmat, HashMap<Integer, Integer> boundPosNumToUnboundPosNum,
+            HashMap<Integer, Boolean> boundPosNumToIsMutableStrand, boolean[][] belongToSameStrand) {
         boolean[][] interactionGraph = new boolean[numResidues][numResidues];
         int numInteractions = 0;
         for (int xres = 0; xres < numResidues; xres++) {
@@ -302,7 +311,7 @@ public class Mplp {
                 //If on the same strand (check if it is non-mutable)
                 if (belongToSameStrand[xres][yres]) {
                     //xres and yres are not on the mutable strand, so create interaction
-                    if (!boundresNumToIsMutableStrand.get(xres)) {
+                    if (!boundPosNumToIsMutableStrand.get(xres)) {
                         interactionGraph[xres][yres] = true;
                         interactionGraph[yres][xres] = true;
                         numInteractions++;
@@ -319,8 +328,22 @@ public class Mplp {
         this.interactionGraph = interactionGraph;
     }
 
-    public void createOnlyPairwiseMat(EnergyMatrix ematBound, List<EnergyMatrix> boundResNumToUnboundEmat, List<Integer> boundResNumToUnboundResNum,
-            List<Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
+    /**
+     * This function creates a pairwise energy matrix to compute the interaction
+     * energy between a protein-ligand complex
+     *
+     * @param ematBound the energy matrix of the bound complex
+     * @param boundPosNumToUnboundEmat hash map between the bound position
+     * number (0,1,...,n-1) and the unbound energy matrix
+     * @param boundPosNumToUnboundPosNum hash map between the bound position
+     * number (0,1,...,n-1) and the unbound position number
+     * @param boundPosNumToIsMutableStrand hash map between the bound position
+     * number (0,1,...,n-1) and boolean
+     * @param belongToSameStrand given two position numbers, returns true if
+     * they belong to the same strand, false otherwise
+     */
+    public void createOnlyPairwiseMatForInteractionEnergy(EnergyMatrix ematBound, HashMap<Integer, EnergyMatrix> boundPosNumToUnboundEmat, HashMap<Integer, Integer> boundPosNumToUnboundPosNum,
+            HashMap<Integer, Boolean> boundPosNumToIsMutableStrand, boolean[][] belongToSameStrand) {
         double unifiedEmat[][][][] = CreateMatrix.create4DRotMatrix(numResidues, rotsPerPos, 0.0f);
 
         //Build Neighborhood
@@ -345,15 +368,15 @@ public class Mplp {
                             int rotJS_origMat = this.unprunedRotsPerPos.get(resJ).get(rotJS_Ix);
                             //If the interaction is not pairwise, then we will use only  the pairwise energies
                             //And the intraE that .getOneBody(resI, rotIR_origMat) + ematBound.getOneBody(resJ, rotJS_origMat);
-                            EnergyMatrix ematUnbound1 = boundResNumToUnboundEmat.get(resI);
-                            EnergyMatrix ematUnbound2 = boundResNumToUnboundEmat.get(resJ);
-                            int resI_unbound = boundResNumToUnboundResNum.get(resI);
-                            int resJ_unbound = boundResNumToUnboundResNum.get(resJ);
+                            EnergyMatrix ematUnboundResI = boundPosNumToUnboundEmat.get(resI);
+                            EnergyMatrix ematUnboundResJ = boundPosNumToUnboundEmat.get(resJ);
+                            int resI_unbound = boundPosNumToUnboundPosNum.get(resI);
+                            int resJ_unbound = boundPosNumToUnboundPosNum.get(resJ);
                             double pairwiseE = ematBound.getPairwise(resI, rotIR_origMat, resJ, rotJS_origMat);
                             double intraE_I = ematBound.getOneBody(resI, rotIR_origMat) / ((double) numNeighbors[resI]);
                             double intraE_J = ematBound.getOneBody(resJ, rotJS_origMat) / ((double) numNeighbors[resJ]);
-                            double intraE_I_unbound = ematUnbound1.getOneBody(resI_unbound, rotIR_origMat) / ((double) numNeighbors[resI]);
-                            double intraE_J_unbound = ematUnbound2.getOneBody(resJ_unbound, rotJS_origMat) / ((double) numNeighbors[resJ]);
+                            double intraE_I_unbound = ematUnboundResI.getOneBody(resI_unbound, rotIR_origMat) / ((double) numNeighbors[resI]);
+                            double intraE_J_unbound = ematUnboundResJ.getOneBody(resJ_unbound, rotJS_origMat) / ((double) numNeighbors[resJ]);
                             double totalE = pairwiseE + intraE_I + intraE_J - intraE_I_unbound - intraE_J_unbound;
                             unifiedEmat[resI][rotIR_Ix][resJ][rotJS_Ix] = totalE;
                             unifiedEmat[resJ][rotJS_Ix][resI][rotIR_Ix] = unifiedEmat[resI][rotIR_Ix][resJ][rotJS_Ix];
@@ -365,10 +388,25 @@ public class Mplp {
         this.unifiedMinEnergyMatrix = unifiedEmat;
     }
 
-    public void createOnlyPairwiseMatWithLigand(EnergyMatrix ematBound, List<EnergyMatrix> boundResNumToUnboundEmat, List<Integer> boundResNumToUnboundResNum,
-            List<Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
+    /**
+     * This function creates a pairwise energy matrix to compute the interaction
+     * energy between a protein-ligand complex with the internal interactions of
+     * the non-mutable strand (protein) (See
+     * setCrossTermInteractionGraphWithProtein())
+     *
+     * @param ematBound the energy matrix of the bound complex
+     * @param boundPosNumToUnboundEmat hash map between the bound position
+     * number (0,1,...,n-1) and the unbound energy matrix
+     * @param boundPosNumToUnboundPosNum hash map between the bound position
+     * number (0,1,...,n-1) and the unbound position number
+     * @param boundPosNumToIsMutableStrand hash map between the bound position
+     * number (0,1,...,n-1) and boolean
+     * @param belongToSameStrand given two position numbers, returns true if
+     * they belong to the same strand, false otherwise
+     */
+    public void createOnlyPairwiseMatWithProtein(EnergyMatrix ematBound, HashMap<Integer, EnergyMatrix> boundPosNumToUnboundEmat, HashMap<Integer, Integer> boundPosNumToUnboundPosNum,
+            HashMap<Integer, Boolean> boundPosNumToIsMutableStrand, boolean[][] belongToSameStrand) {
         double unifiedEmat[][][][] = CreateMatrix.create4DRotMatrix(numResidues, rotsPerPos, 0.0f);
-
         //Build Neighborhood
         int[] numNeighbors = new int[numResidues];
         //also keep track of neighbors on opposite strand
@@ -409,20 +447,19 @@ public class Mplp {
                             } else {
                                 //If the interaction is not pairwise, then we will use only  the pairwise energies
                                 //And the intraE that .getOneBody(resI, rotIR_origMat) + ematBound.getOneBody(resJ, rotJS_origMat);
-                                EnergyMatrix ematUnbound1 = boundResNumToUnboundEmat.get(resI);
-                                EnergyMatrix ematUnbound2 = boundResNumToUnboundEmat.get(resJ);
-                                int resI_unbound = boundResNumToUnboundResNum.get(resI);
-                                int resJ_unbound = boundResNumToUnboundResNum.get(resJ);
+                                EnergyMatrix ematUnbound1 = boundPosNumToUnboundEmat.get(resI);
+                                EnergyMatrix ematUnbound2 = boundPosNumToUnboundEmat.get(resJ);
+                                int resI_unbound = boundPosNumToUnboundPosNum.get(resI);
+                                int resJ_unbound = boundPosNumToUnboundPosNum.get(resJ);
                                 double pairwiseE = ematBound.getPairwise(resI, rotIR_origMat, resJ, rotJS_origMat);
                                 double intraE_I = ematBound.getOneBody(resI, rotIR_origMat) / ((double) numNeighbors[resI]);
                                 double intraE_J = ematBound.getOneBody(resJ, rotJS_origMat) / ((double) numNeighbors[resJ]);
                                 //Get mutable residue and subtract internal energy of unbound
                                 double intraE_unbound = 0.0;
-                                if (boundresNumToIsMutableStrand.get(resI)){
-                                    intraE_unbound += ematUnbound1.getOneBody(resI_unbound, rotIR_origMat)/((double) numNeighborsOppStrand[resI]);
-                                }
-                                else{
-                                    intraE_unbound += ematUnbound2.getOneBody(resJ_unbound, rotJS_origMat)/((double) numNeighborsOppStrand[resJ]);
+                                if (boundPosNumToIsMutableStrand.get(resI)) {
+                                    intraE_unbound += ematUnbound1.getOneBody(resI_unbound, rotIR_origMat) / ((double) numNeighborsOppStrand[resI]);
+                                } else {
+                                    intraE_unbound += ematUnbound2.getOneBody(resJ_unbound, rotJS_origMat) / ((double) numNeighborsOppStrand[resJ]);
                                 }
                                 double totalE = pairwiseE + intraE_I + intraE_J - intraE_unbound;
                                 unifiedEmat[resI][rotIR_Ix][resJ][rotJS_Ix] = totalE;

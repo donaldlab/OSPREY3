@@ -13,6 +13,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Arrays;
 import java.util.List;
 
@@ -395,16 +396,16 @@ public class ConfTreeSuper extends AStarTree {
         node.scoreNeedsRefinement = false;
     }
 
-    public void setMPLPForInteractionEnergy(List<EnergyMatrix> boundResNumToUnboundEmat, List<Integer> boundResNumToUnboundResNum,
-            List<Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
+    public void setMPLPForInteractionEnergy(HashMap<Integer,EnergyMatrix> boundResNumToUnboundEmat, HashMap<Integer,Integer> boundResNumToUnboundResNum,
+            HashMap<Integer,Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
         this.mplpMinimizer.setCrossTermInteractionGraph(boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundresNumToIsMutableStrand, belongToSameStrand);
-        this.mplpMinimizer.createOnlyPairwiseMat(this.emat, boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundresNumToIsMutableStrand, belongToSameStrand);
+        this.mplpMinimizer.createOnlyPairwiseMatForInteractionEnergy(this.emat, boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundresNumToIsMutableStrand, belongToSameStrand);
     }
 
-    public void setMPLPForInteractionEnergyWithLigand(List<EnergyMatrix> boundResNumToUnboundEmat, List<Integer> boundResNumToUnboundResNum,
-            List<Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
-        this.mplpMinimizer.setCrossTermInteractionGraphWithLigand(boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundresNumToIsMutableStrand, belongToSameStrand);
-        this.mplpMinimizer.createOnlyPairwiseMatWithLigand(this.emat, boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundresNumToIsMutableStrand, belongToSameStrand);
+    public void setMPLPForInteractionEnergyWithProtein(HashMap<Integer,EnergyMatrix> boundResNumToUnboundEmat, HashMap<Integer,Integer> boundResNumToUnboundResNum,
+            HashMap<Integer,Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
+        this.mplpMinimizer.setCrossTermInteractionGraphWithProtein(boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundresNumToIsMutableStrand, belongToSameStrand);
+        this.mplpMinimizer.createOnlyPairwiseMatWithProtein(this.emat, boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundresNumToIsMutableStrand, belongToSameStrand);
     }
 
     //this function computes the minimum over all full conf E's consistent with partialConf

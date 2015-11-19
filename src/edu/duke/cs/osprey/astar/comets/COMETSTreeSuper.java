@@ -31,6 +31,7 @@ import org.apache.commons.lang.ArrayUtils;
  * @author hmn5
  */
 public class COMETSTreeSuper extends AStarTree {
+
     int numTreeLevels;//number of residues with sequence changes
 
     LME objFcn;//we are minimizing objFcn...
@@ -64,12 +65,12 @@ public class COMETSTreeSuper extends AStarTree {
     //HMN: To Help with Interaction E Heuristic
     int[] numMutPerStrand;
     //Maps the bound res num to the corresponding unbound emat
-    List<EnergyMatrix> boundResNumToUnboundEmat;
+    HashMap<Integer, EnergyMatrix> boundResNumToUnboundEmat;
     //Maps the bound res num to the corresponding unbound res num
-    List<Integer> boundResNumToUnboundResNum;
+    HashMap<Integer, Integer> boundResNumToUnboundResNum;
     //Maps the bound res num to boolean that is true if res num is part of mutable
     //strand
-    List<Boolean> boundResNumToIsMutableStrand;
+    HashMap<Integer, Boolean> boundResNumToIsMutableStrand;
     //determines if two residues are on the same strand
     boolean[][] belongToSameStrand;
 
@@ -389,7 +390,7 @@ public class COMETSTreeSuper extends AStarTree {
         int[] confBound = seqNode.stateTrees[0].getQueue().peek().getNodeAssignments();
         int[] confUnbound = seqNode.stateTrees[1].getQueue().peek().getNodeAssignments();
         double LMEscore = getEnergyMatrix(0).confE(confBound) - getEnergyMatrix(1).confE(confUnbound);
-        System.out.println("LME: "+LMEscore);
+        System.out.println("LME: " + LMEscore);
 
         int numSeqDefNodes = 0;
         for (AStarNode node : getQueue()) {
@@ -447,6 +448,12 @@ public class COMETSTreeSuper extends AStarTree {
         return count;
     }
 
+    /**
+     *
+     * @param seqNode the sequence node in the A* tree
+     * @param func the LME describing the objective function
+     * @return lower bound on the objective function
+     */
     private double boundLME(COMETSNodeSuper seqNode, LME func) {
         //Lower-bound func over the sequence space defined by this node
         if (seqNode.isFullyDefined())//fully-defined sequence
@@ -455,20 +462,17 @@ public class COMETSTreeSuper extends AStarTree {
             //double exactBound = calcLBConfTreeMPLP(seqNode);
             return originalBound;
         } else {
-            double interactionEBound = calcLBPartialSeqInteractionE(seqNode, boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundResNumToIsMutableStrand, belongToSameStrand);
+            double maxInterfaceBound = calcLBPartialSeqInteractionE(seqNode, boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundResNumToIsMutableStrand, belongToSameStrand);
             double interactionEBoundWithLigand = calcLBPartialSeqInteractionEWithLigand(seqNode, boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundResNumToIsMutableStrand, belongToSameStrand);
             double originalBound = calcLBPartialSeq(seqNode, func);
-            System.out.println("Interaction E bound: "+ interactionEBound);
-            System.out.println("Interaction E bound with Ligand: "+ interactionEBoundWithLigand);
-            System.out.println("Original bound: "+ originalBound);
-            /*
-            if (interactionEBound > originalBound){
-            	return interactionEBound;
+            System.out.println("Max Interface Bound: " + maxInterfaceBound);
+            System.out.println("Interaction E bound with Ligand: " + interactionEBoundWithLigand);
+            System.out.println("Original bound: " + originalBound);
+            if (interactionEBoundWithLigand > originalBound) {
+                return interactionEBoundWithLigand;
+            } else {
+                return originalBound;
             }
-            else
-            	return originalBound;
-            */
-            return originalBound;
         }
     }
 
@@ -491,16 +495,19 @@ public class COMETSTreeSuper extends AStarTree {
     }
 
     /**
-     * Computes the lower bound based on minimum interaction energy between the two monomers (Coded by Hunter, 2015)
+     * Computes the lower bound based on minimum interaction energy between the
+     * two monomers (Coded by Hunter, 2015)
+     *
      * @param seqNode
      * @param boundResNumToUnboundEmat
      * @param boundResNumToUnboundResNum
      * @param boundresNumToIsMutableStrand
      * @param belongToSameStrand
-     * @return lower bound on COMETS objective function for bound vs unbound states
-     */    
-    private double calcLBPartialSeqInteractionE(COMETSNodeSuper seqNode, List<EnergyMatrix> boundResNumToUnboundEmat, List<Integer> boundResNumToUnboundResNum,
-            List<Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
+     * @return lower bound on COMETS objective function for bound vs unbound
+     * states
+     */
+    private double calcLBPartialSeqInteractionE(COMETSNodeSuper seqNode, HashMap<Integer,EnergyMatrix> boundResNumToUnboundEmat, HashMap<Integer,Integer> boundResNumToUnboundResNum,
+            HashMap<Integer,Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
         ConfTreeSuper confSearchIE = new ConfTreeSuper(this.mutableSearchProblems[0], seqNode.pruneMat[0], false);
         confSearchIE.setMPLPForInteractionEnergy(boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundresNumToIsMutableStrand, belongToSameStrand);
         int[] emptyConf = new int[this.mutableSearchProblems[0].confSpaceSuper.numPos];
@@ -511,29 +518,31 @@ public class COMETSTreeSuper extends AStarTree {
         return interactionE + this.mutableSearchProblems[0].emat.getConstTerm() - this.mutableSearchProblems[1].emat.getConstTerm() - this.nonMutableSearchProblem.emat.getConstTerm();
     }
 
-     /**
-     * Computes the lower bound based on minimum interaction energy between the two monomers
-     * Here, though, the internal ligand energy is computed and we use the precomputed constant term of 
-     * the COMETS objective function for the ligand monomer energy (Coded by Hunter, 2015)
+    /**
+     * Computes the lower bound based on minimum interaction energy between the
+     * two monomers Here, though, the internal ligand energy is computed and we
+     * use the precomputed constant term of the COMETS objective function for
+     * the ligand monomer energy (Coded by Hunter, 2015)
+     *
      * @param seqNode
      * @param boundResNumToUnboundEmat
      * @param boundResNumToUnboundResNum
      * @param boundresNumToIsMutableStrand
      * @param belongToSameStrand
      * @return
-     */    
-    private double calcLBPartialSeqInteractionEWithLigand(COMETSNodeSuper seqNode, List<EnergyMatrix> boundResNumToUnboundEmat, List<Integer> boundResNumToUnboundResNum,
-            List<Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
+     */
+    private double calcLBPartialSeqInteractionEWithLigand(COMETSNodeSuper seqNode, HashMap<Integer,EnergyMatrix> boundResNumToUnboundEmat, HashMap<Integer,Integer> boundResNumToUnboundResNum,
+            HashMap<Integer,Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
         ConfTreeSuper confSearchIE = new ConfTreeSuper(this.mutableSearchProblems[0], seqNode.pruneMat[0], false);
-        confSearchIE.setMPLPForInteractionEnergyWithLigand(boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundresNumToIsMutableStrand, belongToSameStrand);
+        confSearchIE.setMPLPForInteractionEnergyWithProtein(boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundresNumToIsMutableStrand, belongToSameStrand);
         int[] emptyConf = new int[this.mutableSearchProblems[0].confSpaceSuper.numPos];
         Arrays.fill(emptyConf, -1);
 //        double lowerBoundInterE = confSearchIE.mplpMinimizer.optimizeEMPLP(emptyConf,100);
         int[] conf = confSearchIE.nextConf();
         double interactionE = confSearchIE.mplpUpperBound(conf);
         return interactionE + this.mutableSearchProblems[0].emat.getConstTerm() - this.mutableSearchProblems[1].emat.getConstTerm() + this.objFcn.constTerm;
-    }   
-    
+    }
+
     private double calcLBPartialSeq(COMETSNodeSuper seqNode, LME func) {
 
         int partialSeq[] = seqNode.getNodeAssignments();
@@ -1007,7 +1016,7 @@ public class COMETSTreeSuper extends AStarTree {
 
     //For flexible position in bound matrix (0,1,2,...,numRes-1) we map to the corresponding
     //unbound energy matrix
-    public List<EnergyMatrix> getBoundPosNumToUnboundEmat() {
+    public HashMap<Integer, EnergyMatrix> getBoundPosNumToUnboundEmat() {
         SearchProblemSuper boundState = this.mutableSearchProblems[0];
         //Get res number from each flexible position in the bound state
         List<Integer> resNumsBound = boundState.confSpaceSuper.posFlexSuper.stream()
@@ -1029,12 +1038,16 @@ public class COMETSTreeSuper extends AStarTree {
         List<EnergyMatrix> unboundEmatPerPos = resNumsBound.stream()
                 .map(posNum -> ArrayUtils.contains(resNumsUnboundMutable.toArray(), posNum) ? unBoundMutableState.emat : unBoundNonMutableState.emat)
                 .collect(Collectors.toCollection(ArrayList::new));
-        return unboundEmatPerPos;
+        HashMap<Integer, EnergyMatrix> boundPosNumToUnboundEmat = new HashMap<>();
+        for (int posNum = 0; posNum < unboundEmatPerPos.size(); posNum++) {
+            boundPosNumToUnboundEmat.put(posNum, unboundEmatPerPos.get(posNum));
+        }
+        return boundPosNumToUnboundEmat;
     }
 
     //For flexible position in bound matrix (0,1,2,...,numRes-1) we map to the corresponding
     //position number in the unbound matrix
-    public List<Integer> getBoundPosNumToUnboundPosNum() {
+    public HashMap<Integer, Integer> getBoundPosNumToUnboundPosNum() {
         SearchProblemSuper boundState = this.mutableSearchProblems[0];
         //Get res number from each flexible position in the bound state
         List<Integer> resNumsBound = boundState.confSpaceSuper.posFlexSuper.stream()
@@ -1057,7 +1070,12 @@ public class COMETSTreeSuper extends AStarTree {
                 .map(posNum -> ArrayUtils.contains(resNumsUnboundMutable.toArray(), posNum) ? ArrayUtils.indexOf(resNumsUnboundMutable.toArray(), posNum)
                                 : ArrayUtils.indexOf(resNumsUnboundNonMutable.toArray(), posNum))
                 .collect(Collectors.toCollection(ArrayList::new));
-        return unboundPosNumsPerPos;
+
+        HashMap<Integer, Integer> boundPosNumToUnboundPosNum = new HashMap<>();
+        for (int posNum = 0; posNum < unboundPosNumsPerPos.size(); posNum++) {
+            boundPosNumToUnboundPosNum.put(posNum, unboundPosNumsPerPos.get(posNum));
+        }
+        return boundPosNumToUnboundPosNum;
     }
 
     //For flexible position in bound matrix (0,1,2,...,numRes-1) we map to the corresponding
@@ -1103,7 +1121,7 @@ public class COMETSTreeSuper extends AStarTree {
 
     //For flexible position in bound matrix (0,1,2,...,numRes-1) we map to the boolean
     //that is true if the res is part of boolean strand and false otherwise
-    public List<Boolean> getBoundPosNumberToIsMutableStrand() {
+    public HashMap<Integer, Boolean> getBoundPosNumberToIsMutableStrand() {
         SearchProblemSuper boundState = this.mutableSearchProblems[0];
         //Get res number from each flexible position in the bound state
         List<Integer> resNumsBound = boundState.confSpaceSuper.posFlexSuper.stream()
@@ -1122,9 +1140,14 @@ public class COMETSTreeSuper extends AStarTree {
                 .map(posFlex -> posFlex.resList.get(0).resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
         //Map to corresponding unbound position number
-        List<Boolean> unboundPosNumsPerPos = resNumsBound.stream()
+        List<Boolean> boundPosNumIsMutable = resNumsBound.stream()
                 .map(posNum -> ArrayUtils.contains(resNumsUnboundMutable.toArray(), posNum))
                 .collect(Collectors.toCollection(ArrayList::new));
-        return unboundPosNumsPerPos;
+
+        HashMap<Integer, Boolean> boundPosNumToIsMutableStrand = new HashMap<>();
+        for (int posNum = 0; posNum < boundPosNumIsMutable.size(); posNum++) {
+            boundPosNumToIsMutableStrand.put(posNum, boundPosNumIsMutable.get(posNum));
+        }
+        return boundPosNumToIsMutableStrand;
     }
 }
