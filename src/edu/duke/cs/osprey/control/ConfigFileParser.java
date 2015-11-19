@@ -463,7 +463,7 @@ public class ConfigFileParser {
         resTemplates.loadTemplateCoords("all_amino_coords.in");
 
         //load rotamer libraries; the names of residues as they appear in the rotamer library file will be matched to templates
-        boolean dunbrackRots = params.getBool("UseDunbrackRotamers", false);
+        boolean dunbrackRots = params.getBool("UseDunbrackRotamers", true);
 
         // PGC 2015: Always load the Lovell Rotamer Library.
         resTemplates.loadRotamerLibrary(params.getValue("ROTFILE", "LovellRotamer.dat"), false);//see below; also gRotFile0 etc

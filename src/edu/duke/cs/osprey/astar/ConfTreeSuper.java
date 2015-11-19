@@ -425,7 +425,12 @@ public class ConfTreeSuper extends AStarTree {
         return this.scoreConf(this.nextConf());
     }
 
-    public double interactionENextConf(int[] conf) {
+    /**
+     * Compute a polynomial time, upper bound on the energy of a partial conformation in the conformation tree using MPLP.  
+     * @param conf: 
+     * @return
+     */
+    public double mplpUpperBound(int[] conf) {
         return this.mplpMinimizer.optimizeEMPLP(conf, 100);
     }
 }

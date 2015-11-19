@@ -111,9 +111,9 @@ public class KaDEEFinder {
         if (true) {
             COMETSTreeSuper tree = setupCometsTree();
             int[] seq1 = tree.nextConf();
-            while (true){
-                int[] seq2 = tree.nextConf();
-            }
+            //while (true){
+            //    int[] seq2 = tree.nextConf();
+           // }
         } else {
 
             SearchProblemSuper searchSpace = searchSpaces[0];

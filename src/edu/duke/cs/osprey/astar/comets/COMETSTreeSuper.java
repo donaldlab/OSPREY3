@@ -457,7 +457,13 @@ public class COMETSTreeSuper extends AStarTree {
         } else {
             double interactionEBound = calcLBPartialSeqInteractionE(seqNode, boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundResNumToIsMutableStrand, belongToSameStrand);
             double originalBound = calcLBPartialSeq(seqNode, func);
-            return interactionEBound;
+            System.out.println("Interaction E bound: "+ interactionEBound);
+            System.out.println("Original bound: "+ originalBound);
+            if (interactionEBound > originalBound){
+            	return interactionEBound;
+            }
+            else
+            	return originalBound;
         }
     }
 
@@ -479,6 +485,15 @@ public class COMETSTreeSuper extends AStarTree {
         }
     }
 
+    /**
+     * Computes the lower bound based on minimum interaction energy between the two monomers (Coded by Hunter, 2015)
+     * @param seqNode
+     * @param boundResNumToUnboundEmat
+     * @param boundResNumToUnboundResNum
+     * @param boundresNumToIsMutableStrand
+     * @param belongToSameStrand
+     * @return
+     */    
     private double calcLBPartialSeqInteractionE(COMETSNodeSuper seqNode, List<EnergyMatrix> boundResNumToUnboundEmat, List<Integer> boundResNumToUnboundResNum,
             List<Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
         ConfTreeSuper confSearchIE = new ConfTreeSuper(this.mutableSearchProblems[0], seqNode.pruneMat[0], false);
@@ -487,7 +502,7 @@ public class COMETSTreeSuper extends AStarTree {
         Arrays.fill(emptyConf, -1);
 //        double lowerBoundInterE = confSearchIE.mplpMinimizer.optimizeEMPLP(emptyConf,100);
         int[] conf = confSearchIE.nextConf();
-        double interactionE = confSearchIE.interactionENextConf(conf);
+        double interactionE = confSearchIE.mplpUpperBound(conf);
         return interactionE + this.mutableSearchProblems[0].emat.getConstTerm() - this.mutableSearchProblems[1].emat.getConstTerm() - this.nonMutableSearchProblem.emat.getConstTerm();
     }
 

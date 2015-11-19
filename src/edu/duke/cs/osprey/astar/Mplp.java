@@ -46,10 +46,13 @@ public class Mplp {
         unifiedMinEnergyMatrix = mergeIntraAndPairMats(aPairwiseMinEnergyMatrix, interactionGraph);
     }
 
-    // Computes the low-energy bound using the EMPLP algorithm
-    // availableRots is a "numRes*rots" matrix that tells us which 
-    // rotamers at each position are available.  Only those rotamers
-    // will be considered for the calculation.
+ 
+    /**
+     * Computes the low-energy bound using the EMPLP algorithm
+     * @param aPartialConf: The partially assigned rotamers. Unassigned residue positions are marked with a -1.
+     * @param iterations: Number of MPLP iterations (more iterations can improve accuracy at a greater computational cost).
+     * @return
+     */
     public double optimizeEMPLP(int aPartialConf[], int iterations) {
 
         // The partial conf contains references to rotamers that were pruned, while our pairwise matrix removed those rotamers. Thus, we must creat
@@ -145,7 +148,6 @@ public class Mplp {
     }
     // Compute the minimum value in an array where only a subset of the rotamers are present.
     // Belief is an array for a residue, and availableRots is the indexes in the belief array for which to compute the search.	
-
     double computeMinBeliefInReducedAvailableRots(double belief[], int availableRots[]) {
         double minValue = Double.POSITIVE_INFINITY;
         for (int rotIR : availableRots) {
@@ -163,12 +165,9 @@ public class Mplp {
      * adding it to the edge. Note that the unified emat is 4D whereas the
      * standard matrices used by A* in OSPREY are 6D.
      *
-     * @param numRes
-     * @param rotsPerRes
-     * @param twoDTo3D
-     * @param emat
-     * @param interactionGraph
-     * @return
+     * @param emat  The energy matrix
+     * @param interactionGraph  a boolean interaction graph between residues. Pairs that are set as false are ignored.
+     * @return Returns a 4D pairwise energy matrix.
      */
     private double[][][][] mergeIntraAndPairMats(EnergyMatrix emat, boolean interactionGraph[][]) {
         double unifiedEmat[][][][] = CreateMatrix.create4DRotMatrix(numResidues, rotsPerPos, 0.0f);
@@ -203,7 +202,7 @@ public class Mplp {
         return unifiedEmat;
     }
 
-    // Computes an interaction graph with an energy cutoff; returns a pairs matrix between all pairs of residues. This is 
+    // Computes an interaction graph with an energy cutoff; returns a pairs matrix between all pairs of residues. 
     private boolean[][] computeResidueResidueInteractionGraph(EnergyMatrix emat) {
         int countTrueInteraction = 0;
         int countNoInteraction = 0;
@@ -234,15 +233,22 @@ public class Mplp {
                 }
             }
         }
-        System.out.println("Using an interaction cutoff of " + INTERACTION_CUTOFF);
-        System.out.println("Interaction between " + countTrueInteraction + " pairs");
-        System.out.println("No interaction between " + countNoInteraction + " pairs");
+        if(INTERACTION_CUTOFF > 0.01){
+        	System.out.println("Using an interaction cutoff of " + INTERACTION_CUTOFF);
+        	System.out.println("Interaction between " + countTrueInteraction + " pairs");
+        	System.out.println("No interaction between " + countNoInteraction + " pairs");
+        }
         return interactionGraph;
 
     }
 
-    // Computes an interaction graph in which residues only interact if they are on different strands
-    // or if the interactions are between the non-mutable strand 
+    /** Computes an interaction graph in which residues only interact if they are on different strands
+     *    or if the interactions are between the non-mutable strand
+     * @param boundResNumToUnboundEmat
+     * @param boundResNumToUnboundResNum
+     * @param boundresNumToIsMutableStrand
+     * @param belongToSameStrand
+     */
     public void setCrossTermInteractionGraph(List<EnergyMatrix> boundResNumToUnboundEmat, List<Integer> boundResNumToUnboundResNum,
             List<Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
         boolean[][] interactionGraph = new boolean[numResidues][numResidues];
