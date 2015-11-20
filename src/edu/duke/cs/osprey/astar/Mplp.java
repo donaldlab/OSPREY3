@@ -447,8 +447,8 @@ public class Mplp {
                             } else {
                                 //If the interaction is not pairwise, then we will use only  the pairwise energies
                                 //And the intraE that .getOneBody(resI, rotIR_origMat) + ematBound.getOneBody(resJ, rotJS_origMat);
-                                EnergyMatrix ematUnbound1 = boundPosNumToUnboundEmat.get(resI);
-                                EnergyMatrix ematUnbound2 = boundPosNumToUnboundEmat.get(resJ);
+                                EnergyMatrix ematUnboundResI = boundPosNumToUnboundEmat.get(resI);
+                                EnergyMatrix ematUnboundResJ = boundPosNumToUnboundEmat.get(resJ);
                                 int resI_unbound = boundPosNumToUnboundPosNum.get(resI);
                                 int resJ_unbound = boundPosNumToUnboundPosNum.get(resJ);
                                 double pairwiseE = ematBound.getPairwise(resI, rotIR_origMat, resJ, rotJS_origMat);
@@ -457,9 +457,9 @@ public class Mplp {
                                 //Get mutable residue and subtract internal energy of unbound
                                 double intraE_unbound = 0.0;
                                 if (boundPosNumToIsMutableStrand.get(resI)) {
-                                    intraE_unbound += ematUnbound1.getOneBody(resI_unbound, rotIR_origMat) / ((double) numNeighborsOppStrand[resI]);
+                                    intraE_unbound += ematUnboundResI.getOneBody(resI_unbound, rotIR_origMat) / ((double) numNeighborsOppStrand[resI]);
                                 } else {
-                                    intraE_unbound += ematUnbound2.getOneBody(resJ_unbound, rotJS_origMat) / ((double) numNeighborsOppStrand[resJ]);
+                                    intraE_unbound += ematUnboundResJ.getOneBody(resJ_unbound, rotJS_origMat) / ((double) numNeighborsOppStrand[resJ]);
                                 }
                                 double totalE = pairwiseE + intraE_I + intraE_J - intraE_unbound;
                                 unifiedEmat[resI][rotIR_Ix][resJ][rotJS_Ix] = totalE;

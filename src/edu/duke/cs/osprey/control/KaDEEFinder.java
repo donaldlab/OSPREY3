@@ -367,9 +367,7 @@ public class KaDEEFinder {
             ArrayList<Integer> converted = new ArrayList(mutable2PosNum);
             mutableState2StatePosNum.add(converted);
         }
-        int[] numMutPerStrand = cfp.getNumMutPerStrand();
-
-        COMETSTreeSuper tree = new COMETSTreeSuper(numTreeLevels, objFcn, constraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, nonMutableState, mutableState2StatePosNum, numMutPerStrand);
+        COMETSTreeSuper tree = new COMETSTreeSuper(numTreeLevels, objFcn, constraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, nonMutableState, mutableState2StatePosNum);
         return tree;
     }
 

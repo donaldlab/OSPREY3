@@ -74,9 +74,10 @@ public class COMETSTreeSuper extends AStarTree {
     //determines if two residues are on the same strand
     boolean[][] belongToSameStrand;
 
+
     public COMETSTreeSuper(int numTreeLevels, LME objFcn, LME[] constraints,
             ArrayList<ArrayList<String>> AATypeOptions, int numMaxMut, String[] wtSeq,
-            int numStates, SearchProblemSuper[] stateSP,
+            int numStates, SearchProblemSuper[] stateSP, SearchProblemSuper nonMutableSearchProblem,
             ArrayList<ArrayList<Integer>> mutable2StatePosNums) {
 
         this.numTreeLevels = numTreeLevels;
@@ -88,51 +89,6 @@ public class COMETSTreeSuper extends AStarTree {
         this.numStates = numStates;
         this.mutableSearchProblems = stateSP;
         this.mutable2StatePosNums = mutable2StatePosNums;
-
-        stateNumPos = new int[numStates];
-        for (int state = 0; state < numStates; state++) {
-            stateNumPos[state] = stateSP[state].confSpaceSuper.numPos;
-        }
-
-    }
-
-    public COMETSTreeSuper(int numTreeLevels, LME objFcn, LME[] constraints,
-            ArrayList<ArrayList<String>> AATypeOptions, int numMaxMut, String[] wtSeq,
-            int numStates, SearchProblemSuper[] stateSP,
-            ArrayList<ArrayList<Integer>> mutable2StatePosNums, int[] numMutPerStrand) {
-
-        this.numTreeLevels = numTreeLevels;
-        this.objFcn = objFcn;
-        this.constraints = constraints;
-        this.AATypeOptions = AATypeOptions;
-        this.numMaxMut = numMaxMut;
-        this.wtSeq = wtSeq;
-        this.numStates = numStates;
-        this.mutableSearchProblems = stateSP;
-        this.mutable2StatePosNums = mutable2StatePosNums;
-        this.numMutPerStrand = numMutPerStrand;
-
-        stateNumPos = new int[numStates];
-        for (int state = 0; state < numStates; state++) {
-            stateNumPos[state] = stateSP[state].confSpaceSuper.numPos;
-        }
-    }
-
-    public COMETSTreeSuper(int numTreeLevels, LME objFcn, LME[] constraints,
-            ArrayList<ArrayList<String>> AATypeOptions, int numMaxMut, String[] wtSeq,
-            int numStates, SearchProblemSuper[] stateSP, SearchProblemSuper nonMutableSearchProblem,
-            ArrayList<ArrayList<Integer>> mutable2StatePosNums, int[] numMutPerStrand) {
-
-        this.numTreeLevels = numTreeLevels;
-        this.objFcn = objFcn;
-        this.constraints = constraints;
-        this.AATypeOptions = AATypeOptions;
-        this.numMaxMut = numMaxMut;
-        this.wtSeq = wtSeq;
-        this.numStates = numStates;
-        this.mutableSearchProblems = stateSP;
-        this.mutable2StatePosNums = mutable2StatePosNums;
-        this.numMutPerStrand = numMutPerStrand;
         this.nonMutableSearchProblem = nonMutableSearchProblem;
 
         stateNumPos = new int[numStates];
