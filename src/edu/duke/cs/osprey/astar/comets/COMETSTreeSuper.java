@@ -74,7 +74,6 @@ public class COMETSTreeSuper extends AStarTree {
     //determines if two residues are on the same strand
     boolean[][] belongToSameStrand;
 
-
     public COMETSTreeSuper(int numTreeLevels, LME objFcn, LME[] constraints,
             ArrayList<ArrayList<String>> AATypeOptions, int numMaxMut, String[] wtSeq,
             int numStates, SearchProblemSuper[] stateSP, SearchProblemSuper nonMutableSearchProblem,
@@ -418,8 +417,9 @@ public class COMETSTreeSuper extends AStarTree {
             //double exactBound = calcLBConfTreeMPLP(seqNode);
             return originalBound;
         } else {
-            double maxInterfaceBound = calcLBPartialSeqInteractionE(seqNode, boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundResNumToIsMutableStrand, belongToSameStrand);
-            double interactionEBoundWithLigand = calcLBPartialSeqInteractionEWithLigand(seqNode, boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundResNumToIsMutableStrand, belongToSameStrand);
+            double newBound = calcLBPartialSeqImproved(seqNode);
+            double maxInterfaceBound = calcLBPartialSeqInteractionE(seqNode);
+            double interactionEBoundWithLigand = calcLBPartialSeqInteractionEWithLigand(seqNode);
             double originalBound = calcLBPartialSeq(seqNode, func);
             System.out.println("Max Interface Bound: " + maxInterfaceBound);
             System.out.println("Interaction E bound with Ligand: " + interactionEBoundWithLigand);
@@ -462,15 +462,14 @@ public class COMETSTreeSuper extends AStarTree {
      * @return lower bound on COMETS objective function for bound vs unbound
      * states
      */
-    private double calcLBPartialSeqInteractionE(COMETSNodeSuper seqNode, HashMap<Integer,EnergyMatrix> boundResNumToUnboundEmat, HashMap<Integer,Integer> boundResNumToUnboundResNum,
-            HashMap<Integer,Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
+    private double calcLBPartialSeqInteractionE(COMETSNodeSuper seqNode) {
         ConfTreeSuper confSearchIE = new ConfTreeSuper(this.mutableSearchProblems[0], seqNode.pruneMat[0], false);
-        confSearchIE.setMPLPForInteractionEnergy(boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundresNumToIsMutableStrand, belongToSameStrand);
+        confSearchIE.setMPLPForInteractionEnergy(this.boundResNumToUnboundEmat, this.boundResNumToUnboundResNum, this.boundResNumToIsMutableStrand, this.belongToSameStrand);
         int[] emptyConf = new int[this.mutableSearchProblems[0].confSpaceSuper.numPos];
         Arrays.fill(emptyConf, -1);
 //        double lowerBoundInterE = confSearchIE.mplpMinimizer.optimizeEMPLP(emptyConf,100);
         int[] conf = confSearchIE.nextConf();
-        double interactionE = confSearchIE.mplpUpperBound(conf);
+        double interactionE = confSearchIE.mplpLowerBound(conf);
         return interactionE + this.mutableSearchProblems[0].emat.getConstTerm() - this.mutableSearchProblems[1].emat.getConstTerm() - this.nonMutableSearchProblem.emat.getConstTerm();
     }
 
@@ -487,15 +486,14 @@ public class COMETSTreeSuper extends AStarTree {
      * @param belongToSameStrand
      * @return
      */
-    private double calcLBPartialSeqInteractionEWithLigand(COMETSNodeSuper seqNode, HashMap<Integer,EnergyMatrix> boundResNumToUnboundEmat, HashMap<Integer,Integer> boundResNumToUnboundResNum,
-            HashMap<Integer,Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
+    private double calcLBPartialSeqInteractionEWithLigand(COMETSNodeSuper seqNode) {
         ConfTreeSuper confSearchIE = new ConfTreeSuper(this.mutableSearchProblems[0], seqNode.pruneMat[0], false);
-        confSearchIE.setMPLPForInteractionEnergyWithProtein(boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundresNumToIsMutableStrand, belongToSameStrand);
+        confSearchIE.setMPLPForInteractionEnergyWithProtein(this.boundResNumToUnboundEmat, this.boundResNumToUnboundResNum, this.boundResNumToIsMutableStrand, this.belongToSameStrand);
         int[] emptyConf = new int[this.mutableSearchProblems[0].confSpaceSuper.numPos];
         Arrays.fill(emptyConf, -1);
 //        double lowerBoundInterE = confSearchIE.mplpMinimizer.optimizeEMPLP(emptyConf,100);
         int[] conf = confSearchIE.nextConf();
-        double interactionE = confSearchIE.mplpUpperBound(conf);
+        double interactionE = confSearchIE.mplpLowerBound(conf);
         return interactionE + this.mutableSearchProblems[0].emat.getConstTerm() - this.mutableSearchProblems[1].emat.getConstTerm() + this.objFcn.constTerm;
     }
 
@@ -1106,4 +1104,159 @@ public class COMETSTreeSuper extends AStarTree {
         }
         return boundPosNumToIsMutableStrand;
     }
-}
+
+    /**
+     * calcLBPartialSeqImproved: Computes a lower bound on a multi state energy
+     * of a partial sequence assignments for a PROTEIN:LIGAND interaction. Our
+     * bound consists of (in BOLTZMANN weighted terms):
+     * MAX(P,LA,P:LA)/(MAX(P)*MAX(LA)) *
+     * MAX_S((MAX(P:LU_s)*MAX(LA:LU_s))/(MIN(LA:LU_s))) where P is the target
+     * protein whose sequence is known, LA are the ligand assigned residues
+     * whose sequence has been defined in seqNode, and LU_s are the ligand
+     * unassigned residues In ENERGIES, our bound is: GMinEC(P,LA,P:LA) -
+     * GMinEC(P) - GMinEC(LA) + MIN_S(GMinEC(P:LU_s) + GMinEC(LA:LU_s) -
+     * GMaxEC(LA:LU_s)) where GMinEC is the energy of the global minimum energy
+     * conformation and GMaxEC is the energy of the global maximum energy
+     * conformation
+     *
+     * @param seqNode
+     * @param boundResNumToUnboundEmat
+     * @param boundResNumToUnboundResNum
+     * @param boundResNumToIsMutableStrand
+     * @param belongToSameStrand
+     * @return
+     */
+    private double calcLBPartialSeqImproved(COMETSNodeSuper seqNode) {
+        SearchProblemSuper boundSP = mutableSearchProblems[0];
+        SearchProblemSuper ligandSP = mutableSearchProblems[1];
+        SearchProblemSuper proteinSP = nonMutableSearchProblem;
+
+        int partialSeq[] = seqNode.getNodeAssignments();
+
+        // First compute GMinEC(P,LA,P:LA). Here an upper bound can be used, but ideally it should be computed exactly
+        double gminec_p_la_pla = 0;
+        ConfTreeSuper confTree_p_la_pla = new ConfTreeSuper(boundSP, seqNode.pruneMat[0], false);
+
+        //Get the posNums corresponding to this partial space
+        ArrayList<Integer> partialSpacePosNums = new ArrayList<>();
+        partialSpacePosNums.addAll(getProteinPosNums(true));
+        partialSpacePosNums.addAll(getLigandAssignedPosNums(seqNode, true));
+        partialSpacePosNums.sort(null);
+        
+        double score1 = confTree_p_la_pla.scorePartialSpaceGMEC(partialSpacePosNums);
+
+        confTree_p_la_pla.initializePartialSpaceSearch();
+        confTree_p_la_pla.addCrossTermPartialSearch(getLigandAssignedPosNums(seqNode, true), getProteinPosNums(true), boundResNumToUnboundEmat, boundResNumToUnboundResNum);
+        confTree_p_la_pla.addInternalTermPartialSearch(getProteinPosNums(true),boundResNumToUnboundEmat, boundResNumToUnboundResNum);
+        confTree_p_la_pla.addInternalTermPartialSearch(getLigandAssignedPosNums(seqNode, true),boundResNumToUnboundEmat, boundResNumToUnboundResNum);
+        int[] gmec = confTree_p_la_pla.nextConf();
+        double score2 = confTree_p_la_pla.mplpLowerBound(gmec);
+        
+        // GMinEC(P) can be precomputed because it is a constant for the system or computed here. 
+        double gminec_p = 0;
+        /**
+         * Add your code to compute the GMEC of a custom space here.
+         */
+
+        // Now compute GMinEC(LA). This has to be computed exactly (or through an upper bound)
+        double gminec_la = 0;
+        /**
+         * Add your code to compute the GMEC of a custom space here.
+         */
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Finally, compute MIN_S(GMinEC(P:LU_s) + GMinEC(LA:LU_s) - GMaxEC(LA:LU_s)).        
+        // The following section should be "modular" because there are two ways to do this. One way is using a greedy algorithm to compute it
+        // exactly. We have not developed it yet. For now let's compute it t as follows :
+        //   MIN_S(GMinEC(P:LU_s) + GMinEC(LA:LU_s) - GMaxEC(LA:LU_s)) <= MIN_S(GMinEC(P:LU_s) + GMinEC(LA:LU_s)) - MAX_S(GMaxEC(LA:LU_s)
+        // Thus, first compute: MIN_S(GMinEC(P:LU_s) + GMinEC(LA:LU_s)), which can be easily computed by computing a min gmec over: 
+        //		GMinEC(LA:LU_s, P:LU_s), including all rotamers for all amino acids defined in s.
+        double gminec_lalus_plus = 0;
+        /**
+         * Add your code to compute the GMEC of a custom space here.
+         */
+
+        // Then compute the maximum MAX_S(GMaxEC(LA:LU_s), which can be computed by either negating all the energies in the matrix or something similar.
+        double gmaxec_lalus = 0;
+        /**
+         * Add your code to compute the GMEC of a custom space here.
+         */
+
+        return gminec_p_la_pla - gminec_p - gminec_la + gminec_lalus_plus - gmaxec_lalus;
+
+    }
+
+    /**
+     * This returns the list of integers corresponding to the assigned position
+     * numbers of the ligand in the confSpace This is useful for computing GMECs
+     * over partial spaces.
+     *
+     * @param seqNode the current sequence node
+     * @param useBoundState do we want to position numbers corresponding to
+     * bound state (true) or unbound state (false)
+     * @return
+     */
+      private ArrayList<Integer> getLigandAssignedPosNums(COMETSNodeSuper seqNode, boolean useBoundState) {
+        int[] partialSeq = seqNode.getNodeAssignments();
+        //Get the mapping between mutable position in sequence node assignment and
+        //the corresponding position number in the confSpace for bound or unbound ligand
+        ArrayList<Integer> mutable2PosNum = useBoundState ? this.mutable2StatePosNums.get(0) : this.mutable2StatePosNums.get(1);
+        //Get the corresponding searchProblem for bound or unbound ligand
+        SearchProblemSuper searchProblem = useBoundState ? this.mutableSearchProblems[0] : this.mutableSearchProblems[1];
+
+        ArrayList<Integer> ligandAssignedPosNums = new ArrayList<>();
+
+        //Iterate over flexible position numbers 
+        for (int posNum = 0; posNum < searchProblem.confSpaceSuper.numPos; posNum++) {
+            //If we are using the bound state, we must check if the position belongs to 
+            //Ligand or protein
+            //If we are not using the bound state then it must belong to ligand
+            if (this.boundResNumToIsMutableStrand.get(posNum) || !(useBoundState)) {
+                //position is on mutable strand, implying it belongs to ligand
+
+                //Now check if the posNum is mutable
+                if (mutable2PosNum.contains(posNum)) {
+                    //It is mutable so get the index of mutable position wrt sequence node assignment
+                    int index = mutable2PosNum.indexOf(posNum);
+                    //Now we check if this mutable position is assigned
+                    if (partialSeq[index] >= 0) {
+                        //It is assigned so add it to our list
+                        ligandAssignedPosNums.add(posNum);
+                    }
+                } else {//if the posNum is NOT mutable then it is assigned already assigned
+                    //add since it is assigned and on ligand
+                    ligandAssignedPosNums.add(posNum);
+                }
+            }
+        }
+        return ligandAssignedPosNums;
+    }
+
+    /**
+     * Returns the list of posNums corresponding to the protein residues for
+     * either the bound search space or unbound search space
+     *
+     * @param useBoundState if true, use bound search space
+     * @return
+     */
+    private ArrayList<Integer> getProteinPosNums(boolean useBoundState) {
+        SearchProblemSuper searchSpace = useBoundState ? mutableSearchProblems[0] : nonMutableSearchProblem;
+
+        ArrayList<Integer> proteinPosNums = new ArrayList<>();
+
+        for (int posNum = 0; posNum < searchSpace.confSpaceSuper.numPos; posNum++) {
+            //If we are using the bound state we must check if posNum
+            //belongs to protein or ligand
+            if (useBoundState){
+                //Check if pos belongs to nonmutable (protein) strand
+                if (!this.boundResNumToIsMutableStrand.get(posNum)){
+                    proteinPosNums.add(posNum);
+                }
+            }
+            else{//If we are using the unbound state, every posNum is part of protein
+                proteinPosNums.add(posNum);
+            }
+        }
+        return proteinPosNums;
+    }
+}    

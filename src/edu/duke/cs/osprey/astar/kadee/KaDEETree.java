@@ -116,35 +116,108 @@ public class KaDEETree extends AStarTree {
 
                         int[] childAssignments = curAssignments.clone();
                         childAssignments[splitPos] = aa;
-                        
+
                         UpdatedPruningMatrixSuper[] childPruneMat = new UpdatedPruningMatrixSuper[numStates];
-                        for (int state = 0; state<numStates; state++){
+                        for (int state = 0; state < numStates; state++) {
                             childPruneMat[state] = doChildPruning(state, seqNode.pruneMat[state], splitPos, aa);
                         }
-                        
+
                         KaDEENode childNode = new KaDEENode(childAssignments, childPruneMat);
-                        
-                        if (splitPos == numTreeLevels-1){//sequence is fully defined...make conf trees
+
+                        if (splitPos == numTreeLevels - 1) {//sequence is fully defined...make conf trees
                             makeSeqConfTrees(childNode);
                         }
 
                         //TODO: create boundFreeEnergyChange()
                         //childNode.setScore(boundFreeEnergyChange(childNode));
-                        
                         ans.add(childNode);
                     }
-                    
+
                     return ans;
                 }
             }
-            
+
             throw new RuntimeException("ERROR: Not splittable position found but sequence not fully defined...");
         }
     }
 
     /**
+     * calcLBPartialSeqImproved: Computes a lower bound on a multi state energy of a partial sequence assignments for a PROTEIN:LIGAND interaction. 
+     *  Our bound consists of (in BOLTZMANN weighted terms):
+     *    MAX(P,LA,P:LA)/(MAX(P)*MAX(LA)) *  MAX_S((MAX(P:LU_s)*MAX(LA:LU_s))/(MIN(LA:LU_s)))
+     *       where P is the target protein whose sequence is known,
+     *       LA are the ligand assigned residues whose sequence has been defined in seqNode, and
+     *       LU_s are the ligand unassigned residues  
+     *  In ENERGIES, our bound is: 
+     *   GMinEC(P,LA,P:LA) - GMinEC(P) - GMinEC(LA) + MIN_S(GMinEC(P:LU_s) + GMinEC(LA:LU_s) - GMaxEC(LA:LU_s))
+     *    where GMinEC is the energy of the global minimum energy conformation 
+     *    and GMaxEC is the energy of the global maximum energy conformation 
+     *  
+     * @param seqNode
+     * @param boundResNumToUnboundEmat
+     * @param boundResNumToUnboundResNum
+     * @param boundresNumToIsMutableStrand
+     * @param belongToSameStrand
+     * @return
+     */    
+    private double calcLBPartialSeqImproved(COMETSNodeSuper seqNode, List<EnergyMatrix> boundResNumToUnboundEmat, List<Integer> boundResNumToUnboundResNum,
+            List<Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
+
+        int partialSeq[] = seqNode.getNodeAssignments();
+
+       
+        // First compute GMinEC(P,LA,P:LA). Here an upper bound can be used, but ideally it should be computed exactly
+        double gminec_p_la_pla = 0;
+        /** Add your code to compute the GMEC of a custom space here.*/
+        
+        // GMinEC(P) can be precomputed because it is a constant for the system or computed here. 
+        double gminec_p = 0;
+        /** Add your code to compute the GMEC of a custom space here.*/
+        
+        // Now compute GMinEC(LA). This has to be computed exactly (or through an upper bound)
+        double gminec_la = 0;
+        /** Add your code to compute the GMEC of a custom space here.*/
+        
+        ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // Finally, compute MIN_S(GMinEC(P:LU_s) + GMinEC(LA:LU_s) - GMaxEC(LA:LU_s)).        
+        // The following section should be "modular" because there are two ways to do this. One way is using a greedy algorithm to compute it
+        // exactly. We have not developed it yet. For now let's compute it t as follows :
+        //   MIN_S(GMinEC(P:LU_s) + GMinEC(LA:LU_s) - GMaxEC(LA:LU_s)) <= MIN_S(GMinEC(P:LU_s) + GMinEC(LA:LU_s)) - MAX_S(GMaxEC(LA:LU_s)
+        // Thus, first compute: MIN_S(GMinEC(P:LU_s) + GMinEC(LA:LU_s)), which can be easily computed by computing a min gmec over: 
+        //		GMinEC(LA:LU_s, P:LU_s), including all rotamers for all amino acids defined in s.
+        double gminec_lalus_plus = 0;
+        /** Add your code to compute the GMEC of a custom space here.*/ 
+
+        // Then compute the maximum MAX_S(GMaxEC(LA:LU_s), which can be computed by either negating all the energies in the matrix or something similar.
+        double gmaxec_lalus = 0;
+        /** Add your code to compute the GMEC of a custom space here.*/
+        
+        
+        return gminec_p_la_pla - gminec_p - gminec_la + gminec_lalus_plus - gmaxec_lalus;
+        
+    }
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    /**
      * Prunes rotamers to reflex the new allowed amino-acids
-     * 
+     *
      * @param state bound vs unbound state
      * @param parentMat parent pruning matrix
      * @param splitPos position that was split
@@ -173,7 +246,7 @@ public class KaDEETree extends AStarTree {
         return ans;
     }
 
-     private void makeSeqConfTrees(KaDEENode node) {
+    private void makeSeqConfTrees(KaDEENode node) {
         //Given a node with a fully defined sequence, build its conformational search trees
         //for each state
         //If a state has no viable conformations, leave it null, with stateUB[state] = inf
@@ -205,10 +278,68 @@ public class KaDEETree extends AStarTree {
                 node.stateTrees[state] = null;
             }
         }
-    }   
-    
-    
-    
+    }
+
+    @Override
+    public boolean isFullyAssigned(AStarNode node) {
+        //HMN: TODO: Should we check if partition functions are calculated first?
+        //This checks if the node is returnable
+        //So it must be fully processed (state GMECs found, not just fully defined sequence) 
+
+        if (!node.isFullyDefined()) {
+            return false;
+        }
+        return true;
+    }
+
+    @Override
+    public AStarNode rootNode() {
+        int[] conf = new int[numTreeLevels];
+        Arrays.fill(conf, -1);//indicates the sequence is not assigned
+
+        PruningMatrix[] pruneMats = new PruningMatrix[numStates];
+        for (int state = 0; state < numStates; state++) {
+            pruneMats[state] = mutableSearchProblems[state].pruneMat;
+        }
+
+        KaDEENode root = new KaDEENode(conf, pruneMats);
+        //TODO: root.setScore(boundLME(root,objFcn));
+        return root;
+    }
+
+    @Override
+    public boolean canPruneNode(AStarNode node) {
+        //Check if node can be pruned
+        //This is traditionally based on constraints, thought we could pruned nodes
+        //that are provably suboptimal
+
+        //TODO: Implement constraints as in COMETS if desired
+        KaDEENode seqNode = (KaDEENode) node;
+
+        if (numMaxMut != -1) {
+            //cap on number of mutations
+            int mutCount = 0;
+            int assignments[] = seqNode.getNodeAssignments();
+
+            for (int level = 0; level < numTreeLevels; level++) {
+                if (assignments[level] >= 0) {//AA type at level is assigned
+                    if (!AATypeOptions.get(level).get(assignments[level]).equalsIgnoreCase(wtSeq[level]))//and is different from wtSeq
+                    {
+                        mutCount++;
+                    }
+                }
+            }
+
+            if (mutCount > numMaxMut)//prune based on number of mutations
+            {
+                return true;
+            }
+        }
+        //TODO: for (LME constr : constraints) {....
+        
+        return false;
+    }
+
     //For flexible position in bound matrix (0,1,2,...,numRes-1) we map to the corresponding
     //unbound energy matrix
     public HashMap<Integer, EnergyMatrix> getBoundPosNumToUnboundEmat() {

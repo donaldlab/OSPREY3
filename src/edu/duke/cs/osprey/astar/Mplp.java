@@ -103,7 +103,9 @@ public class Mplp {
         // Complexity of EMPLP: O(I*numRes*numRes*rotsPerRes*rotsPerRes*numRes)
         for (int i = 0; i < iterations; i++) {
             for (int resI = 0; resI < numResidues; resI++) {
-                for (int resJ = resI + 1; resJ < numResidues; resJ++) {
+                //HMN: changed resJ = resI+1 to resI+0 to allow 
+                //a node to be a neighbor with itself if it has no neighbors
+                for (int resJ = resI + 0; resJ < numResidues; resJ++) {
                     // Ignore residue pairs that are too far away to interact.
                     if (interactionGraph[resI][resJ]) {
                         // We first update lambda[resJ][resI][rotIR] and immediately after we update lambda[resI][resJ][rotJS]
@@ -160,6 +162,151 @@ public class Mplp {
             }
         }
         return minValue;
+    }
+
+    /**
+     * Initializes a "blank" MPLP optimizer, with no interactions and an energy
+     * matrix with all 0 entries. This is useful when working with partial
+     * spaces so that you can add specific interactions and energy terms
+     * depending on the partial space
+     */
+    public void initializeMPLP() {
+        boolean[][] initInteractionGraph = new boolean[numResidues][numResidues];
+        for (int xres = 0; xres < numResidues; xres++) {
+            for (int yres = 0; yres < numResidues; yres++) {
+                initInteractionGraph[xres][yres] = false;
+                initInteractionGraph[yres][xres] = false;
+            }
+        }
+        this.interactionGraph = initInteractionGraph;
+        double unifiedEmat[][][][] = CreateMatrix.create4DRotMatrix(numResidues, rotsPerPos, 0.0f);
+        this.unifiedMinEnergyMatrix = unifiedEmat;
+    }
+
+    /**
+     * This function appends the current state of MPLP, adding new interactions
+     * and energy terms to the unified emat for cross-interactions
+     *
+     * @param ematComplex energy matrix for the complex
+     *
+     * @param crossTermI list of position numbers corresponding to one cross
+     * term
+     * @param crossTermJ list of position numbers corresponding to the other
+     * cross term
+     * @param boundPosNumToUnboundEmat maps position number to unbound emat to
+     * get cross-intra terms
+     * @param boundPosNumToUnboundPosNum maps position number to unbound
+     * position number, to access unbound emat
+     */
+    public void addCrossTerm(EnergyMatrix ematComplex, ArrayList<Integer> crossTermI, ArrayList<Integer> crossTermJ,
+            HashMap<Integer, EnergyMatrix> boundPosNumToUnboundEmat, HashMap<Integer, Integer> boundPosNumToUnboundPosNum) {
+
+        //First we append the interaction graph
+        for (int resI_Index = 0; resI_Index < crossTermI.size(); resI_Index++) {
+            for (int resJ_Index = 0; resJ_Index < crossTermJ.size(); resJ_Index++) {
+                int resI = crossTermI.get(resI_Index);
+                int resJ = crossTermJ.get(resJ_Index);
+                this.interactionGraph[resI][resJ] = true;
+                this.interactionGraph[resJ][resI] = true;
+            }
+        }
+
+        //Now we append the energy matrix
+        for (int resI : crossTermI) {
+            for (int rotIR_Ix = 0; rotIR_Ix < this.unprunedRotsPerPos.get(resI).size(); rotIR_Ix++) {
+                int rotIR_origMat = this.unprunedRotsPerPos.get(resI).get(rotIR_Ix);
+                for (int resJ : crossTermJ) {
+                    for (int rotJS_Ix = 0; rotJS_Ix < this.unprunedRotsPerPos.get(resJ).size(); rotJS_Ix++) {
+                        int rotJS_origMat = this.unprunedRotsPerPos.get(resJ).get(rotJS_Ix);
+                        //Since this is a crossterm interaction we need the unbound energy matrix to subtract out
+                        //non-cross terms
+                        EnergyMatrix ematUnboundResI = boundPosNumToUnboundEmat.get(resI);
+                        EnergyMatrix ematUnboundResJ = boundPosNumToUnboundEmat.get(resJ);
+                        int resI_unbound = boundPosNumToUnboundPosNum.get(resI);
+                        int resJ_unbound = boundPosNumToUnboundPosNum.get(resJ);
+                        double pairwiseE = ematComplex.getPairwise(resI, rotIR_origMat, resJ, rotJS_origMat);
+                        //resI has crossTermJ.size() neighbors, resJ has crossTermI.sizes() neighbors
+                        double intraE_I = ematComplex.getOneBody(resI, rotIR_origMat) / ((double) crossTermJ.size());
+                        double intraE_J = ematComplex.getOneBody(resJ, rotJS_origMat) / ((double) crossTermI.size());
+                        double intraE_I_unbound = ematUnboundResI.getOneBody(resI_unbound, rotIR_origMat) / ((double) crossTermJ.size());
+                        double intraE_J_unbound = ematUnboundResJ.getOneBody(resJ_unbound, rotJS_origMat) / ((double) crossTermI.size());
+                        double totalE = pairwiseE + intraE_I + intraE_J - intraE_I_unbound - intraE_J_unbound;
+                        unifiedMinEnergyMatrix[resI][rotIR_Ix][resJ][rotJS_Ix] = totalE;
+                        unifiedMinEnergyMatrix[resJ][rotJS_Ix][resI][rotIR_Ix] = unifiedMinEnergyMatrix[resI][rotIR_Ix][resJ][rotJS_Ix];
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * This method updates the interaction graph and unified emat with new
+     * interactions that do not correspond to cross terms (ie. all protein
+     * residues within protein ligand complex)
+     *
+     * @param emat energy matrix
+     * @param interactingPosNums position numbers which all interact with each
+     * other
+     */
+    public void addInternalTerm(EnergyMatrix emat, ArrayList<Integer> interactingPosNums, HashMap<Integer, EnergyMatrix> boundPosNumToUnboundEmat, HashMap<Integer, Integer> boundPosNumToUnboundPosNum) {
+
+        //First append the interaction graph
+        for (int resI_Index = 0; resI_Index < interactingPosNums.size(); resI_Index++) {
+            for (int resJ_Index = resI_Index + 1; resJ_Index < interactingPosNums.size(); resJ_Index++) {
+                int resI = interactingPosNums.get(resI_Index);
+                int resJ = interactingPosNums.get(resJ_Index);
+                interactionGraph[resI][resJ] = true;
+                interactionGraph[resJ][resI] = true;
+            }
+        }
+        int numNeighbors = interactingPosNums.size() - 1;
+        //Now we append the energy matrix
+        for (int resI_Index = 0; resI_Index < interactingPosNums.size(); resI_Index++) {
+            int resI = interactingPosNums.get(resI_Index);
+            for (int rotIR_Ix = 0; rotIR_Ix < unprunedRotsPerPos.get(resI).size(); rotIR_Ix++) {
+                int rotIR_origMat = unprunedRotsPerPos.get(resI).get(rotIR_Ix);
+                for (int resJ_Index = resI_Index + 1; resJ_Index < interactingPosNums.size(); resJ_Index++) {
+                    int resJ = interactingPosNums.get(resJ_Index);
+                    for (int rotJS_Ix = 0; rotJS_Ix < unprunedRotsPerPos.get(resJ).size(); rotJS_Ix++) {
+                        int rotJS_origMat = unprunedRotsPerPos.get(resJ).get(rotJS_Ix);
+                        double pairwiseE = emat.getPairwise(resI, rotIR_origMat, resJ, rotJS_origMat);
+                        //number of neighbors = size interactingPosNums -1
+                        EnergyMatrix unboundEmatResI = boundPosNumToUnboundEmat.get(resI);
+                        EnergyMatrix unboundEmatResJ = boundPosNumToUnboundEmat.get(resJ);
+                        int resI_unbound = boundPosNumToUnboundPosNum.get(resI);
+                        int resJ_unbound = boundPosNumToUnboundPosNum.get(resJ);
+                        double intraI = unboundEmatResI.getOneBody(resI_unbound, rotIR_origMat) / ((double) numNeighbors);
+                        double intraJ = unboundEmatResJ.getOneBody(resJ_unbound, rotJS_origMat) / ((double) numNeighbors);
+                        unifiedMinEnergyMatrix[resI][rotIR_Ix][resJ][rotJS_Ix] = pairwiseE + intraI + intraJ;
+                        unifiedMinEnergyMatrix[resJ][rotJS_Ix][resI][rotIR_Ix] = unifiedMinEnergyMatrix[resI][rotIR_Ix][resJ][rotJS_Ix];
+                    }
+                }
+            }
+        }
+
+        //We must consider the case in which we have no neighbors
+        //In this scenario, we allow resI to be a neighbor with resI
+        if (numNeighbors == 0) {
+            int resI = interactingPosNums.get(0);
+            interactionGraph[resI][resI] = true;
+            EnergyMatrix unboundEmat = boundPosNumToUnboundEmat.get(resI);
+            for (int rotIR_Ix_1 = 0; rotIR_Ix_1 < unprunedRotsPerPos.get(resI).size(); rotIR_Ix_1++) {
+                int rotIR_1_origMat = unprunedRotsPerPos.get(resI).get(rotIR_Ix_1);
+                for (int rotIR_Ix_2 = 0; rotIR_Ix_2 < unprunedRotsPerPos.get(resI).size(); rotIR_Ix_2++) {
+                    int rotIR_2_origMat = unprunedRotsPerPos.get(resI).get(rotIR_Ix_2);
+                    int resI_unbound = boundPosNumToUnboundPosNum.get(resI);
+                    double intraI = 0.0;
+                    if (rotIR_1_origMat == rotIR_2_origMat) {
+                        intraI += unboundEmat.getOneBody(resI_unbound, rotIR_1_origMat);
+                    } else {
+                        intraI = Double.POSITIVE_INFINITY;
+                    }
+                    unifiedMinEnergyMatrix[resI][rotIR_Ix_1][resI][rotIR_Ix_2] = intraI;
+                    unifiedMinEnergyMatrix[resI][rotIR_Ix_2][resI][rotIR_Ix_1] = unifiedMinEnergyMatrix[resI][rotIR_Ix_1][resI][rotIR_Ix_2];
+                }
+            }
+        }
+
     }
 
     /**
@@ -245,6 +392,40 @@ public class Mplp {
         }
         return interactionGraph;
 
+    }
+
+    public void setupPartialSpaceGMEC(EnergyMatrix emat, ArrayList<Integer> partialSpacePosNums) {
+        this.interactionGraph = computeResidueResiduePartialSpaceInteractionGraph(partialSpacePosNums);
+        this.unifiedMinEnergyMatrix = mergeIntraAndPairMats(emat, interactionGraph);
+    }
+
+    /**
+     * This method sets up an interaction graph for an optimization (GMEC calc)
+     * over a partial space, defined by a subset of position numbers
+     *
+     * @param partialSpacePosNums the list of position numbers that correspond
+     * to the partial space
+     * @return
+     */
+    private boolean[][] computeResidueResiduePartialSpaceInteractionGraph(ArrayList<Integer> partialSpacePosNums) {
+        //TODO: This could accept an energy matrix and determine interactions based on some 
+        //energy cutoff, but currently it's use is to optimize over a partial space
+        boolean[][] interactionGraph = new boolean[numResidues][numResidues];
+        for (int xres = 0; xres < numResidues; xres++) {
+            for (int yres = 0; yres < numResidues; yres++) {
+                interactionGraph[xres][yres] = false;
+            }
+        }
+
+        for (int xresIndex = 0; xresIndex < partialSpacePosNums.size(); xresIndex++) {
+            for (int yresIndex = xresIndex + 1; yresIndex < partialSpacePosNums.size(); yresIndex++) {
+                int xres = partialSpacePosNums.get(xresIndex);
+                int yres = partialSpacePosNums.get(yresIndex);
+                interactionGraph[xres][yres] = true;
+                interactionGraph[yres][xres] = true;
+            }
+        }
+        return interactionGraph;
     }
 
     /**

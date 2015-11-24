@@ -120,8 +120,8 @@ public class KaDEEFinder {
             searchSpace.loadEnergyMatrix();
             //Doing competitor pruning now
             //will limit us to a smaller, but effective, set of competitors in all future DEE
-            List<Integer> mut2StatePosNumBound = new ArrayList<>();
-            List<Integer> mut2StatePosNumUnBound = new ArrayList<>();
+            ArrayList<Integer> mut2StatePosNumBound = new ArrayList<>();
+            ArrayList<Integer> mut2StatePosNumUnBound = new ArrayList<>();
             int numMutRes = 0;
 
             ConfSpaceSuper cSpaceMonomerMut = searchSpaces[1].confSpaceSuper;
@@ -133,7 +133,7 @@ public class KaDEEFinder {
                     numMutRes++;
                 }
             }
-            List<List<Integer>> mutable2StatePosNums = new ArrayList<>();
+            ArrayList<ArrayList<Integer>> mutable2StatePosNums = new ArrayList<>();
             mutable2StatePosNums.add(mut2StatePosNumBound);
             mutable2StatePosNums.add(mut2StatePosNumUnBound);
 
@@ -197,7 +197,7 @@ public class KaDEEFinder {
             MapPerturbation mapPert = new MapPerturbation(searchSpace);
             double logZUB = (0.4342944819) * mapPert.calcUBLogZ(100);
             System.out.println("Upper bound on log partition function (MAP-Pert) = " + logZUB);
-            List<Integer> toMerge = mapPert.getPairWithMaxMutualInfo(true);
+            ArrayList<Integer> toMerge = mapPert.getPairWithMaxMutualInfo(true);
             logZLB = (0.4342944819) * mapPert.calcLBLogZ(100);
             System.out.println("Lower bound on log partition function (MAP-Pert) = " + logZLB);
 
@@ -301,7 +301,7 @@ public class KaDEEFinder {
 
         //For each state, for each position, this contains a list of allowed 
         //amino acids at that position
-        List<List<List<String>>> allowedAAsPerState = new ArrayList<>();
+        ArrayList<ArrayList<ArrayList<String>>> allowedAAsPerState = new ArrayList<>();
         for (int state = 0; state < searchSpaces.length; state++) {
             allowedAAsPerState.add(getAllowedAA(state));
         }
@@ -315,7 +315,7 @@ public class KaDEEFinder {
          }
          */
         //For each state this arraylist gives the mutable pos nums of that state
-        List<List<Integer>> mutable2StatePosNum = handleMutable2StatePosNums(allowedAAsPerState);
+        ArrayList<ArrayList<Integer>> mutable2StatePosNum = handleMutable2StatePosNums(allowedAAsPerState);
 
         //determine which states are mutable and which are non-mutable
         boolean[] stateIsMutable = new boolean[this.searchSpaces.length];
@@ -334,8 +334,8 @@ public class KaDEEFinder {
         SearchProblemSuper[] mutableStates = new SearchProblemSuper[numMutableState];
         //For each MUTABLE state, this arraylist gives the mutable pos nums of that state
         //This is what will go into the COMETS tree
-        List<List<Integer>> mutableState2StatePosNumList = new ArrayList<>();
-        List<List<List<String>>> mutableStateAllowedAAs = new ArrayList<>();
+        ArrayList<ArrayList<Integer>> mutableState2StatePosNumList = new ArrayList<>();
+        ArrayList<ArrayList<ArrayList<String>>> mutableStateAllowedAAs = new ArrayList<>();
         int mutableStateIndex = 0;
 
         SearchProblemSuper nonMutableState = searchSpaces[1];
@@ -371,7 +371,7 @@ public class KaDEEFinder {
         return tree;
     }
 
-    private List<List<String>> getAllowedAA(int state) {
+    private ArrayList<ArrayList<String>> getAllowedAA(int state) {
         ArrayList<ArrayList<String>> complexAllowedAAs = cfp.getAllowedAAs();
         ArrayList<String> complexFlexRes = cfp.getFlexRes();
         int numFlexRes = complexFlexRes.size();
@@ -387,11 +387,11 @@ public class KaDEEFinder {
             beginPos = this.searchSpaces[1].confSpaceSuper.posFlexSuper.size();
             endPos = beginPos + this.searchSpaces[2].confSpaceSuper.posFlexSuper.size();
         }
-        List<List<String>> allowedAAs = new ArrayList<>();
+        ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
         Molecule wtMolec = PDBFileReader.readPDBFile(cfp.params.getValue("PDBNAME"));
 
         for (int posNum = beginPos; posNum < endPos; posNum++) {
-            List<String> currentAAOptions = complexAllowedAAs.get(posNum);
+            ArrayList<String> currentAAOptions = complexAllowedAAs.get(posNum);
             if (cfp.params.getBool("AddWT", true)) {
                 Residue res = wtMolec.getResByPDBResNumber(complexFlexRes.get(posNum));
                 if (!StringParsing.containsIgnoreCase(complexFlexRes, res.template.name)) {
@@ -422,12 +422,12 @@ public class KaDEEFinder {
     //for each state, returns a list of mutable pos numbers. 
     //If the state has no mutable positions an empty list is returned
     //Thus, we can use this to decide which states go in the comets search
-    private List<List<Integer>> handleMutable2StatePosNums(List<List<List<String>>> allowedAAPerState) {
-        List<List<Integer>> mutable2StatePosNum = new ArrayList<>();
+    private ArrayList<ArrayList<Integer>> handleMutable2StatePosNums(ArrayList<ArrayList<ArrayList<String>>> allowedAAPerState) {
+        ArrayList<ArrayList<Integer>> mutable2StatePosNum = new ArrayList<>();
 
         for (int state = 0; state < allowedAAPerState.size(); state++) {
-            List<List<String>> allowedAAForState = allowedAAPerState.get(state);
-            List<Integer> mutablePositionsForState = getMutablePosNums(allowedAAForState);
+            ArrayList<ArrayList<String>> allowedAAForState = allowedAAPerState.get(state);
+            ArrayList<Integer> mutablePositionsForState = getMutablePosNums(allowedAAForState);
             mutable2StatePosNum.add(mutablePositionsForState);
         }
 
@@ -435,8 +435,8 @@ public class KaDEEFinder {
     }
 
     //Given the allowed AAs at a state, get the mutable position numbers
-    private List<Integer> getMutablePosNums(List<List<String>> allowedAAForState) {
-        List<Integer> mutablePosNum = new ArrayList<>();
+    private ArrayList<Integer> getMutablePosNums(ArrayList<ArrayList<String>> allowedAAForState) {
+        ArrayList<Integer> mutablePosNum = new ArrayList<>();
         for (int posNum = 0; posNum < allowedAAForState.size(); posNum++) {
             if (allowedAAForState.get(posNum).size() > 1) {
                 mutablePosNum.add(posNum);
@@ -445,7 +445,7 @@ public class KaDEEFinder {
         return mutablePosNum;
     }
 
-    private int getNumMutablePos(List<List<Integer>> mutable2StatePosNum) {
+    private int getNumMutablePos(ArrayList<ArrayList<Integer>> mutable2StatePosNum) {
         int numMutable = -1;
         for (int state = 0; state < mutable2StatePosNum.size(); state++) {
             int numMutableAtState = mutable2StatePosNum.get(state).size();
@@ -456,22 +456,16 @@ public class KaDEEFinder {
 
     //Make sure each mutable state has the same Allowed AA
     //Return Allowed AA for all mutable positions
-    private ArrayList<ArrayList<String>> handleAATypeOptions(List<List<List<String>>> mutableStateAllowedAAs) {
-        List<List<String>> AATypeOptionsList = mutableStateAllowedAAs.get(0).stream().filter(aaTypes -> aaTypes.size() > 1).collect(Collectors.toList());
-        //Convert to ArrayList<>
-        ArrayList<ArrayList<String>> AATypeOptions = new ArrayList<>();
-        for (List<String> AAOption : AATypeOptionsList) {
-            ArrayList<String> converted = new ArrayList<String>(AAOption);
-            AATypeOptions.add(converted);
-        }
+    private ArrayList<ArrayList<String>> handleAATypeOptions(ArrayList<ArrayList<ArrayList<String>>> mutableStateAllowedAAs) {
+        ArrayList<ArrayList<String>> AATypeOptions = mutableStateAllowedAAs.get(0).stream().filter(aaTypes -> aaTypes.size() > 1).collect(Collectors.toCollection(ArrayList::new));
 
         for (int state = 1; state < mutableStateAllowedAAs.size(); state++) {
-            List<List<String>> AATypesForState = mutableStateAllowedAAs.get(state);
+            ArrayList<ArrayList<String>> AATypesForState= mutableStateAllowedAAs.get(state).stream().filter(aaTypes -> aaTypes.size() > 1).collect(Collectors.toCollection(ArrayList::new));
             if (AATypesForState.size() != AATypeOptions.size()) {
                 throw new RuntimeException("ERROR: Different Number of Mutable Positions between Bound and Unbound");
             }
             for (int posNum = 0; posNum < AATypesForState.size(); posNum++) {
-                List<String> AATypesForPos = AATypesForState.get(posNum);
+                ArrayList<String> AATypesForPos = AATypesForState.get(posNum);
                 for (int aaIndex = 0; aaIndex < AATypesForPos.size(); aaIndex++) {
                     if (!(AATypeOptions.get(posNum).contains(AATypesForPos.get(aaIndex)))) {
                         throw new RuntimeException("ERROR: AAType Different for Bound and Unbound Mutable Residues");

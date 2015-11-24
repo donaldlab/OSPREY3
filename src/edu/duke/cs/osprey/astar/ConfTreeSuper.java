@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  *
@@ -408,6 +409,32 @@ public class ConfTreeSuper extends AStarTree {
         this.mplpMinimizer.createOnlyPairwiseMatWithProtein(this.emat, boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundresNumToIsMutableStrand, belongToSameStrand);
     }
 
+    /**
+     * This sets up the MPLP minimizer to optimize over a partial space, defined
+     * by a list of position numbers that are a subset of the set of all position
+     * numbers 
+     * 
+     * @param partialSpacePosNum the position numbers corresponding to the partial space
+     */
+    public void setPartialSpaceGMEC(ArrayList<Integer> partialSpacePosNum){
+        this.mplpMinimizer.setupPartialSpaceGMEC(emat, partialSpacePosNum);
+    }
+    /**
+     * Initializes mplp with no interactions and all 0's in energy matrix
+     * We can then add cross terms or internal terms to optimize over
+     */        
+    public void initializePartialSpaceSearch(){
+        this.mplpMinimizer.initializeMPLP();
+    }
+    public void addCrossTermPartialSearch(ArrayList<Integer> crossTermI, ArrayList<Integer> crossTermJ, 
+           HashMap<Integer, EnergyMatrix> boundPosNumToUnboundEmat, HashMap<Integer, Integer> boundPosNumToUnboundPosNum){
+        this.mplpMinimizer.addCrossTerm(emat, crossTermI, crossTermJ, boundPosNumToUnboundEmat, boundPosNumToUnboundPosNum);
+    }
+    public void addInternalTermPartialSearch(ArrayList<Integer> internalPosNums, HashMap<Integer,EnergyMatrix> boundResNumToUnboundEmat, HashMap<Integer,Integer> boundResNumToUnboundResNum){
+        this.mplpMinimizer.addInternalTerm(emat, internalPosNums, boundResNumToUnboundEmat, boundResNumToUnboundResNum);
+    }
+    
+    
     //this function computes the minimum over all full conf E's consistent with partialConf
     //for debugging only of course
     double exhaustiveScore(int[] partialConf) {
@@ -432,13 +459,32 @@ public class ConfTreeSuper extends AStarTree {
     }
 
     /**
-     * Compute a polynomial time, upper bound on the energy of a partial
+     * Computes the GMEC energy of the partial space defined by a subset of the total
+     * position numbers
+     * 
+     * @param partialSpacePosNums
+     * @return 
+     */
+    public double scorePartialSpaceGMEC(ArrayList<Integer> partialSpacePosNums){
+        setPartialSpaceGMEC(partialSpacePosNums);
+        int[] gmec = nextConf();
+        //To calculate the energy of this partial space we have two options
+        // (1) Call mplpLowerBound, which will use the interaction graph to only
+        ///    compute the internal energy of the partial space
+        // (2) Create a RC tuple from this conf, consisting only of those rc's that
+        ///    belong to the partial space and then call emat.getInternalEnergy(rcTup)
+        //For now, we will use (1)
+        return mplpLowerBound(gmec);
+    }
+    
+    /**
+     * Compute a polynomial time, lower bound on the energy of a partial
      * conformation in the conformation tree using MPLP.
      *
      * @param conf:
      * @return
      */
-    public double mplpUpperBound(int[] conf) {
+    public double mplpLowerBound(int[] conf) {
         return this.mplpMinimizer.optimizeEMPLP(conf, 100);
     }
 }
