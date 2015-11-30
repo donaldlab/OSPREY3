@@ -103,10 +103,7 @@ public class Mplp {
         // Complexity of EMPLP: O(I*numRes*numRes*rotsPerRes*rotsPerRes*numRes)
         for (int i = 0; i < iterations; i++) {
             for (int resI = 0; resI < numResidues; resI++) {
-                //HMN: changed resJ = resI+1 to resI+0 to allow 
-                //a node to be a neighbor with itself if it has no neighbors
-                for (int resJ = resI + 0; resJ < numResidues; resJ++) {
-                    
+                for (int resJ = resI + 1; resJ < numResidues; resJ++) {
                     // Ignore residue pairs that are too far away to interact.
                     if (interactionGraph[resI][resJ]) {
                         // We first update lambda[resJ][resI][rotIR] and immediately after we update lambda[resI][resJ][rotJS]
@@ -142,7 +139,7 @@ public class Mplp {
             Ebound = 0.0f;
             for (int resI = 0; resI < numResidues; resI++) {
                 // It is important to ignore other rotamers at positions that were already assigned when computing the min.  
-                Ebound += computeMinBeliefInReducedAvailableRots(belief[resI], availableRots[resI]);
+                Ebound += computeMinBeliefInReducedAvailableRots(belief[resI], availableRots[resI], resI);
             }
             // If we already converged, then we can exit. 
             if ((Ebound - oldEbound) < minRateOfChange) {
@@ -155,11 +152,19 @@ public class Mplp {
 
     // Compute the minimum value in an array where only a subset of the rotamers are present.
     // Belief is an array for a residue, and availableRots is the indexes in the belief array for which to compute the search.	
-    double computeMinBeliefInReducedAvailableRots(double belief[], int availableRots[]) {
+    double computeMinBeliefInReducedAvailableRots(double belief[], int availableRots[], int resI) {
         double minValue = Double.POSITIVE_INFINITY;
         for (int rotIR : availableRots) {
-            if (belief[rotIR] < minValue) {
-                minValue = belief[rotIR];
+            double score = Double.POSITIVE_INFINITY;
+            if (interactionGraph[resI][resI]){//This means no neighbors were added so we use intra term 
+                //Intra term for now is: unifiedMinEnergyMatrix[resI][rotIR][resI][rotIR]
+                score = belief[rotIR] + unifiedMinEnergyMatrix[resI][rotIR][resI][rotIR];
+            }
+            else{
+                score = belief[rotIR];
+            }
+            if (score < minValue) {
+                minValue = score;
             }
         }
         return minValue;

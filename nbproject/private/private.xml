@@ -3,6 +3,7 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
+<<<<<<< HEAD
             <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/astar/AStarTree.java</file>
             <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/astar/comets/COMETSNodeSuper.java</file>
             <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/astar/comets/COMETSTreeSuper.java</file>
@@ -15,6 +16,10 @@
             <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/ematrix/EnergyMatrix.java</file>
             <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/astar/ConfTree.java</file>
             <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/astar/ConfTreeSuper.java</file>
+=======
+            <file>file:/Users/hunternisonoff/Projects/DonaldLab/Code/OSPREY_refactor/src/edu/duke/cs/osprey/astar/comets/COMETSTreeSuper.java</file>
+            <file>file:/Users/hunternisonoff/Projects/DonaldLab/Code/OSPREY_refactor/src/edu/duke/cs/osprey/astar/AStarTree.java</file>
+>>>>>>> 5d3a6949a09238403dddab1bba9e83591031e53b
         </group>
     </open-files>
 </project-private>
