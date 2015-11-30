@@ -9,19 +9,17 @@ import edu.duke.cs.osprey.astar.AStarNode;
 import edu.duke.cs.osprey.astar.AStarTree;
 import edu.duke.cs.osprey.astar.ConfTreeSuper;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
-import edu.duke.cs.osprey.confspace.SuperRCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblemSuper;
+import edu.duke.cs.osprey.confspace.SuperRCTuple;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.pruning.PrunerSuper;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.HashMap;
+import java.util.List;
 import java.util.PriorityQueue;
-import java.util.Random;
 import java.util.stream.Collectors;
 import org.apache.commons.lang.ArrayUtils;
 
@@ -1151,13 +1149,16 @@ public class COMETSTreeSuper extends AStarTree {
         confTree_p_la_pla.addInternalTermPartialSearch(getLigandAssignedPosNums(seqNode, true),boundResNumToUnboundEmat, boundResNumToUnboundResNum);
         int[] gmec = confTree_p_la_pla.nextConf();
         double score2 = confTree_p_la_pla.mplpLowerBound(gmec);
-        
+        gminec_p_la_pla = score2;
         // GMinEC(P) can be precomputed because it is a constant for the system or computed here. 
         double gminec_p = 0;
-        /**
-         * Add your code to compute the GMEC of a custom space here.
-         */
-
+        ConfTreeSuper confTree_p = new ConfTreeSuper(boundSP, seqNode.pruneMat[0], false);
+        confTree_p.initializePartialSpaceSearch();
+        confTree_p.addInternalTermPartialSearch(getProteinPosNums(true), boundResNumToUnboundEmat, boundResNumToUnboundResNum);
+        int[] gmec_p = confTree_p.nextConf();
+        double score = confTree_p.mplpLowerBound(gmec);
+        gminec_p = score;
+        
         // Now compute GMinEC(LA). This has to be computed exactly (or through an upper bound)
         double gminec_la = 0;
         /**
