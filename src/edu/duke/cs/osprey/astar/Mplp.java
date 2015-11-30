@@ -106,6 +106,7 @@ public class Mplp {
                 //HMN: changed resJ = resI+1 to resI+0 to allow 
                 //a node to be a neighbor with itself if it has no neighbors
                 for (int resJ = resI + 0; resJ < numResidues; resJ++) {
+                    
                     // Ignore residue pairs that are too far away to interact.
                     if (interactionGraph[resI][resJ]) {
                         // We first update lambda[resJ][resI][rotIR] and immediately after we update lambda[resI][resJ][rotJS]
