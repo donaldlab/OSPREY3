@@ -3,9 +3,7 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/astar/MplpSontag.java</file>
-            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/astar/comets/COMETSTreeSuper.java</file>
-            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/control/ConfigFileParser.java</file>
+            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/astar/Mplp.java</file>
         </group>
     </open-files>
 </project-private>

@@ -448,7 +448,13 @@ public class ConfTreeSuper extends AStarTree {
     public void setEmat(EnergyMatrix aEmat) {
         this.emat = aEmat;
     }
+    public PruningMatrix getPruneMat() {
+        return this.pruneMat;
+    }
 
+    public void setPruneMat(PruningMatrix aPruneMat) {
+        this.pruneMat = aPruneMat;
+    }
     public ArrayList<ArrayList<Integer>> getUnprunedRCsAtPos() {
         return this.unprunedRCsAtPos;
     }

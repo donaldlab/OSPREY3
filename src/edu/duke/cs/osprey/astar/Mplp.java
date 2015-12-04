@@ -63,6 +63,18 @@ public class Mplp {
         this.interactionGraph = computePosPosInteractionGraph(emat, aEnergyCutOff);
     }
 
+    /**
+     * Returns a lower bound on the GMEC energy of a partial conformation
+     * Note this implementation is based on Sontag et. al. "Tightening LP Relaxations..."
+     * This implementation does not use higher-order clusters so we only have edge to node messages
+     * Therefore the 2/3 and 1/3 in the above paper are replaced by 1/2 and 1/2
+     * However, it can be extended to allow for triplet clusters and thus, to tighten the LP
+     * relaxation
+     * 
+     * @param aPartialConf
+     * @param iterations
+     * @return 
+     */
     public double optimizeMPLP(int aPartialConf[], int iterations) {
         // The partial conf contains references to rotamers that were pruned, while our pairwise matrix removed those rotamers. Thus, we must creat
         //  a new partial conf that maps to our pruned matrix.
@@ -140,7 +152,7 @@ public class Mplp {
                             if (availableRots[posJ].length == 0) {
                                 System.out.println("NO ROTS MPLP CRASHING");
                             }
-                            lambda[posJ][posI][rotIR] = -0.5* belief[posI][rotIR] + 0.5*Collections.min(msgsFromRotsAtJ_to_rotIR);
+                            lambda[posJ][posI][rotIR] = -0.5*belief[posI][rotIR] + 0.5*Collections.min(msgsFromRotsAtJ_to_rotIR);
                             belief[posI][rotIR] += lambda[posJ][posI][rotIR];
                         }
                         //Now we update lambda[posI][posJ][rotJS]
@@ -223,5 +235,14 @@ public class Mplp {
             System.out.println("No interaction between " + countNoInteraction + " pairs");
         }
         return interactionGraph;
+    }
+    
+    public void setInteractionGraph(boolean[][] newInteractionGraph){
+        if (newInteractionGraph.length != this.numPos){
+            throw new RuntimeException("ERROR: Cannot set interaction graph since its length != num positions");
+        }
+        else{
+            this.interactionGraph = newInteractionGraph;
+        }
     }
 }
