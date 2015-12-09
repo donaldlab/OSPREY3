@@ -113,7 +113,7 @@ public class KaDEEFinder {
             int[] seq1 = tree.nextConf();
             //while (true){
             //    int[] seq2 = tree.nextConf();
-           // }
+            // }
         } else {
 
             SearchProblemSuper searchSpace = searchSpaces[0];
@@ -280,7 +280,6 @@ public class KaDEEFinder {
     //Loads energy matrices and prune for COMETS
     private void loadEMatandPruneComets(double pruningInterval) {
         cfp.params.setValue("TYPEDEP", "TRUE");
-        cfp.params.setValue("BOUNDSTHRESH", "100000000000000");
         for (int state = 0; state < searchSpaces.length; state++) {
             SearchProblemSuper searchProblem = this.searchSpaces[state];
 
@@ -460,7 +459,7 @@ public class KaDEEFinder {
         ArrayList<ArrayList<String>> AATypeOptions = mutableStateAllowedAAs.get(0).stream().filter(aaTypes -> aaTypes.size() > 1).collect(Collectors.toCollection(ArrayList::new));
 
         for (int state = 1; state < mutableStateAllowedAAs.size(); state++) {
-            ArrayList<ArrayList<String>> AATypesForState= mutableStateAllowedAAs.get(state).stream().filter(aaTypes -> aaTypes.size() > 1).collect(Collectors.toCollection(ArrayList::new));
+            ArrayList<ArrayList<String>> AATypesForState = mutableStateAllowedAAs.get(state).stream().filter(aaTypes -> aaTypes.size() > 1).collect(Collectors.toCollection(ArrayList::new));
             if (AATypesForState.size() != AATypeOptions.size()) {
                 throw new RuntimeException("ERROR: Different Number of Mutable Positions between Bound and Unbound");
             }

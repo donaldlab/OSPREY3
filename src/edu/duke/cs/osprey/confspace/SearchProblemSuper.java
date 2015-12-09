@@ -21,6 +21,7 @@ import edu.duke.cs.osprey.tupexp.ConfETupleExpander;
 import edu.duke.cs.osprey.tupexp.TupExpChooser;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.stream.Collectors;
 
@@ -28,12 +29,12 @@ import java.util.stream.Collectors;
  *
  * @author hmn5
  */
-public class SearchProblemSuper{
+public class SearchProblemSuper {
     //This is the super-RC analog of SearchProblem
 
     public ConfSpaceSuper confSpaceSuper;
     public ConfSpace confSpace;
-    
+
     public EnergyMatrix emat;
 
     public EPICMatrix epicMat = null;
@@ -145,6 +146,59 @@ public class SearchProblemSuper{
         //fullConfE = eGen.fullConfEnergy(confSpace,shellResidues);
         //HMN: use confSpaceSuper as input instead of confSpace
         fullConfE = eGen.fullConfEnergy(confSpaceSuper, shellResidues);
+    }
+
+    public SearchProblemSuper getSubsetSearchProblem(ArrayList<Integer> subsetOfPositions) {
+        Collections.sort(subsetOfPositions);
+
+        SearchProblemSuper subsetSP = new SearchProblemSuper(this);
+        if (useEPIC || useTupExpForSearch) {
+            throw new RuntimeException("ERROR: Currently getSubsetSearchProblem does not support EPIC or LUTE");
+        }
+        if (contSCFlex) {
+            //we will want to create a new energy function generator that properly
+            //handles this partial space 
+        }
+        subsetSP.confSpaceSuper = this.confSpaceSuper.getSubsetConfSpace(subsetOfPositions);
+
+        // Begin: Create new Energy and Pruning Matrix (currently only one and two-body terms)
+        EnergyMatrix subsetEmat = new EnergyMatrix(subsetSP.confSpaceSuper, this.emat.getPruningInterval());
+        ArrayList<ArrayList<Double>> newOneBodyE = new ArrayList<>();
+        ArrayList<ArrayList<ArrayList<ArrayList<Double>>>> newPairwiseE = new ArrayList<>();
+
+        PruningMatrix subsetPruneMat = new PruningMatrix(confSpaceSuper, this.pruneMat.getPruningInterval());
+        ArrayList<ArrayList<Boolean>> newOneBodyPrune = new ArrayList<>();
+        ArrayList<ArrayList<ArrayList<ArrayList<Boolean>>>> newPairwisePrune = new ArrayList<>();
+
+        for (int i = 0; i < subsetSP.confSpaceSuper.numPos; i++) {
+            int posNumI = subsetOfPositions.get(i);
+            ArrayList<Double> oneBodyEAtPosI = (ArrayList<Double>) ObjectIO.deepCopy(this.emat.oneBody.get(posNumI));
+            ArrayList<Boolean> oneBodyPruneAtPosI = (ArrayList<Boolean>) ObjectIO.deepCopy(this.pruneMat.oneBody.get(posNumI));
+            ArrayList<ArrayList<ArrayList<Double>>> pairwiseEAtPosI = new ArrayList<>();
+            ArrayList<ArrayList<ArrayList<Boolean>>> pairwisePruneAtPosI = new ArrayList<>();
+            for (int j = 0; j < i; j++) {
+                int posNumJ = subsetOfPositions.get(j);
+                ArrayList<ArrayList<Double>> pairwiseEAtPosIPosJ = (ArrayList<ArrayList<Double>>) ObjectIO.deepCopy(this.emat.pairwise.get(posNumI).get(posNumJ));
+                pairwiseEAtPosI.add(pairwiseEAtPosIPosJ);
+                ArrayList<ArrayList<Boolean>> pairwisePruneAtPosIPosJ = (ArrayList<ArrayList<Boolean>>) ObjectIO.deepCopy(this.pruneMat.pairwise.get(posNumI).get(posNumJ));
+                pairwisePruneAtPosI.add(pairwisePruneAtPosIPosJ);
+            }
+            newOneBodyE.add(oneBodyEAtPosI);
+            newPairwiseE.add(pairwiseEAtPosI);
+            newOneBodyPrune.add(oneBodyPruneAtPosI);
+            newPairwisePrune.add(pairwisePruneAtPosI);
+        }
+        subsetEmat.oneBody = newOneBodyE;
+        subsetEmat.pairwise = newPairwiseE;
+        //For now lets not handle higher-order terms
+        
+        subsetSP.emat = subsetEmat;
+        subsetPruneMat.oneBody = newOneBodyPrune;
+        subsetPruneMat.pairwise = newPairwisePrune;
+        subsetSP.pruneMat = subsetPruneMat;
+        // End: Create new Energy and Pairwsie Matrix
+        
+        return subsetSP;
     }
 
     private void addAllResToShell() {

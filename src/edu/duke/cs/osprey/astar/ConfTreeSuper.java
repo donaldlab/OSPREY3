@@ -419,7 +419,13 @@ public class ConfTreeSuper extends AStarTree {
     }
 
     public double energyNextConf() {
-        return this.scoreConf(this.nextConf());
+        int[] gmec = this.nextConf();
+        if (gmec ==null){
+            return Double.POSITIVE_INFINITY;
+        }
+        else{
+            return this.scoreConf(gmec);
+        }
     }
 
     /**

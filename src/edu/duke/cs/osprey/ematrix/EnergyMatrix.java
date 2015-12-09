@@ -192,7 +192,7 @@ public class EnergyMatrix extends TupleMatrix<Double> {
         this.constTerm = constTerm;
     }
     
-    
+
     
     public double[][] topPairwiseInteractions(){
         //return the top absolute values of the pairwise interactions

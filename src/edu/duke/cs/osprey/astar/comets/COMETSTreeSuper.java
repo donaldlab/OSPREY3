@@ -417,23 +417,19 @@ public class COMETSTreeSuper extends AStarTree {
             //double exactBound = calcLBConfTreeMPLP(seqNode);
             return originalBound;
         } else {
+
             double newBound = calcLBPartialSeqImproved(seqNode);
-//            double maxInterfaceBound = calcLBPartialSeqInteractionE(seqNode);
-//            double interactionEBoundWithLigand = calcLBPartialSeqInteractionEWithLigand(seqNode);
+            //double maxInterfaceBound = maxInterfaceBound(seqNode);
+            //double newBoundV2 = calcLBPartialSeqImprovedVersion2(seqNode);
+            double maxInterfaceBoundImproved = maxInterfaceBoundWithProtein(seqNode);
             double originalBound = calcLBPartialSeq(seqNode, func);
-            if (newBound > originalBound){
-                System.out.println("NEW BOUND WON");
-            }
-//            System.out.println("Max Interface Bound: " + maxInterfaceBound);
-//            System.out.println("Interaction E bound with Ligand: " + interactionEBoundWithLigand);
+            
             System.out.println("New bound: " + newBound);
+            System.out.println("Max Interface Improved: " + maxInterfaceBoundImproved);
             System.out.println("Original bound: " + originalBound);
-//            if (interactionEBoundWithLigand > originalBound) {
-//                return interactionEBoundWithLigand;
-//            } else {
-//                return originalBound;
-//            }
-            return Math.max(newBound,originalBound);
+            
+            //return Math.max(Math.max(maxInterfaceBoundImproved, newBound), originalBound);
+            return maxInterfaceBoundImproved;
         }
     }
 
@@ -687,15 +683,6 @@ public class COMETSTreeSuper extends AStarTree {
         return ans;
     }
 
-    private double calcLBConfTreeMPLP(COMETSNodeSuper seqNode) {
-        if (seqNode.stateTrees[0] == null)//state and sequence impossible
-        {
-            return Double.POSITIVE_INFINITY;
-        }
-        BigDecimal boundE = new BigDecimal(seqNode.stateTrees[0].energyNextConf());
-        BigDecimal unBoundE = new BigDecimal(seqNode.stateTrees[1].energyNextConf());
-        return boundE.subtract(unBoundE).add(new BigDecimal(this.objFcn.constTerm)).doubleValue();
-    }
 
     private double calcLBConfTrees(COMETSNodeSuper seqNode, LME func) {
         //here the sequence is fully defined
@@ -1096,7 +1083,10 @@ public class COMETSTreeSuper extends AStarTree {
         subsetOfPositions_p_la_pla.addAll(getProteinPosNums(true));
         Collections.sort(subsetOfPositions_p_la_pla);
 
-        ConfTreeSuper confTree_p_la_pla = getPartialConfTree_InternalTerm(boundSP, subsetOfPositions_p_la_pla, seqNode.pruneMat[0]);
+        SearchProblemSuper searchProblem_p_la_pla = boundSP.getSubsetSearchProblem(subsetOfPositions_p_la_pla);
+        updateSubsetPruneMat(searchProblem_p_la_pla.pruneMat, seqNode.pruneMat[0], subsetOfPositions_p_la_pla);
+        ConfTreeSuper confTree_p_la_pla = new ConfTreeSuper(searchProblem_p_la_pla);
+        //ConfTreeSuper confTree_p_la_pla = getPartialConfTree_InternalTerm(boundSP, subsetOfPositions_p_la_pla, seqNode.pruneMat[0]);
         gminec_p_la_pla = confTree_p_la_pla.energyNextConf();
 
         // GMinEC(P) can be precomputed because it is a constant for the system or computed here. 
@@ -1106,7 +1096,8 @@ public class COMETSTreeSuper extends AStarTree {
         // Technically, we could just create a new ConfTreeSuper() directly, since we are using the entire protein
         // However, we also want to make sure we don't have any shell-shell energies in this calculation, so 
         //  I will just use the getPartialConfTree() method
-        ConfTreeSuper confTree_p = getPartialConfTree_InternalTerm(proteinSP, subsetOfPositions_p, nonMutableSearchProblem.pruneMat);
+        SearchProblemSuper searchProblem_p = proteinSP.getSubsetSearchProblem(subsetOfPositions_p);
+        ConfTreeSuper confTree_p = new ConfTreeSuper(searchProblem_p);
         gminec_p = confTree_p.energyNextConf();
 
         // Now compute GMinEC(LA). This has to be computed exactly (or through a lower bound)
@@ -1114,8 +1105,10 @@ public class COMETSTreeSuper extends AStarTree {
         double gminec_la = 0;
         ArrayList<Integer> subsetofPositions_la = getLigandAssignedPosNums(seqNode, false);
 
-        ConfTreeSuper confTree_la = getPartialConfTree_InternalTerm(ligandSP, subsetofPositions_la, seqNode.pruneMat[1]);
-        double gmec_la = confTree_la.energyNextConf();
+        SearchProblemSuper searchProblem_la = ligandSP.getSubsetSearchProblem(subsetofPositions_la);
+        updateSubsetPruneMat(searchProblem_la.pruneMat, seqNode.pruneMat[1], subsetofPositions_la);
+        ConfTreeSuper confTree_la = new ConfTreeSuper(searchProblem_la);
+        gminec_la = confTree_la.energyNextConf();
 
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Finally, compute MIN_S(GMinEC(P:LU_s) + GMinEC(LA:LU_s) - GMaxEC(LA:LU_s)).        
@@ -1137,8 +1130,12 @@ public class COMETSTreeSuper extends AStarTree {
         // We create an interaction graph for LA:LU_s and for P:LU_s and then add them into one complete interaction graph
         boolean[][] interactionGraph__lalus_plus = addInteractionGraphs(createInteractionGraph(subsetOfPositions_lalus_plus, ligandAssignedBound, ligandUnassignedBound), createInteractionGraph(subsetOfPositions_lalus_plus, proteinBound, ligandUnassignedBound));
 
-        ConfTreeSuper confTree_lalus_plus = getPartialConfTree_CrossTerm(boundSP, subsetOfPositions_lalus_plus, interactionGraph__lalus_plus, seqNode.pruneMat[0], false);
-        gminec_lalus_plus = confTree_lalus_plus.energyNextConf();
+        SearchProblemSuper searchProblem_lalus_plus = boundSP.getSubsetSearchProblem(subsetOfPositions_lalus_plus);
+        updateSubsetPruneMat(searchProblem_lalus_plus.pruneMat, seqNode.pruneMat[0], subsetOfPositions_lalus_plus);
+        updateEnergyMatrix_CrossTerms(searchProblem_lalus_plus, subsetOfPositions_lalus_plus, interactionGraph__lalus_plus, false);
+        addCrossTermInternalEnergies(searchProblem_lalus_plus.emat, boundSP.emat, ligandSP.emat, getBoundPosNumToUnboundPosNum(), subsetOfPositions_lalus_plus, ligandUnassignedBound);
+        ConfTreeSuper confTree_lalus_plus_2 = new ConfTreeSuper(searchProblem_lalus_plus);
+        gminec_lalus_plus = confTree_lalus_plus_2.energyNextConf();
 
         // Then compute the maximum MAX_S(GMaxEC(LA:LU_s), which can be computed by either negating all the energies in the matrix or something similar.
         // This involves an unbound state
@@ -1153,8 +1150,11 @@ public class COMETSTreeSuper extends AStarTree {
         boolean[][] interactionGraph_lalus = createInteractionGraph(subsetOfPositions_lalus, ligandAssignedUnbound, ligandUnassignedUnbound);
         //create confTree and negate energies
 
-        ConfTreeSuper confTree_lalus = getPartialConfTree_CrossTerm(ligandSP, subsetOfPositions_lalus, interactionGraph_lalus, seqNode.pruneMat[1], true);
-        gmaxec_lalus = -confTree_lalus.energyNextConf();
+        SearchProblemSuper searchProblem = ligandSP.getSubsetSearchProblem(subsetOfPositions_lalus);
+        updateSubsetPruneMat(searchProblem.pruneMat, seqNode.pruneMat[1], subsetOfPositions_lalus);
+        updateEnergyMatrix_CrossTerms(searchProblem, subsetOfPositions_lalus, interactionGraph_lalus, true);
+        ConfTreeSuper confTree_lalus_2 = new ConfTreeSuper(searchProblem);
+        gmaxec_lalus = -confTree_lalus_2.energyNextConf();
 
         double lowerBound = gminec_p_la_pla - gminec_p - gminec_la + gminec_lalus_plus - gmaxec_lalus;
         lowerBound += this.mutableSearchProblems[0].emat.getConstTerm() - this.mutableSearchProblems[1].emat.getConstTerm() - this.nonMutableSearchProblem.emat.getConstTerm();
@@ -1163,93 +1163,213 @@ public class COMETSTreeSuper extends AStarTree {
 
     }
 
-    private ConfTreeSuper getPartialConfTree_CrossTerm(SearchProblemSuper searchProblem, ArrayList<Integer> subsetOfPositions, boolean[][] interactionGraph, PruningMatrix pruneMat, boolean negateEnergies) {
-        if (searchProblem.useEPIC || searchProblem.useTupExpForSearch) {
-            throw new RuntimeException("ERROR: EPIC/LUTE not supported with this COMETS bound");
-        }
-        //Initialize a partialConfTree with the full conf Tree
-        //We need to change (1) numPos (2) emat/prunemat (3) unprunedRCsAtPos (4) mplpMinimizer
-        ConfTreeSuper partialConfTree = new ConfTreeSuper(searchProblem);
-        //(1)
-        //The number of positions in the new confTree
-        int numPartialPos = subsetOfPositions.size();
+    private double maxInterfaceBoundWithProtein(COMETSNodeSuper seqNode) {
+        SearchProblemSuper boundSP = mutableSearchProblems[0];
+        SearchProblemSuper ligandSP = mutableSearchProblems[1];
+        SearchProblemSuper proteinSP = nonMutableSearchProblem;
 
-        //(2)
-        //Now lets get the numRotPerPos for the partial conf tree
-        //This will let us initialize the energy/prune matrix
-        int[] numRotPerPartPos = new int[numPartialPos];
-        //Get original energy/pruning matrices
+        ArrayList<Integer> proteinPosNums = getProteinPosNums(true);
+        ArrayList<Integer> ligandPosNums = getLigandAssignedPosNums(seqNode, true);
+        ligandPosNums.addAll(getLigandUnassignedPosNums(seqNode, true));
+        Collections.sort(ligandPosNums);
+
+        ArrayList<Integer> allPos = new ArrayList<>();
+        allPos.addAll(ligandPosNums);
+        allPos.addAll(proteinPosNums);
+        Collections.sort(allPos);
+
+        boolean[][] interactionGraph = createInteractionGraph(allPos, ligandPosNums, proteinPosNums);
+
+        SearchProblemSuper searchProblem_interface = boundSP.getSubsetSearchProblem(allPos);
+        updateSubsetPruneMat(searchProblem_interface.pruneMat, seqNode.pruneMat[0], allPos);
+        subtractInternalEnergies(searchProblem_interface.emat, boundSP.emat, allPos, ligandPosNums);
+        subtractPairwiseEnergies(searchProblem_interface.emat, boundSP.emat, allPos, ligandPosNums);
+        addCrossTermInternalEnergies(searchProblem_interface.emat, boundSP.emat, ligandSP.emat, boundResNumToUnboundResNum, allPos, ligandPosNums);
+        ConfTreeSuper confTree_interface = new ConfTreeSuper(searchProblem_interface);
+        double gmecInterface = confTree_interface.energyNextConf();
+
+        double constTerms = boundSP.emat.getConstTerm() - ligandSP.emat.getConstTerm() + objFcn.constTerm;
+        return gmecInterface + constTerms;
+    }
+
+    /**
+     * We call cross-term internal energy (internalEnergyBound -
+     * internalEnergyUnbound) This method add cross-term internal energies to
+     * the confTree energy matrix
+     *
+     * @param confTree the confTree whose energy matrix we are going to change
+     * @param origBoundEmat the original bound energy matrix (from search
+     * problem)
+     * @param origUnboundEmat the original unbound energy matrix (from search
+     * problem)
+     * @param boundToUnboundPosNum mapping from bound pos number to unbound pos
+     * number to index into unbound energy matrix
+     * @param allPositions all the positions in this confTree
+     * @param posToAddInternalE the positions in this confTree for which we are
+     * adding the cross internal energy
+     */
+    private void addCrossTermInternalEnergies(EnergyMatrix currentEmat, EnergyMatrix origBoundEmat, EnergyMatrix origUnboundEmat, HashMap<Integer, Integer> boundToUnboundPosNum, ArrayList<Integer> allPositions, ArrayList<Integer> posToAddInternalE) {
+        for (int pos : posToAddInternalE) {
+            //pos is the index in the old emat
+            int unboundPos = boundToUnboundPosNum.get(pos);
+            //get the index of this position in the confTree emat
+            int indexCurrentEmat = allPositions.indexOf(pos);
+
+            for (int rot = 0; rot < currentEmat.oneBody.get(indexCurrentEmat).size(); rot++) {
+                double internalEBound = origBoundEmat.getOneBody(pos, rot);
+                double internalEUnbound = origUnboundEmat.getOneBody(unboundPos, rot);
+                double newInternalE = internalEBound - internalEUnbound;
+                double currentIntraE = currentEmat.getOneBody(indexCurrentEmat, rot);
+                currentEmat.setOneBody(pos, rot, newInternalE + currentIntraE);
+            }
+        }
+    }
+
+    private void addInternalEnergies(EnergyMatrix currentEmat, EnergyMatrix origEmat, ArrayList<Integer> allPositions, ArrayList<Integer> posToAddInternal) {
+        addSubtractInternalEnergies(currentEmat, origEmat, allPositions, posToAddInternal, true);
+    }
+
+    private void subtractInternalEnergies(EnergyMatrix currentEmat, EnergyMatrix origEmat, ArrayList<Integer> allPositions, ArrayList<Integer> posToAddInternal) {
+        addSubtractInternalEnergies(currentEmat, origEmat, allPositions, posToAddInternal, false);
+    }
+
+    /**
+     * This method will either add or subtract internal energies in a confTree
+     * energy matrix
+     *
+     * @param currentEmat the energy matrix we are updating
+     * @param origEmat the energy matrix from which we are getting energies to
+     * add/subtract
+     * @param allPositions the positions in the confTree emat (each int is the
+     * original posNum from the original search problem)
+     * @param posToAddInternal the positions that we want to add internal
+     * energies for
+     * @param add should we add or subtract energies
+     */
+    private void addSubtractInternalEnergies(EnergyMatrix currentEmat, EnergyMatrix origEmat, ArrayList<Integer> allPositions, ArrayList<Integer> posToAddInternal, boolean add) {
+        for (int pos : posToAddInternal) {
+            int indexConfTreeEmat = allPositions.indexOf(pos);
+            for (int rot = 0; rot < currentEmat.oneBody.get(indexConfTreeEmat).size(); rot++) {
+                double currentE = currentEmat.getOneBody(indexConfTreeEmat, rot);
+                double toAddOrSubtract = origEmat.getOneBody(pos, rot);
+                if (add) {
+                    currentEmat.setOneBody(indexConfTreeEmat, rot, currentE + toAddOrSubtract);
+                } //else we subtract
+                else {
+                    currentEmat.setOneBody(indexConfTreeEmat, rot, currentE - toAddOrSubtract);
+                }
+            }
+        }
+    }
+
+    private void addPairwiseEnergies(EnergyMatrix currentEmat, EnergyMatrix origEmat, ArrayList<Integer> allPositions, ArrayList<Integer> posToAddPairwise) {
+        addSubtractPairwiseEnergies(currentEmat, origEmat, allPositions, posToAddPairwise, true);
+    }
+
+    private void subtractPairwiseEnergies(EnergyMatrix currentEmat, EnergyMatrix origEmat, ArrayList<Integer> allPositions, ArrayList<Integer> posToAddPairwise) {
+        addSubtractPairwiseEnergies(currentEmat, origEmat, allPositions, posToAddPairwise, false);
+    }
+
+    /**
+     * This method will either add or subtract pairwise energies in a confTree
+     * energy matrix
+     *
+     * @param confTree the confTree whose energy matrix we are adapting
+     * @param origEmat the energy matrix from which we are getting energies to
+     * add/subtract
+     * @param allPositions the positions in the confTree emat (each int is the
+     * original posNum from the original search problem)
+     * @param posToAddInternal the positions that we want to add pairwise
+     * energies for
+     * @param add should we add or subtract energies
+     */
+    private void addSubtractPairwiseEnergies(EnergyMatrix currentEmat, EnergyMatrix origEmat, ArrayList<Integer> allPositions, ArrayList<Integer> posToAddPairwise, boolean add) {
+        for (int i = 0; i < posToAddPairwise.size(); i++) {
+            for (int j = i + 1; j < posToAddPairwise.size(); j++) {
+                int indexConfTreeEmat_I = allPositions.indexOf(posToAddPairwise.get(i));
+                int indexConfTreeEmat_J = allPositions.indexOf(posToAddPairwise.get(j));
+                for (int rotI = 0; rotI < currentEmat.oneBody.get(indexConfTreeEmat_I).size(); rotI++) {
+                    for (int rotJ = 0; rotJ < currentEmat.oneBody.get(indexConfTreeEmat_J).size(); rotJ++) {
+                        double currentE = currentEmat.getPairwise(indexConfTreeEmat_I, rotI, indexConfTreeEmat_J, rotJ);
+                        double toAddSubtract = origEmat.getPairwise(posToAddPairwise.get(i), rotI, posToAddPairwise.get(j), rotJ);
+                        if (add) {
+                            currentEmat.setPairwise(indexConfTreeEmat_I, rotI, indexConfTreeEmat_J, rotJ, currentE + toAddSubtract);
+                        } else {
+                            currentEmat.setPairwise(indexConfTreeEmat_I, rotI, indexConfTreeEmat_J, rotJ, currentE - toAddSubtract);
+
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void updateSubsetPruneMat(PruningMatrix currentPruneMat, PruningMatrix seqNodePruneMat, ArrayList<Integer> subsetOfPositions) {
+        Collections.sort(subsetOfPositions);
+        int numPos = subsetOfPositions.size();
+        for (int i = 0; i < numPos; i++) {
+            int origPosNum = subsetOfPositions.get(i);
+            for (int rotI = 0; rotI < currentPruneMat.oneBody.get(i).size(); rotI++) {
+                currentPruneMat.setOneBody(i, rotI, seqNodePruneMat.getOneBody(origPosNum, rotI));
+            }
+            for (int j = i + 1; j < numPos; j++) {
+                int origPosNum_J = subsetOfPositions.get(j);
+                int origPosNum_I = subsetOfPositions.get(i);
+                for (int rotJ = 0; rotJ < currentPruneMat.pairwise.get(j).get(i).size(); rotJ++) {
+                    for (int rotI = 0; rotI < currentPruneMat.pairwise.get(j).get(i).get(rotJ).size(); rotI++) {
+                        currentPruneMat.setPairwise(j, rotJ, i, rotI, seqNodePruneMat.getPairwise(origPosNum_J, rotJ, origPosNum_I, rotI));
+                    }
+                }
+            }
+        }
+    }
+
+    private void updateEnergyMatrix_CrossTerms(SearchProblemSuper searchProblem, ArrayList<Integer> subsetOfPositions, boolean[][] interactionGraph, boolean negateEnergies) {
         EnergyMatrix origEmat = searchProblem.emat;
-        PruningMatrix origPruneMat = pruneMat;
+        PruningMatrix origPruneMat = searchProblem.pruneMat;
 
-        for (int partPosNum = 0; partPosNum < numPartialPos; partPosNum++) {
-            int origPosNum = subsetOfPositions.get(partPosNum);
-            int numRot = origEmat.oneBody.get(origPosNum).size();
-            numRotPerPartPos[partPosNum] = numRot;
-        }
-        // Create new energy matrix
-        EnergyMatrix partialEmat = new EnergyMatrix(numPartialPos, numRotPerPartPos, searchProblem.emat.getPruningInterval());
-        // Create new prune matrix 
-        PruningMatrix partialPruneMat = new PruningMatrix(numPartialPos, numRotPerPartPos, searchProblem.pruneMat.getPruningInterval());
+        EnergyMatrix updatedEmat = new EnergyMatrix(searchProblem.confSpaceSuper, searchProblem.emat.getPruningInterval());
+
+        int numPos = searchProblem.confSpaceSuper.numPos;
+        int[] numRotPerPos = searchProblem.confSpaceSuper.getNumRCsAtPos();
 
         // Now we can update the energy matrix
         // For cross-terms we only add pairwise energies
-        for (int i = 0; i < numPartialPos; i++) {
+        for (int i = 0; i < numPos; i++) {
             int origPosNum_I = subsetOfPositions.get(i);
             //Set all one-body terms to 0.0
-            for (int rotI = 0; rotI < numRotPerPartPos[i]; rotI++) {
-                partialEmat.setOneBody(i, rotI, 0.0);
-                partialPruneMat.setOneBody(i, rotI, origPruneMat.getOneBody(origPosNum_I, rotI));
+            for (int rotI = 0; rotI < numRotPerPos[i]; rotI++) {
+                updatedEmat.setOneBody(i, rotI, 0.0);
             }
-            for (int j = i + 1; j < numPartialPos; j++) {
+            for (int j = i + 1; j < numPos; j++) {
                 int origPosNum_J = subsetOfPositions.get(j);
                 // check if they are interacting
                 if (interactionGraph[i][j]) {
                     // they interact, so add their pairwise terms
-                    for (int rotI = 0; rotI < numRotPerPartPos[i]; rotI++) {
-                        for (int rotJ = 0; rotJ < numRotPerPartPos[j]; rotJ++) {
+                    for (int rotI = 0; rotI < numRotPerPos[i]; rotI++) {
+                        for (int rotJ = 0; rotJ < numRotPerPos[j]; rotJ++) {
                             double pairwiseE = origEmat.getPairwise(origPosNum_J, rotJ, origPosNum_I, rotI);
                             if (negateEnergies) {
                                 pairwiseE = -pairwiseE;
                             }
                             boolean pairIsPruned = origPruneMat.getPairwise(origPosNum_I, rotI, origPosNum_J, rotJ);
                             if (pairIsPruned) {
-                                partialEmat.setPairwise(j, rotJ, i, rotI, Double.POSITIVE_INFINITY);
+                                updatedEmat.setPairwise(j, rotJ, i, rotI, Double.POSITIVE_INFINITY);
                             } else {
-                                partialEmat.setPairwise(j, rotJ, i, rotI, pairwiseE);
+                                updatedEmat.setPairwise(j, rotJ, i, rotI, pairwiseE);
                             }
-                            partialPruneMat.setPairwise(i, rotI, j, rotJ, pairIsPruned);
                         }
                     }
                 } else {
-                    for (int rotI = 0; rotI < numRotPerPartPos[i]; rotI++) {
-                        for (int rotJ = 0; rotJ < numRotPerPartPos[j]; rotJ++) {
-                            partialEmat.setPairwise(j, rotJ, i, rotI, 0.0);
-                            partialPruneMat.setPairwise(i, rotI, j, rotJ, origPruneMat.getPairwise(origPosNum_I, rotI, origPosNum_J, rotJ));
+                    for (int rotI = 0; rotI < numRotPerPos[i]; rotI++) {
+                        for (int rotJ = 0; rotJ < numRotPerPos[j]; rotJ++) {
+                            updatedEmat.setPairwise(j, rotJ, i, rotI, 0.0);
                         }
                     }
                 }
             }
         }
-
-        //(3)
-        ArrayList<ArrayList<Integer>> unprunedRCsAtPartPos = new ArrayList<>();
-        for (int partPosNum = 0; partPosNum < numPartialPos; partPosNum++) {
-            unprunedRCsAtPartPos.add(partialPruneMat.unprunedRCsAtPos(partPosNum));
-        }
-
-        //(4)
-        partialConfTree.mplpMinimizer = new Mplp(numPartialPos, partialEmat, partialPruneMat);
-        // To speed up MPLP (if it is used) we can also pass it our interaction graph
-        // Then it won't waste time sending 0.0 messages for all non-interacting pos pairs
-        partialConfTree.mplpMinimizer.setInteractionGraph(interactionGraph);
-
-        partialConfTree.setNumPos(numPartialPos);
-        partialConfTree.setEmat(partialEmat);
-        partialConfTree.setPruneMat(partialPruneMat);
-        partialConfTree.setUnprunedRCsAtPos(unprunedRCsAtPartPos);
-
-        return partialConfTree;
+        searchProblem.emat = updatedEmat;
     }
 
     /**
@@ -1357,91 +1477,6 @@ public class COMETSTreeSuper extends AStarTree {
             }
         }
         return ligandAssignedPosNums;
-    }
-
-    /**
-     * Given a search problem and a subset of positions from the search problem,
-     * this function returns a conf tree to optimize over the subset of
-     * positions
-     *
-     * @param searchProblem the original search problem, from which we will take
-     * only a partial search spaceAINBOW KITTEN SUR
-     * @param subsetOfPositions the subset of positions in the original search
-     * problem that we want to optimize over
-     * @return
-     */
-    private ConfTreeSuper getPartialConfTree_InternalTerm(SearchProblemSuper searchProblem, ArrayList<Integer> subsetOfPositions, PruningMatrix seqNodePruningMatrix) {
-        if (searchProblem.useEPIC || searchProblem.useTupExpForSearch) {
-            throw new RuntimeException("ERROR: EPIC/LUTE not supported with this COMETS bound");
-        }
-
-        //Initialize a partialConfTree with the full conf Tree
-        //We need to change (1) numPos (2) emat/prunemat (3) unprunedRCsAtPos (4) mplpMinimizer
-        ConfTreeSuper partialConfTree = new ConfTreeSuper(searchProblem);
-        //(1)
-        //The number of positions in the new confTree
-        int numPartialPos = subsetOfPositions.size();
-
-        //(2)
-        //Now lets get the numRotPerPos for the partial conf tree
-        //This will let us initialize the energy/pruning matrices
-        int[] numRotPerPartPos = new int[numPartialPos];
-        //Get the original energy ane pruning matrices
-        EnergyMatrix origEmat = searchProblem.emat;
-        PruningMatrix origPruneMat = seqNodePruningMatrix;
-
-        for (int partPosNum = 0; partPosNum < numPartialPos; partPosNum++) {
-            int origPosNum = subsetOfPositions.get(partPosNum);
-            int numRot = origEmat.oneBody.get(origPosNum).size();
-            numRotPerPartPos[partPosNum] = numRot;
-        }
-        //Create new energy matrix
-        EnergyMatrix partialEmat = new EnergyMatrix(numPartialPos, numRotPerPartPos, searchProblem.emat.getPruningInterval());
-        //Create new prune matrix
-        PruningMatrix partialPruneMat = new PruningMatrix(numPartialPos, numRotPerPartPos, searchProblem.pruneMat.getPruningInterval());
-
-        // Now we can update the energy and pruning matrix
-        for (int i = 0; i < numPartialPos; i++) {
-            int origPosNum_I = subsetOfPositions.get(i);
-            //Set all one-body terms to 0.0
-            for (int rotI = 0; rotI < numRotPerPartPos[i]; rotI++) {
-                partialEmat.setOneBody(i, rotI, origEmat.getOneBody(origPosNum_I, rotI));
-                partialPruneMat.setOneBody(i, rotI, origPruneMat.getOneBody(i, rotI));
-            }
-            for (int j = i + 1; j < numPartialPos; j++) {
-                int origPosNum_J = subsetOfPositions.get(j);
-
-                for (int rotI = 0; rotI < numRotPerPartPos[i]; rotI++) {
-                    for (int rotJ = 0; rotJ < numRotPerPartPos[j]; rotJ++) {
-                        double pairwiseE = origEmat.getPairwise(origPosNum_J, rotJ, origPosNum_I, rotI);
-                        partialEmat.setPairwise(j, rotJ, i, rotI, pairwiseE);
-                        partialPruneMat.setPairwise(i, rotI, j, rotJ, origPruneMat.getPairwise(i, rotI, j, rotJ));
-                    }
-                }
-            }
-        }
-
-        //(3)
-        ArrayList<ArrayList<Integer>> unprunedRCsAtPartPos = new ArrayList<>();
-
-        for (int partPosNum = 0;
-                partPosNum < numPartialPos;
-                partPosNum++) {
-            unprunedRCsAtPartPos.add(partialPruneMat.unprunedRCsAtPos(partPosNum));
-        }
-
-        //(4)
-        partialConfTree.mplpMinimizer = new Mplp(numPartialPos, partialEmat, partialPruneMat);
-
-        partialConfTree.setNumPos(numPartialPos);
-
-        partialConfTree.setEmat(partialEmat);
-
-        partialConfTree.setPruneMat(partialPruneMat);
-
-        partialConfTree.setUnprunedRCsAtPos(unprunedRCsAtPartPos);
-
-        return partialConfTree;
     }
 
     /**

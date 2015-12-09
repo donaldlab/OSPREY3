@@ -40,6 +40,7 @@ import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.StringParsing;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 
 /**
  *
@@ -181,6 +182,7 @@ public class ConfSpaceSuper extends ConfSpace {
 
             PositionConfSpaceSuper rcs = new PositionConfSpaceSuper(resList, posDOFs, allowedAAsAtPosition, DOFIndices, contSCFlex,
                     resStrandDOFs, perts, dset.getPertIntervals(), pertStatesPos, curBFBPerRes, useEllipses);
+
             posFlexSuper.add(rcs);
             if (useEllipses) {
                 confDOFs.addAll(rcs.getEllipsoidalArray());
@@ -408,6 +410,40 @@ public class ConfSpaceSuper extends ConfSpace {
             }
 
         }
+    }
+
+    public ConfSpaceSuper(ConfSpaceSuper cs1) {
+        // Shallow copy
+        this.confDOFs = cs1.confDOFs;
+        this.m = cs1.m;
+        this.mutDOFs = cs1.mutDOFs;
+        this.numPos = cs1.numPos;
+        this.posFlexSuper = cs1.posFlexSuper;
+        this.useEllipses = cs1.useEllipses;
+    }
+
+    public ConfSpaceSuper getSubsetConfSpace(ArrayList<Integer> subsetPosNums) {
+        //Sort the posNums 
+        Collections.sort(subsetPosNums);
+
+        ConfSpaceSuper subsetCSpace = new ConfSpaceSuper(this);
+
+        int newNumPos = subsetPosNums.size();
+
+        ArrayList<PositionConfSpaceSuper> newPosFlex = new ArrayList<>();
+        ArrayList<ResidueTypeDOF> newMutDOFs = new ArrayList<>();
+
+        for (int posNum : subsetPosNums) {
+            PositionConfSpaceSuper posCspace = this.posFlexSuper.get(posNum);
+            newPosFlex.add(posCspace);
+            ResidueTypeDOF mutDOF = this.mutDOFs.get(posNum);
+            newMutDOFs.add(mutDOF);
+        }
+        subsetCSpace.numPos = newNumPos;
+        subsetCSpace.mutDOFs = newMutDOFs;
+        subsetCSpace.posFlexSuper = newPosFlex;
+        
+        return subsetCSpace;
     }
 
     private ArrayList<BBFreeBlock> getBBFreeBlocks(ArrayList<String[]> freeBBZones, ArrayList<String> flexibleRes) {

@@ -282,9 +282,7 @@ public class KaDEETree extends AStarTree {
 
     @Override
     public boolean isFullyAssigned(AStarNode node) {
-        //HMN: TODO: Should we check if partition functions are calculated first?
-        //This checks if the node is returnable
-        //So it must be fully processed (state GMECs found, not just fully defined sequence) 
+        //HMN: TODO: We need to decide when a K* score is fully calculated
 
         if (!node.isFullyDefined()) {
             return false;

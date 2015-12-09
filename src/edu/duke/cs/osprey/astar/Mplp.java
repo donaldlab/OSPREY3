@@ -20,7 +20,7 @@ import java.util.Collections;
  * explicitly considers intra and pairwise energies
  *
  * @author hmn5, pablo (original author)
- * 
+ *
  */
 public class Mplp {
 
@@ -64,16 +64,16 @@ public class Mplp {
     }
 
     /**
-     * Returns a lower bound on the GMEC energy of a partial conformation
-     * Note this implementation is based on Sontag et. al. "Tightening LP Relaxations..."
-     * This implementation does not use higher-order clusters so we only have edge to node messages
-     * Therefore the 2/3 and 1/3 in the above paper are replaced by 1/2 and 1/2
-     * However, it can be extended to allow for triplet clusters and thus, to tighten the LP
-     * relaxation
-     * 
+     * Returns a lower bound on the GMEC energy of a partial conformation Note
+     * this implementation is based on Sontag et. al. "Tightening LP
+     * Relaxations..." This implementation does not use higher-order clusters so
+     * we only have edge to node messages Therefore the 2/3 and 1/3 in the above
+     * paper are replaced by 1/2 and 1/2 However, it can be extended to allow
+     * for triplet clusters and thus, to tighten the LP relaxation
+     *
      * @param aPartialConf
      * @param iterations
-     * @return 
+     * @return
      */
     public double optimizeMPLP(int aPartialConf[], int iterations) {
         // The partial conf contains references to rotamers that were pruned, while our pairwise matrix removed those rotamers. Thus, we must creat
@@ -134,7 +134,7 @@ public class Mplp {
                     if (interactionGraph[posI][posJ]) {
                         // We first update lambda[resJ][resI][rotIR] and immediately after we update lambda[resI][resJ][rotJS]
                         for (int rotIR : availableRots[posI]) {
-                        //For edge to node update in "Tightening LP Relaxations..." (Figure 1)
+                            //For edge to node update in "Tightening LP Relaxations..." (Figure 1)
                             //lambda_{i}^{-j}(x_i) + theta_i(x_i) = b_i(x_i) - lambda_{j,i -> i}(x_i)
                             //This is computationally more efficient
                             belief[posI][rotIR] -= lambda[posJ][posI][rotIR];// now b_i(x_i) = lambda_{i}^{-j}(x_i) + theta_i(x_i)
@@ -151,8 +151,9 @@ public class Mplp {
                             }
                             if (availableRots[posJ].length == 0) {
                                 System.out.println("NO ROTS MPLP CRASHING");
+                                return Double.POSITIVE_INFINITY;
                             }
-                            lambda[posJ][posI][rotIR] = -0.5*belief[posI][rotIR] + 0.5*Collections.min(msgsFromRotsAtJ_to_rotIR);
+                            lambda[posJ][posI][rotIR] = -0.5 * belief[posI][rotIR] + 0.5 * Collections.min(msgsFromRotsAtJ_to_rotIR);
                             belief[posI][rotIR] += lambda[posJ][posI][rotIR];
                         }
                         //Now we update lambda[posI][posJ][rotJS]
@@ -168,7 +169,11 @@ public class Mplp {
                                     msgFromRotsAtI_to_rotJS.add(belief[posI][rotIR] - lambda[posJ][posI][rotIR] + emat.getPairwise(posI, unprunedRotsPerPos.get(posI).get(rotIR), posJ, unprunedRotsPerPos.get(posJ).get(rotJS)));
                                 }
                             }
-                            lambda[posI][posJ][rotJS] = -0.5*belief[posJ][rotJS] + 0.5*Collections.min(msgFromRotsAtI_to_rotJS);
+                            if (availableRots[posI].length == 0) {
+                                System.out.println("NO ROTS MPLP CRASHING");
+                                return Double.POSITIVE_INFINITY;
+                            }
+                            lambda[posI][posJ][rotJS] = -0.5 * belief[posJ][rotJS] + 0.5 * Collections.min(msgFromRotsAtI_to_rotJS);
                             belief[posJ][rotJS] += lambda[posI][posJ][rotJS];
                         }
                     }
@@ -210,7 +215,7 @@ public class Mplp {
             }
         }
         for (int xpos = 0; xpos < numPos; xpos++) {
-            for (int ypos = xpos+1; ypos < numPos; ypos++) {
+            for (int ypos = xpos + 1; ypos < numPos; ypos++) {
                 double maxInteraction_x_y = 0.0f;
                 for (int xrot : this.unprunedRotsPerPos.get(xpos)) {
                     for (int yrot : this.unprunedRotsPerPos.get(ypos)) {
@@ -236,13 +241,24 @@ public class Mplp {
         }
         return interactionGraph;
     }
-    
-    public void setInteractionGraph(boolean[][] newInteractionGraph){
-        if (newInteractionGraph.length != this.numPos){
+
+    public void setInteractionGraph(boolean[][] newInteractionGraph) {
+        if (newInteractionGraph.length != this.numPos) {
             throw new RuntimeException("ERROR: Cannot set interaction graph since its length != num positions");
-        }
-        else{
+        } else {
             this.interactionGraph = newInteractionGraph;
         }
+    }
+
+    public void setEmat(EnergyMatrix aEmat) {
+        if (emat.oneBody.size() != numPos) {
+            throw new RuntimeException("ERROR: Cannot set emat in MPLP because the size of one body terms != numPos");
+        }
+        this.emat = aEmat;
+    }
+
+    public void setEmatRecomputeInteractionGraph(EnergyMatrix aEmat, double eCutOff) {
+        this.emat = aEmat;
+        this.interactionGraph = computePosPosInteractionGraph(emat, eCutOff);
     }
 }
