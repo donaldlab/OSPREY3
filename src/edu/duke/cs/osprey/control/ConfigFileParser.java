@@ -275,6 +275,9 @@ public class ConfigFileParser {
         	resTemplates.loadRotamerLibrary(params.getValue("DUNBRACKROTFILE","ALL.bbdep.rotamers.lib"), true);//see below; also gRotFile0 etc
         }
         
+        //let's make D-amino acid templates by inverting the L-amino acid templates 
+        resTemplates.makeDAminoAcidTemplates();
+        
         EnvironmentVars.resTemplates = resTemplates;
         
         
