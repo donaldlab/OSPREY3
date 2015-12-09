@@ -108,7 +108,7 @@ public class GMECFinder {
     
     
    
-    double calcGMEC(){
+    public double calcGMEC(){
         //Calculate the GMEC
         
         double curInterval = I0;//For iMinDEE.  curInterval will need to be an upper bound

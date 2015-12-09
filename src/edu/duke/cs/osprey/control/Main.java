@@ -4,17 +4,10 @@
  */
 package edu.duke.cs.osprey.control;
 
-// TODO: Remove unnecessary imports. - JJ
 import java.util.HashMap;
 import java.util.Map;
-
-import cern.colt.matrix.DoubleMatrix1D;
-import cern.jet.math.Functions;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
-import edu.duke.cs.osprey.minimization.CCDMinimizer;
-import edu.duke.cs.osprey.minimization.MolecEObjFunction;
 import edu.duke.cs.osprey.tests.UnitTestSuite;
-import edu.duke.cs.osprey.tools.ObjectIO;
 
 /**
  *
@@ -75,60 +68,57 @@ public class Main {
     }
     
     private static void initCommands(String[] args, ConfigFileParser cfp) {
-		// TODO Auto-generated method stub
-    	commands = new HashMap<String, Runnable>();
-    	
-    	commands.put("findGMEC",
-    			new Runnable()
-    			{
+        // TODO Auto-generated method stub
+        commands = new HashMap<String, Runnable>();
 
-					@Override
-					public void run() {
-						GMECFinder gf = new GMECFinder(cfp);
-						gf.calcGMEC();
-					}
-    		
-    			}
-    	);
-    	
-    	commands.put("calcKStar",
-    			new Runnable()
-    			{
+        commands.put("findGMEC",
+                new Runnable()
+        {
+            @Override
+            public void run() {
+                GMECFinder gf = new GMECFinder(cfp);
+                gf.calcGMEC();
+            }
 
-					@Override
-					public void run() {
-						System.err.println("Feature not implemented in this version.");
-					}
-    		
-    			}
-    	);
-    	
-    	commands.put("RunTests",
-    			new Runnable()
-    			{
+        }
+                );
 
-					@Override
-					public void run() {
-						UnitTestSuite.runAllTests();
-					}
-    		
-    			}
-    	);
-    	
-    	commands.put("doCOMETS",
-    			new Runnable()
-    			{
+        commands.put("calcKStar",
+                new Runnable()
+        {
 
-					@Override
-					public void run() {
-			            COMETSDoer cd = new COMETSDoer(args);
-			            cd.calcBestSequences();
-					}
-    		
-    			}
-    	);
-		
-	}
+            @Override
+            public void run() {
+                System.err.println("Feature not implemented in this version.");
+            }
+
+        }
+                );
+
+        commands.put("RunTests",
+                new Runnable()
+        {
+            @Override
+            public void run() {
+                UnitTestSuite.runAllTests();
+            }
+
+        }
+                );
+
+        commands.put("doCOMETS",
+                new Runnable()
+        {
+            @Override
+            public void run() {
+                COMETSDoer cd = new COMETSDoer(args);
+                cd.calcBestSequences();
+            }
+
+        }
+                );
+
+    }
 
 	// TODO: Move these into a test file, and just call it from the test.
     private static void debuggingCommands(String[] args){

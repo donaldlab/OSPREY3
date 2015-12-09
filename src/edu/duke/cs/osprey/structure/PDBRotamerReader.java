@@ -6,8 +6,10 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import edu.duke.cs.osprey.control.EnvironmentVars;
+import edu.duke.cs.osprey.restypes.PositionSpecificRotamerLibrary;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.tools.Protractor;
 
@@ -20,8 +22,9 @@ import edu.duke.cs.osprey.tools.Protractor;
 public class PDBRotamerReader {
     
 
-    public static void addAlternates(Molecule m, String PDBFileName)
+    public static void createTemplates(Molecule m, PositionSpecificRotamerLibrary library, String PDBFileName)
     {
+        Map<Integer, Map<String, ArrayList<Residue>>> positionSpecificRotamers = new HashMap<>();
         try {
 
             FileInputStream is = new FileInputStream(PDBFileName);
@@ -43,6 +46,7 @@ public class PDBRotamerReader {
             Map<Character, ArrayList<Atom>> alternateAtoms = new HashMap<>();
             ArrayList<double[]> curResCoords = new ArrayList<>();//coordinates for these atoms
             Map<Character, ArrayList<double[]>> alternateResidueCoords = new HashMap<>();
+
             String curResFullName = "NONE";
 
             while(curLine!=null){
@@ -86,6 +90,9 @@ public class PDBRotamerReader {
                                         }
                                         double[] dihedrals = computeDihedrals(alternateConformation);
                                         m.addAlternate(residueIndex, alternateConformation);
+                                        //library.addRotamer(residueIndex, alternateConformation.template.name, alternateConformation);
+                                        addRotamer(residueIndex, positionSpecificRotamers,alternateConformation); 
+
                                     }
                                     catch (Exception e)
                                     {
@@ -131,16 +138,61 @@ public class PDBRotamerReader {
 
 
             bufread.close();  // close the buffer
+            
+
 
         }
         catch(Exception e){
             System.err.println(e.getMessage());
             e.printStackTrace();
         }
+        
+        // At this point, we should conver the stored conformations into a set of position-specific
+        // ResidueTemplates, assigning the number of rotamers, number of phipsibins, number of dihedrals,
+        // and then storing each template at its appropriate position.
+        for(Integer residueIndex : positionSpecificRotamers.keySet())
+        {
+            for(String resType : positionSpecificRotamers.get(residueIndex).keySet())
+            {
+                Residue firstResidue = positionSpecificRotamers.get(residueIndex).get(resType).get(0);
+                ResidueTemplate newTemplate = new ResidueTemplate(firstResidue, resType);
+                newTemplate.setNumberOfPhiPsiBins(firstResidue.template.numberOfPhiPsiBins);
+                newTemplate.initializeRotamerArrays();
+                newTemplate.dihedral4Atoms = firstResidue.template.dihedral4Atoms;
+                newTemplate.numDihedrals = firstResidue.template.numDihedrals;
+                newTemplate.setNumRotamers(positionSpecificRotamers.get(residueIndex).get(resType).size(), 0, 0);
+                double[][] dihedrals = new double[newTemplate.numRotamers[0][0]][newTemplate.numDihedrals];
+                
+                int rotIndex = 0;
+                for(Residue res:positionSpecificRotamers.get(residueIndex).get(resType))
+                {
+                    double[] residueDihedrals = computeDihedrals(res);
+                    dihedrals[rotIndex] = residueDihedrals;
+                    rotIndex++;
+                }
+                newTemplate.setRotamericDihedrals(dihedrals, 0, 0);
+                library.addResidueTemplate(residueIndex, resType, newTemplate);
+            }
+
+        }
 
 
     }
     
+    private static void addRotamer (int residueIndex,
+            Map<Integer, Map<String, ArrayList<Residue>>> positionSpecificRotamers,
+            Residue alternateConformation) {
+        if(!positionSpecificRotamers.containsKey(residueIndex))
+            positionSpecificRotamers.put(residueIndex, new HashMap<>());
+        Map<String, ArrayList<Residue>> residuesAtPosition = positionSpecificRotamers.get(residueIndex);
+        if(!residuesAtPosition.containsKey(alternateConformation.template.name))
+            residuesAtPosition.put(alternateConformation.template.name, new ArrayList<Residue>());
+        List<Residue> residuesAtPositionForAA = residuesAtPosition.get(alternateConformation.template.name);
+        residuesAtPositionForAA.add(alternateConformation);
+        System.out.println(residuesAtPosition.get(alternateConformation.template.name).size());
+        
+    }
+
     private static double[][][] getDihedralAtomCoords(Residue r)
     {
         ResidueTemplate template = r.template;

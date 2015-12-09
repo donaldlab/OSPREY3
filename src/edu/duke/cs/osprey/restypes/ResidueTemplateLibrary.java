@@ -36,7 +36,7 @@ public abstract class ResidueTemplateLibrary {
 	 * @param dihedralNum The dihedral number within this rotamer.
 	 * @return
 	 */
-	public double getDihedralForRotamer(String resType, double phi, double psi,
+	public double getDihedralForRotamer(int pos, String resType, double phi, double psi,
 			int rotNum, int dihedralNum) {
 			    return firstTemplate(resType).getRotamericDihedrals(phi, psi, rotNum, dihedralNum);
 			}
