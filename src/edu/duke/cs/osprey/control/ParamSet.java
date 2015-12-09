@@ -14,6 +14,7 @@ import edu.duke.cs.osprey.handlempi.MPIMaster;
 import edu.duke.cs.osprey.tools.StringParsing;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.InputStreamReader;
 import java.util.StringTokenizer;
 import java.io.Serializable;
@@ -77,6 +78,10 @@ public class ParamSet implements Serializable {
 			}
 			bufread.close();
 		}
+                catch (FileNotFoundException e){
+                    throw new RuntimeException("ERROR: Couldn't find configuration file "+fName+
+                            "  Note: runTests must be run in test/1CC8 directory.");
+                }
 		catch(Exception ex)
 		{
 			System.out.println("ERROR: An error occurred reading configuration file "+fName);

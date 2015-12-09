@@ -97,6 +97,20 @@ public class ProlinePucker extends DegreeOfFreedom {
     public boolean getCurPucker() {
         return curPucker;
     }
+
+    public boolean getBasePucker() {
+        return basePucker;
+    }
+    
+    
+
+    public void setBasePucker(boolean basePucker) {
+        this.basePucker = basePucker;
+    }
+
+    public void setCurPucker(boolean curPucker) {
+        this.curPucker = curPucker;
+    }
     
     
     

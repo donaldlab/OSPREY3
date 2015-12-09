@@ -75,6 +75,13 @@ public class ReferenceEnergies implements Serializable {
                 String AAType = RCList.get(rcNum).AAType;
                 double eRef = eRefMatrix.get(pos).get(AAType);
                 
+                if(eRef == Double.POSITIVE_INFINITY){
+                    //if all RCs for a residue type have infinite one-body energy 
+                    //(i.e., are impossible),
+                    //then they stay at infinity after eRef correction
+                    eRef = 0;
+                }
+                
                 double Euncorr = emat.getOneBody(pos, rcNum);
                 double Ecorr = Euncorr - eRef;
                 emat.setOneBody(pos, rcNum, Ecorr);

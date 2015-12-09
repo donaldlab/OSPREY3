@@ -372,6 +372,27 @@ public class ResidueTemplateLibrary {
     }
     
     
+    public void makeDAminoAcidTemplates(){
+        //Make a D-amino acid template for every standard L-amino acid template in the library
+        //This lets us do D-amino acids without having to have separate templates
+        //A D-amino acid is just an inverted L-amino acid (including Ile and Thr,
+        //which have a second chiral center)
+        ArrayList<ResidueTemplate> DTemplates = new ArrayList<>();
+        
+        for(ResidueTemplate template : templates){
+            
+            if( DAminoAcidHandler.isStandardLAminoAcid(template.name) ){
+                //template recognized as standard L-amino acid
+                
+                DTemplates.add( DAminoAcidHandler.makeDTemplate(template) );
+            }
+        }
+        
+        templates.addAll(DTemplates);
+    }
+    
+    
+
     
 }
 

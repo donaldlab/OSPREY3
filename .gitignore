@@ -2,6 +2,8 @@
 /build/
 /dist/
 build/*
+nbproject/*
+nbdist/*
 dataFiles/ALL*
 *.class
 /nbdist/
