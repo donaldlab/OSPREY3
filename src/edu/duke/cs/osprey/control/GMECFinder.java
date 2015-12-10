@@ -79,8 +79,6 @@ public class GMECFinder {
         initializeParametersFromConfigFile(cfgP);
     }
 
-
-
     private void initializeParametersFromConfigFile (ConfigFileParser cfgP) {
         Ew = cfgP.params.getDouble("Ew",0);
         doIMinDEE = cfgP.params.getBool("imindee",false);
