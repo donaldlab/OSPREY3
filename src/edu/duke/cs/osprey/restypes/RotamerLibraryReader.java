@@ -314,6 +314,9 @@ public class RotamerLibraryReader implements Serializable {
         			double rotamers [][] = (allDunbrackRotamersMap.get(myTemplate.name)).rotamersForType[phiBin][psiBin].convertRotamersToArray();
         			myTemplate.setRotamericDihedrals(rotamers, phiBin, psiBin); 
         			myTemplate.setNumRotamers(rotamers.length, phiBin, psiBin);
+        			if(rotamers.length > 0 ){
+        				myTemplate.setNumDihedrals(rotamers[0].length);
+        			}
             	}
         	}
         	

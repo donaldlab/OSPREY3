@@ -121,12 +121,13 @@ public class PositionConfSpace implements Serializable {
         ArrayList<Double> dofLB = new ArrayList<>();//lower bounds on each DOF for this RC
         ArrayList<Double> dofUB = new ArrayList<>();//upper bounds
         
-        //we'll start with the sidechain dihedral DOFs
         
     	// PGC 2015: Support backbone dependent rotamers.  
     	//	Compute phi and psi, necessary for backbone dependent rotamers.        
     	double phipsi [] = Protractor.getPhiPsi(this.res);
         double dihValues[] = new double[numDihedrals];
+        //we'll start with the sidechain dihedral DOFs
+
         for(int dih=0; dih<numDihedrals; dih++){
             dihValues[dih] = templateLib.getDihedralForRotamer(AAType,phipsi[0], phipsi[1], rot,dih);
         }
