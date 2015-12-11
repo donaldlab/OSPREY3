@@ -15,6 +15,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.StringTokenizer;
 
 /**
@@ -30,6 +31,9 @@ public class ResidueTemplateLibrary {
     
     
     public ArrayList<ResidueTemplate> templates = new ArrayList<>();
+    
+    HashMap<String,Double> resEntropy = new HashMap<>();//We will look up residue entropy
+    //by the name of the residue
     
     public int totalNumRotamers = 0;//total number of rotamers read in from rotamer library file(s)
     //starts at 0
@@ -391,7 +395,42 @@ public class ResidueTemplateLibrary {
     }
     
     
-
+    
+    public void loadResEntropy(String entropyFile){
+        //It is convenient to load residue entropies into a hash map, rather than
+        //into template objects, because they correspond to template names
+        try {
+            FileInputStream is = new FileInputStream( EnvironmentVars.getDataDir().concat(entropyFile) );
+            BufferedReader bufread = new BufferedReader(new InputStreamReader(is));
+            
+            String curLine = bufread.readLine();
+            
+            while (curLine != null ){
+                String resType = StringParsing.getToken(curLine,1);
+                double entropy = new Double(StringParsing.getToken(curLine,2)); 
+                resEntropy.put(resType.toUpperCase(), entropy);
+                curLine = bufread.readLine();
+            }
+            bufread.close();
+        }
+        catch (FileNotFoundException e) {
+                System.out.println("ERROR: Residue entropy file not found: "+e);
+                e.printStackTrace();
+                System.exit(0);
+        }
+        catch (IOException e) {
+                System.out.println("ERROR reading residue entropy file: "+e);
+                e.printStackTrace();
+                System.exit(0);
+        }
+    }
+    
+    
+    public double getResEntropy(String resType){
+        if(resEntropy.containsKey(resType.toUpperCase()))
+            return resEntropy.get(resType.toUpperCase());
+        else//default
+            return 0;
+    }
     
 }
-

@@ -40,7 +40,7 @@ public class ReferenceEnergies implements Serializable {
             
             //no shell residues need to be included...intra only
             TermECalculator intraECalc = new TermECalculator(cSpace, new ArrayList<>(), false,
-                    true, null, null, pos);
+                    true, null, null, false, pos);
             
             ArrayList<Double> intraEList = (ArrayList<Double>) intraECalc.doCalculation();//intraE for each RC at this pos
             
