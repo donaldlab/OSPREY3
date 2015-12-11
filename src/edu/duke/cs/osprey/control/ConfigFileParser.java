@@ -135,7 +135,8 @@ public class ConfigFileParser {
                 params.getBool("UseTupExp",false),
                 dset, moveableStrands, freeBBZones,
                 params.getBool("useEllipses", false),
-                params.getBool("useERef", false) );
+                params.getBool("useERef", false),
+                params.getBool("AddResEntropy", false) );
     }
     
     
@@ -169,7 +170,32 @@ public class ConfigFileParser {
     
     ArrayList<ArrayList<String>> getAllowedAAs(){
         //List allowed AA types for each flexible position
-        //for compatibility (MAY BE TEMPORARY),
+        //We can accept either RESALLOWED0_0 (for flexible res 0 of strand 0)
+        //or RESALLOWED255 (for residue with PDB number 255)
+        //but which one is used should be consistent across all residues
+        ArrayList<String> resAllowedRecords = params.searchParams("RESALLOWED");
+        
+        if(resAllowedRecords.isEmpty())//no flexible residues
+            return new ArrayList<ArrayList<String>>();
+        else {
+            boolean usingStrandFormat = resAllowedRecords.get(0).contains("_");
+            for(int rec=1; rec<resAllowedRecords.size(); rec++){
+                if( usingStrandFormat != resAllowedRecords.get(rec).contains("_") ){
+                    throw new RuntimeException("ERROR: Inconsistent formatting of resAllowed records"
+                            + " (should be all by PDB residue number or all by strand)");
+                }
+            }
+            
+            if(usingStrandFormat)
+                return getAllowedAAsByStrand();
+            else
+                return getAllowedAAsByPDBResNum();
+        }
+    }
+        
+    
+    
+    ArrayList<ArrayList<String>> getAllowedAAsByStrand(){
         //we'll go through all resAllowed records, ordering first by strand num
         //then pos num in strand
         
@@ -204,6 +230,32 @@ public class ConfigFileParser {
         return allowedAAs;
     }
     
+    
+    
+    ArrayList<ArrayList<String>> getAllowedAAsByPDBResNum(){
+        //we'll go through all resAllowed records, ordering first by strand num
+        //then pos num in strand
+        
+        ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
+        ArrayList<String> flexRes = getFlexRes();
+        
+        for(int flexResNum=0; flexResNum<flexRes.size(); flexResNum++){
+            String param = "RESALLOWED" + flexRes.get(flexResNum);
+            String allowedAAString = params.getValue(param);
+
+            //parse AA types from allowedAAString
+            ArrayList<String> resAllowedAAs = new ArrayList<>();
+            StringTokenizer tokenizer = new StringTokenizer(allowedAAString);
+
+            while(tokenizer.hasMoreTokens()){
+                resAllowedAAs.add( tokenizer.nextToken() );
+            }
+
+            allowedAAs.add(resAllowedAAs);
+        }
+        
+        return allowedAAs;
+    }
     
     
     PruningControl setupPruning(SearchProblem searchSpace, double pruningInterval, boolean useEPIC, boolean useTupExp){
@@ -274,6 +326,8 @@ public class ConfigFileParser {
         if(dunbrackRots){ // Use the dunbrack rotamer library
         	resTemplates.loadRotamerLibrary(params.getValue("DUNBRACKROTFILE","ALL.bbdep.rotamers.lib"), true);//see below; also gRotFile0 etc
         }
+        
+        resTemplates.loadResEntropy(params.getValue("RESENTROPYFILE","ResEntropy.dat"));
         
         //let's make D-amino acid templates by inverting the L-amino acid templates 
         resTemplates.makeDAminoAcidTemplates();

@@ -411,6 +411,22 @@ public class ConfSpace implements Serializable {
     }
     
     
+    public double getRCResEntropy(int pos, int rc){
+        String resType = posFlex.get(pos).RCs.get(rc).AAType;
+        double resEntropy = EnvironmentVars.resTemplates.getResEntropy(resType);
+        return resEntropy;
+    }
+    
+    public double getConfResEntropy(int[] conf){
+        double ans = 0;
+        
+        for(int pos=0; pos<numPos; pos++)
+            ans += getRCResEntropy(pos, conf[pos]);
+        
+        return ans;
+    }
+    
+    
     /*DoubleMatrix1D[] convertConfToDOFBounds(int[] conf){
         //Argument: RC assignments for all the flexible residues (RCs defined in resFlex)
         //return bounds (lower bounds, upper bounds) for all the degrees of freedom in the system

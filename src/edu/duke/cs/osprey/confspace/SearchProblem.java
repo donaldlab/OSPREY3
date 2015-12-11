@@ -64,6 +64,7 @@ public class SearchProblem implements Serializable {
     
     
     boolean useERef = false;
+    boolean addResEntropy = false;
     
     
     public SearchProblem(SearchProblem sp1){//shallow copy
@@ -85,13 +86,15 @@ public class SearchProblem implements Serializable {
     	useTupExpForSearch = sp1.useTupExpForSearch;
         
         useERef = sp1.useERef;
+        addResEntropy = sp1.addResEntropy;
     }
     
     
     
     public SearchProblem(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
             boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset, 
-            ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef){
+            ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef,
+            boolean addResEntropy){
         
         confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses);
         this.name = name;
@@ -103,6 +106,7 @@ public class SearchProblem implements Serializable {
         this.epicSettings = epicSettings;
         
         this.useERef = useERef;
+        this.addResEntropy = addResEntropy;
         
         //energy function setup
         EnergyFunctionGenerator eGen = EnvironmentVars.curEFcnGenerator;
@@ -148,6 +152,9 @@ public class SearchProblem implements Serializable {
         
         if(useERef)
             E -= emat.geteRefMat().confERef(conf);
+        
+        if(addResEntropy)
+            E += confSpace.getConfResEntropy(conf);            
         
         return E;
     }
@@ -239,7 +246,9 @@ public class SearchProblem implements Serializable {
     private TupleMatrix calcMatrix(MatrixType type){
         
         if(type == MatrixType.EMAT){
-            EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(confSpace,shellResidues,useERef);
+            EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(confSpace,shellResidues,
+                    useERef,addResEntropy);
+            
             emCalc.calcPEM();
             return emCalc.getEMatrix();
         }
