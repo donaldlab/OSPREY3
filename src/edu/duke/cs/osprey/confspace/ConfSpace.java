@@ -12,7 +12,7 @@ import cern.colt.matrix.linalg.Algebra;
 import cern.jet.math.Functions;
 import edu.duke.cs.osprey.bbfree.BBFreeBlock;
 import edu.duke.cs.osprey.control.EnvironmentVars;
-import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
+import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.EllipseCoordDOF;
 import edu.duke.cs.osprey.dof.FreeDihedral;
@@ -169,7 +169,7 @@ public class ConfSpace implements Serializable {
             
             BBFreeBlock curBFB = getCurBFB(bfbList,res);
             
-            PositionConfSpace rcs = new PositionConfSpace(res, resDOFs, allowedAAs.get(pos), contSCFlex,
+            PositionConfSpace rcs = new PositionConfSpace(pos, res, resDOFs, allowedAAs.get(pos), contSCFlex,
                     resStrandDOFs, perts, dset.getPertIntervals(), dset.getPertStates(pos), curBFB, useEllipses);
             posFlex.add(rcs);
                         

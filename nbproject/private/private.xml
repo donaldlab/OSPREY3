@@ -12,8 +12,9 @@
     </editor-bookmarks>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/Users/mhall44/Mark/OSPREY_refactor/src/edu/duke/cs/osprey/restypes/HardCodedResidueInfo.java</file>
-            <file>file:/Users/mhall44/Mark/OSPREY_refactor/src/edu/duke/cs/osprey/structure/PDBFileReader.java</file>
+            <file>file:/Users/mhall44/Mark/OSPREY_refactor/src/edu/duke/cs/osprey/structure/Residue.java</file>
+            <file>file:/Users/mhall44/Mark/OSPREY_refactor/src/edu/duke/cs/osprey/tests/TestPositionSpecificGMEC.java</file>
+            <file>file:/Users/mhall44/Mark/OSPREY_refactor/src/edu/duke/cs/osprey/control/ParamSet.java</file>
         </group>
     </open-files>
 </project-private>
