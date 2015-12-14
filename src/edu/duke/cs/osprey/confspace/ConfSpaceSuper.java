@@ -747,4 +747,6 @@ public class ConfSpaceSuper extends ConfSpace {
 
         return minE;
     }
+    
+    
 }

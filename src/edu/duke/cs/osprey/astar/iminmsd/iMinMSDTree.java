@@ -76,11 +76,8 @@ public class iMinMSDTree extends AStarTree {
     HashMap<Integer, Boolean> boundResNumToIsLigand;
     //determines if two residues are on the same strand
     boolean[][] belongToSameStrand;
-    //List of bound state shell residues that belong to protein (non-mutable strand)
-    ArrayList<Residue> boundShellResProtein;
 
-    EnergyFunction fullMolecEfunc;
-    EnergyFunction maxInterfaceEfunc;
+    EnergyMatrix maxInterfaceBoundEmat;
 
     public iMinMSDTree(int numTreeLevels, LME objFcn, LME[] constraints,
             ArrayList<ArrayList<String>> AATypeOptions, int numMaxMut, String[] wtSeq,
@@ -107,12 +104,15 @@ public class iMinMSDTree extends AStarTree {
         this.boundResNumToUnboundResNum = getBoundPosNumToUnboundPosNum();
         this.boundResNumToIsLigand = getBoundPosNumberToIsMutableStrand();
         this.belongToSameStrand = getSameStrandMatrix();
-        this.boundShellResProtein = getBoundShellResiduesIfProtein();
 
-        this.fullMolecEfunc = mutableSearchProblems[0].fullConfE;
-        this.maxInterfaceEfunc = genMaxInterfaceEnergyFunction();
+        this.maxInterfaceBoundEmat = calcMaxInterfaceEmat();
+
+        //this.objFcn.setConstTerm(-calcGMEC(nonMutableState));
+        //TODO: Fix this 
+        this.setNumCores(8);
     }
 
+    /*
     @Override
     public ArrayList<AStarNode> getChildren(AStarNode curNode) {
         iMinMSDNode seqNode = (iMinMSDNode) curNode;
@@ -155,6 +155,58 @@ public class iMinMSDTree extends AStarTree {
             throw new RuntimeException("ERROR: Not splittable position found but sequence not fully defined...");
         }
     }
+*/
+    @Override
+    public ArrayList<AStarNode> getChildren(AStarNode curNode) {
+        iMinMSDNode seqNode = (iMinMSDNode) curNode;
+        ArrayList<AStarNode> ans = new ArrayList<>();
+
+        if (seqNode.isFullyDefined()) {
+            ans.add(seqNode);
+            return ans;
+        } else {
+            //expand next position...
+
+            ArrayList<iMinMSDNode> children = new ArrayList<>();
+            int[] curAssignments = seqNode.getNodeAssignments();
+
+            for (int splitPos = 0; splitPos < numTreeLevels; splitPos++) {
+                if (curAssignments[splitPos] < 0) {//we can split this level
+
+                    ArrayList<Integer> aaTypes = new ArrayList<>();
+                    for (int aa = 0; aa < AATypeOptions.get(splitPos).size(); aa++) {
+
+                        int[] childAssignments = curAssignments.clone();
+                        childAssignments[splitPos] = aa;
+
+                        UpdatedPruningMatrixSuper[] childPruneMat = new UpdatedPruningMatrixSuper[numStates];
+                        for (int state = 0; state < numStates; state++) {
+                            childPruneMat[state] = this.doChildPruning(state, seqNode.pruneMat[state], splitPos, aa);
+                        }
+
+                        iMinMSDNode childNode = new iMinMSDNode(childAssignments, childPruneMat);
+
+                        if (splitPos == numTreeLevels - 1) {//sequence is fully defined...make conf trees
+                            makeSeqConfTrees(childNode);
+                        }
+                        children.add(childNode);
+                    }
+                    children.parallelStream().forEach(node -> {
+                        try {
+                            node.setScore(boundLME(node));
+                            ans.add(node);
+                        } catch (Exception e) {
+                            System.out.println(e.getMessage());
+                            System.exit(1);
+                        }
+                    });
+                    return ans;
+                }
+            }
+
+            throw new RuntimeException("ERROR: Not splittable position found but sequence not fully defined...");
+        }
+    }
 
     private double boundLME(iMinMSDNode seqNode) {
         if (seqNode.isFullyDefined()) {
@@ -183,16 +235,53 @@ public class iMinMSDTree extends AStarTree {
         allPos.addAll(proteinPosNums);
         Collections.sort(allPos);
 
-        SearchProblemSuper sp_Interface = boundSP.getSubsetSearchProblem(allPos);
+        //SearchProblemSuper sp_Interface = boundSP.getSubsetSearchProblem(allPos);
+        SearchProblemSuper sp_Interface = (SearchProblemSuper) ObjectIO.deepCopy(boundSP);
+        sp_Interface.emat.setConstTerm(0.0);
         updateSubsetPruneMat(sp_Interface.pruneMat, seqNode.pruneMat[0], allPos);
         subtractInternalEnergies(sp_Interface.emat, boundSP.emat, allPos, ligandPosNums);
         subtractPairwiseEnergies(sp_Interface.emat, boundSP.emat, allPos, ligandPosNums);
-        recalculateLigandIntraTerms(sp_Interface);
-        //double lowerBound = calcGMEC(sp_Interface, true);
+        setMaxInterfaceLigandIntraEnergy(sp_Interface.emat);
+        
+        sp_Interface.fullConfE = genMaxInterfaceEnergyFunction(sp_Interface);
+               
+        double lowerBound = calcGMEC(sp_Interface);
+        /*
         ConfTreeSuper confTree = new ConfTreeSuper(sp_Interface);
         double lowerBound = confTree.energyNextConf();
+        */
 
-        //To create MolEObjFunctoin we need to pass in (protein shell residues, proteinPosNums, LigandPosNums)
+        return lowerBound + objFcn.getConstTerm();
+    }
+
+    private double fullSequenceBound(iMinMSDNode seqNode) {
+        SearchProblemSuper boundSP = mutableSearchProblems[0];
+        SearchProblemSuper ligandSP = mutableSearchProblems[1];
+
+        ArrayList<Integer> proteinPosNums = getProteinPosNums(true);
+        ArrayList<Integer> ligandPosNums = getLigandAssignedPosNums(seqNode, true);
+        ligandPosNums.addAll(getLigandUnassignedPosNums(seqNode, true));
+        Collections.sort(ligandPosNums);
+
+        ArrayList<Integer> allPos = new ArrayList<>();
+        allPos.addAll(ligandPosNums);
+        allPos.addAll(proteinPosNums);
+        Collections.sort(allPos);
+
+        SearchProblemSuper spBound = boundSP.getSubsetSearchProblem(allPos);
+        updateSubsetPruneMat(spBound.pruneMat, seqNode.pruneMat[0], allPos);
+        double gmecBound = calcGMEC(spBound);
+
+        ArrayList<Integer> ligandUnbound = new ArrayList<>();
+        ligandUnbound.addAll(getLigandAssignedPosNums(seqNode, false));
+        ligandUnbound.addAll(getLigandUnassignedPosNums(seqNode, false));
+        Collections.sort(ligandUnbound);
+
+        SearchProblemSuper spUnbound = ligandSP.getSubsetSearchProblem(ligandUnbound);
+        updateSubsetPruneMat(spUnbound.pruneMat, seqNode.pruneMat[1], ligandUnbound);
+        double gmecUnbound = calcGMEC(spUnbound);
+
+        double score = gmecBound - gmecUnbound;
         return 0.0;
     }
 
@@ -204,6 +293,7 @@ public class iMinMSDTree extends AStarTree {
      * @param sp the searchProblem
      */
     private void recalculateLigandIntraTerms(SearchProblemSuper sp) {
+        ArrayList<Residue> boundShellResProtein = getBoundShellResiduesIfProtein(sp);
         EnergyMatrixCalculator ematCalc = new EnergyMatrixCalculator(sp.confSpaceSuper, boundShellResProtein);
         ematCalc.reCalculateIntraTerms(sp.emat, sp.pruneMat, boundResNumToIsLigand);
     }
@@ -332,42 +422,44 @@ public class iMinMSDTree extends AStarTree {
                 return true;
             }
         }
-        for (LME constr : constraints) {
-            if ((constr.getCoeffs()[0] == 1.0) && (constr.getCoeffs()[1] == -1.0)) {
-                if (maxInterfaceBound(seqNode) + constr.getConstTerm() > 0) {
-                    return true;
-                }
-            } else if ((constr.getCoeffs()[0] == 1.0) && (constr.getCoeffs()[1] == 0.0)) {
-                UpdatedPruningMatrixSuper pruneMatBound = new UpdatedPruningMatrixSuper(seqNode.pruneMat[0]);
-                PrunerSuper dee = new PrunerSuper(mutableSearchProblems[0], pruneMatBound, false, 100, 0.0, false, false, false);
-                int oldNumUpdates = 0;
-                int numUpdates = 0;
-                do {
-                    oldNumUpdates = numUpdates;
-                    dee.prune("GOLDSTEIN");
-                    numUpdates = pruneMatBound.countUpdates();
-                } while (numUpdates > oldNumUpdates);
+        if (false) {
+            for (LME constr : constraints) {
+                if ((constr.getCoeffs()[0] == 1.0) && (constr.getCoeffs()[1] == -1.0)) {
+                    if (maxInterfaceBound(seqNode) + constr.getConstTerm() > 0) {
+                        return true;
+                    }
+                } else if ((constr.getCoeffs()[0] == 1.0) && (constr.getCoeffs()[1] == 0.0)) {
+                    UpdatedPruningMatrixSuper pruneMatBound = new UpdatedPruningMatrixSuper(seqNode.pruneMat[0]);
+                    PrunerSuper dee = new PrunerSuper(mutableSearchProblems[0], pruneMatBound, false, 100, 0.0, false, false, false);
+                    int oldNumUpdates = 0;
+                    int numUpdates = 0;
+                    do {
+                        oldNumUpdates = numUpdates;
+                        dee.prune("GOLDSTEIN");
+                        numUpdates = pruneMatBound.countUpdates();
+                    } while (numUpdates > oldNumUpdates);
 
-                ConfTreeSuper confTreeBound = new ConfTreeSuper(mutableSearchProblems[0], pruneMatBound, false);
-                double gmecEBound = confTreeBound.energyNextConf();
-                if (gmecEBound + constr.getConstTerm() > 0) {
-                    return true;
-                }
-            } else if ((constr.getCoeffs()[0] == 0.0) && (constr.getCoeffs()[1] == 1.0)) {
-                UpdatedPruningMatrixSuper pruneMatUnbound = new UpdatedPruningMatrixSuper(seqNode.pruneMat[1]);
-                PrunerSuper dee = new PrunerSuper(mutableSearchProblems[1], pruneMatUnbound, false, 100, 0.0, false, false, false);
-                int oldNumUpdates = 0;
-                int numUpdates = 0;
-                do {
-                    oldNumUpdates = numUpdates;
-                    dee.prune("GOLDSTEIN");
-                    numUpdates = pruneMatUnbound.countUpdates();
-                } while (numUpdates > oldNumUpdates);
+                    ConfTreeSuper confTreeBound = new ConfTreeSuper(mutableSearchProblems[0], pruneMatBound, false);
+                    double gmecEBound = confTreeBound.energyNextConf();
+                    if (gmecEBound + constr.getConstTerm() > 0) {
+                        return true;
+                    }
+                } else if ((constr.getCoeffs()[0] == 0.0) && (constr.getCoeffs()[1] == 1.0)) {
+                    UpdatedPruningMatrixSuper pruneMatUnbound = new UpdatedPruningMatrixSuper(seqNode.pruneMat[1]);
+                    PrunerSuper dee = new PrunerSuper(mutableSearchProblems[1], pruneMatUnbound, false, 100, 0.0, false, false, false);
+                    int oldNumUpdates = 0;
+                    int numUpdates = 0;
+                    do {
+                        oldNumUpdates = numUpdates;
+                        dee.prune("GOLDSTEIN");
+                        numUpdates = pruneMatUnbound.countUpdates();
+                    } while (numUpdates > oldNumUpdates);
 
-                ConfTreeSuper confTreeUnbound = new ConfTreeSuper(mutableSearchProblems[1], pruneMatUnbound, false);
-                double gmecEUnbound = confTreeUnbound.energyNextConf();
-                if (gmecEUnbound + constr.getConstTerm() > 0) {
-                    return true;
+                    ConfTreeSuper confTreeUnbound = new ConfTreeSuper(mutableSearchProblems[1], pruneMatUnbound, false);
+                    double gmecEUnbound = confTreeUnbound.energyNextConf();
+                    if (gmecEUnbound + constr.getConstTerm() > 0) {
+                        return true;
+                    }
                 }
             }
         }
@@ -810,11 +902,10 @@ public class iMinMSDTree extends AStarTree {
         searchProblem.emat = updatedEmat;
     }
 
-    public ArrayList<Residue> getBoundShellResiduesIfProtein() {
-        SearchProblemSuper boundSP = mutableSearchProblems[0];
+    public ArrayList<Residue> getBoundShellResiduesIfProtein(SearchProblemSuper sp) {
         SearchProblemSuper proteinSP = nonMutableSearchProblem;
         ArrayList<Residue> boundShellResIsProtein = new ArrayList<>();
-        for (Residue shellRes : boundSP.shellResidues) {
+        for (Residue shellRes : sp.shellResidues) {
             for (Residue proteinShellRes : proteinSP.shellResidues) {
                 if (shellRes.resNum == proteinShellRes.resNum) {
                     boundShellResIsProtein.add(shellRes);
@@ -825,8 +916,9 @@ public class iMinMSDTree extends AStarTree {
         return boundShellResIsProtein;
     }
 
-    private EnergyFunction genMaxInterfaceEnergyFunction() {
-        SearchProblemSuper boundSP = this.mutableSearchProblems[0];
+    private EnergyFunction genMaxInterfaceEnergyFunction(SearchProblemSuper boundSP) {
+        ArrayList<Residue> boundShellResProtein = getBoundShellResiduesIfProtein(boundSP);
+
         //Separate flexible residues into those that belong to protein and ligand
         ArrayList<Residue> flexibleLigandResidues = new ArrayList<>();
         ArrayList<Residue> flexibleProteinResidues = new ArrayList<>();
@@ -866,7 +958,7 @@ public class iMinMSDTree extends AStarTree {
         for (Residue ligandRes : flexibleLigandResidues) {
             EnergyFunction oneBodyE = efg.singleResEnergy(ligandRes);
             maxInterfaceEFunc.addTerm(oneBodyE);
-            for (Residue proteinShellRes : this.boundShellResProtein) {
+            for (Residue proteinShellRes : boundShellResProtein) {
                 EnergyFunction twoBodyE = efg.resPairEnergy(ligandRes, proteinShellRes);
                 maxInterfaceEFunc.addTerm(twoBodyE);
             }
@@ -885,14 +977,9 @@ public class iMinMSDTree extends AStarTree {
         return maxInterfaceEFunc;
     }
 
-    private double calcGMEC(SearchProblemSuper searchProb, boolean useMaxInterface) {
-        if (useMaxInterface) {
-            searchProb.fullConfE = this.maxInterfaceEfunc;
-        } else {
-            searchProb.fullConfE = this.fullMolecEfunc;
-        }
+    private double calcGMEC(SearchProblemSuper searchProb) {
 
-        double IO = 5;
+        double IO = Double.POSITIVE_INFINITY;
         double Ew = 0;
         double lowestBound = Double.POSITIVE_INFINITY;
 
@@ -900,13 +987,12 @@ public class iMinMSDTree extends AStarTree {
         double bestESoFar = Double.POSITIVE_INFINITY;
         boolean needToRepeat;
 
-        UpdatedPruningMatrixSuper pruneMat = new UpdatedPruningMatrixSuper(searchProb.pruneMat);
-
         do {
             needToRepeat = false;
 
             int numUpdates = 0;
             int oldNumUpdates;
+            UpdatedPruningMatrixSuper pruneMat = new UpdatedPruningMatrixSuper(searchProb.pruneMat);
             PrunerSuper dee = new PrunerSuper(searchProb, pruneMat, false, 100, IO, false, false, false);
             do {
                 oldNumUpdates = numUpdates;
@@ -932,7 +1018,11 @@ public class iMinMSDTree extends AStarTree {
                     lowerBound = Double.POSITIVE_INFINITY;
                 } else {
                     double confE = searchProb.minimizedEnergy(conf);
+                    //System.out.println("Actual Energy: "+confE);
                     lowerBound = searchProb.lowerBound(conf);
+
+                    System.out.println("Lower Bound: " + lowerBound + " Minimized Energy: " + confE);
+                    System.out.println();
 
                     if (confE < bestESoFar) {
                         bestESoFar = confE;
@@ -957,5 +1047,26 @@ public class iMinMSDTree extends AStarTree {
         } while (needToRepeat);
         System.out.println("GMEC energy: " + bestESoFar);
         return bestESoFar;
+
+    }
+
+    private EnergyMatrix calcMaxInterfaceEmat() {
+        SearchProblemSuper boundSP = (SearchProblemSuper) ObjectIO.deepCopy(this.mutableSearchProblems[0]);
+        recalculateLigandIntraTerms(boundSP);
+        return boundSP.emat;
+    }
+
+    private void setMaxInterfaceLigandIntraEnergy(EnergyMatrix emat) {
+        int numPos = emat.oneBody.size();
+        emat.oneBody = new ArrayList<>();
+        for (int pos = 0; pos < numPos; pos++) {
+            emat.oneBody.add(this.maxInterfaceBoundEmat.oneBody.get(pos));
+        }
+    }
+
+    public void setNumCores(int n) {
+        int cores = Math.min(n, Runtime.getRuntime().availableProcessors());
+        System.setProperty("java.util.concurrent.ForkJoinPool.common.parallelism",
+                String.valueOf(cores));
     }
 }

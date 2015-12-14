@@ -1,9 +1,7 @@
-/nbproject/private/
-/build/
-/dist/
-build/*
-nbproject/*
-nbdist/*
-dataFiles/ALL*
+/nbproject
+/build
+/dist
+build
+nbdist
 *.class
-/nbdist/
+/nbdist

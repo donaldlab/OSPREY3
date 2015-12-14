@@ -15,6 +15,7 @@ import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tupexp.ConfETupleExpander;
@@ -29,7 +30,7 @@ import java.util.stream.Collectors;
  *
  * @author hmn5
  */
-public class SearchProblemSuper {
+public class SearchProblemSuper implements Serializable{
     //This is the super-RC analog of SearchProblem
 
     public ConfSpaceSuper confSpaceSuper;
@@ -159,8 +160,10 @@ public class SearchProblemSuper {
             //we will want to create a new energy function generator that properly
             //handles this partial space 
         }
-        subsetSP.confSpaceSuper = this.confSpaceSuper.getSubsetConfSpace(subsetOfPositions);
 
+        
+        subsetSP.confSpaceSuper = this.confSpaceSuper.getSubsetConfSpace(subsetOfPositions);
+        
         // Begin: Create new Energy and Pruning Matrix (currently only one and two-body terms)
         EnergyMatrix subsetEmat = new EnergyMatrix(subsetSP.confSpaceSuper, this.emat.getPruningInterval());
         ArrayList<ArrayList<Double>> newOneBodyE = new ArrayList<>();
@@ -291,6 +294,8 @@ public class SearchProblemSuper {
         //Minimized eneryg of the conformatoin
         //whose super-RCs are listed for all flexible positions in conf
         double E = confSpaceSuper.minimizeEnergy(conf, fullConfE, null);
+        //HMN: Add constant term
+        E += emat.getConstTerm();
         return E;
     }
 

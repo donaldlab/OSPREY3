@@ -18,10 +18,13 @@ public class iMinMSDNode extends AStarNode {
     PruningMatrix[] pruneMat;
     ConfTreeSuper[] stateTrees;
     
+    double boundGMEC;
     double unboundGMEC;
     
     public iMinMSDNode(int[] nodeAssignments, PruningMatrix[] pruneMat) {
         super(nodeAssignments, Double.NaN, false);
         this.pruneMat = pruneMat;
+        boundGMEC = Double.POSITIVE_INFINITY;
+        unboundGMEC = Double.POSITIVE_INFINITY;
     }
 }

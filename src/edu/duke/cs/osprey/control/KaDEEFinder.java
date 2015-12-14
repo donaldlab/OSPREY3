@@ -408,7 +408,7 @@ public class KaDEEFinder {
         int mutableStateIndex = 0;
 
         SearchProblemSuper nonMutableState = searchSpaces[1];
-        double unboundLigandGMECEnergy = 0.0;
+
         for (int state = 0; state < searchSpaces.length; state++) {
             if (stateIsMutable[state]) {
                 mutableStates[mutableStateIndex] = searchSpaces[state];
@@ -417,15 +417,13 @@ public class KaDEEFinder {
                 mutableStateIndex++;
             } else {
                 nonMutableState = searchSpaces[state];
-                //For the const term of the LME objective function
-                unboundLigandGMECEnergy = getGMECEnergyLigand(nonMutableState);
             }
         }
         //For const term of LME objective function
         int numStatesForCOMETS = mutableStates.length;
         int numTreeLevels = getNumMutablePos(mutableState2StatePosNumList);
         ArrayList<ArrayList<String>> AATypeOptions = handleAATypeOptions(mutableStateAllowedAAs);
-        LME objFcn = new LME(new double[]{1, -1}, -unboundLigandGMECEnergy, 2);
+        LME objFcn = new LME(new double[]{1, -1}, 0.0, 2);
         
         int numConstr = cfp.params.getInt("NUMCONSTR", -1);
         LME[] constraints = new LME[numConstr];
