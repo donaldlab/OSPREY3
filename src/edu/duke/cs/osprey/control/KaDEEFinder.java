@@ -5,22 +5,17 @@
  */
 package edu.duke.cs.osprey.control;
 
-import java.util.List;
-
 import edu.duke.cs.osprey.astar.ConfTreeSuper;
 import edu.duke.cs.osprey.astar.comets.*;
+import edu.duke.cs.osprey.astar.iminmsd.iMinMSDTree;
 import edu.duke.cs.osprey.confspace.SearchProblemSuper;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.pruning.PruningControlSuper;
-import edu.duke.cs.osprey.confspace.PositionConfSpaceSuper;
 import edu.duke.cs.osprey.confspace.ConfSpaceSuper;
 import edu.duke.cs.osprey.confspace.SuperRCTuple;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.partitionfunctionbounds.MarkovRandomField;
 import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField;
-import edu.duke.cs.osprey.partitionfunctionbounds.GumbelDistribution;
 import edu.duke.cs.osprey.tools.ExpFunction;
-import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.partitionfunctionbounds.MapPerturbation;
 import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField_Parallel;
@@ -28,15 +23,12 @@ import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.StringParsing;
-import java.awt.Point;
 import java.io.PrintStream;
 import java.io.FileOutputStream;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.stream.Collectors;
 import java.util.List;
 import java.util.ArrayList;
-import javafx.scene.input.KeyCode;
 
 /**
  * KaDEEFinder computes the sequence with the highest K* score.using
@@ -107,9 +99,10 @@ public class KaDEEFinder {
     void doKaDEE() {
         double curInterval = I0;//For iMinDEE.  curInterval will need to be an upper bound
         this.searchSpaces = cfp.getSearchProblemSupers();
-
+        
         if (true) {
-            COMETSTreeSuper tree = setupCometsTree();
+            //COMETSTreeSuper tree = setupCometsTree();
+            iMinMSDTree tree = setupIMinMSDTree();
             int[] seq1 = tree.nextConf();
             //while (true){
             //    int[] seq2 = tree.nextConf();
@@ -367,6 +360,90 @@ public class KaDEEFinder {
             mutableState2StatePosNum.add(converted);
         }
         COMETSTreeSuper tree = new COMETSTreeSuper(numTreeLevels, objFcn, constraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, nonMutableState, mutableState2StatePosNum);
+        return tree;
+    }
+
+    //Given three search problems (Bound, UnBound Prot, Unbound Lig) this function
+    //sets up the iMinMSD tree.
+    //The nonmutable unbound state is added and used just as a constant to the objective function
+    private iMinMSDTree setupIMinMSDTree() {
+
+        //For each state, for each position, this contains a list of allowed 
+        //amino acids at that position
+        ArrayList<ArrayList<ArrayList<String>>> allowedAAsPerState = new ArrayList<>();
+        for (int state = 0; state < searchSpaces.length; state++) {
+            allowedAAsPerState.add(getAllowedAA(state));
+        }
+
+        //Load the energy matrices and do pruning
+        double pruningInterval = Double.POSITIVE_INFINITY;
+        loadEMatandPruneComets(pruningInterval);
+        /*
+         for (SearchProblemSuper searchProblem : searchSpaces){
+         searchProblem.emat.setConstTerm(0.0);
+         }
+         */
+        //For each state this arraylist gives the mutable pos nums of that state
+        ArrayList<ArrayList<Integer>> mutable2StatePosNum = handleMutable2StatePosNums(allowedAAsPerState);
+
+        //determine which states are mutable and which are non-mutable
+        boolean[] stateIsMutable = new boolean[this.searchSpaces.length];
+        int numMutableState = 0;
+        int numNonMutableState = 0;
+        for (int state = 0; state < searchSpaces.length; state++) {
+            stateIsMutable[state] = !(mutable2StatePosNum.get(state).isEmpty()); //If not empty, it is mutable
+            if (stateIsMutable[state]) {
+                numMutableState++;
+            } else {
+                numNonMutableState++;
+            }
+        }
+
+        //Get Mutable States
+        SearchProblemSuper[] mutableStates = new SearchProblemSuper[numMutableState];
+        //For each MUTABLE state, this arraylist gives the mutable pos nums of that state
+        //This is what will go into the COMETS tree
+        ArrayList<ArrayList<Integer>> mutableState2StatePosNumList = new ArrayList<>();
+        ArrayList<ArrayList<ArrayList<String>>> mutableStateAllowedAAs = new ArrayList<>();
+        int mutableStateIndex = 0;
+
+        SearchProblemSuper nonMutableState = searchSpaces[1];
+        double unboundLigandGMECEnergy = 0.0;
+        for (int state = 0; state < searchSpaces.length; state++) {
+            if (stateIsMutable[state]) {
+                mutableStates[mutableStateIndex] = searchSpaces[state];
+                mutableState2StatePosNumList.add(mutable2StatePosNum.get(state));
+                mutableStateAllowedAAs.add(allowedAAsPerState.get(state));
+                mutableStateIndex++;
+            } else {
+                nonMutableState = searchSpaces[state];
+                //For the const term of the LME objective function
+                unboundLigandGMECEnergy = getGMECEnergyLigand(nonMutableState);
+            }
+        }
+        //For const term of LME objective function
+        int numStatesForCOMETS = mutableStates.length;
+        int numTreeLevels = getNumMutablePos(mutableState2StatePosNumList);
+        ArrayList<ArrayList<String>> AATypeOptions = handleAATypeOptions(mutableStateAllowedAAs);
+        LME objFcn = new LME(new double[]{1, -1}, -unboundLigandGMECEnergy, 2);
+        
+        int numConstr = cfp.params.getInt("NUMCONSTR", -1);
+        LME[] constraints = new LME[numConstr];
+        for (int constr=0; constr<numConstr; constr++){
+            constraints[constr] = new LME( cfp.params.getValue("CONSTR"+constr), numStatesForCOMETS);
+        }
+        
+
+        int numMaxMut = -1;
+        String[] wtSeq = null;
+
+        //Convert to ArrayList<>
+        ArrayList<ArrayList<Integer>> mutableState2StatePosNum = new ArrayList<>();
+        for (List<Integer> mutable2PosNum : mutableState2StatePosNumList) {
+            ArrayList<Integer> converted = new ArrayList(mutable2PosNum);
+            mutableState2StatePosNum.add(converted);
+        }
+        iMinMSDTree tree = new iMinMSDTree(numTreeLevels, objFcn, constraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, nonMutableState, mutableState2StatePosNum);
         return tree;
     }
 

@@ -15,6 +15,7 @@ import edu.duke.cs.osprey.handlempi.MPISlaveTask;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Residue;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 /**
  *
@@ -34,8 +35,6 @@ public class EnergyMatrixCalculator {
     PruningMatrix pruneMat = null;
     EPICSettings epicSettings = null;
 
-    
-    
     boolean useERef = false;
     //If using E ref, will compute a reference energy for each amino-acid type
     //and correct the intra+shell energies based on the reference energies
@@ -107,7 +106,6 @@ public class EnergyMatrixCalculator {
         System.out.println("ENERGY MATRIX CALCULATION DONE");
     }
 
-
     public void calcPEMLocally() {
         //do the energy calculation here
 
@@ -159,6 +157,27 @@ public class EnergyMatrixCalculator {
         TermECalculatorSuper shellECalc = new TermECalculatorSuper(searchSpaceSuper, shellResidues, doEPIC, doEPIC, pruneMat, epicSettings);
         Object shellE = shellECalc.doCalculation();
         storeEnergy(shellE);
+    }
+
+    /**
+     * This is used for continuous MSD using the max Interface bound For all
+     * ligand residues, we recompute the intra-shell energy so that the only
+     * shell residues are those belonging to the protein strand
+     *
+     * @param aEmat the energy matrix that we are updating
+     * @param boundPosNUmToIsLigand maps each posNum to boolean that is true if
+     * pos is part of ligand
+     */
+    public void reCalculateIntraTerms(EnergyMatrix aEmat, PruningMatrix aPruneMat, HashMap<Integer, Boolean> boundPosNUmToIsLigand) {
+        this.emat = aEmat;
+        this.pruneMat = aPruneMat;
+        for (int pos = 0; pos < searchSpaceSuper.numPos; pos++) {
+            if (boundPosNUmToIsLigand.get(pos)) {
+                TermECalculatorSuper oneBodyECalc = new TermECalculatorSuper(searchSpaceSuper, shellResidues, doEPIC, false, pruneMat, epicSettings, pos);
+                Object oneBodyE = oneBodyECalc.doCalculation();
+                storeEnergy(oneBodyE, pos);
+            }
+        }
     }
 
     public void calcPEMDistributed() {
