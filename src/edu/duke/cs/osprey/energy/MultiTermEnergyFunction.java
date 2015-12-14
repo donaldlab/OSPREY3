@@ -17,8 +17,12 @@ import java.util.ArrayList;
 
 public class MultiTermEnergyFunction implements EnergyFunction {
     
+    private static int NUM_THREADS = 1;
+	
     ArrayList<EnergyFunction> terms = new ArrayList<>();
     ArrayList<Double> coeffs = new ArrayList<>();
+    ArrayList<Double> partialE = new ArrayList<>();
+    ArrayList<Integer> indexes = new ArrayList<>();
 
 
     //Constructor with no terms
@@ -29,12 +33,31 @@ public class MultiTermEnergyFunction implements EnergyFunction {
     public void addTerm(EnergyFunction ef){
         terms.add(ef);
         coeffs.add(1.);
+        partialE.add(0.0);
+        indexes.add(indexes.size());
     }
 
     //add a term to this with a given coefficient
     public void addTermWithCoeff(EnergyFunction ef, double coeff){
         terms.add(ef);
         coeffs.add(coeff);
+        partialE.add(0.0);
+        indexes.add(indexes.size());
+    }
+    
+    
+    public static void setNumThreads( int threads ) { 
+            NUM_THREADS = threads;
+
+            if(NUM_THREADS < 1) NUM_THREADS = 1;
+
+            else if(NUM_THREADS > Runtime.getRuntime().availableProcessors()) 
+                    NUM_THREADS = Runtime.getRuntime().availableProcessors();
+    }
+
+
+    public static int getNumThreads() {
+            return NUM_THREADS;
     }
     
 
@@ -48,9 +71,14 @@ public class MultiTermEnergyFunction implements EnergyFunction {
                     +" terms but "+coeffs.size()+" coefficients");
         }
         
-        for(int termNum=0; termNum<terms.size(); termNum++){
-            double termE = terms.get(termNum).getEnergy();
-            E += coeffs.get(termNum)*termE;
+        if(NUM_THREADS == 1) {
+                for(int termNum=0; termNum<terms.size(); termNum++){
+                        double termE = terms.get(termNum).getEnergy();
+                        E += coeffs.get(termNum)*termE;
+                }
+        } else {
+                indexes.parallelStream().forEach((term) -> partialE.set(term, terms.get(term).getEnergy()*coeffs.get(term)));
+                for(int term = 0; term < indexes.size(); ++term) E += partialE.get(term);
         }
         
 
@@ -66,5 +94,10 @@ public class MultiTermEnergyFunction implements EnergyFunction {
         return terms;
     }
 
+    public ArrayList<Double> getCoeffs() {
+        return coeffs;
+    }
+    
+    
 }
 

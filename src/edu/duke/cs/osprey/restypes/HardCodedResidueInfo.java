@@ -25,11 +25,21 @@ public class HardCodedResidueInfo {
      */
     
     
+    public static String[] possibleBBAtoms = new String[] {
+        "N", "H", "CA", "C", "O", "OXT", "H1", "H2", "H3"
+    };
+    //BB atoms, which should stay still in mutations and should be moved in perturbations.
+    //We'll move HA with the sidechain, so it's not included here.  
     
     public static LinkedHashMap<String,String> three2one = null;
+    public static LinkedHashMap<String,String> one2three = null;//reverse lookup
 
     static {
         initThree2One();
+        
+        one2three = new LinkedHashMap<String,String>();
+        for(String threeLet : three2one.keySet())
+            one2three.put(three2one.get(threeLet), threeLet);
     }
     
     
@@ -63,9 +73,9 @@ public class HardCodedResidueInfo {
                     res = "X";
             return res;
     }
-        
-        
-        
+    
+    
+
     //Here's some stuff we need to mutate amino acid protein residues
     public static boolean canMutateTo(ResidueTemplate templ){
         //do we currently support mutations to the given amino-acid type?
@@ -73,31 +83,28 @@ public class HardCodedResidueInfo {
             return false;
         if(!hasAminoAcidBB(templ.templateRes))
             return false;
-        if(templ.name.equalsIgnoreCase("PRO"))//when we support this, will need to treat CD as backbone, then re-idealize the ring
-            return false;
         
         return true;//can currently mutate to any amino acid (D or L, naturally occurring sidechain or not) 
         //whose sidechain attaches only to CA and for which we have template coords
     }
     
     
-    public static ArrayList<String> listBBAtomsForMut(ResidueTemplate templ){
-        //list the backbone atom names in the residue template
-        //(in the sense of atoms that don't move at all when we mutate)
+    public static ArrayList<String> listBBAtomsForMut(ResidueTemplate newTemplate, ResidueTemplate oldTemplate){
+        //list the backbone atom names shared between the residue templates
+        //(in the sense of atoms that don't move at all when we mutate--
+        //basically backbone atoms that are present both before and after the mutation)
         
-        if(!canMutateTo(templ))
-            throw new UnsupportedOperationException("ERROR: Can't currently mutate to "+templ.name);
-        
-        String[] possibleBBAtoms = new String[] {
-            "N", "H", "CA", "C", "O", "OXT", "H1", "H2", "H3"
-        };
-        //We'll move HA with the sidechain, so it's not included here.  
-                
+        if(!canMutateTo(newTemplate))
+            throw new UnsupportedOperationException("ERROR: Can't currently mutate to "+newTemplate.name);
+                        
         ArrayList<String> ans = new ArrayList<>();
         
         for(String atName : possibleBBAtoms){
-            if(templ.templateRes.getAtomIndexByName(atName) != -1)//atom name appears in template
-                ans.add(atName);
+            if(newTemplate.templateRes.getAtomIndexByName(atName) != -1){//atom name appears in first template
+                if(oldTemplate.templateRes.getAtomIndexByName(atName) != -1){
+                    ans.add(atName);
+                }
+            }
         }
         
         return ans;
@@ -115,46 +122,51 @@ public class HardCodedResidueInfo {
          * so order matters
          */
         
-        //look for standard BB atoms: N, CA, C, and CB (HA2 instead of CB for Gly)
-        //complain if can't find them
-        int N1 = template1.templateRes.getAtomIndexByName("N");
-        int CA1 = template1.templateRes.getAtomIndexByName("CA");
-        int C1 = template1.templateRes.getAtomIndexByName("C");
+        int mutAtoms1[] = getTemplateMutAtoms(template1);
+        int mutAtoms2[] = getTemplateMutAtoms(template2);
         
-        //just three atoms will do for now...they define a full coordinate system
-        /*
-        int CB1 = template1.templateRes.getAtomIndexByName("CB");
-        if(template1.name.equalsIgnoreCase("GLY"))
-            CB1 = template1.templateRes.getAtomIndexByName("HA2");
-         */
-        
-        int mutAtoms1[] = new int[] {CA1,N1,C1};//indices of atoms to align from first residue
-            
-        
-        int N2 = template2.templateRes.getAtomIndexByName("N");
-        int CA2 = template2.templateRes.getAtomIndexByName("CA");
-        int C2 = template2.templateRes.getAtomIndexByName("C");
-        
-        /*
-        int CB2 = template2.templateRes.getAtomIndexByName("CB");
-        if(template2.name.equalsIgnoreCase("GLY"))
-            CB2 = template2.templateRes.getAtomIndexByName("HA2");
-        */
-        
-        int mutAtoms2[] = new int[] {CA2,N2,C2};
-        
-        
-        for( int atNum : new int[] {N1,CA1,C1,N2,CA2,C2} ){
-            if(atNum==-1){//some atom(s) not found
-                throw new UnsupportedOperationException("ERROR: Mutation from "
-                        +template1.name+" to "+template2.name+" not supported yet");
+        if(template1.name.equalsIgnoreCase("PRO") || template2.name.equalsIgnoreCase("PRO")){
+            mutAtoms1 = getTemplateProMutAtoms(template1);
+            mutAtoms2 = getTemplateProMutAtoms(template2);
+        }
+                
+        for(int ma[] : new int[][] {mutAtoms1,mutAtoms2} ){
+            for( int atNum : ma ){
+                if(atNum==-1){//some atom(s) not found
+                    throw new UnsupportedOperationException("ERROR: Mutation from "
+                            +template1.name+" to "+template2.name+" not supported yet");
+                }
             }
         }
         
         return new int[][] {mutAtoms1,mutAtoms2};
     }
             
-   
+    private static int[] getTemplateMutAtoms(ResidueTemplate template){
+        //Get atoms to use for alignment
+        int N = template.templateRes.getAtomIndexByName("N");
+        int CA = template.templateRes.getAtomIndexByName("CA");
+        int C = template.templateRes.getAtomIndexByName("C");
+        
+        return new int[] {CA,N,C};
+    }
+    
+    //If mutating to or from PRO need to make sure CD is aligned to H (its non-Pro equivalent)
+    //C and O will be OK...they are copied exactly
+    private static int[] getTemplateProMutAtoms(ResidueTemplate template){
+        //Get atoms to use for alignment
+        int N = template.templateRes.getAtomIndexByName("N");
+        int CA = template.templateRes.getAtomIndexByName("CA");
+        
+        if(template.name.equalsIgnoreCase("PRO")){//the PRO itself...use CD
+            int CD = template.templateRes.getAtomIndexByName("CD");
+            return new int[] {CA,N,CD};
+        }
+        else {//get H to align to CD
+            int H = template.templateRes.getAtomIndexByName("H");
+            return new int[] {CA,N,H};
+        }
+    }
     
     
     //The following functions are intended to mark inter-residue bonds between amino acids

@@ -25,7 +25,7 @@ public class RotamerLibraryReader implements Serializable {
 	
 	//Read in all of the rotamers for all amino acids from the rotFilename file
         //into the ResidueTemplateLibrary
-	public static void readRotLibrary(String rotFilename, ResidueTemplateLibrary templateLib) {
+	public static void readRotLibrary(String rotFilename, GenericResidueTemplateLibrary templateLib) {
             
             try {
                 
@@ -222,7 +222,7 @@ public class RotamerLibraryReader implements Serializable {
 	 *    the template library templateLib. 
 	 *  @param templateLib The library of residue templates.
 	 */
-	public static void readDunbrackRotamerLibraryForResiduePosition(String rotFilename, ResidueTemplateLibrary templateLib){
+	public static void readDunbrackRotamerLibraryForResiduePosition(String rotFilename, GenericResidueTemplateLibrary templateLib){
 
 		// Dunbrack has rotamers in increments of 10 for phi and psi.
 		double dunbrackResolution = 10;
@@ -314,6 +314,9 @@ public class RotamerLibraryReader implements Serializable {
         			double rotamers [][] = (allDunbrackRotamersMap.get(myTemplate.name)).rotamersForType[phiBin][psiBin].convertRotamersToArray();
         			myTemplate.setRotamericDihedrals(rotamers, phiBin, psiBin); 
         			myTemplate.setNumRotamers(rotamers.length, phiBin, psiBin);
+        			if(rotamers.length > 0 ){
+        				myTemplate.setNumDihedrals(rotamers[0].length);
+        			}
             	}
         	}
         	

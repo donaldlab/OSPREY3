@@ -5,6 +5,7 @@
 package edu.duke.cs.osprey.energy.forcefield;
 
 import edu.duke.cs.osprey.control.EnvironmentVars;
+import edu.duke.cs.osprey.restypes.DAminoAcidHandler;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.tools.StringParsing;
 import java.io.BufferedReader;
@@ -191,7 +192,11 @@ public class EEF1 implements Serializable {
 		
 		String elementType = at1.elementType;
 		String AAname = at1.res.template.name; //the AA name to which this atom belongs
-		boolean aromatic = isAromatic(at1);
+		
+                if(DAminoAcidHandler.isDAminoAcidName(AAname))
+                    AAname = DAminoAcidHandler.getLEquivalent(AAname);//look up parameters by L-amino acid name (has same energetics)
+                
+                boolean aromatic = isAromatic(at1);
 		int numBoundH = getNumBoundH(at1);
 		
 		if (elementType.equalsIgnoreCase("C")) {
@@ -329,6 +334,10 @@ public class EEF1 implements Serializable {
 		
 		String AAname = at1.res.template.name; //the AA name of the residue to which this atom belongs
 		
+                if(DAminoAcidHandler.isDAminoAcidName(AAname))
+                    AAname = DAminoAcidHandler.getLEquivalent(AAname);//look up parameters by L-amino acid name (has same energetics)
+
+                
 		boolean isHis = (AAname.equalsIgnoreCase("HIS") || AAname.equalsIgnoreCase("HIP") || AAname.equalsIgnoreCase("HID") || AAname.equalsIgnoreCase("HIE"));
 		
 		if ( !(AAname.equalsIgnoreCase("PHE") || AAname.equalsIgnoreCase("TYR") 

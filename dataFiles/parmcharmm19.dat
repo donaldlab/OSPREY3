@@ -67,6 +67,7 @@ HC-NC2 405 1.00
 HT-OT 450 0.9572
 OC-S 400 1.43
 S -S 500 2.02
+C3 -HA 322 1.11  ! inferred from http://dogmans.umaryland.edu/~kenno/tutorial/par_all36_cgenff.prm because we needed a C-H distance
 
 C -C -C  70 106.5
 C -C -C2 65 126.5

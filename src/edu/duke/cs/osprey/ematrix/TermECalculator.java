@@ -11,6 +11,7 @@ import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
+import edu.duke.cs.osprey.ematrix.epic.EPICEnergyFunction;
 import edu.duke.cs.osprey.ematrix.epic.EPICFitter;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.ematrix.epic.EPoly;
@@ -51,6 +52,7 @@ public class TermECalculator implements MPISlaveTask {
     
     EPICSettings epicSettings = null;//needed if doing EPIC
     
+    boolean addResEntropy;//add residue entropy to one-body energies
     
     //We'll be calculating either one-body or pairwise energies
     //as either scalar or EPIC energies
@@ -62,7 +64,8 @@ public class TermECalculator implements MPISlaveTask {
     
     
     public TermECalculator(ConfSpace s, ArrayList<Residue> shellResidues, 
-            boolean doEPIC, boolean doIntra, PruningMatrix prm, EPICSettings es, int... resToCalc){
+            boolean doEPIC, boolean doIntra, PruningMatrix prm, EPICSettings es, 
+            boolean addResEnt, int... resToCalc){
         
         confSpace = s;
         doingEPIC = doEPIC;
@@ -70,6 +73,7 @@ public class TermECalculator implements MPISlaveTask {
         res = resToCalc;
         pruneMat = prm;
         epicSettings = es;
+        addResEntropy = addResEnt;
         
         Residue firstRes = confSpace.posFlex.get(res[0]).res;
         
@@ -156,10 +160,19 @@ public class TermECalculator implements MPISlaveTask {
         //store it in our list of results
 
         boolean skipTuple = false;
-        double minEnergy = 0;//rigid or voxel-minimum energy
+        double minEnergy = Double.POSITIVE_INFINITY;//rigid or voxel-minimum energy
         EPoly EPICFit = null;//can use null poly for pruned term
         
-        if(pruneMat!=null){
+        if(RCs.pos.size()==2){//pair: need to check for parametric incompatibility
+            //If there are DOFs spanning multiple residues, then parametric incompatibility
+            //is whether the pair is mathematically possible (i.e. has a well-defined voxel)
+            RC rc1 = confSpace.posFlex.get( RCs.pos.get(0) ).RCs.get( RCs.RCs.get(0) );
+            RC rc2 = confSpace.posFlex.get( RCs.pos.get(1) ).RCs.get( RCs.RCs.get(1) );
+            if(rc1.isParametricallyIncompatibleWith(rc2)){
+                skipTuple = true;
+            }
+        }
+        if( (pruneMat!=null) && (!skipTuple) ){
             if(pruneMat.isPruned(RCs))
                 skipTuple = true;
         }
@@ -190,8 +203,12 @@ public class TermECalculator implements MPISlaveTask {
             
             if(doingEPIC)
                 oneBodyPoly.add(EPICFit);
-            else
+            else{
+                if(addResEntropy)
+                    minEnergy += getResEntropy(RCs);
+                
                 oneBodyE.add(minEnergy);
+            }
         }
         else if ( numBodies == 2 ) {//pairwise term
             
@@ -217,6 +234,16 @@ public class TermECalculator implements MPISlaveTask {
     }
     
     
+    double getResEntropy(RCTuple RCs){
+        //Given a singleton RC tuple, return the residue entropy for its amino acid type
+        if( RCs.pos.size() != 1 ){
+            throw new RuntimeException("ERROR: Trying to get res entropy for non-singleton RC"
+                    + " tuple "+RCs.stringListing());
+        }
+        
+        double resEntropy = confSpace.getRCResEntropy( RCs.pos.get(0), RCs.RCs.get(0) );
+        return resEntropy;
+    }
     
     
     private EPoly compEPICFit ( MolecEObjFunction mof, double minEnergy, 
@@ -246,7 +273,7 @@ public class TermECalculator implements MPISlaveTask {
                         curSeries = fitter.doFit(curFitParams);
                     }
                     catch(Exception e){//sometimes singular matrices will arise during fitting
-                        //if so we skip that order.  More SVE etc. might help
+                        //if so we skip that order.  More SAPE etc. might help
                         System.err.println("Fit failed: "+e.getMessage());
                         e.printStackTrace();
                         series.add(null);
@@ -264,11 +291,18 @@ public class TermECalculator implements MPISlaveTask {
                         fitter.PCTemplate = curSeries;
                     
                     if(meanResid<bestResid){
-                        bestResid = meanResid;
-                        bestBound = boundCount;
+                        if(checkStaysPositive(curSeries, mof)){
+                            bestResid = meanResid;
+                            bestBound = boundCount;
+                        }
                     }
                     
                     curFitParams = fitter.raiseFitOrder(curFitParams);
+                }
+                
+                if(bestBound==-1){
+                    throw new RuntimeException("ERROR: No EPIC fit found without serious errors"
+                            + " (e.g. significant error at minimum)");
                 }
                 
                 if(bestResid > epicSettings.EPICGoalResid){
@@ -276,58 +310,7 @@ public class TermECalculator implements MPISlaveTask {
                 }
                 System.out.println("Best residual: "+bestResid+" for bound number "+bestBound);
 
-
-
-                int numDOFs = fitter.numDOFs;
-
-                //TESTING FITS
-                System.out.println("RCs: "+RCList.stringListing());
-                System.out.println("Minimum energy: "+minEnergy);
-
-                double testScales[] = new double[] { 0.01, 0.5, 5, 100 };//100
-                int samplesPerScale = 3;
-
-
-
-                double relMax[] = new double[numDOFs];//maximum shifts of degrees of freedom relative to minimum point (startVec)
-                double relMin[] = new double[numDOFs];
-                DoubleMatrix1D constr[] = mof.getConstraints();
-                for(int dof=0; dof<numDOFs; dof++){
-                    relMax[dof] = constr[1].get(dof) - bestDOFVals.get(dof);
-                    relMin[dof] = constr[0].get(dof) - bestDOFVals.get(dof);
-                }
-
-
-                for(double scale : testScales){
-                    for(int s=0; s<samplesPerScale; s++){
-
-                        //Generate vector relative to minimum
-                        double dx[] = new double[numDOFs];
-                        //and absolute
-                        DoubleMatrix1D sampAbs = DoubleFactory1D.dense.make(numDOFs);
-                        for(int dof=0; dof<numDOFs; dof++){
-                            double top = Math.min(relMax[dof], scale);
-                            double bottom = Math.max(relMin[dof], -scale);
-                            dx[dof] = bottom + Math.random()*(top-bottom);
-                            sampAbs.set(dof, bestDOFVals.get(dof)+dx[dof]);
-                        }
-
-                        double trueVal = mof.getValue(sampAbs) - minEnergy;
-
-                        System.out.print("TEST: scale="+scale+" dx=");
-                        for(int dof=0; dof<numDOFs; dof++)
-                            System.out.print(dx[dof]+" ");
-
-                        System.out.print("TRUE="+trueVal+" FIT=");
-
-                        for(EPoly b : series){
-                            if(b!=null)
-                                System.out.print(b.evaluate(sampAbs,false,false)+" ");
-                        }
-
-                        System.out.println();
-                    }
-                }
+                printFitTests(fitter, RCList, minEnergy, mof, bestDOFVals, series);
 
                 bestFit = series.get(bestBound);
             }
@@ -337,6 +320,100 @@ public class TermECalculator implements MPISlaveTask {
             bestFit.setMinE(minEnergy);
             
             return bestFit;
+    }
+    
+    
+    private void printFitTests(EPICFitter fitter, RCTuple RCList, double minEnergy,
+            MolecEObjFunction mof, DoubleMatrix1D bestDOFVals, ArrayList<EPoly> series){
+        //Do some tests on fit performance, and print the results
+        int numDOFs = fitter.numDOFs;
+
+        //TESTING FITS
+        System.out.println("RCs: "+RCList.stringListing());
+        System.out.println("Minimum energy: "+minEnergy);
+
+        double testScales[] = new double[] { 0.01, 0.5, 5, 100 };//100
+        int samplesPerScale = 3;
+
+
+
+        double relMax[] = new double[numDOFs];//maximum shifts of degrees of freedom relative to minimum point (startVec)
+        double relMin[] = new double[numDOFs];
+        DoubleMatrix1D constr[] = mof.getConstraints();
+        for(int dof=0; dof<numDOFs; dof++){
+            relMax[dof] = constr[1].get(dof) - bestDOFVals.get(dof);
+            relMin[dof] = constr[0].get(dof) - bestDOFVals.get(dof);
+        }
+
+
+        for(double scale : testScales){
+            for(int s=0; s<samplesPerScale; s++){
+
+                //Generate vector relative to minimum
+                double dx[] = new double[numDOFs];
+                //and absolute
+                DoubleMatrix1D sampAbs = DoubleFactory1D.dense.make(numDOFs);
+                for(int dof=0; dof<numDOFs; dof++){
+                    double top = Math.min(relMax[dof], scale);
+                    double bottom = Math.max(relMin[dof], -scale);
+                    dx[dof] = bottom + Math.random()*(top-bottom);
+                    sampAbs.set(dof, bestDOFVals.get(dof)+dx[dof]);
+                }
+
+                double trueVal = mof.getValue(sampAbs) - minEnergy;
+
+                System.out.print("TEST: scale="+scale+" dx=");
+                for(int dof=0; dof<numDOFs; dof++)
+                    System.out.print(dx[dof]+" ");
+
+                System.out.print("TRUE="+trueVal+" FIT=");
+
+                for(EPoly b : series){
+                    if(b!=null)
+                        System.out.print(b.evaluate(sampAbs,false,false)+" ");
+                }
+
+                System.out.println();
+            }
+        }
+    }
+    
+    
+    
+    private boolean checkStaysPositive(EPoly term, MolecEObjFunction mof){
+        //Check, by minimization, that this EPIC term doesn't go too far negative
+        //mof defines the voxel for the term conveniently
+        
+        ArrayList<EPoly> termList = new ArrayList<>();
+        termList.add(term);
+        EPICEnergyFunction epicEF = new EPICEnergyFunction(termList);
+        
+        MolecEObjFunction ofEPIC = new MolecEObjFunction( epicEF, mof.getConstraints(),
+                mof.getMolec(), mof.getDOFs() );
+        
+        CCDMinimizer emin = new CCDMinimizer(ofEPIC, true);
+        DoubleMatrix1D lowPoint = emin.minimize();
+        
+        //energies will be relative to the voxel center energy (from the initial minimization)
+        double lowPointTrueE = mof.getValue(lowPoint) - term.getMinE();
+        double lowPointEPICE = ofEPIC.getValue(lowPoint);
+        
+        
+        double tol = 0.1;//we'll only consider this a problem if the minimum
+        //(where EPIC should be pretty accurate) is well below the actual minimum
+        if(lowPointEPICE < lowPointTrueE - tol){
+            System.out.println("Rejecting fit because of low minimum for EPIC term, "
+                    +lowPointEPICE+".  Corresponding true E: "+lowPointTrueE);
+            return false;
+        }
+        
+        //But let's warn if the minimum is low in absolute terms
+        if(lowPointEPICE < -tol){
+            System.out.println("Warning: low minimum for EPIC term, "
+                    +lowPointEPICE+".  Corresponding true E: "+lowPointTrueE);
+        }
+        
+        return true;
     }
     
 }

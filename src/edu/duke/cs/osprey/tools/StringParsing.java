@@ -4,6 +4,7 @@
  */
 package edu.duke.cs.osprey.tools;
 
+import java.util.ArrayList;
 import java.util.StringTokenizer;
 
 /**
@@ -36,5 +37,16 @@ public class StringParsing {
 		return(new String(""));
 
 	} // end getToken
+        
+        
+        public static boolean containsIgnoreCase(ArrayList<String> list, String s){
+            //Does list contain s, ignoring case?
+            for(String a : list){
+                if(a.equalsIgnoreCase(s))
+                    return true;
+            }
+            
+            return false;
+        }
     
 }

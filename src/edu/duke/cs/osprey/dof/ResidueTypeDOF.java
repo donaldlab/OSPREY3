@@ -5,9 +5,10 @@
 package edu.duke.cs.osprey.dof;
 
 import edu.duke.cs.osprey.control.EnvironmentVars;
+import edu.duke.cs.osprey.dof.deeper.SidechainIdealizer;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
-import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
+import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.RigidBodyMotion;
@@ -33,10 +34,10 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
     public void mutateTo(String resType) {
         //paramVal is the index in the ResidueTemplateLibrary of the new parameter type
         //so it must be an integer...
-        ResidueTemplateLibrary templateLib = EnvironmentVars.resTemplates;
+        GenericResidueTemplateLibrary templateLib = EnvironmentVars.resTemplates;
         
         ResidueTemplate oldTemplate = res.template;
-        ResidueTemplate newTemplate = templateLib.getTemplateForMutation(resType,res);
+        ResidueTemplate newTemplate = templateLib.getTemplateForMutation(resType,res,true);
         
         //the residue's going to change some, so break its inter-residue bonds
         res.removeInterResBonds();
@@ -68,9 +69,9 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
         templMotion.transform(newCoords);
         
         //the backbone atoms will be kept exactly as before the mutation
-        //if the sidechain attaches only to the first mutAlignAtoms, this method keeps bond lengths
+        //if the sidechain attaches only to the first mutAlignAtom, this method keeps bond lengths
         //exactly as in the template for sidechain, and as in the old backbone otherwise
-        ArrayList<String> BBAtomNames =  HardCodedResidueInfo.listBBAtomsForMut(newTemplate);
+        ArrayList<String> BBAtomNames =  HardCodedResidueInfo.listBBAtomsForMut(newTemplate,oldTemplate);
         for(String BBAtomName : BBAtomNames){
             int BBAtomIndexOld = oldTemplate.templateRes.getAtomIndexByName(BBAtomName);
             int BBAtomIndexNew = newTemplate.templateRes.getAtomIndexByName(BBAtomName);
@@ -93,6 +94,19 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
         //reconnect all bonds
         res.markIntraResBondsByTemplate();
         HardCodedResidueInfo.reconnectInterResBonds(res);
+        
+        //special case if sidechain loops back in additional place to backbone...
+        if(oldTemplate.name.equalsIgnoreCase("PRO") || newTemplate.name.equalsIgnoreCase("PRO")){
+            SidechainIdealizer.idealizeSidechain(res);
+            if(!newTemplate.name.equalsIgnoreCase("PRO")){//if mutating from Pro, no ring closure issues possible anymore
+                if(res.pucker!=null){
+                    if(res.pucker.puckerProblem != null){
+                        res.pucker.puckerProblem.removeFromRes();
+                        res.pucker.puckerProblem = null;
+                    }
+                }
+            }
+        }
     }
     
     

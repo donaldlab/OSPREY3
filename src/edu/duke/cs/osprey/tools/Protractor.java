@@ -20,7 +20,7 @@ public class Protractor {
     //Measure angles
     
     
-    
+
     public static double getAngleRadians(double vec1[], double vec2[]){//Get the angle, in radians, between two vectors
 
         double costh = dot(vec1,vec2) / ( norm(vec1) * norm(vec2) );
@@ -32,6 +32,11 @@ public class Protractor {
         return (double) Math.acos( costh );
     }
 
+    
+    public static double getAngleDegrees(double A[], double B[], double C[]){
+        return 180. * getAngleRadians(A,B,C) / Math.PI;
+    }
+    
     public static double getAngleRadians(double A[], double B[], double C[]){//Get the angle ABC
         double BA[] = subtract(A,B);
         double BC[] = subtract(C,B);
@@ -156,9 +161,9 @@ public class Protractor {
         double ans[] = new double[2];
 
         //Get coordinates of relevant atoms
-        //return null (undefined) if can't find one or more atoms
+        //return nan (undefined) if can't find one or more atoms
         if(res.indexInMolecule==0 || res.indexInMolecule==res.molec.residues.size()-1)//first or last res
-            return null;
+            return new double[] {Double.NaN, Double.NaN};
 
         Residue prevRes = res.molec.residues.get(res.indexInMolecule-1);
         Residue nextRes = res.molec.residues.get(res.indexInMolecule+1);
@@ -171,7 +176,7 @@ public class Protractor {
         double[] NNext = nextRes.getCoordsByAtomName("N");
 
         if ( CLast==null || NCur==null || CACur==null || CCur==null || NNext==null )
-            return null;//atom not found
+            return new double[] {Double.NaN, Double.NaN};//atom not found
 
         ans[0] = Protractor.measureDihedral( new double[][] {CLast,NCur,CACur,CCur} );//phi
         ans[1] = Protractor.measureDihedral( new double[][] {NCur,CACur,CCur,NNext} );//psi

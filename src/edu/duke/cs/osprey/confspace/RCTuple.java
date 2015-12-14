@@ -104,4 +104,30 @@ public class RCTuple implements Serializable {
     }
     
     
+    public RCTuple subtractMember(int index){
+        //Make a copy of this RCTuple with the given member removed
+        //index is an index in pos and RCs
+        ArrayList<Integer> newPos = new ArrayList<>();
+        ArrayList<Integer> newRCs = new ArrayList<>();
+        
+        for(int ind=0; ind<pos.size(); ind++){
+            if(ind!=index){
+                newPos.add(pos.get(ind));
+                newRCs.add(RCs.get(ind));
+            }
+        }
+        
+        return new RCTuple(newPos,newRCs);
+    }
+    
+    public RCTuple addRC(int addedPos, int addedRC){
+        //Make a copy of this RCTuple with (addPos,addRC) added
+        ArrayList<Integer> newPos = (ArrayList<Integer>) pos.clone();
+        ArrayList<Integer> newRCs = (ArrayList<Integer>) RCs.clone();
+        
+        newPos.add(addedPos);
+        newRCs.add(addedRC);
+        
+        return new RCTuple(newPos,newRCs);
+    }
 }

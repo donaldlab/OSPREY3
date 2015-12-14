@@ -560,12 +560,18 @@ public class EPICFitter {
         
         if(es.useSAPE){
             //we try SVE fits after non-PC, polynomial-only fits of the same order
-            if(fp.SAPECutoff==0 && fp.order>=fp.PCOrder){
+            
+            //TRYING A NEW STRATEGY FOR SAPE
+            //should be more efficient and have less failures
+            return raiseFitOrderSAPEHeavy(fp);
+            
+            
+            /*if(fp.SAPECutoff==0 && fp.order>=fp.PCOrder){
                 double cutoff = 3;
                 if(fp.order>2)//4 or 6
                     cutoff = 4;
                 return new FitParams(numDOFs,fp.order,0,fp.order,false,cutoff);
-            }
+            }*/
         }
                 
         
@@ -588,6 +594,42 @@ public class EPICFitter {
             return new FitParams(numDOFs,fp.order+2,0,fp.order+2,false,0);
     }
     
+    
+    
+    public FitParams raiseFitOrderSAPEHeavy(FitParams fp){
+        //This strategy is based on the observation that 
+        //EPIC w/ SAPE improves the most upon raising the SAPE cutoff (to 3 or 4)
+        //Also hexic polynomial fits often have numerical problems
+        //So we'll try quadratic fits with SAPE cutoffs 0, 3, or 4
+        //then we'll go to quartic (still cutoff = 4), and from then on
+        //raise the cutoff (eventually this should include almost all atom-pair interactions
+        //and thus work well)
+        
+        if(fp.PCOrder>fp.order)
+            throw new RuntimeException("ERROR: SAPE-heavy EPIC fit selection shouldn't have principal components");
+        
+        if(fp.order == 2){//quadratic 
+            if(fp.SAPECutoff == 0)
+                return new FitParams(numDOFs,2,0,2,false,3);
+            if(fp.SAPECutoff == 3)
+                return new FitParams(numDOFs,2,0,2,false,4);
+            if(fp.SAPECutoff == 4)//raise to quartic
+                return new FitParams(numDOFs,4,0,4,false,4);
+        }
+        
+        if(fp.order == 4){//quartic 
+            if(fp.SAPECutoff == 4)
+                return new FitParams(numDOFs,4,0,4,false,5);
+            if(fp.SAPECutoff == 5)
+                return new FitParams(numDOFs,4,0,4,false,7);
+            if(fp.SAPECutoff == 7)
+                return new FitParams(numDOFs,4,0,4,false,10);
+            if(fp.SAPECutoff == 10)//give up.  This would be weird--what could be going on at this distance?
+                return null;
+        }
+        
+        throw new RuntimeException("ERROR: SAPE-heavy EPIC fit selection shouldn't have this fit order: "+fp.getDescription());
+    }
     
     
     public EPoly blank(){
