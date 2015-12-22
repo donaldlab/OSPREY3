@@ -98,7 +98,7 @@ public class KaDEEFinder {
      */
     void doKaDEE() {
         double curInterval = I0;//For iMinDEE.  curInterval will need to be an upper bound
-        this.searchSpaces = cfp.getSearchProblemSupers();
+        this.searchSpaces = cfp.getMSDSearchProblemSupers();
         
         if (true) {
             //COMETSTreeSuper tree = setupCometsTree();
@@ -425,7 +425,7 @@ public class KaDEEFinder {
         ArrayList<ArrayList<String>> AATypeOptions = handleAATypeOptions(mutableStateAllowedAAs);
         LME objFcn = new LME(new double[]{1, -1}, 0.0, 2);
         
-        int numConstr = cfp.params.getInt("NUMCONSTR", -1);
+        int numConstr = cfp.params.getInt("NUMCONSTR", 0);
         LME[] constraints = new LME[numConstr];
         for (int constr=0; constr<numConstr; constr++){
             constraints[constr] = new LME( cfp.params.getValue("CONSTR"+constr), numStatesForCOMETS);
@@ -441,7 +441,7 @@ public class KaDEEFinder {
             ArrayList<Integer> converted = new ArrayList(mutable2PosNum);
             mutableState2StatePosNum.add(converted);
         }
-        iMinMSDTree tree = new iMinMSDTree(numTreeLevels, objFcn, constraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, nonMutableState, mutableState2StatePosNum);
+        iMinMSDTree tree = new iMinMSDTree(numTreeLevels, objFcn, constraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, nonMutableState, mutableState2StatePosNum, this.cfp);
         return tree;
     }
 

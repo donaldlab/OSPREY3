@@ -51,7 +51,7 @@ public class PositionConfSpace implements Serializable {
     public PositionConfSpace(Residue res, ArrayList<DegreeOfFreedom> resDOFs, ArrayList<String> allowedAAs, 
             boolean contSCFlex, ArrayList<DegreeOfFreedom> strandDOFs, 
             ArrayList<Perturbation> perts, ArrayList<ArrayList<double[]>> pertIntervals, 
-            ArrayList<ArrayList<int[]>> pertStates, BBFreeBlock bfb, boolean useEllipses ) {
+            ArrayList<ArrayList<int[]>> pertStates, BBFreeBlock bfb, boolean useEllipses, boolean addWTRots ) {
         
         //We'll start with just one RC for each rotamer
         //But in general there are a lot of options for RCs...
@@ -67,8 +67,7 @@ public class PositionConfSpace implements Serializable {
         }
         
         // PGC 2015: Add wildtype rotamers.
-        
-        if(true){
+        if(addWTRots){
         	int wtRot_Ix = -1;        	
 	        double wtRotDihs[] =  res.getCurrentRotamerDihedrals();
 	        int numDihedrals = wtRotDihs.length;

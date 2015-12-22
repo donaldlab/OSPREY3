@@ -63,7 +63,7 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
             }
         }
     }
-
+    
     public PruningMatrix(int numPos, int[] numRCsAtPos, double pruningInterval) {
         super(numPos, numRCsAtPos, pruningInterval, false);
         for (ArrayList<Boolean> oneBodyAtPos : oneBody) {
@@ -78,7 +78,12 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
             }
         }
     }
-
+    
+    //HMN
+    public PruningMatrix(TupleMatrix<Boolean> tupMat){
+        super(tupMat);
+    }
+    
     public ArrayList<Integer> unprunedRCsAtPos(int pos) {
         //which RCs at the given position are unpruned?
         //Return index of the RCs within the position

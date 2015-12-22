@@ -42,6 +42,7 @@ public class EnergyMatrixCalculator {
     private EnergyMatrix emat = null;
     private EPICMatrix epicMat = null;
 
+    boolean templateAlwaysOn = false;
     //constructor for calculating a scalar energy matrix (rigid or pairwise lower bounds)
     public EnergyMatrixCalculator(ConfSpace s, ArrayList<Residue> sr, boolean useERef) {
         searchSpace = s;
@@ -138,7 +139,7 @@ public class EnergyMatrixCalculator {
             System.out.println("Starting one-body calculation for position " + pos1);
 
             TermECalculatorSuper oneBodyECalc = new TermECalculatorSuper(searchSpaceSuper, shellResidues,
-                    doEPIC, false, pruneMat, epicSettings, pos1);
+                    doEPIC, false, pruneMat, epicSettings, templateAlwaysOn, pos1);
             Object oneBodyE = oneBodyECalc.doCalculation();
             storeEnergy(oneBodyE, pos1);
 
@@ -147,14 +148,14 @@ public class EnergyMatrixCalculator {
                 System.out.println("Starting two-body calculation for positions " + pos1 + ", " + pos2);
 
                 TermECalculatorSuper twoBodyECalc = new TermECalculatorSuper(searchSpaceSuper, shellResidues,
-                        doEPIC, false, pruneMat, epicSettings, pos1, pos2);
+                        doEPIC, false, pruneMat, epicSettings, templateAlwaysOn, pos1, pos2);
                 Object twoBodyE = twoBodyECalc.doCalculation();
                 storeEnergy(twoBodyE, pos1, pos2);
             }
         }
         //compute Shell-ShellE
         System.out.println("Starting shell-shell calculation");
-        TermECalculatorSuper shellECalc = new TermECalculatorSuper(searchSpaceSuper, shellResidues, doEPIC, doEPIC, pruneMat, epicSettings);
+        TermECalculatorSuper shellECalc = new TermECalculatorSuper(searchSpaceSuper, shellResidues, doEPIC, doEPIC, pruneMat, epicSettings, templateAlwaysOn);
         Object shellE = shellECalc.doCalculation();
         storeEnergy(shellE);
     }
@@ -173,7 +174,7 @@ public class EnergyMatrixCalculator {
         this.pruneMat = aPruneMat;
         for (int pos = 0; pos < searchSpaceSuper.numPos; pos++) {
             if (boundPosNUmToIsLigand.get(pos)) {
-                TermECalculatorSuper oneBodyECalc = new TermECalculatorSuper(searchSpaceSuper, shellResidues, doEPIC, false, pruneMat, epicSettings, pos);
+                TermECalculatorSuper oneBodyECalc = new TermECalculatorSuper(searchSpaceSuper, shellResidues, doEPIC, false, pruneMat, epicSettings, templateAlwaysOn, pos);
                 Object oneBodyE = oneBodyECalc.doCalculation();
                 storeEnergy(oneBodyE, pos);
             }
@@ -225,25 +226,25 @@ public class EnergyMatrixCalculator {
 
         //generate TermMinECalc objects, in the same order as for local calculation,
         //but this time pass them off to MPI
-        for (int pos1 = 0; pos1 < searchSpace.numPos; pos1++) {
+        for (int pos1 = 0; pos1 < searchSpaceSuper.numPos; pos1++) {
 
             tasks.add(new TermECalculatorSuper(searchSpaceSuper, shellResidues, doEPIC, false,
-                    pruneMat, epicSettings, pos1));
+                    pruneMat, epicSettings, templateAlwaysOn, pos1));
 
             for (int pos2 = 0; pos2 < pos1; pos2++) {
                 tasks.add(new TermECalculatorSuper(searchSpaceSuper, shellResidues, doEPIC, false,
-                        pruneMat, epicSettings, pos1, pos2));
+                        pruneMat, epicSettings, templateAlwaysOn, pos1, pos2));
             }
         }
         //compute Shell-ShellE
-        tasks.add(new TermECalculatorSuper(searchSpaceSuper, shellResidues, doEPIC, doEPIC, pruneMat, epicSettings));
+        tasks.add(new TermECalculatorSuper(searchSpaceSuper, shellResidues, doEPIC, doEPIC, pruneMat, epicSettings, templateAlwaysOn));
 
         ArrayList<Object> calcResults = mm.handleTasks(tasks);
 
         //Now go through our task results in the same order and put the energies in our matrix
         int resultCount = 0;
 
-        for (int pos1 = 0; pos1 < searchSpace.numPos; pos1++) {
+        for (int pos1 = 0; pos1 < searchSpaceSuper.numPos; pos1++) {
 
             storeEnergy(calcResults.get(resultCount), pos1);
             resultCount++;

@@ -55,7 +55,8 @@ public class PositionConfSpaceSuper extends PositionConfSpace {
             ArrayList<ArrayList<double[]>> pertIntervals,
             ArrayList<ArrayList<ArrayList<int[]>>> pertStatesList,//perRes
             ArrayList<BBFreeBlock> bfbList,//perRes
-            boolean useEllipses) {
+            boolean useEllipses,
+            boolean addWTRots) {
 
         this.resList = resList;
         this.DOFIndices = DOFIndices;
@@ -70,7 +71,7 @@ public class PositionConfSpaceSuper extends PositionConfSpace {
             ArrayList<ArrayList<int[]>> pertStates = pertStatesList.get(resIndex);
             BBFreeBlock bfb = bfbList.get(resIndex);
 
-            PositionConfSpace residueConfSpace = new PositionConfSpace(res, resDOFs, allowedAAs, contSCFlex, strandDOFs, perts, pertIntervals, pertStates, bfb, useEllipses);
+            PositionConfSpace residueConfSpace = new PositionConfSpace(res, resDOFs, allowedAAs, contSCFlex, strandDOFs, perts, pertIntervals, pertStates, bfb, useEllipses, addWTRots);
             positionConfSpacePerResidue.add(residueConfSpace);
             if (useEllipses) {
                 this.useEllipses = true;

@@ -4,7 +4,6 @@
  */
 package edu.duke.cs.osprey.control;
 
-import com.sun.org.apache.xalan.internal.xsltc.compiler.util.Type;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.SearchProblemSuper;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
@@ -17,9 +16,13 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningControlSuper;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.structure.PDBFileReader;
+import edu.duke.cs.osprey.structure.PDBFileWriter;
 import edu.duke.cs.osprey.tools.StringParsing;
+import java.io.File;
+import java.nio.file.Files;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.StringTokenizer;
 
 /**
@@ -250,6 +253,7 @@ public class ConfigFileParser {
         return new SearchProblem(name, params.getValue("PDBNAME"),
                 flexRes, allowedAAs,
                 params.getBool("AddWT", true),
+                params.getBool("AddWTRots", true),
                 params.getBool("doMinimize", false),
                 params.getBool("UseEPIC", false),
                 new EPICSettings(params),
@@ -281,6 +285,7 @@ public class ConfigFileParser {
         return new SearchProblemSuper(name, params.getValue("PDBNAME"),
                 flexRes, allowedAAs,
                 params.getBool("AddWT", true),
+                params.getBool("AddWTRots", true),
                 params.getBool("doMinimize", false),
                 params.getBool("UseEPIC", false),
                 new EPICSettings(params),
@@ -404,7 +409,7 @@ public class ConfigFileParser {
                 params.getDouble("STERICTHRESH", 100));//FOR NOW NO DACS
     }
 
-    PruningControlSuper setupPruning(SearchProblemSuper searchSpace, double pruningInterval, boolean useEPIC, boolean useTupExp) {
+    public PruningControlSuper setupPruning(SearchProblemSuper searchSpace, double pruningInterval, boolean useEPIC, boolean useTupExp) {
         //setup pruning.  Conformations in searchSpace more than (Ew+Ival) over the GMEC are liable to pruning
 
         //initialize the pruning matrix for searchSpace, if not already initialized
@@ -569,7 +574,7 @@ public class ConfigFileParser {
 
     //HMN: get search problems for classic multistate bound vs. unbound states
     ///Bound, unbound1, unbound2
-    SearchProblemSuper[] getSearchProblemSupers() {
+    SearchProblem[] getMSDSearchProblems() {
         String name = params.getValue("RUNNAME");
 
         //make sure we have two strands
@@ -641,54 +646,254 @@ public class ConfigFileParser {
         strand1Termini[0] = Integer.parseInt(params.getValue("STRAND1").split(" ")[0]);
         strand1Termini[1] = Integer.parseInt(params.getValue("STRAND1").split(" ")[1]);
 
-        int startResNumComplex = Math.min(strand0Termini[0], strand1Termini[0]);
-        int endResNumComplex = Math.max(strand0Termini[1], strand1Termini[1]);
 
-        SearchProblemSuper[] searchProblems = new SearchProblemSuper[3];
-        searchProblems[0] = new SearchProblemSuper(name + "_Bound", params.getValue("PDBNAME"),
+        SearchProblem[] searchProblems = new SearchProblem[3];
+        String pdbFile = params.getValue("PDBNAME");
+        String pdbName = pdbFile.split(".pdb")[0];
+
+        Molecule molComplex = PDBFileReader.readPDBFileBetweenTermini(pdbFile, strand0Termini[0], strand0Termini[1], strand1Termini[0], strand1Termini[1]);
+
+        //get current working directory and write out file
+        File cwdFile = new File("");
+        String cwd = cwdFile.getAbsolutePath() + "/";
+        String pdbComplex = pdbName + "_complex.pdb";
+        PDBFileWriter.writePDBFile(molComplex, pdbComplex);
+
+        searchProblems[0] = new SearchProblem(name + "_Bound", pdbComplex,
                 flexResBound, allowedAAsBound,
                 params.getBool("AddWT", true),
+                params.getBool("AddWTRots", true),
                 params.getBool("doMinimize", false),
                 params.getBool("UseEPIC", false),
                 new EPICSettings(params),
                 params.getBool("UseTupExp", false),
                 dsetBound, moveableStrandsBound, freeBBZonesBound,
                 params.getBool("useEllipses", false),
-                strand0Termini[0],
-                strand0Termini[1],
-                strand1Termini[0],
-                strand1Termini[1]
+                params.getBool("useERef", false)
         );
-        //Set shell residues from complex
-        ArrayList<Residue> complexShellRes = searchProblems[0].shellResidues;
-        searchProblems[1] = new SearchProblemSuper(name + "_Unbound0", params.getValue("PDBNAME"),
+        //Delete file 
+        File pdbComplexFile = new File(cwd + pdbComplex);
+        try {
+            pdbComplexFile.delete();
+        } catch (Exception e) {
+            System.out.println("File cannot be deleted");
+        }
+
+        Molecule molLigand = PDBFileReader.readPDBFileBetweenTermini(pdbFile, strand0Termini[0], strand0Termini[1]);
+        String pdbLigand = pdbName + "_ligand.pdb";
+        PDBFileWriter.writePDBFile(molLigand, pdbLigand);
+
+        searchProblems[1] = new SearchProblem(name + "_Ligand", params.getValue("PDBNAME"),
                 flexResUnbound0, allowedAAsUnbound0,
                 params.getBool("AddWT", true),
+                params.getBool("AddWTRots", true),
                 params.getBool("doMinimize", false),
                 params.getBool("UseEPIC", false),
                 new EPICSettings(params),
                 params.getBool("UseTupExp", false),
                 dsetUnbound0, moveableStrandsUnbound0, freeBBZonesUnbound0,
                 params.getBool("useEllipses", false),
-                strand0Termini[0],
-                strand0Termini[1]
+                params.getBool("useERef", false)
         );
-        searchProblems[1].getShellResiduesFromComplex(complexShellRes);
-        searchProblems[2] = new SearchProblemSuper(name + "_Unbound1", params.getValue("PDBNAME"),
+        //Delete file 
+        File pdbLigandFile = new File(cwd + pdbLigand);
+        try {
+            pdbLigandFile.delete();
+        } catch (Exception e) {
+            System.out.println("File cannot be deleted");
+        }
+
+
+        Molecule molProtein = PDBFileReader.readPDBFileBetweenTermini(pdbFile, strand0Termini[0], strand0Termini[1]);
+        String pdbProtein = pdbName + "_protein.pdb";
+        PDBFileWriter.writePDBFile(molProtein, pdbProtein);
+
+        searchProblems[2] = new SearchProblem(name + "_Protein", params.getValue("PDBNAME"),
                 flexResUnbound1, allowedAAsUnbound1,
                 params.getBool("AddWT", true),
+                params.getBool("AddWTRots", true),
                 params.getBool("doMinimize", false),
                 params.getBool("UseEPIC", false),
                 new EPICSettings(params),
                 params.getBool("UseTupExp", false),
                 dsetUnbound1, moveableStrandsUnbound1, freeBBZonesUnbound1,
                 params.getBool("useEllipses", false),
-                strand1Termini[0],
-                strand1Termini[1]
+                params.getBool("useERef", false)
         );
-        //set shell residues from complex
-        searchProblems[2].getShellResiduesFromComplex(complexShellRes);
+        //Delete file 
+        File pdbProteinFile = new File(cwd + pdbProtein);
+        try {
+            pdbProteinFile.delete();
+        } catch (Exception e) {
+            System.out.println("File cannot be deleted");
+        }
 
+        return searchProblems;
+    }
+
+    //HMN: get search problems for classic multistate bound vs. unbound states
+    ///Bound, unbound1, unbound2
+    SearchProblemSuper[] getMSDSearchProblemSupers() {
+        String name = params.getValue("RUNNAME");
+
+        //make sure we have two strands
+        if (!(params.getInt("NUMOFSTRANDS", 1) == 2)) {
+            throw new RuntimeException("Cannot get 3 Search Problems since numOfStrans != 2");
+        }
+
+        /*
+         //TODO: Change so either strand can be mutable (but only one)
+         //Currently: only strand0 can be 0
+         if (getMutableStrand() == 1){
+         throw new RuntimeException("Mutable Strand Must Be Strand 0");
+         }
+         */
+        int numMut0 = Integer.parseInt(params.getValue("STRANDMUTNUMS", "0").split(" ")[0]);
+        int numMut1 = Integer.parseInt(params.getValue("STRANDMUTNUMS", "0").split(" ")[1]);
+
+        ArrayList<String> flexResBound = getFlexRes();
+        ArrayList<ArrayList<String>> allowedAAsBound = getAllowedAAs();
+
+        if (!(flexResBound.size() == numMut0 + numMut1)) {
+            throw new RuntimeException("ERROR: strandMutNums does not equal size of strandMut0 and strandMut1");
+        }
+
+        if (flexResBound.size() != allowedAAsBound.size()) {
+            throw new RuntimeException("ERROR: Number of flexible positions different in flexible residue "
+                    + "and allowed AA type parameters!");
+        }
+
+        //Get flexibleRes and allowedAAs for each unbound strand
+        ArrayList<String> flexResUnbound0 = new ArrayList<>();
+        ArrayList<ArrayList<String>> allowedAAsUnbound0 = new ArrayList<>();
+
+        ArrayList<String> flexResUnbound1 = new ArrayList<>();;
+        ArrayList<ArrayList<String>> allowedAAsUnbound1 = new ArrayList<>();
+
+        int iter = 0;
+        for (int i = 0; i < numMut0; i++) {
+            flexResUnbound0.add(flexResBound.get(i));
+            allowedAAsUnbound0.add(allowedAAsBound.get(i));
+            iter++;
+        }
+        for (int j = iter; j < iter + numMut1; j++) {
+            flexResUnbound1.add(flexResBound.get(j));
+            allowedAAsUnbound1.add(allowedAAsBound.get(j));
+        }
+
+        if ((flexResUnbound0.size() != allowedAAsUnbound0.size()) || (flexResUnbound1.size() != allowedAAsUnbound1.size())) {
+            throw new RuntimeException("ERROR: Number of flexible positions at a strand is different "
+                    + "in flexible residue and allowed AA type parameters!");
+        }
+
+        ArrayList<String[]> moveableStrandsBound = moveableStrandTerminiBound();
+        ArrayList<String[]> moveableStrandsUnbound0 = moveableStrandTerminiUnboud0();
+        ArrayList<String[]> moveableStrandsUnbound1 = moveableStrandTerminiUnboud1();
+
+        ArrayList<String[]> freeBBZonesBound = freeBBZoneTerminiBound();
+        ArrayList<String[]> freeBBZonesUnbound0 = freeBBZoneTerminiUnbound0();
+        ArrayList<String[]> freeBBZonesUnbound1 = freeBBZoneTerminiUnbound1();
+
+        DEEPerSettings dsetBound = setupDEEPer(flexResBound);
+        DEEPerSettings dsetUnbound0 = setupDEEPer(flexResUnbound0);
+        DEEPerSettings dsetUnbound1 = setupDEEPer(flexResUnbound1);
+
+        int[] strand0Termini = new int[2];
+        strand0Termini[0] = Integer.parseInt(params.getValue("STRAND0").split(" ")[0]);
+        strand0Termini[1] = Integer.parseInt(params.getValue("STRAND0").split(" ")[1]);
+        int[] strand1Termini = new int[2];
+        strand1Termini[0] = Integer.parseInt(params.getValue("STRAND1").split(" ")[0]);
+        strand1Termini[1] = Integer.parseInt(params.getValue("STRAND1").split(" ")[1]);
+
+
+        SearchProblemSuper[] searchProblems = new SearchProblemSuper[3];
+        String pdbFile = params.getValue("PDBNAME");
+        String pdbName = pdbFile.split(".pdb")[0];
+
+        Molecule molComplex = PDBFileReader.readPDBFileBetweenTermini(pdbFile, strand0Termini[0], strand0Termini[1], strand1Termini[0], strand1Termini[1]);
+
+        //get current working directory and write out file
+        File cwdFile = new File("");
+        String cwd = cwdFile.getAbsolutePath() + "/";
+        String pdbComplex = pdbName + "_complex.pdb";
+        PDBFileWriter.writePDBFile(molComplex, pdbComplex);
+
+        searchProblems[0] = new SearchProblemSuper(name + "_Bound", pdbComplex,
+                flexResBound, allowedAAsBound,
+                params.getBool("AddWT", true),
+                params.getBool("AddWTRots", true),
+                params.getBool("doMinimize", false),
+                params.getBool("UseEPIC", false),
+                new EPICSettings(params),
+                params.getBool("UseTupExp", false),
+                dsetBound, moveableStrandsBound, freeBBZonesBound,
+                params.getBool("useEllipses", false)
+        );
+        //Delete file 
+        File pdbComplexFile = new File(cwd + pdbComplex);
+        try {
+            pdbComplexFile.delete();
+        } catch (Exception e) {
+            System.out.println("File cannot be deleted");
+        }
+
+        //Set shell residues from complex
+        //ArrayList<Residue> complexShellRes = searchProblems[0].shellResidues;
+ 
+        Molecule molLigand = PDBFileReader.readPDBFileBetweenTermini(pdbFile, strand0Termini[0], strand0Termini[1]);
+        String pdbLigand = pdbName + "_ligand.pdb";
+        PDBFileWriter.writePDBFile(molLigand, pdbLigand);
+
+        searchProblems[1] = new SearchProblemSuper(name + "_Unbound0", pdbLigand,
+                flexResUnbound0, allowedAAsUnbound0,
+                params.getBool("AddWT", true),
+                params.getBool("AddWTRots", true),
+                params.getBool("doMinimize", false),
+                params.getBool("UseEPIC", false),
+                new EPICSettings(params),
+                params.getBool("UseTupExp", false),
+                dsetUnbound0, moveableStrandsUnbound0, freeBBZonesUnbound0,
+                params.getBool("useEllipses", false)
+        );
+        //Delete file 
+        File pdbLigandFile = new File(cwd + pdbLigand);
+        try {
+            pdbLigandFile.delete();
+        } catch (Exception e) {
+            System.out.println("File cannot be deleted");
+        }
+        /*
+         DEBUG: We don't need this
+         searchProblems[1].getShellResiduesFromComplex(complexShellRes);
+         */
+
+        Molecule molProtein = PDBFileReader.readPDBFileBetweenTermini(pdbFile, strand1Termini[0], strand1Termini[1]);
+        String pdbProtein = pdbName + "_protein.pdb";
+        PDBFileWriter.writePDBFile(molProtein, pdbProtein);
+
+        searchProblems[2] = new SearchProblemSuper(name + "_Unbound1", pdbProtein,
+                flexResUnbound1, allowedAAsUnbound1,
+                params.getBool("AddWT", true),
+                params.getBool("AddWTRots", true),
+                params.getBool("doMinimize", false),
+                params.getBool("UseEPIC", false),
+                new EPICSettings(params),
+                params.getBool("UseTupExp", false),
+                dsetUnbound1, moveableStrandsUnbound1, freeBBZonesUnbound1,
+                params.getBool("useEllipses", false)
+        );
+        //Delete file 
+        File pdbProteinFile = new File(cwd + pdbProtein);
+        try {
+            pdbProteinFile.delete();
+        } catch (Exception e) {
+            System.out.println("File cannot be deleted");
+        }
+        /*
+         DEBUG: We don't need this
+         //set shell residues from complex
+         searchProblems[2].getShellResiduesFromComplex(complexShellRes);
+         */
         return searchProblems;
     }
 
@@ -700,7 +905,7 @@ public class ConfigFileParser {
         numMutPerStrand[1] = numMut1;
         return numMutPerStrand;
     }
-    
+
 // Getter function for the params.
     public ParamSet getParams() {
         return this.params;

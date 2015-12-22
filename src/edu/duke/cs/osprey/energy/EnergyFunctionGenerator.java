@@ -22,65 +22,93 @@ import java.util.ArrayList;
 public class EnergyFunctionGenerator {
     //This is an object that generates an energy function (maps conformation-->energy) for a molecule or a portion thereof
     //it specifies settings for how this energy should be estimated
-    
+
     //Start with AMBER/EEF1, add Poisson-Boltzmann (instead of EEF1), and ultimately QM and explicit water hopefully
-    
     public ForcefieldParams ffParams;
-    
+
     public double distCutoff;//distance cutoff for interactions (angstroms)
-    
+
     public boolean usePoissonBoltzmann;//Use Poisson-Boltzmann energies for solvation
     //Note: these will not be included in the single-res and pair energy functions,
     //so we need to do only full-conf energies to get the Poisson-Boltzmann term
-    
-    
-    public EnergyFunctionGenerator(ForcefieldParams fParams, double distC, boolean usePB){
+
+    public EnergyFunctionGenerator(ForcefieldParams fParams, double distC, boolean usePB) {
         ffParams = fParams;
         distCutoff = distC;
         usePoissonBoltzmann = usePB;
     }
-    
-    
-    public EnergyFunction resPairEnergy(Residue res1, Residue res2){
+
+    public EnergyFunction resPairEnergy(Residue res1, Residue res2) {
         //make an energy function estimating the interaction energy between two residues
-        
+
         //for now definitely using ffParams
-        return new ResPairEnergy(res1,res2,ffParams);
+        return new ResPairEnergy(res1, res2, ffParams);
     }
-    
-    public EnergyFunction singleResEnergy(Residue res){
+
+    public EnergyFunction singleResEnergy(Residue res) {
         //make an energy function estimating the energy of a single residue
-        return new SingleResEnergy(res,ffParams);
+        return new SingleResEnergy(res, ffParams);
     }
-    
-    
-    public EnergyFunction intraAndShellEnergy(Residue res, ArrayList<Residue> shellResidues){
+
+    public EnergyFunction intraAndShellEnergy(Residue res, ArrayList<Residue> shellResidues) {
         //internal energy of res, plus its interactions with the residues in shellRes
-        
+
         EnergyFunction intraE = singleResEnergy(res);
-        
+
         MultiTermEnergyFunction intraAndShellE = new MultiTermEnergyFunction();
         intraAndShellE.addTerm(intraE);
-        
-        for(Residue shellRes : shellResidues){
-            EnergyFunction pairE = resPairEnergy(res,shellRes);
+
+        for (Residue shellRes : shellResidues) {
+            EnergyFunction pairE = resPairEnergy(res, shellRes);
             intraAndShellE.addTerm(pairE);
         }
-        
+
         return intraAndShellE;
     }
-    
+
+    //HMN: Template Always On Feature (currently non-provable)
+    public EnergyFunction pairwiseWithShellEnergy(Residue res1, Residue res2, ArrayList<Residue> shellResidues) {
+        MultiTermEnergyFunction pairwiseWithTemplate = new MultiTermEnergyFunction();
+
+        EnergyFunction pairE = resPairEnergy(res1, res2);
+        pairwiseWithTemplate.addTerm(pairE);
+
+        for (Residue shellRes : shellResidues) {
+            EnergyFunction pairShellE1 = resPairEnergy(res1, shellRes);
+            EnergyFunction pairShellE2 = resPairEnergy(res2, shellRes);
+            pairwiseWithTemplate.addTerm(pairShellE1);
+            pairwiseWithTemplate.addTerm(pairShellE2);
+        }
+
+        return pairwiseWithTemplate;
+
+    }
+
+    //HMN: Template Always On Feature (currently non-provable)
+    public EnergyFunction pairwiseWithShellEnergyCancel(Residue res1, Residue res2, ArrayList<Residue> shellResidues) {
+        MultiTermEnergyFunction pairwiseWithTemplate = new MultiTermEnergyFunction();
+
+        for (Residue shellRes : shellResidues) {
+            EnergyFunction pairShellE1 = resPairEnergy(res1, shellRes);
+            EnergyFunction pairShellE2 = resPairEnergy(res2, shellRes);
+            pairwiseWithTemplate.addTerm(pairShellE1);
+            pairwiseWithTemplate.addTerm(pairShellE2);
+        }
+
+        return pairwiseWithTemplate;
+
+    }
     //want partial versions of the above too?
-    
+
     //Get just shell-shell energy (useful for debugging energy function with old code)
-    public EnergyFunction shellEnergy(ArrayList<Residue> shellResidues){
+    public EnergyFunction shellEnergy(ArrayList<Residue> shellResidues) {
         MultiTermEnergyFunction shellE = new MultiTermEnergyFunction();
-        
-        for (int shell1=0; shell1<shellResidues.size(); shell1++){
+
+        for (int shell1 = 0; shell1 < shellResidues.size(); shell1++) {
             Residue shellRes1 = shellResidues.get(shell1);
             EnergyFunction intraE = singleResEnergy(shellRes1);
             shellE.addTerm(intraE);
-            for (int shell2=0; shell2<shell1; shell2++){
+            for (int shell2 = 0; shell2 < shell1; shell2++) {
                 Residue shellRes2 = shellResidues.get(shell2);
                 EnergyFunction pairE = resPairEnergy(shellRes1, shellRes2);
                 shellE.addTerm(pairE);
@@ -88,104 +116,106 @@ public class EnergyFunctionGenerator {
         }
         return shellE;
     }
-    
-    public EnergyFunction fullConfEnergy(ConfSpace cSpace, ArrayList<Residue> shellResidues){
+
+    public EnergyFunction fullConfEnergy(ConfSpace cSpace, ArrayList<Residue> shellResidues) {
         //make an energy function estimating the energy of all flexible residues in cSpace,
         //plus any interactions with other (shell) residues that are within distCutoff of anything in cSpace
         //this can be used as the full energy for any conformation in cSpace
-        
+
         ArrayList<Residue> flexibleResidues = new ArrayList<>();//array list for these so they stay in order
-        for(PositionConfSpace pcs : cSpace.posFlex)
+        for (PositionConfSpace pcs : cSpace.posFlex) {
             flexibleResidues.add(pcs.res);
-        
+        }
+
         //now we want the full energy (1-body + all interactions) of the flexibleResidues,
         //plus the interactions of the flexibleResidues with the shellResidues
         //(We don't count interactions among the shellResidues because they never change)
         MultiTermEnergyFunction fullEFunc = new MultiTermEnergyFunction();
-        
+
         //start with interactions among flexible residues
-        for(int flexResNum=0; flexResNum<flexibleResidues.size(); flexResNum++){
-            
+        for (int flexResNum = 0; flexResNum < flexibleResidues.size(); flexResNum++) {
+
             Residue flexRes = flexibleResidues.get(flexResNum);
             EnergyFunction oneBodyE = singleResEnergy(flexRes);
             fullEFunc.addTerm(oneBodyE);
-            
-            for(int flexResNum2=0; flexResNum2<flexResNum; flexResNum2++){
+
+            for (int flexResNum2 = 0; flexResNum2 < flexResNum; flexResNum2++) {
                 Residue flexRes2 = flexibleResidues.get(flexResNum2);
-                EnergyFunction pairE = resPairEnergy(flexRes,flexRes2);
+                EnergyFunction pairE = resPairEnergy(flexRes, flexRes2);
                 fullEFunc.addTerm(pairE);
             }
         }
-        
+
         //now flexible-to-shell interactions
-        for(Residue flexRes : flexibleResidues){
-            for(Residue shellRes : shellResidues){
-                EnergyFunction pairE = resPairEnergy(flexRes,shellRes);
+        for (Residue flexRes : flexibleResidues) {
+            for (Residue shellRes : shellResidues) {
+                EnergyFunction pairE = resPairEnergy(flexRes, shellRes);
                 fullEFunc.addTerm(pairE);
             }
         }
-        
+
         //now add Poisson-Boltzmann energy, if applicable
-        if(usePoissonBoltzmann){
+        if (usePoissonBoltzmann) {
             PoissonBoltzmannEnergy pbe = new PoissonBoltzmannEnergy(cSpace.m);
             fullEFunc.addTermWithCoeff(pbe, ffParams.getSolvScale());
         }
-        
+
         return fullEFunc;
     }
-    
-  //HMN: Created new fullConfEnergy to hand ConfSpaceSuper input
-    public EnergyFunction fullConfEnergy(ConfSpaceSuper cSpace, ArrayList<Residue> shellResidues){
+
+    //HMN: Created new fullConfEnergy to hand ConfSpaceSuper input
+    public EnergyFunction fullConfEnergy(ConfSpaceSuper cSpace, ArrayList<Residue> shellResidues) {
         ArrayList<Residue> flexibleResidues = new ArrayList<>();
-        for (PositionConfSpaceSuper pcs : cSpace.posFlexSuper){
-            for (Residue res : pcs.resList){
+        for (PositionConfSpaceSuper pcs : cSpace.posFlexSuper) {
+            for (Residue res : pcs.resList) {
                 flexibleResidues.add(res);
             }
         }
-        
+
         MultiTermEnergyFunction fullEfun = new MultiTermEnergyFunction();
-        
+
         //interaction among flexible residues
-        for (int flexResNum=0; flexResNum<flexibleResidues.size(); flexResNum++){
-            
+        for (int flexResNum = 0; flexResNum < flexibleResidues.size(); flexResNum++) {
+
             Residue flexres = flexibleResidues.get(flexResNum);
             EnergyFunction oneBodyE = singleResEnergy(flexres);
             fullEfun.addTerm(oneBodyE);
-            
-            for (int flexResNum2=0; flexResNum2<flexResNum; flexResNum2++){
+
+            for (int flexResNum2 = 0; flexResNum2 < flexResNum; flexResNum2++) {
                 Residue flexRes2 = flexibleResidues.get(flexResNum2);
                 EnergyFunction pairE = resPairEnergy(flexres, flexRes2);
                 fullEfun.addTerm(pairE);
             }
         }
-        
+
         //flexible-to-shell interaction
-        for (Residue flexRes : flexibleResidues){
-            for (Residue shellRes : shellResidues){
+        for (Residue flexRes : flexibleResidues) {
+            for (Residue shellRes : shellResidues) {
                 EnergyFunction pairE = resPairEnergy(flexRes, shellRes);
                 fullEfun.addTerm(pairE);
             }
         }
-        
+
         return fullEfun;
-    }   
-    
-    public EnergyFunction fullMolecEnergy(Molecule molec){
+    }
+
+    public EnergyFunction fullMolecEnergy(Molecule molec) {
         //full energy of a molecule, with all residues interacting
-        
+
         MultiTermEnergyFunction fullEFunc = new MultiTermEnergyFunction();
-        
+
         //intra terms
-        for(Residue res : molec.residues)
-            fullEFunc.addTerm( singleResEnergy(res) );
-        
+        for (Residue res : molec.residues) {
+            fullEFunc.addTerm(singleResEnergy(res));
+        }
+
         //pairwise terms
-        for(int res1=0; res1<molec.residues.size(); res1++){
-            for(int res2=0; res2<res1; res2++){
-                fullEFunc.addTerm(resPairEnergy(molec.residues.get(res1),molec.residues.get(res2)));
+        for (int res1 = 0; res1 < molec.residues.size(); res1++) {
+            for (int res2 = 0; res2 < res1; res2++) {
+                fullEFunc.addTerm(resPairEnergy(molec.residues.get(res1), molec.residues.get(res2)));
             }
         }
-        
+
         return fullEFunc;
     }
 }

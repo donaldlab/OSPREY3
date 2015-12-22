@@ -79,58 +79,10 @@ public class SearchProblemSuper implements Serializable{
     }
 
     public SearchProblemSuper(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
-            boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset,
+            boolean addWTRots, boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset,
             ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses) {
 
-        this.confSpaceSuper = new ConfSpaceSuper(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses);
-        this.confSpace = confSpaceSuper;
-        this.name = name;
-
-        this.contSCFlex = contSCFlex;
-        this.useTupExpForSearch = useTupExp;
-        this.useEPIC = useEPIC;
-        this.epicSettings = epicSettings;
-
-        //energy function setup
-        EnergyFunctionGenerator eGen = EnvironmentVars.curEFcnGenerator;
-        decideShellResidues(eGen.distCutoff);
-        //DEBUG
-        //addAllResToShell();
-        //fullConfE = eGen.fullConfEnergy(confSpace,shellResidues);
-        //HMN: use confSpaceSuper as input instead of confSpace
-        fullConfE = eGen.fullConfEnergy(confSpaceSuper, shellResidues);
-    }
-
-    //HMN: Same constructor but specifies starting and ending residue number of molecule in search space
-    public SearchProblemSuper(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
-            boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset,
-            ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses, int startResNum, int endResNum) {
-
-        this.confSpaceSuper = new ConfSpaceSuper(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses, startResNum, endResNum);
-        this.confSpace = confSpaceSuper;
-        this.name = name;
-
-        this.contSCFlex = contSCFlex;
-        this.useTupExpForSearch = useTupExp;
-        this.useEPIC = useEPIC;
-        this.epicSettings = epicSettings;
-
-        //energy function setup
-        EnergyFunctionGenerator eGen = EnvironmentVars.curEFcnGenerator;
-        decideShellResidues(eGen.distCutoff);
-        //DEBUG
-        //addAllResToShell();
-        //fullConfE = eGen.fullConfEnergy(confSpace,shellResidues);
-        //HMN: use confSpaceSuper as input instead of confSpace
-        fullConfE = eGen.fullConfEnergy(confSpaceSuper, shellResidues);
-    }
-
-    //HMN: Same constructor but specifies starting and ending residue number of molecule in search space
-    public SearchProblemSuper(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
-            boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset,
-            ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses, int startResNum1, int endResNum1, int startResNum2, int endResNum2) {
-
-        this.confSpaceSuper = new ConfSpaceSuper(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses, startResNum1, endResNum1, startResNum2, endResNum2);
+        this.confSpaceSuper = new ConfSpaceSuper(PDBFile, flexibleRes, allowedAAs, addWT, addWTRots, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses);
         this.confSpace = confSpaceSuper;
         this.name = name;
 
@@ -652,7 +604,7 @@ public class SearchProblemSuper implements Serializable{
         if (newPos.size() == 1) {
             oneBodyE = this.emat.oneBody.get(newPos.get(0));
         } else {
-            TermECalculatorSuper termE = new TermECalculatorSuper(confSpaceSuper, shellResidues, useEPIC, useEPIC, null, epicSettings, newPosNum);
+            TermECalculatorSuper termE = new TermECalculatorSuper(confSpaceSuper, shellResidues, useEPIC, useEPIC, null, epicSettings, false, newPosNum);
             Object oneBodyTerm = termE.doCalculation();
             oneBodyE = (ArrayList<Double>) oneBodyTerm;
         }
@@ -664,7 +616,7 @@ public class SearchProblemSuper implements Serializable{
         //
         //if either of the positions are merged
         if (posNumList1.size() > 1 || posNumList2.size() > 1) {
-            TermECalculatorSuper termE = new TermECalculatorSuper(confSpaceSuper, shellResidues, useEPIC, useEPIC, null, epicSettings, newPosNum1, newPosNum2);
+            TermECalculatorSuper termE = new TermECalculatorSuper(confSpaceSuper, shellResidues, useEPIC, useEPIC, null, epicSettings, false, newPosNum1, newPosNum2);
             Object twoBodyTerm = termE.doCalculation();
             twoBodyE = (ArrayList<ArrayList<Double>>) twoBodyTerm;
         } else {

@@ -55,6 +55,9 @@ public class TermECalculatorSuper implements MPISlaveTask {
     boolean useSuperRCs = false;
     int pos[];
     MultiTermEnergyFunction termE; //replaces termE
+    MultiTermEnergyFunction termECancel; //for template always on (cancels the pair-shell terms)
+    
+    boolean templateAlwaysOn = false;
 
     //HMN: End addition here 
     ///It may be better for this to be its own class
@@ -68,7 +71,7 @@ public class TermECalculatorSuper implements MPISlaveTask {
     ArrayList<ArrayList<EPoly>> twoBodyPoly = new ArrayList<>();
 
     //HMN: TermECalculator for input ConfSpaceSuper
-    public TermECalculatorSuper(ConfSpaceSuper s, ArrayList<Residue> shellResidues, boolean doEPIC, boolean doIntra, PruningMatrix prm, EPICSettings es, int... posToCalc) {
+    public TermECalculatorSuper(ConfSpaceSuper s, ArrayList<Residue> shellResidues, boolean doEPIC, boolean doIntra, PruningMatrix prm, EPICSettings es, boolean templateAlwaysOn, int... posToCalc) {
 
         confSpaceSuper = s;
         useSuperRCs = true;
@@ -78,8 +81,11 @@ public class TermECalculatorSuper implements MPISlaveTask {
         pruneMat = prm;
         epicSettings = es;
 
-        termE = new MultiTermEnergyFunction();
+        this.templateAlwaysOn = templateAlwaysOn;
 
+        termE = new MultiTermEnergyFunction();
+        termECancel = new MultiTermEnergyFunction();
+        
         if (pos.length == 0) {//shell-shell energy
             for (int shell1 = 0; shell1 < shellResidues.size(); shell1++) {
                 Residue shellRes1 = shellResidues.get(shell1);
@@ -124,8 +130,15 @@ public class TermECalculatorSuper implements MPISlaveTask {
                     for (Residue res1 : firstPosition.resList) {
                         PositionConfSpaceSuper secondPosition = confSpaceSuper.posFlexSuper.get(posToCalc[1]);
                         for (Residue res2 : secondPosition.resList) {
-                            EnergyFunction eTerm = EnvironmentVars.curEFcnGenerator.resPairEnergy(res1, res2);
-                            termE.addTerm(eTerm);
+                            if (templateAlwaysOn) {
+                                EnergyFunction eTerm = EnvironmentVars.curEFcnGenerator.pairwiseWithShellEnergy(res1, res2, shellResidues);
+                                termE.addTerm(eTerm);
+                                EnergyFunction eTermCancel = EnvironmentVars.curEFcnGenerator.pairwiseWithShellEnergyCancel(res1, res2, shellResidues);
+                                termECancel.addTerm(eTermCancel);
+                            } else {
+                                EnergyFunction eTerm = EnvironmentVars.curEFcnGenerator.resPairEnergy(res1, res2);
+                                termE.addTerm(eTerm);
+                            }
                         }
                     }
                 } else {
@@ -223,7 +236,7 @@ public class TermECalculatorSuper implements MPISlaveTask {
 
         if (!skipTuple) {
             MolecEObjFunction mof = new MolecEObjFunction(termE, confSpaceSuper, superRCs);
-
+            
             DoubleMatrix1D bestDOFVals;
 
             if (mof.getNumDOFs() > 0) {//there are continuously flexible DOFs to minimize
@@ -233,7 +246,12 @@ public class TermECalculatorSuper implements MPISlaveTask {
                 bestDOFVals = DoubleFactory1D.dense.make(0);
             }
             minEnergy = mof.getValue(bestDOFVals);
-
+            if (templateAlwaysOn && superRCs.pos.size()==2){
+                mof.setEfunc(termECancel);
+                double minEnergyCancel = mof.getValue(bestDOFVals);
+                minEnergy = minEnergy - minEnergyCancel;
+                mof.setEfunc(termE);
+            }
             if (doingEPIC) {
                 //EPICFit = compEPICFit(mof,minEnergy,bestDOFVals,RCs);
                 throw new RuntimeException("ERROR: EPIC not supported with super-RCs");
@@ -271,4 +289,6 @@ public class TermECalculatorSuper implements MPISlaveTask {
             throw new RuntimeException("ERROR: Trying to precompute term for " + numBodies + " bodies");
         }
     }
+
+    
 }

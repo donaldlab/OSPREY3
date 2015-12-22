@@ -24,7 +24,7 @@ public class iMinMSDNode extends AStarNode {
     public iMinMSDNode(int[] nodeAssignments, PruningMatrix[] pruneMat) {
         super(nodeAssignments, Double.NaN, false);
         this.pruneMat = pruneMat;
-        boundGMEC = Double.POSITIVE_INFINITY;
-        unboundGMEC = Double.POSITIVE_INFINITY;
+        boundGMEC = Double.NEGATIVE_INFINITY;
+        unboundGMEC = Double.NEGATIVE_INFINITY;
     }
 }
