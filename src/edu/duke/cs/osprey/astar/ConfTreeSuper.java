@@ -13,10 +13,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  *
@@ -33,16 +30,18 @@ public class ConfTreeSuper extends AStarTree {
 
     int numPos;
     EnergyMatrix emat;
-
+    //HMN: Add pruning matrix
+    PruningMatrix pruneMat;
+    
     ArrayList<ArrayList<Integer>> unprunedRCsAtPos = new ArrayList<>();
     //get from searchSpace when initializing!
     //These are lists of residue-specific RC numbers for the unpruned RCs at each residue
 
     //ADVANCED SCORING METHODS: TO CHANGE LATER (EPIC, MPLP, etc.)
-    boolean traditionalScore = true;
-    boolean mplpScore = true;
-    boolean useRefinement = true;//refine nodes (might want EPIC, MPLP, or something else)
-    boolean useEpic;
+    public boolean traditionalScore = true;
+    public boolean mplpScore = true;
+    public boolean useRefinement = true;//refine nodes (might want EPIC, MPLP, or something else)
+    public boolean useEpic;
 
     boolean useDynamicAStar = true;
 
@@ -52,6 +51,7 @@ public class ConfTreeSuper extends AStarTree {
 
     // MPLP object for node refinement.
     public Mplp mplpMinimizer;
+            
 
     public ConfTreeSuper(SearchProblemSuper sp) {
         init(sp, sp.pruneMat, sp.useEPIC);
@@ -76,7 +76,8 @@ public class ConfTreeSuper extends AStarTree {
             emat = sp.tupExpEMat;
         } else {
             emat = sp.emat;
-
+            pruneMat = sp.pruneMat;
+            
             if (useEPIC) {//include EPIC in the search
                 useRefinement = true;
                 epicMat = sp.epicMat;
@@ -87,7 +88,7 @@ public class ConfTreeSuper extends AStarTree {
         // Initialize MPLP
         if (mplpScore) {
             useRefinement = true;
-            mplpMinimizer = new Mplp(numPos, unprunedRCsAtPos, emat);
+            mplpMinimizer = new Mplp(numPos, emat, pruneMat);
         }
     }
 
@@ -387,7 +388,7 @@ public class ConfTreeSuper extends AStarTree {
         }
         // Refine node with MPLP.
         if (this.mplpScore) {
-            node.score = this.mplpMinimizer.optimizeEMPLP(node.nodeAssignments, 100);
+            node.score = this.mplpMinimizer.optimizeMPLP(node.nodeAssignments, 100);
         }
 
         if (useEpic && (minPartialConfs || isFullyAssigned(node))) {
@@ -397,44 +398,7 @@ public class ConfTreeSuper extends AStarTree {
         node.scoreNeedsRefinement = false;
     }
 
-    public void setMPLPForInteractionEnergy(HashMap<Integer,EnergyMatrix> boundResNumToUnboundEmat, HashMap<Integer,Integer> boundResNumToUnboundResNum,
-            HashMap<Integer,Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
-        this.mplpMinimizer.setCrossTermInteractionGraph(boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundresNumToIsMutableStrand, belongToSameStrand);
-        this.mplpMinimizer.createOnlyPairwiseMatForInteractionEnergy(this.emat, boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundresNumToIsMutableStrand, belongToSameStrand);
-    }
 
-    public void setMPLPForInteractionEnergyWithProtein(HashMap<Integer,EnergyMatrix> boundResNumToUnboundEmat, HashMap<Integer,Integer> boundResNumToUnboundResNum,
-            HashMap<Integer,Boolean> boundresNumToIsMutableStrand, boolean[][] belongToSameStrand) {
-        this.mplpMinimizer.setCrossTermInteractionGraphWithProtein(boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundresNumToIsMutableStrand, belongToSameStrand);
-        this.mplpMinimizer.createOnlyPairwiseMatWithProtein(this.emat, boundResNumToUnboundEmat, boundResNumToUnboundResNum, boundresNumToIsMutableStrand, belongToSameStrand);
-    }
-
-    /**
-     * This sets up the MPLP minimizer to optimize over a partial space, defined
-     * by a list of position numbers that are a subset of the set of all position
-     * numbers 
-     * 
-     * @param partialSpacePosNum the position numbers corresponding to the partial space
-     */
-    public void setPartialSpaceGMEC(ArrayList<Integer> partialSpacePosNum){
-        this.mplpMinimizer.setupPartialSpaceGMEC(emat, partialSpacePosNum);
-    }
-    /**
-     * Initializes mplp with no interactions and all 0's in energy matrix
-     * We can then add cross terms or internal terms to optimize over
-     */        
-    public void initializePartialSpaceSearch(){
-        this.mplpMinimizer.initializeMPLP();
-    }
-    public void addCrossTermPartialSearch(ArrayList<Integer> crossTermI, ArrayList<Integer> crossTermJ, 
-           HashMap<Integer, EnergyMatrix> boundPosNumToUnboundEmat, HashMap<Integer, Integer> boundPosNumToUnboundPosNum){
-        this.mplpMinimizer.addCrossTerm(emat, crossTermI, crossTermJ, boundPosNumToUnboundEmat, boundPosNumToUnboundPosNum);
-    }
-    public void addInternalTermPartialSearch(ArrayList<Integer> internalPosNums, HashMap<Integer,EnergyMatrix> boundResNumToUnboundEmat, HashMap<Integer,Integer> boundResNumToUnboundResNum){
-        this.mplpMinimizer.addInternalTerm(emat, internalPosNums, boundResNumToUnboundEmat, boundResNumToUnboundResNum);
-    }
-    
-    
     //this function computes the minimum over all full conf E's consistent with partialConf
     //for debugging only of course
     double exhaustiveScore(int[] partialConf) {
@@ -459,25 +423,6 @@ public class ConfTreeSuper extends AStarTree {
     }
 
     /**
-     * Computes the GMEC energy of the partial space defined by a subset of the total
-     * position numbers
-     * 
-     * @param partialSpacePosNums
-     * @return 
-     */
-    public double scorePartialSpaceGMEC(ArrayList<Integer> partialSpacePosNums){
-        setPartialSpaceGMEC(partialSpacePosNums);
-        int[] gmec = nextConf();
-        //To calculate the energy of this partial space we have two options
-        // (1) Call mplpLowerBound, which will use the interaction graph to only
-        ///    compute the internal energy of the partial space
-        // (2) Create a RC tuple from this conf, consisting only of those rc's that
-        ///    belong to the partial space and then call emat.getInternalEnergy(rcTup)
-        //For now, we will use (1)
-        return mplpLowerBound(gmec);
-    }
-    
-    /**
      * Compute a polynomial time, lower bound on the energy of a partial
      * conformation in the conformation tree using MPLP.
      *
@@ -485,6 +430,36 @@ public class ConfTreeSuper extends AStarTree {
      * @return
      */
     public double mplpLowerBound(int[] conf) {
-        return this.mplpMinimizer.optimizeEMPLP(conf, 100);
+        return this.mplpMinimizer.optimizeMPLP(conf, 100);
+    }
+
+    public int getNumPos() {
+        return this.numPos;
+    }
+
+    public void setNumPos(int aNumPos) {
+        this.numPos = aNumPos;
+    }
+
+    public EnergyMatrix getEmat() {
+        return this.emat;
+    }
+
+    public void setEmat(EnergyMatrix aEmat) {
+        this.emat = aEmat;
+    }
+    public PruningMatrix getPruneMat() {
+        return this.pruneMat;
+    }
+
+    public void setPruneMat(PruningMatrix aPruneMat) {
+        this.pruneMat = aPruneMat;
+    }
+    public ArrayList<ArrayList<Integer>> getUnprunedRCsAtPos() {
+        return this.unprunedRCsAtPos;
+    }
+
+    public void setUnprunedRCsAtPos(ArrayList<ArrayList<Integer>> aUnprunedRCsAtPos) {
+        this.unprunedRCsAtPos = aUnprunedRCsAtPos;
     }
 }

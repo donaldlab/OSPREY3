@@ -25,7 +25,7 @@ import java.util.TreeSet;
  */
 public class UpdatedPruningMatrix extends PruningMatrix {
     
-    PruningMatrix parent;//This matrix will have everything pruned in parent, plus updates
+    public PruningMatrix parent;//This matrix will have everything pruned in parent, plus updates
     
     ArrayList<TreeSet<Integer>> prunedRCUpdates = new ArrayList<>();
     //list of pruned RCs (just for this update) at each position

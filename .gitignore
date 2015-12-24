@@ -1,9 +1,8 @@
-<<<<<<< HEAD
-/nbproject/private/
-/build/
-/dist/
-=======
+nbproject/private/
+build/
+dist/
 build/*
 dataFiles/ALL*
 *.class
->>>>>>> master
+/nbdist/
+nbproject/

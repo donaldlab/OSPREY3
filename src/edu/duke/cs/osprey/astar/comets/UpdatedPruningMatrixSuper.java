@@ -21,15 +21,20 @@ public class UpdatedPruningMatrixSuper extends PruningMatrix {
 
     PruningMatrix parent;//This matrix will have everything pruned in parent, plus updates
 
-    ArrayList<TreeSet<Integer>> prunedRCUpdates = new ArrayList<>();
+    public ArrayList<TreeSet<Integer>> prunedRCUpdates = new ArrayList<>();
     //list of pruned RCs (just for this update) at each position
 
-    ArrayList<ArrayList<TreeMap<Integer, TreeSet<Integer>>>> prunedPairUpdates = new ArrayList<>();
+    public ArrayList<ArrayList<TreeMap<Integer, TreeSet<Integer>>>> prunedPairUpdates = new ArrayList<>();
     //list of pruned RCs (just for this update) at each position
 
     public UpdatedPruningMatrixSuper(PruningMatrix parent) {
         this.parent = parent;
-
+        //HMN:
+        /*
+        this.oneBody = parent.oneBody;
+        this.pairwise = parent.pairwise;
+        */
+        
         int numPos = parent.numPos();
 
         for (int pos = 0; pos < numPos; pos++) {
