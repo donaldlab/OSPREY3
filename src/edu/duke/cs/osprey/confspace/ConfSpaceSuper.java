@@ -40,6 +40,7 @@ import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.StringParsing;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 
 /**
  *
@@ -91,6 +92,7 @@ public class ConfSpaceSuper extends ConfSpace {
             ArrayList<String> flexibleRes,
             ArrayList<ArrayList<String>> allowedAAs,
             boolean addWT,
+            boolean adWTRots,
             boolean contSCFlex,
             DEEPerSettings dset,
             ArrayList<String[]> moveableStrands,
@@ -180,7 +182,8 @@ public class ConfSpaceSuper extends ConfSpace {
             DOFIndices.add(pos);
 
             PositionConfSpaceSuper rcs = new PositionConfSpaceSuper(resList, posDOFs, allowedAAsAtPosition, DOFIndices, contSCFlex,
-                    resStrandDOFs, perts, dset.getPertIntervals(), pertStatesPos, curBFBPerRes, useEllipses);
+                    resStrandDOFs, perts, dset.getPertIntervals(), pertStatesPos, curBFBPerRes, useEllipses, adWTRots);
+
             posFlexSuper.add(rcs);
             if (useEllipses) {
                 confDOFs.addAll(rcs.getEllipsoidalArray());
@@ -191,223 +194,38 @@ public class ConfSpaceSuper extends ConfSpace {
         }
     }
 
-    //HMN: Same constructor, but only creates a molecule within the strand termini
-    public ConfSpaceSuper(
-            String PDBFile,
-            ArrayList<String> flexibleRes,
-            ArrayList<ArrayList<String>> allowedAAs,
-            boolean addWT,
-            boolean contSCFlex,
-            DEEPerSettings dset,
-            ArrayList<String[]> moveableStrands,
-            ArrayList<String[]> freeBBZones,
-            boolean ellipses,
-            int startResNum,
-            int endResNum) {
-
-        this.useEllipses = ellipses;
-        this.numPos = flexibleRes.size();
-
-        //read the structure and assign templates, deleting unassignable res...
-        m = PDBFileReader.readPDBFileBetweenTermini(PDBFile, startResNum, endResNum);
-
-        //Make all the degrees of freedom
-        //start with proline puckers (added to res)
-        makeRingPuckers(allowedAAs, flexibleRes);
-
-        ArrayList<ArrayList<DegreeOfFreedom>> singleResDOFs = new ArrayList<>();
-        for (int pos = 0; pos < numPos; pos++) {
-
-            Residue res = m.getResByPDBResNumber(flexibleRes.get(pos));
-            if (addWT) {//at this point, m has all wild-type residues, so just see what res is now
-                String wtName = res.template.name;
-                if (!allowedAAs.get(pos).contains(wtName)) {
-                    allowedAAs.get(pos).add(wtName);
-                }
-            }
-
-            ArrayList<DegreeOfFreedom> resDOFs = mutableResDOFs(res, allowedAAs.get(pos));//add mutation and dihedral confDOFs for residue
-
-            ResidueTypeDOF resMutDOF = (ResidueTypeDOF) resDOFs.remove(0);//first mutable pos DOF is the mutation-type DOF
-            mutDOFs.add(resMutDOF);
-
-            singleResDOFs.add(resDOFs);
-
-        }
-
-        //now rigid-body strand motions...
-        ArrayList<DegreeOfFreedom> strandDOFs = strandMotionDOFs(moveableStrands, flexibleRes);
-        confDOFs.addAll(strandDOFs);
-
-        //...and perturbations
-        //standardize conformations first since we'll record initial resBBState here
-        standardizeMutatableRes(allowedAAs, flexibleRes);
-
-        ArrayList<Perturbation> perts = dset.makePerturbations(m);//will make pert block here
-        confDOFs.addAll(perts);
-
-        //DEBUG!!!!!!!
-        //TRYING BFB ON ALL FLEX RES!!!
-        /*ArrayList<Residue> bfbRes = new ArrayList<>();
-         for(String fr : flexibleRes)
-         bfbRes.add( m.getResByPDBResNumber(fr) );
-         BBFreeBlock bfb = new BBFreeBlock(bfbRes);
-         confDOFs.addAll( bfb.getDOFs() );*/
-        //DEBUG!!!
-        ArrayList<BBFreeBlock> bfbList = getBBFreeBlocks(freeBBZones, flexibleRes);
-        for (BBFreeBlock bfb : bfbList) {
-            confDOFs.addAll(bfb.getDOFs());
-        }
-
-        //OK now make RCs using these DOFs
-        for (int pos = 0; pos < numPos; pos++) {
-            ArrayList<Residue> resList = new ArrayList<>();
-            Residue res = m.getResByPDBResNumber(flexibleRes.get(pos));
-            //just add one residue per position initially
-            resList.add(res);
-
-            ArrayList<DegreeOfFreedom> resDOFs = singleResDOFs.get(pos);
-            ArrayList<DegreeOfFreedom> resStrandDOFs = strandDOFsForRes(res, strandDOFs);//and check that all res flex on moving strands!
-
-            BBFreeBlock curBFB = getCurBFB(bfbList, res);
-
-            //HMN: Create allowedAA at position
-            ArrayList<ArrayList<String>> allowedAAsAtPosition = new ArrayList<ArrayList<String>>();
-            allowedAAsAtPosition.add(allowedAAs.get(pos));
-            //HMN: Create PosDOFS (ResDOFs per position)
-            ArrayList<ArrayList<DegreeOfFreedom>> posDOFs = new ArrayList<>();
-            posDOFs.add(resDOFs);
-            //HMN: getPertStatesPos = getPerStates(resNum) for each resNum in position
-            ArrayList<ArrayList<ArrayList<int[]>>> pertStatesPos = new ArrayList<>();
-            pertStatesPos.add(dset.getPertStates(pos));
-            //HMN: BFB for each res in pos
-            ArrayList<BBFreeBlock> curBFBPerRes = new ArrayList<>();
-            curBFBPerRes.add(getCurBFB(bfbList, res));
-
-            ArrayList<Integer> DOFIndices = new ArrayList<>();
-            DOFIndices.add(pos);
-
-            PositionConfSpaceSuper rcs = new PositionConfSpaceSuper(resList, posDOFs, allowedAAsAtPosition, DOFIndices, contSCFlex,
-                    resStrandDOFs, perts, dset.getPertIntervals(), pertStatesPos, curBFBPerRes, useEllipses);
-            posFlexSuper.add(rcs);
-
-            if (useEllipses) {
-                confDOFs.addAll(rcs.getEllipsoidalArray());
-            } else {
-                confDOFs.addAll(resDOFs);
-            }
-
-        }
+    public ConfSpaceSuper(ConfSpaceSuper cs1) {
+        // Shallow copy
+        this.confDOFs = cs1.confDOFs;
+        this.m = cs1.m;
+        this.mutDOFs = cs1.mutDOFs;
+        this.numPos = cs1.numPos;
+        this.posFlexSuper = cs1.posFlexSuper;
+        this.useEllipses = cs1.useEllipses;
     }
 
-    //HMN: Same constructor, but only creates a molecule within the strand termini
-    public ConfSpaceSuper(
-            String PDBFile,
-            ArrayList<String> flexibleRes,
-            ArrayList<ArrayList<String>> allowedAAs,
-            boolean addWT,
-            boolean contSCFlex,
-            DEEPerSettings dset,
-            ArrayList<String[]> moveableStrands,
-            ArrayList<String[]> freeBBZones,
-            boolean ellipses,
-            int startResNum1,
-            int endResNum1,
-            int startResNum2,
-            int endResNum2) {
+    public ConfSpaceSuper getSubsetConfSpace(ArrayList<Integer> subsetPosNums) {
+        //Sort the posNums 
+        Collections.sort(subsetPosNums);
 
-        this.useEllipses = ellipses;
-        this.numPos = flexibleRes.size();
+        ConfSpaceSuper subsetCSpace = new ConfSpaceSuper(this);
 
-        //read the structure and assign templates, deleting unassignable res...
-        m = PDBFileReader.readPDBFileBetweenTermini(PDBFile, startResNum1, endResNum1, startResNum2, endResNum2);
+        int newNumPos = subsetPosNums.size();
 
-        //Make all the degrees of freedom
-        //start with proline puckers (added to res)
-        makeRingPuckers(allowedAAs, flexibleRes);
+        ArrayList<PositionConfSpaceSuper> newPosFlex = new ArrayList<>();
+        ArrayList<ResidueTypeDOF> newMutDOFs = new ArrayList<>();
 
-        ArrayList<ArrayList<DegreeOfFreedom>> singleResDOFs = new ArrayList<>();
-        for (int pos = 0; pos < numPos; pos++) {
-
-            Residue res = m.getResByPDBResNumber(flexibleRes.get(pos));
-            if (addWT) {//at this point, m has all wild-type residues, so just see what res is now
-                String wtName = res.template.name;
-                if (!allowedAAs.get(pos).contains(wtName)) {
-                    allowedAAs.get(pos).add(wtName);
-                }
-            }
-
-            ArrayList<DegreeOfFreedom> resDOFs = mutableResDOFs(res, allowedAAs.get(pos));//add mutation and dihedral confDOFs for residue
-
-            ResidueTypeDOF resMutDOF = (ResidueTypeDOF) resDOFs.remove(0);//first mutable pos DOF is the mutation-type DOF
-            mutDOFs.add(resMutDOF);
-
-            singleResDOFs.add(resDOFs);
-
+        for (int posNum : subsetPosNums) {
+            PositionConfSpaceSuper posCspace = this.posFlexSuper.get(posNum);
+            newPosFlex.add(posCspace);
+            ResidueTypeDOF mutDOF = this.mutDOFs.get(posNum);
+            newMutDOFs.add(mutDOF);
         }
-
-        //now rigid-body strand motions...
-        ArrayList<DegreeOfFreedom> strandDOFs = strandMotionDOFs(moveableStrands, flexibleRes);
-        confDOFs.addAll(strandDOFs);
-
-        //...and perturbations
-        //standardize conformations first since we'll record initial resBBState here
-        standardizeMutatableRes(allowedAAs, flexibleRes);
-
-        ArrayList<Perturbation> perts = dset.makePerturbations(m);//will make pert block here
-        confDOFs.addAll(perts);
-
-        //DEBUG!!!!!!!
-        //TRYING BFB ON ALL FLEX RES!!!
-        /*ArrayList<Residue> bfbRes = new ArrayList<>();
-         for(String fr : flexibleRes)
-         bfbRes.add( m.getResByPDBResNumber(fr) );
-         BBFreeBlock bfb = new BBFreeBlock(bfbRes);
-         confDOFs.addAll( bfb.getDOFs() );*/
-        //DEBUG!!!
-        ArrayList<BBFreeBlock> bfbList = getBBFreeBlocks(freeBBZones, flexibleRes);
-        for (BBFreeBlock bfb : bfbList) {
-            confDOFs.addAll(bfb.getDOFs());
-        }
-
-        //OK now make RCs using these DOFs
-        for (int pos = 0; pos < numPos; pos++) {
-            ArrayList<Residue> resList = new ArrayList<>();
-            Residue res = m.getResByPDBResNumber(flexibleRes.get(pos));
-            //just add one residue per position initially
-            resList.add(res);
-
-            ArrayList<DegreeOfFreedom> resDOFs = singleResDOFs.get(pos);
-            ArrayList<DegreeOfFreedom> resStrandDOFs = strandDOFsForRes(res, strandDOFs);//and check that all res flex on moving strands!
-
-            BBFreeBlock curBFB = getCurBFB(bfbList, res);
-
-            //HMN: Create allowedAA at position
-            ArrayList<ArrayList<String>> allowedAAsAtPosition = new ArrayList<ArrayList<String>>();
-            allowedAAsAtPosition.add(allowedAAs.get(pos));
-            //HMN: Create PosDOFS (ResDOFs per position)
-            ArrayList<ArrayList<DegreeOfFreedom>> posDOFs = new ArrayList<>();
-            posDOFs.add(resDOFs);
-            //HMN: getPertStatesPos = getPerStates(resNum) for each resNum in position
-            ArrayList<ArrayList<ArrayList<int[]>>> pertStatesPos = new ArrayList<>();
-            pertStatesPos.add(dset.getPertStates(pos));
-            //HMN: BFB for each res in pos
-            ArrayList<BBFreeBlock> curBFBPerRes = new ArrayList<>();
-            curBFBPerRes.add(getCurBFB(bfbList, res));
-
-            ArrayList<Integer> DOFIndices = new ArrayList<>();
-            DOFIndices.add(pos);
-
-            PositionConfSpaceSuper rcs = new PositionConfSpaceSuper(resList, posDOFs, allowedAAsAtPosition, DOFIndices, contSCFlex,
-                    resStrandDOFs, perts, dset.getPertIntervals(), pertStatesPos, curBFBPerRes, useEllipses);
-            posFlexSuper.add(rcs);
-            if (useEllipses) {
-                confDOFs.addAll(rcs.getEllipsoidalArray());
-            } else {
-                confDOFs.addAll(resDOFs);
-            }
-
-        }
+        subsetCSpace.numPos = newNumPos;
+        subsetCSpace.mutDOFs = newMutDOFs;
+        subsetCSpace.posFlexSuper = newPosFlex;
+        
+        return subsetCSpace;
     }
 
     private ArrayList<BBFreeBlock> getBBFreeBlocks(ArrayList<String[]> freeBBZones, ArrayList<String> flexibleRes) {
@@ -711,4 +529,6 @@ public class ConfSpaceSuper extends ConfSpace {
 
         return minE;
     }
+    
+    
 }

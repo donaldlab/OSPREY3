@@ -5,9 +5,11 @@
 package edu.duke.cs.osprey.structure;
 
 import edu.duke.cs.osprey.control.EnvironmentVars;
+import edu.duke.cs.osprey.restypes.DAminoAcidHandler;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
@@ -223,7 +225,13 @@ public class PDBFileReader {
                 m.deleteResidue(res.indexInMolecule);
             }
             
-        } catch (Exception e) {
+        } 
+        catch(FileNotFoundException e){
+            System.err.println("ERROR: PDB file not found: "+PDBFile);
+            System.err.println(e.getMessage());
+            e.printStackTrace();
+        }
+        catch(Exception e){
             System.err.println(e.getMessage());
             e.printStackTrace();
         }
@@ -347,6 +355,10 @@ public class PDBFileReader {
             //go through residues backwards so we can delete some if needed
 
             Residue res = m.residues.get(resNum);
+            
+            DAminoAcidHandler.tryRenamingAsD(res);//We accept D-amino acid named using the usual L names, but must change them here
+            //so the right template name is used
+            
             boolean templateAssigned = res.assignTemplate();
 
             if (EnvironmentVars.deleteNonTemplateResidues && !templateAssigned) {

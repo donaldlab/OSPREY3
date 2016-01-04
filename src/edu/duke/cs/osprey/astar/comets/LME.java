@@ -53,7 +53,10 @@ public class LME implements Serializable {
     public double getConstTerm() {
         return constTerm;
     }
-    
+
+    public void setConstTerm(double aConstTerm){
+        this.constTerm = aConstTerm;
+    }
     
     public double eval(double[] stateGMECVals){
         //Given the optimized conformational energies for each state, evaluate the LME

@@ -61,7 +61,7 @@ public class Main {
         if(command.equalsIgnoreCase("findGMEC")){
             //I recommend that we change the command names a little to be more intuitive, e.g. 
             //"findGMEC" instead of doDEE
-            GMECFinderSuper gf = new GMECFinderSuper(cfp);
+            GMECFinder gf = new GMECFinder(cfp);
             gf.calcGMEC();//this can be the n globally minimum-energy conformations for n>1, or just the 1 
             //These functions will handle their own output
         }
@@ -77,9 +77,13 @@ public class Main {
             COMETSDoer cd = new COMETSDoer(args);
             cd.calcBestSequences();
         }
-        else if(command.equalsIgnoreCase("KaDEETest")){
-            KaDEEFinder kdf = new KaDEEFinder(cfp);
-            kdf.doKaDEE();
+        else if(command.equalsIgnoreCase("doCOMETSSuper")){
+            COMETSDoerSuper csd = new COMETSDoerSuper(cfp);
+            csd.doKaDEE();
+        }
+        else if (command.equalsIgnoreCase("doKaDEE")){
+            KaDEEDoer kd = new KaDEEDoer(cfp);
+            kd.doKaDEE();
         }
         //etc.
         else

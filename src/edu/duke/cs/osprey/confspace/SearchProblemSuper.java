@@ -15,12 +15,14 @@ import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tupexp.ConfETupleExpander;
 import edu.duke.cs.osprey.tupexp.TupExpChooser;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.stream.Collectors;
 
@@ -28,12 +30,12 @@ import java.util.stream.Collectors;
  *
  * @author hmn5
  */
-public class SearchProblemSuper{
+public class SearchProblemSuper implements Serializable{
     //This is the super-RC analog of SearchProblem
 
     public ConfSpaceSuper confSpaceSuper;
     public ConfSpace confSpace;
-    
+
     public EnergyMatrix emat;
 
     public EPICMatrix epicMat = null;
@@ -77,10 +79,10 @@ public class SearchProblemSuper{
     }
 
     public SearchProblemSuper(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
-            boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset,
+            boolean addWTRots, boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset,
             ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses) {
 
-        this.confSpaceSuper = new ConfSpaceSuper(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses);
+        this.confSpaceSuper = new ConfSpaceSuper(PDBFile, flexibleRes, allowedAAs, addWT, addWTRots, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses);
         this.confSpace = confSpaceSuper;
         this.name = name;
 
@@ -99,52 +101,59 @@ public class SearchProblemSuper{
         fullConfE = eGen.fullConfEnergy(confSpaceSuper, shellResidues);
     }
 
-    //HMN: Same constructor but specifies starting and ending residue number of molecule in search space
-    public SearchProblemSuper(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
-            boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset,
-            ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses, int startResNum, int endResNum) {
+    public SearchProblemSuper getSubsetSearchProblem(ArrayList<Integer> subsetOfPositions) {
+        Collections.sort(subsetOfPositions);
 
-        this.confSpaceSuper = new ConfSpaceSuper(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses, startResNum, endResNum);
-        this.confSpace = confSpaceSuper;
-        this.name = name;
+        SearchProblemSuper subsetSP = new SearchProblemSuper(this);
+        if (useEPIC || useTupExpForSearch) {
+            throw new RuntimeException("ERROR: Currently getSubsetSearchProblem does not support EPIC or LUTE");
+        }
+        if (contSCFlex) {
+            //we will want to create a new energy function generator that properly
+            //handles this partial space 
+        }
 
-        this.contSCFlex = contSCFlex;
-        this.useTupExpForSearch = useTupExp;
-        this.useEPIC = useEPIC;
-        this.epicSettings = epicSettings;
+        
+        subsetSP.confSpaceSuper = this.confSpaceSuper.getSubsetConfSpace(subsetOfPositions);
+        
+        // Begin: Create new Energy and Pruning Matrix (currently only one and two-body terms)
+        EnergyMatrix subsetEmat = new EnergyMatrix(subsetSP.confSpaceSuper, this.emat.getPruningInterval());
+        ArrayList<ArrayList<Double>> newOneBodyE = new ArrayList<>();
+        ArrayList<ArrayList<ArrayList<ArrayList<Double>>>> newPairwiseE = new ArrayList<>();
 
-        //energy function setup
-        EnergyFunctionGenerator eGen = EnvironmentVars.curEFcnGenerator;
-        decideShellResidues(eGen.distCutoff);
-        //DEBUG
-        //addAllResToShell();
-        //fullConfE = eGen.fullConfEnergy(confSpace,shellResidues);
-        //HMN: use confSpaceSuper as input instead of confSpace
-        fullConfE = eGen.fullConfEnergy(confSpaceSuper, shellResidues);
-    }
+        PruningMatrix subsetPruneMat = new PruningMatrix(confSpaceSuper, this.pruneMat.getPruningInterval());
+        ArrayList<ArrayList<Boolean>> newOneBodyPrune = new ArrayList<>();
+        ArrayList<ArrayList<ArrayList<ArrayList<Boolean>>>> newPairwisePrune = new ArrayList<>();
 
-    //HMN: Same constructor but specifies starting and ending residue number of molecule in search space
-    public SearchProblemSuper(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
-            boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset,
-            ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses, int startResNum1, int endResNum1, int startResNum2, int endResNum2) {
-
-        this.confSpaceSuper = new ConfSpaceSuper(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses, startResNum1, endResNum1, startResNum2, endResNum2);
-        this.confSpace = confSpaceSuper;
-        this.name = name;
-
-        this.contSCFlex = contSCFlex;
-        this.useTupExpForSearch = useTupExp;
-        this.useEPIC = useEPIC;
-        this.epicSettings = epicSettings;
-
-        //energy function setup
-        EnergyFunctionGenerator eGen = EnvironmentVars.curEFcnGenerator;
-        decideShellResidues(eGen.distCutoff);
-        //DEBUG
-        //addAllResToShell();
-        //fullConfE = eGen.fullConfEnergy(confSpace,shellResidues);
-        //HMN: use confSpaceSuper as input instead of confSpace
-        fullConfE = eGen.fullConfEnergy(confSpaceSuper, shellResidues);
+        for (int i = 0; i < subsetSP.confSpaceSuper.numPos; i++) {
+            int posNumI = subsetOfPositions.get(i);
+            ArrayList<Double> oneBodyEAtPosI = (ArrayList<Double>) ObjectIO.deepCopy(this.emat.oneBody.get(posNumI));
+            ArrayList<Boolean> oneBodyPruneAtPosI = (ArrayList<Boolean>) ObjectIO.deepCopy(this.pruneMat.oneBody.get(posNumI));
+            ArrayList<ArrayList<ArrayList<Double>>> pairwiseEAtPosI = new ArrayList<>();
+            ArrayList<ArrayList<ArrayList<Boolean>>> pairwisePruneAtPosI = new ArrayList<>();
+            for (int j = 0; j < i; j++) {
+                int posNumJ = subsetOfPositions.get(j);
+                ArrayList<ArrayList<Double>> pairwiseEAtPosIPosJ = (ArrayList<ArrayList<Double>>) ObjectIO.deepCopy(this.emat.pairwise.get(posNumI).get(posNumJ));
+                pairwiseEAtPosI.add(pairwiseEAtPosIPosJ);
+                ArrayList<ArrayList<Boolean>> pairwisePruneAtPosIPosJ = (ArrayList<ArrayList<Boolean>>) ObjectIO.deepCopy(this.pruneMat.pairwise.get(posNumI).get(posNumJ));
+                pairwisePruneAtPosI.add(pairwisePruneAtPosIPosJ);
+            }
+            newOneBodyE.add(oneBodyEAtPosI);
+            newPairwiseE.add(pairwiseEAtPosI);
+            newOneBodyPrune.add(oneBodyPruneAtPosI);
+            newPairwisePrune.add(pairwisePruneAtPosI);
+        }
+        subsetEmat.oneBody = newOneBodyE;
+        subsetEmat.pairwise = newPairwiseE;
+        //For now lets not handle higher-order terms
+        
+        subsetSP.emat = subsetEmat;
+        subsetPruneMat.oneBody = newOneBodyPrune;
+        subsetPruneMat.pairwise = newPairwisePrune;
+        subsetSP.pruneMat = subsetPruneMat;
+        // End: Create new Energy and Pairwsie Matrix
+        
+        return subsetSP;
     }
 
     private void addAllResToShell() {
@@ -237,6 +246,8 @@ public class SearchProblemSuper{
         //Minimized eneryg of the conformatoin
         //whose super-RCs are listed for all flexible positions in conf
         double E = confSpaceSuper.minimizeEnergy(conf, fullConfE, null);
+        //HMN: Add constant term
+        E += emat.getConstTerm();
         return E;
     }
 
@@ -593,7 +604,7 @@ public class SearchProblemSuper{
         if (newPos.size() == 1) {
             oneBodyE = this.emat.oneBody.get(newPos.get(0));
         } else {
-            TermECalculatorSuper termE = new TermECalculatorSuper(confSpaceSuper, shellResidues, useEPIC, useEPIC, null, epicSettings, newPosNum);
+            TermECalculatorSuper termE = new TermECalculatorSuper(confSpaceSuper, shellResidues, useEPIC, useEPIC, null, epicSettings, false, newPosNum);
             Object oneBodyTerm = termE.doCalculation();
             oneBodyE = (ArrayList<Double>) oneBodyTerm;
         }
@@ -605,7 +616,7 @@ public class SearchProblemSuper{
         //
         //if either of the positions are merged
         if (posNumList1.size() > 1 || posNumList2.size() > 1) {
-            TermECalculatorSuper termE = new TermECalculatorSuper(confSpaceSuper, shellResidues, useEPIC, useEPIC, null, epicSettings, newPosNum1, newPosNum2);
+            TermECalculatorSuper termE = new TermECalculatorSuper(confSpaceSuper, shellResidues, useEPIC, useEPIC, null, epicSettings, false, newPosNum1, newPosNum2);
             Object twoBodyTerm = termE.doCalculation();
             twoBodyE = (ArrayList<ArrayList<Double>>) twoBodyTerm;
         } else {

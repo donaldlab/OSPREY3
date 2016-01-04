@@ -4,8 +4,12 @@
  */
 package edu.duke.cs.osprey.confspace;
 
+import edu.duke.cs.osprey.tools.ObjectIO;
 import java.io.Serializable;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.stream.Collectors;
 
 /**
  *
@@ -23,7 +27,7 @@ public class TupleMatrix<T> implements Serializable {
     //indices: res1, res2, RC1, RC2 where res1>res2
     public ArrayList<ArrayList<T>> oneBody;//intra+shell
 
-    ArrayList<ArrayList<ArrayList<ArrayList<HigherTupleFinder<T>>>>> higherTerms;//look up higher terms by pair
+    public ArrayList<ArrayList<ArrayList<ArrayList<HigherTupleFinder<T>>>>> higherTerms;//look up higher terms by pair
     //same indices as pairwise
     //can be null if no interactions
 
@@ -50,9 +54,10 @@ public class TupleMatrix<T> implements Serializable {
         //no allocation (for overriding)
         this.defaultHigherInteraction = defaultHigherInteraction;
     }
-    
-    public TupleMatrix(){}
-    
+
+    public TupleMatrix() {
+    }
+
     public TupleMatrix(ConfSpace cSpace, double pruningInterval, T defaultHigherInteraction) {
         //allocate the matrix based on the provided conformational space
         init(cSpace.numPos, cSpace.getNumRCsAtPos(), pruningInterval, defaultHigherInteraction);
@@ -69,6 +74,14 @@ public class TupleMatrix<T> implements Serializable {
         //allocate the matrix based on the provided conformational space size
         //also specify what pruningInterval it's valid up to
         init(numPos, numAllowedAtPos, pruningInterval, defaultHigherInteraction);
+    }
+
+    public TupleMatrix(TupleMatrix<T> tupMat) {
+        this.oneBody = tupMat.oneBody;
+        this.pairwise = tupMat.pairwise;
+        this.higherTerms = tupMat.higherTerms;
+        this.pruningInterval = tupMat.pruningInterval;
+        this.defaultHigherInteraction = tupMat.defaultHigherInteraction;
     }
 
     private void init(int numPos, int[] numAllowedAtPos, double pruningInterval, T defaultHigherInteraction) {
@@ -293,4 +306,103 @@ public class TupleMatrix<T> implements Serializable {
         }
     }
 
+    //HMN: Useful for Partial Search Spaces
+    public TupleMatrix<T> getSubsetMatrix(ArrayList<Integer> subsetOfPos) {
+        Collections.sort(subsetOfPos);
+
+        int numSubsetPos = subsetOfPos.size();
+        int[] numRCsAtPos = new int[numSubsetPos];
+        for (int pos = 0; pos < numSubsetPos; pos++) {
+            int originalPosNum = subsetOfPos.get(pos);
+            numRCsAtPos[pos] = this.oneBody.get(originalPosNum).size();
+        }
+        TupleMatrix<T> subsetTupMat = new TupleMatrix<>(numSubsetPos, numRCsAtPos, pruningInterval, defaultHigherInteraction);
+
+        ArrayList<ArrayList<T>> newOneBody = new ArrayList<>();
+        ArrayList<ArrayList<ArrayList<ArrayList<T>>>> newTwoBody = new ArrayList<>();
+        ArrayList<ArrayList<ArrayList<ArrayList<HigherTupleFinder<T>>>>> newHigherOrder = new ArrayList<>();
+
+        for (int i = 0; i < numSubsetPos; i++) {
+            int originalPosNumI = subsetOfPos.get(i);
+            ArrayList<T> oneBodyAtPosI = (ArrayList<T>) ObjectIO.deepCopy(this.oneBody.get(originalPosNumI));
+            ArrayList<ArrayList<ArrayList<T>>> twoBodyAtPosI = new ArrayList<>();
+            ArrayList<ArrayList<ArrayList<HigherTupleFinder<T>>>> higherOrderAtPosI = new ArrayList<>();
+            for (int j = 0; j < i; j++) {
+                int originalPosNumJ = subsetOfPos.get(j);
+                ArrayList<ArrayList<T>> twoBodyAtPosIPosJ = (ArrayList<ArrayList<T>>) ObjectIO.deepCopy(this.pairwise.get(originalPosNumI).get(originalPosNumJ));
+                twoBodyAtPosI.add(twoBodyAtPosIPosJ);
+                //Higher-Order Tuples
+                ArrayList<ArrayList<HigherTupleFinder<T>>> higherOrderAtPosIPosJ = new ArrayList<>();
+                for (int rcI = 0; rcI < numRCsAtPos[i]; rcI++) {
+                    ArrayList<HigherTupleFinder<T>> higherOrderAtPosIPosJRCI = new ArrayList<>();
+                    for (int rcJ = 0; rcJ < numRCsAtPos[j]; rcJ++) {
+                        HigherTupleFinder<T> htf = getHigherOrderTerms(originalPosNumI, rcI, originalPosNumJ, rcJ);
+                        if (htf != null) {
+                            HigherTupleFinder<T> new_htf = htf.getHigherOrderTuplesWithinSubsetPos(subsetOfPos, numRCsAtPos);
+                            higherOrderAtPosIPosJRCI.add(new_htf);
+
+                        } else {
+                            higherOrderAtPosIPosJRCI.add(null);
+                        }
+                    }
+                    higherOrderAtPosIPosJ.add(higherOrderAtPosIPosJRCI);
+                }
+                higherOrderAtPosI.add(higherOrderAtPosIPosJ);
+            }
+            newOneBody.add(oneBodyAtPosI);
+            newTwoBody.add(twoBodyAtPosI);
+            newHigherOrder.add(higherOrderAtPosI);
+        }
+        subsetTupMat.oneBody = newOneBody;
+        subsetTupMat.pairwise = newTwoBody;
+        subsetTupMat.higherTerms = newHigherOrder;
+
+        return subsetTupMat;
+    }
+
+    
+    /*
+    public void updateMatrixCrossTerms(TupleMatrix<T> tupMat, boolean[][] interactionGraph) {
+        int numPos = this.oneBody.size();
+
+        int[] numRCsPerPos = new int[numPos];
+        for (int pos=0; pos<numPos; pos++){
+            numRCsPerPos[pos] = this.oneBody.get(pos).size();
+        }
+        
+        
+        for (int i = 0; i < numPos; i++) {
+            //Set all one-body terms to "zero"
+            for (int rot=0; rot< numRCsPerPos[i]; rot++){
+                this.setOneBody(i, rot, defaultHigherInteraction);
+            }
+            
+            for (int j = 0; j < i; j++) {
+                //If they don't interact, set all pairwise to "zero"
+                //This is the defaultHigherInteraction (e.g. false, null, 0)
+                if (!interactionGraph[i][j]) {
+                    for (int rcI=0; rcI<numRCsPerPos[i]; rcI++){
+                        for (int rcJ=0; rcJ<numRCsPerPos[j]; rcJ++){
+                            //Set pairwise to "zero"
+                            this.setPairwise(i, rcI, j, rcJ, defaultHigherInteraction);
+                            //now we need to check if we should include higher-order terms
+                            HigherTupleFinder<T> htf = getHigherOrderTerms(i, rcI, j, rcJ);
+                            if (htf != null){
+                                //Get all positions that interact with i or j
+                                ArrayList<Integer> interactingPositions = new ArrayList<>();
+                                for (int pos=0; pos<numPos; pos++){
+                                    if (interactionGraph[i][pos] || interactionGraph[j][pos]){
+                                        interactingPositions.add(pos);
+                                    }
+                                }
+                                HigherTupleFinder<T> crossHtf = htf.getHigherOrderCrossTerms(interactingPositions, numRCsPerPos);
+                                this.higherTerms.get(i).get(j).get(rcI).set(rcJ, crossHtf);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    */
 }

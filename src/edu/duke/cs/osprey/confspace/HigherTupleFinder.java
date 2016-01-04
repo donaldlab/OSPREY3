@@ -4,6 +4,7 @@
  */
 package edu.duke.cs.osprey.confspace;
 
+import edu.duke.cs.osprey.tools.ObjectIO;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.TreeMap;
@@ -181,6 +182,107 @@ public class HigherTupleFinder<T> implements Serializable {
         return ans;
     }
 
+    /**
+     * Hunter: Given a subset of the total number of positions in a search
+     * space, this method creates a higher-order tuple finder for all
+     * higher-order interactions involving this tuple and the subset of
+     * positions. This implementation is completely recursive
+     *
+     * @param subsetPos the subset of total positions
+     * @return a new HigherTupleFinder containing higher-order tuples involving
+     * this tuple and the subset of positions
+     */
+    public HigherTupleFinder<T> getHigherOrderTuplesWithinSubsetPos(ArrayList<Integer> subsetPos, int[] numRCsPerNewPos) {
+        //Create a new HigherTupleFinder to be returned
+        HigherTupleFinder<T> htf = new HigherTupleFinder<>(this.defaultInteraction);
+        //For each interacting position
+        for (int i = 0; i < this.interactingPos.size(); i++) {
+            int originalPosNum = this.interactingPos.get(i);
+            //is this position in the subset of positions we are interested in
+            if (subsetPos.contains(originalPosNum)) {
+                //our new search space has positions i=0,i=1,...i=subsetPos.size()
+                //newPosNum is the index of the original posNum in subsetPos
+                int newPosNum = subsetPos.indexOf(originalPosNum);
+                ///iterate over the rc's for this position 
+                for (int rc = 0; rc < numRCsPerNewPos[newPosNum]; rc++) {
+                    //get the value of this interaction
+                    RCTuple tup = new RCTuple(newPosNum, rc);
+                    if (this.interactions.get(i).containsKey(rc)) {
+                        T val = this.interactions.get(i).get(rc);
+
+                        //add this interaction to our HigherTupleFinder
+                        if (!htf.interactingPos.contains(newPosNum)) {
+                            htf.interactingPos.add(newPosNum);
+                            htf.interactions.add(new TreeMap<>());
+                            htf.higher.add(new TreeMap<>());
+                        }
+                        int htfIndex = htf.interactingPos.indexOf(newPosNum);
+                        htf.interactions.get(htfIndex).put(rc, val);
+                    }
+                    //Now we must check for higher-order
+                    if (this.higher.get(i).containsKey(rc)) {
+                        //In this case we have a higher-order interaction between 
+                        //at least three positions in subsetPos
+                        HigherTupleFinder<T> higherHTF = this.higher.get(i).get(rc);
+                        //we recurse on the higher-order htf 
+                        HigherTupleFinder<T> higherHTFsubset = higherHTF.getHigherOrderTuplesWithinSubsetPos(subsetPos, numRCsPerNewPos);
+                        //If any higher-order interactions are found
+                        if (higherHTFsubset != null) {
+                            //... we add the higher-order tuple to htf
+                            // first get into htf.higher
+                            if (!htf.interactingPos.contains(newPosNum)) {
+                                htf.interactingPos.add(newPosNum);
+                                htf.interactions.add(new TreeMap<>());
+                                htf.higher.add(new TreeMap<>());
+                            }
+                            int htfIndex = htf.interactingPos.indexOf(newPosNum);
+                            htf.higher.get(htfIndex).put(rc, higherHTFsubset);
+                        }
+                    }
+                }
+            }
+        }
+        if (htf.interactingPos.isEmpty()) {
+            return null;
+        }
+        return htf;
+    }
+
+
+    /**
+     * This function gets higher-order terms for partial search spaces involving 
+     * cross-term between subsets of residues
+     * @param crossTermPos the set of positions that we want higher-order terms 
+     * for this cross term
+     * @param numRCsPerNewPos number of RC's per position
+     * @return 
+     */
+    public HigherTupleFinder<T> getHigherOrderCrossTerms(ArrayList<Integer> crossTermPos, int[] numRCsPerNewPos) {
+        HigherTupleFinder<T> htf = new HigherTupleFinder<>(this.defaultInteraction);
+        for (int pos : this.interactingPos) {
+            int currentPosIndex = this.interactingPos.indexOf(pos);
+
+            //If this position is contained in our list of cross-terms, we add
+            //all higher-order terms
+            if (crossTermPos.contains(pos)) {
+                //allocate space for this position in htf
+                if (!htf.interactingPos.contains(pos)) {
+                    htf.interactingPos.add(pos);
+                    htf.interactions.add(new TreeMap<>());
+                    htf.higher.add(new TreeMap<>());
+                }
+                //set interactions and higher
+                int htfIndex = htf.interactingPos.indexOf(pos);
+                this.interactions.set(htfIndex, (TreeMap<Integer, T>) ObjectIO.deepCopy(this.interactions.get(currentPosIndex)));
+                this.higher.set(htfIndex, (TreeMap<Integer, HigherTupleFinder<T>>) ObjectIO.deepCopy(this.higher.get(currentPosIndex)));
+            }
+        }
+        if (htf.interactingPos.isEmpty()){
+            return null;
+        }
+        return htf;
+    }
+
     public ArrayList<SuperRCTuple> listInteractionsWithValueSuper(T val) {
         //list tuples with the given interaction value
         //stored here
@@ -258,5 +360,12 @@ public class HigherTupleFinder<T> implements Serializable {
                 }
             }
         }
+    }
+    
+    public ArrayList<TreeMap<Integer, T>> getInteractions(){
+        return this.interactions;
+    }
+    public ArrayList<TreeMap<Integer, HigherTupleFinder<T>>> getHigher(){
+        return this.higher;
     }
 }

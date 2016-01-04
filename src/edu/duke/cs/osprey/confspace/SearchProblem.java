@@ -19,7 +19,8 @@ import edu.duke.cs.osprey.tupexp.ConfETupleExpander;
 import edu.duke.cs.osprey.tupexp.TupExpChooser;
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.Collections;
+import java.util.HashMap;
 
 /**
  *
@@ -51,47 +52,46 @@ public class SearchProblem implements Serializable {
 
     public PruningMatrix pruneMat;
 
-    boolean contSCFlex;
+    public boolean contSCFlex;
 
     public PruningMatrix competitorPruneMat;//a pruning matrix performed at pruning interval 0,
     //to decide which RC tuples are valid competitors for pruning
 
     public boolean useEPIC = false;
     public boolean useTupExpForSearch = false;//use a tuple expansion to approximate the energy as we search
-    
-    
+
     boolean useERef = false;
-    
-    
-    public SearchProblem(SearchProblem sp1){//shallow copy
-    	confSpace = sp1.confSpace;
-    	emat = sp1.emat;
+
+    public SearchProblem(SearchProblem sp1) {//shallow copy
+        confSpace = sp1.confSpace;
+        emat = sp1.emat;
         epicMat = sp1.epicMat;
         epicSettings = sp1.epicSettings;
         tupExpEMat = sp1.tupExpEMat;
-        
-    	fullConfE = sp1.fullConfE;
-    	shellResidues = sp1.shellResidues;
-    	name = sp1.name + System.currentTimeMillis();//probably will want to change this to something more meaningful
-        
-    	pruneMat = sp1.pruneMat;
-    	competitorPruneMat = sp1.competitorPruneMat;
-        
-    	contSCFlex = sp1.contSCFlex;
-    	useEPIC = sp1.useEPIC;
-    	useTupExpForSearch = sp1.useTupExpForSearch;
-        
+
+        fullConfE = sp1.fullConfE;
+        shellResidues = sp1.shellResidues;
+        name = sp1.name + System.currentTimeMillis();//probably will want to change this to something more meaningful
+
+        pruneMat = sp1.pruneMat;
+        competitorPruneMat = sp1.competitorPruneMat;
+
+        contSCFlex = sp1.contSCFlex;
+        useEPIC = sp1.useEPIC;
+        useTupExpForSearch = sp1.useTupExpForSearch;
+
         useERef = sp1.useERef;
 
     }
-    public SearchProblem(){}
-    
-    public SearchProblem(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
 
-            boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset, 
-            ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef){
-        
-        confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses);
+    public SearchProblem() {
+    }
+
+    public SearchProblem(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
+            boolean addWTRots, boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset,
+            ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef) {
+
+        confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, addWTRots, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses);
         this.name = name;
 
         this.contSCFlex = contSCFlex;
@@ -99,12 +99,11 @@ public class SearchProblem implements Serializable {
         this.useEPIC = useEPIC;
         this.epicSettings = epicSettings;
 
-        
         this.useERef = useERef;
         //energy function setup
         EnergyFunctionGenerator eGen = EnvironmentVars.curEFcnGenerator;
         decideShellResidues(eGen.distCutoff);
-        fullConfE = eGen.fullConfEnergy(confSpace,shellResidues);
+        fullConfE = eGen.fullConfEnergy(confSpace, shellResidues);
     }
 
     private void decideShellResidues(double distCutoff) {
@@ -140,10 +139,11 @@ public class SearchProblem implements Serializable {
         //Minimized energy of the conformation
         //whose RCs are listed for all flexible positions in conf
         double E = confSpace.minimizeEnergy(conf, fullConfE, null);
-        
-        if(useERef)
+
+        if (useERef) {
             E -= emat.geteRefMat().confERef(conf);
-        
+        }
+
         return E;
     }
 
@@ -219,11 +219,10 @@ public class SearchProblem implements Serializable {
     }
 
     //compute the matrix of the specified type
+    private TupleMatrix calcMatrix(MatrixType type) {
 
-    private TupleMatrix calcMatrix(MatrixType type){
-        
-        if(type == MatrixType.EMAT){
-            EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(confSpace,shellResidues,useERef);
+        if (type == MatrixType.EMAT) {
+            EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(confSpace, shellResidues, useERef);
             emCalc.calcPEM();
             return emCalc.getEMatrix();
         } else if (type == MatrixType.EPICMAT) {
@@ -298,4 +297,117 @@ public class SearchProblem implements Serializable {
         }
     }
 
+    /**
+     * HMN: Returns a search problem over a partial search space defined by a
+     * subset of the total number of positions
+     *
+     * @param subsetOfPositions the subset of positions
+     * @param updatedPruneMat updated pruning matrix (either empty or has one prune mat)
+     * @return
+     */
+    public SearchProblem getPartialSearchProblem(ArrayList<Integer> subsetOfPositions, PruningMatrix... updatePruneMat) {
+        //Make sure the positions are sorted
+        Collections.sort(subsetOfPositions);
+
+        //Create a shallow copy 
+        SearchProblem partSearchSpace = new SearchProblem(this);
+        //Update the pruning matrix
+        if (updatePruneMat.length != 0){
+            partSearchSpace.pruneMat = updatePruneMat[0];
+        }
+        
+        ConfSpace partCSpace = partSearchSpace.confSpace.getPartialConfSpace(subsetOfPositions);
+        EnergyMatrix partEmat = new EnergyMatrix(partSearchSpace.emat.getSubsetMatrix(subsetOfPositions));
+        PruningMatrix partPruneMat = new PruningMatrix(partSearchSpace.pruneMat.getSubsetMatrix(subsetOfPositions));
+        PruningMatrix partCompetitorPruneMat = new PruningMatrix(partSearchSpace.competitorPruneMat.getSubsetMatrix(subsetOfPositions));
+
+        EPICMatrix partEPICMat = null;
+        EnergyMatrix partTupExpEMat = null;
+        if (useEPIC) {
+            partEPICMat = new EPICMatrix(partSearchSpace.epicMat.getSubsetMatrix(subsetOfPositions), partCSpace);
+        }
+        if (useTupExpForSearch) {
+            partTupExpEMat = new EnergyMatrix(partSearchSpace.tupExpEMat.getSubsetMatrix(subsetOfPositions));
+        }
+        //Currently, the partial confSpace contains a new molecule since it was 
+        //deep copied. Thus, we need to get the shellResidues that correspond to
+        //this new molecules
+        //We will add all shellResidues from the full Search Problem (this could
+        //change if we want to incorporate residue specific energy-cut offs)
+        ArrayList<Residue> partShellResidues = new ArrayList<Residue>();
+        //Create a hashmap for efficient adding
+        //Maps resNum to the Residue
+        HashMap<Integer, Residue> resNumToResidue = new HashMap<>();
+        //For every residue in the molecules we add the information to the hashmap
+        partCSpace.m.residues.stream().map(res -> resNumToResidue.put(res.resNum, res));
+        //For each original shell residue, add the corresponding residue from
+        //our partCSpace molecule to the list
+        this.shellResidues.stream().map(res -> partShellResidues.add(resNumToResidue.get(res.resNum)));
+
+        EnergyFunction partFullConfE = EnvironmentVars.curEFcnGenerator.fullConfEnergy(partCSpace, partShellResidues);
+
+        //Now lets update partSearchSpace with the new information
+        partSearchSpace.confSpace = partCSpace;
+        partSearchSpace.emat = partEmat;
+        partSearchSpace.epicMat = partEPICMat;
+        partSearchSpace.tupExpEMat = partTupExpEMat;
+//        partSearchSpace.name = aName;
+        partSearchSpace.name = this.name + System.currentTimeMillis();
+        partSearchSpace.pruneMat = partPruneMat;
+        partSearchSpace.competitorPruneMat = partCompetitorPruneMat;
+
+        return partSearchSpace;
+    }
+
+    /**
+     * HMN: This is used for partial search spaces. Given an interaction graph,
+     * we update the underlying "energy" matrices to only have non-zero entries
+     * find or the pairwise terms defined by the interaction graph
+     *
+     * @param interactionGraph the interaction graph that maps position_I and
+     * position_J to true if we should keep the pairwise energies between
+     * position_I and position_J
+     */
+    public void updateMatrixCrossTerm(boolean[][] interactionGraph) {
+        this.emat.updateMatrixCrossTerms(interactionGraph);
+        if (useEPIC) {
+            this.epicMat.updateMatrixCrossTerms(interactionGraph);
+        }
+        if (useTupExpForSearch) {
+            this.tupExpEMat.updateMatrixCrossTerms(interactionGraph);
+        }
+    }
+
+    
+    /**
+     * HMN: This method is subtracts the internal energies from another matrix, 
+     * presumably the unbound matrix for partial search spaces
+     */
+    public void substractUnboundInternalEnergies(SearchProblem unBoundSearchProblem, ArrayList<Integer> posNumsToSubtractFrom, HashMap<Integer, Integer> boundPosNumToUnboundPosNum) {
+        this.emat.subtractUnboundInternalEnergies(unBoundSearchProblem.emat, posNumsToSubtractFrom, boundPosNumToUnboundPosNum);
+        if (contSCFlex){
+            throw new RuntimeException("Continuous Flexibility Not Fully Implemented in KaDEE");
+        }
+        if (useEPIC) {
+            throw new RuntimeException("Subtracting Unbound Energies Currently not supported with EPIC");
+        }
+        if (useTupExpForSearch) {
+            this.tupExpEMat.subtractUnboundInternalEnergies(unBoundSearchProblem.tupExpEMat, posNumsToSubtractFrom, boundPosNumToUnboundPosNum);
+        }
+    }
+    
+    public void negateEnergies(){
+        this.emat.negateEnergies();
+        if (contSCFlex){
+            //NOTE WE WILL NEED A DIFFERENT LOWER BOUND EMAT (I THINK)
+            //In fact, this may not be possible
+            throw new RuntimeException("Continuous Flexibility Not Fully Implemented in KaDEE");
+        }
+        if (useEPIC) {
+            throw new RuntimeException("Subtracting Unbound Energies Currently not supported with EPIC");
+        }
+        if (useTupExpForSearch) {
+            this.tupExpEMat.negateEnergies();
+        }
+    }
 }

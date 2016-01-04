@@ -15,6 +15,7 @@ import edu.duke.cs.osprey.handlempi.MPISlaveTask;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Residue;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 /**
  *
@@ -34,8 +35,6 @@ public class EnergyMatrixCalculator {
     PruningMatrix pruneMat = null;
     EPICSettings epicSettings = null;
 
-    
-    
     boolean useERef = false;
     //If using E ref, will compute a reference energy for each amino-acid type
     //and correct the intra+shell energies based on the reference energies
@@ -43,6 +42,7 @@ public class EnergyMatrixCalculator {
     private EnergyMatrix emat = null;
     private EPICMatrix epicMat = null;
 
+    boolean templateAlwaysOn = false;
     //constructor for calculating a scalar energy matrix (rigid or pairwise lower bounds)
     public EnergyMatrixCalculator(ConfSpace s, ArrayList<Residue> sr, boolean useERef) {
         searchSpace = s;
@@ -107,7 +107,6 @@ public class EnergyMatrixCalculator {
         System.out.println("ENERGY MATRIX CALCULATION DONE");
     }
 
-
     public void calcPEMLocally() {
         //do the energy calculation here
 
@@ -140,7 +139,7 @@ public class EnergyMatrixCalculator {
             System.out.println("Starting one-body calculation for position " + pos1);
 
             TermECalculatorSuper oneBodyECalc = new TermECalculatorSuper(searchSpaceSuper, shellResidues,
-                    doEPIC, false, pruneMat, epicSettings, pos1);
+                    doEPIC, false, pruneMat, epicSettings, templateAlwaysOn, pos1);
             Object oneBodyE = oneBodyECalc.doCalculation();
             storeEnergy(oneBodyE, pos1);
 
@@ -149,16 +148,37 @@ public class EnergyMatrixCalculator {
                 System.out.println("Starting two-body calculation for positions " + pos1 + ", " + pos2);
 
                 TermECalculatorSuper twoBodyECalc = new TermECalculatorSuper(searchSpaceSuper, shellResidues,
-                        doEPIC, false, pruneMat, epicSettings, pos1, pos2);
+                        doEPIC, false, pruneMat, epicSettings, templateAlwaysOn, pos1, pos2);
                 Object twoBodyE = twoBodyECalc.doCalculation();
                 storeEnergy(twoBodyE, pos1, pos2);
             }
         }
         //compute Shell-ShellE
         System.out.println("Starting shell-shell calculation");
-        TermECalculatorSuper shellECalc = new TermECalculatorSuper(searchSpaceSuper, shellResidues, doEPIC, doEPIC, pruneMat, epicSettings);
+        TermECalculatorSuper shellECalc = new TermECalculatorSuper(searchSpaceSuper, shellResidues, doEPIC, doEPIC, pruneMat, epicSettings, templateAlwaysOn);
         Object shellE = shellECalc.doCalculation();
         storeEnergy(shellE);
+    }
+
+    /**
+     * This is used for continuous MSD using the max Interface bound For all
+     * ligand residues, we recompute the intra-shell energy so that the only
+     * shell residues are those belonging to the protein strand
+     *
+     * @param aEmat the energy matrix that we are updating
+     * @param boundPosNUmToIsLigand maps each posNum to boolean that is true if
+     * pos is part of ligand
+     */
+    public void reCalculateIntraTerms(EnergyMatrix aEmat, PruningMatrix aPruneMat, HashMap<Integer, Boolean> boundPosNUmToIsLigand) {
+        this.emat = aEmat;
+        this.pruneMat = aPruneMat;
+        for (int pos = 0; pos < searchSpaceSuper.numPos; pos++) {
+            if (boundPosNUmToIsLigand.get(pos)) {
+                TermECalculatorSuper oneBodyECalc = new TermECalculatorSuper(searchSpaceSuper, shellResidues, doEPIC, false, pruneMat, epicSettings, templateAlwaysOn, pos);
+                Object oneBodyE = oneBodyECalc.doCalculation();
+                storeEnergy(oneBodyE, pos);
+            }
+        }
     }
 
     public void calcPEMDistributed() {
@@ -206,25 +226,25 @@ public class EnergyMatrixCalculator {
 
         //generate TermMinECalc objects, in the same order as for local calculation,
         //but this time pass them off to MPI
-        for (int pos1 = 0; pos1 < searchSpace.numPos; pos1++) {
+        for (int pos1 = 0; pos1 < searchSpaceSuper.numPos; pos1++) {
 
             tasks.add(new TermECalculatorSuper(searchSpaceSuper, shellResidues, doEPIC, false,
-                    pruneMat, epicSettings, pos1));
+                    pruneMat, epicSettings, templateAlwaysOn, pos1));
 
             for (int pos2 = 0; pos2 < pos1; pos2++) {
                 tasks.add(new TermECalculatorSuper(searchSpaceSuper, shellResidues, doEPIC, false,
-                        pruneMat, epicSettings, pos1, pos2));
+                        pruneMat, epicSettings, templateAlwaysOn, pos1, pos2));
             }
         }
         //compute Shell-ShellE
-        tasks.add(new TermECalculatorSuper(searchSpaceSuper, shellResidues, doEPIC, doEPIC, pruneMat, epicSettings));
+        tasks.add(new TermECalculatorSuper(searchSpaceSuper, shellResidues, doEPIC, doEPIC, pruneMat, epicSettings, templateAlwaysOn));
 
         ArrayList<Object> calcResults = mm.handleTasks(tasks);
 
         //Now go through our task results in the same order and put the energies in our matrix
         int resultCount = 0;
 
-        for (int pos1 = 0; pos1 < searchSpace.numPos; pos1++) {
+        for (int pos1 = 0; pos1 < searchSpaceSuper.numPos; pos1++) {
 
             storeEnergy(calcResults.get(resultCount), pos1);
             resultCount++;
