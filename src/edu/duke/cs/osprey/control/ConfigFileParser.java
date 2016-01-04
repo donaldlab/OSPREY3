@@ -582,13 +582,6 @@ public class ConfigFileParser {
             throw new RuntimeException("Cannot get 3 Search Problems since numOfStrans != 2");
         }
 
-        /*
-         //TODO: Change so either strand can be mutable (but only one)
-         //Currently: only strand0 can be 0
-         if (getMutableStrand() == 1){
-         throw new RuntimeException("Mutable Strand Must Be Strand 0");
-         }
-         */
         int numMut0 = Integer.parseInt(params.getValue("STRANDMUTNUMS", "0").split(" ")[0]);
         int numMut1 = Integer.parseInt(params.getValue("STRANDMUTNUMS", "0").split(" ")[1]);
 
@@ -741,13 +734,6 @@ public class ConfigFileParser {
             throw new RuntimeException("Cannot get 3 Search Problems since numOfStrans != 2");
         }
 
-        /*
-         //TODO: Change so either strand can be mutable (but only one)
-         //Currently: only strand0 can be 0
-         if (getMutableStrand() == 1){
-         throw new RuntimeException("Mutable Strand Must Be Strand 0");
-         }
-         */
         int numMut0 = Integer.parseInt(params.getValue("STRANDMUTNUMS", "0").split(" ")[0]);
         int numMut1 = Integer.parseInt(params.getValue("STRANDMUTNUMS", "0").split(" ")[1]);
 

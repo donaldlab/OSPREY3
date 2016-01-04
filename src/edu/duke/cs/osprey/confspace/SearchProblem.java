@@ -362,7 +362,7 @@ public class SearchProblem implements Serializable {
     /**
      * HMN: This is used for partial search spaces. Given an interaction graph,
      * we update the underlying "energy" matrices to only have non-zero entries
-     * for the pairwise terms defined by the interaction graph
+     * find or the pairwise terms defined by the interaction graph
      *
      * @param interactionGraph the interaction graph that maps position_I and
      * position_J to true if we should keep the pairwise energies between
@@ -396,4 +396,18 @@ public class SearchProblem implements Serializable {
         }
     }
     
+    public void negateEnergies(){
+        this.emat.negateEnergies();
+        if (contSCFlex){
+            //NOTE WE WILL NEED A DIFFERENT LOWER BOUND EMAT (I THINK)
+            //In fact, this may not be possible
+            throw new RuntimeException("Continuous Flexibility Not Fully Implemented in KaDEE");
+        }
+        if (useEPIC) {
+            throw new RuntimeException("Subtracting Unbound Energies Currently not supported with EPIC");
+        }
+        if (useTupExpForSearch) {
+            this.tupExpEMat.negateEnergies();
+        }
+    }
 }

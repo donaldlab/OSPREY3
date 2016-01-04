@@ -361,4 +361,11 @@ public class HigherTupleFinder<T> implements Serializable {
             }
         }
     }
+    
+    public ArrayList<TreeMap<Integer, T>> getInteractions(){
+        return this.interactions;
+    }
+    public ArrayList<TreeMap<Integer, HigherTupleFinder<T>>> getHigher(){
+        return this.higher;
+    }
 }

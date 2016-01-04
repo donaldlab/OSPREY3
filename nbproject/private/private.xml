@@ -2,15 +2,6 @@
 <project-private xmlns="http://www.netbeans.org/ns/project-private/1">
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
-        <group>
-            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/ematrix/EnergyMatrixCalculator.java</file>
-            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/astar/kadee/KaDEETree.java</file>
-            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/confspace/PositionConfSpace.java</file>
-            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/minimization/CCDMinimizer.java</file>
-            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/partitionfunctionbounds/MarkovRandomField.java</file>
-            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/partitionfunctionbounds/SelfConsistentMeanField.java</file>
-            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/ematrix/TermECalculatorSuper.java</file>
-            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/control/Main.java</file>
-        </group>
+        <group/>
     </open-files>
 </project-private>

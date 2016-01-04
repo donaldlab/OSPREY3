@@ -1,0 +1,8 @@
+nbproject/private/
+build/
+dist/
+build/*
+dataFiles/ALL*
+*.class
+
+nbproject/

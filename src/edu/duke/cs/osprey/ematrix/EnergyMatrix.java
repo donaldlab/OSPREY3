@@ -12,6 +12,9 @@ import edu.duke.cs.osprey.confspace.SuperRCTuple;
 import edu.duke.cs.osprey.confspace.TupleMatrix;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  *
@@ -276,6 +279,61 @@ public class EnergyMatrix extends TupleMatrix<Double> {
                 double boundE = this.oneBody.get(pos).get(rc);
                 double unboundE = unboundEmat.oneBody.get(unboundPos).get(rc);
                 this.oneBody.get(pos).set(rc, boundE-unboundE);
+            }
+        }
+    }
+    
+    /**
+     * HMN: 
+     * Negates the energies - useful for finding Global Maximum Energy Conformation
+     */
+    public void negateEnergies(){
+        for (int i=0; i<this.numPos(); i++){
+            for (int rot=0; rot<this.numRCsAtPos(i); rot++){
+                double currentE = this.getOneBody(i, rot);
+                this.setOneBody(i, rot, -currentE);
+            }
+            
+            for (int j=0; j<i; j++){
+                for (int rotI=0; rotI<this.numRCsAtPos(i); rotI++){
+                    for (int rotJ=0; rotJ<this.numRCsAtPos(j); rotJ++){
+                        double pairE = this.getPairwise(i, rotI, j, rotJ);
+                        this.setPairwise(i, rotI, j, rotJ, -pairE);
+                        //Negate higher-order tuple energies
+                        HigherTupleFinder<Double> htf = this.getHigherOrderTerms(i, rotI, j, rotJ);
+                        negateHTFEnergies(htf);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * HMN: Negates the values of all entries in the higher order tuple, including 
+     * the higher tuples that it holds
+     * @param htf the higher order tuple
+     */
+    private void negateHTFEnergies(HigherTupleFinder<Double> htf){
+        ArrayList<Integer> interactingPos = htf.getInteractingPos();
+        ArrayList<TreeMap<Integer, Double>> interactions = htf.getInteractions();
+        ArrayList<TreeMap<Integer, HigherTupleFinder<Double>>> higher = htf.getHigher();
+        for (int i=0; i<interactingPos.size(); i++){
+            TreeMap<Integer,Double> interactionsAtPos = interactions.get(i);
+            //Iterate over entries in the map to negate the energies
+            Iterator iterI = interactionsAtPos.entrySet().iterator();
+            while (iterI.hasNext()){
+                Map.Entry<Integer,Double> pair = (Map.Entry<Integer,Double>) iterI.next();
+                pair.setValue(-pair.getValue());
+            }
+
+            //Now we recurse on the higher order tuples
+            //NB: Since we only include four position tuples, this should only go one
+            /// level deep. If this changes, it could cause a stack overflow
+            TreeMap<Integer, HigherTupleFinder<Double>> higherAtPos = higher.get(i);
+            Iterator iterJ = higherAtPos.entrySet().iterator();
+            while (iterJ.hasNext()){
+                Map.Entry<Integer, HigherTupleFinder<Double>> higherPair = (Map.Entry<Integer, HigherTupleFinder<Double>>) iterJ.next();
+                negateHTFEnergies(higherPair.getValue());
             }
         }
     }

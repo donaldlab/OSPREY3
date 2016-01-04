@@ -4,3 +4,5 @@ dist/
 build/
 nbdist/
 *.class
+dataFiles/ALL*
+

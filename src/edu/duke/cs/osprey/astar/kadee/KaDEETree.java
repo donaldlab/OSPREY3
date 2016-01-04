@@ -69,7 +69,7 @@ public class KaDEETree extends AStarTree {
 
     public KaDEETree(int numTreeLevels, LME objFcn, LME[] constraints,
             ArrayList<ArrayList<String>> AATypeOptions, int numMaxMut, String[] wtSeq,
-            int numStates, SearchProblem[] stateSP,
+            int numStates, SearchProblem[] stateSP, SearchProblem nonMutableSearchProblem,
             ArrayList<ArrayList<Integer>> mutable2StatePosNums) {
 
         this.numTreeLevels = numTreeLevels;
@@ -80,6 +80,7 @@ public class KaDEETree extends AStarTree {
         this.wtSeq = wtSeq;
         this.numStates = numStates;
         this.mutableSearchProblems = stateSP;
+        this.nonMutableSearchProblem = nonMutableSearchProblem;
         this.mutable2StatePosNums = mutable2StatePosNums;
 
         stateNumPos = new int[numStates];
@@ -171,7 +172,7 @@ public class KaDEETree extends AStarTree {
         ArrayList<Integer> ligandAssignedBoundPosNums = getLigandAssignedPosNums(seqNode, true);
         ArrayList<Integer> ligandUnassignedBoundPosNums = getLigandUnassignedPosNums(seqNode, true);
         ArrayList<Integer> ligandAssignedUnboundPosNums = getLigandUnassignedPosNums(seqNode, false);
-
+        ArrayList<Integer> ligandUnassignedUnboundPosNums = getLigandUnassignedPosNums(seqNode, false);
         // First compute GMinEC(P,LA,P:LA). Here an upper bound can be used, but ideally it should be computed exactly
         double gminec_p_la_pla = 0;
         //This involves a bound state
@@ -209,9 +210,9 @@ public class KaDEETree extends AStarTree {
         allPos.addAll(ligandUnassignedBoundPosNums);
         allPos.addAll(proteinBoundPosNums);
         Collections.sort(allPos);
-        boolean[][] interactionGraph_plus = createInteractionGraph(allPos, proteinBoundPosNums, ligandUnassignedBoundPosNums);
-        boolean[][] interactionGraph_lalus = createInteractionGraph(allPos, ligandAssignedBoundPosNums, ligandUnassignedBoundPosNums);
-        boolean[][] interactionGraph = addInteractionGraphs(interactionGraph_plus, interactionGraph_lalus);
+        boolean[][] interactionGraph_plus_bound = createInteractionGraph(allPos, proteinBoundPosNums, ligandUnassignedBoundPosNums);
+        boolean[][] interactionGraph_lalus_bound = createInteractionGraph(allPos, ligandAssignedBoundPosNums, ligandUnassignedBoundPosNums);
+        boolean[][] interactionGraph = addInteractionGraphs(interactionGraph_plus_bound, interactionGraph_lalus_bound);
         SearchProblem searchSpace_lalus_plus = boundSP.getPartialSearchProblem(allPos, seqNode.pruneMat[0]);
         searchSpace_lalus_plus.updateMatrixCrossTerm(interactionGraph);
         searchSpace_lalus_plus.substractUnboundInternalEnergies(ligandSP, ligandUnassignedBoundPosNums , boundPosNumToUnboundPosNum);
@@ -219,10 +220,17 @@ public class KaDEETree extends AStarTree {
 
         // Then compute the maximum MAX_S(GMaxEC(LA:LU_s), which can be computed by either negating all the energies in the matrix or something similar.
         double gmaxec_lalus = 0;
-
-        /**
-         * Add your code to compute the GMEC of a custom space here.
-         */
+        //This involves an unbound state
+        ArrayList<Integer> subsetPos_lalus = new ArrayList<Integer>();
+        subsetPos_lalus.addAll(ligandAssignedUnboundPosNums);
+        subsetPos_lalus.addAll(ligandUnassignedUnboundPosNums);
+        Collections.sort(subsetPos_lalus);
+        boolean[][] interactionGraph_lalus_unbound = createInteractionGraph(subsetPos_lalus, ligandAssignedUnboundPosNums, ligandUnassignedBoundPosNums);
+        SearchProblem searchSpace_lalus = ligandSP.getPartialSearchProblem(subsetPos_lalus, seqNode.pruneMat[1]);
+        searchSpace_lalus.updateMatrixCrossTerm(interactionGraph_lalus_unbound);
+        searchSpace_lalus.negateEnergies();
+        gmaxec_lalus = -getMAP(searchSpace_lalus);
+        
 
         return gminec_p_la_pla - gminec_p - gminec_la + gminec_lalus_plus - gmaxec_lalus;
 
