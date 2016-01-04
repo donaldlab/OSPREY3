@@ -1,7 +1,6 @@
-/nbproject
-/build
-/dist
-build
-nbdist
+nbproject/
+build/
+dist/
+build/
+nbdist/
 *.class
-/nbdist
