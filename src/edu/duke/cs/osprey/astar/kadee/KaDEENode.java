@@ -20,10 +20,12 @@ public class KaDEENode extends AStarNode{
     
     //When a sequence node is fully defined, it has confTree
     ConfTree[] stateTrees;
-    
+
     public KaDEENode(int[] nodeAssignments, PruningMatrix[] pruneMat){
         super(nodeAssignments, Double.NaN, false);
         this.pruneMat = pruneMat;
     }
+    
+
     
 }

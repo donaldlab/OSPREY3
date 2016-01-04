@@ -29,7 +29,9 @@ public class ConfTree extends AStarTree {
 
     int numPos;
     EnergyMatrix emat;
-
+    //HMN: Added Pruning Mat for Pairs Pruning
+    PruningMatrix pruneMat;
+    
     ArrayList<ArrayList<Integer>> unprunedRCsAtPos = new ArrayList<>();
     //get from searchSpace when initializing!
     //These are lists of residue-specific RC numbers for the unpruned RCs at each residue
@@ -48,19 +50,19 @@ public class ConfTree extends AStarTree {
         init(sp, sp.pruneMat, sp.useEPIC);
     }
 
-    public ConfTree(SearchProblem sp, PruningMatrix pruneMat, boolean useEPIC) {
+    public ConfTree(SearchProblem sp, PruningMatrix aPruneMat, boolean useEPIC) {
         //Conf search over RC's in sp that are unpruned in pruneMat
-        init(sp, pruneMat, useEPIC);
+        init(sp, aPruneMat, useEPIC);
     }
 
-    private void init(SearchProblem sp, PruningMatrix pruneMat, boolean useEPIC) {
+    private void init(SearchProblem sp, PruningMatrix aPruneMat, boolean useEPIC) {
         numPos = sp.confSpace.numPos;
 
         //see which RCs are unpruned and thus available for consideration
         for (int pos = 0; pos < numPos; pos++) {
-            unprunedRCsAtPos.add(pruneMat.unprunedRCsAtPos(pos));
+            unprunedRCsAtPos.add(aPruneMat.unprunedRCsAtPos(pos));
         }
-
+        this.pruneMat = aPruneMat;
         //get the appropriate energy matrix to use in this A* search
         if (sp.useTupExpForSearch) {
             emat = sp.tupExpEMat;
@@ -121,6 +123,12 @@ public class ConfTree extends AStarTree {
         return true;
     }
 
+    @Override
+    public boolean canPruneNode(AStarNode node){
+        RCTuple tup = new RCTuple(node.nodeAssignments);
+        return this.pruneMat.isPruned(tup);
+    }
+    
     //operations supporting special features like dynamic A*
     public int nextLevelToExpand(int[] partialConf) {
         //given a partially defined conformation, what level should be expanded next?

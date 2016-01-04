@@ -314,7 +314,7 @@ public class TupleMatrix<T> implements Serializable {
         int[] numRCsAtPos = new int[numSubsetPos];
         for (int pos = 0; pos < numSubsetPos; pos++) {
             int originalPosNum = subsetOfPos.get(pos);
-            numRCsAtPos[pos] = this.oneBody.get(originalPosNum).size();
+            numRCsAtPos[pos] = numRCsAtPos(originalPosNum);
         }
         TupleMatrix<T> subsetTupMat = new TupleMatrix<>(numSubsetPos, numRCsAtPos, pruningInterval, defaultHigherInteraction);
 
@@ -324,12 +324,24 @@ public class TupleMatrix<T> implements Serializable {
 
         for (int i = 0; i < numSubsetPos; i++) {
             int originalPosNumI = subsetOfPos.get(i);
-            ArrayList<T> oneBodyAtPosI = (ArrayList<T>) ObjectIO.deepCopy(this.oneBody.get(originalPosNumI));
+//            ArrayList<T> oneBodyAtPosI = (ArrayList<T>) ObjectIO.deepCopy(this.oneBody.get(originalPosNumI));
+            ArrayList<T> oneBodyAtPosI = new ArrayList<T>();
+            for (int rc=0; rc<numRCsAtPos[i]; rc++){
+                oneBodyAtPosI.add(this.getOneBody(originalPosNumI, rc));
+            }
             ArrayList<ArrayList<ArrayList<T>>> twoBodyAtPosI = new ArrayList<>();
             ArrayList<ArrayList<ArrayList<HigherTupleFinder<T>>>> higherOrderAtPosI = new ArrayList<>();
             for (int j = 0; j < i; j++) {
                 int originalPosNumJ = subsetOfPos.get(j);
-                ArrayList<ArrayList<T>> twoBodyAtPosIPosJ = (ArrayList<ArrayList<T>>) ObjectIO.deepCopy(this.pairwise.get(originalPosNumI).get(originalPosNumJ));
+//                ArrayList<ArrayList<T>> twoBodyAtPosIPosJ = (ArrayList<ArrayList<T>>) ObjectIO.deepCopy(this.pairwise.get(originalPosNumI).get(originalPosNumJ));
+                ArrayList<ArrayList<T>> twoBodyAtPosIPosJ = new ArrayList<>();
+                for (int rcI=0; rcI<numRCsAtPos[i]; rcI++){
+                    ArrayList<T> twoBodyAtPosIPosJrcI = new ArrayList<>();
+                    for (int rcJ=0; rcJ<numRCsAtPos[j]; rcJ++){
+                        twoBodyAtPosIPosJrcI.add(this.getPairwise(originalPosNumI, rcI, originalPosNumJ, rcJ));
+                    }
+                    twoBodyAtPosIPosJ.add(twoBodyAtPosIPosJrcI);
+                }
                 twoBodyAtPosI.add(twoBodyAtPosIPosJ);
                 //Higher-Order Tuples
                 ArrayList<ArrayList<HigherTupleFinder<T>>> higherOrderAtPosIPosJ = new ArrayList<>();

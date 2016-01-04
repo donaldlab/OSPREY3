@@ -676,7 +676,7 @@ public class ConfigFileParser {
         String pdbLigand = pdbName + "_ligand.pdb";
         PDBFileWriter.writePDBFile(molLigand, pdbLigand);
 
-        searchProblems[1] = new SearchProblem(name + "_Ligand", params.getValue("PDBNAME"),
+        searchProblems[1] = new SearchProblem(name + "_Ligand", pdbLigand,
                 flexResUnbound0, allowedAAsUnbound0,
                 params.getBool("AddWT", true),
                 params.getBool("AddWTRots", true),
@@ -697,11 +697,11 @@ public class ConfigFileParser {
         }
 
 
-        Molecule molProtein = PDBFileReader.readPDBFileBetweenTermini(pdbFile, strand0Termini[0], strand0Termini[1]);
+        Molecule molProtein = PDBFileReader.readPDBFileBetweenTermini(pdbFile, strand1Termini[0], strand1Termini[1]);
         String pdbProtein = pdbName + "_protein.pdb";
         PDBFileWriter.writePDBFile(molProtein, pdbProtein);
 
-        searchProblems[2] = new SearchProblem(name + "_Protein", params.getValue("PDBNAME"),
+        searchProblems[2] = new SearchProblem(name + "_Protein", pdbProtein,
                 flexResUnbound1, allowedAAsUnbound1,
                 params.getBool("AddWT", true),
                 params.getBool("AddWTRots", true),

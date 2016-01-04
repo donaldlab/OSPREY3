@@ -383,8 +383,8 @@ public class SearchProblem implements Serializable {
      * HMN: This method is subtracts the internal energies from another matrix, 
      * presumably the unbound matrix for partial search spaces
      */
-    public void substractUnboundInternalEnergies(SearchProblem unBoundSearchProblem, ArrayList<Integer> posNumsToSubtractFrom, HashMap<Integer, Integer> boundPosNumToUnboundPosNum) {
-        this.emat.subtractUnboundInternalEnergies(unBoundSearchProblem.emat, posNumsToSubtractFrom, boundPosNumToUnboundPosNum);
+    public void subtractUnboundInternalEnergies(SearchProblem boundSearchProb, SearchProblem unboundSearchProb, ArrayList<Integer> posNumsToSubtractFrom, HashMap<Integer, Integer> boundPosNumToUnboundPosNum) {
+        this.emat.subtractUnboundInternalEnergies(boundSearchProb.emat, unboundSearchProb.emat, posNumsToSubtractFrom, boundPosNumToUnboundPosNum);
         if (contSCFlex){
             throw new RuntimeException("Continuous Flexibility Not Fully Implemented in KaDEE");
         }
@@ -392,7 +392,7 @@ public class SearchProblem implements Serializable {
             throw new RuntimeException("Subtracting Unbound Energies Currently not supported with EPIC");
         }
         if (useTupExpForSearch) {
-            this.tupExpEMat.subtractUnboundInternalEnergies(unBoundSearchProblem.tupExpEMat, posNumsToSubtractFrom, boundPosNumToUnboundPosNum);
+            this.tupExpEMat.subtractUnboundInternalEnergies(boundSearchProb.tupExpEMat, unboundSearchProb.tupExpEMat, posNumsToSubtractFrom, boundPosNumToUnboundPosNum);
         }
     }
     

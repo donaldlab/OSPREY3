@@ -11,12 +11,14 @@ import edu.duke.cs.osprey.astar.kadee.KaDEETree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.confspace.SearchProblemSuper;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.ExpFunction;
+import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.StringParsing;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,7 +37,15 @@ public class KaDEEDoer {
     //1: Mutable UnBound
     //2: Mutable Bound
     SearchProblem[] searchSpaces;
-
+    SearchProblemSuper[] searchSpaceSupers;
+    
+    LME objFcn; //objective function for the KaDEE search
+    LME[] constraints; //constraints for the KaDEE searchf
+    int numTreeLevels; //number of mutable positions
+    final int numStates = 2; //number of states considered
+    ArrayList<ArrayList<String>> AATypeOptions = null; //AA types allowed at each mutable position
+    ArrayList<ArrayList<Integer>> mutable2StatePosNums = new ArrayList<>();
+    
     double Ew; // energy window for enumerating conformations: 0 for just GMEC
     double I0 = 0; // initial value of iMinDEE pruning interval
     boolean doIMinDEE;//do iMinDEE
@@ -67,10 +77,10 @@ public class KaDEEDoer {
         }
 
         useContFlex = cfp.params.getBool("doMinimize", false);
-        if (useContFlex || doIMinDEE){
+        if (useContFlex || doIMinDEE) {
             throw new RuntimeException("Continuous Flexibility Not Yet Supported with KaDEE");
         }
-        
+
         useTupExp = cfp.params.getBool("UseTupExp", false);
         useEPIC = cfp.params.getBool("UseEPIC", false);
 
@@ -94,7 +104,11 @@ public class KaDEEDoer {
         double curInterval = I0;//For iMinDEE.  curInterval will need to be an upper bound
         this.searchSpaces = cfp.getMSDSearchProblems();
         KaDEETree tree = setupKaDEETree();
+
+        
         int[] seq1 = tree.nextConf();
+        
+        exhaustiveKaDEESearch();
     }
 
     //getGMEC from lower bounds
@@ -143,14 +157,14 @@ public class KaDEEDoer {
          }
          */
         //For each state this arraylist gives the mutable pos nums of that state
-        ArrayList<ArrayList<Integer>> mutable2StatePosNum = handleMutable2StatePosNums(allowedAAsPerState);
+        this.mutable2StatePosNums = handleMutable2StatePosNums(allowedAAsPerState);
 
         //determine which states are mutable and which are non-mutable
         boolean[] stateIsMutable = new boolean[this.searchSpaces.length];
         int numMutableState = 0;
         int numNonMutableState = 0;
         for (int state = 0; state < searchSpaces.length; state++) {
-            stateIsMutable[state] = !(mutable2StatePosNum.get(state).isEmpty()); //If not empty, it is mutable
+            stateIsMutable[state] = !(mutable2StatePosNums.get(state).isEmpty()); //If not empty, it is mutable
             if (stateIsMutable[state]) {
                 numMutableState++;
             } else {
@@ -171,7 +185,7 @@ public class KaDEEDoer {
         for (int state = 0; state < searchSpaces.length; state++) {
             if (stateIsMutable[state]) {
                 mutableStates[mutableStateIndex] = searchSpaces[state];
-                mutableState2StatePosNumList.add(mutable2StatePosNum.get(state));
+                mutableState2StatePosNumList.add(mutable2StatePosNums.get(state));
                 mutableStateAllowedAAs.add(allowedAAsPerState.get(state));
                 mutableStateIndex++;
             } else {
@@ -182,10 +196,10 @@ public class KaDEEDoer {
         }
         //For const term of LME objective function
         int numStatesForCOMETS = mutableStates.length;
-        int numTreeLevels = getNumMutablePos(mutableState2StatePosNumList);
-        ArrayList<ArrayList<String>> AATypeOptions = handleAATypeOptions(mutableStateAllowedAAs);
-        LME objFcn = new LME(new double[]{1, -1}, -unboundLigandGMECEnergy, 2);
-        LME[] constraints = new LME[0];
+        this.numTreeLevels = getNumMutablePos(mutableState2StatePosNumList);
+        this.AATypeOptions = handleAATypeOptions(mutableStateAllowedAAs);
+        this.objFcn = new LME(new double[]{1, -1}, -unboundLigandGMECEnergy, 2);
+        this.constraints = new LME[0];
         int numMaxMut = -1;
         String[] wtSeq = null;
 
@@ -323,5 +337,118 @@ public class KaDEEDoer {
         searchProblem.competitorPruneMat = searchProblem.pruneMat;
         searchProblem.pruneMat = null;
         System.out.println("COMPETITOR PRUNING DONE");
+    }
+
+    //For quality control, it's good to be able to check KaDEE results by exhaustive search
+    void exhaustiveKaDEESearch() {
+
+        System.out.println();
+        System.out.println("CHECKING KaDEE RESULT BY EXHAUSTIVE SEARCH");
+        System.out.println();
+
+        ArrayList<String[]> seqList = listAllSeqs();
+        int numSeqs = seqList.size();
+        double stateGMECs[][] = new double[numSeqs][3];
+
+        for (int state = 0; state < this.numStates; state++) {
+            for (int seqNum = 0; seqNum < numSeqs; seqNum++) {
+                String[] sequence = seqList.get(seqNum);
+                SearchProblem searchProb = (SearchProblem) ObjectIO.deepCopy(this.searchSpaces[state]);
+                handleStatePruning(searchProb, sequence, this.mutable2StatePosNums.get(state));
+                stateGMECs[seqNum][state] = getMAP(searchProb);
+            }
+        }
+
+        //now find the best sequence and obj fcn value
+        int topSeqNum = -1;
+        double bestSeqScore = Double.POSITIVE_INFINITY;
+
+        for (int seqNum = 0; seqNum < numSeqs; seqNum++) {
+            boolean constrSatisfied = true;
+            for (LME constr : constraints) {
+                if (constr.eval(stateGMECs[seqNum]) > 0) {
+                    constrSatisfied = false;
+                }
+            }
+
+            if (constrSatisfied) {
+                double seqScore = objFcn.eval(stateGMECs[seqNum]);
+                if (seqScore < bestSeqScore) {
+                    bestSeqScore = seqScore;
+                    topSeqNum = seqNum;
+                }
+            }
+        }
+
+        System.out.println();
+        if (topSeqNum == -1) {
+            System.out.println("EXHAUSTIVE SEARCH FINDS NO CONSTR-SATISFYING SEQUENCES");
+        } else {
+            System.out.println("EXHAUSTIVE MULTISTATE BEST SCORE: " + bestSeqScore + " SEQUENCE: ");
+            for (String aa : seqList.get(topSeqNum)) {
+                System.out.println(aa);
+            }
+        }
+        System.out.println();
+    }
+
+    private void handleStatePruning(SearchProblem searchProb, String[] sequence, ArrayList<Integer> mutable2StatePosNum){
+        if (mutable2StatePosNum.size() != sequence.length){
+            throw new RuntimeException("ERROR: Length of Sequence Not Equal to NumMutablePositions. Cannot complete exhaustive search");
+        }
+        
+        for (int i=0; i<mutable2StatePosNum.size(); i++){
+            int posNum = mutable2StatePosNum.get(i);
+            String AAtype = sequence[i];
+            for (int rc : searchProb.pruneMat.unprunedRCsAtPos(posNum)){
+                String rcAAType = searchProb.confSpace.posFlex.get(posNum).RCs.get(rc).AAType;
+                
+                if (!rcAAType.equalsIgnoreCase(AAtype)){
+                    searchProb.pruneMat.markAsPruned(new RCTuple(posNum,rc));
+                }
+            }
+        }
+        
+    }
+    
+    private ArrayList<String[]> listAllSeqs() {
+        //List all possible sequence for the mutable residues,
+        //based on AATypeOptions
+        return listAllSeqsHelper(0);
+    }
+
+    private ArrayList<String[]> listAllSeqsHelper(int mutPos) {
+        //List all partial sequences for the subset of mutable positions
+        //starting at mutPos and going to the last mutable position
+        ArrayList<String[]> ans = new ArrayList<>();
+
+        if (mutPos == numTreeLevels) {
+            ans.add(new String[0]);
+        } else {
+            ArrayList<String[]> subList = listAllSeqsHelper(mutPos + 1);
+            for (String AAType : AATypeOptions.get(mutPos)) {
+                for (String[] subSeq : subList) {
+                    String seq[] = new String[numTreeLevels - mutPos];
+                    System.arraycopy(subSeq, 0, seq, 1, numTreeLevels - mutPos - 1);
+                    seq[0] = AAType;
+                    ans.add(seq);
+                }
+            }
+        }
+
+        return ans;
+    }
+
+
+    private double getMAP(SearchProblem searchSpace) {
+        ConfTree confTree = new ConfTree(searchSpace);
+
+        if (searchSpace.contSCFlex) {
+            throw new RuntimeException("Continuous Flexibility Not Yet Supported in KaDEE");
+        }
+
+        int[] MAPconfig = confTree.nextConf();
+        double E = searchSpace.emat.getInternalEnergy(new RCTuple(MAPconfig));
+        return E;
     }
 }
