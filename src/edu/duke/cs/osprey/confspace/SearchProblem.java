@@ -383,8 +383,8 @@ public class SearchProblem implements Serializable {
      * HMN: This method is subtracts the internal energies from another matrix, 
      * presumably the unbound matrix for partial search spaces
      */
-    public void subtractUnboundInternalEnergies(SearchProblem boundSearchProb, SearchProblem unboundSearchProb, ArrayList<Integer> posNumsToSubtractFrom, HashMap<Integer, Integer> boundPosNumToUnboundPosNum) {
-        this.emat.subtractUnboundInternalEnergies(boundSearchProb.emat, unboundSearchProb.emat, posNumsToSubtractFrom, boundPosNumToUnboundPosNum);
+    public void addCrossTermInternalEnergies(SearchProblem boundSearchProb, SearchProblem unboundSearchProb, ArrayList<Integer> posNumsToSubtractFrom, HashMap<Integer, Integer> boundPosNumToUnboundPosNum) {
+        this.emat.addCrossTermInternalEnergies(boundSearchProb.emat, unboundSearchProb.emat, posNumsToSubtractFrom, boundPosNumToUnboundPosNum);
         if (contSCFlex){
             throw new RuntimeException("Continuous Flexibility Not Fully Implemented in KaDEE");
         }
@@ -392,7 +392,20 @@ public class SearchProblem implements Serializable {
             throw new RuntimeException("Subtracting Unbound Energies Currently not supported with EPIC");
         }
         if (useTupExpForSearch) {
-            this.tupExpEMat.subtractUnboundInternalEnergies(boundSearchProb.tupExpEMat, unboundSearchProb.tupExpEMat, posNumsToSubtractFrom, boundPosNumToUnboundPosNum);
+            this.tupExpEMat.addCrossTermInternalEnergies(boundSearchProb.tupExpEMat, unboundSearchProb.tupExpEMat, posNumsToSubtractFrom, boundPosNumToUnboundPosNum);
+        }
+    }
+    
+    public void addInternalEnergies(SearchProblem searchProb, ArrayList<Integer> posToAddInternalE){
+        this.emat.addInternalEnergies(searchProb.emat, posToAddInternalE);
+        if (contSCFlex){
+            throw new RuntimeException("Continuous Flexibility Not Fully Implemented in KaDEE");
+        }
+        if (useEPIC) {
+            throw new RuntimeException("Subtracting Unbound Energies Currently not supported with EPIC");
+        }
+        if (useTupExpForSearch){
+            this.tupExpEMat.addInternalEnergies(searchProb.tupExpEMat, posToAddInternalE);
         }
     }
     

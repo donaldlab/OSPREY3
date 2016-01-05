@@ -273,13 +273,23 @@ public class EnergyMatrix extends TupleMatrix<Double> {
         }
     }
 
-    public void subtractUnboundInternalEnergies(EnergyMatrix boundEmat, EnergyMatrix unboundEmat, ArrayList<Integer> posNumsToSubtractFrom, HashMap<Integer, Integer> boundPosNumToUnboundPosNum) {
+    public void addCrossTermInternalEnergies(EnergyMatrix boundEmat, EnergyMatrix unboundEmat, ArrayList<Integer> posNumsToSubtractFrom, HashMap<Integer, Integer> boundPosNumToUnboundPosNum) {
         for (int pos : posNumsToSubtractFrom) {
             int unboundPos = boundPosNumToUnboundPosNum.get(pos);
             for (int rc = 0; rc < numRCsAtPos(pos); rc++) {
                 double boundE = boundEmat.getOneBody(pos, rc);
                 double unboundE = unboundEmat.getOneBody(unboundPos, rc);
                 this.oneBody.get(pos).set(rc, boundE - unboundE);
+            }
+        }
+    }
+
+    public void addInternalEnergies(EnergyMatrix originalEmat, ArrayList<Integer> posToAddE) {
+        for (int pos : posToAddE) {
+            for (int rc = 0; rc < this.numRCsAtPos(pos); rc++) {
+                double currentE = this.getOneBody(pos, rc);
+                double toAddE = originalEmat.getOneBody(pos, rc);
+                this.setOneBody(pos, rc, currentE+toAddE);
             }
         }
     }

@@ -107,7 +107,7 @@ public class KaDEEDoer {
 
         
         int[] seq1 = tree.nextConf();
-        
+
         exhaustiveKaDEESearch();
     }
 
@@ -448,6 +448,9 @@ public class KaDEEDoer {
         }
 
         int[] MAPconfig = confTree.nextConf();
+        if (MAPconfig == null){
+            return Double.POSITIVE_INFINITY;
+        }
         double E = searchSpace.emat.getInternalEnergy(new RCTuple(MAPconfig));
         return E;
     }

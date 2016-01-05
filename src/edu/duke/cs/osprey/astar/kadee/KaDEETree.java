@@ -14,6 +14,7 @@ import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -67,11 +68,10 @@ public class KaDEETree extends AStarTree {
     HashMap<Integer, Boolean> boundResNumToIsMutableStrand;
     //determines if two residues are on the same strand
     boolean[][] belongToSameStrand;
-    
+
     int cometsWin = 0;
     int kadeeWin = 0;
-    
-    
+
     public KaDEETree(int numTreeLevels, LME objFcn, LME[] constraints,
             ArrayList<ArrayList<String>> AATypeOptions, int numMaxMut, String[] wtSeq,
             int numStates, SearchProblem[] stateSP, SearchProblem nonMutableSearchProblem,
@@ -108,14 +108,13 @@ public class KaDEETree extends AStarTree {
             double cometsLB = calcLBPartialSeqCOMETS(seqNode, objFcn);
             double kadeeLB = calcLBPartialSeqImproved(seqNode);
             printSequence(getSequence(seqNode));;
-            System.out.println("KaDEE: "+kadeeLB+"  cometsLB: "+cometsLB);
-            if (kadeeLB>cometsLB){
+            System.out.println("KaDEE: " + kadeeLB + "  cometsLB: " + cometsLB);
+            if (kadeeLB > cometsLB) {
                 kadeeWin++;
-            }
-            else{
+            } else {
                 cometsWin++;
             }
-            System.out.println("KaDEE Win: "+kadeeWin+"  Comets Win: "+cometsWin);
+            System.out.println("KaDEE Win: " + kadeeWin + "  Comets Win: " + cometsWin);
             System.out.println();
             return kadeeLB;
 
@@ -153,7 +152,7 @@ public class KaDEETree extends AStarTree {
                             makeSeqConfTrees(childNode);
                         }
 
-                        //TODO: create boundFreeEnergyChange()
+
                         childNode.setScore(boundFreeEnergyChange(childNode));
                         ans.add(childNode);
                     }
@@ -196,7 +195,6 @@ public class KaDEETree extends AStarTree {
          in bound state, ligand unassigned in bound state to help make partial search
          spaces
          */
-
         ArrayList<Integer> proteinBoundPosNums = getProteinPosNums(true);
         ArrayList<Integer> ligandAssignedBoundPosNums = getLigandAssignedPosNums(seqNode, true);
         ArrayList<Integer> ligandUnassignedBoundPosNums = getLigandUnassignedPosNums(seqNode, true);
@@ -204,7 +202,7 @@ public class KaDEETree extends AStarTree {
         ArrayList<Integer> ligandAssignedUnboundPosNums = getLigandAssignedPosNums(seqNode, false);
         ArrayList<Integer> ligandUnassignedUnboundPosNums = getLigandUnassignedPosNums(seqNode, false);
         // First compute GMinEC(P,LA,P:LA). Here an upper bound can be used, but ideally it should be computed exactly
-        double gminec_p_la_pla = 0;
+        double gminec_p_la_pla;
         //This involves a bound state
         //get subset of positions corresponding to Protein, and Ligand Assigned
         ArrayList<Integer> subsetPos_p_la_pla = new ArrayList<>();
@@ -219,7 +217,7 @@ public class KaDEETree extends AStarTree {
         double gminec_p = -objFcn.getConstTerm();
 
         // Now compute GMinEC(LA). This has to be computed exactly (or through an upper bound)
-        double gminec_la = 0;
+        double gminec_la;
         //This involves an unbound state
         ArrayList<Integer> subsetPos_la = new ArrayList<>();
         subsetPos_la.addAll(ligandAssignedUnboundPosNums);
@@ -233,7 +231,7 @@ public class KaDEETree extends AStarTree {
         //   MIN_S(GMinEC(P:LU_s) + GMinEC(LA:LU_s) - GMaxEC(LA:LU_s)) <= MIN_S(GMinEC(P:LU_s) + GMinEC(LA:LU_s)) - MAX_S(GMaxEC(LA:LU_s)
         // Thus, first compute: MIN_S(GMinEC(P:LU_s) + GMinEC(LA:LU_s)), which can be easily computed by computing a min gmec over: 
         //		GMinEC(LA:LU_s, P:LU_s), including all rotamers for all amino acids defined in s.
-        double gminec_lalus_plus = 0;
+        double gminec_lalus_plus;
         //This involves a bound state
         ArrayList<Integer> allPos = new ArrayList<>();
         allPos.addAll(ligandAssignedBoundPosNums);
@@ -245,11 +243,11 @@ public class KaDEETree extends AStarTree {
         boolean[][] interactionGraph = addInteractionGraphs(interactionGraph_plus_bound, interactionGraph_lalus_bound);
         SearchProblem searchSpace_lalus_plus = boundSP.getPartialSearchProblem(allPos, seqNode.pruneMat[0]);
         searchSpace_lalus_plus.updateMatrixCrossTerm(interactionGraph);
-        searchSpace_lalus_plus.subtractUnboundInternalEnergies(boundSP, ligandSP, ligandUnassignedBoundPosNums, boundPosNumToUnboundPosNum);
+        searchSpace_lalus_plus.addCrossTermInternalEnergies(boundSP, ligandSP, ligandUnassignedBoundPosNums, boundPosNumToUnboundPosNum);
         gminec_lalus_plus = getMAP(searchSpace_lalus_plus);
 
         // Then compute the maximum MAX_S(GMaxEC(LA:LU_s), which can be computed by either negating all the energies in the matrix or something similar.
-        double gmaxec_lalus = 0;
+        double gmaxec_lalus;
         //This involves an unbound state
         ArrayList<Integer> subsetPos_lalus = new ArrayList<>();
         subsetPos_lalus.addAll(ligandAssignedUnboundPosNums);
@@ -267,6 +265,33 @@ public class KaDEETree extends AStarTree {
 
     }
 
+    private double calcMaxInterfaceScore(KaDEENode seqNode) {
+        SearchProblem boundSP = mutableSearchProblems[0];
+
+        ArrayList<Integer> boundPosNums = getAllPosNums(true);
+        ArrayList<Integer> proteinBoundPosNums = getProteinPosNums(true);
+        ArrayList<Integer> ligandBoundPosNums = getLigandPosNums(true);
+        
+        boolean[][] interactionGraph_protein = createInteractionGraph(boundPosNums, proteinBoundPosNums, proteinBoundPosNums);
+        boolean[][] interactionGraph_p_l = createInteractionGraph(boundPosNums, proteinBoundPosNums, ligandBoundPosNums);
+        boolean[][] interactionGraph = addInteractionGraphs(interactionGraph_protein, interactionGraph_p_l);
+        
+        SearchProblem interfaceSP = boundSP.getPartialSearchProblem(boundPosNums, seqNode.pruneMat[0]);
+        interfaceSP.updateMatrixCrossTerm(interactionGraph);
+        interfaceSP.addInternalEnergies(boundSP, proteinBoundPosNums);
+        
+        double gmecInterface = getMAP(interfaceSP);
+        
+        return gmecInterface + objFcn.getConstTerm();
+    }
+
+    /**
+     * Calculates the (exact) objective function value for a node This is done
+     * when a node is fully defined
+     *
+     * @param seqNode the fully-defined sequence node
+     * @return the exact value of the objective function
+     */
     private double calcSequenceScore(KaDEENode seqNode) {
         if (seqNode.stateTrees[0] == null || seqNode.stateTrees[1] == null) {
             return Double.POSITIVE_INFINITY;
@@ -314,6 +339,22 @@ public class KaDEETree extends AStarTree {
                 ans.markAsPruned(new RCTuple(posAtState, rc));
             }
         }
+
+        //now we do singles and pairs pruning
+        int numUpdates = ans.countUpdates();
+        int oldNumUpdates;
+
+        //TODO: Change pruning interval if we are doing free-energy calculations
+        Pruner dee = new Pruner(mutableSearchProblems[state], ans, true, Double.POSITIVE_INFINITY,
+                0.0, mutableSearchProblems[state].useEPIC, mutableSearchProblems[state].useTupExpForSearch, false);
+
+        do {
+            oldNumUpdates = numUpdates;
+            dee.prune("GOLDSTEIN");
+            dee.prune("GOLDSTEIN PAIRS FULL");
+            numUpdates = ans.countUpdates();
+        } while (numUpdates > oldNumUpdates);
+
         return ans;
     }
 
@@ -461,9 +502,12 @@ public class KaDEETree extends AStarTree {
         for (int posI : subsetI) {
             int newPosNum_I = allPositions.indexOf(posI);
             for (int posJ : subsetJ) {
-                int newPosNum_J = allPositions.indexOf(posJ);
-                interactionGraph[newPosNum_I][newPosNum_J] = true;
-                interactionGraph[newPosNum_J][newPosNum_I] = true;
+                //We don't consider self-interactions here so we will leave it as false
+                if (posI != posJ) {
+                    int newPosNum_J = allPositions.indexOf(posJ);
+                    interactionGraph[newPosNum_I][newPosNum_J] = true;
+                    interactionGraph[newPosNum_J][newPosNum_I] = true;
+                }
             }
         }
         return interactionGraph;
@@ -792,6 +836,18 @@ public class KaDEETree extends AStarTree {
         return ligandPosNums;
     }
 
+    private ArrayList<Integer> getAllPosNums(boolean useBoundState) {
+        SearchProblem searchSpace = useBoundState ? mutableSearchProblems[0] : nonMutableSearchProblem;
+
+        ArrayList<Integer> allPosNums = new ArrayList<>();
+
+        for (int pos = 0; pos < searchSpace.confSpace.numPos; pos++) {
+            allPosNums.add(pos);
+        }
+
+        return allPosNums;
+    }
+
     private double getMAP(SearchProblem searchSpace) {
         ConfTree confTree = new ConfTree(searchSpace);
 
@@ -926,7 +982,7 @@ public class KaDEETree extends AStarTree {
 
         return ans;
     }
-    
+
     private int[] AAOptions(int pos, int assignment) {
         //which of the AA option indices for this mutable position are allowed 
         //given this assignment in nodeAssignments?
@@ -944,34 +1000,39 @@ public class KaDEETree extends AStarTree {
             return new int[]{assignment};
         }
     }
-    
-    private String[] getSequence(KaDEENode node){
+
+    @Override
+    public int[] outputNode(AStarNode node) {
+        printSequence(getSequence((KaDEENode) node));
+        return node.getNodeAssignments();
+    }
+
+    public String[] getSequence(KaDEENode node) {
         int[] assignments = node.getNodeAssignments();
         int numMotPos = assignments.length;
         String[] sequence = new String[numMotPos];
 
-        for (int mutPos = 0; mutPos<numMotPos; mutPos++){
+        for (int mutPos = 0; mutPos < numMotPos; mutPos++) {
             int aaTypeVal = assignments[mutPos];
             String aaType;
-            if (aaTypeVal==-1){
+            if (aaTypeVal == -1) {
                 aaType = "XXX";
-            }
-            else{
+            } else {
                 aaType = this.AATypeOptions.get(mutPos).get(aaTypeVal);
             }
             sequence[mutPos] = aaType;
         }
         return sequence;
     }
-    
-    private void printSequence(String[] sequence){
+
+    public void printSequence(String[] sequence) {
         StringBuffer buffer = new StringBuffer();
-        for (String aaType : sequence){
-            buffer.append(" "+aaType);
+        for (String aaType : sequence) {
+            buffer.append(" " + aaType);
         }
         System.out.println(buffer);
     }
-    
+
     private EnergyMatrix getEnergyMatrix(int state) {
         if (mutableSearchProblems[state].useTupExpForSearch)//Using LUTE
         {
@@ -1139,7 +1200,7 @@ public class KaDEETree extends AStarTree {
         return pos1 < pos2;
     }
 
-       private ArrayList<Integer> unprunedRCsAtAA(int state, PruningMatrix pruneMat,
+    private ArrayList<Integer> unprunedRCsAtAA(int state, PruningMatrix pruneMat,
             int mutablePos, int statePosNum, int curAA) {
         //List the RCs of the given position in the given state
         //that come with the indicated AA type (indexed in AATypeOptions)
@@ -1160,5 +1221,5 @@ public class KaDEETree extends AStarTree {
 
         return ans;
     }
-       
+
 }
