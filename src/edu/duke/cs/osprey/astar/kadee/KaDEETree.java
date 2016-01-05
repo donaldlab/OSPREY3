@@ -105,10 +105,13 @@ public class KaDEETree extends AStarTree {
             System.out.println("Sequence Fully Defined");
             return calcSequenceScore(seqNode);
         } else {
+            ArrayList<ArrayList<Integer>> numUnprunedPerAAPerPos = countUnprunedRCsPerAAType(seqNode);
+            
             double cometsLB = calcLBPartialSeqCOMETS(seqNode, objFcn);
             double kadeeLB = calcLBPartialSeqImproved(seqNode);
+            double maxInterfaceLB = calcMaxInterfaceScore(seqNode);
             printSequence(getSequence(seqNode));;
-            System.out.println("KaDEE: " + kadeeLB + "  cometsLB: " + cometsLB);
+            System.out.println("KaDEE: " + kadeeLB + "  CometsLB: " + cometsLB);
             if (kadeeLB > cometsLB) {
                 kadeeWin++;
             } else {
@@ -116,9 +119,36 @@ public class KaDEETree extends AStarTree {
             }
             System.out.println("KaDEE Win: " + kadeeWin + "  Comets Win: " + cometsWin);
             System.out.println();
-            return kadeeLB;
+            return Math.max(maxInterfaceLB, Math.max(kadeeLB, cometsLB));
 
         }
+    }
+
+    private ArrayList<ArrayList<Integer>> countUnprunedRCsPerAAType(KaDEENode node) {
+        SearchProblem boundSP = mutableSearchProblems[0];
+        ArrayList<ArrayList<Integer>> numUnprunedPerAAPerPos = new ArrayList<>();
+        for (int pos = 0; pos < boundSP.confSpace.numPos; pos++) {
+            System.out.println("Pos: " + pos);
+            HashMap<String, Integer> numUnprunedPerAA = new HashMap<>();
+            for (int rc = 0; rc < boundSP.emat.numRCsAtPos(pos); rc++) {
+                String aaType = boundSP.confSpace.posFlex.get(pos).RCs.get(rc).AAType;
+                if (!numUnprunedPerAA.containsKey(aaType)) {
+                    numUnprunedPerAA.put(aaType, 0);
+                }
+                if (node.pruneMat[0].unprunedRCsAtPos(pos).contains(rc)) {
+                    numUnprunedPerAA.put(aaType, numUnprunedPerAA.get(aaType) + 1);
+                }
+            }
+
+            ArrayList<Integer> numUnprunedAtPos = new ArrayList<>();
+            for (String aa : numUnprunedPerAA.keySet()) {
+                numUnprunedAtPos.add(numUnprunedPerAA.get(aa));
+                System.out.println("AA: " + aa + " has " + numUnprunedPerAA.get(aa) + " unprunedRCs");
+            }
+            System.out.println();
+            numUnprunedPerAAPerPos.add(numUnprunedAtPos);
+        }
+        return numUnprunedPerAAPerPos;
     }
 
     @Override
@@ -151,7 +181,6 @@ public class KaDEETree extends AStarTree {
                         if (splitPos == numTreeLevels - 1) {//sequence is fully defined...make conf trees
                             makeSeqConfTrees(childNode);
                         }
-
 
                         childNode.setScore(boundFreeEnergyChange(childNode));
                         ans.add(childNode);
@@ -267,21 +296,23 @@ public class KaDEETree extends AStarTree {
 
     private double calcMaxInterfaceScore(KaDEENode seqNode) {
         SearchProblem boundSP = mutableSearchProblems[0];
+        SearchProblem ligandSP = mutableSearchProblems[1];
 
         ArrayList<Integer> boundPosNums = getAllPosNums(true);
         ArrayList<Integer> proteinBoundPosNums = getProteinPosNums(true);
         ArrayList<Integer> ligandBoundPosNums = getLigandPosNums(true);
-        
+
         boolean[][] interactionGraph_protein = createInteractionGraph(boundPosNums, proteinBoundPosNums, proteinBoundPosNums);
         boolean[][] interactionGraph_p_l = createInteractionGraph(boundPosNums, proteinBoundPosNums, ligandBoundPosNums);
         boolean[][] interactionGraph = addInteractionGraphs(interactionGraph_protein, interactionGraph_p_l);
-        
+
         SearchProblem interfaceSP = boundSP.getPartialSearchProblem(boundPosNums, seqNode.pruneMat[0]);
         interfaceSP.updateMatrixCrossTerm(interactionGraph);
         interfaceSP.addInternalEnergies(boundSP, proteinBoundPosNums);
-        
+        interfaceSP.addCrossTermInternalEnergies(boundSP, ligandSP, ligandBoundPosNums, boundPosNumToUnboundPosNum);
+
         double gmecInterface = getMAP(interfaceSP);
-        
+
         return gmecInterface + objFcn.getConstTerm();
     }
 

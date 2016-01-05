@@ -275,6 +275,17 @@ public class SelfConsistentMeanField_Parallel implements InferenceCalculator {
         return partitionFunction;
     }
     
+     //Calculates the natural log of the partition function
+    public double calcLBLogZ(){
+        return (calcFreeEnergy() + this.emat.getConstTerm())/this.scmfTemp;
+    }
+    
+    //Calculates log_10 of the partition function
+    public double calcLBLog10Z(){
+        return (Math.log10(Math.E))*calcLBLogZ();
+    }
+    
+    
     public boolean checkBeliefs(){
         boolean beliefsGood = true;
         for (MRFNode node : this.nodeList){

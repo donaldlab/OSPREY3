@@ -108,7 +108,7 @@ public class KaDEEDoer {
         
         int[] seq1 = tree.nextConf();
 
-        exhaustiveKaDEESearch();
+        //exhaustiveKaDEESearch();
     }
 
     //getGMEC from lower bounds
