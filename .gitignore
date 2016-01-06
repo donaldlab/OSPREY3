@@ -4,4 +4,5 @@ build/*
 dataFiles/ALL*
 *.class
 nbdist/
-nbproject/
+nbproject/ALL*
+nbproject/*
