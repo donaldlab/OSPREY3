@@ -77,7 +77,7 @@ public class SeriesFitter {
     //and numerically questionable.  
 
 
-    static double[] fitSeries(DoubleMatrix1D[] samp, double trueVals[], double weights[],
+    public static double[] fitSeries(DoubleMatrix1D[] samp, double trueVals[], double weights[],
             double lambda, boolean includeConst, int order){
 
         return fitSeries(samp,trueVals,weights,lambda,includeConst,order,order,null,false,null,null);
@@ -1084,7 +1084,7 @@ public class SeriesFitter {
 
 
     //default is w/o PCs
-    static double evalSeries(double[] coeffs, DoubleMatrix1D x, int nd, boolean includeConst,
+    public static double evalSeries(double[] coeffs, DoubleMatrix1D x, int nd, boolean includeConst,
             int order){
 
         return evalSeries(coeffs,x,nd,includeConst,order,order,null);
@@ -1662,7 +1662,7 @@ public class SeriesFitter {
 
 
 
-    static int getNumParamsForOrder(int nd, int order){
+    public static int getNumParamsForOrder(int nd, int order){
         //Get the number of coefficients for terms of the specified order
         //in a series expansion with nd variables
         if(order==0)
@@ -1708,7 +1708,7 @@ public class SeriesFitter {
     
     
     
-    static int getNumParams(int nd, boolean includeConst, int order){
+    public static int getNumParams(int nd, boolean includeConst, int order){
         
         int ans = 0;
         if(includeConst)

@@ -25,12 +25,15 @@ public class PruningControl {
     boolean useFlags;//Use pair pruning
     boolean useTriples;//Use triple pruning
     boolean preDACS;//do pruning appropriate for all-conf-space pruning before DACS
-
+    boolean useEPIC;//Use EPIC in pruning (to get lower bound of continuous E for pruning candidate)
+    boolean useTupExp;//prune based on tup-exp energy matrix
     
-    
+    double stericThresh;//Steric pruning threshold
+    boolean onlyGoldstein = false;//for competitor pruning
     
     public PruningControl(SearchProblem searchSpace, double pruningInterval, boolean typeDep, 
-            double boundsThresh, int algOption, boolean useFlags, boolean useTriples, boolean preDACS) {
+            double boundsThresh, int algOption, boolean useFlags, boolean useTriples, 
+            boolean preDACS, boolean useEPIC, boolean useTupExp, double stericThresh) {
         this.searchSpace = searchSpace;
         this.pruningInterval = pruningInterval;
         this.typeDep = typeDep;
@@ -39,6 +42,9 @@ public class PruningControl {
         this.useFlags = useFlags;
         this.useTriples = useTriples;
         this.preDACS = preDACS;
+        this.useEPIC = useEPIC;
+        this.useTupExp = useTupExp;
+        this.stericThresh = stericThresh;
     }
 
     
@@ -53,19 +59,24 @@ public class PruningControl {
         
         long startTime = System.currentTimeMillis();
         
-        Pruner dee = new Pruner(searchSpace,typeDep,boundsThresh,pruningInterval);
+        Pruner dee = new Pruner(searchSpace,typeDep,boundsThresh,pruningInterval,useEPIC,useTupExp);
         
         //now go through the various types of pruning that we support
         //see KSParser
         
         //possibly start with steric pruning?  
+        if(Double.isFinite(stericThresh) && !onlyGoldstein)
+            dee.pruneSteric(stericThresh);
         
         
         boolean done = false;
         
         //numbers pruned so far
-        int numPrunedRot = 0;
+        int numPrunedRot = searchSpace.pruneMat.countPrunedRCs();
         int numPrunedPairs = 0;
+        if ((useFlags)||(algOption>=3)) //pairs pruning is performed
+            numPrunedPairs = searchSpace.pruneMat.countPrunedPairs();
+        
         
         for (int numRuns=0; !done; numRuns++){ //repeat the pruning cycle until no more rotamers are pruned	
 
@@ -85,7 +96,9 @@ public class PruningControl {
                     dee.prune("BOUNDING FLAGS");
 
             dee.prune("CONFSPLIT1");
-            
+            //note: conf splitting is equivalent to pruning pairs (say (i_r,j_s)) with overlapping
+            //competitors (say (i_t,j_s)), and then seeing what singles are pruned as a result
+            //we already do this
             
             dee.prune("BOUNDS");
             */
@@ -100,9 +113,11 @@ public class PruningControl {
             if( (newNumPrunedRot==numPrunedRot) && (newNumPrunedPairs==numPrunedPairs) && (!preDACS) ) { 
             //no more rotamers pruned, so perform the computationally-expensive 2-sp split-Pruner and pairs
 
-                    if ((algOption>=3)){ //simple Goldstein pairs
-                        if ((algOption>=3)) //simple Goldstein pairs
-                            dee.prune("GOLDSTEIN PAIRS FULL");
+                    if ( algOption>=3 ) { //simple Goldstein pairs
+                        dee.prune("GOLDSTEIN PAIRS FULL");
+                        
+                        if( useTriples )
+                            dee.prune("GOLDSTEIN TRIPLES");
                     }
                     
                     /*
@@ -110,9 +125,7 @@ public class PruningControl {
                         dee.prune("CONFSPLIT2");
                     }
 
-                    if( useTriples ){
-                        dee.prune("GOLDSTEIN TRIPLES");
-                    }
+                    
 
                     if(algOption >= 4){
                         dee.prune("INDIRECT PAIRS");
@@ -146,6 +159,12 @@ public class PruningControl {
         
         System.out.println("Pruning time: " + pruneTime + " ms" );
     }
+
+    public void setOnlyGoldstein(boolean onlyGoldstein) {
+        this.onlyGoldstein = onlyGoldstein;
+    }
+    
+    
     
     
 }

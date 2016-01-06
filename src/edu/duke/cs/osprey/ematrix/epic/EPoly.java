@@ -265,6 +265,12 @@ public class EPoly implements Serializable {
     public void setMinE(double minE) {
         this.minE = minE;
     }
+
+    public double getMinE() {
+        return minE;
+    }
+    
+    
     
     
     

@@ -1,6 +1,7 @@
     1    0    2
 This is a remark line
 molecule.res
+
 CFA    INT  0
 CORRECT     OMIT DU   BEG
   0.0000
@@ -42,6 +43,7 @@ IMPROPER
 DONE
 This is a remark line
 molecule.res
+
 IAC    INT  0
 CORRECT     OMIT DU   BEG
   0.0000

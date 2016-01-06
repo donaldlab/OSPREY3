@@ -6,6 +6,8 @@ package edu.duke.cs.osprey.structure;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  *
@@ -14,6 +16,7 @@ import java.util.ArrayList;
 public class Molecule implements Serializable {
     
     public ArrayList<Residue> residues = new ArrayList<>();
+    private Map<Integer,ArrayList<Residue>> alternates = new HashMap<>();
     
     //also might have secondary structure elements...
 
@@ -32,6 +35,28 @@ public class Molecule implements Serializable {
         }
         
         throw new RuntimeException("ERROR: Can't find residue in molecule with PDB-based number "+resNumber);
+    }
+    
+    
+    public void appendResidue(Residue res){
+        //Add a residue to the end of the molecule
+        res.indexInMolecule = residues.size();
+        residues.add(res);
+    }
+    
+    public void addAlternate(int resIndex, Residue res)
+    {
+        if(!alternates.containsKey(resIndex))
+            alternates.put(resIndex, new ArrayList<Residue>());
+        alternates.get(resIndex).add(res);
+    }
+    
+    public void deleteResidue(int resIndex){
+        //delete the residue with the specified index in residues
+        residues.remove(resIndex);
+        //this changes the indexInMolecule for all subsequent residues
+        for(int index2=resIndex; index2<residues.size(); index2++)
+            residues.get(index2).indexInMolecule--;
     }
     
     

@@ -91,14 +91,14 @@ public class EPICSettings implements Serializable {
     
     public EPICSettings(ParamSet params){
         //initialize from input parameter set
-        useEPIC = params.getBool("USEEPIC", false);
-        EPICThresh1 = params.getDouble("EPICTHRESH1", 10.);
-        EPICThresh2 = params.getDouble("EPICTHRESH2", 25.);
-        EPICGoalResid = params.getDouble("EPICGOALRESID", 0.0001);
+        useEPIC = params.getBool("USEEPIC");
+        EPICThresh1 = params.getDouble("EPICTHRESH1");
+        EPICThresh2 = params.getDouble("EPICTHRESH2");
+        EPICGoalResid = params.getDouble("EPICGOALRESID");
         
-        useSAPE = params.getBool("USESAPE", true);
-        usePC = params.getBool("EPICUSEPC",true);
-        minPartialConfs = params.getBool("MINPARTIALCONFS",true);
+        useSAPE = params.getBool("USESAPE");
+        usePC = params.getBool("EPICUSEPC");
+        minPartialConfs = params.getBool("MINPARTIALCONFS");
 
         if(EPICThresh2<EPICThresh1){
             throw new RuntimeException("ERROR: EPICThresh2 must be at least EPICThresh1!  "

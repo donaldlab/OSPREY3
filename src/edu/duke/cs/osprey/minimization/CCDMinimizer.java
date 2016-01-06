@@ -141,6 +141,10 @@ public class CCDMinimizer implements Minimizer {
 
 
     double minTime;//time for most recent minimization (ms)
+    
+    
+    //137DEBUG!!
+    public int GVCountEstmin=0, GVCountEdge=0, GVCountBigger=0, GVCountSmaller=0; 
 
     public CCDMinimizer( ObjectiveFunction ofn, boolean useCorners ){
 
@@ -293,6 +297,11 @@ public class CCDMinimizer implements Minimizer {
 
                 double estminVal = objFcn.getValForDOF(dof,estmin);
                 double estminValOld = curVal;
+                
+                
+                //137DEBUG!!
+                GVCountEstmin++;
+                
 
                 if(estminVal < curVal){
                     while(true) {//Can break either on hitting a constraint or on estminVal starting to increase
@@ -302,6 +311,9 @@ public class CCDMinimizer implements Minimizer {
                             double edge = getEdgeDOFVal(estmin,dof);
 
                             double edgeVal = objFcn.getValForDOF(dof,edge);
+                            
+                                            //137DEBUG!!
+                                            GVCountEdge++;
 
                             if(edgeVal<estminVal)
                                 x.set(dof, edge);
@@ -313,8 +325,13 @@ public class CCDMinimizer implements Minimizer {
 
                         estminValOld = estminVal;
                         estminVal = objFcn.getValForDOF(dof,estmin);
+                        
+                                        //137DEBUG!!
+                                        GVCountBigger++;
+                        
+                        double tol = numTol * Math.max(1,Math.abs(estminVal));
 
-                        if( !(estminVal < estminValOld) ){//No improvement in the last step
+                        if( !(estminVal < estminValOld - tol) ){//No noticeable improvement in the last step
                             x.set(dof,dof_base+0.5*(estmin-dof_base));
                             break;
                         }
@@ -327,8 +344,15 @@ public class CCDMinimizer implements Minimizer {
 
                         estminValOld = estminVal;
                         estminVal = objFcn.getValForDOF(dof,estmin);
+                        
+                        
+                                        //137DEBUG!!
+                                        GVCountSmaller++;
 
-                        if( estminValOld < estminVal + numTol ){//No significant improvement in the last step
+                        double tol = numTol * Math.max(1,Math.abs(estminVal));
+                        //need to avoid getting stuck at the same estmin, with numerically trivial improvements...
+                        
+                        if( estminValOld < estminVal + tol ){//No significant improvement in the last step
                             if(estminValOld<curVal)//have improvement over curVal at least
                                 x.set(dof,dof_base+2*(estmin-dof_base));
                             break;
@@ -884,6 +908,12 @@ public class CCDMinimizer implements Minimizer {
         objFcn.setDOFs(x);
         return E;
     }
+    
+    
+    public void setInitVals(DoubleMatrix1D initVals){
+        singleInitVal = initVals;
+    }
+    
     
     
 
