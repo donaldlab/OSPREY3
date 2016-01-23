@@ -12,9 +12,9 @@
     </editor-bookmarks>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/Users/mhall44/Mark/OSPREY_refactor/src/edu/duke/cs/osprey/structure/Residue.java</file>
+            <file>file:/Users/mhall44/Mark/OSPREY_refactor/src/edu/duke/cs/osprey/astar/comets/COMETSTree.java</file>
             <file>file:/Users/mhall44/Mark/OSPREY_refactor/src/edu/duke/cs/osprey/tests/TestPositionSpecificGMEC.java</file>
-            <file>file:/Users/mhall44/Mark/OSPREY_refactor/src/edu/duke/cs/osprey/control/ParamSet.java</file>
+            <file>file:/Users/mhall44/Mark/OSPREY_refactor/src/edu/duke/cs/osprey/control/COMETSDoer.java</file>
         </group>
     </open-files>
 </project-private>

@@ -369,9 +369,11 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
             String curLine = bufread.readLine();
             
             while (curLine != null ){
-                String resType = StringParsing.getToken(curLine,1);
-                double entropy = new Double(StringParsing.getToken(curLine,2)); 
-                resEntropy.put(resType.toUpperCase(), entropy);
+                if(!curLine.startsWith("%")){
+                	String resType = StringParsing.getToken(curLine,1);
+                	double entropy = new Double(StringParsing.getToken(curLine,2)); 
+                	resEntropy.put(resType.toUpperCase(), entropy);
+		}
                 curLine = bufread.readLine();
             }
             bufread.close();
