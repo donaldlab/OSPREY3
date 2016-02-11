@@ -20,6 +20,7 @@ public class AStarNode implements Comparable {
     boolean scoreNeedsRefinement;
 
     boolean isRoot = false; //HMN: Temporary
+
     
     //These are used in COMETS
     public double UB = Double.POSITIVE_INFINITY;//upper bound

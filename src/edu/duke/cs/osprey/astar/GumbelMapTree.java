@@ -44,9 +44,9 @@ public class GumbelMapTree extends AStarTree {
 
     ConfSpace confSpace = null;//conf space to use with epicMat if we're doing EPIC minimization w/ SAPE
     boolean minPartialConfs = false;//whether to minimize partially defined confs with EPIC, or just fully defined
-    
+
     public double epsilon = 1.0;
-    
+
     int[] currentBestFeasibleSolution = null;
     public double currentBestFeasibleScore = Double.POSITIVE_INFINITY;
     public double currentBestLPRelaxScore = Double.POSITIVE_INFINITY;
@@ -54,7 +54,7 @@ public class GumbelMapTree extends AStarTree {
     public double lowerBoundLogZ = Double.NEGATIVE_INFINITY;
     public double upperBoundLogZ = Double.POSITIVE_INFINITY;
     public int numNodesEpsilon = -1;
-    
+
     private Random randomGenerator;
     final double constRT = PoissonBoltzmannEnergy.constRT;
 
@@ -74,6 +74,7 @@ public class GumbelMapTree extends AStarTree {
 
         if (mplpScore) {
             useRefinement = true;
+//            mplpMinimizer = new Mplp(numPos, emat, pruneMat);
             mplpMinimizer = new Mplp(numPos, emat, pruneMat);
         }
     }
@@ -97,7 +98,8 @@ public class GumbelMapTree extends AStarTree {
         }
         //Initialize MPLP (not compatible with EPIC)
         if (mplpScore) {
-            mplpMinimizer = new Mplp(numPos, emat, pruneMat);
+            //mplpMinimizer = new Mplp(numPos, emat, pruneMat);
+            mplpMinimizer = new Mplp(this.numPos, emat, pruneMat);
             if (sp.useTupExpForSearch) {
                 throw new RuntimeException("ERROR: MPLP Does Not Yet work with LUTE");
             }
@@ -189,6 +191,7 @@ public class GumbelMapTree extends AStarTree {
             return score;
         } else if (mplpScore) {
             double score = emat.getConstTerm() + this.mplpMinimizer.optimizeMPLP(partialConf, 100);
+//            double score = emat.getConstTerm() + this.mplpMinimizer.optimizeEMPLP(partialConf, numPos);
 //            double scoreTraditional = scoreConfTraditional(partialConf);
 
             return score;
@@ -431,11 +434,16 @@ public class GumbelMapTree extends AStarTree {
 
         int[] feasibleSolution = getFeasibleSolution(conf);
         double lowerBound = scoreConfWithPert(conf, gumbelNoise);
-        this.currentBestFeasibleScore = scoreConfWithPert(feasibleSolution, gumbelNoise);
-        this.currentBestFeasibleSolution = feasibleSolution;
+
+        
         AStarNode root = new AStarNode(conf, lowerBound, useRefinement);
+
         root.perturbation = gumbelNoise;
         root.isRoot = true;
+        
+        this.currentBestFeasibleSolution = feasibleSolution;
+        this.currentBestFeasibleScore = scoreConfWithPert(feasibleSolution, gumbelNoise);
+
         return root;
     }
 
@@ -483,16 +491,15 @@ public class GumbelMapTree extends AStarTree {
     @Override
     public boolean canPruneNode(AStarNode node) {
 //        System.out.println(node.score - this.currentBestFeasibleScore);
-        this.upperBoundLogZ = -getUpperBoundLogZ()/this.constRT;
-        this.lowerBoundLogZ = -this.currentBestFeasibleScore/this.constRT;
+        this.upperBoundLogZ = -getUpperBoundLogZ() / this.constRT;
+        this.lowerBoundLogZ = -this.currentBestFeasibleScore / this.constRT;
 
 //        System.out.println("Upper Bound logZ: " + -getUpperBoundLogZ() / this.constRT);
-
 //        System.out.println("Lower Bound logZ: " + -this.currentBestFeasibleScore / this.constRT);
 //        System.out.println();
-        if ((this.upperBoundLogZ - this.lowerBoundLogZ < epsilon) && (this.numNodesEpsilon == -1) && (this.numExpanded > 0)){
+        if ((this.upperBoundLogZ - this.lowerBoundLogZ < epsilon) && (this.numNodesEpsilon == -1) && (this.numExpanded > 0)) {
             this.numNodesEpsilon = numExpanded;
-            System.out.println("Number Nodes Epsilon: "+numNodesEpsilon);
+            System.out.println("Number Nodes Epsilon: " + numNodesEpsilon);
         }
         if (node.score + 0.00001 > this.currentBestFeasibleScore) {
             return true;

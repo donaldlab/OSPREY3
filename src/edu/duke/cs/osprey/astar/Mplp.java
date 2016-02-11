@@ -41,7 +41,8 @@ public class Mplp {
     private boolean interactionGraph[][];
 
     int[] feasibleSolution;
-
+    double[][] belief;
+    
     public Mplp(int aNumPos, EnergyMatrix aEmat, PruningMatrix aPruneMat) {
         init(aNumPos, aEmat, aPruneMat, 0.0);
     }
@@ -113,7 +114,7 @@ public class Mplp {
 
         // the belief on each rotamer
         //b_i(x_i) = intrE(x_i) + sum_{k in N(i)} lambda_{k,i -> i}(x_i)
-        double belief[][] = CreateMatrix.create2DRotMatrix(numPos, rotsPerPos, 0.0f);
+        this.belief = CreateMatrix.create2DRotMatrix(numPos, rotsPerPos, 0.0f);
         //initialize beliefs to intra energy term
         for (int pos = 0; pos < numPos; pos++) {
             for (int rot = 0; rot < this.rotsPerPos[pos]; rot++) {
@@ -188,6 +189,7 @@ public class Mplp {
         return Ebound;
     }
 
+    
     void getFeasibleSolution(double[][] belief, int[][] availableRots) {
         for (int pos = 0; pos < this.numPos; pos++) {
             if (feasibleSolution[pos] == -1) {
