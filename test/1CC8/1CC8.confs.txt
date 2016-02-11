@@ -1,2 +1,2 @@
-0 CONF: 5 7 12 5 0 7 4 RESTYPES: Ile Ser Met Glu Ala Gln Leu ROTS: 5 7 12 5 -1 7 4 Lower bound/enumeration energy: -70.64370922325938 Energy: -70.61721235770966 Best so far: -70.61721235770966 EPIC energy: -70.64331057791453
-0 CONF: 5 7 12 5 0 7 4 RESTYPES: Ile Ser Met Glu Ala Gln Leu ROTS: 5 7 12 5 -1 7 4 Lower bound/enumeration energy: -70.64370922325938 Energy: -70.6172123577149 Best so far: -70.6172123577149 EPIC energy: -70.64893193048675
+0 CONF: 5 7 12 5 0 7 4 RESTYPES: Ile Ser Met Glu Ala Gln Leu ROTS: 5 7 12 5 -1 7 4 Lower bound/enumeration energy: -70.66077408837614 Energy: -70.61721235769022 Best so far: -70.61721235769022 EPIC energy: -70.65812549939479
+0 CONF: 5 7 12 5 0 7 4 RESTYPES: Ile Ser Met Glu Ala Gln Leu ROTS: 5 7 12 5 -1 7 4 Lower bound/enumeration energy: -70.61965638416747 Energy: -70.61721235758381 Best so far: -70.61721235769022 EPIC energy: -70.62117687629119

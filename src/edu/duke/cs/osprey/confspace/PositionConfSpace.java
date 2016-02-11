@@ -37,6 +37,9 @@ public class PositionConfSpace implements Serializable {
 
     public Residue res;//The residue involved
 
+    public int designIndex;
+    
+
     static double dihedFlexInterval = 9;// +/- 9 degree sidechain dihedral continuous flexibility...
     //later can allow this to vary across different dihedrals
 
@@ -45,18 +48,21 @@ public class PositionConfSpace implements Serializable {
     static double ellipseMin = 0;
 
     ArrayList<EllipseCoordDOF> ellipsoidalDOFs = new ArrayList<>();
-
-    public PositionConfSpace(Residue res, ArrayList<DegreeOfFreedom> resDOFs, ArrayList<String> allowedAAs,
-            boolean contSCFlex, ArrayList<DegreeOfFreedom> strandDOFs,
-            ArrayList<Perturbation> perts, ArrayList<ArrayList<double[]>> pertIntervals,
-            ArrayList<ArrayList<int[]>> pertStates, BBFreeBlock bfb, boolean useEllipses, boolean addWTRots) {
-
+    
+    public PositionConfSpace(int pos, Residue res, ArrayList<DegreeOfFreedom> resDOFs, ArrayList<String> allowedAAs, 
+            boolean contSCFlex, ArrayList<DegreeOfFreedom> strandDOFs, 
+            ArrayList<Perturbation> perts, ArrayList<ArrayList<double[]>> pertIntervals, 
+            ArrayList<ArrayList<int[]>> pertStates, BBFreeBlock bfb, boolean useEllipses ) {
+        
         //We'll start with just one RC for each rotamer
         //But in general there are a lot of options for RCs...
         ResidueTemplateLibrary templateLib = EnvironmentVars.resTemplates;
         this.res = res;
+        designIndex = pos;
+        
+        
+        if(pertStates==null){//no DEEPer flexibility...
 
-        if (pertStates == null) {//no DEEPer flexibility...
             pertStates = new ArrayList<>();
             pertStates.add(null);
         }
@@ -81,9 +87,10 @@ public class PositionConfSpace implements Serializable {
             int numDihedrals = templateLib.numDihedralsForResType(AAType);
 
         	// PGC 2015: Support backbone dependent rotamers.  
-            //	Compute phi and psi, necessary for backbone dependent rotamers.        
-            double phipsi[] = Protractor.getPhiPsi(this.res);
-            int numRot = templateLib.numRotForResType(AAType, phipsi[0], phipsi[1]);
+        	//	Compute phi and psi, necessary for backbone dependent rotamers.        
+        	double phipsi [] = Protractor.getPhiPsi(this.res);
+            int numRot = templateLib.numRotForResType(designIndex, AAType, phipsi[0], phipsi[1]);
+            
 
             //resDOFs is all sidechain DOFs, for now
             ArrayList<DegreeOfFreedom> dofListForRot = new ArrayList<>();
@@ -177,8 +184,9 @@ public class PositionConfSpace implements Serializable {
         double dihValues[] = new double[numDihedrals];
         //we'll start with the sidechain dihedral DOFs
 
-        for (int dih = 0; dih < numDihedrals; dih++) {
-            dihValues[dih] = templateLib.getDihedralForRotamer(AAType, phipsi[0], phipsi[1], rot, dih);
+        for(int dih=0; dih<numDihedrals; dih++){
+            dihValues[dih] = templateLib.getDihedralForRotamer(designIndex, AAType,phipsi[0], phipsi[1], rot,dih);
+
         }
 
         ArrayList<EllipseCoordDOF> ellCoords = makeEllCoords(useEllipses, dihValues, dofListForRot);

@@ -8,6 +8,10 @@ import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.bbfree.BBFreeBlock;
 import edu.duke.cs.osprey.control.EnvironmentVars;
+<<<<<<< HEAD
+=======
+import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
+>>>>>>> master
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.dof.MoveableStrand;
@@ -154,12 +158,21 @@ public class ConfSpace implements Serializable {
             Residue res = m.getResByPDBResNumber(flexibleRes.get(pos));
 
             ArrayList<DegreeOfFreedom> resDOFs = singleResDOFs.get(pos);
+<<<<<<< HEAD
             ArrayList<DegreeOfFreedom> resStrandDOFs = strandDOFsForRes(res, strandDOFs);//and check that all res flex on moving strands!
 
             BBFreeBlock curBFB = getCurBFB(bfbList, res);
 
             PositionConfSpace rcs = new PositionConfSpace(res, resDOFs, allowedAAs.get(pos), contSCFlex,
                     resStrandDOFs, perts, dset.getPertIntervals(), dset.getPertStates(pos), curBFB, useEllipses, addWTRots);
+=======
+            ArrayList<DegreeOfFreedom> resStrandDOFs = strandDOFsForRes(res,strandDOFs);//and check that all res flex on moving strands!
+            
+            BBFreeBlock curBFB = getCurBFB(bfbList,res);
+            
+            PositionConfSpace rcs = new PositionConfSpace(pos, res, resDOFs, allowedAAs.get(pos), contSCFlex,
+                    resStrandDOFs, perts, dset.getPertIntervals(), dset.getPertStates(pos), curBFB, useEllipses);
+>>>>>>> master
             posFlex.add(rcs);
 
             if (useEllipses) {
@@ -416,7 +429,28 @@ public class ConfSpace implements Serializable {
 
         return numAllowed;
     }
+<<<<<<< HEAD
 
+=======
+    
+    
+    public double getRCResEntropy(int pos, int rc){
+        String resType = posFlex.get(pos).RCs.get(rc).AAType;
+        double resEntropy = EnvironmentVars.resTemplates.getResEntropy(resType);
+        return resEntropy;
+    }
+    
+    public double getConfResEntropy(int[] conf){
+        double ans = 0;
+        
+        for(int pos=0; pos<numPos; pos++)
+            ans += getRCResEntropy(pos, conf[pos]);
+        
+        return ans;
+    }
+    
+    
+>>>>>>> master
     /*DoubleMatrix1D[] convertConfToDOFBounds(int[] conf){
      //Argument: RC assignments for all the flexible residues (RCs defined in resFlex)
      //return bounds (lower bounds, upper bounds) for all the degrees of freedom in the system

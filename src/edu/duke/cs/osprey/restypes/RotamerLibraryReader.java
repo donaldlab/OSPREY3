@@ -24,10 +24,11 @@ public class RotamerLibraryReader implements Serializable {
     public static final boolean debug = false;
 
 	//Read in all of the rotamers for all amino acids from the rotFilename file
-    //into the ResidueTemplateLibrary
-    public static void readRotLibrary(String rotFilename, ResidueTemplateLibrary templateLib) {
 
-        try {
+        //into the ResidueTemplateLibrary
+	public static void readRotLibrary(String rotFilename, GenericResidueTemplateLibrary templateLib) {
+            
+            try {
 
 		//String volFilename = rotFile + ".vol";
             // HANDLE THE NORMAL AAs	
@@ -217,6 +218,7 @@ public class RotamerLibraryReader implements Serializable {
                     rotamersForType[phiBin][psiBin] = new BBDepRotamersForTypePhiAndPsi(phi, psi);
                 }
             }
+<<<<<<< HEAD
         }
 
         /**
@@ -284,6 +286,143 @@ public class RotamerLibraryReader implements Serializable {
                     if (r4 > 0) {
                         numDih++;
                     }
+=======
+	}
+	/**
+	 * 
+	 * @author pablo
+	 * BBDepRotamersForTypePhiAndPsi: Backbone Dependent Rotamers For Amino Acid Type given a Phi and Psi angle value.
+	 * This class is a data structure that stores all the rotamers for a specific phi and psi bin, given an angle.
+	 */
+	private static class BBDepRotamersForTypePhiAndPsi{
+		ArrayList <double[]>rotamersForPhiAndPsi;
+		public double phi;
+		public double psi;
+		public BBDepRotamersForTypePhiAndPsi(double phi, double psi){
+			this.rotamersForPhiAndPsi = new ArrayList<double[]>();
+			this.phi = phi;
+			this.psi = psi;
+		}
+		/**
+		 * Adds a new rotamer to list of rotamers for this type, phi and psi values.
+		 * @param dihedralValues
+		 */
+		public void addRotamerForTypePhiAndPsi(double dihedralValues[]){
+			rotamersForPhiAndPsi.add(dihedralValues);
+		}
+		/**
+		 * Converts the array list rotamersForPhiAndPsi to a 2D array of type double
+		 * @return a 2D array of rotamers and dihedrals
+		 */
+		public double [][] convertRotamersToArray(){
+			double arrayOfRotamers[][] = new double[this.rotamersForPhiAndPsi.size()][];
+			for (int rot = 0; rot < this.rotamersForPhiAndPsi.size(); rot++){
+				arrayOfRotamers[rot] =  this.rotamersForPhiAndPsi.get(rot);
+			}
+			return arrayOfRotamers;
+		}
+	}
+	/**
+	 * @author PGC 2015
+	 * 
+	 * BBDepRotamersForType: Backbone dependent rotamers for type.
+	 * This class is a data structure that stores all the backbone rotamers for a specific amino acid type.
+	 * It is used by the Dunbrack parser.
+	 */
+	private static class BBDepRotamersForType{
+		// aaType: amino acid type for which we are storing the rotamers.
+		public String aaType;
+		// resolution: The increments on which the rotamer library classifies rotamers. For Dunbrack this is 10.
+		public double resolution;
+		// numBins: The number of "bins" for each phi and psi. For Dunbrack this is 37 (e.g. at -180, -170, ..., 0, ..., 170, 180)
+		public int numBins;
+		// The array structure that stores the rotamers for each combination of phi and psi angles. The size of this 2D array is numBins*numBins.
+		public BBDepRotamersForTypePhiAndPsi rotamersForType[][];
+		
+		/**
+		 * 
+		 * @param aaType amino acid type for which we are storing the rotamers.
+		 * @param numBins The increments on which the rotamer library classifies rotamers. For Dunbrack this is 10.
+		 * @param resolution The number of "bins" for each phi and psi. For Dunbrack this is 37 (e.g. at -180, -170, ..., 0, ..., 170, 180)
+		 */
+		public BBDepRotamersForType(String aaType, int numBins, double resolution){
+			this.aaType = aaType;
+			this.numBins = numBins;
+			this.resolution = resolution;
+
+			rotamersForType = new BBDepRotamersForTypePhiAndPsi[numBins][];
+			for(int phiBin = 0; phiBin < numBins; phiBin++){
+				rotamersForType[phiBin] = new BBDepRotamersForTypePhiAndPsi[numBins];
+				// Each bin corresponds to a phi and psi value.  We can compute each using the resolution and numBins info.
+				double phi = (phiBin - numBins/2)*resolution ;
+				for(int psiBin = 0; psiBin < numBins; psiBin++){
+					double psi = (psiBin- numBins/2)*resolution ;
+					// Each field in rotamersForType stores a data structure with all the rotamers for that phi and psi bin.
+					rotamersForType[phiBin][psiBin] = new BBDepRotamersForTypePhiAndPsi(phi, psi);				
+				}				
+			}					
+		}
+		/** 
+		 * Add a new rotamer to its respective bin for this aaType.
+		 * @param phi The phi angle for this rotamer
+		 * @param psi The psi angle for this rotamer.
+		 * @param dihedralValues
+		 */
+		public void addNewRotamer(double phi, double psi, double dihedralValues[]){
+	    	int phiBin = (int)((Math.round(phi/resolution))) + this.numBins/2;    	
+			int psiBin = (int)((Math.round(psi/resolution))) + this.numBins/2;
+			rotamersForType[phiBin][psiBin].addRotamerForTypePhiAndPsi(dihedralValues);
+		}
+
+	} 
+	/** PGC 2015:  Read all the rotamer entries for the dunbrack rotamer library and add the corresponding ones to the residue templates in 
+	 *    the template library templateLib. 
+	 *  @param templateLib The library of residue templates.
+	 */
+	public static void readDunbrackRotamerLibraryForResiduePosition(String rotFilename, GenericResidueTemplateLibrary templateLib){
+
+		// Dunbrack has rotamers in increments of 10 for phi and psi.
+		double dunbrackResolution = 10;
+		// Number of bins in the dunbrack rotamer library.
+		int binsDunbrack = 37;
+		// Create a hash map to map every amino acid in the template library to its rotamers
+		HashMap<String, BBDepRotamersForType> allDunbrackRotamersMap = new HashMap<String, BBDepRotamersForType>();
+		for(ResidueTemplate template : templateLib.templates){
+			BBDepRotamersForType bbDepRotamerForTypeOfTemplate = new RotamerLibraryReader.BBDepRotamersForType(template.name, binsDunbrack, dunbrackResolution);
+			allDunbrackRotamersMap.put(template.name, bbDepRotamerForTypeOfTemplate);
+		
+		}
+		String curLine;
+		// Read the file name for the Dunbrack Backbone dependent rotamer library. 
+		try{
+			// Read in the entire dunbrack library
+			FileInputStream is = new FileInputStream( EnvironmentVars.getDataDir() + rotFilename);
+			BufferedReader bufread = new BufferedReader(new InputStreamReader(is));
+			curLine = null;			
+			// Parse the whole file first and add each rotamer entry to the array list
+			while((curLine = bufread.readLine()) != null){
+				// Skip comment lines: those that start with #
+				if(!curLine.startsWith("#")){
+					// Convert the line into a char array.
+					char dbLine [] = curLine.toCharArray(); 
+					// First three letters are the amino acid.
+					String aaNameNewRot = ""+dbLine[0]+dbLine[1]+dbLine[2];
+                	// We compute the number of dihedrals for this AA by counting the number of none zeroes in columns r1-r4.
+                	int r1 = Integer.parseInt((""+dbLine[24]+dbLine[25]).trim());
+                	int r2 = Integer.parseInt((""+dbLine[27]+dbLine[28]).trim());
+                	int r3 = Integer.parseInt((""+dbLine[30]+dbLine[31]).trim());
+                	int r4 = Integer.parseInt((""+dbLine[33]+dbLine[34]).trim());
+                	int numDih = 1;
+                	if(r2 > 0){
+                		numDih++;
+                	} 
+                	if(r3 > 0){
+                		numDih++;
+                	}
+                	if(r4 > 0){
+                		numDih++;
+                	}
+>>>>>>> master
 					// Parse the backbone phi and psi for this rotamer.
                     // Phi is in chars 5, 6, 7, and 8 
                     String phiForThisEntryAsStr = "" + dbLine[5] + dbLine[6] + dbLine[7] + dbLine[8];

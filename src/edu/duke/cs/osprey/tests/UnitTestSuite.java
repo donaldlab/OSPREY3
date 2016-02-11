@@ -12,6 +12,11 @@ import java.io.IOException;
  *
  * @author mhall44
  */
+
+/* TODO:
+ * Get this running as a separate class. There's no reason to have to invoke it with all the other
+ * parameters from the command line.
+ */
 public class UnitTestSuite {
     //Suite of all unit tests to run
     //can be good to check that we didn't break something
@@ -47,5 +52,10 @@ public class UnitTestSuite {
 
         ConfSearchTests.testExhaustive(true, false);
     }
-
+    
+    public static void main(String[] args)
+    {
+        runAllTests();
+    }
+    
 }

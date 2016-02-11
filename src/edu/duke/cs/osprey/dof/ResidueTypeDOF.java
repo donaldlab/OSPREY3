@@ -8,7 +8,7 @@ import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.SidechainIdealizer;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
-import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
+import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.RigidBodyMotion;
@@ -34,7 +34,7 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
     public void mutateTo(String resType) {
         //paramVal is the index in the ResidueTemplateLibrary of the new parameter type
         //so it must be an integer...
-        ResidueTemplateLibrary templateLib = EnvironmentVars.resTemplates;
+        GenericResidueTemplateLibrary templateLib = EnvironmentVars.resTemplates;
         
         ResidueTemplate oldTemplate = res.template;
         ResidueTemplate newTemplate = templateLib.getTemplateForMutation(resType,res,true);

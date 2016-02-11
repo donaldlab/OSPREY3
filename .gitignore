@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 nbproject/
 build/
 dist/
@@ -6,3 +7,10 @@ nbdist/
 *.class
 dataFiles/ALL*
 
+=======
+build/*
+nbproject/*
+nbdist/*
+dataFiles/ALL*
+*.class
+>>>>>>> master
