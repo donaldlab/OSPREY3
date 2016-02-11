@@ -156,6 +156,8 @@ public class ConfSpaceSuper extends ConfSpace {
         //OK now make RCs using these DOFs
         for (int pos = 0; pos < numPos; pos++) {
             ArrayList<Residue> resList = new ArrayList<>();
+            ArrayList<Integer> posList = new ArrayList<>();
+            posList.add(pos);
             Residue res = m.getResByPDBResNumber(flexibleRes.get(pos));
             //just add one residue per position initially
             resList.add(res);
@@ -181,7 +183,7 @@ public class ConfSpaceSuper extends ConfSpace {
             ArrayList<Integer> DOFIndices = new ArrayList<>();
             DOFIndices.add(pos);
 
-            PositionConfSpaceSuper rcs = new PositionConfSpaceSuper(resList, posDOFs, allowedAAsAtPosition, DOFIndices, contSCFlex,
+            PositionConfSpaceSuper rcs = new PositionConfSpaceSuper(posList, resList, posDOFs, allowedAAsAtPosition, DOFIndices, contSCFlex,
                     resStrandDOFs, perts, dset.getPertIntervals(), pertStatesPos, curBFBPerRes, useEllipses, adWTRots);
 
             posFlexSuper.add(rcs);

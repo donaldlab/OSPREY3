@@ -52,7 +52,7 @@ public class PositionConfSpace implements Serializable {
     public PositionConfSpace(int pos, Residue res, ArrayList<DegreeOfFreedom> resDOFs, ArrayList<String> allowedAAs, 
             boolean contSCFlex, ArrayList<DegreeOfFreedom> strandDOFs, 
             ArrayList<Perturbation> perts, ArrayList<ArrayList<double[]>> pertIntervals, 
-            ArrayList<ArrayList<int[]>> pertStates, BBFreeBlock bfb, boolean useEllipses ) {
+            ArrayList<ArrayList<int[]>> pertStates, BBFreeBlock bfb, boolean useEllipses, boolean addWTRots) {
         
         //We'll start with just one RC for each rotamer
         //But in general there are a lot of options for RCs...

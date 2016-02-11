@@ -40,16 +40,18 @@ public class EnergyMatrixCalculator {
     //and correct the intra+shell energies based on the reference energies
 
     boolean addResEntropy = false;//add residue entropy to one-body energies
-    
+
     //We are calculating either a scalar or EPIC matrix, so we'll allocate and fill in just one of these
     private EnergyMatrix emat = null;
     private EPICMatrix epicMat = null;
 
     boolean templateAlwaysOn = false;
+
     //constructor for calculating a scalar energy matrix (rigid or pairwise lower bounds)
-    public EnergyMatrixCalculator(ConfSpace s, ArrayList<Residue> sr, boolean useERef, 
+
+    public EnergyMatrixCalculator(ConfSpace s, ArrayList<Residue> sr, boolean useERef,
             boolean addResEntropy) {
-        
+
         searchSpace = s;
         shellResidues = sr;
         doEPIC = false;
@@ -115,23 +117,23 @@ public class EnergyMatrixCalculator {
 
     public void calcPEMLocally() {
         //do the energy calculation here
-        
-        for(int res=0; res<searchSpace.numPos; res++){
-            
-            System.out.println("Starting intra+shell energy calculations for residue "+res);
-            
-            TermECalculator oneBodyECalc = new TermECalculator(searchSpace,shellResidues,doEPIC,
-                    false,pruneMat,epicSettings,addResEntropy,res);
-            
+
+        for (int res = 0; res < searchSpace.numPos; res++) {
+
+            System.out.println("Starting intra+shell energy calculations for residue " + res);
+
+            TermECalculator oneBodyECalc = new TermECalculator(searchSpace, shellResidues, doEPIC,
+                    false, pruneMat, epicSettings, addResEntropy, res);
+
             Object oneBodyE = oneBodyECalc.doCalculation();
             storeEnergy(oneBodyE, res);
 
-            for(int res2=0; res2<res; res2++){
-                
-                System.out.println("Starting pairwise energy calculations for residues "+res+", "+res2);
-                
-                TermECalculator pairECalc = new TermECalculator(searchSpace,shellResidues,doEPIC,
-                        false,pruneMat,epicSettings,false,res,res2);
+            for (int res2 = 0; res2 < res; res2++) {
+
+                System.out.println("Starting pairwise energy calculations for residues " + res + ", " + res2);
+
+                TermECalculator pairECalc = new TermECalculator(searchSpace, shellResidues, doEPIC,
+                        false, pruneMat, epicSettings, false, res, res2);
 
                 Object pairE = pairECalc.doCalculation();
                 storeEnergy(pairE, res, res2);
@@ -196,15 +198,14 @@ public class EnergyMatrixCalculator {
 
         //generate TermMinECalc objects, in the same order as for local calculation,
         //but this time pass them off to MPI
-<<<<<<< HEAD
-        for(int res=0; res<searchSpace.numPos; res++){
-            
-            tasks.add( new TermECalculator(searchSpace,shellResidues,doEPIC,false,
-                    pruneMat,epicSettings,addResEntropy,res) );
+        for (int res = 0; res < searchSpace.numPos; res++) {
 
-            for(int res2=0; res2<res; res2++)
-                tasks.add( new TermECalculator(searchSpace,shellResidues,doEPIC,false,
-                        pruneMat,epicSettings,false,res,res2) );
+            tasks.add(new TermECalculator(searchSpace, shellResidues, doEPIC, false,
+                    pruneMat, epicSettings, addResEntropy, res));
+
+            for (int res2 = 0; res2 < res; res2++) {
+                tasks.add(new TermECalculator(searchSpace, shellResidues, doEPIC, false,
+                        pruneMat, epicSettings, false, res, res2));
             }
         }
 

@@ -97,45 +97,45 @@ public class KaDEEDoer {
 
     public KaDEEDoer(ConfigFileParser cfp) {
         this.cfp = cfp;
-        Ew = cfp.params.getDouble("Ew", 0);
-        doIMinDEE = cfp.params.getBool("imindee", false);
+        Ew = cfp.params.getDouble("Ew");
+        doIMinDEE = cfp.params.getBool("imindee");
         if (doIMinDEE) {
-            I0 = cfp.params.getDouble("Ival", 5);
+            I0 = cfp.params.getDouble("Ival");
         }
 
-        useContFlex = cfp.params.getBool("doMinimize", false);
+        useContFlex = cfp.params.getBool("doMinimize");
         if (useContFlex || doIMinDEE) {
             throw new RuntimeException("Continuous Flexibility Not Yet Supported with KaDEE");
         }
 
-        useTupExp = cfp.params.getBool("UseTupExp", false);
-        useEPIC = cfp.params.getBool("UseEPIC", false);
+        useTupExp = cfp.params.getBool("UseTupExp");
+        useEPIC = cfp.params.getBool("UseEPIC");
 
-        checkApproxE = cfp.params.getBool("CheckApproxE", true);
+        checkApproxE = cfp.params.getBool("CheckApproxE");
 
         if (doIMinDEE && !useContFlex) {
             throw new RuntimeException("ERROR: iMinDEE requires continuous flexibility");
         }
 
-        outputGMECStruct = cfp.params.getBool("OUTPUTGMECSTRUCT", false);
+        outputGMECStruct = cfp.params.getBool("OUTPUTGMECSTRUCT");
 
-        useEllipses = cfp.params.getBool("useEllipses", false);
+        useEllipses = cfp.params.getBool("useEllipses");
 
-        useComets = cfp.params.getBool("useComets", false);
+        useComets = cfp.params.getBool("useComets");
 
-        useCometsBound = cfp.params.getBool("useCometsBound", false);
-        useMaxIntBound = cfp.params.getBool("useMaxIntBound", false);
-        useMaxIntWithKaDEE = cfp.params.getBool("useMaxIntBoundWithKaDEE", false);
-        useKaDEEPrune = cfp.params.getBool("useKaDEEPrune", false);
-        useMaxIntWithComets = cfp.params.getBool("useMaxIntWithComets", false);
-        useAllThree = cfp.params.getBool("useAllThree",false);
-        useMaxIntWithCometsPrune = cfp.params.getBool("useMaxIntWithCometsPrune", false);
-        useKaDEEWithComets = cfp.params.getBool("useKaDEEWithComets", false);
-        useCometsPrune = cfp.params.getBool("useCometsPrune", false);
-        doPartitionBounds = cfp.params.getBool("doPartitionBounds", false);
-        doUnboundPartitionBounds = cfp.params.getBool("doUnboundPartitionBounds", false);
+        useCometsBound = cfp.params.getBool("useCometsBound");
+        useMaxIntBound = cfp.params.getBool("useMaxIntBound");
+        useMaxIntWithKaDEE = cfp.params.getBool("useMaxIntBoundWithKaDEE");
+        useKaDEEPrune = cfp.params.getBool("useKaDEEPrune");
+        useMaxIntWithComets = cfp.params.getBool("useMaxIntWithComets");
+        useAllThree = cfp.params.getBool("useAllThree");
+        useMaxIntWithCometsPrune = cfp.params.getBool("useMaxIntWithCometsPrune");
+        useKaDEEWithComets = cfp.params.getBool("useKaDEEWithComets");
+        useCometsPrune = cfp.params.getBool("useCometsPrune");
+        doPartitionBounds = cfp.params.getBool("doPartitionBounds");
+        doUnboundPartitionBounds = cfp.params.getBool("doUnboundPartitionBounds");
         
-        doExhaustive = cfp.params.getBool("doExhaustive", false);
+        doExhaustive = cfp.params.getBool("doExhaustive");
     }
 
     /**
@@ -351,7 +351,7 @@ public class KaDEEDoer {
 
         for (int posNum = beginPos; posNum < endPos; posNum++) {
             ArrayList<String> currentAAOptions = complexAllowedAAs.get(posNum);
-            if (cfp.params.getBool("AddWT", true)) {
+            if (cfp.params.getBool("AddWT")) {
                 Residue res = wtMolec.getResByPDBResNumber(complexFlexRes.get(posNum));
                 if (!StringParsing.containsIgnoreCase(complexAllowedAAs.get(posNum), res.template.name)) {
                     currentAAOptions.add(res.template.name);

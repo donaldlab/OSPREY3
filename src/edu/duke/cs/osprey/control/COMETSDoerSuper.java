@@ -70,25 +70,25 @@ public class COMETSDoerSuper {
 
     public COMETSDoerSuper(ConfigFileParser cfp) {
         this.cfp = cfp;
-        Ew = cfp.params.getDouble("Ew", 0);
-        doIMinDEE = cfp.params.getBool("imindee", false);
+        Ew = cfp.params.getDouble("Ew");
+        doIMinDEE = cfp.params.getBool("imindee");
         if (doIMinDEE) {
-            I0 = cfp.params.getDouble("Ival", 5);
+            I0 = cfp.params.getDouble("Ival");
         }
 
-        useContFlex = cfp.params.getBool("doMinimize", false);
-        useTupExp = cfp.params.getBool("UseTupExp", false);
-        useEPIC = cfp.params.getBool("UseEPIC", false);
+        useContFlex = cfp.params.getBool("doMinimize");
+        useTupExp = cfp.params.getBool("UseTupExp");
+        useEPIC = cfp.params.getBool("UseEPIC");
 
-        checkApproxE = cfp.params.getBool("CheckApproxE", true);
+        checkApproxE = cfp.params.getBool("CheckApproxE");
 
         if (doIMinDEE && !useContFlex) {
             throw new RuntimeException("ERROR: iMinDEE requires continuous flexibility");
         }
 
-        outputGMECStruct = cfp.params.getBool("OUTPUTGMECSTRUCT", false);
+        outputGMECStruct = cfp.params.getBool("OUTPUTGMECSTRUCT");
 
-        useEllipses = cfp.params.getBool("useEllipses", false);
+        useEllipses = cfp.params.getBool("useEllipses");
     }
 
     /**
@@ -389,7 +389,7 @@ public class COMETSDoerSuper {
 
         for (int posNum = beginPos; posNum < endPos; posNum++) {
             ArrayList<String> currentAAOptions = complexAllowedAAs.get(posNum);
-            if (cfp.params.getBool("AddWT", true)) {
+            if (cfp.params.getBool("AddWT")) {
                 Residue res = wtMolec.getResByPDBResNumber(complexFlexRes.get(posNum));
                 if (!StringParsing.containsIgnoreCase(complexFlexRes, res.template.name)) {
                     currentAAOptions.add(res.template.name);
