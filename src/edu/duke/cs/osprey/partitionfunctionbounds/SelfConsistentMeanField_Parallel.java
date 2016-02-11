@@ -277,7 +277,7 @@ public class SelfConsistentMeanField_Parallel implements InferenceCalculator {
     
      //Calculates the natural log of the partition function
     public double calcLBLogZ(){
-        return (calcFreeEnergy() + this.emat.getConstTerm())/this.scmfTemp;
+        return -(calcFreeEnergy() + this.emat.getConstTerm())/this.scmfTemp;
     }
     
     //Calculates log_10 of the partition function

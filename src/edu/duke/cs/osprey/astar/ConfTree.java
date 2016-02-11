@@ -39,9 +39,17 @@ public class ConfTree extends AStarTree {
     //ADVANCED SCORING METHODS: TO CHANGE LATER (EPIC, MPLP, etc.)
     boolean traditionalScore = true;
     boolean useRefinement = false;//refine nodes (might want EPIC, MPLP, or something else)
-
+    boolean mplpScore = true;
+    
+    //MPLP object for node refinement
+    public Mplp mplpMinimizer;
+    
+    
     boolean useDynamicAStar = true;
 
+    //HMN: This is Helpful for MPLP
+    boolean useEpic = false;
+    
     EPICMatrix epicMat = null;//to use in refinement
     ConfSpace confSpace = null;//conf space to use with epicMat if we're doing EPIC minimization w/ SAPE
     boolean minPartialConfs = false;//whether to minimize partially defined confs with EPIC, or just fully defined
@@ -55,6 +63,22 @@ public class ConfTree extends AStarTree {
         init(sp, aPruneMat, useEPIC);
     }
 
+    //For rigid traditional
+    public ConfTree(EnergyMatrix aEmat, PruningMatrix aPruneMat){
+        this.numPos = aEmat.numPos();
+        this.emat = aEmat;
+        this.pruneMat = aPruneMat;
+        //see which RCs are unpruned and thus available for consideration
+        for (int pos = 0; pos < numPos; pos++) {
+            unprunedRCsAtPos.add(aPruneMat.unprunedRCsAtPos(pos));
+        }
+
+        if (mplpScore){
+            useRefinement = true;
+            mplpMinimizer = new Mplp(numPos, emat, pruneMat);
+        }
+    }
+    
     private void init(SearchProblem sp, PruningMatrix aPruneMat, boolean useEPIC) {
         numPos = sp.confSpace.numPos;
 
@@ -74,7 +98,13 @@ public class ConfTree extends AStarTree {
                 epicMat = sp.epicMat;
                 confSpace = sp.confSpace;
                 minPartialConfs = sp.epicSettings.minPartialConfs;
+                this.useEpic = true;
             }
+        }
+        //Initialize MPLP (not compatible with EPIC)
+        if (mplpScore && (!useEPIC)){
+            useRefinement = true;
+            mplpMinimizer = new Mplp(numPos, emat, pruneMat);
         }
     }
 
@@ -352,12 +382,20 @@ public class ConfTree extends AStarTree {
     @Override
     void refineScore(AStarNode node) {
 
-        if (epicMat == null) {
+        if (epicMat == null && !this.mplpScore) {
             throw new UnsupportedOperationException("ERROR: Trying to call refinement w/o EPIC matrix");
         }
-            //later can do MPLP, etc. here
 
-        if (minPartialConfs || isFullyAssigned(node)) {
+        //Refine node with MPLP
+        if (this.mplpScore){
+            if (useEpic){
+                throw new UnsupportedOperationException("ERROR: MPLP is Not Compatible with EPIC");
+            }
+            
+            node.score = this.mplpMinimizer.optimizeMPLP(node.nodeAssignments, 100);
+        }
+            
+        else if (minPartialConfs || isFullyAssigned(node)) {
             node.score += epicMat.minContE(node.nodeAssignments);
         }
 

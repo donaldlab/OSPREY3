@@ -21,6 +21,11 @@ public class GumbelDistribution {
         return mu - beta*Math.log(- Math.log(Math.random()));
     }
 
+    //For now, beta is fixed at 1
+    public static double sampleTruncated(double mu, double maximum){
+        return mu - Math.log(Math.exp(-maximum + mu) - Math.log(Math.random()));
+    }
+    
     //returns an array of N random samples
     public static double[] sampleN(int N, double mu, double beta){
         double[] samples = new double[N];

@@ -468,7 +468,7 @@ public class ConfigFileParser {
         resTemplates.loadTemplateCoords("all_amino_coords.in");
 
         //load rotamer libraries; the names of residues as they appear in the rotamer library file will be matched to templates
-        boolean dunbrackRots = params.getBool("UseDunbrackRotamers", true);
+        boolean dunbrackRots = params.getBool("UseDunbrackRotamers", false);
 
         // PGC 2015: Always load the Lovell Rotamer Library.
         resTemplates.loadRotamerLibrary(params.getValue("ROTFILE", "LovellRotamer.dat"), false);//see below; also gRotFile0 etc
@@ -672,11 +672,12 @@ public class ConfigFileParser {
             System.out.println("File cannot be deleted");
         }
 
+        
         Molecule molLigand = PDBFileReader.readPDBFileBetweenTermini(pdbFile, strand0Termini[0], strand0Termini[1]);
-        String pdbLigand = pdbName + "_ligand.pdb";
+        String pdbLigand = pdbName + "_strand1.pdb";
         PDBFileWriter.writePDBFile(molLigand, pdbLigand);
 
-        searchProblems[1] = new SearchProblem(name + "_Ligand", pdbLigand,
+        searchProblems[1] = new SearchProblem(name + "_strand1", pdbLigand,
                 flexResUnbound0, allowedAAsUnbound0,
                 params.getBool("AddWT", true),
                 params.getBool("AddWTRots", true),
@@ -698,10 +699,10 @@ public class ConfigFileParser {
 
 
         Molecule molProtein = PDBFileReader.readPDBFileBetweenTermini(pdbFile, strand1Termini[0], strand1Termini[1]);
-        String pdbProtein = pdbName + "_protein.pdb";
+        String pdbProtein = pdbName + "_strand2.pdb";
         PDBFileWriter.writePDBFile(molProtein, pdbProtein);
 
-        searchProblems[2] = new SearchProblem(name + "_Protein", pdbProtein,
+        searchProblems[2] = new SearchProblem(name + "_strand2", pdbProtein,
                 flexResUnbound1, allowedAAsUnbound1,
                 params.getBool("AddWT", true),
                 params.getBool("AddWTRots", true),
@@ -721,6 +722,7 @@ public class ConfigFileParser {
             System.out.println("File cannot be deleted");
         }
 
+        
         return searchProblems;
     }
 

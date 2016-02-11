@@ -14,8 +14,12 @@ public class AStarNode implements Comparable {
     
     double score;//score (probably a lower bound on the energy)
     
+    public double perturbation;//useful for GumbelMap (HMN)
+    public int[] feasibleSolution; //useful for GumbelMap (HMN) for now this is a random feasible solution
+    
     boolean scoreNeedsRefinement;
 
+    boolean isRoot = false; //HMN: Temporary
     
     //These are used in COMETS
     public double UB = Double.POSITIVE_INFINITY;//upper bound

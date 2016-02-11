@@ -5,24 +5,24 @@
  */
 package edu.duke.cs.osprey.partitionfunctionbounds;
 
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.confspace.SearchProblemSuper;
-import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
-import edu.duke.cs.osprey.tools.ObjectIO;
-import edu.duke.cs.osprey.tools.ExpFunction;
+import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.astar.ConfTreeSuper;
 import edu.duke.cs.osprey.confspace.ConfSearch;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
+import edu.duke.cs.osprey.tools.ExpFunction;
+import edu.duke.cs.osprey.tools.ObjectIO;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 
 /**
  *
  * @author hmn5
  */
-public class MapPerturbation {
+public class MapPerurbation {
 
-    final SearchProblemSuper searchSpace;
+    final SearchProblem searchSpace;
     EnergyMatrix emat;
 
     final double constRT = PoissonBoltzmannEnergy.constRT;
@@ -38,7 +38,7 @@ public class MapPerturbation {
     ArrayList<singlePos> singlePosList;
     ArrayList<pairPos> pairPosList;
 
-    public MapPerturbation(SearchProblemSuper searchSpace) {
+    public MapPerurbation(SearchProblem searchSpace) {
         this.searchSpace = searchSpace;
         this.emat = searchSpace.emat;
     }
@@ -52,7 +52,7 @@ public class MapPerturbation {
         for (int i = 0; i < numSamples; i++) {
             ArrayList<ArrayList<Double>> originalOneBodyEmat = (ArrayList<ArrayList<Double>>) ObjectIO.deepCopy(emat.oneBody);
             addUBGumbelNoiseOneBody();
-            ConfSearch search = new ConfTreeSuper(searchSpace);
+            ConfSearch search = new ConfTree(searchSpace);
             int[] conf = search.nextConf();
             mapConfsUB[i] = conf;
             double E = -1.0 * searchSpace.lowerBound(conf);
@@ -73,39 +73,31 @@ public class MapPerturbation {
         for (int i = 0; i < numSamples; i++) {
             ArrayList<ArrayList<Double>> originalOneBodyEmat = (ArrayList<ArrayList<Double>>) ObjectIO.deepCopy(emat.oneBody);
             addLBGumbelNoiseOneBody();
-            ConfSearch search = new ConfTreeSuper(searchSpace);
+            ConfSearch search = new ConfTree(searchSpace);
             int[] conf = search.nextConf();
             mapConfsLB[i] = conf;
             double E = -1.0 * searchSpace.lowerBound(conf);
             averageGMECs = averageGMECs.add(new BigDecimal(E));
             //replace oneBody with original to remove the noise added
             emat.oneBody = originalOneBodyEmat;
+            if (i%100==0){
+                System.out.println("Map Pert Iteration: "+i);
+            }
         }
 
         return averageGMECs.divide(new BigDecimal(numSamples * this.constRT), ef.mc).doubleValue();
-    } 
-    
+    }
+
     //Returns lower bound on log_10 of partition function
-    public double calcLBLog10Z(int aNumSamples){
-        return (Math.log10(Math.E))*calcLBLogZ(aNumSamples);
+    public double calcLBLog10Z(int aNumSamples) {
+        return (Math.log10(Math.E)) * calcLBLogZ(aNumSamples);
     }
     
-    //Computes the standard deviation of samples, given mean
-    private double computeStandardDeviation(double[] samples, double mean ){
-        double sd = 0.0;
-        int numSamples = samples.length;
-        
-        for (double sample : samples){
-            double squareDiffMean = (sample-mean)*(sample-mean);
-            sd += squareDiffMean;
-        }
-        sd = sd/(double)numSamples;
-        sd = Math.sqrt(sd);
-        
-        return sd;
+    public double calcUBLog10Z(int aNumSamples){
+        return (Math.log10(Math.E))*calcUBLogZ(aNumSamples);
     }
-    
-    
+
+
     //add Gumbel noise to one-body terms
     private void addUBGumbelNoiseOneBody() {
         for (int pos = 0; pos < emat.oneBody.size(); pos++) {
@@ -318,3 +310,4 @@ public class MapPerturbation {
         }
     }
 }
+

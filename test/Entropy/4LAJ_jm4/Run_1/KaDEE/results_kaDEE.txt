@@ -1,0 +1,63 @@
+Sequence: VAL TYR 
+Nodes Expanded: 8
+Runtime: 2278244
+Sequence: VAL TYR 
+Nodes Expanded: 8
+Runtime: 11
+Sequence: LYS ILE 
+Nodes Expanded: 8
+Runtime: 5086
+Sequence: HIE TRP TRP 
+Nodes Expanded: 256
+Runtime: 815964
+Sequence: HIE TRP TRP 
+Nodes Expanded: 32
+Runtime: 42246
+Sequence: HIE TRP TRP 
+Nodes Expanded: 28
+Runtime: 1708
+Sequence: VAL TRP TRP 
+Nodes Expanded: 18
+Runtime: 128
+Sequence: HIE TRP TRP 
+Nodes Expanded: 12
+Runtime: 163
+Sequence: HIE TRP TRP 
+Nodes Expanded: 12
+Runtime: 159
+Sequence: HIE TRP TRP 
+Nodes Expanded: 12
+Runtime: 248
+Sequence: HIE TRP TRP 
+Nodes Expanded: 12
+Runtime: 236
+Sequence: HIE TRP TRP 
+Nodes Expanded: 12
+Runtime: 436
+Sequence: VAL TRP TRP 
+Nodes Expanded: 20
+Runtime: 208
+Sequence: HIE PHE TYR 
+Nodes Expanded: 12
+Runtime: 307
+Sequence: HIE PHE TYR 
+Nodes Expanded: 12
+Runtime: 365
+Sequence: HIE PHE TYR 
+Nodes Expanded: 12
+Runtime: 324
+Sequence: VAL TRP TRP 
+Nodes Expanded: 18
+Runtime: 453
+Sequence: VAL TRP TRP 
+Nodes Expanded: 18
+Runtime: 260
+Sequence: VAL TRP TRP 
+Nodes Expanded: 18
+Runtime: 217
+Sequence: HIE TRP TRP 
+Nodes Expanded: 12
+Runtime: 239
+Sequence: VAL TRP TRP 
+Nodes Expanded: 18
+Runtime: 260

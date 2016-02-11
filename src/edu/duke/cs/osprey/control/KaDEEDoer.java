@@ -6,20 +6,29 @@
 package edu.duke.cs.osprey.control;
 
 import edu.duke.cs.osprey.astar.ConfTree;
+import edu.duke.cs.osprey.astar.comets.COMETSTree;
 import edu.duke.cs.osprey.astar.comets.LME;
 import edu.duke.cs.osprey.astar.kadee.KaDEETree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.SearchProblemSuper;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
+import edu.duke.cs.osprey.partitionfunctionbounds.MapPerurbation;
+import edu.duke.cs.osprey.partitionfunctionbounds.MarkovRandomField;
+import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField;
+import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField_Parallel;
 import edu.duke.cs.osprey.pruning.PruningControl;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.ExpFunction;
-import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.StringParsing;
+import java.io.FileOutputStream;
+import java.io.PrintStream;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -38,14 +47,15 @@ public class KaDEEDoer {
     //2: Mutable Bound
     SearchProblem[] searchSpaces;
     SearchProblemSuper[] searchSpaceSupers;
-    
+
+    SearchProblem[] mutableSearchSpace;
     LME objFcn; //objective function for the KaDEE search
     LME[] constraints; //constraints for the KaDEE searchf
     int numTreeLevels; //number of mutable positions
     final int numStates = 2; //number of states considered
     ArrayList<ArrayList<String>> AATypeOptions = null; //AA types allowed at each mutable position
     ArrayList<ArrayList<Integer>> mutable2StatePosNums = new ArrayList<>();
-    
+
     double Ew; // energy window for enumerating conformations: 0 for just GMEC
     double I0 = 0; // initial value of iMinDEE pruning interval
     boolean doIMinDEE;//do iMinDEE
@@ -64,6 +74,23 @@ public class KaDEEDoer {
     //each enumerated conformation rather than just relying on the EPIC or tup-exp approximation
 
     boolean useEllipses = false;
+
+    boolean useComets = false;
+
+    boolean useCometsBound = false;
+    boolean useMaxIntBound = false;
+    boolean useMaxIntWithKaDEE = false;
+    boolean useKaDEEPrune = false;
+    boolean useMaxIntWithComets = false;
+    boolean useMaxIntWithCometsPrune = false;
+    boolean useCometsPrune = false;
+    boolean useAllThree = false;
+    boolean useKaDEEWithComets = false;
+    
+    boolean doPartitionBounds = false;
+    boolean doUnboundPartitionBounds = false;
+    
+    boolean doExhaustive = false;
 
     ExpFunction ef = new ExpFunction();
     double constRT = PoissonBoltzmannEnergy.constRT;
@@ -93,6 +120,22 @@ public class KaDEEDoer {
         outputGMECStruct = cfp.params.getBool("OUTPUTGMECSTRUCT", false);
 
         useEllipses = cfp.params.getBool("useEllipses", false);
+
+        useComets = cfp.params.getBool("useComets", false);
+
+        useCometsBound = cfp.params.getBool("useCometsBound", false);
+        useMaxIntBound = cfp.params.getBool("useMaxIntBound", false);
+        useMaxIntWithKaDEE = cfp.params.getBool("useMaxIntBoundWithKaDEE", false);
+        useKaDEEPrune = cfp.params.getBool("useKaDEEPrune", false);
+        useMaxIntWithComets = cfp.params.getBool("useMaxIntWithComets", false);
+        useAllThree = cfp.params.getBool("useAllThree",false);
+        useMaxIntWithCometsPrune = cfp.params.getBool("useMaxIntWithCometsPrune", false);
+        useKaDEEWithComets = cfp.params.getBool("useKaDEEWithComets", false);
+        useCometsPrune = cfp.params.getBool("useCometsPrune", false);
+        doPartitionBounds = cfp.params.getBool("doPartitionBounds", false);
+        doUnboundPartitionBounds = cfp.params.getBool("doUnboundPartitionBounds", false);
+        
+        doExhaustive = cfp.params.getBool("doExhaustive", false);
     }
 
     /**
@@ -103,11 +146,78 @@ public class KaDEEDoer {
     void doKaDEE() {
         double curInterval = I0;//For iMinDEE.  curInterval will need to be an upper bound
         this.searchSpaces = cfp.getMSDSearchProblems();
-        KaDEETree tree = setupKaDEETree();
 
-        
-        int[] seq1 = tree.nextConf();
+        if (useComets) {
+            COMETSTree tree_comets = setupCometsTree();
+            long startTime = System.currentTimeMillis();
+            int[] seq_comets = tree_comets.nextConf();
+            long totalTime = System.currentTimeMillis() - startTime;
 
+            try (PrintStream out = new PrintStream(new FileOutputStream("results_comets.txt", true))) {
+                out.print("Sequence: ");
+                for (int level = 0; level < tree_comets.numTreeLevels; level++) {
+                    out.print(tree_comets.AATypeOptions.get(level).get(seq_comets[level]) + " ");
+                }
+                out.println();
+                out.println("Nodes Expanded: " + tree_comets.numExpanded);
+                out.println("Runtime: " + totalTime);
+            } catch (Exception e) {
+            }
+
+        } else if (doExhaustive) {
+            KaDEETree tree = setupKaDEETree();
+            exhaustiveKaDEESearch();
+        } else if (doPartitionBounds) {
+            loadEMatandPruneComets(Double.POSITIVE_INFINITY);
+            calcPartitionFunctionBounds(this.searchSpaces[0]);
+        } else if (doUnboundPartitionBounds){
+            loadEMatandPruneComets(Double.POSITIVE_INFINITY);
+            calcPartitionFunctionBounds(this.searchSpaces[1]);
+        }
+        else {
+            KaDEETree tree = setupKaDEETree();
+            long startTime = System.currentTimeMillis();
+            int[] seq1 = tree.nextConf();
+            long totalTime = System.currentTimeMillis() - startTime;
+
+            String filename = "results_";
+            if (useCometsBound) {
+                filename += "cometsBound";
+            } else if (useMaxIntBound) {
+                filename += "maxInt";
+            } else if (useMaxIntWithKaDEE) {
+                filename += "maxIntWithKaDEE";
+            } else if (useKaDEEPrune) {
+                filename += "kaDEE_prune";
+            } else if (useMaxIntWithComets) {
+                filename += "maxIntWithComets";
+            } else if (useMaxIntWithCometsPrune) {
+                filename += "maxIntWithCometsPrune";
+            } else if (useCometsPrune) {
+                filename += "cometsPrune";
+            } else if (useKaDEEWithComets){
+                filename += "kaDEEWithComets";
+            } else if(useAllThree){
+                filename += "allThree";
+            }
+            else {
+                filename += "kaDEE";
+            }
+            filename += ".txt";
+
+            try (PrintStream out = new PrintStream(new FileOutputStream(filename, true))) {
+                out.print("Sequence: ");
+                for (int level = 0; level < tree.numTreeLevels; level++) {
+                    out.print(tree.AATypeOptions.get(level).get(seq1[level]) + " ");
+                }
+                out.println();
+                out.println("Nodes Expanded: " + tree.numExpanded);
+                out.println("Runtime: " + totalTime);
+            } catch (Exception e) {
+            }
+            System.out.println("Total Time: " + totalTime);
+        }
+//        }
         //exhaustiveKaDEESearch();
     }
 
@@ -157,16 +267,20 @@ public class KaDEEDoer {
          }
          */
         //For each state this arraylist gives the mutable pos nums of that state
-        this.mutable2StatePosNums = handleMutable2StatePosNums(allowedAAsPerState);
+        //TODO: GET A BETTER NAME/Approach
+        //This is like mutable2StatePosNums but includes all 3 states
+        //This all should just be changed
+        ArrayList<ArrayList<Integer>> searchSpace2StatePosNum = handleMutable2StatePosNums(allowedAAsPerState);
 
         //determine which states are mutable and which are non-mutable
         boolean[] stateIsMutable = new boolean[this.searchSpaces.length];
         int numMutableState = 0;
         int numNonMutableState = 0;
         for (int state = 0; state < searchSpaces.length; state++) {
-            stateIsMutable[state] = !(mutable2StatePosNums.get(state).isEmpty()); //If not empty, it is mutable
+            stateIsMutable[state] = !(searchSpace2StatePosNum.get(state).isEmpty()); //If not empty, it is mutable
             if (stateIsMutable[state]) {
                 numMutableState++;
+                this.mutable2StatePosNums.add(searchSpace2StatePosNum.get(state));
             } else {
                 numNonMutableState++;
             }
@@ -180,12 +294,12 @@ public class KaDEEDoer {
         ArrayList<ArrayList<ArrayList<String>>> mutableStateAllowedAAs = new ArrayList<>();
         int mutableStateIndex = 0;
 
-        SearchProblem nonMutableState = searchSpaces[1];
+        SearchProblem nonMutableState = searchSpaces[1];//Just to initialize it
         double unboundLigandGMECEnergy = 0.0;
         for (int state = 0; state < searchSpaces.length; state++) {
             if (stateIsMutable[state]) {
                 mutableStates[mutableStateIndex] = searchSpaces[state];
-                mutableState2StatePosNumList.add(mutable2StatePosNums.get(state));
+                mutableState2StatePosNumList.add(mutable2StatePosNums.get(mutableStateIndex));
                 mutableStateAllowedAAs.add(allowedAAsPerState.get(state));
                 mutableStateIndex++;
             } else {
@@ -194,6 +308,8 @@ public class KaDEEDoer {
                 unboundLigandGMECEnergy = getGMECEnergyProtein(nonMutableState);
             }
         }
+
+        this.mutableSearchSpace = mutableStates;
         //For const term of LME objective function
         int numStatesForCOMETS = mutableStates.length;
         this.numTreeLevels = getNumMutablePos(mutableState2StatePosNumList);
@@ -209,7 +325,8 @@ public class KaDEEDoer {
             ArrayList<Integer> converted = new ArrayList(mutable2PosNum);
             mutableState2StatePosNum.add(converted);
         }
-        KaDEETree tree = new KaDEETree(numTreeLevels, objFcn, constraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, nonMutableState, mutableState2StatePosNum);
+        KaDEETree tree = new KaDEETree(numTreeLevels, objFcn, constraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, nonMutableState, mutableState2StatePosNum, useCometsBound,
+                useMaxIntBound, useMaxIntWithKaDEE, useKaDEEPrune, useMaxIntWithComets, useMaxIntWithCometsPrune, useCometsPrune, useKaDEEWithComets, useAllThree);
         return tree;
     }
 
@@ -236,7 +353,7 @@ public class KaDEEDoer {
             ArrayList<String> currentAAOptions = complexAllowedAAs.get(posNum);
             if (cfp.params.getBool("AddWT", true)) {
                 Residue res = wtMolec.getResByPDBResNumber(complexFlexRes.get(posNum));
-                if (!StringParsing.containsIgnoreCase(complexFlexRes, res.template.name)) {
+                if (!StringParsing.containsIgnoreCase(complexAllowedAAs.get(posNum), res.template.name)) {
                     currentAAOptions.add(res.template.name);
                 }
             }
@@ -348,14 +465,27 @@ public class KaDEEDoer {
 
         ArrayList<String[]> seqList = listAllSeqs();
         int numSeqs = seqList.size();
-        double stateGMECs[][] = new double[numSeqs][3];
+        double stateGMECs[][] = new double[numSeqs][2];
 
         for (int state = 0; state < this.numStates; state++) {
             for (int seqNum = 0; seqNum < numSeqs; seqNum++) {
                 String[] sequence = seqList.get(seqNum);
-                SearchProblem searchProb = (SearchProblem) ObjectIO.deepCopy(this.searchSpaces[state]);
-                handleStatePruning(searchProb, sequence, this.mutable2StatePosNums.get(state));
-                stateGMECs[seqNum][state] = getMAP(searchProb);
+                SearchProblem searchProb = this.mutableSearchSpace[state];
+
+                ArrayList<Integer> posNumsForState = new ArrayList<>();
+                for (int pos = 0; pos < searchProb.confSpace.numPos; pos++) {
+                    posNumsForState.add(pos);
+                }
+
+                PruningMatrix seqPruneMat = new PruningMatrix(searchProb.pruneMat.getSubsetMatrix(posNumsForState));
+                handleStatePruning(seqPruneMat, searchProb.confSpace, sequence, this.mutable2StatePosNums.get(state));
+                ConfTree stateTree = new ConfTree(searchProb.emat, seqPruneMat);
+                int conf[] = stateTree.nextConf();
+                if (conf == null) {
+                    stateGMECs[seqNum][state] = Double.POSITIVE_INFINITY;
+                } else {
+                    stateGMECs[seqNum][state] = searchProb.emat.getInternalEnergy(new RCTuple(conf)) + searchProb.emat.getConstTerm();
+                }
             }
         }
 
@@ -392,25 +522,25 @@ public class KaDEEDoer {
         System.out.println();
     }
 
-    private void handleStatePruning(SearchProblem searchProb, String[] sequence, ArrayList<Integer> mutable2StatePosNum){
-        if (mutable2StatePosNum.size() != sequence.length){
+    private void handleStatePruning(PruningMatrix pruneMat, ConfSpace cSpace, String[] sequence, ArrayList<Integer> mutable2StatePosNum) {
+        if (mutable2StatePosNum.size() != sequence.length) {
             throw new RuntimeException("ERROR: Length of Sequence Not Equal to NumMutablePositions. Cannot complete exhaustive search");
         }
-        
-        for (int i=0; i<mutable2StatePosNum.size(); i++){
+
+        for (int i = 0; i < mutable2StatePosNum.size(); i++) {
             int posNum = mutable2StatePosNum.get(i);
             String AAtype = sequence[i];
-            for (int rc : searchProb.pruneMat.unprunedRCsAtPos(posNum)){
-                String rcAAType = searchProb.confSpace.posFlex.get(posNum).RCs.get(rc).AAType;
-                
-                if (!rcAAType.equalsIgnoreCase(AAtype)){
-                    searchProb.pruneMat.markAsPruned(new RCTuple(posNum,rc));
+            for (int rc : pruneMat.unprunedRCsAtPos(posNum)) {
+                String rcAAType = cSpace.posFlex.get(posNum).RCs.get(rc).AAType;
+
+                if (!rcAAType.equalsIgnoreCase(AAtype)) {
+                    pruneMat.markAsPruned(new RCTuple(posNum, rc));
                 }
             }
         }
-        
+
     }
-    
+
     private ArrayList<String[]> listAllSeqs() {
         //List all possible sequence for the mutable residues,
         //based on AATypeOptions
@@ -439,7 +569,6 @@ public class KaDEEDoer {
         return ans;
     }
 
-
     private double getMAP(SearchProblem searchSpace) {
         ConfTree confTree = new ConfTree(searchSpace);
 
@@ -448,10 +577,126 @@ public class KaDEEDoer {
         }
 
         int[] MAPconfig = confTree.nextConf();
-        if (MAPconfig == null){
+        if (MAPconfig == null) {
             return Double.POSITIVE_INFINITY;
         }
         double E = searchSpace.emat.getInternalEnergy(new RCTuple(MAPconfig));
         return E;
+    }
+
+    //Given three search problems (Bound, UnBound Prot, Unbound Lig) this function
+    //sets up the Comets tree.
+    //The nonmutable unbound state is added and used just as a constant to the objective function
+    private COMETSTree setupCometsTree() {
+
+        //For each state, for each position, this contains a list of allowed 
+        //amino acids at that position
+        ArrayList<ArrayList<ArrayList<String>>> allowedAAsPerState = new ArrayList<>();
+        for (int state = 0; state < searchSpaces.length; state++) {
+            allowedAAsPerState.add(getAllowedAA(state));
+        }
+
+        //Load the energy matrices and do pruning
+        double pruningInterval = 0.0;
+        loadEMatandPruneComets(pruningInterval);
+        /*
+         for (SearchProblemSuper searchProblem : searchSpaces){
+         searchProblem.emat.setConstTerm(0.0);
+         }
+         */
+        //For each state this arraylist gives the mutable pos nums of that state
+        this.mutable2StatePosNums = handleMutable2StatePosNums(allowedAAsPerState);
+
+        //determine which states are mutable and which are non-mutable
+        boolean[] stateIsMutable = new boolean[this.searchSpaces.length];
+        int numMutableState = 0;
+        int numNonMutableState = 0;
+        for (int state = 0; state < searchSpaces.length; state++) {
+            stateIsMutable[state] = !(mutable2StatePosNums.get(state).isEmpty()); //If not empty, it is mutable
+            if (stateIsMutable[state]) {
+                numMutableState++;
+            } else {
+                numNonMutableState++;
+            }
+        }
+
+        //Get Mutable States
+        SearchProblem[] mutableStates = new SearchProblem[numMutableState];
+        //For each MUTABLE state, this arraylist gives the mutable pos nums of that state
+        //This is what will go into the COMETS tree
+        ArrayList<ArrayList<Integer>> mutableState2StatePosNumList = new ArrayList<>();
+        ArrayList<ArrayList<ArrayList<String>>> mutableStateAllowedAAs = new ArrayList<>();
+        int mutableStateIndex = 0;
+
+        SearchProblem nonMutableState = searchSpaces[1];
+        double unboundLigandGMECEnergy = 0.0;
+        for (int state = 0; state < searchSpaces.length; state++) {
+            if (stateIsMutable[state]) {
+                mutableStates[mutableStateIndex] = searchSpaces[state];
+                mutableState2StatePosNumList.add(mutable2StatePosNums.get(state));
+                mutableStateAllowedAAs.add(allowedAAsPerState.get(state));
+                mutableStateIndex++;
+            } else {
+                nonMutableState = searchSpaces[state];
+                //For the const term of the LME objective function
+                unboundLigandGMECEnergy = getGMECEnergyProtein(nonMutableState);
+            }
+        }
+        //For const term of LME objective function
+        int numStatesForCOMETS = mutableStates.length;
+        this.numTreeLevels = getNumMutablePos(mutableState2StatePosNumList);
+        this.AATypeOptions = handleAATypeOptions(mutableStateAllowedAAs);
+        this.objFcn = new LME(new double[]{1, -1}, -unboundLigandGMECEnergy, 2);
+        this.constraints = new LME[0];
+        int numMaxMut = -1;
+        String[] wtSeq = null;
+
+        //Convert to ArrayList<>
+        ArrayList<ArrayList<Integer>> mutableState2StatePosNum = new ArrayList<>();
+        for (List<Integer> mutable2PosNum : mutableState2StatePosNumList) {
+            ArrayList<Integer> converted = new ArrayList(mutable2PosNum);
+            mutableState2StatePosNum.add(converted);
+        }
+        COMETSTree tree = new COMETSTree(numTreeLevels, objFcn, constraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, mutableState2StatePosNum);
+        return tree;
+    }
+
+    public void calcPartitionFunctionBounds(SearchProblem searchProblem) {
+        BigInteger confSpace = new BigInteger("1");
+        for (int pos = 0; pos < searchProblem.emat.numPos(); pos++){
+            System.out.println(searchProblem.pruneMat.unprunedRCsAtPos(pos).size());
+            confSpace = confSpace.multiply(new BigInteger(((Integer) searchProblem.pruneMat.unprunedRCsAtPos(pos).size()).toString()));
+        }
+        System.out.println(confSpace);
+
+        MarkovRandomField mrf = new MarkovRandomField(searchProblem, 0.0);
+
+        SelfConsistentMeanField scmf = new SelfConsistentMeanField(mrf);
+        scmf.run();
+        double lowerBoundSCMF = scmf.calcLBLog10Z();
+        System.out.println("Lower Bound SCMF: " + lowerBoundSCMF);
+
+        SelfConsistentMeanField_Parallel scmf_parallel = new SelfConsistentMeanField_Parallel(mrf);
+        scmf_parallel.run();
+
+        MapPerurbation mapPert = new MapPerurbation(searchProblem);
+
+        double lowerBoundMapPert = mapPert.calcLBLog10Z(500);
+        System.out.println("Lower Bound MapPert: "+lowerBoundMapPert);
+        double gmec = calcGMEC(searchProblem);
+        double lowerBoundGmec = -Math.log10(Math.E)*gmec/this.constRT;
+        System.out.println("Lower Bound GMEC: "+lowerBoundGmec);
+        
+        double upperBound = mapPert.calcUBLog10Z(500);
+        System.out.println("Upper Bound: " + upperBound);
+
+        try (PrintStream out = new PrintStream(new FileOutputStream("partitionBounds.txt", true))) {
+            out.println("Lower Bound SCMF: " + lowerBoundSCMF);
+            out.println("Lower Bound MapPert: " + lowerBoundMapPert);
+            out.println("Lower Bound GMEC: " + lowerBoundGmec);
+            out.println("Upper Bound: " + upperBound);
+            out.println("ConfSpace: "+confSpace.toString());
+        } catch (Exception e) {
+        }
     }
 }

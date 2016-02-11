@@ -17,7 +17,7 @@ import edu.duke.cs.osprey.partitionfunctionbounds.MarkovRandomField;
 import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
-import edu.duke.cs.osprey.partitionfunctionbounds.MapPerturbation;
+import edu.duke.cs.osprey.partitionfunctionbounds.MapPerturbationSuper;
 import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField_Parallel;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -188,7 +188,7 @@ public class COMETSDoerSuper {
             }
             //BigDecimal Zpart = calcRigidPartFunction(searchSpace);
             //BigDecimal logZpart = ef.log(Zpart);
-            MapPerturbation mapPert = new MapPerturbation(searchSpace);
+            MapPerturbationSuper mapPert = new MapPerturbationSuper(searchSpace);
             double logZUB = (0.4342944819) * mapPert.calcUBLogZ(100);
             System.out.println("Upper bound on log partition function (MAP-Pert) = " + logZUB);
             ArrayList<Integer> toMerge = mapPert.getPairWithMaxMutualInfo(true);

@@ -40,6 +40,8 @@ public class Mplp {
 
     private boolean interactionGraph[][];
 
+    int[] feasibleSolution;
+
     public Mplp(int aNumPos, EnergyMatrix aEmat, PruningMatrix aPruneMat) {
         init(aNumPos, aEmat, aPruneMat, 0.0);
     }
@@ -79,6 +81,7 @@ public class Mplp {
         // The partial conf contains references to rotamers that were pruned, while our pairwise matrix removed those rotamers. Thus, we must creat
         //  a new partial conf that maps to our pruned matrix.
         int mappedPartialConf[] = new int[numPos];
+        feasibleSolution = aPartialConf.clone();
         for (int pos = 0; pos < numPos; pos++) {
             if (aPartialConf[pos] == -1) {
                 mappedPartialConf[pos] = -1;
@@ -124,7 +127,7 @@ public class Mplp {
         double Ebound = Double.NEGATIVE_INFINITY;
         //To find out when we should stop, we use a delta factor to see the rate of change.
         //For now, our rate of change is fixed at 0.01kcal.
-        double minRateOfChange = 0.001;
+        double minRateOfChange = 0.01;
 
         //MPLP Algorithm
         for (int i = 0; i < iterations; i++) {
@@ -142,12 +145,7 @@ public class Mplp {
                             ArrayList<Double> msgsFromRotsAtJ_to_rotIR = new ArrayList<Double>();
                             for (int rotJS : availableRots[posJ]) {
                                 //Create a tuple to check if pair is pruned
-                                SuperRCTuple pairTup = new SuperRCTuple(posJ, unprunedRotsPerPos.get(posJ).get(rotJS), posI, unprunedRotsPerPos.get(posI).get(rotIR));
-                                if (pruneMat.isPruned(pairTup)) {
-                                    msgsFromRotsAtJ_to_rotIR.add(Double.POSITIVE_INFINITY);
-                                } else {
-                                    msgsFromRotsAtJ_to_rotIR.add(belief[posJ][rotJS] - lambda[posI][posJ][rotJS] + emat.getPairwise(posJ, unprunedRotsPerPos.get(posJ).get(rotJS), posI, unprunedRotsPerPos.get(posI).get(rotIR)));
-                                }
+                                msgsFromRotsAtJ_to_rotIR.add(belief[posJ][rotJS] - lambda[posI][posJ][rotJS] + emat.getPairwise(posJ, unprunedRotsPerPos.get(posJ).get(rotJS), posI, unprunedRotsPerPos.get(posI).get(rotIR)));
                             }
                             if (availableRots[posJ].length == 0) {
                                 System.out.println("NO ROTS MPLP CRASHING");
@@ -162,12 +160,7 @@ public class Mplp {
 
                             ArrayList<Double> msgFromRotsAtI_to_rotJS = new ArrayList<>();
                             for (int rotIR : availableRots[posI]) {
-                                SuperRCTuple pairTup = new SuperRCTuple(posJ, unprunedRotsPerPos.get(posJ).get(rotJS), posI, unprunedRotsPerPos.get(posI).get(rotIR));
-                                if (pruneMat.isPruned(pairTup)) {
-                                    msgFromRotsAtI_to_rotJS.add(Double.POSITIVE_INFINITY);
-                                } else {
-                                    msgFromRotsAtI_to_rotJS.add(belief[posI][rotIR] - lambda[posJ][posI][rotIR] + emat.getPairwise(posI, unprunedRotsPerPos.get(posI).get(rotIR), posJ, unprunedRotsPerPos.get(posJ).get(rotJS)));
-                                }
+                                msgFromRotsAtI_to_rotJS.add(belief[posI][rotIR] - lambda[posJ][posI][rotIR] + emat.getPairwise(posI, unprunedRotsPerPos.get(posI).get(rotIR), posJ, unprunedRotsPerPos.get(posJ).get(rotJS)));
                             }
                             if (availableRots[posI].length == 0) {
                                 System.out.println("NO ROTS MPLP CRASHING");
@@ -190,7 +183,34 @@ public class Mplp {
                 break;
             }
         }
+
+        getFeasibleSolution(belief, availableRots);
         return Ebound;
+    }
+
+    void getFeasibleSolution(double[][] belief, int[][] availableRots) {
+        for (int pos = 0; pos < this.numPos; pos++) {
+            if (feasibleSolution[pos] == -1) {
+                //unprunedRotNum corresponds to to the rotamer number in the reduced unpruned set
+                int unprunedRotNum = computeMinBelief(belief[pos], availableRots[pos]);
+                //rotNum corresponds to the actual rot num (i.e. index into ematrix)
+                int rotNum = this.pruneMat.unprunedRCsAtPos(pos).get(unprunedRotNum);
+                feasibleSolution[pos] = rotNum;
+            }
+        }
+    }
+
+    int computeMinBelief(double[] belief, int[] availableRots) {
+        double minValue = Double.POSITIVE_INFINITY;
+        int minRot = -1;
+        for (int rotIR : availableRots) {
+            double score = belief[rotIR];
+            if (score < minValue) {
+                minValue = score;
+                minRot = rotIR;
+            }
+        }
+        return minRot;
     }
 
     double computeMinBeliefInReducedAvailableRots(double belief[], int availableRots[]) {

@@ -76,6 +76,7 @@ public class Main {
         else if(command.equalsIgnoreCase("doCOMETS")){
             COMETSDoer cd = new COMETSDoer(args);
             cd.calcBestSequences();
+//            cd.exhaustiveMultistateSearch();
         }
         else if(command.equalsIgnoreCase("doCOMETSSuper")){
             COMETSDoerSuper csd = new COMETSDoerSuper(cfp);
@@ -84,6 +85,9 @@ public class Main {
         else if (command.equalsIgnoreCase("doKaDEE")){
             KaDEEDoer kd = new KaDEEDoer(cfp);
             kd.doKaDEE();
+        }
+        else if (command.equalsIgnoreCase("doGumbel")){
+            GumbelDoer gd = new GumbelDoer(cfp);
         }
         //etc.
         else

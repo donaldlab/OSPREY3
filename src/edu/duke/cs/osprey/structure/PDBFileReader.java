@@ -115,6 +115,7 @@ public class PDBFileReader {
             //make last residue
             if (!curResAtoms.isEmpty()) {
                 Residue newRes = new Residue(curResAtoms, curResCoords, curResFullName, m);
+                newRes.setResNum();
                 m.appendResidue(newRes);
             }
 

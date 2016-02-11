@@ -218,6 +218,7 @@ public class ResidueTemplate implements Serializable {
 		this.numRotamers[phiBin][psiBin] = numRotamers;
 
     }
+    
     /**
      * PGC 2015:
      * Set the number of dihedrals for this Residue type 

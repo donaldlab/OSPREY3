@@ -1,0 +1,3 @@
+Sequence: VAL TYR 
+Nodes Expanded: 8
+Runtime: 2278244
