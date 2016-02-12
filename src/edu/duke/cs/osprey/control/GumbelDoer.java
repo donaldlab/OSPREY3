@@ -5,7 +5,7 @@
  */
 package edu.duke.cs.osprey.control;
 
-import edu.duke.cs.osprey.astar.GumbelMapTree;
+import edu.duke.cs.osprey.astar.kadee.GumbelMapTree;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.partitionfunctionbounds.MapPerurbation;
@@ -29,7 +29,7 @@ public class GumbelDoer {
         
         double average = 0.0;
         int averageNodesExpanded = 0;
-        int numSamples = 1;
+        int numSamples = 10;
         for (int i = 0; i < numSamples; i++) {
             GumbelMapTree tree = new GumbelMapTree(sp);
             tree.nextConf();

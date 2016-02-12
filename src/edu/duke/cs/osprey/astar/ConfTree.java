@@ -52,7 +52,7 @@ public class ConfTree extends AStarTree {
     
     EPICMatrix epicMat = null;//to use in refinement
     ConfSpace confSpace = null;//conf space to use with epicMat if we're doing EPIC minimization w/ SAPE
-    boolean minPartialConfs = false;//whether to minimize partially defined confs with EPIC, or just fully defined
+    public boolean minPartialConfs = false;//whether to minimize partially defined confs with EPIC, or just fully defined
 
     public ConfTree(SearchProblem sp) {
         init(sp, sp.pruneMat, sp.useEPIC);

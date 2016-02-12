@@ -19,7 +19,7 @@ public class AStarNode implements Comparable {
     
     boolean scoreNeedsRefinement;
 
-    boolean isRoot = false; //HMN: Temporary
+    public boolean isRoot = false; //HMN: Temporary
 
     
     //These are used in COMETS
@@ -56,9 +56,13 @@ public class AStarNode implements Comparable {
         return score;
     }
     
+    public boolean scoreNeedsRefinement(){
+        return scoreNeedsRefinement;
+    }
     
-    
-    
+    public void setScoreNeedsRefinement(boolean needsRefinement){
+        this.scoreNeedsRefinement = needsRefinement;
+    }
     public boolean isFullyDefined(){
         //Assuming assignments greater than 0 denote fully defined positions,
         //determine if this node is fully defined or not

@@ -3,8 +3,11 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package edu.duke.cs.osprey.astar;
+package edu.duke.cs.osprey.astar.kadee;
 
+import edu.duke.cs.osprey.astar.AStarNode;
+import edu.duke.cs.osprey.astar.AStarTree;
+import edu.duke.cs.osprey.astar.Mplp;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
@@ -33,9 +36,9 @@ public class GumbelMapTree extends AStarTree {
     //These are lists of residue-specific RC numbers for the unpruned RCs at each residue
 
     //ADVANCED SCORING METHODS: TO CHANGE LATER (EPIC, MPLP, etc.)
-    boolean traditionalScore = false;
+    public boolean traditionalScore = false;
     boolean useRefinement = false;
-    boolean mplpScore = true;
+    public boolean mplpScore = true;
 
     //MPLP object for node refinement
     public Mplp mplpMinimizer;
@@ -115,7 +118,7 @@ public class GumbelMapTree extends AStarTree {
             throw new RuntimeException("ERROR: Can't expand a fully assigned A* node");
         }
 
-        if (curNode.score == Double.POSITIVE_INFINITY)//node impossible, so no children
+        if (curNode.getScore() == Double.POSITIVE_INFINITY)//node impossible, so no children
         {
             return new ArrayList<>();
         }
@@ -123,18 +126,18 @@ public class GumbelMapTree extends AStarTree {
         ArrayList<AStarNode> ans = new ArrayList<>();
         int nextLevel = -1;
         if (!nodeAssigned(curNode)) {
-            nextLevel = nextLevelToExpand(curNode.nodeAssignments);
+            nextLevel = nextLevelToExpand(curNode.getNodeAssignments(), curNode.getScore(), curNode.perturbation);
         } else {
             return ans;
         }
         for (int rc : unprunedRCsAtPos.get(nextLevel)) {
-            int[] childConf = curNode.nodeAssignments.clone();
+            int[] childConf = curNode.getNodeAssignments().clone();
             childConf[nextLevel] = rc;
 
             double logSearchProblemSize = computeLogSearchSize(childConf);
 
             //Pass perturbation down
-            if (curNode.nodeAssignments[nextLevel] == rc) {
+            if (curNode.getNodeAssignments()[nextLevel] == rc) {
                 AStarNode childNode = new AStarNode(childConf, scoreConfWithPert(childConf, curNode.perturbation), useRefinement);
                 childNode.perturbation = curNode.perturbation;
                 childNode.feasibleSolution = curNode.feasibleSolution;
@@ -225,9 +228,33 @@ public class GumbelMapTree extends AStarTree {
 
         return score;
     }
+    
+   public double scoreConfTraditionalWithPert(int[] partialConf, double pert) {
+        RCTuple definedTuple = new RCTuple(partialConf);
 
+        double score = emat.getConstTerm() + emat.getInternalEnergy(definedTuple);//"g-score"
+
+        //score works by breaking up the full energy into the energy of the defined set of residues ("g-score"),
+        //plus contributions associated with each of the undefined res ("h-score")
+        for (int level = 0; level < numPos; level++) {
+            if (partialConf[level] < 0) {//level not fully defined
+
+                double resContribLB = Double.POSITIVE_INFINITY;//lower bound on contribution of this residue
+                //resContribLB will be the minimum_{rc} of the lower bound assuming rc assigned to this level
+
+                for (int rc : unprunedRCsAtPos.get(level)) {
+                    resContribLB = Math.min(resContribLB, RCContributionLB(level, rc, definedTuple, partialConf));
+                }
+
+                score += resContribLB;
+            }
+        }
+
+        return score - this.constRT*pert;
+    }
+   
     //operations supporting special features like dynamic A*
-    public int nextLevelToExpand(int[] partialConf) {
+    public int nextLevelToExpand(int[] partialConf, double curLevelScore, double parentNoise) {
         //given a partially defined conformation, what level should be expanded next?
 
         if (useDynamicAStar) {
@@ -238,7 +265,7 @@ public class GumbelMapTree extends AStarTree {
             for (int level = 0; level < numPos; level++) {
                 if (partialConf[level] < 0) {//position isn't already all expanded
 
-                    double levelScore = scoreExpansionLevel(level, partialConf);
+                    double levelScore = scoreExpansionLevel(level, partialConf, curLevelScore, parentNoise);
 
                     if (levelScore > bestLevelScore) {//higher score is better
                         bestLevelScore = levelScore;
@@ -265,20 +292,22 @@ public class GumbelMapTree extends AStarTree {
 
     }
 
-    double scoreExpansionLevel(int level, int[] partialConf) {
+    double scoreExpansionLevel(int level, int[] partialConf, double curLevelScore, double parentNoise) {
         //Score expansion at the indicated level for the given partial conformation
         //for use in dynamic A*.  Higher score is better.
 
         //best performing score is just 1/(sum of reciprocals of score rises for child nodes)
-        double parentScore = scoreConf(partialConf);
+        double parentScore = scoreConfTraditionalWithPert(partialConf, parentNoise);
         int[] expandedConf = partialConf.clone();
 
         double reciprocalSum = 0;
 
         for (int rc : unprunedRCsAtPos.get(level)) {
             expandedConf[level] = rc;
+            double logConfSpace = computeLogSearchSize(expandedConf);
+            double gumbelNoise = GumbelDistribution.sampleTruncated(-GumbelDistribution.gamma + logConfSpace, parentNoise);
 //            double childScore = scoreConf(expandedConf);
-            double childScore = scoreConfTraditional(expandedConf);
+            double childScore = scoreConfTraditionalWithPert(expandedConf, gumbelNoise);
             reciprocalSum += 1.0 / (childScore - parentScore);
         }
 
@@ -402,9 +431,8 @@ public class GumbelMapTree extends AStarTree {
         }
     }
 
-    @Override
     void refineScore(AStarNode node) {
-        node.scoreNeedsRefinement = false;
+        node.setScoreNeedsRefinement(false);
     }
 
     @Override
@@ -494,14 +522,14 @@ public class GumbelMapTree extends AStarTree {
         this.upperBoundLogZ = -getUpperBoundLogZ() / this.constRT;
         this.lowerBoundLogZ = -this.currentBestFeasibleScore / this.constRT;
 
-//        System.out.println("Upper Bound logZ: " + -getUpperBoundLogZ() / this.constRT);
-//        System.out.println("Lower Bound logZ: " + -this.currentBestFeasibleScore / this.constRT);
+//        System.out.println("Upper Bound logZ: " + this.upperBoundLogZ);
+//        System.out.println("Lower Bound logZ: " + this.lowerBoundLogZ);
 //        System.out.println();
         if ((this.upperBoundLogZ - this.lowerBoundLogZ < epsilon) && (this.numNodesEpsilon == -1) && (this.numExpanded > 0)) {
             this.numNodesEpsilon = numExpanded;
             System.out.println("Number Nodes Epsilon: " + numNodesEpsilon);
         }
-        if (node.score + 0.00001 > this.currentBestFeasibleScore) {
+        if (node.getScore() + 0.00001 > this.currentBestFeasibleScore) {
             return true;
         }
         return false;
@@ -510,15 +538,15 @@ public class GumbelMapTree extends AStarTree {
     public double getUpperBoundLogZ() {
         double minScore = this.currentBestFeasibleScore;
         for (AStarNode node : this.pq) {
-            if (node.score < this.currentBestFeasibleScore) {
-                minScore = Math.min(minScore, node.score);
+            if (node.getScore() < this.currentBestFeasibleScore) {
+                minScore = Math.min(minScore, node.getScore());
             }
         }
         return minScore;
     }
 
     boolean nodeAssigned(AStarNode node) {
-        for (int pos : node.nodeAssignments) {
+        for (int pos : node.getNodeAssignments()) {
             if (pos == -1) {
                 return false;
             }
@@ -536,7 +564,7 @@ public class GumbelMapTree extends AStarTree {
     }
 
     void printNode(AStarNode node) {
-        for (int rot : node.nodeAssignments) {
+        for (int rot : node.getNodeAssignments()) {
             if (rot != -1) {
                 System.out.print("|||   ");
             }
