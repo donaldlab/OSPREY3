@@ -1,8 +1,13 @@
+nbproject/
 build/
 dist/
-build/*
-dataFiles/ALL*
-*.class
+build/
 nbdist/
+<<<<<<< HEAD
 nbproject/ALL*
 nbproject/*
+=======
+*.class
+dataFiles/ALL*
+
+>>>>>>> dd1ad495b876bb653c63bada7b73bdab9a4bfa14

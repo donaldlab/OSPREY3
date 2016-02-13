@@ -72,7 +72,7 @@ public class ConfSpace implements Serializable {
     public boolean useEllipses = false;
 
     /**
-     * initialize a new conformational space, desomefining all its flexibility
+     * initialize a new conformational space, defining all its flexibility
      * /* we use one residue per position here ADD OTHER OPTIONS: WT ROTAMERS,
      * DIFFERENT ROT WIDTHS, DEEPER, RIGID-BODY MOTIONS
      *
@@ -81,6 +81,7 @@ public class ConfSpace implements Serializable {
      * file)
      * @param allowedAAs list of allowed residue types at each flexible position
      * @param addWT whether to add wild-type to the allowed AA types
+     * @param addWTRots whether to add wild-type rotamers
      * @param contSCFlex means allow continuous sidechain flexibility
      * @param dset DEEPer Settings
      * @param moveableStrands ... ?

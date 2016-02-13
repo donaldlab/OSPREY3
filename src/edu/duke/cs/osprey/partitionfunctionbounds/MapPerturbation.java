@@ -34,7 +34,7 @@ public class MapPerturbation {
     public int[][] mapConfsLB;
 
     //For analyzing probabilities
-    int numSamples;
+    int numSamplesAnalysis;
     ArrayList<singlePos> singlePosList;
     ArrayList<pairPos> pairPosList;
 
@@ -64,7 +64,7 @@ public class MapPerturbation {
         return averageGMECs.divide(new BigDecimal(numSamples * this.constRT), ef.mc).doubleValue();
     }
 
-    //Returns Lower Bound on Log Partition Function
+    //Returns Lower Bound on natural log of Partition Function
     public double calcLBLogZ(int anumSamples) {
         int numSamples = anumSamples;
         mapConfsLB = new int[numSamples][emat.oneBody.size()];
@@ -83,8 +83,29 @@ public class MapPerturbation {
         }
 
         return averageGMECs.divide(new BigDecimal(numSamples * this.constRT), ef.mc).doubleValue();
+    } 
+    
+    //Returns lower bound on log_10 of partition function
+    public double calcLBLog10Z(int aNumSamples){
+        return (Math.log10(Math.E))*calcLBLogZ(aNumSamples);
     }
-
+    
+    //Computes the standard deviation of samples, given mean
+    private double computeStandardDeviation(double[] samples, double mean ){
+        double sd = 0.0;
+        int numSamples = samples.length;
+        
+        for (double sample : samples){
+            double squareDiffMean = (sample-mean)*(sample-mean);
+            sd += squareDiffMean;
+        }
+        sd = sd/(double)numSamples;
+        sd = Math.sqrt(sd);
+        
+        return sd;
+    }
+    
+    
     //add Gumbel noise to one-body terms
     private void addUBGumbelNoiseOneBody() {
         for (int pos = 0; pos < emat.oneBody.size(); pos++) {
@@ -109,13 +130,13 @@ public class MapPerturbation {
 
     //get the counts of each rotamer and each pair of rotamers at each pos or pair of pos
     public void getMapPosRotCounts(int[][] mapConfs) {
-        this.numSamples = mapConfs.length;
+        this.numSamplesAnalysis = mapConfs.length;
         int numPos = mapConfs[0].length;
 
         this.singlePosList = new ArrayList<>();
         this.pairPosList = new ArrayList<>();
 
-        for (int sample = 0; sample < numSamples; sample++) {
+        for (int sample = 0; sample < numSamplesAnalysis; sample++) {
             int[] conf = mapConfs[sample];
             for (int posNum1 = 0; posNum1 < numPos; posNum1++) {
                 //Get res
@@ -196,7 +217,7 @@ public class MapPerturbation {
         //get probabilities
         for (int i = 0; i < pos.rotList.size(); i++) {
             singleRot rot = pos.rotList.get(i);
-            double prob = (double) rot.count / (double) this.numSamples;
+            double prob = (double) rot.count / (double) this.numSamplesAnalysis;
             probabilities[i] = prob;
         }
         //entropy 
@@ -212,7 +233,7 @@ public class MapPerturbation {
         //get probabilities
         for (int i = 0; i < pair.rotList.size(); i++) {
             pairRot rot = pair.rotList.get(i);
-            double prob = (double) rot.count / (double) this.numSamples;
+            double prob = (double) rot.count / (double) this.numSamplesAnalysis;
             probabilities[i] = prob;
         }
         //entropy 

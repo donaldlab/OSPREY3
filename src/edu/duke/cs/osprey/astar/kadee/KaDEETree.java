@@ -10,9 +10,11 @@ import edu.duke.cs.osprey.astar.AStarTree;
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.astar.comets.LME;
 import edu.duke.cs.osprey.astar.comets.UpdatedPruningMatrix;
+import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -67,6 +69,9 @@ public class KaDEETree extends AStarTree {
     //determines if two residues are on the same strand
     boolean[][] belongToSameStrand;
 
+    int cometsWin = 0;
+    int kadeeWin = 0;
+
     public KaDEETree(int numTreeLevels, LME objFcn, LME[] constraints,
             ArrayList<ArrayList<String>> AATypeOptions, int numMaxMut, String[] wtSeq,
             int numStates, SearchProblem[] stateSP, SearchProblem nonMutableSearchProblem,
@@ -92,6 +97,58 @@ public class KaDEETree extends AStarTree {
         this.boundPosNumToUnboundPosNum = getBoundPosNumToUnboundPosNum();
         this.boundResNumToIsMutableStrand = getBoundPosNumberToIsMutableStrand();
         this.belongToSameStrand = getSameStrandMatrix();
+    }
+
+    private double boundFreeEnergyChange(KaDEENode seqNode) {
+        if (seqNode.isFullyDefined())//fully-defined sequence
+        {
+            System.out.println("Sequence Fully Defined");
+            return calcSequenceScore(seqNode);
+        } else {
+            ArrayList<ArrayList<Integer>> numUnprunedPerAAPerPos = countUnprunedRCsPerAAType(seqNode);
+            
+            double cometsLB = calcLBPartialSeqCOMETS(seqNode, objFcn);
+            double kadeeLB = calcLBPartialSeqImproved(seqNode);
+            double maxInterfaceLB = calcMaxInterfaceScore(seqNode);
+            printSequence(getSequence(seqNode));;
+            System.out.println("KaDEE: " + kadeeLB + "  CometsLB: " + cometsLB);
+            if (kadeeLB > cometsLB) {
+                kadeeWin++;
+            } else {
+                cometsWin++;
+            }
+            System.out.println("KaDEE Win: " + kadeeWin + "  Comets Win: " + cometsWin);
+            System.out.println();
+            return Math.max(maxInterfaceLB, Math.max(kadeeLB, cometsLB));
+
+        }
+    }
+
+    private ArrayList<ArrayList<Integer>> countUnprunedRCsPerAAType(KaDEENode node) {
+        SearchProblem boundSP = mutableSearchProblems[0];
+        ArrayList<ArrayList<Integer>> numUnprunedPerAAPerPos = new ArrayList<>();
+        for (int pos = 0; pos < boundSP.confSpace.numPos; pos++) {
+            System.out.println("Pos: " + pos);
+            HashMap<String, Integer> numUnprunedPerAA = new HashMap<>();
+            for (int rc = 0; rc < boundSP.emat.numRCsAtPos(pos); rc++) {
+                String aaType = boundSP.confSpace.posFlex.get(pos).RCs.get(rc).AAType;
+                if (!numUnprunedPerAA.containsKey(aaType)) {
+                    numUnprunedPerAA.put(aaType, 0);
+                }
+                if (node.pruneMat[0].unprunedRCsAtPos(pos).contains(rc)) {
+                    numUnprunedPerAA.put(aaType, numUnprunedPerAA.get(aaType) + 1);
+                }
+            }
+
+            ArrayList<Integer> numUnprunedAtPos = new ArrayList<>();
+            for (String aa : numUnprunedPerAA.keySet()) {
+                numUnprunedAtPos.add(numUnprunedPerAA.get(aa));
+                System.out.println("AA: " + aa + " has " + numUnprunedPerAA.get(aa) + " unprunedRCs");
+            }
+            System.out.println();
+            numUnprunedPerAAPerPos.add(numUnprunedAtPos);
+        }
+        return numUnprunedPerAAPerPos;
     }
 
     @Override
@@ -125,8 +182,7 @@ public class KaDEETree extends AStarTree {
                             makeSeqConfTrees(childNode);
                         }
 
-                        //TODO: create boundFreeEnergyChange()
-                        //childNode.setScore(boundFreeEnergyChange(childNode));
+                        childNode.setScore(boundFreeEnergyChange(childNode));
                         ans.add(childNode);
                     }
 
@@ -171,10 +227,11 @@ public class KaDEETree extends AStarTree {
         ArrayList<Integer> proteinBoundPosNums = getProteinPosNums(true);
         ArrayList<Integer> ligandAssignedBoundPosNums = getLigandAssignedPosNums(seqNode, true);
         ArrayList<Integer> ligandUnassignedBoundPosNums = getLigandUnassignedPosNums(seqNode, true);
-        ArrayList<Integer> ligandAssignedUnboundPosNums = getLigandUnassignedPosNums(seqNode, false);
+
+        ArrayList<Integer> ligandAssignedUnboundPosNums = getLigandAssignedPosNums(seqNode, false);
         ArrayList<Integer> ligandUnassignedUnboundPosNums = getLigandUnassignedPosNums(seqNode, false);
         // First compute GMinEC(P,LA,P:LA). Here an upper bound can be used, but ideally it should be computed exactly
-        double gminec_p_la_pla = 0;
+        double gminec_p_la_pla;
         //This involves a bound state
         //get subset of positions corresponding to Protein, and Ligand Assigned
         ArrayList<Integer> subsetPos_p_la_pla = new ArrayList<>();
@@ -186,16 +243,16 @@ public class KaDEETree extends AStarTree {
         gminec_p_la_pla = getMAP(searchSpace_p_la_pla);
 
         // GMinEC(P) can be precomputed because it is a constant for the system or computed here. 
-        double gminec_p = objFcn.getConstTerm();
+        double gminec_p = -objFcn.getConstTerm();
 
         // Now compute GMinEC(LA). This has to be computed exactly (or through an upper bound)
-        double gminec_la = 0;
+        double gminec_la;
         //This involves an unbound state
         ArrayList<Integer> subsetPos_la = new ArrayList<>();
         subsetPos_la.addAll(ligandAssignedUnboundPosNums);
         SearchProblem searchSpace_la = ligandSP.getPartialSearchProblem(subsetPos_la, seqNode.pruneMat[1]);
         gminec_la = getMAP(searchSpace_la);
-        
+
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Finally, compute MIN_S(GMinEC(P:LU_s) + GMinEC(LA:LU_s) - GMaxEC(LA:LU_s)).        
         // The following section should be "modular" because there are two ways to do this. One way is using a greedy algorithm to compute it
@@ -203,7 +260,7 @@ public class KaDEETree extends AStarTree {
         //   MIN_S(GMinEC(P:LU_s) + GMinEC(LA:LU_s) - GMaxEC(LA:LU_s)) <= MIN_S(GMinEC(P:LU_s) + GMinEC(LA:LU_s)) - MAX_S(GMaxEC(LA:LU_s)
         // Thus, first compute: MIN_S(GMinEC(P:LU_s) + GMinEC(LA:LU_s)), which can be easily computed by computing a min gmec over: 
         //		GMinEC(LA:LU_s, P:LU_s), including all rotamers for all amino acids defined in s.
-        double gminec_lalus_plus = 0;
+        double gminec_lalus_plus;
         //This involves a bound state
         ArrayList<Integer> allPos = new ArrayList<>();
         allPos.addAll(ligandAssignedBoundPosNums);
@@ -215,25 +272,74 @@ public class KaDEETree extends AStarTree {
         boolean[][] interactionGraph = addInteractionGraphs(interactionGraph_plus_bound, interactionGraph_lalus_bound);
         SearchProblem searchSpace_lalus_plus = boundSP.getPartialSearchProblem(allPos, seqNode.pruneMat[0]);
         searchSpace_lalus_plus.updateMatrixCrossTerm(interactionGraph);
-        searchSpace_lalus_plus.substractUnboundInternalEnergies(ligandSP, ligandUnassignedBoundPosNums , boundPosNumToUnboundPosNum);
+        searchSpace_lalus_plus.addCrossTermInternalEnergies(boundSP, ligandSP, ligandUnassignedBoundPosNums, boundPosNumToUnboundPosNum);
         gminec_lalus_plus = getMAP(searchSpace_lalus_plus);
 
         // Then compute the maximum MAX_S(GMaxEC(LA:LU_s), which can be computed by either negating all the energies in the matrix or something similar.
-        double gmaxec_lalus = 0;
+        double gmaxec_lalus;
         //This involves an unbound state
-        ArrayList<Integer> subsetPos_lalus = new ArrayList<Integer>();
+        ArrayList<Integer> subsetPos_lalus = new ArrayList<>();
         subsetPos_lalus.addAll(ligandAssignedUnboundPosNums);
         subsetPos_lalus.addAll(ligandUnassignedUnboundPosNums);
         Collections.sort(subsetPos_lalus);
-        boolean[][] interactionGraph_lalus_unbound = createInteractionGraph(subsetPos_lalus, ligandAssignedUnboundPosNums, ligandUnassignedBoundPosNums);
+        boolean[][] interactionGraph_lalus_unbound = createInteractionGraph(subsetPos_lalus, ligandAssignedUnboundPosNums, ligandUnassignedUnboundPosNums);
         SearchProblem searchSpace_lalus = ligandSP.getPartialSearchProblem(subsetPos_lalus, seqNode.pruneMat[1]);
         searchSpace_lalus.updateMatrixCrossTerm(interactionGraph_lalus_unbound);
         searchSpace_lalus.negateEnergies();
         gmaxec_lalus = -getMAP(searchSpace_lalus);
-        
 
-        return gminec_p_la_pla - gminec_p - gminec_la + gminec_lalus_plus - gmaxec_lalus;
+        double score = gminec_p_la_pla - gminec_p - gminec_la + gminec_lalus_plus - gmaxec_lalus + mutableSearchProblems[0].emat.getConstTerm() - mutableSearchProblems[1].emat.getConstTerm();
 
+        return score;
+
+    }
+
+    private double calcMaxInterfaceScore(KaDEENode seqNode) {
+        SearchProblem boundSP = mutableSearchProblems[0];
+        SearchProblem ligandSP = mutableSearchProblems[1];
+
+        ArrayList<Integer> boundPosNums = getAllPosNums(true);
+        ArrayList<Integer> proteinBoundPosNums = getProteinPosNums(true);
+        ArrayList<Integer> ligandBoundPosNums = getLigandPosNums(true);
+
+        boolean[][] interactionGraph_protein = createInteractionGraph(boundPosNums, proteinBoundPosNums, proteinBoundPosNums);
+        boolean[][] interactionGraph_p_l = createInteractionGraph(boundPosNums, proteinBoundPosNums, ligandBoundPosNums);
+        boolean[][] interactionGraph = addInteractionGraphs(interactionGraph_protein, interactionGraph_p_l);
+
+        SearchProblem interfaceSP = boundSP.getPartialSearchProblem(boundPosNums, seqNode.pruneMat[0]);
+        interfaceSP.updateMatrixCrossTerm(interactionGraph);
+        interfaceSP.addInternalEnergies(boundSP, proteinBoundPosNums);
+        interfaceSP.addCrossTermInternalEnergies(boundSP, ligandSP, ligandBoundPosNums, boundPosNumToUnboundPosNum);
+
+        double gmecInterface = getMAP(interfaceSP);
+
+        return gmecInterface + objFcn.getConstTerm();
+    }
+
+    /**
+     * Calculates the (exact) objective function value for a node This is done
+     * when a node is fully defined
+     *
+     * @param seqNode the fully-defined sequence node
+     * @return the exact value of the objective function
+     */
+    private double calcSequenceScore(KaDEENode seqNode) {
+        if (seqNode.stateTrees[0] == null || seqNode.stateTrees[1] == null) {
+            return Double.POSITIVE_INFINITY;
+        }
+
+        ConfTree boundTree = seqNode.stateTrees[0];
+        EnergyMatrix boundEmat = this.mutableSearchProblems[0].emat;
+
+        ConfTree unBoundTree = seqNode.stateTrees[1];
+        EnergyMatrix unboundEmat = this.mutableSearchProblems[1].emat;
+
+        double Ebound = boundEmat.getInternalEnergy(new RCTuple(boundTree.nextConf())) + boundEmat.getConstTerm();
+        double Eunbound = unboundEmat.getInternalEnergy(new RCTuple(unBoundTree.nextConf())) + unboundEmat.getConstTerm();
+
+        double score = Ebound - Eunbound + objFcn.getConstTerm();
+//        System.out.println(score);
+        return score;
     }
 
     /**
@@ -264,6 +370,22 @@ public class KaDEETree extends AStarTree {
                 ans.markAsPruned(new RCTuple(posAtState, rc));
             }
         }
+
+        //now we do singles and pairs pruning
+        int numUpdates = ans.countUpdates();
+        int oldNumUpdates;
+
+        //TODO: Change pruning interval if we are doing free-energy calculations
+        Pruner dee = new Pruner(mutableSearchProblems[state], ans, true, Double.POSITIVE_INFINITY,
+                0.0, mutableSearchProblems[state].useEPIC, mutableSearchProblems[state].useTupExpForSearch, false);
+
+        do {
+            oldNumUpdates = numUpdates;
+            dee.prune("GOLDSTEIN");
+            dee.prune("GOLDSTEIN PAIRS FULL");
+            numUpdates = ans.countUpdates();
+        } while (numUpdates > oldNumUpdates);
+
         return ans;
     }
 
@@ -309,6 +431,7 @@ public class KaDEETree extends AStarTree {
             return false;
         }
         return true;
+
     }
 
     @Override
@@ -410,9 +533,12 @@ public class KaDEETree extends AStarTree {
         for (int posI : subsetI) {
             int newPosNum_I = allPositions.indexOf(posI);
             for (int posJ : subsetJ) {
-                int newPosNum_J = allPositions.indexOf(posJ);
-                interactionGraph[newPosNum_I][newPosNum_J] = true;
-                interactionGraph[newPosNum_J][newPosNum_I] = true;
+                //We don't consider self-interactions here so we will leave it as false
+                if (posI != posJ) {
+                    int newPosNum_J = allPositions.indexOf(posJ);
+                    interactionGraph[newPosNum_I][newPosNum_J] = true;
+                    interactionGraph[newPosNum_J][newPosNum_I] = true;
+                }
             }
         }
         return interactionGraph;
@@ -741,6 +867,18 @@ public class KaDEETree extends AStarTree {
         return ligandPosNums;
     }
 
+    private ArrayList<Integer> getAllPosNums(boolean useBoundState) {
+        SearchProblem searchSpace = useBoundState ? mutableSearchProblems[0] : nonMutableSearchProblem;
+
+        ArrayList<Integer> allPosNums = new ArrayList<>();
+
+        for (int pos = 0; pos < searchSpace.confSpace.numPos; pos++) {
+            allPosNums.add(pos);
+        }
+
+        return allPosNums;
+    }
+
     private double getMAP(SearchProblem searchSpace) {
         ConfTree confTree = new ConfTree(searchSpace);
 
@@ -749,8 +887,370 @@ public class KaDEETree extends AStarTree {
         }
 
         int[] MAPconfig = confTree.nextConf();
+        if (MAPconfig == null) {
+            return Double.POSITIVE_INFINITY;
+        }
         double E = searchSpace.emat.getInternalEnergy(new RCTuple(MAPconfig));
         return E;
+    }
+
+    //COMETS BOUND
+    private double calcLBPartialSeqCOMETS(KaDEENode seqNode, LME func) {
+
+        int partialSeq[] = seqNode.getNodeAssignments();
+
+        double ans = func.getConstTerm();
+        //first terms for mutable residues
+        for (int i = 0; i < numTreeLevels; i++) {
+            double resE = Double.POSITIVE_INFINITY;
+
+            for (int curAA : AAOptions(i, partialSeq[i])) {
+                double AAE = 0;
+
+                //get contributions to residue energy for this AA type from all states
+                for (int state = 0; state < numStates; state++) {
+                    if (func.coeffs[state] != 0) {
+
+                        int statePosNum = mutable2StatePosNums.get(state).get(i);//residue number i converted to this state's flexible position numbering
+                        boolean minForState = (func.coeffs[state] > 0);//minimizing (instead of maximizing) energy for this state
+
+                        double stateAAE = Double.POSITIVE_INFINITY;
+
+                        PruningMatrix pruneMat = seqNode.pruneMat[state];
+                        EnergyMatrix eMatrix = getEnergyMatrix(state);
+
+                        ArrayList<Integer> rotList = unprunedRCsAtAA(state, pruneMat,
+                                i, statePosNum, curAA);
+
+                        if (!minForState) {
+                            stateAAE = Double.NEGATIVE_INFINITY;
+                        }
+
+                        for (int rot : rotList) {
+
+                            double rotE = eMatrix.getOneBody(statePosNum, rot);
+
+                            for (int pos2 = 0; pos2 < stateNumPos[state]; pos2++) {//all non-mut; seq only if < this one
+                                if ((!mutable2StatePosNums.get(state).contains(pos2)) || pos2 < statePosNum) {
+
+                                    double bestInteraction = Double.POSITIVE_INFINITY;
+                                    ArrayList<Integer> rotList2 = pruneMat.unprunedRCsAtPos(pos2);
+
+                                    if (!minForState) {
+                                        bestInteraction = Double.NEGATIVE_INFINITY;
+                                    }
+
+                                    for (int rot2 : rotList2) {
+                                        //rot2 known to be unpruned
+                                        if (!pruneMat.getPairwise(statePosNum, rot, pos2, rot2)) {
+
+                                            double pairwiseE = eMatrix.getPairwise(statePosNum, rot, pos2, rot2);
+                                            pairwiseE += higherOrderContrib(state, pruneMat, statePosNum, rot, pos2, rot2, minForState);
+
+                                            if (minForState) {
+                                                bestInteraction = Math.min(bestInteraction, pairwiseE);
+                                            } else {
+                                                bestInteraction = Math.max(bestInteraction, pairwiseE);
+                                            }
+                                        }
+                                    }
+
+                                    rotE += bestInteraction;
+                                }
+                            }
+
+                            if (minForState) {
+                                stateAAE = Math.min(stateAAE, rotE);
+                            } else {
+                                stateAAE = Math.max(stateAAE, rotE);
+                            }
+                        }
+
+                        if (Double.isInfinite(stateAAE)) {
+                            //this will occur if the state is impossible (all confs pruned)
+                            if (func.coeffs[state] > 0) {
+                                AAE = Double.POSITIVE_INFINITY;
+                            } else if (func.coeffs[state] < 0 && AAE != Double.POSITIVE_INFINITY) //if a "positive-design" (coeff>0) state is impossible, return +inf overall
+                            {
+                                AAE = Double.NEGATIVE_INFINITY;
+                            }
+                            //else AAE unchanged, since func doesn't involve this state
+                        } else {
+                            AAE += func.coeffs[state] * stateAAE;
+                        }
+                    }
+                }
+
+                resE = Math.min(resE, AAE);
+            }
+
+            ans += resE;
+        }
+
+        //now we bound the energy for the other residues for each of the states
+        //(internal energy for that set of residues)
+        for (int state = 0; state < numStates; state++) {
+
+            if (func.coeffs[state] != 0) {
+                ans += func.coeffs[state] * getEnergyMatrix(state).getConstTerm();
+
+                double nonMutBound = boundStateNonMutE(state, seqNode, func.coeffs[state] > 0);
+                //handle this like AAE above
+                if (Double.isInfinite(nonMutBound)) {
+                    //this will occur if the state is impossible (all confs pruned)
+                    if (func.coeffs[state] > 0) {
+                        return Double.POSITIVE_INFINITY;
+                    } else if (func.coeffs[state] < 0) {
+                        ans = Double.NEGATIVE_INFINITY;
+                    }
+                    //if a "positive-design" (coeff>0) state is impossible, return +inf overall still
+                    //else ans unchanged, since func doesn't involve this state
+                } else {
+                    ans += func.coeffs[state] * nonMutBound;
+                }
+            }
+        }
+
+        return ans;
+    }
+
+    private int[] AAOptions(int pos, int assignment) {
+        //which of the AA option indices for this mutable position are allowed 
+        //given this assignment in nodeAssignments?
+
+        if (assignment == -1) {//all options allowed
+            int numOptions = AATypeOptions.get(pos).size();
+            int[] ans = new int[numOptions];
+            for (int option = 0; option < numOptions; option++) {
+                ans[option] = option;
+            }
+
+            return ans;
+        } else//just the assigned option
+        {
+            return new int[]{assignment};
+        }
+    }
+
+    @Override
+    public int[] outputNode(AStarNode node) {
+        printSequence(getSequence((KaDEENode) node));
+        return node.getNodeAssignments();
+    }
+
+    public String[] getSequence(KaDEENode node) {
+        int[] assignments = node.getNodeAssignments();
+        int numMotPos = assignments.length;
+        String[] sequence = new String[numMotPos];
+
+        for (int mutPos = 0; mutPos < numMotPos; mutPos++) {
+            int aaTypeVal = assignments[mutPos];
+            String aaType;
+            if (aaTypeVal == -1) {
+                aaType = "XXX";
+            } else {
+                aaType = this.AATypeOptions.get(mutPos).get(aaTypeVal);
+            }
+            sequence[mutPos] = aaType;
+        }
+        return sequence;
+    }
+
+    public void printSequence(String[] sequence) {
+        StringBuffer buffer = new StringBuffer();
+        for (String aaType : sequence) {
+            buffer.append(" " + aaType);
+        }
+        System.out.println(buffer);
+    }
+
+    private EnergyMatrix getEnergyMatrix(int state) {
+        if (mutableSearchProblems[state].useTupExpForSearch)//Using LUTE
+        {
+            return mutableSearchProblems[state].tupExpEMat;
+        } else//discrete flexibility w/o LUTE
+        {
+            return mutableSearchProblems[state].emat;
+        }
+    }
+
+    private double boundStateNonMutE(int state, KaDEENode seqNode, boolean minForState) {
+        //get a quick lower or upper bound (as indicated) for the energy of the given state's
+        //non-mutable residues (their intra+shell energies + pairwise between them)
+        //use pruning information from seqNode
+        double ans = 0;
+
+        PruningMatrix pruneMat = seqNode.pruneMat[state];
+        EnergyMatrix eMatrix = getEnergyMatrix(state);
+
+        for (int pos = 0; pos < stateNumPos[state]; pos++) {
+            if ((!mutable2StatePosNums.get(state).contains(pos))) {
+
+                double resE = Double.POSITIVE_INFINITY;
+
+                ArrayList<Integer> rotList = pruneMat.unprunedRCsAtPos(pos);
+
+                if (!minForState) {
+                    resE = Double.NEGATIVE_INFINITY;
+                }
+
+                for (int rot : rotList) {
+                    //make sure rot isn't pruned
+                    if (!pruneMat.getOneBody(pos, rot)) {
+
+                        double rotE = eMatrix.getOneBody(pos, rot);
+
+                        for (int pos2 = 0; pos2 < stateNumPos[state]; pos2++) {//all non-mut; seq only if < this one
+                            if ((!mutable2StatePosNums.get(state).contains(pos2)) && pos2 < pos) {
+
+                                double bestInteraction = Double.POSITIVE_INFINITY;
+                                ArrayList<Integer> rotList2 = pruneMat.unprunedRCsAtPos(pos2);
+                                if (!minForState) {
+                                    bestInteraction = Double.NEGATIVE_INFINITY;
+                                }
+
+                                for (int rot2 : rotList2) {
+                                    if (!pruneMat.getPairwise(pos, rot, pos2, rot2)) {
+                                        double pairwiseE = eMatrix.getPairwise(pos, rot, pos2, rot2);
+
+                                        pairwiseE += higherOrderContrib(state, pruneMat, pos, rot, pos2, rot2, minForState);
+
+                                        if (minForState) {
+                                            bestInteraction = Math.min(bestInteraction, pairwiseE);
+                                        } else {
+                                            bestInteraction = Math.max(bestInteraction, pairwiseE);
+                                        }
+                                    }
+                                }
+
+                                rotE += bestInteraction;
+                            }
+                        }
+
+                        if (minForState) {
+                            resE = Math.min(resE, rotE);
+                        } else {
+                            resE = Math.max(resE, rotE);
+                        }
+                    }
+                }
+
+                ans += resE;
+            }
+        }
+
+        return ans;
+    }
+
+    double higherOrderContrib(int state, PruningMatrix pruneMat,
+            int pos1, int rc1, int pos2, int rc2, boolean minForState) {
+        //higher-order contribution for a given RC pair in a given state, 
+        //when scoring a partial conf
+
+        EnergyMatrix emat = getEnergyMatrix(state);
+        HigherTupleFinder<Double> htf = emat.getHigherOrderTerms(pos1, rc1, pos2, rc2);
+
+        if (htf == null) {
+            return 0;//no higher-order interactions
+        } else {
+            RCTuple curPair = new RCTuple(pos1, rc1, pos2, rc2);
+            return higherOrderContrib(state, pruneMat, htf, curPair, minForState);
+        }
+    }
+
+    double higherOrderContrib(int state, PruningMatrix pruneMat, HigherTupleFinder<Double> htf,
+            RCTuple startingTuple, boolean minForState) {
+        //recursive function to get bound on higher-than-pairwise terms
+        //this is the contribution to the bound due to higher-order interactions
+        //of the RC tuple startingTuple (corresponding to htf)
+
+        double contrib = 0;
+
+        //to avoid double-counting, we are just counting interactions of starting tuple
+        //with residues before the "earliest" one (startingLevel) in startingTuple
+        //"earliest" means lowest-numbered, except non-mutating res come before mutating
+        int startingLevel = startingTuple.pos.get(startingTuple.pos.size() - 1);
+
+        for (int iPos : htf.getInteractingPos()) {//position has higher-order interaction with tup
+            if (posComesBefore(iPos, startingLevel, state)) {//interaction in right order
+                //(want to avoid double-counting)
+
+                double levelBestE = Double.POSITIVE_INFINITY;//best value of contribution
+                //from tup-iPos interaction
+
+                if (!minForState) {
+                    levelBestE = Double.NEGATIVE_INFINITY;
+                }
+
+                ArrayList<Integer> allowedRCs = pruneMat.unprunedRCsAtPos(iPos);
+
+                for (int rc : allowedRCs) {
+
+                    RCTuple augTuple = startingTuple.addRC(iPos, rc);
+
+                    if (!pruneMat.isPruned(augTuple)) {
+
+                        double interactionE = htf.getInteraction(iPos, rc);
+
+                        //see if need to go up to highers order again...
+                        HigherTupleFinder htf2 = htf.getHigherInteractions(iPos, rc);
+                        if (htf2 != null) {
+                            interactionE += higherOrderContrib(state, pruneMat, htf2, augTuple, minForState);
+                        }
+
+                        //besides that only residues in definedTuple or levels below level2
+                        if (minForState) {
+                            levelBestE = Math.min(levelBestE, interactionE);
+                        } else {
+                            levelBestE = Math.max(levelBestE, interactionE);
+                        }
+                    }
+                }
+
+                contrib += levelBestE;//add up contributions from different interacting positions iPos
+            }
+        }
+
+        return contrib;
+    }
+
+    private boolean posComesBefore(int pos1, int pos2, int state) {
+        //Does pos1 come "before" pos2?  (Ordering: non-mut pos, then mut pos, in ascending order)
+        //These are flexible positions for the given state
+        boolean isMut1 = mutable2StatePosNums.get(state).contains(pos1);
+        boolean isMut2 = mutable2StatePosNums.get(state).contains(pos2);
+
+        if (isMut1 && !isMut2) {
+            return false;
+        }
+        if (isMut2 && !isMut1) {
+            return true;
+        }
+
+        //ok they are in the same category (mut or not)
+        return pos1 < pos2;
+    }
+
+    private ArrayList<Integer> unprunedRCsAtAA(int state, PruningMatrix pruneMat,
+            int mutablePos, int statePosNum, int curAA) {
+        //List the RCs of the given position in the given state
+        //that come with the indicated AA type (indexed in AATypeOptions)
+
+        ArrayList<Integer> unprunedRCs = pruneMat.unprunedRCsAtPos(statePosNum);
+        ArrayList<Integer> ans = new ArrayList<>();
+
+        String curAAType = AATypeOptions.get(mutablePos).get(curAA);
+
+        for (int rc : unprunedRCs) {
+            String rcAAType = mutableSearchProblems[state].confSpace.posFlex.get(statePosNum).RCs.get(rc).AAType;
+
+            if (rcAAType.equalsIgnoreCase(curAAType))//right type
+            {
+                ans.add(rc);
+            }
+        }
+
+        return ans;
     }
 
 }

@@ -76,7 +76,7 @@ public class COMETSTreeSuper extends AStarTree {
 
     public COMETSTreeSuper(int numTreeLevels, LME objFcn, LME[] constraints,
             ArrayList<ArrayList<String>> AATypeOptions, int numMaxMut, String[] wtSeq,
-            int numStates, SearchProblemSuper[] stateSP, SearchProblemSuper nonMutableSearchProblem,
+            int numStates, SearchProblemSuper[] stateSP, SearchProblemSuper aNonMutableSearchProblem,
             ArrayList<ArrayList<Integer>> mutable2StatePosNums) {
 
         this.numTreeLevels = numTreeLevels;
@@ -88,8 +88,11 @@ public class COMETSTreeSuper extends AStarTree {
         this.numStates = numStates;
         this.mutableSearchProblems = stateSP;
         this.mutable2StatePosNums = mutable2StatePosNums;
-        this.nonMutableSearchProblem = nonMutableSearchProblem;
-
+        this.nonMutableSearchProblem = aNonMutableSearchProblem;
+        mutableSearchProblems[0].emat.setConstTerm(0.0);
+        mutableSearchProblems[1].emat.setConstTerm(0.0);
+        nonMutableSearchProblem.emat.setConstTerm(0.0);
+        
         stateNumPos = new int[numStates];
         for (int state = 0; state < numStates; state++) {
             stateNumPos[state] = stateSP[state].confSpaceSuper.numPos;
@@ -423,13 +426,13 @@ public class COMETSTreeSuper extends AStarTree {
             //double newBoundV2 = calcLBPartialSeqImprovedVersion2(seqNode);
             double maxInterfaceBoundImproved = maxInterfaceBoundWithProtein(seqNode);
             double originalBound = calcLBPartialSeq(seqNode, func);
-            
+            printSequence(getSequence(seqNode));
             System.out.println("New bound: " + newBound);
-            System.out.println("Max Interface Improved: " + maxInterfaceBoundImproved);
+//            System.out.println("Max Interface Improved: " + maxInterfaceBoundImproved);
             System.out.println("Original bound: " + originalBound);
-            
+            System.out.println();
             //return Math.max(Math.max(maxInterfaceBoundImproved, newBound), originalBound);
-            return maxInterfaceBoundImproved;
+            return newBound;
         }
     }
 
@@ -1549,5 +1552,32 @@ public class COMETSTreeSuper extends AStarTree {
             }
         }
         return proteinPosNums;
+    }
+    
+        private String[] getSequence(COMETSNodeSuper node){
+        int[] assignments = node.getNodeAssignments();
+        int numMotPos = assignments.length;
+        String[] sequence = new String[numMotPos];
+
+        for (int mutPos = 0; mutPos<numMotPos; mutPos++){
+            int aaTypeVal = assignments[mutPos];
+            String aaType;
+            if (aaTypeVal==-1){
+                aaType = "XXX";
+            }
+            else{
+                aaType = this.AATypeOptions.get(mutPos).get(aaTypeVal);
+            }
+            sequence[mutPos] = aaType;
+        }
+        return sequence;
+    }
+    
+    private void printSequence(String[] sequence){
+        StringBuffer buffer = new StringBuffer();
+        for (String aaType : sequence){
+            buffer.append(" "+aaType);
+        }
+        System.out.println(buffer);
     }
 }

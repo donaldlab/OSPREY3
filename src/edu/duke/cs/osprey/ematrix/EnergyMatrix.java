@@ -224,9 +224,10 @@ public class EnergyMatrix extends TupleMatrix<Double> {
     }
 
     /**
-     * HMN: This method is used for partial search spaces. Given an interaction graph,
-     * this method updates the energy matrix to only have non-zero entries for the 
-     * pairwise energies defined by the interactionGraph
+     * HMN: This method is used for partial search spaces. Given an interaction
+     * graph, this method updates the energy matrix to only have non-zero
+     * entries for the pairwise energies defined by the interactionGraph
+     *
      * @param interactionGraph interaction graph that maps posI and posJ to true
      * if we should keep the pairwise energies between posI and posJ
      */
@@ -271,37 +272,49 @@ public class EnergyMatrix extends TupleMatrix<Double> {
             }
         }
     }
-    
-    public void subtractUnboundInternalEnergies(EnergyMatrix unboundEmat, ArrayList<Integer> posNumsToSubtractFrom, HashMap<Integer,Integer> boundPosNumToUnboundPosNum){
-        for (int pos : posNumsToSubtractFrom){
+
+    public void addCrossTermInternalEnergies(EnergyMatrix boundEmat, EnergyMatrix unboundEmat, ArrayList<Integer> posNumsToSubtractFrom, HashMap<Integer, Integer> boundPosNumToUnboundPosNum) {
+        for (int pos : posNumsToSubtractFrom) {
             int unboundPos = boundPosNumToUnboundPosNum.get(pos);
-            for (int rc=0; rc<numRCsAtPos(pos); rc++){
-                double boundE = this.oneBody.get(pos).get(rc);
-                double unboundE = unboundEmat.oneBody.get(unboundPos).get(rc);
-                this.oneBody.get(pos).set(rc, boundE-unboundE);
+            for (int rc = 0; rc < numRCsAtPos(pos); rc++) {
+                double boundE = boundEmat.getOneBody(pos, rc);
+                double unboundE = unboundEmat.getOneBody(unboundPos, rc);
+                this.oneBody.get(pos).set(rc, boundE - unboundE);
             }
         }
     }
-    
+
+    public void addInternalEnergies(EnergyMatrix originalEmat, ArrayList<Integer> posToAddE) {
+        for (int pos : posToAddE) {
+            for (int rc = 0; rc < this.numRCsAtPos(pos); rc++) {
+                double currentE = this.getOneBody(pos, rc);
+                double toAddE = originalEmat.getOneBody(pos, rc);
+                this.setOneBody(pos, rc, currentE+toAddE);
+            }
+        }
+    }
+
     /**
-     * HMN: 
-     * Negates the energies - useful for finding Global Maximum Energy Conformation
+     * HMN: Negates the energies - useful for finding Global Maximum Energy
+     * Conformation
      */
-    public void negateEnergies(){
-        for (int i=0; i<this.numPos(); i++){
-            for (int rot=0; rot<this.numRCsAtPos(i); rot++){
+    public void negateEnergies() {
+        for (int i = 0; i < this.numPos(); i++) {
+            for (int rot = 0; rot < this.numRCsAtPos(i); rot++) {
                 double currentE = this.getOneBody(i, rot);
                 this.setOneBody(i, rot, -currentE);
             }
-            
-            for (int j=0; j<i; j++){
-                for (int rotI=0; rotI<this.numRCsAtPos(i); rotI++){
-                    for (int rotJ=0; rotJ<this.numRCsAtPos(j); rotJ++){
+
+            for (int j = 0; j < i; j++) {
+                for (int rotI = 0; rotI < this.numRCsAtPos(i); rotI++) {
+                    for (int rotJ = 0; rotJ < this.numRCsAtPos(j); rotJ++) {
                         double pairE = this.getPairwise(i, rotI, j, rotJ);
                         this.setPairwise(i, rotI, j, rotJ, -pairE);
                         //Negate higher-order tuple energies
                         HigherTupleFinder<Double> htf = this.getHigherOrderTerms(i, rotI, j, rotJ);
-                        negateHTFEnergies(htf);
+                        if (htf != null) {
+                            negateHTFEnergies(htf);
+                        }
                     }
                 }
             }
@@ -309,20 +322,21 @@ public class EnergyMatrix extends TupleMatrix<Double> {
     }
 
     /**
-     * HMN: Negates the values of all entries in the higher order tuple, including 
-     * the higher tuples that it holds
+     * HMN: Negates the values of all entries in the higher order tuple,
+     * including the higher tuples that it holds
+     *
      * @param htf the higher order tuple
      */
-    private void negateHTFEnergies(HigherTupleFinder<Double> htf){
+    private void negateHTFEnergies(HigherTupleFinder<Double> htf) {
         ArrayList<Integer> interactingPos = htf.getInteractingPos();
         ArrayList<TreeMap<Integer, Double>> interactions = htf.getInteractions();
         ArrayList<TreeMap<Integer, HigherTupleFinder<Double>>> higher = htf.getHigher();
-        for (int i=0; i<interactingPos.size(); i++){
-            TreeMap<Integer,Double> interactionsAtPos = interactions.get(i);
+        for (int i = 0; i < interactingPos.size(); i++) {
+            TreeMap<Integer, Double> interactionsAtPos = interactions.get(i);
             //Iterate over entries in the map to negate the energies
             Iterator iterI = interactionsAtPos.entrySet().iterator();
-            while (iterI.hasNext()){
-                Map.Entry<Integer,Double> pair = (Map.Entry<Integer,Double>) iterI.next();
+            while (iterI.hasNext()) {
+                Map.Entry<Integer, Double> pair = (Map.Entry<Integer, Double>) iterI.next();
                 pair.setValue(-pair.getValue());
             }
 
@@ -331,11 +345,11 @@ public class EnergyMatrix extends TupleMatrix<Double> {
             /// level deep. If this changes, it could cause a stack overflow
             TreeMap<Integer, HigherTupleFinder<Double>> higherAtPos = higher.get(i);
             Iterator iterJ = higherAtPos.entrySet().iterator();
-            while (iterJ.hasNext()){
+            while (iterJ.hasNext()) {
                 Map.Entry<Integer, HigherTupleFinder<Double>> higherPair = (Map.Entry<Integer, HigherTupleFinder<Double>>) iterJ.next();
                 negateHTFEnergies(higherPair.getValue());
             }
         }
     }
-    
+
 }

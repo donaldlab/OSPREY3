@@ -99,7 +99,7 @@ public class COMETSDoerSuper {
     void doKaDEE() {
         double curInterval = I0;//For iMinDEE.  curInterval will need to be an upper bound
         this.searchSpaces = cfp.getMSDSearchProblemSupers();
-        
+
         if (true) {
             COMETSTreeSuper tree = setupCometsTree();
             //iMinMSDTree tree = setupIMinMSDTree();
@@ -302,6 +302,10 @@ public class COMETSDoerSuper {
         //Load the energy matrices and do pruning
         double pruningInterval = 0.0;
         loadEMatandPruneComets(pruningInterval);
+
+        this.searchSpaces[0].emat.setConstTerm(0.0);
+        this.searchSpaces[1].emat.setConstTerm(0.0);
+        this.searchSpaces[2].emat.setConstTerm(0.0);
         /*
          for (SearchProblemSuper searchProblem : searchSpaces){
          searchProblem.emat.setConstTerm(0.0);
@@ -363,24 +367,7 @@ public class COMETSDoerSuper {
         COMETSTreeSuper tree = new COMETSTreeSuper(numTreeLevels, objFcn, constraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, nonMutableState, mutableState2StatePosNum);
         return tree;
     }
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
     private ArrayList<ArrayList<String>> getAllowedAA(int state) {
         ArrayList<ArrayList<String>> complexAllowedAAs = cfp.getAllowedAAs();
         ArrayList<String> complexFlexRes = cfp.getFlexRes();

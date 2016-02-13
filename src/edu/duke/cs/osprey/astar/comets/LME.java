@@ -19,8 +19,8 @@ public class LME implements Serializable {
     //it is a linear function of the GMEC energies for this sequence in all the states
     //just constTerm + sum_s coeffs_s * GMEC_E_for_state_s
 
-    double[] coeffs;
-    double constTerm;
+    public double[] coeffs;
+    public double constTerm;
 
     public LME(String s, int numStates){
         //parse from a string listing coefficients in order
