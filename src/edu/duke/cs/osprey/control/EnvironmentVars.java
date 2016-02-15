@@ -5,71 +5,73 @@
 package edu.duke.cs.osprey.control;
 
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
-import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 
-import java.math.BigInteger;
+import java.io.Serializable;
 
 
-public class EnvironmentVars {
-	
+@SuppressWarnings("serial")
+public class EnvironmentVars implements Serializable {
+
 	//key parameter sets to use throughout the program for energy-function and flexibility reference
-        public static EnergyFunctionGenerator curEFcnGenerator;
-        public static GenericResidueTemplateLibrary resTemplates;
-        
-        //Regulation of structure read-in/template assignment
-        public static boolean assignTemplatesToStruct = true;//Assign templates when we read in a template.
-        //We'll keep this true unless explicitly set otherwise since most calculations require templates
-        public static boolean deleteNonTemplateResidues = true;//Delete residues for which we don't have a template
-        
-        public static boolean useMPI = false;//distribute things like energy matrix calculations, K* calculation for sequences using MPI
-        
-        public static double DUNBRACK_PROBABILTY_CUTOFF = 0.001;
-        
-        
-        //data files directory
-        private static String dataDir = "./";
-        
-        public static String getDataDir() {
+	public static EnergyFunctionGenerator curEFcnGenerator;
+	public static GenericResidueTemplateLibrary resTemplates;
+
+	//Regulation of structure read-in/template assignment
+	public static boolean assignTemplatesToStruct = true;//Assign templates when we read in a template.
+	//We'll keep this true unless explicitly set otherwise since most calculations require templates
+	public static boolean deleteNonTemplateResidues = true;//Delete residues for which we don't have a template
+
+	public static boolean useMPI = false;//distribute things like energy matrix calculations, K* calculation for sequences using MPI
+
+	public static double DUNBRACK_PROBABILTY_CUTOFF = 0.001;
+
+
+	//data files directory
+	private static String dataDir = "./";
+
+	public static String getDataDir() {
 		return dataDir;
 	}
 
 	public static void setDataDir(String dd) {
-		if(!dd.endsWith("/") || !dd.endsWith("\\")){
+
+		if(!dd.endsWith("/") && !dd.endsWith("\\")){
 			dd = dd.concat("/");
 		}
+
 		EnvironmentVars.dataDir = dd;
 	}
-        
-        //ALL THE BELOW ARE STILL IN QUESTION!!!
-        
+
+	//ALL THE BELOW ARE STILL IN QUESTION!!!
+
 	/*
-	        
+
 
 	//static BigInteger maxKSconfs;
 	//static boolean useMaxKSconfs = false;
-	
+
 	public static boolean useEntropy = false;
 	private static double[] entropy = null;
 	public static double entropyScaling = 0;
-	
+
 	public static String ksConfDir = "ksConfs";
-	
+
 	public static RotamerLibrary aaRotLib;
 
         public static boolean autoFix = true;//Should structures being read in be autofixed?
-	
-        
-        
+
+
+
         public static boolean useMPLP = false;
         public static int MPLP_iterations = 100;
 
-	
+
 	public static void setForcefld(String frcefld) {
             //set up the current force field to be what the string indicates (AMBER or whatever)
             curForcefieldParams = new ForcefieldParams(frcefld);
 	}
-	
+
 
 	public static double[] getEntropyTerms() {
 		if(entropy == null){
@@ -78,20 +80,20 @@ public class EnvironmentVars {
 			for(int i=0;i<entropy.length;i++)
 				entropy[i] *= entropyScaling;
 		}
-		
+
 		return entropy;
 	}
-	
+
 	public static void setEntropyScale(double es){
 		if(es>0)
 			useEntropy = true;
 		entropyScaling = es;
 	}
-	
+
 	public static void setAArotLib(String rl){
 		aaRotLib = new RotamerLibrary(rl, true);
 	}
-        */
+	 */
 
 }
 

@@ -101,8 +101,11 @@ public abstract class AStarTree implements ConfSearch {
     public int[] outputNode(AStarNode node){
         //by default, the output of the A* tree will be simply the node assignments for the optimal node
         //but we may sometimes want to process it in some way
-        System.out.println("A* returning conf.  "+pq.size()+" nodes in A* tree.  Score: "+node.score);
-        return node.nodeAssignments;
+        
+    	// GO: commenting this out to reduce footprint of output
+    	// System.out.println("A* returning conf.  "+pq.size()+" nodes in A* tree.  Score: "+node.score);
+        
+    	return node.nodeAssignments;
     }
     
     

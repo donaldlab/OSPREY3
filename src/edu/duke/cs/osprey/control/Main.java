@@ -6,12 +6,13 @@ package edu.duke.cs.osprey.control;
 
 import java.util.HashMap;
 import java.util.Map;
-import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
+import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 import edu.duke.cs.osprey.tests.UnitTestSuite;
 
 /**
  *
- * @author mhall44
+ * @author Mark Hallen (mhall44@duke.edu)
+ * @author Adegoke Ojewole (ao68@duke.edu)
  * Parse arguments and call high-level functions like DEE/A* and K*
    These will each be controlled by dedicated classes, unlike in the old KSParser
    to keep this class more concise, and to separate these functions for modularity purposes
@@ -20,9 +21,9 @@ import edu.duke.cs.osprey.tests.UnitTestSuite;
 public class Main {
 
 	public static Map<String, Runnable> commands;
-        
-        private static final String usageString = "Command expects arguments "
-                + "(e.g. -c KStar.cfg {findGMEC|fcalcKStar} System.cfg DEE.cfg";
+
+	private static final String usageString = "Command expects arguments "
+			+ "(e.g. -c KStar.cfg {findGMEC|fcalcKStar} System.cfg DEE.cfg";
 
 	public static void main(String[] args){
 		//args expected to be "-c KStar.cfg command config_file_1.cfg ..."
@@ -31,7 +32,7 @@ public class Main {
 
 		String command = "";
 		try{
-                    command = args[2];
+			command = args[2];
 		}
 		catch(Exception e){
 			System.out.println(usageString);
@@ -45,17 +46,7 @@ public class Main {
 		ConfigFileParser cfp = new ConfigFileParser(args);//args 1, 3+ are configuration files
 
 		//load data filescloneclone
-		cfp.loadData();        
-
-
-
-		//DEBUG!!
-		// set number of threads for energy function evaluation
-		MultiTermEnergyFunction.setNumThreads( cfp.params.getInt("eEvalThreads") );
-		if( MultiTermEnergyFunction.getNumThreads() > 1 ) {
-			System.setProperty( "java.util.concurrent.ForkJoinPool.common.parallelism", 
-					String.valueOf(MultiTermEnergyFunction.getNumThreads()) );
-		}
+		cfp.loadData();
 
 		initCommands(args, cfp);
 
@@ -70,11 +61,13 @@ public class Main {
 	}
 
 	private static void initCommands(String[] args, ConfigFileParser cfp) {
+		// set degree of thread parallelism
+		ThreadParallelism.setNumThreads( cfp.params.getInt("numThreads", ThreadParallelism.getNumThreads()) );
+		
 		// TODO Auto-generated method stub
 		commands = new HashMap<String, Runnable>();
 
-		commands.put("findGMEC",
-				new Runnable()
+		commands.put("findGMEC", new Runnable()
 		{
 			@Override
 			public void run() {
@@ -82,34 +75,28 @@ public class Main {
 				gf.calcGMEC();
 			}
 
-		}
-				);
+		});
 
-		commands.put("calcKStar",
-				new Runnable()
+		commands.put("calcKStar", new Runnable()
 		{
-
 			@Override
 			public void run() {
-				System.err.println("Feature not implemented in this version.");
+				KStarCalculator ksc = new KStarCalculator(cfp);
+				ksc.calcKStarScores();
 			}
 
-		}
-				);
+		});
 
-		commands.put("RunTests",
-				new Runnable()
+		commands.put("RunTests", new Runnable()
 		{
 			@Override
 			public void run() {
 				UnitTestSuite.runAllTests();
 			}
 
-		}
-				);
+		});
 
-		commands.put("doCOMETS",
-				new Runnable()
+		commands.put("doCOMETS", new Runnable()
 		{
 			@Override
 			public void run() {
@@ -117,8 +104,7 @@ public class Main {
 				cd.calcBestSequences();
 			}
 
-		}
-				);
+		});
 
 	}
 

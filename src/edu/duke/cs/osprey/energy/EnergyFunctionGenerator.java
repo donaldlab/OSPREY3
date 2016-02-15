@@ -11,13 +11,16 @@ import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
+
+import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
  *
  * @author mhall44
  */
-public class EnergyFunctionGenerator {
+@SuppressWarnings("serial")
+public class EnergyFunctionGenerator implements Serializable {
     //This is an object that generates an energy function (maps conformation-->energy) for a molecule or a portion thereof
     //it specifies settings for how this energy should be estimated
     

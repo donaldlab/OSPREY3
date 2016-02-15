@@ -19,12 +19,12 @@ import edu.duke.cs.osprey.tupexp.ConfETupleExpander;
 import edu.duke.cs.osprey.tupexp.TupExpChooser;
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Iterator;
 
 /**
  *
  * @author mhall44
  */
+@SuppressWarnings("serial")
 public class SearchProblem implements Serializable {
     //This object keeps track of the positions and the possible assignments for them, as used in the search algorithms
     //generally these will be rDesidues (or super-residues) and their RCs; subclass SearchProblem to change this
@@ -53,6 +53,10 @@ public class SearchProblem implements Serializable {
     public PruningMatrix pruneMat;
     
     boolean contSCFlex;
+    
+    public ArrayList<String> flexibleRes;
+	public ArrayList<ArrayList<String>> allowedAAs;
+	public String PDBFile;
     
     public PruningMatrix competitorPruneMat;//a pruning matrix performed at pruning interval 0,
     //to decide which RC tuples are valid competitors for pruning
@@ -99,6 +103,9 @@ public class SearchProblem implements Serializable {
         confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses);
         this.name = name;
         
+        this.flexibleRes = flexibleRes;
+		this.allowedAAs = allowedAAs;
+		this.PDBFile = PDBFile;
         
         this.contSCFlex = contSCFlex;
         this.useTupExpForSearch = useTupExp;
@@ -323,6 +330,21 @@ public class SearchProblem implements Serializable {
         }
     }
     
-        
+	public ArrayList<String> getFlexibleResiduePositions(ArrayList<String> seq, ArrayList<Integer> ordinalPos){
+		// converts ordinal position to absolute position in the molecule
+		ArrayList<String> absolutePos = new ArrayList<>();
+
+		for( int i = 0; i < ordinalPos.size(); ++i ) {
+			int pos = ordinalPos.get(i);
+			absolutePos.add(this.flexibleRes.get(pos));
+
+			String aa = seq.get(i);
+			if( !this.allowedAAs.get(pos).contains(aa) )
+				throw new RuntimeException("ERROR: the specified amino acid " + aa 
+						+ " at oridinal position " + i + " is not allowed");
+		}
+
+		return absolutePos;
+	}  
     
 }

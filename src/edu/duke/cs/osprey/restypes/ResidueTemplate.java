@@ -15,6 +15,7 @@ import java.util.ArrayList;
  *
  * @author mhall44
  */
+@SuppressWarnings("serial")
 public class ResidueTemplate implements Serializable {
     //This class defines a residue type, like ARG or H2O or whatever
     //structures are composed entirely of residues. 

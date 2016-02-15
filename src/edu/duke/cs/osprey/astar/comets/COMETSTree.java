@@ -122,7 +122,6 @@ public class COMETSTree extends AStarTree {
                 
         if(seqNode.isFullyDefined()){
             seqNode.expandConfTree();
-            seqNode.setScore( boundLME(seqNode,objFcn) );
             ans.add(seqNode);
             return ans;
         }
@@ -157,7 +156,7 @@ public class COMETSTree extends AStarTree {
                 }
             }
             
-            throw new RuntimeException("ERROR: No splittable position found but sequence not fully defined...");
+            throw new RuntimeException("ERROR: Not splittable position found but sequence not fully defined...");
         }
         
     }

@@ -24,6 +24,7 @@ import java.util.TreeMap;
 /**
  * Handles reading in and managing parameter/value pairs from the input configuration files
  */
+@SuppressWarnings("serial")
 public class ParamSet implements Serializable {
 	
 	private TreeMap<String,String> params = new TreeMap<>();//map parameter/value pairs
@@ -202,6 +203,59 @@ public class ParamSet implements Serializable {
         }
         
         
+        //Methods to get parameter values
+        //Default methods can be used if not set; if null default then return an error
+        
+	public String getValue(String paramName, String defaultVal){
+            
+            paramName = paramName.toUpperCase();
+            String val = params.get(paramName);
+            
+            if(val==null){
+                if(defaultVal==null)//no default...must be set
+                    throw new RuntimeException("ERROR: Parameter "+paramName+" not found");
+                
+                val = defaultVal;
+                MPIMaster.printIfMaster("Parameter "+paramName+" not set. Using default value "+defaultVal);
+            }
+            else
+                MPIMaster.printIfMaster("Parameter "+paramName+" set to "+val);
+            
+            return val.trim();
+	}
+       
+        
+        //The following methods return a parameter expected to be a certain non-string type
+        //It's an error if they're not that type
+        public int getInt(String paramName, int defaultVal){
+            String val = getValue(paramName,String.valueOf(defaultVal));
+            try {
+                return Integer.valueOf(val);
+            }
+            catch(NumberFormatException e){
+                throw new RuntimeException("ERROR: Value "+val+" for parameter "+paramName+" can't be parsed as an integer");
+            }
+        }
+        
+        public boolean getBool(String paramName, boolean defaultVal){
+            String val = getValue(paramName,String.valueOf(defaultVal));
+            try {
+                return Boolean.valueOf(val);
+            }
+            catch(NumberFormatException e){
+                throw new RuntimeException("ERROR: Value "+val+" for parameter "+paramName+" can't be parsed as a boolean");
+            }
+        }
+        
+        public double getDouble(String paramName, double defaultVal){
+            String val = getValue(paramName,String.valueOf(defaultVal));
+            try {
+                return Double.valueOf(val);
+            }
+            catch(NumberFormatException e){
+                throw new RuntimeException("ERROR: Value "+val+" for parameter "+paramName+" can't be parsed as a double");
+            }
+        }
         
         
         //searching for a parameter

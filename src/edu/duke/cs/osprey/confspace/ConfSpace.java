@@ -29,6 +29,7 @@ import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.Minimizer;
+import edu.duke.cs.osprey.minimization.MinimizerFactory;
 import edu.duke.cs.osprey.minimization.MolecEObjFunction;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -367,7 +368,9 @@ public class ConfSpace implements Serializable {
         DoubleMatrix1D optDOFVals;
         
         if(energy.getNumDOFs()>0){//there are continuously flexible DOFs to minimize
-            Minimizer min = new CCDMinimizer(energy,false);
+        	Minimizer min = MinimizerFactory.getMinimizer(energy, false);
+        	
+        	//Minimizer min = new CCDMinimizer(energy,false);
             //with the generic objective function interface we can easily include other minimizers though
 
             

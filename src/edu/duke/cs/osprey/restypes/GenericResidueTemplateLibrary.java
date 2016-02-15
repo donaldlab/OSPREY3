@@ -15,15 +15,16 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.StringTokenizer;
 
 /**
  *
  * @author mhall44
  */
-public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
+@SuppressWarnings("serial")
+public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary implements Serializable {
     //This library of residue templates defines what types of residues we can model
     //and what flexibility and energy parameters come with each type
     //NAMING: We assume each distinct residue (AA or otherwise) has its own name
@@ -355,7 +356,7 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
 
     @Override
     public int numRotForResType(int pos, String resType, double phi, double psi) {
-        return firstTemplate(resType).getNumRotamers(phi, psi);
+    	return firstTemplate(resType).getNumRotamers(phi, psi);
     }
     
     
@@ -369,11 +370,9 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
             String curLine = bufread.readLine();
             
             while (curLine != null ){
-                if(!curLine.startsWith("%")){
-                	String resType = StringParsing.getToken(curLine,1);
-                	double entropy = new Double(StringParsing.getToken(curLine,2)); 
-                	resEntropy.put(resType.toUpperCase(), entropy);
-		}
+                String resType = StringParsing.getToken(curLine,1);
+                double entropy = new Double(StringParsing.getToken(curLine,2)); 
+                resEntropy.put(resType.toUpperCase(), entropy);
                 curLine = bufread.readLine();
             }
             bufread.close();

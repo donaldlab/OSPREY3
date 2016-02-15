@@ -53,7 +53,6 @@ class COMETSDoer {
         
         sParams.addParamsFromFile(args[1]);//read KStar.cfg parameters
         sParams.addParamsFromFile(args[3]);//read multistate parameters
-        sParams.addDefaultParams();
         
         String defaultCFGName = args[1];//Each state could have its own KStar.cfg, but this is the default
         

@@ -8,6 +8,8 @@ import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.TupleMatrix;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+
 import java.util.ArrayList;
 import java.util.Collections;
 
@@ -60,6 +62,36 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
         
         return ans;
     }
+    
+    
+	public ArrayList<Integer> prunedRCsAtPos(int pos) {
+		//which RCs at the given position are pruned?
+		//Return index of the RCs within the position
+		ArrayList<Integer> ans = new ArrayList<>();
+		int numRCs = numRCsAtPos(pos);
+
+		for(int index=0; index<numRCs; index++){
+			if(getOneBody(pos,index))
+				ans.add(index);
+		}
+
+		return ans;
+	}
+
+
+	public int prunedStericRCsAtPos(int pos, EnergyMatrix emat) {
+
+		int numPrunedSteric = 0;
+		int numRCs = numRCsAtPos(pos);
+
+		double E = 0.0;
+		for(int index=0; index<numRCs; index++){
+			E = emat.getOneBody(pos,index);
+
+		}
+
+		return numPrunedSteric;
+	}
     
     
     public ArrayList<RCTuple> unprunedRCTuplesAtPos(ArrayList<Integer> pos){

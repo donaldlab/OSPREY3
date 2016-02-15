@@ -133,7 +133,7 @@ public class EEF1 implements Serializable {
 		curLine = bufread.readLine();		
 		tmpInt = 0; // temporary integer
 		// Until we're at a blank line (or until we've read numAtomTypes)
-		while (!(curLine==null)) {
+		while (!(curLine==null)) {			
 			groupEEF1names[tmpInt] = StringParsing.getToken(curLine,1);  // snag group name
 			atTypeEEF1names[tmpInt] = StringParsing.getToken(curLine,2);  // snag atom type
 			atEEF1Vol[tmpInt] = (new Double(StringParsing.getToken(curLine,3))).doubleValue();

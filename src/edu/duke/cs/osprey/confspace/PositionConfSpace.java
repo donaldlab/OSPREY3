@@ -74,7 +74,7 @@ public class PositionConfSpace implements Serializable {
         	// PGC 2015: Support backbone dependent rotamers.  
         	//	Compute phi and psi, necessary for backbone dependent rotamers.        
         	double phipsi [] = Protractor.getPhiPsi(this.res);
-            int numRot = templateLib.numRotForResType(designIndex, AAType, phipsi[0], phipsi[1]);
+        	int numRot = templateLib.numRotForResType(designIndex, AAType, phipsi[0], phipsi[1]);
             
             //resDOFs is all sidechain DOFs, for now
             ArrayList<DegreeOfFreedom> dofListForRot = new ArrayList<>();

@@ -4,23 +4,31 @@
  */
 package edu.duke.cs.osprey.control;
 
+import edu.duke.cs.osprey.confspace.AllowedSeqs;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.dof.deeper.RamachandranChecker;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
+import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.structure.PDBFileReader;
+import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.StringParsing;
+
+import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.StringTokenizer;
 
 /**
  *
- * @author mhall44
+ * @author Mark Hallen (mhall44@duke.edu)
+ * @author Goke Ojewole (ao68@duke.edu)
  */
 public class ConfigFileParser {
     //An object that parses configuration files and uses them to initialize objects needed
@@ -44,6 +52,240 @@ public class ConfigFileParser {
         params.addDefaultParams();//We'll look for this in DataDir
     }
     
+	
+	AllowedSeqs getAllowedSequences(int strand, AllowedSeqs complexSeqs) {
+		
+		if( complexSeqs == null ) {
+			// this is only true when we have not calculated the sequences for the complex
+
+			ArrayList<String> flexRes = getFlexRes();
+			ArrayList<ArrayList<String>> allowedAAs = getAllowedAAs();
+
+			if(flexRes.size() != allowedAAs.size()){
+				throw new RuntimeException("ERROR: Number of flexible positions different in flexible residue "
+						+ "and allowed AA type parameters!");
+			}
+
+			int numMutations = params.getInt("NUMMUTATIONS", 1);
+			
+			complexSeqs = new AllowedSeqs(setupDEEPer(), freeBBZoneTermini(), moveableStrandTermini(), 
+					flexRes, allowedAAs, getWTSequence(), numMutations);
+
+			if(complexSeqs.getNumSeqs() == 0)
+				throw new RuntimeException("ERROR: cannot generate any sequences "
+						+ "for NUMMUTATIONS=" + numMutations + " mutation(s). "
+						+ "Change the value of NUMMUTATIONS parameter.");
+
+			// we need the wt as a benchmark of stability, so always add it
+			complexSeqs.addWT();
+		}
+		
+		if(strand == Strand.COMPLEX)
+			return complexSeqs;
+
+		// get index values of strand limits in flexRes
+		@SuppressWarnings("unchecked")
+		ArrayList<String> flexRes = (ArrayList<String>)ObjectIO.deepCopy(complexSeqs.getFlexRes());
+		@SuppressWarnings("unchecked")
+		ArrayList<ArrayList<String>> allowedAAs = (ArrayList<ArrayList<String>>)ObjectIO.deepCopy(complexSeqs.getAllowedAAs());
+		int lb = -1, ub = -1;
+		Strand limits = getCompressedStrandLimits(strand, complexSeqs.getFlexRes());
+		lb = flexRes.indexOf( String.valueOf(limits.getStrandBegin()) );
+		ub = flexRes.indexOf( String.valueOf(limits.getStrandEnd()) ) + 1;
+		
+		// filter allowedSeqs for protein and ligand strands
+		filterResiduesByStrand( strand, flexRes, allowedAAs );
+		
+		ArrayList<String[]> fbbzt = complexSeqs.getFreeBBZoneTermini();
+		ArrayList<String[]> mst = complexSeqs.getMoveableStrandTermini();
+		
+		if( fbbzt.size() == 2 ) fbbzt = new ArrayList<String[]>( complexSeqs.getFreeBBZoneTermini().subList(strand, strand) );
+		if( mst.size() == 2 ) mst = new ArrayList<String[]>( complexSeqs.getMoveableStrandTermini().subList(strand, strand) );
+		
+		AllowedSeqs strandSeqs = new AllowedSeqs(setupDEEPer(strand), fbbzt, mst, 
+				flexRes, complexSeqs, allowedAAs, lb, ub);
+
+		return strandSeqs;
+	}
+	
+	
+	Strand getCompressedStrandLimits( int strand, ArrayList<String> flexRes ) {
+
+		Strand strandLimits = getStrandLimits(strand);
+		ArrayList<String> strandResNums = getFlexResByStrand(strand);
+
+		@SuppressWarnings("unchecked")
+		ArrayList<String> flexRes2 = (ArrayList<String>)ObjectIO.deepCopy(flexRes);
+
+		for( int it = 0; it < flexRes2.size(); ) {
+			if( !strandLimits.contains( Integer.parseInt(flexRes2.get(it)) ) ) {
+
+				String removed = flexRes2.remove(it);
+
+				if( strandResNums.contains( removed ) )
+					throw new RuntimeException("ERROR: in strand" + strand + 
+							", flexible residue " + removed + " exceeds strand limits");
+			}
+			else ++it;
+		}
+
+		ArrayList<String> limits = new ArrayList<>();
+		limits.add(flexRes2.get(0));
+		limits.add(flexRes2.get(flexRes2.size()-1));
+		Strand ans = new Strand(strand, flexRes2.size(), limits);
+
+		return ans;
+	}
+	
+	
+	/**
+	 * this method mutates the flexRes and allowedAAs parameters 
+	 * @param strand
+	 * @param flexRes
+	 * @param allowedAAs
+	 *
+	 */
+	void filterResiduesByStrand( int strand, ArrayList<String> flexRes, 
+			ArrayList<ArrayList<String>> allowedAAs ) {
+
+		Strand strandLimits = getStrandLimits(strand);
+		ArrayList<String> strandResNums = getFlexResByStrand(strand);
+
+		for( int it = 0; it < flexRes.size(); ) {
+			if( !strandLimits.contains( Integer.parseInt(flexRes.get(it)) ) ) {
+
+				String removed = flexRes.remove(it);
+
+				if( strandResNums.contains( removed ) )
+					throw new RuntimeException("ERROR: in strand" + strand + 
+							", flexible residue " + removed + " exceeds strand limits");
+
+				allowedAAs.remove(it);
+			}
+			else ++it;
+		}
+
+		if(flexRes.size() != allowedAAs.size()){
+			throw new RuntimeException("ERROR: Number of flexible positions different in flexible residue "
+					+ "and allowed AA type parameters!");
+		}
+	}
+	
+	
+	ArrayList<String> getFlexResByStrand( int strand ) {
+
+		if( strand != Strand.COMPLEX && strand != Strand.PROTEIN && strand != Strand.LIGAND )
+			throw new RuntimeException("ERROR: specified strand " + strand + " is invalid");
+
+		ArrayList<String> flexResList = new ArrayList<>();
+
+		String resListString = params.getValue("strandMut"+strand);
+		StringTokenizer tokenizer = new StringTokenizer(resListString);
+
+		while(tokenizer.hasMoreTokens()){
+			flexResList.add( tokenizer.nextToken() );
+		}
+
+		return flexResList;
+	}
+	
+	
+	int getNumStrands() {
+		StringTokenizer tokenizer = 
+				new StringTokenizer(params.getValue( "STRANDMUTNUMS" ));
+		return tokenizer.countTokens();
+	}
+	
+	
+	/**
+	 * Reads strand limits
+	 */
+	Strand getStrandLimits( int strand ) {
+
+		if( strand == Strand.COMPLEX ) return null;
+
+		String strandLimits = params.getValue( "STRAND"+strand );
+
+		StringTokenizer tokenizer = 
+				new StringTokenizer(params.getValue( "STRANDMUTNUMS" ));
+		for( int it = 0; it < strand; ++it ) tokenizer.nextToken(); 
+		int numFlexRes = Integer.parseInt( tokenizer.nextToken() );
+
+		tokenizer = new StringTokenizer( strandLimits );
+
+		ArrayList<String> strLimits = new ArrayList<>();
+		while( tokenizer.hasMoreTokens() ){
+			strLimits.add( tokenizer.nextToken() );
+		}
+
+		return new Strand( strand, numFlexRes, strLimits );
+
+	}
+	
+
+	/**
+	 * Gets the wild type AA identities for flexible positions
+	 * @return
+	 */
+	public ArrayList<String> getWTSequence() {
+
+		Molecule m = PDBFileReader.readPDBFile(params.getValue("PDBNAME"));
+		ArrayList<String> flexibleRes = getFlexRes();
+		int numPos = flexibleRes.size();
+		ArrayList<String> wt = new ArrayList<>(); for( int pos = 0; pos < numPos; ++pos ) wt.add(null);
+
+		for(int pos=0; pos<numPos; pos++) {
+			Residue res = m.getResByPDBResNumber( flexibleRes.get(pos) );
+			String wtName = res.template.name;
+			wt.set(pos, wtName);
+		}
+
+		wt.trimToSize();
+		return wt;
+	}
+	
+	
+	/**
+	 * K* version of method
+	 * @param strand
+	 * @param strandSeqs
+	 * @return
+	 */
+	SearchProblem getSearchProblem( int strand, AllowedSeqs strandSeqs ) {
+
+		String ematDir = params.getValue("ematdir", "emat.linear");
+		ObjectIO.makeDir(ematDir, params.getBool("deleteEmat", false));
+		String name = ematDir + File.separator + params.getValue("RUNNAME");
+
+		String suffix = Strand.getStrandString(strand);
+		
+		ArrayList<String[]> moveableStrands = strandSeqs.getMoveableStrandTermini();
+        ArrayList<String[]> freeBBZones = strandSeqs.getFreeBBZoneTermini();
+        DEEPerSettings dset = strandSeqs.getDEEPerSettings();
+        
+        System.out.println("CREATING SEARCH PROBLEM.  NAME: "+name);
+        
+        return new SearchProblem( name+"."+suffix, params.getValue("PDBNAME"), 
+        		strandSeqs.getFlexRes(), 
+        		strandSeqs.getAllowedAAs(),
+                params.getBool("AddWT"), 
+                params.getBool("AddWT", true), 
+				params.getBool("doMinimize", false),
+                new EPICSettings(params),
+                params.getBool("UseTupExp", false),
+                dset, moveableStrands, freeBBZones,
+                params.getBool("useEllipses", false),
+                params.getBool("useERef", false),
+                params.getBool("AddResEntropy", false) );
+	}
+	
+	
+	public PruningControl getPruningControl(SearchProblem searchSpace, double pruningInterval, boolean useEPIC, boolean useTupExp) {
+		//setup pruning.  Conformations in searchSpace more than curEw over the GMEC are liable to pruning
+
+		return setupPruning(searchSpace, pruningInterval, useEPIC, useTupExp);
+	}
+	
     
     DEEPerSettings setupDEEPer(){
         //Set up the DEEPerSettings object, including the PertSet (describes the perturbations)
@@ -59,6 +301,30 @@ public class ConfigFileParser {
                 params.getDouble("maxBackrubParam"),
                 params.getBool("selectLCAs"),
                 getFlexRes(), 
+                params.getValue("PDBNAME")
+        );
+        
+        dset.loadPertFile();//load the PertSet from its file
+        return dset;
+    }
+    
+    
+    // K* version; can replace the parameter-less version with this version, too
+    // but i'm avoiding altering mark's code as much as possible, for now
+    DEEPerSettings setupDEEPer(int strand) {
+        //Set up the DEEPerSettings object, including the PertSet (describes the perturbations)
+        //String runName = params.getValue("runName");
+        
+        DEEPerSettings dset = new DEEPerSettings(
+                params.getBool("doPerturbations"),
+                params.getRunSpecificFileName("perturbationFile", ".pert"),
+                params.getBool("selectPerturbations"),
+                params.getValue("startingPerturbationFile"),
+                params.getBool("onlyStartingPerturbations"),
+                params.getDouble("maxShearParam"),
+                params.getDouble("maxBackrubParam"),
+                params.getBool("selectLCAs"),
+                getFlexResByStrand(strand),
                 params.getValue("PDBNAME")
         );
         
@@ -109,6 +375,7 @@ public class ConfigFileParser {
         
         return ans;
     }
+    
     
     //creation of objects needed in calculations like GMEC and K*
     SearchProblem getSearchProblem(){//this version is for a single search problem...can modify for
@@ -325,7 +592,13 @@ public class ConfigFileParser {
         boolean dunbrackRots = params.getBool("UseDunbrackRotamers");
         // PGC 2015: Always load the Lovell Rotamer Library.
     	resTemplates.loadRotamerLibrary(params.getValue("ROTFILE"), false);//see below; also gRotFile0 etc
-        if(dunbrackRots){ // Use the dunbrack rotamer library
+    	
+    	// AAO load generic rotamer libraries
+    	for(String grotFile : params.searchParams("GROTFILE")) {
+    		resTemplates.loadRotamerLibrary(params.getValue(grotFile), false);
+    	}
+    	
+    	if(dunbrackRots){ // Use the dunbrack rotamer library
         	resTemplates.loadRotamerLibrary(params.getValue("DUNBRACKROTFILE"), true);//see below; also gRotFile0 etc
         }
         
@@ -430,6 +703,8 @@ public class ConfigFileParser {
             aaFilename, aaNTFilename, aaCTFilename, grFilename
         };
     }
+    
+    
     // Getter function for the params.
     public ParamSet getParams(){
     	return this.params;

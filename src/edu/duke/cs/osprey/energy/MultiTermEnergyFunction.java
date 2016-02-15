@@ -6,9 +6,12 @@ package edu.duke.cs.osprey.energy;
 
 import java.util.ArrayList;
 
+import edu.duke.cs.osprey.parallelism.ThreadParallelism;
+
 /**
  *
- * @author mhall44
+ * @author Mark Hallen (mhall44@duke.edu)
+ * @author Adegoke Ojewole (ao68@duke.edu)
  */
 //This an energy function consisting of terms that are other energy functions
 //For example, it can be AMBER energy + dihedral energy
@@ -16,8 +19,6 @@ import java.util.ArrayList;
 //Total energy = sum_i (coeff[i] * energy i)
 
 public class MultiTermEnergyFunction implements EnergyFunction {
-    
-    private static int NUM_THREADS = 1;
 	
     ArrayList<EnergyFunction> terms = new ArrayList<>();
     ArrayList<Double> coeffs = new ArrayList<>();
@@ -45,21 +46,6 @@ public class MultiTermEnergyFunction implements EnergyFunction {
         indexes.add(indexes.size());
     }
     
-    
-    public static void setNumThreads( int threads ) { 
-            NUM_THREADS = threads;
-
-            if(NUM_THREADS < 1) NUM_THREADS = 1;
-
-            else if(NUM_THREADS > Runtime.getRuntime().availableProcessors()) 
-                    NUM_THREADS = Runtime.getRuntime().availableProcessors();
-    }
-
-
-    public static int getNumThreads() {
-            return NUM_THREADS;
-    }
-    
 
     @Override
     public double getEnergy(){
@@ -71,7 +57,7 @@ public class MultiTermEnergyFunction implements EnergyFunction {
                     +" terms but "+coeffs.size()+" coefficients");
         }
         
-        if(NUM_THREADS == 1) {
+        if(ThreadParallelism.getNumThreads() == 1) {
                 for(int termNum=0; termNum<terms.size(); termNum++){
                         double termE = terms.get(termNum).getEnergy();
                         E += coeffs.get(termNum)*termE;
