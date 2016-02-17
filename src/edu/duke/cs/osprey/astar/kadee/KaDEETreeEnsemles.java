@@ -65,7 +65,7 @@ public class KaDEETreeEnsemles extends AStarTree {
 
     boolean useComets = false;
 
-    int numSamplesGumbel = 10;
+    int numSamplesGumbel = 200;
     final double constRT = PoissonBoltzmannEnergy.constRT;
 
     public KaDEETreeEnsemles(int numTreeLevels, LME objFcn, LME[] constraints,
@@ -99,9 +99,11 @@ public class KaDEETreeEnsemles extends AStarTree {
     private double boundFreeEnergyChange(KaDEENode seqNode) {
         if (seqNode.isFullyDefined())//fully-defined sequence
         {
-            double logKStar = 0.0;
+            double logKStar = calcSequenceScore(seqNode);
             return logKStar;
         } else {
+            double realBound = computeExactBoundPerSequence(seqNode);
+            double maxIntBound = computeMaxInterfacePerSequence(seqNode, mutableSearchProblems[0].emat, seqNode.pruneMat[0]);
             double logKStarUB = calcMaxInterfaceScore(seqNode);
             return logKStarUB;
         }
@@ -137,8 +139,9 @@ public class KaDEETreeEnsemles extends AStarTree {
                         if (splitPos == numTreeLevels - 1) {//sequence is fully defined...make conf trees
                             makeSeqConfTrees(childNode);
                         }
-
+                        printSequence(getSequence(childNode));
                         childNode.setScore(boundFreeEnergyChange(childNode));
+                        System.out.println("Score: " + childNode.getScore());
                         ans.add(childNode);
                     }
 
@@ -167,7 +170,7 @@ public class KaDEETreeEnsemles extends AStarTree {
 
             double Ebound = boundEmat.getInternalEnergy(new RCTuple(boundTree.nextConf())) + boundEmat.getConstTerm();
             double Eunbound = unboundEmat.getInternalEnergy(new RCTuple(unBoundTree.nextConf())) + unboundEmat.getConstTerm();
-            
+
             double score = Ebound - Eunbound + objFcn.getConstTerm();
 
             seqNode.scoreSet = true;
@@ -175,10 +178,10 @@ public class KaDEETreeEnsemles extends AStarTree {
         } else {
             double Ebound = computeLogZGumbel(boundEmat, seqNode.pruneMat[0]);
             double EunBound = computeLogZGumbel(unboundEmat, seqNode.pruneMat[1]);
-            
+
             double score = Ebound - EunBound + objFcn.getConstTerm();
             seqNode.scoreSet = true;
-            return score;
+            return -score;
         }
     }
 
@@ -219,24 +222,60 @@ public class KaDEETreeEnsemles extends AStarTree {
                 score = ematSubset.getInternalEnergy(new RCTuple(conf));
             }
         } else {
-            GumbelMapTree gTree = new GumbelMapTree(ematSubset, pruneMatSubset);
-            gTree.nextConf();
-            if (boundSP.useTupExpForSearch) {
-                gTree.traditionalScore = true;
-                gTree.mplpScore = false;
-                //TODO: Add support for generalized MPLP
-            }
-            score = gTree.currentBestFeasibleScore;
+            score = -computeLogZGumbel(ematSubset, pruneMatSubset);
         }
         return score + objFcn.getConstTerm();
     }
 
+    private double computeMaxInterfacePerSequence(KaDEENode seqNode, EnergyMatrix emat, PruningMatrix pruneMat) {
+        int[][] seqList = getAllSequences(seqNode);
+        double score = Double.POSITIVE_INFINITY;
+        for (int[] seq : seqList) {
+            UpdatedPruningMatrix pruneMatSeq = new UpdatedPruningMatrix(pruneMat);
+            updateBoundPruneMatAtSequence(seqNode, pruneMatSeq, seq);
+            double seqScore = -computeLogZGumbel(emat, pruneMatSeq);
+            System.out.print("Sequence: ");
+            for (int pos = 0; pos < seq.length; pos++) {
+                System.out.print(this.AATypeOptions.get(pos).get(seq[pos])+" ");
+            }
+            System.out.println("   MaxInt Score: "+seqScore);
+            score = Math.min(score, seqScore);
+        }
+        return score;
+    }
+
+     private double computeExactBoundPerSequence(KaDEENode seqNode){
+        int[][] seqList = getAllSequences(seqNode);
+        double score = Double.POSITIVE_INFINITY;
+        for (int[] seq : seqList) {
+            UpdatedPruningMatrix pruneMatSeqBound = new UpdatedPruningMatrix(seqNode.pruneMat[0]);
+            UpdatedPruningMatrix pruneMatSeqUnbound = new UpdatedPruningMatrix(seqNode.pruneMat[1]);
+            updateBoundPruneMatAtSequence(seqNode, pruneMatSeqBound, seq);
+            updateUnoundPruneMatAtSequence(seqNode, pruneMatSeqUnbound, seq);
+            double boundScore = -computeLogZGumbel(mutableSearchProblems[0].emat, pruneMatSeqBound);
+            double unboundScore = -computeLogZGumbel(mutableSearchProblems[1].emat, pruneMatSeqUnbound);
+            System.out.print("Sequence: ");
+            for (int pos = 0; pos < seq.length; pos++) {
+                System.out.print(this.AATypeOptions.get(pos).get(seq[pos])+" ");
+            }
+            System.out.println("   Score: "+(boundScore - unboundScore));
+            score = Math.min(score, (boundScore - unboundScore));
+        }
+        return score;
+    }   
+    
+    
     private double computeLogZGumbel(EnergyMatrix emat, PruningMatrix pruneMat) {
         double average = 0.0;
         for (int i = 0; i < this.numSamplesGumbel; i++) {
             GumbelMapTree gTree = new GumbelMapTree(emat, pruneMat);
             gTree.nextConf();
-            average += gTree.currentBestFeasibleScore;
+            double sample = gTree.currentBestFeasibleScore;
+            if ((Math.abs(sample - average/(i)) > 10)&& (i>0)){
+                i--;
+                average -= sample;
+            }
+            average += sample;
         }
         double logZ = -average / (this.constRT * this.numSamplesGumbel);
         return logZ;
@@ -870,6 +909,147 @@ public class KaDEETreeEnsemles extends AStarTree {
         } else//discrete flexibility w/o LUTE
         {
             return mutableSearchProblems[state].emat;
+        }
+    }
+
+    void printBestSeqInfo(KaDEENode seqNode) {
+        //About to return the given fully assigned sequence from A*
+        //provide information
+        System.out.println("SeqTree: A* returning conformation; lower bound = " + seqNode.getScore() + " nodes expanded: " + numExpanded);
+
+        System.out.print("Sequence: ");
+
+        for (int level = 0; level < numTreeLevels; level++) {
+            System.out.print(AATypeOptions.get(level).get(seqNode.getNodeAssignments()[level]) + " ");
+        }
+        System.out.println();
+
+        System.out.println();
+        System.out.println(numExpanded + " expanded; " + getQueue().size() + " nodes in tree, of which "
+                + numPruned + " pruned.");
+    }
+
+    @Override
+    public int[] outputNode(AStarNode node) {
+        System.out.println();
+        printBestSeqInfo((KaDEENode) node);
+        return node.getNodeAssignments();
+    }
+
+    public void printSequence(String[] sequence) {
+        StringBuffer buffer = new StringBuffer();
+        for (String aaType : sequence) {
+            buffer.append(" " + aaType);
+        }
+        System.out.println(buffer);
+    }
+
+    public String[] getSequence(KaDEENode node) {
+        int[] assignments = node.getNodeAssignments();
+        int numMotPos = assignments.length;
+        String[] sequence = new String[numMotPos];
+
+        for (int mutPos = 0; mutPos < numMotPos; mutPos++) {
+            int aaTypeVal = assignments[mutPos];
+            String aaType;
+            if (aaTypeVal == -1) {
+                aaType = "XXX";
+            } else {
+                aaType = this.AATypeOptions.get(mutPos).get(aaTypeVal);
+            }
+            sequence[mutPos] = aaType;
+        }
+        return sequence;
+    }
+
+    int[][] getAllSequences(KaDEENode seqNode) {
+        int[] assignmnet = seqNode.getNodeAssignments();
+
+        //Iterate over mutable positions and get the total number of sequences
+        int numSequences = 1;
+        //Keep track of the last assigned level
+        int lastAssignedLevel = -1;
+        for (int i = 0; i < this.numTreeLevels; i++) {
+            if (assignmnet[i] == -1) {
+                numSequences = numSequences * this.AATypeOptions.get(i).size();
+            } else {
+                lastAssignedLevel = i;
+            }
+        }
+
+        int[] currentSeq = ArrayUtils.subarray(assignmnet, 0, lastAssignedLevel + 1);
+        int[][] seqList = new int[1][currentSeq.length];
+        seqList[0] = currentSeq;
+
+        for (int mutPos = lastAssignedLevel + 1; mutPos < this.numTreeLevels; mutPos++) {
+            seqList = getAllSequencesHelper(seqList, mutPos);
+        }
+        return seqList;
+    }
+
+    int[][] getAllSequencesHelper(int[][] currentSeqList, int level) {
+        //the number of current sequences
+        int numCurrentSeqs = currentSeqList.length;
+        //the number of new sequences after we add all AA's from mutable pos
+        int numNewSeqs = numCurrentSeqs * this.AATypeOptions.get(level).size();
+        //the current length of our sequences
+        int currentSeqLength = currentSeqList[0].length;
+        //the new length after we add mutPos
+        int newSeqLength = currentSeqLength + 1;
+
+        //the new array of sequences
+        int[][] ans = new int[numNewSeqs][currentSeqList.length + 1];
+
+        int sequenceNum = 0;
+        for (int[] sequence : currentSeqList) {
+            for (int aa = 0; aa < this.AATypeOptions.get(level).size(); aa++) {
+                int[] newSequence = Arrays.copyOf(sequence, newSeqLength);
+                //add AA from mutPos
+                newSequence[newSeqLength - 1] = aa;
+                ans[sequenceNum] = newSequence;
+                //iterate
+                sequenceNum++;
+            }
+        }
+
+        return ans;
+    }
+
+    void updateBoundPruneMatAtSequence(KaDEENode seqNode, PruningMatrix pruneMat, int[] seq) {
+        int[] assignments = seqNode.getNodeAssignments();
+        SearchProblem boundSP = mutableSearchProblems[0];
+
+        //Update the bound prune mat for this sequence
+        for (int level = 0; level < assignments.length; level++) {
+            if (assignments[level] == -1) {
+                int posNum = mutable2StatePosNums.get(0).get(level);
+                int aaNum = seq[level];
+                String AAType = this.AATypeOptions.get(level).get(aaNum);
+                for (int rot : pruneMat.unprunedRCsAtPos(posNum)) {
+                    if (!boundSP.confSpace.posFlex.get(posNum).RCs.get(rot).AAType.equalsIgnoreCase(AAType)) {
+                        pruneMat.markAsPruned(new RCTuple(posNum, rot));
+                    }
+                }
+            }
+        }
+    }
+    
+    void updateUnoundPruneMatAtSequence(KaDEENode seqNode, PruningMatrix pruneMat, int[] seq) {
+        int[] assignments = seqNode.getNodeAssignments();
+        SearchProblem ligandSP = mutableSearchProblems[1];
+
+        //Update the bound prune mat for this sequence
+        for (int level = 0; level < assignments.length; level++) {
+            if (assignments[level] == -1) {
+                int posNum = mutable2StatePosNums.get(1).get(level);
+                int aaNum = seq[level];
+                String AAType = this.AATypeOptions.get(level).get(aaNum);
+                for (int rot : pruneMat.unprunedRCsAtPos(posNum)) {
+                    if (!ligandSP.confSpace.posFlex.get(posNum).RCs.get(rot).AAType.equalsIgnoreCase(AAType)) {
+                        pruneMat.markAsPruned(new RCTuple(posNum, rot));
+                    }
+                }
+            }
         }
     }
 

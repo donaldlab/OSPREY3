@@ -380,7 +380,7 @@ public class ConfTree extends AStarTree {
      }
      */
     @Override
-    void refineScore(AStarNode node) {
+    public void refineScore(AStarNode node) {
 
         if (epicMat == null && !this.mplpScore) {
             throw new UnsupportedOperationException("ERROR: Trying to call refinement w/o EPIC matrix");

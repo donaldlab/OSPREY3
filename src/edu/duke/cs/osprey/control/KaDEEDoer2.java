@@ -79,7 +79,7 @@ public class KaDEEDoer2 {
     
     ExpFunction ef = new ExpFunction();
     double constRT = PoissonBoltzmannEnergy.constRT;
-    int numSamplesGumbel = 20;
+    int numSamplesGumbel = 200;
     public KaDEEDoer2(ConfigFileParser cfp) {
         this.cfp = cfp;
         Ew = cfp.params.getDouble("Ew");
@@ -220,7 +220,7 @@ public class KaDEEDoer2 {
         int mutableStateIndex = 0;
 
         SearchProblem nonMutableState = searchSpaces[1];//Just to initialize it
-        double unboundLigandGMECEnergy = 0.0;
+        double unboundProteinPartFunction = 0.0;
         for (int state = 0; state < searchSpaces.length; state++) {
             if (stateIsMutable[state]) {
                 mutableStates[mutableStateIndex] = searchSpaces[state];
@@ -230,7 +230,7 @@ public class KaDEEDoer2 {
             } else {
                 nonMutableState = searchSpaces[state];
                 //For the const term of the LME objective function
-                unboundLigandGMECEnergy = getGMECEnergyProtein(nonMutableState);
+                unboundProteinPartFunction = 0.0;
             }
         }
 
@@ -239,7 +239,7 @@ public class KaDEEDoer2 {
         int numStatesForCOMETS = mutableStates.length;
         this.numTreeLevels = getNumMutablePos(mutableState2StatePosNumList);
         this.AATypeOptions = handleAATypeOptions(mutableStateAllowedAAs);
-        this.objFcn = new LME(new double[]{1, -1}, -unboundLigandGMECEnergy, 2);
+        this.objFcn = new LME(new double[]{1, -1}, -unboundProteinPartFunction, 2);
         this.constraints = new LME[0];
         int numMaxMut = -1;
         String[] wtSeq = null;
@@ -439,10 +439,10 @@ public class KaDEEDoer2 {
                     if (useEPIC && !useTupExp) {
                         throw new RuntimeException("Gumbel Map does not yet support EPIC");
                     } else if (useTupExp) {
-                        computeLogZGumbel(searchProb.tupExpEMat, seqPruneMat, this.numSamplesGumbel);
+                        stateScore[seqNum][state] = -computeLogZGumbel(searchProb.tupExpEMat, seqPruneMat, this.numSamplesGumbel);
                     }
                     else{
-                        computeLogZGumbel(searchProb.emat, seqPruneMat, this.numSamplesGumbel);
+                        stateScore[seqNum][state] = -computeLogZGumbel(searchProb.emat, seqPruneMat, this.numSamplesGumbel);
                     }
                 }
             }
@@ -487,6 +487,9 @@ public class KaDEEDoer2 {
             GumbelMapTree gTree = new GumbelMapTree(emat, pruneMat);
             gTree.nextConf();
             average += gTree.currentBestFeasibleScore;
+            if (gTree.currentBestFeasibleScore > 0){
+                System.out.println(gTree.currentBestFeasibleScore);
+            }
         }
         double logZ = -average / (this.constRT * numSamples);
         return logZ;

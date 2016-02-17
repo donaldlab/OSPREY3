@@ -80,6 +80,7 @@ public class GumbelMapTree extends AStarTree {
 //            mplpMinimizer = new Mplp(numPos, emat, pruneMat);
             mplpMinimizer = new Mplp(numPos, emat, pruneMat);
         }
+        randomGenerator = new Random();
     }
 
     private void init(SearchProblem sp, PruningMatrix aPruneMat) {
@@ -142,6 +143,10 @@ public class GumbelMapTree extends AStarTree {
                 childNode.perturbation = curNode.perturbation;
                 childNode.feasibleSolution = curNode.feasibleSolution;
                 ans.add(childNode);
+                if (scoreConfWithPert(childNode.feasibleSolution, childNode.perturbation) < this.currentBestFeasibleScore) {
+                    this.currentBestFeasibleScore = scoreConfWithPert(childNode.feasibleSolution, childNode.perturbation);
+                    this.currentBestFeasibleSolution = childNode.feasibleSolution;
+                }
             } else {
                 double gumbelPert = GumbelDistribution.sampleTruncated(-GumbelDistribution.gamma + logSearchProblemSize, curNode.perturbation);
 
@@ -430,8 +435,10 @@ public class GumbelMapTree extends AStarTree {
             return (pos1 < pos2 || partialConf[pos1] >= 0);
         }
     }
+    
 
-    void refineScore(AStarNode node) {
+    @Override
+    public void refineScore(AStarNode node) {
         node.setScoreNeedsRefinement(false);
     }
 
@@ -527,7 +534,6 @@ public class GumbelMapTree extends AStarTree {
 //        System.out.println();
         if ((this.upperBoundLogZ - this.lowerBoundLogZ < epsilon) && (this.numNodesEpsilon == -1) && (this.numExpanded > 0)) {
             this.numNodesEpsilon = numExpanded;
-            System.out.println("Number Nodes Epsilon: " + numNodesEpsilon);
         }
         if (node.getScore() + 0.00001 > this.currentBestFeasibleScore) {
             return true;
