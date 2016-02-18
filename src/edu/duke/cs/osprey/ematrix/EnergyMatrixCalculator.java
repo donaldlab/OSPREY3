@@ -39,16 +39,24 @@ public class EnergyMatrixCalculator {
     //If using E ref, will compute a reference energy for each amino-acid type
     //and correct the intra+shell energies based on the reference energies
 
+    boolean addResEntropy = false;//add residue entropy to one-body energies
+
+    //We are calculating either a scalar or EPIC matrix, so we'll allocate and fill in just one of these
     private EnergyMatrix emat = null;
     private EPICMatrix epicMat = null;
 
     boolean templateAlwaysOn = false;
+
     //constructor for calculating a scalar energy matrix (rigid or pairwise lower bounds)
-    public EnergyMatrixCalculator(ConfSpace s, ArrayList<Residue> sr, boolean useERef) {
+
+    public EnergyMatrixCalculator(ConfSpace s, ArrayList<Residue> sr, boolean useERef,
+            boolean addResEntropy) {
+
         searchSpace = s;
         shellResidues = sr;
         doEPIC = false;
         this.useERef = useERef;
+        this.addResEntropy = addResEntropy;
     }
 
     public EnergyMatrixCalculator(ConfSpaceSuper s, ArrayList<Residue> sr) {
@@ -115,7 +123,7 @@ public class EnergyMatrixCalculator {
             System.out.println("Starting intra+shell energy calculations for residue " + res);
 
             TermECalculator oneBodyECalc = new TermECalculator(searchSpace, shellResidues, doEPIC,
-                    false, pruneMat, epicSettings, res);
+                    false, pruneMat, epicSettings, addResEntropy, res);
 
             Object oneBodyE = oneBodyECalc.doCalculation();
             storeEnergy(oneBodyE, res);
@@ -125,7 +133,8 @@ public class EnergyMatrixCalculator {
                 System.out.println("Starting pairwise energy calculations for residues " + res + ", " + res2);
 
                 TermECalculator pairECalc = new TermECalculator(searchSpace, shellResidues, doEPIC,
-                        false, pruneMat, epicSettings, res, res2);
+                        false, pruneMat, epicSettings, false, res, res2);
+
                 Object pairE = pairECalc.doCalculation();
                 storeEnergy(pairE, res, res2);
             }
@@ -192,11 +201,11 @@ public class EnergyMatrixCalculator {
         for (int res = 0; res < searchSpace.numPos; res++) {
 
             tasks.add(new TermECalculator(searchSpace, shellResidues, doEPIC, false,
-                    pruneMat, epicSettings, res));
+                    pruneMat, epicSettings, addResEntropy, res));
 
             for (int res2 = 0; res2 < res; res2++) {
                 tasks.add(new TermECalculator(searchSpace, shellResidues, doEPIC, false,
-                        pruneMat, epicSettings, res, res2));
+                        pruneMat, epicSettings, false, res, res2));
             }
         }
 
@@ -218,6 +227,7 @@ public class EnergyMatrixCalculator {
     }
 
     //HMN: This is the same as calcPEMDistributed(), but supports super-RCs
+    //TODO: Add support for Entropy correction
     public void calcPEMSuperDistributed() {
         //do energy calculatoin on slave nodes via MPI
 

@@ -177,7 +177,7 @@ public class ResTemplateMatching {
                 
                 double templateDist = templateDistanceMatrix[templateAtNum][bondedTemplateAtNum];
                 double resDist = residueDistanceMatrix[resAtNum][resBondedAtNum];
-                
+
                 double distDiff = templateDist - resDist;
                 ans += distDiff*distDiff;
             }

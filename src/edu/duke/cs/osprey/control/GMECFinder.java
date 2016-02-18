@@ -32,73 +32,79 @@ public class GMECFinder {
     //But we can also just store things as fields if people prefer
     
     //KStarCalculator will be set up similarly to this class
-    
-    ConfigFileParser cfp;
+        
+    private ConfigFileParser cfp;
     
     SearchProblem searchSpace;
     
-    double Ew;//energy window for enumerating conformations: 0 for just GMEC
-    double I0=0;//initial value of iMinDEE pruning interval
-    boolean doIMinDEE;//do iMinDEE
+    private double Ew;//energy window for enumerating conformations: 0 for just GMEC
+    private double I0=0;//initial value of iMinDEE pruning interval
+    private boolean doIMinDEE;//do iMinDEE
     
     
-    boolean useContFlex;
+    private boolean useContFlex;
     //boolean enumByPairwiseLowerBound;//are we using a search method that 
     //enumerates by pairwise lower bound (minDEE-style)
     //or by (possibly approximated) true energy (rigid, EPIC, or tuple expander)?
     
     
-    boolean outputGMECStruct;//write the GMEC structure to a PDB file
+    private boolean outputGMECStruct;//write the GMEC structure to a PDB file
     
     boolean useEPIC = false;
     boolean useTupExp = false;
     
-    boolean checkApproxE = true;//Use the actual energy function to evaluate
+    private boolean checkApproxE = true;//Use the actual energy function to evaluate
     //each enumerated conformation rather than just relying on the EPIC or tup-exp approximation
     
-    boolean useEllipses = false;
+    private boolean useEllipses = false;
     
     
     boolean EFullConfOnly = false;//energy function only can be evaluated for full conf
     
-    double lowestBound;//lowest pairwise lower bound for a GMEC run
+    private double lowestBound;//lowest pairwise lower bound for a GMEC run
     //used to determine I-value needed
     
     
-    String confFileName;//file to which we write conformations
+    private String confFileName;//file to which we write conformations
     
     public GMECFinder (ConfigFileParser cfgP){
         //fill in all the settings
         
         cfp = cfgP;
         
-        Ew = cfgP.params.getDouble("Ew",0);
-        doIMinDEE = cfgP.params.getBool("imindee",false);
+        //TODO: Arguably, this is the initialization, which should be its own function. The constructor may eventually
+        // do other more interesting things and reading in member variables isn't that interesting. -JJ
+        initializeParametersFromConfigFile(cfgP);
+    }
+
+    private void initializeParametersFromConfigFile (ConfigFileParser cfgP) {
+        Ew = cfgP.params.getDouble("Ew");
+        doIMinDEE = cfgP.params.getBool("imindee");
         if(doIMinDEE){
-            I0 = cfgP.params.getDouble("Ival",5);
+            I0 = cfgP.params.getDouble("Ival");
         }
         
-        useContFlex = cfgP.params.getBool("doMinimize",false);
-        useTupExp = cfgP.params.getBool("UseTupExp",false);
-        useEPIC = cfgP.params.getBool("UseEPIC",false);
+        useContFlex = cfgP.params.getBool("doMinimize");
+        useTupExp = cfgP.params.getBool("UseTupExp");
+        useEPIC = cfgP.params.getBool("UseEPIC");
         
-        checkApproxE = cfgP.params.getBool("CheckApproxE",true);
+        checkApproxE = cfgP.params.getBool("CheckApproxE");
         
         if(doIMinDEE && !useContFlex)
             throw new RuntimeException("ERROR: iMinDEE requires continuous flexibility");
         
-        outputGMECStruct = cfgP.params.getBool("OUTPUTGMECSTRUCT", false);
+        outputGMECStruct = cfgP.params.getBool("OUTPUTGMECSTRUCT");
         
-        useEllipses = cfgP.params.getBool("useEllipses", false);
+        useEllipses = cfgP.params.getBool("useEllipses");
         //for now only full-conf-only E-fcn supported is Poisson-Boltzmann
-        EFullConfOnly = cfgP.params.getBool("UsePoissonBoltzmann",false);
+        EFullConfOnly = cfgP.params.getBool("UsePoissonBoltzmann");
         
-        confFileName = cfgP.params.getValue("CONFFILENAME", cfgP.params.getValue("RUNNAME")+".confs.txt");
+        confFileName = cfgP.params.getRunSpecificFileName("CONFFILENAME", ".confs.txt");
     }
     
     
    
-    double calcGMEC(){
+    public double calcGMEC(){
         //Calculate the GMEC
         
         double curInterval = I0;//For iMinDEE.  curInterval will need to be an upper bound
@@ -119,7 +125,11 @@ public class GMECFinder {
             needToRepeat = false;
             
             //initialize a search problem with current Ival
-            checkEPICThresh2(curInterval);//Make sure EPIC thresh 2 matches current interval
+            // 11/11/2015 JJ: This logic belongs out here. A function that does nothing if a flag is false should 
+            // have its flag promoted outside of the function, unless it's used multiple times. In that case
+            // the function needs to be named accordingly.
+            if(useEPIC)
+                checkEPICThresh2(curInterval);//Make sure EPIC thresh 2 matches current interval
 
             precomputeMatrices(Ew+curInterval);//precompute the energy, pruning, and maybe EPIC or tup-exp matrices
             //must be done separately for each round of iMinDEE
@@ -236,7 +246,8 @@ public class GMECFinder {
             //we can prune conformations whose energies are within pruningInterval
             //of the lowest pairwise lower bound
             
-            if(EFullConfOnly){
+            if(EFullConfOnly){//Perform a tuple expansion that does not assume a pairwise
+                //energy function, and thus must omit some of the usual pruning steps.
                 fullConfOnlyTupExp();
                 return;
             }
@@ -334,7 +345,8 @@ public class GMECFinder {
         searchSpace.pruneMat = new PruningMatrix(searchSpace.confSpace,Ew);//not iMinDEE
         
         //We can only do steric pruning
-        double stericThresh = cfp.params.getDouble("STERICTHRESH", 30);
+        //May want to set a lower thresh than the default (30 perhaps)
+        double stericThresh = cfp.params.getDouble("STERICTHRESH");
         Pruner pruner = new Pruner(searchSpace, false, 0, 0, false, false);
         pruner.pruneSteric(stericThresh);
                 
@@ -442,15 +454,12 @@ public class GMECFinder {
 
     
     private void checkEPICThresh2(double curInterval){
-                         
-        if(useEPIC){
-            if(curInterval+Ew>searchSpace.epicSettings.EPICThresh2){//need to raise EPICThresh2 
-                //to the point that we can guarantee no continuous component of the GMEC
-                //or desired ensemble will need to reach it
-                System.out.println("Raising EPICThresh2 to "+(curInterval+Ew)+" based on "
-                        + "iMinDEE interval and energy window");
-                searchSpace.epicSettings.EPICThresh2 = curInterval+Ew;
-            }
+        if(curInterval+Ew>searchSpace.epicSettings.EPICThresh2){//need to raise EPICThresh2 
+            //to the point that we can guarantee no continuous component of the GMEC
+            //or desired ensemble will need to reach it
+            System.out.println("Raising EPICThresh2 to "+(curInterval+Ew)+" based on "
+                    + "iMinDEE interval and energy window");
+            searchSpace.epicSettings.EPICThresh2 = curInterval+Ew;
         }
     }
     

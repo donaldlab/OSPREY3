@@ -1,0 +1,27 @@
+Sequence: VAL TYR 
+Nodes Expanded: 8
+Runtime: 9
+Sequence: LYS ILE 
+Nodes Expanded: 14
+Runtime: 5836
+Sequence: LYS ILE 
+Nodes Expanded: 14
+Runtime: 11168
+Sequence: VAL TRP TRP 
+Nodes Expanded: 516
+Runtime: 859608
+Sequence: VAL TRP TRP 
+Nodes Expanded: 48
+Runtime: 46835
+Sequence: VAL TRP TRP 
+Nodes Expanded: 33
+Runtime: 1827
+Sequence: VAL TRP TRP 
+Nodes Expanded: 18
+Runtime: 101
+Sequence: VAL TRP TRP 
+Nodes Expanded: 18
+Runtime: 286
+Sequence: VAL TRP TRP 
+Nodes Expanded: 18
+Runtime: 175

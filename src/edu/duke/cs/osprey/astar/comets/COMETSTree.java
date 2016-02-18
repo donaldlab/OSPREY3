@@ -28,12 +28,12 @@ import java.util.Random;
  */
 public class COMETSTree extends AStarTree {
 
-    int numTreeLevels;//number of residues with sequence changes
+    public int numTreeLevels;//number of residues with sequence changes
 
     LME objFcn;//we are minimizing objFcn...
     LME[] constraints;//with the constraints that constr all <= 0
 
-    ArrayList<ArrayList<String>> AATypeOptions;
+    public ArrayList<ArrayList<String>> AATypeOptions;
     //COMETreeNode.assignments assigns each level an index in AATypeOptions.get(level), and thus an AA type
     //If -1, then no assignment yet
 
@@ -108,6 +108,7 @@ public class COMETSTree extends AStarTree {
 
         if (seqNode.isFullyDefined()) {
             seqNode.expandConfTree();
+            seqNode.setScore(boundLME(seqNode, objFcn));
             ans.add(seqNode);
             return ans;
         } else {

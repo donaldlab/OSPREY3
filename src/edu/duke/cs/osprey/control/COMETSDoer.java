@@ -56,9 +56,9 @@ class COMETSDoer {
         
         String defaultCFGName = args[1];//Each state could have its own KStar.cfg, but this is the default
         
-        numStates = sParams.getInt("NUMSTATES",-1);
-        numTreeLevels = sParams.getInt("NUMMUTRES",-1);
-        int numConstr = sParams.getInt("NUMCONSTR",-1);
+        numStates = sParams.getInt("NUMSTATES");
+        numTreeLevels = sParams.getInt("NUMMUTRES");
+        int numConstr = sParams.getInt("NUMCONSTR");
         
         stateArgs = new String[numStates][];
         
@@ -90,13 +90,13 @@ class COMETSDoer {
 
         //we can have a parameter numMaxMut to cap the number of deviations from the specified
         //wt seq (specified explicitly in case there is variation in wt between states...)
-        int numMaxMut = sParams.getInt("NUMMAXMUT",-1);
+        int numMaxMut = sParams.getInt("NUMMAXMUT");
         String[] wtSeq = null;
         if(numMaxMut>-1){
             wtSeq = parseWTSeq( sParams.getValue("WTSEQ"), numTreeLevels );
         }
 
-        numSeqsWanted = sParams.getInt("NUMSEQS", 1);
+        numSeqsWanted = sParams.getInt("NUMSEQS");
         
         tree = new COMETSTree(numTreeLevels, objFcn, constraints, 
             AATypeOptions, numMaxMut, wtSeq, numStates, stateSP, mutable2StatePosNums);
@@ -121,7 +121,7 @@ class COMETSDoer {
     private SearchProblem makeStateSearchProblem(int state, ParamSet sParams, String defaultCFGName){
         //read state-specific configuration files and create a search problem object
         //defaultCFGName is for KStar.cfg
-        String cfgName = sParams.getValue("STATEKSFILE"+state,"DEFAULT");
+        String cfgName = sParams.getValue("STATEKSFILE"+state);
         if(cfgName.equalsIgnoreCase("DEFAULT"))
             cfgName = defaultCFGName;
 
@@ -137,7 +137,7 @@ class COMETSDoer {
         stateCFGP.loadData();
         SearchProblem searchProb = stateCFGP.getSearchProblem();
 
-        if ( stateCFGP.params.getBool("doMinimize",false) && (!searchProb.useTupExpForSearch) ) {
+        if ( stateCFGP.params.getBool("doMinimize") && (!searchProb.useTupExpForSearch) ) {
             throw new RuntimeException("ERROR: COMETS requires LUTE to do continuous flexibility");
         }
         
@@ -167,7 +167,7 @@ class COMETSDoer {
             int flexPos = mutable2StatePosNums.get(state).get(mutPos);
             
             ArrayList<String> statePosOptions = stateAAOptions.get(flexPos);
-            if(cfgP.params.getBool("AddWT", true)){
+            if(cfgP.params.getBool("AddWT")){
                 Residue res = wtMolec.getResByPDBResNumber( flexRes.get(flexPos) );
                 if( ! StringParsing.containsIgnoreCase(statePosOptions, res.template.name) )
                     statePosOptions.add(res.template.name);
@@ -264,7 +264,7 @@ class COMETSDoer {
         if( ! gf.useTupExp )//discrete flexibility & pairwise E-fcn...iVal can be 0
             return 0;
         
-        double iVal = cfgP.params.getDouble("IVAL", Double.NaN);
+        double iVal = cfgP.params.getDouble("COMETSIVAL");
         //If iVal provided manually, use that
         
         if(Double.isNaN(iVal)){//need to choose ival

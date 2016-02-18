@@ -14,7 +14,12 @@ public class AStarNode implements Comparable {
     
     double score;//score (probably a lower bound on the energy)
     
+    public double perturbation;//useful for GumbelMap (HMN)
+    public int[] feasibleSolution; //useful for GumbelMap (HMN) for now this is a random feasible solution
+    
     boolean scoreNeedsRefinement;
+
+    public boolean isRoot = false; //HMN: Temporary
 
     
     //These are used in COMETS
@@ -51,9 +56,13 @@ public class AStarNode implements Comparable {
         return score;
     }
     
+    public boolean scoreNeedsRefinement(){
+        return scoreNeedsRefinement;
+    }
     
-    
-    
+    public void setScoreNeedsRefinement(boolean needsRefinement){
+        this.scoreNeedsRefinement = needsRefinement;
+    }
     public boolean isFullyDefined(){
         //Assuming assignments greater than 0 denote fully defined positions,
         //determine if this node is fully defined or not

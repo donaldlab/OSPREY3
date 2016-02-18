@@ -4,13 +4,10 @@
  */
 package edu.duke.cs.osprey.control;
 
-import cern.colt.matrix.DoubleMatrix1D;
-import cern.jet.math.Functions;
+import java.util.HashMap;
+import java.util.Map;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
-import edu.duke.cs.osprey.minimization.CCDMinimizer;
-import edu.duke.cs.osprey.minimization.MolecEObjFunction;
 import edu.duke.cs.osprey.tests.UnitTestSuite;
-import edu.duke.cs.osprey.tools.ObjectIO;
 
 /**
  *
@@ -50,7 +47,7 @@ public class Main {
         
         //DEBUG!!
         // set number of threads for energy function evaluation
-        MultiTermEnergyFunction.setNumThreads( cfp.params.getInt("eEvalThreads", 1) );
+        MultiTermEnergyFunction.setNumThreads( cfp.params.getInt("eEvalThreads") );
         if( MultiTermEnergyFunction.getNumThreads() > 1 ) {
                 System.setProperty( "java.util.concurrent.ForkJoinPool.common.parallelism", 
                                 String.valueOf(MultiTermEnergyFunction.getNumThreads()) );
@@ -76,6 +73,7 @@ public class Main {
         else if(command.equalsIgnoreCase("doCOMETS")){
             COMETSDoer cd = new COMETSDoer(args);
             cd.calcBestSequences();
+//            cd.exhaustiveMultistateSearch();
         }
         else if(command.equalsIgnoreCase("doCOMETSSuper")){
             COMETSDoerSuper csd = new COMETSDoerSuper(cfp);
@@ -83,6 +81,11 @@ public class Main {
         }
         else if (command.equalsIgnoreCase("doKaDEE")){
             KaDEEDoer kd = new KaDEEDoer(cfp);
+            kd.doKaDEE();
+        }
+        else if (command.equalsIgnoreCase("doGumbel")){
+//            GumbelDoer gd = new GumbelDoer(cfp);
+            KaDEEDoer2 kd = new KaDEEDoer2(cfp);
             kd.doKaDEE();
         }
         //etc.
@@ -97,37 +100,37 @@ public class Main {
     
     private static void debuggingCommands(String[] args){
         
-        //MolecEObjFunction mof = (MolecEObjFunction)ObjectIO.readObject("OBJFCN1442697734046.dat", true);
-        /*MolecEObjFunction mof = (MolecEObjFunction)ObjectIO.readObject("OBJFCN1442697735769.dat", true);
-        
+		//MolecEObjFunction mof = (MolecEObjFunction)ObjectIO.readObject("OBJFCN1442697734046.dat", true);
+		/*MolecEObjFunction mof = (MolecEObjFunction)ObjectIO.readObject("OBJFCN1442697735769.dat", true);
+
         CCDMinimizer minim = new CCDMinimizer(mof, false);
         DoubleMatrix1D bestVals = minim.minimize();
         double E = mof.getValue(bestVals);
-        
+
         DoubleMatrix1D boxBottom = bestVals.copy();
         DoubleMatrix1D boxTop = bestVals.copy();
         for(int q=0; q<bestVals.size(); q++){
             boxTop.set(q, Math.min(mof.getConstraints()[1].get(q), bestVals.get(q)+1));
             boxBottom.set(q, Math.max(mof.getConstraints()[0].get(q), bestVals.get(q)-1));
         }
-        
+
         for(int a=0; a<1000000; a++){
-            
+
             DoubleMatrix1D x2 = bestVals.like();
             for(int q=0; q<bestVals.size(); q++)
                 x2.set( q, boxBottom.get(q)+Math.random()*(boxTop.get(q)-boxBottom.get(q)) );
-            
+
             double E2 = mof.getValue(x2);
             if(E2 < E-0.1){
                 System.out.println("gg");
                 DoubleMatrix1D dx = x2.copy();
                 dx.assign( bestVals, Functions.minus );
-                
+
                 for(double t=1; true; t*=1.5){
                     dx.assign(Functions.mult(t));
                     x2.assign(dx);
                     x2.assign(bestVals, Functions.plus);
-                    
+
                     boolean oor = false;
                     for(int q=0; q<x2.size(); q++){
                         if( x2.get(q) > mof.getConstraints()[1].get(q) )
@@ -135,23 +138,23 @@ public class Main {
                         else if( x2.get(q) < mof.getConstraints()[0].get(q) )
                             oor = true;
                     }
-                    
+
                     if(oor)
                         break;
-                    
+
                     E2= mof.getValue(x2);
                     int aaa = 1;
                 }
             }
         }
-        
+
         System.exit(0);
-        */
-        //anything we want to try as an alternate main function, for debugging purposes
-        //likely will want to exit after doing this (specify here)
-        //for normal operation, leave no uncommented code in this function
-        
-    }
-    
-    
+		 */
+		//anything we want to try as an alternate main function, for debugging purposes
+		//likely will want to exit after doing this (specify here)
+		//for normal operation, leave no uncommented code in this function
+
+	}
+
+
 }

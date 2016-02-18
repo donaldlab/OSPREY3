@@ -223,6 +223,23 @@ public class EnergyMatrix extends TupleMatrix<Double> {
         return eRefMat;
     }
 
+    //TODO: CAN SPEED UP Using PruneMat
+    //Add higher-order term functionality
+    public void negatePairwiseEnergies(boolean[][] interactionGraph) {
+        for (int i = 0; i < numPos(); i++) {
+            for (int j = 0; j < i; j++) {
+                if (interactionGraph[i][j]) {
+                    for (int rotI = 0; rotI < numRCsAtPos(i); rotI++) {
+                        for (int rotJ = 0; rotJ < numRCsAtPos(j); rotJ++) {
+                            double currentE = this.getPairwise(i, rotI, j, rotJ);
+                            this.setPairwise(i, rotI, j, rotJ, -currentE);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /**
      * HMN: This method is used for partial search spaces. Given an interaction
      * graph, this method updates the energy matrix to only have non-zero
@@ -289,7 +306,7 @@ public class EnergyMatrix extends TupleMatrix<Double> {
             for (int rc = 0; rc < this.numRCsAtPos(pos); rc++) {
                 double currentE = this.getOneBody(pos, rc);
                 double toAddE = originalEmat.getOneBody(pos, rc);
-                this.setOneBody(pos, rc, currentE+toAddE);
+                this.setOneBody(pos, rc, currentE + toAddE);
             }
         }
     }

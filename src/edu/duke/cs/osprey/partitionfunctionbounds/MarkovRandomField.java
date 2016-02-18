@@ -5,10 +5,9 @@
  */
 package edu.duke.cs.osprey.partitionfunctionbounds;
 
+import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.ConfSpaceSuper;
-import edu.duke.cs.osprey.confspace.PositionConfSpaceSuper;
-import edu.duke.cs.osprey.confspace.SuperRC;
-import edu.duke.cs.osprey.confspace.SuperRCTuple;
+import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.confspace.SearchProblemSuper;
@@ -50,6 +49,27 @@ public class MarkovRandomField {
         }
     }
 
+    public MarkovRandomField(SearchProblem searchProblem, double eCut){
+        this.emat = searchProblem.emat;
+        this.pruneMat = searchProblem.pruneMat;
+
+        int numNodes = searchProblem.confSpace.numPos;
+
+        //create nodeList
+        for (int pos = 0; pos < numNodes; pos++) {
+            MRFNode node = new MRFNode(pos, pruneMat.unprunedRCsAtPos(pos));
+            nodeList.add(node);
+        }
+        this.numNodes = nodeList.size();
+
+        //create interaction graph
+        this.interactionGraph = createEnergyInteractionGraph(eCut);
+        //create neighborList for each node
+        for (MRFNode node : this.nodeList) {
+            node.neighborList = getNeighbors(node, this.interactionGraph);
+        }
+    }
+    
     private boolean[][] createEnergyInteractionGraph(double eCut) {
         boolean[][] interactionGraph = new boolean[numNodes][numNodes];
         int countInteraction = 0;

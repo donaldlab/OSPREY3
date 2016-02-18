@@ -381,7 +381,7 @@ public class ConfTreeSuper extends AStarTree {
     }
 
     @Override
-    void refineScore(AStarNode node) {
+    public void refineScore(AStarNode node) {
 
         if (useEpic && epicMat == null) {
             throw new UnsupportedOperationException("ERROR: Trying to call refinement w/o EPIC matrix");

@@ -61,10 +61,13 @@ public class SearchProblem implements Serializable {
     public boolean useTupExpForSearch = false;//use a tuple expansion to approximate the energy as we search
 
     boolean useERef = false;
+    boolean addResEntropy = false;
+    
+    
+    public SearchProblem(SearchProblem sp1){//shallow copy
+    	confSpace = sp1.confSpace;
+    	emat = sp1.emat;
 
-    public SearchProblem(SearchProblem sp1) {//shallow copy
-        confSpace = sp1.confSpace;
-        emat = sp1.emat;
         epicMat = sp1.epicMat;
         epicSettings = sp1.epicSettings;
         tupExpEMat = sp1.tupExpEMat;
@@ -82,16 +85,20 @@ public class SearchProblem implements Serializable {
 
         useERef = sp1.useERef;
 
+        addResEntropy = sp1.addResEntropy;
+
     }
 
     public SearchProblem() {
     }
 
     public SearchProblem(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
-            boolean addWTRots, boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset,
-            ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef) {
-
+            boolean addWTRots, boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset, 
+            ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef,
+            boolean addResEntropy){
+        
         confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, addWTRots, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses);
+
         this.name = name;
 
         this.contSCFlex = contSCFlex;
@@ -100,6 +107,8 @@ public class SearchProblem implements Serializable {
         this.epicSettings = epicSettings;
 
         this.useERef = useERef;
+        this.addResEntropy = addResEntropy;
+
         //energy function setup
         EnergyFunctionGenerator eGen = EnvironmentVars.curEFcnGenerator;
         decideShellResidues(eGen.distCutoff);
@@ -144,6 +153,10 @@ public class SearchProblem implements Serializable {
             E -= emat.geteRefMat().confERef(conf);
         }
 
+        
+        if(addResEntropy)
+            E += confSpace.getConfResEntropy(conf);            
+        
         return E;
     }
 
@@ -219,10 +232,13 @@ public class SearchProblem implements Serializable {
     }
 
     //compute the matrix of the specified type
-    private TupleMatrix calcMatrix(MatrixType type) {
 
-        if (type == MatrixType.EMAT) {
-            EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(confSpace, shellResidues, useERef);
+    private TupleMatrix calcMatrix(MatrixType type){
+        
+        if(type == MatrixType.EMAT){
+            EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(confSpace,shellResidues,
+                    useERef,addResEntropy);
+            
             emCalc.calcPEM();
             return emCalc.getEMatrix();
         } else if (type == MatrixType.EPICMAT) {

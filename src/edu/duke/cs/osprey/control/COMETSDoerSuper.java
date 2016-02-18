@@ -17,7 +17,7 @@ import edu.duke.cs.osprey.partitionfunctionbounds.MarkovRandomField;
 import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
-import edu.duke.cs.osprey.partitionfunctionbounds.MapPerturbation;
+import edu.duke.cs.osprey.partitionfunctionbounds.MapPerturbationSuper;
 import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField_Parallel;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -70,25 +70,25 @@ public class COMETSDoerSuper {
 
     public COMETSDoerSuper(ConfigFileParser cfp) {
         this.cfp = cfp;
-        Ew = cfp.params.getDouble("Ew", 0);
-        doIMinDEE = cfp.params.getBool("imindee", false);
+        Ew = cfp.params.getDouble("Ew");
+        doIMinDEE = cfp.params.getBool("imindee");
         if (doIMinDEE) {
-            I0 = cfp.params.getDouble("Ival", 5);
+            I0 = cfp.params.getDouble("Ival");
         }
 
-        useContFlex = cfp.params.getBool("doMinimize", false);
-        useTupExp = cfp.params.getBool("UseTupExp", false);
-        useEPIC = cfp.params.getBool("UseEPIC", false);
+        useContFlex = cfp.params.getBool("doMinimize");
+        useTupExp = cfp.params.getBool("UseTupExp");
+        useEPIC = cfp.params.getBool("UseEPIC");
 
-        checkApproxE = cfp.params.getBool("CheckApproxE", true);
+        checkApproxE = cfp.params.getBool("CheckApproxE");
 
         if (doIMinDEE && !useContFlex) {
             throw new RuntimeException("ERROR: iMinDEE requires continuous flexibility");
         }
 
-        outputGMECStruct = cfp.params.getBool("OUTPUTGMECSTRUCT", false);
+        outputGMECStruct = cfp.params.getBool("OUTPUTGMECSTRUCT");
 
-        useEllipses = cfp.params.getBool("useEllipses", false);
+        useEllipses = cfp.params.getBool("useEllipses");
     }
 
     /**
@@ -188,7 +188,7 @@ public class COMETSDoerSuper {
             }
             //BigDecimal Zpart = calcRigidPartFunction(searchSpace);
             //BigDecimal logZpart = ef.log(Zpart);
-            MapPerturbation mapPert = new MapPerturbation(searchSpace);
+            MapPerturbationSuper mapPert = new MapPerturbationSuper(searchSpace);
             double logZUB = (0.4342944819) * mapPert.calcUBLogZ(100);
             System.out.println("Upper bound on log partition function (MAP-Pert) = " + logZUB);
             ArrayList<Integer> toMerge = mapPert.getPairWithMaxMutualInfo(true);
@@ -389,7 +389,7 @@ public class COMETSDoerSuper {
 
         for (int posNum = beginPos; posNum < endPos; posNum++) {
             ArrayList<String> currentAAOptions = complexAllowedAAs.get(posNum);
-            if (cfp.params.getBool("AddWT", true)) {
+            if (cfp.params.getBool("AddWT")) {
                 Residue res = wtMolec.getResByPDBResNumber(complexFlexRes.get(posNum));
                 if (!StringParsing.containsIgnoreCase(complexFlexRes, res.template.name)) {
                     currentAAOptions.add(res.template.name);

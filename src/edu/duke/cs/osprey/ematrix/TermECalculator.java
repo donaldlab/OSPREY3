@@ -52,6 +52,7 @@ public class TermECalculator implements MPISlaveTask {
     
     EPICSettings epicSettings = null;//needed if doing EPIC
     
+    boolean addResEntropy;//add residue entropy to one-body energies
     
     //We'll be calculating either one-body or pairwise energies
     //as either scalar or EPIC energies
@@ -63,7 +64,8 @@ public class TermECalculator implements MPISlaveTask {
     
     
     public TermECalculator(ConfSpace s, ArrayList<Residue> shellResidues, 
-            boolean doEPIC, boolean doIntra, PruningMatrix prm, EPICSettings es, int... resToCalc){
+            boolean doEPIC, boolean doIntra, PruningMatrix prm, EPICSettings es, 
+            boolean addResEnt, int... resToCalc){
         
         confSpace = s;
         doingEPIC = doEPIC;
@@ -71,6 +73,7 @@ public class TermECalculator implements MPISlaveTask {
         res = resToCalc;
         pruneMat = prm;
         epicSettings = es;
+        addResEntropy = addResEnt;
         
         Residue firstRes = confSpace.posFlex.get(res[0]).res;
         
@@ -200,8 +203,12 @@ public class TermECalculator implements MPISlaveTask {
             
             if(doingEPIC)
                 oneBodyPoly.add(EPICFit);
-            else
+            else{
+                if(addResEntropy)
+                    minEnergy += getResEntropy(RCs);
+                
                 oneBodyE.add(minEnergy);
+            }
         }
         else if ( numBodies == 2 ) {//pairwise term
             
@@ -227,6 +234,16 @@ public class TermECalculator implements MPISlaveTask {
     }
     
     
+    double getResEntropy(RCTuple RCs){
+        //Given a singleton RC tuple, return the residue entropy for its amino acid type
+        if( RCs.pos.size() != 1 ){
+            throw new RuntimeException("ERROR: Trying to get res entropy for non-singleton RC"
+                    + " tuple "+RCs.stringListing());
+        }
+        
+        double resEntropy = confSpace.getRCResEntropy( RCs.pos.get(0), RCs.RCs.get(0) );
+        return resEntropy;
+    }
     
     
     private EPoly compEPICFit ( MolecEObjFunction mof, double minEnergy, 

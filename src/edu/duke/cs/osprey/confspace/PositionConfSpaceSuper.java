@@ -44,7 +44,10 @@ public class PositionConfSpaceSuper extends PositionConfSpace {
     ArrayList<ArrayList<EllipseCoordDOF>> ellipsoidalDOFsPerPos;
     boolean useEllipses = false;
 
+    public ArrayList<Integer> designIndexList; 
+    
     public PositionConfSpaceSuper(
+            ArrayList<Integer> designIndexList,
             ArrayList<Residue> resList,//perRes
             ArrayList<ArrayList<DegreeOfFreedom>> resDOFsList,//perRes
             ArrayList<ArrayList<String>> allowedAAsList,//perRes
@@ -71,7 +74,7 @@ public class PositionConfSpaceSuper extends PositionConfSpace {
             ArrayList<ArrayList<int[]>> pertStates = pertStatesList.get(resIndex);
             BBFreeBlock bfb = bfbList.get(resIndex);
 
-            PositionConfSpace residueConfSpace = new PositionConfSpace(res, resDOFs, allowedAAs, contSCFlex, strandDOFs, perts, pertIntervals, pertStates, bfb, useEllipses, addWTRots);
+            PositionConfSpace residueConfSpace = new PositionConfSpace( designIndexList.get(resIndex), res, resDOFs, allowedAAs, contSCFlex, strandDOFs, perts, pertIntervals, pertStates, bfb, useEllipses, addWTRots);
             positionConfSpacePerResidue.add(residueConfSpace);
             if (useEllipses) {
                 this.useEllipses = true;

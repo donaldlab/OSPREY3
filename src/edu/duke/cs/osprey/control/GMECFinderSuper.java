@@ -59,27 +59,27 @@ public class GMECFinderSuper {
 
         cfp = cfgP;
 
-        Ew = cfgP.params.getDouble("Ew", 0);
-        doIMinDEE = cfgP.params.getBool("imindee", false);
+        Ew = cfgP.params.getDouble("Ew");
+        doIMinDEE = cfgP.params.getBool("imindee");
         if (doIMinDEE) {
-            I0 = cfgP.params.getDouble("Ival", 5);
+            I0 = cfgP.params.getDouble("Ival");
         }
 
-        useContFlex = cfgP.params.getBool("doMinimize", false);
-        useTupExp = cfgP.params.getBool("UseTupExp", false);
-        useEPIC = cfgP.params.getBool("UseEPIC", false);
+        useContFlex = cfgP.params.getBool("doMinimize");
+        useTupExp = cfgP.params.getBool("UseTupExp");
+        useEPIC = cfgP.params.getBool("UseEPIC");
 
-        checkApproxE = cfgP.params.getBool("CheckApproxE", true);
+        checkApproxE = cfgP.params.getBool("CheckApproxE");
 
         if (doIMinDEE && !useContFlex) {
             throw new RuntimeException("ERROR: iMinDEE requires continuous flexibility");
         }
 
-        outputGMECStruct = cfgP.params.getBool("OUTPUTGMECSTRUCT", false);
+        outputGMECStruct = cfgP.params.getBool("OUTPUTGMECSTRUCT");
 
-        useEllipses = cfgP.params.getBool("useEllipses", false);
+        useEllipses = cfgP.params.getBool("useEllipses");
         //for now only full-conf-only E-fcn supported is Poisson-Boltzmann
-        EFullConfOnly = cfgP.params.getBool("UsePoissonBoltzmann", false);
+        EFullConfOnly = cfgP.params.getBool("UsePoissonBoltzmann");
     }
 
     double calcGMEC() {
@@ -301,7 +301,7 @@ public class GMECFinderSuper {
         searchSpace.pruneMat = new PruningMatrix(searchSpace.confSpaceSuper, Ew);//not iMinDEE
 
         //We can only do steric pruning
-        double stericThresh = cfp.params.getDouble("STERICTHRESH", 30);
+        double stericThresh = cfp.params.getDouble("STERICTHRESH");
         PrunerSuper pruner = new PrunerSuper(searchSpace, false, 0, 0, false, false);
         pruner.pruneSteric(stericThresh);
 

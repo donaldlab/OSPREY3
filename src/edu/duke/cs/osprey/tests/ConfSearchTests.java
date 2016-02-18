@@ -157,13 +157,16 @@ public class ConfSearchTests {
             flexRes.add(Integer.valueOf(20 + pos).toString());
             allowedAAs.add(AAatPos);
         }
+        
+        SearchProblem ans = new SearchProblem( "testResults/CONFSEARCHTEST"+numPos, "1CC8.ss.pdb", 
+                flexRes, allowedAAs,false, false, false, false, null, 
+                false, new DEEPerSettings(), new ArrayList<>(), new ArrayList<>(), 
+                useEllipses, false, false );
+                //don't add WT, and no minimization, EPIC, tuple expansion, DEEPer, or strand motions
 
-        SearchProblem ans = new SearchProblem("testResults/CONFSEARCHTEST" + numPos, "1CC8.ss.pdb",
-                flexRes, allowedAAs, false, false, false, false, null,
-                false, new DEEPerSettings(), new ArrayList<>(), new ArrayList<>(), useEllipses, false);
-        //don't add WT, and no minimization, EPIC, tuple expansion, DEEPer, or strand motions
+        
+        if(randomizeEnergies){
 
-        if (randomizeEnergies) {
             //we don't need real energies, just make some up (in fact the randomization will be good)
             ans.emat = new EnergyMatrix(ans.confSpace, 0);
 

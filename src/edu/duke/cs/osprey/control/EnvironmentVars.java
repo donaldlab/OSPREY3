@@ -6,7 +6,7 @@ package edu.duke.cs.osprey.control;
 
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
+import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 
 import java.math.BigInteger;
 
@@ -15,7 +15,7 @@ public class EnvironmentVars {
 	
 	//key parameter sets to use throughout the program for energy-function and flexibility reference
         public static EnergyFunctionGenerator curEFcnGenerator;
-        public static ResidueTemplateLibrary resTemplates;
+        public static GenericResidueTemplateLibrary resTemplates;
         
         //Regulation of structure read-in/template assignment
         public static boolean assignTemplatesToStruct = true;//Assign templates when we read in a template.
