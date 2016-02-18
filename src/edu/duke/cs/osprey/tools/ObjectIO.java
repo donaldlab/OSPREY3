@@ -21,6 +21,7 @@ import org.apache.commons.io.FileUtils;
 /**
  *
  * @author mhall44
+ * @author Adegoke Ojewole (ao68@duke.edu)
  */
 
 //tools for storing objects, like an energy matrix
@@ -43,7 +44,8 @@ public class ObjectIO {
 			if (allowNull)
 				return null;
 			else
-				throw new RuntimeException("ERROR: Failed to read object from file "+fileName);
+				throw new RuntimeException("ERROR: Failed to read object from file "+fileName
+						+ "\n" + e.getMessage());
 		}
 
 		return inObj;
@@ -86,10 +88,10 @@ public class ObjectIO {
 	}
 
 
-	public static void makeDir( String path, boolean delete ) {
+	public static void makeDir( String path, boolean deleteExisting ) {
 		try {
 			File dir = new File(path);
-			if( delete && dir.exists() ) deleteDir(path);
+			if( deleteExisting && dir.exists() ) deleteDir(path);
 			if( !dir.exists() ) dir.mkdirs();
 		} 
 		catch (Exception e) {

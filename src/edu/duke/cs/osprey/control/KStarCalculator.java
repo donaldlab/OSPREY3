@@ -1,16 +1,20 @@
 package edu.duke.cs.osprey.control;
 
 
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 
 import edu.duke.cs.osprey.confspace.AllowedSeqs;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.Strand;
-import edu.duke.cs.osprey.kstar.KSCalcManagerLinear;
+import edu.duke.cs.osprey.kstar.KSImplementationLinear;
 import edu.duke.cs.osprey.kstar.PFAbstract;
 import edu.duke.cs.osprey.minimization.MinimizerFactory;
 import edu.duke.cs.osprey.pruning.PruningControl;
+import edu.duke.cs.osprey.tools.StringParsing;
 
 
 /**
@@ -67,9 +71,9 @@ public class KStarCalculator {
 		// computing allowed sequences can be time intensive for large sequence
 		// spaces, so re-use it for different strands once it has been computed
 		// for the complex.
-		AllowedSeqs complexSeqs = null;
-		strand2AllowedSeqs.put(Strand.COMPLEX, cfp.getAllowedSequences(Strand.COMPLEX, complexSeqs));
-		complexSeqs = strand2AllowedSeqs.get(Strand.COMPLEX);
+		AllowedSeqs complexSeqs = cfp.getAllowedSequences(Strand.COMPLEX, null);
+		strand2AllowedSeqs.put(Strand.COMPLEX, complexSeqs);
+		System.out.println("\nCreating search problem for strand " + Strand.COMPLEX);
 		strand2SearchProblem.put(Strand.COMPLEX, cfp.getSearchProblem(Strand.COMPLEX, complexSeqs));
 
 		ArrayList<Integer> strands = new ArrayList<>();
@@ -89,7 +93,7 @@ public class KStarCalculator {
 		ArrayList<Integer> strands = new ArrayList<>();
 		for( int strand = cfp.getNumStrands()-1; strand >= 0; --strand ) strands.add(strand);
 		strands.add(Strand.COMPLEX);
-		
+
 		if( !parallel ) {
 			// load sequentially
 			for( int strand : strands ) {
@@ -129,22 +133,85 @@ public class KStarCalculator {
 	}
 
 
+	protected ArrayList<ArrayList<String>> readMutFile( String path ) throws Exception {	
+		ArrayList<ArrayList<String>> ans = new ArrayList<>();
+		try (BufferedReader br = new BufferedReader(new FileReader(path))) {
+			String line;
+			while ((line = br.readLine()) != null) {
+				ArrayList<String> l = new ArrayList<String>();
+
+				int pos = StringParsing.ordinalIndexOf(line, " ", 1) + 1;
+				for( String s : Arrays.asList( line.substring(pos).split(" ") ) ) {
+					l.add(s.trim());
+				}
+
+				ans.add(l);
+			}
+		}
+
+		if(ans.size() > 0)
+			return ans;
+		return null;
+	}
+
+
 	public void calcKStarScores() {
 
 		try {
-
 			createSearchProblems();
+			
+			// read .mut file
+			// filter list of mutations; only run those listed
+			ArrayList<ArrayList<String>> mutations = readMutFile( cfp.getParams().getValue("mutfile") );
+			if(mutations != null) {
+				
+				AllowedSeqs pl = strand2AllowedSeqs.get(Strand.COMPLEX);
+				AllowedSeqs p = strand2AllowedSeqs.get(Strand.PROTEIN);
+				AllowedSeqs l = strand2AllowedSeqs.get(Strand.LIGAND);
+				
+				int plLen = pl.getSequenceLength(), pLen = p.getSequenceLength();
+				
+				if(mutations.get(0).size() != plLen) {
+					throw new RuntimeException("ERROR: mutfile sequences have length " + mutations.get(0).size()
+							+ " but sequences in this design have length " + plLen);
+				}
+				
+				ArrayList<String> plWT = pl.getStrandSeq(0);
+				ArrayList<String> pWT = p.getStrandSeq(0);
+				ArrayList<String> lWT = l.getStrandSeq(0);
+				
+				pl.getStrandSeqList().clear(); pl.getStrandSeqList().add(plWT);
+				p.getStrandSeqList().clear(); p.getStrandSeqList().add(pWT);
+				l.getStrandSeqList().clear(); l.getStrandSeqList().add(lWT);
+
+				for(ArrayList<String> seq : mutations) {
+					if(!pl.getStrandSeqList().contains(seq)) {
+						pl.getStrandSeqList().add(seq);
+						
+						// p
+						ArrayList<String> pSubList = new ArrayList<>();
+						for(String s : seq.subList(0, pLen)) pSubList.add(s);
+						p.getStrandSeqList().add(pSubList);
+						
+						// l
+						ArrayList<String> lSubList = new ArrayList<>();
+						for(String s : seq.subList(pLen, plLen)) lSubList.add(s);
+						l.getStrandSeqList().add(lSubList);
+					}
+				}
+			}
+			
 			//boolean parallel = true; 
 			//createEnergyMatrices(parallel);
 			//pruneEnergyMatrices();
 
-			KSCalcManagerLinear kcm = null;
+			KSImplementationLinear kcm = null;
 			String method = cfp.getParams().getValue("kstarmethod", "linear");
 			switch( method ) {
 
 			case "linear":
 			default:
-				kcm = new KSCalcManagerLinear(strand2SearchProblem, strand2AllowedSeqs, strand2Pruning, cfp);
+				kcm = new KSImplementationLinear(mutations, strand2SearchProblem, strand2AllowedSeqs, strand2Pruning, cfp);
 				break;
 			}
 

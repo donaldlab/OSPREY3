@@ -110,6 +110,7 @@ public class EnergyMatrixCalculator {
                 
                 TermECalculator pairECalc = new TermECalculator(searchSpace,shellResidues,doEPIC,
                         false,pruneMat,epicSettings,false,res,res2);
+                
                 Object pairE = pairECalc.doCalculation();
                 storeEnergy(pairE, res, res2);
             }

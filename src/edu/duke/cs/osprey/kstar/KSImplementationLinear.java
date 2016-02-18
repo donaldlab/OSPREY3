@@ -28,7 +28,7 @@ import edu.duke.cs.osprey.tools.ObjectIO;
  * @author Adegoke Ojewole (ao68@duke.edu)
  *
  */
-public class KSCalcManagerLinear {
+public class KSImplementationLinear {
 
 	HashMap<Integer, SearchProblem> strand2AllSearchProblem;
 	HashMap<Integer, AllowedSeqs> strand2AllAllowedSequence;
@@ -55,7 +55,8 @@ public class KSCalcManagerLinear {
 	long start;
 
 
-	public KSCalcManagerLinear(HashMap<Integer, SearchProblem> strand2AllSearchProblems,
+	public KSImplementationLinear(ArrayList<ArrayList<String>> mutations,
+			HashMap<Integer, SearchProblem> strand2AllSearchProblems,
 			HashMap<Integer, AllowedSeqs> strand2AllAllowedSequences,
 			HashMap<Integer, PruningControl> strand2AllPruning,
 			ConfigFileParser cfp) {

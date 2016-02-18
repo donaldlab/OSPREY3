@@ -71,6 +71,11 @@ public class AllowedSeqs {
 	public ArrayList<String> getFlexRes() {
 		return flexRes;
 	}
+	
+	
+	public int getSequenceLength() {
+		return flexRes.size();
+	}
 
 
 	public ArrayList<ArrayList<String>> getAllowedAAs() {
@@ -85,6 +90,19 @@ public class AllowedSeqs {
 
 	public ArrayList<ArrayList<String>> getStrandSeqList() {
 		return allowedSeqs;
+	}
+	
+	
+	public ArrayList<String> getStrandSeq(int index) {
+		if(index > -1 && index < allowedSeqs.size()) 
+			return allowedSeqs.get(index);
+		return null;
+	}
+	
+	
+	public void removeStrandSeq(int index) {
+		if(index > -1 && index < allowedSeqs.size()) 
+			allowedSeqs.remove(index);
 	}
 
 

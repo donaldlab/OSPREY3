@@ -83,7 +83,7 @@ public class KSCalc {
 		        dset = allowedSequences.get(strand).getDEEPerSettings();
 				
 				// new: replace existing search problem
-				seqSearchProblem = new SearchProblem( KSCalcManagerLinear.getSearchProblemName(strand, seq), 
+				seqSearchProblem = new SearchProblem( KSImplementationLinear.getSearchProblemName(strand, seq), 
 						cfp.getParams().getValue("PDBNAME"), 
 						flexibleRes, allowedAAs, true, true,
 						cfp.getParams().getBool("UseEPIC"),

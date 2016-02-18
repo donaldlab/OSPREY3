@@ -287,7 +287,7 @@ public class ConfigFileParser {
 	}
 	
     
-    DEEPerSettings setupDEEPer(){
+    DEEPerSettings setupDEEPer() {
         //Set up the DEEPerSettings object, including the PertSet (describes the perturbations)
         String runName = params.getValue("runName");
         
