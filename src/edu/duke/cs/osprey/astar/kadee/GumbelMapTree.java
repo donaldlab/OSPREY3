@@ -63,6 +63,7 @@ public class GumbelMapTree extends AStarTree {
 
     boolean verbose = false;
 
+    
     public GumbelMapTree(SearchProblem sp) {
         init(sp, sp.pruneMat);
     }
@@ -82,7 +83,8 @@ public class GumbelMapTree extends AStarTree {
         }
         randomGenerator = new Random();
     }
-
+    
+    
     private void init(SearchProblem sp, PruningMatrix aPruneMat) {
         numPos = sp.confSpace.numPos;
 
