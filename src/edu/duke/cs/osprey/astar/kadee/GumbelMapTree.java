@@ -36,9 +36,9 @@ public class GumbelMapTree extends AStarTree {
     //These are lists of residue-specific RC numbers for the unpruned RCs at each residue
 
     //ADVANCED SCORING METHODS: TO CHANGE LATER (EPIC, MPLP, etc.)
-    public boolean traditionalScore = false;
-    boolean useRefinement = false;
-    public boolean mplpScore = true;
+    public boolean traditionalScore = true;
+    boolean useRefinement = true;
+    public boolean mplpScore = false;
 
     //MPLP object for node refinement
     public Mplp mplpMinimizer;
@@ -61,6 +61,8 @@ public class GumbelMapTree extends AStarTree {
     private Random randomGenerator;
     final double constRT = PoissonBoltzmannEnergy.constRT;
 
+    boolean verbose = false;
+
     public GumbelMapTree(SearchProblem sp) {
         init(sp, sp.pruneMat);
     }
@@ -76,8 +78,6 @@ public class GumbelMapTree extends AStarTree {
         }
 
         if (mplpScore) {
-            useRefinement = true;
-//            mplpMinimizer = new Mplp(numPos, emat, pruneMat);
             mplpMinimizer = new Mplp(numPos, emat, pruneMat);
         }
         randomGenerator = new Random();
@@ -139,33 +139,21 @@ public class GumbelMapTree extends AStarTree {
 
             //Pass perturbation down
             if (curNode.getNodeAssignments()[nextLevel] == rc) {
-                AStarNode childNode = new AStarNode(childConf, scoreConfWithPert(childConf, curNode.perturbation), useRefinement);
-                childNode.perturbation = curNode.perturbation;
-                childNode.feasibleSolution = curNode.feasibleSolution;
-                ans.add(childNode);
-                if (scoreConfWithPert(childNode.feasibleSolution, childNode.perturbation) < this.currentBestFeasibleScore) {
-                    this.currentBestFeasibleScore = scoreConfWithPert(childNode.feasibleSolution, childNode.perturbation);
-                    this.currentBestFeasibleSolution = childNode.feasibleSolution;
+                double score = scoreConfWithPert(childConf, curNode.perturbation);
+                AStarNode childNode = new AStarNode(childConf, score, curNode.feasibleSolution, curNode.perturbation, useRefinement);
+                if (!canPruneNodeGumbel(childNode)){
+                    ans.add(childNode);
                 }
+                updateCurrentBestFeasibleSolution(childNode);
             } else {
                 double gumbelPert = GumbelDistribution.sampleTruncated(-GumbelDistribution.gamma + logSearchProblemSize, curNode.perturbation);
-
-                AStarNode childNode = new AStarNode(childConf, scoreConfWithPert(childConf, gumbelPert), useRefinement);
-                childNode.perturbation = gumbelPert;
-                childNode.feasibleSolution = getFeasibleSolution(childConf);
-                ans.add(childNode);
-                if (scoreConfWithPert(childNode.feasibleSolution, gumbelPert) < this.currentBestFeasibleScore) {
-                    this.currentBestFeasibleScore = scoreConfWithPert(childNode.feasibleSolution, gumbelPert);
-                    this.currentBestFeasibleSolution = childNode.feasibleSolution;
+                double score = scoreConfWithPert(childConf, gumbelPert);
+                AStarNode childNode = new AStarNode(childConf, score, getFeasibleSolution(childConf), gumbelPert, useRefinement);
+                if (!canPruneNodeGumbel(childNode)){
+                    ans.add(childNode);
                 }
+                updateCurrentBestFeasibleSolution(childNode);
             }
-            /*
-             double gumbelPert = GumbelDistribution.sampleTruncated(-GumbelDistribution.gamma + logSearchProblemSize, curNode.perturbation);
-             double score = scoreConfWithPert(childConf, gumbelPert);
-             AStarNode childNode = new AStarNode(childConf, score, useRefinement);
-             childNode.perturbation = gumbelPert;
-             ans.add(childNode);
-             */
         }
         return ans;
     }
@@ -233,8 +221,8 @@ public class GumbelMapTree extends AStarTree {
 
         return score;
     }
-    
-   public double scoreConfTraditionalWithPert(int[] partialConf, double pert) {
+
+    public double scoreConfTraditionalWithPert(int[] partialConf, double pert) {
         RCTuple definedTuple = new RCTuple(partialConf);
 
         double score = emat.getConstTerm() + emat.getInternalEnergy(definedTuple);//"g-score"
@@ -255,9 +243,9 @@ public class GumbelMapTree extends AStarTree {
             }
         }
 
-        return score - this.constRT*pert;
+        return score - this.constRT * pert;
     }
-   
+
     //operations supporting special features like dynamic A*
     public int nextLevelToExpand(int[] partialConf, double curLevelScore, double parentNoise) {
         //given a partially defined conformation, what level should be expanded next?
@@ -435,11 +423,11 @@ public class GumbelMapTree extends AStarTree {
             return (pos1 < pos2 || partialConf[pos1] >= 0);
         }
     }
-    
 
     @Override
     public void refineScore(AStarNode node) {
-        node.setScoreNeedsRefinement(false);
+    //I will use refineScore to update the bounds 
+        updateBounds(node);
     }
 
     @Override
@@ -470,12 +458,11 @@ public class GumbelMapTree extends AStarTree {
         int[] feasibleSolution = getFeasibleSolution(conf);
         double lowerBound = scoreConfWithPert(conf, gumbelNoise);
 
-        
         AStarNode root = new AStarNode(conf, lowerBound, useRefinement);
 
         root.perturbation = gumbelNoise;
         root.isRoot = true;
-        
+
         this.currentBestFeasibleSolution = feasibleSolution;
         this.currentBestFeasibleScore = scoreConfWithPert(feasibleSolution, gumbelNoise);
 
@@ -523,31 +510,40 @@ public class GumbelMapTree extends AStarTree {
         return confScore - this.constRT * perturbation;
     }
 
-    @Override
-    public boolean canPruneNode(AStarNode node) {
-//        System.out.println(node.score - this.currentBestFeasibleScore);
-        this.upperBoundLogZ = -getUpperBoundLogZ() / this.constRT;
+    public void updateBounds(AStarNode node) {
+        this.upperBoundLogZ = -getUpperBoundLogZ(node) / this.constRT;
         this.lowerBoundLogZ = -this.currentBestFeasibleScore / this.constRT;
-
-//        System.out.println("Upper Bound logZ: " + this.upperBoundLogZ);
-//        System.out.println("Lower Bound logZ: " + this.lowerBoundLogZ);
-//        System.out.println();
-        if ((this.upperBoundLogZ - this.lowerBoundLogZ < epsilon) && (this.numNodesEpsilon == -1) && (this.numExpanded > 0)) {
-            this.numNodesEpsilon = numExpanded;
+        if (verbose) {
+            System.out.println("Upper Bound logZ: " + this.upperBoundLogZ);
+            System.out.println("Lower Bound logZ: " + this.lowerBoundLogZ);
+            System.out.println("Gap between Bounds: " + (this.upperBoundLogZ - this.lowerBoundLogZ));
         }
+    }
+
+    public boolean canPruneNodeGumbel(AStarNode node) {
         if (node.getScore() + 0.00001 > this.currentBestFeasibleScore) {
             return true;
         }
         return false;
     }
 
-    public double getUpperBoundLogZ() {
+    public void updateCurrentBestFeasibleSolution(AStarNode node) {
+        double score = scoreConfWithPert(node.feasibleSolution, node.perturbation);
+        if (score < this.currentBestFeasibleScore) {
+            this.currentBestFeasibleScore = score;
+            this.currentBestFeasibleSolution = node.feasibleSolution;
+        }
+    }
+
+    public double getUpperBoundLogZ(AStarNode curNode) {
         double minScore = this.currentBestFeasibleScore;
         for (AStarNode node : this.pq) {
             if (node.getScore() < this.currentBestFeasibleScore) {
                 minScore = Math.min(minScore, node.getScore());
             }
         }
+        //Also check with current node
+        minScore = Math.min(minScore, curNode.getScore());
         return minScore;
     }
 

@@ -38,6 +38,16 @@ public class AStarNode implements Comparable {
         this.scoreNeedsRefinement = scoreNeedsRefinement;
     }
 
+    //HMN: For Gumbel Map Tree (exact sampling)
+    public AStarNode(int[] nodeAssignments, double score, int[] feasibleSolution,
+            double perturbation, boolean scoreNeedsRefinement){
+        this.nodeAssignments = nodeAssignments;
+        this.score = score;
+        this.feasibleSolution = feasibleSolution;
+        this.perturbation = perturbation;
+        this.scoreNeedsRefinement = scoreNeedsRefinement;
+    }
+    
     @Override
     public int compareTo(Object o) {
         AStarNode node2 = (AStarNode)o;//we can only compare to other AStarNodes, and expect no other cases
