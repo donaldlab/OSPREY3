@@ -10,6 +10,7 @@ When these and unit tests are working we can be fairly confident in the current 
 Involving other people directly:
 
 -K* (Needs to accommodate plans by Pablo, JJ, and Goke; for my tup exp purposes just needs to use the conf enumeration framework already used for GMEC.  Goke will focus on this)
+	- push defaults into defaults.cfg?
 	- legend for k* output
 	- k* interface
 	- fix pf issue w/# threads
