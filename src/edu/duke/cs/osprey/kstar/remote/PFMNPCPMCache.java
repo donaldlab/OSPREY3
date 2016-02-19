@@ -234,7 +234,7 @@ public class PFMNPCPMCache extends PF1NMTPCPMCache {
 
 	protected EApproxReached accumulate( ArrayList<KSConf> partialQConfs ) {
 
-		for( KSConf c : partialQConfs ) updateQStar( c.getMinEnergy() );
+		for( KSConf conf : partialQConfs ) updateQStar( conf );
 
 		// we need a current snapshot of qDagger, so we lock here
 		synchronized( confs.qLock ) {

@@ -167,7 +167,7 @@ public class PF1NPMCache extends PFAbstract {
 		// we need a current snapshot of qDagger, so we lock here
 		synchronized( confs.qLock ) {
 			// update q*, qDagger, and q' atomically
-			updateQStar( conf.getMinEnergy() );
+			updateQStar( conf );
 
 			// update qdagger
 			confs.setQDagger( confs.getQDagger().subtract(getBoltzmannWeight(conf.getMinEnergyLowerBound())) );

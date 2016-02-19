@@ -61,7 +61,10 @@ public class KStarCalculator {
 		PFAbstract.setNumThreads( cfp.params.getInt("pFuncThreads", 2) );
 		PFAbstract.setServerList( cfp.params.getValue("pFuncServerList", "localhost").split("\\s+") );
 		PFAbstract.setNumRemoteClients( cfp.params.getInt("pFuncClients", 1) );
-
+		
+		PFAbstract.saveTopConfsAsPDB = cfp.params.getBool("saveTopConfsAsPDB", false);
+		PFAbstract.setNumTopConfsToSave( cfp.params.getInt("numTopConfsToSave", 10));
+		
 		MinimizerFactory.setImplementation( PFAbstract.eMinMethod );
 	}
 

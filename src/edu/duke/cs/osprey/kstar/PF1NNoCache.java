@@ -42,10 +42,15 @@ public class PF1NNoCache extends PFAbstract {
 		startTime = System.currentTimeMillis();
 
 		if( (conf = search.nextConf()) != null ) {
+			
+			KSConf ksConf = new KSConf(conf, sp.lowerBound(conf));
+			ksConf.setMinEnergy(sp.minimizedEnergy(conf));
+			Et = ksConf.getMinEnergyLowerBound();
+			
 			// get approx gmec LB to compute p*
-			updateQStar( sp.minimizedEnergy(conf) );
+			updateQStar( ksConf );
 
-			Et = sp.lowerBound(conf);
+			Et = ksConf.getMinEnergyLowerBound();
 			
 			setPStar( Et );
 		}
@@ -78,10 +83,12 @@ public class PF1NNoCache extends PFAbstract {
 	 */
 	protected EApproxReached accumulate( int conf[] ) {
 		
-		double E = sp.minimizedEnergy(conf);
-		updateQStar( E );
-
-		Et = sp.lowerBound(conf);
+		KSConf ksConf = new KSConf(conf, sp.lowerBound(conf));
+		ksConf.setMinEnergy(sp.minimizedEnergy(conf));
+		double E = ksConf.getMinEnergy();
+		Et = ksConf.getMinEnergyLowerBound();
+		
+		updateQStar( ksConf );
 
 		// double threshold = getStopThreshold();
 		// negative values of effective esilon are disallowed

@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.kstar;
 
 import java.io.Serializable;
+import java.util.Comparator;
 
 /**
  * 
@@ -48,6 +49,22 @@ public class KSConf implements Comparable, Serializable {
 		if( Math.abs(this.minEnergyLB - ((KSConf)rhs).getMinEnergyLowerBound()) <  ERROR ) return 0;
 
 		return this.minEnergyLB > ((KSConf)rhs).getMinEnergyLowerBound() ? 1 : -1;
+	}
+	
+	public class KSConfComparator implements Comparator<KSConf> {
+
+		@Override
+		public int compare(KSConf o1, KSConf o2) {
+			
+			double diff = o1.getMinEnergy() - o2.getMinEnergy();
+			
+			if(diff > ERROR) return -1;
+			
+			if(diff < ERROR) return 1;
+			
+			return 0;
+		}
+		
 	}
 
 }

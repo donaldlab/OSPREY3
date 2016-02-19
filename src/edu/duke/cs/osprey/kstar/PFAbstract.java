@@ -1,8 +1,10 @@
 package edu.duke.cs.osprey.kstar;
 
+import java.io.File;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.PriorityQueue;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
@@ -10,6 +12,7 @@ import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.tools.ExpFunction;
+import edu.duke.cs.osprey.tools.ObjectIO;
 
 /**
  * 
@@ -28,6 +31,9 @@ public abstract class PFAbstract {
 	protected static int numThreads = 1;
 	protected static int numFibers = 1;
 	protected static int numRemoteClients = 1;
+
+	public static boolean saveTopConfsAsPDB = false;
+	protected static int numTopConfsToSave = 10;
 
 	protected static BigDecimal stabilityThresh = BigDecimal.ONE;
 	protected static double interval = 0.5;
@@ -64,6 +70,7 @@ public abstract class PFAbstract {
 	protected BigInteger minimizedConfsDuringInterval = BigInteger.ZERO;
 	protected BigInteger minimizingConfs = BigInteger.ZERO; // # confs being minimized at this instant
 
+	protected PriorityQueue<KSConf> topConfsPQ = null;
 
 	protected PFAbstract( ArrayList<String> sequence, ConfigFileParser cfp, 
 			SearchProblem sp, PruningControl pc,
@@ -80,6 +87,59 @@ public abstract class PFAbstract {
 		this.initialUnPrunedConfs = countUnPrunedConfs();
 		this.prunedConfs = countPrunedConfsByDEE();
 		this.EW_I0 = EW_I0;
+
+		topConfsPQ = new PriorityQueue<KSConf>(getNumTopConfsToSave(), 
+				(new KSConf(null, 0.0)).new KSConfComparator());
+	}
+
+
+	public static void setNumTopConfsToSave( int n ) {
+		numTopConfsToSave = n;
+	}
+
+
+	public static int getNumTopConfsToSave() {
+		return numTopConfsToSave;
+	}
+
+
+	protected int getNumTopSavedConfs() {
+		return topConfsPQ.size();
+	}
+
+
+	protected void saveTopConf(KSConf conf) {
+		
+		if(getNumTopSavedConfs() >= getNumTopConfsToSave()) {
+			
+			if(topConfsPQ.peek().getMinEnergy() > conf.getMinEnergy()) {
+				topConfsPQ.poll();
+			}
+			
+			else
+				return;
+		}
+		
+		topConfsPQ.add(conf);
+	}
+	
+	
+	protected void printTopConfs() {
+		
+		System.out.print("\nWriting top " + getNumTopSavedConfs() + " conformations for sequence: ");
+		KSCalc.print(sequence, System.out);
+		System.out.println();
+		
+		// create dir if it does not already exist
+		String dir = "topConfs" + File.separator + KSCalc.getSequenceSignature(sequence);
+		ObjectIO.makeDir(dir, false);
+		
+		String pdbName = null;
+		for( int i = getNumTopSavedConfs()-1; i > -1; i-- ) {
+			System.out.println("Saving: " + i +".pdb");
+			pdbName = dir + File.separator + String.valueOf(i) +".pdb";
+			sp.outputMinimizedStruct(topConfsPQ.poll().getConf(), pdbName);
+		}
 	}
 
 
@@ -134,7 +194,7 @@ public abstract class PFAbstract {
 
 	public BigDecimal getUpperBound() {
 		if( eAppx == EApproxReached.TRUE ) return getQStar();
-		
+
 		updateQPrime();
 		return qStar.add(qPrime);
 	}
@@ -211,7 +271,12 @@ public abstract class PFAbstract {
 	}
 
 
-	protected void updateQStar( double E ) {
+	protected void updateQStar( KSConf conf ) {
+		if(saveTopConfsAsPDB) {
+			saveTopConf(conf);
+		}
+
+		double E = conf.getMinEnergy();
 		qStar =  qStar.add( getBoltzmannWeight( E ) );
 		minimizedConfs = minimizedConfs.add(BigInteger.ONE);
 		minimizedConfsDuringInterval = minimizedConfsDuringInterval.add(BigInteger.ONE);
@@ -233,7 +298,7 @@ public abstract class PFAbstract {
 
 		while( eAppx == EApproxReached.FALSE && (double)(System.currentTimeMillis() - startTime) < interval ) {
 			computeSlice();
-			
+
 			if( eAppx == EApproxReached.NOT_POSSIBLE ) {
 				restart(100);
 				computeSlice();
@@ -246,6 +311,8 @@ public abstract class PFAbstract {
 		else 
 			setRunState(RunState.TERMINATED);
 		 */
+		
+		printTopConfs();
 	}
 
 	protected void runToCompletion() {
@@ -256,6 +323,8 @@ public abstract class PFAbstract {
 			compute();
 		}
 		//setRunState(RunState.TERMINATED);
+		
+		printTopConfs();
 	}
 
 	/**
@@ -275,15 +344,15 @@ public abstract class PFAbstract {
 		System.out.println("Restarting with EW+I0 = " + EW_I0);
 
 		this.EW_I0 = EW_I0;
-		
+
 		sp = new SearchProblem( sp.name, sp.PDBFile, sp.flexibleRes, sp.allowedAAs, false, true,
 				cfp.getParams().getBool("UseEPIC"),
-                new EPICSettings(cfp.getParams()),
-                cfp.getParams().getBool("UseTupExp"),
-                dset, moveableStrands, freeBBZones,
-                cfp.getParams().getBool("useEllipses"),
-                cfp.getParams().getBool("useERef"),
-                cfp.getParams().getBool("AddResEntropy"));
+				new EPICSettings(cfp.getParams()),
+				cfp.getParams().getBool("UseTupExp"),
+				dset, moveableStrands, freeBBZones,
+				cfp.getParams().getBool("useEllipses"),
+				cfp.getParams().getBool("useERef"),
+				cfp.getParams().getBool("AddResEntropy"));
 
 		sp.loadEnergyMatrix();
 
@@ -294,11 +363,11 @@ public abstract class PFAbstract {
 		initialUnPrunedConfs = countUnPrunedConfs();
 
 		prunedConfs = countPrunedConfsByDEE();
-		
+
 		qStar = BigDecimal.ZERO;
 
 		eAppx = EApproxReached.FALSE;
-		
+
 		start();
 	}
 
@@ -431,14 +500,14 @@ public abstract class PFAbstract {
 	public static String getImplementation() {
 		return pFuncImplementation;
 	}
-	
-	
+
+
 	public static void setStabilityThreshold(double threshold) {
 		threshold = threshold < 0.01 ? 1.0 : threshold;
 		stabilityThresh = new BigDecimal(threshold);
 	}
-	
-	
+
+
 	public static BigDecimal getStabilityThreshold() {
 		return stabilityThresh;
 	}

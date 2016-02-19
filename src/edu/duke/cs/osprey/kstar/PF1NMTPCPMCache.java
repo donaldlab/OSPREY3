@@ -18,7 +18,7 @@ import edu.duke.cs.osprey.tools.ObjectIO;
  */
 public class PF1NMTPCPMCache extends PF1NPCPMCache {
 
-	ArrayList<RemoteMinimizer> slaves = new ArrayList<>();
+	ArrayList<MinimizerFiber> slaves = new ArrayList<>();
 
 	protected int fibers;
 	protected int threadsPerFiber;
@@ -29,7 +29,7 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 			SearchProblem sp, PruningControl pc, DEEPerSettings dset, 
 			ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, 
 			double EW_I0) {
-		
+
 		super( sequence, cfp, sp, pc, dset, moveableStrands, freeBBZones, EW_I0);
 	}
 
@@ -52,11 +52,11 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 			ArrayList<SearchProblem> sps = new ArrayList<>();
 			for( int j = 0; j < threadsPerFiber; ++j ) sps.add((SearchProblem)ObjectIO.deepCopy(sp));
 
-			slaves.add( new RemoteMinimizer( sps, threadsPerFiber, confsPerThread ) );
+			slaves.add( new MinimizerFiber( sps, threadsPerFiber, confsPerThread ) );
 
 			slaves.get(slaves.size()-1).id = i;
 		}
-		
+
 		confs = new KSConfQ( this, sp, confsPerThread );
 
 		// set pstar
@@ -73,12 +73,12 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 
 			// start conformation queue
 			confs.start();
-			
+
 			if( waitUntilCapacity )
 				confs.waitUntilCapacity();
 
 			// start slave threads
-			for( RemoteMinimizer slave : slaves ) slave.start();
+			for( MinimizerFiber slave : slaves ) slave.start();
 
 		} catch(Exception e) {
 			System.out.println(e.getMessage());
@@ -90,7 +90,7 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 
 	protected void iterate() throws Exception {
 
-		for( RemoteMinimizer slave : slaves ) {
+		for( MinimizerFiber slave : slaves ) {
 
 			if( slave.getState() == Thread.State.WAITING ) {
 				// this slave can accept new conformations
@@ -151,7 +151,7 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 				if( confs.getState() == Thread.State.WAITING ) 
 					confs.qLock.notify();
 			}
-			*/
+			 */
 			iterate();
 
 			if( eAppx == EApproxReached.FALSE ) Thread.sleep(sleepInterval);
@@ -162,7 +162,7 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 				cleanUpSlaves( eAppx );
 
 				// wait for all slaves to finish
-				for( RemoteMinimizer slave : slaves ) slave.join();
+				for( MinimizerFiber slave : slaves ) slave.join();
 			}
 
 		} catch(Exception e) {
@@ -189,7 +189,7 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 			cleanUpSlaves( eAppx );
 
 			// wait for all slaves to finish
-			for( RemoteMinimizer slave : slaves ) slave.join();
+			for( MinimizerFiber slave : slaves ) slave.join();
 
 		} catch(Exception e) {
 			System.out.println(e.getMessage());
@@ -203,7 +203,7 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 
 		//System.out.println(slave.id + " cleaning up other slaves");
 
-		for( RemoteMinimizer slave : slaves ) {
+		for( MinimizerFiber slave : slaves ) {
 
 			//System.out.println(slave2.id + " cleaning up");
 
@@ -233,6 +233,12 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 
 	protected void updateQStar( BigDecimal partialQ, ArrayList<KSConf> partialQConfs ) {
 		qStar = qStar.add( partialQ );
+
+		if(saveTopConfsAsPDB) {
+			for( KSConf conf : partialQConfs )
+				saveTopConf(conf);
+		}
+
 		minimizedConfs = minimizedConfs.add( BigInteger.valueOf(partialQConfs.size()) );
 		minimizedConfsDuringInterval = minimizedConfsDuringInterval.add( BigInteger.valueOf(partialQConfs.size()) );
 	}
@@ -265,7 +271,7 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 	}
 
 
-	protected class RemoteMinimizer extends Thread {
+	protected class MinimizerFiber extends Thread {
 
 		int id = 0;
 
@@ -286,7 +292,7 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 		 * @param bufLock governs use of the conformation buffer
 		 * @param spsPerMinimizer = number of sps; also the size of the confs list
 		 */
-		public RemoteMinimizer( ArrayList<SearchProblem> sps, 
+		public MinimizerFiber( ArrayList<SearchProblem> sps, 
 				int spsPerMinimizer, int confsPerMinimizer ) {
 
 			this.sps = sps;

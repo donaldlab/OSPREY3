@@ -12,7 +12,9 @@ Involving other people directly:
 -K* (Needs to accommodate plans by Pablo, JJ, and Goke; for my tup exp purposes just needs to use the conf enumeration framework already used for GMEC.  Goke will focus on this)
 	- legend for k* output
 	- k* interface
-	- output pdb
+	- fix pf issue w/# threads
+	- precompute all searchspaces
+	- rename ksconfs output for each sequence
 -BWM* (work w/ JJ as discussed)
 -RNA (get code from Swati, should be easy to incorporate)
 

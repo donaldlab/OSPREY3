@@ -195,7 +195,7 @@ public class PF1NPCPMCache extends PF1NPMCache {
 
 			for( int i = 0; i < PFAbstract.getNumThreads(); ++i ) {
 				
-				updateQStar( partialQConfs.get(i).getMinEnergy() );
+				updateQStar( partialQConfs.get(i) );
 				
 				// negative values of effective epsilon are disallowed
 				if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0) return EApproxReached.NOT_POSSIBLE;
