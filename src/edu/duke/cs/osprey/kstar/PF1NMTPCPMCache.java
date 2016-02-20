@@ -30,7 +30,7 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 			ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, 
 			double EW_I0) {
 
-		super( sequence, cfp, sp, pc, dset, moveableStrands, freeBBZones, EW_I0);
+		super( sequence, cfp, sp, pc, dset, moveableStrands, freeBBZones, EW_I0 );
 	}
 
 
@@ -99,7 +99,7 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 				synchronized( slave.bufLock ) {
 
 					// update global qStar
-					if( slave.inputConsumed && (eAppx = accumulate( slave.partialQStar, slave.buf )) != EApproxReached.FALSE ) {
+					if( slave.inputConsumed && (eAppx = accumulate( slave.buf )) != EApproxReached.FALSE ) {
 
 						slave.inputConsumed = false;
 
@@ -219,7 +219,8 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 				// eappx = notposible to eappx = true
 				if( eAppx != EApproxReached.TRUE && slave.inputConsumed ) {
 
-					if( (eAppx = accumulate( slave.partialQStar, slave.buf )) == EApproxReached.TRUE ) {
+					// if( (eAppx = accumulate2( slave.partialQStar, slave.buf )) == EApproxReached.TRUE ) {
+					if( (eAppx = accumulate( slave.buf )) == EApproxReached.TRUE ) {
 						val = EApproxReached.TRUE;
 					}
 				}
@@ -255,8 +256,8 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 
 			confs.setQDagger( confs.getQDagger().subtract( computePartialQDagger(partialQConfs) ) );
 
-			Et = confs.size() > 0 ? confs.get(confs.size()-1).getMinEnergyLowerBound() : 
-				partialQConfs.get(partialQConfs.size()-1).getMinEnergyLowerBound();
+			Et = confs.peekTail() != null ? confs.peekTail().getMinEnergyLowerBound() 
+					: partialQConfs.get(partialQConfs.size()-1).getMinEnergyLowerBound();
 
 			// negative values of effective esilon are disallowed
 			if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0) return EApproxReached.NOT_POSSIBLE;
@@ -265,6 +266,42 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 
 			System.out.println(partialQConfs.get(partialQConfs.size()-1).getMinEnergy() + "\t" + effectiveEpsilon + "\t" + 
 					getNumMinimizedConfs() + "\t" + getNumUnMinimizedConfs() + "\t "+ ((currentTime-startTime)/1000));
+		}
+
+		return effectiveEpsilon > targetEpsilon ? EApproxReached.FALSE : EApproxReached.TRUE;
+	}
+	
+	
+	@Override
+	protected EApproxReached accumulate( ArrayList<KSConf> partialQConfs ) {
+
+		double E = 0;
+		
+		// we need a current snapshot of qDagger, so we lock here
+		synchronized( confs.qLock ) {
+			// update q*, qDagger, minimizingConfs, and q' atomically
+			confs.setQDagger( confs.getQDagger().subtract( computePartialQDagger(partialQConfs) ) );
+
+			Et = confs.peekTail() != null ? confs.peekTail().getMinEnergyLowerBound() 
+					: partialQConfs.get(partialQConfs.size()-1).getMinEnergyLowerBound();
+
+			for( KSConf conf : partialQConfs ) {
+				
+				minimizingConfs = minimizingConfs.subtract( BigInteger.ONE );
+				
+				E = conf.getMinEnergy();
+				updateQStar( conf );
+				
+				// negative values of effective epsilon are disallowed
+				if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0 ) return EApproxReached.NOT_POSSIBLE;
+			
+				if( effectiveEpsilon <= targetEpsilon ) break;
+			}
+
+			long currentTime = System.currentTimeMillis();
+
+			System.out.println(Et + "\t" + E + "\t" + effectiveEpsilon + "\t" + 
+					getNumMinimizedConfs() + "\t" + getNumUnMinimizedConfs() + "\t" + ((currentTime-startTime)/1000));
 		}
 
 		return effectiveEpsilon > targetEpsilon ? EApproxReached.FALSE : EApproxReached.TRUE;

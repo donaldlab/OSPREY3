@@ -44,12 +44,12 @@ public class KSConfQ extends Thread {
 
 
 	public void waitUntilCapacity() throws InterruptedException {
-		
+
 		while( !exhausted() && size() < getQCapacity() )
 			Thread.sleep(250);
 	}
 
-	
+
 	public boolean getNextConf() {
 
 		int c[] = null;
@@ -72,21 +72,20 @@ public class KSConfQ extends Thread {
 		return confsExhausted;
 	}
 
-	
+
 	public KSConf peekTail() {
 		return q.size() > 0 ? q.get(q.size()-1) : null;
 	}
 
-	
+
 	public KSConf peek() {
 		return q.size() > 0 ? q.get(0) : null;
 	}
 
 
 	public void enQueue( int conf[] ) {
-		double minELowerBound = Double.POSITIVE_INFINITY;
 
-		minELowerBound = sp.lowerBound(conf);
+		double minELowerBound = sp.lowerBound(conf);
 		qDagger = qDagger.add( pf.getBoltzmannWeight(minELowerBound) );
 
 		KSConf ksc = new KSConf(conf, minELowerBound);
@@ -172,6 +171,10 @@ public class KSConfQ extends Thread {
 					return;
 
 				enQueue(conf);
+				
+				// ensuing confs have a high lower bound; not useful
+				if(peekTail().getMinEnergyLowerBound() > 0.0)
+					setQCapacity(Math.max(minCapacity, size()));
 
 				// notify queue consumer ONLY if queue was empty before
 				// i added latest conformation. this condition means that

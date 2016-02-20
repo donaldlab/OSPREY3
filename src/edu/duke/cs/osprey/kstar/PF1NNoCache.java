@@ -25,7 +25,7 @@ public class PF1NNoCache extends PFAbstract {
 			SearchProblem sp, PruningControl pc, DEEPerSettings dset, 
 			ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, 
 			double EW_I0) {
-		
+
 		super( sequence, cfp, sp, pc, dset, moveableStrands, freeBBZones, EW_I0);
 	}
 
@@ -42,62 +42,86 @@ public class PF1NNoCache extends PFAbstract {
 		startTime = System.currentTimeMillis();
 
 		if( (conf = search.nextConf()) != null ) {
-			
+
 			KSConf ksConf = new KSConf(conf, sp.lowerBound(conf));
 			ksConf.setMinEnergy(sp.minimizedEnergy(conf));
 			Et = ksConf.getMinEnergyLowerBound();
-			
+
 			// get approx gmec LB to compute p*
 			updateQStar( ksConf );
 
 			Et = ksConf.getMinEnergyLowerBound();
-			
+
 			setPStar( Et );
 		}
 
 	}
 
-	
-	protected void iterate() throws Exception {}
-	
 
+	protected void iterate() throws Exception {
+
+		int rawConf[];
+
+		if( (rawConf = search.nextConf()) != null ) {
+
+			KSConf conf = new KSConf(rawConf, sp.lowerBound(rawConf));
+
+			if( (eAppx = accumulate(conf)) == EApproxReached.NOT_POSSIBLE )
+				System.out.println("Cannot reach epsilon");
+		}
+	}
+
+
+	@Override
 	protected void computeSlice() {
-		int conf[];
 
-		if( (conf = search.nextConf()) != null ) {
-			eAppx = accumulate(conf);
+		try {
+
+			iterate();
+
+		} catch(Exception e) {
+			System.out.println(e.getMessage());
+			e.printStackTrace();
+			System.exit(1);
 		}
 	}
 
 
 	protected void compute() {
 
-		int conf[];
+		try {
 
-		while( (conf = search.nextConf()) != null && (eAppx = accumulate(conf)) == EApproxReached.FALSE );
+			while( eAppx == EApproxReached.FALSE ) {
+
+				iterate();
+
+			}
+
+		} catch(Exception e) {
+			System.out.println(e.getMessage());
+			e.printStackTrace();
+			System.exit(1);
+		}
 	}
 
 
 	/**
 	 * Synchronous version evaluates conf energy immediately and adds to value.
 	 */
-	protected EApproxReached accumulate( int conf[] ) {
-		
-		KSConf ksConf = new KSConf(conf, sp.lowerBound(conf));
-		ksConf.setMinEnergy(sp.minimizedEnergy(conf));
-		double E = ksConf.getMinEnergy();
-		Et = ksConf.getMinEnergyLowerBound();
-		
-		updateQStar( ksConf );
+	protected EApproxReached accumulate( KSConf conf ) {
 
-		// double threshold = getStopThreshold();
+		conf.setMinEnergy(sp.minimizedEnergy(conf.getConf()));
+		double E = conf.getMinEnergy();
+		Et = conf.getMinEnergyLowerBound();
+
+		updateQStar( conf );
+
 		// negative values of effective esilon are disallowed
-		if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0) return EApproxReached.NOT_POSSIBLE;
+		if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0 ) return EApproxReached.NOT_POSSIBLE;
 
 		long currentTime = System.currentTimeMillis();
 
-		// System.out.println(E + "\t" + Et + "\t" + effectiveEpsilon + "\t" + getNumEvaluatedConfs() + "\t" + getNumRemainingConfs());
-		System.out.println(E + "\t" + effectiveEpsilon + "\t" 
+		System.out.println(Et + "\t" + E + "\t" + effectiveEpsilon + "\t" 
 				+ getNumMinimizedConfs() + "\t" + getNumUnMinimizedConfs() + "\t "+ ((currentTime-startTime)/1000));
 
 		// return Et < threshold ? true : false;

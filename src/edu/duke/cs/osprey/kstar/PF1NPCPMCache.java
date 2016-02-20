@@ -84,22 +84,6 @@ public class PF1NPCPMCache extends PF1NPMCache {
 	protected void iterate() throws Exception {
 
 		synchronized( confs.qLock ) {
-			// only process when there are enough confs ready to be processed
-			if( confs.size() < PFAbstract.getNumThreads() ) {
-				// check whether epsilon is possible
-				// eAppx is false when this function is invoked
-				epsilonPossible( PFAbstract.getNumThreads() );
-			}
-		}
-
-		if( eAppx == EApproxReached.NOT_POSSIBLE ) {
-
-			confs.cleanUp();
-
-			return;
-		}
-
-		synchronized( confs.qLock ) {
 
 			if( confs.size() < PFAbstract.getNumThreads() ) confs.qLock.wait();
 
@@ -109,18 +93,18 @@ public class PF1NPCPMCache extends PF1NPMCache {
 					partialQConfs.set(i, confs.deQueue());
 				
 				else {
-					while( indexes.size() > i+1 ) indexes.remove(i+1);
-					break;
+					partialQConfs.remove(partialQConfs.size()-1);
+					indexes.remove(indexes.size()-1);
 				}
 			}
 			
-			minimizingConfs = minimizingConfs.add( BigInteger.valueOf(PFAbstract.getNumThreads()) );
+			minimizingConfs = minimizingConfs.add( BigInteger.valueOf(partialQConfs.size()) );
 
 			if( confs.getState() == Thread.State.WAITING ) confs.qLock.notify();
 		}
 
 		// minimization hapens here
-		if( (eAppx = accumulate()) != EApproxReached.FALSE ) {
+		if( (eAppx = accumulate(partialQConfs)) != EApproxReached.FALSE ) {
 			// we leave this function
 
 			confs.cleanUp();
@@ -176,38 +160,43 @@ public class PF1NPCPMCache extends PF1NPMCache {
 	}
 
 
-	protected EApproxReached accumulate() {
+	protected EApproxReached accumulate( ArrayList<KSConf> partialQConfs ) {
 
+		if( partialQConfs.size() == 0 )
+			return eAppx;
+		
 		// we do not have a lock when minimizing
 		indexes.parallelStream().forEach( i -> {
 			partialQConfs.get(i).setMinEnergy( sps.get(i).minimizedEnergy(partialQConfs.get(i).getConf()) );
 		});
 
+		double E = 0;
+		
 		// we need a current snapshot of qDagger, so we lock here
 		synchronized( confs.qLock ) {
 			// update q*, qDagger, minimizingConfs, and q' atomically
 			
-			minimizingConfs = minimizingConfs.subtract( BigInteger.valueOf(PFAbstract.getNumThreads()) );
-			
 			confs.setQDagger( confs.getQDagger().subtract( computePartialQDagger(partialQConfs) ) );
 
-			Et = confs.size() > 0 ? confs.get(confs.size()-1).getMinEnergyLowerBound() : partialQConfs.get(partialQConfs.size()-1).getMinEnergyLowerBound();
+			Et = confs.peekTail() != null ? confs.peekTail().getMinEnergyLowerBound() 
+					: partialQConfs.get(partialQConfs.size()-1).getMinEnergyLowerBound();
 
-			for( int i = 0; i < PFAbstract.getNumThreads(); ++i ) {
+			for( KSConf conf : partialQConfs ) {
 				
-				updateQStar( partialQConfs.get(i) );
+				minimizingConfs = minimizingConfs.subtract( BigInteger.ONE );
+				
+				E = conf.getMinEnergy();
+				updateQStar( conf );
 				
 				// negative values of effective epsilon are disallowed
-				if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0) return EApproxReached.NOT_POSSIBLE;
+				if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0 ) return EApproxReached.NOT_POSSIBLE;
 			
 				if( effectiveEpsilon <= targetEpsilon ) break;
 			}
 
 			long currentTime = System.currentTimeMillis();
-
-			double qDaggerLB = confs.peekTail() != null ? confs.peekTail().getMinEnergyLowerBound() : Double.MAX_VALUE;
 			
-			System.out.println(qDaggerLB + "\t" + partialQConfs.get(partialQConfs.size()-1).getMinEnergy() + "\t" + effectiveEpsilon + "\t" + 
+			System.out.println(Et + "\t" + E + "\t" + effectiveEpsilon + "\t" + 
 					getNumMinimizedConfs() + "\t" + getNumUnMinimizedConfs() + "\t" + ((currentTime-startTime)/1000));
 		}
 

@@ -32,7 +32,7 @@ public class PF1NPMCache extends PFAbstract {
 	protected void start() {
 
 		setRunState(RunState.STARTED);
-		
+
 		confs = new KSConfQ( this, (SearchProblem)ObjectIO.deepCopy(sp), 1 );
 
 		// set pstar
@@ -48,7 +48,7 @@ public class PF1NPMCache extends PFAbstract {
 		try {
 
 			confs.start();
-			
+
 			if( waitUntilCapacity )
 				confs.waitUntilCapacity();
 
@@ -116,10 +116,9 @@ public class PF1NPMCache extends PFAbstract {
 		// minimization hapens here
 		if( (eAppx = accumulate( conf )) != EApproxReached.FALSE ) {
 			// we leave this function
-
 			confs.cleanUp();
 		}
-		
+
 		if( eAppx == EApproxReached.NOT_POSSIBLE )
 			System.out.println("Cannot reach epsilon");
 	}
@@ -134,10 +133,11 @@ public class PF1NPMCache extends PFAbstract {
 				if( confs.getState() == Thread.State.WAITING ) 
 					confs.qLock.notify();
 			}
-			*/
+			 */
 			iterate();
 
 		} catch(Exception e) {
+			System.out.println(e.getMessage());
 			e.printStackTrace();
 			System.exit(1);
 		}
@@ -179,7 +179,7 @@ public class PF1NPMCache extends PFAbstract {
 
 			long currentTime = System.currentTimeMillis();
 
-			System.out.println(conf.getMinEnergy() + "\t" + effectiveEpsilon + "\t" + 
+			System.out.println(Et + "\t" + conf.getMinEnergy() + "\t" + effectiveEpsilon + "\t" + 
 					getNumMinimizedConfs() + "\t" + getNumUnMinimizedConfs() + "\t "+ ((currentTime-startTime)/1000));
 		}
 
@@ -207,11 +207,11 @@ public class PF1NPMCache extends PFAbstract {
 		}
 	}
 
-	
+
 	public BigDecimal getUpperBoundAtEpsilon() {
 		// this gives the precise 1-epsilon upperbound for the partition function
 		// 1 - (q* + remainder)/(denom) = targetEpsilon
-		
+
 		synchronized( confs.qLock ) {
 
 			if( eAppx == EApproxReached.TRUE ) return getQStar();
@@ -220,33 +220,33 @@ public class PF1NPMCache extends PFAbstract {
 
 			BigDecimal uB;
 			BigDecimal denom = ((qStar.add(confs.getQDagger())).add(qPrime)).add(pStar);
-			
+
 			BigDecimal remainder = (BigDecimal.valueOf(1.0 - PFAbstract.targetEpsilon).multiply(denom)).subtract(qStar);
-			
+
 			if( remainder.compareTo( confs.getQDagger().add(qPrime) ) <= 0 )
 				uB = qStar.add(remainder);
-			
+
 			else 
 				uB = denom.subtract(pStar);
-			
+
 			return uB;
 		}
 	}
-	
-	
+
+
 	protected void updateQPrime() {
-		qPrime = getBoltzmannWeight( Et ).
-				multiply( new BigDecimal(getNumUnMinimizedConfs().longValue() - confs.size() - minimizingConfs.longValue() ) );
 		
-		 //qPrime = getBoltzmannWeight( Et ).
-			//	multiply( new BigDecimal(getNumUnMinimizedConfs().longValue() ) );
+		qPrime = getBoltzmannWeight( Et ).
+				multiply( new BigDecimal(getNumUnMinimizedConfs().longValue() 
+						- confs.size() - minimizingConfs.longValue() ) );
 	}
-	
+
 
 	protected double computeEffectiveEpsilon() {
+		
 		updateQPrime();
 
-		BigDecimal divisor = ( (qStar.add(qPrime)).add(confs.getQDagger()) ).add(pStar);
+		BigDecimal divisor = ( (qStar.add(confs.getQDagger())).add(qPrime) ).add(pStar);
 
 		// divisor is 0 iff qstar = 0. this means the energies are too high
 		// so epsilon can never be reached
@@ -254,9 +254,9 @@ public class PF1NPMCache extends PFAbstract {
 
 		BigDecimal maxQStar = divisor.subtract(pStar);
 
-		BigDecimal minEpsilon = BigDecimal.ONE.subtract( maxQStar.divide(divisor, 4) );
+		double minEpsilon = BigDecimal.ONE.subtract( maxQStar.divide(divisor, 4) ).doubleValue();
 
-		if( minEpsilon.compareTo(BigDecimal.valueOf(targetEpsilon)) > 0 ) return -1.0;
+		if( minEpsilon > targetEpsilon ) return -1.0;
 
 		return BigDecimal.ONE.subtract( qStar.divide(divisor,4) ).doubleValue();
 	}
@@ -264,15 +264,15 @@ public class PF1NPMCache extends PFAbstract {
 
 	protected BigInteger getNumUnMinimizedConfs() {
 		// assuming locks are in place
-		
+
 		BigInteger numProcessing = (minimizedConfs.add(BigInteger.valueOf(confs.size()))).add(minimizingConfs);
-		
+
 		BigInteger ans = initialUnPrunedConfs.subtract( numProcessing );
-		
+
 		// this final comparison is necessary to maintain the count of remaining
 		// confs after we re-start k* due to epsilonnotpossible
 		if( ans.compareTo(BigInteger.ZERO) < 0 ) ans = BigInteger.ZERO;
-		
+
 		return ans;
 	}
 

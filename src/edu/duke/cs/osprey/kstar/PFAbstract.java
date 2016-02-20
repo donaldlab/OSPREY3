@@ -126,7 +126,7 @@ public abstract class PFAbstract {
 	
 	protected void printTopConfs() {
 		
-		System.out.print("\nWriting top " + getNumTopSavedConfs() + " conformations for sequence: ");
+		System.out.print("\nWriting top " + getNumTopSavedConfs() + " conformation(s) for sequence: ");
 		KSCalc.print(sequence, System.out);
 		System.out.println();
 		
@@ -136,7 +136,7 @@ public abstract class PFAbstract {
 		
 		String pdbName = null;
 		for( int i = getNumTopSavedConfs()-1; i > -1; i-- ) {
-			System.out.println("Saving: " + i +".pdb");
+			System.out.println("Saving: " + i +".pdb" + "\tminE:" + topConfsPQ.peek().getMinEnergy());
 			pdbName = dir + File.separator + String.valueOf(i) +".pdb";
 			sp.outputMinimizedStruct(topConfsPQ.poll().getConf(), pdbName);
 		}
@@ -248,9 +248,9 @@ public abstract class PFAbstract {
 
 		BigDecimal maxQStar = qStar.add(qPrime);
 
-		BigDecimal minEpsilon = BigDecimal.ONE.subtract( maxQStar.divide(divisor, 4) );
+		double minEpsilon = BigDecimal.ONE.subtract( maxQStar.divide(divisor, 4) ).doubleValue();
 
-		if( minEpsilon.compareTo(BigDecimal.valueOf(targetEpsilon)) > 0 ) return -1.0;
+		if( minEpsilon > targetEpsilon ) return -1.0;
 
 		return BigDecimal.ONE.subtract( qStar.divide(divisor, 4) ).doubleValue();
 	}
@@ -272,12 +272,12 @@ public abstract class PFAbstract {
 
 
 	protected void updateQStar( KSConf conf ) {
+		
 		if(saveTopConfsAsPDB) {
 			saveTopConf(conf);
 		}
 
-		double E = conf.getMinEnergy();
-		qStar =  qStar.add( getBoltzmannWeight( E ) );
+		qStar = qStar.add( getBoltzmannWeight( conf.getMinEnergy() ) );
 		minimizedConfs = minimizedConfs.add(BigInteger.ONE);
 		minimizedConfsDuringInterval = minimizedConfsDuringInterval.add(BigInteger.ONE);
 	}
@@ -523,7 +523,6 @@ public abstract class PFAbstract {
 		case "1npcpmcache":
 		case "1nmtpcpmcache":
 		case "mnpcpmcache":
-		case "mnmcpcpmcache":
 			pFuncImplementation = implementation;
 			break;
 
