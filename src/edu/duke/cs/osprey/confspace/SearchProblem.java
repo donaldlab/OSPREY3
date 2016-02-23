@@ -230,7 +230,7 @@ public class SearchProblem implements Serializable {
     }
     
     
-    enum MatrixType {
+    public enum MatrixType {
         EMAT, TUPEXPEMAT, EPICMAT;
     }
     

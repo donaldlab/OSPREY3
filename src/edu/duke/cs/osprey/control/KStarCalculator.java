@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.control;
 
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -10,7 +11,8 @@ import java.util.HashMap;
 import edu.duke.cs.osprey.confspace.AllowedSeqs;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.Strand;
-import edu.duke.cs.osprey.kstar.KSImplementationLinear;
+import edu.duke.cs.osprey.kstar.KSImplLinear;
+import edu.duke.cs.osprey.kstar.KSImplLinear2;
 import edu.duke.cs.osprey.kstar.PFAbstract;
 import edu.duke.cs.osprey.minimization.MinimizerFactory;
 import edu.duke.cs.osprey.pruning.PruningControl;
@@ -61,10 +63,10 @@ public class KStarCalculator {
 		PFAbstract.setNumThreads( cfp.params.getInt("pFuncThreads", 2) );
 		PFAbstract.setServerList( cfp.params.getValue("pFuncServerList", "localhost").split("\\s+") );
 		PFAbstract.setNumRemoteClients( cfp.params.getInt("pFuncClients", 1) );
-		
+
 		PFAbstract.saveTopConfsAsPDB = cfp.params.getBool("saveTopConfsAsPDB", false);
 		PFAbstract.setNumTopConfsToSave( cfp.params.getInt("numTopConfsToSave", 10));
-		
+
 		MinimizerFactory.setImplementation( PFAbstract.eMinMethod );
 	}
 
@@ -136,7 +138,11 @@ public class KStarCalculator {
 	}
 
 
-	protected ArrayList<ArrayList<String>> readMutFile( String path ) throws Exception {	
+	protected ArrayList<ArrayList<String>> readMutFile( String path ) throws Exception {
+		
+		if( !new File(path).exists() )
+			throw new RuntimeException("ERROR: " + path + " does not exist");
+		
 		ArrayList<ArrayList<String>> ans = new ArrayList<>();
 		try (BufferedReader br = new BufferedReader(new FileReader(path))) {
 			String line;
@@ -158,67 +164,88 @@ public class KStarCalculator {
 	}
 
 
+	public ArrayList<ArrayList<String>> filterByMutFile() throws Exception {
+		
+		String path = cfp.getParams().getValue("mutfile", "");
+		if(path.length() == 0) return null;
+		
+		// read .mut file
+		// filter list of mutations; only run those listed
+		ArrayList<ArrayList<String>> mutations = readMutFile( path );
+		
+		if(mutations == null) 
+			return null;
+
+		AllowedSeqs pl = strand2AllowedSeqs.get(Strand.COMPLEX);
+		AllowedSeqs p = strand2AllowedSeqs.get(Strand.PROTEIN);
+		AllowedSeqs l = strand2AllowedSeqs.get(Strand.LIGAND);
+
+		int plLen = pl.getSequenceLength(), pLen = p.getSequenceLength();
+
+		if(mutations.get(0).size() != plLen) {
+			throw new RuntimeException("ERROR: mutfile sequences have length " + mutations.get(0).size()
+					+ " but sequences in this design have length " + plLen);
+		}
+
+		ArrayList<String> plWT = pl.getStrandSeq(0);
+		ArrayList<String> pWT = p.getStrandSeq(0);
+		ArrayList<String> lWT = l.getStrandSeq(0);
+
+		pl.getStrandSeqList().clear(); pl.getStrandSeqList().add(plWT);
+		p.getStrandSeqList().clear(); p.getStrandSeqList().add(pWT);
+		l.getStrandSeqList().clear(); l.getStrandSeqList().add(lWT);
+
+		for(ArrayList<String> seq : mutations) {
+			if(!pl.getStrandSeqList().contains(seq)) {
+				pl.getStrandSeqList().add(seq);
+
+				// p
+				ArrayList<String> pSubList = new ArrayList<>();
+				for(String s : seq.subList(0, pLen)) pSubList.add(s);
+				p.getStrandSeqList().add(pSubList);
+
+				// l
+				ArrayList<String> lSubList = new ArrayList<>();
+				for(String s : seq.subList(pLen, plLen)) lSubList.add(s);
+				l.getStrandSeqList().add(lSubList);
+			}
+		}
+
+		pl.truncateAllowedAAs();
+		p.truncateAllowedAAs();
+		l.truncateAllowedAAs();
+
+		return mutations;
+	}
+
+
 	public void calcKStarScores() {
 
 		try {
 			createSearchProblems();
-			
-			// read .mut file
-			// filter list of mutations; only run those listed
-			ArrayList<ArrayList<String>> mutations = readMutFile( cfp.getParams().getValue("mutfile") );
-			if(mutations != null) {
-				
-				AllowedSeqs pl = strand2AllowedSeqs.get(Strand.COMPLEX);
-				AllowedSeqs p = strand2AllowedSeqs.get(Strand.PROTEIN);
-				AllowedSeqs l = strand2AllowedSeqs.get(Strand.LIGAND);
-				
-				int plLen = pl.getSequenceLength(), pLen = p.getSequenceLength();
-				
-				if(mutations.get(0).size() != plLen) {
-					throw new RuntimeException("ERROR: mutfile sequences have length " + mutations.get(0).size()
-							+ " but sequences in this design have length " + plLen);
-				}
-				
-				ArrayList<String> plWT = pl.getStrandSeq(0);
-				ArrayList<String> pWT = p.getStrandSeq(0);
-				ArrayList<String> lWT = l.getStrandSeq(0);
-				
-				pl.getStrandSeqList().clear(); pl.getStrandSeqList().add(plWT);
-				p.getStrandSeqList().clear(); p.getStrandSeqList().add(pWT);
-				l.getStrandSeqList().clear(); l.getStrandSeqList().add(lWT);
-
-				for(ArrayList<String> seq : mutations) {
-					if(!pl.getStrandSeqList().contains(seq)) {
-						pl.getStrandSeqList().add(seq);
-						
-						// p
-						ArrayList<String> pSubList = new ArrayList<>();
-						for(String s : seq.subList(0, pLen)) pSubList.add(s);
-						p.getStrandSeqList().add(pSubList);
-						
-						// l
-						ArrayList<String> lSubList = new ArrayList<>();
-						for(String s : seq.subList(pLen, plLen)) lSubList.add(s);
-						l.getStrandSeqList().add(lSubList);
-					}
-				}
-			}
+			ArrayList<ArrayList<String>> mutations = filterByMutFile();
 			
 			//boolean parallel = true; 
 			//createEnergyMatrices(parallel);
 			//pruneEnergyMatrices();
 
-			KSImplementationLinear kcm = null;
 			String method = cfp.getParams().getValue("kstarmethod", "linear");
+			
 			switch( method ) {
 
+			case "linear2":
+				KSImplLinear2 linear2 = new KSImplLinear2(cfp);
+				linear2.init(strand2AllowedSeqs);
+				linear2.run();
+				break;
+			
 			case "linear":
 			default:
-				kcm = new KSImplementationLinear(mutations, strand2SearchProblem, strand2AllowedSeqs, strand2Pruning, cfp);
+				KSImplLinear linear = new KSImplLinear(mutations, strand2SearchProblem, 
+						strand2AllowedSeqs, strand2Pruning, cfp);
+				linear.run();
 				break;
 			}
-
-			kcm.run();
 
 		} catch(Exception e) {
 			System.out.println(e.getMessage());

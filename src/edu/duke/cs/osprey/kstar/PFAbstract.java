@@ -49,12 +49,12 @@ public abstract class PFAbstract {
 	public static enum RunState { NOTSTARTED, STARTED, SUSPENDED, TERMINATED }
 	protected RunState runState = RunState.NOTSTARTED;
 
-	protected ConfigFileParser cfp;
-	protected SearchProblem sp;
-	protected PruningControl pc;
-	protected DEEPerSettings dset;
-	protected ArrayList<String[]> moveableStrands;
-	protected ArrayList<String[]> freeBBZones;
+	protected ConfigFileParser cfp = null;
+	protected SearchProblem sp = null;
+	protected PruningControl pc = null;
+	protected DEEPerSettings dset = null;
+	protected ArrayList<String[]> moveableStrands = null;
+	protected ArrayList<String[]> freeBBZones = null;
 
 	protected BigDecimal qStar = BigDecimal.ZERO;
 	protected BigDecimal qPrime = BigDecimal.ZERO;
@@ -204,8 +204,15 @@ public abstract class PFAbstract {
 		return getUpperBound();
 	}
 
+	
+	public void setNumUnPrunedConfs() {
+		initialUnPrunedConfs = countUnPrunedConfs();
+	}
+	
 
 	private BigInteger countUnPrunedConfs() {
+		if(pc == null) return BigInteger.ZERO;
+		
 		BigInteger numUPConfs = BigInteger.ONE;
 
 		for( int pos = 0; pos < sp.confSpace.numPos; ++pos ) {
@@ -214,8 +221,15 @@ public abstract class PFAbstract {
 		return numUPConfs;
 	}
 
+	
+	public void setNumPrunedConfsByDEE() {
+		prunedConfs = countPrunedConfsByDEE();
+	}
+	
 
 	private BigInteger countPrunedConfsByDEE() {
+		if(pc == null) return BigInteger.ZERO;
+		
 		BigInteger numPConfs = BigInteger.ONE;
 
 		for( int pos = 0; pos < sp.confSpace.numPos; ++pos ) {
@@ -356,7 +370,7 @@ public abstract class PFAbstract {
 
 		sp.loadEnergyMatrix();
 
-		pc = cfp.getPruningControl(sp, EW_I0, false, false);
+		pc = getPruningControl();
 
 		pc.prune();
 
@@ -370,6 +384,18 @@ public abstract class PFAbstract {
 
 		start();
 	}
+	
+	
+	protected SearchProblem getSearchProblem() {
+		return sp;
+	}
+	
+	
+	protected PruningControl getPruningControl() {
+		if(pc == null) pc = cfp.getPruningControl(sp, EW_I0, false, false);
+		return pc;
+	}
+	
 
 	protected EApproxReached accumulate( int conf[] ) {
 		return EApproxReached.FALSE;
@@ -410,8 +436,8 @@ public abstract class PFAbstract {
 
 		if(requested < 1) requested = 1;
 
-		else if(requested > Runtime.getRuntime().availableProcessors() - 1) 
-			requested = Runtime.getRuntime().availableProcessors() - 1;
+		else if(requested > Runtime.getRuntime().availableProcessors()) 
+			requested = Runtime.getRuntime().availableProcessors();
 
 		return requested;
 	}

@@ -158,7 +158,7 @@ public class BFGSMinimizer extends CCDMinimizer implements Minimizer {
 			for( int i = 0; i < n; ++i ) dg.setQuick( i, fac*xi.getQuick(i)-fad*hdg.getQuick(i) );
 
 			// bfgs hessian updating formula
-			
+			/*
 			for( int i = 0; i < n; ++i ) for ( int j = i; j < n; ++j ) {
 				hij = hessian.getQuick(i,j);
 
@@ -168,8 +168,8 @@ public class BFGSMinimizer extends CCDMinimizer implements Minimizer {
 
 				hessian.setQuick( j, i, hessian.getQuick(i,j) );
 			}
+			*/
 			
-			/*
 			hessIdx.parallelStream().forEach((i) -> {
 				for ( int j = i; j < n; ++j ) {
 					hij = hessian.getQuick(i,j);
@@ -181,7 +181,7 @@ public class BFGSMinimizer extends CCDMinimizer implements Minimizer {
 					hessian.setQuick( j, i, hessian.getQuick(i,j) );
 				}
 			});
-			*/
+			
 		}
 
 		// calculate the next direction to follow

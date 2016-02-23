@@ -9,8 +9,8 @@ public class ThreadParallelism {
 
 		if(NUM_THREADS < 1) NUM_THREADS = 1;
 
-		else if(NUM_THREADS >= Runtime.getRuntime().availableProcessors()-1) 
-			NUM_THREADS = Runtime.getRuntime().availableProcessors()-1;
+		else if(NUM_THREADS >= Runtime.getRuntime().availableProcessors()) 
+			NUM_THREADS = Runtime.getRuntime().availableProcessors();
 		
 		setNumThreads();
 	}

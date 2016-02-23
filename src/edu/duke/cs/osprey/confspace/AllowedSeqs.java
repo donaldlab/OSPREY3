@@ -57,7 +57,7 @@ public class AllowedSeqs {
 	public DEEPerSettings getDEEPerSettings() {
 		return dset;
 	}
-	
+
 	public ArrayList<String[]> getMoveableStrandTermini() {
 		return moveableStrandTermini;
 	}
@@ -71,8 +71,8 @@ public class AllowedSeqs {
 	public ArrayList<String> getFlexRes() {
 		return flexRes;
 	}
-	
-	
+
+
 	public int getSequenceLength() {
 		return flexRes.size();
 	}
@@ -80,6 +80,27 @@ public class AllowedSeqs {
 
 	public ArrayList<ArrayList<String>> getAllowedAAs() {
 		return allowedAAs;
+	}
+
+
+	public void truncateAllowedAAs() {
+
+		ArrayList<ArrayList<String>> newAllowedAAs = new ArrayList<>();
+
+		for(int i = 0; i < getSequenceLength(); ++i) {
+
+			ArrayList<String> aasAtPos = new ArrayList<>();
+
+			for(ArrayList<String> al : getStrandSeqList()) {
+				String aa = al.get(i);
+				if(!aasAtPos.contains(aa))
+					aasAtPos.add(aa);
+			}
+
+			newAllowedAAs.add(aasAtPos);
+		}
+
+		allowedAAs = newAllowedAAs;
 	}
 
 
@@ -91,18 +112,39 @@ public class AllowedSeqs {
 	public ArrayList<ArrayList<String>> getStrandSeqList() {
 		return allowedSeqs;
 	}
-	
-	
+
+
 	public ArrayList<String> getStrandSeq(int index) {
 		if(index > -1 && index < allowedSeqs.size()) 
 			return allowedSeqs.get(index);
 		return null;
 	}
-	
-	
-	public void removeStrandSeq(int index) {
+
+
+	public ArrayList<String> getStrandSubSeq( int index, int begin, int end ) {
+		if(begin < 0 || end > getSequenceLength()) {
+			throw new RuntimeException("ERROR: begin and end indexes [" + begin + "," + end + "] are out of range."
+					+ " Valid range is [0," + getSequenceLength() + "].");
+		}
+
+		ArrayList<String> seq = getStrandSeq(index);
+		if(seq == null) return null;
+
+		ArrayList<String> ans = new ArrayList<>();
+		for(int i = begin; i < end; ++i) {
+			ans.add(seq.get(i));
+		}
+
+		return ans;
+	}
+
+
+	public ArrayList<String> removeStrandSeq(int index) {
 		if(index > -1 && index < allowedSeqs.size()) 
-			allowedSeqs.remove(index);
+			return allowedSeqs.remove(index);
+		else
+			throw new RuntimeException("ERROR: index "+ index + " is invalid. "
+					+ "Valid range is [0," + (getSequenceLength()-1) +"]");
 	}
 
 

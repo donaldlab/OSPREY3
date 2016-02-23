@@ -251,7 +251,7 @@ public class ConfigFileParser {
 	 * @param strandSeqs
 	 * @return
 	 */
-	SearchProblem getSearchProblem( int strand, AllowedSeqs strandSeqs ) {
+	public SearchProblem getSearchProblem( int strand, AllowedSeqs strandSeqs ) {
 
 		String ematDir = params.getValue("ematdir", "emat.linear");
 		ObjectIO.makeDir(ematDir, params.getBool("deleteEmat", false));
