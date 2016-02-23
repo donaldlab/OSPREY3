@@ -12,7 +12,7 @@ import edu.duke.cs.osprey.confspace.AllowedSeqs;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.kstar.KSImplLinear;
-import edu.duke.cs.osprey.kstar.KSImplLinear2;
+import edu.duke.cs.osprey.kstar.KSImplLinear;
 import edu.duke.cs.osprey.kstar.PFAbstract;
 import edu.duke.cs.osprey.minimization.MinimizerFactory;
 import edu.duke.cs.osprey.pruning.PruningControl;
@@ -57,7 +57,7 @@ public class KStarCalculator {
 		PFAbstract.eMinMethod = cfp.params.getValue("eMinMethod", "hbfgsccd");
 		PFAbstract.setImplementation(cfp.params.getValue("pFuncMethod", "1npcpmcache"));
 		PFAbstract.setStabilityThreshold( cfp.params.getDouble("pFuncStabilityThreshold", 1.0) );
-		PFAbstract.setInterval( cfp.params.getValue("pFuncInterval", "0.01") );
+		PFAbstract.setInterval( cfp.params.getValue("pFuncInterval", Double.toString(PFAbstract.getMaxInterval())) );
 		PFAbstract.setConfsThreadBuffer( cfp.params.getInt("pFuncConfsThreadBuffer", 4) );
 		PFAbstract.setNumFibers( cfp.params.getInt("pFuncFibers", 4) );
 		PFAbstract.setNumThreads( cfp.params.getInt("pFuncThreads", 2) );
@@ -139,10 +139,10 @@ public class KStarCalculator {
 
 
 	protected ArrayList<ArrayList<String>> readMutFile( String path ) throws Exception {
-		
+
 		if( !new File(path).exists() )
 			throw new RuntimeException("ERROR: " + path + " does not exist");
-		
+
 		ArrayList<ArrayList<String>> ans = new ArrayList<>();
 		try (BufferedReader br = new BufferedReader(new FileReader(path))) {
 			String line;
@@ -164,15 +164,12 @@ public class KStarCalculator {
 	}
 
 
-	public ArrayList<ArrayList<String>> filterByMutFile() throws Exception {
-		
-		String path = cfp.getParams().getValue("mutfile", "");
-		if(path.length() == 0) return null;
-		
+	public ArrayList<ArrayList<String>> filterByMutFile(String path) throws Exception {
+
 		// read .mut file
 		// filter list of mutations; only run those listed
 		ArrayList<ArrayList<String>> mutations = readMutFile( path );
-		
+
 		if(mutations == null) 
 			return null;
 
@@ -222,27 +219,26 @@ public class KStarCalculator {
 	public void calcKStarScores() {
 
 		try {
+
 			createSearchProblems();
-			ArrayList<ArrayList<String>> mutations = filterByMutFile();
 			
+			String mutFilePath = cfp.getParams().getValue("mutfile", "");
+			if(mutFilePath.length() > 0) {
+				filterByMutFile(mutFilePath);
+			}
+
 			//boolean parallel = true; 
 			//createEnergyMatrices(parallel);
 			//pruneEnergyMatrices();
 
-			String method = cfp.getParams().getValue("kstarmethod", "linear");
-			
-			switch( method ) {
+			String ksMethod = cfp.getParams().getValue("kstarmethod", "linear");
 
-			case "linear2":
-				KSImplLinear2 linear2 = new KSImplLinear2(cfp);
-				linear2.init(strand2AllowedSeqs);
-				linear2.run();
-				break;
-			
+			switch( ksMethod ) {
+
 			case "linear":
 			default:
-				KSImplLinear linear = new KSImplLinear(mutations, strand2SearchProblem, 
-						strand2AllowedSeqs, strand2Pruning, cfp);
+				KSImplLinear linear = new KSImplLinear(cfp);
+				linear.init(strand2AllowedSeqs);
 				linear.run();
 				break;
 			}

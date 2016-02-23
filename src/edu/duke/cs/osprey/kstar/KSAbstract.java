@@ -17,10 +17,17 @@ import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 
+
+/**
+ * 
+ * @author Adegoke Ojewole (ao68@duke.edu)
+ *
+ */
 public abstract class KSAbstract implements KSInterface {
 
 	protected ConfigFileParser cfp = null;
 	protected ArrayList<String> wtSeq = null;
+	protected KSCalc wtKSCalc = null;
 	protected String outFileName = null;
 	protected String ematDir = null;
 	protected String runName = null;
@@ -118,7 +125,7 @@ public abstract class KSAbstract implements KSInterface {
 	private synchronized void addPFToGlobalMap(int strand, ArrayList<String> seq, PFAbstract pf) {
 		strand2PFs.get(strand).put(seq, pf);
 	}
-	
+
 	private synchronized void addPFToLocalMap(int strand, PFAbstract pf, HashMap<Integer, PFAbstract> map) {
 		map.put(strand, pf);
 	}
@@ -141,7 +148,7 @@ public abstract class KSAbstract implements KSInterface {
 			System.exit(1);
 		} 
 	}
-	
+
 	protected HashMap<Integer, PFAbstract> createPartitionFunctionsForSeq(int i) {
 
 		HashMap<Integer, PFAbstract> ans = new HashMap<Integer, PFAbstract>();
@@ -197,13 +204,13 @@ public abstract class KSAbstract implements KSInterface {
 
 				// put partition function in global map
 				addPFToGlobalMap(strand, seq, pf);
-				
+
 				// put in local map
 				addPFToLocalMap(strand, pf, ans);
-				
+
 				// get energy matrix
 				pf.getSearchProblem().loadEnergyMatrix();
-				
+
 				// get pruning matrix
 				pf.getPruningControl().prune();
 
@@ -212,24 +219,24 @@ public abstract class KSAbstract implements KSInterface {
 				pf.setNumPrunedConfsByDEE();
 			}		
 		});
-		
+
 		// get pfs that were already in global map
 		for(int strand : strands) {
-			
+
 			if(!ans.keySet().contains(strand)) {
-				
+
 				AllowedSeqs strandSeqs = strand2AllowedSeqs.get(strand);
 				ArrayList<String> seq = strandSeqs.getStrandSeq(i);
-				
+
 				PFAbstract pf = strand2PFs.get(strand).get(seq);
-				
+
 				ans.put(strand, pf);
 			}
 		}
-		
+
 		if(ans.size() != 3)
 			throw new RuntimeException("ERROR: returned map must contain three different partition functions");
-		
+
 		return ans;
 	}
 
@@ -288,12 +295,12 @@ public abstract class KSAbstract implements KSInterface {
 		System.out.println("\nCreating all energy matrices\n");
 
 		try {
-			
+
 			ForkJoinPool forkJoinPool = new ForkJoinPool(ThreadParallelism.getNumThreads());
 			forkJoinPool.submit(() ->
-			
+
 			IntStream.range(0, strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs()).parallel().forEach(i -> {
-				
+
 				System.out.println("\nCreating search problem for sequence " + 
 						i + "/" + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs() + "\n");
 
@@ -303,7 +310,7 @@ public abstract class KSAbstract implements KSInterface {
 				for(int strand : map.keySet()) {
 					addSPToGlobalList(strand, map.get(strand));
 				}
-				
+
 			})).get();
 
 			// create last of the energy matrices
@@ -317,12 +324,12 @@ public abstract class KSAbstract implements KSInterface {
 	}
 
 
-	protected String getOputputFileName(String in) {
+	protected String getOputputFileName() {
 
 		if(outFileName == null) {
 			try {
 
-				outFileName = in 
+				outFileName = getRunName() 
 						+ "." + InetAddress.getLocalHost().getHostName()
 						+ "." + getKSMethod()
 						+ "." + cfp.getParams().getValue("pFuncMethod", "1npcpmcache")
@@ -359,16 +366,37 @@ public abstract class KSAbstract implements KSInterface {
 		if( wtSeq == null ) wtSeq = cfp.getWTSequence();
 		return wtSeq;
 	}
+	
+	protected KSCalc getWTKSCalc() {
+		return wtKSCalc;
+	}
 
 	protected boolean isWT( KSCalc mutSeq ) {
-		return mutSeq.complex.getSequence().equals(getWTSeq());
+		return mutSeq.getPF(Strand.COMPLEX).getSequence().equals(getWTSeq());
 	}
 
 	protected BigInteger countMinimizedConfs() {
-		return BigInteger.ONE;
+		BigInteger ans = BigInteger.ZERO;
+
+		for(HashMap<ArrayList<String>, PFAbstract> map : strand2PFs.values()) {
+			for(PFAbstract pf : map.values()) {
+				ans = ans.add(pf.getNumMinimizedConfs());
+				ans = ans.add(pf.getPhaseOneMinimizedConfs());
+			}
+		}
+
+		return ans;
 	}
 
 	protected BigInteger countTotNumConfs() {
-		return BigInteger.ONE;
+		BigInteger ans = BigInteger.ZERO;
+
+		for(HashMap<ArrayList<String>, PFAbstract> map : strand2PFs.values()) {
+			for(PFAbstract pf : map.values()) {
+				ans = ans.add(pf.getNumInitialUnPrunedConfs());
+			}
+		}
+
+		return ans;
 	}
 }

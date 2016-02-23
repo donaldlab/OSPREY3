@@ -9,7 +9,6 @@ import java.util.PriorityQueue;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
-import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -36,7 +35,7 @@ public abstract class PFAbstract {
 	protected static int numTopConfsToSave = 10;
 
 	protected static BigDecimal stabilityThresh = BigDecimal.ONE;
-	protected static double interval = 0.5;
+	protected static double interval = getMaxInterval();
 
 	protected static final double RT = 1.9891/1000.0 * 298.15;
 	public static double targetEpsilon = 0.03;
@@ -66,6 +65,7 @@ public abstract class PFAbstract {
 
 	protected BigInteger prunedConfs = BigInteger.ZERO;
 	protected BigInteger initialUnPrunedConfs = BigInteger.ZERO;
+	protected BigInteger phaseOneMinimizedConfs = BigInteger.ZERO;
 	protected BigInteger minimizedConfs = BigInteger.ZERO;
 	protected BigInteger minimizedConfsDuringInterval = BigInteger.ZERO;
 	protected BigInteger minimizingConfs = BigInteger.ZERO; // # confs being minimized at this instant
@@ -109,31 +109,31 @@ public abstract class PFAbstract {
 
 
 	protected void saveTopConf(KSConf conf) {
-		
+
 		if(getNumTopSavedConfs() >= getNumTopConfsToSave()) {
-			
+
 			if(topConfsPQ.peek().getMinEnergy() > conf.getMinEnergy()) {
 				topConfsPQ.poll();
 			}
-			
+
 			else
 				return;
 		}
-		
+
 		topConfsPQ.add(conf);
 	}
-	
-	
+
+
 	protected void printTopConfs() {
-		
-		System.out.print("\nWriting top " + getNumTopSavedConfs() + " conformation(s) for sequence: ");
-		KSCalc.print(sequence, System.out);
+
+		System.out.println("\nWriting top " + getNumTopSavedConfs() + 
+				" conformation(s) for sequence: " + KSAbstract.arrayList1D2String(sequence, " "));
 		System.out.println();
-		
+
 		// create dir if it does not already exist
-		String dir = "topConfs" + File.separator + KSCalc.getSequenceSignature(sequence);
+		String dir = "topConfs" + File.separator + KSAbstract.arrayList1D2String(sequence, ".");
 		ObjectIO.makeDir(dir, false);
-		
+
 		String pdbName = null;
 		for( int i = getNumTopSavedConfs()-1; i > -1; i-- ) {
 			System.out.println("Saving: " + i +".pdb" + "\tminE:" + topConfsPQ.peek().getMinEnergy());
@@ -204,15 +204,15 @@ public abstract class PFAbstract {
 		return getUpperBound();
 	}
 
-	
+
 	public void setNumUnPrunedConfs() {
 		initialUnPrunedConfs = countUnPrunedConfs();
 	}
-	
+
 
 	private BigInteger countUnPrunedConfs() {
 		if(pc == null) return BigInteger.ZERO;
-		
+
 		BigInteger numUPConfs = BigInteger.ONE;
 
 		for( int pos = 0; pos < sp.confSpace.numPos; ++pos ) {
@@ -221,15 +221,15 @@ public abstract class PFAbstract {
 		return numUPConfs;
 	}
 
-	
+
 	public void setNumPrunedConfsByDEE() {
 		prunedConfs = countPrunedConfsByDEE();
 	}
-	
+
 
 	private BigInteger countPrunedConfsByDEE() {
 		if(pc == null) return BigInteger.ZERO;
-		
+
 		BigInteger numPConfs = BigInteger.ONE;
 
 		for( int pos = 0; pos < sp.confSpace.numPos; ++pos ) {
@@ -286,7 +286,7 @@ public abstract class PFAbstract {
 
 
 	protected void updateQStar( KSConf conf ) {
-		
+
 		if(saveTopConfsAsPDB) {
 			saveTopConf(conf);
 		}
@@ -318,6 +318,15 @@ public abstract class PFAbstract {
 				computeSlice();
 			}
 		}
+
+		if( eAppx == EApproxReached.TRUE ) {
+			printTopConfs();
+		}
+
+		if( eAppx != EApproxReached.FALSE ) {
+			clearSearchProblem();
+		}
+
 		/*
 		if( eAppx == EApproxReached.FALSE ) 
 			setRunState( RunState.SUSPENDED );
@@ -325,8 +334,6 @@ public abstract class PFAbstract {
 		else 
 			setRunState(RunState.TERMINATED);
 		 */
-		
-		printTopConfs();
 	}
 
 	protected void runToCompletion() {
@@ -337,8 +344,12 @@ public abstract class PFAbstract {
 			compute();
 		}
 		//setRunState(RunState.TERMINATED);
-		
-		printTopConfs();
+
+		if( eAppx == EApproxReached.TRUE ) {
+			printTopConfs();
+		}
+
+		clearSearchProblem();
 	}
 
 	/**
@@ -352,13 +363,14 @@ public abstract class PFAbstract {
 
 	protected void restart( double EW_I0 ) {
 
-		System.out.print("Could not reach target epsilon approximation of " + targetEpsilon + " for sequence: ");
-		KSCalc.print(sequence, System.out);
-		System.out.println();
-		System.out.println("Restarting with EW+I0 = " + EW_I0);
-
 		this.EW_I0 = EW_I0;
 
+		System.out.println("Could not reach target epsilon approximation of " + targetEpsilon + " for sequence: " +
+				KSAbstract.arrayList1D2String(sequence, " "));
+
+		System.out.println("Restarting with EW+I0 = " + EW_I0);
+
+		/*
 		sp = new SearchProblem( sp.name, sp.PDBFile, sp.flexibleRes, sp.allowedAAs, false, true,
 				cfp.getParams().getBool("UseEPIC"),
 				new EPICSettings(cfp.getParams()),
@@ -369,7 +381,7 @@ public abstract class PFAbstract {
 				cfp.getParams().getBool("AddResEntropy"));
 
 		sp.loadEnergyMatrix();
-
+		 */
 		pc = getPruningControl();
 
 		pc.prune();
@@ -378,24 +390,34 @@ public abstract class PFAbstract {
 
 		prunedConfs = countPrunedConfsByDEE();
 
+		phaseOneMinimizedConfs = phaseOneMinimizedConfs.add(getNumMinimizedConfs());
+
+		minimizedConfs = BigInteger.ZERO;
+
 		qStar = BigDecimal.ZERO;
 
 		eAppx = EApproxReached.FALSE;
 
 		start();
 	}
-	
-	
+
+
+	protected void clearSearchProblem() {
+		sp = null;
+		pc = null;
+	}
+
+
 	protected SearchProblem getSearchProblem() {
 		return sp;
 	}
-	
-	
+
+
 	protected PruningControl getPruningControl() {
 		if(pc == null) pc = cfp.getPruningControl(sp, EW_I0, false, false);
 		return pc;
 	}
-	
+
 
 	protected EApproxReached accumulate( int conf[] ) {
 		return EApproxReached.FALSE;
@@ -419,6 +441,11 @@ public abstract class PFAbstract {
 
 	protected BigInteger getNumMinimizedConfs() {
 		return minimizedConfs;
+	}
+
+
+	protected BigInteger getPhaseOneMinimizedConfs() {
+		return phaseOneMinimizedConfs;
 	}
 
 

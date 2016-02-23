@@ -1,5 +1,10 @@
 package edu.duke.cs.osprey.minimization;
 
+/**
+ * 
+ * @author Adegoke Ojewole (ao68@duke.edu)
+ *
+ */
 public class MinimizerFactory {
 
 	private static String implementation = "ccd";

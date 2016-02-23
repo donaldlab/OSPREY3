@@ -8,6 +8,12 @@ import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.kstar.KSConfQ;
 import edu.duke.cs.osprey.pruning.PruningControl;
 
+
+/**
+ * 
+ * @author Adegoke Ojewole (ao68@duke.edu)
+ *
+ */
 public class PF1NAStar extends PFAbstract {
 
 	protected long startTime;

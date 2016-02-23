@@ -8,6 +8,11 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.kstar.PFAbstract.EApproxReached;
 
+/**
+ * 
+ * @author Adegoke Ojewole (ao68@duke.edu)
+ *
+ */
 public class KSConfQ extends Thread {
 
 	private PFAbstract pf;
