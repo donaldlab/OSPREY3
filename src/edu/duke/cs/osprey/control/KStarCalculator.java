@@ -216,20 +216,29 @@ public class KStarCalculator {
 	}
 
 
+	private void createAllowedSequences() {
+		AllowedSeqs complexSeqs = cfp.getAllowedSequences(Strand.COMPLEX, null);
+		strand2AllowedSeqs.put(Strand.COMPLEX, complexSeqs);
+		strand2AllowedSeqs.put(Strand.PROTEIN, cfp.getAllowedSequences(Strand.PROTEIN, complexSeqs));
+		strand2AllowedSeqs.put(Strand.LIGAND, cfp.getAllowedSequences(Strand.LIGAND, complexSeqs));
+	}
+
+
 	public void calcKStarScores() {
 
 		try {
 
-			createSearchProblems();
-			
+			// createSearchProblems();
+			// boolean parallel = true; 
+			// createEnergyMatrices(parallel);
+			// pruneEnergyMatrices();
+
+			createAllowedSequences();
+
 			String mutFilePath = cfp.getParams().getValue("mutfile", "");
 			if(mutFilePath.length() > 0) {
 				filterByMutFile(mutFilePath);
 			}
-
-			//boolean parallel = true; 
-			//createEnergyMatrices(parallel);
-			//pruneEnergyMatrices();
 
 			String ksMethod = cfp.getParams().getValue("kstarmethod", "linear");
 
