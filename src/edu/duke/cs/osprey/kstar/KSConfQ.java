@@ -201,12 +201,13 @@ public class KSConfQ extends Thread {
 				if( q.size() >= qCap ) {
 					try {
 						
+						qLock.notify();
+						
 						if( pf.getEpsilonStatus() != EApproxReached.FALSE ) 
 							return;
 						
-						qLock.notify();
-						
-						qLock.wait();
+						else
+							qLock.wait();
 
 					} catch (InterruptedException e) {
 						System.out.println(e.getMessage());

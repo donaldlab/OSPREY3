@@ -17,6 +17,7 @@ import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.kstar.pfunction.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunction.PFFactory;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
+import edu.duke.cs.osprey.tools.ObjectIO;
 
 
 /**
@@ -310,6 +311,11 @@ public abstract class KSAbstract implements KSInterface {
 
 		System.out.println("\nCreating all energy matrices\n");
 
+		if( cfp.getParams().getBool("deleteematdir", false) )
+			ObjectIO.deleteDir(getEMATdir());
+		
+		long begin = System.currentTimeMillis();
+		
 		try {
 
 			ForkJoinPool forkJoinPool = new ForkJoinPool(ThreadParallelism.getNumThreads());
@@ -335,6 +341,9 @@ public abstract class KSAbstract implements KSInterface {
 			// empty energy matrix list
 			allSPNames.clear();
 
+			System.out.println("\nFinished creating all energy matrices");
+			System.out.println("Running time: " + (System.currentTimeMillis()-begin)/1000 + " seconds\n");
+			
 		} catch (Exception e) {
 			System.out.println(e.getMessage());
 			e.printStackTrace();

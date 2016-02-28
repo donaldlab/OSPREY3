@@ -69,7 +69,7 @@ public class KSCalc {
 	}
 
 	public void run(KSCalc wtKSCalc) {
-		
+
 		ArrayList<Integer> strands = new ArrayList<>();
 		strands.add(Strand.LIGAND);
 		strands.add(Strand.PROTEIN);
@@ -78,10 +78,10 @@ public class KSCalc {
 		for( int strand : strands ) {
 
 			PFAbstract pf = getPF(strand);
-			
+
 			if( pf.getEpsilonStatus() != EApproxReached.FALSE )
 				continue;
-			
+
 			ArrayList<String> seq = pf.getSequence();
 
 			if( pf.getRunState() == RunState.NOTSTARTED ) {
@@ -111,9 +111,9 @@ public class KSCalc {
 			if( strand != Strand.COMPLEX && !unboundIsStable(wtKSCalc, strand) ) {
 
 				pf.setEpsilonStatus( EApproxReached.NOT_STABLE );
-				
+
 				System.out.println("\nSequence " + KSAbstract.arrayList1D2String(seq, " ") + " is unstable\n");
-				
+
 				return;
 			}
 		}
@@ -139,7 +139,7 @@ public class KSCalc {
 	}
 
 	private void printOutputHeader( PrintStream out ) {
-		
+
 		out.print("Seq ID");
 		out.print("\t");
 		out.print("Sequence");
@@ -174,15 +174,18 @@ public class KSCalc {
 
 		try {
 
-			PrintStream out = new PrintStream(new FileOutputStream(outFile, true));
+			boolean append = headerPrinted ? true : false;
 
-			if(!headerPrinted) 
+			PrintStream out = new PrintStream(new FileOutputStream(outFile, append));
+
+			if(!headerPrinted) {
 				printOutputHeader(out);
-
+			}
+			
 			out.print(seqID);
 
 			out.print("\t");
-			KSAbstract.arrayList1D2String(getPF(Strand.COMPLEX).getSequence(), " ");
+			out.print(KSAbstract.arrayList1D2String(getPF(Strand.COMPLEX).getSequence(), " "));
 
 			out.print("\t");
 			out.print( ObjectIO.formatBigDecimal(getKStarScore(), precision) );

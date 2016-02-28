@@ -321,7 +321,7 @@ public abstract class PFAbstract {
 			}
 		}
 
-		if( eAppx == EApproxReached.TRUE ) {
+		if( eAppx == EApproxReached.TRUE && saveTopConfsAsPDB ) {
 			printTopConfs();
 		}
 
@@ -347,7 +347,7 @@ public abstract class PFAbstract {
 		}
 		//setRunState(RunState.TERMINATED);
 
-		if( eAppx == EApproxReached.TRUE ) {
+		if( eAppx == EApproxReached.TRUE && saveTopConfsAsPDB ) {
 			printTopConfs();
 		}
 

@@ -254,7 +254,7 @@ public class ConfigFileParser {
 	public SearchProblem getSearchProblem( int strand, AllowedSeqs strandSeqs ) {
 
 		String ematDir = params.getValue("ematdir", "emat.linear");
-		ObjectIO.makeDir(ematDir, params.getBool("deleteEmat", false));
+		ObjectIO.makeDir(ematDir, params.getBool("deleteEmatDir", false));
 		String name = ematDir + File.separator + params.getValue("RUNNAME");
 
 		String suffix = Strand.getStrandString(strand);
