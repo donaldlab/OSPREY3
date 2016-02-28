@@ -6,7 +6,8 @@ import java.util.ArrayList;
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.kstar.PFAbstract.EApproxReached;
+import edu.duke.cs.osprey.kstar.pfunction.PFAbstract;
+import edu.duke.cs.osprey.kstar.pfunction.PFAbstract.EApproxReached;
 
 /**
  * 
@@ -19,17 +20,21 @@ public class KSConfQ extends Thread {
 	private SearchProblem sp;
 	private ConfSearch search;
 	private int minCapacity;
-
+	private BigDecimal capacityThresh = new BigDecimal(0.0001);
+	
 	// lock for queue access
 	public final Object qLock = new Object();
 
 	// upper bound partition function
 	private BigDecimal qDagger = BigDecimal.ZERO;
+	private BigDecimal qDot = BigDecimal.ZERO;
 
 	private final ArrayList<KSConf> q = new ArrayList<>();
 	private int qCap = (int)Math.pow(2, 20);
+	private int origQCap = 0;
 	private boolean confsExhausted = false;
-
+	private boolean useEnergyUB = false;
+	
 	/**
 	 * 
 	 * @param pf
@@ -45,12 +50,14 @@ public class KSConfQ extends Thread {
 
 		this.minCapacity = minCapacity;
 		qCap = Math.max( minCapacity, PFAbstract.qCapacity );
+		origQCap = qCap;
+		this.useEnergyUB = PFAbstract.useRigEnergy;
 	}
 
 
 	public void waitUntilCapacity() throws InterruptedException {
 
-		while( !exhausted() && size() < getQCapacity() )
+		while( !isExhausted() && size() < getQCapacity() )
 			Thread.sleep(250);
 	}
 
@@ -73,8 +80,13 @@ public class KSConfQ extends Thread {
 	}
 
 
-	public boolean exhausted() {
+	public boolean isExhausted() {
 		return confsExhausted;
+	}
+	
+	
+	public boolean canSatisfy(int requested) {
+		return size() >= requested;
 	}
 
 
@@ -90,10 +102,17 @@ public class KSConfQ extends Thread {
 
 	public void enQueue( int conf[] ) {
 
-		double minELowerBound = sp.lowerBound(conf);
-		qDagger = qDagger.add( pf.getBoltzmannWeight(minELowerBound) );
+		double minELB = sp.lowerBound(conf);
+		qDagger = qDagger.add( pf.getBoltzmannWeight(minELB) );
+		
+		double minEUB = Double.MAX_VALUE;
+		
+		if(useEnergyUB) {
+			minEUB = sp.rigidEnergy(conf);
+			qDot = qDot.add( pf.getBoltzmannWeight(minEUB) );
+		}
 
-		KSConf ksc = new KSConf(conf, minELowerBound);
+		KSConf ksc = new KSConf(conf, minELB, minEUB);
 		q.add(ksc);
 	}
 
@@ -108,23 +127,43 @@ public class KSConfQ extends Thread {
 	}
 
 
+	public BigDecimal getCapacityThresh() {
+		return capacityThresh;
+	}
+	
+	
 	public BigDecimal getQDagger() {
 		return qDagger;
 	}
 
+	
+	public BigDecimal getQDot() {
+		return qDot;
+	}
+	
 
 	public void setQDagger( BigDecimal qDagger ) {
 		this.qDagger = qDagger;
 	}
 
+	
+	public void setQDot( BigDecimal qDot ) {
+		this.qDot = qDot;
+	}
+	
 
 	public int getQCapacity() {
 		return qCap;
 	}
 
+	
+	public void restoreQCapacity() {
+		setQCapacity(origQCap);
+	}
+	
 
 	public void setQCapacity( int newCap ) {
-		qCap = newCap;
+		qCap = Math.max(newCap, minCapacity);
 	}
 
 
@@ -161,7 +200,12 @@ public class KSConfQ extends Thread {
 
 				if( q.size() >= qCap ) {
 					try {
-
+						
+						if( pf.eAppx != EApproxReached.FALSE ) 
+							return;
+						
+						qLock.notify();
+						
 						qLock.wait();
 
 					} catch (InterruptedException e) {
@@ -176,10 +220,6 @@ public class KSConfQ extends Thread {
 					return;
 
 				enQueue(conf);
-				
-				// ensuing confs have a high lower bound; not useful
-				if(peekTail().getMinEnergyLowerBound() > 0.0)
-					setQCapacity(Math.max(minCapacity, size()));
 
 				// notify queue consumer ONLY if queue was empty before
 				// i added latest conformation. this condition means that

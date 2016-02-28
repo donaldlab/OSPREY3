@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.kstar.remote;
+package edu.duke.cs.osprey.kstar.pfunction;
 
 import java.math.BigInteger;
 import java.rmi.RemoteException;
@@ -11,9 +11,9 @@ import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.kstar.KSConfQ;
+import edu.duke.cs.osprey.kstar.remote.Constants;
+import edu.duke.cs.osprey.kstar.remote.ServerInterface;
 import edu.duke.cs.osprey.kstar.KSConf;
-import edu.duke.cs.osprey.kstar.PF1NMTPCPMCache;
-import edu.duke.cs.osprey.kstar.PFAbstract;
 import edu.duke.cs.osprey.pruning.PruningControl;
 
 public class PFMNPCPMCache extends PF1NMTPCPMCache {
@@ -28,9 +28,13 @@ public class PFMNPCPMCache extends PF1NMTPCPMCache {
 			double EW_I0) {
 
 		super( sequence, cfp, sp, pc, dset, moveableStrands, freeBBZones, EW_I0);
+	}
 
-		// initialize environment variables for each server. this need only be done once
+	public void start() {
+
 		try {
+
+			setRunState(RunState.STARTED);
 
 			fibers = PFAbstract.getNumFibers();
 			threadsPerFiber = PFAbstract.getNumThreads();
@@ -61,49 +65,6 @@ public class PFMNPCPMCache extends PF1NMTPCPMCache {
 				}
 			}
 
-		}  catch (Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
-		}
-	}
-
-	protected void start() {
-
-		try {
-
-			setRunState(RunState.STARTED);
-
-			/*
-			fibers = PFAbstract.getNumFibers();
-			threadsPerFiber = PFAbstract.getNumThreads();
-			confsPerThread = PFAbstract.getConfsThreadBuffer() * threadsPerFiber;
-
-			// establish connection to minimizaiton servers
-			serverInterfaces.clear();
-			for( String server : serverList ) {
-
-				System.out.println("Initiating connection to server: " + server);
-
-				Registry registry = LocateRegistry.getRegistry( server, Constants.RMI_PORT );
-
-				ServerInterface serverInterface = (ServerInterface)registry.lookup( Constants.RMI_ID );
-				serverInterfaces.add( serverInterface );
-
-				serverInterface.setEnvVars(fibers, threadsPerFiber, confsPerThread,
-						PFAbstract.eMinMethod, 
-						EnvironmentVars.curEFcnGenerator,
-						EnvironmentVars.resTemplates,
-						EnvironmentVars.assignTemplatesToStruct,
-						EnvironmentVars.deleteNonTemplateResidues,
-						EnvironmentVars.useMPI,
-						EnvironmentVars.DUNBRACK_PROBABILTY_CUTOFF,
-						EnvironmentVars.getDataDir());
-
-				serverInterface.initFibers(sp);
-			}
-			 */
-
 			for( ServerInterface serverInterface : serverInterfaces ) {
 				serverInterface.initFibers(sp);
 			}
@@ -119,7 +80,7 @@ public class PFMNPCPMCache extends PF1NMTPCPMCache {
 
 				KSConf conf = confs.peek();
 
-				setPStar( conf.getMinEnergyLowerBound() );
+				setPStar( conf.getMinEnergyLB() );
 			}
 
 			startTime = System.currentTimeMillis();
@@ -144,9 +105,11 @@ public class PFMNPCPMCache extends PF1NMTPCPMCache {
 		for( ServerInterface serverInterface : serverInterfaces ) {
 
 			if( serverInterface.isProcessed() ) {
-				// getProcessedConfs sets server to the ready state
-				if( ( eAppx = accumulate(serverInterface.getProcessedConfs()) ) != EApproxReached.FALSE ) {
 
+				// getProcessedConfs sets server to the ready state
+				accumulate(serverInterface.getProcessedConfs());
+
+				if( eAppx == EApproxReached.FALSE ) {
 					// we are finished, so other threads can terminate
 					break;
 				}
@@ -158,18 +121,21 @@ public class PFMNPCPMCache extends PF1NMTPCPMCache {
 
 				// lock conformation queue
 				synchronized( confs.qLock ) {
-					// only process when there are enough confs ready to be processed
-					if( confs.size() < unProcessedConfs.size() ) {
 
-						if( !epsilonPossible(unProcessedConfs.size()) ) {
+					int request = unProcessedConfs.size();
+					int granted = 0;
 
-							break;
-						}
+					if( (granted = canSatisfy(request)) == 0 )
+						break;
 
-						if( confs.size() < unProcessedConfs.size() ) confs.qLock.wait();
+					// reduce the size of buf to match
+					while( unProcessedConfs.size() > granted ) {
+						unProcessedConfs.remove(unProcessedConfs.size()-1);
 					}
 
-					for( int i = 0; i < unProcessedConfs.size(); ++i ) unProcessedConfs.set(i, confs.deQueue());
+					for( int i = 0; i < unProcessedConfs.size(); ++i ) 
+						unProcessedConfs.set(i, confs.deQueue());
+
 					minimizingConfs = minimizingConfs.add( BigInteger.valueOf(unProcessedConfs.size()) );
 
 					if( confs.getState() == Thread.State.WAITING ) confs.qLock.notify();
@@ -232,32 +198,6 @@ public class PFMNPCPMCache extends PF1NMTPCPMCache {
 	}
 
 
-	protected EApproxReached accumulate( ArrayList<KSConf> partialQConfs ) {
-
-		for( KSConf conf : partialQConfs ) updateQStar( conf );
-
-		// we need a current snapshot of qDagger, so we lock here
-		synchronized( confs.qLock ) {
-
-			minimizingConfs = minimizingConfs.subtract( BigInteger.valueOf(partialQConfs.size()) );
-
-			confs.setQDagger( confs.getQDagger().subtract( computePartialQDagger(partialQConfs) ) );
-
-			Et = confs.size() > 0 ? confs.get(confs.size()-1).getMinEnergyLowerBound() : partialQConfs.get(partialQConfs.size()-1).getMinEnergyLowerBound();
-
-			// negative values of effective esilon are disallowed
-			if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0) return EApproxReached.NOT_POSSIBLE;
-
-			long currentTime = System.currentTimeMillis();
-
-			System.out.println(partialQConfs.get(partialQConfs.size()-1).getMinEnergy() + "\t" + effectiveEpsilon + "\t" + 
-					getNumMinimizedConfs() + "\t" + getNumUnMinimizedConfs() + "\t "+ ((currentTime-startTime)/1000));
-		}
-
-		return effectiveEpsilon > targetEpsilon ? EApproxReached.FALSE : EApproxReached.TRUE;
-	}
-
-
 	public void cleanUpSlaves( ArrayList<ServerInterface> serverInterfaces ) throws RemoteException {
 		try {
 
@@ -268,7 +208,7 @@ public class PFMNPCPMCache extends PF1NMTPCPMCache {
 					// if server is not ready, then it is processing conformations
 					while( !serverInterface.isProcessed() ) Thread.sleep(sleepInterval);
 
-					eAppx = accumulate(serverInterface.getProcessedConfs());
+					accumulate(serverInterface.getProcessedConfs());
 				}
 
 				serverInterface.softTerminate();

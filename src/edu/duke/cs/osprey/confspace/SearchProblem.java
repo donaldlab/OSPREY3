@@ -166,6 +166,22 @@ public class SearchProblem implements Serializable {
         return E;
     }
     
+    
+    public double rigidEnergy(int[] conf) {
+    	//Minimized energy of the conformation
+        //whose RCs are listed for all flexible positions in conf
+        double E = confSpace.rigidEnergy(conf, fullConfE);
+        
+        if(useERef)
+            E -= emat.geteRefMat().confERef(conf);
+        
+        if(addResEntropy)
+            E += confSpace.getConfResEntropy(conf);            
+        
+        return E;
+    }
+    
+    
     public void outputMinimizedStruct(int[] conf, String PDBFileName){
         //Output minimized conformation to specified file
         //RCs are listed for all flexible positions in conf
@@ -235,10 +251,15 @@ public class SearchProblem implements Serializable {
     }
     
     
+    public String getMatrixFileName(MatrixType type) {
+    	return name + "." + type.name() + ".dat";
+    }
+    
+    
     //load the specified matrix; if the right file isn't available then compute and store it
     private void loadMatrix(MatrixType type){
         
-        String matrixFileName = name + "." + type.name() + ".dat";
+        String matrixFileName = getMatrixFileName(type);
         //matrix file names are determined by the name of the search problem
         
         if(!loadMatrixFromFile( type, matrixFileName )){
@@ -345,6 +366,6 @@ public class SearchProblem implements Serializable {
 		}
 
 		return absolutePos;
-	}  
+	}
     
 }

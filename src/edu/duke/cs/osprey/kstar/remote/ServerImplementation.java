@@ -268,7 +268,16 @@ public class ServerImplementation extends UnicastRemoteObject implements ServerI
 
 				confs.set(i % sps.size(), buf.get(i));
 
-				if( (i+1) % sps.size() == 0 ) {
+				if( (i+1) % sps.size() == 0 || (i+1) == buf.size() ) {
+					
+					// reduce conf size if necessary
+					while( confs.size() > buf.size() ) {
+						
+						confs.remove(confs.size()-1);
+						
+						indexes.remove(indexes.size()-1);
+					}
+					
 					// store minimized energies
 					indexes.parallelStream().forEach( j -> confs.get(j).setMinEnergy(sps.get(j).minimizedEnergy(confs.get(j).getConf())) );
 				}

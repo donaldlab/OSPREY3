@@ -8,8 +8,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import edu.duke.cs.osprey.confspace.Strand;
-import edu.duke.cs.osprey.kstar.PFAbstract.EApproxReached;
-import edu.duke.cs.osprey.kstar.PFAbstract.RunState;
+import edu.duke.cs.osprey.kstar.pfunction.PFAbstract;
+import edu.duke.cs.osprey.kstar.pfunction.PFAbstract.EApproxReached;
+import edu.duke.cs.osprey.kstar.pfunction.PFAbstract.RunState;
 import edu.duke.cs.osprey.tools.ObjectIO;
 
 /**
@@ -44,7 +45,7 @@ public class KSCalc {
 		return false;
 	}
 
-	protected EApproxReached getEpsilonStatus() {
+	public EApproxReached getEpsilonStatus() {
 
 		PFAbstract pl = strand2PF.get(Strand.COMPLEX);
 		PFAbstract p = strand2PF.get(Strand.PROTEIN);
@@ -67,7 +68,7 @@ public class KSCalc {
 		return EApproxReached.FALSE;
 	}
 
-	protected void run(KSCalc wtKSCalc) {
+	public void run(KSCalc wtKSCalc) {
 
 		ArrayList<Integer> strands = new ArrayList<>();
 		strands.add(Strand.PROTEIN);
@@ -84,7 +85,8 @@ public class KSCalc {
 
 			if( pf.getRunState() == RunState.NOTSTARTED ) {
 
-				System.out.println("\nInitializing partition function for " + KSAbstract.arrayList1D2String(seq, " "));
+				System.out.println("\nInitializing partition function for " 
+						+ KSAbstract.arrayList1D2String(seq, " "));
 				pf.start();
 			}
 
@@ -92,13 +94,15 @@ public class KSCalc {
 
 				if(PFAbstract.getInterval() == PFAbstract.getMaxInterval()) { 
 
-					System.out.println("\nComputing partition function for " + KSAbstract.arrayList1D2String(seq, " "));
+					System.out.println("\nComputing partition function for " 
+							+ KSAbstract.arrayList1D2String(seq, " ") + "\n");
 					pf.runToCompletion();
 				}
 
 				else {
 
-					System.out.println("\nResuming partition function for " + KSAbstract.arrayList1D2String(seq, " "));
+					System.out.println("\nResuming partition function for " 
+							+ KSAbstract.arrayList1D2String(seq, " ") + "\n");
 					pf.resume();
 				}
 			}

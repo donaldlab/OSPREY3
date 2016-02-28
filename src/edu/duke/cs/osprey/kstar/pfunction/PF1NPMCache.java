@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.kstar;
+package edu.duke.cs.osprey.kstar.pfunction;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
+import edu.duke.cs.osprey.kstar.KSConf;
+import edu.duke.cs.osprey.kstar.KSConfQ;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.tools.ObjectIO;
 
@@ -25,12 +27,12 @@ public class PF1NPMCache extends PFAbstract {
 			SearchProblem sp, PruningControl pc, DEEPerSettings dset, 
 			ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, 
 			double EW_I0) {
-		
+
 		super( sequence, cfp, sp, pc, dset, moveableStrands, freeBBZones, EW_I0);
 	}
 
 
-	protected void start() {
+	public void start() {
 
 		setRunState(RunState.STARTED);
 
@@ -41,7 +43,7 @@ public class PF1NPMCache extends PFAbstract {
 
 			KSConf conf = confs.peek();
 
-			setPStar( conf.getMinEnergyLowerBound() );
+			setPStar( conf.getMinEnergyLB() );
 		}
 
 		startTime = System.currentTimeMillis();
@@ -62,51 +64,60 @@ public class PF1NPMCache extends PFAbstract {
 	}
 
 
-	protected boolean epsilonPossible( int requested ) {
-		// eAppx is false when this function is invoked
+	protected int canSatisfy( int request ) throws Exception {
+		int granted = 0;
 
-		// if no confs remaining and not at epsilon, then epsilon is not possible
-		if( getNumUnMinimizedConfs().compareTo( BigInteger.valueOf(requested) ) < 0
-				|| confs.exhausted() 
-				|| confs.getState() == Thread.State.TERMINATED ) { 
+		// wait for queue to be ready
+		while( !confs.canSatisfy(request) ) {
 
-			if( eAppx == EApproxReached.FALSE ) {
-				eAppx = EApproxReached.NOT_POSSIBLE;
-				return false;
+			if( !confs.isExhausted() ) {
+
+				if( confs.getState() == Thread.State.WAITING ) {
+
+					confs.setQCapacity(confs.getQCapacity()+request);
+
+					confs.qLock.notify();
+				}
+
+				confs.qLock.wait();
 			}
 
+			else {
+				granted = confs.size();
+
+				if( granted > 0 )
+					return granted;
+
+				eAppx = EApproxReached.NOT_POSSIBLE;
+
+				System.out.println("Cannot reach epsilon");
+
+				confs.cleanUp();
+
+				return granted;
+			}
 		}
 
-		return true;
+		return request;
 	}
 
 
 	protected void iterate() throws Exception {
-
+		// iterate is only called when eAppx = false
 		KSConf conf = null;
 
 		synchronized( confs.qLock ) {
-			// only process when there are confs ready to be processed
-			if( confs.size() == 0 ) {
-				// eAppx is false when this function is invoked
-				epsilonPossible( 1 );	
-			}
-		}
 
-		if( eAppx == EApproxReached.NOT_POSSIBLE ) {
+			if( canSatisfy(1) == 0 )
+				return;
 
-			confs.cleanUp();
-
-			return;
-		}
-
-		synchronized( confs.qLock ) {
-
-			if( !confs.exhausted() && confs.size() == 0 ) confs.qLock.wait();
+			// we are guaranteed that confs can satisfy our request
 
 			// we don't want to hold a lock when we are minimizing, so 
 			// we dequeue here and release lock for minimizing
 			conf = confs.deQueue();
+
+			minimizingConfs = minimizingConfs.add( BigInteger.ONE );
 
 			// this condition means that confsQ was full (and therefore waiting)
 			// before we extracted this conformation, so wake it up
@@ -115,13 +126,12 @@ public class PF1NPMCache extends PFAbstract {
 		}
 
 		// minimization hapens here
-		if( (eAppx = accumulate( conf )) != EApproxReached.FALSE ) {
+		accumulate( conf );
+
+		if( eAppx != EApproxReached.FALSE ) {
 			// we leave this function
 			confs.cleanUp();
-		}
-
-		if( eAppx == EApproxReached.NOT_POSSIBLE )
-			System.out.println("Cannot reach epsilon");
+		}	
 	}
 
 
@@ -161,82 +171,64 @@ public class PF1NPMCache extends PFAbstract {
 	}
 
 
-	protected EApproxReached accumulate( KSConf conf ) {
+	protected void accumulate( KSConf conf ) {
+
+		double E = 0;
+
 		// we do not have a lock when minimizing	
 		conf.setMinEnergy( sp.minimizedEnergy(conf.getConf()) );
 
 		// we need a current snapshot of qDagger, so we lock here
 		synchronized( confs.qLock ) {
+
+			Et = confs.size() > 0 ? confs.peekTail().getMinEnergyLB() : conf.getMinEnergyLB();
+
+			minimizingConfs = minimizingConfs.subtract( BigInteger.ONE );
+
 			// update q*, qDagger, and q' atomically
+			E = conf.getMinEnergy();
 			updateQStar( conf );
 
 			// update qdagger
-			confs.setQDagger( confs.getQDagger().subtract(getBoltzmannWeight(conf.getMinEnergyLowerBound())) );
+			confs.setQDagger( confs.getQDagger().subtract(getBoltzmannWeight(conf.getMinEnergyLB())) );
+			if(PFAbstract.useRigEnergy) {
+				confs.setQDot( confs.getQDot().subtract( getBoltzmannWeight(conf.getMinEnergyUB()) ) );
+			}
 
-			Et = confs.size() > 0 ? confs.peekTail().getMinEnergyLowerBound() : conf.getMinEnergyLowerBound();
+			updateQPrime();
 
 			// negative values of effective esilon are disallowed
-			if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0) return EApproxReached.NOT_POSSIBLE;
+			if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0 ) {
+
+				eAppx = EApproxReached.NOT_POSSIBLE;
+
+				return;
+			}
 
 			long currentTime = System.currentTimeMillis();
 
-			System.out.println(Et + "\t" + conf.getMinEnergy() + "\t" + effectiveEpsilon + "\t" + 
-					getNumMinimizedConfs() + "\t" + getNumUnMinimizedConfs() + "\t "+ ((currentTime-startTime)/1000));
+			if( !printedHeader ) printHeader();
+			
+			System.out.println(E + "\t" + effectiveEpsilon + "\t" + 
+					getNumMinimizedConfs() + "\t" + getNumUnMinimizedConfs() + "\t" + confs.size() + "\t" + ((currentTime-startTime)/1000));
+
+			eAppx = effectiveEpsilon > targetEpsilon ? EApproxReached.FALSE : EApproxReached.TRUE;
 		}
 
-		return effectiveEpsilon > targetEpsilon ? EApproxReached.FALSE : EApproxReached.TRUE;
 	}
 
 
-	public BigDecimal getLowerBound() {
+	protected void printHeader() {
 
-		return getQStar();
-	}
+		System.out.println("minE" + "\t\t\t" + "epsilon" + "\t\t" + "#min" +
+				"\t" + "#un-min" + "\t" + "#buf" + "\t"+ "time(sec)");
 
-
-	public BigDecimal getUpperBound() {
-		// this gives the precise 1-epsilon upperbound for the partition function
-		synchronized( confs.qLock ) {
-
-			if( eAppx == EApproxReached.TRUE ) return getQStar();
-
-			updateQPrime();
-
-			BigDecimal uB = (qStar.add(confs.getQDagger())).add(qPrime);
-
-			return uB;
-		}
-	}
-
-
-	public BigDecimal getUpperBoundAtEpsilon() {
-		// this gives the precise 1-epsilon upperbound for the partition function
-		// 1 - (q* + remainder)/(denom) = targetEpsilon
-
-		synchronized( confs.qLock ) {
-
-			if( eAppx == EApproxReached.TRUE ) return getQStar();
-
-			updateQPrime();
-
-			BigDecimal uB;
-			BigDecimal denom = ((qStar.add(confs.getQDagger())).add(qPrime)).add(pStar);
-
-			BigDecimal remainder = (BigDecimal.valueOf(1.0 - PFAbstract.targetEpsilon).multiply(denom)).subtract(qStar);
-
-			if( remainder.compareTo( confs.getQDagger().add(qPrime) ) <= 0 )
-				uB = qStar.add(remainder);
-
-			else 
-				uB = denom.subtract(pStar);
-
-			return uB;
-		}
+		printedHeader = true;
 	}
 
 
 	protected void updateQPrime() {
-		
+
 		qPrime = getBoltzmannWeight( Et ).
 				multiply( new BigDecimal(getNumUnMinimizedConfs().longValue() 
 						- confs.size() - minimizingConfs.longValue() ) );
@@ -244,10 +236,16 @@ public class PF1NPMCache extends PFAbstract {
 
 
 	protected double computeEffectiveEpsilon() {
-		
-		updateQPrime();
 
-		BigDecimal divisor = ( (qStar.add(confs.getQDagger())).add(qPrime) ).add(pStar);
+		BigDecimal qPrimePStar = qPrime.add(pStar);
+
+		if(qPrimePStar.compareTo(confs.getCapacityThresh().multiply(confs.getQDagger())) < 0)
+			confs.setQCapacity(confs.size());
+
+		else
+			confs.restoreQCapacity();
+
+		BigDecimal divisor = ( (qStar.add(confs.getQDagger())).add(qPrimePStar) );
 
 		// divisor is 0 iff qstar = 0. this means the energies are too high
 		// so epsilon can never be reached
@@ -259,7 +257,12 @@ public class PF1NPMCache extends PFAbstract {
 
 		if( minEpsilon > targetEpsilon ) return -1.0;
 
-		return BigDecimal.ONE.subtract( qStar.divide(divisor,4) ).doubleValue();
+		BigDecimal dividend = qStar;
+		if(PFAbstract.useRigEnergy) {
+			dividend = dividend.add( confs.getQDot() );
+		}
+
+		return BigDecimal.ONE.subtract( dividend.divide(divisor,4) ).doubleValue();
 	}
 
 
@@ -275,22 +278,6 @@ public class PF1NPMCache extends PFAbstract {
 		if( ans.compareTo(BigInteger.ZERO) < 0 ) ans = BigInteger.ZERO;
 
 		return ans;
-	}
-
-
-	protected double getStopThreshold() {
-		// only valid when num remaining confs > 0
-		if( getNumUnMinimizedConfs().compareTo(BigInteger.ZERO) == 0 )
-			return Double.POSITIVE_INFINITY;
-
-		return BigDecimal.valueOf(-RT).multiply
-				( ( e.log
-						( ( qStar.multiply
-								( BigDecimal.valueOf(rho) ) ).subtract
-								( pStar.subtract
-										( confs.getQDagger() ) ) ) ).subtract
-						( e.log
-								( new BigDecimal(getNumUnMinimizedConfs()) ) ) ).doubleValue();
 	}
 
 

@@ -1,11 +1,10 @@
-package edu.duke.cs.osprey.kstar;
+package edu.duke.cs.osprey.kstar.pfunction;
 
 import java.util.ArrayList;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
-import edu.duke.cs.osprey.kstar.remote.PFMNPCPMCache;
 import edu.duke.cs.osprey.pruning.PruningControl;
 
 
@@ -28,9 +27,6 @@ public class PFFactory {
 
 		case "1nnocache":
 			return new PF1NNoCache( sequence, cfp, sp, pc, dset, moveableStrands, freeBBZones, EW_I0 );
-
-		case "1nastar":
-			return new PF1NAStar( sequence, cfp, sp, pc, dset, moveableStrands, freeBBZones, EW_I0 );
 			
 		case "1npmcache":
 			return new PF1NPMCache( sequence, cfp, sp, pc, dset, moveableStrands, freeBBZones, EW_I0 );

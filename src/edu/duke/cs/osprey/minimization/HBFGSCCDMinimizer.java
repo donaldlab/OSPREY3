@@ -58,7 +58,7 @@ public class HBFGSCCDMinimizer extends BFGSMinimizer implements Minimizer {
 
 		//bfgs loop
 		initBFGS();
-		for( int it = 0; it < numIter; it++ ) {
+		for( int it = 0; it < getMaxIter(); it++ ) {
 			dihedralsLnSrch(it, x);
 			gradLnSrch(it);
 			boolean converged = BFGSIter(it);

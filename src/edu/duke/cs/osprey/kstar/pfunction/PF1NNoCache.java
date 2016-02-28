@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.kstar;
+package edu.duke.cs.osprey.kstar.pfunction;
 
 import java.util.ArrayList;
 
@@ -7,6 +7,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
+import edu.duke.cs.osprey.kstar.KSConf;
 import edu.duke.cs.osprey.pruning.PruningControl;
 
 /**
@@ -30,7 +31,7 @@ public class PF1NNoCache extends PFAbstract {
 	}
 
 
-	protected void start() {
+	public void start() {
 
 		setRunState(RunState.STARTED);
 
@@ -43,14 +44,14 @@ public class PF1NNoCache extends PFAbstract {
 
 		if( (conf = search.nextConf()) != null ) {
 
-			KSConf ksConf = new KSConf(conf, sp.lowerBound(conf));
+			KSConf ksConf = new KSConf(conf, sp.lowerBound(conf), Double.MAX_VALUE);
 			ksConf.setMinEnergy(sp.minimizedEnergy(conf));
-			Et = ksConf.getMinEnergyLowerBound();
+			Et = ksConf.getMinEnergyLB();
 
 			// get approx gmec LB to compute p*
 			updateQStar( ksConf );
 
-			Et = ksConf.getMinEnergyLowerBound();
+			Et = ksConf.getMinEnergyLB();
 
 			setPStar( Et );
 		}
@@ -64,9 +65,11 @@ public class PF1NNoCache extends PFAbstract {
 
 		if( (rawConf = search.nextConf()) != null ) {
 
-			KSConf conf = new KSConf(rawConf, sp.lowerBound(rawConf));
+			KSConf conf = new KSConf(rawConf, sp.lowerBound(rawConf), Double.MAX_VALUE);
 
-			if( (eAppx = accumulate(conf)) == EApproxReached.NOT_POSSIBLE )
+			accumulate(conf);
+
+			if( eAppx == EApproxReached.NOT_POSSIBLE )
 				System.out.println("Cannot reach epsilon");
 		}
 	}
@@ -108,24 +111,41 @@ public class PF1NNoCache extends PFAbstract {
 	/**
 	 * Synchronous version evaluates conf energy immediately and adds to value.
 	 */
-	protected EApproxReached accumulate( KSConf conf ) {
+	protected void accumulate( KSConf conf ) {
 
 		conf.setMinEnergy(sp.minimizedEnergy(conf.getConf()));
+
 		double E = conf.getMinEnergy();
-		Et = conf.getMinEnergyLowerBound();
+
+		Et = conf.getMinEnergyLB();
 
 		updateQStar( conf );
 
 		// negative values of effective esilon are disallowed
-		if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0 ) return EApproxReached.NOT_POSSIBLE;
+		if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0 ) {
+
+			eAppx = EApproxReached.NOT_POSSIBLE;
+
+			return;
+		}
 
 		long currentTime = System.currentTimeMillis();
 
-		System.out.println(Et + "\t" + E + "\t" + effectiveEpsilon + "\t" 
+		if( !printedHeader ) printHeader();
+
+		System.out.println(E + "\t" + effectiveEpsilon + "\t" 
 				+ getNumMinimizedConfs() + "\t" + getNumUnMinimizedConfs() + "\t "+ ((currentTime-startTime)/1000));
 
-		// return Et < threshold ? true : false;
-		return effectiveEpsilon > targetEpsilon ? EApproxReached.FALSE : EApproxReached.TRUE;
+		eAppx = effectiveEpsilon > targetEpsilon ? EApproxReached.FALSE : EApproxReached.TRUE;
+	}
+
+
+	protected void printHeader() {
+
+		System.out.println("minE" + "\t\t\t" + "epsilon" + "\t\t" + "#min" +
+				"\t" + "#un-min" + "\t" + "time(sec)");
+
+		printedHeader = true;
 	}
 
 }

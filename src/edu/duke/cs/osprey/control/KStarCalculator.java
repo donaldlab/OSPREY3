@@ -11,9 +11,8 @@ import java.util.HashMap;
 import edu.duke.cs.osprey.confspace.AllowedSeqs;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.Strand;
-import edu.duke.cs.osprey.kstar.KSImplLinear;
-import edu.duke.cs.osprey.kstar.KSImplLinear;
-import edu.duke.cs.osprey.kstar.PFAbstract;
+import edu.duke.cs.osprey.kstar.implementation.KSImplLinear;
+import edu.duke.cs.osprey.kstar.pfunction.PFAbstract;
 import edu.duke.cs.osprey.minimization.MinimizerFactory;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.tools.StringParsing;
@@ -48,10 +47,11 @@ public class KStarCalculator {
 		useContFlex = cfp.params.getBool("doMinimize",false);
 		if(doIMinDEE && !useContFlex)
 			throw new RuntimeException("ERROR: iMinDEE requires continuous flexibility");
-
+		
 		PFAbstract.targetEpsilon = cfp.params.getDouble("epsilon", 0.03);
 		PFAbstract.rho = PFAbstract.targetEpsilon / (1.0 - PFAbstract.targetEpsilon);
 		PFAbstract.qCapacity = cfp.params.getInt("pFuncQCap", (int)Math.pow(2, 17));
+		PFAbstract.useRigEnergy = cfp.params.getBool("pFuncUseRigE", false);
 		PFAbstract.waitUntilCapacity = cfp.params.getBool("pFuncQWait", false);
 
 		PFAbstract.eMinMethod = cfp.params.getValue("eMinMethod", "hbfgsccd");

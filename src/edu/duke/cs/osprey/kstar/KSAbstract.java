@@ -5,16 +5,18 @@ import java.math.BigInteger;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.concurrent.ForkJoinPool;
 import java.util.stream.IntStream;
 
 import edu.duke.cs.osprey.confspace.AllowedSeqs;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.Strand;
-import edu.duke.cs.osprey.confspace.SearchProblem.MatrixType;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
+import edu.duke.cs.osprey.kstar.pfunction.PFAbstract;
+import edu.duke.cs.osprey.kstar.pfunction.PFFactory;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 
 
@@ -36,7 +38,8 @@ public abstract class KSAbstract implements KSInterface {
 	protected HashMap<Integer, AllowedSeqs> strand2AllowedSeqs = null;
 	protected HashMap<Integer, HashMap<ArrayList<String>, PFAbstract>> strand2PFs = new HashMap<>();
 
-	private ArrayList<SearchProblem> allSPs = new ArrayList<>();
+	private ArrayList<SearchProblem> tempSPs = new ArrayList<>();
+	private HashSet<String> allSPNames = new HashSet<>();
 
 	double EW;
 	double I0;
@@ -109,10 +112,10 @@ public abstract class KSAbstract implements KSInterface {
 	}
 
 	private synchronized void addSPToGlobalList(int strand, SearchProblem sp) {
-		int arrayPos = strand == Strand.COMPLEX ? 0 : Math.max(allSPs.size()-1, 0);
-		allSPs.add(arrayPos, sp);
+		int arrayPos = strand == Strand.COMPLEX ? 0 : Math.max(tempSPs.size()-1, 0);
+		tempSPs.add(arrayPos, sp);
 
-		if(allSPs.size() >= ThreadParallelism.getNumThreads()*2) {
+		if(tempSPs.size() >= ThreadParallelism.getNumThreads()*2) {
 			// create energy matrices and clear list to avoid running out of memory
 			loadEnergyMatrices();
 		}
@@ -135,11 +138,13 @@ public abstract class KSAbstract implements KSInterface {
 		try {
 
 			ForkJoinPool forkJoinPool = new ForkJoinPool(ThreadParallelism.getNumThreads());
-			forkJoinPool.submit(() -> allSPs.parallelStream().forEach(sp -> {
+			forkJoinPool.submit(() -> tempSPs.parallelStream().forEach(sp -> {
+
 				sp.loadEnergyMatrix();
+
 			})).get();
 
-			allSPs.clear(); 
+			tempSPs.clear(); 
 		} 
 
 		catch (Exception e) {
@@ -254,7 +259,19 @@ public abstract class KSAbstract implements KSInterface {
 			AllowedSeqs strandSeqs = strand2AllowedSeqs.get(strand);
 
 			ArrayList<String> seq = strandSeqs.getStrandSeq(i);
-			if( !new File(getEmatName(strand, seq, MatrixType.EMAT)).exists() ) {
+			
+			String spName = getSearchProblemName(strand, seq);
+			boolean createSP = false;
+			
+			synchronized( allSPNames ) {
+				
+				if(!allSPNames.contains(spName))
+					allSPNames.add(spName);
+				
+				createSP = true;
+			}
+			
+			if( createSP ) {
 
 				ArrayList<ArrayList<String>> allowedAAs = arrayList1D2ListOfLists(seq);
 				ArrayList<Integer> pos = new ArrayList<>(); for( int j = 0; j < seq.size(); ++j ) pos.add(j);
@@ -315,6 +332,9 @@ public abstract class KSAbstract implements KSInterface {
 
 			// create last of the energy matrices
 			loadEnergyMatrices();
+			
+			// empty energy matrix list
+			allSPNames.clear();
 
 		} catch (Exception e) {
 			System.out.println(e.getMessage());
@@ -366,7 +386,7 @@ public abstract class KSAbstract implements KSInterface {
 		if( wtSeq == null ) wtSeq = cfp.getWTSequence();
 		return wtSeq;
 	}
-	
+
 	protected KSCalc getWTKSCalc() {
 		return wtKSCalc;
 	}

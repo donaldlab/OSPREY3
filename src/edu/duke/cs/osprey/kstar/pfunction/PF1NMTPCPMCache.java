@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.kstar;
+package edu.duke.cs.osprey.kstar.pfunction;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
+import edu.duke.cs.osprey.kstar.KSConf;
+import edu.duke.cs.osprey.kstar.KSConfQ;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.tools.ObjectIO;
 
@@ -34,7 +36,7 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 	}
 
 
-	protected void start() {
+	public void start() {
 
 		setRunState(RunState.STARTED);
 
@@ -64,7 +66,7 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 
 			KSConf conf = confs.peek();
 
-			setPStar( conf.getMinEnergyLowerBound() );
+			setPStar( conf.getMinEnergyLB() );
 		}
 
 		startTime = System.currentTimeMillis();
@@ -99,35 +101,39 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 				synchronized( slave.bufLock ) {
 
 					// update global qStar
-					if( slave.inputConsumed && (eAppx = accumulate( slave.buf )) != EApproxReached.FALSE ) {
+					if( slave.inputConsumed ) {
 
-						slave.inputConsumed = false;
+						accumulate( slave.buf );
 
-						//System.out.println(slave.id + " initiating termination with " + eAppx);
-						break;
+						if( eAppx != EApproxReached.FALSE ) {
+
+							slave.inputConsumed = false;
+
+							//System.out.println(slave.id + " initiating termination with " + eAppx);
+							break;
+						}
 					}
 
 					// fill slave conformation buffer
 					// lock conformation queue
 					synchronized( confs.qLock ) {
-
-						// only process when there are enough confs ready to be processed
-						if( confs.size() < confsPerThread ) {
-
-							if( !epsilonPossible(confsPerThread) ) {
-								//System.out.println(slave.id + " cannot reach epsilon");
-								break;
-							}
-
-							//System.out.println( slave.id + " waiting to fill buf" );
-							if( confs.size() < confsPerThread ) confs.qLock.wait();
+						
+						int request = slave.buf.size();
+						int granted = 0;
+						
+						if( (granted = canSatisfy(request)) == 0 )
+							break;
+						
+						// reduce the size of buf to match
+						while( slave.buf.size() > granted ) {
+							slave.buf.remove(slave.buf.size()-1);
 						}
-
-						for( int i = 0; i < confsPerThread; ++i ) slave.buf.set(i, confs.deQueue());
-
-						//System.out.println(slave.id + " buf full");
-
-						minimizingConfs = minimizingConfs.add( BigInteger.valueOf(confsPerThread) );
+						
+						for( int i = 0; i < granted; ++i ) {
+							slave.buf.set(i, confs.deQueue());
+						}
+						
+						minimizingConfs = minimizingConfs.add( BigInteger.valueOf(slave.buf.size()) );
 
 						slave.bufFull = true; slave.inputConsumed = false;
 
@@ -199,7 +205,7 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 	}
 
 
-	protected void cleanUpSlaves( EApproxReached val ) throws InterruptedException {
+	protected void cleanUpSlaves( EApproxReached val ) throws Exception {
 
 		//System.out.println(slave.id + " cleaning up other slaves");
 
@@ -219,8 +225,10 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 				// eappx = notposible to eappx = true
 				if( eAppx != EApproxReached.TRUE && slave.inputConsumed ) {
 
-					// if( (eAppx = accumulate2( slave.partialQStar, slave.buf )) == EApproxReached.TRUE ) {
-					if( (eAppx = accumulate( slave.buf )) == EApproxReached.TRUE ) {
+					accumulate( slave.buf );
+					
+					if( eAppx == EApproxReached.TRUE ) {
+					
 						val = EApproxReached.TRUE;
 					}
 				}
@@ -229,82 +237,6 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 				slave.bufLock.notify();
 			}
 		}
-	}
-
-
-	protected void updateQStar( BigDecimal partialQ, ArrayList<KSConf> partialQConfs ) {
-		qStar = qStar.add( partialQ );
-
-		if(saveTopConfsAsPDB) {
-			for( KSConf conf : partialQConfs )
-				saveTopConf(conf);
-		}
-
-		minimizedConfs = minimizedConfs.add( BigInteger.valueOf(partialQConfs.size()) );
-		minimizedConfsDuringInterval = minimizedConfsDuringInterval.add( BigInteger.valueOf(partialQConfs.size()) );
-	}
-
-
-	protected EApproxReached accumulate( BigDecimal partialQ, ArrayList<KSConf> partialQConfs ) {
-
-		// we need a current snapshot of qDagger, so we lock here
-		synchronized( confs.qLock ) {
-			// update q*, qDagger, minimizingConfs, and q' atomically
-			updateQStar( partialQ, partialQConfs );
-
-			minimizingConfs = minimizingConfs.subtract( BigInteger.valueOf(partialQConfs.size()) );
-
-			confs.setQDagger( confs.getQDagger().subtract( computePartialQDagger(partialQConfs) ) );
-
-			Et = confs.peekTail() != null ? confs.peekTail().getMinEnergyLowerBound() 
-					: partialQConfs.get(partialQConfs.size()-1).getMinEnergyLowerBound();
-
-			// negative values of effective esilon are disallowed
-			if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0) return EApproxReached.NOT_POSSIBLE;
-
-			long currentTime = System.currentTimeMillis();
-
-			System.out.println(partialQConfs.get(partialQConfs.size()-1).getMinEnergy() + "\t" + effectiveEpsilon + "\t" + 
-					getNumMinimizedConfs() + "\t" + getNumUnMinimizedConfs() + "\t "+ ((currentTime-startTime)/1000));
-		}
-
-		return effectiveEpsilon > targetEpsilon ? EApproxReached.FALSE : EApproxReached.TRUE;
-	}
-	
-	
-	@Override
-	protected EApproxReached accumulate( ArrayList<KSConf> partialQConfs ) {
-
-		double E = 0;
-		
-		// we need a current snapshot of qDagger, so we lock here
-		synchronized( confs.qLock ) {
-			// update q*, qDagger, minimizingConfs, and q' atomically
-			confs.setQDagger( confs.getQDagger().subtract( computePartialQDagger(partialQConfs) ) );
-
-			Et = confs.peekTail() != null ? confs.peekTail().getMinEnergyLowerBound() 
-					: partialQConfs.get(partialQConfs.size()-1).getMinEnergyLowerBound();
-
-			for( KSConf conf : partialQConfs ) {
-				
-				minimizingConfs = minimizingConfs.subtract( BigInteger.ONE );
-				
-				E = conf.getMinEnergy();
-				updateQStar( conf );
-				
-				// negative values of effective epsilon are disallowed
-				if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0 ) return EApproxReached.NOT_POSSIBLE;
-			
-				if( effectiveEpsilon <= targetEpsilon ) break;
-			}
-
-			long currentTime = System.currentTimeMillis();
-
-			System.out.println(Et + "\t" + E + "\t" + effectiveEpsilon + "\t" + 
-					getNumMinimizedConfs() + "\t" + getNumUnMinimizedConfs() + "\t" + ((currentTime-startTime)/1000));
-		}
-
-		return effectiveEpsilon > targetEpsilon ? EApproxReached.FALSE : EApproxReached.TRUE;
 	}
 
 
@@ -368,7 +300,16 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 
 				confs.set(i % sps.size(), buf.get(i));
 
-				if( (i+1) % sps.size() == 0 ) {
+				if( (i+1) % sps.size() == 0 || (i+1) == buf.size() ) {
+					
+					// reduce conf size if necessary
+					while( confs.size() > buf.size() ) {
+						
+						confs.remove(confs.size()-1);
+						
+						indexes.remove(indexes.size()-1);
+					}
+					
 					// sp concurrency reached. update partial partition function
 					indexes.parallelStream().forEach( j -> confs.get(j).setMinEnergy(sps.get(j).minimizedEnergy(confs.get(j).getConf())) );
 

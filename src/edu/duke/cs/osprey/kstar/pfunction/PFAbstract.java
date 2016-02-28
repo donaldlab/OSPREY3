@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.kstar;
+package edu.duke.cs.osprey.kstar.pfunction;
 
 import java.io.File;
 import java.math.BigDecimal;
@@ -9,6 +9,8 @@ import java.util.PriorityQueue;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
+import edu.duke.cs.osprey.kstar.KSAbstract;
+import edu.duke.cs.osprey.kstar.KSConf;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -26,10 +28,13 @@ public abstract class PFAbstract {
 	protected static ArrayList<String> serverList = new ArrayList<>();
 	protected static int threadConfsBuffer = 8;
 	public static int qCapacity = (int)Math.pow(2, 17);
+	public static boolean useRigEnergy = false;
 	public static boolean waitUntilCapacity = false;
 	protected static int numThreads = 1;
 	protected static int numFibers = 1;
 	protected static int numRemoteClients = 1;
+	
+	protected boolean printedHeader = false;
 
 	public static boolean saveTopConfsAsPDB = false;
 	protected static int numTopConfsToSave = 10;
@@ -43,7 +48,7 @@ public abstract class PFAbstract {
 	protected double effectiveEpsilon = 1.0;
 
 	public static enum EApproxReached { TRUE, FALSE, NOT_POSSIBLE, NOT_STABLE, ABORTED }
-	protected EApproxReached eAppx = EApproxReached.FALSE;
+	public EApproxReached eAppx = EApproxReached.FALSE;
 
 	public static enum RunState { NOTSTARTED, STARTED, SUSPENDED, TERMINATED }
 	protected RunState runState = RunState.NOTSTARTED;
@@ -89,10 +94,13 @@ public abstract class PFAbstract {
 		this.EW_I0 = EW_I0;
 
 		topConfsPQ = new PriorityQueue<KSConf>(getNumTopConfsToSave(), 
-				(new KSConf(null, 0.0)).new KSConfComparator());
+				(new KSConf(null, 0.0, Double.MAX_VALUE)).new KSConfMinEComparator());
 	}
 
 
+	protected abstract void printHeader();
+	
+	
 	public static void setNumTopConfsToSave( int n ) {
 		numTopConfsToSave = n;
 	}
@@ -240,17 +248,6 @@ public abstract class PFAbstract {
 	}
 
 
-	protected double getStopThreshold() {
-		return BigDecimal.valueOf(-RT).multiply
-				( ( e.log
-						( ( qStar.multiply
-								( BigDecimal.valueOf(rho) ) ).subtract
-								( pStar ) ) ).subtract
-						( e.log
-								( new BigDecimal(getNumUnMinimizedConfs()) ) ) ).doubleValue();
-	}
-
-
 	protected double computeEffectiveEpsilon() {
 		updateQPrime();
 
@@ -270,7 +267,7 @@ public abstract class PFAbstract {
 	}
 
 
-	protected double getEffectiveEpsilon() {
+	public double getEffectiveEpsilon() {
 		return effectiveEpsilon;
 	}
 
@@ -297,14 +294,14 @@ public abstract class PFAbstract {
 	}
 
 
-	protected BigDecimal getBoltzmannWeight( double E ) {
+	public BigDecimal getBoltzmannWeight( double E ) {
 		return e.exp(-E / RT);
 	}
 
 
-	abstract protected void start();
+	public abstract void start();
 
-	protected void resume() {
+	public void resume() {
 
 		long startTime = System.currentTimeMillis();
 
@@ -336,7 +333,7 @@ public abstract class PFAbstract {
 		 */
 	}
 
-	protected void runToCompletion() {
+	public void runToCompletion() {
 		compute();
 
 		if( eAppx == EApproxReached.NOT_POSSIBLE ) {
@@ -408,19 +405,14 @@ public abstract class PFAbstract {
 	}
 
 
-	protected SearchProblem getSearchProblem() {
+	public SearchProblem getSearchProblem() {
 		return sp;
 	}
 
 
-	protected PruningControl getPruningControl() {
+	public PruningControl getPruningControl() {
 		if(pc == null) pc = cfp.getPruningControl(sp, EW_I0, false, false);
 		return pc;
-	}
-
-
-	protected EApproxReached accumulate( int conf[] ) {
-		return EApproxReached.FALSE;
 	}
 
 
@@ -434,17 +426,17 @@ public abstract class PFAbstract {
 	}
 
 
-	protected BigInteger getNumInitialUnPrunedConfs() {
+	public BigInteger getNumInitialUnPrunedConfs() {
 		return initialUnPrunedConfs;
 	}
 
 
-	protected BigInteger getNumMinimizedConfs() {
+	public BigInteger getNumMinimizedConfs() {
 		return minimizedConfs;
 	}
 
 
-	protected BigInteger getPhaseOneMinimizedConfs() {
+	public BigInteger getPhaseOneMinimizedConfs() {
 		return phaseOneMinimizedConfs;
 	}
 
@@ -571,7 +563,6 @@ public abstract class PFAbstract {
 		switch( implementation.toLowerCase() ) {
 
 		case "1nnocache":
-		case "1nastar":
 		case "1npmcache":
 		case "1npcpmcache":
 		case "1nmtpcpmcache":

@@ -13,6 +13,7 @@ Involving other people directly:
 	- push more defaults into defaults.cfg?
 	- rename ksconfs output for each sequence
 	- prefix topconfs output folder with strand string
+	- test 1nmtpcpm and mnpcpm for correctness
 -BWM* (work w/ JJ as discussed)
 -RNA (get code from Swati, should be easy to incorporate)
 

@@ -1,11 +1,14 @@
-package edu.duke.cs.osprey.kstar;
+package edu.duke.cs.osprey.kstar.implementation;
 
 import java.util.HashMap;
 
 import edu.duke.cs.osprey.confspace.AllowedSeqs;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.control.ConfigFileParser;
-import edu.duke.cs.osprey.kstar.PFAbstract.EApproxReached;
+import edu.duke.cs.osprey.kstar.KSAbstract;
+import edu.duke.cs.osprey.kstar.KSCalc;
+import edu.duke.cs.osprey.kstar.pfunction.PFAbstract;
+import edu.duke.cs.osprey.kstar.pfunction.PFAbstract.EApproxReached;
 
 /**
  * 
