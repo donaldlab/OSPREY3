@@ -2,9 +2,9 @@ package edu.duke.cs.osprey.kstar.implementation;
 
 import java.util.HashMap;
 
-import edu.duke.cs.osprey.confspace.AllowedSeqs;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.control.ConfigFileParser;
+import edu.duke.cs.osprey.kstar.AllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KSCalc;
 import edu.duke.cs.osprey.kstar.pfunction.PFAbstract;
@@ -54,7 +54,7 @@ public class KSImplLinear extends KSAbstract {
 			// wt is seq 0, mutants are others
 			System.out.println("\nComputing K* for sequence " + i + "/" + 
 					(numSeqs-1) + ": " + 
-					arrayList1D2String(strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSeq(i), " "));
+					arrayList1D2String(strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSeq(i), " ") + "\n");
 			
 			// create partition functions
 			HashMap<Integer, PFAbstract> pfs = createPartitionFunctionsForSeq(i);

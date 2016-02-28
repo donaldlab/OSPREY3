@@ -22,7 +22,7 @@ public class KSCalc {
 
 	private HashMap<Integer, PFAbstract> strand2PF = null;
 	private int seqID = 0;
-	private boolean headerPrinted = false;
+	private static boolean headerPrinted = false;
 	public static BigDecimal maxValue = new BigDecimal("2e65536");
 	private static int precision = 4;
 
@@ -51,36 +51,37 @@ public class KSCalc {
 		PFAbstract p = strand2PF.get(Strand.PROTEIN);
 		PFAbstract l = strand2PF.get(Strand.LIGAND);
 
-		if(pl.eAppx == EApproxReached.NOT_POSSIBLE 
-				|| p.eAppx == EApproxReached.NOT_POSSIBLE 
-				|| l.eAppx == EApproxReached.NOT_POSSIBLE) 
+		if(pl.getEpsilonStatus() == EApproxReached.NOT_POSSIBLE 
+				|| p.getEpsilonStatus() == EApproxReached.NOT_POSSIBLE 
+				|| l.getEpsilonStatus() == EApproxReached.NOT_POSSIBLE) 
 			return EApproxReached.NOT_POSSIBLE;
 
-		if(p.eAppx == EApproxReached.NOT_STABLE 
-				|| l.eAppx == EApproxReached.NOT_STABLE)
+		if(p.getEpsilonStatus() == EApproxReached.NOT_STABLE 
+				|| l.getEpsilonStatus() == EApproxReached.NOT_STABLE)
 			return EApproxReached.NOT_STABLE;
 
-		else if(pl.eAppx == EApproxReached.TRUE
-				&& p.eAppx == EApproxReached.TRUE
-				&& l.eAppx == EApproxReached.TRUE) 
+		else if(pl.getEpsilonStatus() == EApproxReached.TRUE
+				&& p.getEpsilonStatus() == EApproxReached.TRUE
+				&& l.getEpsilonStatus() == EApproxReached.TRUE) 
 			return EApproxReached.TRUE;
 
 		return EApproxReached.FALSE;
 	}
 
 	public void run(KSCalc wtKSCalc) {
-
+		
 		ArrayList<Integer> strands = new ArrayList<>();
-		strands.add(Strand.PROTEIN);
 		strands.add(Strand.LIGAND);
+		strands.add(Strand.PROTEIN);
 		strands.add(Strand.COMPLEX);
 
 		for( int strand : strands ) {
 
-			if( getEpsilonStatus() != EApproxReached.FALSE ) 
-				return;
-
 			PFAbstract pf = getPF(strand);
+			
+			if( pf.getEpsilonStatus() != EApproxReached.FALSE )
+				continue;
+			
 			ArrayList<String> seq = pf.getSequence();
 
 			if( pf.getRunState() == RunState.NOTSTARTED ) {
@@ -90,7 +91,7 @@ public class KSCalc {
 				pf.start();
 			}
 
-			if( pf.eAppx == EApproxReached.FALSE ) {
+			if( pf.getEpsilonStatus() == EApproxReached.FALSE ) {
 
 				if(PFAbstract.getInterval() == PFAbstract.getMaxInterval()) { 
 
@@ -109,7 +110,10 @@ public class KSCalc {
 
 			if( strand != Strand.COMPLEX && !unboundIsStable(wtKSCalc, strand) ) {
 
-				pf.eAppx = EApproxReached.NOT_STABLE;
+				pf.setEpsilonStatus( EApproxReached.NOT_STABLE );
+				
+				System.out.println("\nSequence " + KSAbstract.arrayList1D2String(seq, " ") + " is unstable\n");
+				
 				return;
 			}
 		}
@@ -135,6 +139,7 @@ public class KSCalc {
 	}
 
 	private void printOutputHeader( PrintStream out ) {
+		
 		out.print("Seq ID");
 		out.print("\t");
 		out.print("Sequence");
@@ -160,6 +165,7 @@ public class KSCalc {
 		out.print("Ligand Epsilon");
 		out.print("\t");
 		out.print("Ligand # Minimized Confs.");
+		out.println();
 
 		headerPrinted = true;
 	}

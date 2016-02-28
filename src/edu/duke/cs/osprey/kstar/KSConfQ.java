@@ -201,7 +201,7 @@ public class KSConfQ extends Thread {
 				if( q.size() >= qCap ) {
 					try {
 						
-						if( pf.eAppx != EApproxReached.FALSE ) 
+						if( pf.getEpsilonStatus() != EApproxReached.FALSE ) 
 							return;
 						
 						qLock.notify();
@@ -216,7 +216,7 @@ public class KSConfQ extends Thread {
 				}
 
 				// exit thread if we have an e-approximation
-				if( pf.eAppx != EApproxReached.FALSE ) 
+				if( pf.getEpsilonStatus() != EApproxReached.FALSE ) 
 					return;
 
 				enQueue(conf);

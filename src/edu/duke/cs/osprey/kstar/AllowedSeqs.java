@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.confspace;
+package edu.duke.cs.osprey.kstar;
 
 import java.util.ArrayList;
 
@@ -214,7 +214,9 @@ public class AllowedSeqs {
 				}
 			}
 
-			output.add(new ArrayList<String>(current));
+			if(!output.contains(current))
+				output.add(new ArrayList<String>(current));
+			
 			return;
 		}
 

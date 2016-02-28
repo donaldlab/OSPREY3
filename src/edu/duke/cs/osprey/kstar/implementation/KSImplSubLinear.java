@@ -2,8 +2,8 @@ package edu.duke.cs.osprey.kstar.implementation;
 
 import java.util.HashMap;
 
-import edu.duke.cs.osprey.confspace.AllowedSeqs;
 import edu.duke.cs.osprey.control.ConfigFileParser;
+import edu.duke.cs.osprey.kstar.AllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 
 public class KSImplSubLinear extends KSAbstract {

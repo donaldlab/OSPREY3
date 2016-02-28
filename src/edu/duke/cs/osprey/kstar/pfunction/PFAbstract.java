@@ -48,7 +48,7 @@ public abstract class PFAbstract {
 	protected double effectiveEpsilon = 1.0;
 
 	public static enum EApproxReached { TRUE, FALSE, NOT_POSSIBLE, NOT_STABLE, ABORTED }
-	public EApproxReached eAppx = EApproxReached.FALSE;
+	protected EApproxReached eAppx = EApproxReached.FALSE;
 
 	public static enum RunState { NOTSTARTED, STARTED, SUSPENDED, TERMINATED }
 	protected RunState runState = RunState.NOTSTARTED;
@@ -156,8 +156,13 @@ public abstract class PFAbstract {
 	}
 
 
-	public EApproxReached getEApproxReached() {
+	public EApproxReached getEpsilonStatus() {
 		return eAppx;
+	}
+	
+	
+	public void setEpsilonStatus( EApproxReached in ) {
+		eAppx = in;
 	}
 
 

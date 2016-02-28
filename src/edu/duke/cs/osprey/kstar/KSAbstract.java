@@ -9,7 +9,6 @@ import java.util.HashSet;
 import java.util.concurrent.ForkJoinPool;
 import java.util.stream.IntStream;
 
-import edu.duke.cs.osprey.confspace.AllowedSeqs;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.control.ConfigFileParser;
