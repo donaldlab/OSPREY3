@@ -116,7 +116,6 @@ public class GumbelMapTree extends AStarTree {
     @Override
     public ArrayList<AStarNode> getChildren(AStarNode curNode) {
 
-//        printNode(curNode);
         if (isFullyAssigned(curNode)) {
             throw new RuntimeException("ERROR: Can't expand a fully assigned A* node");
         }
@@ -520,6 +519,7 @@ public class GumbelMapTree extends AStarTree {
             System.out.println("Lower Bound logZ: " + this.lowerBoundLogZ);
             System.out.println("Gap between Bounds: " + (this.upperBoundLogZ - this.lowerBoundLogZ));
         }
+        node.setScoreNeedsRefinement(false);
     }
 
     public boolean canPruneNodeGumbel(AStarNode node) {

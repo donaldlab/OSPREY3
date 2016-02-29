@@ -84,9 +84,9 @@ public class Main {
             kd.doKaDEE();
         }
         else if (command.equalsIgnoreCase("doGumbel")){
-//            GumbelDoer gd = new GumbelDoer(cfp);
-            KaDEEDoer2 kd = new KaDEEDoer2(cfp);
-            kd.doKaDEE();
+            GumbelDoer gd = new GumbelDoer(cfp);
+//            KaDEEDoer2 kd = new KaDEEDoer2(cfp);
+//            kd.doKaDEE();
         }
         //etc.
         else

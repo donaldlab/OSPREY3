@@ -32,15 +32,15 @@ public class DiscretePartFuncCalc {
     ConfTree confTree;
 
     int numConfsToEnumerate;
-    double epsilon; 
-    
+    double epsilon;
+
     boolean partFuncIsCalculated = false;
-    
+
     final ExpFunction ef = new ExpFunction();
     final double constRT = PoissonBoltzmannEnergy.constRT;
 
     boolean verbose = false;
-    
+
     public DiscretePartFuncCalc(EnergyMatrix emat, PruningMatrix pruneMat, int numConfs, double epsilon) {
         //Check to make sure we don't have any null objects
         if (emat == null) {
@@ -49,16 +49,17 @@ public class DiscretePartFuncCalc {
         if (pruneMat == null) {
             throw new NullPointerException("Pruning Matrix is Null");
         }
-        if (numConfs <= 0){
+        if (numConfs <= 0) {
             throw new RuntimeException("Error: Number of Confs to Enumerate must be greater than 0");
         }
-        if (epsilon < 0 || epsilon > 1){
-            throw new RuntimeException("Error: epsilon must be between 0 and 1. It is currently: "+epsilon);
+        if (epsilon < 0 || epsilon > 1) {
+            throw new RuntimeException("Error: epsilon must be between 0 and 1. It is currently: " + epsilon);
         }
         //All clear: Initialize our Conf Tree
         this.emat = emat;
         this.pruneMat = pruneMat;
         this.confTree = new ConfTree(emat, pruneMat);
+        this.numConfsToEnumerate = numConfs;
         this.epsilon = epsilon;
     }
 
@@ -76,78 +77,95 @@ public class DiscretePartFuncCalc {
         boolean converged = false;
         while (!converged) {
             int[] conf = confTree.nextConf();
-            double confE = emat.getInternalEnergy(new RCTuple(conf));
-            double deltaE = gmecE - confE;
-            this.Z = this.Z.add(this.ef.exp(-deltaE / this.constRT));
-            confsEnumurated++;
-            //check convergence criteria
-            converged = hasConverged(deltaE, confsEnumurated);
+            if (conf == null) {
+                converged = true;
+            } else {
+                double confE = emat.getInternalEnergy(new RCTuple(conf));
+                double deltaE = gmecE - confE;
+                this.Z = this.Z.add(this.ef.exp(-deltaE / this.constRT));
+                confsEnumurated++;
+                //check convergence criteria
+                converged = hasConverged(deltaE, confsEnumurated);
+            }
         }
+        this.Z = this.Z.multiply(this.ef.exp(-gmecE / this.constRT));
         partFuncIsCalculated = true;
     }
 
     /**
      * Computes the natural log of the partition function
-     * @return 
+     *
+     * @return
      */
-    public double calcLogZ(){
-        if (!partFuncIsCalculated){
+    public double calcLogZ() {
+        if (!partFuncIsCalculated) {
             calcPartFunc();
         }
         return ef.logToDouble(Z);
     }
-    
+
     /**
      * Checks if we are finished calculating the partition function
-     * @param currentConfE the energy of the last conformation to come off the tree
-     * @param numConfsEnumerated the number of conformations that we have enumerated so far
-     * @return 
+     *
+     * @param currentConfE the energy of the last conformation to come off the
+     * tree
+     * @param numConfsEnumerated the number of conformations that we have
+     * enumerated so far
+     * @return
      */
     private boolean hasConverged(double currentConfE, int numConfsEnumerated) {
         BigDecimal lowerBound = this.Z;
-        BigDecimal upperBound = this.ef.exp(-currentConfE/this.constRT).multiply(new BigDecimal(calcNumRemainingConfs()));
-        if (verbose){
-            System.out.println("Lower Bound Z: "+lowerBound.doubleValue());
-            System.out.println("Upper Bound Z: "+ upperBound.doubleValue());
-            System.out.println("Gap between Bounds: "+(upperBound.doubleValue() - lowerBound.doubleValue()));
+        BigDecimal upperBound = this.ef.exp(-currentConfE / this.constRT).multiply(new BigDecimal(calcNumRemainingConfs()));
+        if (verbose) {
+            System.out.println("Lower Bound Z: " + lowerBound.doubleValue());
+            System.out.println("Upper Bound Z: " + upperBound.doubleValue());
+            System.out.println("Gap between Bounds: " + (upperBound.doubleValue() - lowerBound.doubleValue()));
         }
-        if (upperBound.doubleValue() - lowerBound.doubleValue() < epsilon) {
-            return true;
-        }
-        else if (numConfsEnumerated >= this.numConfsToEnumerate){
+        //TODO: DEUBG
+        /*
+         if (upperBound.doubleValue() - lowerBound.doubleValue() < epsilon) {
+         return true;
+         } 
+         else if { (numConf...
+         */
+        if (numConfsEnumerated >= this.numConfsToEnumerate) {
             return true;
         }
         return false;
     }
 
     /**
-     * Calculated the total number of remaining confs (or a rough estimate)
-     * This is done by adding the size of the search problems of all the nodes in the queue
-     * @return 
+     * Calculated the total number of remaining confs (or a rough estimate) This
+     * is done by adding the size of the search problems of all the nodes in the
+     * queue
+     *
+     * @return
      */
-    private BigInteger calcNumRemainingConfs(){
+    private BigInteger calcNumRemainingConfs() {
         BigInteger numRemainingConfs = new BigInteger("0");
-        for (AStarNode node : this.confTree.pq){
+        for (AStarNode node : this.confTree.pq) {
             numRemainingConfs = numRemainingConfs.add(calcSearchSpace(node));
         }
         return numRemainingConfs;
     }
 
     /**
-     * Calculates the size of the search space underneath a particular node in the tree;
-     * @param node the node 
-     * @return 
+     * Calculates the size of the search space underneath a particular node in
+     * the tree;
+     *
+     * @param node the node
+     * @return
      */
     private BigInteger calcSearchSpace(AStarNode node) {
         BigInteger searchSpaceSize = new BigInteger("1");
         int[] assignments = node.getNodeAssignments();
-        for (int pos : assignments){
-            if (assignments[pos] == -1){
+        for (int pos = 0; pos < assignments.length; pos++) {
+            if (assignments[pos] == -1) {
                 int numUnprunedAtPos = pruneMat.unprunedRCsAtPos(pos).size();
                 searchSpaceSize = searchSpaceSize.multiply(new BigInteger(Integer.toString(numUnprunedAtPos)));
             }
         }
         return searchSpaceSize;
     }
-    
+
 }

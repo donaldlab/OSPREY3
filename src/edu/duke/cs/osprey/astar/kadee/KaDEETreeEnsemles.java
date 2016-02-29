@@ -65,7 +65,7 @@ public class KaDEETreeEnsemles extends AStarTree {
 
     boolean useComets = false;
 
-    int numSamplesGumbel = 200;
+    int numSamplesGumbel = 50;
     final double constRT = PoissonBoltzmannEnergy.constRT;
 
     public KaDEETreeEnsemles(int numTreeLevels, LME objFcn, LME[] constraints,
@@ -236,15 +236,18 @@ public class KaDEETreeEnsemles extends AStarTree {
             double seqScore = -computeLogZGumbel(emat, pruneMatSeq);
             System.out.print("Sequence: ");
             for (int pos = 0; pos < seq.length; pos++) {
-                System.out.print(this.AATypeOptions.get(pos).get(seq[pos])+" ");
+                System.out.print(this.AATypeOptions.get(pos).get(seq[pos]) + " ");
             }
-            System.out.println("   MaxInt Score: "+seqScore);
+            System.out.println("   MaxInt Score: " + seqScore);
+            DiscretePartFuncCalc dpf = new DiscretePartFuncCalc(emat, pruneMatSeq, 100, 0.1);
+            double exactScore = dpf.calcLogZ();
+            System.out.println("Exact Score: " + exactScore);
             score = Math.min(score, seqScore);
         }
         return score;
     }
 
-     private double computeExactBoundPerSequence(KaDEENode seqNode){
+    private double computeExactBoundPerSequence(KaDEENode seqNode) {
         int[][] seqList = getAllSequences(seqNode);
         double score = Double.POSITIVE_INFINITY;
         for (int[] seq : seqList) {
@@ -256,22 +259,26 @@ public class KaDEETreeEnsemles extends AStarTree {
             double unboundScore = -computeLogZGumbel(mutableSearchProblems[1].emat, pruneMatSeqUnbound);
             System.out.print("Sequence: ");
             for (int pos = 0; pos < seq.length; pos++) {
-                System.out.print(this.AATypeOptions.get(pos).get(seq[pos])+" ");
+                System.out.print(this.AATypeOptions.get(pos).get(seq[pos]) + " ");
             }
-            System.out.println("   Score: "+(boundScore - unboundScore));
+            System.out.println("   Score: " + (boundScore - unboundScore));
+            DiscretePartFuncCalc dpfBound = new DiscretePartFuncCalc(mutableSearchProblems[0].emat, pruneMatSeqBound, 100, 0.1);
+            double exactScoreBound = dpfBound.calcLogZ();
+            DiscretePartFuncCalc dpfUnbound = new DiscretePartFuncCalc(mutableSearchProblems[1].emat, pruneMatSeqUnbound, 100, 0.1);
+            double exactScoreUnbound = dpfUnbound.calcLogZ();
+            System.out.println("Exact Score: "+(exactScoreBound-exactScoreUnbound));
             score = Math.min(score, (boundScore - unboundScore));
         }
         return score;
-    }   
-    
-    
+    }
+
     private double computeLogZGumbel(EnergyMatrix emat, PruningMatrix pruneMat) {
         double average = 0.0;
         for (int i = 0; i < this.numSamplesGumbel; i++) {
             GumbelMapTree gTree = new GumbelMapTree(emat, pruneMat);
             gTree.nextConf();
             double sample = gTree.currentBestFeasibleScore;
-            if ((Math.abs(sample - average/(i)) > 10)&& (i>0)){
+            if ((Math.abs(sample - average / (i)) > 10) && (i > 0)) {
                 i--;
                 average -= sample;
             }
@@ -1033,7 +1040,7 @@ public class KaDEETreeEnsemles extends AStarTree {
             }
         }
     }
-    
+
     void updateUnoundPruneMatAtSequence(KaDEENode seqNode, PruningMatrix pruneMat, int[] seq) {
         int[] assignments = seqNode.getNodeAssignments();
         SearchProblem ligandSP = mutableSearchProblems[1];
