@@ -235,7 +235,6 @@ public class KStarCalculator {
 			// pruneEnergyMatrices();
 
 			createAllowedSequences();
-			System.exit(1);
 
 			String mutFilePath = cfp.getParams().getValue("mutfile", "");
 			if(mutFilePath.length() > 0) {

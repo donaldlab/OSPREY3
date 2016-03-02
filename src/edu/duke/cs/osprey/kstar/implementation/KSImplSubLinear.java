@@ -32,7 +32,6 @@ public class KSImplSubLinear extends KSAbstract {
 
 		createEnergyMatrices(true);
 		createEnergyMatrices(false);
-
 	}
 
 	@Override
@@ -67,6 +66,16 @@ public class KSImplSubLinear extends KSAbstract {
 
 			for( int strand : strands ) {
 
+				// create global search problem for strand
+				String allSeqSPName = getSearchProblemName( contSCFlex, strand );
+				
+				if( createSP(allSeqSPName) ) {
+					
+					SearchProblem allSeqSearchProblem = createAllSequenceSearchProblem(contSCFlex, strand);
+					
+					addSPToTmpList(strand, allSeqSearchProblem);
+				}
+
 				AllowedSeqs seqs = strand2AllowedSeqs.get(strand);
 
 				// ignore depth 0
@@ -80,9 +89,9 @@ public class KSImplSubLinear extends KSAbstract {
 
 								//for( ArrayList<String> subSeq : subSeqsAtDepth ) {
 
-								String spName = getSearchProblemName( contSCFlex, strand, subSeq );
+								String singleSeqSPName = getSearchProblemName( contSCFlex, strand, subSeq );
 
-								if( createSP(spName) ) {
+								if( createSP(singleSeqSPName) ) {
 
 									SearchProblem seqSearchProblem = createSingleSequenceSearchProblem( contSCFlex, strand, subSeq );
 

@@ -65,7 +65,7 @@ public abstract class KSAbstract implements KSInterface {
 		int[] strands = { Strand.COMPLEX, Strand.PROTEIN, Strand.LIGAND };
 
 		for( boolean contSCFlex : contSCFlexVals ) {
-			
+
 			contSCFlex2PFs.put(contSCFlex, new HashMap<Integer, HashMap<ArrayList<String>, PFAbstract>>());
 
 			for( int strand : strands )
@@ -94,7 +94,7 @@ public abstract class KSAbstract implements KSInterface {
 		return ans;
 	}
 
-	public String getSearchProblemName(boolean contSCFlex, int strand, ArrayList<String> seq) {
+	public String getSearchProblemName(boolean contSCFlex, int strand) {
 
 		String flexibility = contSCFlex == true ? "min" : "rig";
 
@@ -102,8 +102,11 @@ public abstract class KSAbstract implements KSInterface {
 				File.separator + 
 				getRunName() + "." + 
 				flexibility + "." + 
-				Strand.getStrandString(strand) + "." + 
-				arrayList1D2String(seq, ".");
+				Strand.getStrandString(strand);
+	}
+
+	public String getSearchProblemName(boolean contSCFlex, int strand, ArrayList<String> seq) {
+		return getSearchProblemName(contSCFlex, strand) + "." + arrayList1D2String(seq, ".");
 	}
 
 	public String getEmatName(boolean contSCFlex, int strand, ArrayList<String> seq, SearchProblem.MatrixType type) {
@@ -258,26 +261,26 @@ public abstract class KSAbstract implements KSInterface {
 
 		return ans;
 	}
-	
-	
+
+
 	protected boolean createSP( String name ) {
-		
+
 		synchronized( allSPNames ) {
 
 			if(!allSPNames.contains(name)) {
-				
+
 				allSPNames.add(name);
 
 				return true;
 			}
-			
+
 			return false;
 		}
 	}
-	
-	
+
+
 	protected SearchProblem createSingleSequenceSearchProblem( boolean contSCFlex, int strand, ArrayList<String> seq ) {
-			
+
 		ArrayList<ArrayList<String>> allowedAAs = arrayList1D2ListOfLists(seq);
 		// ArrayList<Integer> pos = new ArrayList<>(); for( int j = 0; j < seq.size(); ++j ) pos.add(j);
 		// ArrayList<String> flexibleRes = strand2AllSearchProblem.get(strand).getFlexibleResiduePositions(seq, pos);
@@ -303,8 +306,38 @@ public abstract class KSAbstract implements KSInterface {
 				useEllipses,
 				useERef,
 				addResEntropy);
-		
+
 		return seqSearchProblem;
+	}
+
+
+	protected SearchProblem createAllSequenceSearchProblem( boolean contSCFlex, int strand ) {
+
+		ArrayList<ArrayList<String>> allowedAAs = strand2AllowedSeqs.get(strand).getAllowedAAs();
+		ArrayList<String> flexibleRes = strand2AllowedSeqs.get(strand).getFlexRes();
+		ArrayList<String[]> moveableStrands = strand2AllowedSeqs.get(strand).getMoveableStrandTermini();
+		ArrayList<String[]> freeBBZones = strand2AllowedSeqs.get(strand).getFreeBBZoneTermini();
+		DEEPerSettings dset = strand2AllowedSeqs.get(strand).getDEEPerSettings();
+
+		// create searchproblem
+		SearchProblem allSeqSearchProblem = new SearchProblem( 
+				getSearchProblemName(contSCFlex, strand), 
+				pdbName, 
+				flexibleRes, 
+				allowedAAs, 
+				true, 
+				contSCFlex,
+				useEPIC,
+				new EPICSettings(cfp.getParams()),
+				useTupExp,
+				dset, 
+				moveableStrands, 
+				freeBBZones,
+				useEllipses,
+				useERef,
+				addResEntropy);
+
+		return allSeqSearchProblem;
 	}
 
 
