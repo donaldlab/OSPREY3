@@ -360,8 +360,9 @@ public class AllowedSeqs {
 		buffer.trimToSize();
 
 		HashSet<ArrayList<String>> output = new HashSet<>();
-
-		generatePermutations( input, output, buffer, 0, 0 );
+		
+		if(dist > 0)
+			generatePermutations( input, output, buffer, 0, 0 );
 
 		/*
 		// error checking...not required
@@ -371,20 +372,16 @@ public class AllowedSeqs {
 				throw new RuntimeException("ERROR: created sequence with more than " + dist + " mutations from wild type");
 			}
 		}
-		 */
-
-		if( output.size() == 0 )
-			throw new RuntimeException("ERROR: there are no possible sequences with " 
-					+ dist + " mutations from the wild type. Adjust the value of the NUMMUTATIONS parameter.");
+		*/
 
 		// remove wt, if present
 		output.remove(wt);
 
+		System.out.println("\nNumber of sequences with " + dist + 
+				" mutation(s) from wild type: " + output.size() + "\n");
+		
 		ArrayList<ArrayList<String>> ans = new ArrayList<ArrayList<String>>(output); 
 		ans.add(0, wt);
-
-		System.out.println("\nNumber of sequences with " + this.dist + 
-				" mutation(s) from wild type: " + ans.size() + "\n");
 
 		return ans;
 	}

@@ -72,7 +72,8 @@ public class ConfigFileParser {
 					freeBBZoneTermini(), moveableStrandTermini(), 
 					flexRes, allowedAAs, getWTSequence(), numMutations);
 
-			if(complexSeqs.getNumSeqs() == 0)
+			// if this condition is true, then only the wild type sequence is returned
+			if(numMutations > 0 && complexSeqs.getNumSeqs() == 1)
 				throw new RuntimeException("ERROR: cannot generate any sequences "
 						+ "for NUMMUTATIONS=" + numMutations + " mutation(s). "
 						+ "Change the value of NUMMUTATIONS parameter.");
