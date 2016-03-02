@@ -372,18 +372,6 @@ public abstract class PFAbstract {
 
 		System.out.println("Restarting with EW+I0 = " + EW_I0);
 
-		/*
-		sp = new SearchProblem( sp.name, sp.PDBFile, sp.flexibleRes, sp.allowedAAs, false, true,
-				cfp.getParams().getBool("UseEPIC"),
-				new EPICSettings(cfp.getParams()),
-				cfp.getParams().getBool("UseTupExp"),
-				dset, moveableStrands, freeBBZones,
-				cfp.getParams().getBool("useEllipses"),
-				cfp.getParams().getBool("useERef"),
-				cfp.getParams().getBool("AddResEntropy"));
-
-		sp.loadEnergyMatrix();
-		 */
 		pc = getPruningControl();
 
 		pc.prune();

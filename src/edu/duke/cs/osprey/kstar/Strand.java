@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.confspace;
+package edu.duke.cs.osprey.kstar;
 
 import java.util.ArrayList;
 

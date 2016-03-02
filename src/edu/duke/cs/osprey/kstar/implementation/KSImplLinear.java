@@ -1,14 +1,21 @@
 package edu.duke.cs.osprey.kstar.implementation;
 
+import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.concurrent.ForkJoinPool;
+import java.util.stream.IntStream;
 
-import edu.duke.cs.osprey.confspace.Strand;
+import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.kstar.AllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KSCalc;
+import edu.duke.cs.osprey.kstar.Strand;
 import edu.duke.cs.osprey.kstar.pfunction.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunction.PFAbstract.EApproxReached;
+import edu.duke.cs.osprey.parallelism.ThreadParallelism;
+import edu.duke.cs.osprey.tools.ObjectIO;
 
 /**
  * 
@@ -32,8 +39,88 @@ public class KSImplLinear extends KSAbstract {
 
 		printSequences();
 
-		createEnergyMatrices();
+		createEnergyMatrices(true);
+		// createEnergyMatrices(false);
 	}
+	
+	
+	public void createEnergyMatrices( boolean contSCFlex ) {
+
+		System.out.println("\nCreating all energy matrices\n");
+
+		if( cfp.getParams().getBool("deleteematdir", false) )
+			ObjectIO.deleteDir(getEMATdir());
+		
+		if( !new File(getEMATdir()).exists() )
+			ObjectIO.makeDir(getEMATdir(), false);
+
+		long begin = System.currentTimeMillis();
+
+		try {
+
+			ForkJoinPool forkJoinPool = new ForkJoinPool(ThreadParallelism.getNumThreads());
+			forkJoinPool.submit(() ->
+
+			IntStream.range(0, strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs()).parallel().forEach(i -> {
+
+				System.out.println("\nCreating search problem for sequence " + 
+						i + "/" + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs() + "\n");
+
+				HashMap<Integer, SearchProblem> map = createSearchProblemsForSeq(i, contSCFlex);
+
+				// put partition function in list, so we can parallelize energy matrix computation
+				for(int strand : map.keySet()) {
+					addSPToTmpList(strand, map.get(strand));
+				}
+
+			})).get();
+
+			// create last of the energy matrices
+			loadEnergyMatrices();
+
+			// empty energy matrix list
+			allSPNames.clear();
+
+			System.out.println("\nFinished creating all energy matrices");
+			System.out.println("Running time: " + (System.currentTimeMillis()-begin)/1000 + " seconds\n");
+
+		} catch (Exception e) {
+			System.out.println(e.getMessage());
+			e.printStackTrace();
+			System.exit(1);
+		}
+	}
+	
+	
+	protected HashMap<Integer, SearchProblem> createSearchProblemsForSeq(int i, boolean contSCFlex) {
+		// used to precompute energy matrices
+		HashMap<Integer, SearchProblem> ans = new HashMap<Integer, SearchProblem>();
+
+		ArrayList<Integer> strands = new ArrayList<>();
+		strands.add(Strand.COMPLEX);
+		strands.add(Strand.PROTEIN);
+		strands.add(Strand.LIGAND);
+
+		strands.parallelStream().forEach((strand) -> {
+
+			AllowedSeqs strandSeqs = strand2AllowedSeqs.get(strand);
+
+			ArrayList<String> seq = strandSeqs.getStrandSeqAtPos(i);
+
+			String spName = getSearchProblemName(contSCFlex, strand, seq);
+
+			if( createSP(spName) ) {
+
+				SearchProblem seqSearchProblem = createSingleSequenceSearchProblem( contSCFlex, strand, seq );
+				
+				// synchronized
+				addSPToLocalMap(strand, seqSearchProblem, ans);
+			}		
+		});
+
+		return ans;
+	}
+	
 
 	@Override
 	public String getKSMethod() {
@@ -43,6 +130,10 @@ public class KSImplLinear extends KSAbstract {
 	@Override
 	public void run() {
 
+		// each value corresponds to the desired flexibility of the 
+		// pl, p, and l conformation spaces, respectively
+		boolean[] contSCFlexVals = { true, true, true };
+		
 		long begin = System.currentTimeMillis();
 
 		if(strand2AllowedSeqs == null)
@@ -54,10 +145,10 @@ public class KSImplLinear extends KSAbstract {
 			// wt is seq 0, mutants are others
 			System.out.println("\nComputing K* for sequence " + i + "/" + 
 					(numSeqs-1) + ": " + 
-					arrayList1D2String(strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSeq(i), " ") + "\n");
+					arrayList1D2String(strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSeqAtPos(i), " ") + "\n");
 			
 			// create partition functions
-			HashMap<Integer, PFAbstract> pfs = createPartitionFunctionsForSeq(i);
+			HashMap<Integer, PFAbstract> pfs = createPartitionFunctionsForSeq(i, contSCFlexVals);
 			
 			// create K* calculation for sequence
 			KSCalc seq = new KSCalc(i, pfs);

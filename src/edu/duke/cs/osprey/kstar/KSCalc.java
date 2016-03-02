@@ -7,7 +7,6 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.kstar.pfunction.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunction.PFAbstract.EApproxReached;
 import edu.duke.cs.osprey.kstar.pfunction.PFAbstract.RunState;

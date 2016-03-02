@@ -5,7 +5,6 @@
 package edu.duke.cs.osprey.control;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.dof.deeper.RamachandranChecker;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
@@ -16,6 +15,7 @@ import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.AllowedSeqs;
+import edu.duke.cs.osprey.kstar.Strand;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -68,7 +68,8 @@ public class ConfigFileParser {
 
 			int numMutations = params.getInt("NUMMUTATIONS", 1);
 			
-			complexSeqs = new AllowedSeqs(setupDEEPer(), freeBBZoneTermini(), moveableStrandTermini(), 
+			complexSeqs = new AllowedSeqs(strand, setupDEEPer(), 
+					freeBBZoneTermini(), moveableStrandTermini(), 
 					flexRes, allowedAAs, getWTSequence(), numMutations);
 
 			if(complexSeqs.getNumSeqs() == 0)
@@ -102,8 +103,8 @@ public class ConfigFileParser {
 		if( fbbzt.size() == 2 ) fbbzt = new ArrayList<String[]>( complexSeqs.getFreeBBZoneTermini().subList(strand, strand) );
 		if( mst.size() == 2 ) mst = new ArrayList<String[]>( complexSeqs.getMoveableStrandTermini().subList(strand, strand) );
 		
-		AllowedSeqs strandSeqs = new AllowedSeqs(setupDEEPer(strand), fbbzt, mst, 
-				flexRes, complexSeqs, allowedAAs, lb, ub);
+		AllowedSeqs strandSeqs = new AllowedSeqs(strand, setupDEEPer(strand), 
+				fbbzt, mst, flexRes, complexSeqs, allowedAAs, lb, ub);
 
 		return strandSeqs;
 	}

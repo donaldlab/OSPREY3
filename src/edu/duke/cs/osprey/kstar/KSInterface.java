@@ -11,6 +11,8 @@ public interface KSInterface {
 
 	public void init( HashMap<Integer, AllowedSeqs> strand2AllowedSeqs );
 	
+	public void createEnergyMatrices( boolean contSCFlex );
+	
 	public void run();
 	
 	public String getKSMethod();

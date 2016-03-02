@@ -9,9 +9,10 @@ import java.util.Arrays;
 import java.util.HashMap;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.kstar.AllowedSeqs;
+import edu.duke.cs.osprey.kstar.Strand;
 import edu.duke.cs.osprey.kstar.implementation.KSImplLinear;
+import edu.duke.cs.osprey.kstar.implementation.KSImplSubLinear;
 import edu.duke.cs.osprey.kstar.pfunction.PFAbstract;
 import edu.duke.cs.osprey.minimization.MinimizerFactory;
 import edu.duke.cs.osprey.pruning.PruningControl;
@@ -71,7 +72,7 @@ public class KStarCalculator {
 	}
 
 
-	private void createSearchProblems() {
+	protected void createSearchProblems() {
 
 		// computing allowed sequences can be time intensive for large sequence
 		// spaces, so re-use it for different strands once it has been computed
@@ -93,7 +94,7 @@ public class KStarCalculator {
 	}
 
 
-	private void createEnergyMatrices( boolean parallel ) {
+	protected void createEnergyMatrices( boolean parallel ) {
 
 		ArrayList<Integer> strands = new ArrayList<>();
 		for( int strand = cfp.getNumStrands()-1; strand >= 0; --strand ) strands.add(strand);
@@ -124,7 +125,7 @@ public class KStarCalculator {
 	}
 
 
-	private void pruneEnergyMatrices() {
+	protected void pruneEnergyMatrices() {
 
 		ArrayList<Integer> strands = new ArrayList<>();
 		for( int strand = cfp.getNumStrands()-1; strand >= 0; --strand ) strands.add(strand);
@@ -184,9 +185,9 @@ public class KStarCalculator {
 					+ " but sequences in this design have length " + plLen);
 		}
 
-		ArrayList<String> plWT = pl.getStrandSeq(0);
-		ArrayList<String> pWT = p.getStrandSeq(0);
-		ArrayList<String> lWT = l.getStrandSeq(0);
+		ArrayList<String> plWT = pl.getStrandSeqAtPos(0);
+		ArrayList<String> pWT = p.getStrandSeqAtPos(0);
+		ArrayList<String> lWT = l.getStrandSeqAtPos(0);
 
 		pl.getStrandSeqList().clear(); pl.getStrandSeqList().add(plWT);
 		p.getStrandSeqList().clear(); p.getStrandSeqList().add(pWT);
@@ -234,6 +235,7 @@ public class KStarCalculator {
 			// pruneEnergyMatrices();
 
 			createAllowedSequences();
+			System.exit(1);
 
 			String mutFilePath = cfp.getParams().getValue("mutfile", "");
 			if(mutFilePath.length() > 0) {
@@ -244,6 +246,11 @@ public class KStarCalculator {
 
 			switch( ksMethod ) {
 
+			case "sublinear":
+				KSImplSubLinear sublinear = new KSImplSubLinear(cfp);
+				sublinear.init(strand2AllowedSeqs);
+				break;
+			
 			case "linear":
 			default:
 				KSImplLinear linear = new KSImplLinear(cfp);
