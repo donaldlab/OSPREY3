@@ -5,6 +5,7 @@
  */
 package edu.duke.cs.osprey.astar.kadee;
 
+import com.sun.org.apache.xerces.internal.dom.ChildNode;
 import edu.duke.cs.osprey.astar.AStarNode;
 import edu.duke.cs.osprey.astar.AStarTree;
 import edu.duke.cs.osprey.astar.Mplp;
@@ -36,9 +37,9 @@ public class GumbelMapTree extends AStarTree {
     //These are lists of residue-specific RC numbers for the unpruned RCs at each residue
 
     //ADVANCED SCORING METHODS: TO CHANGE LATER (EPIC, MPLP, etc.)
-    public boolean traditionalScore = true;
+    public boolean traditionalScore = false;
     boolean useRefinement = true;
-    public boolean mplpScore = false;
+    public boolean mplpScore = true;
 
     //MPLP object for node refinement
     public Mplp mplpMinimizer;
@@ -59,11 +60,14 @@ public class GumbelMapTree extends AStarTree {
     public int numNodesEpsilon = -1;
 
     private Random randomGenerator;
+    GumbelDistribution gd;
+
     final double constRT = PoissonBoltzmannEnergy.constRT;
 
     boolean verbose = false;
 
-    
+    boolean usePrimal = true;
+
     public GumbelMapTree(SearchProblem sp) {
         init(sp, sp.pruneMat);
     }
@@ -72,7 +76,7 @@ public class GumbelMapTree extends AStarTree {
         this.numPos = aEmat.numPos();
         this.emat = aEmat;
         this.pruneMat = aPruneMat;
-
+        gd = new GumbelDistribution();
         //see which RCs are unpruned and thus available for consideration
         for (int pos = 0; pos < numPos; pos++) {
             unprunedRCsAtPos.add(aPruneMat.unprunedRCsAtPos(pos));
@@ -83,11 +87,10 @@ public class GumbelMapTree extends AStarTree {
         }
         randomGenerator = new Random();
     }
-    
-    
+
     private void init(SearchProblem sp, PruningMatrix aPruneMat) {
         numPos = sp.confSpace.numPos;
-
+        this.confSpace = sp.confSpace;
         //see which RCs are unpruned and thus available for consideration
         for (int pos = 0; pos < numPos; pos++) {
             unprunedRCsAtPos.add(aPruneMat.unprunedRCsAtPos(pos));
@@ -111,11 +114,12 @@ public class GumbelMapTree extends AStarTree {
             }
         }
         randomGenerator = new Random();
+        gd = new GumbelDistribution();
     }
 
-    @Override
+//    @Override
     public ArrayList<AStarNode> getChildren(AStarNode curNode) {
-
+//        printNode(curNode);
         if (isFullyAssigned(curNode)) {
             throw new RuntimeException("ERROR: Can't expand a fully assigned A* node");
         }
@@ -139,22 +143,29 @@ public class GumbelMapTree extends AStarTree {
             double logSearchProblemSize = computeLogSearchSize(childConf);
 
             //Pass perturbation down
-            if (curNode.getNodeAssignments()[nextLevel] == rc) {
+            if (curNode.feasibleSolution[nextLevel] == rc) {
                 double score = scoreConfWithPert(childConf, curNode.perturbation);
                 AStarNode childNode = new AStarNode(childConf, score, curNode.feasibleSolution, curNode.perturbation, useRefinement);
-                if (!canPruneNodeGumbel(childNode)){
+                if (!canPruneNodeGumbel(childNode)) {
                     ans.add(childNode);
+                }
+                if (usePrimal) {
+                    updatePrimalSolution(childNode, curNode);
                 }
                 updateCurrentBestFeasibleSolution(childNode);
             } else {
-                double gumbelPert = GumbelDistribution.sampleTruncated(-GumbelDistribution.gamma + logSearchProblemSize, curNode.perturbation);
+                double gumbelPert = gd.sampleTruncated(-gd.gamma + logSearchProblemSize, curNode.perturbation);
                 double score = scoreConfWithPert(childConf, gumbelPert);
                 AStarNode childNode = new AStarNode(childConf, score, getFeasibleSolution(childConf), gumbelPert, useRefinement);
-                if (!canPruneNodeGumbel(childNode)){
+                if (!canPruneNodeGumbel(childNode)) {
                     ans.add(childNode);
+                }
+                if (usePrimal) {
+                    updatePrimalSolution(childNode, curNode);
                 }
                 updateCurrentBestFeasibleSolution(childNode);
             }
+
         }
         return ans;
     }
@@ -299,7 +310,7 @@ public class GumbelMapTree extends AStarTree {
         for (int rc : unprunedRCsAtPos.get(level)) {
             expandedConf[level] = rc;
             double logConfSpace = computeLogSearchSize(expandedConf);
-            double gumbelNoise = GumbelDistribution.sampleTruncated(-GumbelDistribution.gamma + logConfSpace, parentNoise);
+            double gumbelNoise = gd.sampleTruncated(-gd.gamma + logConfSpace, parentNoise);
 //            double childScore = scoreConf(expandedConf);
             double childScore = scoreConfTraditionalWithPert(expandedConf, gumbelNoise);
             reciprocalSum += 1.0 / (childScore - parentScore);
@@ -427,21 +438,20 @@ public class GumbelMapTree extends AStarTree {
 
     @Override
     public void refineScore(AStarNode node) {
-    //I will use refineScore to update the bounds 
+        //I will use refineScore to update the bounds 
         updateBounds(node);
     }
 
     @Override
     public boolean isFullyAssigned(AStarNode node) {
-        /*
-         for (int rc : node.nodeAssignments) {
+        /*        for (int rc : node.getNodeAssignments()) {
          if (rc < 0)//not fully assigned
          {
          return false;
          }
          }
-         this.currentBestFeasibleScore = node.score;
-         this.currentBestFeasibleSolution = node.nodeAssignments;
+         this.currentBestFeasibleScore = node.getScore();
+         this.currentBestFeasibleSolution = node.getNodeAssignments();
          return true;
          */
         return this.pq.isEmpty() && (!node.isRoot);
@@ -454,18 +464,18 @@ public class GumbelMapTree extends AStarTree {
         Arrays.fill(conf, -1);
 
         double logSearchProblemSize = computeLogSearchSize(conf);
-        double gumbelNoise = GumbelDistribution.sample(-GumbelDistribution.gamma + logSearchProblemSize, 1);
+        double gumbelNoise = gd.sample(-gd.gamma + logSearchProblemSize, 1);
 
-        int[] feasibleSolution = getFeasibleSolution(conf);
         double lowerBound = scoreConfWithPert(conf, gumbelNoise);
-
+        int[] feasibleSolution = getFeasibleSolution(conf);
         AStarNode root = new AStarNode(conf, lowerBound, useRefinement);
 
+        root.feasibleSolution = feasibleSolution;
         root.perturbation = gumbelNoise;
         root.isRoot = true;
-
+        root.endPert = gd.sample(-gd.gamma, 1);
         this.currentBestFeasibleSolution = feasibleSolution;
-        this.currentBestFeasibleScore = scoreConfWithPert(feasibleSolution, gumbelNoise);
+        this.currentBestFeasibleScore = scoreConfWithPert(feasibleSolution, root.endPert);
 
         return root;
     }
@@ -489,7 +499,57 @@ public class GumbelMapTree extends AStarTree {
 
     int[] getFeasibleSolution(int[] partialAssignment) {
         return getRandomConformation(partialAssignment);
-        //HMN: proposed change to this.mplpMinimizer.feasibleSolution
+//        return this.mplpMinimizer.feasibleSolution;
+    }
+
+    int[] getPrimalSolution(AStarNode node) {
+        if (nodeAssigned(node)) {
+            return node.getNodeAssignments();
+        }
+        return this.mplpMinimizer.feasibleSolution;
+    }
+
+    void updatePrimalSolution(AStarNode childNode, AStarNode parentNode) {
+        int[] primalSolution = getPrimalSolution(childNode);
+        double pert = this.gd.sample(-GumbelDistribution.gamma, 1);
+        //Check if our primal is equal to random feasible solution
+        if (Arrays.equals(primalSolution, childNode.feasibleSolution)) {
+            childNode.primalSolution = childNode.feasibleSolution;
+            childNode.endPert = childNode.perturbation;
+
+        } //Check if our primal is equal to the parent primal solution
+        else if (Arrays.equals(primalSolution, parentNode.primalSolution)) {
+            childNode.primalSolution = primalSolution;
+            childNode.endPert = parentNode.endPert;
+        } //Otherwise we update with our new primal and our new perturbation
+        else {
+            childNode.primalSolution = primalSolution;
+            childNode.endPert = pert;
+        }
+        checkPrimalSolution(childNode);
+    }
+
+    //Make sure this is a valid primal solution (for debugging)
+    void checkPrimalSolution(AStarNode node) {
+        int[] nodeAssignments = node.getNodeAssignments();
+        int[] primalSolution = node.primalSolution;
+        for (int pos = 0; pos < this.numPos; pos++) {
+            if (nodeAssignments[pos] != -1) {
+                if (nodeAssignments[pos] != primalSolution[pos]) {
+                    for (int rc : nodeAssignments) {
+                        System.out.print(rc + " ");
+                    }
+                    System.out.println();
+                    for (int rc : primalSolution) {
+                        System.out.print(rc + " ");
+                    }
+                    System.out.println();
+
+                    throw new RuntimeException("Primal Solution is Not Correct");
+                }
+            }
+
+        }
     }
 
     int[] getRandomConformation(int[] partialAssignment) {
@@ -530,10 +590,20 @@ public class GumbelMapTree extends AStarTree {
     }
 
     public void updateCurrentBestFeasibleSolution(AStarNode node) {
+//        double pert = GumbelDistribution.sample(-GumbelDistribution.gamma, 1);
         double score = scoreConfWithPert(node.feasibleSolution, node.perturbation);
         if (score < this.currentBestFeasibleScore) {
             this.currentBestFeasibleScore = score;
             this.currentBestFeasibleSolution = node.feasibleSolution;
+        }
+        if (usePrimal) {
+            double primalScore = scoreConfWithPert(node.primalSolution, node.endPert);
+
+            if (primalScore < this.currentBestFeasibleScore) {
+//            System.out.println("Primal Solution Update!");
+                this.currentBestFeasibleScore = primalScore;
+                this.currentBestFeasibleSolution = node.primalSolution;
+            }
         }
     }
 
@@ -568,11 +638,18 @@ public class GumbelMapTree extends AStarTree {
     }
 
     void printNode(AStarNode node) {
-        for (int rot : node.getNodeAssignments()) {
+        int[] nodeAssignments = node.getNodeAssignments();
+        for (int pos = 0; pos < this.numPos; pos++) {
+            int rot = nodeAssignments[pos];
             if (rot != -1) {
-                System.out.print("|||   ");
+                String aminoAcid = this.confSpace.posFlex.get(pos).RCs.get(rot).AAType;
+                System.out.print(aminoAcid + " ");
+            } else {
+                System.out.print("XXX ");
             }
         }
+        System.out.print("Score: " + node.getScore());
+        System.out.print(" BestSoFar: " + this.currentBestFeasibleScore);
         System.out.println();
     }
 }

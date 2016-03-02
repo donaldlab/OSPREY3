@@ -37,10 +37,12 @@ public class MapPerturbationSuper {
     int numSamplesAnalysis;
     ArrayList<singlePos> singlePosList;
     ArrayList<pairPos> pairPosList;
-
+    GumbelDistribution gd;
+    
     public MapPerturbationSuper(SearchProblemSuper searchSpace) {
         this.searchSpace = searchSpace;
         this.emat = searchSpace.emat;
+        gd = new GumbelDistribution();
     }
 
     //Returns Upper Bounds on Log Partition Function
@@ -111,7 +113,7 @@ public class MapPerturbationSuper {
         for (int pos = 0; pos < emat.oneBody.size(); pos++) {
             for (int superRC : searchSpace.pruneMat.unprunedRCsAtPos(pos)) {
                 double currentE = emat.getOneBody(pos, superRC);
-                double noise = GumbelDistribution.sample(-1.0 * GumbelDistribution.gamma, 1.0) * this.constRT;
+                double noise = gd.sample(-1.0 * GumbelDistribution.gamma, 1.0) * this.constRT;
                 emat.setOneBody(pos, superRC, currentE - noise);
             }
         }
@@ -122,7 +124,7 @@ public class MapPerturbationSuper {
         for (int pos = 0; pos < emat.oneBody.size(); pos++) {
             for (int superRC : searchSpace.pruneMat.unprunedRCsAtPos(pos)) {
                 double currentE = emat.getOneBody(pos, superRC);
-                double noise = GumbelDistribution.sample(-1.0 * GumbelDistribution.gamma, 1.0) * this.constRT / emat.oneBody.size();
+                double noise = gd.sample(-1.0 * GumbelDistribution.gamma, 1.0) * this.constRT / emat.oneBody.size();
                 emat.setOneBody(pos, superRC, currentE - noise);
             }
         }

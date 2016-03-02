@@ -40,8 +40,9 @@ public class Mplp {
 
     private boolean interactionGraph[][];
 
-    int[] feasibleSolution;
+    public int[] feasibleSolution;
     double[][] belief;
+    double[][][] lambda;
     
     public Mplp(int aNumPos, EnergyMatrix aEmat, PruningMatrix aPruneMat) {
         init(aNumPos, aEmat, aPruneMat, 0.0);
@@ -110,7 +111,7 @@ public class Mplp {
          * Here comes the actual algorithm *
          */
         // lambda is the message matrix for MPLP; we set all messages to zero
-        double lambda[][][] = CreateMatrix.create3DMsgMat(numPos, rotsPerPos, 0.0f);
+        this.lambda = CreateMatrix.create3DMsgMat(numPos, rotsPerPos, 0.0f);
 
         // the belief on each rotamer
         //b_i(x_i) = intrE(x_i) + sum_{k in N(i)} lambda_{k,i -> i}(x_i)

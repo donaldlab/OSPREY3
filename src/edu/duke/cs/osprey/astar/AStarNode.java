@@ -16,6 +16,9 @@ public class AStarNode implements Comparable {
     
     public double perturbation;//useful for GumbelMap (HMN)
     public int[] feasibleSolution; //useful for GumbelMap (HMN) for now this is a random feasible solution
+
+    public double endPert;
+    public int[] primalSolution;
     
     boolean scoreNeedsRefinement;
 

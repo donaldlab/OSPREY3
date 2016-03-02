@@ -5,6 +5,7 @@
  */
 package edu.duke.cs.osprey.control;
 
+
 import edu.duke.cs.osprey.astar.kadee.GumbelMapTree;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
@@ -29,7 +30,7 @@ public class GumbelDoer {
         
         double average = 0.0;
         int averageNodesExpanded = 0;
-        int numSamples = 10;
+        int numSamples = 50;
         for (int i = 0; i < numSamples; i++) {
             GumbelMapTree tree = new GumbelMapTree(sp);
             tree.nextConf();
@@ -38,7 +39,9 @@ public class GumbelDoer {
             double logZestimate = -average/(this.constRT*(i+1));
             System.out.println("Number of Nodes Expanded: "+tree.numExpanded);
             averageNodesExpanded += tree.numExpanded;
-            System.out.println(logZestimate);
+            System.out.println("Current Sample: "+-score/this.constRT);
+            System.out.println("Current Average: "+logZestimate);
+            System.out.println("Current Average Nodes Exp: "+averageNodesExpanded/(i+1));
         }
         System.out.println("Average Nodes Expanded: "+averageNodesExpanded/numSamples);
          double logZ = -average / (this.constRT * numSamples);
