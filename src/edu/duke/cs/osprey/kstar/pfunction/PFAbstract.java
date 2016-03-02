@@ -148,6 +148,8 @@ public abstract class PFAbstract {
 			pdbName = dir + File.separator + String.valueOf(i) +".pdb";
 			sp.outputMinimizedStruct(topConfsPQ.poll().getConf(), pdbName);
 		}
+		
+		System.out.println();
 	}
 
 

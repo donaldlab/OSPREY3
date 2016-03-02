@@ -27,7 +27,7 @@ public class PF1NNoCache extends PFAbstract {
 			ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, 
 			double EW_I0) {
 
-		super( sequence, cfp, sp, pc, dset, moveableStrands, freeBBZones, EW_I0);
+		super( sequence, cfp, sp, pc, dset, moveableStrands, freeBBZones, EW_I0 );
 	}
 
 
@@ -45,15 +45,12 @@ public class PF1NNoCache extends PFAbstract {
 		if( (conf = search.nextConf()) != null ) {
 
 			KSConf ksConf = new KSConf(conf, sp.lowerBound(conf), Double.MAX_VALUE);
-			ksConf.setMinEnergy(sp.minimizedEnergy(conf));
-			Et = ksConf.getMinEnergyLB();
-
+			
 			// get approx gmec LB to compute p*
-			updateQStar( ksConf );
-
 			Et = ksConf.getMinEnergyLB();
-
 			setPStar( Et );
+			
+			accumulate( ksConf );
 		}
 
 	}

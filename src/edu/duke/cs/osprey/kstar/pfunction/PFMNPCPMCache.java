@@ -27,7 +27,7 @@ public class PFMNPCPMCache extends PF1NMTPCPMCache {
 			ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, 
 			double EW_I0) {
 
-		super( sequence, cfp, sp, pc, dset, moveableStrands, freeBBZones, EW_I0);
+		super( sequence, cfp, sp, pc, dset, moveableStrands, freeBBZones, EW_I0 );
 	}
 
 	public void start() {

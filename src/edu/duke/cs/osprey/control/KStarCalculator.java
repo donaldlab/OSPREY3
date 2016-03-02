@@ -15,6 +15,7 @@ import edu.duke.cs.osprey.kstar.implementation.KSImplLinear;
 import edu.duke.cs.osprey.kstar.implementation.KSImplSubLinear;
 import edu.duke.cs.osprey.kstar.pfunction.PFAbstract;
 import edu.duke.cs.osprey.minimization.MinimizerFactory;
+import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.tools.StringParsing;
 
@@ -51,17 +52,17 @@ public class KStarCalculator {
 		
 		PFAbstract.targetEpsilon = cfp.params.getDouble("epsilon", 0.03);
 		PFAbstract.rho = PFAbstract.targetEpsilon / (1.0 - PFAbstract.targetEpsilon);
-		PFAbstract.qCapacity = cfp.params.getInt("pFuncQCap", (int)Math.pow(2, 21));
+		PFAbstract.qCapacity = cfp.params.getInt("pFuncQCap", 2097152);
 		PFAbstract.useRigEnergy = cfp.params.getBool("pFuncUseRigE", false);
 		PFAbstract.waitUntilCapacity = cfp.params.getBool("pFuncQWait", false);
 
 		PFAbstract.eMinMethod = cfp.params.getValue("eMinMethod", "ccd");
 		PFAbstract.setImplementation(cfp.params.getValue("pFuncMethod", "1npcpmcache"));
-		PFAbstract.setStabilityThreshold( cfp.params.getDouble("pFuncStabilityThreshold", 1.0) );
+		PFAbstract.setStabilityThreshold( cfp.params.getDouble("pFuncStabilityThreshold", 0.1) );
 		PFAbstract.setInterval( cfp.params.getValue("pFuncInterval", Double.toString(PFAbstract.getMaxInterval())) );
 		PFAbstract.setConfsThreadBuffer( cfp.params.getInt("pFuncConfsThreadBuffer", 4) );
 		PFAbstract.setNumFibers( cfp.params.getInt("pFuncFibers", 1) );
-		PFAbstract.setNumThreads( cfp.params.getInt("pFuncThreads", 8) );
+		PFAbstract.setNumThreads( cfp.params.getInt("pFuncThreads", ThreadParallelism.getNumThreads()) );
 		PFAbstract.setServerList( cfp.params.getValue("pFuncServerList", "localhost").split("\\s+") );
 		PFAbstract.setNumRemoteClients( cfp.params.getInt("pFuncClients", 1) );
 

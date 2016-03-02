@@ -76,7 +76,7 @@ public class KSImplLinear extends KSAbstract {
 			allSPNames.clear();
 
 			System.out.println("\nFinished creating all energy matrices");
-			System.out.println("Running time: " + ((System.currentTimeMillis()-begin)/1000) + " seconds\n");
+			System.out.println("Running time: " + (System.currentTimeMillis()-begin)/1000 + " seconds\n");
 
 		} catch (Exception e) {
 			System.out.println(e.getMessage());
@@ -160,13 +160,11 @@ public class KSImplLinear extends KSAbstract {
 			}
 		}
 
-		long end = System.currentTimeMillis();
-
 		// print statistics
 		System.out.println("\nK* calculations computed: " + numSeqs);
 		System.out.println("K* conformations minimized: " + countMinimizedConfs());
 		System.out.println("Total # of conformations in search space: " + countTotNumConfs());
-		System.out.println("K* running time: " + (end-begin)/1000 + " seconds\n");
+		System.out.println("K* running time: " + (System.currentTimeMillis()-begin)/1000 + " seconds\n");
 
 		// peace the fuck out ^_^
 	}

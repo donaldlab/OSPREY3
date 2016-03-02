@@ -28,7 +28,7 @@ import java.util.StringTokenizer;
 /**
  *
  * @author Mark Hallen (mhall44@duke.edu)
- * @author Goke Ojewole (ao68@duke.edu)
+ * @author Adegoke Ojewole (ao68@duke.edu)
  */
 public class ConfigFileParser {
     //An object that parses configuration files and uses them to initialize objects needed
