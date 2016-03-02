@@ -379,8 +379,8 @@ public class AllowedSeqs {
 		ArrayList<ArrayList<String>> ans = new ArrayList<ArrayList<String>>(output); 
 		ans.add(0, wt);
 		
-		System.out.println("Number of sequences with " + this.dist + 
-				" mutation(s) from wild type: " + ans.size());
+		System.out.println("\nNumber of sequences with " + this.dist + 
+				" mutation(s) from wild type: " + ans.size() + "\n");
 		
 		return ans;
 	}

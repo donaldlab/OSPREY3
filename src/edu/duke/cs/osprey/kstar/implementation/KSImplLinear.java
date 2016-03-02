@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.kstar.implementation;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.concurrent.ForkJoinPool;
@@ -15,7 +14,6 @@ import edu.duke.cs.osprey.kstar.Strand;
 import edu.duke.cs.osprey.kstar.pfunction.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunction.PFAbstract.EApproxReached;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
-import edu.duke.cs.osprey.tools.ObjectIO;
 
 /**
  * 
@@ -38,7 +36,9 @@ public class KSImplLinear extends KSAbstract {
 		strand2AllSearchProblem.put(Strand.LIGAND, cfp.getSearchProblem(Strand.LIGAND, strand2AllowedSeqs.get(Strand.LIGAND)));
 
 		printSequences();
-
+		
+		createEmatDir();
+		
 		createEnergyMatrices(true);
 		// createEnergyMatrices(false);
 	}
@@ -47,12 +47,6 @@ public class KSImplLinear extends KSAbstract {
 	public void createEnergyMatrices( boolean contSCFlex ) {
 
 		System.out.println("\nCreating all energy matrices\n");
-
-		if( cfp.getParams().getBool("deleteematdir", false) )
-			ObjectIO.deleteDir(getEMATdir());
-		
-		if( !new File(getEMATdir()).exists() )
-			ObjectIO.makeDir(getEMATdir(), false);
 
 		long begin = System.currentTimeMillis();
 
@@ -82,7 +76,7 @@ public class KSImplLinear extends KSAbstract {
 			allSPNames.clear();
 
 			System.out.println("\nFinished creating all energy matrices");
-			System.out.println("Running time: " + (System.currentTimeMillis()-begin)/1000 + " seconds\n");
+			System.out.println("Running time: " + ((System.currentTimeMillis()-begin)/1000) + " seconds\n");
 
 		} catch (Exception e) {
 			System.out.println(e.getMessage());

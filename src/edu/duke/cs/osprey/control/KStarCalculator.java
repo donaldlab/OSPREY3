@@ -51,17 +51,17 @@ public class KStarCalculator {
 		
 		PFAbstract.targetEpsilon = cfp.params.getDouble("epsilon", 0.03);
 		PFAbstract.rho = PFAbstract.targetEpsilon / (1.0 - PFAbstract.targetEpsilon);
-		PFAbstract.qCapacity = cfp.params.getInt("pFuncQCap", (int)Math.pow(2, 17));
+		PFAbstract.qCapacity = cfp.params.getInt("pFuncQCap", (int)Math.pow(2, 21));
 		PFAbstract.useRigEnergy = cfp.params.getBool("pFuncUseRigE", false);
 		PFAbstract.waitUntilCapacity = cfp.params.getBool("pFuncQWait", false);
 
-		PFAbstract.eMinMethod = cfp.params.getValue("eMinMethod", "hbfgsccd");
+		PFAbstract.eMinMethod = cfp.params.getValue("eMinMethod", "ccd");
 		PFAbstract.setImplementation(cfp.params.getValue("pFuncMethod", "1npcpmcache"));
 		PFAbstract.setStabilityThreshold( cfp.params.getDouble("pFuncStabilityThreshold", 1.0) );
 		PFAbstract.setInterval( cfp.params.getValue("pFuncInterval", Double.toString(PFAbstract.getMaxInterval())) );
 		PFAbstract.setConfsThreadBuffer( cfp.params.getInt("pFuncConfsThreadBuffer", 4) );
-		PFAbstract.setNumFibers( cfp.params.getInt("pFuncFibers", 4) );
-		PFAbstract.setNumThreads( cfp.params.getInt("pFuncThreads", 2) );
+		PFAbstract.setNumFibers( cfp.params.getInt("pFuncFibers", 1) );
+		PFAbstract.setNumThreads( cfp.params.getInt("pFuncThreads", 8) );
 		PFAbstract.setServerList( cfp.params.getValue("pFuncServerList", "localhost").split("\\s+") );
 		PFAbstract.setNumRemoteClients( cfp.params.getInt("pFuncClients", 1) );
 
@@ -72,70 +72,8 @@ public class KStarCalculator {
 	}
 
 
-	protected void createSearchProblems() {
-
-		// computing allowed sequences can be time intensive for large sequence
-		// spaces, so re-use it for different strands once it has been computed
-		// for the complex.
-		AllowedSeqs complexSeqs = cfp.getAllowedSequences(Strand.COMPLEX, null);
-		strand2AllowedSeqs.put(Strand.COMPLEX, complexSeqs);
-		System.out.println("\nCreating search problem for strand " + Strand.COMPLEX);
-		strand2SearchProblem.put(Strand.COMPLEX, cfp.getSearchProblem(Strand.COMPLEX, complexSeqs));
-
-		ArrayList<Integer> strands = new ArrayList<>();
-		for( int strand = cfp.getNumStrands()-1; strand >= 0; --strand ) strands.add(strand);
-
-		for( int strand : strands ) {
-			strand2AllowedSeqs.put(strand, cfp.getAllowedSequences(strand, complexSeqs));
-
-			System.out.println("\nCreating search problem for strand " + Strand.getStrandString(strand));
-			strand2SearchProblem.put(strand, cfp.getSearchProblem(strand, strand2AllowedSeqs.get(strand)));
-		}
-	}
-
-
-	protected void createEnergyMatrices( boolean parallel ) {
-
-		ArrayList<Integer> strands = new ArrayList<>();
-		for( int strand = cfp.getNumStrands()-1; strand >= 0; --strand ) strands.add(strand);
-		strands.add(Strand.COMPLEX);
-
-		if( !parallel ) {
-			// load sequentially
-			for( int strand : strands ) {
-				System.out.println("\nCreating energy matrix for strand " + Strand.getStrandString(strand));
-				strand2SearchProblem.get(strand).loadEnergyMatrix();
-			}
-		}
-
-		else {
-			// load in parallel
-			ArrayList<SearchProblem> sps = new ArrayList<>(); for( SearchProblem sp : strand2SearchProblem.values() ) sps.add(sp);
-			ArrayList<Integer> indexes = new ArrayList<>(); for(int i = 0; i < sps.size(); ++i) indexes.add(i);
-			indexes.parallelStream().forEach( i -> {
-				SearchProblem sp = sps.get(i);
-				sp.loadEnergyMatrix();
-			});
-		}
-	}
-
-
 	protected ArrayList<String> getWTSequence() {
 		return cfp.getWTSequence();
-	}
-
-
-	protected void pruneEnergyMatrices() {
-
-		ArrayList<Integer> strands = new ArrayList<>();
-		for( int strand = cfp.getNumStrands()-1; strand >= 0; --strand ) strands.add(strand);
-		strands.add(Strand.COMPLEX);
-
-		for( int strand : strands ) {
-			System.out.println("\nPruning rotamers in strand " + Strand.getStrandString(strand));
-			strand2Pruning.put(strand, cfp.getPruningControl(strand2SearchProblem.get(strand), Ew+I0, false, false));
-			strand2Pruning.get(strand).prune();
-		}
 	}
 
 
@@ -229,11 +167,6 @@ public class KStarCalculator {
 
 		try {
 
-			// createSearchProblems();
-			// boolean parallel = true; 
-			// createEnergyMatrices(parallel);
-			// pruneEnergyMatrices();
-
 			createAllowedSequences();
 
 			String mutFilePath = cfp.getParams().getValue("mutfile", "");
@@ -248,6 +181,7 @@ public class KStarCalculator {
 			case "sublinear":
 				KSImplSubLinear sublinear = new KSImplSubLinear(cfp);
 				sublinear.init(strand2AllowedSeqs);
+				sublinear.run();
 				break;
 			
 			case "linear":

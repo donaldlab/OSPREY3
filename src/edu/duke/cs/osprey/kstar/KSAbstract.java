@@ -14,6 +14,7 @@ import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.kstar.pfunction.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunction.PFFactory;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
+import edu.duke.cs.osprey.tools.ObjectIO;
 
 
 /**
@@ -71,6 +72,14 @@ public abstract class KSAbstract implements KSInterface {
 			for( int strand : strands )
 				contSCFlex2PFs.get(contSCFlex).put(strand, new HashMap<ArrayList<String>, PFAbstract>());
 		}
+	}
+	
+	protected void createEmatDir() {
+		if( cfp.getParams().getBool("deleteematdir", false) )
+			ObjectIO.deleteDir(getEMATdir());
+		
+		if( !new File(getEMATdir()).exists() )
+			ObjectIO.makeDir(getEMATdir(), false);
 	}
 
 	public static String arrayList1D2String(ArrayList<String> seq, String separator) {

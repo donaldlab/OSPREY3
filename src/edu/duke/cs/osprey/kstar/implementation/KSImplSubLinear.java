@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.kstar.implementation;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.concurrent.ForkJoinPool;
@@ -11,7 +10,6 @@ import edu.duke.cs.osprey.kstar.AllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.Strand;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
-import edu.duke.cs.osprey.tools.ObjectIO;
 
 public class KSImplSubLinear extends KSAbstract {
 
@@ -30,6 +28,8 @@ public class KSImplSubLinear extends KSAbstract {
 		strand2AllSearchProblem.put(Strand.PROTEIN, cfp.getSearchProblem(Strand.PROTEIN, strand2AllowedSeqs.get(Strand.PROTEIN)));
 		strand2AllSearchProblem.put(Strand.LIGAND, cfp.getSearchProblem(Strand.LIGAND, strand2AllowedSeqs.get(Strand.LIGAND)));
 
+		createEmatDir();
+		
 		createEnergyMatrices(true);
 		createEnergyMatrices(false);
 	}
@@ -50,12 +50,6 @@ public class KSImplSubLinear extends KSAbstract {
 
 		System.out.println("\nCreating all energy matrices\n");
 
-		if( cfp.getParams().getBool("deleteematdir", false) )
-			ObjectIO.deleteDir(getEMATdir());
-
-		if( !new File(getEMATdir()).exists() )
-			ObjectIO.makeDir(getEMATdir(), false);
-
 		long begin = System.currentTimeMillis();
 
 		try {
@@ -68,11 +62,11 @@ public class KSImplSubLinear extends KSAbstract {
 
 				// create global search problem for strand
 				String allSeqSPName = getSearchProblemName( contSCFlex, strand );
-				
+
 				if( createSP(allSeqSPName) ) {
-					
+
 					SearchProblem allSeqSearchProblem = createAllSequenceSearchProblem(contSCFlex, strand);
-					
+
 					addSPToTmpList(strand, allSeqSearchProblem);
 				}
 
@@ -111,7 +105,7 @@ public class KSImplSubLinear extends KSAbstract {
 			allSPNames.clear();
 
 			System.out.println("\nFinished creating all energy matrices");
-			System.out.println("Running time: " + (System.currentTimeMillis()-begin)/1000 + " seconds\n");
+			System.out.println("Running time: " + ((System.currentTimeMillis()-begin)/1000) + " seconds\n");
 
 		} catch (Exception e) {
 			System.out.println(e.getMessage());
