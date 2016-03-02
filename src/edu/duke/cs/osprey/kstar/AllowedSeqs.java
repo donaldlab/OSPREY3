@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.kstar;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 
@@ -101,7 +102,7 @@ public class AllowedSeqs {
 		ArrayList<String> ans = null;
 
 		if( seq2FlexRes.get(seq) == null ) {
-			
+
 			ans = new ArrayList<>();
 
 			for( int i = 0; i < seq.size(); ++i ) {
@@ -219,7 +220,7 @@ public class AllowedSeqs {
 								// add complex subsequence
 								if( !allowedSubSeqs.get(tmpSubSeq.size()).contains(tmpSubSeq) ) 
 									allowedSubSeqs.get(tmpSubSeq.size()).add(tmpSubSeq);
-								
+
 								// add complex flexible res positions for subsequence
 								seq2FlexRes.put(tmpSubSeq, tmpFlexRes);
 							}
@@ -236,7 +237,7 @@ public class AllowedSeqs {
 				if( !finalDepth.contains(seq) )
 					finalDepth.add(seq);
 			}
-			 */
+			*/
 		}
 
 		return allowedSubSeqs;
@@ -348,13 +349,6 @@ public class AllowedSeqs {
 	}
 
 
-	/**
-	 * Generates all sequences that differ from WT in exactly dist positions.
-	 * WT sequence is assumed to be in the first column of the input.
-	 * @param input
-	 * @param dist
-	 * @return
-	 */
 	private ArrayList<ArrayList<String>> generateAllSequencesWithDist ( 
 			ArrayList<ArrayList<String>> input ) {
 
@@ -365,35 +359,35 @@ public class AllowedSeqs {
 		}
 		buffer.trimToSize();
 
-		ArrayList<ArrayList<String>> output = new ArrayList<>();
-		output.ensureCapacity(maxSequences);
+		HashSet<ArrayList<String>> output = new HashSet<>();
 
 		generatePermutations( input, output, buffer, 0, 0 );
 
+		/*
+		// error checking...not required
 		// remove objects that differ from wt by more than dist elements
-		int numRemoved = 0;
-		for( int it = 0; it < output.size(); ) {
-			if( !isSpecifiedDist(wt, output.get(it)) ) {
-				output.remove(it);
-				numRemoved++;
+		for( ArrayList<String> seq : output ) {
+			if( !isSpecifiedDist(wt, seq) ) {
+				throw new RuntimeException("ERROR: created sequence with more than " + dist + " mutations from wild type");
 			}
-			else ++it;
 		}
+		*/
+		
+		// remove wt, if present
+		output.remove(wt);
 
-		if( numRemoved > 0 ) {
-			System.out.println("Error check on created mutants removed " + numRemoved + " sequences");
-		}
-
+		ArrayList<ArrayList<String>> ans = new ArrayList<ArrayList<String>>(output); 
+		ans.add(0, wt);
+		
 		System.out.println("Number of sequences with " + this.dist + 
-				" mutation(s) from wild type: " + output.size());
-
-		output.trimToSize();
-		return output;
+				" mutation(s) from wild type: " + ans.size());
+		
+		return ans;
 	}
 
 
 	private void generatePermutations( ArrayList<ArrayList<String>> input, 
-			ArrayList<ArrayList<String>> output, ArrayList<String> current, 
+			HashSet<ArrayList<String>> output, ArrayList<String> current, 
 			int depth, int diff ) {
 
 		if( output.size() >= maxSequences )
@@ -442,7 +436,7 @@ public class AllowedSeqs {
 	 * @param dist
 	 * @return
 	 */
-	private boolean isSpecifiedDist( ArrayList<String> s1, ArrayList<String> s2 ) {
+	protected boolean isSpecifiedDist( ArrayList<String> s1, ArrayList<String> s2 ) {
 
 		if( s1.size() != s2.size() )
 			throw new RuntimeException("Error: input strings " + s1 + " and " 
@@ -458,13 +452,13 @@ public class AllowedSeqs {
 	}
 
 
-	public boolean containsWT() {
+	private boolean containsWT() {
 		boolean ans = allowedSeqs.contains(wt);
 		return ans;
 	}
 
 
-	public void addWT() {
+	protected void addWTToAllowedSeqs() {
 		if( containsWT() )
 			allowedSeqs.remove(wt);
 

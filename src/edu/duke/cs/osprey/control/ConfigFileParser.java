@@ -76,9 +76,6 @@ public class ConfigFileParser {
 				throw new RuntimeException("ERROR: cannot generate any sequences "
 						+ "for NUMMUTATIONS=" + numMutations + " mutation(s). "
 						+ "Change the value of NUMMUTATIONS parameter.");
-
-			// we need the wt as a benchmark of stability, so always add it
-			complexSeqs.addWT();
 		}
 		
 		if(strand == Strand.COMPLEX)
