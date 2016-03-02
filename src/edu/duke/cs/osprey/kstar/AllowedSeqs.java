@@ -237,7 +237,7 @@ public class AllowedSeqs {
 				if( !finalDepth.contains(seq) )
 					finalDepth.add(seq);
 			}
-			*/
+			 */
 		}
 
 		return allowedSubSeqs;
@@ -371,17 +371,21 @@ public class AllowedSeqs {
 				throw new RuntimeException("ERROR: created sequence with more than " + dist + " mutations from wild type");
 			}
 		}
-		*/
-		
+		 */
+
+		if( output.size() == 0 )
+			throw new RuntimeException("ERROR: there are no possible sequences with " 
+					+ dist + " mutations from the wild type. Adjust the value of the NUMMUTATIONS parameter.");
+
 		// remove wt, if present
 		output.remove(wt);
 
 		ArrayList<ArrayList<String>> ans = new ArrayList<ArrayList<String>>(output); 
 		ans.add(0, wt);
-		
+
 		System.out.println("\nNumber of sequences with " + this.dist + 
 				" mutation(s) from wild type: " + ans.size() + "\n");
-		
+
 		return ans;
 	}
 
