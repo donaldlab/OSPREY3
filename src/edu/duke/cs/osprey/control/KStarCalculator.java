@@ -51,8 +51,7 @@ public class KStarCalculator {
 			throw new RuntimeException("ERROR: iMinDEE requires continuous flexibility");
 		
 		PFAbstract.targetEpsilon = cfp.params.getDouble("epsilon", 0.03);
-		PFAbstract.rho = PFAbstract.targetEpsilon / (1.0 - PFAbstract.targetEpsilon);
-		PFAbstract.qCapacity = cfp.params.getInt("pFuncQCap", 2097152);
+		PFAbstract.qCapacity = cfp.params.getInt("pFuncQCap", 4194304);
 		PFAbstract.useRigEnergy = cfp.params.getBool("pFuncUseRigE", false);
 		PFAbstract.waitUntilCapacity = cfp.params.getBool("pFuncQWait", false);
 

@@ -59,12 +59,7 @@ public class PF1NPCPMCache extends PF1NPMCache {
 			confs = new KSConfQ( this, sp, indexes.size() );
 
 			// set pstar
-			if( confs.getNextConf() ) {
-
-				KSConf conf = confs.peek();
-
-				setPStar( conf.getMinEnergyLB() );
-			}
+			setPStar( confs.getNextConfELB() );
 
 			confs.start();
 
@@ -88,15 +83,15 @@ public class PF1NPCPMCache extends PF1NPMCache {
 
 			int request = partialQConfs.size();
 			int granted = 0;
-			
+
 			if( (granted = canSatisfy(request)) == 0 )
 				return;
 
 			// reduce the size of partialQconfs and indexes to match request
 			while( partialQConfs.size() > granted ) {
-				
+
 				partialQConfs.remove(partialQConfs.size()-1);
-				
+
 				indexes.remove(indexes.size()-1);
 			}
 
@@ -110,7 +105,7 @@ public class PF1NPCPMCache extends PF1NPMCache {
 		}
 
 		// minimization hapens here
-		accumulate(partialQConfs); 
+		accumulate(partialQConfs, false); 
 
 		if( eAppx != EApproxReached.FALSE ) {
 			// we leave this function
@@ -166,13 +161,14 @@ public class PF1NPCPMCache extends PF1NPMCache {
 	}
 
 
-	protected void accumulate( ArrayList<KSConf> partialQConfs ) throws Exception {
+	protected void accumulate( ArrayList<KSConf> partialQConfs, boolean isMinimized ) throws Exception {
 
-		// we do not have a lock when minimizing
-		indexes.parallelStream().forEach( i -> {
-			partialQConfs.get(i).setMinEnergy( sps.get(i).minimizedEnergy(partialQConfs.get(i).getConf()) );
-		});
-
+		if( !isMinimized ) {
+			// we do not have a lock when minimizing
+			indexes.parallelStream().forEach( i -> {
+				partialQConfs.get(i).setMinEnergy( sps.get(i).minimizedEnergy(partialQConfs.get(i).getConf()) );
+			});
+		}
 
 		double E = 0;
 
@@ -217,7 +213,7 @@ public class PF1NPCPMCache extends PF1NPMCache {
 			long currentTime = System.currentTimeMillis();
 
 			if( !printedHeader ) printHeader();
-			
+
 			System.out.println(E + "\t" + effectiveEpsilon + "\t" + 
 					getNumMinimizedConfs() + "\t" + getNumUnMinimizedConfs() + "\t" + confs.size() + "\t" + ((currentTime-startTime)/1000));
 

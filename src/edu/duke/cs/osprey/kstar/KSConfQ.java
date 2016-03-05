@@ -21,7 +21,7 @@ public class KSConfQ extends Thread {
 	private ConfSearch search;
 	private int minCapacity;
 	private BigDecimal capacityThresh = new BigDecimal(0.0001);
-	
+
 	// lock for queue access
 	public final Object qLock = new Object();
 
@@ -34,7 +34,7 @@ public class KSConfQ extends Thread {
 	private int origQCap = 0;
 	private boolean confsExhausted = false;
 	private boolean useEnergyUB = false;
-	
+
 	/**
 	 * 
 	 * @param pf
@@ -62,16 +62,16 @@ public class KSConfQ extends Thread {
 	}
 
 
-	public boolean getNextConf() {
+	public double getNextConfELB() {
 
 		int c[] = null;
 
 		if( (c = search.nextConf()) != null ) {
-			enQueue(c);
-			return true;
+			return enQueue(c);
 		}
 
-		return false;
+		// should never get here
+		return Double.MAX_VALUE;
 	}
 
 
@@ -83,8 +83,8 @@ public class KSConfQ extends Thread {
 	public boolean isExhausted() {
 		return confsExhausted;
 	}
-	
-	
+
+
 	public boolean canSatisfy(int requested) {
 		return size() >= requested;
 	}
@@ -100,20 +100,26 @@ public class KSConfQ extends Thread {
 	}
 
 
-	public void enQueue( int conf[] ) {
+	public double enQueue( int conf[] ) {
 
 		double minELB = sp.lowerBound(conf);
-		qDagger = qDagger.add( pf.getBoltzmannWeight(minELB) );
+		
+		if( pf.getMinimizedConfsSet().contains(conf) ) return minELB;
 		
 		double minEUB = Double.MAX_VALUE;
+
+		KSConf ksc = new KSConf(conf, minELB, minEUB);
+
+		qDagger = qDagger.add( pf.getBoltzmannWeight(minELB) );
 		
 		if(useEnergyUB) {
 			minEUB = sp.rigidEnergy(conf);
 			qDot = qDot.add( pf.getBoltzmannWeight(minEUB) );
 		}
 
-		KSConf ksc = new KSConf(conf, minELB, minEUB);
 		q.add(ksc);
+		
+		return minELB;
 	}
 
 
@@ -130,37 +136,37 @@ public class KSConfQ extends Thread {
 	public BigDecimal getCapacityThresh() {
 		return capacityThresh;
 	}
-	
-	
+
+
 	public BigDecimal getQDagger() {
 		return qDagger;
 	}
 
-	
+
 	public BigDecimal getQDot() {
 		return qDot;
 	}
-	
+
 
 	public void setQDagger( BigDecimal qDagger ) {
 		this.qDagger = qDagger;
 	}
 
-	
+
 	public void setQDot( BigDecimal qDot ) {
 		this.qDot = qDot;
 	}
-	
+
 
 	public int getQCapacity() {
 		return qCap;
 	}
 
-	
+
 	public void restoreQCapacity() {
 		setQCapacity(origQCap);
 	}
-	
+
 
 	public void setQCapacity( int newCap ) {
 		qCap = Math.max(newCap, minCapacity);
@@ -200,12 +206,12 @@ public class KSConfQ extends Thread {
 
 				if( q.size() >= qCap ) {
 					try {
-						
+
 						qLock.notify();
-						
+
 						if( pf.getEpsilonStatus() != EApproxReached.FALSE ) 
 							return;
-						
+
 						else
 							qLock.wait();
 

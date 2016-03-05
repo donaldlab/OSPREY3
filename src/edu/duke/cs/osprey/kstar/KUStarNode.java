@@ -1,5 +1,10 @@
 package edu.duke.cs.osprey.kstar;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+
 import edu.duke.cs.osprey.kstar.pfunction.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunction.PFAbstract.EApproxReached;
 import edu.duke.cs.osprey.tools.ExpFunction;
@@ -13,64 +18,185 @@ import edu.duke.cs.osprey.tools.ExpFunction;
 
 public class KUStarNode {
 
-	protected static KSCalc wt;
-	
+	private static KSCalc wt;
+	private static HashMap<Integer, AllowedSeqs> strand2AllowedSeqs;
+	private static KSAbstract ksObj;
+	static int numExpanded = 0;
+
 	private KSCalc calc;
 	protected double score;
 	protected boolean scoreNeedsRefinement;
-	
-	
-	protected static void init( KSCalc wtCalc ) {
-		wt = wtCalc;
+
+
+	public static void init( KSAbstract ksObj, 
+			HashMap<Integer, AllowedSeqs> strand2AllowedSeqs, KSCalc wt ) {
+
+		KUStarNode.ksObj = ksObj;
+		KUStarNode.strand2AllowedSeqs = strand2AllowedSeqs;
+		KUStarNode.wt = wt;
 	}
-	
-	
-	public KUStarNode( boolean scoreNeedsRefinement ) {
-		
+
+
+	public KUStarNode( KSCalc calc, boolean scoreNeedsRefinement ) {
+		this.calc = calc;
+		score = Double.MAX_VALUE;
 		this.scoreNeedsRefinement = scoreNeedsRefinement;
 	}
-	
-	
+
+
 	protected void setScore() {
-		
+
 		calc.run(wt);
-		
+
 		if( calc.getEpsilonStatus() == EApproxReached.TRUE ) {
-			
+
 			PFAbstract pl = calc.getPF(Strand.COMPLEX);
 			PFAbstract p = calc.getPF(Strand.PROTEIN);
 			PFAbstract l = calc.getPF(Strand.LIGAND);
-			
+
 			ExpFunction e = new ExpFunction();
-			
+
 			score = e.log10(p.getQStar()) + e.log10(l.getQStar()) - e.log10(pl.getQStar());
 		}
-		
+
 		else
 			score = Double.MAX_VALUE;
 	}
-	
-	
+
+
 	// only expand if scoreNeedsRefinement
-	protected void expand() {
+	public ArrayList<KUStarNode> expand() {
+
+		// using complex, p, l convention
+		int[] strands = { Strand.COMPLEX, Strand.PROTEIN, Strand.LIGAND };
+
+		ArrayList<Integer> nextDepths = new ArrayList<>(); 
+		for( int i = 0; i < strands.length; ++i ) nextDepths.add(0);
+
+		ArrayList<ArrayList<String>> seqs = new ArrayList<>(); 
+		for( int i = 0; i < strands.length; ++i ) seqs.add(new ArrayList<String>());
+
+		// get next depths for each strand
+		for( int strand : strands ) {
+
+			if( currentDepth() != 0 ) {
+				ArrayList<String> seq = calc.getPF(strand).getSequence();
+				seqs.set(strand, seq);
+				nextDepths.set(strand, Math.min(seq.size()+1, strand2AllowedSeqs.get(strand).getStrandSubSeqsMaxDepth()));
+			}
+
+			else {
+				// go to the first non-zero depth
+				for(int i = 0; i <= strand2AllowedSeqs.get(strand).getStrandSubSeqsMaxDepth(); ++i) {
+					if( strand2AllowedSeqs.get(strand).getStrandSubSeqsAtDepth(i).size() != 0 ) {
+						nextDepths.set(strand, i);
+						break;
+					}
+				}
+			}
+		}
+
+		// get all sequences at next depth
+		ArrayList<ArrayList<String>> nextPSeqs = strand2AllowedSeqs.get(Strand.PROTEIN).getStrandSubSeqsAtDepth(nextDepths.get(Strand.PROTEIN));
+		ArrayList<ArrayList<String>> nextLSeqs = strand2AllowedSeqs.get(Strand.LIGAND).getStrandSubSeqsAtDepth(nextDepths.get(Strand.LIGAND));
+		HashSet<ArrayList<String>> nextPLSeqs = new HashSet<ArrayList<String>>(strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSubSeqsAtDepth(nextDepths.get(Strand.COMPLEX)));
+
+		ArrayList<KUStarNode> successors;
+		
+		// in general, we want to add a single residue to either the protein xor the ligand
+		// so our successor is nextProtein+thisLigand, thisProtein+nextLigand
+		// however, to expand the root node, we add two residues to get nextProtein+nextLigand
+		
+		if( currentDepth() == 0 ) {
+			successors = getPutativeSuccessors( nextPLSeqs, nextPSeqs, nextLSeqs );
+		}
+		
+		else {
+			ArrayList<ArrayList<String>> currentPSeq = new ArrayList<>();
+			currentPSeq.add(seqs.get(Strand.PROTEIN));
+			successors = getPutativeSuccessors( nextPLSeqs, currentPSeq, nextLSeqs );
+			
+			ArrayList<ArrayList<String>> currentLSeq = new ArrayList<>();
+			currentLSeq.add(seqs.get(Strand.LIGAND));
+			successors.addAll( getPutativeSuccessors( nextPLSeqs, nextPSeqs, currentLSeq ) );
+		}
+
+		// compute all p and l UPPER bound partition functions
+		// 		if not stable, then do not add
+
+		return successors;
 	}
-	
-	
-	protected int depth() {
+
+
+	private ArrayList<KUStarNode> getPutativeSuccessors( HashSet<ArrayList<String>> nextPLSeqs,
+			ArrayList<ArrayList<String>> pSeqs,
+			ArrayList<ArrayList<String>> lSeqs ) {
+
+		String[][] strandSeqs = new String[3][];
+		boolean[] contSCFlexVals = { true, false, false };
+		String[] pfImplVals = { "1nubnm", "1nnocache", "1nnocache" };
+
+		ArrayList<KUStarNode> ans = new ArrayList<>();
+
+		for( ArrayList<String> pSeq : pSeqs ) {
+
+			for( ArrayList<String> lSeq : lSeqs ) {
+
+				ArrayList<String> putativeNextPLSeq = new ArrayList<String>();
+
+				putativeNextPLSeq.addAll(pSeq);
+				putativeNextPLSeq.addAll(lSeq);
+
+				if( !nextPLSeqs.contains(putativeNextPLSeq) ) continue;
+
+				// create partition functions for next sequences
+				strandSeqs[Strand.COMPLEX] = (String[]) putativeNextPLSeq.toArray(new String[0]);
+				strandSeqs[Strand.PROTEIN] = (String[]) pSeq.toArray(new String[0]);
+				strandSeqs[Strand.LIGAND] = (String[]) lSeq.toArray(new String[0]);
+
+				// create partition functions
+				HashMap<Integer, PFAbstract> pfs = ksObj.createPartitionFunctionsForSeq(strandSeqs, contSCFlexVals, pfImplVals);
+
+				// create KUStar node
+				ans.add( new KUStarNode( new KSCalc(++numExpanded, pfs), childScoreNeedsRefinement() ) );
+			}
+		}
+
+		return ans;
+	}
+
+
+	protected int currentDepth() {
+		if( calc == null ) return 0;
 		// number of assigned residues is depth
 		return calc.getPF(Strand.COMPLEX).getSequence().size();
 	}
-	
-	
+
+
+	public boolean scoreNeedsRefinement() {
+		return scoreNeedsRefinement;
+	}
+
+
 	private boolean childScoreNeedsRefinement() {
-		
+
 		int maxDepth = wt.getPF(Strand.COMPLEX).getSequence().size();
-		
-		int depth = depth();
-		
+
+		int depth = currentDepth();
+
 		if( depth != maxDepth )
 			return true;
-		
+
 		return false;
 	}
+
+
+	//Comparator anonymous class implementation
+	public static Comparator<KUStarNode> KUStarNodeComparator = new Comparator<KUStarNode>() {
+
+		@Override
+		public int compare( KUStarNode lhs, KUStarNode rhs ) {
+			return lhs.score >= rhs.score ? 1 : -1;
+		}
+	};
 }

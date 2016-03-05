@@ -8,14 +8,17 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.kstar.AllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSAbstract;
+import edu.duke.cs.osprey.kstar.KSCalc;
+import edu.duke.cs.osprey.kstar.KUStarNode;
+import edu.duke.cs.osprey.kstar.KUStarTree;
 import edu.duke.cs.osprey.kstar.Strand;
+import edu.duke.cs.osprey.kstar.pfunction.PFAbstract;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 
 public class KSImplSubLinear extends KSAbstract {
 
 	public KSImplSubLinear(ConfigFileParser cfp) {
 		super(cfp);
-		// TODO Auto-generated constructor stub
 	}
 
 	@Override
@@ -33,18 +36,53 @@ public class KSImplSubLinear extends KSAbstract {
 		createEnergyMatrices(true);
 		createEnergyMatrices(false);
 	}
-
+	
+	
 	@Override
 	public void run() {
-		// TODO Auto-generated method stub
-
+		
+		// compute wt sequence for reference
+		String[][] seqs = getStrandStringsAtPos(0);		
+		boolean[] contSCFlexVals = { true, true, true };
+		String[] pfImplVals = { PFAbstract.getImplementation(), 
+				PFAbstract.getImplementation(), PFAbstract.getImplementation() };
+		HashMap<Integer, PFAbstract> pfs = createPartitionFunctionsForSeq(seqs, contSCFlexVals, pfImplVals);
+		KSCalc seq = new KSCalc(0, pfs);
+		wtKSCalc = seq;
+		seq.run(wtKSCalc);
+		
+		// initialize KUStar tree
+		KUStarTree tree = new KUStarTree(this, strand2AllowedSeqs, wtKSCalc);
+		
+		// add root node
+		tree.add( new KUStarNode(null, true) );
+		
+		int numSeqs = cfp.getParams().getInt("KStarNumSeqs", 5);
+		int completed = 0;
+		
+		for( KUStarNode best = tree.poll(); best != null && completed < numSeqs; 
+				best = tree.poll() ) {
+			
+			if( !best.scoreNeedsRefinement() ) {
+				// run full k*: p and l completely, then pl as a stream
+				completed++;
+				continue;
+			}
+			
+			ArrayList<KUStarNode> successors = best.expand();
+			tree.add(successors);
+			System.out.println(tree.size());
+			System.out.println();
+		}
 	}
 
+	
 	@Override
 	public String getKSMethod() {
 		return "sublinear";
 	}
 
+	
 	@Override
 	public void createEnergyMatrices( boolean contSCFlex ) {
 
@@ -105,7 +143,7 @@ public class KSImplSubLinear extends KSAbstract {
 			allSPNames.clear();
 
 			System.out.println("\nFinished creating all energy matrices");
-			System.out.println("Running time: " + ((System.currentTimeMillis()-begin)/1000) + " seconds\n");
+			System.out.println("Running time: " + (System.currentTimeMillis()-begin)/1000 + " seconds\n");
 
 		} catch (Exception e) {
 			System.out.println(e.getMessage());

@@ -17,10 +17,10 @@ import edu.duke.cs.osprey.pruning.PruningControl;
  */
 public class PF1NNoCache extends PFAbstract {
 
-	ConfSearch search;
+	protected ConfSearch search;
 
 	// temp for benchmarking
-	long startTime;
+	protected long startTime;
 
 	public PF1NNoCache(ArrayList<String> sequence, ConfigFileParser cfp, 
 			SearchProblem sp, PruningControl pc, DEEPerSettings dset, 
@@ -38,21 +38,26 @@ public class PF1NNoCache extends PFAbstract {
 		// replace new confrtree with a conf tree factory call 
 		// to a function in the abstract base class
 		search = new ConfTree(sp);
-		int conf[];
+		int rawConf[];
 
 		startTime = System.currentTimeMillis();
 
-		if( (conf = search.nextConf()) != null ) {
+		if( (rawConf = search.nextConf()) != null ) {
 
-			KSConf ksConf = new KSConf(conf, sp.lowerBound(conf), Double.MAX_VALUE);
+			KSConf ksConf = new KSConf(rawConf, sp.lowerBound(rawConf), Double.MAX_VALUE);
 			
 			// get approx gmec LB to compute p*
 			Et = ksConf.getMinEnergyLB();
 			setPStar( Et );
 			
-			accumulate( ksConf );
+			printedHeader = true;
+			if( !minimizedConfsSet.contains(ksConf.getConf()) )
+				accumulate( ksConf );
+			printedHeader = false;
 		}
-
+		
+		else
+			eAppx = EApproxReached.NOT_POSSIBLE;
 	}
 
 
@@ -62,6 +67,8 @@ public class PF1NNoCache extends PFAbstract {
 
 		if( (rawConf = search.nextConf()) != null ) {
 
+			if( minimizedConfsSet.contains(rawConf) ) return;
+			
 			KSConf conf = new KSConf(rawConf, sp.lowerBound(rawConf), Double.MAX_VALUE);
 
 			accumulate(conf);
@@ -109,7 +116,7 @@ public class PF1NNoCache extends PFAbstract {
 	 * Synchronous version evaluates conf energy immediately and adds to value.
 	 */
 	protected void accumulate( KSConf conf ) {
-
+		
 		conf.setMinEnergy(sp.minimizedEnergy(conf.getConf()));
 
 		double E = conf.getMinEnergy();
@@ -131,7 +138,7 @@ public class PF1NNoCache extends PFAbstract {
 		if( !printedHeader ) printHeader();
 
 		System.out.println(E + "\t" + effectiveEpsilon + "\t" 
-				+ getNumMinimizedConfs() + "\t" + getNumUnMinimizedConfs() + "\t "+ ((currentTime-startTime)/1000));
+				+ getNumMinimizedConfs() + "\t" + getNumUnMinimizedConfs() + "\t"+ (currentTime-startTime)/1000);
 
 		eAppx = effectiveEpsilon > targetEpsilon ? EApproxReached.FALSE : EApproxReached.TRUE;
 	}

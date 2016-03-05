@@ -36,14 +36,14 @@ public class KSImplLinear extends KSAbstract {
 		strand2AllSearchProblem.put(Strand.LIGAND, cfp.getSearchProblem(Strand.LIGAND, strand2AllowedSeqs.get(Strand.LIGAND)));
 
 		printSequences();
-		
+
 		createEmatDir();
-		
+
 		createEnergyMatrices(true);
-		// createEnergyMatrices(false);
+		createEnergyMatrices(false);
 	}
-	
-	
+
+
 	public void createEnergyMatrices( boolean contSCFlex ) {
 
 		System.out.println("\nCreating all energy matrices\n");
@@ -58,7 +58,7 @@ public class KSImplLinear extends KSAbstract {
 			IntStream.range(0, strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs()).parallel().forEach(i -> {
 
 				System.out.println("\nCreating search problem for sequence " + 
-						i + "/" + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs() + "\n");
+						i + "/" + (strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs()-1) + "\n");
 
 				HashMap<Integer, SearchProblem> map = createSearchProblemsForSeq(i, contSCFlex);
 
@@ -84,8 +84,8 @@ public class KSImplLinear extends KSAbstract {
 			System.exit(1);
 		}
 	}
-	
-	
+
+
 	protected HashMap<Integer, SearchProblem> createSearchProblemsForSeq(int i, boolean contSCFlex) {
 		// used to precompute energy matrices
 		HashMap<Integer, SearchProblem> ans = new HashMap<Integer, SearchProblem>();
@@ -106,7 +106,7 @@ public class KSImplLinear extends KSAbstract {
 			if( createSP(spName) ) {
 
 				SearchProblem seqSearchProblem = createSingleSequenceSearchProblem( contSCFlex, strand, seq );
-				
+
 				// synchronized
 				addSPToLocalMap(strand, seqSearchProblem, ans);
 			}		
@@ -114,7 +114,7 @@ public class KSImplLinear extends KSAbstract {
 
 		return ans;
 	}
-	
+
 
 	@Override
 	public String getKSMethod() {
@@ -126,8 +126,11 @@ public class KSImplLinear extends KSAbstract {
 
 		// each value corresponds to the desired flexibility of the 
 		// pl, p, and l conformation spaces, respectively
+		String[][] strandSeqs = null;	
 		boolean[] contSCFlexVals = { true, true, true };
-		
+		String[] pfImplVals = { PFAbstract.getImplementation(), 
+				PFAbstract.getImplementation(), PFAbstract.getImplementation() };
+
 		long begin = System.currentTimeMillis();
 
 		if(strand2AllowedSeqs == null)
@@ -140,19 +143,22 @@ public class KSImplLinear extends KSAbstract {
 			System.out.println("\nComputing K* for sequence " + i + "/" + 
 					(numSeqs-1) + ": " + 
 					arrayList1D2String(strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSeqAtPos(i), " ") + "\n");
+
+			// get sequences
+			strandSeqs = getStrandStringsAtPos(i);
 			
 			// create partition functions
-			HashMap<Integer, PFAbstract> pfs = createPartitionFunctionsForSeq(i, contSCFlexVals);
-			
+			HashMap<Integer, PFAbstract> pfs = createPartitionFunctionsForSeq(strandSeqs, contSCFlexVals, pfImplVals);
+
 			// create K* calculation for sequence
 			KSCalc seq = new KSCalc(i, pfs);
-			
+
 			// store wtSeq
 			if(i == 0) wtKSCalc = seq;
-			
+
 			// compute partition functions
 			seq.run(wtKSCalc);
-			
+
 			// compute K* scores and print output if all 
 			// partition functions are computed to epsilon accuracy
 			if( seq.getEpsilonStatus() == EApproxReached.TRUE ) {

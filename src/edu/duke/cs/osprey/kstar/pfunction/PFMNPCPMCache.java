@@ -76,12 +76,7 @@ public class PFMNPCPMCache extends PF1NMTPCPMCache {
 			confs = new KSConfQ( this, sp, unProcessedConfs.size() );
 
 			// set pstar
-			if( confs.getNextConf() ) {
-
-				KSConf conf = confs.peek();
-
-				setPStar( conf.getMinEnergyLB() );
-			}
+			setPStar( confs.getNextConfELB() );
 
 			startTime = System.currentTimeMillis();
 
@@ -107,7 +102,7 @@ public class PFMNPCPMCache extends PF1NMTPCPMCache {
 			if( serverInterface.isProcessed() ) {
 
 				// getProcessedConfs sets server to the ready state
-				accumulate(serverInterface.getProcessedConfs());
+				accumulate(serverInterface.getProcessedConfs(), true);
 
 				if( eAppx == EApproxReached.FALSE ) {
 					// we are finished, so other threads can terminate
@@ -208,7 +203,7 @@ public class PFMNPCPMCache extends PF1NMTPCPMCache {
 					// if server is not ready, then it is processing conformations
 					while( !serverInterface.isProcessed() ) Thread.sleep(sleepInterval);
 
-					accumulate(serverInterface.getProcessedConfs());
+					accumulate(serverInterface.getProcessedConfs(), true);
 				}
 
 				serverInterface.softTerminate();

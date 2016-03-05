@@ -27,6 +27,9 @@ public class PFFactory {
 
 		case "1nnocache":
 			return new PF1NNoCache( sequence, cfp, sp, pc, dset, moveableStrands, freeBBZones, EW_I0 );
+		
+		case "1nubnm":
+			return new PF1NUBNM( sequence, cfp, sp, pc, dset, moveableStrands, freeBBZones, EW_I0 );
 			
 		case "1npmcache":
 			return new PF1NPMCache( sequence, cfp, sp, pc, dset, moveableStrands, freeBBZones, EW_I0 );

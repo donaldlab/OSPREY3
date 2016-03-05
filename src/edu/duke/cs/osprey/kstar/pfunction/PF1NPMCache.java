@@ -39,12 +39,7 @@ public class PF1NPMCache extends PFAbstract {
 		confs = new KSConfQ( this, (SearchProblem)ObjectIO.deepCopy(sp), 1 );
 
 		// set pstar
-		if( confs.getNextConf() ) {
-
-			KSConf conf = confs.peek();
-
-			setPStar( conf.getMinEnergyLB() );
-		}
+		setPStar( confs.getNextConfELB() );
 
 		startTime = System.currentTimeMillis();
 
@@ -172,7 +167,7 @@ public class PF1NPMCache extends PFAbstract {
 
 
 	protected void accumulate( KSConf conf ) {
-
+		
 		double E = 0;
 
 		// we do not have a lock when minimizing	
@@ -269,7 +264,8 @@ public class PF1NPMCache extends PFAbstract {
 	protected BigInteger getNumUnMinimizedConfs() {
 		// assuming locks are in place
 
-		BigInteger numProcessing = (minimizedConfs.add(BigInteger.valueOf(confs.size()))).add(minimizingConfs);
+		BigInteger numProcessing = (getNumMinimizedConfs().
+				add(BigInteger.valueOf(confs.size()))).add(minimizingConfs);
 
 		BigInteger ans = initialUnPrunedConfs.subtract( numProcessing );
 

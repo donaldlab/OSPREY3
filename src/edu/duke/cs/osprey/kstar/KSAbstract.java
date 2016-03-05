@@ -4,6 +4,7 @@ import java.io.File;
 import java.math.BigInteger;
 import java.net.InetAddress;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.concurrent.ForkJoinPool;
@@ -73,11 +74,11 @@ public abstract class KSAbstract implements KSInterface {
 				contSCFlex2PFs.get(contSCFlex).put(strand, new HashMap<ArrayList<String>, PFAbstract>());
 		}
 	}
-	
+
 	protected void createEmatDir() {
 		if( cfp.getParams().getBool("deleteematdir", false) )
 			ObjectIO.deleteDir(getEMATdir());
-		
+
 		if( !new File(getEMATdir()).exists() )
 			ObjectIO.makeDir(getEMATdir(), false);
 	}
@@ -174,22 +175,23 @@ public abstract class KSAbstract implements KSInterface {
 		} 
 	}
 
-	protected HashMap<Integer, PFAbstract> createPartitionFunctionsForSeq(int i, boolean[] contSCFlexVals) {
+	protected HashMap<Integer, PFAbstract> createPartitionFunctionsForSeq(String[][] seqs, 
+			boolean[] contSCFlexVals, String[] pfImplVals) {
 
 		HashMap<Integer, PFAbstract> ans = new HashMap<Integer, PFAbstract>();
 
 		int[] strands = { Strand.COMPLEX, Strand.PROTEIN, Strand.LIGAND };
 		ArrayList<Integer> indexes = new ArrayList<>();
-		for(int j = 0; j < strands.length; j++) indexes.add(j);
+		for(int i = 0; i < strands.length; i++) indexes.add(i);
 
 		indexes.parallelStream().forEach((index) -> {
 
 			int strand = strands[index];
 			boolean contSCFlex = contSCFlexVals[index];
+			String pfImpl = pfImplVals[index];
 
-			AllowedSeqs strandSeqs = strand2AllowedSeqs.get(strand);
-
-			ArrayList<String> seq = strandSeqs.getStrandSeqAtPos(i);
+			ArrayList<String> seq = new ArrayList<String>(Arrays.asList(seqs[strand]));
+			
 			if( contSCFlex2PFs.get(contSCFlex).get(strand).get(seq) == null ) {
 
 				ArrayList<ArrayList<String>> allowedAAs = arrayList1D2ListOfLists(seq);
@@ -220,7 +222,7 @@ public abstract class KSAbstract implements KSInterface {
 
 				// create partition function
 				PFAbstract pf = PFFactory.getPartitionFunction( 
-						PFAbstract.getImplementation(),
+						pfImpl,
 						seq, 
 						cfp, 
 						seqSearchProblem, 
@@ -256,9 +258,8 @@ public abstract class KSAbstract implements KSInterface {
 
 			if(!ans.keySet().contains(strand)) {
 
-				AllowedSeqs strandSeqs = strand2AllowedSeqs.get(strand);
-				ArrayList<String> seq = strandSeqs.getStrandSeqAtPos(i);
-
+				ArrayList<String> seq = new ArrayList<String>(Arrays.asList(seqs[strand]));
+				
 				PFAbstract pf = contSCFlex2PFs.get(contSCFlex).get(strand).get(seq);
 
 				ans.put(strand, pf);
@@ -412,7 +413,6 @@ public abstract class KSAbstract implements KSInterface {
 				for(PFAbstract pf : seq.values()) {
 
 					ans = ans.add(pf.getNumMinimizedConfs());
-					ans = ans.add(pf.getPhaseOneMinimizedConfs());
 				}
 			}
 		}
@@ -434,6 +434,17 @@ public abstract class KSAbstract implements KSInterface {
 			}
 		}
 
+		return ans;
+	}
+	
+	protected String[][] getStrandStringsAtPos(int i) {
+		
+		String[][] ans = new String[3][];
+		
+		ans[Strand.COMPLEX] = (String[]) strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSeqAtPos(i).toArray(new String[0]);
+		ans[Strand.PROTEIN] = (String[]) strand2AllowedSeqs.get(Strand.PROTEIN).getStrandSeqAtPos(i).toArray(new String[0]);
+		ans[Strand.LIGAND] = (String[]) strand2AllowedSeqs.get(Strand.LIGAND).getStrandSeqAtPos(i).toArray(new String[0]);
+		
 		return ans;
 	}
 }

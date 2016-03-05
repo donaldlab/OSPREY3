@@ -52,7 +52,9 @@ public class SearchProblem implements Serializable {
     
     public PruningMatrix pruneMat;
     
-    boolean contSCFlex;
+    public boolean addWT;
+    
+    public boolean contSCFlex;
     
     public ArrayList<String> flexibleRes;
 	public ArrayList<ArrayList<String>> allowedAAs;
@@ -65,10 +67,10 @@ public class SearchProblem implements Serializable {
     
     public boolean useEPIC = false;
     public boolean useTupExpForSearch = false;//use a tuple expansion to approximate the energy as we search
+    public boolean useEllipses;
     
-    
-    boolean useERef = false;
-    boolean addResEntropy = false;
+    public boolean useERef = false;
+    public boolean addResEntropy = false;
     
     
     public SearchProblem(SearchProblem sp1){//shallow copy
@@ -106,8 +108,10 @@ public class SearchProblem implements Serializable {
 		this.allowedAAs = allowedAAs;
 		this.PDBFile = PDBFile;
         
+		this.addWT = addWT;
         this.contSCFlex = contSCFlex;
         this.useTupExpForSearch = useTupExp;
+        this.useEllipses = useEllipses;
         this.useEPIC = useEPIC;
         this.epicSettings = epicSettings;
         

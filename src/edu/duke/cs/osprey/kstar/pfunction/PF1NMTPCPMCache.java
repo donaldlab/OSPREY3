@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.kstar.pfunction;
 
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 
@@ -62,12 +61,7 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 		confs = new KSConfQ( this, sp, confsPerThread );
 
 		// set pstar
-		if( confs.getNextConf() ) {
-
-			KSConf conf = confs.peek();
-
-			setPStar( conf.getMinEnergyLB() );
-		}
+		setPStar( confs.getNextConfELB() );
 
 		startTime = System.currentTimeMillis();
 
@@ -103,7 +97,7 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 					// update global qStar
 					if( slave.inputConsumed ) {
 
-						accumulate( slave.buf );
+						accumulate( slave.buf, true );
 
 						if( eAppx != EApproxReached.FALSE ) {
 
@@ -225,7 +219,7 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 				// eappx = notposible to eappx = true
 				if( eAppx != EApproxReached.TRUE && slave.inputConsumed ) {
 
-					accumulate( slave.buf );
+					accumulate( slave.buf, true );
 					
 					if( eAppx == EApproxReached.TRUE ) {
 					
@@ -253,7 +247,6 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 		boolean bufFull = false;
 		boolean inputConsumed = false;
 
-		BigDecimal partialQStar = BigDecimal.ZERO;
 		EApproxReached eAppx = EApproxReached.FALSE;
 
 		/**
@@ -283,18 +276,12 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 			//System.out.println(id + " epsilon set to " + val);
 		}
 
-		public BigDecimal getQStar() {
-			return partialQStar;
-		}
-
 		/**
 		 * 
 		 * @param confs.size is an integer multiple of this.confs.size
 		 * @return
 		 */
 		public void computeQStar() {
-
-			partialQStar = BigDecimal.ZERO;
 
 			for( int i = 0; i < buf.size(); ++i ) {
 
@@ -312,8 +299,6 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 					
 					// sp concurrency reached. update partial partition function
 					indexes.parallelStream().forEach( j -> confs.get(j).setMinEnergy(sps.get(j).minimizedEnergy(confs.get(j).getConf())) );
-
-					for( KSConf conf : confs ) partialQStar =  partialQStar.add( getBoltzmannWeight( conf.getMinEnergy() ) );
 				}
 			}
 
