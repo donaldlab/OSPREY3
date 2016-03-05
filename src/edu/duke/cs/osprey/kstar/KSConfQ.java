@@ -51,7 +51,7 @@ public class KSConfQ extends Thread {
 		this.minCapacity = minCapacity;
 		qCap = Math.max( minCapacity, PFAbstract.qCapacity );
 		origQCap = qCap;
-		this.useEnergyUB = PFAbstract.useRigEnergy;
+		this.useEnergyUB = PFAbstract.useRigEUB;
 	}
 
 

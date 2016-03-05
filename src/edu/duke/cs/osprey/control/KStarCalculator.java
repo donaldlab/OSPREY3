@@ -41,32 +41,35 @@ public class KStarCalculator {
 	public KStarCalculator ( ConfigFileParser cfgP ) {
 		cfp = cfgP;
 
-		Ew = cfp.params.getDouble("Ew", 0);
-		doIMinDEE = cfp.params.getBool("imindee",false);
+		Ew = cfp.getParams().getDouble("Ew", 0);
+		doIMinDEE = cfp.getParams().getBool("imindee",false);
 		if(doIMinDEE){
-			I0 = cfp.params.getDouble("Ival",5);
+			I0 = cfp.getParams().getDouble("Ival",5);
 		}
-		useContFlex = cfp.params.getBool("doMinimize",false);
+		useContFlex = cfp.getParams().getBool("doMinimize",false);
 		if(doIMinDEE && !useContFlex)
 			throw new RuntimeException("ERROR: iMinDEE requires continuous flexibility");
 		
-		PFAbstract.targetEpsilon = cfp.params.getDouble("epsilon", 0.03);
-		PFAbstract.qCapacity = cfp.params.getInt("pFuncQCap", 4194304);
-		PFAbstract.useRigEnergy = cfp.params.getBool("pFuncUseRigE", false);
-		PFAbstract.waitUntilCapacity = cfp.params.getBool("pFuncQWait", false);
+		PFAbstract.targetEpsilon = cfp.getParams().getDouble("epsilon", 0.03);
+		PFAbstract.qCapacity = cfp.getParams().getInt("pFuncQCap", 4194304);
+		PFAbstract.useRigEUB = cfp.getParams().getBool("pFuncUseRigEUB", false);
+		PFAbstract.waitUntilCapacity = cfp.getParams().getBool("pFuncQWait", false);
 
-		PFAbstract.eMinMethod = cfp.params.getValue("eMinMethod", "ccd");
-		PFAbstract.setImplementation(cfp.params.getValue("pFuncMethod", "1npcpmcache"));
-		PFAbstract.setStabilityThreshold( cfp.params.getDouble("pFuncStabilityThreshold", 0.1) );
-		PFAbstract.setInterval( cfp.params.getValue("pFuncInterval", Double.toString(PFAbstract.getMaxInterval())) );
-		PFAbstract.setConfsThreadBuffer( cfp.params.getInt("pFuncConfsThreadBuffer", 4) );
-		PFAbstract.setNumFibers( cfp.params.getInt("pFuncFibers", 1) );
-		PFAbstract.setNumThreads( cfp.params.getInt("pFuncThreads", ThreadParallelism.getNumThreads()) );
-		PFAbstract.setServerList( cfp.params.getValue("pFuncServerList", "localhost").split("\\s+") );
-		PFAbstract.setNumRemoteClients( cfp.params.getInt("pFuncClients", 1) );
+		PFAbstract.eMinMethod = cfp.getParams().getValue("eMinMethod", "ccd");
+		PFAbstract.setImplementation(cfp.getParams().getValue("pFuncMethod", "1npcpmcache"));
+		PFAbstract.setStabilityThreshold( cfp.getParams().getDouble("pFuncStabilityThreshold", 0.1) );
+		PFAbstract.setInterval( cfp.getParams().getValue("pFuncInterval", Double.toString(PFAbstract.getMaxInterval())) );
+		PFAbstract.setConfsThreadBuffer( cfp.getParams().getInt("pFuncConfsThreadBuffer", 4) );
+		PFAbstract.setNumFibers( cfp.getParams().getInt("pFuncFibers", 1) );
+		PFAbstract.setNumThreads( cfp.getParams().getInt("pFuncThreads", ThreadParallelism.getNumThreads()) );
+		PFAbstract.setServerList( cfp.getParams().getValue("pFuncServerList", "localhost").split("\\s+") );
+		PFAbstract.setNumRemoteClients( cfp.getParams().getInt("pFuncClients", 1) );
 
-		PFAbstract.saveTopConfsAsPDB = cfp.params.getBool("saveTopConfsAsPDB", false);
-		PFAbstract.setNumTopConfsToSave( cfp.params.getInt("numTopConfsToSave", 10));
+		PFAbstract.saveTopConfsAsPDB = cfp.getParams().getBool("saveTopConfsAsPDB", false);
+		PFAbstract.setNumTopConfsToSave( cfp.getParams().getInt("numTopConfsToSave", 10) );
+		
+		PFAbstract.useMaxKSConfs = cfp.getParams().getBool( "useMaxKSConfs", false );
+		PFAbstract.setMaxKSconfs( cfp.getParams().getInt("maxKSconfs", 100000) );
 
 		MinimizerFactory.setImplementation( PFAbstract.eMinMethod );
 	}

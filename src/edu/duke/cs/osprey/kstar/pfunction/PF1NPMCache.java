@@ -186,7 +186,7 @@ public class PF1NPMCache extends PFAbstract {
 
 			// update qdagger
 			confs.setQDagger( confs.getQDagger().subtract(getBoltzmannWeight(conf.getMinEnergyLB())) );
-			if(PFAbstract.useRigEnergy) {
+			if(PFAbstract.useRigEUB) {
 				confs.setQDot( confs.getQDot().subtract( getBoltzmannWeight(conf.getMinEnergyUB()) ) );
 			}
 
@@ -207,7 +207,7 @@ public class PF1NPMCache extends PFAbstract {
 			System.out.println(E + "\t" + effectiveEpsilon + "\t" + 
 					getNumMinimizedConfs() + "\t" + getNumUnMinimizedConfs() + "\t" + confs.size() + "\t" + ((currentTime-startTime)/1000));
 
-			eAppx = effectiveEpsilon > targetEpsilon ? EApproxReached.FALSE : EApproxReached.TRUE;
+			eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
 		}
 
 	}
@@ -253,7 +253,7 @@ public class PF1NPMCache extends PFAbstract {
 		if( minEpsilon > targetEpsilon ) return -1.0;
 
 		BigDecimal dividend = qStar;
-		if(PFAbstract.useRigEnergy) {
+		if(PFAbstract.useRigEUB) {
 			dividend = dividend.add( confs.getQDot() );
 		}
 

@@ -28,8 +28,8 @@ public abstract class PFAbstract {
 	public static String eMinMethod = "ccd";
 	protected static ArrayList<String> serverList = new ArrayList<>();
 	protected static int threadConfsBuffer = 8;
-	public static int qCapacity = 2097152;
-	public static boolean useRigEnergy = false;
+	public static int qCapacity = 4194304;
+	public static boolean useRigEUB = false;
 	public static boolean waitUntilCapacity = false;
 	protected static int numThreads = 1;
 	protected static int numFibers = 1;
@@ -39,6 +39,9 @@ public abstract class PFAbstract {
 
 	public static boolean saveTopConfsAsPDB = false;
 	protected static int numTopConfsToSave = 10;
+	
+	public static boolean useMaxKSConfs = false;
+	protected static long maxKSConfs = 100000;
 
 	protected static BigDecimal stabilityThresh = BigDecimal.ONE;
 	protected static double interval = getMaxInterval();
@@ -575,13 +578,24 @@ public abstract class PFAbstract {
 
 
 	public static void setStabilityThreshold(double threshold) {
-		threshold = threshold < 0.01 ? 1.0 : threshold;
+		threshold = threshold < 0.00001 ? 1.0 : threshold;
 		stabilityThresh = new BigDecimal(threshold);
 	}
 
 
 	public static BigDecimal getStabilityThreshold() {
 		return stabilityThresh;
+	}
+	
+	
+	public static void setMaxKSconfs( long in ) {
+		if( in < 1 ) in = 1;
+		maxKSConfs = in;
+	}
+	
+	
+	public boolean maxKSConfsReached() {
+		return useMaxKSConfs && minimizedConfs.longValue() >= maxKSConfs;
 	}
 
 

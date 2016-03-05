@@ -140,7 +140,7 @@ public class PF1NNoCache extends PFAbstract {
 		System.out.println(E + "\t" + effectiveEpsilon + "\t" 
 				+ getNumMinimizedConfs() + "\t" + getNumUnMinimizedConfs() + "\t"+ (currentTime-startTime)/1000);
 
-		eAppx = effectiveEpsilon > targetEpsilon ? EApproxReached.FALSE : EApproxReached.TRUE;
+		eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
 	}
 
 

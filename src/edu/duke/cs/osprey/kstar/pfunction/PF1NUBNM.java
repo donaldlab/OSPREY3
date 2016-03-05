@@ -85,7 +85,7 @@ public class PF1NUBNM extends PF1NNoCache {
 					+ enumeratedConfs + "\t" + getNumUnenumeratedConfs() + "\t\t"+ (currentTime-startTime)/1000);
 		}
 		
-		eAppx = effectiveEpsilon > targetEpsilon ? EApproxReached.FALSE : EApproxReached.TRUE;
+		eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
 		
 		if( eAppx == EApproxReached.TRUE ) qStar = qStar.multiply(new BigDecimal(1.0 + effectiveEpsilon));
 	}

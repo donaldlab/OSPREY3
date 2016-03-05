@@ -186,7 +186,7 @@ public class PF1NPCPMCache extends PF1NPMCache {
 				updateQStar( conf );
 
 				confs.setQDagger( confs.getQDagger().subtract( getBoltzmannWeight(conf.getMinEnergyLB()) ) );
-				if(PFAbstract.useRigEnergy) {
+				if(PFAbstract.useRigEUB) {
 					confs.setQDot( confs.getQDot().subtract( getBoltzmannWeight(conf.getMinEnergyUB()) ) );
 				}
 
@@ -207,7 +207,7 @@ public class PF1NPCPMCache extends PF1NPMCache {
 				}
 				 */
 
-				if( effectiveEpsilon <= targetEpsilon ) break;
+				if( effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ) break;
 			}
 
 			long currentTime = System.currentTimeMillis();
@@ -217,7 +217,7 @@ public class PF1NPCPMCache extends PF1NPMCache {
 			System.out.println(E + "\t" + effectiveEpsilon + "\t" + 
 					getNumMinimizedConfs() + "\t" + getNumUnMinimizedConfs() + "\t" + confs.size() + "\t" + ((currentTime-startTime)/1000));
 
-			eAppx = effectiveEpsilon > targetEpsilon ? EApproxReached.FALSE : EApproxReached.TRUE;
+			eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
 		}
 	}
 
