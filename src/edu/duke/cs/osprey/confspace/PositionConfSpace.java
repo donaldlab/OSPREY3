@@ -71,6 +71,10 @@ public class PositionConfSpace implements Serializable {
         for(String AAType : allowedAAs){
             int numDihedrals = templateLib.numDihedralsForResType(AAType);
             
+            if(AAType.equalsIgnoreCase("HIS")) {
+            	throw new RuntimeException("ERROR: HIS AA type is not currently supported. Try HID or HIE.");
+            }
+            
         	// PGC 2015: Support backbone dependent rotamers.  
         	//	Compute phi and psi, necessary for backbone dependent rotamers.        
         	double phipsi [] = Protractor.getPhiPsi(this.res);

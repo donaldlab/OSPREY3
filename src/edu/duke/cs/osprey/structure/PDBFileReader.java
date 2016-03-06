@@ -69,13 +69,12 @@ public class PDBFileReader {
             String curResFullName = "NONE";
 
             while(curLine!=null){
-                
+            	
                 // First pad line to 80 characters
                 int lineLen = curLine.length();
                 for (int i=0; i < (80-lineLen); i++)
                         curLine += " ";
                 
-
                 if ( (curLine.regionMatches(true,0,"ATOM  ",0,6)) || (curLine.regionMatches(true,0,"HETATM",0,6)) ){
 
                     if( EnvironmentVars.deleteNonTemplateResidues ){//Ignore alternates other than A; treat A alternates as the real structure
