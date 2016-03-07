@@ -42,6 +42,9 @@ public abstract class PFAbstract {
 	
 	public static boolean useMaxKSConfs = false;
 	protected static long maxKSConfs = 100000;
+	
+	public static boolean doCheckpoint = false;
+	protected static long checkpointInterval = 100000;
 
 	protected static BigDecimal stabilityThresh = BigDecimal.ONE;
 	protected static double interval = getMaxInterval();
@@ -53,7 +56,7 @@ public abstract class PFAbstract {
 	public static enum EApproxReached { TRUE, FALSE, NOT_POSSIBLE, NOT_STABLE, ABORTED }
 	protected EApproxReached eAppx = EApproxReached.FALSE;
 
-	public static enum RunState { NOTSTARTED, STARTED, SUSPENDED, TERMINATED }
+	public static enum RunState { NOTSTARTED, STARTED, SUSPENDED, CHECKPOINT }
 	protected RunState runState = RunState.NOTSTARTED;
 
 	protected ConfigFileParser cfp = null;
@@ -82,13 +85,11 @@ public abstract class PFAbstract {
 	protected PriorityQueue<KSConf> topConfsPQ = null;
 
 	protected PFAbstract( ArrayList<String> sequence, ConfigFileParser cfp, 
-			SearchProblem sp, PruningControl pc,
-			DEEPerSettings dset, ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones,
-			double EW_I0 ) {
+			SearchProblem sp, DEEPerSettings dset, ArrayList<String[]> moveableStrands, 
+			ArrayList<String[]> freeBBZones, double EW_I0 ) {
 
 		this.sequence = sequence;
 		this.sp = sp;
-		this.pc = pc;
 		this.dset = dset;
 		this.moveableStrands = moveableStrands;
 		this.freeBBZones = freeBBZones;
@@ -245,7 +246,7 @@ public abstract class PFAbstract {
 	}
 
 
-	public void setNumPrunedConfsByDEE() {
+	public void setNumPrunedConfs() {
 		prunedConfs = countPrunedConfsByDEE();
 	}
 
@@ -323,8 +324,6 @@ public abstract class PFAbstract {
 
 		long startTime = System.currentTimeMillis();
 
-		// setRunState( RunState.STARTED );
-
 		while( eAppx == EApproxReached.FALSE && (double)(System.currentTimeMillis() - startTime) < interval ) {
 			computeSlice();
 
@@ -334,21 +333,11 @@ public abstract class PFAbstract {
 			}
 		}
 
-		if( eAppx == EApproxReached.TRUE && saveTopConfsAsPDB ) {
+		if( eAppx == EApproxReached.TRUE && saveTopConfsAsPDB )
 			printTopConfs();
-		}
 
-		if( eAppx != EApproxReached.FALSE ) {
+		if( eAppx != EApproxReached.FALSE )
 			clearSearchProblem();
-		}
-
-		/*
-		if( eAppx == EApproxReached.FALSE ) 
-			setRunState( RunState.SUSPENDED );
-
-		else 
-			setRunState(RunState.TERMINATED);
-		 */
 	}
 
 	public void runToCompletion() {
@@ -358,7 +347,6 @@ public abstract class PFAbstract {
 			restart();
 			compute();
 		}
-		//setRunState(RunState.TERMINATED);
 
 		if( eAppx == EApproxReached.TRUE && saveTopConfsAsPDB ) {
 			printTopConfs();
@@ -578,7 +566,7 @@ public abstract class PFAbstract {
 
 
 	public static void setStabilityThreshold(double threshold) {
-		threshold = threshold < 0.00001 ? 1.0 : threshold;
+		threshold = threshold < 0.0 ? 0.0 : threshold;
 		stabilityThresh = new BigDecimal(threshold);
 	}
 
@@ -597,7 +585,13 @@ public abstract class PFAbstract {
 	public boolean maxKSConfsReached() {
 		return useMaxKSConfs && minimizedConfs.longValue() >= maxKSConfs;
 	}
-
+	
+	
+	public static void setCheckPointInterval( long interval ) {
+		if(interval <= 0) interval = 1;
+		checkpointInterval = interval;
+	}
+	
 
 	public static void setImplementation( String implementation ) {
 

@@ -8,7 +8,6 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.kstar.KSConf;
-import edu.duke.cs.osprey.pruning.PruningControl;
 
 /**
  * 
@@ -23,16 +22,16 @@ public class PF1NNoCache extends PFAbstract {
 	protected long startTime;
 
 	public PF1NNoCache(ArrayList<String> sequence, ConfigFileParser cfp, 
-			SearchProblem sp, PruningControl pc, DEEPerSettings dset, 
+			SearchProblem sp, DEEPerSettings dset, 
 			ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, 
 			double EW_I0) {
 
-		super( sequence, cfp, sp, pc, dset, moveableStrands, freeBBZones, EW_I0 );
+		super( sequence, cfp, sp, dset, moveableStrands, freeBBZones, EW_I0 );
 	}
 
 
 	public void start() {
-
+		
 		setRunState(RunState.STARTED);
 
 		// replace new confrtree with a conf tree factory call 

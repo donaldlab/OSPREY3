@@ -37,6 +37,7 @@ import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.PDBFileWriter;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.StringParsing;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -83,7 +84,8 @@ public class ConfSpace implements Serializable {
 	public int numPos;//number of flexible positions
 
 	public boolean useEllipses = false;
-
+	
+	
 	/** initialize a new conformational space, desomefining all its flexibility
     /*   we use one residue per position here
 	 *  ADD OTHER OPTIONS: WT ROTAMERS, DIFFERENT ROT WIDTHS, DEEPER, RIGID-BODY MOTIONS
@@ -472,8 +474,5 @@ public class ConfSpace implements Serializable {
 
 	//pairwise minimization will be similar...just only use degrees of freedom affecting the residue pair
 	//and the objective function will represent the pairwise energy between the residues
-
-
-
 
 }

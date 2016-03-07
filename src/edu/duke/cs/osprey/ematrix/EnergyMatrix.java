@@ -22,6 +22,9 @@ public class EnergyMatrix extends TupleMatrix<Double> {
     ReferenceEnergies eRefMat = null;
     
     
+    public EnergyMatrix(TupleMatrix<Double> tupleMatrix) {
+    	super(tupleMatrix.pairwise, tupleMatrix.oneBody);
+    }
     
     public EnergyMatrix(ConfSpace cSpace, double pruningInterval){
         //For a normal, precomputed energy matrix we expect infinite pruning interval
@@ -149,5 +152,11 @@ public class EnergyMatrix extends TupleMatrix<Double> {
         return eRefMat;
     }
 
+    
+    public EnergyMatrix singleSeqMatrix(ArrayList<String> seq, ConfSpace origConfSpace){
+    	// return (EnergyMatrix) super.singleSeqMatrix(seq, origConfSpace);
+    	TupleMatrix<Double> tmat = super.singleSeqMatrix(seq, origConfSpace);
+    	return new EnergyMatrix(tmat);
+    }
    
 }

@@ -226,7 +226,6 @@ public abstract class KSAbstract implements KSInterface {
 						seq, 
 						cfp, 
 						seqSearchProblem, 
-						null, 
 						dset, 
 						moveableStrands, 
 						freeBBZones,
@@ -246,7 +245,7 @@ public abstract class KSAbstract implements KSInterface {
 
 				// initialize conf counts for K*
 				pf.setNumUnPrunedConfs();
-				pf.setNumPrunedConfsByDEE();
+				pf.setNumPrunedConfs();
 			}		
 		});
 

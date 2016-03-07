@@ -67,9 +67,10 @@ public class KStarCalculator {
 
 		PFAbstract.saveTopConfsAsPDB = cfp.getParams().getBool("saveTopConfsAsPDB", false);
 		PFAbstract.setNumTopConfsToSave( cfp.getParams().getInt("numTopConfsToSave", 10) );
-		
 		PFAbstract.useMaxKSConfs = cfp.getParams().getBool( "useMaxKSConfs", false );
 		PFAbstract.setMaxKSconfs( cfp.getParams().getInt("maxKSconfs", 100000) );
+		PFAbstract.doCheckpoint = cfp.getParams().getBool("doKStarCheckpoint", false);
+		PFAbstract.setCheckPointInterval(cfp.getParams().getInt("checkpointInterval", 100000));
 
 		MinimizerFactory.setImplementation( PFAbstract.eMinMethod );
 	}

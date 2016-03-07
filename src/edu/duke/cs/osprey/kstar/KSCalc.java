@@ -76,10 +76,10 @@ public class KSCalc {
 
 		for( int strand : strands ) {
 
+			if( getEpsilonStatus() != EApproxReached.FALSE )
+				return;
+			
 			PFAbstract pf = getPF(strand);
-
-			if( pf.getEpsilonStatus() != EApproxReached.FALSE )
-				continue;
 
 			ArrayList<String> seq = pf.getSequence();
 
@@ -100,7 +100,6 @@ public class KSCalc {
 				}
 
 				else {
-
 					System.out.println("\nResuming partition function for " 
 							+ KSAbstract.arrayList1D2String(seq, " ") + "\n");
 					pf.resume();

@@ -330,6 +330,5 @@ public class PositionConfSpace implements Serializable {
     public ArrayList<EllipseCoordDOF> getEllipsoidalArray() {
     	return this.ellipsoidalDOFs;
     }
-
     
 }

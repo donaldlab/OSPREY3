@@ -8,7 +8,6 @@ import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.kstar.KSConf;
 import edu.duke.cs.osprey.kstar.KSConfQ;
-import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.tools.ObjectIO;
 
 /**
@@ -24,11 +23,11 @@ public class PF1NPMCache extends PFAbstract {
 	protected KSConfQ confs = null;
 
 	protected PF1NPMCache(ArrayList<String> sequence, ConfigFileParser cfp, 
-			SearchProblem sp, PruningControl pc, DEEPerSettings dset, 
+			SearchProblem sp, DEEPerSettings dset, 
 			ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, 
 			double EW_I0) {
 
-		super( sequence, cfp, sp, pc, dset, moveableStrands, freeBBZones, EW_I0 );
+		super( sequence, cfp, sp, dset, moveableStrands, freeBBZones, EW_I0 );
 	}
 
 
@@ -134,12 +133,7 @@ public class PF1NPMCache extends PFAbstract {
 	protected void computeSlice() {
 
 		try {
-			/*
-			synchronized( confs.qLock ) {
-				if( confs.getState() == Thread.State.WAITING ) 
-					confs.qLock.notify();
-			}
-			 */
+			
 			iterate();
 
 		} catch(Exception e) {

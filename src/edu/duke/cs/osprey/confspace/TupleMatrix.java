@@ -54,6 +54,12 @@ public class TupleMatrix<T> implements Serializable {
     //if unmarked we assume this value (e.g., 0 for energy, false for pruning)
     
     
+    public TupleMatrix (ArrayList<ArrayList<ArrayList<ArrayList<T>>>> pairwise, ArrayList<ArrayList<T>> oneBody){
+    	this.oneBody = oneBody;
+    	this.pairwise = pairwise;
+    }
+    
+    
     public TupleMatrix(T defaultHigherInteraction){
         //no allocation (for overriding)
         this.defaultHigherInteraction = defaultHigherInteraction;
@@ -243,5 +249,53 @@ public class TupleMatrix<T> implements Serializable {
     }
     
     
+    public TupleMatrix<T> singleSeqMatrix(ArrayList<String> seq, ConfSpace origConfSpace){
+    	//cut down the matrix to only include RCs with the appropriate amino acid types for this sequence
+    	//the original (all-sequences) conformational space is provided
+    	int numPos = oneBody.size();
+    	
+    	ArrayList<ArrayList<T>> newOneBody = new ArrayList<>();
+    	ArrayList<ArrayList<ArrayList<ArrayList<T>>>> newPairwise = new ArrayList<>();
+    
+    	
+    	for(int pos=0; pos<numPos; pos++){
+    		String AAType = seq.get(pos);
+    		ArrayList<T> newOneBodyAtPos = new ArrayList<>();
+    		ArrayList<ArrayList<ArrayList<T>>> newPairwiseAtPos = new ArrayList<>();
+    		
+    		for(int RCNum=0; RCNum<oneBody.get(pos).size(); RCNum++){
+    			if(origConfSpace.posFlex.get(pos).RCs.get(RCNum).AAType.equalsIgnoreCase(AAType)){
+    				newOneBodyAtPos.add(getOneBody(pos,RCNum));
+    			}
+    		}
+    		newOneBody.add(newOneBodyAtPos);
+    		
+    		for(int pos2=0; pos2<pos; pos2++){
+    			String AAType2 = seq.get(pos2);
+    			ArrayList<ArrayList<T>> newPairwiseAtPair = new ArrayList<>();
+    			
+    			for(int RCNum=0; RCNum<oneBody.get(pos).size(); RCNum++){
+        			if(origConfSpace.posFlex.get(pos).RCs.get(RCNum).AAType.equalsIgnoreCase(AAType)){
+        				
+        				ArrayList<T> newPairwiseAtRC = new ArrayList<>();
+        				
+        				for(int RCNum2=0; RCNum2<oneBody.get(pos2).size(); RCNum2++){
+        					if(origConfSpace.posFlex.get(pos2).RCs.get(RCNum2).AAType.equalsIgnoreCase(AAType2)){
+        						newPairwiseAtRC.add(getPairwise(pos,RCNum,pos2,RCNum2));
+        					}
+        				}
+        				
+        				newPairwiseAtPair.add(newPairwiseAtRC);
+        			}
+        		}
+    			
+    			newPairwiseAtPos.add(newPairwiseAtPair);
+    		}
+    		
+    		newPairwise.add(newPairwiseAtPos);
+    	}
+    	
+    	return new TupleMatrix<T>(newPairwise,newOneBody);
+    }
   
 }
