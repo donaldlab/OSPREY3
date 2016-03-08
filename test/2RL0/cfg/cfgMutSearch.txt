@@ -1,0 +1,37 @@
+runName results
+%mutfile mutfile.txt
+distCutoff 7
+iMinDEE true
+typedep true
+Ival 50
+Ew 0
+epsilon 0.1
+doMinimize true
+addWT true
+addWTRots true
+saveTopConfsAsPDB false
+numTopConfsToSave 5
+useMaxKSConfs false
+maxKSconfs 100000
+useKStarCheckpoint true
+KStarCheckpoint 10
+numMutations 1
+resAllowed0_0 ASP GLU HID
+resAllowed0_1 GLU ASP HID
+resAllowed0_2 GLU ASP HID
+resAllowed0_3 SER GLU ASN
+resAllowed1_0 SER GLU ASN
+resAllowed1_1 GLY ASP ILE
+resAllowed1_2 THR ASP HID
+pFuncStabilityThreshold 0
+pFuncQWait false
+pFuncQCap 4194304
+pFuncMethod 1npcpmcache
+pFuncThreads 4
+numThreads 4
+eMinMethod hbfgsccd
+KStarMethod linear
+KStarNumSeqs 5
+UseDunbrackRotamers false
+ematDir emat.lovell
+deleteEmatDir false
