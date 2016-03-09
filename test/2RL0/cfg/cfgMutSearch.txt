@@ -3,7 +3,7 @@ runName results
 distCutoff 7
 iMinDEE true
 typedep true
-Ival 50
+Ival 2.5
 Ew 0
 epsilon 0.1
 doMinimize true
