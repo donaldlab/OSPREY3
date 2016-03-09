@@ -1,5 +1,5 @@
 runName results
-%mutfile mutfile.txt
+mutfile mutfile.txt
 distCutoff 7
 iMinDEE true
 typedep true
