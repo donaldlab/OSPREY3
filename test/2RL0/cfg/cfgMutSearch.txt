@@ -3,7 +3,7 @@ mutfile mutfile.txt
 distCutoff 7
 iMinDEE true
 typedep true
-Ival 2.5
+Ival 5
 Ew 0
 epsilon 0.1
 doMinimize true
@@ -23,7 +23,7 @@ resAllowed0_3 SER GLU ASN
 resAllowed1_0 SER GLU ASN
 resAllowed1_1 GLY ASP ILE
 resAllowed1_2 THR ASP HID
-pFuncStabilityThreshold 0
+pFuncStabThresh 0
 pFuncQWait false
 pFuncQCap 4194304
 pFuncMethod 1npcpmcache
