@@ -27,7 +27,7 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
     //maybe separate intra too?
     
 	public PruningMatrix(TupleMatrix<Boolean> tupleMatrix) {
-		super(tupleMatrix.pairwise, tupleMatrix.oneBody);
+		super(tupleMatrix.higherTerms, tupleMatrix.pairwise, tupleMatrix.oneBody);
 	}
 	
     public PruningMatrix(){//no allocation (for overriding by UpdatedPruningMatrix)
@@ -257,6 +257,12 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
 	public PruningMatrix singleSeqMatrix(ArrayList<String> seq, ConfSpace origConfSpace){
 		//return (PruningMatrix) super.singleSeqMatrix(seq, origConfSpace);
 		TupleMatrix<Boolean> tmat = super.singleSeqMatrix(seq, origConfSpace);
+		return new PruningMatrix(tmat);
+	}
+	
+	public PruningMatrix singleSeqMatrix(ArrayList<String> seq, ArrayList<Integer> flexPos, ConfSpace origConfSpace){
+		//return (PruningMatrix) super.singleSeqMatrix(seq, origConfSpace);
+		TupleMatrix<Boolean> tmat = super.singleSeqMatrix(seq, flexPos, origConfSpace);
 		return new PruningMatrix(tmat);
 	}
     

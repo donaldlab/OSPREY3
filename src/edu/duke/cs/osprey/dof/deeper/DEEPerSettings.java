@@ -7,6 +7,8 @@ package edu.duke.cs.osprey.dof.deeper;
 
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.structure.Molecule;
+
+import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
@@ -15,7 +17,7 @@ import java.util.ArrayList;
  * 
  * @author mhall44
  */
-public class DEEPerSettings {
+public class DEEPerSettings implements Serializable {
     
     PertSet perts = null;//Describes the actual perturbations
     

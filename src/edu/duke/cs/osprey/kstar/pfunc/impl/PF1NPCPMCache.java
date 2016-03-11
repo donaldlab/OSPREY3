@@ -1,13 +1,13 @@
-package edu.duke.cs.osprey.kstar.pfunction;
+package edu.duke.cs.osprey.kstar.pfunc.impl;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
-import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.kstar.KSConf;
 import edu.duke.cs.osprey.kstar.KSConfQ;
+import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.tools.ObjectIO;
 
 /**
@@ -21,12 +21,10 @@ public class PF1NPCPMCache extends PF1NPMCache {
 	private ArrayList<SearchProblem> sps = new ArrayList<>();
 	private ArrayList<KSConf> partialQConfs = new ArrayList<>();
 
-	protected PF1NPCPMCache(ArrayList<String> sequence, ConfigFileParser cfp, 
-			SearchProblem sp, DEEPerSettings dset, 
-			ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, 
-			double EW_I0) {
+	public PF1NPCPMCache(ArrayList<String> sequence, ConfigFileParser cfp, 
+			SearchProblem sp, double EW_I0) {
 
-		super( sequence, cfp, sp, dset, moveableStrands, freeBBZones, EW_I0 );
+		super( sequence, cfp, sp, EW_I0 );
 	}
 
 
@@ -214,7 +212,7 @@ public class PF1NPCPMCache extends PF1NPMCache {
 			if( !printedHeader ) printHeader();
 
 			System.out.println(E + "\t" + effectiveEpsilon + "\t" + 
-					getNumMinimizedConfs() + "\t" + getNumUnMinimizedConfs() + "\t" + confs.size() + "\t" + ((currentTime-startTime)/1000));
+					getNumMinimized() + "\t" + getNumUnEnumerated() + "\t" + confs.size() + "\t" + ((currentTime-startTime)/1000));
 
 			eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
 		}

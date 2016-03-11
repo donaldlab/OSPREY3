@@ -1,7 +1,8 @@
-package edu.duke.cs.osprey.kstar.implementation;
+package edu.duke.cs.osprey.kstar.impl;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
 import java.util.stream.IntStream;
 
@@ -11,8 +12,8 @@ import edu.duke.cs.osprey.kstar.AllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KSCalc;
 import edu.duke.cs.osprey.kstar.Strand;
-import edu.duke.cs.osprey.kstar.pfunction.PFAbstract;
-import edu.duke.cs.osprey.kstar.pfunction.PFAbstract.EApproxReached;
+import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
+import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 
 /**
@@ -30,53 +31,45 @@ public class KSImplLinear extends KSAbstract {
 
 		this.strand2AllowedSeqs = strand2AllowedSeqs;
 
-		// get search problems per strand
-		strand2AllSearchProblem.put(Strand.COMPLEX, cfp.getSearchProblem(Strand.COMPLEX, strand2AllowedSeqs.get(Strand.COMPLEX)));
-		strand2AllSearchProblem.put(Strand.PROTEIN, cfp.getSearchProblem(Strand.PROTEIN, strand2AllowedSeqs.get(Strand.PROTEIN)));
-		strand2AllSearchProblem.put(Strand.LIGAND, cfp.getSearchProblem(Strand.LIGAND, strand2AllowedSeqs.get(Strand.LIGAND)));
-
 		printSequences();
 
 		createEmatDir();
 
-		createEnergyMatrices(true);
-		createEnergyMatrices(false);
+		boolean[] contSCFlexVals = { true, false };
+		createEmats(contSCFlexVals);
 	}
 
 
-	public void createEnergyMatrices( boolean contSCFlex ) {
-
-		System.out.println("\nCreating all energy matrices\n");
-
-		long begin = System.currentTimeMillis();
+	protected void prepareAllSingleSeqSPs( boolean[] contSCFlexVals ) {
 
 		try {
 
-			ForkJoinPool forkJoinPool = new ForkJoinPool(ThreadParallelism.getNumThreads());
-			forkJoinPool.submit(() ->
+			for( boolean contSCFlex : contSCFlexVals ) {
 
-			IntStream.range(0, strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs()).parallel().forEach(i -> {
+				ForkJoinPool forkJoinPool = new ForkJoinPool(ThreadParallelism.getNumThreads());
+				forkJoinPool.submit(() ->
 
-				System.out.println("\nCreating search problem for sequence " + 
-						i + "/" + (strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs()-1) + "\n");
+				IntStream.range(0, strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs()).parallel().forEach(i -> {
 
-				HashMap<Integer, SearchProblem> map = createSearchProblemsForSeq(i, contSCFlex);
+					//for( int i = 0; i < strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs(); ++i ) {
 
-				// put partition function in list, so we can parallelize energy matrix computation
-				for(int strand : map.keySet()) {
-					addSPToTmpList(strand, map.get(strand));
-				}
+					System.out.println("\nCreating search problem for sequence " + 
+							i + "/" + (strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs()-1) + "\n");
 
-			})).get();
+					ConcurrentHashMap<Integer, SearchProblem> map = createSPsForSeq(i, contSCFlex);
 
-			// create last of the energy matrices
-			loadEnergyMatrices();
+					// put partition function in list, so we can parallelize energy matrix computation
+					for(int strand : map.keySet()) {	
+						SearchProblem sp = map.get(strand);
+						name2SP.put(sp.name, sp);
+					}
 
-			// empty energy matrix list
-			allSPNames.clear();
-
-			System.out.println("\nFinished creating all energy matrices");
-			System.out.println("Running time: " + (System.currentTimeMillis()-begin)/1000 + " seconds\n");
+					//}
+				})).get();
+			}
+			
+			loadAndPruneMatrices(); 
+			prunedSingleSeqs = true;
 
 		} catch (Exception e) {
 			System.out.println(e.getMessage());
@@ -86,30 +79,30 @@ public class KSImplLinear extends KSAbstract {
 	}
 
 
-	protected HashMap<Integer, SearchProblem> createSearchProblemsForSeq(int i, boolean contSCFlex) {
+	protected ConcurrentHashMap<Integer, SearchProblem> createSPsForSeq(int i, boolean contSCFlex) {
 		// used to precompute energy matrices
-		HashMap<Integer, SearchProblem> ans = new HashMap<Integer, SearchProblem>();
+		ConcurrentHashMap<Integer, SearchProblem> ans = new ConcurrentHashMap<>();
 
 		ArrayList<Integer> strands = new ArrayList<>();
-		strands.add(Strand.COMPLEX);
-		strands.add(Strand.PROTEIN);
-		strands.add(Strand.LIGAND);
+		strands.add(Strand.COMPLEX); strands.add(Strand.PROTEIN); strands.add(Strand.LIGAND);
 
 		strands.parallelStream().forEach((strand) -> {
 
 			AllowedSeqs strandSeqs = strand2AllowedSeqs.get(strand);
 
 			ArrayList<String> seq = strandSeqs.getStrandSeqAtPos(i);
+			
+			ArrayList<Integer> flexResIndexes = strandSeqs.getFlexResIndexesFromSeq(seq);
 
 			String spName = getSearchProblemName(contSCFlex, strand, seq);
+			
+			SearchProblem seqSP = null;			
+			if( (seqSP = name2SP.get(spName)) == null ) {
+				seqSP = createSingleSeqSPFast( contSCFlex, strand, seq, flexResIndexes );
+			}
 
-			if( createSP(spName) ) {
-
-				SearchProblem seqSearchProblem = createSingleSequenceSearchProblem( contSCFlex, strand, seq );
-
-				// synchronized
-				addSPToLocalMap(strand, seqSearchProblem, ans);
-			}		
+			// synchronized
+			ans.put(strand, seqSP);
 		});
 
 		return ans;
@@ -146,9 +139,9 @@ public class KSImplLinear extends KSAbstract {
 
 			// get sequences
 			strandSeqs = getStrandStringsAtPos(i);
-			
+
 			// create partition functions
-			HashMap<Integer, PFAbstract> pfs = createPartitionFunctionsForSeq(strandSeqs, contSCFlexVals, pfImplVals);
+			ConcurrentHashMap<Integer, PFAbstract> pfs = createPFsForSeq(strandSeqs, contSCFlexVals, pfImplVals);
 
 			// create K* calculation for sequence
 			KSCalc seq = new KSCalc(i, pfs);
@@ -159,6 +152,10 @@ public class KSImplLinear extends KSAbstract {
 			// compute partition functions
 			seq.run(wtKSCalc);
 
+			if(wtKSCalc.getEpsilonStatus() != EApproxReached.TRUE)
+				throw new RuntimeException("ERROR: could not compute the wild-type sequence to an epsilon value of "
+						+ PFAbstract.targetEpsilon + ". Change the value of epsilon." );
+			
 			// compute K* scores and print output if all 
 			// partition functions are computed to epsilon accuracy
 			if( seq.getEpsilonStatus() == EApproxReached.TRUE ) {
@@ -174,5 +171,4 @@ public class KSImplLinear extends KSAbstract {
 
 		// peace the fuck out ^_^
 	}
-
 }

@@ -4,9 +4,10 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.concurrent.ConcurrentHashMap;
 
-import edu.duke.cs.osprey.kstar.pfunction.PFAbstract;
-import edu.duke.cs.osprey.kstar.pfunction.PFAbstract.EApproxReached;
+import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
+import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
 import edu.duke.cs.osprey.tools.ExpFunction;
 
 /*
@@ -97,8 +98,8 @@ public class KUStarNode {
 		}
 
 		// get all sequences at next depth
-		ArrayList<ArrayList<String>> nextPSeqs = strand2AllowedSeqs.get(Strand.PROTEIN).getStrandSubSeqsAtDepth(nextDepths.get(Strand.PROTEIN));
-		ArrayList<ArrayList<String>> nextLSeqs = strand2AllowedSeqs.get(Strand.LIGAND).getStrandSubSeqsAtDepth(nextDepths.get(Strand.LIGAND));
+		HashSet<ArrayList<String>> nextPSeqs = strand2AllowedSeqs.get(Strand.PROTEIN).getStrandSubSeqsAtDepth(nextDepths.get(Strand.PROTEIN));
+		HashSet<ArrayList<String>> nextLSeqs = strand2AllowedSeqs.get(Strand.LIGAND).getStrandSubSeqsAtDepth(nextDepths.get(Strand.LIGAND));
 		HashSet<ArrayList<String>> nextPLSeqs = new HashSet<ArrayList<String>>(strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSubSeqsAtDepth(nextDepths.get(Strand.COMPLEX)));
 
 		ArrayList<KUStarNode> successors;
@@ -112,11 +113,11 @@ public class KUStarNode {
 		}
 		
 		else {
-			ArrayList<ArrayList<String>> currentPSeq = new ArrayList<>();
+			HashSet<ArrayList<String>> currentPSeq = new HashSet<>();
 			currentPSeq.add(seqs.get(Strand.PROTEIN));
 			successors = getPutativeSuccessors( nextPLSeqs, currentPSeq, nextLSeqs );
 			
-			ArrayList<ArrayList<String>> currentLSeq = new ArrayList<>();
+			HashSet<ArrayList<String>> currentLSeq = new HashSet<>();
 			currentLSeq.add(seqs.get(Strand.LIGAND));
 			successors.addAll( getPutativeSuccessors( nextPLSeqs, nextPSeqs, currentLSeq ) );
 		}
@@ -129,8 +130,8 @@ public class KUStarNode {
 
 
 	private ArrayList<KUStarNode> getPutativeSuccessors( HashSet<ArrayList<String>> nextPLSeqs,
-			ArrayList<ArrayList<String>> pSeqs,
-			ArrayList<ArrayList<String>> lSeqs ) {
+			HashSet<ArrayList<String>> pSeqs,
+			HashSet<ArrayList<String>> lSeqs ) {
 
 		String[][] strandSeqs = new String[3][];
 		boolean[] contSCFlexVals = { true, false, false };
@@ -155,7 +156,7 @@ public class KUStarNode {
 				strandSeqs[Strand.LIGAND] = (String[]) lSeq.toArray(new String[0]);
 
 				// create partition functions
-				HashMap<Integer, PFAbstract> pfs = ksObj.createPartitionFunctionsForSeq(strandSeqs, contSCFlexVals, pfImplVals);
+				ConcurrentHashMap<Integer, PFAbstract> pfs = ksObj.createPFsForSeq(strandSeqs, contSCFlexVals, pfImplVals);
 
 				// create KUStar node
 				ans.add( new KUStarNode( new KSCalc(++numExpanded, pfs), childScoreNeedsRefinement() ) );

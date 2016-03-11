@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.kstar.pfunction;
+package edu.duke.cs.osprey.kstar.pfunc.impl;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -6,7 +6,6 @@ import java.util.ArrayList;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
-import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.kstar.KSConf;
 
 /**
@@ -18,10 +17,9 @@ public class PF1NUBNM extends PF1NNoCache {
 
 	protected BigInteger enumeratedConfs = BigInteger.ZERO;
 
-	public PF1NUBNM(ArrayList<String> sequence, ConfigFileParser cfp, SearchProblem sp,
-			DEEPerSettings dset, ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, double EW_I0) {
+	public PF1NUBNM(ArrayList<String> sequence, ConfigFileParser cfp, SearchProblem sp, double EW_I0) {
 
-		super( sequence, cfp, sp, dset, moveableStrands, freeBBZones, EW_I0 );
+		super( sequence, cfp, sp, EW_I0 );
 	}
 
 
@@ -36,13 +34,13 @@ public class PF1NUBNM extends PF1NNoCache {
 	}
 
 
-	protected BigInteger getNumUnenumeratedConfs() {
-		return initialUnPrunedConfs.subtract(enumeratedConfs);
+	protected BigInteger getNumUnEnumerated() {
+		return unPrunedConfs.subtract(enumeratedConfs);
 	}
 
 
 	protected void updateQPrime() {
-		qPrime = ( getBoltzmannWeight( Et )).multiply( new BigDecimal(getNumUnenumeratedConfs()) );
+		qPrime = ( getBoltzmannWeight( Et )).multiply( new BigDecimal(getNumUnEnumerated()) );
 	}
 
 
@@ -81,7 +79,7 @@ public class PF1NUBNM extends PF1NNoCache {
 
 		if( enumeratedConfs.longValue() % 2048 == 0 ) {
 			System.out.println(Et + "\t" + effectiveEpsilon + "\t" 
-					+ enumeratedConfs + "\t" + getNumUnenumeratedConfs() + "\t\t"+ (currentTime-startTime)/1000);
+					+ enumeratedConfs + "\t" + getNumUnEnumerated() + "\t"+ (currentTime-startTime)/1000);
 		}
 		
 		eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
@@ -92,7 +90,7 @@ public class PF1NUBNM extends PF1NNoCache {
 
 	protected void printHeader() {
 
-		System.out.println("minELB" + "\t\t\t" + "delta" + "\t\t" + "#enum" +
+		System.out.println("minELB" + "\t" + "delta" + "\t" + "#enum" +
 				"\t" + "#un-enum" + "\t" + "time(sec)");
 
 		printedHeader = true;

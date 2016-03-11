@@ -2,12 +2,13 @@ package edu.duke.cs.osprey.kstar;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.kstar.pfunction.PFAbstract;
-import edu.duke.cs.osprey.kstar.pfunction.PFAbstract.EApproxReached;
+import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
+import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
 
 /**
  * 
@@ -21,7 +22,8 @@ public class KSConfQ extends Thread {
 	private ConfSearch search;
 	private int minCapacity;
 	private BigDecimal capacityThresh = new BigDecimal(0.0001);
-
+	private int size = 0;
+	
 	// lock for queue access
 	public final Object qLock = new Object();
 
@@ -76,7 +78,7 @@ public class KSConfQ extends Thread {
 
 
 	public int size() {
-		return q.size();
+		return size;
 	}
 
 
@@ -101,10 +103,10 @@ public class KSConfQ extends Thread {
 
 
 	public double enQueue( int conf[] ) {
-
+		
 		double minELB = sp.lowerBound(conf);
 		
-		if( pf.getMinimizedConfsSet().contains(conf) ) return minELB;
+		if( pf.getMinimizedConfsSet().contains(Arrays.toString(conf)) ) return minELB;
 		
 		double minEUB = Double.MAX_VALUE;
 
@@ -119,6 +121,8 @@ public class KSConfQ extends Thread {
 
 		q.add(ksc);
 		
+		size++;
+		
 		return minELB;
 	}
 
@@ -129,6 +133,9 @@ public class KSConfQ extends Thread {
 		if(ksc == null) throw new RuntimeException("Error: attempting to dequeue from an empty list");
 
 		// qDagger = qDagger.subtract( pf.getBoltzmannWeight(ksc.getELowerBound()) );
+		
+		size--;
+		
 		return ksc;
 	}
 
@@ -183,8 +190,12 @@ public class KSConfQ extends Thread {
 		synchronized( this.qLock ) {
 			this.qLock.notify();
 		}
-
+		
 		this.join();
+		
+		this.sp = null;
+		this.search = null;
+		this.q.clear();
 	}
 
 

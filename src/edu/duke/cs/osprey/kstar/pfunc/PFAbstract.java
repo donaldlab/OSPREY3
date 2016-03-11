@@ -1,15 +1,15 @@
-package edu.duke.cs.osprey.kstar.pfunction;
+package edu.duke.cs.osprey.kstar.pfunc;
 
 import java.io.File;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.PriorityQueue;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
-import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KSConf;
 import edu.duke.cs.osprey.pruning.PruningControl;
@@ -34,15 +34,15 @@ public abstract class PFAbstract {
 	protected static int numThreads = 1;
 	protected static int numFibers = 1;
 	protected static int numRemoteClients = 1;
-	
+
 	protected boolean printedHeader = false;
 
 	public static boolean saveTopConfsAsPDB = false;
 	protected static int numTopConfsToSave = 10;
-	
+
 	public static boolean useMaxKSConfs = false;
 	protected static long maxKSConfs = 100000;
-	
+
 	public static boolean doCheckpoint = false;
 	protected static long checkpointInterval = 100000;
 
@@ -62,9 +62,6 @@ public abstract class PFAbstract {
 	protected ConfigFileParser cfp = null;
 	protected SearchProblem sp = null;
 	protected PruningControl pc = null;
-	protected DEEPerSettings dset = null;
-	protected ArrayList<String[]> moveableStrands = null;
-	protected ArrayList<String[]> freeBBZones = null;
 
 	protected BigDecimal qStar = BigDecimal.ZERO;
 	protected BigDecimal qPrime = BigDecimal.ZERO;
@@ -76,40 +73,34 @@ public abstract class PFAbstract {
 	protected double E0 = 0;
 
 	protected BigInteger prunedConfs = BigInteger.ZERO;
-	protected BigInteger initialUnPrunedConfs = BigInteger.ZERO;
+	protected BigInteger unPrunedConfs = BigInteger.ZERO;
 	protected BigInteger minimizedConfs = BigInteger.ZERO;
-	protected HashSet<int[]> minimizedConfsSet = new HashSet<>();
+	protected HashSet<String> minimizedConfsSet = new HashSet<>();
 	protected BigInteger minimizedConfsDuringInterval = BigInteger.ZERO;
 	protected BigInteger minimizingConfs = BigInteger.ZERO; // # confs being minimized at this instant
 
 	protected PriorityQueue<KSConf> topConfsPQ = null;
 
 	protected PFAbstract( ArrayList<String> sequence, ConfigFileParser cfp, 
-			SearchProblem sp, DEEPerSettings dset, ArrayList<String[]> moveableStrands, 
-			ArrayList<String[]> freeBBZones, double EW_I0 ) {
+			SearchProblem sp, double EW_I0 ) {
 
 		this.sequence = sequence;
 		this.sp = sp;
-		this.dset = dset;
-		this.moveableStrands = moveableStrands;
-		this.freeBBZones = freeBBZones;
 		this.cfp = cfp;
-		this.initialUnPrunedConfs = countUnPrunedConfs();
-		this.prunedConfs = countPrunedConfsByDEE();
 		this.EW_I0 = EW_I0;
 
 		topConfsPQ = new PriorityQueue<KSConf>(getNumTopConfsToSave(), KSConf.KSConfComparator);
 	}
 
 
-	public HashSet<int[]> getMinimizedConfsSet() {
+	public HashSet<String> getMinimizedConfsSet() {
 		return minimizedConfsSet;
 	}
-	
-	
+
+
 	protected abstract void printHeader();
-	
-	
+
+
 	public static void setNumTopConfsToSave( int n ) {
 		numTopConfsToSave = n;
 	}
@@ -157,7 +148,7 @@ public abstract class PFAbstract {
 			pdbName = dir + File.separator + String.valueOf(i) +".pdb";
 			sp.outputMinimizedStruct(topConfsPQ.poll().getConf(), pdbName);
 		}
-		
+
 		System.out.println();
 	}
 
@@ -170,8 +161,8 @@ public abstract class PFAbstract {
 	public EApproxReached getEpsilonStatus() {
 		return eAppx;
 	}
-	
-	
+
+
 	public void setEpsilonStatus( EApproxReached in ) {
 		eAppx = in;
 	}
@@ -224,43 +215,13 @@ public abstract class PFAbstract {
 	}
 
 
-	public BigDecimal getUpperBoundAtEpsilon() {
-		return getUpperBound();
+	public void setNumUnPruned() {
+		unPrunedConfs = sp.numUnPruned();
 	}
 
 
-	public void setNumUnPrunedConfs() {
-		initialUnPrunedConfs = countUnPrunedConfs();
-	}
-
-
-	private BigInteger countUnPrunedConfs() {
-		if(pc == null) return BigInteger.ZERO;
-
-		BigInteger numUPConfs = BigInteger.ONE;
-
-		for( int pos = 0; pos < sp.confSpace.numPos; ++pos ) {
-			numUPConfs = numUPConfs.multiply( BigInteger.valueOf( sp.pruneMat.unprunedRCsAtPos(pos).size() ) );
-		}
-		return numUPConfs;
-	}
-
-
-	public void setNumPrunedConfs() {
-		prunedConfs = countPrunedConfsByDEE();
-	}
-
-
-	private BigInteger countPrunedConfsByDEE() {
-		if(pc == null) return BigInteger.ZERO;
-
-		BigInteger numPConfs = BigInteger.ONE;
-
-		for( int pos = 0; pos < sp.confSpace.numPos; ++pos ) {
-			numPConfs = numPConfs.multiply( BigInteger.valueOf( sp.pruneMat.prunedRCsAtPos(pos).size() ) );
-		}
-
-		return numPConfs;
+	public void setNumPruned() {
+		prunedConfs = sp.numPruned();
 	}
 
 
@@ -269,15 +230,8 @@ public abstract class PFAbstract {
 
 		BigDecimal divisor = (qStar.add(qPrime)).add(pStar);
 
-		// divisor is 0 iff qstar = 0. this means the energies are too high
-		// so epsilon can never be reached
+		// energies are too high so epsilon can never be reached
 		if( divisor.compareTo(BigDecimal.ZERO) == 0 ) return -1.0;
-
-		BigDecimal maxQStar = qStar.add(qPrime);
-
-		double minEpsilon = BigDecimal.ONE.subtract( maxQStar.divide(divisor, 4) ).doubleValue();
-
-		if( minEpsilon > targetEpsilon ) return -1.0;
 
 		return BigDecimal.ONE.subtract( qStar.divide(divisor, 4) ).doubleValue();
 	}
@@ -295,7 +249,7 @@ public abstract class PFAbstract {
 
 
 	protected void updateQPrime() {
-		qPrime = ( getBoltzmannWeight( Et )).multiply( new BigDecimal(getNumUnMinimizedConfs()) );
+		qPrime = ( getBoltzmannWeight( Et )).multiply( new BigDecimal(getNumUnEnumerated()) );
 	}
 
 
@@ -306,9 +260,9 @@ public abstract class PFAbstract {
 		}
 
 		qStar = qStar.add( getBoltzmannWeight( conf.getMinEnergy() ) );
-		
+
 		minimizedConfs = minimizedConfs.add(BigInteger.ONE);
-		minimizedConfsSet.add(conf.getConf());
+		minimizedConfsSet.add( Arrays.toString(conf.getConf()) );
 		minimizedConfsDuringInterval = minimizedConfsDuringInterval.add(BigInteger.ONE);
 	}
 
@@ -366,54 +320,57 @@ public abstract class PFAbstract {
 
 	protected void restart() {
 
-		System.out.println("Could not reach target epsilon approximation of " + targetEpsilon + " for sequence: " +
+		System.out.println("\nCould not reach target epsilon approximation of " + targetEpsilon + " for sequence: " +
 				KSAbstract.arrayList1D2String(sequence, " "));
 
 		BigDecimal rho = BigDecimal.valueOf(targetEpsilon/(1-targetEpsilon));
 		BigDecimal bE0 = getBoltzmannWeight(E0);
+
+		double pruningInterval = sp.pruneMat.getPruningInterval();
 		
 		if( bE0.compareTo(BigDecimal.ZERO) == 0 ) {
-			eAppx = EApproxReached.NOT_POSSIBLE;
-			System.out.println("Could not reach target epsilon approximation of " + targetEpsilon + " for sequence: " +
-					KSAbstract.arrayList1D2String(sequence, " "));
-			return;
+			pruningInterval = 100.0;
+			pc = getPruningControl(pruningInterval); pc.prune();
+			sp.pruneMat.setPruningInterval(pruningInterval);
 		}
 		
-		BigDecimal l = new BigDecimal(prunedConfs).subtract( (qStar.multiply(rho)).divide(bE0, 4) );
-		BigInteger li = l.add(BigDecimal.ONE).toBigInteger();
-		BigInteger pruningTarget = prunedConfs.subtract(li);
-	
-		System.out.println("\nOld pruning window :" + EW_I0);
-		System.out.println("Number of pruned confs.: " + prunedConfs);
-		System.out.println("Pruning target: " + pruningTarget + " confs.");
-		
-		// prune until we reach pruning target
-		BigInteger numPruned = BigInteger.ZERO;
-		
-		do {
-			EW_I0 += 5;
-			
-			pc = getPruningControl();
-			pc.prune();
-			
-			numPruned = countPrunedConfsByDEE();
-			
-			System.out.println("New pruning window: " + EW_I0);
-			System.out.println("Pruning target: " + pruningTarget + " confs.");
-			System.out.println("Number of pruned confs.: " + numPruned);
-			
-		} while( numPruned.compareTo(pruningTarget) > 0 && EW_I0 <= 100 );
-		
-		if( numPruned.compareTo(pruningTarget) > 0 ) {
-			eAppx = EApproxReached.NOT_POSSIBLE;
-			System.out.println("Could not reach target epsilon approximation of " + targetEpsilon + " for sequence: " +
-					KSAbstract.arrayList1D2String(sequence, " "));
-			return;
-		}
-		
-		initialUnPrunedConfs = countUnPrunedConfs();
+		else {
 
-		prunedConfs = countPrunedConfsByDEE();
+			BigDecimal l = new BigDecimal(prunedConfs).subtract( (qStar.multiply(rho)).divide(bE0, 4) );
+			BigInteger li = l.add(BigDecimal.ONE).toBigInteger();
+			BigInteger pruningTarget = prunedConfs.subtract(li);
+
+			System.out.println("\nOld pruning window:" + pruningInterval);
+			System.out.println("Number of pruned confs.: " + prunedConfs);
+			System.out.println("Pruning target: " + pruningTarget + " confs.");
+
+			// prune until we reach pruning target
+			BigInteger numPruned = BigInteger.ZERO;
+
+			do {
+				pruningInterval = Math.min(pruningInterval + 2.5, 100.0);
+
+				pc = getPruningControl(pruningInterval);
+				pc.prune();
+
+				numPruned = sp.numPruned();
+				sp.pruneMat.setPruningInterval(pruningInterval);
+
+				System.out.println("New pruning window: " + pruningInterval);
+				System.out.println("Pruning target: " + pruningTarget + " confs.");
+				System.out.println("Number of pruned confs.: " + numPruned + "\n");
+
+			} while( numPruned.compareTo(pruningTarget) > 0 && pruningInterval < 100.0 );
+
+			if( numPruned.compareTo(pruningTarget) > 0 ) {
+				eAppx = EApproxReached.NOT_POSSIBLE;
+				return;
+			}
+		}
+
+		unPrunedConfs = sp.numUnPruned();
+
+		prunedConfs = sp.numPruned();
 
 		eAppx = EApproxReached.FALSE;
 
@@ -433,28 +390,27 @@ public abstract class PFAbstract {
 	}
 
 
-	public PruningControl getPruningControl() {
-		pc = cfp.getPruningControl(sp, EW_I0, false, false);
-		return pc;
+	public PruningControl getPruningControl(double pruningInterval) {
+		return cfp.getPruningControl(sp, pruningInterval, false, false);
 	}
 
 
-	protected BigInteger getNumPrunedConfs() {
+	protected BigInteger getNumPruned() {
 		return prunedConfs;
 	}
 
 
-	protected BigInteger getNumUnMinimizedConfs() {
-		return initialUnPrunedConfs.subtract(minimizedConfs);
+	protected BigInteger getNumUnEnumerated() {
+		return unPrunedConfs.subtract(minimizedConfs);
 	}
 
 
-	public BigInteger getNumInitialUnPrunedConfs() {
-		return initialUnPrunedConfs;
+	public BigInteger getNumUnPruned() {
+		return unPrunedConfs;
 	}
 
 
-	public BigInteger getNumMinimizedConfs() {
+	public BigInteger getNumMinimized() {
 		return minimizedConfs;
 	}
 
@@ -565,33 +521,33 @@ public abstract class PFAbstract {
 	}
 
 
-	public static void setStabilityThreshold(double threshold) {
+	public static void setStabilityThresh(double threshold) {
 		threshold = threshold < 0.0 ? 0.0 : threshold;
 		stabilityThresh = new BigDecimal(threshold);
 	}
 
 
-	public static BigDecimal getStabilityThreshold() {
+	public static BigDecimal getStabilityThresh() {
 		return stabilityThresh;
 	}
-	
-	
+
+
 	public static void setMaxKSconfs( long in ) {
 		if( in < 1 ) in = 1;
 		maxKSConfs = in;
 	}
-	
-	
+
+
 	public boolean maxKSConfsReached() {
 		return useMaxKSConfs && minimizedConfs.longValue() >= maxKSConfs;
 	}
-	
-	
+
+
 	public static void setCheckPointInterval( long interval ) {
 		if(interval <= 0) interval = 1;
 		checkpointInterval = interval;
 	}
-	
+
 
 	public static void setImplementation( String implementation ) {
 

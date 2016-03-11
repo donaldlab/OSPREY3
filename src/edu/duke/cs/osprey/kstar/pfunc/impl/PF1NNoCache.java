@@ -1,13 +1,14 @@
-package edu.duke.cs.osprey.kstar.pfunction;
+package edu.duke.cs.osprey.kstar.pfunc.impl;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
-import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.kstar.KSConf;
+import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 
 /**
  * 
@@ -22,16 +23,14 @@ public class PF1NNoCache extends PFAbstract {
 	protected long startTime;
 
 	public PF1NNoCache(ArrayList<String> sequence, ConfigFileParser cfp, 
-			SearchProblem sp, DEEPerSettings dset, 
-			ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, 
-			double EW_I0) {
+			SearchProblem sp, double EW_I0) {
 
-		super( sequence, cfp, sp, dset, moveableStrands, freeBBZones, EW_I0 );
+		super( sequence, cfp, sp, EW_I0 );
 	}
 
 
 	public void start() {
-		
+
 		setRunState(RunState.STARTED);
 
 		// replace new confrtree with a conf tree factory call 
@@ -44,17 +43,17 @@ public class PF1NNoCache extends PFAbstract {
 		if( (rawConf = search.nextConf()) != null ) {
 
 			KSConf ksConf = new KSConf(rawConf, sp.lowerBound(rawConf), Double.MAX_VALUE);
-			
+
 			// get approx gmec LB to compute p*
 			Et = ksConf.getMinEnergyLB();
 			setPStar( Et );
-			
+
 			printedHeader = true;
-			if( !minimizedConfsSet.contains(ksConf.getConf()) )
+			if( !minimizedConfsSet.contains(Arrays.toString(ksConf.getConf())) )
 				accumulate( ksConf );
 			printedHeader = false;
 		}
-		
+
 		else
 			eAppx = EApproxReached.NOT_POSSIBLE;
 	}
@@ -67,13 +66,16 @@ public class PF1NNoCache extends PFAbstract {
 		if( (rawConf = search.nextConf()) != null ) {
 
 			if( minimizedConfsSet.contains(rawConf) ) return;
-			
+
 			KSConf conf = new KSConf(rawConf, sp.lowerBound(rawConf), Double.MAX_VALUE);
 
 			accumulate(conf);
+		}
 
-			if( eAppx == EApproxReached.NOT_POSSIBLE )
-				System.out.println("Cannot reach epsilon");
+		else {
+			// no more conformations, and we have not reached target epsilon
+			if( eAppx == EApproxReached.FALSE )
+				eAppx = EApproxReached.NOT_POSSIBLE;
 		}
 	}
 
@@ -115,7 +117,7 @@ public class PF1NNoCache extends PFAbstract {
 	 * Synchronous version evaluates conf energy immediately and adds to value.
 	 */
 	protected void accumulate( KSConf conf ) {
-		
+
 		conf.setMinEnergy(sp.minimizedEnergy(conf.getConf()));
 
 		double E = conf.getMinEnergy();
@@ -137,7 +139,7 @@ public class PF1NNoCache extends PFAbstract {
 		if( !printedHeader ) printHeader();
 
 		System.out.println(E + "\t" + effectiveEpsilon + "\t" 
-				+ getNumMinimizedConfs() + "\t" + getNumUnMinimizedConfs() + "\t"+ (currentTime-startTime)/1000);
+				+ getNumMinimized() + "\t" + getNumUnEnumerated() + "\t"+ (currentTime-startTime)/1000);
 
 		eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
 	}
@@ -145,8 +147,8 @@ public class PF1NNoCache extends PFAbstract {
 
 	protected void printHeader() {
 
-		System.out.println("minE" + "\t\t\t" + "epsilon" + "\t\t" + "#min" +
-				"\t" + "#un-min" + "\t" + "time(sec)");
+		System.out.println("minE" + "\t" + "epsilon" + "\t" + "#min" +
+				"\t" + "#un-enum" + "\t" + "time(sec)");
 
 		printedHeader = true;
 	}

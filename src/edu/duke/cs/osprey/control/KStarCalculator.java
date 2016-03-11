@@ -8,15 +8,14 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 
-import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.kstar.AllowedSeqs;
+import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.Strand;
-import edu.duke.cs.osprey.kstar.implementation.KSImplLinear;
-import edu.duke.cs.osprey.kstar.implementation.KSImplSubLinear;
-import edu.duke.cs.osprey.kstar.pfunction.PFAbstract;
+import edu.duke.cs.osprey.kstar.impl.KSImplLinear;
+import edu.duke.cs.osprey.kstar.impl.KSImplAStar;
+import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.minimization.MinimizerFactory;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
-import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.tools.StringParsing;
 
 
@@ -34,21 +33,20 @@ public class KStarCalculator {
 	boolean doIMinDEE;
 	boolean useContFlex;
 
-	HashMap<Integer, SearchProblem> strand2SearchProblem = new HashMap<>();
 	HashMap<Integer, AllowedSeqs> strand2AllowedSeqs = new HashMap<>();
-	HashMap<Integer, PruningControl> strand2Pruning = new HashMap<>();
 
 	public KStarCalculator ( ConfigFileParser cfgP ) {
 		cfp = cfgP;
 
-		Ew = cfp.getParams().getDouble("Ew", 0);
+		Ew = cfp.getParams().getDouble("Ew", 5);
 		doIMinDEE = cfp.getParams().getBool("imindee",false);
 		if(doIMinDEE){
-			I0 = cfp.getParams().getDouble("Ival",5);
+			I0 = cfp.getParams().getDouble("Ival", 5);
 		}
 		useContFlex = cfp.getParams().getBool("doMinimize",false);
 		if(doIMinDEE && !useContFlex)
-			throw new RuntimeException("ERROR: iMinDEE requires continuous flexibility");
+			throw new RuntimeException("ERROR: iMinDEE requires continuous flexibility. "
+					+ "Change the value of doMinimize to 'true'.");
 		
 		PFAbstract.targetEpsilon = cfp.getParams().getDouble("epsilon", 0.03);
 		PFAbstract.qCapacity = cfp.getParams().getInt("pFuncQCap", 4194304);
@@ -57,7 +55,7 @@ public class KStarCalculator {
 
 		PFAbstract.eMinMethod = cfp.getParams().getValue("eMinMethod", "ccd");
 		PFAbstract.setImplementation(cfp.getParams().getValue("pFuncMethod", "1npcpmcache"));
-		PFAbstract.setStabilityThreshold( cfp.getParams().getDouble("pFuncStabilityThreshold", 0.1) );
+		PFAbstract.setStabilityThresh( cfp.getParams().getDouble("pFuncStabThresh", 0.00001) );
 		PFAbstract.setInterval( cfp.getParams().getValue("pFuncInterval", Double.toString(PFAbstract.getMaxInterval())) );
 		PFAbstract.setConfsThreadBuffer( cfp.getParams().getInt("pFuncConfsThreadBuffer", 4) );
 		PFAbstract.setNumFibers( cfp.getParams().getInt("pFuncFibers", 1) );
@@ -73,6 +71,8 @@ public class KStarCalculator {
 		PFAbstract.setCheckPointInterval(cfp.getParams().getInt("checkpointInterval", 100000));
 
 		MinimizerFactory.setImplementation( PFAbstract.eMinMethod );
+		
+		KSAbstract.refinePInterval = cfp.getParams().getBool("KStarRefinePruning", false);
 	}
 
 
@@ -182,10 +182,10 @@ public class KStarCalculator {
 
 			switch( ksMethod ) {
 
-			case "sublinear":
-				KSImplSubLinear sublinear = new KSImplSubLinear(cfp);
-				sublinear.init(strand2AllowedSeqs);
-				sublinear.run();
+			case "astar":
+				KSImplAStar astar = new KSImplAStar(cfp);
+				astar.init(strand2AllowedSeqs);
+				astar.run();
 				break;
 			
 			case "linear":

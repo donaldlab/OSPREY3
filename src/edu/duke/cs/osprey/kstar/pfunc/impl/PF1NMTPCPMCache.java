@@ -1,13 +1,13 @@
-package edu.duke.cs.osprey.kstar.pfunction;
+package edu.duke.cs.osprey.kstar.pfunc.impl;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
-import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.kstar.KSConf;
 import edu.duke.cs.osprey.kstar.KSConfQ;
+import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.tools.ObjectIO;
 
 
@@ -25,12 +25,10 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 	protected int confsPerThread;
 	protected int sleepInterval = 10;
 
-	protected PF1NMTPCPMCache(ArrayList<String> sequence, ConfigFileParser cfp, 
-			SearchProblem sp, DEEPerSettings dset, 
-			ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, 
-			double EW_I0) {
+	public PF1NMTPCPMCache(ArrayList<String> sequence, ConfigFileParser cfp, 
+			SearchProblem sp, double EW_I0 ) {
 
-		super( sequence, cfp, sp, dset, moveableStrands, freeBBZones, EW_I0 );
+		super( sequence, cfp, sp, EW_I0 );
 	}
 
 

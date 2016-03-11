@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
+import edu.duke.cs.osprey.kstar.AllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Residue;
@@ -19,11 +20,13 @@ import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tupexp.ConfETupleExpander;
 import edu.duke.cs.osprey.tupexp.TupExpChooser;
 import java.io.Serializable;
+import java.math.BigInteger;
 import java.util.ArrayList;
 
 /**
  *
  * @author mhall44
+ * @author Adegoke Ojewole (ao68@duke.edu)
  */
 @SuppressWarnings("serial")
 public class SearchProblem implements Serializable {
@@ -36,7 +39,7 @@ public class SearchProblem implements Serializable {
 
 	public ConfSpace confSpace;
 
-	public EnergyMatrix emat;//energy matrix.  Meanings:
+	public EnergyMatrix emat = null;//energy matrix.  Meanings:
 	//-Defines full energy in the rigid case
 	//-Defines lower bound in the continuous case
 	//-emat + epicm = full energy if using EPIC for search 
@@ -72,7 +75,7 @@ public class SearchProblem implements Serializable {
 
 	public boolean useEPIC = false;
 	public boolean useTupExpForSearch = false;//use a tuple expansion to approximate the energy as we search
-	public boolean useEllipses;
+	public boolean useEllipses = false;
 
 	public boolean useERef = false;
 	public boolean addResEntropy = false;
@@ -101,13 +104,15 @@ public class SearchProblem implements Serializable {
 	}
 
 
-	public SearchProblem(SearchProblem origSP, String newSPName, ArrayList<String> newSPSeq) {
+	public SearchProblem(SearchProblem origSP, String newSPName, 
+			ArrayList<String> newSPSeq, ArrayList<String> newSPFlexibleRes) {
 
 		confSpace = origSP.confSpace;
 		name = newSPName;
 
 		// flexible residues are the same
-		allowedAAs = KSAbstract.arrayList1D2ListOfLists(newSPSeq);
+		allowedAAs = KSAbstract.arrayList1D2ListOfLists(newSPSeq);		
+		flexibleRes = newSPFlexibleRes;
 		PDBFile = origSP.PDBFile;
 
 		addWT = false;
@@ -128,7 +133,8 @@ public class SearchProblem implements Serializable {
 		moveableStrands = origSP.moveableStrands; 
 		freeBBZones = origSP.freeBBZones;
 
-		confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses);
+		confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, 
+				contSCFlex, dset, moveableStrands, freeBBZones, useEllipses);
 
 		//energy function setup
 		EnergyFunctionGenerator eGen = EnvironmentVars.curEFcnGenerator;
@@ -160,6 +166,10 @@ public class SearchProblem implements Serializable {
 
 		this.useERef = useERef;
 		this.addResEntropy = addResEntropy;
+		
+		this.dset = dset;
+		this.moveableStrands = moveableStrands;
+		this.freeBBZones = freeBBZones;
 
 		//energy function setup
 		EnergyFunctionGenerator eGen = EnvironmentVars.curEFcnGenerator;
@@ -397,35 +407,53 @@ public class SearchProblem implements Serializable {
 		}
 	}
 
-	public ArrayList<String> getFlexibleResiduePositions(ArrayList<String> seq, ArrayList<Integer> ordinalPos){
-		// converts ordinal position to absolute position in the molecule
-		ArrayList<String> absolutePos = new ArrayList<>();
 
-		for( int i = 0; i < ordinalPos.size(); ++i ) {
-			int pos = ordinalPos.get(i);
-			absolutePos.add(this.flexibleRes.get(pos));
-
-			String aa = seq.get(i);
-			if( !this.allowedAAs.get(pos).contains(aa) )
-				throw new RuntimeException("ERROR: the specified amino acid " + aa 
-						+ " at oridinal position " + i + " is not allowed");
-		}
-
-		return absolutePos;
-	}
-
-
-	public SearchProblem singleSeqSearchProblem(String name, ArrayList<String> seq, ArrayList<String> flexibleRes){
+	public SearchProblem singleSeqSearchProblem(String name, ArrayList<String> seq, 
+			ArrayList<String> flexRes, ArrayList<Integer> flexResIndexes){
 		
 		// Create a version of the search problem restricted to the specified sequence (list of amino acid names)
 		// the constructor creates a new confspace object
-		SearchProblem seqSearchProblem = new SearchProblem(this, name, seq);
+		SearchProblem seqSP = new SearchProblem(this, name, seq, flexRes);
 
-		seqSearchProblem.emat = emat.singleSeqMatrix(seq, confSpace);
+		seqSP.emat = emat.singleSeqMatrix(seq, flexResIndexes, confSpace);
 
-		seqSearchProblem.pruneMat = pruneMat.singleSeqMatrix(seq, confSpace);
+		seqSP.pruneMat = pruneMat.singleSeqMatrix(seq, flexResIndexes, confSpace);
+		seqSP.pruneMat.setPruningInterval(pruneMat.getPruningInterval());
 
-		return seqSearchProblem;
+		return seqSP;
+	}
+	
+	
+	public BigInteger numUnPruned() {
+
+		if( pruneMat == null ) return BigInteger.ZERO;
+		
+		BigInteger numUPConfs = BigInteger.ONE;
+		for( int pos = 0; pos < confSpace.numPos; ++pos ) {
+			numUPConfs = numUPConfs.multiply( BigInteger.valueOf( pruneMat.unprunedRCsAtPos(pos).size() ) );
+		}
+		
+		return numUPConfs;
+	}
+
+
+	public BigInteger numPruned() {
+
+		if( pruneMat == null ) return BigInteger.ZERO;
+		
+		BigInteger numPConfs = BigInteger.ONE;
+		for( int pos = 0; pos < confSpace.numPos; ++pos ) {
+			numPConfs = numPConfs.multiply( BigInteger.valueOf( pruneMat.prunedRCsAtPos(pos).size() ) );
+		}
+
+		return numPConfs;
+	}
+	
+	
+	public boolean isSingleSeq() {
+		for(ArrayList<String> residues : allowedAAs)
+			if(residues.size() > 1) return false;
+		return true;
 	}
 
 }

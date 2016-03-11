@@ -1,13 +1,13 @@
-package edu.duke.cs.osprey.kstar.pfunction;
+package edu.duke.cs.osprey.kstar.pfunc.impl;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
-import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.kstar.KSConf;
 import edu.duke.cs.osprey.kstar.KSConfQ;
+import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.tools.ObjectIO;
 
 /**
@@ -22,12 +22,15 @@ public class PF1NPMCache extends PFAbstract {
 
 	protected KSConfQ confs = null;
 
-	protected PF1NPMCache(ArrayList<String> sequence, ConfigFileParser cfp, 
-			SearchProblem sp, DEEPerSettings dset, 
-			ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, 
-			double EW_I0) {
+	public PF1NPMCache(ArrayList<String> sequence, ConfigFileParser cfp, 
+			SearchProblem sp, double EW_I0) {
 
-		super( sequence, cfp, sp, dset, moveableStrands, freeBBZones, EW_I0 );
+		super( sequence, cfp, sp, EW_I0 );
+	}
+
+
+	protected void clearSearchProblem() {
+		super.clearSearchProblem();
 	}
 
 
@@ -84,7 +87,7 @@ public class PF1NPMCache extends PFAbstract {
 
 				eAppx = EApproxReached.NOT_POSSIBLE;
 
-				System.out.println("Cannot reach epsilon");
+				// System.out.println("Cannot reach epsilon");
 
 				confs.cleanUp();
 
@@ -133,7 +136,7 @@ public class PF1NPMCache extends PFAbstract {
 	protected void computeSlice() {
 
 		try {
-			
+
 			iterate();
 
 		} catch(Exception e) {
@@ -161,7 +164,7 @@ public class PF1NPMCache extends PFAbstract {
 
 
 	protected void accumulate( KSConf conf ) {
-		
+
 		double E = 0;
 
 		// we do not have a lock when minimizing	
@@ -197,9 +200,9 @@ public class PF1NPMCache extends PFAbstract {
 			long currentTime = System.currentTimeMillis();
 
 			if( !printedHeader ) printHeader();
-			
+
 			System.out.println(E + "\t" + effectiveEpsilon + "\t" + 
-					getNumMinimizedConfs() + "\t" + getNumUnMinimizedConfs() + "\t" + confs.size() + "\t" + ((currentTime-startTime)/1000));
+					getNumMinimized() + "\t" + getNumUnEnumerated() + "\t" + confs.size() + "\t" + ((currentTime-startTime)/1000));
 
 			eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
 		}
@@ -209,8 +212,8 @@ public class PF1NPMCache extends PFAbstract {
 
 	protected void printHeader() {
 
-		System.out.println("minE" + "\t\t\t" + "epsilon" + "\t\t" + "#min" +
-				"\t" + "#un-min" + "\t" + "#buf" + "\t"+ "time(sec)");
+		System.out.println("minE" + "\t" + "epsilon" + "\t" + "#min" +
+				"\t" + "#un-enum" + "\t" + "#buf" + "\t"+ "time(sec)");
 
 		printedHeader = true;
 	}
@@ -219,7 +222,7 @@ public class PF1NPMCache extends PFAbstract {
 	protected void updateQPrime() {
 
 		qPrime = getBoltzmannWeight( Et ).
-				multiply( new BigDecimal(getNumUnMinimizedConfs().longValue() 
+				multiply( new BigDecimal(getNumUnEnumerated().longValue() 
 						- confs.size() - minimizingConfs.longValue() ) );
 	}
 
@@ -236,15 +239,8 @@ public class PF1NPMCache extends PFAbstract {
 
 		BigDecimal divisor = ( (qStar.add(confs.getQDagger())).add(qPrimePStar) );
 
-		// divisor is 0 iff qstar = 0. this means the energies are too high
-		// so epsilon can never be reached
+		// energies are too high so epsilon can never be reached
 		if( divisor.compareTo(BigDecimal.ZERO) == 0 ) return -1.0;
-
-		BigDecimal maxQStar = divisor.subtract(pStar);
-
-		double minEpsilon = BigDecimal.ONE.subtract( maxQStar.divide(divisor, 4) ).doubleValue();
-
-		if( minEpsilon > targetEpsilon ) return -1.0;
 
 		BigDecimal dividend = qStar;
 		if(PFAbstract.useRigEUB) {
@@ -255,19 +251,29 @@ public class PF1NPMCache extends PFAbstract {
 	}
 
 
-	protected BigInteger getNumUnMinimizedConfs() {
+	protected BigInteger getNumUnEnumerated() {
 		// assuming locks are in place
 
-		BigInteger numProcessing = (getNumMinimizedConfs().
+		BigInteger numProcessing = (getNumMinimized().
 				add(BigInteger.valueOf(confs.size()))).add(minimizingConfs);
 
-		BigInteger ans = initialUnPrunedConfs.subtract( numProcessing );
+		BigInteger ans = unPrunedConfs.subtract( numProcessing );
 
 		// this final comparison is necessary to maintain the count of remaining
 		// confs after we re-start k* due to epsilonnotpossible
 		if( ans.compareTo(BigInteger.ZERO) < 0 ) ans = BigInteger.ZERO;
 
 		return ans;
+	}
+
+
+	public BigDecimal getUpperBound() {
+		if( eAppx == EApproxReached.TRUE ) return getQStar();
+
+		synchronized( confs.qLock ) {
+			updateQPrime();
+			return qStar.add(qPrime).add(confs.getQDagger());
+		}
 	}
 
 

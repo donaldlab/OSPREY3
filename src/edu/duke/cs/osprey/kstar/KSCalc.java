@@ -5,11 +5,11 @@ import java.io.PrintStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
-import edu.duke.cs.osprey.kstar.pfunction.PFAbstract;
-import edu.duke.cs.osprey.kstar.pfunction.PFAbstract.EApproxReached;
-import edu.duke.cs.osprey.kstar.pfunction.PFAbstract.RunState;
+import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
+import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
+import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.RunState;
 import edu.duke.cs.osprey.tools.ObjectIO;
 
 /**
@@ -19,15 +19,15 @@ import edu.duke.cs.osprey.tools.ObjectIO;
  */
 public class KSCalc {
 
-	private HashMap<Integer, PFAbstract> strand2PF = null;
+	private ConcurrentHashMap<Integer, PFAbstract> strand2PF = null;
 	private int seqID = 0;
 	private static boolean headerPrinted = false;
 	public static BigDecimal maxValue = new BigDecimal("2e65536");
 	private static int precision = 4;
 
-	public KSCalc( int seqID, HashMap<Integer, PFAbstract> strand2PF ) {
+	public KSCalc( int seqID, ConcurrentHashMap<Integer, PFAbstract> pfs ) {
 		this.seqID = seqID;
-		this.strand2PF = strand2PF;
+		this.strand2PF = pfs;
 	}
 
 	protected PFAbstract getPF(int strand) {
@@ -38,7 +38,7 @@ public class KSCalc {
 
 		PFAbstract wtPf = wtKSCalc.getPF(strand);
 		PFAbstract pf = strand2PF.get(strand);
-		if(pf.getUpperBound().compareTo( wtPf.getQStar().multiply(PFAbstract.getStabilityThreshold()) ) >= 0)
+		if(pf.getUpperBound().compareTo( wtPf.getQStar().multiply(PFAbstract.getStabilityThresh()) ) >= 0)
 			return true;
 
 		return false;
@@ -70,14 +70,11 @@ public class KSCalc {
 	public void run(KSCalc wtKSCalc) {
 
 		ArrayList<Integer> strands = new ArrayList<>();
-		strands.add(Strand.LIGAND);
-		strands.add(Strand.PROTEIN);
-		strands.add(Strand.COMPLEX);
-
+		strands.add(Strand.LIGAND); strands.add(Strand.PROTEIN); strands.add(Strand.COMPLEX);
+		
 		for( int strand : strands ) {
-
-			if( getEpsilonStatus() != EApproxReached.FALSE )
-				return;
+			
+			if( getEpsilonStatus() != EApproxReached.FALSE ) return;
 			
 			PFAbstract pf = getPF(strand);
 
@@ -105,6 +102,8 @@ public class KSCalc {
 					pf.resume();
 				}
 			}
+			
+			if( getEpsilonStatus() == EApproxReached.NOT_POSSIBLE ) return;
 
 			if( strand != Strand.COMPLEX && !unboundIsStable(wtKSCalc, strand) ) {
 
@@ -196,7 +195,7 @@ public class KSCalc {
 			BigInteger numMinConfs = BigInteger.ZERO;
 			for( int strand : strands ) {
 				PFAbstract pf = getPF(strand);
-				numMinConfs = numMinConfs.add( pf.getNumMinimizedConfs() );
+				numMinConfs = numMinConfs.add( pf.getNumMinimized() );
 			}
 			out.print("\t");
 			out.print(numMinConfs);
@@ -210,7 +209,7 @@ public class KSCalc {
 				out.print(pf.getEffectiveEpsilon());
 
 				out.print("\t");
-				out.print(pf.getNumMinimizedConfs());
+				out.print(pf.getNumMinimized());
 			}
 
 			out.println();

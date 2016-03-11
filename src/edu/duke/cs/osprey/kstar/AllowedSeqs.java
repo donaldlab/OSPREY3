@@ -1,10 +1,10 @@
 package edu.duke.cs.osprey.kstar;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
+import edu.duke.cs.osprey.tools.ObjectIO;
 
 public class AllowedSeqs {
 
@@ -18,8 +18,7 @@ public class AllowedSeqs {
 	private int strand;
 	private int maxSequences = (int)Math.pow(2, 27);
 	ArrayList<ArrayList<String>> allowedSeqs = null;
-	ArrayList<ArrayList<ArrayList<String>>> allowedSubSeqs = null;
-	HashMap<ArrayList<String>, ArrayList<String>> seq2FlexRes = new HashMap<>();
+	ArrayList<HashSet<ArrayList<String>>> allowedSubSeqs = null;
 
 	public AllowedSeqs( int strand, DEEPerSettings dset, 
 			ArrayList<String[]> freeBBZoneTermini,
@@ -33,8 +32,8 @@ public class AllowedSeqs {
 		this.freeBBZoneTermini = freeBBZoneTermini;
 		this.moveableStrandTermini = moveableStrandTermini;
 		this.flexRes = flexRes;
-		this.allowedAAs = allowedAAs;
-		this.wt = wt;
+		this.allowedAAs = addPosToAllowedAAs(allowedAAs, flexRes);		
+		this.wt = addPosToSeq(wt, flexRes);
 		this.dist = dist;
 		this.allowedSeqs = generateSequences();
 	}
@@ -60,6 +59,100 @@ public class AllowedSeqs {
 		for(ArrayList<String> seq : in.allowedSeqs) {
 			this.allowedSeqs.add( new ArrayList<String>( seq.subList(lb, ub) ) );
 		}
+	}
+
+
+	public static ArrayList<ArrayList<String>> removePosFromAllowedAAs(ArrayList<ArrayList<String>> in) {
+		@SuppressWarnings("unchecked")
+		ArrayList<ArrayList<String>> ans = (ArrayList<ArrayList<String>>) ObjectIO.deepCopy(in);
+
+		for(ArrayList<String> list : ans) {
+			for(int i = 0; i < list.size(); ++i) {
+				list.set(i, list.get(i).split("-")[0]);
+			}
+		}
+
+		return ans;
+	}
+
+
+	public static ArrayList<ArrayList<String>> addPosToAllowedAAs(ArrayList<ArrayList<String>> in, ArrayList<String> flexRes) {
+
+		if(in.size() > flexRes.size())
+			throw new RuntimeException("ERROR: cannot assign positions to all AAs in list.");
+
+		ArrayList<ArrayList<String>> ans = new ArrayList<>();
+
+		for(int i = 0; i < in.size(); ++i) {
+			ans.add(addSinglePosToSeq(in.get(i), flexRes.get(i)));
+		}
+
+		ans.trimToSize();
+		return ans;
+	}
+
+
+	private static ArrayList<String> addSinglePosToSeq(ArrayList<String> in, String pos) {
+
+		ArrayList<String> ans = new ArrayList<>(); 
+		for(int i = 0; i < in.size(); ++i) ans.add(in.get(i) + "-" + pos);
+
+		ans.trimToSize();
+		return ans;
+	}
+
+
+	public static ArrayList<String> addPosToSeq(ArrayList<String> in, ArrayList<String> flexRes) {
+
+		if(in.size() > flexRes.size())
+			throw new RuntimeException("ERROR: cannot assign positions to all AAs in list.");
+
+		ArrayList<String> ans = new ArrayList<>(); 
+		for(int i = 0; i < in.size(); ++i) ans.add(in.get(i) + "-" + flexRes.get(i));
+
+		return ans;
+	}
+
+
+	public static ArrayList<String> getAAsFromSeq(ArrayList<String> seq) {
+
+		ArrayList<String> ans = new ArrayList<>();
+
+		for(String res : seq) ans.add(res.split("-")[0]);
+
+		ans.trimToSize();
+		return ans;
+	}
+
+
+	public static ArrayList<String> getFlexResFromSeq(ArrayList<String> seq) {
+
+		ArrayList<String> ans = new ArrayList<>();
+
+		for(String res : seq) ans.add(res.split("-")[1]);
+
+		ans.trimToSize();
+		return ans;
+	}
+
+
+	public ArrayList<Integer> getFlexResIndexesFromSeq(ArrayList<String> seq) {
+
+		ArrayList<String> seqFlexRes = getFlexResFromSeq(seq);
+		ArrayList<Integer> ans = new ArrayList<>();
+
+		for(String pos : seqFlexRes) {
+			
+			for(int j = 0; j < flexRes.size(); ++j) {
+				if(pos.equalsIgnoreCase(flexRes.get(j))) {
+					ans.add(j);
+					break;
+				}
+			}
+		}
+
+		ans.trimToSize();
+		return ans;
 	}
 
 
@@ -97,32 +190,6 @@ public class AllowedSeqs {
 	}
 
 
-	public ArrayList<String> getFlexRes( ArrayList<String> seq ) {
-
-		ArrayList<String> ans = null;
-
-		if( seq2FlexRes.get(seq) == null ) {
-
-			ans = new ArrayList<>();
-
-			for( int i = 0; i < seq.size(); ++i ) {
-
-				if( !allowedAAs.get(i).contains(seq.get(i)) )
-					throw new RuntimeException("ERROR: amino acid " + seq.get(i) + 
-							" is not allowed at position " + flexRes.get(i));
-
-				ans.add( flexRes.get(i) );
-			}
-
-			seq2FlexRes.put(seq, ans);
-		}
-
-		else ans = seq2FlexRes.get(seq);
-
-		return ans;
-	}
-
-
 	public ArrayList<String> getFlexRes() {
 		return flexRes;
 	}
@@ -138,7 +205,7 @@ public class AllowedSeqs {
 	}
 
 
-	public ArrayList<ArrayList<ArrayList<String>>> getStrandSubSeqList() {
+	public ArrayList<HashSet<ArrayList<String>>> getStrandSubSeqList() {
 
 		if( allowedSubSeqs == null) {
 
@@ -147,7 +214,7 @@ public class AllowedSeqs {
 			// create arraylist for all depths except the last
 			// depth 0 is empty
 			for( int depth = 0; depth < getSequenceLength(); ++depth ) {
-				allowedSubSeqs.add( new ArrayList<ArrayList<String>>() );
+				allowedSubSeqs.add( new HashSet<ArrayList<String>>() );
 			}
 
 			for( ArrayList<String> seq : allowedSeqs ) {
@@ -157,8 +224,6 @@ public class AllowedSeqs {
 
 					ArrayList<String> tmp = new ArrayList<>(seq.subList(0, i));
 
-					//tmp.addAll( seq.subList(0, i) );
-
 					if( !allowedSubSeqs.get(i).contains(tmp) )
 						allowedSubSeqs.get(i).add(tmp);
 				}
@@ -167,7 +232,7 @@ public class AllowedSeqs {
 
 			// add sequences at final depth
 			// since we are creating a successor function, we cannot allow duplicates
-			ArrayList<ArrayList<String>> fullyDefSeqs = new ArrayList<>();
+			HashSet<ArrayList<String>> fullyDefSeqs = new HashSet<>();
 			for( ArrayList<String> seq : getStrandSeqList() ) {
 				if( !fullyDefSeqs.contains(seq) )
 					fullyDefSeqs.add(seq);
@@ -180,7 +245,7 @@ public class AllowedSeqs {
 	}
 
 
-	public ArrayList<ArrayList<ArrayList<String>>> getStrandSubSeqList( 
+	public ArrayList<HashSet<ArrayList<String>>> getStrandSubSeqList( 
 			AllowedSeqs p, AllowedSeqs l ) {
 
 		if( strand != Strand.COMPLEX )
@@ -195,7 +260,7 @@ public class AllowedSeqs {
 			// p and l already contain the last depth
 			// depth 0 is empty
 			for( int depth = 0; depth <= getSequenceLength(); ++depth ) {
-				allowedSubSeqs.add( new ArrayList<ArrayList<String>>() );
+				allowedSubSeqs.add( new HashSet<ArrayList<String>>() );
 			}
 
 			for( int depthP = 1; depthP <= p.getStrandSubSeqsMaxDepth(); ++depthP ) {
@@ -209,20 +274,13 @@ public class AllowedSeqs {
 							if( p.getDistFromWT(subSeqP) + l.getDistFromWT(subSeqL) <= dist ) {
 
 								ArrayList<String> tmpSubSeq = new ArrayList<>();
-								ArrayList<String> tmpFlexRes = new ArrayList<>();
 
 								tmpSubSeq.addAll(subSeqP);
 								tmpSubSeq.addAll(subSeqL);
 
-								tmpFlexRes.addAll(p.getFlexRes(subSeqP));
-								tmpFlexRes.addAll(l.getFlexRes(subSeqL));
-
 								// add complex subsequence
 								if( !allowedSubSeqs.get(tmpSubSeq.size()).contains(tmpSubSeq) ) 
 									allowedSubSeqs.get(tmpSubSeq.size()).add(tmpSubSeq);
-
-								// add complex flexible res positions for subsequence
-								seq2FlexRes.put(tmpSubSeq, tmpFlexRes);
 							}
 						}		
 					}
@@ -244,7 +302,7 @@ public class AllowedSeqs {
 	}
 
 
-	public ArrayList<ArrayList<String>> getStrandSubSeqsAtDepth( int depth, AllowedSeqs p, AllowedSeqs l ) {
+	public HashSet<ArrayList<String>> getStrandSubSeqsAtDepth( int depth, AllowedSeqs p, AllowedSeqs l ) {
 
 		if( strand != Strand.COMPLEX )
 			throw new RuntimeException("ERROR: this version of the method "
@@ -261,7 +319,7 @@ public class AllowedSeqs {
 	}
 
 
-	public ArrayList<ArrayList<String>> getStrandSubSeqsAtDepth( int depth ) {
+	public HashSet<ArrayList<String>> getStrandSubSeqsAtDepth( int depth ) {
 
 		if( allowedSubSeqs == null )
 			getStrandSubSeqList();
@@ -354,13 +412,12 @@ public class AllowedSeqs {
 
 		// pre-allocate buffer and wt
 		ArrayList<String> buffer = new ArrayList<>();
-		for ( int it = 0; it < input.size(); it++ ) {
-			buffer.add("");
-		}
+		for ( int it = 0; it < input.size(); it++ ) buffer.add("");
+
 		buffer.trimToSize();
 
 		HashSet<ArrayList<String>> output = new HashSet<>();
-		
+
 		if(dist > 0)
 			generatePermutations( input, output, buffer, 0, 0 );
 
@@ -372,14 +429,14 @@ public class AllowedSeqs {
 				throw new RuntimeException("ERROR: created sequence with more than " + dist + " mutations from wild type");
 			}
 		}
-		*/
+		 */
 
 		// remove wt, if present
 		output.remove(wt);
 
 		System.out.println("\nNumber of sequences with " + dist + 
 				" mutation(s) from wild type: " + output.size() + "\n");
-		
+
 		ArrayList<ArrayList<String>> ans = new ArrayList<ArrayList<String>>(output); 
 		ans.add(0, wt);
 
@@ -411,7 +468,7 @@ public class AllowedSeqs {
 		}
 
 		if(depth == input.size()) {
-			if(diff == dist) {
+			if(diff == dist && !output.contains(current)) {
 				output.add(new ArrayList<String>(current));
 			}
 			return;

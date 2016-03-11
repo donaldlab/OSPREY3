@@ -1,9 +1,8 @@
 runName results
-mutfile mutfile.txt
-distCutoff 7
+%mutfile mutfile.txt
 iMinDEE true
 typedep true
-Ival 5
+Ival 2
 Ew 0
 epsilon 0.1
 doMinimize true
@@ -23,13 +22,14 @@ resAllowed0_3 SER GLU ASN
 resAllowed1_0 SER GLU ASN
 resAllowed1_1 GLY ASP ILE
 resAllowed1_2 THR ASP HID
-pFuncStabThresh 0
+pFuncStabThresh 1
 pFuncQWait false
 pFuncQCap 4194304
 pFuncMethod 1npcpmcache
-pFuncThreads 4
-numThreads 4
+pFuncThreads 3
+numThreads 3
 eMinMethod hbfgsccd
+KStarRefinePruning false
 KStarMethod linear
 KStarNumSeqs 5
 UseDunbrackRotamers false

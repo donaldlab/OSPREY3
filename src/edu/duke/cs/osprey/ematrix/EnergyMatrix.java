@@ -8,6 +8,8 @@ import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.TupleMatrix;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
+
 import java.util.ArrayList;
 
 /**
@@ -23,7 +25,7 @@ public class EnergyMatrix extends TupleMatrix<Double> {
     
     
     public EnergyMatrix(TupleMatrix<Double> tupleMatrix) {
-    	super(tupleMatrix.pairwise, tupleMatrix.oneBody);
+    	super(tupleMatrix.higherTerms, tupleMatrix.pairwise, tupleMatrix.oneBody);
     }
     
     public EnergyMatrix(ConfSpace cSpace, double pruningInterval){
@@ -158,5 +160,12 @@ public class EnergyMatrix extends TupleMatrix<Double> {
     	TupleMatrix<Double> tmat = super.singleSeqMatrix(seq, origConfSpace);
     	return new EnergyMatrix(tmat);
     }
+    
+    
+	public EnergyMatrix singleSeqMatrix(ArrayList<String> seq, ArrayList<Integer> flexPos, ConfSpace origConfSpace){
+		//return (PruningMatrix) super.singleSeqMatrix(seq, origConfSpace);
+		TupleMatrix<Double> tmat = super.singleSeqMatrix(seq, flexPos, origConfSpace);
+		return new EnergyMatrix(tmat);
+	}
    
 }
