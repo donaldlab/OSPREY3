@@ -320,9 +320,15 @@ public class AllowedSeqs {
 
 
 	public HashSet<ArrayList<String>> getStrandSubSeqsAtDepth( int depth ) {
-
-		if( allowedSubSeqs == null )
+		
+		if( allowedSubSeqs == null ) {
+			
+			if(strand == Strand.COMPLEX) 
+				throw new RuntimeException("ERROR: sub-sequences of the COMPLEX "
+						+ "strand cannot be initialized using this method");
+			
 			getStrandSubSeqList();
+		}
 
 		if( depth < 0 || depth > allowedSubSeqs.size()-1 )
 			throw new RuntimeException("ERROR: the requested depth " + depth + 
@@ -440,6 +446,7 @@ public class AllowedSeqs {
 		ArrayList<ArrayList<String>> ans = new ArrayList<ArrayList<String>>(output); 
 		ans.add(0, wt);
 
+		ans.trimToSize();
 		return ans;
 	}
 
@@ -461,15 +468,20 @@ public class AllowedSeqs {
 				}
 			}
 
-			if(!output.contains(current))
-				output.add(new ArrayList<String>(current));
+			if(!output.contains(current)) {
+				ArrayList<String> ans = new ArrayList<String>(current);
+				ans.trimToSize();
+				output.add(ans);
+			}
 
 			return;
 		}
 
 		if(depth == input.size()) {
 			if(diff == dist && !output.contains(current)) {
-				output.add(new ArrayList<String>(current));
+				ArrayList<String> ans = new ArrayList<String>(current);
+				ans.trimToSize();
+				output.add(ans);
 			}
 			return;
 		}

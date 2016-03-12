@@ -5,6 +5,7 @@ import java.io.PrintStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
@@ -69,8 +70,8 @@ public class KSCalc {
 
 	public void run(KSCalc wtKSCalc) {
 
-		ArrayList<Integer> strands = new ArrayList<>();
-		strands.add(Strand.LIGAND); strands.add(Strand.PROTEIN); strands.add(Strand.COMPLEX);
+		ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Strand.LIGAND, 
+				Strand.PROTEIN, Strand.COMPLEX));
 		
 		for( int strand : strands ) {
 			
@@ -187,10 +188,8 @@ public class KSCalc {
 			out.print("\t");
 			out.print( ObjectIO.formatBigDecimal(getKStarScore(), precision) );
 
-			ArrayList<Integer> strands = new ArrayList<>();
-			strands.add(Strand.COMPLEX);
-			strands.add(Strand.PROTEIN);
-			strands.add(Strand.LIGAND);
+			ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Strand.COMPLEX, 
+					Strand.PROTEIN, Strand.LIGAND));
 
 			BigInteger numMinConfs = BigInteger.ZERO;
 			for( int strand : strands ) {

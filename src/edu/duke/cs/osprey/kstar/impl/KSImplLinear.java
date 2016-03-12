@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.kstar.impl;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
@@ -35,12 +36,12 @@ public class KSImplLinear extends KSAbstract {
 
 		createEmatDir();
 
-		boolean[] contSCFlexVals = { true, false };
+		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(true, false));
 		createEmats(contSCFlexVals);
 	}
 
 
-	protected void prepareAllSingleSeqSPs( boolean[] contSCFlexVals ) {
+	protected void prepareAllSingleSeqSPs( ArrayList<Boolean> contSCFlexVals ) {
 
 		try {
 
@@ -119,10 +120,9 @@ public class KSImplLinear extends KSAbstract {
 
 		// each value corresponds to the desired flexibility of the 
 		// pl, p, and l conformation spaces, respectively
-		String[][] strandSeqs = null;	
-		boolean[] contSCFlexVals = { true, true, true };
-		String[] pfImplVals = { PFAbstract.getImplementation(), 
-				PFAbstract.getImplementation(), PFAbstract.getImplementation() };
+		ArrayList<ArrayList<String>> strandSeqs = null;	
+		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(true, true, true));
+		ArrayList<String> pfImplVals = new ArrayList<String>(Arrays.asList(PFAbstract.getImpl(), PFAbstract.getImpl(), PFAbstract.getImpl()));
 
 		long begin = System.currentTimeMillis();
 

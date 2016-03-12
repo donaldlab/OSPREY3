@@ -66,10 +66,10 @@ public abstract class KSAbstract implements KSInterface {
 	}
 
 
-	protected abstract void prepareAllSingleSeqSPs( boolean[] contSCFlexVals );
+	protected abstract void prepareAllSingleSeqSPs(ArrayList<Boolean> contSCFlexVals);
 	
 	
-	public void createEmats(boolean[] contSCFlexVals) {
+	public void createEmats(ArrayList<Boolean> contSCFlexVals) {
 		// for now, only the pan seqSPs have energy matrices in the file system
 		prepareAllPanSeqSPs(contSCFlexVals);
 
@@ -245,25 +245,25 @@ public abstract class KSAbstract implements KSInterface {
 	}
 
 
-	protected ConcurrentHashMap<Integer, PFAbstract> createPFsForSeq(String[][] seqs, 
-			boolean[] contSCFlexVals, String[] pfImplVals) {
+	protected ConcurrentHashMap<Integer, PFAbstract> createPFsForSeq(ArrayList<ArrayList<String>> seqs, 
+			ArrayList<Boolean> contSCFlexVals, ArrayList<String> pfImplVals) {
 
 		ConcurrentHashMap<Integer, PFAbstract> ans = new ConcurrentHashMap<>();
 
-		int[] strands = { Strand.COMPLEX, Strand.PROTEIN, Strand.LIGAND };
+		ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Strand.COMPLEX, Strand.PROTEIN, Strand.LIGAND));
 		ArrayList<Integer> indexes = new ArrayList<>();
-		for(int i = 0; i < strands.length; i++) indexes.add(i);
+		for(int i = 0; i < strands.size(); i++) indexes.add(i);
 
 		indexes.parallelStream().forEach((index) -> {
 			// for(int index = 0; index < strands.length; ++index) {
 
-			int strand = strands[index];
-			boolean contSCFlex = contSCFlexVals[index];
-			String pfImpl = pfImplVals[index];
+			int strand = strands.get(index);
+			boolean contSCFlex = contSCFlexVals.get(index);
+			String pfImpl = pfImplVals.get(index);
 
 			AllowedSeqs strandSeqs = strand2AllowedSeqs.get(strand);
 			
-			ArrayList<String> seq = new ArrayList<String>(Arrays.asList(seqs[strand]));
+			ArrayList<String> seq = seqs.get(strand);
 			String spName = getSearchProblemName(contSCFlex, strand, seq);
 
 			if( name2PF.get(spName) == null ) {
@@ -318,12 +318,12 @@ public abstract class KSAbstract implements KSInterface {
 		// get pfs that were already in global map
 		for( int index : indexes ) {
 
-			int strand = strands[index];
-			boolean contSCFlex = contSCFlexVals[index];
+			int strand = strands.get(index);
+			boolean contSCFlex = contSCFlexVals.get(index);
 
 			if(!ans.keySet().contains(strand)) {
 
-				ArrayList<String> seq = new ArrayList<String>(Arrays.asList(seqs[strand]));
+				ArrayList<String> seq = seqs.get(strand);
 				String spName = getSearchProblemName(contSCFlex, strand, seq);
 				PFAbstract pf = name2PF.get(spName);
 
@@ -413,10 +413,10 @@ public abstract class KSAbstract implements KSInterface {
 	}
 
 
-	protected void prepareAllPanSeqSPs( boolean[] contSCFlexVals ) {
+	protected void prepareAllPanSeqSPs( ArrayList<Boolean> contSCFlexVals ) {
 
-		ArrayList<Integer> strands = new ArrayList<>();
-		strands.add(Strand.COMPLEX); strands.add(Strand.PROTEIN); strands.add(Strand.LIGAND);
+		ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Strand.LIGAND, 
+				Strand.PROTEIN, Strand.COMPLEX));
 
 		for( boolean contSCFlex : contSCFlexVals ) {
 
@@ -509,14 +509,15 @@ public abstract class KSAbstract implements KSInterface {
 	}
 
 	
-	protected String[][] getStrandStringsAtPos(int i) {
+	protected ArrayList<ArrayList<String>> getStrandStringsAtPos(int i) {
 
-		String[][] ans = new String[3][];
+		ArrayList<ArrayList<String>> ans = new ArrayList<ArrayList<String>>(Arrays.asList(null, null, null));
 
-		ans[Strand.COMPLEX] = (String[]) strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSeqAtPos(i).toArray(new String[0]);
-		ans[Strand.PROTEIN] = (String[]) strand2AllowedSeqs.get(Strand.PROTEIN).getStrandSeqAtPos(i).toArray(new String[0]);
-		ans[Strand.LIGAND] = (String[]) strand2AllowedSeqs.get(Strand.LIGAND).getStrandSeqAtPos(i).toArray(new String[0]);
+		ans.set(Strand.COMPLEX, strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSeqAtPos(i));
+		ans.set(Strand.PROTEIN, strand2AllowedSeqs.get(Strand.PROTEIN).getStrandSeqAtPos(i));
+		ans.set(Strand.LIGAND, strand2AllowedSeqs.get(Strand.LIGAND).getStrandSeqAtPos(i));
 
+		ans.trimToSize();
 		return ans;
 	}
 }

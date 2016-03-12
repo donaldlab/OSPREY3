@@ -516,7 +516,7 @@ public abstract class PFAbstract {
 	}
 
 
-	public static String getImplementation() {
+	public static String getImpl() {
 		return pFuncImplementation;
 	}
 
@@ -549,7 +549,7 @@ public abstract class PFAbstract {
 	}
 
 
-	public static void setImplementation( String implementation ) {
+	public static void setImpl( String implementation ) {
 
 		switch( implementation.toLowerCase() ) {
 

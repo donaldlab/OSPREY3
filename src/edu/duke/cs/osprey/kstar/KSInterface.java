@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.kstar;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 
 /**
@@ -11,7 +12,7 @@ public interface KSInterface {
 
 	public void init( HashMap<Integer, AllowedSeqs> strand2AllowedSeqs );
 	
-	public void createEmats( boolean[] contSCFlexVals );
+	public void createEmats( ArrayList<Boolean> contSCFlexVals );
 	
 	public void run();
 	

@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.kstar.impl;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,7 +28,7 @@ public class KSImplAStar extends KSAbstract {
 
 		createEmatDir();
 
-		boolean[] contSCFlexVals = { true, false };
+		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(true, false));
 		createEmats(contSCFlexVals);
 	}
 
@@ -36,11 +37,11 @@ public class KSImplAStar extends KSAbstract {
 	public void run() {
 
 		// compute wt sequence for reference
-		String[][] seqs = getStrandStringsAtPos(0);		
-		boolean[] contSCFlexVals = { true, true, true };
-		String[] pfImplVals = { PFAbstract.getImplementation(), 
-				PFAbstract.getImplementation(), PFAbstract.getImplementation() };
-		ConcurrentHashMap<Integer, PFAbstract> pfs = createPFsForSeq(seqs, contSCFlexVals, pfImplVals);
+		ArrayList<ArrayList<String>> strandSeqs = getStrandStringsAtPos(0);		
+		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(true, true, true));
+		ArrayList<String> pfImplVals = new ArrayList<String>(Arrays.asList(PFAbstract.getImpl(), PFAbstract.getImpl(), PFAbstract.getImpl()));
+		
+		ConcurrentHashMap<Integer, PFAbstract> pfs = createPFsForSeq(strandSeqs, contSCFlexVals, pfImplVals);
 		KSCalc seq = new KSCalc(0, pfs);
 		wtKSCalc = seq;
 		seq.run(wtKSCalc);
@@ -78,11 +79,11 @@ public class KSImplAStar extends KSAbstract {
 
 
 	@Override
-	protected void prepareAllSingleSeqSPs( boolean[] contSCFlexVals ) {
+	protected void prepareAllSingleSeqSPs( ArrayList<Boolean> contSCFlexVals ) {
 
 		try {
 
-			int[] strands = { Strand.COMPLEX, Strand.PROTEIN, Strand.LIGAND };
+			ArrayList<Integer>strands = new ArrayList<Integer>(Arrays.asList(Strand.COMPLEX, Strand.PROTEIN, Strand.LIGAND));
 			AllowedSeqs pSeqs = strand2AllowedSeqs.get(Strand.PROTEIN);
 			AllowedSeqs lSeqs = strand2AllowedSeqs.get(Strand.LIGAND);
 

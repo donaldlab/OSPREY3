@@ -74,7 +74,7 @@ public class ServerImplementation extends UnicastRemoteObject implements ServerI
 		this.confsPerThread = confsPerThread;
 		this.threadsPerFiber = threadsPerFiber;
 
-		MinimizerFactory.setImplementation( eMinMethod );
+		MinimizerFactory.setImpl( eMinMethod );
 
 		// init common forkjoinpool to #hardware threads-1
 		int threads = Runtime.getRuntime().availableProcessors()-1;

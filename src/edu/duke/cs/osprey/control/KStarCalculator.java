@@ -54,7 +54,7 @@ public class KStarCalculator {
 		PFAbstract.waitUntilCapacity = cfp.getParams().getBool("pFuncQWait", false);
 
 		PFAbstract.eMinMethod = cfp.getParams().getValue("eMinMethod", "ccd");
-		PFAbstract.setImplementation(cfp.getParams().getValue("pFuncMethod", "1npcpmcache"));
+		PFAbstract.setImpl(cfp.getParams().getValue("pFuncMethod", "1npcpmcache"));
 		PFAbstract.setStabilityThresh( cfp.getParams().getDouble("pFuncStabThresh", 0.00001) );
 		PFAbstract.setInterval( cfp.getParams().getValue("pFuncInterval", Double.toString(PFAbstract.getMaxInterval())) );
 		PFAbstract.setConfsThreadBuffer( cfp.getParams().getInt("pFuncConfsThreadBuffer", 4) );
@@ -70,7 +70,7 @@ public class KStarCalculator {
 		PFAbstract.doCheckpoint = cfp.getParams().getBool("doKStarCheckpoint", false);
 		PFAbstract.setCheckPointInterval(cfp.getParams().getInt("checkpointInterval", 100000));
 
-		MinimizerFactory.setImplementation( PFAbstract.eMinMethod );
+		MinimizerFactory.setImpl( PFAbstract.eMinMethod );
 		
 		KSAbstract.refinePInterval = cfp.getParams().getBool("KStarRefinePruning", false);
 	}
