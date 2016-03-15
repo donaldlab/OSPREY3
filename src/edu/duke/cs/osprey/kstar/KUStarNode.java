@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
 
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
@@ -23,7 +24,8 @@ public class KUStarNode {
 	private static KSCalc wt;
 	private static HashMap<Integer, AllowedSeqs> strand2AllowedSeqs;
 	private static KSAbstract ksObj;
-	static int numExpanded = 0;
+	private static int numCreated = 0;
+	private static int numExpanded = 0;
 
 	private KSCalc calc;
 	protected double score;
@@ -44,7 +46,17 @@ public class KUStarNode {
 		score = Double.MAX_VALUE;
 		this.scoreNeedsRefinement = scoreNeedsRefinement;
 	}
-
+	
+	
+	public static int getNumCreated() {
+		return numCreated;
+	}
+	
+	
+	public static int getNumExpanded() {
+		return numExpanded;
+	}
+	
 
 	protected void setScore() {
 
@@ -68,9 +80,11 @@ public class KUStarNode {
 
 	// only expand if scoreNeedsRefinement
 	public ArrayList<KUStarNode> expand() {
+		
+		numExpanded++;
 
 		// using complex, p, l convention
-		ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Strand.COMPLEX, Strand.PROTEIN, Strand.LIGAND));
+		ArrayList<Integer> strands = new ArrayList<>(Arrays.asList(Strand.LIGAND, Strand.PROTEIN, Strand.COMPLEX));
 
 		ArrayList<Integer> nextDepths = new ArrayList<>(); 
 		for( int i = 0; i < strands.size(); ++i ) nextDepths.add(0);
@@ -87,32 +101,38 @@ public class KUStarNode {
 			if( currentDepth() != 0 ) {
 				ArrayList<String> seq = calc.getPF(strand).getSequence();
 				seqs.set(strand, seq);
-				nextDepths.set(strand, Math.min(seq.size()+1, strand2AllowedSeqs.get(strand).getStrandSubSeqsMaxDepth()));
+
+				if( strand != Strand.COMPLEX )
+					nextDepths.set(strand, Math.min(seq.size()+1, strand2AllowedSeqs.get(strand).getStrandSubSeqsMaxDepth()));
 			}
 
 			else {
 				AllowedSeqs strandSeqs = strand2AllowedSeqs.get(strand);
 				// go to the first non-zero depth
-				for(int depth = 0; depth <= strandSeqs.getStrandSubSeqsMaxDepth(); ++depth) {
+				int depth = 1;
 
-					HashSet<ArrayList<String>> subSeqsAtDepth = strand == 
-							Strand.COMPLEX ? strandSeqs.getStrandSubSeqsAtDepth( depth, pSeqs, lSeqs ) : 
-								strandSeqs.getStrandSubSeqsAtDepth( depth );
-
-							if( subSeqsAtDepth.size() != 0 ) {
-								nextDepths.set(strand, depth);
-								break;
-							}
+				// set next depth
+				if( strand != Strand.COMPLEX ) {
+					// prepare subsequences
+					strandSeqs.getStrandSubSeqsAtDepth( depth );
+					nextDepths.set(strand, depth);
 				}
+
+				else
+					// prepare subsequences
+					strandSeqs.getStrandSubSeqsAtDepth( depth, pSeqs, lSeqs );
 			}
+
+			if( strand == Strand.COMPLEX )
+				nextDepths.set(strand, nextDepths.get(Strand.PROTEIN) + nextDepths.get(Strand.LIGAND));
 		}
 
 		// get all sequences at next depth
-		HashSet<ArrayList<String>> nextPSeqs = strand2AllowedSeqs.get(Strand.PROTEIN).getStrandSubSeqsAtDepth(nextDepths.get(Strand.PROTEIN));
-		HashSet<ArrayList<String>> nextLSeqs = strand2AllowedSeqs.get(Strand.LIGAND).getStrandSubSeqsAtDepth(nextDepths.get(Strand.LIGAND));
-		HashSet<ArrayList<String>> nextPLSeqs = new HashSet<ArrayList<String>>(strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSubSeqsAtDepth(nextDepths.get(Strand.COMPLEX)));
+		HashSet<ArrayList<String>> nextPSeqs = new HashSet<>(strand2AllowedSeqs.get(Strand.PROTEIN).getStrandSubSeqsAtDepth(nextDepths.get(Strand.PROTEIN)));
+		HashSet<ArrayList<String>> nextLSeqs = new HashSet<>(strand2AllowedSeqs.get(Strand.LIGAND).getStrandSubSeqsAtDepth(nextDepths.get(Strand.LIGAND)));
+		HashSet<ArrayList<String>> nextPLSeqs = new HashSet<>(strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSubSeqsAtDepth(nextDepths.get(Strand.COMPLEX)));
 
-		ArrayList<KUStarNode> successors;
+		ArrayList<KUStarNode> successors = null;
 
 		// in general, we want to add a single residue to either the protein xor the ligand
 		// so our successor is nextProtein+thisLigand, thisProtein+nextLigand
@@ -123,17 +143,26 @@ public class KUStarNode {
 		}
 
 		else {
-			HashSet<ArrayList<String>> currentPSeq = new HashSet<>();
-			currentPSeq.add(seqs.get(Strand.PROTEIN));
-			successors = getPutativeSuccessors( nextPLSeqs, currentPSeq, nextLSeqs );
+			// reduce next L to those subsequences reachable from this
+			ArrayList<String> currentLSeq = seqs.get(Strand.LIGAND);
+			for( Iterator<ArrayList<String>> iterator = nextLSeqs.iterator(); iterator.hasNext(); ) {
+			    ArrayList<String> subSeq = iterator.next();	    
+			    if( !subSeq.subList(0, currentLSeq.size()).equals(currentLSeq) ) iterator.remove();
+			}
 
-			HashSet<ArrayList<String>> currentLSeq = new HashSet<>();
-			currentLSeq.add(seqs.get(Strand.LIGAND));
-			successors.addAll( getPutativeSuccessors( nextPLSeqs, nextPSeqs, currentLSeq ) );
+			// reduce next P to those subsequences reachable from this
+			ArrayList<String> currentPSeq = seqs.get(Strand.PROTEIN);
+			for( Iterator<ArrayList<String>> iterator = nextPSeqs.iterator(); iterator.hasNext(); ) {
+			    ArrayList<String> subSeq = iterator.next();
+			    if( !subSeq.subList(0, currentPSeq.size()).equals(currentPSeq) ) iterator.remove();
+			}
+
+			successors = getPutativeSuccessors( nextPLSeqs, nextPSeqs, nextLSeqs );
 		}
 
+		// parallel for?
 		// compute all p and l UPPER bound partition functions
-		// 		if not stable, then do not add
+		// 		if not stable, then do not add?
 
 		return successors;
 	}
@@ -143,9 +172,9 @@ public class KUStarNode {
 			HashSet<ArrayList<String>> pSeqs,
 			HashSet<ArrayList<String>> lSeqs ) {
 
-		ArrayList<ArrayList<String>> strandSeqs = new ArrayList<ArrayList<String>>(Arrays.asList(null, null, null));
-		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(true, false, false));
-		ArrayList<String> pfImplVals = new ArrayList<String>(Arrays.asList("1nubnm", "1nnocache", "1nnocache"));
+		ArrayList<ArrayList<String>> strandSeqs = new ArrayList<>(Arrays.asList(null, null, null));
+		ArrayList<Boolean> contSCFlexVals = new ArrayList<>(Arrays.asList(false, false, true));
+		ArrayList<String> pfImplVals = new ArrayList<>(Arrays.asList("1nnocache", "1nnocache", "1nubnm"));
 
 		ArrayList<KUStarNode> ans = new ArrayList<>();
 
@@ -157,6 +186,7 @@ public class KUStarNode {
 
 				putativeNextPLSeq.addAll(pSeq);
 				putativeNextPLSeq.addAll(lSeq);
+				putativeNextPLSeq.trimToSize();
 
 				if( !nextPLSeqs.contains(putativeNextPLSeq) ) continue;
 
@@ -164,12 +194,12 @@ public class KUStarNode {
 				strandSeqs.set(Strand.COMPLEX, putativeNextPLSeq);
 				strandSeqs.set(Strand.PROTEIN, pSeq);
 				strandSeqs.set(Strand.LIGAND, lSeq);
-
+				
 				// create partition functions
 				ConcurrentHashMap<Integer, PFAbstract> pfs = ksObj.createPFsForSeq(strandSeqs, contSCFlexVals, pfImplVals);
 
 				// create KUStar node
-				ans.add( new KUStarNode( new KSCalc(++numExpanded, pfs), childScoreNeedsRefinement() ) );
+				ans.add( new KUStarNode( new KSCalc(++numCreated, pfs), childScoreNeedsRefinement() ) );
 			}
 		}
 

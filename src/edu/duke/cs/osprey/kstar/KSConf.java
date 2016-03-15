@@ -8,21 +8,19 @@ import java.util.Comparator;
  * @author Adegoke Ojewole (ao68@duke.edu)
  *
  */
-@SuppressWarnings({ "rawtypes", "serial" })
+@SuppressWarnings({ "serial", "rawtypes" })
 public class KSConf implements Comparable, Serializable {
 
 	public static final double ERROR = 0.0001;
 
-	private int conf[];
+	private int[] conf;
 	private double minEnergyLB = Double.POSITIVE_INFINITY;
 	private double minEnergy = Double.POSITIVE_INFINITY;
-	private double minEnergyUB = Double.POSITIVE_INFINITY;
 
 
-	public KSConf( int conf[], double energyLB, double energyUB ) {
+	public KSConf( int[] conf, double energyLB ) {
 		this.conf = conf;
 		this.minEnergyLB = energyLB;
-		this.minEnergyUB = energyUB;
 	}
 
 
@@ -36,18 +34,8 @@ public class KSConf implements Comparable, Serializable {
 	}
 
 
-	public double getMinEnergyUB() {
-		return minEnergyUB;
-	}
-
-
 	public void setMinEnergy( double e ) {
 		minEnergy = e;
-	}
-
-
-	public void setMinEnergyUB( double e ) {
-		minEnergyUB = e;
 	}
 
 
@@ -64,15 +52,10 @@ public class KSConf implements Comparable, Serializable {
 	}
 
 
-	// for topconfs priorityqueue
-	public static Comparator<KSConf> KSConfComparator = new Comparator<KSConf>() {
+	public class KSConfComparator implements Comparator<KSConf>, Serializable {
 
-		@Override
 		public int compare(KSConf o1, KSConf o2) {
-
 			return o1.getMinEnergy() <= o2.getMinEnergy() ? 1 : -1;
-		}
-
-	};
-
+		}	
+	}
 }

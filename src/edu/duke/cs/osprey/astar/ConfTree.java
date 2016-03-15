@@ -11,6 +11,8 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -18,7 +20,7 @@ import java.util.Arrays;
  *
  * @author mhall44
  */
-public class ConfTree extends AStarTree {
+public class ConfTree extends AStarTree implements Serializable {
     //This implementation of an A* tree is intended for conformational search
     //AStarNode.nextAssignment is an array of length numPos; each position
     //stores the assigned RC, or -1 to indicate an unassigned position

@@ -34,7 +34,6 @@ public class KUStarTree {
 	
 	
 	public void add( ArrayList<KUStarNode> nodes ) {
-		for(KUStarNode node : nodes)
-			add(node);
+		for(KUStarNode node : nodes) add(node);
 	}
 }

@@ -59,6 +59,7 @@ Bruce Donald, Professor of Computer Science
 package edu.duke.cs.osprey.tools;
 
 
+import java.io.Serializable;
 import java.math.*;
 
 /**
@@ -67,7 +68,8 @@ import java.math.*;
  * Implements pow() for integer powers of a BigDecimal number and an approximation to the natural logarithm of a BigDecimal number
  * 
  */
-public class ExpFunction {
+@SuppressWarnings("serial")
+public class ExpFunction implements Serializable {
 
 	BigDecimal exp = new BigDecimal("2.71828182845904523536"); //Euler's number to 20 decimal digits
 

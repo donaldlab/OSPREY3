@@ -50,13 +50,11 @@ public class KStarCalculator {
 		
 		PFAbstract.targetEpsilon = cfp.getParams().getDouble("epsilon", 0.03);
 		PFAbstract.qCapacity = cfp.getParams().getInt("pFuncQCap", 4194304);
-		PFAbstract.useRigEUB = cfp.getParams().getBool("pFuncUseRigEUB", false);
 		PFAbstract.waitUntilCapacity = cfp.getParams().getBool("pFuncQWait", false);
 
 		PFAbstract.eMinMethod = cfp.getParams().getValue("eMinMethod", "ccd");
 		PFAbstract.setImpl(cfp.getParams().getValue("pFuncMethod", "1npcpmcache"));
 		PFAbstract.setStabilityThresh( cfp.getParams().getDouble("pFuncStabThresh", 0.00001) );
-		PFAbstract.setInterval( cfp.getParams().getValue("pFuncInterval", Double.toString(PFAbstract.getMaxInterval())) );
 		PFAbstract.setConfsThreadBuffer( cfp.getParams().getInt("pFuncConfsThreadBuffer", 4) );
 		PFAbstract.setNumFibers( cfp.getParams().getInt("pFuncFibers", 1) );
 		PFAbstract.setNumThreads( cfp.getParams().getInt("pFuncThreads", ThreadParallelism.getNumThreads()) );
@@ -67,12 +65,12 @@ public class KStarCalculator {
 		PFAbstract.setNumTopConfsToSave( cfp.getParams().getInt("numTopConfsToSave", 10) );
 		PFAbstract.useMaxKSConfs = cfp.getParams().getBool( "useMaxKSConfs", false );
 		PFAbstract.setMaxKSconfs( cfp.getParams().getInt("maxKSconfs", 100000) );
-		PFAbstract.doCheckpoint = cfp.getParams().getBool("doKStarCheckpoint", false);
-		PFAbstract.setCheckPointInterval(cfp.getParams().getInt("checkpointInterval", 100000));
 
 		MinimizerFactory.setImpl( PFAbstract.eMinMethod );
 		
 		KSAbstract.refinePInterval = cfp.getParams().getBool("KStarRefinePruning", false);
+		KSAbstract.doCheckpoint = cfp.getParams().getBool("doKStarCheckpoint", false);
+		KSAbstract.setCheckPointInterval(cfp.getParams().getInt("KStarCheckpoint", 100000));
 	}
 
 

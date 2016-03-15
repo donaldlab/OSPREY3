@@ -2,7 +2,7 @@ package edu.duke.cs.osprey.parallelism;
 
 public class ThreadParallelism {
 
-	private static int NUM_THREADS = Math.min(Runtime.getRuntime().availableProcessors(), 8);
+	private static int NUM_THREADS = Math.min(Runtime.getRuntime().availableProcessors(), 16);
 
 	public static void setNumThreads( int threads ) { 
 		NUM_THREADS = threads;

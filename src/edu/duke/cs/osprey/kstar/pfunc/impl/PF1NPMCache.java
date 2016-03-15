@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.kstar.pfunc.impl;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -15,22 +16,23 @@ import edu.duke.cs.osprey.tools.ObjectIO;
  * @author Adegoke Ojewole (ao68@duke.edu)
  *
  */
-public class PF1NPMCache extends PFAbstract {
+@SuppressWarnings("serial")
+public class PF1NPMCache extends PFAbstract implements Serializable {
 
 	// temp for benchmarking
 	protected long startTime;
 
 	protected KSConfQ confs = null;
 
-	public PF1NPMCache(ArrayList<String> sequence, ConfigFileParser cfp, 
-			SearchProblem sp, double EW_I0) {
+	public PF1NPMCache( ArrayList<String> sequence, String checkPointPath, 
+			ConfigFileParser cfp, SearchProblem sp, double EW_I0 ) {
 
-		super( sequence, cfp, sp, EW_I0 );
+		super( sequence, checkPointPath, cfp, sp, EW_I0 );
 	}
 
 
-	protected void clearSearchProblem() {
-		super.clearSearchProblem();
+	public void cleanup() {
+		super.cleanup();
 	}
 
 
@@ -137,6 +139,10 @@ public class PF1NPMCache extends PFAbstract {
 
 		try {
 
+			if( confs.getState() == Thread.State.NEW ) {
+				confs.start();
+			}
+
 			iterate();
 
 		} catch(Exception e) {
@@ -183,9 +189,6 @@ public class PF1NPMCache extends PFAbstract {
 
 			// update qdagger
 			confs.setQDagger( confs.getQDagger().subtract(getBoltzmannWeight(conf.getMinEnergyLB())) );
-			if(PFAbstract.useRigEUB) {
-				confs.setQDot( confs.getQDot().subtract( getBoltzmannWeight(conf.getMinEnergyUB()) ) );
-			}
 
 			updateQPrime();
 
@@ -243,9 +246,6 @@ public class PF1NPMCache extends PFAbstract {
 		if( divisor.compareTo(BigDecimal.ZERO) == 0 ) return -1.0;
 
 		BigDecimal dividend = qStar;
-		if(PFAbstract.useRigEUB) {
-			dividend = dividend.add( confs.getQDot() );
-		}
 
 		return BigDecimal.ONE.subtract( dividend.divide(divisor,4) ).doubleValue();
 	}
@@ -286,7 +286,7 @@ public class PF1NPMCache extends PFAbstract {
 			// eAppx with true or notpossible have already terminated
 			if(eAppx == EApproxReached.FALSE) {
 
-				eAppx = EApproxReached.ABORTED;
+				eAppx = EApproxReached.NOT_POSSIBLE;
 
 				confs.cleanUp();
 			}
@@ -295,6 +295,11 @@ public class PF1NPMCache extends PFAbstract {
 			e.printStackTrace();
 			System.exit(1);
 		}
+	}
+
+
+	public Object getLock() {
+		return confs.qLock;
 	}
 
 }

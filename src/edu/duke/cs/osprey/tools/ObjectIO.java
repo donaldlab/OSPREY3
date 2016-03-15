@@ -65,19 +65,40 @@ public class ObjectIO {
 			throw new RuntimeException("ERROR: Stack overflow in deepCopy.  Consider increasing -Xss");
 		}
 		catch (Exception e){
-			System.out.println(e.toString());
+			System.out.println(e.getMessage());
 			System.out.println("ERROR: An exception occurred while writing object file");
-			System.exit(0);
+			e.printStackTrace();
+			System.exit(1);
 		}
 	}
 
 
-	public static void deleteDir( String path ) {
+	public static File[] getFilesInDir( String path ) {
+
+		File[] listOfFiles = null;
+
 		try {
-			File dir = new File(path);
-			if( dir.exists() ) {
-				if( dir.isDirectory() ) FileUtils.deleteDirectory(dir);
-				else throw new RuntimeException("ERROR: the specified path " + path + " is not a directory");
+			
+			File loc = new File(path);
+			if( loc.isDirectory() )
+				listOfFiles = loc.listFiles();
+			
+		} catch (Exception e){
+			System.out.println(e.getMessage());
+			e.printStackTrace();
+			System.exit(1);
+		}
+
+		return listOfFiles;
+	}
+
+
+	public static void delete( String path ) {
+		try {
+			File loc = new File(path);
+			if( loc.exists() ) {
+				if( loc.isDirectory() ) FileUtils.deleteDirectory(loc);
+				else loc.delete();
 			}
 		} 
 		catch (Exception e) {
@@ -91,7 +112,7 @@ public class ObjectIO {
 	public static void makeDir( String path, boolean deleteExisting ) {
 		try {
 			File dir = new File(path);
-			if( deleteExisting && dir.exists() ) deleteDir(path);
+			if( deleteExisting && dir.exists() ) delete(path);
 			if( !dir.exists() ) dir.mkdirs();
 		} 
 		catch (Exception e) {
@@ -113,21 +134,21 @@ public class ObjectIO {
 		{
 			ByteArrayOutputStream bos = 
 					new ByteArrayOutputStream(); // A
-					oos = new ObjectOutputStream(bos); // B
-					// serialize and pass the object
-					oos.writeObject(oldObj);   // C
-					oos.flush();               // D
-					ByteArrayInputStream bin = 
-							new ByteArrayInputStream(bos.toByteArray()); // E
-					ois = new ObjectInputStream(bin);                  // F
+			oos = new ObjectOutputStream(bos); // B
+			// serialize and pass the object
+			oos.writeObject(oldObj);   // C
+			oos.flush();               // D
+			ByteArrayInputStream bin = 
+					new ByteArrayInputStream(bos.toByteArray()); // E
+			ois = new ObjectInputStream(bin);                  // F
 
-					// return the new object
-					Object ans = ois.readObject(); // G
+			// return the new object
+			Object ans = ois.readObject(); // G
 
-					oos.close();
-					ois.close();
+			oos.close();
+			ois.close();
 
-					return ans;
+			return ans;
 		}
 		catch(StackOverflowError e){//For objects with lots of links, might need to raise stack size, 
 			//since writing is recursive
@@ -139,8 +160,8 @@ public class ObjectIO {
 			throw new RuntimeException("Deep-copy error: "+e.getMessage());
 		}
 	}
-	
-	
+
+
 	public static String formatBigDecimal(BigDecimal x, int decimalPoints) {
 		NumberFormat formatter = new DecimalFormat("0.0E0");
 		formatter.setRoundingMode(RoundingMode.CEILING);

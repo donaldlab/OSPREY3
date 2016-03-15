@@ -21,29 +21,28 @@ import edu.duke.cs.osprey.kstar.pfunc.impl.PFMNPCPMCache;
  */
 public class PFFactory {
 
-	public static PFAbstract getPartitionFunction( String implementation,
-			ArrayList<String> sequence, ConfigFileParser cfp, SearchProblem sp,
-			double EW_I0 ) {
+	public static PFAbstract getPartitionFunction( String implementation, ArrayList<String> sequence, 
+			String checkPointPath, ConfigFileParser cfp, SearchProblem sp, double EW_I0 ) {
 
 		switch( implementation.toLowerCase() ) {
 
 		case "1nnocache":
-			return new PF1NNoCache( sequence, cfp, sp, EW_I0 );
+			return new PF1NNoCache( sequence, checkPointPath, cfp, sp, EW_I0 );
 		
 		case "1nubnm":
-			return new PF1NUBNM( sequence, cfp, sp, EW_I0 );
+			return new PF1NUBNM( sequence, checkPointPath, cfp, sp, EW_I0 );
 			
 		case "1npmcache":
-			return new PF1NPMCache( sequence, cfp, sp, EW_I0 );
+			return new PF1NPMCache( sequence, checkPointPath, cfp, sp, EW_I0 );
 
 		case "1npcpmcache":
-			return new PF1NPCPMCache( sequence, cfp, sp, EW_I0 );
+			return new PF1NPCPMCache( sequence, checkPointPath, cfp, sp, EW_I0 );
 
 		case "1nmtpcpmcache":
-			return new PF1NMTPCPMCache( sequence, cfp, sp, EW_I0 );
+			return new PF1NMTPCPMCache( sequence, checkPointPath, cfp, sp, EW_I0 );
 
 		case "mnpcpmcache":
-			return new PFMNPCPMCache( sequence, cfp, sp, EW_I0 );
+			return new PFMNPCPMCache( sequence, checkPointPath, cfp, sp, EW_I0 );
 
 		default:
 			throw new RuntimeException("ERROR: specified value of parameter pFuncMethod is invalid");

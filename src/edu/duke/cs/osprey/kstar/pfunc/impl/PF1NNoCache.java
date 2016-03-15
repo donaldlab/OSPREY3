@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.kstar.pfunc.impl;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -15,17 +16,18 @@ import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
  * @author Adegoke Ojewole (ao68@duke.edu)
  *
  */
-public class PF1NNoCache extends PFAbstract {
+@SuppressWarnings("serial")
+public class PF1NNoCache extends PFAbstract implements Serializable {
 
 	protected ConfSearch search;
 
 	// temp for benchmarking
 	protected long startTime;
 
-	public PF1NNoCache(ArrayList<String> sequence, ConfigFileParser cfp, 
-			SearchProblem sp, double EW_I0) {
+	public PF1NNoCache( ArrayList<String> sequence, String checkPointPath, 
+			ConfigFileParser cfp, SearchProblem sp, double EW_I0 ) {
 
-		super( sequence, cfp, sp, EW_I0 );
+		super( sequence, checkPointPath, cfp, sp, EW_I0 );
 	}
 
 
@@ -42,7 +44,7 @@ public class PF1NNoCache extends PFAbstract {
 
 		if( (rawConf = search.nextConf()) != null ) {
 
-			KSConf ksConf = new KSConf(rawConf, sp.lowerBound(rawConf), Double.MAX_VALUE);
+			KSConf ksConf = new KSConf(rawConf, sp.lowerBound(rawConf));
 
 			// get approx gmec LB to compute p*
 			Et = ksConf.getMinEnergyLB();
@@ -67,7 +69,7 @@ public class PF1NNoCache extends PFAbstract {
 
 			if( minimizedConfsSet.contains(rawConf) ) return;
 
-			KSConf conf = new KSConf(rawConf, sp.lowerBound(rawConf), Double.MAX_VALUE);
+			KSConf conf = new KSConf(rawConf, sp.lowerBound(rawConf));
 
 			accumulate(conf);
 		}

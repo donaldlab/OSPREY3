@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.kstar.pfunc.impl;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -13,13 +14,15 @@ import edu.duke.cs.osprey.kstar.KSConf;
  * @author Adegoke Ojewole (ao68@duke.edu)
  *
  */
-public class PF1NUBNM extends PF1NNoCache {
+@SuppressWarnings("serial")
+public class PF1NUBNM extends PF1NNoCache implements Serializable {
 
 	protected BigInteger enumeratedConfs = BigInteger.ZERO;
 
-	public PF1NUBNM(ArrayList<String> sequence, ConfigFileParser cfp, SearchProblem sp, double EW_I0) {
+	public PF1NUBNM( ArrayList<String> sequence, String checkPointPath, 
+			ConfigFileParser cfp, SearchProblem sp, double EW_I0 ) {
 
-		super( sequence, cfp, sp, EW_I0 );
+		super( sequence, checkPointPath, cfp, sp, EW_I0 );
 	}
 
 

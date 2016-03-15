@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.kstar.pfunc.impl;
 
+import java.io.Serializable;
 import java.math.BigInteger;
 import java.util.ArrayList;
 
@@ -16,7 +17,8 @@ import edu.duke.cs.osprey.tools.ObjectIO;
  * @author Adegoke Ojewole (ao68@duke.edu)
  *
  */
-public class PF1NMTPCPMCache extends PF1NPCPMCache {
+@SuppressWarnings("serial")
+public class PF1NMTPCPMCache extends PF1NPCPMCache implements Serializable {
 
 	ArrayList<MinimizerFiber> slaves = new ArrayList<>();
 
@@ -25,10 +27,10 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 	protected int confsPerThread;
 	protected int sleepInterval = 10;
 
-	public PF1NMTPCPMCache(ArrayList<String> sequence, ConfigFileParser cfp, 
-			SearchProblem sp, double EW_I0 ) {
+	public PF1NMTPCPMCache( ArrayList<String> sequence, String checkPointPath, 
+			ConfigFileParser cfp, SearchProblem sp, double EW_I0 ) {
 
-		super( sequence, cfp, sp, EW_I0 );
+		super( sequence, checkPointPath, cfp, sp, EW_I0 );
 	}
 
 
@@ -143,12 +145,7 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache {
 	protected void computeSlice() {
 
 		try {
-			/*
-			synchronized( confs.qLock ) {
-				if( confs.getState() == Thread.State.WAITING ) 
-					confs.qLock.notify();
-			}
-			 */
+
 			iterate();
 
 			if( eAppx == EApproxReached.FALSE ) Thread.sleep(sleepInterval);

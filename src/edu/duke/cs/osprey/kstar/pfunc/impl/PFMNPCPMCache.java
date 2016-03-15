@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.kstar.pfunc.impl;
 
+import java.io.Serializable;
 import java.math.BigInteger;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
@@ -15,16 +16,17 @@ import edu.duke.cs.osprey.kstar.remote.Constants;
 import edu.duke.cs.osprey.kstar.remote.ServerInterface;
 import edu.duke.cs.osprey.kstar.KSConf;
 
-public class PFMNPCPMCache extends PF1NMTPCPMCache {
+@SuppressWarnings("serial")
+public class PFMNPCPMCache extends PF1NMTPCPMCache implements Serializable {
 
 	ArrayList<ServerInterface> serverInterfaces = new ArrayList<>();
 	ArrayList<KSConf> unProcessedConfs = new ArrayList<>();
 
 
-	public PFMNPCPMCache(ArrayList<String> sequence, ConfigFileParser cfp, 
-			SearchProblem sp, double EW_I0) {
+	public PFMNPCPMCache( ArrayList<String> sequence, String checkPointPath, 
+			ConfigFileParser cfp, SearchProblem sp, double EW_I0 ) {
 
-		super( sequence, cfp, sp, EW_I0 );
+		super( sequence, checkPointPath, cfp, sp, EW_I0 );
 	}
 
 	public void start() {
@@ -143,12 +145,7 @@ public class PFMNPCPMCache extends PF1NMTPCPMCache {
 	protected void computeSlice() {
 
 		try {
-			/*
-			synchronized( confs.qLock ) {
-				if( confs.getState() == Thread.State.WAITING ) 
-					confs.qLock.notify();
-			}
-			 */
+
 			iterate();
 
 			if( eAppx == EApproxReached.FALSE ) Thread.sleep(sleepInterval);

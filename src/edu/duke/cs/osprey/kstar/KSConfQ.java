@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.kstar;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -15,7 +16,8 @@ import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
  * @author Adegoke Ojewole (ao68@duke.edu)
  *
  */
-public class KSConfQ extends Thread {
+@SuppressWarnings("serial")
+public class KSConfQ extends Thread implements Serializable {
 
 	private PFAbstract pf;
 	private SearchProblem sp;
@@ -25,17 +27,15 @@ public class KSConfQ extends Thread {
 	private int size = 0;
 	
 	// lock for queue access
-	public final Object qLock = new Object();
+	public final String qLock = new String("LOCK");
 
 	// upper bound partition function
 	private BigDecimal qDagger = BigDecimal.ZERO;
-	private BigDecimal qDot = BigDecimal.ZERO;
 
 	private final ArrayList<KSConf> q = new ArrayList<>();
 	private int qCap = (int)Math.pow(2, 20);
 	private int origQCap = 0;
 	private boolean confsExhausted = false;
-	private boolean useEnergyUB = false;
 
 	/**
 	 * 
@@ -53,7 +53,6 @@ public class KSConfQ extends Thread {
 		this.minCapacity = minCapacity;
 		qCap = Math.max( minCapacity, PFAbstract.qCapacity );
 		origQCap = qCap;
-		this.useEnergyUB = PFAbstract.useRigEUB;
 	}
 
 
@@ -107,17 +106,10 @@ public class KSConfQ extends Thread {
 		double minELB = sp.lowerBound(conf);
 		
 		if( pf.getMinimizedConfsSet().contains(Arrays.toString(conf)) ) return minELB;
-		
-		double minEUB = Double.MAX_VALUE;
 
-		KSConf ksc = new KSConf(conf, minELB, minEUB);
+		KSConf ksc = new KSConf(conf, minELB);
 
 		qDagger = qDagger.add( pf.getBoltzmannWeight(minELB) );
-		
-		if(useEnergyUB) {
-			minEUB = sp.rigidEnergy(conf);
-			qDot = qDot.add( pf.getBoltzmannWeight(minEUB) );
-		}
 
 		q.add(ksc);
 		
@@ -149,19 +141,9 @@ public class KSConfQ extends Thread {
 		return qDagger;
 	}
 
-
-	public BigDecimal getQDot() {
-		return qDot;
-	}
-
-
+	
 	public void setQDagger( BigDecimal qDagger ) {
 		this.qDagger = qDagger;
-	}
-
-
-	public void setQDot( BigDecimal qDot ) {
-		this.qDot = qDot;
 	}
 
 

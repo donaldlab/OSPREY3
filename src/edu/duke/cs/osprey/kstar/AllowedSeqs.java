@@ -230,13 +230,8 @@ public class AllowedSeqs {
 
 			}
 
-			// add sequences at final depth
-			// since we are creating a successor function, we cannot allow duplicates
-			HashSet<ArrayList<String>> fullyDefSeqs = new HashSet<>();
-			for( ArrayList<String> seq : getStrandSeqList() ) {
-				if( !fullyDefSeqs.contains(seq) )
-					fullyDefSeqs.add(seq);
-			}
+			// add fully defined sequences at final depth
+			HashSet<ArrayList<String>> fullyDefSeqs = new HashSet<>(getStrandSeqList());
 
 			allowedSubSeqs.add( fullyDefSeqs );
 		}
@@ -300,6 +295,55 @@ public class AllowedSeqs {
 
 		return allowedSubSeqs;
 	}
+	
+	
+	public ArrayList<HashSet<ArrayList<String>>> getStrandSubSeqList2( 
+			AllowedSeqs p, AllowedSeqs l ) {
+
+		if( strand != Strand.COMPLEX )
+			throw new RuntimeException("ERROR: this version of the method "
+					+ "should only be called for the COMPLEX strand");
+
+		if( allowedSubSeqs == null ) {
+
+			allowedSubSeqs = new ArrayList<>();
+
+			// create arraylist for all depths, including the last. this is because
+			// p and l already contain the last depth
+			// depth 0 is empty
+			for( int depth = 0; depth <= getSequenceLength(); ++depth ) {
+				allowedSubSeqs.add( new HashSet<ArrayList<String>>() );
+			}
+
+			for( int depth = 1; depth <= Math.max(p.getStrandSubSeqsMaxDepth(), l.getStrandSubSeqsMaxDepth()); ++depth ) {
+				// adjust indices to prevent out of bounds error
+				int depthP = Math.min(depth, p.getStrandSubSeqsMaxDepth());
+				int depthL = Math.min(depth, l.getStrandSubSeqsMaxDepth());
+				
+				for( ArrayList<String> subSeqP : p.getStrandSubSeqsAtDepth(depthP) ) {
+					
+					for( ArrayList<String> subSeqL : l.getStrandSubSeqsAtDepth(depthL) ) {
+						
+						if( p.getDistFromWT(subSeqP) + l.getDistFromWT(subSeqL) <= dist ) {
+
+							ArrayList<String> tmpSubSeq = new ArrayList<>();
+
+							tmpSubSeq.addAll(subSeqP);
+							tmpSubSeq.addAll(subSeqL);
+
+							if( tmpSubSeq.size() == getSequenceLength() && getDistFromWT(tmpSubSeq) != dist ) continue;
+							
+							// add complex subsequence
+							if( !allowedSubSeqs.get(tmpSubSeq.size()).contains(tmpSubSeq) ) 
+								allowedSubSeqs.get(tmpSubSeq.size()).add(tmpSubSeq);
+						}
+					}
+				}
+			}
+		}
+
+		return allowedSubSeqs;
+	}
 
 
 	public HashSet<ArrayList<String>> getStrandSubSeqsAtDepth( int depth, AllowedSeqs p, AllowedSeqs l ) {
@@ -309,7 +353,7 @@ public class AllowedSeqs {
 					+ "should only be called for the COMPLEX strand");
 
 		if( allowedSubSeqs == null )
-			getStrandSubSeqList(p, l);
+			getStrandSubSeqList2(p, l);
 
 		if( depth < 0 || depth > allowedSubSeqs.size()-1 )
 			throw new RuntimeException("ERROR: the requested depth " + depth + 
@@ -337,6 +381,15 @@ public class AllowedSeqs {
 		return allowedSubSeqs.get( depth );
 	}
 
+	
+	public int getNumSubSeqs() {
+		int ans = 0;
+		for(int depth = 0; depth <= getStrandSubSeqsMaxDepth(); ++depth)
+			ans += getStrandSubSeqsAtDepth(depth).size();
+		
+		return ans;
+	}
+	
 
 	public int getStrandSubSeqsMaxDepth() {
 		return getFlexRes().size();

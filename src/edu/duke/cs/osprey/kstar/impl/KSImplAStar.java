@@ -4,16 +4,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.concurrent.ConcurrentHashMap;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.kstar.AllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSAbstract;
-import edu.duke.cs.osprey.kstar.KSCalc;
 import edu.duke.cs.osprey.kstar.KUStarNode;
 import edu.duke.cs.osprey.kstar.KUStarTree;
 import edu.duke.cs.osprey.kstar.Strand;
-import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 
 public class KSImplAStar extends KSAbstract {
 
@@ -23,7 +20,7 @@ public class KSImplAStar extends KSAbstract {
 
 	@Override
 	public void init( HashMap<Integer, AllowedSeqs> strand2AllowedSeqs ) {
-		
+
 		this.strand2AllowedSeqs = strand2AllowedSeqs;
 
 		createEmatDir();
@@ -35,16 +32,9 @@ public class KSImplAStar extends KSAbstract {
 
 	@Override
 	public void run() {
-
-		// compute wt sequence for reference
-		ArrayList<ArrayList<String>> strandSeqs = getStrandStringsAtPos(0);		
-		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(true, true, true));
-		ArrayList<String> pfImplVals = new ArrayList<String>(Arrays.asList(PFAbstract.getImpl(), PFAbstract.getImpl(), PFAbstract.getImpl()));
 		
-		ConcurrentHashMap<Integer, PFAbstract> pfs = createPFsForSeq(strandSeqs, contSCFlexVals, pfImplVals);
-		KSCalc seq = new KSCalc(0, pfs);
-		wtKSCalc = seq;
-		seq.run(wtKSCalc);
+		// compute wt sequence for reference
+		wtKSCalc = computeWTCalc();
 
 		// initialize KUStar tree
 		KUStarTree tree = new KUStarTree(this, strand2AllowedSeqs, wtKSCalc);
@@ -67,8 +57,10 @@ public class KSImplAStar extends KSAbstract {
 			ArrayList<KUStarNode> successors = best.expand();
 			tree.add(successors);
 		}
-		
-		System.out.println(completed);
+
+		System.out.println("completed: " + completed + " numExpanded: " + KUStarNode.getNumExpanded() 
+			+ " numSubSeqs: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSubSeqs()
+			+ " numSeqs: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs());
 	}
 
 
@@ -100,19 +92,19 @@ public class KSImplAStar extends KSAbstract {
 								Strand.COMPLEX ? seqs.getStrandSubSeqsAtDepth( depth, pSeqs, lSeqs ) : 
 									seqs.getStrandSubSeqsAtDepth( depth );
 
-						subSeqsAtDepth.parallelStream().forEach( seq -> {
+								subSeqsAtDepth.parallelStream().forEach( seq -> {
 
-							ArrayList<Integer> flexResIndexes = seqs.getFlexResIndexesFromSeq(seq);
-							
-							String spName = getSearchProblemName( contSCFlex, strand, seq );
+									ArrayList<Integer> flexResIndexes = seqs.getFlexResIndexesFromSeq(seq);
 
-							SearchProblem seqSP = null;			
-							if( (seqSP = name2SP.get(spName)) == null ) {
-								seqSP = createSingleSeqSPFast( contSCFlex, strand, seq, flexResIndexes );
-							}
+									String spName = getSearchProblemName( contSCFlex, strand, seq );
 
-							name2SP.put(spName, seqSP);
-						});
+									SearchProblem seqSP = null;			
+									if( (seqSP = name2SP.get(spName)) == null ) {
+										seqSP = createSingleSeqSPFast( contSCFlex, strand, seq, flexResIndexes );
+									}
+
+									name2SP.put(spName, seqSP);
+								});
 					}
 				}
 			}

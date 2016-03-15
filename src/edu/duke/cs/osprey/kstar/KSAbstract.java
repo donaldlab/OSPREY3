@@ -6,6 +6,7 @@ import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Scanner;
 import java.util.concurrent.ConcurrentHashMap;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
@@ -28,14 +29,16 @@ public abstract class KSAbstract implements KSInterface {
 	protected ConfigFileParser cfp = null;
 	protected ArrayList<String> wtSeq = null;
 	protected KSCalc wtKSCalc = null;
-	protected String outFileName = null;
+	protected String outFilePath = null;
 	protected String ematDir = null;
+	protected String checkPointDir = null;
 	protected String runName = null;
+	protected String checkPointFilePath = null;
 
 	protected HashMap<Integer, AllowedSeqs> strand2AllowedSeqs = new HashMap<>();
 	protected ConcurrentHashMap<String, SearchProblem> name2SP = new ConcurrentHashMap<>();
 	protected ConcurrentHashMap<String, PFAbstract> name2PF = new ConcurrentHashMap<>();
-	
+
 	protected double EW;
 	protected double I0;
 	private String pdbName;
@@ -49,7 +52,9 @@ public abstract class KSAbstract implements KSInterface {
 	private static double pRatioUBT = 0.95;
 	protected boolean prunedSingleSeqs = false;
 	public static boolean refinePInterval = false;
-	
+	public static boolean doCheckpoint = false;
+	protected static long checkpointInterval = 100000;
+
 
 	public KSAbstract( ConfigFileParser cfp ) {
 
@@ -67,8 +72,14 @@ public abstract class KSAbstract implements KSInterface {
 
 
 	protected abstract void prepareAllSingleSeqSPs(ArrayList<Boolean> contSCFlexVals);
-	
-	
+
+
+	public static void setCheckPointInterval( long interval ) {
+		if(interval <= 0) interval = 1;
+		checkpointInterval = interval;
+	}
+
+
 	public void createEmats(ArrayList<Boolean> contSCFlexVals) {
 		// for now, only the pan seqSPs have energy matrices in the file system
 		prepareAllPanSeqSPs(contSCFlexVals);
@@ -78,14 +89,17 @@ public abstract class KSAbstract implements KSInterface {
 		if(refinePInterval)
 			prepareAllSingleSeqSPs(contSCFlexVals);
 	}
-	
-	
-	protected void createEmatDir() {
-		if( cfp.getParams().getBool("deleteematdir", false) )
-			ObjectIO.deleteDir(getEMATdir());
 
+
+	protected void createCheckPointDir() {
+		if( !new File(getCheckPointDir()).exists() )
+			ObjectIO.makeDir(getCheckPointDir(), false);
+	}
+
+
+	protected void createEmatDir() {
 		if( !new File(getEMATdir()).exists() )
-			ObjectIO.makeDir(getEMATdir(), false);
+			ObjectIO.makeDir(getEMATdir(), cfp.getParams().getBool("deleteematdir", false));
 	}
 
 
@@ -124,8 +138,25 @@ public abstract class KSAbstract implements KSInterface {
 	}
 
 
+	private String getCheckPointName(boolean contSCFlex, int strand) {
+
+		String flexibility = contSCFlex == true ? "min" : "rig";
+
+		return getCheckPointDir() + 
+				File.separator + 
+				getRunName() + "." + 
+				flexibility + "." + 
+				Strand.getStrandString(strand);
+	}
+
+
 	public String getSearchProblemName(boolean contSCFlex, int strand, ArrayList<String> seq) {
 		return getSearchProblemName(contSCFlex, strand) + "." + arrayList1D2String(seq, ".");
+	}
+
+
+	public String getCheckPointName(boolean contSCFlex, int strand, ArrayList<String> seq) {
+		return getCheckPointName(contSCFlex, strand) + "." + arrayList1D2String(seq, ".") + ".checkpoint";
 	}
 
 
@@ -244,7 +275,7 @@ public abstract class KSAbstract implements KSInterface {
 		return;
 	}
 
-
+	
 	protected ConcurrentHashMap<Integer, PFAbstract> createPFsForSeq(ArrayList<ArrayList<String>> seqs, 
 			ArrayList<Boolean> contSCFlexVals, ArrayList<String> pfImplVals) {
 
@@ -262,14 +293,15 @@ public abstract class KSAbstract implements KSInterface {
 			String pfImpl = pfImplVals.get(index);
 
 			AllowedSeqs strandSeqs = strand2AllowedSeqs.get(strand);
-			
+
 			ArrayList<String> seq = seqs.get(strand);
 			String spName = getSearchProblemName(contSCFlex, strand, seq);
+			String cpName = getCheckPointName(contSCFlex, strand, seq);
 
-			if( name2PF.get(spName) == null ) {
+			if( name2PF.get(spName) == null && deSerializePF(spName, cpName) == null ) {
 
 				ArrayList<Integer> flexResIndexes = strandSeqs.getFlexResIndexesFromSeq(seq);
-				
+
 				// create searchproblem
 				SearchProblem seqSP = name2SP.get(spName);
 				seqSP = seqSP != null ? seqSP : createSingleSeqSPFast(contSCFlex, strand, seq, flexResIndexes);
@@ -277,7 +309,8 @@ public abstract class KSAbstract implements KSInterface {
 				// create partition function
 				PFAbstract pf = PFFactory.getPartitionFunction( 
 						pfImpl,
-						seq, 
+						seq,
+						cpName,
 						cfp, 
 						seqSP, 
 						EW+I0);
@@ -302,11 +335,10 @@ public abstract class KSAbstract implements KSInterface {
 					pf.setEpsilonStatus(EApproxReached.NOT_POSSIBLE);
 				}
 
-				else {
-					
+				else {	
 					if(!prunedSingleSeqs && KSAbstract.refinePInterval)
 						refinePruningInterval(seqSP);
-					
+
 					// initialize conf counts for K*
 					pf.setNumUnPruned();
 					pf.setNumPruned();
@@ -321,13 +353,20 @@ public abstract class KSAbstract implements KSInterface {
 			int strand = strands.get(index);
 			boolean contSCFlex = contSCFlexVals.get(index);
 
+			ArrayList<String> seq = seqs.get(strand);
+			String spName = getSearchProblemName(contSCFlex, strand, seq);
+
 			if(!ans.keySet().contains(strand)) {
 
-				ArrayList<String> seq = seqs.get(strand);
-				String spName = getSearchProblemName(contSCFlex, strand, seq);
 				PFAbstract pf = name2PF.get(spName);
 
 				ans.put(strand, pf);
+			}
+
+			// don't keep complex pfs in memory, in case we are doing round robin
+			if(strand == Strand.COMPLEX) {
+				name2SP.remove(spName);
+				name2PF.remove(spName);
 			}
 		}
 
@@ -430,33 +469,49 @@ public abstract class KSAbstract implements KSInterface {
 				}
 			});
 		}
-		
+
 		loadAndPruneMatrices();
 	}
 
 
-	protected String getOputputFileName() {
+	protected String getOputputFilePath() {
 
-		if(outFileName == null) {
-			try {
+		if(outFilePath == null)
+			outFilePath = getRunName() + "." + getSummaryFileExtension();
 
-				outFileName = getRunName() 
-						+ "." + InetAddress.getLocalHost().getHostName()
-						+ "." + getKSMethod()
-						+ "." + cfp.getParams().getValue("pFuncMethod", "1npcpmcache")
-						+ ".txt";
-
-			} catch (Exception e) {
-				System.out.println(e.getMessage());
-				e.printStackTrace();
-				System.exit(1);
-			}
-		}
-
-		return outFileName;
+		return outFilePath;
 	}
 
-	
+
+	protected String getCheckPointFilePath() {
+
+		if(checkPointFilePath == null)
+			checkPointFilePath = getCheckPointDir() + File.separator + getOputputFilePath();
+
+		return checkPointFilePath;
+	}
+
+
+	protected String getSummaryFileExtension() {
+
+		String ans = null;
+		try {
+
+			ans = InetAddress.getLocalHost().getHostName()
+					+ "." + getKSMethod()
+					+ "." + PFAbstract.getImpl()
+					+ ".txt";
+
+		} catch (Exception e) {
+			System.out.println(e.getMessage());
+			e.printStackTrace();
+			System.exit(1);
+		}
+
+		return ans;
+	}
+
+
 	protected boolean getConcurrentNodeExpansion() {
 
 		String expansionType = cfp.getParams().getValue("KStarExpansion", "true");
@@ -464,35 +519,41 @@ public abstract class KSAbstract implements KSInterface {
 		return expansionType.equalsIgnoreCase("serial") ? false : true;
 	}
 
-	
+
 	protected String getRunName() {
 		if(runName == null) runName = cfp.getParams().getValue("runName");
 		return runName;
 	}
-	
+
 
 	protected String getEMATdir() {
 		if(ematDir == null) ematDir = cfp.getParams().getValue("ematdir", "emat");
 		return ematDir;
 	}
 
-	
+
+	protected synchronized String getCheckPointDir() {
+		if(checkPointDir == null) checkPointDir = cfp.getParams().getValue("checkPointDir", "checkpoint");
+		return checkPointDir;
+	}
+
+
 	protected ArrayList<String> getWTSeq() {
-		if( wtSeq == null ) wtSeq = cfp.getWTSequence();
+		if( wtSeq == null ) wtSeq = strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSeqList().get(0);
 		return wtSeq;
 	}
 
-	
+
 	protected KSCalc getWTKSCalc() {
 		return wtKSCalc;
 	}
 
-	
+
 	protected boolean isWT( KSCalc mutSeq ) {
 		return mutSeq.getPF(Strand.COMPLEX).getSequence().equals(getWTSeq());
 	}
 
-	
+
 	protected BigInteger countMinimizedConfs() {
 
 		BigInteger ans = BigInteger.ZERO;
@@ -500,7 +561,7 @@ public abstract class KSAbstract implements KSInterface {
 		return ans;
 	}
 
-	
+
 	protected BigInteger countTotNumConfs() {
 
 		BigInteger ans = BigInteger.ZERO;
@@ -508,7 +569,7 @@ public abstract class KSAbstract implements KSInterface {
 		return ans;
 	}
 
-	
+
 	protected ArrayList<ArrayList<String>> getStrandStringsAtPos(int i) {
 
 		ArrayList<ArrayList<String>> ans = new ArrayList<ArrayList<String>>(Arrays.asList(null, null, null));
@@ -520,4 +581,91 @@ public abstract class KSAbstract implements KSInterface {
 		ans.trimToSize();
 		return ans;
 	}
+
+
+	protected KSCalc computeWTCalc() {
+		// compute wt sequence for reference
+		ArrayList<ArrayList<String>> strandSeqs = getStrandStringsAtPos(0);		
+		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(true, true, true));
+		ArrayList<String> pfImplVals = new ArrayList<String>(Arrays.asList(PFAbstract.getImpl(), PFAbstract.getImpl(), PFAbstract.getImpl()));
+
+		ConcurrentHashMap<Integer, PFAbstract> pfs = createPFsForSeq(strandSeqs, contSCFlexVals, pfImplVals);
+		KSCalc calc = new KSCalc(0, pfs);
+		calc.run(calc);
+
+		if(calc.getEpsilonStatus() != EApproxReached.TRUE)
+			throw new RuntimeException("ERROR: could not compute the wild-type sequence to an epsilon value of "
+					+ PFAbstract.targetEpsilon + ". Change the value of epsilon." );
+
+		if(doCheckpoint) {
+
+			for( int strand : Arrays.asList(Strand.LIGAND, Strand.PROTEIN, Strand.COMPLEX) ) {
+				PFAbstract pf = calc.getPF(strand);
+				if(pf.checkPointExists()) return calc;
+			}
+
+			calc.serializePFs();
+
+			calc.printSummary( getCheckPointFilePath(), true );
+		}
+
+		calc.printSummary( getOputputFilePath(), true );
+
+		return calc;
+	}
+
+
+	protected PFAbstract deSerializePF( String spName, String path ) {
+
+		if( !new File(path).exists() ) return null;
+
+		PFAbstract ans = (PFAbstract) ObjectIO.readObject(path, true);
+		if(ans != null) {
+			name2PF.put(spName, ans);
+		}
+		return ans;
+	}
+
+
+	protected ArrayList<ArrayList<String>> getSeqsFromFile(String path) {
+
+		ArrayList<ArrayList<String>> ans = new ArrayList<>();
+		ArrayList<String> lines = file2ArrayList(path);
+		if(lines.size() == 0) return ans;
+
+		for( ArrayList<String> seq : strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSeqList() ) {
+			String strSeq = KSAbstract.arrayList1D2String(seq, " ");
+
+			for(String line : lines) {
+				if(line.contains(strSeq)) {
+					ans.add(seq);
+					break;
+				}
+			}
+		}
+
+
+		return ans;
+	}
+
+
+	public static ArrayList<String> file2ArrayList( String path ) {
+		ArrayList<String> ans = new ArrayList<String>();
+
+		try {
+			if( !new File(path).exists() ) return ans;
+
+			Scanner s = new Scanner(new File(path));
+			while (s.hasNextLine()) ans.add(s.nextLine());
+			s.close();
+
+		} catch (Exception e) {
+			System.out.println(e.getMessage());
+			e.printStackTrace();
+			System.exit(1);
+		}
+
+		return ans;
+	}
+
 }

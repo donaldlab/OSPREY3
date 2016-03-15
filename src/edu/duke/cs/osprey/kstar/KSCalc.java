@@ -22,7 +22,6 @@ public class KSCalc {
 
 	private ConcurrentHashMap<Integer, PFAbstract> strand2PF = null;
 	private int seqID = 0;
-	private static boolean headerPrinted = false;
 	public static BigDecimal maxValue = new BigDecimal("2e65536");
 	private static int precision = 4;
 
@@ -31,9 +30,11 @@ public class KSCalc {
 		this.strand2PF = pfs;
 	}
 
-	protected PFAbstract getPF(int strand) {
+
+	public PFAbstract getPF(int strand) {
 		return strand2PF.get(strand);
 	}
+
 
 	protected boolean unboundIsStable(KSCalc wtKSCalc, int strand) {
 
@@ -44,6 +45,7 @@ public class KSCalc {
 
 		return false;
 	}
+
 
 	public EApproxReached getEpsilonStatus() {
 
@@ -68,55 +70,127 @@ public class KSCalc {
 		return EApproxReached.FALSE;
 	}
 
+
 	public void run(KSCalc wtKSCalc) {
 
 		ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Strand.LIGAND, 
 				Strand.PROTEIN, Strand.COMPLEX));
-		
-		for( int strand : strands ) {
-			
-			if( getEpsilonStatus() != EApproxReached.FALSE ) return;
-			
-			PFAbstract pf = getPF(strand);
 
+		for( int strand : strands ) {
+
+			if( getEpsilonStatus() != EApproxReached.FALSE ) return;
+
+			PFAbstract pf = getPF(strand);
 			ArrayList<String> seq = pf.getSequence();
 
 			if( pf.getRunState() == RunState.NOTSTARTED ) {
+				System.out.println("\nInitializing partition function for " + KSAbstract.arrayList1D2String(seq, " "));
+				pf.start();
+			}
 
-				System.out.println("\nInitializing partition function for " 
-						+ KSAbstract.arrayList1D2String(seq, " "));
+			if( pf.getEpsilonStatus() == EApproxReached.FALSE ) {
+				System.out.println("\nComputing partition function for " + KSAbstract.arrayList1D2String(seq, " ") + "\n");
+				pf.runToCompletion();
+			}
+
+			if( getEpsilonStatus() == EApproxReached.NOT_POSSIBLE ) return;
+
+			if( strand != Strand.COMPLEX && !unboundIsStable(wtKSCalc, strand) ) {
+				pf.setEpsilonStatus( EApproxReached.NOT_STABLE );
+				System.out.println("\nSequence " + KSAbstract.arrayList1D2String(seq, " ") + " is unstable\n");
+				return;
+			}
+		}
+	}
+
+
+	public void run(KSCalc wtKSCalc, long target) {
+
+		ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Strand.LIGAND, 
+				Strand.PROTEIN, Strand.COMPLEX));
+
+		for( int strand : strands ) {
+
+			if( getEpsilonStatus() != EApproxReached.FALSE ) return;
+
+			PFAbstract pf = getPF(strand);
+			ArrayList<String> seq = pf.getSequence();
+
+			if( pf.getRunState() == RunState.NOTSTARTED ) {
+				System.out.println("\nInitializing partition function for " + KSAbstract.arrayList1D2String(seq, " "));
 				pf.start();
 			}
 
 			if( pf.getEpsilonStatus() == EApproxReached.FALSE ) {
 
-				if(PFAbstract.getInterval() == PFAbstract.getMaxInterval()) { 
-
-					System.out.println("\nComputing partition function for " 
-							+ KSAbstract.arrayList1D2String(seq, " ") + "\n");
+				if(strand != Strand.COMPLEX) { 
+					System.out.println("\nComputing partition function for " + KSAbstract.arrayList1D2String(seq, " ") + "\n");
 					pf.runToCompletion();
 				}
 
 				else {
-					System.out.println("\nResuming partition function for " 
-							+ KSAbstract.arrayList1D2String(seq, " ") + "\n");
-					pf.resume();
+					System.out.println("\nResuming partition function for " + KSAbstract.arrayList1D2String(seq, " ") + "\n");
+					pf.runSlice(target);
 				}
 			}
-			
+
 			if( getEpsilonStatus() == EApproxReached.NOT_POSSIBLE ) return;
 
 			if( strand != Strand.COMPLEX && !unboundIsStable(wtKSCalc, strand) ) {
-
 				pf.setEpsilonStatus( EApproxReached.NOT_STABLE );
-
 				System.out.println("\nSequence " + KSAbstract.arrayList1D2String(seq, " ") + " is unstable\n");
-
 				return;
 			}
 		}
-
 	}
+
+
+	public void serializePFs() {
+		for(int strand : strand2PF.keySet()) {
+			serializePF(strand);
+		}
+	}
+
+
+	public void serializePF( int strand ) {
+		
+		PFAbstract pf = strand2PF.get(strand);
+		
+		if(pf.getRunState() == RunState.NOTSTARTED) return;
+		
+		synchronized(pf.getLock()) {
+			
+			System.out.print("Serializing " + pf.getCheckPointPath() + " ... " );
+			
+			ObjectIO.writeObject(pf, pf.getCheckPointPath());
+			
+			if( pf.getEpsilonStatus() == EApproxReached.FALSE ) {
+				// pf state has not been cleaned up
+				pf.writeTopConfs();
+			}
+			
+			System.out.println("Done");
+			
+		}
+	}
+
+
+	public void deleteCheckPointFiles() {
+
+		ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Strand.LIGAND, 
+				Strand.PROTEIN, Strand.COMPLEX));
+
+		for( int strand : strands ) {
+			deleteCheckPointFile(strand);
+		}
+	}
+
+
+	public void deleteCheckPointFile( int strand ) {
+		PFAbstract pf = strand2PF.get(strand);
+		ObjectIO.delete(pf.getCheckPointPath());
+	}
+
 
 	protected BigDecimal getKStarScore() {
 
@@ -135,6 +209,7 @@ public class KSCalc {
 
 		return score;
 	}
+
 
 	private void printOutputHeader( PrintStream out ) {
 
@@ -164,22 +239,20 @@ public class KSCalc {
 		out.print("\t");
 		out.print("Ligand # Minimized Confs.");
 		out.println();
-
-		headerPrinted = true;
 	}
 
-	public void printSummary( String outFile ) {
+
+	public void printSummary( String outFile, boolean printHeader ) {
 
 		try {
 
-			boolean append = headerPrinted ? true : false;
+			boolean append = printHeader ? false : true;
 
 			PrintStream out = new PrintStream(new FileOutputStream(outFile, append));
 
-			if(!headerPrinted) {
+			if(printHeader)
 				printOutputHeader(out);
-			}
-			
+
 			out.print(seqID);
 
 			out.print("\t");
@@ -215,6 +288,34 @@ public class KSCalc {
 
 			out.flush();
 			out.close();
+
+		} catch (Exception e) {
+			System.out.println(e.getMessage());
+			e.printStackTrace();
+			System.exit(1);
+		}
+	}
+	
+	
+	public void deleteSeqFromFile( ArrayList<String> seq, String path ) {
+
+		try {
+
+			String strSeq = KSAbstract.arrayList1D2String(seq, " ");
+
+			ArrayList<String> lines = KSAbstract.file2ArrayList(path);
+
+			for( String line : lines ) {
+				if( line.contains(strSeq) ) {
+					lines.remove(line);
+					break;
+				}
+			}
+			
+			// write remaing lines to path
+			PrintStream out = new PrintStream(new FileOutputStream(path, false));
+			for(String line : lines) out.println(line);
+			out.flush(); out.close();
 
 		} catch (Exception e) {
 			System.out.println(e.getMessage());

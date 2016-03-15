@@ -1,6 +1,6 @@
 package edu.duke.cs.osprey.kstar.pfunc.impl;
 
-import java.math.BigDecimal;
+import java.io.Serializable;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import edu.duke.cs.osprey.confspace.SearchProblem;
@@ -15,21 +15,22 @@ import edu.duke.cs.osprey.tools.ObjectIO;
  * @author Adegoke Ojewole (ao68@duke.edu)
  *
  */
-public class PF1NPCPMCache extends PF1NPMCache {
+@SuppressWarnings("serial")
+public class PF1NPCPMCache extends PF1NPMCache implements Serializable {
 
 	private ArrayList<Integer> indexes = new ArrayList<>();
 	private ArrayList<SearchProblem> sps = new ArrayList<>();
 	private ArrayList<KSConf> partialQConfs = new ArrayList<>();
 
-	public PF1NPCPMCache(ArrayList<String> sequence, ConfigFileParser cfp, 
-			SearchProblem sp, double EW_I0) {
+	public PF1NPCPMCache( ArrayList<String> sequence, String checkPointPath, 
+			ConfigFileParser cfp, SearchProblem sp, double EW_I0 ) {
 
-		super( sequence, cfp, sp, EW_I0 );
+		super( sequence, checkPointPath, cfp, sp, EW_I0 );
 	}
 
 
-	protected void clearSearchProblem() {
-		super.clearSearchProblem();
+	public void cleanup() {
+		super.cleanup();
 		sps.clear();
 	}
 
@@ -44,9 +45,7 @@ public class PF1NPCPMCache extends PF1NPMCache {
 			for( int it = 0; it < PFAbstract.getNumThreads(); ++it ) indexes.add(indexes.size());
 			indexes.trimToSize();
 
-			for( int i = 0; i < indexes.size(); ++i )
-				sps.add((SearchProblem)ObjectIO.deepCopy(sp));
-
+			for( int i = 0; i < indexes.size(); ++i ) sps.add((SearchProblem)ObjectIO.deepCopy(sp));
 			sps.trimToSize();
 
 			partialQConfs.clear();
@@ -75,7 +74,7 @@ public class PF1NPCPMCache extends PF1NPMCache {
 
 
 	protected void iterate() throws Exception {
-
+		
 		synchronized( confs.qLock ) {
 
 			int request = partialQConfs.size();
@@ -111,53 +110,6 @@ public class PF1NPCPMCache extends PF1NPMCache {
 	}
 
 
-	protected void computeSlice() {
-
-		try {
-			/*
-			synchronized( confs.qLock ) {
-				if( confs.getState() == Thread.State.WAITING ) 
-					confs.qLock.notify();
-			}
-			 */
-			iterate();
-
-		} catch(Exception e) {
-			e.printStackTrace();
-			System.exit(1);
-		}
-
-	}
-
-
-	protected void compute() {
-
-		try {
-
-			// process conformations until e-approximation reached
-			while( eAppx == EApproxReached.FALSE ) {
-
-				iterate();
-			}
-
-		} catch(Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
-		}
-	}
-
-
-	protected BigDecimal computePartialQDagger( ArrayList<KSConf> partialQConfs ) {
-		BigDecimal partialQDagger = BigDecimal.ZERO;
-
-		for( KSConf conf : partialQConfs )
-			partialQDagger = partialQDagger.add( getBoltzmannWeight(conf.getMinEnergyLB()) );
-
-		return partialQDagger;
-	}
-
-
 	protected void accumulate( ArrayList<KSConf> partialQConfs, boolean isMinimized ) throws Exception {
 
 		if( !isMinimized ) {
@@ -183,10 +135,7 @@ public class PF1NPCPMCache extends PF1NPMCache {
 				updateQStar( conf );
 
 				confs.setQDagger( confs.getQDagger().subtract( getBoltzmannWeight(conf.getMinEnergyLB()) ) );
-				if(PFAbstract.useRigEUB) {
-					confs.setQDot( confs.getQDot().subtract( getBoltzmannWeight(conf.getMinEnergyUB()) ) );
-				}
-
+				
 				updateQPrime();
 
 				// negative values of effective epsilon are disallowed
@@ -194,15 +143,6 @@ public class PF1NPCPMCache extends PF1NPMCache {
 					eAppx = EApproxReached.NOT_POSSIBLE;
 					return;
 				}
-
-				/*
-				if(PFAbstract.useRigEnergy) {
-					System.out.println("lb: " + conf.getMinEnergyLB() + "\t minE: " 
-							+ conf.getMinEnergy() + "\t ub: " + conf.getMinEnergyUB() + "\t qstar/q.: " 
-							+ qStar.divide(confs.getQDot(), 4)
-							+ "\t q.size: " + confs.size());
-				}
-				 */
 
 				if( effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ) break;
 			}

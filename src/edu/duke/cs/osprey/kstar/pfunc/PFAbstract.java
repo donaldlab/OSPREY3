@@ -1,10 +1,12 @@
 package edu.duke.cs.osprey.kstar.pfunc;
 
 import java.io.File;
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.PriorityQueue;
 
@@ -21,7 +23,8 @@ import edu.duke.cs.osprey.tools.ObjectIO;
  * @author Adegoke Ojewole (ao68@duke.edu)
  *
  */
-public abstract class PFAbstract {
+@SuppressWarnings("serial")
+public abstract class PFAbstract implements Serializable {
 
 	protected ArrayList<String> sequence;
 	protected static String pFuncImplementation = "1npmcache";
@@ -29,7 +32,6 @@ public abstract class PFAbstract {
 	protected static ArrayList<String> serverList = new ArrayList<>();
 	protected static int threadConfsBuffer = 8;
 	public static int qCapacity = 4194304;
-	public static boolean useRigEUB = false;
 	public static boolean waitUntilCapacity = false;
 	protected static int numThreads = 1;
 	protected static int numFibers = 1;
@@ -43,20 +45,18 @@ public abstract class PFAbstract {
 	public static boolean useMaxKSConfs = false;
 	protected static long maxKSConfs = 100000;
 
-	public static boolean doCheckpoint = false;
-	protected static long checkpointInterval = 100000;
+	protected String checkPointPath = null;
 
 	protected static BigDecimal stabilityThresh = BigDecimal.ONE;
-	protected static double interval = getMaxInterval();
 
 	protected static final double RT = 1.9891/1000.0 * 298.15;
 	public static double targetEpsilon = 0.03;
 	protected double effectiveEpsilon = 1.0;
 
-	public static enum EApproxReached { TRUE, FALSE, NOT_POSSIBLE, NOT_STABLE, ABORTED }
+	public static enum EApproxReached { TRUE, FALSE, NOT_POSSIBLE, NOT_STABLE }
 	protected EApproxReached eAppx = EApproxReached.FALSE;
 
-	public static enum RunState { NOTSTARTED, STARTED, SUSPENDED, CHECKPOINT }
+	public static enum RunState { NOTSTARTED, STARTED }
 	protected RunState runState = RunState.NOTSTARTED;
 
 	protected ConfigFileParser cfp = null;
@@ -81,15 +81,17 @@ public abstract class PFAbstract {
 
 	protected PriorityQueue<KSConf> topConfsPQ = null;
 
-	protected PFAbstract( ArrayList<String> sequence, ConfigFileParser cfp, 
-			SearchProblem sp, double EW_I0 ) {
+	protected PFAbstract( ArrayList<String> sequence, String checkPointPath, 
+			ConfigFileParser cfp, SearchProblem sp, double EW_I0 ) {
 
 		this.sequence = sequence;
+		this.checkPointPath = checkPointPath;
 		this.sp = sp;
 		this.cfp = cfp;
 		this.EW_I0 = EW_I0;
-
-		topConfsPQ = new PriorityQueue<KSConf>(getNumTopConfsToSave(), KSConf.KSConfComparator);
+		
+		Comparator<KSConf> comparator = new KSConf(null, EW_I0).new KSConfComparator();
+		topConfsPQ = new PriorityQueue<KSConf>(getNumTopConfsToSave(), comparator);
 	}
 
 
@@ -111,7 +113,7 @@ public abstract class PFAbstract {
 	}
 
 
-	protected int getNumTopSavedConfs() {
+	public int getNumTopSavedConfs() {
 		return topConfsPQ.size();
 	}
 
@@ -132,21 +134,26 @@ public abstract class PFAbstract {
 	}
 
 
-	protected void printTopConfs() {
+	public void writeTopConfs() {
 
+		if( getNumTopSavedConfs() == 0 ) return;
+		
 		System.out.println("\nWriting top " + getNumTopSavedConfs() + 
 				" conformation(s) for sequence: " + KSAbstract.arrayList1D2String(sequence, " "));
 		System.out.println();
 
+		@SuppressWarnings("unchecked")
+		PriorityQueue<KSConf> tmp = (PriorityQueue<KSConf>) ObjectIO.deepCopy(topConfsPQ);
+		
 		// create dir if it does not already exist
 		String dir = "topConfs" + File.separator + KSAbstract.arrayList1D2String(sequence, ".");
 		ObjectIO.makeDir(dir, false);
 
 		String pdbName = null;
 		for( int i = getNumTopSavedConfs()-1; i > -1; i-- ) {
-			System.out.println("Saving: " + i +".pdb" + "\tminE:" + topConfsPQ.peek().getMinEnergy());
+			System.out.println("Saving: " + i +".pdb" + "\tminE:" + tmp.peek().getMinEnergy());
 			pdbName = dir + File.separator + String.valueOf(i) +".pdb";
-			sp.outputMinimizedStruct(topConfsPQ.poll().getConf(), pdbName);
+			sp.outputMinimizedStruct(tmp.poll().getConf(), pdbName);
 		}
 
 		System.out.println();
@@ -274,39 +281,43 @@ public abstract class PFAbstract {
 
 	public abstract void start();
 
-	public void resume() {
+	public void runSlice(long target) {
 
-		long startTime = System.currentTimeMillis();
-
-		while( eAppx == EApproxReached.FALSE && (double)(System.currentTimeMillis() - startTime) < interval ) {
+		while( eAppx == EApproxReached.FALSE && getMinDuringInterval().longValue() < target ) {
 			computeSlice();
 
 			if( eAppx == EApproxReached.NOT_POSSIBLE ) {
 				restart();
+				
+				if( eAppx == EApproxReached.NOT_POSSIBLE ) break;
+				
 				computeSlice();
 			}
 		}
 
-		if( eAppx == EApproxReached.TRUE && saveTopConfsAsPDB )
-			printTopConfs();
+		if( eAppx == EApproxReached.TRUE && saveTopConfsAsPDB ) writeTopConfs();
 
-		if( eAppx != EApproxReached.FALSE )
-			clearSearchProblem();
+		if( eAppx != EApproxReached.FALSE ) cleanup();
+		
+		resetMinDuringInterval();
 	}
+	
 
 	public void runToCompletion() {
 		compute();
 
 		if( eAppx == EApproxReached.NOT_POSSIBLE ) {
 			restart();
-			compute();
+			
+			if( eAppx == EApproxReached.FALSE )
+				compute();
 		}
 
 		if( eAppx == EApproxReached.TRUE && saveTopConfsAsPDB ) {
-			printTopConfs();
+			writeTopConfs();
 		}
 
-		clearSearchProblem();
+		cleanup();
 	}
 
 	/**
@@ -378,7 +389,7 @@ public abstract class PFAbstract {
 	}
 
 
-	protected void clearSearchProblem() {
+	public void cleanup() {
 		sp = null;
 		pc = null;
 		minimizedConfsSet.clear();
@@ -415,12 +426,12 @@ public abstract class PFAbstract {
 	}
 
 
-	protected BigInteger getNumMinimizedConfsDuringInterval() {
+	protected BigInteger getMinDuringInterval() {
 		return minimizedConfsDuringInterval;
 	}
 
 
-	protected void resetNumMinimizedConfsDuringInterval() {
+	protected void resetMinDuringInterval() {
 		minimizedConfsDuringInterval = BigInteger.ZERO;
 	}
 
@@ -484,23 +495,6 @@ public abstract class PFAbstract {
 	}
 
 
-	public static void setInterval( String val ) {
-		double dVal = -1;
-
-		if(val.toLowerCase().equals("max")) {
-			interval = Double.MAX_VALUE;
-		} else {
-			try{ dVal = Double.parseDouble(val); } catch( Exception e ) {}
-			finally { if( dVal > 0 ) interval = dVal; }
-		}
-	}
-
-
-	public static double getInterval() {
-		return interval;
-	}
-
-
 	public static double getMaxInterval() {
 		return Double.MAX_VALUE;
 	}
@@ -542,13 +536,22 @@ public abstract class PFAbstract {
 		return useMaxKSConfs && minimizedConfs.longValue() >= maxKSConfs;
 	}
 
-
-	public static void setCheckPointInterval( long interval ) {
-		if(interval <= 0) interval = 1;
-		checkpointInterval = interval;
+	
+	public String getCheckPointPath() {
+		return checkPointPath;
 	}
+	
 
-
+	public boolean checkPointExists() {
+		return new File(getCheckPointPath()).exists();
+	}
+	
+	
+	public Object getLock() {
+		return new String("LOCK");
+	}
+	
+	
 	public static void setImpl( String implementation ) {
 
 		switch( implementation.toLowerCase() ) {

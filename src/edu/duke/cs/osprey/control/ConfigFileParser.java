@@ -22,6 +22,7 @@ import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.StringParsing;
 
 import java.io.File;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.StringTokenizer;
 
@@ -30,7 +31,8 @@ import java.util.StringTokenizer;
  * @author Mark Hallen (mhall44@duke.edu)
  * @author Adegoke Ojewole (ao68@duke.edu)
  */
-public class ConfigFileParser {
+@SuppressWarnings("serial")
+public class ConfigFileParser implements Serializable {
     //An object that parses configuration files and uses them to initialize objects needed
     //in various calculations (i.e. for data file loading, conf space definition, pruning, etc.)
     
