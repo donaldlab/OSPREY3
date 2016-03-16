@@ -1,10 +1,11 @@
 runName results
 %mutfile mutfile.txt
+distCutoff 7
 iMinDEE true
 typedep true
 Ival 2.5
 Ew 0
-epsilon 0.1
+epsilon 0.99
 doMinimize true
 addWT true
 addWTRots true
@@ -12,9 +13,12 @@ saveTopConfsAsPDB true
 numTopConfsToSave 5
 useMaxKSConfs false
 maxKSconfs 100000
-doKStarCheckpoint false
+doKStarCheckpoint true
 KStarCheckpoint 1000
 
+numMutations 1
+useKStarCheckpoint true
+KStarCheckpoint 100
 numMutations 1
 resAllowed0_0 ASP GLU HID
 resAllowed0_1 GLU ASP ARG
@@ -31,9 +35,8 @@ pFuncMethod 1npcpmcache
 pFuncThreads 3
 numThreads 3
 eMinMethod hbfgsccd
-KStarRefinePruning false
 KStarMethod linear
-KStarNumSeqs 5
+KStarNumSeqs 200000
 UseDunbrackRotamers false
 ematDir emat.lovell
 deleteEmatDir false
