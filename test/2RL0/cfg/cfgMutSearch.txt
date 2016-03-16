@@ -1,6 +1,5 @@
 runName results
 %mutfile mutfile.txt
-distCutoff 7
 iMinDEE true
 typedep true
 Ival 2.5
@@ -14,11 +13,8 @@ numTopConfsToSave 5
 useMaxKSConfs false
 maxKSconfs 100000
 doKStarCheckpoint true
-KStarCheckpoint 1000
-
-numMutations 1
-useKStarCheckpoint true
 KStarCheckpoint 100
+
 numMutations 1
 resAllowed0_0 ASP GLU HID
 resAllowed0_1 GLU ASP ARG
