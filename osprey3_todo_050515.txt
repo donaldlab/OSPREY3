@@ -15,6 +15,7 @@ Involving other people directly:
 	- rename ksconfs output for each sequence
 	- prefix topconfs output folder with strand string
 	- test 1nmtpcpm and mnpcpm for correctness
+	- remove E and ELB fields from ksconf
 -BWM* (work w/ JJ as discussed)
 -RNA (get code from Swati, should be easy to incorporate)
 
