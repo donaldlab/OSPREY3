@@ -2,9 +2,9 @@ runName results
 %mutfile mutfile.txt
 iMinDEE true
 typedep true
-Ival 2
+Ival 2.5
 Ew 0
-epsilon 0.9
+epsilon 0.1
 doMinimize true
 addWT true
 addWTRots true
@@ -13,7 +13,8 @@ numTopConfsToSave 5
 useMaxKSConfs false
 maxKSconfs 100000
 doKStarCheckpoint false
-KStarCheckpoint 100
+KStarCheckpoint 1000
+
 numMutations 1
 resAllowed0_0 ASP GLU HID
 resAllowed0_1 GLU ASP ARG
@@ -22,9 +23,10 @@ resAllowed0_3 SER CYS THR
 resAllowed1_0 SER GLN CYS
 resAllowed1_1 GLY ASP ILE
 resAllowed1_2 THR VAL TYR
+
 pFuncStabThresh 1
 pFuncQWait false
-pFuncQCap 256000
+pFuncQCap 1024000
 pFuncMethod 1npcpmcache
 pFuncThreads 3
 numThreads 3
