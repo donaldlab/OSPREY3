@@ -38,7 +38,8 @@ public class KSImplLinear extends KSAbstract {
 
 		createEmatDir();
 
-		createCheckPointDir();
+		if(doCheckpoint)
+			createCheckPointDir();
 
 		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(true, false));
 		createEmats(contSCFlexVals);
