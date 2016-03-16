@@ -16,6 +16,7 @@ Involving other people directly:
 	- prefix topconfs output folder with strand string
 	- test 1nmtpcpm and mnpcpm for correctness
 	- remove E and ELB fields from ksconf
+	- parallelize start method to deepcopy sps
 -BWM* (work w/ JJ as discussed)
 -RNA (get code from Swati, should be easy to incorporate)
 

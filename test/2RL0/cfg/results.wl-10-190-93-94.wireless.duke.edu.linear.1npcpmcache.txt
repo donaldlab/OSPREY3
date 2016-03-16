@@ -1,0 +1,2 @@
+Seq ID	Sequence	K* Score	Total # Confs.	Complex Partition Function	Complex Epsilon	Complex # Minimized Confs.	Protein Partition Function	Protein Epsilon	Protein # Minimized Confs.	Ligand Partition Function	Ligand Epsilon	Ligand # Minimized Confs.
+0	ASP-650 GLU-651 GLU-652 SER-653 SER-189 GLY-190 THR-193	5.9000E-7	664	2.7232E74	0.79996516	581	1.0643E52	0.00479003	81	4.3175E28	0.73437406	2
