@@ -46,17 +46,17 @@ public class KUStarNode {
 		score = Double.MAX_VALUE;
 		this.scoreNeedsRefinement = scoreNeedsRefinement;
 	}
-	
-	
+
+
 	public static int getNumCreated() {
 		return numCreated;
 	}
-	
-	
+
+
 	public static int getNumExpanded() {
 		return numExpanded;
 	}
-	
+
 
 	protected void setScore() {
 
@@ -80,7 +80,7 @@ public class KUStarNode {
 
 	// only expand if scoreNeedsRefinement
 	public ArrayList<KUStarNode> expand() {
-		
+
 		numExpanded++;
 
 		// using complex, p, l convention
@@ -146,15 +146,15 @@ public class KUStarNode {
 			// reduce next L to those subsequences reachable from this
 			ArrayList<String> currentLSeq = seqs.get(Strand.LIGAND);
 			for( Iterator<ArrayList<String>> iterator = nextLSeqs.iterator(); iterator.hasNext(); ) {
-			    ArrayList<String> subSeq = iterator.next();	    
-			    if( !subSeq.subList(0, currentLSeq.size()).equals(currentLSeq) ) iterator.remove();
+				ArrayList<String> subSeq = iterator.next();	    
+				if( !subSeq.subList(0, currentLSeq.size()).equals(currentLSeq) ) iterator.remove();
 			}
 
 			// reduce next P to those subsequences reachable from this
 			ArrayList<String> currentPSeq = seqs.get(Strand.PROTEIN);
 			for( Iterator<ArrayList<String>> iterator = nextPSeqs.iterator(); iterator.hasNext(); ) {
-			    ArrayList<String> subSeq = iterator.next();
-			    if( !subSeq.subList(0, currentPSeq.size()).equals(currentPSeq) ) iterator.remove();
+				ArrayList<String> subSeq = iterator.next();
+				if( !subSeq.subList(0, currentPSeq.size()).equals(currentPSeq) ) iterator.remove();
 			}
 
 			successors = getPutativeSuccessors( nextPLSeqs, nextPSeqs, nextLSeqs );
@@ -194,7 +194,7 @@ public class KUStarNode {
 				strandSeqs.set(Strand.COMPLEX, putativeNextPLSeq);
 				strandSeqs.set(Strand.PROTEIN, pSeq);
 				strandSeqs.set(Strand.LIGAND, lSeq);
-				
+
 				// create partition functions
 				ConcurrentHashMap<Integer, PFAbstract> pfs = ksObj.createPFsForSeq(strandSeqs, contSCFlexVals, pfImplVals);
 

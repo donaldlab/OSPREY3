@@ -160,7 +160,7 @@ public class KSCalc {
 		
 		synchronized(pf.getLock()) {
 			
-			System.out.print("Serializing " + pf.getCheckPointPath() + " ... " );
+			System.out.print("\nSerializing " + pf.getCheckPointPath() + " ... " );
 			
 			ObjectIO.writeObject(pf, pf.getCheckPointPath());
 			

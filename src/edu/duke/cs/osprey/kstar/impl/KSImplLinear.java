@@ -258,8 +258,6 @@ public class KSImplLinear extends KSAbstract {
 				}
 			}
 
-			System.out.println("here");
-
 		} while(seqSet.size() > 0);
 
 		// delete checkpoint dir and checkpoint file

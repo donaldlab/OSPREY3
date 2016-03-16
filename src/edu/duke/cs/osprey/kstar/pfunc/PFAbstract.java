@@ -256,7 +256,7 @@ public abstract class PFAbstract implements Serializable {
 
 
 	protected void updateQPrime() {
-		qPrime = ( getBoltzmannWeight( Et )).multiply( new BigDecimal(getNumUnEnumerated()) );
+		qPrime = getBoltzmannWeight( Et ).multiply(new BigDecimal(getNumUnEnumerated()));
 	}
 
 

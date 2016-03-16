@@ -141,6 +141,9 @@ public class PF1NPMCache extends PFAbstract implements Serializable {
 
 			if( confs.getState() == Thread.State.NEW ) {
 				confs.start();
+				synchronized( confs.qLock ) {
+					confs.qLock.notify();
+				}
 			}
 
 			iterate();
@@ -219,14 +222,6 @@ public class PF1NPMCache extends PFAbstract implements Serializable {
 				"\t" + "#un-enum" + "\t" + "#buf" + "\t"+ "time(sec)");
 
 		printedHeader = true;
-	}
-
-
-	protected void updateQPrime() {
-
-		qPrime = getBoltzmannWeight( Et ).
-				multiply( new BigDecimal(getNumUnEnumerated().longValue() 
-						- confs.size() - minimizingConfs.longValue() ) );
 	}
 
 

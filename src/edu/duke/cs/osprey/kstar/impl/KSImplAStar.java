@@ -29,47 +29,7 @@ public class KSImplAStar extends KSAbstract {
 		createEmats(contSCFlexVals);
 	}
 
-
-	@Override
-	public void run() {
-		
-		// compute wt sequence for reference
-		wtKSCalc = computeWTCalc();
-
-		// initialize KUStar tree
-		KUStarTree tree = new KUStarTree(this, strand2AllowedSeqs, wtKSCalc);
-
-		// add root node
-		tree.add( new KUStarNode(null, true) );
-
-		int numSeqs = cfp.getParams().getInt("KStarNumSeqs", 5);
-		int completed = 0;
-
-		for( KUStarNode best = tree.poll(); best != null && completed < numSeqs; 
-				best = tree.poll() ) {
-
-			if( !best.scoreNeedsRefinement() ) {
-				// run full k*: p and l completely, then pl as a stream
-				completed++;
-				continue;
-			}
-
-			ArrayList<KUStarNode> successors = best.expand();
-			tree.add(successors);
-		}
-
-		System.out.println("completed: " + completed + " numExpanded: " + KUStarNode.getNumExpanded() 
-			+ " numSubSeqs: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSubSeqs()
-			+ " numSeqs: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs());
-	}
-
-
-	@Override
-	public String getKSMethod() {
-		return "astar";
-	}
-
-
+	
 	@Override
 	protected void prepareAllSingleSeqSPs( ArrayList<Boolean> contSCFlexVals ) {
 
@@ -117,5 +77,45 @@ public class KSImplAStar extends KSAbstract {
 			e.printStackTrace();
 			System.exit(1);
 		}
+	}
+	
+	
+	@Override
+	public String getKSMethod() {
+		return "astar";
+	}
+	
+
+	@Override
+	public void run() {
+		
+		// compute wt sequence for reference
+		wtKSCalc = computeWTCalc();
+
+		// initialize KUStar tree
+		KUStarTree tree = new KUStarTree(this, strand2AllowedSeqs, wtKSCalc);
+
+		// add root node
+		tree.add( new KUStarNode(null, true) );
+
+		int numSeqs = cfp.getParams().getInt("KStarNumSeqs", 5);
+		int completed = 0;
+
+		for( KUStarNode best = tree.poll(); best != null && completed < numSeqs; 
+				best = tree.poll() ) {
+
+			if( !best.scoreNeedsRefinement() ) {
+				// run full k*: p and l completely, then pl as a stream
+				completed++;
+				continue;
+			}
+
+			ArrayList<KUStarNode> successors = best.expand();
+			tree.add(successors);
+		}
+
+		System.out.println("completed: " + completed + " numExpanded: " + KUStarNode.getNumExpanded() 
+			+ " numSubSeqs: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSubSeqs()
+			+ " numSeqs: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs());
 	}
 }

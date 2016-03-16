@@ -281,16 +281,6 @@ public class AllowedSeqs {
 					}
 				}
 			}
-
-			/*
-			// i believe all fully defined sequences should have been added from the above loop.
-			// if not, then run the commented code
-			ArrayList<ArrayList<String>> finalDepth = allowedSubSeqs.get(allowedSubSeqs.size()-1);
-			for( ArrayList<String> seq : getStrandSeqList() ) {
-				if( !finalDepth.contains(seq) )
-					finalDepth.add(seq);
-			}
-			 */
 		}
 
 		return allowedSubSeqs;
