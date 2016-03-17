@@ -20,6 +20,7 @@ import java.util.Arrays;
  *
  * @author mhall44
  */
+@SuppressWarnings("serial")
 public class ConfTree extends AStarTree implements Serializable {
     //This implementation of an A* tree is intended for conformational search
     //AStarNode.nextAssignment is an array of length numPos; each position

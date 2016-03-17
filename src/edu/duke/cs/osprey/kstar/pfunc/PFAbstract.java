@@ -5,7 +5,6 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.PriorityQueue;
@@ -75,7 +74,7 @@ public abstract class PFAbstract implements Serializable {
 	protected BigInteger prunedConfs = BigInteger.ZERO;
 	protected BigInteger unPrunedConfs = BigInteger.ZERO;
 	protected BigInteger minimizedConfs = BigInteger.ZERO;
-	protected HashSet<String> minimizedConfsSet = new HashSet<>();
+	protected HashSet<ArrayList<Integer>> minimizedConfsSet = new HashSet<>();
 	protected BigInteger minimizedConfsDuringInterval = BigInteger.ZERO;
 	protected BigInteger minimizingConfs = BigInteger.ZERO; // # confs being minimized at this instant
 
@@ -90,12 +89,12 @@ public abstract class PFAbstract implements Serializable {
 		this.cfp = cfp;
 		this.EW_I0 = EW_I0;
 		
-		Comparator<KSConf> comparator = new KSConf(null, EW_I0).new KSConfComparator();
+		Comparator<KSConf> comparator = new KSConf(new ArrayList<>(), 0.0).new KSConfComparator();
 		topConfsPQ = new PriorityQueue<KSConf>(getNumTopConfsToSave(), comparator);
 	}
 
 
-	public HashSet<String> getMinimizedConfsSet() {
+	public HashSet<ArrayList<Integer>> getMinimizedConfsSet() {
 		return minimizedConfsSet;
 	}
 
@@ -153,7 +152,7 @@ public abstract class PFAbstract implements Serializable {
 		for( int i = getNumTopSavedConfs()-1; i > -1; i-- ) {
 			System.out.println("Saving: " + i +".pdb" + "\tminE:" + tmp.peek().getMinEnergy());
 			pdbName = dir + File.separator + String.valueOf(i) +".pdb";
-			sp.outputMinimizedStruct(tmp.poll().getConf(), pdbName);
+			sp.outputMinimizedStruct(tmp.poll().getConfArray(), pdbName);
 		}
 
 		System.out.println();
@@ -186,7 +185,7 @@ public abstract class PFAbstract implements Serializable {
 	}
 
 
-	public void abort() {}
+	public void abort(boolean nullify) {}
 
 
 	public BigDecimal getQStar() {
@@ -269,7 +268,7 @@ public abstract class PFAbstract implements Serializable {
 		qStar = qStar.add( getBoltzmannWeight( conf.getMinEnergy() ) );
 
 		minimizedConfs = minimizedConfs.add(BigInteger.ONE);
-		minimizedConfsSet.add( Arrays.toString(conf.getConf()) );
+		minimizedConfsSet.add(conf.getConf());
 		minimizedConfsDuringInterval = minimizedConfsDuringInterval.add(BigInteger.ONE);
 	}
 
@@ -544,11 +543,6 @@ public abstract class PFAbstract implements Serializable {
 
 	public boolean checkPointExists() {
 		return new File(getCheckPointPath()).exists();
-	}
-	
-	
-	public Object getLock() {
-		return new String("LOCK");
 	}
 	
 	

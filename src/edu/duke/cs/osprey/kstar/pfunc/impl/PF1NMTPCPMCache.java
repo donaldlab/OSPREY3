@@ -151,7 +151,7 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache implements Serializable {
 			if( eAppx == EApproxReached.FALSE ) Thread.sleep(sleepInterval);
 
 			else {
-				confs.cleanUp();
+				confs.cleanUp(true);
 
 				cleanUpSlaves( eAppx );
 
@@ -178,7 +178,7 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache implements Serializable {
 				if( eAppx == EApproxReached.FALSE ) Thread.sleep(sleepInterval);
 			}
 
-			confs.cleanUp();
+			confs.cleanUp(true);
 
 			cleanUpSlaves( eAppx );
 
@@ -292,7 +292,7 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache implements Serializable {
 					}
 					
 					// sp concurrency reached. update partial partition function
-					indexes.parallelStream().forEach( j -> confs.get(j).setMinEnergy(sps.get(j).minimizedEnergy(confs.get(j).getConf())) );
+					indexes.parallelStream().forEach( j -> confs.get(j).setMinEnergy(sps.get(j).minimizedEnergy(confs.get(j).getConfArray())) );
 				}
 			}
 

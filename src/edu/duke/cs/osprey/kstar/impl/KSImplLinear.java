@@ -183,7 +183,7 @@ public class KSImplLinear extends KSAbstract {
 
 
 	protected void runRR() {
-
+		
 		// each value corresponds to the desired flexibility of the 
 		// pl, p, and l conformation spaces, respectively
 		ArrayList<ArrayList<String>> strandSeqs = null;	
@@ -252,9 +252,6 @@ public class KSImplLinear extends KSAbstract {
 				else {
 					// write checkpoint
 					calc.serializePF(Strand.COMPLEX);
-					// abort must proceed serialize, since we want to preserve 
-					// the contents of the confs queue
-					pf.abort();
 					calc.printSummary( getCheckPointFilePath(), false );
 				}
 			}

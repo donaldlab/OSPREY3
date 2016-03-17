@@ -592,7 +592,12 @@ public abstract class KSAbstract implements KSInterface {
 		ConcurrentHashMap<Integer, PFAbstract> pfs = createPFsForSeq(strandSeqs, contSCFlexVals, pfImplVals);
 		KSCalc calc = new KSCalc(0, pfs);
 		calc.run(calc);
-
+		
+		//calc.run(calc, KSAbstract.checkpointInterval);
+		//calc.serializePFs();
+		//calc.printSummary( getCheckPointFilePath(), true );
+		//System.exit(1);
+			
 		if(calc.getEpsilonStatus() != EApproxReached.TRUE)
 			throw new RuntimeException("ERROR: could not compute the wild-type sequence to an epsilon value of "
 					+ PFAbstract.targetEpsilon + ". Change the value of epsilon." );

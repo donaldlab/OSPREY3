@@ -64,6 +64,7 @@ import java.io.Serializable;
 //This class contains the settings for EPIC: whether to use it, thresholds, etc.
 //It will be referenced during all CETMatrix and A* runs.  
 
+@SuppressWarnings("serial")
 public class EPICSettings implements Serializable {
     
     boolean useEPIC;

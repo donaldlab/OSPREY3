@@ -12,6 +12,8 @@ import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MolecEObjFunction;
 import edu.duke.cs.osprey.tools.ObjectIO;
+
+import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
@@ -21,7 +23,8 @@ import java.util.ArrayList;
  * 
  * @author mhall44
  */
-public class EPICMatrix extends TupleMatrix<EPoly> {
+@SuppressWarnings("serial")
+public class EPICMatrix extends TupleMatrix<EPoly> implements Serializable {
     
     ConfSpace confSpace = null;//the conformational space for which the energy polynomials are defined
     //we need this to be able to get conformational energies from the polynomials

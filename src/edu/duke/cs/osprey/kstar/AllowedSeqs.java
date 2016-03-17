@@ -470,16 +470,6 @@ public class AllowedSeqs {
 		if(dist > 0)
 			generatePermutations( input, output, buffer, 0, 0 );
 
-		/*
-		// error checking...not required
-		// remove objects that differ from wt by more than dist elements
-		for( ArrayList<String> seq : output ) {
-			if( !isSpecifiedDist(wt, seq) ) {
-				throw new RuntimeException("ERROR: created sequence with more than " + dist + " mutations from wild type");
-			}
-		}
-		 */
-
 		// remove wt, if present
 		output.remove(wt);
 

@@ -12,13 +12,15 @@ import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.RigidBodyMotion;
+
+import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
  *
  * @author mhall44
  */
-public class ResidueTypeDOF extends DegreeOfFreedom {
+public class ResidueTypeDOF extends DegreeOfFreedom implements Serializable {
     //This degree of freedom is the residue type (e.g., AA type) at a particular position
     //So applying values of it means mutating the residue
     

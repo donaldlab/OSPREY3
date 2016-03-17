@@ -44,9 +44,13 @@ public class PF1NPCPMCache extends PF1NPMCache implements Serializable {
 			// initialize parallel data structures
 			for( int it = 0; it < PFAbstract.getNumThreads(); ++it ) indexes.add(indexes.size());
 			indexes.trimToSize();
-
-			for( int i = 0; i < indexes.size(); ++i ) sps.add((SearchProblem)ObjectIO.deepCopy(sp));
+			
+			for( int i = 0; i < indexes.size(); ++i ) sps.add(null);
 			sps.trimToSize();
+			// create sps in parallel
+			indexes.parallelStream().forEach(i -> {
+				sps.set(i, (SearchProblem)ObjectIO.deepCopy(sp));
+			});
 
 			partialQConfs.clear();
 			for( int it = 0; it < indexes.size(); ++it ) partialQConfs.add(null);
@@ -105,7 +109,7 @@ public class PF1NPCPMCache extends PF1NPMCache implements Serializable {
 
 		if( eAppx != EApproxReached.FALSE ) {
 			// we leave this function
-			confs.cleanUp();
+			confs.cleanUp(true);
 		}	
 	}
 
@@ -115,7 +119,7 @@ public class PF1NPCPMCache extends PF1NPMCache implements Serializable {
 		if( !isMinimized ) {
 			// we do not have a lock when minimizing
 			indexes.parallelStream().forEach( i -> {
-				partialQConfs.get(i).setMinEnergy( sps.get(i).minimizedEnergy(partialQConfs.get(i).getConf()) );
+				partialQConfs.get(i).setMinEnergy( sps.get(i).minimizedEnergy(partialQConfs.get(i).getConfArray()) );
 			});
 		}
 
@@ -124,7 +128,7 @@ public class PF1NPCPMCache extends PF1NPMCache implements Serializable {
 		// we need a current snapshot of qDagger, so we lock here
 		synchronized( confs.qLock ) {
 			// update q*, qDagger, minimizingConfs, and q' atomically
-			Et = confs.peekTail() != null ? confs.peekTail().getMinEnergyLB() 
+			Et = confs.size() > 0 ? confs.peekTail().getMinEnergyLB() 
 					: partialQConfs.get(partialQConfs.size()-1).getMinEnergyLB();
 
 			for( KSConf conf : partialQConfs ) {

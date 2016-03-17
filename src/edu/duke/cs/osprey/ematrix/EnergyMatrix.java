@@ -10,13 +10,14 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.TupleMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
  *
  * @author mhall44
  */
-public class EnergyMatrix extends TupleMatrix<Double> {
+public class EnergyMatrix extends TupleMatrix<Double> implements Serializable {
     
     private double constTerm = 0;
     

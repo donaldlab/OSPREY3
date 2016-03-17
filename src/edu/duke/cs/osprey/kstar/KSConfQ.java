@@ -3,7 +3,7 @@ package edu.duke.cs.osprey.kstar;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.LinkedHashSet;
 
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
@@ -24,7 +24,6 @@ public class KSConfQ extends Thread implements Serializable {
 	private ConfSearch search;
 	private int minCapacity;
 	private BigDecimal capacityThresh = new BigDecimal(0.0001);
-	private int size = 0;
 	
 	// lock for queue access
 	public final String qLock = new String("LOCK");
@@ -32,10 +31,11 @@ public class KSConfQ extends Thread implements Serializable {
 	// upper bound partition function
 	private BigDecimal qDagger = BigDecimal.ZERO;
 
-	private final ArrayList<KSConf> q = new ArrayList<>();
+	LinkedHashSet<ArrayList<Integer>> q = null;
 	private int qCap = (int)Math.pow(2, 20);
 	private int origQCap = 0;
 	private boolean confsExhausted = false;
+	private ArrayList<Integer> tail = null;
 
 	/**
 	 * 
@@ -53,15 +53,22 @@ public class KSConfQ extends Thread implements Serializable {
 		this.minCapacity = minCapacity;
 		qCap = Math.max( minCapacity, PFAbstract.qCapacity );
 		origQCap = qCap;
+		
+		q = new LinkedHashSet<>(qCap);
 	}
 
 
+	public void restartConfTree() {
+		search = new ConfTree(sp);
+	}
+	
+	
 	public void waitUntilCapacity() throws InterruptedException {
 
 		while( !isExhausted() && size() < getQCapacity() )
 			Thread.sleep(250);
 	}
-
+	
 
 	public double getNextConfELB() {
 
@@ -72,12 +79,14 @@ public class KSConfQ extends Thread implements Serializable {
 		}
 
 		// should never get here
-		return Double.MAX_VALUE;
+		throw new RuntimeException("ERROR: all the conformations of this sequence were pruned");
+		
+		// return Double.MAX_VALUE;
 	}
 
 
 	public int size() {
-		return size;
+		return q.size();
 	}
 
 
@@ -92,28 +101,32 @@ public class KSConfQ extends Thread implements Serializable {
 
 
 	public KSConf peekTail() {
-		return q.size() > 0 ? q.get(q.size()-1) : null;
+		return size() > 0 ? new KSConf(tail, sp.lowerBound(KSConf.list2Array(tail))) : null;
 	}
 
 
-	public KSConf peek() {
-		return q.size() > 0 ? q.get(0) : null;
+	public KSConf peekHead() {
+		if(size() == 0) return null;
+		
+		ArrayList<Integer> value = q.iterator().next();
+		return new KSConf(value, sp.lowerBound(KSConf.list2Array(value)));
 	}
+	
 
-
-	public double enQueue( int conf[] ) {
+	protected double enQueue( int[] conf ) {
 		
 		double minELB = sp.lowerBound(conf);
+		ArrayList<Integer> list = KSConf.array2List(conf);
 		
-		if( pf.getMinimizedConfsSet().contains(Arrays.toString(conf)) ) return minELB;
-
-		KSConf ksc = new KSConf(conf, minELB);
+		if(KSAbstract.doCheckpoint && size() > 0 && minELB < peekTail().getMinEnergyLB() ) return minELB;
+		
+		if( pf.getMinimizedConfsSet().contains(list) || q.contains(list) ) return minELB;
 
 		qDagger = qDagger.add( pf.getBoltzmannWeight(minELB) );
-
-		q.add(ksc);
 		
-		size++;
+		q.add(list);
+		
+		tail = list;
 		
 		return minELB;
 	}
@@ -121,14 +134,16 @@ public class KSConfQ extends Thread implements Serializable {
 
 	public KSConf deQueue() {
 		// assuming locks are in place
-		KSConf ksc = q.size() > 0 ? q.remove(0) : null;
-		if(ksc == null) throw new RuntimeException("Error: attempting to dequeue from an empty list");
+		KSConf conf = size() > 0 ? peekHead() : null;
 
-		// qDagger = qDagger.subtract( pf.getBoltzmannWeight(ksc.getELowerBound()) );
+		if(conf == null) 
+			throw new RuntimeException("ERROR: attempting to dequeue from an empty list");
 		
-		size--;
+		q.remove(conf.getConf());
 		
-		return ksc;
+		if(size() == 0) tail = null;
+		
+		return conf;
 	}
 
 
@@ -162,22 +177,20 @@ public class KSConfQ extends Thread implements Serializable {
 	}
 
 
-	public KSConf get( int index ) {
-		return index >= 0 && index < q.size() ? q.get(index) : null;
-	}
+	public void cleanUp( boolean nullify ) throws InterruptedException {
 
-
-	public void cleanUp() throws InterruptedException {
-
-		synchronized( this.qLock ) {
-			this.qLock.notify();
+		synchronized( qLock ) {
+			qLock.notify();
 		}
 		
 		this.join();
 		
-		this.sp = null;
-		this.search = null;
-		this.q.clear();
+		if(nullify) {
+			search = null;
+			sp = null;
+			q.clear();
+			tail = null;
+		}
 	}
 
 
@@ -197,7 +210,7 @@ public class KSConfQ extends Thread implements Serializable {
 					return;
 				}
 
-				if( q.size() >= qCap ) {
+				if( size() >= qCap ) {
 					try {
 
 						qLock.notify();
@@ -226,7 +239,7 @@ public class KSConfQ extends Thread implements Serializable {
 				// the partition function is waiting for this signal to process
 				// conformations.
 				// it's wasteful to call notify for every insertion
-				if( q.size() == minCapacity ) qLock.notify();
+				if( size() == minCapacity ) qLock.notify();
 			}
 		}
 	}

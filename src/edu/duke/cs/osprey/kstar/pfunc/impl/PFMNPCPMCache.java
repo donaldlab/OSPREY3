@@ -151,7 +151,7 @@ public class PFMNPCPMCache extends PF1NMTPCPMCache implements Serializable {
 			if( eAppx == EApproxReached.FALSE ) Thread.sleep(sleepInterval);
 
 			else {
-				confs.cleanUp();
+				confs.cleanUp(true);
 
 				cleanUpSlaves( serverInterfaces );
 			}
@@ -175,7 +175,7 @@ public class PFMNPCPMCache extends PF1NMTPCPMCache implements Serializable {
 				if( eAppx == EApproxReached.FALSE ) Thread.sleep(sleepInterval);
 			}
 
-			confs.cleanUp();
+			confs.cleanUp(true);
 
 			cleanUpSlaves( serverInterfaces );
 

@@ -6,6 +6,7 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
+import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KSConf;
 import edu.duke.cs.osprey.kstar.KSConfQ;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
@@ -91,7 +92,7 @@ public class PF1NPMCache extends PFAbstract implements Serializable {
 
 				// System.out.println("Cannot reach epsilon");
 
-				confs.cleanUp();
+				confs.cleanUp(true);
 
 				return granted;
 			}
@@ -129,7 +130,7 @@ public class PF1NPMCache extends PFAbstract implements Serializable {
 
 		if( eAppx != EApproxReached.FALSE ) {
 			// we leave this function
-			confs.cleanUp();
+			confs.cleanUp(true);
 		}	
 	}
 
@@ -139,7 +140,11 @@ public class PF1NPMCache extends PFAbstract implements Serializable {
 
 		try {
 
-			if( confs.getState() == Thread.State.NEW ) {
+			// this condition only occurs when we are checkpointing
+			if( KSAbstract.doCheckpoint && confs.getState() == Thread.State.NEW ) {
+				// for safety, we can re-start the conformation tree, since i am not
+				// entirely sure how cleanly the conformation tree can be serialized and de-serialized
+				// confs.restartConfTree();
 				confs.start();
 				synchronized( confs.qLock ) {
 					confs.qLock.notify();
@@ -177,7 +182,7 @@ public class PF1NPMCache extends PFAbstract implements Serializable {
 		double E = 0;
 
 		// we do not have a lock when minimizing	
-		conf.setMinEnergy( sp.minimizedEnergy(conf.getConf()) );
+		conf.setMinEnergy( sp.minimizedEnergy(conf.getConfArray()) );
 
 		// we need a current snapshot of qDagger, so we lock here
 		synchronized( confs.qLock ) {
@@ -226,7 +231,7 @@ public class PF1NPMCache extends PFAbstract implements Serializable {
 
 
 	protected double computeEffectiveEpsilon() {
-
+		
 		BigDecimal qPrimePStar = qPrime.add(pStar);
 
 		if(qPrimePStar.compareTo(confs.getCapacityThresh().multiply(confs.getQDagger())) < 0)
@@ -235,7 +240,7 @@ public class PF1NPMCache extends PFAbstract implements Serializable {
 		else
 			confs.restoreQCapacity();
 
-		BigDecimal divisor = ( (qStar.add(confs.getQDagger())).add(qPrimePStar) );
+		BigDecimal divisor = (qStar.add(confs.getQDagger())).add(qPrimePStar);
 
 		// energies are too high so epsilon can never be reached
 		if( divisor.compareTo(BigDecimal.ZERO) == 0 ) return -1.0;
@@ -249,14 +254,12 @@ public class PF1NPMCache extends PFAbstract implements Serializable {
 	protected BigInteger getNumUnEnumerated() {
 		// assuming locks are in place
 
-		BigInteger numProcessing = (getNumMinimized().
-				add(BigInteger.valueOf(confs.size()))).add(minimizingConfs);
+		BigInteger numProcessing = getNumMinimized().add(BigInteger.valueOf(confs.size())).add(minimizingConfs);
 
 		BigInteger ans = unPrunedConfs.subtract( numProcessing );
 
-		// this final comparison is necessary to maintain the count of remaining
-		// confs after we re-start k* due to epsilonnotpossible
-		if( ans.compareTo(BigInteger.ZERO) < 0 ) ans = BigInteger.ZERO;
+		if( ans.compareTo(BigInteger.ZERO) < 0 ) 
+			throw new RuntimeException("ERROR: the number of un-enumerated conformations must be >= 0");
 
 		return ans;
 	}
@@ -267,34 +270,30 @@ public class PF1NPMCache extends PFAbstract implements Serializable {
 
 		synchronized( confs.qLock ) {
 			updateQPrime();
-			return qStar.add(qPrime).add(confs.getQDagger());
+			return (qStar.add(qPrime)).add(confs.getQDagger());
 		}
 	}
 
 
-	public void abort() {
+	public void abort(boolean nullify) {
 		// k* a* needs this method in order to kill confsq for pruned k* calculations
 		// uncertain whether this is the best way to implement this
 		try {
 			if( getRunState() == RunState.NOTSTARTED ) return;
 
-			// eAppx with true or notpossible have already terminated
-			if(eAppx == EApproxReached.FALSE) {
+			// other values of eAppx have already terminated
+			if(eAppx != EApproxReached.FALSE) return;
 
-				eAppx = EApproxReached.NOT_POSSIBLE;
+			eAppx = EApproxReached.NOT_POSSIBLE;
 
-				confs.cleanUp();
-			}
+			confs.cleanUp(nullify);
+
+			eAppx = EApproxReached.FALSE;
+
 		} catch(Exception e) {
 			System.out.println(e.getMessage());
 			e.printStackTrace();
 			System.exit(1);
 		}
 	}
-
-
-	public Object getLock() {
-		return confs.qLock;
-	}
-
 }

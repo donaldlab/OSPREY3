@@ -4,7 +4,7 @@ iMinDEE true
 typedep true
 Ival 2.5
 Ew 0
-epsilon 0.8
+epsilon 0.9
 doMinimize true
 addWT true
 addWTRots true
@@ -13,7 +13,7 @@ numTopConfsToSave 5
 useMaxKSConfs false
 maxKSconfs 100000
 doKStarCheckpoint false
-KStarCheckpoint 250
+KStarCheckpoint 200
 
 numMutations 1
 resAllowed0_0 ASP GLU HID

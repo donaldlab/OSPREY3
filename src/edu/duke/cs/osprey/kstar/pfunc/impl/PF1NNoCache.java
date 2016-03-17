@@ -51,7 +51,7 @@ public class PF1NNoCache extends PFAbstract implements Serializable {
 			setPStar( Et );
 
 			printedHeader = true;
-			if( !minimizedConfsSet.contains(Arrays.toString(ksConf.getConf())) )
+			if( !minimizedConfsSet.contains(Arrays.toString(ksConf.getConfArray())) )
 				accumulate( ksConf );
 			printedHeader = false;
 		}
@@ -120,7 +120,7 @@ public class PF1NNoCache extends PFAbstract implements Serializable {
 	 */
 	protected void accumulate( KSConf conf ) {
 
-		conf.setMinEnergy(sp.minimizedEnergy(conf.getConf()));
+		conf.setMinEnergy(sp.minimizedEnergy(conf.getConfArray()));
 
 		double E = conf.getMinEnergy();
 

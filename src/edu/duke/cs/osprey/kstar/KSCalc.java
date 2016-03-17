@@ -153,25 +153,22 @@ public class KSCalc {
 
 
 	public void serializePF( int strand ) {
-		
+
 		PFAbstract pf = strand2PF.get(strand);
-		
+
 		if(pf.getRunState() == RunState.NOTSTARTED) return;
-		
-		synchronized(pf.getLock()) {
-			
-			System.out.print("\nSerializing " + pf.getCheckPointPath() + " ... " );
-			
-			ObjectIO.writeObject(pf, pf.getCheckPointPath());
-			
-			if( pf.getEpsilonStatus() == EApproxReached.FALSE ) {
-				// pf state has not been cleaned up
-				pf.writeTopConfs();
-			}
-			
-			System.out.println("Done");
-			
+
+		System.out.print("\nSerializing " + pf.getCheckPointPath() + " ... " );
+
+		pf.abort(false);
+		ObjectIO.writeObject(pf, pf.getCheckPointPath());
+
+		if( pf.getEpsilonStatus() == EApproxReached.FALSE ) {
+			// pf state has not been cleaned up
+			pf.writeTopConfs();
 		}
+
+		System.out.println("Done");	
 	}
 
 
@@ -295,8 +292,8 @@ public class KSCalc {
 			System.exit(1);
 		}
 	}
-	
-	
+
+
 	public void deleteSeqFromFile( ArrayList<String> seq, String path ) {
 
 		try {
@@ -311,7 +308,7 @@ public class KSCalc {
 					break;
 				}
 			}
-			
+
 			// write remaing lines to path
 			PrintStream out = new PrintStream(new FileOutputStream(path, false));
 			for(String line : lines) out.println(line);
