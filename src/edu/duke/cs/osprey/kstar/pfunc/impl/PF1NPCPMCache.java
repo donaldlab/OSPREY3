@@ -40,11 +40,13 @@ public class PF1NPCPMCache extends PF1NPMCache implements Serializable {
 		try {
 
 			setRunState(RunState.STARTED);
-
+			
 			// initialize parallel data structures
-			for( int it = 0; it < PFAbstract.getNumThreads(); ++it ) indexes.add(indexes.size());
+			indexes.clear();
+			for( int it = 0; it < PFAbstract.getNumThreads(); ++it ) indexes.add(it);
 			indexes.trimToSize();
 			
+			sps.clear();
 			for( int i = 0; i < indexes.size(); ++i ) sps.add(null);
 			sps.trimToSize();
 			// create sps in parallel

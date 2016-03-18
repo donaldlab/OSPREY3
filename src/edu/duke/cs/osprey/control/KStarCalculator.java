@@ -133,7 +133,10 @@ public class KStarCalculator {
 		p.getStrandSeqList().clear(); p.getStrandSeqList().add(pWT);
 		l.getStrandSeqList().clear(); l.getStrandSeqList().add(lWT);
 
-		for(ArrayList<String> seq : mutations) {
+		for(ArrayList<String> list : mutations) {
+			
+			ArrayList<String> seq = AllowedSeqs.addPosToSeq(list, pl.getFlexRes());
+			
 			if(!pl.getStrandSeqList().contains(seq)) {
 				pl.getStrandSeqList().add(seq);
 

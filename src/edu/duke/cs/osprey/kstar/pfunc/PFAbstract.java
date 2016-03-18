@@ -308,13 +308,10 @@ public abstract class PFAbstract implements Serializable {
 		if( eAppx == EApproxReached.NOT_POSSIBLE ) {
 			restart();
 			
-			if( eAppx == EApproxReached.FALSE )
-				compute();
+			if( eAppx == EApproxReached.FALSE ) compute();
 		}
 
-		if( eAppx == EApproxReached.TRUE && saveTopConfsAsPDB ) {
-			writeTopConfs();
-		}
+		if( eAppx == EApproxReached.TRUE && saveTopConfsAsPDB ) writeTopConfs();
 
 		cleanup();
 	}
@@ -350,7 +347,7 @@ public abstract class PFAbstract implements Serializable {
 			BigInteger li = l.add(BigDecimal.ONE).toBigInteger();
 			BigInteger pruningTarget = prunedConfs.subtract(li);
 
-			System.out.println("\nOld pruning window:" + pruningInterval);
+			System.out.println("\nOld pruning window: " + pruningInterval);
 			System.out.println("Number of pruned confs.: " + prunedConfs);
 			System.out.println("Pruning target: " + pruningTarget + " confs.");
 
@@ -383,6 +380,13 @@ public abstract class PFAbstract implements Serializable {
 		prunedConfs = sp.numPruned();
 
 		eAppx = EApproxReached.FALSE;
+		
+		printedHeader = false;
+		
+		// i should not need to do the next three lines. ask mark for help
+		//minimizedConfsSet.clear();
+		//qStar = BigDecimal.ZERO;
+		minimizedConfs = BigInteger.ZERO;
 
 		start();
 	}
