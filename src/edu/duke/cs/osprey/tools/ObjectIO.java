@@ -44,8 +44,7 @@ public class ObjectIO {
 			if (allowNull)
 				return null;
 			else
-				throw new RuntimeException("ERROR: Failed to read object from file "+fileName
-						+ "\n" + e.getMessage());
+				throw new RuntimeException("ERROR: Failed to read object from file " + fileName + "\n" + e.getMessage());
 		}
 
 		return inObj;

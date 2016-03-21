@@ -12,8 +12,8 @@ saveTopConfsAsPDB true
 numTopConfsToSave 5
 useMaxKSConfs false
 maxKSconfs 100000
-doKStarCheckpoint false
-KStarCheckpoint 50
+doKStarCheckpoint true
+KStarCheckpoint 1000
 
 numMutations 1
 resAllowed0_0 ASP GLU HID
@@ -28,8 +28,8 @@ pFuncStabThresh 1
 pFuncQWait false
 pFuncQCap 1024000
 pFuncMethod 1npcpmcache
-pFuncThreads 3
-numThreads 3
+pFuncThreads 2
+numThreads 2
 eMinMethod hbfgsccd
 KStarMethod linear
 KStarNumSeqs 200000

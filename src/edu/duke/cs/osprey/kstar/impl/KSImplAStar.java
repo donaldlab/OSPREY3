@@ -89,6 +89,8 @@ public class KSImplAStar extends KSAbstract {
 	@Override
 	public void run() {
 		
+		long begin = System.currentTimeMillis();
+		
 		// compute wt sequence for reference
 		wtKSCalc = computeWTCalc();
 
@@ -117,5 +119,7 @@ public class KSImplAStar extends KSAbstract {
 		System.out.println("completed: " + completed + " numExpanded: " + KUStarNode.getNumExpanded() 
 			+ " numSubSeqs: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSubSeqs()
 			+ " numSeqs: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs());
+		
+		System.out.println("K* running time: " + (System.currentTimeMillis()-begin)/1000 + " seconds\n");
 	}
 }

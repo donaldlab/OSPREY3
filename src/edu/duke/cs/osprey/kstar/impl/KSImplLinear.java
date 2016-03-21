@@ -250,7 +250,8 @@ public class KSImplLinear extends KSAbstract {
 				}
 
 				else {
-					// write checkpoint
+					// remove partition funtion from memory, write checkpoint
+					name2PF.remove(pf.getSearchProblem().name);
 					calc.serializePF(Strand.COMPLEX);
 					calc.printSummary( getCheckPointFilePath(), false );
 				}

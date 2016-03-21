@@ -278,7 +278,7 @@ public class KSCalc {
 				out.print(pf.getEffectiveEpsilon());
 
 				out.print("\t");
-				out.print(pf.getNumMinimized());
+				out.print(pf.getNumMinimized4Output());
 			}
 
 			out.println();

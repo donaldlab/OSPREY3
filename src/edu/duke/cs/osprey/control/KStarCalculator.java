@@ -79,7 +79,7 @@ public class KStarCalculator {
 	}
 
 
-	protected ArrayList<ArrayList<String>> readMutFile( String path ) throws Exception {
+	protected ArrayList<ArrayList<String>> getMutationsFromFile( String path ) throws Exception {
 
 		if( !new File(path).exists() )
 			throw new RuntimeException("ERROR: " + path + " does not exist");
@@ -99,17 +99,37 @@ public class KStarCalculator {
 			}
 		}
 
-		if(ans.size() > 0)
+		if(ans.size() > 0) {
+			// check for correct length
+			AllowedSeqs pl = strand2AllowedSeqs.get(Strand.COMPLEX);
+			
+			for(ArrayList<String> seq : ans) {
+				if(seq.size() != pl.getSequenceLength())
+					throw new RuntimeException("ERROR: sequence " + KSAbstract.arrayList1D2String(seq, " ") 
+							+ " has a the wrong length");
+			}
+			
+			// add residue numbers
+			for(int i = 0; i < ans.size(); ++i) {
+				ArrayList<String> seq = AllowedSeqs.addPosToSeq(ans.get(i), pl.getFlexRes());
+				if(!pl.isAllowed(seq)) {
+					throw new RuntimeException("ERROR: sequence " + KSAbstract.arrayList1D2String(ans.get(i), " ") + 
+							" is not allowed in the design space.\n Change resAllowed.");
+				}
+				ans.set(i, seq);
+			}
 			return ans;
+		}
+		
 		return null;
 	}
 
 
-	public ArrayList<ArrayList<String>> filterByMutFile(String path) throws Exception {
+	public ArrayList<ArrayList<String>> truncateAllowedSequences(String path) throws Exception {
 
 		// read .mut file
 		// filter list of mutations; only run those listed
-		ArrayList<ArrayList<String>> mutations = readMutFile( path );
+		ArrayList<ArrayList<String>> mutations = getMutationsFromFile( path );
 
 		if(mutations == null) 
 			return null;
@@ -120,22 +140,11 @@ public class KStarCalculator {
 
 		int plLen = pl.getSequenceLength(), pLen = p.getSequenceLength();
 
-		if(mutations.get(0).size() != plLen) {
-			throw new RuntimeException("ERROR: mutfile sequences have length " + mutations.get(0).size()
-					+ " but sequences in this design have length " + plLen);
-		}
+		pl.getStrandSeqList().clear(); pl.getStrandSeqList().add(pl.getWTSeq());
+		p.getStrandSeqList().clear(); p.getStrandSeqList().add(p.getWTSeq());
+		l.getStrandSeqList().clear(); l.getStrandSeqList().add(l.getWTSeq());
 
-		ArrayList<String> plWT = pl.getStrandSeqAtPos(0);
-		ArrayList<String> pWT = p.getStrandSeqAtPos(0);
-		ArrayList<String> lWT = l.getStrandSeqAtPos(0);
-
-		pl.getStrandSeqList().clear(); pl.getStrandSeqList().add(plWT);
-		p.getStrandSeqList().clear(); p.getStrandSeqList().add(pWT);
-		l.getStrandSeqList().clear(); l.getStrandSeqList().add(lWT);
-
-		for(ArrayList<String> list : mutations) {
-			
-			ArrayList<String> seq = AllowedSeqs.addPosToSeq(list, pl.getFlexRes());
+		for(ArrayList<String> seq : mutations) {
 			
 			if(!pl.getStrandSeqList().contains(seq)) {
 				pl.getStrandSeqList().add(seq);
@@ -176,7 +185,7 @@ public class KStarCalculator {
 
 			String mutFilePath = cfp.getParams().getValue("mutfile", "");
 			if(mutFilePath.length() > 0) {
-				filterByMutFile(mutFilePath);
+				truncateAllowedSequences(mutFilePath);
 			}
 
 			String ksMethod = cfp.getParams().getValue("kstarmethod", "linear");

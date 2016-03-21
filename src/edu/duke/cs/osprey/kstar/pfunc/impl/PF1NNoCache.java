@@ -141,7 +141,7 @@ public class PF1NNoCache extends PFAbstract implements Serializable {
 		if( !printedHeader ) printHeader();
 
 		System.out.println(E + "\t" + effectiveEpsilon + "\t" 
-				+ getNumMinimized() + "\t" + getNumUnEnumerated() + "\t"+ (currentTime-startTime)/1000);
+				+ getNumMinimized4Output() + "\t" + getNumUnEnumerated() + "\t"+ (currentTime-startTime)/1000);
 
 		eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
 	}

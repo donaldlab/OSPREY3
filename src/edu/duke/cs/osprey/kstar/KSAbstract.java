@@ -362,12 +362,6 @@ public abstract class KSAbstract implements KSInterface {
 
 				ans.put(strand, pf);
 			}
-
-			// don't keep complex pfs in memory, in case we are doing round robin
-			if(strand == Strand.COMPLEX) {
-				name2SP.remove(spName);
-				name2PF.remove(spName);
-			}
 		}
 
 		if(ans.size() != 3)
@@ -539,7 +533,7 @@ public abstract class KSAbstract implements KSInterface {
 
 
 	protected ArrayList<String> getWTSeq() {
-		if( wtSeq == null ) wtSeq = strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSeqList().get(0);
+		if( wtSeq == null ) wtSeq = strand2AllowedSeqs.get(Strand.COMPLEX).getWTSeq();
 		return wtSeq;
 	}
 
@@ -557,7 +551,7 @@ public abstract class KSAbstract implements KSInterface {
 	protected BigInteger countMinimizedConfs() {
 
 		BigInteger ans = BigInteger.ZERO;
-		for(PFAbstract pf : name2PF.values()) ans = ans.add(pf.getNumMinimized());
+		for(PFAbstract pf : name2PF.values()) ans = ans.add(pf.getNumMinimized4Output());
 		return ans;
 	}
 

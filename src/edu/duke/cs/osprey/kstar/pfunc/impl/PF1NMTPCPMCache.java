@@ -9,7 +9,6 @@ import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.kstar.KSConf;
 import edu.duke.cs.osprey.kstar.KSConfQ;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
-import edu.duke.cs.osprey.tools.ObjectIO;
 
 
 /**
@@ -49,8 +48,7 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache implements Serializable {
 		slaves.clear();
 		for( int i = 0; i < fibers; ++i ) {
 
-			ArrayList<SearchProblem> sps = new ArrayList<>();
-			for( int j = 0; j < threadsPerFiber; ++j ) sps.add((SearchProblem)ObjectIO.deepCopy(sp));
+			ArrayList<SearchProblem> sps = parallelCreateSPs(sp, threadsPerFiber);
 
 			slaves.add( new MinimizerFiber( sps, threadsPerFiber, confsPerThread ) );
 

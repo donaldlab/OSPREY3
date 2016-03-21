@@ -34,6 +34,25 @@ public class PF1NPCPMCache extends PF1NPMCache implements Serializable {
 		sps.clear();
 	}
 
+	
+	protected ArrayList<SearchProblem> parallelCreateSPs( SearchProblem sp, int replicates ) {
+		ArrayList<SearchProblem> ans = new ArrayList<>();
+		ArrayList<Integer> indexes = new ArrayList<>();
+		for(int i = 0; i < replicates; ++i) {
+			indexes.add(i);
+			ans.add(null);
+		}
+		
+		indexes.parallelStream().forEach(i -> {
+			ans.set(i, (SearchProblem)ObjectIO.deepCopy(sp));
+		});
+		
+		indexes.trimToSize();
+		ans.trimToSize();
+		
+		return ans;
+	}
+	
 
 	public void start() {
 
@@ -47,12 +66,7 @@ public class PF1NPCPMCache extends PF1NPMCache implements Serializable {
 			indexes.trimToSize();
 			
 			sps.clear();
-			for( int i = 0; i < indexes.size(); ++i ) sps.add(null);
-			sps.trimToSize();
-			// create sps in parallel
-			indexes.parallelStream().forEach(i -> {
-				sps.set(i, (SearchProblem)ObjectIO.deepCopy(sp));
-			});
+			sps = parallelCreateSPs(sp, indexes.size());
 
 			partialQConfs.clear();
 			for( int it = 0; it < indexes.size(); ++it ) partialQConfs.add(null);
@@ -158,7 +172,7 @@ public class PF1NPCPMCache extends PF1NPMCache implements Serializable {
 			if( !printedHeader ) printHeader();
 
 			System.out.println(E + "\t" + effectiveEpsilon + "\t" + 
-					getNumMinimized() + "\t" + getNumUnEnumerated() + "\t" + confs.size() + "\t" + ((currentTime-startTime)/1000));
+					getNumMinimized4Output() + "\t" + getNumUnEnumerated() + "\t" + confs.size() + "\t" + ((currentTime-startTime)/1000));
 
 			eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
 		}

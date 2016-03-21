@@ -37,6 +37,7 @@ public abstract class PFAbstract implements Serializable {
 	protected static int numRemoteClients = 1;
 
 	protected boolean printedHeader = false;
+	protected boolean restarted = false;
 
 	public static boolean saveTopConfsAsPDB = false;
 	protected static int numTopConfsToSave = 10;
@@ -382,6 +383,7 @@ public abstract class PFAbstract implements Serializable {
 		eAppx = EApproxReached.FALSE;
 		
 		printedHeader = false;
+		restarted = true;
 		
 		// i should not need to do the next three lines. ask mark for help
 		//minimizedConfsSet.clear();
@@ -426,6 +428,15 @@ public abstract class PFAbstract implements Serializable {
 
 	public BigInteger getNumMinimized() {
 		return minimizedConfs;
+	}
+	
+	
+	// ugly hack to count number of minimized confs after a re-start occurs
+	// used only for output purposes
+	public BigInteger getNumMinimized4Output() {
+		BigInteger numMinimized = getNumMinimized();
+		if(restarted) numMinimized = numMinimized.add(BigInteger.valueOf(getMinimizedConfsSet().size()));
+		return numMinimized;
 	}
 
 

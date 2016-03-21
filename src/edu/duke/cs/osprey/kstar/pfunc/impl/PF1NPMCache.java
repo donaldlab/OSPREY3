@@ -211,9 +211,9 @@ public class PF1NPMCache extends PFAbstract implements Serializable {
 			long currentTime = System.currentTimeMillis();
 
 			if( !printedHeader ) printHeader();
-
+			
 			System.out.println(E + "\t" + effectiveEpsilon + "\t" + 
-					getNumMinimized() + "\t" + getNumUnEnumerated() + "\t" + confs.size() + "\t" + ((currentTime-startTime)/1000));
+					getNumMinimized4Output() + "\t" + getNumUnEnumerated() + "\t" + confs.size() + "\t" + ((currentTime-startTime)/1000));
 
 			eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
 		}

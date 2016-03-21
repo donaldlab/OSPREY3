@@ -16,7 +16,7 @@ public class AllowedSeqs {
 	private ArrayList<String> wt;
 	private int dist;
 	private int strand;
-	private int maxSequences = (int)Math.pow(2, 27);
+	private int maxSequences = (int)Math.pow(2, 28);
 	ArrayList<ArrayList<String>> allowedSeqs = null;
 	ArrayList<HashSet<ArrayList<String>>> allowedSubSeqs = null;
 
@@ -60,7 +60,7 @@ public class AllowedSeqs {
 			this.allowedSeqs.add( new ArrayList<String>( seq.subList(lb, ub) ) );
 		}
 	}
-
+	
 
 	public static ArrayList<ArrayList<String>> removePosFromAllowedAAs(ArrayList<ArrayList<String>> in) {
 		@SuppressWarnings("unchecked")
@@ -155,6 +155,30 @@ public class AllowedSeqs {
 		return ans;
 	}
 
+	
+	public int getFlexPosIndex( String res ) {
+		for(int index = 0; index < flexRes.size(); ++index) {
+			if(res.contains(flexRes.get(index))) return index;
+		}
+		return Integer.MIN_VALUE;
+	}
+	
+	
+	public boolean isAllowed( String res ) {
+		int pos;
+		if((pos = getFlexPosIndex(res)) == Integer.MIN_VALUE) return false;
+		
+		return allowedAAs.get(pos).contains(res);
+	}
+	
+	
+	public boolean isAllowed( ArrayList<String> seq ) {
+		for(String res : seq) {
+			if(!isAllowed(res)) return false;
+		}
+		return true;
+	}
+	
 
 	public int getStrand() {
 		return strand;
@@ -400,9 +424,11 @@ public class AllowedSeqs {
 					aasAtPos.add(aa);
 			}
 
+			aasAtPos.trimToSize();
 			newAllowedAAs.add(aasAtPos);
 		}
 
+		newAllowedAAs.trimToSize();
 		allowedAAs = newAllowedAAs;
 	}
 
@@ -555,16 +581,7 @@ public class AllowedSeqs {
 	}
 
 
-	private boolean containsWT() {
-		boolean ans = allowedSeqs.contains(wt);
-		return ans;
-	}
-
-
-	protected void addWTToAllowedSeqs() {
-		if( containsWT() )
-			allowedSeqs.remove(wt);
-
-		allowedSeqs.add(0, wt);
+	public ArrayList<String> getWTSeq() {
+		return wt;
 	}
 }
