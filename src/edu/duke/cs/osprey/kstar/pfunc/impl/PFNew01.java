@@ -18,14 +18,14 @@ import edu.duke.cs.osprey.tools.ObjectIO;
  *
  */
 @SuppressWarnings("serial")
-public class PF1NPMCache extends PFAbstract implements Serializable {
+public class PFNew01 extends PFAbstract implements Serializable {
 
 	// temp for benchmarking
 	protected long startTime;
 
 	protected KSConfQ confs = null;
 
-	public PF1NPMCache( ArrayList<String> sequence, String checkPointPath, 
+	public PFNew01( ArrayList<String> sequence, String checkPointPath, 
 			ConfigFileParser cfp, SearchProblem sp, double EW_I0 ) {
 
 		super( sequence, checkPointPath, cfp, sp, EW_I0 );
@@ -210,11 +210,13 @@ public class PF1NPMCache extends PFAbstract implements Serializable {
 
 			long currentTime = System.currentTimeMillis();
 
-			if( !printedHeader ) printHeader();
-			
-			System.out.println(E + "\t" + effectiveEpsilon + "\t" + 
-					getNumMinimized4Output() + "\t" + getNumUnEnumerated() + "\t" + confs.size() + "\t" + ((currentTime-startTime)/1000));
+			if( !PFAbstract.suppressOutput ) {
+				if( !printedHeader ) printHeader();
 
+				System.out.println(E + "\t" + effectiveEpsilon + "\t" + 
+						getNumMinimized4Output() + "\t" + getNumUnEnumerated() + "\t" + confs.size() + "\t" + ((currentTime-startTime)/1000));
+			}
+			
 			eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
 		}
 
@@ -231,7 +233,7 @@ public class PF1NPMCache extends PFAbstract implements Serializable {
 
 
 	protected double computeEffectiveEpsilon() {
-		
+
 		BigDecimal qPrimePStar = qPrime.add(pStar);
 
 		if(qPrimePStar.compareTo(confs.getCapacityThresh().multiply(confs.getQDagger())) < 0)
@@ -295,5 +297,10 @@ public class PF1NPMCache extends PFAbstract implements Serializable {
 			e.printStackTrace();
 			System.exit(1);
 		}
+	}
+
+
+	public String getImpl() {
+		return "new01";
 	}
 }

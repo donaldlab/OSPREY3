@@ -47,6 +47,15 @@ public class KSCalc {
 	}
 
 
+	protected boolean unboundIsStable(PFAbstract wtPF, PFAbstract calcPF) {
+
+		if(calcPF.getUpperBound().compareTo( wtPF.getQStar().multiply(PFAbstract.getStabilityThresh()) ) >= 0)
+			return true;
+
+		return false;
+	}
+
+
 	public EApproxReached getEpsilonStatus() {
 
 		PFAbstract pl = strand2PF.get(Strand.COMPLEX);
@@ -71,76 +80,49 @@ public class KSCalc {
 	}
 
 
+	public void runPF(PFAbstract calcPF, PFAbstract wtPF, boolean complete) {
+
+		// this method applies to non-complex strands
+		if( calcPF.getRunState() == RunState.NOTSTARTED ) {
+			System.out.println("\nInitializing partition function for " + KSAbstract.list1D2String(calcPF.getSequence(), " "));
+			calcPF.start();
+		}
+
+		if( calcPF.getEpsilonStatus() == EApproxReached.FALSE ) {
+			if(complete) {
+				System.out.println("\nComputing partition function for " + KSAbstract.list1D2String(calcPF.getSequence(), " ") + "\n");
+				calcPF.runToCompletion();
+			}
+
+			else {
+				System.out.println("\nResuming partition function for " + KSAbstract.list1D2String(calcPF.getSequence(), " ") + "\n");
+				calcPF.runSlice(KSAbstract.checkpointInterval);
+			}
+		}
+
+		if( getEpsilonStatus() == EApproxReached.NOT_POSSIBLE ) return;
+
+		// wtPF is null for complex strand
+		if( wtPF != null && !unboundIsStable(wtPF, calcPF) ) {
+			calcPF.setEpsilonStatus( EApproxReached.NOT_STABLE );
+			System.out.println("\nSequence " + KSAbstract.list1D2String(calcPF.getSequence(), " ") + " is unstable\n");
+			return;
+		}
+
+	}
+
+
 	public void run(KSCalc wtKSCalc) {
 
 		ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Strand.LIGAND, 
 				Strand.PROTEIN, Strand.COMPLEX));
 
 		for( int strand : strands ) {
-
 			if( getEpsilonStatus() != EApproxReached.FALSE ) return;
-
-			PFAbstract pf = getPF(strand);
-			ArrayList<String> seq = pf.getSequence();
-
-			if( pf.getRunState() == RunState.NOTSTARTED ) {
-				System.out.println("\nInitializing partition function for " + KSAbstract.arrayList1D2String(seq, " "));
-				pf.start();
-			}
-
-			if( pf.getEpsilonStatus() == EApproxReached.FALSE ) {
-				System.out.println("\nComputing partition function for " + KSAbstract.arrayList1D2String(seq, " ") + "\n");
-				pf.runToCompletion();
-			}
-
-			if( getEpsilonStatus() == EApproxReached.NOT_POSSIBLE ) return;
-
-			if( strand != Strand.COMPLEX && !unboundIsStable(wtKSCalc, strand) ) {
-				pf.setEpsilonStatus( EApproxReached.NOT_STABLE );
-				System.out.println("\nSequence " + KSAbstract.arrayList1D2String(seq, " ") + " is unstable\n");
-				return;
-			}
-		}
-	}
-
-
-	public void run(KSCalc wtKSCalc, long target) {
-
-		ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Strand.LIGAND, 
-				Strand.PROTEIN, Strand.COMPLEX));
-
-		for( int strand : strands ) {
-
-			if( getEpsilonStatus() != EApproxReached.FALSE ) return;
-
-			PFAbstract pf = getPF(strand);
-			ArrayList<String> seq = pf.getSequence();
-
-			if( pf.getRunState() == RunState.NOTSTARTED ) {
-				System.out.println("\nInitializing partition function for " + KSAbstract.arrayList1D2String(seq, " "));
-				pf.start();
-			}
-
-			if( pf.getEpsilonStatus() == EApproxReached.FALSE ) {
-
-				if(strand != Strand.COMPLEX) { 
-					System.out.println("\nComputing partition function for " + KSAbstract.arrayList1D2String(seq, " ") + "\n");
-					pf.runToCompletion();
-				}
-
-				else {
-					System.out.println("\nResuming partition function for " + KSAbstract.arrayList1D2String(seq, " ") + "\n");
-					pf.runSlice(target);
-				}
-			}
-
-			if( getEpsilonStatus() == EApproxReached.NOT_POSSIBLE ) return;
-
-			if( strand != Strand.COMPLEX && !unboundIsStable(wtKSCalc, strand) ) {
-				pf.setEpsilonStatus( EApproxReached.NOT_STABLE );
-				System.out.println("\nSequence " + KSAbstract.arrayList1D2String(seq, " ") + " is unstable\n");
-				return;
-			}
+			
+			boolean complete = KSAbstract.doCheckpoint && strand == Strand.COMPLEX ? false : true;
+			PFAbstract wtPF = strand == Strand.COMPLEX ? null : wtKSCalc.getPF(strand);
+			runPF(getPF(strand), wtPF, complete);
 		}
 	}
 
@@ -253,7 +235,7 @@ public class KSCalc {
 			out.print(seqID);
 
 			out.print("\t");
-			out.print(KSAbstract.arrayList1D2String(getPF(Strand.COMPLEX).getSequence(), " "));
+			out.print(KSAbstract.list1D2String(getPF(Strand.COMPLEX).getSequence(), " "));
 
 			out.print("\t");
 			out.print( ObjectIO.formatBigDecimal(getKStarScore(), precision) );
@@ -298,9 +280,9 @@ public class KSCalc {
 
 		try {
 
-			String strSeq = KSAbstract.arrayList1D2String(seq, " ");
+			String strSeq = KSAbstract.list1D2String(seq, " ");
 
-			ArrayList<String> lines = KSAbstract.file2ArrayList(path);
+			ArrayList<String> lines = KSAbstract.file2List(path);
 
 			for( String line : lines ) {
 				if( line.contains(strSeq) ) {

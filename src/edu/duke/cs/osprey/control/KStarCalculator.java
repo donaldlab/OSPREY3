@@ -53,7 +53,7 @@ public class KStarCalculator {
 		PFAbstract.waitUntilCapacity = cfp.getParams().getBool("pFuncQWait", false);
 
 		PFAbstract.eMinMethod = cfp.getParams().getValue("eMinMethod", "ccd");
-		PFAbstract.setImpl(cfp.getParams().getValue("pFuncMethod", "1npcpmcache"));
+		PFAbstract.setCFGImpl(cfp.getParams().getValue("pFuncMethod", "new02"));
 		PFAbstract.setStabilityThresh( cfp.getParams().getDouble("pFuncStabThresh", 0.00001) );
 		PFAbstract.setConfsThreadBuffer( cfp.getParams().getInt("pFuncConfsThreadBuffer", 4) );
 		PFAbstract.setNumFibers( cfp.getParams().getInt("pFuncFibers", 1) );
@@ -105,7 +105,7 @@ public class KStarCalculator {
 			
 			for(ArrayList<String> seq : ans) {
 				if(seq.size() != pl.getSequenceLength())
-					throw new RuntimeException("ERROR: sequence " + KSAbstract.arrayList1D2String(seq, " ") 
+					throw new RuntimeException("ERROR: sequence " + KSAbstract.list1D2String(seq, " ") 
 							+ " has a the wrong length");
 			}
 			
@@ -113,7 +113,7 @@ public class KStarCalculator {
 			for(int i = 0; i < ans.size(); ++i) {
 				ArrayList<String> seq = AllowedSeqs.addPosToSeq(ans.get(i), pl.getFlexRes());
 				if(!pl.isAllowed(seq)) {
-					throw new RuntimeException("ERROR: sequence " + KSAbstract.arrayList1D2String(ans.get(i), " ") + 
+					throw new RuntimeException("ERROR: sequence " + KSAbstract.list1D2String(ans.get(i), " ") + 
 							" is not allowed in the design space.\n Change resAllowed.");
 				}
 				ans.set(i, seq);

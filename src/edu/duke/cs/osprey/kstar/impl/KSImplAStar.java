@@ -60,7 +60,7 @@ public class KSImplAStar extends KSAbstract {
 
 									SearchProblem seqSP = null;			
 									if( (seqSP = name2SP.get(spName)) == null ) {
-										seqSP = createSingleSeqSPFast( contSCFlex, strand, seq, flexResIndexes );
+										seqSP = createSingleSeqSP( contSCFlex, strand, seq, flexResIndexes, true );
 									}
 
 									name2SP.put(spName, seqSP);
@@ -98,7 +98,7 @@ public class KSImplAStar extends KSAbstract {
 		KUStarTree tree = new KUStarTree(this, strand2AllowedSeqs, wtKSCalc);
 
 		// add root node
-		tree.add( new KUStarNode(null, true) );
+		tree.add( new KUStarNode(null, null, true) );
 
 		int numSeqs = cfp.getParams().getInt("KStarNumSeqs", 5);
 		int completed = 0;

@@ -17,14 +17,14 @@ import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
  *
  */
 @SuppressWarnings("serial")
-public class PF1NNoCache extends PFAbstract implements Serializable {
+public class PFTrad extends PFAbstract implements Serializable {
 
 	protected ConfSearch search;
 
 	// temp for benchmarking
 	protected long startTime;
 
-	public PF1NNoCache( ArrayList<String> sequence, String checkPointPath, 
+	public PFTrad( ArrayList<String> sequence, String checkPointPath, 
 			ConfigFileParser cfp, SearchProblem sp, double EW_I0 ) {
 
 		super( sequence, checkPointPath, cfp, sp, EW_I0 );
@@ -138,10 +138,12 @@ public class PF1NNoCache extends PFAbstract implements Serializable {
 
 		long currentTime = System.currentTimeMillis();
 
-		if( !printedHeader ) printHeader();
+		if( !PFAbstract.suppressOutput ) {
+			if( !printedHeader ) printHeader();
 
-		System.out.println(E + "\t" + effectiveEpsilon + "\t" 
-				+ getNumMinimized4Output() + "\t" + getNumUnEnumerated() + "\t"+ (currentTime-startTime)/1000);
+			System.out.println(E + "\t" + effectiveEpsilon + "\t" 
+					+ getNumMinimized4Output() + "\t" + getNumUnEnumerated() + "\t"+ (currentTime-startTime)/1000);
+		}
 
 		eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
 	}
@@ -153,6 +155,17 @@ public class PF1NNoCache extends PFAbstract implements Serializable {
 				"\t" + "#un-enum" + "\t" + "time(sec)");
 
 		printedHeader = true;
+	}
+
+
+	public String getImpl() {
+		return "trad";
+	}
+	
+	
+	public void cleanup() {
+		super.cleanup();
+		search = null;
 	}
 
 }

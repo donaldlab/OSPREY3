@@ -103,7 +103,7 @@ public abstract class KSAbstract implements KSInterface {
 	}
 
 
-	public static String arrayList1D2String(ArrayList<String> seq, String separator) {
+	public static String list1D2String(ArrayList<String> seq, String separator) {
 		StringBuilder ans = new StringBuilder();
 		for( int i = 0; i < seq.size(); ++i ) {
 			if(i > 0) ans.append(separator);
@@ -114,7 +114,27 @@ public abstract class KSAbstract implements KSInterface {
 	}
 
 
-	public static ArrayList<ArrayList<String>> arrayList1D2ListOfLists(ArrayList<String> list) {
+	public static ArrayList<String> file2List( String path ) {
+		ArrayList<String> ans = new ArrayList<String>();
+
+		try {
+			if( !new File(path).exists() ) return ans;
+
+			Scanner s = new Scanner(new File(path));
+			while (s.hasNextLine()) ans.add(s.nextLine());
+			s.close();
+
+		} catch (Exception e) {
+			System.out.println(e.getMessage());
+			e.printStackTrace();
+			System.exit(1);
+		}
+
+		return ans;
+	}
+
+
+	public static ArrayList<ArrayList<String>> list1D2ListOfLists(ArrayList<String> list) {
 		ArrayList<ArrayList<String>> ans = new ArrayList<>();
 		for( String s : list ) {
 			ArrayList<String> newList = new ArrayList<>();
@@ -151,12 +171,12 @@ public abstract class KSAbstract implements KSInterface {
 
 
 	public String getSearchProblemName(boolean contSCFlex, int strand, ArrayList<String> seq) {
-		return getSearchProblemName(contSCFlex, strand) + "." + arrayList1D2String(seq, ".");
+		return getSearchProblemName(contSCFlex, strand) + "." + list1D2String(seq, ".");
 	}
 
 
-	public String getCheckPointName(boolean contSCFlex, int strand, ArrayList<String> seq) {
-		return getCheckPointName(contSCFlex, strand) + "." + arrayList1D2String(seq, ".") + ".checkpoint";
+	public String getCheckPointName(boolean contSCFlex, int strand, ArrayList<String> seq, String pfImpl) {
+		return getCheckPointName(contSCFlex, strand) + "." + list1D2String(seq, ".") + "." + pfImpl +".checkpoint";
 	}
 
 
@@ -169,7 +189,7 @@ public abstract class KSAbstract implements KSInterface {
 		System.out.println("\nPreparing to compute K* for the following sequences:");
 		int i = 0;
 		for(ArrayList<String> al : strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSeqList()) {
-			System.out.println(i++ + "\t" + arrayList1D2String(al, " "));
+			System.out.println(i++ + "\t" + list1D2String(al, " "));
 		}
 		System.out.println();
 	}
@@ -275,8 +295,31 @@ public abstract class KSAbstract implements KSInterface {
 		return;
 	}
 
-	
-	protected ConcurrentHashMap<Integer, PFAbstract> createPFsForSeq(ArrayList<ArrayList<String>> seqs, 
+
+	protected PFAbstract createPF4Seq(boolean contSCFlex, int strand, ArrayList<String> seq, String pfImpl) {
+		PFAbstract ans = null;
+
+		String spName = getSearchProblemName(contSCFlex, strand, seq);
+		String cpName = getCheckPointName(contSCFlex, strand, seq, pfImpl);
+
+		if( (ans = name2PF.get(spName)) != null ) return ans;
+
+		if( (ans = deSerializePF(spName, cpName)) != null ) return ans;
+
+		ArrayList<Integer> flexResIndexes = strand2AllowedSeqs.get(strand).getFlexResIndexesFromSeq(seq);
+
+		// create searchproblem
+		SearchProblem seqSP = name2SP.get(spName);
+		seqSP = seqSP != null ? seqSP : createSingleSeqSP(contSCFlex, strand, seq, flexResIndexes, true);
+
+		// create partition function
+		ans = PFFactory.getPartitionFunction(pfImpl, seq, cpName, cfp, seqSP, EW+I0);
+
+		return ans;
+	}
+
+
+	protected ConcurrentHashMap<Integer, PFAbstract> createPFs4Seq(ArrayList<ArrayList<String>> seqs, 
 			ArrayList<Boolean> contSCFlexVals, ArrayList<String> pfImplVals) {
 
 		ConcurrentHashMap<Integer, PFAbstract> ans = new ConcurrentHashMap<>();
@@ -286,37 +329,22 @@ public abstract class KSAbstract implements KSInterface {
 		for(int i = 0; i < strands.size(); i++) indexes.add(i);
 
 		indexes.parallelStream().forEach((index) -> {
-			// for(int index = 0; index < strands.length; ++index) {
+			//for(int index = 0; index < strands.size(); ++index) {
 
 			int strand = strands.get(index);
-			boolean contSCFlex = contSCFlexVals.get(index);
-			String pfImpl = pfImplVals.get(index);
-
-			AllowedSeqs strandSeqs = strand2AllowedSeqs.get(strand);
+			boolean contSCFlex = contSCFlexVals.get(strand);
+			String pfImpl = pfImplVals.get(strand);
 
 			ArrayList<String> seq = seqs.get(strand);
 			String spName = getSearchProblemName(contSCFlex, strand, seq);
-			String cpName = getCheckPointName(contSCFlex, strand, seq);
+			String cpName = getCheckPointName(contSCFlex, strand, seq, pfImpl);
 
 			if( name2PF.get(spName) == null && deSerializePF(spName, cpName) == null ) {
-
-				ArrayList<Integer> flexResIndexes = strandSeqs.getFlexResIndexesFromSeq(seq);
-
-				// create searchproblem
-				SearchProblem seqSP = name2SP.get(spName);
-				seqSP = seqSP != null ? seqSP : createSingleSeqSPFast(contSCFlex, strand, seq, flexResIndexes);
-
-				// create partition function
-				PFAbstract pf = PFFactory.getPartitionFunction( 
-						pfImpl,
-						seq,
-						cpName,
-						cfp, 
-						seqSP, 
-						EW+I0);
-
+				
+				PFAbstract pf = createPF4Seq(contSCFlex, strand, seq, pfImpl);
+				
 				// put partition function in global map
-				name2PF.put(seqSP.name, pf);
+				name2PF.put(pf.getSearchProblem().name, pf);
 
 				// put in local map
 				ans.put(strand, pf);
@@ -329,7 +357,7 @@ public abstract class KSAbstract implements KSInterface {
 					pf.getPruningControl(EW+I0).prune();
 				}
 
-				if(seqSP.numUnPruned().compareTo(BigInteger.ZERO) == 0) {
+				if(pf.getSearchProblem().numUnPruned().compareTo(BigInteger.ZERO) == 0) {
 					// no conformations in search space, so this cannot give a valid
 					// partition function
 					pf.setEpsilonStatus(EApproxReached.NOT_POSSIBLE);
@@ -337,7 +365,7 @@ public abstract class KSAbstract implements KSInterface {
 
 				else {	
 					if(!prunedSingleSeqs && KSAbstract.refinePInterval)
-						refinePruningInterval(seqSP);
+						refinePruningInterval(pf.getSearchProblem());
 
 					// initialize conf counts for K*
 					pf.setNumUnPruned();
@@ -351,7 +379,7 @@ public abstract class KSAbstract implements KSInterface {
 		for( int index : indexes ) {
 
 			int strand = strands.get(index);
-			boolean contSCFlex = contSCFlexVals.get(index);
+			boolean contSCFlex = contSCFlexVals.get(strand);
 
 			ArrayList<String> seq = seqs.get(strand);
 			String spName = getSearchProblemName(contSCFlex, strand, seq);
@@ -371,9 +399,18 @@ public abstract class KSAbstract implements KSInterface {
 	}
 
 
-	protected SearchProblem createSingleSeqSPSlow( boolean contSCFlex, int strand, ArrayList<String> seq ) {
+	protected SearchProblem createSingleSeqSP( boolean contSCFlex, int strand, 
+			ArrayList<String> seq, ArrayList<Integer> flexResIndexes, boolean fast ) {
 
-		ArrayList<ArrayList<String>> allowedAAs = arrayList1D2ListOfLists(AllowedSeqs.getAAsFromSeq(seq));
+		if(fast) return createSingleSeqSPFast(contSCFlex, strand, seq, flexResIndexes);
+
+		return createSingleSeqSPSlow(contSCFlex, strand, seq);
+	}
+
+
+	private SearchProblem createSingleSeqSPSlow( boolean contSCFlex, int strand, ArrayList<String> seq ) {
+
+		ArrayList<ArrayList<String>> allowedAAs = list1D2ListOfLists(AllowedSeqs.getAAsFromSeq(seq));
 		ArrayList<String> flexibleRes = AllowedSeqs.getFlexResFromSeq(seq);
 		ArrayList<String[]> moveableStrands = strand2AllowedSeqs.get(strand).getMoveableStrandTermini();
 		ArrayList<String[]> freeBBZones = strand2AllowedSeqs.get(strand).getFreeBBZoneTermini();
@@ -401,7 +438,7 @@ public abstract class KSAbstract implements KSInterface {
 	}
 
 
-	protected SearchProblem createSingleSeqSPFast( boolean contSCFlex, int strand, 
+	private SearchProblem createSingleSeqSPFast( boolean contSCFlex, int strand, 
 			ArrayList<String> seq, ArrayList<Integer> flexResIndexes ) {
 
 		String panName = getSearchProblemName(contSCFlex, strand);
@@ -493,7 +530,7 @@ public abstract class KSAbstract implements KSInterface {
 
 			ans = InetAddress.getLocalHost().getHostName()
 					+ "." + getKSMethod()
-					+ "." + PFAbstract.getImpl()
+					+ "." + PFAbstract.getCFGImpl()
 					+ ".txt";
 
 		} catch (Exception e) {
@@ -581,17 +618,13 @@ public abstract class KSAbstract implements KSInterface {
 		// compute wt sequence for reference
 		ArrayList<ArrayList<String>> strandSeqs = getStrandStringsAtPos(0);		
 		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(true, true, true));
-		ArrayList<String> pfImplVals = new ArrayList<String>(Arrays.asList(PFAbstract.getImpl(), PFAbstract.getImpl(), PFAbstract.getImpl()));
+		ArrayList<String> pfImplVals = new ArrayList<String>(Arrays.asList(PFAbstract.getCFGImpl(), 
+				PFAbstract.getCFGImpl(), PFAbstract.getCFGImpl()));
 
-		ConcurrentHashMap<Integer, PFAbstract> pfs = createPFsForSeq(strandSeqs, contSCFlexVals, pfImplVals);
+		ConcurrentHashMap<Integer, PFAbstract> pfs = createPFs4Seq(strandSeqs, contSCFlexVals, pfImplVals);
 		KSCalc calc = new KSCalc(0, pfs);
 		calc.run(calc);
-		
-		//calc.run(calc, KSAbstract.checkpointInterval);
-		//calc.serializePFs();
-		//calc.printSummary( getCheckPointFilePath(), true );
-		//System.exit(1);
-			
+
 		if(calc.getEpsilonStatus() != EApproxReached.TRUE)
 			throw new RuntimeException("ERROR: could not compute the wild-type sequence to an epsilon value of "
 					+ PFAbstract.targetEpsilon + ". Change the value of epsilon." );
@@ -616,6 +649,8 @@ public abstract class KSAbstract implements KSInterface {
 
 	protected PFAbstract deSerializePF( String spName, String path ) {
 
+		if( !KSAbstract.doCheckpoint ) return null;
+		
 		if( !new File(path).exists() ) return null;
 
 		PFAbstract ans = (PFAbstract) ObjectIO.readObject(path, true);
@@ -629,11 +664,11 @@ public abstract class KSAbstract implements KSInterface {
 	protected ArrayList<ArrayList<String>> getSeqsFromFile(String path) {
 
 		ArrayList<ArrayList<String>> ans = new ArrayList<>();
-		ArrayList<String> lines = file2ArrayList(path);
+		ArrayList<String> lines = file2List(path);
 		if(lines.size() == 0) return ans;
 
 		for( ArrayList<String> seq : strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSeqList() ) {
-			String strSeq = KSAbstract.arrayList1D2String(seq, " ");
+			String strSeq = KSAbstract.list1D2String(seq, " ");
 
 			for(String line : lines) {
 				if(line.contains(strSeq)) {
@@ -643,26 +678,6 @@ public abstract class KSAbstract implements KSInterface {
 			}
 		}
 
-
-		return ans;
-	}
-
-
-	public static ArrayList<String> file2ArrayList( String path ) {
-		ArrayList<String> ans = new ArrayList<String>();
-
-		try {
-			if( !new File(path).exists() ) return ans;
-
-			Scanner s = new Scanner(new File(path));
-			while (s.hasNextLine()) ans.add(s.nextLine());
-			s.close();
-
-		} catch (Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
-		}
 
 		return ans;
 	}

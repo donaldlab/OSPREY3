@@ -25,8 +25,14 @@ import edu.duke.cs.osprey.tools.ObjectIO;
 @SuppressWarnings("serial")
 public abstract class PFAbstract implements Serializable {
 
+	public static enum EApproxReached { TRUE, FALSE, NOT_POSSIBLE, NOT_STABLE }
+	protected EApproxReached eAppx = EApproxReached.FALSE;
+
+	public static enum RunState { NOTSTARTED, STARTED }
+	protected RunState runState = RunState.NOTSTARTED;
+	
 	protected ArrayList<String> sequence;
-	protected static String pFuncImplementation = "1npmcache";
+	protected static String pFuncCFGImpl = "trad";
 	public static String eMinMethod = "ccd";
 	protected static ArrayList<String> serverList = new ArrayList<>();
 	protected static int threadConfsBuffer = 8;
@@ -36,6 +42,7 @@ public abstract class PFAbstract implements Serializable {
 	protected static int numFibers = 1;
 	protected static int numRemoteClients = 1;
 
+	public static boolean suppressOutput = false;
 	protected boolean printedHeader = false;
 	protected boolean restarted = false;
 
@@ -52,12 +59,6 @@ public abstract class PFAbstract implements Serializable {
 	protected static final double RT = 1.9891/1000.0 * 298.15;
 	public static double targetEpsilon = 0.03;
 	protected double effectiveEpsilon = 1.0;
-
-	public static enum EApproxReached { TRUE, FALSE, NOT_POSSIBLE, NOT_STABLE }
-	protected EApproxReached eAppx = EApproxReached.FALSE;
-
-	public static enum RunState { NOTSTARTED, STARTED }
-	protected RunState runState = RunState.NOTSTARTED;
 
 	protected ConfigFileParser cfp = null;
 	protected SearchProblem sp = null;
@@ -93,7 +94,7 @@ public abstract class PFAbstract implements Serializable {
 		Comparator<KSConf> comparator = new KSConf(new ArrayList<>(), 0.0).new KSConfComparator();
 		topConfsPQ = new PriorityQueue<KSConf>(getNumTopConfsToSave(), comparator);
 	}
-
+	
 
 	public HashSet<ArrayList<Integer>> getMinimizedConfsSet() {
 		return minimizedConfsSet;
@@ -139,14 +140,14 @@ public abstract class PFAbstract implements Serializable {
 		if( getNumTopSavedConfs() == 0 ) return;
 		
 		System.out.println("\nWriting top " + getNumTopSavedConfs() + 
-				" conformation(s) for sequence: " + KSAbstract.arrayList1D2String(sequence, " "));
+				" conformation(s) for sequence: " + KSAbstract.list1D2String(sequence, " "));
 		System.out.println();
 
 		@SuppressWarnings("unchecked")
 		PriorityQueue<KSConf> tmp = (PriorityQueue<KSConf>) ObjectIO.deepCopy(topConfsPQ);
 		
 		// create dir if it does not already exist
-		String dir = "topConfs" + File.separator + KSAbstract.arrayList1D2String(sequence, ".");
+		String dir = "topConfs" + File.separator + KSAbstract.list1D2String(sequence, ".");
 		ObjectIO.makeDir(dir, false);
 
 		String pdbName = null;
@@ -329,7 +330,7 @@ public abstract class PFAbstract implements Serializable {
 	protected void restart() {
 
 		System.out.println("\nCould not reach target epsilon approximation of " + targetEpsilon + " for sequence: " +
-				KSAbstract.arrayList1D2String(sequence, " "));
+				KSAbstract.list1D2String(sequence, " "));
 
 		BigDecimal rho = BigDecimal.valueOf(targetEpsilon/(1-targetEpsilon));
 		BigDecimal bE0 = getBoltzmannWeight(E0);
@@ -524,11 +525,6 @@ public abstract class PFAbstract implements Serializable {
 	}
 
 
-	public static String getImpl() {
-		return pFuncImplementation;
-	}
-
-
 	public static void setStabilityThresh(double threshold) {
 		threshold = threshold < 0.0 ? 0.0 : threshold;
 		stabilityThresh = new BigDecimal(threshold);
@@ -561,17 +557,25 @@ public abstract class PFAbstract implements Serializable {
 	}
 	
 	
-	public static void setImpl( String implementation ) {
+	public abstract String getImpl();
+	
+	
+	public static String getCFGImpl() {
+		return pFuncCFGImpl;
+	}
+	
+	
+	public static void setCFGImpl( String implementation ) {
 
 		switch( implementation.toLowerCase() ) {
 
-		case "1nnocache":
-		case "1nubnm":
-		case "1npmcache":
-		case "1npcpmcache":
-		case "1nmtpcpmcache":
-		case "mnpcpmcache":
-			pFuncImplementation = implementation;
+		case "trad":
+		case "new00":
+		case "new01":
+		case "new02":
+		case "new03":
+		case "new04":
+			pFuncCFGImpl = implementation;
 			break;
 
 		default:

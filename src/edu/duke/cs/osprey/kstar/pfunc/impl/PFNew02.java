@@ -16,13 +16,13 @@ import edu.duke.cs.osprey.tools.ObjectIO;
  *
  */
 @SuppressWarnings("serial")
-public class PF1NPCPMCache extends PF1NPMCache implements Serializable {
+public class PFNew02 extends PFNew01 implements Serializable {
 
 	private ArrayList<Integer> indexes = new ArrayList<>();
 	private ArrayList<SearchProblem> sps = new ArrayList<>();
 	private ArrayList<KSConf> partialQConfs = new ArrayList<>();
 
-	public PF1NPCPMCache( ArrayList<String> sequence, String checkPointPath, 
+	public PFNew02( ArrayList<String> sequence, String checkPointPath, 
 			ConfigFileParser cfp, SearchProblem sp, double EW_I0 ) {
 
 		super( sequence, checkPointPath, cfp, sp, EW_I0 );
@@ -34,7 +34,7 @@ public class PF1NPCPMCache extends PF1NPMCache implements Serializable {
 		sps.clear();
 	}
 
-	
+
 	protected ArrayList<SearchProblem> parallelCreateSPs( SearchProblem sp, int replicates ) {
 		ArrayList<SearchProblem> ans = new ArrayList<>();
 		ArrayList<Integer> indexes = new ArrayList<>();
@@ -42,29 +42,29 @@ public class PF1NPCPMCache extends PF1NPMCache implements Serializable {
 			indexes.add(i);
 			ans.add(null);
 		}
-		
+
 		indexes.parallelStream().forEach(i -> {
 			ans.set(i, (SearchProblem)ObjectIO.deepCopy(sp));
 		});
-		
+
 		indexes.trimToSize();
 		ans.trimToSize();
-		
+
 		return ans;
 	}
-	
+
 
 	public void start() {
 
 		try {
 
 			setRunState(RunState.STARTED);
-			
+
 			// initialize parallel data structures
 			indexes.clear();
 			for( int it = 0; it < PFAbstract.getNumThreads(); ++it ) indexes.add(it);
 			indexes.trimToSize();
-			
+
 			sps.clear();
 			sps = parallelCreateSPs(sp, indexes.size());
 
@@ -94,7 +94,7 @@ public class PF1NPCPMCache extends PF1NPMCache implements Serializable {
 
 
 	protected void iterate() throws Exception {
-		
+
 		synchronized( confs.qLock ) {
 
 			int request = partialQConfs.size();
@@ -155,7 +155,7 @@ public class PF1NPCPMCache extends PF1NPMCache implements Serializable {
 				updateQStar( conf );
 
 				confs.setQDagger( confs.getQDagger().subtract( getBoltzmannWeight(conf.getMinEnergyLB()) ) );
-				
+
 				updateQPrime();
 
 				// negative values of effective epsilon are disallowed
@@ -169,13 +169,20 @@ public class PF1NPCPMCache extends PF1NPMCache implements Serializable {
 
 			long currentTime = System.currentTimeMillis();
 
-			if( !printedHeader ) printHeader();
+			if( !PFAbstract.suppressOutput ) {
+				if( !printedHeader ) printHeader();
 
-			System.out.println(E + "\t" + effectiveEpsilon + "\t" + 
-					getNumMinimized4Output() + "\t" + getNumUnEnumerated() + "\t" + confs.size() + "\t" + ((currentTime-startTime)/1000));
+				System.out.println(E + "\t" + effectiveEpsilon + "\t" + 
+						getNumMinimized4Output() + "\t" + getNumUnEnumerated() + "\t" + confs.size() + "\t" + ((currentTime-startTime)/1000));
+			}
 
 			eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
 		}
+	}
+
+
+	public String getImpl() {
+		return "new02";
 	}
 
 }

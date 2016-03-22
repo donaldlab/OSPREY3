@@ -104,7 +104,7 @@ public class KSImplLinear extends KSAbstract {
 
 			SearchProblem seqSP = null;			
 			if( (seqSP = name2SP.get(spName)) == null ) {
-				seqSP = createSingleSeqSPFast( contSCFlex, strand, seq, flexResIndexes );
+				seqSP = createSingleSeqSP( contSCFlex, strand, seq, flexResIndexes, true );
 			}
 
 			// synchronized
@@ -149,7 +149,9 @@ public class KSImplLinear extends KSAbstract {
 		// pl, p, and l conformation spaces, respectively
 		ArrayList<ArrayList<String>> strandSeqs = null;	
 		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(true, true, true));
-		ArrayList<String> pfImplVals = new ArrayList<String>(Arrays.asList(PFAbstract.getImpl(), PFAbstract.getImpl(), PFAbstract.getImpl()));
+		ArrayList<String> pfImplVals = new ArrayList<String>(Arrays.asList(PFAbstract.getCFGImpl(), 
+				PFAbstract.getCFGImpl(), PFAbstract.getCFGImpl()));
+
 
 		wtKSCalc = computeWTCalc();
 
@@ -159,14 +161,14 @@ public class KSImplLinear extends KSAbstract {
 			// wt is seq 0, mutants are others
 			System.out.println("\nComputing K* for sequence " + i + "/" + 
 					(numSeqs-1) + ": " + 
-					arrayList1D2String(strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSeqAtPos(i), " ") + "\n");
+					list1D2String(strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSeqAtPos(i), " ") + "\n");
 
 			// get sequences
 			strandSeqs = getStrandStringsAtPos(i);
 
 			// create partition functions
-			ConcurrentHashMap<Integer, PFAbstract> pfs = createPFsForSeq(strandSeqs, contSCFlexVals, pfImplVals);
-
+			ConcurrentHashMap<Integer, PFAbstract> pfs = createPFs4Seq(strandSeqs, contSCFlexVals, pfImplVals);
+			
 			// create K* calculation for sequence
 			KSCalc calc = new KSCalc(i, pfs);
 
@@ -188,7 +190,8 @@ public class KSImplLinear extends KSAbstract {
 		// pl, p, and l conformation spaces, respectively
 		ArrayList<ArrayList<String>> strandSeqs = null;	
 		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(true, true, true));
-		ArrayList<String> pfImplVals = new ArrayList<String>(Arrays.asList(PFAbstract.getImpl(), PFAbstract.getImpl(), PFAbstract.getImpl()));
+		ArrayList<String> pfImplVals = new ArrayList<String>(Arrays.asList(PFAbstract.getCFGImpl(), 
+				PFAbstract.getCFGImpl(), PFAbstract.getCFGImpl()));
 
 		// get all sequences		
 		@SuppressWarnings("unchecked")
@@ -215,19 +218,19 @@ public class KSImplLinear extends KSAbstract {
 
 				if( !seqSet.contains(seq) ) continue;
 
-				System.out.println("\nResuming K* for sequence " + i + ": " + arrayList1D2String(seq, " ") + "\n");
+				System.out.println("\nResuming K* for sequence " + i + ": " + list1D2String(seq, " ") + "\n");
 
 				// get sequences
 				strandSeqs = getStrandStringsAtPos(i);
 
 				// create partition functions
-				ConcurrentHashMap<Integer, PFAbstract> pfs = createPFsForSeq(strandSeqs, contSCFlexVals, pfImplVals);
+				ConcurrentHashMap<Integer, PFAbstract> pfs = createPFs4Seq(strandSeqs, contSCFlexVals, pfImplVals);
 
 				// create K* calculation for sequence
 				KSCalc calc = new KSCalc(i, pfs);
 
 				// compute partition functions
-				calc.run(wtKSCalc, KSAbstract.checkpointInterval);
+				calc.run(wtKSCalc);
 
 				// serialize P and L; should only happen once
 				for( int strand : Arrays.asList(Strand.LIGAND, Strand.PROTEIN) ) {

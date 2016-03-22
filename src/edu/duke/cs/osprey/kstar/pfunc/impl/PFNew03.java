@@ -17,7 +17,7 @@ import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
  *
  */
 @SuppressWarnings("serial")
-public class PF1NMTPCPMCache extends PF1NPCPMCache implements Serializable {
+public class PFNew03 extends PFNew02 implements Serializable {
 
 	ArrayList<MinimizerFiber> slaves = new ArrayList<>();
 
@@ -26,7 +26,7 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache implements Serializable {
 	protected int confsPerThread;
 	protected int sleepInterval = 10;
 
-	public PF1NMTPCPMCache( ArrayList<String> sequence, String checkPointPath, 
+	public PFNew03( ArrayList<String> sequence, String checkPointPath, 
 			ConfigFileParser cfp, SearchProblem sp, double EW_I0 ) {
 
 		super( sequence, checkPointPath, cfp, sp, EW_I0 );
@@ -341,4 +341,8 @@ public class PF1NMTPCPMCache extends PF1NPCPMCache implements Serializable {
 
 	}
 
+	
+	public String getImpl() {
+		return "new03";
+	}
 }
