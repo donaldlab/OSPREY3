@@ -4,24 +4,18 @@ iMinDEE true
 typedep true
 Ival 5.0
 Ew 0
-epsilon 0.1
+epsilon 0.99
 doMinimize true
 addWT true
 addWTRots true
-saveTopConfsAsPDB true
+saveTopConfsAsPDB false
 numTopConfsToSave 5
 useMaxKSConfs false
-<<<<<<< HEAD
 maxKSconfs 500000
 doKStarCheckpoint false
-KStarCheckpoint 50000
-=======
-maxKSconfs 100000
-doKStarCheckpoint true
-KStarCheckpoint 1000
->>>>>>> origin/master
+KStarCheckpoint 2000
 
-numMutations 1
+numMutations 4
 resAllowed0_0 ASP GLU HID
 resAllowed0_1 GLU ASP ARG
 resAllowed0_2 GLU ASN ILE
@@ -33,15 +27,9 @@ resAllowed1_2 THR VAL TYR
 pFuncStabThresh 0
 pFuncQWait false
 pFuncQCap 1024000
-<<<<<<< HEAD
 pFuncMethod new02
 pFuncThreads 4
 numThreads 4
-=======
-pFuncMethod 1npcpmcache
-pFuncThreads 2
-numThreads 2
->>>>>>> origin/master
 eMinMethod hbfgsccd
 KStarMethod astar
 KStarNumSeqs 1

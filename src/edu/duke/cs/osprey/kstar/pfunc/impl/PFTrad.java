@@ -2,8 +2,6 @@ package edu.duke.cs.osprey.kstar.pfunc.impl;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Arrays;
-
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
@@ -50,10 +48,8 @@ public class PFTrad extends PFAbstract implements Serializable {
 			Et = ksConf.getMinEnergyLB();
 			setPStar( Et );
 
-			printedHeader = true;
-			if( !minimizedConfsSet.contains(Arrays.toString(ksConf.getConfArray())) )
-				accumulate( ksConf );
-			printedHeader = false;
+			// first conf was merely to set p*
+			search = new ConfTree(sp);
 		}
 
 		else

@@ -10,12 +10,12 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
-import edu.duke.cs.osprey.tools.ExpFunction;
 
 /*
  * TODO
- * 0) run ub pfs concurrently
  * 1) at leaf, run standard k*
+ * 2) change checkpoint to a per-object variable? or enable/disable it for fully
+ * defined sequences
  */
 
 public class KUStarNode {
@@ -59,29 +59,21 @@ public class KUStarNode {
 	}
 
 
-	protected void setScore() {
-
-		lb.run(wt);
-
-		if( lb.getEpsilonStatus() == EApproxReached.TRUE ) {
-
-			PFAbstract pl = lb.getPF(Strand.COMPLEX);
-			PFAbstract p = lb.getPF(Strand.PROTEIN);
-			PFAbstract l = lb.getPF(Strand.LIGAND);
-
-			ExpFunction e = new ExpFunction();
-
-			score = e.log10(p.getQStar()) + e.log10(l.getQStar()) - e.log10(pl.getQStar());
-		}
-
-		else
-			score = Double.MAX_VALUE;
-	}
-
-
 	// only expand if scoreNeedsRefinement
 	public ArrayList<KUStarNode> expand() {
 
+		ArrayList<KUStarNode> children = null;
+		
+		if(!scoreNeedsRefinement()) {
+			// there is a single sequence for which we are running k* with energy minimization			
+			computeScore(this);
+			
+			children = new ArrayList<>();
+			children.add(this);
+			
+			return children;
+		}
+		
 		numExpanded++;
 
 		// using complex, p, l convention
@@ -133,10 +125,8 @@ public class KUStarNode {
 		HashSet<ArrayList<String>> nextLSeqs = new HashSet<>(strand2AllowedSeqs.get(Strand.LIGAND).getStrandSubSeqsAtDepth(nextDepths.get(Strand.LIGAND)));
 		HashSet<ArrayList<String>> nextPLSeqs = new HashSet<>(strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSubSeqsAtDepth(nextDepths.get(Strand.COMPLEX)));
 
-		ArrayList<KUStarNode> successors = null;
-
 		// in general, we want to add a single residue to the current protein and ligand
-		// so our successor is valid combinations of nextProtein x nextLigand.
+		// so our children are valid combinations of nextProtein x nextLigand.
 		// however, from the root node, all reachable nodes are valid.
 
 		if( currentDepth() != 0 ) {
@@ -155,35 +145,96 @@ public class KUStarNode {
 			}
 		}
 
-		successors = getPutativeSuccessors( nextPLSeqs, nextPSeqs, nextLSeqs );
+		children = getPutativeChildren( nextPLSeqs, nextPSeqs, nextLSeqs );
 
-		PFAbstract.suppressOutput = true;
-		
-		// compute protein and ligand upper bound pfs; prune if not stable
-		// for stable pfs, compute lower bound
-		successors.parallelStream().forEach( successor -> {
-			
-			successor.ub.runPF(successor.ub.getPF(Strand.LIGAND), wt.getPF(Strand.LIGAND), true);
-			successor.ub.runPF(successor.ub.getPF(Strand.PROTEIN), wt.getPF(Strand.PROTEIN), true);
-			
-			if(successor.ub.getEpsilonStatus() == EApproxReached.FALSE) {
-				successor.lb.run(wt);
-			}
-		});
-		
-		PFAbstract.suppressOutput = false;
-		
-		// filter successors whose upper bound epsilon values are not false
-		for( Iterator<KUStarNode> iterator = successors.iterator(); iterator.hasNext(); ) {
-			KUStarNode node = iterator.next();
-			if( node.ub.getEpsilonStatus() != EApproxReached.FALSE ) iterator.remove();
+		computeScores(children);
+
+		// remove children whose upper bound epsilon values are not false
+		for( Iterator<KUStarNode> iterator = children.iterator(); iterator.hasNext(); ) {
+			KUStarNode child = iterator.next();
+			if( child.scoreNeedsRefinement() && child.ub.getEpsilonStatus() != EApproxReached.FALSE ) iterator.remove();
 		}
-		
-		return successors;
+
+		return children;
 	}
 
 
-	private ArrayList<KUStarNode> getPutativeSuccessors( HashSet<ArrayList<String>> nextPLSeqs,
+	private void computeScores(ArrayList<KUStarNode> children) {
+
+		boolean parallel = false;
+
+		if(isUnique(children) && children.size() > 1)
+			parallel = true;
+
+		if(parallel) {
+			children.parallelStream().forEach( child -> {
+				computeScore(child);
+			});
+		}
+
+		else {
+			for(KUStarNode child : children) {
+				computeScore(child);
+			}
+		}
+	}
+
+
+	private void computeScore(KUStarNode child) {
+	
+		if(child.scoreNeedsRefinement()) {
+			
+			PFAbstract.suppressOutput = true;
+			
+			// compute protein and ligand upper bound pfs; prune if not stable
+			// for stable pfs, compute lower bound
+			child.ub.runPF(child.ub.getPF(Strand.LIGAND), wt.getPF(Strand.LIGAND), true);
+			child.ub.runPF(child.ub.getPF(Strand.PROTEIN), wt.getPF(Strand.PROTEIN), true);
+
+			if(child.ub.getEpsilonStatus() == EApproxReached.FALSE) {
+				child.lb.run(wt);
+				child.score = -1.0 * child.lb.getKStarScore();
+			}
+			
+			PFAbstract.suppressOutput = false;
+		}
+		
+		else {
+			KSAbstract.doCheckpoint = true;
+			
+			// we process leaf nodes as streams (in the complex case, at least)
+			child.lb.run(wt);
+			child.score = -1.0 * child.lb.getKStarScore();
+			
+			KSAbstract.doCheckpoint = false;
+		}
+	}
+
+
+	private boolean isUnique(ArrayList<KUStarNode> children) {
+		ArrayList<ArrayList<String>> listPL = new ArrayList<>();
+		ArrayList<ArrayList<String>> listP = new ArrayList<>();
+		ArrayList<ArrayList<String>> listL = new ArrayList<>();
+
+		for(int i = 0; i < children.size(); ++i) {
+			KUStarNode child = children.get(i);
+			listPL.add(child.lb.getPF(Strand.COMPLEX).getSequence());
+			listP.add(child.lb.getPF(Strand.PROTEIN).getSequence());
+			listL.add(child.lb.getPF(Strand.LIGAND).getSequence());
+		}
+
+		HashSet<ArrayList<String>> setPL = new HashSet<>(listPL);
+		HashSet<ArrayList<String>> setP = new HashSet<>(listP);
+		HashSet<ArrayList<String>> setL = new HashSet<>(listL);
+
+		if(listPL.size() != setPL.size() || listP.size() != setP.size() || listL.size() != setL.size())
+			return false;
+
+		return true;
+	}
+
+
+	private ArrayList<KUStarNode> getPutativeChildren( HashSet<ArrayList<String>> nextPLSeqs,
 			HashSet<ArrayList<String>> pSeqs,
 			HashSet<ArrayList<String>> lSeqs ) {
 
@@ -195,7 +246,11 @@ public class KUStarNode {
 		// upper bound pf values
 		ArrayList<Boolean> ubContSCFlexVals = new ArrayList<>(Arrays.asList(true, true, false));
 		ArrayList<String> ubPFImplVals = new ArrayList<>(Arrays.asList("new00", "new00", "trad"));
-		
+
+		// minimized pf values
+		ArrayList<Boolean> tightContSCFlexVals = new ArrayList<>(Arrays.asList(true, true, true));
+		ArrayList<String> tightPFImplVals = new ArrayList<>(Arrays.asList(PFAbstract.getCFGImpl(), PFAbstract.getCFGImpl(), PFAbstract.getCFGImpl()));
+
 		ArrayList<KUStarNode> ans = new ArrayList<>();
 
 		for( ArrayList<String> pSeq : pSeqs ) {
@@ -210,18 +265,42 @@ public class KUStarNode {
 
 				if( !nextPLSeqs.contains(putativeNextPLSeq) ) continue;
 
+				numCreated++;
+
 				// create partition functions for next sequences
 				strandSeqs.set(Strand.COMPLEX, putativeNextPLSeq);
 				strandSeqs.set(Strand.PROTEIN, pSeq);
 				strandSeqs.set(Strand.LIGAND, lSeq);
 
-				// create partition functions
-				ConcurrentHashMap<Integer, PFAbstract> lbPFs = ksObj.createPFs4Seq(strandSeqs, lbContSCFlexVals, lbPFImplVals);
-				ConcurrentHashMap<Integer, PFAbstract> ubPFs = ksObj.createPFs4Seq(strandSeqs, ubContSCFlexVals, ubPFImplVals);
-				
-				// create KUStar node
-				numCreated++;
-				ans.add( new KUStarNode( new KSCalc(numCreated, lbPFs), new KSCalc(numCreated, ubPFs), childScoreNeedsRefinement() ) );
+				if( childScoreNeedsRefinement() ) {
+					// create partition functions
+					ConcurrentHashMap<Integer, PFAbstract> lbPFs = ksObj.createPFs4Seq(strandSeqs, lbContSCFlexVals, lbPFImplVals);
+					ConcurrentHashMap<Integer, PFAbstract> ubPFs = ksObj.createPFs4Seq(strandSeqs, ubContSCFlexVals, ubPFImplVals);
+
+					// create KUStar node with lower and upper bounds
+					ans.add( new KUStarNode( new KSCalc(numCreated, lbPFs), new KSCalc(numCreated, ubPFs), childScoreNeedsRefinement() ) );
+				}
+
+				else {
+					// leaf node; we don't need upper or lower bounds ;we only need the minimized partition function
+					// our search problems exist, so we need only delete the lb, ub pfs from the table
+					ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Strand.LIGAND, 
+							Strand.PROTEIN, Strand.COMPLEX));
+
+					for(int strand : strands) {
+
+						boolean contSCFlex = tightContSCFlexVals.get(strand);
+						ArrayList<String> seq = strandSeqs.get(strand);
+
+						String spName = ksObj.getSearchProblemName(contSCFlex, strand, seq);
+						ksObj.removeFromMap(spName, false, true);
+					}
+
+					ConcurrentHashMap<Integer, PFAbstract> tightPFs = ksObj.createPFs4Seq(strandSeqs, tightContSCFlexVals, tightPFImplVals);
+
+					// create new KUStar node with tight score
+					ans.add( new KUStarNode( new KSCalc(numCreated, tightPFs), null, childScoreNeedsRefinement() ) );
+				}
 			}
 		}
 
@@ -229,7 +308,7 @@ public class KUStarNode {
 	}
 
 
-	protected int currentDepth() {
+	private int currentDepth() {
 		if( lb == null ) return 0;
 		// number of assigned residues is depth
 		return lb.getPF(Strand.COMPLEX).getSequence().size();
@@ -247,10 +326,15 @@ public class KUStarNode {
 
 		int depth = currentDepth();
 
-		if( depth != maxDepth )
+		if( depth < maxDepth )
 			return true;
 
 		return false;
+	}
+	
+	
+	public boolean isFullyProcessed() {
+		return !scoreNeedsRefinement() && lb.getEpsilonStatus() == EApproxReached.TRUE;
 	}
 
 

@@ -11,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.RunState;
+import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.ObjectIO;
 
 /**
@@ -22,7 +23,6 @@ public class KSCalc {
 
 	private ConcurrentHashMap<Integer, PFAbstract> strand2PF = null;
 	private int seqID = 0;
-	public static BigDecimal maxValue = new BigDecimal("2e65536");
 	private static int precision = 4;
 
 	public KSCalc( int seqID, ConcurrentHashMap<Integer, PFAbstract> pfs ) {
@@ -33,17 +33,6 @@ public class KSCalc {
 
 	public PFAbstract getPF(int strand) {
 		return strand2PF.get(strand);
-	}
-
-
-	protected boolean unboundIsStable(KSCalc wtKSCalc, int strand) {
-
-		PFAbstract wtPf = wtKSCalc.getPF(strand);
-		PFAbstract pf = strand2PF.get(strand);
-		if(pf.getUpperBound().compareTo( wtPf.getQStar().multiply(PFAbstract.getStabilityThresh()) ) >= 0)
-			return true;
-
-		return false;
 	}
 
 
@@ -171,20 +160,30 @@ public class KSCalc {
 	}
 
 
-	protected BigDecimal getKStarScore() {
-
-		BigDecimal score = BigDecimal.ZERO;
+	protected double getKStarScore() {
 
 		PFAbstract pl = getPF(Strand.COMPLEX);
 		PFAbstract p = getPF(Strand.PROTEIN);
 		PFAbstract l = getPF(Strand.LIGAND);
-
-		BigDecimal divisor = p.getQStar().multiply( l.getQStar() );
-
-		if( divisor.compareTo(BigDecimal.ZERO) == 0 ) 
-			score = maxValue;
-
-		else score = pl.getQStar().divide( divisor, precision );
+		
+		double score = 0.0;
+		
+		ExpFunction e = new ExpFunction();
+		
+		if( l.getQStar().compareTo(BigDecimal.ZERO) == 0 && 
+				p.getQStar().compareTo(BigDecimal.ZERO) == 0 && 
+				pl.getQStar().compareTo(BigDecimal.ZERO) == 0 )
+			return 0;
+		
+		else if( l.getQStar().compareTo(BigDecimal.ZERO) == 0 || 
+				p.getQStar().compareTo(BigDecimal.ZERO) == 0 )
+			score = Double.POSITIVE_INFINITY;
+		
+		else if( pl.getQStar().compareTo(BigDecimal.ZERO) == 0 )
+			score = Double.NEGATIVE_INFINITY;
+		
+		else
+			score = e.log10(pl.getQStar()) - e.log10(p.getQStar()) - e.log10(l.getQStar());
 
 		return score;
 	}
@@ -238,7 +237,7 @@ public class KSCalc {
 			out.print(KSAbstract.list1D2String(getPF(Strand.COMPLEX).getSequence(), " "));
 
 			out.print("\t");
-			out.print( ObjectIO.formatBigDecimal(getKStarScore(), precision) );
+			out.print(getKStarScore());
 
 			ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Strand.COMPLEX, 
 					Strand.PROTEIN, Strand.LIGAND));

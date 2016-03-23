@@ -105,15 +105,15 @@ public class KSImplAStar extends KSAbstract {
 
 		for( KUStarNode best = tree.poll(); best != null && completed < numSeqs; 
 				best = tree.poll() ) {
-
-			if( !best.scoreNeedsRefinement() ) {
+			
+			if( best.isFullyProcessed() ) {
 				// run full k*: p and l completely, then pl as a stream
 				completed++;
 				continue;
 			}
 
-			ArrayList<KUStarNode> successors = best.expand();
-			tree.add(successors);
+			ArrayList<KUStarNode> children = best.expand();
+			tree.add(children);
 		}
 
 		System.out.println("completed: " + completed + " numExpanded: " + KUStarNode.getNumExpanded() 

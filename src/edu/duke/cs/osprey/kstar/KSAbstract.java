@@ -175,8 +175,8 @@ public abstract class KSAbstract implements KSInterface {
 	}
 
 
-	public String getCheckPointName(boolean contSCFlex, int strand, ArrayList<String> seq, String pfImpl) {
-		return getCheckPointName(contSCFlex, strand) + "." + list1D2String(seq, ".") + "." + pfImpl +".checkpoint";
+	public String getCheckPointName(boolean contSCFlex, int strand, ArrayList<String> seq) {
+		return getCheckPointName(contSCFlex, strand) + "." + list1D2String(seq, ".") +".checkpoint";
 	}
 
 
@@ -300,7 +300,7 @@ public abstract class KSAbstract implements KSInterface {
 		PFAbstract ans = null;
 
 		String spName = getSearchProblemName(contSCFlex, strand, seq);
-		String cpName = getCheckPointName(contSCFlex, strand, seq, pfImpl);
+		String cpName = getCheckPointName(contSCFlex, strand, seq);
 
 		if( (ans = name2PF.get(spName)) != null ) return ans;
 
@@ -337,12 +337,12 @@ public abstract class KSAbstract implements KSInterface {
 
 			ArrayList<String> seq = seqs.get(strand);
 			String spName = getSearchProblemName(contSCFlex, strand, seq);
-			String cpName = getCheckPointName(contSCFlex, strand, seq, pfImpl);
+			String cpName = getCheckPointName(contSCFlex, strand, seq);
 
 			if( name2PF.get(spName) == null && deSerializePF(spName, cpName) == null ) {
-				
+
 				PFAbstract pf = createPF4Seq(contSCFlex, strand, seq, pfImpl);
-				
+
 				// put partition function in global map
 				name2PF.put(pf.getSearchProblem().name, pf);
 
@@ -361,6 +361,9 @@ public abstract class KSAbstract implements KSInterface {
 					// no conformations in search space, so this cannot give a valid
 					// partition function
 					pf.setEpsilonStatus(EApproxReached.NOT_POSSIBLE);
+					
+					System.out.println("WARNING: there are no valid conformations for sequence " + 
+							KSAbstract.list1D2String(pf.getSequence(), " "));
 				}
 
 				else {	
@@ -396,6 +399,12 @@ public abstract class KSAbstract implements KSInterface {
 			throw new RuntimeException("ERROR: returned map must contain three different partition functions");
 
 		return ans;
+	}
+
+
+	public void removeFromMap(String spName, boolean sp, boolean pf) {
+		if(sp) name2SP.remove(spName);
+		if(pf) name2PF.remove(spName);
 	}
 
 
@@ -650,7 +659,7 @@ public abstract class KSAbstract implements KSInterface {
 	protected PFAbstract deSerializePF( String spName, String path ) {
 
 		if( !KSAbstract.doCheckpoint ) return null;
-		
+
 		if( !new File(path).exists() ) return null;
 
 		PFAbstract ans = (PFAbstract) ObjectIO.readObject(path, true);
