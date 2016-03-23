@@ -26,8 +26,8 @@ public class KUStarNode {
 	private static int numCreated = 0;
 	private static int numExpanded = 0;
 
-	private KSCalc ub;
-	private KSCalc lb;
+	public KSCalc ub;
+	public KSCalc lb;
 	protected double score;
 	protected boolean scoreNeedsRefinement;
 

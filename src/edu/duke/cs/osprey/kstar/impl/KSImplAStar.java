@@ -100,14 +100,14 @@ public class KSImplAStar extends KSAbstract {
 		// add root node
 		tree.add( new KUStarNode(null, null, true) );
 
-		int numSeqs = cfp.getParams().getInt("KStarNumSeqs", 5);
+		int target = cfp.getParams().getInt("KStarNumSeqs", 5);
 		int completed = 0;
 
-		for( KUStarNode best = tree.poll(); best != null && completed < numSeqs; 
+		for( KUStarNode best = tree.poll(); best != null && completed < target; 
 				best = tree.poll() ) {
 			
 			if( best.isFullyProcessed() ) {
-				// run full k*: p and l completely, then pl as a stream
+				best.lb.printSummary( getOputputFilePath(), false );
 				completed++;
 				continue;
 			}
