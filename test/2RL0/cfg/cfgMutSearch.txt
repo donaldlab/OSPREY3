@@ -4,6 +4,7 @@ iMinDEE true
 typedep true
 Ival 5.0
 Ew 0
+
 epsilon 0.99
 doMinimize true
 addWT true
@@ -11,7 +12,7 @@ addWTRots true
 saveTopConfsAsPDB false
 numTopConfsToSave 5
 useMaxKSConfs false
-maxKSconfs 500000
+maxKSconfs 200000
 doKStarCheckpoint false
 KStarCheckpoint 2000
 
@@ -25,7 +26,6 @@ resAllowed1_1 GLY ASP ILE
 resAllowed1_2 THR VAL TYR
 
 pFuncStabThresh 0
-pFuncQWait false
 pFuncQCap 1024000
 pFuncMethod new02
 pFuncThreads 4
