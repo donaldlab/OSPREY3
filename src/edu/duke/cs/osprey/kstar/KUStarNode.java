@@ -28,7 +28,8 @@ public class KUStarNode {
 
 	public KSCalc ub;
 	public KSCalc lb;
-	protected double score;
+	protected double lbScore;
+	protected double ubScore;
 	protected boolean scoreNeedsRefinement;
 
 
@@ -44,7 +45,8 @@ public class KUStarNode {
 	public KUStarNode( KSCalc lb, KSCalc ub, boolean scoreNeedsRefinement ) {
 		this.lb = lb;
 		this.ub = ub;
-		score = Double.MAX_VALUE;
+		lbScore = Double.MIN_VALUE;
+		ubScore = Double.MAX_VALUE;
 		this.scoreNeedsRefinement = scoreNeedsRefinement;
 	}
 
@@ -60,20 +62,20 @@ public class KUStarNode {
 
 
 	// only expand if scoreNeedsRefinement
-	public ArrayList<KUStarNode> expand() {
+	public ArrayList<KUStarNode> expand(boolean useTightBounds) {
 
 		ArrayList<KUStarNode> children = null;
-		
+
 		if(!scoreNeedsRefinement()) {
 			// there is a single sequence for which we are running k* with energy minimization			
 			computeScore(this);
-			
+
 			children = new ArrayList<>();
 			children.add(this);
-			
+
 			return children;
 		}
-		
+
 		numExpanded++;
 
 		// using complex, p, l convention
@@ -145,14 +147,23 @@ public class KUStarNode {
 			}
 		}
 
-		children = getPutativeChildren( nextPLSeqs, nextPSeqs, nextLSeqs );
+		children = getPutativeChildren( nextPLSeqs, nextPSeqs, nextLSeqs, useTightBounds );
 
-		computeScores(children);
+		if(children.size() > 0) {
 
-		// remove children whose upper bound epsilon values are not false
-		for( Iterator<KUStarNode> iterator = children.iterator(); iterator.hasNext(); ) {
-			KUStarNode child = iterator.next();
-			if( child.scoreNeedsRefinement() && child.ub.getEpsilonStatus() != EApproxReached.FALSE ) iterator.remove();
+			computeScores(children);
+
+			// remove children whose upper bound epsilon values are not false
+			for( Iterator<KUStarNode> iterator = children.iterator(); iterator.hasNext(); ) {
+
+				KUStarNode child = iterator.next();
+
+				if( child.scoreNeedsRefinement() && child.ub.getEpsilonStatus() != EApproxReached.FALSE ) {
+					// epsilon is not going to be true, since we do not compute complex
+					// epsilon cannot be not possible or not stable
+					iterator.remove();
+				}
+			}
 		}
 
 		return children;
@@ -161,6 +172,8 @@ public class KUStarNode {
 
 	private void computeScores(ArrayList<KUStarNode> children) {
 
+		if(children.size() == 0) return;
+
 		boolean parallel = false;
 
 		if(isUnique(children) && children.size() > 1)
@@ -168,24 +181,28 @@ public class KUStarNode {
 
 		if(parallel) {
 			children.parallelStream().forEach( child -> {
-				computeScore(child);
+				
+				if(!child.isFullyProcessed()) 
+					computeScore(child);
 			});
 		}
 
 		else {
 			for(KUStarNode child : children) {
-				computeScore(child);
+				
+				if(!child.isFullyProcessed()) 
+					computeScore(child);
 			}
 		}
 	}
 
 
 	private void computeScore(KUStarNode child) {
-	
+
 		if(child.scoreNeedsRefinement()) {
-			
+
 			PFAbstract.suppressOutput = true;
-			
+
 			// compute protein and ligand upper bound pfs; prune if not stable
 			// for stable pfs, compute lower bound
 			child.ub.runPF(child.ub.getPF(Strand.LIGAND), wt.getPF(Strand.LIGAND), true);
@@ -193,25 +210,25 @@ public class KUStarNode {
 
 			if(child.ub.getEpsilonStatus() == EApproxReached.FALSE) {
 				child.lb.run(wt);
-				child.score = -1.0 * child.lb.getKStarScore();
+				child.lbScore = -1.0 * child.lb.getKStarScore();
 			}
-			
+
 			PFAbstract.suppressOutput = false;
 		}
-		
+
 		else {
 			KSAbstract.doCheckpoint = true;
-			
+
 			// we process leaf nodes as streams (in the complex case, at least)
 			child.lb.run(wt);
-			child.score = -1.0 * child.lb.getKStarScore();
-			
+			child.lbScore = -1.0 * child.lb.getKStarScore();
+
 			KSAbstract.doCheckpoint = false;
 		}
 	}
 
 
-	private boolean isUnique(ArrayList<KUStarNode> children) {
+	private boolean isUnique(ArrayList<KUStarNode> children) {		
 		ArrayList<ArrayList<String>> listPL = new ArrayList<>();
 		ArrayList<ArrayList<String>> listP = new ArrayList<>();
 		ArrayList<ArrayList<String>> listL = new ArrayList<>();
@@ -235,8 +252,8 @@ public class KUStarNode {
 
 
 	private ArrayList<KUStarNode> getPutativeChildren( HashSet<ArrayList<String>> nextPLSeqs,
-			HashSet<ArrayList<String>> pSeqs,
-			HashSet<ArrayList<String>> lSeqs ) {
+			HashSet<ArrayList<String>> pSeqs, HashSet<ArrayList<String>> lSeqs,
+			boolean useTightBounds ) {
 
 		ArrayList<ArrayList<String>> strandSeqs = new ArrayList<>(Arrays.asList(null, null, null));
 		// lower bound pf values
@@ -265,8 +282,6 @@ public class KUStarNode {
 
 				if( !nextPLSeqs.contains(putativeNextPLSeq) ) continue;
 
-				numCreated++;
-
 				// create partition functions for next sequences
 				strandSeqs.set(Strand.COMPLEX, putativeNextPLSeq);
 				strandSeqs.set(Strand.PROTEIN, pSeq);
@@ -277,13 +292,16 @@ public class KUStarNode {
 					ConcurrentHashMap<Integer, PFAbstract> lbPFs = ksObj.createPFs4Seq(strandSeqs, lbContSCFlexVals, lbPFImplVals);
 					ConcurrentHashMap<Integer, PFAbstract> ubPFs = ksObj.createPFs4Seq(strandSeqs, ubContSCFlexVals, ubPFImplVals);
 
+					numCreated++;
+
 					// create KUStar node with lower and upper bounds
 					ans.add( new KUStarNode( new KSCalc(numCreated, lbPFs), new KSCalc(numCreated, ubPFs), childScoreNeedsRefinement() ) );
 				}
 
-				else {
-					// leaf node; we don't need upper or lower bounds ;we only need the minimized partition function
-					// our search problems exist, so we need only delete the lb, ub pfs from the table
+				else if( useTightBounds ) {
+
+					// create a leaf node; we don't need upper or lower bounds ;we only need the minimized partition 
+					// function our search problems exist, so we need only delete the lb, ub pfs from the table
 					ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Strand.LIGAND, 
 							Strand.PROTEIN, Strand.COMPLEX));
 
@@ -298,8 +316,16 @@ public class KUStarNode {
 
 					ConcurrentHashMap<Integer, PFAbstract> tightPFs = ksObj.createPFs4Seq(strandSeqs, tightContSCFlexVals, tightPFImplVals);
 
+					numCreated++;
+
 					// create new KUStar node with tight score
 					ans.add( new KUStarNode( new KSCalc(numCreated, tightPFs), null, childScoreNeedsRefinement() ) );
+				}
+
+				else {
+					// we will not use tight bounds, so the current node is re-designated a leaf node
+					scoreNeedsRefinement = false;
+					ans.add(this);
 				}
 			}
 		}
@@ -318,6 +344,20 @@ public class KUStarNode {
 	public boolean scoreNeedsRefinement() {
 		return scoreNeedsRefinement;
 	}
+	
+	
+	public double getLBScore() {
+		return lbScore;
+	}
+	
+	
+	public double getUBScore() {
+		
+		if(ub == null) return ubScore;
+		
+		ub.runPF(ub.getPF(Strand.COMPLEX), null, true);
+		return ubScore = -1.0 * ub.getKStarScore();
+	}
 
 
 	private boolean childScoreNeedsRefinement() {
@@ -331,8 +371,8 @@ public class KUStarNode {
 
 		return false;
 	}
-	
-	
+
+
 	public boolean isFullyProcessed() {
 		return !scoreNeedsRefinement() && lb.getEpsilonStatus() == EApproxReached.TRUE;
 	}
@@ -343,7 +383,7 @@ public class KUStarNode {
 
 		@Override
 		public int compare( KUStarNode lhs, KUStarNode rhs ) {
-			return lhs.score >= rhs.score ? 1 : -1;
+			return lhs.lbScore >= rhs.lbScore ? 1 : -1;
 		}
 	};
 }

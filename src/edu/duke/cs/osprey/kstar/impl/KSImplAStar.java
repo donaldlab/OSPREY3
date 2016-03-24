@@ -14,6 +14,8 @@ import edu.duke.cs.osprey.kstar.Strand;
 
 public class KSImplAStar extends KSAbstract {
 
+	public static boolean useTightBound = true;
+	
 	public KSImplAStar(ConfigFileParser cfp) {
 		super(cfp);
 	}
@@ -90,6 +92,23 @@ public class KSImplAStar extends KSAbstract {
 	public void run() {
 		
 		long begin = System.currentTimeMillis();
+		int completed = 0;
+
+		if(useTightBound)
+			completed = runTB();
+		
+		else
+			completed = runLB();
+
+		System.out.println("\ncompleted: " + completed + " numExpanded: " + KUStarNode.getNumExpanded() 
+			+ " numSubSeqs: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSubSeqs()
+			+ " numSeqs: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs());
+		
+		System.out.println("K* running time: " + (System.currentTimeMillis()-begin)/1000 + " seconds\n");
+	}
+	
+	
+	private int runTB() {
 		
 		// compute wt sequence for reference
 		wtKSCalc = computeWTCalc();
@@ -112,14 +131,48 @@ public class KSImplAStar extends KSAbstract {
 				continue;
 			}
 
-			ArrayList<KUStarNode> children = best.expand();
+			ArrayList<KUStarNode> children = best.expand(useTightBound);
 			tree.add(children);
 		}
-
-		System.out.println("completed: " + completed + " numExpanded: " + KUStarNode.getNumExpanded() 
-			+ " numSubSeqs: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSubSeqs()
-			+ " numSeqs: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs());
 		
-		System.out.println("K* running time: " + (System.currentTimeMillis()-begin)/1000 + " seconds\n");
+		return completed;
+	}
+	
+	
+	private int runLB() {
+		
+		// compute wt sequence for reference
+		wtKSCalc = computeWTCalc();
+
+		// initialize KUStar tree
+		KUStarTree tree = new KUStarTree(this, strand2AllowedSeqs, wtKSCalc);
+
+		// add root node
+		tree.add( new KUStarNode(null, null, true) );
+
+		int completed = 0;
+		double gUB = Double.NEGATIVE_INFINITY;
+
+		for( KUStarNode best = tree.poll(); best != null; best = tree.poll() ) {
+			
+			if( best.isFullyProcessed() ) {
+				best.lb.printSummary( getOputputFilePath(), false );
+				
+				double bestUB = best.getUBScore();
+				
+				if(completed++ == 0) gUB = bestUB;
+				
+				else if(best.getLBScore() > gUB) break;
+				
+				else if(bestUB > gUB) gUB = bestUB;
+				
+				continue;
+			}
+
+			ArrayList<KUStarNode> children = best.expand(useTightBound);
+			tree.add(children);
+		}
+		
+		return completed;
 	}
 }

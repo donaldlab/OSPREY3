@@ -71,6 +71,8 @@ public class KStarCalculator {
 		KSAbstract.refinePInterval = cfp.getParams().getBool("KStarRefinePruning", false);
 		KSAbstract.doCheckpoint = cfp.getParams().getBool("doKStarCheckpoint", false);
 		KSAbstract.setCheckPointInterval(cfp.getParams().getInt("KStarCheckpoint", 100000));
+		
+		KSImplAStar.useTightBound = cfp.getParams().getBool("KStarUseTightBound", true);
 	}
 
 

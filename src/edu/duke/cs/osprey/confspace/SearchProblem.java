@@ -288,6 +288,11 @@ public class SearchProblem implements Serializable {
 
 
 	//LOADING AND PRECOMPUTATION OF ENERGY MATRIX-TYPE OBJECTS (regular energy matrix, tup-exp and EPIC matrices)
+	// AAO it's easier to specify the matrix type
+	public void loadEnergyMatrix(MatrixType type) {
+		loadMatrix(type);
+	}
+	
 	public void loadEnergyMatrix(){
 		loadMatrix(MatrixType.EMAT);
 	}
@@ -299,7 +304,6 @@ public class SearchProblem implements Serializable {
 	public void loadEPICMatrix(){
 		loadMatrix(MatrixType.EPICMAT);
 	}
-
 
 	public enum MatrixType {
 		EMAT, TUPEXPEMAT, EPICMAT;
