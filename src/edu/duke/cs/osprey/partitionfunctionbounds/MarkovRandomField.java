@@ -32,14 +32,13 @@ public class MarkovRandomField {
         this.pruneMat = searchProblem.pruneMat;
 
         ConfSpaceSuper cSpace = searchProblem.confSpaceSuper;
-        int numNodes = cSpace.numPos;
+        this.numNodes = cSpace.numPos;
 
         //create nodeList
         for (int pos = 0; pos < numNodes; pos++) {
             MRFNode node = new MRFNode(pos, pruneMat.unprunedRCsAtPos(pos));
             nodeList.add(node);
         }
-        this.numNodes = nodeList.size();
 
         //create interaction graph
         this.interactionGraph = createEnergyInteractionGraph(eCut);
@@ -49,18 +48,17 @@ public class MarkovRandomField {
         }
     }
 
-    public MarkovRandomField(SearchProblem searchProblem, double eCut){
+    public MarkovRandomField(SearchProblem searchProblem, double eCut) {
         this.emat = searchProblem.emat;
         this.pruneMat = searchProblem.pruneMat;
 
-        int numNodes = searchProblem.confSpace.numPos;
+        this.numNodes = searchProblem.confSpace.numPos;
 
         //create nodeList
         for (int pos = 0; pos < numNodes; pos++) {
             MRFNode node = new MRFNode(pos, pruneMat.unprunedRCsAtPos(pos));
             nodeList.add(node);
         }
-        this.numNodes = nodeList.size();
 
         //create interaction graph
         this.interactionGraph = createEnergyInteractionGraph(eCut);
@@ -69,12 +67,84 @@ public class MarkovRandomField {
             node.neighborList = getNeighbors(node, this.interactionGraph);
         }
     }
-    
+
+    public MarkovRandomField(SearchProblem searchProblem, int[] partialNode, double eCut) {
+        this.emat = searchProblem.emat;
+        this.pruneMat = searchProblem.pruneMat;
+
+        this.numNodes = searchProblem.confSpace.numPos;
+
+        //create nodeList
+        for (int pos = 0; pos < numNodes; pos++) {
+            //If the node is unassigned, its can have any unpruned RC for a label
+            if (partialNode[pos] == -1) {
+                MRFNode node = new MRFNode(pos, pruneMat.unprunedRCsAtPos(pos));
+                nodeList.add(node);
+            } else { //If the node is assigned, it can only have the RC it is assigned to
+                ArrayList<Integer> allowedRCsAtPos = new ArrayList<>();
+                allowedRCsAtPos.add(partialNode[pos]);
+                MRFNode node = new MRFNode(pos, allowedRCsAtPos);
+                nodeList.add(node);
+            }
+        }
+
+        //create interaction graph
+        this.interactionGraph = createEnergyInteractionGraph(eCut);
+        //create neighborList for each node
+        for (MRFNode node : this.nodeList) {
+            node.neighborList = getNeighbors(node, this.interactionGraph);
+        }
+    }
+
+    public MarkovRandomField(EnergyMatrix aemat, PruningMatrix apruneMat, int[] partialNode, double eCut) {
+        this.emat = aemat;
+        this.pruneMat = apruneMat;
+
+        this.numNodes = emat.numPos();
+
+        //create nodeList
+        for (int pos = 0; pos < numNodes; pos++) {
+            //If the node is unassigned, its can have any unpruned RC for a label
+            if (partialNode[pos] == -1) {
+                MRFNode node = new MRFNode(pos, pruneMat.unprunedRCsAtPos(pos));
+                nodeList.add(node);
+            } else { //If the node is assigned, it can only have the RC it is assigned to
+                ArrayList<Integer> allowedRCsAtPos = new ArrayList<>();
+                allowedRCsAtPos.add(partialNode[pos]);
+                MRFNode node = new MRFNode(pos, allowedRCsAtPos);
+                nodeList.add(node);
+            }
+        }
+
+        //create interaction graph
+        this.interactionGraph = createEnergyInteractionGraph(eCut);
+        //create neighborList for each node
+        for (MRFNode node : this.nodeList) {
+            node.neighborList = getNeighbors(node, this.interactionGraph);
+        }
+    }
+
     private boolean[][] createEnergyInteractionGraph(double eCut) {
         boolean[][] interactionGraph = new boolean[numNodes][numNodes];
         int countInteraction = 0;
         int possibleInteraction = 0;
-        //initialize all values to false
+
+        if (eCut == 0.0) {
+            //initialize all values to true
+            for (int nodeNum1 = 0; nodeNum1 < numNodes; nodeNum1++) {
+                for (int nodeNum2 = 0; nodeNum2 < numNodes; nodeNum2++) {
+                    if (nodeNum1 == nodeNum2) {
+                        interactionGraph[nodeNum1][nodeNum2] = false;
+                    }
+                    else{
+                        interactionGraph[nodeNum1][nodeNum2] = true;
+                    }
+                }
+            }
+            return interactionGraph;
+        }
+
+        //otherwise initialize all values to false
         for (int nodeNum1 = 0; nodeNum1 < numNodes; nodeNum1++) {
             for (int nodeNum2 = 0; nodeNum2 < numNodes; nodeNum2++) {
                 interactionGraph[nodeNum1][nodeNum2] = false;

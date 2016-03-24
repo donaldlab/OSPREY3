@@ -6,24 +6,27 @@
 package edu.duke.cs.osprey.partitionfunctionbounds;
 
 import edu.duke.cs.osprey.astar.ConfTree;
-import edu.duke.cs.osprey.astar.ConfTreeSuper;
+import edu.duke.cs.osprey.astar.Mplp;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 /**
  *
  * @author hmn5
  */
-public class MapPerurbation {
+public class MapPerturbation {
 
     final SearchProblem searchSpace;
     EnergyMatrix emat;
+    PruningMatrix pruneMat;
 
     final double constRT = PoissonBoltzmannEnergy.constRT;
     final ExpFunction ef = new ExpFunction();
@@ -38,10 +41,29 @@ public class MapPerurbation {
     ArrayList<singlePos> singlePosList;
     ArrayList<pairPos> pairPosList;
 
-    GumbelDistribution gd; 
-    public MapPerurbation(SearchProblem searchSpace) {
+    GumbelDistribution gd;
+
+    boolean verbose = false;
+
+    public MapPerturbation(SearchProblem searchSpace) {
         this.searchSpace = searchSpace;
         this.emat = searchSpace.emat;
+        this.pruneMat = searchSpace.pruneMat;
+        gd = new GumbelDistribution();
+    }
+
+    public MapPerturbation(SearchProblem searchSpace, boolean verbose) {
+        this.searchSpace = searchSpace;
+        this.emat = searchSpace.emat;
+        this.pruneMat = searchSpace.pruneMat;
+        gd = new GumbelDistribution();
+        this.verbose = verbose;
+    }
+
+    public MapPerturbation(EnergyMatrix emat, PruningMatrix pruneMat) {
+        this.searchSpace = null;
+        this.emat = emat;
+        this.pruneMat = pruneMat;
         gd = new GumbelDistribution();
     }
 
@@ -61,9 +83,79 @@ public class MapPerurbation {
             averageGMECs = averageGMECs.add(new BigDecimal(E));
             //replace oneBody with original to remove the noise added
             emat.oneBody = originalOneBodyEmat;
+            if (verbose) {
+                double averageSoFar = averageGMECs.divide(new BigDecimal((i + 1) * this.constRT), ef.mc).doubleValue();
+                System.out.println("Sample: " + (i + 1) + " " + E / this.constRT + "  Average: " + averageSoFar);
+            }
         }
 
         return averageGMECs.divide(new BigDecimal(numSamples * this.constRT), ef.mc).doubleValue();
+    }
+
+    //Returns Upper Bounds on Log Partition Function
+    public double calcUBLogZLP(int anumSamples) {
+        int numSamples = anumSamples;
+        mapConfsUB = new int[numSamples][emat.oneBody.size()];
+        BigDecimal averageGMECs = new BigDecimal(0.0);
+
+        for (int i = 0; i < numSamples; i++) {
+            ArrayList<ArrayList<Double>> originalOneBodyEmat = (ArrayList<ArrayList<Double>>) ObjectIO.deepCopy(emat.oneBody);
+            addUBGumbelNoiseOneBody();
+            Mplp mplp = new Mplp(emat.numPos(), emat, pruneMat);
+            int[] conf = new int[emat.numPos()];
+            Arrays.fill(conf, -1);
+            double E = -mplp.optimizeMPLP(conf, 200);
+            averageGMECs = averageGMECs.add(new BigDecimal(E));
+            //replace oneBody with original to remove the noise added
+            emat.oneBody = originalOneBodyEmat;
+            if (verbose) {
+                double averageSoFar = averageGMECs.divide(new BigDecimal((i + 1) * this.constRT), ef.mc).doubleValue();
+                System.out.println("Sample: " + (i + 1) + " " + E / this.constRT + "  Average: " + averageSoFar);
+            }
+        }
+
+        return averageGMECs.divide(new BigDecimal(numSamples * this.constRT), ef.mc).doubleValue();
+    }
+
+    //Returns Upper Bounds on Log Partition Function
+    public double calcUBLogZLP(int[] partialConf, int anumSamples) {
+        int numSamples = anumSamples;
+        mapConfsUB = new int[numSamples][emat.oneBody.size()];
+        BigDecimal averageGMECs = new BigDecimal(0.0);
+
+        for (int i = 0; i < numSamples; i++) {
+            ArrayList<ArrayList<Double>> originalOneBodyEmat = (ArrayList<ArrayList<Double>>) ObjectIO.deepCopy(emat.oneBody);
+            addUBGumbelNoiseOneBody();
+            Mplp mplp = new Mplp(emat.numPos(), emat, pruneMat);
+            double E = -mplp.optimizeMPLP(partialConf, 200);
+            averageGMECs = averageGMECs.add(new BigDecimal(E));
+            //replace oneBody with original to remove the noise added
+            emat.oneBody = originalOneBodyEmat;
+            if (verbose) {
+                double averageSoFar = averageGMECs.divide(new BigDecimal((i + 1) * this.constRT), ef.mc).doubleValue();
+                System.out.println("Sample: " + (i + 1) + " " + E / this.constRT + "  Average: " + averageSoFar);
+            }
+        }
+
+        return averageGMECs.divide(new BigDecimal(numSamples * this.constRT), ef.mc).doubleValue();
+    }
+
+    public double calcUBLogZLPMax(int anumSamples) {
+        double max = Double.NEGATIVE_INFINITY;
+        for (int i = 0; i < anumSamples; i++) {
+            double sample = calcUBLogZLP(20);
+            max = Math.max(sample, max);
+        }
+        return max;
+    }
+
+    public double calcUBLogZLPMax(int[] partialConf, int anumSamples) {
+        double max = Double.NEGATIVE_INFINITY;
+        for (int i = 0; i < anumSamples; i++) {
+            double sample = calcUBLogZLP(partialConf, 10);
+            max = Math.max(sample, max);
+        }
+        return max;
     }
 
     //Returns Lower Bound on natural log of Partition Function
@@ -82,8 +174,8 @@ public class MapPerurbation {
             averageGMECs = averageGMECs.add(new BigDecimal(E));
             //replace oneBody with original to remove the noise added
             emat.oneBody = originalOneBodyEmat;
-            if (i%100==0){
-                System.out.println("Map Pert Iteration: "+i);
+            if (i % 100 == 0) {
+                System.out.println("Map Pert Iteration: " + i);
             }
         }
 
@@ -94,16 +186,15 @@ public class MapPerurbation {
     public double calcLBLog10Z(int aNumSamples) {
         return (Math.log10(Math.E)) * calcLBLogZ(aNumSamples);
     }
-    
-    public double calcUBLog10Z(int aNumSamples){
-        return (Math.log10(Math.E))*calcUBLogZ(aNumSamples);
-    }
 
+    public double calcUBLog10Z(int aNumSamples) {
+        return (Math.log10(Math.E)) * calcUBLogZ(aNumSamples);
+    }
 
     //add Gumbel noise to one-body terms
     private void addUBGumbelNoiseOneBody() {
         for (int pos = 0; pos < emat.oneBody.size(); pos++) {
-            for (int superRC : searchSpace.pruneMat.unprunedRCsAtPos(pos)) {
+            for (int superRC : pruneMat.unprunedRCsAtPos(pos)) {
                 double currentE = emat.getOneBody(pos, superRC);
                 double noise = gd.sample(-1.0 * GumbelDistribution.gamma, 1.0) * this.constRT;
                 emat.setOneBody(pos, superRC, currentE - noise);
@@ -312,4 +403,3 @@ public class MapPerurbation {
         }
     }
 }
-

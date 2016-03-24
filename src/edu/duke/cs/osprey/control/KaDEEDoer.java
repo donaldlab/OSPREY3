@@ -15,7 +15,7 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.SearchProblemSuper;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
-import edu.duke.cs.osprey.partitionfunctionbounds.MapPerurbation;
+import edu.duke.cs.osprey.partitionfunctionbounds.MapPerturbation;
 import edu.duke.cs.osprey.partitionfunctionbounds.MarkovRandomField;
 import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField;
 import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField_Parallel;
@@ -679,7 +679,7 @@ public class KaDEEDoer {
         SelfConsistentMeanField_Parallel scmf_parallel = new SelfConsistentMeanField_Parallel(mrf);
         scmf_parallel.run();
 
-        MapPerurbation mapPert = new MapPerurbation(searchProblem);
+        MapPerturbation mapPert = new MapPerturbation(searchProblem);
 
         double lowerBoundMapPert = mapPert.calcLBLog10Z(500);
         System.out.println("Lower Bound MapPert: "+lowerBoundMapPert);

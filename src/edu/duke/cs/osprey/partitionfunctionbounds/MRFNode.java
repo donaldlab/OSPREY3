@@ -32,5 +32,29 @@ public class MRFNode {
             labelList.add(label);
         }
     }
+
+    @Override
+    public int hashCode() {
+        int hash = 7;
+        return hash;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        final MRFNode other = (MRFNode) obj;
+        if (this.nodeNum != other.nodeNum) {
+            return false;
+        }
+        return true;
+    }
+    
+
+    
     
 }

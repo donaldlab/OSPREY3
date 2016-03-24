@@ -33,7 +33,7 @@ public class UnitTestSuite {
         } catch (IOException e) {//this is weird
             throw new RuntimeException(e.getMessage());
         }
-
+        /*  HMN: Temporarily I just want this last test
          EnergyTests.test1CC8Energy();
         
          DOFTests.testMutation();
@@ -49,7 +49,7 @@ public class UnitTestSuite {
          ConfSearchTests.testDEE(false);
          ConfSearchTests.testExhaustive(false, false);
          ConfSearchTests.testExhaustive(false, true);
-
+                */
         ConfSearchTests.testExhaustive(true, false);
     }
     

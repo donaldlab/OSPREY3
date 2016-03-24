@@ -28,9 +28,9 @@ public class ConfTree extends AStarTree {
     //we may also want to allow other negative indices, to indicate partially assigned RCs
 
     int numPos;
-    EnergyMatrix emat;
+    public EnergyMatrix emat;
     //HMN: Added Pruning Mat for Pairs Pruning
-    PruningMatrix pruneMat;
+    public PruningMatrix pruneMat;
     
     ArrayList<ArrayList<Integer>> unprunedRCsAtPos = new ArrayList<>();
     //get from searchSpace when initializing!
@@ -39,7 +39,7 @@ public class ConfTree extends AStarTree {
     //ADVANCED SCORING METHODS: TO CHANGE LATER (EPIC, MPLP, etc.)
     boolean traditionalScore = true;
     boolean useRefinement = false;//refine nodes (might want EPIC, MPLP, or something else)
-    boolean mplpScore = true;
+    boolean mplpScore = false;
     
     //MPLP object for node refinement
     public Mplp mplpMinimizer;
@@ -77,6 +77,22 @@ public class ConfTree extends AStarTree {
             useRefinement = true;
             mplpMinimizer = new Mplp(numPos, emat, pruneMat);
         }
+    }
+    
+    //For epic
+    public ConfTree(EnergyMatrix aEmat, PruningMatrix aPruneMat, EPICMatrix epicMat, ConfSpace aConfSpace){
+        this.numPos = aEmat.numPos();
+        this.emat = aEmat;
+        this.pruneMat = aPruneMat;
+        this.epicMat = epicMat;
+        this.useEpic = true;
+        this.confSpace = aConfSpace;
+        //see which RCs are unpruned and thus available for consideration
+        for (int pos = 0; pos < numPos; pos++) {
+            unprunedRCsAtPos.add(aPruneMat.unprunedRCsAtPos(pos));
+        }
+        this.useRefinement = true;
+        this.mplpScore = false;
     }
     
     private void init(SearchProblem sp, PruningMatrix aPruneMat, boolean useEPIC) {
@@ -404,7 +420,7 @@ public class ConfTree extends AStarTree {
 
     //this function computes the minimum over all full conf E's consistent with partialConf
     //for debugging only of course
-    double exhaustiveScore(int[] partialConf) {
+    public double exhaustiveScore(int[] partialConf) {
         for (int pos = 0; pos < partialConf.length; pos++) {
             if (partialConf[pos] == -1) {
                 //recurse to get all options

@@ -1744,6 +1744,7 @@ public class KaDEETree extends AStarTree {
         List<Integer> resNumsUnboundNonMutable = unBoundNonMutableState.confSpace.posFlex.stream()
                 .map(posFlex -> posFlex.res.resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
+
         //Map to corresponding unbound position number
         List<Integer> unboundPosNumsPerPos = resNumsBound.stream()
                 .map(posNum -> ArrayUtils.contains(resNumsUnboundMutable.toArray(), posNum) ? ArrayUtils.indexOf(resNumsUnboundMutable.toArray(), posNum)

@@ -5,6 +5,8 @@
 package edu.duke.cs.osprey.tests;
 
 import edu.duke.cs.osprey.astar.ConfTree;
+import edu.duke.cs.osprey.astar.Mplp;
+import edu.duke.cs.osprey.astar.MplpGeneralized;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
@@ -13,6 +15,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Random;
 
 /**
@@ -39,6 +42,17 @@ public class ConfSearchTests {
         subsetPos.add(4);
         EnergyMatrix newTupMat = new EnergyMatrix(searchSpace.emat.getSubsetMatrix(subsetPos));
 
+/*        PruningMatrix pruneMat = new PruningMatrix(searchSpace.confSpace, Double.POSITIVE_INFINITY);
+        MplpGeneralized mplp = new MplpGeneralized(searchSpace.emat.numPos(), searchSpace.emat, pruneMat);
+        ConfTree tree = new ConfTree(searchSpace.emat, pruneMat);
+        int[] partialConf = new int[searchSpace.confSpace.numPos];
+        Arrays.fill(partialConf, -1);
+        double exactBound = tree.exhaustiveScore(partialConf);
+        double mplpBound = mplp.optimizeMPLP(partialConf, 100);
+        Mplp mplpOriginal = new Mplp(searchSpace.emat.numPos(), searchSpace.emat, pruneMat);
+        double mplpOrig = mplp.optimizeMPLP(partialConf, 100);
+        tree.nextConf();
+*/
         searchSpace.pruneMat = new PruningMatrix(searchSpace.confSpace, -1);//no pruning
         ArrayList<ConfSearch> searches = confSearchesToTest(searchSpace);
 
@@ -157,15 +171,14 @@ public class ConfSearchTests {
             flexRes.add(Integer.valueOf(20 + pos).toString());
             allowedAAs.add(AAatPos);
         }
-        
-        SearchProblem ans = new SearchProblem( "testResults/CONFSEARCHTEST"+numPos, "1CC8.ss.pdb", 
-                flexRes, allowedAAs,false, false, false, false, null, 
-                false, new DEEPerSettings(), new ArrayList<>(), new ArrayList<>(), 
-                useEllipses, false, false );
+
+        SearchProblem ans = new SearchProblem("testResults/CONFSEARCHTEST" + numPos, "1CC8.ss.pdb",
+                flexRes, allowedAAs, false, false, false, false, null,
+                false, new DEEPerSettings(), new ArrayList<>(), new ArrayList<>(),
+                useEllipses, false, false);
                 //don't add WT, and no minimization, EPIC, tuple expansion, DEEPer, or strand motions
 
-        
-        if(randomizeEnergies){
+        if (randomizeEnergies) {
 
             //we don't need real energies, just make some up (in fact the randomization will be good)
             ans.emat = new EnergyMatrix(ans.confSpace, 0);

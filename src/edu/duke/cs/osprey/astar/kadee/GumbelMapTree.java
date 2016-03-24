@@ -51,7 +51,7 @@ public class GumbelMapTree extends AStarTree {
 
     public double epsilon = 1.0;
 
-    int[] currentBestFeasibleSolution = null;
+    public int[] currentBestFeasibleSolution = null;
     public double currentBestFeasibleScore = Double.POSITIVE_INFINITY;
     public double currentBestLPRelaxScore = Double.POSITIVE_INFINITY;
 
@@ -454,6 +454,9 @@ public class GumbelMapTree extends AStarTree {
          this.currentBestFeasibleSolution = node.getNodeAssignments();
          return true;
          */
+        if ((this.upperBoundLogZ - this.lowerBoundLogZ) < 0.0001){
+            return true;
+        }
         return this.pq.isEmpty() && (!node.isRoot);
     }
 
