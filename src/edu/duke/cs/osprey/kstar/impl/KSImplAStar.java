@@ -14,7 +14,7 @@ import edu.duke.cs.osprey.kstar.Strand;
 
 public class KSImplAStar extends KSAbstract {
 
-	public static boolean useTightBound = true;
+	public static boolean useTightBounds = true;
 	
 	public KSImplAStar(ConfigFileParser cfp) {
 		super(cfp);
@@ -94,7 +94,7 @@ public class KSImplAStar extends KSAbstract {
 		long begin = System.currentTimeMillis();
 		int completed = 0;
 
-		if(useTightBound)
+		if(useTightBounds)
 			completed = runTB();
 		
 		else
@@ -131,7 +131,7 @@ public class KSImplAStar extends KSAbstract {
 				continue;
 			}
 
-			ArrayList<KUStarNode> children = best.expand(useTightBound);
+			ArrayList<KUStarNode> children = best.expand(useTightBounds);
 			tree.add(children);
 		}
 		
@@ -140,6 +140,8 @@ public class KSImplAStar extends KSAbstract {
 	
 	
 	private int runLB() {
+		// run until the lower bound of the next completed sequence is greater 
+		// than the upper bound of any previously completed sequence
 		
 		// compute wt sequence for reference
 		wtKSCalc = computeWTCalc();
@@ -156,6 +158,7 @@ public class KSImplAStar extends KSAbstract {
 		for( KUStarNode best = tree.poll(); best != null; best = tree.poll() ) {
 			
 			if( best.isFullyProcessed() ) {
+				
 				best.lb.printSummary( getOputputFilePath(), false );
 				
 				double bestUB = best.getUBScore();
@@ -169,7 +172,7 @@ public class KSImplAStar extends KSAbstract {
 				continue;
 			}
 
-			ArrayList<KUStarNode> children = best.expand(useTightBound);
+			ArrayList<KUStarNode> children = best.expand(useTightBounds);
 			tree.add(children);
 		}
 		

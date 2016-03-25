@@ -66,14 +66,24 @@ public class KUStarNode {
 
 		ArrayList<KUStarNode> children = null;
 
-		if(!scoreNeedsRefinement()) {
-			// there is a single sequence for which we are running k* with energy minimization			
-			computeScore(this);
+		if( isFullyDefined() ) {
 
-			children = new ArrayList<>();
-			children.add(this);
+			if( !useTightBounds ) {
+				// we will not use tight bounds, so the current node is re-designated a leaf node
+				scoreNeedsRefinement = false;
+			}
 
-			return children;
+			if( !scoreNeedsRefinement() ) {
+				
+				if( !isFullyProcessed() ) {
+					// we will use tight bounds; compute tight bound		
+					computeScore(this);
+				}
+
+				children = new ArrayList<>();
+				children.add(this);
+				return children;
+			}
 		}
 
 		numExpanded++;
@@ -181,7 +191,7 @@ public class KUStarNode {
 
 		if(parallel) {
 			children.parallelStream().forEach( child -> {
-				
+
 				if(!child.isFullyProcessed()) 
 					computeScore(child);
 			});
@@ -189,7 +199,7 @@ public class KUStarNode {
 
 		else {
 			for(KUStarNode child : children) {
-				
+
 				if(!child.isFullyProcessed()) 
 					computeScore(child);
 			}
@@ -199,7 +209,7 @@ public class KUStarNode {
 
 	private void computeScore(KUStarNode child) {
 
-		if(child.scoreNeedsRefinement()) {
+		if( child.scoreNeedsRefinement() ) {
 
 			PFAbstract.suppressOutput = true;
 
@@ -252,8 +262,7 @@ public class KUStarNode {
 
 
 	private ArrayList<KUStarNode> getPutativeChildren( HashSet<ArrayList<String>> nextPLSeqs,
-			HashSet<ArrayList<String>> pSeqs, HashSet<ArrayList<String>> lSeqs,
-			boolean useTightBounds ) {
+			HashSet<ArrayList<String>> pSeqs, HashSet<ArrayList<String>> lSeqs, boolean useTightBounds ) {
 
 		ArrayList<ArrayList<String>> strandSeqs = new ArrayList<>(Arrays.asList(null, null, null));
 		// lower bound pf values
@@ -282,24 +291,23 @@ public class KUStarNode {
 
 				if( !nextPLSeqs.contains(putativeNextPLSeq) ) continue;
 
+				numCreated++;
+
 				// create partition functions for next sequences
 				strandSeqs.set(Strand.COMPLEX, putativeNextPLSeq);
 				strandSeqs.set(Strand.PROTEIN, pSeq);
 				strandSeqs.set(Strand.LIGAND, lSeq);
 
-				if( childScoreNeedsRefinement() ) {
+				if( !isFullyDefined() ) {
 					// create partition functions
 					ConcurrentHashMap<Integer, PFAbstract> lbPFs = ksObj.createPFs4Seq(strandSeqs, lbContSCFlexVals, lbPFImplVals);
 					ConcurrentHashMap<Integer, PFAbstract> ubPFs = ksObj.createPFs4Seq(strandSeqs, ubContSCFlexVals, ubPFImplVals);
-
-					numCreated++;
 
 					// create KUStar node with lower and upper bounds
 					ans.add( new KUStarNode( new KSCalc(numCreated, lbPFs), new KSCalc(numCreated, ubPFs), childScoreNeedsRefinement() ) );
 				}
 
 				else if( useTightBounds ) {
-
 					// create a leaf node; we don't need upper or lower bounds ;we only need the minimized partition 
 					// function our search problems exist, so we need only delete the lb, ub pfs from the table
 					ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Strand.LIGAND, 
@@ -316,17 +324,12 @@ public class KUStarNode {
 
 					ConcurrentHashMap<Integer, PFAbstract> tightPFs = ksObj.createPFs4Seq(strandSeqs, tightContSCFlexVals, tightPFImplVals);
 
-					numCreated++;
-
 					// create new KUStar node with tight score
 					ans.add( new KUStarNode( new KSCalc(numCreated, tightPFs), null, childScoreNeedsRefinement() ) );
 				}
-
-				else {
-					// we will not use tight bounds, so the current node is re-designated a leaf node
-					scoreNeedsRefinement = false;
-					ans.add(this);
-				}
+				
+				else
+					throw new RuntimeException("ERROR: the loose bounds case should have been handled");
 			}
 		}
 
@@ -344,32 +347,40 @@ public class KUStarNode {
 	public boolean scoreNeedsRefinement() {
 		return scoreNeedsRefinement;
 	}
-	
-	
+
+
 	public double getLBScore() {
 		return lbScore;
 	}
-	
-	
+
+
 	public double getUBScore() {
-		
+
 		if(ub == null) return ubScore;
-		
+
 		ub.runPF(ub.getPF(Strand.COMPLEX), null, true);
 		return ubScore = -1.0 * ub.getKStarScore();
 	}
 
 
-	private boolean childScoreNeedsRefinement() {
-
+	private boolean isFullyDefined() {
 		int maxDepth = wt.getPF(Strand.COMPLEX).getSequence().size();
 
 		int depth = currentDepth();
 
 		if( depth < maxDepth )
-			return true;
+			return false;
 
-		return false;
+		return true;
+	}
+
+
+	private boolean childScoreNeedsRefinement() {
+		if( !isFullyDefined() ) return true;
+
+		else if(scoreNeedsRefinement()) return false;
+
+		else throw new RuntimeException("ERROR: cannot expand a leaf node");
 	}
 
 

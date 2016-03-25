@@ -32,7 +32,7 @@ pFuncThreads 4
 numThreads 4
 eMinMethod hbfgsccd
 KStarMethod astar
-KStarUseTightBound false
+KStarUseTightBounds true
 KStarNumSeqs 1
 UseDunbrackRotamers false
 ematDir emat.lovell
