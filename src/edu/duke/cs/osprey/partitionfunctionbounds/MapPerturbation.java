@@ -194,10 +194,12 @@ public class MapPerturbation {
     //add Gumbel noise to one-body terms
     private void addUBGumbelNoiseOneBody() {
         for (int pos = 0; pos < emat.oneBody.size(); pos++) {
-            for (int superRC : pruneMat.unprunedRCsAtPos(pos)) {
-                double currentE = emat.getOneBody(pos, superRC);
-                double noise = gd.sample(-1.0 * GumbelDistribution.gamma, 1.0) * this.constRT;
-                emat.setOneBody(pos, superRC, currentE - noise);
+            if (pruneMat.unprunedRCsAtPos(pos).size() > 1) {
+                for (int superRC : pruneMat.unprunedRCsAtPos(pos)) {
+                    double currentE = emat.getOneBody(pos, superRC);
+                    double noise = gd.sample(-1.0 * GumbelDistribution.gamma, 1.0) * this.constRT;
+                    emat.setOneBody(pos, superRC, currentE - noise);
+                }
             }
         }
     }

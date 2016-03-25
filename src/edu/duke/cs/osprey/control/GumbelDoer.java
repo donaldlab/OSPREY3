@@ -5,6 +5,7 @@
  */
 package edu.duke.cs.osprey.control;
 
+import edu.duke.cs.osprey.astar.Mplp;
 import edu.duke.cs.osprey.astar.kadee.GumbelMapTree;
 import edu.duke.cs.osprey.astar.partfunc.partFuncTree;
 import edu.duke.cs.osprey.confspace.RCTuple;
@@ -16,6 +17,7 @@ import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField;
 import edu.duke.cs.osprey.partitionfunctionbounds.TreeReweightedBeliefPropagation;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -39,17 +41,27 @@ public class GumbelDoer {
         }
 
         SearchProblem sp = spList[0];
-        partFuncTree tree = new partFuncTree(sp);
-        double Z = tree.computeEpsilonApprox(0.1);
-        
-        /*
+
+        //partFuncTree tree = new partFuncTree(sp);
+        //double logZ = tree.computeEpsilonApprox(0.1);
+        //System.out.println("LogZ: "+logZ);
+        //System.out.println("Num Confs Enumerated: "+tree.numConfsEnumerated);
         MarkovRandomField mrf = new MarkovRandomField(sp, 0.0);
         SelfConsistentMeanField scmf = new SelfConsistentMeanField(mrf);
         scmf.run();
         double lb = scmf.calcLBLogZ();
         System.out.println("Lower Bound: "+lb);
-        //TreeReweightedBeliefPropagation trbp = new TreeReweightedBeliefPropagation(mrf);
-        MapPerturbation mp = new MapPerturbation(sp);
+        TreeReweightedBeliefPropagation trbp = new TreeReweightedBeliefPropagation(mrf);
+        double ub = trbp.calcUBLogZ();
+        System.out.println("Upper Bound: "+ub);
+        Mplp mplp = new Mplp(sp.emat.numPos(), sp.emat, sp.pruneMat);
+        int[] conf = new int[sp.emat.numPos()];
+        Arrays.fill(conf,-1);
+        double lpGmec = mplp.optimizeMPLP(conf,1000);
+        double entropy = trbp.getEntropy();
+        double logZUB = -(lpGmec - this.constRT*entropy)/this.constRT;
+        System.out.println("logZUB: "+logZUB);
+        /*        MapPerturbation mp = new MapPerturbation(sp);
         int numBelow = 0;
         double average = 0.0;
         for (int i = 0; i < 1000; i++) {

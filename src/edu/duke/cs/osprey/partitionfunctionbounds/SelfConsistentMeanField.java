@@ -37,6 +37,8 @@ public class SelfConsistentMeanField implements InferenceCalculator {
     double freeEnergy;
     boolean hasCalculatedFreeEnergy;
 
+    boolean verbose = false;
+    
     public SelfConsistentMeanField(MarkovRandomField mrf) {
         this.nodeList = mrf.nodeList;
         this.emat = mrf.emat;
@@ -65,7 +67,7 @@ public class SelfConsistentMeanField implements InferenceCalculator {
             }
             if (iter == 1000) {
                 //take best free energy so far
-                this.freeEnergy = Math.min(this.freeEnergy,calcFreeEnergy());
+                this.freeEnergy = Math.min(this.freeEnergy, calcFreeEnergy());
                 hasCalculatedFreeEnergy = true;
                 this.scmfTemp = this.scmfTemp * 500;
             }
@@ -77,8 +79,10 @@ public class SelfConsistentMeanField implements InferenceCalculator {
         //take best free energy
         this.freeEnergy = Math.min(this.freeEnergy, calcFreeEnergy());
         hasCalculatedFreeEnergy = true;
-        System.out.println("SCMF Finished After " + iter + " iterations");
-        printMaxLabel();
+        if (verbose) {
+            System.out.println("SCMF Finished After " + iter + " iterations");
+            printMaxLabel();
+        }
         resetTemperature();
     }
 
@@ -265,26 +269,25 @@ public class SelfConsistentMeanField implements InferenceCalculator {
         return freeEnergy;
     }
 
-    
     @Override
     public BigDecimal calcPartitionFunction() {
         if (!hasCalculatedFreeEnergy) {
             this.freeEnergy = calcFreeEnergy();
         }
-        BigDecimal partitionFunction = this.ef.exp(-((freeEnergy+this.emat.getConstTerm())/ this.scmfTemp));
+        BigDecimal partitionFunction = this.ef.exp(-((freeEnergy + this.emat.getConstTerm()) / this.scmfTemp));
         return partitionFunction;
     }
 
     //Calculates the natural log of the partition function
-    public double calcLBLogZ(){
-        return -(calcFreeEnergy() + this.emat.getConstTerm())/this.scmfTemp;
+    public double calcLBLogZ() {
+        return -(calcFreeEnergy() + this.emat.getConstTerm()) / this.scmfTemp;
     }
-    
+
     //Calculates log_10 of the partition function
-    public double calcLBLog10Z(){
-        return (Math.log10(Math.E))*calcLBLogZ();
+    public double calcLBLog10Z() {
+        return (Math.log10(Math.E)) * calcLBLogZ();
     }
-    
+
     public boolean checkBeliefs() {
         boolean beliefsGood = true;
         for (MRFNode node : this.nodeList) {

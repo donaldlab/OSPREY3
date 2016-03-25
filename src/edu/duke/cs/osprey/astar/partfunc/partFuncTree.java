@@ -7,6 +7,7 @@ package edu.duke.cs.osprey.astar.partfunc;
 
 import edu.duke.cs.osprey.astar.AStarNode;
 import edu.duke.cs.osprey.astar.AStarTree;
+import edu.duke.cs.osprey.astar.Mplp;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -14,6 +15,7 @@ import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.partitionfunctionbounds.MapPerturbation;
 import edu.duke.cs.osprey.partitionfunctionbounds.MarkovRandomField;
 import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField;
+import edu.duke.cs.osprey.partitionfunctionbounds.TreeReweightedBeliefPropagation;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import java.math.BigDecimal;
@@ -31,7 +33,7 @@ public class partFuncTree extends AStarTree {
     BigDecimal lbZ;
     BigDecimal ubZ;
 
-    BigDecimal runningSumLB;
+    BigDecimal runningSum;
     double runningSumExpNormalizer = 0.0;
 
     double epsilon = 0.1;
@@ -49,7 +51,11 @@ public class partFuncTree extends AStarTree {
     ExpFunction ef = new ExpFunction();
     double constRT = PoissonBoltzmannEnergy.constRT;
 
-    boolean verbose = true;
+    Mplp mplp;
+
+    boolean verbose = false;
+
+    public int numConfsEnumerated = 0;
     
     public partFuncTree(SearchProblem sp) {
         init(sp, sp.pruneMat, sp.useEPIC);
@@ -72,7 +78,7 @@ public class partFuncTree extends AStarTree {
         numPos = sp.confSpace.numPos;
         this.lbZ = new BigDecimal("0.0");
         this.ubZ = new BigDecimal("0.0");
-        this.runningSumLB = new BigDecimal("0.0");
+        this.runningSum = new BigDecimal("0.0");
 
         this.pruneMat = aPruneMat;
         //get the appropriate energy matrix to use in this A* search
@@ -86,6 +92,7 @@ public class partFuncTree extends AStarTree {
                 throw new RuntimeException("partFuncTree does not yet support EPIC");
             }
         }
+        mplp = new Mplp(numPos, emat, this.pruneMat);
     }
 
     @Override
@@ -94,10 +101,12 @@ public class partFuncTree extends AStarTree {
         ArrayList<AStarNode> children = new ArrayList<>();
 
         subtractFromBounds(node);
-        
+
         int[] curAssignments = node.getNodeAssignments();
         for (int splitPos = 0; splitPos < this.numPos; splitPos++) {
             if (curAssignments[splitPos] < 0) {
+                System.out.println("Splitting at Level: " + splitPos);
+                System.out.println("*****************************");
                 for (int rot : this.pruneMat.unprunedRCsAtPos(splitPos)) {
                     int[] childAssignments = curAssignments.clone();
                     childAssignments[splitPos] = rot;
@@ -113,33 +122,38 @@ public class partFuncTree extends AStarTree {
                     } else {//child node is leaf so we compute exact score
                         double confE = getConfE(childNode);
                         updateRunningSumLB(confE);
+                        numConfsEnumerated++;
                     }
                 }
+                printEffectiveEpsilon();
                 return children;
             }
         }
         throw new RuntimeException("ERROR: Not splittable position found");
     }
 
-    private void subtractFromBounds(partFuncNode node){
+    private void subtractFromBounds(partFuncNode node) {
         this.lbZ = this.lbZ.subtract(this.ef.exp(node.getLowerBoundLogZ()));
         this.ubZ = this.ubZ.subtract(this.ef.exp(node.getUpperBoundLogZ()));
     }
-    
-    private void updateBounds(partFuncNode node){
+
+    private void updateBounds(partFuncNode node) {
         this.lbZ = this.lbZ.add(this.ef.exp(node.getLowerBoundLogZ()));
         this.ubZ = this.ubZ.add(this.ef.exp(node.getUpperBoundLogZ()));
-        if (verbose){
-            System.out.println("LowerBound Z: "+(this.lbZ.doubleValue() + this.runningSumLB.doubleValue()));
-            System.out.println("UpperBound Z: "+this.ubZ.doubleValue());
+        if (verbose) {
+            System.out.println("LowerBound Z: " + (this.lbZ.doubleValue() + this.runningSum.doubleValue()));
+            System.out.println("UpperBound Z: " + this.ubZ.doubleValue() + this.runningSum.doubleValue());
         }
-        double effectiveEpsilon = 1-(lbZ.doubleValue()/(ubZ.doubleValue()));
-        System.out.println("Effective Epsilon: "+effectiveEpsilon);
     }
-    
+
+    private void printEffectiveEpsilon() {
+        double effectiveEpsilon = 1 - ((lbZ.doubleValue() + this.runningSum.doubleValue()) / (ubZ.doubleValue() + this.runningSum.doubleValue()));
+        System.out.println("Effective Epsilon: " + effectiveEpsilon);
+    }
+
     private void updateRunningSumLB(double confE) {
         //for decimal precision, we keep a normalizer, y, s.t. our sum is exp(y/constRT)*runningSum
-        this.runningSumLB = this.runningSumLB.add(this.ef.exp(-confE/this.constRT));
+        this.runningSum = this.runningSum.add(this.ef.exp(-confE / this.constRT));
     }
 
     private double getConfE(partFuncNode node) {
@@ -162,9 +176,9 @@ public class partFuncTree extends AStarTree {
 
     @Override
     public boolean isFullyAssigned(AStarNode node) {
-        double logLBZ = Math.log(this.lbZ.doubleValue() + this.runningSumLB.doubleValue());
-        double logUBZ = Math.log(this.ubZ.doubleValue());
-        return (logLBZ-logUBZ) >= Math.log(1-this.epsilon);
+        double logLBZ = Math.log(this.lbZ.doubleValue() + this.runningSum.doubleValue());
+        double logUBZ = Math.log(this.ubZ.doubleValue() + this.runningSum.doubleValue());
+        return (logLBZ - logUBZ) >= Math.log(1 - this.epsilon);
     }
 
     @Override
@@ -177,18 +191,19 @@ public class partFuncTree extends AStarTree {
         root.setLowerBoundLogZ(computeLowerBound(root));
         root.setScore(scoreNode(root));
         updateBounds(root);
-        
+
         return root;
     }
 
-    public double computeEpsilonApprox(double epsilon){
+    public double computeEpsilonApprox(double epsilon) {
         this.epsilon = epsilon;
         this.nextConf();
-        return this.lbZ.doubleValue()+this.runningSumLB.doubleValue();
+        return Math.log(this.lbZ.doubleValue() + this.runningSum.doubleValue());
     }
-    
+
     private double scoreNode(partFuncNode node) {
-        return node.getLowerBoundLogZ() - node.getUpperBoundLogZ();
+//        return node.lbLogZ - node.ubLogZ;
+        return mplp.optimizeMPLP(node.getNodeAssignments(), 1000);
     }
 
     private double computeLowerBound(partFuncNode node) {
@@ -205,7 +220,10 @@ public class partFuncTree extends AStarTree {
             double ubLogZ = mp.calcUBLogZLPMax(node.getNodeAssignments(), this.numSamples);
             return ubLogZ;
         } else {
-            throw new RuntimeException("ERROR: PartFuncTree -- MapPert is only option for upper bound");
+            MarkovRandomField mrf = new MarkovRandomField(this.emat, this.pruneMat, node.getNodeAssignments(), this.eCut);
+            TreeReweightedBeliefPropagation trbp = new TreeReweightedBeliefPropagation(mrf);
+            double ubLogZ = trbp.calcUBLogZ();
+            return ubLogZ;
         }
     }
 
