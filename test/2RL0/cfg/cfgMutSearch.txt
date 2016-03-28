@@ -7,6 +7,8 @@ Ew 0
 
 epsilon 0.99
 doMinimize true
+doPerturbations false
+selectPerturbations false
 addWT true
 addWTRots true
 saveTopConfsAsPDB false
@@ -16,7 +18,7 @@ maxKSconfs 200000
 doKStarCheckpoint false
 KStarCheckpoint 2000
 
-numMutations 4
+numMutations 1
 resAllowed0_0 ASP GLU HID
 resAllowed0_1 GLU ASP ARG
 resAllowed0_2 GLU ASN ILE
@@ -28,11 +30,11 @@ resAllowed1_2 THR VAL TYR
 pFuncStabThresh 0
 pFuncQCap 1024000
 pFuncMethod new02
-pFuncThreads 4
-numThreads 4
+pFuncThreads 3
+numThreads 3
 eMinMethod hbfgsccd
-KStarMethod astar
-KStarUseTightBounds true
+KStarMethod linear
+KStarUseTightBounds false
 KStarNumSeqs 1
 UseDunbrackRotamers false
 ematDir emat.lovell
