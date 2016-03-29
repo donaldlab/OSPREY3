@@ -238,34 +238,11 @@ public class ConfSpace implements Serializable {
         }
     }
     
-    private ArrayList<Residue> resListFromTermini(String[] termini, ArrayList<String> flexibleRes){
-        //Return a list of residues given the PDB numbers of the first and last
-        //All of these residues are expected to be flexible (used for rot/trans strands and BBFreeBlocks)
-        
-        ArrayList<Residue> resList = new ArrayList<>();//res in current moving strand
-            
-        Residue curRes = m.getResByPDBResNumber(termini[0]);
-        resList.add(curRes);
-
-        while ( ! curRes.getPDBResNumber().equalsIgnoreCase(termini[1]) ) {//not at other end
-
-            int curIndex = curRes.indexInMolecule;
-            if(curIndex==m.residues.size()-1){
-                throw new RuntimeException("ERROR: Reached end of molecule"
-                        + " in rot/trans strand or BBFreeBlock without finding res "+termini[1]);
-            }
-
-            curRes = m.residues.get( curRes.indexInMolecule+1 );
-            String curPDBNum = curRes.getPDBResNumber();
-            if( ! flexibleRes.contains(curPDBNum) )
-                throw new RuntimeException("ERROR: Res "+curPDBNum+" in rot/trans strand or BBFreeBlock but not flexible!");
-
-            resList.add(curRes);
-        }
-        
-        return resList;
-    }
     
+   private ArrayList<Residue> resListFromTermini(String[] termini, ArrayList<String> flexibleRes){ 
+       return m.resListFromTermini(termini, flexibleRes);
+   }
+   
     
     private ArrayList<DegreeOfFreedom> strandMotionDOFs(ArrayList<String[]> moveableStrands,
             ArrayList<String> flexibleRes){

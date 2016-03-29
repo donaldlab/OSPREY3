@@ -98,9 +98,11 @@ class COMETSDoer {
         }
 
         numSeqsWanted = sParams.getInt("NUMSEQS");
+        boolean outputGMECStructs = sParams.getBool("OutputStateGMECStructs");
         
         tree = new COMETSTree(numTreeLevels, objFcn, constraints, 
-            AATypeOptions, numMaxMut, wtSeq, numStates, stateSP, mutable2StatePosNums);
+            AATypeOptions, numMaxMut, wtSeq, numStates, stateSP, 
+            mutable2StatePosNums, outputGMECStructs);
     }
     
     

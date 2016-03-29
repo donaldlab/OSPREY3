@@ -60,4 +60,37 @@ public class Molecule implements Serializable {
     }
     
     
+    
+    public ArrayList<Residue> resListFromTermini(String[] termini, ArrayList<String> flexibleRes){
+        //Return a list of residues given the PDB numbers of the first and last
+        //If flexibleRes isn't null, make sure all these residues are flexible
+        //(used for rot/trans strands and BBFreeBlocks)
+        
+        ArrayList<Residue> resList = new ArrayList<>();//res in current moving strand
+            
+        Residue curRes = getResByPDBResNumber(termini[0]);
+        resList.add(curRes);
+
+        while ( ! curRes.getPDBResNumber().equalsIgnoreCase(termini[1]) ) {//not at other end
+
+            int curIndex = curRes.indexInMolecule;
+            if(curIndex==residues.size()-1){
+                throw new RuntimeException("ERROR: Reached end of molecule"
+                        + " in rot/trans strand or BBFreeBlock without finding res "+termini[1]);
+            }
+
+            curRes = residues.get( curRes.indexInMolecule+1 );
+            String curPDBNum = curRes.getPDBResNumber();
+            if(flexibleRes != null){
+                if( ! flexibleRes.contains(curPDBNum) )
+                    throw new RuntimeException("ERROR: Res "+curPDBNum+" in rot/trans strand or BBFreeBlock but not flexible!");
+            }
+
+            resList.add(curRes);
+        }
+        
+        return resList;
+    }
+    
+    
 }

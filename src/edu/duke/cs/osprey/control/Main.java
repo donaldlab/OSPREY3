@@ -4,6 +4,7 @@
  */
 package edu.duke.cs.osprey.control;
 
+import edu.duke.cs.osprey.energy.LigandResEnergies;
 import java.util.HashMap;
 import java.util.Map;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
@@ -44,7 +45,7 @@ public class Main {
 
 		ConfigFileParser cfp = new ConfigFileParser(args);//args 1, 3+ are configuration files
 
-		//load data filescloneclone
+		//load data files
 		cfp.loadData();        
 
 
@@ -115,6 +116,18 @@ public class Main {
 			public void run() {
 				COMETSDoer cd = new COMETSDoer(args);
 				cd.calcBestSequences();
+			}
+
+		}
+				);
+                
+                commands.put("calcLigResE",
+				new Runnable()
+		{
+			@Override
+			public void run() {
+				LigandResEnergies lre = new LigandResEnergies(cfp.getParams());
+				lre.printEnergies();
 			}
 
 		}
