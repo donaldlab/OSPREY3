@@ -60,13 +60,15 @@ public class COMETSTree extends AStarTree {
     int stateGMECsForPruning = 0;//how many state GMECs have been calculated for nodes that are pruned
 
     
+    boolean outputGMECStructs;//Output GMEC structure for each (state, sequence)
     
-    
+  
     
     public COMETSTree(int numTreeLevels, LME objFcn, LME[] constraints,  
             ArrayList<ArrayList<String>> AATypeOptions, int numMaxMut, String[] wtSeq, 
             int numStates, SearchProblem[] stateSP, 
-            ArrayList<ArrayList<Integer>> mutable2StatePosNums) {
+            ArrayList<ArrayList<Integer>> mutable2StatePosNums, 
+            boolean outputGMECStructs) {
         
         this.numTreeLevels = numTreeLevels;
         this.objFcn = objFcn;
@@ -77,6 +79,7 @@ public class COMETSTree extends AStarTree {
         this.numStates = numStates;
         this.stateSP = stateSP;
         this.mutable2StatePosNums = mutable2StatePosNums;
+        this.outputGMECStructs = outputGMECStructs;
         
         stateNumPos = new int[numStates];
         for(int state=0; state<numStates; state++)
@@ -335,10 +338,11 @@ public class COMETSTree extends AStarTree {
         numSeqsReturned++;
         
         System.out.print("Sequence: ");
-
+        
+        String seq = "";
         for(int level=0; level<numTreeLevels; level++)
-            System.out.print(AATypeOptions.get(level).get( seqNode.getNodeAssignments()[level] )+" ");
-        System.out.println();
+            seq = seq + AATypeOptions.get(level).get( seqNode.getNodeAssignments()[level] )+"_";
+        System.out.println(seq);
         
         
         //provide state GMECs, specified as rotamers (AA types all the same of course)
@@ -356,6 +360,11 @@ public class COMETSTree extends AStarTree {
 
                 System.out.println( "Energy: "+
                         getEnergyMatrix(state).confE(conf) );
+                
+                if(outputGMECStructs){
+                    //let's output the structure, PDB file named by sequence and state
+                    stateSP[state].outputMinimizedStruct( conf, "GMEC.state"+state+"."+seq+".pdb" );
+                }
             }
         }
         
