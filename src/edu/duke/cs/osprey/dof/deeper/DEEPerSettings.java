@@ -17,6 +17,7 @@ import java.util.ArrayList;
  * 
  * @author mhall44
  */
+@SuppressWarnings("serial")
 public class DEEPerSettings implements Serializable {
     
     PertSet perts = null;//Describes the actual perturbations
@@ -103,7 +104,7 @@ public class DEEPerSettings implements Serializable {
     }
     
     public ArrayList<ArrayList<int[]>> getPertStates(int pos){
-        if(perts==null)
+        if(perts==null || perts.pertStates.size() == 0)
             return null;
         
         return perts.pertStates.get(pos);

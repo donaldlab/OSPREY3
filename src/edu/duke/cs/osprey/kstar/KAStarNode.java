@@ -13,12 +13,10 @@ import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
 
 /*
  * TODO
- * 1) at leaf, run standard k*
- * 2) change checkpoint to a per-object variable? or enable/disable it for fully
- * defined sequences
+ * 1) only do upper bound stability check for depth 1
  */
 
-public class KUStarNode {
+public class KAStarNode {
 
 	private static KSCalc wt;
 	private static HashMap<Integer, AllowedSeqs> strand2AllowedSeqs;
@@ -36,13 +34,13 @@ public class KUStarNode {
 	public static void init( KSAbstract ksObj, 
 			HashMap<Integer, AllowedSeqs> strand2AllowedSeqs, KSCalc wt ) {
 
-		KUStarNode.ksObj = ksObj;
-		KUStarNode.strand2AllowedSeqs = strand2AllowedSeqs;
-		KUStarNode.wt = wt;
+		KAStarNode.ksObj = ksObj;
+		KAStarNode.strand2AllowedSeqs = strand2AllowedSeqs;
+		KAStarNode.wt = wt;
 	}
 
 
-	public KUStarNode( KSCalc lb, KSCalc ub, boolean scoreNeedsRefinement ) {
+	public KAStarNode( KSCalc lb, KSCalc ub, boolean scoreNeedsRefinement ) {
 		this.lb = lb;
 		this.ub = ub;
 		lbScore = Double.MIN_VALUE;
@@ -62,9 +60,9 @@ public class KUStarNode {
 
 
 	// only expand if scoreNeedsRefinement
-	public ArrayList<KUStarNode> expand(boolean useTightBounds) {
+	public ArrayList<KAStarNode> expand(boolean useTightBounds) {
 
-		ArrayList<KUStarNode> children = null;
+		ArrayList<KAStarNode> children = null;
 
 		if( isFullyDefined() ) {
 
@@ -103,7 +101,7 @@ public class KUStarNode {
 		// get next depths for each strand
 		for( int strand : strands ) {
 
-			if( currentDepth() != 0 ) {
+			if( depth() != 0 ) {
 				ArrayList<String> seq = lb.getPF(strand).getSequence();
 				seqs.set(strand, seq);
 
@@ -141,7 +139,7 @@ public class KUStarNode {
 		// so our children are valid combinations of nextProtein x nextLigand.
 		// however, from the root node, all reachable nodes are valid.
 
-		if( currentDepth() != 0 ) {
+		if( depth() != 0 ) {
 			// reduce next L to those subsequences reachable from this
 			ArrayList<String> currentLSeq = seqs.get(Strand.LIGAND);
 			for( Iterator<ArrayList<String>> iterator = nextLSeqs.iterator(); iterator.hasNext(); ) {
@@ -157,16 +155,16 @@ public class KUStarNode {
 			}
 		}
 
-		children = getPutativeChildren( nextPLSeqs, nextPSeqs, nextLSeqs, useTightBounds );
+		children = getChildren( nextPLSeqs, nextPSeqs, nextLSeqs, useTightBounds );
 
 		if(children.size() > 0) {
 
 			computeScores(children);
 
 			// remove children whose upper bound epsilon values are not false
-			for( Iterator<KUStarNode> iterator = children.iterator(); iterator.hasNext(); ) {
+			for( Iterator<KAStarNode> iterator = children.iterator(); iterator.hasNext(); ) {
 
-				KUStarNode child = iterator.next();
+				KAStarNode child = iterator.next();
 
 				if( child.scoreNeedsRefinement() && child.ub.getEpsilonStatus() != EApproxReached.FALSE ) {
 					// epsilon is not going to be true, since we do not compute complex
@@ -180,7 +178,7 @@ public class KUStarNode {
 	}
 
 
-	private void computeScores(ArrayList<KUStarNode> children) {
+	private void computeScores(ArrayList<KAStarNode> children) {
 
 		if(children.size() == 0) return;
 
@@ -198,7 +196,7 @@ public class KUStarNode {
 		}
 
 		else {
-			for(KUStarNode child : children) {
+			for(KAStarNode child : children) {
 
 				if(!child.isFullyProcessed()) 
 					computeScore(child);
@@ -207,7 +205,7 @@ public class KUStarNode {
 	}
 
 
-	private void computeScore(KUStarNode child) {
+	private void computeScore(KAStarNode child) {
 
 		if( child.scoreNeedsRefinement() ) {
 
@@ -220,8 +218,9 @@ public class KUStarNode {
 
 			if(child.ub.getEpsilonStatus() == EApproxReached.FALSE) {
 				child.lb.run(wt);
-				child.lbScore = -1.0 * child.lb.getKStarScore();
 			}
+			
+			child.lbScore = -1.0 * child.lb.getKStarScore();
 
 			PFAbstract.suppressOutput = false;
 		}
@@ -238,13 +237,13 @@ public class KUStarNode {
 	}
 
 
-	private boolean isUnique(ArrayList<KUStarNode> children) {		
+	private boolean isUnique(ArrayList<KAStarNode> children) {		
 		ArrayList<ArrayList<String>> listPL = new ArrayList<>();
 		ArrayList<ArrayList<String>> listP = new ArrayList<>();
 		ArrayList<ArrayList<String>> listL = new ArrayList<>();
 
 		for(int i = 0; i < children.size(); ++i) {
-			KUStarNode child = children.get(i);
+			KAStarNode child = children.get(i);
 			listPL.add(child.lb.getPF(Strand.COMPLEX).getSequence());
 			listP.add(child.lb.getPF(Strand.PROTEIN).getSequence());
 			listL.add(child.lb.getPF(Strand.LIGAND).getSequence());
@@ -261,7 +260,7 @@ public class KUStarNode {
 	}
 
 
-	private ArrayList<KUStarNode> getPutativeChildren( HashSet<ArrayList<String>> nextPLSeqs,
+	private ArrayList<KAStarNode> getChildren( HashSet<ArrayList<String>> nextPLSeqs,
 			HashSet<ArrayList<String>> pSeqs, HashSet<ArrayList<String>> lSeqs, boolean useTightBounds ) {
 
 		ArrayList<ArrayList<String>> strandSeqs = new ArrayList<>(Arrays.asList(null, null, null));
@@ -277,7 +276,7 @@ public class KUStarNode {
 		ArrayList<Boolean> tightContSCFlexVals = new ArrayList<>(Arrays.asList(true, true, true));
 		ArrayList<String> tightPFImplVals = new ArrayList<>(Arrays.asList(PFAbstract.getCFGImpl(), PFAbstract.getCFGImpl(), PFAbstract.getCFGImpl()));
 
-		ArrayList<KUStarNode> ans = new ArrayList<>();
+		ArrayList<KAStarNode> ans = new ArrayList<>();
 
 		for( ArrayList<String> pSeq : pSeqs ) {
 
@@ -304,7 +303,7 @@ public class KUStarNode {
 					ConcurrentHashMap<Integer, PFAbstract> ubPFs = ksObj.createPFs4Seq(strandSeqs, ubContSCFlexVals, ubPFImplVals);
 
 					// create KUStar node with lower and upper bounds
-					ans.add( new KUStarNode( new KSCalc(numCreated, lbPFs), new KSCalc(numCreated, ubPFs), childScoreNeedsRefinement() ) );
+					ans.add( new KAStarNode( new KSCalc(numCreated, lbPFs), new KSCalc(numCreated, ubPFs), childScoreNeedsRefinement() ) );
 				}
 
 				else if( useTightBounds ) {
@@ -325,11 +324,11 @@ public class KUStarNode {
 					ConcurrentHashMap<Integer, PFAbstract> tightPFs = ksObj.createPFs4Seq(strandSeqs, tightContSCFlexVals, tightPFImplVals);
 
 					// create new KUStar node with tight score
-					ans.add( new KUStarNode( new KSCalc(numCreated, tightPFs), null, childScoreNeedsRefinement() ) );
+					ans.add( new KAStarNode( new KSCalc(numCreated, tightPFs), null, childScoreNeedsRefinement() ) );
 				}
 				
 				else
-					throw new RuntimeException("ERROR: the loose bounds case should have been handled");
+					throw new RuntimeException("ERROR: cannot expand a fully assigned node");
 			}
 		}
 
@@ -337,7 +336,7 @@ public class KUStarNode {
 	}
 
 
-	private int currentDepth() {
+	private int depth() {
 		if( lb == null ) return 0;
 		// number of assigned residues is depth
 		return lb.getPF(Strand.COMPLEX).getSequence().size();
@@ -357,8 +356,11 @@ public class KUStarNode {
 	public double getUBScore() {
 
 		if(ub == null) return ubScore;
-
+		
+		PFAbstract.suppressOutput = true;
 		ub.runPF(ub.getPF(Strand.COMPLEX), null, true);
+		PFAbstract.suppressOutput = false;
+		
 		return ubScore = -1.0 * ub.getKStarScore();
 	}
 
@@ -366,7 +368,7 @@ public class KUStarNode {
 	private boolean isFullyDefined() {
 		int maxDepth = wt.getPF(Strand.COMPLEX).getSequence().size();
 
-		int depth = currentDepth();
+		int depth = depth();
 
 		if( depth < maxDepth )
 			return false;
@@ -390,10 +392,10 @@ public class KUStarNode {
 
 
 	//Comparator anonymous class implementation
-	public static Comparator<KUStarNode> KUStarNodeComparator = new Comparator<KUStarNode>() {
+	public static Comparator<KAStarNode> KUStarNodeComparator = new Comparator<KAStarNode>() {
 
 		@Override
-		public int compare( KUStarNode lhs, KUStarNode rhs ) {
+		public int compare( KAStarNode lhs, KAStarNode rhs ) {
 			return lhs.lbScore >= rhs.lbScore ? 1 : -1;
 		}
 	};

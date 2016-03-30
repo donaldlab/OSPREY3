@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.kstar.remote;
+package edu.duke.cs.osprey.kstar.pfunc.impl.remote;
 
 import java.net.MalformedURLException;
 import java.net.UnknownHostException;

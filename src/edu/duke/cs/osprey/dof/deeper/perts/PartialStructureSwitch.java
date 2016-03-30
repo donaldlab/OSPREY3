@@ -18,6 +18,7 @@ import java.util.ArrayList;
  * 
  * @author mhall44
  */
+@SuppressWarnings("serial")
 public class PartialStructureSwitch extends Perturbation {
 
     ArrayList<ArrayList<ResBBState>> altResConfs = new ArrayList<>();

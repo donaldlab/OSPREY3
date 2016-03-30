@@ -29,12 +29,12 @@ public class ConfTree extends AStarTree implements Serializable {
     //and improvements like dynamic A*
     //we may also want to allow other negative indices, to indicate partially assigned RCs
 
-    int numPos;
-    EnergyMatrix emat;
+    protected int numPos;
+    protected EnergyMatrix emat;
     
     
     
-    ArrayList<ArrayList<Integer>> unprunedRCsAtPos = new ArrayList<>();
+    protected ArrayList<ArrayList<Integer>> unprunedRCsAtPos = new ArrayList<>();
     //get from searchSpace when initializing!
     //These are lists of residue-specific RC numbers for the unpruned RCs at each residue
     
@@ -42,7 +42,7 @@ public class ConfTree extends AStarTree implements Serializable {
     
     
     //ADVANCED SCORING METHODS: TO CHANGE LATER (EPIC, MPLP, etc.)
-    boolean traditionalScore = true;
+    protected boolean traditionalScore = true;
     boolean useRefinement = false;//refine nodes (might want EPIC, MPLP, or something else)
     
     boolean useDynamicAStar = true;
@@ -199,7 +199,7 @@ public class ConfTree extends AStarTree implements Serializable {
     
     
         
-    double scoreConf(int[] partialConf){
+    protected double scoreConf(int[] partialConf){
         if(traditionalScore){
             RCTuple definedTuple = new RCTuple(partialConf);
             
@@ -233,7 +233,7 @@ public class ConfTree extends AStarTree implements Serializable {
     
     
     
-    double RCContributionLB(int level, int rc, RCTuple definedTuple, int[] partialConf){
+    protected double RCContributionLB(int level, int rc, RCTuple definedTuple, int[] partialConf){
         //Provide a lower bound on what the given rc at the given level can contribute to the energy
         //assume partialConf and definedTuple
         

@@ -70,7 +70,9 @@ public class KSCalc {
 
 
 	public void runPF(PFAbstract calcPF, PFAbstract wtPF, boolean complete) {
-
+		
+		if( getEpsilonStatus() != EApproxReached.FALSE ) return;
+		
 		// this method applies to non-complex strands
 		if( calcPF.getRunState() == RunState.NOTSTARTED ) {
 			System.out.println("\nInitializing partition function for " + KSAbstract.list1D2String(calcPF.getSequence(), " "));
@@ -173,7 +175,7 @@ public class KSCalc {
 		if( l.getQStar().compareTo(BigDecimal.ZERO) == 0 && 
 				p.getQStar().compareTo(BigDecimal.ZERO) == 0 && 
 				pl.getQStar().compareTo(BigDecimal.ZERO) == 0 )
-			return 0;
+			return 0.0;
 		
 		else if( l.getQStar().compareTo(BigDecimal.ZERO) == 0 || 
 				p.getQStar().compareTo(BigDecimal.ZERO) == 0 )

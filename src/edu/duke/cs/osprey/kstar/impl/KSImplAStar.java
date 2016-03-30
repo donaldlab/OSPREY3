@@ -8,8 +8,8 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.kstar.AllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSAbstract;
-import edu.duke.cs.osprey.kstar.KUStarNode;
-import edu.duke.cs.osprey.kstar.KUStarTree;
+import edu.duke.cs.osprey.kstar.KAStarNode;
+import edu.duke.cs.osprey.kstar.KAStarTree;
 import edu.duke.cs.osprey.kstar.Strand;
 
 public class KSImplAStar extends KSAbstract {
@@ -33,7 +33,7 @@ public class KSImplAStar extends KSAbstract {
 
 	
 	@Override
-	protected void prepareAllSingleSeqSPs( ArrayList<Boolean> contSCFlexVals ) {
+	protected void prepareSingleSeqSPs( ArrayList<Boolean> contSCFlexVals ) {
 
 		try {
 
@@ -100,7 +100,7 @@ public class KSImplAStar extends KSAbstract {
 		else
 			completed = runLB();
 
-		System.out.println("\ncompleted: " + completed + " numExpanded: " + KUStarNode.getNumExpanded() 
+		System.out.println("\ncompleted: " + completed + " numExpanded: " + KAStarNode.getNumExpanded() 
 			+ " numSubSeqs: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSubSeqs()
 			+ " numSeqs: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs());
 		
@@ -114,15 +114,15 @@ public class KSImplAStar extends KSAbstract {
 		wtKSCalc = computeWTCalc();
 
 		// initialize KUStar tree
-		KUStarTree tree = new KUStarTree(this, strand2AllowedSeqs, wtKSCalc);
+		KAStarTree tree = new KAStarTree(this, strand2AllowedSeqs, wtKSCalc);
 
 		// add root node
-		tree.add( new KUStarNode(null, null, true) );
+		tree.add( new KAStarNode(null, null, true) );
 
 		int target = cfp.getParams().getInt("KStarNumSeqs", 5);
 		int completed = 0;
 
-		for( KUStarNode best = tree.poll(); best != null && completed < target; 
+		for( KAStarNode best = tree.poll(); best != null && completed < target; 
 				best = tree.poll() ) {
 			
 			if( best.isFullyProcessed() ) {
@@ -131,7 +131,7 @@ public class KSImplAStar extends KSAbstract {
 				continue;
 			}
 
-			ArrayList<KUStarNode> children = best.expand(useTightBounds);
+			ArrayList<KAStarNode> children = best.expand(useTightBounds);
 			tree.add(children);
 		}
 		
@@ -147,15 +147,15 @@ public class KSImplAStar extends KSAbstract {
 		wtKSCalc = computeWTCalc();
 
 		// initialize KUStar tree
-		KUStarTree tree = new KUStarTree(this, strand2AllowedSeqs, wtKSCalc);
+		KAStarTree tree = new KAStarTree(this, strand2AllowedSeqs, wtKSCalc);
 
 		// add root node
-		tree.add( new KUStarNode(null, null, true) );
+		tree.add( new KAStarNode(null, null, true) );
 
 		int completed = 0;
 		double gUB = Double.NEGATIVE_INFINITY;
 
-		for( KUStarNode best = tree.poll(); best != null; best = tree.poll() ) {
+		for( KAStarNode best = tree.poll(); best != null; best = tree.poll() ) {
 			
 			if( best.isFullyProcessed() ) {
 				
@@ -172,7 +172,7 @@ public class KSImplAStar extends KSAbstract {
 				continue;
 			}
 
-			ArrayList<KUStarNode> children = best.expand(useTightBounds);
+			ArrayList<KAStarNode> children = best.expand(useTightBounds);
 			tree.add(children);
 		}
 		

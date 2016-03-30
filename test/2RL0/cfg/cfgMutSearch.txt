@@ -6,6 +6,7 @@ Ival 5.0
 Ew 0
 
 epsilon 0.99
+useTupExp false
 doMinimize true
 doPerturbations false
 selectPerturbations false

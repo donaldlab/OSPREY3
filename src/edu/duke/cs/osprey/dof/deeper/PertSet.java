@@ -20,6 +20,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.StringTokenizer;
 
@@ -30,7 +31,8 @@ import java.util.StringTokenizer;
  * 
  * @author mhall44
  */
-public class PertSet {
+@SuppressWarnings("serial")
+public class PertSet implements Serializable {
     
     ArrayList<String> pertTypes = new ArrayList<>();//List of types ("BACKRUB", etc.) for the perturbations
     ArrayList<ArrayList<String>> resNums = new ArrayList<>();//corresponding perturbations'

@@ -51,7 +51,7 @@ public abstract class KSAbstract implements KSInterface {
 	private static double pRatioLBT = 0.25;
 	private static double pRatioUBT = 0.95;
 	protected boolean prunedSingleSeqs = false;
-	public static boolean refinePInterval = false;
+	public static boolean createPFs = false;
 	public static boolean doCheckpoint = false;
 	protected static long checkpointInterval = 100000;
 
@@ -71,7 +71,7 @@ public abstract class KSAbstract implements KSInterface {
 	}
 
 
-	protected abstract void prepareAllSingleSeqSPs(ArrayList<Boolean> contSCFlexVals);
+	protected abstract void prepareSingleSeqSPs(ArrayList<Boolean> contSCFlexVals);
 
 
 	public static void setCheckPointInterval( long interval ) {
@@ -82,12 +82,12 @@ public abstract class KSAbstract implements KSInterface {
 
 	public void createEmats(ArrayList<Boolean> contSCFlexVals) {
 		// for now, only the pan seqSPs have energy matrices in the file system
-		prepareAllPanSeqSPs(contSCFlexVals);
+		preparePanSeqSPs(contSCFlexVals);
 
 		// for benchmarking, prepare these ahead of time
 		// only single sequences are loaded and pruned this time
-		if(refinePInterval)
-			prepareAllSingleSeqSPs(contSCFlexVals);
+		if(createPFs)
+			prepareSingleSeqSPs(contSCFlexVals);
 	}
 
 
@@ -98,8 +98,7 @@ public abstract class KSAbstract implements KSInterface {
 
 
 	protected void createEmatDir() {
-		if( !new File(getEMATdir()).exists() )
-			ObjectIO.makeDir(getEMATdir(), cfp.getParams().getBool("deleteematdir", false));
+		ObjectIO.makeDir(getEMATdir(), cfp.getParams().getBool("deleteematdir", false));
 	}
 
 
@@ -180,11 +179,6 @@ public abstract class KSAbstract implements KSInterface {
 	}
 
 
-	public String getEmatName(boolean contSCFlex, int strand, ArrayList<String> seq, SearchProblem.MatrixType type) {
-		return getSearchProblemName(contSCFlex, strand, seq) + "." + type.name() + ".dat";
-	}
-
-
 	protected void printSequences() {
 		System.out.println("\nPreparing to compute K* for the following sequences:");
 		int i = 0;
@@ -204,24 +198,24 @@ public abstract class KSAbstract implements KSInterface {
 
 			name2SP.keySet().parallelStream().forEach(key -> {
 
-				// for(String key : name2SP.keySet()) {
+			//for(String key : name2SP.keySet()) {
 
 				SearchProblem sp = name2SP.get(key);
 
 				// single seq matrices created using the fast construction 
 				// method are already pruned according to the pruning window
-				if(sp.emat == null) {
-					sp.loadEnergyMatrix();
-					PruningControl pc = cfp.getPruningControl(sp, EW+I0, false, false); 
+				if(sp.getEnergyMatrix() == null) {
+					PruningControl pc = cfp.getPruningControl(sp, EW+I0, useEPIC, useTupExp); 
+					sp.loadEnergyMatrix(sp.getMatrixType());
 					pc.prune();
 				}
 
 				// for K* we will guard against under-pruning, since this increases
 				// the length of our calculation
-				if(sp.isSingleSeq() && KSAbstract.refinePInterval) {
+				if(sp.isSingleSeq() && KSAbstract.createPFs) {
 					refinePruningInterval(sp);
 				}
-				//}
+			//}
 
 			});
 
@@ -248,19 +242,19 @@ public abstract class KSAbstract implements KSInterface {
 
 		// most amount of pruning; ratio upper bound
 		double l = 0.01;
-		PruningControl pc = cfp.getPruningControl(sp, l, false, false); pc.prune();
+		PruningControl pc = cfp.getPruningControl(sp, l, useEPIC, useTupExp); pc.prune();
 		double lr = sp.numPruned().doubleValue() / sp.numUnPruned().doubleValue();
 
 		// least amount of pruning; ratio lower bound
 		double u = 100;
-		pc = cfp.getPruningControl(sp, u, false, false); pc.prune();
+		pc = cfp.getPruningControl(sp, u, useEPIC, useTupExp); pc.prune();
 		double ur = sp.numPruned().doubleValue() / sp.numUnPruned().doubleValue();
 
 		double m = -1, mr = -1;
 
 		// ratio cannot get smaller or bigger, respectively
 		if(ur > pRatioUBT || lr < pRatioLBT) {
-			pc = cfp.getPruningControl(sp, EW+I0, false, false); pc.prune();
+			pc = cfp.getPruningControl(sp, EW+I0, useEPIC, useTupExp); pc.prune();
 			sp.pruneMat.setPruningInterval(EW+I0);
 			return;
 		}
@@ -268,7 +262,7 @@ public abstract class KSAbstract implements KSInterface {
 		while( Math.abs(l-u) > 0.1 && (lr > pRatioUBT || ur < pRatioLBT)) {
 
 			m = (l+u)/2;
-			pc = cfp.getPruningControl(sp, m, false, false); pc.prune();
+			pc = cfp.getPruningControl(sp, m, useEPIC, useTupExp); pc.prune();
 			mr = sp.numPruned().doubleValue() / sp.numUnPruned().doubleValue();
 			sp.pruneMat.setPruningInterval(m);
 
@@ -290,7 +284,7 @@ public abstract class KSAbstract implements KSInterface {
 		}
 
 		// we failed. restore original pruning interval
-		pc = cfp.getPruningControl(sp, EW+I0, false, false); pc.prune();
+		pc = cfp.getPruningControl(sp, EW+I0, useEPIC, useTupExp); pc.prune();
 		sp.pruneMat.setPruningInterval(EW+I0);
 		return;
 	}
@@ -350,8 +344,8 @@ public abstract class KSAbstract implements KSInterface {
 				ans.put(strand, pf);
 
 				// get energy matrix
-				if(pf.getSearchProblem().emat == null) {
-					pf.getSearchProblem().loadEnergyMatrix();
+				if(pf.getSearchProblem().getEnergyMatrix() == null) {
+					pf.getSearchProblem().loadEnergyMatrix(pf.getSearchProblem().getMatrixType());
 
 					// get pruning matrix
 					pf.getPruningControl(EW+I0).prune();
@@ -361,13 +355,13 @@ public abstract class KSAbstract implements KSInterface {
 					// no conformations in search space, so this cannot give a valid
 					// partition function
 					pf.setEpsilonStatus(EApproxReached.NOT_POSSIBLE);
-					
-					System.out.println("WARNING: there are no valid conformations for sequence " + 
+
+					System.out.println("\nWARNING: there are no valid conformations for sequence " + 
 							KSAbstract.list1D2String(pf.getSequence(), " "));
 				}
 
 				else {	
-					if(!prunedSingleSeqs && KSAbstract.refinePInterval)
+					if(!prunedSingleSeqs && KSAbstract.createPFs)
 						refinePruningInterval(pf.getSearchProblem());
 
 					// initialize conf counts for K*
@@ -492,7 +486,7 @@ public abstract class KSAbstract implements KSInterface {
 	}
 
 
-	protected void prepareAllPanSeqSPs( ArrayList<Boolean> contSCFlexVals ) {
+	protected void preparePanSeqSPs( ArrayList<Boolean> contSCFlexVals ) {
 
 		ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Strand.LIGAND, 
 				Strand.PROTEIN, Strand.COMPLEX));
@@ -501,6 +495,8 @@ public abstract class KSAbstract implements KSInterface {
 
 			strands.parallelStream().forEach(strand -> {
 
+				//for( int strand : strands ) {
+
 				String spName = getSearchProblemName(contSCFlex, strand);
 
 				if( !name2SP.containsKey(spName) ) {
@@ -508,6 +504,7 @@ public abstract class KSAbstract implements KSInterface {
 					name2SP.put(sp.name, sp);
 				}
 			});
+			//}
 		}
 
 		loadAndPruneMatrices();

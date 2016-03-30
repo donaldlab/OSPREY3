@@ -282,15 +282,75 @@ public class SearchProblem implements Serializable {
 
 		return bound;
 	}
-
-
-
-
-
+	
+	
 	//LOADING AND PRECOMPUTATION OF ENERGY MATRIX-TYPE OBJECTS (regular energy matrix, tup-exp and EPIC matrices)
+	
+	// AAO
+	public MatrixType getMatrixType() {
+		if(useTupExpForSearch) return MatrixType.TUPEXPEMAT;
+		
+		// skipping epic for now
+		// else if(useEPIC) return MatrixType.EPICMAT;
+		
+		return MatrixType.EMAT;
+	}
+	
+	// AAO
+	public EnergyMatrix getEnergyMatrix() {
+		
+		MatrixType type = getMatrixType();
+		switch (type) {
+		
+		case EMAT: 
+			return emat;
+			
+		case TUPEXPEMAT: 
+			return tupExpEMat;
+			
+		default:
+			throw new RuntimeException("ERROR: AAO has not added support for type " + type);
+		}
+	}
+	
+	// AAO
+	public void setEnergyMatrix(EnergyMatrix e) {
+		
+		MatrixType type = getMatrixType();
+		switch (type) {
+		
+		case EMAT: 
+			emat = e;
+			break;
+			
+		case TUPEXPEMAT: 
+			tupExpEMat = e;
+			break;
+			
+		default:
+			throw new RuntimeException("ERROR: AAO has not added support for type " + type);
+		}
+	}
+	
 	// AAO it's easier to specify the matrix type
 	public void loadEnergyMatrix(MatrixType type) {
-		loadMatrix(type);
+		switch (type) {
+		
+		case EMAT: 
+			loadEnergyMatrix();
+			break;
+		
+		case TUPEXPEMAT: 
+			loadTupExpEMatrix();
+			break;
+		
+		case EPICMAT:
+			loadEPICMatrix();
+			break;
+		
+		default:	
+			throw new RuntimeException("ERROR: unsupported energy matrix type: " + type);
+		}
 	}
 	
 	public void loadEnergyMatrix(){
@@ -418,7 +478,7 @@ public class SearchProblem implements Serializable {
 		// the constructor creates a new confspace object
 		SearchProblem seqSP = new SearchProblem(this, name, seq, flexRes);
 
-		seqSP.emat = emat.singleSeqMatrix(seq, flexResIndexes, confSpace);
+		seqSP.setEnergyMatrix( getEnergyMatrix().singleSeqMatrix(seq, flexResIndexes, confSpace) );
 
 		seqSP.pruneMat = pruneMat.singleSeqMatrix(seq, flexResIndexes, confSpace);
 		seqSP.pruneMat.setPruningInterval(pruneMat.getPruningInterval());

@@ -12,8 +12,8 @@ import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.kstar.KSConfQ;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
-import edu.duke.cs.osprey.kstar.remote.Constants;
-import edu.duke.cs.osprey.kstar.remote.ServerInterface;
+import edu.duke.cs.osprey.kstar.pfunc.impl.remote.Constants;
+import edu.duke.cs.osprey.kstar.pfunc.impl.remote.ServerInterface;
 import edu.duke.cs.osprey.kstar.KSConf;
 
 @SuppressWarnings("serial")

@@ -68,7 +68,7 @@ public class KStarCalculator {
 
 		MinimizerFactory.setImpl( PFAbstract.eMinMethod );
 		
-		KSAbstract.refinePInterval = cfp.getParams().getBool("KStarRefinePruning", false);
+		KSAbstract.createPFs = cfp.getParams().getBool("KStarCreatePFs", false);
 		KSAbstract.doCheckpoint = cfp.getParams().getBool("doKStarCheckpoint", false);
 		KSAbstract.setCheckPointInterval(cfp.getParams().getInt("KStarCheckpoint", 100000));
 		

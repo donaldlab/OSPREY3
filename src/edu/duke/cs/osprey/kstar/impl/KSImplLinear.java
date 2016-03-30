@@ -46,7 +46,7 @@ public class KSImplLinear extends KSAbstract {
 	}
 
 
-	protected void prepareAllSingleSeqSPs( ArrayList<Boolean> contSCFlexVals ) {
+	protected void prepareSingleSeqSPs( ArrayList<Boolean> contSCFlexVals ) {
 
 		try {
 
@@ -151,7 +151,6 @@ public class KSImplLinear extends KSAbstract {
 		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(true, true, true));
 		ArrayList<String> pfImplVals = new ArrayList<String>(Arrays.asList(PFAbstract.getCFGImpl(), 
 				PFAbstract.getCFGImpl(), PFAbstract.getCFGImpl()));
-
 
 		wtKSCalc = computeWTCalc();
 

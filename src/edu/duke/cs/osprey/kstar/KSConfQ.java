@@ -23,7 +23,7 @@ public class KSConfQ extends Thread implements Serializable {
 	private SearchProblem sp;
 	private ConfSearch search;
 	private int minCapacity;
-	private BigDecimal capacityThresh = new BigDecimal(0.0001);
+	private BigDecimal capacityThresh = new BigDecimal(0.000001);
 	
 	// lock for queue access
 	public final String qLock = new String("LOCK");

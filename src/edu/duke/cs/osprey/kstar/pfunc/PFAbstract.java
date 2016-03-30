@@ -408,7 +408,7 @@ public abstract class PFAbstract implements Serializable {
 
 
 	public PruningControl getPruningControl(double pruningInterval) {
-		return cfp.getPruningControl(sp, pruningInterval, false, false);
+		return cfp.getPruningControl(sp, pruningInterval, sp.useEPIC, sp.useTupExpForSearch);
 	}
 
 

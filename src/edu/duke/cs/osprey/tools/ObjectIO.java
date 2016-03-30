@@ -151,7 +151,7 @@ public class ObjectIO {
 		}
 		catch(StackOverflowError e){//For objects with lots of links, might need to raise stack size, 
 			//since writing is recursive
-			throw new RuntimeException("ERROR: Stack overflow in deepCopy.  Consider increasing -Xss");
+			throw new RuntimeException("ERROR: Stack overflow in deepCopy. Consider increasing -Xss");
 		}
 		catch(Exception e)
 		{
