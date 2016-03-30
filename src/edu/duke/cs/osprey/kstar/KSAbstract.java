@@ -14,6 +14,7 @@ import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
+import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.RunState;
 import edu.duke.cs.osprey.kstar.pfunc.PFFactory;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -51,7 +52,8 @@ public abstract class KSAbstract implements KSInterface {
 	private static double pRatioLBT = 0.25;
 	private static double pRatioUBT = 0.95;
 	protected boolean prunedSingleSeqs = false;
-	public static boolean createPFs = false;
+	public static boolean preLoadPFs = false;
+	public static boolean refinePruning = false;
 	public static boolean doCheckpoint = false;
 	protected static long checkpointInterval = 100000;
 
@@ -71,7 +73,7 @@ public abstract class KSAbstract implements KSInterface {
 	}
 
 
-	protected abstract void prepareSingleSeqSPs(ArrayList<Boolean> contSCFlexVals);
+	protected abstract void preLoadPFs(ArrayList<Boolean> contSCFlexVals);
 
 
 	public static void setCheckPointInterval( long interval ) {
@@ -86,8 +88,7 @@ public abstract class KSAbstract implements KSInterface {
 
 		// for benchmarking, prepare these ahead of time
 		// only single sequences are loaded and pruned this time
-		if(createPFs)
-			prepareSingleSeqSPs(contSCFlexVals);
+		if(preLoadPFs) preLoadPFs(contSCFlexVals);
 	}
 
 
@@ -189,7 +190,7 @@ public abstract class KSAbstract implements KSInterface {
 	}
 
 
-	protected void loadAndPruneMatrices() {
+	protected void loadAndPruneMatricesFromSPMap() {
 
 		try {
 
@@ -197,8 +198,6 @@ public abstract class KSAbstract implements KSInterface {
 			long begin = System.currentTimeMillis();
 
 			name2SP.keySet().parallelStream().forEach(key -> {
-
-			//for(String key : name2SP.keySet()) {
 
 				SearchProblem sp = name2SP.get(key);
 
@@ -212,11 +211,46 @@ public abstract class KSAbstract implements KSInterface {
 
 				// for K* we will guard against under-pruning, since this increases
 				// the length of our calculation
-				if(sp.isSingleSeq() && KSAbstract.createPFs) {
+				if(sp.isSingleSeq() && KSAbstract.refinePruning) {
 					refinePruningInterval(sp);
 				}
-			//}
+			});
 
+			System.out.println("\nFinished creating and pruning energy matrices");
+			System.out.println("Running time: " + (System.currentTimeMillis()-begin)/1000 + " seconds\n");
+		} 
+
+		catch (Exception e) {
+			System.out.println(e.getMessage());
+			e.printStackTrace();
+			System.exit(1);
+		} 
+	}
+
+
+	protected void loadAndPruneMatricesFromPFMap() {
+
+		try {
+			System.out.println("\nCreating and pruning pan energy matrices\n");
+			long begin = System.currentTimeMillis();
+
+			name2PF.keySet().parallelStream().forEach(key -> {
+
+				SearchProblem sp = name2PF.get(key).getSearchProblem();
+
+				// single seq matrices created using the fast construction 
+				// method are already pruned according to the pruning window
+				if(sp.getEnergyMatrix() == null) {
+					PruningControl pc = cfp.getPruningControl(sp, EW+I0, useEPIC, useTupExp); 
+					sp.loadEnergyMatrix(sp.getMatrixType());
+					pc.prune();
+				}
+
+				// for K* we will guard against under-pruning, since this increases
+				// the length of our calculation
+				if(sp.isSingleSeq() && KSAbstract.refinePruning) {
+					refinePruningInterval(sp);
+				}
 			});
 
 			System.out.println("\nFinished creating and pruning energy matrices");
@@ -293,27 +327,25 @@ public abstract class KSAbstract implements KSInterface {
 	protected PFAbstract createPF4Seq(boolean contSCFlex, int strand, ArrayList<String> seq, String pfImpl) {
 		PFAbstract ans = null;
 
-		String spName = getSearchProblemName(contSCFlex, strand, seq);
+		String panSeqSPName = getSearchProblemName(contSCFlex, strand);
+		SearchProblem panSeqSP = name2SP.get(panSeqSPName);
+
+		String seqSPName = getSearchProblemName(contSCFlex, strand, seq);
 		String cpName = getCheckPointName(contSCFlex, strand, seq);
 
-		if( (ans = name2PF.get(spName)) != null ) return ans;
-
-		if( (ans = deSerializePF(spName, cpName)) != null ) return ans;
+		if( (ans = name2PF.get(seqSPName)) != null ) return ans;
+		if( (ans = deSerializePF(seqSPName, cpName)) != null ) return ans;
 
 		ArrayList<Integer> flexResIndexes = strand2AllowedSeqs.get(strand).getFlexResIndexesFromSeq(seq);
 
-		// create searchproblem
-		SearchProblem seqSP = name2SP.get(spName);
-		seqSP = seqSP != null ? seqSP : createSingleSeqSP(contSCFlex, strand, seq, flexResIndexes, true);
-
 		// create partition function
-		ans = PFFactory.getPartitionFunction(pfImpl, seq, cpName, cfp, seqSP, EW+I0);
+		ans = PFFactory.getPartitionFunction(pfImpl, strand, seq, flexResIndexes, cpName, seqSPName, cfp, panSeqSP);
 
 		return ans;
 	}
 
 
-	protected ConcurrentHashMap<Integer, PFAbstract> createPFs4Seq(ArrayList<ArrayList<String>> seqs, 
+	protected ConcurrentHashMap<Integer, PFAbstract> createPFs4Seqs(ArrayList<ArrayList<String>> seqs, 
 			ArrayList<Boolean> contSCFlexVals, ArrayList<String> pfImplVals) {
 
 		ConcurrentHashMap<Integer, PFAbstract> ans = new ConcurrentHashMap<>();
@@ -323,25 +355,23 @@ public abstract class KSAbstract implements KSInterface {
 		for(int i = 0; i < strands.size(); i++) indexes.add(i);
 
 		indexes.parallelStream().forEach((index) -> {
-			//for(int index = 0; index < strands.size(); ++index) {
+		//for(int index = 0; index < strands.size(); ++index) {
 
 			int strand = strands.get(index);
 			boolean contSCFlex = contSCFlexVals.get(strand);
 			String pfImpl = pfImplVals.get(strand);
-
 			ArrayList<String> seq = seqs.get(strand);
-			String spName = getSearchProblemName(contSCFlex, strand, seq);
-			String cpName = getCheckPointName(contSCFlex, strand, seq);
 
-			if( name2PF.get(spName) == null && deSerializePF(spName, cpName) == null ) {
+			PFAbstract pf = createPF4Seq(contSCFlex, strand, seq, pfImpl);
 
-				PFAbstract pf = createPF4Seq(contSCFlex, strand, seq, pfImpl);
+			// put partition function in global map
+			name2PF.put(pf.getSearchProblemName(), pf);
 
-				// put partition function in global map
-				name2PF.put(pf.getSearchProblem().name, pf);
-
-				// put in local map
-				ans.put(strand, pf);
+			// put in local map
+			ans.put(strand, pf);
+			
+			// only continue if we have not already started computed the PF
+			if( pf.getRunState() == RunState.NOTSTARTED ) {
 
 				// get energy matrix
 				if(pf.getSearchProblem().getEnergyMatrix() == null) {
@@ -361,33 +391,17 @@ public abstract class KSAbstract implements KSInterface {
 				}
 
 				else {	
-					if(!prunedSingleSeqs && KSAbstract.createPFs)
+					if(!prunedSingleSeqs && KSAbstract.refinePruning) {
 						refinePruningInterval(pf.getSearchProblem());
+					}
 
 					// initialize conf counts for K*
 					pf.setNumUnPruned();
 					pf.setNumPruned();
 				}
 			}
-			//}
+		//}
 		});
-
-		// get pfs that were already in global map
-		for( int index : indexes ) {
-
-			int strand = strands.get(index);
-			boolean contSCFlex = contSCFlexVals.get(strand);
-
-			ArrayList<String> seq = seqs.get(strand);
-			String spName = getSearchProblemName(contSCFlex, strand, seq);
-
-			if(!ans.keySet().contains(strand)) {
-
-				PFAbstract pf = name2PF.get(spName);
-
-				ans.put(strand, pf);
-			}
-		}
 
 		if(ans.size() != 3)
 			throw new RuntimeException("ERROR: returned map must contain three different partition functions");
@@ -399,60 +413,6 @@ public abstract class KSAbstract implements KSInterface {
 	public void removeFromMap(String spName, boolean sp, boolean pf) {
 		if(sp) name2SP.remove(spName);
 		if(pf) name2PF.remove(spName);
-	}
-
-
-	protected SearchProblem createSingleSeqSP( boolean contSCFlex, int strand, 
-			ArrayList<String> seq, ArrayList<Integer> flexResIndexes, boolean fast ) {
-
-		if(fast) return createSingleSeqSPFast(contSCFlex, strand, seq, flexResIndexes);
-
-		return createSingleSeqSPSlow(contSCFlex, strand, seq);
-	}
-
-
-	private SearchProblem createSingleSeqSPSlow( boolean contSCFlex, int strand, ArrayList<String> seq ) {
-
-		ArrayList<ArrayList<String>> allowedAAs = list1D2ListOfLists(AllowedSeqs.getAAsFromSeq(seq));
-		ArrayList<String> flexibleRes = AllowedSeqs.getFlexResFromSeq(seq);
-		ArrayList<String[]> moveableStrands = strand2AllowedSeqs.get(strand).getMoveableStrandTermini();
-		ArrayList<String[]> freeBBZones = strand2AllowedSeqs.get(strand).getFreeBBZoneTermini();
-		DEEPerSettings dset = strand2AllowedSeqs.get(strand).getDEEPerSettings();
-
-		// create searchproblem
-		SearchProblem seqSP = new SearchProblem( 
-				getSearchProblemName(contSCFlex, strand, seq), 
-				pdbName, 
-				flexibleRes, 
-				allowedAAs, 
-				false, 
-				contSCFlex,
-				useEPIC,
-				new EPICSettings(cfp.getParams()),
-				useTupExp,
-				dset, 
-				moveableStrands, 
-				freeBBZones,
-				useEllipses,
-				useERef,
-				addResEntropy);
-
-		return seqSP;
-	}
-
-
-	private SearchProblem createSingleSeqSPFast( boolean contSCFlex, int strand, 
-			ArrayList<String> seq, ArrayList<Integer> flexResIndexes ) {
-
-		String panName = getSearchProblemName(contSCFlex, strand);
-		SearchProblem panSeqSP = name2SP.get(panName);
-
-		String singleName = getSearchProblemName(contSCFlex, strand, seq);
-		SearchProblem seqSP = panSeqSP.singleSeqSearchProblem(singleName, 
-				AllowedSeqs.getAAsFromSeq(seq), AllowedSeqs.getFlexResFromSeq(seq), 
-				flexResIndexes);
-
-		return seqSP;
 	}
 
 
@@ -495,19 +455,16 @@ public abstract class KSAbstract implements KSInterface {
 
 			strands.parallelStream().forEach(strand -> {
 
-				//for( int strand : strands ) {
-
 				String spName = getSearchProblemName(contSCFlex, strand);
 
 				if( !name2SP.containsKey(spName) ) {
 					SearchProblem sp = createPanSeqSP(contSCFlex, strand);
 					name2SP.put(sp.name, sp);
 				}
-			});
-			//}
+			});	
 		}
 
-		loadAndPruneMatrices();
+		loadAndPruneMatricesFromSPMap();
 	}
 
 
@@ -627,25 +584,16 @@ public abstract class KSAbstract implements KSInterface {
 		ArrayList<String> pfImplVals = new ArrayList<String>(Arrays.asList(PFAbstract.getCFGImpl(), 
 				PFAbstract.getCFGImpl(), PFAbstract.getCFGImpl()));
 
-		ConcurrentHashMap<Integer, PFAbstract> pfs = createPFs4Seq(strandSeqs, contSCFlexVals, pfImplVals);
+		ConcurrentHashMap<Integer, PFAbstract> pfs = createPFs4Seqs(strandSeqs, contSCFlexVals, pfImplVals);
 		KSCalc calc = new KSCalc(0, pfs);
+		boolean oldCPVal = KSAbstract.doCheckpoint; KSAbstract.doCheckpoint = false;
 		calc.run(calc);
+		KSAbstract.doCheckpoint = oldCPVal;
 
 		if(calc.getEpsilonStatus() != EApproxReached.TRUE)
 			throw new RuntimeException("ERROR: could not compute the wild-type sequence to an epsilon value of "
-					+ PFAbstract.targetEpsilon + ". Change the value of epsilon." );
-
-		if(doCheckpoint) {
-
-			for( int strand : Arrays.asList(Strand.LIGAND, Strand.PROTEIN, Strand.COMPLEX) ) {
-				PFAbstract pf = calc.getPF(strand);
-				if(pf.checkPointExists()) return calc;
-			}
-
-			calc.serializePFs();
-
-			calc.printSummary( getCheckPointFilePath(), true );
-		}
+					+ PFAbstract.targetEpsilon + ". Resolve any clashes involving the flexible residues, or increase "
+					+ "the value of epsilon." );
 
 		calc.printSummary( getOputputFilePath(), true );
 
@@ -662,6 +610,9 @@ public abstract class KSAbstract implements KSInterface {
 		PFAbstract ans = (PFAbstract) ObjectIO.readObject(path, true);
 		if(ans != null) {
 			name2PF.put(spName, ans);
+			// set the panseqsp after de-serializing
+			SearchProblem panSeqSP = name2SP.get(getSearchProblemName(ans.getSearchProblem().contSCFlex, ans.getStrand()));
+			ans.setPanSeqSP(panSeqSP);
 		}
 		return ans;
 	}

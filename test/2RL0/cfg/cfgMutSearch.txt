@@ -5,6 +5,10 @@ typedep true
 Ival 5.0
 Ew 0
 
+UseDunbrackRotamers false
+ematDir emat.lovell
+deleteEmatDir false
+
 epsilon 0.99
 useTupExp false
 doMinimize true
@@ -17,7 +21,7 @@ numTopConfsToSave 5
 useMaxKSConfs false
 maxKSconfs 200000
 doKStarCheckpoint false
-KStarCheckpoint 2000
+KStarCheckpoint 100000
 
 numMutations 1
 resAllowed0_0 ASP GLU HID
@@ -34,9 +38,8 @@ pFuncMethod new02
 pFuncThreads 3
 numThreads 3
 eMinMethod hbfgsccd
-KStarMethod linear
-KStarUseTightBounds false
-KStarNumSeqs 1
-UseDunbrackRotamers false
-ematDir emat.lovell
-deleteEmatDir false
+kStarMethod linear
+kStarUseTightBounds false
+kStarNumSeqs 1
+kStarPreLoadPFs false
+kStarRefinePruning false

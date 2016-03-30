@@ -4,18 +4,19 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.kstar.AllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KAStarNode;
 import edu.duke.cs.osprey.kstar.KAStarTree;
 import edu.duke.cs.osprey.kstar.Strand;
+import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
+import edu.duke.cs.osprey.kstar.pfunc.impl.PFnew00;
 
 public class KSImplAStar extends KSAbstract {
 
 	public static boolean useTightBounds = true;
-	
+
 	public KSImplAStar(ConfigFileParser cfp) {
 		super(cfp);
 	}
@@ -31,9 +32,9 @@ public class KSImplAStar extends KSAbstract {
 		createEmats(contSCFlexVals);
 	}
 
-	
+
 	@Override
-	protected void prepareSingleSeqSPs( ArrayList<Boolean> contSCFlexVals ) {
+	protected void preLoadPFs( ArrayList<Boolean> contSCFlexVals ) {
 
 		try {
 
@@ -56,23 +57,34 @@ public class KSImplAStar extends KSAbstract {
 
 								subSeqsAtDepth.parallelStream().forEach( seq -> {
 
-									ArrayList<Integer> flexResIndexes = seqs.getFlexResIndexesFromSeq(seq);
+									String pfImpl = null;
+									boolean flex = false;
 
-									String spName = getSearchProblemName( contSCFlex, strand, seq );
+									// here we use contscflex == true to mean upper bound and
+									// == false means lower bound 
 
-									SearchProblem seqSP = null;			
-									if( (seqSP = name2SP.get(spName)) == null ) {
-										seqSP = createSingleSeqSP( contSCFlex, strand, seq, flexResIndexes, true );
+									if(contSCFlex) {
+										// do upper bound k* calc
+										if(strand == Strand.COMPLEX) { flex = false; pfImpl = PFAbstract.getCFGImpl(); }
+										else { flex = true; pfImpl = PFnew00.getImpl(); }
 									}
 
-									name2SP.put(spName, seqSP);
+									else {
+										// do lower bound k* calc
+										if(strand == Strand.COMPLEX) { flex = true; pfImpl = PFnew00.getImpl(); }
+										else { flex = false; pfImpl = PFAbstract.getCFGImpl(); }
+									}
+
+									PFAbstract pf = createPF4Seq(flex, strand, seq, pfImpl);
+
+									name2PF.put(pf.getSearchProblemName(), pf);
 								});
 					}
 				}
 			}
 
 			// create last of the energy matrices
-			loadAndPruneMatrices();
+			loadAndPruneMatricesFromPFMap();
 
 		} catch (Exception e) {
 			System.out.println(e.getMessage());
@@ -80,36 +92,36 @@ public class KSImplAStar extends KSAbstract {
 			System.exit(1);
 		}
 	}
-	
-	
+
+
 	@Override
 	public String getKSMethod() {
 		return "astar";
 	}
-	
+
 
 	@Override
 	public void run() {
-		
+
 		long begin = System.currentTimeMillis();
 		int completed = 0;
 
 		if(useTightBounds)
 			completed = runTB();
-		
+
 		else
 			completed = runLB();
 
 		System.out.println("\ncompleted: " + completed + " numExpanded: " + KAStarNode.getNumExpanded() 
-			+ " numSubSeqs: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSubSeqs()
-			+ " numSeqs: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs());
-		
+		+ " numSubSeqs: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSubSeqs()
+		+ " numSeqs: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs());
+
 		System.out.println("K* running time: " + (System.currentTimeMillis()-begin)/1000 + " seconds\n");
 	}
-	
-	
+
+
 	private int runTB() {
-		
+
 		// compute wt sequence for reference
 		wtKSCalc = computeWTCalc();
 
@@ -124,7 +136,7 @@ public class KSImplAStar extends KSAbstract {
 
 		for( KAStarNode best = tree.poll(); best != null && completed < target; 
 				best = tree.poll() ) {
-			
+
 			if( best.isFullyProcessed() ) {
 				best.lb.printSummary( getOputputFilePath(), false );
 				completed++;
@@ -134,15 +146,15 @@ public class KSImplAStar extends KSAbstract {
 			ArrayList<KAStarNode> children = best.expand(useTightBounds);
 			tree.add(children);
 		}
-		
+
 		return completed;
 	}
-	
-	
+
+
 	private int runLB() {
 		// run until the lower bound of the next completed sequence is greater 
 		// than the upper bound of any previously completed sequence
-		
+
 		// compute wt sequence for reference
 		wtKSCalc = computeWTCalc();
 
@@ -156,26 +168,26 @@ public class KSImplAStar extends KSAbstract {
 		double gUB = Double.NEGATIVE_INFINITY;
 
 		for( KAStarNode best = tree.poll(); best != null; best = tree.poll() ) {
-			
+
 			if( best.isFullyProcessed() ) {
-				
+
 				best.lb.printSummary( getOputputFilePath(), false );
-				
+
 				double bestUB = best.getUBScore();
-				
+
 				if(completed++ == 0) gUB = bestUB;
-				
+
 				else if(best.getLBScore() > gUB) break;
-				
+
 				else if(bestUB > gUB) gUB = bestUB;
-				
+
 				continue;
 			}
 
 			ArrayList<KAStarNode> children = best.expand(useTightBounds);
 			tree.add(children);
 		}
-		
+
 		return completed;
 	}
 }

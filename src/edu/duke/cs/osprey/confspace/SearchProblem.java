@@ -482,7 +482,7 @@ public class SearchProblem implements Serializable {
 
 		seqSP.pruneMat = pruneMat.singleSeqMatrix(seq, flexResIndexes, confSpace);
 		seqSP.pruneMat.setPruningInterval(pruneMat.getPruningInterval());
-
+		
 		return seqSP;
 	}
 	

@@ -185,6 +185,8 @@ public class KSConfQ extends Thread implements Serializable {
 		
 		this.join();
 		
+		pf.setPanSeqSP(null);
+		
 		if(nullify) {
 			search = null;
 			sp = null;

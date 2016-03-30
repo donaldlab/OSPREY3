@@ -5,10 +5,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ForkJoinPool;
-import java.util.stream.IntStream;
-
-import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.kstar.AllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSAbstract;
@@ -16,7 +12,6 @@ import edu.duke.cs.osprey.kstar.KSCalc;
 import edu.duke.cs.osprey.kstar.Strand;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
-import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 import edu.duke.cs.osprey.tools.ObjectIO;
 
 /**
@@ -38,43 +33,34 @@ public class KSImplLinear extends KSAbstract {
 
 		createEmatDir();
 
-		if(doCheckpoint)
-			createCheckPointDir();
+		if(doCheckpoint) createCheckPointDir();
 
-		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(true, false));
+		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(true));
 		createEmats(contSCFlexVals);
 	}
 
 
-	protected void prepareSingleSeqSPs( ArrayList<Boolean> contSCFlexVals ) {
+	protected void preLoadPFs( ArrayList<Boolean> contSCFlexVals ) {
 
 		try {
-
+			
 			for( boolean contSCFlex : contSCFlexVals ) {
-
-				ForkJoinPool forkJoinPool = new ForkJoinPool(ThreadParallelism.getNumThreads());
-				forkJoinPool.submit(() ->
-
-				IntStream.range(0, strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs()).parallel().forEach(i -> {
-
-					//for( int i = 0; i < strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs(); ++i ) {
-
-					System.out.println("\nCreating search problem for sequence " + 
-							i + "/" + (strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs()-1) + "\n");
-
-					ConcurrentHashMap<Integer, SearchProblem> map = createSPsForSeq(i, contSCFlex);
-
-					// put partition function in list, so we can parallelize energy matrix computation
-					for(int strand : map.keySet()) {	
-						SearchProblem sp = map.get(strand);
-						name2SP.put(sp.name, sp);
-					}
-
-					//}
-				})).get();
+				
+				for( int strand : Arrays.asList( Strand.COMPLEX, Strand.PROTEIN, Strand.LIGAND ) ) {
+					
+					HashSet<ArrayList<String>> seqs = new HashSet<>(strand2AllowedSeqs.get(strand).getStrandSeqList());
+					
+					seqs.parallelStream().forEach(seq -> {
+						
+						PFAbstract pf = createPF4Seq(contSCFlex, strand, seq, PFAbstract.getCFGImpl());
+						
+						// put partition function in list, so we can parallelize energy matrix computation
+						name2PF.put(pf.getSearchProblemName(), pf);
+					});
+				}
 			}
 
-			loadAndPruneMatrices(); 
+			loadAndPruneMatricesFromPFMap(); 
 			prunedSingleSeqs = true;
 
 		} catch (Exception e) {
@@ -82,36 +68,6 @@ public class KSImplLinear extends KSAbstract {
 			e.printStackTrace();
 			System.exit(1);
 		}
-	}
-
-
-	protected ConcurrentHashMap<Integer, SearchProblem> createSPsForSeq(int i, boolean contSCFlex) {
-		// used to precompute energy matrices
-		ConcurrentHashMap<Integer, SearchProblem> ans = new ConcurrentHashMap<>();
-
-		ArrayList<Integer> strands = new ArrayList<>();
-		strands.add(Strand.COMPLEX); strands.add(Strand.PROTEIN); strands.add(Strand.LIGAND);
-
-		strands.parallelStream().forEach((strand) -> {
-
-			AllowedSeqs strandSeqs = strand2AllowedSeqs.get(strand);
-
-			ArrayList<String> seq = strandSeqs.getStrandSeqAtPos(i);
-
-			ArrayList<Integer> flexResIndexes = strandSeqs.getFlexResIndexesFromSeq(seq);
-
-			String spName = getSearchProblemName(contSCFlex, strand, seq);
-
-			SearchProblem seqSP = null;			
-			if( (seqSP = name2SP.get(spName)) == null ) {
-				seqSP = createSingleSeqSP( contSCFlex, strand, seq, flexResIndexes, true );
-			}
-
-			// synchronized
-			ans.put(strand, seqSP);
-		});
-
-		return ans;
 	}
 
 
@@ -166,8 +122,8 @@ public class KSImplLinear extends KSAbstract {
 			strandSeqs = getStrandStringsAtPos(i);
 
 			// create partition functions
-			ConcurrentHashMap<Integer, PFAbstract> pfs = createPFs4Seq(strandSeqs, contSCFlexVals, pfImplVals);
-			
+			ConcurrentHashMap<Integer, PFAbstract> pfs = createPFs4Seqs(strandSeqs, contSCFlexVals, pfImplVals);
+
 			// create K* calculation for sequence
 			KSCalc calc = new KSCalc(i, pfs);
 
@@ -184,7 +140,7 @@ public class KSImplLinear extends KSAbstract {
 
 
 	protected void runRR() {
-		
+
 		// each value corresponds to the desired flexibility of the 
 		// pl, p, and l conformation spaces, respectively
 		ArrayList<ArrayList<String>> strandSeqs = null;	
@@ -223,7 +179,7 @@ public class KSImplLinear extends KSAbstract {
 				strandSeqs = getStrandStringsAtPos(i);
 
 				// create partition functions
-				ConcurrentHashMap<Integer, PFAbstract> pfs = createPFs4Seq(strandSeqs, contSCFlexVals, pfImplVals);
+				ConcurrentHashMap<Integer, PFAbstract> pfs = createPFs4Seqs(strandSeqs, contSCFlexVals, pfImplVals);
 
 				// create K* calculation for sequence
 				KSCalc calc = new KSCalc(i, pfs);
@@ -253,7 +209,7 @@ public class KSImplLinear extends KSAbstract {
 
 				else {
 					// remove partition funtion from memory, write checkpoint
-					name2PF.remove(pf.getSearchProblem().name);
+					name2PF.remove(pf.getSearchProblemName());
 					calc.serializePF(Strand.COMPLEX);
 					calc.printSummary( getCheckPointFilePath(), false );
 				}

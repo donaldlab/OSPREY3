@@ -68,11 +68,12 @@ public class KStarCalculator {
 
 		MinimizerFactory.setImpl( PFAbstract.eMinMethod );
 		
-		KSAbstract.createPFs = cfp.getParams().getBool("KStarCreatePFs", false);
+		KSAbstract.preLoadPFs = cfp.getParams().getBool("kStarPreLoadPFs", false);
+		KSAbstract.refinePruning = cfp.getParams().getBool("kStarRefinePruning", false);
 		KSAbstract.doCheckpoint = cfp.getParams().getBool("doKStarCheckpoint", false);
-		KSAbstract.setCheckPointInterval(cfp.getParams().getInt("KStarCheckpoint", 100000));
+		KSAbstract.setCheckPointInterval(cfp.getParams().getInt("kStarCheckpoint", 100000));
 		
-		KSImplAStar.useTightBounds = cfp.getParams().getBool("KStarUseTightBounds", true);
+		KSImplAStar.useTightBounds = cfp.getParams().getBool("kStarUseTightBounds", true);
 	}
 
 

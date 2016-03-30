@@ -11,6 +11,7 @@ import java.util.PriorityQueue;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
+import edu.duke.cs.osprey.kstar.AllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KSConf;
 import edu.duke.cs.osprey.pruning.PruningControl;
@@ -53,6 +54,7 @@ public abstract class PFAbstract implements Serializable {
 	protected static long maxKSConfs = 100000;
 
 	protected String checkPointPath = null;
+	protected String searchProblemName = null;
 
 	protected static BigDecimal stabilityThresh = BigDecimal.ONE;
 
@@ -60,8 +62,10 @@ public abstract class PFAbstract implements Serializable {
 	public static double targetEpsilon = 0.03;
 	protected double effectiveEpsilon = 1.0;
 
+	protected int strand = -1;
 	protected ConfigFileParser cfp = null;
 	protected SearchProblem sp = null;
+	protected SearchProblem panSeqSP = null;
 	protected PruningControl pc = null;
 
 	protected BigDecimal qStar = BigDecimal.ZERO;
@@ -69,7 +73,6 @@ public abstract class PFAbstract implements Serializable {
 	protected BigDecimal pStar = BigDecimal.ZERO;
 
 	protected ExpFunction e = new ExpFunction();
-	protected double EW_I0 = 5;
 	protected double Et = 0;
 	protected double E0 = 0;
 
@@ -82,20 +85,38 @@ public abstract class PFAbstract implements Serializable {
 
 	protected PriorityQueue<KSConf> topConfsPQ = null;
 
-	protected PFAbstract( ArrayList<String> sequence, String checkPointPath, 
-			ConfigFileParser cfp, SearchProblem sp, double EW_I0 ) {
+	protected PFAbstract( int strand, ArrayList<String> sequence, ArrayList<Integer> flexResIndexes, 
+			String checkPointPath, String searchProblemName, 
+			ConfigFileParser cfp, SearchProblem panSeqSP ) {
 
 		this.sequence = sequence;
 		this.checkPointPath = checkPointPath;
-		this.sp = sp;
+		this.searchProblemName = searchProblemName;
+		this.panSeqSP = panSeqSP;
+		this.strand = strand;
+		this.sp = createSingleSeqSP(panSeqSP.contSCFlex, strand, sequence, flexResIndexes, true);
 		this.cfp = cfp;
-		this.EW_I0 = EW_I0;
 		
 		Comparator<KSConf> comparator = new KSConf(new ArrayList<>(), 0.0).new KSConfComparator();
 		topConfsPQ = new PriorityQueue<KSConf>(getNumTopConfsToSave(), comparator);
 	}
 	
+	
+	public String getSearchProblemName() {
+		return searchProblemName;
+	}
+	
 
+	public int getStrand() {
+		return strand;
+	}
+	
+	
+	public void setPanSeqSP( SearchProblem in ) {
+		panSeqSP = in;
+	}
+	
+	
 	public HashSet<ArrayList<Integer>> getMinimizedConfsSet() {
 		return minimizedConfsSet;
 	}
@@ -251,7 +272,7 @@ public abstract class PFAbstract implements Serializable {
 
 
 	protected void setPStar( double eLB ) {
-		E0 = eLB + EW_I0;
+		E0 = eLB + getSearchProblem().pruneMat.getPruningInterval();
 		pStar = ( getBoltzmannWeight( E0 )).multiply( new BigDecimal(prunedConfs) );
 	}
 
@@ -396,6 +417,7 @@ public abstract class PFAbstract implements Serializable {
 
 
 	public void cleanup() {
+		panSeqSP = null;
 		sp = null;
 		pc = null;
 		minimizedConfsSet.clear();
@@ -557,9 +579,6 @@ public abstract class PFAbstract implements Serializable {
 	}
 	
 	
-	public abstract String getImpl();
-	
-	
 	public static String getCFGImpl() {
 		return pFuncCFGImpl;
 	}
@@ -581,6 +600,53 @@ public abstract class PFAbstract implements Serializable {
 		default:
 			throw new RuntimeException("ERROR: specified value of parameter pFuncMethod is invalid");
 		}
+	}
+	
+	
+	protected SearchProblem createSingleSeqSP( boolean contSCFlex, int strand, 
+			ArrayList<String> seq, ArrayList<Integer> flexResIndexes, boolean fast ) {
+
+		if(fast) return createSingleSeqSPFast(contSCFlex, strand, seq, flexResIndexes);
+
+		return createSingleSeqSPSlow(contSCFlex, strand, seq);
+	}
+
+
+	private SearchProblem createSingleSeqSPSlow( boolean contSCFlex, int strand, ArrayList<String> seq ) {
+
+		ArrayList<ArrayList<String>> allowedAAs = KSAbstract.list1D2ListOfLists(AllowedSeqs.getAAsFromSeq(seq));
+		ArrayList<String> flexibleRes = AllowedSeqs.getFlexResFromSeq(seq);
+
+		// create searchproblem
+		SearchProblem seqSP = new SearchProblem( 
+				searchProblemName, 
+				panSeqSP.PDBFile, 
+				flexibleRes, 
+				allowedAAs, 
+				false, 
+				contSCFlex,
+				panSeqSP.useEPIC,
+				panSeqSP.epicSettings,
+				panSeqSP.useTupExpForSearch,
+				panSeqSP.dset, 
+				panSeqSP.moveableStrands, 
+				panSeqSP.freeBBZones,
+				panSeqSP.useEllipses,
+				panSeqSP.useERef,
+				panSeqSP.addResEntropy);
+
+		return seqSP;
+	}
+
+
+	private SearchProblem createSingleSeqSPFast( boolean contSCFlex, int strand, 
+			ArrayList<String> seq, ArrayList<Integer> flexResIndexes ) {
+
+		SearchProblem seqSP = panSeqSP.singleSeqSearchProblem(searchProblemName, 
+				AllowedSeqs.getAAsFromSeq(seq), AllowedSeqs.getFlexResFromSeq(seq), 
+				flexResIndexes);
+
+		return seqSP;
 	}
 
 }

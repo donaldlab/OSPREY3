@@ -299,8 +299,8 @@ public class KAStarNode {
 
 				if( !isFullyDefined() ) {
 					// create partition functions
-					ConcurrentHashMap<Integer, PFAbstract> lbPFs = ksObj.createPFs4Seq(strandSeqs, lbContSCFlexVals, lbPFImplVals);
-					ConcurrentHashMap<Integer, PFAbstract> ubPFs = ksObj.createPFs4Seq(strandSeqs, ubContSCFlexVals, ubPFImplVals);
+					ConcurrentHashMap<Integer, PFAbstract> lbPFs = ksObj.createPFs4Seqs(strandSeqs, lbContSCFlexVals, lbPFImplVals);
+					ConcurrentHashMap<Integer, PFAbstract> ubPFs = ksObj.createPFs4Seqs(strandSeqs, ubContSCFlexVals, ubPFImplVals);
 
 					// create KUStar node with lower and upper bounds
 					ans.add( new KAStarNode( new KSCalc(numCreated, lbPFs), new KSCalc(numCreated, ubPFs), childScoreNeedsRefinement() ) );
@@ -321,7 +321,7 @@ public class KAStarNode {
 						ksObj.removeFromMap(spName, false, true);
 					}
 
-					ConcurrentHashMap<Integer, PFAbstract> tightPFs = ksObj.createPFs4Seq(strandSeqs, tightContSCFlexVals, tightPFImplVals);
+					ConcurrentHashMap<Integer, PFAbstract> tightPFs = ksObj.createPFs4Seqs(strandSeqs, tightContSCFlexVals, tightPFImplVals);
 
 					// create new KUStar node with tight score
 					ans.add( new KAStarNode( new KSCalc(numCreated, tightPFs), null, childScoreNeedsRefinement() ) );

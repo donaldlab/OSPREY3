@@ -26,10 +26,11 @@ public class PFNew03 extends PFNew02 implements Serializable {
 	protected int confsPerThread;
 	protected int sleepInterval = 10;
 
-	public PFNew03( ArrayList<String> sequence, String checkPointPath, 
-			ConfigFileParser cfp, SearchProblem sp, double EW_I0 ) {
+	public PFNew03( int strand, ArrayList<String> sequence, ArrayList<Integer> flexResIndexes, 
+			String checkPointPath, String searchProblemName, 
+			ConfigFileParser cfp, SearchProblem sp ) {
 
-		super( sequence, checkPointPath, cfp, sp, EW_I0 );
+		super( strand, sequence, flexResIndexes, checkPointPath, searchProblemName, cfp, sp );
 	}
 
 
@@ -342,7 +343,7 @@ public class PFNew03 extends PFNew02 implements Serializable {
 	}
 
 	
-	public String getImpl() {
+	public static String getImpl() {
 		return "new03";
 	}
 }

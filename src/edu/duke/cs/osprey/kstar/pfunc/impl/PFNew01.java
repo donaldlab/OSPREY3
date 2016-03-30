@@ -25,10 +25,11 @@ public class PFNew01 extends PFAbstract implements Serializable {
 
 	protected KSConfQ confs = null;
 
-	public PFNew01( ArrayList<String> sequence, String checkPointPath, 
-			ConfigFileParser cfp, SearchProblem sp, double EW_I0 ) {
+	public PFNew01( int strand, ArrayList<String> sequence, ArrayList<Integer> flexResIndexes, 
+			String checkPointPath, String searchProblemName, 
+			ConfigFileParser cfp, SearchProblem sp ) {
 
-		super( sequence, checkPointPath, cfp, sp, EW_I0 );
+		super( strand, sequence, flexResIndexes, checkPointPath, searchProblemName, cfp, sp );
 	}
 
 
@@ -300,7 +301,7 @@ public class PFNew01 extends PFAbstract implements Serializable {
 	}
 
 
-	public String getImpl() {
+	public static String getImpl() {
 		return "new01";
 	}
 }
