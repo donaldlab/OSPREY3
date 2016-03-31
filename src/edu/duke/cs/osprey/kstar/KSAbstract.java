@@ -562,6 +562,14 @@ public abstract class KSAbstract implements KSInterface {
 		for(PFAbstract pf : name2PF.values()) ans = ans.add(pf.getNumUnPruned());
 		return ans;
 	}
+	
+	
+	protected void abortPFs() {
+		name2PF.keySet().parallelStream().forEach(key -> {
+			PFAbstract pf = name2PF.get(key);
+			pf.abort(true);
+		});
+	}
 
 
 	protected ArrayList<ArrayList<String>> getStrandStringsAtPos(int i) {

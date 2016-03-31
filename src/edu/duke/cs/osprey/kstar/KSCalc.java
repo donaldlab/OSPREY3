@@ -36,9 +36,9 @@ public class KSCalc {
 	}
 
 
-	protected boolean unboundIsStable(PFAbstract wtPF, PFAbstract calcPF) {
+	protected boolean unboundIsStable(PFAbstract wtPF, PFAbstract pf) {
 
-		if(calcPF.getUpperBound().compareTo( wtPF.getQStar().multiply(PFAbstract.getStabilityThresh()) ) >= 0)
+		if(pf.getUpperBound().compareTo( wtPF.getQStar().multiply(PFAbstract.getStabilityThresh()) ) >= 0)
 			return true;
 
 		return false;
@@ -69,34 +69,34 @@ public class KSCalc {
 	}
 
 
-	public void runPF(PFAbstract calcPF, PFAbstract wtPF, boolean complete) {
+	public void runPF(PFAbstract pf, PFAbstract wtPF, boolean complete) {
 		
 		if( getEpsilonStatus() != EApproxReached.FALSE ) return;
 		
 		// this method applies to non-complex strands
-		if( calcPF.getRunState() == RunState.NOTSTARTED ) {
-			System.out.println("\nInitializing partition function for " + KSAbstract.list1D2String(calcPF.getSequence(), " "));
-			calcPF.start();
+		if( pf.getRunState() == RunState.NOTSTARTED ) {
+			System.out.println("\nInitializing partition function for " + KSAbstract.list1D2String(pf.getSequence(), " "));
+			pf.start();
 		}
 
-		if( calcPF.getEpsilonStatus() == EApproxReached.FALSE ) {
+		if( pf.getEpsilonStatus() == EApproxReached.FALSE ) {
 			if(complete) {
-				System.out.println("\nComputing partition function for " + KSAbstract.list1D2String(calcPF.getSequence(), " ") + "\n");
-				calcPF.runToCompletion();
+				System.out.println("\nComputing partition function for " + KSAbstract.list1D2String(pf.getSequence(), " ") + "\n");
+				pf.runToCompletion();
 			}
 
 			else {
-				System.out.println("\nResuming partition function for " + KSAbstract.list1D2String(calcPF.getSequence(), " ") + "\n");
-				calcPF.runSlice(KSAbstract.checkpointInterval);
+				System.out.println("\nResuming partition function for " + KSAbstract.list1D2String(pf.getSequence(), " ") + "\n");
+				pf.runSlice(KSAbstract.checkpointInterval);
 			}
 		}
 
 		if( getEpsilonStatus() == EApproxReached.NOT_POSSIBLE ) return;
 
 		// wtPF is null for complex strand
-		if( wtPF != null && !unboundIsStable(wtPF, calcPF) ) {
-			calcPF.setEpsilonStatus( EApproxReached.NOT_STABLE );
-			System.out.println("\nSequence " + KSAbstract.list1D2String(calcPF.getSequence(), " ") + " is unstable\n");
+		if( pf.getStrand() != Strand.COMPLEX && !unboundIsStable(wtPF, pf) ) {
+			pf.setEpsilonStatus( EApproxReached.NOT_STABLE );
+			System.out.println("\nSequence " + KSAbstract.list1D2String(pf.getSequence(), " ") + " is unstable\n");
 			return;
 		}
 

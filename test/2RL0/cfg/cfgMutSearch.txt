@@ -19,7 +19,7 @@ addWTRots true
 saveTopConfsAsPDB false
 numTopConfsToSave 5
 useMaxKSConfs false
-maxKSconfs 200000
+maxKSconfs 500000
 doKStarCheckpoint false
 KStarCheckpoint 100000
 
@@ -38,8 +38,8 @@ pFuncMethod new02
 pFuncThreads 3
 numThreads 3
 eMinMethod hbfgsccd
-kStarMethod linear
-kStarUseTightBounds false
+kStarMethod kastar
+kStarUseTightBounds true
 kStarNumSeqs 1
 kStarPreLoadPFs false
 kStarRefinePruning false

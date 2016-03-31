@@ -13,11 +13,11 @@ import edu.duke.cs.osprey.kstar.Strand;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.impl.PFnew00;
 
-public class KSImplAStar extends KSAbstract {
+public class KSImplKAStar extends KSAbstract {
 
 	public static boolean useTightBounds = true;
 
-	public KSImplAStar(ConfigFileParser cfp) {
+	public KSImplKAStar(ConfigFileParser cfp) {
 		super(cfp);
 	}
 
@@ -113,10 +113,13 @@ public class KSImplAStar extends KSAbstract {
 			completed = runLB();
 
 		System.out.println("\ncompleted: " + completed + " numExpanded: " + KAStarNode.getNumExpanded() 
+		+ " numPruned: " + KAStarNode.getNumPruned()
 		+ " numSubSeqs: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSubSeqs()
 		+ " numSeqs: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs());
 
 		System.out.println("K* running time: " + (System.currentTimeMillis()-begin)/1000 + " seconds\n");
+		
+		abortPFs();
 	}
 
 

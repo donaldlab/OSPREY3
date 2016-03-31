@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.kstar;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -10,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
+import edu.duke.cs.osprey.kstar.pfunc.impl.PFnew00;
 
 /*
  * TODO
@@ -23,6 +25,7 @@ public class KAStarNode {
 	private static KSAbstract ksObj;
 	private static int numCreated = 0;
 	private static int numExpanded = 0;
+	private static int numPruned = 0;
 
 	public KSCalc ub;
 	public KSCalc lb;
@@ -59,6 +62,11 @@ public class KAStarNode {
 	}
 
 
+	public static int getNumPruned() {
+		return numPruned;
+	}
+
+
 	// only expand if scoreNeedsRefinement
 	public ArrayList<KAStarNode> expand(boolean useTightBounds) {
 
@@ -72,7 +80,7 @@ public class KAStarNode {
 			}
 
 			if( !scoreNeedsRefinement() ) {
-				
+
 				if( !isFullyProcessed() ) {
 					// we will use tight bounds; compute tight bound		
 					computeScore(this);
@@ -167,6 +175,23 @@ public class KAStarNode {
 				KAStarNode child = iterator.next();
 
 				if( child.scoreNeedsRefinement() && child.ub.getEpsilonStatus() != EApproxReached.FALSE ) {
+
+					// remove sequences that contain no valid conformations
+					for( int strand : Arrays.asList(Strand.LIGAND, Strand.PROTEIN) ) {
+						PFAbstract pf = child.ub.getPF(strand);
+
+						if( pf.getEpsilonStatus() == EApproxReached.NOT_STABLE || 
+								pf.getNumUnPruned().compareTo(BigInteger.ZERO) == 0 ) {
+
+							ArrayList<String> seq = pf.getSequence();
+							
+							for( int strand2 : Arrays.asList(strand, Strand.COMPLEX) ) {
+								pruneSequences(seq, strand2, nextDepths.get(strand2));
+							}
+						}
+
+					}
+
 					// epsilon is not going to be true, since we do not compute complex
 					// epsilon cannot be not possible or not stable
 					iterator.remove();
@@ -175,6 +200,20 @@ public class KAStarNode {
 		}
 
 		return children;
+	}
+
+
+	private void pruneSequences( ArrayList<String> seq, int strand, int depth ) {
+		HashSet<ArrayList<String>> set = null;
+		int maxDepth = strand2AllowedSeqs.get(strand).getStrandSubSeqsMaxDepth();
+
+		for( ; depth <= maxDepth; ++depth) {
+			set = strand2AllowedSeqs.get(strand).getStrandSubSeqsAtDepth(depth);
+			int oldSize = set.size();
+
+			AllowedSeqs.deleteFromSet(seq, set);
+			numPruned += (oldSize - set.size());
+		}
 	}
 
 
@@ -219,7 +258,7 @@ public class KAStarNode {
 			if(child.ub.getEpsilonStatus() == EApproxReached.FALSE) {
 				child.lb.run(wt);
 			}
-			
+
 			child.lbScore = -1.0 * child.lb.getKStarScore();
 
 			PFAbstract.suppressOutput = false;
@@ -266,11 +305,11 @@ public class KAStarNode {
 		ArrayList<ArrayList<String>> strandSeqs = new ArrayList<>(Arrays.asList(null, null, null));
 		// lower bound pf values
 		ArrayList<Boolean> lbContSCFlexVals = new ArrayList<>(Arrays.asList(false, false, true));
-		ArrayList<String> lbPFImplVals = new ArrayList<>(Arrays.asList("trad", "trad", "new00"));
+		ArrayList<String> lbPFImplVals = new ArrayList<>(Arrays.asList(PFAbstract.getCFGImpl(), PFAbstract.getCFGImpl(), PFnew00.getImpl()));
 
 		// upper bound pf values
 		ArrayList<Boolean> ubContSCFlexVals = new ArrayList<>(Arrays.asList(true, true, false));
-		ArrayList<String> ubPFImplVals = new ArrayList<>(Arrays.asList("new00", "new00", "trad"));
+		ArrayList<String> ubPFImplVals = new ArrayList<>(Arrays.asList(PFnew00.getImpl(), PFnew00.getImpl(), PFAbstract.getCFGImpl()));
 
 		// minimized pf values
 		ArrayList<Boolean> tightContSCFlexVals = new ArrayList<>(Arrays.asList(true, true, true));
@@ -318,7 +357,7 @@ public class KAStarNode {
 						ArrayList<String> seq = strandSeqs.get(strand);
 
 						String spName = ksObj.getSearchProblemName(contSCFlex, strand, seq);
-						ksObj.removeFromMap(spName, false, true);
+						ksObj.removeFromMap(spName, true, true);
 					}
 
 					ConcurrentHashMap<Integer, PFAbstract> tightPFs = ksObj.createPFs4Seqs(strandSeqs, tightContSCFlexVals, tightPFImplVals);
@@ -326,7 +365,7 @@ public class KAStarNode {
 					// create new KUStar node with tight score
 					ans.add( new KAStarNode( new KSCalc(numCreated, tightPFs), null, childScoreNeedsRefinement() ) );
 				}
-				
+
 				else
 					throw new RuntimeException("ERROR: cannot expand a fully assigned node");
 			}
@@ -356,11 +395,11 @@ public class KAStarNode {
 	public double getUBScore() {
 
 		if(ub == null) return ubScore;
-		
+
 		PFAbstract.suppressOutput = true;
 		ub.runPF(ub.getPF(Strand.COMPLEX), null, true);
 		PFAbstract.suppressOutput = false;
-		
+
 		return ubScore = -1.0 * ub.getKStarScore();
 	}
 

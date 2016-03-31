@@ -12,7 +12,7 @@ import edu.duke.cs.osprey.kstar.AllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.Strand;
 import edu.duke.cs.osprey.kstar.impl.KSImplLinear;
-import edu.duke.cs.osprey.kstar.impl.KSImplAStar;
+import edu.duke.cs.osprey.kstar.impl.KSImplKAStar;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.minimization.MinimizerFactory;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
@@ -73,7 +73,7 @@ public class KStarCalculator {
 		KSAbstract.doCheckpoint = cfp.getParams().getBool("doKStarCheckpoint", false);
 		KSAbstract.setCheckPointInterval(cfp.getParams().getInt("kStarCheckpoint", 100000));
 		
-		KSImplAStar.useTightBounds = cfp.getParams().getBool("kStarUseTightBounds", true);
+		KSImplKAStar.useTightBounds = cfp.getParams().getBool("kStarUseTightBounds", true);
 	}
 
 
@@ -172,7 +172,7 @@ public class KStarCalculator {
 	}
 
 
-	private void createAllowedSequences() {
+	private void generateAllowedSequences() {
 		AllowedSeqs complexSeqs = cfp.getAllowedSequences(Strand.COMPLEX, null);
 		strand2AllowedSeqs.put(Strand.COMPLEX, complexSeqs);
 		strand2AllowedSeqs.put(Strand.PROTEIN, cfp.getAllowedSequences(Strand.PROTEIN, complexSeqs));
@@ -184,7 +184,7 @@ public class KStarCalculator {
 
 		try {
 
-			createAllowedSequences();
+			generateAllowedSequences();
 
 			String mutFilePath = cfp.getParams().getValue("mutfile", "");
 			if(mutFilePath.length() > 0) {
@@ -195,10 +195,10 @@ public class KStarCalculator {
 
 			switch( ksMethod ) {
 
-			case "astar":
-				KSImplAStar astar = new KSImplAStar(cfp);
-				astar.init(strand2AllowedSeqs);
-				astar.run();
+			case "kastar":
+				KSImplKAStar kastar = new KSImplKAStar(cfp);
+				kastar.init(strand2AllowedSeqs);
+				kastar.run();
 				break;
 			
 			case "linear":

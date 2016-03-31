@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.kstar;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Iterator;
 
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -393,6 +394,18 @@ public class AllowedSeqs {
 					" is not within the valid range [0," + (allowedSubSeqs.size()-1) + "]");
 
 		return allowedSubSeqs.get( depth );
+	}
+	
+	
+	public static void deleteFromSet( ArrayList<String> item, HashSet<ArrayList<String>> set ) {
+		// delete item from any matching element of set
+		for( Iterator<ArrayList<String>> iterator = set.iterator(); iterator.hasNext(); ) {
+			
+			ArrayList<String> element = iterator.next();
+			
+			if(element.containsAll(item))
+				iterator.remove();
+		}
 	}
 
 	
