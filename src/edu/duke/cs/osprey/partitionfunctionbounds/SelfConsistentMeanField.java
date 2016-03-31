@@ -283,6 +283,10 @@ public class SelfConsistentMeanField implements InferenceCalculator {
         return -(calcFreeEnergy() + this.emat.getConstTerm()) / this.scmfTemp;
     }
 
+    public double getLBLogZ(){
+        return -(this.freeEnergy + this.emat.getConstTerm())/this.scmfTemp;
+    }
+    
     //Calculates log_10 of the partition function
     public double calcLBLog10Z() {
         return (Math.log10(Math.E)) * calcLBLogZ();

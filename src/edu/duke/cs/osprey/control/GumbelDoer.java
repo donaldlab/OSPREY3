@@ -15,6 +15,7 @@ import edu.duke.cs.osprey.partitionfunctionbounds.MapPerturbation;
 import edu.duke.cs.osprey.partitionfunctionbounds.MarkovRandomField;
 import edu.duke.cs.osprey.partitionfunctionbounds.MinSpanningTree;
 import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField;
+import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField_Parallel;
 import edu.duke.cs.osprey.partitionfunctionbounds.TreeReweightedBeliefPropagation;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import java.util.ArrayList;
@@ -41,15 +42,20 @@ public class GumbelDoer {
         }
 
         SearchProblem sp = spList[0];
-        int numIter = 10000;
+        int numIter = 2;
         double logZest = computePartFunctionEstimate(sp, numIter);
         System.out.println("Lower Bound after "+numIter+" iterations: "+logZest);
         MarkovRandomField mrf = new MarkovRandomField(sp, 0.0);
         SelfConsistentMeanField scmf = new SelfConsistentMeanField(mrf);
         scmf.run();
-        double lb = scmf.calcLBLogZ();
+        double lb = scmf.getLBLogZ();
         System.out.println("Lower Bound: " + lb);
 
+        SelfConsistentMeanField_Parallel scmfP = new SelfConsistentMeanField_Parallel(mrf);
+        scmfP.run();
+        double lbP = scmfP.getLBLogZ();
+        System.out.println("Lower Bound Parallel: " + lb);
+        
         MapPerturbation mp = new MapPerturbation(sp);
         double ubPert = mp.calcUBLogZ(100);
         System.out.println("Upper Bound MapPert: "+ubPert);
@@ -58,7 +64,7 @@ public class GumbelDoer {
         double ub = trbp.getLogZ();
         System.out.println("Upper Bound: " + ub);
 
-        partFuncTree tree = new partFuncTree(sp);
+/*        partFuncTree tree = new partFuncTree(sp);
         double logZ = tree.computeEpsilonApprox(0.1);
         System.out.println("LogZ: " + logZ);
         System.out.println("Num Confs Enumerated: " + tree.numConfsEnumerated);
