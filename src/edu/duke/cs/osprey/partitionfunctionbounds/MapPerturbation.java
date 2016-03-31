@@ -152,7 +152,7 @@ public class MapPerturbation {
     public double calcUBLogZLPMax(int[] partialConf, int anumSamples) {
         double max = Double.NEGATIVE_INFINITY;
         for (int i = 0; i < anumSamples; i++) {
-            double sample = calcUBLogZLP(partialConf, 10);
+            double sample = calcUBLogZLP(partialConf, 20);
             max = Math.max(sample, max);
         }
         return max;

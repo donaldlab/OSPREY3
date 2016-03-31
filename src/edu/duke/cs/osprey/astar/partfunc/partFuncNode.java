@@ -18,6 +18,8 @@ public class partFuncNode extends AStarNode {
     //Upper bound on logZ under the node
     double ubLogZ;
     
+    public double[][] edgeProbabilities;
+    
     public partFuncNode(int[] anodeAssignments, double score, boolean scoreNeedsRefinement){
         super(anodeAssignments, score, scoreNeedsRefinement);
     }

@@ -5,7 +5,7 @@
  */
 package edu.duke.cs.osprey.control;
 
-import edu.duke.cs.osprey.astar.Mplp;
+import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.astar.kadee.GumbelMapTree;
 import edu.duke.cs.osprey.astar.partfunc.partFuncTree;
 import edu.duke.cs.osprey.confspace.RCTuple;
@@ -13,11 +13,11 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.partitionfunctionbounds.MapPerturbation;
 import edu.duke.cs.osprey.partitionfunctionbounds.MarkovRandomField;
+import edu.duke.cs.osprey.partitionfunctionbounds.MinSpanningTree;
 import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField;
 import edu.duke.cs.osprey.partitionfunctionbounds.TreeReweightedBeliefPropagation;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -37,52 +37,68 @@ public class GumbelDoer {
         SearchProblem[] spList = cfp.getMSDSearchProblems();
 
         for (SearchProblem searchProb : spList) {
-            loadEMatandPrune(searchProb, Double.POSITIVE_INFINITY);
+            loadEMatandPrune(searchProb, 30.0);
         }
 
         SearchProblem sp = spList[0];
-
-        //partFuncTree tree = new partFuncTree(sp);
-        //double logZ = tree.computeEpsilonApprox(0.1);
-        //System.out.println("LogZ: "+logZ);
-        //System.out.println("Num Confs Enumerated: "+tree.numConfsEnumerated);
+        int numIter = 10000;
+        double logZest = computePartFunctionEstimate(sp, numIter);
+        System.out.println("Lower Bound after "+numIter+" iterations: "+logZest);
         MarkovRandomField mrf = new MarkovRandomField(sp, 0.0);
         SelfConsistentMeanField scmf = new SelfConsistentMeanField(mrf);
         scmf.run();
         double lb = scmf.calcLBLogZ();
-        System.out.println("Lower Bound: "+lb);
-        TreeReweightedBeliefPropagation trbp = new TreeReweightedBeliefPropagation(mrf);
-        double ub = trbp.calcUBLogZ();
-        System.out.println("Upper Bound: "+ub);
-        Mplp mplp = new Mplp(sp.emat.numPos(), sp.emat, sp.pruneMat);
-        int[] conf = new int[sp.emat.numPos()];
-        Arrays.fill(conf,-1);
-        double lpGmec = mplp.optimizeMPLP(conf,1000);
-        double entropy = trbp.getEntropy();
-        double logZUB = -(lpGmec - this.constRT*entropy)/this.constRT;
-        System.out.println("logZUB: "+logZUB);
-        /*        MapPerturbation mp = new MapPerturbation(sp);
-        int numBelow = 0;
-        double average = 0.0;
-        for (int i = 0; i < 1000; i++) {
-            double ub = mp.calcUBLogZLPMax(10);
-            if (ub < lb) {
-                System.out.println("Upper: " + ub + "  Lower: " + lb);
-                numBelow++;
-            }
-            average += ub;
-            System.out.println("MPLP Iter: " + i + "  Sample: " + ub);
-        }
-        System.out.println("Num Below: " + numBelow);
-        System.out.println("Average: "+average/1000);
-        double kstarSCMF = kstarScoreSCMF(spList);
-        System.out.println("KStar SCMF: " + kstarSCMF);
-        System.out.println();
+        System.out.println("Lower Bound: " + lb);
 
-//        double kstarGumbelSample = kstarScoreGumbelSample(spList, 300);
-        double kstarSample = getLogKstarSampling2(spList, 300);
-        System.out.println("KStar GumbelSample: " + kstarSample);
-*/
+        MapPerturbation mp = new MapPerturbation(sp);
+        double ubPert = mp.calcUBLogZ(100);
+        System.out.println("Upper Bound MapPert: "+ubPert);
+        
+        TreeReweightedBeliefPropagation trbp = new TreeReweightedBeliefPropagation(mrf);
+        double ub = trbp.getLogZ();
+        System.out.println("Upper Bound: " + ub);
+
+        partFuncTree tree = new partFuncTree(sp);
+        double logZ = tree.computeEpsilonApprox(0.1);
+        System.out.println("LogZ: " + logZ);
+        System.out.println("Num Confs Enumerated: " + tree.numConfsEnumerated);
+        /*        MarkovRandomField mrf = new MarkovRandomField(sp, 0.0);
+         SelfConsistentMeanField scmf = new SelfConsistentMeanField(mrf);
+         scmf.run();
+         double lb = scmf.calcLBLogZ();
+         System.out.println("Lower Bound: " + lb);
+         TreeReweightedBeliefPropagation trbp = new TreeReweightedBeliefPropagation(mrf);
+         double ub = trbp.getLogZ();
+         System.out.println("Upper Bound: " + ub);
+         /*        Mplp mplp = new Mplp(sp.emat.numPos(), sp.emat, sp.pruneMat);
+         int[] conf = new int[sp.emat.numPos()];
+         Arrays.fill(conf, -1);
+         double lpGmec = mplp.optimizeMPLP(conf, 1000);
+         double entropy = trbp.getEntropy();
+         double logZUB = -(lpGmec - this.constRT * entropy) / this.constRT;
+         System.out.println("logZUB: " + logZUB);
+         /*        MapPerturbation mp = new MapPerturbation(sp);
+         int numBelow = 0;
+         double average = 0.0;
+         for (int i = 0; i < 1000; i++) {
+         double ub = mp.calcUBLogZLPMax(10);
+         if (ub < lb) {
+         System.out.println("Upper: " + ub + "  Lower: " + lb);
+         numBelow++;
+         }
+         average += ub;
+         System.out.println("MPLP Iter: " + i + "  Sample: " + ub);
+         }
+         System.out.println("Num Below: " + numBelow);
+         System.out.println("Average: "+average/1000);
+         double kstarSCMF = kstarScoreSCMF(spList);
+         System.out.println("KStar SCMF: " + kstarSCMF);
+         System.out.println();
+
+         //        double kstarGumbelSample = kstarScoreGumbelSample(spList, 300);
+         double kstarSample = getLogKstarSampling2(spList, 300);
+         System.out.println("KStar GumbelSample: " + kstarSample);
+         */
 
         /*
          sp = cfp.getSearchProblem();
@@ -374,4 +390,60 @@ public class GumbelDoer {
 
         return average;
     }
+
+    private void testSyntheticMST() {
+        int numNodes = 5;
+        boolean[][] interactionGraph = getCompleteGraph(numNodes);
+        double[][] edgeWeights = new double[numNodes][];
+        for (int i = 0; i < numNodes; i++) {
+            edgeWeights[i] = new double[i];
+            for (int j = 0; j < i; j++) {
+                if (i - j == 1) {
+                    edgeWeights[i][j] = -10;
+                } else {
+                    edgeWeights[i][j] = 10;
+                }
+            }
+        }
+        MinSpanningTree mst = new MinSpanningTree(edgeWeights, interactionGraph);
+        int[][] vector = mst.mstVector;
+    }
+
+    boolean[][] getCompleteGraph(int numNodes) {
+        boolean[][] interactionGraph = new boolean[numNodes][];
+        for (int i = 0; i < numNodes; i++) {
+            interactionGraph[i] = new boolean[numNodes];
+            for (int j = 0; j < numNodes; j++) {
+                if (j != i) {
+                    interactionGraph[i][j] = true;
+                } else {
+                    interactionGraph[i][j] = false;
+                }
+            }
+        }
+        return interactionGraph;
+    }
+
+    private double computePartFunctionEstimate(SearchProblem sp, int numIter) {
+        double gmecE = 0.0;
+        double partFunc = 0.0;
+        ConfTree tree = new ConfTree(sp);
+        for (int i = 0; i < numIter; i++) {
+            int[] conf = tree.nextConf();
+            if (conf == null){
+                break;
+            }
+            double energy = sp.emat.getInternalEnergy(new RCTuple(conf));
+            if (i==0){
+                gmecE = -energy/constRT;
+                partFunc += 1;
+            }
+            else{
+                double normalized = (-energy/constRT) - gmecE;
+                partFunc += Math.exp(normalized);
+            }
+        }
+        return gmecE+Math.log(partFunc);
+    }
+
 }

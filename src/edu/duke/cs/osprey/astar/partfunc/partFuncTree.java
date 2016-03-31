@@ -45,8 +45,8 @@ public class partFuncTree extends AStarTree {
 
     final double eCut = 0.0; //if we want to set an energy cutoff for MRFs
 
-    boolean useMapPert = true;
-    int numSamples = 10; //number of sample averages to take the max from;
+    boolean useMapPert = false;
+    int numSamples = 5; //number of sample averages to take the max from;
 
     ExpFunction ef = new ExpFunction();
     double constRT = PoissonBoltzmannEnergy.constRT;
@@ -100,8 +100,9 @@ public class partFuncTree extends AStarTree {
         partFuncNode node = (partFuncNode) curNode;
         ArrayList<AStarNode> children = new ArrayList<>();
 
+        System.out.println("Upper Bound: "+Math.log(this.ubZ.doubleValue()+this.runningSum.doubleValue()));
         subtractFromBounds(node);
-
+        
         int[] curAssignments = node.getNodeAssignments();
         for (int splitPos = 0; splitPos < this.numPos; splitPos++) {
             if (curAssignments[splitPos] < 0) {
@@ -222,7 +223,7 @@ public class partFuncTree extends AStarTree {
         } else {
             MarkovRandomField mrf = new MarkovRandomField(this.emat, this.pruneMat, node.getNodeAssignments(), this.eCut);
             TreeReweightedBeliefPropagation trbp = new TreeReweightedBeliefPropagation(mrf);
-            double ubLogZ = trbp.calcUBLogZ();
+            double ubLogZ = trbp.getLogZ();
             return ubLogZ;
         }
     }
