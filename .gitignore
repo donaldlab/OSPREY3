@@ -1,24 +1,5 @@
-<<<<<<< HEAD
 nbproject/
 build/
 dist/
 build/
 nbdist/
-<<<<<<< HEAD
-nbproject/ALL*
-nbproject/*
-=======
-*.class
-dataFiles/ALL*
-
-<<<<<<< HEAD
->>>>>>> dd1ad495b876bb653c63bada7b73bdab9a4bfa14
-=======
-=======
-build/*
-nbproject/*
-nbdist/*
-dataFiles/ALL*
-*.class
->>>>>>> master
->>>>>>> df22183b847eb51bd55d1c5154a9eb581e021959
