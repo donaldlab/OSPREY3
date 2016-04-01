@@ -2,7 +2,6 @@ package edu.duke.cs.osprey.kstar.pfunc.impl;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
@@ -36,7 +35,7 @@ public class PFTrad extends PFAbstract implements Serializable {
 
 		// replace new confrtree with a conf tree factory call 
 		// to a function in the abstract base class
-		search = new ConfTree(sp);
+		search = getConfTree();
 		int rawConf[];
 
 		startTime = System.currentTimeMillis();
@@ -50,7 +49,7 @@ public class PFTrad extends PFAbstract implements Serializable {
 			setPStar( Et );
 
 			// first conf was merely to set p*
-			search = new ConfTree(sp);
+			search = getConfTree();
 		}
 
 		else

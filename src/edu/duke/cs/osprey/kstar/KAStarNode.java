@@ -223,8 +223,8 @@ public class KAStarNode {
 
 		boolean parallel = false;
 
-		if(isUnique(children) && children.size() > 1)
-			parallel = true;
+		//if(isUnique(children) && children.size() > 1)
+			//parallel = true;
 
 		if(parallel) {
 			children.parallelStream().forEach( child -> {
@@ -407,9 +407,7 @@ public class KAStarNode {
 	private boolean isFullyDefined() {
 		int maxDepth = wt.getPF(Strand.COMPLEX).getSequence().size();
 
-		int depth = depth();
-
-		if( depth < maxDepth )
+		if( depth() < maxDepth )
 			return false;
 
 		return true;

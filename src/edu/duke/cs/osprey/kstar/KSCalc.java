@@ -70,9 +70,9 @@ public class KSCalc {
 
 
 	public void runPF(PFAbstract pf, PFAbstract wtPF, boolean complete) {
-		
+
 		if( getEpsilonStatus() != EApproxReached.FALSE ) return;
-		
+
 		// this method applies to non-complex strands
 		if( pf.getRunState() == RunState.NOTSTARTED ) {
 			System.out.println("\nInitializing partition function for " + KSAbstract.list1D2String(pf.getSequence(), " "));
@@ -110,7 +110,7 @@ public class KSCalc {
 
 		for( int strand : strands ) {
 			if( getEpsilonStatus() != EApproxReached.FALSE ) return;
-			
+
 			boolean complete = KSAbstract.doCheckpoint && strand == Strand.COMPLEX ? false : true;
 			PFAbstract wtPF = strand == Strand.COMPLEX ? null : wtKSCalc.getPF(strand);
 			runPF(getPF(strand), wtPF, complete);
@@ -167,23 +167,23 @@ public class KSCalc {
 		PFAbstract pl = getPF(Strand.COMPLEX);
 		PFAbstract p = getPF(Strand.PROTEIN);
 		PFAbstract l = getPF(Strand.LIGAND);
-		
+
 		double score = 0.0;
-		
+
 		ExpFunction e = new ExpFunction();
-		
+
 		if( l.getQStar().compareTo(BigDecimal.ZERO) == 0 && 
 				p.getQStar().compareTo(BigDecimal.ZERO) == 0 && 
 				pl.getQStar().compareTo(BigDecimal.ZERO) == 0 )
 			return 0.0;
-		
+
 		else if( l.getQStar().compareTo(BigDecimal.ZERO) == 0 || 
 				p.getQStar().compareTo(BigDecimal.ZERO) == 0 )
 			score = Double.POSITIVE_INFINITY;
-		
+
 		else if( pl.getQStar().compareTo(BigDecimal.ZERO) == 0 )
 			score = Double.NEGATIVE_INFINITY;
-		
+
 		else
 			score = e.log10(pl.getQStar()) - e.log10(p.getQStar()) - e.log10(l.getQStar());
 
@@ -191,7 +191,7 @@ public class KSCalc {
 	}
 
 
-	private void printOutputHeader( PrintStream out ) {
+	private static void printOutputHeader( PrintStream out ) {
 
 		out.print("Seq ID");
 		out.print("\t");
@@ -222,16 +222,29 @@ public class KSCalc {
 	}
 
 
-	public void printSummary( String outFile, boolean printHeader ) {
-
+	public static void printSummaryHeader( String outFile ) {
 		try {
 
-			boolean append = printHeader ? false : true;
+			PrintStream out = new PrintStream(new FileOutputStream(outFile, false));
+			printOutputHeader(out);
+			out.println();
 
-			PrintStream out = new PrintStream(new FileOutputStream(outFile, append));
+			out.flush();
+			out.close();
 
-			if(printHeader)
-				printOutputHeader(out);
+		} catch (Exception e) {
+			System.out.println(e.getMessage());
+			e.printStackTrace();
+			System.exit(1);
+		}
+	}
+
+
+	public void printSummary( String outFile ) {
+
+		try {
+			
+			PrintStream out = new PrintStream(new FileOutputStream(outFile, true));
 
 			out.print(seqID);
 

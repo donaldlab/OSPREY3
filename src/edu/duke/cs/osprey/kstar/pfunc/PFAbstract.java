@@ -9,9 +9,12 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.PriorityQueue;
 
+import edu.duke.cs.osprey.astar.ConfTree;
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.kstar.AllowedSeqs;
+import edu.duke.cs.osprey.kstar.KAStarConfTree;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KSConf;
 import edu.duke.cs.osprey.pruning.PruningControl;
@@ -99,6 +102,14 @@ public abstract class PFAbstract implements Serializable {
 		
 		Comparator<KSConf> comparator = new KSConf(new ArrayList<>(), 0.0).new KSConfComparator();
 		topConfsPQ = new PriorityQueue<KSConf>(getNumTopConfsToSave(), comparator);
+	}
+	
+	
+	protected ConfSearch getConfTree() {
+		if(sp.confSpace.numPos == panSeqSP.confSpace.numPos)
+			return new ConfTree(sp);
+		
+		return new KAStarConfTree(sp, panSeqSP);
 	}
 	
 	

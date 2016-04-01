@@ -141,7 +141,7 @@ public class KSImplKAStar extends KSAbstract {
 				best = tree.poll() ) {
 
 			if( best.isFullyProcessed() ) {
-				best.lb.printSummary( getOputputFilePath(), false );
+				best.lb.printSummary( getOputputFilePath() );
 				completed++;
 				continue;
 			}
@@ -174,7 +174,7 @@ public class KSImplKAStar extends KSAbstract {
 
 			if( best.isFullyProcessed() ) {
 
-				best.lb.printSummary( getOputputFilePath(), false );
+				best.lb.printSummary( getOputputFilePath() );
 
 				double bestUB = best.getUBScore();
 

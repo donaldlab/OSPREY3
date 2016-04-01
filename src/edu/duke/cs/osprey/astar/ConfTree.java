@@ -271,7 +271,7 @@ public class ConfTree extends AStarTree implements Serializable {
     }
     
     
-    ArrayList<Integer> allowedRCsAtLevel(int level, int[] partialConf){
+    ArrayList<Integer> allowedRCsAtLevel(int level, int[] partialConf) {
         //What RCs are allowed at the specified level (i.e., position num) in the given partial conf?
         ArrayList<Integer> allowedRCs;
         

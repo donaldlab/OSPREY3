@@ -133,7 +133,7 @@ public class KSImplLinear extends KSAbstract {
 			// compute K* scores and print output if all 
 			// partition functions are computed to epsilon accuracy
 			if( calc.getEpsilonStatus() == EApproxReached.TRUE ) {
-				calc.printSummary( getOputputFilePath(), false );
+				calc.printSummary( getOputputFilePath() );
 			}
 		}
 	}
@@ -153,20 +153,17 @@ public class KSImplLinear extends KSAbstract {
 		HashSet<ArrayList<String>> seqSet = new HashSet<ArrayList<String>>((ArrayList<ArrayList<String>>) 
 				ObjectIO.deepCopy(strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSeqList()));
 
-		// remove completed seqs from the set of calculations we must compute
-		seqSet.removeAll(getSeqsFromFile(getOputputFilePath()));
-
 		// run wt
 		wtKSCalc = computeWTCalc();
-
-		// remove completed sequences
-		seqSet.remove(wtKSCalc.getPF(Strand.COMPLEX).getSequence());		
+		
+		// remove completed seqs from the set of calculations we must compute
+		seqSet.removeAll(getSeqsFromFile(getOputputFilePath()));
 
 		int numSeqs = strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs();
 
 		do {
 
-			for( int i = 1; i < numSeqs; ++i ) {
+			for( int i = 0; i < numSeqs; ++i ) {
 
 				// wt is seq 0, mutants are others
 				ArrayList<String> seq = strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSeqAtPos(i);
@@ -203,7 +200,7 @@ public class KSImplLinear extends KSAbstract {
 					seqSet.remove(seq);
 
 					if( calc.getEpsilonStatus() == EApproxReached.TRUE ) {
-						calc.printSummary( getOputputFilePath(), false );
+						calc.printSummary( getOputputFilePath() );
 					}
 				}
 
@@ -211,7 +208,7 @@ public class KSImplLinear extends KSAbstract {
 					// remove partition funtion from memory, write checkpoint
 					name2PF.remove(pf.getSearchProblemName());
 					calc.serializePF(Strand.COMPLEX);
-					calc.printSummary( getCheckPointFilePath(), false );
+					calc.printSummary( getCheckPointFilePath() );
 				}
 			}
 
