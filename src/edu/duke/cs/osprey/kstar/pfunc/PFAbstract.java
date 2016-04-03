@@ -17,6 +17,7 @@ import edu.duke.cs.osprey.kstar.AllowedSeqs;
 import edu.duke.cs.osprey.kstar.KAStarConfTree;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KSConf;
+import edu.duke.cs.osprey.kstar.pfunc.impl.PFTrad;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -34,13 +35,13 @@ public abstract class PFAbstract implements Serializable {
 
 	public static enum RunState { NOTSTARTED, STARTED }
 	protected RunState runState = RunState.NOTSTARTED;
-	
+
 	protected ArrayList<String> sequence;
-	protected static String pFuncCFGImpl = "trad";
+	protected static String pFuncCFGImpl = PFTrad.getImpl();
 	public static String eMinMethod = "ccd";
 	protected static ArrayList<String> serverList = new ArrayList<>();
 	protected static int threadConfsBuffer = 8;
-	public static int qCapacity = 4194304;
+	public static int qCapacity = 1024000;
 	public static boolean waitUntilCapacity = false;
 	protected static int numThreads = 1;
 	protected static int numFibers = 1;
@@ -68,6 +69,7 @@ public abstract class PFAbstract implements Serializable {
 	protected int strand = -1;
 	protected ConfigFileParser cfp = null;
 	protected SearchProblem sp = null;
+	protected ArrayList<Integer> flexResIndexes;
 	protected SearchProblem panSeqSP = null;
 	protected PruningControl pc = null;
 
@@ -93,41 +95,91 @@ public abstract class PFAbstract implements Serializable {
 			ConfigFileParser cfp, SearchProblem panSeqSP ) {
 
 		this.sequence = sequence;
+		this.flexResIndexes = flexResIndexes;
 		this.checkPointPath = checkPointPath;
 		this.searchProblemName = searchProblemName;
 		this.panSeqSP = panSeqSP;
 		this.strand = strand;
 		this.sp = createSingleSeqSP(panSeqSP.contSCFlex, strand, sequence, flexResIndexes, true);
 		this.cfp = cfp;
-		
-		Comparator<KSConf> comparator = new KSConf(new ArrayList<>(), 0.0).new KSConfComparator();
+
+		Comparator<KSConf> comparator = new KSConf(new ArrayList<>(), 0.0).new KSConfMinEComparator();
 		topConfsPQ = new PriorityQueue<KSConf>(getNumTopConfsToSave(), comparator);
 	}
+
 	
+	protected boolean isFullyDefined() {
+		return sp.confSpace.numPos == panSeqSP.confSpace.numPos;
+	}
 	
-	protected ConfSearch getConfTree() {
-		if(sp.confSpace.numPos == panSeqSP.confSpace.numPos)
-			return new ConfTree(sp);
+
+	protected BigDecimal productUndefinedRots() {
 		
-		return new KAStarConfTree(sp, panSeqSP);
+		BigDecimal ans = BigDecimal.ONE;
+
+		// get unassigned residue positions
+		int numPos = panSeqSP.confSpace.numPos;
+		ArrayList<Integer> undefinedPos = new ArrayList<>(numPos);
+		for(int pos = 0; pos < numPos; ++pos) undefinedPos.add(pos);
+
+		undefinedPos.removeAll(flexResIndexes);
+
+		boolean minimizeProduct = panSeqSP.contSCFlex ? false : true;
+
+		for( int pos : undefinedPos ) {
+
+			int rcNumAtPos = minimizeProduct ? Integer.MAX_VALUE : Integer.MIN_VALUE;
+
+			for( String AAType : panSeqSP.allowedAAs.get(pos) ) {
+				// get number of unpruned rcs at that level for that AAType
+				int num = panSeqSP.pruneMat.getNumUnprunedRCsAtPosForAA(panSeqSP.confSpace, pos, AAType);
+
+				rcNumAtPos = minimizeProduct ? Math.min(rcNumAtPos, num) : Math.max(rcNumAtPos, num);
+			}
+			
+			ans = ans.multiply(BigDecimal.valueOf(rcNumAtPos));
+		}
+
+		return ans;
 	}
 	
 	
+	protected void adjustQStar() {
+		if(eAppx != EApproxReached.TRUE) return;
+		
+		// no undefined positions
+		if(isFullyDefined()) return;
+		
+		// don't want to zero out our qstar
+		if(productUndefinedRots().compareTo(BigDecimal.ZERO) == 0) return;
+		
+		qStar = qStar.multiply(productUndefinedRots());
+	}
+
+
+	public ConfSearch getConfTree() {
+		if(isFullyDefined())
+			return new ConfTree(sp);
+
+		return new KAStarConfTree(sp, panSeqSP, flexResIndexes);
+	}
+
+
 	public String getSearchProblemName() {
 		return searchProblemName;
 	}
-	
+
 
 	public int getStrand() {
 		return strand;
 	}
-	
-	
+
+
 	public void setPanSeqSP( SearchProblem in ) {
 		panSeqSP = in;
 	}
-	
-	
+
+
 	public HashSet<ArrayList<Integer>> getMinimizedConfsSet() {
 		return minimizedConfsSet;
 	}
@@ -170,14 +222,14 @@ public abstract class PFAbstract implements Serializable {
 	public void writeTopConfs() {
 
 		if( getNumTopSavedConfs() == 0 ) return;
-		
+
 		System.out.println("\nWriting top " + getNumTopSavedConfs() + 
 				" conformation(s) for sequence: " + KSAbstract.list1D2String(sequence, " "));
 		System.out.println();
 
 		@SuppressWarnings("unchecked")
 		PriorityQueue<KSConf> tmp = (PriorityQueue<KSConf>) ObjectIO.deepCopy(topConfsPQ);
-		
+
 		// create dir if it does not already exist
 		String dir = "topConfs" + File.separator + KSAbstract.list1D2String(sequence, ".");
 		ObjectIO.makeDir(dir, false);
@@ -321,9 +373,9 @@ public abstract class PFAbstract implements Serializable {
 
 			if( eAppx == EApproxReached.NOT_POSSIBLE ) {
 				restart();
-				
+
 				if( eAppx == EApproxReached.NOT_POSSIBLE ) break;
-				
+
 				computeSlice();
 			}
 		}
@@ -331,17 +383,17 @@ public abstract class PFAbstract implements Serializable {
 		if( eAppx == EApproxReached.TRUE && saveTopConfsAsPDB ) writeTopConfs();
 
 		if( eAppx != EApproxReached.FALSE ) cleanup();
-		
+
 		resetMinDuringInterval();
 	}
-	
+
 
 	public void runToCompletion() {
 		compute();
 
 		if( eAppx == EApproxReached.NOT_POSSIBLE ) {
 			restart();
-			
+
 			if( eAppx == EApproxReached.FALSE ) compute();
 		}
 
@@ -368,13 +420,13 @@ public abstract class PFAbstract implements Serializable {
 		BigDecimal bE0 = getBoltzmannWeight(E0);
 
 		double pruningInterval = sp.pruneMat.getPruningInterval();
-		
+
 		if( bE0.compareTo(BigDecimal.ZERO) == 0 ) {
 			pruningInterval = 100.0;
 			pc = getPruningControl(pruningInterval); pc.prune();
 			sp.pruneMat.setPruningInterval(pruningInterval);
 		}
-		
+
 		else {
 
 			BigDecimal l = new BigDecimal(prunedConfs).subtract( (qStar.multiply(rho)).divide(bE0, 4) );
@@ -414,10 +466,10 @@ public abstract class PFAbstract implements Serializable {
 		prunedConfs = sp.numPruned();
 
 		eAppx = EApproxReached.FALSE;
-		
+
 		printedHeader = false;
 		restarted = true;
-		
+
 		// i should not need to do the next three lines. ask mark for help
 		//minimizedConfsSet.clear();
 		//qStar = BigDecimal.ZERO;
@@ -463,8 +515,8 @@ public abstract class PFAbstract implements Serializable {
 	public BigInteger getNumMinimized() {
 		return minimizedConfs;
 	}
-	
-	
+
+
 	// ugly hack to count number of minimized confs after a re-start occurs
 	// used only for output purposes
 	public BigInteger getNumMinimized4Output() {
@@ -579,22 +631,22 @@ public abstract class PFAbstract implements Serializable {
 		return useMaxKSConfs && minimizedConfs.longValue() >= maxKSConfs;
 	}
 
-	
+
 	public String getCheckPointPath() {
 		return checkPointPath;
 	}
-	
+
 
 	public boolean checkPointExists() {
 		return new File(getCheckPointPath()).exists();
 	}
-	
-	
+
+
 	public static String getCFGImpl() {
 		return pFuncCFGImpl;
 	}
-	
-	
+
+
 	public static void setCFGImpl( String implementation ) {
 
 		switch( implementation.toLowerCase() ) {
@@ -612,8 +664,8 @@ public abstract class PFAbstract implements Serializable {
 			throw new RuntimeException("ERROR: specified value of parameter pFuncMethod is invalid");
 		}
 	}
-	
-	
+
+
 	protected SearchProblem createSingleSeqSP( boolean contSCFlex, int strand, 
 			ArrayList<String> seq, ArrayList<Integer> flexResIndexes, boolean fast ) {
 

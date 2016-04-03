@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.kstar.pfunc.impl;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
@@ -23,9 +24,9 @@ public class PFTrad extends PFAbstract implements Serializable {
 
 	public PFTrad( int strand, ArrayList<String> sequence, ArrayList<Integer> flexResIndexes, 
 			String checkPointPath, String searchProblemName, 
-			ConfigFileParser cfp, SearchProblem sp ) {
+			ConfigFileParser cfp, SearchProblem panSeqSP ) {
 
-		super( strand, sequence, flexResIndexes, checkPointPath, searchProblemName, cfp, sp );
+		super( strand, sequence, flexResIndexes, checkPointPath, searchProblemName, cfp, panSeqSP );
 	}
 
 
@@ -142,6 +143,9 @@ public class PFTrad extends PFAbstract implements Serializable {
 		}
 
 		eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
+		
+		// for partial sequences when doing KAstar
+		if( !isFullyDefined() && eAppx == EApproxReached.TRUE ) adjustQStar();
 	}
 
 

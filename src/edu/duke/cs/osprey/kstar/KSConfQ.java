@@ -5,7 +5,6 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 
-import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
@@ -23,7 +22,7 @@ public class KSConfQ extends Thread implements Serializable {
 	private SearchProblem sp;
 	private ConfSearch search;
 	private int minCapacity;
-	private BigDecimal capacityThresh = new BigDecimal(0.000001);
+	private BigDecimal capacityThresh = new BigDecimal(Math.pow(1, -10));
 	
 	// lock for queue access
 	public final String qLock = new String("LOCK");
@@ -48,7 +47,7 @@ public class KSConfQ extends Thread implements Serializable {
 
 		this.pf = pf;
 		this.sp = sp;
-		search = new ConfTree(sp);
+		search = pf.getConfTree();
 
 		this.minCapacity = minCapacity;
 		qCap = Math.max( minCapacity, PFAbstract.qCapacity );
@@ -59,7 +58,7 @@ public class KSConfQ extends Thread implements Serializable {
 
 
 	public void restartConfTree() {
-		search = new ConfTree(sp);
+		search = pf.getConfTree();
 	}
 	
 	
@@ -118,7 +117,7 @@ public class KSConfQ extends Thread implements Serializable {
 		double minELB = sp.lowerBound(conf);
 		ArrayList<Integer> list = KSConf.array2List(conf);
 		
-		if(KSAbstract.doCheckpoint && size() > 0 && minELB < peekTail().getMinEnergyLB() ) return minELB;
+		if(KSAbstract.doCheckPoint && size() > 0 && minELB < peekTail().getMinEnergyLB() ) return minELB;
 		
 		if( pf.getMinimizedConfsSet().contains(list) || q.contains(list) ) return minELB;
 
@@ -185,7 +184,8 @@ public class KSConfQ extends Thread implements Serializable {
 		
 		this.join();
 		
-		pf.setPanSeqSP(null);
+		if(KSAbstract.doCheckPoint) 
+			pf.setPanSeqSP(null);
 		
 		if(nullify) {
 			search = null;

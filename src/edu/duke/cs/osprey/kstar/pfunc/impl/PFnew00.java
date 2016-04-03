@@ -22,9 +22,9 @@ public class PFnew00 extends PFTrad implements Serializable {
 
 	public PFnew00( int strand, ArrayList<String> sequence, ArrayList<Integer> flexResIndexes, 
 			String checkPointPath, String searchProblemName, 
-			ConfigFileParser cfp, SearchProblem sp ) {
+			ConfigFileParser cfp, SearchProblem panSeqSP ) {
 
-		super( strand, sequence, flexResIndexes, checkPointPath, searchProblemName, cfp, sp );
+		super( strand, sequence, flexResIndexes, checkPointPath, searchProblemName, cfp, panSeqSP );
 	}
 
 
@@ -63,7 +63,7 @@ public class PFnew00 extends PFTrad implements Serializable {
 	protected void accumulate( KSConf conf ) {
 
 		Et = conf.getMinEnergyLB();
-
+		
 		updateQStarUB( conf );
 
 		if( (effectiveEpsilon = computeDelta()) < 0 ) {
@@ -86,7 +86,11 @@ public class PFnew00 extends PFTrad implements Serializable {
 
 		eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
 
-		if( eAppx == EApproxReached.TRUE ) qStar = qStar.multiply(new BigDecimal(1.0 + effectiveEpsilon));
+		if( eAppx == EApproxReached.TRUE ) {
+			qStar = qStar.multiply(new BigDecimal(1.0 + effectiveEpsilon));
+			// for partial sequences when doing KAstar
+			if( !isFullyDefined() )adjustQStar();
+		}
 	}
 
 

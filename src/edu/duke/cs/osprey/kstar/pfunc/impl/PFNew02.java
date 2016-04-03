@@ -24,9 +24,9 @@ public class PFNew02 extends PFNew01 implements Serializable {
 
 	public PFNew02( int strand, ArrayList<String> sequence, ArrayList<Integer> flexResIndexes, 
 			String checkPointPath, String searchProblemName, 
-			ConfigFileParser cfp, SearchProblem sp ) {
+			ConfigFileParser cfp, SearchProblem panSeqSP ) {
 
-		super( strand, sequence, flexResIndexes, checkPointPath, searchProblemName, cfp, sp );
+		super( strand, sequence, flexResIndexes, checkPointPath, searchProblemName, cfp, panSeqSP );
 	}
 
 
@@ -178,6 +178,9 @@ public class PFNew02 extends PFNew01 implements Serializable {
 			}
 
 			eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
+			
+			// for partial sequences when doing KAstar
+			if( !isFullyDefined() && eAppx == EApproxReached.TRUE ) adjustQStar();
 		}
 	}
 

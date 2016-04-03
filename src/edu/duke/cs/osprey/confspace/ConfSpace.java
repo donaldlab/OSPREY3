@@ -420,7 +420,7 @@ public class ConfSpace implements Serializable {
 
 		return minE;
 	}
-
+	
 
 	public int[] getNumRCsAtPos(){
 		//list number of RCs at each position

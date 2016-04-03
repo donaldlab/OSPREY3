@@ -27,9 +27,9 @@ public class PFNew01 extends PFAbstract implements Serializable {
 
 	public PFNew01( int strand, ArrayList<String> sequence, ArrayList<Integer> flexResIndexes, 
 			String checkPointPath, String searchProblemName, 
-			ConfigFileParser cfp, SearchProblem sp ) {
+			ConfigFileParser cfp, SearchProblem panSeqSP ) {
 
-		super( strand, sequence, flexResIndexes, checkPointPath, searchProblemName, cfp, sp );
+		super( strand, sequence, flexResIndexes, checkPointPath, searchProblemName, cfp, panSeqSP );
 	}
 
 
@@ -142,7 +142,7 @@ public class PFNew01 extends PFAbstract implements Serializable {
 		try {
 
 			// this condition only occurs when we are checkpointing
-			if( KSAbstract.doCheckpoint && confs.getState() == Thread.State.NEW ) {
+			if( KSAbstract.doCheckPoint && confs.getState() == Thread.State.NEW ) {
 				// for safety, we can re-start the conformation tree, since i am not
 				// entirely sure how cleanly the conformation tree can be serialized and de-serialized
 				// confs.restartConfTree();
@@ -219,6 +219,9 @@ public class PFNew01 extends PFAbstract implements Serializable {
 			}
 			
 			eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
+			
+			// for partial sequences when doing KAstar
+			if( !isFullyDefined() && eAppx == EApproxReached.TRUE ) adjustQStar();
 		}
 
 	}

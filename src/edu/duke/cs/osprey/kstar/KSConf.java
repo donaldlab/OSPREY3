@@ -78,7 +78,7 @@ public class KSConf implements Comparable, Serializable {
 	}
 
 
-	public class KSConfComparator implements Comparator<KSConf>, Serializable {
+	public class KSConfMinEComparator implements Comparator<KSConf>, Serializable {
 
 		public int compare(KSConf o1, KSConf o2) {
 			return o1.getMinEnergy() <= o2.getMinEnergy() ? 1 : -1;

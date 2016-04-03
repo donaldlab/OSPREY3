@@ -2,7 +2,10 @@ package edu.duke.cs.osprey.kstar;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.HashMap;
+
 import edu.duke.cs.osprey.astar.ConfTree;
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
@@ -14,35 +17,67 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
  *
  */
 
+/*
+ * todo
+ * 1) get g-score wrt pan seq?
+ */
+
 @SuppressWarnings("serial")
-public class KAStarConfTree extends ConfTree implements Serializable {
+public class KAStarConfTree extends ConfTree implements Serializable, ConfSearch {
 
 	protected SearchProblem panSeqSP = null;
-	protected boolean computeLB = true; // compute lb xor ub
+	protected HashMap<Integer, Integer> seq2PanSeq = null;
+	protected HashMap<Integer, Integer> panSeq2Seq = null;
+	protected boolean energyLB = true; // compute lb xor ub
 
 
-	public KAStarConfTree(SearchProblem sp, SearchProblem panSeqSP) {
+	public KAStarConfTree(SearchProblem sp, SearchProblem panSeqSP, ArrayList<Integer> panSeqPos) {
 		super(sp);
+		
 		this.panSeqSP = panSeqSP;
-		computeLB = panSeqSP.contSCFlex ? true : false;
+		mapSeq2PanSeq(panSeqPos);
+		energyLB = panSeqSP.contSCFlex ? true : false;
 	}
 
 
-	public KAStarConfTree(SearchProblem sp, PruningMatrix pruneMat, boolean useEPIC, SearchProblem panSeqSP){
+	public KAStarConfTree(SearchProblem sp, PruningMatrix pruneMat, boolean useEPIC, 
+			SearchProblem panSeqSP, ArrayList<Integer> panSeqPos) {
 		super(sp, pruneMat, useEPIC);
+		
 		this.panSeqSP = panSeqSP;
-		computeLB = panSeqSP.contSCFlex ? true : false;
+		mapSeq2PanSeq(panSeqPos);
+		energyLB = panSeqSP.contSCFlex ? true : false;
 	}
 
+	
+	protected void mapSeq2PanSeq(ArrayList<Integer> panSeqPos) {
+		
+		seq2PanSeq = new HashMap<>(numPos);
+		panSeq2Seq = new HashMap<>(numPos);
+		
+		for(int i = 0; i < numPos; ++i) {
+			seq2PanSeq.put(i, panSeqPos.get(i));
+			panSeq2Seq.put(panSeqPos.get(i), i);
+		}
+	}
+	
+	
+	protected ArrayList<Integer> getPanSeqPos( RCTuple definedTuple ) {
+		ArrayList<Integer> ans = new ArrayList<>(definedTuple.pos.size());
+		for( int i : definedTuple.pos ) ans.add( seq2PanSeq.get(i) );
+		return ans;
+	}
+	
 
 	protected ArrayList<Integer> getUndefinedPos( RCTuple definedTuple ) {
 		ArrayList<Integer> ans = new ArrayList<>(panSeqSP.confSpace.numPos);
+		
+		for(int level = 0; level < panSeqSP.confSpace.numPos; ++level) ans.add(level);
 
-		for(int level = 0; level < panSeqSP.confSpace.numPos; ++level)
-			ans.add(level);
-
+		ArrayList<Integer> definedPos = getPanSeqPos(definedTuple);
+		
 		// remove defined positions
-		ans.removeAll(definedTuple.pos);
+		ans.removeAll(definedPos);
 
 		return ans;
 	}
@@ -58,7 +93,7 @@ public class KAStarConfTree extends ConfTree implements Serializable {
 
 		else {
 			allowedRCs = new ArrayList<>();
-			allowedRCs.add(partialConf[level]);
+			allowedRCs.add(partialConf[panSeq2Seq.get(level)]);
 		}
 
 		return allowedRCs;
@@ -80,7 +115,7 @@ public class KAStarConfTree extends ConfTree implements Serializable {
 
 			if(!undefinedPos.contains(level2) || level2 < level){//defined or lower numbered residues
 
-				double levelBestE = computeLB ? Double.POSITIVE_INFINITY : Double.NEGATIVE_INFINITY;//best pairwise energy
+				double levelBestE = energyLB ? Double.POSITIVE_INFINITY : Double.NEGATIVE_INFINITY;//best pairwise energy
 
 				ArrayList<Integer> allowedRCs = allowedRCsAtLevel(level2, partialConf, undefinedPos);
 
@@ -96,7 +131,7 @@ public class KAStarConfTree extends ConfTree implements Serializable {
 						interactionE += higherOrderE;
 
 						//besides that only residues in definedTuple or levels below level2
-						levelBestE = computeLB ? Math.min(levelBestE, interactionE) : Math.max(levelBestE, interactionE);
+						levelBestE = energyLB ? Math.min(levelBestE, interactionE) : Math.max(levelBestE, interactionE);
 					}
 				}
 
@@ -140,7 +175,7 @@ public class KAStarConfTree extends ConfTree implements Serializable {
 			if(posComesBefore(iPos,startingLevel,undefinedPos)) {//interaction in right order
 				//(want to avoid double-counting)
 
-				double levelBestE = computeLB ? Double.POSITIVE_INFINITY : 
+				double levelBestE = energyLB ? Double.POSITIVE_INFINITY : 
 					Double.NEGATIVE_INFINITY;//best value of contribution from tup-iPos interaction
 
 				ArrayList<Integer> allowedRCs = allowedRCsAtLevel(iPos, partialConf, undefinedPos);
@@ -160,7 +195,7 @@ public class KAStarConfTree extends ConfTree implements Serializable {
 							interactionE += higherOrderContrib(htf2, augTuple, partialConf, undefinedPos);
 						}
 
-						levelBestE = computeLB ? Math.min(levelBestE, interactionE) : Math.max(levelBestE, interactionE);
+						levelBestE = energyLB ? Math.min(levelBestE, interactionE) : Math.max(levelBestE, interactionE);
 					}
 				}
 
@@ -185,7 +220,7 @@ public class KAStarConfTree extends ConfTree implements Serializable {
 
 
 	protected double scoreConf(int[] partialConf){
-
+		
 		if(traditionalScore) {
 			RCTuple definedTuple = new RCTuple(partialConf);
 
@@ -199,12 +234,13 @@ public class KAStarConfTree extends ConfTree implements Serializable {
 
 			for(int level : undefinedPos) {
 
-				double bestInteractionE = computeLB ? Double.POSITIVE_INFINITY : Double.NEGATIVE_INFINITY;
+				double bestInteractionE = energyLB ? Double.POSITIVE_INFINITY : Double.NEGATIVE_INFINITY;
 
-				for(int rc : panSeqSP.pruneMat.unprunedRCsAtPos(level)) {
+				ArrayList<Integer> rotList = panSeqSP.pruneMat.unprunedRCsAtPos(level);
+				for(int rc : rotList) {
 					double rcContribution = RCContribution(level, rc, definedTuple, partialConf, undefinedPos);
 
-					bestInteractionE = computeLB ? Math.min(bestInteractionE, rcContribution) : 
+					bestInteractionE = energyLB ? Math.min(bestInteractionE, rcContribution) : 
 						Math.max(bestInteractionE, rcContribution);
 				}
 
@@ -220,5 +256,10 @@ public class KAStarConfTree extends ConfTree implements Serializable {
 			//we may even want multiple-level refinement
 			throw new RuntimeException("Advanced A* scoring methods not implemented yet!");
 		}
+	}
+	
+	
+	public double partialConfBound(int[] partialConf) {
+		return scoreConf(partialConf);
 	}
 }

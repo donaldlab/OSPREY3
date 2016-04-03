@@ -111,7 +111,7 @@ public class KSCalc {
 		for( int strand : strands ) {
 			if( getEpsilonStatus() != EApproxReached.FALSE ) return;
 
-			boolean complete = KSAbstract.doCheckpoint && strand == Strand.COMPLEX ? false : true;
+			boolean complete = KSAbstract.doCheckPoint && strand == Strand.COMPLEX ? false : true;
 			PFAbstract wtPF = strand == Strand.COMPLEX ? null : wtKSCalc.getPF(strand);
 			runPF(getPF(strand), wtPF, complete);
 		}
@@ -161,8 +161,26 @@ public class KSCalc {
 		ObjectIO.delete(pf.getCheckPointPath());
 	}
 
+	
+	public BigDecimal getKStarScore() {
 
-	protected double getKStarScore() {
+		PFAbstract pl = getPF(Strand.COMPLEX);
+		PFAbstract p = getPF(Strand.PROTEIN);
+		PFAbstract l = getPF(Strand.LIGAND);
+		
+		BigDecimal score;
+		
+		BigDecimal divisor = p.getQStar().multiply( l.getQStar() );
+
+		if( divisor.compareTo(BigDecimal.ZERO) == 0 ) score = new BigDecimal(Double.POSITIVE_INFINITY);
+
+		else score = pl.getQStar().divide( divisor, precision );
+
+		return score;
+	}
+
+	
+	protected double getKStarScoreLog10() {
 
 		PFAbstract pl = getPF(Strand.COMPLEX);
 		PFAbstract p = getPF(Strand.PROTEIN);
@@ -252,7 +270,7 @@ public class KSCalc {
 			out.print(KSAbstract.list1D2String(getPF(Strand.COMPLEX).getSequence(), " "));
 
 			out.print("\t");
-			out.print(getKStarScore());
+			out.print(getKStarScoreLog10());
 
 			ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Strand.COMPLEX, 
 					Strand.PROTEIN, Strand.LIGAND));

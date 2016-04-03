@@ -337,7 +337,7 @@ public class TupleMatrix<T> implements Serializable {
     	ArrayList<ArrayList<ArrayList<ArrayList<HigherTupleFinder<T>>>>> newHigherTerms = new ArrayList<>();
     	
     	
-    	for(int index = 0; index < seq.size(); ++index) {
+    	for(int index = 0; index < flexPos.size(); ++index) {
 
     		int pos = flexPos.get(index);
     		
@@ -355,9 +355,10 @@ public class TupleMatrix<T> implements Serializable {
     		newOneBodyAtPos.trimToSize();
     		newOneBody.add(newOneBodyAtPos);
     		
-    		for(int index2 = 0; index2 < index; ++index2) {
+    		for(int index2 = 0; index2 < flexPos.size(); ++index2) {
     			
     			int pos2 = flexPos.get(index2);
+    			if(pos2 >= pos) continue;
     			
     			String AAType2 = seq.get(index2);
     			ArrayList<ArrayList<T>> newPairwiseAtPair = new ArrayList<>();

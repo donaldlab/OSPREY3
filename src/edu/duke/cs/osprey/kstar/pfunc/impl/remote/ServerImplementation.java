@@ -83,6 +83,26 @@ public class ServerImplementation extends UnicastRemoteObject implements ServerI
 		envVarsSet = true;
 	}
 
+	
+	protected ArrayList<SearchProblem> parallelCreateSPs( SearchProblem sp, int replicates ) {
+		ArrayList<SearchProblem> ans = new ArrayList<>();
+		ArrayList<Integer> indexes = new ArrayList<>();
+		for(int i = 0; i < replicates; ++i) {
+			indexes.add(i);
+			ans.add(null);
+		}
+
+		indexes.parallelStream().forEach(i -> {
+			ans.set(i, (SearchProblem)ObjectIO.deepCopy(sp));
+		});
+
+		indexes.trimToSize();
+		ans.trimToSize();
+
+		return ans;
+	}
+	
+	
 	@Override
 	public void initFibers( SearchProblem sp ) throws RemoteException {
 
@@ -97,8 +117,8 @@ public class ServerImplementation extends UnicastRemoteObject implements ServerI
 
 		for( int i = 0; i < fibers; ++i ) {
 
-			ArrayList<SearchProblem> sps = new ArrayList<>();
-			for( int j = 0; j < threadsPerFiber; ++j ) sps.add((SearchProblem)ObjectIO.deepCopy(sp));
+			ArrayList<SearchProblem> sps = parallelCreateSPs(sp, threadsPerFiber);
+			// for( int j = 0; j < threadsPerFiber; ++j ) sps.add((SearchProblem)ObjectIO.deepCopy(sp));
 
 			RemoteMinimizer slave = new RemoteMinimizer( this, sps, threadsPerFiber, confsPerThread );
 			slaves.add( slave );

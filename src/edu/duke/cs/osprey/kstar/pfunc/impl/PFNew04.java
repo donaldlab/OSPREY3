@@ -25,9 +25,9 @@ public class PFNew04 extends PFNew03 implements Serializable {
 
 	public PFNew04( int strand, ArrayList<String> sequence, ArrayList<Integer> flexResIndexes, 
 			String checkPointPath, String searchProblemName, 
-			ConfigFileParser cfp, SearchProblem sp ) {
+			ConfigFileParser cfp, SearchProblem panSeqSP ) {
 
-		super( strand, sequence, flexResIndexes, checkPointPath, searchProblemName, cfp, sp );
+		super( strand, sequence, flexResIndexes, checkPointPath, searchProblemName, cfp, panSeqSP );
 	}
 
 	public void start() {

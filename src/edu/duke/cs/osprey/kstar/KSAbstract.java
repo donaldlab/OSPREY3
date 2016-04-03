@@ -54,7 +54,7 @@ public abstract class KSAbstract implements KSInterface {
 	protected boolean prunedSingleSeqs = false;
 	public static boolean preLoadPFs = false;
 	public static boolean refinePruning = false;
-	public static boolean doCheckpoint = false;
+	public static boolean doCheckPoint = false;
 	protected static long checkpointInterval = 100000;
 
 
@@ -334,7 +334,7 @@ public abstract class KSAbstract implements KSInterface {
 		String cpName = getCheckPointName(contSCFlex, strand, seq);
 
 		if( (ans = name2PF.get(seqSPName)) != null ) return ans;
-		if( doCheckpoint && (ans = deSerializePF(seqSPName, cpName, contSCFlex)) != null ) return ans;
+		if( doCheckPoint && (ans = deSerializePF(seqSPName, cpName, contSCFlex)) != null ) return ans;
 
 		ArrayList<Integer> flexResIndexes = strand2AllowedSeqs.get(strand).getFlexResIndexesFromSeq(seq);
 
@@ -587,8 +587,8 @@ public abstract class KSAbstract implements KSInterface {
 
 	protected KSCalc computeWTCalc() {
 		
-		if( !new File(getOputputFilePath()).exists() ) KSCalc.printSummaryHeader(getOputputFilePath());
-		if( doCheckpoint && !new File(getCheckPointFilePath()).exists() ) KSCalc.printSummaryHeader(getCheckPointFilePath());
+		if( !doCheckPoint || !new File(getOputputFilePath()).exists() ) KSCalc.printSummaryHeader(getOputputFilePath());
+		if( doCheckPoint && !new File(getCheckPointFilePath()).exists() ) KSCalc.printSummaryHeader(getCheckPointFilePath());
 		
 		// compute wt sequence for reference
 		ArrayList<ArrayList<String>> strandSeqs = getStrandStringsAtPos(0);		
@@ -600,7 +600,7 @@ public abstract class KSAbstract implements KSInterface {
 		KSCalc calc = new KSCalc(0, pfs);
 		
 		PFAbstract pf = calc.getPF(Strand.COMPLEX);
-		if(getSeqsFromFile(getOputputFilePath()).contains(pf.getSequence())) {
+		if(doCheckPoint && getSeqsFromFile(getOputputFilePath()).contains(pf.getSequence())) {
 			// we have previously computed the sequence
 			return calc;
 		}
@@ -622,7 +622,7 @@ public abstract class KSAbstract implements KSInterface {
 		}
 
 		pf = calc.getPF(Strand.COMPLEX);
-		if( doCheckpoint && pf.getEpsilonStatus() == EApproxReached.FALSE ) {
+		if( doCheckPoint && pf.getEpsilonStatus() == EApproxReached.FALSE ) {
 			// serialize complex
 			name2PF.remove(pf.getSearchProblemName());
 			calc.serializePFs();
@@ -670,7 +670,6 @@ public abstract class KSAbstract implements KSInterface {
 				}
 			}
 		}
-
 
 		return ans;
 	}

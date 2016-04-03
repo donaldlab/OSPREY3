@@ -223,8 +223,8 @@ public class KAStarNode {
 
 		boolean parallel = false;
 
-		//if(isUnique(children) && children.size() > 1)
-			//parallel = true;
+		if(isUnique(children) && children.size() > 1)
+			parallel = true;
 
 		if(parallel) {
 			children.parallelStream().forEach( child -> {
@@ -259,19 +259,19 @@ public class KAStarNode {
 				child.lb.run(wt);
 			}
 
-			child.lbScore = -1.0 * child.lb.getKStarScore();
+			child.lbScore = -1.0 * child.lb.getKStarScoreLog10();
 
 			PFAbstract.suppressOutput = false;
 		}
 
 		else {
-			KSAbstract.doCheckpoint = true;
+			KSAbstract.doCheckPoint = true;
 
 			// we process leaf nodes as streams (in the complex case, at least)
 			child.lb.run(wt);
-			child.lbScore = -1.0 * child.lb.getKStarScore();
+			child.lbScore = -1.0 * child.lb.getKStarScoreLog10();
 
-			KSAbstract.doCheckpoint = false;
+			KSAbstract.doCheckPoint = false;
 		}
 	}
 
@@ -400,7 +400,7 @@ public class KAStarNode {
 		ub.runPF(ub.getPF(Strand.COMPLEX), null, true);
 		PFAbstract.suppressOutput = false;
 
-		return ubScore = -1.0 * ub.getKStarScore();
+		return ubScore = -1.0 * ub.getKStarScoreLog10();
 	}
 
 
