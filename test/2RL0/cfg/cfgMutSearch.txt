@@ -9,7 +9,7 @@ UseDunbrackRotamers false
 ematDir emat.lovell
 deleteEmatDir false
 
-epsilon 0.95
+epsilon 0.99
 useTupExp false
 doMinimize true
 doPerturbations false
