@@ -29,7 +29,7 @@ public class PFnew00 extends PFTrad implements Serializable {
 
 
 	protected void updateQStarUB( KSConf conf ) {
-		qStar = qStar.add( getBoltzmannWeight( conf.getMinEnergyLB() ) );
+		qStar = qStar.add( getBoltzmannWeight( conf.getEnergyBound() ) );
 		enumeratedConfs = enumeratedConfs.add(BigInteger.ONE);
 	}
 
@@ -49,8 +49,6 @@ public class PFnew00 extends PFTrad implements Serializable {
 		// subsequent boltzmann weights are guaranteed to be lower
 		if( qStar.compareTo(BigDecimal.ZERO) == 0 ) return -1.0;
 
-		updateQPrime();
-
 		double minDelta = pStar.divide(qStar.add(qPrime), 4).doubleValue();
 		if( minDelta > targetEpsilon ) return -1.0;
 
@@ -61,10 +59,11 @@ public class PFnew00 extends PFTrad implements Serializable {
 
 
 	protected void accumulate( KSConf conf ) {
-
-		Et = conf.getMinEnergyLB();
 		
 		updateQStarUB( conf );
+		
+		Et = conf.getEnergyBound();
+		updateQPrime();
 
 		if( (effectiveEpsilon = computeDelta()) < 0 ) {
 
@@ -89,7 +88,7 @@ public class PFnew00 extends PFTrad implements Serializable {
 		if( eAppx == EApproxReached.TRUE ) {
 			qStar = qStar.multiply(new BigDecimal(1.0 + effectiveEpsilon));
 			// for partial sequences when doing KAstar
-			if( !isFullyDefined() )adjustQStar();
+			if( !isFullyDefined() ) adjustQStar();
 		}
 	}
 

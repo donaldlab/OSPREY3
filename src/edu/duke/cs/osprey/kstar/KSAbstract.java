@@ -621,6 +621,7 @@ public abstract class KSAbstract implements KSInterface {
 			}
 		}
 
+		/*
 		pf = calc.getPF(Strand.COMPLEX);
 		if( doCheckPoint && pf.getEpsilonStatus() == EApproxReached.FALSE ) {
 			// serialize complex
@@ -634,7 +635,24 @@ public abstract class KSAbstract implements KSInterface {
 			calc.printSummary( getOputputFilePath() );
 			calc.deleteCheckPointFile(Strand.COMPLEX);
 		}
-
+		*/
+		
+		if( doCheckPoint ) {
+			pf = calc.getPF(Strand.COMPLEX);
+			name2PF.remove(pf.getSearchProblemName());
+			calc.deleteSeqFromFile( pf.getSequence(), getCheckPointFilePath() );
+			calc.serializePFs();
+		}
+		
+		if( calc.getEpsilonStatus() == EApproxReached.TRUE ) {
+			calc.deleteCheckPointFile(Strand.COMPLEX);
+			calc.printSummary( getOputputFilePath() );
+		}
+		
+		else {
+			calc.printSummary( getCheckPointFilePath() );
+		}
+		
 		return calc;
 	}
 

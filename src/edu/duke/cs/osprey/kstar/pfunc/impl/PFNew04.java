@@ -76,7 +76,7 @@ public class PFNew04 extends PFNew03 implements Serializable {
 			confs = new KSConfQ( this, sp, unProcessedConfs.size() );
 
 			// set pstar
-			setPStar( confs.getNextConfELB() );
+			setPStar( confs.getNextConfBound() );
 
 			startTime = System.currentTimeMillis();
 

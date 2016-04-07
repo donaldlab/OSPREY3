@@ -158,8 +158,11 @@ public class AllowedSeqs {
 
 	
 	public int getFlexPosIndex( String res ) {
-		for(int index = 0; index < flexRes.size(); ++index) {
-			if(res.contains(flexRes.get(index))) return index;
+		
+		String flexPos = res.split("-")[1];
+		
+		for(int index = 0; index < flexRes.size(); ++index) {		
+			if(flexPos.equalsIgnoreCase(flexRes.get(index))) return index;
 		}
 		return Integer.MIN_VALUE;
 	}

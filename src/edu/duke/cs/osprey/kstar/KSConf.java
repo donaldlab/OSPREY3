@@ -13,35 +13,35 @@ import java.util.Comparator;
 public class KSConf implements Comparable, Serializable {
 
 	private ArrayList<Integer> conf = null;
-	private double minEnergyLB = Double.POSITIVE_INFINITY;
-	private double minEnergy = Double.POSITIVE_INFINITY;
+	private double energyBound = Double.POSITIVE_INFINITY;
+	private double energy = Double.POSITIVE_INFINITY;
 
 
 	public KSConf( int[] conf, double energyLB ) {
 
 		this.conf = array2List(conf);
-		this.minEnergyLB = energyLB;
+		this.energyBound = energyLB;
 	}
 	
 	
-	public KSConf( ArrayList<Integer> conf, double energyLB ) {
+	public KSConf( ArrayList<Integer> conf, double energyBound ) {
 		this.conf = conf;
-		this.minEnergyLB = energyLB;
+		this.energyBound = energyBound;
 	}
 
 
-	public double getMinEnergyLB() {
-		return minEnergyLB;
+	public double getEnergyBound() {
+		return energyBound;
 	}
 
 
-	public double getMinEnergy() {
-		return minEnergy;
+	public double getEnergy() {
+		return energy;
 	}
 
 
-	public void setMinEnergy( double e ) {
-		minEnergy = e;
+	public void setEnergy( double e ) {
+		energy = e;
 	}
 	
 	
@@ -72,16 +72,16 @@ public class KSConf implements Comparable, Serializable {
 
 	@Override
 	public int compareTo(Object rhs) {
-		if( this.minEnergyLB == ((KSConf)rhs).getMinEnergyLB() ) return 0;
+		if( this.energyBound == ((KSConf)rhs).getEnergyBound() ) return 0;
 
-		return this.minEnergyLB > ((KSConf)rhs).getMinEnergyLB() ? 1 : -1;
+		return this.energyBound > ((KSConf)rhs).getEnergyBound() ? 1 : -1;
 	}
 
 
 	public class KSConfMinEComparator implements Comparator<KSConf>, Serializable {
 
 		public int compare(KSConf o1, KSConf o2) {
-			return o1.getMinEnergy() <= o2.getMinEnergy() ? 1 : -1;
+			return o1.getEnergy() <= o2.getEnergy() ? 1 : -1;
 		}	
 	}
 }

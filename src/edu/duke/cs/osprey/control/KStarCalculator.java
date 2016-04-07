@@ -14,6 +14,7 @@ import edu.duke.cs.osprey.kstar.Strand;
 import edu.duke.cs.osprey.kstar.impl.KSImplLinear;
 import edu.duke.cs.osprey.kstar.impl.KSImplKAStar;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
+import edu.duke.cs.osprey.kstar.pfunc.impl.PFNew02;
 import edu.duke.cs.osprey.minimization.MinimizerFactory;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 import edu.duke.cs.osprey.tools.StringParsing;
@@ -49,12 +50,12 @@ public class KStarCalculator {
 					+ "Change the value of doMinimize to 'true'.");
 		
 		PFAbstract.targetEpsilon = cfp.getParams().getDouble("epsilon", 0.03);
-		PFAbstract.qCapacity = cfp.getParams().getInt("pFuncQCap", 4194304);
+		PFAbstract.qCapacity = cfp.getParams().getInt("pFuncQCap", 1024000);
 		PFAbstract.waitUntilCapacity = cfp.getParams().getBool("pFuncQWait", false);
 
 		PFAbstract.eMinMethod = cfp.getParams().getValue("eMinMethod", "ccd");
-		PFAbstract.setCFGImpl(cfp.getParams().getValue("pFuncMethod", "new02"));
-		PFAbstract.setStabilityThresh( cfp.getParams().getDouble("pFuncStabThresh", 0.00001) );
+		PFAbstract.setCFGImpl(cfp.getParams().getValue("pFuncMethod", PFNew02.getImpl()));
+		PFAbstract.setStabilityThresh( cfp.getParams().getDouble("pFuncStabThresh", 0) );
 		PFAbstract.setConfsThreadBuffer( cfp.getParams().getInt("pFuncConfsThreadBuffer", 4) );
 		PFAbstract.setNumFibers( cfp.getParams().getInt("pFuncFibers", 1) );
 		PFAbstract.setNumThreads( cfp.getParams().getInt("pFuncThreads", ThreadParallelism.getNumThreads()) );
@@ -71,7 +72,7 @@ public class KStarCalculator {
 		KSAbstract.preLoadPFs = cfp.getParams().getBool("kStarPreLoadPFs", false);
 		KSAbstract.refinePruning = cfp.getParams().getBool("kStarRefinePruning", false);
 		KSAbstract.doCheckPoint = cfp.getParams().getBool("doKStarCheckpoint", false);
-		KSAbstract.setCheckPointInterval(cfp.getParams().getInt("kStarCheckpoint", 100000));
+		KSAbstract.setCheckPointInterval(cfp.getParams().getInt("kStarCheckpoint", 50000));
 		
 		KSImplKAStar.useTightBounds = cfp.getParams().getBool("kStarUseTightBounds", true);
 	}

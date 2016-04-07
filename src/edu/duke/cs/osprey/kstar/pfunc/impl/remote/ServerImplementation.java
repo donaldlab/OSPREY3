@@ -299,7 +299,7 @@ public class ServerImplementation extends UnicastRemoteObject implements ServerI
 					}
 					
 					// store minimized energies
-					indexes.parallelStream().forEach( j -> confs.get(j).setMinEnergy(sps.get(j).minimizedEnergy(confs.get(j).getConfArray())) );
+					indexes.parallelStream().forEach( j -> confs.get(j).setEnergy(sps.get(j).minimizedEnergy(confs.get(j).getConfArray())) );
 				}
 			}
 

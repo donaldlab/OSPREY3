@@ -207,7 +207,7 @@ public abstract class PFAbstract implements Serializable {
 
 		if(getNumTopSavedConfs() >= getNumTopConfsToSave()) {
 
-			if(topConfsPQ.peek().getMinEnergy() > conf.getMinEnergy()) {
+			if(topConfsPQ.peek().getEnergy() > conf.getEnergy()) {
 				topConfsPQ.poll();
 			}
 
@@ -236,7 +236,7 @@ public abstract class PFAbstract implements Serializable {
 
 		String pdbName = null;
 		for( int i = getNumTopSavedConfs()-1; i > -1; i-- ) {
-			System.out.println("Saving: " + i +".pdb" + "\tminE:" + tmp.peek().getMinEnergy());
+			System.out.println("Saving: " + i +".pdb" + "\tminE:" + tmp.peek().getEnergy());
 			pdbName = dir + File.separator + String.valueOf(i) +".pdb";
 			sp.outputMinimizedStruct(tmp.poll().getConfArray(), pdbName);
 		}
@@ -318,7 +318,6 @@ public abstract class PFAbstract implements Serializable {
 
 
 	protected double computeEffectiveEpsilon() {
-		updateQPrime();
 
 		BigDecimal divisor = (qStar.add(qPrime)).add(pStar);
 
@@ -351,7 +350,7 @@ public abstract class PFAbstract implements Serializable {
 			saveTopConf(conf);
 		}
 
-		qStar = qStar.add( getBoltzmannWeight( conf.getMinEnergy() ) );
+		qStar = qStar.add( getBoltzmannWeight( conf.getEnergy() ) );
 
 		minimizedConfs = minimizedConfs.add(BigInteger.ONE);
 		minimizedConfsSet.add(conf.getConf());
@@ -475,6 +474,8 @@ public abstract class PFAbstract implements Serializable {
 		//qStar = BigDecimal.ZERO;
 		minimizedConfs = BigInteger.ZERO;
 
+		minimizingConfs = BigInteger.ZERO;
+		
 		start();
 	}
 

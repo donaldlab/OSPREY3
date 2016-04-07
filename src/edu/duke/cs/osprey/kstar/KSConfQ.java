@@ -22,7 +22,7 @@ public class KSConfQ extends Thread implements Serializable {
 	private SearchProblem sp;
 	private ConfSearch search;
 	private int minCapacity;
-	private BigDecimal capacityThresh = new BigDecimal(Math.pow(1, -10));
+	private BigDecimal capacityThresh = new BigDecimal(Math.pow(1, -20));
 	
 	// lock for queue access
 	public final String qLock = new String("LOCK");
@@ -69,7 +69,7 @@ public class KSConfQ extends Thread implements Serializable {
 	}
 	
 
-	public double getNextConfELB() {
+	public double getNextConfBound() {
 
 		int c[] = null;
 
@@ -114,20 +114,20 @@ public class KSConfQ extends Thread implements Serializable {
 
 	protected double enQueue( int[] conf ) {
 		
-		double minELB = sp.lowerBound(conf);
+		double energyBound = sp.lowerBound(conf);
 		ArrayList<Integer> list = KSConf.array2List(conf);
 		
-		if(KSAbstract.doCheckPoint && size() > 0 && minELB < peekTail().getMinEnergyLB() ) return minELB;
+		if(KSAbstract.doCheckPoint && size() > 0 && energyBound < peekTail().getEnergyBound() ) return energyBound;
 		
-		if( pf.getMinimizedConfsSet().contains(list) || q.contains(list) ) return minELB;
+		if( pf.getMinimizedConfsSet().contains(list) || q.contains(list) ) return energyBound;
 
-		qDagger = qDagger.add( pf.getBoltzmannWeight(minELB) );
+		qDagger = qDagger.add( pf.getBoltzmannWeight(energyBound) );
 		
 		q.add(list);
 		
 		tail = list;
 		
-		return minELB;
+		return energyBound;
 	}
 
 
@@ -183,9 +183,6 @@ public class KSConfQ extends Thread implements Serializable {
 		}
 		
 		this.join();
-		
-		if(KSAbstract.doCheckPoint) 
-			pf.setPanSeqSP(null);
 		
 		if(nullify) {
 			search = null;

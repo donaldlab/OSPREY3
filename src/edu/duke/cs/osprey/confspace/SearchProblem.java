@@ -4,7 +4,6 @@
  */
 package edu.duke.cs.osprey.confspace;
 
-import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -13,7 +12,6 @@ import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
-import edu.duke.cs.osprey.kstar.KAStarConfTree;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Residue;
@@ -281,14 +279,6 @@ public class SearchProblem implements Serializable {
 		double bound = emat.confE(conf);//the energy recorded by the matrix is 
 		//the pairwise lower bounds
 
-		return bound;
-	}
-	
-	
-	public double partialConfBound(ConfSearch confTree, int[] partialConf) {
-		
-		double bound = ((KAStarConfTree)confTree).partialConfBound(partialConf);
-		
 		return bound;
 	}
 	

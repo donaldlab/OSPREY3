@@ -134,6 +134,9 @@ public class KSCalc {
 		System.out.print("\nSerializing " + pf.getCheckPointPath() + " ... " );
 
 		pf.abort(false);
+		
+		if(KSAbstract.doCheckPoint) pf.setPanSeqSP(null);
+		
 		ObjectIO.writeObject(pf, pf.getCheckPointPath());
 
 		if( pf.getEpsilonStatus() == EApproxReached.FALSE ) {

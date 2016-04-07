@@ -45,7 +45,7 @@ public class PFNew01 extends PFAbstract implements Serializable {
 		confs = new KSConfQ( this, (SearchProblem)ObjectIO.deepCopy(sp), 1 );
 
 		// set pstar
-		setPStar( confs.getNextConfELB() );
+		setPStar( confs.getNextConfBound() );
 
 		startTime = System.currentTimeMillis();
 
@@ -183,24 +183,23 @@ public class PFNew01 extends PFAbstract implements Serializable {
 		double E = 0;
 
 		// we do not have a lock when minimizing	
-		conf.setMinEnergy( sp.minimizedEnergy(conf.getConfArray()) );
+		conf.setEnergy( sp.minimizedEnergy(conf.getConfArray()) );
 
 		// we need a current snapshot of qDagger, so we lock here
 		synchronized( confs.qLock ) {
 
-			Et = confs.size() > 0 ? confs.peekTail().getMinEnergyLB() : conf.getMinEnergyLB();
-
 			minimizingConfs = minimizingConfs.subtract( BigInteger.ONE );
 
 			// update q*, qDagger, and q' atomically
-			E = conf.getMinEnergy();
+			E = conf.getEnergy();
 			updateQStar( conf );
 
 			// update qdagger
-			confs.setQDagger( confs.getQDagger().subtract(getBoltzmannWeight(conf.getMinEnergyLB())) );
+			confs.setQDagger( confs.getQDagger().subtract(getBoltzmannWeight(conf.getEnergyBound())) );
 
+			Et = confs.size() > 0 ? confs.peekTail().getEnergyBound() : conf.getEnergyBound();
 			updateQPrime();
-
+			
 			// negative values of effective esilon are disallowed
 			if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0 ) {
 

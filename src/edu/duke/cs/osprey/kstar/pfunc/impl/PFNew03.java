@@ -59,7 +59,7 @@ public class PFNew03 extends PFNew02 implements Serializable {
 		confs = new KSConfQ( this, sp, confsPerThread );
 
 		// set pstar
-		setPStar( confs.getNextConfELB() );
+		setPStar( confs.getNextConfBound() );
 
 		startTime = System.currentTimeMillis();
 
@@ -291,7 +291,7 @@ public class PFNew03 extends PFNew02 implements Serializable {
 					}
 					
 					// sp concurrency reached. update partial partition function
-					indexes.parallelStream().forEach( j -> confs.get(j).setMinEnergy(sps.get(j).minimizedEnergy(confs.get(j).getConfArray())) );
+					indexes.parallelStream().forEach( j -> confs.get(j).setEnergy(sps.get(j).minimizedEnergy(confs.get(j).getConfArray())) );
 				}
 			}
 

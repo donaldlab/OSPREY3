@@ -76,7 +76,7 @@ public class PFNew02 extends PFNew01 implements Serializable {
 			confs = new KSConfQ( this, sp, indexes.size() );
 
 			// set pstar
-			setPStar( confs.getNextConfELB() );
+			setPStar( confs.getNextConfBound() );
 
 			confs.start();
 
@@ -136,7 +136,7 @@ public class PFNew02 extends PFNew01 implements Serializable {
 		if( !isMinimized ) {
 			// we do not have a lock when minimizing
 			indexes.parallelStream().forEach( i -> {
-				partialQConfs.get(i).setMinEnergy( sps.get(i).minimizedEnergy(partialQConfs.get(i).getConfArray()) );
+				partialQConfs.get(i).setEnergy( sps.get(i).minimizedEnergy(partialQConfs.get(i).getConfArray()) );
 			});
 		}
 
@@ -145,17 +145,17 @@ public class PFNew02 extends PFNew01 implements Serializable {
 		// we need a current snapshot of qDagger, so we lock here
 		synchronized( confs.qLock ) {
 			// update q*, qDagger, minimizingConfs, and q' atomically
-			Et = confs.size() > 0 ? confs.peekTail().getMinEnergyLB() 
-					: partialQConfs.get(partialQConfs.size()-1).getMinEnergyLB();
+			Et = confs.size() > 0 ? confs.peekTail().getEnergyBound() 
+					: partialQConfs.get(partialQConfs.size()-1).getEnergyBound();
 
 			for( KSConf conf : partialQConfs ) {
 
 				minimizingConfs = minimizingConfs.subtract( BigInteger.ONE );
 
-				E = conf.getMinEnergy();
+				E = conf.getEnergy();
 				updateQStar( conf );
 
-				confs.setQDagger( confs.getQDagger().subtract( getBoltzmannWeight(conf.getMinEnergyLB()) ) );
+				confs.setQDagger( confs.getQDagger().subtract( getBoltzmannWeight(conf.getEnergyBound()) ) );
 
 				updateQPrime();
 

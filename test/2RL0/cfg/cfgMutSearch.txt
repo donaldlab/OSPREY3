@@ -38,7 +38,7 @@ pFuncMethod new02
 pFuncThreads 4
 numThreads 4
 eMinMethod hbfgsccd
-kStarMethod kastar
+kStarMethod linear
 kStarUseTightBounds false
 kStarNumSeqs 1
 kStarPreLoadPFs false

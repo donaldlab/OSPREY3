@@ -37,16 +37,14 @@ public class PFTrad extends PFAbstract implements Serializable {
 		// replace new confrtree with a conf tree factory call 
 		// to a function in the abstract base class
 		search = getConfTree();
-		int rawConf[];
+		int conf[];
 
 		startTime = System.currentTimeMillis();
 
-		if( (rawConf = search.nextConf()) != null ) {
-
-			KSConf ksConf = new KSConf(rawConf, sp.lowerBound(rawConf));
+		if( (conf = search.nextConf()) != null ) {
 
 			// get approx gmec LB to compute p*
-			Et = ksConf.getMinEnergyLB();
+			Et = sp.lowerBound(conf);
 			setPStar( Et );
 
 			// first conf was merely to set p*
@@ -60,15 +58,15 @@ public class PFTrad extends PFAbstract implements Serializable {
 
 	protected void iterate() throws Exception {
 
-		int rawConf[];
+		int conf[];
 
-		if( (rawConf = search.nextConf()) != null ) {
+		if( (conf = search.nextConf()) != null ) {
 
-			if( minimizedConfsSet.contains(rawConf) ) return;
+			if( minimizedConfsSet.contains(conf) ) return;
 
-			KSConf conf = new KSConf(rawConf, sp.lowerBound(rawConf));
+			KSConf ksConf = new KSConf(conf, sp.lowerBound(conf));
 
-			accumulate(conf);
+			accumulate(ksConf);
 		}
 
 		else {
@@ -117,14 +115,16 @@ public class PFTrad extends PFAbstract implements Serializable {
 	 */
 	protected void accumulate( KSConf conf ) {
 
-		conf.setMinEnergy(sp.minimizedEnergy(conf.getConfArray()));
+		double energy = sp.minimizedEnergy(conf.getConfArray());
+		
+		conf.setEnergy(energy);
 
-		double E = conf.getMinEnergy();
-
-		Et = conf.getMinEnergyLB();
+		Et = conf.getEnergyBound();
 
 		updateQStar( conf );
 
+		updateQPrime();
+		
 		// negative values of effective esilon are disallowed
 		if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0 ) {
 
@@ -138,7 +138,7 @@ public class PFTrad extends PFAbstract implements Serializable {
 		if( !PFAbstract.suppressOutput ) {
 			if( !printedHeader ) printHeader();
 
-			System.out.println(E + "\t" + effectiveEpsilon + "\t" 
+			System.out.println(energy + "\t" + effectiveEpsilon + "\t" 
 					+ getNumMinimized4Output() + "\t" + getNumUnEnumerated() + "\t"+ (currentTime-startTime)/1000);
 		}
 
