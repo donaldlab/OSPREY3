@@ -486,29 +486,19 @@ public class SearchProblem implements Serializable {
 	}
 	
 	
-	public BigInteger numUnPruned() {
+	public BigInteger numConfs(boolean countPruned) {
 
 		if( pruneMat == null ) return BigInteger.ZERO;
 		
-		BigInteger numUPConfs = BigInteger.ONE;
-		for( int pos = 0; pos < confSpace.numPos; ++pos ) {
-			numUPConfs = numUPConfs.multiply( BigInteger.valueOf( pruneMat.unprunedRCsAtPos(pos).size() ) );
-		}
+		BigInteger numConfs = BigInteger.ONE;
 		
-		return numUPConfs;
-	}
-
-
-	public BigInteger numPruned() {
-
-		if( pruneMat == null ) return BigInteger.ZERO;
-		
-		BigInteger numPConfs = BigInteger.ONE;
-		for( int pos = 0; pos < confSpace.numPos; ++pos ) {
-			numPConfs = numPConfs.multiply( BigInteger.valueOf( pruneMat.prunedRCsAtPos(pos).size() ) );
+		for( int pos = 0; pos < pruneMat.numPos(); ++pos ) {
+			long numRCs = countPruned ? pruneMat.prunedRCsAtPos(pos).size() : pruneMat.unprunedRCsAtPos(pos).size();
+			if(numRCs == 0) return BigInteger.ZERO;
+			numConfs = numConfs.multiply( BigInteger.valueOf( numRCs ) );
 		}
 
-		return numPConfs;
+		return numConfs;
 	}
 	
 	

@@ -17,6 +17,7 @@ import edu.duke.cs.osprey.kstar.AllowedSeqs;
 import edu.duke.cs.osprey.kstar.KAStarConfTree;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KSConf;
+import edu.duke.cs.osprey.kstar.PStarConfTree;
 import edu.duke.cs.osprey.kstar.pfunc.impl.PFTrad;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.tools.ExpFunction;
@@ -106,7 +107,7 @@ public abstract class PFAbstract implements Serializable {
 		Comparator<KSConf> comparator = new KSConf(new ArrayList<>(), 0.0).new KSConfMinEComparator();
 		topConfsPQ = new PriorityQueue<KSConf>(getNumTopConfsToSave(), comparator);
 	}
-
+	
 	
 	protected boolean isFullyDefined() {
 		return sp.confSpace.numPos == panSeqSP.confSpace.numPos;
@@ -157,11 +158,47 @@ public abstract class PFAbstract implements Serializable {
 	}
 
 
-	public ConfSearch getConfTree() {
-		if(isFullyDefined())
+	public ConfSearch getConfTree( boolean usePrunedConfs ) {
+		if(isFullyDefined()) {
+			if( usePrunedConfs && canUseTightPStar() ) 
+				return new PStarConfTree(sp);
+			
 			return new ConfTree(sp);
+		}
 
-		return new KAStarConfTree(sp, panSeqSP, flexResIndexes);
+		else {
+			if( usePrunedConfs && !canUseTightPStar() ) usePrunedConfs = false;
+			return new KAStarConfTree(sp, panSeqSP, flexResIndexes, usePrunedConfs);
+		}
+	}
+	
+	
+	public double getConfBound( ConfSearch confSearch, int[] conf, boolean usePrunedConfs ) {
+		double bound = 0;
+		
+		if( isFullyDefined() ) {
+			if( usePrunedConfs && canUseTightPStar() )
+				bound = ((PStarConfTree)confSearch).confBound(conf);
+			
+			else bound = sp.lowerBound(conf);
+		}
+		
+		else
+			bound = ((KAStarConfTree)confSearch).confBound(conf);
+		
+		return bound;
+	}
+	
+	
+	protected boolean canUseTightPStar() {
+		boolean ans = true;
+		
+		if(sp.numConfs(true).compareTo(BigInteger.ZERO) == 0 ||
+				panSeqSP.numConfs(true).compareTo(BigInteger.ZERO) == 0) {
+			ans = false;
+		}
+		
+		return ans;
 	}
 
 
@@ -308,12 +345,12 @@ public abstract class PFAbstract implements Serializable {
 
 
 	public void setNumUnPruned() {
-		unPrunedConfs = sp.numUnPruned();
+		unPrunedConfs = sp.numConfs(false);
 	}
 
 
 	public void setNumPruned() {
-		prunedConfs = sp.numPruned();
+		prunedConfs = sp.numConfs(true);
 	}
 
 
@@ -333,8 +370,40 @@ public abstract class PFAbstract implements Serializable {
 	}
 
 
-	protected void setPStar( double eLB ) {
+	protected void initPStar() {
+		
+		ConfSearch confSearch = getConfTree(true);
+		int conf[];
+
+		if( (conf = confSearch.nextConf()) != null ) {
+			// get approx gmec LB to compute p*
+			setPStar( getConfBound(confSearch, conf, true), true );
+		}
+
+		else
+			throw new RuntimeException("ERROR: cannot set P*");
+	}
+	
+	
+	private void setPStar( double eLB, boolean usePrunedConfs ) {
+		
+		if( usePrunedConfs && canUseTightPStar() ) {
+			setPStarTight(eLB);
+		}
+		
+		else
+			setPStarLoose(eLB);
+	}
+	
+	
+	private void setPStarLoose( double eLB ) {
 		E0 = eLB + getSearchProblem().pruneMat.getPruningInterval();
+		pStar = ( getBoltzmannWeight( E0 )).multiply( new BigDecimal(prunedConfs) );
+	}
+	
+	
+	private void setPStarTight( double eLB ) {
+		E0 = eLB;
 		pStar = ( getBoltzmannWeight( E0 )).multiply( new BigDecimal(prunedConfs) );
 	}
 
@@ -411,7 +480,7 @@ public abstract class PFAbstract implements Serializable {
 	abstract protected void iterate() throws Exception;
 
 	protected void restart() {
-
+		
 		System.out.println("\nCould not reach target epsilon approximation of " + targetEpsilon + " for sequence: " +
 				KSAbstract.list1D2String(sequence, " "));
 
@@ -440,13 +509,13 @@ public abstract class PFAbstract implements Serializable {
 			BigInteger numPruned = BigInteger.ZERO;
 
 			do {
-				pruningInterval = Math.min(pruningInterval + 2.5, 100.0);
+				pruningInterval = Math.min(pruningInterval + 1.0, 100.0);
 
 				pc = getPruningControl(pruningInterval);
 				pc.prune();
-
-				numPruned = sp.numPruned();
 				sp.pruneMat.setPruningInterval(pruningInterval);
+
+				numPruned = sp.numConfs(true);
 
 				System.out.println("New pruning window: " + pruningInterval);
 				System.out.println("Pruning target: " + pruningTarget + " confs.");
@@ -460,9 +529,9 @@ public abstract class PFAbstract implements Serializable {
 			}
 		}
 
-		unPrunedConfs = sp.numUnPruned();
+		unPrunedConfs = sp.numConfs(false);
 
-		prunedConfs = sp.numPruned();
+		prunedConfs = sp.numConfs(true);
 
 		eAppx = EApproxReached.FALSE;
 

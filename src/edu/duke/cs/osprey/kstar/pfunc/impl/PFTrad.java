@@ -17,7 +17,7 @@ import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 @SuppressWarnings("serial")
 public class PFTrad extends PFAbstract implements Serializable {
 
-	protected ConfSearch search;
+	protected ConfSearch confSearch = null;
 
 	// temp for benchmarking
 	protected long startTime;
@@ -33,26 +33,13 @@ public class PFTrad extends PFAbstract implements Serializable {
 	public void start() {
 
 		setRunState(RunState.STARTED);
-
-		// replace new confrtree with a conf tree factory call 
-		// to a function in the abstract base class
-		search = getConfTree();
-		int conf[];
-
+		
+		initPStar();
+		
+		// first conf was merely to set p*
+		confSearch = getConfTree(false);
+		
 		startTime = System.currentTimeMillis();
-
-		if( (conf = search.nextConf()) != null ) {
-
-			// get approx gmec LB to compute p*
-			Et = sp.lowerBound(conf);
-			setPStar( Et );
-
-			// first conf was merely to set p*
-			search = getConfTree();
-		}
-
-		else
-			eAppx = EApproxReached.NOT_POSSIBLE;
 	}
 
 
@@ -60,11 +47,11 @@ public class PFTrad extends PFAbstract implements Serializable {
 
 		int conf[];
 
-		if( (conf = search.nextConf()) != null ) {
+		if( (conf = confSearch.nextConf()) != null ) {
 
 			if( minimizedConfsSet.contains(conf) ) return;
 
-			KSConf ksConf = new KSConf(conf, sp.lowerBound(conf));
+			KSConf ksConf = new KSConf(conf, getConfBound(confSearch, conf, false));
 
 			accumulate(ksConf);
 		}
@@ -116,7 +103,7 @@ public class PFTrad extends PFAbstract implements Serializable {
 	protected void accumulate( KSConf conf ) {
 
 		double energy = sp.minimizedEnergy(conf.getConfArray());
-		
+
 		conf.setEnergy(energy);
 
 		Et = conf.getEnergyBound();
@@ -124,7 +111,7 @@ public class PFTrad extends PFAbstract implements Serializable {
 		updateQStar( conf );
 
 		updateQPrime();
-		
+
 		// negative values of effective esilon are disallowed
 		if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0 ) {
 
@@ -143,7 +130,7 @@ public class PFTrad extends PFAbstract implements Serializable {
 		}
 
 		eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
-		
+
 		// for partial sequences when doing KAstar
 		if( !isFullyDefined() && eAppx == EApproxReached.TRUE ) adjustQStar();
 	}
@@ -161,11 +148,11 @@ public class PFTrad extends PFAbstract implements Serializable {
 	public static String getImpl() {
 		return "trad";
 	}
-	
-	
+
+
 	public void cleanup() {
 		super.cleanup();
-		search = null;
+		confSearch = null;
 	}
 
 }

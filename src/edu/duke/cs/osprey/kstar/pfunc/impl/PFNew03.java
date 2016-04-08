@@ -37,7 +37,10 @@ public class PFNew03 extends PFNew02 implements Serializable {
 	public void start() {
 
 		setRunState(RunState.STARTED);
-		
+
+		// set pstar
+		initPStar();
+
 		// make a number of RemoteMinimizers
 		fibers = PFAbstract.getNumFibers();
 		threadsPerFiber = PFAbstract.getNumThreads();
@@ -56,12 +59,7 @@ public class PFNew03 extends PFNew02 implements Serializable {
 			slaves.get(slaves.size()-1).id = i;
 		}
 
-		confs = new KSConfQ( this, sp, confsPerThread );
-
-		// set pstar
-		setPStar( confs.getNextConfBound() );
-
-		startTime = System.currentTimeMillis();
+		confs = new KSConfQ( this, confsPerThread );
 
 		try {
 
@@ -79,6 +77,8 @@ public class PFNew03 extends PFNew02 implements Serializable {
 			e.printStackTrace();
 			System.exit(1);
 		}
+		
+		startTime = System.currentTimeMillis();
 	}
 
 
@@ -109,22 +109,22 @@ public class PFNew03 extends PFNew02 implements Serializable {
 					// fill slave conformation buffer
 					// lock conformation queue
 					synchronized( confs.qLock ) {
-						
+
 						int request = slave.buf.size();
 						int granted = 0;
-						
+
 						if( (granted = canSatisfy(request)) == 0 )
 							break;
-						
+
 						// reduce the size of buf to match
 						while( slave.buf.size() > granted ) {
 							slave.buf.remove(slave.buf.size()-1);
 						}
-						
+
 						for( int i = 0; i < granted; ++i ) {
 							slave.buf.set(i, confs.deQueue());
 						}
-						
+
 						minimizingConfs = minimizingConfs.add( BigInteger.valueOf(slave.buf.size()) );
 
 						slave.bufFull = true; slave.inputConsumed = false;
@@ -213,9 +213,9 @@ public class PFNew03 extends PFNew02 implements Serializable {
 				if( eAppx != EApproxReached.TRUE && slave.inputConsumed ) {
 
 					accumulate( slave.buf, true );
-					
+
 					if( eAppx == EApproxReached.TRUE ) {
-					
+
 						val = EApproxReached.TRUE;
 					}
 				}
@@ -281,15 +281,15 @@ public class PFNew03 extends PFNew02 implements Serializable {
 				confs.set(i % sps.size(), buf.get(i));
 
 				if( (i+1) % sps.size() == 0 || (i+1) == buf.size() ) {
-					
+
 					// reduce conf size if necessary
 					while( confs.size() > buf.size() ) {
-						
+
 						confs.remove(confs.size()-1);
-						
+
 						indexes.remove(indexes.size()-1);
 					}
-					
+
 					// sp concurrency reached. update partial partition function
 					indexes.parallelStream().forEach( j -> confs.get(j).setEnergy(sps.get(j).minimizedEnergy(confs.get(j).getConfArray())) );
 				}
@@ -342,7 +342,7 @@ public class PFNew03 extends PFNew02 implements Serializable {
 
 	}
 
-	
+
 	public static String getImpl() {
 		return "new03";
 	}

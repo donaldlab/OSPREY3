@@ -3,6 +3,7 @@ package edu.duke.cs.osprey.kstar.pfunc.impl;
 import java.io.Serializable;
 import java.math.BigInteger;
 import java.util.ArrayList;
+
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.kstar.KSConf;
@@ -61,6 +62,9 @@ public class PFNew02 extends PFNew01 implements Serializable {
 
 			setRunState(RunState.STARTED);
 
+			// set pstar
+			initPStar();
+
 			// initialize parallel data structures
 			indexes.clear();
 			for( int it = 0; it < PFAbstract.getNumThreads(); ++it ) indexes.add(it);
@@ -73,17 +77,12 @@ public class PFNew02 extends PFNew01 implements Serializable {
 			for( int it = 0; it < indexes.size(); ++it ) partialQConfs.add(null);
 			partialQConfs.trimToSize();
 
-			confs = new KSConfQ( this, sp, indexes.size() );
-
-			// set pstar
-			setPStar( confs.getNextConfBound() );
+			confs = new KSConfQ( this, indexes.size() );
 
 			confs.start();
 
 			if( waitUntilCapacity )
 				confs.waitUntilCapacity();
-
-			startTime = System.currentTimeMillis();
 
 		} catch(Exception e) {
 			System.out.println(e.getMessage());
@@ -91,6 +90,7 @@ public class PFNew02 extends PFNew01 implements Serializable {
 			System.exit(1);
 		}
 
+		startTime = System.currentTimeMillis();
 	}
 
 
@@ -178,7 +178,7 @@ public class PFNew02 extends PFNew01 implements Serializable {
 			}
 
 			eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
-			
+
 			// for partial sequences when doing KAstar
 			if( !isFullyDefined() && eAppx == EApproxReached.TRUE ) adjustQStar();
 		}

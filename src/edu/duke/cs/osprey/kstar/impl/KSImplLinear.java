@@ -128,7 +128,7 @@ public class KSImplLinear extends KSAbstract {
 			KSCalc calc = new KSCalc(i, pfs);
 
 			// compute partition functions
-			calc.run(wtKSCalc);
+			calc.run(wtKSCalc, false, true);
 
 			// compute K* scores and print output if all 
 			// partition functions are computed to epsilon accuracy
@@ -182,7 +182,7 @@ public class KSImplLinear extends KSAbstract {
 				KSCalc calc = new KSCalc(i, pfs);
 
 				// compute partition functions
-				calc.run(wtKSCalc);
+				calc.run(wtKSCalc, false, true);
 
 				// serialize P and L; should only happen once
 				for( int strand : Arrays.asList(Strand.LIGAND, Strand.PROTEIN) ) {

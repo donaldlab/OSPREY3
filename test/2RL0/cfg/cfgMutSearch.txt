@@ -5,11 +5,11 @@ typedep true
 Ival 2.0
 Ew 0
 
-UseDunbrackRotamers true
-ematDir emat.dunbrack
+useDunbrackRotamers false
+ematDir emat.lovell
 deleteEmatDir false
 
-epsilon 0.999
+epsilon 0.99
 useTupExp false
 doMinimize true
 doPerturbations false
@@ -23,7 +23,7 @@ maxKSconfs 500000
 doKStarCheckpoint false
 kStarCheckpoint 100
 
-numMutations 3
+numMutations 1
 resAllowed0_0 ASP GLU HID
 resAllowed0_1 GLU ASP ARG
 resAllowed0_2 GLU ASN ILE
@@ -32,13 +32,13 @@ resAllowed1_0 SER GLN CYS
 resAllowed1_1 GLY ASP ILE
 resAllowed1_2 THR VAL TYR
 
-pFuncStabThresh 1
+pFuncStabThresh 0
 pFuncQCap 1024000
 pFuncMethod new02
 pFuncThreads 4
 numThreads 4
 eMinMethod hbfgsccd
-kStarMethod kastar
+kStarMethod linear
 kStarUseTightBounds false
 kStarNumSeqs 1
 kStarPreLoadPFs false

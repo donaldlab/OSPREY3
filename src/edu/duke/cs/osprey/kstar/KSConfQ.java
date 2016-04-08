@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 
 import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
 
@@ -19,8 +18,7 @@ import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
 public class KSConfQ extends Thread implements Serializable {
 
 	private PFAbstract pf;
-	private SearchProblem sp;
-	private ConfSearch search;
+	private ConfSearch confSearch;
 	private int minCapacity;
 	private BigDecimal capacityThresh = new BigDecimal(Math.pow(1, -20));
 	
@@ -39,15 +37,14 @@ public class KSConfQ extends Thread implements Serializable {
 	/**
 	 * 
 	 * @param pf
-	 * @param search
+	 * @param confSearch
 	 * @param notificationThreshold = notify queue owner when queue contains
 	 * this number of conformations
 	 */
-	public KSConfQ( PFAbstract pf, SearchProblem sp, int minCapacity ) {
+	public KSConfQ( PFAbstract pf, int minCapacity ) {
 
 		this.pf = pf;
-		this.sp = sp;
-		search = pf.getConfTree();
+		confSearch = pf.getConfTree(false);
 
 		this.minCapacity = minCapacity;
 		qCap = Math.max( minCapacity, PFAbstract.qCapacity );
@@ -58,7 +55,7 @@ public class KSConfQ extends Thread implements Serializable {
 
 
 	public void restartConfTree() {
-		search = pf.getConfTree();
+		confSearch = pf.getConfTree(false);
 	}
 	
 	
@@ -73,7 +70,7 @@ public class KSConfQ extends Thread implements Serializable {
 
 		int c[] = null;
 
-		if( (c = search.nextConf()) != null ) {
+		if( (c = confSearch.nextConf()) != null ) {
 			return enQueue(c);
 		}
 
@@ -100,7 +97,7 @@ public class KSConfQ extends Thread implements Serializable {
 
 
 	public KSConf peekTail() {
-		return size() > 0 ? new KSConf(tail, sp.lowerBound(KSConf.list2Array(tail))) : null;
+		return size() > 0 ? new KSConf(tail, pf.getConfBound(confSearch, KSConf.list2Array(tail), false)) : null;
 	}
 
 
@@ -108,13 +105,13 @@ public class KSConfQ extends Thread implements Serializable {
 		if(size() == 0) return null;
 		
 		ArrayList<Integer> value = q.iterator().next();
-		return new KSConf(value, sp.lowerBound(KSConf.list2Array(value)));
+		return new KSConf(value, pf.getConfBound(confSearch, KSConf.list2Array(value), false));
 	}
 	
 
 	protected double enQueue( int[] conf ) {
 		
-		double energyBound = sp.lowerBound(conf);
+		double energyBound = pf.getConfBound(confSearch, conf, false);
 		ArrayList<Integer> list = KSConf.array2List(conf);
 		
 		if(KSAbstract.doCheckPoint && size() > 0 && energyBound < peekTail().getEnergyBound() ) return energyBound;
@@ -185,8 +182,7 @@ public class KSConfQ extends Thread implements Serializable {
 		this.join();
 		
 		if(nullify) {
-			search = null;
-			sp = null;
+			confSearch = null;
 			q.clear();
 			tail = null;
 		}
@@ -199,7 +195,7 @@ public class KSConfQ extends Thread implements Serializable {
 
 		while( true ) {
 
-			conf = search.nextConf();
+			conf = confSearch.nextConf();
 
 			synchronized( qLock ) {
 

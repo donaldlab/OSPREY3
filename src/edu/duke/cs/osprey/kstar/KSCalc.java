@@ -69,11 +69,9 @@ public class KSCalc {
 	}
 
 
-	public void runPF(PFAbstract pf, PFAbstract wtPF, boolean complete) {
+	public void runPF(PFAbstract pf, PFAbstract wtPF, boolean complete, boolean stabilityCheck) {
 
-		if( getEpsilonStatus() != EApproxReached.FALSE ) return;
-
-		// this method applies to non-complex strands
+		// this method shoudl only be called directly for non-complex strands
 		if( pf.getRunState() == RunState.NOTSTARTED ) {
 			System.out.println("\nInitializing partition function for " + KSAbstract.list1D2String(pf.getSequence(), " "));
 			pf.start();
@@ -93,8 +91,7 @@ public class KSCalc {
 
 		if( getEpsilonStatus() == EApproxReached.NOT_POSSIBLE ) return;
 
-		// wtPF is null for complex strand
-		if( pf.getStrand() != Strand.COMPLEX && !unboundIsStable(wtPF, pf) ) {
+		if( stabilityCheck && !unboundIsStable(wtPF, pf) ) {
 			pf.setEpsilonStatus( EApproxReached.NOT_STABLE );
 			System.out.println("\nSequence " + KSAbstract.list1D2String(pf.getSequence(), " ") + " is unstable\n");
 			return;
@@ -103,17 +100,18 @@ public class KSCalc {
 	}
 
 
-	public void run(KSCalc wtKSCalc) {
+	public void run(KSCalc wtKSCalc, boolean forceRun, boolean stabilityCheck) {
 
 		ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Strand.LIGAND, 
 				Strand.PROTEIN, Strand.COMPLEX));
 
 		for( int strand : strands ) {
-			if( getEpsilonStatus() != EApproxReached.FALSE ) return;
+			if( !forceRun && getEpsilonStatus() != EApproxReached.FALSE ) return;
 
 			boolean complete = KSAbstract.doCheckPoint && strand == Strand.COMPLEX ? false : true;
-			PFAbstract wtPF = strand == Strand.COMPLEX ? null : wtKSCalc.getPF(strand);
-			runPF(getPF(strand), wtPF, complete);
+			PFAbstract wtPF = wtKSCalc.getPF(strand);
+			if(strand == Strand.COMPLEX) stabilityCheck = false;
+			runPF(getPF(strand), wtPF, complete, stabilityCheck);
 		}
 	}
 
@@ -199,8 +197,14 @@ public class KSCalc {
 			return 0.0;
 
 		else if( l.getQStar().compareTo(BigDecimal.ZERO) == 0 || 
-				p.getQStar().compareTo(BigDecimal.ZERO) == 0 )
-			score = Double.POSITIVE_INFINITY;
+				p.getQStar().compareTo(BigDecimal.ZERO) == 0 ) {
+			
+			if(pl.getQStar().compareTo(BigDecimal.ZERO) != 0)
+				score = Double.POSITIVE_INFINITY;
+			
+			else
+				return 0.0;
+		}
 
 		else if( pl.getQStar().compareTo(BigDecimal.ZERO) == 0 )
 			score = Double.NEGATIVE_INFINITY;

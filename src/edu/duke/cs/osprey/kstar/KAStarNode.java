@@ -26,6 +26,7 @@ public class KAStarNode {
 	private static int numCreated = 0;
 	private static int numExpanded = 0;
 	private static int numPruned = 0;
+	public static int numProcessed = 0;
 
 	public KSCalc ub;
 	public KSCalc lb;
@@ -49,6 +50,11 @@ public class KAStarNode {
 		lbScore = Double.MIN_VALUE;
 		ubScore = Double.MAX_VALUE;
 		this.scoreNeedsRefinement = scoreNeedsRefinement;
+	}
+
+
+	public static int getNumProcessed() {
+		return numProcessed;
 	}
 
 
@@ -180,11 +186,15 @@ public class KAStarNode {
 					for( int strand : Arrays.asList(Strand.LIGAND, Strand.PROTEIN) ) {
 						PFAbstract pf = child.ub.getPF(strand);
 
+						if( pf.getEpsilonStatus() == EApproxReached.NOT_POSSIBLE && pf.getNumUnPruned().compareTo(BigInteger.ZERO) != 0 ) {
+							System.out.println("ERROR: " + KSAbstract.list1D2String( pf.getSequence(), " " ) + " is wrong!!!");
+						}
+						
 						if( pf.getEpsilonStatus() == EApproxReached.NOT_STABLE || 
 								pf.getNumUnPruned().compareTo(BigInteger.ZERO) == 0 ) {
 
 							ArrayList<String> seq = pf.getSequence();
-							
+
 							for( int strand2 : Arrays.asList(strand, Strand.COMPLEX) ) {
 								pruneSequences(seq, strand2, nextDepths.get(strand2));
 							}
@@ -252,13 +262,16 @@ public class KAStarNode {
 
 			// compute protein and ligand upper bound pfs; prune if not stable
 			// for stable pfs, compute lower bound
-			child.ub.runPF(child.ub.getPF(Strand.LIGAND), wt.getPF(Strand.LIGAND), true);
-			child.ub.runPF(child.ub.getPF(Strand.PROTEIN), wt.getPF(Strand.PROTEIN), true);
-
-			if(child.ub.getEpsilonStatus() == EApproxReached.FALSE) {
-				child.lb.run(wt);
+			for( int strand : Arrays.asList(Strand.LIGAND, Strand.PROTEIN) ) {
+				if( child.ub.getEpsilonStatus() == EApproxReached.FALSE ) {
+					child.ub.runPF(child.ub.getPF(strand), wt.getPF(strand), true, true);
+				}
 			}
 
+			if(child.ub.getEpsilonStatus() != EApproxReached.FALSE)
+				return;
+
+			child.lb.run(wt, true, false);
 			child.lbScore = -1.0 * child.lb.getKStarScoreLog10();
 
 			PFAbstract.suppressOutput = false;
@@ -268,7 +281,7 @@ public class KAStarNode {
 			KSAbstract.doCheckPoint = true;
 
 			// we process leaf nodes as streams (in the complex case, at least)
-			child.lb.run(wt);
+			child.lb.run(wt, false, true);
 			child.lbScore = -1.0 * child.lb.getKStarScoreLog10();
 
 			KSAbstract.doCheckPoint = false;
@@ -364,6 +377,9 @@ public class KAStarNode {
 
 					// create new KUStar node with tight score
 					ans.add( new KAStarNode( new KSCalc(numCreated, tightPFs), null, childScoreNeedsRefinement() ) );
+
+					// processed nodes are those whose confs will be minimized
+					numProcessed++;
 				}
 
 				else
@@ -397,7 +413,8 @@ public class KAStarNode {
 		if(ub == null) return ubScore;
 
 		PFAbstract.suppressOutput = true;
-		ub.runPF(ub.getPF(Strand.COMPLEX), null, true);
+		//ub.run(wt, false, true);
+		ub.runPF(ub.getPF(Strand.COMPLEX), null, true, false);
 		PFAbstract.suppressOutput = false;
 
 		return ubScore = -1.0 * ub.getKStarScoreLog10();

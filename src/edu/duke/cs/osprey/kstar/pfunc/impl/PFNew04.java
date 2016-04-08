@@ -35,6 +35,9 @@ public class PFNew04 extends PFNew03 implements Serializable {
 		try {
 
 			setRunState(RunState.STARTED);
+			
+			// set pstar
+			initPStar();
 
 			fibers = PFAbstract.getNumFibers();
 			threadsPerFiber = PFAbstract.getNumThreads();
@@ -73,12 +76,7 @@ public class PFNew04 extends PFNew03 implements Serializable {
 			for( int i = 0; i < fibers * confsPerThread; ++i ) unProcessedConfs.add(null);
 			unProcessedConfs.trimToSize();
 
-			confs = new KSConfQ( this, sp, unProcessedConfs.size() );
-
-			// set pstar
-			setPStar( confs.getNextConfBound() );
-
-			startTime = System.currentTimeMillis();
+			confs = new KSConfQ( this, unProcessedConfs.size() );
 
 			// start conformation queue
 			confs.start();
@@ -92,6 +90,7 @@ public class PFNew04 extends PFNew03 implements Serializable {
 			System.exit(1);
 		}
 
+		startTime = System.currentTimeMillis();
 	}
 
 

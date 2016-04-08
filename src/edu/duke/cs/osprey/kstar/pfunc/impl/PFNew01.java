@@ -10,7 +10,6 @@ import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KSConf;
 import edu.duke.cs.osprey.kstar.KSConfQ;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
-import edu.duke.cs.osprey.tools.ObjectIO;
 
 /**
  * 
@@ -42,12 +41,10 @@ public class PFNew01 extends PFAbstract implements Serializable {
 
 		setRunState(RunState.STARTED);
 
-		confs = new KSConfQ( this, (SearchProblem)ObjectIO.deepCopy(sp), 1 );
-
 		// set pstar
-		setPStar( confs.getNextConfBound() );
-
-		startTime = System.currentTimeMillis();
+		initPStar();
+		
+		confs = new KSConfQ( this, 1 );
 
 		try {
 
@@ -61,7 +58,8 @@ public class PFNew01 extends PFAbstract implements Serializable {
 			e.printStackTrace();
 			System.exit(1);
 		}
-
+		
+		startTime = System.currentTimeMillis();
 	}
 
 

@@ -29,27 +29,31 @@ public class KAStarConfTree extends ConfTree implements Serializable, ConfSearch
 	protected HashMap<Integer, Integer> seq2PanSeq = null;
 	protected HashMap<Integer, Integer> panSeq2Seq = null;
 	protected boolean energyLB = true; // compute lb xor ub
+	protected boolean usePrunedConfs = false;
 
 
-	public KAStarConfTree(SearchProblem sp, SearchProblem panSeqSP, ArrayList<Integer> panSeqPos) {
+	public KAStarConfTree(SearchProblem sp, SearchProblem panSeqSP, 
+			ArrayList<Integer> panSeqPos, boolean usePrunedConfs) {
 		super(sp);
 		
 		this.panSeqSP = panSeqSP;
 		mapSeq2PanSeq(panSeqPos);
 		energyLB = panSeqSP.contSCFlex ? true : false;
-	}
-
-
-	public KAStarConfTree(SearchProblem sp, PruningMatrix pruneMat, boolean useEPIC, 
-			SearchProblem panSeqSP, ArrayList<Integer> panSeqPos) {
-		super(sp, pruneMat, useEPIC);
+		this.usePrunedConfs = usePrunedConfs;
 		
-		this.panSeqSP = panSeqSP;
-		mapSeq2PanSeq(panSeqPos);
-		energyLB = panSeqSP.contSCFlex ? true : false;
+		init(sp, sp.pruneMat);
 	}
 
+    protected void init(SearchProblem sp, PruningMatrix pruneMat) {
+    	unprunedRCsAtPos.clear();
+        
+        //see which RCs are unpruned and thus available for consideration
+        for(int pos=0; pos<numPos; pos++){
+            unprunedRCsAtPos.add(getRCsAtPos(pruneMat, pos));
+        }
+    }
 	
+    
 	protected void mapSeq2PanSeq(ArrayList<Integer> panSeqPos) {
 		
 		seq2PanSeq = new HashMap<>(numPos);
@@ -88,7 +92,7 @@ public class KAStarConfTree extends ConfTree implements Serializable, ConfSearch
 		ArrayList<Integer> allowedRCs;
 
 		if(undefinedPos.contains(level)) { // level is undefined
-			allowedRCs = panSeqSP.pruneMat.unprunedRCsAtPos(level);
+			allowedRCs = getRCsAtPos(panSeqSP.pruneMat, level);
 		}
 
 		else {
@@ -236,7 +240,7 @@ public class KAStarConfTree extends ConfTree implements Serializable, ConfSearch
 
 				double bestInteractionE = energyLB ? Double.POSITIVE_INFINITY : Double.NEGATIVE_INFINITY;
 
-				ArrayList<Integer> rotList = panSeqSP.pruneMat.unprunedRCsAtPos(level);
+				ArrayList<Integer> rotList = getRCsAtPos(panSeqSP.pruneMat, level);
 				for(int rc : rotList) {
 					double rcContribution = RCContribution(level, rc, definedTuple, partialConf, undefinedPos);
 
@@ -259,7 +263,12 @@ public class KAStarConfTree extends ConfTree implements Serializable, ConfSearch
 	}
 	
 	
-	public double partialConfBound(int[] partialConf) {
+	public double confBound(int[] partialConf) {
 		return scoreConf(partialConf);
+	}
+	
+	
+	ArrayList<Integer> getRCsAtPos(PruningMatrix pruneMat, int pos) {
+		return usePrunedConfs ? pruneMat.prunedRCsAtPos(pos) : pruneMat.unprunedRCsAtPos(pos);
 	}
 }

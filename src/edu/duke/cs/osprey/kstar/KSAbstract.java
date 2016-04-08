@@ -55,7 +55,7 @@ public abstract class KSAbstract implements KSInterface {
 	public static boolean preLoadPFs = false;
 	public static boolean refinePruning = false;
 	public static boolean doCheckPoint = false;
-	protected static long checkpointInterval = 100000;
+	protected static long checkpointInterval = 50000;
 
 
 	public KSAbstract( ConfigFileParser cfp ) {
@@ -267,22 +267,22 @@ public abstract class KSAbstract implements KSInterface {
 
 	protected void refinePruningInterval( SearchProblem sp ) {
 
-		if(sp.numUnPruned().compareTo(BigInteger.ZERO) == 0)
+		if(sp.numConfs(false).compareTo(BigInteger.ZERO) == 0)
 			return;
 
 		// if current interval is good enough, return
-		double r = sp.numPruned().doubleValue() / sp.numUnPruned().doubleValue();
+		double r = sp.numConfs(true).doubleValue() / sp.numConfs(false).doubleValue();
 		if(r >= pRatioLBT && r <= pRatioUBT) return;
 
 		// most amount of pruning; ratio upper bound
 		double l = 0.01;
 		PruningControl pc = cfp.getPruningControl(sp, l, useEPIC, useTupExp); pc.prune();
-		double lr = sp.numPruned().doubleValue() / sp.numUnPruned().doubleValue();
+		double lr = sp.numConfs(true).doubleValue() / sp.numConfs(false).doubleValue();
 
 		// least amount of pruning; ratio lower bound
 		double u = 100;
 		pc = cfp.getPruningControl(sp, u, useEPIC, useTupExp); pc.prune();
-		double ur = sp.numPruned().doubleValue() / sp.numUnPruned().doubleValue();
+		double ur = sp.numConfs(true).doubleValue() / sp.numConfs(false).doubleValue();
 
 		double m = -1, mr = -1;
 
@@ -297,7 +297,7 @@ public abstract class KSAbstract implements KSInterface {
 
 			m = (l+u)/2;
 			pc = cfp.getPruningControl(sp, m, useEPIC, useTupExp); pc.prune();
-			mr = sp.numPruned().doubleValue() / sp.numUnPruned().doubleValue();
+			mr = sp.numConfs(true).doubleValue() / sp.numConfs(false).doubleValue();
 			sp.pruneMat.setPruningInterval(m);
 
 			if(mr < pRatioLBT) {
@@ -381,7 +381,7 @@ public abstract class KSAbstract implements KSInterface {
 					pf.getPruningControl(EW+I0).prune();
 				}
 
-				if(pf.getSearchProblem().numUnPruned().compareTo(BigInteger.ZERO) == 0) {
+				if(pf.getSearchProblem().numConfs(false).compareTo(BigInteger.ZERO) == 0) {
 					// no conformations in search space, so this cannot give a valid
 					// partition function
 					pf.setEpsilonStatus(EApproxReached.NOT_POSSIBLE);
@@ -605,7 +605,7 @@ public abstract class KSAbstract implements KSInterface {
 			return calc;
 		}
 	
-		calc.run(calc);
+		calc.run(calc, false, true);
 
 		// protein and ligand must reach epsilon, regardless of checkppoint
 		for( int strand : Arrays.asList(Strand.LIGAND, Strand.PROTEIN, Strand.COMPLEX) ) {
