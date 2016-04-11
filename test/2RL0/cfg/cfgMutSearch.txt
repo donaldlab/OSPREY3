@@ -2,14 +2,14 @@ runName results
 %mutfile mutfile.txt
 iMinDEE true
 typedep true
-Ival 2.0
+Ival 0.0001
 Ew 0
 
 useDunbrackRotamers false
 ematDir emat.lovell
 deleteEmatDir false
 
-epsilon 0.99
+epsilon 0.01
 useTupExp false
 doMinimize true
 doPerturbations false
@@ -35,8 +35,8 @@ resAllowed1_2 THR VAL TYR
 pFuncStabThresh 0
 pFuncQCap 1024000
 pFuncMethod new02
-pFuncThreads 4
-numThreads 4
+pFuncThreads 3
+numThreads 3
 eMinMethod hbfgsccd
 kStarMethod linear
 kStarUseTightBounds false
