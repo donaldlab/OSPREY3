@@ -2,14 +2,14 @@ runName results
 %mutfile mutfile.txt
 iMinDEE true
 typedep true
-Ival 0.0001
+Ival 2.0
 Ew 0
 
 useDunbrackRotamers false
 ematDir emat.lovell
 deleteEmatDir false
 
-epsilon 0.01
+epsilon 0.8
 useTupExp false
 doMinimize true
 doPerturbations false
@@ -23,7 +23,7 @@ maxKSconfs 500000
 doKStarCheckpoint false
 kStarCheckpoint 100
 
-numMutations 1
+numMutations 2
 resAllowed0_0 ASP GLU HID
 resAllowed0_1 GLU ASP ARG
 resAllowed0_2 GLU ASN ILE
@@ -35,10 +35,10 @@ resAllowed1_2 THR VAL TYR
 pFuncStabThresh 0
 pFuncQCap 1024000
 pFuncMethod new02
-pFuncThreads 3
-numThreads 3
+pFuncThreads 5
+numThreads 5
 eMinMethod hbfgsccd
-kStarMethod linear
+kStarMethod kastar
 kStarUseTightBounds false
 kStarNumSeqs 1
 kStarPreLoadPFs false
