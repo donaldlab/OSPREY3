@@ -18,13 +18,15 @@ public class MRFNode {
 
     //identifier of node, also accesses ematrix as posNum
     int nodeNum;
+    //index into nodeList
+    int index;
     //list of labels for the node; labels are super-RCs
     ArrayList<MRFLabel> labelList;
     //list of nodes that are neighbors of this node
     ArrayList<MRFNode> neighborList;
-    public MRFNode(int posNum, ArrayList<Integer> unprunedSuperRCs) {
+    public MRFNode(int posNum, ArrayList<Integer> unprunedSuperRCs, int index) {
         this.nodeNum = posNum;
-
+        this.index = index;
         //create label
         this.labelList = new ArrayList<>();
         for (int superRC : unprunedSuperRCs){

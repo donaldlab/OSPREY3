@@ -36,7 +36,7 @@ public class MarkovRandomField {
 
         //create nodeList
         for (int pos = 0; pos < numNodes; pos++) {
-            MRFNode node = new MRFNode(pos, pruneMat.unprunedRCsAtPos(pos));
+            MRFNode node = new MRFNode(pos, pruneMat.unprunedRCsAtPos(pos), pos);
             nodeList.add(node);
         }
 
@@ -56,7 +56,7 @@ public class MarkovRandomField {
 
         //create nodeList
         for (int pos = 0; pos < numNodes; pos++) {
-            MRFNode node = new MRFNode(pos, pruneMat.unprunedRCsAtPos(pos));
+            MRFNode node = new MRFNode(pos, pruneMat.unprunedRCsAtPos(pos), pos);
             nodeList.add(node);
         }
 
@@ -78,12 +78,12 @@ public class MarkovRandomField {
         for (int pos = 0; pos < numNodes; pos++) {
             //If the node is unassigned, its can have any unpruned RC for a label
             if (partialNode[pos] == -1) {
-                MRFNode node = new MRFNode(pos, pruneMat.unprunedRCsAtPos(pos));
+                MRFNode node = new MRFNode(pos, pruneMat.unprunedRCsAtPos(pos), pos);
                 nodeList.add(node);
             } else { //If the node is assigned, it can only have the RC it is assigned to
                 ArrayList<Integer> allowedRCsAtPos = new ArrayList<>();
                 allowedRCsAtPos.add(partialNode[pos]);
-                MRFNode node = new MRFNode(pos, allowedRCsAtPos);
+                MRFNode node = new MRFNode(pos, allowedRCsAtPos, pos);
                 nodeList.add(node);
             }
         }
@@ -106,12 +106,12 @@ public class MarkovRandomField {
         for (int pos = 0; pos < numNodes; pos++) {
             //If the node is unassigned, its can have any unpruned RC for a label
             if (partialNode[pos] == -1) {
-                MRFNode node = new MRFNode(pos, pruneMat.unprunedRCsAtPos(pos));
+                MRFNode node = new MRFNode(pos, pruneMat.unprunedRCsAtPos(pos), pos);
                 nodeList.add(node);
             } else { //If the node is assigned, it can only have the RC it is assigned to
                 ArrayList<Integer> allowedRCsAtPos = new ArrayList<>();
                 allowedRCsAtPos.add(partialNode[pos]);
-                MRFNode node = new MRFNode(pos, allowedRCsAtPos);
+                MRFNode node = new MRFNode(pos, allowedRCsAtPos, pos);
                 nodeList.add(node);
             }
         }

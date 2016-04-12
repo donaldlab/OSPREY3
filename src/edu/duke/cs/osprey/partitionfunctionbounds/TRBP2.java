@@ -16,7 +16,7 @@ import java.util.ArrayList;
  *
  * @author hmn5
  */
-public class TreeReweightedBeliefPropagation {
+public class TRBP2 {
 
     double logZ = Double.POSITIVE_INFINITY;
 
@@ -26,25 +26,24 @@ public class TreeReweightedBeliefPropagation {
     int numNodes;
     int[] numLabelsPerNode;
 
-    EnergyMatrix emat;
+    UpdatedEmat emat;
     //interactionGraph;
-    boolean[][] interactionGraph;
+    boolean[][] nonClampledInteractionGraph;
 
     TupleMatrix<Double> marginalProbabilies;
 
     //threshold for convergence
     double threshold = 1e-8;
-    final int maxIterations = 10000;
+    final int maxIterations = 20;
 
     double constRT = PoissonBoltzmannEnergy.constRT;
 
     double damping = 0.4;
+    int numEdgeProbUpdates = 1;
 
     //p_e are the edge probabilities over spanning trees
     public double[][] edgeProbabilities;
     double[][][] messages;
-
-    int numEdgeProbUpdates = 20;
 
     double[][] expNormMessages;
     double[][] expNormMarginals;
@@ -54,10 +53,10 @@ public class TreeReweightedBeliefPropagation {
 
     double maxChange;
 
-    public TreeReweightedBeliefPropagation(MarkovRandomField mrf) {
+    public TRBP2(ReparamMRF mrf) {
         this.nodeList = mrf.nodeList;
         this.emat = mrf.emat;
-        this.interactionGraph = mrf.interactionGraph;
+        this.nonClampledInteractionGraph = mrf.nonClampedInteractionGraph;
         this.numNodes = nodeList.size();
 
         this.numLabelsPerNode = new int[this.numNodes];
@@ -66,12 +65,12 @@ public class TreeReweightedBeliefPropagation {
             numLabelsPerNode[i] = node.labelList.size();
         }
 
-        this.edgeProbabilities = initializeEdgeProbabilities(this.interactionGraph);
+        this.edgeProbabilities = initializeEdgeProbabilities(this.nonClampledInteractionGraph);
         this.messages = initializeMessages(1.0);
 
         this.marginalProbabilies = new TupleMatrix(numNodes, numLabelsPerNode, Double.POSITIVE_INFINITY, 0.0);
 
-        runTRBP();
+        runTRBP2();
     }
 
     private void runTRBP() {
@@ -84,6 +83,7 @@ public class TreeReweightedBeliefPropagation {
                 double[][][] messagesNPlus1 = updateMessages(this.messages);
                 checkMessages(messagesNPlus1);
                 this.messages = messagesNPlus1;
+//                System.out.println("Max Change in Messages: "+this.maxChange);
             }
 //            System.out.println("TRBP took: " + numIter + " iterations");
             updateMarginals(this.messages);
@@ -91,12 +91,45 @@ public class TreeReweightedBeliefPropagation {
 //            System.out.println("LogZUB: "+logZ);
 
             double currentlogZ = calcUBLogZ();
-//            System.out.println("LogZUB: " + currentlogZ);
+            System.out.println("LogZUB: " + currentlogZ);
             if (!Double.isNaN(currentlogZ)) {
                 this.logZ = Math.min(this.logZ, currentlogZ);
             }
             if (j < numEdgeProbUpdates - 1) {
-                MinSpanningTree mst = new MinSpanningTree(getEdgeWeights(), interactionGraph);
+                MinSpanningTree mst = new MinSpanningTree(getEdgeWeights(), nonClampledInteractionGraph);
+                updateEdgeProbabilies(mst.mstVector, j + 1);
+            }
+        }
+    }
+
+    private void runTRBP2() {
+        for (int j = 0; j < numEdgeProbUpdates; j++) {
+            computeExpNormals();
+            int numIter = 0;
+            while ((maxChange > threshold || numIter < 2) && (numIter < maxIterations)) {
+                maxChange = 0;
+                numIter++;
+                double[][][] messagesNPlus1 = updateMessages(this.messages);
+                checkMessages(messagesNPlus1);
+                this.messages = messagesNPlus1;
+                updateMarginals(this.messages);;
+                double currentlogZ = calcUBLogZ();
+                System.out.println("Maximum Change in Messages: "+this.maxChange+"   LogZUB: " + currentlogZ);
+//                System.out.println("Max Change in Messages: "+this.maxChange);
+            }
+//            System.out.println("TRBP took: " + numIter + " iterations");
+//            updateMarginals(this.messages);
+//            checkMarginals();
+//            System.out.println("LogZUB: "+logZ);
+
+//            double currentlogZ = calcUBLogZ();
+//            System.out.println("LogZUB: " + currentlogZ);
+//            if (!Double.isNaN(currentlogZ)) {
+//                this.logZ = Math.min(this.logZ, currentlogZ);
+//            }
+            if (j < numEdgeProbUpdates - 1) {
+                System.out.println("Updating Edge Probabilities after "+this.maxIterations+" iterations");
+                MinSpanningTree mst = new MinSpanningTree(getEdgeWeights(), nonClampledInteractionGraph);
                 updateEdgeProbabilies(mst.mstVector, j + 1);
             }
         }
@@ -140,7 +173,7 @@ public class TreeReweightedBeliefPropagation {
 
                 MRFNode nodeI = this.nodeList.get(i);
                 MRFNode nodeJ = this.nodeList.get(j);
-                if (this.interactionGraph[i][j]) {
+                if (this.nonClampledInteractionGraph[i][j]) {
                     //First we send message from j->i
                     double partFunctionI = 0.0;
                     for (int rotIindex = 0; rotIindex < nodeI.labelList.size(); rotIindex++) {
@@ -241,14 +274,14 @@ public class TreeReweightedBeliefPropagation {
                 MRFNode nodeJ = this.nodeList.get(j);
                 double sumJ = 0.0;
                 for (int rotJ = 0; rotJ < nodeJ.labelList.size(); rotJ++) {
-                    sumJ += messages[nodeI.nodeNum][nodeJ.nodeNum][rotJ];
+                    sumJ += messages[i][j][rotJ];
                 }
                 if (Math.abs(1 - sumJ) > 1e-6) {
                     throw new RuntimeException("Messages Not Normalized between node " + nodeI.nodeNum + " and node " + nodeJ.nodeNum);
                 }
                 double sumI = 0.0;
                 for (int rotI = 0; rotI < nodeI.labelList.size(); rotI++) {
-                    sumI += messages[nodeJ.nodeNum][nodeI.nodeNum][rotI];
+                    sumI += messages[j][i][rotI];
                 }
                 if (Math.abs(1 - sumI) > 1e-6) {
                     throw new RuntimeException("Messages Not Normalized between node " + nodeJ.nodeNum + " and node " + nodeI.nodeNum);
@@ -277,26 +310,26 @@ public class TreeReweightedBeliefPropagation {
         for (int rotI = 0; rotI < nodeI.labelList.size(); rotI++) {
             for (int rotJ = 0; rotJ < nodeJ.labelList.size(); rotJ++) {
                 double pairwiseE = this.emat.getPairwise(nodeI.nodeNum, nodeI.labelList.get(rotI).labelNum, nodeJ.nodeNum, nodeJ.labelList.get(rotJ).labelNum);
-                double edgeProb = getEdgeProbability(nodeI.nodeNum, nodeJ.nodeNum);
+                double edgeProb = getEdgeProbability(nodeI.index, nodeJ.index);
                 double nodeIE = this.emat.getOneBody(nodeI.nodeNum, nodeI.labelList.get(rotI).labelNum);
                 double nodeJE = this.emat.getOneBody(nodeJ.nodeNum, nodeJ.labelList.get(rotJ).labelNum);
 
 //                double normalized = (-((pairwiseE / edgeProb) + nodeIE + nodeJE)); //- expNorm;
-                double normalized = (-((pairwiseE / edgeProb) + nodeIE + nodeJE)) - this.expNormMarginals[nodeI.nodeNum][nodeJ.nodeNum];
+                double normalized = (-((pairwiseE / edgeProb) + nodeIE + nodeJE)) - this.expNormMarginals[nodeI.index][nodeJ.index];
                 double marginal = Math.exp(normalized / this.constRT);
 //                double marginal = Math.exp(normalized);
                 marginal = marginal * (getProductMessages(nodeI, rotI, nodeJ, messages));
                 marginal = marginal * (getProductMessages(nodeJ, rotJ, nodeI, messages));
 
                 partFuncOverall += marginal;
-                this.marginalProbabilies.setPairwise(nodeI.nodeNum, rotI, nodeJ.nodeNum, rotJ, marginal);
+                this.marginalProbabilies.setPairwise(nodeI.index, rotI, nodeJ.index, rotJ, marginal);
             }
         }
         for (int rotI = 0; rotI < nodeI.labelList.size(); rotI++) {
             for (int rotJ = 0; rotJ < nodeJ.labelList.size(); rotJ++) {
-                double unNormalized = this.marginalProbabilies.getPairwise(nodeI.nodeNum, rotI, nodeJ.nodeNum, rotJ);
+                double unNormalized = this.marginalProbabilies.getPairwise(nodeI.index, rotI, nodeJ.index, rotJ);
                 double normalized = unNormalized / partFuncOverall;
-                this.marginalProbabilies.setPairwise(nodeI.nodeNum, rotI, nodeJ.nodeNum, rotJ, normalized);
+                this.marginalProbabilies.setPairwise(nodeI.index, rotI, nodeJ.index, rotJ, normalized);
             }
         }
     }
@@ -313,32 +346,35 @@ public class TreeReweightedBeliefPropagation {
     private void checkNodeMarginal(MRFNode node) {
         double sum = 0.0;
         for (int rot = 0; rot < node.labelList.size(); rot++) {
-            sum += this.marginalProbabilies.getOneBody(node.nodeNum, rot);
+            sum += this.marginalProbabilies.getOneBody(node.index, rot);
         }
         if (Math.abs(sum - 1) > 1e-6) {
-            throw new RuntimeException("Marginal Not Normalized at Node: " + node.nodeNum);
+            System.out.println("Error in Marginal: " + Math.abs(sum - 1));
+            throw new RuntimeException("Marginal Not Normalized at Node with PosNum: " + node.nodeNum);
         }
     }
 
     private void checkPairwiseMarginal(MRFNode nodeI, MRFNode nodeJ) {
         for (int rotI = 0; rotI < nodeI.labelList.size(); rotI++) {
-            double marginal = this.marginalProbabilies.getOneBody(nodeI.nodeNum, rotI);
+            double marginal = this.marginalProbabilies.getOneBody(nodeI.index, rotI);
             double sum = 0.0;
             for (int rotJ = 0; rotJ < nodeJ.labelList.size(); rotJ++) {
-                sum += this.marginalProbabilies.getPairwise(nodeI.nodeNum, rotI, nodeJ.nodeNum, rotJ);
+                sum += this.marginalProbabilies.getPairwise(nodeI.index, rotI, nodeJ.index, rotJ);
             }
             if (Math.abs(sum - marginal) > 0.0001) {
+                System.out.println("Error in Marginal: " + Math.abs(sum - marginal));
                 throw new RuntimeException("Marginal Not Normalized at Node Pairs: " + nodeI.nodeNum + " " + nodeJ.nodeNum);
             }
         }
         for (int rotJ = 0; rotJ < nodeJ.labelList.size(); rotJ++) {
-            double marginal = this.marginalProbabilies.getOneBody(nodeJ.nodeNum, rotJ);
+            double marginal = this.marginalProbabilies.getOneBody(nodeJ.index, rotJ);
             double sum = 0.0;
             for (int rotI = 0; rotI < nodeI.labelList.size(); rotI++) {
-                sum += this.marginalProbabilies.getPairwise(nodeI.nodeNum, rotI, nodeJ.nodeNum, rotJ);
+                sum += this.marginalProbabilies.getPairwise(nodeI.index, rotI, nodeJ.index, rotJ);
             }
             if (Math.abs(sum - marginal) > 0.0001) {
-                throw new RuntimeException("Marginal Not Normalized at Node Pairs: " + nodeJ.nodeNum + " " + nodeI.nodeNum);
+                System.out.println("Error in Marginal: " + Math.abs(sum - marginal));
+                throw new RuntimeException("Marginal Not Normalized at Node Pairs with Pos Nums: " + nodeJ.nodeNum + " " + nodeI.nodeNum);
             }
         }
     }
@@ -354,16 +390,16 @@ public class TreeReweightedBeliefPropagation {
             double update = Math.exp(normalized / this.constRT);
 //            double update = Math.exp(normalized);
             for (MRFNode neighbor : node.neighborList) {
-                double message = messages[neighbor.nodeNum][node.nodeNum][rot];
-                double prob = getEdgeProbability(neighbor.nodeNum, node.nodeNum);
+                double message = messages[neighbor.index][node.index][rot];
+                double prob = getEdgeProbability(neighbor.index, node.index);
                 update = update * (Math.pow(message, prob));
             }
-            this.marginalProbabilies.setOneBody(node.nodeNum, rot, update);
+            this.marginalProbabilies.setOneBody(node.index, rot, update);
             partFunc += update;
         }
         for (int rot = 0; rot < node.labelList.size(); rot++) {
-            double unNormalized = this.marginalProbabilies.getOneBody(node.nodeNum, rot);
-            this.marginalProbabilies.setOneBody(node.nodeNum, rot, unNormalized / partFunc);
+            double unNormalized = this.marginalProbabilies.getOneBody(node.index, rot);
+            this.marginalProbabilies.setOneBody(node.index, rot, unNormalized / partFunc);
         }
     }
 
@@ -371,13 +407,13 @@ public class TreeReweightedBeliefPropagation {
         double product = 1;
         for (MRFNode node : nodeReceiving.neighborList) {
             if (!(node.equals(nodeExcluded))) {
-                double message = currentMessages[node.nodeNum][nodeReceiving.nodeNum][labelIndex];
-                double probability = getEdgeProbability(nodeReceiving.nodeNum, node.nodeNum);
+                double message = currentMessages[node.index][nodeReceiving.index][labelIndex];
+                double probability = getEdgeProbability(nodeReceiving.index, node.index);
                 product = product * (Math.pow(message, probability));
             }
         }
-        double messageNodeExcluded = currentMessages[nodeExcluded.nodeNum][nodeReceiving.nodeNum][labelIndex];
-        double probability = getEdgeProbability(nodeExcluded.nodeNum, nodeReceiving.nodeNum);
+        double messageNodeExcluded = currentMessages[nodeExcluded.index][nodeReceiving.index][labelIndex];
+        double probability = getEdgeProbability(nodeExcluded.index, nodeReceiving.index);
         product = product / (Math.pow(messageNodeExcluded, (1 - probability)));
         return product;
     }
@@ -402,10 +438,10 @@ public class TreeReweightedBeliefPropagation {
                 MRFNode nodeI = this.nodeList.get(i);
                 MRFNode nodeJ = this.nodeList.get(j);
                 for (int rotJ = 0; rotJ < nodeJ.labelList.size(); rotJ++) {
-                    messages[nodeI.nodeNum][nodeJ.nodeNum][rotJ] = 1.0 / (double) nodeJ.labelList.size();
+                    messages[nodeI.index][nodeJ.index][rotJ] = 1.0 / (double) nodeJ.labelList.size();
                 }
                 for (int rotI = 0; rotI < nodeI.labelList.size(); rotI++) {
-                    messages[nodeJ.nodeNum][nodeI.nodeNum][rotI] = 1.0 / (double) nodeI.labelList.size();
+                    messages[nodeJ.index][nodeI.index][rotI] = 1.0 / (double) nodeI.labelList.size();
                 }
                 //Then normalize j-i x_i
             }
@@ -452,7 +488,7 @@ public class TreeReweightedBeliefPropagation {
         double enthalpy = 0.0;
         for (int rot = 0; rot < node.labelList.size(); rot++) {
             double E = this.emat.getOneBody(node.nodeNum, node.labelList.get(rot).labelNum);
-            double prob = this.marginalProbabilies.getOneBody(node.nodeNum, rot);
+            double prob = this.marginalProbabilies.getOneBody(node.index, rot);
             enthalpy += E * prob;
         }
         return enthalpy;
@@ -463,7 +499,7 @@ public class TreeReweightedBeliefPropagation {
         for (int rotI = 0; rotI < nodeI.labelList.size(); rotI++) {
             for (int rotJ = 0; rotJ < nodeJ.labelList.size(); rotJ++) {
                 double E = emat.getPairwise(nodeI.nodeNum, nodeI.labelList.get(rotI).labelNum, nodeJ.nodeNum, nodeJ.labelList.get(rotJ).labelNum);
-                double prob = this.marginalProbabilies.getPairwise(nodeI.nodeNum, rotI, nodeJ.nodeNum, rotJ);
+                double prob = this.marginalProbabilies.getPairwise(nodeI.index, rotI, nodeJ.index, rotJ);
                 enthalpy += E * prob;
             }
         }
@@ -477,7 +513,7 @@ public class TreeReweightedBeliefPropagation {
             enthalpy += getSingleNodeEnthalpy(node1);
             for (int j = 0; j < i; j++) {
                 MRFNode node2 = nodeList.get(j);
-                if (this.interactionGraph[node1.nodeNum][node2.nodeNum]) {
+                if (this.nonClampledInteractionGraph[node1.index][node2.index]) {
                     enthalpy += getPairwiseNodeEnthalpy(node1, node2);
                 }
             }
@@ -488,8 +524,10 @@ public class TreeReweightedBeliefPropagation {
     private double getSingleNodeEntropy(MRFNode node) {
         double entropy = 0.0;
         for (int rot = 0; rot < node.labelList.size(); rot++) {
-            double prob = this.marginalProbabilies.getOneBody(node.nodeNum, rot);
-            entropy += (-1.0) * prob * Math.log(prob);
+            double prob = this.marginalProbabilies.getOneBody(node.index, rot);
+            if (prob != 0.0) {
+                entropy += (-1.0) * prob * Math.log(prob);
+            }
         }
         return entropy;
     }
@@ -498,10 +536,10 @@ public class TreeReweightedBeliefPropagation {
         double mutualInf = 0.0;
         for (int rotI = 0; rotI < nodeI.labelList.size(); rotI++) {
             for (int rotJ = 0; rotJ < nodeJ.labelList.size(); rotJ++) {
-                double probIJ = this.marginalProbabilies.getPairwise(nodeI.nodeNum, rotI, nodeJ.nodeNum, rotJ);
-                double probI = this.marginalProbabilies.getOneBody(nodeI.nodeNum, rotI);
-                double probJ = this.marginalProbabilies.getOneBody(nodeJ.nodeNum, rotJ);
-                if (!(probIJ == 0.0)) {
+                double probIJ = this.marginalProbabilies.getPairwise(nodeI.index, rotI, nodeJ.index, rotJ);
+                double probI = this.marginalProbabilies.getOneBody(nodeI.index, rotI);
+                double probJ = this.marginalProbabilies.getOneBody(nodeJ.index, rotJ);
+                if (probIJ != 0.0) {
                     mutualInf += probIJ * Math.log(probIJ / (probI * probJ));
                 }
             }
@@ -516,7 +554,7 @@ public class TreeReweightedBeliefPropagation {
             entropy += getSingleNodeEntropy(nodeI);
             for (int j = 0; j < i; j++) {
                 MRFNode nodeJ = this.nodeList.get(j);
-                if (interactionGraph[i][j]) {
+                if (nonClampledInteractionGraph[i][j]) {
                     double edgeProb = getEdgeProbability(i, j);
                     entropy -= edgeProb * getMutualInformation(nodeI, nodeJ);
                 }
@@ -543,7 +581,7 @@ public class TreeReweightedBeliefPropagation {
             MRFNode nodeI = this.nodeList.get(i);
             for (int j = 0; j < i; j++) {
                 MRFNode nodeJ = this.nodeList.get(j);
-                if (interactionGraph[i][j]) {
+                if (nonClampledInteractionGraph[i][j]) {
                     edgeFromI[j] = -getMutualInformation(nodeI, nodeJ);
                 }
             }

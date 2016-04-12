@@ -16,7 +16,7 @@ import java.util.PriorityQueue;
 public class MinSpanningTree {
 
     ArrayList<Edge> mst;
-    public int[][] mstVector;//0-1 vector, where 1 indicates that edge 
+    public double[][] mstVector;//0-1 vector, where 1 indicates that edge 
     //between nodes i,j is in MST
     //mstVector is implemented such that each entry i, point to all nodes j s.t. j<i;
     ///this is just like the pairwise energy matrix
@@ -48,12 +48,12 @@ public class MinSpanningTree {
             mst.add(e);
         }
 
-        this.mstVector = new int[numNodes][];
+        this.mstVector = new double[numNodes][];
         //initialize to 0 for all entries
         for (int i = 0; i < numNodes; i++) {
-            int[] nodesBelowI = new int[i];
+            double[] nodesBelowI = new double[i];
             for (int j = 0; j < i; j++) {
-                nodesBelowI[j] = 0;
+                nodesBelowI[j] = 0.;
             }
             this.mstVector[i] = nodesBelowI;
         }
@@ -62,9 +62,9 @@ public class MinSpanningTree {
             int v1 = e.node1;
             int v2 = e.node2;
             if (v1 < v2) {
-                this.mstVector[v2][v1] = 1;
+                this.mstVector[v2][v1] = 1.;
             } else {
-                this.mstVector[v1][v2] = 1;
+                this.mstVector[v1][v2] = 1.;
             }
         }
     }

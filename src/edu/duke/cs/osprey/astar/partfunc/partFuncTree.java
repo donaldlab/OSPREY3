@@ -7,15 +7,19 @@ package edu.duke.cs.osprey.astar.partfunc;
 
 import edu.duke.cs.osprey.astar.AStarNode;
 import edu.duke.cs.osprey.astar.AStarTree;
+import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.astar.Mplp;
+import edu.duke.cs.osprey.astar.comets.UpdatedPruningMatrix;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.partitionfunctionbounds.MapPerturbation;
 import edu.duke.cs.osprey.partitionfunctionbounds.MarkovRandomField;
+import edu.duke.cs.osprey.partitionfunctionbounds.ReparamMRF;
 import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField;
-import edu.duke.cs.osprey.partitionfunctionbounds.TreeReweightedBeliefPropagation;
+import edu.duke.cs.osprey.partitionfunctionbounds.TRBP2;
+import edu.duke.cs.osprey.partitionfunctionbounds.TRBPSeq;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import java.math.BigDecimal;
@@ -51,12 +55,14 @@ public class partFuncTree extends AStarTree {
     ExpFunction ef = new ExpFunction();
     double constRT = PoissonBoltzmannEnergy.constRT;
 
+    boolean useDynamicOrdering = true;
+
     Mplp mplp;
 
-    boolean verbose = false;
+    boolean verbose = true;
 
     public int numConfsEnumerated = 0;
-    
+
     public partFuncTree(SearchProblem sp) {
         init(sp, sp.pruneMat, sp.useEPIC);
     }
@@ -100,37 +106,104 @@ public class partFuncTree extends AStarTree {
         partFuncNode node = (partFuncNode) curNode;
         ArrayList<AStarNode> children = new ArrayList<>();
 
-        System.out.println("Upper Bound: "+Math.log(this.ubZ.doubleValue()+this.runningSum.doubleValue()));
         subtractFromBounds(node);
-        
+
         int[] curAssignments = node.getNodeAssignments();
-        for (int splitPos = 0; splitPos < this.numPos; splitPos++) {
-            if (curAssignments[splitPos] < 0) {
-                System.out.println("Splitting at Level: " + splitPos);
-                System.out.println("*****************************");
-                for (int rot : this.pruneMat.unprunedRCsAtPos(splitPos)) {
-                    int[] childAssignments = curAssignments.clone();
-                    childAssignments[splitPos] = rot;
 
-                    partFuncNode childNode = new partFuncNode(childAssignments);
-                    if (!nodeIsDefined(childNode)) {
-                        childNode.setLowerBoundLogZ(computeLowerBound(childNode));
-                        childNode.setUpperBoundLogZ(computeUpperBound(childNode));
-                        childNode.setScore(scoreNode(childNode));
-                        updateBounds(childNode);
+        int splitPos = nextLevelToExpand(curAssignments);
 
-                        children.add(childNode);
-                    } else {//child node is leaf so we compute exact score
-                        double confE = getConfE(childNode);
-                        updateRunningSumLB(confE);
-                        numConfsEnumerated++;
-                    }
-                }
-                printEffectiveEpsilon();
-                return children;
+        System.out.println("Splitting at Level: " + splitPos);
+        System.out.println("*****************************");
+        for (int rot : this.pruneMat.unprunedRCsAtPos(splitPos)) {
+            int[] childAssignments = curAssignments.clone();
+            childAssignments[splitPos] = rot;
+
+            partFuncNode childNode = new partFuncNode(childAssignments);
+            if (!nodeIsDefined(childNode)) {
+                childNode.setLowerBoundLogZ(computeLowerBound(childNode));
+                childNode.setUpperBoundLogZ(computeUpperBound(childNode));
+                childNode.setScore(scoreNode(childNode));
+                updateBounds(childNode);
+
+                children.add(childNode);
+            } else {//child node is leaf so we compute exact score
+                double confE = getConfE(childNode);
+                updateRunningSumLB(confE);
+                numConfsEnumerated++;
             }
         }
-        throw new RuntimeException("ERROR: Not splittable position found");
+        if (verbose) {
+            System.out.println("LowerBound logZ: " + this.ef.log(this.lbZ.add(this.runningSum)).doubleValue());
+            System.out.println("UpperBound logZ: " + this.ef.log(this.ubZ.add(this.runningSum)).doubleValue());
+        }
+        printEffectiveEpsilon();
+        return children;
+    }
+
+    private int nextLevelToExpand(int[] partialConf) {
+        if (useDynamicOrdering) {
+
+            int bestLevel = -1;
+            double bestLevelScore = Double.NEGATIVE_INFINITY;
+
+            for (int level = 0; level < this.numPos; level++) {
+                if (partialConf[level] < 0) {
+
+                    double levelScore = scoreExpansionLevel(level, partialConf);
+
+                    if (levelScore > bestLevelScore) {//higher score is better
+                        bestLevelScore = levelScore;
+                        bestLevel = level;
+                    }
+                }
+            }
+
+            if (bestLevel == -1) {
+                throw new RuntimeException("ERROR: No next expansion level found for dynamic ordering");
+            }
+
+            return bestLevel;
+        } else {//static ordering
+            for (int level = 0; level < numPos; level++) {
+                if (partialConf[level] < 0) {
+                    return level;
+                }
+            }
+
+            throw new RuntimeException("ERROR: Can't find next expansion level for fully defined conformation");
+        }
+    }
+
+    private double scoreExpansionLevel(int level, int[] partialConf) {
+        //We will score a level by new lower-bound
+        //Thus the best level  is the level that most improves our lower bound
+
+        int[] expandedConf = partialConf.clone();
+
+        ArrayList<Integer> unprunedRCsAtLevel = this.pruneMat.unprunedRCsAtPos(level);
+        ArrayList<Double> lowerBoundPerRC = new ArrayList<>();
+
+        //Keep track of largest logZ lower bound for numerical accuracy (see below)
+        double largestLowerBound = Double.NEGATIVE_INFINITY;
+
+        for (int rc : unprunedRCsAtLevel) {
+            expandedConf[level] = rc;
+            double lowerBound = computeLowerBound(expandedConf);
+            lowerBoundPerRC.add(lowerBound);
+            largestLowerBound = Math.max(largestLowerBound, lowerBound);
+        }
+
+        //our new bound is sum e^bound for each RC
+        //this is equivalent to e^largestBound * (sum e^(bound - largestBound)
+        //which is helpful for numerical reasons (so we don't overflow)
+        double score = 0.0;
+        for (double bound : lowerBoundPerRC) {
+            double normalizedBound = bound - largestLowerBound;
+            score += Math.exp(normalizedBound);
+        }
+        score = Math.log(score) + largestLowerBound;
+
+        return score;
     }
 
     private void subtractFromBounds(partFuncNode node) {
@@ -141,14 +214,11 @@ public class partFuncTree extends AStarTree {
     private void updateBounds(partFuncNode node) {
         this.lbZ = this.lbZ.add(this.ef.exp(node.getLowerBoundLogZ()));
         this.ubZ = this.ubZ.add(this.ef.exp(node.getUpperBoundLogZ()));
-        if (verbose) {
-            System.out.println("LowerBound Z: " + (this.lbZ.doubleValue() + this.runningSum.doubleValue()));
-            System.out.println("UpperBound Z: " + this.ubZ.doubleValue() + this.runningSum.doubleValue());
-        }
+
     }
 
     private void printEffectiveEpsilon() {
-        double effectiveEpsilon = 1 - ((lbZ.doubleValue() + this.runningSum.doubleValue()) / (ubZ.doubleValue() + this.runningSum.doubleValue()));
+        double effectiveEpsilon = 1 - ((lbZ.add(this.runningSum)).divide((ubZ.add(this.runningSum)), this.ef.mc)).doubleValue();
         System.out.println("Effective Epsilon: " + effectiveEpsilon);
     }
 
@@ -203,12 +273,21 @@ public class partFuncTree extends AStarTree {
     }
 
     private double scoreNode(partFuncNode node) {
-//        return node.lbLogZ - node.ubLogZ;
-        return mplp.optimizeMPLP(node.getNodeAssignments(), 1000);
+//        return (this.ef.exp(node.lbLogZ).doubleValue() - this.ef.exp(node.ubLogZ).doubleValue());
+        return this.ef.exp(node.lbLogZ).subtract(this.ef.exp(node.ubLogZ)).doubleValue();
+//        return mplp.optimizeMPLP(node.getNodeAssignments(), 1000);
     }
 
     private double computeLowerBound(partFuncNode node) {
         MarkovRandomField mrf = new MarkovRandomField(this.emat, this.pruneMat, node.getNodeAssignments(), this.eCut);
+        SelfConsistentMeanField scmf = new SelfConsistentMeanField(mrf);
+        scmf.run();
+        double lbLogZ = scmf.calcLBLogZ();
+        return lbLogZ;
+    }
+
+    private double computeLowerBound(int[] partialConf) {
+        MarkovRandomField mrf = new MarkovRandomField(this.emat, this.pruneMat, partialConf, this.eCut);
         SelfConsistentMeanField scmf = new SelfConsistentMeanField(mrf);
         scmf.run();
         double lbLogZ = scmf.calcLBLogZ();
@@ -221,11 +300,50 @@ public class partFuncTree extends AStarTree {
             double ubLogZ = mp.calcUBLogZLPMax(node.getNodeAssignments(), this.numSamples);
             return ubLogZ;
         } else {
-            MarkovRandomField mrf = new MarkovRandomField(this.emat, this.pruneMat, node.getNodeAssignments(), this.eCut);
-            TreeReweightedBeliefPropagation trbp = new TreeReweightedBeliefPropagation(mrf);
-            double ubLogZ = trbp.getLogZ();
-            return ubLogZ;
+            /*            MarkovRandomField mrf = new MarkovRandomField(this.emat, this.pruneMat, node.getNodeAssignments(), this.eCut);
+             TreeReweightedBeliefPropagation trbp = new TreeReweightedBeliefPropagation(mrf);
+             double ubLogZ = trbp.getLogZ();
+             */
+
+//            double lbLogZ = computePartFunctionEstimate(emat, pruneMat, node.getNodeAssignments(), 10000);
+            ReparamMRF rMRF = new ReparamMRF(this.emat, this.pruneMat, node.getNodeAssignments(), this.eCut);
+            TRBPSeq trbpSeq = new TRBPSeq(rMRF);
+            double ubLogZ2 = trbpSeq.getLogZ();
+            return ubLogZ2;
         }
+    }
+
+    private double computePartFunctionEstimate(EnergyMatrix emat, PruningMatrix pruneMat, int[] partialConf, int numIter) {
+        UpdatedPruningMatrix upm = new UpdatedPruningMatrix(pruneMat);
+        for (int pos = 0; pos < partialConf.length; pos++) {
+            if (partialConf[pos] != -1) {
+                for (int rc : pruneMat.unprunedRCsAtPos(pos)) {
+                    if (rc != partialConf[pos]) {
+                        upm.markAsPruned(new RCTuple(pos, rc));
+                    }
+                }
+            }
+        }
+
+        double gmecE = 0.0;
+        double partFunc = 0.0;
+        ConfTree tree = new ConfTree(emat, upm);
+        for (int i = 0; i < numIter; i++) {
+            int[] conf = tree.nextConf();
+            if (conf == null) {
+                break;
+            }
+            double energy = emat.getInternalEnergy(new RCTuple(conf));
+            if (i == 0) {
+                gmecE = -energy / constRT;
+                partFunc += 1;
+            } else {
+                double normalized = (-energy / constRT) - gmecE;
+                partFunc += Math.exp(normalized);
+            }
+        }
+        return gmecE + Math.log(partFunc);
+
     }
 
 }
