@@ -21,7 +21,7 @@ numTopConfsToSave 5
 useMaxKSConfs false
 maxKSconfs 500000
 doKStarCheckpoint false
-kStarCheckpoint 300
+kStarCheckpoint 100
 
 numMutations 1
 resAllowed0_0 ASP GLU HID
@@ -32,11 +32,11 @@ resAllowed1_0 SER GLN CYS
 resAllowed1_1 GLY ASP ILE
 resAllowed1_2 THR VAL TYR
 
-pFuncStabThresh 0
+pFuncStabThresh 1
 pFuncQCap 1024000
 pFuncMethod new02
-pFuncThreads 3
-numThreads 3
+pFuncThreads 4
+numThreads 4
 eMinMethod hbfgsccd
 kStarMethod kastar
 kStarUseTightBounds true
