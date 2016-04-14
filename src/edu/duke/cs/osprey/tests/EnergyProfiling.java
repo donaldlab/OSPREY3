@@ -92,7 +92,7 @@ public class EnergyProfiling {
 		// notation below (trialN values are operations per second):
 		// nameOfEFunc: numThreads x numIters = [trial1, trial2, trial2]
 		
-		// BEFORE OPTIMIZATIONS:
+		// BEFORE OPTIMIZATIONS (2016-04-13):
 		// total: 1 x 40   = [2.05, 2.05, 2.04]
 		// total: 4 x 40   = [3.63, 3.28, 3.51] (roughly 1.6-1.7x speedup... not great for 4 threads=cores)
 		// ala:   1 x 10e6 = [695400.29, 681174.63, 676398.07]
@@ -100,13 +100,26 @@ public class EnergyProfiling {
 		// arg:   1 x 2e6  = [90464.21, 90977.86, 82896.86]
 		// arg^2: 1 x 13e5 = [62300.29, 63856.59, 63150.76]
 		
+		// ugh... looks like results are inconsistent from day to day
+		// that's going to make this hard....
+		
+		// 2016-04-13
+		// no optimizations
+		// ala:   1 x 10e6 = [554713.03, 547208.29, 584274.57]
+		// get rid of array allocations:
+		// ala:   1 x 10e6 = [597278.34, 584392.16, 586566.90] => maybe slight improvement? hard to tell
+		// inlining energy functions
+		// ala:   1 x 10e6 = [591555.65, 570630.89, 591634.03] => no significant change
+		// better handling of hydrogen electrostatics/vdW flags
+		// ala:   1 x 10e6 = [645581.18, 618122.16, 621685.62] => modest but significant speedup
+		
 		// DO EEEEEETTT!!!
 		final int thou = 1000;
 		//profile(totalEFunc, 40, -2937.319131349481300);
-		//profile(alaEFunc, 10*thou*thou, -11.682132279211443);
+		profile(alaEFunc, 10*thou*thou, -11.682132279211443);
 		//profile(alaAlaEFunc, 5*thou*thou, 0.005174712669362);
 		//profile(argEFunc, 2*thou*thou, -24.665020813395530);
-		profile(argArgEFunc, 1300*thou, 0.082934569827485);
+		//profile(argArgEFunc, 1300*thou, 0.082934569827485);
 	}
 	
 	private static int getPairIndex(int i, int j) {
