@@ -260,10 +260,10 @@ public class SelfConsistentMeanField_Parallel implements InferenceCalculator {
     private double calcFreeEnergy() {
         double enthalpy = getEnthalpy();
         double entropy = getEntropy();
-
-        double freeEnergy = enthalpy - this.scmfTemp * entropy;
-
-        return freeEnergy;
+        double temp = PoissonBoltzmannEnergy.constRT;
+//        double freeEnergy = enthalpy - this.scmfTemp * entropy;
+        double freeE = enthalpy - temp*entropy;
+        return freeE;
     }
 
     @Override

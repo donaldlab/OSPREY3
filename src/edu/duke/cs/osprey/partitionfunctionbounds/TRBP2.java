@@ -34,12 +34,12 @@ public class TRBP2 {
 
     //threshold for convergence
     double threshold = 1e-8;
-    final int maxIterations = 20;
+    final int maxIterations = 200;
 
     double constRT = PoissonBoltzmannEnergy.constRT;
 
     double damping = 0.4;
-    int numEdgeProbUpdates = 1;
+    int numEdgeProbUpdates = 5;
 
     //p_e are the edge probabilities over spanning trees
     public double[][] edgeProbabilities;
@@ -48,6 +48,9 @@ public class TRBP2 {
     double[][] expNormMessages;
     double[][] expNormMarginals;
     boolean dampLog = false;
+
+    boolean debugMode = false;
+    boolean verbose = false;
 
     public ExpFunction ef = new ExpFunction();
 
@@ -70,7 +73,7 @@ public class TRBP2 {
 
         this.marginalProbabilies = new TupleMatrix(numNodes, numLabelsPerNode, Double.POSITIVE_INFINITY, 0.0);
 
-        runTRBP2();
+        runTRBP3();
     }
 
     private void runTRBP() {
@@ -110,11 +113,15 @@ public class TRBP2 {
                 maxChange = 0;
                 numIter++;
                 double[][][] messagesNPlus1 = updateMessages(this.messages);
-                checkMessages(messagesNPlus1);
+                if (debugMode) {
+                    checkMessages(messagesNPlus1);
+                }
                 this.messages = messagesNPlus1;
-                updateMarginals(this.messages);;
+                updateMarginals(this.messages);
                 double currentlogZ = calcUBLogZ();
-                System.out.println("Maximum Change in Messages: "+this.maxChange+"   LogZUB: " + currentlogZ);
+                if (verbose) {
+                    System.out.println("Maximum Change in Messages: " + this.maxChange + "   LogZUB: " + currentlogZ);
+                }
 //                System.out.println("Max Change in Messages: "+this.maxChange);
             }
 //            System.out.println("TRBP took: " + numIter + " iterations");
@@ -128,11 +135,112 @@ public class TRBP2 {
 //                this.logZ = Math.min(this.logZ, currentlogZ);
 //            }
             if (j < numEdgeProbUpdates - 1) {
-                System.out.println("Updating Edge Probabilities after "+this.maxIterations+" iterations");
+                System.out.println("Updating Edge Probabilities after " + this.maxIterations + " iterations");
                 MinSpanningTree mst = new MinSpanningTree(getEdgeWeights(), nonClampledInteractionGraph);
                 updateEdgeProbabilies(mst.mstVector, j + 1);
             }
         }
+    }
+
+    private void runTRBP3() {
+        double changeBetweenEdgeUpdates = Double.POSITIVE_INFINITY;
+        double lastLogZBetweenUpdates = Double.POSITIVE_INFINITY;
+        int numEdgeUpdates = 0;
+        double[][] edgeProbGradient = this.edgeProbabilities;
+        while (changeBetweenEdgeUpdates > 0.05) {
+            double changeWithinEdgeUpdate = Double.POSITIVE_INFINITY;
+            double lastLogZ = Double.POSITIVE_INFINITY;
+            int numUpdatesWithinEdgeProb = 0;
+            //The first update does not change the initial edge probabilites
+            //That is why we initizliae the edgeProbGradient with the current edge probabilies.
+            //Otherwise, this gradient is a 0-1 vector
+            updateEdgeProbabilies(edgeProbGradient, numEdgeUpdates + 1);
+            computeExpNormals();
+            this.messages = initializeMessages(1.0);
+            while (changeWithinEdgeUpdate > 0.001) {
+                double[][][] messagesNPlus1 = updateMessages(this.messages);
+//                checkMessages(messagesNPlus1);
+                this.messages = messagesNPlus1;
+                updateMarginals(this.messages);
+                double currentlogZ = calcUBLogZ();
+                if (verbose) {
+                    System.out.println("    logZ UB: " + currentlogZ);
+                }
+                changeWithinEdgeUpdate = Math.abs(lastLogZ - currentlogZ);
+                lastLogZ = currentlogZ;
+                numUpdatesWithinEdgeProb++;
+            }
+            System.out.println("Updating Edge Probabilites After " + numEdgeUpdates + " iterations. LogZ UB: " + lastLogZ);
+            this.logZ = Math.min(this.logZ, lastLogZ);
+            changeBetweenEdgeUpdates = Math.abs(lastLogZBetweenUpdates - lastLogZ);
+            lastLogZBetweenUpdates = lastLogZ;
+            MinSpanningTree mst = new MinSpanningTree(getEdgeWeights(), nonClampledInteractionGraph);
+            edgeProbGradient = mst.mstVector;
+            numEdgeUpdates++;
+        }
+        System.out.println("Updated Edge Probabilities " + (numEdgeUpdates - 1) + " times. LogZ UB: " + this.logZ);
+    }
+    
+    
+    
+    private void runTRBP4() {
+        double changeBetweenEdgeUpdates = Double.POSITIVE_INFINITY;
+        double lastLogZBetweenUpdates = Double.POSITIVE_INFINITY;
+        int numEdgeUpdates = 0;
+        double[][] edgeProbGradient = this.edgeProbabilities;
+        while (numEdgeUpdates < 5) {
+            double changeWithinEdgeUpdate = Double.POSITIVE_INFINITY;
+            double lastLogZ = Double.POSITIVE_INFINITY;
+            int numUpdatesWithinEdgeProb = 0;
+            //The first update does not change the initial edge probabilites
+            //That is why we initizliae the edgeProbGradient with the current edge probabilies.
+            //Otherwise, this gradient is a 0-1 vector
+            updateEdgeProbabilies(edgeProbGradient, numEdgeUpdates + 1);
+            computeExpNormals();
+            this.messages = initializeMessages(1.0);
+            while (numUpdatesWithinEdgeProb < 30) {
+                double[][][] messagesNPlus1 = updateMessages(this.messages);
+//                checkMessages(messagesNPlus1);
+                this.messages = messagesNPlus1;
+                updateMarginals(this.messages);
+                double currentlogZ = calcUBLogZ();
+                if (verbose) {
+                    System.out.println("    logZ UB: " + currentlogZ);
+                }
+                changeWithinEdgeUpdate = Math.abs(lastLogZ - currentlogZ);
+                lastLogZ = currentlogZ;
+                numUpdatesWithinEdgeProb++;
+            }
+            System.out.println("Updating Edge Probabilites After " + numEdgeUpdates + " iterations. LogZ UB: " + lastLogZ);
+            this.logZ = Math.min(this.logZ, lastLogZ);
+            changeBetweenEdgeUpdates = Math.abs(lastLogZBetweenUpdates - lastLogZ);
+            lastLogZBetweenUpdates = lastLogZ;
+            MinSpanningTree mst = new MinSpanningTree(getEdgeWeights(), nonClampledInteractionGraph);
+            edgeProbGradient = mst.mstVector;
+            numEdgeUpdates++;
+        }
+
+        updateEdgeProbabilies(edgeProbGradient, numEdgeUpdates + 1);
+        computeExpNormals();
+        this.messages = initializeMessages(1.0);
+        double changeWithinEdgeUpdate = Double.POSITIVE_INFINITY;
+        double lastLogZ = Double.POSITIVE_INFINITY;
+        int numUpdatesWithinEdgeProb = 0;
+        while (changeWithinEdgeUpdate > .01) {
+            double[][][] messagesNPlus1 = updateMessages(this.messages);
+//                checkMessages(messagesNPlus1);
+            this.messages = messagesNPlus1;
+            updateMarginals(this.messages);
+            double currentlogZ = calcUBLogZ();
+            if (verbose) {
+                System.out.println("    logZ UB: " + currentlogZ);
+            }
+            changeWithinEdgeUpdate = Math.abs(lastLogZ - currentlogZ);
+            lastLogZ = currentlogZ;
+            numUpdatesWithinEdgeProb++;
+        }
+        System.out.println("TRBPS Finished after " + numUpdatesWithinEdgeProb + " iterations   logZUB: " + lastLogZ);
+        this.logZ = lastLogZ;
     }
 
     private void computeExpNormals() {

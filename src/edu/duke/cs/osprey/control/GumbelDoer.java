@@ -16,10 +16,10 @@ import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.partitionfunctionbounds.MarkovRandomField;
 import edu.duke.cs.osprey.partitionfunctionbounds.MinSpanningTree;
 import edu.duke.cs.osprey.partitionfunctionbounds.ReparamMRF;
+import edu.duke.cs.osprey.partitionfunctionbounds.SCMF_Clamp;
 import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField;
-import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField_Parallel;
 import edu.duke.cs.osprey.partitionfunctionbounds.TRBP2;
-import edu.duke.cs.osprey.partitionfunctionbounds.TRBPSeq;
+import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ExpFunction;
@@ -39,6 +39,7 @@ public class GumbelDoer {
     SearchProblem sp;
     final static double constRT = PoissonBoltzmannEnergy.constRT;
     ExpFunction ef = new ExpFunction();
+    boolean testSCMF;
 
     public GumbelDoer(ConfigFileParser aCFP) {
         this.cfp = aCFP;
@@ -61,17 +62,26 @@ public class GumbelDoer {
          double KStarUB = ubKStarBound - lbKStarUnboundL - lbKStarUnboundP;
          System.out.println("KStar Bound: " + KStarUB);
          */
-        MarkovRandomField mrf = new MarkovRandomField(sp, 0.0);
-        SelfConsistentMeanField scmf = new SelfConsistentMeanField(mrf);
-        scmf.run();
-        double lb = scmf.getLBLogZ();
-        System.out.println("Lower Bound: " + lb);
+        //MarkovRandomField mrf = new MarkovRandomField(sp, 0.0);
+        ReparamMRF rMRF = new ReparamMRF(sp, 0.0);
+        double gmec = computeGMECLB(sp);
+        System.out.println("LB GMEC: " + gmec);
+        /*        SelfConsistentMeanField scmf = new SelfConsistentMeanField(mrf);
+         double startTime = System.currentTimeMillis();
+         scmf.run();
+         double totalTime = System.currentTimeMillis() - startTime;
+         System.out.println("Took " + totalTime + " milliseconds to run");
+         double lb = scmf.getLBLogZ();
+         System.out.println("Lower Bound: " + lb);
 
-        SelfConsistentMeanField_Parallel scmfP = new SelfConsistentMeanField_Parallel(mrf);
-        scmfP.run();
-        double lbP = scmfP.getLBLogZ();
-        System.out.println("Lower Bound Parallel: " + lbP);
-
+         SelfConsistentMeanField_Parallel scmfP = new SelfConsistentMeanField_Parallel(mrf);
+         scmfP.run();
+         double lbP = scmfP.getLBLogZ();
+         System.out.println("Lower Bound Parallel: " + lbP);
+         */
+        SCMF_Clamp scmfC = new SCMF_Clamp(rMRF);
+        double lbC = scmfC.getLogZLB();
+        System.out.println("Lower Bound Clamped: " + lbC);
         /*        MapPerturbation mp = new MapPerturbation(sp);
          double ubPert = mp.calcUBLogZ(1000);
          double ubPert2 = mp.calcUBLogZLPMax(5);
@@ -82,19 +92,18 @@ public class GumbelDoer {
          double ub = trbp.getLogZ();
          System.out.println("Upper Bound: " + ub);
          */
-        ReparamMRF rMRF = new ReparamMRF(sp, 0.0);
-        /*        TRBP2 trbp2 = new TRBP2(rMRF);
-         double ub2 = trbp2.calcUBLogZ();
-         System.out.println("Upper Bound 2: " + ub2);
+        TRBP2 trbp2 = new TRBP2(rMRF);
+        double ub2 = trbp2.calcUBLogZ();
+        System.out.println("Upper Bound 2: " + ub2);
+
+
+        /*        TRBPSeq trbpseq = new TRBPSeq(rMRF);
+         double ub3 = trbpseq.getLogZ();
+         System.out.println("Upper Bound 3: " + ub3);
+
+         double effectiveEpsilon = 1 - Math.exp(lbP - ub3);
+         System.out.println("EFFECTIVE Epsilon: " + effectiveEpsilon);
          */
-
-        TRBPSeq trbpseq = new TRBPSeq(rMRF);
-        double ub3 = trbpseq.getLogZ();
-        System.out.println("Upper Bound 3: " + ub3);
-
-        double effectiveEpsilon = 1 - Math.exp(lbP - ub3);
-        System.out.println("EFFECTIVE Epsilon: " + effectiveEpsilon);
-
         partFuncTree tree = new partFuncTree(sp);
         double logZ = tree.computeEpsilonApprox(0.1);
         System.out.println("LogZ: " + logZ);
@@ -245,11 +254,11 @@ public class GumbelDoer {
     }
 
     private HashMap<Integer, Integer> getUnboundPosNum2BoundPosNum(SearchProblem unboundSP, SearchProblem boundSP) {
-        List<Integer> resNumsUnbound = unboundSP.confSpace.posFlex.stream()
+        List<String> resNumsUnbound = unboundSP.confSpace.posFlex.stream()
                 .map(posFlex -> posFlex.res.resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
 
-        List<Integer> resNumsBound = boundSP.confSpace.posFlex.stream()
+        List<String> resNumsBound = boundSP.confSpace.posFlex.stream()
                 .map(posFlex -> posFlex.res.resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
 
@@ -264,11 +273,11 @@ public class GumbelDoer {
     }
 
     private void getBoundPosNum2UnboundPosNum(SearchProblem unboundSP, SearchProblem boundSP, HashMap<Integer, Integer> bound2Unbound) {
-        List<Integer> resNumsUnbound = unboundSP.confSpace.posFlex.stream()
+        List<String> resNumsUnbound = unboundSP.confSpace.posFlex.stream()
                 .map(posFlex -> posFlex.res.resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
 
-        List<Integer> resNumsBound = boundSP.confSpace.posFlex.stream()
+        List<String> resNumsBound = boundSP.confSpace.posFlex.stream()
                 .map(posFlex -> posFlex.res.resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
 
@@ -282,11 +291,11 @@ public class GumbelDoer {
     }
 
     private void getBoundPosNum2UnboundSearchProblem(SearchProblem unboundSP, SearchProblem boundSP, HashMap<Integer, SearchProblem> bound2Unbound) {
-        List<Integer> resNumsUnbound = unboundSP.confSpace.posFlex.stream()
+        List<String> resNumsUnbound = unboundSP.confSpace.posFlex.stream()
                 .map(posFlex -> posFlex.res.resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
 
-        List<Integer> resNumsBound = boundSP.confSpace.posFlex.stream()
+        List<String> resNumsBound = boundSP.confSpace.posFlex.stream()
                 .map(posFlex -> posFlex.res.resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
 
@@ -480,6 +489,17 @@ public class GumbelDoer {
             }
         }
         return gmecE + Math.log(partFunc);
+    }
+
+    private double computeGMECLB(SearchProblem sp) {
+        UpdatedPruningMatrix pm = new UpdatedPruningMatrix(sp.pruneMat);
+        Pruner dee = new Pruner(sp, pm, false, Double.POSITIVE_INFINITY,
+                0.0, false, false, false);
+        dee.prune("GOLDSTEIN");
+        ConfTree tree = new ConfTree(sp.emat, pm);
+        int[] conf = tree.nextConf();
+        double gmecE = sp.emat.getInternalEnergy(new RCTuple(conf));
+        return -gmecE / constRT;
     }
 
     private double computeKStarUB(SearchProblem sp, int numIter) {

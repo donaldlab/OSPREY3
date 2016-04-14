@@ -353,7 +353,7 @@ public class SearchProblem implements Serializable {
         ArrayList<Residue> partShellResidues = new ArrayList<Residue>();
         //Create a hashmap for efficient adding
         //Maps resNum to the Residue
-        HashMap<Integer, Residue> resNumToResidue = new HashMap<>();
+        HashMap<String, Residue> resNumToResidue = new HashMap<>();
         //For every residue in the molecules we add the information to the hashmap
         partCSpace.m.residues.stream().map(res -> resNumToResidue.put(res.resNum, res));
         //For each original shell residue, add the corresponding residue from

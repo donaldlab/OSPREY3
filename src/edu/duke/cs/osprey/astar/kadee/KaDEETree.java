@@ -1694,19 +1694,19 @@ public class KaDEETree extends AStarTree {
     public HashMap<Integer, EnergyMatrix> getBoundPosNumToUnboundEmat() {
         SearchProblem boundState = this.mutableSearchProblems[0];
         //Get res number from each flexible position in the bound state
-        List<Integer> resNumsBound = boundState.confSpace.posFlex.stream()
+        List<String> resNumsBound = boundState.confSpace.posFlex.stream()
                 .map(posFlex -> posFlex.res.resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
 
         //Get res number for each flexible position in the unbound mutable state
         SearchProblem unBoundMutableState = this.mutableSearchProblems[1];
-        List<Integer> resNumsUnboundMutable = unBoundMutableState.confSpace.posFlex.stream()
+        List<String> resNumsUnboundMutable = unBoundMutableState.confSpace.posFlex.stream()
                 .map(posFlex -> posFlex.res.resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
 
         //Get res number for each flexible position in the unbound non-mutable state
         SearchProblem unBoundNonMutableState = this.nonMutableSearchProblem;
-        List<Integer> resNumsUnboundNonMutable = unBoundNonMutableState.confSpace.posFlex.stream()
+        List<String> resNumsUnboundNonMutable = unBoundNonMutableState.confSpace.posFlex.stream()
                 .map(posFlex -> posFlex.res.resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
         //Map to corresponding energy matrix
@@ -1729,19 +1729,19 @@ public class KaDEETree extends AStarTree {
     public HashMap<Integer, Integer> getBoundPosNumToUnboundPosNum() {
         SearchProblem boundState = this.mutableSearchProblems[0];
         //Get res number from each flexible position in the bound state
-        List<Integer> resNumsBound = boundState.confSpace.posFlex.stream()
+        List<String> resNumsBound = boundState.confSpace.posFlex.stream()
                 .map(posFlex -> posFlex.res.resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
 
         //Get res number for each flexible position in the unbound mutable state
         SearchProblem unBoundMutableState = this.mutableSearchProblems[1];
-        List<Integer> resNumsUnboundMutable = unBoundMutableState.confSpace.posFlex.stream()
+        List<String> resNumsUnboundMutable = unBoundMutableState.confSpace.posFlex.stream()
                 .map(posFlex -> posFlex.res.resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
 
         //Get res number for each flexible position in the unbound non-mutable state
         SearchProblem unBoundNonMutableState = this.nonMutableSearchProblem;
-        List<Integer> resNumsUnboundNonMutable = unBoundNonMutableState.confSpace.posFlex.stream()
+        List<String> resNumsUnboundNonMutable = unBoundNonMutableState.confSpace.posFlex.stream()
                 .map(posFlex -> posFlex.res.resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
 
@@ -1767,19 +1767,19 @@ public class KaDEETree extends AStarTree {
     public boolean[][] getSameStrandMatrix() {
         SearchProblem boundState = this.mutableSearchProblems[0];
         //Get res number from each flexible position in the bound state
-        List<Integer> resNumsBound = boundState.confSpace.posFlex.stream()
+        List<String> resNumsBound = boundState.confSpace.posFlex.stream()
                 .map(posFlex -> posFlex.res.resNum)
                 .collect(Collectors.toList());
 
         //Get res number for each flexible position in the unbound mutable state
         SearchProblem unBoundMutableState = this.mutableSearchProblems[1];
-        List<Integer> resNumsUnboundMutable = unBoundMutableState.confSpace.posFlex.stream()
+        List<String> resNumsUnboundMutable = unBoundMutableState.confSpace.posFlex.stream()
                 .map(posFlex -> posFlex.res.resNum)
                 .collect(Collectors.toList());
 
         //Get res number for each flexible position in the unbound non-mutable state
         SearchProblem unBoundNonMutableState = this.nonMutableSearchProblem;
-        List<Integer> resNumsUnboundNonMutable = unBoundNonMutableState.confSpace.posFlex.stream()
+        List<String> resNumsUnboundNonMutable = unBoundNonMutableState.confSpace.posFlex.stream()
                 .map(posFlex -> posFlex.res.resNum)
                 .collect(Collectors.toList());
         //Map to corresponding unbound position number
@@ -1813,19 +1813,19 @@ public class KaDEETree extends AStarTree {
     public HashMap<Integer, Boolean> getBoundPosNumberToIsMutableStrand() {
         SearchProblem boundState = this.mutableSearchProblems[0];
         //Get res number from each flexible position in the bound state
-        List<Integer> resNumsBound = boundState.confSpace.posFlex.stream()
+        List<String> resNumsBound = boundState.confSpace.posFlex.stream()
                 .map(posFlex -> posFlex.res.resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
 
         //Get res number for each flexible position in the unbound mutable state
         SearchProblem unBoundMutableState = this.mutableSearchProblems[1];
-        List<Integer> resNumsUnboundMutable = unBoundMutableState.confSpace.posFlex.stream()
+        List<String> resNumsUnboundMutable = unBoundMutableState.confSpace.posFlex.stream()
                 .map(posFlex -> posFlex.res.resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
 
         //Get res number for each flexible position in the unbound non-mutable state
         SearchProblem unBoundNonMutableState = this.nonMutableSearchProblem;
-        List<Integer> resNumsUnboundNonMutable = unBoundNonMutableState.confSpace.posFlex.stream()
+        List<String> resNumsUnboundNonMutable = unBoundNonMutableState.confSpace.posFlex.stream()
                 .map(posFlex -> posFlex.res.resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
         //Map to corresponding unbound position number

@@ -38,8 +38,8 @@ public class ConfTree extends AStarTree {
 
     //ADVANCED SCORING METHODS: TO CHANGE LATER (EPIC, MPLP, etc.)
     boolean traditionalScore = true;
-    boolean useRefinement = false;//refine nodes (might want EPIC, MPLP, or something else)
-    boolean mplpScore = false;
+    boolean useRefinement = true;//refine nodes (might want EPIC, MPLP, or something else)
+    boolean mplpScore = true;
     
     //MPLP object for node refinement
     public Mplp mplpMinimizer;

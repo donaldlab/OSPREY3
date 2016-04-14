@@ -218,8 +218,8 @@ public class ReparamMRF {
                 possibleInteraction++;
             }
         }
-//        System.out.println("Markov Random Field has " + countInteraction
-//                + " pairs out of " + possibleInteraction + " possible pairs");
+        System.out.println("Markov Random Field has " + countInteraction
+                + " pairs out of " + possibleInteraction + " possible pairs");
     }
 
     private ArrayList<MRFNode> getNeighbors(MRFNode node, boolean[][] interactionGraph) {

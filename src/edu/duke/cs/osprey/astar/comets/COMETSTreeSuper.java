@@ -921,19 +921,19 @@ public class COMETSTreeSuper extends AStarTree {
     public HashMap<Integer, EnergyMatrix> getBoundPosNumToUnboundEmat() {
         SearchProblemSuper boundState = this.mutableSearchProblems[0];
         //Get res number from each flexible position in the bound state
-        List<Integer> resNumsBound = boundState.confSpaceSuper.posFlexSuper.stream()
+        List<String> resNumsBound = boundState.confSpaceSuper.posFlexSuper.stream()
                 .map(posFlex -> posFlex.resList.get(0).resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
 
         //Get res number for each flexible position in the unbound mutable state
         SearchProblemSuper unBoundMutableState = this.mutableSearchProblems[1];
-        List<Integer> resNumsUnboundMutable = unBoundMutableState.confSpaceSuper.posFlexSuper.stream()
+        List<String> resNumsUnboundMutable = unBoundMutableState.confSpaceSuper.posFlexSuper.stream()
                 .map(posFlex -> posFlex.resList.get(0).resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
 
         //Get res number for each flexible position in the unbound non-mutable state
         SearchProblemSuper unBoundNonMutableState = this.nonMutableSearchProblem;
-        List<Integer> resNumsUnboundNonMutable = unBoundNonMutableState.confSpaceSuper.posFlexSuper.stream()
+        List<String> resNumsUnboundNonMutable = unBoundNonMutableState.confSpaceSuper.posFlexSuper.stream()
                 .map(posFlex -> posFlex.resList.get(0).resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
         //Map to corresponding energy matrix
@@ -952,19 +952,19 @@ public class COMETSTreeSuper extends AStarTree {
     public HashMap<Integer, Integer> getBoundPosNumToUnboundPosNum() {
         SearchProblemSuper boundState = this.mutableSearchProblems[0];
         //Get res number from each flexible position in the bound state
-        List<Integer> resNumsBound = boundState.confSpaceSuper.posFlexSuper.stream()
+        List<String> resNumsBound = boundState.confSpaceSuper.posFlexSuper.stream()
                 .map(posFlex -> posFlex.resList.get(0).resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
 
         //Get res number for each flexible position in the unbound mutable state
         SearchProblemSuper unBoundMutableState = this.mutableSearchProblems[1];
-        List<Integer> resNumsUnboundMutable = unBoundMutableState.confSpaceSuper.posFlexSuper.stream()
+        List<String> resNumsUnboundMutable = unBoundMutableState.confSpaceSuper.posFlexSuper.stream()
                 .map(posFlex -> posFlex.resList.get(0).resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
 
         //Get res number for each flexible position in the unbound non-mutable state
         SearchProblemSuper unBoundNonMutableState = this.nonMutableSearchProblem;
-        List<Integer> resNumsUnboundNonMutable = unBoundNonMutableState.confSpaceSuper.posFlexSuper.stream()
+        List<String> resNumsUnboundNonMutable = unBoundNonMutableState.confSpaceSuper.posFlexSuper.stream()
                 .map(posFlex -> posFlex.resList.get(0).resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
         //Map to corresponding unbound position number
@@ -985,19 +985,19 @@ public class COMETSTreeSuper extends AStarTree {
     public boolean[][] getSameStrandMatrix() {
         SearchProblemSuper boundState = this.mutableSearchProblems[0];
         //Get res number from each flexible position in the bound state
-        List<Integer> resNumsBound = boundState.confSpaceSuper.posFlexSuper.stream()
+        List<String> resNumsBound = boundState.confSpaceSuper.posFlexSuper.stream()
                 .map(posFlex -> posFlex.resList.get(0).resNum)
                 .collect(Collectors.toList());
 
         //Get res number for each flexible position in the unbound mutable state
         SearchProblemSuper unBoundMutableState = this.mutableSearchProblems[1];
-        List<Integer> resNumsUnboundMutable = unBoundMutableState.confSpaceSuper.posFlexSuper.stream()
+        List<String> resNumsUnboundMutable = unBoundMutableState.confSpaceSuper.posFlexSuper.stream()
                 .map(posFlex -> posFlex.resList.get(0).resNum)
                 .collect(Collectors.toList());
 
         //Get res number for each flexible position in the unbound non-mutable state
         SearchProblemSuper unBoundNonMutableState = this.nonMutableSearchProblem;
-        List<Integer> resNumsUnboundNonMutable = unBoundNonMutableState.confSpaceSuper.posFlexSuper.stream()
+        List<String> resNumsUnboundNonMutable = unBoundNonMutableState.confSpaceSuper.posFlexSuper.stream()
                 .map(posFlex -> posFlex.resList.get(0).resNum)
                 .collect(Collectors.toList());
         //Map to corresponding unbound position number
@@ -1026,19 +1026,19 @@ public class COMETSTreeSuper extends AStarTree {
     public HashMap<Integer, Boolean> getBoundPosNumberToIsMutableStrand() {
         SearchProblemSuper boundState = this.mutableSearchProblems[0];
         //Get res number from each flexible position in the bound state
-        List<Integer> resNumsBound = boundState.confSpaceSuper.posFlexSuper.stream()
+        List<String> resNumsBound = boundState.confSpaceSuper.posFlexSuper.stream()
                 .map(posFlex -> posFlex.resList.get(0).resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
 
         //Get res number for each flexible position in the unbound mutable state
         SearchProblemSuper unBoundMutableState = this.mutableSearchProblems[1];
-        List<Integer> resNumsUnboundMutable = unBoundMutableState.confSpaceSuper.posFlexSuper.stream()
+        List<String> resNumsUnboundMutable = unBoundMutableState.confSpaceSuper.posFlexSuper.stream()
                 .map(posFlex -> posFlex.resList.get(0).resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
 
         //Get res number for each flexible position in the unbound non-mutable state
         SearchProblemSuper unBoundNonMutableState = this.nonMutableSearchProblem;
-        List<Integer> resNumsUnboundNonMutable = unBoundNonMutableState.confSpaceSuper.posFlexSuper.stream()
+        List<String> resNumsUnboundNonMutable = unBoundNonMutableState.confSpaceSuper.posFlexSuper.stream()
                 .map(posFlex -> posFlex.resList.get(0).resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
         //Map to corresponding unbound position number

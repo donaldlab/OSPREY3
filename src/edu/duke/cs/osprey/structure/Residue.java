@@ -68,7 +68,7 @@ public class Residue implements Serializable {
     public ProlinePucker pucker = null;
 
     //HMN: Keep Track of ResNum so we can keep track of strand
-    public int resNum;
+    public String resNum;
 
     public int secondaryStruct;
     //Types of secondary structure
@@ -478,13 +478,13 @@ public class Residue implements Serializable {
     }
 
     public void setResNum() {
-        int resNum = Integer.parseInt(this.fullName.split("\\s+")[2]);
+        String resNum = (this.fullName.split("\\s+")[2]);
         this.resNum = resNum;
     }
 
-    public int getResNum() {
-        if ((Integer) this.resNum == null) {
-            return -1;
+    public String getResNum() {
+        if (this.resNum == null) {
+            return "";
         } else {
             return this.resNum;
         }

@@ -52,8 +52,8 @@ public class TRBPSeq {
 
     double maxChange;
 
-    boolean verbose = true;
-
+    boolean verbose = false;
+    boolean printDuringEdgeUpdate = true;
     public TRBPSeq(ReparamMRF mrf) {
         this.nodeList = mrf.nodeList;
         this.emat = mrf.emat;
@@ -71,7 +71,7 @@ public class TRBPSeq {
 
         this.marginalProbabilies = new TupleMatrix(numNodes, numLabelsPerNode, Double.POSITIVE_INFINITY, 0.0);
 
-        runTRBPSeq4();
+        runTRBPSeq3();
     }
 
     private void runTRBPSeq() {

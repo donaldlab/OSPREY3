@@ -10,10 +10,10 @@ import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Collections;
+import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.math.NumberUtils;
 
 /**
  *
@@ -85,7 +85,7 @@ public class PDBFileReader {
                     String fullResName = fullResidueName(curLine);
 
                     if ((!fullResName.equalsIgnoreCase(curResFullName)) && !curResAtoms.isEmpty()) {
-                        int resNum = Integer.parseInt(fullResName.split("\\s+")[2]);
+
                         Residue newRes = new Residue(curResAtoms, curResCoords, curResFullName, m);
                         newRes.setResNum();
                         m.appendResidue(newRes);
@@ -178,7 +178,7 @@ public class PDBFileReader {
                     }
 
                     String fullResName = fullResidueName(curLine);
-                    boolean addRes = false;
+
                     if ((!fullResName.equalsIgnoreCase(curResFullName)) && !curResAtoms.isEmpty()) {
                         Residue newRes = new Residue(curResAtoms, curResCoords, curResFullName, m);
                         newRes.setResNum();
@@ -217,22 +217,20 @@ public class PDBFileReader {
             //Assign the secondary structure we have read
             assignSecStruct(m, helixStarts, helixEnds, helixChains, sheetStarts, sheetEnds, sheetChains);
             ArrayList<Residue> resToDelete = new ArrayList<>();
-            for (Residue res : m.residues){
-                if ((res.resNum < startResNum) || (res.resNum > endResNum)){
+            for (Residue res : m.residues) {
+                if (!includeResidue(res.resNum, startResNum, endResNum)) {
                     resToDelete.add(res);
                 }
             }
-            for (Residue res : resToDelete){
+            for (Residue res : resToDelete) {
                 m.deleteResidue(res.indexInMolecule);
             }
-            
-        } 
-        catch(FileNotFoundException e){
-            System.err.println("ERROR: PDB file not found: "+PDBFile);
+
+        } catch (FileNotFoundException e) {
+            System.err.println("ERROR: PDB file not found: " + PDBFile);
             System.err.println(e.getMessage());
             e.printStackTrace();
-        }
-        catch(Exception e){
+        } catch (Exception e) {
             System.err.println(e.getMessage());
             e.printStackTrace();
         }
@@ -244,7 +242,27 @@ public class PDBFileReader {
 
         return m;
     }
-    
+
+    /**
+     * Hunter: handles res nums with a letter (e.g. 700A)
+     * We turn 700A to 700 for comparison purposes
+     * @param resNum
+     * @param startResNum
+     * @param endResNum
+     * @return 
+     */
+    static boolean includeResidue(String resNum, int startResNum, int endResNum) {
+        int resNumInt;
+        if (StringUtils.isNumeric(resNum)) {
+            resNumInt = NumberUtils.createInteger(resNum);
+        } else {
+            //Chop off letter from end
+            String numericString = resNum.substring(0, resNum.length()-1);
+            return includeResidue(numericString, startResNum, endResNum);
+        }
+        return (resNumInt <= endResNum) && (resNumInt >= startResNum);
+    }
+
     //HMN: Same as readPDBFile but creates a molecule between the strand termini
     public static Molecule readPDBFileBetweenTermini(String PDBFile, int startResNum1, int endResNum1, int startResNum2, int endResNum2) {
         Molecule m = new Molecule();
@@ -287,9 +305,7 @@ public class PDBFileReader {
                     }
 
                     String fullResName = fullResidueName(curLine);
-                    boolean addRes = false;
                     if ((!fullResName.equalsIgnoreCase(curResFullName)) && !curResAtoms.isEmpty()) {
-                        int resNum = Integer.parseInt(fullResName.split("\\s+")[2]);
                         //HMN: make sure resNum is between termini
 
                         Residue newRes = new Residue(curResAtoms, curResCoords, curResFullName, m);
@@ -330,11 +346,11 @@ public class PDBFileReader {
             assignSecStruct(m, helixStarts, helixEnds, helixChains, sheetStarts, sheetEnds, sheetChains);
             ArrayList<Residue> resToDelete = new ArrayList<>();
             for (Residue res : m.residues) {
-                if ((res.resNum < startResNum1) || ((res.resNum > endResNum1) && (res.resNum < startResNum2)) || (res.resNum > endResNum2)) {
+                if (!includeResidue(res.resNum, startResNum1, endResNum1) && !includeResidue(res.resNum, startResNum2, endResNum2)) {
                     resToDelete.add(res);
                 }
             }
-            for (Residue res : resToDelete){
+            for (Residue res : resToDelete) {
                 m.deleteResidue(res.indexInMolecule);
             }
         } catch (Exception e) {
@@ -356,10 +372,10 @@ public class PDBFileReader {
             //go through residues backwards so we can delete some if needed
 
             Residue res = m.residues.get(resNum);
-            
+
             DAminoAcidHandler.tryRenamingAsD(res);//We accept D-amino acid named using the usual L names, but must change them here
             //so the right template name is used
-            
+
             boolean templateAssigned = res.assignTemplate();
 
             if (EnvironmentVars.deleteNonTemplateResidues && !templateAssigned) {

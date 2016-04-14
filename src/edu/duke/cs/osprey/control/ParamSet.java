@@ -212,7 +212,7 @@ public class ParamSet implements Serializable {
             ArrayList<String> matches = new ArrayList<>();//parameters matching the searchTerm
             
             for(String paramName : params.keySet()){
-                if(paramName.contains(searchTerm)){
+                if(paramName.contains(searchTerm) && !paramName.startsWith("#")){
                     matches.add(paramName);
                 }
             }

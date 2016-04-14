@@ -1,5 +1,6 @@
 /*
- * To change this license header, choose License Headers in Project Properties.m * To change this template file, choose Tools | Templates
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
 package edu.duke.cs.osprey.partitionfunctionbounds;
@@ -14,22 +15,24 @@ import java.util.ArrayList;
  *
  * @author hmn5
  */
-public class SelfConsistentMeanField implements InferenceCalculator {
-
-    BigDecimal partitionFunction;
+public class SCMF_Clamp {
 
     //Nodelist defines the graphical model, since nodes keep track of their neighbors
     ArrayList<MRFNode> nodeList;
+    int numNodes;
     //Emat defines the potential functions for the Probabilistic Graphical Model
-    EnergyMatrix emat;
+    UpdatedEmat emat;
     //interactionGraph determines if two nodes are neighbors
-    boolean[][] interactionGraph;
+    boolean[][] nonClampedInteractionGraph;
+
+    //to avoid numerical overflow we computer "exp normalizers"
+    double[] expNormMessages;
 
     //threshold for convergence (change in beliefs must be less than threshold)
     double threshold = 1e-8;
-    final int minNumberIterations = 1500;
+    final int minNumberIterations = 300;
     final int maxNumberIterations = 10000;
-    double lambda = 0.4;
+    double lambda = 1.0;
 
     double scmfTemp = PoissonBoltzmannEnergy.constRT;
     public ExpFunction ef = new ExpFunction();
@@ -40,57 +43,23 @@ public class SelfConsistentMeanField implements InferenceCalculator {
     boolean verbose = false;
     boolean debugMode = false;
 
-    public SelfConsistentMeanField(MarkovRandomField mrf) {
+    public SCMF_Clamp(ReparamMRF mrf) {
         this.nodeList = mrf.nodeList;
+        this.numNodes = mrf.nodeList.size();
         this.emat = mrf.emat;
-        this.interactionGraph = mrf.interactionGraph;
+        this.nonClampedInteractionGraph = mrf.nonClampedInteractionGraph;
+//        double startTime = System.currentTimeMillis();
+        run();
+//        double totalTime = System.currentTimeMillis() - startTime;
+//        System.out.println("Took "+totalTime+" milliseconds to run");
     }
 
     public void run() {
         int iter = 0;
         boolean hasConverged = false;
         initializeBeliefs();
-        //set the temperature to be high
-        this.scmfTemp = this.scmfTemp * 1000;
-        //while we haven't converged and are below maxNumberIteration;
-        while (!hasConverged && (iter < this.maxNumberIterations)) {
-            //update all beliefs
-
-            hasConverged = updateAllBeliefs();
-            checkBeliefs();
-            //lower the temperature
-            lowerTemperature();
-            if (iter == 500) {
-                //store this free energy in cases it is better than after raising temperature
-                this.freeEnergy = calcFreeEnergy();
-                hasCalculatedFreeEnergy = true;
-                this.scmfTemp = this.scmfTemp * 1000;
-            }
-            if (iter == 1000) {
-                //take best free energy so far
-                this.freeEnergy = Math.min(this.freeEnergy, calcFreeEnergy());
-                hasCalculatedFreeEnergy = true;
-                this.scmfTemp = this.scmfTemp * 500;
-            }
-
-            //Make sure we are at least beyond the minimum number of iterations
-            hasConverged = hasConverged && (iter > this.minNumberIterations);
-            iter++;
-        }
-        //take best free energy
-        this.freeEnergy = Math.min(this.freeEnergy, calcFreeEnergy());
-        hasCalculatedFreeEnergy = true;
-        if (verbose) {
-            System.out.println("SCMF Finished After " + iter + " iterations");
-            printMaxLabel();
-        }
-        resetTemperature();
-    }
-
-    public void run2() {
-        int iter = 0;
-        boolean hasConverged = false;
-        initializeBeliefs();
+        //to avoid numerical overflow we computer "exp normalizers"
+        computeExpNormals();
         //set the temperature to be high
 //        this.scmfTemp = this.scmfTemp;
         //while we haven't converged and are below maxNumberIteration;
@@ -108,7 +77,7 @@ public class SelfConsistentMeanField implements InferenceCalculator {
                 checkBeliefs();
             }
             //lower the temperature
-            lowerTemperature();
+            lowerTemperature(0.98);
             //Make sure we are at least beyond the minimum number of iterations
             hasConverged = hasConverged && (iter > this.minNumberIterations);
             iter++;
@@ -119,38 +88,48 @@ public class SelfConsistentMeanField implements InferenceCalculator {
         }
         resetTemperature();
     }
-
-    //Initialize the beliefs of each label in a node to be uniform among all possible
-    //labels that belong to the node
-    private void initializeBeliefs() {
-        for (MRFNode node : this.nodeList) {
-            int numLabels = node.labelList.size();
-            for (MRFLabel label : node.labelList) {
-                label.currentBelief = 1.0 / (double) numLabels;
+    
+    private void run2() {
+        int iter = 0;
+        int numIterBeforeTempRaise = 500;
+        boolean hasConverged = false;
+        initializeBeliefs();
+        //to avoid numerical overflow we computer "exp normalizers"
+        computeExpNormals();
+        //set temperature to be high
+        this.scmfTemp = this.scmfTemp * 1000;
+        while (!hasConverged && (iter < maxNumberIterations)) {
+            //update all beliefs
+            hasConverged = updateAllBeliefs();
+            if (debugMode) {
+                checkBeliefs();
             }
+            //lower the temperature
+            double tempMultiplier = 0.98;
+            lowerTemperature(tempMultiplier);
+            if (iter == numIterBeforeTempRaise) {
+                //store this free energy in cases it is better than after raising temperature
+                this.freeEnergy = calcFreeEnergy();
+                hasCalculatedFreeEnergy = true;
+                this.scmfTemp = this.scmfTemp * 1000;
+            } else if (iter == numIterBeforeTempRaise * 2) {
+                //take best free energy so far
+                this.freeEnergy = Math.min(this.freeEnergy, calcFreeEnergy());
+                hasCalculatedFreeEnergy = true;
+                this.scmfTemp = this.scmfTemp * 500;
+            }
+            //Make sure we are at least beyond the minimum number of iterations
+            hasConverged = hasConverged && (iter > this.minNumberIterations);
+            iter++;
         }
-    }
-
-    //Returns the MeanFieldEnergy for a label
-    private double getMeanFieldEnergy(MRFNode node, MRFLabel label) {
-        double meanFieldE = 0.0;
-        for (MRFNode neighbor : node.neighborList) {
-            //get the average energy between neighbor and our label
-            double averageE = getAverageEnergy(node, label, neighbor);
-            meanFieldE += averageE;
+        //take best free energy
+        this.freeEnergy = Math.min(this.freeEnergy, calcFreeEnergy());
+        hasCalculatedFreeEnergy = true;
+        if (verbose) {
+            System.out.println("SCMF Finished After " + iter + " iterations");
+            printMaxLabel();
         }
-        return meanFieldE;
-    }
-
-    //Get average energy of label1 from node1, with respect to all labels of node2
-    //this is used as a subroutine in getMeanField()
-    private double getAverageEnergy(MRFNode node1, MRFLabel label1, MRFNode node2) {
-        double averageE = 0.0;
-        for (MRFLabel label2 : node2.labelList) {
-            double E = this.emat.getPairwise(node1.nodeNum, label1.labelNum, node2.nodeNum, label2.labelNum);
-            averageE += E * label2.currentBelief;
-        }
-        return averageE;
+        resetTemperature();
     }
 
     //updates all beliefs and returns true if 
@@ -171,14 +150,13 @@ public class SelfConsistentMeanField implements InferenceCalculator {
     //returns true if max difference in beleifs is less than threshold
     private boolean updateNodeBeliefs(MRFNode node) {
         //create a normalizing constant to normalize beliefs
-        BigDecimal partFunction = new BigDecimal(0.0);
+        double partFunction = 0.0;
         //keep track of difference between beliefs for convergence;
         double maxEpsilon = 0.0;
-        //keep track of unnormalized Beliefs so we don't need to recompute
-        ArrayList<BigDecimal> unNormalizedBeliefs = new ArrayList<>();
-        ArrayList<Double> logUnnormalizedBeliefs = new ArrayList<>();
-        //We keep track of best energy to avoid numerical innacuracy
-        double bestE = Double.NEGATIVE_INFINITY;
+
+        int numLabels = node.labelList.size();
+        double[] updatedBeliefs = new double[numLabels];
+
         //iterate over labels to get partition function value
         for (int labelIndex = 0; labelIndex < node.labelList.size(); labelIndex++) {
             MRFLabel label = node.labelList.get(labelIndex);
@@ -186,21 +164,9 @@ public class SelfConsistentMeanField implements InferenceCalculator {
             double meanFieldE = getMeanFieldEnergy(node, label);
             //unnormalized updateBelief
             double logUnnormalizedBelief = -(oneBodyE + meanFieldE) / scmfTemp;
-            logUnnormalizedBeliefs.add(logUnnormalizedBelief);
-            if (logUnnormalizedBelief > bestE) {
-                bestE = logUnnormalizedBelief;
-            }
-        }
-        //TODO: This needs to be optimized better by caching results in first for loop
-        for (int labelIndex = 0; labelIndex < node.labelList.size(); labelIndex++) {
-            MRFLabel label = node.labelList.get(labelIndex);
-            double logUnnormalizedBelief = logUnnormalizedBeliefs.get(labelIndex);
-            double rescaleE = -bestE + logUnnormalizedBelief;
-            BigDecimal updateBelief = this.ef.exp(rescaleE);
-            //update partition function
-            partFunction = partFunction.add(updateBelief);
-            //store unnormalizedBeliefs
-            unNormalizedBeliefs.add(updateBelief);
+            double logExpNormalizedBelief = logUnnormalizedBelief - (this.expNormMessages[node.index] / scmfTemp);
+            updatedBeliefs[labelIndex] = Math.exp(logExpNormalizedBelief);
+            partFunction += Math.exp(logExpNormalizedBelief);
         }
         //now we update the beliefs using our partFunction (normalizing constant)
         for (int labelIndex = 0; labelIndex < node.labelList.size(); labelIndex++) {
@@ -208,12 +174,12 @@ public class SelfConsistentMeanField implements InferenceCalculator {
             //keep track of old belief
             double oldBelief = label.currentBelief;
             //if partFunction is 0.0, all labels had really bad energies and we will make them uniform
-            if (partFunction.doubleValue() == 0.0) {
+            if (partFunction == 0.0) {
                 label.currentBelief = 1.0 / node.labelList.size();
             } //otherwise we update the beliefs normally
             else {
-                label.currentBelief = unNormalizedBeliefs.get(labelIndex).divide(partFunction, ExpFunction.mc).doubleValue();
-                label.currentBelief = lambda * label.currentBelief + (1 - lambda) * oldBelief;
+                label.currentBelief = updatedBeliefs[labelIndex] / partFunction;
+                label.currentBelief = lambda * label.currentBelief + (1.0 - lambda) * oldBelief;
             }
             //update maxEpsilon
             if (Math.abs(label.currentBelief - oldBelief) > maxEpsilon) {
@@ -228,8 +194,8 @@ public class SelfConsistentMeanField implements InferenceCalculator {
     }
 
     //lower the temperature, never getting below the true value;
-    private void lowerTemperature() {
-        this.scmfTemp = this.scmfTemp * 0.98;
+    private void lowerTemperature(double multiplier) {
+        this.scmfTemp = this.scmfTemp * multiplier;
         if (this.scmfTemp < PoissonBoltzmannEnergy.constRT) {
             this.scmfTemp = PoissonBoltzmannEnergy.constRT;
         }
@@ -266,7 +232,7 @@ public class SelfConsistentMeanField implements InferenceCalculator {
             enthalpy += getSingleNodeEnthalpy(node1);
             for (int j = 0; j < i; j++) {
                 MRFNode node2 = nodeList.get(j);
-                if (this.interactionGraph[node1.nodeNum][node2.nodeNum]) {
+                if (this.nonClampedInteractionGraph[node1.index][node2.index]) {
                     enthalpy += getPairwiseNodeEnthalpy(node1, node2);
                 }
             }
@@ -297,33 +263,47 @@ public class SelfConsistentMeanField implements InferenceCalculator {
     private double calcFreeEnergy() {
         double enthalpy = getEnthalpy();
         double entropy = getEntropy();
-        double temp = PoissonBoltzmannEnergy.constRT;
-//        double freeEnergy = enthalpy - this.scmfTemp * entropy;
-        double freeE = enthalpy - temp * entropy;
+
+        double freeE = enthalpy - this.scmfTemp * entropy;
+
         return freeE;
     }
 
-    @Override
-    public BigDecimal calcPartitionFunction() {
-        if (!hasCalculatedFreeEnergy) {
-            this.freeEnergy = calcFreeEnergy();
-        }
-        BigDecimal partitionFunction = this.ef.exp(-((freeEnergy + this.emat.getConstTerm()) / this.scmfTemp));
-        return partitionFunction;
-    }
-
-    //Calculates the natural log of the partition function
-    public double calcLBLogZ() {
-        return -(calcFreeEnergy() + this.emat.getConstTerm()) / this.scmfTemp;
-    }
-
-    public double getLBLogZ() {
+    public double getLogZLB() {
         return -(this.freeEnergy + this.emat.getConstTerm()) / this.scmfTemp;
     }
 
-    //Calculates log_10 of the partition function
-    public double calcLBLog10Z() {
-        return (Math.log10(Math.E)) * calcLBLogZ();
+    //Returns the MeanFieldEnergy for a label
+    private double getMeanFieldEnergy(MRFNode node, MRFLabel label) {
+        double meanFieldE = 0.0;
+        for (MRFNode neighbor : node.neighborList) {
+            //get the average energy between neighbor and our label
+            double averageE = getAverageEnergy(node, label, neighbor);
+            meanFieldE += averageE;
+        }
+        return meanFieldE;
+    }
+
+    //Get average energy of label1 from node1, with respect to all labels of node2
+    //this is used as a subroutine in getMeanField()
+    private double getAverageEnergy(MRFNode node1, MRFLabel label1, MRFNode node2) {
+        double averageE = 0.0;
+        for (MRFLabel label2 : node2.labelList) {
+            double E = this.emat.getPairwise(node1.nodeNum, label1.labelNum, node2.nodeNum, label2.labelNum);
+            averageE += E * label2.currentBelief;
+        }
+        return averageE;
+    }
+
+    private void initializeBeliefs() {
+        for (MRFNode node : this.nodeList) {
+            int numLabels = node.labelList.size();
+            for (MRFLabel label : node.labelList) {
+                label.currentBelief = 1.0 / (double) numLabels;
+                //for parallel updates
+                label.oldBelief = 1.0 / (double) numLabels;
+            }
+        }
     }
 
     public boolean checkBeliefs() {
@@ -359,4 +339,46 @@ public class SelfConsistentMeanField implements InferenceCalculator {
     public boolean equals(double a, double b, double epsilon) {
         return a == b ? true : Math.abs(a - b) < epsilon;
     }
+
+    private void computeExpNormals() {
+        this.expNormMessages = new double[this.numNodes];
+        for (int i = 0; i < this.numNodes; i++) {
+            MRFNode node = this.nodeList.get(i);
+            double minOneBody = getMinOneBodyE(node);
+            double minMeanField = getMinMeanFieldE(node);
+            expNormMessages[i] = -(minOneBody + minMeanField);
+        }
+    }
+
+    /**
+     * returns the minimum possible mean field energy for a node this is the sum
+     * of the min over all possible pairwise energies with the node's neighbor
+     *
+     * @param node
+     * @return
+     */
+    private double getMinMeanFieldE(MRFNode node) {
+        double minMeanFieldE = 0.0;
+        for (MRFNode neighbor : node.neighborList) {
+            double minPairwiseE = Double.POSITIVE_INFINITY;
+            for (MRFLabel nodeLabel : node.labelList) {
+                for (MRFLabel neighborLabel : neighbor.labelList) {
+                    double pairwiseE = this.emat.getPairwise(node.nodeNum, nodeLabel.labelNum, neighbor.nodeNum, neighborLabel.labelNum);
+                    minPairwiseE = Math.min(minPairwiseE, pairwiseE);
+                }
+            }
+            minMeanFieldE += minPairwiseE;
+        }
+        return minMeanFieldE;
+    }
+
+    private double getMinOneBodyE(MRFNode node) {
+        double minE = Double.POSITIVE_INFINITY;
+        for (MRFLabel label : node.labelList) {
+            double oneBodyE = this.emat.getOneBody(node.nodeNum, label.labelNum);
+            minE = Math.min(minE, oneBodyE);
+        }
+        return minE;
+    }
+
 }

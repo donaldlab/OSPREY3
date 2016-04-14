@@ -15,11 +15,9 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.partitionfunctionbounds.MapPerturbation;
-import edu.duke.cs.osprey.partitionfunctionbounds.MarkovRandomField;
 import edu.duke.cs.osprey.partitionfunctionbounds.ReparamMRF;
-import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField;
+import edu.duke.cs.osprey.partitionfunctionbounds.SCMF_Clamp;
 import edu.duke.cs.osprey.partitionfunctionbounds.TRBP2;
-import edu.duke.cs.osprey.partitionfunctionbounds.TRBPSeq;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import java.math.BigDecimal;
@@ -106,8 +104,8 @@ public class partFuncTree extends AStarTree {
         partFuncNode node = (partFuncNode) curNode;
         ArrayList<AStarNode> children = new ArrayList<>();
 
-        subtractFromBounds(node);
-
+//        subtractFromBounds(node);
+        subtractLowerBound(node);
         int[] curAssignments = node.getNodeAssignments();
 
         int splitPos = nextLevelToExpand(curAssignments);
@@ -121,15 +119,25 @@ public class partFuncTree extends AStarTree {
             partFuncNode childNode = new partFuncNode(childAssignments);
             if (!nodeIsDefined(childNode)) {
                 childNode.setLowerBoundLogZ(computeLowerBound(childNode));
-                childNode.setUpperBoundLogZ(computeUpperBound(childNode));
-                childNode.setScore(scoreNode(childNode));
-                updateBounds(childNode);
+//                childNode.setUpperBoundLogZ(computeUpperBound(childNode));
+//                childNode.setScore(scoreNode(childNode));
+                updateLowerBound(childNode);
 
                 children.add(childNode);
             } else {//child node is leaf so we compute exact score
                 double confE = getConfE(childNode);
                 updateRunningSumLB(confE);
                 numConfsEnumerated++;
+            }
+        }
+        if (!isFullyAssigned(curNode)) {
+            subtractUpperBound(node);
+            //Now update upper bounds
+            for (AStarNode childNode : children) {
+                partFuncNode child = (partFuncNode) childNode;
+                child.setUpperBoundLogZ(computeUpperBound(child));
+                updateUpperBound(child);
+                child.setScore(scoreNode(child));
             }
         }
         if (verbose) {
@@ -211,10 +219,25 @@ public class partFuncTree extends AStarTree {
         this.ubZ = this.ubZ.subtract(this.ef.exp(node.getUpperBoundLogZ()));
     }
 
+    private void subtractLowerBound(partFuncNode node) {
+        this.lbZ = this.lbZ.subtract(this.ef.exp(node.getLowerBoundLogZ()));
+    }
+
+    private void subtractUpperBound(partFuncNode node) {
+        this.ubZ = this.ubZ.subtract(this.ef.exp(node.getUpperBoundLogZ()));
+    }
+
     private void updateBounds(partFuncNode node) {
         this.lbZ = this.lbZ.add(this.ef.exp(node.getLowerBoundLogZ()));
         this.ubZ = this.ubZ.add(this.ef.exp(node.getUpperBoundLogZ()));
+    }
 
+    private void updateLowerBound(partFuncNode node) {
+        this.lbZ = this.lbZ.add(this.ef.exp(node.getLowerBoundLogZ()));
+    }
+
+    private void updateUpperBound(partFuncNode node) {
+        this.ubZ = this.ubZ.add(this.ef.exp(node.getUpperBoundLogZ()));
     }
 
     private void printEffectiveEpsilon() {
@@ -262,7 +285,7 @@ public class partFuncTree extends AStarTree {
         root.setLowerBoundLogZ(computeLowerBound(root));
         root.setScore(scoreNode(root));
         updateBounds(root);
-
+        printEffectiveEpsilon();
         return root;
     }
 
@@ -279,18 +302,16 @@ public class partFuncTree extends AStarTree {
     }
 
     private double computeLowerBound(partFuncNode node) {
-        MarkovRandomField mrf = new MarkovRandomField(this.emat, this.pruneMat, node.getNodeAssignments(), this.eCut);
-        SelfConsistentMeanField scmf = new SelfConsistentMeanField(mrf);
-        scmf.run();
-        double lbLogZ = scmf.calcLBLogZ();
+        ReparamMRF mrf = new ReparamMRF(this.emat, this.pruneMat, node.getNodeAssignments(), this.eCut);
+        SCMF_Clamp scmf = new SCMF_Clamp(mrf);
+        double lbLogZ = scmf.getLogZLB();
         return lbLogZ;
     }
 
     private double computeLowerBound(int[] partialConf) {
-        MarkovRandomField mrf = new MarkovRandomField(this.emat, this.pruneMat, partialConf, this.eCut);
-        SelfConsistentMeanField scmf = new SelfConsistentMeanField(mrf);
-        scmf.run();
-        double lbLogZ = scmf.calcLBLogZ();
+        ReparamMRF mrf = new ReparamMRF(this.emat, this.pruneMat, partialConf, this.eCut);
+        SCMF_Clamp scmf = new SCMF_Clamp(mrf);
+        double lbLogZ = scmf.getLogZLB();
         return lbLogZ;
     }
 
@@ -307,8 +328,8 @@ public class partFuncTree extends AStarTree {
 
 //            double lbLogZ = computePartFunctionEstimate(emat, pruneMat, node.getNodeAssignments(), 10000);
             ReparamMRF rMRF = new ReparamMRF(this.emat, this.pruneMat, node.getNodeAssignments(), this.eCut);
-            TRBPSeq trbpSeq = new TRBPSeq(rMRF);
-            double ubLogZ2 = trbpSeq.getLogZ();
+            TRBP2 trbp = new TRBP2(rMRF);
+            double ubLogZ2 = trbp.getLogZ();
             return ubLogZ2;
         }
     }
