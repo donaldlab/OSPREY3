@@ -67,6 +67,9 @@ public class ResPairEnergy implements EnergyFunction {
         return ffParams;
     }
     
+    public ForcefieldEnergy getFFEnergy() {
+    	return ffEnergy;
+    }
     
     
 }

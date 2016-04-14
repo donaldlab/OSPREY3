@@ -102,6 +102,15 @@ public class ForcefieldEnergy implements Serializable {
             
             setNBEval(params.hElect,params.hVDW);
 	}
+	
+	public int getNumTerms() {
+		// just to get a sense of the size of the work being done
+		int num = numberNonBonded + numHalfNonBondedTerms;
+		if (doSolvationE) {
+			num += solvationTerms1.length + solvationTerms2.length;
+		}
+		return num;
+	}
         
         
         

@@ -61,6 +61,9 @@ public class SingleResEnergy implements EnergyFunction {
         return ffParams;
     }
     
+    public ForcefieldEnergy getFFEnergy() {
+    	return ffEnergy;
+    }
     
     
 }
