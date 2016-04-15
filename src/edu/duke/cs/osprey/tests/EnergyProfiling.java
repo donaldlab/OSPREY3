@@ -7,6 +7,7 @@ import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
+import edu.duke.cs.osprey.energy.ParallelEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
@@ -33,13 +34,15 @@ public class EnergyProfiling {
 		cfp.loadData();
 		
 		// configure energy function parallelization
-		MultiTermEnergyFunction.setNumThreads(1);
+		final int NumThreads = 4;
+		MultiTermEnergyFunction.setNumThreads(NumThreads);
 		if (MultiTermEnergyFunction.getNumThreads() > 1) {
 			System.setProperty(
 				"java.util.concurrent.ForkJoinPool.common.parallelism",
 				Integer.toString(MultiTermEnergyFunction.getNumThreads())
 			);
 		}
+		ParallelEnergyFunction.startProcessors(NumThreads);
 		
 		// read a big test protein, the bigger the better
 		Molecule m = PDBFileReader.readPDBFile("2KDC.P.forOsprey.pdb");
@@ -67,8 +70,9 @@ public class EnergyProfiling {
 
 		// build a few different energy functions to test
 		
-		// the shole shebang
-		MultiTermEnergyFunction totalEFunc = new MultiTermEnergyFunction();
+		// the whole shebang
+		//MultiTermEnergyFunction totalEFunc = new MultiTermEnergyFunction();
+		ParallelEnergyFunction totalEFunc = new ParallelEnergyFunction();
 		for (SingleResEnergy term : singleTerms) {
 			totalEFunc.addTerm(term);
 		}
@@ -85,18 +89,24 @@ public class EnergyProfiling {
 		MultiTermEnergyFunction argArgEFunc = makeEFunc(pairTerms.get(getPairIndex(8, 21)), "ARG", "ARG");
 		
 		// BENCHMARKING: each test is run for a certain number of iterations
-		// on Jeff's quad-core laptop, the initial iterations were set to target about 20 seconds of running time
-		// Jeff's laptop used the OpenJDK v8 JVM for these tests
+		// on Jeff's dual-core laptop (with hyper-threading, 2 physical cores, 4 logical cores),
+		// the initial iterations were set to target about 20 seconds of running time
+		// Jeff's laptop used the OpenJDK v1.8.0_72 JVM for these tests
 		// run times should be at least 10 seconds so the JVM can "settle into" its internal optimizations
 		// also, multi-threading was only used on the multi-term energy functions
 		// it doesn't make much sense on the single term tests =P
+		// we should expect a parallel speedup of close to 2x on this machine for 2 threads
+		// for 4 threads, we shouldn't expect much higher than 2x speedup because the extra two "cores"
+		// still share physical resources (like cache). I suspect we're mostly memory-bound here rather
+		// than cpu-bound, so I'd bet a machine with 4 physical cores would do much better on 4 threads.
+		// having more cache should speed things up a lot! =)
 		
 		// notation below (trialN values are operations per second):
 		// nameOfEFunc: numThreads x numIters = [trial1, trial2, trial2]
 		
 		// BEFORE OPTIMIZATIONS (2016-04-13):
 		// total: 1 x 40   = [2.05, 2.05, 2.04]
-		// total: 4 x 40   = [3.63, 3.28, 3.51] (roughly 1.6-1.7x speedup... not great for 4 threads=cores)
+		// total: 4 x 40   = [3.63, 3.28, 3.51] (roughly 1.7x speedup... not great for 4 threads on 2 cores)
 		// ala:   1 x 10e6 = [695400.29, 681174.63, 676398.07]
 		// ala^2: 1 x 5e6  = [283561.50, 273957.20, 277309.58]
 		// arg:   1 x 2e6  = [90464.21, 90977.86, 82896.86]
@@ -105,14 +115,14 @@ public class EnergyProfiling {
 		// ugh... looks like results are inconsistent from day to day
 		// that means I have to re-run the benchmarks every day  ;_;
 		
-		// 2016-04-13: benchmark, no optimizations:
+		// 2016-04-14: benchmark, no optimizations (why is it so much slower than yesterday?!):
 		// total: 1 x 40   = [1.70, 1.76, 1.68] avg=1.69
 		// ala:   1 x 10e6 = [579805.52, 587120.14, 581297.23] avg=582740.95
 		// ala^2: 1 x 5e6  = [236205.30, 232150.31, 233085.37] avg=233813.64
 		// arg:   1 x 2e6  = [74910.83, 75621.81, 76753.69] avg=75762.08
 		// arg^2: 1 x 13e5 = [54733.84, 54349.87, 53882.85] avg=54322.19
 		
-		// 2016-04-13: some work on the simplest test case...
+		// 2016-04-14: some work on the simplest test case...
 		// no optimizations:
 		// ala:   1 x 10e6 = [554713.03, 547208.29, 584274.57]
 		// get rid of array allocations:
@@ -124,20 +134,38 @@ public class EnergyProfiling {
 		// flatten solvation calculations to 1d and premultiply as much as possible
 		// ala:   1 x 10e6 = [681132.80, 698386.85, 684975.58] => pretty noticeable speedup, not bad
 		
-		// 2016-04-13: after all the single-threaded optimizations I can think to do:
+		// 2016-04-14: after all the single-threaded optimizations I can think to do:
 		// total: 1 x 40   = [1.77, 1.72, 1.74] avg=1.74, speedup=1.03x
 		// ala:   1 x 10e6 = [707171.08, 680953.47, 699251.56] avg=695792.04, speedup=1.19x
 		// ala^2: 1 x 5e6  = [253889.23, 255342.68, 268118.92] avg=259116.94, speedup=1.11x
 		// arg:   1 x 2e6  = [84477.03, 81017.39, 82983.05] avg=82825.82, speedup=1.09x
 		// arg^2: 1 x 13e5 = [56371.44, 53888.25, 54721.48] avg=54993.72, speedup=1.01x
 		
+		// 2016-04-15: working on parallelism, today's benchmarks pre-optimization:
+		// total: 1 x 40   = [1.82, 1.80, 1.82]
+		// total: 2 x 40   = [3.31, 3.34, 3.33] => 1.84x speedup, not bad! =)
+		// total: 4 x 40   = [3.52, 3.55, 3.54] => 1.95x speedup, not great =(
+		
+		// 2016-04-15: custom parallel processors, before any thread-local memory optimizations:
+		// total: 2 x 40   = [3.53, 3.56, 3.53] => 1.96x speedup, yeah! =D
+		// total: 4 x 40   = [3.72, 3.73, 3.70] => 2.05x speedup, beats java's generic parallelism by a bit, makes me happy =)
+		
+		// 2016-04-15: ugh... something changed again. Need to redo the benchmarks. What is going on the with the JVM...
+		// total: 1 x 40   = [1.88, 1.86, 1.87]
+		// total: 2 x 40   = [3.58, 3.58, 3.58] => 1.91x speedup
+		// total: 4 x 40   = [3.77, 3.78, 3.80] => 2.02x speedup
+		
+		// 2016-04-15: final post-optimization
+		// total: 2 x 40   = [3.66, 3.63, 3.65] => 1.95x speedup
+		// total: 4 x 40   = [3.81, 3.83, 3.84] => 2.05x speedup
+		
 		// DO EEEEEETTT!!!
 		final int thou = 1000;
-		//profile(totalEFunc, 40, -2937.319131349481300);
+		profile(totalEFunc, 40, -2937.319131349481300);
 		//profile(alaEFunc, 10*thou*thou, -11.682132279211443);
 		//profile(alaAlaEFunc, 5*thou*thou, 0.005174712669362);
 		//profile(argEFunc, 2*thou*thou, -24.665020813395530);
-		profile(argArgEFunc, 1300*thou, 0.082934569827485);
+		//profile(argArgEFunc, 1300*thou, 0.082934569827485);
 	}
 	
 	private static int getPairIndex(int i, int j) {
@@ -204,7 +232,7 @@ public class EnergyProfiling {
 		System.out.println("\n\nStarting energy calculations...");
 		
 		// make sure the energy is correct
-		final double Epsilon = 1e-14;
+		final double Epsilon = 1e-10;
 		double energy = efunc.getEnergy();
 		double err = Math.abs(expectedEnergy - energy);
 		if (err > Epsilon) {
