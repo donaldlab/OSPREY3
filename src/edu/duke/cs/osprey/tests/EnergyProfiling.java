@@ -19,6 +19,7 @@ public class EnergyProfiling {
 	private static final long NSpS = 1000000000;
 	private static final long NSpMS = 1000000;
 
+	@SuppressWarnings("unused")
 	public static void main(String[] args) {
 		
 		// check the cwd
@@ -83,7 +84,7 @@ public class EnergyProfiling {
 		MultiTermEnergyFunction argEFunc = makeEFunc(singleTerms.get(8), "ARG");
 		MultiTermEnergyFunction argArgEFunc = makeEFunc(pairTerms.get(getPairIndex(8, 21)), "ARG", "ARG");
 		
-		// BENCHMARKING: each test is run for a certain number of iterators
+		// BENCHMARKING: each test is run for a certain number of iterations
 		// on Jeff's quad-core laptop, the initial iterations were set to target about 20 seconds of running time
 		// run times should be at least 10 seconds so the JVM can "settle into" its internal optimizations
 		// also, multi-threading was only used on the multi-term energy functions
@@ -101,7 +102,7 @@ public class EnergyProfiling {
 		// arg^2: 1 x 13e5 = [62300.29, 63856.59, 63150.76]
 		
 		// ugh... looks like results are inconsistent from day to day
-		// that's going to make this hard....
+		// that means I have to re-run the benchmarks every day  ;_;
 		
 		// 2016-04-13
 		// no optimizations
@@ -112,14 +113,23 @@ public class EnergyProfiling {
 		// ala:   1 x 10e6 = [591555.65, 570630.89, 591634.03] => no significant change
 		// better handling of hydrogen electrostatics/vdW flags
 		// ala:   1 x 10e6 = [645581.18, 618122.16, 621685.62] => modest but significant speedup
+		// flatten solvation calculations to 1d and premultiply as much as possible
+		// ala:   1 x 10e6 = [681132.80, 698386.85, 684975.58] => pretty noticeable speedup, not bad
+		
+		// after all the single-threaded optimizations I can think to do
+		// total: 1 x 40   = [1.77, 1.72, 1.74]
+		// ala:   1 x 10e6 = [707171.08, 680953.47, 699251.56]
+		// ala^2: 1 x 5e6  = [253889.23, 255342.68, 268118.92]
+		// arg:   1 x 2e6  = [84477.03, 81017.39, 82983.05]
+		// arg^2: 1 x 13e5 = [56371.44, 53888.25, 54721.48]
 		
 		// DO EEEEEETTT!!!
 		final int thou = 1000;
 		//profile(totalEFunc, 40, -2937.319131349481300);
-		profile(alaEFunc, 10*thou*thou, -11.682132279211443);
+		//profile(alaEFunc, 10*thou*thou, -11.682132279211443);
 		//profile(alaAlaEFunc, 5*thou*thou, 0.005174712669362);
 		//profile(argEFunc, 2*thou*thou, -24.665020813395530);
-		//profile(argArgEFunc, 1300*thou, 0.082934569827485);
+		profile(argArgEFunc, 1300*thou, 0.082934569827485);
 	}
 	
 	private static int getPairIndex(int i, int j) {
@@ -184,10 +194,22 @@ public class EnergyProfiling {
 	private static void profile(EnergyFunction efunc, int numIterations, double expectedEnergy) {
 
 		System.out.println("\n\nStarting energy calculations...");
+		
+		// make sure the energy is correct
+		final double Epsilon = 1e-14;
+		double energy = efunc.getEnergy();
+		double err = Math.abs(expectedEnergy - energy);
+		if (err > Epsilon) {
+			throw new Error(String.format(
+				"Energy is wrong, undo that 'optimization'!\n\texpected: %.15f\n\tcalculated: %.15f\n\terr: %.15f",
+				expectedEnergy, energy, err
+			));
+		} else {
+			System.out.println(String.format("Energy is correct\n\terr: %.15f", err));
+		}
 
 		// time the energy calculations
 		long startNs = System.nanoTime();
-		double energy = 0;
 		for (int i=0; i<numIterations; i++) {
 			energy = efunc.getEnergy();
 		}
@@ -197,14 +219,5 @@ public class EnergyProfiling {
 			numIterations, diffNs/NSpMS, energy,
 			(double)numIterations/diffNs*NSpS
 		));
-		
-		// make sure we got it right
-		final double Epsilon = 1e-15;
-		double err = Math.abs(expectedEnergy - energy);
-		if (err > Epsilon) {
-			throw new Error(String.format("Energy is wrong, undo that 'optimization'!\n\terr: %.15f", err));
-		} else {
-			System.out.println(String.format("Energy is correct\n\terr: %.15f", err));
-		}
 	}
 }
