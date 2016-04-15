@@ -86,6 +86,7 @@ public class EnergyProfiling {
 		
 		// BENCHMARKING: each test is run for a certain number of iterations
 		// on Jeff's quad-core laptop, the initial iterations were set to target about 20 seconds of running time
+		// Jeff's laptop used the OpenJDK v8 JVM for these tests
 		// run times should be at least 10 seconds so the JVM can "settle into" its internal optimizations
 		// also, multi-threading was only used on the multi-term energy functions
 		// it doesn't make much sense on the single term tests =P

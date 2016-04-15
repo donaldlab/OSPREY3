@@ -223,6 +223,13 @@ public class ForcefieldEnergy implements Serializable {
 		double equilibriumDistance[] = new double[1];
 		double epsilon[] = new double[1];
 		double smallerArray[];
+		double Amult, Bmult;
+		
+		// calculate vdW multiplier
+		// Note: Bmult = vdwMultiplier^6 and Amult = vdwMultiplier^12
+		Bmult = vdwMultiplier * vdwMultiplier;
+		Bmult = Bmult*Bmult*Bmult;
+		Amult = Bmult*Bmult;
 		
 		if (debug)
 			System.out.println("Starting initializeEVCalculation");
@@ -299,11 +306,12 @@ public class ForcefieldEnergy implements Serializable {
 					}
 					// Aij = (ri+rj)^12 * sqrt(ei*ej) * 0.5
 					// Bij = (ri+rj)^6 * sqrt(ei*ej)
+					
 					halfNonBondedTerms[5*i] = atom1;
 					halfNonBondedTerms[5*i + 1] = atom4;
 					halfNonBondedTerms[5*i + 2] = isHydrogen1 || isHydrogen2 ? 1 : 0;
-					halfNonBondedTerms[5*i + 3] = Aij;
-					halfNonBondedTerms[5*i + 4] = Bij;
+					halfNonBondedTerms[5*i + 3] = Aij*Amult;
+					halfNonBondedTerms[5*i + 4] = Bij*Bmult;
 					numberHalfNonBonded++;
 				}
 			}
@@ -359,8 +367,8 @@ public class ForcefieldEnergy implements Serializable {
 					nonBondedTerms[5*i] = atom1;
 					nonBondedTerms[5*i + 1] = atom2;
 					nonBondedTerms[5*i + 2] = isHydrogen1 || isHydrogen2 ? 1 : 0;
-					nonBondedTerms[5*i + 3] = Aij;
-					nonBondedTerms[5*i + 4] = Bij;
+					nonBondedTerms[5*i + 3] = Aij*Amult;
+					nonBondedTerms[5*i + 4] = Bij*Bmult;
 					numberNonBonded++;
 				}
 			}
@@ -556,7 +564,6 @@ public class ForcefieldEnergy implements Serializable {
 		double rijx, rijy, rijz;
 		double chargei, chargej, Aij, Bij;
 		double coulombFactor, tmpCoulFact;
-		double Amult, Bmult;
 		boolean isHydrogen, isHeavy;
 		
 		// OPTIMIZING: apparently copying these values/references to the stack
@@ -580,11 +587,6 @@ public class ForcefieldEnergy implements Serializable {
 		// shortcuts
 		boolean useHydrogenNeither = !useHydrogenEs && !useHydrogenVdw;
 		
-		// Note: Bmult = vdwMultiplier^6 and Amult = vdwMultiplier^12
-		Bmult = vdwMultiplier * vdwMultiplier;
-		Bmult = Bmult*Bmult*Bmult;
-		Amult = Bmult*Bmult;
-
 		// half non-bonded terms
 		// 1-4 electrostatic terms are scaled by 1/1.2
 		switch(params.forcefld){
@@ -615,8 +617,8 @@ public class ForcefieldEnergy implements Serializable {
 			// read table parts
 			atomi = (int)halfNonBondedTerms[ix5];
 			atomj = (int)halfNonBondedTerms[ix5 + 1];
-			Aij = halfNonBondedTerms[ix5 + 3] * Amult;
-			Bij = halfNonBondedTerms[ix5 + 4] * Bmult;
+			Aij = halfNonBondedTerms[ix5 + 3];
+			Bij = halfNonBondedTerms[ix5 + 4];
 			
 			// read coords
 			atomix3 = atomi * 3;
@@ -627,11 +629,12 @@ public class ForcefieldEnergy implements Serializable {
 
 			// shared math
 			rij2 = rijx * rijx + rijy * rijy + rijz * rijz;
-			rij = Math.sqrt(rij2);
 
 			if (isHeavy || useHydrogenEs) {
 				
 				// electrostatics only math
+				// OPTIMIZATION: something like 35% of our work is spent evaluating sqrts
+				rij = Math.sqrt(rij2);
 				chargei = res1atoms.get(atomi).charge;
 				chargej = res2atoms.get(atomj).charge;
 				tmpCoulFact = coulombFactor;
@@ -654,6 +657,7 @@ public class ForcefieldEnergy implements Serializable {
 		// The full nonbonded electrostatic terms are NOT scaled down by 1/1.2
 		coulombFactor = constCoulomb / (dielectric);
 		
+		// OPTIMIZATION: non-bonded terms usually far outnumber the other terms
 		ix5 = -5;
 		for(int i=0; i<numberNonBonded; i++) {
 			ix5 += 5;
@@ -667,8 +671,8 @@ public class ForcefieldEnergy implements Serializable {
 			// read table parts
 			atomi = (int)nonBondedTerms[ix5];
 			atomj = (int)nonBondedTerms[ix5 + 1];
-			Aij = nonBondedTerms[ix5 + 3] * Amult;
-			Bij = nonBondedTerms[ix5 + 4] * Bmult;
+			Aij = nonBondedTerms[ix5 + 3];
+			Bij = nonBondedTerms[ix5 + 4];
 			
 			// read coords
 			atomix3 = atomi * 3;
@@ -679,11 +683,12 @@ public class ForcefieldEnergy implements Serializable {
 			
 			// shared math
 			rij2 = rijx * rijx + rijy * rijy + rijz * rijz;
-			rij = Math.sqrt( rij2 );
 			
 			if (isHeavy || useHydrogenEs) {
 				
 				// electrostatics only math
+				// OPTIMIZATION: something like 35% of our work is spent evaluating sqrts
+				rij = Math.sqrt( rij2 );
 				chargei = res1atoms.get( atomi ).charge;
 				chargej = res2atoms.get( atomj ).charge;
 				tmpCoulFact = coulombFactor;
@@ -750,6 +755,7 @@ public class ForcefieldEnergy implements Serializable {
 				vdWr_j = solvationTerms[ix8 + 6];
 				alpha_j = solvationTerms[ix8 + 7];
 				
+				// OPTIMIZATION: something like 35% of our work is spent evaluating sqrts
 				rij = Math.sqrt(rij2);
 				Xij = (rij-vdWr_i)/lambda_i;
 				Xji = (rij-vdWr_j)/lambda_j;
