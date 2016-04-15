@@ -104,8 +104,15 @@ public class EnergyProfiling {
 		// ugh... looks like results are inconsistent from day to day
 		// that means I have to re-run the benchmarks every day  ;_;
 		
-		// 2016-04-13
-		// no optimizations
+		// 2016-04-13: benchmark, no optimizations:
+		// total: 1 x 40   = [1.70, 1.76, 1.68] avg=1.69
+		// ala:   1 x 10e6 = [579805.52, 587120.14, 581297.23] avg=582740.95
+		// ala^2: 1 x 5e6  = [236205.30, 232150.31, 233085.37] avg=233813.64
+		// arg:   1 x 2e6  = [74910.83, 75621.81, 76753.69] avg=75762.08
+		// arg^2: 1 x 13e5 = [54733.84, 54349.87, 53882.85] avg=54322.19
+		
+		// 2016-04-13: some work on the simplest test case...
+		// no optimizations:
 		// ala:   1 x 10e6 = [554713.03, 547208.29, 584274.57]
 		// get rid of array allocations:
 		// ala:   1 x 10e6 = [597278.34, 584392.16, 586566.90] => maybe slight improvement? hard to tell
@@ -116,12 +123,12 @@ public class EnergyProfiling {
 		// flatten solvation calculations to 1d and premultiply as much as possible
 		// ala:   1 x 10e6 = [681132.80, 698386.85, 684975.58] => pretty noticeable speedup, not bad
 		
-		// after all the single-threaded optimizations I can think to do
-		// total: 1 x 40   = [1.77, 1.72, 1.74]
-		// ala:   1 x 10e6 = [707171.08, 680953.47, 699251.56]
-		// ala^2: 1 x 5e6  = [253889.23, 255342.68, 268118.92]
-		// arg:   1 x 2e6  = [84477.03, 81017.39, 82983.05]
-		// arg^2: 1 x 13e5 = [56371.44, 53888.25, 54721.48]
+		// 2016-04-13: after all the single-threaded optimizations I can think to do:
+		// total: 1 x 40   = [1.77, 1.72, 1.74] avg=1.74, speedup=1.03x
+		// ala:   1 x 10e6 = [707171.08, 680953.47, 699251.56] avg=695792.04, speedup=1.19x
+		// ala^2: 1 x 5e6  = [253889.23, 255342.68, 268118.92] avg=259116.94, speedup=1.11x
+		// arg:   1 x 2e6  = [84477.03, 81017.39, 82983.05] avg=82825.82, speedup=1.09x
+		// arg^2: 1 x 13e5 = [56371.44, 53888.25, 54721.48] avg=54993.72, speedup=1.01x
 		
 		// DO EEEEEETTT!!!
 		final int thou = 1000;
