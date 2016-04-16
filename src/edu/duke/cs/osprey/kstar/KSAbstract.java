@@ -57,6 +57,7 @@ public abstract class KSAbstract implements KSInterface {
 	public static boolean doCheckPoint = false;
 	protected static long checkpointInterval = 50000;
 
+	public static long begin = 0; // beginning time
 
 	public KSAbstract( ConfigFileParser cfp ) {
 
@@ -170,13 +171,13 @@ public abstract class KSAbstract implements KSInterface {
 	}
 
 
-	public String getSearchProblemName(boolean contSCFlex, int strand, ArrayList<String> seq) {
-		return getSearchProblemName(contSCFlex, strand) + "." + list1D2String(seq, ".");
+	public String getSearchProblemName(boolean contSCFlex, int strand, String pfImpl, ArrayList<String> seq) {
+		return getSearchProblemName(contSCFlex, strand) + "." + pfImpl + "." + list1D2String(seq, ".");
 	}
 
 
-	public String getCheckPointName(boolean contSCFlex, int strand, ArrayList<String> seq) {
-		return getCheckPointName(contSCFlex, strand) + "." + list1D2String(seq, ".") +".checkpoint";
+	public String getCheckPointName(boolean contSCFlex, int strand, String pfImpl, ArrayList<String> seq) {
+		return getCheckPointName(contSCFlex, strand) + "." + pfImpl + "." + list1D2String(seq, ".") +".checkpoint";
 	}
 
 
@@ -330,8 +331,8 @@ public abstract class KSAbstract implements KSInterface {
 		String panSeqSPName = getSearchProblemName(contSCFlex, strand);
 		SearchProblem panSeqSP = name2SP.get(panSeqSPName);
 
-		String seqSPName = getSearchProblemName(contSCFlex, strand, seq);
-		String cpName = getCheckPointName(contSCFlex, strand, seq);
+		String seqSPName = getSearchProblemName(contSCFlex, strand, pfImpl, seq);
+		String cpName = getCheckPointName(contSCFlex, strand, pfImpl, seq);
 
 		if( (ans = name2PF.get(seqSPName)) != null ) return ans;
 		if( doCheckPoint && (ans = deSerializePF(seqSPName, cpName, contSCFlex)) != null ) return ans;
@@ -620,22 +621,6 @@ public abstract class KSAbstract implements KSInterface {
 						+"or increase the value of epsilon." );
 			}
 		}
-
-		/*
-		pf = calc.getPF(Strand.COMPLEX);
-		if( doCheckPoint && pf.getEpsilonStatus() == EApproxReached.FALSE ) {
-			// serialize complex
-			name2PF.remove(pf.getSearchProblemName());
-			calc.serializePFs();
-			calc.deleteSeqFromFile( pf.getSequence(), getCheckPointFilePath() );
-			calc.printSummary( getCheckPointFilePath() );
-		}
-
-		else if( calc.getEpsilonStatus() == EApproxReached.TRUE ) {
-			calc.printSummary( getOputputFilePath() );
-			calc.deleteCheckPointFile(Strand.COMPLEX);
-		}
-		*/
 		
 		if( doCheckPoint ) {
 			pf = calc.getPF(Strand.COMPLEX);

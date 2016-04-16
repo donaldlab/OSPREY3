@@ -28,7 +28,7 @@ public class KSConfQ extends Thread implements Serializable {
 	// upper bound partition function
 	private BigDecimal qDagger = BigDecimal.ZERO;
 
-	LinkedHashSet<ArrayList<Integer>> q = null;
+	private LinkedHashSet<ArrayList<Integer>> q = null;
 	private int qCap = (int)Math.pow(2, 20);
 	private int origQCap = 0;
 	private boolean confsExhausted = false;
@@ -183,7 +183,7 @@ public class KSConfQ extends Thread implements Serializable {
 		
 		if(nullify) {
 			confSearch = null;
-			q.clear();
+			q = null;
 			tail = null;
 		}
 	}

@@ -54,7 +54,7 @@ public class KStarCalculator {
 		PFAbstract.waitUntilCapacity = cfp.getParams().getBool("pFuncQWait", false);
 
 		PFAbstract.eMinMethod = cfp.getParams().getValue("eMinMethod", "ccd");
-		PFAbstract.setCFGImpl(cfp.getParams().getValue("pFuncMethod", PFNew02.getImpl()));
+		PFAbstract.setCFGImpl(cfp.getParams().getValue("pFuncMethod", new PFNew02().getImpl()));
 		PFAbstract.setStabilityThresh( cfp.getParams().getDouble("pFuncStabThresh", 0) );
 		PFAbstract.setConfsThreadBuffer( cfp.getParams().getInt("pFuncConfsThreadBuffer", 4) );
 		PFAbstract.setNumFibers( cfp.getParams().getInt("pFuncFibers", 1) );

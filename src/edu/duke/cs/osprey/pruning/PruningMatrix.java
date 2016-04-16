@@ -142,10 +142,12 @@ public class PruningMatrix extends TupleMatrix<Boolean> implements Serializable 
 	}
 
 
-	public int getNumUnprunedRCsAtPosForAA( ConfSpace confSpace, int pos, String AAType ) {
+	public int getNumRCsAtPosForAA( ConfSpace confSpace, int pos, String AAType, boolean usePruned ) {
 		int numRCs = 0;
 
-		for(int RCNum : unprunedRCsAtPos(pos)) {
+		ArrayList<Integer> rcsAtPos = usePruned ? prunedRCsAtPos(pos) : unprunedRCsAtPos(pos);
+		
+		for(int RCNum : rcsAtPos) {
 			if(confSpace.posFlex.get(pos).RCs.get(RCNum).AAType.equalsIgnoreCase(AAType)){
 				numRCs++;
 			}

@@ -66,12 +66,12 @@ public class KSImplKAStar extends KSAbstract {
 									if(contSCFlex) {
 										// do upper bound k* calc
 										if(strand == Strand.COMPLEX) { flex = false; pfImpl = PFAbstract.getCFGImpl(); }
-										else { flex = true; pfImpl = PFnew00.getImpl(); }
+										else { flex = true; pfImpl = new PFnew00().getImpl(); }
 									}
 
 									else {
 										// do lower bound k* calc
-										if(strand == Strand.COMPLEX) { flex = true; pfImpl = PFnew00.getImpl(); }
+										if(strand == Strand.COMPLEX) { flex = true; pfImpl = new PFnew00().getImpl(); }
 										else { flex = false; pfImpl = PFAbstract.getCFGImpl(); }
 									}
 
@@ -103,22 +103,23 @@ public class KSImplKAStar extends KSAbstract {
 	@Override
 	public void run() {
 
-		long begin = System.currentTimeMillis();
-		int completed = 0;
+		begin = System.currentTimeMillis();
+
+		int numOutput = 0;
 
 		if(useTightBounds)
-			completed = runTB();
+			numOutput = runTB();
 
 		else
-			completed = runLB();
+			numOutput = runLB();
 
-		System.out.println("\ncompleted: " + completed + " numExpanded: " + KAStarNode.getNumExpanded() 
-		+ " numPruned: " + KAStarNode.getNumPruned()
-		+ " numSubSeqs: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSubSeqs()
-		+ " numSeqs: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs());
-
-		System.out.println("K* running time: " + (System.currentTimeMillis()-begin)/1000 + " seconds\n");
+		System.out.println("\nseqsCompleted: " + KAStarNode.getNumLeavesCompleted() 
+			+ " seqsCreated: " + KAStarNode.getNumLeavesCreated()
+			+ " seqsPossible: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs()
+			+ " seqsInOutput: " + numOutput);
 		
+		System.out.println("K* running time: " + (System.currentTimeMillis()-begin)/1000 + " seconds\n");
+
 		abortPFs();
 	}
 
@@ -141,6 +142,9 @@ public class KSImplKAStar extends KSAbstract {
 				best = tree.poll() ) {
 
 			if( best.isFullyProcessed() ) {
+
+				best.checkConsistency(best);
+
 				best.lb.printSummary( getOputputFilePath() );
 				completed++;
 				continue;

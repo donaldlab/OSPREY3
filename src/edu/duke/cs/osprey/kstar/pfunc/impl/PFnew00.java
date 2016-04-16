@@ -20,6 +20,10 @@ public class PFnew00 extends PFTrad implements Serializable {
 
 	protected BigInteger enumeratedConfs = BigInteger.ZERO;
 
+	public PFnew00() {
+		super();
+	}
+	
 	public PFnew00( int strand, ArrayList<String> sequence, ArrayList<Integer> flexResIndexes, 
 			String checkPointPath, String searchProblemName, 
 			ConfigFileParser cfp, SearchProblem panSeqSP ) {
@@ -102,7 +106,7 @@ public class PFnew00 extends PFTrad implements Serializable {
 	}
 
 
-	public static String getImpl() {
+	public String getImpl() {
 		return "new00";
 	}
 }

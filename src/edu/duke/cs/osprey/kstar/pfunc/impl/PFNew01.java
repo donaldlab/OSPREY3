@@ -24,6 +24,10 @@ public class PFNew01 extends PFAbstract implements Serializable {
 
 	protected KSConfQ confs = null;
 
+	public PFNew01() {
+		super();
+	}
+	
 	public PFNew01( int strand, ArrayList<String> sequence, ArrayList<Integer> flexResIndexes, 
 			String checkPointPath, String searchProblemName, 
 			ConfigFileParser cfp, SearchProblem panSeqSP ) {
@@ -178,10 +182,11 @@ public class PFNew01 extends PFAbstract implements Serializable {
 
 	protected void accumulate( KSConf conf ) {
 
-		double E = 0;
-
+		double E = isFullyDefined() ? 
+				sp.minimizedEnergy(conf.getConfArray()) : conf.getEnergyBound();
+		
 		// we do not have a lock when minimizing	
-		conf.setEnergy( sp.minimizedEnergy(conf.getConfArray()) );
+		conf.setEnergy( E );
 
 		// we need a current snapshot of qDagger, so we lock here
 		synchronized( confs.qLock ) {
@@ -199,7 +204,7 @@ public class PFNew01 extends PFAbstract implements Serializable {
 			updateQPrime();
 			
 			// negative values of effective esilon are disallowed
-			if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0 ) {
+			if( (effectiveEpsilon = computeEffectiveEpsilonNew()) < 0 ) {
 
 				eAppx = EApproxReached.NOT_POSSIBLE;
 
@@ -233,7 +238,7 @@ public class PFNew01 extends PFAbstract implements Serializable {
 	}
 
 
-	protected double computeEffectiveEpsilon() {
+	protected double computeEffectiveEpsilonNew() {
 
 		BigDecimal qPrimePStar = qPrime.add(pStar);
 
@@ -268,12 +273,12 @@ public class PFNew01 extends PFAbstract implements Serializable {
 	}
 
 
-	public BigDecimal getUpperBound() {
+	public BigDecimal getQStarUpperBound() {
 		if( eAppx == EApproxReached.TRUE ) return getQStar();
 
 		synchronized( confs.qLock ) {
 			updateQPrime();
-			return (qStar.add(qPrime)).add(confs.getQDagger());
+			return ((qStar.add(qPrime)).add(confs.getQDagger())).add(pStar);
 		}
 	}
 
@@ -301,7 +306,7 @@ public class PFNew01 extends PFAbstract implements Serializable {
 	}
 
 
-	public static String getImpl() {
+	public String getImpl() {
 		return "new01";
 	}
 }

@@ -29,7 +29,7 @@ public class KSCalc {
 		this.seqID = seqID;
 		this.strand2PF = pfs;
 	}
-
+	
 
 	public PFAbstract getPF(int strand) {
 		return strand2PF.get(strand);
@@ -38,19 +38,29 @@ public class KSCalc {
 
 	protected boolean unboundIsStable(PFAbstract wtPF, PFAbstract pf) {
 
-		if(pf.getUpperBound().compareTo( wtPF.getQStar().multiply(PFAbstract.getStabilityThresh()) ) >= 0)
+		if(pf.getQStarUpperBound().compareTo( wtPF.getQStar().multiply(PFAbstract.getStabilityThresh()) ) >= 0)
 			return true;
 
 		return false;
 	}
 
+	
+	protected boolean doingKAStar() {
+		
+		for( PFAbstract pf : strand2PF.values() ) {
+			if(pf.getImpl().compareToIgnoreCase(PFAbstract.getCFGImpl()) != 0) return true;
+		}
+		
+		return false;
+	}
+	
 
 	public EApproxReached getEpsilonStatus() {
 
 		PFAbstract pl = strand2PF.get(Strand.COMPLEX);
 		PFAbstract p = strand2PF.get(Strand.PROTEIN);
 		PFAbstract l = strand2PF.get(Strand.LIGAND);
-
+		
 		if(pl.getEpsilonStatus() == EApproxReached.NOT_POSSIBLE 
 				|| p.getEpsilonStatus() == EApproxReached.NOT_POSSIBLE 
 				|| l.getEpsilonStatus() == EApproxReached.NOT_POSSIBLE) 
@@ -68,27 +78,42 @@ public class KSCalc {
 		return EApproxReached.FALSE;
 	}
 
+	
+	public boolean canContinue() {
+		
+		if( getEpsilonStatus() == EApproxReached.NOT_POSSIBLE 
+				|| getEpsilonStatus() == EApproxReached.NOT_STABLE )
+			return false;
+		
+		return true;
+	}
+	
 
 	public void runPF(PFAbstract pf, PFAbstract wtPF, boolean complete, boolean stabilityCheck) {
-
+		
+		if( pf.getEpsilonStatus() != EApproxReached.FALSE ) return;
+		
 		// this method shoudl only be called directly for non-complex strands
 		if( pf.getRunState() == RunState.NOTSTARTED ) {
-			System.out.println("\nInitializing partition function for " + KSAbstract.list1D2String(pf.getSequence(), " "));
+			System.out.println("\n" + pf.getImpl() + ": Initializing partition function for " + KSAbstract.list1D2String(pf.getSequence(), " "));
 			pf.start();
 		}
 
 		if( pf.getEpsilonStatus() == EApproxReached.FALSE ) {
 			if(complete) {
-				System.out.println("\nComputing partition function for " + KSAbstract.list1D2String(pf.getSequence(), " ") + "\n");
+				System.out.println("\n" + pf.getImpl() + ": Computing partition function for " + KSAbstract.list1D2String(pf.getSequence(), " "));
 				pf.runToCompletion();
 			}
 
 			else {
-				System.out.println("\nResuming partition function for " + KSAbstract.list1D2String(pf.getSequence(), " ") + "\n");
+				System.out.println("\n" + pf.getImpl() + ": Resuming partition function for " + KSAbstract.list1D2String(pf.getSequence(), " "));
 				pf.runSlice(KSAbstract.checkpointInterval);
 			}
 		}
 
+		if( pf.getEpsilonStatus() != EApproxReached.FALSE )
+			System.out.println("\n" + pf.getImpl() + ": Completed partition function for " + KSAbstract.list1D2String(pf.getSequence(), " ") + "\n");
+		
 		if( getEpsilonStatus() == EApproxReached.NOT_POSSIBLE ) return;
 
 		if( stabilityCheck && !unboundIsStable(wtPF, pf) ) {
@@ -187,30 +212,36 @@ public class KSCalc {
 		PFAbstract p = getPF(Strand.PROTEIN);
 		PFAbstract l = getPF(Strand.LIGAND);
 
+		if( doingKAStar() ) {
+			// can easily get clashes for rigid rotamers
+			if( (pl.getQStarUpperBound().multiply(p.getQStar()).multiply(l.getQStar())).compareTo(BigDecimal.ZERO) == 0 )
+				return Double.POSITIVE_INFINITY;
+		}
+		
 		double score = 0.0;
 
 		ExpFunction e = new ExpFunction();
 
 		if( l.getQStar().compareTo(BigDecimal.ZERO) == 0 && 
 				p.getQStar().compareTo(BigDecimal.ZERO) == 0 && 
-				pl.getQStar().compareTo(BigDecimal.ZERO) == 0 )
-			return 0.0;
+				pl.getQStarUpperBound().compareTo(BigDecimal.ZERO) == 0 )
+			score = 0.0;
 
 		else if( l.getQStar().compareTo(BigDecimal.ZERO) == 0 || 
 				p.getQStar().compareTo(BigDecimal.ZERO) == 0 ) {
 			
-			if(pl.getQStar().compareTo(BigDecimal.ZERO) != 0)
+			if(pl.getQStarUpperBound().compareTo(BigDecimal.ZERO) != 0)
 				score = Double.POSITIVE_INFINITY;
 			
 			else
-				return 0.0;
+				score = 0.0;
 		}
 
-		else if( pl.getQStar().compareTo(BigDecimal.ZERO) == 0 )
+		else if( pl.getQStarUpperBound().compareTo(BigDecimal.ZERO) == 0 )
 			score = Double.NEGATIVE_INFINITY;
 
 		else
-			score = e.log10(pl.getQStar()) - e.log10(p.getQStar()) - e.log10(l.getQStar());
+			score = e.log10(pl.getQStarUpperBound()) - e.log10(p.getQStar()) - e.log10(l.getQStar());
 
 		return score;
 	}
@@ -218,11 +249,13 @@ public class KSCalc {
 
 	private static void printOutputHeader( PrintStream out ) {
 
+		out.print("Time (sec)");
+		out.print("\t");
 		out.print("Seq ID");
 		out.print("\t");
 		out.print("Sequence");
 		out.print("\t");
-		out.print("K* Score");
+		out.print("K* Score (Log10)");
 		out.print("\t");
 		out.print("Total # Confs.");
 		out.print("\t");
@@ -271,6 +304,9 @@ public class KSCalc {
 			
 			PrintStream out = new PrintStream(new FileOutputStream(outFile, true));
 
+			out.print( (System.currentTimeMillis()-KSAbstract.begin)/1000 );
+			
+			out.print("\t");
 			out.print(seqID);
 
 			out.print("\t");

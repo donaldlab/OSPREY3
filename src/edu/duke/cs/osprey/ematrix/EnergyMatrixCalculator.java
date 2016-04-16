@@ -5,6 +5,7 @@
 package edu.duke.cs.osprey.ematrix;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
@@ -14,6 +15,7 @@ import edu.duke.cs.osprey.handlempi.MPISlaveTask;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Residue;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 /**
  *
@@ -171,16 +173,42 @@ public class EnergyMatrixCalculator {
         if(doEPIC){
             if(res.length==1)//intra+shell energy
                 epicMat.oneBody.set( res[0], (ArrayList<EPoly>) calcResult );
-            else//pairwise
+            else if(res.length==2)// pairwise
                 epicMat.pairwise.get(res[0]).set( res[1], (ArrayList<ArrayList<EPoly>>) calcResult );
+            else
+            	throw new RuntimeException("ERROR: have not implemented three body terms with EPIC");
         }
         else {
             if(res.length==1)//intra+shell energy
                 emat.oneBody.set( res[0], (ArrayList<Double>) calcResult );
-            else//pairwise
+            else if(res.length==2)//pairwise
                 emat.pairwise.get(res[0]).set( res[1], (ArrayList<ArrayList<Double>>) calcResult );
-        }
-                
+            else if(res.length==3){// threebody	
+            	ArrayList<ArrayList<ArrayList<Double>>> threeBody = (ArrayList<ArrayList<ArrayList<Double>>>)calcResult;
+            	
+            	for(int rc0 = 0; rc0 < threeBody.size(); ++rc0 ) {
+            		ArrayList<ArrayList<Double>> indexPos1 = threeBody.get(rc0);
+            		
+            		for(int rc1 = 0; rc1 < indexPos1.size(); ++rc1 ) {
+            			ArrayList<Double> indexPos2 = indexPos1.get(rc1);
+            			
+            			for(int rc2 = 0; rc2 < indexPos2.size(); ++rc2) {
+            				double threeBodyE = threeBody.get(rc0).get(rc1).get(rc2);
+            				
+            				// subtract out pairwise energies, which have already been set, from this RC
+            				double pairWiseESum = emat.getPairwise(res[0], rc0, res[1], rc1);
+            				pairWiseESum += emat.getPairwise(res[0], rc0, res[2], rc2);
+            				pairWiseESum += emat.getPairwise(res[1], rc1, res[2], rc2);
+            				
+            				RCTuple triple = new RCTuple( new ArrayList<>(Arrays.asList(res[0], res[1], res[2])), 
+            						new ArrayList<>(Arrays.asList(rc0, rc1, rc2)) );
+            				
+            				emat.setHigherOrder(triple, threeBodyE-pairWiseESum);
+            			}
+            		}
+            	}
+            }
+        }         
     }
     
     

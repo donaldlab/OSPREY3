@@ -23,6 +23,11 @@ public class KAStarTree {
 	}
 	
 	
+	public KAStarNode peek() {
+		return pq.peek();
+	}
+	
+	
 	public int size() {
 		return pq.size();
 	}

@@ -22,6 +22,9 @@ public class PFNew04 extends PFNew03 implements Serializable {
 	ArrayList<ServerInterface> serverInterfaces = new ArrayList<>();
 	ArrayList<KSConf> unProcessedConfs = new ArrayList<>();
 
+	public PFNew04() {
+		super();
+	}
 
 	public PFNew04( int strand, ArrayList<String> sequence, ArrayList<Integer> flexResIndexes, 
 			String checkPointPath, String searchProblemName, 
@@ -210,7 +213,7 @@ public class PFNew04 extends PFNew03 implements Serializable {
 	}
 	
 	
-	public static String getImpl() {
+	public String getImpl() {
 		return "new04";
 	}
 

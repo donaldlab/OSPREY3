@@ -3,6 +3,8 @@ package edu.duke.cs.osprey.kstar;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -18,7 +20,8 @@ public class AllowedSeqs {
 	private int dist;
 	private int strand;
 	private int maxSequences = (int)Math.pow(2, 28);
-	ArrayList<ArrayList<String>> allowedSeqs = null;
+	private ArrayList<ArrayList<String>> allowedSeqs = null;
+	private LinkedHashMap<ArrayList<String>, Integer> allowedSeq2Index = null;
 	ArrayList<HashSet<ArrayList<String>>> allowedSubSeqs = null;
 
 	public AllowedSeqs( int strand, DEEPerSettings dset, 
@@ -266,53 +269,6 @@ public class AllowedSeqs {
 
 		return allowedSubSeqs;
 	}
-
-
-	public ArrayList<HashSet<ArrayList<String>>> getStrandSubSeqList( 
-			AllowedSeqs p, AllowedSeqs l ) {
-
-		if( strand != Strand.COMPLEX )
-			throw new RuntimeException("ERROR: this version of the method "
-					+ "should only be called for the COMPLEX strand");
-
-		if( allowedSubSeqs == null ) {
-
-			allowedSubSeqs = new ArrayList<>();
-
-			// create arraylist for all depths, including the last. this is because
-			// p and l already contain the last depth
-			// depth 0 is empty
-			for( int depth = 0; depth <= getSequenceLength(); ++depth ) {
-				allowedSubSeqs.add( new HashSet<ArrayList<String>>() );
-			}
-
-			for( int depthP = 1; depthP <= p.getStrandSubSeqsMaxDepth(); ++depthP ) {
-
-				for( ArrayList<String> subSeqP : p.getStrandSubSeqsAtDepth(depthP) ) {
-
-					for( int depthL = 1; depthL <= l.getStrandSubSeqsMaxDepth(); ++depthL ) {
-
-						for( ArrayList<String> subSeqL : l.getStrandSubSeqsAtDepth(depthL) ) {
-
-							if( p.getDistFromWT(subSeqP) + l.getDistFromWT(subSeqL) <= dist ) {
-
-								ArrayList<String> tmpSubSeq = new ArrayList<>();
-
-								tmpSubSeq.addAll(subSeqP);
-								tmpSubSeq.addAll(subSeqL);
-
-								// add complex subsequence
-								if( !allowedSubSeqs.get(tmpSubSeq.size()).contains(tmpSubSeq) ) 
-									allowedSubSeqs.get(tmpSubSeq.size()).add(tmpSubSeq);
-							}
-						}		
-					}
-				}
-			}
-		}
-
-		return allowedSubSeqs;
-	}
 	
 	
 	public ArrayList<HashSet<ArrayList<String>>> getStrandSubSeqList2( 
@@ -359,7 +315,7 @@ public class AllowedSeqs {
 				}
 			}
 		}
-
+		
 		return allowedSubSeqs;
 	}
 
@@ -457,6 +413,19 @@ public class AllowedSeqs {
 	public ArrayList<ArrayList<String>> getStrandSeqList() {
 		return allowedSeqs;
 	}
+	
+	
+	public int getPosOfSeq( ArrayList<String> seq ) {
+		
+		if( allowedSeq2Index == null ) {
+			allowedSeq2Index = new LinkedHashMap<>();
+			
+			for( int index = 0; index < allowedSeqs.size(); ++index )
+				allowedSeq2Index.put(allowedSeqs.get(index), index);
+		}
+			
+		return allowedSeq2Index.get(seq);
+	}
 
 
 	public ArrayList<String> getStrandSeqAtPos( int index ) {
@@ -507,7 +476,8 @@ public class AllowedSeqs {
 
 		buffer.trimToSize();
 
-		HashSet<ArrayList<String>> output = new HashSet<>();
+		// linked hashset to preserve order
+		LinkedHashSet<ArrayList<String>> output = new LinkedHashSet<>();
 
 		if(dist > 0)
 			generatePermutations( input, output, buffer, 0, 0 );
@@ -527,7 +497,7 @@ public class AllowedSeqs {
 
 
 	private void generatePermutations( ArrayList<ArrayList<String>> input, 
-			HashSet<ArrayList<String>> output, ArrayList<String> current, 
+			LinkedHashSet<ArrayList<String>> output, ArrayList<String> current, 
 			int depth, int diff ) {
 
 		if( output.size() >= maxSequences )

@@ -71,6 +71,7 @@ public class PositionConfSpace implements Serializable {
         for(String AAType : allowedAAs){
             int numDihedrals = templateLib.numDihedralsForResType(AAType);
             
+            // AAO
             if(AAType.equalsIgnoreCase("HIS")) {
             	throw new RuntimeException("ERROR: HIS AA type is not currently supported. Try HID or HIE.");
             }

@@ -23,6 +23,10 @@ public class PFNew02 extends PFNew01 implements Serializable {
 	private ArrayList<SearchProblem> sps = new ArrayList<>();
 	private ArrayList<KSConf> partialQConfs = new ArrayList<>();
 
+	public PFNew02() {
+		super();
+	}
+	
 	public PFNew02( int strand, ArrayList<String> sequence, ArrayList<Integer> flexResIndexes, 
 			String checkPointPath, String searchProblemName, 
 			ConfigFileParser cfp, SearchProblem panSeqSP ) {
@@ -136,7 +140,13 @@ public class PFNew02 extends PFNew01 implements Serializable {
 		if( !isMinimized ) {
 			// we do not have a lock when minimizing
 			indexes.parallelStream().forEach( i -> {
-				partialQConfs.get(i).setEnergy( sps.get(i).minimizedEnergy(partialQConfs.get(i).getConfArray()) );
+				
+				KSConf conf = partialQConfs.get(i);
+				
+				double E = isFullyDefined() ? 
+						sps.get(i).minimizedEnergy( conf.getConfArray() ) : conf.getEnergyBound();
+				
+				conf.setEnergy( E );
 			});
 		}
 
@@ -160,7 +170,7 @@ public class PFNew02 extends PFNew01 implements Serializable {
 				updateQPrime();
 
 				// negative values of effective epsilon are disallowed
-				if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0 ) {
+				if( (effectiveEpsilon = computeEffectiveEpsilonNew()) < 0 ) {
 					eAppx = EApproxReached.NOT_POSSIBLE;
 					return;
 				}
@@ -185,7 +195,7 @@ public class PFNew02 extends PFNew01 implements Serializable {
 	}
 
 
-	public static String getImpl() {
+	public String getImpl() {
 		return "new02";
 	}
 

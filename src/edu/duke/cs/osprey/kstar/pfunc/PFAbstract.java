@@ -38,7 +38,7 @@ public abstract class PFAbstract implements Serializable {
 	protected RunState runState = RunState.NOTSTARTED;
 
 	protected ArrayList<String> sequence;
-	protected static String pFuncCFGImpl = PFTrad.getImpl();
+	protected static String pFuncCFGImpl = new PFTrad().getImpl();
 	public static String eMinMethod = "ccd";
 	protected static ArrayList<String> serverList = new ArrayList<>();
 	protected static int threadConfsBuffer = 8;
@@ -73,6 +73,7 @@ public abstract class PFAbstract implements Serializable {
 	protected ArrayList<Integer> flexResIndexes;
 	protected SearchProblem panSeqSP = null;
 	protected PruningControl pc = null;
+	private boolean isFullyDefined = true;
 
 	protected BigDecimal qStar = BigDecimal.ZERO;
 	protected BigDecimal qPrime = BigDecimal.ZERO;
@@ -91,6 +92,8 @@ public abstract class PFAbstract implements Serializable {
 
 	protected PriorityQueue<KSConf> topConfsPQ = null;
 
+	protected PFAbstract() {}
+
 	protected PFAbstract( int strand, ArrayList<String> sequence, ArrayList<Integer> flexResIndexes, 
 			String checkPointPath, String searchProblemName, 
 			ConfigFileParser cfp, SearchProblem panSeqSP ) {
@@ -102,20 +105,21 @@ public abstract class PFAbstract implements Serializable {
 		this.panSeqSP = panSeqSP;
 		this.strand = strand;
 		this.sp = createSingleSeqSP(panSeqSP.contSCFlex, strand, sequence, flexResIndexes, true);
+		this.isFullyDefined = sp.confSpace.numPos == panSeqSP.confSpace.numPos ? true : false;
 		this.cfp = cfp;
 
 		Comparator<KSConf> comparator = new KSConf(new ArrayList<>(), 0.0).new KSConfMinEComparator();
 		topConfsPQ = new PriorityQueue<KSConf>(getNumTopConfsToSave(), comparator);
 	}
-	
-	
-	protected boolean isFullyDefined() {
-		return sp.confSpace.numPos == panSeqSP.confSpace.numPos;
+
+
+	public boolean isFullyDefined() {
+		return isFullyDefined;
 	}
-	
+
 
 	protected BigDecimal productUndefinedRots() {
-		
+
 		BigDecimal ans = BigDecimal.ONE;
 
 		// get unassigned residue positions
@@ -133,28 +137,33 @@ public abstract class PFAbstract implements Serializable {
 
 			for( String AAType : panSeqSP.allowedAAs.get(pos) ) {
 				// get number of unpruned rcs at that level for that AAType
-				int num = panSeqSP.pruneMat.getNumUnprunedRCsAtPosForAA(panSeqSP.confSpace, pos, AAType);
+				int num = panSeqSP.pruneMat.getNumRCsAtPosForAA(panSeqSP.confSpace, pos, AAType, false);
+
+				if(!minimizeProduct)
+					num += panSeqSP.pruneMat.getNumRCsAtPosForAA(panSeqSP.confSpace, pos, AAType, true);
 
 				rcNumAtPos = minimizeProduct ? Math.min(rcNumAtPos, num) : Math.max(rcNumAtPos, num);
 			}
-			
+
 			ans = ans.multiply(BigDecimal.valueOf(rcNumAtPos));
 		}
 
 		return ans;
 	}
-	
-	
+
+
 	protected void adjustQStar() {
 		if(eAppx != EApproxReached.TRUE) return;
-		
+
 		// no undefined positions
 		if(isFullyDefined()) return;
-		
+
 		// don't want to zero out our qstar
-		if(productUndefinedRots().compareTo(BigDecimal.ZERO) == 0) return;
-		
-		qStar = qStar.multiply(productUndefinedRots());
+		BigDecimal product = productUndefinedRots();
+		if(product.compareTo(BigDecimal.ZERO) == 0)
+			return;
+
+		qStar = qStar.multiply(product);
 	}
 
 
@@ -162,7 +171,7 @@ public abstract class PFAbstract implements Serializable {
 		if(isFullyDefined()) {
 			if( usePrunedConfs && canUseTightPStar() ) 
 				return new PStarConfTree(sp);
-			
+
 			return new ConfTree(sp);
 		}
 
@@ -171,34 +180,35 @@ public abstract class PFAbstract implements Serializable {
 			return new KAStarConfTree(sp, panSeqSP, flexResIndexes, usePrunedConfs);
 		}
 	}
-	
-	
+
+
 	public double getConfBound( ConfSearch confSearch, int[] conf, boolean usePrunedConfs ) {
 		double bound = 0;
-		
+
 		if( isFullyDefined() ) {
 			if( usePrunedConfs && canUseTightPStar() )
 				bound = ((PStarConfTree)confSearch).confBound(conf);
-			
+
 			else bound = sp.lowerBound(conf);
 		}
-		
+
 		else
 			bound = ((KAStarConfTree)confSearch).confBound(conf);
-		
+
 		return bound;
 	}
-	
-	
+
+
 	protected boolean canUseTightPStar() {
-		boolean ans = true;
-		
-		if(sp.numConfs(true).compareTo(BigInteger.ZERO) == 0 ||
-				panSeqSP.numConfs(true).compareTo(BigInteger.ZERO) == 0) {
-			ans = false;
-		}
-		
-		return ans;
+
+		boolean singleSeqPrunedConfsExist = sp.numConfs(true).compareTo(BigInteger.ZERO) > 0;
+
+		if( isFullyDefined() )
+			return singleSeqPrunedConfsExist;
+
+		boolean panSeqPrunedConfsExist = panSeqSP.numConfs(true).compareTo(BigInteger.ZERO) > 0;
+
+		return singleSeqPrunedConfsExist && panSeqPrunedConfsExist;
 	}
 
 
@@ -327,20 +337,20 @@ public abstract class PFAbstract implements Serializable {
 
 
 	public BigDecimal getQDagger() {
-		return null;
+		return BigDecimal.ZERO;
 	}
 
 
-	public BigDecimal getLowerBound() {
+	public BigDecimal getQStarLowerBound() {
 		return getQStar();
 	}
 
 
-	public BigDecimal getUpperBound() {
+	public BigDecimal getQStarUpperBound() {
 		if( eAppx == EApproxReached.TRUE ) return getQStar();
 
 		updateQPrime();
-		return qStar.add(qPrime);
+		return (qStar.add(qPrime)).add(pStar);
 	}
 
 
@@ -354,7 +364,7 @@ public abstract class PFAbstract implements Serializable {
 	}
 
 
-	protected double computeEffectiveEpsilon() {
+	protected double computeEffectiveEpsilonTrad() {
 
 		BigDecimal divisor = (qStar.add(qPrime)).add(pStar);
 
@@ -371,37 +381,36 @@ public abstract class PFAbstract implements Serializable {
 
 
 	protected void initPStar() {
-		
+
 		ConfSearch confSearch = getConfTree(true);
 		int conf[];
 
 		if( (conf = confSearch.nextConf()) != null ) {
-			// get approx gmec LB to compute p*
 			setPStar( getConfBound(confSearch, conf, true), true );
 		}
 
 		else
 			throw new RuntimeException("ERROR: cannot set P*");
 	}
-	
-	
+
+
 	private void setPStar( double eLB, boolean usePrunedConfs ) {
-		
+
 		if( usePrunedConfs && canUseTightPStar() ) {
 			setPStarTight(eLB);
 		}
-		
+
 		else
 			setPStarLoose(eLB);
 	}
-	
-	
+
+
 	private void setPStarLoose( double eLB ) {
 		E0 = eLB + getSearchProblem().pruneMat.getPruningInterval();
 		pStar = ( getBoltzmannWeight( E0 )).multiply( new BigDecimal(prunedConfs) );
 	}
-	
-	
+
+
 	private void setPStarTight( double eLB ) {
 		E0 = eLB;
 		pStar = ( getBoltzmannWeight( E0 )).multiply( new BigDecimal(prunedConfs) );
@@ -440,7 +449,7 @@ public abstract class PFAbstract implements Serializable {
 			computeSlice();
 
 			if( eAppx == EApproxReached.NOT_POSSIBLE ) {
-				restart();
+				phase2();
 
 				if( eAppx == EApproxReached.NOT_POSSIBLE ) break;
 
@@ -448,7 +457,7 @@ public abstract class PFAbstract implements Serializable {
 			}
 		}
 
-		if( eAppx == EApproxReached.TRUE && saveTopConfsAsPDB ) writeTopConfs();
+		if( saveTopConfsAsPDB && eAppx == EApproxReached.TRUE ) writeTopConfs();
 
 		if( eAppx != EApproxReached.FALSE ) cleanup();
 
@@ -460,12 +469,13 @@ public abstract class PFAbstract implements Serializable {
 		compute();
 
 		if( eAppx == EApproxReached.NOT_POSSIBLE ) {
-			restart();
+			phase2();
 
-			if( eAppx == EApproxReached.FALSE ) compute();
+			if( eAppx == EApproxReached.FALSE ) 
+				compute();
 		}
 
-		if( eAppx == EApproxReached.TRUE && saveTopConfsAsPDB ) writeTopConfs();
+		if( saveTopConfsAsPDB && eAppx == EApproxReached.TRUE ) writeTopConfs();
 
 		cleanup();
 	}
@@ -480,72 +490,71 @@ public abstract class PFAbstract implements Serializable {
 	abstract protected void iterate() throws Exception;
 
 	protected void restart() {
-		
+		eAppx = EApproxReached.FALSE;
+		printedHeader = false;
+		restarted = true;
+		minimizedConfs = BigInteger.ZERO;
+		minimizingConfs = BigInteger.ZERO;
+		start();
+	}
+
+	protected void phase2() {
+
+		/*
+		 * TODO
+		 * 1) what needs to happen for partially defined sequences?
+		 */
+
 		System.out.println("\nCould not reach target epsilon approximation of " + targetEpsilon + " for sequence: " +
 				KSAbstract.list1D2String(sequence, " "));
 
-		BigDecimal rho = BigDecimal.valueOf(targetEpsilon/(1-targetEpsilon));
-		BigDecimal bE0 = getBoltzmannWeight(E0);
+		if( getEffectiveEpsilon() < 0 ) {
+			// we can never reach epsilon because q* + q' + p* = 0
+			System.out.println("\nCan never reach target epsilon approximation of " + targetEpsilon + " for sequence: " +
+					KSAbstract.list1D2String(sequence, " "));
+			return;
+		}
 
-		double pruningInterval = sp.pruneMat.getPruningInterval();
+		System.out.println("Attempting Phase 2...");
 
-		if( bE0.compareTo(BigDecimal.ZERO) == 0 ) {
-			pruningInterval = 100.0;
-			pc = getPruningControl(pruningInterval); pc.prune();
-			sp.pruneMat.setPruningInterval(pruningInterval);
+		// completely relax pruning
+		double maxPruningInterval = 100;
+		pc = getPruningControl(maxPruningInterval); pc.prune();
+		sp.pruneMat.setPruningInterval(maxPruningInterval);
+
+		setNumUnPruned();
+		setNumPruned(); // needed for p*
+
+		/*
+		// conservative implementation
+		restart();
+		return;
+		*/
+		
+		// shortcut implementation
+		// get new value of epsilon with q' = 0 and reduced p*
+		// MUST call abstract base class version of this method
+		
+		qPrime = BigDecimal.ZERO;
+		
+		initPStar(); // re-calculate p*
+		
+		double effectiveEpsilon = computeEffectiveEpsilonTrad();
+
+		if( getQStar().compareTo(BigDecimal.ZERO) > 0 
+				&& effectiveEpsilon != -1.0 && effectiveEpsilon <= targetEpsilon ) {
+			
+			setEpsilonStatus(EApproxReached.TRUE);
+
+			System.out.println("\nReached target epsilon approximation of " + targetEpsilon + " for sequence: " +
+					KSAbstract.list1D2String(sequence, " "));
+			return;
 		}
 
 		else {
-
-			BigDecimal l = new BigDecimal(prunedConfs).subtract( (qStar.multiply(rho)).divide(bE0, 4) );
-			BigInteger li = l.add(BigDecimal.ONE).toBigInteger();
-			BigInteger pruningTarget = prunedConfs.subtract(li);
-
-			System.out.println("\nOld pruning window: " + pruningInterval);
-			System.out.println("Number of pruned confs.: " + prunedConfs);
-			System.out.println("Pruning target: " + pruningTarget + " confs.");
-
-			// prune until we reach pruning target
-			BigInteger numPruned = BigInteger.ZERO;
-
-			do {
-				pruningInterval = Math.min(pruningInterval + 1.0, 100.0);
-
-				pc = getPruningControl(pruningInterval);
-				pc.prune();
-				sp.pruneMat.setPruningInterval(pruningInterval);
-
-				numPruned = sp.numConfs(true);
-
-				System.out.println("New pruning window: " + pruningInterval);
-				System.out.println("Pruning target: " + pruningTarget + " confs.");
-				System.out.println("Number of pruned confs.: " + numPruned + "\n");
-
-			} while( numPruned.compareTo(pruningTarget) > 0 && pruningInterval < 100.0 );
-
-			if( numPruned.compareTo(pruningTarget) > 0 ) {
-				eAppx = EApproxReached.NOT_POSSIBLE;
-				return;
-			}
+			System.out.println("\nRe-starting K* for sequence" + KSAbstract.list1D2String(sequence, " "));
+			restart();
 		}
-
-		unPrunedConfs = sp.numConfs(false);
-
-		prunedConfs = sp.numConfs(true);
-
-		eAppx = EApproxReached.FALSE;
-
-		printedHeader = false;
-		restarted = true;
-
-		// i should not need to do the next three lines. ask mark for help
-		//minimizedConfsSet.clear();
-		//qStar = BigDecimal.ZERO;
-		minimizedConfs = BigInteger.ZERO;
-
-		minimizingConfs = BigInteger.ZERO;
-		
-		start();
 	}
 
 
@@ -553,7 +562,7 @@ public abstract class PFAbstract implements Serializable {
 		panSeqSP = null;
 		sp = null;
 		pc = null;
-		minimizedConfsSet.clear();
+		minimizedConfsSet = null;
 	}
 
 
@@ -710,6 +719,9 @@ public abstract class PFAbstract implements Serializable {
 	public boolean checkPointExists() {
 		return new File(getCheckPointPath()).exists();
 	}
+
+
+	public abstract String getImpl();
 
 
 	public static String getCFGImpl() {

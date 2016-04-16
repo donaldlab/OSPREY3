@@ -35,51 +35,51 @@ public class KAStarConfTree extends ConfTree implements Serializable, ConfSearch
 	public KAStarConfTree(SearchProblem sp, SearchProblem panSeqSP, 
 			ArrayList<Integer> panSeqPos, boolean usePrunedConfs) {
 		super(sp);
-		
+
 		this.panSeqSP = panSeqSP;
 		mapSeq2PanSeq(panSeqPos);
 		energyLB = panSeqSP.contSCFlex ? true : false;
 		this.usePrunedConfs = usePrunedConfs;
-		
+
 		init(sp, sp.pruneMat);
 	}
 
-    protected void init(SearchProblem sp, PruningMatrix pruneMat) {
-    	unprunedRCsAtPos.clear();
-        
-        //see which RCs are unpruned and thus available for consideration
-        for(int pos=0; pos<numPos; pos++){
-            unprunedRCsAtPos.add(getRCsAtPos(pruneMat, pos));
-        }
-    }
-	
-    
+	protected void init(SearchProblem sp, PruningMatrix pruneMat) {
+		unprunedRCsAtPos.clear();
+
+		//see which RCs are unpruned and thus available for consideration
+		for(int pos=0; pos<numPos; pos++){
+			unprunedRCsAtPos.add(getRCsAtPos(pruneMat, pos));
+		}
+	}
+
+
 	protected void mapSeq2PanSeq(ArrayList<Integer> panSeqPos) {
-		
+
 		seq2PanSeq = new HashMap<>(numPos);
 		panSeq2Seq = new HashMap<>(numPos);
-		
+
 		for(int i = 0; i < numPos; ++i) {
 			seq2PanSeq.put(i, panSeqPos.get(i));
 			panSeq2Seq.put(panSeqPos.get(i), i);
 		}
 	}
-	
-	
+
+
 	protected ArrayList<Integer> getPanSeqPos( RCTuple definedTuple ) {
 		ArrayList<Integer> ans = new ArrayList<>(definedTuple.pos.size());
 		for( int i : definedTuple.pos ) ans.add( seq2PanSeq.get(i) );
 		return ans;
 	}
-	
+
 
 	protected ArrayList<Integer> getUndefinedPos( RCTuple definedTuple ) {
 		ArrayList<Integer> ans = new ArrayList<>(panSeqSP.confSpace.numPos);
-		
+
 		for(int level = 0; level < panSeqSP.confSpace.numPos; ++level) ans.add(level);
 
 		ArrayList<Integer> definedPos = getPanSeqPos(definedTuple);
-		
+
 		// remove defined positions
 		ans.removeAll(definedPos);
 
@@ -124,19 +124,16 @@ public class KAStarConfTree extends ConfTree implements Serializable, ConfSearch
 				ArrayList<Integer> allowedRCs = allowedRCsAtLevel(level2, partialConf, undefinedPos);
 
 				for( int rc2 : allowedRCs ) {
-					
-					if(!panSeqSP.pruneMat.getPairwise(level, rc, level2, rc2)) {
 
-						double interactionE = panSeqSP.getEnergyMatrix().getPairwise(level, rc, level2, rc2);
+					double interactionE = panSeqSP.getEnergyMatrix().getPairwise(level, rc, level2, rc2);
 
-						double higherOrderE = higherOrderContrib(level, rc, level2, rc2, partialConf, undefinedPos);
-						//add higher-order terms that involve rc, rc2, and parts of partialConf
+					double higherOrderE = higherOrderContrib(level, rc, level2, rc2, partialConf, undefinedPos);
+					//add higher-order terms that involve rc, rc2, and parts of partialConf
 
-						interactionE += higherOrderE;
+					interactionE += higherOrderE;
 
-						//besides that only residues in definedTuple or levels below level2
-						levelBestE = energyLB ? Math.min(levelBestE, interactionE) : Math.max(levelBestE, interactionE);
-					}
+					//besides that only residues in definedTuple or levels below level2
+					levelBestE = energyLB ? Math.min(levelBestE, interactionE) : Math.max(levelBestE, interactionE);
 				}
 
 				rcContrib += levelBestE;
@@ -188,19 +185,16 @@ public class KAStarConfTree extends ConfTree implements Serializable, ConfSearch
 
 					RCTuple augTuple = startingTuple.addRC(iPos, rc);
 
-					if( !panSeqSP.pruneMat.isPruned(augTuple) ){
+					double interactionE = htf.getInteraction(iPos, rc);
 
-						double interactionE = htf.getInteraction(iPos, rc);
-
-						//see if need to go up to highers order again...
-						@SuppressWarnings("rawtypes")
-						HigherTupleFinder htf2 = htf.getHigherInteractions(iPos, rc);
-						if(htf2!=null){
-							interactionE += higherOrderContrib(htf2, augTuple, partialConf, undefinedPos);
-						}
-
-						levelBestE = energyLB ? Math.min(levelBestE, interactionE) : Math.max(levelBestE, interactionE);
+					//see if need to go up to highers order again...
+					@SuppressWarnings("rawtypes")
+					HigherTupleFinder htf2 = htf.getHigherInteractions(iPos, rc);
+					if(htf2!=null){
+						interactionE += higherOrderContrib(htf2, augTuple, partialConf, undefinedPos);
 					}
+
+					levelBestE = energyLB ? Math.min(levelBestE, interactionE) : Math.max(levelBestE, interactionE);
 				}
 
 				contrib += levelBestE;//add up contributions from different interacting positions iPos
@@ -224,7 +218,7 @@ public class KAStarConfTree extends ConfTree implements Serializable, ConfSearch
 
 
 	protected double scoreConf(int[] partialConf){
-		
+
 		if(traditionalScore) {
 			RCTuple definedTuple = new RCTuple(partialConf);
 
@@ -261,13 +255,13 @@ public class KAStarConfTree extends ConfTree implements Serializable, ConfSearch
 			throw new RuntimeException("Advanced A* scoring methods not implemented yet!");
 		}
 	}
-	
-	
+
+
 	public double confBound(int[] partialConf) {
 		return scoreConf(partialConf);
 	}
-	
-	
+
+
 	ArrayList<Integer> getRCsAtPos(PruningMatrix pruneMat, int pos) {
 		return usePrunedConfs ? pruneMat.prunedRCsAtPos(pos) : pruneMat.unprunedRCsAtPos(pos);
 	}

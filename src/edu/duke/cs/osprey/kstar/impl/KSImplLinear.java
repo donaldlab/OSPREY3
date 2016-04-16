@@ -83,7 +83,7 @@ public class KSImplLinear extends KSAbstract {
 		if(strand2AllowedSeqs == null)
 			throw new RuntimeException("ERROR: call init() method on this object before invoking run()");
 
-		long begin = System.currentTimeMillis();
+		begin = System.currentTimeMillis();
 
 		if(doCheckPoint)
 			runRR();
@@ -170,7 +170,7 @@ public class KSImplLinear extends KSAbstract {
 
 				if( !seqSet.contains(seq) ) continue;
 
-				System.out.println("\nResuming K* for sequence " + i + ": " + list1D2String(seq, " ") + "\n");
+				System.out.println("\nResuming K* for sequence " + i + "/" + (numSeqs-1) + ": " + list1D2String(seq, " ") + "\n");
 
 				// get sequences
 				strandSeqs = getStrandStringsAtPos(i);

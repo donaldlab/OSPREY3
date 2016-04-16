@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.IntStream;
 
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
@@ -15,7 +16,8 @@ import edu.duke.cs.osprey.kstar.pfunc.impl.PFnew00;
 
 /*
  * TODO
- * 1) only do upper bound stability check for depth 1
+ * 1) only do upper bound stability check for depth 1?
+ * 2) am i re-computing unbound pfs for tight bound leaf?
  */
 
 public class KAStarNode {
@@ -26,10 +28,12 @@ public class KAStarNode {
 	private static int numCreated = 0;
 	private static int numExpanded = 0;
 	private static int numPruned = 0;
-	public static int numProcessed = 0;
+	public static int numLeavesCreated = 0;
+	public static int numLeavesCompleted = 0;
 
 	public KSCalc ub;
 	public KSCalc lb;
+	protected double plbScore; //parent lower bound
 	protected double lbScore;
 	protected double ubScore;
 	protected boolean scoreNeedsRefinement;
@@ -47,14 +51,20 @@ public class KAStarNode {
 	public KAStarNode( KSCalc lb, KSCalc ub, boolean scoreNeedsRefinement ) {
 		this.lb = lb;
 		this.ub = ub;
-		lbScore = Double.MIN_VALUE;
-		ubScore = Double.MAX_VALUE;
+		plbScore = Double.NEGATIVE_INFINITY;
+		lbScore = Double.NEGATIVE_INFINITY;
+		ubScore = Double.POSITIVE_INFINITY;
 		this.scoreNeedsRefinement = scoreNeedsRefinement;
 	}
 
 
-	public static int getNumProcessed() {
-		return numProcessed;
+	public static int getNumLeavesCreated() {
+		return numLeavesCreated;
+	}
+	
+	
+	public static int getNumLeavesCompleted() {
+		return numLeavesCompleted;
 	}
 
 
@@ -74,7 +84,7 @@ public class KAStarNode {
 
 
 	// only expand if scoreNeedsRefinement
-	public ArrayList<KAStarNode> expand(boolean useTightBounds) {
+	public ArrayList<KAStarNode> expand( boolean useTightBounds ) {
 
 		ArrayList<KAStarNode> children = null;
 
@@ -173,7 +183,8 @@ public class KAStarNode {
 
 		if(children.size() > 0) {
 
-			computeScores(children);
+			// computeScoresSimple(children);
+			computeScoresParallel(children);
 
 			// remove children whose upper bound epsilon values are not false
 			for( Iterator<KAStarNode> iterator = children.iterator(); iterator.hasNext(); ) {
@@ -189,7 +200,7 @@ public class KAStarNode {
 						if( pf.getEpsilonStatus() == EApproxReached.NOT_POSSIBLE && pf.getNumUnPruned().compareTo(BigInteger.ZERO) != 0 ) {
 							System.out.println("ERROR: " + KSAbstract.list1D2String( pf.getSequence(), " " ) + " is wrong!!!");
 						}
-						
+
 						if( pf.getEpsilonStatus() == EApproxReached.NOT_STABLE || 
 								pf.getNumUnPruned().compareTo(BigInteger.ZERO) == 0 ) {
 
@@ -199,11 +210,14 @@ public class KAStarNode {
 								pruneSequences(seq, strand2, nextDepths.get(strand2));
 							}
 						}
-
 					}
 
 					// epsilon is not going to be true, since we do not compute complex
 					// epsilon cannot be not possible or not stable
+					iterator.remove();
+				}
+
+				else if( !child.scoreNeedsRefinement() && !child.lb.canContinue() ) {
 					iterator.remove();
 				}
 			}
@@ -227,7 +241,7 @@ public class KAStarNode {
 	}
 
 
-	private void computeScores(ArrayList<KAStarNode> children) {
+	protected void computeScoresSimple(ArrayList<KAStarNode> children) {
 
 		if(children.size() == 0) return;
 
@@ -267,12 +281,16 @@ public class KAStarNode {
 					child.ub.runPF(child.ub.getPF(strand), wt.getPF(strand), true, true);
 				}
 			}
-
-			if(child.ub.getEpsilonStatus() != EApproxReached.FALSE)
+			
+			if(child.ub.getEpsilonStatus() != EApproxReached.FALSE) {
+				PFAbstract.suppressOutput = false;
 				return;
+			}
 
 			child.lb.run(wt, true, false);
 			child.lbScore = -1.0 * child.lb.getKStarScoreLog10();
+
+			checkConsistency(child);
 
 			PFAbstract.suppressOutput = false;
 		}
@@ -282,10 +300,109 @@ public class KAStarNode {
 
 			// we process leaf nodes as streams (in the complex case, at least)
 			child.lb.run(wt, false, true);
+			
+			if( !child.lb.canContinue() ) return; // epsilon is not possible or not stable
+			
+			if( child.lb.getEpsilonStatus() == EApproxReached.TRUE ) numLeavesCompleted++;
+			
 			child.lbScore = -1.0 * child.lb.getKStarScoreLog10();
 
 			KSAbstract.doCheckPoint = false;
 		}
+	}
+	
+
+	private class CalcParams {
+		int strand; boolean complete; boolean stabilityCheck;
+		public CalcParams( int strand, boolean complete, boolean stabilityCheck ) {
+			this.strand = strand; this.complete = complete; this.stabilityCheck = stabilityCheck;
+		}
+	}
+
+
+	protected void computeScoresParallel( ArrayList<KAStarNode> children ) {
+
+		if( children.size() == 0 ) return;
+
+		if( children.get(0).scoreNeedsRefinement() ) {
+			PFAbstract.suppressOutput = true;
+
+			// get upper bound protein and ligands
+			ArrayList<KSCalc> calcs = new ArrayList<>();
+			ArrayList<CalcParams> params = new ArrayList<>();
+
+			for( int strand : Arrays.asList(Strand.LIGAND, Strand.PROTEIN) ) {
+				ArrayList<KSCalc> ans = getCalcs4Strand( children, false, strand );
+				for(KSCalc calc : ans) {
+					calcs.add(calc);
+					params.add(new CalcParams(strand, true, true));
+				}
+			}
+			// run all pfs
+			IntStream.range(0, calcs.size()).parallel().forEach(i -> {
+				KSCalc calc = calcs.get(i);
+				CalcParams param = params.get(i);
+				calc.runPF(calc.getPF(param.strand), wt.getPF(param.strand), param.complete, param.stabilityCheck);
+			});
+
+			// clear calcs, params
+			calcs.clear();
+			params.clear();
+
+			ArrayList<KAStarNode> children2 = new ArrayList<>();
+
+			// select viable children
+			// retain viable children for pruning
+			for( KAStarNode child : children ) {
+				if(child.ub.getEpsilonStatus() == EApproxReached.FALSE)
+					children2.add(child);
+			}
+
+			// for viable children, run all pfs
+			for( int strand : Arrays.asList(Strand.LIGAND, Strand.PROTEIN, Strand.COMPLEX) ) {
+				ArrayList<KSCalc> ans = getCalcs4Strand( children2, true, strand );
+				for(KSCalc calc : ans) {
+					calcs.add(calc);
+					params.add(new CalcParams(strand, true, false));
+				}
+			}
+			IntStream.range(0, calcs.size()).parallel().forEach(i -> {
+				KSCalc calc = calcs.get(i);
+				CalcParams param = params.get(i);
+				calc.runPF(calc.getPF(param.strand), wt.getPF(param.strand), param.complete, param.stabilityCheck);
+			});
+
+			// set scores for surviving children
+			for( KAStarNode child : children2 ) {
+				child.lbScore = -1.0 * child.lb.getKStarScoreLog10();
+
+				checkConsistency(child);
+			}
+
+			PFAbstract.suppressOutput = false;
+		}
+
+		else {
+			for( KAStarNode child : children ) 
+				computeScore(child);
+		}
+
+	}
+
+
+	private ArrayList<KSCalc> getCalcs4Strand( ArrayList<KAStarNode> children, boolean lb, int strand ) {
+
+		// get minimal set of kscalcs that covers all desired pfs 
+		HashMap<ArrayList<String>, KSCalc> seq2KSCalc = new HashMap<>();
+
+		for( KAStarNode child : children ) {
+			KSCalc calc = lb ? child.lb : child.ub;
+			PFAbstract pf = calc.getPF(strand);
+			seq2KSCalc.put(pf.getSequence(), calc);
+		}
+
+		ArrayList<KSCalc> calcs = new ArrayList<>(seq2KSCalc.values());
+		return calcs;
 	}
 
 
@@ -318,11 +435,11 @@ public class KAStarNode {
 		ArrayList<ArrayList<String>> strandSeqs = new ArrayList<>(Arrays.asList(null, null, null));
 		// lower bound pf values
 		ArrayList<Boolean> lbContSCFlexVals = new ArrayList<>(Arrays.asList(false, false, true));
-		ArrayList<String> lbPFImplVals = new ArrayList<>(Arrays.asList(PFAbstract.getCFGImpl(), PFAbstract.getCFGImpl(), PFnew00.getImpl()));
+		ArrayList<String> lbPFImplVals = new ArrayList<>(Arrays.asList(PFAbstract.getCFGImpl(), PFAbstract.getCFGImpl(), new PFnew00().getImpl()));
 
 		// upper bound pf values
 		ArrayList<Boolean> ubContSCFlexVals = new ArrayList<>(Arrays.asList(true, true, false));
-		ArrayList<String> ubPFImplVals = new ArrayList<>(Arrays.asList(PFnew00.getImpl(), PFnew00.getImpl(), PFAbstract.getCFGImpl()));
+		ArrayList<String> ubPFImplVals = new ArrayList<>(Arrays.asList(new PFnew00().getImpl(), new PFnew00().getImpl(), PFAbstract.getCFGImpl()));
 
 		// minimized pf values
 		ArrayList<Boolean> tightContSCFlexVals = new ArrayList<>(Arrays.asList(true, true, true));
@@ -356,30 +473,25 @@ public class KAStarNode {
 
 					// create KUStar node with lower and upper bounds
 					ans.add( new KAStarNode( new KSCalc(numCreated, lbPFs), new KSCalc(numCreated, ubPFs), childScoreNeedsRefinement() ) );
+					ans.get(ans.size()-1).plbScore = this.lbScore;
 				}
 
 				else if( useTightBounds ) {
 					// create a leaf node; we don't need upper or lower bounds ;we only need the minimized partition 
 					// function our search problems exist, so we need only delete the lb, ub pfs from the table
-					ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Strand.LIGAND, 
-							Strand.PROTEIN, Strand.COMPLEX));
-
-					for(int strand : strands) {
-
-						boolean contSCFlex = tightContSCFlexVals.get(strand);
-						ArrayList<String> seq = strandSeqs.get(strand);
-
-						String spName = ksObj.getSearchProblemName(contSCFlex, strand, seq);
-						ksObj.removeFromMap(spName, true, true);
-					}
-
+					
 					ConcurrentHashMap<Integer, PFAbstract> tightPFs = ksObj.createPFs4Seqs(strandSeqs, tightContSCFlexVals, tightPFImplVals);
 
+					// assign sequence number from allowedSequences obj
+					AllowedSeqs complexSeqs = ksObj.strand2AllowedSeqs.get(Strand.COMPLEX);
+					int seqID = complexSeqs.getPosOfSeq(tightPFs.get(Strand.COMPLEX).getSequence());
+					
 					// create new KUStar node with tight score
-					ans.add( new KAStarNode( new KSCalc(numCreated, tightPFs), null, childScoreNeedsRefinement() ) );
+					ans.add( new KAStarNode( new KSCalc(seqID, tightPFs), null, childScoreNeedsRefinement() ) );
+					ans.get(ans.size()-1).plbScore = this.lbScore;
 
 					// processed nodes are those whose confs will be minimized
-					numProcessed++;
+					numLeavesCreated++;
 				}
 
 				else
@@ -400,6 +512,11 @@ public class KAStarNode {
 
 	public boolean scoreNeedsRefinement() {
 		return scoreNeedsRefinement;
+	}
+
+
+	public double getParentLBScore() {
+		return plbScore;
 	}
 
 
@@ -431,6 +548,18 @@ public class KAStarNode {
 	}
 
 
+	public void checkConsistency(KAStarNode node) {
+		// score must be > lb
+		double nodeLB = node.getLBScore(), parentLB = node.getParentLBScore();
+		
+		if(nodeLB == Double.NEGATIVE_INFINITY)
+			return;
+
+		if( parentLB > nodeLB ) 
+			throw new RuntimeException("ERROR: parentLB: " + parentLB + " must be <= nodeLB: " + nodeLB);
+	}
+	
+	
 	private boolean childScoreNeedsRefinement() {
 		if( !isFullyDefined() ) return true;
 
