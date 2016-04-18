@@ -83,15 +83,6 @@ public class ParallelEnergyFunction implements EnergyFunction {
 			isRunning = true;
 			while (isRunning) {
 				
-				// wait until we get work
-				// but check the isRunning flag every second or so
-				try {
-					sync.waitForWork(1000);
-				} catch (InterruptedException ex) {
-					// something wants us to stop, so exit this thread
-					break;
-				}
-				
 				// is there any work to do?
 				if (hasWork) {
 					
@@ -110,6 +101,20 @@ public class ParallelEnergyFunction implements EnergyFunction {
 					hasWork = false;
 					
 					sync.finishedWork();
+					
+					// NOTE: after syncing, someone could have given us more work, so we have to check again
+					if (hasWork) {
+						continue;
+					}
+				}
+				
+				// wait until we get more work
+				// but check the isRunning flag every second or so
+				try {
+					sync.waitForWork(1000);
+				} catch (InterruptedException ex) {
+					// something wants us to stop, so exit this thread
+					break;
 				}
 			}
 		}

@@ -34,7 +34,7 @@ public class EnergyProfiling {
 		cfp.loadData();
 		
 		// configure energy function parallelization
-		final int NumThreads = 4;
+		final int NumThreads = 1;
 		MultiTermEnergyFunction.setNumThreads(NumThreads);
 		ParallelEnergyFunction.startProcessors(NumThreads);
 		
@@ -158,10 +158,9 @@ public class EnergyProfiling {
 		
 		// 2016-04-18: added energy caching... performance is through the roof! =D
 		// the caches are so fast, we're spending more time in thread synchronization now
-		// total: 1 x 400  = [41.14, 39.49, 39.38] => 21.43x speedup
-		// total: 2 x 400  = [67.52, 67.31, 70.76] => 1.71x over single
-		// total: 4 x 400  = [89.27, 89.18, 92.00] => 23.66x speedup, 2.25x over single)
-		// 4x performance seems a bit fast... is this an outlier?
+		// total: 1 x 400  = [43.91, 41.82, 43.36] => 23.05x speedup over benchmark
+		// total: 2 x 400  = [72.19, 75.89, 78.59] => 1.76x over single
+		// total: 4 x 400  = [96.51, 95.59, 94.88] => 2.22x over single)
 		
 		// DO EEEEEETTT!!!
 		final int thou = 1000;
