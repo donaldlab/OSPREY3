@@ -95,10 +95,11 @@ public class ConfSpace implements Serializable {
      * @param moveableStrands ... ? 
      * @param freeBBZones ...? 
      * @param ellipses model ellipses
+     * @param standardizeConformation change residue coords to match templates (ie fix bond angles, lengths)
      */
     public ConfSpace(String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, 
             boolean addWT, boolean contSCFlex, DEEPerSettings dset, ArrayList<String[]> moveableStrands, 
-            ArrayList<String[]> freeBBZones, boolean ellipses){
+            ArrayList<String[]> freeBBZones, boolean ellipses, boolean standardizeConformation){
     
     	useEllipses = ellipses;  	
     	
@@ -133,19 +134,18 @@ public class ConfSpace implements Serializable {
             singleResDOFs.add(resDOFs);
         }
         
-        
         //now rigid-body strand motions...
         ArrayList<DegreeOfFreedom> strandDOFs = strandMotionDOFs(moveableStrands,flexibleRes);
         confDOFs.addAll(strandDOFs);
         
         //...and perturbations
         //standardize conformations first since we'll record initial resBBState here
-        standardizeMutatableRes(allowedAAs, flexibleRes);
-
+        if (standardizeConformation) {
+        	standardizeMutatableRes(allowedAAs, flexibleRes);
+        }
+        
         ArrayList<Perturbation> perts = dset.makePerturbations(m);//will make pert block here
         confDOFs.addAll(perts);
-        
-        
         
         //DEBUG!!!!!!!
         //TRYING BFB ON ALL FLEX RES!!!
@@ -158,7 +158,6 @@ public class ConfSpace implements Serializable {
         ArrayList<BBFreeBlock> bfbList = getBBFreeBlocks(freeBBZones,flexibleRes);
         for(BBFreeBlock bfb : bfbList)
             confDOFs.addAll( bfb.getDOFs() );
-        
         
         //OK now make RCs using these DOFs
         for(int pos=0; pos<numPos; pos++){
@@ -180,7 +179,6 @@ public class ConfSpace implements Serializable {
             }
             
         }
-        
         
         //DEBUG!!!
         /*PDBFileWriter.writePDBFile(m, "STRUCT1.pdb");

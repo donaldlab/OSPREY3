@@ -140,7 +140,9 @@ public class ConfigFileParser {
                 dset, moveableStrands, freeBBZones,
                 params.getBool("useEllipses"),
                 params.getBool("useERef"),
-                params.getBool("AddResEntropy") );
+                params.getBool("AddResEntropy"),
+                params.getBool("standardizeConformation")
+        );
     }
     
     
