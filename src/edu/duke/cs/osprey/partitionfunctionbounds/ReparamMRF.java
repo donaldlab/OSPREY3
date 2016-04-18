@@ -43,14 +43,14 @@ public class ReparamMRF {
                 MRFNode node = new MRFNode(pos, unprunedRCs, numNonClamped);
                 nodeList.add(node);
                 numNonClamped++;
-                
+
                 allNodes.add(node);
             } else {
                 //Node is clamped
                 MRFNode node = new MRFNode(pos, unprunedRCs, numClamped);
                 clampedNodeList.add(node);
                 numClamped++;
-                
+
                 allNodes.add(node);
             }
         }
@@ -64,6 +64,44 @@ public class ReparamMRF {
         }
 
         this.emat = new UpdatedEmat(searchProblem.emat, clampedNodeList, interactionGraph);
+    }
+
+    public ReparamMRF(EnergyMatrix aemat, PruningMatrix apruneMat, double eCut) {
+        this.pruneMat = apruneMat;
+
+
+        this.numPos = aemat.numPos();
+
+                //create nodeList
+        int numClamped = 0;
+        int numNonClamped = 0;
+        ArrayList<MRFNode> allNodes = new ArrayList();
+        for (int pos = 0; pos < numPos; pos++) {
+            ArrayList<Integer> unprunedRCs = pruneMat.unprunedRCsAtPos(pos);
+            if (unprunedRCs.size() > 1) {
+                MRFNode node = new MRFNode(pos, unprunedRCs, numNonClamped);
+                nodeList.add(node);
+                numNonClamped++;
+
+                allNodes.add(node);
+            } else {
+                //Node is clamped
+                MRFNode node = new MRFNode(pos, unprunedRCs, numClamped);
+                clampedNodeList.add(node);
+                numClamped++;
+
+                allNodes.add(node);
+            }
+        }
+        
+        //create interaction graph
+        createEnergyInteractionGraph(aemat, eCut, allNodes);
+        createNonClampedInteractionGraph();
+        //create neighborList for each node
+        for (MRFNode node : this.nodeList) {
+            node.neighborList = getNeighbors(node, this.interactionGraph);
+        }
+        this.emat = new UpdatedEmat(aemat, clampedNodeList, interactionGraph);
     }
 
     public ReparamMRF(SearchProblem searchProblem, int[] partialNode, double eCut) {
@@ -89,14 +127,14 @@ public class ReparamMRF {
                 MRFNode node = new MRFNode(pos, unprunedRCs, numNonClamped);
                 nodeList.add(node);
                 numNonClamped++;
-                
+
                 allNodes.add(node);
             } else {
                 //Node is clamped
                 MRFNode node = new MRFNode(pos, unprunedRCs, numClamped);
                 clampedNodeList.add(node);
                 numClamped++;
-                
+
                 allNodes.add(node);
             }
         }
@@ -134,14 +172,14 @@ public class ReparamMRF {
                 MRFNode node = new MRFNode(pos, unprunedRCs, numNonClamped);
                 nodeList.add(node);
                 numNonClamped++;
-                
+
                 allNodes.add(node);
             } else {
                 //Node is clamped
                 MRFNode node = new MRFNode(pos, unprunedRCs, numClamped);
                 clampedNodeList.add(node);
                 numClamped++;
-                
+
                 allNodes.add(node);
             }
         }
@@ -218,8 +256,8 @@ public class ReparamMRF {
                 possibleInteraction++;
             }
         }
-        System.out.println("Markov Random Field has " + countInteraction
-                + " pairs out of " + possibleInteraction + " possible pairs");
+        //System.out.println("Markov Random Field has " + countInteraction
+//        +" pairs out of " + possibleInteraction + " possible pairs");
     }
 
     private ArrayList<MRFNode> getNeighbors(MRFNode node, boolean[][] interactionGraph) {

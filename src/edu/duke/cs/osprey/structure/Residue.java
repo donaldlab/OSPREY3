@@ -478,8 +478,12 @@ public class Residue implements Serializable {
     }
 
     public void setResNum() {
-        String resNum = (this.fullName.split("\\s+")[2]);
-        this.resNum = resNum;
+        if (fullName.length() > 5) {
+            resNum =  ((StringParsing.getToken(fullName.substring(5), 1)));
+        }
+        else {
+            resNum = Integer.toString(indexInMolecule+1);
+        }
     }
 
     public String getResNum() {

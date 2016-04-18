@@ -16,7 +16,7 @@ import java.util.ArrayList;
  * @author hmn5
  */
 public class TRBPSeq {
-
+    
     double logZ = Double.POSITIVE_INFINITY;
 
     //Node list
@@ -24,56 +24,58 @@ public class TRBPSeq {
     //Emat defines the potential functions
     int numNodes;
     int[] numLabelsPerNode;
-
+    
     UpdatedEmat emat;
     //interactionGraph;
     boolean[][] nonClampledInteractionGraph;
-
+    
     TupleMatrix<Double> marginalProbabilies;
 
     //threshold for convergence
     double threshold = 1e-6;
     final int maxIterations = 50;
-
+    
     double constRT = PoissonBoltzmannEnergy.constRT;
-
+    
     double damping = 0.5;
-    int numEdgeProbUpdates = 10;
+    int numEdgeProbUpdates = 15;
 
     //p_e are the edge probabilities over spanning trees
     public double[][] edgeProbabilities;
     double[][][] messages;
-
+    
     double[][] expNormMessages;
     double[][] expNormMarginals;
     boolean dampLog = false;
-
+    
     public ExpFunction ef = new ExpFunction();
-
+    
     double maxChange;
-
+    
     boolean verbose = false;
     boolean printDuringEdgeUpdate = true;
+    boolean useArmijosRule = true;
+    
     public TRBPSeq(ReparamMRF mrf) {
         this.nodeList = mrf.nodeList;
         this.emat = mrf.emat;
         this.nonClampledInteractionGraph = mrf.nonClampedInteractionGraph;
         this.numNodes = nodeList.size();
-
+        
         this.numLabelsPerNode = new int[this.numNodes];
         for (int i = 0; i < this.numNodes; i++) {
             MRFNode node = this.nodeList.get(i);
             numLabelsPerNode[i] = node.labelList.size();
         }
-
+        
         this.edgeProbabilities = initializeEdgeProbabilities(this.nonClampledInteractionGraph);
         this.messages = initializeMessages(1.0);
-
+        
         this.marginalProbabilies = new TupleMatrix(numNodes, numLabelsPerNode, Double.POSITIVE_INFINITY, 0.0);
-
-        runTRBPSeq3();
+        
+        runTRBPSeq5();
     }
-
+    
     private void runTRBPSeq() {
         for (int j = 0; j < numEdgeProbUpdates; j++) {
             computeExpNormals();
@@ -82,7 +84,7 @@ public class TRBPSeq {
                 maxChange = 0;
                 numIter++;
                 double[][][] messagesNPlus1 = updateMessages(this.messages);
-                checkMessages(messagesNPlus1);
+//                checkMessages(messagesNPlus1);
                 this.messages = messagesNPlus1;
                 if (true) {
                     updateMarginals(this.messages);
@@ -95,11 +97,11 @@ public class TRBPSeq {
             }
 //            System.out.println("TRBP took: " + numIter + " iterations");
             updateMarginals(this.messages);
-            checkMarginals();
-//            System.out.println("LogZUB: "+logZ);
+//            checkMarginals();
+            //System.out.println("LogZUB: "+logZ);
 
             double currentlogZ = calcUBLogZ();
-            if (!Double.isNaN(currentlogZ)) {
+            if (!Double.isNaN(currentlogZ) && !Double.isInfinite(currentlogZ)) {
                 this.logZ = Math.min(this.logZ, currentlogZ);
             }
             if (j < numEdgeProbUpdates - 1) {
@@ -109,7 +111,7 @@ public class TRBPSeq {
             }
         }
     }
-
+    
     private void runTRBPSeq2() {
         for (int j = 0; j < numEdgeProbUpdates; j++) {
             computeExpNormals();
@@ -163,7 +165,7 @@ public class TRBPSeq {
             }
         }
     }
-
+    
     private void runTRBPSeq3() {
         double changeBetweenEdgeUpdates = Double.POSITIVE_INFINITY;
         double lastLogZBetweenUpdates = Double.POSITIVE_INFINITY;
@@ -203,7 +205,7 @@ public class TRBPSeq {
         }
         System.out.println("Updated Edge Probabilities " + (numEdgeUpdates - 1) + " times. LogZ UB: " + this.logZ);
     }
-
+    
     private void runTRBPSeq4() {
         double changeBetweenEdgeUpdates = Double.POSITIVE_INFINITY;
         double lastLogZBetweenUpdates = Double.POSITIVE_INFINITY;
@@ -250,6 +252,39 @@ public class TRBPSeq {
         double lastLogZ = Double.POSITIVE_INFINITY;
         int numUpdatesWithinEdgeProb = 0;
         while (changeWithinEdgeUpdate > .01) {
+            double[][][] messagesNPlus1 = updateMessagesSeq(this.messages);
+//                checkMessages(messagesNPlus1);
+            this.messages = messagesNPlus1;
+            updateMarginals(this.messages);
+            double currentlogZ = calcUBLogZ();
+            if (verbose) {
+                System.out.println("    logZ UB: " + currentlogZ);
+            }
+            changeWithinEdgeUpdate = Math.abs(lastLogZ - currentlogZ);
+            lastLogZ = currentlogZ;
+            numUpdatesWithinEdgeProb++;
+        }
+        System.out.println("TRBPS Finished after " + numUpdatesWithinEdgeProb + " iterations   logZUB: " + lastLogZ);
+        this.logZ = lastLogZ;
+    }
+    
+    private void runTRBPSeq5() {
+        double changeBetweenEdgeUpdates = Double.POSITIVE_INFINITY;
+        double lastLogZBetweenUpdates = Double.POSITIVE_INFINITY;
+        int numEdgeUpdates = 0;
+        double[][] edgeProbGradient = this.edgeProbabilities;
+        while (changeBetweenEdgeUpdates > 0.01) {
+            double changeWithinEdgeUpdate = Double.POSITIVE_INFINITY;
+            double lastLogZ = Double.POSITIVE_INFINITY;
+            int numUpdatesWithinEdgeProb = 0;
+            //The first update does not change the initial edge probabilites
+            //That is why we initizliae the edgeProbGradient with the current edge probabilies.
+            //Otherwise, this gradient is a 0-1 vector
+            this.messages = initializeMessages(1.0);
+            updateEdgeProbabilies(edgeProbGradient, numEdgeUpdates + 1, messages);
+            checkEdgeProbabilities();
+            computeExpNormals();
+            while (changeWithinEdgeUpdate > 0.01 || numUpdatesWithinEdgeProb < 50) {
                 double[][][] messagesNPlus1 = updateMessagesSeq(this.messages);
 //                checkMessages(messagesNPlus1);
                 this.messages = messagesNPlus1;
@@ -262,10 +297,36 @@ public class TRBPSeq {
                 lastLogZ = currentlogZ;
                 numUpdatesWithinEdgeProb++;
             }
-        System.out.println("TRBPS Finished after "+numUpdatesWithinEdgeProb+" iterations   logZUB: "+lastLogZ);
-        this.logZ = lastLogZ;
+            System.out.println("Updating Edge Probabilites After " + numEdgeUpdates + " iterations. LogZ UB: " + lastLogZ);
+            this.logZ = Math.min(this.logZ, lastLogZ);
+            changeBetweenEdgeUpdates = Math.abs(lastLogZBetweenUpdates - lastLogZ);
+            lastLogZBetweenUpdates = lastLogZ;
+            MinSpanningTree mst = new MinSpanningTree(getEdgeWeights(), nonClampledInteractionGraph);
+            edgeProbGradient = mst.mstVector;
+            if (changeBetweenEdgeUpdates < 0.01) {
+                changeWithinEdgeUpdate = Double.POSITIVE_INFINITY;
+                while (changeWithinEdgeUpdate > 0.0001) {
+                    double[][][] messagesNPlus1 = updateMessagesSeq(this.messages);
+//                checkMessages(messagesNPlus1);
+                    this.messages = messagesNPlus1;
+                    updateMarginals(this.messages);
+                    double currentlogZ = calcUBLogZ();
+                    if (verbose) {
+                        System.out.println("    logZ UB: " + currentlogZ);
+                    }
+                    changeWithinEdgeUpdate = Math.abs(lastLogZ - currentlogZ);
+                    lastLogZ = currentlogZ;
+                    numUpdatesWithinEdgeProb++;
+                }
+                lastLogZBetweenUpdates = lastLogZ;
+            }
+            
+            numEdgeUpdates++;
+        }
+        this.logZ = lastLogZBetweenUpdates;
+        System.out.println("Updated Edge Probabilities " + (numEdgeUpdates - 1) + " times. LogZ UB: " + this.logZ);
     }
-
+    
     private void computeExpNormals() {
         double[][] expNormMessage = new double[this.numNodes][this.numNodes];
         double[][] expNormMarginal = new double[this.numNodes][this.numNodes];
@@ -295,13 +356,13 @@ public class TRBPSeq {
         this.expNormMessages = expNormMessage;
         this.expNormMarginals = expNormMarginal;
     }
-
+    
     private double[][][] updateMessages(double[][][] previousMessages) {
         double[][][] updatedMessages = CreateMatrix.create3DMsgMat(numNodes, numLabelsPerNode, 0.0);
         double maxChangeMessage = Double.NEGATIVE_INFINITY;
         for (int i = 0; i < this.numNodes; i++) {
             for (int j = 0; j < i; j++) {
-
+                
                 MRFNode nodeI = this.nodeList.get(i);
                 MRFNode nodeJ = this.nodeList.get(j);
                 if (this.nonClampledInteractionGraph[i][j]) {
@@ -361,7 +422,7 @@ public class TRBPSeq {
                         for (int rotIindex = 0; rotIindex < nodeI.labelList.size(); rotIindex++) {
                             MRFLabel rotI = nodeI.labelList.get(rotIindex);
                             MRFLabel rotJ = nodeJ.labelList.get(rotJindex);
-
+                            
                             double pairwiseE = -this.emat.getPairwise(nodeI.nodeNum, rotI.labelNum, nodeJ.nodeNum, rotJ.labelNum);
                             double edgeProbability = getEdgeProbability(i, j);
                             double rotIE = -this.emat.getOneBody(nodeI.nodeNum, rotI.labelNum);
@@ -410,13 +471,13 @@ public class TRBPSeq {
         this.maxChange = maxChangeMessage;
         return updatedMessages;
     }
-
+    
     private double[][][] updateMessagesSeq(double[][][] previousMessages) {
         double[][][] updatedMessages = CreateMatrix.create3DMsgMat(numNodes, numLabelsPerNode, 0.0);
         double maxChangeMessage = Double.NEGATIVE_INFINITY;
         for (int i = 0; i < this.numNodes; i++) {
             for (int j = 0; j < i; j++) {
-
+                
                 MRFNode nodeI = this.nodeList.get(i);
                 MRFNode nodeJ = this.nodeList.get(j);
                 if (this.nonClampledInteractionGraph[i][j]) {
@@ -461,7 +522,7 @@ public class TRBPSeq {
                         }
                         for (int rotIindex = 0; rotIindex < nodeI.labelList.size(); rotIindex++) {
                             updatedMessages[j][i][rotIindex] /= partFuncI2;
-
+                            
                             double prevMessage = previousMessages[j][i][rotIindex];
                             double change = Math.abs(prevMessage - updatedMessages[j][i][rotIindex]);
                             maxChangeMessage = Math.max(change, maxChangeMessage);
@@ -473,10 +534,10 @@ public class TRBPSeq {
                 }
             }
         }
-
+        
         for (int i = this.numNodes - 1; i > -1; i--) {
             for (int j = this.numNodes - 1; j > i; j--) {
-
+                
                 MRFNode nodeI = this.nodeList.get(i);
                 MRFNode nodeJ = this.nodeList.get(j);
                 if (this.nonClampledInteractionGraph[i][j]) {
@@ -532,17 +593,17 @@ public class TRBPSeq {
                 }
             }
         }
-
+        
         this.maxChange = maxChangeMessage;
         return updatedMessages;
     }
-
+    
     private void checkNumericalStability(double[][][] aMessage, int sendingNode, int receivingNode, int rot) {
         if (aMessage[sendingNode][receivingNode][rot] < 1e-100) {
             aMessage[sendingNode][receivingNode][rot] = 1e-100;
         }
     }
-
+    
     private void checkMessages(double[][][] messages) {
         double minMessage = Double.POSITIVE_INFINITY;
         for (int i = 0; i < this.numNodes; i++) {
@@ -560,7 +621,7 @@ public class TRBPSeq {
                 if (Math.abs(1 - sumJ) > 1e-6) {
                     throw new RuntimeException("Messages Not Normalized between node " + nodeI.nodeNum + " and node " + nodeJ.nodeNum);
                 }
-
+                
                 double sumI = 0.0;
                 for (int rotI = 0; rotI < nodeI.labelList.size(); rotI++) {
                     if (messages[j][i][rotI] == 0.0) {
@@ -575,7 +636,7 @@ public class TRBPSeq {
             }
         }
     }
-
+    
     private void updateMarginals(double[][][] messages) {
         //first update node marginals
         for (int i = 0; i < this.numNodes; i++) {
@@ -590,7 +651,7 @@ public class TRBPSeq {
             }
         }
     }
-
+    
     private void updateEdgeMarginal(MRFNode nodeI, MRFNode nodeJ, double[][][] messages) {
         double partFuncOverall = 0.0;
         for (int rotI = 0; rotI < nodeI.labelList.size(); rotI++) {
@@ -606,7 +667,7 @@ public class TRBPSeq {
 //                double marginal = Math.exp(normalized);
                 marginal = marginal * (getProductMessages(nodeI, rotI, nodeJ, messages));
                 marginal = marginal * (getProductMessages(nodeJ, rotJ, nodeI, messages));
-
+                
                 partFuncOverall += marginal;
                 this.marginalProbabilies.setPairwise(nodeI.index, rotI, nodeJ.index, rotJ, marginal);
             }
@@ -619,7 +680,7 @@ public class TRBPSeq {
             }
         }
     }
-
+    
     private void checkMarginals() {
         for (int i = 0; i < this.numNodes; i++) {
             checkNodeMarginal(this.nodeList.get(i));
@@ -628,7 +689,7 @@ public class TRBPSeq {
             }
         }
     }
-
+    
     private void checkNodeMarginal(MRFNode node) {
         double sum = 0.0;
         for (int rot = 0; rot < node.labelList.size(); rot++) {
@@ -642,7 +703,7 @@ public class TRBPSeq {
             System.out.println("Marginal Not Normalized at Node with PosNum: " + node.nodeNum);
         }
     }
-
+    
     private void checkPairwiseMarginal(MRFNode nodeI, MRFNode nodeJ) {
         for (int rotI = 0; rotI < nodeI.labelList.size(); rotI++) {
             double marginal = this.marginalProbabilies.getOneBody(nodeI.index, rotI);
@@ -667,7 +728,7 @@ public class TRBPSeq {
             }
         }
     }
-
+    
     private void updateNodeMarginal(MRFNode node, double[][][] messages) {
         double partFunc = 0.0;
         double expNorm = Double.NEGATIVE_INFINITY;
@@ -691,7 +752,7 @@ public class TRBPSeq {
             this.marginalProbabilies.setOneBody(node.index, rot, unNormalized / partFunc);
         }
     }
-
+    
     private double getProductMessages(MRFNode nodeReceiving, int labelIndex, MRFNode nodeExcluded, double[][][] currentMessages) {
         double product = 1;
         for (MRFNode node : nodeReceiving.neighborList) {
@@ -706,19 +767,19 @@ public class TRBPSeq {
         product = product / (Math.pow(messageNodeExcluded, (1 - probability)));
         return product;
     }
-
+    
     private double getEdgeProbability(int nodeI, int nodeJ) {
         if (nodeI < nodeJ) {
             return this.edgeProbabilities[nodeJ][nodeI];
         }
         return this.edgeProbabilities[nodeI][nodeJ];
     }
-
+    
     private double[][][] initializeMessages(double initVal) {
         if (initVal <= 0) {
             throw new RuntimeException("TRBP ERROR: Initial Message Value Must be Positive");
         }
-
+        
         double[][][] messages = CreateMatrix.create3DMsgMat(numNodes, numLabelsPerNode, initVal);
         //TODO NORMALIZE!!!!!!!!!!!
         for (int i = 0; i < this.numNodes; i++) {
@@ -754,7 +815,7 @@ public class TRBPSeq {
                 }
             }
         }
-
+        
         double[][] edgeProb = new double[this.numNodes][];
         for (int i = 0; i < this.numNodes; i++) {
             //to avoid overcounting, we index between neighbors i,j where j<i
@@ -772,7 +833,7 @@ public class TRBPSeq {
         }
         return edgeProb;
     }
-
+    
     private double getSingleNodeEnthalpy(MRFNode node) {
         double enthalpy = 0.0;
         for (int rot = 0; rot < node.labelList.size(); rot++) {
@@ -782,7 +843,7 @@ public class TRBPSeq {
         }
         return enthalpy;
     }
-
+    
     private double getPairwiseNodeEnthalpy(MRFNode nodeI, MRFNode nodeJ) {
         double enthalpy = 0.0;
         for (int rotI = 0; rotI < nodeI.labelList.size(); rotI++) {
@@ -794,7 +855,7 @@ public class TRBPSeq {
         }
         return enthalpy;
     }
-
+    
     private double getEnthalpy() {
         double enthalpy = 0.0;
         for (int i = 0; i < this.nodeList.size(); i++) {
@@ -809,7 +870,7 @@ public class TRBPSeq {
         }
         return enthalpy;
     }
-
+    
     private double getSingleNodeEntropy(MRFNode node) {
         double entropy = 0.0;
         for (int rot = 0; rot < node.labelList.size(); rot++) {
@@ -820,7 +881,7 @@ public class TRBPSeq {
         }
         return entropy;
     }
-
+    
     private double getMutualInformation(MRFNode nodeI, MRFNode nodeJ) {
         double mutualInf = 0.0;
         for (int rotI = 0; rotI < nodeI.labelList.size(); rotI++) {
@@ -851,7 +912,7 @@ public class TRBPSeq {
         }
         return false;
     }
-
+    
     public double getEntropy() {
         double entropy = 0.0;
         for (int i = 0; i < this.nodeList.size(); i++) {
@@ -867,18 +928,18 @@ public class TRBPSeq {
         }
         return entropy;
     }
-
+    
     private double calcFreeEnergy() {
         double enthalpy = getEnthalpy();
         double entropy = getEntropy();
         double freeEnergy = enthalpy - this.constRT * entropy;
         return freeEnergy;
     }
-
+    
     public double calcUBLogZ() {
         return -(calcFreeEnergy() + this.emat.getConstTerm()) / this.constRT;
     }
-
+    
     double[][] getEdgeWeights() {
         double[][] edgeWeights = new double[this.numNodes][];
         for (int i = 0; i < this.numNodes; i++) {
@@ -894,20 +955,61 @@ public class TRBPSeq {
         }
         return edgeWeights;
     }
-
-    private void updateEdgeProbabilies(double[][] descentDirection, int iteration) {
-        double stepSize = 2.0 / (iteration + 4.0);
-        for (int i = 0; i < this.numNodes; i++) {
-            for (int j = 0; j < i; j++) {
-                this.edgeProbabilities[i][j] = stepSize * descentDirection[i][j] + (1 - stepSize) * edgeProbabilities[i][j];
+    
+    private void updateEdgeProbabilies(double[][] descentDirection, int iteration, double[][][] messages) {
+        if (!useArmijosRule) {
+            double stepSize = 2.0 / (iteration + 4.0);
+            for (int i = 0; i < this.numNodes; i++) {
+                for (int j = 0; j < i; j++) {
+                    this.edgeProbabilities[i][j] = stepSize * descentDirection[i][j] + (1 - stepSize) * edgeProbabilities[i][j];
+                }
+            }
+        } else {
+            double bestStepSize = -1;
+            double objFunc = Double.POSITIVE_INFINITY;
+            double[][] currentEdgeProb = copy2DArray(this.edgeProbabilities);
+            for (double step = 0; step < 1.0; step = step + 0.1) {
+                for (int i = 0; i < this.numNodes; i++) {
+                    for (int j = 0; j < i; j++) {
+                        this.edgeProbabilities[i][j] = step * descentDirection[i][j] + (1 - step) * edgeProbabilities[i][j];
+                        
+                    }
+                }
+                updateMarginals(messages);
+                double objFuncAtStep = calcFreeEnergy();
+                if (objFuncAtStep < objFunc) {
+                    bestStepSize = step;
+                    objFunc = objFuncAtStep;
+                }
+                this.edgeProbabilities = copy2DArray(currentEdgeProb);
+            }
+            if (bestStepSize == -1) {
+                throw new RuntimeException("Free Energy could not be computed for any step size");
+            } else {
+                if (true) {
+                    System.out.println("Best Step Size: " + bestStepSize);
+                }
+                for (int i = 0; i < this.numNodes; i++) {
+                    for (int j = 0; j < i; j++) {
+                        this.edgeProbabilities[i][j] = bestStepSize * descentDirection[i][j] + (1 - bestStepSize) * edgeProbabilities[i][j];
+                    }
+                }
             }
         }
     }
-
+    
+    private double[][] copy2DArray(double[][] original) {
+        double[][] copy = new double[original.length][];
+        for (int i = 0; i < original.length; i++) {
+            copy[i] = original[i].clone();
+        }
+        return copy;
+    }
+    
     public double getLogZ() {
         return this.logZ;
     }
-
+    
     private void checkEdgeProbabilities() {
         for (int i = 0; i < this.numNodes; i++) {
             for (int j = 0; j < i; j++) {

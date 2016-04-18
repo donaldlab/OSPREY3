@@ -17,10 +17,11 @@ import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.partitionfunctionbounds.MapPerturbation;
 import edu.duke.cs.osprey.partitionfunctionbounds.ReparamMRF;
 import edu.duke.cs.osprey.partitionfunctionbounds.SCMF_Clamp;
-import edu.duke.cs.osprey.partitionfunctionbounds.TRBP2;
+import edu.duke.cs.osprey.partitionfunctionbounds.TRBPSeq;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -54,7 +55,8 @@ public class partFuncTree extends AStarTree {
     double constRT = PoissonBoltzmannEnergy.constRT;
 
     boolean useDynamicOrdering = true;
-
+    boolean branchHalfSpace = true;
+    
     Mplp mplp;
 
     boolean verbose = true;
@@ -76,6 +78,10 @@ public class partFuncTree extends AStarTree {
         this.emat = aEmat;
         this.pruneMat = aPruneMat;
 
+        this.lbZ = new BigDecimal("0.0");
+        this.ubZ = new BigDecimal("0.0");
+        this.runningSum = new BigDecimal("0.0");
+        mplp = new Mplp(numPos, aEmat, aPruneMat);
     }
 
     private void init(SearchProblem sp, PruningMatrix aPruneMat, boolean useEPIC) {
@@ -130,6 +136,7 @@ public class partFuncTree extends AStarTree {
                 numConfsEnumerated++;
             }
         }
+        printEffectiveEpsilon();
         if (!isFullyAssigned(curNode)) {
             subtractUpperBound(node);
             //Now update upper bounds
@@ -296,7 +303,7 @@ public class partFuncTree extends AStarTree {
     }
 
     private double scoreNode(partFuncNode node) {
-//        return (this.ef.exp(node.lbLogZ).doubleValue() - this.ef.exp(node.ubLogZ).doubleValue());
+//        return -node.lbLogZ;
         return this.ef.exp(node.lbLogZ).subtract(this.ef.exp(node.ubLogZ)).doubleValue();
 //        return mplp.optimizeMPLP(node.getNodeAssignments(), 1000);
     }
@@ -327,12 +334,33 @@ public class partFuncTree extends AStarTree {
              */
 
 //            double lbLogZ = computePartFunctionEstimate(emat, pruneMat, node.getNodeAssignments(), 10000);
+
             ReparamMRF rMRF = new ReparamMRF(this.emat, this.pruneMat, node.getNodeAssignments(), this.eCut);
-            TRBP2 trbp = new TRBP2(rMRF);
+            //TRBP2 trbp = new TRBP2(rMRF);
+            TRBPSeq trbp = new TRBPSeq(rMRF);
             double ubLogZ2 = trbp.getLogZ();
             return ubLogZ2;
+//            return getUpperBoundMPLP(node);
         }
     }
+    
+    private double getUpperBoundMPLP(partFuncNode node){
+        double lpGMEC = mplp.optimizeMPLP(node.getNodeAssignments(), 1000);
+        BigDecimal boltzmann = this.ef.exp(-lpGMEC/this.constRT);
+        boltzmann = boltzmann.multiply(new BigDecimal(getNumConfsUnderNode(node.getNodeAssignments())));
+        return this.ef.log(boltzmann).doubleValue();
+    }
+    private BigInteger getNumConfsUnderNode(int[] partialConf) {
+        BigInteger numConfs = new BigInteger("1");
+        for (int pos = 0; pos < partialConf.length; pos++) {
+            if (partialConf[pos] == -1) {
+                int numRCs = this.pruneMat.unprunedRCsAtPos(pos).size();
+                numConfs = numConfs.multiply(new BigInteger(Integer.toString(numRCs)));
+            }
+        }
+        return numConfs;
+    }
+
 
     private double computePartFunctionEstimate(EnergyMatrix emat, PruningMatrix pruneMat, int[] partialConf, int numIter) {
         UpdatedPruningMatrix upm = new UpdatedPruningMatrix(pruneMat);
