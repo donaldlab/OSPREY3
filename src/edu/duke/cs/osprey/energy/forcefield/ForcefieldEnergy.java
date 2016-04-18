@@ -23,6 +23,8 @@ public class ForcefieldEnergy implements Serializable {
     boolean isInternal;//true for internal, false for interaction
     
     Residue res1, res2;//res1==res2 if internal energy of res1.  Else this is interaction of res1, res2
+    AtomCache atomCache;
+    double energyCache;
     
     ForcefieldParams params;
         
@@ -71,6 +73,8 @@ public class ForcefieldEnergy implements Serializable {
             isInternal = intra;
             checkResComposition(intra,atoms1,atoms2);//if intra, then make sure all atoms from same res
             //and point res2 to res1, etc
+            atomCache = new AtomCache(res1, res2);
+            energyCache = Double.NaN;
             
             this.params = params;
             
@@ -88,17 +92,6 @@ public class ForcefieldEnergy implements Serializable {
             initializeCalculation(atoms1,atoms2);
 	}
 	
-	public int getNumTerms() {
-		// just to get a sense of the size of the work being done
-		int num = numberNonBonded + numberHalfNonBonded;
-		if (doSolvationE) {
-			num += numberSolvated;
-		}
-		return num;
-	}
-        
-        
-        
         public ForcefieldEnergy(ArrayList<Atom[]> atomPairs, ForcefieldParams params){
             /* Sparse energy function that includes only the electrostatic and VDW interactions between the specified atom pairs
              * Used for SAPE
@@ -106,8 +99,9 @@ public class ForcefieldEnergy implements Serializable {
             
             res1 = atomPairs.get(0)[0].res;
             res2 = atomPairs.get(0)[1].res;
-            
             isInternal = (res1==res2);
+            atomCache = new AtomCache(res1, res2);
+            energyCache = Double.NaN;
             
             //check that all the atom pairs are at the same residue pair (assumed by structure of ForcefieldEnergy)
             for(Atom[] pair : atomPairs){
@@ -133,9 +127,6 @@ public class ForcefieldEnergy implements Serializable {
             
             initializeEVCalculation(pairs14, pairsNonBonded);
 	}
-        
-        
-        
         
         void checkResComposition(boolean intra, ArrayList<Atom> atoms1, ArrayList<Atom> atoms2){
             //set up res1 and res2 and make sure they are defined consistently
@@ -187,6 +178,14 @@ public class ForcefieldEnergy implements Serializable {
             }
         }
 
+	public int getNumTerms() {
+		// just to get a sense of the size of the work being done
+		int num = numberNonBonded + numberHalfNonBonded;
+		if (doSolvationE) {
+			num += numberSolvated;
+		}
+		return num;
+	}
         
         
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -538,7 +537,27 @@ public class ForcefieldEnergy implements Serializable {
 	//Evaluate this energy for the sets of interacting atoms
 	//use the coordinates in res1 and res2
 	//Depending on the flags, different types of energies are included/excluded
-	public double calculateTotalEnergy(){
+	public double calculateTotalEnergy() {
+		
+		int atomix4, atomjx4, atomi, atomj;
+		int ix5, ix8;
+		double rij, rij2, rij6, rij12;
+		double rijx, rijy, rijz;
+		double chargei, chargej, Aij, Bij;
+		double coulombFactor, tmpCoulFact;
+		boolean isHydrogen, isHeavy;
+		
+		
+		//--------------------------------------------
+		// check the cache, should we even compute energy?
+		//--------------------------------------------
+		
+		// did the atoms change?
+		boolean isChanged = atomCache.updateCoords();
+		if (!isChanged) {
+			return energyCache;
+		}
+
 		
 		//--------------------------------------------
 		// compute electrostatics and vdW energies
@@ -558,24 +577,15 @@ public class ForcefieldEnergy implements Serializable {
 		double esEnergy = 0;
 		double vdwEnergy = 0;
 		
-		int atomix3, atomjx3, atomi, atomj;
-		int ix5, ix8;
-		double rij, rij2, rij6, rij12;
-		double rijx, rijy, rijz;
-		double chargei, chargej, Aij, Bij;
-		double coulombFactor, tmpCoulFact;
-		boolean isHydrogen, isHeavy;
-		
 		// OPTIMIZING: apparently copying these values/references to the stack
 		//             gives a small but noticeable performance speedup
 		int numberHalfNonBonded = this.numberHalfNonBonded;
 		double[] halfNonBondedTerms = this.halfNonBondedTerms;
 		int numberNonBonded = this.numberNonBonded;
 		double[] nonBondedTerms = this.nonBondedTerms;
-		ArrayList<Atom> res1atoms = this.res1.atoms;
-		ArrayList<Atom> res2atoms = this.res2.atoms;
-		double[] res1coords = this.res1.coords;
-		double[] res2coords = this.res2.coords;
+		double[] data = this.atomCache.data;
+		int res1Start = this.atomCache.res1Start;
+		int res2Start = this.atomCache.res2Start;
 		boolean useHydrogenEs = this.useHydrogenEs;
 		boolean useHydrogenVdw = this.useHydrogenVdw;
 		boolean distDepDielect = this.distDepDielect;
@@ -621,11 +631,13 @@ public class ForcefieldEnergy implements Serializable {
 			Bij = halfNonBondedTerms[ix5 + 4];
 			
 			// read coords
-			atomix3 = atomi * 3;
-			atomjx3 = atomj * 3;
-			rijx = res1coords[atomix3] - res2coords[atomjx3];
-			rijy = res1coords[atomix3 + 1] - res2coords[atomjx3 + 1];
-			rijz = res1coords[atomix3 + 2] - res2coords[atomjx3 + 2];
+			atomix4 = atomi * 4;
+			atomjx4 = atomj * 4;
+			rijx = data[res1Start + atomix4] - data[res2Start + atomjx4];
+			rijy = data[res1Start + atomix4 + 1] - data[res2Start + atomjx4 + 1];
+			rijz = data[res1Start + atomix4 + 2] - data[res2Start + atomjx4 + 2];
+			chargei = data[res1Start + atomix4 + 3];
+			chargej = data[res2Start + atomjx4 + 3];
 
 			// shared math
 			rij2 = rijx * rijx + rijy * rijy + rijz * rijz;
@@ -635,8 +647,6 @@ public class ForcefieldEnergy implements Serializable {
 				// electrostatics only math
 				// OPTIMIZATION: something like 35% of our work is spent evaluating sqrts
 				rij = Math.sqrt(rij2);
-				chargei = res1atoms.get(atomi).charge;
-				chargej = res2atoms.get(atomj).charge;
 				tmpCoulFact = coulombFactor;
 				if (distDepDielect) //distance-dependent dielectric
 					tmpCoulFact /= rij;
@@ -675,11 +685,13 @@ public class ForcefieldEnergy implements Serializable {
 			Bij = nonBondedTerms[ix5 + 4];
 			
 			// read coords
-			atomix3 = atomi * 3;
-			atomjx3 = atomj * 3;
-			rijx = res1coords[ atomix3 ] - res2coords[ atomjx3 ];
-			rijy = res1coords[ atomix3 + 1 ] - res2coords[ atomjx3 + 1 ];
-			rijz = res1coords[ atomix3 + 2 ] - res2coords[ atomjx3 + 2 ];
+			atomix4 = atomi * 4;
+			atomjx4 = atomj * 4;
+			rijx = data[res1Start + atomix4] - data[res2Start + atomjx4];
+			rijy = data[res1Start + atomix4 + 1] - data[res2Start + atomjx4 + 1];
+			rijz = data[res1Start + atomix4 + 2] - data[res2Start + atomjx4 + 2];
+			chargei = data[res1Start + atomix4 + 3];
+			chargej = data[res2Start + atomjx4 + 3];
 			
 			// shared math
 			rij2 = rijx * rijx + rijy * rijy + rijz * rijz;
@@ -689,8 +701,6 @@ public class ForcefieldEnergy implements Serializable {
 				// electrostatics only math
 				// OPTIMIZATION: something like 35% of our work is spent evaluating sqrts
 				rij = Math.sqrt( rij2 );
-				chargei = res1atoms.get( atomi ).charge;
-				chargej = res2atoms.get( atomj ).charge;
 				tmpCoulFact = coulombFactor;
 				if (distDepDielect) //distance-dependent dielectric
 					tmpCoulFact /= rij;
@@ -710,9 +720,9 @@ public class ForcefieldEnergy implements Serializable {
 		
 		// not doing solvation? we're done
 		if (!doSolvationE) {
-			double totalEnergy = esEnergy + vdwEnergy;
-			checkEnergy(totalEnergy);
-			return totalEnergy;
+			energyCache = esEnergy + vdwEnergy;
+			checkEnergy(energyCache);
+			return energyCache;
 		}
 		
 		//--------------------------------------------
@@ -738,11 +748,11 @@ public class ForcefieldEnergy implements Serializable {
 			atomj = (int)solvationTerms[ix8 + 4];
 			
 			// compute distance
-			atomix3 = atomi*3;
-			atomjx3 = atomj*3;
-			rijx = res1coords[ atomix3 ] - res2coords[ atomjx3 ];
-			rijy = res1coords[ atomix3 + 1 ] - res2coords[ atomjx3 + 1 ];
-			rijz = res1coords[ atomix3 + 2 ] - res2coords[ atomjx3 + 2 ];
+			atomix4 = atomi * 4;
+			atomjx4 = atomj * 4;
+			rijx = data[res1Start + atomix4] - data[res2Start + atomjx4];
+			rijy = data[res1Start + atomix4 + 1] - data[res2Start + atomjx4 + 1];
+			rijz = data[res1Start + atomix4 + 2] - data[res2Start + atomjx4 + 2];
 			rij2 = rijx * rijx + rijy * rijy + rijz * rijz;
 			
 			if (rij2 < solvCutoff2) {
@@ -767,9 +777,9 @@ public class ForcefieldEnergy implements Serializable {
 		solvEnergy *= solvScale;
 			
 		// finally, we're done
-		double totalEnergy = esEnergy + vdwEnergy + solvEnergy;
-		checkEnergy(totalEnergy);
-		return totalEnergy;
+		energyCache = esEnergy + vdwEnergy + solvEnergy;
+		checkEnergy(energyCache);
+		return energyCache;
 	}
 	
 	private void checkEnergy(double energy) {

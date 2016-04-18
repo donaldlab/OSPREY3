@@ -71,8 +71,8 @@ public class EnergyProfiling {
 		// build a few different energy functions to test
 		
 		// the whole shebang
-		//MultiTermEnergyFunction totalEFunc = new MultiTermEnergyFunction();
-		ParallelEnergyFunction totalEFunc = new ParallelEnergyFunction();
+		MultiTermEnergyFunction totalEFunc = new MultiTermEnergyFunction();
+		//ParallelEnergyFunction totalEFunc = new ParallelEnergyFunction();
 		for (SingleResEnergy term : singleTerms) {
 			totalEFunc.addTerm(term);
 		}
@@ -159,6 +159,16 @@ public class EnergyProfiling {
 		// total: 2 x 40   = [3.66, 3.63, 3.65] => 1.95x speedup
 		// total: 4 x 40   = [3.81, 3.83, 3.84] => 2.05x speedup
 		
+		// 2016-04-18: today's benchmarks, all current optimizations:
+		// total: 1 x 40  = [1.87, 1.87, 1.86]
+		// total: 4 x 40  = [3.82, 3.78, 3.83]
+		
+		// 2016-04-18: added energy caching... performance is through the roof! =D
+		// the caches are so fast, we're losing multi-threading benefits...
+		// total: 1 x 40   = [40.03, 38.14, 38.38] => 20.81x speedup
+		// total: 2 x 40   = [62.30, 61.65, 61.82]
+		// total: 4 x 40   = [69.70, 70.88, 67.78] => 18.23x speedup (1.79x over single)
+		
 		// DO EEEEEETTT!!!
 		final int thou = 1000;
 		profile(totalEFunc, 40, -2937.319131349481300);
@@ -231,20 +241,11 @@ public class EnergyProfiling {
 
 		System.out.println("\n\nStarting energy calculations...");
 		
-		// make sure the energy is correct
-		final double Epsilon = 1e-10;
-		double energy = efunc.getEnergy();
-		double err = Math.abs(expectedEnergy - energy);
-		if (err > Epsilon) {
-			throw new Error(String.format(
-				"Energy is wrong, undo that 'optimization'!\n\texpected: %.15f\n\tcalculated: %.15f\n\terr: %.15f",
-				expectedEnergy, energy, err
-			));
-		} else {
-			System.out.println(String.format("Energy is correct\n\terr: %.15f", err));
-		}
+		// make sure the energy is correct before running the test
+		checkEnergy(expectedEnergy, efunc.getEnergy());
 
 		// time the energy calculations
+		double energy = 0;
 		long startNs = System.nanoTime();
 		for (int i=0; i<numIterations; i++) {
 			energy = efunc.getEnergy();
@@ -255,5 +256,21 @@ public class EnergyProfiling {
 			numIterations, diffNs/NSpMS, energy,
 			(double)numIterations/diffNs*NSpS
 		));
+		
+		// make sure the energy is correct after the test too
+		checkEnergy(expectedEnergy, energy);
+	}
+	
+	private static void checkEnergy(double expected, double observed) {
+		final double Epsilon = 1e-14;
+		double relErr = Math.abs(expected - observed)/expected;
+		if (relErr > Epsilon) {
+			throw new Error(String.format(
+				"Energy is wrong, undo that 'optimization'!\n\texpected: %.15f\n\tcalculated: %.15f\n\trelErr: %.15f",
+				expected, observed, relErr
+			));
+		} else {
+			System.out.println(String.format("Energy is correct\n\trelErr: %.15f", relErr));
+		}
 	}
 }
