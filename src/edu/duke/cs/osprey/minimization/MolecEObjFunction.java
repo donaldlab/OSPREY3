@@ -4,12 +4,17 @@
  */
 package edu.duke.cs.osprey.minimization;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.bbfree.BBFreeDOF;
 import edu.duke.cs.osprey.confspace.ConfSpace;
+import edu.duke.cs.osprey.confspace.PositionConfSpace;
 import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.confspace.RCTuple;
+import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.EllipseCoordDOF;
 import edu.duke.cs.osprey.dof.FreeDihedral;
@@ -18,13 +23,10 @@ import edu.duke.cs.osprey.dof.StrandRotation;
 import edu.duke.cs.osprey.dof.StrandTranslation;
 import edu.duke.cs.osprey.dof.deeper.perts.Backrub;
 import edu.duke.cs.osprey.dof.deeper.perts.Shear;
-import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.ematrix.epic.EPICEnergyFunction;
+import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.structure.Molecule;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
+import edu.duke.cs.osprey.tools.Protractor;
 
 /**
  *
@@ -115,7 +117,34 @@ public class MolecEObjFunction implements ObjectiveFunction {
                 }
             }
         }
+        init(numMinDOFs, DOFBounds);
+    }
+    
+    public MolecEObjFunction(EnergyFunction efunc, ConfSpace confSpace) {
+    	
+        this.efunc = efunc;
+        this.molec = confSpace.m;
         
+        int numMinDOFs = 0;
+        LinkedHashMap<DegreeOfFreedom,double[]> DOFBounds = new LinkedHashMap<>();
+        
+    	// build the DoFs based on the current structure instead of residue conformations
+        for (int i=0; i<confSpace.posFlex.size(); i++) {
+        	PositionConfSpace pos = confSpace.posFlex.get(i);
+        	String aaType = pos.res.template.name;
+        	int numDihedrals = EnvironmentVars.resTemplates.numDihedralsForResType(aaType);
+			for(int j=0; j<numDihedrals; j++) {
+				double chi = Protractor.measureDihedral(pos.res.coords, pos.res.template.getDihedralDefiningAtoms(j));
+				DOFBounds.put(new FreeDihedral(pos.res, j), pos.makeDOFBounds(chi));
+				numMinDOFs++;
+			}
+        }
+        
+        init(numMinDOFs, DOFBounds);
+    }
+    
+    private void init(int numMinDOFs, LinkedHashMap<DegreeOfFreedom,double[]> DOFBounds) {
+    	
         //collect constraints, and apply fixed DOF valuestrue
         DOFs = new ArrayList<>();
         constraints = new DoubleMatrix1D[] 
@@ -151,7 +180,6 @@ public class MolecEObjFunction implements ObjectiveFunction {
             partialEFuncs = ((EPICEnergyFunction)efunc).getDOFPartialEFuncs(DOFs,molec);
         }
     }
-    
     
     
     

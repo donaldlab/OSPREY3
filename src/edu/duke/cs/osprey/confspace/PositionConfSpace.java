@@ -4,6 +4,9 @@
  */
 package edu.duke.cs.osprey.confspace;
 
+import java.io.Serializable;
+import java.util.ArrayList;
+
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleFactory2D;
 import cern.colt.matrix.DoubleMatrix1D;
@@ -16,13 +19,10 @@ import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.EllipseCoordDOF;
 import edu.duke.cs.osprey.dof.MoveableStrand;
-import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.*;
-import java.io.Serializable;
-import java.util.ArrayList;
+import edu.duke.cs.osprey.tools.Protractor;
 
 
 /**
@@ -247,7 +247,12 @@ public class PositionConfSpace implements Serializable {
         }
     }
     
-    
+    public double[] makeDOFBounds(double chi) {
+		return new double[] {
+			chi - PositionConfSpace.dihedFlexInterval,
+			chi + PositionConfSpace.dihedFlexInterval
+		};
+    }
     
     private ArrayList<EllipseCoordDOF> makeEllCoords(boolean useEllipses, double dihValues[], 
             ArrayList<DegreeOfFreedom> dofListForRot){

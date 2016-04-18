@@ -70,65 +70,50 @@ public class Main {
 		// TODO Auto-generated method stub
 		commands = new HashMap<String, Runnable>();
 
-		commands.put("findGMEC",
-				new Runnable()
-		{
+		commands.put("findGMEC", new Runnable() {
 			@Override
 			public void run() {
 				GMECFinder gf = new GMECFinder(cfp);
 				gf.calcGMEC();
 			}
+		});
 
-		}
-				);
-
-		commands.put("calcKStar",
-				new Runnable()
-		{
-
+		commands.put("calcKStar", new Runnable() {
 			@Override
 			public void run() {
 				System.err.println("Feature not implemented in this version.");
 			}
+		});
 
-		}
-				);
-
-		commands.put("RunTests",
-				new Runnable()
-		{
+		commands.put("RunTests", new Runnable() {
 			@Override
 			public void run() {
 				UnitTestSuite.runAllTests();
 			}
+		});
 
-		}
-				);
-
-		commands.put("doCOMETS",
-				new Runnable()
-		{
+		commands.put("doCOMETS", new Runnable() {
 			@Override
 			public void run() {
 				COMETSDoer cd = new COMETSDoer(args);
 				cd.calcBestSequences();
 			}
-
-		}
-				);
-                
-                commands.put("calcLigResE",
-				new Runnable()
-		{
+		});
+		
+		commands.put("calcLigResE", new Runnable() {
 			@Override
 			public void run() {
 				LigandResEnergies lre = new LigandResEnergies(cfp.getParams());
 				lre.printEnergies();
 			}
-
-		}
-				);
-
+		});
+		
+		commands.put("calcEnergy", new Runnable() {
+			@Override
+			public void run() {
+				new EnergyCalculator().run(cfp);
+			}
+		});
 	}
 
 	// TODO: Move these into a test file, and just call it from the test.
