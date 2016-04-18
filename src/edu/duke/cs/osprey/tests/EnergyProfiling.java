@@ -36,12 +36,6 @@ public class EnergyProfiling {
 		// configure energy function parallelization
 		final int NumThreads = 4;
 		MultiTermEnergyFunction.setNumThreads(NumThreads);
-		if (MultiTermEnergyFunction.getNumThreads() > 1) {
-			System.setProperty(
-				"java.util.concurrent.ForkJoinPool.common.parallelism",
-				Integer.toString(MultiTermEnergyFunction.getNumThreads())
-			);
-		}
 		ParallelEnergyFunction.startProcessors(NumThreads);
 		
 		// read a big test protein, the bigger the better
@@ -72,7 +66,6 @@ public class EnergyProfiling {
 		
 		// the whole shebang
 		MultiTermEnergyFunction totalEFunc = new MultiTermEnergyFunction();
-		//ParallelEnergyFunction totalEFunc = new ParallelEnergyFunction();
 		for (SingleResEnergy term : singleTerms) {
 			totalEFunc.addTerm(term);
 		}
@@ -164,14 +157,15 @@ public class EnergyProfiling {
 		// total: 4 x 40  = [3.82, 3.78, 3.83]
 		
 		// 2016-04-18: added energy caching... performance is through the roof! =D
-		// the caches are so fast, we're losing multi-threading benefits...
-		// total: 1 x 40   = [40.03, 38.14, 38.38] => 20.81x speedup
-		// total: 2 x 40   = [62.30, 61.65, 61.82]
-		// total: 4 x 40   = [69.70, 70.88, 67.78] => 18.23x speedup (1.79x over single)
+		// the caches are so fast, we're spending more time in thread synchronization now
+		// total: 1 x 400  = [41.14, 39.49, 39.38] => 21.43x speedup
+		// total: 2 x 400  = [67.52, 67.31, 70.76] => 1.71x over single
+		// total: 4 x 400  = [89.27, 89.18, 92.00] => 23.66x speedup, 2.25x over single)
+		// 4x performance seems a bit fast... is this an outlier?
 		
 		// DO EEEEEETTT!!!
 		final int thou = 1000;
-		profile(totalEFunc, 40, -2937.319131349481300);
+		profile(totalEFunc, 400, -2937.319131349481300);
 		//profile(alaEFunc, 10*thou*thou, -11.682132279211443);
 		//profile(alaAlaEFunc, 5*thou*thou, 0.005174712669362);
 		//profile(argEFunc, 2*thou*thou, -24.665020813395530);
@@ -249,6 +243,9 @@ public class EnergyProfiling {
 		long startNs = System.nanoTime();
 		for (int i=0; i<numIterations; i++) {
 			energy = efunc.getEnergy();
+			
+			// DEBUG
+			//checkEnergy(expectedEnergy, energy);
 		}
 		long diffNs = System.nanoTime() - startNs;
 		

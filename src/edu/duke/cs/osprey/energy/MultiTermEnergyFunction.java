@@ -23,6 +23,8 @@ public class MultiTermEnergyFunction implements EnergyFunction {
     ArrayList<Double> coeffs = new ArrayList<>();
     ArrayList<Double> partialE = new ArrayList<>();
     ArrayList<Integer> indexes = new ArrayList<>();
+    
+    private ParallelEnergyFunction parallelEfunc = null;
 
 
     //Constructor with no terms
@@ -77,8 +79,13 @@ public class MultiTermEnergyFunction implements EnergyFunction {
                         E += coeffs.get(termNum)*termE;
                 }
         } else {
-                indexes.parallelStream().forEach((term) -> partialE.set(term, terms.get(term).getEnergy()*coeffs.get(term)));
-                for(int term = 0; term < indexes.size(); ++term) E += partialE.get(term);
+        	if (!ParallelEnergyFunction.areProcessorsStarted()) {
+        		ParallelEnergyFunction.startProcessors(NUM_THREADS);
+        	}
+        	if (parallelEfunc == null) {
+        		parallelEfunc = new ParallelEnergyFunction(terms, coeffs);
+        	}
+        	E = parallelEfunc.getEnergy();
         }
         
 

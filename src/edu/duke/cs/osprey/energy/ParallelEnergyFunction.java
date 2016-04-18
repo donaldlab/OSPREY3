@@ -128,6 +128,10 @@ public class ParallelEnergyFunction implements EnergyFunction {
 		efunc = null;
 	}
 	
+	public static boolean areProcessorsStarted() {
+		return processors != null;
+	}
+	
 	public static void startProcessors(int numThreads) {
 		processors = new Processor[numThreads];
 		for (int i=0; i<numThreads; i++) {
@@ -143,6 +147,7 @@ public class ParallelEnergyFunction implements EnergyFunction {
 		for (int i=0; i<processors.length; i++) {
 			processors[i].askToStop();
 		}
+		processors = null;
 	}
 	
 	public static void setEFunc(ParallelEnergyFunction val) {
@@ -173,18 +178,9 @@ public class ParallelEnergyFunction implements EnergyFunction {
 	ArrayList<EnergyFunction> terms;
 	ArrayList<Double> coeffs;
 	
-	public ParallelEnergyFunction() {
-		terms = new ArrayList<>();
-		coeffs = new ArrayList<>();
-	}
-	
-	public void addTerm(EnergyFunction efunc) {
-		addTerm(efunc, 1);
-	}
-	
-	public void addTerm(EnergyFunction efunc, double coeff) {
-		terms.add(efunc);
-		coeffs.add(coeff);
+	public ParallelEnergyFunction(ArrayList<EnergyFunction> terms, ArrayList<Double> coeffs) {
+		this.terms = terms;
+		this.coeffs = coeffs;
 	}
 	
 	public ArrayList<EnergyFunction> getTerms() {
