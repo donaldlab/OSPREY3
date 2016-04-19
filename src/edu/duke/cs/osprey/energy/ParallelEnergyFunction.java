@@ -35,6 +35,10 @@ public class ParallelEnergyFunction implements EnergyFunction {
 		
 		public void waitForResults(int timeoutMs)
 		throws InterruptedException {
+			if (counter == processors.length) {
+				// we're already done
+				return;
+			}
 			synchronized (resultsSync) {
 				resultsSync.wait(timeoutMs);
 			}
@@ -180,8 +184,8 @@ public class ParallelEnergyFunction implements EnergyFunction {
 
 	private static final long serialVersionUID = -2789380428939629566L;
 	
-	ArrayList<EnergyFunction> terms;
-	ArrayList<Double> coeffs;
+	private ArrayList<EnergyFunction> terms;
+	private ArrayList<Double> coeffs;
 	
 	public ParallelEnergyFunction(ArrayList<EnergyFunction> terms, ArrayList<Double> coeffs) {
 		this.terms = terms;
