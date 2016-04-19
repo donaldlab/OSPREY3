@@ -25,6 +25,7 @@ import edu.duke.cs.osprey.dof.deeper.perts.Backrub;
 import edu.duke.cs.osprey.dof.deeper.perts.Shear;
 import edu.duke.cs.osprey.ematrix.epic.EPICEnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunction;
+import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Protractor;
 
@@ -144,7 +145,7 @@ public class MolecEObjFunction implements ObjectiveFunction {
     }
     
     private void init(int numMinDOFs, LinkedHashMap<DegreeOfFreedom,double[]> DOFBounds) {
-    	
+        
         //collect constraints, and apply fixed DOF valuestrue
         DOFs = new ArrayList<>();
         constraints = new DoubleMatrix1D[] 
@@ -179,7 +180,15 @@ public class MolecEObjFunction implements ObjectiveFunction {
             //let's make partial energy functions too for speed...
             partialEFuncs = ((EPICEnergyFunction)efunc).getDOFPartialEFuncs(DOFs,molec);
         }
+        
+        // partial funcs sound awesome for CCD performance
+        // let's do that for MultiTermEnergyFunction too
+        else if (efunc instanceof MultiTermEnergyFunction) {
+        	MultiTermEnergyFunction mtefunc = (MultiTermEnergyFunction)efunc;
+        	partialEFuncs = mtefunc.makeDOFPartialEFuncs(DOFs);
+        }
     }
+    
     
     
     
