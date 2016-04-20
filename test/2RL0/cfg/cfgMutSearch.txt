@@ -9,7 +9,7 @@ useDunbrackRotamers false
 ematDir emat.lovell
 deleteEmatDir false
 
-epsilon 0.1
+epsilon 0.9
 useTupExp false
 doMinimize true
 doPerturbations false
@@ -33,11 +33,11 @@ resAllowed1_1 GLY ASP ILE
 resAllowed1_2 THR VAL TYR
 
 pFuncStabThresh 1
-pFuncMethod new02
+pFuncMethod trad
 pFuncThreads 4
 numThreads 4
 eMinMethod hbfgsccd
-kStarMethod linear
+kStarMethod kastar
 kStarUseTightBounds true
 kStarNumSeqs 5
 kStarPreLoadPFs false
