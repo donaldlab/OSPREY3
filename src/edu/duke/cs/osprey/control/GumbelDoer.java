@@ -57,13 +57,13 @@ public class GumbelDoer {
             testSCMF(sp);
 
             UpdatedPruningMatrix upm = new UpdatedPruningMatrix(sp.pruneMat);
-            prune(sp, upm, 10);
+           /* prune(sp, upm, 10);
             if (true) {
                 partFuncTree tree = new partFuncTree(sp.emat, upm);
                 double logZ = tree.computeEpsilonApprox(0.1);
                 System.out.println("Epsilon Approx BB: " + logZ);
             }
-
+            */
             ReparamMRF mrf = new ReparamMRF(sp.emat, upm, 0.0);
 
             TRBPSeq trbp = new TRBPSeq(mrf);

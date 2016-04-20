@@ -9,6 +9,8 @@ import edu.duke.cs.osprey.confspace.TupleMatrix;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.tools.CreateMatrix;
 import edu.duke.cs.osprey.tools.ExpFunction;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 
 /**
@@ -51,10 +53,11 @@ public class TRBPSeq {
     public ExpFunction ef = new ExpFunction();
 
     double maxChange;
+    double averageChange;
 
-    boolean verbose = false;
+    boolean verbose = true;
     boolean printDuringEdgeUpdate = true;
-    boolean useArmijosRule = true;
+    boolean useArmijosRule = false;
 
     public TRBPSeq(ReparamMRF mrf) {
         this.nodeList = mrf.nodeList;
@@ -106,7 +109,7 @@ public class TRBPSeq {
             }
             if (j < numEdgeProbUpdates - 1) {
                 MinSpanningTree mst = new MinSpanningTree(getEdgeWeights(), nonClampledInteractionGraph);
-                double stepSize = getStepSizeParameter(mst.mstVector, j+1, messages);
+                double stepSize = getStepSizeParameter(j + 1);
                 updateEdgeProbabilies(mst.mstVector, stepSize);
                 checkEdgeProbabilities();
             }
@@ -148,7 +151,7 @@ public class TRBPSeq {
                     System.out.println("Updating Edge Probabilities:  ");
                 }
                 MinSpanningTree mst = new MinSpanningTree(getEdgeWeights(), nonClampledInteractionGraph);
-                double stepSize = getStepSizeParameter(mst.mstVector, j+1, messages);
+                double stepSize = getStepSizeParameter(j + 1);
                 updateEdgeProbabilies(mst.mstVector, stepSize);
                 checkEdgeProbabilities();
             } else {
@@ -180,13 +183,13 @@ public class TRBPSeq {
             //The first update does not change the initial edge probabilites
             //That is why we initizliae the edgeProbGradient with the current edge probabilies.
             //Otherwise, this gradient is a 0-1 vector
-            double stepSize = getStepSizeParameter(edgeProbGradient, numEdgeUpdates+1, messages);
+            double stepSize = getStepSizeParameter(numEdgeUpdates + 1);
             updateEdgeProbabilies(edgeProbGradient, stepSize);
-            
+
             checkEdgeProbabilities();
             computeExpNormals();
             this.messages = initializeMessages(1.0);
-            while (changeWithinEdgeUpdate > 0.001) {
+            while (changeWithinEdgeUpdate > 0.01) {
                 double[][][] messagesNPlus1 = updateMessagesSeq(this.messages);
 //                checkMessages(messagesNPlus1);
                 this.messages = messagesNPlus1;
@@ -222,9 +225,9 @@ public class TRBPSeq {
             //The first update does not change the initial edge probabilites
             //That is why we initizliae the edgeProbGradient with the current edge probabilies.
             //Otherwise, this gradient is a 0-1 vector
-            double stepSize = getStepSizeParameter(edgeProbGradient, numEdgeUpdates+1, messages);
+            double stepSize = getStepSizeParameter(numEdgeUpdates + 1);
             updateEdgeProbabilies(edgeProbGradient, stepSize);
-            
+
             checkEdgeProbabilities();
             computeExpNormals();
             this.messages = initializeMessages(1.0);
@@ -250,7 +253,7 @@ public class TRBPSeq {
             numEdgeUpdates++;
         }
 
-        double stepSize = getStepSizeParameter(edgeProbGradient, numEdgeUpdates+1, messages);
+        double stepSize = getStepSizeParameter(numEdgeUpdates + 1);
         updateEdgeProbabilies(edgeProbGradient, stepSize);
 
         checkEdgeProbabilities();
@@ -281,6 +284,11 @@ public class TRBPSeq {
         double lastLogZBetweenUpdates = Double.POSITIVE_INFINITY;
         int numEdgeUpdates = 0;
         double[][] edgeProbGradient = this.edgeProbabilities;
+        
+//        double[][] edgeProb = GraphUtils.getEdgeProbabilities(nonClampledInteractionGraph);
+//        this.edgeProbabilities = GraphUtils.getEdgeProbabilities(this.nonClampledInteractionGraph);
+        double stepSize = 1.0;
+//        computeExpNormals();
         while (changeBetweenEdgeUpdates > 0.01) {
             double changeWithinEdgeUpdate = Double.POSITIVE_INFINITY;
             double lastLogZ = Double.POSITIVE_INFINITY;
@@ -288,21 +296,21 @@ public class TRBPSeq {
             //The first update does not change the initial edge probabilites
             //That is why we initizliae the edgeProbGradient with the current edge probabilies.
             //Otherwise, this gradient is a 0-1 vector
+
             this.messages = initializeMessages(1.0);
-
-            double stepSize = getStepSizeParameter(edgeProbGradient, numEdgeUpdates+1, messages);
-            updateEdgeProbabilies(edgeProbGradient, stepSize);
-
-            checkEdgeProbabilities();
+            if (numEdgeUpdates > 0) {
+                updateEdgeProbabilies(edgeProbGradient, stepSize);
+            }
             computeExpNormals();
-            while (changeWithinEdgeUpdate > 0.01 || numUpdatesWithinEdgeProb < 50) {
+//            checkEdgeProbabilities();
+            while (changeWithinEdgeUpdate > 0.001 || numUpdatesWithinEdgeProb < 50) {
                 double[][][] messagesNPlus1 = updateMessagesSeq(this.messages);
 //                checkMessages(messagesNPlus1);
                 this.messages = messagesNPlus1;
                 updateMarginals(this.messages);
                 double currentlogZ = calcUBLogZ();
                 if (verbose) {
-                    System.out.println("    logZ UB: " + currentlogZ);
+                    System.out.println("    logZ UB: " + currentlogZ + "   max change: " + this.maxChange + "  average: " + this.averageChange);
                 }
                 changeWithinEdgeUpdate = Math.abs(lastLogZ - currentlogZ);
                 lastLogZ = currentlogZ;
@@ -314,6 +322,8 @@ public class TRBPSeq {
             lastLogZBetweenUpdates = lastLogZ;
             MinSpanningTree mst = new MinSpanningTree(getEdgeWeights(), nonClampledInteractionGraph);
             edgeProbGradient = mst.mstVector;
+
+            stepSize = getStepSizeParameter(numEdgeUpdates + 1);
             if (changeBetweenEdgeUpdates < 0.01) {
                 changeWithinEdgeUpdate = Double.POSITIVE_INFINITY;
                 while (changeWithinEdgeUpdate > 0.0001) {
@@ -334,7 +344,7 @@ public class TRBPSeq {
 
             numEdgeUpdates++;
         }
-        this.logZ = lastLogZBetweenUpdates;
+        this.logZ = Math.min(this.logZ, lastLogZBetweenUpdates);
         System.out.println("Updated Edge Probabilities " + (numEdgeUpdates - 1) + " times. LogZ UB: " + this.logZ);
     }
 
@@ -545,7 +555,8 @@ public class TRBPSeq {
                 }
             }
         }
-
+        double averChange = 0.0;
+        int numMessages = 0;
         for (int i = this.numNodes - 1; i > -1; i--) {
             for (int j = this.numNodes - 1; j > i; j--) {
 
@@ -579,6 +590,8 @@ public class TRBPSeq {
                             updatedMessages[j][i][rotIindex] = damping * updatedMessages[j][i][rotIindex] + ((1.0 - damping) * previousMessages[j][i][rotIindex]);
                             double prevMessage = previousMessages[j][i][rotIindex];
                             double change = Math.abs(prevMessage - updatedMessages[j][i][rotIindex]);
+                            averChange += change;
+                            numMessages++;
                             maxChangeMessage = Math.max(change, maxChangeMessage);
                             //Update as we go
                             checkNumericalStability(updatedMessages, j, i, rotIindex);
@@ -595,6 +608,9 @@ public class TRBPSeq {
                             updatedMessages[j][i][rotIindex] /= partFuncI2;
                             double prevMessage = previousMessages[j][i][rotIindex];
                             double change = Math.abs(prevMessage - updatedMessages[j][i][rotIindex]);
+
+                            averChange += change;
+                            numMessages++;
                             maxChangeMessage = Math.max(change, maxChangeMessage);
                             //Update as we go
                             checkNumericalStability(updatedMessages, j, i, rotIindex);
@@ -606,6 +622,7 @@ public class TRBPSeq {
         }
 
         this.maxChange = maxChangeMessage;
+        this.averageChange = averChange / numMessages;
         return updatedMessages;
     }
 
@@ -887,7 +904,10 @@ public class TRBPSeq {
         for (int rot = 0; rot < node.labelList.size(); rot++) {
             double prob = this.marginalProbabilies.getOneBody(node.index, rot);
             if (prob != 0.0) {
-                entropy += (-1.0) * prob * Math.log(prob);
+                double entropyAtRot = (-1.0) * prob * Math.log(prob);
+                if (Double.isFinite(entropyAtRot)) {
+                    entropy += entropyAtRot;
+                }
             }
         }
         return entropy;
@@ -902,7 +922,10 @@ public class TRBPSeq {
                 double probJ = this.marginalProbabilies.getOneBody(nodeJ.index, rotJ);
 //                if (probIJ != 0.0) {
                 if ((probIJ != 0.0) && (probI != 0.0) && (probJ != 0.0)) {
-                    mutualInf += probIJ * Math.log(probIJ / (probI * probJ));
+                    double mutualInfAtRotPair = probIJ * Math.log(probIJ / (probI * probJ));
+                    if (Double.isFinite(mutualInfAtRotPair)) {
+                        mutualInf += probIJ * Math.log(probIJ / (probI * probJ));
+                    }
                 }
             }
         }
@@ -967,42 +990,8 @@ public class TRBPSeq {
         return edgeWeights;
     }
 
-    private double getStepSizeParameter(double[][] descentDirection, int iteration, double[][][] messages) {
-        if (!useArmijosRule) {
-            return 2.0 / (iteration + 4.0);
-        } else {
-            double bestStepSize = -1;
-            double objFunc = Double.POSITIVE_INFINITY;
-            double[][] currentEdgeProb = copy2DArray(this.edgeProbabilities);
-            for (double step = 1; step > 0; step = step - 0.1) {
-                for (int i = 0; i < this.numNodes; i++) {
-                    for (int j = 0; j < i; j++) {
-                        this.edgeProbabilities[i][j] = step * descentDirection[i][j] + (1 - step) * edgeProbabilities[i][j];
-
-                    }
-                }
-                updateMarginals(messages);
-                double objFuncAtStep = calcFreeEnergy();
-                if (objFuncAtStep < objFunc) {
-                    bestStepSize = step;
-                    objFunc = objFuncAtStep;
-                }
-                this.edgeProbabilities = copy2DArray(currentEdgeProb);
-            }
-            if (bestStepSize == -1) {
-                throw new RuntimeException("Free Energy could not be computed for any step size");
-            } else {
-                if (true) {
-                    System.out.println("Best Step Size: " + bestStepSize);
-                }
-                for (int i = 0; i < this.numNodes; i++) {
-                    for (int j = 0; j < i; j++) {
-                        this.edgeProbabilities[i][j] = bestStepSize * descentDirection[i][j] + (1 - bestStepSize) * edgeProbabilities[i][j];
-                    }
-                }
-            }
-            return bestStepSize;
-        }
+    private double getStepSizeParameter(int iteration) {
+        return 2.0 / (iteration + 4.0);
     }
 
     private void updateEdgeProbabilies(double[][] descentDirection, double stepSize) {
@@ -1011,6 +1000,16 @@ public class TRBPSeq {
                 this.edgeProbabilities[i][j] = stepSize * descentDirection[i][j] + (1 - stepSize) * edgeProbabilities[i][j];
             }
         }
+    }
+
+    public static double round(double value, int places) {
+        if (places < 0) {
+            throw new IllegalArgumentException();
+        }
+
+        BigDecimal bd = new BigDecimal(value);
+        bd = bd.setScale(places, RoundingMode.HALF_UP);
+        return bd.doubleValue();
     }
 
     private double[][] copy2DArray(double[][] original) {
