@@ -1,7 +1,6 @@
 package edu.duke.cs.osprey.kstar.pfunc.impl;
 
 import java.io.Serializable;
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import edu.duke.cs.osprey.confspace.SearchProblem;
@@ -73,10 +72,10 @@ public class PFNew01 extends PFAbstract implements Serializable {
 
 		// wait for queue to be ready
 		while( !confsQ.canSatisfy(request) ) {
-
+			
 			if( !confsQ.isExhausted() ) {
-
-				if( confsQ.getState() == Thread.State.WAITING ) {
+				
+				if( confsQ.getState() == Thread.State.WAITING || confsQ.getState() == Thread.State.BLOCKED ) {
 
 					confsQ.setQCapacity(confsQ.getQCapacity()+request);
 
@@ -87,11 +86,12 @@ public class PFNew01 extends PFAbstract implements Serializable {
 			}
 
 			else {
+				
 				granted = confsQ.size();
 
 				if( granted > 0 )
 					return granted;
-
+				
 				eAppx = EApproxReached.NOT_POSSIBLE;
 
 				// System.out.println("Cannot reach epsilon");
@@ -192,8 +192,10 @@ public class PFNew01 extends PFAbstract implements Serializable {
 
 				synchronized( confsQ.lock ) {
 
-					while( BigInteger.valueOf(confsQ.size()).compareTo(qPrimeCalculator.getNumEnumerated()) > 0 )
-						Thread.sleep(1);
+					while( confsQ.getPartialQLB().compareTo(qPrimeCalculator.getTotalQLB()) > 0 ) {
+						//while( BigInteger.valueOf(confsQ.size()).compareTo(qPrimeCalculator.getNumEnumerated()) > 0 ) {
+							Thread.sleep(1);
+						}
 
 					minimizingConfs = minimizingConfs.subtract( BigInteger.ONE );
 
@@ -254,16 +256,6 @@ public class PFNew01 extends PFAbstract implements Serializable {
 
 	protected void updateQPrime() {
 		qPrime = qPrimeCalculator.getQPrime(confsQ.getPartialQLB());
-	}
-
-
-	public BigDecimal getQStarUpperBound() {
-		if( eAppx == EApproxReached.TRUE ) return getQStar();
-
-		synchronized( confsQ.lock ) {
-			updateQPrime();
-			return ((qStar.add(qPrime)).add(confsQ.getPartialQLB())).add(pStar);
-		}
 	}
 
 

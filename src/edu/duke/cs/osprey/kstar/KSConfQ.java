@@ -169,7 +169,6 @@ public class KSConfQ extends Thread implements Serializable {
 
 
 	private void nullify() {
-		confsExhausted = true;
 		confSearch = null;
 		q = null;
 		tail = null;
@@ -197,7 +196,7 @@ public class KSConfQ extends Thread implements Serializable {
 
 						lock.notify();
 
-						if( pf.getEpsilonStatus() != EApproxReached.FALSE ) return;
+						if( pf.getEpsilonStatus() != EApproxReached.FALSE ) { confsExhausted = true; lock.notify(); return; }
 
 						else
 							lock.wait();
@@ -210,10 +209,10 @@ public class KSConfQ extends Thread implements Serializable {
 				}
 
 				// exit thread if we have an e-approximation
-				if( pf.getEpsilonStatus() != EApproxReached.FALSE ) return;
+				if( pf.getEpsilonStatus() != EApproxReached.FALSE ) { confsExhausted = true; lock.notify(); return; }
 
 				// this means the energy lower bound is pos infinity. no need to keep enumerating
-				if( enQueue(conf) == Double.POSITIVE_INFINITY ) return;
+				if( enQueue(conf) == Double.POSITIVE_INFINITY ) { confsExhausted = true; lock.notify(); return; }
 
 				// notify queue consumer ONLY if queue was empty before
 				// i added latest conformation. this condition means that

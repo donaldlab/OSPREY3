@@ -33,7 +33,7 @@ public class ConfSpaceTests {
         //let's start with just wild-type
         
         ConfSpace cs = new ConfSpace("1CC8.ss.pdb", flexibleRes, allowedAAs, true, true,
-                new DEEPerSettings(), new ArrayList<>(), new ArrayList<>(), false);
+                new DEEPerSettings(), new ArrayList<>(), new ArrayList<>(), false, null);
         
         //assert some things about the space
         //these are based on the Lovell Rotamer library
@@ -53,7 +53,7 @@ public class ConfSpaceTests {
         allowedAAs.get(1).add("ALA");//no dihedrals or rotamers (but should add one RC)
 
         cs = new ConfSpace("1CC8.ss.pdb", flexibleRes, allowedAAs, true, false,
-                new DEEPerSettings(), new ArrayList<>(), new ArrayList<>(), false);
+                new DEEPerSettings(), new ArrayList<>(), new ArrayList<>(), false, null);
         
         assert cs.confDOFs.size()==10;
         assert cs.mutDOFs.size()==4;

@@ -19,12 +19,13 @@ public class AllowedSeqs {
 	private ArrayList<String> wt;
 	private int dist;
 	private int strand;
+	private Strand limits;
 	private int maxSequences = (int)Math.pow(2, 28);
 	private ArrayList<ArrayList<String>> allowedSeqs = null;
 	private LinkedHashMap<ArrayList<String>, Integer> allowedSeq2Index = null;
 	ArrayList<HashSet<ArrayList<String>>> allowedSubSeqs = null;
 
-	public AllowedSeqs( int strand, DEEPerSettings dset, 
+	public AllowedSeqs( int strand, Strand limits, DEEPerSettings dset, 
 			ArrayList<String[]> freeBBZoneTermini,
 			ArrayList<String[]> moveableStrandTermini,
 			ArrayList<String> flexRes, 
@@ -32,6 +33,7 @@ public class AllowedSeqs {
 			ArrayList<String> wt, int dist ) {
 
 		this.strand = strand;
+		this.limits = limits;
 		this.dset = dset;
 		this.freeBBZoneTermini = freeBBZoneTermini;
 		this.moveableStrandTermini = moveableStrandTermini;
@@ -43,13 +45,14 @@ public class AllowedSeqs {
 	}
 
 
-	public AllowedSeqs( int strand, DEEPerSettings dset, 
+	public AllowedSeqs( int strand, Strand limits, DEEPerSettings dset, 
 			ArrayList<String[]> freeBBZoneTermini,
 			ArrayList<String[]> moveableStrandTermini,
 			ArrayList<String> flexRes, AllowedSeqs in, 
 			ArrayList<ArrayList<String>> allowedAAs, int lb, int ub ) {
 
 		this.strand = strand;
+		this.limits = limits;
 		this.dset = dset;
 		this.freeBBZoneTermini = freeBBZoneTermini;
 		this.moveableStrandTermini = moveableStrandTermini;
@@ -63,6 +66,11 @@ public class AllowedSeqs {
 		for(ArrayList<String> seq : in.allowedSeqs) {
 			this.allowedSeqs.add( new ArrayList<String>( seq.subList(lb, ub) ) );
 		}
+	}
+	
+	
+	public Strand getStrandLimits() {
+		return limits;
 	}
 	
 

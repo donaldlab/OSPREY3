@@ -82,17 +82,17 @@ public abstract class KSAbstract implements KSInterface {
 		numSeqsCompleted += increment;
 		return numSeqsCompleted;
 	}
-	
-	
+
+
 	public void setStartTime(long time) {
 		startTime = time;
 	}
-	
-	
+
+
 	public long getStartTime() {
 		return startTime;
 	}
-	
+
 	public static void setCheckPointInterval( long interval ) {
 		if(interval <= 0) interval = 1;
 		checkpointInterval = interval;
@@ -457,7 +457,8 @@ public abstract class KSAbstract implements KSInterface {
 				freeBBZones,
 				useEllipses,
 				useERef,
-				addResEntropy);
+				addResEntropy,
+				cfp.getStrandLimits(strand));
 
 		return panSeqSP;
 	}
@@ -471,6 +472,7 @@ public abstract class KSAbstract implements KSInterface {
 		for( boolean contSCFlex : contSCFlexVals ) {
 
 			strands.parallelStream().forEach(strand -> {
+				//for( int strand : strands ) {
 
 				String spName = getSearchProblemName(contSCFlex, strand);
 
@@ -478,6 +480,7 @@ public abstract class KSAbstract implements KSInterface {
 					SearchProblem sp = createPanSeqSP(contSCFlex, strand);
 					name2SP.put(sp.name, sp);
 				}
+				//}
 			});	
 		}
 
@@ -603,25 +606,26 @@ public abstract class KSAbstract implements KSInterface {
 
 
 	protected KSCalc computeWTCalc() {
-		
+
 		if( !doCheckPoint || !new File(getOputputFilePath()).exists() ) KSCalc.printSummaryHeader(getOputputFilePath());
 		if( doCheckPoint && !new File(getCheckPointFilePath()).exists() ) KSCalc.printSummaryHeader(getCheckPointFilePath());
-		
+
 		// compute wt sequence for reference
 		ArrayList<ArrayList<String>> strandSeqs = getStrandStringsAtPos(0);		
-		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(true, true, true));
+		boolean contSCFlex = cfp.getParams().getBool("doMinimize", true);
+		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(contSCFlex, contSCFlex, contSCFlex));
 		ArrayList<String> pfImplVals = new ArrayList<String>(Arrays.asList(PFAbstract.getCFGImpl(), 
 				PFAbstract.getCFGImpl(), PFAbstract.getCFGImpl()));
 
 		ConcurrentHashMap<Integer, PFAbstract> pfs = createPFs4Seqs(strandSeqs, contSCFlexVals, pfImplVals);
 		KSCalc calc = new KSCalc(0, pfs);
-		
+
 		PFAbstract pf = calc.getPF(Strand.COMPLEX);
 		if(doCheckPoint && getSeqsFromFile(getOputputFilePath()).contains(pf.getSequence())) {
 			// we have previously computed the sequence
 			return calc;
 		}
-	
+
 		calc.run(calc, false, true);
 
 		// protein and ligand must reach epsilon, regardless of checkppoint
@@ -630,30 +634,30 @@ public abstract class KSAbstract implements KSInterface {
 
 			if( (strand != Strand.COMPLEX && pf.getEpsilonStatus() != EApproxReached.TRUE) ||
 					(strand == Strand.COMPLEX && pf.getEpsilonStatus() == EApproxReached.NOT_POSSIBLE) ) {
-				
+
 				throw new RuntimeException("ERROR: could not compute the wild-type sequence "
 						+ KSAbstract.list1D2String(pf.getSequence(), " ") + " to an epsilon value of "
 						+ PFAbstract.targetEpsilon + ". Resolve any clashes involving the flexible residues, "
 						+"or increase the value of epsilon." );
 			}
 		}
-		
+
 		if( doCheckPoint ) {
 			pf = calc.getPF(Strand.COMPLEX);
 			name2PF.remove(pf.getSearchProblemName());
 			calc.deleteSeqFromFile( pf.getSequence(), getCheckPointFilePath() );
 			calc.serializePFs();
 		}
-		
+
 		if( calc.getEpsilonStatus() == EApproxReached.TRUE ) {
 			calc.deleteCheckPointFile(Strand.COMPLEX);
 			calc.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCompleted(1) );
 		}
-		
+
 		else {
 			calc.printSummary( getCheckPointFilePath(), getStartTime(), getNumSeqsCompleted(0) );
 		}
-		
+
 		return calc;
 	}
 

@@ -9,36 +9,36 @@ useDunbrackRotamers false
 ematDir emat.lovell
 deleteEmatDir false
 
-epsilon 0.9
+epsilon 0.95
 useTupExp false
 doMinimize true
 doPerturbations false
 selectPerturbations false
 addWT true
 addWTRots true
-saveTopConfsAsPDB false
-numTopConfsToSave 5
+saveTopConfsAsPDB true
+numTopConfsToSave 1
 useMaxKSConfs false
-maxKSconfs 500000
+maxKSconfs 200000
 doKStarCheckpoint false
-kStarCheckpoint 100
+KStarCheckpoint 400
 
-numMutations 1
-resAllowed0_0 ASP GLU HID
-resAllowed0_1 GLU ASP ARG
-resAllowed0_2 GLU ASN ILE
-resAllowed0_3 SER CYS THR
-resAllowed1_0 SER GLN CYS
-resAllowed1_1 GLY ASP ILE
-resAllowed1_2 THR VAL TYR
+numMutations 4
+resAllowed0_0 ASP GLU SER THR ASN GLN ALA GLY
+resAllowed0_1 GLU ASP SER THR ASN GLN ALA GLY
+resAllowed0_2 ASP ASP SER THR ASN GLN ALA GLY
+resAllowed0_3 THR THR ASN GLN ALA GLY
+resAllowed1_0 GLY THR ASN GLN ALA GLY
+resAllowed1_1 GLY ALA VAL ILE LEU
+resAllowed1_2 ALA SER ASN GLN ALA VAL ILE LEU GLY
 
 pFuncStabThresh 1
-pFuncMethod trad
-pFuncThreads 4
-numThreads 4
+pFuncMethod new02
+pFuncThreads 3
+numThreads 3
 eMinMethod hbfgsccd
-kStarMethod kastar
+kStarMethod linear
 kStarUseTightBounds true
-kStarNumSeqs 5
+kStarNumSeqs 100
 kStarPreLoadPFs false
 kStarRefinePruning false

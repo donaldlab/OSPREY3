@@ -13,6 +13,7 @@ import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.kstar.KSAbstract;
+import edu.duke.cs.osprey.kstar.Strand;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -78,6 +79,7 @@ public class SearchProblem implements Serializable {
 
 	public boolean useERef = false;
 	public boolean addResEntropy = false;
+	public Strand limits = null;
 
 
 	public SearchProblem(SearchProblem sp1){//shallow copy
@@ -100,11 +102,12 @@ public class SearchProblem implements Serializable {
 
 		useERef = sp1.useERef;
 		addResEntropy = sp1.addResEntropy;
+		limits = sp1.limits;
 	}
 
 
-	public SearchProblem(SearchProblem origSP, String newSPName, 
-			ArrayList<String> newSPSeq, ArrayList<String> newSPFlexibleRes) {
+	public SearchProblem(SearchProblem origSP, String newSPName, ArrayList<String> newSPSeq, 
+			ArrayList<String> newSPFlexibleRes) {
 
 		name = newSPName;
 
@@ -130,9 +133,11 @@ public class SearchProblem implements Serializable {
 		dset = origSP.dset;
 		moveableStrands = origSP.moveableStrands; 
 		freeBBZones = origSP.freeBBZones;
+		
+		limits = origSP.limits;
 
 		confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, 
-				contSCFlex, dset, moveableStrands, freeBBZones, useEllipses);
+				contSCFlex, dset, moveableStrands, freeBBZones, useEllipses, limits);
 
 		//energy function setup
 		EnergyFunctionGenerator eGen = EnvironmentVars.curEFcnGenerator;
@@ -146,9 +151,9 @@ public class SearchProblem implements Serializable {
 	public SearchProblem(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
 			boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset, 
 			ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef,
-			boolean addResEntropy){
+			boolean addResEntropy, Strand limits){
 
-		confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses);
+		confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses, limits);
 		this.name = name;
 
 		this.flexibleRes = flexibleRes;
@@ -168,7 +173,8 @@ public class SearchProblem implements Serializable {
 		this.dset = dset;
 		this.moveableStrands = moveableStrands;
 		this.freeBBZones = freeBBZones;
-
+		this.limits = limits;
+		
 		//energy function setup
 		EnergyFunctionGenerator eGen = EnvironmentVars.curEFcnGenerator;
 		decideShellResidues(eGen.distCutoff);

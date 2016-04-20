@@ -5,15 +5,14 @@
 package edu.duke.cs.osprey.structure;
 
 import edu.duke.cs.osprey.control.EnvironmentVars;
+import edu.duke.cs.osprey.kstar.Strand;
 import edu.duke.cs.osprey.restypes.DAminoAcidHandler;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Collections;
 
 /**
  *
@@ -21,7 +20,7 @@ import java.util.Collections;
  */
 public class PDBFileReader {
 
-	public static Molecule readPDBFile( String PDBFile ){
+	public static Molecule readPDBFile( String PDBFile, Strand limits ){
 		//Take pretty much verbatim from PDBChemModel
 		//if templates not null, four things we may decide to do (should give options):
 		//1. Assign templates to residues 2. Rename atoms in matching residues to match templates
@@ -44,7 +43,8 @@ public class PDBFileReader {
 		//rename any templated atoms (though might store PDBName too...)
 		//idealize sidechains if indicated
 
-
+		ArrayList<Integer> filter = new ArrayList<>();
+		
 		Molecule m = new Molecule();
 
 		try {
@@ -88,10 +88,13 @@ public class PDBFileReader {
 					String fullResName = fullResidueName(curLine);
 
 					if( (!fullResName.equalsIgnoreCase(curResFullName)) && !curResAtoms.isEmpty() ){
-
+						
 						Residue newRes = new Residue( curResAtoms, curResCoords, curResFullName, m );
-						m.appendResidue(newRes);
 
+						if(limits != null && !limits.contains(newRes)) filter.add(m.residues.size());
+						
+						m.appendResidue(newRes);
+						
 						curResAtoms = new ArrayList<>();
 						curResCoords = new ArrayList<>();
 					}
@@ -118,6 +121,7 @@ public class PDBFileReader {
 			//make last residue
 			if( ! curResAtoms.isEmpty() ){
 				Residue newRes = new Residue( curResAtoms, curResCoords, curResFullName, m );
+				if(limits != null && !limits.contains(newRes)) filter.add(m.residues.size());
 				m.appendResidue(newRes);
 			}
 
@@ -137,6 +141,8 @@ public class PDBFileReader {
 			e.printStackTrace();
 		}
 
+		
+		deleteFilteredResidues(m, filter);
 
 		//assign proline puckers?  if treated as DOF might handle along with regular dihedrals
 		if(EnvironmentVars.assignTemplatesToStruct)
@@ -144,6 +150,19 @@ public class PDBFileReader {
 
 		return m;
 	}
+	
+	
+	private static void deleteFilteredResidues(Molecule m, ArrayList<Integer> filter) {
+		for( int index = 0; index < filter.size(); ++index ) {
+			int resIndex = filter.get(index);
+			
+			m.deleteResidue(resIndex);
+			
+			for( int index2 = index; index2 < filter.size(); ++index2 )
+				filter.set(index2, filter.get(index2)-1);
+		}
+	}
+
 
 
 	static void assignTemplates(Molecule m){

@@ -5,16 +5,10 @@
 package edu.duke.cs.osprey.confspace;
 
 import cern.colt.matrix.DoubleFactory1D;
-import cern.colt.matrix.DoubleFactory2D;
 import cern.colt.matrix.DoubleMatrix1D;
-import cern.colt.matrix.DoubleMatrix2D;
-import cern.colt.matrix.linalg.Algebra;
-import cern.jet.math.Functions;
 import edu.duke.cs.osprey.bbfree.BBFreeBlock;
 import edu.duke.cs.osprey.control.EnvironmentVars;
-import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
-import edu.duke.cs.osprey.dof.EllipseCoordDOF;
 import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.dof.MoveableStrand;
 import edu.duke.cs.osprey.dof.ProlinePucker;
@@ -22,22 +16,17 @@ import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.dof.StrandRotation;
 import edu.duke.cs.osprey.dof.StrandTranslation;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
-import edu.duke.cs.osprey.dof.deeper.SidechainIdealizer;
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.energy.EnergyFunction;
-import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
-import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
-import edu.duke.cs.osprey.minimization.CCDMinimizer;
+import edu.duke.cs.osprey.kstar.Strand;
 import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MinimizerFactory;
 import edu.duke.cs.osprey.minimization.MolecEObjFunction;
 import edu.duke.cs.osprey.minimization.RigidEnergy;
-import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.PDBFileWriter;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.StringParsing;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -102,14 +91,14 @@ public class ConfSpace implements Serializable {
 	 */
 	public ConfSpace(String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, 
 			boolean addWT, boolean contSCFlex, DEEPerSettings dset, ArrayList<String[]> moveableStrands, 
-			ArrayList<String[]> freeBBZones, boolean ellipses){
+			ArrayList<String[]> freeBBZones, boolean ellipses, Strand limits){
 
 		useEllipses = ellipses;  	
 
 		numPos = flexibleRes.size();
 
 		//read the structure and assign templates, deleting unassignable res...
-		m = PDBFileReader.readPDBFile(PDBFile);
+		m = PDBFileReader.readPDBFile(PDBFile, limits);
 
 		//Make all the degrees of freedom
 		//start with proline puckers (added to res)

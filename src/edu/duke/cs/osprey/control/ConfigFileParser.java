@@ -70,7 +70,7 @@ public class ConfigFileParser implements Serializable {
 
 			int numMutations = params.getInt("NUMMUTATIONS", 1);
 			
-			complexSeqs = new AllowedSeqs(strand, setupDEEPer(), 
+			complexSeqs = new AllowedSeqs(strand, getStrandLimits(strand), setupDEEPer(), 
 					freeBBZoneTermini(), moveableStrandTermini(), 
 					flexRes, allowedAAs, getWTSequence(), numMutations);
 
@@ -103,7 +103,7 @@ public class ConfigFileParser implements Serializable {
 		if( fbbzt.size() == 2 ) fbbzt = new ArrayList<String[]>( complexSeqs.getFreeBBZoneTermini().subList(strand, strand) );
 		if( mst.size() == 2 ) mst = new ArrayList<String[]>( complexSeqs.getMoveableStrandTermini().subList(strand, strand) );
 		
-		AllowedSeqs strandSeqs = new AllowedSeqs(strand, setupDEEPer(strand), 
+		AllowedSeqs strandSeqs = new AllowedSeqs(strand, getStrandLimits(strand), setupDEEPer(strand), 
 				fbbzt, mst, flexRes, complexSeqs, allowedAAs, lb, ub);
 
 		return strandSeqs;
@@ -201,7 +201,7 @@ public class ConfigFileParser implements Serializable {
 	/**
 	 * Reads strand limits
 	 */
-	Strand getStrandLimits( int strand ) {
+	public Strand getStrandLimits( int strand ) {
 
 		if( strand == Strand.COMPLEX ) return null;
 
@@ -230,7 +230,7 @@ public class ConfigFileParser implements Serializable {
 	 */
 	public ArrayList<String> getWTSequence() {
 
-		Molecule m = PDBFileReader.readPDBFile(params.getValue("PDBNAME"));
+		Molecule m = PDBFileReader.readPDBFile(params.getValue("PDBNAME"), null);
 		ArrayList<String> flexibleRes = getFlexRes();
 		int numPos = flexibleRes.size();
 		ArrayList<String> wt = new ArrayList<>(); for( int pos = 0; pos < numPos; ++pos ) wt.add(null);
@@ -277,7 +277,8 @@ public class ConfigFileParser implements Serializable {
                 dset, moveableStrands, freeBBZones,
                 params.getBool("useEllipses", false),
                 params.getBool("useERef", false),
-                params.getBool("AddResEntropy", false) );
+                params.getBool("AddResEntropy", false),
+                getStrandLimits(strand));
 	}
 	
 	
@@ -408,7 +409,8 @@ public class ConfigFileParser implements Serializable {
                 dset, moveableStrands, freeBBZones,
                 params.getBool("useEllipses"),
                 params.getBool("useERef"),
-                params.getBool("AddResEntropy") );
+                params.getBool("AddResEntropy"),
+                null);
     }
     
     

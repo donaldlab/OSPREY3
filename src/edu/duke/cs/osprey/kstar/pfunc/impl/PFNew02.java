@@ -156,8 +156,10 @@ public class PFNew02 extends PFNew01 implements Serializable {
 		// we need a current snapshot of qDagger, so we lock here
 		synchronized( confsQ.lock ) {
 			
-			while( BigInteger.valueOf(confsQ.size()).compareTo(qPrimeCalculator.getNumEnumerated()) > 0 )
+			while( confsQ.getPartialQLB().compareTo(qPrimeCalculator.getTotalQLB()) > 0 ) {
+			//while( BigInteger.valueOf(confsQ.size()).compareTo(qPrimeCalculator.getNumEnumerated()) > 0 ) {
 				Thread.sleep(1);
+			}
 			
 			for( KSConf conf : partialQConfs ) {
 

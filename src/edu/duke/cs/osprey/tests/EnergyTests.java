@@ -18,7 +18,7 @@ public class EnergyTests {
     
     public static void test1CC8Energy(){
         //compute the full energy for 1CC8 using the default AMBER forcefield, and compare it to OSPREY 2 values 
-        Molecule m = PDBFileReader.readPDBFile("1CC8.ss.pdb");
+        Molecule m = PDBFileReader.readPDBFile("1CC8.ss.pdb", null);
         EnergyFunction fullEFunc = EnvironmentVars.curEFcnGenerator.fullMolecEnergy(m);
         double fullE = fullEFunc.getEnergy();
         

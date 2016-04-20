@@ -156,7 +156,7 @@ class COMETSDoer {
         
         ArrayList<ArrayList<String>> stateAAOptions = cfgP.getAllowedAAs();
         
-        Molecule wtMolec = PDBFileReader.readPDBFile( cfgP.params.getValue("PDBName") );
+        Molecule wtMolec = PDBFileReader.readPDBFile( cfgP.params.getValue("PDBName"), null );
         ArrayList<String> flexRes = cfgP.getFlexRes();
         
         

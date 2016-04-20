@@ -35,7 +35,8 @@ public class KSImplLinear extends KSAbstract {
 
 		if(doCheckPoint) createCheckPointDir();
 
-		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(true));
+		boolean contSCFlex = cfp.getParams().getBool("doMinimize", true);
+		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(contSCFlex));
 		createEmats(contSCFlexVals);
 	}
 
@@ -105,7 +106,8 @@ public class KSImplLinear extends KSAbstract {
 		// each value corresponds to the desired flexibility of the 
 		// pl, p, and l conformation spaces, respectively
 		ArrayList<ArrayList<String>> strandSeqs = null;	
-		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(true, true, true));
+		boolean contSCFlex = cfp.getParams().getBool("doMinimize", true);
+		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(contSCFlex, contSCFlex, contSCFlex));
 		ArrayList<String> pfImplVals = new ArrayList<String>(Arrays.asList(PFAbstract.getCFGImpl(), 
 				PFAbstract.getCFGImpl(), PFAbstract.getCFGImpl()));
 
@@ -145,7 +147,8 @@ public class KSImplLinear extends KSAbstract {
 		// each value corresponds to the desired flexibility of the 
 		// pl, p, and l conformation spaces, respectively
 		ArrayList<ArrayList<String>> strandSeqs = null;	
-		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(true, true, true));
+		boolean contSCFlex = cfp.getParams().getBool("doMinimize", true);
+		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(contSCFlex, contSCFlex, contSCFlex));
 		ArrayList<String> pfImplVals = new ArrayList<String>(Arrays.asList(PFAbstract.getCFGImpl(), 
 				PFAbstract.getCFGImpl(), PFAbstract.getCFGImpl()));
 

@@ -13,10 +13,10 @@ public class QPrimeConfTree extends Thread implements Serializable {
 
 	private PFAbstract pf;
 	private BigInteger unPruned;
-	private BigDecimal boltzmannWeight;
+	private BigDecimal lastBoltzmannWeight = BigDecimal.ZERO;
 	private BigInteger enumerated = BigInteger.ZERO;
 	private ConfSearch confSearch;
-	private BigDecimal qLBTotal = BigDecimal.ZERO;
+	private BigDecimal totalQLB = BigDecimal.ZERO;
 	public final String lock = new String("LOCK");
 
 	public QPrimeConfTree( PFAbstract pf, BigInteger unPruned ) {
@@ -29,15 +29,15 @@ public class QPrimeConfTree extends Thread implements Serializable {
 	}
 
 
-	public BigDecimal getQPrime( BigDecimal qLBPartial ) {
-		
+	public BigDecimal getQPrime( BigDecimal partialQLB ) {
+
 		BigDecimal ans = BigDecimal.ZERO;
 
 		synchronized( lock ) {
 
-			ans = qLBTotal.subtract(qLBPartial);
+			ans = totalQLB.subtract(partialQLB);
 
-			BigDecimal uniformBound = new BigDecimal(unPruned.subtract(enumerated)).multiply(boltzmannWeight);
+			BigDecimal uniformBound = new BigDecimal(unPruned.subtract(enumerated)).multiply(lastBoltzmannWeight);
 
 			ans = ans.add(uniformBound);
 		}
@@ -46,18 +46,30 @@ public class QPrimeConfTree extends Thread implements Serializable {
 	}
 
 
+	public BigDecimal getTotalQLB() {
+		BigDecimal ans;
+
+		synchronized( lock ) {
+			ans = totalQLB;
+		}
+
+		return ans;
+	}
+
+
 	public BigInteger getNumEnumerated() {
 		BigInteger ans;
-		
+
 		synchronized( lock ) {
 			ans = enumerated;
 		}
-		
+
 		return ans;
 	}
 
 
 	private void nullify() {
+		lastBoltzmannWeight = BigDecimal.ZERO;
 		pf = null;
 		confSearch = null;
 	}
@@ -78,28 +90,15 @@ public class QPrimeConfTree extends Thread implements Serializable {
 			synchronized( lock ) {
 
 				conf = confSearch.nextConf();
-
-				if( conf == null || pf.getEpsilonStatus() != EApproxReached.FALSE ) {
-					nullify();
-					return;
-				}
+				if( conf == null || pf.getEpsilonStatus() != EApproxReached.FALSE ) { nullify(); return; }
 
 				double energyBound = pf.getConfBound(confSearch, conf, false);
+				if( energyBound == Double.POSITIVE_INFINITY ) { nullify(); return; }
 
-				if( energyBound == Double.POSITIVE_INFINITY ) {
-					nullify();
-					return;
-				}
+				lastBoltzmannWeight = pf.getBoltzmannWeight(energyBound);
+				if( lastBoltzmannWeight.compareTo(BigDecimal.ZERO) == 0 ) { nullify(); return; }
 
-				boltzmannWeight = pf.getBoltzmannWeight(energyBound);
-
-				if( boltzmannWeight.compareTo(BigDecimal.ZERO) == 0 ) {
-					nullify();
-					return;
-				}
-
-				qLBTotal = qLBTotal.add( boltzmannWeight );
-
+				totalQLB = totalQLB.add( lastBoltzmannWeight );
 				enumerated = enumerated.add(BigInteger.ONE);
 			}
 		}

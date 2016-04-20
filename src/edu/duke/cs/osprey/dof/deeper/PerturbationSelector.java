@@ -60,7 +60,7 @@ public class PerturbationSelector {
         this.selectLCAs = selectLCAs;
         this.flexibleRes = flexibleRes;
         
-        m = PDBFileReader.readPDBFile(PDBFile);
+        m = PDBFileReader.readPDBFile(PDBFile, null);
     }
     
     

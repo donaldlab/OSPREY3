@@ -50,7 +50,7 @@ public class KStarCalculator {
 					+ "Change the value of doMinimize to 'true'.");
 		
 		PFAbstract.targetEpsilon = cfp.getParams().getDouble("epsilon", 0.03);
-		PFAbstract.qCapacity = cfp.getParams().getInt("pFuncQCap", ThreadParallelism.getNumThreads()*256);
+		PFAbstract.qCapacity = cfp.getParams().getInt("pFuncQCap", ThreadParallelism.getNumThreads()*100);
 
 		PFAbstract.eMinMethod = cfp.getParams().getValue("eMinMethod", "ccd");
 		PFAbstract.setCFGImpl(cfp.getParams().getValue("pFuncMethod", new PFNew02().getImpl()));

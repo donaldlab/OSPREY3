@@ -1,10 +1,12 @@
 package edu.duke.cs.osprey.kstar;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 
 import edu.duke.cs.osprey.structure.Residue;
 
-public class Strand {
+@SuppressWarnings("serial")
+public class Strand implements Serializable {
 	
 	public static final int PROTEIN = 0;
 	public static final int LIGAND = 1;

@@ -104,8 +104,15 @@ public abstract class PFAbstract implements Serializable {
 		this.panSeqSP = panSeqSP;
 		this.strand = strand;
 		this.sp = createSingleSeqSP(panSeqSP.contSCFlex, strand, sequence, flexResIndexes, true);
+		
 		this.isFullyDefined = sp.confSpace.numPos == panSeqSP.confSpace.numPos ? true : false;
 		this.cfp = cfp;
+		
+		// re-prune, since we have fewer witnesses now that we have trimmed the emat
+		double oldPI = sp.pruneMat.getPruningInterval();
+		sp.pruneMat.setPruningInterval(0);
+		pc = getPruningControl(oldPI); pc.prune();
+		sp.pruneMat.setPruningInterval(oldPI);
 
 		Comparator<KSConf> comparator = new KSConf(new ArrayList<>(), 0.0).new KSConfMinEComparator();
 		topConfsPQ = new PriorityQueue<KSConf>(getNumTopConfsToSave(), comparator);
@@ -777,7 +784,8 @@ public abstract class PFAbstract implements Serializable {
 				panSeqSP.freeBBZones,
 				panSeqSP.useEllipses,
 				panSeqSP.useERef,
-				panSeqSP.addResEntropy);
+				panSeqSP.addResEntropy,
+				panSeqSP.limits);
 
 		return seqSP;
 	}
