@@ -36,7 +36,7 @@ public class KStarCalculator {
 
 	HashMap<Integer, AllowedSeqs> strand2AllowedSeqs = new HashMap<>();
 
-	public KStarCalculator ( ConfigFileParser cfgP ) {
+	public KStarCalculator( ConfigFileParser cfgP ) {
 		cfp = cfgP;
 
 		Ew = cfp.getParams().getDouble("Ew", 5);
@@ -50,8 +50,7 @@ public class KStarCalculator {
 					+ "Change the value of doMinimize to 'true'.");
 		
 		PFAbstract.targetEpsilon = cfp.getParams().getDouble("epsilon", 0.03);
-		PFAbstract.qCapacity = cfp.getParams().getInt("pFuncQCap", 512000);
-		PFAbstract.waitUntilCapacity = cfp.getParams().getBool("pFuncQWait", false);
+		PFAbstract.qCapacity = cfp.getParams().getInt("pFuncQCap", ThreadParallelism.getNumThreads()*256);
 
 		PFAbstract.eMinMethod = cfp.getParams().getValue("eMinMethod", "ccd");
 		PFAbstract.setCFGImpl(cfp.getParams().getValue("pFuncMethod", new PFNew02().getImpl()));

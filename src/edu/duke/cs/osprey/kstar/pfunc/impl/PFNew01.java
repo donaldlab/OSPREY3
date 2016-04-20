@@ -9,6 +9,7 @@ import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KSConf;
 import edu.duke.cs.osprey.kstar.KSConfQ;
+import edu.duke.cs.osprey.kstar.QPrimeConfTree;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 
 /**
@@ -22,12 +23,13 @@ public class PFNew01 extends PFAbstract implements Serializable {
 	// temp for benchmarking
 	protected long startTime;
 
-	protected KSConfQ confs = null;
+	protected KSConfQ confsQ = null;
+	protected QPrimeConfTree qPrimeCalculator = null;
 
 	public PFNew01() {
 		super();
 	}
-	
+
 	public PFNew01( int strand, ArrayList<String> sequence, ArrayList<Integer> flexResIndexes, 
 			String checkPointPath, String searchProblemName, 
 			ConfigFileParser cfp, SearchProblem panSeqSP ) {
@@ -43,26 +45,25 @@ public class PFNew01 extends PFAbstract implements Serializable {
 
 	public void start() {
 
-		setRunState(RunState.STARTED);
-
-		// set pstar
-		initPStar();
-		
-		confs = new KSConfQ( this, 1 );
-
 		try {
 
-			confs.start();
+			setRunState(RunState.STARTED);
 
-			if( waitUntilCapacity )
-				confs.waitUntilCapacity();
+			// set pstar
+			initPStar();
+
+			confsQ = new KSConfQ( this, 1 );
+			qPrimeCalculator = new QPrimeConfTree( this, unPrunedConfs );
+
+			qPrimeCalculator.start();
+			confsQ.start();
 
 		} catch(Exception e) {
 			System.out.println(e.getMessage());
 			e.printStackTrace();
 			System.exit(1);
 		}
-		
+
 		startTime = System.currentTimeMillis();
 	}
 
@@ -71,22 +72,22 @@ public class PFNew01 extends PFAbstract implements Serializable {
 		int granted = 0;
 
 		// wait for queue to be ready
-		while( !confs.canSatisfy(request) ) {
+		while( !confsQ.canSatisfy(request) ) {
 
-			if( !confs.isExhausted() ) {
+			if( !confsQ.isExhausted() ) {
 
-				if( confs.getState() == Thread.State.WAITING ) {
+				if( confsQ.getState() == Thread.State.WAITING ) {
 
-					confs.setQCapacity(confs.getQCapacity()+request);
+					confsQ.setQCapacity(confsQ.getQCapacity()+request);
 
-					confs.qLock.notify();
+					confsQ.lock.notify();
 				}
 
-				confs.qLock.wait();
+				confsQ.lock.wait();
 			}
 
 			else {
-				granted = confs.size();
+				granted = confsQ.size();
 
 				if( granted > 0 )
 					return granted;
@@ -95,7 +96,7 @@ public class PFNew01 extends PFAbstract implements Serializable {
 
 				// System.out.println("Cannot reach epsilon");
 
-				confs.cleanUp(true);
+				confsQ.cleanUp(true);
 
 				return granted;
 			}
@@ -109,7 +110,7 @@ public class PFNew01 extends PFAbstract implements Serializable {
 		// iterate is only called when eAppx = false
 		KSConf conf = null;
 
-		synchronized( confs.qLock ) {
+		synchronized( confsQ.lock ) {
 
 			if( canSatisfy(1) == 0 )
 				return;
@@ -118,14 +119,14 @@ public class PFNew01 extends PFAbstract implements Serializable {
 
 			// we don't want to hold a lock when we are minimizing, so 
 			// we dequeue here and release lock for minimizing
-			conf = confs.deQueue();
+			conf = confsQ.deQueue();
 
 			minimizingConfs = minimizingConfs.add( BigInteger.ONE );
 
 			// this condition means that confsQ was full (and therefore waiting)
 			// before we extracted this conformation, so wake it up
 			// it would be wasteful to call notify upon every dequeue operation
-			if( confs.getState() == Thread.State.WAITING ) confs.qLock.notify();
+			if( confsQ.getState() == Thread.State.WAITING ) confsQ.lock.notify();
 		}
 
 		// minimization hapens here
@@ -133,7 +134,8 @@ public class PFNew01 extends PFAbstract implements Serializable {
 
 		if( eAppx != EApproxReached.FALSE ) {
 			// we leave this function
-			confs.cleanUp(true);
+			confsQ.cleanUp(true);
+			qPrimeCalculator.cleanup();
 		}	
 	}
 
@@ -144,13 +146,13 @@ public class PFNew01 extends PFAbstract implements Serializable {
 		try {
 
 			// this condition only occurs when we are checkpointing
-			if( KSAbstract.doCheckPoint && confs.getState() == Thread.State.NEW ) {
+			if( KSAbstract.doCheckPoint && confsQ.getState() == Thread.State.NEW ) {
 				// for safety, we can re-start the conformation tree, since i am not
 				// entirely sure how cleanly the conformation tree can be serialized and de-serialized
 				// confs.restartConfTree();
-				confs.start();
-				synchronized( confs.qLock ) {
-					confs.qLock.notify();
+				confsQ.start();
+				synchronized( confsQ.lock ) {
+					confsQ.lock.notify();
 				}
 			}
 
@@ -180,89 +182,66 @@ public class PFNew01 extends PFAbstract implements Serializable {
 	}
 
 
-	protected void accumulate( KSConf conf ) {
+	protected void accumulate( KSConf conf ) throws InterruptedException {
 
-		double E = isFullyDefined() ? 
+		double energy = isFullyDefined() ? 
 				sp.minimizedEnergy(conf.getConfArray()) : conf.getEnergyBound();
-		
-		// we do not have a lock when minimizing	
-		conf.setEnergy( E );
 
-		// we need a current snapshot of qDagger, so we lock here
-		synchronized( confs.qLock ) {
+				// we do not have a lock when minimizing	
+				conf.setEnergy(energy);
 
-			minimizingConfs = minimizingConfs.subtract( BigInteger.ONE );
+				synchronized( confsQ.lock ) {
 
-			// update q*, qDagger, and q' atomically
-			E = conf.getEnergy();
-			updateQStar( conf );
+					while( BigInteger.valueOf(confsQ.size()).compareTo(qPrimeCalculator.getNumEnumerated()) > 0 )
+						Thread.sleep(1);
 
-			// update qdagger
-			confs.setQDagger( confs.getQDagger().subtract(getBoltzmannWeight(conf.getEnergyBound())) );
+					minimizingConfs = minimizingConfs.subtract( BigInteger.ONE );
 
-			Et = confs.size() > 0 ? confs.peekTail().getEnergyBound() : conf.getEnergyBound();
-			updateQPrime();
-			
-			// negative values of effective esilon are disallowed
-			if( (effectiveEpsilon = computeEffectiveEpsilonNew()) < 0 ) {
+					// update q*, qDagger, and q' atomically
+					energy = conf.getEnergy();
+					updateQStar( conf );
 
-				eAppx = EApproxReached.NOT_POSSIBLE;
+					confsQ.accumulatePartialQLB(getBoltzmannWeight(conf.getEnergyBound()));
+					updateQPrime();
 
-				return;
-			}
+					// negative values of effective esilon are disallowed
+					if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0 ) {
+						eAppx = EApproxReached.NOT_POSSIBLE;
+						return;
+					}
 
-			long currentTime = System.currentTimeMillis();
+					long currentTime = System.currentTimeMillis();
 
-			if( !PFAbstract.suppressOutput ) {
-				if( !printedHeader ) printHeader();
+					if( !PFAbstract.suppressOutput ) {
+						if( !printedHeader ) printHeader();
 
-				System.out.println(E + "\t" + effectiveEpsilon + "\t" + 
-						getNumMinimized4Output() + "\t" + getNumUnEnumerated() + "\t" + confs.size() + "\t" + ((currentTime-startTime)/1000));
-			}
-			
-			eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
-			
-			// for partial sequences when doing KAstar
-			if( !isFullyDefined() && eAppx == EApproxReached.TRUE ) adjustQStar();
-		}
+						double boundError = (conf.getEnergyBound()-conf.getEnergy())/conf.getEnergy()*100;
 
+						System.out.println(boundError + "\t" + energy + "\t" + effectiveEpsilon + "\t" + 
+								getNumMinimized4Output() + "\t" + getNumUnEnumerated() + "\t" + confsQ.size() + "\t" + ((currentTime-startTime)/1000));
+					}
+
+					eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
+
+					// for partial sequences when doing KAstar
+					if( !isFullyDefined() && eAppx == EApproxReached.TRUE ) adjustQStar();
+				}
 	}
 
 
 	protected void printHeader() {
 
-		System.out.println("minE" + "\t" + "epsilon" + "\t" + "#min" +
+		System.out.println("% boundError" + "\t" + "minE" + "\t" + "epsilon" + "\t" + "#min" +
 				"\t" + "#un-enum" + "\t" + "#buf" + "\t"+ "time(sec)");
 
 		printedHeader = true;
 	}
 
 
-	protected double computeEffectiveEpsilonNew() {
-
-		BigDecimal qPrimePStar = qPrime.add(pStar);
-
-		if(qPrimePStar.compareTo(confs.getCapacityThresh().multiply(confs.getQDagger())) < 0)
-			confs.setQCapacity(confs.size());
-
-		else
-			confs.restoreQCapacity();
-
-		BigDecimal divisor = (qStar.add(confs.getQDagger())).add(qPrimePStar);
-
-		// energies are too high so epsilon can never be reached
-		if( divisor.compareTo(BigDecimal.ZERO) == 0 ) return -1.0;
-
-		BigDecimal dividend = qStar;
-
-		return BigDecimal.ONE.subtract( dividend.divide(divisor,4) ).doubleValue();
-	}
-
-
 	protected BigInteger getNumUnEnumerated() {
 		// assuming locks are in place
 
-		BigInteger numProcessing = getNumMinimized().add(BigInteger.valueOf(confs.size())).add(minimizingConfs);
+		BigInteger numProcessing = getNumMinimized().add(BigInteger.valueOf(confsQ.size())).add(minimizingConfs);
 
 		BigInteger ans = unPrunedConfs.subtract( numProcessing );
 
@@ -273,12 +252,17 @@ public class PFNew01 extends PFAbstract implements Serializable {
 	}
 
 
+	protected void updateQPrime() {
+		qPrime = qPrimeCalculator.getQPrime(confsQ.getPartialQLB());
+	}
+
+
 	public BigDecimal getQStarUpperBound() {
 		if( eAppx == EApproxReached.TRUE ) return getQStar();
 
-		synchronized( confs.qLock ) {
+		synchronized( confsQ.lock ) {
 			updateQPrime();
-			return ((qStar.add(qPrime)).add(confs.getQDagger())).add(pStar);
+			return ((qStar.add(qPrime)).add(confsQ.getPartialQLB())).add(pStar);
 		}
 	}
 
@@ -294,7 +278,9 @@ public class PFNew01 extends PFAbstract implements Serializable {
 
 			eAppx = EApproxReached.NOT_POSSIBLE;
 
-			confs.cleanUp(nullify);
+			confsQ.cleanUp(nullify);
+
+			qPrimeCalculator.cleanup();
 
 			eAppx = EApproxReached.FALSE;
 

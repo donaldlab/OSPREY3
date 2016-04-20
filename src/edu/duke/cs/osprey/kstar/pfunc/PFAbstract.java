@@ -43,7 +43,6 @@ public abstract class PFAbstract implements Serializable {
 	protected static ArrayList<String> serverList = new ArrayList<>();
 	protected static int threadConfsBuffer = 8;
 	public static int qCapacity = 1024000;
-	public static boolean waitUntilCapacity = false;
 	protected static int numThreads = 1;
 	protected static int numFibers = 1;
 	protected static int numRemoteClients = 1;
@@ -364,9 +363,9 @@ public abstract class PFAbstract implements Serializable {
 	}
 
 
-	protected double computeEffectiveEpsilonTrad() {
+	protected double computeEffectiveEpsilon() {
 
-		BigDecimal divisor = (qStar.add(qPrime)).add(pStar);
+		BigDecimal divisor = qStar.add(qPrime.add(pStar));
 
 		// energies are too high so epsilon can never be reached
 		if( divisor.compareTo(BigDecimal.ZERO) == 0 ) return -1.0;
@@ -529,21 +528,21 @@ public abstract class PFAbstract implements Serializable {
 		// conservative implementation
 		restart();
 		return;
-		*/
-		
+		 */
+
 		// shortcut implementation
 		// get new value of epsilon with q' = 0 and reduced p*
 		// MUST call abstract base class version of this method
-		
+
 		qPrime = BigDecimal.ZERO;
-		
+
 		initPStar(); // re-calculate p*
-		
-		double effectiveEpsilon = computeEffectiveEpsilonTrad();
+
+		double effectiveEpsilon = computeEffectiveEpsilon();
 
 		if( getQStar().compareTo(BigDecimal.ZERO) > 0 
 				&& effectiveEpsilon != -1.0 && effectiveEpsilon <= targetEpsilon ) {
-			
+
 			setEpsilonStatus(EApproxReached.TRUE);
 
 			System.out.println("\nReached target epsilon approximation of " + targetEpsilon + " for sequence: " +

@@ -83,7 +83,7 @@ public class KSImplLinear extends KSAbstract {
 		if(strand2AllowedSeqs == null)
 			throw new RuntimeException("ERROR: call init() method on this object before invoking run()");
 
-		begin = System.currentTimeMillis();
+		setStartTime(System.currentTimeMillis());
 
 		if(doCheckPoint)
 			runRR();
@@ -92,10 +92,11 @@ public class KSImplLinear extends KSAbstract {
 			runFCFS();
 
 		// print statistics
-		System.out.println("\nK* calculations computed: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs());
+		System.out.println("\nK* calculations computed: " + getNumSeqsCompleted(0));
+		System.out.println("Total # sequences: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs());
 		System.out.println("K* conformations minimized: " + countMinimizedConfs());
 		System.out.println("Total # of conformations in search space: " + countTotNumConfs());
-		System.out.println("K* running time: " + (System.currentTimeMillis()-begin)/1000 + " seconds\n");
+		System.out.println("K* running time: " + (System.currentTimeMillis()-getStartTime())/1000 + " seconds\n");
 	}
 
 
@@ -133,7 +134,7 @@ public class KSImplLinear extends KSAbstract {
 			// compute K* scores and print output if all 
 			// partition functions are computed to epsilon accuracy
 			if( calc.getEpsilonStatus() == EApproxReached.TRUE ) {
-				calc.printSummary( getOputputFilePath() );
+				calc.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCompleted(1) );
 			}
 		}
 	}
@@ -200,7 +201,7 @@ public class KSImplLinear extends KSAbstract {
 					seqSet.remove(seq);
 
 					if( calc.getEpsilonStatus() == EApproxReached.TRUE ) {
-						calc.printSummary( getOputputFilePath() );
+						calc.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCompleted(1) );
 					}
 				}
 
@@ -208,7 +209,7 @@ public class KSImplLinear extends KSAbstract {
 					// remove partition funtion from memory, write checkpoint
 					name2PF.remove(pf.getSearchProblemName());
 					calc.serializePF(Strand.COMPLEX);
-					calc.printSummary( getCheckPointFilePath() );
+					calc.printSummary( getCheckPointFilePath(), getStartTime(), getNumSeqsCompleted(0) );
 				}
 			}
 

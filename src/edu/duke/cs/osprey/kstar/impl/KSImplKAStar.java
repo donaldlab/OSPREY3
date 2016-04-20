@@ -96,14 +96,14 @@ public class KSImplKAStar extends KSAbstract {
 
 	@Override
 	public String getKSMethod() {
-		return "astar";
+		return "kastar";
 	}
 
 
 	@Override
 	public void run() {
 
-		begin = System.currentTimeMillis();
+		setStartTime(System.currentTimeMillis());
 
 		int numOutput = 0;
 
@@ -118,17 +118,22 @@ public class KSImplKAStar extends KSAbstract {
 			+ " seqsPossible: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs()
 			+ " seqsInOutput: " + numOutput);
 		
-		System.out.println("K* running time: " + (System.currentTimeMillis()-begin)/1000 + " seconds\n");
+		System.out.println("K* running time: " + (System.currentTimeMillis()-getStartTime())/1000 + " seconds\n");
 
 		abortPFs();
 	}
 
 
 	private int runTB() {
-
+		
+		int completed = 0;
+		
 		// compute wt sequence for reference
 		wtKSCalc = computeWTCalc();
-
+		
+		if( strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs() <= 1 )
+			return completed; // wt is sequence[0]
+		
 		// initialize KUStar tree
 		KAStarTree tree = new KAStarTree(this, strand2AllowedSeqs, wtKSCalc);
 
@@ -136,7 +141,6 @@ public class KSImplKAStar extends KSAbstract {
 		tree.add( new KAStarNode(null, null, true) );
 
 		int target = cfp.getParams().getInt("KStarNumSeqs", 5);
-		int completed = 0;
 
 		for( KAStarNode best = tree.poll(); best != null && completed < target; 
 				best = tree.poll() ) {
@@ -145,7 +149,7 @@ public class KSImplKAStar extends KSAbstract {
 
 				best.checkConsistency(best);
 
-				best.lb.printSummary( getOputputFilePath() );
+				best.lb.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCompleted(0) );
 				completed++;
 				continue;
 			}
@@ -162,8 +166,13 @@ public class KSImplKAStar extends KSAbstract {
 		// run until the lower bound of the next completed sequence is greater 
 		// than the upper bound of any previously completed sequence
 
+		int completed = 0;
+		
 		// compute wt sequence for reference
 		wtKSCalc = computeWTCalc();
+		
+		if( strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs() <= 1 )
+			return completed; // wt is sequence[0]
 
 		// initialize KUStar tree
 		KAStarTree tree = new KAStarTree(this, strand2AllowedSeqs, wtKSCalc);
@@ -171,14 +180,13 @@ public class KSImplKAStar extends KSAbstract {
 		// add root node
 		tree.add( new KAStarNode(null, null, true) );
 
-		int completed = 0;
 		double gUB = Double.NEGATIVE_INFINITY;
 
 		for( KAStarNode best = tree.poll(); best != null; best = tree.poll() ) {
 
 			if( best.isFullyProcessed() ) {
 
-				best.lb.printSummary( getOputputFilePath() );
+				best.lb.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCompleted(0) );
 
 				double bestUB = best.getUBScore();
 

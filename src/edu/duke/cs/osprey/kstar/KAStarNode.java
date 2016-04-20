@@ -303,7 +303,9 @@ public class KAStarNode {
 			
 			if( !child.lb.canContinue() ) return; // epsilon is not possible or not stable
 			
-			if( child.lb.getEpsilonStatus() == EApproxReached.TRUE ) numLeavesCompleted++;
+			if( child.lb.getEpsilonStatus() == EApproxReached.TRUE ) {
+				numLeavesCompleted = ksObj.getNumSeqsCompleted(1);
+			}
 			
 			child.lbScore = -1.0 * child.lb.getKStarScoreLog10();
 

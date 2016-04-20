@@ -63,15 +63,12 @@ public class PFNew03 extends PFNew02 implements Serializable {
 			slaves.get(slaves.size()-1).id = i;
 		}
 
-		confs = new KSConfQ( this, confsPerThread );
+		confsQ = new KSConfQ( this, confsPerThread );
 
 		try {
 
 			// start conformation queue
-			confs.start();
-
-			if( waitUntilCapacity )
-				confs.waitUntilCapacity();
+			confsQ.start();
 
 			// start slave threads
 			for( MinimizerFiber slave : slaves ) slave.start();
@@ -112,7 +109,7 @@ public class PFNew03 extends PFNew02 implements Serializable {
 
 					// fill slave conformation buffer
 					// lock conformation queue
-					synchronized( confs.qLock ) {
+					synchronized( confsQ.lock ) {
 
 						int request = slave.buf.size();
 						int granted = 0;
@@ -126,14 +123,14 @@ public class PFNew03 extends PFNew02 implements Serializable {
 						}
 
 						for( int i = 0; i < granted; ++i ) {
-							slave.buf.set(i, confs.deQueue());
+							slave.buf.set(i, confsQ.deQueue());
 						}
 
 						minimizingConfs = minimizingConfs.add( BigInteger.valueOf(slave.buf.size()) );
 
 						slave.bufFull = true; slave.inputConsumed = false;
 
-						if( confs.getState() == Thread.State.WAITING ) confs.qLock.notify();
+						if( confsQ.getState() == Thread.State.WAITING ) confsQ.lock.notify();
 					}
 
 					// notify slave to consume buffer
@@ -154,7 +151,7 @@ public class PFNew03 extends PFNew02 implements Serializable {
 			if( eAppx == EApproxReached.FALSE ) Thread.sleep(sleepInterval);
 
 			else {
-				confs.cleanUp(true);
+				confsQ.cleanUp(true);
 
 				cleanUpSlaves( eAppx );
 
@@ -181,7 +178,7 @@ public class PFNew03 extends PFNew02 implements Serializable {
 				if( eAppx == EApproxReached.FALSE ) Thread.sleep(sleepInterval);
 			}
 
-			confs.cleanUp(true);
+			confsQ.cleanUp(true);
 
 			cleanUpSlaves( eAppx );
 

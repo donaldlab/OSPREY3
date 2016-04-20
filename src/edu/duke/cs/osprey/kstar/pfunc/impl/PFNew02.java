@@ -8,6 +8,7 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.kstar.KSConf;
 import edu.duke.cs.osprey.kstar.KSConfQ;
+import edu.duke.cs.osprey.kstar.QPrimeConfTree;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.tools.ObjectIO;
 
@@ -81,12 +82,11 @@ public class PFNew02 extends PFNew01 implements Serializable {
 			for( int it = 0; it < indexes.size(); ++it ) partialQConfs.add(null);
 			partialQConfs.trimToSize();
 
-			confs = new KSConfQ( this, indexes.size() );
-
-			confs.start();
-
-			if( waitUntilCapacity )
-				confs.waitUntilCapacity();
+			confsQ = new KSConfQ( this, indexes.size() );
+			qPrimeCalculator = new QPrimeConfTree( this, unPrunedConfs );
+			
+			qPrimeCalculator.start();
+			confsQ.start();
 
 		} catch(Exception e) {
 			System.out.println(e.getMessage());
@@ -100,7 +100,7 @@ public class PFNew02 extends PFNew01 implements Serializable {
 
 	protected void iterate() throws Exception {
 
-		synchronized( confs.qLock ) {
+		synchronized( confsQ.lock ) {
 
 			int request = partialQConfs.size();
 			int granted = 0;
@@ -117,12 +117,12 @@ public class PFNew02 extends PFNew01 implements Serializable {
 			}
 
 			for( int i = 0; i < Math.min(granted, partialQConfs.size()); ++i ) {
-				partialQConfs.set(i, confs.deQueue());
+				partialQConfs.set(i, confsQ.deQueue());
 			}
 
 			minimizingConfs = minimizingConfs.add( BigInteger.valueOf(partialQConfs.size()) );
 
-			if( confs.getState() == Thread.State.WAITING ) confs.qLock.notify();
+			if( confsQ.getState() == Thread.State.WAITING ) confsQ.lock.notify();
 		}
 
 		// minimization hapens here
@@ -130,7 +130,8 @@ public class PFNew02 extends PFNew01 implements Serializable {
 
 		if( eAppx != EApproxReached.FALSE ) {
 			// we leave this function
-			confs.cleanUp(true);
+			confsQ.cleanUp(true);
+			qPrimeCalculator.cleanup();
 		}	
 	}
 
@@ -143,34 +144,35 @@ public class PFNew02 extends PFNew01 implements Serializable {
 				
 				KSConf conf = partialQConfs.get(i);
 				
-				double E = isFullyDefined() ? 
+				double energy = isFullyDefined() ? 
 						sps.get(i).minimizedEnergy( conf.getConfArray() ) : conf.getEnergyBound();
 				
-				conf.setEnergy( E );
+				conf.setEnergy( energy );
 			});
 		}
 
-		double E = 0;
+		double energy = 0, boundError = 0;
 
 		// we need a current snapshot of qDagger, so we lock here
-		synchronized( confs.qLock ) {
-			// update q*, qDagger, minimizingConfs, and q' atomically
-			Et = confs.size() > 0 ? confs.peekTail().getEnergyBound() 
-					: partialQConfs.get(partialQConfs.size()-1).getEnergyBound();
-
+		synchronized( confsQ.lock ) {
+			
+			while( BigInteger.valueOf(confsQ.size()).compareTo(qPrimeCalculator.getNumEnumerated()) > 0 )
+				Thread.sleep(1);
+			
 			for( KSConf conf : partialQConfs ) {
 
 				minimizingConfs = minimizingConfs.subtract( BigInteger.ONE );
 
-				E = conf.getEnergy();
+				energy = conf.getEnergy();
 				updateQStar( conf );
 
-				confs.setQDagger( confs.getQDagger().subtract( getBoltzmannWeight(conf.getEnergyBound()) ) );
-
+				boundError = (conf.getEnergyBound()-energy)/energy*100;
+				
+				confsQ.accumulatePartialQLB(getBoltzmannWeight(conf.getEnergyBound()));
 				updateQPrime();
 
 				// negative values of effective epsilon are disallowed
-				if( (effectiveEpsilon = computeEffectiveEpsilonNew()) < 0 ) {
+				if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0 ) {
 					eAppx = EApproxReached.NOT_POSSIBLE;
 					return;
 				}
@@ -182,9 +184,9 @@ public class PFNew02 extends PFNew01 implements Serializable {
 
 			if( !PFAbstract.suppressOutput ) {
 				if( !printedHeader ) printHeader();
-
-				System.out.println(E + "\t" + effectiveEpsilon + "\t" + 
-						getNumMinimized4Output() + "\t" + getNumUnEnumerated() + "\t" + confs.size() + "\t" + ((currentTime-startTime)/1000));
+				
+				System.out.println(boundError + "\t" + energy + "\t" + effectiveEpsilon + "\t" + 
+						getNumMinimized4Output() + "\t" + getNumUnEnumerated() + "\t" + confsQ.size() + "\t" + ((currentTime-startTime)/1000));
 			}
 
 			eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;

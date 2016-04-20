@@ -249,8 +249,6 @@ public class KSCalc {
 
 	private static void printOutputHeader( PrintStream out ) {
 
-		out.print("Time (sec)");
-		out.print("\t");
 		out.print("Seq ID");
 		out.print("\t");
 		out.print("Sequence");
@@ -276,6 +274,10 @@ public class KSCalc {
 		out.print("Ligand Epsilon");
 		out.print("\t");
 		out.print("Ligand # Minimized Confs.");
+		out.print("\t");
+		out.print("# Seqs Completed");
+		out.print("\t");
+		out.print("Time (sec)");
 		out.println();
 	}
 
@@ -298,15 +300,12 @@ public class KSCalc {
 	}
 
 
-	public void printSummary( String outFile ) {
+	public void printSummary( String outFile, long startTime, long numCompletedSeqs ) {
 
 		try {
 			
 			PrintStream out = new PrintStream(new FileOutputStream(outFile, true));
 
-			out.print( (System.currentTimeMillis()-KSAbstract.begin)/1000 );
-			
-			out.print("\t");
 			out.print(seqID);
 
 			out.print("\t");
@@ -337,7 +336,13 @@ public class KSCalc {
 				out.print("\t");
 				out.print(pf.getNumMinimized4Output());
 			}
-
+			
+			out.print("\t");
+			out.print( numCompletedSeqs );
+			
+			out.print("\t");
+			out.print( (System.currentTimeMillis()-startTime)/1000 );
+			
 			out.println();
 
 			out.flush();

@@ -79,13 +79,10 @@ public class PFNew04 extends PFNew03 implements Serializable {
 			for( int i = 0; i < fibers * confsPerThread; ++i ) unProcessedConfs.add(null);
 			unProcessedConfs.trimToSize();
 
-			confs = new KSConfQ( this, unProcessedConfs.size() );
+			confsQ = new KSConfQ( this, unProcessedConfs.size() );
 
 			// start conformation queue
-			confs.start();
-
-			if( waitUntilCapacity )
-				confs.waitUntilCapacity();
+			confsQ.start();
 
 		}  catch (Exception e) {
 			System.out.println(e.getMessage());
@@ -117,7 +114,7 @@ public class PFNew04 extends PFNew03 implements Serializable {
 				// server is idle and awaiting new conformations
 
 				// lock conformation queue
-				synchronized( confs.qLock ) {
+				synchronized( confsQ.lock ) {
 
 					int request = unProcessedConfs.size();
 					int granted = 0;
@@ -131,11 +128,11 @@ public class PFNew04 extends PFNew03 implements Serializable {
 					}
 
 					for( int i = 0; i < unProcessedConfs.size(); ++i ) 
-						unProcessedConfs.set(i, confs.deQueue());
+						unProcessedConfs.set(i, confsQ.deQueue());
 
 					minimizingConfs = minimizingConfs.add( BigInteger.valueOf(unProcessedConfs.size()) );
 
-					if( confs.getState() == Thread.State.WAITING ) confs.qLock.notify();
+					if( confsQ.getState() == Thread.State.WAITING ) confsQ.lock.notify();
 				}
 
 				// send in unprocessed confs
@@ -154,7 +151,7 @@ public class PFNew04 extends PFNew03 implements Serializable {
 			if( eAppx == EApproxReached.FALSE ) Thread.sleep(sleepInterval);
 
 			else {
-				confs.cleanUp(true);
+				confsQ.cleanUp(true);
 
 				cleanUpSlaves( serverInterfaces );
 			}
@@ -178,7 +175,7 @@ public class PFNew04 extends PFNew03 implements Serializable {
 				if( eAppx == EApproxReached.FALSE ) Thread.sleep(sleepInterval);
 			}
 
-			confs.cleanUp(true);
+			confsQ.cleanUp(true);
 
 			cleanUpSlaves( serverInterfaces );
 

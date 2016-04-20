@@ -57,7 +57,8 @@ public abstract class KSAbstract implements KSInterface {
 	public static boolean doCheckPoint = false;
 	protected static long checkpointInterval = 50000;
 
-	public static long begin = 0; // beginning time
+	private long startTime = 0; // beginning time
+	private int numSeqsCompleted = 0;
 
 	public KSAbstract( ConfigFileParser cfp ) {
 
@@ -77,6 +78,21 @@ public abstract class KSAbstract implements KSInterface {
 	protected abstract void preLoadPFs(ArrayList<Boolean> contSCFlexVals);
 
 
+	public int getNumSeqsCompleted(int increment) {
+		numSeqsCompleted += increment;
+		return numSeqsCompleted;
+	}
+	
+	
+	public void setStartTime(long time) {
+		startTime = time;
+	}
+	
+	
+	public long getStartTime() {
+		return startTime;
+	}
+	
 	public static void setCheckPointInterval( long interval ) {
 		if(interval <= 0) interval = 1;
 		checkpointInterval = interval;
@@ -631,11 +647,11 @@ public abstract class KSAbstract implements KSInterface {
 		
 		if( calc.getEpsilonStatus() == EApproxReached.TRUE ) {
 			calc.deleteCheckPointFile(Strand.COMPLEX);
-			calc.printSummary( getOputputFilePath() );
+			calc.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCompleted(1) );
 		}
 		
 		else {
-			calc.printSummary( getCheckPointFilePath() );
+			calc.printSummary( getCheckPointFilePath(), getStartTime(), getNumSeqsCompleted(0) );
 		}
 		
 		return calc;

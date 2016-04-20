@@ -106,19 +106,18 @@ public class PFTrad extends PFAbstract implements Serializable {
 	 */
 	protected void accumulate( KSConf conf ) {
 
-		double E = isFullyDefined() ? 
+		double energy = isFullyDefined() ? 
 				sp.minimizedEnergy(conf.getConfArray()) : conf.getEnergyBound();
 
-		conf.setEnergy(E);
-
-		Et = conf.getEnergyBound();
+		conf.setEnergy(energy);
 
 		updateQStar( conf );
 
+		Et = conf.getEnergyBound();
 		updateQPrime();
 
 		// negative values of effective esilon are disallowed
-		if( (effectiveEpsilon = computeEffectiveEpsilonTrad()) < 0 ) {
+		if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0 ) {
 
 			eAppx = EApproxReached.NOT_POSSIBLE;
 
@@ -130,7 +129,9 @@ public class PFTrad extends PFAbstract implements Serializable {
 		if( !PFAbstract.suppressOutput ) {
 			if( !printedHeader ) printHeader();
 
-			System.out.println(E + "\t" + effectiveEpsilon + "\t" 
+			double boundError = (conf.getEnergyBound()-conf.getEnergy())/conf.getEnergy()*100;
+			
+			System.out.println(boundError + "\t" + energy + "\t" + effectiveEpsilon + "\t" 
 					+ getNumMinimized4Output() + "\t" + getNumUnEnumerated() + "\t"+ (currentTime-startTime)/1000);
 		}
 
@@ -143,7 +144,7 @@ public class PFTrad extends PFAbstract implements Serializable {
 
 	protected void printHeader() {
 
-		System.out.println("minE" + "\t" + "epsilon" + "\t" + "#min" +
+		System.out.println("% boundError" + "\t" + "minE" + "\t" + "epsilon" + "\t" + "#min" +
 				"\t" + "#un-enum" + "\t" + "time(sec)");
 
 		printedHeader = true;

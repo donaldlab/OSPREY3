@@ -20,17 +20,15 @@ public class KSConfQ extends Thread implements Serializable {
 	private PFAbstract pf;
 	private ConfSearch confSearch;
 	private int minCapacity;
-	private BigDecimal capacityThresh = new BigDecimal(Math.pow(1, -20));
-	
+
 	// lock for queue access
-	public final String qLock = new String("LOCK");
+	public final String lock = new String("LOCK");
 
 	// upper bound partition function
-	private BigDecimal qDagger = BigDecimal.ZERO;
+	private BigDecimal partialQLB = BigDecimal.ZERO;
 
 	private LinkedHashSet<ArrayList<Integer>> q = null;
 	private int qCap = (int)Math.pow(2, 20);
-	private int origQCap = 0;
 	private boolean confsExhausted = false;
 	private ArrayList<Integer> tail = null;
 
@@ -48,8 +46,7 @@ public class KSConfQ extends Thread implements Serializable {
 
 		this.minCapacity = minCapacity;
 		qCap = Math.max( minCapacity, PFAbstract.qCapacity );
-		origQCap = qCap;
-		
+
 		q = new LinkedHashSet<>(qCap);
 	}
 
@@ -57,14 +54,7 @@ public class KSConfQ extends Thread implements Serializable {
 	public void restartConfTree() {
 		confSearch = pf.getConfTree(false);
 	}
-	
-	
-	public void waitUntilCapacity() throws InterruptedException {
 
-		while( !isExhausted() && size() < getQCapacity() )
-			Thread.sleep(250);
-	}
-	
 
 	public double getNextConfBound() {
 
@@ -76,7 +66,7 @@ public class KSConfQ extends Thread implements Serializable {
 
 		// should never get here
 		throw new RuntimeException("ERROR: all the conformations of this sequence were pruned");
-		
+
 		// return Double.MAX_VALUE;
 	}
 
@@ -103,27 +93,30 @@ public class KSConfQ extends Thread implements Serializable {
 
 	public KSConf peekHead() {
 		if(size() == 0) return null;
-		
+
 		ArrayList<Integer> value = q.iterator().next();
 		return new KSConf(value, pf.getConfBound(confSearch, KSConf.list2Array(value), false));
 	}
-	
+
 
 	protected double enQueue( int[] conf ) {
-		
+
 		double energyBound = pf.getConfBound(confSearch, conf, false);
+		if( energyBound == Double.POSITIVE_INFINITY ) return Double.POSITIVE_INFINITY;
+
+		BigDecimal boltzmannWeight = pf.getBoltzmannWeight(energyBound);
+		if( boltzmannWeight.compareTo(BigDecimal.ZERO) == 0 ) return Double.POSITIVE_INFINITY;
+
 		ArrayList<Integer> list = KSConf.array2List(conf);
-		
+
 		if(KSAbstract.doCheckPoint && size() > 0 && energyBound < peekTail().getEnergyBound() ) return energyBound;
-		
+
 		if( pf.getMinimizedConfsSet().contains(list) || q.contains(list) ) return energyBound;
 
-		qDagger = qDagger.add( pf.getBoltzmannWeight(energyBound) );
-		
 		q.add(list);
-		
+
 		tail = list;
-		
+
 		return energyBound;
 	}
 
@@ -134,37 +127,27 @@ public class KSConfQ extends Thread implements Serializable {
 
 		if(conf == null) 
 			throw new RuntimeException("ERROR: attempting to dequeue from an empty list");
-		
+
 		q.remove(conf.getConf());
-		
+
 		if(size() == 0) tail = null;
-		
+
 		return conf;
 	}
 
 
-	public BigDecimal getCapacityThresh() {
-		return capacityThresh;
+	public BigDecimal getPartialQLB() {
+		return partialQLB;
 	}
 
 
-	public BigDecimal getQDagger() {
-		return qDagger;
-	}
-
-	
-	public void setQDagger( BigDecimal qDagger ) {
-		this.qDagger = qDagger;
+	public void accumulatePartialQLB( BigDecimal in ) {
+		partialQLB = partialQLB.add(in);
 	}
 
 
 	public int getQCapacity() {
 		return qCap;
-	}
-
-
-	public void restoreQCapacity() {
-		setQCapacity(origQCap);
 	}
 
 
@@ -175,17 +158,21 @@ public class KSConfQ extends Thread implements Serializable {
 
 	public void cleanUp( boolean nullify ) throws InterruptedException {
 
-		synchronized( qLock ) {
-			qLock.notify();
+		synchronized( lock ) {
+			lock.notify();
 		}
-		
+
 		this.join();
-		
-		if(nullify) {
-			confSearch = null;
-			q = null;
-			tail = null;
-		}
+
+		if(nullify) nullify();
+	}
+
+
+	private void nullify() {
+		confsExhausted = true;
+		confSearch = null;
+		q = null;
+		tail = null;
 	}
 
 
@@ -197,24 +184,26 @@ public class KSConfQ extends Thread implements Serializable {
 
 			conf = confSearch.nextConf();
 
-			synchronized( qLock ) {
+			synchronized( lock ) {
 
 				if( conf == null ) {
+					confSearch = null;
 					confsExhausted = true;
-					qLock.notify();
+					lock.notify();
 					return;
 				}
 
 				if( size() >= qCap ) {
 					try {
 
-						qLock.notify();
+						lock.notify();
 
-						if( pf.getEpsilonStatus() != EApproxReached.FALSE ) 
-							return;
+						if( pf.getEpsilonStatus() != EApproxReached.FALSE ) { 
+							confsExhausted = true; confSearch = null; return; 
+						}
 
 						else
-							qLock.wait();
+							lock.wait();
 
 					} catch (InterruptedException e) {
 						System.out.println(e.getMessage());
@@ -224,17 +213,21 @@ public class KSConfQ extends Thread implements Serializable {
 				}
 
 				// exit thread if we have an e-approximation
-				if( pf.getEpsilonStatus() != EApproxReached.FALSE ) 
-					return;
+				if( pf.getEpsilonStatus() != EApproxReached.FALSE ) { 
+					confsExhausted = true; confSearch = null; return; 
+				}
 
-				enQueue(conf);
+				// this means the energy lower bound is pos infinity. no need to keep enumerating
+				if( enQueue(conf) == Double.POSITIVE_INFINITY ) { 
+					confsExhausted = true; confSearch = null; return; 
+				}
 
 				// notify queue consumer ONLY if queue was empty before
 				// i added latest conformation. this condition means that
 				// the partition function is waiting for this signal to process
 				// conformations.
 				// it's wasteful to call notify for every insertion
-				if( size() == minCapacity ) qLock.notify();
+				if( size() == minCapacity ) lock.notify();
 			}
 		}
 	}
