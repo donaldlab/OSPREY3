@@ -6,6 +6,7 @@
 package edu.duke.cs.osprey.dof.deeper;
 
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
+import edu.duke.cs.osprey.kstar.Strand;
 import edu.duke.cs.osprey.structure.Molecule;
 
 import java.io.Serializable;
@@ -63,7 +64,7 @@ public class DEEPerSettings implements Serializable {
     }
     
     
-    public void loadPertFile(){
+    public void loadPertFile(Strand termini){
         //load the perturbation file; select perturbations if there is none
         
         if(!doPerturbations)//No perturbations: leave perts null
@@ -71,18 +72,18 @@ public class DEEPerSettings implements Serializable {
         
         perts = new PertSet();
         
-        if( ! perts.loadPertFile(pertFileName,true) ){//file not found
+        if( !perts.loadPertFile(pertFileName, true, termini) ){//file not found
             
             if(!selectPerturbations)
                 throw new RuntimeException("ERROR: Perturbation file not found"
                         + " but not supposed to select perturbations");
             
             PerturbationSelector sele = new PerturbationSelector(startingPertFile, onlyStarting, 
-                    maxShearParam, maxBackrubParam, selectLCAs, flexibleRes, PDBFile);
+                    maxShearParam, maxBackrubParam, selectLCAs, flexibleRes, PDBFile, termini);
             
-            PertSet ps = sele.selectPerturbations();
+            PertSet ps = sele.selectPerturbations(termini);
             ps.writePertFile(pertFileName);
-            perts.loadPertFile(pertFileName,true);
+            perts.loadPertFile(pertFileName, true, termini);
         }
     }
     

@@ -202,11 +202,13 @@ public class KStarCalculator {
 				break;
 			
 			case "linear":
-			default:
 				KSImplLinear linear = new KSImplLinear(cfp);
 				linear.init(strand2AllowedSeqs);
 				linear.run();
 				break;
+				
+			default:
+				throw new RuntimeException("ERROR: currently supported implementations are 'linear' and 'kastar'");
 			}
 
 		} catch(Exception e) {

@@ -8,6 +8,7 @@ package edu.duke.cs.osprey.dof.deeper;
 import edu.duke.cs.osprey.dof.deeper.perts.PartialStructureSwitch;
 import edu.duke.cs.osprey.dof.deeper.perts.LoopClosureAdjustment;
 import edu.duke.cs.osprey.dof.deeper.perts.Shear;
+import edu.duke.cs.osprey.kstar.Strand;
 import edu.duke.cs.osprey.dof.deeper.perts.Backrub;
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.dof.deeper.perts.PerturbationBlock;
@@ -55,7 +56,7 @@ public class PertSet implements Serializable {
     
     
     
-    public boolean loadPertFile(String pertFileName, boolean loadStates){
+    public boolean loadPertFile(String pertFileName, boolean loadStates, Strand termini){
         //load perturbations from the pert file
         //Return whether we found the file or not
         //Load perturbations and their intervals; if loadStates then residue pert states too
@@ -64,7 +65,7 @@ public class PertSet implements Serializable {
             BufferedReader br=new BufferedReader(new FileReader(pertFileName));
             StringTokenizer st;
             br.readLine();//Title
-            readPerts(br);
+            readPerts(br, termini);
             
             if(loadStates){
             
@@ -122,7 +123,7 @@ public class PertSet implements Serializable {
     }
     
     
-    public void readPerts(BufferedReader br) throws Exception {
+    public void readPerts(BufferedReader br, Strand termini) throws Exception {
         //read the actual perturbations, including the residues they affect
         //and the parameter intervals we're using for them
 
@@ -146,7 +147,14 @@ public class PertSet implements Serializable {
 
             for(int b=0;b<numAffectedRes;b++){
                 String inputNumber = st.nextToken();
-                pertResNums.add(inputNumber);
+                if(termini == null || termini.contains(Integer.valueOf(inputNumber))) {
+                	pertResNums.add(inputNumber);
+                }
+            }
+            
+            if(pertResNums.isEmpty()) {
+            	pertTypes.remove(pertTypes.size()-1);
+            	continue;
             }
             
             resNums.add(pertResNums);
@@ -169,6 +177,9 @@ public class PertSet implements Serializable {
             
             pertIntervals.add(curPertIntervals);
         }
+        
+        // pertfile does not apply to this strand. advance the pertfile to end
+        if(pertTypes.isEmpty()) while(br.readLine() != null);
     }
     
     

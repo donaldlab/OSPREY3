@@ -91,14 +91,14 @@ public class ConfSpace implements Serializable {
 	 */
 	public ConfSpace(String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, 
 			boolean addWT, boolean contSCFlex, DEEPerSettings dset, ArrayList<String[]> moveableStrands, 
-			ArrayList<String[]> freeBBZones, boolean ellipses, Strand limits){
+			ArrayList<String[]> freeBBZones, boolean ellipses, Strand termini){
 
 		useEllipses = ellipses;  	
 
 		numPos = flexibleRes.size();
 
 		//read the structure and assign templates, deleting unassignable res...
-		m = PDBFileReader.readPDBFile(PDBFile, limits);
+		m = PDBFileReader.readPDBFile(PDBFile, termini);
 
 		//Make all the degrees of freedom
 		//start with proline puckers (added to res)
@@ -125,7 +125,6 @@ public class ConfSpace implements Serializable {
 
 			singleResDOFs.add(resDOFs);
 		}
-
 
 		//now rigid-body strand motions...
 		ArrayList<DegreeOfFreedom> strandDOFs = strandMotionDOFs(moveableStrands,flexibleRes);

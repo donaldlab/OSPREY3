@@ -6,6 +6,7 @@
 package edu.duke.cs.osprey.dof.deeper;
 
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
+import edu.duke.cs.osprey.kstar.Strand;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -32,8 +33,6 @@ public class PerturbationSelector {
     Molecule m;//generated from provided PDB file
     
     
-    
-    
     //Stuff generated and used in the selection process
     ArrayList<Perturbation> perts;//the perturbations, implemented in m
     PertSet ps;//the perturbation set we're generating
@@ -51,7 +50,7 @@ public class PerturbationSelector {
     
     public PerturbationSelector(String startingPertFile, boolean onlyStarting, 
             double maxShearParam, double maxBackrubParam, boolean selectLCAs, 
-            ArrayList<String> flexibleRes, String PDBFile) {
+            ArrayList<String> flexibleRes, String PDBFile, Strand termini) {
         
         this.startingPertFile = startingPertFile;
         this.onlyStarting = onlyStarting;
@@ -60,17 +59,17 @@ public class PerturbationSelector {
         this.selectLCAs = selectLCAs;
         this.flexibleRes = flexibleRes;
         
-        m = PDBFileReader.readPDBFile(PDBFile, null);
+        m = PDBFileReader.readPDBFile(PDBFile, termini);
     }
     
     
     
-    public PertSet selectPerturbations(){
+    public PertSet selectPerturbations(Strand termini){
         ps = new PertSet();
         
-        if( ! startingPertFile.equalsIgnoreCase("none") ){//lists perturbations to include
+        if( !startingPertFile.equalsIgnoreCase("none") ){//lists perturbations to include
             //that would not be automatically selected.  (Probably partial structure switches)
-            if( ! ps.loadPertFile(startingPertFile,false) ){
+            if( !ps.loadPertFile(startingPertFile,false, termini) ){
                 throw new RuntimeException( "ERROR: Can't find starting perturbation file "
                         + startingPertFile );
             }

@@ -20,7 +20,7 @@ import java.util.ArrayList;
  */
 public class PDBFileReader {
 
-	public static Molecule readPDBFile( String PDBFile, Strand limits ){
+	public static Molecule readPDBFile( String PDBFile, Strand termini ){
 		//Take pretty much verbatim from PDBChemModel
 		//if templates not null, four things we may decide to do (should give options):
 		//1. Assign templates to residues 2. Rename atoms in matching residues to match templates
@@ -91,7 +91,7 @@ public class PDBFileReader {
 						
 						Residue newRes = new Residue( curResAtoms, curResCoords, curResFullName, m );
 
-						if(limits != null && !limits.contains(newRes)) filter.add(m.residues.size());
+						if(termini != null && !termini.contains(newRes)) filter.add(m.residues.size());
 						
 						m.appendResidue(newRes);
 						
@@ -121,13 +121,15 @@ public class PDBFileReader {
 			//make last residue
 			if( ! curResAtoms.isEmpty() ){
 				Residue newRes = new Residue( curResAtoms, curResCoords, curResFullName, m );
-				if(limits != null && !limits.contains(newRes)) filter.add(m.residues.size());
+				if(termini != null && !termini.contains(newRes)) filter.add(m.residues.size());
 				m.appendResidue(newRes);
 			}
 
 
 			bufread.close();  // close the buffer
 
+			deleteFilteredResidues(m, filter);
+			
 			//Assign the secondary structure we have read
 			assignSecStruct(m, helixStarts, helixEnds, helixChains, sheetStarts, sheetEnds, sheetChains);
 		}
@@ -140,9 +142,6 @@ public class PDBFileReader {
 			System.err.println(e.getMessage());
 			e.printStackTrace();
 		}
-
-		
-		deleteFilteredResidues(m, filter);
 
 		//assign proline puckers?  if treated as DOF might handle along with regular dihedrals
 		if(EnvironmentVars.assignTemplatesToStruct)

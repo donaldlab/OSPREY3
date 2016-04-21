@@ -16,8 +16,8 @@ doPerturbations false
 selectPerturbations false
 addWT true
 addWTRots true
-saveTopConfsAsPDB true
-numTopConfsToSave 1
+saveTopConfsAsPDB false
+numTopConfsToSave 5
 useMaxKSConfs false
 maxKSconfs 200000
 doKStarCheckpoint false
@@ -26,16 +26,16 @@ KStarCheckpoint 400
 numMutations 4
 resAllowed0_0 ASP GLU SER THR ASN GLN ALA GLY
 resAllowed0_1 GLU ASP SER THR ASN GLN ALA GLY
-resAllowed0_2 ASP ASP SER THR ASN GLN ALA GLY
-resAllowed0_3 THR THR ASN GLN ALA GLY
-resAllowed1_0 GLY THR ASN GLN ALA GLY
+resAllowed0_2 GLU ASP SER THR ASN GLN ALA GLY
+resAllowed0_3 SER THR ASN GLN ALA GLY
+resAllowed1_0 SER THR ASN GLN ALA GLY
 resAllowed1_1 GLY ALA VAL ILE LEU
-resAllowed1_2 ALA SER ASN GLN ALA VAL ILE LEU GLY
+resAllowed1_2 THR SER ASN GLN ALA VAL ILE LEU GLY
 
 pFuncStabThresh 1
 pFuncMethod new02
-pFuncThreads 3
-numThreads 3
+pFuncThreads 40
+numThreads 48
 eMinMethod hbfgsccd
 kStarMethod linear
 kStarUseTightBounds true
