@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.tests.UnitTestSuite;
+import edu.duke.cs.osprey.tools.CreateMatrix;
 
 /**
  *
@@ -23,7 +24,7 @@ public class Main {
     
     public static void main(String[] args){
         //args expected to be "-c KStar.cfg command config_file_1.cfg ..."
-        
+
         debuggingCommands(args);
 
         String command = "";

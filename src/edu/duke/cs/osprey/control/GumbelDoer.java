@@ -21,6 +21,7 @@ import edu.duke.cs.osprey.partitionfunctionbounds.SCMF_Clamp;
 import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField;
 import edu.duke.cs.osprey.partitionfunctionbounds.TRBP2;
 import edu.duke.cs.osprey.partitionfunctionbounds.TRBPSeq;
+import edu.duke.cs.osprey.partitionfunctionbounds.TRBP_Refactor;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -54,7 +55,7 @@ public class GumbelDoer {
 
         sp = spList[0];
         if (testSCMF) {
-            testSCMF(sp);
+//            testSCMF(sp);
 
             UpdatedPruningMatrix upm = new UpdatedPruningMatrix(sp.pruneMat);
            /* prune(sp, upm, 10);
@@ -65,7 +66,8 @@ public class GumbelDoer {
             }
             */
             ReparamMRF mrf = new ReparamMRF(sp.emat, upm, 0.0);
-
+            TRBP_Refactor trbpR = new TRBP_Refactor(mrf);
+            
             TRBPSeq trbp = new TRBPSeq(mrf);
             double ubLogZ = trbp.getLogZ();
             System.out.println("ubLogZ: " + ubLogZ);
