@@ -31,7 +31,7 @@ public class TRBPSeq {
     //interactionGraph;
     boolean[][] nonClampledInteractionGraph;
 
-    TupleMatrix<Double> marginalProbabilies;
+    TupleMatrix<Double> marginalProbabilities;
 
     //threshold for convergence
     double threshold = 1e-6;
@@ -74,7 +74,7 @@ public class TRBPSeq {
         this.edgeProbabilities = initializeEdgeProbabilities(this.nonClampledInteractionGraph);
         this.messages = initializeMessages(1.0);
 
-        this.marginalProbabilies = new TupleMatrix(numNodes, numLabelsPerNode, Double.POSITIVE_INFINITY, 0.0);
+        this.marginalProbabilities = new TupleMatrix(numNodes, numLabelsPerNode, Double.POSITIVE_INFINITY, 0.0);
 
         runTRBPSeq5();
     }
@@ -284,7 +284,7 @@ public class TRBPSeq {
         double lastLogZBetweenUpdates = Double.POSITIVE_INFINITY;
         int numEdgeUpdates = 0;
         double[][] edgeProbGradient = this.edgeProbabilities;
-        
+
 //        double[][] edgeProb = GraphUtils.getEdgeProbabilities(nonClampledInteractionGraph);
 //        this.edgeProbabilities = GraphUtils.getEdgeProbabilities(this.nonClampledInteractionGraph);
         double stepSize = 1.0;
@@ -673,12 +673,15 @@ public class TRBPSeq {
         }
         for (int i = 0; i < this.numNodes; i++) {
             for (int j = 0; j < i; j++) {
-                MRFNode nodeI = this.nodeList.get(i);
-                MRFNode nodeJ = this.nodeList.get(j);
-                updateEdgeMarginal(nodeI, nodeJ, messages);
+                if (this.nonClampledInteractionGraph[i][j]) {
+                    MRFNode nodeI = this.nodeList.get(i);
+                    MRFNode nodeJ = this.nodeList.get(j);
+                    updateEdgeMarginal(nodeI, nodeJ, messages);
+                }
             }
-        }
-    }
+        }}
+
+    
 
     private void updateEdgeMarginal(MRFNode nodeI, MRFNode nodeJ, double[][][] messages) {
         double partFuncOverall = 0.0;
@@ -697,14 +700,14 @@ public class TRBPSeq {
                 marginal = marginal * (getProductMessages(nodeJ, rotJ, nodeI, messages));
 
                 partFuncOverall += marginal;
-                this.marginalProbabilies.setPairwise(nodeI.index, rotI, nodeJ.index, rotJ, marginal);
+                this.marginalProbabilities.setPairwise(nodeI.index, rotI, nodeJ.index, rotJ, marginal);
             }
         }
         for (int rotI = 0; rotI < nodeI.labelList.size(); rotI++) {
             for (int rotJ = 0; rotJ < nodeJ.labelList.size(); rotJ++) {
-                double unNormalized = this.marginalProbabilies.getPairwise(nodeI.index, rotI, nodeJ.index, rotJ);
+                double unNormalized = this.marginalProbabilities.getPairwise(nodeI.index, rotI, nodeJ.index, rotJ);
                 double normalized = unNormalized / partFuncOverall;
-                this.marginalProbabilies.setPairwise(nodeI.index, rotI, nodeJ.index, rotJ, normalized);
+                this.marginalProbabilities.setPairwise(nodeI.index, rotI, nodeJ.index, rotJ, normalized);
             }
         }
     }
@@ -724,7 +727,7 @@ public class TRBPSeq {
             /*            if (this.marginalProbabilies.getOneBody(node.index, rot) == 0.0){
              throw new RuntimeException("Margine = 0");
              }*/
-            sum += this.marginalProbabilies.getOneBody(node.index, rot);
+            sum += this.marginalProbabilities.getOneBody(node.index, rot);
         }
         if (Math.abs(sum - 1) > 1e-6) {
             System.out.println("Error in Marginal: " + Math.abs(sum - 1));
@@ -734,10 +737,10 @@ public class TRBPSeq {
 
     private void checkPairwiseMarginal(MRFNode nodeI, MRFNode nodeJ) {
         for (int rotI = 0; rotI < nodeI.labelList.size(); rotI++) {
-            double marginal = this.marginalProbabilies.getOneBody(nodeI.index, rotI);
+            double marginal = this.marginalProbabilities.getOneBody(nodeI.index, rotI);
             double sum = 0.0;
             for (int rotJ = 0; rotJ < nodeJ.labelList.size(); rotJ++) {
-                sum += this.marginalProbabilies.getPairwise(nodeI.index, rotI, nodeJ.index, rotJ);
+                sum += this.marginalProbabilities.getPairwise(nodeI.index, rotI, nodeJ.index, rotJ);
             }
             if (Math.abs(sum - marginal) > 0.0001) {
                 System.out.println("Error in Marginal: " + Math.abs(sum - marginal));
@@ -745,10 +748,10 @@ public class TRBPSeq {
             }
         }
         for (int rotJ = 0; rotJ < nodeJ.labelList.size(); rotJ++) {
-            double marginal = this.marginalProbabilies.getOneBody(nodeJ.index, rotJ);
+            double marginal = this.marginalProbabilities.getOneBody(nodeJ.index, rotJ);
             double sum = 0.0;
             for (int rotI = 0; rotI < nodeI.labelList.size(); rotI++) {
-                sum += this.marginalProbabilies.getPairwise(nodeI.index, rotI, nodeJ.index, rotJ);
+                sum += this.marginalProbabilities.getPairwise(nodeI.index, rotI, nodeJ.index, rotJ);
             }
             if (Math.abs(sum - marginal) > 0.0001) {
                 System.out.println("Error in Marginal: " + Math.abs(sum - marginal));
@@ -772,12 +775,12 @@ public class TRBPSeq {
                 double prob = getEdgeProbability(neighbor.index, node.index);
                 update = update * (Math.pow(message, prob));
             }
-            this.marginalProbabilies.setOneBody(node.index, rot, update);
+            this.marginalProbabilities.setOneBody(node.index, rot, update);
             partFunc += update;
         }
         for (int rot = 0; rot < node.labelList.size(); rot++) {
-            double unNormalized = this.marginalProbabilies.getOneBody(node.index, rot);
-            this.marginalProbabilies.setOneBody(node.index, rot, unNormalized / partFunc);
+            double unNormalized = this.marginalProbabilities.getOneBody(node.index, rot);
+            this.marginalProbabilities.setOneBody(node.index, rot, unNormalized / partFunc);
         }
     }
 
@@ -866,7 +869,7 @@ public class TRBPSeq {
         double enthalpy = 0.0;
         for (int rot = 0; rot < node.labelList.size(); rot++) {
             double E = this.emat.getOneBody(node.nodeNum, node.labelList.get(rot).labelNum);
-            double prob = this.marginalProbabilies.getOneBody(node.index, rot);
+            double prob = this.marginalProbabilities.getOneBody(node.index, rot);
             enthalpy += E * prob;
         }
         return enthalpy;
@@ -877,7 +880,7 @@ public class TRBPSeq {
         for (int rotI = 0; rotI < nodeI.labelList.size(); rotI++) {
             for (int rotJ = 0; rotJ < nodeJ.labelList.size(); rotJ++) {
                 double E = emat.getPairwise(nodeI.nodeNum, nodeI.labelList.get(rotI).labelNum, nodeJ.nodeNum, nodeJ.labelList.get(rotJ).labelNum);
-                double prob = this.marginalProbabilies.getPairwise(nodeI.index, rotI, nodeJ.index, rotJ);
+                double prob = this.marginalProbabilities.getPairwise(nodeI.index, rotI, nodeJ.index, rotJ);
                 enthalpy += E * prob;
             }
         }
@@ -902,7 +905,7 @@ public class TRBPSeq {
     private double getSingleNodeEntropy(MRFNode node) {
         double entropy = 0.0;
         for (int rot = 0; rot < node.labelList.size(); rot++) {
-            double prob = this.marginalProbabilies.getOneBody(node.index, rot);
+            double prob = this.marginalProbabilities.getOneBody(node.index, rot);
             if (prob != 0.0) {
                 double entropyAtRot = (-1.0) * prob * Math.log(prob);
                 if (Double.isFinite(entropyAtRot)) {
@@ -917,9 +920,9 @@ public class TRBPSeq {
         double mutualInf = 0.0;
         for (int rotI = 0; rotI < nodeI.labelList.size(); rotI++) {
             for (int rotJ = 0; rotJ < nodeJ.labelList.size(); rotJ++) {
-                double probIJ = this.marginalProbabilies.getPairwise(nodeI.index, rotI, nodeJ.index, rotJ);
-                double probI = this.marginalProbabilies.getOneBody(nodeI.index, rotI);
-                double probJ = this.marginalProbabilies.getOneBody(nodeJ.index, rotJ);
+                double probIJ = this.marginalProbabilities.getPairwise(nodeI.index, rotI, nodeJ.index, rotJ);
+                double probI = this.marginalProbabilities.getOneBody(nodeI.index, rotI);
+                double probJ = this.marginalProbabilities.getOneBody(nodeJ.index, rotJ);
 //                if (probIJ != 0.0) {
                 if ((probIJ != 0.0) && (probI != 0.0) && (probJ != 0.0)) {
                     double mutualInfAtRotPair = probIJ * Math.log(probIJ / (probI * probJ));
