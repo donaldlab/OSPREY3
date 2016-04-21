@@ -131,14 +131,15 @@ public class PFNew02 extends PFNew01 implements Serializable {
 		if( eAppx != EApproxReached.FALSE ) {
 			// we leave this function
 			confsQ.cleanUp(true);
-			qPrimeCalculator.cleanup();
+			qPrimeCalculator.cleanUp(true);
 		}	
 	}
 
 
 	protected void accumulate( ArrayList<KSConf> partialQConfs, boolean isMinimized ) throws Exception {
-
+		
 		if( !isMinimized ) {
+			
 			// we do not have a lock when minimizing
 			indexes.parallelStream().forEach( i -> {
 				
@@ -158,7 +159,7 @@ public class PFNew02 extends PFNew01 implements Serializable {
 			
 			while( confsQ.getPartialQLB().compareTo(qPrimeCalculator.getTotalQLB()) > 0 ) {
 			//while( BigInteger.valueOf(confsQ.size()).compareTo(qPrimeCalculator.getNumEnumerated()) > 0 ) {
-				Thread.sleep(1);
+				Thread.sleep(5);
 			}
 			
 			for( KSConf conf : partialQConfs ) {
@@ -168,7 +169,7 @@ public class PFNew02 extends PFNew01 implements Serializable {
 				energy = conf.getEnergy();
 				updateQStar( conf );
 
-				boundError = (conf.getEnergyBound()-energy)/energy*100;
+				boundError = Math.abs(conf.getEnergyBound()-conf.getEnergy())/Math.abs(conf.getEnergy())*100;
 				
 				confsQ.accumulatePartialQLB(getBoltzmannWeight(conf.getEnergyBound()));
 				updateQPrime();

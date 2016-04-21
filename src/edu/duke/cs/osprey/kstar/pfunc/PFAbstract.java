@@ -111,7 +111,7 @@ public abstract class PFAbstract implements Serializable {
 		// re-prune, since we have fewer witnesses now that we have trimmed the emat
 		double oldPI = sp.pruneMat.getPruningInterval();
 		sp.pruneMat.setPruningInterval(0);
-		pc = getPruningControl(oldPI); pc.prune();
+		pc = getPruningControl(oldPI); pc.prune(); pc = null;
 		sp.pruneMat.setPruningInterval(oldPI);
 
 		Comparator<KSConf> comparator = new KSConf(new ArrayList<>(), 0.0).new KSConfMinEComparator();
@@ -525,7 +525,7 @@ public abstract class PFAbstract implements Serializable {
 
 		// completely relax pruning
 		double maxPruningInterval = 100;
-		pc = getPruningControl(maxPruningInterval); pc.prune();
+		pc = getPruningControl(maxPruningInterval); pc.prune(); pc = null;
 		sp.pruneMat.setPruningInterval(maxPruningInterval);
 
 		setNumUnPruned();

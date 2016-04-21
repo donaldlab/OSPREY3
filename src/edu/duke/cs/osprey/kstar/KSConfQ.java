@@ -177,50 +177,51 @@ public class KSConfQ extends Thread implements Serializable {
 
 	public void run() {
 
-		int conf[];
+		try {
 
-		while( true ) {
+			if(confsExhausted) return;
 
-			conf = confSearch.nextConf();
+			int conf[];
 
-			synchronized( lock ) {
+			while( true ) {
 
-				if( conf == null ) {
-					confsExhausted = true;
-					lock.notify();
-					return;
-				}
+				conf = confSearch.nextConf();
 
-				if( size() >= qCap ) {
-					try {
+				synchronized( lock ) {
+
+					if( conf == null ) {
+						confsExhausted = true;
+						lock.notify();
+						return;
+					}
+
+					// this means the energy lower bound is pos infinity. no need to keep enumerating
+					if( enQueue(conf) == Double.POSITIVE_INFINITY ) { confsExhausted = true; lock.notify(); return; }
+
+					// notify queue consumer ONLY if queue was empty before
+					// i added latest conformation. this condition means that
+					// the partition function is waiting for this signal to process
+					// conformations.
+					// it's wasteful to call notify for every insertion
+					if( size() == minCapacity ) lock.notify();
+
+					if( size() >= qCap ) {
 
 						lock.notify();
 
-						if( pf.getEpsilonStatus() != EApproxReached.FALSE ) { confsExhausted = true; lock.notify(); return; }
-
-						else
-							lock.wait();
-
-					} catch (InterruptedException e) {
-						System.out.println(e.getMessage());
-						e.printStackTrace();
-						System.exit(1);
+						if( pf.getEpsilonStatus() != EApproxReached.FALSE ) return;
+						else lock.wait();
 					}
+
+					// exit thread if we have an e-approximation
+					if( pf.getEpsilonStatus() != EApproxReached.FALSE ) { lock.notify(); return; }
 				}
-
-				// exit thread if we have an e-approximation
-				if( pf.getEpsilonStatus() != EApproxReached.FALSE ) { confsExhausted = true; lock.notify(); return; }
-
-				// this means the energy lower bound is pos infinity. no need to keep enumerating
-				if( enQueue(conf) == Double.POSITIVE_INFINITY ) { confsExhausted = true; lock.notify(); return; }
-
-				// notify queue consumer ONLY if queue was empty before
-				// i added latest conformation. this condition means that
-				// the partition function is waiting for this signal to process
-				// conformations.
-				// it's wasteful to call notify for every insertion
-				if( size() == minCapacity ) lock.notify();
 			}
+
+		} catch (Exception e) {
+			System.out.println(e.getMessage());
+			e.printStackTrace();
+			System.exit(1);
 		}
 	}
 

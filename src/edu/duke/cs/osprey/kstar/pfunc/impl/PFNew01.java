@@ -72,12 +72,13 @@ public class PFNew01 extends PFAbstract implements Serializable {
 
 		// wait for queue to be ready
 		while( !confsQ.canSatisfy(request) ) {
-			
+
 			if( !confsQ.isExhausted() ) {
-				
+
 				if( confsQ.getState() == Thread.State.WAITING || confsQ.getState() == Thread.State.BLOCKED ) {
 
-					confsQ.setQCapacity(confsQ.getQCapacity()+request);
+					if( confsQ.getQCapacity() < request )
+						confsQ.setQCapacity(request);
 
 					confsQ.lock.notify();
 				}
@@ -86,17 +87,18 @@ public class PFNew01 extends PFAbstract implements Serializable {
 			}
 
 			else {
-				
+
 				granted = confsQ.size();
 
 				if( granted > 0 )
 					return granted;
-				
+
 				eAppx = EApproxReached.NOT_POSSIBLE;
 
 				// System.out.println("Cannot reach epsilon");
 
 				confsQ.cleanUp(true);
+				qPrimeCalculator.cleanUp(true);
 
 				return granted;
 			}
@@ -135,7 +137,7 @@ public class PFNew01 extends PFAbstract implements Serializable {
 		if( eAppx != EApproxReached.FALSE ) {
 			// we leave this function
 			confsQ.cleanUp(true);
-			qPrimeCalculator.cleanup();
+			qPrimeCalculator.cleanUp(true);
 		}	
 	}
 
@@ -146,13 +148,21 @@ public class PFNew01 extends PFAbstract implements Serializable {
 		try {
 
 			// this condition only occurs when we are checkpointing
-			if( KSAbstract.doCheckPoint && confsQ.getState() == Thread.State.NEW ) {
-				// for safety, we can re-start the conformation tree, since i am not
-				// entirely sure how cleanly the conformation tree can be serialized and de-serialized
-				// confs.restartConfTree();
-				confsQ.start();
-				synchronized( confsQ.lock ) {
-					confsQ.lock.notify();
+			if( KSAbstract.doCheckPoint) {
+				
+				if( !confsQ.isExhausted() && confsQ.getState() == Thread.State.NEW ) {
+
+					// for safety, we can re-start the conformation tree, since i am not
+					// entirely sure how cleanly the conformation tree can be serialized and de-serialized
+					// confs.restartConfTree();
+					confsQ.start();
+					synchronized( confsQ.lock ) {
+						confsQ.lock.notify();
+					}
+				}
+				
+				if( !qPrimeCalculator.isExhausted() && qPrimeCalculator.getState() == Thread.State.NEW ) {
+					qPrimeCalculator.start();
 				}
 			}
 
@@ -194,8 +204,8 @@ public class PFNew01 extends PFAbstract implements Serializable {
 
 					while( confsQ.getPartialQLB().compareTo(qPrimeCalculator.getTotalQLB()) > 0 ) {
 						//while( BigInteger.valueOf(confsQ.size()).compareTo(qPrimeCalculator.getNumEnumerated()) > 0 ) {
-							Thread.sleep(1);
-						}
+						Thread.sleep(5);
+					}
 
 					minimizingConfs = minimizingConfs.subtract( BigInteger.ONE );
 
@@ -217,7 +227,7 @@ public class PFNew01 extends PFAbstract implements Serializable {
 					if( !PFAbstract.suppressOutput ) {
 						if( !printedHeader ) printHeader();
 
-						double boundError = (conf.getEnergyBound()-conf.getEnergy())/conf.getEnergy()*100;
+						double boundError = Math.abs(conf.getEnergyBound()-conf.getEnergy())/Math.abs(conf.getEnergy())*100;
 
 						System.out.println(boundError + "\t" + energy + "\t" + effectiveEpsilon + "\t" + 
 								getNumMinimized4Output() + "\t" + getNumUnEnumerated() + "\t" + confsQ.size() + "\t" + ((currentTime-startTime)/1000));
@@ -272,7 +282,7 @@ public class PFNew01 extends PFAbstract implements Serializable {
 
 			confsQ.cleanUp(nullify);
 
-			qPrimeCalculator.cleanup();
+			qPrimeCalculator.cleanUp(nullify);
 
 			eAppx = EApproxReached.FALSE;
 

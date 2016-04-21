@@ -16,6 +16,7 @@ public class QPrimeConfTree extends Thread implements Serializable {
 	private BigDecimal lastBoltzmannWeight = BigDecimal.ZERO;
 	private BigInteger enumerated = BigInteger.ZERO;
 	private ConfSearch confSearch;
+	boolean confsExhausted = false;
 	private BigDecimal totalQLB = BigDecimal.ZERO;
 	public final String lock = new String("LOCK");
 
@@ -34,7 +35,6 @@ public class QPrimeConfTree extends Thread implements Serializable {
 		BigDecimal ans = BigDecimal.ZERO;
 
 		synchronized( lock ) {
-
 			ans = totalQLB.subtract(partialQLB);
 
 			BigDecimal uniformBound = new BigDecimal(unPruned.subtract(enumerated)).multiply(lastBoltzmannWeight);
@@ -69,28 +69,41 @@ public class QPrimeConfTree extends Thread implements Serializable {
 
 
 	private void nullify() {
+		confsExhausted = true;
 		lastBoltzmannWeight = BigDecimal.ZERO;
 		pf = null;
 		confSearch = null;
+		
+		System.out.println("qPrimeConfTree complete...");
 	}
 
 
-	public void cleanup() throws InterruptedException {		
+	public void cleanUp( boolean nullify ) throws InterruptedException {		
+
 		this.join();
-		nullify();
+
+		if(nullify) nullify();
+	}
+	
+
+	public boolean isExhausted() {
+		return confsExhausted;
 	}
 
 
 	public void run() {
 
+		if(confsExhausted) { nullify(); return; }
+
 		int conf[];
 
 		while( true ) {
 
+			conf = confSearch.nextConf();
+
 			synchronized( lock ) {
 
-				conf = confSearch.nextConf();
-				if( conf == null || pf.getEpsilonStatus() != EApproxReached.FALSE ) { nullify(); return; }
+				if( conf == null ) { nullify(); return; }
 
 				double energyBound = pf.getConfBound(confSearch, conf, false);
 				if( energyBound == Double.POSITIVE_INFINITY ) { nullify(); return; }
@@ -100,7 +113,12 @@ public class QPrimeConfTree extends Thread implements Serializable {
 
 				totalQLB = totalQLB.add( lastBoltzmannWeight );
 				enumerated = enumerated.add(BigInteger.ONE);
+
+				// may not be done yet. do not nullify. owner calls cleanup to nullify
+				// when we are actually done
+				if( pf.getEpsilonStatus() != EApproxReached.FALSE ) { return; }
 			}
+
 		}
 	}
 

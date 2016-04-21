@@ -129,7 +129,7 @@ public class PFTrad extends PFAbstract implements Serializable {
 		if( !PFAbstract.suppressOutput ) {
 			if( !printedHeader ) printHeader();
 
-			double boundError = (conf.getEnergyBound()-conf.getEnergy())/conf.getEnergy()*100;
+			double boundError = Math.abs(conf.getEnergyBound()-conf.getEnergy())/Math.abs(conf.getEnergy())*100;
 			
 			System.out.println(boundError + "\t" + energy + "\t" + effectiveEpsilon + "\t" 
 					+ getNumMinimized4Output() + "\t" + getNumUnEnumerated() + "\t"+ (currentTime-startTime)/1000);
