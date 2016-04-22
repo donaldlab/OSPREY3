@@ -49,11 +49,8 @@ public abstract class KSAbstract implements KSInterface {
 	private boolean useERef;
 	private boolean addResEntropy;
 
-	private static double pRatioLBT = 0.25;
-	private static double pRatioUBT = 0.95;
 	protected boolean prunedSingleSeqs = false;
 	public static boolean preLoadPFs = false;
-	public static boolean refinePruning = false;
 	public static boolean doCheckPoint = false;
 	protected static long checkpointInterval = 50000;
 
@@ -226,12 +223,6 @@ public abstract class KSAbstract implements KSInterface {
 					sp.loadEnergyMatrix(sp.getMatrixType());
 					pc.prune();
 				}
-
-				// for K* we will guard against under-pruning, since this increases
-				// the length of our calculation
-				if(sp.isSingleSeq() && KSAbstract.refinePruning) {
-					refinePruningInterval(sp);
-				}
 			});
 
 			System.out.println("\nFinished creating and pruning energy matrices");
@@ -263,12 +254,6 @@ public abstract class KSAbstract implements KSInterface {
 					sp.loadEnergyMatrix(sp.getMatrixType());
 					pc.prune();
 				}
-
-				// for K* we will guard against under-pruning, since this increases
-				// the length of our calculation
-				if(sp.isSingleSeq() && KSAbstract.refinePruning) {
-					refinePruningInterval(sp);
-				}
 			});
 
 			System.out.println("\nFinished creating and pruning energy matrices");
@@ -280,65 +265,6 @@ public abstract class KSAbstract implements KSInterface {
 			e.printStackTrace();
 			System.exit(1);
 		} 
-	}
-
-
-	protected void refinePruningInterval( SearchProblem sp ) {
-
-		if(sp.numConfs(false).compareTo(BigInteger.ZERO) == 0)
-			return;
-
-		// if current interval is good enough, return
-		double r = sp.numConfs(true).doubleValue() / sp.numConfs(false).doubleValue();
-		if(r >= pRatioLBT && r <= pRatioUBT) return;
-
-		// most amount of pruning; ratio upper bound
-		double l = 0.01;
-		PruningControl pc = cfp.getPruningControl(sp, l, useEPIC, useTupExp); pc.prune();
-		double lr = sp.numConfs(true).doubleValue() / sp.numConfs(false).doubleValue();
-
-		// least amount of pruning; ratio lower bound
-		double u = 100;
-		pc = cfp.getPruningControl(sp, u, useEPIC, useTupExp); pc.prune();
-		double ur = sp.numConfs(true).doubleValue() / sp.numConfs(false).doubleValue();
-
-		double m = -1, mr = -1;
-
-		// ratio cannot get smaller or bigger, respectively
-		if(ur > pRatioUBT || lr < pRatioLBT) {
-			pc = cfp.getPruningControl(sp, EW+I0, useEPIC, useTupExp); pc.prune();
-			sp.pruneMat.setPruningInterval(EW+I0);
-			return;
-		}
-
-		while( Math.abs(l-u) > 0.1 && (lr > pRatioUBT || ur < pRatioLBT)) {
-
-			m = (l+u)/2;
-			pc = cfp.getPruningControl(sp, m, useEPIC, useTupExp); pc.prune();
-			mr = sp.numConfs(true).doubleValue() / sp.numConfs(false).doubleValue();
-			sp.pruneMat.setPruningInterval(m);
-
-			if(mr < pRatioLBT) {
-				ur = mr;
-				u = m;
-			}
-
-			else if(mr > pRatioUBT) {
-				lr = mr;
-				l = m;
-			}
-
-			else if(mr >= pRatioLBT && mr <= pRatioUBT) {
-				// tada!
-				System.out.println(m + "\t" + mr);
-				return;
-			}
-		}
-
-		// we failed. restore original pruning interval
-		pc = cfp.getPruningControl(sp, EW+I0, useEPIC, useTupExp); pc.prune();
-		sp.pruneMat.setPruningInterval(EW+I0);
-		return;
 	}
 
 
@@ -411,10 +337,6 @@ public abstract class KSAbstract implements KSInterface {
 				}
 
 				else {	
-					if(!prunedSingleSeqs && KSAbstract.refinePruning) {
-						refinePruningInterval(pf.getSearchProblem());
-					}
-
 					// initialize conf counts for K*
 					pf.setNumUnPruned();
 					pf.setNumPruned();
