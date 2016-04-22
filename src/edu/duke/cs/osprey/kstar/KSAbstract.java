@@ -221,7 +221,8 @@ public abstract class KSAbstract implements KSInterface {
 				// single seq matrices created using the fast construction 
 				// method are already pruned according to the pruning window
 				if(sp.getEnergyMatrix() == null) {
-					PruningControl pc = cfp.getPruningControl(sp, EW+I0, useEPIC, useTupExp); 
+					//PruningControl pc = cfp.getPruningControl(sp, EW+I0, useEPIC, useTupExp);
+					PruningControl pc = cfp.getPruningControl(sp, 100, useEPIC, useTupExp); // use large pruning window
 					sp.loadEnergyMatrix(sp.getMatrixType());
 					pc.prune();
 				}
@@ -393,10 +394,12 @@ public abstract class KSAbstract implements KSInterface {
 				// get energy matrix
 				if(pf.getSearchProblem().getEnergyMatrix() == null) {
 					pf.getSearchProblem().loadEnergyMatrix(pf.getSearchProblem().getMatrixType());
-
-					// get pruning matrix
-					pf.getPruningControl(EW+I0).prune();
 				}
+				
+				// re-prune, since we have fewer witnesses now that we have trimmed the emat
+				pf.getSearchProblem().pruneMat.setPruningInterval(0);
+				pf.getPruningControl(EW+I0).prune();
+				pf.getSearchProblem().pruneMat.setPruningInterval(EW+I0);
 
 				if(pf.getSearchProblem().numConfs(false).compareTo(BigInteger.ZERO) == 0) {
 					// no conformations in search space, so this cannot give a valid

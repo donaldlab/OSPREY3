@@ -71,7 +71,6 @@ public abstract class PFAbstract implements Serializable {
 	protected SearchProblem sp = null;
 	protected ArrayList<Integer> flexResIndexes;
 	protected SearchProblem panSeqSP = null;
-	protected PruningControl pc = null;
 	private boolean isFullyDefined = true;
 
 	protected BigDecimal qStar = BigDecimal.ZERO;
@@ -107,12 +106,6 @@ public abstract class PFAbstract implements Serializable {
 		
 		this.isFullyDefined = sp.confSpace.numPos == panSeqSP.confSpace.numPos ? true : false;
 		this.cfp = cfp;
-		
-		// re-prune, since we have fewer witnesses now that we have trimmed the emat
-		double oldPI = sp.pruneMat.getPruningInterval();
-		sp.pruneMat.setPruningInterval(0);
-		pc = getPruningControl(oldPI); pc.prune(); pc = null;
-		sp.pruneMat.setPruningInterval(oldPI);
 
 		Comparator<KSConf> comparator = new KSConf(new ArrayList<>(), 0.0).new KSConfMinEComparator();
 		topConfsPQ = new PriorityQueue<KSConf>(getNumTopConfsToSave(), comparator);
@@ -525,7 +518,7 @@ public abstract class PFAbstract implements Serializable {
 
 		// completely relax pruning
 		double maxPruningInterval = 100;
-		pc = getPruningControl(maxPruningInterval); pc.prune(); pc = null;
+		getPruningControl(maxPruningInterval).prune();
 		sp.pruneMat.setPruningInterval(maxPruningInterval);
 
 		setNumUnPruned();
@@ -567,7 +560,6 @@ public abstract class PFAbstract implements Serializable {
 	public void cleanup() {
 		panSeqSP = null;
 		sp = null;
-		pc = null;
 		minimizedConfsSet = null;
 	}
 
