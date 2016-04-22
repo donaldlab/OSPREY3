@@ -55,7 +55,7 @@ public class GumbelDoer {
 
         sp = spList[0];
         if (testSCMF) {
-            testSCMF(sp);
+//            testSCMF(sp);
 
             UpdatedPruningMatrix upm = new UpdatedPruningMatrix(sp.pruneMat);
            /* prune(sp, upm, 10);
@@ -67,7 +67,6 @@ public class GumbelDoer {
             */
             ReparamMRF mrf = new ReparamMRF(sp.emat, upm, 0.0);
             TRBP_Refactor trbpR = new TRBP_Refactor(mrf);
-
 /*            TRBPSeq trbp = new TRBPSeq(mrf);
             double ubLogZ = trbp.getLogZ();
             System.out.println("ubLogZ: " + ubLogZ);

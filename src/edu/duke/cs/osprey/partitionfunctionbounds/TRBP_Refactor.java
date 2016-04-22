@@ -49,9 +49,10 @@ public class TRBP_Refactor {
     double maxChange;
     double averageChange;
 
+
     double accuracyWithinEdgeProb = 0.001;
     double accuracyBetweenEdgeProb = 0.001;
-    
+
     boolean verbose = true;
 
     public TRBP_Refactor(ReparamMRF mrf) {
@@ -71,6 +72,7 @@ public class TRBP_Refactor {
 
         this.marginalProbabilities = new TupleMatrix(numNodes, numLabelsPerNode, Double.POSITIVE_INFINITY, 0.0);
         this.numMessages = 2 * getNumEdges(this.interactionGraph);
+
 
         initializeEdgeWeights();
 
@@ -109,6 +111,7 @@ public class TRBP_Refactor {
     int getNumEdges(boolean[][] interactionGraph) {
         int numEdges = 0;
         for (int i = 0; i < this.numNodes; i++) {
+            MRFNode nodeI = this.nodeList.get(i);
             for (int j = 0; j < i; j++) {
                 if (interactionGraph[i][j]) {
                     numEdges++;
