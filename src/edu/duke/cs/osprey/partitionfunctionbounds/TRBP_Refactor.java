@@ -32,16 +32,14 @@ public class TRBP_Refactor {
     double constRT = PoissonBoltzmannEnergy.constRT;
 
     double damping = 0.5;
-    int numEdgeProbUpdates;
+    int maxNumEdgeUpdates = 20;
 
     public double[][] edgeProbabilities;
+    double[][] edgeWeights;
+
     double[][][] logMessages;
 //    double[][][] messages;
-
-    double[][][] expNormMessagesAtRot;
-    double[][] expNormMessages;
-    double[][] expNormPairMarginals;
-    double[] expNormNodeMarginals;
+    int numMessages;
 
     boolean useLogDomain = true;
     boolean debug = true;
@@ -51,6 +49,9 @@ public class TRBP_Refactor {
     double maxChange;
     double averageChange;
 
+    double accuracyWithinEdgeProb = 0.001;
+    double accuracyBetweenEdgeProb = 0.001;
+    
     boolean verbose = true;
 
     public TRBP_Refactor(ReparamMRF mrf) {
@@ -69,24 +70,42 @@ public class TRBP_Refactor {
         this.logMessages = initializeLogMessages(0.0);
 
         this.marginalProbabilities = new TupleMatrix(numNodes, numLabelsPerNode, Double.POSITIVE_INFINITY, 0.0);
+        this.numMessages = 2 * getNumEdges(this.interactionGraph);
+
+        initializeEdgeWeights();
 
         runTRBP();
     }
 
     private void runTRBP() {
+        int numEdgeUpdates = 0;
+        double changeBetweenEdgeUpdates = Double.POSITIVE_INFINITY;
+        //Keep track of last logZ from previous edge update
+        double lastLogZEdge = Double.POSITIVE_INFINITY;
 
-        computeExpNormals();
-        computeExpNormals2();
-        for (int i = 0; i < 40; i++) {
-            updateMessagesSequentially(logMessages);
-            updateMarginals();
-            double currentlogZ = calcUBLogZ();
-            if (verbose) {
-                System.out.println("Average Change in Messages: " + this.maxChange + "  LogZUB: " + currentlogZ);
+        while (numEdgeUpdates < maxNumEdgeUpdates && changeBetweenEdgeUpdates > accuracyBetweenEdgeProb) {
+            double changeBetweenMessageUpdates = Double.POSITIVE_INFINITY;
+            //Keep track of last logZ from previous message update
+            double lastLogZMessage = Double.POSITIVE_INFINITY;
+            while (changeBetweenMessageUpdates > accuracyWithinEdgeProb) {
+                updateMessagesSequentially(logMessages);
+
+                updateMarginals();
+                double currentlogZ = calcUBLogZ();
+
+                changeBetweenMessageUpdates = Math.abs(lastLogZMessage - currentlogZ);
+                lastLogZMessage = currentlogZ;
+                if (verbose) {
+                    System.out.println("   LogZUB: " + currentlogZ);
+                }
             }
+            changeBetweenEdgeUpdates = Math.abs(lastLogZEdge - lastLogZMessage);
+            lastLogZEdge = lastLogZMessage;
+            this.logZ = Math.min(this.logZ, lastLogZEdge);
         }
     }
 
+    
     int getNumEdges(boolean[][] interactionGraph) {
         int numEdges = 0;
         for (int i = 0; i < this.numNodes; i++) {
@@ -109,79 +128,6 @@ public class TRBP_Refactor {
         return GraphUtils.getEdgeProbabilities(interactionGraph);
     }
 
-    private void computeExpNormals2() {
-        this.expNormMessagesAtRot = new double[this.numNodes][this.numNodes][];
-        for (int i = 0; i < this.numNodes; i++) {
-            for (int j = 0; j < i; j++) {
-                if (this.interactionGraph[i][j]) {
-                    MRFNode nodeI = this.nodeList.get(i);
-                    MRFNode nodeJ = this.nodeList.get(j);
-                    expNormMessagesAtRot[i][j] = getExpNormMessage(nodeI, nodeJ);
-                    expNormMessagesAtRot[j][i] = getExpNormMessage(nodeJ, nodeI);
-                }
-            }
-        }
-
-    }
-
-    private double[] getExpNormMessage(MRFNode sendingNode, MRFNode receivingNode) {
-        double[] expNorm = new double[receivingNode.labelList.size()];
-        for (int rot = 0; rot < expNorm.length; rot++) {
-            MRFLabel label = receivingNode.labelList.get(rot);
-            double maxPotential = Double.NEGATIVE_INFINITY;
-            for (int rotS = 0; rotS < sendingNode.labelList.size(); rotS++) {
-                MRFLabel labelS = sendingNode.labelList.get(rotS);
-                double pairPot = getPairwisePotential(sendingNode, labelS, receivingNode, label);
-                double edgeProb = getEdgeProbability(sendingNode, receivingNode);
-                double labelSPot = getOneBodyPotential(sendingNode, labelS);
-                maxPotential = Math.max(maxPotential, (pairPot / edgeProb) + labelSPot);
-            }
-            expNorm[rot] = maxPotential;
-        }
-        return expNorm;
-    }
-
-    private void computeExpNormals() {
-        double[][] expNormMessage = new double[this.numNodes][this.numNodes];
-        double[][] expNormPairMarginal = new double[this.numNodes][this.numNodes];
-        double[] expNormNodeMarginal = new double[this.numNodes];
-        for (int i = 0; i < this.numNodes; i++) {
-            MRFNode nodeI = this.nodeList.get(i);
-            for (int nodeMarginal = 0; nodeMarginal < nodeI.labelList.size(); nodeMarginal++) {
-                MRFLabel label = nodeI.labelList.get(nodeMarginal);
-                double labelPot = getOneBodyPotential(nodeI, label);
-                expNormNodeMarginal[i] = Math.max(expNormNodeMarginal[i], labelPot);
-            }
-        }
-
-        for (int i = 0; i < this.numNodes; i++) {
-            MRFNode nodeI = this.nodeList.get(i);
-            for (int j = 0; j < i; j++) {
-                MRFNode nodeJ = this.nodeList.get(j);
-                for (int rotIindex = 0; rotIindex < nodeI.labelList.size(); rotIindex++) {
-                    for (int rotJindex = 0; rotJindex < nodeJ.labelList.size(); rotJindex++) {
-                        MRFLabel rotI = nodeI.labelList.get(rotIindex);
-                        MRFLabel rotJ = nodeJ.labelList.get(rotJindex);
-                        double pairPot = getPairwisePotential(nodeI, rotI, nodeJ, rotJ);
-                        double edgeProbability = getEdgeProbability(nodeI, nodeJ);
-                        double labelJPot = getOneBodyPotential(nodeJ, rotJ);
-                        double labelIPot = getOneBodyPotential(nodeI, rotI);
-                        double toBeExponentiateJI = (pairPot / edgeProbability) + labelJPot;
-                        double toBeExponentiateIJ = (pairPot / edgeProbability) + labelIPot;
-                        double toBeExponentiatedMarginal = (pairPot / edgeProbability) + labelIPot + labelJPot;
-                        expNormMessage[j][i] = Math.max(expNormMessage[j][i], toBeExponentiateJI);
-                        expNormMessage[i][j] = Math.max(expNormMessage[i][j], toBeExponentiateIJ);
-                        expNormPairMarginal[i][j] = Math.max(expNormPairMarginal[i][j], toBeExponentiatedMarginal);
-                        expNormPairMarginal[j][i] = expNormPairMarginal[i][j];
-                    }
-                }
-            }
-        }
-        this.expNormMessages = expNormMessage;
-        this.expNormPairMarginals = expNormPairMarginal;
-        this.expNormNodeMarginals = expNormNodeMarginal;
-    }
-
     private double getEdgeProbability(MRFNode nodeI, MRFNode nodeJ) {
         int indexNodeI = nodeI.index;
         int indexNodeJ = nodeJ.index;
@@ -193,7 +139,6 @@ public class TRBP_Refactor {
 
     private void updateMessagesSequentially(double[][][] previousMessages) {
         double averageChangeInMessage = 0;
-        int numMessagesUpdated = 0;
 
         int[][] messagesOrdering = getMessagePassingOrdering();
 
@@ -220,11 +165,10 @@ public class TRBP_Refactor {
                 //Get change in log messages
                 double change = Math.abs(newLogMessage - previousLogMessage);
                 averageChangeInMessage += change;
-                numMessagesUpdated++;
             }
         }
         //Update average change
-        this.averageChange = averageChangeInMessage / numMessagesUpdated;
+        this.averageChange = averageChangeInMessage / this.numMessages;
     }
 
     private void updateMarginals() {
@@ -251,7 +195,7 @@ public class TRBP_Refactor {
         for (int labelIndex = 0; labelIndex < node.labelList.size(); labelIndex++) {
             MRFLabel label = node.labelList.get(labelIndex);
 
-            double labelPot = getOneBodyPotential(node, label)/this.constRT;
+            double labelPot = getOneBodyPotential(node, label) / this.constRT;
 //            double normalizedPot = (labelPot - this.expNormNodeMarginals[node.index]) / this.constRT;
 
             double sumWeightedLogMessages = 0.0;
@@ -267,7 +211,8 @@ public class TRBP_Refactor {
         }
         for (int labelIndex = 0; labelIndex < node.labelList.size(); labelIndex++) {
             marginals[labelIndex] -= normalizer;
-            partFunc += Math.exp(marginals[labelIndex]);
+            marginals[labelIndex] = Math.exp(marginals[labelIndex]);
+            partFunc += marginals[labelIndex];
         }
         for (int labelIndex = 0; labelIndex < node.labelList.size(); labelIndex++) {
             MRFLabel label = node.labelList.get(labelIndex);
@@ -287,12 +232,12 @@ public class TRBP_Refactor {
                 double edgeProb = getEdgeProbability(nodeI, nodeJ);
                 double labelIPot = getOneBodyPotential(nodeI, labelI);
                 double labelJPot = getOneBodyPotential(nodeJ, labelJ);
-                
-                double potential = ((pairPot / edgeProb) + labelIPot + labelJPot)/this.constRT;
+
+                double potential = ((pairPot / edgeProb) + labelIPot + labelJPot) / this.constRT;
 //                double normalizedPot = ((pairPot / edgeProb) + labelIPot + labelJPot - this.expNormPairMarginals[nodeI.index][nodeJ.index]) / this.constRT;
                 double sumWeightedLogMessages = getSumLogMessage(nodeI, labelI, nodeJ) + getSumLogMessage(nodeJ, labelJ, nodeI);
                 normalizer = Math.max(normalizer, potential + sumWeightedLogMessages);
-                
+
 //                double nonNormalizedLogMarginal = normalizedPot + sumWeightedLogMessages;
 //                double nonNormalizedMarginal = Math.exp(nonNormalizedLogMarginal);
 //                partFunc += nonNormalizedMarginal;
@@ -301,7 +246,12 @@ public class TRBP_Refactor {
         }
         for (int labelIndexI = 0; labelIndexI < nodeI.labelList.size(); labelIndexI++) {
             for (int labelIndexJ = 0; labelIndexJ < nodeJ.labelList.size(); labelIndexJ++) {
-                //SUBTRACT OUT NORMALIZER!!!!!!!!!!!!!!!!
+                double unNormalized = this.marginalProbabilities.getPairwise(nodeI.index, labelIndexI, nodeJ.index, labelIndexJ);
+                double normalized = unNormalized - normalizer;
+                double exponentiated = Math.exp(normalized);
+                this.marginalProbabilities.setPairwise(nodeI.index, labelIndexI, nodeJ.index, labelIndexJ, exponentiated);
+                partFunc += exponentiated;
+
             }
         }
         for (int labelIndexI = 0; labelIndexI < nodeI.labelList.size(); labelIndexI++) {
@@ -320,7 +270,6 @@ public class TRBP_Refactor {
      * int[messageNum][senderNum,receiverNum]
      */
     int[][] getMessagePassingOrdering() {
-        int numMessages = 2 * getNumEdges(this.interactionGraph);
         int[][] messagePassingOrdering = new int[numMessages][];
 
         int currentMessage = 0;
@@ -344,6 +293,28 @@ public class TRBP_Refactor {
                     messagePassingOrdering[currentMessage] = new int[2];
                     messagePassingOrdering[currentMessage][0] = i;
                     messagePassingOrdering[currentMessage][1] = j;
+                    currentMessage++;
+                }
+            }
+        }
+        return messagePassingOrdering;
+    }
+
+    //Just for comparison/testing purposes
+    int[][] getNaiveMessagePassingOrdering() {
+        int[][] messagePassingOrdering = new int[numMessages][];
+
+        int currentMessage = 0;
+        for (int i = 0; i < this.numNodes; i++) {
+            for (int j = 0; j < i; j++) {
+                if (interactionGraph[i][j]) {
+                    messagePassingOrdering[currentMessage] = new int[2];
+                    messagePassingOrdering[currentMessage][0] = i;
+                    messagePassingOrdering[currentMessage][1] = j;
+                    currentMessage++;
+                    messagePassingOrdering[currentMessage] = new int[2];
+                    messagePassingOrdering[currentMessage][0] = j;
+                    messagePassingOrdering[currentMessage][1] = i;
                     currentMessage++;
                 }
             }
@@ -396,10 +367,6 @@ public class TRBP_Refactor {
         double logPart = Math.log(partFunc);
         for (int i = 0; i < updatedLogMessages.length; i++) {
             updatedLogMessages[i] -= logPart;
-        }
-        double sum = 0;
-        for (double logMessage : updatedLogMessages) {
-            sum += Math.exp(logMessage);
         }
         return updatedLogMessages;
     }
@@ -461,7 +428,11 @@ public class TRBP_Refactor {
                 MRFNode nodeJ = this.nodeList.get(j);
                 if (interactionGraph[i][j]) {
                     double edgeProb = getEdgeProbability(nodeI, nodeJ);
-                    entropy -= edgeProb * getMutualInformation(nodeI, nodeJ);
+                    double mutualInf = getMutualInformation(nodeI, nodeJ);
+                    //Update Edge Weights to Save Computational Cost
+                    this.edgeWeights[i][j] = -mutualInf;
+
+                    entropy -= edgeProb * mutualInf;
                 }
             }
         }
@@ -523,19 +494,28 @@ public class TRBP_Refactor {
         return enthalpy;
     }
 
+    private void initializeEdgeWeights() {
+        this.edgeWeights = new double[this.numNodes][];
+        for (int i = 0; i < this.numNodes; i++) {
+            this.edgeWeights[i] = new double[i];
+        }
+    }
+
+    private void udpateEdgeProbabilities(int numIter) {
+        MinSpanningTree mst = new MinSpanningTree(this.edgeWeights, interactionGraph);
+        double[][] descentDirection = mst.mstVector;
+        
+        double stepSize = 2.0/(numIter+4.0);
+        for (int i = 0; i < this.numNodes; i++) {
+            for (int j = 0; j < i; j++) {
+                this.edgeProbabilities[i][j] = stepSize*descentDirection[i][j] + (1-stepSize)*edgeProbabilities[i][j];
+            }
+        }
+    }
+
     double getLogMessage(MRFNode sendingNode, MRFNode receivingNode, MRFLabel receivingLabel
     ) {
         return this.logMessages[sendingNode.index][receivingNode.index][receivingNode.labelList.indexOf(receivingLabel)];
-    }
-
-    double getExpNormMessages(MRFNode sendingNode, MRFNode receivingNode
-    ) {
-        return this.expNormMessages[sendingNode.index][receivingNode.index];
-    }
-
-    double getExpNormMessagesAtRot(MRFNode sendingNode, MRFNode receivingNode, int receivingLabelIndex
-    ) {
-        return this.expNormMessagesAtRot[sendingNode.index][receivingNode.index][receivingLabelIndex];
     }
 
     double getPairwisePotential(MRFNode nodeI, MRFLabel labelI, MRFNode nodeJ, MRFLabel labelJ

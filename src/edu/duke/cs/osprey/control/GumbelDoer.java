@@ -67,8 +67,8 @@ public class GumbelDoer {
             */
             ReparamMRF mrf = new ReparamMRF(sp.emat, upm, 0.0);
             TRBP_Refactor trbpR = new TRBP_Refactor(mrf);
-            
-            TRBPSeq trbp = new TRBPSeq(mrf);
+
+/*            TRBPSeq trbp = new TRBPSeq(mrf);
             double ubLogZ = trbp.getLogZ();
             System.out.println("ubLogZ: " + ubLogZ);
             if (false) {
@@ -76,6 +76,7 @@ public class GumbelDoer {
                 double logZKStar = dpf.getLogZ();
                 System.out.println("KStar LogZ: " + logZKStar);
             }
+            */
         } else {
 
 
