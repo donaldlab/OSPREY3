@@ -62,6 +62,7 @@ public class FreeDihedral extends DegreeOfFreedom {
     	curVal = paramVal; // store the value
     }
     
+    @Override
     public Residue getResidue() { return res; }
     
     

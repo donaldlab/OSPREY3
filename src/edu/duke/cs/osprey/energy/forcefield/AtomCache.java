@@ -3,8 +3,9 @@ package edu.duke.cs.osprey.energy.forcefield;
 import java.util.Arrays;
 
 import edu.duke.cs.osprey.structure.Residue;
+import java.io.Serializable;
 
-public class AtomCache {
+public class AtomCache implements Serializable {
 
 	// combine coords and charges into one array to be cpu cache friendly
 	// layout: x, y, z, charge

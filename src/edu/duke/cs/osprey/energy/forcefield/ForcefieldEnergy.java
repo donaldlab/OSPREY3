@@ -119,6 +119,9 @@ public class ForcefieldEnergy implements Serializable {
             vdwMultiplier = params.vdwMultiplier;
             solvScale = params.solvScale;
             
+            useHydrogenEs = params.hElect;
+            useHydrogenVdw = params.hVDW;
+            
             doSolvationE = false;//not including solvation in these sparse energies
             
             //so initialize just the EV energies
@@ -557,7 +560,7 @@ public class ForcefieldEnergy implements Serializable {
 		if (!isChanged) {
 			return energyCache;
 		}
-
+		
 		
 		//--------------------------------------------
 		// compute electrostatics and vdW energies

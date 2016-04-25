@@ -5,6 +5,7 @@
 package edu.duke.cs.osprey.dof;
 
 import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.structure.Residue;
 import java.io.Serializable;
 
 /**
@@ -28,4 +29,10 @@ public abstract class DegreeOfFreedom implements Serializable {
     //(some degrees of freedom may have convenience methods to call this, e.g. mutation called by aa type)
     
     public double getCurVal() { return curVal; }
+    
+    
+    //If this DegreeOfFreedom moves only a single residue, return that residue
+    //Otherwise return null
+    //Used in setting up partial energy functions (see MultiTermEnergyFunction)
+    public Residue getResidue() { return null; }
 }

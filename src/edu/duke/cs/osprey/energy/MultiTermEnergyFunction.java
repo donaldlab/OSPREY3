@@ -93,7 +93,7 @@ public class MultiTermEnergyFunction implements EnergyFunction {
         causing many cpu cache misses and slowing down overall performance.
         But that's just a theory. Either way, just use parallelism all the time even for 1 or
         2 energy term because emperically it works much better! =)
-    	*/
+    	*/        
         if(NUM_THREADS == 1) {
                 for(int termNum=0; termNum<terms.size(); termNum++){
                         double termE = terms.get(termNum).getEnergy();
@@ -126,46 +126,44 @@ public class MultiTermEnergyFunction implements EnergyFunction {
         return coeffs;
     }
 
-	public ArrayList<EnergyFunction> makeDOFPartialEFuncs(ArrayList<DegreeOfFreedom> dofs) {
-		ArrayList<EnergyFunction> dofEfuncs = new ArrayList<>();
-		for (DegreeOfFreedom dof : dofs) {
-			
-			// TODO: could make the dof worry about residue association queries
-			// instead of switching on type here
-			if (dof instanceof FreeDihedral) {
-				FreeDihedral dihedralDof = (FreeDihedral)dof;
-				dofEfuncs.add(makeResidueEfunc(dihedralDof.getResidue()));
-			} else {
-				throw new Error("unsupported DOF type: " + dof.getClass().getName());
-			}
-			
-		}
-		return dofEfuncs;
-	}
+    public ArrayList<EnergyFunction> makeDOFPartialEFuncs(ArrayList<DegreeOfFreedom> dofs) {
+            ArrayList<EnergyFunction> dofEfuncs = new ArrayList<>();
+            for (DegreeOfFreedom dof : dofs) {
 
-	private EnergyFunction makeResidueEfunc(Residue residue) {
-		
-		// find all the terms that involve this residue
-		MultiTermEnergyFunction resEfunc = new MultiTermEnergyFunction();
-		for (EnergyFunction term : terms) {
-			
-			// TODO: could make the energy term worry about residue association queries
-			// instead of switching on type here
-			if (term instanceof SingleResEnergy) {
-				SingleResEnergy singleResTerm = (SingleResEnergy)term;
-				if (singleResTerm.getRes() == residue) {
-					resEfunc.addTerm(singleResTerm);
-				}
-			} else if (term instanceof ResPairEnergy) {
-				ResPairEnergy resPairTerm = (ResPairEnergy)term;
-				if (resPairTerm.getRes1() == residue || resPairTerm.getRes2() == residue) {
-					resEfunc.addTerm(resPairTerm);
-				}
-			} else {
-				throw new Error("Unsupported energy function term: " + term.getClass().getName());
-			}
-		}
-		return resEfunc;
-	}
+                    if(dof.getResidue() == null){//degree of freedom moves multiple residues
+                        dofEfuncs.add(this);//use the full energy
+                    }
+                    else {//degree of freedom moves just one residue
+                        dofEfuncs.add(makeResidueEfunc(dof.getResidue()));
+                    }
+            }
+            return dofEfuncs;
+    }
+
+    private EnergyFunction makeResidueEfunc(Residue residue) {
+
+            // find all the terms that involve this residue
+            MultiTermEnergyFunction resEfunc = new MultiTermEnergyFunction();
+            for (EnergyFunction term : terms) {
+
+                    // TODO: could make the energy term worry about residue association queries
+                    // instead of switching on type here
+                    if (term instanceof SingleResEnergy) {
+                            SingleResEnergy singleResTerm = (SingleResEnergy)term;
+                            if (singleResTerm.getRes() == residue) {
+                                    resEfunc.addTerm(singleResTerm);
+                            }
+                    } else if (term instanceof ResPairEnergy) {
+                            ResPairEnergy resPairTerm = (ResPairEnergy)term;
+                            if (resPairTerm.getRes1() == residue || resPairTerm.getRes2() == residue) {
+                                    resEfunc.addTerm(resPairTerm);
+                            }
+                    } else {//not a one-body or pairwise forcefield term--may involve all residues
+                        resEfunc.addTerm(term);
+                            //throw new Error("Unsupported energy function term: " + term.getClass().getName());
+                    }
+            }
+            return resEfunc;
+    }
 }
 
