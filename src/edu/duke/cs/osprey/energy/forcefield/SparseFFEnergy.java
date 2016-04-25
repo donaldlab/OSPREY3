@@ -49,7 +49,7 @@ public class SparseFFEnergy implements EnergyFunction {
         if( ! (res1.confProblems.isEmpty() && res2.confProblems.isEmpty()) )
             return Double.POSITIVE_INFINITY;//conformation geometrically impossible
         
-        return ffEnergy.calculateTotalEnergy()[0];
+        return ffEnergy.calculateTotalEnergy();
     }
     
     

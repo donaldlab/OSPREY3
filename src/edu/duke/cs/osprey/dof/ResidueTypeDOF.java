@@ -136,6 +136,8 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
     
     
     
+    @Override
+    public Residue getResidue() { return res; }
     
     
     

@@ -4,6 +4,9 @@
  */
 package edu.duke.cs.osprey.minimization;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.bbfree.BBFreeDOF;
@@ -18,13 +21,10 @@ import edu.duke.cs.osprey.dof.StrandRotation;
 import edu.duke.cs.osprey.dof.StrandTranslation;
 import edu.duke.cs.osprey.dof.deeper.perts.Backrub;
 import edu.duke.cs.osprey.dof.deeper.perts.Shear;
-import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.ematrix.epic.EPICEnergyFunction;
+import edu.duke.cs.osprey.energy.EnergyFunction;
+import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.structure.Molecule;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
 
 /**
  *
@@ -149,6 +149,13 @@ public class MolecEObjFunction implements ObjectiveFunction {
             
             //let's make partial energy functions too for speed...
             partialEFuncs = ((EPICEnergyFunction)efunc).getDOFPartialEFuncs(DOFs,molec);
+        }
+        
+        // partial funcs sound awesome for CCD performance
+        // let's do that for MultiTermEnergyFunction too
+        else if (efunc instanceof MultiTermEnergyFunction) {
+        	MultiTermEnergyFunction mtefunc = (MultiTermEnergyFunction)efunc;
+        	partialEFuncs = mtefunc.makeDOFPartialEFuncs(DOFs);
         }
     }
     
