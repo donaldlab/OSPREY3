@@ -21,6 +21,11 @@ import java.util.Collections;
  */
 public class PDBFileReader {
     
+    
+    final static boolean acceptDwithLName = true;
+    //Accept D-amino acids named w/ the normal L-amino acid codes
+    
+    
     public static Molecule readPDBFile( String PDBFile ){
         //Take pretty much verbatim from PDBChemModel
         //if templates not null, four things we may decide to do (should give options):
@@ -154,13 +159,19 @@ public class PDBFileReader {
             
             Residue res = m.residues.get(resNum);
             
-            DAminoAcidHandler.tryRenamingAsD(res);//We accept D-amino acid named using the usual L names, but must change them here
-            //so the right template name is used
+            if(acceptDwithLName){
+                DAminoAcidHandler.tryRenamingAsD(res);
+                //We accept D-amino acid named using the usual L names, but must change them here
+                //so the right template name is used
+            }
             
             boolean templateAssigned = res.assignTemplate();
             
             if(EnvironmentVars.deleteNonTemplateResidues && !templateAssigned){
                 //residue unrecognized or incomplete...delete it
+                System.out.println( "Warning: deleting unrecognized or incomplete residue "
+                        + m.residues.get(resNum).fullName );
+                
                 m.deleteResidue(resNum);
             }
         }

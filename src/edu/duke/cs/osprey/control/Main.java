@@ -132,6 +132,18 @@ public class Main {
 
 		}
 				);
+                
+                
+                commands.put("ConfInfo",
+				new Runnable()
+		{
+			@Override
+			public void run() {
+				ConfInfo ci = new ConfInfo(cfp);
+                                ci.outputConfInfo();
+			}
+		}
+				);
 
 	}
 
