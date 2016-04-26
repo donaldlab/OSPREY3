@@ -169,7 +169,7 @@ public class PFNew02 extends PFNew01 implements Serializable {
 				energy = conf.getEnergy();
 				updateQStar( conf );
 
-				boundError = Math.abs(conf.getEnergyBound()-conf.getEnergy());
+				boundError = conf.getEnergyBound()-conf.getEnergy();
 				
 				confsQ.accumulatePartialQLB(getBoltzmannWeight(conf.getEnergyBound()));
 				updateQPrime();

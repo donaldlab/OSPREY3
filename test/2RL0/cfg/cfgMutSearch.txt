@@ -16,12 +16,12 @@ doPerturbations false
 selectPerturbations false
 addWT true
 addWTRots true
-saveTopConfsAsPDB true
+saveTopConfsAsPDB false
 numTopConfsToSave 5
 useMaxKSConfs false
 maxKSconfs 200000
 doKStarCheckpoint false
-KStarCheckpoint 100
+kStarCheckpoint 100
 
 numMutations 1
 resAllowed0_0 ASP GLU SER
@@ -32,6 +32,8 @@ resAllowed1_0 SER THR ASN
 resAllowed1_1 GLY ALA VAL
 resAllowed1_2 THR SER ASN
 
+pFuncUseTripleBounds true
+pFuncTripleThresh -2.0
 pFuncStabThresh 0
 pFuncMethod trad
 pFuncThreads 3

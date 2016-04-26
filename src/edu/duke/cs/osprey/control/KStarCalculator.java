@@ -65,7 +65,9 @@ public class KStarCalculator {
 		PFAbstract.setNumTopConfsToSave( cfp.getParams().getInt("numTopConfsToSave", 10) );
 		PFAbstract.useMaxKSConfs = cfp.getParams().getBool( "useMaxKSConfs", false );
 		PFAbstract.setMaxKSconfs( cfp.getParams().getInt("maxKSconfs", 100000) );
-
+		PFAbstract.useTripleBounds = cfp.getParams().getBool("pFuncUseTripleBounds", false);
+		PFAbstract.setTripleThresh( cfp.getParams().getDouble("pFuncTripleThresh", -10.0) );
+		
 		MinimizerFactory.setImpl( PFAbstract.eMinMethod );
 		
 		KSAbstract.preLoadPFs = cfp.getParams().getBool("kStarPreLoadPFs", false);

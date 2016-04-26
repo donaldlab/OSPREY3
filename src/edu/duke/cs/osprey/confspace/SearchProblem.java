@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
+import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.Strand;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -217,6 +218,8 @@ public class SearchProblem implements Serializable {
 		//whose RCs are listed for all flexible positions in conf
 		double E = confSpace.minimizeEnergy(conf, fullConfE, null);
 
+		E += getConstTerm();
+		
 		if(useERef)
 			E -= emat.geteRefMat().confERef(conf);
 
@@ -225,20 +228,26 @@ public class SearchProblem implements Serializable {
 
 		return E;
 	}
-
-
-	public double rigidEnergy(int[] conf) {
+	
+	
+	public MultiTermEnergyFunction decomposedMinimizedEnergy(int[] conf){
 		//Minimized energy of the conformation
 		//whose RCs are listed for all flexible positions in conf
-		double E = confSpace.rigidEnergy(conf, fullConfE);
+		MultiTermEnergyFunction mef = confSpace.getDecomposedMinimizedEnergy(conf, fullConfE, null);
 
+		double E = mef.getPreCompE();
+		
+		E += getConstTerm();
+		
 		if(useERef)
 			E -= emat.geteRefMat().confERef(conf);
 
 		if(addResEntropy)
 			E += confSpace.getConfResEntropy(conf);            
 
-		return E;
+		mef.setPreCompE(E);
+		
+		return mef;
 	}
 
 
@@ -284,9 +293,19 @@ public class SearchProblem implements Serializable {
 
 		double bound = emat.confE(conf);//the energy recorded by the matrix is 
 		//the pairwise lower bounds
-
 		return bound;
 	}
+	
+	
+	public double lowerBoundContribByRC(int pos, int[] conf) {
+		double bound = emat.rcContribAtPos(pos, conf);	
+		return bound;
+	}
+	
+	
+	public double getConstTerm() {
+        return emat.getConstTerm();
+    }
 	
 	
 	//LOADING AND PRECOMPUTATION OF ENERGY MATRIX-TYPE OBJECTS (regular energy matrix, tup-exp and EPIC matrices)

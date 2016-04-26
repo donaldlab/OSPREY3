@@ -227,7 +227,7 @@ public class PFNew01 extends PFAbstract implements Serializable {
 					if( !PFAbstract.suppressOutput ) {
 						if( !printedHeader ) printHeader();
 
-						double boundError = Math.abs(conf.getEnergyBound()-conf.getEnergy());
+						double boundError = conf.getEnergyBound()-conf.getEnergy();
 
 						System.out.println(boundError + "\t" + energy + "\t" + effectiveEpsilon + "\t" + 
 								getNumMinimized4Output() + "\t" + getNumUnEnumerated() + "\t" + confsQ.size() + "\t" + ((currentTime-startTime)/1000));

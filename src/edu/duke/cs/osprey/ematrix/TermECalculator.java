@@ -101,7 +101,7 @@ public class TermECalculator implements MPISlaveTask {
 				((MultiTermEnergyFunction)termE).addTerm(EnvironmentVars.curEFcnGenerator.resPairEnergy(secondRes, thirdRes));
 			}
 			else{
-				throw new RuntimeException("ERROR: Can only precompute energy for 1- and 2-body terms");
+				throw new RuntimeException("ERROR: Can only precompute energy for 1, 2, and 3-body terms");
 				//we are excluding shell-shell interactions throughout this version of OSPREY,
 				//since they don't change and are time-consuming
 			}

@@ -2,11 +2,12 @@ package edu.duke.cs.osprey.kstar.pfunc.impl;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
+import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.kstar.KSConf;
+import edu.duke.cs.osprey.kstar.RCEnergyContribs;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 
 /**
@@ -25,7 +26,7 @@ public class PFTrad extends PFAbstract implements Serializable {
 	public PFTrad() { 
 		super();
 	}
-	
+
 	public PFTrad( int strand, ArrayList<String> sequence, ArrayList<Integer> flexResIndexes, 
 			String checkPointPath, String searchProblemName, 
 			ConfigFileParser cfp, SearchProblem panSeqSP ) {
@@ -37,12 +38,12 @@ public class PFTrad extends PFAbstract implements Serializable {
 	public void start() {
 
 		setRunState(RunState.STARTED);
-		
+
 		initPStar();
-		
+
 		// first conf was merely to set p*
 		confSearch = getConfTree(false);
-		
+
 		startTime = System.currentTimeMillis();
 	}
 
@@ -101,13 +102,34 @@ public class PFTrad extends PFAbstract implements Serializable {
 	}
 
 
-	/**
-	 * Synchronous version evaluates conf energy immediately and adds to value.
-	 */
 	protected void accumulate( KSConf conf ) {
 
-		double energy = isFullyDefined() ? 
-				sp.minimizedEnergy(conf.getConfArray()) : conf.getEnergyBound();
+		double energy = 0, boundError = 0;
+		
+		if( isFullyDefined() ) {
+			
+			MultiTermEnergyFunction mef = sp.decomposedMinimizedEnergy(conf.getConfArray());
+			energy = mef.getPreCompE();
+
+			boundError = conf.getEnergyBound()-energy;
+			
+			if(useTripleBounds && boundError <= tripleThresh) {
+				RCEnergyContribs rce = new RCEnergyContribs(this, mef, conf.getConfArray());
+				double pbe = rce.getPercentBoundError(3);
+				ArrayList<Integer> pce = rce.getPosCausingError(3);
+				System.out.println("% bound error due to top 3 RCs: " + pbe + ". offending rotamers: " + pce);
+			}
+		}
+
+		else
+			energy = conf.getEnergyBound();
+
+		/*
+		energy = isFullyDefined() ? sp.minimizedEnergy(conf.getConfArray()) : conf.getEnergyBound();
+		MultiTermEnergyFunction mef = sp.decomposedMinimizedEnergy(conf.getConfArray());
+		double energy2 = mef.getPreCompE();
+		if(energy - energy2 > 0.01) throw new RuntimeException("ERROR: multi-term get energy function is broken. energy: " + energy + " energy2: " + energy2);
+		 */
 
 		conf.setEnergy(energy);
 
@@ -129,8 +151,6 @@ public class PFTrad extends PFAbstract implements Serializable {
 		if( !PFAbstract.suppressOutput ) {
 			if( !printedHeader ) printHeader();
 
-			double boundError = Math.abs(conf.getEnergyBound()-conf.getEnergy());
-			
 			System.out.println(boundError + "\t" + energy + "\t" + effectiveEpsilon + "\t" 
 					+ getNumMinimized4Output() + "\t" + getNumUnEnumerated() + "\t"+ (currentTime-startTime)/1000);
 		}

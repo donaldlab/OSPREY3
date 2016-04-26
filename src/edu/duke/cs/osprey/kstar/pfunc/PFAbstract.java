@@ -56,6 +56,9 @@ public abstract class PFAbstract implements Serializable {
 
 	public static boolean useMaxKSConfs = false;
 	protected static long maxKSConfs = 100000;
+	
+	public static boolean useTripleBounds = false;
+	protected static double tripleThresh = -10.0;
 
 	protected String checkPointPath = null;
 	protected String searchProblemName = null;
@@ -87,6 +90,7 @@ public abstract class PFAbstract implements Serializable {
 	protected HashSet<ArrayList<Integer>> minimizedConfsSet = new HashSet<>();
 	protected BigInteger minimizedConfsDuringInterval = BigInteger.ZERO;
 	protected BigInteger minimizingConfs = BigInteger.ZERO; // # confs being minimized at this instant
+	protected HashSet<Integer> posInTripple = new HashSet<>();
 
 	protected PriorityQueue<KSConf> topConfsPQ = null;
 
@@ -103,12 +107,17 @@ public abstract class PFAbstract implements Serializable {
 		this.panSeqSP = panSeqSP;
 		this.strand = strand;
 		this.sp = createSingleSeqSP(panSeqSP.contSCFlex, strand, sequence, flexResIndexes, true);
-		
+
 		this.isFullyDefined = sp.confSpace.numPos == panSeqSP.confSpace.numPos ? true : false;
 		this.cfp = cfp;
 
 		Comparator<KSConf> comparator = new KSConf(new ArrayList<>(), 0.0).new KSConfMinEComparator();
 		topConfsPQ = new PriorityQueue<KSConf>(getNumTopConfsToSave(), comparator);
+	}
+
+
+	public HashSet<Integer> getPosInTripple() {
+		return posInTripple;
 	}
 
 
@@ -697,6 +706,17 @@ public abstract class PFAbstract implements Serializable {
 		return stabilityThresh;
 	}
 
+	
+	public static void setTripleThresh(double threshold) {
+		threshold = threshold > 0.0 ? 0.0 : threshold;
+		tripleThresh = threshold;
+	}
+	
+	
+	public static double getTripleThresh() {
+		return tripleThresh;
+	}
+	
 
 	public static void setMaxKSconfs( long in ) {
 		if( in < 1 ) in = 1;

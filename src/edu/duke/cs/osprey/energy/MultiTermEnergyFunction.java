@@ -5,8 +5,6 @@
 package edu.duke.cs.osprey.energy;
 
 import java.util.ArrayList;
-import java.util.concurrent.ForkJoinPool;
-
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 
 /**
@@ -19,12 +17,14 @@ import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 //or ( energy of a pair of residues ) - (energy of residue 1) - (energy of residue 2)
 //Total energy = sum_i (coeff[i] * energy i)
 
+@SuppressWarnings("serial")
 public class MultiTermEnergyFunction implements EnergyFunction {
 
 	ArrayList<EnergyFunction> terms = new ArrayList<>();
 	ArrayList<Double> coeffs = new ArrayList<>();
 	ArrayList<Double> partialE = new ArrayList<>();
 	ArrayList<Integer> indexes = new ArrayList<>();
+	double preCompE = 0.0;
 
 
 	//Constructor with no terms
@@ -74,7 +74,7 @@ public class MultiTermEnergyFunction implements EnergyFunction {
 			//and thus return inifinity
 			return Double.POSITIVE_INFINITY;
 
-		return E;
+		return preCompE = E;
 	}
 
 	public ArrayList<EnergyFunction> getTerms() {
@@ -84,7 +84,14 @@ public class MultiTermEnergyFunction implements EnergyFunction {
 	public ArrayList<Double> getCoeffs() {
 		return coeffs;
 	}
+	
+	public double getPreCompE() {
+		return preCompE;
+	}
 
+	public void setPreCompE(double in) {
+		preCompE = in;
+	}
 
 }
 
