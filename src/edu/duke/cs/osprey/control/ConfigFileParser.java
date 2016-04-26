@@ -141,7 +141,7 @@ public class ConfigFileParser {
                 params.getBool("useEllipses"),
                 params.getBool("useERef"),
                 params.getBool("AddResEntropy"),
-                params.getBool("standardizeConformation")
+                params.getBool("addWTRots")
         );
     }
     

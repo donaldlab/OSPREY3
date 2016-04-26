@@ -4,17 +4,20 @@
  */
 package edu.duke.cs.osprey.structure;
 
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Arrays;
+
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.ProlinePucker;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResTemplateMatching;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
-import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
+import edu.duke.cs.osprey.tools.Protractor;
 import edu.duke.cs.osprey.tools.StringParsing;
 import edu.duke.cs.osprey.tools.VectorAlgebra;
-import java.io.Serializable;
-import java.util.ArrayList;
 
 /**
  *
@@ -74,39 +77,56 @@ public class Residue implements Serializable {
     public final static int LOOP = 2;
     
     
+    public Residue(Residue other) {
+    	this(copyAtoms(other.atoms), Arrays.copyOf(other.coords, other.coords.length), other.fullName, other.molec);
+    }
     
+    private static ArrayList<Atom> copyAtoms(ArrayList<Atom> atoms) {
+    	ArrayList<Atom> out = new ArrayList<>();
+    	for (Atom atom : atoms) {
+    		out.add(atom.copy());
+    	}
+    	return out;
+    }
     
-    public Residue(ArrayList<Atom> atomList, ArrayList<double[]> coordList, String nameFull, Molecule m){
+    public Residue(ArrayList<Atom> atoms, ArrayList<double[]> coords, String fullName, Molecule molec) {
+    	this(atoms, convertCoords(coords), fullName, molec);
+    }
+    
+    private static double[] convertCoords(ArrayList<double[]> coords) {
+    	
+        //record coordinates, unless coordList is null (then leave coords null too)
+        if (coords == null) {
+            return null;
+    	}
+        
+        int numAtoms = coords.size();
+		double[] out = new double[3*numAtoms];
+		for (int i=0; i<numAtoms; i++) {
+			System.arraycopy(coords.get(i), 0, out, 3*i, 3);
+		}
+		return out;
+    }
+    
+    public Residue(ArrayList<Atom> atoms, double[] coords, String fullName, Molecule molec) {
         //generate a residue.  Don't put in template and related stuff like bonds (that can be assigned later)
         
-        atoms = atomList;
-        molec = m;
+        this.atoms = atoms;
+        this.fullName = fullName;
+        this.molec = molec;
         
-        int numAtoms = atoms.size();
-        
+		int numAtoms = atoms.size();
+        this.coords = coords;
+        if (coords != null) {
+			if(numAtoms*3 != coords.length){
+				throw new RuntimeException("ERROR: Trying to instantiate residue with "+numAtoms+
+						" atoms but "+coords.length+"/3 atom coordinates");
+			}
+        }
         for(int a=0; a<numAtoms; a++){
             atoms.get(a).res = this;
             atoms.get(a).indexInRes = a;
         }
-        
-        
-        //record coordinates, unless coordList is null (then leave coords null too)
-        if(coordList==null)
-            coords = null;
-        else {
-        
-            if(numAtoms != coordList.size()){
-                throw new RuntimeException("ERROR: Trying to instantiate residue with "+numAtoms+
-                        " atoms but "+coordList.size()+" atom coordinates");
-            }
-
-            coords = new double[3*numAtoms];
-            for(int a=0; a<numAtoms; a++){
-                System.arraycopy(coordList.get(a), 0, coords, 3*a, 3);
-            }
-        }
-        
-        fullName = nameFull;
     }
     
     public String getPDBResNumber() {
@@ -171,95 +191,21 @@ public class Residue implements Serializable {
             throw new RuntimeException("ERROR: Template for "+fullName+" has the wrong number of atoms");
         
         //Within-residue bonds are exactly as in the template
-        boolean[][] intraResBondMatrix = templateIntraResBondMatrix();
-     
-        //now apply this bond matrix
-        for(int atNum1=0; atNum1<numAtoms; atNum1++){
-            
-            Atom atom1 = atoms.get(atNum1);
-
-            //check that all atoms have the same names as
-            //corresponding template atoms, in the same order
-            if( ! atom1.name.equalsIgnoreCase( templateAtoms.get(atNum1).name ) ){
-                throw new RuntimeException("ERROR: Atom name mismatch with template found in "+fullName);
-            }
-            
-            for(int atNum2=0; atNum2<numAtoms; atNum2++){
-                if(intraResBondMatrix[atNum1][atNum2]){
-                    Atom atom2 = atoms.get(atNum2);
-                    atom1.bonds.add(atom2);
-                }
-            }
-            
-            /*
-            if(atom1.bonds[bondedAtomCount]==null){
-                //atom1 has bonds that are null in the template
-                //need to look outside the residue
-                
-                //currently expecting just one interaction, which we expect will be to the closest atom
-                //from another residue that is also expecting an out-of-residue bond
-                if(bondedAtomCount<atom1.bonds.length-1)//more than one missing interaction
-                    throw new UnsupportedOperationException("ERROR: Not yet supporting atoms"
-                            + " with multiple bonds outside the residue");
-                
-                
-                Atom bondedAtom = null;//the atom in another residue bonded to atom1...we'll search for this
-                double bondedAtomDist = Double.POSITIVE_INFINITY;//atom1 -- bondedAtom distance
-                
-                for(Residue otherRes : molec.residues){
-                    if(otherRes!=this){
-                        
-                        for(int otherAtNum=0; otherAtNum<otherRes.atoms.size(); otherAtNum++){
-                            Atom otherAtom = otherRes.atoms.get(otherAtNum);
-                            
-                            for(Atom otherAtomBond : otherAtom.bonds){
-                                if(otherAtomBond!=null){
-                                    if(otherAtomBond.res==otherRes)
-                                        continue;//no opening here to bond to atom1
-                                }
-                                    
-                                //if bond is null or is to other residue, there is an opening
-                                //compute 
-                                double dist = VectorAlgebra.distance(coords,atNum1,otherRes.coords,otherAtNum);
-                                
-                                //if dist is shorter than distances to other bondedAtoms,
-                                //then we'll want to make this bond
-                                if(dist<bondedAtomDist){
-                                    bondedAtomDist = dist;
-                                    bondedAtom = otherAtom;
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                
-                //if template not assigned to other residue, then leave null
-                //will connect up when assigning
-                if(bondedAtom.res.template!=null){
-                    atom1.bonds[bondedAtomCount] = bondedAtom;
-                }
-            }*/
-        }
-        
-        
-        checkBonds();
+        copyIntraBondsFrom(template.templateRes);
         intraResBondsMarked = true;
     }
     
     
-    public boolean[][] templateIntraResBondMatrix(){
-        //matrix(i,j) indicates whether atoms i and j are bonded to each other in the template
+    public boolean[][] getIntraResBondMatrix(){
+        //matrix(i,j) indicates whether atoms i and j are bonded to each other
 
         int numAtoms = atoms.size();
-        ArrayList<Atom> templateAtoms = template.templateRes.atoms;
-        
         boolean intraResBondMatrix[][] = new boolean[numAtoms][numAtoms];
         for(int atNum1=0; atNum1<numAtoms; atNum1++){
             for(int atNum2=0; atNum2<numAtoms; atNum2++){
                 
-                Atom atom1 = templateAtoms.get(atNum1);
-                Atom atom2 = templateAtoms.get(atNum2);
+                Atom atom1 = atoms.get(atNum1);
+                Atom atom2 = atoms.get(atNum2);
                 
                 //check if atom2 is in bond list for atom1
                 //if so set bond matrix boolean to true
@@ -275,6 +221,31 @@ public class Residue implements Serializable {
         return intraResBondMatrix;
     }
     
+    public void copyIntraBondsFrom(Residue other) {
+    	
+    	boolean[][] isBonded = other.getIntraResBondMatrix();
+    	int numAtoms = atoms.size();
+    	
+    	// double check the residues match atoms
+    	for (int i=0; i<numAtoms; i++) {
+    		if (!atoms.get(i).name.equalsIgnoreCase(other.atoms.get(i).name)) {
+    			throw new Error("ERROR: Atom names don't match aross residues, can't copy bonds");
+    		}
+    	}
+
+    	// copy the bonds
+        for(int i=0; i<numAtoms; i++){
+            Atom atomi = atoms.get(i);
+            for(int j=0; j<numAtoms; j++){
+                if(isBonded[i][j]){
+                    Atom atomj = atoms.get(j);
+                    atomi.bonds.add(atomj);
+                }
+            }
+        }
+        
+        checkBonds();
+    }
     
     public void checkTemplateAtomNames(){
         //check that atom names match between the residue and the template
@@ -320,8 +291,6 @@ public class Residue implements Serializable {
             }
         }
     }
-    
-    
     
     public int getAtomIndexByName(String n){
         //index in atoms of atom with name n
@@ -440,4 +409,19 @@ public class Residue implements Serializable {
         }
     }
     
+    public int getNumDihedrals() {
+    	return EnvironmentVars.resTemplates.numDihedralsForResType(template.name);
+    }
+    
+    public double getDihedralAngle(int i) {
+		return Protractor.measureDihedral(coords, template.getDihedralDefiningAtoms(i));
+    }
+    
+    public double[] getDihedralAngles() {
+    	double[] dihedrals = new double[getNumDihedrals()];
+		for(int i=0; i<dihedrals.length; i++) {
+			dihedrals[i] = getDihedralAngle(i);
+		}
+		return dihedrals;
+    }
 }

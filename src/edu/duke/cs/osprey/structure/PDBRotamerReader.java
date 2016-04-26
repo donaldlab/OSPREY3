@@ -4,14 +4,12 @@ import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import edu.duke.cs.osprey.control.EnvironmentVars;
+
 import edu.duke.cs.osprey.restypes.PositionSpecificRotamerLibrary;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
-import edu.duke.cs.osprey.tools.Protractor;
 
 /***
  * Simple class to read in a PDB file and spit out rotamers for 
@@ -31,16 +29,6 @@ public class PDBRotamerReader {
             BufferedReader bufread = new BufferedReader(new InputStreamReader(is));
 
             String curLine = bufread.readLine();
-
-            ArrayList<String> helixStarts = new ArrayList<>();//Residues where helices start
-            ArrayList<String> helixEnds = new ArrayList<>();//Residues where they end
-            ArrayList<Character> helixChains = new ArrayList<>();
-            ArrayList<String> sheetStarts = new ArrayList<>();
-            ArrayList<String> sheetEnds = new ArrayList<>();
-            ArrayList<Character> sheetChains = new ArrayList<>();
-            //So for each helix/sheet, 
-            //we record its starting and ending residue numbers and its chain
-
 
             ArrayList<Atom> curResAtoms = new ArrayList<>();
             Map<Character, ArrayList<Atom>> alternateAtoms = new HashMap<>();
@@ -88,7 +76,6 @@ public class PDBRotamerReader {
                                             alternateConformation.assignTemplate();
                                             continue;
                                         }
-                                        double[] dihedrals = computeDihedrals(alternateConformation);
                                         m.addAlternate(residueIndex, alternateConformation);
                                         //library.addRotamer(residueIndex, alternateConformation.template.name, alternateConformation);
                                         addRotamer(residueIndex, positionSpecificRotamers,alternateConformation); 
@@ -154,29 +141,11 @@ public class PDBRotamerReader {
         {
             for(String resType : positionSpecificRotamers.get(residueIndex).keySet())
             {
-                Residue firstResidue = positionSpecificRotamers.get(residueIndex).get(resType).get(0);
-                ResidueTemplate newTemplate = new ResidueTemplate(firstResidue, resType);
-                newTemplate.setNumberOfPhiPsiBins(firstResidue.template.numberOfPhiPsiBins);
-                newTemplate.initializeRotamerArrays();
-                newTemplate.dihedral4Atoms = firstResidue.template.dihedral4Atoms;
-                newTemplate.numDihedrals = firstResidue.template.numDihedrals;
-                newTemplate.setNumRotamers(positionSpecificRotamers.get(residueIndex).get(resType).size(), 0, 0);
-                double[][] dihedrals = new double[newTemplate.numRotamers[0][0]][newTemplate.numDihedrals];
-                
-                int rotIndex = 0;
-                for(Residue res:positionSpecificRotamers.get(residueIndex).get(resType))
-                {
-                    double[] residueDihedrals = computeDihedrals(res);
-                    dihedrals[rotIndex] = residueDihedrals;
-                    rotIndex++;
-                }
-                newTemplate.setRotamericDihedrals(dihedrals, 0, 0);
-                library.addResidueTemplate(residueIndex, resType, newTemplate);
+            	List<Residue> residues = positionSpecificRotamers.get(residueIndex).get(resType);
+                library.addResidueTemplate(residueIndex, resType, ResidueTemplate.makeFromResidueConfs(residues));
             }
 
         }
-
-
     }
     
     private static void addRotamer (int residueIndex,
@@ -191,47 +160,6 @@ public class PDBRotamerReader {
         residuesAtPositionForAA.add(alternateConformation);
         System.out.println(residuesAtPosition.get(alternateConformation.template.name).size());
         
-    }
-
-    private static double[][][] getDihedralAtomCoords(Residue r)
-    {
-        ResidueTemplate template = r.template;
-        if(template == null)
-            System.out.println("Bug?");
-        int numDihedrals = template.numDihedrals;
-
-        double[][][] coords = new double[numDihedrals][4][3];
-        int[][] dihedralAtoms = template.dihedral4Atoms;
-        for(int dihedralIndex = 0; dihedralIndex < numDihedrals; dihedralIndex++)
-        {
-            for(int atomIndex = 0; atomIndex < dihedralAtoms[dihedralIndex].length; atomIndex++)
-            {
-                Atom a = r.atoms.get(dihedralAtoms[dihedralIndex][atomIndex]);
-                double[] atomicCoordinates = a.getCoords();
-                System.arraycopy(atomicCoordinates, 0, coords[dihedralIndex][atomIndex], 0, 3);
-            }
-
-        }
-        
-        return coords;
-    }
-    
-    private static double[] computeDihedrals(Residue r)
-    {
-        ResidueTemplate template = r.template;
-        
-        double[] dihedrals = new double[r.template.numDihedrals];
-        
-        double[][][] coords = getDihedralAtomCoords(r);
-        for(int i = 0; i < coords.length; i++)
-        {
-            double dihedral = Protractor.measureDihedral(coords[i]);
-            System.out.println("Measured dihedral: "+dihedral);
-            dihedrals[i] = dihedral;
-        }
-        
-        
-        return dihedrals;
     }
 
     private static int getResidueIndex (String curLine) {

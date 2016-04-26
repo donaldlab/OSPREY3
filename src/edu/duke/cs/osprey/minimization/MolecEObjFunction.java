@@ -14,7 +14,6 @@ import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.PositionConfSpace;
 import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.EllipseCoordDOF;
 import edu.duke.cs.osprey.dof.FreeDihedral;
@@ -27,7 +26,6 @@ import edu.duke.cs.osprey.ematrix.epic.EPICEnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.tools.Protractor;
 
 /**
  *
@@ -90,12 +88,16 @@ public class MolecEObjFunction implements ObjectiveFunction {
             int RCNum = RCTup.RCs.get(indexInTup);
             RC rc = cSpace.posFlex.get(posNum).RCs.get(RCNum);
             
-            //make sure the amino-acid type is set correctly
             ResidueTypeDOF mutDOF = cSpace.mutDOFs.get(posNum);
-            if( ! mutDOF.getCurResType().equalsIgnoreCase(rc.AAType) ){
+            
+            // if the RC has a template, switch to that
+            if (rc.template != null && !mutDOF.isTemplate(rc.template)) {
+            	mutDOF.switchToTemplate(rc.template);
+            	
+            // otherwise, make sure the amino-acid type is set correctly (using the library template)
+            } else if(!mutDOF.getCurResType().equalsIgnoreCase(rc.AAType)) {
                 mutDOF.mutateTo(rc.AAType);
             }
-            
             
             for(int dofIndexInRC=0; dofIndexInRC<rc.DOFs.size(); dofIndexInRC++){
                 
@@ -132,11 +134,8 @@ public class MolecEObjFunction implements ObjectiveFunction {
     	// build the DoFs based on the current structure instead of residue conformations
         for (int i=0; i<confSpace.posFlex.size(); i++) {
         	PositionConfSpace pos = confSpace.posFlex.get(i);
-        	String aaType = pos.res.template.name;
-        	int numDihedrals = EnvironmentVars.resTemplates.numDihedralsForResType(aaType);
-			for(int j=0; j<numDihedrals; j++) {
-				double chi = Protractor.measureDihedral(pos.res.coords, pos.res.template.getDihedralDefiningAtoms(j));
-				DOFBounds.put(new FreeDihedral(pos.res, j), pos.makeDOFBounds(chi));
+			for(int j=0; j<pos.res.getNumDihedrals(); j++) {
+				DOFBounds.put(new FreeDihedral(pos.res, j), pos.makeDOFBounds(pos.res.getDihedralAngle(j)));
 				numMinDOFs++;
 			}
         }

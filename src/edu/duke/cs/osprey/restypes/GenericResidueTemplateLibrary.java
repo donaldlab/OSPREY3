@@ -149,7 +149,7 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
         }
 
         
-        Residue templateRes = new Residue(atomList,null,templateName,null);//no molecule or coordinates yets
+        Residue templateRes = new Residue(atomList,(double[])null,templateName,null);//no molecule or coordinates yets
 
 
         do {//we expect one or more blank lines before the LOOP and IMPROPER records
