@@ -26,17 +26,17 @@ KStarCheckpoint 100
 numMutations 1
 resAllowed0_0 ASP GLU SER
 resAllowed0_1 GLU ASP SER
-resAllowed0_2 ASP ASP SER
-resAllowed0_3 THR THR ASN
-resAllowed1_0 GLY THR ASN
+resAllowed0_2 GLU ASP SER
+resAllowed0_3 SER THR ASN
+resAllowed1_0 SER THR ASN
 resAllowed1_1 GLY ALA VAL
-resAllowed1_2 ALA SER ASN
+resAllowed1_2 THR SER ASN
 
 pFuncStabThresh 0
 pFuncMethod trad
 pFuncThreads 3
 numThreads 3
-eMinMethod hbfgsccd
+eMinMethod ccd
 kStarMethod linear
 kStarUseTightBounds true
 kStarNumSeqs 100
