@@ -11,6 +11,7 @@ import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.bbfree.BBFreeDOF;
 import edu.duke.cs.osprey.confspace.ConfSpace;
+import edu.duke.cs.osprey.confspace.PositionConfSpace;
 import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
@@ -87,12 +88,16 @@ public class MolecEObjFunction implements ObjectiveFunction {
             int RCNum = RCTup.RCs.get(indexInTup);
             RC rc = cSpace.posFlex.get(posNum).RCs.get(RCNum);
             
-            //make sure the amino-acid type is set correctly
             ResidueTypeDOF mutDOF = cSpace.mutDOFs.get(posNum);
-            if( ! mutDOF.getCurResType().equalsIgnoreCase(rc.AAType) ){
+            
+            // if the RC has a template, switch to that
+            if (rc.template != null && !mutDOF.isTemplate(rc.template)) {
+            	mutDOF.switchToTemplate(rc.template);
+            	
+            // otherwise, make sure the amino-acid type is set correctly (using the library template)
+            } else if(!mutDOF.getCurResType().equalsIgnoreCase(rc.AAType)) {
                 mutDOF.mutateTo(rc.AAType);
             }
-            
             
             for(int dofIndexInRC=0; dofIndexInRC<rc.DOFs.size(); dofIndexInRC++){
                 
@@ -115,6 +120,30 @@ public class MolecEObjFunction implements ObjectiveFunction {
                 }
             }
         }
+        init(numMinDOFs, DOFBounds);
+    }
+    
+    public MolecEObjFunction(EnergyFunction efunc, ConfSpace confSpace) {
+    	
+        this.efunc = efunc;
+        this.molec = confSpace.m;
+        
+        int numMinDOFs = 0;
+        LinkedHashMap<DegreeOfFreedom,double[]> DOFBounds = new LinkedHashMap<>();
+        
+    	// build the DoFs based on the current structure instead of residue conformations
+        for (int i=0; i<confSpace.posFlex.size(); i++) {
+        	PositionConfSpace pos = confSpace.posFlex.get(i);
+			for(int j=0; j<pos.res.getNumDihedrals(); j++) {
+				DOFBounds.put(new FreeDihedral(pos.res, j), pos.makeDOFBounds(pos.res.getDihedralAngle(j)));
+				numMinDOFs++;
+			}
+        }
+        
+        init(numMinDOFs, DOFBounds);
+    }
+    
+    private void init(int numMinDOFs, LinkedHashMap<DegreeOfFreedom,double[]> DOFBounds) {
         
         //collect constraints, and apply fixed DOF valuestrue
         DOFs = new ArrayList<>();
