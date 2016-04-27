@@ -4,6 +4,8 @@
  */
 package edu.duke.cs.osprey.ematrix;
 
+import java.util.ArrayList;
+
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
@@ -13,7 +15,6 @@ import edu.duke.cs.osprey.handlempi.MPIMaster;
 import edu.duke.cs.osprey.handlempi.MPISlaveTask;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Residue;
-import java.util.ArrayList;
 
 /**
  *
@@ -162,26 +163,25 @@ public class EnergyMatrixCalculator {
             //all RCs included (infinite pruning interval)
     }
     
-    
     private void storeEnergy(Object calcResult, int... res){
         //eCalc has performed its calculations, for the residue or pair denoted by res.
         //store the results of this calculation in our matrix.  
         
-        if(doEPIC){
-            if(res.length==1)//intra+shell energy
-                epicMat.oneBody.set( res[0], (ArrayList<EPoly>) calcResult );
-            else//pairwise
-                epicMat.pairwise.get(res[0]).set( res[1], (ArrayList<ArrayList<EPoly>>) calcResult );
+        if (doEPIC) {
+            if (res.length==1) {
+                epicMat.setOneBody(res[0], (ArrayList<EPoly>)calcResult);
+            } else {
+                epicMat.setPairwise(res[0], res[1], (ArrayList<ArrayList<EPoly>>)calcResult);
+            }
         }
         else {
-            if(res.length==1)//intra+shell energy
-                emat.oneBody.set( res[0], (ArrayList<Double>) calcResult );
-            else//pairwise
-                emat.pairwise.get(res[0]).set( res[1], (ArrayList<ArrayList<Double>>) calcResult );
+            if (res.length==1) {
+                emat.setOneBody(res[0], (ArrayList<Double>)calcResult);
+            } else {
+                emat.setPairwise(res[0], res[1], (ArrayList<ArrayList<Double>>)calcResult);
+            }
         }
-                
     }
-    
     
     public EnergyMatrix getEMatrix(){
         if(emat==null)

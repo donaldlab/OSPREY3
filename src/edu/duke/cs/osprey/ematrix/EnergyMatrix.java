@@ -127,14 +127,14 @@ public class EnergyMatrix extends TupleMatrix<Double> {
     public double[][] topPairwiseInteractions(){
         //return the top absolute values of the pairwise interactions
         //between all pairs of positions
-        int numPos = oneBody.size();
+        int numPos = getNumPos();
         
         double strongestPairE[][] = new double[numPos][numPos];
         
         for(int pos=0; pos<numPos; pos++){
             for(int pos2=0; pos2<pos; pos2++){
-                for(int rc=0; rc<numRCsAtPos(pos); rc++){
-                    for(int rc2=0; rc2<numRCsAtPos(pos2); rc2++){
+                for(int rc=0; rc<getNumAtPos(pos); rc++){
+                    for(int rc2=0; rc2<getNumAtPos(pos2); rc2++){
                         strongestPairE[pos][pos2] = Math.max( strongestPairE[pos][pos2], Math.abs(getPairwise(pos, rc, pos2, rc2)) );
                         strongestPairE[pos2][pos] = strongestPairE[pos][pos2];
                     }

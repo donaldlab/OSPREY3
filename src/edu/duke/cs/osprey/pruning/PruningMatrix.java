@@ -4,12 +4,12 @@
  */
 package edu.duke.cs.osprey.pruning;
 
+import java.util.ArrayList;
+
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.TupleMatrix;
-import java.util.ArrayList;
-import java.util.Collections;
 
 /**
  *
@@ -33,17 +33,7 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
         
         //We'll want to initialize everything to be unpruned, because this will be looked up during pruning
         //currently all entries in oneBody and pairwise are null
-        for(ArrayList<Boolean> oneBodyAtPos : oneBody){
-            Collections.fill(oneBodyAtPos, false);
-        }
-        
-        for(ArrayList<ArrayList<ArrayList<Boolean>>> pairwiseAtPos : pairwise){
-            for(ArrayList<ArrayList<Boolean>> pairwiseAt2Pos : pairwiseAtPos){
-                for(ArrayList<Boolean> pairwiseAtRC : pairwiseAt2Pos){
-                    Collections.fill(pairwiseAtRC, false);
-                }
-            }
-        }
+        fill(false);
     }
     
     
@@ -51,7 +41,7 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
         //which RCs at the given position are unpruned?
         //Return index of the RCs within the position
         ArrayList<Integer> ans = new ArrayList<>();
-        int numRCs = numRCsAtPos(pos);
+        int numRCs = getNumAtPos(pos);
          
         for(int index=0; index<numRCs; index++){
             if(!getOneBody(pos,index))
@@ -71,7 +61,7 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
         
         if(numPos==1){
             int posNum = pos.get(0);
-            for(int rc=0; rc<numRCsAtPos(posNum); rc++){
+            for(int rc=0; rc<getNumAtPos(posNum); rc++){
                 if(!getOneBody(posNum,rc))
                     unpruned.add(new RCTuple(posNum,rc));
             }
@@ -86,7 +76,7 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
             
             int lastPos = pos.get(numPos-1);
             
-            for(int rc=0; rc<numRCsAtPos(lastPos); rc++){
+            for(int rc=0; rc<getNumAtPos(lastPos); rc++){
                 if(!getOneBody(lastPos,rc)){
                     for(RCTuple reducedTup : tupsReduced){//try to combine into an unpruned RC
                         
@@ -186,11 +176,14 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
     public int countPrunedRCs(){
         //how many RCs are pruned overall?
         int count = 0;
-        for(ArrayList<Boolean> posPruned : oneBody){
-            for(boolean b : posPruned){
-                if(b)
-                    count++;
-            }
+        int numPos = getNumPos();
+        for (int res1=0; res1<numPos; res1++) {
+        	int m1 = getNumAtPos(res1);
+        	for (int i1=0; i1<m1; i1++) {
+        		if (getOneBody(res1, i1) == true) {
+        			count++;
+        		}
+        	}
         }
         return count;
     }
@@ -199,15 +192,19 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
     public int countPrunedPairs(){
         //how many pairs are pruned overall?
         int count = 0;
-        for(ArrayList<ArrayList<ArrayList<Boolean>>> posPruned : pairwise){
-            for(ArrayList<ArrayList<Boolean>> posPruned2 : posPruned){
-                for(ArrayList<Boolean> RCPruned1 : posPruned2){
-                    for(boolean b : RCPruned1){
-                        if(b)
-                            count++;
-                    }
-                }
-            }
+        int numPos = getNumPos();
+        for (int res1=0; res1<numPos; res1++) {
+        	int m1 = getNumAtPos(res1);
+        	for (int i1=0; i1<m1; i1++) {
+        		for (int res2=0; res2<res1; res2++) {
+        			int m2 = getNumAtPos(res2);
+        			for (int i2=0; i2<m2; i2++) {
+        				if (getPairwise(res1, i1, res2, i2) == true) {
+        					count++;
+        				}
+        			}
+        		}
+        	}
         }
         return count;
     }
