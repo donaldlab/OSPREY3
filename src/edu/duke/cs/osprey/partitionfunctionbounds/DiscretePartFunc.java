@@ -146,7 +146,7 @@ public class DiscretePartFunc {
                         System.out.println("Effective Epsilon after "+maxTimeMilli+" milliseconds: "+effectiveEpsilon);
                         this.effectiveEpsilonReached = effectiveEpsilon;
                         finishedInTime = false;
-                        break;
+                        return (normalize) + Math.log(runningSum);
                     }
                 }
             }
