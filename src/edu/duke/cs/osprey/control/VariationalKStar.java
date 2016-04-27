@@ -72,14 +72,14 @@ public class VariationalKStar {
 
             PartFuncTree tree = new PartFuncTree(sp.emat, upm);
             long startTime = System.currentTimeMillis();
-            double logZ = tree.computeEpsilonApprox(0.03);
+            double logZ = tree.computeEpsilonApprox(0.1);
             long totalTime = (System.currentTimeMillis() - startTime);
 
             File statistics = new File("data.txt");
             FileWriter fw = new FileWriter(statistics);
             fw.write("NewAlgorithm: " + totalTime + "\n");
             fw.write("NewAlgorithm: logZ "+logZ+"\n");
-            DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, upm, 0.03, 3600000);
+            DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, upm, 0.1, 3600000);
             if (dfp.finishedInTime){
                 fw.write("KStar: finished true+"+"\n");
                 fw.write("KStar: totalTime "+dfp.totalTime);
