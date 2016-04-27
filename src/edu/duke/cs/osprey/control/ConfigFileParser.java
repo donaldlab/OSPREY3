@@ -32,7 +32,7 @@ public class ConfigFileParser {
     //An object that parses configuration files and uses them to initialize objects needed
     //in various calculations (i.e. for data file loading, conf space definition, pruning, etc.)
 
-    ParamSet params = new ParamSet();
+    public ParamSet params = new ParamSet();
 
     public ConfigFileParser(String[] args) {
         //parse all config files into params
@@ -301,7 +301,7 @@ public class ConfigFileParser {
         );
     }
 
-    ArrayList<String> getFlexRes() {
+    public ArrayList<String> getFlexRes() {
         //list of flexible residues.  PDB-based residue numbers
         //we'll include all flexible residues: for compatibility (MAY BE TEMPORARY),
         //all residues in a "StrandMut" record will be included here
@@ -352,7 +352,7 @@ public class ConfigFileParser {
         return mutStrand;
     }
 
-    ArrayList<ArrayList<String>> getAllowedAAs() {
+    public ArrayList<ArrayList<String>> getAllowedAAs() {
         //List allowed AA types for each flexible position
         //We can accept either RESALLOWED0_0 (for flexible res 0 of strand 0)
         //or RESALLOWED255 (for residue with PDB number 255)
@@ -441,7 +441,7 @@ public class ConfigFileParser {
         return allowedAAs;
     }
 
-    PruningControl setupPruning(SearchProblem searchSpace, double pruningInterval, boolean useEPIC, boolean useTupExp) {
+    public PruningControl setupPruning(SearchProblem searchSpace, double pruningInterval, boolean useEPIC, boolean useTupExp) {
 
         //setup pruning.  Conformations in searchSpace more than (Ew+Ival) over the GMEC are liable to pruning
         //initialize the pruning matrix for searchSpace, if not already initialized
@@ -466,7 +466,7 @@ public class ConfigFileParser {
 
     }
 
-    public PruningControlSuper setupPruning(SearchProblemSuper searchSpace, double pruningInterval, boolean useEPIC, boolean useTupExp) {
+    PruningControlSuper setupPruning(SearchProblemSuper searchSpace, double pruningInterval, boolean useEPIC, boolean useTupExp) {
         //setup pruning.  Conformations in searchSpace more than (Ew+Ival) over the GMEC are liable to pruning
 
         //initialize the pruning matrix for searchSpace, if not already initialized
@@ -632,7 +632,7 @@ public class ConfigFileParser {
 
     //HMN: get search problems for classic multistate bound vs. unbound states
     ///Bound, unbound1, unbound2
-    SearchProblem[] getMSDSearchProblems() {
+    public SearchProblem[] getMSDSearchProblems() {
         String name = params.getValue("RUNNAME");
 
         //make sure we have two strands

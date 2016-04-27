@@ -32,6 +32,10 @@ public class DiscretePartFunc {
 
     double logZ;
 
+    public long totalTime;
+    public double effectiveEpsilonReached;
+    public boolean finishedInTime;
+    
     public DiscretePartFunc(SearchProblem sp, double epsilon) {
         if (epsilon < 0 || epsilon >= 1.0) {
             throw new RuntimeException("Epsilon must be between 0 and 1");
@@ -49,6 +53,14 @@ public class DiscretePartFunc {
         this.pruneMat = pruneMat;
 
         this.logZ = computePartFunc();
+    }
+    
+    public DiscretePartFunc(EnergyMatrix emat, PruningMatrix pruneMat, double epsilon, long maxTimeLimitMilli) {
+        this.epsilon = epsilon;
+        this.emat = emat;
+        this.pruneMat = pruneMat;
+
+        this.logZ = computePartFunc(maxTimeLimitMilli);
     }
 
     public double getLogZ() {
@@ -83,13 +95,64 @@ public class DiscretePartFunc {
 
                 double effectiveEpsilon = getEffectiveEpsilon(upperBound, lowerBound);
                 if (printEffectiveEpsilon) {
-                    System.out.println("Effective Epsilon: " + effectiveEpsilon);
+                    System.out.println("Effective Epsilon: " + effectiveEpsilon + "  logZ: " + (normalize + Math.log(runningSum)));
                 }
                 if (effectiveEpsilon <= epsilon) {
                     epsilonReached = true;
                 }
             }
         }
+        return (normalize) + Math.log(runningSum);
+    }
+
+    double computePartFunc(long maxTimeMilli) {
+        long startTime = System.currentTimeMillis();
+        ConfTree tree = new ConfTree(emat, pruneMat);
+        double normalize;
+        double runningSum = 1.0;
+
+        BigInteger numConfsRemaining = getNumConfs(pruneMat);
+
+        int[] gmecConf = tree.nextConf();
+        numConfsRemaining = numConfsRemaining.subtract(new BigInteger("1"));
+
+        normalize = (-emat.getInternalEnergy(new RCTuple(gmecConf))) / constRT;
+        boolean epsilonReached = false;
+        boolean epsilonCannotBeReached = false;
+
+        double numConfs = 0;
+        while (!epsilonReached && !epsilonCannotBeReached) {
+            int[] nextConf = tree.nextConf();
+            numConfsRemaining = numConfsRemaining.subtract(new BigInteger("1"));
+            if (nextConf == null) {
+                System.out.println("Conf was null");
+                epsilonCannotBeReached = true;
+            } else {
+                double confE = (-emat.getInternalEnergy(new RCTuple(nextConf))) / constRT;
+                double normalizedE = (confE - normalize);
+                runningSum += Math.exp(normalizedE);
+                BigDecimal upperBound = getUpperBound(runningSum, normalizedE, numConfsRemaining);
+                BigDecimal lowerBound = new BigDecimal(runningSum);
+
+                if (numConfs % 100 == 0) {
+                    double effectiveEpsilon = getEffectiveEpsilon(upperBound, lowerBound);
+                    if (printEffectiveEpsilon) {
+                        System.out.println("Effective Epsilon: " + effectiveEpsilon + "  logZ: " + (normalize + Math.log(runningSum)));
+                    }
+                    if (effectiveEpsilon <= epsilon) {
+                        epsilonReached = true;
+                    }
+                    else if (System.currentTimeMillis() - startTime > maxTimeMilli){
+                        System.out.println("Effective Epsilon after "+maxTimeMilli+" milliseconds: "+effectiveEpsilon);
+                        this.effectiveEpsilonReached = effectiveEpsilon;
+                        finishedInTime = false;
+                        break;
+                    }
+                }
+            }
+        }
+        this.totalTime = System.currentTimeMillis() - startTime;
+        finishedInTime = true;
         return (normalize) + Math.log(runningSum);
     }
 

@@ -254,10 +254,10 @@ public class TRBP2 {
                     for (int rotJindex = 0; rotJindex < nodeJ.labelList.size(); rotJindex++) {
                         MRFLabel rotI = nodeI.labelList.get(rotIindex);
                         MRFLabel rotJ = nodeJ.labelList.get(rotJindex);
-                        double pairwiseE = -this.emat.getPairwise(nodeI.nodeNum, rotI.labelNum, nodeJ.nodeNum, rotJ.labelNum);
+                        double pairwiseE = -this.emat.getPairwise(nodeI.posNum, rotI.labelNum, nodeJ.posNum, rotJ.labelNum);
                         double edgeProbability = getEdgeProbability(i, j);
-                        double rotJE = -this.emat.getOneBody(nodeJ.nodeNum, rotJ.labelNum);
-                        double rotIE = -this.emat.getOneBody(nodeI.nodeNum, rotI.labelNum);
+                        double rotJE = -this.emat.getOneBody(nodeJ.posNum, rotJ.labelNum);
+                        double rotIE = -this.emat.getOneBody(nodeI.posNum, rotI.labelNum);
                         double toBeExponentiateJI = (pairwiseE / edgeProbability) + rotJE;
                         double toBeExponentiateIJ = (pairwiseE / edgeProbability) + rotIE;
                         double toBeExponentiatedMarginal = (pairwiseE / edgeProbability) + rotIE + rotJE;
@@ -290,9 +290,9 @@ public class TRBP2 {
                             MRFLabel rotI = nodeI.labelList.get(rotIindex);
                             MRFLabel rotJ = nodeJ.labelList.get(rotJindex);
                             //nodeI.nodeNum should be the same as i, nodeJ.nodeNum should be the same as j
-                            double pairwiseE = -this.emat.getPairwise(nodeI.nodeNum, rotI.labelNum, nodeJ.nodeNum, rotJ.labelNum);
+                            double pairwiseE = -this.emat.getPairwise(nodeI.posNum, rotI.labelNum, nodeJ.posNum, rotJ.labelNum);
                             double edgeProbability = getEdgeProbability(i, j);
-                            double rotJE = -this.emat.getOneBody(nodeJ.nodeNum, rotJ.labelNum);
+                            double rotJE = -this.emat.getOneBody(nodeJ.posNum, rotJ.labelNum);
 //                            double normalized = ((pairwiseE / edgeProbability) + rotJE); //- expNormI;
                             double normalized = ((pairwiseE / edgeProbability) + rotJE - this.expNormMessages[j][i]);
                             double messageFromRotJ = Math.exp(normalized / this.constRT);
@@ -333,9 +333,9 @@ public class TRBP2 {
                             MRFLabel rotI = nodeI.labelList.get(rotIindex);
                             MRFLabel rotJ = nodeJ.labelList.get(rotJindex);
 
-                            double pairwiseE = -this.emat.getPairwise(nodeI.nodeNum, rotI.labelNum, nodeJ.nodeNum, rotJ.labelNum);
+                            double pairwiseE = -this.emat.getPairwise(nodeI.posNum, rotI.labelNum, nodeJ.posNum, rotJ.labelNum);
                             double edgeProbability = getEdgeProbability(i, j);
-                            double rotIE = -this.emat.getOneBody(nodeI.nodeNum, rotI.labelNum);
+                            double rotIE = -this.emat.getOneBody(nodeI.posNum, rotI.labelNum);
 //                            double normalized = ((pairwiseE / edgeProbability) + rotIE); //- expNormJ;
                             double normalized = ((pairwiseE / edgeProbability) + rotIE - this.expNormMessages[i][j]);
                             double messageFromRotI = Math.exp(normalized / this.constRT);
@@ -385,14 +385,14 @@ public class TRBP2 {
                     sumJ += messages[i][j][rotJ];
                 }
                 if (Math.abs(1 - sumJ) > 1e-6) {
-                    throw new RuntimeException("Messages Not Normalized between node " + nodeI.nodeNum + " and node " + nodeJ.nodeNum);
+                    throw new RuntimeException("Messages Not Normalized between node " + nodeI.posNum + " and node " + nodeJ.posNum);
                 }
                 double sumI = 0.0;
                 for (int rotI = 0; rotI < nodeI.labelList.size(); rotI++) {
                     sumI += messages[j][i][rotI];
                 }
                 if (Math.abs(1 - sumI) > 1e-6) {
-                    throw new RuntimeException("Messages Not Normalized between node " + nodeJ.nodeNum + " and node " + nodeI.nodeNum);
+                    throw new RuntimeException("Messages Not Normalized between node " + nodeJ.posNum + " and node " + nodeI.posNum);
                 }
             }
         }
@@ -417,10 +417,10 @@ public class TRBP2 {
         double partFuncOverall = 0.0;
         for (int rotI = 0; rotI < nodeI.labelList.size(); rotI++) {
             for (int rotJ = 0; rotJ < nodeJ.labelList.size(); rotJ++) {
-                double pairwiseE = this.emat.getPairwise(nodeI.nodeNum, nodeI.labelList.get(rotI).labelNum, nodeJ.nodeNum, nodeJ.labelList.get(rotJ).labelNum);
+                double pairwiseE = this.emat.getPairwise(nodeI.posNum, nodeI.labelList.get(rotI).labelNum, nodeJ.posNum, nodeJ.labelList.get(rotJ).labelNum);
                 double edgeProb = getEdgeProbability(nodeI.index, nodeJ.index);
-                double nodeIE = this.emat.getOneBody(nodeI.nodeNum, nodeI.labelList.get(rotI).labelNum);
-                double nodeJE = this.emat.getOneBody(nodeJ.nodeNum, nodeJ.labelList.get(rotJ).labelNum);
+                double nodeIE = this.emat.getOneBody(nodeI.posNum, nodeI.labelList.get(rotI).labelNum);
+                double nodeJE = this.emat.getOneBody(nodeJ.posNum, nodeJ.labelList.get(rotJ).labelNum);
 
 //                double normalized = (-((pairwiseE / edgeProb) + nodeIE + nodeJE)); //- expNorm;
                 double normalized = (-((pairwiseE / edgeProb) + nodeIE + nodeJE)) - this.expNormMarginals[nodeI.index][nodeJ.index];
@@ -458,7 +458,7 @@ public class TRBP2 {
         }
         if (Math.abs(sum - 1) > 1e-6) {
             System.out.println("Error in Marginal: " + Math.abs(sum - 1));
-            throw new RuntimeException("Marginal Not Normalized at Node with PosNum: " + node.nodeNum);
+            throw new RuntimeException("Marginal Not Normalized at Node with PosNum: " + node.posNum);
         }
     }
 
@@ -471,7 +471,7 @@ public class TRBP2 {
             }
             if (Math.abs(sum - marginal) > 0.0001) {
                 System.out.println("Error in Marginal: " + Math.abs(sum - marginal));
-                throw new RuntimeException("Marginal Not Normalized at Node Pairs: " + nodeI.nodeNum + " " + nodeJ.nodeNum);
+                throw new RuntimeException("Marginal Not Normalized at Node Pairs: " + nodeI.posNum + " " + nodeJ.posNum);
             }
         }
         for (int rotJ = 0; rotJ < nodeJ.labelList.size(); rotJ++) {
@@ -482,7 +482,7 @@ public class TRBP2 {
             }
             if (Math.abs(sum - marginal) > 0.0001) {
                 System.out.println("Error in Marginal: " + Math.abs(sum - marginal));
-                throw new RuntimeException("Marginal Not Normalized at Node Pairs with Pos Nums: " + nodeJ.nodeNum + " " + nodeI.nodeNum);
+                throw new RuntimeException("Marginal Not Normalized at Node Pairs with Pos Nums: " + nodeJ.posNum + " " + nodeI.posNum);
             }
         }
     }
@@ -491,10 +491,10 @@ public class TRBP2 {
         double partFunc = 0.0;
         double expNorm = Double.NEGATIVE_INFINITY;
         for (int rot = 0; rot < node.labelList.size(); rot++) {
-            expNorm = Math.max(expNorm, -this.emat.getOneBody(node.nodeNum, node.labelList.get(rot).labelNum));
+            expNorm = Math.max(expNorm, -this.emat.getOneBody(node.posNum, node.labelList.get(rot).labelNum));
         }
         for (int rot = 0; rot < node.labelList.size(); rot++) {
-            double normalized = -this.emat.getOneBody(node.nodeNum, node.labelList.get(rot).labelNum) - expNorm;
+            double normalized = -this.emat.getOneBody(node.posNum, node.labelList.get(rot).labelNum) - expNorm;
             double update = Math.exp(normalized / this.constRT);
 //            double update = Math.exp(normalized);
             for (MRFNode neighbor : node.neighborList) {
@@ -595,7 +595,7 @@ public class TRBP2 {
     private double getSingleNodeEnthalpy(MRFNode node) {
         double enthalpy = 0.0;
         for (int rot = 0; rot < node.labelList.size(); rot++) {
-            double E = this.emat.getOneBody(node.nodeNum, node.labelList.get(rot).labelNum);
+            double E = this.emat.getOneBody(node.posNum, node.labelList.get(rot).labelNum);
             double prob = this.marginalProbabilies.getOneBody(node.index, rot);
             enthalpy += E * prob;
         }
@@ -606,7 +606,7 @@ public class TRBP2 {
         double enthalpy = 0.0;
         for (int rotI = 0; rotI < nodeI.labelList.size(); rotI++) {
             for (int rotJ = 0; rotJ < nodeJ.labelList.size(); rotJ++) {
-                double E = emat.getPairwise(nodeI.nodeNum, nodeI.labelList.get(rotI).labelNum, nodeJ.nodeNum, nodeJ.labelList.get(rotJ).labelNum);
+                double E = emat.getPairwise(nodeI.posNum, nodeI.labelList.get(rotI).labelNum, nodeJ.posNum, nodeJ.labelList.get(rotJ).labelNum);
                 double prob = this.marginalProbabilies.getPairwise(nodeI.index, rotI, nodeJ.index, rotJ);
                 enthalpy += E * prob;
             }

@@ -7,11 +7,12 @@ package edu.duke.cs.osprey.astar.partfunc;
 
 import edu.duke.cs.osprey.astar.AStarNode;
 
+
 /**
  *
  * @author hmn5
  */
-public class partFuncNode extends AStarNode {
+public class PartFuncNode extends AStarNode {
     
     //Lower bound on logZ under the node
     double lbLogZ;
@@ -19,11 +20,15 @@ public class partFuncNode extends AStarNode {
     double ubLogZ;
     
     public double[][] edgeProbabilities;
+    int[] indexToPosNum; //For every index in the edgeProbability first layer, what is
+    //the corresponding posNum
     
-    public partFuncNode(int[] anodeAssignments, double score, boolean scoreNeedsRefinement){
+    public double[] nodeWeights;
+    
+    public PartFuncNode(int[] anodeAssignments, double score, boolean scoreNeedsRefinement){
         super(anodeAssignments, score, scoreNeedsRefinement);
     }
-    public partFuncNode(int[] anodeAssignments){
+    public PartFuncNode(int[] anodeAssignments){
         super (anodeAssignments, Double.NaN, false);
     }
     

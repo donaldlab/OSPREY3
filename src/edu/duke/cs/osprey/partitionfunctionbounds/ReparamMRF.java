@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 /**
  *
@@ -17,7 +18,7 @@ import java.util.ArrayList;
  */
 public class ReparamMRF {
 
-    ArrayList<MRFNode> nodeList = new ArrayList<>();
+    public ArrayList<MRFNode> nodeList = new ArrayList<>();
     ArrayList<MRFNode> clampedNodeList = new ArrayList<>();
     boolean[][] interactionGraph;
     boolean[][] nonClampedInteractionGraph;
@@ -66,13 +67,39 @@ public class ReparamMRF {
         this.emat = new UpdatedEmat(searchProblem.emat, clampedNodeList, interactionGraph);
     }
 
+    /**
+     * Returns an array that maps the index into the (non-clamped) nodeList to
+     * the pos num. This is useful in the branch-and-bound algorithms
+     *
+     * @return
+     */
+    public int[] getIndexToPosNumMap() {
+        int[] indexToPosNum = new int[this.nodeList.size()];
+        for (int index = 0; index < this.nodeList.size(); index++) {
+            int posNum = this.nodeList.get(index).posNum;
+            indexToPosNum[index] = posNum;
+        }
+        return indexToPosNum;
+    }
+
+    public int getNumEdge() {
+        int numEdges = 0;
+        for (int i = 0; i < this.nodeList.size(); i++) {
+            for (int j = 0; j < i; j++) {
+                if (this.nonClampedInteractionGraph[i][j]){
+                    numEdges++;
+                }
+            }
+        }
+        return numEdges;
+    }
+
     public ReparamMRF(EnergyMatrix aemat, PruningMatrix apruneMat, double eCut) {
         this.pruneMat = apruneMat;
 
-
         this.numPos = aemat.numPos();
 
-                //create nodeList
+        //create nodeList
         int numClamped = 0;
         int numNonClamped = 0;
         ArrayList<MRFNode> allNodes = new ArrayList();
@@ -93,7 +120,7 @@ public class ReparamMRF {
                 allNodes.add(node);
             }
         }
-        
+
         //create interaction graph
         createEnergyInteractionGraph(aemat, eCut, allNodes);
         createNonClampedInteractionGraph();
@@ -203,8 +230,8 @@ public class ReparamMRF {
             nonClampedInteractionGraph[i][i] = false;
             for (int j = 0; j < i; j++) {
                 MRFNode nodeJ = this.nodeList.get(j);
-                nonClampedInteractionGraph[i][j] = this.interactionGraph[nodeI.nodeNum][nodeJ.nodeNum];
-                nonClampedInteractionGraph[j][i] = this.interactionGraph[nodeJ.nodeNum][nodeI.nodeNum];
+                nonClampedInteractionGraph[i][j] = this.interactionGraph[nodeI.posNum][nodeJ.posNum];
+                nonClampedInteractionGraph[j][i] = this.interactionGraph[nodeJ.posNum][nodeI.posNum];
             }
         }
     }
@@ -241,7 +268,7 @@ public class ReparamMRF {
                 MRFNode node2 = allNodes.get(nodeNum2);
                 for (MRFLabel label1 : node1.labelList) {
                     for (MRFLabel label2 : node2.labelList) {
-                        double pairE = aemat.getPairwise(node1.nodeNum, label1.labelNum, node2.nodeNum, label2.labelNum);
+                        double pairE = aemat.getPairwise(node1.posNum, label1.labelNum, node2.posNum, label2.labelNum);
                         if (Math.abs(pairE) > maxInteraction) {
                             maxInteraction = Math.abs(pairE);
                         }
@@ -264,7 +291,7 @@ public class ReparamMRF {
         ArrayList<MRFNode> neighbors = new ArrayList<>();
         for (MRFNode neighbor : this.nodeList) {
             //check if node is neighbor with node indexed by nodeIndex
-            if (interactionGraph[node.nodeNum][neighbor.nodeNum]) {
+            if (interactionGraph[node.posNum][neighbor.posNum]) {
                 neighbors.add(neighbor);
             }
         }

@@ -413,11 +413,12 @@ public class KaDEEDoer {
         return numMutable;
     }
 
-    //Make sure each mutable state has the same Allowed AA
+
     //Return Allowed AA for all mutable positions
     private ArrayList<ArrayList<String>> handleAATypeOptions(ArrayList<ArrayList<ArrayList<String>>> mutableStateAllowedAAs) {
         ArrayList<ArrayList<String>> AATypeOptions = mutableStateAllowedAAs.get(0).stream().filter(aaTypes -> aaTypes.size() > 1).collect(Collectors.toCollection(ArrayList::new));
 
+        //Make sure each mutable state has the same Allowed AA
         for (int state = 1; state < mutableStateAllowedAAs.size(); state++) {
             ArrayList<ArrayList<String>> AATypesForState = mutableStateAllowedAAs.get(state).stream().filter(aaTypes -> aaTypes.size() > 1).collect(Collectors.toCollection(ArrayList::new));
             if (AATypesForState.size() != AATypeOptions.size()) {

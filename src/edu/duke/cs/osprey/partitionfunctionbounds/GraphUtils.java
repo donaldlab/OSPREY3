@@ -21,7 +21,6 @@ public class GraphUtils {
         this.interactionGraph = interactionGraph;
     }
 
-
     private static Matrix getAdjacencyMatrix(boolean[][] interactionGraph) {
         double[][] adjMatAsList = new double[interactionGraph.length][];
         for (int i = 0; i < interactionGraph.length; i++) {
@@ -33,6 +32,24 @@ public class GraphUtils {
         }
         Matrix adjMat = new Matrix(adjMatAsList);
         return adjMat;
+    }
+
+    /**
+     *
+     * @param edgeWeights Just contains the upper-triangular information of the
+     * symmetric matrix. It must be converted into a symmetric matrix
+     * @return
+     */
+    private static Matrix getWeightedAdjMatrix(double[][] edgeWeights) {
+        double[][] weightedAdjMatAsList = new double[edgeWeights.length][edgeWeights.length];
+        for (int i = 0; i < edgeWeights.length; i++) {
+            for (int j = 0; j < i; j++) {
+                weightedAdjMatAsList[i][j] = Math.abs(edgeWeights[i][j]);
+                weightedAdjMatAsList[j][i] = weightedAdjMatAsList[i][j];
+            }
+        }
+        Matrix weightAdjMat = new Matrix(weightedAdjMatAsList);
+        return weightAdjMat;
     }
 
     private static Matrix getLaplacianMatrix(Matrix adjacentMatrix) {
@@ -70,14 +87,50 @@ public class GraphUtils {
         for (int i = 0; i < interactionGraph.length; i++) {
             edgeProbs[i] = new double[i];
             for (int j = 0; j < i; j++) {
-                double prob = adj.get(i, j)*(inverseLaplacian.get(i,i) + inverseLaplacian.get(j,j) - 2*inverseLaplacian.get(i,j));
+                double prob = adj.get(i, j) * (inverseLaplacian.get(i, i) + inverseLaplacian.get(j, j) - 2 * inverseLaplacian.get(i, j));
                 edgeProbs[i][j] = prob;
             }
         }
-        
+
         return edgeProbs;
     }
-    
+
+    /**
+     *
+     * @param edgeWeights Just contains the upper-triangular information of the
+     * symmetric matrix. It must be converted into a symmetric matrix
+     * @return
+     */
+    public static double[][] getEdgeProbabilities(double[][] edgeWeights) {
+        Matrix adj = getWeightedAdjMatrix(edgeWeights);
+        Matrix laplacian = getLaplacianMatrix(adj);
+        Matrix laplMinusOne = subtractOneElementwise(laplacian);
+
+        Matrix inverseLaplacian = laplMinusOne.inverse();
+
+        double[][] edgeProbs = new double[edgeWeights.length][];
+        for (int i = 0; i < edgeWeights.length; i++) {
+            edgeProbs[i] = new double[i];
+            for (int j = 0; j < i; j++) {
+                double prob = adj.get(i, j) * (inverseLaplacian.get(i, i) + inverseLaplacian.get(j, j) - 2 * inverseLaplacian.get(i, j));
+                edgeProbs[i][j] = prob;
+            }
+        }
+
+        return edgeProbs;
+    }
+
+    public static double[] getWeightedDegrees(double[][] edgeWeights) {
+        Matrix adj = getWeightedAdjMatrix(edgeWeights);
+        double[] degrees = new double[edgeWeights.length];
+        for (int i = 0; i < adj.getColumnDimension(); i++) {
+            for (int j = 0; j < adj.getRowDimension(); j++) {
+                degrees[i] += adj.get(i,j);
+            }
+        }
+        return degrees;
+    }
+
     public static double round(double value, int places) {
         if (places < 0) {
             throw new IllegalArgumentException();
@@ -87,7 +140,7 @@ public class GraphUtils {
         bd = bd.setScale(places, RoundingMode.HALF_UP);
         return bd.doubleValue();
     }
-    
+
     /*    private Matrix getWeightedAdjMatrix(boolean[][] interactionGraph,
      ArrayList<MRFNode> nodeList, UpdatedEmat emat) {
      double[][] adjMatAsList = new double[nodeList.size()][];

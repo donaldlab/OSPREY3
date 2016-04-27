@@ -158,7 +158,7 @@ public class MarkovRandomField {
                 MRFNode node2 = this.nodeList.get(nodeNum2);
                 for (MRFLabel label1 : node1.labelList) {
                     for (MRFLabel label2 : node2.labelList) {
-                        double pairE = emat.getPairwise(node1.nodeNum, label1.labelNum, node2.nodeNum, label2.labelNum);
+                        double pairE = emat.getPairwise(node1.posNum, label1.labelNum, node2.posNum, label2.labelNum);
                         if (Math.abs(pairE) > maxInteraction) {
                             maxInteraction = Math.abs(pairE);
                         }
@@ -182,7 +182,7 @@ public class MarkovRandomField {
         ArrayList<MRFNode> neighbors = new ArrayList<>();
         for (int nodeIndex = 0; nodeIndex < this.numNodes; nodeIndex++) {
             //check if node is neighbor with node indexed by nodeIndex
-            if (interactionGraph[node.nodeNum][nodeIndex]) {
+            if (interactionGraph[node.posNum][nodeIndex]) {
                 neighbors.add(this.nodeList.get(nodeIndex));
             }
         }

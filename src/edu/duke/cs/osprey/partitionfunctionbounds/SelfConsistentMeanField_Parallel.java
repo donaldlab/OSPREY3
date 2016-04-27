@@ -111,7 +111,7 @@ public class SelfConsistentMeanField_Parallel implements InferenceCalculator {
     private double getAverageEnergy(MRFNode node1, MRFLabel label1, MRFNode node2) {
         double averageE = 0.0;
         for (MRFLabel label2 : node2.labelList) {
-            double E = this.emat.getPairwise(node1.nodeNum, label1.labelNum, node2.nodeNum, label2.labelNum);
+            double E = this.emat.getPairwise(node1.posNum, label1.labelNum, node2.posNum, label2.labelNum);
             averageE += E * label2.oldBelief;
         }
         return averageE;
@@ -146,7 +146,7 @@ public class SelfConsistentMeanField_Parallel implements InferenceCalculator {
         //iterate over labels to get partition function value
         for (int labelIndex=0; labelIndex< node.labelList.size(); labelIndex++) {
             MRFLabel label = node.labelList.get(labelIndex);
-            double oneBodyE = this.emat.getOneBody(node.nodeNum, label.labelNum);
+            double oneBodyE = this.emat.getOneBody(node.posNum, label.labelNum);
             double meanFieldE = getMeanFieldEnergy(node, label);
             //unnormalized updateBelief
             double logUnnormalizedBelief = -(oneBodyE + meanFieldE)/scmfTemp;
@@ -205,7 +205,7 @@ public class SelfConsistentMeanField_Parallel implements InferenceCalculator {
     private double getSingleNodeEnthalpy(MRFNode node) {
         double enthalpy = 0.0;
         for (MRFLabel label : node.labelList) {
-            double E = this.emat.getOneBody(node.nodeNum, label.labelNum);
+            double E = this.emat.getOneBody(node.posNum, label.labelNum);
             enthalpy += E * label.currentBelief;
         }
         return enthalpy;
@@ -215,7 +215,7 @@ public class SelfConsistentMeanField_Parallel implements InferenceCalculator {
         double enthalpy = 0.0;
         for (MRFLabel label1 : node1.labelList) {
             for (MRFLabel label2 : node2.labelList) {
-                double E = emat.getPairwise(node1.nodeNum, label1.labelNum, node2.nodeNum, label2.labelNum);
+                double E = emat.getPairwise(node1.posNum, label1.labelNum, node2.posNum, label2.labelNum);
                 enthalpy += E * label1.currentBelief * label2.currentBelief;
             }
         }
@@ -229,7 +229,7 @@ public class SelfConsistentMeanField_Parallel implements InferenceCalculator {
             enthalpy += getSingleNodeEnthalpy(node1);
             for (int j = 0; j < i; j++) {
                 MRFNode node2 = nodeList.get(j);
-                if (this.interactionGraph[node1.nodeNum][node2.nodeNum]) {
+                if (this.interactionGraph[node1.posNum][node2.posNum]) {
                     enthalpy += getPairwiseNodeEnthalpy(node1, node2);
                 }
             }

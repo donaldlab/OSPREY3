@@ -160,7 +160,7 @@ public class SCMF_Clamp {
         //iterate over labels to get partition function value
         for (int labelIndex = 0; labelIndex < node.labelList.size(); labelIndex++) {
             MRFLabel label = node.labelList.get(labelIndex);
-            double oneBodyE = this.emat.getOneBody(node.nodeNum, label.labelNum);
+            double oneBodyE = this.emat.getOneBody(node.posNum, label.labelNum);
             double meanFieldE = getMeanFieldEnergy(node, label);
             //unnormalized updateBelief
             double logUnnormalizedBelief = -(oneBodyE + meanFieldE) / scmfTemp;
@@ -208,7 +208,7 @@ public class SCMF_Clamp {
     private double getSingleNodeEnthalpy(MRFNode node) {
         double enthalpy = 0.0;
         for (MRFLabel label : node.labelList) {
-            double E = this.emat.getOneBody(node.nodeNum, label.labelNum);
+            double E = this.emat.getOneBody(node.posNum, label.labelNum);
             enthalpy += E * label.currentBelief;
         }
         return enthalpy;
@@ -218,7 +218,7 @@ public class SCMF_Clamp {
         double enthalpy = 0.0;
         for (MRFLabel label1 : node1.labelList) {
             for (MRFLabel label2 : node2.labelList) {
-                double E = emat.getPairwise(node1.nodeNum, label1.labelNum, node2.nodeNum, label2.labelNum);
+                double E = emat.getPairwise(node1.posNum, label1.labelNum, node2.posNum, label2.labelNum);
                 enthalpy += E * label1.currentBelief * label2.currentBelief;
             }
         }
@@ -289,7 +289,7 @@ public class SCMF_Clamp {
     private double getAverageEnergy(MRFNode node1, MRFLabel label1, MRFNode node2) {
         double averageE = 0.0;
         for (MRFLabel label2 : node2.labelList) {
-            double E = this.emat.getPairwise(node1.nodeNum, label1.labelNum, node2.nodeNum, label2.labelNum);
+            double E = this.emat.getPairwise(node1.posNum, label1.labelNum, node2.posNum, label2.labelNum);
             averageE += E * label2.currentBelief;
         }
         return averageE;
@@ -363,7 +363,7 @@ public class SCMF_Clamp {
             double minPairwiseE = Double.POSITIVE_INFINITY;
             for (MRFLabel nodeLabel : node.labelList) {
                 for (MRFLabel neighborLabel : neighbor.labelList) {
-                    double pairwiseE = this.emat.getPairwise(node.nodeNum, nodeLabel.labelNum, neighbor.nodeNum, neighborLabel.labelNum);
+                    double pairwiseE = this.emat.getPairwise(node.posNum, nodeLabel.labelNum, neighbor.posNum, neighborLabel.labelNum);
                     minPairwiseE = Math.min(minPairwiseE, pairwiseE);
                 }
             }
@@ -375,7 +375,7 @@ public class SCMF_Clamp {
     private double getMinOneBodyE(MRFNode node) {
         double minE = Double.POSITIVE_INFINITY;
         for (MRFLabel label : node.labelList) {
-            double oneBodyE = this.emat.getOneBody(node.nodeNum, label.labelNum);
+            double oneBodyE = this.emat.getOneBody(node.posNum, label.labelNum);
             minE = Math.min(minE, oneBodyE);
         }
         return minE;

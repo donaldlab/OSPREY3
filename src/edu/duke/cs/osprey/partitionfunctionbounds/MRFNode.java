@@ -17,7 +17,7 @@ import java.util.ArrayList;
 public class MRFNode {
 
     //identifier of node, also accesses ematrix as posNum
-    int nodeNum;
+    int posNum;
     //index into nodeList
     int index;
     //list of labels for the node; labels are super-RCs
@@ -25,7 +25,7 @@ public class MRFNode {
     //list of nodes that are neighbors of this node
     ArrayList<MRFNode> neighborList;
     public MRFNode(int posNum, ArrayList<Integer> unprunedSuperRCs, int index) {
-        this.nodeNum = posNum;
+        this.posNum = posNum;
         this.index = index;
         //create label
         this.labelList = new ArrayList<>();
@@ -50,7 +50,7 @@ public class MRFNode {
             return false;
         }
         final MRFNode other = (MRFNode) obj;
-        if (this.nodeNum != other.nodeNum) {
+        if (this.posNum != other.posNum) {
             return false;
         }
         return true;

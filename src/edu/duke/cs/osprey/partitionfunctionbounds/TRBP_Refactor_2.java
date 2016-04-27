@@ -6,16 +6,18 @@
 package edu.duke.cs.osprey.partitionfunctionbounds;
 
 import edu.duke.cs.osprey.confspace.TupleMatrix;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.tools.CreateMatrix;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 /**
  *
  * @author hmn5
  */
-public class TRBP_Refactor {
+public class TRBP_Refactor_2 {
 
     double logZ = Double.POSITIVE_INFINITY;
 
@@ -23,7 +25,7 @@ public class TRBP_Refactor {
     int numNodes;
     int[] numLabelsPerNode;
 
-    UpdatedEmat emat;
+    EnergyMatrix emat;
     boolean[][] interactionGraph;
 
     TupleMatrix<Double> marginalProbabilities;
@@ -52,12 +54,18 @@ public class TRBP_Refactor {
     double accuracyWithinEdgeProb = 0.001;
     double accuracyBetweenEdgeProb = 0.001;
 
-    boolean verbose = true;
+    double parentUpperBound;
+    boolean useParentUpperBound = false;
+    double cutOffUpperBound = 5;
 
-    public TRBP_Refactor(ReparamMRF mrf) {
+    boolean verbose = false;
+
+    public double[] nodeWeights;
+
+    public TRBP_Refactor_2(MarkovRandomField mrf) {
         this.nodeList = mrf.nodeList;
         this.emat = mrf.emat;
-        this.interactionGraph = mrf.nonClampedInteractionGraph;
+        this.interactionGraph = mrf.interactionGraph;
         this.numNodes = nodeList.size();
 
         this.numLabelsPerNode = new int[this.numNodes];
@@ -77,10 +85,10 @@ public class TRBP_Refactor {
         runTRBP();
     }
 
-    public TRBP_Refactor(ReparamMRF mrf, double[][] edgeProb) {
+    public TRBP_Refactor_2(MarkovRandomField mrf, double parentUpperBound) {
         this.nodeList = mrf.nodeList;
         this.emat = mrf.emat;
-        this.interactionGraph = mrf.nonClampedInteractionGraph;
+        this.interactionGraph = mrf.interactionGraph;
         this.numNodes = nodeList.size();
 
         this.numLabelsPerNode = new int[this.numNodes];
@@ -89,13 +97,16 @@ public class TRBP_Refactor {
             numLabelsPerNode[i] = node.labelList.size();
         }
 
-        this.edgeProbabilities = edgeProb;
+        this.edgeProbabilities = initializeEdgeProbabilities(this.interactionGraph);
         this.logMessages = initializeLogMessages(0.0);
 
         this.marginalProbabilities = new TupleMatrix(numNodes, numLabelsPerNode, Double.POSITIVE_INFINITY, 0.0);
         this.numMessages = 2 * getNumEdges(this.interactionGraph);
 
         initializeEdgeWeights();
+
+        this.parentUpperBound = parentUpperBound;
+        this.useParentUpperBound = true;
 
         runTRBP();
     }
@@ -106,7 +117,7 @@ public class TRBP_Refactor {
         //Keep track of last logZ from previous edge update
         double lastLogZEdge = Double.POSITIVE_INFINITY;
 
-        while (numEdgeUpdates <= maxNumEdgeUpdates && changeBetweenEdgeUpdates > accuracyBetweenEdgeProb) {
+        while (numEdgeUpdates <= maxNumEdgeUpdates) {
             if (numEdgeUpdates > 0) {
                 if (verbose) {
                     System.out.println("Updating Edge Probabilities...  logZ: " + lastLogZEdge);
@@ -120,15 +131,19 @@ public class TRBP_Refactor {
             //Keep track of last logZ from previous message update
             double lastLogZMessage = Double.POSITIVE_INFINITY;
             int numMessageUpdates = 0;
-            while (changeBetweenMessageUpdates > accuracyWithinEdgeProb) {
+            while (changeBetweenMessageUpdates > accuracyWithinEdgeProb || numMessageUpdates < 30) {
                 //This is the meat of the algorithm
                 boolean useDamping = true;
+//                updateMessagesSequentially(logMessages, useDamping);
                 updateMessagesSequentially(logMessages, useDamping);
                 updateMarginals();
                 double currentlogZ = calcUBLogZ();
 
                 changeBetweenMessageUpdates = Math.abs(lastLogZMessage - currentlogZ);
                 lastLogZMessage = currentlogZ;
+                if ((numMessageUpdates > 0 && useParentUpperBound) && lastLogZMessage + cutOffUpperBound < parentUpperBound) {
+                    break;
+                }
                 if (verbose) {
                     System.out.println("   LogZUB: " + currentlogZ);
                 }
@@ -143,8 +158,13 @@ public class TRBP_Refactor {
             changeBetweenEdgeUpdates = Math.abs(lastLogZEdge - lastLogZMessage);
             lastLogZEdge = lastLogZMessage;
             this.logZ = Math.min(this.logZ, lastLogZEdge);
+            if (lastLogZMessage + cutOffUpperBound < parentUpperBound) {
+                break;
+            }
             numEdgeUpdates++;
         }
+        double[] degrees = GraphUtils.getWeightedDegrees(edgeWeights);
+        this.nodeWeights = degrees;
     }
 
     int getNumEdges(boolean[][] interactionGraph) {
@@ -182,7 +202,7 @@ public class TRBP_Refactor {
     private void updateMessagesSequentially(double[][][] previousMessages, boolean useDamping) {
         double averageChangeInMessage = 0;
 
-        int[][] messagesOrdering = getMessagePassingOrdering();
+        int[][] messagesOrdering = getMessagePassingOrdering(true);
 
         for (int[] nodePair : messagesOrdering) {
             //Node pair consists of two ints. The first indexes to the sending node
@@ -203,8 +223,7 @@ public class TRBP_Refactor {
                 if (useDamping) {
                     previousLogMessages[logMessage] = (damping * logMessagesNodeIToNodeJ[logMessage])
                             + ((1.0 - damping) * previousLogMessage);
-                }
-                else{
+                } else {
                     previousLogMessages[logMessage] = logMessagesNodeIToNodeJ[logMessage];
                 }
                 //Get new log message
@@ -216,6 +235,46 @@ public class TRBP_Refactor {
         }
         //Update average change
         this.averageChange = averageChangeInMessage / this.numMessages;
+    }
+
+    private void updateMessagesParallel(double[][][] previousMessages, boolean useDamping) {
+        double averageChangeInMessage = 0;
+
+        double[][][] updatedLogMessages = CreateMatrix.create3DMsgMat(numNodes, numLabelsPerNode, 0.0);
+        
+        int[][] messagesOrdering = getMessagePassingOrdering(false);
+
+        for (int[] nodePair : messagesOrdering) {
+            //Node pair consists of two ints. The first indexes to the sending node
+            //The second indexes to the receiving node
+            MRFNode nodeI = this.nodeList.get(nodePair[0]);
+            MRFNode nodeJ = this.nodeList.get(nodePair[1]);
+
+            //Get updated log Messages from nodeI to nodeJ
+            double[] logMessagesNodeIToNodeJ = getUpdatedLogMessage(nodeI, nodeJ);
+            double[] previousLogMessages = previousMessages[nodeI.index][nodeJ.index];
+            //double[] messagesNodeJToNodeI = getUpdatedMessages(nodeJ, nodeI);
+
+            //Damp Messages in Log Domain and keep track of change in messages
+            for (int logMessage = 0; logMessage < logMessagesNodeIToNodeJ.length; logMessage++) {
+                //Get previous log message to keep track of change
+                double previousLogMessage = previousLogMessages[logMessage];
+                //Dampen messages to get the new log message
+                if (useDamping) {
+                    logMessagesNodeIToNodeJ[logMessage] = (damping * logMessagesNodeIToNodeJ[logMessage])
+                            + ((1.0 - damping) * previousLogMessage);
+                } 
+                updatedLogMessages[nodeI.index][nodeJ.index][logMessage] = logMessagesNodeIToNodeJ[logMessage];
+                //Get new log message
+                double newLogMessage = logMessagesNodeIToNodeJ[logMessage];
+                //Get change in log messages
+                double change = Math.abs(newLogMessage - previousLogMessage);
+                averageChangeInMessage += change;
+            }
+        }
+        //Update average change
+        this.averageChange = averageChangeInMessage / this.numMessages;
+        this.logMessages = updatedLogMessages;
     }
 
     private void updateMarginals() {
@@ -316,31 +375,48 @@ public class TRBP_Refactor {
      * @return a message ordering of the form
      * int[messageNum][senderNum,receiverNum]
      */
-    int[][] getMessagePassingOrdering() {
+    int[][] getMessagePassingOrdering(boolean sequential) {
         int[][] messagePassingOrdering = new int[numMessages][];
 
         int currentMessage = 0;
-        //First send messages by going from node 1 to node N and sending all 
-        //messages backwards (ie. node 2 sends messages to nodes 1 and 0)
-        for (int i = 1; i < this.numNodes; i++) {
-            for (int j = i - 1; j >= 0; j--) {
-                if (interactionGraph[i][j]) {
-                    messagePassingOrdering[currentMessage] = new int[2];
-                    messagePassingOrdering[currentMessage][0] = i;
-                    messagePassingOrdering[currentMessage][1] = j;
-                    currentMessage++;
+        if (sequential) {
+            //First send messages by going from node 1 to node N and sending all 
+            //messages backwards (ie. node 2 sends messages to nodes 1 and 0)
+            for (int i = 1; i < this.numNodes; i++) {
+                for (int j = i - 1; j >= 0; j--) {
+                    if (interactionGraph[i][j]) {
+                        messagePassingOrdering[currentMessage] = new int[2];
+                        messagePassingOrdering[currentMessage][0] = i;
+                        messagePassingOrdering[currentMessage][1] = j;
+                        currentMessage++;
+                    }
                 }
             }
-        }
-        //Now we send messages by going from nodes N-1 to 0 and sending all
-        //messages forwards (i.e. node N-2 sends messages to nodes N-1 and N)
-        for (int i = this.numNodes - 2; i >= 0; i--) {
-            for (int j = i + 1; j < this.numNodes; j++) {
-                if (interactionGraph[i][j]) {
-                    messagePassingOrdering[currentMessage] = new int[2];
-                    messagePassingOrdering[currentMessage][0] = i;
-                    messagePassingOrdering[currentMessage][1] = j;
-                    currentMessage++;
+            //Now we send messages by going from nodes N-1 to 0 and sending all
+            //messages forwards (i.e. node N-2 sends messages to nodes N-1 and N)
+            for (int i = this.numNodes - 2; i >= 0; i--) {
+                for (int j = i + 1; j < this.numNodes; j++) {
+                    if (interactionGraph[i][j]) {
+                        messagePassingOrdering[currentMessage] = new int[2];
+                        messagePassingOrdering[currentMessage][0] = i;
+                        messagePassingOrdering[currentMessage][1] = j;
+                        currentMessage++;
+                    }
+                }
+            }
+        } else {
+            for (int i = 0; i < this.numNodes; i++) {
+                for (int j = 0; j < i; j++) {
+                    if (interactionGraph[i][j]) {
+                        messagePassingOrdering[currentMessage] = new int[2];
+                        messagePassingOrdering[currentMessage][0] = i;
+                        messagePassingOrdering[currentMessage][1] = j;
+                        currentMessage++;
+                        messagePassingOrdering[currentMessage] = new int[2];
+                        messagePassingOrdering[currentMessage][0] = j;
+                        messagePassingOrdering[currentMessage][1] = i;
+                        currentMessage++;
+                    }
                 }
             }
         }

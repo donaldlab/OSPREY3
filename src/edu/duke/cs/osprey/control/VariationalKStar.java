@@ -8,7 +8,7 @@ package edu.duke.cs.osprey.control;
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.astar.comets.UpdatedPruningMatrix;
 import edu.duke.cs.osprey.astar.kadee.GumbelMapTree;
-import edu.duke.cs.osprey.astar.partfunc.partFuncTree;
+import edu.duke.cs.osprey.astar.partfunc.PartFuncTree;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -20,12 +20,13 @@ import edu.duke.cs.osprey.partitionfunctionbounds.ReparamMRF;
 import edu.duke.cs.osprey.partitionfunctionbounds.SCMF_Clamp;
 import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField;
 import edu.duke.cs.osprey.partitionfunctionbounds.TRBP2;
-import edu.duke.cs.osprey.partitionfunctionbounds.TRBPSeq;
-import edu.duke.cs.osprey.partitionfunctionbounds.TRBP_Refactor;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ExpFunction;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -36,7 +37,7 @@ import java.util.stream.Collectors;
  *
  * @author hmn5
  */
-public class GumbelDoer {
+public class VariationalKStar {
 
     ConfigFileParser cfp;
     SearchProblem sp;
@@ -44,7 +45,7 @@ public class GumbelDoer {
     ExpFunction ef = new ExpFunction();
     boolean testSCMF = true;
 
-    public GumbelDoer(ConfigFileParser aCFP) {
+    public VariationalKStar(ConfigFileParser aCFP) throws IOException {
         this.cfp = aCFP;
         this.cfp.params.setValue("STERICTHRESH", "1000");
         SearchProblem[] spList = cfp.getMSDSearchProblems();
@@ -57,25 +58,56 @@ public class GumbelDoer {
         if (testSCMF) {
 //            testSCMF(sp);
 
+//            DiscretePartFunc dpf = new DiscretePartFunc(sp, 0.1);
+//            double logZKStar = dpf.getLogZ();
+//            System.out.println("KStar LogZ: " + logZKStar);
             UpdatedPruningMatrix upm = new UpdatedPruningMatrix(sp.pruneMat);
-           /* prune(sp, upm, 10);
-            if (true) {
-                partFuncTree tree = new partFuncTree(sp.emat, upm);
-                double logZ = tree.computeEpsilonApprox(0.1);
-                System.out.println("Epsilon Approx BB: " + logZ);
+            prune(sp, upm, 50);
+            /*if (true) {
+             partFuncTree tree = new partFuncTree(sp.emat, upm);
+             double logZ = tree.computeEpsilonApprox(0.1);
+             System.out.println("Epsilon Approx BB: " + logZ);
+             }
+             */
+
+            PartFuncTree tree = new PartFuncTree(sp.emat, upm);
+            long startTime = System.currentTimeMillis();
+            double logZ = tree.computeEpsilonApprox(0.03);
+            long totalTime = (System.currentTimeMillis() - startTime);
+
+            File statistics = new File("data.txt");
+            FileWriter fw = new FileWriter(statistics);
+            fw.write("NewAlgorithm: " + totalTime + "\n");
+            fw.write("NewAlgorithm: logZ "+logZ+"\n");
+            DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, upm, 0.03, 3600000);
+            if (dfp.finishedInTime){
+                fw.write("KStar: finished true+"+"\n");
+                fw.write("KStar: totalTime "+dfp.totalTime);
             }
-            */
-            ReparamMRF mrf = new ReparamMRF(sp.emat, upm, 0.0);
-            TRBP_Refactor trbpR = new TRBP_Refactor(mrf);
-/*            TRBPSeq trbp = new TRBPSeq(mrf);
-            double ubLogZ = trbp.getLogZ();
-            System.out.println("ubLogZ: " + ubLogZ);
-            if (false) {
-                DiscretePartFunc dpf = new DiscretePartFunc(sp, 0.1);
-                double logZKStar = dpf.getLogZ();
-                System.out.println("KStar LogZ: " + logZKStar);
+            else{
+                fw.write("KStar: finished false+"+"\n");
+                fw.write("KStar: effectiveEpsilon "+dfp.effectiveEpsilonReached);
+                fw.write("KStar: logZLB "+dfp.getLogZ());
             }
-            */
+            fw.close();
+
+            System.out.println("Epsilon Approx BB: " + logZ);
+            /*            ReparamMRF mrf = new ReparamMRF(sp.emat, upm, 0.0);
+             MarkovRandomField mrf2 = new MarkovRandomField(sp, 0.0);
+             SCMF_Clamp scmf = new SCMF_Clamp(mrf);
+             System.out.println("Lower Bound: "+scmf.getLogZLB());
+             //            DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, upm, 0.1);
+            
+             //            TRBP_Refactor_2 trbpR = new TRBP_Refactor_2(mrf2);
+             /*            TRBPSeq trbp = new TRBPSeq(mrf);
+             double ubLogZ = trbp.getLogZ();
+             System.out.println("ubLogZ: " + ubLogZ);
+             if (false) {
+             DiscretePartFunc dpf = new DiscretePartFunc(sp, 0.1);
+             double logZKStar = dpf.getLogZ();
+             System.out.println("KStar LogZ: " + logZKStar);
+             }
+             */
         } else {
 
 
@@ -133,7 +165,7 @@ public class GumbelDoer {
              double effectiveEpsilon = 1 - Math.exp(lbP - ub3);
              System.out.println("EFFECTIVE Epsilon: " + effectiveEpsilon);
              */
-            partFuncTree tree = new partFuncTree(sp);
+            PartFuncTree tree = new PartFuncTree(sp);
             double logZ = tree.computeEpsilonApprox(0.1);
             System.out.println("LogZ: " + logZ);
             System.out.println("Num Confs Enumerated: " + tree.numConfsEnumerated);
@@ -557,26 +589,6 @@ public class GumbelDoer {
         return interactionGraph;
     }
 
-    private double computePartFunctionEstimate(SearchProblem sp, int numIter) {
-        double gmecE = 0.0;
-        double partFunc = 0.0;
-        ConfTree tree = new ConfTree(sp);
-        for (int i = 0; i < numIter; i++) {
-            int[] conf = tree.nextConf();
-            if (conf == null) {
-                break;
-            }
-            double energy = sp.emat.getInternalEnergy(new RCTuple(conf));
-            if (i == 0) {
-                gmecE = -energy / constRT;
-                partFunc += 1;
-            } else {
-                double normalized = (-energy / constRT) - gmecE;
-                partFunc += Math.exp(normalized);
-            }
-        }
-        return gmecE + Math.log(partFunc);
-    }
 
     private double computeGMECLB(SearchProblem sp) {
         UpdatedPruningMatrix pm = new UpdatedPruningMatrix(sp.pruneMat);
@@ -589,76 +601,5 @@ public class GumbelDoer {
         return -gmecE / constRT;
     }
 
-    private double computeKStarUB(SearchProblem sp, int numIter) {
-        double gmecE = 0.0;
-        double partFunc = 0.0;
-        double lastE = 0.0;
-        ConfTree tree = new ConfTree(sp);
-        for (int i = 0; i < numIter; i++) {
-            int[] conf = tree.nextConf();
-            if (conf == null) {
-                break;
-            }
-            double energy = sp.emat.getInternalEnergy(new RCTuple(conf));
-            if (i == 0) {
-                gmecE = -energy / constRT;
-                partFunc += 1;
-            } else {
-                double normalized = (-energy / constRT) - gmecE;
-                partFunc += Math.exp(normalized);
-                lastE = -energy;
-            }
-        }
-        BigDecimal runningSumZ = this.ef.exp(gmecE);
-        runningSumZ = runningSumZ.multiply(new BigDecimal(partFunc));
-        BigDecimal numConfs = getNumConfs(sp).subtract(new BigDecimal(Integer.toString(numIter)));
-        BigDecimal boundOnRemaining = this.ef.exp(lastE / constRT).multiply(numConfs);
-        BigDecimal upperBound = runningSumZ.add(boundOnRemaining);
-        return Math.log(upperBound.doubleValue());
-    }
-
-    private BigDecimal getNumConfs(SearchProblem sp) {
-        BigDecimal numConfs = new BigDecimal("1");
-        EnergyMatrix emat = sp.emat;
-        PruningMatrix pruneMat = sp.pruneMat;
-        for (int pos = 0; pos < emat.numPos(); pos++) {
-            int numRC = pruneMat.unprunedRCsAtPos(pos).size();
-            numConfs = numConfs.multiply(new BigDecimal(Integer.toString(numRC)));
-        }
-        return numConfs;
-    }
-
-    private static double computePartFunctionEstimate(EnergyMatrix emat, PruningMatrix pruneMat, int[] partialConf, int numIter) {
-        UpdatedPruningMatrix upm = new UpdatedPruningMatrix(pruneMat);
-        for (int pos = 0; pos < partialConf.length; pos++) {
-            if (partialConf[pos] != -1) {
-                for (int rc : pruneMat.unprunedRCsAtPos(pos)) {
-                    if (rc != partialConf[pos]) {
-                        upm.markAsPruned(new RCTuple(pos, rc));
-                    }
-                }
-            }
-        }
-
-        double gmecE = 0.0;
-        double partFunc = 0.0;
-        ConfTree tree = new ConfTree(emat, upm);
-        for (int i = 0; i < numIter; i++) {
-            int[] conf = tree.nextConf();
-            if (conf == null) {
-                break;
-            }
-            double energy = emat.getInternalEnergy(new RCTuple(conf));
-            if (i == 0) {
-                gmecE = -energy / constRT;
-                partFunc += 1;
-            } else {
-                double normalized = (-energy / constRT) - gmecE;
-                partFunc += Math.exp(normalized);
-            }
-        }
-        return gmecE + Math.log(partFunc);
-
-    }
 
 }
