@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.tests;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.concurrent.TimeUnit;
 
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.control.EnvironmentVars;
@@ -14,12 +15,10 @@ import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.tools.Stopwatch;
 
 public class EnergyProfiling {
 	
-	private static final long NSpS = 1000000000;
-	private static final long NSpMS = 1000000;
-
 	@SuppressWarnings("unused")
 	public static void main(String[] args) {
 		
@@ -239,18 +238,18 @@ public class EnergyProfiling {
 
 		// time the energy calculations
 		double energy = 0;
-		long startNs = System.nanoTime();
+		Stopwatch.start();
 		for (int i=0; i<numIterations; i++) {
 			energy = efunc.getEnergy();
 			
 			// DEBUG
 			//checkEnergy(expectedEnergy, energy);
 		}
-		long diffNs = System.nanoTime() - startNs;
+		Stopwatch.stop();
 		
-		System.out.println(String.format("Calculated %d energies in %d ms\n\te: %.15f\n\tOpS: %.2f",
-			numIterations, diffNs/NSpMS, energy,
-			(double)numIterations/diffNs*NSpS
+		System.out.println(String.format("Calculated %d energies in %s\n\te: %.15f\n\tOpS: %.2f",
+			numIterations, Stopwatch.getTime(TimeUnit.MILLISECONDS), energy,
+			numIterations/Stopwatch.getTimeS()
 		));
 		
 		// make sure the energy is correct after the test too
