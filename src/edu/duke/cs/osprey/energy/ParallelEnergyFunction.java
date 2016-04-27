@@ -16,9 +16,17 @@ public class ParallelEnergyFunction implements EnergyFunction {
 			resultsSync = new Object();
 		}
 	
-		public void waitForWork(int timeoutMs)
+		public void waitForWork(Processor processor, int timeoutMs)
 		throws InterruptedException {
+			if (processor.hasWork) {
+				return;
+			}
 			synchronized (workSync) {
+				// NOTE: after we waited to synchronize this, we might have been given more work
+				// if that's the case, don't wait, just exit and do the work
+				if (processor.hasWork) {
+					return;
+				}
 				workSync.wait(timeoutMs);
 			}
 		}
@@ -36,10 +44,14 @@ public class ParallelEnergyFunction implements EnergyFunction {
 		public void waitForResults(int timeoutMs)
 		throws InterruptedException {
 			if (counter == processors.length) {
-				// we're already done
 				return;
 			}
 			synchronized (resultsSync) {
+				// NOTE: after waiting to synchronize this, the processors might have finished
+				// if that's the case, don't wait
+				if (counter == processors.length) {
+					return;
+				}
 				resultsSync.wait(timeoutMs);
 			}
 		}
@@ -105,17 +117,12 @@ public class ParallelEnergyFunction implements EnergyFunction {
 					hasWork = false;
 					
 					sync.finishedWork();
-					
-					// NOTE: after syncing, someone could have given us more work, so we have to check again
-					if (hasWork) {
-						continue;
-					}
 				}
 				
 				// wait until we get more work
 				// but check the isRunning flag every second or so
 				try {
-					sync.waitForWork(1000);
+					sync.waitForWork(this, 1000);
 				} catch (InterruptedException ex) {
 					// something wants us to stop, so exit this thread
 					break;
