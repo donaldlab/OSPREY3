@@ -466,7 +466,7 @@ public class ConfigFileParser {
 
     }
 
-    PruningControlSuper setupPruning(SearchProblemSuper searchSpace, double pruningInterval, boolean useEPIC, boolean useTupExp) {
+    public PruningControlSuper setupPruning(SearchProblemSuper searchSpace, double pruningInterval, boolean useEPIC, boolean useTupExp) {
         //setup pruning.  Conformations in searchSpace more than (Ew+Ival) over the GMEC are liable to pruning
 
         //initialize the pruning matrix for searchSpace, if not already initialized

@@ -306,8 +306,8 @@ public class PartFuncTree extends AStarTree {
 
     @Override
     public boolean isFullyAssigned(AStarNode node) {
-        double logLBZ = Math.log(this.lbZ.doubleValue() + this.runningSum.doubleValue());
-        double logUBZ = Math.log(this.ubZ.doubleValue() + this.runningSum.doubleValue());
+        double logLBZ = this.ef.log(this.lbZ.add(this.runningSum)).doubleValue();
+        double logUBZ = this.ef.log(this.ubZ.add(this.runningSum)).doubleValue();
         return (logLBZ - logUBZ) >= Math.log(1 - this.epsilon);
     }
 
