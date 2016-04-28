@@ -58,6 +58,7 @@ public class SequenceFreeEnergy extends AStarTree {
         SequenceNode seqNode = (SequenceNode) curNode;
         ArrayList<AStarNode> ans = new ArrayList<>();
 
+        printPartialSequence(seqNode);
         //expand next position...
         int[] curAssignments = seqNode.getNodeAssignments();
 
@@ -80,6 +81,20 @@ public class SequenceFreeEnergy extends AStarTree {
         }
 
         throw new RuntimeException("ERROR: Not splittable position found but sequence not fully defined...");
+    }
+
+    private void printPartialSequence(SequenceNode seqNode) {
+        int[] assignments = seqNode.getNodeAssignments();
+        for (int pos = 0; pos < this.numLevels; pos++) {
+            if (assignments[pos] > 0){
+                String aatype = this.aaTypeOptions.get(pos).get(assignments[pos]);
+                System.out.print(aatype+" ");
+            }
+            else{
+                System.out.print("XXX ");
+            }
+        }
+        System.out.println();
     }
 
     @Override
@@ -145,10 +160,10 @@ public class SequenceFreeEnergy extends AStarTree {
 
     private void setupConfigs(ConfigFileParser cfp) {
         searchSpaces = cfp.getMSDSearchProblems();
-        for (SearchProblem sp : searchSpaces){
+        for (SearchProblem sp : searchSpaces) {
             loadEMatandPrune(sp, Double.POSITIVE_INFINITY, cfp);
         }
-        
+
         ArrayList<ArrayList<ArrayList<String>>> allowedAAPerSP = getAllowedAAPerSP(cfp);
         ArrayList<ArrayList<Integer>> mutablePosNumsPerSP = handleMutable2StatePosNums(allowedAAPerSP);
         this.spIndex2IsMutable = new boolean[searchSpaces.length];
@@ -424,5 +439,5 @@ public class SequenceFreeEnergy extends AStarTree {
         searchProblem.pruneMat = null;
         System.out.println("COMPETITOR PRUNING DONE");
     }
-    
+
 }

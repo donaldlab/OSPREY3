@@ -80,7 +80,7 @@ public class Main {
 //            kd.doKaDEE();
         } else if (command.equalsIgnoreCase("variationalSublinear")) {
             SequenceFreeEnergy sf = new SequenceFreeEnergy(cfp);
-            if (true) {
+            if (false) {
                 sf.exhaustiveSearch();
             }
             int[] bestSequence = sf.nextConf();

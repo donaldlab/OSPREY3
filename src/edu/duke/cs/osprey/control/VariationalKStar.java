@@ -53,7 +53,7 @@ public class VariationalKStar {
         for (SearchProblem searchProb : spList) {
             loadEMatandPrune(searchProb, Double.POSITIVE_INFINITY);
         }
-
+        
         sp = spList[0];
         if (testSCMF) {
 //            testSCMF(sp);
@@ -63,6 +63,7 @@ public class VariationalKStar {
 //            System.out.println("KStar LogZ: " + logZKStar);
             UpdatedPruningMatrix upm = new UpdatedPruningMatrix(sp.pruneMat);
             prune(sp, upm, 50);
+
             /*if (true) {
              partFuncTree tree = new partFuncTree(sp.emat, upm);
              double logZ = tree.computeEpsilonApprox(0.1);
@@ -76,21 +77,23 @@ public class VariationalKStar {
             long totalTime = (System.currentTimeMillis() - startTime);
 
             File statistics = new File("data2.txt");
-            FileWriter fw = new FileWriter(statistics);
-            fw.write("NewAlgorithm: " + totalTime + "\n");
-            fw.write("NewAlgorithm: logZ "+logZ+"\n");
-            DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, upm, 0.1, 3600000);
-            if (dfp.finishedInTime){
-                fw.write("KStar: finished true"+"\n");
-                fw.write("KStar: totalTime "+dfp.totalTime);
+            FileWriter fw = new FileWriter(statistics, true);
+            if (true){
+                fw.write("LogConfSpace: "+getLogConfSpace(upm));
             }
-            else{
-                fw.write("KStar: finished false+"+"\n");
-                fw.write("KStar: effectiveEpsilon "+dfp.effectiveEpsilonReached);
-                fw.write("KStar: logZLB "+dfp.getLogZ());
+            fw.write("NewAlgorithm: " + totalTime + "\n");
+            fw.write("NewAlgorithm: logZ " + logZ + "\n");
+            DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, upm, 0.1, 3600000);
+            if (dfp.finishedInTime) {
+                fw.write("KStar: finished true" + "\n");
+                fw.write("KStar: totalTime " + dfp.totalTime);
+            } else {
+                fw.write("KStar: finished false+" + "\n");
+                fw.write("KStar: effectiveEpsilon " + dfp.effectiveEpsilonReached);
+                fw.write("KStar: logZLB " + dfp.getLogZ());
             }
             fw.close();
-
+            
             System.out.println("Epsilon Approx BB: " + logZ);
             /*            ReparamMRF mrf = new ReparamMRF(sp.emat, upm, 0.0);
              MarkovRandomField mrf2 = new MarkovRandomField(sp, 0.0);
@@ -239,6 +242,14 @@ public class VariationalKStar {
              double upperZ = mpert.calcUBLogZ(200);
              System.out.println("MapPert LogZ:" + upperZ); */
         }
+    }
+
+    private double getLogConfSpace(PruningMatrix pruneMat) {
+        double logConfSpace = 0;
+        for (int pos = 0; pos < pruneMat.numPos(); pos++) {
+            logConfSpace += Math.log(pruneMat.unprunedRCsAtPos(pos).size());
+        }
+        return logConfSpace;
     }
 
     private void testSCMF(SearchProblem searchProb) {
@@ -589,7 +600,6 @@ public class VariationalKStar {
         return interactionGraph;
     }
 
-
     private double computeGMECLB(SearchProblem sp) {
         UpdatedPruningMatrix pm = new UpdatedPruningMatrix(sp.pruneMat);
         Pruner dee = new Pruner(sp, pm, false, Double.POSITIVE_INFINITY,
@@ -600,6 +610,5 @@ public class VariationalKStar {
         double gmecE = sp.emat.getInternalEnergy(new RCTuple(conf));
         return -gmecE / constRT;
     }
-
 
 }
