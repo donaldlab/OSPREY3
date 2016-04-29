@@ -60,7 +60,7 @@ public class PartFuncTree extends AStarTree {
 
     boolean useDynamicOrdering = true;
     boolean branchHalfSpace = true;
-    boolean useTRBPWeightForOrder = true;
+    boolean useTRBPWeightForOrder = false;
     Mplp mplp;
 
     boolean verbose = true;
@@ -131,7 +131,7 @@ public class PartFuncTree extends AStarTree {
 //        subtractFromBounds(node);
         subtractLowerBound(node);
         int[] curAssignments = node.getNodeAssignments();
-
+        System.out.println("Node lbLogZ: "+node.lbLogZ);
         int splitPos;
         if (useDynamicOrdering && useTRBPWeightForOrder) {
             splitPos = posMaxWeight;
@@ -160,7 +160,7 @@ public class PartFuncTree extends AStarTree {
         }
 //        printEffectiveEpsilon();
 //        System.out.println("Lower Bound: " + this.ef.log(lbZ.add(runningSum)).doubleValue());
-        System.out.println("Upper Bound: " + this.ef.log(ubZ.add(runningSum)).doubleValue());
+//        System.out.println("Upper Bound: " + this.ef.log(ubZ.add(runningSum)).doubleValue());
         if (!isFullyAssigned(curNode)) {
             subtractUpperBound(node);
             //Now update upper bounds
@@ -189,19 +189,20 @@ public class PartFuncTree extends AStarTree {
 
             int bestLevel = -1;
             double bestLevelScore = Double.NEGATIVE_INFINITY;
-
+            System.out.print("Scoring Levels: ");
             for (int level = 0; level < this.numPos; level++) {
                 if (partialConf[level] < 0) {
-
+                    
                     double levelScore = scoreExpansionLevel(level, partialConf);
-
+                    System.out.print("+ ");
                     if (levelScore > bestLevelScore) {//higher score is better
                         bestLevelScore = levelScore;
                         bestLevel = level;
                     }
                 }
             }
-
+            System.out.println();
+            System.out.println("Best Level Score: "+bestLevelScore);
             if (bestLevel == -1) {
                 throw new RuntimeException("ERROR: No next expansion level found for dynamic ordering");
             }
@@ -329,12 +330,12 @@ public class PartFuncTree extends AStarTree {
     public double computeEpsilonApprox(double epsilon) {
         this.epsilon = epsilon;
         this.nextConf();
-        return Math.log(this.lbZ.doubleValue() + this.runningSum.doubleValue());
+        return this.ef.log(this.lbZ.add(this.runningSum)).doubleValue();
     }
 
     private double scoreNode(PartFuncNode node) {
 //        return -node.lbLogZ;
-        return this.ef.exp(node.lbLogZ).subtract(this.ef.exp(node.ubLogZ)).doubleValue();
+        return -this.ef.log(this.ef.exp(node.ubLogZ).subtract(this.ef.exp(node.lbLogZ))).doubleValue();
 //        return mplp.optimizeMPLP(node.getNodeAssignments(), 1000);
     }
 
