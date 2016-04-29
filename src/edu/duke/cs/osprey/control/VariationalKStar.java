@@ -53,7 +53,7 @@ public class VariationalKStar {
         for (SearchProblem searchProb : spList) {
             loadEMatandPrune(searchProb, Double.POSITIVE_INFINITY);
         }
-        
+
         sp = spList[0];
         if (testSCMF) {
 //            testSCMF(sp);
@@ -62,7 +62,7 @@ public class VariationalKStar {
 //            double logZKStar = dpf.getLogZ();
 //            System.out.println("KStar LogZ: " + logZKStar);
             UpdatedPruningMatrix upm = new UpdatedPruningMatrix(sp.pruneMat);
-            prune(sp, upm, 50);
+            prune(sp, upm, 30);
 
             /*if (true) {
              partFuncTree tree = new partFuncTree(sp.emat, upm);
@@ -70,30 +70,30 @@ public class VariationalKStar {
              System.out.println("Epsilon Approx BB: " + logZ);
              }
              */
-
             PartFuncTree tree = new PartFuncTree(sp.emat, upm);
             long startTime = System.currentTimeMillis();
             double logZ = tree.computeEpsilonApprox(0.1);
             long totalTime = (System.currentTimeMillis() - startTime);
-
+            System.out.println("New Alg Took: "+totalTime + " milliseconds");
             File statistics = new File("data2.txt");
             FileWriter fw = new FileWriter(statistics, true);
-            if (true){
-                fw.write("LogConfSpace: "+getLogConfSpace(upm));
-            }
-            fw.write("NewAlgorithm: " + totalTime + "\n");
-            fw.write("NewAlgorithm: logZ " + logZ + "\n");
-            DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, upm, 0.1, 3600000);
-            if (dfp.finishedInTime) {
-                fw.write("KStar: finished true" + "\n");
-                fw.write("KStar: totalTime " + dfp.totalTime);
+            if (false) {
+                fw.write("LogConfSpace: " + getLogConfSpace(upm));
             } else {
-                fw.write("KStar: finished false+" + "\n");
-                fw.write("KStar: effectiveEpsilon " + dfp.effectiveEpsilonReached);
-                fw.write("KStar: logZLB " + dfp.getLogZ());
+                fw.write("NewAlgorithm: " + totalTime + "\n");
+                fw.write("NewAlgorithm: logZ " + logZ + "\n");
+                DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, upm, 0.1, 3600000);
+                if (dfp.finishedInTime) {
+                    fw.write("KStar: finished true" + "\n");
+                    fw.write("KStar: totalTime " + dfp.totalTime);
+                } else {
+                    fw.write("KStar: finished false+" + "\n");
+                    fw.write("KStar: effectiveEpsilon " + dfp.effectiveEpsilonReached);
+                    fw.write("KStar: logZLB " + dfp.getLogZ());
+                }
             }
             fw.close();
-            
+
             System.out.println("Epsilon Approx BB: " + logZ);
             /*            ReparamMRF mrf = new ReparamMRF(sp.emat, upm, 0.0);
              MarkovRandomField mrf2 = new MarkovRandomField(sp, 0.0);
