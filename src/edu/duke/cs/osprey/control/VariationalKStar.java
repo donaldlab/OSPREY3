@@ -74,24 +74,22 @@ public class VariationalKStar {
             long startTime = System.currentTimeMillis();
             double logZ = tree.computeEpsilonApprox(0.1);
             long totalTime = (System.currentTimeMillis() - startTime);
-            System.out.println("New Alg Took: "+totalTime + " milliseconds");
-            File statistics = new File("data2.txt");
-            FileWriter fw = new FileWriter(statistics, true);
-            if (false) {
-                fw.write("LogConfSpace: " + getLogConfSpace(upm));
+            System.out.println("New Alg Took: " + totalTime + " milliseconds");
+            File statistics = new File("data.txt");
+            FileWriter fw = new FileWriter(statistics);
+            fw.write("LogConfSpace: " + getLogConfSpace(upm));
+            fw.write("NewAlgorithm: " + totalTime + "\n");
+            fw.write("NewAlgorithm: logZ " + logZ + "\n");
+            DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, upm, 0.1, 3600000);
+            if (dfp.finishedInTime) {
+                fw.write("KStar: finished true" + "\n");
+                fw.write("KStar: totalTime " + dfp.totalTime);
             } else {
-                fw.write("NewAlgorithm: " + totalTime + "\n");
-                fw.write("NewAlgorithm: logZ " + logZ + "\n");
-                DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, upm, 0.1, 3600000);
-                if (dfp.finishedInTime) {
-                    fw.write("KStar: finished true" + "\n");
-                    fw.write("KStar: totalTime " + dfp.totalTime);
-                } else {
-                    fw.write("KStar: finished false+" + "\n");
-                    fw.write("KStar: effectiveEpsilon " + dfp.effectiveEpsilonReached);
-                    fw.write("KStar: logZLB " + dfp.getLogZ());
-                }
+                fw.write("KStar: finished false+" + "\n");
+                fw.write("KStar: effectiveEpsilon " + dfp.effectiveEpsilonReached+"\n");
+                fw.write("KStar: logZLB " + dfp.getLogZ());
             }
+
             fw.close();
 
             System.out.println("Epsilon Approx BB: " + logZ);
@@ -210,7 +208,7 @@ public class VariationalKStar {
              System.out.println("KStar GumbelSample: " + kstarSample);
              */
 
-            /*
+ /*
              sp = cfp.getSearchProblem();
              loadEMatandPrune(this.sp, Double.POSITIVE_INFINITY);
 
