@@ -85,7 +85,7 @@ public class VariationalKStar {
                 fw.write("KStar: finished true" + "\n");
                 fw.write("KStar: totalTime " + dfp.totalTime);
             } else {
-                fw.write("KStar: finished false+" + "\n");
+                fw.write("KStar: finished false" + "\n");
                 fw.write("KStar: effectiveEpsilon " + dfp.effectiveEpsilonReached+"\n");
                 fw.write("KStar: logZLB " + dfp.getLogZ());
             }

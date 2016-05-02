@@ -46,7 +46,6 @@ public class KaDEEDoer {
     //1: Mutable UnBound
     //2: Mutable Bound
     SearchProblem[] searchSpaces;
-    SearchProblemSuper[] searchSpaceSupers;
 
     SearchProblem[] mutableSearchSpace;
     LME objFcn; //objective function for the KaDEE search
@@ -76,20 +75,6 @@ public class KaDEEDoer {
     boolean useEllipses = false;
 
     boolean useComets = false;
-
-    boolean useCometsBound = false;
-    boolean useMaxIntBound = false;
-    boolean useMaxIntWithKaDEE = false;
-    boolean useKaDEEPrune = false;
-    boolean useMaxIntWithComets = false;
-    boolean useMaxIntWithCometsPrune = false;
-    boolean useCometsPrune = false;
-    boolean useAllThree = false;
-    boolean useKaDEEWithComets = false;
-    
-    boolean doPartitionBounds = false;
-    boolean doUnboundPartitionBounds = false;
-    
     boolean doExhaustive = false;
 
     ExpFunction ef = new ExpFunction();
@@ -122,19 +107,6 @@ public class KaDEEDoer {
         useEllipses = cfp.params.getBool("useEllipses");
 
         useComets = cfp.params.getBool("useComets");
-
-        useCometsBound = cfp.params.getBool("useCometsBound");
-        useMaxIntBound = cfp.params.getBool("useMaxIntBound");
-        useMaxIntWithKaDEE = cfp.params.getBool("useMaxIntBoundWithKaDEE");
-        useKaDEEPrune = cfp.params.getBool("useKaDEEPrune");
-        useMaxIntWithComets = cfp.params.getBool("useMaxIntWithComets");
-        useAllThree = cfp.params.getBool("useAllThree");
-        useMaxIntWithCometsPrune = cfp.params.getBool("useMaxIntWithCometsPrune");
-        useKaDEEWithComets = cfp.params.getBool("useKaDEEWithComets");
-        useCometsPrune = cfp.params.getBool("useCometsPrune");
-        doPartitionBounds = cfp.params.getBool("doPartitionBounds");
-        doUnboundPartitionBounds = cfp.params.getBool("doUnboundPartitionBounds");
-        
         doExhaustive = cfp.params.getBool("doExhaustive");
     }
 
@@ -144,84 +116,21 @@ public class KaDEEDoer {
      * the highest K* score.
      */
     void doKaDEE() {
-        double curInterval = I0;//For iMinDEE.  curInterval will need to be an upper bound
+        // Get Search problems
         this.searchSpaces = cfp.getMSDSearchProblems();
 
-        if (useComets) {
+        if (useComets) {// Run COMETS (for testing)
             COMETSTree tree_comets = setupCometsTree();
-            long startTime = System.currentTimeMillis();
             int[] seq_comets = tree_comets.nextConf();
-            long totalTime = System.currentTimeMillis() - startTime;
-
-            try (PrintStream out = new PrintStream(new FileOutputStream("results_comets.txt", true))) {
-                out.print("Sequence: ");
-                for (int level = 0; level < tree_comets.numTreeLevels; level++) {
-                    out.print(tree_comets.AATypeOptions.get(level).get(seq_comets[level]) + " ");
-                }
-                out.println();
-                out.println("Nodes Expanded: " + tree_comets.numExpanded);
-                out.println("Runtime: " + totalTime);
-            } catch (Exception e) {
-            }
-
-        } else if (doExhaustive) {
+        } else if (doExhaustive) { // Compute the answer exhaustively (for testing)
             KaDEETree tree = setupKaDEETree();
             exhaustiveKaDEESearch();
-        } else if (doPartitionBounds) {
-            loadEMatandPruneComets(Double.POSITIVE_INFINITY);
-            calcPartitionFunctionBounds(this.searchSpaces[0]);
-        } else if (doUnboundPartitionBounds){
-            loadEMatandPruneComets(Double.POSITIVE_INFINITY);
-            calcPartitionFunctionBounds(this.searchSpaces[1]);
-        }
-        else {
+        } else { // Run our algorithm
             KaDEETree tree = setupKaDEETree();
-            long startTime = System.currentTimeMillis();
             int[] seq1 = tree.nextConf();
-            long totalTime = System.currentTimeMillis() - startTime;
-
-            String filename = "results_";
-            if (useCometsBound) {
-                filename += "cometsBound";
-            } else if (useMaxIntBound) {
-                filename += "maxInt";
-            } else if (useMaxIntWithKaDEE) {
-                filename += "maxIntWithKaDEE";
-            } else if (useKaDEEPrune) {
-                filename += "kaDEE_prune";
-            } else if (useMaxIntWithComets) {
-                filename += "maxIntWithComets";
-            } else if (useMaxIntWithCometsPrune) {
-                filename += "maxIntWithCometsPrune";
-            } else if (useCometsPrune) {
-                filename += "cometsPrune";
-            } else if (useKaDEEWithComets){
-                filename += "kaDEEWithComets";
-            } else if(useAllThree){
-                filename += "allThree";
-            }
-            else {
-                filename += "kaDEE";
-            }
-            filename += ".txt";
-
-            try (PrintStream out = new PrintStream(new FileOutputStream(filename, true))) {
-                out.print("Sequence: ");
-                for (int level = 0; level < tree.numTreeLevels; level++) {
-                    out.print(tree.AATypeOptions.get(level).get(seq1[level]) + " ");
-                }
-                out.println();
-                out.println("Nodes Expanded: " + tree.numExpanded);
-                out.println("Runtime: " + totalTime);
-            } catch (Exception e) {
-            }
-            System.out.println("Total Time: " + totalTime);
         }
-//        }
-        //exhaustiveKaDEESearch();
     }
-
-    //getGMEC from lower bounds
+        //getGMEC from lower bounds
     private double calcGMEC(SearchProblem aSearchSpace) {
         SearchProblem searchSpace = aSearchSpace;
         ConfSearch search = new ConfTree(searchSpace);
@@ -325,8 +234,7 @@ public class KaDEEDoer {
             ArrayList<Integer> converted = new ArrayList(mutable2PosNum);
             mutableState2StatePosNum.add(converted);
         }
-        KaDEETree tree = new KaDEETree(numTreeLevels, objFcn, constraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, nonMutableState, mutableState2StatePosNum, useCometsBound,
-                useMaxIntBound, useMaxIntWithKaDEE, useKaDEEPrune, useMaxIntWithComets, useMaxIntWithCometsPrune, useCometsPrune, useKaDEEWithComets, useAllThree);
+        KaDEETree tree = new KaDEETree(numTreeLevels, objFcn, constraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, nonMutableState, mutableState2StatePosNum);
         return tree;
     }
 
@@ -412,7 +320,6 @@ public class KaDEEDoer {
         }
         return numMutable;
     }
-
 
     //Return Allowed AA for all mutable positions
     private ArrayList<ArrayList<String>> handleAATypeOptions(ArrayList<ArrayList<ArrayList<String>>> mutableStateAllowedAAs) {
@@ -570,21 +477,6 @@ public class KaDEEDoer {
         return ans;
     }
 
-    private double getMAP(SearchProblem searchSpace) {
-        ConfTree confTree = new ConfTree(searchSpace);
-
-        if (searchSpace.contSCFlex) {
-            throw new RuntimeException("Continuous Flexibility Not Yet Supported in KaDEE");
-        }
-
-        int[] MAPconfig = confTree.nextConf();
-        if (MAPconfig == null) {
-            return Double.POSITIVE_INFINITY;
-        }
-        double E = searchSpace.emat.getInternalEnergy(new RCTuple(MAPconfig));
-        return E;
-    }
-
     //Given three search problems (Bound, UnBound Prot, Unbound Lig) this function
     //sets up the Comets tree.
     //The nonmutable unbound state is added and used just as a constant to the objective function
@@ -662,42 +554,4 @@ public class KaDEEDoer {
         return tree;
     }
 
-    public void calcPartitionFunctionBounds(SearchProblem searchProblem) {
-        BigInteger confSpace = new BigInteger("1");
-        for (int pos = 0; pos < searchProblem.emat.numPos(); pos++){
-            System.out.println(searchProblem.pruneMat.unprunedRCsAtPos(pos).size());
-            confSpace = confSpace.multiply(new BigInteger(((Integer) searchProblem.pruneMat.unprunedRCsAtPos(pos).size()).toString()));
-        }
-        System.out.println(confSpace);
-
-        MarkovRandomField mrf = new MarkovRandomField(searchProblem, 0.0);
-
-        SelfConsistentMeanField scmf = new SelfConsistentMeanField(mrf);
-        scmf.run();
-        double lowerBoundSCMF = scmf.calcLBLog10Z();
-        System.out.println("Lower Bound SCMF: " + lowerBoundSCMF);
-
-        SelfConsistentMeanField_Parallel scmf_parallel = new SelfConsistentMeanField_Parallel(mrf);
-        scmf_parallel.run();
-
-        MapPerturbation mapPert = new MapPerturbation(searchProblem);
-
-        double lowerBoundMapPert = mapPert.calcLBLog10Z(500);
-        System.out.println("Lower Bound MapPert: "+lowerBoundMapPert);
-        double gmec = calcGMEC(searchProblem);
-        double lowerBoundGmec = -Math.log10(Math.E)*gmec/this.constRT;
-        System.out.println("Lower Bound GMEC: "+lowerBoundGmec);
-        
-        double upperBound = mapPert.calcUBLog10Z(500);
-        System.out.println("Upper Bound: " + upperBound);
-
-        try (PrintStream out = new PrintStream(new FileOutputStream("partitionBounds.txt", true))) {
-            out.println("Lower Bound SCMF: " + lowerBoundSCMF);
-            out.println("Lower Bound MapPert: " + lowerBoundMapPert);
-            out.println("Lower Bound GMEC: " + lowerBoundGmec);
-            out.println("Upper Bound: " + upperBound);
-            out.println("ConfSpace: "+confSpace.toString());
-        } catch (Exception e) {
-        }
-    }
 }

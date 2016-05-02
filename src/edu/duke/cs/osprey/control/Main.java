@@ -70,7 +70,7 @@ public class Main {
         } else if (command.equalsIgnoreCase("doKaDEE")) {
             KaDEEDoer kd = new KaDEEDoer(cfp);
             kd.doKaDEE();
-        } else if (command.equalsIgnoreCase("doGumbel")) {
+        } else if (command.equalsIgnoreCase("doNewKStar")) {
             try {
                 VariationalKStar gd = new VariationalKStar(cfp);
             } catch (Exception e) {

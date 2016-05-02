@@ -70,4 +70,5 @@
     nbproject/build-impl.xml file. 
 
     -->
+<property name="test.src.dir" value="tests" /> 
 </project>

@@ -26,6 +26,8 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import org.apache.commons.lang.ArrayUtils;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.RecursiveTask;
 
 /**
  *
@@ -71,6 +73,7 @@ public class PartFuncTree extends AStarTree {
     //edge probabilities of the child
     boolean useParentEdgeProbTRBP = false;
 
+    
     public PartFuncTree(SearchProblem sp) {
         init(sp, sp.pruneMat, sp.useEPIC);
     }
@@ -218,7 +221,7 @@ public class PartFuncTree extends AStarTree {
             throw new RuntimeException("ERROR: Can't find next expansion level for fully defined conformation");
         }
     }
-
+    
     private double scoreExpansionLevel(int level, int[] partialConf) {
         //We will score a level by new lower-bound
         //Thus the best level  is the level that most improves our lower bound
