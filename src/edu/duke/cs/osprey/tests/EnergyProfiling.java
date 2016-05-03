@@ -33,9 +33,9 @@ public class EnergyProfiling {
 		cfp.loadData();
 		
 		// configure energy function parallelization
-		final int NumThreads = 1;
+		final int NumThreads = 4;
 		MultiTermEnergyFunction.setNumThreads(NumThreads);
-		ParallelEnergyFunction.startProcessors(NumThreads);
+		ParallelEnergyFunction.startCrew(NumThreads);
 		
 		// read a big test protein, the bigger the better
 		Molecule m = PDBFileReader.readPDBFile("2KDC.P.forOsprey.pdb");
