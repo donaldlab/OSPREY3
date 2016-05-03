@@ -53,16 +53,10 @@ public class ConfTree extends AStarTree {
     
     
     public ConfTree(SearchProblem sp){
-        init(sp, sp.pruneMat, sp.useEPIC);
+        this(sp, sp.pruneMat, sp.useEPIC);
     }
     
     public ConfTree(SearchProblem sp, PruningMatrix pruneMat, boolean useEPIC){
-        //Conf search over RC's in sp that are unpruned in pruneMat
-        init(sp,pruneMat,useEPIC);
-    }
-    
-    
-    private void init(SearchProblem sp, PruningMatrix pruneMat, boolean useEPIC) {
         numPos = sp.confSpace.numPos;
         
         //see which RCs are unpruned and thus available for consideration
@@ -138,6 +132,7 @@ public class ConfTree extends AStarTree {
         
         ArrayList<AStarNode> ans = new ArrayList<>();
         int nextLevel = nextLevelToExpand(curNode.nodeAssignments);
+        
         
         int firstIndex = nextLevel*maxNumRCs;
         for (int i=0; i<maxNumRCs; i++) {

@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
 import edu.duke.cs.osprey.astar.ConfTree;
+import edu.duke.cs.osprey.astar.ParallelConfTree;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
@@ -67,7 +68,8 @@ public class ConfTreeProfiling {
 		search.pruneMat = new PruningMatrix(search.confSpace, search.emat.getPruningInterval());
 		
 		// init the conformation search
-		ConfTree tree = new ConfTree(search);
+		//ConfTree tree = new ConfTree(search);
+		ConfTree tree = new ParallelConfTree(search, 2);
 		
 		// notation below (trialN values in milliseconds):
 		// numFlexPos: [trial1, trial2, trial2]
@@ -84,6 +86,10 @@ public class ConfTreeProfiling {
 		
 		// implement lazy instantiation of higher-order terms
 		// 27: [12963, 13017, 12885] => 2.86x speedup over benchmark
+		
+		// implement parallel expansion of nodes (2 threads)
+		// 27x2: [14847, 15117, 15544] => rather disappointing, really
+		// this workload must be memory-bound, so parallel computations hurt more than help
 		
 		// NB: turning off dynamic A* bumped the run time to at least 5 minutes
 		// I stopped waiting after that
