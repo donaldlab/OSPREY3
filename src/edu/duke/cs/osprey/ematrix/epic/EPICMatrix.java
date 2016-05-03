@@ -4,15 +4,15 @@
  */
 package edu.duke.cs.osprey.ematrix.epic;
 
+import java.util.ArrayList;
+
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.TupleMatrix;
+import edu.duke.cs.osprey.confspace.TupleMatrixGeneric;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MolecEObjFunction;
-import edu.duke.cs.osprey.tools.ObjectIO;
-import java.util.ArrayList;
 
 /**
  *
@@ -21,7 +21,7 @@ import java.util.ArrayList;
  * 
  * @author mhall44
  */
-public class EPICMatrix extends TupleMatrix<EPoly> {
+public class EPICMatrix extends TupleMatrixGeneric<EPoly> {
     
     ConfSpace confSpace = null;//the conformational space for which the energy polynomials are defined
     //we need this to be able to get conformational energies from the polynomials

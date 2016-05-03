@@ -9,13 +9,13 @@ import java.util.ArrayList;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.TupleMatrix;
+import edu.duke.cs.osprey.confspace.TupleMatrixGeneric;
 
 /**
  *
  * @author mhall44
  */
-public class PruningMatrix extends TupleMatrix<Boolean> {
+public class PruningMatrix extends TupleMatrixGeneric<Boolean> {
     //similar to energy matrix, but indicates what RCs and tuples of RCs are pruned
     //pruning indicated by true boolean
     //a conformation is pruned if it contains any pruned RC or tuple
@@ -25,7 +25,6 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
     //maybe separate intra too?
     
     public PruningMatrix(){//no allocation (for overriding by UpdatedPruningMatrix)
-        super(false);
     }
         
     public PruningMatrix(ConfSpace cSpace, double pruningInterval){

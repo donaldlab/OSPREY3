@@ -4,19 +4,20 @@
  */
 package edu.duke.cs.osprey.ematrix;
 
+import java.util.ArrayList;
+
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.TupleMatrix;
-import java.util.ArrayList;
+import edu.duke.cs.osprey.confspace.TupleMatrixDouble;
 
 /**
  *
  * @author mhall44
  */
-public class EnergyMatrix extends TupleMatrix<Double> {
-    
-    private double constTerm = 0;
+public class EnergyMatrix extends TupleMatrixDouble {
+
+	private double constTerm = 0;
     
     //we may want to have reference energies associated with this matrix
     ReferenceEnergies eRefMat = null;

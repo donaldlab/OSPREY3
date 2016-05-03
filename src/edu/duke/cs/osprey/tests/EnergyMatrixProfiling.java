@@ -101,7 +101,11 @@ public class EnergyMatrixProfiling {
 		// 20,1e6: [26702.41, 28462.70, 27122.50]
 		
 		// flatten tuple matrix to 1d
-		// 20,1e6: [44531.32, 44333.52, 44617.89] => about a 1.62x speedup
+		// 20,1e6: [44531.32, 44333.52, 44617.89] => about a 1.62x speedup over benchmark
+		
+		// make double-specialized subclass
+		// honestly, I didn't expect this to make much difference, but apparently it does
+		// 20,1e6: [56037.08, 56238.11, 56288.57] => about a 2.05x speedup over benchmark
 		
 		// do lots of lookups in every spot
 		System.out.println("\nProfiling reads...");
