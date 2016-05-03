@@ -41,7 +41,7 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
         //which RCs at the given position are unpruned?
         //Return index of the RCs within the position
         ArrayList<Integer> ans = new ArrayList<>();
-        int numRCs = getNumAtPos(pos);
+        int numRCs = getNumConfAtPos(pos);
          
         for(int index=0; index<numRCs; index++){
             if(!getOneBody(pos,index))
@@ -61,7 +61,7 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
         
         if(numPos==1){
             int posNum = pos.get(0);
-            for(int rc=0; rc<getNumAtPos(posNum); rc++){
+            for(int rc=0; rc<getNumConfAtPos(posNum); rc++){
                 if(!getOneBody(posNum,rc))
                     unpruned.add(new RCTuple(posNum,rc));
             }
@@ -76,7 +76,7 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
             
             int lastPos = pos.get(numPos-1);
             
-            for(int rc=0; rc<getNumAtPos(lastPos); rc++){
+            for(int rc=0; rc<getNumConfAtPos(lastPos); rc++){
                 if(!getOneBody(lastPos,rc)){
                     for(RCTuple reducedTup : tupsReduced){//try to combine into an unpruned RC
                         
@@ -178,7 +178,7 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
         int count = 0;
         int numPos = getNumPos();
         for (int res1=0; res1<numPos; res1++) {
-        	int m1 = getNumAtPos(res1);
+        	int m1 = getNumConfAtPos(res1);
         	for (int i1=0; i1<m1; i1++) {
         		if (getOneBody(res1, i1) == true) {
         			count++;
@@ -194,10 +194,10 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
         int count = 0;
         int numPos = getNumPos();
         for (int res1=0; res1<numPos; res1++) {
-        	int m1 = getNumAtPos(res1);
+        	int m1 = getNumConfAtPos(res1);
         	for (int i1=0; i1<m1; i1++) {
         		for (int res2=0; res2<res1; res2++) {
-        			int m2 = getNumAtPos(res2);
+        			int m2 = getNumConfAtPos(res2);
         			for (int i2=0; i2<m2; i2++) {
         				if (getPairwise(res1, i1, res2, i2) == true) {
         					count++;

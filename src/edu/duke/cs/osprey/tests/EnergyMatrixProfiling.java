@@ -10,7 +10,6 @@ import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.EnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
-import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
 public class EnergyMatrixProfiling {
@@ -90,11 +89,19 @@ public class EnergyMatrixProfiling {
 		// notation below (trialN values are operations per second):
 		// numResidues,numIters: [trial1, trial2, trial2]
 		
-		// BEFORE OPTIMIZATIONS (2016-04-27):
+		// 2016-04-27
+		// BEFORE OPTIMIZATIONS
 		// 20,1e6: [27445.92, 28491.04, 27500.22]
 		
 		// THEORETICAL MAX (getXXX methods just return null)
 		// 20,1e6: [211083.19, 222771.69, 223615.84] => about a 7.88x speedup
+		
+		// 2016-05-04
+		// BEFORE OPTIMIZATIONS (re-benchmarking for today)
+		// 20,1e6: [26702.41, 28462.70, 27122.50]
+		
+		// flatten tuple matrix to 1d
+		// 20,1e6: [44531.32, 44333.52, 44617.89] => about a 1.62x speedup
 		
 		// do lots of lookups in every spot
 		System.out.println("\nProfiling reads...");
@@ -103,11 +110,11 @@ public class EnergyMatrixProfiling {
 		int numPos = mat.getNumPos();
 		for (int i=0; i<n; i++) {
 			for (int res1=0; res1<numPos; res1++) {
-				int m1 = mat.getNumAtPos(res1);
+				int m1 = mat.getNumConfAtPos(res1);
 				for (int i1=0; i1<m1; i1++) {
 					mat.getOneBody(res1, i1);
 					for (int res2=0; res2<res1; res2++) {
-						int m2 = mat.getNumAtPos(res2);
+						int m2 = mat.getNumConfAtPos(res2);
 						for (int i2=0; i2<m2; i2++) {
 							mat.getPairwise(res1, i1, res2, i2);
 						}

@@ -13,23 +13,27 @@ import java.util.Iterator;
  * @author mhall44
  */
 public class TupleMatrix<T> implements Serializable {
+	
+	private static final long serialVersionUID = 845854459137269739L;
+	
     //We will need "matrices" of quantities defined
     //for example, the energy matrix (T=Double) stores single, pairwise, and higher-order energies
     //and we'll also have pruning (T=Boolean) and EPIC (T=EPoly) matrices
     //we'll store things as ArrayLists to make it easier to merge residues, partition RCs, etc.
     //and also to facilitate generics
 	
-	private int numPos;
-	private int[] numAtPos;
+	private int numPos; // eg residues
+	private int[] numConfAtPos; // eg RCs at each residue
     
     //note: tuples are sets not ordered pairs, i.e. E(i_r,j_s) = E(j_s,i_r), and pruning (i_r,j_s) means pruning (j_s,i_r)
-    private ArrayList<ArrayList<ArrayList<ArrayList<T>>>> pairwise;//pairwise energies.  Set up 4D to save space
-    //indices: res1, res2, RC1, RC2 where res1>res2
-    private ArrayList<ArrayList<T>> oneBody;//intra+shell
+	
+	private ArrayList<T> oneBody; // indices: res1, RC1
+	private ArrayList<T> pairwise; // indices: res1, res2, RC1, RC2 where res1>res2
+    private ArrayList<HigherTupleFinder<T>> higherTerms; // indices: same as pairwise, can be null if no interactions
     
-    private ArrayList<ArrayList<ArrayList<ArrayList<HigherTupleFinder<T>>>>> higherTerms;//look up higher terms by pair
-    //same indices as pairwise
-    //can be null if no interactions
+    // index the arrays
+    private int[] oneBodyOffsets;
+    private int[] pairwiseOffsets;
     
     //maybe separate intra too?
     
@@ -57,7 +61,7 @@ public class TupleMatrix<T> implements Serializable {
     //if unmarked we assume this value (e.g., 0 for energy, false for pruning)
     
     
-    public TupleMatrix(T defaultHigherInteraction){
+    protected TupleMatrix(T defaultHigherInteraction){
         //no allocation (for overriding)
         this.defaultHigherInteraction = defaultHigherInteraction;
     }
@@ -76,86 +80,58 @@ public class TupleMatrix<T> implements Serializable {
     }
     
     
-    private void init(int numPos, int[] numAtPos, double pruningInterval, T defaultHigherInteraction) {
+    private void init(int numPos, int[] numConfAtPos, double pruningInterval, T defaultHigherInteraction) {
         
     	this.numPos = numPos;
-    	this.numAtPos = numAtPos;
+    	this.numConfAtPos = numConfAtPos;
         this.pruningInterval = pruningInterval;
         this.defaultHigherInteraction = defaultHigherInteraction;
         
-        oneBody = new ArrayList<>(numPos);
-        pairwise = new ArrayList<>(numPos);
+        // compute the indices and allocate space
+        int offset = 0;
         
-        higherTerms = new ArrayList<>();//preallocate these too, but all null for now (no higher-order terms yet)
-        
-        for(int pos=0; pos<numPos; pos++){
-                        
-            int numRCs = numAtPos[pos];
-            
-            //preallocate oneBody for this position
-            ArrayList<T> oneBodyAtPos = new ArrayList<>();
-            for(int rc=0; rc<numRCs; rc++)//preallocate oneBody
-                oneBodyAtPos.add(null);
-            
-            oneBodyAtPos.trimToSize();//we may need to save space so we'll trim everything to size
-            oneBody.add(oneBodyAtPos);
-
-            
-            ArrayList<ArrayList<ArrayList<T>>> pairwiseAtPos = new ArrayList<>();
-            //may want to leave some pairs of positions null if negligible interaction expected...
-            //handle later though
-            
-            ArrayList<ArrayList<ArrayList<HigherTupleFinder<T>>>> higherOrderAtPos = new ArrayList<>();
-            
-            for(int pos2=0; pos2<pos; pos2++){
-                
-                int numRCs2 = numAtPos[pos2];
-
-                ArrayList<ArrayList<T>> pairwiseAtPair = new ArrayList<>();
-                ArrayList<ArrayList<HigherTupleFinder<T>>> higherOrderAtPair = new ArrayList<>();
-                
-                for(int rc=0; rc<numRCs; rc++){
-                    ArrayList<T> pairwiseAtRC = new ArrayList<>();
-                    ArrayList<HigherTupleFinder<T>> higherOrderAtRC = new ArrayList<>();
-                    
-                    for(int rc2=0; rc2<numRCs2; rc2++){
-                        pairwiseAtRC.add(null);
-                        higherOrderAtRC.add(null);
-                    }
-                    
-                    pairwiseAtRC.trimToSize();
-                    pairwiseAtPair.add(pairwiseAtRC);
-                    
-                    higherOrderAtRC.trimToSize();
-                    higherOrderAtPair.add(higherOrderAtRC);
-                }
-                
-                pairwiseAtPair.trimToSize();
-                pairwiseAtPos.add(pairwiseAtPair);
-                
-                higherOrderAtPair.trimToSize();
-                higherOrderAtPos.add(higherOrderAtPair);
-            }
-            
-            pairwiseAtPos.trimToSize();
-            pairwise.add(pairwiseAtPos);
-            
-            higherOrderAtPos.trimToSize();
-            higherTerms.add(higherOrderAtPos);
+        // first one-body offsets
+        oneBodyOffsets = new int[numPos];
+        for (int res1=0; res1<numPos; res1++) {
+        	oneBodyOffsets[res1] = offset;
+        	offset += numConfAtPos[res1];
         }
         
-        oneBody.trimToSize();
-        pairwise.trimToSize();
-        higherTerms.trimToSize();
+        // allocate space
+        oneBody = new ArrayList<>(offset);
+        for (int i=0; i<offset; i++) {
+        	oneBody.add(null);
+        }
+        
+        // then pairwise offsets
+        pairwiseOffsets = new int[numPos*(numPos - 1)/2];
+        offset = 0;
+        int pairwiseIndex = 0;
+        for (int res1=0; res1<numPos; res1++) {
+        	for (int res2=0; res2<res1; res2++) {
+        		pairwiseOffsets[pairwiseIndex++] = offset;
+        		offset += numConfAtPos[res1]*numConfAtPos[res2];
+        	}
+        }
+        assert (pairwiseIndex == pairwiseOffsets.length);
+        
+        // allocate space
+        pairwise = new ArrayList<>(offset);
+        // TODO: use lazy allocation for higher terms
+        higherTerms = new ArrayList<>(offset);
+        for (int i=0; i<offset; i++) {
+        	pairwise.add(null);
+        	higherTerms.add(null);
+        }
     }
     
     public void fill(T val) {
 		for (int res1=0; res1<numPos; res1++) {
-			int m1 = numAtPos[res1];
+			int m1 = numConfAtPos[res1];
 			for (int i1=0; i1<m1; i1++) {
 				setOneBody(res1, i1, val);
 				for (int res2=0; res2<res1; res2++) {
-					int m2 = numAtPos[res2];
+					int m2 = numConfAtPos[res2];
 					for (int i2=0; i2<m2; i2++) {
 						setPairwise(res1, i1, res2, i2, val);
 					}
@@ -166,11 +142,11 @@ public class TupleMatrix<T> implements Serializable {
     
     public void fill(Iterator<T> val) {
 		for (int res1=0; res1<numPos; res1++) {
-			int m1 = numAtPos[res1];
+			int m1 = numConfAtPos[res1];
 			for (int i1=0; i1<m1; i1++) {
 				setOneBody(res1, i1, val.next());
 				for (int res2=0; res2<res1; res2++) {
-					int m2 = numAtPos[res2];
+					int m2 = numConfAtPos[res2];
 					for (int i2=0; i2<m2; i2++) {
 						setPairwise(res1, i1, res2, i2, val.next());
 					}
@@ -179,47 +155,100 @@ public class TupleMatrix<T> implements Serializable {
 		}
     }
     
+    public double getPruningInterval() {
+        return pruningInterval;
+    }
+    
     public int getNumPos() {
     	return numPos;
     }
     
-    public int getNumAtPos(int pos) {
-    	return numAtPos[pos];
+    public int getNumConfAtPos(int pos) {
+    	return numConfAtPos[pos];
     }
     
-    public T getOneBody(int res, int index) {
-        return oneBody.get(res).get(index);
+    private int getOneBodyIndex(int res, int conf) {
+    	return oneBodyOffsets[res] + conf;
     }
     
-    public void setOneBody(int res, int index, T val) {
-    	oneBody.get(res).set(index, val);
+    private int getPairwiseIndexNoCheck(int res1, int res2) {
+    	return res1*(res1 - 1)/2 + res2;
+    }
+    
+    private int getPairwiseIndex(int res1, int res2) {
+    	
+    	// res2 should be strictly less than res1
+    	if (res2 > res1) {
+    		int swap = res1;
+    		res1 = res2;
+    		res2 = swap;
+    	} else if (res1 == res2) {
+    		throw new Error("Can't pair residue " + res1 + " with itself");
+    	}
+    	
+    	return getPairwiseIndexNoCheck(res1, res2);
+    }
+    
+    private int getPairwiseIndex(int res1, int conf1, int res2, int conf2) {
+    	
+    	// res2 should be strictly less than res1
+    	if (res2 > res1) {
+    		int swap = res1;
+    		res1 = res2;
+    		res2 = swap;
+    		swap = conf1;
+    		conf1 = conf2;
+    		conf2 = swap;
+    	} else if (res1 == res2) {
+    		throw new Error("Can't pair residue " + res1 + " with itself");
+    	}
+    	
+    	return pairwiseOffsets[getPairwiseIndexNoCheck(res1, res2)] + numConfAtPos[res2]*conf1 + conf2;
+    }
+    
+    public T getOneBody(int res, int conf) {
+    	return oneBody.get(getOneBodyIndex(res, conf));
+    }
+    
+    public void setOneBody(int res, int conf, T val) {
+    	oneBody.set(getOneBodyIndex(res, conf), val);
     }
     
     public void setOneBody(int res, ArrayList<T> val) {
-    	oneBody.set(res, val);
-    }
-    
-    public T getPairwise(int res1, int index1, int res2, int index2){
-        //working with residue-specific RC indices directly.  
-        if(res1>res2)
-            return pairwise.get(res1).get(res2).get(index1).get(index2);
-        else
-            return pairwise.get(res2).get(res1).get(index2).get(index1);
-    }
-    
-    public void setPairwise(int res1, int res2, ArrayList<ArrayList<T>> val) {
-    	if (res1>res2) {
-    		pairwise.get(res1).set(res2, val);
-    	} else {
-    		pairwise.get(res2).set(res1, val);
+    	int n = numConfAtPos[res];
+    	int firstIndex = oneBodyOffsets[res];
+    	for (int i=0; i<n; i++) {
+    		oneBody.set(firstIndex + i, val.get(i));
     	}
     }
     
-    public void setPairwise(int res1, int index1, int res2, int index2, T val){
-        if(res1>res2)
-            pairwise.get(res1).get(res2).get(index1).set(index2,val);
-        else
-            pairwise.get(res2).get(res1).get(index2).set(index1,val);
+    public T getPairwise(int res1, int conf1, int res2, int conf2) {
+    	return pairwise.get(getPairwiseIndex(res1, conf1, res2, conf2));
+    }
+    
+    public void setPairwise(int res1, int conf1, int res2, int conf2, T val) {
+    	pairwise.set(getPairwiseIndex(res1, conf1, res2, conf2), val);
+    }
+    
+    public void setPairwise(int res1, int res2, ArrayList<ArrayList<T>> val) {
+    	
+    	// res2 should be strictly less than res1
+    	if (res2 > res1) {
+    		int swap = res1;
+    		res1 = res2;
+    		res2 = swap;
+    	} else if (res1 == res2) {
+    		throw new Error("Can't pair residue " + res1 + " with itself");
+    	}
+    	
+    	int n1 = numConfAtPos[res1];
+    	int n2 = numConfAtPos[res2];
+    	int firstIndex = pairwiseOffsets[getPairwiseIndex(res1, res2)];
+    	for (int i1=0; i1<n1; i1++) {
+    		for (int i2=0; i2<n2; i2++) {
+    			pairwise.set(firstIndex + i1*n2 + i2, val.get(i1).get(i2));
+    		}
+    	}
     }
     
     public void setTupleValue(RCTuple tup, T val){
@@ -231,6 +260,7 @@ public class TupleMatrix<T> implements Serializable {
         else if(tupSize==2)//two-body
             setPairwise( tup.pos.get(0), tup.RCs.get(0), tup.pos.get(1), tup.RCs.get(1), val );
         else if(tupSize>2){//higher-order
+        	// TODO: lazily-allocate space for higher-order values
             setHigherOrder(tup,val);
         }
         else
@@ -256,12 +286,8 @@ public class TupleMatrix<T> implements Serializable {
                 
                 //create a HigherTupleFinder if there is none yet
                 if(htf==null){
-                    htf = new HigherTupleFinder(defaultHigherInteraction);
-                    
-                    if(pos1>pos2)
-                        higherTerms.get(pos1).get(pos2).get(rc1).set(rc2,htf);
-                    else
-                        higherTerms.get(pos2).get(pos1).get(rc2).set(rc1,htf);
+                    htf = new HigherTupleFinder<>(defaultHigherInteraction);
+                    setHigherOrderTerms(pos1, rc1, pos2, rc2, htf);
                 }
                 
                 RCTuple subTup = tup.subtractMember(index1).subtractMember(index2);
@@ -272,18 +298,11 @@ public class TupleMatrix<T> implements Serializable {
         
     }
     
-    public double getPruningInterval() {
-        return pruningInterval;
+    public HigherTupleFinder<T> getHigherOrderTerms(int res1, int conf1, int res2, int conf2) {
+    	return higherTerms.get(getPairwiseIndex(res1, conf1, res2, conf2));
     }
     
-    public HigherTupleFinder<T> getHigherOrderTerms(int res1, int index1, int res2, int index2){
-        //working with residue-specific RC indices directly.  
-        if(res1>res2)
-            return higherTerms.get(res1).get(res2).get(index1).get(index2);
-        else
-            return higherTerms.get(res2).get(res1).get(index2).get(index1);
+    private void setHigherOrderTerms(int res1, int conf1, int res2, int conf2, HigherTupleFinder<T> val) {
+    	higherTerms.set(getPairwiseIndex(res1, conf1, res2, conf2), val);
     }
-    
-    
-  
 }

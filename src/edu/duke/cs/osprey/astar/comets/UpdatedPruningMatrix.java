@@ -154,8 +154,8 @@ public class UpdatedPruningMatrix extends PruningMatrix {
     
     
     @Override
-    public int getNumAtPos(int pos){
-        return parent.getNumAtPos(pos);
+    public int getNumConfAtPos(int pos){
+        return parent.getNumConfAtPos(pos);
     }
     
     
