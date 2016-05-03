@@ -11,6 +11,8 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -83,6 +85,16 @@ public class ConfTree extends AStarTree {
         }
     }
     
+    public BigInteger getNumConformations() {
+    	if (unprunedRCsAtPos.isEmpty()) {
+    		return BigInteger.valueOf(0);
+    	}
+    	BigInteger num = BigInteger.valueOf(1);
+    	for (int i=0; i<unprunedRCsAtPos.size(); i++) {
+    		num = num.multiply(BigInteger.valueOf(unprunedRCsAtPos.get(i).size()));
+    	}
+    	return num;
+    }
     
     
     
