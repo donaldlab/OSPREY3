@@ -20,6 +20,7 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
     // index the arrays
     private int[] oneBodyOffsets;
     private int[] pairwiseOffsets;
+    private int numPairwiseTerms;
     
     private double pruningInterval;//This matrix needs to hold entries for all RCs
     //that cannot be pruned with the specified pruning interval (Ew + Ival)
@@ -71,16 +72,14 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
         		pairwiseOffset += numConfAtPos[res1]*numConfAtPos[res2];
         	}
         }
+        numPairwiseTerms = pairwiseOffset;
         assert (pairwiseIndex == pairwiseOffsets.length);
         
-        allocate(oneBodyOffset, pairwiseOffset);
+        allocate(oneBodyOffset, numPairwiseTerms);
         
-    	// allocate space for higher terms
-        // TODO: use lazy allocation?
-        higherTerms = new ArrayList<>(pairwiseOffset);
-        for (int i=0; i<pairwiseOffset; i++) {
-        	higherTerms.add(null);
-        }
+    	// don't allocate space for higher terms right now
+        // wait till we write something
+        higherTerms = null;
     }
     
     protected abstract void allocate(int numOneBody, int numPairwise);
@@ -173,6 +172,11 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
     }
     
     @Override
+    public boolean hasHigherOrderTerms() {
+    	return higherTerms != null;
+    }
+    
+    @Override
     public void setTupleValue(RCTuple tup, T val){
         //assign the given value to the specified RC tuple
         int tupSize = tup.pos.size();
@@ -182,7 +186,6 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
         else if(tupSize==2)//two-body
             setPairwise( tup.pos.get(0), tup.RCs.get(0), tup.pos.get(1), tup.RCs.get(1), val );
         else if(tupSize>2){//higher-order
-        	// TODO: lazily-allocate space for higher-order values
             setHigherOrder(tup,val);
         }
         else
@@ -221,11 +224,24 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
     
     @Override
     public HigherTupleFinder<T> getHigherOrderTerms(int res1, int conf1, int res2, int conf2) {
-    	return higherTerms.get(getPairwiseIndex(res1, conf1, res2, conf2));
+    	if (higherTerms != null) {
+    		return higherTerms.get(getPairwiseIndex(res1, conf1, res2, conf2));
+    	}
+    	return null;
     }
     
     @Override
     public void setHigherOrderTerms(int res1, int conf1, int res2, int conf2, HigherTupleFinder<T> val) {
-    	higherTerms.set(getPairwiseIndex(res1, conf1, res2, conf2), val);
+    	if (val != null && higherTerms == null) {
+    		
+    		// lazy allocation
+			higherTerms = new ArrayList<>(numPairwiseTerms);
+			for (int i=0; i<numPairwiseTerms; i++) {
+				higherTerms.add(null);
+			}
+    	}
+    	if (higherTerms != null) {
+    		higherTerms.set(getPairwiseIndex(res1, conf1, res2, conf2), val);
+    	}
     }
 }

@@ -77,12 +77,25 @@ public class ConfTreeProfiling {
 		// 27: [36503, 37969, 36664]
 		
 		// after roughly 2x energy matrix read speedup
-		// 27: [25663, 25565, 25646] => about a 1.45x speedup
+		// 27: [25663, 25565, 25646] => 1.45x speedup over benchmark
+		
+		// optimize ConfTree a bit
+		// 27: [18446, 18387, 18470] => 2.01x speedup over benchmark
+		
+		// implement lazy instantiation of higher-order terms
+		// 27: [12963, 13017, 12885] => 2.86x speedup over benchmark
+		
+		// NB: turning off dynamic A* bumped the run time to at least 5 minutes
+		// I stopped waiting after that
+		// dynamic A* makes a HUGE difference!!
 		
 		System.out.println("\nFinding GMEC among " + tree.getNumConformations().floatValue() + " conformations ...");
 		Stopwatch.start();
 		tree.nextConf();
 		Stopwatch.stop();
 		System.out.println("finished in " + Stopwatch.getTime(TimeUnit.MILLISECONDS));
+		
+		// TODO: check for accuracy
+		// energy should be -263.80652436696056
 	}
 }

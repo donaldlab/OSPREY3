@@ -32,8 +32,8 @@ public class ConfTree extends AStarTree {
     EnergyMatrix emat;
     
     
-    
-    ArrayList<ArrayList<Integer>> unprunedRCsAtPos = new ArrayList<>();
+    int maxNumRCs;
+    int[] unprunedRCsAtPos;
     //get from searchSpace when initializing!
     //These are lists of residue-specific RC numbers for the unpruned RCs at each residue
     
@@ -66,8 +66,28 @@ public class ConfTree extends AStarTree {
         numPos = sp.confSpace.numPos;
         
         //see which RCs are unpruned and thus available for consideration
-        for(int pos=0; pos<numPos; pos++){
-            unprunedRCsAtPos.add( pruneMat.unprunedRCsAtPos(pos) );
+        
+        // pack them into an efficient int matrix
+        // we'll allocate a little too much space,
+        // but we're talking numResidues*max(numRCs) here,
+        // so it shouldn't be too big compared to the beastly tuple matrices
+        
+        // get the max number of RCs
+        maxNumRCs = 0;
+        for (int pos=0; pos<numPos; pos++) {
+        	maxNumRCs = Math.max(maxNumRCs, pruneMat.unprunedRCsAtPos(pos).size());
+        }
+        assert (maxNumRCs > 0);
+        
+        // copy the RC numbers over
+        unprunedRCsAtPos = new int[maxNumRCs*numPos];
+        Arrays.fill(unprunedRCsAtPos, -1);
+        for (int pos=0; pos<numPos; pos++) {
+        	int index = pos*maxNumRCs;
+        	for (int rc : pruneMat.unprunedRCsAtPos(pos)) {
+        		assert (rc >= 0);
+        		unprunedRCsAtPos[index++] = rc;
+        	}
         }
         
         //get the appropriate energy matrix to use in this A* search
@@ -85,13 +105,22 @@ public class ConfTree extends AStarTree {
         }
     }
     
-    public BigInteger getNumConformations() {
-    	if (unprunedRCsAtPos.isEmpty()) {
-    		return BigInteger.valueOf(0);
+    public int getNumRCs(int pos) {
+    	int index = pos*maxNumRCs;
+    	int count = 0;
+    	for (int i=0; i<maxNumRCs; i++) {
+    		if (unprunedRCsAtPos[index + i] < 0) {
+    			break;
+    		}
+    		count++;
     	}
+    	return count;
+    }
+    
+    public BigInteger getNumConformations() {
     	BigInteger num = BigInteger.valueOf(1);
-    	for (int i=0; i<unprunedRCsAtPos.size(); i++) {
-    		num = num.multiply(BigInteger.valueOf(unprunedRCsAtPos.get(i).size()));
+    	for (int pos=0; pos<numPos; pos++) {
+    		num = num.multiply(BigInteger.valueOf(getNumRCs(pos)));
     	}
     	return num;
     }
@@ -110,7 +139,13 @@ public class ConfTree extends AStarTree {
         ArrayList<AStarNode> ans = new ArrayList<>();
         int nextLevel = nextLevelToExpand(curNode.nodeAssignments);
         
-        for(int rc : unprunedRCsAtPos.get(nextLevel) ){
+        int firstIndex = nextLevel*maxNumRCs;
+        for (int i=0; i<maxNumRCs; i++) {
+        	int rc = unprunedRCsAtPos[firstIndex + i];
+        	if (rc < 0) {
+        		break;
+        	}
+        	
             int[] childConf = curNode.nodeAssignments.clone();
             childConf[nextLevel] = rc;
             AStarNode childNode = new AStarNode(childConf, scoreConf(childConf), useRefinement);
@@ -184,110 +219,174 @@ public class ConfTree extends AStarTree {
     }
     
     
-    double scoreExpansionLevel(int level, int[] partialConf){
+    double scoreExpansionLevel(int level, int[] partialConf) {
         //Score expansion at the indicated level for the given partial conformation
         //for use in dynamic A*.  Higher score is better.
         
+        // backup partialConf (to the stack) before we change it
+        int confBak = partialConf[level];
+        
         //best performing score is just 1/(sum of reciprocals of score rises for child nodes)
         double parentScore = scoreConf(partialConf);
-        int[] expandedConf = partialConf.clone();
-        
         double reciprocalSum = 0;
-        
-        for(int rc : unprunedRCsAtPos.get(level) ){
-            expandedConf[level] = rc;
-            double childScore = scoreConf(expandedConf);
-            
-            reciprocalSum += 1.0 / ( childScore - parentScore );
+        int firstIndex = level*maxNumRCs;
+        for (int i=0; i<maxNumRCs; i++) {
+        	int rc = unprunedRCsAtPos[firstIndex + i];
+        	if (rc < 0) {
+        		break;
+        	}
+            partialConf[level] = rc;
+            double childScore = scoreConf(partialConf);
+            reciprocalSum += 1.0/( childScore - parentScore );
         }
         
-        double score = 1. / reciprocalSum;
+        // restore partialConf from the backup
+        partialConf[level] = confBak;
         
-        return score;
+        return 1.0/reciprocalSum;
     }
     
     
         
-    double scoreConf(int[] partialConf){
-        if(traditionalScore){
-            RCTuple definedTuple = new RCTuple(partialConf);
-            
-            double score = emat.getConstTerm() + emat.getInternalEnergy( definedTuple );//"g-score"
-            
-            //score works by breaking up the full energy into the energy of the defined set of residues ("g-score"),
-            //plus contributions associated with each of the undefined res ("h-score")
-            for(int level=0; level<numPos; level++){
-                if(partialConf[level]<0){//level not fully defined
-                    
-                    double resContribLB = Double.POSITIVE_INFINITY;//lower bound on contribution of this residue
-                    //resContribLB will be the minimum_{rc} of the lower bound assuming rc assigned to this level
-                    
-                    for ( int rc : unprunedRCsAtPos.get(level) ) {
-                        resContribLB = Math.min(resContribLB, RCContributionLB(level,rc,definedTuple,partialConf));
-                    }
-                
-                    score += resContribLB;
-                }
-            }
-            
-            return score;
-        }
-        else {
-            //other possibilities include MPLP, etc.
-            //But I think these are better used as refinements
-            //we may even want multiple-level refinement
-            throw new RuntimeException("Advanced A* scoring methods not implemented yet!");
-        }
+	double scoreConf(int[] partialConf) {
+		
+		// NOTE: might want to implement this as subclass or compose with other object
+		// instead of adding a big switch here
+		if(!traditionalScore) {
+			//other possibilities include MPLP, etc.
+			//But I think these are better used as refinements
+			//we may even want multiple-level refinement
+			throw new RuntimeException("Advanced A* scoring methods not implemented yet!");
+		}
+		
+		// OPTIMIZATION: this function gets hit a LOT!
+		// so even really pedantic optimizations (like preferring stack over heap) can make an impact
+		
+		// that said, let's copy some things to the stack =)
+		int numPos = this.numPos;
+		EnergyMatrix emat = this.emat;
+		int[] unprunedRCsAtPos = this.unprunedRCsAtPos;
+		int maxNumRCs = this.maxNumRCs;
+		
+		// TODO: could optimize memory here?
+		RCTuple rcTuple = new RCTuple(partialConf);
+		double score = emat.getConstTerm() + emat.getInternalEnergy(rcTuple);//"g-score"
+		
+		//score works by breaking up the full energy into the energy of the defined set of residues ("g-score"),
+		//plus contributions associated with each of the undefined res ("h-score")
+		for (int level1=0; level1<numPos; level1++) {
+			
+			// skip defined levels
+			if (partialConf[level1] >= 0) {
+				continue;
+			}
+			
+			double resContribLB = Double.POSITIVE_INFINITY;//lower bound on contribution of this residue
+			//resContribLB will be the minimum_{rc} of the lower bound assuming rc assigned to this level
+			
+			int firstIndex = level1*maxNumRCs;
+			for (int i=0; i<maxNumRCs; i++) {
+				int rc1 = unprunedRCsAtPos[firstIndex + i];
+				if (rc1 < 0) {
+					break;
+				}
+				
+				// OPTIMIZATION: manually inlining this is significantly slower
+				// maybe it causes too much register pressure
+				double rcContrib = RCContributionLB(level1, rc1, partialConf);
+				
+				resContribLB = Math.min(resContribLB, rcContrib);
+			}
+		
+			score += resContribLB;
+		}
+		
+		return score;
     }
-    
-    
-    
-    double RCContributionLB(int level, int rc, RCTuple definedTuple, int[] partialConf){
-        //Provide a lower bound on what the given rc at the given level can contribute to the energy
-        //assume partialConf and definedTuple
-        
-        double rcContrib = emat.getOneBody(level,rc);
-        
-        //for this kind of lower bound, we need to split up the energy into the defined-tuple energy
-        //plus "contributions" for each undefined residue
-        //so we'll say the "contribution" consists of any interactions that include that residue
-        //but do not include higher-numbered undefined residues
-        for(int level2=0; level2<numPos; level2++){
-            
-            if(partialConf[level2]>=0 || level2<level){//lower-numbered or defined residues
-                
-                double levelBestE = Double.POSITIVE_INFINITY;//best pairwise energy
-                ArrayList<Integer> allowedRCs = allowedRCsAtLevel(level2,partialConf);
-                
-                for( int rc2 : allowedRCs ){
-                    
-                    double interactionE = emat.getPairwise(level,rc,level2,rc2);
-                    
-                    double higherLB = higherOrderContribLB(partialConf,level,rc,level2,rc2);
-                    //add higher-order terms that involve rc, rc2, and parts of partialConf
-                    
-                    interactionE += higherLB;
-                    
-                    //besides that only residues in definedTuple or levels below level2
-                    levelBestE = Math.min(levelBestE,interactionE);
-                }
-
-                rcContrib += levelBestE;
-            }
-        }
-        
-        return rcContrib;
-    }
-    
-    
+	
+	double RCContributionLB(int level1, int rc1, int[] partialConf) {
+		//Provide a lower bound on what the given rc at the given level can contribute to the energy
+		//assume partialConf and definedTuple
+		
+		// OPTIMIZATION: this function gets hit a LOT!
+		// so even really pedantic optimizations (like preferring stack over heap) can make an impact
+		
+		// that said, let's copy some things to the stack =)
+		int numPos = this.numPos;
+		EnergyMatrix emat = this.emat;
+		int[] unprunedRCsAtPos = this.unprunedRCsAtPos;
+		int maxNumRCs = this.maxNumRCs;
+		
+		// OPTIMIZATION: don't even check higher terms if the energy matrix doesn't have any
+		// this does wonders to CPU cache performance!
+		boolean useHigherOrderTerms = emat.hasHigherOrderTerms();
+		
+		double rcContrib = emat.getOneBody(level1, rc1);
+		
+		//for this kind of lower bound, we need to split up the energy into the defined-tuple energy
+		//plus "contributions" for each undefined residue
+		//so we'll say the "contribution" consists of any interactions that include that residue
+		//but do not include higher-numbered undefined residues
+		for (int level2=0; level2<numPos; level2++) {
+			
+			int rc2 = partialConf[level2];
+			boolean isDefined = rc2 >= 0;
+			
+			// skip this level if it's undefined and it's >= level1
+			if (!isDefined && level2 >= level1) {
+				continue;
+			}
+			
+			double levelBestE = Double.POSITIVE_INFINITY;//best pairwise energy
+			if (isDefined) {
+				
+				// consider just the one defined conformation
+				double pairwiseEnergy = emat.getPairwise(level1, rc1, level2, rc2);
+				if (useHigherOrderTerms) {
+					//add higher-order terms that involve rc, rc2, and parts of partialConf
+					//besides that only residues in definedTuple or levels below level2
+					pairwiseEnergy += higherOrderContribLB(partialConf, level1, rc1, level2, rc2);
+				}
+				
+				levelBestE = Math.min(levelBestE, pairwiseEnergy);
+				
+			} else {
+				
+				// consider all possible conformations
+				int firstIndex = level2*maxNumRCs;
+				for (int i=0; i<maxNumRCs; i++) {
+					rc2 = unprunedRCsAtPos[firstIndex + i];
+					if (rc2 < 0) {
+						break;
+					}
+					
+					double pairwiseEnergy = emat.getPairwise(level1, rc1, level2, rc2);
+					if (useHigherOrderTerms) {
+						pairwiseEnergy += higherOrderContribLB(partialConf, level1, rc1, level2, rc2);
+					}
+					
+					levelBestE = Math.min(levelBestE, pairwiseEnergy);
+				}
+			}
+			rcContrib += levelBestE;
+		}
+		
+		return rcContrib;
+	}
+	
     ArrayList<Integer> allowedRCsAtLevel(int level, int[] partialConf){
         //What RCs are allowed at the specified level (i.e., position num) in the given partial conf?
-        ArrayList<Integer> allowedRCs;
-        
-        if(partialConf[level]==-1)//position undefined: consider all RCs
-            allowedRCs = unprunedRCsAtPos.get(level);
-        else if(partialConf[level]>=0){
-            allowedRCs = new ArrayList<>();
+        ArrayList<Integer> allowedRCs = new ArrayList<>();
+        if(partialConf[level]==-1) {//position undefined: consider all RCs
+			int firstIndex = level*maxNumRCs;
+			for (int i=0; i<maxNumRCs; i++) {
+				int rc = unprunedRCsAtPos[firstIndex + i];
+				if (rc < 0) {
+					break;
+				}
+				allowedRCs.add(rc);
+			}
+        } else if(partialConf[level]>=0){
             allowedRCs.add(partialConf[level]);
         }
         else
@@ -330,7 +429,7 @@ public class ConfTree extends AStarTree {
                     double interactionE = htf.getInteraction(iPos, rc);
                     
                     //see if need to go up to highers order again...
-                    HigherTupleFinder htf2 = htf.getHigherInteractions(iPos, rc);
+                    HigherTupleFinder<Double> htf2 = htf.getHigherInteractions(iPos, rc);
                     if(htf2!=null){
                         interactionE += higherOrderContribLB(partialConf, htf2, iPos);
                     }
