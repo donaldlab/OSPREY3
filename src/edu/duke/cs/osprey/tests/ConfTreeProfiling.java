@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
 import edu.duke.cs.osprey.astar.ConfTree;
-import edu.duke.cs.osprey.astar.ParallelConfTree;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
@@ -68,13 +67,12 @@ public class ConfTreeProfiling {
 		search.pruneMat = new PruningMatrix(search.confSpace, search.emat.getPruningInterval());
 		
 		// init the conformation search
-		//ConfTree tree = new ConfTree(search);
-		ConfTree tree = new ParallelConfTree(search, 2);
+		ConfTree tree = new ConfTree(search);
 		
 		// notation below (trialN values in milliseconds):
 		// numFlexPos: [trial1, trial2, trial2]
 		
-		// 2016-05-04
+		// 2016-05-03
 		// BEFORE OPTIMIZATIONS
 		// 27: [36503, 37969, 36664]
 		
@@ -94,6 +92,25 @@ public class ConfTreeProfiling {
 		// NB: turning off dynamic A* bumped the run time to at least 5 minutes
 		// I stopped waiting after that
 		// dynamic A* makes a HUGE difference!!
+		
+		// 2016-05-04
+		// another day, another something... dunno what it is. re-doing benchmarks
+		
+		// after 2x energy matrix speedup
+		// 27: [31356, 31728, 31215]
+		
+		// Bah. I'm lazy and don't want to re-benchmark the before-optimization state
+		// let's just assume this weird daily thing is linear and say we're 1.23x slower today
+		// so: pre-opt should be:
+		// 27: [44777, 46575, 44975]
+		// which means the energy matrix improvements are still about a 1.45x speedup
+		// so that checks out
+		
+		// yesterday's ConfTree optimizations:
+		// 27: [15723, 15778, 15897] => 2.88x speedup over benchmark
+		
+		// today's ConfTree optimizations:
+		// 27: [2619, 2665, 2663] => 17.15x speedup over benchmark!! =D
 		
 		System.out.println("\nFinding GMEC among " + tree.getNumConformations().floatValue() + " conformations ...");
 		Stopwatch.start();

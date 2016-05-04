@@ -13,7 +13,9 @@ import java.util.ArrayList;
  */
 public class RCTuple implements Serializable {
     
-    //a tuple of RCs
+	private static final long serialVersionUID = 3773470316855163174L;
+	
+	//a tuple of RCs
     public ArrayList<Integer> pos;//which flexible positions
     public ArrayList<Integer> RCs;//the RCs themselves (residue-specific numbering, as in the TupleMatrices)
 
@@ -57,10 +59,13 @@ public class RCTuple implements Serializable {
     //In this case, negative values are not (fully) defined, so the tuple contains all positions
     //with positive values in conf
     public RCTuple(int[] conf){
-        
-        pos = new ArrayList<>();
-        RCs = new ArrayList<>();
-        
+    	this();
+    	set(conf);
+    }
+    
+    public void set(int[] conf) {
+    	pos.clear();
+    	RCs.clear();
         for(int posNum=0; posNum<conf.length; posNum++){
             if(conf[posNum]>=0){//RC fully defined
                 pos.add(posNum);
@@ -120,7 +125,8 @@ public class RCTuple implements Serializable {
         return new RCTuple(newPos,newRCs);
     }
     
-    public RCTuple addRC(int addedPos, int addedRC){
+    @SuppressWarnings("unchecked")
+	public RCTuple addRC(int addedPos, int addedRC){
         //Make a copy of this RCTuple with (addPos,addRC) added
         ArrayList<Integer> newPos = (ArrayList<Integer>) pos.clone();
         ArrayList<Integer> newRCs = (ArrayList<Integer>) RCs.clone();

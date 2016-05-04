@@ -32,8 +32,7 @@ public class ConfTree extends AStarTree {
     EnergyMatrix emat;
     
     
-    int maxNumRCs;
-    int[] unprunedRCsAtPos;
+    int[][] unprunedRCsAtPos;
     //get from searchSpace when initializing!
     //These are lists of residue-specific RC numbers for the unpruned RCs at each residue
     
@@ -51,6 +50,17 @@ public class ConfTree extends AStarTree {
     ConfSpace confSpace = null;//conf space to use with epicMat if we're doing EPIC minimization w/ SAPE
     boolean minPartialConfs = false;//whether to minimize partially defined confs with EPIC, or just fully defined
     
+    int[] precomputedMinOffsets;
+    double[] precomputedMins;
+    
+    // temp storage
+    // NOTE: this temp storage makes this class not thread-safe!
+    // but since the workload is memory-bound anyway, there isn't much benefit to parallelism
+    private RCTuple rcTuple;
+    int[] definedPos;
+    int[] definedConf;
+    int[] undefinedPos;
+    
     
     public ConfTree(SearchProblem sp){
         this(sp, sp.pruneMat, sp.useEPIC);
@@ -59,29 +69,22 @@ public class ConfTree extends AStarTree {
     public ConfTree(SearchProblem sp, PruningMatrix pruneMat, boolean useEPIC){
         numPos = sp.confSpace.numPos;
         
-        //see which RCs are unpruned and thus available for consideration
+        // allocate temp space
+        rcTuple = new RCTuple();
+        definedPos = new int[numPos];
+        definedConf = new int[numPos];
+        undefinedPos = new int[numPos];
         
+        // see which RCs are unpruned and thus available for consideration
         // pack them into an efficient int matrix
-        // we'll allocate a little too much space,
-        // but we're talking numResidues*max(numRCs) here,
-        // so it shouldn't be too big compared to the beastly tuple matrices
-        
-        // get the max number of RCs
-        maxNumRCs = 0;
+        unprunedRCsAtPos = new int[numPos][];
         for (int pos=0; pos<numPos; pos++) {
-        	maxNumRCs = Math.max(maxNumRCs, pruneMat.unprunedRCsAtPos(pos).size());
-        }
-        assert (maxNumRCs > 0);
-        
-        // copy the RC numbers over
-        unprunedRCsAtPos = new int[maxNumRCs*numPos];
-        Arrays.fill(unprunedRCsAtPos, -1);
-        for (int pos=0; pos<numPos; pos++) {
-        	int index = pos*maxNumRCs;
-        	for (int rc : pruneMat.unprunedRCsAtPos(pos)) {
-        		assert (rc >= 0);
-        		unprunedRCsAtPos[index++] = rc;
+        	ArrayList<Integer> srcRCs = pruneMat.unprunedRCsAtPos(pos);
+        	int[] destRCs = new int[srcRCs.size()];
+        	for (int i=0; i<srcRCs.size(); i++) {
+        		destRCs[i] = srcRCs.get(i);
         	}
+        	unprunedRCsAtPos[pos] = destRCs;
         }
         
         //get the appropriate energy matrix to use in this A* search
@@ -97,24 +100,49 @@ public class ConfTree extends AStarTree {
                 minPartialConfs = sp.epicSettings.minPartialConfs;
             }
         }
+        
+        // OPTIMIZATION: precompute some mins to speed up scoreConf()
+        // only works if we're not using higher order terms though
+        precomputedMinOffsets = null;
+        precomputedMins = null;
+        if (!emat.hasHigherOrderTerms()) {
+			int numPos = emat.getNumPos();
+			int index = 0;
+			int offset = 0;
+			precomputedMinOffsets = new int[numPos*(numPos - 1)/2];
+			Arrays.fill(precomputedMinOffsets, 0);
+			for (int res1=0; res1<numPos; res1++) {
+				for (int res2=0; res2<res1; res2++) {
+					precomputedMinOffsets[index++] = offset;
+					offset += unprunedRCsAtPos[res1].length;
+				}
+			}
+			precomputedMins = new double[offset];
+			Arrays.fill(precomputedMins, Double.POSITIVE_INFINITY);
+			index = 0;
+			for (int res1=0; res1<numPos; res1++) {
+				for (int res2=0; res2<res1; res2++) {
+					for (int rc1 : unprunedRCsAtPos[res1]) {
+						
+						// compute the min
+						double energy = Double.POSITIVE_INFINITY;
+						for (int rc2 : unprunedRCsAtPos[res2]) {
+							energy = Math.min(energy, emat.getPairwise(res1, rc1, res2, rc2));
+						}
+						
+						precomputedMins[index] = energy;
+						index++;
+					}
+				}
+			}
+        }
     }
     
-    public int getNumRCs(int pos) {
-    	int index = pos*maxNumRCs;
-    	int count = 0;
-    	for (int i=0; i<maxNumRCs; i++) {
-    		if (unprunedRCsAtPos[index + i] < 0) {
-    			break;
-    		}
-    		count++;
-    	}
-    	return count;
-    }
     
     public BigInteger getNumConformations() {
     	BigInteger num = BigInteger.valueOf(1);
     	for (int pos=0; pos<numPos; pos++) {
-    		num = num.multiply(BigInteger.valueOf(getNumRCs(pos)));
+    		num = num.multiply(BigInteger.valueOf(unprunedRCsAtPos[pos].length));
     	}
     	return num;
     }
@@ -134,13 +162,7 @@ public class ConfTree extends AStarTree {
         int nextLevel = nextLevelToExpand(curNode.nodeAssignments);
         
         
-        int firstIndex = nextLevel*maxNumRCs;
-        for (int i=0; i<maxNumRCs; i++) {
-        	int rc = unprunedRCsAtPos[firstIndex + i];
-        	if (rc < 0) {
-        		break;
-        	}
-        	
+        for (int rc : unprunedRCsAtPos[nextLevel]) {
             int[] childConf = curNode.nodeAssignments.clone();
             childConf[nextLevel] = rc;
             AStarNode childNode = new AStarNode(childConf, scoreConf(childConf), useRefinement);
@@ -224,12 +246,7 @@ public class ConfTree extends AStarTree {
         //best performing score is just 1/(sum of reciprocals of score rises for child nodes)
         double parentScore = scoreConf(partialConf);
         double reciprocalSum = 0;
-        int firstIndex = level*maxNumRCs;
-        for (int i=0; i<maxNumRCs; i++) {
-        	int rc = unprunedRCsAtPos[firstIndex + i];
-        	if (rc < 0) {
-        		break;
-        	}
+        for (int rc : unprunedRCsAtPos[level]) {
             partialConf[level] = rc;
             double childScore = scoreConf(partialConf);
             reciprocalSum += 1.0/( childScore - parentScore );
@@ -254,116 +271,135 @@ public class ConfTree extends AStarTree {
 			throw new RuntimeException("Advanced A* scoring methods not implemented yet!");
 		}
 		
+		rcTuple.set(partialConf);
+		double gscore = emat.getConstTerm() + emat.getInternalEnergy(rcTuple);
+		
+		// OPTIMIZATION: separating scoring by defined vs undefined residues noticeably improves CPU cache performance
+		// (compared to scoring in order of residue and alternating between the two different types of scoring)
+		
+		int[] definedPos = this.definedPos;
+		int[] definedConf = this.definedConf;
+		int[] undefinedPos = this.undefinedPos;
+		
+		// split conformation into defined and undefined residues
+		int numDefined = 0;
+		for (int pos=0; pos<partialConf.length; pos++) {
+			if (partialConf[pos] >= 0) {
+				numDefined++;
+			}
+		}
+		int numUndefined = partialConf.length - numDefined;
+		int definedIndex = 0;
+		int undefinedIndex = 0;
+		for (int pos=0; pos<partialConf.length; pos++) {
+			int rc = partialConf[pos];
+			if (rc >= 0) {
+				definedPos[definedIndex] = pos;
+				definedConf[definedIndex] = rc;
+				definedIndex++;
+			} else {
+				undefinedPos[undefinedIndex] = pos;
+				undefinedIndex++;
+			}
+		}
+		
+		return gscore + getHScore(partialConf, numDefined, numUndefined);
+    }
+	
+	private double getHScore(int[] conf, int numDefined, int numUndefined) {
+		
 		// OPTIMIZATION: this function gets hit a LOT!
 		// so even really pedantic optimizations (like preferring stack over heap) can make an impact
 		
 		// that said, let's copy some things to the stack =)
-		int numPos = this.numPos;
-		EnergyMatrix emat = this.emat;
-		int[] unprunedRCsAtPos = this.unprunedRCsAtPos;
-		int maxNumRCs = this.maxNumRCs;
-		
-		// TODO: could optimize memory here?
-		RCTuple rcTuple = new RCTuple(partialConf);
-		double score = emat.getConstTerm() + emat.getInternalEnergy(rcTuple);//"g-score"
+		int[][] unprunedRCsAtPos = this.unprunedRCsAtPos;
+		int[] undefinedPos = this.undefinedPos;
 		
 		//score works by breaking up the full energy into the energy of the defined set of residues ("g-score"),
 		//plus contributions associated with each of the undefined res ("h-score")
-		for (int level1=0; level1<numPos; level1++) {
+		double hscore = 0;
+		for (int i=0; i<numUndefined; i++) {
+			int pos1 = undefinedPos[i];
 			
-			// skip defined levels
-			if (partialConf[level1] >= 0) {
-				continue;
-			}
-			
-			double resContribLB = Double.POSITIVE_INFINITY;//lower bound on contribution of this residue
+			//lower bound on contribution of this residue
 			//resContribLB will be the minimum_{rc} of the lower bound assuming rc assigned to this level
-			
-			int firstIndex = level1*maxNumRCs;
-			for (int i=0; i<maxNumRCs; i++) {
-				int rc1 = unprunedRCsAtPos[firstIndex + i];
-				if (rc1 < 0) {
-					break;
-				}
-				
-				// OPTIMIZATION: manually inlining this is significantly slower
+			double resContribLB = Double.POSITIVE_INFINITY;
+			for (int rc1 : unprunedRCsAtPos[pos1]) {
+				// OPTIMIZATION: manually inlining this is noticeably slower
 				// maybe it causes too much register pressure
-				double rcContrib = RCContributionLB(level1, rc1, partialConf);
-				
+				double rcContrib = RCContributionLB(conf, numDefined, numUndefined, pos1, rc1);
 				resContribLB = Math.min(resContribLB, rcContrib);
 			}
 		
-			score += resContribLB;
+			hscore += resContribLB;
 		}
-		
-		return score;
-    }
+		return hscore;
+	}
 	
-	double RCContributionLB(int level1, int rc1, int[] partialConf) {
+	double RCContributionLB(int[] conf, int numDefined, int numUndefined, int pos1, int rc1) {
 		//Provide a lower bound on what the given rc at the given level can contribute to the energy
 		//assume partialConf and definedTuple
 		
 		// OPTIMIZATION: this function gets hit a LOT!
 		// so even really pedantic optimizations (like preferring stack over heap) can make an impact
 		
-		// that said, let's copy some things to the stack =)
-		int numPos = this.numPos;
+		// that said, let's copy some references to the stack =)
 		EnergyMatrix emat = this.emat;
-		int[] unprunedRCsAtPos = this.unprunedRCsAtPos;
-		int maxNumRCs = this.maxNumRCs;
+		int[][] unprunedRCsAtPos = this.unprunedRCsAtPos;
+		int[] precomputedMinOffsets = this.precomputedMinOffsets;
+		double[] precomputedMins = this.precomputedMins;
+		int[] definedPos = this.definedPos;
+		int[] definedConf = this.definedConf;
+		int[] undefinedPos = this.undefinedPos;
 		
 		// OPTIMIZATION: don't even check higher terms if the energy matrix doesn't have any
 		// this does wonders to CPU cache performance!
 		boolean useHigherOrderTerms = emat.hasHigherOrderTerms();
 		
-		double rcContrib = emat.getOneBody(level1, rc1);
+		double rcContrib = emat.getOneBody(pos1, rc1);
 		
 		//for this kind of lower bound, we need to split up the energy into the defined-tuple energy
 		//plus "contributions" for each undefined residue
 		//so we'll say the "contribution" consists of any interactions that include that residue
 		//but do not include higher-numbered undefined residues
-		for (int level2=0; level2<numPos; level2++) {
+		
+		// first pass, defined residues
+		for (int i=0; i<numDefined; i++) {
+			int pos2 = definedPos[i];
+			int rc2 = definedConf[i];
 			
-			int rc2 = partialConf[level2];
-			boolean isDefined = rc2 >= 0;
-			
-			// skip this level if it's undefined and it's >= level1
-			if (!isDefined && level2 >= level1) {
-				continue;
+			rcContrib += emat.getPairwise(pos1, rc1, pos2, rc2);
+			if (useHigherOrderTerms) {
+				//add higher-order terms that involve rc, rc2, and parts of partialConf
+				//besides that only residues in definedTuple or levels below pos2
+				rcContrib += higherOrderContribLB(conf, pos1, rc1, pos2, rc2);
 			}
-			
-			double levelBestE = Double.POSITIVE_INFINITY;//best pairwise energy
-			if (isDefined) {
+		}
+		
+		// second pass, undefined residues
+		for (int i=0; i<numUndefined; i++) {
+			int pos2 = undefinedPos[i];
+			if (pos2 >= pos1) {
+				break;
+			}
 				
-				// consider just the one defined conformation
-				double pairwiseEnergy = emat.getPairwise(level1, rc1, level2, rc2);
-				if (useHigherOrderTerms) {
-					//add higher-order terms that involve rc, rc2, and parts of partialConf
-					//besides that only residues in definedTuple or levels below level2
-					pairwiseEnergy += higherOrderContribLB(partialConf, level1, rc1, level2, rc2);
+			// if we're using higher order terms, we have to compute the mins here
+			if (useHigherOrderTerms) {
+				
+				// min over all possible conformations
+				double minEnergy = Double.POSITIVE_INFINITY;
+				for (int rc2 : unprunedRCsAtPos[pos2]) {
+					double pairwiseEnergy = emat.getPairwise(pos1, rc1, pos2, rc2);
+					pairwiseEnergy += higherOrderContribLB(conf, pos1, rc1, pos2, rc2);
+					minEnergy = Math.min(minEnergy, pairwiseEnergy);
 				}
+				rcContrib += minEnergy;
 				
-				levelBestE = Math.min(levelBestE, pairwiseEnergy);
-				
+			// but otherwise, we can use the precomputations
 			} else {
-				
-				// consider all possible conformations
-				int firstIndex = level2*maxNumRCs;
-				for (int i=0; i<maxNumRCs; i++) {
-					rc2 = unprunedRCsAtPos[firstIndex + i];
-					if (rc2 < 0) {
-						break;
-					}
-					
-					double pairwiseEnergy = emat.getPairwise(level1, rc1, level2, rc2);
-					if (useHigherOrderTerms) {
-						pairwiseEnergy += higherOrderContribLB(partialConf, level1, rc1, level2, rc2);
-					}
-					
-					levelBestE = Math.min(levelBestE, pairwiseEnergy);
-				}
+				int index = precomputedMinOffsets[pos1*(pos1 - 1)/2 + pos2] + rc1;
+				rcContrib += precomputedMins[index];
 			}
-			rcContrib += levelBestE;
 		}
 		
 		return rcContrib;
@@ -373,12 +409,7 @@ public class ConfTree extends AStarTree {
         //What RCs are allowed at the specified level (i.e., position num) in the given partial conf?
         ArrayList<Integer> allowedRCs = new ArrayList<>();
         if(partialConf[level]==-1) {//position undefined: consider all RCs
-			int firstIndex = level*maxNumRCs;
-			for (int i=0; i<maxNumRCs; i++) {
-				int rc = unprunedRCsAtPos[firstIndex + i];
-				if (rc < 0) {
-					break;
-				}
+        	for (int rc : unprunedRCsAtPos[level]) {
 				allowedRCs.add(rc);
 			}
         } else if(partialConf[level]>=0){
