@@ -186,7 +186,7 @@ public class Mplp {
             }
         }
 
-//        getFeasibleSolution(belief, availableRots);
+        getFeasibleSolution(belief, availableRots);
         return Ebound;
     }
 

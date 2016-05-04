@@ -34,10 +34,11 @@ public class TRBP_Refactor_2 {
     double constRT = PoissonBoltzmannEnergy.constRT;
 
     double damping = 0.5;
-    int maxNumEdgeUpdates = 3;
+    int maxNumEdgeUpdates = 10;
 
     public double[][] edgeProbabilities;
     double[][] edgeWeights;
+    double[][] edgeClampWeights;
 
     double[][][] logMessages;
 //    double[][][] messages;
@@ -58,7 +59,7 @@ public class TRBP_Refactor_2 {
     boolean useParentUpperBound = false;
     double cutOffUpperBound = 2;
 
-    boolean verbose = false;
+    boolean verbose = true;
 
     public double[] nodeWeights;
 
@@ -111,81 +112,74 @@ public class TRBP_Refactor_2 {
         runTRBP2();
     }
 
-    private void runTRBP() {
-        int numEdgeUpdates = 0;
-        double changeBetweenEdgeUpdates = Double.POSITIVE_INFINITY;
-        //Keep track of last logZ from previous edge update
-        double lastLogZEdge = Double.POSITIVE_INFINITY;
+    /*    private void runTRBP() {
+     int numEdgeUpdates = 0;
+     double changeBetweenEdgeUpdates = Double.POSITIVE_INFINITY;
+     //Keep track of last logZ from previous edge update
+     double lastLogZEdge = Double.POSITIVE_INFINITY;
 
-        while (numEdgeUpdates <= maxNumEdgeUpdates) {
-            if (numEdgeUpdates > 0) {
-                if (verbose) {
-                    System.out.println("Updating Edge Probabilities...  logZ: " + lastLogZEdge);
-                }
-                updateEdgeProbabilities(numEdgeUpdates);
-//                this.edgeProbabilities = GraphUtils.getEdgeProbabilities(edgeWeights);
-                this.logMessages = initializeLogMessages(1.0);
-            }
+     while (numEdgeUpdates <= maxNumEdgeUpdates) {
+     if (numEdgeUpdates > 0) {
+     if (verbose) {
+     System.out.println("Updating Edge Probabilities...  logZ: " + lastLogZEdge);
+     }
+     updateEdgeProbabilities(numEdgeUpdates);
+     //                this.edgeProbabilities = GraphUtils.getEdgeProbabilities(edgeWeights);
+     this.logMessages = initializeLogMessages(1.0);
+     }
 
-            double changeBetweenMessageUpdates = Double.POSITIVE_INFINITY;
-            //Keep track of last logZ from previous message update
-            double lastLogZMessage = Double.POSITIVE_INFINITY;
-            int numMessageUpdates = 0;
-            while (changeBetweenMessageUpdates > accuracyWithinEdgeProb || numMessageUpdates < 10) {
-                //This is the meat of the algorithm
-                boolean useDamping = true;
-//                updateMessagesSequentially(logMessages, useDamping);
-                updateMessagesSequentially(logMessages, useDamping);
-                updateMarginals();
-                double currentlogZ = calcUBLogZ();
+     double changeBetweenMessageUpdates = Double.POSITIVE_INFINITY;
+     //Keep track of last logZ from previous message update
+     double lastLogZMessage = Double.POSITIVE_INFINITY;
+     int numMessageUpdates = 0;
+     while (changeBetweenMessageUpdates > accuracyWithinEdgeProb || numMessageUpdates < 10) {
+     //This is the meat of the algorithm
+     boolean useDamping = true;
+     //                updateMessagesSequentially(logMessages, useDamping);
+     updateMessagesSequentially(logMessages, useDamping);
+     updateMarginals();
+     double currentlogZ = calcUBLogZ();
 
-                changeBetweenMessageUpdates = Math.abs(lastLogZMessage - currentlogZ);
-                lastLogZMessage = currentlogZ;
-                if ((numMessageUpdates > 0 && useParentUpperBound) && lastLogZMessage + cutOffUpperBound < parentUpperBound) {
-                    break;
-                }
-                if (verbose) {
-                    System.out.println("   LogZUB: " + currentlogZ + "  Avg. Change: " + this.averageChange);
-                }
-                numMessageUpdates++;
-            }
-            /*            if (numEdgeUpdates == 0) {
-             this.accuracyWithinEdgeProb = this.accuracyWithinEdgeProb / 10.;
-             }
-             if (numEdgeUpdates == maxNumEdgeUpdates-2){
-             this.accuracyWithinEdgeProb = this.accuracyWithinEdgeProb/10.;
-             }*/
-            changeBetweenEdgeUpdates = Math.abs(lastLogZEdge - lastLogZMessage);
-            lastLogZEdge = lastLogZMessage;
-            this.logZ = Math.min(this.logZ, lastLogZEdge);
-            if (lastLogZMessage + cutOffUpperBound < parentUpperBound) {
-                break;
-            }
-            numEdgeUpdates++;
-        }
-        if (lastLogZEdge + cutOffUpperBound > parentUpperBound) {
-            double change = Double.POSITIVE_INFINITY;
-            double lastLogZ = Double.POSITIVE_INFINITY;
-            while (change > 0.0001) {
-                //This is the meat of the algorithm
-                boolean useDamping = true;
-//                updateMessagesSequentially(logMessages, useDamping);
-                updateMessagesSequentially(logMessages, useDamping);
-                updateMarginals();
-                double currentlogZ = calcUBLogZ();
+     changeBetweenMessageUpdates = Math.abs(lastLogZMessage - currentlogZ);
+     lastLogZMessage = currentlogZ;
+     if (verbose) {
+     System.out.println("   LogZUB: " + currentlogZ);
+     }
+     if ((numMessageUpdates > 0 && useParentUpperBound) && lastLogZMessage + cutOffUpperBound < parentUpperBound) {
+     break;
+     }
+     numMessageUpdates++;
+     }
+     changeBetweenEdgeUpdates = Math.abs(lastLogZEdge - lastLogZMessage);
+     lastLogZEdge = lastLogZMessage;
+     this.logZ = Math.min(this.logZ, lastLogZEdge);
+     if (lastLogZMessage + cutOffUpperBound < parentUpperBound) {
+     break;
+     }
+     numEdgeUpdates++;
+     }
+     if (lastLogZEdge + cutOffUpperBound > parentUpperBound) {
+     double change = Double.POSITIVE_INFINITY;
+     double lastLogZ = Double.POSITIVE_INFINITY;
+     while (change > 0.0001) {
+     //This is the meat of the algorithm
+     boolean useDamping = true;
+     //                updateMessagesSequentially(logMessages, useDamping);
+     updateMessagesSequentially(logMessages, useDamping);
+     updateMarginals();
+     double currentlogZ = calcUBLogZ();
 
-                change = Math.abs(lastLogZ - currentlogZ);
-                lastLogZ = currentlogZ;
-                if (verbose) {
-                    System.out.println("   LogZUB: " + currentlogZ);
-                }
-            }
-            this.logZ = Math.min(logZ, lastLogZ);
-        }
-        double[] degrees = GraphUtils.getWeightedDegrees(edgeWeights);
-        this.nodeWeights = degrees;
-    }
-
+     change = Math.abs(lastLogZ - currentlogZ);
+     lastLogZ = currentlogZ;
+     if (verbose) {
+     System.out.println("   LogZUB: " + currentlogZ);
+     }
+     }
+     this.logZ = Math.min(logZ, lastLogZ);
+     }
+     double[] degrees = GraphUtils.getWeightedDegrees(edgeClampWeights);
+     this.nodeWeights = degrees;
+     }*/
     private void runTRBP2() {
         int numEdgeUpdates = 0;
         double changeBetweenEdgeUpdates = Double.POSITIVE_INFINITY;
@@ -199,38 +193,36 @@ public class TRBP_Refactor_2 {
                 }
                 updateEdgeProbabilities(numEdgeUpdates);
 //                this.edgeProbabilities = GraphUtils.getEdgeProbabilities(edgeWeights);
-                this.logMessages = initializeLogMessages(1.0);
+//                this.logMessages = initializeLogMessages(0.0);
             }
 
             double changeBetweenMessageUpdates = Double.POSITIVE_INFINITY;
             //Keep track of last logZ from previous message update
             double lastLogZMessage = Double.POSITIVE_INFINITY;
             int numMessageUpdates = 0;
-            while ((this.averageChange > 0.01 && changeBetweenMessageUpdates > accuracyWithinEdgeProb)|| numMessageUpdates < 10) {
+            while (changeBetweenMessageUpdates > accuracyWithinEdgeProb || numMessageUpdates < 10) {
                 //This is the meat of the algorithm
                 boolean useDamping = true;
 //                updateMessagesSequentially(logMessages, useDamping);
                 updateMessagesSequentially(logMessages, useDamping);
-                if (numMessageUpdates % 10 == 0) {
+                if (numMessageUpdates % 10 == 0 || numMessageUpdates == 0) {
                     updateMarginals();
                     double currentlogZ = calcUBLogZ();
 
-                    changeBetweenMessageUpdates = Math.abs(lastLogZMessage - currentlogZ);
+                    double change = Math.abs(lastLogZMessage - currentlogZ);
                     lastLogZMessage = currentlogZ;
-                    if ((numMessageUpdates > 0 && useParentUpperBound) && lastLogZMessage + cutOffUpperBound < parentUpperBound) {
-                        break;
-                    }
+                    changeBetweenMessageUpdates = change;
                     if (verbose) {
-                        System.out.println("   LogZUB: " + currentlogZ + "  Avg. Change: " + this.averageChange);
+                        System.out.println("   LogZUB: " + currentlogZ + "  Change: " + change + "  AveMess: "+this.averageChange);
                     }
                 }
-                if (verbose) {
-                    System.out.println("    Avg. Change: " + this.averageChange);
+                if (numEdgeUpdates == 0 && (changeBetweenMessageUpdates < accuracyWithinEdgeProb*10)){
+                    break;
                 }
                 numMessageUpdates++;
             }
-            updateMarginals();
-            lastLogZMessage = calcUBLogZ();
+//            updateMarginals();
+//            lastLogZMessage = calcUBLogZ();
             /*            if (numEdgeUpdates == 0) {
              this.accuracyWithinEdgeProb = this.accuracyWithinEdgeProb / 10.;
              }
@@ -245,7 +237,7 @@ public class TRBP_Refactor_2 {
             }
             numEdgeUpdates++;
         }
-        double[] degrees = GraphUtils.getWeightedDegrees(edgeWeights);
+        double[] degrees = GraphUtils.getWeightedDegrees(edgeClampWeights);
         this.nodeWeights = degrees;
     }
 
@@ -641,7 +633,7 @@ public class TRBP_Refactor_2 {
                     double entropyJ = singleNodeEntropyList[j];
                     //Update Edge Weights to Save Computational Cost
                     this.edgeWeights[i][j] = -mutualInf;///Math.sqrt(entropyI*entropyJ);
-
+                    this.edgeClampWeights[i][j] = -mutualInf;
                     entropy -= edgeProb * mutualInf;
                 }
             }
@@ -706,8 +698,10 @@ public class TRBP_Refactor_2 {
 
     private void initializeEdgeWeights() {
         this.edgeWeights = new double[this.numNodes][];
+        this.edgeClampWeights = new double[this.numNodes][];
         for (int i = 0; i < this.numNodes; i++) {
             this.edgeWeights[i] = new double[i];
+            this.edgeClampWeights[i] = new double[i];
         }
     }
 

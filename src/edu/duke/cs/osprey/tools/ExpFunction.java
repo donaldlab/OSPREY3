@@ -122,7 +122,9 @@ public class ExpFunction {
 		
 		if (num.compareTo(new BigDecimal("0.0"))<0){ //num is negative
 			System.out.println("ERROR: log of a negative number..");
-			System.exit(1);
+                        Throwable e = new Throwable();
+                        e.printStackTrace();
+                        System.exit(1);
 		}
 		
 		BigDecimal sum = new BigDecimal("0.0");

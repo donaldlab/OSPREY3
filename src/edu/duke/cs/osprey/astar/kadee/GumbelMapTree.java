@@ -64,7 +64,7 @@ public class GumbelMapTree extends AStarTree {
 
     final double constRT = PoissonBoltzmannEnergy.constRT;
 
-    boolean verbose = false;
+    boolean verbose = true;
 
     boolean usePrimal = true;
 
@@ -201,7 +201,6 @@ public class GumbelMapTree extends AStarTree {
             double score = emat.getConstTerm() + this.mplpMinimizer.optimizeMPLP(partialConf, 100);
 //            double score = emat.getConstTerm() + this.mplpMinimizer.optimizeEMPLP(partialConf, numPos);
 //            double scoreTraditional = scoreConfTraditional(partialConf);
-
             return score;
 
         } else {
@@ -457,7 +456,10 @@ public class GumbelMapTree extends AStarTree {
         if ((this.upperBoundLogZ - this.lowerBoundLogZ) < 0.0001){
             return true;
         }
-        return this.pq.isEmpty() && (!node.isRoot);
+        else{
+            return false;
+        }
+//        return this.pq.isEmpty() && (!node.isRoot);
     }
 
     @Override
@@ -601,7 +603,6 @@ public class GumbelMapTree extends AStarTree {
         }
         if (usePrimal) {
             double primalScore = scoreConfWithPert(node.primalSolution, node.endPert);
-
             if (primalScore < this.currentBestFeasibleScore) {
 //            System.out.println("Primal Solution Update!");
                 this.currentBestFeasibleScore = primalScore;

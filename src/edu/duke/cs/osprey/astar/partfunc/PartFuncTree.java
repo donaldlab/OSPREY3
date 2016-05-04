@@ -25,6 +25,13 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 import org.apache.commons.lang.ArrayUtils;
 
 /**
@@ -60,7 +67,7 @@ public class PartFuncTree extends AStarTree {
 
     boolean useDynamicOrdering = true;
     boolean branchHalfSpace = true;
-    boolean useTRBPWeightForOrder = false;
+    boolean useTRBPWeightForOrder = true;
     Mplp mplp;
 
     boolean verbose = true;
@@ -120,27 +127,49 @@ public class PartFuncTree extends AStarTree {
 
         int posMaxWeight = -1;
         double maxWeight = Double.NEGATIVE_INFINITY;
+        double[] nodeWeights = node.nodeWeights.clone();
+        HashMap<Integer, Double> pos2Weight = new HashMap<>();
         for (int pos = 0; pos < node.nodeWeights.length; pos++) {
+            pos2Weight.put(pos, nodeWeights[pos]);
             double weight = node.nodeWeights[pos];
             if ((weight > maxWeight) && node.getNodeAssignments()[pos] < 0) {
                 maxWeight = weight;
                 posMaxWeight = pos;
             }
         }
-        System.out.println("Pos With Best Weight: " + posMaxWeight);
+        Set<Entry<Integer, Double>> set = pos2Weight.entrySet();
+        List<Entry<Integer, Double>> listTup = new ArrayList<>(set);
+        Collections.sort(listTup, new Comparator<Map.Entry<Integer, Double>>() {
+            public int compare(Map.Entry<Integer, Double> tup1, Map.Entry<Integer, Double> tup2) {
+                return tup2.getValue().compareTo(tup1.getValue());
+            }
+        });
+        for (int i = 0; i < 5; i++) {
+            System.out.println("Pos: " + listTup.get(i).getKey() + "  Rank: " + i);
+        }
+
+        System.out.println(
+                "Pos With Best Weight: " + posMaxWeight);
 //        subtractFromBounds(node);
         subtractLowerBound(node);
         int[] curAssignments = node.getNodeAssignments();
-        System.out.println("Node lbLogZ: "+node.lbLogZ);
+
+        System.out.println(
+                "Node lbLogZ: " + node.lbLogZ);
         int splitPos;
         if (useDynamicOrdering && useTRBPWeightForOrder) {
             splitPos = posMaxWeight;
         } else {
             splitPos = nextLevelToExpand(curAssignments);
         }
-        System.out.println("Splitting at Level: " + splitPos);
-        System.out.println("*****************************");
-        for (int rot : this.pruneMat.unprunedRCsAtPos(splitPos)) {
+
+        System.out.println(
+                "Splitting at Level: " + splitPos);
+        System.out.println(
+                "*****************************");
+        System.out.println("Computing Lower Bound");
+        for (int rot
+                : this.pruneMat.unprunedRCsAtPos(splitPos)) {
             int[] childAssignments = curAssignments.clone();
             childAssignments[splitPos] = rot;
 
@@ -161,15 +190,15 @@ public class PartFuncTree extends AStarTree {
 //        printEffectiveEpsilon();
 //        System.out.println("Lower Bound: " + this.ef.log(lbZ.add(runningSum)).doubleValue());
 //        System.out.println("Upper Bound: " + this.ef.log(ubZ.add(runningSum)).doubleValue());
+        System.out.println("Computing Upper Bound");
         if (!isFullyAssigned(curNode)) {
             subtractUpperBound(node);
             //Now update upper bounds
 //            System.out.println("Computing Uppber Bound For " + children.size() + " children");
             int childNum = 1;
             for (AStarNode childNode : children) {
-//                System.out.println();
-//                System.out.println("TRBP For Child: " + childNum);
                 PartFuncNode child = (PartFuncNode) childNode;
+                System.out.println("Computing UB for Node "+childNum);
                 child.setUpperBoundLogZ(computeUpperBound(child, node));
                 updateUpperBound(child);
                 child.setScore(scoreNode(child));
@@ -180,6 +209,7 @@ public class PartFuncTree extends AStarTree {
             System.out.println("LowerBound logZ: " + this.ef.log(this.lbZ.add(this.runningSum)).doubleValue());
             System.out.println("UpperBound logZ: " + this.ef.log(this.ubZ.add(this.runningSum)).doubleValue());
         }
+
         printEffectiveEpsilon();
         return children;
     }
@@ -192,7 +222,7 @@ public class PartFuncTree extends AStarTree {
             System.out.print("Scoring Levels: ");
             for (int level = 0; level < this.numPos; level++) {
                 if (partialConf[level] < 0) {
-                    
+
                     double levelScore = scoreExpansionLevel(level, partialConf);
                     System.out.print("+ ");
                     if (levelScore > bestLevelScore) {//higher score is better
@@ -202,7 +232,7 @@ public class PartFuncTree extends AStarTree {
                 }
             }
             System.out.println();
-            System.out.println("Best Level Score: "+bestLevelScore);
+            System.out.println("Best Level Score: " + bestLevelScore);
             if (bestLevel == -1) {
                 throw new RuntimeException("ERROR: No next expansion level found for dynamic ordering");
             }
@@ -335,6 +365,11 @@ public class PartFuncTree extends AStarTree {
 
     private double scoreNode(PartFuncNode node) {
 //        return -node.lbLogZ;
+        if (node.ubLogZ < node.lbLogZ){
+            System.out.println("Error: UB is less than LB");
+            System.out.println("UB: "+node.ubLogZ);
+            System.out.println("LB: "+node.lbLogZ);
+        }
         return -this.ef.log(this.ef.exp(node.ubLogZ).subtract(this.ef.exp(node.lbLogZ))).doubleValue();
 //        return mplp.optimizeMPLP(node.getNodeAssignments(), 1000);
     }

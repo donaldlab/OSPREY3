@@ -71,11 +71,8 @@ public class Main {
             KaDEEDoer kd = new KaDEEDoer(cfp);
             kd.doKaDEE();
         } else if (command.equalsIgnoreCase("doGumbel")) {
-            try {
-                VariationalKStar gd = new VariationalKStar(cfp);
-            } catch (Exception e) {
-                throw new RuntimeException();
-            }
+            VariationalKStar gd = new VariationalKStar(cfp);
+
 //            KaDEEDoer2 kd = new KaDEEDoer2(cfp);
 //            kd.doKaDEE();
         } else if (command.equalsIgnoreCase("variationalSublinear")) {
@@ -86,7 +83,7 @@ public class Main {
             int[] bestSequence = sf.nextConf();
             for (int pos = 0; pos < bestSequence.length; pos++) {
                 String AA = sf.aaTypeOptions.get(pos).get(bestSequence[pos]);
-                System.out.print(AA+" ");
+                System.out.print(AA + " ");
             }
             System.out.println();
         } //etc.

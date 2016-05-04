@@ -45,7 +45,7 @@ public class VariationalKStar {
     ExpFunction ef = new ExpFunction();
     boolean testSCMF = true;
 
-    public VariationalKStar(ConfigFileParser aCFP) throws IOException {
+    public VariationalKStar(ConfigFileParser aCFP) {
         this.cfp = aCFP;
         this.cfp.params.setValue("STERICTHRESH", "1000");
         SearchProblem[] spList = cfp.getMSDSearchProblems();
@@ -70,28 +70,53 @@ public class VariationalKStar {
              System.out.println("Epsilon Approx BB: " + logZ);
              }
              */
+            if (false) {
+                double average = 0.0;
+                int averageNodesExpanded = 0;
+                int numSamples = 10;
+                for (int i = 0; i < numSamples; i++) {
+                    GumbelMapTree tree = new GumbelMapTree(sp);
+                    tree.nextConf();
+                    double score = tree.currentBestFeasibleScore;
+                    average += score;
+                    double logZestimate = -average / (this.constRT * (i + 1));
+                    System.out.println("Number of Nodes Expanded: " + tree.numExpanded);
+                    averageNodesExpanded += tree.numExpanded;
+                    System.out.println("Current Sample: " + -score / this.constRT);
+                    System.out.println("Current Average: " + logZestimate);
+                    System.out.println("Current Average Nodes Exp: " + averageNodesExpanded / (i + 1));
+                }
+                System.out.println("Average Nodes Expanded: " + averageNodesExpanded / numSamples);
+                double logZ = -average / (this.constRT * numSamples);
+                System.out.println("Gumbel logZ: " + logZ);
+                System.exit(0);
+            }
+
             PartFuncTree tree = new PartFuncTree(sp.emat, upm);
             long startTime = System.currentTimeMillis();
             double logZ = tree.computeEpsilonApprox(0.1);
             long totalTime = (System.currentTimeMillis() - startTime);
             System.out.println("New Alg Took: " + totalTime + " milliseconds");
             File statistics = new File("data.txt");
-            FileWriter fw = new FileWriter(statistics);
-            fw.write("LogConfSpace: " + getLogConfSpace(upm));
-            fw.write("NewAlgorithm: " + totalTime + "\n");
-            fw.write("NewAlgorithm: logZ " + logZ + "\n");
-            DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, upm, 0.1, 3600000);
-            if (dfp.finishedInTime) {
-                fw.write("KStar: finished true" + "\n");
-                fw.write("KStar: totalTime " + dfp.totalTime);
-            } else {
-                fw.write("KStar: finished false+" + "\n");
-                fw.write("KStar: effectiveEpsilon " + dfp.effectiveEpsilonReached+"\n");
-                fw.write("KStar: logZLB " + dfp.getLogZ());
+            try {
+                FileWriter fw = new FileWriter(statistics);
+                fw.write("LogConfSpace: " + getLogConfSpace(upm) + "\n");
+                fw.write("NewAlgorithm: " + totalTime + "\n");
+                fw.write("NewAlgorithm: logZ " + logZ + "\n");
+                DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, upm, 0.1, 3600000);
+                if (dfp.finishedInTime) {
+                    fw.write("KStar: finished true" + "\n");
+                    fw.write("KStar: totalTime " + dfp.totalTime);
+                } else {
+                    fw.write("KStar: finished false" + "\n");
+                    fw.write("KStar: effectiveEpsilon " + dfp.effectiveEpsilonReached + "\n");
+                    fw.write("KStar: logZLB " + dfp.getLogZ());
+                }
+
+                fw.close();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
-
-            fw.close();
-
             System.out.println("Epsilon Approx BB: " + logZ);
             /*            ReparamMRF mrf = new ReparamMRF(sp.emat, upm, 0.0);
              MarkovRandomField mrf2 = new MarkovRandomField(sp, 0.0);
@@ -208,7 +233,7 @@ public class VariationalKStar {
              System.out.println("KStar GumbelSample: " + kstarSample);
              */
 
- /*
+            /*
              sp = cfp.getSearchProblem();
              loadEMatandPrune(this.sp, Double.POSITIVE_INFINITY);
 
