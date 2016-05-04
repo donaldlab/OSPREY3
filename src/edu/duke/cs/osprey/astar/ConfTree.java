@@ -324,10 +324,13 @@ public class ConfTree extends AStarTree {
 			//lower bound on contribution of this residue
 			//resContribLB will be the minimum_{rc} of the lower bound assuming rc assigned to this level
 			double resContribLB = Double.POSITIVE_INFINITY;
-			for (int rc1 : unprunedRCsAtPos[pos1]) {
+			int[] rc1s = unprunedRCsAtPos[pos1];
+			int n1 = rc1s.length;
+			for (int j=0; j<n1; j++) {
+				int rc1 = rc1s[j];
 				// OPTIMIZATION: manually inlining this is noticeably slower
 				// maybe it causes too much register pressure
-				double rcContrib = RCContributionLB(conf, numDefined, numUndefined, pos1, rc1);
+				double rcContrib = RCContributionLB(conf, numDefined, numUndefined, pos1, rc1, j);
 				resContribLB = Math.min(resContribLB, rcContrib);
 			}
 		
@@ -336,7 +339,7 @@ public class ConfTree extends AStarTree {
 		return hscore;
 	}
 	
-	double RCContributionLB(int[] conf, int numDefined, int numUndefined, int pos1, int rc1) {
+	double RCContributionLB(int[] conf, int numDefined, int numUndefined, int pos1, int rc1, int i1) {
 		//Provide a lower bound on what the given rc at the given level can contribute to the energy
 		//assume partialConf and definedTuple
 		
@@ -397,7 +400,7 @@ public class ConfTree extends AStarTree {
 				
 			// but otherwise, we can use the precomputations
 			} else {
-				int index = precomputedMinOffsets[pos1*(pos1 - 1)/2 + pos2] + rc1;
+				int index = precomputedMinOffsets[pos1*(pos1 - 1)/2 + pos2] + i1;
 				rcContrib += precomputedMins[index];
 			}
 		}
