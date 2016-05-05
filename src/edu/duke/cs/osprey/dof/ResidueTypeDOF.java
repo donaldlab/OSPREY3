@@ -31,11 +31,11 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
     }
     
     public void mutateTo(String resType) {
-        //paramVal is the index in the ResidueTemplateLibrary of the new parameter type
-        //so it must be an integer...
-        GenericResidueTemplateLibrary templateLib = EnvironmentVars.resTemplates;
-        ResidueTemplate newTemplate = templateLib.getTemplateForMutation(resType,res,true);
-        switchToTemplate(newTemplate);
+        switchToTemplate(getLibraryTemplate(resType));
+    }
+    
+    public ResidueTemplate getLibraryTemplate(String resType) {
+        return EnvironmentVars.resTemplates.getTemplateForMutation(resType, res, true);
     }
     
     public boolean isTemplate(ResidueTemplate template) {
