@@ -142,6 +142,11 @@ public class GMECFinder {
             
             System.out.println();
             System.out.println("BEGINNING CONFORMATION ENUMERATION");
+            try {
+            	System.out.println("\tsearching " + search.getNumConformations().floatValue() + " conformations...");
+            } catch (UnsupportedOperationException ex) {
+            	// conf tree doesn't support it, no big deal
+            }
             System.out.println();
             
             long confSearchStartTime = System.currentTimeMillis();

@@ -139,6 +139,7 @@ public class ConfTree extends AStarTree {
     }
     
     
+    @Override
     public BigInteger getNumConformations() {
     	BigInteger num = BigInteger.valueOf(1);
     	for (int pos=0; pos<numPos; pos++) {
