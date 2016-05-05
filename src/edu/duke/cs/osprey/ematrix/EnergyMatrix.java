@@ -4,19 +4,20 @@
  */
 package edu.duke.cs.osprey.ematrix;
 
+import java.util.ArrayList;
+
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.TupleMatrix;
-import java.util.ArrayList;
+import edu.duke.cs.osprey.confspace.TupleMatrixDouble;
 
 /**
  *
  * @author mhall44
  */
-public class EnergyMatrix extends TupleMatrix<Double> {
-    
-    private double constTerm = 0;
+public class EnergyMatrix extends TupleMatrixDouble {
+
+	private double constTerm = 0;
     
     //we may want to have reference energies associated with this matrix
     ReferenceEnergies eRefMat = null;
@@ -127,14 +128,14 @@ public class EnergyMatrix extends TupleMatrix<Double> {
     public double[][] topPairwiseInteractions(){
         //return the top absolute values of the pairwise interactions
         //between all pairs of positions
-        int numPos = oneBody.size();
+        int numPos = getNumPos();
         
         double strongestPairE[][] = new double[numPos][numPos];
         
         for(int pos=0; pos<numPos; pos++){
             for(int pos2=0; pos2<pos; pos2++){
-                for(int rc=0; rc<numRCsAtPos(pos); rc++){
-                    for(int rc2=0; rc2<numRCsAtPos(pos2); rc2++){
+                for(int rc=0; rc<getNumConfAtPos(pos); rc++){
+                    for(int rc2=0; rc2<getNumConfAtPos(pos2); rc2++){
                         strongestPairE[pos][pos2] = Math.max( strongestPairE[pos][pos2], Math.abs(getPairwise(pos, rc, pos2, rc2)) );
                         strongestPairE[pos2][pos] = strongestPairE[pos][pos2];
                     }

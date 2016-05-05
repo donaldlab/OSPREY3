@@ -4,6 +4,9 @@
  */
 package edu.duke.cs.osprey.tests;
 
+import java.util.ArrayList;
+import java.util.Random;
+
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.RCTuple;
@@ -12,8 +15,7 @@ import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import java.util.ArrayList;
-import java.util.Random;
+import edu.duke.cs.osprey.tools.InfiniteIterator;
 
 /**
  *
@@ -140,23 +142,19 @@ public class ConfSearchTests {
         SearchProblem ans = new SearchProblem( "testResults/CONFSEARCHTEST"+numPos, "1CC8.ss.pdb", 
                 flexRes, allowedAAs,false, false, false, null, 
                 false, new DEEPerSettings(), new ArrayList<>(), new ArrayList<>(), 
-                useEllipses, false, false );
+                useEllipses, false, false, false);
                 //don't add WT, and no minimization, EPIC, tuple expansion, DEEPer, or strand motions
 
         
         if(randomizeEnergies){
             //we don't need real energies, just make some up (in fact the randomization will be good)
             ans.emat = new EnergyMatrix(ans.confSpace,0);
-            
-            for(ArrayList<Double> resE : ans.emat.oneBody)
-                fillInRandomly(resE);
-            for(ArrayList<ArrayList<ArrayList<Double>>> resE : ans.emat.pairwise){
-                for(ArrayList<ArrayList<Double>> pairE : resE){
-                    for(ArrayList<Double> rotE : pairE)
-                        fillInRandomly(rotE);
-                }
-            }
-            
+            ans.emat.fill(new InfiniteIterator<Double>() {
+				@Override
+				public Double next() {
+					return getRandomEnergy();
+				}
+            });
             
             if(includeTriples){
                 int numTriples = 5*numPos;
@@ -165,7 +163,7 @@ public class ConfSearchTests {
                     //draw a random triple of RCs and set it to a random value
                     //we can throw in a few quadruples too actually
                     RCTuple randomTuple = randomTriple(ans,true);
-                    ans.emat.setTupleValue( randomTuple, 20*(Math.random()-0.5) );
+                    ans.emat.setTupleValue(randomTuple, getRandomEnergy());
                 }
             }
         }
@@ -220,14 +218,8 @@ public class ConfSearchTests {
         return new RCTuple(posList, RCList);
     }
     
-    
-    private static void fillInRandomly(ArrayList<Double> energies){
-        //randomly fill in a list of "energies".  Keep them within a reasonable range
-        for(int index=0; index<energies.size(); index++){
-            energies.set( index, 20*(Math.random()-0.5) );
-        }
+    private static double getRandomEnergy() {
+        //randomly generate an "energy".  Keep them within a reasonable range
+    	return 20*(Math.random() - 0.5);
     }
-    
-    
-    
 }

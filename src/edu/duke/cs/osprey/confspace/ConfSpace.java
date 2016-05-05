@@ -4,17 +4,16 @@
  */
 package edu.duke.cs.osprey.confspace;
 
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 import cern.colt.matrix.DoubleFactory1D;
-import cern.colt.matrix.DoubleFactory2D;
 import cern.colt.matrix.DoubleMatrix1D;
-import cern.colt.matrix.DoubleMatrix2D;
-import cern.colt.matrix.linalg.Algebra;
-import cern.jet.math.Functions;
 import edu.duke.cs.osprey.bbfree.BBFreeBlock;
 import edu.duke.cs.osprey.control.EnvironmentVars;
-import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
-import edu.duke.cs.osprey.dof.EllipseCoordDOF;
 import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.dof.MoveableStrand;
 import edu.duke.cs.osprey.dof.ProlinePucker;
@@ -22,22 +21,17 @@ import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.dof.StrandRotation;
 import edu.duke.cs.osprey.dof.StrandTranslation;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
-import edu.duke.cs.osprey.dof.deeper.SidechainIdealizer;
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.energy.EnergyFunction;
-import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
-import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MolecEObjFunction;
-import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
+import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.PDBFileWriter;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.StringParsing;
-import java.io.Serializable;
-import java.util.ArrayList;
 
 /**
  *
@@ -95,10 +89,11 @@ public class ConfSpace implements Serializable {
      * @param moveableStrands ... ? 
      * @param freeBBZones ...? 
      * @param ellipses model ellipses
+     * @param addWTRots add the wild-type 'rotamers'
      */
     public ConfSpace(String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, 
             boolean addWT, boolean contSCFlex, DEEPerSettings dset, ArrayList<String[]> moveableStrands, 
-            ArrayList<String[]> freeBBZones, boolean ellipses){
+            ArrayList<String[]> freeBBZones, boolean ellipses, boolean addWTRots){
     
     	useEllipses = ellipses;  	
     	
@@ -106,6 +101,16 @@ public class ConfSpace implements Serializable {
         
         //read the structure and assign templates, deleting unassignable res...
         m = PDBFileReader.readPDBFile(PDBFile);
+        
+        // before making any structure changes, capture the wt rots if needed
+        List<ResidueTemplate> wtRots = new ArrayList<>(Collections.nCopies(numPos, null));
+        if (addWTRots) {
+        	for (int i=0; i<numPos; i++) {
+        		// TODO: support alternate conformations?
+        		Residue res = m.getResByPDBResNumber(flexibleRes.get(i));
+        		wtRots.set(i, ResidueTemplate.makeFromResidueConfs(res));
+        	}
+        }
         
         //Make all the degrees of freedom
         //start with proline puckers (added to res)
@@ -133,7 +138,6 @@ public class ConfSpace implements Serializable {
             singleResDOFs.add(resDOFs);
         }
         
-        
         //now rigid-body strand motions...
         ArrayList<DegreeOfFreedom> strandDOFs = strandMotionDOFs(moveableStrands,flexibleRes);
         confDOFs.addAll(strandDOFs);
@@ -141,11 +145,9 @@ public class ConfSpace implements Serializable {
         //...and perturbations
         //standardize conformations first since we'll record initial resBBState here
         standardizeMutatableRes(allowedAAs, flexibleRes);
-
+        
         ArrayList<Perturbation> perts = dset.makePerturbations(m);//will make pert block here
         confDOFs.addAll(perts);
-        
-        
         
         //DEBUG!!!!!!!
         //TRYING BFB ON ALL FLEX RES!!!
@@ -159,7 +161,6 @@ public class ConfSpace implements Serializable {
         for(BBFreeBlock bfb : bfbList)
             confDOFs.addAll( bfb.getDOFs() );
         
-        
         //OK now make RCs using these DOFs
         for(int pos=0; pos<numPos; pos++){
             Residue res = m.getResByPDBResNumber( flexibleRes.get(pos) );
@@ -170,7 +171,7 @@ public class ConfSpace implements Serializable {
             BBFreeBlock curBFB = getCurBFB(bfbList,res);
             
             PositionConfSpace rcs = new PositionConfSpace(pos, res, resDOFs, allowedAAs.get(pos), contSCFlex,
-                    resStrandDOFs, perts, dset.getPertIntervals(), dset.getPertStates(pos), curBFB, useEllipses);
+                    resStrandDOFs, perts, dset.getPertIntervals(), dset.getPertStates(pos), curBFB, useEllipses, wtRots.get(pos));
             posFlex.add(rcs);
                         
             if (useEllipses) {
@@ -180,7 +181,6 @@ public class ConfSpace implements Serializable {
             }
             
         }
-        
         
         //DEBUG!!!
         /*PDBFileWriter.writePDBFile(m, "STRUCT1.pdb");

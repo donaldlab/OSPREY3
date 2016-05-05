@@ -100,8 +100,8 @@ public class MultiTermEnergyFunction implements EnergyFunction {
                         E += coeffs.get(termNum)*termE;
                 }
         } else {
-        	if (!ParallelEnergyFunction.areProcessorsStarted()) {
-        		ParallelEnergyFunction.startProcessors(NUM_THREADS);
+        	if (!ParallelEnergyFunction.isCrewStarted()) {
+        		ParallelEnergyFunction.startCrew(NUM_THREADS);
         	}
         	if (parallelEfunc == null) {
         		parallelEfunc = new ParallelEnergyFunction(terms, coeffs);

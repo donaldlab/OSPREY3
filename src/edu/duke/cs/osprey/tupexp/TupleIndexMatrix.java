@@ -4,10 +4,10 @@
  */
 package edu.duke.cs.osprey.tupexp;
 
-import edu.duke.cs.osprey.confspace.HigherTupleFinder;
-import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.TupleMatrix;
 import java.util.ArrayList;
+
+import edu.duke.cs.osprey.confspace.HigherTupleFinder;
+import edu.duke.cs.osprey.confspace.TupleMatrixGeneric;
 
 /**
  *
@@ -18,7 +18,7 @@ import java.util.ArrayList;
  * 
  * @author mhall44
  */
-public class TupleIndexMatrix extends TupleMatrix<Integer> {
+public class TupleIndexMatrix extends TupleMatrixGeneric<Integer> {
     
     //default is -1 (tuple absent from expansion)
     

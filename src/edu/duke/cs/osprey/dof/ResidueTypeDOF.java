@@ -30,14 +30,20 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
         this.res = res;
     }
     
-    
     public void mutateTo(String resType) {
         //paramVal is the index in the ResidueTemplateLibrary of the new parameter type
         //so it must be an integer...
         GenericResidueTemplateLibrary templateLib = EnvironmentVars.resTemplates;
-        
-        ResidueTemplate oldTemplate = res.template;
         ResidueTemplate newTemplate = templateLib.getTemplateForMutation(resType,res,true);
+        switchToTemplate(newTemplate);
+    }
+    
+    public boolean isTemplate(ResidueTemplate template) {
+    	return this.res.template == template;
+    }
+    
+    public void switchToTemplate(ResidueTemplate newTemplate) {
+        ResidueTemplate oldTemplate = res.template;
         
         //the residue's going to change some, so break its inter-residue bonds
         res.removeInterResBonds();

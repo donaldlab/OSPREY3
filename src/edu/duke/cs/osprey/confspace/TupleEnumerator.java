@@ -115,7 +115,7 @@ public class TupleEnumerator {
         //return a matrix of which pairwise interactions are "strong"
         //Using lower-bound energy matrix should capture these trends without possible noise from initial bad tup-exp fit...
         
-        int numPos = emat.oneBody.size();
+        int numPos = emat.getNumPos();
         double strongestPairE[][] = emat.topPairwiseInteractions();
         
         //Next, use these to figure out what are the numPartners top interaction partners for each residue

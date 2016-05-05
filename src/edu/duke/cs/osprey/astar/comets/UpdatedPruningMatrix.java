@@ -5,13 +5,13 @@
  */
 package edu.duke.cs.osprey.astar.comets;
 
-import edu.duke.cs.osprey.confspace.ConfSpace;
-import edu.duke.cs.osprey.confspace.HigherTupleFinder;
-import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.pruning.PruningMatrix;
 import java.util.ArrayList;
 import java.util.TreeMap;
 import java.util.TreeSet;
+
+import edu.duke.cs.osprey.confspace.HigherTupleFinder;
+import edu.duke.cs.osprey.confspace.RCTuple;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 /**
  *
@@ -38,7 +38,7 @@ public class UpdatedPruningMatrix extends PruningMatrix {
     public UpdatedPruningMatrix(PruningMatrix parent) {
         this.parent = parent;
         
-        int numPos = parent.numPos();
+        int numPos = parent.getNumPos();
         
         for(int pos=0; pos<numPos; pos++){
             prunedRCUpdates.add(new TreeSet<Integer>());
@@ -154,13 +154,13 @@ public class UpdatedPruningMatrix extends PruningMatrix {
     
     
     @Override
-    public int numRCsAtPos(int pos){
-        return parent.numRCsAtPos(pos);
+    public int getNumConfAtPos(int pos){
+        return parent.getNumConfAtPos(pos);
     }
     
     
     @Override
-    public int numPos(){
-        return parent.numPos();
+    public int getNumPos(){
+        return parent.getNumPos();
     }
 }
