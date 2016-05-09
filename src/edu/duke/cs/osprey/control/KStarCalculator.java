@@ -50,7 +50,7 @@ public class KStarCalculator {
 					+ "Change the value of doMinimize to 'true'.");
 		
 		PFAbstract.targetEpsilon = cfp.getParams().getDouble("epsilon", 0.03);
-		PFAbstract.qCapacity = cfp.getParams().getInt("pFuncQCap", ThreadParallelism.getNumThreads()*100);
+		PFAbstract.qCapacity = cfp.getParams().getInt("pFuncQCap", ThreadParallelism.getNumThreads()*8);
 
 		PFAbstract.eMinMethod = cfp.getParams().getValue("eMinMethod", "ccd");
 		PFAbstract.setCFGImpl(cfp.getParams().getValue("pFuncMethod", new PFNew02().getImpl()));
@@ -65,8 +65,11 @@ public class KStarCalculator {
 		PFAbstract.setNumTopConfsToSave( cfp.getParams().getInt("numTopConfsToSave", 10) );
 		PFAbstract.useMaxKSConfs = cfp.getParams().getBool( "useMaxKSConfs", false );
 		PFAbstract.setMaxKSconfs( cfp.getParams().getInt("maxKSconfs", 100000) );
-		PFAbstract.useTripleBounds = cfp.getParams().getBool("pFuncUseTripleBounds", false);
-		PFAbstract.setTripleThresh( cfp.getParams().getDouble("pFuncTripleThresh", -10.0) );
+		
+		PFAbstract.setHotMethod( "pFunctHotMethod", cfp.getParams().getValue("pFunctHotMethod", "none") );
+		PFAbstract.setHotNumRes( "pFuncHotNumRes", cfp.getParams().getInt("pFuncHotNumRes", 3) );
+		PFAbstract.setHotBoundPct( "pFuncHotBoundPct", cfp.getParams().getDouble("pFuncHotBoundPct", 0.03) );
+		PFAbstract.setHotTopRotsPct( "pFuncHotTopRotsPct", cfp.getParams().getDouble("pFuncHotTopRotsPct", 0.0) );
 		
 		MinimizerFactory.setImpl( PFAbstract.eMinMethod );
 		
@@ -174,6 +177,7 @@ public class KStarCalculator {
 
 
 	private void generateAllowedSequences() {
+		
 		AllowedSeqs complexSeqs = cfp.getAllowedSequences(Strand.COMPLEX, null);
 		strand2AllowedSeqs.put(Strand.COMPLEX, complexSeqs);
 		strand2AllowedSeqs.put(Strand.PROTEIN, cfp.getAllowedSequences(Strand.PROTEIN, complexSeqs));
@@ -185,6 +189,8 @@ public class KStarCalculator {
 
 		try {
 
+			cfp.checkStrands();
+			
 			generateAllowedSequences();
 
 			String mutFilePath = cfp.getParams().getValue("mutfile", "");

@@ -493,8 +493,10 @@ public class AllowedSeqs {
 		// remove wt, if present
 		output.remove(wt);
 
+		long outputSize = dist == 0 ? 1 : output.size();
+		
 		System.out.println("\nNumber of sequences with " + dist + 
-				" mutation(s) from wild type: " + output.size() + "\n");
+				" mutation(s) from wild type: " + outputSize + "\n");
 
 		ArrayList<ArrayList<String>> ans = new ArrayList<ArrayList<String>>(output); 
 		ans.add(0, wt);

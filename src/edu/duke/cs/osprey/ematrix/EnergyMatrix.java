@@ -47,19 +47,20 @@ public class EnergyMatrix extends TupleMatrix<Double> implements Serializable {
     }
     
     
-    public double rcContribAtPos(int pos, int[] conf) {
+    public double rcContribAtPos(int pos, int[] conf, int numResInHot) {
     	// value of an rc
     	RCTuple tup = new RCTuple(conf);
-    	double E = getInternalEnergyAtPos(pos, tup);
+    	double E = getInternalEnergyAtPos(pos, tup, numResInHot);
     	return E;
     }
     
     
     // used to get the contribution of an individual rotamer to conf E. excludes reference
     // energy and the template self-energy 
-    public double getInternalEnergyAtPos(int pos, RCTuple tup){
-    	double E = 0;
+    public double getInternalEnergyAtPos(int pos, RCTuple tup, int numResInHot) {
+    	
     	int numPosInTuple = tup.pos.size();
+        double E = 0;
     	
     	int posNum = tup.pos.get(pos);
         int RCNum = tup.RCs.get(pos);
@@ -67,18 +68,18 @@ public class EnergyMatrix extends TupleMatrix<Double> implements Serializable {
         double intraE = getOneBody(posNum,RCNum);
         E += intraE;
         
-        for(int index2=0; index2<numPosInTuple; index2++){
-        	if(index2 == posNum) continue;
+        for(int index=0; index<numPosInTuple; index++){
+        	if(index == posNum) continue;
         	
-        	int pos2 = tup.pos.get(index2);
-            int rc2 = tup.RCs.get(index2);
+        	int pos2 = tup.pos.get(index);
+            int rc2 = tup.RCs.get(index);
             
             double pairwiseE = getPairwise(posNum,RCNum,pos2,rc2);
-            E += (0.5 * pairwiseE);
+            E += 0.5 * pairwiseE;
             
             HigherTupleFinder<Double> htf = getHigherOrderTerms(posNum,RCNum,pos2,rc2);
             if(htf != null)
-                E += internalEHigherOrder(tup,index2,htf);
+                E += 1.0/((double)numResInHot) * internalEHigherOrder(tup,index,htf);
         }
         
         return E;

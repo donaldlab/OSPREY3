@@ -8,6 +8,7 @@ import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.EnergyMatrixCalculator;
+import edu.duke.cs.osprey.ematrix.TermECalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
@@ -134,7 +135,7 @@ public class SearchProblem implements Serializable {
 		dset = origSP.dset;
 		moveableStrands = origSP.moveableStrands; 
 		freeBBZones = origSP.freeBBZones;
-		
+
 		limits = origSP.limits;
 
 		confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, 
@@ -170,18 +171,26 @@ public class SearchProblem implements Serializable {
 
 		this.useERef = useERef;
 		this.addResEntropy = addResEntropy;
-		
+
 		this.dset = dset;
 		this.moveableStrands = moveableStrands;
 		this.freeBBZones = freeBBZones;
 		this.limits = limits;
-		
+
 		//energy function setup
 		EnergyFunctionGenerator eGen = EnvironmentVars.curEFcnGenerator;
 		decideShellResidues(eGen.distCutoff);
 		fullConfE = eGen.fullConfEnergy(confSpace,shellResidues);
 	}
 
+
+	public void mergeResiduePositions(int... posToCombine) {
+		
+		EnergyMatrixCalculator emc = new EnergyMatrixCalculator(confSpace, 
+				shellResidues, useEPIC, pruneMat, epicSettings, false, emat);
+		
+		emc.addEnergyTerms(false, posToCombine);
+	}
 
 
 	private void decideShellResidues(double distCutoff){
@@ -219,7 +228,7 @@ public class SearchProblem implements Serializable {
 		double E = confSpace.minimizeEnergy(conf, fullConfE, null);
 
 		E += getConstTerm();
-		
+
 		if(useERef)
 			E -= emat.geteRefMat().confERef(conf);
 
@@ -228,17 +237,17 @@ public class SearchProblem implements Serializable {
 
 		return E;
 	}
-	
-	
-	public MultiTermEnergyFunction decomposedMinimizedEnergy(int[] conf){
+
+
+	public MultiTermEnergyFunction decompMinimizedEnergy(int[] conf){
 		//Minimized energy of the conformation
 		//whose RCs are listed for all flexible positions in conf
 		MultiTermEnergyFunction mef = confSpace.getDecomposedMinimizedEnergy(conf, fullConfE, null);
 
 		double E = mef.getPreCompE();
-		
+
 		E += getConstTerm();
-		
+
 		if(useERef)
 			E -= emat.geteRefMat().confERef(conf);
 
@@ -246,7 +255,7 @@ public class SearchProblem implements Serializable {
 			E += confSpace.getConfResEntropy(conf);            
 
 		mef.setPreCompE(E);
-		
+
 		return mef;
 	}
 
@@ -295,88 +304,88 @@ public class SearchProblem implements Serializable {
 		//the pairwise lower bounds
 		return bound;
 	}
-	
-	
-	public double lowerBoundContribByRC(int pos, int[] conf) {
-		double bound = emat.rcContribAtPos(pos, conf);	
+
+
+	public double lowerBoundContribByRC(int pos, int[] conf, int numResInHot) {
+		double bound = emat.rcContribAtPos(pos, conf, numResInHot);	
 		return bound;
 	}
-	
-	
+
+
 	public double getConstTerm() {
-        return emat.getConstTerm();
-    }
-	
-	
+		return emat.getConstTerm();
+	}
+
+
 	//LOADING AND PRECOMPUTATION OF ENERGY MATRIX-TYPE OBJECTS (regular energy matrix, tup-exp and EPIC matrices)
-	
+
 	// AAO
 	public MatrixType getMatrixType() {
 		if(useTupExpForSearch) return MatrixType.TUPEXPEMAT;
-		
+
 		// skipping epic for now
 		// else if(useEPIC) return MatrixType.EPICMAT;
-		
+
 		return MatrixType.EMAT;
 	}
-	
+
 	// AAO
 	public EnergyMatrix getEnergyMatrix() {
-		
+
 		MatrixType type = getMatrixType();
 		switch (type) {
-		
+
 		case EMAT: 
 			return emat;
-			
+
 		case TUPEXPEMAT: 
 			return tupExpEMat;
-			
+
 		default:
 			throw new RuntimeException("ERROR: AAO has not added support for type " + type);
 		}
 	}
-	
+
 	// AAO
 	public void setEnergyMatrix(EnergyMatrix e) {
-		
+
 		MatrixType type = getMatrixType();
 		switch (type) {
-		
+
 		case EMAT: 
 			emat = e;
 			break;
-			
+
 		case TUPEXPEMAT: 
 			tupExpEMat = e;
 			break;
-			
+
 		default:
 			throw new RuntimeException("ERROR: AAO has not added support for type " + type);
 		}
 	}
-	
+
 	// AAO it's easier to specify the matrix type
 	public void loadEnergyMatrix(MatrixType type) {
 		switch (type) {
-		
+
 		case EMAT: 
 			loadEnergyMatrix();
 			break;
-		
+
 		case TUPEXPEMAT: 
 			loadTupExpEMatrix();
 			break;
-		
+
 		case EPICMAT:
 			loadEPICMatrix();
 			break;
-		
+
 		default:	
 			throw new RuntimeException("ERROR: unsupported energy matrix type: " + type);
 		}
 	}
-	
+
 	public void loadEnergyMatrix(){
 		loadMatrix(MatrixType.EMAT);
 	}
@@ -497,26 +506,27 @@ public class SearchProblem implements Serializable {
 
 	public SearchProblem singleSeqSearchProblem(String name, ArrayList<String> seq, 
 			ArrayList<String> flexRes, ArrayList<Integer> flexResIndexes){
-		
+
 		// Create a version of the search problem restricted to the specified sequence (list of amino acid names)
 		// the constructor creates a new confspace object
 		SearchProblem seqSP = new SearchProblem(this, name, seq, flexRes);
 
 		seqSP.setEnergyMatrix( getEnergyMatrix().singleSeqMatrix(seq, flexResIndexes, confSpace) );
+		seqSP.emat.setConstTerm( emat.getConstTerm() );
 
 		seqSP.pruneMat = pruneMat.singleSeqMatrix(seq, flexResIndexes, confSpace);
 		seqSP.pruneMat.setPruningInterval(pruneMat.getPruningInterval());
-		
+
 		return seqSP;
 	}
-	
-	
+
+
 	public BigInteger numConfs(boolean countPruned) {
 
 		if( pruneMat == null ) return BigInteger.ZERO;
-		
+
 		BigInteger numConfs = BigInteger.ONE;
-		
+
 		for( int pos = 0; pos < pruneMat.numPos(); ++pos ) {
 			long numRCs = countPruned ? pruneMat.prunedRCsAtPos(pos).size() : pruneMat.unprunedRCsAtPos(pos).size();
 			if(numRCs == 0) return BigInteger.ZERO;
@@ -525,8 +535,8 @@ public class SearchProblem implements Serializable {
 
 		return numConfs;
 	}
-	
-	
+
+
 	public boolean isSingleSeq() {
 		for(ArrayList<String> residues : allowedAAs)
 			if(residues.size() > 1) return false;

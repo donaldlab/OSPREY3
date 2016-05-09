@@ -6,9 +6,10 @@ import java.util.ArrayList;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
+import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.kstar.KSConf;
 import edu.duke.cs.osprey.kstar.KSConfQ;
-import edu.duke.cs.osprey.kstar.QPrimeConfTree;
+import edu.duke.cs.osprey.kstar.QPrimeCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.tools.ObjectIO;
 
@@ -27,7 +28,7 @@ public class PFNew02 extends PFNew01 implements Serializable {
 	public PFNew02() {
 		super();
 	}
-	
+
 	public PFNew02( int strand, ArrayList<String> sequence, ArrayList<Integer> flexResIndexes, 
 			String checkPointPath, String searchProblemName, 
 			ConfigFileParser cfp, SearchProblem panSeqSP ) {
@@ -67,6 +68,9 @@ public class PFNew02 extends PFNew01 implements Serializable {
 
 			setRunState(RunState.STARTED);
 
+			if(canUseHotByManualSelection()) 
+				createHotsFromCFG();
+			
 			// set pstar
 			initPStar();
 
@@ -82,9 +86,10 @@ public class PFNew02 extends PFNew01 implements Serializable {
 			for( int it = 0; it < indexes.size(); ++it ) partialQConfs.add(null);
 			partialQConfs.trimToSize();
 
-			confsQ = new KSConfQ( this, indexes.size() );
-			qPrimeCalculator = new QPrimeConfTree( this, unPrunedConfs );
-			
+			confsQ = new KSConfQ( this, indexes.size(), partialQLB );
+			qPrimeCalculator = new QPrimeCalculator( this );
+			qPrimeCalculator.setPriority(Thread.MAX_PRIORITY);
+
 			qPrimeCalculator.start();
 			confsQ.start();
 
@@ -136,67 +141,83 @@ public class PFNew02 extends PFNew01 implements Serializable {
 	}
 
 
-	protected void accumulate( ArrayList<KSConf> partialQConfs, boolean isMinimized ) throws Exception {
+	protected void tryHotForConfs( ArrayList<MultiTermEnergyFunction> mefs ) {
 		
+		for( int index : indexes ) {
+			KSConf conf = partialQConfs.get(index);
+			// update energy bound if updated emat
+			conf.setEnergyBound(getConfBound(null, conf.getConfArray(), false));
+			double peb = (conf.getEnergyBound()-conf.getEnergy())/conf.getEnergy();
+			if(canUseHotByConfError(peb)) tryHotForConf(partialQConfs.get(index), mefs.get(index));
+		}
+	}
+
+
+	protected void accumulate( ArrayList<KSConf> partialQConfs, boolean isMinimized ) throws Exception {
+
+		ArrayList<MultiTermEnergyFunction> mefs = new ArrayList<>(partialQConfs.size());
+		for(int i = 0; i < partialQConfs.size(); ++i) mefs.add(null);
+
 		if( !isMinimized ) {
-			
+
 			// we do not have a lock when minimizing
 			indexes.parallelStream().forEach( i -> {
-				
+
+				double energy = 0;
 				KSConf conf = partialQConfs.get(i);
-				
-				double energy = isFullyDefined() ? 
-						sps.get(i).minimizedEnergy( conf.getConfArray() ) : conf.getEnergyBound();
-				
-				conf.setEnergy( energy );
+
+				if( isFullyDefined() ) {
+					MultiTermEnergyFunction mef = sps.get(i).decompMinimizedEnergy(conf.getConfArray());
+					mefs.set(i, mef);
+					energy = mef.getPreCompE();
+				}
+
+				else energy = conf.getEnergyBound();
+
+				conf.setEnergy(energy);
 			});
 		}
 
 		double energy = 0, boundError = 0;
+		for( KSConf conf : partialQConfs ) {
 
-		// we need a current snapshot of qDagger, so we lock here
+			minimizingConfs = minimizingConfs.subtract( BigInteger.ONE );
+
+			energy = conf.getEnergy();
+			boundError = conf.getEnergyBound() - conf.getEnergy();
+
+			updateQStar( conf );
+
+			updateQPrime();
+
+			// negative values of effective epsilon are disallowed
+			if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0 ) {
+				eAppx = EApproxReached.NOT_POSSIBLE;
+				return;
+			}
+
+			if( effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ) break;
+		}
+
+		long currentTime = System.currentTimeMillis();
+
 		synchronized( confsQ.lock ) {
-			
-			while( confsQ.getPartialQLB().compareTo(qPrimeCalculator.getTotalQLB()) > 0 ) {
-			//while( BigInteger.valueOf(confsQ.size()).compareTo(qPrimeCalculator.getNumEnumerated()) > 0 ) {
-				Thread.sleep(5);
-			}
-			
-			for( KSConf conf : partialQConfs ) {
-
-				minimizingConfs = minimizingConfs.subtract( BigInteger.ONE );
-
-				energy = conf.getEnergy();
-				updateQStar( conf );
-
-				boundError = conf.getEnergyBound()-conf.getEnergy();
-				
-				confsQ.accumulatePartialQLB(getBoltzmannWeight(conf.getEnergyBound()));
-				updateQPrime();
-
-				// negative values of effective epsilon are disallowed
-				if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0 ) {
-					eAppx = EApproxReached.NOT_POSSIBLE;
-					return;
-				}
-
-				if( effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ) break;
-			}
-
-			long currentTime = System.currentTimeMillis();
 
 			if( !PFAbstract.suppressOutput ) {
 				if( !printedHeader ) printHeader();
-				
-				System.out.println(boundError + "\t" + energy + "\t" + effectiveEpsilon + "\t" + 
-						getNumMinimized4Output() + "\t" + getNumUnEnumerated() + "\t" + confsQ.size() + "\t" + ((currentTime-startTime)/1000));
+				System.out.println(boundError + "\t" + energy + "\t" + effectiveEpsilon + "\t" + getNumMinimized4Output() + 
+						"\t" + getNumUnEnumerated() + "\t" + confsQ.size() + "\t" + ((currentTime-startTime)/1000));
 			}
-
-			eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
-
-			// for partial sequences when doing KAstar
-			if( !isFullyDefined() && eAppx == EApproxReached.TRUE ) adjustQStar();
 		}
+
+		eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
+
+		// hot
+		if(canUseHotByConfError()) 
+			tryHotForConfs(mefs);
+
+		// for partial sequences when doing KAstar
+		if( !isFullyDefined() && eAppx == EApproxReached.TRUE ) adjustQStar();
 	}
 
 

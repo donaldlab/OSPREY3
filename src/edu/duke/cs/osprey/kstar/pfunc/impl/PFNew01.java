@@ -3,12 +3,16 @@ package edu.duke.cs.osprey.kstar.pfunc.impl;
 import java.io.Serializable;
 import java.math.BigInteger;
 import java.util.ArrayList;
+
+import cern.colt.Arrays;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
+import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KSConf;
 import edu.duke.cs.osprey.kstar.KSConfQ;
-import edu.duke.cs.osprey.kstar.QPrimeConfTree;
+import edu.duke.cs.osprey.kstar.QPrimeCalculator;
+import edu.duke.cs.osprey.kstar.RCEnergyContribs;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 
 /**
@@ -17,13 +21,13 @@ import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
  *
  */
 @SuppressWarnings("serial")
-public class PFNew01 extends PFAbstract implements Serializable {
+public class PFNew01 extends PFTrad implements Serializable {
 
 	// temp for benchmarking
 	protected long startTime;
 
 	protected KSConfQ confsQ = null;
-	protected QPrimeConfTree qPrimeCalculator = null;
+	protected QPrimeCalculator qPrimeCalculator = null;
 
 	public PFNew01() {
 		super();
@@ -47,12 +51,16 @@ public class PFNew01 extends PFAbstract implements Serializable {
 		try {
 
 			setRunState(RunState.STARTED);
+			
+			if(canUseHotByManualSelection()) 
+				createHotsFromCFG();
 
 			// set pstar
 			initPStar();
 
-			confsQ = new KSConfQ( this, 1 );
-			qPrimeCalculator = new QPrimeConfTree( this, unPrunedConfs );
+			confsQ = new KSConfQ( this, 1, partialQLB );
+			qPrimeCalculator = new QPrimeCalculator( this );
+			qPrimeCalculator.setPriority(Thread.MAX_PRIORITY);
 
 			qPrimeCalculator.start();
 			confsQ.start();
@@ -149,7 +157,7 @@ public class PFNew01 extends PFAbstract implements Serializable {
 
 			// this condition only occurs when we are checkpointing
 			if( KSAbstract.doCheckPoint) {
-				
+
 				if( !confsQ.isExhausted() && confsQ.getState() == Thread.State.NEW ) {
 
 					// for safety, we can re-start the conformation tree, since i am not
@@ -160,7 +168,7 @@ public class PFNew01 extends PFAbstract implements Serializable {
 						confsQ.lock.notify();
 					}
 				}
-				
+
 				if( !qPrimeCalculator.isExhausted() && qPrimeCalculator.getState() == Thread.State.NEW ) {
 					qPrimeCalculator.start();
 				}
@@ -192,52 +200,106 @@ public class PFNew01 extends PFAbstract implements Serializable {
 	}
 
 
-	protected void accumulate( KSConf conf ) throws InterruptedException {
+	protected void combineResidues(KSConf conf, double pbe, double tpbe, int[] tpce) {
 
-		double energy = isFullyDefined() ? 
-				sp.minimizedEnergy(conf.getConfArray()) : conf.getEnergyBound();
+		abort(true);
 
-				// we do not have a lock when minimizing	
-				conf.setEnergy(energy);
+		System.out.print("% bound error: " + pbe + ". ");
+		System.out.print("% bound error from top "+ getHotNumRes() +" RCs: " + tpbe + ". positions: " + Arrays.toString(tpce));		
+		System.out.print(". Combining residues: "); for(int i : tpce) System.out.print(getSequence().get(i) + " ");
+		System.out.print("... ");
 
-				synchronized( confsQ.lock ) {
+		long start = System.currentTimeMillis();
+		sp.mergeResiduePositions(tpce);
+		memoizePosInHot(tpce);
+		long duration = (System.currentTimeMillis()-start)/1000;
 
-					while( confsQ.getPartialQLB().compareTo(qPrimeCalculator.getTotalQLB()) > 0 ) {
-						//while( BigInteger.valueOf(confsQ.size()).compareTo(qPrimeCalculator.getNumEnumerated()) > 0 ) {
-						Thread.sleep(5);
-					}
+		System.out.println("done in " + duration + "s");
+		
+		
+		//BigDecimal oldPartialQPLB = new BigDecimal(partialQLB.toString());
+		partialQLB = reComputePartialQLB(null);
+		//if( oldPartialQPLB.compareTo(partialQLB) < 0 )
+		//	throw new RuntimeException("ERROR: old partial q' - new partial q': " + oldPartialQPLB.subtract(partialQLB) + " must be >= 0");
+		
+		
+		confsQ = new KSConfQ( this, 1, partialQLB );
+		qPrimeCalculator = new QPrimeCalculator( this );
+		qPrimeCalculator.setPriority(Thread.MAX_PRIORITY);
 
-					minimizingConfs = minimizingConfs.subtract( BigInteger.ONE );
+		qPrimeCalculator.start();
+		confsQ.start();
+		
+		conf.setEnergyBound(getConfBound(null, conf.getConfArray(), false));
+	}
+	
+	
+	protected void tryHotForConf(KSConf conf, MultiTermEnergyFunction mef) {
 
-					// update q*, qDagger, and q' atomically
-					energy = conf.getEnergy();
-					updateQStar( conf );
+		double pbe = 0, tpbe = 0; int[] tpce = null;
+		
+		RCEnergyContribs rce = new RCEnergyContribs(this, mef, conf.getConfArray());
+		pbe = rce.getPercentBoundError();
 
-					confsQ.accumulatePartialQLB(getBoltzmannWeight(conf.getEnergyBound()));
-					updateQPrime();
+		if(pbe >= getHotBoundPct()) {
+			tpbe = rce.getPercentErrorForTopPos(getHotNumRes());
+			if(tpbe >= getHotTopRotsPct()) {
+				tpce = rce.getTopPosCausingError(getHotNumRes());
+				combineResidues(conf, pbe, tpbe, tpce);
+			}
+		}
+	}
 
-					// negative values of effective esilon are disallowed
-					if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0 ) {
-						eAppx = EApproxReached.NOT_POSSIBLE;
-						return;
-					}
 
-					long currentTime = System.currentTimeMillis();
+	protected void accumulate( KSConf conf ) {
 
-					if( !PFAbstract.suppressOutput ) {
-						if( !printedHeader ) printHeader();
+		double energy = 0, boundError = 0;
+		MultiTermEnergyFunction mef = null;
 
-						double boundError = conf.getEnergyBound()-conf.getEnergy();
+		if( isFullyDefined() ) {
+			// we do not have a lock when minimizing
+			mef = sp.decompMinimizedEnergy(conf.getConfArray());
+			energy = mef.getPreCompE();
+		}
 
-						System.out.println(boundError + "\t" + energy + "\t" + effectiveEpsilon + "\t" + 
-								getNumMinimized4Output() + "\t" + getNumUnEnumerated() + "\t" + confsQ.size() + "\t" + ((currentTime-startTime)/1000));
-					}
+		else energy = conf.getEnergyBound();
 
-					eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
+		conf.setEnergy(energy);
+		boundError = conf.getEnergyBound() - conf.getEnergy();
 
-					// for partial sequences when doing KAstar
-					if( !isFullyDefined() && eAppx == EApproxReached.TRUE ) adjustQStar();
-				}
+		minimizingConfs = minimizingConfs.subtract( BigInteger.ONE );
+
+		updateQStar( conf );
+
+		updateQPrime();
+
+		// negative values of effective esilon are disallowed
+		if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0 ) {
+			System.out.println("here: " + effectiveEpsilon + " " + qStar + " " + qPrime + " " + pStar);
+			eAppx = EApproxReached.NOT_POSSIBLE;
+			return;
+		}
+
+		long currentTime = System.currentTimeMillis();
+
+		synchronized( confsQ.lock ) {
+
+			if( !PFAbstract.suppressOutput ) {
+				if( !printedHeader ) printHeader();
+				System.out.println(boundError + "\t" + energy + "\t" + effectiveEpsilon + "\t" + getNumMinimized4Output() + 
+						"\t" + getNumUnEnumerated() + "\t" + confsQ.size() + "\t" + ((currentTime-startTime)/1000));
+			}
+		}
+
+		eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
+
+		// hot
+		double peb = (conf.getEnergyBound()-conf.getEnergy())/conf.getEnergy();
+		if(canUseHotByConfError(peb)) 
+			tryHotForConf(conf, mef);
+
+		// for partial sequences when doing KAstar
+		if( !isFullyDefined() && eAppx == EApproxReached.TRUE ) adjustQStar();
 	}
 
 
@@ -265,7 +327,16 @@ public class PFNew01 extends PFAbstract implements Serializable {
 
 
 	protected void updateQPrime() {
-		qPrime = qPrimeCalculator.getQPrime(confsQ.getPartialQLB());
+
+		try {
+			while( partialQLB.compareTo(qPrimeCalculator.getTotalQLB()) > 0 ) Thread.sleep(1);
+			qPrime = qPrimeCalculator.getQPrime(partialQLB);
+
+		} catch(Exception e) {
+			System.out.println(e.getMessage());
+			e.printStackTrace();
+			System.exit(1);
+		}
 	}
 
 

@@ -24,6 +24,8 @@ import edu.duke.cs.osprey.tools.StringParsing;
 import java.io.File;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.StringTokenizer;
 
 /**
@@ -54,9 +56,23 @@ public class ConfigFileParser implements Serializable {
 		params.addDefaultParams();//We'll look for this in DataDir
 	}
 
+	
+	void checkStrands() {
+		// make sure that strands are mutually exclusive. assuming only two strands for now...
+		Strand s0 = getStrandLimits(0);
+		Strand s1 = getStrandLimits(1);
+		
+		// there is a C common to both integer sets
+		// x1 <= C <= x2
+		// y1 <= C <= y2
+		// x1 <= y2 && y1 <= x2
+		if(s0.getStrandBegin() <= s1.getStrandEnd() && s1.getStrandBegin() <= s0.getStrandEnd())
+			throw new RuntimeException("ERROR: strand0 overlaps with strand1. Please fix strand termini.");
+	}
+	
 
 	AllowedSeqs getAllowedSequences(int strand, AllowedSeqs complexSeqs) {
-
+		
 		Strand limits = getStrandLimits(strand);
 
 		if( complexSeqs == null ) {
@@ -535,6 +551,89 @@ public class ConfigFileParser implements Serializable {
 		}
 
 		return allowedAAs;
+	}
+	
+	
+	public ArrayList<ArrayList<String>> getHighOrderTuplesByStrand(int strand) {
+		
+		ArrayList<ArrayList<String>> ans = getHighOrderTuplesByPDBResNum();
+ 		
+		switch(strand) {
+		
+		case Strand.COMPLEX:
+			return ans;
+			
+		case Strand.LIGAND:
+			return filterContentsByStrand(getStrandLimits(Strand.LIGAND), ans);
+			
+		case Strand.PROTEIN:
+			return filterContentsByStrand(getStrandLimits(Strand.PROTEIN), ans);
+			
+		default:
+			throw new RuntimeException("ERROR: invalid strand");
+		}
+	}
+	
+	
+	ArrayList<ArrayList<String>> getHighOrderTuplesByPDBResNum() {
+		ArrayList<ArrayList<String>> ans = new ArrayList<>();
+
+		HashSet<String> flexRes = new HashSet<>(getFlexRes());
+		HashSet<String> resInHot = new HashSet<>();
+		
+		ArrayList<String> hotRecords = params.searchParams("pFuncHot_");
+		
+		for(String hotRecord : hotRecords) {
+			ArrayList<String> hotRes = new ArrayList<>();
+			
+			String val = params.getValue(hotRecord);
+			StringTokenizer tokenizer = new StringTokenizer(val);
+			
+			while(tokenizer.hasMoreTokens()) {
+				String token = tokenizer.nextToken();
+				
+				if(!flexRes.contains(token))
+					throw new RuntimeException("ERROR: residue " + token + " in line " + hotRecord + " must be flexible.");
+				
+				if(resInHot.contains(token))
+					throw new RuntimeException("ERROR: residue " + token + " cannot appear in more than one HOT.");
+				
+				hotRes.add(token);
+				resInHot.add(token);
+			}
+			
+			if(hotRes.size() < 3)
+				throw new RuntimeException("ERROR: in line " + hotRecord + " the number of residues is < 3.");
+			
+			hotRes.trimToSize();
+			ans.add(hotRes);
+		}
+		
+		ans.trimToSize();
+		return ans;
+	}
+	
+	
+	ArrayList<ArrayList<String>> filterContentsByStrand( Strand strand, ArrayList<ArrayList<String>> list ) {
+		@SuppressWarnings("unchecked")
+		ArrayList<ArrayList<String>> ans = (ArrayList<ArrayList<String>>) ObjectIO.deepCopy(list);
+		
+		for( Iterator<ArrayList<String>> iterator = ans.iterator(); iterator.hasNext(); ) {
+			
+			ArrayList<String> hot = iterator.next();
+			
+			for( Iterator<String> iterator2 = hot.iterator(); iterator2.hasNext(); ) {
+				String pdbResNum = iterator2.next();
+				
+				if(!strand.contains(Integer.parseInt(pdbResNum)))
+					iterator2.remove();
+			}
+			
+			if(hot.size() < 3)
+				iterator.remove();
+		}
+		
+		return ans;
 	}
 
 

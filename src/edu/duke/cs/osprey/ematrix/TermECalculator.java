@@ -10,7 +10,6 @@ import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.control.EnvironmentVars;
-import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.ematrix.epic.EPICEnergyFunction;
 import edu.duke.cs.osprey.ematrix.epic.EPICFitter;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
@@ -22,7 +21,6 @@ import edu.duke.cs.osprey.handlempi.MPISlaveTask;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.MolecEObjFunction;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -60,7 +58,8 @@ public class TermECalculator implements MPISlaveTask {
 	ArrayList<Double> oneBodyE = new ArrayList<>();
 	ArrayList<ArrayList<Double>> pairwiseE = new ArrayList<>();
 	ArrayList<ArrayList<ArrayList<Double>>> threeBodyE = new ArrayList<>();
-	
+	ArrayList<ArrayList<ArrayList<ArrayList<Double>>>> fourBodyE = new ArrayList<>();
+
 	ArrayList<EPoly> oneBodyPoly = new ArrayList<>();
 	ArrayList<ArrayList<EPoly>> pairwisePoly = new ArrayList<>();
 
@@ -94,14 +93,26 @@ public class TermECalculator implements MPISlaveTask {
 				Residue secondRes = confSpace.posFlex.get(res[1]).res;
 				Residue thirdRes = confSpace.posFlex.get(res[2]).res;
 				termE = new MultiTermEnergyFunction();
-				
+
 				// add respair energies for all 3 combinations
 				((MultiTermEnergyFunction)termE).addTerm(EnvironmentVars.curEFcnGenerator.resPairEnergy(firstRes, secondRes));
 				((MultiTermEnergyFunction)termE).addTerm(EnvironmentVars.curEFcnGenerator.resPairEnergy(firstRes, thirdRes));
 				((MultiTermEnergyFunction)termE).addTerm(EnvironmentVars.curEFcnGenerator.resPairEnergy(secondRes, thirdRes));
 			}
-			else{
-				throw new RuntimeException("ERROR: Can only precompute energy for 1, 2, and 3-body terms");
+			else if(res.length==4 || res.length==5){
+				// add all respair energies
+				termE = new MultiTermEnergyFunction();
+				
+				for (int i = 0; i < res.length; i++) {
+					Residue l = confSpace.posFlex.get(res[i]).res;
+					for (int j = i+1; j < res.length; j++) {
+						Residue r = confSpace.posFlex.get(res[j]).res;
+						((MultiTermEnergyFunction)termE).addTerm(EnvironmentVars.curEFcnGenerator.resPairEnergy(l, r));
+					}
+				}
+			}
+			else {
+				throw new RuntimeException("ERROR: Can only precompute energy for 1-5 body terms");
 				//we are excluding shell-shell interactions throughout this version of OSPREY,
 				//since they don't change and are time-consuming
 			}
@@ -133,12 +144,23 @@ public class TermECalculator implements MPISlaveTask {
 				return pairwiseE;
 		}
 		else if(res.length==3) {
-			threeBodyCalc();
 			
+			//nBodyCalc();
+			threeBodyCalc();
+
 			if(doingEPIC)
 				throw new RuntimeException("ERROR: have not implemented three body energies with EPIC");
 			else
 				return threeBodyE;
+		}
+		else if(res.length==4 || res.length==5) {
+			
+			nBodyCalc();
+
+			if(doingEPIC)
+				throw new RuntimeException("ERROR: have not implemented four body energies with EPIC");
+			else
+				return fourBodyE;
 		}
 		else
 			throw new RuntimeException("ERROR: Trying to precompute term for "+res.length+" bodies");
@@ -193,15 +215,46 @@ public class TermECalculator implements MPISlaveTask {
 				//if(pruneMat.isPruned(pair)) continue;
 
 				for(int thirdRCNum=0; thirdRCNum<RCList3.size(); thirdRCNum++){
-					
+
 					RCTuple triple = new RCTuple( new ArrayList<>(Arrays.asList(res[0], res[1], res[2])), new ArrayList<>(Arrays.asList(firstRCNum, secondRCNum, thirdRCNum)) );
 					//if(pruneMat.isPruned(triple)) continue;
-					
+
 					calcTupleEnergy(triple);
 				}
 			}
 		}
+	}
 
+
+	public void nBodyCalc() {
+		if(pruneMat == null)
+			throw new RuntimeException("ERROR: n-body calc requires a pruning matrix");
+
+		ArrayList<ArrayList<RC>> RCLists = new ArrayList<>();
+		for(int i = 0; i < res.length; ++i) RCLists.add(confSpace.posFlex.get(res[i]).RCs);
+
+		Integer[] resElements = new Integer[res.length]; Arrays.fill(resElements, -1);
+		Integer[] rcNums = new Integer[res.length]; Arrays.fill(rcNums, -1);
+		createNBodyTuples(RCLists, resElements, rcNums, 0);
+	}
+
+
+	public void createNBodyTuples( ArrayList<ArrayList<RC>> RCLists, Integer[] resElements, Integer[] rcNums, int depth ) {
+
+		if(depth == resElements.length) {
+			// resIndex and rcNums are fully populated
+			RCTuple nTuple = new RCTuple(new ArrayList<>(Arrays.asList(resElements)), new ArrayList<>(Arrays.asList(rcNums)));
+			calcTupleEnergy(nTuple);
+			return;
+		}
+
+		if(resElements[depth] == -1) 
+			resElements[depth] = new Integer(res[depth]);
+
+		for(int rcNum = 0; rcNum < RCLists.get(depth).size(); ++rcNum) {
+			rcNums[depth] = rcNum;
+			createNBodyTuples(RCLists, resElements, rcNums, depth+1);
+		}
 	}
 
 
@@ -223,25 +276,48 @@ public class TermECalculator implements MPISlaveTask {
 				skipTuple = true;
 			}
 		}
-		
+
 		else if(RCs.pos.size()==3) {
 			RC rc1 = confSpace.posFlex.get( RCs.pos.get(0) ).RCs.get( RCs.RCs.get(0) );
 			RC rc2 = confSpace.posFlex.get( RCs.pos.get(1) ).RCs.get( RCs.RCs.get(1) );
 			RC rc3 = confSpace.posFlex.get( RCs.pos.get(2) ).RCs.get( RCs.RCs.get(2) );
-			
+
 			if(rc1.isParametricallyIncompatibleWith(rc2)){
 				skipTuple = true;
 			}
-			
+
 			if(rc1.isParametricallyIncompatibleWith(rc3)){
 				skipTuple = true;
 			}
-			
+
 			if(rc2.isParametricallyIncompatibleWith(rc3)){
 				skipTuple = true;
 			}
 		}
-		
+
+		else if(RCs.pos.size()==4 || RCs.pos.size()==5) {
+
+			ArrayList<RC> indivRCs = new ArrayList<>(RCs.pos.size());
+
+			for(int i = 0; i < indivRCs.size(); ++i)
+				indivRCs.set(i, confSpace.posFlex.get( RCs.pos.get(i) ).RCs.get( RCs.RCs.get(i) ));
+
+			for(int i = 0; i < indivRCs.size(); ++i) {
+				RC rc1 = indivRCs.get(i);
+
+				for(int j = i+1; j < indivRCs.size(); ++j) {
+					RC rc2 = indivRCs.get(j);
+
+					if(rc1.isParametricallyIncompatibleWith(rc2)) {
+						skipTuple = true;
+						break;
+					}
+				}
+
+				if(skipTuple) break;
+			}
+		}
+
 		if( (pruneMat!=null) && (!skipTuple) ){
 			if(pruneMat.isPruned(RCs))
 				skipTuple = true;
@@ -299,26 +375,52 @@ public class TermECalculator implements MPISlaveTask {
 				pairwiseE.get(firstRCNum).add(minEnergy);
 			}
 		}
-		else if ( numBodies == 3 ) {
-			
-			int firstRCNum = RCs.RCs.get(0);
-			int secondRCNum = RCs.RCs.get(1);
+		else if( numBodies == 3 ) {
+
 			if(doingEPIC)
 				throw new RuntimeException("ERROR: have not implemented 3-body terms with EPIC");
-			
-			else {
-				if(threeBodyE.size()<=firstRCNum) {
-					threeBodyE.add(new ArrayList<ArrayList<Double>>());
-				}
-				
-				ArrayList<ArrayList<Double>> indexIntoRes1 = threeBodyE.get(firstRCNum);
-				if (indexIntoRes1.size()<=secondRCNum){
-					indexIntoRes1.add(new ArrayList<Double>());
-				}
-				threeBodyE.get(firstRCNum).get(secondRCNum).add(minEnergy);
+
+			int firstRCNum = RCs.RCs.get(0);
+			int secondRCNum = RCs.RCs.get(1);
+
+			if(threeBodyE.size()<=firstRCNum) {
+				threeBodyE.add(new ArrayList<ArrayList<Double>>());
 			}
+			ArrayList<ArrayList<Double>> indexIntoRes1 = threeBodyE.get(firstRCNum);
+			
+			if(indexIntoRes1.size()<=secondRCNum){
+				indexIntoRes1.add(new ArrayList<Double>());
+			}
+			
+			threeBodyE.get(firstRCNum).get(secondRCNum).add(minEnergy);
 		}
-		else//only 1, 2, and 3-body precomputations supported here
+		else if( numBodies == 4 ) {
+
+			if(doingEPIC)
+				throw new RuntimeException("ERROR: have not implemented 4-body terms with EPIC");
+
+			int rcNum0 = RCs.RCs.get(0);
+			int rCNum1 = RCs.RCs.get(1);
+			int rcNum2 = RCs.RCs.get(2);
+			
+			if(fourBodyE.size()<=rcNum0) {
+				fourBodyE.add(new ArrayList<ArrayList<ArrayList<Double>>>());
+			}
+			ArrayList<ArrayList<ArrayList<Double>>> indexIntoRes0 = fourBodyE.get(rcNum0);
+			
+			if(indexIntoRes0.size()<=rCNum1) {
+				indexIntoRes0.add(new ArrayList<ArrayList<Double>>());
+			}
+			ArrayList<ArrayList<Double>> indexIntoRes1 = fourBodyE.get(rcNum0).get(rCNum1);
+			//ArrayList<ArrayList<Double>> indexIntoRes1 = indexIntoRes0.get(rCNum1);
+			
+			if(indexIntoRes1.size()<=rcNum2) {
+				indexIntoRes1.add(new ArrayList<Double>());
+			}
+			
+			fourBodyE.get(rcNum0).get(rCNum1).get(rcNum2).add(minEnergy);
+		}
+		else//only 1-4 body precomputations supported here
 			throw new RuntimeException("ERROR: Trying to precompute term for "+numBodies+" bodies");
 	}
 

@@ -63,7 +63,7 @@ public class PFNew03 extends PFNew02 implements Serializable {
 			slaves.get(slaves.size()-1).id = i;
 		}
 
-		confsQ = new KSConfQ( this, confsPerThread );
+		confsQ = new KSConfQ( this, confsPerThread, partialQLB );
 
 		try {
 

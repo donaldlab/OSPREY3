@@ -35,6 +35,11 @@ public class KSConf implements Comparable, Serializable {
 	}
 
 
+	public void setEnergyBound( double e ) {
+		energyBound = e;
+	}
+	
+	
 	public double getEnergy() {
 		return energy;
 	}

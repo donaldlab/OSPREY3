@@ -24,9 +24,6 @@ public class KSConfQ extends Thread implements Serializable {
 	// lock for queue access
 	public final String lock = new String("LOCK");
 
-	// upper bound partition function
-	private BigDecimal partialQLB = BigDecimal.ZERO;
-
 	private LinkedHashSet<ArrayList<Integer>> q = null;
 	private int qCap = (int)Math.pow(2, 20);
 	private boolean confsExhausted = false;
@@ -39,11 +36,11 @@ public class KSConfQ extends Thread implements Serializable {
 	 * @param notificationThreshold = notify queue owner when queue contains
 	 * this number of conformations
 	 */
-	public KSConfQ( PFAbstract pf, int minCapacity ) {
+	public KSConfQ( PFAbstract pf, int minCapacity, BigDecimal partialQLB ) {
 
 		this.pf = pf;
 		confSearch = pf.getConfTree(false);
-
+		
 		this.minCapacity = minCapacity;
 		qCap = Math.max( minCapacity, PFAbstract.qCapacity );
 
@@ -85,6 +82,11 @@ public class KSConfQ extends Thread implements Serializable {
 		return size() >= requested;
 	}
 
+	
+	public double getConfBound( int[] conf ) {
+		return pf.getConfBound(confSearch, conf, false);
+	}
+	
 
 	public KSConf peekTail() {
 		return size() > 0 ? new KSConf(tail, pf.getConfBound(confSearch, KSConf.list2Array(tail), false)) : null;
@@ -136,16 +138,11 @@ public class KSConfQ extends Thread implements Serializable {
 	}
 
 
-	public BigDecimal getPartialQLB() {
-		return partialQLB;
+	public ConfSearch getConfSearch() {
+		return confSearch;
 	}
-
-
-	public void accumulatePartialQLB( BigDecimal in ) {
-		partialQLB = partialQLB.add(in);
-	}
-
-
+	
+	
 	public int getQCapacity() {
 		return qCap;
 	}

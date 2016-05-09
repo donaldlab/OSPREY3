@@ -1,4 +1,4 @@
-runName output
+runName pair
 %mutfile mutfile.txt
 iMinDEE true
 typedep true
@@ -9,7 +9,7 @@ useDunbrackRotamers false
 ematDir emat.lovell
 deleteEmatDir false
 
-epsilon 0.95
+epsilon 0.5
 useTupExp false
 doMinimize true
 doPerturbations false
@@ -35,15 +35,15 @@ resAllowed192 ILE
 resAllowed193 THR
 resAllowed194 CYS
 
-pFunctHotMethod manual
+pFunctHotMethod none
 pFuncHot_0 651 649 194 192
 pFuncHot_1 193 650 191
 pFuncHot_2 653 654 156
 pFuncHotNumRes 3
-pFuncHotBoundPct 0.03
-pFuncHotTopRotsPct 0.0
+pFuncHotBoundPct 0.05
+pFuncHotTopRotsPct 0.33
 pFuncStabThresh 0
-pFuncMethod new02
+pFuncMethod trad
 pFuncThreads 4
 numThreads 4
 eMinMethod hbfgsccd

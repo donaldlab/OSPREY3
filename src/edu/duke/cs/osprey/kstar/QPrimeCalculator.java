@@ -9,22 +9,23 @@ import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
 
 @SuppressWarnings("serial")
-public class QPrimeConfTree extends Thread implements Serializable {
+public class QPrimeCalculator extends Thread implements Serializable {
 
 	private PFAbstract pf;
 	private BigInteger unPruned;
 	private BigDecimal lastBoltzmannWeight = BigDecimal.ZERO;
+	private double lastEnergyBound = Double.NEGATIVE_INFINITY;
 	private BigInteger enumerated = BigInteger.ZERO;
 	private ConfSearch confSearch;
 	boolean confsExhausted = false;
 	private BigDecimal totalQLB = BigDecimal.ZERO;
 	public final String lock = new String("LOCK");
 
-	public QPrimeConfTree( PFAbstract pf, BigInteger unPruned ) {
+	public QPrimeCalculator( PFAbstract pf ) {
 
 		this.pf = pf;
 
-		this.unPruned = unPruned.add(BigInteger.ZERO);
+		this.unPruned = pf.getNumUnPruned();
 
 		confSearch = pf.getConfTree(false);
 	}
@@ -69,12 +70,22 @@ public class QPrimeConfTree extends Thread implements Serializable {
 
 
 	private void nullify() {
+		
+		if(!confsExhausted) {
+			BigInteger remaining = unPruned.subtract(enumerated);
+			
+			BigDecimal uniformBound = new BigDecimal(remaining).multiply(lastBoltzmannWeight);
+			BigDecimal denom = uniformBound.add(totalQLB);
+			BigDecimal percentQPrime = denom.compareTo(BigDecimal.ZERO) == 0 ? BigDecimal.ONE : totalQLB.divide(denom, 4);
+			
+			System.out.print("qPrimeConfTree complete. # enumerated: " + enumerated + ". # remaining: " + remaining + ". ");
+			System.out.println("% q': " + percentQPrime);
+		}
 		confsExhausted = true;
+		
 		lastBoltzmannWeight = BigDecimal.ZERO;
 		pf = null;
 		confSearch = null;
-		
-		System.out.println("qPrimeConfTree complete...");
 	}
 
 
@@ -105,10 +116,10 @@ public class QPrimeConfTree extends Thread implements Serializable {
 
 				if( conf == null ) { nullify(); return; }
 
-				double energyBound = pf.getConfBound(confSearch, conf, false);
-				if( energyBound == Double.POSITIVE_INFINITY ) { nullify(); return; }
+				lastEnergyBound = pf.getConfBound(confSearch, conf, false);
+				if( lastEnergyBound == Double.POSITIVE_INFINITY ) { nullify(); return; }
 
-				lastBoltzmannWeight = pf.getBoltzmannWeight(energyBound);
+				lastBoltzmannWeight = pf.getBoltzmannWeight(lastEnergyBound);
 				if( lastBoltzmannWeight.compareTo(BigDecimal.ZERO) == 0 ) { nullify(); return; }
 
 				totalQLB = totalQLB.add( lastBoltzmannWeight );

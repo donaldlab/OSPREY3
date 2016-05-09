@@ -79,7 +79,7 @@ public class PFNew04 extends PFNew03 implements Serializable {
 			for( int i = 0; i < fibers * confsPerThread; ++i ) unProcessedConfs.add(null);
 			unProcessedConfs.trimToSize();
 
-			confsQ = new KSConfQ( this, unProcessedConfs.size() );
+			confsQ = new KSConfQ( this, unProcessedConfs.size(), partialQLB );
 
 			// start conformation queue
 			confsQ.start();
