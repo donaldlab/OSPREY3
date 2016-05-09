@@ -8,39 +8,165 @@ package edu.duke.cs.osprey.partitionfunctionbounds;
 import edu.duke.cs.osprey.confspace.TupleMatrix;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
+import edu.duke.cs.osprey.parallel.Worker;
 import edu.duke.cs.osprey.tools.CreateMatrix;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import java.util.ArrayList;
-import java.util.Arrays;
 
 /**
  *
  * @author hmn5
  */
-public class TRBP_Refactor_2 {
+public class TRBP_Parallel {
+
+    private static class MessageWorker extends Worker {
+
+        private int[][] messagesToUpdate;
+        private double[][] updates;
+
+        @Override
+        protected void workIt() {
+            ArrayList<MRFNode> nodeList = TRBP_Parallel.nodeList;
+            EnergyMatrix emat = TRBP_Parallel.emat;
+            double[][] edgeProbabilities = TRBP_Parallel.edgeProbabilities;
+            double[][][] logMessages = TRBP_Parallel.logMessages;
+            double constRT = TRBP_Parallel.constRT;
+            
+            double[][] updates = new double[messagesToUpdate.length][];
+            int index=0;
+            for (int[] nodePair : messagesToUpdate){
+                MRFNode nodeI = nodeList.get(nodePair[0]);
+                MRFNode nodeJ = nodeList.get(nodePair[1]);
+                double[] update = getUpdatedLogMessage(nodeI, nodeJ, emat, logMessages, edgeProbabilities);
+                updates[index] = update;
+            }
+        }
+
+        double[] getUpdatedLogMessage(MRFNode sendingNode, MRFNode receivingNode, EnergyMatrix emat, double[][][] logMessages,
+                double[][] edgeProbabilities
+        ) {
+            double[] updatedLogMessages = new double[receivingNode.labelList.size()];
+            double largestLogMessage = Double.NEGATIVE_INFINITY;
+            for (MRFLabel receivingLabel : receivingNode.labelList) {
+                int index = receivingNode.labelList.indexOf(receivingLabel);
+                double normalizer = Double.NEGATIVE_INFINITY;
+                double[] toBeSummed = new double[sendingNode.labelList.size()];
+                for (int sendingLabelIndex = 0; sendingLabelIndex < sendingNode.labelList.size(); sendingLabelIndex++) {
+                    MRFLabel sendingLabel = sendingNode.labelList.get(sendingLabelIndex);
+
+                    //compute everything between the curly brackets in eq 39. of TRBP Paper
+                    //We do this in the log domain and exponentiate aftern
+                    double pairwisePot = getPairwisePotential(sendingNode, sendingLabel, receivingNode, receivingLabel, emat);
+                    double edgeProbability = getEdgeProbability(receivingNode, sendingNode, edgeProbabilities);
+                    double sendingLabelPot = getOneBodyPotential(sendingNode, sendingLabel, emat);
+
+//                double normalized = ((pairwisePot / edgeProbability) + sendingLabelPot - getExpNormMessagesAtRot(sendingNode, receivingNode, index));
+                    double sumLogMessages = getSumLogMessage(sendingNode, sendingLabel, receivingNode, logMessages, edgeProbabilities);
+                    toBeSummed[sendingLabelIndex] = (((pairwisePot / edgeProbability) + sendingLabelPot) / constRT) + sumLogMessages;
+                    normalizer = Math.max(normalizer, toBeSummed[sendingLabelIndex]);
+                    //              double exponential = Math.exp((normalized / constRT) + sumLogMessages);
+                    //                sum += exponential;
+                }
+                double sum = 0.;
+                for (int sendingLabelIndex = 0; sendingLabelIndex < sendingNode.labelList.size(); sendingLabelIndex++) {
+                    toBeSummed[sendingLabelIndex] -= normalizer;
+                    sum += Math.exp(toBeSummed[sendingLabelIndex]);
+                }
+                double nonNormalizedLogMessage = Math.log(sum) + normalizer;
+                largestLogMessage = Math.max(largestLogMessage, nonNormalizedLogMessage);
+                int messageIndex = receivingNode.labelList.indexOf(receivingLabel);
+                updatedLogMessages[messageIndex] = nonNormalizedLogMessage;
+            }
+            //Normalize by subtracting the largest logMessage;
+            for (int i = 0; i < updatedLogMessages.length; i++) {
+                updatedLogMessages[i] -= largestLogMessage;
+            }
+            double partFunc = 0.0;
+            for (int i = 0; i < updatedLogMessages.length; i++) {
+                partFunc += Math.exp(updatedLogMessages[i]);
+            }
+            double logPart = Math.log(partFunc);
+            for (int i = 0; i < updatedLogMessages.length; i++) {
+                updatedLogMessages[i] -= logPart;
+            }
+            return updatedLogMessages;
+        }
+
+        /**
+         * Computes the log of the righthand side of the equation in (39) in
+         * TRBP paper In the non-log-domain this is the product messages raise
+         * to the power of the edge probability In log domain this is a sum
+         */
+        double getSumLogMessage(MRFNode sendingNode, MRFLabel sendingLabel, MRFNode receivingNode, double[][][] logMessages, double[][] edgeProbabilities
+        ) {
+            double sum = 0.;
+            for (MRFNode nodeV : sendingNode.neighborList) {
+                if (!nodeV.equals(receivingNode)) {
+                    double edgeProbVToSender = getEdgeProbability(sendingNode, nodeV, edgeProbabilities);
+                    double logMessageVToSender = getLogMessage(nodeV, sendingNode, sendingLabel, logMessages);
+                    sum += edgeProbVToSender * logMessageVToSender;
+                }
+            }
+            double edgeProbReceivToSend = getEdgeProbability(sendingNode, receivingNode, edgeProbabilities);
+            double logMessageReceivToSend = getLogMessage(receivingNode, sendingNode, sendingLabel, logMessages);
+            sum -= (1 - edgeProbReceivToSend) * logMessageReceivToSend;
+
+            return sum;
+        }
+
+        double getLogMessage(MRFNode sendingNode, MRFNode receivingNode, MRFLabel receivingLabel, double[][][] logMessages
+        ) {
+            return logMessages[sendingNode.index][receivingNode.index][receivingNode.labelList.indexOf(receivingLabel)];
+        }
+
+        double getPairwisePotential(MRFNode nodeI, MRFLabel labelI, MRFNode nodeJ, MRFLabel labelJ, EnergyMatrix emat
+        ) {
+            return -emat.getPairwise(nodeI.posNum, labelI.labelNum, nodeJ.posNum, labelJ.labelNum);
+        }
+
+        double getOneBodyPotential(MRFNode node, MRFLabel label, EnergyMatrix emat
+        ) {
+            return -emat.getOneBody(node.posNum, label.labelNum);
+        }
+
+        private double getEdgeProbability(MRFNode nodeI, MRFNode nodeJ, double[][] edgeProbabilities) {
+            int indexNodeI = nodeI.index;
+            int indexNodeJ = nodeJ.index;
+            if (indexNodeI < indexNodeJ) {
+                return edgeProbabilities[indexNodeJ][indexNodeI];
+            }
+            return edgeProbabilities[indexNodeI][indexNodeJ];
+        }
+    }
 
     double logZ = Double.POSITIVE_INFINITY;
 
-    ArrayList<MRFNode> nodeList;
+    static ArrayList<MRFNode> nodeList;
+    static EnergyMatrix emat;
+    static double[][][] logMessages;
+
+    static {
+        nodeList = null;
+        emat = null;
+    }
+
     int numNodes;
     int[] numLabelsPerNode;
 
-    EnergyMatrix emat;
     boolean[][] interactionGraph;
 
     TupleMatrix<Double> marginalProbabilities;
 
     double threshold = 1e-6;
-    double constRT = PoissonBoltzmannEnergy.constRT;
+    static double constRT = PoissonBoltzmannEnergy.constRT;
 
     double damping = 0.8;
     int maxNumEdgeUpdates = 3;
 
-    public double[][] edgeProbabilities;
+    public static double[][] edgeProbabilities;
     double[][] edgeWeights;
     double[][] edgeClampWeights;
 
-    double[][][] logMessages;
 //    double[][][] messages;
     int numMessages;
 
@@ -63,7 +189,7 @@ public class TRBP_Refactor_2 {
 
     public double[] nodeWeights;
 
-    public TRBP_Refactor_2(MarkovRandomField mrf) {
+    public TRBP_Parallel(MarkovRandomField mrf) {
         this.nodeList = mrf.nodeList;
         this.emat = mrf.emat;
         this.interactionGraph = mrf.interactionGraph;
@@ -86,7 +212,7 @@ public class TRBP_Refactor_2 {
         runTRBP2();
     }
 
-    public TRBP_Refactor_2(MarkovRandomField mrf, double parentUpperBound) {
+    public TRBP_Parallel(MarkovRandomField mrf, double parentUpperBound) {
         this.nodeList = mrf.nodeList;
         this.emat = mrf.emat;
         this.interactionGraph = mrf.interactionGraph;
@@ -112,74 +238,6 @@ public class TRBP_Refactor_2 {
         runTRBP2();
     }
 
-    /*    private void runTRBP() {
-     int numEdgeUpdates = 0;
-     double changeBetweenEdgeUpdates = Double.POSITIVE_INFINITY;
-     //Keep track of last logZ from previous edge update
-     double lastLogZEdge = Double.POSITIVE_INFINITY;
-
-     while (numEdgeUpdates <= maxNumEdgeUpdates) {
-     if (numEdgeUpdates > 0) {
-     if (verbose) {
-     System.out.println("Updating Edge Probabilities...  logZ: " + lastLogZEdge);
-     }
-     updateEdgeProbabilities(numEdgeUpdates);
-     //                this.edgeProbabilities = GraphUtils.getEdgeProbabilities(edgeWeights);
-     this.logMessages = initializeLogMessages(1.0);
-     }
-
-     double changeBetweenMessageUpdates = Double.POSITIVE_INFINITY;
-     //Keep track of last logZ from previous message update
-     double lastLogZMessage = Double.POSITIVE_INFINITY;
-     int numMessageUpdates = 0;
-     while (changeBetweenMessageUpdates > accuracyWithinEdgeProb || numMessageUpdates < 10) {
-     //This is the meat of the algorithm
-     boolean useDamping = true;
-     //                updateMessagesSequentially(logMessages, useDamping);
-     updateMessagesSequentially(logMessages, useDamping);
-     updateMarginals();
-     double currentlogZ = calcUBLogZ();
-
-     changeBetweenMessageUpdates = Math.abs(lastLogZMessage - currentlogZ);
-     lastLogZMessage = currentlogZ;
-     if (verbose) {
-     System.out.println("   LogZUB: " + currentlogZ);
-     }
-     if ((numMessageUpdates > 0 && useParentUpperBound) && lastLogZMessage + cutOffUpperBound < parentUpperBound) {
-     break;
-     }
-     numMessageUpdates++;
-     }
-     changeBetweenEdgeUpdates = Math.abs(lastLogZEdge - lastLogZMessage);
-     lastLogZEdge = lastLogZMessage;
-     this.logZ = Math.min(this.logZ, lastLogZEdge);
-     if (lastLogZMessage + cutOffUpperBound < parentUpperBound) {
-     break;
-     }
-     numEdgeUpdates++;
-     }
-     if (lastLogZEdge + cutOffUpperBound > parentUpperBound) {
-     double change = Double.POSITIVE_INFINITY;
-     double lastLogZ = Double.POSITIVE_INFINITY;
-     while (change > 0.0001) {
-     //This is the meat of the algorithm
-     boolean useDamping = true;
-     //                updateMessagesSequentially(logMessages, useDamping);
-     updateMessagesSequentially(logMessages, useDamping);
-     updateMarginals();
-     double currentlogZ = calcUBLogZ();
-
-     change = Math.abs(lastLogZ - currentlogZ);
-     lastLogZ = currentlogZ;
-     if (verbose) {
-     System.out.println("   LogZUB: " + currentlogZ);
-     }
-     }
-     this.logZ = Math.min(logZ, lastLogZ);
-     }
-     double[] degrees = GraphUtils.getWeightedDegrees(edgeClampWeights);
-     this.nodeWeights = degrees;
-     }*/
     private void runTRBP2() {
         int numEdgeUpdates = 0;
         double changeBetweenEdgeUpdates = Double.POSITIVE_INFINITY;
@@ -200,7 +258,7 @@ public class TRBP_Refactor_2 {
             //Keep track of last logZ from previous message update
             double lastLogZMessage = Double.POSITIVE_INFINITY;
             int numMessageUpdates = 0;
-            if (numEdgeUpdates == 1){
+            if (numEdgeUpdates == 1) {
                 accuracyWithinEdgeProb /= 10.;
             }
             while ((changeBetweenMessageUpdates > accuracyWithinEdgeProb) || numMessageUpdates < 10) {
@@ -216,7 +274,7 @@ public class TRBP_Refactor_2 {
                     lastLogZMessage = currentlogZ;
                     changeBetweenMessageUpdates = change;
                     if (verbose) {
-                        System.out.println("   LogZUB: " + currentlogZ + "  Change: " + change + "  AveMess: "+this.averageChange);
+                        System.out.println("   LogZUB: " + currentlogZ + "  Change: " + change + "  AveMess: " + this.averageChange);
                     }
                 }
                 numMessageUpdates++;

@@ -28,7 +28,7 @@ public class DiscretePartFunc {
     double constRT = PoissonBoltzmannEnergy.constRT;
     ExpFunction ef = new ExpFunction();
 
-    boolean printEffectiveEpsilon = true;
+    boolean printEffectiveEpsilon = false;
 
     double logZ;
 
@@ -55,7 +55,7 @@ public class DiscretePartFunc {
         this.logZ = computePartFunc();
     }
     
-    public DiscretePartFunc(EnergyMatrix emat, PruningMatrix pruneMat, double epsilon, long maxTimeLimitMilli) {
+    public DiscretePartFunc(EnergyMatrix emat, PruningMatrix pruneMat, double epsilon, double maxTimeLimitMilli) {
         this.epsilon = epsilon;
         this.emat = emat;
         this.pruneMat = pruneMat;
@@ -105,7 +105,7 @@ public class DiscretePartFunc {
         return (normalize) + Math.log(runningSum);
     }
 
-    double computePartFunc(long maxTimeMilli) {
+    double computePartFunc(double maxTimeMilli) {
         long startTime = System.currentTimeMillis();
         ConfTree tree = new ConfTree(emat, pruneMat);
         double normalize;
