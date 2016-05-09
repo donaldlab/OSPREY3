@@ -77,6 +77,11 @@ public class PartFuncTree extends AStarTree {
     //Should we use the edge probabilites from the parent node to "seed" the
     //edge probabilities of the child
     boolean useParentEdgeProbTRBP = false;
+    public boolean timeOut = false;
+    boolean checkTime = false;
+    double maxTime;
+    long startTime;
+    public double effectiveEpsilon;
 
     public PartFuncTree(SearchProblem sp) {
         init(sp, sp.pruneMat, sp.useEPIC);
@@ -137,25 +142,24 @@ public class PartFuncTree extends AStarTree {
                 posMaxWeight = pos;
             }
         }
-        Set<Entry<Integer, Double>> set = pos2Weight.entrySet();
-        List<Entry<Integer, Double>> listTup = new ArrayList<>(set);
-        Collections.sort(listTup, new Comparator<Map.Entry<Integer, Double>>() {
-            public int compare(Map.Entry<Integer, Double> tup1, Map.Entry<Integer, Double> tup2) {
-                return tup2.getValue().compareTo(tup1.getValue());
-            }
-        });
-        for (int i = 0; i < 5; i++) {
-            System.out.println("Pos: " + listTup.get(i).getKey() + "  Rank: " + i);
-        }
+        /*        Set<Entry<Integer, Double>> set = pos2Weight.entrySet();
+         List<Entry<Integer, Double>> listTup = new ArrayList<>(set);
+         Collections.sort(listTup, new Comparator<Map.Entry<Integer, Double>>() {
+         public int compare(Map.Entry<Integer, Double> tup1, Map.Entry<Integer, Double> tup2) {
+         return tup2.getValue().compareTo(tup1.getValue());
+         }
+         });
+         for (int i = 0; i < 5; i++) {
+         System.out.println("Pos: " + listTup.get(i).getKey() + "  Rank: " + i);
+         }
 
-        System.out.println(
-                "Pos With Best Weight: " + posMaxWeight);
-//        subtractFromBounds(node);
+         System.out.println(
+         "Pos With Best Weight: " + posMaxWeight);
+         //        subtractFromBounds(node);*/
         subtractLowerBound(node);
         int[] curAssignments = node.getNodeAssignments();
 
-        System.out.println(
-                "Node lbLogZ: " + node.lbLogZ);
+//        System.out.println("Node lbLogZ: " + node.lbLogZ);
         int splitPos;
         if (useDynamicOrdering && useTRBPWeightForOrder) {
             splitPos = posMaxWeight;
@@ -198,7 +202,7 @@ public class PartFuncTree extends AStarTree {
             int childNum = 1;
             for (AStarNode childNode : children) {
                 PartFuncNode child = (PartFuncNode) childNode;
-                System.out.println("Computing UB for Node "+childNum);
+                System.out.println("Computing UB for Node " + childNum);
                 child.setUpperBoundLogZ(computeUpperBound(child, node));
                 updateUpperBound(child);
                 child.setScore(scoreNode(child));
@@ -206,8 +210,11 @@ public class PartFuncTree extends AStarTree {
             }
         }
         if (verbose) {
-            System.out.println("LowerBound logZ: " + this.ef.log(this.lbZ.add(this.runningSum)).doubleValue());
-            System.out.println("UpperBound logZ: " + this.ef.log(this.ubZ.add(this.runningSum)).doubleValue());
+            System.out.println(this.numExpanded + " LowerBound logZ: " + this.ef.log(this.lbZ.add(this.runningSum)).doubleValue());
+            System.out.println(this.numExpanded + " UpperBound logZ: " + this.ef.log(this.ubZ.add(this.runningSum)).doubleValue());
+            if (this.checkTime) {
+                System.out.println("Time: " + (System.currentTimeMillis() - this.startTime));
+            }
         }
 
         printEffectiveEpsilon();
@@ -339,7 +346,12 @@ public class PartFuncTree extends AStarTree {
     public boolean isFullyAssigned(AStarNode node) {
         double logLBZ = this.ef.log(this.lbZ.add(this.runningSum)).doubleValue();
         double logUBZ = this.ef.log(this.ubZ.add(this.runningSum)).doubleValue();
-        return (logLBZ - logUBZ) >= Math.log(1 - this.epsilon);
+        this.effectiveEpsilon =  1 - ((lbZ.add(this.runningSum)).divide((ubZ.add(this.runningSum)), this.ef.mc)).doubleValue();
+        boolean epsilonReached = (logLBZ - logUBZ) >= Math.log(1 - this.epsilon);
+        if (this.checkTime){
+            this.timeOut = (System.currentTimeMillis() - this.startTime) > this.maxTime;
+        }
+        return epsilonReached || timeOut;
     }
 
     @Override
@@ -353,6 +365,13 @@ public class PartFuncTree extends AStarTree {
         root.setLowerBoundLogZ(computeLowerBound(root));
         root.setScore(scoreNode(root));
         updateBounds(root);
+        if (verbose) {
+            System.out.println("LowerBound logZ: " + this.ef.log(this.lbZ.add(this.runningSum)).doubleValue());
+            System.out.println("UpperBound logZ: " + this.ef.log(this.ubZ.add(this.runningSum)).doubleValue());
+            if (checkTime) {
+                System.out.println("Time: " + (System.currentTimeMillis() - this.startTime));
+            }
+        }
         printEffectiveEpsilon();
         return root;
     }
@@ -360,15 +379,24 @@ public class PartFuncTree extends AStarTree {
     public double computeEpsilonApprox(double epsilon) {
         this.epsilon = epsilon;
         this.nextConf();
-        return this.ef.log(this.lbZ.add(this.runningSum)).doubleValue();
+        return this.ef.log(this.ubZ.add(this.runningSum)).doubleValue();
+    }
+
+    public double computeEpsilonApprox(double epsilon, double maxTime) {
+        this.epsilon = epsilon;
+        this.checkTime = true;
+        this.maxTime = maxTime;
+        this.startTime = System.currentTimeMillis();
+        this.nextConf();
+        return this.ef.log(this.ubZ.add(this.runningSum)).doubleValue();
     }
 
     private double scoreNode(PartFuncNode node) {
 //        return -node.lbLogZ;
-        if (node.ubLogZ < node.lbLogZ){
+        if (node.ubLogZ < node.lbLogZ) {
             System.out.println("Error: UB is less than LB");
-            System.out.println("UB: "+node.ubLogZ);
-            System.out.println("LB: "+node.lbLogZ);
+            System.out.println("UB: " + node.ubLogZ);
+            System.out.println("LB: " + node.lbLogZ);
         }
         return -this.ef.log(this.ef.exp(node.ubLogZ).subtract(this.ef.exp(node.lbLogZ))).doubleValue();
 //        return mplp.optimizeMPLP(node.getNodeAssignments(), 1000);
