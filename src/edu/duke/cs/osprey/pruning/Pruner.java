@@ -120,6 +120,11 @@ public class Pruner {
         if(verbose)
             System.out.println("Starting pruning with " + method.name());
         
+		if (!method.useCompetitor) {
+			throw new RuntimeException("ERROR: Bounds pruning not supported yet");
+			//prunedCandidate = canPrune(cand,method.cst,contELB);//non-competitive pruning attempt
+		}
+		
         boolean prunedSomething = false;
         boolean prunedSomethingThisCycle;
 
@@ -128,49 +133,37 @@ public class Pruner {
             
             ArrayList<RCTuple> candidates = enumerateCandidates(method);
 
-            for( RCTuple cand : candidates ){
+            for (RCTuple cand : candidates) {
                 
                 double contELB = 0;
                 if(useEPIC && cand.pos.size()>1)//EPIC gives us nothing for 1-pos pruning
                     contELB = epicMat.minContE(cand);
                 
-                if( ! pruneMat.isPruned(cand) ){
-                    
-                    boolean prunedCandidate = false;
-                    
-                    if(method.useCompetitor){
-                        //any of the candidates may also be used as a competitor...
-                        //for(RCTuple competitor : searchSpace.pruneMat.unprunedRCTuplesAtPos(cand.pos)){
-                        //try having more competitors eliminated for speed
-                        for(RCTuple competitor : competitorPruneMat.unprunedRCTuplesAtPos(cand.pos)){
-                            
-                            if(cand.isSameTuple(competitor) && contELB==0)//you can't prune yourself
-                                //except if using EPIC (where we would be checking if contELB >= pruningInterval)
-                                continue;
-                            
-                            if(typeDep){
-                                //can only prune using competitors of same res type
-                                if( !resTypesMatch(cand,competitor) )
-                                    continue;
-                            }
-                                                        
-                            if( canPrune(cand,competitor,method.cst,contELB) ){
-                                prunedCandidate = true;
-                                break;
-                            }
-                        }
-                    }
-                    else {
-                        throw new RuntimeException("ERROR: Bounds pruning not supported yet");
-                        //prunedCandidate = canPrune(cand,method.cst,contELB);//non-competitive pruning attempt
-                    }
-                    
-                    if(prunedCandidate){
-                        pruneMat.markAsPruned(cand);
-                        prunedSomething = true;
-                        prunedSomethingThisCycle = true;
-                    }
+                // skip candidates we've already pruned
+                if (pruneMat.isPruned(cand)) {
+                	continue;
                 }
+                    
+				//any of the candidates may also be used as a competitor...
+				for (RCTuple competitor : competitorPruneMat.unprunedRCTuplesAtPos(cand.pos)) {
+					
+					if(cand.isSameTuple(competitor) && contELB==0)//you can't prune yourself
+						//except if using EPIC (where we would be checking if contELB >= pruningInterval)
+						continue;
+					
+					if(typeDep){
+						//can only prune using competitors of same res type
+						if( !resTypesMatch(cand,competitor) )
+							continue;
+					}
+												
+					if (canPrune(cand, competitor, method.cst, contELB)) {
+						pruneMat.markAsPruned(cand);
+						prunedSomething = true;
+						prunedSomethingThisCycle = true;
+						break;
+					}
+				}
             }
             
         } while(prunedSomethingThisCycle);
@@ -237,48 +230,107 @@ public class Pruner {
             return true;*/
         
  
+        EnergyMatrix emat = this.emat;
+        PruningMatrix pruneMat = this.pruneMat;
+		ArrayList<Integer> candpos = cand.pos;
+		ArrayList<Integer> candRCs = cand.RCs;
+		ArrayList<Integer> comppos = cand.pos;
+		ArrayList<Integer> compRCs = comp.RCs;
         
+		int numCandPos = candpos.size();
+        ArrayList<Integer> unprunedRCs = new ArrayList<Integer>(64);
+        
+        // pre-allocate some memory for a candidate-and-extra-pos tuple
+        RCTuple candAndExtra = new RCTuple();
+        ArrayList<Integer> candAndExtraPos = candAndExtra.pos;
+        ArrayList<Integer> candAndExtraRCs = candAndExtra.RCs;
+        candAndExtra.set(cand);
+        candAndExtraPos.add(-1);
+        candAndExtraRCs.add(-1);
+        int extraPosIndex = candAndExtraPos.size() - 1;
+        int extraRCIndex = candAndExtraRCs.size() - 1;
         
         double checkSum = emat.getInternalEnergy(cand);
-        
         checkSum += contELB;
         checkSum -= emat.getInternalEnergy(comp);
         
-        if(checkSumType == CheckSumType.GOLDSTEIN ){            
-            
-            for(int pos=0; pos<confSpace.numPos; pos++){
-                if(!cand.pos.contains(pos)){
-                    
-                    double bestInteraction = Double.POSITIVE_INFINITY;
-                    //if no rc's at pos are compatible with cand, we can set infinite checkSum --> prune cand
-                    
-                    for(int rc: pruneMat.unprunedRCsAtPos(pos)){
-                        
-                        if(pruneMat.isPruned(cand.addRC(pos,rc)))//(pos,rc) not compatible with cand
-                            continue;
-                        
-                        double diffBound = minInteractionDiff(cand,comp,pos,rc);
-                        
-                        bestInteraction = Math.min(bestInteraction,
-                               diffBound );
-                    }
-                    checkSum += bestInteraction;
-                }
-            }
-        }
-        else {
+		// OPTIMIZATION: only check higher order terms if we actually have any
+        boolean useHigherOrder = emat.hasHigherOrderTerms();
+        
+        if (checkSumType != CheckSumType.GOLDSTEIN) {            
             throw new RuntimeException("ERROR: Not supporting indirect and conf-splitting pruning yet...");
         }
+        
+        assert (pruningInterval < Double.POSITIVE_INFINITY);
+        
+        // NOTE: candidate guaranteed not to be pruned
+        
+        // for each witness pos...
+        int numPos = confSpace.numPos;
+        for (int posWit=0; posWit<numPos; posWit++) {
+            if (candpos.contains(posWit)) {
+            	continue;
+            }
+
+			pruneMat.unprunedRCsAtPos(unprunedRCs, posWit);
+
+			// short circuit: no RCs means we can prune right now
+			if (unprunedRCs.isEmpty()) {
+				return true;
+			}
+			
+			//if no rc's at pos are compatible with cand, we can set infinite checkSum --> prune cand
+			double minDiff = Double.POSITIVE_INFINITY;
+			for (int rcWit : unprunedRCs) {
+				
+				// is witness compatible with the candidate?
+				candAndExtraPos.set(extraPosIndex, posWit);
+				candAndExtraRCs.set(extraRCIndex, rcWit);
+				if (pruneMat.isPruned(candAndExtra)) {
+					// nope, don't even consider this combination
+					continue;
+				}
+				
+				// compute the energy diff between the candidate and competitor
+				// from the point of view of the witness
+				double diff = 0;
+				for (int i=0; i<numCandPos; i++) {
+					
+					int posCand = candpos.get(i);
+					int rcCand = candRCs.get(i);
+					int rcComp = compRCs.get(i);
+					
+					diff += emat.getPairwise(posWit, rcWit, posCand, rcCand)
+						- emat.getPairwise(posWit, rcWit, posCand, rcComp);
+					
+					// short circuit: infinite energy means we can stop comparing right now
+					if (diff == Double.POSITIVE_INFINITY) {
+						break;
+					}
+				}
+				if (useHigherOrder) {
+					diff += minInteractionDiffHigher(cand, comp, posWit, rcWit);
+				}
+				
+				minDiff = Math.min(minDiff, diff);
+			}
+			
+			// short circuit: infinite energy means we can prune right now
+			if (minDiff == Double.POSITIVE_INFINITY) {
+				return true;
+			}
+			
+			checkSum += minDiff;
+        }
                
-        return (checkSum>pruningInterval);
+        return checkSum > pruningInterval;
     }
     
     
     //For the rigid pruning with a pairwise matrix that is currently implemented,
     //min and maxInteraction are the same: just the sum of pairwise interactions
     //between (pos,rc) and all the RCs in RCTup
-    double minInteractionDiff(RCTuple cand, RCTuple comp, int pos, int rc){
-        double E = 0;
+    double minInteractionDiffHigher(RCTuple cand, RCTuple comp, int pos, int rc){
         
         ArrayList<HigherTupleFinder<Double>> candHigher = new ArrayList<>();
         ArrayList<HigherTupleFinder<Double>> compHigher = new ArrayList<>();
@@ -288,11 +340,6 @@ public class Pruner {
             int rc2 = cand.RCs.get(indexInTup);
             int rc2Comp = comp.RCs.get(indexInTup);
             
-            double pairwiseE = emat.getPairwise(pos, rc, pos2, rc2)
-                    - emat.getPairwise(pos, rc, pos2, rc2Comp);
-            
-            E += pairwiseE;
-            
             HigherTupleFinder<Double> htfCand = emat.getHigherOrderTerms(pos, rc, pos2, rc2);
             if(htfCand!=null)
                 candHigher.add(htfCand);
@@ -301,10 +348,11 @@ public class Pruner {
                 compHigher.add(htfComp);
         }
         
-        if( ! (candHigher.isEmpty()&&compHigher.isEmpty()) )
-            E += higherOrderContribGoldstein(cand,comp,pos,candHigher,compHigher);
+        if(candHigher.isEmpty() && compHigher.isEmpty()) {
+        	return 0;
+        }
         
-        return E;
+        return higherOrderContribGoldstein(cand,comp,pos,candHigher,compHigher);
     }
     
     

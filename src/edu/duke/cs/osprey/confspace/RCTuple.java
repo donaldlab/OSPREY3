@@ -85,8 +85,21 @@ public class RCTuple implements Serializable {
         }
     }
     
+    public void set(RCTuple other) {
+    	pos.clear();
+    	RCs.clear();
+    	pos.addAll(other.pos);
+    	RCs.addAll(other.RCs);
+    }
+    
     
     public boolean isSameTuple(RCTuple tuple2){
+    	
+    	// short circuit: same instance must have same value
+    	if (this == tuple2) {
+    		return true;
+    	}
+    	
         //do the two tuple objects specify the same tuple of RCs?
         if( (pos.size()!=RCs.size()) || (tuple2.pos.size()!=tuple2.RCs.size()) )
             throw new RuntimeException("ERROR: Ill-defined RC tuple");

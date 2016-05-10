@@ -85,7 +85,8 @@ public class PruningProfiling {
 		double stericThreshold = 100; // config default
 		PruningControl pruner = new PruningControl(
 			search, pruningInterval, typeDep, boundsThreshold, algoOption, 
-			useFlags, useTriples, preDacs, useEpic, useTupleExpansion, stericThreshold);
+			useFlags, useTriples, preDacs, useEpic, useTupleExpansion, stericThreshold
+		);
 		
 		// notation below (trialN values in milliseconds):
 		// numFlexPos: [trial1, trial2, trial2]
@@ -94,10 +95,52 @@ public class PruningProfiling {
 		// BEFORE OPTIMIZATIONS
 		// 300: [18510, 18428, 18635]
 		
+		// optimize Pruner.canPrune(), PruningMatrix.isPruned()
+		// 300: [10689, 10852, 10834] => 1.72x speedup
+		
+		// ugh... something happened to my computer after lunch, everything's slower now
+		// re-benchmarking current code:
+		// 300: [12973, 13275, 13109]
+		
+		// specialize TupleMatrixBoolean for PruningMatrix
+		// 300: [12609, 12279, 12424] => 1.05x speedup over benchmark
+		// not quite as dramatic an improvement as the EnergyMatrix double specialization, but I'll take it
+		
+		// more optimizations (particularly CPU cache optimizations)
+		// 300: [11200, 11023, 10874] => 1.19x speedup over benchmark, 2.05x speedup over original
+		
 		System.out.println("\nPruning " + search.confSpace.getNumConformations().doubleValue() + " conformations...");
 		Stopwatch.start();
 		pruner.prune();            
 		Stopwatch.stop();
 		System.out.println("finished in " + Stopwatch.getTime(TimeUnit.MILLISECONDS));
+		
+		/* TODO: check pruning accuracy automatically:
+		
+		Starting steric pruning.
+		Pruned 82 in 1-body steric pruning
+		Pruned 7745 in 2-body steric pruning
+		Starting DEE cycle run: 0
+		Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+		Num pruned rot this run: 2275
+		Num pruned pairs this run: 0
+
+		Starting DEE cycle run: 1
+		Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+		Starting pruning with GOLDSTEIN FOR 2 POSITION(S)
+		Num pruned rot this run: 0
+		Num pruned pairs this run: 24861
+
+		Starting DEE cycle run: 2
+		Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+		Num pruned rot this run: 73
+		Num pruned pairs this run: 0
+
+		Starting DEE cycle run: 3
+		Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+		Starting pruning with GOLDSTEIN FOR 2 POSITION(S)
+		Num pruned rot this run: 0
+		Num pruned pairs this run: 0
+		*/
 	}
 }
