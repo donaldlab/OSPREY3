@@ -226,6 +226,11 @@ public class GMECFinder {
                     break;
                 }
                 
+                // if we're finding a rigidGMEC with no energy window, don't wait for the second conformation
+                if (!useContFlex && Ew == 0) {
+                	break;
+                }
+                
             } while( bestESoFar+Ew >= lowerBound );//lower bound above GMEC + Ew...can stop enumerating
             
             double confSearchTimeMinutes = (System.currentTimeMillis()-confSearchStartTime)/60000.0;
