@@ -1,15 +1,15 @@
-runName pair
+runName output
 %mutfile mutfile.txt
 iMinDEE true
 typedep true
-ival 2.0
+ival 1.0
 ew 0
 
 useDunbrackRotamers false
 ematDir emat.lovell
 deleteEmatDir false
 
-epsilon 0.9999
+epsilon 0.1
 useTupExp false
 doMinimize true
 doPerturbations false
@@ -36,9 +36,9 @@ resAllowed193 THR
 resAllowed194 CYS
 
 pFunctHotMethod manual
-pFuncHot_0 651 649 194 192
-pFuncHot_1 193 650 191
-pFuncHot_2 653 654 156
+pFuncHot_0 649 650 192 193 194
+%pFuncHot_1 193 650 191
+pFuncHot_1 651 653 654 156 191
 pFuncHotNumRes 3
 pFuncHotBoundPct 0.05
 pFuncHotTopRotsPct 0.33
