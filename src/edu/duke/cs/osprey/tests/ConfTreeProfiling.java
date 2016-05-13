@@ -8,10 +8,12 @@ import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.EnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
 public class ConfTreeProfiling {
@@ -59,10 +61,17 @@ public class ConfTreeProfiling {
 		);
 		
 		// compute the energy matrix
-		System.out.println("\nComputing energy matrix...");
-		EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(search.confSpace, search.shellResidues, useERef, addResEntropy);
-		emCalc.calcPEM();
-		search.emat = emCalc.getEMatrix();
+		File ematFile = new File(String.format("emat.%d.dat", NumFlexible));
+		if (ematFile.exists()) {
+			System.out.println("\nReading energy matrix...");
+			search.emat = (EnergyMatrix)ObjectIO.readObject(ematFile.getAbsolutePath(), true);
+		} else {
+			System.out.println("\nComputing energy matrix...");
+			EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(search.confSpace, search.shellResidues, useERef, addResEntropy);
+			emCalc.calcPEM();
+			search.emat = emCalc.getEMatrix();
+			ObjectIO.writeObject(search.emat, ematFile.getAbsolutePath());
+		}
 		
 		// don't bother with pruning, set all to unpruned
 		search.pruneMat = new PruningMatrix(search.confSpace, search.emat.getPruningInterval());
