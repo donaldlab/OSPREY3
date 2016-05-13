@@ -32,7 +32,7 @@ public class COMETSNode extends AStarNode {
     
     
     public COMETSNode(int[] nodeAssignments, PruningMatrix[] pruneMat) {
-        super(nodeAssignments, Double.NaN, false);//score not assigned yet, and doesn't need refinement
+        super(nodeAssignments, false);//score not assigned yet, and doesn't need refinement
         this.pruneMat = pruneMat;
     }
     
@@ -50,7 +50,7 @@ public class COMETSNode extends AStarNode {
             if(stateTree!=null){
                 AStarNode curBestNode = stateTree.getQueue().peek();
                 if( ! curBestNode.isFullyDefined() ){
-                    int stateFirstSplittableLevel = stateTree.nextLevelToExpand( curBestNode.getNodeAssignments() );
+                    int stateFirstSplittableLevel = stateTree.nextLevelToExpand( curBestNode );
                     if( stateFirstSplittableLevel < firstSplittableLevel ){
                         //tree has a splittable level, and it's the lowest so far
                         stateToSplit = state;

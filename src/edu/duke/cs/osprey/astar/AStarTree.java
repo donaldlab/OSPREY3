@@ -61,7 +61,7 @@ public abstract class AStarTree implements ConfSearch {
                 while(curNode.scoreNeedsRefinement){
                     refineScore(curNode);
                     
-                    if(curNode.score!=Double.POSITIVE_INFINITY)//remove node if refinement showed it's impossible
+                    if(curNode.getScore()!=Double.POSITIVE_INFINITY)//remove node if refinement showed it's impossible
                         pq.add(curNode);
                     
                     curNode = pq.poll();
@@ -111,8 +111,8 @@ public abstract class AStarTree implements ConfSearch {
     	
         //by default, the output of the A* tree will be simply the node assignments for the optimal node
         //but we may sometimes want to process it in some way
-        System.out.println("A* returning conf.  "+pq.size()+" nodes in A* tree.  Score: "+node.score);
-        return node.nodeAssignments;
+        System.out.println("A* returning conf.  "+pq.size()+" nodes in A* tree.  Score: "+node.getScore());
+        return node.getNodeAssignments();
     }
     
     

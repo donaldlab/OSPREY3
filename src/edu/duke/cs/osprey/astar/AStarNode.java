@@ -4,15 +4,20 @@
  */
 package edu.duke.cs.osprey.astar;
 
+import java.util.Arrays;
+
 /**
  *
  * @author mhall44
  */
-public class AStarNode implements Comparable {
+public class AStarNode implements Comparable<AStarNode> {
     
-    int nodeAssignments[];//assignments (e.g. partial conformation) for node
+    private int nodeAssignments[];//assignments (e.g. partial conformation) for node
     
-    double score;//score (probably a lower bound on the energy)
+    private int undefinedRCIndices[]; // "assignments" to undefined residues assumed by the min h-score calculation
+    private double undefinedRCEnergies[][]; // and their energy lists
+    
+    private double score;//score (probably a lower bound on the energy)
     
     boolean scoreNeedsRefinement;
 
@@ -27,20 +32,30 @@ public class AStarNode implements Comparable {
     
     //indicates the score needs to be refined (e.g. with EPIC continuous terms)
     //always false in simpler versions of A*
-    public AStarNode(int[] nodeAssignments, double score, boolean scoreNeedsRefinement) {
+    public AStarNode(int[] nodeAssignments, boolean scoreNeedsRefinement) {
         this.nodeAssignments = nodeAssignments;
-        this.score = score;
+        this.undefinedRCIndices = new int[this.nodeAssignments.length];
+        Arrays.fill(this.undefinedRCIndices, -1);
+        this.undefinedRCEnergies = new double[this.nodeAssignments.length][];
+        this.score = Double.NaN;
         this.scoreNeedsRefinement = scoreNeedsRefinement;
     }
 
     @Override
-    public int compareTo(Object o) {
-        AStarNode node2 = (AStarNode)o;//we can only compare to other AStarNodes, and expect no other cases
-        return Double.valueOf(score).compareTo(node2.score);
+    public int compareTo(AStarNode other) {
+        return Double.valueOf(score).compareTo(other.score);
     }
 
     public int[] getNodeAssignments() {
         return nodeAssignments;
+    }
+    
+    public int[] getUndefinedRCIndices() {
+    	return undefinedRCIndices;
+    }
+    
+    public double[] getUndefinedRCEnergies(int pos) {
+    	return undefinedRCEnergies[pos];
     }
 
     public void setScore(double score) {

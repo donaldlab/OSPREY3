@@ -92,6 +92,10 @@ public class RCTuple implements Serializable {
     	RCs.addAll(other.RCs);
     }
     
+    public int size() {
+    	return pos.size();
+    }
+    
     
     public boolean isSameTuple(RCTuple tuple2){
     	

@@ -2,9 +2,11 @@ package edu.duke.cs.osprey.tests;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 import edu.duke.cs.osprey.astar.ConfTree;
+import edu.duke.cs.osprey.astar.PairwiseConfTree;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
@@ -18,6 +20,7 @@ import edu.duke.cs.osprey.tools.Stopwatch;
 
 public class ConfTreeProfiling {
 	
+	@SuppressWarnings("unused")
 	public static void main(String[] args)
 	throws Exception {
 		
@@ -35,7 +38,9 @@ public class ConfTreeProfiling {
 		MultiTermEnergyFunction.setNumThreads(4);
 		
 		// init a conf space with lots of flexible residues, but no mutations
+		// 27 flexible residues with no pruning gives about 1.5e23 confs
 		// 34 flexible residues with no pruning gives about 8e28 confs
+		//final int NumFlexible = 27;
 		final int NumFlexible = 34;
 		ArrayList<String> flexRes = new ArrayList<>();
 		ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
@@ -65,7 +70,8 @@ public class ConfTreeProfiling {
 		if (ematFile.exists()) {
 			System.out.println("\nReading energy matrix...");
 			search.emat = (EnergyMatrix)ObjectIO.readObject(ematFile.getAbsolutePath(), true);
-		} else {
+		}
+		if (search.emat == null) {
 			System.out.println("\nComputing energy matrix...");
 			EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(search.confSpace, search.shellResidues, useERef, addResEntropy);
 			emCalc.calcPEM();
@@ -77,7 +83,8 @@ public class ConfTreeProfiling {
 		search.pruneMat = new PruningMatrix(search.confSpace, search.emat.getPruningInterval());
 		
 		// init the conformation search
-		ConfTree tree = new ConfTree(search);
+		//ConfTree tree = new ConfTree(search);
+		ConfTree tree = new PairwiseConfTree(search);
 		
 		// notation below (trialN values in milliseconds):
 		// numFlexPos: [trial1, trial2, trial2]
@@ -124,21 +131,39 @@ public class ConfTreeProfiling {
 		
 		// NOTE: addWTRots bug fix on 2016-05-05 changed energy matrix values!
 		// so all benchmarks after that are incomparable to benchmarks before it
+		// also, the newer progress reporting does impose a small performance penalty
 		
 		// sooo..... let's start some new benchmarks
-		// 2016-05-05
+		// 2016-05-13
 		// current state of code:
-		// 34:   [20684, 20575, 20339]
+		// 34:   [22759, 22687, 22572]
+		
+		// after minor optimizations, haven't dropped the big guns just yet... =P
+		// 34:   [18846, 18921, 18962] => 1.20x speedup over benchmark
 		
 		System.out.println("\nFinding GMEC among " + tree.getNumConformations().floatValue() + " conformations ...");
 		Stopwatch stopwatch = new Stopwatch();
 		stopwatch.start();
-		tree.nextConf();
+		int[] conf = tree.nextConf();
 		stopwatch.stop();
 		System.out.println("finished in " + stopwatch.getTime(TimeUnit.MILLISECONDS));
+		System.out.println("conf:     " + Arrays.toString(conf));
 		
 		// TODO: check for accuracy, energy should be:
 		// 27:   -260.91555715297517
 		// 34:   -346.32024675046176
+
+		// make sure we still have the right answer!
+		int[] expectedConf27 = new int[] { 0, 6, 7, 0, 16, 0, 0, 6, 25, 6, 0, 0, 0, 0, 0, 0, 16, 2, 12, 1, 0, 15, 0, 1, 0, 0, 0 };
+		int[] expectedConf34 = new int[] { 0, 6, 7, 0, 16, 0, 0, 6, 25, 6, 0, 0, 0, 0, 0, 0, 16, 2, 12, 1, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 29, 0, 0 };
+		//checkConf(expectedConf27, conf);
+		checkConf(expectedConf34, conf);
+	}
+	
+	private static void checkConf(int[] expected, int[] observed) {
+		if (!Arrays.equals(expected, observed)) {
+			System.out.println("expected: " + Arrays.toString(expected));
+			throw new Error("GMEC changed! Undo that \"optimization!\"");
+		}
 	}
 }

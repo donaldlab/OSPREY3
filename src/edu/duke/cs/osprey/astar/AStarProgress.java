@@ -33,10 +33,10 @@ public class AStarProgress {
 	
 	public void reportNode(AStarNode node, int numNodesInQueue) {
 		
-		this.numLevels = node.nodeAssignments.length;
-		this.level = getLevel(node.nodeAssignments);
+		this.numLevels = node.getNodeAssignments().length;
+		this.level = getLevel(node.getNodeAssignments());
 		this.deepestLevel = Math.max(this.deepestLevel, this.level);
-		this.score = node.score;
+		this.score = node.getScore();
 		this.numNodesInQueue = numNodesInQueue;
 		this.numNodesExplored++;
 		this.numNodesExploredThisReport++;
