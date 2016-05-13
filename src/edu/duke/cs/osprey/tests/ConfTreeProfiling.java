@@ -122,10 +122,11 @@ public class ConfTreeProfiling {
 		// 34:   [20684, 20575, 20339]
 		
 		System.out.println("\nFinding GMEC among " + tree.getNumConformations().floatValue() + " conformations ...");
-		Stopwatch.start();
+		Stopwatch stopwatch = new Stopwatch();
+		stopwatch.start();
 		tree.nextConf();
-		Stopwatch.stop();
-		System.out.println("finished in " + Stopwatch.getTime(TimeUnit.MILLISECONDS));
+		stopwatch.stop();
+		System.out.println("finished in " + stopwatch.getTime(TimeUnit.MILLISECONDS));
 		
 		// TODO: check for accuracy, energy should be:
 		// 27:   -260.91555715297517
