@@ -9,13 +9,16 @@ import java.util.ArrayList;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.TupleMatrixGeneric;
+import edu.duke.cs.osprey.confspace.TupleMatrixBoolean;
 
 /**
  *
  * @author mhall44
  */
-public class PruningMatrix extends TupleMatrixGeneric<Boolean> {
+public class PruningMatrix extends TupleMatrixBoolean {
+	
+	private static final long serialVersionUID = 1212622649775905467L;
+	
     //similar to energy matrix, but indicates what RCs and tuples of RCs are pruned
     //pruning indicated by true boolean
     //a conformation is pruned if it contains any pruned RC or tuple
@@ -24,7 +27,8 @@ public class PruningMatrix extends TupleMatrixGeneric<Boolean> {
     
     //maybe separate intra too?
     
-    public PruningMatrix(){//no allocation (for overriding by UpdatedPruningMatrix)
+	protected PruningMatrix(){//no allocation (for overriding by UpdatedPruningMatrix)
+		super();
     }
         
     public PruningMatrix(ConfSpace cSpace, double pruningInterval){
@@ -35,19 +39,22 @@ public class PruningMatrix extends TupleMatrixGeneric<Boolean> {
         fill(false);
     }
     
+    public void unprunedRCsAtPos(ArrayList<Integer> out, int pos) {
+    	out.clear();
+    	int numRCs = getNumConfAtPos(pos);
+		for (int index=0; index<numRCs; index++) {
+			if(!getOneBody(pos,index))
+				out.add(index);
+		}
+    }
+    
     
     public ArrayList<Integer> unprunedRCsAtPos(int pos){
         //which RCs at the given position are unpruned?
         //Return index of the RCs within the position
-        ArrayList<Integer> ans = new ArrayList<>();
-        int numRCs = getNumConfAtPos(pos);
-         
-        for(int index=0; index<numRCs; index++){
-            if(!getOneBody(pos,index))
-                ans.add(index);
-        }
-        
-        return ans;
+        ArrayList<Integer> out = new ArrayList<>();
+        unprunedRCsAtPos(out, pos);
+        return out;
     }
     
     
@@ -94,31 +101,60 @@ public class PruningMatrix extends TupleMatrixGeneric<Boolean> {
     }
     
     
-    public boolean isPruned(RCTuple tup){
+    public boolean isPruned(RCTuple tup) {
+    	
+    	// OPTIMIZATION: this function gets hit a lot
+    	// so even pedantic optimizations can have a noticeable impact
+    	
+    	// copy some references to stack
+    	ArrayList<Integer> tuppos = tup.pos;
+    	ArrayList<Integer> tupRCs = tup.RCs;
+    	
+    	// OPTIMIZATION: skipping even the check for higher order terms
+    	// improves CPU cache performance a lot when we don't actually have any terms to use
+    	boolean hasHigherOrderTerms = hasHigherOrderTerms();
+    	
         //can be prune per se, or check if some singles in it are pruned, or pairs, etc.
-        for(int indexInTup=0; indexInTup<tup.pos.size(); indexInTup++){
-            int pos1 = tup.pos.get(indexInTup);
-            int rc1 = tup.RCs.get(indexInTup);
+    	
+    	// OPTIMIZATION: checking singles separately from pairs improves CPU cache performance
+    	// since we're memory-bound for this workload, trading the extra CPU instructions for
+    	// fewer cache misses has a noticeable impact on performance
+    	
+    	// check singles
+    	int numTupPos = tuppos.size();
+        for (int i1=0; i1<numTupPos; i1++) {
+            int pos1 = tuppos.get(i1);
+            int rc1 = tupRCs.get(i1);
             
-            if(getOneBody(pos1,rc1))//rc1 pruned by itself
+            if (getOneBody(pos1, rc1)) {
                 return true;
+            }
+        }
             
-            //check if any pairs pruned
-            for(int index2=0; index2<indexInTup; index2++){
-                int pos2 = tup.pos.get(index2);
-                int rc2 = tup.RCs.get(index2);
+        // check pairs
+        for (int i1=0; i1<numTupPos; i1++) {
+            int pos1 = tuppos.get(i1);
+            int rc1 = tupRCs.get(i1);
             
-                if(getPairwise(pos1,rc1,pos2,rc2))
+            for (int i2=0; i2<i1; i2++) {
+                int pos2 = tuppos.get(i2);
+                int rc2 = tupRCs.get(i2);
+            
+                if (getPairwise(pos1, rc1, pos2, rc2)) {
                     return true;
+                }
                 
-                HigherTupleFinder<Boolean> htf = getHigherOrderTerms(pos1,rc1,pos2,rc2);
-                if(htf != null){
-                    if(isPrunedHigherOrder(tup,index2,htf))
-                        return true;
+                if (hasHigherOrderTerms) {
+					HigherTupleFinder<Boolean> htf = getHigherOrderTerms(pos1, rc1, pos2, rc2);
+					if (htf != null) {
+						if (isPrunedHigherOrder(tup, i2, htf)) {
+							return true;
+						}
+					}
                 }
             }
-            
         }
+        
         return false;
     }
     

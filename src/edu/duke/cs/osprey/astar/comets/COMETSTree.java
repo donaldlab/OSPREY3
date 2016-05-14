@@ -14,6 +14,8 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.PriorityQueue;
@@ -114,7 +116,10 @@ public class COMETSTree extends AStarTree {
     
     
     
-    
+    @Override
+    public BigInteger getNumConformations() {
+    	throw new UnsupportedOperationException();
+    }
     
     
     

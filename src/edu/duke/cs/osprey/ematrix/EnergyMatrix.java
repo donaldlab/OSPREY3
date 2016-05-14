@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.TupleMatrixDouble;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 /**
  *
@@ -44,27 +45,36 @@ public class EnergyMatrix extends TupleMatrixDouble {
     
     public double getInternalEnergy(RCTuple tup){
         //internal energy of a tuple of residues when they're in the specified RCs
+    	
+		// OPTIMIZATION: don't even check higher terms if the energy matrix doesn't have any
+		// this does wonders to CPU cache performance!
+		boolean useHigherOrderTerms = hasHigherOrderTerms();
+		
+		ArrayList<Integer> tuppos = tup.pos;
+		ArrayList<Integer> tupRCs = tup.RCs;
         
         int numPosInTuple = tup.pos.size();
         double E = 0;
         
         for(int indexInTuple=0; indexInTuple<numPosInTuple; indexInTuple++){
-            int posNum = tup.pos.get(indexInTuple);
-            int RCNum = tup.RCs.get(indexInTuple);
+            int posNum = tuppos.get(indexInTuple);
+            int RCNum = tupRCs.get(indexInTuple);
             
             double intraE = getOneBody(posNum,RCNum);
             E += intraE;
             
             for(int index2=0; index2<indexInTuple; index2++){
-                int pos2 = tup.pos.get(index2);
-                int rc2 = tup.RCs.get(index2);
+                int pos2 = tuppos.get(index2);
+                int rc2 = tupRCs.get(index2);
                 
                 double pairwiseE = getPairwise(posNum,RCNum,pos2,rc2);
                 E += pairwiseE;
                 
-                HigherTupleFinder<Double> htf = getHigherOrderTerms(posNum,RCNum,pos2,rc2);
-                if(htf != null)
-                    E += internalEHigherOrder(tup,index2,htf);
+                if (useHigherOrderTerms) {
+					HigherTupleFinder<Double> htf = getHigherOrderTerms(posNum,RCNum,pos2,rc2);
+					if(htf != null)
+						E += internalEHigherOrder(tup,index2,htf);
+                }
             }
         }
         
@@ -149,6 +159,4 @@ public class EnergyMatrix extends TupleMatrixDouble {
     public ReferenceEnergies geteRefMat() {
         return eRefMat;
     }
-
-   
 }

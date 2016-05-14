@@ -142,6 +142,11 @@ public class GMECFinder {
             
             System.out.println();
             System.out.println("BEGINNING CONFORMATION ENUMERATION");
+            try {
+            	System.out.println("\tsearching " + search.getNumConformations().floatValue() + " conformations...");
+            } catch (UnsupportedOperationException ex) {
+            	// conf tree doesn't support it, no big deal
+            }
             System.out.println();
             
             long confSearchStartTime = System.currentTimeMillis();
@@ -219,6 +224,11 @@ public class GMECFinder {
                 if(bestESoFar==Double.POSITIVE_INFINITY){//no conformations found
                     System.out.println("A* returned no conformations.");
                     break;
+                }
+                
+                // if we're finding a rigidGMEC with no energy window, don't wait for the second conformation
+                if (!useContFlex && Ew == 0) {
+                	break;
                 }
                 
             } while( bestESoFar+Ew >= lowerBound );//lower bound above GMEC + Ew...can stop enumerating

@@ -5,6 +5,7 @@
 package edu.duke.cs.osprey.confspace;
 
 import java.io.Serializable;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -402,6 +403,15 @@ public class ConfSpace implements Serializable {
         
         return ans;
     }
+
+
+	public BigInteger getNumConformations() {
+		BigInteger count = BigInteger.valueOf(1);
+		for (int pos=0; pos<numPos; pos++) {
+			count = count.multiply(BigInteger.valueOf(posFlex.get(pos).RCs.size()));
+		}
+		return count;
+	}
     
     
     /*DoubleMatrix1D[] convertConfToDOFBounds(int[] conf){

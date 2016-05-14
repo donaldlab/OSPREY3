@@ -35,23 +35,15 @@ public class RCTuple implements Serializable {
     
     //one-RC tuple
     public RCTuple(int pos1, int RC1){
-        pos = new ArrayList<>();
-        RCs = new ArrayList<>();
-        pos.add(pos1);
-        RCs.add(RC1);
+    	this();
+    	set(pos1, RC1);
     }
     
     
     //a pair
     public RCTuple(int pos1, int RC1, int pos2, int RC2){
-        pos = new ArrayList<>();
-        RCs = new ArrayList<>();
-        
-        pos.add(pos1);
-        pos.add(pos2);
-        
-        RCs.add(RC1);
-        RCs.add(RC2);
+    	this();
+    	set(pos1, RC1, pos2, RC2);
     }
     
     //Sometimes we'll want to generate an RC tuple from a conformation, specified as RCs for all positions
@@ -61,6 +53,25 @@ public class RCTuple implements Serializable {
     public RCTuple(int[] conf){
     	this();
     	set(conf);
+    }
+    
+    public void set(int pos, int rc) {
+    	this.pos.clear();
+    	this.RCs.clear();
+    	
+        this.pos.add(pos);
+        this.RCs.add(rc);
+    }
+    
+    public void set(int pos1, int rc1, int pos2, int rc2) {
+    	this.pos.clear();
+    	this.RCs.clear();
+    	
+        this.pos.add(pos1);
+        this.RCs.add(rc1);
+        
+        this.pos.add(pos2);
+        this.RCs.add(rc2);
     }
     
     public void set(int[] conf) {
@@ -74,8 +85,21 @@ public class RCTuple implements Serializable {
         }
     }
     
+    public void set(RCTuple other) {
+    	pos.clear();
+    	RCs.clear();
+    	pos.addAll(other.pos);
+    	RCs.addAll(other.RCs);
+    }
+    
     
     public boolean isSameTuple(RCTuple tuple2){
+    	
+    	// short circuit: same instance must have same value
+    	if (this == tuple2) {
+    		return true;
+    	}
+    	
         //do the two tuple objects specify the same tuple of RCs?
         if( (pos.size()!=RCs.size()) || (tuple2.pos.size()!=tuple2.RCs.size()) )
             throw new RuntimeException("ERROR: Ill-defined RC tuple");

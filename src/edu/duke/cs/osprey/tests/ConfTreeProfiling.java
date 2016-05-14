@@ -33,7 +33,8 @@ public class ConfTreeProfiling {
 		MultiTermEnergyFunction.setNumThreads(4);
 		
 		// init a conf space with lots of flexible residues, but no mutations
-		final int NumFlexible = 27;
+		// 34 flexible residues with no pruning gives about 8e28 confs
+		final int NumFlexible = 34;
 		ArrayList<String> flexRes = new ArrayList<>();
 		ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
 		for (int i=0; i<NumFlexible; i++) {
@@ -112,13 +113,22 @@ public class ConfTreeProfiling {
 		// today's ConfTree optimizations:
 		// 27: [2619, 2665, 2663] => 17.15x speedup over benchmark!! =D
 		
+		// NOTE: addWTRots bug fix on 2016-05-05 changed energy matrix values!
+		// so all benchmarks after that are incomparable to benchmarks before it
+		
+		// sooo..... let's start some new benchmarks
+		// 2016-05-05
+		// current state of code:
+		// 34:   [20684, 20575, 20339]
+		
 		System.out.println("\nFinding GMEC among " + tree.getNumConformations().floatValue() + " conformations ...");
 		Stopwatch.start();
 		tree.nextConf();
 		Stopwatch.stop();
 		System.out.println("finished in " + Stopwatch.getTime(TimeUnit.MILLISECONDS));
 		
-		// TODO: check for accuracy
-		// energy should be -263.80652436696056
+		// TODO: check for accuracy, energy should be:
+		// 27:   -260.91555715297517
+		// 34:   -346.32024675046176
 	}
 }

@@ -25,6 +25,7 @@ import edu.duke.cs.osprey.dof.deeper.perts.Shear;
 import edu.duke.cs.osprey.ematrix.epic.EPICEnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
+import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.structure.Molecule;
 
 /**
@@ -90,14 +91,16 @@ public class MolecEObjFunction implements ObjectiveFunction {
             
             ResidueTypeDOF mutDOF = cSpace.mutDOFs.get(posNum);
             
-            // if the RC has a template, switch to that
-            if (rc.template != null && !mutDOF.isTemplate(rc.template)) {
-            	mutDOF.switchToTemplate(rc.template);
-            	
-            // otherwise, make sure the amino-acid type is set correctly (using the library template)
-            } else if(!mutDOF.getCurResType().equalsIgnoreCase(rc.AAType)) {
-                mutDOF.mutateTo(rc.AAType);
+            // make sure the residue is using the right template
+            ResidueTemplate desiredTemplate;
+            if (rc.template != null) {
+            	desiredTemplate = rc.template;
+            } else {
+            	desiredTemplate = mutDOF.getLibraryTemplate(rc.AAType);
             }
+			if (!mutDOF.isTemplate(desiredTemplate)) {
+				mutDOF.switchToTemplate(desiredTemplate);
+			}
             
             for(int dofIndexInRC=0; dofIndexInRC<rc.DOFs.size(); dofIndexInRC++){
                 
