@@ -62,7 +62,7 @@ public class SearchProblem implements Serializable {
     public boolean useTupExpForSearch = false;//use a tuple expansion to approximate the energy as we search
     
     
-    boolean useERef = false;
+    public boolean useERef = false;
     boolean addResEntropy = false;
     
     
