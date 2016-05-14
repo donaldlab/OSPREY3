@@ -144,7 +144,7 @@ public class ConfTree extends AStarTree {
             int[] childConf = curNode.getNodeAssignments().clone();
             childConf[nextLevel] = rc;
             AStarNode childNode = new AStarNode(childConf, useRefinement);
-            scoreNode(curNode, childNode);
+            scoreNodeDifferential(curNode, childNode, nextLevel, rc);
             ans.add(childNode);
         }
         
@@ -285,14 +285,16 @@ public class ConfTree extends AStarTree {
     		"call splitPostions(conf) before calling this function!";
     }
     
-    protected void scoreNode(AStarNode parent, AStarNode child) {
-    	scoreNode(child);
+    protected double scoreNodeDifferential(AStarNode parent, AStarNode child, int nextPos, int nextRc) {
+    	return scoreNode(child);
     }
     
-    protected void scoreNode(AStarNode node) {
+    protected double scoreNode(AStarNode node) {
     	
     	// just route to scoreConf(), subclasses can do fancier things
-    	node.setScore(scoreConf(node.getNodeAssignments()));
+    	double score = scoreConf(node.getNodeAssignments());
+    	node.setScore(score);
+    	return score;
     }
     
     protected double scoreConfDifferential(AStarNode parentNode, int nextPos, int nextRc) {

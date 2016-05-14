@@ -4,8 +4,6 @@
  */
 package edu.duke.cs.osprey.astar;
 
-import java.util.Arrays;
-
 /**
  *
  * @author mhall44
@@ -14,10 +12,12 @@ public class AStarNode implements Comparable<AStarNode> {
     
     private int nodeAssignments[];//assignments (e.g. partial conformation) for node
     
-    private int undefinedRCIndices[]; // "assignments" to undefined residues assumed by the min h-score calculation
-    private double undefinedRCEnergies[][]; // and their energy lists
+    // partially-computed undefined energies (indexed by pos, rc)
+    private double undefinedRCEnergies[][];
     
     private double score;//score (probably a lower bound on the energy)
+    private double gscore;
+    private double hscore;
     
     boolean scoreNeedsRefinement;
 
@@ -34,10 +34,10 @@ public class AStarNode implements Comparable<AStarNode> {
     //always false in simpler versions of A*
     public AStarNode(int[] nodeAssignments, boolean scoreNeedsRefinement) {
         this.nodeAssignments = nodeAssignments;
-        this.undefinedRCIndices = new int[this.nodeAssignments.length];
-        Arrays.fill(this.undefinedRCIndices, -1);
         this.undefinedRCEnergies = new double[this.nodeAssignments.length][];
         this.score = Double.NaN;
+        this.gscore = Double.NaN;
+        this.hscore = Double.NaN;
         this.scoreNeedsRefinement = scoreNeedsRefinement;
     }
 
@@ -50,23 +50,33 @@ public class AStarNode implements Comparable<AStarNode> {
         return nodeAssignments;
     }
     
-    public int[] getUndefinedRCIndices() {
-    	return undefinedRCIndices;
-    }
-    
     public double[] getUndefinedRCEnergies(int pos) {
     	return undefinedRCEnergies[pos];
+    }
+    public void setUndefinedRCEnergies(int pos, double[] val) {
+    	undefinedRCEnergies[pos] = val;
     }
 
     public void setScore(double score) {
         this.score = score;
     }
-
     public double getScore() {
         return score;
     }
     
+    public double getGScore() {
+    	return gscore;
+    }
+    public void setGScore(double val) {
+    	gscore = val;
+    }
     
+    public double getHScore() {
+    	return hscore;
+    }
+    public void setHScore(double val) {
+    	hscore = val;
+    }
     
     
     public boolean isFullyDefined(){

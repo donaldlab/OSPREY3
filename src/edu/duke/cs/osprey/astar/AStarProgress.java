@@ -7,7 +7,7 @@ import edu.duke.cs.osprey.tools.Stopwatch;
 
 public class AStarProgress {
 	
-	private static final int ReportIntervalMs = 1 * 1000; // TEMP
+	private static final int ReportIntervalMs = 5 * 1000; // TODO: make configurable
 	
 	private int numLevels;
 	private int level;

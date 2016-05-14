@@ -59,13 +59,15 @@ public class PairwiseConfTree extends ConfTree {
     }
     
     @Override
-    protected void scoreNode(AStarNode node) {
+    protected double scoreNode(AStarNode node) {
+    	
+    	// OPTIMIZATION: this function is really only called once for the root node
+    	// no need to optimize it
     	
 		EnergyMatrix emat = this.emat;
 		int[][] unprunedRCsAtPos = this.unprunedRCsAtPos;
 		
 		int[] conf = node.getNodeAssignments();
-		int[] undefinedRCIndices = node.getUndefinedRCIndices();
     
     	splitPositions(conf);
     	int numDefined = this.numDefined;
@@ -109,72 +111,150 @@ public class PairwiseConfTree extends ConfTree {
 			
 			// find the lowest-energy rc at this pos
 			double minRCEnergy = Double.POSITIVE_INFINITY;
-			int minRCIndex = -1;
 			
-			// for each conf...
 			int[] rcs1 = unprunedRCsAtPos[pos1];
 			int n1 = rcs1.length;
+			double[] rcEnergies = new double[n1];
+			node.setUndefinedRCEnergies(pos1, rcEnergies);
+			
+			// for each rc...
 			for (int j=0; j<n1; j++) {
 				int rc1 = rcs1[j];
 				
 				double rcEnergy = getUndefinedRCEnergy(conf, pos1, rc1, j);
+				rcEnergies[j] = rcEnergy;
 				
-				if (rcEnergy < minRCEnergy) {
-					minRCEnergy = rcEnergy;
-					minRCIndex = j;
-				}
+				minRCEnergy = Math.min(minRCEnergy, rcEnergy);
 			}
 			
 			hscore += minRCEnergy;
-			undefinedRCIndices[pos1] = minRCIndex;
 		}
 		
     	resetSplitPositions();
     	
+    	node.setGScore(gscore);
+    	node.setHScore(hscore);
     	node.setScore(gscore + hscore);
     	
     	// DEBUG
-    	assert (node.getScore() == scoreConf(node.getNodeAssignments()));
+    	//assertScore(scoreConf(node.getNodeAssignments()), node.getScore());
+    	
+    	return node.getScore();
     }
     
     @Override
-    protected void scoreNode(AStarNode parent, AStarNode node) {
-    	// TODO
-    	scoreNode(node);
-    }
-    
-    //@Override
-    protected double scoreConfDifferentialNope(AStarNode parent, int pos, int rc) {
+    protected double scoreNodeDifferential(AStarNode parent, AStarNode child, int nextPos, int nextRc) {
     	
+    	// NOTE: child can be null, eg for scoreExpansionLevel()
+    	
+		// OPTIMIZATION: this function gets hit a LOT!
+		// so even really pedantic optimizations (like preferring stack over heap) can make an impact
+    	// however, copying this.xxx references to the stack empirically didn't help this time
+		
     	int[] parentConf = parent.getNodeAssignments();
-
-    	double score = parent.getScore();
+    	splitPositions(parentConf);
     	
     	// this should not be assigned in the parent
-    	assert (parentConf[pos] < 0);
+    	assert (parentConf[nextPos] < 0);
     	
-    	// subtract the undefined contribution
-    	int rcIndex = parent.getUndefinedRCIndices()[pos];
-    	score -= getUndefinedRCEnergy(null, pos, unprunedRCsAtPos[pos][rcIndex], rcIndex);
+    	// update the g-score
+    	double gscore = parent.getGScore();
     	
+    	// add the new one-body energy
+    	gscore += emat.getOneBody(nextPos, nextRc);
     	
-    	// add the defined contribution
+    	// add the new pairwise energies
+    	for (int i=0; i<numDefined; i++) {
+    		int pos = definedPos[i];
+    		int rc = definedRCs[i];
+    		gscore += emat.getPairwise(pos, rc, nextPos, nextRc);
+    	}
     	
-    	// TEMP
+    	// compute the h-score
+    	double hscore = 0;
+    	for (int i=0; i<numUndefined; i++) {
+    		int pos = undefinedPos[i];
+    		
+    		// don't score at nextPos, it's defined now
+    		if (pos == nextPos) {
+    			continue;
+    		}
+    		
+    		// get partially-computed energies from the parent node
+    		double[] undefinedRCEnergies = parent.getUndefinedRCEnergies(pos);
+    		
+    		// and copy them to the child
+    		if (child != null) {
+    			undefinedRCEnergies = undefinedRCEnergies.clone();
+    			child.setUndefinedRCEnergies(pos, undefinedRCEnergies);
+    		}
+    		
+    		// compute the new min energy over all rcs
+    		double minRCEnergy = Double.POSITIVE_INFINITY;
+    		
+			// for each rc at this pos...
+			int[] rcs = unprunedRCsAtPos[pos];
+			int n = rcs.length;
+			for (int j=0; j<n; j++) {
+				int rc = rcs[j];
+				
+				double rcEnergy = undefinedRCEnergies[j];
+				
+				// subtract undefined contribution
+				if (pos > nextPos) {
+					rcEnergy -= getMinPairwiseEnergy(null, pos, rc, j, nextPos);
+				}
+				
+				// add defined contribution
+				rcEnergy += emat.getPairwise(pos, rc, nextPos, nextRc);
+				
+				// save updated energies to child
+				if (child != null) {
+					undefinedRCEnergies[j] = rcEnergy;
+				}
+				
+				minRCEnergy = Math.min(minRCEnergy, rcEnergy);
+			}
+			
+			hscore += minRCEnergy;
+    	}
+    	
+    	resetSplitPositions();
+    	
+    	double score = gscore + hscore;
+    	
+    	if (child != null) {
+			child.setGScore(gscore);
+			child.setHScore(hscore);
+			child.setScore(score);
+    	}
+    	
+    	/* DEBUG
 		int[] conf = new int[numPos];
 		System.arraycopy(parentConf, 0, conf, 0, numPos);
-		conf[pos] = rc;
-    	double expectedScore = scoreConf(conf);
-    	double err = Math.abs(score - expectedScore);
-    	err /= score;
-    	assert (err <= 1e-15) : String.format("bad score: exp=%f, obs=%f", expectedScore, score);
+		conf[newPos] = newRc;
+		assertScore(scoreConf(conf), score);
+		*/
     
     	return score;
     }
     
     @Override
+    protected double scoreConfDifferential(AStarNode parent, int nextPos, int nextRc) {
+    	return scoreNodeDifferential(parent, null, nextPos, nextRc);
+    }
+    
+    @Override
     protected double getMinPairwiseEnergy(int[] conf, int pos1, int rc1, int rc1i, int pos2) {
+    	assert (pos2 < pos1);
 		int index = this.precomputedMinOffsets[pos1*(pos1 - 1)/2 + pos2] + rc1i;
 		return this.precomputedMins[index];
 	}
+    
+    @SuppressWarnings("unused")
+	private void assertScore(double expected, double observed) {
+    	double err = Math.abs(expected - observed);
+    	err /= observed;
+    	assert (err <= 1e-13) : String.format("bad score:\nexp=%.18f\nobs=%.18f\nerr=%.18f", expected, observed, err);
+    }
 }

@@ -3,6 +3,8 @@ package edu.duke.cs.osprey.tests;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 
 import edu.duke.cs.osprey.astar.ConfTree;
@@ -20,7 +22,6 @@ import edu.duke.cs.osprey.tools.Stopwatch;
 
 public class ConfTreeProfiling {
 	
-	@SuppressWarnings("unused")
 	public static void main(String[] args)
 	throws Exception {
 		
@@ -40,8 +41,10 @@ public class ConfTreeProfiling {
 		// init a conf space with lots of flexible residues, but no mutations
 		// 27 flexible residues with no pruning gives about 1.5e23 confs
 		// 34 flexible residues with no pruning gives about 8e28 confs
+		// 40 flexible residues with no pruning gives about 5 confs
 		//final int NumFlexible = 27;
-		final int NumFlexible = 34;
+		//final int NumFlexible = 34;
+		final int NumFlexible = 55;
 		ArrayList<String> flexRes = new ArrayList<>();
 		ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
 		for (int i=0; i<NumFlexible; i++) {
@@ -141,7 +144,14 @@ public class ConfTreeProfiling {
 		// after minor optimizations, haven't dropped the big guns just yet... =P
 		// 34:   [18846, 18921, 18962] => 1.20x speedup over benchmark
 		
-		System.out.println("\nFinding GMEC among " + tree.getNumConformations().floatValue() + " conformations ...");
+		// 2016-05-14 (didn't bother re-benchmarking today)
+		// after differential score calculations
+		// 34:   [1325, 1326, 1337] => 17.06x speedup over benchmark!! =D
+		
+		// this test run is too short now... need something longer
+		// 55:   [24873, 24501, 25076]
+		
+		System.out.println("\nFinding GMEC among " + tree.getNumConformations().doubleValue() + " conformations ...");
 		Stopwatch stopwatch = new Stopwatch();
 		stopwatch.start();
 		int[] conf = tree.nextConf();
@@ -152,12 +162,14 @@ public class ConfTreeProfiling {
 		// TODO: check for accuracy, energy should be:
 		// 27:   -260.91555715297517
 		// 34:   -346.32024675046176
+		// 55:   -514.1055956242977
 
 		// make sure we still have the right answer!
-		int[] expectedConf27 = new int[] { 0, 6, 7, 0, 16, 0, 0, 6, 25, 6, 0, 0, 0, 0, 0, 0, 16, 2, 12, 1, 0, 15, 0, 1, 0, 0, 0 };
-		int[] expectedConf34 = new int[] { 0, 6, 7, 0, 16, 0, 0, 6, 25, 6, 0, 0, 0, 0, 0, 0, 16, 2, 12, 1, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 29, 0, 0 };
-		//checkConf(expectedConf27, conf);
-		checkConf(expectedConf34, conf);
+		Map<Integer,int[]> expectedConfs = new TreeMap<>();
+		expectedConfs.put(27, new int[] { 0, 6, 7, 0, 16, 0, 0, 6, 25, 6, 0, 0, 0, 0, 0, 0, 16, 2, 12, 1, 0, 15, 0, 1, 0, 0, 0 });
+		expectedConfs.put(34, new int[] { 0, 6, 7, 0, 16, 0, 0, 6, 25, 6, 0, 0, 0, 0, 0, 0, 16, 2, 12, 1, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 29, 0, 0 });
+		expectedConfs.put(55, new int[] { 0, 6, 7, 0, 16, 0, 0, 6, 25, 6, 0, 0, 0, 0, 0, 0, 16, 2, 12, 1, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 29, 0, 0, 1, 2, 1, 0, 0, 3, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0 });
+		checkConf(expectedConfs.get(NumFlexible), conf);
 	}
 	
 	private static void checkConf(int[] expected, int[] observed) {
