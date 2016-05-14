@@ -40,7 +40,10 @@ public class ConfInfo {
             String confFileName = cfp.params.getRunSpecificFileName("CONFFILENAME", ".confs.txt");
             BufferedReader br = new BufferedReader(new FileReader(confFileName));
             SearchProblem searchProb = cfp.getSearchProblem();
-
+            
+            if(searchProb.useERef)
+                searchProb.loadEnergyMatrix();
+            
             System.out.println("OUTPUTTING CONF INFO...");
 
             if(outputPDBs)
