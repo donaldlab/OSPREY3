@@ -355,7 +355,9 @@ public class Pruner {
                     //add up triple interactions of pos and ipos with any residues in cand
                     //subtract off interactions with residues in comp
                     for(HigherTupleFinder<Double> htf : candHigher){
-                        interactionE += htf.getInteraction(iPos, rc);
+                        Double val = htf.getInteraction(iPos, rc);
+                        if(val == null) val = 0.0;
+                    	interactionE += val;
                         
                         if( htf.getHigherInteractions(iPos, rc) != null )
                             throw new UnsupportedOperationException("ERROR: Not supporting energy >triples in DEE");
@@ -387,7 +389,9 @@ public class Pruner {
         
         for(HigherTupleFinder<Double> htf : htfList){
             for(int posCount=0; posCount<tup.pos.size(); posCount++){
-                E += htf.getInteraction(tup.pos.get(posCount), tup.RCs.get(posCount));
+            	Double val = htf.getInteraction(tup.pos.get(posCount), tup.RCs.get(posCount));
+            	if(val == null) val = 0.0;
+                E += val;
                 //will be 0 if current pos not in htf's interacting pos
                 //(including if current pos is part of the pair that htf corresponds to)
             }

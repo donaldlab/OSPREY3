@@ -56,12 +56,12 @@ public abstract class PFAbstract implements Serializable {
 
 	public static boolean useMaxKSConfs = false;
 	protected static long maxKSConfs = 100000;
-	
+
 	protected static String hotMethod = "none"; 
 	protected static double hotBoundPct = 0.2;
 	protected static int hotNumRes = 3;
 	protected static double hotTopRotsPct = 0.2;
-	protected HashSet<Integer> posInHot = new HashSet<>();
+	protected ArrayList<ArrayList<Integer>> HOTs = new ArrayList<>();
 
 	protected String checkPointPath = null;
 	protected String searchProblemName = null;
@@ -117,60 +117,75 @@ public abstract class PFAbstract implements Serializable {
 		Comparator<KSConf> comparator = new KSConf(new ArrayList<>(), 0.0).new KSConfMinEComparator();
 		topConfsPQ = new PriorityQueue<KSConf>(getNumTopConfsToSave(), comparator);
 	}
-	
-	
+
+
 	protected BigDecimal reComputePartialQLB( ConfSearch confSearch ) {
 		partialQLB = BigDecimal.ZERO;
-		
+
 		for(ArrayList<Integer> conf : minimizedConfsSet) {
 			int[] confArray = KSConf.list2Array(conf);
 			partialQLB = partialQLB.add( getBoltzmannWeight(getConfBound(confSearch, confArray, false)) );
 		}
-		
+
 		return partialQLB;
 	}
-	
-	
+
+
 	protected boolean canUseHotByManualSelection() {
 		if(!getHotMethod().equalsIgnoreCase("manual")) return false;
-		
+
 		if(!isFullyDefined()) return false;
-		
+
 		if(!sp.contSCFlex) return false;
-		
+
 		return true;
 	}
-	
-	
+
+
 	protected boolean canUseHotByConfError( double boundError ) {
 		if(!canUseHotByConfError()) return false;
-		
+
 		if(boundError < getHotBoundPct()) return false;
-		
+
 		return true;
 	}
-	
-	
+
+
 	protected boolean canUseHotByConfError() {
 		if(!getHotMethod().equalsIgnoreCase("error")) return false;
-		
-		if(sp.confSpace.numPos - posInHot.size() < getHotNumRes()) return false;
-		
+
+		if(sp.confSpace.numPos - getNumPosInHOTs() < getHotNumRes()) return false;
+
 		if(!isFullyDefined()) return false;
-		
+
 		if(!sp.contSCFlex) return false;
-		
+
 		return true;
 	}
-	
 
-	public HashSet<Integer> getPosInHot() {
-		return posInHot;
+
+	public boolean HOTsContains(Integer pos) {
+		for(ArrayList<Integer> hot : HOTs)
+			if(hot.contains(pos)) return true;
+		
+		return false;
 	}
 	
 	
+	protected int getNumPosInHOTs() {
+		int ans = 0;
+		
+		for(ArrayList<Integer> hot : HOTs)
+			ans += hot.size();
+		
+		return ans;
+	}
+
+
 	protected void memoizePosInHot(int... pos) {
-		for(int i : pos) posInHot.add(i);
+		ArrayList<Integer> hot = new ArrayList<>();
+		for(int i : pos) hot.add(i);
+		HOTs.add(hot);
 	}
 
 
@@ -427,12 +442,13 @@ public abstract class PFAbstract implements Serializable {
 
 	protected double computeEffectiveEpsilon() {
 
-		BigDecimal divisor = qStar.add(qPrime.add(pStar));
+		BigDecimal dividend = qPrime.add(pStar);
+		BigDecimal divisor = qStar.add(dividend);
 
 		// energies are too high so epsilon can never be reached
 		if( divisor.compareTo(BigDecimal.ZERO) == 0 ) return -1.0;
 
-		return BigDecimal.ONE.subtract( qStar.divide(divisor, 4) ).doubleValue();
+		return dividend.divide(divisor, 4).doubleValue();
 	}
 
 
@@ -490,9 +506,9 @@ public abstract class PFAbstract implements Serializable {
 		}
 
 		qStar = qStar.add( getBoltzmannWeight( conf.getEnergy() ) );
-		
+
 		partialQLB = partialQLB.add( getBoltzmannWeight( conf.getEnergyBound() ) );
-		
+
 		minimizedConfs = minimizedConfs.add(BigInteger.ONE);
 		minimizedConfsSet.add(conf.getConf());
 		minimizedConfsDuringInterval = minimizedConfsDuringInterval.add(BigInteger.ONE);
@@ -568,8 +584,7 @@ public abstract class PFAbstract implements Serializable {
 		 * 1) what needs to happen for partially defined sequences?
 		 */
 
-		System.out.println("\nCould not reach target epsilon approximation of " + targetEpsilon + " for sequence: " +
-				KSAbstract.list1D2String(sequence, " "));
+		System.out.println("\nCould not reach target epsilon approximation of " + targetEpsilon + " for sequence: " + KSAbstract.list1D2String(sequence, " "));
 
 		if( getEffectiveEpsilon() < 0 ) {
 			// we can never reach epsilon because q* + q' + p* = 0
@@ -761,67 +776,67 @@ public abstract class PFAbstract implements Serializable {
 		return stabilityThresh;
 	}
 
-	
+
 	public static void setHotBoundPct( String param, double value ) {
 		if( value < 0.0 || value > 1.0 )
 			throw new RuntimeException("ERROR: value of " + param + " must be in the range [0.0, 1.0]");
-		
+
 		hotBoundPct = value;
 	}
-	
-	
+
+
 	public static double getHotBoundPct() {
 		return hotBoundPct;
 	}
-	
-	
+
+
 	public static void setHotTopRotsPct( String param, double value ) {
 		if( value < 0.0 || value > 1.0 )
 			throw new RuntimeException("ERROR: " + param + " must be in the range [0.0, 1.0]");
-		
+
 		hotTopRotsPct = value;
 	}
-	
-	
+
+
 	public static double getHotTopRotsPct() {
 		return hotTopRotsPct;
 	}
-	
-	
+
+
 	public static void setHotNumRes( String param, int value ) {
 		if( value < 3 || value > 4 ) 
 			throw new RuntimeException("ERROR: allowed values of " + param + " are [3, 4]");
-		
+
 		hotNumRes = value;
 	}
-	
-	
+
+
 	public static int getHotNumRes() {
 		return hotNumRes;
 	}
-	
-	
+
+
 	public static void setHotMethod( String param, String value ) {
-		
+
 		switch( value ) {
-		
+
 		case "none":
 		case "error":
 		case "manual":
 			hotMethod = value;
 			break;
-		
+
 		default:
 			throw new RuntimeException("ERROR: allowed values of " + param + " are {none|error|manual}");
 		}
 	}
-	
+
 
 	public static String getHotMethod() {
 		return hotMethod;
 	}
-	
-	
+
+
 	public static void setMaxKSconfs( long in ) {
 		if( in < 1 ) in = 1;
 		maxKSConfs = in;

@@ -16,6 +16,7 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Residue;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 
 /**
  *
@@ -80,14 +81,14 @@ public class EnergyMatrixCalculator {
 	}
 
 
-	public void addEnergyTerms(boolean doIntra, int... resToCalc) {
+	public void addEnergyTerms(boolean doIntra, int... posNums) {
 		// merge residues at the specified positions; this updates the energy matrix.
 		// the energy matrix currently only support pairs and triples
 		TermECalculator hotECalc = new TermECalculator(searchSpace, shellResidues, 
-				doEPIC, doIntra, pruneMat, epicSettings, addResEntropy, resToCalc);
+				doEPIC, doIntra, pruneMat, epicSettings, addResEntropy, posNums);
 
-		Object hotE = hotECalc.doCalculation();
-		storeEnergy(hotE, resToCalc);
+		Object hotEnergies = hotECalc.doCalculation();
+		storeEnergy(hotEnergies, posNums);
 	}
 
 
@@ -205,73 +206,35 @@ public class EnergyMatrixCalculator {
 				throw new RuntimeException("ERROR: have not implemented three body terms with EPIC");
 		}
 		else {
-
 			if(res.length==1)//intra+shell energy
 				emat.oneBody.set( res[0], (ArrayList<Double>) calcResult );
 
 			else if(res.length==2)//pairwise
 				emat.pairwise.get(res[0]).set( res[1], (ArrayList<ArrayList<Double>>) calcResult );
 
-			else if(res.length==3){// three-body	
-				ArrayList<ArrayList<ArrayList<Double>>> threeBody = (ArrayList<ArrayList<ArrayList<Double>>>)calcResult;
-
-				for(int rc0 = 0; rc0 < threeBody.size(); ++rc0 ) {
-					ArrayList<ArrayList<Double>> indexPos1 = threeBody.get(rc0);
-
-					for(int rc1 = 0; rc1 < indexPos1.size(); ++rc1 ) {
-						ArrayList<Double> indexPos2 = indexPos1.get(rc1);
-
-						for(int rc2 = 0; rc2 < indexPos2.size(); ++rc2) {
-							double threeBodyE = threeBody.get(rc0).get(rc1).get(rc2);
-
-							// subtract out pairwise energies, which have already been set, from this RC
-							double pairWiseE = emat.getPairwise(res[0], rc0, res[1], rc1);
-							pairWiseE += emat.getPairwise(res[0], rc0, res[2], rc2);
-							pairWiseE += emat.getPairwise(res[1], rc1, res[2], rc2);
-
-							RCTuple triple = new RCTuple( new ArrayList<>(Arrays.asList(res[0], res[1], res[2])), 
-									new ArrayList<>(Arrays.asList(rc0, rc1, rc2)) );
-
-							emat.setHigherOrder(triple, threeBodyE-pairWiseE);
+			else if(res.length > 2) {
+				Integer[] pos = new Integer[res.length]; for(int i = 0; i < pos.length; ++i) pos[i] = new Integer(res[i]);
+				
+				HashMap<ArrayList<Integer>, Double> nBody2E = (HashMap<ArrayList<Integer>, Double>)calcResult;
+				for(ArrayList<Integer> rc : nBody2E.keySet()) {
+					
+					double nbE = nBody2E.get(rc);
+					
+					// subtract out pairwise terms
+					double pwE = 0;
+					for(int i = 0; i < pos.length; ++i) {
+						for(int j = i+1; j < pos.length; ++j) {
+							pwE += emat.getPairwise(pos[i], rc.get(i), pos[j], rc.get(j));
 						}
 					}
+					
+					RCTuple nBody = new RCTuple(new ArrayList<>(Arrays.asList(pos)), new ArrayList<>(rc));
+					emat.setHigherOrder(nBody, nbE-pwE);
 				}
 			}
-
-			else if(res.length==4){// four-body
-
-				ArrayList<ArrayList<ArrayList<ArrayList<Double>>>> fourBody = (ArrayList<ArrayList<ArrayList<ArrayList<Double>>>>)calcResult;
-				Integer[] ires = new Integer[res.length]; for(int i = 0; i < ires.length; ++i) ires[i] = new Integer(res[i]);
-				Integer[] rcs = new Integer[ires.length];
-
-				for(rcs[0] = 0; rcs[0] < fourBody.size(); ++rcs[0]) {
-					ArrayList<ArrayList<ArrayList<Double>>> indexPos1 = fourBody.get(rcs[0]);
-
-					for(rcs[1] = 0; rcs[1] < indexPos1.size(); ++rcs[1] ) {
-						ArrayList<ArrayList<Double>> indexPos2 = indexPos1.get(rcs[1]);
-
-						for(rcs[2] = 0; rcs[2] < indexPos2.size(); ++rcs[2]) {
-							ArrayList<Double> indexPos3 = indexPos2.get(rcs[2]);
-
-							for(rcs[3] = 0; rcs[3] < indexPos3.size(); ++rcs[3]) {
-								double fourBodyE = fourBody.get(rcs[0]).get(rcs[1]).get(rcs[2]).get(rcs[3]);
-
-								// subtract out pairwise energies
-								double pairWiseE = 0;
-								for(int i = 0; i < ires.length; ++i) {
-									for(int j = i+1; j < ires.length; ++j) {
-										pairWiseE += emat.getPairwise(ires[i], rcs[i], ires[j], rcs[j]);
-									}
-								}
-
-								RCTuple quadruple = new RCTuple(new ArrayList<>(Arrays.asList(ires)), new ArrayList<>(Arrays.asList(rcs)));
-
-								emat.setHigherOrder(quadruple, fourBodyE-pairWiseE);
-							}
-						}
-					}
-				}
-			}
+			
+			else
+				throw new RuntimeException("ERROR: invalid res length: " + res.length);
 		}         
 	}
 

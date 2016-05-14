@@ -189,7 +189,7 @@ public class KStarCalculator {
 
 		try {
 
-			cfp.checkStrands();
+			cfp.verifyStrandsMutuallyExclusive();
 			
 			generateAllowedSequences();
 

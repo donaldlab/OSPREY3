@@ -120,7 +120,7 @@ public class EnergyMatrix extends TupleMatrix<Double> implements Serializable {
         //Computes the portion of the internal energy for tuple tup
         //that consists of interactions in htf (corresponds to some sub-tuple of tup)
         //with RCs whose indices in tup are < curIndex
-        double E = 0;
+        double E = 0.0;
         ArrayList<Integer> interactingPos = htf.getInteractingPos();
         
         for(int ipos : interactingPos){
@@ -136,7 +136,9 @@ public class EnergyMatrix extends TupleMatrix<Double> implements Serializable {
 
             if(iposIndex > -1){//ipos interactions need to be counted
                 int iposRC = tup.RCs.get(iposIndex);
-                E += htf.getInteraction(ipos, iposRC);
+                Double val = htf.getInteraction(ipos, iposRC);
+                if(val == null) val = 0.0;
+                E += val;
                 
                 //see if need to go up to highers order again...
                 HigherTupleFinder htf2 = htf.getHigherInteractions(ipos,iposRC);

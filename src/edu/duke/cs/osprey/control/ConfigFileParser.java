@@ -57,7 +57,7 @@ public class ConfigFileParser implements Serializable {
 	}
 
 	
-	void checkStrands() {
+	void verifyStrandsMutuallyExclusive() {
 		// make sure that strands are mutually exclusive. assuming only two strands for now...
 		Strand s0 = getStrandLimits(0);
 		Strand s1 = getStrandLimits(1);

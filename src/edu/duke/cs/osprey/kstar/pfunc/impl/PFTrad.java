@@ -122,7 +122,7 @@ public class PFTrad extends PFAbstract implements Serializable {
 				
 				int pos = flexRes.indexOf(res);
 				
-				if( posInHot.contains(pos) ) break;
+				if( HOTsContains(pos) ) break;
 				
 				hotIndexes.add(pos);
 			}

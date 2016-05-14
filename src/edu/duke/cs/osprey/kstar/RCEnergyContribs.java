@@ -109,7 +109,7 @@ public class RCEnergyContribs {
 		// filter positions that already participate in tripples
 		for( Iterator<BoundErrorByPos> iterator = boundErrors.iterator(); iterator.hasNext(); ) {
 			BoundErrorByPos errorAtPos = iterator.next();
-			if(pf.getPosInHot().contains(errorAtPos.pos))
+			if(pf.HOTsContains(errorAtPos.pos))
 				iterator.remove();
 		}
 

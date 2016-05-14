@@ -317,8 +317,15 @@ public class ConfTree extends AStarTree implements Serializable {
                 ArrayList<Integer> allowedRCs = allowedRCsAtLevel(iPos,partialConf);
                 
                 for( int rc : allowedRCs ){
-                    
-                    double interactionE = htf.getInteraction(iPos, rc);
+                    /*
+                	System.out.println("ipos: " + iPos);
+                	System.out.println("rc: " + rc);
+                	
+                	if(iPos == 0 && rc == 0)
+                		System.out.println(htf);
+                	*/
+                    Double interactionE = htf.getInteraction(iPos, rc);
+                    if(interactionE == null) interactionE = 0.0;
                     
                     //see if need to go up to highers order again...
                     HigherTupleFinder htf2 = htf.getHigherInteractions(iPos, rc);
