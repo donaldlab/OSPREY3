@@ -4,20 +4,17 @@
  */
 package edu.duke.cs.osprey.control;
 
-import java.util.ArrayList;
-
-import edu.duke.cs.osprey.astar.ConfTree;
-import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.pruning.Pruner;
-import edu.duke.cs.osprey.pruning.PruningControl;
-import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.structure.PDBFileReader;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
+
+import edu.duke.cs.osprey.astar.ConfTree;
+import edu.duke.cs.osprey.astar.PairwiseConfTree;
+import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.pruning.Pruner;
+import edu.duke.cs.osprey.pruning.PruningControl;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 /**
  *
@@ -432,7 +429,11 @@ public class GMECFinder {
     ConfSearch initSearch(SearchProblem searchSpace){
         //initialize some kind of combinatorial search, like A*
         //FOR NOW just using A*; may also want BWM*, WCSP, or something according to settings
-        return new ConfTree(searchSpace);
+    	if (searchSpace.emat.hasHigherOrderTerms()) {
+    		return new ConfTree(searchSpace);
+    	} else {
+    		return new PairwiseConfTree(searchSpace);
+    	}
     }
     
     

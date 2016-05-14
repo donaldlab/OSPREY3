@@ -10,13 +10,14 @@ import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.TupleMatrixDouble;
-import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 /**
  *
  * @author mhall44
  */
 public class EnergyMatrix extends TupleMatrixDouble {
+
+	private static final long serialVersionUID = 6503270845014990929L;
 
 	private double constTerm = 0;
     
@@ -52,44 +53,60 @@ public class EnergyMatrix extends TupleMatrixDouble {
 		
 		ArrayList<Integer> tuppos = tup.pos;
 		ArrayList<Integer> tupRCs = tup.RCs;
-        
+		
+        // OPTIMIZATION: split oneBody and pairwise energies into separate loops
+		// to improve CPU cache performance
+		
         int numPosInTuple = tup.pos.size();
-        double E = 0;
+        double energy = 0;
         
         for(int indexInTuple=0; indexInTuple<numPosInTuple; indexInTuple++){
             int posNum = tuppos.get(indexInTuple);
             int RCNum = tupRCs.get(indexInTuple);
             
-            double intraE = getOneBody(posNum,RCNum);
-            E += intraE;
+            energy += getOneBody(posNum,RCNum);
+        }
+        
+        for(int indexInTuple=0; indexInTuple<numPosInTuple; indexInTuple++){
+            int posNum = tuppos.get(indexInTuple);
+            int RCNum = tupRCs.get(indexInTuple);
             
             for(int index2=0; index2<indexInTuple; index2++){
                 int pos2 = tuppos.get(index2);
                 int rc2 = tupRCs.get(index2);
                 
-                double pairwiseE = getPairwise(posNum,RCNum,pos2,rc2);
-                E += pairwiseE;
+                energy += getPairwise(posNum,RCNum,pos2,rc2);
                 
                 if (useHigherOrderTerms) {
 					HigherTupleFinder<Double> htf = getHigherOrderTerms(posNum,RCNum,pos2,rc2);
 					if(htf != null)
-						E += internalEHigherOrder(tup,index2,htf);
+						energy += internalEHigherOrder(tup,index2,htf);
                 }
             }
         }
         
-        return E;
+        return energy;
     }
     
+    public double getHigherOrderEnergy(RCTuple tup, int i1, int i2) {
+    	int res1 = tup.pos.get(i1);
+    	int rc1 = tup.pos.get(i1);
+    	int res2 = tup.pos.get(i2);
+    	int rc2 = tup.RCs.get(i2);
+		HigherTupleFinder<Double> htf = getHigherOrderTerms(res1, rc1, res2, rc2);
+		if (htf != null) {
+			return internalEHigherOrder(tup, i2, htf);
+		}
+		return 0;
+    }
     
     double internalEHigherOrder(RCTuple tup, int curIndex, HigherTupleFinder<Double> htf){
         //Computes the portion of the internal energy for tuple tup
         //that consists of interactions in htf (corresponds to some sub-tuple of tup)
         //with RCs whose indices in tup are < curIndex
         double E = 0;
-        ArrayList<Integer> interactingPos = htf.getInteractingPos();
         
-        for(int ipos : interactingPos){
+        for(int ipos : htf.getInteractingPos()){
             
             //see if ipos is in tup with index < curIndex
             int iposIndex = -1;
@@ -105,7 +122,7 @@ public class EnergyMatrix extends TupleMatrixDouble {
                 E += htf.getInteraction(ipos, iposRC);
                 
                 //see if need to go up to highers order again...
-                HigherTupleFinder htf2 = htf.getHigherInteractions(ipos,iposRC);
+                HigherTupleFinder<Double> htf2 = htf.getHigherInteractions(ipos,iposRC);
                 if(htf2!=null){
                     E += internalEHigherOrder(tup,iposIndex,htf2);
                 }

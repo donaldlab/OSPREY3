@@ -8,11 +8,16 @@ package edu.duke.cs.osprey.astar;
  *
  * @author mhall44
  */
-public class AStarNode implements Comparable {
+public class AStarNode implements Comparable<AStarNode> {
     
-    int nodeAssignments[];//assignments (e.g. partial conformation) for node
+    private int nodeAssignments[];//assignments (e.g. partial conformation) for node
     
-    double score;//score (probably a lower bound on the energy)
+    // partially-computed undefined energies (indexed by pos, rc)
+    private double undefinedRCEnergies[][];
+    
+    private double score;//score (probably a lower bound on the energy)
+    private double gscore;
+    private double hscore;
     
     boolean scoreNeedsRefinement;
 
@@ -27,31 +32,51 @@ public class AStarNode implements Comparable {
     
     //indicates the score needs to be refined (e.g. with EPIC continuous terms)
     //always false in simpler versions of A*
-    public AStarNode(int[] nodeAssignments, double score, boolean scoreNeedsRefinement) {
+    public AStarNode(int[] nodeAssignments, boolean scoreNeedsRefinement) {
         this.nodeAssignments = nodeAssignments;
-        this.score = score;
+        this.undefinedRCEnergies = new double[this.nodeAssignments.length][];
+        this.score = Double.NaN;
+        this.gscore = Double.NaN;
+        this.hscore = Double.NaN;
         this.scoreNeedsRefinement = scoreNeedsRefinement;
     }
 
     @Override
-    public int compareTo(Object o) {
-        AStarNode node2 = (AStarNode)o;//we can only compare to other AStarNodes, and expect no other cases
-        return Double.valueOf(score).compareTo(node2.score);
+    public int compareTo(AStarNode other) {
+        return Double.valueOf(score).compareTo(other.score);
     }
 
     public int[] getNodeAssignments() {
         return nodeAssignments;
     }
+    
+    public double[] getUndefinedRCEnergies(int pos) {
+    	return undefinedRCEnergies[pos];
+    }
+    public void setUndefinedRCEnergies(int pos, double[] val) {
+    	undefinedRCEnergies[pos] = val;
+    }
 
     public void setScore(double score) {
         this.score = score;
     }
-
     public double getScore() {
         return score;
     }
     
+    public double getGScore() {
+    	return gscore;
+    }
+    public void setGScore(double val) {
+    	gscore = val;
+    }
     
+    public double getHScore() {
+    	return hscore;
+    }
+    public void setHScore(double val) {
+    	hscore = val;
+    }
     
     
     public boolean isFullyDefined(){

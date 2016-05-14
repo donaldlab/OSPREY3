@@ -238,18 +238,19 @@ public class EnergyProfiling {
 
 		// time the energy calculations
 		double energy = 0;
-		Stopwatch.start();
+		Stopwatch stopwatch = new Stopwatch();
+		stopwatch.start();
 		for (int i=0; i<numIterations; i++) {
 			energy = efunc.getEnergy();
 			
 			// DEBUG
 			//checkEnergy(expectedEnergy, energy);
 		}
-		Stopwatch.stop();
+		stopwatch.stop();
 		
 		System.out.println(String.format("Calculated %d energies in %s\n\te: %.15f\n\tOpS: %.2f",
-			numIterations, Stopwatch.getTime(TimeUnit.MILLISECONDS), energy,
-			numIterations/Stopwatch.getTimeS()
+			numIterations, stopwatch.getTime(TimeUnit.MILLISECONDS), energy,
+			numIterations/stopwatch.getTimeS()
 		));
 		
 		// make sure the energy is correct after the test too

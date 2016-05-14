@@ -54,12 +54,13 @@ public class EnergyMatrixProfiling {
 		
 		// compute the energy matrix
 		System.out.println("\nComputing energy matrix...");
-		Stopwatch.start();
+		Stopwatch stopwatch = new Stopwatch();
+		stopwatch.start();
 		EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(search.confSpace, search.shellResidues, useERef, addResEntropy);
 		emCalc.calcPEM();
 		EnergyMatrix mat = emCalc.getEMatrix();
-		Stopwatch.stop();
-		System.out.println("finished in " + Stopwatch.getTime(TimeUnit.SECONDS, 2));
+		stopwatch.stop();
+		System.out.println("finished in " + stopwatch.getTime(TimeUnit.SECONDS, 2));
 		
 		/* oi... turns out writing to an encrypted folder is slow no matter what the code does
 		   profiling this is just silly now... how about I don't write to an encrypted folder instead?
@@ -109,7 +110,8 @@ public class EnergyMatrixProfiling {
 		
 		// do lots of lookups in every spot
 		System.out.println("\nProfiling reads...");
-		Stopwatch.start();
+		stopwatch = new Stopwatch();
+		stopwatch.start();
 		final int n = 1000 * 1000;
 		int numPos = mat.getNumPos();
 		for (int i=0; i<n; i++) {
@@ -126,8 +128,8 @@ public class EnergyMatrixProfiling {
 				}
 			}
 		}
-		Stopwatch.stop();
-		System.out.println("finished in " + Stopwatch.getTime(TimeUnit.SECONDS, 2));
-		System.out.println(String.format("\t%.2f OpS", n/Stopwatch.getTimeS()));
+		stopwatch.stop();
+		System.out.println("finished in " + stopwatch.getTime(TimeUnit.SECONDS, 2));
+		System.out.println(String.format("\t%.2f OpS", n/stopwatch.getTimeS()));
 	}
 }

@@ -110,10 +110,11 @@ public class PruningProfiling {
 		// 300: [11200, 11023, 10874] => 1.19x speedup over benchmark, 2.05x speedup over original
 		
 		System.out.println("\nPruning " + search.confSpace.getNumConformations().doubleValue() + " conformations...");
-		Stopwatch.start();
+		Stopwatch stopwatch = new Stopwatch();
+		stopwatch.start();
 		pruner.prune();            
-		Stopwatch.stop();
-		System.out.println("finished in " + Stopwatch.getTime(TimeUnit.MILLISECONDS));
+		stopwatch.stop();
+		System.out.println("finished in " + stopwatch.getTime(TimeUnit.MILLISECONDS));
 		
 		/* TODO: check pruning accuracy automatically:
 		
