@@ -7,7 +7,7 @@ import edu.duke.cs.osprey.tools.Stopwatch;
 
 public class AStarProgress {
 	
-	private static final int ReportIntervalMs = 5 * 1000; // TODO: make configurable
+	private static final int ReportIntervalMs = 10 * 1000; // TODO: make configurable
 	
 	private int numLevels;
 	private int level;
@@ -19,8 +19,8 @@ public class AStarProgress {
 	private Stopwatch stopwatch;
 	private int msRunning;
 	
-	public void init() {
-		numLevels = 0;
+	public AStarProgress(int numLevels) {
+		this.numLevels = numLevels;
 		level = 0;
 		deepestLevel = 0;
 		score = Double.POSITIVE_INFINITY;
@@ -33,8 +33,7 @@ public class AStarProgress {
 	
 	public void reportNode(AStarNode node, int numNodesInQueue) {
 		
-		this.numLevels = node.getNodeAssignments().length;
-		this.level = getLevel(node.getNodeAssignments());
+		this.level = node.getLevel();
 		this.deepestLevel = Math.max(this.deepestLevel, this.level);
 		this.score = node.getScore();
 		this.numNodesInQueue = numNodesInQueue;
@@ -71,17 +70,5 @@ public class AStarProgress {
 			stopwatch.getTime(2),
 			100f*heapMem.getUsed()/heapMem.getMax()
 		);
-	}
-	
-	private int getLevel(int[] conf) {
-		int level = 0;
-		for (int i=0; i<conf.length; i++) {
-			if (conf[i] >= 0) {
-				
-				// defined conf at this position, increment level
-				level++;
-			}
-		}
-		return level;
 	}
 }

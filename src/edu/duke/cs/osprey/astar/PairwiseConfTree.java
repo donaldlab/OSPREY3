@@ -1,24 +1,28 @@
 package edu.duke.cs.osprey.astar;
 
-import edu.duke.cs.osprey.confspace.RCTuple;
+import java.util.ArrayList;
+import java.util.Collections;
+
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 // this conf tree sacrifices higher-order tuples for much much faster speed =)
-public class PairwiseConfTree extends ConfTree<FullAStarNode> { // TODO: SlimAStarNode
+public class PairwiseConfTree extends ConfTree<SlimAStarNode> {
 
 	private double[][][] undefinedEnergies; // indexed by (pos1,pos2), rc at pos1
 	
-	private AStarNode cachedNode;
+	private SlimAStarNode cachedNode;
 	private double[][] cachedEnergies;
+	
+	private ArrayList<SlimAStarNode.Link> links;
     
 	public PairwiseConfTree(SearchProblem sp){
 		this(sp, sp.pruneMat, sp.useEPIC);
 	}
 
 	public PairwiseConfTree(SearchProblem sp, PruningMatrix pruneMat, boolean useEPIC) {
-		super(new FullAStarNode.Factory(sp.confSpace.numPos), sp, pruneMat, useEPIC);
+		super(new SlimAStarNode.Factory(sp.confSpace.numPos), sp, pruneMat, useEPIC);
 		
 		if (emat.hasHigherOrderTerms()) {
 			throw new Error("Don't use PairwiseConfTree with higher order energy terms");
@@ -55,26 +59,71 @@ public class PairwiseConfTree extends ConfTree<FullAStarNode> { // TODO: SlimASt
 		for (int pos=0; pos<numPos; pos++) {
 			cachedEnergies[pos] = new double[unprunedRCsAtPos[pos].length];
 		}
+		
+		links = new ArrayList<>();
+	}
+	
+	@Override
+	protected void splitPositions(SlimAStarNode node) {
+		
+		// split conformation into defined and undefined residues
+		
+		// sort the link chain in position order
+		links.clear();
+		SlimAStarNode.Link link = node.getLink();
+		while (!(link.isRoot())) {
+			links.add(link);
+			link = link.getParent();
+		}
+		Collections.sort(links);
+		
+		// get the first link, if any
+		int i = 0;
+		if (links.isEmpty()) {
+			link = null;
+		} else {
+			link = links.get(i);
+		}
+		
+		// split the positions
+		numDefined = 0;
+		numUndefined = 0;
+		for (int pos=0; pos<numPos; pos++) {
+			
+			// does this pos match the next link?
+			if (link != null && pos == link.getPos()) {
+				
+				// defined pos
+				definedPos[numDefined] = pos;
+				definedRCs[numDefined] = link.getRC();
+				numDefined++;
+				
+				// advance to the next link, if any
+				i++;
+				if (i < links.size()) {
+					link = links.get(i);
+				} else {
+					link = null;
+				}
+				
+			} else {
+				
+				// undefined pos
+				undefinedPos[numUndefined] = pos;
+				numUndefined++;
+			}
+		}
 	}
 	
     @Override
-    protected double scoreNode(FullAStarNode node) {
+    protected double scoreNode(SlimAStarNode node) {
+    	assertSplitPositions();
     	
     	// OPTIMIZATION: this function is really only called once for the root node
     	// no need to optimize it
     	
 		EnergyMatrix emat = this.emat;
 		int[][] unprunedRCsAtPos = this.unprunedRCsAtPos;
-		
-		int[] conf = node.getNodeAssignments();
-    
-    	splitPositions(conf);
-    	int numDefined = this.numDefined;
-    	int numUndefined = this.numUndefined;
-    	int[] definedPos = this.definedPos;
-    	int[] definedRCs = this.definedRCs;
-		int[] undefinedPos = this.undefinedPos;
-		RCTuple rcTuple = this.rcTuple;
 		
 		// compute energy of defined conf
     	double gscore = emat.getConstTerm();
@@ -88,7 +137,6 @@ public class PairwiseConfTree extends ConfTree<FullAStarNode> { // TODO: SlimASt
 		}
 		
 		// pairwise energies
-		assert (numDefined == rcTuple.size());
 		for (int i=0; i<numDefined; i++) {
 			int pos1 = definedPos[i];
 			int rc1 = definedRCs[i];
@@ -119,10 +167,8 @@ public class PairwiseConfTree extends ConfTree<FullAStarNode> { // TODO: SlimASt
 			hscore += minRCEnergy;
 		}
 		
-    	resetSplitPositions();
-    	
     	node.setGScore(gscore);
-    	node.setScore(gscore + hscore);
+    	node.setHScore(hscore);
     	
     	// DEBUG
     	//assertScore(scoreConf(node.getNodeAssignments()), node.getScore());
@@ -131,7 +177,8 @@ public class PairwiseConfTree extends ConfTree<FullAStarNode> { // TODO: SlimASt
     }
     
     @Override
-    protected double scoreNodeDifferential(FullAStarNode parent, FullAStarNode child, int nextPos, int nextRc) {
+    protected double scoreNodeDifferential(SlimAStarNode parent, SlimAStarNode child, int nextPos, int nextRc) {
+    	assertSplitPositions();
     	
     	// NOTE: child can be null, eg for scoreExpansionLevel()
     	
@@ -141,14 +188,8 @@ public class PairwiseConfTree extends ConfTree<FullAStarNode> { // TODO: SlimASt
     	
     	// update cached info
     	if (parent != cachedNode) { // yes, compare by reference
-    		
-    		int[] parentConf = parent.getNodeAssignments();
-    		splitPositions(parentConf);
     		computeCachedEnergies(parent);
     		cachedNode = parent;
-    		
-    		// this should not be assigned in the parent
-    		assert (parentConf[nextPos] < 0);
     	}
     	
     	// update the g-score
@@ -202,29 +243,20 @@ public class PairwiseConfTree extends ConfTree<FullAStarNode> { // TODO: SlimASt
 			hscore += minRCEnergy;
     	}
     	
-    	double score = gscore + hscore;
-    	
     	if (child != null) {
 			child.setGScore(gscore);
-			child.setScore(score);
+			child.setHScore(hscore);
     	}
     	
-    	/* DEBUG
-		int[] conf = new int[numPos];
-		System.arraycopy(parentConf, 0, conf, 0, numPos);
-		conf[newPos] = newRc;
-		assertScore(scoreConf(conf), score);
-		*/
-    
-    	return score;
+    	return gscore + hscore;
     }
     
     @Override
-    protected double scoreConfDifferential(FullAStarNode parent, int nextPos, int nextRc) {
+    protected double scoreConfDifferential(SlimAStarNode parent, int nextPos, int nextRc) {
     	return scoreNodeDifferential(parent, null, nextPos, nextRc);
     }
     
-    private void computeCachedEnergies(FullAStarNode node) {
+    private void computeCachedEnergies(SlimAStarNode node) {
     	assertSplitPositions();
     	
 		// for each undefined pos...

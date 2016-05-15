@@ -146,12 +146,16 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
         ArrayList<T> ans = new ArrayList<>();
         int nextLevel = nextLevelToExpand(curNode);
         
+        splitPositions(curNode);
+        
         for (int rc : unprunedRCsAtPos[nextLevel]) {
             T childNode = nodeFactory.make(curNode, nextLevel, rc);
             childNode.setScoreNeedsRefinement(useRefinement);
             scoreNodeDifferential(curNode, childNode, nextLevel, rc);
             ans.add(childNode);
         }
+        
+        resetSplitPositions();
         
         return ans;
     }
@@ -165,19 +169,16 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
 		
 		T root = nodeFactory.makeRoot();
 		root.setScoreNeedsRefinement(useRefinement);
+		splitPositions(root);
 		scoreNode(root);
+		resetSplitPositions();
 		return root;
 	}
     
 
     @Override
     public boolean isFullyAssigned(T node) {
-        for(int rc : node.getNodeAssignments()){
-            if(rc<0)//not fully assigned
-                return false;
-        }
-        
-        return true;
+    	return node.isFullyDefined();
     }
     
     
@@ -186,40 +187,40 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
     
     public int nextLevelToExpand(T parentNode) {
         //given a partially defined conformation, what level should be expanded next?
+    	
+        int bestLevel = -1;
         
-        int[] conf = parentNode.getNodeAssignments();
-        if(useDynamicAStar){
+    	splitPositions(parentNode);
+    	
+        if (useDynamicAStar) {
             
-            int bestLevel = -1;
             double bestLevelScore = Double.NEGATIVE_INFINITY;
             
-            for(int level=0; level<numPos; level++){
-                if(conf[level]<0){//position isn't already all expanded
+            for (int i=0; i<numUndefined; i++) {
+            	int level = undefinedPos[i];
                     
-                    double levelScore = scoreExpansionLevel(parentNode, level);
+				double levelScore = scoreExpansionLevel(parentNode, level);
 
-                    if(levelScore>bestLevelScore){//higher score is better
-                        bestLevelScore = levelScore;
-                        bestLevel = level;
-                    }
+				if(levelScore>bestLevelScore){//higher score is better
+					bestLevelScore = levelScore;
+					bestLevel = level;
                 }
             }
             
-            if(bestLevel==-1)
-                throw new RuntimeException("ERROR: No next expansion level found for dynamic A*");
-            
-            return bestLevel;
-        }
-        else {//static ordering.  
+        } else {//static ordering.  
             //Let's only support the traditional ordering since dynamic will beat static for improved orderings.
-            for(int level=0; level<numPos; level++){
-                if(conf[level]<0)
-                    return level;
-            }
-            
-            throw new RuntimeException("ERROR: Can't find next expansion level for fully defined conformation");
+        	if (numUndefined > 0) {
+        		bestLevel = undefinedPos[0];
+        	}
         }
+        	
+        resetSplitPositions();
         
+        if(bestLevel==-1) {
+        	throw new RuntimeException("ERROR: No next expansion level found for dynamic A*");
+        } else {
+        	return bestLevel;
+        }
     }
     
     
@@ -246,90 +247,93 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
     // this improves CPU cache performance, which is important since the big energy matrix makes
     // this computation mostly memory-bound
     
-    protected void splitPositions(int[] conf) {
+    protected void splitPositions(T node) {
     	
-    	int numPos = this.numPos;
-		int[] definedPos = this.definedPos;
-		int[] definedRCs = this.definedRCs;
-		int[] undefinedPos = this.undefinedPos;
-		
+    	// make sure we're not split already
+    	assert (numDefined == 0 && numUndefined == 0);
+    	
+    	int[] conf = node.getNodeAssignments();
+    	
 		// split conformation into defined and undefined residues
-		int numDefined = 0;
-		for (int pos=0; pos<numPos; pos++) {
-			if (conf[pos] >= 0) {
-				numDefined++;
-			}
-		}
-		int definedIndex = 0;
-		int undefinedIndex = 0;
+		numDefined = 0;
+		numUndefined = 0;
 		for (int pos=0; pos<numPos; pos++) {
 			int rc = conf[pos];
 			if (rc >= 0) {
-				definedPos[definedIndex] = pos;
-				definedRCs[definedIndex] = rc;
-				definedIndex++;
+				definedPos[numDefined] = pos;
+				definedRCs[numDefined] = rc;
+				numDefined++;
 			} else {
-				undefinedPos[undefinedIndex] = pos;
-				undefinedIndex++;
+				undefinedPos[numUndefined] = pos;
+				numUndefined++;
 			}
 		}
 		
-		this.numDefined = numDefined;
-		this.numUndefined = numPos - numDefined;
-		
-		this.rcTuple.set(conf);
+		assert (numDefined + numUndefined == numPos);
     }
     
-    protected void resetSplitPositions() {
+    private void resetSplitPositions() {
     	numDefined = 0;
     	numUndefined = 0;
     }
     
     protected void assertSplitPositions() {
     	assert (numDefined + numUndefined == numPos) :
-    		"call splitPostions(conf) before calling this function!";
+    		"call splitPostions(node) before calling this function!";
     }
     
-    protected double scoreNodeDifferential(T parent, T child, int nextPos, int nextRc) {
-    	return scoreNode(child);
+    protected double scoreNodeDifferential(T parent, T child, int childPos, int childRc) {
+    	assertSplitPositions();
+    	
+    	// just route to scoreConfDifferential()
+    	double score = scoreConfDifferential(parent, childPos, childRc);
+    	child.setScore(score);
+    	return score;
     }
     
     protected double scoreNode(T node) {
+    	assertSplitPositions();
     	
-    	// just route to scoreConf(), subclasses can do fancier things
-    	double score = scoreConf(node.getNodeAssignments());
+    	// just route to scoreConfDifferential()
+    	double score = scoreConfDifferential(node, -1, -1);
     	node.setScore(score);
     	return score;
     }
     
-    protected double scoreConfDifferential(T parentNode, int nextPos, int nextRc) {
+    protected double scoreConfDifferential(T parentNode, int childPos, int childRc) {
+    	assertSplitPositions();
     	
-    	// just route to scoreConf(), subclasses can do fancier things
-    	System.arraycopy(parentNode.getNodeAssignments(), 0, childConf, 0, numPos);
-    	assert (childConf[nextPos] < 0);
-       	childConf[nextPos] = nextRc;
-       	return scoreConf(childConf);
-    }
-    
-	protected double scoreConf(int[] conf) {
-		
 		// OPTIMIZATION: this function gets hit a LOT!
-		// so even really pedantic optimizations (like preferring stack over heap) can make an impact
+		// so even really pedantic optimizations can make an impact
 		
-		// that said, let's copy some things to the stack =)
-		int[][] unprunedRCsAtPos = this.unprunedRCsAtPos;
-		int[] undefinedPos = this.undefinedPos;
-		
-		splitPositions(conf);
+    	// get the full conf, start with the parent first
+    	int[] conf = parentNode.getNodeAssignments();
+    	
+    	// but if this is actually a child node, switch to the child conf
+    	if (childPos >= 0) {
+    		
+    		// parent shouldn't be assigned here
+    		assert (conf[childPos] < 0);
+    		
+    		// make the child conf
+    		System.arraycopy(conf, 0, childConf, 0, numPos);
+    		childConf[childPos] = childRc;
+    		conf = childConf;
+    	}
 		
 		// compute g-score
-		rcTuple.set(conf);
+       	rcTuple.set(conf);
     	double gscore = emat.getConstTerm() + emat.getInternalEnergy(rcTuple);
 		
 		// compute h-score
 		double hscore = 0;
 		for (int i=0; i<numUndefined; i++) {
 			int pos1 = undefinedPos[i];
+			
+			// skip if defined in child
+			if (pos1 == childPos) {
+				continue;
+			}
 			
 			//lower bound on contribution of this residue
 			//resContribLB will be the minimum_{rc} of the lower bound assuming rc assigned to this level
@@ -340,19 +344,17 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
 				int rc1 = rc1s[j];
 				// OPTIMIZATION: manually inlining this is noticeably slower
 				// maybe it causes too much register pressure
-				double rcContrib = getUndefinedRCEnergy(conf, pos1, rc1, j);
+				double rcContrib = getUndefinedRCEnergy(conf, pos1, rc1, j, childPos, childRc);
 				resContribLB = Math.min(resContribLB, rcContrib);
 			}
 		
 			hscore += resContribLB;
 		}
 		
-		resetSplitPositions();
-		
 		return gscore + hscore;
     }
 	
-	double getUndefinedRCEnergy(int[] conf, int pos1, int rc1, int rc1i) {
+	private double getUndefinedRCEnergy(int[] conf, int pos1, int rc1, int rc1i, int childPos, int childRc) {
 		assertSplitPositions();
 		//Provide a lower bound on what the given rc at the given level can contribute to the energy
 		//assume partialConf and definedTuple
@@ -380,10 +382,18 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
 			int pos2 = definedPos[i];
 			int rc2 = definedRCs[i];
 			
+			assert (pos2 != childPos);
+			
 			rcContrib += emat.getPairwise(pos1, rc1, pos2, rc2);
 			//add higher-order terms that involve rc, rc2, and parts of partialConf
 			//besides that only residues in definedTuple or levels below pos2
 			rcContrib += higherOrderContribLB(conf, pos1, rc1, pos2, rc2);
+		}
+		
+		// if the child has a new definition, add that too
+		if (childPos >= 0) {
+			rcContrib += emat.getPairwise(pos1, rc1, childPos, childRc);
+			rcContrib += higherOrderContribLB(conf, pos1, rc1, childPos, childRc);
 		}
 		
 		// second pass, undefined residues
@@ -391,6 +401,11 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
 			int pos2 = undefinedPos[i];
 			if (pos2 >= pos1) {
 				break;
+			}
+			
+			// skip if defined in child
+			if (pos2 == childPos) {
+				continue;
 			}
 			
 			// min over all possible conformations

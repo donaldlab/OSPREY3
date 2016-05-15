@@ -7,7 +7,6 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 
-import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.astar.PairwiseConfTree;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
@@ -85,6 +84,7 @@ public class ConfTreeProfiling {
 		// init the conformation search
 		//ConfTree<?> tree = ConfTree.makeFull(search);
 		PairwiseConfTree tree = new PairwiseConfTree(search);
+		tree.initProgress(search.confSpace.numPos);
 		
 		// notation below (trialN values in milliseconds):
 		// numFlexPos: [trial1, trial2, trial2]
@@ -151,6 +151,9 @@ public class ConfTreeProfiling {
 		// 2016-05-15 (didn't bother re-benchmarking again)
 		// after more minor optimizations, fixed memory usage
 		// 55:   [19785, 20181, 20118] => 1.24x speedup over benchmark
+		
+		// optimize for memory usage at the nodes, hopefully this won't slow down too much
+		// 55:   [20082, 20240, 20227] => about the same, not bad at all! =)
 		
 		System.out.println("\nFinding GMEC among " + tree.getNumConformations().doubleValue() + " conformations ...");
 		Stopwatch stopwatch = new Stopwatch();

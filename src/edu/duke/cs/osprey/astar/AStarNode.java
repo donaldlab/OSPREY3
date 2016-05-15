@@ -15,6 +15,7 @@ public interface AStarNode extends Comparable<AStarNode> {
 	void setScore(double val);
 	boolean scoreNeedsRefinement();
 	void setScoreNeedsRefinement(boolean val);
+	int getLevel();
 	boolean isFullyDefined();
 
 	public static interface Factory<T extends AStarNode> {

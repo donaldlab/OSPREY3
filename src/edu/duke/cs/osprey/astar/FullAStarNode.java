@@ -91,8 +91,19 @@ public class FullAStarNode implements AStarNode {
     	hscore = val;
     }
     
+    @Override
+    public int getLevel() {
+        int level = 0;
+        for (int a : nodeAssignments) {
+            if (a >= 0) {
+                level++;
+            }
+        }
+        return level;
+    }
     
-    public boolean isFullyDefined(){
+    @Override
+    public boolean isFullyDefined() {
         //Assuming assignments greater than 0 denote fully defined positions,
         //determine if this node is fully defined or not
         for(int a : nodeAssignments){

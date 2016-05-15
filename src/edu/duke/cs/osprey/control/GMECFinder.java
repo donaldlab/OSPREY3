@@ -429,11 +429,14 @@ public class GMECFinder {
     ConfSearch initSearch(SearchProblem searchSpace){
         //initialize some kind of combinatorial search, like A*
         //FOR NOW just using A*; may also want BWM*, WCSP, or something according to settings
+    	ConfTree<?> tree;
     	if (searchSpace.emat.hasHigherOrderTerms()) {
-    		return ConfTree.makeFull(searchSpace);
+    		tree = ConfTree.makeFull(searchSpace);
     	} else {
-    		return new PairwiseConfTree(searchSpace);
+    		tree = new PairwiseConfTree(searchSpace);
     	}
+    	tree.initProgress(searchSpace.confSpace.numPos);
+    	return tree;
     }
     
     
