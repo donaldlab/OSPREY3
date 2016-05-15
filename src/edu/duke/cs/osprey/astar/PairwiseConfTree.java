@@ -6,7 +6,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 // this conf tree sacrifices higher-order tuples for much much faster speed =)
-public class PairwiseConfTree extends ConfTree {
+public class PairwiseConfTree extends ConfTree<FullAStarNode> { // TODO: SlimAStarNode
 
 	private double[][][] undefinedEnergies; // indexed by (pos1,pos2), rc at pos1
 	
@@ -18,7 +18,7 @@ public class PairwiseConfTree extends ConfTree {
 	}
 
 	public PairwiseConfTree(SearchProblem sp, PruningMatrix pruneMat, boolean useEPIC) {
-		super(sp, pruneMat, useEPIC);
+		super(new FullAStarNode.Factory(sp.confSpace.numPos), sp, pruneMat, useEPIC);
 		
 		if (emat.hasHigherOrderTerms()) {
 			throw new Error("Don't use PairwiseConfTree with higher order energy terms");
@@ -56,9 +56,9 @@ public class PairwiseConfTree extends ConfTree {
 			cachedEnergies[pos] = new double[unprunedRCsAtPos[pos].length];
 		}
 	}
-    
+	
     @Override
-    protected double scoreNode(AStarNode node) {
+    protected double scoreNode(FullAStarNode node) {
     	
     	// OPTIMIZATION: this function is really only called once for the root node
     	// no need to optimize it
@@ -122,7 +122,6 @@ public class PairwiseConfTree extends ConfTree {
     	resetSplitPositions();
     	
     	node.setGScore(gscore);
-    	node.setHScore(hscore);
     	node.setScore(gscore + hscore);
     	
     	// DEBUG
@@ -132,7 +131,7 @@ public class PairwiseConfTree extends ConfTree {
     }
     
     @Override
-    protected double scoreNodeDifferential(AStarNode parent, AStarNode child, int nextPos, int nextRc) {
+    protected double scoreNodeDifferential(FullAStarNode parent, FullAStarNode child, int nextPos, int nextRc) {
     	
     	// NOTE: child can be null, eg for scoreExpansionLevel()
     	
@@ -207,7 +206,6 @@ public class PairwiseConfTree extends ConfTree {
     	
     	if (child != null) {
 			child.setGScore(gscore);
-			child.setHScore(hscore);
 			child.setScore(score);
     	}
     	
@@ -222,11 +220,11 @@ public class PairwiseConfTree extends ConfTree {
     }
     
     @Override
-    protected double scoreConfDifferential(AStarNode parent, int nextPos, int nextRc) {
+    protected double scoreConfDifferential(FullAStarNode parent, int nextPos, int nextRc) {
     	return scoreNodeDifferential(parent, null, nextPos, nextRc);
     }
     
-    private void computeCachedEnergies(AStarNode node) {
+    private void computeCachedEnergies(FullAStarNode node) {
     	assertSplitPositions();
     	
 		// for each undefined pos...

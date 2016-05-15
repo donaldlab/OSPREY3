@@ -13,13 +13,13 @@ import java.util.PriorityQueue;
  * @author mhall44
  */
 
-public abstract class AStarTree implements ConfSearch {
+public abstract class AStarTree<T extends AStarNode> implements ConfSearch {
     //This replaces MSAStar with something more generic
     //The goal is that subclasses of this, differing only in the abstract methods,
     //can cover the A* variations we're considering:
     //dynamic ordering, different node scoring heuristics, COMETS, super-rotamers, etc.
         
-    private PriorityQueue<AStarNode> pq = null;
+    private PriorityQueue<T> pq = null;
     private AStarProgress progress = new AStarProgress();
         
     //AStarNode can be lightweight: just int[], score, and flag for if score needs refinement
@@ -42,7 +42,7 @@ public abstract class AStarTree implements ConfSearch {
             initQueue(rootNode());
         }
         
-        AStarNode curNode;
+        T curNode;
         
         while(true) {//keep going until we either find the optimal solution, or find the tree is empty
             curNode = pq.poll();
@@ -58,7 +58,7 @@ public abstract class AStarTree implements ConfSearch {
                 numPruned++;
             else {
                 
-                while(curNode.scoreNeedsRefinement){
+                while(curNode.scoreNeedsRefinement()){
                     refineScore(curNode);
                     
                     if(curNode.getScore()!=Double.POSITIVE_INFINITY)//remove node if refinement showed it's impossible
@@ -76,13 +76,13 @@ public abstract class AStarTree implements ConfSearch {
                 }
 
                 //expand
-                ArrayList<AStarNode> children = getChildren(curNode);
+                ArrayList<T> children = getChildren(curNode);
                 //note: in a method like COMETS that refines nodes,
                 //expandNode may return a singleton list consisting of curNode with improved bound
 
                 numExpanded++;
                 
-                for(AStarNode child : children)
+                for(T child : children)
                     pq.add(child);
             }
         }
@@ -90,7 +90,7 @@ public abstract class AStarTree implements ConfSearch {
     }
     
     
-    public void initQueue(AStarNode node){
+    public void initQueue(T node){
         pq = new PriorityQueue<>();
         pq.add(node);
     }
@@ -98,14 +98,14 @@ public abstract class AStarTree implements ConfSearch {
     
     //methods with default implementations that may need to be overridden:
     
-    public boolean canPruneNode(AStarNode node){
+    public boolean canPruneNode(T node){
         //By default we don't have node pruning
         //but subclasses may allow this
         return false;
     }
     
     
-    public int[] outputNode(AStarNode node){
+    public int[] outputNode(T node){
     	
     	progress.printProgressReport();
     	
@@ -116,7 +116,7 @@ public abstract class AStarTree implements ConfSearch {
     }
     
     
-    void refineScore(AStarNode node){//e.g. add the EPIC contribution
+    void refineScore(T node){//e.g. add the EPIC contribution
         //In trees without score refinement, we should 
         //not be calling this method
         throw new UnsupportedOperationException("ERROR: Score refinement not supported"
@@ -130,18 +130,18 @@ public abstract class AStarTree implements ConfSearch {
     //the score can be a quick, possibly loose lower bound for now; 
     //mark scoreNeedRefinement if we'll want to refine any nodes that get to be head node
     
-    public abstract ArrayList<AStarNode> getChildren(AStarNode curNode);
+    public abstract ArrayList<T> getChildren(T curNode);
         //Get children for a node
         //this can be either static or dynamic ordering, depending on implementation
     
-    public abstract AStarNode rootNode();
+    public abstract T rootNode();
     
     
-    public abstract boolean isFullyAssigned(AStarNode node);//is the node fully assigned (i.e., returnable?)
+    public abstract boolean isFullyAssigned(T node);//is the node fully assigned (i.e., returnable?)
 
     
     
-    public PriorityQueue<AStarNode> getQueue() {
+    public PriorityQueue<T> getQueue() {
         //direct access to queue.  Use with caution.  
         return pq;
     }

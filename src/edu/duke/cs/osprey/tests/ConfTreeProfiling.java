@@ -83,8 +83,8 @@ public class ConfTreeProfiling {
 		search.pruneMat = new PruningMatrix(search.confSpace, search.emat.getPruningInterval());
 		
 		// init the conformation search
-		//ConfTree tree = new ConfTree(search);
-		ConfTree tree = new PairwiseConfTree(search);
+		//ConfTree<?> tree = ConfTree.makeFull(search);
+		PairwiseConfTree tree = new PairwiseConfTree(search);
 		
 		// notation below (trialN values in milliseconds):
 		// numFlexPos: [trial1, trial2, trial2]

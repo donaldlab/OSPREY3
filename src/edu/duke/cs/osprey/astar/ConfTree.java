@@ -20,13 +20,19 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
  *
  * @author mhall44
  */
-public class ConfTree extends AStarTree {
+public class ConfTree<T extends AStarNode> extends AStarTree<T> {
     //This implementation of an A* tree is intended for conformational search
     //AStarNode.nextAssignment is an array of length numPos; each position
     //stores the assigned RC, or -1 to indicate an unassigned position
     //this class supports both "traditional" (static, simple heuristic) A*
     //and improvements like dynamic A*
     //we may also want to allow other negative indices, to indicate partially assigned RCs
+	
+	public static ConfTree<FullAStarNode> makeFull(SearchProblem search) {
+		return new ConfTree<FullAStarNode>(new FullAStarNode.Factory(search.confSpace.numPos), search);
+	}
+	
+	private AStarNode.Factory<T> nodeFactory;
 
     protected int numPos;
     protected EnergyMatrix emat;
@@ -62,11 +68,11 @@ public class ConfTree extends AStarTree {
     private int[] childConf;
     
     
-    public ConfTree(SearchProblem sp){
-        this(sp, sp.pruneMat, sp.useEPIC);
+    public ConfTree(AStarNode.Factory<T> nodeFactory, SearchProblem sp){
+        this(nodeFactory, sp, sp.pruneMat, sp.useEPIC);
     }
     
-    public ConfTree(SearchProblem sp, PruningMatrix pruneMat, boolean useEPIC){
+    public ConfTree(AStarNode.Factory<T> nodeFactory, SearchProblem sp, PruningMatrix pruneMat, boolean useEPIC){
     	
 		// NOTE: might want to implement this as subclass or compose with other object
 		// instead of adding a big switch here
@@ -77,6 +83,7 @@ public class ConfTree extends AStarTree {
 			throw new RuntimeException("Advanced A* scoring methods not implemented yet!");
 		}
 		
+		this.nodeFactory = nodeFactory;
         numPos = sp.confSpace.numPos;
         
         // allocate temp space
@@ -128,7 +135,7 @@ public class ConfTree extends AStarTree {
     
     
     @Override
-    public ArrayList<AStarNode> getChildren(AStarNode curNode) {
+    public ArrayList<T> getChildren(T curNode) {
         
         if(isFullyAssigned(curNode))
             throw new RuntimeException("ERROR: Can't expand a fully assigned A* node");
@@ -136,37 +143,35 @@ public class ConfTree extends AStarTree {
         if(curNode.getScore() == Double.POSITIVE_INFINITY)//node impossible, so no children
             return new ArrayList<>();
         
-        ArrayList<AStarNode> ans = new ArrayList<>();
+        ArrayList<T> ans = new ArrayList<>();
         int nextLevel = nextLevelToExpand(curNode);
         
-        
         for (int rc : unprunedRCsAtPos[nextLevel]) {
-            int[] childConf = curNode.getNodeAssignments().clone();
-            childConf[nextLevel] = rc;
-            AStarNode childNode = new AStarNode(childConf, useRefinement);
+            T childNode = nodeFactory.make(curNode, nextLevel, rc);
+            childNode.setScoreNeedsRefinement(useRefinement);
             scoreNodeDifferential(curNode, childNode, nextLevel, rc);
             ans.add(childNode);
         }
         
         return ans;
     }
-
-
+    
 	@Override
-	public AStarNode rootNode() {
+	public T rootNode() {
 		
 		//no residues assigned, so all -1's
 		int[] conf = new int[numPos];
 		Arrays.fill(conf, -1);
 		
-		AStarNode root = new AStarNode(conf, useRefinement);
+		T root = nodeFactory.makeRoot();
+		root.setScoreNeedsRefinement(useRefinement);
 		scoreNode(root);
 		return root;
 	}
     
 
     @Override
-    public boolean isFullyAssigned(AStarNode node) {
+    public boolean isFullyAssigned(T node) {
         for(int rc : node.getNodeAssignments()){
             if(rc<0)//not fully assigned
                 return false;
@@ -179,7 +184,7 @@ public class ConfTree extends AStarTree {
     
     //operations supporting special features like dynamic A*
     
-    public int nextLevelToExpand(AStarNode parentNode) {
+    public int nextLevelToExpand(T parentNode) {
         //given a partially defined conformation, what level should be expanded next?
         
         int[] conf = parentNode.getNodeAssignments();
@@ -218,7 +223,7 @@ public class ConfTree extends AStarTree {
     }
     
     
-    double scoreExpansionLevel(AStarNode parentNode, int level) {
+    double scoreExpansionLevel(T parentNode, int level) {
         //Score expansion at the indicated level for the given partial conformation
         //for use in dynamic A*.  Higher score is better.
     	
@@ -285,11 +290,11 @@ public class ConfTree extends AStarTree {
     		"call splitPostions(conf) before calling this function!";
     }
     
-    protected double scoreNodeDifferential(AStarNode parent, AStarNode child, int nextPos, int nextRc) {
+    protected double scoreNodeDifferential(T parent, T child, int nextPos, int nextRc) {
     	return scoreNode(child);
     }
     
-    protected double scoreNode(AStarNode node) {
+    protected double scoreNode(T node) {
     	
     	// just route to scoreConf(), subclasses can do fancier things
     	double score = scoreConf(node.getNodeAssignments());
@@ -297,7 +302,7 @@ public class ConfTree extends AStarTree {
     	return score;
     }
     
-    protected double scoreConfDifferential(AStarNode parentNode, int nextPos, int nextRc) {
+    protected double scoreConfDifferential(T parentNode, int nextPos, int nextRc) {
     	
     	// just route to scoreConf(), subclasses can do fancier things
     	System.arraycopy(parentNode.getNodeAssignments(), 0, childConf, 0, numPos);
@@ -482,21 +487,21 @@ public class ConfTree extends AStarTree {
     
     /*
     @Override
-    boolean canPruneNode(AStarNode node){
+    boolean canPruneNode(T node){
         check seq dev from wt;
     }
     
     
     
     @Override
-    void refineScore(AStarNode node){//e.g. add the EPIC contribution
+    void refineScore(T node){//e.g. add the EPIC contribution
         node.score = betterScore();//or this could be a good place for MPLP or sthg
     }
     */
     
     
      @Override
-    void refineScore(AStarNode node){
+    void refineScore(T node){
         
         if(epicMat==null)
             throw new UnsupportedOperationException("ERROR: Trying to call refinement w/o EPIC matrix");
@@ -505,7 +510,7 @@ public class ConfTree extends AStarTree {
         if(minPartialConfs || isFullyAssigned(node))
             node.setScore(node.getScore() + epicMat.minContE(node.getNodeAssignments()));
         
-        node.scoreNeedsRefinement = false;
+        node.setScoreNeedsRefinement(false);
     }
      
      
