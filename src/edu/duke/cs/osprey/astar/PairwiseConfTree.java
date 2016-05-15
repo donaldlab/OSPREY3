@@ -1,7 +1,5 @@
 package edu.duke.cs.osprey.astar;
 
-import java.util.Arrays;
-
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -10,8 +8,10 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 // this conf tree sacrifices higher-order tuples for much much faster speed =)
 public class PairwiseConfTree extends ConfTree {
 
-    int[] precomputedMinOffsets;
-    double[] precomputedMins;
+	private double[][][] undefinedEnergies; // indexed by (pos1,pos2), rc at pos1
+	
+	private AStarNode cachedNode;
+	private double[][] cachedEnergies;
     
 	public PairwiseConfTree(SearchProblem sp){
 		this(sp, sp.pruneMat, sp.useEPIC);
@@ -23,40 +23,39 @@ public class PairwiseConfTree extends ConfTree {
 		if (emat.hasHigherOrderTerms()) {
 			throw new Error("Don't use PairwiseConfTree with higher order energy terms");
 		}
-    	
-        // precompute some mins to speed up scoring
-        precomputedMinOffsets = null;
-        precomputedMins = null;
-		int numPos = emat.getNumPos();
-		int index = 0;
-		int offset = 0;
-		precomputedMinOffsets = new int[numPos*(numPos - 1)/2];
-		Arrays.fill(precomputedMinOffsets, 0);
-		for (int res1=0; res1<numPos; res1++) {
-			for (int res2=0; res2<res1; res2++) {
-				precomputedMinOffsets[index++] = offset;
-				offset += unprunedRCsAtPos[res1].length;
-			}
-		}
-		precomputedMins = new double[offset];
-		Arrays.fill(precomputedMins, Double.POSITIVE_INFINITY);
-		index = 0;
-		for (int res1=0; res1<numPos; res1++) {
-			for (int res2=0; res2<res1; res2++) {
-				for (int rc1 : unprunedRCsAtPos[res1]) {
+		
+		// pre-compute all undefined energy terms
+		undefinedEnergies = new double[numPos][][];
+		for (int pos1=0; pos1<numPos; pos1++) {
+			
+			int numRCs = unprunedRCsAtPos[pos1].length;
+			undefinedEnergies[pos1] = new double[numRCs][];
+			
+			for (int i=0; i<numRCs; i++) {
+				int rc1 = unprunedRCsAtPos[pos1][i];
+				
+				undefinedEnergies[pos1][i] = new double[numPos];
+			
+				for (int pos2=0; pos2<pos1; pos2++) {
 					
-					// compute the min
-					double energy = Double.POSITIVE_INFINITY;
-					for (int rc2 : unprunedRCsAtPos[res2]) {
-						energy = Math.min(energy, emat.getPairwise(res1, rc1, res2, rc2));
+					// compute the min over rc2
+					double minEnergy = Double.POSITIVE_INFINITY;
+					for (int rc2 : unprunedRCsAtPos[pos2]) {
+						minEnergy = Math.min(minEnergy, emat.getPairwise(pos1, rc1, pos2, rc2));
 					}
 					
-					precomputedMins[index] = energy;
-					index++;
+					undefinedEnergies[pos1][i][pos2] = minEnergy;
 				}
 			}
 		}
-    }
+		
+		// allocate cache space
+		cachedNode = null;
+		cachedEnergies = new double[numPos][];
+		for (int pos=0; pos<numPos; pos++) {
+			cachedEnergies[pos] = new double[unprunedRCsAtPos[pos].length];
+		}
+	}
     
     @Override
     protected double scoreNode(AStarNode node) {
@@ -105,26 +104,16 @@ public class PairwiseConfTree extends ConfTree {
     	// then bound energy of undefined conf
     	double hscore = 0;
     	
+    	computeCachedEnergies(node);
+    	
 		// for each undefined pos...
 		for (int i=0; i<numUndefined; i++) {
-			int pos1 = undefinedPos[i];
+			int pos = undefinedPos[i];
 			
 			// find the lowest-energy rc at this pos
 			double minRCEnergy = Double.POSITIVE_INFINITY;
-			
-			int[] rcs1 = unprunedRCsAtPos[pos1];
-			int n1 = rcs1.length;
-			double[] rcEnergies = new double[n1];
-			node.setUndefinedRCEnergies(pos1, rcEnergies);
-			
-			// for each rc...
-			for (int j=0; j<n1; j++) {
-				int rc1 = rcs1[j];
-				
-				double rcEnergy = getUndefinedRCEnergy(conf, pos1, rc1, j);
-				rcEnergies[j] = rcEnergy;
-				
-				minRCEnergy = Math.min(minRCEnergy, rcEnergy);
+			for (int j=0; j<unprunedRCsAtPos[pos].length; j++) {
+				minRCEnergy = Math.min(minRCEnergy, cachedEnergies[pos][j]);
 			}
 			
 			hscore += minRCEnergy;
@@ -150,12 +139,18 @@ public class PairwiseConfTree extends ConfTree {
 		// OPTIMIZATION: this function gets hit a LOT!
 		// so even really pedantic optimizations (like preferring stack over heap) can make an impact
     	// however, copying this.xxx references to the stack empirically didn't help this time
-		
-    	int[] parentConf = parent.getNodeAssignments();
-    	splitPositions(parentConf);
     	
-    	// this should not be assigned in the parent
-    	assert (parentConf[nextPos] < 0);
+    	// update cached info
+    	if (parent != cachedNode) { // yes, compare by reference
+    		
+    		int[] parentConf = parent.getNodeAssignments();
+    		splitPositions(parentConf);
+    		computeCachedEnergies(parent);
+    		cachedNode = parent;
+    		
+    		// this should not be assigned in the parent
+    		assert (parentConf[nextPos] < 0);
+    	}
     	
     	// update the g-score
     	double gscore = parent.getGScore();
@@ -180,17 +175,11 @@ public class PairwiseConfTree extends ConfTree {
     			continue;
     		}
     		
-    		// get partially-computed energies from the parent node
-    		double[] undefinedRCEnergies = parent.getUndefinedRCEnergies(pos);
-    		
-    		// and copy them to the child
-    		if (child != null) {
-    			undefinedRCEnergies = undefinedRCEnergies.clone();
-    			child.setUndefinedRCEnergies(pos, undefinedRCEnergies);
-    		}
-    		
     		// compute the new min energy over all rcs
     		double minRCEnergy = Double.POSITIVE_INFINITY;
+    		
+    		double[] cachedEnergiesAtPos = cachedEnergies[pos];
+    		double[][] undefinedEnergiesAtPos = undefinedEnergies[pos];
     		
 			// for each rc at this pos...
 			int[] rcs = unprunedRCsAtPos[pos];
@@ -198,28 +187,21 @@ public class PairwiseConfTree extends ConfTree {
 			for (int j=0; j<n; j++) {
 				int rc = rcs[j];
 				
-				double rcEnergy = undefinedRCEnergies[j];
+				double rcEnergy = cachedEnergiesAtPos[j];
 				
 				// subtract undefined contribution
 				if (pos > nextPos) {
-					rcEnergy -= getMinPairwiseEnergy(null, pos, rc, j, nextPos);
+					rcEnergy -= undefinedEnergiesAtPos[j][nextPos];
 				}
 				
 				// add defined contribution
 				rcEnergy += emat.getPairwise(pos, rc, nextPos, nextRc);
-				
-				// save updated energies to child
-				if (child != null) {
-					undefinedRCEnergies[j] = rcEnergy;
-				}
 				
 				minRCEnergy = Math.min(minRCEnergy, rcEnergy);
 			}
 			
 			hscore += minRCEnergy;
     	}
-    	
-    	resetSplitPositions();
     	
     	double score = gscore + hscore;
     	
@@ -244,17 +226,50 @@ public class PairwiseConfTree extends ConfTree {
     	return scoreNodeDifferential(parent, null, nextPos, nextRc);
     }
     
-    @Override
-    protected double getMinPairwiseEnergy(int[] conf, int pos1, int rc1, int rc1i, int pos2) {
-    	assert (pos2 < pos1);
-		int index = this.precomputedMinOffsets[pos1*(pos1 - 1)/2 + pos2] + rc1i;
-		return this.precomputedMins[index];
-	}
+    private void computeCachedEnergies(AStarNode node) {
+    	assertSplitPositions();
+    	
+		// for each undefined pos...
+		for (int i=0; i<numUndefined; i++) {
+			int pos1 = undefinedPos[i];
+			
+			// for each rc...
+			int[] rcs1 = unprunedRCsAtPos[pos1];
+			int n1 = rcs1.length;
+			for (int j=0; j<n1; j++) {
+				int rc1 = rcs1[j];
+				
+				// start with the one-body energy
+				double energy = emat.getOneBody(pos1, rc1);
+				
+				// add defined energies
+				for (int k=0; k<numDefined; k++) {
+					int pos2 = definedPos[k];
+					int rc2 = definedRCs[k];
+					
+					energy += emat.getPairwise(pos1, rc1, pos2, rc2);
+				}
+				
+				// add undefined energies
+				double[] energies = undefinedEnergies[pos1][j];
+				for (int k=0; k<numUndefined; k++) {
+					int pos2 = undefinedPos[k];
+					if (pos2 < pos1) {
+						energy += energies[pos2];
+					}
+				}
+				
+				cachedEnergies[pos1][j] = energy;
+			}
+		}
+    }
     
     @SuppressWarnings("unused")
 	private void assertScore(double expected, double observed) {
     	double err = Math.abs(expected - observed);
-    	err /= observed;
-    	assert (err <= 1e-13) : String.format("bad score:\nexp=%.18f\nobs=%.18f\nerr=%.18f", expected, observed, err);
+    	if (observed != 0) {
+    		err /= observed;
+    	}
+    	assert (err <= 1e-12) : String.format("bad score:\nexp=%.18f\nobs=%.18f\nerr=%.18f", expected, observed, err);
     }
 }

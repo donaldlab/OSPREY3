@@ -9,11 +9,8 @@ package edu.duke.cs.osprey.astar;
  * @author mhall44
  */
 public class AStarNode implements Comparable<AStarNode> {
-    
+	
     private int nodeAssignments[];//assignments (e.g. partial conformation) for node
-    
-    // partially-computed undefined energies (indexed by pos, rc)
-    private double undefinedRCEnergies[][];
     
     private double score;//score (probably a lower bound on the energy)
     private double gscore;
@@ -34,7 +31,6 @@ public class AStarNode implements Comparable<AStarNode> {
     //always false in simpler versions of A*
     public AStarNode(int[] nodeAssignments, boolean scoreNeedsRefinement) {
         this.nodeAssignments = nodeAssignments;
-        this.undefinedRCEnergies = new double[this.nodeAssignments.length][];
         this.score = Double.NaN;
         this.gscore = Double.NaN;
         this.hscore = Double.NaN;
@@ -50,13 +46,6 @@ public class AStarNode implements Comparable<AStarNode> {
         return nodeAssignments;
     }
     
-    public double[] getUndefinedRCEnergies(int pos) {
-    	return undefinedRCEnergies[pos];
-    }
-    public void setUndefinedRCEnergies(int pos, double[] val) {
-    	undefinedRCEnergies[pos] = val;
-    }
-
     public void setScore(double score) {
         this.score = score;
     }

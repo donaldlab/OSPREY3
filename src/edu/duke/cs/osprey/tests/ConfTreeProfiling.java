@@ -39,9 +39,6 @@ public class ConfTreeProfiling {
 		MultiTermEnergyFunction.setNumThreads(4);
 		
 		// init a conf space with lots of flexible residues, but no mutations
-		// 27 flexible residues with no pruning gives about 1.5e23 confs
-		// 34 flexible residues with no pruning gives about 8e28 confs
-		// 40 flexible residues with no pruning gives about 5 confs
 		//final int NumFlexible = 27;
 		//final int NumFlexible = 34;
 		final int NumFlexible = 55;
@@ -150,6 +147,10 @@ public class ConfTreeProfiling {
 		
 		// this test run is too short now... need something longer
 		// 55:   [24873, 24501, 25076]
+		
+		// 2016-05-15 (didn't bother re-benchmarking again)
+		// after more minor optimizations, fixed memory usage
+		// 55:   [19785, 20181, 20118] => 1.24x speedup over benchmark
 		
 		System.out.println("\nFinding GMEC among " + tree.getNumConformations().doubleValue() + " conformations ...");
 		Stopwatch stopwatch = new Stopwatch();

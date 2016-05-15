@@ -388,24 +388,18 @@ public class ConfTree extends AStarTree {
 				break;
 			}
 			
-			rcContrib += getMinPairwiseEnergy(conf, pos1, rc1, rc1i, pos2);
+			// min over all possible conformations
+			double minEnergy = Double.POSITIVE_INFINITY;
+			for (int rc2 : this.unprunedRCsAtPos[pos2]) {
+				double pairwiseEnergy = emat.getPairwise(pos1, rc1, pos2, rc2);
+				pairwiseEnergy += higherOrderContribLB(conf, pos1, rc1, pos2, rc2);
+				minEnergy = Math.min(minEnergy, pairwiseEnergy);
+			}
+			
+			rcContrib += minEnergy;
 		}
 		
 		return rcContrib;
-	}
-	
-	protected double getMinPairwiseEnergy(int[] conf, int pos1, int rc1, int rc1i, int pos2) {
-		
-		EnergyMatrix emat = this.emat;
-		
-		// min over all possible conformations
-		double minEnergy = Double.POSITIVE_INFINITY;
-		for (int rc2 : this.unprunedRCsAtPos[pos2]) {
-			double pairwiseEnergy = emat.getPairwise(pos1, rc1, pos2, rc2);
-			pairwiseEnergy += higherOrderContribLB(conf, pos1, rc1, pos2, rc2);
-			minEnergy = Math.min(minEnergy, pairwiseEnergy);
-		}
-		return minEnergy;
 	}
 	
     ArrayList<Integer> allowedRCsAtLevel(int level, int[] partialConf){
