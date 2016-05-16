@@ -13,9 +13,7 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.partitionfunctionbounds.DiscretePartFunc;
-import edu.duke.cs.osprey.partitionfunctionbounds.MarkovRandomField;
 import edu.duke.cs.osprey.partitionfunctionbounds.MinSpanningTree;
-import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -257,25 +255,6 @@ public class VariationalKStar {
         System.out.println("COMPETITOR PRUNING DONE");
     }
 
-    private double kstarScoreSCMF(SearchProblem[] spList) {
-        double logZBound = getLogZSCMF(spList[0]);
-        System.out.println("logZBound SCMF: " + logZBound);
-        double logZProtein = getLogZSCMF(spList[1]);
-        System.out.println("logZProtein SCMF: " + logZProtein);
-        double logZLigand = getLogZSCMF(spList[2]);
-        System.out.println("logZLigand SCMF: " + logZLigand);
-
-        return logZBound - (logZLigand + logZProtein);
-    }
-
-    private double getLogZSCMF(SearchProblem searchProb) {
-        MarkovRandomField mrf = new MarkovRandomField(searchProb, 0.0);
-        SelfConsistentMeanField scmf = new SelfConsistentMeanField(mrf);
-        scmf.run();
-        double logZ = scmf.calcLBLogZ();
-
-        return logZ;
-    }
 
     private double getLogZGumbelSample(SearchProblem searchProb, int numSamples) {
         double average = 0.0;

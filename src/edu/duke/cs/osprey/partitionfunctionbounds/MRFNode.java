@@ -21,7 +21,6 @@ public class MRFNode {
     //index into nodeList
     int index;
     //list of labels for the node; labels are RCs
-    ArrayList<MRFLabel> labelList;
     int[] labels;
     
     int numLabels;
@@ -31,15 +30,12 @@ public class MRFNode {
         this.posNum = posNum;
         this.index = index;
         //create label
-        this.labelList = new ArrayList<>();
         this.labels = new int[unprunedRCs.size()];
         for (int i =0; i<unprunedRCs.size(); i++){
             int rc = unprunedRCs.get(i);
-            MRFLabel label = new MRFLabel(rc);
-            labelList.add(label);
             labels[i] = rc;
         }
-        numLabels = labelList.size();
+        numLabels = labels.length;
     }
 
     @Override

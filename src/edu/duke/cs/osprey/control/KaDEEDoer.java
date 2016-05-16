@@ -15,10 +15,6 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.SearchProblemSuper;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
-import edu.duke.cs.osprey.partitionfunctionbounds.MapPerturbation;
-import edu.duke.cs.osprey.partitionfunctionbounds.MarkovRandomField;
-import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField;
-import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField_Parallel;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -28,7 +24,6 @@ import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.StringParsing;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -167,13 +162,7 @@ public class KaDEEDoer {
         } else if (doExhaustive) {
             KaDEETree tree = setupKaDEETree();
             exhaustiveKaDEESearch();
-        } else if (doPartitionBounds) {
-            loadEMatandPruneComets(Double.POSITIVE_INFINITY);
-            calcPartitionFunctionBounds(this.searchSpaces[0]);
-        } else if (doUnboundPartitionBounds){
-            loadEMatandPruneComets(Double.POSITIVE_INFINITY);
-            calcPartitionFunctionBounds(this.searchSpaces[1]);
-        }
+        } 
         else {
             KaDEETree tree = setupKaDEETree();
             long startTime = System.currentTimeMillis();
@@ -662,42 +651,4 @@ public class KaDEEDoer {
         return tree;
     }
 
-    public void calcPartitionFunctionBounds(SearchProblem searchProblem) {
-        BigInteger confSpace = new BigInteger("1");
-        for (int pos = 0; pos < searchProblem.emat.numPos(); pos++){
-            System.out.println(searchProblem.pruneMat.unprunedRCsAtPos(pos).size());
-            confSpace = confSpace.multiply(new BigInteger(((Integer) searchProblem.pruneMat.unprunedRCsAtPos(pos).size()).toString()));
-        }
-        System.out.println(confSpace);
-
-        MarkovRandomField mrf = new MarkovRandomField(searchProblem, 0.0);
-
-        SelfConsistentMeanField scmf = new SelfConsistentMeanField(mrf);
-        scmf.run();
-        double lowerBoundSCMF = scmf.calcLBLog10Z();
-        System.out.println("Lower Bound SCMF: " + lowerBoundSCMF);
-
-        SelfConsistentMeanField_Parallel scmf_parallel = new SelfConsistentMeanField_Parallel(mrf);
-        scmf_parallel.run();
-
-        MapPerturbation mapPert = new MapPerturbation(searchProblem);
-
-        double lowerBoundMapPert = mapPert.calcLBLog10Z(500);
-        System.out.println("Lower Bound MapPert: "+lowerBoundMapPert);
-        double gmec = calcGMEC(searchProblem);
-        double lowerBoundGmec = -Math.log10(Math.E)*gmec/this.constRT;
-        System.out.println("Lower Bound GMEC: "+lowerBoundGmec);
-        
-        double upperBound = mapPert.calcUBLog10Z(500);
-        System.out.println("Upper Bound: " + upperBound);
-
-        try (PrintStream out = new PrintStream(new FileOutputStream("partitionBounds.txt", true))) {
-            out.println("Lower Bound SCMF: " + lowerBoundSCMF);
-            out.println("Lower Bound MapPert: " + lowerBoundMapPert);
-            out.println("Lower Bound GMEC: " + lowerBoundGmec);
-            out.println("Upper Bound: " + upperBound);
-            out.println("ConfSpace: "+confSpace.toString());
-        } catch (Exception e) {
-        }
-    }
 }

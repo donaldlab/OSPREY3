@@ -1,8 +1,0 @@
-LogConfSpace: 77.21510985352488
-NewAlgorithm: 4650865
-NewAlgorithm: finished false
-NewAlgorithm: effectiveEpsilon 0.586505835656946
-NewAlgorithm: logZ 864.3859318909178
-KStar: finished false
-KStar: effectiveEpsilon 1.0
-KStar: logZLB 848.2901874753263

@@ -176,9 +176,9 @@ public class MarkovRandomField {
                 double maxInteraction = 0.0;
                 MRFNode node1 = this.nodeList.get(nodeNum1);
                 MRFNode node2 = this.nodeList.get(nodeNum2);
-                for (MRFLabel label1 : node1.labelList) {
-                    for (MRFLabel label2 : node2.labelList) {
-                        double pairE = emat.getPairwise(node1.posNum, label1.labelNum, node2.posNum, label2.labelNum);
+                for (int label1 : node1.labels) {
+                    for (int label2 : node2.labels) {
+                        double pairE = emat.getPairwise(node1.posNum, label1, node2.posNum, label2);
                         if (Math.abs(pairE) > maxInteraction) {
                             maxInteraction = Math.abs(pairE);
                         }

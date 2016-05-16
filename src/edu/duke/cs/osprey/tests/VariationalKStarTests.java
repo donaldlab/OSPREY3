@@ -41,9 +41,11 @@ public class VariationalKStarTests {
         Stopwatch.start();
         double logZ = tree.computeEpsilonApprox(0.1);
         Stopwatch.stop();
-
+        double correctLogZ = 701.3553520923563;
+        
         System.out.println("Finished in " + Stopwatch.getTime(TimeUnit.MILLISECONDS));
         System.out.println("LogZ: " + logZ);
+        System.out.println("Error: "+Math.abs(correctLogZ - logZ));
     }
 
     static void precomputeMatrices(SearchProblem searchSpace, ConfigFileParser cfp, double pruningInterval) {

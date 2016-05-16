@@ -72,7 +72,7 @@ public class TRBP {
         this.numLabelsPerNode = new int[this.numNodes];
         for (int i = 0; i < this.numNodes; i++) {
             MRFNode node = this.nodeList.get(i);
-            numLabelsPerNode[i] = node.labelList.size();
+            numLabelsPerNode[i] = node.getNumLabels();
         }
 
         this.edgeProbabilities = initializeEdgeProbabilities(this.interactionGraph);
@@ -95,7 +95,7 @@ public class TRBP {
         this.numLabelsPerNode = new int[this.numNodes];
         for (int i = 0; i < this.numNodes; i++) {
             MRFNode node = this.nodeList.get(i);
-            numLabelsPerNode[i] = node.labelList.size();
+            numLabelsPerNode[i] = node.getNumLabels();
         }
 
         this.edgeProbabilities = initializeEdgeProbabilities(this.interactionGraph);
@@ -275,8 +275,8 @@ public class TRBP {
     private void updateNodeMarginal(MRFNode node) {
         double partFunc = 0;
         double normalizer = Double.NEGATIVE_INFINITY;
-        double[] marginals = new double[node.labelList.size()];
-        for (int labelIndex = 0; labelIndex < node.labelList.size(); labelIndex++) {
+        double[] marginals = new double[node.getNumLabels()];
+        for (int labelIndex = 0; labelIndex < node.getNumLabels(); labelIndex++) {
             int label = node.labels[labelIndex];
 
             double labelPot = getOneBodyPotential(node, label) / this.constRT;
@@ -312,8 +312,8 @@ public class TRBP {
         double[] sumLogMessagesJtoI = getSumLogMessages(nodeJ);
         sumLogMessagesJtoI = subtractReceiver(sumLogMessagesJtoI, nodeJ, nodeI);
 
-        for (int labelIndexI = 0; labelIndexI < nodeI.labelList.size(); labelIndexI++) {
-            for (int labelIndexJ = 0; labelIndexJ < nodeJ.labelList.size(); labelIndexJ++) {
+        for (int labelIndexI = 0; labelIndexI < nodeI.getNumLabels(); labelIndexI++) {
+            for (int labelIndexJ = 0; labelIndexJ < nodeJ.getNumLabels(); labelIndexJ++) {
                 int labelI = nodeI.labels[labelIndexI];
                 int labelJ = nodeJ.labels[labelIndexJ];
                 double pairPot = getPairwisePotential(nodeI, labelI, nodeJ, labelJ);
@@ -524,7 +524,7 @@ public class TRBP {
     }
 
     double[] getSumLogMessages(MRFNode sendingNode) {
-        double[] sumLogMessages = new double[sendingNode.labelList.size()];
+        double[] sumLogMessages = new double[sendingNode.getNumLabels()];
         int index = 0;
         for (int labelIndex = 0; labelIndex < sendingNode.getNumLabels(); labelIndex++) {
             sumLogMessages[index] = getSumLogMessage(sendingNode, labelIndex);
@@ -534,7 +534,7 @@ public class TRBP {
     }
 
     public int getLabelListSize(MRFNode node) {
-        return node.labelList.size();
+        return node.getNumLabels();
     }
 
     public double calcUBLogZ() {

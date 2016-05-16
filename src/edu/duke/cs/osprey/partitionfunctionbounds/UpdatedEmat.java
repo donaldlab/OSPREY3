@@ -28,16 +28,16 @@ public class UpdatedEmat extends TupleMatrix<Double> {
         this.consTerm = emat.getConstTerm();
         this.clampedNodeList = aClampedNodeList;
         for (MRFNode node : clampedNodeList) {
-            if (node.labelList.size() > 1) {
+            if (node.getNumLabels() > 1) {
                 throw new RuntimeException("Updated Emat ERROR: Clamped Nodes can only have one label");
             }
-            this.consTerm += emat.getOneBody(node.posNum, node.labelList.get(0).labelNum);
+            this.consTerm += emat.getOneBody(node.posNum, node.labels[0]);
         }
         for (int i = 0; i < clampedNodeList.size(); i++) {
             for (int j = 0; j < i; j++) {
                 MRFNode nodeI = clampedNodeList.get(i);
                 MRFNode nodeJ = clampedNodeList.get(j);
-                this.consTerm += emat.getPairwise(nodeI.posNum, nodeI.labelList.get(0).labelNum, nodeJ.posNum, nodeJ.labelList.get(0).labelNum);
+                this.consTerm += emat.getPairwise(nodeI.posNum, nodeI.labels[0], nodeJ.posNum, nodeJ.labels[0]);
             }
         }
         this.interactionGraph = aInteractionGraph;
@@ -49,7 +49,7 @@ public class UpdatedEmat extends TupleMatrix<Double> {
         //add the pairwise energy with clamped nodes;
         for (MRFNode node : clampedNodeList) {
             if (interactionGraph[res][node.posNum]) {
-                oneBodyE += this.getPairwise(res, index, node.posNum, node.labelList.get(0).labelNum);
+                oneBodyE += this.getPairwise(res, index, node.posNum, node.labels[0]);
             }
         }
         return oneBodyE;

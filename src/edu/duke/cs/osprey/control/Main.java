@@ -64,9 +64,6 @@ public class Main {
             COMETSDoer cd = new COMETSDoer(args);
             cd.calcBestSequences();
 //            cd.exhaustiveMultistateSearch();
-        } else if (command.equalsIgnoreCase("doCOMETSSuper")) {
-            COMETSDoerSuper csd = new COMETSDoerSuper(cfp);
-            csd.doKaDEE();
         } else if (command.equalsIgnoreCase("doKaDEE")) {
             KaDEEDoer kd = new KaDEEDoer(cfp);
             kd.doKaDEE();
