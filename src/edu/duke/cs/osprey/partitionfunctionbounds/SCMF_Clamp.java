@@ -5,10 +5,8 @@
  */
 package edu.duke.cs.osprey.partitionfunctionbounds;
 
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.tools.ExpFunction;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 
 /**
@@ -43,6 +41,8 @@ public class SCMF_Clamp {
     boolean verbose = false;
     boolean debugMode = false;
 
+    double[][] beliefs;
+
     public SCMF_Clamp(ReparamMRF mrf) {
         this.nodeList = mrf.nodeList;
         this.numNodes = mrf.nodeList.size();
@@ -73,9 +73,6 @@ public class SCMF_Clamp {
                 this.scmfTemp = this.scmfTemp * 1000;
 //                lambda = 1.0;
             }
-            if (debugMode) {
-                checkBeliefs();
-            }
             //lower the temperature
             lowerTemperature(0.98);
             //Make sure we are at least beyond the minimum number of iterations
@@ -83,52 +80,6 @@ public class SCMF_Clamp {
             iter++;
         }
         this.freeEnergy = Math.min(this.freeEnergy, calcFreeEnergy());
-        if (verbose) {
-            printMaxLabel();
-        }
-        resetTemperature();
-    }
-    
-    private void run2() {
-        int iter = 0;
-        int numIterBeforeTempRaise = 500;
-        boolean hasConverged = false;
-        initializeBeliefs();
-        //to avoid numerical overflow we computer "exp normalizers"
-        computeExpNormals();
-        //set temperature to be high
-        this.scmfTemp = this.scmfTemp * 1000;
-        while (!hasConverged && (iter < maxNumberIterations)) {
-            //update all beliefs
-            hasConverged = updateAllBeliefs();
-            if (debugMode) {
-                checkBeliefs();
-            }
-            //lower the temperature
-            double tempMultiplier = 0.98;
-            lowerTemperature(tempMultiplier);
-            if (iter == numIterBeforeTempRaise) {
-                //store this free energy in cases it is better than after raising temperature
-                this.freeEnergy = calcFreeEnergy();
-                hasCalculatedFreeEnergy = true;
-                this.scmfTemp = this.scmfTemp * 1000;
-            } else if (iter == numIterBeforeTempRaise * 2) {
-                //take best free energy so far
-                this.freeEnergy = Math.min(this.freeEnergy, calcFreeEnergy());
-                hasCalculatedFreeEnergy = true;
-                this.scmfTemp = this.scmfTemp * 500;
-            }
-            //Make sure we are at least beyond the minimum number of iterations
-            hasConverged = hasConverged && (iter > this.minNumberIterations);
-            iter++;
-        }
-        //take best free energy
-        this.freeEnergy = Math.min(this.freeEnergy, calcFreeEnergy());
-        hasCalculatedFreeEnergy = true;
-        if (verbose) {
-            System.out.println("SCMF Finished After " + iter + " iterations");
-            printMaxLabel();
-        }
         resetTemperature();
     }
 
@@ -154,13 +105,12 @@ public class SCMF_Clamp {
         //keep track of difference between beliefs for convergence;
         double maxEpsilon = 0.0;
 
-        int numLabels = node.labelList.size();
-        double[] updatedBeliefs = new double[numLabels];
+        double[] updatedBeliefs = new double[node.getNumLabels()];
 
         //iterate over labels to get partition function value
-        for (int labelIndex = 0; labelIndex < node.labelList.size(); labelIndex++) {
-            MRFLabel label = node.labelList.get(labelIndex);
-            double oneBodyE = this.emat.getOneBody(node.posNum, label.labelNum);
+        for (int labelIndex = 0; labelIndex < node.getNumLabels(); labelIndex++) {
+            int label = node.labels[labelIndex];
+            double oneBodyE = this.emat.getOneBody(node.posNum, label);
             double meanFieldE = getMeanFieldEnergy(node, label);
             //unnormalized updateBelief
             double logUnnormalizedBelief = -(oneBodyE + meanFieldE) / scmfTemp;
@@ -169,21 +119,22 @@ public class SCMF_Clamp {
             partFunction += Math.exp(logExpNormalizedBelief);
         }
         //now we update the beliefs using our partFunction (normalizing constant)
-        for (int labelIndex = 0; labelIndex < node.labelList.size(); labelIndex++) {
-            MRFLabel label = node.labelList.get(labelIndex);
+        for (int labelIndex = 0; labelIndex < node.getNumLabels(); labelIndex++) {
             //keep track of old belief
-            double oldBelief = label.currentBelief;
+            double oldBelief = this.beliefs[node.index][labelIndex];
+            double newBelief;
             //if partFunction is 0.0, all labels had really bad energies and we will make them uniform
             if (partFunction == 0.0) {
-                label.currentBelief = 1.0 / node.labelList.size();
+                newBelief = 1.0 / node.getNumLabels();
             } //otherwise we update the beliefs normally
             else {
-                label.currentBelief = updatedBeliefs[labelIndex] / partFunction;
-                label.currentBelief = lambda * label.currentBelief + (1.0 - lambda) * oldBelief;
+                newBelief = updatedBeliefs[labelIndex] / partFunction;
+                newBelief = lambda * newBelief + (1.0 - lambda) * oldBelief;
             }
+            this.beliefs[node.index][labelIndex] = newBelief;
             //update maxEpsilon
-            if (Math.abs(label.currentBelief - oldBelief) > maxEpsilon) {
-                maxEpsilon = Math.abs(label.currentBelief - oldBelief);
+            if (Math.abs(newBelief - oldBelief) > maxEpsilon) {
+                maxEpsilon = Math.abs(newBelief - oldBelief);
             }
         }
         boolean hasConverged = false;
@@ -207,19 +158,20 @@ public class SCMF_Clamp {
 
     private double getSingleNodeEnthalpy(MRFNode node) {
         double enthalpy = 0.0;
-        for (MRFLabel label : node.labelList) {
-            double E = this.emat.getOneBody(node.posNum, label.labelNum);
-            enthalpy += E * label.currentBelief;
+        for (int labelIndex = 0; labelIndex < node.getNumLabels(); labelIndex++) {
+            int label = node.labels[labelIndex];
+            double E = this.emat.getOneBody(node.posNum, label);
+            enthalpy += E * this.beliefs[node.index][labelIndex];
         }
         return enthalpy;
     }
 
     private double getPairwiseNodeEnthalpy(MRFNode node1, MRFNode node2) {
         double enthalpy = 0.0;
-        for (MRFLabel label1 : node1.labelList) {
-            for (MRFLabel label2 : node2.labelList) {
-                double E = emat.getPairwise(node1.posNum, label1.labelNum, node2.posNum, label2.labelNum);
-                enthalpy += E * label1.currentBelief * label2.currentBelief;
+        for (int i = 0; i < node1.getNumLabels(); i++) {
+            for (int j = 0; j < node2.getNumLabels(); j++) {
+                double E = emat.getPairwise(node1.posNum, node1.labels[i], node2.posNum, node2.labels[j]);
+                enthalpy += E * this.beliefs[node1.index][i] * this.beliefs[node2.index][j];
             }
         }
         return enthalpy;
@@ -242,11 +194,12 @@ public class SCMF_Clamp {
 
     private double getSingleNodeEntropy(MRFNode node) {
         double entropy = 0.0;
-        for (MRFLabel label : node.labelList) {
-            if (label.currentBelief == 0.0) {
+        for (int i=0; i<node.getNumLabels(); i++){
+            double belief = this.beliefs[node.index][i];
+            if (belief == 0.0) {
                 entropy += 0.0;
             } else {
-                entropy += (-1.0) * label.currentBelief * Math.log(label.currentBelief);
+                entropy += (-1.0) * belief * Math.log(belief);
             }
         }
         return entropy;
@@ -273,67 +226,45 @@ public class SCMF_Clamp {
         return -(this.freeEnergy + this.emat.getConstTerm()) / this.scmfTemp;
     }
 
+ 
+
     //Returns the MeanFieldEnergy for a label
-    private double getMeanFieldEnergy(MRFNode node, MRFLabel label) {
+    private double getMeanFieldEnergy(MRFNode node, int label) {
         double meanFieldE = 0.0;
-        for (MRFNode neighbor : node.neighborList) {
-            //get the average energy between neighbor and our label
-            double averageE = getAverageEnergy(node, label, neighbor);
-            meanFieldE += averageE;
+        for (int nodeNum = 0; nodeNum < this.numNodes; nodeNum++) {
+            if (this.nonClampedInteractionGraph[node.index][nodeNum]) {
+                MRFNode neighbor = this.nodeList.get(nodeNum);
+                double averageE = getAverageEnergy(node, label, neighbor);
+                meanFieldE += averageE;
+            }
         }
         return meanFieldE;
     }
 
+   
+
     //Get average energy of label1 from node1, with respect to all labels of node2
     //this is used as a subroutine in getMeanField()
-    private double getAverageEnergy(MRFNode node1, MRFLabel label1, MRFNode node2) {
+    private double getAverageEnergy(MRFNode node1, int label1, MRFNode node2) {
         double averageE = 0.0;
-        for (MRFLabel label2 : node2.labelList) {
-            double E = this.emat.getPairwise(node1.posNum, label1.labelNum, node2.posNum, label2.labelNum);
-            averageE += E * label2.currentBelief;
+        for (int i = 0; i < node2.getNumLabels(); i++) {
+            int label2 = node2.labels[i];
+            double E = this.emat.getPairwise(node1.posNum, label1, node2.posNum, label2);
+            averageE += E * this.beliefs[node2.index][i];
         }
         return averageE;
     }
 
     private void initializeBeliefs() {
-        for (MRFNode node : this.nodeList) {
-            int numLabels = node.labelList.size();
-            for (MRFLabel label : node.labelList) {
-                label.currentBelief = 1.0 / (double) numLabels;
-                //for parallel updates
-                label.oldBelief = 1.0 / (double) numLabels;
+        this.beliefs = new double[this.nodeList.size()][];
+        for (int nodeNum = 0; nodeNum < this.nodeList.size(); nodeNum++) {
+            MRFNode node = this.nodeList.get(nodeNum);
+            int numLabels = node.getNumLabels();
+            this.beliefs[nodeNum] = new double[numLabels];
+            for (int label = 0; label < numLabels; label++) {
+                this.beliefs[nodeNum][label] = 1.0 / (double) numLabels;
             }
         }
-    }
-
-    public boolean checkBeliefs() {
-        boolean beliefsGood = true;
-        for (MRFNode node : this.nodeList) {
-            double beliefSum = 0.0;
-            for (MRFLabel label : node.labelList) {
-                beliefSum += label.currentBelief;
-            }
-            if (!equals(beliefSum, 1.0, 0.001)) {
-                beliefsGood = false;
-            }
-        }
-        return beliefsGood;
-    }
-
-    public void printMaxLabel() {
-        String maxLabels = "";
-        for (MRFNode node : nodeList) {
-            double max = 0.0;
-            int maxLabelNum = -1;
-            for (MRFLabel label : node.labelList) {
-                if (label.currentBelief > max) {
-                    max = label.currentBelief;
-                    maxLabelNum = label.labelNum;
-                }
-            }
-            maxLabels = maxLabels + maxLabelNum + " ";
-        }
-        System.out.println(maxLabels);
     }
 
     public boolean equals(double a, double b, double epsilon) {
@@ -361,9 +292,9 @@ public class SCMF_Clamp {
         double minMeanFieldE = 0.0;
         for (MRFNode neighbor : node.neighborList) {
             double minPairwiseE = Double.POSITIVE_INFINITY;
-            for (MRFLabel nodeLabel : node.labelList) {
-                for (MRFLabel neighborLabel : neighbor.labelList) {
-                    double pairwiseE = this.emat.getPairwise(node.posNum, nodeLabel.labelNum, neighbor.posNum, neighborLabel.labelNum);
+            for (int nodeLabel : node.labels) {
+                for (int neighborLabel : neighbor.labels) {
+                    double pairwiseE = this.emat.getPairwise(node.posNum, nodeLabel, neighbor.posNum, neighborLabel);
                     minPairwiseE = Math.min(minPairwiseE, pairwiseE);
                 }
             }
@@ -374,8 +305,8 @@ public class SCMF_Clamp {
 
     private double getMinOneBodyE(MRFNode node) {
         double minE = Double.POSITIVE_INFINITY;
-        for (MRFLabel label : node.labelList) {
-            double oneBodyE = this.emat.getOneBody(node.posNum, label.labelNum);
+        for (int label : node.labels) {
+            double oneBodyE = this.emat.getOneBody(node.posNum, label);
             minE = Math.min(minE, oneBodyE);
         }
         return minE;

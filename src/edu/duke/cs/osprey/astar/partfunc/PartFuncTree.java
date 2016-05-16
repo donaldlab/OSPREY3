@@ -18,8 +18,7 @@ import edu.duke.cs.osprey.partitionfunctionbounds.MapPerturbation;
 import edu.duke.cs.osprey.partitionfunctionbounds.MarkovRandomField;
 import edu.duke.cs.osprey.partitionfunctionbounds.ReparamMRF;
 import edu.duke.cs.osprey.partitionfunctionbounds.SCMF_Clamp;
-import edu.duke.cs.osprey.partitionfunctionbounds.TRBP_Refactor_2;
-import edu.duke.cs.osprey.partitionfunctionbounds.TRBP_Refactor_3;
+import edu.duke.cs.osprey.partitionfunctionbounds.TRBP;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import java.math.BigDecimal;
@@ -453,30 +452,21 @@ public class PartFuncTree extends AStarTree {
         } else if (useMPLP) {
             return getUpperBoundMPLP(node);
         } else {
-            /*            MarkovRandomField mrf = new MarkovRandomField(this.emat, this.pruneMat, node.getNodeAssignments(), this.eCut);
-             TreeReweightedBeliefPropagation trbp = new TreeReweightedBeliefPropagation(mrf);
-             double ubLogZ = trbp.getLogZ();
-             */
-
-//            double lbLogZ = computePartFunctionEstimate(emat, pruneMat, node.getNodeAssignments(), 10000);
-//            ReparamMRF rMRF = new ReparamMRF(this.emat, this.pruneMat, node.getNodeAssignments(), this.eCut);
-//            node.indexToPosNum = rMRF.getIndexToPosNumMap();
             MarkovRandomField mrf = new MarkovRandomField(this.emat, this.pruneMat, node.getNodeAssignments(), this.eCut);
             double ubLogZ;
 
 //            TRBP_Refactor trbp = new TRBP_Refactor(rMRF);
             if (!node.isRoot) {
-                TRBP_Refactor_3 trbp = new TRBP_Refactor_3(mrf, parentNode.ubLogZ);
+                TRBP trbp = new TRBP(mrf, parentNode.ubLogZ);
                 ubLogZ = trbp.getLogZ();
                 node.nodeWeights = trbp.nodeWeights;
             } else {
-                TRBP_Refactor_3 trbp = new TRBP_Refactor_3(mrf);
+                TRBP trbp = new TRBP(mrf);
                 ubLogZ = trbp.getLogZ();
                 node.nodeWeights = trbp.nodeWeights;
 
             }
 
-//            node.edgeProbabilities = trbp.edgeProbabilities;
             return ubLogZ;
         }
     }

@@ -11,15 +11,11 @@ import edu.duke.cs.osprey.astar.kadee.GumbelMapTree;
 import edu.duke.cs.osprey.astar.partfunc.PartFuncTree;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.partitionfunctionbounds.DiscretePartFunc;
 import edu.duke.cs.osprey.partitionfunctionbounds.MarkovRandomField;
 import edu.duke.cs.osprey.partitionfunctionbounds.MinSpanningTree;
-import edu.duke.cs.osprey.partitionfunctionbounds.ReparamMRF;
-import edu.duke.cs.osprey.partitionfunctionbounds.SCMF_Clamp;
 import edu.duke.cs.osprey.partitionfunctionbounds.SelfConsistentMeanField;
-import edu.duke.cs.osprey.partitionfunctionbounds.TRBP2;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -27,7 +23,6 @@ import edu.duke.cs.osprey.tools.ExpFunction;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -171,136 +166,6 @@ public class VariationalKStar {
              System.out.println("KStar LogZ: " + logZKStar);
              }
              */
-        } else {
-
-
-            /*        int numIter = 500;
-             double logZest = computePartFunctionEstimate(sp, numIter);
-             System.out.println("Lower Bound after " + numIter + " iterations: " + logZest);
-
-             /*        double ubKStarBound = computeKStarUB(sp, numIter);
-             System.out.println("KStar Based UB: " + ubKStarBound);
-             double lbKStarUnboundP = computePartFunctionEstimate(spList[1], numIter);
-             double lbKStarUnboundL = computePartFunctionEstimate(spList[2], numIter);
-
-             double KStarUB = ubKStarBound - lbKStarUnboundL - lbKStarUnboundP;
-             System.out.println("KStar Bound: " + KStarUB);
-             */
-            //MarkovRandomField mrf = new MarkovRandomField(sp, 0.0);
-            ReparamMRF rMRF = new ReparamMRF(sp, 0.0);
-            double gmec = computeGMECLB(sp);
-            System.out.println("LB GMEC: " + gmec);
-            /*        SelfConsistentMeanField scmf = new SelfConsistentMeanField(mrf);
-             double startTime = System.currentTimeMillis();
-             scmf.run();
-             double totalTime = System.currentTimeMillis() - startTime;
-             System.out.println("Took " + totalTime + " milliseconds to run");
-             double lb = scmf.getLBLogZ();
-             System.out.println("Lower Bound: " + lb);
-
-             SelfConsistentMeanField_Parallel scmfP = new SelfConsistentMeanField_Parallel(mrf);
-             scmfP.run();
-             double lbP = scmfP.getLBLogZ();
-             System.out.println("Lower Bound Parallel: " + lbP);
-             */
-            SCMF_Clamp scmfC = new SCMF_Clamp(rMRF);
-            double lbC = scmfC.getLogZLB();
-            System.out.println("Lower Bound Clamped: " + lbC);
-            /*        MapPerturbation mp = new MapPerturbation(sp);
-             double ubPert = mp.calcUBLogZ(1000);
-             double ubPert2 = mp.calcUBLogZLPMax(5);
-             System.out.println("Upper Bound MapPert: " + ubPert);
-             System.out.println("Upper Bound MapPert2: " + ubPert2);
-
-             TreeReweightedBeliefPropagation trbp = new TreeReweightedBeliefPropagation(mrf);
-             double ub = trbp.getLogZ();
-             System.out.println("Upper Bound: " + ub);
-             */
-            TRBP2 trbp2 = new TRBP2(rMRF);
-            double ub2 = trbp2.calcUBLogZ();
-            System.out.println("Upper Bound 2: " + ub2);
-
-
-            /*        TRBPSeq trbpseq = new TRBPSeq(rMRF);
-             double ub3 = trbpseq.getLogZ();
-             System.out.println("Upper Bound 3: " + ub3);
-
-             double effectiveEpsilon = 1 - Math.exp(lbP - ub3);
-             System.out.println("EFFECTIVE Epsilon: " + effectiveEpsilon);
-             */
-            PartFuncTree tree = new PartFuncTree(sp);
-            double logZ = tree.computeEpsilonApprox(0.1);
-            System.out.println("LogZ: " + logZ);
-            System.out.println("Num Confs Enumerated: " + tree.numConfsEnumerated);
-            /*        MarkovRandomField mrf = new MarkovRandomField(sp, 0.0);
-             SelfConsistentMeanField scmf = new SelfConsistentMeanField(mrf);
-             scmf.run();
-             double lb = scmf.calcLBLogZ();
-             System.out.println("Lower Bound: " + lb);
-             TreeReweightedBeliefPropagation trbp = new TreeReweightedBeliefPropagation(mrf);
-             double ub = trbp.getLogZ();
-             System.out.println("Upper Bound: " + ub);
-             /*        Mplp mplp = new Mplp(sp.emat.numPos(), sp.emat, sp.pruneMat);
-             int[] conf = new int[sp.emat.numPos()];
-             Arrays.fill(conf, -1);
-             double lpGmec = mplp.optimizeMPLP(conf, 1000);
-             double entropy = trbp.getEntropy();
-             double logZUB = -(lpGmec - this.constRT * entropy) / this.constRT;
-             System.out.println("logZUB: " + logZUB);
-             /*        MapPerturbation mp = new MapPerturbation(sp);
-             int numBelow = 0;
-             double average = 0.0;
-             for (int i = 0; i < 1000; i++) {
-             double ub = mp.calcUBLogZLPMax(10);
-             if (ub < lb) {
-             System.out.println("Upper: " + ub + "  Lower: " + lb);
-             numBelow++;
-             }
-             average += ub;
-             System.out.println("MPLP Iter: " + i + "  Sample: " + ub);
-             }
-             System.out.println("Num Below: " + numBelow);
-             System.out.println("Average: "+average/1000);
-             double kstarSCMF = kstarScoreSCMF(spList);
-             System.out.println("KStar SCMF: " + kstarSCMF);
-             System.out.println();
-
-             //        double kstarGumbelSample = kstarScoreGumbelSample(spList, 300);
-             double kstarSample = getLogKstarSampling2(spList, 300);
-             System.out.println("KStar GumbelSample: " + kstarSample);
-             */
-
-            /*
-             sp = cfp.getSearchProblem();
-             loadEMatandPrune(this.sp, Double.POSITIVE_INFINITY);
-
-             double average = 0.0;
-             int averageNodesExpanded = 0;
-             int numSamples = 1;
-             for (int i = 0; i < numSamples; i++) {
-             GumbelMapTree tree = new GumbelMapTree(sp);
-             tree.nextConf();
-             double score = tree.currentBestFeasibleScore;
-             average += score;
-             double logZestimate = -average / (this.constRT * (i + 1));
-             System.out.println("Number of Nodes Expanded: " + tree.numExpanded);
-             averageNodesExpanded += tree.numExpanded;
-             System.out.println("Current Sample: " + -score / this.constRT);
-             System.out.println("Current Average: " + logZestimate);
-             System.out.println("Current Average Nodes Exp: " + averageNodesExpanded / (i + 1));
-             }
-             System.out.println("Average Nodes Expanded: " + averageNodesExpanded / numSamples);
-             double logZ = -average / (this.constRT * numSamples);
-             System.out.println("Gumbel logZ: " + logZ);
-
-             MarkovRandomField mrf = new MarkovRandomField(sp, 0.0);
-             SelfConsistentMeanField scmf = new SelfConsistentMeanField(mrf);
-             scmf.run();
-             double lowerZ = scmf.calcLBLogZ();
-             System.out.println("SCMF LogZ: " + lowerZ);
-             MapPerurbation mpert = new MapPerurbation(sp, true);
-             double upperZ = mpert.calcUBLogZ(200);
-             System.out.println("MapPert LogZ:" + upperZ); */
         }
     }
 
@@ -361,58 +226,6 @@ public class VariationalKStar {
             logConfSpace += Math.log(pruneMat.unprunedRCsAtPos(pos).size());
         }
         return logConfSpace;
-    }
-
-    private void testSCMF(SearchProblem searchProb) {
-        EnergyMatrix emat = searchProb.emat;
-        double eCutt = 0.0;
-
-        double pi = Double.POSITIVE_INFINITY;
-        double pi1 = 50;
-        double pi2 = 40;
-        double pi3 = 30;
-        double pi4 = 20;
-        double pi5 = 10;
-
-        ReparamMRF mrf = new ReparamMRF(emat, searchProb.pruneMat, eCutt);
-        SCMF_Clamp scmf = new SCMF_Clamp(mrf);
-        double lb = scmf.getLogZLB();
-        System.out.println("Lower Bound: " + lb + " with pruning interval " + pi);
-
-        UpdatedPruningMatrix upm1 = new UpdatedPruningMatrix(searchProb.pruneMat);
-        prune(searchProb, upm1, pi1);
-        ReparamMRF mrf1 = new ReparamMRF(emat, upm1, eCutt);
-        SCMF_Clamp scmf1 = new SCMF_Clamp(mrf1);
-        double lb1 = scmf1.getLogZLB();
-        System.out.println("Lower Bound: " + lb1 + " with pruning interval " + pi1);
-
-        UpdatedPruningMatrix upm2 = new UpdatedPruningMatrix(searchProb.pruneMat);
-        prune(searchProb, upm2, pi2);
-        ReparamMRF mrf2 = new ReparamMRF(emat, upm2, eCutt);
-        SCMF_Clamp scmf2 = new SCMF_Clamp(mrf2);
-        double lb2 = scmf2.getLogZLB();
-        System.out.println("Lower Bound: " + lb2 + " with pruning interval " + pi2);
-
-        UpdatedPruningMatrix upm3 = new UpdatedPruningMatrix(searchProb.pruneMat);
-        prune(searchProb, upm3, pi3);
-        ReparamMRF mrf3 = new ReparamMRF(emat, upm3, eCutt);
-        SCMF_Clamp scmf3 = new SCMF_Clamp(mrf3);
-        double lb3 = scmf3.getLogZLB();
-        System.out.println("Lower Bound: " + lb3 + " with pruning interval " + pi3);
-
-        UpdatedPruningMatrix upm4 = new UpdatedPruningMatrix(searchProb.pruneMat);
-        prune(searchProb, upm4, pi4);
-        ReparamMRF mrf4 = new ReparamMRF(emat, upm4, eCutt);
-        SCMF_Clamp scmf4 = new SCMF_Clamp(mrf4);
-        double lb4 = scmf4.getLogZLB();
-        System.out.println("Lower Bound: " + lb4 + " with pruning interval " + pi4);
-
-        UpdatedPruningMatrix upm5 = new UpdatedPruningMatrix(searchProb.pruneMat);
-        prune(searchProb, upm5, pi5);
-        ReparamMRF mrf5 = new ReparamMRF(emat, upm5, eCutt);
-        SCMF_Clamp scmf5 = new SCMF_Clamp(mrf5);
-        double lb5 = scmf5.getLogZLB();
-        System.out.println("Lower Bound: " + lb5 + " with pruning interval " + pi5);
     }
 
     private void prune(SearchProblem sp, PruningMatrix pruneMat, double pruningInterval) {

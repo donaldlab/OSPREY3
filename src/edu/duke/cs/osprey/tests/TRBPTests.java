@@ -8,8 +8,7 @@ package edu.duke.cs.osprey.tests;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.partitionfunctionbounds.MarkovRandomField;
-import edu.duke.cs.osprey.partitionfunctionbounds.TRBP_Refactor_2;
-import edu.duke.cs.osprey.partitionfunctionbounds.TRBP_Refactor_3;
+import edu.duke.cs.osprey.partitionfunctionbounds.TRBP;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import java.io.File;
@@ -40,13 +39,17 @@ public class TRBPTests {
 
         MarkovRandomField mrf = new MarkovRandomField(searchProb, 0.0);
 
-        TRBP_Refactor_3.setNumEdgeProbUpdates(0);
+        TRBP.setNumEdgeProbUpdates(0);
         Stopwatch.start();
-        TRBP_Refactor_3 trbp = new TRBP_Refactor_3(mrf);
+        TRBP trbp = new TRBP(mrf);
         Stopwatch.stop();
 
+        double logZ = trbp.getLogZ();
+        double correctLogZ = 906.6176158974757;
+
         System.out.println("Finished in " + Stopwatch.getTime(TimeUnit.MILLISECONDS));
-        System.out.println("LogZ: "+trbp.getLogZ());
+        System.out.println("LogZ: " + logZ);
+        System.out.println("Error: " + Math.abs(correctLogZ - logZ));
     }
 
     static void precomputeMatrices(SearchProblem searchSpace, ConfigFileParser cfp, double pruningInterval) {

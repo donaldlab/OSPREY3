@@ -155,7 +155,7 @@ public class SequenceFreeEnergy extends AStarTree {
             return seqNode.lowerBoundFreeEnergy;
         } else {
             MarkovRandomField mrf = new MarkovRandomField(this.spToOptimize.emat, seqNode.pruneMat, 0.0);
-            TRBP_Refactor_2 trbp = new TRBP_Refactor_2(mrf);
+            TRBP trbp = new TRBP(mrf);
             return -trbp.getLogZ();
         }
     }

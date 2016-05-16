@@ -20,19 +20,24 @@ public class MRFNode {
     int posNum;
     //index into nodeList
     int index;
-    //list of labels for the node; labels are super-RCs
+    //list of labels for the node; labels are RCs
     ArrayList<MRFLabel> labelList;
+    int[] labels;
+    
     int numLabels;
     //list of nodes that are neighbors of this node
     ArrayList<MRFNode> neighborList;
-    public MRFNode(int posNum, ArrayList<Integer> unprunedSuperRCs, int index) {
+    public MRFNode(int posNum, ArrayList<Integer> unprunedRCs, int index) {
         this.posNum = posNum;
         this.index = index;
         //create label
         this.labelList = new ArrayList<>();
-        for (int superRC : unprunedSuperRCs){
-            MRFLabel label = new MRFLabel(superRC);
+        this.labels = new int[unprunedRCs.size()];
+        for (int i =0; i<unprunedRCs.size(); i++){
+            int rc = unprunedRCs.get(i);
+            MRFLabel label = new MRFLabel(rc);
             labelList.add(label);
+            labels[i] = rc;
         }
         numLabels = labelList.size();
     }

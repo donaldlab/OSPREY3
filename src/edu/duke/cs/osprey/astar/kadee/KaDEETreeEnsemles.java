@@ -17,7 +17,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.partitionfunctionbounds.DiscretePartFunc;
 import edu.duke.cs.osprey.partitionfunctionbounds.MarkovRandomField;
-import edu.duke.cs.osprey.partitionfunctionbounds.TRBP_Refactor_3;
+import edu.duke.cs.osprey.partitionfunctionbounds.TRBP;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import java.util.ArrayList;
@@ -235,7 +235,7 @@ public class KaDEETreeEnsemles extends AStarTree {
 //            score = -computeLogZGumbel(ematSubset, pruneMatSubset);
 //            score = -tree.computeEpsilonApprox(0.1);
             MarkovRandomField mrf = new MarkovRandomField(ematSubset, pruneMatSubset, 0.0);
-            TRBP_Refactor_3 trbp = new TRBP_Refactor_3(mrf);
+            TRBP trbp = new TRBP(mrf);
             score = -trbp.getLogZ();
         }
         return score + objFcn.getConstTerm();
