@@ -44,6 +44,7 @@ public class VariationalKStar {
     final static double constRT = PoissonBoltzmannEnergy.constRT;
     ExpFunction ef = new ExpFunction();
     boolean testSCMF = true;
+    double epsilon;
 
     public VariationalKStar(ConfigFileParser aCFP) {
         this.cfp = aCFP;
@@ -91,14 +92,17 @@ public class VariationalKStar {
                 System.out.println("Gumbel logZ: " + logZ);
                 System.exit(0);
             }
-            if (false) {
+            if (true) {
+                epsilon = 0.1;
                 PartFuncTree tree = new PartFuncTree(sp.emat, upm);
                 long startTime = System.currentTimeMillis();
                 double maxTime = 3600000;
-                double logZ = tree.computeEpsilonApprox(0.1, maxTime);
+                double logZ = tree.computeEpsilonApprox(epsilon, maxTime);
                 long totalTime = (System.currentTimeMillis() - startTime);
                 System.out.println("New Alg Took: " + totalTime + " milliseconds");
-                File statistics = new File("data.txt");
+                String filename = "data_";
+                filename += epsilon + "_1Hour.txt";
+                File statistics = new File(filename);
                 try {
                     FileWriter fw = new FileWriter(statistics);
                     fw.write("LogConfSpace: " + getLogConfSpace(upm) + "\n");
@@ -126,14 +130,14 @@ public class VariationalKStar {
                 }
                 System.out.println("Epsilon Approx BB: " + logZ);
             }
-            if (true) {
+            if (false) {
                 PartFuncTree tree = new PartFuncTree(sp.emat, upm);
                 long startTime = System.currentTimeMillis();
                 double maxTime = 3600000;
                 double logZ = tree.computeEpsilonApprox(0.1, maxTime);
                 long totalTime = (System.currentTimeMillis() - startTime);
                 System.out.println("New Alg Took: " + totalTime + " milliseconds");
-                File statistics = new File("data_var_p.txt");
+                File statistics = new File("data_var_p_2.txt");
                 try {
                     FileWriter fw = new FileWriter(statistics);
                     fw.write("LogConfSpace: " + getLogConfSpace(upm) + "\n");
@@ -298,6 +302,57 @@ public class VariationalKStar {
              double upperZ = mpert.calcUBLogZ(200);
              System.out.println("MapPert LogZ:" + upperZ); */
         }
+    }
+
+    public VariationalKStar(ConfigFileParser aCFP, double epsilon, double eCut, boolean useTRBPSplit) {
+        this.cfp = aCFP;
+        this.cfp.params.setValue("STERICTHRESH", "1000");
+        SearchProblem[] spList = cfp.getMSDSearchProblems();
+
+        for (SearchProblem searchProb : spList) {
+            loadEMatandPrune(searchProb, Double.POSITIVE_INFINITY);
+        }
+
+        sp = spList[0];
+
+        UpdatedPruningMatrix upm = new UpdatedPruningMatrix(sp.pruneMat);
+        prune(sp, upm, 30);
+        this.epsilon = epsilon;
+        PartFuncTree tree = new PartFuncTree(sp.emat, upm, eCut, useTRBPSplit);
+        long startTime = System.currentTimeMillis();
+        double maxTime = 3600000;
+        double logZ = tree.computeEpsilonApprox(epsilon, maxTime);
+        long totalTime = (System.currentTimeMillis() - startTime);
+        System.out.println("New Alg Took: " + totalTime + " milliseconds");
+        String filename = "data_";
+        filename += epsilon + "_1Hour.txt";
+        File statistics = new File(filename);
+        try {
+            FileWriter fw = new FileWriter(statistics);
+            fw.write("LogConfSpace: " + getLogConfSpace(upm) + "\n");
+            fw.write("NewAlgorithm: " + totalTime + "\n");
+            if (tree.timeOut) {
+                fw.write("NewAlgorithm: finished false" + "\n");
+                fw.write("NewAlgorithm: effectiveEpsilon " + tree.effectiveEpsilon + "\n");
+            } else {
+                fw.write("NewAlgorithm: finished true" + "\n");
+            }
+            fw.write("NewAlgorithm: logZ " + logZ + "\n");
+            DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, upm, epsilon, maxTime);
+            if (dfp.finishedInTime) {
+                fw.write("KStar: finished true" + "\n");
+                fw.write("KStar: totalTime " + dfp.totalTime);
+            } else {
+                fw.write("KStar: finished false" + "\n");
+                fw.write("KStar: effectiveEpsilon " + dfp.effectiveEpsilonReached + "\n");
+                fw.write("KStar: logZLB " + dfp.getLogZ());
+            }
+
+            fw.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        System.out.println("Epsilon Approx BB: " + logZ);
     }
 
     private double getLogConfSpace(PruningMatrix pruneMat) {

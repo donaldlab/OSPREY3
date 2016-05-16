@@ -22,6 +22,7 @@ public class MRFNode {
     int index;
     //list of labels for the node; labels are super-RCs
     ArrayList<MRFLabel> labelList;
+    int numLabels;
     //list of nodes that are neighbors of this node
     ArrayList<MRFNode> neighborList;
     public MRFNode(int posNum, ArrayList<Integer> unprunedSuperRCs, int index) {
@@ -33,6 +34,7 @@ public class MRFNode {
             MRFLabel label = new MRFLabel(superRC);
             labelList.add(label);
         }
+        numLabels = labelList.size();
     }
 
     @Override
@@ -56,6 +58,9 @@ public class MRFNode {
         return true;
     }
     
+    public int getNumLabels(){
+        return this.numLabels;
+    }
 
     
     

@@ -37,7 +37,7 @@ public class ParamSet implements Serializable {
         //then for example if we needed a default for parameter BLABLABLA, it would return 1
         
 	//constructor
-	ParamSet(){
+	public ParamSet(){
             
 	}
 	

@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.astar.comets.COMETSTree;
 import edu.duke.cs.osprey.astar.comets.LME;
 import edu.duke.cs.osprey.astar.kadee.GumbelMapTree;
 import edu.duke.cs.osprey.astar.kadee.KaDEETreeEnsemles;
+import edu.duke.cs.osprey.astar.partfunc.PartFuncTree;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
@@ -23,8 +24,6 @@ import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.StringParsing;
-import java.io.FileOutputStream;
-import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -74,12 +73,13 @@ public class KaDEEDoer2 {
     boolean useComets = false;
 
     boolean doExhaustive = false;
-    
+
     boolean rankByKStar = true;
-    
+
     ExpFunction ef = new ExpFunction();
     double constRT = PoissonBoltzmannEnergy.constRT;
     int numSamplesGumbel = 200;
+
     public KaDEEDoer2(ConfigFileParser cfp) {
         this.cfp = cfp;
         Ew = cfp.params.getDouble("Ew");
@@ -106,9 +106,6 @@ public class KaDEEDoer2 {
 
         useEllipses = cfp.params.getBool("useEllipses");
 
-        useComets = cfp.params.getBool("useComets");
-
-        doExhaustive = cfp.params.getBool("doExhaustive");
     }
 
     /**
@@ -119,25 +116,7 @@ public class KaDEEDoer2 {
     void doKaDEE() {
         double curInterval = I0;//For iMinDEE.  curInterval will need to be an upper bound
         this.searchSpaces = cfp.getMSDSearchProblems();
-
-        if (useComets) {
-            COMETSTree tree_comets = setupCometsTree();
-            long startTime = System.currentTimeMillis();
-            int[] seq_comets = tree_comets.nextConf();
-            long totalTime = System.currentTimeMillis() - startTime;
-
-            try (PrintStream out = new PrintStream(new FileOutputStream("results_comets.txt", true))) {
-                out.print("Sequence: ");
-                for (int level = 0; level < tree_comets.numTreeLevels; level++) {
-                    out.print(tree_comets.AATypeOptions.get(level).get(seq_comets[level]) + " ");
-                }
-                out.println();
-                out.println("Nodes Expanded: " + tree_comets.numExpanded);
-                out.println("Runtime: " + totalTime);
-            } catch (Exception e) {
-            }
-
-        } else if (doExhaustive) {
+        if (false) {
             KaDEETreeEnsemles tree = setupKaDEETree();
             exhaustiveKaDEESearch(rankByKStar);
         } else {
@@ -395,6 +374,10 @@ public class KaDEEDoer2 {
         for (int state = 0; state < this.numStates; state++) {
             for (int seqNum = 0; seqNum < numSeqs; seqNum++) {
                 String[] sequence = seqList.get(seqNum);
+                for (String aa : sequence) {
+                    System.out.print(aa + " ");
+                }
+                System.out.println();
                 SearchProblem searchProb = this.mutableSearchSpace[state];
 
                 ArrayList<Integer> posNumsForState = new ArrayList<>();
@@ -404,7 +387,6 @@ public class KaDEEDoer2 {
 
                 PruningMatrix seqPruneMat = new PruningMatrix(searchProb.pruneMat.getSubsetMatrix(posNumsForState));
                 handleStatePruning(seqPruneMat, searchProb.confSpace, sequence, this.mutable2StatePosNums.get(state));
-
                 if (!rankByKStar) {
                     ConfTree stateTree;
                     if (useEPIC && !useTupExp) {
@@ -440,9 +422,19 @@ public class KaDEEDoer2 {
                         throw new RuntimeException("Gumbel Map does not yet support EPIC");
                     } else if (useTupExp) {
                         stateScore[seqNum][state] = -computeLogZGumbel(searchProb.tupExpEMat, seqPruneMat, this.numSamplesGumbel);
-                    }
-                    else{
-                        stateScore[seqNum][state] = -computeLogZGumbel(searchProb.emat, seqPruneMat, this.numSamplesGumbel);
+                    } else {
+                        boolean allRotsPruned = false;
+                        for (int pos = 0; pos < seqPruneMat.numPos(); pos++) {
+                            if (seqPruneMat.unprunedRCsAtPos(pos).isEmpty()) {
+                                allRotsPruned = true;
+                            }
+                        }
+                        if (allRotsPruned) {
+                            stateScore[seqNum][state] = Double.POSITIVE_INFINITY;
+                        } else {
+                            PartFuncTree tree = new PartFuncTree(searchProb.emat, seqPruneMat);
+                            stateScore[seqNum][state] = -tree.computeEpsilonApprox(0.1);
+                        }
                     }
                 }
             }
@@ -487,7 +479,7 @@ public class KaDEEDoer2 {
             GumbelMapTree gTree = new GumbelMapTree(emat, pruneMat);
             gTree.nextConf();
             average += gTree.currentBestFeasibleScore;
-            if (gTree.currentBestFeasibleScore > 0){
+            if (gTree.currentBestFeasibleScore > 0) {
                 System.out.println(gTree.currentBestFeasibleScore);
             }
         }

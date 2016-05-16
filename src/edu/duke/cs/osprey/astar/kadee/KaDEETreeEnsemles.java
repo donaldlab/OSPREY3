@@ -10,10 +10,14 @@ import edu.duke.cs.osprey.astar.AStarTree;
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.astar.comets.LME;
 import edu.duke.cs.osprey.astar.comets.UpdatedPruningMatrix;
+import edu.duke.cs.osprey.astar.partfunc.PartFuncTree;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
+import edu.duke.cs.osprey.partitionfunctionbounds.DiscretePartFunc;
+import edu.duke.cs.osprey.partitionfunctionbounds.MarkovRandomField;
+import edu.duke.cs.osprey.partitionfunctionbounds.TRBP_Refactor_3;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import java.util.ArrayList;
@@ -102,9 +106,10 @@ public class KaDEETreeEnsemles extends AStarTree {
             double logKStar = calcSequenceScore(seqNode);
             return logKStar;
         } else {
-            double realBound = computeExactBoundPerSequence(seqNode);
-            double maxIntBound = computeMaxInterfacePerSequence(seqNode, mutableSearchProblems[0].emat, seqNode.pruneMat[0]);
+//            double realBound = computeExactBoundPerSequence(seqNode);
+//            double maxIntBound = computeMaxInterfacePerSequence(seqNode, mutableSearchProblems[0].emat, seqNode.pruneMat[0]);
             double logKStarUB = calcMaxInterfaceScore(seqNode);
+//            return logKStarUB;
             return logKStarUB;
         }
     }
@@ -176,10 +181,14 @@ public class KaDEETreeEnsemles extends AStarTree {
             seqNode.scoreSet = true;
             return score;
         } else {
-            double Ebound = computeLogZGumbel(boundEmat, seqNode.pruneMat[0]);
-            double EunBound = computeLogZGumbel(unboundEmat, seqNode.pruneMat[1]);
-
+//            double Ebound = computeLogZGumbel(boundEmat, seqNode.pruneMat[0]);
+//            double EunBound = computeLogZGumbel(unboundEmat, seqNode.pruneMat[1]);
+            PartFuncTree treeB = new PartFuncTree(boundEmat, seqNode.pruneMat[0]);
+            PartFuncTree treeU = new PartFuncTree(unboundEmat, seqNode.pruneMat[1]);
+            double Ebound = treeB.computeEpsilonApprox(0.1);
+            double EunBound = treeU.computeEpsilonApprox(0.1);
             double score = Ebound - EunBound + objFcn.getConstTerm();
+
             seqNode.scoreSet = true;
             return -score;
         }
@@ -222,7 +231,12 @@ public class KaDEETreeEnsemles extends AStarTree {
                 score = ematSubset.getInternalEnergy(new RCTuple(conf));
             }
         } else {
-            score = -computeLogZGumbel(ematSubset, pruneMatSubset);
+//            PartFuncTree tree = new PartFuncTree(ematSubset, pruneMatSubset);
+//            score = -computeLogZGumbel(ematSubset, pruneMatSubset);
+//            score = -tree.computeEpsilonApprox(0.1);
+            MarkovRandomField mrf = new MarkovRandomField(ematSubset, pruneMatSubset, 0.0);
+            TRBP_Refactor_3 trbp = new TRBP_Refactor_3(mrf);
+            score = -trbp.getLogZ();
         }
         return score + objFcn.getConstTerm();
     }
@@ -255,18 +269,27 @@ public class KaDEETreeEnsemles extends AStarTree {
             UpdatedPruningMatrix pruneMatSeqUnbound = new UpdatedPruningMatrix(seqNode.pruneMat[1]);
             updateBoundPruneMatAtSequence(seqNode, pruneMatSeqBound, seq);
             updateUnoundPruneMatAtSequence(seqNode, pruneMatSeqUnbound, seq);
-            double boundScore = -computeLogZGumbel(mutableSearchProblems[0].emat, pruneMatSeqBound);
-            double unboundScore = -computeLogZGumbel(mutableSearchProblems[1].emat, pruneMatSeqUnbound);
+            PartFuncTree pfTreeBound = new PartFuncTree(mutableSearchProblems[0].emat, pruneMatSeqBound);
+            PartFuncTree pfTreeUnbound = new PartFuncTree(mutableSearchProblems[1].emat, pruneMatSeqUnbound);
+
+            double boundScore = -pfTreeBound.computeEpsilonApprox(0.1);
+            double unboundScore = -pfTreeUnbound.computeEpsilonApprox(0.1);
+//            double boundScore = -computeLogZGumbel(mutableSearchProblems[0].emat, pruneMatSeqBound);
+//            double unboundScore = -computeLogZGumbel(mutableSearchProblems[1].emat, pruneMatSeqUnbound);
             System.out.print("Sequence: ");
             for (int pos = 0; pos < seq.length; pos++) {
                 System.out.print(this.AATypeOptions.get(pos).get(seq[pos]) + " ");
             }
             System.out.println("   Score: " + (boundScore - unboundScore));
-            DiscretePartFuncCalc dpfBound = new DiscretePartFuncCalc(mutableSearchProblems[0].emat, pruneMatSeqBound, 100, 0.1);
-            double exactScoreBound = dpfBound.calcLogZ();
-            DiscretePartFuncCalc dpfUnbound = new DiscretePartFuncCalc(mutableSearchProblems[1].emat, pruneMatSeqUnbound, 100, 0.1);
-            double exactScoreUnbound = dpfUnbound.calcLogZ();
-            System.out.println("Exact Score: "+(exactScoreBound-exactScoreUnbound));
+//            DiscretePartFunc dpf = new DiscretePartFunc(mutableSearchProblems[0].emat, pruneMatSeqBound, 0.1);
+//            double exactScoreBound = -dpf.getLogZ();
+//            DiscretePartFuncCalc dpfBound = new DiscretePartFuncCalc(mutableSearchProblems[0].emat, pruneMatSeqBound, 100, 0.1);
+//            double exactScoreBound = dpfBound.calcLogZ();
+//            DiscretePartFuncCalc dpfUnbound = new DiscretePartFuncCalc(mutableSearchProblems[1].emat, pruneMatSeqUnbound, 100, 0.1);
+//            double exactScoreUnbound = dpfUnbound.calcLogZ();
+//            DiscretePartFunc dfpU = new DiscretePartFunc(mutableSearchProblems[1].emat, pruneMatSeqUnbound, 0.1);
+//            double exactScoreUnbound = -dfpU.getLogZ();
+//            System.out.println("Exact Score: "+(exactScoreBound-exactScoreUnbound));
             score = Math.min(score, (boundScore - unboundScore));
         }
         return score;

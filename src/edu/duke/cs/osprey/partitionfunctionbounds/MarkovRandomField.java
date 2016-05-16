@@ -26,7 +26,8 @@ public class MarkovRandomField {
 
     EnergyMatrix emat;
     PruningMatrix pruneMat;
-
+    boolean verbose = false;
+    
     public MarkovRandomField(SearchProblemSuper searchProblem, double eCut) {
         this.emat = searchProblem.emat;
         this.pruneMat = searchProblem.pruneMat;
@@ -96,6 +97,26 @@ public class MarkovRandomField {
         }
     }
 
+    public MarkovRandomField(EnergyMatrix aemat, PruningMatrix apruneMat, double eCut) {
+        this.emat = aemat;
+        this.pruneMat = apruneMat;
+
+        this.numNodes = emat.numPos();
+
+        //create nodeList
+        for (int pos = 0; pos < numNodes; pos++) {
+            MRFNode node = new MRFNode(pos, pruneMat.unprunedRCsAtPos(pos), pos);
+            nodeList.add(node);
+        }
+
+        //create interaction graph
+        this.interactionGraph = createEnergyInteractionGraph(eCut);
+        //create neighborList for each node
+        for (MRFNode node : this.nodeList) {
+            node.neighborList = getNeighbors(node, this.interactionGraph);
+        }
+    }
+
     public MarkovRandomField(EnergyMatrix aemat, PruningMatrix apruneMat, int[] partialNode, double eCut) {
         this.emat = aemat;
         this.pruneMat = apruneMat;
@@ -135,8 +156,7 @@ public class MarkovRandomField {
                 for (int nodeNum2 = 0; nodeNum2 < numNodes; nodeNum2++) {
                     if (nodeNum1 == nodeNum2) {
                         interactionGraph[nodeNum1][nodeNum2] = false;
-                    }
-                    else{
+                    } else {
                         interactionGraph[nodeNum1][nodeNum2] = true;
                     }
                 }
@@ -173,8 +193,10 @@ public class MarkovRandomField {
                 possibleInteraction++;
             }
         }
-        System.out.println("Markov Random Field has " + countInteraction
-                + " pairs out of " + possibleInteraction + " possible pairs");
+        if (verbose) {
+            System.out.println("Markov Random Field has " + countInteraction
+                    + " pairs out of " + possibleInteraction + " possible pairs");
+        }
         return interactionGraph;
     }
 

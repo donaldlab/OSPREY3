@@ -79,14 +79,24 @@ public class Main {
             SequenceFreeEnergy sf = new SequenceFreeEnergy(cfp);
             if (false) {
                 sf.exhaustiveSearch();
+            } else {
+                int[] bestSequence = sf.nextConf();
+                for (int pos = 0; pos < bestSequence.length; pos++) {
+                    String AA = sf.aaTypeOptions.get(pos).get(bestSequence[pos]);
+                    System.out.print(AA + " ");
+                }
+                System.out.println();
+                System.out.println("Free Energy: " + sf.bestFreeEnergy);
+                System.out.println("Num Sequences: " + sf.numSequencesEnumerated);
+                System.out.println();
             }
-            int[] bestSequence = sf.nextConf();
-            for (int pos = 0; pos < bestSequence.length; pos++) {
-                String AA = sf.aaTypeOptions.get(pos).get(bestSequence[pos]);
-                System.out.print(AA + " ");
-            }
-            System.out.println();
-        } //etc.
+        } else if (command.equalsIgnoreCase("sublinearKStar")){
+            KaDEEDoer2 kadee = new KaDEEDoer2(cfp);
+            kadee.doKaDEE();
+        } else if (command.equalsIgnoreCase("doGumbelEcut")){
+            VariationalKStar v = new VariationalKStar(cfp,0.1, 0.1, false);
+        }
+        //etc.
         else {
             throw new RuntimeException("ERROR: OSPREY command unrecognized: " + command);
         }

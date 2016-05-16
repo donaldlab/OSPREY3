@@ -39,6 +39,9 @@ public class SequenceFreeEnergy extends AStarTree {
     SearchProblem spToOptimize;
     int spToOptimizeIndex;
     double epsilon = 0.1;
+    public int numSequencesEnumerated = 0;
+
+    public double bestFreeEnergy;
 
     public SequenceFreeEnergy(ConfigFileParser cfp) {
         setupConfigs(cfp);
@@ -58,22 +61,32 @@ public class SequenceFreeEnergy extends AStarTree {
         SequenceNode seqNode = (SequenceNode) curNode;
         ArrayList<AStarNode> ans = new ArrayList<>();
 
-        printPartialSequence(seqNode);
+//        printPartialSequence(seqNode);
         //expand next position...
+        if (seqNode.isFullyDefined()) {
+            seqNode.expandConfTree();
+            seqNode.setScore(boundFreeEnergy(seqNode));
+            ans.add(seqNode);
+            return ans;
+        }
         int[] curAssignments = seqNode.getNodeAssignments();
 
         for (int splitPos = 0; splitPos < numLevels; splitPos++) {
             if (curAssignments[splitPos] < 0) {//we can split this level
-
                 for (int aa = 0; aa < aaTypeOptions.get(splitPos).size(); aa++) {
                     int[] childAssignments = curAssignments.clone();
                     childAssignments[splitPos] = aa;
                     UpdatedPruningMatrix childPruneMat = doChildPruning(seqNode.pruneMat, splitPos, aa);
 
                     SequenceNode childNode = new SequenceNode(childAssignments, childPruneMat);
-
-                    childNode.setScore(boundFreeEnergy(childNode));
-                    ans.add(childNode);
+                    if (!childNode.isFullyDefined()) {
+                        childNode.setScore(boundFreeEnergy(childNode));
+                        ans.add(childNode);
+                    } else { //create PartFuncTree since the child is a fully defined sequence
+                        makeSeqPartFuncTree(childNode);
+                        childNode.setScore(boundFreeEnergy(childNode));
+                        ans.add(childNode);
+                    }
                 }
 
                 return ans;
@@ -83,14 +96,25 @@ public class SequenceFreeEnergy extends AStarTree {
         throw new RuntimeException("ERROR: Not splittable position found but sequence not fully defined...");
     }
 
+    private void printPartialSequence(int[] nodeAssignments) {
+        for (int pos = 0; pos < this.numLevels; pos++) {
+            if (nodeAssignments[pos] >= 0) {
+                String aatype = this.aaTypeOptions.get(pos).get(nodeAssignments[pos]);
+                System.out.print(aatype + " ");
+            } else {
+                System.out.print("XXX ");
+            }
+        }
+        System.out.println();
+    }
+
     private void printPartialSequence(SequenceNode seqNode) {
         int[] assignments = seqNode.getNodeAssignments();
         for (int pos = 0; pos < this.numLevels; pos++) {
-            if (assignments[pos] > 0){
+            if (assignments[pos] >= 0) {
                 String aatype = this.aaTypeOptions.get(pos).get(assignments[pos]);
-                System.out.print(aatype+" ");
-            }
-            else{
+                System.out.print(aatype + " ");
+            } else {
                 System.out.print("XXX ");
             }
         }
@@ -99,7 +123,17 @@ public class SequenceFreeEnergy extends AStarTree {
 
     @Override
     public boolean isFullyAssigned(AStarNode node) {
-        return node.isFullyDefined();
+        boolean isAssigned = node.isFullyDefined();
+        if (!isAssigned) {
+            return false;
+        }
+        double lowerBound = this.pq.peek().getScore();
+        SequenceNode seqNode = (SequenceNode) node;
+        if (seqNode.upperBoundFreeEnergy < lowerBound){
+            this.bestFreeEnergy = seqNode.lowerBoundFreeEnergy;
+            return true;
+        }
+        return false;
     }
 
     @Override
@@ -116,14 +150,28 @@ public class SequenceFreeEnergy extends AStarTree {
     }
 
     private double boundFreeEnergy(SequenceNode seqNode) {
-        double bound = computeBoundVariationalInf(seqNode);
-        return bound;
+        printPartialSequence(seqNode);
+        if (seqNode.isFullyDefined()) {
+            return seqNode.lowerBoundFreeEnergy;
+        } else {
+            MarkovRandomField mrf = new MarkovRandomField(this.spToOptimize.emat, seqNode.pruneMat, 0.0);
+            TRBP_Refactor_2 trbp = new TRBP_Refactor_2(mrf);
+            return -trbp.getLogZ();
+        }
     }
 
     private double computeBoundVariationalInf(SequenceNode seqNode) {
         PartFuncTree tree = new PartFuncTree(this.spToOptimize.emat, seqNode.pruneMat);
         double logZUB = tree.computeEpsilonApprox(this.epsilon);
         return logZUB;
+    }
+
+    private void makeSeqPartFuncTree(SequenceNode node) {
+        node.tree = new PartFuncTree(spToOptimize.emat, node.pruneMat);
+        AStarNode rootNode = node.tree.rootNode();
+        node.lowerBoundFreeEnergy = -node.tree.getCurrentUpperBoundLogZ();
+        node.upperBoundFreeEnergy = -node.tree.getCurrentLowerBoundLogZ();
+        node.tree.initQueue(rootNode);
     }
 
     /**
@@ -342,11 +390,20 @@ public class SequenceFreeEnergy extends AStarTree {
 
         for (int seqNum = 0; seqNum < numSeqs; seqNum++) {
             String[] sequence = seqList.get(seqNum);
-
+            for (String aa : sequence) {
+                System.out.print(aa + " ");
+            }
             UpdatedPruningMatrix upm = handleExhaustivePruning(sequence);
 
-            PartFuncTree tree = new PartFuncTree(spToOptimize.emat, upm);
-            sequenceScore[seqNum] = tree.computeEpsilonApprox(epsilon);
+            DiscretePartFunc dpf = new DiscretePartFunc(spToOptimize.emat, upm, epsilon);
+            if (true) {
+                sequenceScore[seqNum] = -dpf.getLogZ();
+                System.out.print(sequenceScore[seqNum]);
+            } else {
+                PartFuncTree tree = new PartFuncTree(spToOptimize.emat, upm);
+                sequenceScore[seqNum] = -tree.computeEpsilonApprox(epsilon);
+            }
+            System.out.println();
         }
 
         //now find the best sequence and obj fcn value

@@ -417,4 +417,16 @@ public class TupleMatrix<T> implements Serializable {
         }
     }
     */
+    
+    public ArrayList<T> getOneBodyEnergies(int pos){
+        return this.oneBody.get(pos);
+    }
+    
+    public ArrayList<ArrayList<T>> getTwoBodyEnergies(int pos1, int pos2){
+        if (pos1 > pos2){
+            return this.pairwise.get(pos1).get(pos2);
+        }
+        return this.pairwise.get(pos2).get(pos1);
+    }
+    
 }

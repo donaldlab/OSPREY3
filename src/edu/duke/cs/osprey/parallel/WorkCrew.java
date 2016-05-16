@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.parallel;
 
-import edu.duke.cs.osprey.parallel.Worker;
 import java.util.ArrayList;
 import java.util.Iterator;
 
