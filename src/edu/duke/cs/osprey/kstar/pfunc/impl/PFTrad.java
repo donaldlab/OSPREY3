@@ -46,7 +46,7 @@ public class PFTrad extends PFAbstract implements Serializable {
 		if(canUseHotByManualSelection()) 
 			createHotsFromCFG();
 		
-		initPStar();
+		initTradPStar();
 
 		// first conf was merely to set p*
 		confSearch = getConfTree(false);
@@ -136,6 +136,10 @@ public class PFTrad extends PFAbstract implements Serializable {
 	
 	
 	protected void combineResidues(int[] pos) {
+		
+		if(pos.length > 2)
+			backupEnergyandPruningMatrices();
+		
 		System.out.print("Combining residues: "); for(int i : pos) System.out.print(getSequence().get(i) + " ");
 		System.out.print("... ");
 		

@@ -134,6 +134,8 @@ public class KSConfQ extends Thread implements Serializable {
 
 		if(size() == 0) tail = null;
 
+		conf.getConf().trimToSize();
+		
 		return conf;
 	}
 

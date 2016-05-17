@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.kstar.pfunc.impl;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 
@@ -11,6 +12,7 @@ import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KSConf;
 import edu.duke.cs.osprey.kstar.KSConfQ;
+import edu.duke.cs.osprey.kstar.PStarCalculator;
 import edu.duke.cs.osprey.kstar.QPrimeCalculator;
 import edu.duke.cs.osprey.kstar.RCEnergyContribs;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
@@ -28,6 +30,7 @@ public class PFNew01 extends PFTrad implements Serializable {
 
 	protected KSConfQ confsQ = null;
 	protected QPrimeCalculator qPrimeCalculator = null;
+	protected PStarCalculator pStarCalculator = null;
 
 	public PFNew01() {
 		super();
@@ -56,12 +59,18 @@ public class PFNew01 extends PFTrad implements Serializable {
 				createHotsFromCFG();
 
 			// set pstar
-			initPStar();
+			if(prunedConfs.compareTo(BigInteger.ZERO) == 0) pStar = BigDecimal.ZERO;
+			else {
+				System.out.println("using p* calculator");
+				pStarCalculator = new PStarCalculator( this, true );
+				pStarCalculator.setPriority(Thread.MAX_PRIORITY);
+			}
 
 			confsQ = new KSConfQ( this, 1, partialQLB );
-			qPrimeCalculator = new QPrimeCalculator( this );
+			qPrimeCalculator = new QPrimeCalculator( this, false );
 			qPrimeCalculator.setPriority(Thread.MAX_PRIORITY);
 
+			if(pStarCalculator != null) pStarCalculator.start();
 			qPrimeCalculator.start();
 			confsQ.start();
 
@@ -107,6 +116,7 @@ public class PFNew01 extends PFTrad implements Serializable {
 
 				confsQ.cleanUp(true);
 				qPrimeCalculator.cleanUp(true);
+				if(pStarCalculator != null) pStarCalculator.cleanUp(true);
 
 				return granted;
 			}
@@ -146,6 +156,7 @@ public class PFNew01 extends PFTrad implements Serializable {
 			// we leave this function
 			confsQ.cleanUp(true);
 			qPrimeCalculator.cleanUp(true);
+			if(pStarCalculator != null) pStarCalculator.cleanUp(true);
 		}	
 	}
 
@@ -171,6 +182,10 @@ public class PFNew01 extends PFTrad implements Serializable {
 
 				if( !qPrimeCalculator.isExhausted() && qPrimeCalculator.getState() == Thread.State.NEW ) {
 					qPrimeCalculator.start();
+				}
+				
+				if( pStarCalculator != null && !pStarCalculator.isExhausted() && pStarCalculator.getState() == Thread.State.NEW ) {
+					pStarCalculator.start();
 				}
 			}
 
@@ -202,6 +217,9 @@ public class PFNew01 extends PFTrad implements Serializable {
 
 	protected void combineResidues(KSConf conf, double pbe, double tpbe, int[] tpce) {
 
+		if(tpce.length > 2)
+			backupEnergyandPruningMatrices();
+		
 		abort(true);
 
 		System.out.print("% bound error: " + pbe + ". ");
@@ -224,7 +242,7 @@ public class PFNew01 extends PFTrad implements Serializable {
 		
 		
 		confsQ = new KSConfQ( this, 1, partialQLB );
-		qPrimeCalculator = new QPrimeCalculator( this );
+		qPrimeCalculator = new QPrimeCalculator( this, false );
 		qPrimeCalculator.setPriority(Thread.MAX_PRIORITY);
 
 		qPrimeCalculator.start();
@@ -272,10 +290,11 @@ public class PFNew01 extends PFTrad implements Serializable {
 		updateQStar( conf );
 
 		updateQPrime();
+		
+		updatePStar();
 
 		// negative values of effective esilon are disallowed
 		if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0 ) {
-			System.out.println("here: " + effectiveEpsilon + " " + qStar + " " + qPrime + " " + pStar);
 			eAppx = EApproxReached.NOT_POSSIBLE;
 			return;
 		}
@@ -329,9 +348,27 @@ public class PFNew01 extends PFTrad implements Serializable {
 	protected void updateQPrime() {
 
 		try {
-			while( partialQLB.compareTo(qPrimeCalculator.getTotalQLB()) > 0 ) Thread.sleep(1);
+			
+			while( partialQLB.compareTo(qPrimeCalculator.getTotalPF()) > 0 ) Thread.sleep(1);
+			
 			qPrime = qPrimeCalculator.getQPrime(partialQLB);
 
+		} catch(Exception e) {
+			System.out.println(e.getMessage());
+			e.printStackTrace();
+			System.exit(1);
+		}
+	}
+	
+	
+	protected void updatePStar() {
+		
+		try {
+			
+			if(pStarCalculator == null) return;
+			
+			pStar = pStarCalculator.getPStar();
+			
 		} catch(Exception e) {
 			System.out.println(e.getMessage());
 			e.printStackTrace();
@@ -354,6 +391,8 @@ public class PFNew01 extends PFTrad implements Serializable {
 			confsQ.cleanUp(nullify);
 
 			qPrimeCalculator.cleanUp(nullify);
+			
+			if(pStarCalculator != null) pStarCalculator.cleanUp(nullify);
 
 			eAppx = EApproxReached.FALSE;
 

@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.kstar.pfunc.impl;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 
@@ -9,6 +10,7 @@ import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.kstar.KSConf;
 import edu.duke.cs.osprey.kstar.KSConfQ;
+import edu.duke.cs.osprey.kstar.PStarCalculator;
 import edu.duke.cs.osprey.kstar.QPrimeCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -70,9 +72,14 @@ public class PFNew02 extends PFNew01 implements Serializable {
 
 			if(canUseHotByManualSelection()) 
 				createHotsFromCFG();
-			
+
 			// set pstar
-			initPStar();
+			if(prunedConfs.compareTo(BigInteger.ZERO) == 0) pStar = BigDecimal.ZERO;
+			else {
+				System.out.println("using p* calculator");
+				pStarCalculator = new PStarCalculator( this, true );
+				pStarCalculator.setPriority(Thread.MAX_PRIORITY);
+			}
 
 			// initialize parallel data structures
 			indexes.clear();
@@ -87,9 +94,10 @@ public class PFNew02 extends PFNew01 implements Serializable {
 			partialQConfs.trimToSize();
 
 			confsQ = new KSConfQ( this, indexes.size(), partialQLB );
-			qPrimeCalculator = new QPrimeCalculator( this );
+			qPrimeCalculator = new QPrimeCalculator( this, false );
 			qPrimeCalculator.setPriority(Thread.MAX_PRIORITY);
 
+			if(pStarCalculator != null) pStarCalculator.start();
 			qPrimeCalculator.start();
 			confsQ.start();
 
@@ -137,12 +145,13 @@ public class PFNew02 extends PFNew01 implements Serializable {
 			// we leave this function
 			confsQ.cleanUp(true);
 			qPrimeCalculator.cleanUp(true);
+			if(pStarCalculator != null) pStarCalculator.cleanUp(true);
 		}	
 	}
 
 
 	protected void tryHotForConfs( ArrayList<MultiTermEnergyFunction> mefs ) {
-		
+
 		for( int index : indexes ) {
 			KSConf conf = partialQConfs.get(index);
 			// update energy bound if updated emat
@@ -189,6 +198,8 @@ public class PFNew02 extends PFNew01 implements Serializable {
 			updateQStar( conf );
 
 			updateQPrime();
+			
+			updatePStar();
 
 			// negative values of effective epsilon are disallowed
 			if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0 ) {

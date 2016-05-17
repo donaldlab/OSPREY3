@@ -13,6 +13,7 @@ import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.kstar.AllowedSeqs;
 import edu.duke.cs.osprey.kstar.KAStarConfTree;
 import edu.duke.cs.osprey.kstar.KSAbstract;
@@ -20,6 +21,7 @@ import edu.duke.cs.osprey.kstar.KSConf;
 import edu.duke.cs.osprey.kstar.PStarConfTree;
 import edu.duke.cs.osprey.kstar.pfunc.impl.PFTrad;
 import edu.duke.cs.osprey.pruning.PruningControl;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.ObjectIO;
 
@@ -62,6 +64,8 @@ public abstract class PFAbstract implements Serializable {
 	protected static int hotNumRes = 3;
 	protected static double hotTopRotsPct = 0.2;
 	protected ArrayList<ArrayList<Integer>> HOTs = new ArrayList<>();
+	protected EnergyMatrix backupEmat = null;
+	protected PruningMatrix backupPruneMat = null;
 
 	protected String checkPointPath = null;
 	protected String searchProblemName = null;
@@ -130,6 +134,15 @@ public abstract class PFAbstract implements Serializable {
 		return partialQLB;
 	}
 
+	
+	protected void backupEnergyandPruningMatrices() {
+		if(backupEmat == null)
+			backupEmat = (EnergyMatrix) ObjectIO.deepCopy(sp.emat);
+		
+		if(backupPruneMat == null)
+			backupPruneMat = (PruningMatrix) ObjectIO.deepCopy(sp.pruneMat);
+	}
+	
 
 	protected boolean canUseHotByManualSelection() {
 		if(!getHotMethod().equalsIgnoreCase("manual")) return false;
@@ -167,17 +180,32 @@ public abstract class PFAbstract implements Serializable {
 	public boolean HOTsContains(Integer pos) {
 		for(ArrayList<Integer> hot : HOTs)
 			if(hot.contains(pos)) return true;
-		
+
 		return false;
 	}
-	
-	
+
+
+	protected int getMaxHOTSize( boolean max ) {
+		int ans = max == true ? Integer.MIN_VALUE : Integer.MAX_VALUE;
+
+		for(ArrayList<Integer> hot : HOTs) {
+			if(max)
+				ans = (int)Math.max(ans, hot.size());
+
+			else
+				ans = (int)Math.min(ans, hot.size());
+		}
+
+		return ans;
+	}
+
+
 	protected int getNumPosInHOTs() {
 		int ans = 0;
-		
+
 		for(ArrayList<Integer> hot : HOTs)
 			ans += hot.size();
-		
+
 		return ans;
 	}
 
@@ -457,7 +485,7 @@ public abstract class PFAbstract implements Serializable {
 	}
 
 
-	protected void initPStar() {
+	protected void initTradPStar() {
 
 		ConfSearch confSearch = getConfTree(true);
 		int conf[];
@@ -588,13 +616,25 @@ public abstract class PFAbstract implements Serializable {
 
 		if( getEffectiveEpsilon() < 0 ) {
 			// we can never reach epsilon because q* + q' + p* = 0
-			System.out.println("\nCan never reach target epsilon approximation of " + targetEpsilon + " for sequence: " +
-					KSAbstract.list1D2String(sequence, " "));
+			System.out.println("\nCan never reach target epsilon approximation of " + targetEpsilon + " for sequence: " + KSAbstract.list1D2String(sequence, " "));
 			return;
 		}
 
 		System.out.println("Attempting Phase 2...");
 
+		// considerations for HOT
+		HOTs = new ArrayList<>(); // clear HOTs
+		// restore emat and prunemat
+		if(backupEmat != null) {
+			sp.emat = backupEmat;
+			backupEmat = null;
+		}
+		
+		if(backupPruneMat != null) {
+			sp.pruneMat = backupPruneMat;
+			backupPruneMat = null;
+		}
+	
 		// completely relax pruning
 		double maxPruningInterval = 100;
 		getPruningControl(maxPruningInterval).prune();
@@ -615,7 +655,7 @@ public abstract class PFAbstract implements Serializable {
 
 		qPrime = BigDecimal.ZERO;
 
-		initPStar(); // re-calculate p*
+		initTradPStar(); // re-calculate p*
 
 		double effectiveEpsilon = computeEffectiveEpsilon();
 
@@ -653,7 +693,7 @@ public abstract class PFAbstract implements Serializable {
 	}
 
 
-	protected BigInteger getNumPruned() {
+	public BigInteger getNumPruned() {
 		return prunedConfs;
 	}
 
@@ -673,7 +713,7 @@ public abstract class PFAbstract implements Serializable {
 	}
 
 
-	// ugly hack to count number of minimized confs after a re-start occurs
+	// hack to count number of minimized confs after a re-start occurs
 	// used only for output purposes
 	public BigInteger getNumMinimized4Output() {
 		BigInteger numMinimized = getNumMinimized();

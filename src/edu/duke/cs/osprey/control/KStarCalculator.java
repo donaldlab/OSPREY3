@@ -63,8 +63,11 @@ public class KStarCalculator {
 
 		PFAbstract.saveTopConfsAsPDB = cfp.getParams().getBool("saveTopConfsAsPDB", false);
 		PFAbstract.setNumTopConfsToSave( cfp.getParams().getInt("numTopConfsToSave", 10) );
-		PFAbstract.useMaxKSConfs = cfp.getParams().getBool( "useMaxKSConfs", false );
+		PFAbstract.useMaxKSConfs = cfp.getParams().getBool("useMaxKSConfs", false);
 		PFAbstract.setMaxKSconfs( cfp.getParams().getInt("maxKSconfs", 100000) );
+		
+		// check hots for validity
+		cfp.getHighOrderTuplesByPDBResNum();
 		
 		PFAbstract.setHotMethod( "pFunctHotMethod", cfp.getParams().getValue("pFunctHotMethod", "none") );
 		PFAbstract.setHotNumRes( "pFuncHotNumRes", cfp.getParams().getInt("pFuncHotNumRes", 3) );

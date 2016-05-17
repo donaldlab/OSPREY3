@@ -9,7 +9,7 @@ useDunbrackRotamers false
 ematDir emat.lovell
 deleteEmatDir false
 
-epsilon 0.1
+epsilon 0.9
 useTupExp false
 doMinimize true
 doPerturbations false
@@ -36,7 +36,7 @@ resAllowed193 THR
 resAllowed194 CYS
 
 pFunctHotMethod manual
-pFuncHot_0 191 193 650 
+pFuncHot_0 191 193 650
 pFuncHot_1 172 192 194 649 651
 pFuncHotNumRes 3
 pFuncHotBoundPct 0.05

@@ -40,7 +40,7 @@ public class PFNew04 extends PFNew03 implements Serializable {
 			setRunState(RunState.STARTED);
 			
 			// set pstar
-			initPStar();
+			initTradPStar();
 
 			fibers = PFAbstract.getNumFibers();
 			threadsPerFiber = PFAbstract.getNumThreads();

@@ -43,7 +43,7 @@ public class PFNew03 extends PFNew02 implements Serializable {
 		setRunState(RunState.STARTED);
 
 		// set pstar
-		initPStar();
+		initTradPStar();
 
 		// make a number of RemoteMinimizers
 		fibers = PFAbstract.getNumFibers();
