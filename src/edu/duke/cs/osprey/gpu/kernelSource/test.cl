@@ -7,13 +7,12 @@
     #error "Double precision floating point not supported by OpenCL implementation."
 #endif
 
-
-kernel void addFloat(global const float *a, global const float *b, global float *out) {
+kernel void add(global const double *a, global const double *b, global double *out) {
 	int i = get_global_id(0);
 	out[i] = a[i] + b[i];
 }
 
-kernel void addDouble(global const double *a, global const double *b, global double *out) {
+kernel void fancy(global const double *a, global const double *b, global double *out) {
 	int i = get_global_id(0);
-	out[i] = a[i] + b[i];
+	out[i] = sqrt(a[i]*a[i] + b[i]*b[i]);
 }
