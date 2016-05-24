@@ -72,19 +72,9 @@ public class KaDEEDoer {
 
     boolean useComets = false;
 
-    boolean useCometsBound = false;
-    boolean useMaxIntBound = false;
-    boolean useMaxIntWithKaDEE = false;
-    boolean useKaDEEPrune = false;
-    boolean useMaxIntWithComets = false;
-    boolean useMaxIntWithCometsPrune = false;
-    boolean useCometsPrune = false;
-    boolean useAllThree = false;
-    boolean useKaDEEWithComets = false;
-    
     boolean doPartitionBounds = false;
     boolean doUnboundPartitionBounds = false;
-    
+
     boolean doExhaustive = false;
 
     ExpFunction ef = new ExpFunction();
@@ -112,25 +102,6 @@ public class KaDEEDoer {
             throw new RuntimeException("ERROR: iMinDEE requires continuous flexibility");
         }
 
-        outputGMECStruct = cfp.params.getBool("OUTPUTGMECSTRUCT");
-
-        useEllipses = cfp.params.getBool("useEllipses");
-
-        useComets = cfp.params.getBool("useComets");
-
-        useCometsBound = cfp.params.getBool("useCometsBound");
-        useMaxIntBound = cfp.params.getBool("useMaxIntBound");
-        useMaxIntWithKaDEE = cfp.params.getBool("useMaxIntBoundWithKaDEE");
-        useKaDEEPrune = cfp.params.getBool("useKaDEEPrune");
-        useMaxIntWithComets = cfp.params.getBool("useMaxIntWithComets");
-        useAllThree = cfp.params.getBool("useAllThree");
-        useMaxIntWithCometsPrune = cfp.params.getBool("useMaxIntWithCometsPrune");
-        useKaDEEWithComets = cfp.params.getBool("useKaDEEWithComets");
-        useCometsPrune = cfp.params.getBool("useCometsPrune");
-        doPartitionBounds = cfp.params.getBool("doPartitionBounds");
-        doUnboundPartitionBounds = cfp.params.getBool("doUnboundPartitionBounds");
-        
-        doExhaustive = cfp.params.getBool("doExhaustive");
     }
 
     /**
@@ -138,7 +109,7 @@ public class KaDEEDoer {
      * now this class only computes the partition function for the sequence with
      * the highest K* score.
      */
-    void doKaDEE() {
+    public void doKaDEE() {
         double curInterval = I0;//For iMinDEE.  curInterval will need to be an upper bound
         this.searchSpaces = cfp.getMSDSearchProblems();
 
@@ -162,52 +133,12 @@ public class KaDEEDoer {
         } else if (doExhaustive) {
             KaDEETree tree = setupKaDEETree();
             exhaustiveKaDEESearch();
-        } 
-        else {
+        } else {
             KaDEETree tree = setupKaDEETree();
             long startTime = System.currentTimeMillis();
             int[] seq1 = tree.nextConf();
             long totalTime = System.currentTimeMillis() - startTime;
-
-            String filename = "results_";
-            if (useCometsBound) {
-                filename += "cometsBound";
-            } else if (useMaxIntBound) {
-                filename += "maxInt";
-            } else if (useMaxIntWithKaDEE) {
-                filename += "maxIntWithKaDEE";
-            } else if (useKaDEEPrune) {
-                filename += "kaDEE_prune";
-            } else if (useMaxIntWithComets) {
-                filename += "maxIntWithComets";
-            } else if (useMaxIntWithCometsPrune) {
-                filename += "maxIntWithCometsPrune";
-            } else if (useCometsPrune) {
-                filename += "cometsPrune";
-            } else if (useKaDEEWithComets){
-                filename += "kaDEEWithComets";
-            } else if(useAllThree){
-                filename += "allThree";
-            }
-            else {
-                filename += "kaDEE";
-            }
-            filename += ".txt";
-
-            try (PrintStream out = new PrintStream(new FileOutputStream(filename, true))) {
-                out.print("Sequence: ");
-                for (int level = 0; level < tree.numTreeLevels; level++) {
-                    out.print(tree.AATypeOptions.get(level).get(seq1[level]) + " ");
-                }
-                out.println();
-                out.println("Nodes Expanded: " + tree.numExpanded);
-                out.println("Runtime: " + totalTime);
-            } catch (Exception e) {
-            }
-            System.out.println("Total Time: " + totalTime);
         }
-//        }
-        //exhaustiveKaDEESearch();
     }
 
     //getGMEC from lower bounds
@@ -314,8 +245,7 @@ public class KaDEEDoer {
             ArrayList<Integer> converted = new ArrayList(mutable2PosNum);
             mutableState2StatePosNum.add(converted);
         }
-        KaDEETree tree = new KaDEETree(numTreeLevels, objFcn, constraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, nonMutableState, mutableState2StatePosNum, useCometsBound,
-                useMaxIntBound, useMaxIntWithKaDEE, useKaDEEPrune, useMaxIntWithComets, useMaxIntWithCometsPrune, useCometsPrune, useKaDEEWithComets, useAllThree);
+        KaDEETree tree = new KaDEETree(numTreeLevels, objFcn, constraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, nonMutableState, mutableState2StatePosNum);
         return tree;
     }
 
@@ -401,7 +331,6 @@ public class KaDEEDoer {
         }
         return numMutable;
     }
-
 
     //Return Allowed AA for all mutable positions
     private ArrayList<ArrayList<String>> handleAATypeOptions(ArrayList<ArrayList<ArrayList<String>>> mutableStateAllowedAAs) {

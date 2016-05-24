@@ -48,7 +48,11 @@ public class EnergyMatrix extends TupleMatrix<Double> {
     public EnergyMatrix(TupleMatrix<Double> tupMat) {
         super(tupMat);
     }
-
+    
+    public EnergyMatrix(){
+        super(0.);
+    }
+    
     public double confE(int conf[]) {
         //value of energy represented in energy matrix, for specified conformation
         //expressed as residue-specific RC indices (as in the storage matrices)

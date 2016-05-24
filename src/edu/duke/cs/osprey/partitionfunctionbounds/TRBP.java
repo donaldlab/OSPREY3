@@ -37,30 +37,38 @@ public class TRBP {
     static int maxNumEdgeUpdates = 3;
 
     public double[][] edgeProbabilities;
+    //Edge Weights are given by the negative mutual information
+    //They are used for to update edge probabilities via the MST
     double[][] edgeWeights;
-//    double[][] edgeClampWeights;
 
+    //The log messages
     double[][][] logMessages;
-//    double[][][] messages;
-    int numMessages;
 
-    boolean useLogDomain = true;
-    boolean debug = true;
+    // We precompute everything in the exponential on equation 39.
+    // These are updated everytime we update edge probabilities
+    double[][][][] messageEnergies;
+
+    // This is 2*number of edges
+    int numMessagesPairs;
 
     public ExpFunction ef = new ExpFunction();
 
-    double maxChange;
     double averageChange;
 
+    //This records the accuracy with which we want to continue updating messages
     double accuracyWithinEdgeProb = 0.001;
+    double messageConvergence = 1e-5;
     double accuracyBetweenEdgeProb = 0.001;
 
-    double parentUpperBound = Double.POSITIVE_INFINITY;
+    // When used in the branch and bound algorithm, we can save time not updating 
+    // edges if the child partition function is already much smaller than the parent
+    double parentUpperBound = Double.NEGATIVE_INFINITY;
     boolean useParentUpperBound = false;
-    double cutOffUpperBound = 3;
+    double cutOffUpperBound = 3; // Cutoff which we can skip edge updates
 
-    boolean verbose = false;
+    static public boolean verbose = false;
 
+    // Node weights are used in the branch and bound algorithm
     public double[] nodeWeights;
 
     public TRBP(MarkovRandomField mrf) {
@@ -79,11 +87,11 @@ public class TRBP {
         this.logMessages = initializeLogMessages(0.0);
 
         this.marginalProbabilities = new TupleMatrix(numNodes, numLabelsPerNode, Double.POSITIVE_INFINITY, 0.0);
-        this.numMessages = 2 * getNumEdges(this.interactionGraph);
+        this.numMessagesPairs = 2 * getNumEdges(this.interactionGraph);
 
         initializeEdgeWeights();
 
-        runTRBP();
+        runTRBP2();
     }
 
     public TRBP(MarkovRandomField mrf, double parentUpperBound) {
@@ -102,14 +110,14 @@ public class TRBP {
         this.logMessages = initializeLogMessages(0.0);
 
         this.marginalProbabilities = new TupleMatrix(numNodes, numLabelsPerNode, Double.POSITIVE_INFINITY, 0.0);
-        this.numMessages = 2 * getNumEdges(this.interactionGraph);
+        this.numMessagesPairs = 2 * getNumEdges(this.interactionGraph);
 
         initializeEdgeWeights();
 
         this.parentUpperBound = parentUpperBound;
         this.useParentUpperBound = true;
 
-        runTRBP();
+        runTRBP2();
     }
 
     private void runTRBP() {
@@ -126,6 +134,7 @@ public class TRBP {
                 updateEdgeProbabilities(numEdgeUpdates);
                 //this.logMessages = initializeLogMessages(0.0);
             }
+            this.messageEnergies = precomputeMessageEnergies();
 
             double changeBetweenMessageUpdates = Double.POSITIVE_INFINITY;
             //Keep track of last logZ from previous message update
@@ -161,7 +170,64 @@ public class TRBP {
             // This is (only) useful for the partFuncTree calculation
             // Basically, we don't need high accuracy if the partition function is very small
             // Compared to the parent node 
-            if (lastLogZMessage + cutOffUpperBound < parentUpperBound) {
+            if (useParentUpperBound && (lastLogZMessage + cutOffUpperBound < parentUpperBound)) {
+                break;
+            }
+            numEdgeUpdates++;
+        }
+        double[] degrees = GraphUtils.getWeightedDegrees(edgeWeights);
+        this.nodeWeights = degrees;
+    }
+
+    private void runTRBP2() {
+        int numEdgeUpdates = 0;
+
+        //Keep track of last logZ from previous edge update
+        double lastLogZEdge = Double.POSITIVE_INFINITY;
+
+        while (numEdgeUpdates <= maxNumEdgeUpdates) {
+            if (numEdgeUpdates > 0) {
+                if (verbose) {
+                    System.out.println("Updating Edge Probabilities...  logZ: " + lastLogZEdge);
+                }
+                updateEdgeProbabilities(numEdgeUpdates);
+                //this.logMessages = initializeLogMessages(0.0);
+            }
+            this.messageEnergies = precomputeMessageEnergies();
+
+            //Keep track of last logZ from previous message update
+            double lastLogZMessage = Double.POSITIVE_INFINITY;
+            int numMessageUpdates = 0;
+            double changeBetweenMessageUpdates = Double.POSITIVE_INFINITY;
+            // While we have not converged...
+            while (((this.averageChange > this.messageConvergence) || changeBetweenMessageUpdates > this.accuracyWithinEdgeProb) || numMessageUpdates < 10) {
+                //This is the meat of the algorithm
+                updateMessagesParallel(logMessages, damping);
+//                updateMessagesSequentially(logMessages, useDamping);
+                // Update the marginals and compute LogZ every 10 runs
+                if (numMessageUpdates % 10 == 0 && (this.averageChange < this.messageConvergence)) {
+                    updateMarginals();
+                    double currentlogZ = calcUBLogZ();
+                    // Get the change in logZ
+                    // Classically, people use change in messages rather than change
+                    // in logZ, which may be better...
+                    double change = Math.abs(lastLogZMessage - currentlogZ);
+                    lastLogZMessage = currentlogZ;
+                    changeBetweenMessageUpdates = change;
+                    if (verbose) {
+                        System.out.println("Average Message Change: " + this.averageChange);
+                    }
+                }
+                numMessageUpdates++;
+            }
+//            updateMarginals();
+//            double currentlogZ = calcUBLogZ();
+            lastLogZEdge = lastLogZMessage;
+            this.logZ = Math.min(this.logZ, lastLogZEdge);
+            // This is (only) useful for the partFuncTree calculation
+            // Basically, we don't need high accuracy if the partition function is very small
+            // Compared to the parent node 
+            if (useParentUpperBound && (lastLogZEdge + cutOffUpperBound < parentUpperBound)) {
                 break;
             }
             numEdgeUpdates++;
@@ -185,6 +251,32 @@ public class TRBP {
     double[][][] initializeLogMessages(double initVal
     ) {
         return CreateMatrix.create3DMsgMat(numNodes, numLabelsPerNode, initVal);
+    }
+
+    double[][][][] precomputeMessageEnergies() {
+        double[][][][] messageTS = new double[this.numNodes][this.numNodes][][];
+        for (int i = 0; i < this.numNodes; i++) {
+            MRFNode nodeI = this.nodeList.get(i);
+            for (int j = 0; j < this.numNodes; j++) {
+                if (this.interactionGraph[i][j]) {
+                    MRFNode nodeJ = this.nodeList.get(j);
+                    double edgeProb = getEdgeProbability(nodeI, nodeJ);
+
+                    messageTS[i][j] = new double[nodeJ.getNumLabels()][nodeI.getNumLabels()];
+                    for (int labelJNum = 0; labelJNum < nodeJ.getNumLabels(); labelJNum++) {
+                        int labelJ = nodeJ.labels[labelJNum];
+                        for (int labelINum = 0; labelINum < nodeI.getNumLabels(); labelINum++) {
+                            int labelI = nodeI.labels[labelINum];
+
+                            double pairPot = getPairwisePotential(nodeI, labelI, nodeJ, labelJ);
+                            double singlePotI = getOneBodyPotential(nodeI, labelI);
+                            messageTS[i][j][labelJNum][labelINum] = ((pairPot / edgeProb) + singlePotI) / this.constRT;
+                        }
+                    }
+                }
+            }
+        }
+        return messageTS;
     }
 
     double[][] initializeEdgeProbabilities(boolean[][] interactionGraph
@@ -226,16 +318,16 @@ public class TRBP {
             }
 
             //Get updated log Messages from nodeI to nodeJ
-            double[] logMessagesNodeIToNodeJ = getUpdatedLogMessage(nodeI, nodeJ, sumLogMessages);
+            double[] logMessagesNodeIToNodeJ = getUpdatedLogMessage(nodeI, nodeJ, sumLogMessages, this.messageEnergies[nodePair[0]][nodePair[1]]);
 
             double[] previousLogMessages = previousMessages[nodeI.index][nodeJ.index];
 
             double change = dampenMessages(logMessagesNodeIToNodeJ, previousLogMessages, nodeI.index, nodeJ.index, updatedLogMessages, damping);
-            //          this.averageChange += change;
+            this.averageChange += change;
         }
 
         //Update average change
-//        this.averageChange = averageChangeInMessage / this.numMessages;
+        this.averageChange = this.averageChange / this.numMessagesPairs;
         this.logMessages = updatedLogMessages;
     }
 
@@ -252,7 +344,7 @@ public class TRBP {
             double change = Math.abs(damped - prevMessage);
             sumChange += change;
         }
-        return sumChange;
+        return sumChange / (double) updated.length;
     }
 
     private void updateMarginals() {
@@ -353,7 +445,7 @@ public class TRBP {
      * int[messageNum][senderNum,receiverNum]
      */
     int[][] getSequentialMessagePassingOrdering(boolean sequential) {
-        int[][] messagePassingOrdering = new int[numMessages][];
+        int[][] messagePassingOrdering = new int[numMessagesPairs][];
 
         int currentMessage = 0;
         if (sequential) {
@@ -402,7 +494,7 @@ public class TRBP {
 
     //Just for comparison/testing purposes
     int[][] getParallelMessagePassingOrdering() {
-        int[][] messagePassingOrdering = new int[numMessages][];
+        int[][] messagePassingOrdering = new int[numMessagesPairs][];
 
         int currentMessage = 0;
         for (int i = 0; i < this.numNodes; i++) {
@@ -418,7 +510,7 @@ public class TRBP {
         return messagePassingOrdering;
     }
 
-    double[] getUpdatedLogMessage(MRFNode sendingNode, MRFNode receivingNode, double[] sumLogMessages) {
+    double[] getUpdatedLogMessage(MRFNode sendingNode, MRFNode receivingNode, double[] sumLogMessages, double[][] potentials) {
         double[] updatedLogMessages = new double[receivingNode.getNumLabels()];
         double largestLogMessage = Double.NEGATIVE_INFINITY;
 
@@ -430,27 +522,33 @@ public class TRBP {
          sumLogMessagesMinusReceiver[i] = sumLogMessages[i] - getLogMessage(receivingNode, sendingNode, sendingNode.labelList.get(i));
          }*/
         double[] sumLogMessagesMinusReceiver = subtractReceiver(sumLogMessages, sendingNode, receivingNode);
-        for (int receivingLabelIndex =0; receivingLabelIndex<receivingNode.getNumLabels(); receivingLabelIndex++){
-            int receivingLabel = receivingNode.labels[receivingLabelIndex];
+        for (int receivingLabelIndex = 0; receivingLabelIndex < receivingNode.getNumLabels(); receivingLabelIndex++) {
+//            int receivingLabel = receivingNode.labels[receivingLabelIndex];
+
             double normalizer = Double.NEGATIVE_INFINITY;
             double[] toBeSummed = new double[sendingNode.getNumLabels()];
 
+            double[] potentialAtReceiveLabel = potentials[receivingLabelIndex];
             for (int sendingLabelIndex = 0; sendingLabelIndex < sendingNode.getNumLabels(); sendingLabelIndex++) {
-                int sendingLabel = sendingNode.labels[sendingLabelIndex];
+//                int sendingLabel = sendingNode.labels[sendingLabelIndex];
 
                 //compute everything between the curly brackets in eq 39. of TRBP Paper
                 //We do this in the log domain and exponentiate aftern
 //                double pairwisePot = getPairwisePotential(sendingNode, sendingLabel, receivingNode, receivingLabel);
-                double pairwisePot = getPairwisePotential(sendingNode, sendingLabel, receivingNode, receivingLabel, twoBodyE);
-                double edgeProbability = getEdgeProbability(receivingNode, sendingNode);
+                // Optimization: we precompute these potentials (everything in the exponential in eq. 39)
+                double pot = potentialAtReceiveLabel[sendingLabelIndex];
+//                double pairwisePot = getPairwisePotential(sendingNode, sendingLabel, receivingNode, receivingLabel, twoBodyE);
+//                double edgeProbability = getEdgeProbability(receivingNode, sendingNode);
 //                double sendingLabelPot = getOneBodyPotential(sendingNode, sendingLabel);
-                double sendingLabelPot = getOneBodyPotential(sendingLabel, oneBodyESending);
+//                double sendingLabelPot = getOneBodyPotential(sendingLabel, oneBodyESending);
 
-//                double normalized = ((pairwisePot / edgeProbability) + sendingLabelPot - getExpNormMessagesAtRot(sendingNode, receivingNode, index));
 //                double sumLogMessage = sumLogMessages[sendingLabelIndex] - getLogMessage(receivingNode, sendingNode, sendingLabel);
                 double sumLogMessage = sumLogMessagesMinusReceiver[sendingLabelIndex];
+
 //                toBeSummed[sendingLabelIndex] = (((pairwisePot / edgeProbability) + sendingLabelPot) / constRT) + sumLogMessage;
-                toBeSummed[sendingLabelIndex] = getMessageUpdateInSum(pairwisePot, edgeProbability, sendingLabelPot, sumLogMessage);
+                //toBeSummed[sendingLabelIndex] = getMessageUpdateInSum(pairwisePot, edgeProbability, sendingLabelPot, sumLogMessage);
+                toBeSummed[sendingLabelIndex] = getMessageUpdateInSum(pot, sumLogMessage);
+
                 normalizer = Math.max(normalizer, toBeSummed[sendingLabelIndex]);
             }
             int numToBeSummed = sendingNode.getNumLabels();
@@ -508,6 +606,9 @@ public class TRBP {
         return (((pairwisePot / edgeProbability) + sendingLabelPot) / constRT) + sumLogMessage;
     }
 
+    public double getMessageUpdateInSum(double pot, double sumLogMessage) {
+        return pot + sumLogMessage;
+    }
 
     double getSumLogMessage(MRFNode receivingNode, int labelIndex) {
         double sum = 0;
@@ -665,12 +766,10 @@ public class TRBP {
         return this.logMessages[sendingNode.index][receivingNode.index][receivingLabelIndex];
     }
 
-
     double getPairwisePotential(MRFNode nodeI, int labelI, MRFNode nodeJ, int labelJ
     ) {
         return -this.emat.getPairwise(nodeI.posNum, labelI, nodeJ.posNum, labelJ);
     }
-    
 
     double getPairwisePotential(MRFNode nodeI, int labelI, MRFNode nodeJ, int labelJ, ArrayList<ArrayList<Double>> energies) {
         if (nodeI.posNum > nodeJ.posNum) {
@@ -684,11 +783,10 @@ public class TRBP {
         return -this.emat.getOneBody(node.posNum, label);
     }
 
-
-     double getOneBodyPotential(int label, ArrayList<Double> energies) {
+    double getOneBodyPotential(int label, ArrayList<Double> energies) {
         return -energies.get(label);
     }
-     
+
     public double getLogZ() {
         return this.logZ;
     }

@@ -64,7 +64,7 @@ public class PartFuncTree extends AStarTree {
     boolean useTRBPWeightForOrder = true;
     Mplp mplp;
 
-    boolean verbose = true;
+    boolean verbose = false;
 
     public int numConfsEnumerated = 0;
 
@@ -109,20 +109,20 @@ public class PartFuncTree extends AStarTree {
         mplp = new Mplp(numPos, aEmat, aPruneMat);
         this.eCut = eCut;
     }
-    
+
     public PartFuncTree(EnergyMatrix aEmat, PruningMatrix aPruneMat, double eCut, boolean useTRBPSplit) {
         this.numPos = aEmat.numPos();
         this.emat = aEmat;
         this.pruneMat = aPruneMat;
         this.useTRBPWeightForOrder = useTRBPSplit;
-        
+
         this.lbZ = new BigDecimal("0.0");
         this.ubZ = new BigDecimal("0.0");
         this.runningSum = new BigDecimal("0.0");
         mplp = new Mplp(numPos, aEmat, aPruneMat);
         this.eCut = eCut;
     }
-    
+
     private void init(SearchProblem sp, PruningMatrix aPruneMat, boolean useEPIC) {
         numPos = sp.confSpace.numPos;
         this.lbZ = new BigDecimal("0.0");
@@ -161,7 +161,7 @@ public class PartFuncTree extends AStarTree {
                 posMaxWeight = pos;
             }
         }
-       
+
         subtractLowerBound(node);
         int[] curAssignments = node.getNodeAssignments();
 
@@ -227,8 +227,9 @@ public class PartFuncTree extends AStarTree {
                 System.out.println("Time: " + (System.currentTimeMillis() - this.startTime));
             }
         }
-        if (verbose)
+        if (verbose) {
             printEffectiveEpsilon();
+        }
         return children;
     }
 
@@ -330,8 +331,12 @@ public class PartFuncTree extends AStarTree {
     }
 
     private void printEffectiveEpsilon() {
-        double effectiveEpsilon = 1 - ((lbZ.add(this.runningSum)).divide((ubZ.add(this.runningSum)), this.ef.mc)).doubleValue();
-        System.out.println("Effective Epsilon: " + effectiveEpsilon);
+        if (ubZ.add(this.runningSum).doubleValue() == 0) {
+            System.out.println("Effective Epsilon: 0");
+        } else {
+            double effectiveEpsilon = 1 - ((lbZ.add(this.runningSum)).divide((ubZ.add(this.runningSum)), this.ef.mc)).doubleValue();
+            System.out.println("Effective Epsilon: " + effectiveEpsilon);
+        }
     }
 
     private void updateRunningSumLB(double confE) {
@@ -359,14 +364,19 @@ public class PartFuncTree extends AStarTree {
 
     @Override
     public boolean isFullyAssigned(AStarNode node) {
-        double logLBZ = this.ef.log(this.lbZ.add(this.runningSum)).doubleValue();
-        double logUBZ = this.ef.log(this.ubZ.add(this.runningSum)).doubleValue();
-        this.effectiveEpsilon = 1 - ((lbZ.add(this.runningSum)).divide((ubZ.add(this.runningSum)), this.ef.mc)).doubleValue();
-        boolean epsilonReached = (logLBZ - logUBZ) >= Math.log(1 - this.epsilon);
-        if (this.checkTime) {
-            this.timeOut = (System.currentTimeMillis() - this.startTime) > this.maxTime;
+        if (lbZ.add(this.runningSum).doubleValue() == 0.0 && ubZ.add(this.runningSum).doubleValue() == 0.0) {
+            return true;
+        } else {
+            double logLBZ = this.ef.log(this.lbZ.add(this.runningSum)).doubleValue();
+            double logUBZ = this.ef.log(this.ubZ.add(this.runningSum)).doubleValue();
+            this.effectiveEpsilon = 1 - ((lbZ.add(this.runningSum)).divide((ubZ.add(this.runningSum)), this.ef.mc)).doubleValue();
+            boolean epsilonReached = (logLBZ - logUBZ) >= Math.log(1 - this.epsilon);
+            if (this.checkTime) {
+                this.timeOut = (System.currentTimeMillis() - this.startTime) > this.maxTime;
+            }
+
+            return epsilonReached || timeOut;
         }
-        return epsilonReached || timeOut;
     }
 
     @Override
@@ -387,8 +397,9 @@ public class PartFuncTree extends AStarTree {
                 System.out.println("Time: " + (System.currentTimeMillis() - this.startTime));
             }
         }
-        if (verbose)
+        if (verbose) {
             printEffectiveEpsilon();
+        }
         return root;
     }
 
@@ -425,6 +436,7 @@ public class PartFuncTree extends AStarTree {
             System.out.println("Error: UB is less than LB");
             System.out.println("UB: " + node.ubLogZ);
             System.out.println("LB: " + node.lbLogZ);
+            throw new RuntimeException("UB is less than LB in Part Func Tree");
         }
         return -this.ef.log(this.ef.exp(node.ubLogZ).subtract(this.ef.exp(node.lbLogZ))).doubleValue();
 //        return mplp.optimizeMPLP(node.getNodeAssignments(), 1000);

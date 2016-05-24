@@ -15,152 +15,199 @@ import java.util.TreeSet;
 
 /**
  *
- * Within a given state, each node in the COMETS tree can have a different set of unpruned 
- * RCs and pairs, but these will usually be small updates to the previous node
- * 
- * This "updated" matrix will behave as a pruning matrix for purposes of storing/checking
- * pruned RCs and pairs at a node, but without full storage
- * 
+ * Within a given state, each node in the COMETS tree can have a different set
+ * of unpruned RCs and pairs, but these will usually be small updates to the
+ * previous node
+ *
+ * This "updated" matrix will behave as a pruning matrix for purposes of
+ * storing/checking pruned RCs and pairs at a node, but without full storage
+ *
  * @author mhall44
  */
 public class UpdatedPruningMatrix extends PruningMatrix {
-    
+
     public PruningMatrix parent;//This matrix will have everything pruned in parent, plus updates
-    
+
     ArrayList<TreeSet<Integer>> prunedRCUpdates = new ArrayList<>();
     //list of pruned RCs (just for this update) at each position
 
-    
-    ArrayList<ArrayList<TreeMap<Integer,TreeSet<Integer>>>> prunedPairUpdates = new ArrayList<>();
+    ArrayList<ArrayList<TreeMap<Integer, TreeSet<Integer>>>> prunedPairUpdates = new ArrayList<>();
     //list of pruned RCs (just for this update) at each position
-    
-    
+
     public UpdatedPruningMatrix(PruningMatrix parent) {
         this.parent = parent;
-        
+
         int numPos = parent.numPos();
-        
-        for(int pos=0; pos<numPos; pos++){
+
+        for (int pos = 0; pos < numPos; pos++) {
             prunedRCUpdates.add(new TreeSet<Integer>());
-            prunedPairUpdates.add(new ArrayList<TreeMap<Integer,TreeSet<Integer>>>());
-            
-            for(int pos2=0; pos2<pos; pos2++){
-                prunedPairUpdates.get(pos).add(new TreeMap<Integer,TreeSet<Integer>>());
+            prunedPairUpdates.add(new ArrayList<TreeMap<Integer, TreeSet<Integer>>>());
+
+            for (int pos2 = 0; pos2 < pos; pos2++) {
+                prunedPairUpdates.get(pos).add(new TreeMap<Integer, TreeSet<Integer>>());
             }
         }
     }
     
-    
+    public ArrayList<RCTuple> getUpdatedPrunedPairs(){
+        ArrayList<RCTuple> updatedPairs = new ArrayList<>();
+        for (int pos1=0; pos1<this.numPos(); pos1++){
+            for (int pos2=0; pos2<pos1; pos2++){
+                TreeMap<Integer, TreeSet<Integer>> tm = prunedPairUpdates.get(pos1).get(pos2);
+                for (int rc1 : tm.keySet()){
+                    TreeSet<Integer> ts = tm.get(rc1);
+                    for (int rc2 : ts){
+                        updatedPairs.add(new RCTuple(pos1, rc1, pos2, rc2));
+                    }
+                }
+            }
+        }
+        return updatedPairs;
+    }
     
     @Override
-    public void markAsPruned(RCTuple tup){
+    public void markAsPruned(RCTuple tup) {
         //Store as update
         int tupNumPos = tup.pos.size();
-        
-        if(tupNumPos==1){
+
+        if (tupNumPos == 1) {
             int pos = tup.pos.get(0);
-            int rc =  tup.RCs.get(0);
+            int rc = tup.RCs.get(0);
             prunedRCUpdates.get(pos).add(rc);
-        }
-        else if(tupNumPos==2){
+        } else if (tupNumPos == 2) {
             int pos1 = tup.pos.get(0);
             int pos2 = tup.pos.get(1);
-            int rc1 =  tup.RCs.get(0);
-            int rc2 =  tup.RCs.get(1);
-            
-            if(pos1<pos2){//need to store the pair in descending order of position
+            int rc1 = tup.RCs.get(0);
+            int rc2 = tup.RCs.get(1);
+
+            if (pos1 < pos2) {//need to store the pair in descending order of position
                 pos2 = tup.pos.get(0);
                 pos1 = tup.pos.get(1);
-                rc2 =  tup.RCs.get(0);
-                rc1 =  tup.RCs.get(1);
+                rc2 = tup.RCs.get(0);
+                rc1 = tup.RCs.get(1);
             }
-            
-            TreeMap<Integer,TreeSet<Integer>> pairs = prunedPairUpdates.get(pos1).get(pos2);
-            
-            if(!pairs.containsKey(rc1))//allocate the treeset for pairs involving rc1
+
+            TreeMap<Integer, TreeSet<Integer>> pairs = prunedPairUpdates.get(pos1).get(pos2);
+
+            if (!pairs.containsKey(rc1))//allocate the treeset for pairs involving rc1
+            {
                 pairs.put(rc1, new TreeSet<Integer>());
-            
+            }
+
             pairs.get(rc1).add(rc2);
-        }
-        else{
+        } else {
             throw new RuntimeException("ERROR: UpdatedPruningMatrix just stores updated"
-                    + " singles and pairs pruning, can't store pruned tuple: "+tup.stringListing());
+                    + " singles and pairs pruning, can't store pruned tuple: " + tup.stringListing());
         }
     }
-    
-        
-    @Override
-    public Boolean getPairwise(int res1, int index1, int res2, int index2){
-        //working with residue-specific RC indices directly.  
-        
-        if(parent.getPairwise(res1, index1, res2, index2))//first check parent
-            return true;
-        
-        //also check updates
-        if(res1>res2)
-            return checkIntPair( prunedPairUpdates.get(res1).get(res2), index1, index2 );
-        else
-            return checkIntPair( prunedPairUpdates.get(res2).get(res1), index2, index1 );
+
+    public void unPrune(RCTuple tup) {
+        //Store as update
+        int tupNumPos = tup.pos.size();
+
+        if (tupNumPos == 1) {
+            int pos = tup.pos.get(0);
+            int rc = tup.RCs.get(0);
+            if (prunedRCUpdates.get(pos).contains(rc)) {
+                prunedRCUpdates.get(pos).remove(rc);
+            }
+        } else if (tupNumPos == 2) {
+            int pos1 = tup.pos.get(0);
+            int pos2 = tup.pos.get(1);
+            int rc1 = tup.RCs.get(0);
+            int rc2 = tup.RCs.get(1);
+
+            if (pos1 < pos2) {//need to store the pair in descending order of position
+                pos2 = tup.pos.get(0);
+                pos1 = tup.pos.get(1);
+                rc2 = tup.RCs.get(0);
+                rc1 = tup.RCs.get(1);
+            }
+
+            TreeMap<Integer, TreeSet<Integer>> pairs = prunedPairUpdates.get(pos1).get(pos2);
+
+            if (pairs.containsKey(rc1)) {//allocate the treeset for pairs involving rc1
+                if (pairs.get(rc1).contains(rc2)){
+                    pairs.get(rc1).remove(rc2);
+                }
+            }
+        } else {
+            throw new RuntimeException("ERROR: UpdatedPruningMatrix just stores updated"
+                    + " singles and pairs pruning, can't store pruned tuple: " + tup.stringListing());
+        }
     }
-    
-    
-    private static boolean checkIntPair(TreeMap<Integer,TreeSet<Integer>> pairs, int rc1, int rc2){
+
+    @Override
+    public Boolean getPairwise(int res1, int index1, int res2, int index2) {
+        //working with residue-specific RC indices directly.  
+
+        if (parent.getPairwise(res1, index1, res2, index2))//first check parent
+        {
+            return true;
+        }
+
+        //also check updates
+        if (res1 > res2) {
+            return checkIntPair(prunedPairUpdates.get(res1).get(res2), index1, index2);
+        } else {
+            return checkIntPair(prunedPairUpdates.get(res2).get(res1), index2, index1);
+        }
+    }
+
+    private static boolean checkIntPair(TreeMap<Integer, TreeSet<Integer>> pairs, int rc1, int rc2) {
         //Check if (rc1, rc2) is in the map (ordered tuple)
-        if(pairs.containsKey(rc1)){
-            if(pairs.get(rc1).contains(rc2))
+        if (pairs.containsKey(rc1)) {
+            if (pairs.get(rc1).contains(rc2)) {
                 return true;
+            }
         }
         return false;
     }
-    
-    
+
     @Override
-    public Boolean getOneBody(int res, int index){
-        
-        if(parent.getOneBody(res,index))//first check parent
+    public Boolean getOneBody(int res, int index) {
+
+        if (parent.getOneBody(res, index))//first check parent
+        {
             return true;
-        
+        }
+
         //also check updates
         return prunedRCUpdates.get(res).contains(index);
     }
-    
-    
+
     //No updates for higher order
     @Override
-    public HigherTupleFinder<Boolean> getHigherOrderTerms(int res1, int index1, int res2, int index2){
+    public HigherTupleFinder<Boolean> getHigherOrderTerms(int res1, int index1, int res2, int index2) {
         return parent.getHigherOrderTerms(res1, index1, res2, index2);
     }
-        
-    
-    
-    public int countUpdates(){
+
+    public int countUpdates() {
         //How many update RCs and pairs are there, put together?
         int count = 0;
-        
-        for(TreeSet<Integer> posUpdates : prunedRCUpdates){
+
+        for (TreeSet<Integer> posUpdates : prunedRCUpdates) {
             count += posUpdates.size();
         }
-        
-        for(ArrayList<TreeMap<Integer,TreeSet<Integer>>> posUpdates : prunedPairUpdates){
-            for(TreeMap<Integer,TreeSet<Integer>> ppUpdates : posUpdates){
-                for(TreeSet<Integer> pUpdates : ppUpdates.values()){
+
+        for (ArrayList<TreeMap<Integer, TreeSet<Integer>>> posUpdates : prunedPairUpdates) {
+            for (TreeMap<Integer, TreeSet<Integer>> ppUpdates : posUpdates) {
+                for (TreeSet<Integer> pUpdates : ppUpdates.values()) {
                     count += pUpdates.size();
                 }
             }
         }
-        
+
         return count;
     }
-    
-    
+
     @Override
-    public int numRCsAtPos(int pos){
+    public int numRCsAtPos(int pos) {
         return parent.numRCsAtPos(pos);
     }
-    
-    
+
     @Override
-    public int numPos(){
+    public int numPos() {
         return parent.numPos();
     }
 }

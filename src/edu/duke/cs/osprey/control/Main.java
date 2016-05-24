@@ -68,16 +68,17 @@ public class Main {
             KaDEEDoer kd = new KaDEEDoer(cfp);
             kd.doKaDEE();
         } else if (command.equalsIgnoreCase("doGumbel")) {
-            VariationalKStar gd = new VariationalKStar(cfp);
+            VariationalPartFunc gd = new VariationalPartFunc(cfp);
 
 //            KaDEEDoer2 kd = new KaDEEDoer2(cfp);
 //            kd.doKaDEE();
         } else if (command.equalsIgnoreCase("variationalSublinear")) {
             SequenceFreeEnergy sf = new SequenceFreeEnergy(cfp);
-            if (false) {
+            if (true) {
                 sf.exhaustiveSearch();
             } else {
                 int[] bestSequence = sf.nextConf();
+                System.out.println();
                 for (int pos = 0; pos < bestSequence.length; pos++) {
                     String AA = sf.aaTypeOptions.get(pos).get(bestSequence[pos]);
                     System.out.print(AA + " ");
@@ -91,7 +92,7 @@ public class Main {
             KaDEEDoer2 kadee = new KaDEEDoer2(cfp);
             kadee.doKaDEE();
         } else if (command.equalsIgnoreCase("doGumbelEcut")){
-            VariationalKStar v = new VariationalKStar(cfp,0.1, 0.1, false);
+            VariationalPartFunc v = new VariationalPartFunc(cfp,0.1, 0.1, false);
         }
         //etc.
         else {

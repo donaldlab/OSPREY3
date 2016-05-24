@@ -8,8 +8,8 @@ package edu.duke.cs.osprey.control;
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.astar.comets.COMETSTree;
 import edu.duke.cs.osprey.astar.comets.LME;
-import edu.duke.cs.osprey.astar.kadee.GumbelMapTree;
-import edu.duke.cs.osprey.astar.kadee.KaDEETreeEnsemles;
+import edu.duke.cs.osprey.partitionfunctionbounds.GumbelMapTree;
+import edu.duke.cs.osprey.partitionfunctionbounds.SublinearKStarTree;
 import edu.duke.cs.osprey.astar.partfunc.PartFuncTree;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.RCTuple;
@@ -117,10 +117,10 @@ public class KaDEEDoer2 {
         double curInterval = I0;//For iMinDEE.  curInterval will need to be an upper bound
         this.searchSpaces = cfp.getMSDSearchProblems();
         if (false) {
-            KaDEETreeEnsemles tree = setupKaDEETree();
+            SublinearKStarTree tree = setupKaDEETree();
             exhaustiveKaDEESearch(rankByKStar);
         } else {
-            KaDEETreeEnsemles tree = setupKaDEETree();
+            SublinearKStarTree tree = setupKaDEETree();
             long startTime = System.currentTimeMillis();
             int[] seq1 = tree.nextConf();
             long totalTime = System.currentTimeMillis() - startTime;
@@ -153,7 +153,7 @@ public class KaDEEDoer2 {
     //Given three search problems (Bound, UnBound Prot, Unbound Lig) this function
     //sets up the KaDEE tree.
     //The nonmutable unbound state is added and used just as a constant to the objective function
-    private KaDEETreeEnsemles setupKaDEETree() {
+    private SublinearKStarTree setupKaDEETree() {
 
         //For each state, for each position, this contains a list of allowed 
         //amino acids at that position
@@ -229,7 +229,7 @@ public class KaDEEDoer2 {
             ArrayList<Integer> converted = new ArrayList(mutable2PosNum);
             mutableState2StatePosNum.add(converted);
         }
-        KaDEETreeEnsemles tree = new KaDEETreeEnsemles(numTreeLevels, objFcn, constraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, nonMutableState, mutableState2StatePosNum);
+        SublinearKStarTree tree = new SublinearKStarTree(numTreeLevels, objFcn, constraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, nonMutableState, mutableState2StatePosNum);
 
         return tree;
     }

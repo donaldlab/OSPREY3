@@ -1,0 +1,1974 @@
+Parameter DATADIR set to /usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/dataFiles
+Parameter USEPOISSONBOLTZMANN not set. Using default value false
+Parameter DOSOLVATIONE not set. Using default value true
+Parameter FORCEFIELD not set. Using default value AMBER
+Parameter DISTDEPDIELECT not set. Using default value true
+Parameter DIELECTCONST not set. Using default value 6.0
+Parameter VDWMULT not set. Using default value 0.95
+Parameter SOLVSCALE not set. Using default value 0.5
+Parameter HELECT not set. Using default value true
+Parameter HVDW not set. Using default value true
+Parameter SHELLDISTCUTOFF not set. Using default value Infinity
+Parameter USEDUNBRACKROTAMERS set to false
+Parameter ROTFILE not set. Using default value LovellRotamer.dat
+Parameter RESENTROPYFILE not set. Using default value ResEntropy.dat
+Parameter RAMAGLYFILE not set. Using default value rama500-gly-sym.data
+Parameter RAMAPROFILE not set. Using default value rama500-pro.data
+Parameter RAMAGENFILE not set. Using default value rama500-general.data
+Parameter RAMAPREPROFILE not set. Using default value rama500-prepro.data
+Parameter EW not set. Using default value 0
+Parameter IMINDEE not set. Using default value false
+Parameter DOMINIMIZE not set. Using default value false
+Parameter USETUPEXP not set. Using default value false
+Parameter USEEPIC not set. Using default value false
+Parameter CHECKAPPROXE not set. Using default value true
+Parameter OUTPUTGMECSTRUCT not set. Using default value false
+Parameter RUNNAME set to 4HEM
+Parameter NUMOFSTRANDS set to 2
+Parameter STRANDMUTNUMS set to 16 17
+Parameter STRANDMUTNUMS set to 16 17
+Parameter STRANDMUT0 set to 101 103 117 118 143 368 370 376 378 393 395 406 407 426 453 455
+Parameter STRANDMUT1 set to 644 647 653 657 659 661 662 665 701 702 703 704 705 706 708 709 711
+Parameter RESALLOWED0_0 set to ASN
+Parameter RESALLOWED0_1 set to ASN 
+Parameter RESALLOWED0_2 set to ASN TRP LEU LYS PHE
+Parameter RESALLOWED0_3 set to ARG TRP LEU LYS PHE
+Parameter RESALLOWED0_4 set to GLN TRP LEU LYS PHE
+Parameter RESALLOWED0_5 set to SER TRP LEU LYS PHE
+Parameter RESALLOWED0_6 set to GLU
+Parameter RESALLOWED0_7 set to ILE
+Parameter RESALLOWED0_8 set to SER
+Parameter RESALLOWED0_9 set to GLU
+Parameter RESALLOWED0_10 set to SER
+Parameter RESALLOWED0_11 set to ASN
+Parameter RESALLOWED0_12 set to ARG
+Parameter RESALLOWED0_13 set to VAL
+Parameter RESALLOWED0_14 set to THR
+Parameter RESALLOWED0_15 set to ARG
+Parameter RESALLOWED1_0 set to GLU
+Parameter RESALLOWED1_1 set to PHE
+Parameter RESALLOWED1_2 set to GLN
+Parameter RESALLOWED1_3 set to HIE
+Parameter RESALLOWED1_4 set to TYR
+Parameter RESALLOWED1_5 set to ARG
+Parameter RESALLOWED1_6 set to ASN
+Parameter RESALLOWED1_7 set to LYS
+Parameter RESALLOWED1_8 set to ASN
+Parameter RESALLOWED1_9 set to TYR
+Parameter RESALLOWED1_10 set to TYR
+Parameter RESALLOWED1_11 set to TYR
+Parameter RESALLOWED1_12 set to THR
+Parameter RESALLOWED1_13 set to ARG
+Parameter RESALLOWED1_14 set to TYR
+Parameter RESALLOWED1_15 set to GLU
+Parameter RESALLOWED1_16 set to ASP
+Parameter STRANDROTTRANS0 set to false
+Parameter STRANDROTTRANS1 set to false
+Parameter STRANDROTTRANS0 set to false
+Parameter STRANDROTTRANS1 set to false
+Parameter RUNNAME set to 4HEM
+Parameter DOPERTURBATIONS not set. Using default value false
+Parameter PERTURBATIONFILE not set. Using default value none
+Parameter SELECTPERTURBATIONS not set. Using default value true
+Parameter STARTINGPERTURBATIONFILE not set. Using default value none
+Parameter ONLYSTARTINGPERTURBATIONS not set. Using default value false
+Parameter MAXSHEARPARAM not set. Using default value 2.5
+Parameter MAXBACKRUBPARAM not set. Using default value 2.5
+Parameter SELECTLCAS not set. Using default value false
+Parameter PDBNAME set to 06-4HEM_clean.min2st_renumber_12shell.pdb
+Parameter RUNNAME set to 4HEM
+Parameter DOPERTURBATIONS not set. Using default value false
+Parameter PERTURBATIONFILE not set. Using default value none
+Parameter SELECTPERTURBATIONS not set. Using default value true
+Parameter STARTINGPERTURBATIONFILE not set. Using default value none
+Parameter ONLYSTARTINGPERTURBATIONS not set. Using default value false
+Parameter MAXSHEARPARAM not set. Using default value 2.5
+Parameter MAXBACKRUBPARAM not set. Using default value 2.5
+Parameter SELECTLCAS not set. Using default value false
+Parameter PDBNAME set to 06-4HEM_clean.min2st_renumber_12shell.pdb
+Parameter RUNNAME set to 4HEM
+Parameter DOPERTURBATIONS not set. Using default value false
+Parameter PERTURBATIONFILE not set. Using default value none
+Parameter SELECTPERTURBATIONS not set. Using default value true
+Parameter STARTINGPERTURBATIONFILE not set. Using default value none
+Parameter ONLYSTARTINGPERTURBATIONS not set. Using default value false
+Parameter MAXSHEARPARAM not set. Using default value 2.5
+Parameter MAXBACKRUBPARAM not set. Using default value 2.5
+Parameter SELECTLCAS not set. Using default value false
+Parameter PDBNAME set to 06-4HEM_clean.min2st_renumber_12shell.pdb
+Parameter STRAND0 set to 99 460
+Parameter STRAND0 set to 99 460
+Parameter STRAND1 set to 601 713
+Parameter STRAND1 set to 601 713
+Parameter PDBNAME set to 06-4HEM_clean.min2st_renumber_12shell.pdb
+Parameter ADDWT set to true
+Parameter ADDWTROTS set to true
+Parameter DOMINIMIZE not set. Using default value false
+Parameter USEEPIC not set. Using default value false
+Parameter USEEPIC not set. Using default value false
+Parameter EPICTHRESH1 not set. Using default value 10
+Parameter EPICTHRESH2 not set. Using default value 25
+Parameter EPICGOALRESID not set. Using default value 0.0001
+Parameter USESAPE not set. Using default value true
+Parameter EPICUSEPC not set. Using default value true
+Parameter MINPARTIALCONFS not set. Using default value true
+Parameter USETUPEXP not set. Using default value false
+Parameter USEELLIPSES not set. Using default value false
+Parameter USEEREF not set. Using default value false
+Parameter ADDRESENTROPY not set. Using default value false
+Parameter ADDWT set to true
+Parameter ADDWTROTS set to true
+Parameter DOMINIMIZE not set. Using default value false
+Parameter USEEPIC not set. Using default value false
+Parameter USEEPIC not set. Using default value false
+Parameter EPICTHRESH1 not set. Using default value 10
+Parameter EPICTHRESH2 not set. Using default value 25
+Parameter EPICGOALRESID not set. Using default value 0.0001
+Parameter USESAPE not set. Using default value true
+Parameter EPICUSEPC not set. Using default value true
+Parameter MINPARTIALCONFS not set. Using default value true
+Parameter USETUPEXP not set. Using default value false
+Parameter USEELLIPSES not set. Using default value false
+Parameter USEEREF not set. Using default value false
+Parameter ADDRESENTROPY not set. Using default value false
+Parameter ADDWT set to true
+Parameter ADDWTROTS set to true
+Parameter DOMINIMIZE not set. Using default value false
+Parameter USEEPIC not set. Using default value false
+Parameter USEEPIC not set. Using default value false
+Parameter EPICTHRESH1 not set. Using default value 10
+Parameter EPICTHRESH2 not set. Using default value 25
+Parameter EPICGOALRESID not set. Using default value 0.0001
+Parameter USESAPE not set. Using default value true
+Parameter EPICUSEPC not set. Using default value true
+Parameter MINPARTIALCONFS not set. Using default value true
+Parameter USETUPEXP not set. Using default value false
+Parameter USEELLIPSES not set. Using default value false
+Parameter USEEREF not set. Using default value false
+Parameter ADDRESENTROPY not set. Using default value false
+Parameter RESALLOWED0_0 set to ASN
+Parameter RESALLOWED0_1 set to ASN 
+Parameter RESALLOWED0_2 set to ASN TRP LEU LYS PHE
+Parameter RESALLOWED0_3 set to ARG TRP LEU LYS PHE
+Parameter RESALLOWED0_4 set to GLN TRP LEU LYS PHE
+Parameter RESALLOWED0_5 set to SER TRP LEU LYS PHE
+Parameter RESALLOWED0_6 set to GLU
+Parameter RESALLOWED0_7 set to ILE
+Parameter RESALLOWED0_8 set to SER
+Parameter RESALLOWED0_9 set to GLU
+Parameter RESALLOWED0_10 set to SER
+Parameter RESALLOWED0_11 set to ASN
+Parameter RESALLOWED0_12 set to ARG
+Parameter RESALLOWED0_13 set to VAL
+Parameter RESALLOWED0_14 set to THR
+Parameter RESALLOWED0_15 set to ARG
+Parameter RESALLOWED1_0 set to GLU
+Parameter RESALLOWED1_1 set to PHE
+Parameter RESALLOWED1_2 set to GLN
+Parameter RESALLOWED1_3 set to HIE
+Parameter RESALLOWED1_4 set to TYR
+Parameter RESALLOWED1_5 set to ARG
+Parameter RESALLOWED1_6 set to ASN
+Parameter RESALLOWED1_7 set to LYS
+Parameter RESALLOWED1_8 set to ASN
+Parameter RESALLOWED1_9 set to TYR
+Parameter RESALLOWED1_10 set to TYR
+Parameter RESALLOWED1_11 set to TYR
+Parameter RESALLOWED1_12 set to THR
+Parameter RESALLOWED1_13 set to ARG
+Parameter RESALLOWED1_14 set to TYR
+Parameter RESALLOWED1_15 set to GLU
+Parameter RESALLOWED1_16 set to ASP
+Parameter STRANDMUT0 set to 101 103 117 118 143 368 370 376 378 393 395 406 407 426 453 455
+Parameter STRANDMUT1 set to 644 647 653 657 659 661 662 665 701 702 703 704 705 706 708 709 711
+Parameter PDBNAME set to 06-4HEM_clean.min2st_renumber_12shell.pdb
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter RESALLOWED0_0 set to ASN
+Parameter RESALLOWED0_1 set to ASN 
+Parameter RESALLOWED0_2 set to ASN TRP LEU LYS PHE
+Parameter RESALLOWED0_3 set to ARG TRP LEU LYS PHE
+Parameter RESALLOWED0_4 set to GLN TRP LEU LYS PHE
+Parameter RESALLOWED0_5 set to SER TRP LEU LYS PHE
+Parameter RESALLOWED0_6 set to GLU
+Parameter RESALLOWED0_7 set to ILE
+Parameter RESALLOWED0_8 set to SER
+Parameter RESALLOWED0_9 set to GLU
+Parameter RESALLOWED0_10 set to SER
+Parameter RESALLOWED0_11 set to ASN
+Parameter RESALLOWED0_12 set to ARG
+Parameter RESALLOWED0_13 set to VAL
+Parameter RESALLOWED0_14 set to THR
+Parameter RESALLOWED0_15 set to ARG
+Parameter RESALLOWED1_0 set to GLU
+Parameter RESALLOWED1_1 set to PHE
+Parameter RESALLOWED1_2 set to GLN
+Parameter RESALLOWED1_3 set to HIE
+Parameter RESALLOWED1_4 set to TYR
+Parameter RESALLOWED1_5 set to ARG
+Parameter RESALLOWED1_6 set to ASN
+Parameter RESALLOWED1_7 set to LYS
+Parameter RESALLOWED1_8 set to ASN
+Parameter RESALLOWED1_9 set to TYR
+Parameter RESALLOWED1_10 set to TYR
+Parameter RESALLOWED1_11 set to TYR
+Parameter RESALLOWED1_12 set to THR
+Parameter RESALLOWED1_13 set to ARG
+Parameter RESALLOWED1_14 set to TYR
+Parameter RESALLOWED1_15 set to GLU
+Parameter RESALLOWED1_16 set to ASP
+Parameter STRANDMUT0 set to 101 103 117 118 143 368 370 376 378 393 395 406 407 426 453 455
+Parameter STRANDMUT1 set to 644 647 653 657 659 661 662 665 701 702 703 704 705 706 708 709 711
+Parameter PDBNAME set to 06-4HEM_clean.min2st_renumber_12shell.pdb
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter RESALLOWED0_0 set to ASN
+Parameter RESALLOWED0_1 set to ASN 
+Parameter RESALLOWED0_2 set to ASN TRP LEU LYS PHE
+Parameter RESALLOWED0_3 set to ARG TRP LEU LYS PHE
+Parameter RESALLOWED0_4 set to GLN TRP LEU LYS PHE
+Parameter RESALLOWED0_5 set to SER TRP LEU LYS PHE
+Parameter RESALLOWED0_6 set to GLU
+Parameter RESALLOWED0_7 set to ILE
+Parameter RESALLOWED0_8 set to SER
+Parameter RESALLOWED0_9 set to GLU
+Parameter RESALLOWED0_10 set to SER
+Parameter RESALLOWED0_11 set to ASN
+Parameter RESALLOWED0_12 set to ARG
+Parameter RESALLOWED0_13 set to VAL
+Parameter RESALLOWED0_14 set to THR
+Parameter RESALLOWED0_15 set to ARG
+Parameter RESALLOWED1_0 set to GLU
+Parameter RESALLOWED1_1 set to PHE
+Parameter RESALLOWED1_2 set to GLN
+Parameter RESALLOWED1_3 set to HIE
+Parameter RESALLOWED1_4 set to TYR
+Parameter RESALLOWED1_5 set to ARG
+Parameter RESALLOWED1_6 set to ASN
+Parameter RESALLOWED1_7 set to LYS
+Parameter RESALLOWED1_8 set to ASN
+Parameter RESALLOWED1_9 set to TYR
+Parameter RESALLOWED1_10 set to TYR
+Parameter RESALLOWED1_11 set to TYR
+Parameter RESALLOWED1_12 set to THR
+Parameter RESALLOWED1_13 set to ARG
+Parameter RESALLOWED1_14 set to TYR
+Parameter RESALLOWED1_15 set to GLU
+Parameter RESALLOWED1_16 set to ASP
+Parameter STRANDMUT0 set to 101 103 117 118 143 368 370 376 378 393 395 406 407 426 453 455
+Parameter STRANDMUT1 set to 644 647 653 657 659 661 662 665 701 702 703 704 705 706 708 709 711
+Parameter PDBNAME set to 06-4HEM_clean.min2st_renumber_12shell.pdb
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Precomputing Energy Matrix for 4HEM_Bound state
+Initializing Pruning for 4HEM_Bound state
+PRECOMPUTING COMPETITOR PRUNING MATRIX
+Parameter TYPEDEP set to TRUE
+Parameter BOUNDSTHRESH not set. Using default value 100
+Parameter ALGOPTION set to 1
+Parameter USEFLAGS not set. Using default value true
+Parameter USETRIPLES not set. Using default value false
+Parameter STERICTHRESH set to 100
+
+BEGINNING PRUNING.  PRUNING INTERVAL: 0.0
+
+Starting DEE cycle run: 0
+Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+Num pruned rot this run: 384
+Num pruned pairs this run: 0
+
+Starting DEE cycle run: 1
+Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+Num pruned rot this run: 0
+Num pruned pairs this run: 0
+
+Pruning time: 549 ms
+COMPETITOR PRUNING DONE
+Parameter TYPEDEP set to TRUE
+Parameter BOUNDSTHRESH not set. Using default value 100
+Parameter ALGOPTION set to 1
+Parameter USEFLAGS not set. Using default value true
+Parameter USETRIPLES not set. Using default value false
+Parameter STERICTHRESH set to 100
+
+BEGINNING PRUNING.  PRUNING INTERVAL: 40.0
+
+Starting steric pruning.
+Pruned 189 in 1-body steric pruning
+Pruned 1344 in 2-body steric pruning
+Starting DEE cycle run: 0
+Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+Num pruned rot this run: 157
+Num pruned pairs this run: 0
+
+Starting DEE cycle run: 1
+Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+Num pruned rot this run: 0
+Num pruned pairs this run: 0
+
+Pruning time: 352 ms
+Precomputing Energy Matrix for 4HEM_strand1 state
+Initializing Pruning for 4HEM_strand1 state
+PRECOMPUTING COMPETITOR PRUNING MATRIX
+Parameter TYPEDEP set to TRUE
+Parameter BOUNDSTHRESH not set. Using default value 100
+Parameter ALGOPTION set to 1
+Parameter USEFLAGS not set. Using default value true
+Parameter USETRIPLES not set. Using default value false
+Parameter STERICTHRESH set to 100
+
+BEGINNING PRUNING.  PRUNING INTERVAL: 0.0
+
+Starting DEE cycle run: 0
+Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+Num pruned rot this run: 297
+Num pruned pairs this run: 0
+
+Starting DEE cycle run: 1
+Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+Num pruned rot this run: 0
+Num pruned pairs this run: 0
+
+Pruning time: 74 ms
+COMPETITOR PRUNING DONE
+Parameter TYPEDEP set to TRUE
+Parameter BOUNDSTHRESH not set. Using default value 100
+Parameter ALGOPTION set to 1
+Parameter USEFLAGS not set. Using default value true
+Parameter USETRIPLES not set. Using default value false
+Parameter STERICTHRESH set to 100
+
+BEGINNING PRUNING.  PRUNING INTERVAL: 40.0
+
+Starting steric pruning.
+Pruned 140 in 1-body steric pruning
+Pruned 308 in 2-body steric pruning
+Starting DEE cycle run: 0
+Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+Num pruned rot this run: 48
+Num pruned pairs this run: 0
+
+Starting DEE cycle run: 1
+Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+Num pruned rot this run: 0
+Num pruned pairs this run: 0
+
+Pruning time: 62 ms
+Precomputing Energy Matrix for 4HEM_strand2 state
+Initializing Pruning for 4HEM_strand2 state
+PRECOMPUTING COMPETITOR PRUNING MATRIX
+Parameter TYPEDEP set to TRUE
+Parameter BOUNDSTHRESH not set. Using default value 100
+Parameter ALGOPTION set to 1
+Parameter USEFLAGS not set. Using default value true
+Parameter USETRIPLES not set. Using default value false
+Parameter STERICTHRESH set to 100
+
+BEGINNING PRUNING.  PRUNING INTERVAL: 0.0
+
+Starting DEE cycle run: 0
+Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+Num pruned rot this run: 160
+Num pruned pairs this run: 0
+
+Starting DEE cycle run: 1
+Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+Num pruned rot this run: 0
+Num pruned pairs this run: 0
+
+Pruning time: 15 ms
+COMPETITOR PRUNING DONE
+Parameter TYPEDEP set to TRUE
+Parameter BOUNDSTHRESH not set. Using default value 100
+Parameter ALGOPTION set to 1
+Parameter USEFLAGS not set. Using default value true
+Parameter USETRIPLES not set. Using default value false
+Parameter STERICTHRESH set to 100
+
+BEGINNING PRUNING.  PRUNING INTERVAL: 40.0
+
+Starting steric pruning.
+Pruned 42 in 1-body steric pruning
+Pruned 350 in 2-body steric pruning
+Starting DEE cycle run: 0
+Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+Num pruned rot this run: 48
+Num pruned pairs this run: 0
+
+Starting DEE cycle run: 1
+Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+Num pruned rot this run: 0
+Num pruned pairs this run: 0
+
+Pruning time: 15 ms
+
+CHECKING KaDEE RESULT BY EXHAUSTIVE SEARCH
+
+ASN ARG GLN SER   Score: -321.04504610153765
+ASN ARG GLN TRP All Rots Pruned
+  Score: Infinity
+ASN ARG GLN LEU All Rots Pruned
+  Score: Infinity
+ASN ARG GLN LYS All Rots Pruned
+  Score: Infinity
+ASN ARG GLN PHE All Rots Pruned
+  Score: Infinity
+ASN ARG TRP SER   Score: -262.6022082581821
+ASN ARG TRP TRP All Rots Pruned
+  Score: Infinity
+ASN ARG TRP LEU All Rots Pruned
+  Score: Infinity
+ASN ARG TRP LYS All Rots Pruned
+  Score: Infinity
+ASN ARG TRP PHE All Rots Pruned
+  Score: Infinity
+ASN ARG LEU SER   Score: -321.25184396270413
+ASN ARG LEU TRP All Rots Pruned
+  Score: Infinity
+ASN ARG LEU LEU All Rots Pruned
+  Score: Infinity
+ASN ARG LEU LYS All Rots Pruned
+  Score: Infinity
+ASN ARG LEU PHE All Rots Pruned
+  Score: Infinity
+ASN ARG LYS SER   Score: -322.19623808647407
+ASN ARG LYS TRP All Rots Pruned
+  Score: Infinity
+ASN ARG LYS LEU All Rots Pruned
+  Score: Infinity
+ASN ARG LYS LYS All Rots Pruned
+  Score: Infinity
+ASN ARG LYS PHE All Rots Pruned
+  Score: Infinity
+ASN ARG PHE SER   Score: -321.1165557392471
+ASN ARG PHE TRP All Rots Pruned
+  Score: Infinity
+ASN ARG PHE LEU All Rots Pruned
+  Score: Infinity
+ASN ARG PHE LYS All Rots Pruned
+  Score: Infinity
+ASN ARG PHE PHE All Rots Pruned
+  Score: Infinity
+ASN TRP GLN SER   Score: -285.9491970650743
+ASN TRP GLN TRP All Rots Pruned
+  Score: Infinity
+ASN TRP GLN LEU All Rots Pruned
+  Score: Infinity
+ASN TRP GLN LYS All Rots Pruned
+  Score: Infinity
+ASN TRP GLN PHE All Rots Pruned
+  Score: Infinity
+ASN TRP TRP SER   Score: -229.12715168994555
+ASN TRP TRP TRP All Rots Pruned
+  Score: Infinity
+ASN TRP TRP LEU All Rots Pruned
+  Score: Infinity
+ASN TRP TRP LYS All Rots Pruned
+  Score: Infinity
+ASN TRP TRP PHE All Rots Pruned
+  Score: Infinity
+ASN TRP LEU SER   Score: -286.29627684254336
+ASN TRP LEU TRP All Rots Pruned
+  Score: Infinity
+ASN TRP LEU LEU All Rots Pruned
+  Score: Infinity
+ASN TRP LEU LYS All Rots Pruned
+  Score: Infinity
+ASN TRP LEU PHE All Rots Pruned
+  Score: Infinity
+ASN TRP LYS SER   Score: -287.7584842467681
+ASN TRP LYS TRP All Rots Pruned
+  Score: Infinity
+ASN TRP LYS LEU All Rots Pruned
+  Score: Infinity
+ASN TRP LYS LYS All Rots Pruned
+  Score: Infinity
+ASN TRP LYS PHE All Rots Pruned
+  Score: Infinity
+ASN TRP PHE SER   Score: -286.23344592070407
+ASN TRP PHE TRP All Rots Pruned
+  Score: Infinity
+ASN TRP PHE LEU All Rots Pruned
+  Score: Infinity
+ASN TRP PHE LYS All Rots Pruned
+  Score: Infinity
+ASN TRP PHE PHE All Rots Pruned
+  Score: Infinity
+ASN LEU GLN SER   Score: -316.6597050746799
+ASN LEU GLN TRP All Rots Pruned
+  Score: Infinity
+ASN LEU GLN LEU All Rots Pruned
+  Score: Infinity
+ASN LEU GLN LYS All Rots Pruned
+  Score: Infinity
+ASN LEU GLN PHE All Rots Pruned
+  Score: Infinity
+ASN LEU TRP SER   Score: -259.78784175082933
+ASN LEU TRP TRP All Rots Pruned
+  Score: Infinity
+ASN LEU TRP LEU All Rots Pruned
+  Score: Infinity
+ASN LEU TRP LYS All Rots Pruned
+  Score: Infinity
+ASN LEU TRP PHE All Rots Pruned
+  Score: Infinity
+ASN LEU LEU SER   Score: -316.9904336647968
+ASN LEU LEU TRP All Rots Pruned
+  Score: Infinity
+ASN LEU LEU LEU All Rots Pruned
+  Score: Infinity
+ASN LEU LEU LYS All Rots Pruned
+  Score: Infinity
+ASN LEU LEU PHE All Rots Pruned
+  Score: Infinity
+ASN LEU LYS SER   Score: -317.6639323345181
+ASN LEU LYS TRP All Rots Pruned
+  Score: Infinity
+ASN LEU LYS LEU All Rots Pruned
+  Score: Infinity
+ASN LEU LYS LYS All Rots Pruned
+  Score: Infinity
+ASN LEU LYS PHE All Rots Pruned
+  Score: Infinity
+ASN LEU PHE SER   Score: -316.8457117844669
+ASN LEU PHE TRP All Rots Pruned
+  Score: Infinity
+ASN LEU PHE LEU All Rots Pruned
+  Score: Infinity
+ASN LEU PHE LYS All Rots Pruned
+  Score: Infinity
+ASN LEU PHE PHE All Rots Pruned
+  Score: Infinity
+ASN LYS GLN SER   Score: -320.81700927359117
+ASN LYS GLN TRP All Rots Pruned
+  Score: Infinity
+ASN LYS GLN LEU All Rots Pruned
+  Score: Infinity
+ASN LYS GLN LYS All Rots Pruned
+  Score: Infinity
+ASN LYS GLN PHE All Rots Pruned
+  Score: Infinity
+ASN LYS TRP SER   Score: -264.1039940789199
+ASN LYS TRP TRP All Rots Pruned
+  Score: Infinity
+ASN LYS TRP LEU All Rots Pruned
+  Score: Infinity
+ASN LYS TRP LYS All Rots Pruned
+  Score: Infinity
+ASN LYS TRP PHE All Rots Pruned
+  Score: Infinity
+ASN LYS LEU SER   Score: -321.4028232982633
+ASN LYS LEU TRP All Rots Pruned
+  Score: Infinity
+ASN LYS LEU LEU All Rots Pruned
+  Score: Infinity
+ASN LYS LEU LYS All Rots Pruned
+  Score: Infinity
+ASN LYS LEU PHE All Rots Pruned
+  Score: Infinity
+ASN LYS LYS SER   Score: -322.5081927907444
+ASN LYS LYS TRP All Rots Pruned
+  Score: Infinity
+ASN LYS LYS LEU All Rots Pruned
+  Score: Infinity
+ASN LYS LYS LYS All Rots Pruned
+  Score: Infinity
+ASN LYS LYS PHE All Rots Pruned
+  Score: Infinity
+ASN LYS PHE SER   Score: -321.23164340197474
+ASN LYS PHE TRP All Rots Pruned
+  Score: Infinity
+ASN LYS PHE LEU All Rots Pruned
+  Score: Infinity
+ASN LYS PHE LYS All Rots Pruned
+  Score: Infinity
+ASN LYS PHE PHE All Rots Pruned
+  Score: Infinity
+ASN PHE GLN SER All Rots Pruned
+  Score: Infinity
+ASN PHE GLN TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+ASN PHE GLN LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+ASN PHE GLN LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+ASN PHE GLN PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+ASN PHE TRP SER All Rots Pruned
+  Score: Infinity
+ASN PHE TRP TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+ASN PHE TRP LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+ASN PHE TRP LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+ASN PHE TRP PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+ASN PHE LEU SER All Rots Pruned
+  Score: Infinity
+ASN PHE LEU TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+ASN PHE LEU LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+ASN PHE LEU LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+ASN PHE LEU PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+ASN PHE LYS SER All Rots Pruned
+  Score: Infinity
+ASN PHE LYS TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+ASN PHE LYS LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+ASN PHE LYS LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+ASN PHE LYS PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+ASN PHE PHE SER All Rots Pruned
+  Score: Infinity
+ASN PHE PHE TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+ASN PHE PHE LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+ASN PHE PHE LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+ASN PHE PHE PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP ARG GLN SER All Rots Pruned
+  Score: Infinity
+TRP ARG GLN TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP ARG GLN LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP ARG GLN LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP ARG GLN PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP ARG TRP SER All Rots Pruned
+  Score: Infinity
+TRP ARG TRP TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP ARG TRP LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP ARG TRP LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP ARG TRP PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP ARG LEU SER All Rots Pruned
+  Score: Infinity
+TRP ARG LEU TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP ARG LEU LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP ARG LEU LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP ARG LEU PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP ARG LYS SER All Rots Pruned
+  Score: Infinity
+TRP ARG LYS TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP ARG LYS LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP ARG LYS LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP ARG LYS PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP ARG PHE SER All Rots Pruned
+  Score: Infinity
+TRP ARG PHE TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP ARG PHE LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP ARG PHE LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP ARG PHE PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP TRP GLN SER All Rots Pruned
+  Score: Infinity
+TRP TRP GLN TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP TRP GLN LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP TRP GLN LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP TRP GLN PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP TRP TRP SER All Rots Pruned
+  Score: Infinity
+TRP TRP TRP TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP TRP TRP LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP TRP TRP LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP TRP TRP PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP TRP LEU SER All Rots Pruned
+  Score: Infinity
+TRP TRP LEU TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP TRP LEU LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP TRP LEU LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP TRP LEU PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP TRP LYS SER All Rots Pruned
+  Score: Infinity
+TRP TRP LYS TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP TRP LYS LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP TRP LYS LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP TRP LYS PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP TRP PHE SER All Rots Pruned
+  Score: Infinity
+TRP TRP PHE TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP TRP PHE LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP TRP PHE LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP TRP PHE PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LEU GLN SER All Rots Pruned
+  Score: Infinity
+TRP LEU GLN TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LEU GLN LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LEU GLN LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LEU GLN PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LEU TRP SER All Rots Pruned
+  Score: Infinity
+TRP LEU TRP TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LEU TRP LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LEU TRP LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LEU TRP PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LEU LEU SER All Rots Pruned
+  Score: Infinity
+TRP LEU LEU TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LEU LEU LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LEU LEU LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LEU LEU PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LEU LYS SER All Rots Pruned
+  Score: Infinity
+TRP LEU LYS TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LEU LYS LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LEU LYS LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LEU LYS PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LEU PHE SER All Rots Pruned
+  Score: Infinity
+TRP LEU PHE TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LEU PHE LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LEU PHE LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LEU PHE PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LYS GLN SER All Rots Pruned
+  Score: Infinity
+TRP LYS GLN TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LYS GLN LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LYS GLN LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LYS GLN PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LYS TRP SER All Rots Pruned
+  Score: Infinity
+TRP LYS TRP TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LYS TRP LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LYS TRP LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LYS TRP PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LYS LEU SER All Rots Pruned
+  Score: Infinity
+TRP LYS LEU TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LYS LEU LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LYS LEU LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LYS LEU PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LYS LYS SER All Rots Pruned
+  Score: Infinity
+TRP LYS LYS TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LYS LYS LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LYS LYS LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LYS LYS PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LYS PHE SER All Rots Pruned
+  Score: Infinity
+TRP LYS PHE TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LYS PHE LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LYS PHE LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP LYS PHE PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP PHE GLN SER All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP PHE GLN TRP All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP PHE GLN LEU All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP PHE GLN LYS All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP PHE GLN PHE All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP PHE TRP SER All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP PHE TRP TRP All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP PHE TRP LEU All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP PHE TRP LYS All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP PHE TRP PHE All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP PHE LEU SER All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP PHE LEU TRP All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP PHE LEU LEU All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP PHE LEU LYS All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP PHE LEU PHE All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP PHE LYS SER All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP PHE LYS TRP All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP PHE LYS LEU All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP PHE LYS LYS All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP PHE LYS PHE All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP PHE PHE SER All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP PHE PHE TRP All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP PHE PHE LEU All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP PHE PHE LYS All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+TRP PHE PHE PHE All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LEU ARG GLN SER   Score: -304.0638198308986
+LEU ARG GLN TRP All Rots Pruned
+  Score: Infinity
+LEU ARG GLN LEU All Rots Pruned
+  Score: Infinity
+LEU ARG GLN LYS All Rots Pruned
+  Score: Infinity
+LEU ARG GLN PHE All Rots Pruned
+  Score: Infinity
+LEU ARG TRP SER   Score: -245.71779984379242
+LEU ARG TRP TRP All Rots Pruned
+  Score: Infinity
+LEU ARG TRP LEU All Rots Pruned
+  Score: Infinity
+LEU ARG TRP LYS All Rots Pruned
+  Score: Infinity
+LEU ARG TRP PHE All Rots Pruned
+  Score: Infinity
+LEU ARG LEU SER   Score: -304.34135117851014
+LEU ARG LEU TRP All Rots Pruned
+  Score: Infinity
+LEU ARG LEU LEU All Rots Pruned
+  Score: Infinity
+LEU ARG LEU LYS All Rots Pruned
+  Score: Infinity
+LEU ARG LEU PHE All Rots Pruned
+  Score: Infinity
+LEU ARG LYS SER   Score: -305.3862059076032
+LEU ARG LYS TRP All Rots Pruned
+  Score: Infinity
+LEU ARG LYS LEU All Rots Pruned
+  Score: Infinity
+LEU ARG LYS LYS All Rots Pruned
+  Score: Infinity
+LEU ARG LYS PHE All Rots Pruned
+  Score: Infinity
+LEU ARG PHE SER   Score: -304.20399829740603
+LEU ARG PHE TRP All Rots Pruned
+  Score: Infinity
+LEU ARG PHE LEU All Rots Pruned
+  Score: Infinity
+LEU ARG PHE LYS All Rots Pruned
+  Score: Infinity
+LEU ARG PHE PHE All Rots Pruned
+  Score: Infinity
+LEU TRP GLN SER   Score: -269.27211725259895
+LEU TRP GLN TRP All Rots Pruned
+  Score: Infinity
+LEU TRP GLN LEU All Rots Pruned
+  Score: Infinity
+LEU TRP GLN LYS All Rots Pruned
+  Score: Infinity
+LEU TRP GLN PHE All Rots Pruned
+  Score: Infinity
+LEU TRP TRP SER   Score: -212.29214189138366
+LEU TRP TRP TRP All Rots Pruned
+  Score: Infinity
+LEU TRP TRP LEU All Rots Pruned
+  Score: Infinity
+LEU TRP TRP LYS All Rots Pruned
+  Score: Infinity
+LEU TRP TRP PHE All Rots Pruned
+  Score: Infinity
+LEU TRP LEU SER   Score: -269.58050430558507
+LEU TRP LEU TRP All Rots Pruned
+  Score: Infinity
+LEU TRP LEU LEU All Rots Pruned
+  Score: Infinity
+LEU TRP LEU LYS All Rots Pruned
+  Score: Infinity
+LEU TRP LEU PHE All Rots Pruned
+  Score: Infinity
+LEU TRP LYS SER   Score: -270.99391140627506
+LEU TRP LYS TRP All Rots Pruned
+  Score: Infinity
+LEU TRP LYS LEU All Rots Pruned
+  Score: Infinity
+LEU TRP LYS LYS All Rots Pruned
+  Score: Infinity
+LEU TRP LYS PHE All Rots Pruned
+  Score: Infinity
+LEU TRP PHE SER   Score: -269.50700250632417
+LEU TRP PHE TRP All Rots Pruned
+  Score: Infinity
+LEU TRP PHE LEU All Rots Pruned
+  Score: Infinity
+LEU TRP PHE LYS All Rots Pruned
+  Score: Infinity
+LEU TRP PHE PHE All Rots Pruned
+  Score: Infinity
+LEU LEU GLN SER   Score: -299.3818840884413
+LEU LEU GLN TRP All Rots Pruned
+  Score: Infinity
+LEU LEU GLN LEU All Rots Pruned
+  Score: Infinity
+LEU LEU GLN LYS All Rots Pruned
+  Score: Infinity
+LEU LEU GLN PHE All Rots Pruned
+  Score: Infinity
+LEU LEU TRP SER   Score: -242.52331848109617
+LEU LEU TRP TRP All Rots Pruned
+  Score: Infinity
+LEU LEU TRP LEU All Rots Pruned
+  Score: Infinity
+LEU LEU TRP LYS All Rots Pruned
+  Score: Infinity
+LEU LEU TRP PHE All Rots Pruned
+  Score: Infinity
+LEU LEU LEU SER   Score: -299.7185044287784
+LEU LEU LEU TRP All Rots Pruned
+  Score: Infinity
+LEU LEU LEU LEU All Rots Pruned
+  Score: Infinity
+LEU LEU LEU LYS All Rots Pruned
+  Score: Infinity
+LEU LEU LEU PHE All Rots Pruned
+  Score: Infinity
+LEU LEU LYS SER   Score: -300.42383801019304
+LEU LEU LYS TRP All Rots Pruned
+  Score: Infinity
+LEU LEU LYS LEU All Rots Pruned
+  Score: Infinity
+LEU LEU LYS LYS All Rots Pruned
+  Score: Infinity
+LEU LEU LYS PHE All Rots Pruned
+  Score: Infinity
+LEU LEU PHE SER   Score: -299.57715978338865
+LEU LEU PHE TRP All Rots Pruned
+  Score: Infinity
+LEU LEU PHE LEU All Rots Pruned
+  Score: Infinity
+LEU LEU PHE LYS All Rots Pruned
+  Score: Infinity
+LEU LEU PHE PHE All Rots Pruned
+  Score: Infinity
+LEU LYS GLN SER   Score: -303.9845315170684
+LEU LYS GLN TRP All Rots Pruned
+  Score: Infinity
+LEU LYS GLN LEU All Rots Pruned
+  Score: Infinity
+LEU LYS GLN LYS All Rots Pruned
+  Score: Infinity
+LEU LYS GLN PHE All Rots Pruned
+  Score: Infinity
+LEU LYS TRP SER   Score: -247.29341771766752
+LEU LYS TRP TRP All Rots Pruned
+  Score: Infinity
+LEU LYS TRP LEU All Rots Pruned
+  Score: Infinity
+LEU LYS TRP LYS All Rots Pruned
+  Score: Infinity
+LEU LYS TRP PHE All Rots Pruned
+  Score: Infinity
+LEU LYS LEU SER   Score: -304.5894038264972
+LEU LYS LEU TRP All Rots Pruned
+  Score: Infinity
+LEU LYS LEU LEU All Rots Pruned
+  Score: Infinity
+LEU LYS LEU LYS All Rots Pruned
+  Score: Infinity
+LEU LYS LEU PHE All Rots Pruned
+  Score: Infinity
+LEU LYS LYS SER   Score: -305.7762829419837
+LEU LYS LYS TRP All Rots Pruned
+  Score: Infinity
+LEU LYS LYS LEU All Rots Pruned
+  Score: Infinity
+LEU LYS LYS LYS All Rots Pruned
+  Score: Infinity
+LEU LYS LYS PHE All Rots Pruned
+  Score: Infinity
+LEU LYS PHE SER   Score: -304.424222866343
+LEU LYS PHE TRP All Rots Pruned
+  Score: Infinity
+LEU LYS PHE LEU All Rots Pruned
+  Score: Infinity
+LEU LYS PHE LYS All Rots Pruned
+  Score: Infinity
+LEU LYS PHE PHE All Rots Pruned
+  Score: Infinity
+LEU PHE GLN SER All Rots Pruned
+  Score: Infinity
+LEU PHE GLN TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LEU PHE GLN LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LEU PHE GLN LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LEU PHE GLN PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LEU PHE TRP SER All Rots Pruned
+  Score: Infinity
+LEU PHE TRP TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LEU PHE TRP LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LEU PHE TRP LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LEU PHE TRP PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LEU PHE LEU SER All Rots Pruned
+  Score: Infinity
+LEU PHE LEU TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LEU PHE LEU LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LEU PHE LEU LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LEU PHE LEU PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LEU PHE LYS SER All Rots Pruned
+  Score: Infinity
+LEU PHE LYS TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LEU PHE LYS LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LEU PHE LYS LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LEU PHE LYS PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LEU PHE PHE SER All Rots Pruned
+  Score: Infinity
+LEU PHE PHE TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LEU PHE PHE LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LEU PHE PHE LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LEU PHE PHE PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LYS ARG GLN SER   Score: -320.16680463671344
+LYS ARG GLN TRP All Rots Pruned
+  Score: Infinity
+LYS ARG GLN LEU All Rots Pruned
+  Score: Infinity
+LYS ARG GLN LYS All Rots Pruned
+  Score: Infinity
+LYS ARG GLN PHE All Rots Pruned
+  Score: Infinity
+LYS ARG TRP SER   Score: -261.69251010192147
+LYS ARG TRP TRP All Rots Pruned
+  Score: Infinity
+LYS ARG TRP LEU All Rots Pruned
+  Score: Infinity
+LYS ARG TRP LYS All Rots Pruned
+  Score: Infinity
+LYS ARG TRP PHE All Rots Pruned
+  Score: Infinity
+LYS ARG LEU SER   Score: -320.4322921556685
+LYS ARG LEU TRP All Rots Pruned
+  Score: Infinity
+LYS ARG LEU LEU All Rots Pruned
+  Score: Infinity
+LYS ARG LEU LYS All Rots Pruned
+  Score: Infinity
+LYS ARG LEU PHE All Rots Pruned
+  Score: Infinity
+LYS ARG LYS SER   Score: -321.50484762907115
+LYS ARG LYS TRP All Rots Pruned
+  Score: Infinity
+LYS ARG LYS LEU All Rots Pruned
+  Score: Infinity
+LYS ARG LYS LYS All Rots Pruned
+  Score: Infinity
+LYS ARG LYS PHE All Rots Pruned
+  Score: Infinity
+LYS ARG PHE SER   Score: -320.29495509436794
+LYS ARG PHE TRP All Rots Pruned
+  Score: Infinity
+LYS ARG PHE LEU All Rots Pruned
+  Score: Infinity
+LYS ARG PHE LYS All Rots Pruned
+  Score: Infinity
+LYS ARG PHE PHE All Rots Pruned
+  Score: Infinity
+LYS TRP GLN SER   Score: -284.34502334375003
+LYS TRP GLN TRP All Rots Pruned
+  Score: Infinity
+LYS TRP GLN LEU All Rots Pruned
+  Score: Infinity
+LYS TRP GLN LYS All Rots Pruned
+  Score: Infinity
+LYS TRP GLN PHE All Rots Pruned
+  Score: Infinity
+LYS TRP TRP SER   Score: -227.67791796543457
+LYS TRP TRP TRP All Rots Pruned
+  Score: Infinity
+LYS TRP TRP LEU All Rots Pruned
+  Score: Infinity
+LYS TRP TRP LYS All Rots Pruned
+  Score: Infinity
+LYS TRP TRP PHE All Rots Pruned
+  Score: Infinity
+LYS TRP LEU SER   Score: -284.75525241614434
+LYS TRP LEU TRP All Rots Pruned
+  Score: Infinity
+LYS TRP LEU LEU All Rots Pruned
+  Score: Infinity
+LYS TRP LEU LYS All Rots Pruned
+  Score: Infinity
+LYS TRP LEU PHE All Rots Pruned
+  Score: Infinity
+LYS TRP LYS SER   Score: -286.3483855350719
+LYS TRP LYS TRP All Rots Pruned
+  Score: Infinity
+LYS TRP LYS LEU All Rots Pruned
+  Score: Infinity
+LYS TRP LYS LYS All Rots Pruned
+  Score: Infinity
+LYS TRP LYS PHE All Rots Pruned
+  Score: Infinity
+LYS TRP PHE SER   Score: -284.7010638874864
+LYS TRP PHE TRP All Rots Pruned
+  Score: Infinity
+LYS TRP PHE LEU All Rots Pruned
+  Score: Infinity
+LYS TRP PHE LYS All Rots Pruned
+  Score: Infinity
+LYS TRP PHE PHE All Rots Pruned
+  Score: Infinity
+LYS LEU GLN SER   Score: -315.4408371525991
+LYS LEU GLN TRP All Rots Pruned
+  Score: Infinity
+LYS LEU GLN LEU All Rots Pruned
+  Score: Infinity
+LYS LEU GLN LYS All Rots Pruned
+  Score: Infinity
+LYS LEU GLN PHE All Rots Pruned
+  Score: Infinity
+LYS LEU TRP SER   Score: -258.5408353205185
+LYS LEU TRP TRP All Rots Pruned
+  Score: Infinity
+LYS LEU TRP LEU All Rots Pruned
+  Score: Infinity
+LYS LEU TRP LYS All Rots Pruned
+  Score: Infinity
+LYS LEU TRP PHE All Rots Pruned
+  Score: Infinity
+LYS LEU LEU SER   Score: -315.78066051273174
+LYS LEU LEU TRP All Rots Pruned
+  Score: Infinity
+LYS LEU LEU LEU All Rots Pruned
+  Score: Infinity
+LYS LEU LEU LYS All Rots Pruned
+  Score: Infinity
+LYS LEU LEU PHE All Rots Pruned
+  Score: Infinity
+LYS LEU LYS SER   Score: -316.5494121705631
+LYS LEU LYS TRP All Rots Pruned
+  Score: Infinity
+LYS LEU LYS LEU All Rots Pruned
+  Score: Infinity
+LYS LEU LYS LYS All Rots Pruned
+  Score: Infinity
+LYS LEU LYS PHE All Rots Pruned
+  Score: Infinity
+LYS LEU PHE SER   Score: -315.6362612467106
+LYS LEU PHE TRP All Rots Pruned
+  Score: Infinity
+LYS LEU PHE LEU All Rots Pruned
+  Score: Infinity
+LYS LEU PHE LYS All Rots Pruned
+  Score: Infinity
+LYS LEU PHE PHE All Rots Pruned
+  Score: Infinity
+LYS LYS GLN SER   Score: -320.08691026605965
+LYS LYS GLN TRP All Rots Pruned
+  Score: Infinity
+LYS LYS GLN LEU All Rots Pruned
+  Score: Infinity
+LYS LYS GLN LYS All Rots Pruned
+  Score: Infinity
+LYS LYS GLN PHE All Rots Pruned
+  Score: Infinity
+LYS LYS TRP SER   Score: -263.37631696560413
+LYS LYS TRP TRP All Rots Pruned
+  Score: Infinity
+LYS LYS TRP LEU All Rots Pruned
+  Score: Infinity
+LYS LYS TRP LYS All Rots Pruned
+  Score: Infinity
+LYS LYS TRP PHE All Rots Pruned
+  Score: Infinity
+LYS LYS LEU SER   Score: -320.70243871065776
+LYS LYS LEU TRP All Rots Pruned
+  Score: Infinity
+LYS LYS LEU LEU All Rots Pruned
+  Score: Infinity
+LYS LYS LEU LYS All Rots Pruned
+  Score: Infinity
+LYS LYS LEU PHE All Rots Pruned
+  Score: Infinity
+LYS LYS LYS SER   Score: -321.89531505248
+LYS LYS LYS TRP All Rots Pruned
+  Score: Infinity
+LYS LYS LYS LEU All Rots Pruned
+  Score: Infinity
+LYS LYS LYS LYS All Rots Pruned
+  Score: Infinity
+LYS LYS LYS PHE All Rots Pruned
+  Score: Infinity
+LYS LYS PHE SER   Score: -320.5322556997323
+LYS LYS PHE TRP All Rots Pruned
+  Score: Infinity
+LYS LYS PHE LEU All Rots Pruned
+  Score: Infinity
+LYS LYS PHE LYS All Rots Pruned
+  Score: Infinity
+LYS LYS PHE PHE All Rots Pruned
+  Score: Infinity
+LYS PHE GLN SER All Rots Pruned
+  Score: Infinity
+LYS PHE GLN TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LYS PHE GLN LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LYS PHE GLN LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LYS PHE GLN PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LYS PHE TRP SER All Rots Pruned
+  Score: Infinity
+LYS PHE TRP TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LYS PHE TRP LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LYS PHE TRP LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LYS PHE TRP PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LYS PHE LEU SER All Rots Pruned
+  Score: Infinity
+LYS PHE LEU TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LYS PHE LEU LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LYS PHE LEU LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LYS PHE LEU PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LYS PHE LYS SER All Rots Pruned
+  Score: Infinity
+LYS PHE LYS TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LYS PHE LYS LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LYS PHE LYS LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LYS PHE LYS PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LYS PHE PHE SER All Rots Pruned
+  Score: Infinity
+LYS PHE PHE TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LYS PHE PHE LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LYS PHE PHE LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+LYS PHE PHE PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE ARG GLN SER All Rots Pruned
+  Score: Infinity
+PHE ARG GLN TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE ARG GLN LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE ARG GLN LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE ARG GLN PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE ARG TRP SER All Rots Pruned
+  Score: Infinity
+PHE ARG TRP TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE ARG TRP LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE ARG TRP LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE ARG TRP PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE ARG LEU SER All Rots Pruned
+  Score: Infinity
+PHE ARG LEU TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE ARG LEU LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE ARG LEU LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE ARG LEU PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE ARG LYS SER All Rots Pruned
+  Score: Infinity
+PHE ARG LYS TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE ARG LYS LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE ARG LYS LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE ARG LYS PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE ARG PHE SER All Rots Pruned
+  Score: Infinity
+PHE ARG PHE TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE ARG PHE LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE ARG PHE LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE ARG PHE PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE TRP GLN SER All Rots Pruned
+  Score: Infinity
+PHE TRP GLN TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE TRP GLN LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE TRP GLN LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE TRP GLN PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE TRP TRP SER All Rots Pruned
+  Score: Infinity
+PHE TRP TRP TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE TRP TRP LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE TRP TRP LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE TRP TRP PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE TRP LEU SER All Rots Pruned
+  Score: Infinity
+PHE TRP LEU TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE TRP LEU LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE TRP LEU LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE TRP LEU PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE TRP LYS SER All Rots Pruned
+  Score: Infinity
+PHE TRP LYS TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE TRP LYS LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE TRP LYS LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE TRP LYS PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE TRP PHE SER All Rots Pruned
+  Score: Infinity
+PHE TRP PHE TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE TRP PHE LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE TRP PHE LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE TRP PHE PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LEU GLN SER All Rots Pruned
+  Score: Infinity
+PHE LEU GLN TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LEU GLN LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LEU GLN LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LEU GLN PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LEU TRP SER All Rots Pruned
+  Score: Infinity
+PHE LEU TRP TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LEU TRP LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LEU TRP LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LEU TRP PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LEU LEU SER All Rots Pruned
+  Score: Infinity
+PHE LEU LEU TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LEU LEU LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LEU LEU LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LEU LEU PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LEU LYS SER All Rots Pruned
+  Score: Infinity
+PHE LEU LYS TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LEU LYS LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LEU LYS LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LEU LYS PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LEU PHE SER All Rots Pruned
+  Score: Infinity
+PHE LEU PHE TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LEU PHE LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LEU PHE LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LEU PHE PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LYS GLN SER All Rots Pruned
+  Score: Infinity
+PHE LYS GLN TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LYS GLN LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LYS GLN LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LYS GLN PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LYS TRP SER All Rots Pruned
+  Score: Infinity
+PHE LYS TRP TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LYS TRP LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LYS TRP LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LYS TRP PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LYS LEU SER All Rots Pruned
+  Score: Infinity
+PHE LYS LEU TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LYS LEU LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LYS LEU LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LYS LEU PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LYS LYS SER All Rots Pruned
+  Score: Infinity
+PHE LYS LYS TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LYS LYS LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LYS LYS LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LYS LYS PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LYS PHE SER All Rots Pruned
+  Score: Infinity
+PHE LYS PHE TRP All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LYS PHE LEU All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LYS PHE LYS All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE LYS PHE PHE All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE PHE GLN SER All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE PHE GLN TRP All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE PHE GLN LEU All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE PHE GLN LYS All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE PHE GLN PHE All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE PHE TRP SER All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE PHE TRP TRP All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE PHE TRP LEU All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE PHE TRP LYS All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE PHE TRP PHE All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE PHE LEU SER All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE PHE LEU TRP All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE PHE LEU LEU All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE PHE LEU LYS All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE PHE LEU PHE All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE PHE LYS SER All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE PHE LYS TRP All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE PHE LYS LEU All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE PHE LYS LYS All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE PHE LYS PHE All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE PHE PHE SER All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE PHE PHE TRP All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE PHE PHE LEU All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE PHE PHE LYS All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+PHE PHE PHE PHE All Rots Pruned
+All Rots Pruned
+All Rots Pruned
+  Score: Infinity
+
+EXHAUSTIVE MULTISTATE BEST SCORE: -322.5081927907444 SEQUENCE: 
+ASN
+LYS
+LYS
+SER
+
+Exhaustive took: 10935584 ms

@@ -1,0 +1,466 @@
+Parameter DATADIR set to /usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/dataFiles
+Parameter USEPOISSONBOLTZMANN not set. Using default value false
+Parameter DOSOLVATIONE not set. Using default value true
+Parameter FORCEFIELD not set. Using default value AMBER
+Parameter DISTDEPDIELECT not set. Using default value true
+Parameter DIELECTCONST not set. Using default value 6.0
+Parameter VDWMULT not set. Using default value 0.95
+Parameter SOLVSCALE not set. Using default value 0.5
+Parameter HELECT not set. Using default value true
+Parameter HVDW not set. Using default value true
+Parameter SHELLDISTCUTOFF not set. Using default value Infinity
+Parameter USEDUNBRACKROTAMERS set to false
+Parameter ROTFILE not set. Using default value LovellRotamer.dat
+Parameter RESENTROPYFILE not set. Using default value ResEntropy.dat
+Parameter RAMAGLYFILE not set. Using default value rama500-gly-sym.data
+Parameter RAMAPROFILE not set. Using default value rama500-pro.data
+Parameter RAMAGENFILE not set. Using default value rama500-general.data
+Parameter RAMAPREPROFILE not set. Using default value rama500-prepro.data
+Parameter EW not set. Using default value 0
+Parameter IMINDEE not set. Using default value false
+Parameter DOMINIMIZE not set. Using default value false
+Parameter USETUPEXP not set. Using default value false
+Parameter USEEPIC not set. Using default value false
+Parameter CHECKAPPROXE not set. Using default value true
+Parameter OUTPUTGMECSTRUCT not set. Using default value false
+Parameter RUNNAME set to 4HEM
+Parameter NUMOFSTRANDS set to 2
+Parameter STRANDMUTNUMS set to 16 17
+Parameter STRANDMUTNUMS set to 16 17
+Parameter STRANDMUT0 set to 101 103 117 118 143 368 370 376 378 393 395 406 407 426 453 455
+Parameter STRANDMUT1 set to 644 647 653 657 659 661 662 665 701 702 703 704 705 706 708 709 711
+Parameter RESALLOWED0_0 set to ASN
+Parameter RESALLOWED0_1 set to ASN 
+Parameter RESALLOWED0_2 set to ASN TRP LEU LYS PHE
+Parameter RESALLOWED0_3 set to ARG TRP LEU LYS PHE
+Parameter RESALLOWED0_4 set to GLN TRP LEU LYS PHE
+Parameter RESALLOWED0_5 set to SER TRP LEU LYS PHE
+Parameter RESALLOWED0_6 set to GLU
+Parameter RESALLOWED0_7 set to ILE
+Parameter RESALLOWED0_8 set to SER
+Parameter RESALLOWED0_9 set to GLU
+Parameter RESALLOWED0_10 set to SER
+Parameter RESALLOWED0_11 set to ASN
+Parameter RESALLOWED0_12 set to ARG
+Parameter RESALLOWED0_13 set to VAL
+Parameter RESALLOWED0_14 set to THR
+Parameter RESALLOWED0_15 set to ARG
+Parameter RESALLOWED1_0 set to GLU
+Parameter RESALLOWED1_1 set to PHE
+Parameter RESALLOWED1_2 set to GLN
+Parameter RESALLOWED1_3 set to HIE
+Parameter RESALLOWED1_4 set to TYR
+Parameter RESALLOWED1_5 set to ARG
+Parameter RESALLOWED1_6 set to ASN
+Parameter RESALLOWED1_7 set to LYS
+Parameter RESALLOWED1_8 set to ASN
+Parameter RESALLOWED1_9 set to TYR
+Parameter RESALLOWED1_10 set to TYR
+Parameter RESALLOWED1_11 set to TYR
+Parameter RESALLOWED1_12 set to THR
+Parameter RESALLOWED1_13 set to ARG
+Parameter RESALLOWED1_14 set to TYR
+Parameter RESALLOWED1_15 set to GLU
+Parameter RESALLOWED1_16 set to ASP
+Parameter STRANDROTTRANS0 set to false
+Parameter STRANDROTTRANS1 set to false
+Parameter STRANDROTTRANS0 set to false
+Parameter STRANDROTTRANS1 set to false
+Parameter RUNNAME set to 4HEM
+Parameter DOPERTURBATIONS not set. Using default value false
+Parameter PERTURBATIONFILE not set. Using default value none
+Parameter SELECTPERTURBATIONS not set. Using default value true
+Parameter STARTINGPERTURBATIONFILE not set. Using default value none
+Parameter ONLYSTARTINGPERTURBATIONS not set. Using default value false
+Parameter MAXSHEARPARAM not set. Using default value 2.5
+Parameter MAXBACKRUBPARAM not set. Using default value 2.5
+Parameter SELECTLCAS not set. Using default value false
+Parameter PDBNAME set to 06-4HEM_clean.min2st_renumber_12shell.pdb
+Parameter RUNNAME set to 4HEM
+Parameter DOPERTURBATIONS not set. Using default value false
+Parameter PERTURBATIONFILE not set. Using default value none
+Parameter SELECTPERTURBATIONS not set. Using default value true
+Parameter STARTINGPERTURBATIONFILE not set. Using default value none
+Parameter ONLYSTARTINGPERTURBATIONS not set. Using default value false
+Parameter MAXSHEARPARAM not set. Using default value 2.5
+Parameter MAXBACKRUBPARAM not set. Using default value 2.5
+Parameter SELECTLCAS not set. Using default value false
+Parameter PDBNAME set to 06-4HEM_clean.min2st_renumber_12shell.pdb
+Parameter RUNNAME set to 4HEM
+Parameter DOPERTURBATIONS not set. Using default value false
+Parameter PERTURBATIONFILE not set. Using default value none
+Parameter SELECTPERTURBATIONS not set. Using default value true
+Parameter STARTINGPERTURBATIONFILE not set. Using default value none
+Parameter ONLYSTARTINGPERTURBATIONS not set. Using default value false
+Parameter MAXSHEARPARAM not set. Using default value 2.5
+Parameter MAXBACKRUBPARAM not set. Using default value 2.5
+Parameter SELECTLCAS not set. Using default value false
+Parameter PDBNAME set to 06-4HEM_clean.min2st_renumber_12shell.pdb
+Parameter STRAND0 set to 99 460
+Parameter STRAND0 set to 99 460
+Parameter STRAND1 set to 601 713
+Parameter STRAND1 set to 601 713
+Parameter PDBNAME set to 06-4HEM_clean.min2st_renumber_12shell.pdb
+Parameter ADDWT set to true
+Parameter ADDWTROTS set to true
+Parameter DOMINIMIZE not set. Using default value false
+Parameter USEEPIC not set. Using default value false
+Parameter USEEPIC not set. Using default value false
+Parameter EPICTHRESH1 not set. Using default value 10
+Parameter EPICTHRESH2 not set. Using default value 25
+Parameter EPICGOALRESID not set. Using default value 0.0001
+Parameter USESAPE not set. Using default value true
+Parameter EPICUSEPC not set. Using default value true
+Parameter MINPARTIALCONFS not set. Using default value true
+Parameter USETUPEXP not set. Using default value false
+Parameter USEELLIPSES not set. Using default value false
+Parameter USEEREF not set. Using default value false
+Parameter ADDRESENTROPY not set. Using default value false
+Parameter ADDWT set to true
+Parameter ADDWTROTS set to true
+Parameter DOMINIMIZE not set. Using default value false
+Parameter USEEPIC not set. Using default value false
+Parameter USEEPIC not set. Using default value false
+Parameter EPICTHRESH1 not set. Using default value 10
+Parameter EPICTHRESH2 not set. Using default value 25
+Parameter EPICGOALRESID not set. Using default value 0.0001
+Parameter USESAPE not set. Using default value true
+Parameter EPICUSEPC not set. Using default value true
+Parameter MINPARTIALCONFS not set. Using default value true
+Parameter USETUPEXP not set. Using default value false
+Parameter USEELLIPSES not set. Using default value false
+Parameter USEEREF not set. Using default value false
+Parameter ADDRESENTROPY not set. Using default value false
+Parameter ADDWT set to true
+Parameter ADDWTROTS set to true
+Parameter DOMINIMIZE not set. Using default value false
+Parameter USEEPIC not set. Using default value false
+Parameter USEEPIC not set. Using default value false
+Parameter EPICTHRESH1 not set. Using default value 10
+Parameter EPICTHRESH2 not set. Using default value 25
+Parameter EPICGOALRESID not set. Using default value 0.0001
+Parameter USESAPE not set. Using default value true
+Parameter EPICUSEPC not set. Using default value true
+Parameter MINPARTIALCONFS not set. Using default value true
+Parameter USETUPEXP not set. Using default value false
+Parameter USEELLIPSES not set. Using default value false
+Parameter USEEREF not set. Using default value false
+Parameter ADDRESENTROPY not set. Using default value false
+Parameter RESALLOWED0_0 set to ASN
+Parameter RESALLOWED0_1 set to ASN 
+Parameter RESALLOWED0_2 set to ASN TRP LEU LYS PHE
+Parameter RESALLOWED0_3 set to ARG TRP LEU LYS PHE
+Parameter RESALLOWED0_4 set to GLN TRP LEU LYS PHE
+Parameter RESALLOWED0_5 set to SER TRP LEU LYS PHE
+Parameter RESALLOWED0_6 set to GLU
+Parameter RESALLOWED0_7 set to ILE
+Parameter RESALLOWED0_8 set to SER
+Parameter RESALLOWED0_9 set to GLU
+Parameter RESALLOWED0_10 set to SER
+Parameter RESALLOWED0_11 set to ASN
+Parameter RESALLOWED0_12 set to ARG
+Parameter RESALLOWED0_13 set to VAL
+Parameter RESALLOWED0_14 set to THR
+Parameter RESALLOWED0_15 set to ARG
+Parameter RESALLOWED1_0 set to GLU
+Parameter RESALLOWED1_1 set to PHE
+Parameter RESALLOWED1_2 set to GLN
+Parameter RESALLOWED1_3 set to HIE
+Parameter RESALLOWED1_4 set to TYR
+Parameter RESALLOWED1_5 set to ARG
+Parameter RESALLOWED1_6 set to ASN
+Parameter RESALLOWED1_7 set to LYS
+Parameter RESALLOWED1_8 set to ASN
+Parameter RESALLOWED1_9 set to TYR
+Parameter RESALLOWED1_10 set to TYR
+Parameter RESALLOWED1_11 set to TYR
+Parameter RESALLOWED1_12 set to THR
+Parameter RESALLOWED1_13 set to ARG
+Parameter RESALLOWED1_14 set to TYR
+Parameter RESALLOWED1_15 set to GLU
+Parameter RESALLOWED1_16 set to ASP
+Parameter STRANDMUT0 set to 101 103 117 118 143 368 370 376 378 393 395 406 407 426 453 455
+Parameter STRANDMUT1 set to 644 647 653 657 659 661 662 665 701 702 703 704 705 706 708 709 711
+Parameter PDBNAME set to 06-4HEM_clean.min2st_renumber_12shell.pdb
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter RESALLOWED0_0 set to ASN
+Parameter RESALLOWED0_1 set to ASN 
+Parameter RESALLOWED0_2 set to ASN TRP LEU LYS PHE
+Parameter RESALLOWED0_3 set to ARG TRP LEU LYS PHE
+Parameter RESALLOWED0_4 set to GLN TRP LEU LYS PHE
+Parameter RESALLOWED0_5 set to SER TRP LEU LYS PHE
+Parameter RESALLOWED0_6 set to GLU
+Parameter RESALLOWED0_7 set to ILE
+Parameter RESALLOWED0_8 set to SER
+Parameter RESALLOWED0_9 set to GLU
+Parameter RESALLOWED0_10 set to SER
+Parameter RESALLOWED0_11 set to ASN
+Parameter RESALLOWED0_12 set to ARG
+Parameter RESALLOWED0_13 set to VAL
+Parameter RESALLOWED0_14 set to THR
+Parameter RESALLOWED0_15 set to ARG
+Parameter RESALLOWED1_0 set to GLU
+Parameter RESALLOWED1_1 set to PHE
+Parameter RESALLOWED1_2 set to GLN
+Parameter RESALLOWED1_3 set to HIE
+Parameter RESALLOWED1_4 set to TYR
+Parameter RESALLOWED1_5 set to ARG
+Parameter RESALLOWED1_6 set to ASN
+Parameter RESALLOWED1_7 set to LYS
+Parameter RESALLOWED1_8 set to ASN
+Parameter RESALLOWED1_9 set to TYR
+Parameter RESALLOWED1_10 set to TYR
+Parameter RESALLOWED1_11 set to TYR
+Parameter RESALLOWED1_12 set to THR
+Parameter RESALLOWED1_13 set to ARG
+Parameter RESALLOWED1_14 set to TYR
+Parameter RESALLOWED1_15 set to GLU
+Parameter RESALLOWED1_16 set to ASP
+Parameter STRANDMUT0 set to 101 103 117 118 143 368 370 376 378 393 395 406 407 426 453 455
+Parameter STRANDMUT1 set to 644 647 653 657 659 661 662 665 701 702 703 704 705 706 708 709 711
+Parameter PDBNAME set to 06-4HEM_clean.min2st_renumber_12shell.pdb
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter RESALLOWED0_0 set to ASN
+Parameter RESALLOWED0_1 set to ASN 
+Parameter RESALLOWED0_2 set to ASN TRP LEU LYS PHE
+Parameter RESALLOWED0_3 set to ARG TRP LEU LYS PHE
+Parameter RESALLOWED0_4 set to GLN TRP LEU LYS PHE
+Parameter RESALLOWED0_5 set to SER TRP LEU LYS PHE
+Parameter RESALLOWED0_6 set to GLU
+Parameter RESALLOWED0_7 set to ILE
+Parameter RESALLOWED0_8 set to SER
+Parameter RESALLOWED0_9 set to GLU
+Parameter RESALLOWED0_10 set to SER
+Parameter RESALLOWED0_11 set to ASN
+Parameter RESALLOWED0_12 set to ARG
+Parameter RESALLOWED0_13 set to VAL
+Parameter RESALLOWED0_14 set to THR
+Parameter RESALLOWED0_15 set to ARG
+Parameter RESALLOWED1_0 set to GLU
+Parameter RESALLOWED1_1 set to PHE
+Parameter RESALLOWED1_2 set to GLN
+Parameter RESALLOWED1_3 set to HIE
+Parameter RESALLOWED1_4 set to TYR
+Parameter RESALLOWED1_5 set to ARG
+Parameter RESALLOWED1_6 set to ASN
+Parameter RESALLOWED1_7 set to LYS
+Parameter RESALLOWED1_8 set to ASN
+Parameter RESALLOWED1_9 set to TYR
+Parameter RESALLOWED1_10 set to TYR
+Parameter RESALLOWED1_11 set to TYR
+Parameter RESALLOWED1_12 set to THR
+Parameter RESALLOWED1_13 set to ARG
+Parameter RESALLOWED1_14 set to TYR
+Parameter RESALLOWED1_15 set to GLU
+Parameter RESALLOWED1_16 set to ASP
+Parameter STRANDMUT0 set to 101 103 117 118 143 368 370 376 378 393 395 406 407 426 453 455
+Parameter STRANDMUT1 set to 644 647 653 657 659 661 662 665 701 702 703 704 705 706 708 709 711
+Parameter PDBNAME set to 06-4HEM_clean.min2st_renumber_12shell.pdb
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Parameter ADDWT set to true
+Precomputing Energy Matrix for 4HEM_Bound state
+Initializing Pruning for 4HEM_Bound state
+PRECOMPUTING COMPETITOR PRUNING MATRIX
+Parameter TYPEDEP set to TRUE
+Parameter BOUNDSTHRESH not set. Using default value 100
+Parameter ALGOPTION set to 1
+Parameter USEFLAGS not set. Using default value true
+Parameter USETRIPLES not set. Using default value false
+Parameter STERICTHRESH set to 100
+
+BEGINNING PRUNING.  PRUNING INTERVAL: 0.0
+
+Starting DEE cycle run: 0
+Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+Num pruned rot this run: 384
+Num pruned pairs this run: 0
+
+Starting DEE cycle run: 1
+Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+Num pruned rot this run: 0
+Num pruned pairs this run: 0
+
+Pruning time: 575 ms
+COMPETITOR PRUNING DONE
+Parameter TYPEDEP set to TRUE
+Parameter BOUNDSTHRESH not set. Using default value 100
+Parameter ALGOPTION set to 1
+Parameter USEFLAGS not set. Using default value true
+Parameter USETRIPLES not set. Using default value false
+Parameter STERICTHRESH set to 100
+
+BEGINNING PRUNING.  PRUNING INTERVAL: 40.0
+
+Starting steric pruning.
+Pruned 189 in 1-body steric pruning
+Pruned 1344 in 2-body steric pruning
+Starting DEE cycle run: 0
+Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+Num pruned rot this run: 157
+Num pruned pairs this run: 0
+
+Starting DEE cycle run: 1
+Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+Num pruned rot this run: 0
+Num pruned pairs this run: 0
+
+Pruning time: 360 ms
+Precomputing Energy Matrix for 4HEM_strand1 state
+Initializing Pruning for 4HEM_strand1 state
+PRECOMPUTING COMPETITOR PRUNING MATRIX
+Parameter TYPEDEP set to TRUE
+Parameter BOUNDSTHRESH not set. Using default value 100
+Parameter ALGOPTION set to 1
+Parameter USEFLAGS not set. Using default value true
+Parameter USETRIPLES not set. Using default value false
+Parameter STERICTHRESH set to 100
+
+BEGINNING PRUNING.  PRUNING INTERVAL: 0.0
+
+Starting DEE cycle run: 0
+Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+Num pruned rot this run: 297
+Num pruned pairs this run: 0
+
+Starting DEE cycle run: 1
+Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+Num pruned rot this run: 0
+Num pruned pairs this run: 0
+
+Pruning time: 131 ms
+COMPETITOR PRUNING DONE
+Parameter TYPEDEP set to TRUE
+Parameter BOUNDSTHRESH not set. Using default value 100
+Parameter ALGOPTION set to 1
+Parameter USEFLAGS not set. Using default value true
+Parameter USETRIPLES not set. Using default value false
+Parameter STERICTHRESH set to 100
+
+BEGINNING PRUNING.  PRUNING INTERVAL: 40.0
+
+Starting steric pruning.
+Pruned 140 in 1-body steric pruning
+Pruned 308 in 2-body steric pruning
+Starting DEE cycle run: 0
+Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+Num pruned rot this run: 48
+Num pruned pairs this run: 0
+
+Starting DEE cycle run: 1
+Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+Num pruned rot this run: 0
+Num pruned pairs this run: 0
+
+Pruning time: 68 ms
+Precomputing Energy Matrix for 4HEM_strand2 state
+Initializing Pruning for 4HEM_strand2 state
+PRECOMPUTING COMPETITOR PRUNING MATRIX
+Parameter TYPEDEP set to TRUE
+Parameter BOUNDSTHRESH not set. Using default value 100
+Parameter ALGOPTION set to 1
+Parameter USEFLAGS not set. Using default value true
+Parameter USETRIPLES not set. Using default value false
+Parameter STERICTHRESH set to 100
+
+BEGINNING PRUNING.  PRUNING INTERVAL: 0.0
+
+Starting DEE cycle run: 0
+Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+Num pruned rot this run: 160
+Num pruned pairs this run: 0
+
+Starting DEE cycle run: 1
+Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+Num pruned rot this run: 0
+Num pruned pairs this run: 0
+
+Pruning time: 16 ms
+COMPETITOR PRUNING DONE
+Parameter TYPEDEP set to TRUE
+Parameter BOUNDSTHRESH not set. Using default value 100
+Parameter ALGOPTION set to 1
+Parameter USEFLAGS not set. Using default value true
+Parameter USETRIPLES not set. Using default value false
+Parameter STERICTHRESH set to 100
+
+BEGINNING PRUNING.  PRUNING INTERVAL: 40.0
+
+Starting steric pruning.
+Pruned 42 in 1-body steric pruning
+Pruned 350 in 2-body steric pruning
+Starting DEE cycle run: 0
+Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+Num pruned rot this run: 48
+Num pruned pairs this run: 0
+
+Starting DEE cycle run: 1
+Starting pruning with GOLDSTEIN FOR 1 POSITION(S)
+Num pruned rot this run: 0
+Num pruned pairs this run: 0
+
+Pruning time: 17 ms
+ ASN XXX XXX XXX
+Score: -361.5378658483403
+ TRP XXX XXX XXX

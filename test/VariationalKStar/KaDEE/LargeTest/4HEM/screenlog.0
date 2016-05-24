@@ -1,0 +1,783 @@
+rm screenlog.0 
+[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ls
+./   01_Run/  03_Run/  05_Run/	07_Run/  09_Run/  11_Run/  13_Run/  15_Run/  17_Run/  19_Run/  21_Run/	23_Run/  25_Run/  27_Run/  29_Run/  DEE.cfg    kstar.py*   run.sh*	System.cfg
+../  02_Run/  04_Run/  06_Run/	08_Run/  10_Run/  12_Run/  14_Run/  16_Run/  18_Run/  20_Run/  22_Run/	24_Run/  26_Run/  28_Run/  30_Run/  KStar.cfg  runAll.py*  screenlog.0
+[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ./r
+runAll.py* run.sh*    
+[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ./runAll.py 
+Executing in 13_Run
+Executing in 14_Run
+Executing in 15_Run
+Executing in 16_Run
+^CExecuting in 17_Run
+^Crm: cannot remove ‘*.dat’: No such file or directory
+Executing in 18_Run
+^Crm: cannot remove ‘*.dat’: No such file or directory
+Executing in 19_Run
+^Crm: cannot remove ‘*.dat’: No such file or directory
+Executing in 20_Run
+^CExecuting in 01_Run
+^C^CExecuting in 03_Run
+^C^C^CTraceback (most recent call last):
+  File "./runAll.py", line 18, in <module>
+    main()
+  File "./runAll.py", line 10, in main
+    if os.path.isdir(subDir):
+  File "/usr/lib/python2.7/genericpath.py", line 41, in isdir
+    st = os.stat(s)
+KeyboardInterrupt
+^C
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ./runAll.py
+Executing in 13_Run
+Executing in 14_Run
+Executing in 15_Run
+Executing in 16_Run
+Executing in 17_Run
+^C^C^CExecuting in 18_Run
+^C^CExecuting in 19_Run
+^Crm: cannot remove ‘*.dat’: No such file or directory
+Executing in 20_Run
+^C^C^C^C^C^C^CExecuting in 01_Run
+^C^CExecuting in 03_Run
+^Crm: cannot remove ‘*.dat’: No such file or directory
+Executing in 04_Run
+^C^C^C^CExecuting in 05_Run
+^C^C^C^C^C^C^C^C^C^C^C^CExecuting in 06_Run
+^C^C^C^C^C^CExecuting in 07_Run
+^C^C^C^C^C^C^C^C^CExecuting in 08_Run
+^C^C^CExecuting in 09_Run
+^C^C^C^CExecuting in 21_Run
+^C^C^C^Crm: cannot remove ‘*.dat’: No such file or directory
+Executing in 10_Run
+^C^C^C^C^C^C^C^CExecuting in 11_Run
+^C^C^C^C^C^C^C^C^C^CTraceback (most recent call last):
+  File "./runAll.py", line 18, in <module>
+    main()
+  File "./runAll.py", line 11, in main
+    os.chdir(subDir)
+KeyboardInterrupt
+^C
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ,.r[K[Kr[K[K./r
+runAll.py* run.sh*    
+[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ./runAll.py 
+Executing in 13_Run
+Executing in 14_Run
+Executing in 15_Run
+Executing in 16_Run
+Executing in 17_Run
+Executing in 18_Run
+Executing in 19_Run
+Executing in 20_Run
+Executing in 01_Run
+Executing in 03_Run
+Executing in 04_Run
+Executing in 05_Run
+Executing in 06_Run
+Executing in 07_Run
+Executing in 08_Run
+Executing in 09_Run
+Executing in 21_Run
+Executing in 10_Run
+Executing in 11_Run
+Executing in 12_Run
+Executing in 02_Run
+Executing in 22_Run
+Executing in 23_Run
+Executing in 24_Run
+java.lang.Throwable
+	at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)
+	at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)
+	at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)
+	at edu.duke.cs.osprey.control.Main.main(Main.java:74)
+Executing in 25_Run
+java.lang.Throwable
+	at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)
+	at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)
+	at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)
+	at edu.duke.cs.osprey.control.Main.main(Main.java:74)
+Executing in 26_Run
+java.lang.Throwable
+	at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)
+	at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)
+	at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)
+	at edu.duke.cs.osprey.control.Main.main(Main.java:74)
+Executing in 27_Run
+java.lang.Throwable
+	at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)
+	at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)
+	at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)
+	at edu.duke.cs.osprey.control.Main.main(Main.java:74)
+Executing in 28_Run
+java.lang.Throwable
+	at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)
+	at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)
+	at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)
+	at edu.duke.cs.osprey.control.Main.main(Main.java:74)
+Executing in 29_Run
+java.lang.Throwable
+	at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)
+	at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)
+	at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)
+	at edu.duke.cs.osprey.control.Main.main(Main.java:74)
+Executing in 30_Run
+java.lang.Throwable
+	at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)
+	at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)
+	at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)
+	at edu.duke.cs.osprey.control.Main.main(Main.java:74)
+[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ./runAll.py[11Dls[Krm screenlog.0[14Dls[Kcd ..[5Dls[Kscreen -r[9Dpwd[Kcat data.txt[11Dd ../28_Run/[12Dat data.txt[K[11Dd ../25_Run/[12Dat data.txt[K[11Dd ../24_Run/[13Dls[Kcat da[5Dd ../23_Run/[12Dat data.txt[K[11Dd ../22_Run/[12Dat data.txt[K[11Dd ../21_Run/[13Dls[Kcd ../20_Run/[12Dat data.txt[K[12Dls[Kcat data.txt[11Dd ../20_Run/
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: cat screenlog.0 
+rm screenlog.0 
+[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ls
+./   01_Run/  03_Run/  05_Run/	07_Run/  09_Run/  11_Run/  13_Run/  15_Run/  17_Run/  19_Run/  21_Run/	23_Run/  25_Run/  27_Run/  29_Run/  DEE.cfg    kstar.py*   run.sh*	System.cfg
+../  02_Run/  04_Run/  06_Run/	08_Run/  10_Run/  12_Run/  14_Run/  16_Run/  18_Run/  20_Run/  22_Run/	24_Run/  26_Run/  28_Run/  30_Run/  KStar.cfg  runAll.py*  screenlog.0
+[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ./r
+runAll.py* run.sh*    
+[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ./runAll.py 
+Executing in 13_Run
+Executing in 14_Run
+Executing in 15_Run
+Executing in 16_Run
+^CExecuting in 17_Run
+^Crm: cannot remove ‘*.dat’: No such file or directory
+Executing in 18_Run
+^Crm: cannot remove ‘*.dat’: No such file or directory
+Executing in 19_Run
+^Crm: cannot remove ‘*.dat’: No such file or directory
+Executing in 20_Run
+^CExecuting in 01_Run
+^C^CExecuting in 03_Run
+^C^C^CTraceback (most recent call last):
+  File "./runAll.py", line 18, in <module>
+    main()
+  File "./runAll.py", line 10, in main
+    if os.path.isdir(subDir):
+  File "/usr/lib/python2.7/genericpath.py", line 41, in isdir
+    st = os.stat(s)
+KeyboardInterrupt
+^C
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ./runAll.py
+Executing in 13_Run
+Executing in 14_Run
+Executing in 15_Run
+Executing in 16_Run
+Executing in 17_Run
+^C^C^CExecuting in 18_Run
+^C^CExecuting in 19_Run
+^Crm: cannot remove ‘*.dat’: No such file or directory
+Executing in 20_Run
+^C^C^C^C^C^C^CExecuting in 01_Run
+^C^CExecuting in 03_Run
+^Crm: cannot remove ‘*.dat’: No such file or directory
+Executing in 04_Run
+^C^C^C^CExecuting in 05_Run
+^C^C^C^C^C^C^C^C^C^C^C^CExecuting in 06_Run
+^C^C^C^C^C^CExecuting in 07_Run
+^C^C^C^C^C^C^C^C^CExecuting in 08_Run
+^C^C^CExecuting in 09_Run
+^C^C^C^CExecuting in 21_Run
+^C^C^C^Crm: cannot remove ‘*.dat’: No such file or directory
+Executing in 10_Run
+^C^C^C^C^C^C^C^CExecuting in 11_Run
+^C^C^C^C^C^C^C^C^C^CTraceback (most recent call last):
+  File "./runAll.py", line 18, in <module>
+    main()
+  File "./runAll.py", line 11, in main
+    os.chdir(subDir)
+KeyboardInterrupt
+^C
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ,.r[K[Kr[K[K./r
+runAll.py* run.sh*    
+[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ./runAll.py 
+Executing in 13_Run
+Executing in 14_Run
+Executing in 15_Run
+Executing in 16_Run
+Executing in 17_Run
+Executing in 18_Run
+Executing in 19_Run
+Executing in 20_Run
+Executing in 01_Run
+Executing in 03_Run
+Executing in 04_Run
+Executing in 05_Run
+Executing in 06_Run
+Executing in 07_Run
+Executing in 08_Run
+Executing in 09_Run
+Executing in 21_Run
+Executing in 10_Run
+Executing in 11_Run
+Executing in 12_Run
+Executing in 02_Run
+Executing in 22_Run
+Executing in 23_Run
+Executing in 24_Run
+java.lang.Throwable
+	at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)
+	at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)
+	at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)
+	at edu.duke.cs.osprey.control.Main.main(Main.java:74)
+Executing in 25_Run
+java.lang.Throwable
+	at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)
+	at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)
+	at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)
+	at edu.duke.cs.osprey.control.Main.main(Main.java:74)
+Executing in 26_Run
+java.lang.Throwable
+	at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)
+	at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)
+	at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)
+	at edu.duke.cs.osprey.control.Main.main(Main.java:74)
+Executing in 27_Run
+java.lang.Throwable
+	at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)
+	at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)
+	at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)
+	at edu.duke.cs.osprey.control.Main.main(Main.java:74)
+Executing in 28_Run
+java.lang.Throwable
+	at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)
+	at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)
+	at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)
+	at edu.duke.cs.osprey.control.Main.main(Main.java:74)
+Executing in 29_Run
+java.lang.Throwable
+	at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)
+	at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)
+	at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)
+	at edu.duke.cs.osprey.control.Main.main(Main.java:74)
+Executing in 30_Run
+java.lang.Throwable
+	at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)
+	at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)
+	at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)
+	at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)
+	at edu.duke.cs.osprey.control.Main.main(Main.java:74)
+[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ./runAll.py[11Dls[Krm screenlog.0[14Dls[Kcd ..[5Dls[Kscreen -r[9Dpwd[Kcat data.txt[11Dd ../28_Run/[12Dat data.txt[K[11Dd ../25_Run/[12Dat data.txt[K[11Dd ../24_Run/[13Dls[Kcat da[5Dd ../23_Run/[12Dat data.txt[K[11Dd ../22_Run/[12Dat data.txt[K[11Dd ../21_Run/[13Dls[Kcd ../20_Run/[12Dat data.txt[K[12Dls[Kcat data.txt[11Dd ../20_Run/[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: cat screenlog.0[15D./runAll.py[K[11Dls[Krm screenlog.0[14Dls[Kcd ..[5Dls[Kscreen -r[9Dpwd[Kcat data.txt[11Dd ../28_Run/[12Dat data.txt[K[11Dd ../25_Run/[12Dat data.txt[K[11Dd ../24_Run/[13Dls[Kcat da[5Dd ../23_Run/[12Dat data.txt[K[11Dd ../22_Run/[12Dat data.txt[K[11Dd ../21_Run/[13Dls[Kcd ../20_Run/[12Dat data.txt[K[12Dls[Kcd ../19_Run/[12Dat data.txt[K[11Dd ../18_Run/[12Dat data.txt[K[12Dls[Kcat data.txt[11Dd ../18_Run/[12Dat data.txt[K[11Dd ../19_Run/[13Dls[Kcat data.txt[11Dd ../20_Run/[13Dls[Kcd ../21_Run/[12Dat data.txt[K[11Dd ../22_Run/[12Dat data.txt[K[11Dd ../23_Run/[12Dat da[K[6Dls[Kcd ../24_Run/[12Dat data.txt[K[11Dd ../25_Run/[12Dat data.txt[K[11Dd ../28_Run/[12Dat data.txt[K[12Dpwd[Kscreen -r[9Dls[Kscreen -r[9Dpwd[Kcat data.txt[11Dd ../28_Run/[12Dat data.txt[K[11Dd ../25_Run/[12Dat data.txt[K[11Dd ../24_Run/[13Dls[Kcat da[5Dd ../23_Run/[12Dat data.txt[K[11Dd ../22_Run/[12Dat data.txt[K[11Dd ../21_Run/[13Dls[Kcd ../20_Run/[12Dat data.txt[K[12Dls[Kcd ../19_Run/[12Dat data.txt[K[11Dd ../19_Run/[13Dls[Kcat data.txt[11Dd ../20_Run/[13Dls[Kcd ../21_Run/[12Dat data.txt[K[11Dd ../22_Run/[12Dat data.txt[K[11Dd ../23_Run/[12Dat da[K[6Dls[Kcd ../24_Run/[12Dat data.txt[K[11Dd ../25_Run/[12Dat data.txt[K[11Dd ../28_Run/[12Dat data.txt[K[12Dpwd[Kscreen -r[9Dls[K
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: 
+[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: emacs screenlog.0	
+[?1049h[34l[?1h=[H[J[75;1H[K[?1l>[34h[?25h[?1049l[39;49m[?1049h[34l[?1h=[H[J[74;1H[?25l[3m-UUU:----F1  [0m[39;49m[23m[3m[1m*scratch*   [0m[39;49m[23m[3m   All L1     (Lisp Interaction FlyC AC) ---------------------------------------------------------------------------------------------------------------------------------------------------------------[0m[39;49m[23m
+M[H
+[34h[?25h[34l[75;1H[?25lLoading term/xterm...done[K[H
+[34h[?25h[34l[75;1H[?25lFor information about GNU Emacs and the GNU system, type C-h C-a.[K[H
+[34h[?25h[34l[75;1H[?25lError reading dir-locals: (file-error "Opening input file" "no such file or directory" "/usr/project/.dir-locals.el")[H
+[34h[?25h[34l[75;1H[?25lError reading dir-locals: (file-error "Opening input file" "no such file or directory" "/usr/project/.dir-locals.el")[K[H[3mFile Edit Options Buffers Tools Text Help                                                                                                                                                                                        [0m[39;49m[23m
+M
+rm screenlog.0 [36m^M[39;49m[K
+[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ls[36m^M[39;49m[K
+./   01_Run/  03_Run/  05_Run/  07_Run/  09_Run/  11_Run/  13_Run/  15_Run/  17_Run/  19_Run/  21_Run/  23_Run/  25_Run/  27_Run/  29_Run/  DEE.cfg    kstar.py*   run.sh*      System.cfg[K
+../  02_Run/  04_Run/  06_Run/  08_Run/  10_Run/  12_Run/  14_Run/  16_Run/  18_Run/  20_Run/  22_Run/  24_Run/  26_Run/  28_Run/  30_Run/  KStar.cfg  runAll.py*  screenlog.0[K
+[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ./r[36m^G^M[39;49m[K
+runAll.py* run.sh*    [36m^M[39;49m[K
+[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ./runAll.py [36m^M[39;49m[K
+Executing in 13_Run[K
+Executing in 14_Run[K
+Executing in 15_Run[K
+Executing in 16_Run[K
+^CExecuting in 17_Run[K
+^Crm: cannot remove ‘*.dat’: No such file or directory[K
+Executing in 18_Run[K
+^Crm: cannot remove ‘*.dat’: No such file or directory[K
+Executing in 19_Run[K
+^Crm: cannot remove ‘*.dat’: No such file or directory[K
+Executing in 20_Run[K
+^CExecuting in 01_Run[K
+^C^CExecuting in 03_Run[K
+^C^C^CTraceback (most recent call last):[K
+  File "./runAll.py", line 18, in <module>[K
+    main()[K
+  File "./runAll.py", line 10, in main[K
+    if os.path.isdir(subDir):[K
+  File "/usr/lib/python2.7/genericpath.py", line 41, in isdir[K
+    st = os.stat(s)[K
+KeyboardInterrupt[K
+^C[36m^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ./runAll.py[36m^M[39;49m[K
+Executing in 13_Run[K
+Executing in 14_Run[K
+Executing in 15_Run[K
+Executing in 16_Run[K
+Executing in 17_Run[K
+^C^C^CExecuting in 18_Run[K
+^C^CExecuting in 19_Run[K
+^Crm: cannot remove ‘*.dat’: No such file or directory[K
+Executing in 20_Run[K
+^C^C^C^C^C^C^CExecuting in 01_Run[K
+^C^CExecuting in 03_Run[K
+^Crm: cannot remove ‘*.dat’: No such file or directory[K
+Executing in 04_Run[K
+^C^C^C^CExecuting in 05_Run[K
+^C^C^C^C^C^C^C^C^C^C^C^CExecuting in 06_Run[K
+^C^C^C^C^C^CExecuting in 07_Run[K
+^C^C^C^C^C^C^C^C^CExecuting in 08_Run[K
+^C^C^CExecuting in 09_Run[K
+^C^C^C^CExecuting in 21_Run[K
+^C^C^C^Crm: cannot remove ‘*.dat’: No such file or directory[K
+Executing in 10_Run[K
+^C^C^C^C^C^C^C^CExecuting in 11_Run[K
+^C^C^C^C^C^C^C^C^C^CTraceback (most recent call last):[K
+  File "./runAll.py", line 18, in <module>[K
+    main()[K
+  File "./runAll.py", line 11, in main[K
+    os.chdir(subDir)[K
+KeyboardInterrupt[K
+^C[36m^M[39;49m[K
+[3m-UUU(DOS)----F1  [0m[39;49m[23m[3m[1mscreenlog.0 [0m[39;49m[23m[3m   Top L1     (Text FlyC- Fill) --------------------------------------------------------------------------------------------------------------------------------------------------------------------[0m[39;49m[23m
+M[H
+[34h[?25h[34l[1;43r[11;1H[20M[1;75r[75;1H[K[H
+[?25lKeyboardInterrupt
+^C[36m^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M[39;49m
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M[39;49m
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M[39;49m[24;1H[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ,.r[36m^G^H^[[39;49m[K[36m^H^[[39;49m[Kr[36m^G^H^[[39;49m[K[36m^H^[[39;49m[K./r[36m^G^M[39;49m[K
+runAll.py* run.sh*    [36m^M[39;49m[K
+[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ./runAll.py [36m^M[39;49m[K
+Executing in 13_Run[K
+Executing in 14_Run[K
+Executing in 15_Run[K
+Executing in 16_Run[K
+Executing in 17_Run[K
+Executing in 18_Run[K
+Executing in 19_Run[K
+Executing in 20_Run[K
+Executing in 01_Run[K
+Executing in 03_Run[K
+Executing in 04_Run[K
+Executing in 05_Run[K
+Executing in 06_Run[K
+07
+08
+09
+21
+0
+Executing in 11_Run[K
+Executing in 12_Run[K
+Executing in 02_Run[K
+2
+Executing in 23_Run[K
+Executing in 24_Run[K
+java.lang.Throwable[K
+        at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)
+        at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)
+        at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)
+        at edu.duke.cs.osprey.control.Main.main(Main.java:74)
+Executing in 25_Run[K
+java.lang.Throwable
+        at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)[68;3H      at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)[69;5H    at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)[70;3H      at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)[71;5H    at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)
+        at edu.duke.cs.osprey.control.Main.main(Main.java:74)
+Executing in 26_Run
+		[3m15% L71[0m[39;49m[23m[H
+[34h[?25h[34l[74;39H[?25l[3m2[0m[39;49m[23m[H
+
+[34h[?25h[34l[74;39H[?25l[3m3[0m[39;49m[23m[4;1H[34h[?25h[34l[74;39H[?25l[3m4[0m[39;49m[23m[5;1H[34h[?25h[34l[74;39H[?25l[3m5[0m[39;49m[23m[6;1H[34h[?25h[34l[74;39H[?25l[3m6[0m[39;49m[23m[7;1H[34h[?25h[34l[74;39H[?25l[3m7[0m[39;49m[23m[8;1H[34h[?25h[34l[74;39H[?25l[3m8[0m[39;49m[23m[9;1H[34h[?25h[34l[74;39H[?25l[3m9[0m[39;49m[23m[10;1H[34h[?25h[34l[74;38H[?25l[3m80[0m[39;49m[23m[11;1H[34h[?25h[34l[74;39H[?25l[3m1[0m[39;49m[23m[12;1H[34h[?25h[34l[74;39H[?25l[3m2[0m[39;49m[23m[13;1H[34h[?25h[34l[74;39H[?25l[3m3[0m[39;49m[23m[14;1H[34h[?25h[34l[74;39H[?25l[3m4[0m[39;49m[23m[15;1H[34h[?25h[34l[74;39H[?25l[3m5[0m[39;49m[23m[16;1H[34h[?25h[34l[74;39H[?25l[3m6[0m[39;49m[23m[17;1H[34h[?25h[34l[74;39H[?25l[3m7[0m[39;49m[23m[18;1H[34h[?25h[34l[74;39H[?25l[3m8[0m[39;49m[23m[19;1H[34h[?25h[34l[74;39H[?25l[3m9[0m[39;49m[23m[20;1H[34h[?25h[34l[74;38H[?25l[3m90[0m[39;49m[23m[21;1H[34h[?25h[34l[74;39H[?25l[3m1[0m[39;49m[23m[22;1H[34h[?25h[34l[74;39H[?25l[3m2[0m[39;49m[23m[23;1H[34h[?25h[34l[74;39H[?25l[3m3[0m[39;49m[23m[24;1H[34h[?25h[34l[74;39H[?25l[3m4[0m[39;49m[23m[25;1H[34h[?25h[34l[74;39H[?25l[3m5[0m[39;49m[23m[26;1H[34h[?25h[34l[74;39H[?25l[3m6[0m[39;49m[23m[27;1H[34h[?25h[34l[74;39H[?25l[3m7[0m[39;49m[23m[28;1H[34h[?25h[34l[74;39H[?25l[3m8[0m[39;49m[23m[29;1H[34h[?25h[34l[74;39H[?25l[3m9[0m[39;49m[23m[30;1H[34h[?25h[34l[74;38H[?25l[3m100[0m[39;49m[23m[31;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[32;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[33;1H[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23m[34;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[35;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[36;1H[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23m[37;1H[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23m[38;1H[34h[?25h[34l[74;40H[?25l[3m8[0m[39;49m[23m[39;1H[34h[?25h[34l[74;40H[?25l[3m9[0m[39;49m[23m[40;1H[34h[?25h[34l[74;39H[?25l[3m10[0m[39;49m[23m[41;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[42;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[43;1H[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23m[44;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[45;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[46;1H[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23m[47;1H[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23m[48;1H[34h[?25h[34l[74;40H[?25l[3m8[0m[39;49m[23m[49;1H[34h[?25h[34l[74;40H[?25l[3m9[0m[39;49m[23m[50;1H[34h[?25h[34l[74;39H[?25l[3m20[0m[39;49m[23m[51;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[52;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[53;1H[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23m[54;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[55;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[56;1H[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23m[57;1H[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23m[58;1H[34h[?25h[34l[74;40H[?25l[3m8[0m[39;49m[23m[59;1H[34h[?25h[34l[74;40H[?25l[3m9[0m[39;49m[23m[60;1H[34h[?25h[34l[74;39H[?25l[3m30[0m[39;49m[23m[61;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[62;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[63;1H[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23m[64;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[63;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[62;1H[34h[?25h[34l[74;40H[?25l[3m0[0m[39;49m[23m[61;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[62;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[63;1H[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23m[64;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[65;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[66;1H[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23m[67;1H[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23m[68;1H[34h[?25h[34l[74;40H[?25l[3m8[0m[39;49m[23m[69;1H[34h[?25h[34l[74;40H[?25l[3m9[0m[39;49m[23m[70;1H[34h[?25h[34l[74;39H[?25l[3m40[0m[39;49m[23m[71;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23mMM[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23mM[34h[?25h[34l[H
+[?25lExecuting in 19_Run
+Executing in 20_Run
+Executing in 01_Run[K
+Executing in 03_Run[K
+Executing in 04_Run[K
+Executing in 05_Run[K
+Executing in 06_Run[K
+Executing in 07_Run[K
+Executing in 08_Run[K
+Executing in 09_Run[K
+Executing in 21_Run[K
+Executing in 10_Run[K
+Executing in 11_Run[K
+Executing in 12_Run[K
+Executing in 02_Run[K
+Executing in 22_Run[K
+Executing in 23_Run[K
+Executing in 24_Run[K
+java.lang.Throwable[K
+        at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)[K
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)[K
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)
+        at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)[K
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)
+        at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)[K
+        at edu.duke.cs.osprey.control.Main.main(Main.java:74)[K
+Executing in 25_Run[K
+java.lang.Throwable[K
+        at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)[K
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)
+        at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)
+        at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)
+        at edu.duke.cs.osprey.control.Main.main(Main.java:74)[37;14H26
+java.lang.Throwable
+        at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)
+        at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)
+        at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)
+        at edu.duke.cs.osprey.control.Main.main(Main.java:74)[46;14H27
+java.lang.Throwable
+        at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)
+        at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)
+        at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)
+        at edu.duke.cs.osprey.control.Main.main(Main.java:74)[55;15H8[64;15H9[73;14H30
+			[3m26% L143[0m[39;49m[23m[38;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[39;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[40;1H[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23m[41;1H[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23m[42;1H[34h[?25h[34l[74;40H[?25l[3m8[0m[39;49m[23m[43;1H[34h[?25h[34l[74;40H[?25l[3m9[0m[39;49m[23m[44;1H[34h[?25h[34l[74;39H[?25l[3m50[0m[39;49m[23m[45;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[46;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[47;1H[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23m[48;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[49;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[50;1H[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23m[51;1H[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23m[52;1H[34h[?25h[34l[74;40H[?25l[3m8[0m[39;49m[23m[53;1H[34h[?25h[34l[74;40H[?25l[3m9[0m[39;49m[23m[54;1H[34h[?25h[34l[74;39H[?25l[3m60[0m[39;49m[23m[55;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[56;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[57;1H[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23m[58;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[59;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[60;1H[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23m[61;1H[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23m[62;1H[34h[?25h[34l[74;40H[?25l[3m8[0m[39;49m[23m[63;1H[34h[?25h[34l[74;40H[?25l[3m9[0m[39;49m[23m[64;1H[34h[?25h[34l[74;39H[?25l[3m70[0m[39;49m[23m[65;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[66;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[67;1H[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23m[68;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[69;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[70;1H[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23m[71;1H[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23mMM[34h[?25h[34l[74;40H[?25l[3m8[0m[39;49m[23mM[34h[?25h[34l[1;63r[2;1H[18M[1;75r[10;15H[?25l7[19;15H8[28;15H9[37;14H30[46;1H[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ./runAll.py[36m^[[39;49m[11Dls[36m^[[39;49m[K[36m^H^H[39;49mrm screenlog.0[36m^[[39;49m[14Dls[36m^[[39;49m[K[36m^H^H[39;49mcd ..[36m^[[39;49m[5Dls[36m^[[39;49m[K[36m^H^H[39;49mscreen -r[36m^[[39;49m[9Dpwd[36m^[[39;49m[K[36m^H^H^H[39;49mcat data.txt[36m^[[39;49m[11Dd ../28_Run/[36m^[[39;49m[1\
+M
+2Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../25_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../24_Run/[36m^[[39;49m[13Dls[36m^[[39;49m[K[36m^H^H[39;49mcat da[36m^[[39;49m[5Dd ../23_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../22_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../21_Run/[36m^[[39;49m[13Dls[36m^[[39;49m[K[36m^H^H[39;49mcd ../20_Run/[36m^[[39;49m[1\
+M
+2Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[12Dls[36m^[[39;49m[K[36m^G^H^H[39;49mcat data.txt[36m^G^[[39;49m[11Dd ../20_Run/[36m^H^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: cat screenlog.0 [36m^M[39;49m[K
+rm screenlog.0 [36m^M^M[39;49m[K
+[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ls[36m^M^M[39;49m[K
+./   01_Run/  03_Run/  05_Run/  07_Run/  09_Run/  11_Run/  13_Run/  15_Run/  17_Run/  19_Run/  21_Run/  23_Run/  25_Run/  27_Run/  29_Run/  DEE.cfg    kstar.py*   run.sh*      System.cfg[36m^M[39;49m[K
+../  02_Run/  04_Run/  06_Run/  08_Run/  10_Run/  12_Run/  14_Run/  16_Run/  18_Run/  20_Run/  22_Run/  24_Run/  26_Run/  28_Run/  30_Run/  KStar.cfg  runAll.py*  screenlog.0[36m^M[39;49m[K
+[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ./r[36m^G^M^M[39;49m[K
+runAll.py* run.sh*    [36m^M^M[39;49m[K
+[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ./runAll.py [36m^M^M[39;49m[K
+Executing in 13_Run[36m^M[39;49m[K
+Executing in 14_Run[36m^M[39;49m[K
+Executing in 15_Run[36m^M[39;49m[K
+Executing in 16_Run[36m^M[39;49m[K
+^CExecuting in 17_Run[36m^M[39;49m[K
+^Crm: cannot remove ‘*.dat’: No such file or directory[36m^M[39;49m[K
+Executing in 18_Run[36m^M[39;49m[K
+^Crm: cannot remove ‘*.dat’: No such file or directory[36m^M[39;49m
+Executing in 19_Run[36m^M[39;49m
+^Crm: cannot remove ‘*.dat’: No such file or directory[36m^M[39;49m[K
+Executing in 20_Run[36m^M[39;49m[K
+^CExecuting in 01_Run[36m^M[39;49m[K
+^C^CExecuting in 03_Run[36m^M[39;49m[K
+^C^C^CTraceback (most recent call last):[36m^M[39;49m[K[71;3HFile "./runAll.py", line 18, in <module>[36m^M[39;49m[K[72;5Hmain()[36m^M[39;49m[K
+  File "./runAll.py", line 10, in main[36m^M[39;49m
+				[3m33% L179[0m[39;49m[23m[38;1H[34h[?25h[34l[74;39H[?25l[3m80[0m[39;49m[23m[39;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[40;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[41;1H[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23m[42;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[43;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[44;1H[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23m[45;1H[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23m[46;1H[34h[?25h[34l[?25l[46m[[39;49mhmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell[46m][39;49m[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23m[45;1H[34h[?25h[34l
+[?25l[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]M[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[44;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[43;1H[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23m[42;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[41;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[40;1H[34h[?25h[34l[74;40H[?25l[3m0[0m[39;49m[23m[39;1H[34h[?25h[34l[74;39H[?25l[3m79[0m[39;49m[23m[38;1H[34h[?25h[34l[74;40H[?25l[3m8[0m[39;49m[23m[37;1H[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23m[36;1H[34h[?25h[34l[74;40H[?25l[3m8[0m[39;49m[23m[37;1H[34h[?25h[34l[74;40H[?25l[3m9[0m[39;49m[23m[38;1H[34h[?25h[34l[74;39H[?25l[3m80[0m[39;49m[23m[39;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[40;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[41;1H[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23m[42;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[43;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[44;1H[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23m[45;1H[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23m[46;1H[34h[?25h[34l
+
+[74;40H[?25l[3m8[0m[39;49m[23m[49;1H[34h[?25h[34l[74;40H[?25l[3m9[0m[39;49m[23m[50;1H[34h[?25h[34l[74;39H[?25l[3m90[0m[39;49m[23m[51;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[52;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[53;1H[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23m[54;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[55;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[56;1H[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23m[57;1H[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23m[58;1H[34h[?25h[34l[74;40H[?25l[3m8[0m[39;49m[23m[59;1H[34h[?25h[34l[74;40H[?25l[3m9[0m[39;49m[23m[60;1H[34h[?25h[34l[74;38H[?25l[3m200[0m[39;49m[23m[61;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[62;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[63;1H[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23m[64;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[65;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[66;1H[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23m[67;1H[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23m[68;1H[34h[?25h[34l[74;40H[?25l[3m8[0m[39;49m[23m[69;1H[34h[?25h[34l[74;40H[?25l[3m9[0m[39;49m[23m[70;1H[34h[?25h[34l[74;39H[?25l[3m10[0m[39;49m[23m[71;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23mMM[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23mM[34h[?25h[34l[1;73r[2;1H[35M[1;75r[39;1H[?25l    if os.path.isdir(subDir):[36m^M[39;49m[K
+  File "/usr/lib/python2.7/genericpath.py", line 41, in isdir[36m^M[39;49m[K
+    st = os.stat(s)[36m^M[39;49m[K
+KeyboardInterrupt[36m^M[39;49m[K
+^C[36m^M^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ./runAll.py[36m^M^M[39;49m[K
+Executing in 13_Run[36m^M[39;49m[K
+Executing in 14_Run[36m^M[39;49m[K
+Executing in 15_Run[36m^M[39;49m[K
+Executing in 16_Run[36m^M[39;49m[K
+Executing in 17_Run[36m^M[39;49m[K
+^C^C^CExecuting in 18_Run[36m^M[39;49m[K
+^C^CExecuting in 19_Run[36m^M[39;49m[K
+^Crm: cannot remove ‘*.dat’: No such file or directory[36m^M[39;49m[K
+Executing in 20_Run[36m^M[39;49m[K
+^C^C^C^C^C^C^CExecuting in 01_Run[36m^M[39;49m[K
+^C^CExecuting in 03_Run[36m^M[39;49m[K
+^Crm: cannot remove ‘*.dat’: No such file or directory[36m^M[39;49m[K
+Executing in 04_Run[36m^M[39;49m[K
+^C^C^C^CExecuting in 05_Run[36m^M[39;49m[K
+^C^C^C^C^C^C^C^C^C^C^C^CExecuting in 06_Run[36m^M[39;49m[K
+^C^C^C^C^C^CExecuting in 07_Run[36m^M[39;49m[K
+[3m42% L213[0m[39;49m[23m[39;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[40;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[41;1H[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23m[42;1H[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23m[43;1H[34h[?25h[34l[1;56r[24;1H[20M[1;75r[2;1H[?25l^C^C^C^C^C^C^C^C^C^C^C^CExecuting in 06_Run[36m^M[39;49m
+^C^C^C^C^C^CExecuting in 07_Run[36m^M[39;49m
+^C^C^C^C^C^C^C^C^CExecuting in 08_Run[36m^M[39;49m[K
+^C^C^CExecuting in 09_Run[36m^M[39;49m[K
+^C^C^C^CExecuting in 21_Run[36m^M[39;49m[K
+^C^C^C^Crm: cannot remove ‘*.dat’: No such file or directory[36m^M[39;49m[K
+Executing in 10_Run[36m^M[39;49m[K
+^C^C^C^C^C^C^C^CExecuting in 11_Run[36m^M[39;49m[K
+^C^C^C^C^C^C^C^C^C^CTraceback (most recent call last):[36m^M[39;49m[K
+  File "./runAll.py", line 18, in <module>[36m^M[39;49m[K
+    main()[36m^M[39;49m[K
+  File "./runAll.py", line 11, in main[36m^M[39;49m[K
+    os.chdir(subDir)[36m^M[39;49m[K
+KeyboardInterrupt
+^C[36m^M^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^M[39;49m
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^M[39;49m
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^M[39;49m[37;1H[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: [36m^M^M[39;49m[K
+[36m^[[39;49m[K[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ,.r[36m^G^H^[[39;49m[K[36m^H^[[39;49m[Kr[36m^G^H^[[39;49m[K[36m^H^[[39;49m[K./r[36m^G^M^M[39;49m[K
+runAll.py* run.sh*    [36m^M^M[39;49m[K
+[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ./runAll.py [36m^M^M[39;49m[K
+Executing in 13_Run[36m^M[39;49m[K
+Executing in 14_Run[36m^M[39;49m[K
+Executing in 15_Run[36m^M[39;49m[K
+Executing in 16_Run[36m^M[39;49m[K
+Executing in 17_Run[36m^M[39;49m[K
+Executing in 18_Run[36m^M[39;49m[K
+Executing in 19_Run[36m^M[39;49m[K
+Executing in 20_Run[36m^M[39;49m[K
+Executing in 01_Run[36m^M[39;49m[K
+Executing in 03_Run[36m^M[39;49m[K
+Executing in 04_Run[36m^M[39;49m[K
+Executing in 05_Run[36m^M[39;49m[K
+Executing in 06_Run[36m^M[39;49m[K[58;14H07
+08
+09
+21
+0
+Executing in 11_Run[36m^M[39;49m[K
+Executing in 12_Run[36m^M[39;49m[K
+Executing in 02_Run[36m^M[39;49m[K[66;15H2
+Executing in 23_Run[36m^M[39;49m[K
+Executing in 24_Run[36m^M[39;49m[K
+java.lang.Throwable[36m^M[39;49m[K
+        at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)[36m^M[39;49m
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)[36m^M[39;49m
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)[36m^M[39;49m
+        at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)[36m^M[39;49m
+				[3m60% L246[0m[39;49m[23m[H
+[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23m[H
+
+[34h[?25h[34l[74;40H[?25l[3m8[0m[39;49m[23m[4;1H[34h[?25h[34l[74;40H[?25l[3m9[0m[39;49m[23m[5;1H[34h[?25h[34l[74;39H[?25l[3m50[0m[39;49m[23m[6;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[7;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[8;1H[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23m[9;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[10;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[11;1H[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23m[12;1H[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23m[13;1H[34h[?25h[34l[74;40H[?25l[3m8[0m[39;49m[23m[14;1H[34h[?25h[34l[74;40H[?25l[3m9[0m[39;49m[23m[15;1H[34h[?25h[34l[74;39H[?25l[3m60[0m[39;49m[23m[16;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[17;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[18;1H[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23m[19;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[20;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[21;1H[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23m[22;1H[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23m[23;1H[34h[?25h[34l[74;40H[?25l[3m8[0m[39;49m[23m[24;1H[34h[?25h[34l[74;40H[?25l[3m9[0m[39;49m[23m[25;1H[34h[?25h[34l[74;39H[?25l[3m70[0m[39;49m[23m[26;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[27;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[28;1H[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23m[29;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[30;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[31;1H[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23m[32;1H[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23m[33;1H[34h[?25h[34l[74;40H[?25l[3m8[0m[39;49m[23m[34;1H[34h[?25h[34l[74;40H[?25l[3m9[0m[39;49m[23m[35;1H[34h[?25h[34l[74;39H[?25l[3m80[0m[39;49m[23m[36;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[37;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[38;1H[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23m[39;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[40;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[41;1H[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23m[42;1H[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23m[43;1H[34h[?25h[34l[74;40H[?25l[3m8[0m[39;49m[23m[44;1H[34h[?25h[34l[74;40H[?25l[3m9[0m[39;49m[23m[45;1H[34h[?25h[34l[74;39H[?25l[3m90[0m[39;49m[23m[46;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[47;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[48;1H[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23m[49;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[50;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[51;1H[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23m[52;1H[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23m[53;1H[34h[?25h[34l[74;40H[?25l[3m8[0m[39;49m[23m[54;1H[34h[?25h[34l[74;40H[?25l[3m9[0m[39;49m[23m[55;1H[34h[?25h[34l[74;38H[?25l[3m300[0m[39;49m[23m[56;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[57;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[58;1H[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23m[59;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[60;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[61;1H[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23m[62;1H[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23m[63;1H[34h[?25h[34l[74;40H[?25l[3m8[0m[39;49m[23m[64;1H[34h[?25h[34l[74;40H[?25l[3m9[0m[39;49m[23m[65;1H[34h[?25h[34l[74;39H[?25l[3m10[0m[39;49m[23m[66;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[67;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[68;1H[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23m[69;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[70;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[71;1H[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23mMM[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23mM[34h[?25h[34l[1;68r[2;1H[36M[1;75r[33;1H[?25ljava.lang.Throwable[36m^M[39;49m[K
+        at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.control.Main.main(Main.java:74)[36m^M[39;49m[K
+Executing in 25_Run[36m^M[39;49m[K
+java.lang.Throwable[36m^M[39;49m[K
+        at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.control.Main.main(Main.java:74)[36m^M[39;49m[K
+Executing in 26_Run[36m^M[39;49m[K
+java.lang.Throwable[36m^M[39;49m[K
+        at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.control.Main.main(Main.java:74)[36m^M[39;49m[K
+Executing in 27_Run[36m^M[39;49m[K
+java.lang.Throwable[36m^M[39;49m[K
+        at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.control.Main.main(Main.java:74)[36m^M[39;49m[K
+Executing in 28_Run[36m^M[39;49m[K[74;33H[3m70% L318[0m[39;49m[23m[38;1H[34h[?25h[34l[74;40H[?25l[3m9[0m[39;49m[23m[39;1H[34h[?25h[34l[74;39H[?25l[3m20[0m[39;49m[23m[40;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[41;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[42;1H[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23m[43;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[44;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[45;1H[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23m[46;1H[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23m[47;1H[34h[?25h[34l[74;40H[?25l[3m8[0m[39;49m[23m[48;1H[34h[?25h[34l[74;40H[?25l[3m9[0m[39;49m[23m[49;1H[34h[?25h[34l[74;39H[?25l[3m30[0m[39;49m[23m[50;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[51;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[52;1H[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23m[53;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[54;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[55;1H[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23m[56;1H[34h[?25h[34l[74;40H[?25l[3m8[0m[39;49m[23m[58;1H[34h[?25h[34l[74;40H[?25l[3m9[0m[39;49m[23m[59;1H[34h[?25h[34l[74;39H[?25l[3m40[0m[39;49m[23m[60;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[61;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[62;1H[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23m[63;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[64;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[65;1H[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23m[66;1H[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23m[67;1H[34h[?25h[34l[74;40H[?25l[3m8[0m[39;49m[23m[68;1H[34h[?25h[34l[74;40H[?25l[3m9[0m[39;49m[23m[69;1H[34h[?25h[34l[74;39H[?25l[3m50[0m[39;49m[23m[70;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[71;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23mMM[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23mM[34h[?25h[34l[1;73r[15;1H[18M[1;75r[2;1H[?25l        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)[36m^M[39;49m
+        at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.control.Main.main(Main.java:74)[36m^M[39;49m[K
+Executing in 25_Run[36m^M[39;49m[K
+java.lang.Throwable[36m^M[39;49m[K
+        at edu.duke.cs.osprey.tools.ExpFunction.log(ExpFunction.java:125)[36m^M[39;49m
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.scoreNode(PartFuncTree.java:373)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.getChildren(PartFuncTree.java:204)[36m^M[39;49m
+        at edu.duke.cs.osprey.astar.AStarTree.nextConf(AStarTree.java:72)[36m^M[39;49m
+        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)[36m^M[39;49m
+        at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)[36m^M[39;49m
+        at edu.duke.cs.osprey.control.Main.main(Main.java:74)[36m^M[39;49m[14;14H26[23;15H7[32;15H8[41;15H9[50;14H30[56;1H        at edu.duke.cs.osprey.astar.partfunc.PartFuncTree.computeEpsilonApprox(PartFuncTree.java:362)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.control.VariationalKStar.<init>(VariationalKStar.java:97)[36m^M[39;49m[K
+        at edu.duke.cs.osprey.control.Main.main(Main.java:74)[36m^M[39;49m[K
+[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ./runAll.py[36m^[[39;49m[11Dls[36m^[[39;49m[K[36m^H^H[39;49mrm screenlog.0[36m^[[39;49m[14Dls[36m^[[39;49m[K[36m^H^H[39;49mcd ..[36m^[[39;49m[5Dls[36m^[[39;49m[K[36m^H^H[39;49mscreen -r[36m^[[39;49m[9Dpwd[36m^[[39;49m[K[36m^H^H^H[39;49mcat data.txt[36m^[[39;49m[11Dd ../28_Run/[36m^[[39;49m[1\
+M
+2Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../25_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../24_Run/[36m^[[39;49m[13Dls[36m^[[39;49m[K[36m^H^H[39;49mcat da[36m^[[39;49m[5Dd ../23_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../22_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../21_Run/[36m^[[39;49m[13Dls[36m^[[39;49m[K[36m^H^H[39;49mcd ../20_Run/[36m^[[39;49m[1\
+M
+2Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[12Dls[36m^[[39;49m[K[36m^G^H^H[39;49mcat data.txt[36m^G^[[39;49m[11Dd ../20_Run/[36m^H[39;49m[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: cat screenlog.0[36m^[[39;49m[15D./runAll.py[36m^[[39;49m[K[36m^[[39;49m[11Dls[36m^[[39;49m[K[36m^H^H[39;49mrm screenlog.0[36m^[[39;49m[\
+M
+14Dls[36m^[[39;49m[K[36m^H^H[39;49mcd ..[36m^[[39;49m[5Dls[36m^[[39;49m[K[36m^H^H[39;49mscreen -r[36m^[[39;49m[9Dpwd[36m^[[39;49m[K[36m^H^H^H[39;49mcat data.txt[36m^[[39;49m[11Dd ../28_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../25_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../24_Run/[36m^[[39;49m[13Dls[36m^[[39;49m[K[36m^H^H[39;49mcat da[36m^[[39;49m[5Dd ../23_Run/[36m^[[39;49m[12Dat data.txt\
+M
+[36m^[[39;49m[K[36m^[[39;49m[11Dd ../22_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../21_Run/[36m^[[39;49m[13Dls[36m^[[39;49m[K[36m^H^H[39;49mcd ../20_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[12Dls[36m^[[39;49m[K[36m^H^H[39;49mcd ../19_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../18_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[12Dls[36m^[[39;49m[K[36m^H^H[39;49mcat data\
+M
+.txt[36m^[[39;49m[11Dd ../18_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../19_Run/[36m^[[39;49m[13Dls[36m^[[39;49m[K[36m^H^H[39;49mcat data.txt[36m^[[39;49m[11Dd ../20_Run/[36m^[[39;49m[13Dls[36m^[[39;49m[K[36m^H^H[39;49mcd ../21_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../22_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../23_Run/[36m^[[39;49m[12Dat d\
+M
+a[36m^[[39;49m[K[36m^[[39;49m[6Dls[36m^[[39;49m[K[36m^H^H[39;49mcd ../24_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../25_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../28_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[12Dpwd[36m^[[39;49m[K[36m^H^H^H[39;49mscreen -r[36m^[[39;49m[9Dls[36m^[[39;49m[K[36m^H^H[39;49mscreen -r[36m^[[39;49m[9Dpwd[36m^[[39;49m[K[36m^H^H^H[39;49mcat data.txt[36m^[[39;49m[11Dd ..\
+M
+/28_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../25_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../24_Run/[36m^[[39;49m[13Dls[36m^[[39;49m[K[36m^H^H[39;49mcat da[36m^[[39;49m[5Dd ../23_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../22_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../21_Run/[36m^[[39;49m[13Dls[36m^[[39;49m[K[36m^H^H[39;49mcd ..\
+M
+/20_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[12Dls[36m^[[39;49m[K[36m^H^H[39;49mcd ../19_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../19_Run/[36m^[[39;49m[13Dls[36m^[[39;49m[K[36m^H^H[39;49mcat data.txt[36m^[[39;49m[11Dd ../20_Run/[36m^[[39;49m[13Dls[36m^[[39;49m[K[36m^H^H[39;49mcd ../21_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../22_Run/[36m^[[39;49m[12Dat data\
+M
+.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../23_Run/[36m^[[39;49m[12Dat da[36m^[[39;49m[K[36m^[[39;49m[6Dls[36m^[[39;49m[K[36m^H^H[39;49mcd ../24_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../25_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[11Dd ../28_Run/[36m^[[39;49m[12Dat data.txt[36m^[[39;49m[K[36m^[[39;49m[12Dpwd[36m^[[39;49m[K[36m^H^H^H[39;49mscreen -r[36m^[[39;49m[9Dls[36m^[[39;49m[K[K
+[K
+[K
+[K
+[K
+[K
+				[3mBot L354[0m[39;49m[23m[38;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[39;1H[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23m[40;1H[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23m[41;1H[34h[?25h[34l[74;40H[?25l[3m8[0m[39;49m[23m[42;1H[34h[?25h[34l[74;40H[?25l[3m9[0m[39;49m[23m[43;1H[34h[?25h[34l[74;39H[?25l[3m60[0m[39;49m[23m[44;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[45;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[46;1H[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23m[47;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[48;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[49;1H[34h[?25h[34l[74;40H[?25l[3m6[0m[39;49m[23m[50;1H[34h[?25h[34l[74;40H[?25l[3m7[0m[39;49m[23m[51;1H[34h[?25h[34l[74;40H[?25l[3m8[0m[39;49m[23m[52;1H[34h[?25h[34l[74;40H[?25l[3m9[0m[39;49m[23m[53;1H[34h[?25h[34l[74;39H[?25l[3m70[0m[39;49m[23m[54;1H[34h[?25h[34l[74;40H[?25l[3m1[0m[39;49m[23m[55;1H[34h[?25h[34l[74;40H[?25l[3m2[0m[39;49m[23m[56;1H[34h[?25h[34l[74;40H[?25l[3m3[0m[39;49m[23m[57;1H[34h[?25h[34l[74;40H[?25l[3m4[0m[39;49m[23m[58;1H[34h[?25h[34l[74;40H[?25l[3m5[0m[39;49m[23m[59;1H[34h[?25h[34l
+
+
+
+
+
+
+
+
+[75;1H[?25lEnd of buffer[68;208H[34h[?25h[34l[75;1H[K[68;208H[75;1H[?25lC-c RET is undefined[68;208H[34h[?25h[34l[75;1H[K[68;208H[75;1H[?25l(No files need saving)[68;208H[34h[?25h[34l[75;1H[?25lWrote /home/home3/hmn5/.emacs.d/ac-comphist.dat[68;208H[34h[?25h[34l[75;1H[?25lSaving file /home/home3/hmn5/.ido.last...[K[68;208H[34h[?25h[34l[75;1H[?25lWrote /home/home3/hmn5/.ido.last[K[68;208H[34h[?25h[34l[75;1H[K[?1l>[34h[?25h[?1049l[39;49m[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: ls
+./   01_Run/  03_Run/  05_Run/	07_Run/  09_Run/  11_Run/  13_Run/  15_Run/  17_Run/  19_Run/  21_Run/	23_Run/  25_Run/  27_Run/  29_Run/  DEE.cfg    kstar.py*   run.sh*	System.cfg
+../  02_Run/  04_Run/  06_Run/	08_Run/  10_Run/  12_Run/  14_Run/  16_Run/  18_Run/  20_Run/  22_Run/	24_Run/  26_Run/  28_Run/  30_Run/  KStar.cfg  runAll.py*  screenlog.0
+[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: cleawr
+cleawr: Command not found.
+[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: clear
+[H[J[hmn5@linux3:/usr/project/dlab/Users/hunter/KaDEE/TestSystems/OneSystem/4HEM/Lovell]: exit
+exit
