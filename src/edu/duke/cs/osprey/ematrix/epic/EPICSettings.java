@@ -57,7 +57,7 @@ package edu.duke.cs.osprey.ematrix.epic;
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.control.ParamSet;
 import edu.duke.cs.osprey.energy.EnergyFunction;
-import edu.duke.cs.osprey.minimization.MolecEObjFunction;
+import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import java.io.Serializable;
 
 
