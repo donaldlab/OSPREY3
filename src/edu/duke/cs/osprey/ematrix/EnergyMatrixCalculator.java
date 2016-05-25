@@ -5,6 +5,7 @@
 package edu.duke.cs.osprey.ematrix;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
+import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
@@ -214,12 +215,12 @@ public class EnergyMatrixCalculator {
 
 			else if(res.length > 2) {
 				Integer[] pos = new Integer[res.length]; for(int i = 0; i < pos.length; ++i) pos[i] = new Integer(res[i]);
-				
+
 				HashMap<ArrayList<Integer>, Double> nBody2E = (HashMap<ArrayList<Integer>, Double>)calcResult;
 				for(ArrayList<Integer> rc : nBody2E.keySet()) {
-					
+
 					double nbE = nBody2E.get(rc);
-					
+
 					// subtract out pairwise terms
 					double pwE = 0;
 					for(int i = 0; i < pos.length; ++i) {
@@ -228,11 +229,13 @@ public class EnergyMatrixCalculator {
 						}
 					}
 					
+					//HigherTupleFinder<Double> htf = emat.getHigherOrderTerms(pos[0], rc.get(0), pos[1], rc.get(1));
+					
 					RCTuple nBody = new RCTuple(new ArrayList<>(Arrays.asList(pos)), new ArrayList<>(rc));
 					emat.setHigherOrder(nBody, nbE-pwE);
 				}
 			}
-			
+
 			else
 				throw new RuntimeException("ERROR: invalid res length: " + res.length);
 		}         

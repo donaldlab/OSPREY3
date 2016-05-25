@@ -288,7 +288,7 @@ public class KAStarNode {
 			}
 
 			child.lb.run(wt, true, false);
-			child.lbScore = -1.0 * child.lb.getKStarScoreLog10();
+			child.lbScore = -1.0 * child.lb.getKStarScoreLog10(true);
 
 			checkConsistency(child);
 
@@ -307,7 +307,7 @@ public class KAStarNode {
 				numLeavesCompleted = ksObj.getNumSeqsCompleted(1);
 			}
 			
-			child.lbScore = -1.0 * child.lb.getKStarScoreLog10();
+			child.lbScore = -1.0 * child.lb.getKStarScoreLog10(true);
 
 			KSAbstract.doCheckPoint = false;
 		}
@@ -376,7 +376,7 @@ public class KAStarNode {
 
 			// set scores for surviving children
 			for( KAStarNode child : children2 ) {
-				child.lbScore = -1.0 * child.lb.getKStarScoreLog10();
+				child.lbScore = -1.0 * child.lb.getKStarScoreLog10(true);
 
 				checkConsistency(child);
 			}
@@ -536,7 +536,7 @@ public class KAStarNode {
 		ub.runPF(ub.getPF(Strand.COMPLEX), null, true, false);
 		PFAbstract.suppressOutput = false;
 
-		return ubScore = -1.0 * ub.getKStarScoreLog10();
+		return ubScore = -1.0 * ub.getKStarScoreLog10(true);
 	}
 
 

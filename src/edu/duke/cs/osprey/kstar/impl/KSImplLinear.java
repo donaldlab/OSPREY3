@@ -135,7 +135,7 @@ public class KSImplLinear extends KSAbstract {
 
 			// compute K* scores and print output if all 
 			// partition functions are computed to epsilon accuracy
-			if( calc.getEpsilonStatus() == EApproxReached.TRUE ) {
+			if( calc.getEpsilonStatus() == EApproxReached.TRUE || calc.getEpsilonStatus() == EApproxReached.NOT_POSSIBLE ) {
 				calc.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCompleted(1) );
 			}
 		}
@@ -203,7 +203,7 @@ public class KSImplLinear extends KSAbstract {
 					calc.deleteCheckPointFile(Strand.COMPLEX);
 					seqSet.remove(seq);
 
-					if( calc.getEpsilonStatus() == EApproxReached.TRUE ) {
+					if( calc.getEpsilonStatus() == EApproxReached.TRUE || calc.getEpsilonStatus() == EApproxReached.NOT_POSSIBLE ) {
 						calc.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCompleted(1) );
 					}
 				}

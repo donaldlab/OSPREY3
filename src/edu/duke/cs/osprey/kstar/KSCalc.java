@@ -188,33 +188,47 @@ public class KSCalc {
 	}
 
 	
-	public BigDecimal getKStarScore() {
+	public BigDecimal getKStarScore( boolean useUB ) {
 
-		PFAbstract pl = getPF(Strand.COMPLEX);
-		PFAbstract p = getPF(Strand.PROTEIN);
-		PFAbstract l = getPF(Strand.LIGAND);
+		BigDecimal pl = useUB ? getPF(Strand.COMPLEX).getQStarUpperBound() : getPF(Strand.COMPLEX).getQStar();
+		BigDecimal p = getPF(Strand.PROTEIN).getQStar();
+		BigDecimal l = getPF(Strand.LIGAND).getQStar();
 		
 		BigDecimal score;
 		
-		BigDecimal divisor = p.getQStar().multiply( l.getQStar() );
+		if( doingKAStar() ) {
+			// can easily get clashes for rigid rotamers
+			if( (pl.multiply(p).multiply(l)).compareTo(BigDecimal.ZERO) == 0 )
+				return score = new BigDecimal(Double.MAX_VALUE);
+		}
+		
+		BigDecimal dividend = pl;
+		BigDecimal divisor = p.multiply( l );
 
-		if( divisor.compareTo(BigDecimal.ZERO) == 0 ) score = new BigDecimal(Double.POSITIVE_INFINITY);
+		if( divisor.compareTo(BigDecimal.ZERO) == 0 ) {
+			
+			if(dividend.compareTo(BigDecimal.ZERO) != 0) 
+				score = new BigDecimal(Double.POSITIVE_INFINITY);
+			
+			else
+				score = BigDecimal.ZERO;
+		}
 
-		else score = pl.getQStar().divide( divisor, precision );
+		else score = dividend.divide( divisor, precision );
 
 		return score;
 	}
 
 	
-	protected double getKStarScoreLog10() {
+	protected double getKStarScoreLog10( boolean useUB ) {
 
-		PFAbstract pl = getPF(Strand.COMPLEX);
-		PFAbstract p = getPF(Strand.PROTEIN);
-		PFAbstract l = getPF(Strand.LIGAND);
+		BigDecimal pl = useUB ? getPF(Strand.COMPLEX).getQStarUpperBound() : getPF(Strand.COMPLEX).getQStar();
+		BigDecimal p = getPF(Strand.PROTEIN).getQStar();
+		BigDecimal l = getPF(Strand.LIGAND).getQStar();
 
 		if( doingKAStar() ) {
 			// can easily get clashes for rigid rotamers
-			if( (pl.getQStarUpperBound().multiply(p.getQStar()).multiply(l.getQStar())).compareTo(BigDecimal.ZERO) == 0 )
+			if( (pl.multiply(p).multiply(l)).compareTo(BigDecimal.ZERO) == 0 )
 				return Double.POSITIVE_INFINITY;
 		}
 		
@@ -222,26 +236,26 @@ public class KSCalc {
 
 		ExpFunction e = new ExpFunction();
 
-		if( l.getQStar().compareTo(BigDecimal.ZERO) == 0 && 
-				p.getQStar().compareTo(BigDecimal.ZERO) == 0 && 
-				pl.getQStarUpperBound().compareTo(BigDecimal.ZERO) == 0 )
+		if( l.compareTo(BigDecimal.ZERO) == 0 && 
+				p.compareTo(BigDecimal.ZERO) == 0 && 
+				pl.compareTo(BigDecimal.ZERO) == 0 )
 			score = 0.0;
 
-		else if( l.getQStar().compareTo(BigDecimal.ZERO) == 0 || 
-				p.getQStar().compareTo(BigDecimal.ZERO) == 0 ) {
+		else if( l.compareTo(BigDecimal.ZERO) == 0 || 
+				p.compareTo(BigDecimal.ZERO) == 0 ) {
 			
-			if(pl.getQStarUpperBound().compareTo(BigDecimal.ZERO) != 0)
+			if(pl.compareTo(BigDecimal.ZERO) != 0)
 				score = Double.POSITIVE_INFINITY;
 			
 			else
 				score = 0.0;
 		}
 
-		else if( pl.getQStarUpperBound().compareTo(BigDecimal.ZERO) == 0 )
+		else if( pl.compareTo(BigDecimal.ZERO) == 0 )
 			score = Double.NEGATIVE_INFINITY;
 
 		else
-			score = e.log10(pl.getQStarUpperBound()) - e.log10(p.getQStar()) - e.log10(l.getQStar());
+			score = e.log10(pl) - e.log10(p) - e.log10(l);
 
 		return score;
 	}
@@ -254,6 +268,8 @@ public class KSCalc {
 		out.print("Sequence");
 		out.print("\t");
 		out.print("K* Score (Log10)");
+		out.print("\t");
+		out.print("UB(K*) Score (Log10)");
 		out.print("\t");
 		out.print("Total # Confs.");
 		out.print("\t");
@@ -312,7 +328,10 @@ public class KSCalc {
 			out.print(KSAbstract.list1D2String(getPF(Strand.COMPLEX).getSequence(), " "));
 
 			out.print("\t");
-			out.print(getKStarScoreLog10());
+			out.print(getKStarScoreLog10(false));
+			
+			out.print("\t");
+			out.print(getKStarScoreLog10(true));
 
 			ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Strand.COMPLEX, 
 					Strand.PROTEIN, Strand.LIGAND));

@@ -637,7 +637,7 @@ public class ConfigFileParser implements Serializable {
 	}
 
 
-	PruningControl setupPruning(SearchProblem searchSpace, double pruningInterval, boolean useEPIC, boolean useTupExp){
+	public PruningControl setupPruning(SearchProblem searchSpace, double pruningInterval, boolean useEPIC, boolean useTupExp){
 		//setup pruning.  Conformations in searchSpace more than (Ew+Ival) over the GMEC are liable to pruning
 
 		//initialize the pruning matrix for searchSpace, if not already initialized
