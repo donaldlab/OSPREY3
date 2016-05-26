@@ -30,6 +30,12 @@ public class EnvironmentVars {
         //data files directory
         private static String dataDir = "./";
         
+        //Some people like to know if their residues are being deleted
+        //so we write this in a special warning log
+        //If you indicate "None" for the filename then this is null (no log will be made)
+        public static SpecialWarningLog deletedResWarningLog = null; 
+        
+        
         public static String getDataDir() {
 		return dataDir;
 	}
@@ -40,6 +46,20 @@ public class EnvironmentVars {
 		}
 		EnvironmentVars.dataDir = dd;
 	}
+        
+        
+        static void openSpecialWarningLogs(ConfigFileParser cfp){
+            //so far just the one deleted residues log
+            String deletedResLogName = cfp.params.getValue("DeletedResWarningLog");
+            if( ! deletedResLogName.equalsIgnoreCase("None") ){
+                deletedResWarningLog = new SpecialWarningLog(deletedResLogName);
+            }
+        }
+        
+        static void closeSpecialWarningLogs(){
+            if(deletedResWarningLog!=null)
+                deletedResWarningLog.close();
+        }
         
         //ALL THE BELOW ARE STILL IN QUESTION!!!
         

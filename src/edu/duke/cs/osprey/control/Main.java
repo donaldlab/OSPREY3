@@ -45,8 +45,10 @@ public class Main {
 
 		ConfigFileParser cfp = new ConfigFileParser(args);//args 1, 3+ are configuration files
 
+                EnvironmentVars.openSpecialWarningLogs(cfp);
+
 		//load data files
-		cfp.loadData();        
+		cfp.loadData();
 
 
 
@@ -60,7 +62,9 @@ public class Main {
 			commands.get(command).run();
 		else
 			throw new RuntimeException("ERROR: OSPREY command unrecognized: "+command);
-
+                
+                EnvironmentVars.closeSpecialWarningLogs();
+                
 		long endTime = System.currentTimeMillis();
 		System.out.println("Total OSPREY execution time: " + ((endTime-startTime)/60000) + " minutes.");
 		System.out.println("OSPREY finished");
