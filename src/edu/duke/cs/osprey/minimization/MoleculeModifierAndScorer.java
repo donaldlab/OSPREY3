@@ -32,10 +32,14 @@ import edu.duke.cs.osprey.structure.Molecule;
  *
  * @author mhall44
  */
-public class MolecEObjFunction implements ObjectiveFunction {
+public class MoleculeModifierAndScorer implements ObjectiveFunction {
     //we apply the confDOFs to the molecule and then evaluate the energy function
     //so this objective function maps DOF values to energy function values
-    //DOF values bounded by constraints
+    //DOF values bounded by constraints: Motions are intended to be within a voxel
+    
+    //Warning: This class has the side effect of modifying the molecule passed to it!  
+    //It would be very expensive to copy the molecule for each minimization, so we
+    //apply the DOFs in place and then evaluate the energy
     
     EnergyFunction efunc;
     Molecule molec;
@@ -53,7 +57,7 @@ public class MolecEObjFunction implements ObjectiveFunction {
     
     ArrayList<EnergyFunction> partialEFuncs = null;//if not null, can use when searching along a single DOF
     
-    public MolecEObjFunction(EnergyFunction ef, DoubleMatrix1D[] constr, Molecule m, 
+    public MoleculeModifierAndScorer(EnergyFunction ef, DoubleMatrix1D[] constr, Molecule m, 
             ArrayList<DegreeOfFreedom> DOFList){
         
         efunc = ef;
@@ -67,7 +71,7 @@ public class MolecEObjFunction implements ObjectiveFunction {
     }
     
     
-    public MolecEObjFunction(EnergyFunction ef, ConfSpace cSpace, RCTuple RCTup){
+    public MoleculeModifierAndScorer(EnergyFunction ef, ConfSpace cSpace, RCTuple RCTup){
         /*Initialize an objective function to evaluate ef over the portion of cSpace
          * defined by the RCs in RCTup.  Ensure that all confDOFs of residues in RCTup are bounded
          * (if able to vary continuously) or set correctly (if not)
@@ -126,7 +130,7 @@ public class MolecEObjFunction implements ObjectiveFunction {
         init(numMinDOFs, DOFBounds);
     }
     
-    public MolecEObjFunction(EnergyFunction efunc, ConfSpace confSpace) {
+    public MoleculeModifierAndScorer(EnergyFunction efunc, ConfSpace confSpace) {
     	
         this.efunc = efunc;
         this.molec = confSpace.m;

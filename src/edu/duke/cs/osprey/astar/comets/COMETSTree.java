@@ -5,9 +5,15 @@
  */
 package edu.duke.cs.osprey.astar.comets;
 
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.PriorityQueue;
+
 import edu.duke.cs.osprey.astar.AStarNode;
 import edu.duke.cs.osprey.astar.AStarTree;
 import edu.duke.cs.osprey.astar.ConfTree;
+import edu.duke.cs.osprey.astar.FullAStarNode;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
@@ -15,19 +21,13 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
-import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.PriorityQueue;
-import java.util.Random;
-
 /**
  *
  * Tree for constrained optimization of multistate energies by tree search
  * 
  * @author mhall44
  */
-public class COMETSTree extends AStarTree {
+public class COMETSTree extends AStarTree<FullAStarNode> {
 
     
     int numTreeLevels;//number of residues with sequence changes
@@ -124,9 +124,9 @@ public class COMETSTree extends AStarTree {
     
     
     @Override
-    public ArrayList<AStarNode> getChildren(AStarNode curNode) {
+    public ArrayList<FullAStarNode> getChildren(FullAStarNode curNode) {
         COMETSNode seqNode = (COMETSNode)curNode;
-        ArrayList<AStarNode> ans = new ArrayList<>();
+        ArrayList<FullAStarNode> ans = new ArrayList<>();
                 
         if(seqNode.isFullyDefined()){
             seqNode.expandConfTree();
@@ -210,7 +210,7 @@ public class COMETSTree extends AStarTree {
     
     
     
-    private void makeSeqConfTrees(COMETSNode node){
+	private void makeSeqConfTrees(COMETSNode node){
         //Given a node with a fully defined sequence, build its conformational search trees
         //for each state
         //If a state has no viable conformations, leave it null, with stateUB[state] = inf
@@ -230,9 +230,14 @@ public class COMETSTree extends AStarTree {
             }
             
             if(RCsAvailable) {
-                node.stateTrees[state] = new ConfTree(stateSP[state],node.pruneMat[state],false);
+                node.stateTrees[state] = new ConfTree<>(
+                	new FullAStarNode.Factory(stateNumPos[state]),
+                	stateSP[state],
+                	node.pruneMat[state],
+                	false
+                );
                 
-                AStarNode rootNode = node.stateTrees[state].rootNode();
+                FullAStarNode rootNode = node.stateTrees[state].rootNode();
                 
                 int blankConf[] = new int[stateNumPos[state]];//set up root node UB
                 Arrays.fill(blankConf,-1);
@@ -252,7 +257,7 @@ public class COMETSTree extends AStarTree {
     
 
     @Override
-    public AStarNode rootNode() {
+    public FullAStarNode rootNode() {
         int[] conf = new int[numTreeLevels];
         Arrays.fill(conf,-1);//indicates sequence not assigned
         
@@ -268,7 +273,7 @@ public class COMETSTree extends AStarTree {
     
     
     @Override
-    public boolean canPruneNode(AStarNode node){
+    public boolean canPruneNode(FullAStarNode node){
         //check if the node can be pruned based on the constraints
         //each constraint function must be <=0, so if any constraint function's lower bound
         //over sequences in seqNode is > 0,
@@ -304,7 +309,7 @@ public class COMETSTree extends AStarTree {
     
     
     @Override
-    public boolean isFullyAssigned(AStarNode node) {
+    public boolean isFullyAssigned(FullAStarNode node) {
         //This checks if the node is returnable
         //So it must be fully processed (state GMECs found, not just fully defined sequence)
         
@@ -315,7 +320,7 @@ public class COMETSTree extends AStarTree {
         
         for(int state=0; state<numStates; state++){
             if(seqNode.stateTrees[state]!=null){
-                AStarNode bestNodeForState = seqNode.stateTrees[state].getQueue().peek();
+                FullAStarNode bestNodeForState = seqNode.stateTrees[state].getQueue().peek();
                 
                 if( ! bestNodeForState.isFullyDefined() )//State GMEC calculation not done
                     return false;
@@ -328,7 +333,7 @@ public class COMETSTree extends AStarTree {
     
     
     @Override
-    public int[] outputNode(AStarNode node){
+    public int[] outputNode(FullAStarNode node){
         //Let's print more info when outputting a node
         printBestSeqInfo((COMETSNode)node);
         return node.getNodeAssignments();
@@ -374,7 +379,7 @@ public class COMETSTree extends AStarTree {
         }
         
         int numSeqDefNodes = 0;
-        for(AStarNode node : getQueue()){
+        for(FullAStarNode node : getQueue()){
             if(node.isFullyDefined())
                 numSeqDefNodes++;
         }
@@ -417,9 +422,9 @@ public class COMETSTree extends AStarTree {
         int count = 0;
         
         if(seqNode.stateTrees != null){//fully defined sequence, so there are state trees
-            for(ConfTree ct : seqNode.stateTrees){
+            for(ConfTree<FullAStarNode> ct : seqNode.stateTrees){
                 if(ct!=null){
-                    AStarNode bestNode = ct.getQueue().peek();
+                    FullAStarNode bestNode = ct.getQueue().peek();
                     if(bestNode.isFullyDefined())
                         count++;
                 }
@@ -642,7 +647,7 @@ public class COMETSTree extends AStarTree {
                         double interactionE = htf.getInteraction(iPos, rc);
 
                         //see if need to go up to highers order again...
-                        HigherTupleFinder htf2 = htf.getHigherInteractions(iPos, rc);
+                        HigherTupleFinder<Double> htf2 = htf.getHigherInteractions(iPos, rc);
                         if(htf2!=null){
                             interactionE += higherOrderContrib(state,pruneMat,htf2,augTuple,minForState);
                         }
@@ -703,7 +708,7 @@ public class COMETSTree extends AStarTree {
             }
             else if(func.coeffs[state]<0){//need upper bound
                 
-                ConfTree curTree = seqNode.stateTrees[state];
+                ConfTree<FullAStarNode> curTree = seqNode.stateTrees[state];
 
                 if(curTree==null){//state and sequence impossible
                     //bound would be +infinity
@@ -712,9 +717,9 @@ public class COMETSTree extends AStarTree {
                 }
 
                 //make sure stateUB is updated, at least based on the current best node in this state's tree
-                PriorityQueue<AStarNode> curExpansion = curTree.getQueue();
+                PriorityQueue<FullAStarNode> curExpansion = curTree.getQueue();
                 
-                AStarNode curNode = curExpansion.peek();
+                FullAStarNode curNode = curExpansion.peek();
                                 
                 if(Double.isNaN(curNode.UB)){//haven't calculated UB, so calculate and update stateUB
                     while(!updateUB(state,curNode,seqNode)){
@@ -830,7 +835,7 @@ public class COMETSTree extends AStarTree {
     
     
     
-    boolean updateUB(int state, AStarNode expNode, COMETSNode seqNode){
+    boolean updateUB(int state, FullAStarNode expNode, COMETSNode seqNode){
         //Get an upper-bound on the node by a little FASTER run, generating UBConf
         //store UBConf and UB in expNode
         //expNode is in seqNode.stateTrees[state]

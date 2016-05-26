@@ -16,7 +16,7 @@ import cern.colt.matrix.DoubleFactory2D;
 import cern.colt.matrix.DoubleMatrix1D;
 import cern.colt.matrix.DoubleMatrix2D;
 import cern.jet.math.Functions;
-import edu.duke.cs.osprey.minimization.MolecEObjFunction;
+import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -41,12 +41,12 @@ public class EPICFitter {
     public EPoly PCTemplate = null;//template to use for EPolyPCs
     //needs to be set (by quadratic fitting) before trying to make any of these
     
-    MolecEObjFunction objFcn;//the energy as a function of DOF values...this
+    MoleculeModifierAndScorer objFcn;//the energy as a function of DOF values...this
     //is what we're trying to approximate
     
     static int sampPerParam = 10;
     
-    public EPICFitter ( MolecEObjFunction mof, EPICSettings eset,
+    public EPICFitter ( MoleculeModifierAndScorer mof, EPICSettings eset,
             DoubleMatrix1D cen, double me ) {
         //given the CCDMinimizer used to minimize for a rotamer pair (or intra+shell)
         //construct an EpicFitter for it

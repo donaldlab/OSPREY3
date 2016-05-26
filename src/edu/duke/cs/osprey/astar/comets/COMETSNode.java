@@ -5,11 +5,12 @@
  */
 package edu.duke.cs.osprey.astar.comets;
 
-import edu.duke.cs.osprey.astar.AStarNode;
-import edu.duke.cs.osprey.astar.ConfTree;
-import edu.duke.cs.osprey.pruning.PruningMatrix;
 import java.util.ArrayList;
 import java.util.PriorityQueue;
+
+import edu.duke.cs.osprey.astar.ConfTree;
+import edu.duke.cs.osprey.astar.FullAStarNode;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 /**
  *
@@ -18,7 +19,7 @@ import java.util.PriorityQueue;
  * 
  * @author mhall44
  */
-public class COMETSNode extends AStarNode {
+public class COMETSNode extends FullAStarNode {
     
     
     //score will be the lower bound on the objective function LME, for the node's sequence space
@@ -26,13 +27,13 @@ public class COMETSNode extends AStarNode {
     PruningMatrix pruneMat[];//pruning matrix for each state
         
     //These things are only needed (and defined) for fully defined sequences
-    ConfTree[] stateTrees = null;//trees searching conf space for each state
+    ConfTree<FullAStarNode>[] stateTrees = null;//trees searching conf space for each state
     double stateUB[] = null;//upper bounds on GMEC for each state
 
     
     
     public COMETSNode(int[] nodeAssignments, PruningMatrix[] pruneMat) {
-        super(nodeAssignments, Double.NaN, false);//score not assigned yet, and doesn't need refinement
+        super(nodeAssignments);//score not assigned yet, and doesn't need refinement
         this.pruneMat = pruneMat;
     }
     
@@ -45,12 +46,12 @@ public class COMETSNode extends AStarNode {
 
         
         for(int state=0; state<stateTrees.length; state++){
-            ConfTree stateTree = stateTrees[state];
+            ConfTree<FullAStarNode> stateTree = stateTrees[state];
 
             if(stateTree!=null){
-                AStarNode curBestNode = stateTree.getQueue().peek();
+                FullAStarNode curBestNode = stateTree.getQueue().peek();
                 if( ! curBestNode.isFullyDefined() ){
-                    int stateFirstSplittableLevel = stateTree.nextLevelToExpand( curBestNode.getNodeAssignments() );
+                    int stateFirstSplittableLevel = stateTree.nextLevelToExpand( curBestNode );
                     if( stateFirstSplittableLevel < firstSplittableLevel ){
                         //tree has a splittable level, and it's the lowest so far
                         stateToSplit = state;
@@ -63,14 +64,14 @@ public class COMETSNode extends AStarNode {
         //if(stateToSplit==-1)//all trees fully defined!
         //    return;
 
-        ConfTree treeToSplit = stateTrees[stateToSplit];
+        ConfTree<FullAStarNode> treeToSplit = stateTrees[stateToSplit];
         
-        PriorityQueue<AStarNode> expansion = treeToSplit.getQueue();
+        PriorityQueue<FullAStarNode> expansion = treeToSplit.getQueue();
         
-        AStarNode bestNode = expansion.poll();
-        ArrayList<AStarNode> children = treeToSplit.getChildren(bestNode);
+        FullAStarNode bestNode = (FullAStarNode)expansion.poll();
+        ArrayList<FullAStarNode> children = treeToSplit.getChildren(bestNode);
         
-        for(AStarNode child : children){
+        for(FullAStarNode child : children){
             child.UB = Double.NaN;//update UB later if needed
             child.UBConf = bestNode.UBConf;//store this as an initial value
             expansion.add(child);

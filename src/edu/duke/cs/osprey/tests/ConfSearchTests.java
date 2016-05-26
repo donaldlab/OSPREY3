@@ -69,7 +69,7 @@ public class ConfSearchTests {
         //bigger search space, and leaving clashes will create more realistic test conditions
         
         searchSpace.pruneMat = new PruningMatrix(searchSpace.confSpace,-1);//no pruning
-        ConfSearch aStar = new ConfTree(searchSpace);//Regular A* is cool for this purpose
+        ConfSearch aStar = ConfTree.makeFull(searchSpace);//Regular A* is cool for this purpose
         
         int topConf[] = aStar.nextConf();
         
@@ -84,7 +84,7 @@ public class ConfSearchTests {
                 
         pruning.prune();
         
-        aStar = new ConfTree(searchSpace);
+        aStar = ConfTree.makeFull(searchSpace);
         
         int topConfWithPruning[] = aStar.nextConf();
         
@@ -102,7 +102,7 @@ public class ConfSearchTests {
     private static ArrayList<ConfSearch> confSearchesToTest(SearchProblem searchSpace){
         //for a given search space, enumerate the ConfSearch objects we want to test for it
         ArrayList<ConfSearch> ans = new ArrayList<>();
-        ans.add(new ConfTree(searchSpace));
+        ans.add(ConfTree.makeFull(searchSpace));
         //BWM*, WCSP, etc. here?  Only provable methods to be considered
         return ans;
     }
