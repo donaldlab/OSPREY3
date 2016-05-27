@@ -50,7 +50,7 @@ public class Pruner {
 
     static int triplesNumPartners = 5;//2//let's do sparse triples, considering like 5 interactions per pos to be strong
 
-    boolean verbose = true;//print what we're doing
+    boolean verbose = false;//print what we're doing
 
     public Pruner(SearchProblem searchSpace, boolean typeDep, double boundsThreshold,
             double pruningInterval, boolean useEPIC, boolean useTupExp) {

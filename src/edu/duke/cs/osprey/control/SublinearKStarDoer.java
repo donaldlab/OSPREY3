@@ -81,6 +81,8 @@ public class SublinearKStarDoer {
     double constRT = PoissonBoltzmannEnergy.constRT;
     int numSamplesGumbel = 200;
 
+    public String[] bestSequence;
+    
     public SublinearKStarDoer(ConfigFileParser cfp) {
         this.cfp = cfp;
         Ew = cfp.params.getDouble("Ew");
@@ -115,10 +117,9 @@ public class SublinearKStarDoer {
      * the highest K* score.
      */
     public void doVariationalKStar(boolean doExhaustive) {
-        this.searchSpaces = cfp.getMSDSearchProblems();
         if (doExhaustive) {
             SublinearKStarTree tree = setupSublinearKStarTree();
-            exhaustiveKaDEESearch(rankByKStar);
+            exhaustiveSublinearKStarSearch(rankByKStar);
         } else {
             SublinearKStarTree tree = setupSublinearKStarTree();
             long startTime = System.currentTimeMillis();
@@ -153,8 +154,8 @@ public class SublinearKStarDoer {
     //Given three search problems (Bound, UnBound Prot, Unbound Lig) this function
     //sets up the KaDEE tree.
     //The nonmutable unbound state is added and used just as a constant to the objective function
-    private SublinearKStarTree setupSublinearKStarTree() {
-
+    public SublinearKStarTree setupSublinearKStarTree() {
+        this.searchSpaces = cfp.getMSDSearchProblems();
         //For each state, for each position, this contains a list of allowed 
         //amino acids at that position
         ArrayList<ArrayList<ArrayList<String>>> allowedAAsPerState = new ArrayList<>();
@@ -355,10 +356,10 @@ public class SublinearKStarDoer {
     }
 
     //For quality control, it's good to be able to check KaDEE results by exhaustive search
-    void exhaustiveKaDEESearch(boolean rankByKStar) {
+    public void exhaustiveSublinearKStarSearch(boolean rankByKStar) {
 
         System.out.println();
-        System.out.println("CHECKING KaDEE RESULT BY EXHAUSTIVE SEARCH");
+        System.out.println("CHECKING Sulinear KStar RESULT BY EXHAUSTIVE SEARCH");
         System.out.println();
 
         ArrayList<String[]> seqList = listAllSeqs();
@@ -422,13 +423,13 @@ public class SublinearKStarDoer {
                 }
             }
         }
-
+        this.bestSequence = seqList.get(topSeqNum);
         System.out.println();
         if (topSeqNum
                 == -1) {
             System.out.println("EXHAUSTIVE SEARCH FINDS NO CONSTR-SATISFYING SEQUENCES");
         } else {
-            System.out.println("EXHAUSTIVE MULTISTATE BEST SCORE: " + bestSeqScore + " SEQUENCE: ");
+            System.out.println("EXHAUSTIVE SublinearKStar BEST SCORE: " + bestSeqScore + " SEQUENCE: ");
             for (String aa : seqList.get(topSeqNum)) {
                 System.out.println(aa);
             }

@@ -64,7 +64,7 @@ public class PartFuncTree extends AStarTree {
     boolean useTRBPWeightForOrder = true;
     Mplp mplp;
 
-    boolean verbose = false;
+    public static boolean verbose = true;
 
     public int numConfsEnumerated = 0;
 
@@ -428,15 +428,21 @@ public class PartFuncTree extends AStarTree {
 
     private double scoreNode(PartFuncNode node) {
 //        return -node.lbLogZ;
-        if (Math.abs(node.ubLogZ - node.lbLogZ) < 1e-6) {
+        if (Math.abs(node.ubLogZ - node.lbLogZ) < 1e-4) {
             return Double.POSITIVE_INFINITY;
         }
 
         if (node.ubLogZ < node.lbLogZ) {
-            System.out.println("Error: UB is less than LB");
-            System.out.println("UB: " + node.ubLogZ);
-            System.out.println("LB: " + node.lbLogZ);
-            throw new RuntimeException("UB is less than LB in Part Func Tree");
+            if (node.ubLogZ > 0) {
+                System.out.println("Error: UB is less than LB");
+                System.out.println("UB: " + node.ubLogZ);
+                System.out.println("LB: " + node.lbLogZ);
+                System.out.println("Diff: " + Math.abs(node.ubLogZ - node.lbLogZ));
+                throw new RuntimeException("UB is less than LB in Part Func Tree");
+            }
+            else{ //This happens a lot with really bad nodes (partition funcition close to 0);
+                return Double.POSITIVE_INFINITY;
+            }
         }
         return -this.ef.log(this.ef.exp(node.ubLogZ).subtract(this.ef.exp(node.lbLogZ))).doubleValue();
 //        return mplp.optimizeMPLP(node.getNodeAssignments(), 1000);
@@ -465,9 +471,14 @@ public class PartFuncTree extends AStarTree {
             return getUpperBoundMPLP(node);
         } else {
             MarkovRandomField mrf = new MarkovRandomField(this.emat, this.pruneMat, node.getNodeAssignments(), this.eCut);
-            double ubLogZ;
+            if (mrf.nodeList.size() == 1) { // If we only have one node, SCMF will return the exact
+                // log Z and TRBP will crash, so use SCMF
+                ReparamMRF mrf2 = new ReparamMRF(this.emat, this.pruneMat, node.getNodeAssignments(), this.eCut);
+                SCMF_Clamp scmf = new SCMF_Clamp(mrf2);
+                return scmf.getLogZLB();
+            }
 
-//            TRBP_Refactor trbp = new TRBP_Refactor(rMRF);
+            double ubLogZ;
             if (!node.isRoot) {
                 TRBP trbp = new TRBP(mrf, parentNode.ubLogZ);
                 ubLogZ = trbp.getLogZ();

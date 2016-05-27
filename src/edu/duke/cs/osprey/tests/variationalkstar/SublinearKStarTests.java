@@ -42,4 +42,5 @@ public class SublinearKStarTests {
             System.out.println("Exhaustive took: "+Stopwatch.getTime(TimeUnit.MILLISECONDS));
         }
     }
+    
 }

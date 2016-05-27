@@ -7,10 +7,14 @@ package edu.duke.cs.osprey.partitionfunctionbounds;
 
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.astar.Mplp;
+import edu.duke.cs.osprey.astar.comets.UpdatedPruningMatrix;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
+import edu.duke.cs.osprey.pruning.Pruner;
+import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -43,13 +47,22 @@ public class MapPerturbation {
 
     GumbelDistribution gd;
 
-    boolean verbose = false;
+    boolean doPruning = true;
+    boolean verbose = true;
 
     public MapPerturbation(SearchProblem searchSpace) {
         this.searchSpace = searchSpace;
         this.emat = searchSpace.emat;
         this.pruneMat = searchSpace.pruneMat;
         gd = new GumbelDistribution();
+    }
+
+    public MapPerturbation(SearchProblem searchSpace, ConfigFileParser cfp) {
+        this.searchSpace = searchSpace;
+        this.emat = searchSpace.emat;
+        this.pruneMat = searchSpace.pruneMat;
+        gd = new GumbelDistribution();
+
     }
 
     public MapPerturbation(SearchProblem searchSpace, boolean verbose) {
@@ -76,7 +89,9 @@ public class MapPerturbation {
         for (int i = 0; i < numSamples; i++) {
             ArrayList<ArrayList<Double>> originalOneBodyEmat = (ArrayList<ArrayList<Double>>) ObjectIO.deepCopy(emat.oneBody);
             addUBGumbelNoiseOneBody();
-            ConfSearch search = new ConfTree(searchSpace);
+            UpdatedPruningMatrix upm = new UpdatedPruningMatrix(pruneMat);
+            prune(searchSpace, upm);
+            ConfSearch search = new ConfTree(searchSpace.emat, upm);
             int[] conf = search.nextConf();
             mapConfsUB[i] = conf;
             double E = -1.0 * searchSpace.lowerBound(conf);
@@ -404,4 +419,36 @@ public class MapPerturbation {
             return match1 || match2;
         }
     }
+
+    public void prune(SearchProblem searchSpace, double pruningInterval, ConfigFileParser cfp) {
+        if (searchSpace.competitorPruneMat == null) {
+            System.out.println("PRECOMPUTING COMPETITOR PRUNING MATRIX");
+            PruningControl compPruning = cfp.setupPruning(searchSpace, pruningInterval, false, false);
+            compPruning.setOnlyGoldstein(true);
+            compPruning.prune();
+            searchSpace.competitorPruneMat = searchSpace.pruneMat;
+            searchSpace.pruneMat = null;
+            System.out.println("COMPETITOR PRUNING DONE");
+        }
+
+        //Next, do DEE, which will fill in the pruning matrix
+        PruningControl pruning = cfp.setupPruning(searchSpace, pruningInterval, false, false);
+
+        pruning.prune();//pass in DEE options, and run the specified types of DEE            
+    }
+
+    public void prune(SearchProblem sp, UpdatedPruningMatrix upm) {
+        Pruner dee = new Pruner(sp, upm, true, Double.POSITIVE_INFINITY,
+                0, false, false, false);
+        //this is rigid, type-dependent pruning aiming for sequence GMECs
+        //So Ew = Ival = 0
+        int numUpdates = 0;
+        int oldNumUpdates = 0;
+        do {//repeat as long as we're pruning things
+            oldNumUpdates = numUpdates;
+            dee.prune("GOLDSTEIN");
+            numUpdates = upm.countUpdates();
+        } while (numUpdates > oldNumUpdates);
+    }
+    
 }

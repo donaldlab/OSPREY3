@@ -19,7 +19,7 @@ import java.util.ArrayList;
  */
 public class MarkovRandomField {
 
-    ArrayList<MRFNode> nodeList = new ArrayList<>();
+    public ArrayList<MRFNode> nodeList = new ArrayList<>();
     boolean[][] interactionGraph;
 
     int numNodes;

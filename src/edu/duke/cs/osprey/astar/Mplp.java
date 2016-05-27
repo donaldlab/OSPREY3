@@ -5,12 +5,14 @@
  */
 package edu.duke.cs.osprey.astar;
 
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SuperRCTuple;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.CreateMatrix;
 import java.util.ArrayList;
 import java.util.Collections;
+import org.apache.commons.lang.ArrayUtils;
 
 /**
  * MPLP: Computes a bound on the best energy of a partial conformation Original
@@ -31,7 +33,7 @@ public class Mplp {
     int rotsPerPos[];
 
     // rotamers unpruned for each position
-    ArrayList<ArrayList<Integer>> unprunedRotsPerPos;
+    int[][] unprunedRotsPerPos;
 
     //For pairs pruning
     PruningMatrix pruneMat;
@@ -43,7 +45,9 @@ public class Mplp {
     public int[] feasibleSolution;
     double[][] belief;
     double[][][] lambda;
-    
+
+    public static boolean debugMode = true;
+
     public Mplp(int aNumPos, EnergyMatrix aEmat, PruningMatrix aPruneMat) {
         init(aNumPos, aEmat, aPruneMat, 0.0);
     }
@@ -57,11 +61,14 @@ public class Mplp {
         this.emat = aEmat;
         this.pruneMat = aPruneMat;
 
-        this.unprunedRotsPerPos = new ArrayList<>();
+        this.unprunedRotsPerPos = new int[numPos][];
         this.rotsPerPos = new int[numPos];
         for (int pos = 0; pos < numPos; pos++) {
             rotsPerPos[pos] = pruneMat.unprunedRCsAtPos(pos).size();
-            unprunedRotsPerPos.add(pruneMat.unprunedRCsAtPos(pos));
+            this.unprunedRotsPerPos[pos] = new int[rotsPerPos[pos]];
+            for (int rc = 0; rc < rotsPerPos[pos]; rc++) {
+                unprunedRotsPerPos[pos][rc] = pruneMat.unprunedRCsAtPos(pos).get(rc);
+            }
         }
 
         this.interactionGraph = computePosPosInteractionGraph(emat, aEnergyCutOff);
@@ -82,30 +89,12 @@ public class Mplp {
     public double optimizeMPLP(int aPartialConf[], int iterations) {
         // The partial conf contains references to rotamers that were pruned, while our pairwise matrix removed those rotamers. Thus, we must creat
         //  a new partial conf that maps to our pruned matrix.
-        int mappedPartialConf[] = new int[numPos];
+        int mappedPartialConf[] = mapConformation(aPartialConf);
         feasibleSolution = aPartialConf.clone();
-        for (int pos = 0; pos < numPos; pos++) {
-            if (aPartialConf[pos] == -1) {
-                mappedPartialConf[pos] = -1;
-            } else {
-                mappedPartialConf[pos] = this.unprunedRotsPerPos.get(pos).indexOf(aPartialConf[pos]);
-            }
-        }
 
         // availableRots is just a list of lists with the list of rotamers available for the calculation at each rotamer; it is more convenient
         // 		than partialConf.  This code might be unnecessary but it makes the algorithm more elegant, IMO
-        int availableRots[][] = new int[numPos][];
-        for (int res = 0; res < numPos; res++) {
-            if (mappedPartialConf[res] == -1) {
-                availableRots[res] = new int[rotsPerPos[res]];
-                for (int rot = 0; rot < rotsPerPos[res]; rot++) {
-                    availableRots[res][rot] = rot;
-                }
-            } else { // residue has a rotamer already assigned in the partialConf.
-                availableRots[res] = new int[1];
-                availableRots[res][0] = mappedPartialConf[res];
-            }
-        }
+        int availableRots[][] = getAvailableRots(mappedPartialConf);
 
         /**
          * Here comes the actual algorithm *
@@ -120,7 +109,7 @@ public class Mplp {
         for (int pos = 0; pos < numPos; pos++) {
             for (int rot = 0; rot < this.rotsPerPos[pos]; rot++) {
                 //need index of rot into original emat
-                int rot_Emat = this.unprunedRotsPerPos.get(pos).get(rot);
+                int rot_Emat = this.unprunedRotsPerPos[pos][rot];
                 belief[pos][rot] += this.emat.getOneBody(pos, rot_Emat);
             }
         }
@@ -133,47 +122,7 @@ public class Mplp {
 
         //MPLP Algorithm
         for (int i = 0; i < iterations; i++) {
-            for (int posI = 0; posI < numPos; posI++) {
-                for (int posJ = posI + 1; posJ < numPos; posJ++) {
-                    //Option to ignore pairs that are too far away to interact
-                    if (interactionGraph[posI][posJ]) {
-                        // We first update lambda[resJ][resI][rotIR] and immediately after we update lambda[resI][resJ][rotJS]
-                        for (int rotIR : availableRots[posI]) {
-                            //For edge to node update in "Tightening LP Relaxations..." (Figure 1)
-                            //lambda_{i}^{-j}(x_i) + theta_i(x_i) = b_i(x_i) - lambda_{j,i -> i}(x_i)
-                            //This is computationally more efficient
-                            belief[posI][rotIR] -= lambda[posJ][posI][rotIR];// now b_i(x_i) = lambda_{i}^{-j}(x_i) + theta_i(x_i)
-
-                            ArrayList<Double> msgsFromRotsAtJ_to_rotIR = new ArrayList<Double>();
-                            for (int rotJS : availableRots[posJ]) {
-                                //Create a tuple to check if pair is pruned
-                                msgsFromRotsAtJ_to_rotIR.add(belief[posJ][rotJS] - lambda[posI][posJ][rotJS] + emat.getPairwise(posJ, unprunedRotsPerPos.get(posJ).get(rotJS), posI, unprunedRotsPerPos.get(posI).get(rotIR)));
-                            }
-                            if (availableRots[posJ].length == 0) {
-                                System.out.println("NO ROTS MPLP CRASHING");
-                                return Double.POSITIVE_INFINITY;
-                            }
-                            lambda[posJ][posI][rotIR] = -0.5 * belief[posI][rotIR] + 0.5 * Collections.min(msgsFromRotsAtJ_to_rotIR);
-                            belief[posI][rotIR] += lambda[posJ][posI][rotIR];
-                        }
-                        //Now we update lambda[posI][posJ][rotJS]
-                        for (int rotJS : availableRots[posJ]) {
-                            belief[posJ][rotJS] -= lambda[posI][posJ][rotJS]; // now b_j(x_j) = lambda_(j}^{-i}(x_j) + theta_j(x_j)
-
-                            ArrayList<Double> msgFromRotsAtI_to_rotJS = new ArrayList<>();
-                            for (int rotIR : availableRots[posI]) {
-                                msgFromRotsAtI_to_rotJS.add(belief[posI][rotIR] - lambda[posJ][posI][rotIR] + emat.getPairwise(posI, unprunedRotsPerPos.get(posI).get(rotIR), posJ, unprunedRotsPerPos.get(posJ).get(rotJS)));
-                            }
-                            if (availableRots[posI].length == 0) {
-                                System.out.println("NO ROTS MPLP CRASHING");
-                                return Double.POSITIVE_INFINITY;
-                            }
-                            lambda[posI][posJ][rotJS] = -0.5 * belief[posJ][rotJS] + 0.5 * Collections.min(msgFromRotsAtI_to_rotJS);
-                            belief[posJ][rotJS] += lambda[posI][posJ][rotJS];
-                        }
-                    }
-                }
-            }
+            runMPLP(availableRots);
             double oldEbound = Ebound;
             Ebound = 0.0f;
             for (int posI = 0; posI < numPos; posI++) {
@@ -182,28 +131,118 @@ public class Mplp {
             }
             // If we already converged, then we can exit
             if (Math.abs(Ebound - oldEbound) < minRateOfChange) {
+                if (debugMode) {
+                    System.out.println("Finished after " + i + " iterations");
+                }
                 break;
             }
         }
-
+        if (debugMode) {
+            System.out.println("Bound: " + Ebound);
+        }
         getFeasibleSolution(belief, availableRots);
+        if (debugMode) {
+            double primal = this.emat.getInternalEnergy(new RCTuple(this.feasibleSolution));
+            System.out.println("Primal: " + primal);
+        }
+        System.out.println();
         return Ebound;
     }
 
-    
-    void getFeasibleSolution(double[][] belief, int[][] availableRots) {
+    void runMPLP(int[][] availableRots) {
+        for (int posI = 0; posI < numPos; posI++) {
+            for (int posJ = posI + 1; posJ < numPos; posJ++) {
+                //Option to ignore pairs that are too far away to interact
+                if (interactionGraph[posI][posJ]) {
+                    // We first update lambda[resJ][resI][rotIR] and immediately after we update lambda[resI][resJ][rotJS]
+                    for (int rotIR : availableRots[posI]) {
+                        //For edge to node update in "Tightening LP Relaxations..." (Figure 1)
+                        //lambda_{i}^{-j}(x_i) + theta_i(x_i) = b_i(x_i) - lambda_{j,i -> i}(x_i)
+                        //This is computationally more efficient
+                        belief[posI][rotIR] -= lambda[posJ][posI][rotIR];// now b_i(x_i) = lambda_{i}^{-j}(x_i) + theta_i(x_i)
+
+                        double minMessageRotsAtJ_to_rotIR = Double.POSITIVE_INFINITY;
+                        for (int rotJS : availableRots[posJ]) {
+                            //Create a tuple to check if pair is pruned
+                            double message = belief[posJ][rotJS] - lambda[posI][posJ][rotJS] + emat.getPairwise(posJ, unprunedRotsPerPos[posJ][rotJS], posI, unprunedRotsPerPos[posI][rotIR]);
+                            minMessageRotsAtJ_to_rotIR = Math.min(minMessageRotsAtJ_to_rotIR, message);
+                        }
+                        if (availableRots[posJ].length == 0) {
+                            System.out.println("NO ROTS MPLP CRASHING");
+                            throw new RuntimeException("NO ROTS MPLP CRASHING");
+                        }
+//                            lambda[posJ][posI][rotIR] = -0.5 * belief[posI][rotIR] + 0.5 * Collections.min(msgsFromRotsAtJ_to_rotIR);
+                        lambda[posJ][posI][rotIR] = -0.5 * belief[posI][rotIR] + 0.5 * minMessageRotsAtJ_to_rotIR;
+                        belief[posI][rotIR] += lambda[posJ][posI][rotIR];
+                    }
+                    //Now we update lambda[posI][posJ][rotJS]
+                    for (int rotJS : availableRots[posJ]) {
+                        belief[posJ][rotJS] -= lambda[posI][posJ][rotJS]; // now b_j(x_j) = lambda_(j}^{-i}(x_j) + theta_j(x_j)
+
+                        double minMessageFromRotsAtI_to_rotsJS = Double.POSITIVE_INFINITY;
+                        for (int rotIR : availableRots[posI]) {
+                            double message = belief[posI][rotIR] - lambda[posJ][posI][rotIR] + emat.getPairwise(posI, unprunedRotsPerPos[posI][rotIR], posJ, unprunedRotsPerPos[posJ][rotJS]);
+                            minMessageFromRotsAtI_to_rotsJS = Math.min(minMessageFromRotsAtI_to_rotsJS, message);
+                        }
+                        if (availableRots[posI].length == 0) {
+                            System.out.println("NO ROTS MPLP CRASHING");
+                            throw new RuntimeException("NO ROTS MPLP CRASHING");
+                        }
+//                            lambda[posI][posJ][rotJS] = -0.5 * belief[posJ][rotJS] + 0.5 * Collections.min(msgFromRotsAtI_to_rotJS);
+                        lambda[posI][posJ][rotJS] = -0.5 * belief[posJ][rotJS] + 0.5 * minMessageFromRotsAtI_to_rotsJS;
+                        belief[posJ][rotJS] += lambda[posI][posJ][rotJS];
+                    }
+                }
+            }
+        }
+    }
+
+    int[] mapConformation(int[] aPartialConf
+    ) {
+        int mappedPartialConf[] = new int[numPos];
+        for (int pos = 0; pos < numPos; pos++) {
+            if (aPartialConf[pos] == -1) {
+                mappedPartialConf[pos] = -1;
+            } else {
+//                mappedPartialConf[pos] = this.unprunedRotsPerPos[pos].indexOf(aPartialConf[pos]);
+                mappedPartialConf[pos] = ArrayUtils.indexOf(unprunedRotsPerPos[pos], aPartialConf[pos]);
+            }
+        }
+        return mappedPartialConf;
+    }
+
+    int[][] getAvailableRots(int[] mappedPartialConf
+    ) {
+        int availableRots[][] = new int[numPos][];
+        for (int res = 0; res < numPos; res++) {
+            if (mappedPartialConf[res] == -1) {
+                availableRots[res] = new int[rotsPerPos[res]];
+                for (int rot = 0; rot < rotsPerPos[res]; rot++) {
+                    availableRots[res][rot] = rot;
+                }
+            } else { // residue has a rotamer already assigned in the partialConf.
+                availableRots[res] = new int[1];
+                availableRots[res][0] = mappedPartialConf[res];
+            }
+        }
+        return availableRots;
+    }
+
+    void getFeasibleSolution(double[][] belief, int[][] availableRots
+    ) {
         for (int pos = 0; pos < this.numPos; pos++) {
             if (feasibleSolution[pos] == -1) {
                 //unprunedRotNum corresponds to to the rotamer number in the reduced unpruned set
                 int unprunedRotNum = computeMinBelief(belief[pos], availableRots[pos]);
                 //rotNum corresponds to the actual rot num (i.e. index into ematrix)
-                int rotNum = this.pruneMat.unprunedRCsAtPos(pos).get(unprunedRotNum);
+                int rotNum = unprunedRotsPerPos[pos][unprunedRotNum];
                 feasibleSolution[pos] = rotNum;
             }
         }
     }
 
-    int computeMinBelief(double[] belief, int[] availableRots) {
+    int computeMinBelief(double[] belief, int[] availableRots
+    ) {
         double minValue = Double.POSITIVE_INFINITY;
         int minRot = -1;
         for (int rotIR : availableRots) {
@@ -216,7 +255,8 @@ public class Mplp {
         return minRot;
     }
 
-    double computeMinBeliefInReducedAvailableRots(double belief[], int availableRots[]) {
+    double computeMinBeliefInReducedAvailableRots(double belief[], int availableRots[]
+    ) {
         double minValue = Double.POSITIVE_INFINITY;
         for (int rotIR : availableRots) {
             double score = belief[rotIR];
@@ -240,8 +280,8 @@ public class Mplp {
         for (int xpos = 0; xpos < numPos; xpos++) {
             for (int ypos = xpos + 1; ypos < numPos; ypos++) {
                 double maxInteraction_x_y = 0.0f;
-                for (int xrot : this.unprunedRotsPerPos.get(xpos)) {
-                    for (int yrot : this.unprunedRotsPerPos.get(ypos)) {
+                for (int xrot : this.unprunedRotsPerPos[xpos]) {
+                    for (int yrot : this.unprunedRotsPerPos[ypos]) {
                         double pairInteraction = emat.getPairwise(xpos, xrot, ypos, yrot);
                         if (Math.abs(pairInteraction) > maxInteraction_x_y) {
                             maxInteraction_x_y = Math.abs(pairInteraction);

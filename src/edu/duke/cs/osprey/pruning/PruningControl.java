@@ -14,11 +14,9 @@ public class PruningControl {
     /*This class provides the high-level control of pruning: what series of pruning methods to use, etc.
      It thus provides a simple interface that K* or GMEC calculations can use for pruning
      */
-    
-    
-    
+
     SearchProblem searchSpace;
-    
+
     double pruningInterval;//relative energy threshold for pruning (includes I for iMinDEE)
     boolean typeDep;//type-dependent pruning
     double boundsThresh;//absolute threshold (for Bounds pruning)
@@ -28,12 +26,13 @@ public class PruningControl {
     boolean preDACS;//do pruning appropriate for all-conf-space pruning before DACS
     boolean useEPIC;//Use EPIC in pruning (to get lower bound of continuous E for pruning candidate)
     boolean useTupExp;//prune based on tup-exp energy matrix
-    
+
     double stericThresh;//Steric pruning threshold
     boolean onlyGoldstein = false;//for competitor pruning
-    
-    public PruningControl(SearchProblem searchSpace, double pruningInterval, boolean typeDep, 
-            double boundsThresh, int algOption, boolean useFlags, boolean useTriples, 
+    boolean verbose = false;
+
+    public PruningControl(SearchProblem searchSpace, double pruningInterval, boolean typeDep,
+            double boundsThresh, int algOption, boolean useFlags, boolean useTriples,
             boolean preDACS, boolean useEPIC, boolean useTupExp, double stericThresh) {
         this.searchSpace = searchSpace;
         this.pruningInterval = pruningInterval;
@@ -48,124 +47,121 @@ public class PruningControl {
         this.stericThresh = stericThresh;
     }
 
-    
-     
-    
-    
-    public void prune(){
-        
-        System.out.println();
-        System.out.println("BEGINNING PRUNING.  PRUNING INTERVAL: "+pruningInterval);
-        System.out.println();
-        
+    public void prune() {
+
+        if (verbose) {
+            System.out.println();
+            System.out.println("BEGINNING PRUNING.  PRUNING INTERVAL: " + pruningInterval);
+            System.out.println();
+        }
         long startTime = System.currentTimeMillis();
-        
-        Pruner dee = new Pruner(searchSpace,typeDep,boundsThresh,pruningInterval,useEPIC,useTupExp);
-        
+
+        Pruner dee = new Pruner(searchSpace, typeDep, boundsThresh, pruningInterval, useEPIC, useTupExp);
+
         //now go through the various types of pruning that we support
         //see KSParser
-        
         //possibly start with steric pruning?  
-        if(Double.isFinite(stericThresh) && !onlyGoldstein)
+        if (Double.isFinite(stericThresh) && !onlyGoldstein) {
             dee.pruneSteric(stericThresh);
-        
-        
+        }
+
         boolean done = false;
-        
+
         //numbers pruned so far
         int numPrunedRot = searchSpace.pruneMat.countPrunedRCs();
         int numPrunedPairs = 0;
-        if ((useFlags)||(algOption>=3)) //pairs pruning is performed
+        if ((useFlags) || (algOption >= 3)) //pairs pruning is performed
+        {
             numPrunedPairs = searchSpace.pruneMat.countPrunedPairs();
-        
-        
-        for (int numRuns=0; !done; numRuns++){ //repeat the pruning cycle until no more rotamers are pruned	
+        }
 
-            System.out.println("Starting DEE cycle run: "+numRuns);
-				
+        for (int numRuns = 0; !done; numRuns++) { //repeat the pruning cycle until no more rotamers are pruned	
+            if (verbose) {
+                System.out.println("Starting DEE cycle run: " + numRuns);
+            }
 		//		if (doMinimize && !localUseMinDEEPruningEw) //precompute the interval terms in the MinDEE criterion
-		//			rs.doCompMinDEEIntervals(mp.numberMutable, mp.strandMut, prunedRotAtRes, scaleInt, maxIntScale);
-			
+            //			rs.doCompMinDEEIntervals(mp.numberMutable, mp.strandMut, prunedRotAtRes, scaleInt, maxIntScale);
+
             //Depending on the chosen algorithm option, apply the corresponding pruning criteria;			
             dee.prune("GOLDSTEIN");
-            
+
             /*
-            if ((algOption>=3)) //simple Goldstein pairs
-                    dee.prune("GOLDSTEIN PAIRS MB");
+             if ((algOption>=3)) //simple Goldstein pairs
+             dee.prune("GOLDSTEIN PAIRS MB");
 
-            if ((useFlags)||(algOption>=3))
-                    dee.prune("BOUNDING FLAGS");
+             if ((useFlags)||(algOption>=3))
+             dee.prune("BOUNDING FLAGS");
 
-            dee.prune("CONFSPLIT1");
-            //note: conf splitting is equivalent to pruning pairs (say (i_r,j_s)) with overlapping
-            //competitors (say (i_t,j_s)), and then seeing what singles are pruned as a result
-            //we already do this
+             dee.prune("CONFSPLIT1");
+             //note: conf splitting is equivalent to pruning pairs (say (i_r,j_s)) with overlapping
+             //competitors (say (i_t,j_s)), and then seeing what singles are pruned as a result
+             //we already do this
             
-            dee.prune("BOUNDS");
-            */
-            
+             dee.prune("BOUNDS");
+             */
             //check how many rotamers/pairs are pruned now
             int newNumPrunedRot = searchSpace.pruneMat.countPrunedRCs();
             int newNumPrunedPairs = 0;
-            if ((useFlags)||(algOption>=3)) //pairs pruning is performed
-                    newNumPrunedPairs = searchSpace.pruneMat.countPrunedPairs();
-
-            
-            if( (newNumPrunedRot==numPrunedRot) && (newNumPrunedPairs==numPrunedPairs) && (!preDACS) ) { 
-            //no more rotamers pruned, so perform the computationally-expensive 2-sp split-Pruner and pairs
-
-                    if ( algOption>=3 ) { //simple Goldstein pairs
-                        dee.prune("GOLDSTEIN PAIRS FULL");
-                        
-                        if( useTriples )
-                            dee.prune("GOLDSTEIN TRIPLES");
-                    }
-                    
-                    /*
-                    if ((algOption>=2)){ //2-sp conf splitting
-                        dee.prune("CONFSPLIT2");
-                    }
-
-                    
-
-                    if(algOption >= 4){
-                        dee.prune("INDIRECT PAIRS");
-                        dee.prune("INDIRECT");
-                    }
-                    */
-
-                    //check if 2-sp split-Pruner and pairs pruned new rotamers
-                    newNumPrunedRot = searchSpace.pruneMat.countPrunedRCs();
-                    newNumPrunedPairs = 0;
-                    if ((useFlags)||(algOption>=3)) //pairs pruning is performed
-                        newNumPrunedPairs = searchSpace.pruneMat.countPrunedPairs();
+            if ((useFlags) || (algOption >= 3)) //pairs pruning is performed
+            {
+                newNumPrunedPairs = searchSpace.pruneMat.countPrunedPairs();
             }
-            
+
+            if ((newNumPrunedRot == numPrunedRot) && (newNumPrunedPairs == numPrunedPairs) && (!preDACS)) {
+                //no more rotamers pruned, so perform the computationally-expensive 2-sp split-Pruner and pairs
+
+                if (algOption >= 3) { //simple Goldstein pairs
+                    dee.prune("GOLDSTEIN PAIRS FULL");
+
+                    if (useTriples) {
+                        dee.prune("GOLDSTEIN TRIPLES");
+                    }
+                }
+
+                /*
+                 if ((algOption>=2)){ //2-sp conf splitting
+                 dee.prune("CONFSPLIT2");
+                 }
+
+                    
+
+                 if(algOption >= 4){
+                 dee.prune("INDIRECT PAIRS");
+                 dee.prune("INDIRECT");
+                 }
+                 */
+                //check if 2-sp split-Pruner and pairs pruned new rotamers
+                newNumPrunedRot = searchSpace.pruneMat.countPrunedRCs();
+                newNumPrunedPairs = 0;
+                if ((useFlags) || (algOption >= 3)) //pairs pruning is performed
+                {
+                    newNumPrunedPairs = searchSpace.pruneMat.countPrunedPairs();
+                }
+            }
+
             int numPrunedRotThisRun = newNumPrunedRot - numPrunedRot;
             int numPrunedPairsThisRun = newNumPrunedPairs - numPrunedPairs;
-            
-            
-            System.out.println("Num pruned rot this run: "+numPrunedRotThisRun);
-            System.out.println("Num pruned pairs this run: "+numPrunedPairsThisRun);
-            System.out.println();
-            
-            if(numPrunedRotThisRun==0 && numPrunedPairsThisRun==0)
+            if (verbose) {
+                System.out.println("Num pruned rot this run: " + numPrunedRotThisRun);
+                System.out.println("Num pruned pairs this run: " + numPrunedPairsThisRun);
+                System.out.println();
+            }
+            if (numPrunedRotThisRun == 0 && numPrunedPairsThisRun == 0) {
                 done = true;
-            
+            }
+
             numPrunedRot = newNumPrunedRot;
             numPrunedPairs = newNumPrunedPairs;
         }
 
         long pruneTime = System.currentTimeMillis() - startTime;
-        
-        System.out.println("Pruning time: " + pruneTime + " ms" );
+        if (verbose) {
+            System.out.println("Pruning time: " + pruneTime + " ms");
+        }
     }
 
     public void setOnlyGoldstein(boolean onlyGoldstein) {
         this.onlyGoldstein = onlyGoldstein;
     }
-    
-    
-    
-    
+
 }

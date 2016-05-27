@@ -30,7 +30,7 @@ public class VariationalPartFuncTests {
 
     static double epsilon = 0.1;
     static boolean verbose = true;
-
+    static boolean printStats = false;
     public static void main(String[] args)
             throws Exception {
 
@@ -45,10 +45,12 @@ public class VariationalPartFuncTests {
 
 //         String[] dirNums = {"01", "02", "03", "04", "05", "06", "07", "08", "09", "10"};
         String command = args[2];
+        PartFuncTree.verbose = false;
         if (command.equalsIgnoreCase("large")) {
             String subDir = "LargeTest/4HEM/";
             for (String dir : dirNums) {
                 String run = subDir + dir + "_Run/";
+                System.out.println("Running Test in "+run);
                 ConfigFileParser cfp = setupRun(run);
                 SearchProblem searchProb = cfp.getSearchProblem();
                 double pruningInt = 50;
@@ -63,6 +65,7 @@ public class VariationalPartFuncTests {
                 double epsilonReached = tree.effectiveEpsilon;
                 double confSpace = getLogConfSpace(searchProb.pruneMat);
                 writeOutResults(fileName, logZ, epsilonReached, time, confSpace);
+                System.out.println();
             }
         } else if (command.equalsIgnoreCase("small")) {
             String run = "SingleTest/4HEM/PartFuncTest/";
@@ -113,7 +116,7 @@ public class VariationalPartFuncTests {
             fw.write("LogZ: " + logZ + "\n");
             fw.write("Time: " + time + "\n");
             fw.close();
-            if (verbose) {
+            if (printStats) {
                 System.out.println(filename + " statistics");
                 System.out.println("LogConfSpace: " + confSpace);
                 System.out.println("Epsilon: " + epsilon);
@@ -166,13 +169,11 @@ public class VariationalPartFuncTests {
         //Doing competitor pruning now
         //will limit us to a smaller, but effective, set of competitors in all future DEE
         if (searchSpace.competitorPruneMat == null) {
-            System.out.println("PRECOMPUTING COMPETITOR PRUNING MATRIX");
             PruningControl compPruning = cfp.setupPruning(searchSpace, 0, false, false);
             compPruning.setOnlyGoldstein(true);
             compPruning.prune();
             searchSpace.competitorPruneMat = searchSpace.pruneMat;
             searchSpace.pruneMat = null;
-            System.out.println("COMPETITOR PRUNING DONE");
         }
 
         //Next, do DEE, which will fill in the pruning matrix

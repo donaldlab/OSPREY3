@@ -5,9 +5,6 @@
  */
 package edu.duke.cs.osprey.partitionfunctionbounds;
 
-import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.confspace.PositionConfSpaceSuper;
-import edu.duke.cs.osprey.confspace.SuperRCTuple;
 import java.util.ArrayList;
 
 /**
@@ -36,6 +33,9 @@ public class MRFNode {
             labels[i] = rc;
         }
         numLabels = labels.length;
+        if (numLabels == 0){
+            throw new RuntimeException("Markov Random Field has Node with No Labels at node "+posNum+" (check pruning)");
+        }
     }
 
     @Override

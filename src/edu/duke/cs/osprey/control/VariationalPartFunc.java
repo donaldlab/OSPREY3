@@ -41,7 +41,7 @@ public class VariationalPartFunc {
 
     public VariationalPartFunc(ConfigFileParser aCFP) {
         this.cfp = aCFP;
-        this.cfp.params.setValue("STERICTHRESH", "100");
+        this.cfp.params.setValue("STERICTHRESH", "1000");
         SearchProblem[] spList = cfp.getMSDSearchProblems();
 
         for (SearchProblem searchProb : spList) {
@@ -55,9 +55,8 @@ public class VariationalPartFunc {
 //            DiscretePartFunc dpf = new DiscretePartFunc(sp, 0.1);
 //            double logZKStar = dpf.getLogZ();
 //            System.out.println("KStar LogZ: " + logZKStar);
-            UpdatedPruningMatrix upm = new UpdatedPruningMatrix(sp.pruneMat);
-            prune(sp, upm, 30);
-
+            prune(sp, 30);
+            System.out.println("Finished Pruning");
             /*if (true) {
              partFuncTree tree = new partFuncTree(sp.emat, upm);
              double logZ = tree.computeEpsilonApprox(0.1);
@@ -87,9 +86,10 @@ public class VariationalPartFunc {
             }
             if (true) {
                 epsilon = 0.1;
-                PartFuncTree tree = new PartFuncTree(sp.emat, upm);
+                PartFuncTree tree = new PartFuncTree(sp.emat, sp.pruneMat);
                 long startTime = System.currentTimeMillis();
                 double maxTime = 3600000;
+                System.out.println("Starting Part Func Calculation");
                 double logZ = tree.computeEpsilonApprox(epsilon, maxTime);
                 long totalTime = (System.currentTimeMillis() - startTime);
                 System.out.println("New Alg Took: " + totalTime + " milliseconds");
@@ -98,7 +98,7 @@ public class VariationalPartFunc {
                 File statistics = new File(filename);
                 try {
                     FileWriter fw = new FileWriter(statistics);
-                    fw.write("LogConfSpace: " + getLogConfSpace(upm) + "\n");
+                    fw.write("LogConfSpace: " + getLogConfSpace(sp.pruneMat) + "\n");
                     fw.write("NewAlgorithm: " + totalTime + "\n");
                     if (tree.timeOut) {
                         fw.write("NewAlgorithm: finished false" + "\n");
@@ -107,7 +107,7 @@ public class VariationalPartFunc {
                         fw.write("NewAlgorithm: finished true" + "\n");
                     }
                     fw.write("NewAlgorithm: logZ " + logZ + "\n");
-                    DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, upm, 0.1, maxTime);
+                    DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, sp.pruneMat, 0.1, maxTime);
                     if (dfp.finishedInTime) {
                         fw.write("KStar: finished true" + "\n");
                         fw.write("KStar: totalTime " + dfp.totalTime);
@@ -124,7 +124,7 @@ public class VariationalPartFunc {
                 System.out.println("Epsilon Approx BB: " + logZ);
             }
             if (false) {
-                PartFuncTree tree = new PartFuncTree(sp.emat, upm);
+                PartFuncTree tree = new PartFuncTree(sp.emat, sp.pruneMat);
                 long startTime = System.currentTimeMillis();
                 double maxTime = 3600000;
                 double logZ = tree.computeEpsilonApprox(0.1, maxTime);
@@ -133,7 +133,7 @@ public class VariationalPartFunc {
                 File statistics = new File("data_var_p_2.txt");
                 try {
                     FileWriter fw = new FileWriter(statistics);
-                    fw.write("LogConfSpace: " + getLogConfSpace(upm) + "\n");
+                    fw.write("LogConfSpace: " + getLogConfSpace(sp.pruneMat) + "\n");
                     fw.write("NewAlgorithm: " + totalTime + "\n");
                     if (tree.timeOut) {
                         fw.write("NewAlgorithm: finished false" + "\n");
@@ -241,18 +241,21 @@ public class VariationalPartFunc {
         PruningControl pruning = cfp.setupPruning(searchProb, pruningInterval, false, false);
         pruning.prune();
     }
+    
+    private void prune(SearchProblem searchProb, double pruningInterval){
+        PruningControl pruning = cfp.setupPruning(searchProb, pruningInterval, false, false);
+        pruning.prune();
+    }
 
     private void initializePruning(SearchProblem searchProblem) {
         //Creates an efficient competitor pruning matrix
         searchProblem.competitorPruneMat = null;
-        System.out.println("PRECOMPUTING COMPETITOR PRUNING MATRIX");
         //prune with 0 interval, anything that survives will be added as a competitor
         PruningControl compPruning = cfp.setupPruning(searchProblem, Double.POSITIVE_INFINITY, false, false);
         compPruning.setOnlyGoldstein(true);
         compPruning.prune();
         searchProblem.competitorPruneMat = searchProblem.pruneMat;
         searchProblem.pruneMat = null;
-        System.out.println("COMPETITOR PRUNING DONE");
     }
 
 

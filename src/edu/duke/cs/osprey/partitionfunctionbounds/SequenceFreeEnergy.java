@@ -34,29 +34,54 @@ public class SequenceFreeEnergy extends AStarTree {
 
     int numLevels;
 
-    boolean optimizeBoundState = true;
+    public int numLeafNodesVisited = 0;
+    public int numLeafNodesExpanded = 0;
+
+    public static boolean optimizeBoundState = true;
     SearchProblem spToOptimize;
-    int spToOptimizeIndex;
+//    int spToOptimizeIndex;
     double epsilon = 0.1;
     public int numSequencesEnumerated = 0;
 
     public double bestFreeEnergy;
     public String[] bestSequence;
 
+    public static boolean normalizeFreeEnergy = false;
     public SequenceFreeEnergy(ConfigFileParser cfp) {
         setupConfigs(cfp);
         this.numLevels = aaTypeOptions.size();
         SearchProblem sp;
         if (optimizeBoundState) {
             spToOptimize = searchSpaces[0];
-            spToOptimizeIndex = 0;
         } else {
-            this.spToOptimizeIndex = spIndex2IsMutable[1] ? 1 : 2;
-            spToOptimize = searchSpaces[spToOptimizeIndex];
+            this.spToOptimize = spIndex2IsMutable[1] ? searchSpaces[1] : searchSpaces[2];
         }
         TRBP.setNumEdgeProbUpdates(0);
+        if (normalizeFreeEnergy){
+            normalizeDiscretization(spToOptimize);
+        }
     }
 
+    private void normalizeDiscretization(SearchProblem sp) {
+        double logConfSpace = getLogConfSpace(sp.pruneMat);
+        for (int pos = 0; pos < sp.emat.numPos(); pos++) {
+            ArrayList<Integer> unprunedRCs = sp.pruneMat.unprunedRCsAtPos(pos);
+            double penalty = logConfSpace;
+            for (int rc : unprunedRCs) {
+                double currentE = sp.emat.getOneBody(pos, rc);
+                sp.emat.setOneBody(pos, rc, currentE + penalty);
+            }
+        }
+    }
+    
+    private double getLogConfSpace(PruningMatrix pruneMat) {
+        double logConfSpace = 0;
+        for (int pos = 0; pos < pruneMat.numPos(); pos++) {
+            logConfSpace += Math.log(pruneMat.unprunedRCsAtPos(pos).size());
+        }
+        return logConfSpace;
+    }
+    
     @Override
     public ArrayList<AStarNode> getChildren(AStarNode curNode) {
         SequenceNode seqNode = (SequenceNode) curNode;
@@ -64,15 +89,14 @@ public class SequenceFreeEnergy extends AStarTree {
 
 //        printPartialSequence(seqNode);
         //expand next position...
-        
         if (seqNode.isFullyDefined()) {
             if (seqNode.stateTrees != null) {
                 seqNode.expandConfTree();
                 seqNode.setScore(boundFreeEnergy(seqNode));
                 ans.add(seqNode);
+                this.numLeafNodesExpanded++;
                 return ans;
-            }
-            else{
+            } else {
                 seqNode.setScore(Double.POSITIVE_INFINITY);
                 //Dont add to queue
             }
@@ -94,13 +118,12 @@ public class SequenceFreeEnergy extends AStarTree {
                         makeSeqPartFuncTree(childNode);
                         childNode.setScore(boundFreeEnergy(childNode));
                         ans.add(childNode);
+                        this.numLeafNodesVisited++;
                     }
                 }
-
                 return ans;
             }
         }
-
         throw new RuntimeException("ERROR: Not splittable position found but sequence not fully defined...");
     }
 
@@ -172,11 +195,32 @@ public class SequenceFreeEnergy extends AStarTree {
         if (seqNode.isFullyDefined()) {
             return seqNode.stateLBFreeEnergy[0];
         } else {
-            MarkovRandomField mrf = new MarkovRandomField(this.spToOptimize.emat, seqNode.pruneMats[0], 0.0);
-            TRBP trbp = new TRBP(mrf);
-            System.out.println("Score: " + (-trbp.getLogZ()));
-            return -trbp.getLogZ();
+            if (hasUnprunedRots(seqNode)) {
+                MarkovRandomField mrf = new MarkovRandomField(this.spToOptimize.emat, seqNode.pruneMats[0], 0.0);
+                TRBP trbp = new TRBP(mrf);
+                System.out.println("Score: " + (-trbp.getLogZ()));
+                return -trbp.getLogZ();
+            }
+            return Double.POSITIVE_INFINITY;
         }
+    }
+
+    boolean hasUnprunedRots(SequenceNode node) {
+        for (int pos = 0; pos < node.pruneMats[0].numPos(); pos++) {
+            if (node.pruneMats[0].unprunedRCsAtPos(pos).isEmpty()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    boolean hasUnprunedRots(PruningMatrix pm) {
+        for (int pos = 0; pos < pm.numPos(); pos++) {
+            if (pm.unprunedRCsAtPos(pos).isEmpty()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     //For more exact bounds (in practice this is much slower, anecdotally)
@@ -188,8 +232,6 @@ public class SequenceFreeEnergy extends AStarTree {
 
     private void makeSeqPartFuncTree(SequenceNode node) {
         node.stateTrees = new PartFuncTree[1];
-        node.stateTrees[0] = new PartFuncTree(spToOptimize.emat, node.pruneMats[0]);
-        AStarNode rootNode = node.stateTrees[0].rootNode();
 
         //first make sure there are RCs available at each position
         boolean RCsAvailable = true;
@@ -201,6 +243,9 @@ public class SequenceFreeEnergy extends AStarTree {
         }
 
         if (RCsAvailable) {
+            node.stateTrees[0] = new PartFuncTree(spToOptimize.emat, node.pruneMats[0]);
+            AStarNode rootNode = node.stateTrees[0].rootNode();
+
             node.stateLBFreeEnergy = new double[1];
             node.stateUBFreeEnergy = new double[1];
             node.stateLBFreeEnergy[0] = -node.stateTrees[0].getCurrentUpperBoundLogZ();
@@ -441,9 +486,15 @@ public class SequenceFreeEnergy extends AStarTree {
                 sequenceScore[seqNum] = -dpf.getLogZ();
                 System.out.print(sequenceScore[seqNum]);
             } else {
-                PartFuncTree tree = new PartFuncTree(spToOptimize.emat, upm);
-                sequenceScore[seqNum] = -tree.computeEpsilonApprox(epsilon);
-                System.out.print(sequenceScore[seqNum]);
+                if (hasUnprunedRots(upm)) {
+                    PartFuncTree tree = new PartFuncTree(spToOptimize.emat, upm);
+                    sequenceScore[seqNum] = -tree.computeEpsilonApprox(epsilon);
+                    System.out.print(sequenceScore[seqNum]);
+                } else {
+                    sequenceScore[seqNum] = Double.POSITIVE_INFINITY;
+                    System.out.print(Double.POSITIVE_INFINITY);
+                }
+
             }
             System.out.println();
         }
@@ -460,7 +511,7 @@ public class SequenceFreeEnergy extends AStarTree {
                 topSeqNum = seqNum;
             }
         }
-
+        this.bestSequence = seqList.get(topSeqNum);
         System.out.println("EXHAUSTIVE FREE ENERGY BEST SCORE: " + bestSeqScore + " SEQUENCE: ");
         for (String aa : seqList.get(topSeqNum)) {
             System.out.print(aa + " ");
@@ -537,6 +588,14 @@ public class SequenceFreeEnergy extends AStarTree {
         searchProblem.competitorPruneMat = searchProblem.pruneMat;
         searchProblem.pruneMat = null;
         System.out.println("COMPETITOR PRUNING DONE");
+    }
+
+    public double getLogSequenceSpaceSize() {
+        double logNumSeq = 0;
+        for (int pos = 0; pos < this.aaTypeOptions.size(); pos++) {
+            logNumSeq += Math.log(this.aaTypeOptions.get(pos).size());
+        }
+        return logNumSeq;
     }
 
 }

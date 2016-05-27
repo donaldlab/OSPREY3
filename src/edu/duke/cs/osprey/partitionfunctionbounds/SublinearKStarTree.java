@@ -43,7 +43,7 @@ public class SublinearKStarTree extends AStarTree {
     //they have to have the same mutable residues & AA options,
     //though the residues involved may be otherwise different
 
-    SearchProblem[] mutableSearchProblems;//SearchProblems involved in COMETS search
+    public SearchProblem[] mutableSearchProblems;//SearchProblems involved in COMETS search
 
     public SearchProblem nonMutableSearchProblem;
 
@@ -72,7 +72,10 @@ public class SublinearKStarTree extends AStarTree {
     String[] bestSequence;
 
     double pruningInterval = 50;
-    
+
+    public int numLeafNodesVisited = 0;
+    public int numLeafNodesExpanded = 0;
+
     public SublinearKStarTree(int numTreeLevels, LME objFcn, LME[] constraints,
             ArrayList<ArrayList<String>> AATypeOptions, int numMaxMut, String[] wtSeq,
             int numStates, SearchProblem[] stateSP, SearchProblem nonMutableSearchProblem,
@@ -112,7 +115,7 @@ public class SublinearKStarTree extends AStarTree {
             }
             score += seqNode.stateLBFreeEnergy[0];
             score -= seqNode.stateUBFreeEnergy[1];
-            if (score == 0){
+            if (score == 0) {
                 System.out.println("Score = 0");
             }
             return score;
@@ -134,6 +137,7 @@ public class SublinearKStarTree extends AStarTree {
             seqNode.expandConfTree();
             seqNode.setScore(boundFreeEnergyChange(seqNode));
             ans.add(seqNode);
+            this.numLeafNodesExpanded++;
             return ans;
         } else {
             //expand next position...
@@ -159,6 +163,7 @@ public class SublinearKStarTree extends AStarTree {
                         childNode.setScore(boundFreeEnergyChange(childNode));
                         System.out.println("Score: " + childNode.getScore());
                         ans.add(childNode);
+                        this.numLeafNodesVisited++;
                     }
 
                     return ans;
@@ -223,20 +228,19 @@ public class SublinearKStarTree extends AStarTree {
 //            score = -tree.computeEpsilonApprox(0.1);
         TRBP.setNumEdgeProbUpdates(0);
 //        System.out.println("Unpruned: " + seqNode.pruneMats[0].unprunedRCsAtPos(5));
-        MarkovRandomField mrf = new MarkovRandomField(ematSubset, seqNode.pruneMats[0], 0.0);
-        TRBP trbp = new TRBP(mrf);
 
-/*        ConfTree tree = new ConfTree(ematSubset, seqNode.pruneMats[0]);
-        int[] gmec = tree.nextConf();
-        if (gmec != null) {
-            RCTuple tup = new RCTuple(gmec);
-            System.out.println("GMEC: " + ematSubset.getInternalEnergy(tup) / this.constRT);
-            String aa = boundSP.confSpace.posFlex.get(7).RCs.get(gmec[7]).AAType;
-            boundSP.outputMinimizedStruct(gmec, aa + ".x.pdb");
-        } else {
-            System.out.println("GMEC NULL");
-        }
-*/
+
+        /*        ConfTree tree = new ConfTree(ematSubset, seqNode.pruneMats[0]);
+         int[] gmec = tree.nextConf();
+         if (gmec != null) {
+         RCTuple tup = new RCTuple(gmec);
+         System.out.println("GMEC: " + ematSubset.getInternalEnergy(tup) / this.constRT);
+         String aa = boundSP.confSpace.posFlex.get(7).RCs.get(gmec[7]).AAType;
+         boundSP.outputMinimizedStruct(gmec, aa + ".x.pdb");
+         } else {
+         System.out.println("GMEC NULL");
+         }
+         */
 //        ConfTree tree2 = new ConfTree(boundSP.emat, seqNode.pruneMats[0]);
 //        int[] gmec2 = tree2.nextConf();
 //        RCTuple tup2 = new RCTuple(gmec2);
@@ -245,11 +249,11 @@ public class SublinearKStarTree extends AStarTree {
 //        if (boundSP.emat.getInternalEnergy(tup2) > 100) {
 //            throw new RuntimeException();
 //        }
-
         if (hasUnprunedRCs(seqNode.pruneMats[0])) {
+            MarkovRandomField mrf = new MarkovRandomField(ematSubset, seqNode.pruneMats[0], 0.0);
+            TRBP trbp = new TRBP(mrf);
             score = -trbp.getLogZ();
-        }
-        else{
+        } else {
             score = Double.POSITIVE_INFINITY;
         }
         return score + objFcn.getConstTerm();
@@ -425,7 +429,7 @@ public class SublinearKStarTree extends AStarTree {
                 ans.markAsPruned(new RCTuple(posAtState, rc));
             }
         }
-        
+
         //now do any consequent singles & pairs pruning
         int numUpdates = ans.countUpdates();
         int oldNumUpdates;
@@ -1080,6 +1084,14 @@ public class SublinearKStarTree extends AStarTree {
                 }
             }
         }
+    }
+
+    public double getLogSequenceSpaceSize() {
+        double logNumSeq = 0;
+        for (int pos = 0; pos < this.AATypeOptions.size(); pos++) {
+            logNumSeq += Math.log(this.AATypeOptions.get(pos).size());
+        }
+        return logNumSeq;
     }
 
 }

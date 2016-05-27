@@ -57,7 +57,7 @@ public class TRBP {
 
     //This records the accuracy with which we want to continue updating messages
     double accuracyWithinEdgeProb = 0.001;
-    double messageConvergence = 1e-5;
+    double messageConvergence = 1e-4;
     double accuracyBetweenEdgeProb = 0.001;
 
     // When used in the branch and bound algorithm, we can save time not updating 
@@ -90,7 +90,7 @@ public class TRBP {
         this.numMessagesPairs = 2 * getNumEdges(this.interactionGraph);
 
         initializeEdgeWeights();
-
+        
         runTRBP2();
     }
 
@@ -119,7 +119,7 @@ public class TRBP {
 
         runTRBP2();
     }
-
+    
     private void runTRBP() {
         int numEdgeUpdates = 0;
 
@@ -159,7 +159,7 @@ public class TRBP {
                     double change = Math.abs(lastLogZMessage - currentlogZ);
                     lastLogZMessage = currentlogZ;
                     changeBetweenMessageUpdates = change;
-                    if (verbose) {
+                    if (verbose&& numMessageUpdates % 10 ==0) {
                         System.out.println("   LogZUB: " + currentlogZ + "  Change: " + change + "  AveMess: " + this.averageChange);
                     }
                 }
@@ -215,6 +215,11 @@ public class TRBP {
                     lastLogZMessage = currentlogZ;
                     changeBetweenMessageUpdates = change;
                     if (verbose) {
+                        System.out.println("Average Message Change: " + this.averageChange);
+                    }
+                }
+                else{
+                    if (verbose){
                         System.out.println("Average Message Change: " + this.averageChange);
                     }
                 }
@@ -795,4 +800,5 @@ public class TRBP {
         assert (numUpdates >= 0);
         maxNumEdgeUpdates = numUpdates;
     }
+    
 }

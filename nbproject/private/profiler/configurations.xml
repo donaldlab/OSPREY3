@@ -119,7 +119,7 @@
 <entry key="0_profiler.settings.sampling.interval">10</entry>
 <entry key="1_profiler.settings.profile.underlying.framework">false</entry>
 <entry key="2_profiler.settings.instrument.method.invoke">true</entry>
-<entry key="1_profiler.settings.profilingpoints.enabled">false</entry>
+<entry key="1_profiler.settings.profilingpoints.enabled">true</entry>
 <entry key="1_profiler.settings.istrument.getter.setter.methods">false</entry>
 <entry key="2_profiler.settings.cpu.quick.filterprofiler.simple.filter.name">Quick filter...</entry>
 <entry key="0_profiler.settings.instrumentation.filter.selectedprofiler.simple.filter.type">0</entry>

@@ -47,6 +47,7 @@ public class EnergyMatrixCalculator {
 
     boolean templateAlwaysOn = false;
 
+    boolean verbose = false;
     //constructor for calculating a scalar energy matrix (rigid or pairwise lower bounds)
 
     public EnergyMatrixCalculator(ConfSpace s, ArrayList<Residue> sr, boolean useERef,
@@ -80,9 +81,11 @@ public class EnergyMatrixCalculator {
 
         System.out.println();
         if (doEPIC) {
-            System.out.println("BEGINNING EPIC MATRIX PRECOMPUTATION");
+            if (verbose)
+                System.out.println("BEGINNING EPIC MATRIX PRECOMPUTATION");
         } else {
-            System.out.println("BEGINNING ENERGY MATRIX PRECOMPUTATION");
+            if (verbose)
+                System.out.println("BEGINNING ENERGY MATRIX PRECOMPUTATION");
         }
         System.out.println();
 
@@ -111,16 +114,16 @@ public class EnergyMatrixCalculator {
             System.out.println("CORRECTING ENERGY MATRIX BASED ON REFERENCE ENERGIES");
             emat.eRefMat.correctEnergyMatrix(emat);
         }
-
-        System.out.println("ENERGY MATRIX CALCULATION DONE");
+        if (verbose)
+            System.out.println("ENERGY MATRIX CALCULATION DONE");
     }
 
     public void calcPEMLocally() {
         //do the energy calculation here
 
         for (int res = 0; res < searchSpace.numPos; res++) {
-
-            System.out.println("Starting intra+shell energy calculations for residue " + res);
+            if (verbose)
+                System.out.println("Starting intra+shell energy calculations for residue " + res);
 
             TermECalculator oneBodyECalc = new TermECalculator(searchSpace, shellResidues, doEPIC,
                     false, pruneMat, epicSettings, addResEntropy, res);
@@ -129,8 +132,8 @@ public class EnergyMatrixCalculator {
             storeEnergy(oneBodyE, res);
 
             for (int res2 = 0; res2 < res; res2++) {
-
-                System.out.println("Starting pairwise energy calculations for residues " + res + ", " + res2);
+                if (verbose)
+                    System.out.println("Starting pairwise energy calculations for residues " + res + ", " + res2);
 
                 TermECalculator pairECalc = new TermECalculator(searchSpace, shellResidues, doEPIC,
                         false, pruneMat, epicSettings, false, res, res2);

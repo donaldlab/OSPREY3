@@ -24,7 +24,6 @@ public class Main {
         //args expected to be "-c KStar.cfg command config_file_1.cfg ..."
 
         debuggingCommands(args);
-
         String command = "";
         try {
             command = args[2];

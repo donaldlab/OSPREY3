@@ -31,25 +31,24 @@ public class ConfTree extends AStarTree {
     public EnergyMatrix emat;
     //HMN: Added Pruning Mat for Pairs Pruning
     public PruningMatrix pruneMat;
-    
+
     ArrayList<ArrayList<Integer>> unprunedRCsAtPos = new ArrayList<>();
     //get from searchSpace when initializing!
     //These are lists of residue-specific RC numbers for the unpruned RCs at each residue
 
     //ADVANCED SCORING METHODS: TO CHANGE LATER (EPIC, MPLP, etc.)
-    boolean traditionalScore = true;
+    public static boolean traditionalScore = true;
     boolean useRefinement = false;//refine nodes (might want EPIC, MPLP, or something else)
-    boolean mplpScore = false;
-    
+    public static boolean mplpScore = false;
+
     //MPLP object for node refinement
     public Mplp mplpMinimizer;
-    
-    
+
     boolean useDynamicAStar = true;
 
     //HMN: This is Helpful for MPLP
     boolean useEpic = false;
-    
+
     EPICMatrix epicMat = null;//to use in refinement
     ConfSpace confSpace = null;//conf space to use with epicMat if we're doing EPIC minimization w/ SAPE
     public boolean minPartialConfs = false;//whether to minimize partially defined confs with EPIC, or just fully defined
@@ -64,7 +63,7 @@ public class ConfTree extends AStarTree {
     }
 
     //For rigid traditional
-    public ConfTree(EnergyMatrix aEmat, PruningMatrix aPruneMat){
+    public ConfTree(EnergyMatrix aEmat, PruningMatrix aPruneMat) {
         this.numPos = aEmat.numPos();
         this.emat = aEmat;
         this.pruneMat = aPruneMat;
@@ -73,14 +72,14 @@ public class ConfTree extends AStarTree {
             unprunedRCsAtPos.add(aPruneMat.unprunedRCsAtPos(pos));
         }
 
-        if (mplpScore){
+        if (mplpScore) {
             useRefinement = true;
             mplpMinimizer = new Mplp(numPos, emat, pruneMat);
         }
     }
-    
+
     //For epic
-    public ConfTree(EnergyMatrix aEmat, PruningMatrix aPruneMat, EPICMatrix epicMat, ConfSpace aConfSpace){
+    public ConfTree(EnergyMatrix aEmat, PruningMatrix aPruneMat, EPICMatrix epicMat, ConfSpace aConfSpace) {
         this.numPos = aEmat.numPos();
         this.emat = aEmat;
         this.pruneMat = aPruneMat;
@@ -94,7 +93,7 @@ public class ConfTree extends AStarTree {
         this.useRefinement = true;
         this.mplpScore = false;
     }
-    
+
     private void init(SearchProblem sp, PruningMatrix aPruneMat, boolean useEPIC) {
         numPos = sp.confSpace.numPos;
 
@@ -118,7 +117,7 @@ public class ConfTree extends AStarTree {
             }
         }
         //Initialize MPLP (not compatible with EPIC)
-        if (mplpScore && (!useEPIC)){
+        if (mplpScore && (!useEPIC)) {
             useRefinement = true;
             mplpMinimizer = new Mplp(numPos, emat, pruneMat);
         }
@@ -130,9 +129,11 @@ public class ConfTree extends AStarTree {
         if (isFullyAssigned(curNode)) {
             throw new RuntimeException("ERROR: Can't expand a fully assigned A* node");
         }
-        
-        if(curNode.score == Double.POSITIVE_INFINITY)//node impossible, so no children
+
+        if (curNode.score == Double.POSITIVE_INFINITY)//node impossible, so no children
+        {
             return new ArrayList<>();
+        }
 
         ArrayList<AStarNode> ans = new ArrayList<>();
         int nextLevel = nextLevelToExpand(curNode.nodeAssignments);
@@ -170,11 +171,11 @@ public class ConfTree extends AStarTree {
     }
 
     @Override
-    public boolean canPruneNode(AStarNode node){
+    public boolean canPruneNode(AStarNode node) {
         RCTuple tup = new RCTuple(node.nodeAssignments);
         return this.pruneMat.isPruned(tup);
     }
-    
+
     //operations supporting special features like dynamic A*
     public int nextLevelToExpand(int[] partialConf) {
         //given a partially defined conformation, what level should be expanded next?
@@ -259,6 +260,8 @@ public class ConfTree extends AStarTree {
             }
 
             return score;
+        } else if (mplpScore) {
+            return mplpMinimizer.optimizeMPLP(partialConf, 1000);
         } else {
             //other possibilities include MPLP, etc.
             //But I think these are better used as refinements
@@ -403,15 +406,13 @@ public class ConfTree extends AStarTree {
         }
 
         //Refine node with MPLP
-        if (this.mplpScore){
-            if (useEpic){
+        if (this.mplpScore) {
+            if (useEpic) {
                 throw new UnsupportedOperationException("ERROR: MPLP is Not Compatible with EPIC");
             }
-            
-            node.score = this.mplpMinimizer.optimizeMPLP(node.nodeAssignments, 100);
-        }
-            
-        else if (minPartialConfs || isFullyAssigned(node)) {
+
+//            node.score = this.mplpMinimizer.optimizeMPLP(node.nodeAssignments, 100);
+        } else if (minPartialConfs || isFullyAssigned(node)) {
             node.score += epicMat.minContE(node.nodeAssignments);
         }
 

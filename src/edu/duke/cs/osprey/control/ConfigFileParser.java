@@ -34,6 +34,8 @@ public class ConfigFileParser {
 
     public ParamSet params = new ParamSet();
 
+    boolean verbose = false;
+
     public ConfigFileParser(String[] args) {
         //parse all config files into params
 
@@ -247,9 +249,9 @@ public class ConfigFileParser {
             throw new RuntimeException("ERROR: Number of flexible positions different in flexible residue "
                     + "and allowed AA type parameters!");
         }
-
-        System.out.println("CREATING SEARCH PROBLEM.  NAME: " + name);
-
+        if (verbose) {
+            System.out.println("CREATING SEARCH PROBLEM.  NAME: " + name);
+        }
         ArrayList<String[]> moveableStrands = moveableStrandTermini();
         ArrayList<String[]> freeBBZones = freeBBZoneTermini();
         DEEPerSettings dset = setupDEEPer();
