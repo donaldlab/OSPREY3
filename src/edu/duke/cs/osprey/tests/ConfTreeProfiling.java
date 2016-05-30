@@ -7,7 +7,12 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 
-import edu.duke.cs.osprey.astar.PairwiseConfTree;
+import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
+import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
@@ -83,8 +88,16 @@ public class ConfTreeProfiling {
 		
 		// init the conformation search
 		//ConfTree<?> tree = ConfTree.makeFull(search);
-		PairwiseConfTree tree = new PairwiseConfTree(search);
-		tree.initProgress(search.confSpace.numPos);
+		//PairwiseConfTree tree = new PairwiseConfTree(search);
+		RCs rcs = new RCs(search.pruneMat);
+		ConfAStarTree tree = new ConfAStarTree(
+			new DynamicHMeanAStarOrder(),
+			//new SequentialAStarOrder(),
+			new PairwiseGScorer(search.emat),
+			new TraditionalPairwiseHScorer(search.emat, rcs),
+			rcs
+		);
+		tree.initProgress();
 		
 		// notation below (trialN values in milliseconds):
 		// numFlexPos: [trial1, trial2, trial2]
@@ -163,23 +176,41 @@ public class ConfTreeProfiling {
 		System.out.println("finished in " + stopwatch.getTime(TimeUnit.MILLISECONDS));
 		System.out.println("conf:     " + Arrays.toString(conf));
 		
-		// TODO: check for accuracy, energy should be:
-		// 27:   -260.91555715297517
-		// 34:   -346.32024675046176
-		// 55:   -514.1055956242977
-
+		double observedEnergy = search.emat.getInternalEnergy(new RCTuple(conf));
+		System.out.println(String.format("energy: %16.10f", observedEnergy));
+		
 		// make sure we still have the right answer!
 		Map<Integer,int[]> expectedConfs = new TreeMap<>();
 		expectedConfs.put(27, new int[] { 0, 6, 7, 0, 16, 0, 0, 6, 25, 6, 0, 0, 0, 0, 0, 0, 16, 2, 12, 1, 0, 15, 0, 1, 0, 0, 0 });
 		expectedConfs.put(34, new int[] { 0, 6, 7, 0, 16, 0, 0, 6, 25, 6, 0, 0, 0, 0, 0, 0, 16, 2, 12, 1, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 29, 0, 0 });
 		expectedConfs.put(55, new int[] { 0, 6, 7, 0, 16, 0, 0, 6, 25, 6, 0, 0, 0, 0, 0, 0, 16, 2, 12, 1, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 29, 0, 0, 1, 2, 1, 0, 0, 3, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0 });
 		checkConf(expectedConfs.get(NumFlexible), conf);
+		
+		// make sure the energy matches
+		Map<Integer,Double> expectedEnergies = new TreeMap<>();
+		expectedEnergies.put(27, -260.91555715297517);
+		expectedEnergies.put(34, -346.32024675046176);
+		expectedEnergies.put(55, -514.1055956242977);
+		checkEnergy(expectedEnergies.get(NumFlexible), observedEnergy);
 	}
 	
 	private static void checkConf(int[] expected, int[] observed) {
 		if (!Arrays.equals(expected, observed)) {
 			System.out.println("expected: " + Arrays.toString(expected));
 			throw new Error("GMEC changed! Undo that \"optimization!\"");
+		}
+	}
+	
+	private static void checkEnergy(double expected, double observed) {
+		final double Epsilon = 1e-14;
+		double relErr = Math.abs(expected - observed)/expected;
+		if (relErr > Epsilon) {
+			throw new Error(String.format(
+				"Energy is wrong, undo that 'optimization'!\n\texpected: %.15f\n\tcalculated: %.15f\n\trelErr: %.15f",
+				expected, observed, relErr
+			));
+		} else {
+			System.out.println(String.format("Energy is correct\n\trelErr: %.15f", relErr));
 		}
 	}
 }

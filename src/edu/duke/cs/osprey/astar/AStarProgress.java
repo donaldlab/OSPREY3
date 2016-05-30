@@ -10,35 +10,37 @@ public class AStarProgress {
 	private static final int ReportIntervalMs = 10 * 1000; // TODO: make configurable
 	
 	private int numLevels;
+	private int numNonTrivialLevels;
 	private int level;
 	private int deepestLevel;
-	private double score;
+	private double gscore;
+	private double hscore;
 	private long numNodesInQueue;
-	private long numNodesExplored;
-	private long numNodesExploredThisReport;
+	private long numNodesQueuedThisReport;
 	private Stopwatch stopwatch;
 	private int msRunning;
 	
-	public AStarProgress(int numLevels) {
+	public AStarProgress(int numLevels, int numNonTrivialLevels) {
 		this.numLevels = numLevels;
+		this.numNonTrivialLevels = numNonTrivialLevels;
 		level = 0;
 		deepestLevel = 0;
-		score = Double.POSITIVE_INFINITY;
+		gscore = Double.POSITIVE_INFINITY;
+		hscore = Double.POSITIVE_INFINITY;
 		numNodesInQueue = 0;
-		numNodesExplored = 0;
-		numNodesExploredThisReport = 0;
+		numNodesQueuedThisReport = 0;
 		stopwatch = new Stopwatch();
 		msRunning = 0;
 	}
 	
-	public void reportNode(AStarNode node, int numNodesInQueue) {
+	public void reportNode(int level, double gscore, double hscore, int numNodesInQueue, int numAddedToQueue) {
 		
-		this.level = node.getLevel();
+		this.level = level;
 		this.deepestLevel = Math.max(this.deepestLevel, this.level);
-		this.score = node.getScore();
+		this.gscore = gscore;
+		this.hscore = hscore;
 		this.numNodesInQueue = numNodesInQueue;
-		this.numNodesExplored++;
-		this.numNodesExploredThisReport++;
+		this.numNodesQueuedThisReport += numAddedToQueue;
 	
 		if (!stopwatch.isRunning()) {
 			stopwatch.start();
@@ -50,7 +52,7 @@ public class AStarProgress {
 		if (msRunning >= this.msRunning + ReportIntervalMs) {
 			printProgressReport();
 			this.msRunning = msRunning;
-			this.numNodesExploredThisReport = 0;
+			this.numNodesQueuedThisReport = 0;
 		}
 	}
 	
@@ -62,11 +64,11 @@ public class AStarProgress {
 	public String makeProgressReport() {
 		double diffMs = stopwatch.getTimeMs() - this.msRunning;
 		MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-		return String.format("AStar Progress: score=%18.12f, level=%4d/%4d/%4d, queuedNodes=%14d, exploredNodes=%14d, nodes/sec=%5d, time=%s, heapMem=%.0f%%",
-			score,
-			level, deepestLevel, numLevels,
-			numNodesInQueue, numNodesExplored,
-			(int)(numNodesExploredThisReport*1000/diffMs),
+		return String.format("AStar Progress  gscore:%16.10f, hscore:%16.10f, level:%4d/%4d/%4d/%4d, queued:%10d, nodes/sec:%5d, time:%s, heapMem:%.0f%%",
+			gscore, hscore,
+			level, deepestLevel, numNonTrivialLevels, numLevels,
+			numNodesInQueue,
+			(int)(numNodesQueuedThisReport*1000/diffMs),
 			stopwatch.getTime(2),
 			100f*heapMem.getUsed()/heapMem.getMax()
 		);

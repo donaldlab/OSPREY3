@@ -4,12 +4,12 @@
  */
 package edu.duke.cs.osprey.control;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
-
 import edu.duke.cs.osprey.astar.ConfTree;
-import edu.duke.cs.osprey.astar.PairwiseConfTree;
+import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
+import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.pruning.Pruner;
@@ -377,14 +377,21 @@ public class GMECFinder {
     ConfSearch initSearch(SearchProblem searchSpace){
         //initialize some kind of combinatorial search, like A*
         //FOR NOW just using A*; may also want BWM*, WCSP, or something according to settings
-    	ConfTree<?> tree;
     	if (searchSpace.searchNeedsHigherOrderTerms()) {
-    		tree = ConfTree.makeFull(searchSpace);
+    		return ConfTree.makeFull(searchSpace);
     	} else {
-    		tree = new PairwiseConfTree(searchSpace);
+    		
+    		// if we don't need higher-order terms, use the super fast pairwise implementation
+			RCs rcs = new RCs(searchSpace.pruneMat);
+			ConfAStarTree tree = new ConfAStarTree(
+				new DynamicHMeanAStarOrder(),
+				new PairwiseGScorer(searchSpace.emat),
+				new TraditionalPairwiseHScorer(searchSpace.emat, rcs),
+				rcs
+			);
+			tree.initProgress();
+			return tree;
     	}
-    	tree.initProgress(searchSpace.confSpace.numPos);
-    	return tree;
     }
     
     

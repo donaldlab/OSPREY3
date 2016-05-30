@@ -20,7 +20,6 @@ public abstract class AStarTree<T extends AStarNode> implements ConfSearch {
     //dynamic ordering, different node scoring heuristics, COMETS, super-rotamers, etc.
         
     private PriorityQueue<T> pq = null;
-    private AStarProgress progress = null;
         
     //AStarNode can be lightweight: just int[], score, and flag for if score needs refinement
     //the meanings are assigned by subclasses of this class, which define things like scoring
@@ -29,10 +28,6 @@ public abstract class AStarTree<T extends AStarNode> implements ConfSearch {
     
     public int numExpanded = 0;//counting number of nodes expanded
     public int numPruned = 0;//counting number of nodes pruned
-    
-    public void initProgress(int numPos) {
-    	progress = new AStarProgress(numPos);
-    }
     
     @Override
     public int[] nextConf(){
@@ -50,10 +45,6 @@ public abstract class AStarTree<T extends AStarNode> implements ConfSearch {
             if(curNode==null){
                 System.out.println("A* tree empty...returning empty signal");
                 return null;//signal for empty tree
-            }
-            
-            if (progress != null) {
-            	progress.reportNode(curNode, getQueue().size());
             }
             
             if(canPruneNode(curNode))//like, too many AA changes
@@ -108,10 +99,6 @@ public abstract class AStarTree<T extends AStarNode> implements ConfSearch {
     
     
     public int[] outputNode(T node){
-    	
-    	if (progress != null) {
-    		progress.printProgressReport();
-    	}
     	
         //by default, the output of the A* tree will be simply the node assignments for the optimal node
         //but we may sometimes want to process it in some way
