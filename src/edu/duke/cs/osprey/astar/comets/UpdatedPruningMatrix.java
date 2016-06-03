@@ -5,7 +5,6 @@
  */
 package edu.duke.cs.osprey.astar.comets;
 
-import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -81,6 +80,37 @@ public class UpdatedPruningMatrix extends PruningMatrix {
                 pairs.put(rc1, new TreeSet<Integer>());
             
             pairs.get(rc1).add(rc2);
+        }
+        else{
+            throw new RuntimeException("ERROR: UpdatedPruningMatrix just stores updated"
+                    + " singles and pairs pruning, can't store pruned tuple: "+tup.stringListing());
+        }
+    }
+
+    
+    public void markAsUnPruned(RCTuple tup){
+        //Store as update
+        int tupNumPos = tup.pos.size();
+        
+        if(tupNumPos==1){
+            int pos = tup.pos.get(0);
+            int rc =  tup.RCs.get(0);
+            parent.setOneBody(pos, rc, false);
+        }
+        else if(tupNumPos==2){
+            int pos1 = tup.pos.get(0);
+            int pos2 = tup.pos.get(1);
+            int rc1 =  tup.RCs.get(0);
+            int rc2 =  tup.RCs.get(1);
+            
+            if(pos1<pos2){//need to store the pair in descending order of position
+                pos2 = tup.pos.get(0);
+                pos1 = tup.pos.get(1);
+                rc2 =  tup.RCs.get(0);
+                rc1 =  tup.RCs.get(1);
+            }
+            
+            parent.setPairwise(pos1, rc1, pos2, rc2, false);
         }
         else{
             throw new RuntimeException("ERROR: UpdatedPruningMatrix just stores updated"

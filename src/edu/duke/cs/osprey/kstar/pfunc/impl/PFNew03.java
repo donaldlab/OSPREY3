@@ -56,7 +56,7 @@ public class PFNew03 extends PFNew02 implements Serializable {
 		slaves.clear();
 		for( int i = 0; i < fibers; ++i ) {
 
-			ArrayList<SearchProblem> sps = parallelCreateSPs(sp, threadsPerFiber);
+			ArrayList<SearchProblem> sps = parallelCreateSPs(qSP, threadsPerFiber);
 
 			slaves.add( new MinimizerFiber( sps, threadsPerFiber, confsPerThread ) );
 

@@ -57,9 +57,9 @@ public class KSCalc {
 
 	public EApproxReached getEpsilonStatus() {
 
-		PFAbstract pl = strand2PF.get(Strand.COMPLEX);
-		PFAbstract p = strand2PF.get(Strand.PROTEIN);
-		PFAbstract l = strand2PF.get(Strand.LIGAND);
+		PFAbstract pl = strand2PF.get(Termini.COMPLEX);
+		PFAbstract p = strand2PF.get(Termini.PROTEIN);
+		PFAbstract l = strand2PF.get(Termini.LIGAND);
 		
 		if(pl.getEpsilonStatus() == EApproxReached.NOT_POSSIBLE 
 				|| p.getEpsilonStatus() == EApproxReached.NOT_POSSIBLE 
@@ -127,15 +127,15 @@ public class KSCalc {
 
 	public void run(KSCalc wtKSCalc, boolean forceRun, boolean stabilityCheck) {
 
-		ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Strand.LIGAND, 
-				Strand.PROTEIN, Strand.COMPLEX));
+		ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Termini.LIGAND, 
+				Termini.PROTEIN, Termini.COMPLEX));
 
 		for( int strand : strands ) {
 			if( !forceRun && getEpsilonStatus() != EApproxReached.FALSE ) return;
 
-			boolean complete = KSAbstract.doCheckPoint && strand == Strand.COMPLEX ? false : true;
+			boolean complete = KSAbstract.doCheckPoint && strand == Termini.COMPLEX ? false : true;
 			PFAbstract wtPF = wtKSCalc.getPF(strand);
-			if(strand == Strand.COMPLEX) stabilityCheck = false;
+			if(strand == Termini.COMPLEX) stabilityCheck = false;
 			runPF(getPF(strand), wtPF, complete, stabilityCheck);
 		}
 	}
@@ -173,8 +173,8 @@ public class KSCalc {
 
 	public void deleteCheckPointFiles() {
 
-		ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Strand.LIGAND, 
-				Strand.PROTEIN, Strand.COMPLEX));
+		ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Termini.LIGAND, 
+				Termini.PROTEIN, Termini.COMPLEX));
 
 		for( int strand : strands ) {
 			deleteCheckPointFile(strand);
@@ -190,9 +190,9 @@ public class KSCalc {
 	
 	public BigDecimal getKStarScore( boolean useUB ) {
 
-		BigDecimal pl = useUB ? getPF(Strand.COMPLEX).getQStarUpperBound() : getPF(Strand.COMPLEX).getQStar();
-		BigDecimal p = getPF(Strand.PROTEIN).getQStar();
-		BigDecimal l = getPF(Strand.LIGAND).getQStar();
+		BigDecimal pl = useUB ? getPF(Termini.COMPLEX).getQStarUpperBound() : getPF(Termini.COMPLEX).getQStar();
+		BigDecimal p = getPF(Termini.PROTEIN).getQStar();
+		BigDecimal l = getPF(Termini.LIGAND).getQStar();
 		
 		BigDecimal score;
 		
@@ -222,9 +222,9 @@ public class KSCalc {
 	
 	protected double getKStarScoreLog10( boolean useUB ) {
 
-		BigDecimal pl = useUB ? getPF(Strand.COMPLEX).getQStarUpperBound() : getPF(Strand.COMPLEX).getQStar();
-		BigDecimal p = getPF(Strand.PROTEIN).getQStar();
-		BigDecimal l = getPF(Strand.LIGAND).getQStar();
+		BigDecimal pl = useUB ? getPF(Termini.COMPLEX).getQStarUpperBound() : getPF(Termini.COMPLEX).getQStar();
+		BigDecimal p = getPF(Termini.PROTEIN).getQStar();
+		BigDecimal l = getPF(Termini.LIGAND).getQStar();
 
 		if( doingKAStar() ) {
 			// can easily get clashes for rigid rotamers
@@ -325,7 +325,7 @@ public class KSCalc {
 			out.print(seqID);
 
 			out.print("\t");
-			out.print(KSAbstract.list1D2String(getPF(Strand.COMPLEX).getSequence(), " "));
+			out.print(KSAbstract.list1D2String(getPF(Termini.COMPLEX).getSequence(), " "));
 
 			out.print("\t");
 			out.print(getKStarScoreLog10(false));
@@ -333,8 +333,8 @@ public class KSCalc {
 			out.print("\t");
 			out.print(getKStarScoreLog10(true));
 
-			ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Strand.COMPLEX, 
-					Strand.PROTEIN, Strand.LIGAND));
+			ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Termini.COMPLEX, 
+					Termini.PROTEIN, Termini.LIGAND));
 
 			BigInteger numMinConfs = BigInteger.ZERO;
 			for( int strand : strands ) {

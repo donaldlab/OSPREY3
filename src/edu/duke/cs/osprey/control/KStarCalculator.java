@@ -10,7 +10,7 @@ import java.util.HashMap;
 
 import edu.duke.cs.osprey.kstar.AllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSAbstract;
-import edu.duke.cs.osprey.kstar.Strand;
+import edu.duke.cs.osprey.kstar.Termini;
 import edu.duke.cs.osprey.kstar.impl.KSImplLinear;
 import edu.duke.cs.osprey.kstar.impl.KSImplKAStar;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
@@ -111,7 +111,7 @@ public class KStarCalculator {
 
 		if(ans.size() > 0) {
 			// check for correct length
-			AllowedSeqs pl = strand2AllowedSeqs.get(Strand.COMPLEX);
+			AllowedSeqs pl = strand2AllowedSeqs.get(Termini.COMPLEX);
 			
 			for(ArrayList<String> seq : ans) {
 				if(seq.size() != pl.getSequenceLength())
@@ -144,9 +144,9 @@ public class KStarCalculator {
 		if(mutations == null) 
 			return null;
 
-		AllowedSeqs pl = strand2AllowedSeqs.get(Strand.COMPLEX);
-		AllowedSeqs p = strand2AllowedSeqs.get(Strand.PROTEIN);
-		AllowedSeqs l = strand2AllowedSeqs.get(Strand.LIGAND);
+		AllowedSeqs pl = strand2AllowedSeqs.get(Termini.COMPLEX);
+		AllowedSeqs p = strand2AllowedSeqs.get(Termini.PROTEIN);
+		AllowedSeqs l = strand2AllowedSeqs.get(Termini.LIGAND);
 
 		int plLen = pl.getSequenceLength(), pLen = p.getSequenceLength();
 
@@ -181,10 +181,10 @@ public class KStarCalculator {
 
 	private void generateAllowedSequences() {
 		
-		AllowedSeqs complexSeqs = cfp.getAllowedSequences(Strand.COMPLEX, null);
-		strand2AllowedSeqs.put(Strand.COMPLEX, complexSeqs);
-		strand2AllowedSeqs.put(Strand.PROTEIN, cfp.getAllowedSequences(Strand.PROTEIN, complexSeqs));
-		strand2AllowedSeqs.put(Strand.LIGAND, cfp.getAllowedSequences(Strand.LIGAND, complexSeqs));
+		AllowedSeqs complexSeqs = cfp.getAllowedSequences(Termini.COMPLEX, null);
+		strand2AllowedSeqs.put(Termini.COMPLEX, complexSeqs);
+		strand2AllowedSeqs.put(Termini.PROTEIN, cfp.getAllowedSequences(Termini.PROTEIN, complexSeqs));
+		strand2AllowedSeqs.put(Termini.LIGAND, cfp.getAllowedSequences(Termini.LIGAND, complexSeqs));
 	}
 
 

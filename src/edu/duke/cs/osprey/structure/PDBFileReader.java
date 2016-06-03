@@ -5,7 +5,7 @@
 package edu.duke.cs.osprey.structure;
 
 import edu.duke.cs.osprey.control.EnvironmentVars;
-import edu.duke.cs.osprey.kstar.Strand;
+import edu.duke.cs.osprey.kstar.Termini;
 import edu.duke.cs.osprey.restypes.DAminoAcidHandler;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import java.io.BufferedReader;
@@ -20,7 +20,7 @@ import java.util.ArrayList;
  */
 public class PDBFileReader {
 
-	public static Molecule readPDBFile( String PDBFile, Strand termini ){
+	public static Molecule readPDBFile( String PDBFile, Termini termini ){
 		//Take pretty much verbatim from PDBChemModel
 		//if templates not null, four things we may decide to do (should give options):
 		//1. Assign templates to residues 2. Rename atoms in matching residues to match templates

@@ -32,7 +32,7 @@ public class RCEnergyContribs {
 		resNum2AA = makeResNum2AA();
 
 		minE = mef.getPreCompE();
-		pwLB = pf.getConfBound(null, conf, false);
+		pwLB = pf.getConfBound(null, conf);
 
 		computeEContrib(mef, conf);
 

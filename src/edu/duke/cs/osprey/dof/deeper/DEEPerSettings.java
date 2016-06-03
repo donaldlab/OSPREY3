@@ -6,7 +6,7 @@
 package edu.duke.cs.osprey.dof.deeper;
 
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
-import edu.duke.cs.osprey.kstar.Strand;
+import edu.duke.cs.osprey.kstar.Termini;
 import edu.duke.cs.osprey.structure.Molecule;
 
 import java.io.Serializable;
@@ -64,7 +64,7 @@ public class DEEPerSettings implements Serializable {
     }
     
     
-    public void loadPertFile(Strand termini){
+    public void loadPertFile(Termini termini){
         //load the perturbation file; select perturbations if there is none
         
         if(!doPerturbations)//No perturbations: leave perts null

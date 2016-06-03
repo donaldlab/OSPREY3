@@ -13,7 +13,7 @@ public class KAStarTree {
 		// initialize KUStarNode static methods
 		KAStarNode.init(ksObj, strand2AllowedSeqs, wt);
 		
-		pq = new PriorityQueue<KAStarNode>(strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs()/2, 
+		pq = new PriorityQueue<KAStarNode>(strand2AllowedSeqs.get(Termini.COMPLEX).getNumSeqs()/2, 
 				KAStarNode.KUStarNodeComparator);
 	}
 	

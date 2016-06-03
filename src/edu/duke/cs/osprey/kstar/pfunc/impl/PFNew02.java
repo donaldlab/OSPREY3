@@ -78,7 +78,7 @@ public class PFNew02 extends PFNew01 implements Serializable {
 			else {
 				System.out.println("using p* calculator");
 				pStarCalculator = new PStarCalculator( this, true );
-				pStarCalculator.setPriority(Thread.MAX_PRIORITY);
+				//pStarCalculator.setPriority(Thread.MAX_PRIORITY);
 			}
 
 			// initialize parallel data structures
@@ -87,7 +87,7 @@ public class PFNew02 extends PFNew01 implements Serializable {
 			indexes.trimToSize();
 
 			sps.clear();
-			sps = parallelCreateSPs(sp, indexes.size());
+			sps = parallelCreateSPs(qSP, indexes.size());
 
 			partialQConfs.clear();
 			for( int it = 0; it < indexes.size(); ++it ) partialQConfs.add(null);
@@ -95,7 +95,7 @@ public class PFNew02 extends PFNew01 implements Serializable {
 
 			confsQ = new KSConfQ( this, indexes.size(), partialQLB );
 			qPrimeCalculator = new QPrimeCalculator( this, false );
-			qPrimeCalculator.setPriority(Thread.MAX_PRIORITY);
+			//qPrimeCalculator.setPriority(Thread.MAX_PRIORITY);
 
 			if(pStarCalculator != null) pStarCalculator.start();
 			qPrimeCalculator.start();
@@ -155,7 +155,7 @@ public class PFNew02 extends PFNew01 implements Serializable {
 		for( int index : indexes ) {
 			KSConf conf = partialQConfs.get(index);
 			// update energy bound if updated emat
-			conf.setEnergyBound(getConfBound(null, conf.getConfArray(), false));
+			conf.setEnergyBound(getConfBound(null, conf.getConfArray()));
 			double peb = (conf.getEnergyBound()-conf.getEnergy())/conf.getEnergy();
 			if(canUseHotByConfError(peb)) tryHotForConf(partialQConfs.get(index), mefs.get(index));
 		}

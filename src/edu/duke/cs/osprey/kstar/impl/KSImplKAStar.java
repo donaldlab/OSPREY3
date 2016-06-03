@@ -9,7 +9,7 @@ import edu.duke.cs.osprey.kstar.AllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KAStarNode;
 import edu.duke.cs.osprey.kstar.KAStarTree;
-import edu.duke.cs.osprey.kstar.Strand;
+import edu.duke.cs.osprey.kstar.Termini;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.impl.PFnew00;
 
@@ -38,9 +38,9 @@ public class KSImplKAStar extends KSAbstract {
 
 		try {
 
-			ArrayList<Integer>strands = new ArrayList<Integer>(Arrays.asList(Strand.COMPLEX, Strand.PROTEIN, Strand.LIGAND));
-			AllowedSeqs pSeqs = strand2AllowedSeqs.get(Strand.PROTEIN);
-			AllowedSeqs lSeqs = strand2AllowedSeqs.get(Strand.LIGAND);
+			ArrayList<Integer>strands = new ArrayList<Integer>(Arrays.asList(Termini.COMPLEX, Termini.PROTEIN, Termini.LIGAND));
+			AllowedSeqs pSeqs = strand2AllowedSeqs.get(Termini.PROTEIN);
+			AllowedSeqs lSeqs = strand2AllowedSeqs.get(Termini.LIGAND);
 
 			for( boolean contSCFlex : contSCFlexVals ) {
 
@@ -52,7 +52,7 @@ public class KSImplKAStar extends KSAbstract {
 					for( int depth = 1; depth <= seqs.getStrandSubSeqsMaxDepth(); ++depth ) {
 
 						HashSet<ArrayList<String>> subSeqsAtDepth = strand == 
-								Strand.COMPLEX ? seqs.getStrandSubSeqsAtDepth( depth, pSeqs, lSeqs ) : 
+								Termini.COMPLEX ? seqs.getStrandSubSeqsAtDepth( depth, pSeqs, lSeqs ) : 
 									seqs.getStrandSubSeqsAtDepth( depth );
 
 								subSeqsAtDepth.parallelStream().forEach( seq -> {
@@ -65,13 +65,13 @@ public class KSImplKAStar extends KSAbstract {
 
 									if(contSCFlex) {
 										// do upper bound k* calc
-										if(strand == Strand.COMPLEX) { flex = false; pfImpl = PFAbstract.getCFGImpl(); }
+										if(strand == Termini.COMPLEX) { flex = false; pfImpl = PFAbstract.getCFGImpl(); }
 										else { flex = true; pfImpl = new PFnew00().getImpl(); }
 									}
 
 									else {
 										// do lower bound k* calc
-										if(strand == Strand.COMPLEX) { flex = true; pfImpl = new PFnew00().getImpl(); }
+										if(strand == Termini.COMPLEX) { flex = true; pfImpl = new PFnew00().getImpl(); }
 										else { flex = false; pfImpl = PFAbstract.getCFGImpl(); }
 									}
 
@@ -115,7 +115,7 @@ public class KSImplKAStar extends KSAbstract {
 
 		System.out.println("\nseqsCompleted: " + KAStarNode.getNumLeavesCompleted() 
 			+ " seqsCreated: " + KAStarNode.getNumLeavesCreated()
-			+ " seqsPossible: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs()
+			+ " seqsPossible: " + strand2AllowedSeqs.get(Termini.COMPLEX).getNumSeqs()
 			+ " seqsInOutput: " + numOutput);
 		
 		System.out.println("K* running time: " + (System.currentTimeMillis()-getStartTime())/1000 + " seconds\n");
@@ -131,7 +131,7 @@ public class KSImplKAStar extends KSAbstract {
 		// compute wt sequence for reference
 		wtKSCalc = computeWTCalc();
 		
-		if( strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs() <= 1 )
+		if( strand2AllowedSeqs.get(Termini.COMPLEX).getNumSeqs() <= 1 )
 			return completed; // wt is sequence[0]
 		
 		// initialize KUStar tree
@@ -171,7 +171,7 @@ public class KSImplKAStar extends KSAbstract {
 		// compute wt sequence for reference
 		wtKSCalc = computeWTCalc();
 		
-		if( strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs() <= 1 )
+		if( strand2AllowedSeqs.get(Termini.COMPLEX).getNumSeqs() <= 1 )
 			return completed; // wt is sequence[0]
 
 		// initialize KUStar tree

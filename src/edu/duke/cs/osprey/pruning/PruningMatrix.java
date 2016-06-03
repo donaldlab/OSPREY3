@@ -13,6 +13,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 
 /**
  *
@@ -84,21 +85,6 @@ public class PruningMatrix extends TupleMatrix<Boolean> implements Serializable 
 	}
 
 
-	public int prunedStericRCsAtPos(int pos, EnergyMatrix emat) {
-
-		int numPrunedSteric = 0;
-		int numRCs = numRCsAtPos(pos);
-
-		double E = 0.0;
-		for(int index=0; index<numRCs; index++){
-			E = emat.getOneBody(pos,index);
-
-		}
-
-		return numPrunedSteric;
-	}
-
-
 	public ArrayList<RCTuple> unprunedRCTuplesAtPos(ArrayList<Integer> pos){
 		//get a list of unpruned RCTuples with the given positions
 		//this method tests a few things more than once, so it could be sped up if needed, but it is convenient
@@ -142,18 +128,22 @@ public class PruningMatrix extends TupleMatrix<Boolean> implements Serializable 
 	}
 
 
-	public int getNumRCsAtPosForAA( ConfSpace confSpace, int pos, String AAType, boolean usePruned ) {
-		int numRCs = 0;
+	public long getNumRCsAtPosForAAType( ConfSpace confSpace, int pos, String AAType, boolean usePruned ) {
+		return getRCsAtPosForAAType( confSpace, pos, AAType, usePruned ).size();
+	}
+	
+	
+	public ArrayList<Integer> getRCsAtPosForAAType( ConfSpace confSpace, int pos, String AAType, boolean usePruned ) {
 
-		ArrayList<Integer> rcsAtPos = usePruned ? prunedRCsAtPos(pos) : unprunedRCsAtPos(pos);
+		ArrayList<Integer> ans = usePruned ? prunedRCsAtPos(pos) : unprunedRCsAtPos(pos);
 		
-		for(int RCNum : rcsAtPos) {
-			if(confSpace.posFlex.get(pos).RCs.get(RCNum).AAType.equalsIgnoreCase(AAType)){
-				numRCs++;
-			}
+		for( Iterator<Integer> iterator = ans.iterator(); iterator.hasNext(); ) {
+			int RCNum = iterator.next();
+			if(!confSpace.posFlex.get(pos).RCs.get(RCNum).AAType.equalsIgnoreCase(AAType))
+				iterator.remove();
 		}
 
-		return numRCs;
+		return ans;
 	}
 
 
@@ -270,6 +260,7 @@ public class PruningMatrix extends TupleMatrix<Boolean> implements Serializable 
     }*/
 
 
+	/*
 	public PruningMatrix singleSeqMatrix(ArrayList<String> seq, ConfSpace origConfSpace){
 		//return (PruningMatrix) super.singleSeqMatrix(seq, origConfSpace);
 		TupleMatrix<Boolean> tmat = super.singleSeqMatrix(seq, origConfSpace);
@@ -281,5 +272,5 @@ public class PruningMatrix extends TupleMatrix<Boolean> implements Serializable 
 		TupleMatrix<Boolean> tmat = super.singleSeqMatrix(seq, flexPos, origConfSpace);
 		return new PruningMatrix(tmat);
 	}
-
+	*/
 }

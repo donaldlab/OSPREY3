@@ -119,7 +119,7 @@ public class PStarCalculator extends Thread implements Serializable {
 
 				if( conf == null ) { nullify(); return; }
 
-				lastEnergyBound = pf.getConfBound(confSearch, conf, usePrunedConfs);
+				lastEnergyBound = pf.getConfBound(confSearch, conf);
 				if( lastEnergyBound == Double.POSITIVE_INFINITY ) { nullify(); return; }
 
 				lastBoltzmannWeight = pf.getBoltzmannWeight(lastEnergyBound);

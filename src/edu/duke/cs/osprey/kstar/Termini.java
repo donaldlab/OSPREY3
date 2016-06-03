@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import edu.duke.cs.osprey.structure.Residue;
 
 @SuppressWarnings("serial")
-public class Strand implements Serializable {
+public class Termini implements Serializable {
 	
 	public static final int PROTEIN = 0;
 	public static final int LIGAND = 1;
@@ -17,16 +17,16 @@ public class Strand implements Serializable {
 	private int begin = -1;
 	private int end = -1;
 	
-	public static String getStrandString( int strand ) {
+	public static String getTerminiString( int strand ) {
 		switch ( strand ) {
         
-		case Strand.COMPLEX:
+		case Termini.COMPLEX:
         	return "complex";
         	
-        case Strand.PROTEIN:
+        case Termini.PROTEIN:
         	return "protein";
         
-        case Strand.LIGAND:
+        case Termini.LIGAND:
         	return "ligand";
         
         default:
@@ -35,7 +35,7 @@ public class Strand implements Serializable {
 		
 	}
 	
-	public Strand( int strand, int numFlexible, ArrayList<String> limits ) {
+	public Termini( int strand, int numFlexible, ArrayList<String> limits ) {
 		this.strand = strand;
 		this.numFlexible = numFlexible;
 		this.begin = Integer.parseInt(limits.get(0));
@@ -50,11 +50,11 @@ public class Strand implements Serializable {
 		return numFlexible;
 	}
 	
-	public int getStrandBegin() {
+	public int getTerminusBegin() {
 		return begin;
 	}
 	
-	public int getStrandEnd() {
+	public int getTerminusEnd() {
 		return end;
 	}
 	

@@ -9,7 +9,7 @@ import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.kstar.AllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KSCalc;
-import edu.duke.cs.osprey.kstar.Strand;
+import edu.duke.cs.osprey.kstar.Termini;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -47,7 +47,7 @@ public class KSImplLinear extends KSAbstract {
 			
 			for( boolean contSCFlex : contSCFlexVals ) {
 				
-				for( int strand : Arrays.asList( Strand.COMPLEX, Strand.PROTEIN, Strand.LIGAND ) ) {
+				for( int strand : Arrays.asList( Termini.COMPLEX, Termini.PROTEIN, Termini.LIGAND ) ) {
 					
 					HashSet<ArrayList<String>> seqs = new HashSet<>(strand2AllowedSeqs.get(strand).getStrandSeqList());
 					
@@ -62,7 +62,6 @@ public class KSImplLinear extends KSAbstract {
 			}
 
 			loadAndPruneMatricesFromPFMap(); 
-			prunedSingleSeqs = true;
 
 		} catch (Exception e) {
 			System.out.println(e.getMessage());
@@ -94,7 +93,7 @@ public class KSImplLinear extends KSAbstract {
 
 		// print statistics
 		System.out.println("\nK* calculations computed: " + getNumSeqsCompleted(0));
-		System.out.println("Total # sequences: " + strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs());
+		System.out.println("Total # sequences: " + strand2AllowedSeqs.get(Termini.COMPLEX).getNumSeqs());
 		System.out.println("K* conformations minimized: " + countMinimizedConfs());
 		System.out.println("Total # of conformations in search space: " + countTotNumConfs());
 		System.out.println("K* running time: " + (System.currentTimeMillis()-getStartTime())/1000 + " seconds\n");
@@ -113,13 +112,13 @@ public class KSImplLinear extends KSAbstract {
 
 		wtKSCalc = computeWTCalc();
 
-		int numSeqs = strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs();
+		int numSeqs = strand2AllowedSeqs.get(Termini.COMPLEX).getNumSeqs();
 		for( int i = 1; i < numSeqs; ++i ) {
 
 			// wt is seq 0, mutants are others
 			System.out.println("\nComputing K* for sequence " + i + "/" + 
 					(numSeqs-1) + ": " + 
-					list1D2String(strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSeqAtPos(i), " ") + "\n");
+					list1D2String(strand2AllowedSeqs.get(Termini.COMPLEX).getStrandSeqAtPos(i), " ") + "\n");
 
 			// get sequences
 			strandSeqs = getStrandStringsAtPos(i);
@@ -155,7 +154,7 @@ public class KSImplLinear extends KSAbstract {
 		// get all sequences		
 		@SuppressWarnings("unchecked")
 		HashSet<ArrayList<String>> seqSet = new HashSet<ArrayList<String>>((ArrayList<ArrayList<String>>) 
-				ObjectIO.deepCopy(strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSeqList()));
+				ObjectIO.deepCopy(strand2AllowedSeqs.get(Termini.COMPLEX).getStrandSeqList()));
 
 		// run wt
 		wtKSCalc = computeWTCalc();
@@ -163,14 +162,14 @@ public class KSImplLinear extends KSAbstract {
 		// remove completed seqs from the set of calculations we must compute
 		seqSet.removeAll(getSeqsFromFile(getOputputFilePath()));
 
-		int numSeqs = strand2AllowedSeqs.get(Strand.COMPLEX).getNumSeqs();
+		int numSeqs = strand2AllowedSeqs.get(Termini.COMPLEX).getNumSeqs();
 
 		do {
 
 			for( int i = 0; i < numSeqs; ++i ) {
 
 				// wt is seq 0, mutants are others
-				ArrayList<String> seq = strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSeqAtPos(i);
+				ArrayList<String> seq = strand2AllowedSeqs.get(Termini.COMPLEX).getStrandSeqAtPos(i);
 
 				if( !seqSet.contains(seq) ) continue;
 
@@ -189,18 +188,18 @@ public class KSImplLinear extends KSAbstract {
 				calc.run(wtKSCalc, false, true);
 
 				// serialize P and L; should only happen once
-				for( int strand : Arrays.asList(Strand.LIGAND, Strand.PROTEIN) ) {
+				for( int strand : Arrays.asList(Termini.LIGAND, Termini.PROTEIN) ) {
 					PFAbstract pf = calc.getPF(strand);
 					if(!pf.checkPointExists()) calc.serializePF(strand);
 				}
 
 				// remove entry from checkpoint file
-				PFAbstract pf = calc.getPF(Strand.COMPLEX);
+				PFAbstract pf = calc.getPF(Termini.COMPLEX);
 				calc.deleteSeqFromFile( pf.getSequence(), getCheckPointFilePath() );
 
 				if( calc.getEpsilonStatus() != EApproxReached.FALSE ) {
 					// we are not going to checkpoint this, so clean up
-					calc.deleteCheckPointFile(Strand.COMPLEX);
+					calc.deleteCheckPointFile(Termini.COMPLEX);
 					seqSet.remove(seq);
 
 					if( calc.getEpsilonStatus() == EApproxReached.TRUE || calc.getEpsilonStatus() == EApproxReached.NOT_POSSIBLE ) {
@@ -211,7 +210,7 @@ public class KSImplLinear extends KSAbstract {
 				else {
 					// remove partition funtion from memory, write checkpoint
 					name2PF.remove(pf.getSearchProblemName());
-					calc.serializePF(Strand.COMPLEX);
+					calc.serializePF(Termini.COMPLEX);
 					calc.printSummary( getCheckPointFilePath(), getStartTime(), getNumSeqsCompleted(0) );
 				}
 			}

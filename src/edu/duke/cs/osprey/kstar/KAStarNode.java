@@ -111,7 +111,7 @@ public class KAStarNode {
 		numExpanded++;
 
 		// using complex, p, l convention
-		ArrayList<Integer> strands = new ArrayList<>(Arrays.asList(Strand.LIGAND, Strand.PROTEIN, Strand.COMPLEX));
+		ArrayList<Integer> strands = new ArrayList<>(Arrays.asList(Termini.LIGAND, Termini.PROTEIN, Termini.COMPLEX));
 
 		ArrayList<Integer> nextDepths = new ArrayList<>(); 
 		for( int i = 0; i < strands.size(); ++i ) nextDepths.add(0);
@@ -119,8 +119,8 @@ public class KAStarNode {
 		ArrayList<ArrayList<String>> seqs = new ArrayList<>(); 
 		for( int i = 0; i < strands.size(); ++i ) seqs.add(new ArrayList<String>());
 
-		AllowedSeqs pSeqs = strand2AllowedSeqs.get(Strand.PROTEIN);
-		AllowedSeqs lSeqs = strand2AllowedSeqs.get(Strand.LIGAND);
+		AllowedSeqs pSeqs = strand2AllowedSeqs.get(Termini.PROTEIN);
+		AllowedSeqs lSeqs = strand2AllowedSeqs.get(Termini.LIGAND);
 
 		// get next depths for each strand
 		for( int strand : strands ) {
@@ -129,7 +129,7 @@ public class KAStarNode {
 				ArrayList<String> seq = lb.getPF(strand).getSequence();
 				seqs.set(strand, seq);
 
-				if( strand != Strand.COMPLEX )
+				if( strand != Termini.COMPLEX )
 					nextDepths.set(strand, Math.min(seq.size()+1, strand2AllowedSeqs.get(strand).getStrandSubSeqsMaxDepth()));
 			}
 
@@ -139,7 +139,7 @@ public class KAStarNode {
 				int depth = 1;
 
 				// set next depth
-				if( strand != Strand.COMPLEX ) {
+				if( strand != Termini.COMPLEX ) {
 					// prepare subsequences
 					strandSeqs.getStrandSubSeqsAtDepth( depth );
 					nextDepths.set(strand, depth);
@@ -150,14 +150,14 @@ public class KAStarNode {
 					strandSeqs.getStrandSubSeqsAtDepth( depth, pSeqs, lSeqs );
 			}
 
-			if( strand == Strand.COMPLEX )
-				nextDepths.set(strand, nextDepths.get(Strand.PROTEIN) + nextDepths.get(Strand.LIGAND));
+			if( strand == Termini.COMPLEX )
+				nextDepths.set(strand, nextDepths.get(Termini.PROTEIN) + nextDepths.get(Termini.LIGAND));
 		}
 
 		// get all sequences at next depth
-		HashSet<ArrayList<String>> nextPSeqs = new HashSet<>(strand2AllowedSeqs.get(Strand.PROTEIN).getStrandSubSeqsAtDepth(nextDepths.get(Strand.PROTEIN)));
-		HashSet<ArrayList<String>> nextLSeqs = new HashSet<>(strand2AllowedSeqs.get(Strand.LIGAND).getStrandSubSeqsAtDepth(nextDepths.get(Strand.LIGAND)));
-		HashSet<ArrayList<String>> nextPLSeqs = new HashSet<>(strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSubSeqsAtDepth(nextDepths.get(Strand.COMPLEX)));
+		HashSet<ArrayList<String>> nextPSeqs = new HashSet<>(strand2AllowedSeqs.get(Termini.PROTEIN).getStrandSubSeqsAtDepth(nextDepths.get(Termini.PROTEIN)));
+		HashSet<ArrayList<String>> nextLSeqs = new HashSet<>(strand2AllowedSeqs.get(Termini.LIGAND).getStrandSubSeqsAtDepth(nextDepths.get(Termini.LIGAND)));
+		HashSet<ArrayList<String>> nextPLSeqs = new HashSet<>(strand2AllowedSeqs.get(Termini.COMPLEX).getStrandSubSeqsAtDepth(nextDepths.get(Termini.COMPLEX)));
 
 		// in general, we want to add a single residue to the current protein and ligand
 		// so our children are valid combinations of nextProtein x nextLigand.
@@ -165,14 +165,14 @@ public class KAStarNode {
 
 		if( depth() != 0 ) {
 			// reduce next L to those subsequences reachable from this
-			ArrayList<String> currentLSeq = seqs.get(Strand.LIGAND);
+			ArrayList<String> currentLSeq = seqs.get(Termini.LIGAND);
 			for( Iterator<ArrayList<String>> iterator = nextLSeqs.iterator(); iterator.hasNext(); ) {
 				ArrayList<String> subSeq = iterator.next();	    
 				if( !subSeq.subList(0, currentLSeq.size()).equals(currentLSeq) ) iterator.remove();
 			}
 
 			// reduce next P to those subsequences reachable from this
-			ArrayList<String> currentPSeq = seqs.get(Strand.PROTEIN);
+			ArrayList<String> currentPSeq = seqs.get(Termini.PROTEIN);
 			for( Iterator<ArrayList<String>> iterator = nextPSeqs.iterator(); iterator.hasNext(); ) {
 				ArrayList<String> subSeq = iterator.next();
 				if( !subSeq.subList(0, currentPSeq.size()).equals(currentPSeq) ) iterator.remove();
@@ -194,7 +194,7 @@ public class KAStarNode {
 				if( child.scoreNeedsRefinement() && child.ub.getEpsilonStatus() != EApproxReached.FALSE ) {
 
 					// remove sequences that contain no valid conformations
-					for( int strand : Arrays.asList(Strand.LIGAND, Strand.PROTEIN) ) {
+					for( int strand : Arrays.asList(Termini.LIGAND, Termini.PROTEIN) ) {
 						PFAbstract pf = child.ub.getPF(strand);
 
 						if( pf.getEpsilonStatus() == EApproxReached.NOT_POSSIBLE && pf.getNumUnPruned().compareTo(BigInteger.ZERO) != 0 ) {
@@ -206,7 +206,7 @@ public class KAStarNode {
 
 							ArrayList<String> seq = pf.getSequence();
 
-							for( int strand2 : Arrays.asList(strand, Strand.COMPLEX) ) {
+							for( int strand2 : Arrays.asList(strand, Termini.COMPLEX) ) {
 								pruneSequences(seq, strand2, nextDepths.get(strand2));
 							}
 						}
@@ -276,7 +276,7 @@ public class KAStarNode {
 
 			// compute protein and ligand upper bound pfs; prune if not stable
 			// for stable pfs, compute lower bound
-			for( int strand : Arrays.asList(Strand.LIGAND, Strand.PROTEIN) ) {
+			for( int strand : Arrays.asList(Termini.LIGAND, Termini.PROTEIN) ) {
 				if( child.ub.getEpsilonStatus() == EApproxReached.FALSE ) {
 					child.ub.runPF(child.ub.getPF(strand), wt.getPF(strand), true, true);
 				}
@@ -333,7 +333,7 @@ public class KAStarNode {
 			ArrayList<KSCalc> calcs = new ArrayList<>();
 			ArrayList<CalcParams> params = new ArrayList<>();
 
-			for( int strand : Arrays.asList(Strand.LIGAND, Strand.PROTEIN) ) {
+			for( int strand : Arrays.asList(Termini.LIGAND, Termini.PROTEIN) ) {
 				ArrayList<KSCalc> ans = getCalcs4Strand( children, false, strand );
 				for(KSCalc calc : ans) {
 					calcs.add(calc);
@@ -361,7 +361,7 @@ public class KAStarNode {
 			}
 
 			// for viable children, run all pfs
-			for( int strand : Arrays.asList(Strand.LIGAND, Strand.PROTEIN, Strand.COMPLEX) ) {
+			for( int strand : Arrays.asList(Termini.LIGAND, Termini.PROTEIN, Termini.COMPLEX) ) {
 				ArrayList<KSCalc> ans = getCalcs4Strand( children2, true, strand );
 				for(KSCalc calc : ans) {
 					calcs.add(calc);
@@ -415,9 +415,9 @@ public class KAStarNode {
 
 		for(int i = 0; i < children.size(); ++i) {
 			KAStarNode child = children.get(i);
-			listPL.add(child.lb.getPF(Strand.COMPLEX).getSequence());
-			listP.add(child.lb.getPF(Strand.PROTEIN).getSequence());
-			listL.add(child.lb.getPF(Strand.LIGAND).getSequence());
+			listPL.add(child.lb.getPF(Termini.COMPLEX).getSequence());
+			listP.add(child.lb.getPF(Termini.PROTEIN).getSequence());
+			listL.add(child.lb.getPF(Termini.LIGAND).getSequence());
 		}
 
 		HashSet<ArrayList<String>> setPL = new HashSet<>(listPL);
@@ -464,9 +464,9 @@ public class KAStarNode {
 				numCreated++;
 
 				// create partition functions for next sequences
-				strandSeqs.set(Strand.COMPLEX, putativeNextPLSeq);
-				strandSeqs.set(Strand.PROTEIN, pSeq);
-				strandSeqs.set(Strand.LIGAND, lSeq);
+				strandSeqs.set(Termini.COMPLEX, putativeNextPLSeq);
+				strandSeqs.set(Termini.PROTEIN, pSeq);
+				strandSeqs.set(Termini.LIGAND, lSeq);
 
 				if( !isFullyDefined() ) {
 					// create partition functions
@@ -485,8 +485,8 @@ public class KAStarNode {
 					ConcurrentHashMap<Integer, PFAbstract> tightPFs = ksObj.createPFs4Seqs(strandSeqs, tightContSCFlexVals, tightPFImplVals);
 
 					// assign sequence number from allowedSequences obj
-					AllowedSeqs complexSeqs = ksObj.strand2AllowedSeqs.get(Strand.COMPLEX);
-					int seqID = complexSeqs.getPosOfSeq(tightPFs.get(Strand.COMPLEX).getSequence());
+					AllowedSeqs complexSeqs = ksObj.strand2AllowedSeqs.get(Termini.COMPLEX);
+					int seqID = complexSeqs.getPosOfSeq(tightPFs.get(Termini.COMPLEX).getSequence());
 					
 					// create new KUStar node with tight score
 					ans.add( new KAStarNode( new KSCalc(seqID, tightPFs), null, childScoreNeedsRefinement() ) );
@@ -508,7 +508,7 @@ public class KAStarNode {
 	private int depth() {
 		if( lb == null ) return 0;
 		// number of assigned residues is depth
-		return lb.getPF(Strand.COMPLEX).getSequence().size();
+		return lb.getPF(Termini.COMPLEX).getSequence().size();
 	}
 
 
@@ -533,7 +533,7 @@ public class KAStarNode {
 
 		PFAbstract.suppressOutput = true;
 		//ub.run(wt, false, true);
-		ub.runPF(ub.getPF(Strand.COMPLEX), null, true, false);
+		ub.runPF(ub.getPF(Termini.COMPLEX), null, true, false);
 		PFAbstract.suppressOutput = false;
 
 		return ubScore = -1.0 * ub.getKStarScoreLog10(true);
@@ -541,7 +541,7 @@ public class KAStarNode {
 
 
 	private boolean isFullyDefined() {
-		int maxDepth = wt.getPF(Strand.COMPLEX).getSequence().size();
+		int maxDepth = wt.getPF(Termini.COMPLEX).getSequence().size();
 
 		if( depth() < maxDepth )
 			return false;

@@ -63,12 +63,12 @@ public class PFNew01 extends PFTrad implements Serializable {
 			else {
 				System.out.println("using p* calculator");
 				pStarCalculator = new PStarCalculator( this, true );
-				pStarCalculator.setPriority(Thread.MAX_PRIORITY);
+				//pStarCalculator.setPriority(Thread.MAX_PRIORITY);
 			}
 
 			confsQ = new KSConfQ( this, 1, partialQLB );
 			qPrimeCalculator = new QPrimeCalculator( this, false );
-			qPrimeCalculator.setPriority(Thread.MAX_PRIORITY);
+			//qPrimeCalculator.setPriority(Thread.MAX_PRIORITY);
 
 			if(pStarCalculator != null) pStarCalculator.start();
 			qPrimeCalculator.start();
@@ -228,7 +228,7 @@ public class PFNew01 extends PFTrad implements Serializable {
 		System.out.print("... ");
 
 		long start = System.currentTimeMillis();
-		sp.mergeResiduePositions(tpce);
+		qSP.mergeResiduePositions(tpce);
 		memoizePosInHot(tpce);
 		long duration = (System.currentTimeMillis()-start)/1000;
 
@@ -243,12 +243,12 @@ public class PFNew01 extends PFTrad implements Serializable {
 		
 		confsQ = new KSConfQ( this, 1, partialQLB );
 		qPrimeCalculator = new QPrimeCalculator( this, false );
-		qPrimeCalculator.setPriority(Thread.MAX_PRIORITY);
+		//qPrimeCalculator.setPriority(Thread.MAX_PRIORITY);
 
 		qPrimeCalculator.start();
 		confsQ.start();
 		
-		conf.setEnergyBound(getConfBound(null, conf.getConfArray(), false));
+		conf.setEnergyBound(getConfBound(null, conf.getConfArray()));
 	}
 	
 	
@@ -276,7 +276,7 @@ public class PFNew01 extends PFTrad implements Serializable {
 
 		if( isFullyDefined() ) {
 			// we do not have a lock when minimizing
-			mef = sp.decompMinimizedEnergy(conf.getConfArray());
+			mef = qSP.decompMinimizedEnergy(conf.getConfArray());
 			energy = mef.getPreCompE();
 		}
 

@@ -6,11 +6,14 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.PriorityQueue;
 
 import edu.duke.cs.osprey.astar.ConfTree;
+import edu.duke.cs.osprey.astar.comets.UpdatedPruningMatrix;
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -18,7 +21,6 @@ import edu.duke.cs.osprey.kstar.AllowedSeqs;
 import edu.duke.cs.osprey.kstar.KAStarConfTree;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KSConf;
-import edu.duke.cs.osprey.kstar.PStarConfTree;
 import edu.duke.cs.osprey.kstar.pfunc.impl.PFTrad;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -78,7 +80,7 @@ public abstract class PFAbstract implements Serializable {
 
 	protected int strand = -1;
 	protected ConfigFileParser cfp = null;
-	protected SearchProblem sp = null;
+	protected SearchProblem qSP = null;
 	protected ArrayList<Integer> flexResIndexes;
 	protected SearchProblem panSeqSP = null;
 	private boolean isFullyDefined = true;
@@ -103,7 +105,8 @@ public abstract class PFAbstract implements Serializable {
 
 	protected PFAbstract() {}
 
-	protected PFAbstract( int strand, ArrayList<String> sequence, ArrayList<Integer> flexResIndexes, 
+	protected PFAbstract( int strand, ArrayList<String> sequence, 
+			ArrayList<Integer> flexResIndexes, 
 			String checkPointPath, String searchProblemName, 
 			ConfigFileParser cfp, SearchProblem panSeqSP ) {
 
@@ -113,9 +116,9 @@ public abstract class PFAbstract implements Serializable {
 		this.searchProblemName = searchProblemName;
 		this.panSeqSP = panSeqSP;
 		this.strand = strand;
-		this.sp = createSingleSeqSP(panSeqSP.contSCFlex, strand, sequence, flexResIndexes, true);
+		this.qSP = createSingleSeqSP(panSeqSP.contSCFlex, strand, sequence, flexResIndexes);
 
-		this.isFullyDefined = sp.confSpace.numPos == panSeqSP.confSpace.numPos ? true : false;
+		this.isFullyDefined = qSP.confSpace.numPos == panSeqSP.confSpace.numPos ? true : false;
 		this.cfp = cfp;
 
 		Comparator<KSConf> comparator = new KSConf(new ArrayList<>(), 0.0).new KSConfMinEComparator();
@@ -128,28 +131,28 @@ public abstract class PFAbstract implements Serializable {
 
 		for(ArrayList<Integer> conf : minimizedConfsSet) {
 			int[] confArray = KSConf.list2Array(conf);
-			partialQLB = partialQLB.add( getBoltzmannWeight(getConfBound(confSearch, confArray, false)) );
+			partialQLB = partialQLB.add( getBoltzmannWeight(getConfBound(confSearch, confArray)) );
 		}
 
 		return partialQLB;
 	}
 
-	
+
 	protected void backupEnergyandPruningMatrices() {
 		if(backupEmat == null)
-			backupEmat = (EnergyMatrix) ObjectIO.deepCopy(sp.emat);
-		
+			backupEmat = (EnergyMatrix) ObjectIO.deepCopy(qSP.emat);
+
 		if(backupPruneMat == null)
-			backupPruneMat = (PruningMatrix) ObjectIO.deepCopy(sp.pruneMat);
+			backupPruneMat = (PruningMatrix) ObjectIO.deepCopy(panSeqSP.pruneMat);
 	}
-	
+
 
 	protected boolean canUseHotByManualSelection() {
 		if(!getHotMethod().equalsIgnoreCase("manual")) return false;
 
 		if(!isFullyDefined()) return false;
 
-		if(!sp.contSCFlex) return false;
+		if(!qSP.contSCFlex) return false;
 
 		return true;
 	}
@@ -167,11 +170,11 @@ public abstract class PFAbstract implements Serializable {
 	protected boolean canUseHotByConfError() {
 		if(!getHotMethod().equalsIgnoreCase("error")) return false;
 
-		if(sp.confSpace.numPos - getNumPosInHOTs() < getHotNumRes()) return false;
+		if(qSP.confSpace.numPos - getNumPosInHOTs() < getHotNumRes()) return false;
 
 		if(!isFullyDefined()) return false;
 
-		if(!sp.contSCFlex) return false;
+		if(!qSP.contSCFlex) return false;
 
 		return true;
 	}
@@ -237,14 +240,14 @@ public abstract class PFAbstract implements Serializable {
 
 		for( int pos : undefinedPos ) {
 
-			int rcNumAtPos = minimizeProduct ? Integer.MAX_VALUE : Integer.MIN_VALUE;
+			long rcNumAtPos = minimizeProduct ? Integer.MAX_VALUE : Integer.MIN_VALUE;
 
 			for( String AAType : panSeqSP.allowedAAs.get(pos) ) {
 				// get number of unpruned rcs at that level for that AAType
-				int num = panSeqSP.pruneMat.getNumRCsAtPosForAA(panSeqSP.confSpace, pos, AAType, false);
+				long num = panSeqSP.pruneMat.getNumRCsAtPosForAAType(panSeqSP.confSpace, pos, AAType, false);
 
 				if(!minimizeProduct)
-					num += panSeqSP.pruneMat.getNumRCsAtPosForAA(panSeqSP.confSpace, pos, AAType, true);
+					num += panSeqSP.pruneMat.getNumRCsAtPosForAAType(panSeqSP.confSpace, pos, AAType, true);
 
 				rcNumAtPos = minimizeProduct ? Math.min(rcNumAtPos, num) : Math.max(rcNumAtPos, num);
 			}
@@ -271,29 +274,63 @@ public abstract class PFAbstract implements Serializable {
 	}
 
 
-	public ConfSearch getConfTree( boolean usePrunedConfs ) {
-		if(isFullyDefined()) {
-			if( usePrunedConfs && canUseTightPStar() ) 
-				return new PStarConfTree(sp);
+	// pstar pruning matrix is the inverse of the qstar pruning matrix for AAs in
+	// this sequence
+	private PruningMatrix makePStarPruningMatrix() {
+		// store initial unpruned rcs. all these rcs belong only to the AAs in this sequence
+		HashMap<Integer, ArrayList<Integer>> unprunedRCsAtPos = new HashMap<>();
+		for( int pos : flexResIndexes ) {
+			unprunedRCsAtPos.put(pos, qSP.pruneMat.unprunedRCsAtPos(pos));
+		}
 
-			return new ConfTree(sp);
+		// mark pruned rcs for aas in this sequence as unpruned
+		UpdatedPruningMatrix ans = (UpdatedPruningMatrix) ObjectIO.deepCopy(new UpdatedPruningMatrix(qSP.pruneMat));
+		for( int pos : flexResIndexes ) {
+			
+			String aaAtPos = sequence.get(pos).split("-")[0];
+			for( int rc : ans.getRCsAtPosForAAType(qSP.confSpace, pos, aaAtPos, true) ) {
+				ans.markAsUnPruned(new RCTuple(pos,rc));
+			}
+		}
+
+		// mark initial unpruned rcs as pruned
+		for( int pos : flexResIndexes ) {
+			for( int rc : unprunedRCsAtPos.get(pos) ) {
+				String rcAAType = qSP.confSpace.posFlex.get(pos).RCs.get(rc).AAType;
+
+				if( sequence.get(pos).split("-")[0].equalsIgnoreCase(rcAAType) ) {
+					ans.markAsPruned(new RCTuple(pos,rc));
+				}
+			}
+		}
+
+		return ans;
+	}
+
+
+	public ConfSearch getConfTree( boolean usePrunedConfs ) {
+		if( isFullyDefined() ) {
+			if( usePrunedConfs ) {
+				if( canUseTightPStar() ) return new ConfTree(qSP, makePStarPruningMatrix(), qSP.useEPIC);
+
+				else return null;
+			}
+
+			return new ConfTree(qSP);
 		}
 
 		else {
 			if( usePrunedConfs && !canUseTightPStar() ) usePrunedConfs = false;
-			return new KAStarConfTree(sp, panSeqSP, flexResIndexes, usePrunedConfs);
+			return new KAStarConfTree(qSP, panSeqSP, flexResIndexes, usePrunedConfs);
 		}
 	}
 
 
-	public double getConfBound( ConfSearch confSearch, int[] conf, boolean usePrunedConfs ) {
+	public double getConfBound( ConfSearch confSearch, int[] conf ) {
 		double bound = 0;
 
 		if( isFullyDefined() ) {
-			if( usePrunedConfs && canUseTightPStar() )
-				bound = ((PStarConfTree)confSearch).confBound(conf);
-
-			else bound = sp.lowerBound(conf);
+			bound = qSP.lowerBound(conf);
 		}
 
 		else
@@ -305,7 +342,7 @@ public abstract class PFAbstract implements Serializable {
 
 	protected boolean canUseTightPStar() {
 
-		boolean singleSeqPrunedConfsExist = sp.numConfs(true).compareTo(BigInteger.ZERO) > 0;
+		boolean singleSeqPrunedConfsExist = qSP.numConfs(true).compareTo(BigInteger.ZERO) > 0;
 
 		if( isFullyDefined() )
 			return singleSeqPrunedConfsExist;
@@ -389,7 +426,7 @@ public abstract class PFAbstract implements Serializable {
 		for( int i = getNumTopSavedConfs()-1; i > -1; i-- ) {
 			System.out.println("Saving: " + i +".pdb" + "\tminE:" + tmp.peek().getEnergy());
 			pdbName = dir + File.separator + String.valueOf(i) +".pdb";
-			sp.outputMinimizedStruct(tmp.poll().getConfArray(), pdbName);
+			qSP.outputMinimizedStruct(tmp.poll().getConfArray(), pdbName);
 		}
 
 		System.out.println();
@@ -459,12 +496,12 @@ public abstract class PFAbstract implements Serializable {
 
 
 	public void setNumUnPruned() {
-		unPrunedConfs = sp.numConfs(false);
+		unPrunedConfs = qSP.numConfs(false);
 	}
 
 
 	public void setNumPruned() {
-		prunedConfs = sp.numConfs(true);
+		prunedConfs = qSP.numConfs(true);
 	}
 
 
@@ -488,35 +525,23 @@ public abstract class PFAbstract implements Serializable {
 	protected void initTradPStar() {
 
 		ConfSearch confSearch = getConfTree(true);
+
+		if(confSearch == null) {
+			setPStar( Double.POSITIVE_INFINITY );
+			return;
+		}
+
 		int conf[];
-
 		if( (conf = confSearch.nextConf()) != null ) {
-			setPStar( getConfBound(confSearch, conf, true), true );
+			setPStar( getConfBound(confSearch, conf) );
 		}
 
-		else
-			throw new RuntimeException("ERROR: cannot set P*");
+		else 
+			setPStar( Double.POSITIVE_INFINITY );
 	}
 
 
-	private void setPStar( double eLB, boolean usePrunedConfs ) {
-
-		if( usePrunedConfs && canUseTightPStar() ) {
-			setPStarTight(eLB);
-		}
-
-		else
-			setPStarLoose(eLB);
-	}
-
-
-	private void setPStarLoose( double eLB ) {
-		E0 = eLB + getSearchProblem().pruneMat.getPruningInterval();
-		pStar = ( getBoltzmannWeight( E0 )).multiply( new BigDecimal(prunedConfs) );
-	}
-
-
-	private void setPStarTight( double eLB ) {
+	private void setPStar( double eLB ) {
 		E0 = eLB;
 		pStar = ( getBoltzmannWeight( E0 )).multiply( new BigDecimal(prunedConfs) );
 	}
@@ -626,19 +651,21 @@ public abstract class PFAbstract implements Serializable {
 		HOTs = new ArrayList<>(); // clear HOTs
 		// restore emat and prunemat
 		if(backupEmat != null) {
-			sp.emat = backupEmat;
+			qSP.emat = backupEmat;
 			backupEmat = null;
 		}
-		
+
 		if(backupPruneMat != null) {
-			sp.pruneMat = backupPruneMat;
+			qSP.pruneMat = backupPruneMat;
 			backupPruneMat = null;
 		}
-	
+
 		// completely relax pruning
 		double maxPruningInterval = 100;
 		getPruningControl(maxPruningInterval).prune();
-		sp.pruneMat.setPruningInterval(maxPruningInterval);
+		// trim prunemat to this sequence
+		qSP.updatePruneMat(AllowedSeqs.getAAsFromSeq(getSequence()), flexResIndexes);
+		qSP.pruneMat.setPruningInterval(maxPruningInterval);
 
 		setNumUnPruned();
 		setNumPruned(); // needed for p*
@@ -678,18 +705,18 @@ public abstract class PFAbstract implements Serializable {
 
 	public void cleanup() {
 		panSeqSP = null;
-		sp = null;
+		qSP = null;
 		minimizedConfsSet = null;
 	}
 
 
 	public SearchProblem getSearchProblem() {
-		return sp;
+		return qSP;
 	}
 
 
 	public PruningControl getPruningControl(double pruningInterval) {
-		return cfp.getPruningControl(sp, pruningInterval, sp.useEPIC, sp.useTupExpForSearch);
+		return cfp.getPruningControl(qSP, pruningInterval, qSP.useEPIC, qSP.useTupExpForSearch);
 	}
 
 
@@ -926,43 +953,6 @@ public abstract class PFAbstract implements Serializable {
 
 
 	protected SearchProblem createSingleSeqSP( boolean contSCFlex, int strand, 
-			ArrayList<String> seq, ArrayList<Integer> flexResIndexes, boolean fast ) {
-
-		if(fast) return createSingleSeqSPFast(contSCFlex, strand, seq, flexResIndexes);
-
-		return createSingleSeqSPSlow(contSCFlex, strand, seq);
-	}
-
-
-	private SearchProblem createSingleSeqSPSlow( boolean contSCFlex, int strand, ArrayList<String> seq ) {
-
-		ArrayList<ArrayList<String>> allowedAAs = KSAbstract.list1D2ListOfLists(AllowedSeqs.getAAsFromSeq(seq));
-		ArrayList<String> flexibleRes = AllowedSeqs.getFlexResFromSeq(seq);
-
-		// create searchproblem
-		SearchProblem seqSP = new SearchProblem( 
-				searchProblemName, 
-				panSeqSP.PDBFile, 
-				flexibleRes, 
-				allowedAAs, 
-				false, 
-				contSCFlex,
-				panSeqSP.useEPIC,
-				panSeqSP.epicSettings,
-				panSeqSP.useTupExpForSearch,
-				panSeqSP.dset, 
-				panSeqSP.moveableStrands, 
-				panSeqSP.freeBBZones,
-				panSeqSP.useEllipses,
-				panSeqSP.useERef,
-				panSeqSP.addResEntropy,
-				panSeqSP.limits);
-
-		return seqSP;
-	}
-
-
-	private SearchProblem createSingleSeqSPFast( boolean contSCFlex, int strand, 
 			ArrayList<String> seq, ArrayList<Integer> flexResIndexes ) {
 
 		SearchProblem seqSP = panSeqSP.singleSeqSearchProblem(searchProblemName, 

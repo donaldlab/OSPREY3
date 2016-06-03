@@ -57,11 +57,12 @@ public class ConfTree extends AStarTree implements Serializable {
         init(sp, sp.pruneMat, sp.useEPIC);
     }
     
+    
     public ConfTree(SearchProblem sp, PruningMatrix pruneMat, boolean useEPIC){
         //Conf search over RC's in sp that are unpruned in pruneMat
         init(sp,pruneMat,useEPIC);
     }
-    
+
     
     private void init(SearchProblem sp, PruningMatrix pruneMat, boolean useEPIC) {
         numPos = sp.confSpace.numPos;
@@ -199,7 +200,7 @@ public class ConfTree extends AStarTree implements Serializable {
     
     
         
-    protected double scoreConf(int[] partialConf){
+    public double scoreConf(int[] partialConf){
         if(traditionalScore){
             RCTuple definedTuple = new RCTuple(partialConf);
             
@@ -317,13 +318,7 @@ public class ConfTree extends AStarTree implements Serializable {
                 ArrayList<Integer> allowedRCs = allowedRCsAtLevel(iPos,partialConf);
                 
                 for( int rc : allowedRCs ){
-                    /*
-                	System.out.println("ipos: " + iPos);
-                	System.out.println("rc: " + rc);
-                	
-                	if(iPos == 0 && rc == 0)
-                		System.out.println(htf);
-                	*/
+
                     Double interactionE = htf.getInteraction(iPos, rc);
                     if(interactionE == null) interactionE = 0.0;
                     

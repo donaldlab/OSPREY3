@@ -189,7 +189,7 @@ public class TupleMatrix<T> implements Serializable {
         return oneBody.size();
     }
     
-    public void setTupleValue(RCTuple tup, T val){
+    public void setTupleValue(RCTuple tup, T val) {
         //assign the given value to the specified RC tuple
         int tupSize = tup.pos.size();
         
@@ -202,6 +202,47 @@ public class TupleMatrix<T> implements Serializable {
         }
         else
             throw new UnsupportedOperationException( "ERROR: Not supporting tuple size " + tupSize );
+    }
+    
+    
+    public T getTupleValue(RCTuple tup) {
+        //assign the given value to the specified RC tuple
+        int tupSize = tup.pos.size();
+        
+        if(tupSize==1)//just a one-body quantity
+            return getOneBody( tup.pos.get(0), tup.RCs.get(0) );
+        else if(tupSize==2)//two-body
+            return getPairwise( tup.pos.get(0), tup.RCs.get(0), tup.pos.get(1), tup.RCs.get(1) );
+        else if(tupSize>2){//higher-order
+            return getHigherOrder(tup);
+        }
+        else
+            throw new UnsupportedOperationException( "ERROR: Not supporting tuple size " + tupSize );
+    }
+    
+    
+    public T getHigherOrder(RCTuple tup) {
+    	
+    	int pos1 = tup.pos.get(0);
+        int rc1 = tup.RCs.get(0);
+        int pos2 = tup.pos.get(1);
+        int rc2 = tup.RCs.get(1);
+        
+        HigherTupleFinder<T> htf = getHigherOrderTerms(pos1,rc1,pos2,rc2);
+        
+        if(htf == null) return null;
+        
+        int posNum = -1, RCNum = -1;
+        
+    	for(int index = 2; index < tup.pos.size(); ++index) {
+    		posNum = tup.pos.get(index);
+            RCNum = tup.RCs.get(index);
+            
+            htf = htf.getHigherInteractions(posNum, RCNum);
+            if(htf == null) return null;
+    	}
+    	
+    	return htf.getInteraction(posNum, RCNum);
     }
     
     

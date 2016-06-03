@@ -19,7 +19,7 @@ import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
-import edu.duke.cs.osprey.kstar.Strand;
+import edu.duke.cs.osprey.kstar.Termini;
 import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MinimizerFactory;
 import edu.duke.cs.osprey.minimization.MolecEObjFunction;
@@ -91,7 +91,7 @@ public class ConfSpace implements Serializable {
 	 */
 	public ConfSpace(String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, 
 			boolean addWT, boolean contSCFlex, DEEPerSettings dset, ArrayList<String[]> moveableStrands, 
-			ArrayList<String[]> freeBBZones, boolean ellipses, Strand termini){
+			ArrayList<String[]> freeBBZones, boolean ellipses, Termini termini){
 
 		useEllipses = ellipses;  	
 

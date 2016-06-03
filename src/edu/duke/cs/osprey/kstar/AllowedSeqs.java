@@ -19,13 +19,13 @@ public class AllowedSeqs {
 	private ArrayList<String> wt;
 	private int dist;
 	private int strand;
-	private Strand limits;
+	private Termini limits;
 	private int maxSequences = (int)Math.pow(2, 28);
 	private ArrayList<ArrayList<String>> allowedSeqs = null;
 	private LinkedHashMap<ArrayList<String>, Integer> allowedSeq2Index = null;
 	ArrayList<HashSet<ArrayList<String>>> allowedSubSeqs = null;
 
-	public AllowedSeqs( int strand, Strand limits, DEEPerSettings dset, 
+	public AllowedSeqs( int strand, Termini limits, DEEPerSettings dset, 
 			ArrayList<String[]> freeBBZoneTermini,
 			ArrayList<String[]> moveableStrandTermini,
 			ArrayList<String> flexRes, 
@@ -45,7 +45,7 @@ public class AllowedSeqs {
 	}
 
 
-	public AllowedSeqs( int strand, Strand limits, DEEPerSettings dset, 
+	public AllowedSeqs( int strand, Termini limits, DEEPerSettings dset, 
 			ArrayList<String[]> freeBBZoneTermini,
 			ArrayList<String[]> moveableStrandTermini,
 			ArrayList<String> flexRes, AllowedSeqs in, 
@@ -69,7 +69,7 @@ public class AllowedSeqs {
 	}
 	
 	
-	public Strand getStrandLimits() {
+	public Termini getStrandLimits() {
 		return limits;
 	}
 	
@@ -282,7 +282,7 @@ public class AllowedSeqs {
 	public ArrayList<HashSet<ArrayList<String>>> getStrandSubSeqList2( 
 			AllowedSeqs p, AllowedSeqs l ) {
 
-		if( strand != Strand.COMPLEX )
+		if( strand != Termini.COMPLEX )
 			throw new RuntimeException("ERROR: this version of the method "
 					+ "should only be called for the COMPLEX strand");
 
@@ -330,7 +330,7 @@ public class AllowedSeqs {
 
 	public HashSet<ArrayList<String>> getStrandSubSeqsAtDepth( int depth, AllowedSeqs p, AllowedSeqs l ) {
 
-		if( strand != Strand.COMPLEX )
+		if( strand != Termini.COMPLEX )
 			throw new RuntimeException("ERROR: this version of the method "
 					+ "should only be called for the COMPLEX strand");
 
@@ -349,7 +349,7 @@ public class AllowedSeqs {
 		
 		if( allowedSubSeqs == null ) {
 			
-			if(strand == Strand.COMPLEX) 
+			if(strand == Termini.COMPLEX) 
 				throw new RuntimeException("ERROR: sub-sequences of the COMPLEX "
 						+ "strand cannot be initialized using this method");
 			

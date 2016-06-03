@@ -6,7 +6,7 @@
 package edu.duke.cs.osprey.dof.deeper;
 
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
-import edu.duke.cs.osprey.kstar.Strand;
+import edu.duke.cs.osprey.kstar.Termini;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -50,7 +50,7 @@ public class PerturbationSelector {
     
     public PerturbationSelector(String startingPertFile, boolean onlyStarting, 
             double maxShearParam, double maxBackrubParam, boolean selectLCAs, 
-            ArrayList<String> flexibleRes, String PDBFile, Strand termini) {
+            ArrayList<String> flexibleRes, String PDBFile, Termini termini) {
         
         this.startingPertFile = startingPertFile;
         this.onlyStarting = onlyStarting;
@@ -64,7 +64,7 @@ public class PerturbationSelector {
     
     
     
-    public PertSet selectPerturbations(Strand termini){
+    public PertSet selectPerturbations(Termini termini){
         ps = new PertSet();
         
         if( !startingPertFile.equalsIgnoreCase("none") ){//lists perturbations to include

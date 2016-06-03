@@ -4,6 +4,7 @@
  */
 package edu.duke.cs.osprey.confspace;
 
+import edu.duke.cs.osprey.astar.comets.UpdatedPruningMatrix;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -15,7 +16,7 @@ import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.kstar.KSAbstract;
-import edu.duke.cs.osprey.kstar.Strand;
+import edu.duke.cs.osprey.kstar.Termini;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -73,15 +74,13 @@ public class SearchProblem implements Serializable {
 	public PruningMatrix competitorPruneMat;//a pruning matrix performed at pruning interval 0,
 	//to decide which RC tuples are valid competitors for pruning
 
-
-
 	public boolean useEPIC = false;
 	public boolean useTupExpForSearch = false;//use a tuple expansion to approximate the energy as we search
 	public boolean useEllipses = false;
 
 	public boolean useERef = false;
 	public boolean addResEntropy = false;
-	public Strand limits = null;
+	public Termini limits = null;
 
 
 	public SearchProblem(SearchProblem sp1){//shallow copy
@@ -153,7 +152,7 @@ public class SearchProblem implements Serializable {
 	public SearchProblem(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
 			boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset, 
 			ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef,
-			boolean addResEntropy, Strand limits){
+			boolean addResEntropy, Termini limits){
 
 		confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses, limits);
 		this.name = name;
@@ -185,10 +184,10 @@ public class SearchProblem implements Serializable {
 
 
 	public void mergeResiduePositions(int... posToCombine) {
-		
+
 		EnergyMatrixCalculator emc = new EnergyMatrixCalculator(confSpace, 
 				shellResidues, useEPIC, pruneMat, epicSettings, false, emat);
-		
+
 		emc.addEnergyTerms(false, posToCombine);
 	}
 
@@ -503,20 +502,42 @@ public class SearchProblem implements Serializable {
 		}
 	}
 
+	
+	public UpdatedPruningMatrix updatePruneMat( ArrayList<String> seq, ArrayList<Integer> positions ) {
+		// updated pruning matrix consists of rcs from this sequence only
+		UpdatedPruningMatrix ans = new UpdatedPruningMatrix(pruneMat);
+		// prune all residues for other AA types
+		for( int pos : positions ) {
+			for( int rc : pruneMat.unprunedRCsAtPos(pos) ) {
+				String rcAAType = confSpace.posFlex.get(pos).RCs.get(rc).AAType;
+				
+				if( !rcAAType.equalsIgnoreCase(seq.get(pos)) ) {
+					ans.markAsPruned(new RCTuple(pos,rc));
+				}
+			}
+		}
+		
+		return ans;
+	}
+	
 
 	public SearchProblem singleSeqSearchProblem(String name, ArrayList<String> seq, 
-			ArrayList<String> flexRes, ArrayList<Integer> flexResIndexes){
+			ArrayList<String> flexRes, ArrayList<Integer> positions) {
 
 		// Create a version of the search problem restricted to the specified sequence (list of amino acid names)
 		// the constructor creates a new confspace object
 		SearchProblem seqSP = new SearchProblem(this, name, seq, flexRes);
 
+		/*
 		seqSP.setEnergyMatrix( getEnergyMatrix().singleSeqMatrix(seq, flexResIndexes, confSpace) );
 		seqSP.emat.setConstTerm( emat.getConstTerm() );
 
 		seqSP.pruneMat = pruneMat.singleSeqMatrix(seq, flexResIndexes, confSpace);
 		seqSP.pruneMat.setPruningInterval(pruneMat.getPruningInterval());
-
+		*/
+		
+		seqSP.pruneMat = updatePruneMat(seq, positions);
+		seqSP.setEnergyMatrix(emat);
 		return seqSP;
 	}
 
@@ -528,7 +549,14 @@ public class SearchProblem implements Serializable {
 		BigInteger numConfs = BigInteger.ONE;
 
 		for( int pos = 0; pos < pruneMat.numPos(); ++pos ) {
-			long numRCs = countPruned ? pruneMat.prunedRCsAtPos(pos).size() : pruneMat.unprunedRCsAtPos(pos).size();
+			long numRCs = 0;
+			
+			for( ArrayList<String> aasAtPos : allowedAAs ) {
+				for( String AAType : aasAtPos ) {
+					numRCs += pruneMat.getNumRCsAtPosForAAType(confSpace, pos, AAType, countPruned);
+				}
+			}
+
 			if(numRCs == 0) return BigInteger.ZERO;
 			numConfs = numConfs.multiply( BigInteger.valueOf( numRCs ) );
 		}

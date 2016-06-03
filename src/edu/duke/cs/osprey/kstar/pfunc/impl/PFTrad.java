@@ -63,7 +63,7 @@ public class PFTrad extends PFAbstract implements Serializable {
 
 			if( minimizedConfsSet.contains(conf) ) return;
 
-			KSConf ksConf = new KSConf(conf, getConfBound(confSearch, conf, false));
+			KSConf ksConf = new KSConf(conf, getConfBound(confSearch, conf));
 
 			accumulate(ksConf);
 		}
@@ -144,7 +144,7 @@ public class PFTrad extends PFAbstract implements Serializable {
 		System.out.print("... ");
 		
 		long start = System.currentTimeMillis();
-		sp.mergeResiduePositions(pos);
+		qSP.mergeResiduePositions(pos);
 		memoizePosInHot(pos);
 		long duration = (System.currentTimeMillis()-start)/1000;
 
@@ -166,7 +166,7 @@ public class PFTrad extends PFAbstract implements Serializable {
 		//	throw new RuntimeException("ERROR: old partial q' - new partial q': " + oldPartialQPLB.subtract(partialQLB) + " must be >= 0");
 		
 		confSearch = getConfTree(false);
-		conf.setEnergyBound(getConfBound(null, conf.getConfArray(), false));
+		conf.setEnergyBound(getConfBound(null, conf.getConfArray()));
 	}
 
 
@@ -194,7 +194,7 @@ public class PFTrad extends PFAbstract implements Serializable {
 
 		if( isFullyDefined() ) {
 			// we do not have a lock when minimizing
-			mef = sp.decompMinimizedEnergy(conf.getConfArray());
+			mef = qSP.decompMinimizedEnergy(conf.getConfArray());
 			energy = mef.getPreCompE();
 		}
 

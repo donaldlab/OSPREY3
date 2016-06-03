@@ -15,7 +15,7 @@ import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.AllowedSeqs;
-import edu.duke.cs.osprey.kstar.Strand;
+import edu.duke.cs.osprey.kstar.Termini;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -59,21 +59,21 @@ public class ConfigFileParser implements Serializable {
 	
 	void verifyStrandsMutuallyExclusive() {
 		// make sure that strands are mutually exclusive. assuming only two strands for now...
-		Strand s0 = getStrandLimits(0);
-		Strand s1 = getStrandLimits(1);
+		Termini s0 = getStrandLimits(0);
+		Termini s1 = getStrandLimits(1);
 		
 		// there is a C common to both integer sets
 		// x1 <= C <= x2
 		// y1 <= C <= y2
 		// x1 <= y2 && y1 <= x2
-		if(s0.getStrandBegin() <= s1.getStrandEnd() && s1.getStrandBegin() <= s0.getStrandEnd())
+		if(s0.getTerminusBegin() <= s1.getTerminusEnd() && s1.getTerminusBegin() <= s0.getTerminusEnd())
 			throw new RuntimeException("ERROR: strand0 overlaps with strand1. Please fix strand termini.");
 	}
 	
 
 	AllowedSeqs getAllowedSequences(int strand, AllowedSeqs complexSeqs) {
 		
-		Strand limits = getStrandLimits(strand);
+		Termini limits = getStrandLimits(strand);
 
 		if( complexSeqs == null ) {
 			// this is only true when we have not calculated the sequences for the complex
@@ -99,7 +99,7 @@ public class ConfigFileParser implements Serializable {
 						+ "Change the value of NUMMUTATIONS parameter.");
 		}
 
-		if(strand == Strand.COMPLEX)
+		if(strand == Termini.COMPLEX)
 			return complexSeqs;
 
 		// get index values of strand limits in flexRes
@@ -108,9 +108,9 @@ public class ConfigFileParser implements Serializable {
 		@SuppressWarnings("unchecked")
 		ArrayList<ArrayList<String>> allowedAAs = (ArrayList<ArrayList<String>>)ObjectIO.deepCopy(complexSeqs.getAllowedAAs());
 		int lb = -1, ub = -1;
-		Strand compressedLimits = getCompressedStrandLimits(strand, complexSeqs.getFlexRes());
-		lb = flexRes.indexOf( String.valueOf(compressedLimits.getStrandBegin()) );
-		ub = flexRes.indexOf( String.valueOf(compressedLimits.getStrandEnd()) ) + 1;
+		Termini compressedLimits = getCompressedStrandLimits(strand, complexSeqs.getFlexRes());
+		lb = flexRes.indexOf( String.valueOf(compressedLimits.getTerminusBegin()) );
+		ub = flexRes.indexOf( String.valueOf(compressedLimits.getTerminusEnd()) ) + 1;
 
 		// filter allowedSeqs for protein and ligand strands
 		filterResiduesByStrand( strand, flexRes, allowedAAs );
@@ -122,9 +122,9 @@ public class ConfigFileParser implements Serializable {
 	}
 
 
-	Strand getCompressedStrandLimits( int strand, ArrayList<String> flexRes ) {
+	Termini getCompressedStrandLimits( int strand, ArrayList<String> flexRes ) {
 
-		Strand strandLimits = getStrandLimits(strand);
+		Termini strandLimits = getStrandLimits(strand);
 		ArrayList<String> strandResNums = getFlexResByStrand(strand);
 
 		@SuppressWarnings("unchecked")
@@ -145,7 +145,7 @@ public class ConfigFileParser implements Serializable {
 		ArrayList<String> limits = new ArrayList<>();
 		limits.add(flexRes2.get(0));
 		limits.add(flexRes2.get(flexRes2.size()-1));
-		Strand ans = new Strand(strand, flexRes2.size(), limits);
+		Termini ans = new Termini(strand, flexRes2.size(), limits);
 
 		return ans;
 	}
@@ -161,7 +161,7 @@ public class ConfigFileParser implements Serializable {
 	void filterResiduesByStrand( int strand, ArrayList<String> flexRes, 
 			ArrayList<ArrayList<String>> allowedAAs ) {
 
-		Strand strandLimits = getStrandLimits(strand);
+		Termini strandLimits = getStrandLimits(strand);
 		ArrayList<String> strandResNums = getFlexResByStrand(strand);
 
 		for( int it = 0; it < flexRes.size(); ) {
@@ -187,7 +187,7 @@ public class ConfigFileParser implements Serializable {
 
 	ArrayList<String> getFlexResByStrand( int strand ) {
 
-		if( strand != Strand.COMPLEX && strand != Strand.PROTEIN && strand != Strand.LIGAND )
+		if( strand != Termini.COMPLEX && strand != Termini.PROTEIN && strand != Termini.LIGAND )
 			throw new RuntimeException("ERROR: specified strand " + strand + " is invalid");
 
 		ArrayList<String> flexResList = new ArrayList<>();
@@ -213,9 +213,9 @@ public class ConfigFileParser implements Serializable {
 	/**
 	 * Reads strand limits
 	 */
-	public Strand getStrandLimits( int strand ) {
+	public Termini getStrandLimits( int strand ) {
 
-		if( strand == Strand.COMPLEX ) return null;
+		if( strand == Termini.COMPLEX ) return null;
 
 		String strandLimits = params.getValue( "STRAND"+strand );
 
@@ -231,7 +231,7 @@ public class ConfigFileParser implements Serializable {
 			strLimits.add( tokenizer.nextToken() );
 		}
 
-		return new Strand( strand, numFlexRes, strLimits );
+		return new Termini( strand, numFlexRes, strLimits );
 
 	}
 
@@ -270,7 +270,7 @@ public class ConfigFileParser implements Serializable {
 		ObjectIO.makeDir(ematDir, params.getBool("deleteEmatDir", false));
 		String name = ematDir + File.separator + params.getValue("RUNNAME");
 
-		String suffix = Strand.getStrandString(strand);
+		String suffix = Termini.getTerminiString(strand);
 
 		ArrayList<String[]> moveableStrands = strandSeqs.getMoveableStrandTermini();
 		ArrayList<String[]> freeBBZones = strandSeqs.getFreeBBZoneTermini();
@@ -343,13 +343,13 @@ public class ConfigFileParser implements Serializable {
 				);
 
 		// remove residues not in this strand
-		Strand limits = getStrandLimits(strand);
+		Termini limits = getStrandLimits(strand);
 		dset.loadPertFile(limits);//load the PertSet from its file
 		return dset;
 	}
 
 
-	private ArrayList<String[]> freeBBZoneTermini(Strand limits){
+	private ArrayList<String[]> freeBBZoneTermini(Termini limits){
 		//Read the termini of the BBFreeBlocks, if any
 		ArrayList<String[]> ans = new ArrayList<>();
 
@@ -373,7 +373,7 @@ public class ConfigFileParser implements Serializable {
 	}
 
 
-	private ArrayList<String[]> moveableStrandTermini(Strand limits){
+	private ArrayList<String[]> moveableStrandTermini(Termini limits){
 		//Read the strands that are going to translate and rotate
 		//Let's say they can do this regardless of what doMinimize says (that's for sidechains)
 		ArrayList<String[]> ans = new ArrayList<>();
@@ -560,14 +560,14 @@ public class ConfigFileParser implements Serializable {
  		
 		switch(strand) {
 		
-		case Strand.COMPLEX:
+		case Termini.COMPLEX:
 			return ans;
 			
-		case Strand.LIGAND:
-			return filterContentsByStrand(getStrandLimits(Strand.LIGAND), ans);
+		case Termini.LIGAND:
+			return filterContentsByStrand(getStrandLimits(Termini.LIGAND), ans);
 			
-		case Strand.PROTEIN:
-			return filterContentsByStrand(getStrandLimits(Strand.PROTEIN), ans);
+		case Termini.PROTEIN:
+			return filterContentsByStrand(getStrandLimits(Termini.PROTEIN), ans);
 			
 		default:
 			throw new RuntimeException("ERROR: invalid strand");
@@ -614,7 +614,7 @@ public class ConfigFileParser implements Serializable {
 	}
 	
 	
-	ArrayList<ArrayList<String>> filterContentsByStrand( Strand strand, ArrayList<ArrayList<String>> list ) {
+	ArrayList<ArrayList<String>> filterContentsByStrand( Termini strand, ArrayList<ArrayList<String>> list ) {
 		@SuppressWarnings("unchecked")
 		ArrayList<ArrayList<String>> ans = (ArrayList<ArrayList<String>>) ObjectIO.deepCopy(list);
 		

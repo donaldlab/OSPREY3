@@ -229,7 +229,7 @@ public class EnergyMatrixCalculator {
 						}
 					}
 					
-					//HigherTupleFinder<Double> htf = emat.getHigherOrderTerms(pos[0], rc.get(0), pos[1], rc.get(1));
+					// call getTupleValue for all tuples of [k=2, n-1]
 					
 					RCTuple nBody = new RCTuple(new ArrayList<>(Arrays.asList(pos)), new ArrayList<>(rc));
 					emat.setHigherOrder(nBody, nbE-pwE);

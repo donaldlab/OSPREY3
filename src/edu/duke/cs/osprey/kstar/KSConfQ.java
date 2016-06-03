@@ -84,12 +84,12 @@ public class KSConfQ extends Thread implements Serializable {
 
 	
 	public double getConfBound( int[] conf ) {
-		return pf.getConfBound(confSearch, conf, false);
+		return pf.getConfBound(confSearch, conf);
 	}
 	
 
 	public KSConf peekTail() {
-		return size() > 0 ? new KSConf(tail, pf.getConfBound(confSearch, KSConf.list2Array(tail), false)) : null;
+		return size() > 0 ? new KSConf(tail, pf.getConfBound(confSearch, KSConf.list2Array(tail))) : null;
 	}
 
 
@@ -97,13 +97,13 @@ public class KSConfQ extends Thread implements Serializable {
 		if(size() == 0) return null;
 
 		ArrayList<Integer> value = q.iterator().next();
-		return new KSConf(value, pf.getConfBound(confSearch, KSConf.list2Array(value), false));
+		return new KSConf(value, pf.getConfBound(confSearch, KSConf.list2Array(value)));
 	}
 
 
 	protected double enQueue( int[] conf ) {
 
-		double energyBound = pf.getConfBound(confSearch, conf, false);
+		double energyBound = pf.getConfBound(confSearch, conf);
 		if( energyBound == Double.POSITIVE_INFINITY ) return Double.POSITIVE_INFINITY;
 
 		BigDecimal boltzmannWeight = pf.getBoltzmannWeight(energyBound);

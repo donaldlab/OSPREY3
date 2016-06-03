@@ -72,7 +72,7 @@ public class PFNew04 extends PFNew03 implements Serializable {
 			}
 
 			for( ServerInterface serverInterface : serverInterfaces ) {
-				serverInterface.initFibers(sp);
+				serverInterface.initFibers(qSP);
 			}
 
 			unProcessedConfs.clear();

@@ -217,7 +217,7 @@ public class KAStarConfTree extends ConfTree implements Serializable, ConfSearch
 	}
 
 
-	protected double scoreConf(int[] partialConf){
+	public double scoreConf(int[] partialConf){
 
 		if(traditionalScore) {
 			RCTuple definedTuple = new RCTuple(partialConf);

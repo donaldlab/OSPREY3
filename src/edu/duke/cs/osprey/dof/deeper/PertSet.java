@@ -8,7 +8,7 @@ package edu.duke.cs.osprey.dof.deeper;
 import edu.duke.cs.osprey.dof.deeper.perts.PartialStructureSwitch;
 import edu.duke.cs.osprey.dof.deeper.perts.LoopClosureAdjustment;
 import edu.duke.cs.osprey.dof.deeper.perts.Shear;
-import edu.duke.cs.osprey.kstar.Strand;
+import edu.duke.cs.osprey.kstar.Termini;
 import edu.duke.cs.osprey.dof.deeper.perts.Backrub;
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.dof.deeper.perts.PerturbationBlock;
@@ -56,7 +56,7 @@ public class PertSet implements Serializable {
     
     
     
-    public boolean loadPertFile(String pertFileName, boolean loadStates, Strand termini){
+    public boolean loadPertFile(String pertFileName, boolean loadStates, Termini termini){
         //load perturbations from the pert file
         //Return whether we found the file or not
         //Load perturbations and their intervals; if loadStates then residue pert states too
@@ -123,7 +123,7 @@ public class PertSet implements Serializable {
     }
     
     
-    public void readPerts(BufferedReader br, Strand termini) throws Exception {
+    public void readPerts(BufferedReader br, Termini termini) throws Exception {
         //read the actual perturbations, including the residues they affect
         //and the parameter intervals we're using for them
 

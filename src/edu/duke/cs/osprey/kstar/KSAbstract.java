@@ -49,7 +49,7 @@ public abstract class KSAbstract implements KSInterface {
 	private boolean useERef;
 	private boolean addResEntropy;
 
-	protected boolean prunedSingleSeqs = false;
+	//protected boolean prunedSingleSeqs = false;
 	public static boolean preLoadPFs = false;
 	public static boolean doCheckPoint = false;
 	protected static long checkpointInterval = 50000;
@@ -168,7 +168,7 @@ public abstract class KSAbstract implements KSInterface {
 				File.separator + 
 				getRunName() + "." + 
 				flexibility + "." + 
-				Strand.getStrandString(strand);
+				Termini.getTerminiString(strand);
 	}
 
 
@@ -180,7 +180,7 @@ public abstract class KSAbstract implements KSInterface {
 				File.separator + 
 				getRunName() + "." + 
 				flexibility + "." + 
-				Strand.getStrandString(strand);
+				Termini.getTerminiString(strand);
 	}
 
 
@@ -197,7 +197,7 @@ public abstract class KSAbstract implements KSInterface {
 	protected void printSequences() {
 		System.out.println("\nPreparing to compute K* for the following sequences:");
 		int i = 0;
-		for(ArrayList<String> al : strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSeqList()) {
+		for(ArrayList<String> al : strand2AllowedSeqs.get(Termini.COMPLEX).getStrandSeqList()) {
 			System.out.println(i++ + "\t" + list1D2String(al, " "));
 		}
 		System.out.println();
@@ -218,8 +218,8 @@ public abstract class KSAbstract implements KSInterface {
 				// single seq matrices created using the fast construction 
 				// method are already pruned according to the pruning window
 				if(sp.getEnergyMatrix() == null) {
-					//PruningControl pc = cfp.getPruningControl(sp, EW+I0, useEPIC, useTupExp);
-					PruningControl pc = cfp.getPruningControl(sp, 100, useEPIC, useTupExp); // use large pruning window
+					PruningControl pc = cfp.getPruningControl(sp, EW+I0, useEPIC, useTupExp);
+					//PruningControl pc = cfp.getPruningControl(sp, 100, useEPIC, useTupExp); // use large pruning window
 					sp.loadEnergyMatrix(sp.getMatrixType());
 					pc.prune();
 				}
@@ -294,7 +294,7 @@ public abstract class KSAbstract implements KSInterface {
 
 		ConcurrentHashMap<Integer, PFAbstract> ans = new ConcurrentHashMap<>();
 
-		ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Strand.COMPLEX, Strand.PROTEIN, Strand.LIGAND));
+		ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Termini.COMPLEX, Termini.PROTEIN, Termini.LIGAND));
 		ArrayList<Integer> indexes = new ArrayList<>();
 		for(int i = 0; i < strands.size(); i++) indexes.add(i);
 
@@ -391,8 +391,8 @@ public abstract class KSAbstract implements KSInterface {
 
 	protected void preparePanSeqSPs( ArrayList<Boolean> contSCFlexVals ) {
 
-		ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Strand.LIGAND, 
-				Strand.PROTEIN, Strand.COMPLEX));
+		ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(Termini.LIGAND, 
+				Termini.PROTEIN, Termini.COMPLEX));
 
 		for( boolean contSCFlex : contSCFlexVals ) {
 
@@ -478,7 +478,7 @@ public abstract class KSAbstract implements KSInterface {
 
 
 	protected ArrayList<String> getWTSeq() {
-		if( wtSeq == null ) wtSeq = strand2AllowedSeqs.get(Strand.COMPLEX).getWTSeq();
+		if( wtSeq == null ) wtSeq = strand2AllowedSeqs.get(Termini.COMPLEX).getWTSeq();
 		return wtSeq;
 	}
 
@@ -489,7 +489,7 @@ public abstract class KSAbstract implements KSInterface {
 
 
 	protected boolean isWT( KSCalc mutSeq ) {
-		return mutSeq.getPF(Strand.COMPLEX).getSequence().equals(getWTSeq());
+		return mutSeq.getPF(Termini.COMPLEX).getSequence().equals(getWTSeq());
 	}
 
 
@@ -521,9 +521,9 @@ public abstract class KSAbstract implements KSInterface {
 
 		ArrayList<ArrayList<String>> ans = new ArrayList<ArrayList<String>>(Arrays.asList(null, null, null));
 
-		ans.set(Strand.COMPLEX, strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSeqAtPos(i));
-		ans.set(Strand.PROTEIN, strand2AllowedSeqs.get(Strand.PROTEIN).getStrandSeqAtPos(i));
-		ans.set(Strand.LIGAND, strand2AllowedSeqs.get(Strand.LIGAND).getStrandSeqAtPos(i));
+		ans.set(Termini.COMPLEX, strand2AllowedSeqs.get(Termini.COMPLEX).getStrandSeqAtPos(i));
+		ans.set(Termini.PROTEIN, strand2AllowedSeqs.get(Termini.PROTEIN).getStrandSeqAtPos(i));
+		ans.set(Termini.LIGAND, strand2AllowedSeqs.get(Termini.LIGAND).getStrandSeqAtPos(i));
 
 		ans.trimToSize();
 		return ans;
@@ -545,7 +545,7 @@ public abstract class KSAbstract implements KSInterface {
 		ConcurrentHashMap<Integer, PFAbstract> pfs = createPFs4Seqs(strandSeqs, contSCFlexVals, pfImplVals);
 		KSCalc calc = new KSCalc(0, pfs);
 
-		PFAbstract pf = calc.getPF(Strand.COMPLEX);
+		PFAbstract pf = calc.getPF(Termini.COMPLEX);
 		if(doCheckPoint && getSeqsFromFile(getOputputFilePath()).contains(pf.getSequence())) {
 			// we have previously computed the sequence
 			return calc;
@@ -554,11 +554,11 @@ public abstract class KSAbstract implements KSInterface {
 		calc.run(calc, false, true);
 
 		// protein and ligand must reach epsilon, regardless of checkppoint
-		for( int strand : Arrays.asList(Strand.LIGAND, Strand.PROTEIN, Strand.COMPLEX) ) {
+		for( int strand : Arrays.asList(Termini.LIGAND, Termini.PROTEIN, Termini.COMPLEX) ) {
 			pf = calc.getPF(strand);
 
-			if( (strand != Strand.COMPLEX && pf.getEpsilonStatus() != EApproxReached.TRUE) ||
-					(strand == Strand.COMPLEX && pf.getEpsilonStatus() == EApproxReached.NOT_POSSIBLE) ) {
+			if( (strand != Termini.COMPLEX && pf.getEpsilonStatus() != EApproxReached.TRUE) ||
+					(strand == Termini.COMPLEX && pf.getEpsilonStatus() == EApproxReached.NOT_POSSIBLE) ) {
 
 				throw new RuntimeException("ERROR: could not compute the wild-type sequence "
 						+ KSAbstract.list1D2String(pf.getSequence(), " ") + " to an epsilon value of "
@@ -568,14 +568,14 @@ public abstract class KSAbstract implements KSInterface {
 		}
 
 		if( doCheckPoint ) {
-			pf = calc.getPF(Strand.COMPLEX);
+			pf = calc.getPF(Termini.COMPLEX);
 			name2PF.remove(pf.getSearchProblemName());
 			calc.deleteSeqFromFile( pf.getSequence(), getCheckPointFilePath() );
 			calc.serializePFs();
 		}
 
 		if( calc.getEpsilonStatus() == EApproxReached.TRUE ) {
-			calc.deleteCheckPointFile(Strand.COMPLEX);
+			calc.deleteCheckPointFile(Termini.COMPLEX);
 			calc.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCompleted(1) );
 		}
 
@@ -608,7 +608,7 @@ public abstract class KSAbstract implements KSInterface {
 		ArrayList<String> lines = file2List(path);
 		if(lines.size() == 0) return ans;
 
-		for( ArrayList<String> seq : strand2AllowedSeqs.get(Strand.COMPLEX).getStrandSeqList() ) {
+		for( ArrayList<String> seq : strand2AllowedSeqs.get(Termini.COMPLEX).getStrandSeqList() ) {
 			String strSeq = KSAbstract.list1D2String(seq, " ");
 
 			for(String line : lines) {
