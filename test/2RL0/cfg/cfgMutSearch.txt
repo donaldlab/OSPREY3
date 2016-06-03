@@ -2,14 +2,14 @@ runName output
 %mutfile mutfile.txt
 iMinDEE true
 typedep true
-ival 0.0000000000000001
+ival 2.5
 ew 0
 
 useDunbrackRotamers false
 ematDir emat.lovell
 deleteEmatDir false
 
-epsilon 0.1
+epsilon 0.68
 useTupExp false
 doMinimize true
 doPerturbations false
