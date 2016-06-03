@@ -34,7 +34,7 @@ public class ConfigFileParser {
 
     public ParamSet params = new ParamSet();
 
-    boolean verbose = false;
+    boolean verbose = true;
 
     public ConfigFileParser(String[] args) {
         //parse all config files into params
@@ -532,7 +532,7 @@ public class ConfigFileParser {
             resTemplates.loadRotamerLibrary(params.getValue("DUNBRACKROTFILE"), true);//see below; also gRotFile0 etc
         }
 
-        resTemplates.loadResEntropy(params.getValue("RESENTROPYFILE"));
+//        resTemplates.loadResEntropy(params.getValue("RESENTROPYFILE"));
 
         //let's make D-amino acid templates by inverting the L-amino acid templates 
         resTemplates.makeDAminoAcidTemplates();

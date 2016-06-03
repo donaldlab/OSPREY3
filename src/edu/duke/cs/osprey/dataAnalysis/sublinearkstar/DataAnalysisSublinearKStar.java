@@ -23,23 +23,23 @@ import java.io.IOException;
  */
 public class DataAnalysisSublinearKStar {
 
-//    static String[] dirNums4HEM = {"01", "02", "03", "04", "05", "06", "07", "08", "09", "10"};
+    static String[] dirNums4HEM = {"01", "02", "03", "04", "05", "06", "07", "08", "09", "10"};
 //        "11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
 //        "21", "22", "23", "24", "25", "26", "27", "28", "29", "30"};
-    static String[] dirNums4HEM = {"05", "06", "07", "08", "09", "10"};
+//    static String[] dirNums4HEM = {"05"};//, "06", "07", "08", "09", "10"};
     static String[] dirNums4LAJ = {"01", "02", "03", "04", "05", "06", "07", "08", "09", "10",
-        "11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
-        "21", "22", "23", "24", "25", "26"};
+        "11", "12", "13"};// "14", "15", "16", "17", "18", "19", "20",
+//        "21", "22", "23", "24", "25", "26"};
 
-    static String[] dirNums3GXU = {"01", "02", "03", "04", "05", "06", "07", "08", "09", "10",
-        "11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
-        "21", "22", "23", "24", "25", "26", "27", "28", "29", "30"};
+//    static String[] dirNums3GXU = {"01", "02", "03", "04", "05", "06", "07", "08", "09", "10"};
+   static String[] dirNums3GXU ={ "11", "12", "13", "14"};//, "15", "16", "17", "18", "19", "20"};
+//        "21", "22", "23", "24", "25", "26", "27", "28", "29", "30"};
 
     public static void main(String[] args)
             throws Exception {
 
         String path = new File("").getAbsolutePath();
-        if (!path.endsWith("DataAnalysis/SublinearKStar/LargeRuns")) {
+        if (!path.endsWith("DataAnalysis/SublinearKStar/LargeRuns") && !path.endsWith("DataAnalysis/SublinearKStar/SmallerRuns")) {
             throw new Error("This test was designed to be run in DataAnalysis/SublinearKStar/LargeRuns folder\n\tcwd: " + path);
         }
         boolean doExhaustive = false;
@@ -50,9 +50,11 @@ public class DataAnalysisSublinearKStar {
     }
 
     private static void runAnalysisSublinearKStar(boolean doExhaustive) throws Exception {
-        PartFuncTree.verbose = false;
+        PartFuncTree.verbose = true;
 //        String[] subDirs = {"4LAJ/Lovell/", "4HEM/Lovell/", "3GXU/Lovell/"};
-        String[] subDirs = {"4HEM/Lovell/"};
+//      String[] subDirs = {"4HEM/Lovell/"};
+       String[] subDirs = {"3GXU/Lovell/"};
+//        String[] subDirs = {"4LAJ/Lovell/"};
         String[] runList;
         for (String subDir : subDirs) {
             if (subDir.contains("4LAJ")) {

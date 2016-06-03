@@ -47,7 +47,7 @@ public class EnergyMatrixCalculator {
 
     boolean templateAlwaysOn = false;
 
-    boolean verbose = false;
+    boolean verbose = true;
     //constructor for calculating a scalar energy matrix (rigid or pairwise lower bounds)
 
     public EnergyMatrixCalculator(ConfSpace s, ArrayList<Residue> sr, boolean useERef,

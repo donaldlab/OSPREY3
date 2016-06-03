@@ -1,0 +1,6 @@
+LogConfSpace: 15.528399965034543
+LogSeqSpace: 8.18423477409482
+Time: 7516.50182
+LeafVisited: 8
+LeafExpanded: 0
+Sequence: LYS GLN ASN ASN

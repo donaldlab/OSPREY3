@@ -1,0 +1,6 @@
+LogConfSpace: 44.35751251678671
+LogSeqSpace: 20.126758453675745
+Time: 763768.447635
+LeafVisited: 8
+LeafExpanded: 5
+Sequence: ARG SER CYS ARG ARG ARG ARG ASP ARG ARG

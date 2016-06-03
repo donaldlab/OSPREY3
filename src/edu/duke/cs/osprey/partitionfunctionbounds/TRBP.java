@@ -57,7 +57,7 @@ public class TRBP {
 
     //This records the accuracy with which we want to continue updating messages
     double accuracyWithinEdgeProb = 0.001;
-    double messageConvergence = 1e-4;
+    double messageConvergence = 1e-5;
     double accuracyBetweenEdgeProb = 0.001;
 
     // When used in the branch and bound algorithm, we can save time not updating 
@@ -238,6 +238,9 @@ public class TRBP {
             numEdgeUpdates++;
         }
         double[] degrees = GraphUtils.getWeightedDegrees(edgeWeights);
+        if (degrees == null){
+            throw new RuntimeException("Degrees is Null");
+        }
         this.nodeWeights = degrees;
     }
 

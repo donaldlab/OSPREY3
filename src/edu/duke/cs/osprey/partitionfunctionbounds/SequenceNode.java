@@ -35,12 +35,15 @@ public class SequenceNode extends AStarNode {
     public void expandConfTree() {
         TRBP.setNumEdgeProbUpdates(3);
         for (int state = 0; state < stateTrees.length; state++) {
-            ArrayList<AStarNode> children = stateTrees[state].getChildren(stateTrees[state].getQueue().poll());
-            this.stateLBFreeEnergy[state] = -stateTrees[state].getCurrentUpperBoundLogZ();
-            this.stateUBFreeEnergy[state] = -stateTrees[state].getCurrentLowerBoundLogZ();
-            System.out.println("State: "+state+" "+this.stateTrees[state].effectiveEpsilon);
-            for (AStarNode child : children) {
-                stateTrees[state].pq.add(child);
+            AStarNode node = stateTrees[state].getQueue().poll();
+            if (node != null) {
+                ArrayList<AStarNode> children = stateTrees[state].getChildren(node);
+                this.stateLBFreeEnergy[state] = -stateTrees[state].getCurrentUpperBoundLogZ();
+                this.stateUBFreeEnergy[state] = -stateTrees[state].getCurrentLowerBoundLogZ();
+                System.out.println("State: " + state + " " + this.stateTrees[state].effectiveEpsilon);
+                for (AStarNode child : children) {
+                    stateTrees[state].pq.add(child);
+                }
             }
         }
     }

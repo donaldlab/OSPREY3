@@ -190,7 +190,7 @@ public class ConfTree extends AStarTree {
 
                     double levelScore = scoreExpansionLevel(level, partialConf);
 
-                    if (levelScore > bestLevelScore) {//higher score is better
+                    if (levelScore >= bestLevelScore) {//higher score is better
                         bestLevelScore = levelScore;
                         bestLevel = level;
                     }

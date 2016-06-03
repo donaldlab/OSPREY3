@@ -40,9 +40,9 @@ public class DataAnalysisSublinearFreeEnergy {
             throws Exception {
 
         String path = new File("").getAbsolutePath();
-        if (!path.endsWith("DataAnalysis/SublinearFreeEnergy/LargeRuns")) {
-            throw new Error("This test was designed to be run in DataAnalysis/SublinearFreeEnergy/LargeRuns folder\n\tcwd: " + path);
-        }
+//        if (!path.endsWith("DataAnalysis/SublinearFreeEnergy/LargeRuns")) {
+//            throw new Error("This test was designed to be run in DataAnalysis/SublinearFreeEnergy/LargeRuns folder\n\tcwd: " + path);
+//        }
         boolean doExhaustive = false;
         if (args.length >= 1 && args[0].equalsIgnoreCase("exhaustive")) {
             doExhaustive = true;
@@ -53,8 +53,9 @@ public class DataAnalysisSublinearFreeEnergy {
     private static void runAnalysisSublinearFreeEnergy(boolean doExhaustive) throws Exception {
         PartFuncTree.verbose = false;
 //        String[] subDirs = {"4LAJ/Lovell/", "4HEM/Lovell/", "3GXU/Lovell/"};
-        String[] subDirs = {"3GXU/Lovell/"};
-//        String[] subDirs = {"4HEM/Lovell/"};
+//        String[] subDirs = {"3GXU/Lovell/"};
+        String[] subDirs = {"4HEM/Lovell/"};
+//        String[] subDirs = {"4LAJ/Lovell/"};
         String[] runList;
         for (String subDir : subDirs) {
             if (subDir.contains("4LAJ")) {

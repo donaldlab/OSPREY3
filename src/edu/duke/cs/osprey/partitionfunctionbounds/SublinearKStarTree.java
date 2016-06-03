@@ -158,12 +158,12 @@ public class SublinearKStarTree extends AStarTree {
 
                         if (splitPos == numTreeLevels - 1) {//sequence is fully defined...make conf trees
                             makeSeqPartFuncTree(childNode);
+                             this.numLeafNodesVisited++;
                         }
                         printSequence(getSequence(childNode));
                         childNode.setScore(boundFreeEnergyChange(childNode));
                         System.out.println("Score: " + childNode.getScore());
                         ans.add(childNode);
-                        this.numLeafNodesVisited++;
                     }
 
                     return ans;

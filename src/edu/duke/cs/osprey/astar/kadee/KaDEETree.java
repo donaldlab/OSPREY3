@@ -73,6 +73,8 @@ public class KaDEETree extends AStarTree {
 
     boolean useCometsBound;
 
+    final static boolean verbose = false;
+
     public KaDEETree(int numTreeLevels, LME objFcn, LME[] constraints,
             ArrayList<ArrayList<String>> AATypeOptions, int numMaxMut, String[] wtSeq,
             int numStates, SearchProblem[] stateSP, SearchProblem nonMutableSearchProblem,
@@ -106,44 +108,56 @@ public class KaDEETree extends AStarTree {
             printSequence(getSequence(seqNode));
 //            double bound = calcSequenceScore(seqNode);
             double bound = calcLBConfTrees(seqNode, objFcn);
-            System.out.println("Lower Bound: " + bound);
+            if (verbose) {
+                System.out.println("Lower Bound: " + bound);
+            }
+
             return bound;
 //            return calcSequenceScore(seqNode);
         } else {
+
             printSequence(getSequence(seqNode));
             //double exactBound = computeExactPartSeqBound(seqNode);
 
             double bound;
             double exact = computeExactPartSeqBound(seqNode);
-
-            double kadee = calcLBPartialSeqKaDEE(seqNode);
-            System.out.println("KaDEE Bound: " + kadee);
-            System.out.println("Exact Bound: " + exact);
-
-
-            /*            int[][] allSequencesUnderNode = getAllSequences(seqNode);
-             for (int[] seq : allSequencesUnderNode) {
-             double exactNumScore = computeNumeratorScoreAtSeq(seqNode, seq);
-             double boundNumScore = computeNumeratorBoundAtSeq(seqNode, seq);
-             if (boundNumScore > exactNumScore + 1e-5) {
-             throw new RuntimeException("Numerator Bound is Greater than Num Score");
-             }
-             double exactDenomScore = computeDenominatorScoreAtSeq(seqNode, seq);
-             double boundDenomScore2 = computeDenominatorBound2AtSeq(seqNode, seq);
-             if (boundDenomScore2 < exactDenomScore) {
-             System.out.println("My Denom: "+boundDenomScore2);
-             System.out.println("Exact   : "+exactDenomScore);
-             throw new RuntimeException("Denominator Bound is Less than Denominator Score");
-             }
-
-             }*/
-            if (kadee > exact) {
-                System.out.println("KaDEE Bound: " + kadee);
+            if (true) {
                 System.out.println("Exact Bound: " + exact);
-                throw new RuntimeException("KaDEE Bound > Exact Bound");
+            }
+            double newkadee = calcLBPartialSeqKaDEE_NewBound(seqNode);
+            if (true) {
+                System.out.println("New bound " + newkadee);
+            }
+            double kadee = calcLBPartialSeqKaDEE(seqNode);
+            if (true) {
+                System.out.println("KaDEE Bound: " + kadee);
+            }
+            double maxInt = calcMaxInterfaceScore(seqNode);
+            if (true) {
+                System.out.println("Max Int: " + maxInt);
+            }
+            if (maxInt > exact + 0.000001) {
+                System.out.println("MaxInt Bound: " + maxInt);
+                System.out.println("Exact Bound: " + exact);
+                throw new RuntimeException("Max Interface Score is Wrong");
             }
 
-            return calcLBPartialSeqCOMETS(seqNode, objFcn);
+            if (kadee > exact) {
+                System.out.println("New Bound: " + kadee);
+                System.out.println("Exact Bound: " + exact);
+                throw new RuntimeException("New Bound > Exact Bound");
+            }
+            if (newkadee > exact) {
+                System.out.println("New Bound: " + newkadee);
+                System.out.println("Exact Bound: " + exact);
+                throw new RuntimeException("New Bound > Exact Bound");
+            }
+            if (maxInt > exact){
+                System.out.println("MaxInt Bound: "+maxInt);
+                System.out.println("Exact Bound: "+ exact);
+            }
+            return maxInt;
+//            return calcLBPartialSeqCOMETS(seqNode, objFcn);
             /*
              if (useCometsBound) {
              double score = calcLBPartialSeqCOMETS(seqNode, objFcn);
@@ -185,7 +199,9 @@ public class KaDEETree extends AStarTree {
         SearchProblem boundSP = mutableSearchProblems[0];
         ArrayList<ArrayList<Integer>> numUnprunedPerAAPerPos = new ArrayList<>();
         for (int pos = 0; pos < boundSP.confSpace.numPos; pos++) {
-            System.out.println("Pos: " + pos);
+            if (verbose) {
+                System.out.println("Pos: " + pos);
+            }
             HashMap<String, Integer> numUnprunedPerAA = new HashMap<>();
             for (int rc = 0; rc < boundSP.emat.numRCsAtPos(pos); rc++) {
                 String aaType = boundSP.confSpace.posFlex.get(pos).RCs.get(rc).AAType;
@@ -200,9 +216,13 @@ public class KaDEETree extends AStarTree {
             ArrayList<Integer> numUnprunedAtPos = new ArrayList<>();
             for (String aa : numUnprunedPerAA.keySet()) {
                 numUnprunedAtPos.add(numUnprunedPerAA.get(aa));
-                System.out.println("AA: " + aa + " has " + numUnprunedPerAA.get(aa) + " unprunedRCs");
+                if (verbose) {
+                    System.out.println("AA: " + aa + " has " + numUnprunedPerAA.get(aa) + " unprunedRCs");
+                }
             }
-            System.out.println();
+            if (verbose) {
+                System.out.println();
+            }
             numUnprunedPerAAPerPos.add(numUnprunedAtPos);
         }
         return numUnprunedPerAAPerPos;
@@ -251,6 +271,128 @@ public class KaDEETree extends AStarTree {
         }
     }
 
+    private double calcLBPartialSeqKaDEE_NewBound(KaDEENode seqNode) {
+        SearchProblem boundSP = mutableSearchProblems[0];
+        SearchProblem ligandSP = mutableSearchProblems[1];
+
+        // Our bound computation is divided in three parts: 
+        // (1) The bound of the complex
+        // (1a) We first compute a  term for each RC in the ligand assigned residues or protein residues 
+        //	which will MIN bound each  RC's interaction with unassigned RCs
+        ArrayList<Integer> subsetPos_p_la_pla = getSubsetBoundPos_P_La(seqNode);
+        // We will store all the bounds in a two dimensional array. 
+        // NOTE: This is not the cleanest solution..... 
+        ArrayList<ArrayList<Double>> bound_assigned_RCs_to_US = new ArrayList<>();
+        for (int pos : subsetPos_p_la_pla) {
+            bound_assigned_RCs_to_US.add(new ArrayList<Double>());
+            for (int rc = 0; rc < boundSP.emat.numRCsAtPos(pos); rc++) {
+                if (!seqNode.pruneMat[0].isPruned(new RCTuple(pos, rc))) {
+                    // We now create an energy matrix cross object that has only one RC on one side, connected to 
+                    //		all the RC that are unassigned.
+                    boolean[][] intGraph_plus_RC_US = createInteractionGraph_RC_US(pos, seqNode);
+                    EmatCrossRotamerToUnassignedSequence ematRCtoUS
+                            = new EmatCrossRotamerToUnassignedSequence(pos, rc,
+                                    intGraph_plus_RC_US, boundSP.emat, true);
+                    // Get the GMEC over this reduced space
+                    ConfTree cTree_p_la_pla = new ConfTree(ematRCtoUS, seqNode.pruneMat[0]);
+                    double bound_RC = 0.0;
+                    int[] conf_p_la_pla = cTree_p_la_pla.nextConf();
+                    if (conf_p_la_pla == null) {
+                        bound_RC = Double.POSITIVE_INFINITY;
+                    } else {
+                        RCTuple tup = new RCTuple(conf_p_la_pla);
+                        bound_RC = ematRCtoUS.getInternalEnergy(tup);
+                    }
+                    (bound_assigned_RCs_to_US.get(subsetPos_p_la_pla.indexOf(pos))).add(bound_RC);
+//                     (bound_assigned_RCs_to_US.get(pos)).add(bound_RC);
+                } else {
+                    (bound_assigned_RCs_to_US.get(subsetPos_p_la_pla.indexOf(pos))).add(Double.POSITIVE_INFINITY);
+//                 	(bound_assigned_RCs_to_US.get(pos)).add(Double.POSITIVE_INFINITY);
+                }
+
+            }
+        }
+
+        // (1b) Then we add the computed terms to the intra energy of each ligand assigned rotamer/protein rotamer.
+        //  As a "hack" we do it by creating a special matrix that will store the values in bound_assigned_RCs_to_US
+        EmatProteinLigandAssignedBoundToUnassigned emat_p_la_pla_pus_laus
+                = new EmatProteinLigandAssignedBoundToUnassigned(subsetPos_p_la_pla,
+                        boundSP.emat, bound_assigned_RCs_to_US);
+
+        // (1c) Then we compute the GMEC for the space formed by the modified protein and ligand assigned residues. 
+        double gminec_p_la_pla_lau_pu = 0.0; // This variable stores the GMEC of the space formed by protein, ligand_assigned, 
+        //										(protein<->ligand_assigned), min(ligand_assigned, unassigned), min(protein, unassigned)
+        ConfTree cTree_p_la_pla_lau_pu = new ConfTree(emat_p_la_pla_pus_laus, seqNode.pruneMat[0]);
+        int[] conf_p_la_pla_lau_pu = cTree_p_la_pla_lau_pu.nextConf();
+        if (conf_p_la_pla_lau_pu == null) {
+            gminec_p_la_pla_lau_pu = Double.POSITIVE_INFINITY;
+        } else {
+            RCTuple tup = new RCTuple(conf_p_la_pla_lau_pu);
+            gminec_p_la_pla_lau_pu = emat_p_la_pla_pus_laus.getInternalEnergy(tup);
+        }
+
+        // (2) The bound of the unbound protein (pre-computed) 
+        double gminec_p = -objFcn.getConstTerm();
+
+        // (3) The bound of the monomeric ligand 
+        // (we need to find some terminology to avoid confusing an optimization bound with a "bound complex")
+        // (3a) We first compute a  term for each RC in the ligand assigned residues which will 
+        //		MAX bound each rotamer's interaction with unassigned rotamers
+        // We will store all the bounds in a two dimensional array. 
+        ArrayList<ArrayList<Double>> bound_monomer_assigned_RCs_to_US = new ArrayList<ArrayList<Double>>();
+        ArrayList<Integer> subsetPos_la = this.getLigandAssignedPosNums(seqNode, false);
+        for (int pos : subsetPos_la) {
+            bound_monomer_assigned_RCs_to_US.add(new ArrayList<Double>());
+            for (int rc = 0; rc < ligandSP.emat.numRCsAtPos(pos); rc++) {
+                if (!seqNode.pruneMat[1].isPruned(new RCTuple(pos, rc))) {
+                    // We now create an energy matrix cross object that has only one RC on one side, connected to 
+                    //		all the RC that are unassigned.
+                    boolean[][] intGraph_lus_RC_US = createInteractionGraph_RC_US_monomer(pos, seqNode);
+                    EmatCrossRotamerToUnassignedSequence ematRCtoUS
+                            = new EmatCrossRotamerToUnassignedSequence(pos, rc,
+                                    intGraph_lus_RC_US, ligandSP.emat, false);
+                    // Get the GMEC over this reduced space
+                    ConfTree cTree_la_us = new ConfTree(ematRCtoUS, seqNode.pruneMat[1]);
+                    double monomer_bound_RC = 0.0;
+                    int[] conf_la_us = cTree_la_us.nextConf();
+                    if (conf_la_us == null) {
+                        monomer_bound_RC = -Double.POSITIVE_INFINITY;
+                    } else {
+                        RCTuple tup = new RCTuple(conf_la_us);
+                        monomer_bound_RC = -ematRCtoUS.getInternalEnergy(tup);
+                    }
+                    (bound_monomer_assigned_RCs_to_US.get(pos)).add(monomer_bound_RC);
+                } else {
+                    (bound_monomer_assigned_RCs_to_US.get(pos)).add(-Double.POSITIVE_INFINITY);
+                }
+
+            }
+        }
+        // (3b) Then we add the computed terms to the intra energy of each ligand assigned rotamer
+        EmatProteinLigandAssignedBoundToUnassigned emat_la_laus
+                = new EmatProteinLigandAssignedBoundToUnassigned(subsetPos_la,
+                        ligandSP.emat, bound_monomer_assigned_RCs_to_US);
+        // (3c) Then we compute the GMEC for the space formed by the modified ligand assigned residues.
+        double gminec_la_lau; // This variable stores the GMEC of the space formed by protein, ligand_assigned, 
+        //										max(ligand_assigned, unassigned)
+
+        ConfTree cTree_la_lau = new ConfTree(emat_la_laus, seqNode.pruneMat[1]);
+        int[] conf_la_lau = cTree_la_lau.nextConf();
+        if (conf_la_lau == null) {
+            gminec_la_lau = Double.POSITIVE_INFINITY;
+        } else {
+            RCTuple tup = new RCTuple(conf_la_lau);
+            gminec_la_lau = emat_la_laus.getInternalEnergy(tup);
+        }
+        // 6) Get a bound on the minimum of the bound vs unbound template energies for 
+//       the unassigned ligand
+        double crossTermE = getCrossTermInternalBound(seqNode, boundSP.emat, ligandSP.emat);
+
+        double score = crossTermE + gminec_p_la_pla_lau_pu - gminec_p - gminec_la_lau;
+
+        return score;
+
+    }
 
     private double calcLBPartialSeqKaDEE(KaDEENode seqNode) {
         SearchProblem boundSP = mutableSearchProblems[0];
@@ -304,18 +446,21 @@ public class KaDEETree extends AStarTree {
 
 // 5) Get the gmec over the ligand assigned        
         double gmecLA = Double.NEGATIVE_INFINITY;
-        EmatUnboundLigandAssigned ematPA = new EmatUnboundLigandAssigned(getLigandAssignedPosNums(seqNode,false), ligandSP.emat);
+        EmatUnboundLigandAssigned ematPA = new EmatUnboundLigandAssigned(getLigandAssignedPosNums(seqNode, false), ligandSP.emat);
         ConfTree cTree_la = new ConfTree(ematPA, seqNode.pruneMat[1]);
         int[] gmec_conf = cTree_la.nextConf();
-        if (gmec_conf != null){
+        if (gmec_conf != null) {
             gmecLA = ematPA.getInternalEnergy(new RCTuple(gmec_conf));
         }
 
-// 6) Get a bound on the mininimum of the bound vs unbound template energies for 
+// 6) Get a bound on the minimum of the bound vs unbound template energies for 
 //    the unassigned ligand
-        double crossTermE = getCrossTermInternalBound(seqNode, boundSP.emat, ligandSP.emat);
-
+//        double crossTermE = getCrossTermInternalBound(seqNode, boundSP.emat, ligandSP.emat);
+//        System.out.println("Cross Term E: "+crossTermE);
+        double crossTermE = 0.;
         double score = crossTermE + gminec_p_la_pla + gminec_plus_lalus - gminec_p - gminec_lalus - gmecLA;
+
+        //double score = crossTermE + gminec_p_la_pla + gminec_plus_lalus - gminec_p - 0 - gmecLA;
         return score;
     }
 
@@ -339,7 +484,6 @@ public class KaDEETree extends AStarTree {
         }
         return minE;
     }
-   
 
     private double calcMaxInterfaceScore(KaDEENode seqNode) {
         SearchProblem boundSP = mutableSearchProblems[0];
@@ -360,6 +504,9 @@ public class KaDEETree extends AStarTree {
         ematSubset.addInternalEnergies(boundSP.emat, proteinBoundPosNums);
         ematSubset.addCrossTermInternalEnergies(boundSP.emat, ligandSP.emat, ligandBoundPosNums, boundPosNumToUnboundPosNum);
 
+//        double crossTermE = getCrossTermInternalBound(seqNode, boundSP.emat, ligandSP.emat);
+        double crossTermE = 0.;
+
         ConfTree cTree = new ConfTree(ematSubset, pruneMatSubset);
         int[] conf = cTree.nextConf();
         double gmecInterface;
@@ -369,7 +516,7 @@ public class KaDEETree extends AStarTree {
             gmecInterface = ematSubset.getInternalEnergy(new RCTuple(conf));
         }
 
-        return gmecInterface + objFcn.getConstTerm();
+        return gmecInterface + crossTermE + objFcn.getConstTerm();
     }
 
     public double computeExactPartSeqBound(KaDEENode seqNode) {
@@ -430,7 +577,6 @@ public class KaDEETree extends AStarTree {
         return minScore;
     }
 
-   
     UpdatedPruningMatrix[] handleSequenceSpecificPruning(KaDEENode seqNode, int[] sequence) {
         UpdatedPruningMatrix[] ans = new UpdatedPruningMatrix[this.numStates];
         for (int state = 0; state < this.numStates; state++) {
@@ -506,7 +652,6 @@ public class KaDEETree extends AStarTree {
         return ans;
     }
 
-  
     /**
      * Prunes rotamers to reflex the new allowed amino-acids
      *
@@ -544,7 +689,7 @@ public class KaDEETree extends AStarTree {
         Pruner dee = new Pruner(mutableSearchProblems[state], ans, true, Double.POSITIVE_INFINITY,
                 0.0, mutableSearchProblems[state].useEPIC, mutableSearchProblems[state].useTupExpForSearch, false);
 
-        boolean doPairs = false;
+        boolean doPairs = true;
 
         do {
             oldNumUpdates = numUpdates;
@@ -720,8 +865,6 @@ public class KaDEETree extends AStarTree {
 
         return false;
     }
-
- 
 
     /**
      * Creates an interaction graph over the set of residues defined by
@@ -1099,7 +1242,6 @@ public class KaDEETree extends AStarTree {
         return allPosNums;
     }
 
-  
     //COMETS BOUND
     private double calcLBPartialSeqCOMETS(KaDEENode seqNode, LME func) {
 
@@ -1467,6 +1609,30 @@ public class KaDEETree extends AStarTree {
         subsetPos_p_la.addAll(getLigandAssignedPosNums(node, true));
         Collections.sort(subsetPos_p_la);
         return subsetPos_p_la;
+    }
+
+    // PGC 
+    private boolean[][] createInteractionGraph_RC_US(int position, KaDEENode node) {
+        ArrayList<Integer> allPos = getAllBoundPosNums();
+        ArrayList<Integer> assignedPosition = new ArrayList<Integer>();
+        assignedPosition.add(position);
+        ArrayList<Integer> ligandUnassigned = getLigandUnassignedPosNums(node, true);
+
+        boolean[][] interactionGraph = createInteractionGraph(allPos, assignedPosition, ligandUnassigned);
+
+        return interactionGraph;
+    }
+
+    // PGC 
+    private boolean[][] createInteractionGraph_RC_US_monomer(int position, KaDEENode node) {
+        ArrayList<Integer> allPos = this.getLigandPosNums(false);
+        ArrayList<Integer> assignedPosition = new ArrayList<Integer>();
+        assignedPosition.add(position);
+        ArrayList<Integer> ligandUnassigned = getLigandUnassignedPosNums(node, false);
+
+        boolean[][] interactionGraph = createInteractionGraph(allPos, assignedPosition, ligandUnassigned);
+
+        return interactionGraph;
     }
 
     private boolean[][] createInteractionGraph_lalus_plus(KaDEENode node) {

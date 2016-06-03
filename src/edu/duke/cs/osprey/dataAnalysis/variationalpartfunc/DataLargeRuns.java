@@ -94,7 +94,7 @@ public class DataLargeRuns {
                     double logZ = tree.computeEpsilonApprox(epsilon, maxTime);
                     Stopwatch.stop();
                     double time = Stopwatch.getTimeMs();
-                    boolean didFinish = tree.timeOut;
+                    boolean didFinish = !tree.timeOut;
                     double effectiveEpsilon = tree.effectiveEpsilon;
                     String fileName = run + "Data/varPF_" + epsilon + "_" + 1 + ".txt";
                     double epsilonReached = tree.effectiveEpsilon;
@@ -134,7 +134,7 @@ public class DataLargeRuns {
                         double logZ = tree.computeEpsilonApprox(epsilon, maxTime);
                         Stopwatch.stop();
                         double time = Stopwatch.getTimeMs();
-                        boolean didFinish = tree.timeOut;
+                        boolean didFinish = !tree.timeOut;
                         double effectiveEpsilon = tree.effectiveEpsilon;
                         String fileName = run + "Data_Unbound_" + (i - 1) + "/varPF_" + epsilon + "_" + 1 + ".txt";
                         double epsilonReached = tree.effectiveEpsilon;
@@ -228,9 +228,9 @@ public class DataLargeRuns {
             fw.write("LogZ: " + logZ + "\n");
             fw.write("Time: " + time + "\n");
             if (didFinish) {
-                fw.write("Finished: true");
+                fw.write("Finished: true"+"\n");
             } else {
-                fw.write("Finished: false");
+                fw.write("Finished: false"+"\n");
             }
             fw.write("EffectiveEpsilon: " + effectiveEpsilon);
             fw.close();

@@ -77,6 +77,7 @@ public class TermECalculator implements MPISlaveTask {
         
         Residue firstRes = confSpace.posFlex.get(res[0]).res;
         
+        doingIntra = true;
         if(doingIntra)//intra energy only
             termE = EnvironmentVars.curEFcnGenerator.singleResEnergy(firstRes);
         else{

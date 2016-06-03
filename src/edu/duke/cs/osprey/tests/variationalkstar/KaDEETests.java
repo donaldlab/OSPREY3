@@ -15,7 +15,7 @@ import java.io.File;
  */
 public class KaDEETests {
 
-    static String[] dirNums = {"01", "02", "03", "04", "05", "06", "07", "08", "09", "10"};
+    static String[] dirNums = {"01", "02", "03", "04", "05", "06", "07", "08", "09"};
 //        "11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
 //        "21", "22", "23", "24", "25", "26", "27", "28", "29", "30"};
 
@@ -24,15 +24,16 @@ public class KaDEETests {
         if (!path.endsWith("VariationalKStar/KaDEE")) {
             throw new Error("This test was designed to be run in test/VariationalKStar/KaDEE folder\n\tcwd: " + path);
         }
-
-        String pathToDir = "LargeTest/4HEM/";
-        for (String dir : dirNums) {
-            String runPath = pathToDir + dir + "_Run/";
-            ConfigFileParser cfp = setupRun(runPath);
-            KaDEEDoer kd = new KaDEEDoer(cfp);
-            kd.doKaDEE();
+        String[] pathsToDir = {"LargeTest/4LAJ/", "LargeTest/3GXU/", "LargeTest/4HEM/"};
+//         String[] pathsToDir = {"LargeTest/4HEM/"};
+        for (String pathToDir : pathsToDir) {
+            for (String dir : dirNums) {
+                String runPath = pathToDir + dir + "_Run/";
+                ConfigFileParser cfp = setupRun(runPath);
+                KaDEEDoer kd = new KaDEEDoer(cfp);
+                kd.doKaDEE();
+            }
         }
-
     }
 
     private static ConfigFileParser setupRun(String run) {
@@ -48,6 +49,8 @@ public class KaDEETests {
         String name = cfp.params.getValue("RUNNAME");
         String pathName = run + name;
         cfp.params.setValue("RUNNAME", pathName);
+        cfp.params.setValue("DOSOLVATIONE", "FALSE");
+//        cfp.params.setValue("ADDWTROTS", "FALSE");
         cfp.loadData();
 
         return cfp;

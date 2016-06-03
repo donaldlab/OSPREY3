@@ -25,7 +25,7 @@ import java.util.TreeMap;
  */
 public class ParamSet implements Serializable {
 
-    private static boolean verbose = false;
+    private static boolean verbose = true;
 
     private TreeMap<String, String> params = new TreeMap<>();//map parameter/value pairs
     //parameter names will be stored as all upper-case, to avoid confusion
