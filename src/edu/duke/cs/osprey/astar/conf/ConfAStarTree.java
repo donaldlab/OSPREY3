@@ -47,6 +47,12 @@ public class ConfAStarTree implements ConfSearch {
 
 	@Override
 	public int[] nextConf() {
+		int[] conf = new int[rcs.getNumPos()];
+		nextLeafNode().getConf(conf);
+		return conf;
+	}
+	
+	public ConfAStarNode nextLeafNode() {
 		
 		// do we have a root node yet?
 		if (rootNode == null) {
@@ -75,10 +81,8 @@ public class ConfAStarTree implements ConfSearch {
 				if (progress != null) {
 					progress.printProgressReport();
 				}
-						
-				int[] conf = new int[rcs.getNumPos()];
-				node.getConf(conf);
-				return conf;
+				
+				return node;
 			}
 			
 			// which pos to expand next?

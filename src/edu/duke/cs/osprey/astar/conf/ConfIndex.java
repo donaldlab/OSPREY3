@@ -89,9 +89,15 @@ public class ConfIndex {
 	public int getNumDefined() {
 		return numDefined;
 	}
+	public void setNumDefined(int val) {
+		numDefined = val;
+	}
 	
 	public int getNumUndefined() {
 		return numUndefined;
+	}
+	public void setNumUndefined(int val) {
+		numUndefined = val;
 	}
 	
 	public int[] getDefinedPos() {
