@@ -16,7 +16,6 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.tools.ObjectIO;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -124,38 +123,47 @@ public class KaDEETree extends AStarTree {
             if (true) {
                 System.out.println("Exact Bound: " + exact);
             }
-            double newkadee = calcLBPartialSeqKaDEE_NewBound(seqNode);
-            if (true) {
-                System.out.println("New bound " + newkadee);
-            }
-            double kadee = calcLBPartialSeqKaDEE(seqNode);
-            if (true) {
-                System.out.println("KaDEE Bound: " + kadee);
-            }
             double maxInt = calcMaxInterfaceScore(seqNode);
             if (true) {
                 System.out.println("Max Int: " + maxInt);
             }
+            
+            /*            double kadee = calcLBPartialSeqKaDEE_NewBound_Hunter(seqNode);
+             if (true) {
+             System.out.println("KaDEE Bound: " + kadee);
+             }
+             double maxInt = calcMaxInterfaceScore(seqNode);
+             if (true) {
+             System.out.println("Max Int: " + maxInt);
+             }
+             */
+            double comets = calcLBPartialSeqCOMETS(seqNode, objFcn);
+            if (true) {
+                System.out.println("Comets: " + comets);
+            }
+
+            if (comets > exact + 0.00001) {
+                System.out.println("Comets: " + comets);
+                System.out.println("Exact Bound: " + exact);
+                throw new RuntimeException("Comets Score is Wrong");
+            }
+
             if (maxInt > exact + 0.000001) {
                 System.out.println("MaxInt Bound: " + maxInt);
                 System.out.println("Exact Bound: " + exact);
                 throw new RuntimeException("Max Interface Score is Wrong");
             }
 
-            if (kadee > exact) {
-                System.out.println("New Bound: " + kadee);
-                System.out.println("Exact Bound: " + exact);
-                throw new RuntimeException("New Bound > Exact Bound");
-            }
-            if (newkadee > exact) {
-                System.out.println("New Bound: " + newkadee);
-                System.out.println("Exact Bound: " + exact);
-                throw new RuntimeException("New Bound > Exact Bound");
-            }
-            if (maxInt > exact){
-                System.out.println("MaxInt Bound: "+maxInt);
-                System.out.println("Exact Bound: "+ exact);
-            }
+            /*            if (kadee > exact + 0.000001) {
+             System.out.println("KaDEE Bound: " + kadee);
+             System.out.println("Exact Bound: " + exact);
+             throw new RuntimeException("New Bound > Exact Bound");
+             }
+             if (newkadee > exact + 0.000001) {
+             System.out.println("New Bound: " + newkadee);
+             System.out.println("Exact Bound: " + exact);
+             throw new RuntimeException("New Bound > Exact Bound");
+             }  */
             return maxInt;
 //            return calcLBPartialSeqCOMETS(seqNode, objFcn);
             /*
@@ -252,7 +260,7 @@ public class KaDEETree extends AStarTree {
                         for (int state = 0; state < numStates; state++) {
                             childPruneMat[state] = doChildPruning(state, seqNode.pruneMat[state], splitPos, aa);
                         }
-                        unPrune(childPruneMat);
+//                        unPrune(childPruneMat);
                         KaDEENode childNode = new KaDEENode(childAssignments, childPruneMat);
 
                         if (splitPos == numTreeLevels - 1) {//sequence is fully defined...make conf trees
@@ -394,6 +402,64 @@ public class KaDEETree extends AStarTree {
 
     }
 
+    private double calcLBPartialSeqKaDEE_NewBound_Hunter(KaDEENode seqNode) {
+        SearchProblem boundSP = mutableSearchProblems[0];
+        SearchProblem ligandSP = mutableSearchProblems[1];
+
+        ArrayList<Integer> unassignedLigand = getLigandUnassignedPosNums(seqNode, true);
+        List<Boolean> isUnassigned = getAllBoundPosNums().stream()
+                .map(pos -> unassignedLigand.contains(pos))
+                .collect(Collectors.toList());
+
+        EmatBoundNew emat_p_la_pla_pus_laus = new EmatBoundNew(isUnassigned, boundSP.emat);
+
+        // (1c) Then we compute the GMEC for the space formed by the modified protein and ligand assigned residues. 
+        double gminec_p_la_pla_lau_pu = 0.0; // This variable stores the GMEC of the space formed by protein, ligand_assigned, 
+        //										(protein<->ligand_assigned), min(ligand_assigned, unassigned), min(protein, unassigned)
+        ConfTree cTree_p_la_pla_lau_pu = new ConfTree(emat_p_la_pla_pus_laus, seqNode.pruneMat[0]);
+        int[] conf_p_la_pla_lau_pu = cTree_p_la_pla_lau_pu.nextConf();
+        if (conf_p_la_pla_lau_pu == null) {
+            gminec_p_la_pla_lau_pu = Double.POSITIVE_INFINITY;
+        } else {
+            RCTuple tup = new RCTuple(conf_p_la_pla_lau_pu);
+            gminec_p_la_pla_lau_pu = emat_p_la_pla_pus_laus.getInternalEnergy(tup);
+        }
+
+        // (2) The bound of the unbound protein (pre-computed) 
+        double gminec_p = -objFcn.getConstTerm();
+
+        double gmaxPaPu;
+        boolean[][] graphPaPu = createInteractionGraph_lalus(seqNode);
+        EmatUnboundCross ematMax = new EmatUnboundCross(graphPaPu, ligandSP.emat);
+        ConfTree maxPaPu = new ConfTree(ematMax, seqNode.pruneMat[1]);
+        int[] gmax = maxPaPu.nextConf();
+        if (gmax == null) {
+            gmaxPaPu = Double.POSITIVE_INFINITY;
+        } else {
+            gmaxPaPu = -ematMax.getInternalEnergy(new RCTuple(gmax));
+        }
+
+        double gminPa;
+        EmatUnboundLigandAssigned ematLa = new EmatUnboundLigandAssigned(getLigandAssignedPosNums(seqNode, false), ligandSP.emat);
+        ConfTree treeLa = new ConfTree(ematLa, seqNode.pruneMat[1]);
+        int[] gmecPa = treeLa.nextConf();
+        if (gmecPa == null) {
+            gminPa = Double.POSITIVE_INFINITY;
+        } else {
+            gminPa = ematLa.getInternalEnergy(new RCTuple(gmecPa));
+        }
+
+        // 6) Get a bound on the minimum of the bound vs unbound template energies for 
+//       the unassigned ligand
+        double crossTermE = getCrossTermInternalBound(seqNode, boundSP.emat, ligandSP.emat);
+        System.out.println("CrossTerm: " + crossTermE);
+        System.out.println("Num: " + gminec_p_la_pla_lau_pu);
+        System.out.println("Denom: " + (-(gminPa + gmaxPaPu + gminec_p)));
+        double score = crossTermE + gminec_p_la_pla_lau_pu - gminec_p - gmaxPaPu - gminPa;
+
+        return score;
+    }
+
     private double calcLBPartialSeqKaDEE(KaDEENode seqNode) {
         SearchProblem boundSP = mutableSearchProblems[0];
         SearchProblem ligandSP = mutableSearchProblems[1];
@@ -455,9 +521,9 @@ public class KaDEETree extends AStarTree {
 
 // 6) Get a bound on the minimum of the bound vs unbound template energies for 
 //    the unassigned ligand
-//        double crossTermE = getCrossTermInternalBound(seqNode, boundSP.emat, ligandSP.emat);
-//        System.out.println("Cross Term E: "+crossTermE);
-        double crossTermE = 0.;
+        double crossTermE = getCrossTermInternalBound(seqNode, boundSP.emat, ligandSP.emat);
+        System.out.println("Cross Term E: " + crossTermE);
+//        crossTermE = 0.;
         double score = crossTermE + gminec_p_la_pla + gminec_plus_lalus - gminec_p - gminec_lalus - gmecLA;
 
         //double score = crossTermE + gminec_p_la_pla + gminec_plus_lalus - gminec_p - 0 - gmecLA;
@@ -504,8 +570,8 @@ public class KaDEETree extends AStarTree {
         ematSubset.addInternalEnergies(boundSP.emat, proteinBoundPosNums);
         ematSubset.addCrossTermInternalEnergies(boundSP.emat, ligandSP.emat, ligandBoundPosNums, boundPosNumToUnboundPosNum);
 
-//        double crossTermE = getCrossTermInternalBound(seqNode, boundSP.emat, ligandSP.emat);
-        double crossTermE = 0.;
+        double crossTermE = getCrossTermInternalBound(seqNode, boundSP.emat, ligandSP.emat);
+//        double crossTermE = 0.;
 
         ConfTree cTree = new ConfTree(ematSubset, pruneMatSubset);
         int[] conf = cTree.nextConf();

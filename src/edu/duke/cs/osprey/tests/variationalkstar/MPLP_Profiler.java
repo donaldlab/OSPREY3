@@ -57,10 +57,10 @@ public class MPLP_Profiler {
             unprunedRCsAtPos.add(pruneMat.unprunedRCsAtPos(pos));
         }
 
-        ConfTree.mplpScore = false;
-        ConfTree.traditionalScore = true;
+        ConfTree.mplpScore = true;
+        ConfTree.traditionalScore = false;
         ConfTree tree = new ConfTree(searchProb);
-        if (false) {
+        if (true) {
             Stopwatch.start();
             AStarNode rootNode = tree.rootNode();
             int[] blankConf = new int[searchProb.emat.numPos()];
