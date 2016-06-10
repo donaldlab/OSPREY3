@@ -92,7 +92,7 @@ public class MPLPPLayground {
 		
 		// config the different heuristics
 		TraditionalPairwiseHScorer tradHScorer = new TraditionalPairwiseHScorer(search.emat, rcs);
-		MPLPPairwiseHScorer mplpHScorer = new MPLPPairwiseHScorer(search.emat);
+		MPLPPairwiseHScorer mplpHScorer = new MPLPPairwiseHScorer(search.emat, rcs);
 		
 		double tradHScore = tradHScorer.calc(confIndex, rcs);
 		System.out.println(String.format("Trad H Score: %16.12f", tradHScore));
@@ -113,6 +113,6 @@ public class MPLPPLayground {
 		int[] minBoundConf = new int[NumFlexible];
 		minBoundNode.getConf(minBoundConf);
 		double minBoundMinimizedEnergy = search.minimizedEnergy(minBoundConf);
-		System.out.println(String.format("min bound energy (minimized): %16.12f", minBoundMinimizedEnergy));
+		System.out.println(String.format("minimized energy: %16.12f", minBoundMinimizedEnergy));
 	}
 }
