@@ -25,6 +25,11 @@ public class ConfIndex {
         this.undefinedPos = new int[numPos];
 	}
 	
+	public ConfIndex(ConfIndex other, int nextPos, int nextRc) {
+		this(other.numPos);
+		index(other, nextPos, nextRc);
+	}
+	
 	public void index(ConfAStarNode node) {
 		
 		// is this node already indexed?
@@ -82,8 +87,61 @@ public class ConfIndex {
 		}
 	}
 	
+	public void index(ConfIndex other, int nextPos, int nextRc) {
+		
+		// the next pos should be undefined (and not defined)
+		assert (other.isUndefined(nextPos));
+		assert (!other.isDefined(nextPos));
+		
+		// copy from the other index
+		numPos = other.numPos;
+		numDefined = other.numDefined + 1;
+		numUndefined = other.numUndefined - 1;
+		
+		// update defined side
+		boolean isInserted = false;
+		for (int i=0; i<other.numDefined; i++) {
+			int pos = other.definedPos[i];
+			int rc = other.definedRCs[i];
+			if (nextPos > pos) {
+				definedPos[i] = pos;
+				definedRCs[i] = rc;
+			} else {
+				
+				if (!isInserted) {
+					definedPos[i] = nextPos;
+					definedRCs[i] = nextRc;
+					isInserted = true;
+				}
+				
+				definedPos[i+1] = pos;
+				definedRCs[i+1] = rc;
+			}
+		}
+		if (!isInserted) {
+			definedPos[other.numDefined] = nextPos;
+			definedRCs[other.numDefined] = nextRc;
+		}
+		
+		// update undefined side
+		int j = 0;
+		for (int i=0; i<other.numUndefined; i++) {
+			int pos = other.undefinedPos[i];
+			if (pos != nextPos) {
+				undefinedPos[j++] = pos;
+			}
+		}
+		
+		// init defaults for things we won't copy
+		node = null;
+	}
+	
 	public ConfAStarNode getNode() {
 		return node;
+	}
+	
+	public int getNumPos() {
+		return numPos;
 	}
 	
 	public int getNumDefined() {

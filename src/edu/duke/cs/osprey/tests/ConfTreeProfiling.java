@@ -9,9 +9,13 @@ import java.util.concurrent.TimeUnit;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
 import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
+import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
@@ -43,9 +47,9 @@ public class ConfTreeProfiling {
 		MultiTermEnergyFunction.setNumThreads(4);
 		
 		// init a conf space with lots of flexible residues, but no mutations
-		//final int NumFlexible = 27;
+		final int NumFlexible = 27;
 		//final int NumFlexible = 34;
-		final int NumFlexible = 55;
+		//final int NumFlexible = 55;
 		ArrayList<String> flexRes = new ArrayList<>();
 		ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
 		for (int i=0; i<NumFlexible; i++) {
@@ -87,14 +91,15 @@ public class ConfTreeProfiling {
 		search.pruneMat = new PruningMatrix(search.confSpace, search.emat.getPruningInterval());
 		
 		// init the conformation search
-		//ConfTree<?> tree = ConfTree.makeFull(search);
-		//PairwiseConfTree tree = new PairwiseConfTree(search);
 		RCs rcs = new RCs(search.pruneMat);
+		AStarOrder order = new DynamicHMeanAStarOrder();
+		//AStarOrder order = new SequentialAStarOrder();
+		AStarScorer hscorer = new TraditionalPairwiseHScorer(search.emat, rcs);
+		//AStarScorer hscorer = new MPLPPairwiseHScorer(new EdgeUpdater(), search.emat, 10, 0.0001);
 		ConfAStarTree tree = new ConfAStarTree(
-			new DynamicHMeanAStarOrder(),
-			//new SequentialAStarOrder(),
+			order,
 			new PairwiseGScorer(search.emat),
-			new TraditionalPairwiseHScorer(search.emat, rcs),
+			hscorer,
 			rcs
 		);
 		tree.initProgress();

@@ -11,6 +11,8 @@ import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
 import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
+import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
@@ -41,6 +43,7 @@ public class MPLPPLayground {
 		
 		// init a conf space with lots of flexible residues, but no mutations
 		final int NumFlexible = 16;
+		//final int NumFlexible = 25;
 		ArrayList<String> flexRes = new ArrayList<>();
 		ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
 		for (int i=0; i<NumFlexible; i++) {
@@ -65,7 +68,7 @@ public class MPLPPLayground {
 		);
 		
 		// compute the energy matrix
-		File ematFile = new File(String.format("emat.min.%d.dat", NumFlexible));
+		File ematFile = new File(String.format("emat.%s%d.dat", doMinimize ? "min." : "", NumFlexible));
 		if (ematFile.exists()) {
 			System.out.println("\nReading energy matrix...");
 			search.emat = (EnergyMatrix)ObjectIO.readObject(ematFile.getAbsolutePath(), true);
@@ -90,9 +93,20 @@ public class MPLPPLayground {
 			confIndex.getUndefinedPos()[i] = i;
 		}
 		
+		/* TEMP
+		// assign some positions
+		confIndex = new ConfIndex(confIndex, NumFlexible/2, 0);
+		confIndex = new ConfIndex(confIndex, NumFlexible/3, 0);
+		confIndex = new ConfIndex(confIndex, NumFlexible*7/8, 0);
+		*/
+		
 		// config the different heuristics
 		TraditionalPairwiseHScorer tradHScorer = new TraditionalPairwiseHScorer(search.emat, rcs);
-		MPLPPairwiseHScorer mplpHScorer = new MPLPPairwiseHScorer(search.emat, rcs);
+		MPLPUpdater mplpUpdater = new EdgeUpdater();
+		//MPLPUpdater mplpUpdater = new NodeUpdater();
+		int numIterations = 500;
+		//int numIterations = 10;
+		MPLPPairwiseHScorer mplpHScorer = new MPLPPairwiseHScorer(mplpUpdater, search.emat, numIterations, 0.000001);
 		
 		double tradHScore = tradHScorer.calc(confIndex, rcs);
 		System.out.println(String.format("Trad H Score: %16.12f", tradHScore));
@@ -108,11 +122,11 @@ public class MPLPPLayground {
 			rcs
 		);
 		ConfAStarNode minBoundNode = tree.nextLeafNode();
-		System.out.println(String.format("min bound energy: %16.12f", minBoundNode.getScore()));
+		System.out.println(String.format("min bound e:  %16.12f", minBoundNode.getScore()));
 		
 		int[] minBoundConf = new int[NumFlexible];
 		minBoundNode.getConf(minBoundConf);
 		double minBoundMinimizedEnergy = search.minimizedEnergy(minBoundConf);
-		System.out.println(String.format("minimized energy: %16.12f", minBoundMinimizedEnergy));
+		System.out.println(String.format("min energy:   %16.12f", minBoundMinimizedEnergy));
 	}
 }
