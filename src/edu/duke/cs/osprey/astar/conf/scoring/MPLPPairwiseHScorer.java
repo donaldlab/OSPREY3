@@ -25,6 +25,11 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 			pairs = new double[numPos*numPos][];
 			for (int i=0; i<numPos; i++) {
 				for (int j=0; j<numPos; j++) {
+					
+					if (i == j) {
+						continue;
+					}
+					
 					pairs[getNodePairIndex(i, j)] = new double[rcs.get(i).length*rcs.get(j).length];
 				}
 			}
@@ -39,6 +44,7 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 		}
 		
 		private int getNodePairIndex(int pos1, int pos2) {
+			assert (pos1 != pos2);
 			return pos1*rcs.getNumPos() + pos2;
 		}
 		
@@ -47,15 +53,15 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 		}
 	}
 	
-	private static class LambdaVars {
+	private static class MessageVars {
 		
 		private RCs rcs;
 		
-		// two edge messages (decision variables, lambda_ji(xi) and lambda_ij(xj))
+		// decision variables, msg_ij(xj)
 		// for every node,node,rotamer tuple, where nodes are ordered
 		private double[][] vars;
 		
-		public LambdaVars(RCs rcs) {
+		public MessageVars(RCs rcs) {
 			
 			this.rcs = rcs;
 			
@@ -110,56 +116,16 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 		}
 	}
 	
-	private static class GammaVars {
-		
-		private RCs rcs;
-		
-		// one node message (decision variable, gamma_ij(xi,xj))
-		// for every node,node,rotamer tuple, where nodes are ordered
-		private double[][] vars;
-		
-		public GammaVars(RCs rcs) {
-			
-			this.rcs = rcs;
-			
-			// allocate space for the messages
-			int numPos = rcs.getNumPos();
-			vars = new double[numPos*numPos][];
-			for (int i=0; i<numPos; i++) {
-				for (int j=0; j<numPos; j++) {
-					
-					if (i == j) {
-						continue;
-					}
-					
-					vars[getNodePairIndex(i, j)] = new double[rcs.get(j).length];
-				}
-			}
-		}
-		
-		public double get(int pos1, int pos2, int rci2) {
-			return vars[getNodePairIndex(pos1, pos2)][rci2];
-		}
-		
-		public void set(int pos1, int pos2, int rci2, double val) {
-			vars[getNodePairIndex(pos1, pos2)][rci2] = val;
-		}
-		
-		private int getNodePairIndex(int pos1, int pos2) {
-			return pos1*rcs.getNumPos() + pos2;
-		}
-	}
-	
 	private EnergyMatrix emat;
 	private BetaVars betas;
-	private LambdaVars lambdas;
-	private GammaVars gammas;
+	private MessageVars lambdas;
+	private MessageVars gammas;
 	
 	public MPLPPairwiseHScorer(EnergyMatrix emat, RCs rcs) {
 		this.emat = emat;
 		this.betas = new BetaVars(rcs);
-		this.lambdas = new LambdaVars(rcs);
-		this.gammas = new GammaVars(rcs);
+		this.lambdas = new MessageVars(rcs);
+		this.gammas = new MessageVars(rcs);
 	}
 
 	@Override
@@ -262,6 +228,10 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 				for (int j=0; j<confIndex.getNumUndefined(); j++) {
 					int pos2 = confIndex.getUndefinedPos()[j];
 					
+					if (pos1 == pos2) {
+						continue;
+					}
+					
 					double min2 = Double.POSITIVE_INFINITY;
 					for (int rci2=0; rci2<rcs.get(j).length; rci2++) {
 						min2 = Math.min(min2, betas.get(pos1, rci1, pos2, rci2));
@@ -284,31 +254,8 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 		// on my DAGK test case by about 2 iterations of EMPLP
 		// ALSO: we MUST initialize the vars for early stopping to be sound
 		
-		// compute the lambda vars
-		for (int i=0; i<confIndex.getNumUndefined(); i++) {
-			int pos1 = confIndex.getUndefinedPos()[i];
-			
-			for (int j=0; j<confIndex.getNumUndefined(); j++) {
-				int pos2 = confIndex.getUndefinedPos()[j];
-				
-				if (pos1 == pos2) {
-					continue;
-				}
-				
-				// lambda_ji(xi)
-				for (int rci1=0; rci1<rcs.get(pos1).length; rci1++) {
-					lambdas.set(pos2, pos1, rci1, calcLambda(rcs, pos2, pos1, rci1));
-				}
-				
-				// lambda_ij(xj)
-				for (int rci2=0; rci2<rcs.get(pos2).length; rci2++) {
-					lambdas.set(pos1, pos2, rci2, calcLambda(rcs, pos1, pos2, rci2));
-				}
-			}
-		}
-		//
-		
 		// check the initial lambda energy
+		calcLambdas(rcs, confIndex);
 		double lambdaEnergy = calcLambdaEnergy(rcs, confIndex, undefinedRCis);
 		
 		// do edge-based MPLP
@@ -316,30 +263,16 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 			lambdas = stepEMPLP(rcs, confIndex);
 			double newLambdaEnergy = calcLambdaEnergy(rcs, confIndex, undefinedRCis);
 			double diff = Math.abs(newLambdaEnergy - lambdaEnergy);
-			if (diff < 0.001) {
+			if (diff < 0.0000001) {
 				System.out.println(String.format("converged in %d steps", i));
 				break;
 			}
 			lambdaEnergy = newLambdaEnergy;
 		}
 		
-		// compute the gamma vars
-		for (int i=0; i<confIndex.getNumUndefined(); i++) {
-			int pos1 = confIndex.getUndefinedPos()[i];
-			
-			for (int j=0; j<confIndex.getNumUndefined(); j++) {
-				int pos2 = confIndex.getUndefinedPos()[j];
-				
-				if (pos1 == pos2) {
-					continue;
-				}
-				
-				for (int rci2=0; rci2<rcs.get(pos2).length; rci2++) {
-					gammas.set(pos1, pos2, rci2, calcGamma(rcs, confIndex, pos1, pos2, rci2));
-				}
-			}
-		}
-		//
+		// reset lambdas to do the gammas next
+		calcLambdas(rcs, confIndex);
+		calcGammas(rcs, confIndex);
 		
 		// check initial gamma energy
 		double gammaEnergy = calcGammaEnergy(rcs, confIndex, undefinedRCis);
@@ -349,7 +282,7 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 			gammas = stepNMPLP(rcs, confIndex);
 			double newGammaEnergy = calcGammaEnergy(rcs, confIndex, undefinedRCis);
 			double diff = Math.abs(newGammaEnergy - gammaEnergy);
-			if (diff < 0.001) {
+			if (diff < 0.0000001) {
 				System.out.println(String.format("converged in %d steps", i));
 				break;
 			}
@@ -390,6 +323,30 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 		*/
 	}
 	
+	private void calcLambdas(RCs rcs, ConfIndex confIndex) {
+		for (int i=0; i<confIndex.getNumUndefined(); i++) {
+			int pos1 = confIndex.getUndefinedPos()[i];
+			
+			for (int j=0; j<confIndex.getNumUndefined(); j++) {
+				int pos2 = confIndex.getUndefinedPos()[j];
+				
+				if (pos1 == pos2) {
+					continue;
+				}
+				
+				// lambda_ji(xi)
+				for (int rci1=0; rci1<rcs.get(pos1).length; rci1++) {
+					lambdas.set(pos2, pos1, rci1, calcLambda(rcs, pos2, pos1, rci1));
+				}
+				
+				// lambda_ij(xj)
+				for (int rci2=0; rci2<rcs.get(pos2).length; rci2++) {
+					lambdas.set(pos1, pos2, rci2, calcLambda(rcs, pos1, pos2, rci2));
+				}
+			}
+		}
+	}
+	
 	private double calcLambda(RCs rcs, int pos3, int pos1, int rci1) {
 		// lambda_ki(xi) = max_xk beta_ki(xk, xi)
 		// lambda_{pos3,pos1}(rci1) = max_{rci3} beta_{pos3,pos1}(rci3, rci1)
@@ -400,20 +357,29 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 		return minVal;
 	}
 	
-	private double calcLambdaMinus(RCs rcs, ConfIndex confIndex, int pos1, int rci1, int pos2) {
-		// lambda_i-j(xi) = sum_{k in N(i) without j} lambda_ki(xi)
-		// lambda_{pos1-pos2}(rci1) = sum_{pos3 !in pos1,pos2} lambda_{pos3,pos1}(rci1)
-		double sum = 0;
-		for (int k=0; k<confIndex.getNumUndefined(); k++) {
-			int pos3 = confIndex.getUndefinedPos()[k];
+	private void calcGammas(RCs rcs, ConfIndex confIndex) {
+		// compute the gamma vars
+		// TODO: initial gamma vars are wrong for new corrected NMPLP!
+		// but there's no relationship in the corrected paper between the betas and the new deltas
+		// so I don't think I can even do this anymore...
+		// although, initializing them to the lambda values seems to work very well in practice
+		// I think we're still getting monotonic improvements in the bounds
+		for (int i=0; i<confIndex.getNumUndefined(); i++) {
+			int pos1 = confIndex.getUndefinedPos()[i];
 			
-			if (pos3 == pos1 || pos3 == pos2) {
-				continue;
+			for (int j=0; j<confIndex.getNumUndefined(); j++) {
+				int pos2 = confIndex.getUndefinedPos()[j];
+				
+				if (pos1 == pos2) {
+					continue;
+				}
+				
+				for (int rci2=0; rci2<rcs.get(pos2).length; rci2++) {
+					//gammas.set(pos1, pos2, rci2, calcGamma(rcs, confIndex, pos1, pos2, rci2));
+					gammas.set(pos1, pos2, rci2, lambdas.get(pos1, pos2, rci2));
+				}
 			}
-			
-			sum += calcLambda(rcs, pos3, pos1, rci1);
 		}
-		return sum;
 	}
 	
 	private double calcGamma(RCs rcs, ConfIndex confIndex, int pos2, int pos1, int rci1) {
@@ -422,7 +388,7 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 		double minVal = Double.POSITIVE_INFINITY;
 		for (int rci2=0; rci2<rcs.get(pos2).length; rci2++) {
 			double theta = calcTheta(rcs, confIndex, pos1, rci1, pos2, rci2);
-			double lambda = calcLambdaMinus(rcs, confIndex, pos2, rci2, pos1);
+			double lambda = lambdas.getSumWithout(confIndex, pos2, rci2, pos1);
 			minVal = Math.min(minVal, theta + lambda);
 		}
 		return minVal;
@@ -524,8 +490,6 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 			*/
 		}
 		
-		gammaEnergy /= confIndex.getNumUndefined();
-		
 		System.out.println(String.format("gamma energy: %f, confEnergy: %f",
 			gammaEnergy,
 			calcConfEnergy(rcs, confIndex, mplpRCis)
@@ -554,7 +518,7 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 		return confEnergy;
 	}
 	
-	private LambdaVars stepEMPLP(RCs rcs, ConfIndex confIndex) {
+	private MessageVars stepEMPLP(RCs rcs, ConfIndex confIndex) {
 		
 		// lambda_ji(xi) = -0.5*lambda_{i-j}(xi) + 0.5*max_xj [ lamda_{j-i}(xj) + theta_ij(xi,xj) ]
 		// and with i,j reversed
@@ -572,6 +536,7 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 		
 		// NOTE: don't copy-on-write to the lambda vars!
 		// the algorithm is designed for immediate updates to the lambda vars
+		// as long as the outer loops are over pos1,pos2
 		
 		for (int i=0; i<confIndex.getNumUndefined(); i++) {
 			int pos1 = confIndex.getUndefinedPos()[i];
@@ -616,7 +581,7 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 		return lambdas;
 	}
 	
-	private GammaVars stepNMPLP(RCs rcs, ConfIndex confIndex) {
+	private MessageVars stepNMPLP(RCs rcs, ConfIndex confIndex) {
 		
 		// gamma_ij(xj) = max_xi [
 		//                  theta_ij(xi,xj) - gamma_ji(xi)
@@ -633,11 +598,46 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 		// O(n*n*m*m*n)
 		//  = O(n^3*m^2)
 		
-		// NOTE: need to copy-on-write so vars get updated correctly
-		// ie, return the new set of vars instead of overwriting existing ones
-		// the immediate updates version actually does converge, but not monotonically,
-		// so it breaks the guarantees that make early stopping sound
-		GammaVars newGammas = new GammaVars(rcs);
+		// except the correction says it should be:
+		// (in the different notation of the correction paper)
+		
+		// delta_ji(xi) = -1/(1 + Ni)*gamma_i(xi) + gamma_ji(xi)
+		// delta_ij(xj) = -0.5*delta_{j-i}(xj) + 0.5*max_xi [ theta_ij(xi,xj) + 2/(1+Ni)*gamma_i(xi) - gamma_ji(xi) ]
+		// where:
+		// delta vars are the updatable vars, updated simultaneously for each i
+		// delta_{j-i}(xj) = sum_{k in N(j)\i} delta_kj(xj)
+		// gamma_ji(xi) = max_xj [ theta_ij(xi,xj) + delta_{j-i}(xj) ]
+		// gamma_i(xi) = sum_{j in N(i)} gamma_ji(xi)
+		
+		// translated into "code notation":
+		
+		// delta_{pos2,pos1}(rci1) = gamma_{pos2,pos1}(rci1) - gamma_pos1(rci1)/numUndefined
+		// delta_{pos1,pos2}(rci2) = [
+		//                             max_rci1 [ theta_{pos1,pos2}(rci1,rci2) + 2/numUndefined*gamma_pos1(rci1) - gamma_{pos2,pos1}(rci1) ]
+		//                             - delta_{pos2-pos1}(rci2)
+		//                           ]/2
+		// gamma_{pos2,pos1}(rci1) = max_rci2 [ theta_{pos1,pos2}(rci1,rci2) + delta_{pos2-pos1}(rci2) ]
+		// gamma_pos1(rci1) = sum_{pos2 != pos1} gamma_{pos2,pos1}(rci1)
+		
+		// time complexity
+		// g2 = O(n*m)
+		// g1 = O(n*g2)
+		//    = O(n^2*m)
+		// O(n*n*( m*(g2+g1) + m*(m*(g2+g1) + n) ))
+		// = O(n^2*( n*m^2 + n^2*m^2 + n*m^3 + n^2*m^3 + m*n ))
+		// = O(n^3*m^2 + n^4*m^2 + n^3*m^3 + n^4*m^3 + n^3*m)
+		// = O(n^4*m^3)
+		
+		// with cached gammas:
+		// O(n*n*m*n*m) + O(n*n*m*n) + O(n*n*( m + m*m + m*n ))
+		// = O(n^3*m^2) + O(n^3*m) + O(n^2*m + n^2*m^2 + n^3*m)
+		// = O(n^3*m^2)
+		// roughly same as edge-based MPLP!! =)
+		// TODO: implement this
+		
+		// NOTE: don't copy-on-write to the gamma vars!
+		// the algorithm is designed for immediate updates to the vars
+		// as long as the outer loops is over pos1
 		
 		for (int i=0; i<confIndex.getNumUndefined(); i++) {
 			int pos1 = confIndex.getUndefinedPos()[i];
@@ -649,6 +649,7 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 					continue;
 				}
 				
+				/* old broken algorithm? (except I can't find anything wrong with it empirically...)
 				for (int rci2=0; rci2<rcs.get(pos2).length; rci2++) {
 					
 					double minVal = Double.POSITIVE_INFINITY;
@@ -669,12 +670,66 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 						
 						minVal = Math.min(minVal, val);
 					}
+				}
+				*/
+				
+				// new corrected algorithm
+				// TODO: this doesn't appear to work correctly
+				
+				// delta_{pos2,pos1}(rci1) = gamma_{pos2,pos1}(rci1) - gamma_pos1(rci1)/numUndefined
+				for (int rci1=0; rci1<rcs.get(pos1).length; rci1++) {
+					double delta = nmplpCalcGamma(rcs, confIndex, pos2, pos1, rci1, gammas)
+						- nmplpCalcGamma(rcs, confIndex, pos1, rci1, gammas)/confIndex.getNumUndefined();
+					gammas.set(pos2, pos1, rci1, delta);
+				}
+				
+				// delta_{pos1,pos2}(rci2) = [
+				//    max_rci1 [
+				//       theta_{pos1,pos2}(rci1,rci2)
+				//       + 2/numUndefined*gamma_pos1(rci1)
+				//       - gamma_{pos2,pos1}(rci1)
+				//    ]
+				//    - delta_{pos2-pos1}(rci2)
+				// ]/2
+				for (int rci2=0; rci2<rcs.get(pos2).length; rci2++) {
 					
-					newGammas.set(pos1, pos2, rci2, minVal);
+					double minVal = Double.POSITIVE_INFINITY;
+					for (int rci1=0; rci1<rcs.get(pos1).length; rci1++) {
+						double theta = calcTheta(rcs, confIndex, pos1, rci1, pos2, rci2);
+						double gamma1 = nmplpCalcGamma(rcs, confIndex, pos1, rci1, gammas);
+						double gamma2 = nmplpCalcGamma(rcs, confIndex, pos2, pos1, rci1, gammas);
+						minVal = Math.min(minVal, theta + 2*gamma1/confIndex.getNumUndefined() - gamma2);
+					}
+					minVal -= gammas.getSumWithout(confIndex, pos2, rci2, pos1);
+					minVal /= 2;
+					gammas.set(pos1, pos2, rci2, minVal);
 				}
 			}
 		}
 		
-		return newGammas;
+		return gammas;
+	}
+	
+	private double nmplpCalcGamma(RCs rcs, ConfIndex confIndex, int pos2, int pos1, int rci1, MessageVars deltas) {
+		// gamma_{pos2,pos1}(rci1) = max_rci2 [ theta_{pos1,pos2}(rci1,rci2) + delta_{pos2-pos1}(rci2) ]
+		double minVal = Double.POSITIVE_INFINITY;
+		for (int rci2=0; rci2<rcs.get(pos2).length; rci2++) {
+			double theta = calcTheta(rcs, confIndex, pos1, rci1, pos2, rci2);
+			double delta = deltas.getSumWithout(confIndex, pos2, rci2, pos1);
+			minVal = Math.min(minVal, theta + delta);
+		}
+		return minVal;
+	}
+	
+	private double nmplpCalcGamma(RCs rcs, ConfIndex confIndex, int pos1, int rci1, MessageVars deltas) {
+		// gamma_pos1(rci1) = sum_{pos2 != pos1} gamma_{pos2,pos1}(rci1)
+		double sum = 0;
+		for (int j=0; j<confIndex.getNumUndefined(); j++) {
+			int pos2 = confIndex.getUndefinedPos()[j];
+			if (pos2 != pos1) {
+				sum += nmplpCalcGamma(rcs, confIndex, pos2, pos1, rci1, deltas);
+			}
+		}
+		return sum;
 	}
 }
