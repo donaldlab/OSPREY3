@@ -40,4 +40,12 @@ public class RCs {
 	public int[] get(int pos) {
 		return unprunedRCsAtPos[pos];
 	}
+	
+	public int getNum(int pos) {
+		return unprunedRCsAtPos[pos].length;
+	}
+	
+	public int get(int pos, int rci) {
+		return unprunedRCsAtPos[pos][rci];
+	}
 }

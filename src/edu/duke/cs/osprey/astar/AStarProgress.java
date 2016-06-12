@@ -15,6 +15,7 @@ public class AStarProgress {
 	private int deepestLevel;
 	private double gscore;
 	private double hscore;
+	private long numNodesExpanded;
 	private long numNodesInQueue;
 	private long numNodesQueuedThisReport;
 	private Stopwatch stopwatch;
@@ -39,6 +40,7 @@ public class AStarProgress {
 		this.deepestLevel = Math.max(this.deepestLevel, this.level);
 		this.gscore = gscore;
 		this.hscore = hscore;
+		this.numNodesExpanded++;
 		this.numNodesInQueue = numNodesInQueue;
 		this.numNodesQueuedThisReport += numAddedToQueue;
 	
@@ -64,10 +66,10 @@ public class AStarProgress {
 	public String makeProgressReport() {
 		double diffMs = stopwatch.getTimeMs() - this.msRunning;
 		MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-		return String.format("AStar Progress  gscore:%16.10f, hscore:%16.10f, level:%4d/%4d/%4d/%4d, queued:%10d, nodes/sec:%5d, time:%s, heapMem:%.0f%%",
+		return String.format("A* gscore:%14.8f, hscore:%14.8f, level:%4d/%4d/%4d/%4d, expanded:%10d, queued:%10d, scored/sec:%5d, time:%s, heapMem:%.0f%%",
 			gscore, hscore,
-			level, deepestLevel, numNonTrivialLevels, numLevels,
-			numNodesInQueue,
+			level, deepestLevel, numNonTrivialLevels - 1, numLevels - 1,
+			numNodesExpanded, numNodesInQueue,
 			(int)(numNodesQueuedThisReport*1000/diffMs),
 			stopwatch.getTime(2),
 			100f*heapMem.getUsed()/heapMem.getMax()

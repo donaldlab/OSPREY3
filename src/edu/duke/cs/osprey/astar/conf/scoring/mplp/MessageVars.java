@@ -8,7 +8,8 @@ public class MessageVars {
 	
 	private RCs rcs;
 	private ConfIndex confIndex;
-	private EnergyMatrix emat;
+	
+	private double[][] sums;
 	
 	// decision variables, msg_ij(xj)
 	// for every node,node,rotamer tuple, where nodes are ordered
@@ -18,20 +19,48 @@ public class MessageVars {
 		
 		this.rcs = rcs;
 		this.confIndex = confIndex;
-		this.emat = emat;
 		
-		int numPos = rcs.getNumPos();
+		int n = confIndex.getNumUndefined();
+		
+		// allocate space for the sums
+		sums = new double[n][];
+		for (int posi1=0; posi1<n; posi1++) {
+			int pos1 = confIndex.getUndefinedPos()[posi1];
+			sums[posi1] = new double[rcs.getNum(pos1)];
+		}
 		
 		// allocate space for the messages
-		vars = new double[numPos*numPos][];
-		for (int i=0; i<numPos; i++) {
-			for (int j=0; j<numPos; j++) {
+		vars = new double[n*n][];
+		for (int posi1=0; posi1<n; posi1++) {
+			for (int posi2=0; posi2<n; posi2++) {
 				
-				if (i == j) {
+				if (posi1 == posi2) {
 					continue;
 				}
 				
-				vars[getNodePairIndex(i, j)] = new double[rcs.get(j).length];
+				int pos2 = confIndex.getUndefinedPos()[posi2];
+				vars[getNodePairIndex(posi1, posi2)] = new double[rcs.getNum(pos2)];
+			}
+		}
+		
+		// initialize the sums
+		for (int posi1=0; posi1<n; posi1++) {
+			int pos1 = confIndex.getUndefinedPos()[posi1];
+			
+			for (int rci1=0; rci1<rcs.getNum(pos1); rci1++) {
+				int rc1 = rcs.get(pos1, rci1);
+		
+				// start with single energy
+				double sum = emat.getOneBody(pos1, rc1);
+				
+				// add undefined-defined energies
+				for (int posi2=0; posi2<confIndex.getNumDefined(); posi2++) {
+					int pos2 = confIndex.getDefinedPos()[posi2];
+					int rc2 = confIndex.getDefinedRCs()[posi2];
+					sum += emat.getPairwise(pos1, rc1, pos2, rc2);
+				}
+
+				sums[posi1][rci1] = sum;
 			}
 		}
 	}
@@ -44,56 +73,38 @@ public class MessageVars {
 		return confIndex;
 	}
 	
-	public double get(int pos1, int pos2, int rci2) {
-		return vars[getNodePairIndex(pos1, pos2)][rci2];
+	public double get(int posi1, int posi2, int rci2) {
+		return vars[getNodePairIndex(posi1, posi2)][rci2];
 	}
 	
-	public void set(int pos1, int pos2, int rci2, double val) {
-		vars[getNodePairIndex(pos1, pos2)][rci2] = val;
+	public void set(int posi1, int posi2, int rci2, double val) {
+		int index = getNodePairIndex(posi1, posi2);
+		sums[posi2][rci2] -= vars[index][rci2];
+		vars[index][rci2] = val;
+		sums[posi2][rci2] += val;
 	}
 	
-	public double getEnergy(int pos1, int rci1) {
+	public double getEnergy(int posi1, int rci1) {
 		
 		// b_i(xi) = sum_k lambda_ki(xi)
-		// energy_pos1(rci1) = sum_{pos2 != pos1} lambda_{pos2,pos1}(rci1)
+		// energy_posi1(rci1) = sum_{posi2 != posi1} lambda_{posi2,posi1}(rci1)
 		
-		// TODO: speed this up by precomputing sums
-		
-		// start with single energy
-		int rc1 = rcs.get(pos1)[rci1];
-		double sum = emat.getOneBody(pos1, rc1);
-		
-		// add undefined-defined energies
-		for (int i=0; i<confIndex.getNumDefined(); i++) {
-			int pos2 = confIndex.getDefinedPos()[i];
-			int rc2 = confIndex.getDefinedRCs()[i];
-			sum += emat.getPairwise(pos1, rc1, pos2, rc2);
-		}
-		
-		// undefined-undefined energies
-		for (int i=0; i<confIndex.getNumUndefined(); i++) {
-			int pos2 = confIndex.getUndefinedPos()[i];
-			if (pos2 != pos1) {
-				sum += get(pos2, pos1, rci1);
-			}
-		}
-		
-		return sum;
+		return sums[posi1][rci1];
 	}
 	
-	public double getEnergyWithout(int pos1, int rci1, int pos2) {
-		return getEnergy(pos1, rci1) - get(pos2, pos1, rci1);
+	public double getEnergyWithout(int posi1, int rci1, int posi2) {
+		return getEnergy(posi1, rci1) - get(posi2, posi1, rci1);
 	}
 	
 	public double getTotalEnergy() {
 		double energy = 0;
-		for (int i=0; i<confIndex.getNumUndefined(); i++) {
-			int pos1 = confIndex.getUndefinedPos()[i];
+		for (int posi1=0; posi1<confIndex.getNumUndefined(); posi1++) {
+			int pos1 = confIndex.getUndefinedPos()[posi1];
 			
 			double minPosEnergy = Double.POSITIVE_INFINITY;
 			
-			for (int rci1=0; rci1<rcs.get(pos1).length; rci1++) {
-				minPosEnergy = Math.min(minPosEnergy, getEnergy(pos1, rci1));
+			for (int rci1=0; rci1<rcs.getNum(pos1); rci1++) {
+				minPosEnergy = Math.min(minPosEnergy, getEnergy(posi1, rci1));
 			}
 			
 			energy += minPosEnergy;
@@ -101,8 +112,8 @@ public class MessageVars {
 		return energy;
 	}
 
-	private int getNodePairIndex(int pos1, int pos2) {
-		assert (pos1 != pos2);
-		return pos1*rcs.getNumPos() + pos2;
+	private int getNodePairIndex(int posi1, int posi2) {
+		assert (posi1 != posi2);
+		return posi1*confIndex.getNumUndefined() + posi2;
 	}
 }

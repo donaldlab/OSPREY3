@@ -26,14 +26,14 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 		// init lambdas using the traditional A* heuristic
 		// NOTE: we must use these initial values for early stopping to be sound
 		MessageVars lambdas = new MessageVars(rcs, confIndex, emat);
-		for (int i=0; i<confIndex.getNumUndefined(); i++) {
-			int pos1 = confIndex.getUndefinedPos()[i];
+		for (int posi1=0; posi1<confIndex.getNumUndefined(); posi1++) {
+			int pos1 = confIndex.getUndefinedPos()[posi1];
 			
-			for (int rci1=0; rci1<rcs.get(pos1).length; rci1++) {
-				int rc1 = rcs.get(pos1)[rci1];
+			for (int rci1=0; rci1<rcs.getNum(pos1); rci1++) {
+				int rc1 = rcs.get(pos1, rci1);
 			
-				for (int j=0; j<confIndex.getNumUndefined(); j++) { // sum
-					int pos2 = confIndex.getUndefinedPos()[j];
+				for (int posi2=0; posi2<confIndex.getNumUndefined(); posi2++) {
+					int pos2 = confIndex.getUndefinedPos()[posi2];
 					
 					if (pos2 >= pos1) {
 						continue;
@@ -44,7 +44,7 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 						minEnergy = Math.min(minEnergy, emat.getPairwise(pos1, rc1, pos2, rc2));
 					}
 					
-					lambdas.set(pos2, pos1, rci1, minEnergy);
+					lambdas.set(posi2, posi1, rci1, minEnergy);
 				}
 			}
 		}

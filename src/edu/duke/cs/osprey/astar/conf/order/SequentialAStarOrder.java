@@ -5,6 +5,9 @@ import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 
 public class SequentialAStarOrder implements AStarOrder {
+	
+	// NOTE: there's basically no reason to ever use this except to benchmark better methods
+	// use a more intelligent static ordering instead
 
 	@Override
 	public void setScorers(AStarScorer gscorer, AStarScorer hscorer) {

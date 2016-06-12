@@ -14,8 +14,7 @@ import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
+import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
@@ -47,9 +46,9 @@ public class ConfTreeProfiling {
 		MultiTermEnergyFunction.setNumThreads(4);
 		
 		// init a conf space with lots of flexible residues, but no mutations
-		final int NumFlexible = 27;
+		//final int NumFlexible = 27;
 		//final int NumFlexible = 34;
-		//final int NumFlexible = 55;
+		final int NumFlexible = 55;
 		ArrayList<String> flexRes = new ArrayList<>();
 		ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
 		for (int i=0; i<NumFlexible; i++) {
@@ -92,10 +91,11 @@ public class ConfTreeProfiling {
 		
 		// init the conformation search
 		RCs rcs = new RCs(search.pruneMat);
+		//AStarOrder order = new StaticEnergyHMeanAStarOrder(search.emat);
 		AStarOrder order = new DynamicHMeanAStarOrder();
-		//AStarOrder order = new SequentialAStarOrder();
-		AStarScorer hscorer = new TraditionalPairwiseHScorer(search.emat, rcs);
-		//AStarScorer hscorer = new MPLPPairwiseHScorer(new EdgeUpdater(), search.emat, 10, 0.0001);
+		//AStarOrder order = new StaticScoreHMeanAStarOrder();
+		//AStarScorer hscorer = new TraditionalPairwiseHScorer(search.emat, rcs);
+		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001);
 		ConfAStarTree tree = new ConfAStarTree(
 			order,
 			new PairwiseGScorer(search.emat),

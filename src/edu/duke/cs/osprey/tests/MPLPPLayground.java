@@ -11,8 +11,8 @@ import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
 import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
+import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
@@ -102,8 +102,8 @@ public class MPLPPLayground {
 		
 		// config the different heuristics
 		TraditionalPairwiseHScorer tradHScorer = new TraditionalPairwiseHScorer(search.emat, rcs);
-		MPLPUpdater mplpUpdater = new EdgeUpdater();
-		//MPLPUpdater mplpUpdater = new NodeUpdater();
+		//MPLPUpdater mplpUpdater = new EdgeUpdater();
+		MPLPUpdater mplpUpdater = new NodeUpdater();
 		int numIterations = 500;
 		//int numIterations = 10;
 		MPLPPairwiseHScorer mplpHScorer = new MPLPPairwiseHScorer(mplpUpdater, search.emat, numIterations, 0.000001);

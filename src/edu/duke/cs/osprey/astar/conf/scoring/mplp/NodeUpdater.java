@@ -21,13 +21,13 @@ public class NodeUpdater implements MPLPUpdater {
 		
 		// translated into "code notation":
 		
-		// delta_{pos2,pos1}(rci1) = gamma_{pos2,pos1}(rci1) - gamma_pos1(rci1)/numUndefined
-		// delta_{pos1,pos2}(rci2) = [
-		//                             max_rci1 [ theta_{pos1,pos2}(rci1,rci2) + 2/numUndefined*gamma_pos1(rci1) - gamma_{pos2,pos1}(rci1) ]
-		//                             - delta_{pos2-pos1}(rci2)
+		// delta_{posi2,posi1}(rci1) = gamma_{posi2,posi1}(rci1) - gamma_posi1(rci1)/numUndefined
+		// delta_{posi1,posi2}(rci2) = [
+		//                             max_rci1 [ theta_{posi1,posi2}(rci1,rci2) + 2/numUndefined*gamma_posi1(rci1) - gamma_{posi2,posi1}(rci1) ]
+		//                             - delta_{posi2-posi1}(rci2)
 		//                           ]/2
-		// gamma_{pos2,pos1}(rci1) = max_rci2 [ theta_{pos1,pos2}(rci1,rci2) + delta_{pos2-pos1}(rci2) ]
-		// gamma_pos1(rci1) = sum_{pos2 != pos1} gamma_{pos2,pos1}(rci1)
+		// gamma_{posi2,posi1}(rci1) = max_rci2 [ theta_{posi1,posi2}(rci1,rci2) + delta_{posi2-posi1}(rci2) ]
+		// gamma_pos1(rci1) = sum_{posi2 != posi1} gamma_{posi2,posi1}(rci1)
 		
 		// time complexity
 		// g2 = O(n*m)
@@ -64,85 +64,75 @@ public class NodeUpdater implements MPLPUpdater {
 		RCs rcs = lambdas.getRCs();
 		ConfIndex confIndex = lambdas.getConfIndex();
 		
-		for (int i=0; i<confIndex.getNumUndefined(); i++) {
-			int pos1 = confIndex.getUndefinedPos()[i];
+		for (int posi1=0; posi1<confIndex.getNumUndefined(); posi1++) {
+			int pos1 = confIndex.getUndefinedPos()[posi1];
 			
-			for (int j=0; j<confIndex.getNumUndefined(); j++) {
-				int pos2 = confIndex.getUndefinedPos()[j];
+			// calculate the gammas
+			// NOTE: as far as I know, this precalculation can't be moved outside of the loop =(
+			MessageVars gammas = new MessageVars(rcs, confIndex, emat);
+			for (int posi2=0; posi2<confIndex.getNumUndefined(); posi2++) {
+				int pos2 = confIndex.getUndefinedPos()[posi2];
 				
 				if (pos2 == pos1) {
 					continue;
 				}
 				
-				// delta_{pos2,pos1}(rci1) = gamma_{pos2,pos1}(rci1) - gamma_pos1(rci1)/numUndefined
-				for (int rci1=0; rci1<rcs.get(pos1).length; rci1++) {
-					double delta = nmplpCalcGamma(rcs, confIndex, pos2, pos1, rci1, lambdas, emat)
-						- nmplpCalcGamma(rcs, confIndex, pos1, rci1, lambdas, emat)/confIndex.getNumUndefined();
-					lambdas.set(pos2, pos1, rci1, delta);
-				}
-				
-				// delta_{pos1,pos2}(rci2) = [
-				//    max_rci1 [
-				//       theta_{pos1,pos2}(rci1,rci2)
-				//       + 2/numUndefined*gamma_pos1(rci1)
-				//       - gamma_{pos2,pos1}(rci1)
-				//    ]
-				//    - delta_{pos2-pos1}(rci2)
-				// ]/2
-				for (int rci2=0; rci2<rcs.get(pos2).length; rci2++) {
-					int rc2 = rcs.get(pos2)[rci2];
+				for (int rci1=0; rci1<rcs.getNum(pos1); rci1++) {
+					int rc1 = rcs.get(pos1, rci1);
 					
 					double minVal = Double.POSITIVE_INFINITY;
-					for (int rci1=0; rci1<rcs.get(pos1).length; rci1++) {
-						int rc1 = rcs.get(pos1)[rci1];
+					for (int rci2=0; rci2<rcs.getNum(pos2); rci2++) {
+						int rc2 = rcs.get(pos2, rci2);
+						
 						double theta = emat.getPairwise(pos1, rc1, pos2, rc2);
-						double gamma1 = nmplpCalcGamma(rcs, confIndex, pos1, rci1, lambdas, emat);
-						double gamma2 = nmplpCalcGamma(rcs, confIndex, pos2, pos1, rci1, lambdas, emat);
+						double delta = lambdas.getEnergyWithout(posi2, rci2, posi1);
+						
+						minVal = Math.min(minVal, theta + delta);
+					}
+					
+					gammas.set(posi2, posi1, rci1, minVal);
+				}
+			}
+		
+			// update the lambdas
+			for (int posi2=0; posi2<confIndex.getNumUndefined(); posi2++) {
+				int pos2 = confIndex.getUndefinedPos()[posi2];
+				
+				if (pos2 == pos1) {
+					continue;
+				}
+				
+				// delta_{posi2,posi1}(rci1) = gamma_{posi2,posi1}(rci1) - gamma_posi1(rci1)/numUndefined
+				for (int rci1=0; rci1<rcs.getNum(pos1); rci1++) {
+					double lambda = gammas.get(posi2, posi1, rci1)
+						- gammas.getEnergy(posi1, rci1)/confIndex.getNumUndefined();
+					lambdas.set(posi2, posi1, rci1, lambda);
+				}
+				
+				// delta_{posi1,posi2}(rci2) = [
+				//    max_rci1 [
+				//       theta_{posi1,posi2}(rci1,rci2)
+				//       + 2/numUndefined*gamma_posi1(rci1)
+				//       - gamma_{posi2,posi1}(rci1)
+				//    ]
+				//    - delta_{posi2-posi1}(rci2)
+				// ]/2
+				for (int rci2=0; rci2<rcs.getNum(pos2); rci2++) {
+					int rc2 = rcs.get(pos2, rci2);
+					
+					double minVal = Double.POSITIVE_INFINITY;
+					for (int rci1=0; rci1<rcs.getNum(pos1); rci1++) {
+						int rc1 = rcs.get(pos1, rci1);
+						double theta = emat.getPairwise(pos1, rc1, pos2, rc2);
+						double gamma1 = gammas.getEnergy(posi1, rci1);
+						double gamma2 = gammas.get(posi2, posi1, rci1);
 						minVal = Math.min(minVal, theta + 2*gamma1/confIndex.getNumUndefined() - gamma2);
 					}
-					minVal -= lambdas.getEnergyWithout(pos2, rci2, pos1);
+					minVal -= lambdas.getEnergyWithout(posi2, rci2, posi1);
 					minVal /= 2;
-					lambdas.set(pos1, pos2, rci2, minVal);
+					lambdas.set(posi1, posi2, rci2, minVal);
 				}
 			}
 		}
-	}
-	
-	private double nmplpCalcGamma(RCs rcs, ConfIndex confIndex, int pos2, int pos1, int rci1, MessageVars lambdas, EnergyMatrix emat) {
-		// gamma_{pos2,pos1}(rci1) = max_rci2 [ theta_{pos1,pos2}(rci1,rci2) + delta_{pos2-pos1}(rci2) ]
-		int rc1 = rcs.get(pos1)[rci1];
-		double minVal = Double.POSITIVE_INFINITY;
-		for (int rci2=0; rci2<rcs.get(pos2).length; rci2++) {
-			int rc2 = rcs.get(pos2)[rci2];
-			double theta = emat.getPairwise(pos1, rc1, pos2, rc2);
-			double delta = lambdas.getEnergyWithout(pos2, rci2, pos1);
-			minVal = Math.min(minVal, theta + delta);
-		}
-		return minVal;
-	}
-	
-	private double nmplpCalcGamma(RCs rcs, ConfIndex confIndex, int pos1, int rci1, MessageVars lambdas, EnergyMatrix emat) {
-		// gamma_pos1(rci1) = sum_{pos2 != pos1} gamma_{pos2,pos1}(rci1)
-		
-		// start with single energy
-		int rc1 = rcs.get(pos1)[rci1];
-		double sum = emat.getOneBody(pos1, rc1);
-		
-		// add undefined-defined energy
-		for (int j=0; j<confIndex.getNumDefined(); j++) {
-			int pos2 = confIndex.getDefinedPos()[j];
-			int rc2 = confIndex.getDefinedRCs()[j];
-			sum += emat.getPairwise(pos1, rc1, pos2, rc2);
-		}
-		
-		// add undefined-undefined energy
-		for (int j=0; j<confIndex.getNumUndefined(); j++) {
-			int pos2 = confIndex.getUndefinedPos()[j];
-			if (pos2 != pos1) {
-				sum += nmplpCalcGamma(rcs, confIndex, pos2, pos1, rci1, lambdas, emat);
-			}
-		}
-		
-		return sum;
 	}
 }
