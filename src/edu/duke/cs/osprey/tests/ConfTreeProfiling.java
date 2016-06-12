@@ -10,11 +10,10 @@ import java.util.concurrent.TimeUnit;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
-import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
+import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
+import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
@@ -46,9 +45,17 @@ public class ConfTreeProfiling {
 		MultiTermEnergyFunction.setNumThreads(4);
 		
 		// init a conf space with lots of flexible residues, but no mutations
+		
+		boolean doMinimize = true;
+		//final int NumFlexible = 16;
+		//final int NumFlexible = 25;
+		final int NumFlexible = 40;
+		
+		//boolean doMinimize = false;
 		//final int NumFlexible = 27;
 		//final int NumFlexible = 34;
-		final int NumFlexible = 55;
+		//final int NumFlexible = 55;
+		
 		ArrayList<String> flexRes = new ArrayList<>();
 		ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
 		for (int i=0; i<NumFlexible; i++) {
@@ -56,7 +63,6 @@ public class ConfTreeProfiling {
 			allowedAAs.add(new ArrayList<String>());
 		}
 		boolean addWt = true;
-		boolean doMinimize = false;
 		boolean useEpic = false;
 		boolean useTupleExpansion = false;
 		boolean useEllipses = false;
@@ -73,7 +79,7 @@ public class ConfTreeProfiling {
 		);
 		
 		// compute the energy matrix
-		File ematFile = new File(String.format("emat.%d.dat", NumFlexible));
+		File ematFile = new File(String.format("emat.%s%d.dat", doMinimize ? "min." : "", NumFlexible));
 		if (ematFile.exists()) {
 			System.out.println("\nReading energy matrix...");
 			search.emat = (EnergyMatrix)ObjectIO.readObject(ematFile.getAbsolutePath(), true);
@@ -92,10 +98,10 @@ public class ConfTreeProfiling {
 		// init the conformation search
 		RCs rcs = new RCs(search.pruneMat);
 		//AStarOrder order = new StaticEnergyHMeanAStarOrder(search.emat);
-		AStarOrder order = new DynamicHMeanAStarOrder();
-		//AStarOrder order = new StaticScoreHMeanAStarOrder();
-		//AStarScorer hscorer = new TraditionalPairwiseHScorer(search.emat, rcs);
-		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001);
+		//AStarOrder order = new DynamicHMeanAStarOrder();
+		AStarOrder order = new StaticScoreHMeanAStarOrder();
+		AStarScorer hscorer = new TraditionalPairwiseHScorer(search.emat, rcs);
+		//AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001);
 		ConfAStarTree tree = new ConfAStarTree(
 			order,
 			new PairwiseGScorer(search.emat),
@@ -184,19 +190,38 @@ public class ConfTreeProfiling {
 		double observedEnergy = search.emat.getInternalEnergy(new RCTuple(conf));
 		System.out.println(String.format("energy: %16.10f", observedEnergy));
 		
-		// make sure we still have the right answer!
-		Map<Integer,int[]> expectedConfs = new TreeMap<>();
-		expectedConfs.put(27, new int[] { 0, 6, 7, 0, 16, 0, 0, 6, 25, 6, 0, 0, 0, 0, 0, 0, 16, 2, 12, 1, 0, 15, 0, 1, 0, 0, 0 });
-		expectedConfs.put(34, new int[] { 0, 6, 7, 0, 16, 0, 0, 6, 25, 6, 0, 0, 0, 0, 0, 0, 16, 2, 12, 1, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 29, 0, 0 });
-		expectedConfs.put(55, new int[] { 0, 6, 7, 0, 16, 0, 0, 6, 25, 6, 0, 0, 0, 0, 0, 0, 16, 2, 12, 1, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 29, 0, 0, 1, 2, 1, 0, 0, 3, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0 });
-		checkConf(expectedConfs.get(NumFlexible), conf);
+		if (doMinimize) {
+			
+			// make sure we still have the right answer!
+			Map<Integer,int[]> expectedConfs = new TreeMap<>();
+			expectedConfs.put(16, new int[] { 0, 0, 7, 16, 16, 0, 1, 0, 25, 6, 0, 21, 0, 0, 0, 6 });
+			expectedConfs.put(25, new int[] { 0, 0, 7, 16, 16, 0, 1, 0, 25, 6, 0, 21, 0, 0, 0, 6, 3, 2, 10, 1, 0, 0, 0, 1, 0 });
+			expectedConfs.put(40, new int[] { 0, 0, 7, 16, 16, 0, 1, 0, 25, 6, 0, 21, 0, 0, 0, 6, 3, 2, 10, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 1, 0, 0, 3 });
+			checkConf(expectedConfs.get(NumFlexible), conf);
+			
+			// make sure the energy matches
+			Map<Integer,Double> expectedEnergies = new TreeMap<>();
+			expectedEnergies.put(16, -160.9788154538);
+			expectedEnergies.put(25, -261.3928439504);
+			expectedEnergies.put(40, -421.9530270377);
+			checkEnergy(expectedEnergies.get(NumFlexible), observedEnergy);
+			
+		} else {
 		
-		// make sure the energy matches
-		Map<Integer,Double> expectedEnergies = new TreeMap<>();
-		expectedEnergies.put(27, -260.91555715297517);
-		expectedEnergies.put(34, -346.32024675046176);
-		expectedEnergies.put(55, -514.1055956242977);
-		checkEnergy(expectedEnergies.get(NumFlexible), observedEnergy);
+			// make sure we still have the right answer!
+			Map<Integer,int[]> expectedConfs = new TreeMap<>();
+			expectedConfs.put(27, new int[] { 0, 6, 7, 0, 16, 0, 0, 6, 25, 6, 0, 0, 0, 0, 0, 0, 16, 2, 12, 1, 0, 15, 0, 1, 0, 0, 0 });
+			expectedConfs.put(34, new int[] { 0, 6, 7, 0, 16, 0, 0, 6, 25, 6, 0, 0, 0, 0, 0, 0, 16, 2, 12, 1, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 29, 0, 0 });
+			expectedConfs.put(55, new int[] { 0, 6, 7, 0, 16, 0, 0, 6, 25, 6, 0, 0, 0, 0, 0, 0, 16, 2, 12, 1, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 29, 0, 0, 1, 2, 1, 0, 0, 3, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0 });
+			checkConf(expectedConfs.get(NumFlexible), conf);
+			
+			// make sure the energy matches
+			Map<Integer,Double> expectedEnergies = new TreeMap<>();
+			expectedEnergies.put(27, -260.91555715297517);
+			expectedEnergies.put(34, -346.32024675046176);
+			expectedEnergies.put(55, -514.1055956242977);
+			checkEnergy(expectedEnergies.get(NumFlexible), observedEnergy);
+		}
 	}
 	
 	private static void checkConf(int[] expected, int[] observed) {
