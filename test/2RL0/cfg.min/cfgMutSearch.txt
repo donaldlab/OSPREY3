@@ -1,15 +1,17 @@
 runName output
 %mutfile mutfile.txt
 iMinDEE true
-typedep true
-ival 2.5
+typeDep true
+stericThresh 100
+ival 0.001
 ew 0
 
 useDunbrackRotamers false
+useERef false
 ematDir emat.lovell
 deleteEmatDir false
 
-epsilon 0.68
+epsilon 0.1
 useTupExp false
 doMinimize true
 doPerturbations false
@@ -17,35 +19,34 @@ selectPerturbations false
 addWT true
 addWTRots true
 saveTopConfsAsPDB false
-numTopConfsToSave 5
+numTopConfsToSave 1
 useMaxKSConfs false
 maxKSconfs 200000
 doKStarCheckpoint false
 kStarCheckpoint 100
 
-numMutations 0
-resAllowed649 PHE
-resAllowed650 ASP
-resAllowed651 GLU
-resAllowed654 THR
-resAllowed156 PHE
-resAllowed172 LYS
-resAllowed191 ARG
-resAllowed192 ILE
-resAllowed193 THR
-resAllowed194 CYS
+numMutations 1
+resAllowed649 PHE TYR ALA VAL ILE LEU
+resAllowed650 ASP GLU
+resAllowed651 GLU ASP
+resAllowed654 THR SER ASN GLN
+resAllowed156 PHE TYR ALA VAL ILE LEU
+resAllowed172 LYS ASP GLU
+resAllowed192 ILE ALA VAL LEU PHE TYR
+resAllowed193 THR SER ASN
 
-pFunctHotMethod manual
+pFuncSuppressOutput false
+pFunctHotMethod none
 pFuncHot_0 191 193 650
 pFuncHot_1 172 192 194 649 651
 pFuncHotNumRes 3
 pFuncHotBoundPct 0.05
 pFuncHotTopRotsPct 0.33
 pFuncStabThresh 0
-pFuncMethod new02
-pFuncThreads 2
-numThreads 2
+pFuncMethod trad
+pFuncThreads 4
+numThreads 4
 eMinMethod ccd
 kStarMethod linear
 kStarUseTightBounds true
-kStarNumSeqs 100
+kStarNumSeqs 5
