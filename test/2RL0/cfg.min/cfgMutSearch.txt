@@ -1,9 +1,9 @@
 runName output
 %mutfile mutfile.txt
 iMinDEE true
-typeDep true
-stericThresh 100
-ival 0.001
+typedep true
+stericthresh 100
+ival 0.0001
 ew 0
 
 useDunbrackRotamers false
@@ -11,7 +11,7 @@ useERef false
 ematDir emat.lovell
 deleteEmatDir false
 
-epsilon 0.1
+epsilon 0.00001
 useTupExp false
 doMinimize true
 doPerturbations false
@@ -24,6 +24,7 @@ useMaxKSConfs false
 maxKSconfs 200000
 doKStarCheckpoint false
 kStarCheckpoint 100
+kStarPhase2Method fast
 
 numMutations 1
 resAllowed649 PHE TYR ALA VAL ILE LEU
