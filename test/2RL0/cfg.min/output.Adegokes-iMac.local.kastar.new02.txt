@@ -1,0 +1,3 @@
+Seq ID	Sequence	K* Score (Log10)	UB(K*) Score (Log10)	Total # Confs.	Complex Partition Function	Complex Epsilon	Complex # Minimized Confs.	Protein Partition Function	Protein Epsilon	Protein # Minimized Confs.	Ligand Partition Function	Ligand Epsilon	Ligand # Minimized Confs.	# Seqs Completed	Time (sec)
+
+0	PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 ILE-192 THR-193	17.041760971504374	17.041760971504374	8	1.0615E90	0.88621968	6	5.4677E30	0.5959983	1	1.7634E42	0.65586239	1	1	52

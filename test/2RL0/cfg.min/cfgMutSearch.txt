@@ -3,7 +3,7 @@ runName output
 iMinDEE true
 typedep true
 stericthresh 100
-ival 0.5
+ival 0.1
 ew 0
 
 useDunbrackRotamers false
@@ -11,7 +11,7 @@ useERef false
 ematDir emat.lovell
 deleteEmatDir false
 
-epsilon 0.95
+epsilon 0.9
 useTupExp false
 doMinimize true
 doPerturbations false
@@ -22,8 +22,8 @@ saveTopConfsAsPDB false
 numTopConfsToSave 1
 useMaxKSConfs false
 maxKSconfs 200000
-doKStarCheckpoint true
-kStarCheckpoint 20
+doKStarCheckpoint false
+kStarCheckpoint 10
 kStarPhase2Method fast
 
 numMutations 1
@@ -46,8 +46,8 @@ pFuncHotTopRotsPct 0.33
 pFuncStabThresh 0
 pFuncMethod new02
 pFuncThreads 4
-numThreads 6
+numThreads 4
 eMinMethod ccd
-kStarMethod linear
+kStarMethod kastar
 kStarUseTightBounds true
 kStarNumSeqs 5
