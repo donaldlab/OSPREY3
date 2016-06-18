@@ -35,7 +35,11 @@ public class ConfAStarTree implements ConfSearch {
 	public void initProgress() {
 		progress = new AStarProgress(rcs.getNumPos(), rcs.numNonTrivialPos());
 	}
-
+	
+	public void stopProgress() {
+		progress = null;
+	}
+	
 	@Override
 	public BigInteger getNumConformations() {
     	BigInteger num = BigInteger.valueOf(1);
@@ -78,8 +82,11 @@ public class ConfAStarTree implements ConfSearch {
 			// leaf node? report it
 			if (node.getLevel() == rcs.getNumPos()) {
 				
+				// report final progress for the first leaf node, then stop reporting
+				// the rest of the nodes are relatively trivial to compute
 				if (progress != null) {
 					progress.printProgressReport();
+					progress = null;
 				}
 				
 				return node;
