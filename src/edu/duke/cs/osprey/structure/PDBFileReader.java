@@ -372,7 +372,6 @@ public class PDBFileReader {
             //go through residues backwards so we can delete some if needed
 
             Residue res = m.residues.get(resNum);
-
             DAminoAcidHandler.tryRenamingAsD(res);//We accept D-amino acid named using the usual L names, but must change them here
             //so the right template name is used
 
@@ -380,6 +379,7 @@ public class PDBFileReader {
 
             if (EnvironmentVars.deleteNonTemplateResidues && !templateAssigned) {
                 //residue unrecognized or incomplete...delete it
+                System.out.println("Deleting Residue: "+res.fullName);
                 m.deleteResidue(resNum);
             }
         }

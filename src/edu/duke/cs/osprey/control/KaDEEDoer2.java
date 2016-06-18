@@ -14,7 +14,6 @@ import edu.duke.cs.osprey.astar.partfunc.PartFuncTree;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.confspace.SearchProblemSuper;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.pruning.PruningControl;
@@ -41,7 +40,6 @@ public class KaDEEDoer2 {
     //1: Mutable UnBound
     //2: Mutable Bound
     SearchProblem[] searchSpaces;
-    SearchProblemSuper[] searchSpaceSupers;
 
     SearchProblem[] mutableSearchSpace;
     LME objFcn; //objective function for the KaDEE search
@@ -199,7 +197,7 @@ public class KaDEEDoer2 {
         int mutableStateIndex = 0;
 
         SearchProblem nonMutableState = searchSpaces[1];//Just to initialize it
-        double unboundProteinPartFunction = 0.0;
+        double unboundProteinLogPartFunction = 0.0;
         for (int state = 0; state < searchSpaces.length; state++) {
             if (stateIsMutable[state]) {
                 mutableStates[mutableStateIndex] = searchSpaces[state];
@@ -209,7 +207,8 @@ public class KaDEEDoer2 {
             } else {
                 nonMutableState = searchSpaces[state];
                 //For the const term of the LME objective function
-                unboundProteinPartFunction = 0.0;
+                PartFuncTree pft = new PartFuncTree(nonMutableState);
+                unboundProteinLogPartFunction = pft.computeEpsilonApprox(0.1);
             }
         }
 
@@ -218,7 +217,7 @@ public class KaDEEDoer2 {
         int numStatesForCOMETS = mutableStates.length;
         this.numTreeLevels = getNumMutablePos(mutableState2StatePosNumList);
         this.AATypeOptions = handleAATypeOptions(mutableStateAllowedAAs);
-        this.objFcn = new LME(new double[]{1, -1}, -unboundProteinPartFunction, 2);
+        this.objFcn = new LME(new double[]{1, -1}, -unboundProteinLogPartFunction, 2);
         this.constraints = new LME[0];
         int numMaxMut = -1;
         String[] wtSeq = null;

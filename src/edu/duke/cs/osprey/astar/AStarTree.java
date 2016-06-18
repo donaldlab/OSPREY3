@@ -59,7 +59,7 @@ public abstract class AStarTree implements ConfSearch {
 
                     curNode = pq.poll();
                     if (curNode == null) {
-                        System.out.println("A* tree empty...returning empty signal");
+//                        System.out.println("A* tree empty...returning empty signal");
                         return null;//signal for empty tree
                     }
                 }

@@ -3,14 +3,9 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/astar/kadee/KaDEETree.java</file>
-            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/control/KaDEEDoer.java</file>
-            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/astar/kadee/EmatUnboundLigandAssigned.java</file>
-            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/astar/kadee/EmatBoundCrossTerms.java</file>
-            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/ematrix/TermECalculator.java</file>
-            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/astar/kadee/EmatBoundNew.java</file>
-            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/tests/variationalkstar/KaDEETests.java</file>
-            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/astar/kadee/EmatUnboundCross.java</file>
+            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/confspace/RC.java</file>
+            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/confspace/PositionConfSpace.java</file>
+            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/dataAnalysis/variationalpartfunc/MultipleBackbones.java</file>
         </group>
     </open-files>
 </project-private>

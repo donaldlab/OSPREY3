@@ -5,6 +5,7 @@
  */
 package edu.duke.cs.osprey.tests.variationalkstar;
 
+import edu.duke.cs.osprey.astar.partfunc.PartFuncTree;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.control.SublinearKStarDoer;
 import edu.duke.cs.osprey.tools.Stopwatch;
@@ -28,7 +29,8 @@ public class SublinearKStarTests {
         //load configurations
         ConfigFileParser cfp = new ConfigFileParser(args);
         cfp.loadData();
-
+        
+        PartFuncTree.verbose = false;
         SublinearKStarDoer skd = new SublinearKStarDoer(cfp);
         if (args[2].equalsIgnoreCase("DOEXHAUSTIVE")) {
             Stopwatch.start();

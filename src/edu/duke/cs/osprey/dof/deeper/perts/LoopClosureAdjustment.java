@@ -158,9 +158,14 @@ public class LoopClosureAdjustment extends Perturbation {
         //Now we will set parameter 0 to indicate the unperturbed state
         //meaning both motions will be the identity
         //There may be another solution in solns[0], which will be moved to the unperturbed soln
+        System.out.println("Num Solutions: "+numSoln);
         if(numSoln>0)
             solns[unperturbed] = solns[0];
-        
+        if (numSoln == 0){
+            System.out.println("Reached here");
+            solns = new RigidBodyMotion[1][2];
+        }
+        solns[0] = new RigidBodyMotion[2];
         solns[0][0] = new RigidBodyMotion(new double[3], RotationMatrix.identity(), new double[3]);
         solns[0][1] = new RigidBodyMotion(new double[3], RotationMatrix.identity(), new double[3]);
         

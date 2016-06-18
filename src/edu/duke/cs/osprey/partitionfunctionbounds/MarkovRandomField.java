@@ -6,11 +6,9 @@
 package edu.duke.cs.osprey.partitionfunctionbounds;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
-import edu.duke.cs.osprey.confspace.ConfSpaceSuper;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.confspace.SearchProblemSuper;
 import java.util.ArrayList;
 
 /**
@@ -27,27 +25,6 @@ public class MarkovRandomField {
     EnergyMatrix emat;
     PruningMatrix pruneMat;
     boolean verbose = false;
-    
-    public MarkovRandomField(SearchProblemSuper searchProblem, double eCut) {
-        this.emat = searchProblem.emat;
-        this.pruneMat = searchProblem.pruneMat;
-
-        ConfSpaceSuper cSpace = searchProblem.confSpaceSuper;
-        this.numNodes = cSpace.numPos;
-
-        //create nodeList
-        for (int pos = 0; pos < numNodes; pos++) {
-            MRFNode node = new MRFNode(pos, pruneMat.unprunedRCsAtPos(pos), pos);
-            nodeList.add(node);
-        }
-
-        //create interaction graph
-        this.interactionGraph = createEnergyInteractionGraph(eCut);
-        //create neighborList for each node
-        for (MRFNode node : this.nodeList) {
-            node.neighborList = getNeighbors(node, this.interactionGraph);
-        }
-    }
 
     public MarkovRandomField(SearchProblem searchProblem, double eCut) {
         this.emat = searchProblem.emat;

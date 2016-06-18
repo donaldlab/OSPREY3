@@ -46,7 +46,9 @@ public class Mplp {
     double[][] belief;
     double[][][] lambda;
 
-    public static boolean debugMode = true;
+    public static boolean debugMode = false;
+
+    int numIterations;
 
     public Mplp(int aNumPos, EnergyMatrix aEmat, PruningMatrix aPruneMat) {
         init(aNumPos, aEmat, aPruneMat, 0.0);
@@ -118,7 +120,7 @@ public class Mplp {
         double Ebound = Double.NEGATIVE_INFINITY;
         //To find out when we should stop, we use a delta factor to see the rate of change.
         //For now, our rate of change is fixed at 0.01kcal.
-        double minRateOfChange = 0.01;
+        double minRateOfChange = 0.0001;
 
         //MPLP Algorithm
         for (int i = 0; i < iterations; i++) {
@@ -134,13 +136,80 @@ public class Mplp {
                 if (debugMode) {
                     System.out.println("Finished after " + i + " iterations");
                 }
+                this.numIterations = i;
+                break;
+            }
+            this.numIterations = i;
+        }
+        if (debugMode) {
+            System.out.println("Bound: " + Ebound);
+        }
+//        getFeasibleSolution(belief, availableRots);
+        if (debugMode) {
+            double primal = this.emat.getInternalEnergy(new RCTuple(this.feasibleSolution));
+            System.out.println("Primal: " + primal);
+            System.out.println();
+        }
+
+        return Ebound;
+    }
+
+    public double optimizeMPLP(int aPartialConf[], int iterations, double[][][] dualVariables, double[][] beliefs) {
+        // The partial conf contains references to rotamers that were pruned, while our pairwise matrix removed those rotamers. Thus, we must creat
+        //  a new partial conf that maps to our pruned matrix.
+        int mappedPartialConf[] = mapConformation(aPartialConf);
+        feasibleSolution = aPartialConf.clone();
+
+        // availableRots is just a list of lists with the list of rotamers available for the calculation at each rotamer; it is more convenient
+        // 		than partialConf.  This code might be unnecessary but it makes the algorithm more elegant, IMO
+        int availableRots[][] = getAvailableRots(mappedPartialConf);
+
+        /**
+         * Here comes the actual algorithm *
+         */
+        // lambda is the message matrix for MPLP; we set all messages to zero
+//        this.lambda = CreateMatrix.create3DMsgMat(numPos, rotsPerPos, 0.0f);
+        this.lambda = dualVariables;
+
+        // the belief on each rotamer
+        //b_i(x_i) = intrE(x_i) + sum_{k in N(i)} lambda_{k,i -> i}(x_i)
+        this.belief = beliefs;
+        //initialize beliefs to intra energy term
+/*        for (int pos = 0; pos < numPos; pos++) {
+         for (int rot = 0; rot < this.rotsPerPos[pos]; rot++) {
+         //need index of rot into original emat
+         int rot_Emat = this.unprunedRotsPerPos[pos][rot];
+         belief[pos][rot] += this.emat.getOneBody(pos, rot_Emat);
+         }
+         }*/
+
+        // Ebound is the fscore
+        double Ebound = Double.NEGATIVE_INFINITY;
+        //To find out when we should stop, we use a delta factor to see the rate of change.
+        //For now, our rate of change is fixed at 0.01kcal.
+        double minRateOfChange = 0.0001;
+
+        //MPLP Algorithm
+        for (int i = 0; i < iterations; i++) {
+            runMPLP(availableRots);
+            double oldEbound = Ebound;
+            Ebound = 0.0f;
+            for (int posI = 0; posI < numPos; posI++) {
+                // We must ignore other rotamers at position that were already assigned when computing the min.
+                Ebound += computeMinBeliefInReducedAvailableRots(belief[posI], availableRots[posI]);
+            }
+            // If we already converged, then we can exit
+            if (Math.abs(Ebound - oldEbound) < minRateOfChange && i > 20) {
+                if (debugMode) {
+                    System.out.println("Finished after " + i + " iterations with new way");
+                }
                 break;
             }
         }
         if (debugMode) {
             System.out.println("Bound: " + Ebound);
         }
-        getFeasibleSolution(belief, availableRots);
+//        getFeasibleSolution(belief, availableRots);
         if (debugMode) {
             double primal = this.emat.getInternalEnergy(new RCTuple(this.feasibleSolution));
             System.out.println("Primal: " + primal);
@@ -251,6 +320,9 @@ public class Mplp {
                 minValue = score;
                 minRot = rotIR;
             }
+            if (Double.isInfinite(score) && Double.isInfinite(minValue)) {
+                minRot = rotIR;
+            }
         }
         return minRot;
     }
@@ -323,5 +395,13 @@ public class Mplp {
     public void setEmatRecomputeInteractionGraph(EnergyMatrix aEmat, double eCutOff) {
         this.emat = aEmat;
         this.interactionGraph = computePosPosInteractionGraph(emat, eCutOff);
+    }
+
+    public void setDualVariables(double[][][] dualVariables) {
+        this.lambda = dualVariables;
+    }
+
+    public double[][][] getDualVariables() {
+        return this.lambda;
     }
 }

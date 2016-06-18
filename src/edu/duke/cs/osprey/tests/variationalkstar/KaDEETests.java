@@ -26,7 +26,7 @@ public class KaDEETests {
             throw new Error("This test was designed to be run in test/VariationalKStar/KaDEE folder\n\tcwd: " + path);
         }
 //        String[] pathsToDir = {"LargeTest/4HEM/", "LargeTest/3GXU/", "LargeTest/4LAJ/"};
-         String[] pathsToDir = {"LargeTest/4HEM/"};
+         String[] pathsToDir = {"LargeTest/3GXU/"};
         for (String pathToDir : pathsToDir) {
             for (String dir : dirNums) {
                 String runPath = pathToDir + dir + "_Run/";

@@ -64,13 +64,14 @@ public class DataLargeRuns {
             }
         } else {
             runAnalysisVariationalPartFunc();
-            runAnalysisVariationalPartFuncUnbound();
+//            runAnalysisVariationalPartFuncUnbound();
         }
     }
 
     private static void runAnalysisVariationalPartFunc() throws Exception {
         PartFuncTree.verbose = false;
-        String[] subDirs = {"4LAJ/Lovell/", "4HEM/Lovell/", "3GXU/Lovell/"};
+//        String[] subDirs = {"4LAJ/Lovell/", "4HEM/Lovell/", "3GXU/Lovell/"};
+        String[] subDirs = {"3GXU/Dunbrack/"};
         String[] runList;
         for (String subDir : subDirs) {
             if (subDir.contains("4LAJ")) {

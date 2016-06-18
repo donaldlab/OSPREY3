@@ -148,16 +148,7 @@ public class PartFuncTree extends AStarTree {
     public ArrayList<AStarNode> getChildren(AStarNode curNode) {
         PartFuncNode node = (PartFuncNode) curNode;
         ArrayList<AStarNode> children = new ArrayList<>();
-        System.out.println("Reached Here");
-        for (int pos : node.getNodeAssignments()) {
-            System.out.print(pos + " ");
-        }
-        if (node.nodeWeights == null){
-            System.out.println("Node Weights NUll");
-        }
-        for (double weight : node.nodeWeights) {
-            System.out.print(weight + " ");
-        }
+
         int posMaxWeight = -1;
         double maxWeight = Double.NEGATIVE_INFINITY;
         double[] nodeWeights = node.nodeWeights.clone();
@@ -170,18 +161,9 @@ public class PartFuncTree extends AStarTree {
                 posMaxWeight = pos;
             }
         }
-        System.out.println("We even reached here");
 
         subtractLowerBound(node);
-        System.out.println("Successfully subtracted lower bound");
         int[] curAssignments = node.getNodeAssignments();
-        System.out.println("Got node assignments");
-//        System.out.println("Node lbLogZ: " + node.lbLogZ);
-        System.out.println("PosMaxWeight: " + posMaxWeight);
-        for (int agn : curAssignments) {
-            System.out.print(agn + " ");
-        }
-        System.out.println();
         int splitPos;
         if (useDynamicOrdering && useTRBPWeightForOrder) {
             splitPos = posMaxWeight;
@@ -350,11 +332,15 @@ public class PartFuncTree extends AStarTree {
         this.ubZ = this.ubZ.add(this.ef.exp(node.getUpperBoundLogZ()));
     }
 
+    public void updateEffectiveEpsilon() {
+        this.effectiveEpsilon = 1 - ((lbZ.add(this.runningSum)).divide((ubZ.add(this.runningSum)), this.ef.mc)).doubleValue();
+    }
+
     private void printEffectiveEpsilon() {
         if (ubZ.add(this.runningSum).doubleValue() == 0) {
             System.out.println("Effective Epsilon: 0");
         } else {
-            double effectiveEpsilon = 1 - ((lbZ.add(this.runningSum)).divide((ubZ.add(this.runningSum)), this.ef.mc)).doubleValue();
+            this.effectiveEpsilon = 1 - ((lbZ.add(this.runningSum)).divide((ubZ.add(this.runningSum)), this.ef.mc)).doubleValue();
             System.out.println("Effective Epsilon: " + effectiveEpsilon);
         }
     }

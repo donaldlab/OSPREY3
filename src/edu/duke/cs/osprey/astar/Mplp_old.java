@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.astar;
 
-import edu.duke.cs.osprey.confspace.SearchProblemSuper;
 import edu.duke.cs.osprey.confspace.SuperRCTuple;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -164,6 +163,7 @@ public class Mplp_old {
             }
             // If we already converged, then we can exit. 
             if (Math.abs(Ebound - oldEbound) < minRateOfChange) {
+                System.out.println("MPLP Finished after " + i + " iterations");
                 break;
             }
 

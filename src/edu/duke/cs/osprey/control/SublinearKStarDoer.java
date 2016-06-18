@@ -12,7 +12,6 @@ import edu.duke.cs.osprey.astar.partfunc.PartFuncTree;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.confspace.SearchProblemSuper;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.partitionfunctionbounds.GumbelMapTree;
@@ -42,7 +41,6 @@ public class SublinearKStarDoer {
     //1: Mutable UnBound
     //2: Mutable Bound
     SearchProblem[] searchSpaces;
-    SearchProblemSuper[] searchSpaceSupers;
 
     SearchProblem[] mutableSearchSpace;
     LME objFcn; //objective function for the KaDEE search
@@ -196,7 +194,7 @@ public class SublinearKStarDoer {
         int mutableStateIndex = 0;
 
         SearchProblem nonMutableState = searchSpaces[1];//Just to initialize it
-        double unboundProteinPartFunction = 0.0;
+        double unboundProteinLogPartFunction = 0.0;
         for (int state = 0; state < searchSpaces.length; state++) {
             if (stateIsMutable[state]) {
                 mutableStates[mutableStateIndex] = searchSpaces[state];
@@ -206,14 +204,16 @@ public class SublinearKStarDoer {
             } else {
                 nonMutableState = searchSpaces[state];
                 //For the const term of the LME objective function
-                unboundProteinPartFunction = 0.0;
+                PartFuncTree pft = new PartFuncTree(nonMutableState);
+                unboundProteinLogPartFunction = pft.computeEpsilonApprox(0.1);
+//                unboundProteinLogPartFunction = 0.0;
             }
         }
-
+        System.out.println("Unbound Non Mutable: "+unboundProteinLogPartFunction);
         this.mutableSearchSpace = mutableStates;
         this.numTreeLevels = getNumMutablePos(mutableState2StatePosNumList);
         this.AATypeOptions = handleAATypeOptions(mutableStateAllowedAAs);
-        this.objFcn = new LME(new double[]{1, -1}, -unboundProteinPartFunction, 2);
+        this.objFcn = new LME(new double[]{1, -1}, unboundProteinLogPartFunction, 2);
         this.constraints = new LME[0];
         int numMaxMut = -1;
         String[] wtSeq = null;
@@ -394,10 +394,10 @@ public class SublinearKStarDoer {
                 } else {
                     TRBP.setNumEdgeProbUpdates(3);
                     PartFuncTree tree = new PartFuncTree(searchProb.emat, seqPruneMat);
-                    stateScore[seqNum][state] = -tree.computeEpsilonApprox(0.1);
+                    stateScore[seqNum][state] = -tree.computeEpsilonApprox(0.5);
                 }
             }
-            System.out.print("  Score: " + (stateScore[seqNum][0] - stateScore[seqNum][1])+"\n");
+            System.out.print("  Score: " + (stateScore[seqNum][0] - stateScore[seqNum][1] + objFcn.constTerm)+"\n");
             
         }
 

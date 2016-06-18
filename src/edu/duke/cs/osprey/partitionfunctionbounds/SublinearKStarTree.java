@@ -7,8 +7,10 @@ package edu.duke.cs.osprey.partitionfunctionbounds;
 
 import edu.duke.cs.osprey.astar.AStarNode;
 import edu.duke.cs.osprey.astar.AStarTree;
+import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.astar.comets.LME;
 import edu.duke.cs.osprey.astar.comets.UpdatedPruningMatrix;
+import edu.duke.cs.osprey.astar.kadee.EmatBoundCrossTerms;
 import edu.duke.cs.osprey.astar.partfunc.PartFuncTree;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
@@ -115,14 +117,14 @@ public class SublinearKStarTree extends AStarTree {
             }
             score += seqNode.stateLBFreeEnergy[0];
             score -= seqNode.stateUBFreeEnergy[1];
-            if (score == 0) {
-                System.out.println("Score = 0");
-            }
-            return score;
+            return score + this.objFcn.constTerm;
         } else {
 //            double realBound = computeExactBoundPerSequence(seqNode);
 //            double maxIntBound = computeMaxInterfacePerSequence(seqNode, mutableSearchProblems[0].emat, seqNode.pruneMat[0]);
             double logKStarUB = calcMaxInterfaceScore(seqNode);
+/*            System.out.println("Original: " + logKStarUB);
+            double logKStarUB_cross = calcIEScore(seqNode);
+            System.out.println("New:      " + logKStarUB_cross);*/
 //            return logKStarUB;
             return logKStarUB;
         }
@@ -158,7 +160,7 @@ public class SublinearKStarTree extends AStarTree {
 
                         if (splitPos == numTreeLevels - 1) {//sequence is fully defined...make conf trees
                             makeSeqPartFuncTree(childNode);
-                             this.numLeafNodesVisited++;
+                            this.numLeafNodesVisited++;
                         }
                         printSequence(getSequence(childNode));
                         childNode.setScore(boundFreeEnergyChange(childNode));
@@ -196,6 +198,30 @@ public class SublinearKStarTree extends AStarTree {
 
     }
 
+    private double calcIEScore(SequenceNode seqNode) {
+        SearchProblem boundSP = mutableSearchProblems[0];
+        SearchProblem ligandSP = mutableSearchProblems[1];
+        
+        ArrayList<Integer> boundPosNums = getAllBoundPosNums();
+        ArrayList<Integer> proteinBoundPosNums = getProteinPosNums(true);
+        ArrayList<Integer> ligandBoundPosNums = getLigandPosNums(true);
+        boolean[][] interactionGraph = createInteractionGraph(boundPosNums, proteinBoundPosNums, ligandBoundPosNums);
+        EmatBoundCrossTerms ematCT = new EmatBoundCrossTerms(interactionGraph, boundSP.emat);
+
+        EnergyMatrix ematSubset = new EnergyMatrix(boundSP.emat.getSubsetMatrix(boundPosNums));
+        ematSubset.updateMatrixCrossTerms(interactionGraph);
+        ematSubset.addCrossTermInternalEnergies(boundSP.emat, ligandSP.emat, ligandBoundPosNums, boundPosNumToUnboundPosNum);
+        ematSubset.addCrossTermInternalEnergies(boundSP.emat, nonMutableSearchProblem.emat, proteinBoundPosNums, boundPosNumToUnboundPosNum);
+
+        ConfTree ct = new ConfTree(ematSubset, seqNode.pruneMats[0]);
+        int[] gmecCT = ct.nextConf();
+        double bound = Double.POSITIVE_INFINITY;
+        if (gmecCT != null) {
+            bound = ematCT.getInternalEnergy(new RCTuple(gmecCT)) / this.constRT;
+        }
+        return bound;
+    }
+
     private double calcMaxInterfaceScore(SequenceNode seqNode) {
         SearchProblem boundSP = mutableSearchProblems[0];
         SearchProblem ligandSP = mutableSearchProblems[1];
@@ -208,7 +234,7 @@ public class SublinearKStarTree extends AStarTree {
         boolean[][] interactionGraph_p_l = createInteractionGraph(boundPosNums, proteinBoundPosNums, ligandBoundPosNums);
         boolean[][] interactionGraph = addInteractionGraphs(interactionGraph_protein, interactionGraph_p_l);
 
-        EnergyMatrix ematSubset;
+        EnergyMatrix ematSubset = new EnergyMatrix(boundSP.emat.getSubsetMatrix(boundPosNums));
         if (boundSP.useTupExpForSearch) {
             ematSubset = new EnergyMatrix(boundSP.tupExpEMat.getSubsetMatrix(boundPosNums));
             ematSubset.updateMatrixCrossTerms(interactionGraph);
@@ -505,6 +531,7 @@ public class SublinearKStarTree extends AStarTree {
 
     @Override
     public boolean canPruneNode(AStarNode node) {
+        System.out.println("Checking if we can prune");
         //Check if node can be pruned
         //This is traditionally based on constraints, thought we could pruned nodes
         //that are provably suboptimal
@@ -528,10 +555,13 @@ public class SublinearKStarTree extends AStarTree {
 
             if (mutCount > numMaxMut)//prune based on number of mutations
             {
+                numPruned++;
                 return true;
             }
         }
         if (Double.isInfinite(seqNode.getScore())) {
+            numPruned++;
+            System.out.println("Pruned Due To Infinite Energy");
             return true;
         }
         //TODO: for (LME constr : constraints) {....
@@ -965,7 +995,14 @@ public class SublinearKStarTree extends AStarTree {
     @Override
     public int[] outputNode(AStarNode node) {
         System.out.println();
-        printBestSeqInfo((SequenceNode) node);
+        SequenceNode bestSeqNode = (SequenceNode) node;
+        bestSeqNode.stateTrees[0].updateEffectiveEpsilon();
+        bestSeqNode.stateTrees[1].updateEffectiveEpsilon();
+        System.out.println("Epsilon Bound:   "+bestSeqNode.getEffectiveEpsilon(0));
+        System.out.println("Epsilon Unbound: "+bestSeqNode.getEffectiveEpsilon(1));
+        printBestSeqInfo(bestSeqNode);
+        System.out.println("Num Leaf Visited: "+this.numLeafNodesVisited);
+        System.out.println("Num Pruned:       "+this.numPruned);
         return node.getNodeAssignments();
     }
 

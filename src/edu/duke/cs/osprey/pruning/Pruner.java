@@ -5,12 +5,10 @@
 package edu.duke.cs.osprey.pruning;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
-import edu.duke.cs.osprey.confspace.ConfSpaceSuper;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.SearchProblemSuper;
 import edu.duke.cs.osprey.confspace.TupleEnumerator;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;

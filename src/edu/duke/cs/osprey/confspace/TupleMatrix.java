@@ -63,12 +63,7 @@ public class TupleMatrix<T> implements Serializable {
         init(cSpace.numPos, cSpace.getNumRCsAtPos(), pruningInterval, defaultHigherInteraction);
     }
 
-    //HMN: Constructuro for input = ConfSpaceSuper
-    ///This is unnecessary if ConfSpaceSuper inherits from ConfSpace, but we may
-    ///remove this inheritance later
-    public TupleMatrix(ConfSpaceSuper cSpace, double pruningInterval, T defaultHigherInteraction) {
-        init(cSpace.numPos, cSpace.getNumRCsAtPos(), pruningInterval, defaultHigherInteraction);
-    }
+    
 
     public TupleMatrix(int numPos, int[] numAllowedAtPos, double pruningInterval, T defaultHigherInteraction) {
         //allocate the matrix based on the provided conformational space size

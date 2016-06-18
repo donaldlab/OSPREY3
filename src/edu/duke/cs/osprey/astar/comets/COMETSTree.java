@@ -11,7 +11,6 @@ import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.confspace.SearchProblemSuper;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningMatrix;

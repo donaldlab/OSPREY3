@@ -8,7 +8,6 @@ import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.SearchProblemSuper;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -26,7 +25,9 @@ public class ConfTree extends AStarTree {
     //this class supports both "traditional" (static, simple heuristic) A*
     //and improvements like dynamic A*
     //we may also want to allow other negative indices, to indicate partially assigned RCs
-
+    public int numIterations;
+    public int numScores;
+    
     int numPos;
     public EnergyMatrix emat;
     //HMN: Added Pruning Mat for Pairs Pruning
@@ -37,14 +38,14 @@ public class ConfTree extends AStarTree {
     //These are lists of residue-specific RC numbers for the unpruned RCs at each residue
 
     //ADVANCED SCORING METHODS: TO CHANGE LATER (EPIC, MPLP, etc.)
-    public static boolean traditionalScore = true;
+    public static boolean traditionalScore = false;
     boolean useRefinement = false;//refine nodes (might want EPIC, MPLP, or something else)
-    public static boolean mplpScore = false;
+    public static boolean mplpScore = true;
 
     //MPLP object for node refinement
     public Mplp mplpMinimizer;
 
-    boolean useDynamicAStar = true;
+    public static boolean useDynamicAStar = false;
 
     //HMN: This is Helpful for MPLP
     boolean useEpic = false;
@@ -52,7 +53,7 @@ public class ConfTree extends AStarTree {
     EPICMatrix epicMat = null;//to use in refinement
     ConfSpace confSpace = null;//conf space to use with epicMat if we're doing EPIC minimization w/ SAPE
     public boolean minPartialConfs = false;//whether to minimize partially defined confs with EPIC, or just fully defined
-
+    
     public ConfTree(SearchProblem sp) {
         init(sp, sp.pruneMat, sp.useEPIC);
     }
@@ -142,6 +143,10 @@ public class ConfTree extends AStarTree {
             int[] childConf = curNode.nodeAssignments.clone();
             childConf[nextLevel] = rc;
             AStarNode childNode = new AStarNode(childConf, scoreConf(childConf), useRefinement);
+            if (mplpScore){
+                this.numIterations += this.mplpMinimizer.numIterations;
+                this.numScores++;
+            }
             ans.add(childNode);
         }
 
@@ -258,9 +263,9 @@ public class ConfTree extends AStarTree {
                     score += resContribLB;
                 }
             }
-
             return score;
         } else if (mplpScore) {
+//            return mplpMinimizer.optimizeMPLP(partialConf, 1000);
             return mplpMinimizer.optimizeMPLP(partialConf, 1000);
         } else {
             //other possibilities include MPLP, etc.

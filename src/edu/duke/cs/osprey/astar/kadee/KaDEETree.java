@@ -127,12 +127,22 @@ public class KaDEETree extends AStarTree {
             if (true) {
                 System.out.println("Max Int: " + maxInt);
             }
-            
-            /*            double kadee = calcLBPartialSeqKaDEE_NewBound_Hunter(seqNode);
+
+            double exactNum = calcExactNumerator(seqNode);
+            double numKadee = calcLBNumeratorKaDEE_NewBound_Hunter(seqNode);
+            if (false) {
+                System.out.println("Num KaDEE: " + numKadee);
+                System.out.println("Num Exact: " + exactNum);
+            }
+            if (numKadee > exactNum + 0.00001) {
+                throw new RuntimeException("KaDEE Num is Wrong");
+            }
+
+            /*double kadee = calcLBPartialSeqKaDEE_NewBound_Hunter(seqNode);
              if (true) {
              System.out.println("KaDEE Bound: " + kadee);
-             }
-             double maxInt = calcMaxInterfaceScore(seqNode);
+             }*/
+            /*            double maxInt = calcMaxInterfaceScore(seqNode);
              if (true) {
              System.out.println("Max Int: " + maxInt);
              }
@@ -154,12 +164,12 @@ public class KaDEETree extends AStarTree {
                 throw new RuntimeException("Max Interface Score is Wrong");
             }
 
-            /*            if (kadee > exact + 0.000001) {
+            /*if (kadee > exact + 0.000001) {
              System.out.println("KaDEE Bound: " + kadee);
              System.out.println("Exact Bound: " + exact);
              throw new RuntimeException("New Bound > Exact Bound");
-             }
-             if (newkadee > exact + 0.000001) {
+             }*/
+            /*  if (newkadee > exact + 0.000001) {
              System.out.println("New Bound: " + newkadee);
              System.out.println("Exact Bound: " + exact);
              throw new RuntimeException("New Bound > Exact Bound");
@@ -412,11 +422,13 @@ public class KaDEETree extends AStarTree {
                 .collect(Collectors.toList());
 
         EmatBoundNew emat_p_la_pla_pus_laus = new EmatBoundNew(isUnassigned, boundSP.emat);
+        PruneMatBoundNew pmBoundNew = new PruneMatBoundNew(isUnassigned, seqNode.pruneMat[0]);
 
         // (1c) Then we compute the GMEC for the space formed by the modified protein and ligand assigned residues. 
-        double gminec_p_la_pla_lau_pu = 0.0; // This variable stores the GMEC of the space formed by protein, ligand_assigned, 
+        double gminec_p_la_pla_lau_pu; // This variable stores the GMEC of the space formed by protein, ligand_assigned, 
         //										(protein<->ligand_assigned), min(ligand_assigned, unassigned), min(protein, unassigned)
-        ConfTree cTree_p_la_pla_lau_pu = new ConfTree(emat_p_la_pla_pus_laus, seqNode.pruneMat[0]);
+//        ConfTree cTree_p_la_pla_lau_pu = new ConfTree(emat_p_la_pla_pus_laus, seqNode.pruneMat[0]);
+        ConfTree cTree_p_la_pla_lau_pu = new ConfTree(emat_p_la_pla_pus_laus, pmBoundNew);
         int[] conf_p_la_pla_lau_pu = cTree_p_la_pla_lau_pu.nextConf();
         if (conf_p_la_pla_lau_pu == null) {
             gminec_p_la_pla_lau_pu = Double.POSITIVE_INFINITY;
@@ -431,7 +443,9 @@ public class KaDEETree extends AStarTree {
         double gmaxPaPu;
         boolean[][] graphPaPu = createInteractionGraph_lalus(seqNode);
         EmatUnboundCross ematMax = new EmatUnboundCross(graphPaPu, ligandSP.emat);
-        ConfTree maxPaPu = new ConfTree(ematMax, seqNode.pruneMat[1]);
+        PruneMatUnboundCross pmUnboundCross = new PruneMatUnboundCross(graphPaPu, seqNode.pruneMat[1]);
+//        ConfTree maxPaPu = new ConfTree(ematMax, seqNode.pruneMat[1]);
+        ConfTree maxPaPu = new ConfTree(ematMax, pmUnboundCross);
         int[] gmax = maxPaPu.nextConf();
         if (gmax == null) {
             gmaxPaPu = Double.POSITIVE_INFINITY;
@@ -441,7 +455,9 @@ public class KaDEETree extends AStarTree {
 
         double gminPa;
         EmatUnboundLigandAssigned ematLa = new EmatUnboundLigandAssigned(getLigandAssignedPosNums(seqNode, false), ligandSP.emat);
-        ConfTree treeLa = new ConfTree(ematLa, seqNode.pruneMat[1]);
+        PruneMatUnboundLigandAssigned pmLa = new PruneMatUnboundLigandAssigned(getLigandAssignedPosNums(seqNode, false), seqNode.pruneMat[1]);
+//        ConfTree treeLa = new ConfTree(ematLa, seqNode.pruneMat[1]);
+        ConfTree treeLa = new ConfTree(ematLa, pmLa);
         int[] gmecPa = treeLa.nextConf();
         if (gmecPa == null) {
             gminPa = Double.POSITIVE_INFINITY;
@@ -458,6 +474,112 @@ public class KaDEETree extends AStarTree {
         double score = crossTermE + gminec_p_la_pla_lau_pu - gminec_p - gmaxPaPu - gminPa;
 
         return score;
+    }
+
+    private double calcExactNumerator(KaDEENode seqNode) {
+/*        String[] sequenceList = getSequence(seqNode);
+        System.out.print("Current Node: ");
+        for (int i = 0; i < sequenceList.length; i++) {
+            System.out.print(sequenceList[i] + " ");
+        }
+        System.out.println();
+*/
+        int[][] allSequence = getAllSequences(seqNode);
+
+        double[][] sequenceExactScore = new double[allSequence.length][1];
+
+        for (int i = 0; i < allSequence.length; i++) {
+            int[] sequence = allSequence[i];
+            UpdatedPruningMatrix[] pruneMatPerState = handleSequenceSpecificPruning(seqNode, sequence);
+            int state = 0;
+            PruningMatrix pruneMat = pruneMatPerState[state];
+            EnergyMatrix emat = getEnergyMatrix(state);
+
+            ConfTree tree = new ConfTree(emat, pruneMat);
+            int[] gmec = tree.nextConf();
+            double gmecE;
+            if (gmec == null) {
+                gmecE = Double.POSITIVE_INFINITY;
+            } else {
+                gmecE = emat.getInternalEnergy(new RCTuple(gmec));
+            }
+            sequenceExactScore[i][state] = gmecE;
+        }
+
+        int seqNumMinScore = -1;
+        double minScore = Double.POSITIVE_INFINITY;
+
+        for (int i = 0;
+                i < allSequence.length;
+                i++) {
+            double score = sequenceExactScore[i][0] + this.objFcn.getConstTerm();
+            if (Double.isInfinite(sequenceExactScore[i][0])) {
+                score = Double.POSITIVE_INFINITY;
+                if (Double.isInfinite(minScore)) {
+                    seqNumMinScore = i;
+                }
+            }
+            if (score < minScore) {
+                minScore = score;
+                seqNumMinScore = i;
+            }
+        }
+
+/*        System.out.println(
+                "Min Score: " + minScore);
+        int[] minSequence = allSequence[seqNumMinScore];
+
+        System.out.print(
+                "Best Sequence Under Node: ");
+        for (int i = 0;
+                i
+                < this.numTreeLevels;
+                i++) {
+            System.out.print(this.AATypeOptions.get(i).get(minSequence[i]) + " ");
+        }
+
+        System.out.println();
+
+        System.out.println(
+                "Score : " + minScore);*/
+        return minScore;
+    }
+
+    private double calcLBNumeratorKaDEE_NewBound_Hunter(KaDEENode seqNode) {
+        SearchProblem boundSP = mutableSearchProblems[0];
+        SearchProblem ligandSP = mutableSearchProblems[1];
+
+        ArrayList<Integer> unassignedLigand = getLigandUnassignedPosNums(seqNode, true);
+        List<Boolean> isUnassigned = getAllBoundPosNums().stream()
+                .map(pos -> unassignedLigand.contains(pos))
+                .collect(Collectors.toList());
+
+        EmatBoundNew emat_p_la_pla_pus_laus = new EmatBoundNew(isUnassigned, boundSP.emat);
+
+        // (1c) Then we compute the GMEC for the space formed by the modified protein and ligand assigned residues. 
+        double gminec_p_la_pla_lau_pu = 0.0; // This variable stores the GMEC of the space formed by protein, ligand_assigned, 
+        //										(protein<->ligand_assigned), min(ligand_assigned, unassigned), min(protein, unassigned)
+        ConfTree cTree_p_la_pla_lau_pu = new ConfTree(emat_p_la_pla_pus_laus, seqNode.pruneMat[0]);
+        int[] conf_p_la_pla_lau_pu = cTree_p_la_pla_lau_pu.nextConf();
+        if (conf_p_la_pla_lau_pu == null) {
+            gminec_p_la_pla_lau_pu = Double.POSITIVE_INFINITY;
+        } else {
+            RCTuple tup = new RCTuple(conf_p_la_pla_lau_pu);
+            gminec_p_la_pla_lau_pu = emat_p_la_pla_pus_laus.getInternalEnergy(tup);
+        }
+
+        HashMap<Integer, Integer> bound2Unbound = getBoundPosNumToUnboundPosNum();
+        EmatUnassignedBound ematUB = new EmatUnassignedBound(unassignedLigand, bound2Unbound, boundSP.emat, ligandSP.emat);
+        ConfTree ctUB = new ConfTree(ematUB, seqNode.pruneMat[0]);
+        int[] gmecUB = ctUB.nextConf();
+        double gminUB = Double.POSITIVE_INFINITY;
+        if (gmecUB != null) {
+            gminUB = ematUB.getInternalEnergy(new RCTuple(gmecUB));
+        }
+
+        double crossTermE = getCrossTermInternalBound(seqNode, boundSP.emat, ligandSP.emat);
+
+        return gminec_p_la_pla_lau_pu + gminUB + crossTermE;
     }
 
     private double calcLBPartialSeqKaDEE(KaDEENode seqNode) {
@@ -570,8 +692,8 @@ public class KaDEETree extends AStarTree {
         ematSubset.addInternalEnergies(boundSP.emat, proteinBoundPosNums);
         ematSubset.addCrossTermInternalEnergies(boundSP.emat, ligandSP.emat, ligandBoundPosNums, boundPosNumToUnboundPosNum);
 
-        double crossTermE = getCrossTermInternalBound(seqNode, boundSP.emat, ligandSP.emat);
-//        double crossTermE = 0.;
+//        double crossTermE = getCrossTermInternalBound(seqNode, boundSP.emat, ligandSP.emat);
+        double crossTermE = 0.;
 
         ConfTree cTree = new ConfTree(ematSubset, pruneMatSubset);
         int[] conf = cTree.nextConf();
@@ -632,14 +754,11 @@ public class KaDEETree extends AStarTree {
                 seqNumMinScore = i;
             }
         }
-        System.out.println("Min Score: " + minScore);
-        int[] minSequence = allSequence[seqNumMinScore];
-        System.out.print("Best Sequence Under Node: ");
-        for (int i = 0; i < this.numTreeLevels; i++) {
-            System.out.print(this.AATypeOptions.get(i).get(minSequence[i]) + " ");
-        }
-        System.out.println();
-        System.out.println("Score : " + minScore);
+        /*        int[] minSequence = allSequence[seqNumMinScore];
+         System.out.print("Best Sequence Under Node: ");
+         for (int i = 0; i < this.numTreeLevels; i++) {
+         System.out.print(this.AATypeOptions.get(i).get(minSequence[i]) + " ");
+         }*/
         return minScore;
     }
 
@@ -1785,7 +1904,6 @@ public class KaDEETree extends AStarTree {
             //THIS DOUBLE-COUNTS BC SCORES ALREADY INCLUDE CONST TERM
             //ans += func.coeffs[state]*getEnergyMatrix(state).getConstTerm();
         }
-
         return ans;
     }
 

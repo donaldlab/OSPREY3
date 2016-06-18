@@ -13,7 +13,6 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.confspace.SearchProblemSuper;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -41,7 +40,6 @@ public class KaDEEDoer {
     //1: Mutable UnBound
     //2: Mutable Bound
     SearchProblem[] searchSpaces;
-    SearchProblemSuper[] searchSpaceSupers;
 
     SearchProblem[] mutableSearchSpace;
     LME objFcn; //objective function for the KaDEE search

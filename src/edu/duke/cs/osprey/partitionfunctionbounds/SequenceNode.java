@@ -47,4 +47,8 @@ public class SequenceNode extends AStarNode {
             }
         }
     }
+    
+    public double getEffectiveEpsilon(int state){
+        return stateTrees[state].effectiveEpsilon;
+    }
 }

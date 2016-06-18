@@ -5,7 +5,6 @@
 package edu.duke.cs.osprey.pruning;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
-import edu.duke.cs.osprey.confspace.ConfSpaceSuper;
 import edu.duke.cs.osprey.confspace.SuperRCTuple;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
@@ -46,23 +45,7 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
         }
     }
 
-    public PruningMatrix(ConfSpaceSuper cSpace, double pruningInterval) {
-        super(cSpace, pruningInterval, false);
-
-        //We'll want to initialize everything to be unpruned, because this will be looked up during pruning
-        //currently all entries in oneBody and pairwise are null
-        for (ArrayList<Boolean> oneBodyAtPos : oneBody) {
-            Collections.fill(oneBodyAtPos, false);
-        }
-
-        for (ArrayList<ArrayList<ArrayList<Boolean>>> pairwiseAtPos : pairwise) {
-            for (ArrayList<ArrayList<Boolean>> pairwiseAt2Pos : pairwiseAtPos) {
-                for (ArrayList<Boolean> pairwiseAtRC : pairwiseAt2Pos) {
-                    Collections.fill(pairwiseAtRC, false);
-                }
-            }
-        }
-    }
+    
     
     public PruningMatrix(int numPos, int[] numRCsAtPos, double pruningInterval) {
         super(numPos, numRCsAtPos, pruningInterval, false);

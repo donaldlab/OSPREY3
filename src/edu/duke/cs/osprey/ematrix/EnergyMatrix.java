@@ -5,7 +5,6 @@
 package edu.duke.cs.osprey.ematrix;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
-import edu.duke.cs.osprey.confspace.ConfSpaceSuper;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SuperRCTuple;
@@ -32,13 +31,6 @@ public class EnergyMatrix extends TupleMatrix<Double> {
         //(matrix valid for all RCs),
         //but EnergyMatrix objects from tup-exp may only be valid for a finite pruning interval
         super(cSpace, pruningInterval, 0.);//default higher interaction for energies is 0
-    }
-
-    //HMN: Constructor for input = ConfSpaceSuper
-    ///This is unnecessary if ConfSpaceSuper inherits from ConfSpace, but we may
-    ///remove this inheritance later
-    public EnergyMatrix(ConfSpaceSuper cSpace, double pruningInterval) {
-        super(cSpace, pruningInterval, 0.);
     }
 
     public EnergyMatrix(int numPos, int[] numRCsAtPos, double pruningInterval) {
