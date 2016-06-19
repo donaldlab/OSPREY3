@@ -3,7 +3,7 @@ runName output
 iMinDEE true
 typedep true
 stericthresh 100
-ival 0.1
+ival 0.0001
 ew 0
 
 useDunbrackRotamers false
@@ -45,8 +45,8 @@ pFuncHotBoundPct 0.05
 pFuncHotTopRotsPct 0.33
 pFuncStabThresh 0
 pFuncMethod new02
-pFuncThreads 4
-numThreads 4
+pFuncThreads 2
+numThreads 2
 eMinMethod ccd
 kStarMethod kastar
 kStarUseTightBounds true
