@@ -7,9 +7,14 @@ package edu.duke.cs.osprey.control;
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
 import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
+import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
+import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.pruning.Pruner;
@@ -375,20 +380,46 @@ public class GMECFinder {
     }
         
     ConfSearch initSearch(SearchProblem searchSpace){
+    	
         //initialize some kind of combinatorial search, like A*
         //FOR NOW just using A*; may also want BWM*, WCSP, or something according to settings
+    	
     	if (searchSpace.searchNeedsHigherOrderTerms()) {
+    	
+    		// if we need higher-order terms, use the old A* code
     		return ConfTree.makeFull(searchSpace);
+    		
     	} else {
     		
-    		// if we don't need higher-order terms, use the super fast pairwise implementation
+    		// when we don't need higher order terms, we can do fast pairwise-only things
+    		
+    		// get the appropriate configuration for A*
+    		AStarScorer gscorer = new PairwiseGScorer(searchSpace.emat);
+    		AStarScorer hscorer;
+    		AStarOrder order;
 			RCs rcs = new RCs(searchSpace.pruneMat);
-			ConfAStarTree tree = new ConfAStarTree(
-				new DynamicHMeanAStarOrder(),
-				new PairwiseGScorer(searchSpace.emat),
-				new TraditionalPairwiseHScorer(searchSpace.emat, rcs),
-				rcs
-			);
+    		
+    		// how many iterations of MPLP should we do?
+    		int numMPLPIters = cfp.getParams().getInt("NumMPLPIters");
+    		if (numMPLPIters <= 0) {
+    			
+    			// zero MPLP iterations is exactly the traditional heuristic, so use the fast implementation
+    			hscorer = new TraditionalPairwiseHScorer(searchSpace.emat, rcs);
+    			order = new DynamicHMeanAStarOrder();
+    			
+    		} else {
+    			
+    			// simple (but not exhaustive) testing showed node-based MPLP is basically
+    			// always faster than edge-based MPLP, so just use node-based MPLP all the time.
+    			// also, always use a static order with MPLP
+    			// MPLP isn't optimized to do differential node scoring quickly so DynamicHMean is super slow!
+    			double convergenceThreshold = cfp.getParams().getDouble("MPLPConvergenceThreshold");
+    			hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), searchSpace.emat, numMPLPIters, convergenceThreshold);
+    			order = new StaticScoreHMeanAStarOrder();
+    		}
+    		
+    		// init the A* tree
+			ConfAStarTree tree = new ConfAStarTree(order, gscorer, hscorer, rcs);
 			tree.initProgress();
 			return tree;
     	}
