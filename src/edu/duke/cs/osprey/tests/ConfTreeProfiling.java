@@ -12,8 +12,9 @@ import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
 import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
@@ -94,14 +95,23 @@ public class ConfTreeProfiling {
 		
 		// don't bother with pruning, set all to unpruned
 		search.pruneMat = new PruningMatrix(search.confSpace, search.emat.getPruningInterval());
+		RCs rcs = new RCs(search.pruneMat);
+		
+		/* TEMP: set some positions to just one residue, to test A* order
+		rcs.set(0, new int[] { 0 });
+		rcs.set(1, new int[] { 0 });
+		rcs.set(2, new int[] { 7 });
+		rcs.set(3, new int[] { 16 });
+		rcs.set(4, new int[] { 16 });
+		rcs.set(5, new int[] { 0 });
+		*/
 		
 		// init the conformation search
-		RCs rcs = new RCs(search.pruneMat);
 		//AStarOrder order = new StaticEnergyHMeanAStarOrder(search.emat);
 		//AStarOrder order = new DynamicHMeanAStarOrder();
 		AStarOrder order = new StaticScoreHMeanAStarOrder();
-		AStarScorer hscorer = new TraditionalPairwiseHScorer(search.emat, rcs);
-		//AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001);
+		//AStarScorer hscorer = new TraditionalPairwiseHScorer(search.emat, rcs);
+		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 5, 0.0001);
 		ConfAStarTree tree = new ConfAStarTree(
 			order,
 			new PairwiseGScorer(search.emat),

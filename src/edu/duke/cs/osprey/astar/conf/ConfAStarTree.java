@@ -33,7 +33,7 @@ public class ConfAStarTree implements ConfSearch {
 	}
 	
 	public void initProgress() {
-		progress = new AStarProgress(rcs.getNumPos(), rcs.numNonTrivialPos());
+		progress = new AStarProgress(rcs.getNumPos());
 	}
 	
 	public void stopProgress() {
@@ -61,12 +61,22 @@ public class ConfAStarTree implements ConfSearch {
 		// do we have a root node yet?
 		if (rootNode == null) {
 			
-			// make it
 			rootNode = new ConfAStarNode();
-			scoreNode(rootNode);
-			queue.add(rootNode);
 			
-			// TODO: and init progress reporting while we're at it
+			// pick all the single-rotamer positions now, regardless of order chosen
+			// if we do them first, we basically get them for free
+			// so worry about them later in the search at all
+			ConfAStarNode node = rootNode;
+			for (int pos=0; pos<rcs.getNumPos(); pos++) {
+				if (rcs.getNum(pos) == 1) {
+					node = new ConfAStarNode(node, pos, rcs.get(pos)[0]);
+				}
+			}
+			assert (node.getLevel() == rcs.getNumTrivialPos());
+			
+			// score and add the tail node of the chain we just created
+			scoreNode(node);
+			queue.add(node);
 		}
 		
 		while (true) {

@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
@@ -35,20 +37,17 @@ public class StaticScoreHMeanAStarOrder implements AStarOrder {
 	
 	private List<Integer> calcPosOrder(ConfIndex confIndex, RCs rcs) {
 		
-		// init permutation array
-		List<Integer> order = new ArrayList<>();
-		for (int pos=0; pos<rcs.getNumPos(); pos++) {
-			order.add(pos);
-		}
-		
-		// calculate all the scores
-		List<Double> scores = new ArrayList<>();
-		for (int pos=0; pos<rcs.getNumPos(); pos++) {
-			scores.add(scorePos(confIndex, rcs, pos));
+		// init permutation array with only undefined positions and score them
+		List<Integer> undefinedOrder = new ArrayList<Integer>();
+		Map<Integer,Double> scores = new TreeMap<>();
+		for (int posi=0; posi<confIndex.getNumUndefined(); posi++) {
+			int pos = confIndex.getUndefinedPos()[posi];
+			undefinedOrder.add(pos);
+			scores.put(pos, scorePos(confIndex, rcs, pos));
 		}
 		
 		// sort positions in order of decreasing score
-		Collections.sort(order, new Comparator<Integer>() {
+		Collections.sort(undefinedOrder, new Comparator<Integer>() {
 
 			@Override
 			public int compare(Integer pos1, Integer pos2) {
@@ -58,7 +57,15 @@ public class StaticScoreHMeanAStarOrder implements AStarOrder {
 				return Double.compare(score2, score1);
 			}
 		});
-			
+		
+		// prepend the defined positions to build the full order
+		List<Integer> order = new ArrayList<>();
+		for (int posi=0; posi<confIndex.getNumDefined(); posi++) {
+			int pos = confIndex.getDefinedPos()[posi];
+			order.add(pos);
+		}
+		order.addAll(undefinedOrder);
+		
 		return order;
 	}
 

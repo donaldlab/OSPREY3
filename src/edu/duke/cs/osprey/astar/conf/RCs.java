@@ -27,10 +27,10 @@ public class RCs {
 		return unprunedRCsAtPos.length;
 	}
 	
-	public int numNonTrivialPos() {
+	public int getNumTrivialPos() {
 		int count = 0;
 		for (int pos=0; pos<unprunedRCsAtPos.length; pos++) {
-			if (unprunedRCsAtPos[pos].length > 1) {
+			if (unprunedRCsAtPos[pos].length == 1) {
 				count++;
 			}
 		}
@@ -39,6 +39,9 @@ public class RCs {
 	
 	public int[] get(int pos) {
 		return unprunedRCsAtPos[pos];
+	}
+	public void set(int pos, int[] rcs) {
+		unprunedRCsAtPos[pos] = rcs;
 	}
 	
 	public int getNum(int pos) {
