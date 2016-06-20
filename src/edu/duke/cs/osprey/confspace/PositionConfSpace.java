@@ -6,6 +6,7 @@ package edu.duke.cs.osprey.confspace;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.List;
 
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleFactory2D;
@@ -355,5 +356,48 @@ public class PositionConfSpace implements Serializable {
     	return this.ellipsoidalDOFs;
     }
 
-    
+	public List<Integer> replaceRC(RC oldRC, List<RC> newRCs) {
+		
+		// find the old rc to remove
+		Integer oldIndex = findRcIndex(oldRC);
+		if (oldIndex == null) {
+			throw new IllegalArgumentException("can't remove RC, it's not at this pos");
+		}
+		
+		// set the new RCs to the index we're about to remove
+		for (RC rc : newRCs) {
+			rc.RCIndex = oldIndex;
+		}
+		
+		// remove the old rc, add the new ones
+		RCs.remove((int)oldIndex);
+		RCs.addAll(newRCs);
+		
+		// build a map from the new indices to the old ones
+		List<Integer> indexMap = new ArrayList<>();
+		for (int i=0; i<RCs.size(); i++) {
+			RC rc = RCs.get(i);
+			if (rc.RCIndex == oldIndex) {
+				indexMap.add(null);
+			} else {
+				indexMap.add(RCs.get(i).RCIndex);
+			}
+		}
+		
+		// renumber all the rcs
+		for (int i=0; i<RCs.size(); i++) {
+			RCs.get(i).RCIndex = i;
+		}
+		
+		return indexMap;
+	}
+	
+	private Integer findRcIndex(RC rc) {
+		for (int i=0; i<RCs.size(); i++) {
+			if (RCs.get(i) == rc) {
+				return i;
+			}
+		}
+		return null;
+	}
 }
