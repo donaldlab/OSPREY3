@@ -48,11 +48,6 @@ public class KSConfQ extends Thread implements Serializable {
 	}
 
 
-	public void restartConfTree() {
-		confSearch = pf.getConfTree(false);
-	}
-
-
 	public double getNextConfBound() {
 
 		int c[] = null;

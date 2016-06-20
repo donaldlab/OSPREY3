@@ -164,7 +164,7 @@ public class ConfSpace implements Serializable {
 			PositionConfSpace rcs = new PositionConfSpace(pos, res, resDOFs, allowedAAs.get(pos), contSCFlex,
 					resStrandDOFs, perts, dset.getPertIntervals(), dset.getPertStates(pos), curBFB, useEllipses);
 			posFlex.add(rcs);
-
+			
 			if (useEllipses) {
 				confDOFs.addAll(rcs.getEllipsoidalArray());
 			} else {

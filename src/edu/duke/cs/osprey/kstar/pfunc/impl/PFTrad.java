@@ -21,7 +21,7 @@ import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
  */
 @SuppressWarnings("serial")
 public class PFTrad extends PFAbstract implements Serializable {
-
+	
 	protected ConfSearch confSearch = null;
 
 	// temp for benchmarking
@@ -31,11 +31,12 @@ public class PFTrad extends PFAbstract implements Serializable {
 		super();
 	}
 
-	public PFTrad( int strand, ArrayList<String> sequence, ArrayList<Integer> flexResIndexes, 
-			String checkPointPath, String searchProblemName, 
-			ConfigFileParser cfp, SearchProblem panSeqSP ) {
+	public PFTrad( int strand, ArrayList<String> sequence, 
+			ArrayList<Integer> absolutePos, 
+			String checkPointPath, String reducedSPName, 
+			ConfigFileParser cfp, SearchProblem panSP ) {
 
-		super( strand, sequence, flexResIndexes, checkPointPath, searchProblemName, cfp, panSeqSP );
+		super( strand, sequence, absolutePos, checkPointPath, reducedSPName, cfp, panSP );
 	}
 
 
@@ -48,7 +49,6 @@ public class PFTrad extends PFAbstract implements Serializable {
 		
 		initTradPStar();
 
-		// first conf was merely to set p*
 		confSearch = getConfTree(false);
 
 		startTime = System.currentTimeMillis();
@@ -137,14 +137,11 @@ public class PFTrad extends PFAbstract implements Serializable {
 	
 	protected void combineResidues(int[] pos) {
 		
-		if(pos.length > 2)
-			backupEnergyandPruningMatrices();
-		
 		System.out.print("Combining residues: "); for(int i : pos) System.out.print(getSequence().get(i) + " ");
 		System.out.print("... ");
 		
 		long start = System.currentTimeMillis();
-		qSP.mergeResiduePositions(pos);
+		reducedSP.mergeResiduePositions(pos);
 		memoizePosInHot(pos);
 		long duration = (System.currentTimeMillis()-start)/1000;
 
@@ -192,9 +189,9 @@ public class PFTrad extends PFAbstract implements Serializable {
 		double energy = 0, boundError = 0;
 		MultiTermEnergyFunction mef = null;
 
-		if( isFullyDefined() ) {
+		if( isContinuous() && isFullyDefined() ) {
 			// we do not have a lock when minimizing
-			mef = qSP.decompMinimizedEnergy(conf.getConfArray());
+			mef = reducedSP.decompMinimizedEnergy(conf.getConfArray());
 			energy = mef.getPreCompE();
 		}
 

@@ -36,11 +36,12 @@ public class PFNew01 extends PFTrad implements Serializable {
 		super();
 	}
 
-	public PFNew01( int strand, ArrayList<String> sequence, ArrayList<Integer> flexResIndexes, 
-			String checkPointPath, String searchProblemName, 
-			ConfigFileParser cfp, SearchProblem panSeqSP ) {
+	public PFNew01( int strand, ArrayList<String> sequence, 
+			ArrayList<Integer> absolutePos, 
+			String checkPointPath, String reducedSPName, 
+			ConfigFileParser cfp, SearchProblem panSP ) {
 
-		super( strand, sequence, flexResIndexes, checkPointPath, searchProblemName, cfp, panSeqSP );
+		super( strand, sequence, absolutePos, checkPointPath, reducedSPName, cfp, panSP );
 	}
 
 
@@ -59,21 +60,22 @@ public class PFNew01 extends PFTrad implements Serializable {
 				createHotsFromCFG();
 
 			// set pstar
+			pStarCalculator = null;
 			if(prunedConfs.compareTo(BigInteger.ZERO) == 0) pStar = BigDecimal.ZERO;
 			else {
 				System.out.println("using p* calculator");
-				pStarCalculator = new PStarCalculator( this, true );
-				//pStarCalculator.setPriority(Thread.MAX_PRIORITY);
+				pStarCalculator = new PStarCalculator( this );
+				pStarCalculator.setPriority(Thread.MAX_PRIORITY);
 			}
 
 			confsQ = new KSConfQ( this, 1, partialQLB );
-			qPrimeCalculator = new QPrimeCalculator( this, false );
-			//qPrimeCalculator.setPriority(Thread.MAX_PRIORITY);
+			qPrimeCalculator = new QPrimeCalculator( this );
+			qPrimeCalculator.setPriority(Thread.MAX_PRIORITY);
 
 			if(pStarCalculator != null) pStarCalculator.start();
 			qPrimeCalculator.start();
 			confsQ.start();
-
+			
 		} catch(Exception e) {
 			System.out.println(e.getMessage());
 			e.printStackTrace();
@@ -216,9 +218,6 @@ public class PFNew01 extends PFTrad implements Serializable {
 
 
 	protected void combineResidues(KSConf conf, double pbe, double tpbe, int[] tpce) {
-
-		if(tpce.length > 2)
-			backupEnergyandPruningMatrices();
 		
 		abort(true);
 
@@ -228,7 +227,7 @@ public class PFNew01 extends PFTrad implements Serializable {
 		System.out.print("... ");
 
 		long start = System.currentTimeMillis();
-		qSP.mergeResiduePositions(tpce);
+		reducedSP.mergeResiduePositions(tpce);
 		memoizePosInHot(tpce);
 		long duration = (System.currentTimeMillis()-start)/1000;
 
@@ -242,8 +241,8 @@ public class PFNew01 extends PFTrad implements Serializable {
 		
 		
 		confsQ = new KSConfQ( this, 1, partialQLB );
-		qPrimeCalculator = new QPrimeCalculator( this, false );
-		//qPrimeCalculator.setPriority(Thread.MAX_PRIORITY);
+		qPrimeCalculator = new QPrimeCalculator( this );
+		qPrimeCalculator.setPriority(Thread.MAX_PRIORITY);
 
 		qPrimeCalculator.start();
 		confsQ.start();
@@ -274,9 +273,9 @@ public class PFNew01 extends PFTrad implements Serializable {
 		double energy = 0, boundError = 0;
 		MultiTermEnergyFunction mef = null;
 
-		if( isFullyDefined() ) {
+		if( isContinuous() && isFullyDefined() ) {
 			// we do not have a lock when minimizing
-			mef = qSP.decompMinimizedEnergy(conf.getConfArray());
+			mef = reducedSP.decompMinimizedEnergy(conf.getConfArray());
 			energy = mef.getPreCompE();
 		}
 
@@ -348,6 +347,13 @@ public class PFNew01 extends PFTrad implements Serializable {
 	protected void updateQPrime() {
 
 		try {
+			
+			if(qPrimeCalculator == null) return;
+			
+			if(!isContinuous() && isFullyDefined()) {
+				long timeout = 100, start = System.currentTimeMillis();
+				while( qPrimeCalculator.getPercentQPrime() < 0.33 && System.currentTimeMillis()-start < timeout ) Thread.sleep(100);
+			}
 			
 			while( partialQLB.compareTo(qPrimeCalculator.getTotalPF()) > 0 ) Thread.sleep(1);
 			

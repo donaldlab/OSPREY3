@@ -49,7 +49,9 @@ public class KStarCalculator {
 			throw new RuntimeException("ERROR: iMinDEE requires continuous flexibility. "
 					+ "Change the value of doMinimize to 'true'.");
 		
+		PFAbstract.suppressOutput = cfp.getParams().getBool("pFuncSuppressOutput", false);
 		PFAbstract.targetEpsilon = cfp.getParams().getDouble("epsilon", 0.03);
+		PFAbstract.setPhase2Method(cfp.getParams().getValue("kStarPhase2Method", "fast"));
 		PFAbstract.qCapacity = cfp.getParams().getInt("pFuncQCap", ThreadParallelism.getNumThreads()*8);
 
 		PFAbstract.eMinMethod = cfp.getParams().getValue("eMinMethod", "ccd");
@@ -66,17 +68,18 @@ public class KStarCalculator {
 		PFAbstract.useMaxKSConfs = cfp.getParams().getBool("useMaxKSConfs", false);
 		PFAbstract.setMaxKSconfs( cfp.getParams().getInt("maxKSconfs", 100000) );
 		
-		// check hots for validity
-		cfp.getHighOrderTuplesByPDBResNum();
-		
 		PFAbstract.setHotMethod( "pFunctHotMethod", cfp.getParams().getValue("pFunctHotMethod", "none") );
+		
+		// check hots for validity
+		if(!PFAbstract.getHotMethod().equalsIgnoreCase("none"))
+			cfp.getHighOrderTuplesByPDBResNum();
+		
 		PFAbstract.setHotNumRes( "pFuncHotNumRes", cfp.getParams().getInt("pFuncHotNumRes", 3) );
 		PFAbstract.setHotBoundPct( "pFuncHotBoundPct", cfp.getParams().getDouble("pFuncHotBoundPct", 0.03) );
 		PFAbstract.setHotTopRotsPct( "pFuncHotTopRotsPct", cfp.getParams().getDouble("pFuncHotTopRotsPct", 0.0) );
 		
 		MinimizerFactory.setImpl( PFAbstract.eMinMethod );
-		
-		KSAbstract.preLoadPFs = cfp.getParams().getBool("kStarPreLoadPFs", false);
+
 		KSAbstract.doCheckPoint = cfp.getParams().getBool("doKStarCheckpoint", false);
 		KSAbstract.setCheckPointInterval(cfp.getParams().getInt("kStarCheckpoint", 50000));
 		

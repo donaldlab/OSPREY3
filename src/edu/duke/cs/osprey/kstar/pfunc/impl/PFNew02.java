@@ -31,11 +31,12 @@ public class PFNew02 extends PFNew01 implements Serializable {
 		super();
 	}
 
-	public PFNew02( int strand, ArrayList<String> sequence, ArrayList<Integer> flexResIndexes, 
-			String checkPointPath, String searchProblemName, 
-			ConfigFileParser cfp, SearchProblem panSeqSP ) {
+	public PFNew02( int strand, ArrayList<String> sequence, 
+			ArrayList<Integer> absolutePos, 
+			String checkPointPath, String reducedSPName, 
+			ConfigFileParser cfp, SearchProblem panSP ) {
 
-		super( strand, sequence, flexResIndexes, checkPointPath, searchProblemName, cfp, panSeqSP );
+		super( strand, sequence, absolutePos, checkPointPath, reducedSPName, cfp, panSP );
 	}
 
 
@@ -46,19 +47,19 @@ public class PFNew02 extends PFNew01 implements Serializable {
 
 
 	protected ArrayList<SearchProblem> parallelCreateSPs( SearchProblem sp, int replicates ) {
-		ArrayList<SearchProblem> ans = new ArrayList<>();
-		ArrayList<Integer> indexes = new ArrayList<>();
+		ArrayList<SearchProblem> ans = new ArrayList<>(replicates);
+		ArrayList<Integer> indexes = new ArrayList<>(replicates);
 		for(int i = 0; i < replicates; ++i) {
 			indexes.add(i);
 			ans.add(null);
 		}
 
 		indexes.parallelStream().forEach(i -> {
-			ans.set(i, (SearchProblem)ObjectIO.deepCopy(sp));
+			ans.set(i, (SearchProblem) ObjectIO.deepCopy(sp));
+			ans.get(i).emat = sp.emat;
+			ans.get(i).pruneMat = sp.pruneMat;
+			ans.get(i).inverseMat = sp.inverseMat;
 		});
-
-		indexes.trimToSize();
-		ans.trimToSize();
 
 		return ans;
 	}
@@ -74,11 +75,12 @@ public class PFNew02 extends PFNew01 implements Serializable {
 				createHotsFromCFG();
 
 			// set pstar
+			pStarCalculator = null;
 			if(prunedConfs.compareTo(BigInteger.ZERO) == 0) pStar = BigDecimal.ZERO;
 			else {
 				System.out.println("using p* calculator");
-				pStarCalculator = new PStarCalculator( this, true );
-				//pStarCalculator.setPriority(Thread.MAX_PRIORITY);
+				pStarCalculator = new PStarCalculator( this );
+				pStarCalculator.setPriority(Thread.MAX_PRIORITY);
 			}
 
 			// initialize parallel data structures
@@ -87,15 +89,15 @@ public class PFNew02 extends PFNew01 implements Serializable {
 			indexes.trimToSize();
 
 			sps.clear();
-			sps = parallelCreateSPs(qSP, indexes.size());
+			sps = parallelCreateSPs(reducedSP, indexes.size());
 
 			partialQConfs.clear();
 			for( int it = 0; it < indexes.size(); ++it ) partialQConfs.add(null);
 			partialQConfs.trimToSize();
 
 			confsQ = new KSConfQ( this, indexes.size(), partialQLB );
-			qPrimeCalculator = new QPrimeCalculator( this, false );
-			//qPrimeCalculator.setPriority(Thread.MAX_PRIORITY);
+			qPrimeCalculator = new QPrimeCalculator( this );
+			qPrimeCalculator.setPriority(Thread.MAX_PRIORITY);
 
 			if(pStarCalculator != null) pStarCalculator.start();
 			qPrimeCalculator.start();
@@ -162,12 +164,12 @@ public class PFNew02 extends PFNew01 implements Serializable {
 	}
 
 
-	protected void accumulate( ArrayList<KSConf> partialQConfs, boolean isMinimized ) throws Exception {
+	protected void accumulate( ArrayList<KSConf> partialQConfs, boolean energiesEvaluated ) throws Exception {
 
 		ArrayList<MultiTermEnergyFunction> mefs = new ArrayList<>(partialQConfs.size());
 		for(int i = 0; i < partialQConfs.size(); ++i) mefs.add(null);
 
-		if( !isMinimized ) {
+		if( !energiesEvaluated ) {
 
 			// we do not have a lock when minimizing
 			indexes.parallelStream().forEach( i -> {
@@ -175,7 +177,7 @@ public class PFNew02 extends PFNew01 implements Serializable {
 				double energy = 0;
 				KSConf conf = partialQConfs.get(i);
 
-				if( isFullyDefined() ) {
+				if( isContinuous() && isFullyDefined() ) {
 					MultiTermEnergyFunction mef = sps.get(i).decompMinimizedEnergy(conf.getConfArray());
 					mefs.set(i, mef);
 					energy = mef.getPreCompE();

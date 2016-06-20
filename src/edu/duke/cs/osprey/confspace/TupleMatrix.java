@@ -53,6 +53,9 @@ public class TupleMatrix<T> implements Serializable {
     T defaultHigherInteraction;//We only mark sparse higher interactions;
     //if unmarked we assume this value (e.g., 0 for energy, false for pruning)
     
+    public TupleMatrix() {
+    	
+    }
     
     public TupleMatrix(ArrayList<ArrayList<ArrayList<ArrayList<HigherTupleFinder<T>>>>> higherTerms, 
     		ArrayList<ArrayList<ArrayList<ArrayList<T>>>> pairwise, 

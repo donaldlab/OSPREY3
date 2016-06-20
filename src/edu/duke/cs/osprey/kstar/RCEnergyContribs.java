@@ -98,7 +98,7 @@ public class RCEnergyContribs {
 
 		if( boundErrorByPos != null ) return boundErrorByPos;
 
-		int numPos = pf.getSearchProblem().confSpace.numPos;
+		int numPos = pf.getReducedSearchProblem().confSpace.numPos;
 
 		ArrayList<BoundErrorByPos> boundErrors = new ArrayList<>(numPos);
 		for( int pos = 0; pos < numPos; ++pos ) {
@@ -205,7 +205,7 @@ public class RCEnergyContribs {
 
 
 	private double getConstTerm() {
-		return pf.getSearchProblem().getConstTerm();
+		return pf.getReducedSearchProblem().getConstTerm();
 	}
 
 
@@ -219,7 +219,7 @@ public class RCEnergyContribs {
 	// store single and pairwise energy contributions involving flexible residues only.
 	private HashMap<Integer, Double> getFlexResMinEContribs( MultiTermEnergyFunction mef ) {
 
-		int numPos = pf.getSearchProblem().confSpace.numPos;
+		int numPos = pf.getReducedSearchProblem().confSpace.numPos;
 		HashMap<Integer, Double> ans = new HashMap<>(numPos);
 
 		for( int pos = 0; pos < numPos; ++pos ) {
@@ -265,11 +265,11 @@ public class RCEnergyContribs {
 
 	private HashMap<Integer, Double> getFlexResPWLBContribs( int[] conf ) {
 
-		int numPos = pf.getSearchProblem().confSpace.numPos;
+		int numPos = pf.getReducedSearchProblem().confSpace.numPos;
 		HashMap<Integer, Double> ans = new HashMap<>(numPos);
 
 		for( int pos = 0; pos < conf.length; ++pos ) {
-			double E = pf.getSearchProblem().lowerBoundContribByRC(pos, conf, PFAbstract.getHotNumRes());
+			double E = pf.getReducedSearchProblem().lowerBoundContribByRC(pos, conf, PFAbstract.getHotNumRes());
 			ans.put(pos, E);
 		}
 

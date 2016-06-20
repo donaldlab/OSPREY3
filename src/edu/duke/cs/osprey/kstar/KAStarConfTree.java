@@ -2,8 +2,6 @@ package edu.duke.cs.osprey.kstar;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.HashMap;
-
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
@@ -25,99 +23,102 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 @SuppressWarnings("serial")
 public class KAStarConfTree extends ConfTree implements Serializable, ConfSearch {
 
-	protected SearchProblem panSeqSP = null;
-	protected HashMap<Integer, Integer> seq2PanSeq = null;
-	protected HashMap<Integer, Integer> panSeq2Seq = null;
+	
+	protected SearchProblem sp;
+	protected PruningMatrix reducedPmat;
+	protected PruningMatrix panPmat;
 	protected boolean energyLB = true; // compute lb xor ub
-	protected boolean usePrunedConfs = false;
-
-
-	public KAStarConfTree(SearchProblem sp, SearchProblem panSeqSP, 
-			ArrayList<Integer> panSeqPos, boolean usePrunedConfs) {
-		super(sp);
-
-		this.panSeqSP = panSeqSP;
-		mapSeq2PanSeq(panSeqPos);
-		energyLB = panSeqSP.contSCFlex ? true : false;
-		this.usePrunedConfs = usePrunedConfs;
-
-		init(sp, sp.pruneMat);
+	
+	
+	public KAStarConfTree(SearchProblem reducedSP, PruningMatrix reducedPmat, PruningMatrix panPmat) {
+		super(reducedSP);
+		
+		this.sp = reducedSP;
+		this.reducedPmat = reducedPmat;
+		this.panPmat = panPmat;
+		this.energyLB = reducedSP.contSCFlex ? true : false;
+		initRCsAtDefinedPos();
 	}
 
-	protected void init(SearchProblem sp, PruningMatrix pruneMat) {
+
+	private void initRCsAtDefinedPos() {
+		// set numpos to the number of defined AAs
+        numPos = reducedPmat.numPos();
+		
 		unprunedRCsAtPos.clear();
-
-		//see which RCs are unpruned and thus available for consideration
-		for(int pos=0; pos<numPos; pos++){
-			unprunedRCsAtPos.add(getRCsAtPos(pruneMat, pos));
-		}
-	}
-
-
-	protected void mapSeq2PanSeq(ArrayList<Integer> panSeqPos) {
-
-		seq2PanSeq = new HashMap<>(numPos);
-		panSeq2Seq = new HashMap<>(numPos);
-
-		for(int i = 0; i < numPos; ++i) {
-			seq2PanSeq.put(i, panSeqPos.get(i));
-			panSeq2Seq.put(panSeqPos.get(i), i);
-		}
-	}
-
-
-	protected ArrayList<Integer> getPanSeqPos( RCTuple definedTuple ) {
-		ArrayList<Integer> ans = new ArrayList<>(definedTuple.pos.size());
-		for( int i : definedTuple.pos ) ans.add( seq2PanSeq.get(i) );
-		return ans;
-	}
-
-
+        for(int pos = 0; pos < numPos; ++pos){
+            unprunedRCsAtPos.add(reducedPmat.unprunedRCsAtPos(pos));
+        }
+        
+        // reduce the energy matrix, too
+        emat = sp.getReducedEnergyMatrix();
+    }
+	
+	
 	protected ArrayList<Integer> getUndefinedPos( RCTuple definedTuple ) {
-		ArrayList<Integer> ans = new ArrayList<>(panSeqSP.confSpace.numPos);
-
-		for(int level = 0; level < panSeqSP.confSpace.numPos; ++level) ans.add(level);
-
-		ArrayList<Integer> definedPos = getPanSeqPos(definedTuple);
+		// defined tuple positions are wrt reduced matrix positions
+		ArrayList<Integer> ans = sp.getMaxPosNums();
+		
+		ArrayList<Integer> definedPos = new ArrayList<>(definedTuple.pos.size());
+		for(int pos : definedTuple.pos) {
+			// convert to absolute positions
+			definedPos.add(sp.posNums.get(pos));
+		}
 
 		// remove defined positions
 		ans.removeAll(definedPos);
 
+		ans.trimToSize();
 		return ans;
 	}
 
 
 	protected ArrayList<Integer> allowedRCsAtLevel(int level, int[] partialConf, ArrayList<Integer> undefinedPos) {
-		// What RCs are allowed at the specified level (i.e., position num) in the given partial conf?
+		// level is the absolute pos, defined WRT the all sequences pruning matrix
 		ArrayList<Integer> allowedRCs;
 
 		if(undefinedPos.contains(level)) { // level is undefined
-			allowedRCs = getRCsAtPos(panSeqSP.pruneMat, level);
+			allowedRCs = panPmat.unprunedRCsAtPos(level);
 		}
 
 		else {
+			// level is defined (i.e. in posNums). its index is the level in the reducedSP
 			allowedRCs = new ArrayList<>();
-			allowedRCs.add(partialConf[panSeq2Seq.get(level)]);
+			
+			// if the position in the partial conf is assigned, then return the solitary rc
+			// else return the allowed rcs at that position in the reduced energy matrix
+			int level2 = sp.posNums.indexOf(level);
+			
+			if(partialConf[level2] != -1) {
+				// defined and assigned
+				allowedRCs.add(partialConf[level2]);
+			}
+			
+			else {
+				// defined but unassigned
+				allowedRCs.addAll(unprunedRCsAtPos.get(level2));
+			}
+			
+			allowedRCs.trimToSize();
 		}
 
 		return allowedRCs;
 	}
 
 
-	protected double RCContribution(int level, int rc, RCTuple definedTuple, int[] partialConf, 
-			ArrayList<Integer> undefinedPos) {
+	protected double RCContribution(int level, int rc, RCTuple definedTuple, int[] partialConf, ArrayList<Integer> undefinedPos) {
 		//Provide a lower bound on what the given rc at the given level can contribute to the energy
 		//assume partialConf and definedTuple
 
-		double rcContrib = panSeqSP.getEnergyMatrix().getOneBody(level, rc);
+		double rcContrib = sp.getEnergyMatrix().getOneBody(level, rc);
 
 		//for this kind of lower bound, we need to split up the energy into the defined-tuple energy
 		//plus "contributions" for each undefined residue
 		//so we'll say the "contribution" consists of any interactions that include that residue
 		//but do not include higher-numbered undefined residues
-		for(int level2 = 0; level2 < panSeqSP.confSpace.numPos; level2++){
+		for(int level2 = 0; level2 < sp.confSpace.numPos; level2++){
 
-			if(!undefinedPos.contains(level2) || level2 < level){//defined or lower numbered residues
+			if(!undefinedPos.contains(level2) || level2 < level) { //defined or lower numbered residues
 
 				double levelBestE = energyLB ? Double.POSITIVE_INFINITY : Double.NEGATIVE_INFINITY;//best pairwise energy
 
@@ -125,7 +126,7 @@ public class KAStarConfTree extends ConfTree implements Serializable, ConfSearch
 
 				for( int rc2 : allowedRCs ) {
 
-					double interactionE = panSeqSP.getEnergyMatrix().getPairwise(level, rc, level2, rc2);
+					double interactionE = sp.getEnergyMatrix().getPairwise(level, rc, level2, rc2);
 
 					double higherOrderE = higherOrderContrib(level, rc, level2, rc2, partialConf, undefinedPos);
 					//add higher-order terms that involve rc, rc2, and parts of partialConf
@@ -148,7 +149,7 @@ public class KAStarConfTree extends ConfTree implements Serializable, ConfSearch
 			int[] partialConf, ArrayList<Integer> undefinedPos) {
 		//higher-order contribution for a given RC pair, when scoring a partial conf
 
-		HigherTupleFinder<Double> htf = panSeqSP.emat.getHigherOrderTerms(pos1, rc1, pos2, rc2);
+		HigherTupleFinder<Double> htf = sp.getEnergyMatrix().getHigherOrderTerms(pos1, rc1, pos2, rc2);
 
 		if(htf==null)
 			return 0;//no higher-order interactions
@@ -228,15 +229,15 @@ public class KAStarConfTree extends ConfTree implements Serializable, ConfSearch
 			//"h-score"
 			//score works by breaking up the full energy into the energy of the defined set of residues ("g-score"),
 			//plus contributions associated with each of the undefined res ("h-score")
-			ArrayList<Integer> undefinedPos = getUndefinedPos(definedTuple);
+			ArrayList<Integer> undefinedLevels = getUndefinedPos(definedTuple);
 
-			for(int level : undefinedPos) {
+			for(int level : undefinedLevels) {
 
 				double bestInteractionE = energyLB ? Double.POSITIVE_INFINITY : Double.NEGATIVE_INFINITY;
 
-				ArrayList<Integer> rotList = getRCsAtPos(panSeqSP.pruneMat, level);
-				for(int rc : rotList) {
-					double rcContribution = RCContribution(level, rc, definedTuple, partialConf, undefinedPos);
+				ArrayList<Integer> rcsAtUndefinedLevel = panPmat.unprunedRCsAtPos(level);
+				for(int rc : rcsAtUndefinedLevel) {
+					double rcContribution = RCContribution(level, rc, definedTuple, partialConf, undefinedLevels);
 
 					bestInteractionE = energyLB ? Math.min(bestInteractionE, rcContribution) : 
 						Math.max(bestInteractionE, rcContribution);
@@ -259,10 +260,5 @@ public class KAStarConfTree extends ConfTree implements Serializable, ConfSearch
 
 	public double confBound(int[] partialConf) {
 		return scoreConf(partialConf);
-	}
-
-
-	ArrayList<Integer> getRCsAtPos(PruningMatrix pruneMat, int pos) {
-		return usePrunedConfs ? pruneMat.prunedRCsAtPos(pos) : pruneMat.unprunedRCsAtPos(pos);
 	}
 }

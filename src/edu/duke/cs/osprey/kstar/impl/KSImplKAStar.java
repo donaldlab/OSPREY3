@@ -3,15 +3,12 @@ package edu.duke.cs.osprey.kstar.impl;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.kstar.AllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KAStarNode;
 import edu.duke.cs.osprey.kstar.KAStarTree;
 import edu.duke.cs.osprey.kstar.Termini;
-import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
-import edu.duke.cs.osprey.kstar.pfunc.impl.PFnew00;
 
 public class KSImplKAStar extends KSAbstract {
 
@@ -30,67 +27,6 @@ public class KSImplKAStar extends KSAbstract {
 
 		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(true, false));
 		createEmats(contSCFlexVals);
-	}
-
-
-	@Override
-	protected void preLoadPFs( ArrayList<Boolean> contSCFlexVals ) {
-
-		try {
-
-			ArrayList<Integer>strands = new ArrayList<Integer>(Arrays.asList(Termini.COMPLEX, Termini.PROTEIN, Termini.LIGAND));
-			AllowedSeqs pSeqs = strand2AllowedSeqs.get(Termini.PROTEIN);
-			AllowedSeqs lSeqs = strand2AllowedSeqs.get(Termini.LIGAND);
-
-			for( boolean contSCFlex : contSCFlexVals ) {
-
-				for( int strand : strands ) {
-
-					AllowedSeqs seqs = strand2AllowedSeqs.get(strand);
-
-					// ignore depth 0
-					for( int depth = 1; depth <= seqs.getStrandSubSeqsMaxDepth(); ++depth ) {
-
-						HashSet<ArrayList<String>> subSeqsAtDepth = strand == 
-								Termini.COMPLEX ? seqs.getStrandSubSeqsAtDepth( depth, pSeqs, lSeqs ) : 
-									seqs.getStrandSubSeqsAtDepth( depth );
-
-								subSeqsAtDepth.parallelStream().forEach( seq -> {
-
-									String pfImpl = null;
-									boolean flex = false;
-
-									// here we use contscflex == true to mean upper bound and
-									// == false means lower bound 
-
-									if(contSCFlex) {
-										// do upper bound k* calc
-										if(strand == Termini.COMPLEX) { flex = false; pfImpl = PFAbstract.getCFGImpl(); }
-										else { flex = true; pfImpl = new PFnew00().getImpl(); }
-									}
-
-									else {
-										// do lower bound k* calc
-										if(strand == Termini.COMPLEX) { flex = true; pfImpl = new PFnew00().getImpl(); }
-										else { flex = false; pfImpl = PFAbstract.getCFGImpl(); }
-									}
-
-									PFAbstract pf = createPF4Seq(flex, strand, seq, pfImpl);
-
-									name2PF.put(pf.getSearchProblemName(), pf);
-								});
-					}
-				}
-			}
-
-			// create last of the energy matrices
-			loadAndPruneMatricesFromPFMap();
-
-		} catch (Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
-		}
 	}
 
 

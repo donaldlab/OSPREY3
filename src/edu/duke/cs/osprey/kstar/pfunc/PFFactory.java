@@ -22,28 +22,28 @@ import edu.duke.cs.osprey.kstar.pfunc.impl.PFNew04;
 public class PFFactory {
 
 	public static PFAbstract getPartitionFunction( String implementation, int strand, 
-			ArrayList<String> sequence, ArrayList<Integer> flexResIndexes, String checkPointPath, 
+			ArrayList<String> sequence, ArrayList<Integer> absolutePos, String checkPointPath, 
 			String searchProblemName, ConfigFileParser cfp, SearchProblem sp ) {
 
 		switch( implementation.toLowerCase() ) {
 
 		case "trad":
-			return new PFTrad( strand, sequence, flexResIndexes, checkPointPath, searchProblemName, cfp, sp );
+			return new PFTrad( strand, sequence, absolutePos, checkPointPath, searchProblemName, cfp, sp );
 		
 		case "new00":
-			return new PFnew00( strand, sequence, flexResIndexes, checkPointPath, searchProblemName, cfp, sp );
+			return new PFnew00( strand, sequence, absolutePos, checkPointPath, searchProblemName, cfp, sp );
 			
 		case "new01":
-			return new PFNew01( strand, sequence, flexResIndexes, checkPointPath, searchProblemName, cfp, sp );
+			return new PFNew01( strand, sequence, absolutePos, checkPointPath, searchProblemName, cfp, sp );
 
 		case "new02":
-			return new PFNew02( strand, sequence, flexResIndexes, checkPointPath, searchProblemName, cfp, sp );
+			return new PFNew02( strand, sequence, absolutePos, checkPointPath, searchProblemName, cfp, sp );
 
 		case "new03":
-			return new PFNew03( strand, sequence, flexResIndexes, checkPointPath, searchProblemName, cfp, sp );
+			return new PFNew03( strand, sequence, absolutePos, checkPointPath, searchProblemName, cfp, sp );
 
 		case "new04":
-			return new PFNew04( strand, sequence, flexResIndexes, checkPointPath, searchProblemName, cfp, sp );
+			return new PFNew04( strand, sequence, absolutePos, checkPointPath, searchProblemName, cfp, sp );
 
 		default:
 			throw new RuntimeException("ERROR: specified value of parameter pFuncMethod is invalid");

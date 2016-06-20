@@ -8,6 +8,7 @@ package edu.duke.cs.osprey.dof.deeper;
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.kstar.Termini;
 import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.tools.ObjectIO;
 
 import java.io.Serializable;
 import java.util.ArrayList;

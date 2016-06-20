@@ -24,11 +24,12 @@ public class PFnew00 extends PFTrad implements Serializable {
 		super();
 	}
 	
-	public PFnew00( int strand, ArrayList<String> sequence, ArrayList<Integer> flexResIndexes, 
-			String checkPointPath, String searchProblemName, 
-			ConfigFileParser cfp, SearchProblem panSeqSP ) {
+	public PFnew00( int strand, ArrayList<String> sequence, 
+			ArrayList<Integer> absolutePos, 
+			String checkPointPath, String reducedSPName, 
+			ConfigFileParser cfp, SearchProblem panSP ) {
 
-		super( strand, sequence, flexResIndexes, checkPointPath, searchProblemName, cfp, panSeqSP );
+		super( strand, sequence, absolutePos, checkPointPath, reducedSPName, cfp, panSP );
 	}
 
 
@@ -48,13 +49,21 @@ public class PFnew00 extends PFTrad implements Serializable {
 	}
 
 
-	protected double computeDelta() {
-
-		// subsequent boltzmann weights are guaranteed to be lower
-		if( qStar.compareTo(BigDecimal.ZERO) == 0 ) return -1.0;
+	protected double computeEffectiveEpsilon() {
+		
+		BigDecimal dividend = qPrime.add(pStar);
+		BigDecimal divisor = qStar.add(dividend);
+		
+		// energies are too high so epsilon can never be reached
+		if( divisor.compareTo(BigDecimal.ZERO) == 0 ) 
+			return EPSILON_PHASE_2;
+		
+		if( qStar.add(qPrime).compareTo(BigDecimal.ZERO) == 0 ) 
+			return EPSILON_PHASE_2;
 
 		double minDelta = pStar.divide(qStar.add(qPrime), 4).doubleValue();
-		if( minDelta > targetEpsilon ) return -1.0;
+		if( minDelta > targetEpsilon ) 
+			return EPSILON_PHASE_2;
 
 		double delta = (qPrime.add(pStar)).divide(qStar, 4).doubleValue();
 
@@ -67,9 +76,10 @@ public class PFnew00 extends PFTrad implements Serializable {
 		updateQStarUB( conf );
 		
 		Et = conf.getEnergyBound();
+		
 		updateQPrime();
 
-		if( (effectiveEpsilon = computeDelta()) < 0 ) {
+		if( (effectiveEpsilon = computeEffectiveEpsilon()) < 0 ) {
 
 			eAppx = EApproxReached.NOT_POSSIBLE;
 

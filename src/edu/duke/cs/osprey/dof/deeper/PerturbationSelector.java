@@ -7,6 +7,7 @@ package edu.duke.cs.osprey.dof.deeper;
 
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.kstar.Termini;
+import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -117,9 +118,11 @@ public class PerturbationSelector {
     
     void mutateFlexResToGly(){
         for(String resNum : flexibleRes){
+       
             Residue res = m.getResByPDBResNumber(resNum);
             
-            new ResidueTypeDOF(res).mutateTo("GLY");
+            if(HardCodedResidueInfo.hasAminoAcidBB(res))
+            	new ResidueTypeDOF(res).mutateTo("GLY");
         }
     }
     

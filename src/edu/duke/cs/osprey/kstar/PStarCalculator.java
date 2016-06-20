@@ -12,7 +12,6 @@ import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
 public class PStarCalculator extends Thread implements Serializable {
 
 	protected PFAbstract pf;
-	protected boolean usePrunedConfs = false;
 	private BigInteger pruned = BigInteger.ZERO;
 	protected BigDecimal lastBoltzmannWeight = BigDecimal.ZERO;
 	protected double lastEnergyBound = Double.NEGATIVE_INFINITY;
@@ -22,15 +21,18 @@ public class PStarCalculator extends Thread implements Serializable {
 	protected BigDecimal totalPF = BigDecimal.ZERO;
 	protected final String lock = new String("LOCK");
 
-	public PStarCalculator( PFAbstract pf, boolean usePrunedConfs ) {
+	public PStarCalculator( PFAbstract pf ) {
 
 		this.pf = pf;
-		
-		this.usePrunedConfs = usePrunedConfs;
 
 		pruned = pf.getNumPruned();
-
-		confSearch = pf.getConfTree(usePrunedConfs);
+		
+		confSearch = getConfSearch();
+	}
+	
+	
+	private ConfSearch getConfSearch() {
+		return pf.getConfTree(true);
 	}
 	
 	

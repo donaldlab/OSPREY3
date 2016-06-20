@@ -95,30 +95,30 @@ public class KSCalc {
 		
 		// this method shoudl only be called directly for non-complex strands
 		if( pf.getRunState() == RunState.NOTSTARTED ) {
-			System.out.println("\n" + pf.getImpl() + ": Initializing partition function for " + KSAbstract.list1D2String(pf.getSequence(), " "));
+			System.out.println("\n" + pf.getImpl() + ": Initializing partition function for " + KSAbstract.list1D2String(pf.getSequence(), " ") + " " + pf.getFlexibility());
 			pf.start();
 		}
 
 		if( pf.getEpsilonStatus() == EApproxReached.FALSE ) {
 			if(complete) {
-				System.out.println("\n" + pf.getImpl() + ": Computing partition function for " + KSAbstract.list1D2String(pf.getSequence(), " "));
+				System.out.println("\n" + pf.getImpl() + ": Computing partition function for " + KSAbstract.list1D2String(pf.getSequence(), " ") + " " + pf.getFlexibility());
 				pf.runToCompletion();
 			}
 
 			else {
-				System.out.println("\n" + pf.getImpl() + ": Resuming partition function for " + KSAbstract.list1D2String(pf.getSequence(), " "));
+				System.out.println("\n" + pf.getImpl() + ": Resuming partition function for " + KSAbstract.list1D2String(pf.getSequence(), " ") + " " + pf.getFlexibility());
 				pf.runSlice(KSAbstract.checkpointInterval);
 			}
 		}
 
 		if( pf.getEpsilonStatus() != EApproxReached.FALSE )
-			System.out.println("\n" + pf.getImpl() + ": Completed partition function for " + KSAbstract.list1D2String(pf.getSequence(), " ") + "\n");
+			System.out.println("\n" + pf.getImpl() + ": Completed partition function for " + KSAbstract.list1D2String(pf.getSequence(), " ")  + " " + pf.getFlexibility() + "\n");
 		
 		if( getEpsilonStatus() == EApproxReached.NOT_POSSIBLE ) return;
 
 		if( stabilityCheck && !unboundIsStable(wtPF, pf) ) {
 			pf.setEpsilonStatus( EApproxReached.NOT_STABLE );
-			System.out.println("\nSequence " + KSAbstract.list1D2String(pf.getSequence(), " ") + " is unstable\n");
+			System.out.println("\nSequence " + KSAbstract.list1D2String(pf.getSequence(), " ") + " " + pf.getFlexibility() + " is unstable\n");
 			return;
 		}
 

@@ -12,6 +12,7 @@ import java.util.stream.IntStream;
 
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
+import edu.duke.cs.osprey.kstar.pfunc.impl.PFTrad;
 import edu.duke.cs.osprey.kstar.pfunc.impl.PFnew00;
 
 /*
@@ -183,8 +184,8 @@ public class KAStarNode {
 
 		if(children.size() > 0) {
 
-			// computeScoresSimple(children);
-			computeScoresParallel(children);
+			computeScoresSimple(children);
+			// computeScoresParallel(children);
 
 			// remove children whose upper bound epsilon values are not false
 			for( Iterator<KAStarNode> iterator = children.iterator(); iterator.hasNext(); ) {
@@ -198,7 +199,7 @@ public class KAStarNode {
 						PFAbstract pf = child.ub.getPF(strand);
 
 						if( pf.getEpsilonStatus() == EApproxReached.NOT_POSSIBLE && pf.getNumUnPruned().compareTo(BigInteger.ZERO) != 0 ) {
-							System.out.println("ERROR: " + KSAbstract.list1D2String( pf.getSequence(), " " ) + " is wrong!!!");
+							System.out.println("ERROR: " + KSAbstract.list1D2String( pf.getSequence(), " " )  + " " + pf.getFlexibility() + " is wrong!!!");
 						}
 
 						if( pf.getEpsilonStatus() == EApproxReached.NOT_STABLE || 
@@ -437,11 +438,11 @@ public class KAStarNode {
 		ArrayList<ArrayList<String>> strandSeqs = new ArrayList<>(Arrays.asList(null, null, null));
 		// lower bound pf values
 		ArrayList<Boolean> lbContSCFlexVals = new ArrayList<>(Arrays.asList(false, false, true));
-		ArrayList<String> lbPFImplVals = new ArrayList<>(Arrays.asList(PFAbstract.getCFGImpl(), PFAbstract.getCFGImpl(), new PFnew00().getImpl()));
+		ArrayList<String> lbPFImplVals = new ArrayList<>(Arrays.asList(new PFTrad().getImpl(), new PFTrad().getImpl(), new PFnew00().getImpl()));
 
 		// upper bound pf values
 		ArrayList<Boolean> ubContSCFlexVals = new ArrayList<>(Arrays.asList(true, true, false));
-		ArrayList<String> ubPFImplVals = new ArrayList<>(Arrays.asList(new PFnew00().getImpl(), new PFnew00().getImpl(), PFAbstract.getCFGImpl()));
+		ArrayList<String> ubPFImplVals = new ArrayList<>(Arrays.asList(new PFnew00().getImpl(), new PFnew00().getImpl(), new PFTrad().getImpl()));
 
 		// minimized pf values
 		ArrayList<Boolean> tightContSCFlexVals = new ArrayList<>(Arrays.asList(true, true, true));

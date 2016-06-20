@@ -26,11 +26,12 @@ public class PFNew04 extends PFNew03 implements Serializable {
 		super();
 	}
 
-	public PFNew04( int strand, ArrayList<String> sequence, ArrayList<Integer> flexResIndexes, 
-			String checkPointPath, String searchProblemName, 
-			ConfigFileParser cfp, SearchProblem panSeqSP ) {
+	public PFNew04( int strand, ArrayList<String> sequence, 
+			ArrayList<Integer> absolutePos, 
+			String checkPointPath, String reducedSPName, 
+			ConfigFileParser cfp, SearchProblem panSP ) {
 
-		super( strand, sequence, flexResIndexes, checkPointPath, searchProblemName, cfp, panSeqSP );
+		super( strand, sequence, absolutePos, checkPointPath, reducedSPName, cfp, panSP );
 	}
 
 	public void start() {
@@ -72,7 +73,7 @@ public class PFNew04 extends PFNew03 implements Serializable {
 			}
 
 			for( ServerInterface serverInterface : serverInterfaces ) {
-				serverInterface.initFibers(qSP);
+				serverInterface.initFibers(reducedSP);
 			}
 
 			unProcessedConfs.clear();

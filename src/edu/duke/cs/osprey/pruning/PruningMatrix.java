@@ -128,24 +128,40 @@ public class PruningMatrix extends TupleMatrix<Boolean> implements Serializable 
 	}
 
 
-	public long getNumRCsAtPosForAAType( ConfSpace confSpace, int pos, String AAType, boolean usePruned ) {
-		return getRCsAtPosForAAType( confSpace, pos, AAType, usePruned ).size();
+	/*
+	public long getNumRCsForAATypesAtPos( ConfSpace confSpace, int pos, ArrayList<String> AATypesAtPos, boolean usePruned ) {
+		return getRCsForAATypesAtPos( confSpace, pos, AATypesAtPos, usePruned ).size();
 	}
-	
-	
-	public ArrayList<Integer> getRCsAtPosForAAType( ConfSpace confSpace, int pos, String AAType, boolean usePruned ) {
 
-		ArrayList<Integer> ans = usePruned ? prunedRCsAtPos(pos) : unprunedRCsAtPos(pos);
+
+	public ArrayList<Integer> getRCsForAATypesAtPos( ConfSpace confSpace, int pos, ArrayList<String> AATypesAtPos, boolean usePruned ) {
 		
+		ArrayList<Integer> ans = usePruned ? prunedRCsAtPos(pos) : unprunedRCsAtPos(pos);
+
 		for( Iterator<Integer> iterator = ans.iterator(); iterator.hasNext(); ) {
 			int RCNum = iterator.next();
-			if(!confSpace.posFlex.get(pos).RCs.get(RCNum).AAType.equalsIgnoreCase(AAType))
+			if( !AATypesAtPos.contains( confSpace.posFlex.get(pos).RCs.get(RCNum).AAType ) )
 				iterator.remove();
 		}
 
 		return ans;
 	}
-
+	
+	
+	public ArrayList<String> getAAsAtPos( ConfSpace confSpace, int pos, boolean usePruned ) {
+		ArrayList<String> ans = new ArrayList<>();
+		
+		ArrayList<Integer> rcs = usePruned ? prunedRCsAtPos(pos) : unprunedRCsAtPos(pos);
+		if(rcs.size() > 0) {
+			for(int RCNum : rcs) {
+				String aaType = confSpace.posFlex.get(pos).RCs.get(RCNum).AAType;
+				if(!ans.contains(aaType)) ans.add(aaType);
+			}
+		}
+		
+		return ans;
+	}
+	*/
 
 	public boolean isPruned(RCTuple tup){
 		//can be prune per se, or check if some singles in it are pruned, or pairs, etc.
@@ -272,5 +288,5 @@ public class PruningMatrix extends TupleMatrix<Boolean> implements Serializable 
 		TupleMatrix<Boolean> tmat = super.singleSeqMatrix(seq, flexPos, origConfSpace);
 		return new PruningMatrix(tmat);
 	}
-	*/
+	 */
 }

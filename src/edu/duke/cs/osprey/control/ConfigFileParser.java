@@ -294,13 +294,6 @@ public class ConfigFileParser implements Serializable {
 	}
 
 
-	public PruningControl getPruningControl(SearchProblem searchSpace, double pruningInterval, boolean useEPIC, boolean useTupExp) {
-		//setup pruning.  Conformations in searchSpace more than curEw over the GMEC are liable to pruning
-
-		return setupPruning(searchSpace, pruningInterval, useEPIC, useTupExp);
-	}
-
-
 	DEEPerSettings setupDEEPer() {
 		//Set up the DEEPerSettings object, including the PertSet (describes the perturbations)
 		String runName = params.getValue("runName");
@@ -344,6 +337,10 @@ public class ConfigFileParser implements Serializable {
 
 		// remove residues not in this strand
 		Termini limits = getStrandLimits(strand);
+		
+		// perturbation file is by strand
+		ObjectIO.delete(params.getRunSpecificFileName("perturbationFile", ".pert"));
+		
 		dset.loadPertFile(limits);//load the PertSet from its file
 		return dset;
 	}

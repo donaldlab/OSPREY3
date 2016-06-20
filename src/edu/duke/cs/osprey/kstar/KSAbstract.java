@@ -8,6 +8,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Scanner;
 import java.util.concurrent.ConcurrentHashMap;
+
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
@@ -49,8 +50,6 @@ public abstract class KSAbstract implements KSInterface {
 	private boolean useERef;
 	private boolean addResEntropy;
 
-	//protected boolean prunedSingleSeqs = false;
-	public static boolean preLoadPFs = false;
 	public static boolean doCheckPoint = false;
 	protected static long checkpointInterval = 50000;
 
@@ -62,7 +61,7 @@ public abstract class KSAbstract implements KSInterface {
 		this.cfp = cfp;
 
 		EW = cfp.getParams().getDouble("Ew",0);
-		I0 = cfp.getParams().getBool("imindee",false) ? cfp.getParams().getDouble("Ival",5) : 0;
+		I0 = cfp.getParams().getDouble("Ival", 5);
 		pdbName = cfp.getParams().getValue("PDBNAME");
 		useEPIC = cfp.getParams().getBool("UseEPIC");
 		useTupExp = cfp.getParams().getBool("UseTupExp");
@@ -70,9 +69,6 @@ public abstract class KSAbstract implements KSInterface {
 		useERef = cfp.getParams().getBool("useERef");
 		addResEntropy = cfp.getParams().getBool("AddResEntropy");
 	}
-
-
-	protected abstract void preLoadPFs(ArrayList<Boolean> contSCFlexVals);
 
 
 	public int getNumSeqsCompleted(int increment) {
@@ -99,10 +95,6 @@ public abstract class KSAbstract implements KSInterface {
 	public void createEmats(ArrayList<Boolean> contSCFlexVals) {
 		// for now, only the pan seqSPs have energy matrices in the file system
 		preparePanSeqSPs(contSCFlexVals);
-
-		// for benchmarking, prepare these ahead of time
-		// only single sequences are loaded and pruned this time
-		if(preLoadPFs) preLoadPFs(contSCFlexVals);
 	}
 
 
@@ -212,17 +204,19 @@ public abstract class KSAbstract implements KSInterface {
 			long begin = System.currentTimeMillis();
 
 			name2SP.keySet().parallelStream().forEach(key -> {
+			//for( String key : name2SP.keySet() ) {
 
 				SearchProblem sp = name2SP.get(key);
 
 				// single seq matrices created using the fast construction 
 				// method are already pruned according to the pruning window
 				if(sp.getEnergyMatrix() == null) {
-					PruningControl pc = cfp.getPruningControl(sp, EW+I0, useEPIC, useTupExp);
-					//PruningControl pc = cfp.getPruningControl(sp, 100, useEPIC, useTupExp); // use large pruning window
 					sp.loadEnergyMatrix(sp.getMatrixType());
-					pc.prune();
+					// prune() sets pruning matrix
+					cfp.setupPruning(sp, EW+I0, useEPIC, useTupExp).prune();
+					sp.inverseMat = sp.getInvertedFromUnreducedPruningMatrix(sp);
 				}
+			//}
 			});
 
 			System.out.println("\nFinished creating and pruning energy matrices");
@@ -245,12 +239,12 @@ public abstract class KSAbstract implements KSInterface {
 
 			name2PF.keySet().parallelStream().forEach(key -> {
 
-				SearchProblem sp = name2PF.get(key).getSearchProblem();
+				SearchProblem sp = name2PF.get(key).getReducedSearchProblem();
 
 				// single seq matrices created using the fast construction 
 				// method are already pruned according to the pruning window
 				if(sp.getEnergyMatrix() == null) {
-					PruningControl pc = cfp.getPruningControl(sp, EW+I0, useEPIC, useTupExp); 
+					PruningControl pc = cfp.setupPruning(sp, EW+I0, useEPIC, useTupExp); 
 					sp.loadEnergyMatrix(sp.getMatrixType());
 					pc.prune();
 				}
@@ -299,7 +293,7 @@ public abstract class KSAbstract implements KSInterface {
 		for(int i = 0; i < strands.size(); i++) indexes.add(i);
 
 		indexes.parallelStream().forEach((index) -> {
-			//for(int index = 0; index < strands.size(); ++index) {
+		//for(int index = 0; index < strands.size(); ++index) {
 
 			int strand = strands.get(index);
 			boolean contSCFlex = contSCFlexVals.get(strand);
@@ -309,7 +303,7 @@ public abstract class KSAbstract implements KSInterface {
 			PFAbstract pf = createPF4Seq(contSCFlex, strand, seq, pfImpl);
 
 			// put partition function in global map
-			name2PF.put(pf.getSearchProblemName(), pf);
+			name2PF.put(pf.getReducedSearchProblemName(), pf);
 
 			// put in local map
 			ans.put(strand, pf);
@@ -318,22 +312,20 @@ public abstract class KSAbstract implements KSInterface {
 			if( pf.getRunState() == RunState.NOTSTARTED ) {
 
 				// get energy matrix
-				if(pf.getSearchProblem().getEnergyMatrix() == null) {
-					pf.getSearchProblem().loadEnergyMatrix(pf.getSearchProblem().getMatrixType());
+				if(pf.getReducedSearchProblem().getEnergyMatrix() == null) {
+					pf.getReducedSearchProblem().loadEnergyMatrix(pf.getReducedSearchProblem().getMatrixType());
 				}
 				
-				// re-prune, since we have fewer witnesses now that we have trimmed the emat
-				pf.getSearchProblem().pruneMat.setPruningInterval(0);
-				pf.getPruningControl(EW+I0).prune();
-				pf.getSearchProblem().pruneMat.setPruningInterval(EW+I0);
-
-				if(pf.getSearchProblem().numConfs(false).compareTo(BigInteger.ZERO) == 0) {
+				// re-prune, since we have fewer witnesses now that we have trimmed the emat?
+				// type dependent pruning doesn't take care of this?
+				
+				if(pf.getReducedSearchProblem().numConfs(pf.getReducedPruningMatrix()).compareTo(BigInteger.ZERO) == 0) {
 					// no conformations in search space, so this cannot give a valid
 					// partition function
 					pf.setEpsilonStatus(EApproxReached.NOT_POSSIBLE);
 
 					System.out.println("\nWARNING: there are no valid conformations for sequence " + 
-							KSAbstract.list1D2String(pf.getSequence(), " "));
+							KSAbstract.list1D2String(pf.getSequence(), " ") + " " + pf.getFlexibility() + "\n");
 				}
 
 				else {	
@@ -342,7 +334,7 @@ public abstract class KSAbstract implements KSInterface {
 					pf.setNumPruned();
 				}
 			}
-			//}
+		//}
 		});
 
 		if(ans.size() != 3)
@@ -496,7 +488,7 @@ public abstract class KSAbstract implements KSInterface {
 	protected BigInteger countMinimizedConfs() {
 
 		BigInteger ans = BigInteger.ZERO;
-		for(PFAbstract pf : name2PF.values()) ans = ans.add(pf.getNumMinimized4Output());
+		for(PFAbstract pf : name2PF.values()) ans = ans.add(pf.getMinimizedConfsSetSize());
 		return ans;
 	}
 
@@ -569,7 +561,7 @@ public abstract class KSAbstract implements KSInterface {
 
 		if( doCheckPoint ) {
 			pf = calc.getPF(Termini.COMPLEX);
-			name2PF.remove(pf.getSearchProblemName());
+			name2PF.remove(pf.getReducedSearchProblemName());
 			calc.deleteSeqFromFile( pf.getSequence(), getCheckPointFilePath() );
 			calc.serializePFs();
 		}

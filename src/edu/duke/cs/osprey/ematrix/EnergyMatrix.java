@@ -24,6 +24,9 @@ public class EnergyMatrix extends TupleMatrix<Double> implements Serializable {
     //we may want to have reference energies associated with this matrix
     ReferenceEnergies eRefMat = null;
     
+    public EnergyMatrix() {
+    	super();
+    }
     
     public EnergyMatrix(TupleMatrix<Double> tupleMatrix) {
     	super(tupleMatrix.higherTerms, tupleMatrix.pairwise, tupleMatrix.oneBody);

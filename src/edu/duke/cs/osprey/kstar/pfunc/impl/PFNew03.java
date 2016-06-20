@@ -30,11 +30,12 @@ public class PFNew03 extends PFNew02 implements Serializable {
 		super();
 	}
 	
-	public PFNew03( int strand, ArrayList<String> sequence, ArrayList<Integer> flexResIndexes, 
-			String checkPointPath, String searchProblemName, 
-			ConfigFileParser cfp, SearchProblem panSeqSP ) {
+	public PFNew03( int strand, ArrayList<String> sequence, 
+			ArrayList<Integer> absolutePos, 
+			String checkPointPath, String reducedSPName, 
+			ConfigFileParser cfp, SearchProblem panSP ) {
 
-		super( strand, sequence, flexResIndexes, checkPointPath, searchProblemName, cfp, panSeqSP );
+		super( strand, sequence, absolutePos, checkPointPath, reducedSPName, cfp, panSP );
 	}
 
 
@@ -56,7 +57,7 @@ public class PFNew03 extends PFNew02 implements Serializable {
 		slaves.clear();
 		for( int i = 0; i < fibers; ++i ) {
 
-			ArrayList<SearchProblem> sps = parallelCreateSPs(qSP, threadsPerFiber);
+			ArrayList<SearchProblem> sps = parallelCreateSPs(reducedSP, threadsPerFiber);
 
 			slaves.add( new MinimizerFiber( sps, threadsPerFiber, confsPerThread ) );
 

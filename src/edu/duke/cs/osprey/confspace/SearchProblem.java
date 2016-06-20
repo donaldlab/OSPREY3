@@ -4,19 +4,20 @@
  */
 package edu.duke.cs.osprey.confspace;
 
-import edu.duke.cs.osprey.astar.comets.UpdatedPruningMatrix;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.EnergyMatrixCalculator;
-import edu.duke.cs.osprey.ematrix.TermECalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
-import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.Termini;
+import edu.duke.cs.osprey.kstar.emat.ReducedEnergyMatrix;
+import edu.duke.cs.osprey.kstar.pruning.InvertedPruningMatrix;
+import edu.duke.cs.osprey.kstar.pruning.ReducedPruningMatrix;
+import edu.duke.cs.osprey.kstar.pruning.UnprunedPruningMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -58,13 +59,17 @@ public class SearchProblem implements Serializable {
 	public String name;//a human-readable name, which will also be used to name stored energy matrices, etc.
 
 	public PruningMatrix pruneMat;
+	public ReducedPruningMatrix reducedMat;
+	public InvertedPruningMatrix inverseMat;
 
 	public boolean addWT;
 
 	public boolean contSCFlex;
 
-	public ArrayList<String> flexibleRes;
-	public ArrayList<ArrayList<String>> allowedAAs;
+	public ArrayList<String> flexibleRes = null;
+	public ArrayList<ArrayList<String>> allowedAAs = null;
+	public ArrayList<ArrayList<String>> reducedAllowedAAs = null;
+	public ArrayList<Integer> posNums = null;
 	public String PDBFile;
 
 	public DEEPerSettings dset;
@@ -107,14 +112,19 @@ public class SearchProblem implements Serializable {
 	}
 
 
-	public SearchProblem(SearchProblem origSP, String newSPName, ArrayList<String> newSPSeq, 
-			ArrayList<String> newSPFlexibleRes) {
+	public SearchProblem(SearchProblem origSP, 
+			String newSPName, 
+			ArrayList<ArrayList<String>> reducedAllowedAAs, 
+			ArrayList<String> newFlexibleRes,
+			ArrayList<Integer> newPosNums) {
 
 		name = newSPName;
 
 		// flexible residues are the same
-		allowedAAs = KSAbstract.list1D2ListOfLists(newSPSeq);		
-		flexibleRes = newSPFlexibleRes;
+		this.allowedAAs = origSP.allowedAAs;
+		this.reducedAllowedAAs = reducedAllowedAAs;		
+		flexibleRes = newFlexibleRes;
+		this.posNums = newPosNums;
 		PDBFile = origSP.PDBFile;
 
 		addWT = false;
@@ -122,7 +132,7 @@ public class SearchProblem implements Serializable {
 		useTupExpForSearch = origSP.useTupExpForSearch;
 		useEllipses = origSP.useEllipses;
 		useEPIC = origSP.useEPIC;
-		epicSettings = (EPICSettings) ObjectIO.deepCopy(origSP.epicSettings);
+		epicSettings = origSP.epicSettings;
 
 		useERef = origSP.useERef;
 		addResEntropy = origSP.addResEntropy;
@@ -137,15 +147,13 @@ public class SearchProblem implements Serializable {
 
 		limits = origSP.limits;
 
-		confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, 
-				contSCFlex, dset, moveableStrands, freeBBZones, useEllipses, limits);
+		shellResidues = origSP.shellResidues;
+		fullConfE = origSP.fullConfE;
 
-		//energy function setup
-		EnergyFunctionGenerator eGen = EnvironmentVars.curEFcnGenerator;
-		decideShellResidues(eGen.distCutoff);
-		fullConfE = eGen.fullConfEnergy(confSpace,shellResidues);
+		pruneMat = origSP.pruneMat;
+		competitorPruneMat = origSP.competitorPruneMat;
 
-		competitorPruneMat = null; // what is this? do i need a new copy one for the sequence?
+		confSpace = origSP.confSpace;
 	}
 
 
@@ -180,8 +188,17 @@ public class SearchProblem implements Serializable {
 		EnergyFunctionGenerator eGen = EnvironmentVars.curEFcnGenerator;
 		decideShellResidues(eGen.distCutoff);
 		fullConfE = eGen.fullConfEnergy(confSpace,shellResidues);
+
+		this.reducedAllowedAAs = allowedAAs;
+		this.posNums = getMaxPosNums();
 	}
 
+
+	public ArrayList<Integer> getMaxPosNums() {
+		ArrayList<Integer> ans = new ArrayList<>(allowedAAs.size());
+		for(int i = 0; i < allowedAAs.size(); ++i) ans.add(i);
+		return ans;
+	}
 
 	public void mergeResiduePositions(int... posToCombine) {
 
@@ -502,73 +519,163 @@ public class SearchProblem implements Serializable {
 		}
 	}
 
-	
-	public UpdatedPruningMatrix updatePruneMat( ArrayList<String> seq, ArrayList<Integer> positions ) {
+
+	public InvertedPruningMatrix getInvertedFromUnreducedPruningMatrix(SearchProblem sp) {
+		ReducedPruningMatrix unreduced = new ReducedPruningMatrix(this);
+
+		// invert the QStar pruneMat
+		InvertedPruningMatrix ans = new InvertedPruningMatrix(sp, unreduced.getUpdatedPruningMatrix());
+
+		// throw exception if there is a sequence mismatch
+		if(!pruneMatIsValid(ans))
+			throw new RuntimeException("ERROR: pruning did not reduce RCs to sequence space of allowedAAs");
+		
+		BigInteger numConfs = numConfs(ans);
+		return numConfs.compareTo(BigInteger.ZERO) == 0 ? null : ans;
+	}
+
+
+	public InvertedPruningMatrix getInvertedFromReducedPruningMatrix(SearchProblem sp) {
+
+		// invert the QStar pruneMat
+		InvertedPruningMatrix ans = new InvertedPruningMatrix(sp,
+				((ReducedPruningMatrix)sp.reducedMat).getUpdatedPruningMatrix());
+
+		// throw exception if there is a sequence mismatch
+		if(!pruneMatIsValid(ans))
+			throw new RuntimeException("ERROR: pruning did not reduce RCs to sequence space of allowedAAs");
+
+		BigInteger numConfs = numConfs(ans);
+		return numConfs.compareTo(BigInteger.ZERO) == 0 ? null : ans;
+	}
+
+
+	public UnprunedPruningMatrix getUnprunedPruningMatrix( SearchProblem sp, double pruningInterval ) {
+
+		// invert the QStar pruneMat
+		UnprunedPruningMatrix ans = new UnprunedPruningMatrix( sp, sp.reducedMat.getUpdatedPruningMatrix(), pruningInterval );
+
+		// throw exception if there is a sequence mismatch
+		if(!pruneMatIsValid(ans))
+			throw new RuntimeException("ERROR: pruning did not reduce RCs to sequence space of allowedAAs");
+
+		BigInteger numConfs = numConfs(ans);
+		return numConfs.compareTo(BigInteger.ZERO) == 0 ? null : ans;
+	}
+
+
+	protected ReducedPruningMatrix getReducedPruningMatrix( SearchProblem sp ) {
+		// see comets tree.dochildpruning
+
 		// updated pruning matrix consists of rcs from this sequence only
-		UpdatedPruningMatrix ans = new UpdatedPruningMatrix(pruneMat);
-		// prune all residues for other AA types
-		for( int pos : positions ) {
-			for( int rc : pruneMat.unprunedRCsAtPos(pos) ) {
+		ReducedPruningMatrix ans = new ReducedPruningMatrix(this);
+
+		// 1
+		// prune all residues for other AA types at positions corresponding to this sequence
+		for( int pos : posNums ) {
+			for( int rc : sp.pruneMat.unprunedRCsAtPos(pos) ) {
 				String rcAAType = confSpace.posFlex.get(pos).RCs.get(rc).AAType;
-				
-				if( !rcAAType.equalsIgnoreCase(seq.get(pos)) ) {
-					ans.markAsPruned(new RCTuple(pos,rc));
-				}
+				if( !reducedAllowedAAs.get(posNums.indexOf(pos)).contains(rcAAType) ) 
+					ans.getUpdatedPruningMatrix().markAsPruned(new RCTuple(pos,rc));
 			}
 		}
-		
-		return ans;
-	}
-	
 
-	public SearchProblem singleSeqSearchProblem(String name, ArrayList<String> seq, 
-			ArrayList<String> flexRes, ArrayList<Integer> positions) {
+		// 2
+		// prune all at positions not corresponding to this sequence
+		for( int pos = 0; pos < sp.pruneMat.numPos(); ++pos ) {
+			if(posNums.contains(pos)) continue;
+			for( int rc : sp.pruneMat.unprunedRCsAtPos(pos) ) 
+				ans.getUpdatedPruningMatrix().markAsPruned(new RCTuple(pos,rc));
+		}
+
+		// throw exception if there is a sequence mismatch
+		if(!pruneMatIsValid(ans))
+			throw new RuntimeException("ERROR: pruning did not reduce RCs to sequence space of allowedAAs");
+
+		BigInteger numConfs = numConfs(ans);
+		return numConfs.compareTo(BigInteger.ZERO) == 0 ? null : ans;
+	}
+
+
+	public SearchProblem getReducedSearchProblem( String name, 
+			ArrayList<ArrayList<String>> allowedAAs, 
+			ArrayList<String> flexRes, 
+			ArrayList<Integer> posNums) {
 
 		// Create a version of the search problem restricted to the specified sequence (list of amino acid names)
 		// the constructor creates a new confspace object
-		SearchProblem seqSP = new SearchProblem(this, name, seq, flexRes);
+		SearchProblem reducedSP = new SearchProblem(this, name, allowedAAs, flexRes, posNums);
 
-		/*
-		seqSP.setEnergyMatrix( getEnergyMatrix().singleSeqMatrix(seq, flexResIndexes, confSpace) );
-		seqSP.emat.setConstTerm( emat.getConstTerm() );
+		reducedSP.reducedMat = reducedSP.getReducedPruningMatrix(reducedSP); // for q*, q'
+		reducedSP.inverseMat = reducedSP.getInvertedFromReducedPruningMatrix(reducedSP); // for p*
 
-		seqSP.pruneMat = pruneMat.singleSeqMatrix(seq, flexResIndexes, confSpace);
-		seqSP.pruneMat.setPruningInterval(pruneMat.getPruningInterval());
-		*/
-		
-		seqSP.pruneMat = updatePruneMat(seq, positions);
-		seqSP.setEnergyMatrix(emat);
-		return seqSP;
+		return reducedSP;
 	}
 
 
-	public BigInteger numConfs(boolean countPruned) {
+	private ArrayList<String> getAAsAtPos( PruningMatrix pruneMat, int pos ) {
+		ArrayList<String> ans = new ArrayList<>();
 
-		if( pruneMat == null ) return BigInteger.ZERO;
-
-		BigInteger numConfs = BigInteger.ONE;
-
-		for( int pos = 0; pos < pruneMat.numPos(); ++pos ) {
-			long numRCs = 0;
-			
-			for( ArrayList<String> aasAtPos : allowedAAs ) {
-				for( String AAType : aasAtPos ) {
-					numRCs += pruneMat.getNumRCsAtPosForAAType(confSpace, pos, AAType, countPruned);
-				}
-			}
-
-			if(numRCs == 0) return BigInteger.ZERO;
-			numConfs = numConfs.multiply( BigInteger.valueOf( numRCs ) );
+		ArrayList<Integer> rcsAtPos = pruneMat.unprunedRCsAtPos(pos);
+		for( int RCNum : rcsAtPos ) {
+			int pos1 = posNums.get(pos);
+			String AAType = confSpace.posFlex.get(pos1).RCs.get(RCNum).AAType;
+			if(!ans.contains(AAType)) ans.add(AAType);
 		}
 
-		return numConfs;
+		return ans;
 	}
 
 
-	public boolean isSingleSeq() {
-		for(ArrayList<String> residues : allowedAAs)
-			if(residues.size() > 1) return false;
+	private ArrayList<ArrayList<String>> getAAsAtPos( PruningMatrix pruneMat ) {
+		ArrayList<ArrayList<String>> ans = new ArrayList<>();
+
+		for( int pos = 0; pos < pruneMat.numPos(); ++pos )
+			ans.add(getAAsAtPos(pruneMat, pos));
+
+		return ans;
+	}
+
+
+	private boolean pruneMatIsValid( PruningMatrix pruneMat ) {
+
+		ArrayList<ArrayList<String>> pruneMatAAs = getAAsAtPos(pruneMat);
+
+		if(pruneMatAAs.size() != reducedAllowedAAs.size()) 
+			return false;
+
+		for(int pos = 0; pos < reducedAllowedAAs.size(); ++pos) {
+			for(String aaAtPos : pruneMatAAs.get(pos)) {
+				if(!reducedAllowedAAs.get(pos).contains(aaAtPos))
+					return false;
+			}
+		}
+
 		return true;
 	}
 
+
+	public BigInteger numConfs( PruningMatrix pruneMat ) {
+
+		if( pruneMat == null ) return BigInteger.ZERO;
+
+		BigInteger ans = BigInteger.ONE;
+
+		for( int pos = 0; pos < pruneMat.numPos(); ++pos ) {
+			long numRCs = pruneMat.unprunedRCsAtPos(pos).size();
+			if(numRCs == 0) return BigInteger.ZERO;
+			ans = ans.multiply( BigInteger.valueOf( numRCs ) );
+		}
+
+		return ans;
+	}
+
+
+	public EnergyMatrix getReducedEnergyMatrix() {
+		// i only use this for partial sequences
+		if(posNums.size() == confSpace.numPos)
+			return emat;
+
+		return new ReducedEnergyMatrix(this, emat);
+	}
 }

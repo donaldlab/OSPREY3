@@ -41,36 +41,6 @@ public class KSImplLinear extends KSAbstract {
 	}
 
 
-	protected void preLoadPFs( ArrayList<Boolean> contSCFlexVals ) {
-
-		try {
-			
-			for( boolean contSCFlex : contSCFlexVals ) {
-				
-				for( int strand : Arrays.asList( Termini.COMPLEX, Termini.PROTEIN, Termini.LIGAND ) ) {
-					
-					HashSet<ArrayList<String>> seqs = new HashSet<>(strand2AllowedSeqs.get(strand).getStrandSeqList());
-					
-					seqs.parallelStream().forEach(seq -> {
-						
-						PFAbstract pf = createPF4Seq(contSCFlex, strand, seq, PFAbstract.getCFGImpl());
-						
-						// put partition function in list, so we can parallelize energy matrix computation
-						name2PF.put(pf.getSearchProblemName(), pf);
-					});
-				}
-			}
-
-			loadAndPruneMatricesFromPFMap(); 
-
-		} catch (Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
-		}
-	}
-
-
 	@Override
 	public String getKSMethod() {
 		return "linear";
@@ -94,7 +64,7 @@ public class KSImplLinear extends KSAbstract {
 		// print statistics
 		System.out.println("\nK* calculations computed: " + getNumSeqsCompleted(0));
 		System.out.println("Total # sequences: " + strand2AllowedSeqs.get(Termini.COMPLEX).getNumSeqs());
-		System.out.println("K* conformations minimized: " + countMinimizedConfs());
+		System.out.println("K* conformations processed: " + countMinimizedConfs());
 		System.out.println("Total # of conformations in search space: " + countTotNumConfs());
 		System.out.println("K* running time: " + (System.currentTimeMillis()-getStartTime())/1000 + " seconds\n");
 	}
@@ -209,7 +179,7 @@ public class KSImplLinear extends KSAbstract {
 
 				else {
 					// remove partition funtion from memory, write checkpoint
-					name2PF.remove(pf.getSearchProblemName());
+					name2PF.remove(pf.getReducedSearchProblemName());
 					calc.serializePF(Termini.COMPLEX);
 					calc.printSummary( getCheckPointFilePath(), getStartTime(), getNumSeqsCompleted(0) );
 				}
