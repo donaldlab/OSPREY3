@@ -282,7 +282,7 @@ public abstract class PFAbstract implements Serializable {
 		for(int pos = 0; pos < numPos; ++pos) undefinedPos.add(pos);
 		undefinedPos.removeAll(absolutePos);
 
-		boolean minimizeProduct = panSP.contSCFlex ? false : true;
+		boolean minimizeProduct = isContinuous() ? false : true;
 
 		for( int pos : undefinedPos ) {
 
@@ -355,24 +355,6 @@ public abstract class PFAbstract implements Serializable {
 			bound = ((KAStarConfTree)confSearch).confBound(conf);
 
 		return bound;
-	}
-
-
-	protected boolean confsExist( PruningMatrix singleSeqPruneMat, PruningMatrix panSeqPruneMat ) {
-		boolean singleSeqPrunedConfsExist = reducedSP.numConfs(singleSeqPruneMat).compareTo(BigInteger.ZERO) > 0;
-
-		if(!singleSeqPrunedConfsExist) 
-			return false;
-
-		if( isFullyDefined() )
-			return singleSeqPrunedConfsExist;
-
-		if(panSeqPruneMat == null)
-			throw new RuntimeException("ERROR: panSeqPruneMat cannot be null for a partially defined sequence");
-
-		boolean panSeqPrunedConfsExist = panSP.numConfs(panSeqPruneMat).compareTo(BigInteger.ZERO) > 0;
-
-		return singleSeqPrunedConfsExist && panSeqPrunedConfsExist;
 	}
 
 

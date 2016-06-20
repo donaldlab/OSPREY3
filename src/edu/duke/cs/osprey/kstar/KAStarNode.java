@@ -184,8 +184,8 @@ public class KAStarNode {
 
 		if(children.size() > 0) {
 
-			computeScoresSimple(children);
-			// computeScoresParallel(children);
+			//computeScoresSimple(children);
+			computeScoresParallel(children);
 
 			// remove children whose upper bound epsilon values are not false
 			for( Iterator<KAStarNode> iterator = children.iterator(); iterator.hasNext(); ) {
@@ -238,33 +238,6 @@ public class KAStarNode {
 
 			AllowedSeqs.deleteFromSet(seq, set);
 			numPruned += (oldSize - set.size());
-		}
-	}
-
-
-	protected void computeScoresSimple(ArrayList<KAStarNode> children) {
-
-		if(children.size() == 0) return;
-
-		boolean parallel = false;
-
-		if(isUnique(children) && children.size() > 1)
-			parallel = true;
-
-		if(parallel) {
-			children.parallelStream().forEach( child -> {
-
-				if(!child.isFullyProcessed()) 
-					computeScore(child);
-			});
-		}
-
-		else {
-			for(KAStarNode child : children) {
-
-				if(!child.isFullyProcessed()) 
-					computeScore(child);
-			}
 		}
 	}
 
@@ -322,6 +295,33 @@ public class KAStarNode {
 		}
 	}
 
+	
+	protected void computeScoresSimple(ArrayList<KAStarNode> children) {
+
+		if(children.size() == 0) return;
+
+		boolean parallel = false;
+
+		if(isUnique(children) && children.size() > 1)
+			parallel = true;
+
+		if(parallel) {
+			children.parallelStream().forEach( child -> {
+
+				if(!child.isFullyProcessed()) 
+					computeScore(child);
+			});
+		}
+
+		else {
+			for(KAStarNode child : children) {
+
+				if(!child.isFullyProcessed()) 
+					computeScore(child);
+			}
+		}
+	}
+	
 
 	protected void computeScoresParallel( ArrayList<KAStarNode> children ) {
 

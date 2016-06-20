@@ -58,9 +58,9 @@ public class SearchProblem implements Serializable {
 
 	public String name;//a human-readable name, which will also be used to name stored energy matrices, etc.
 
-	public PruningMatrix pruneMat;
-	public ReducedPruningMatrix reducedMat;
-	public InvertedPruningMatrix inverseMat;
+	public PruningMatrix pruneMat = null;
+	public ReducedPruningMatrix reducedMat = null;
+	public InvertedPruningMatrix inverseMat = null;
 
 	public boolean addWT;
 
@@ -607,7 +607,9 @@ public class SearchProblem implements Serializable {
 		SearchProblem reducedSP = new SearchProblem(this, name, allowedAAs, flexRes, posNums);
 
 		reducedSP.reducedMat = reducedSP.getReducedPruningMatrix(reducedSP); // for q*, q'
-		reducedSP.inverseMat = reducedSP.getInvertedFromReducedPruningMatrix(reducedSP); // for p*
+		
+		if(reducedSP.reducedMat != null)
+			reducedSP.inverseMat = reducedSP.getInvertedFromReducedPruningMatrix(reducedSP); // for p*
 
 		return reducedSP;
 	}

@@ -26,7 +26,7 @@ doKStarCheckpoint false
 kStarCheckpoint 10
 kStarPhase2Method fast
 
-numMutations 1
+numMutations 4
 resAllowed649 PHE TYR ALA VAL ILE LEU
 resAllowed650 ASP GLU
 resAllowed651 GLU ASP
