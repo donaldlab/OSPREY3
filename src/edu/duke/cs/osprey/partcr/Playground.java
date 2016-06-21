@@ -2,7 +2,10 @@ package edu.duke.cs.osprey.partcr;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.TreeMap;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
@@ -29,82 +32,51 @@ import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.HashCalculator;
 import edu.duke.cs.osprey.tools.ObjectIO;
 
 public class Playground extends TestBase {
 	
-	public static class EmatConfig {
-		
-		String pdbPath;
-		int firstRes;
-		int numRes;
-		boolean doMinimize;
-		
-		@Override
-		public boolean equals(Object other) {
-			if (other instanceof EmatConfig) {
-				return equals((EmatConfig)other);
-			}
-			return false;
-		}
-		
-		public boolean equals(EmatConfig other) {
-			return this.pdbPath.equals(other.pdbPath)
-				&& this.firstRes == other.firstRes
-				&& this.numRes == other.numRes
-				&& this.doMinimize == other.doMinimize;
-		}
-		
-		@Override
-		public int hashCode() {
-			return HashCalculator.combineHashes(
-				this.pdbPath.hashCode(),
-				Integer.hashCode(this.firstRes),
-				Integer.hashCode(this.numRes),
-				Boolean.hashCode(this.doMinimize)
-			);
-		}
-	}
-	
 	public static void main(String[] args)
 	throws Exception {
+		
+		// NEXTTIME:
+		// bounds aren't improving fast enough after partitioning, need to figure out why
+		// either the splitting is wrong somehow
+		// or we're picking the wrong RCs to split
+		// or the splits aren't being incorporated into the search problem correctly
 		
 		// config
 		initDefaultEnvironment();
 		
 		MultiTermEnergyFunction.setNumThreads(4);
 		
-		EmatConfig ematConfig = new EmatConfig();
-		ematConfig.pdbPath = "test/DAGK/2KDC.P.forOsprey.pdb";
-		ematConfig.firstRes = 80;
-		ematConfig.numRes = 20;
-		ematConfig.doMinimize = true;
-		
 		// make the search problem
-		ArrayList<String> flexRes = new ArrayList<>();
+		//String aaNames = "ALA VAL LEU ILE PHE TYR TRP CYS MET SER THR LYS ARG HIE HID ASP GLU ASN GLN GLY";
+		String aaNames = "ALA VAL LEU ILE GLU ASN GLN GLY";
+		String flexRes = "38 39 40 41 42 43 44";
+		ArrayList<String> flexResList = new ArrayList<>(Arrays.asList(flexRes.split(" ")));
 		ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
-		for (int i=0; i<ematConfig.numRes; i++) {
-			flexRes.add(Integer.toString(ematConfig.firstRes + i + 1));
-			allowedAAs.add(new ArrayList<String>());
+		for (int i=0; i<flexResList.size(); i++) {
+			allowedAAs.add(new ArrayList<>(Arrays.asList(aaNames.split(" "))));
 		}
+		boolean doMinimize = true;
 		boolean addWt = true;
 		boolean useEpic = false;
 		boolean useTupleExpansion = false;
 		boolean useEllipses = false;
 		boolean useERef = false;
 		boolean addResEntropy = false;
-		boolean addWtRots = true;
+		boolean addWtRots = false;
 		ArrayList<String[]> moveableStrands = new ArrayList<String[]>();
 		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
 		SearchProblem search = new SearchProblem(
-			"test", ematConfig.pdbPath, 
-			flexRes, allowedAAs, addWt, ematConfig.doMinimize, useEpic, new EPICSettings(), useTupleExpansion,
+			"test", "test/1CC8/1CC8.ss.pdb", 
+			flexResList, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion,
 			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots
 		);
 		
 		// compute the energy matrix
-		File ematFile = new File(String.format("/tmp/emat.%d.dat", ematConfig.hashCode()));
+		File ematFile = new File(String.format("/tmp/emat.partcr.dat"));
 		if (ematFile.exists()) {
 			System.out.println("\nReading energy matrix...");
 			search.emat = (EnergyMatrix)ObjectIO.readObject(ematFile.getAbsolutePath(), true);
@@ -146,7 +118,7 @@ public class Playground extends TestBase {
 			System.out.println("Finding min bound GMEC among " + search.confSpace.getNumConformations().doubleValue() + " conformations...");
 			RCs rcs = new RCs(search.pruneMat);
 			AStarOrder order = new StaticScoreHMeanAStarOrder();
-			AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001);
+			AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 4, 0.0001);
 			ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
 			tree.initProgress();
 			int[] minBoundConf = tree.nextConf();
@@ -160,8 +132,8 @@ public class Playground extends TestBase {
 			System.out.println("minimized energy: " + minimizedEnergy);
 			System.out.println("Bound error:      " + boundError);
 			
-			// on the first iteration, enumerate lower bounds to check against PartCR
-			if (i == 0) {
+			// on the first and last iterations, enumerate lower bounds to check against PartCR
+			if (i == 0 || i == numPartCrIters - 1) {
 				System.out.println("lower bounds");
 				System.out.println(minBoundEnergy);
 				for (int j=1; j<numPartCrIters; j++) {
@@ -178,43 +150,60 @@ public class Playground extends TestBase {
 			if (i == numPartCrIters - 1) {
 				break;
 			}
-			
-			// find the pos with the biggest error
-			int bestPos = -1;
-			double bestErr = 0;
+			System.out.println("PartCR iteration " + (i+1));
+
+			// sort all the positions by errors
+			TreeMap<Double,Integer> positionsByError = new TreeMap<>();
 			for (int pos=0; pos<search.confSpace.numPos; pos++) {
-				int res = ematConfig.firstRes + pos;
+				int rot = search.confSpace.posFlex.get(pos).RCs.get(minBoundConf[pos]).rotNum;
 				double posBoundEnergy = getPosBoundEnergy(search.emat, minBoundConf, pos);
 				double posMinEnergy = getPosMinEnergy(search, pos);
 				double posErr = posMinEnergy - posBoundEnergy;
-				System.out.println(String.format("%2d: res=%3d, bound=%10f, energy=%10f, err=%10f",
-					pos, res, posBoundEnergy, posMinEnergy, posErr
+				System.out.println(String.format("pos=%2d, rot=%3d, bound=%10f, energy=%10f, err=%10f",
+					pos, rot, posBoundEnergy, posMinEnergy, posErr
 				));
-				
-				if (posErr > bestErr) {
-					bestErr = posErr;
-					bestPos = pos;
-				}
+				positionsByError.put(posErr, pos);
 			}
-			System.out.println("Pos with largest error: " + bestPos + ", err=" + bestErr);
+			List<Integer> positionsInOrder = new ArrayList<>(positionsByError.values());
+			Collections.reverse(positionsInOrder);
 			
-			// get the rc at that pos
-			RC bestRc = search.confSpace.posFlex.get(bestPos).RCs.get(minBoundConf[bestPos]);
-			//System.out.println(dumpRc(bestRc, "best rc"));
-			
-			// NEXTTIME: the new A* implementation is super fast
+			// the new A* implementation is super fast
 			// which means we can bombard it with tons of new RCs and it won't slow down much
-			// which means we should really aggressive with RC partioning
+			// which means we should really aggressive with RC partitioning
 			// since A* time is basically zero compared to energy calculation time
-			// how about partition the top 20% of worst errors instead of just the top 1?
+			// how about partition the top P% of worst errors instead of just the top 1?
+			int numPosToSplit = search.confSpace.numPos/10; // 10%
+			if (numPosToSplit <= 0) {
+				numPosToSplit = 1;
+			}
 			
-			// partition the rc and update the conf space
-			List<RC> splitRCs = new NAryRCSplitter().split(bestRc);
-			List<Integer> rcMap = search.confSpace.posFlex.get(bestPos).replaceRC(bestRc, splitRCs);
+			// prep the mappings from new rcs to old rcs, to speed up energy matrix calculation
+			List<List<Integer>> rcMaps = new ArrayList<>();
+			for (int j=0; j<search.confSpace.numPos; j++) {
+				rcMaps.add(null);
+			}
+			
+			// split the positions with the worst bounds
+			RCSplitter splitter = new NAryRCSplitter();
+			for (int j=0; j<numPosToSplit; j++) {
+			
+				// get the rc at this pos
+				int pos = positionsInOrder.get(j);
+				PositionConfSpace posConfSpace = search.confSpace.posFlex.get(pos);
+				RC rc = posConfSpace.RCs.get(minBoundConf[pos]);
+				
+				// TEMP
+				System.out.println(String.format("splitting pos=%d, rot=%d", pos, rc.rotNum));
+				
+				// partition the rc and update the conf space
+				List<RC> splitRCs = splitter.split(rc);
+				List<Integer> rcMap = posConfSpace.replaceRC(rc, splitRCs);
+				rcMaps.set(pos, rcMap);
+			}
 			
 			// update energy matrix
 			System.out.println("updating energy matrix...");
-			search.emat = updateEnergyMatrix(search.confSpace, search.emat, search.shellResidues, bestPos, rcMap);
+			search.emat = updateEnergyMatrix(search.confSpace, search.emat, search.shellResidues, rcMaps);
 		}
 		
 		// final report
@@ -228,7 +217,7 @@ public class Playground extends TestBase {
 		}
 	}
 	
-	private static EnergyMatrix updateEnergyMatrix(ConfSpace confSpace, EnergyMatrix oldEmat, ArrayList<Residue> shellResidues, int updatedPos, List<Integer> rcMap) {
+	private static EnergyMatrix updateEnergyMatrix(ConfSpace confSpace, EnergyMatrix oldEmat, ArrayList<Residue> shellResidues, List<List<Integer>> rcMaps) {
 		
 		// copy as many energies as possible from the old matrix
 		// to a new matrix that is sized for the new conf space (with the added rotamers)
@@ -245,8 +234,8 @@ public class Playground extends TestBase {
 
 				// get the old rc1, if any
 				Integer oldRc1 = rc1;
-				if (pos1 == updatedPos) {
-					oldRc1 = rcMap.get(rc1);
+				if (rcMaps.get(pos1) != null) {
+					oldRc1 = rcMaps.get(pos1).get(rc1);
 				}
 				
 				// one-body
@@ -262,8 +251,8 @@ public class Playground extends TestBase {
 						
 						// get the old rc2, if any
 						Integer oldRc2 = rc2;
-						if (pos2 == updatedPos) {
-							oldRc2 = rcMap.get(rc2);
+						if (rcMaps.get(pos2) != null) {
+							oldRc2 = rcMaps.get(pos2).get(rc2);
 						}
 						
 						if (oldRc1 == null || oldRc2 == null) {
