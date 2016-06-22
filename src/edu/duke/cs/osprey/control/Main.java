@@ -4,12 +4,9 @@
  */
 package edu.duke.cs.osprey.control;
 
-import java.util.HashMap;
-import java.util.Map;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.partitionfunctionbounds.SequenceFreeEnergy;
 import edu.duke.cs.osprey.tests.UnitTestSuite;
-import edu.duke.cs.osprey.tools.CreateMatrix;
 
 /**
  *
@@ -92,6 +89,9 @@ public class Main {
             kadee.doKaDEE();
         } else if (command.equalsIgnoreCase("doGumbelEcut")){
             VariationalPartFunc v = new VariationalPartFunc(cfp,0.1, 0.1, false);
+        } else if (command.equalsIgnoreCase("doSublinearKStar")){
+            SublinearKStarDoer skd = new SublinearKStarDoer(cfp);
+            skd.doSublinearKStar(false);
         }
         //etc.
         else {

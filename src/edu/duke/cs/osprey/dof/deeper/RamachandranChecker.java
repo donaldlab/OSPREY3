@@ -35,8 +35,9 @@ public class RamachandranChecker {
 
 
 
-    static double denCutoff = 0.02f;//Cutoff density for being allowed
-
+//    static double denCutoff = 0.02f;//Cutoff density for being allowed
+    static double denCutoff = 0.0f;
+    
     private RamachandranChecker() {
         
     }

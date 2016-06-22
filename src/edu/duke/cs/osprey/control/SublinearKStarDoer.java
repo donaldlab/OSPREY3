@@ -12,10 +12,8 @@ import edu.duke.cs.osprey.astar.partfunc.PartFuncTree;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
-import edu.duke.cs.osprey.partitionfunctionbounds.GumbelMapTree;
-import edu.duke.cs.osprey.partitionfunctionbounds.SublinearKStarTree;
+import edu.duke.cs.osprey.astar.seqkstar.SublinearKStarTree;
 import edu.duke.cs.osprey.partitionfunctionbounds.TRBP;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -25,8 +23,10 @@ import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.StringParsing;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  *
@@ -41,83 +41,53 @@ public class SublinearKStarDoer {
     //1: Mutable UnBound
     //2: Mutable Bound
     SearchProblem[] searchSpaces;
-
     SearchProblem[] mutableSearchSpace;
-    LME objFcn; //objective function for the KaDEE search
-    LME[] constraints; //constraints for the KaDEE searchf
+
+    SearchProblem boundSearchSpace; //the search space of the protein-ligand bound complex
+    SearchProblem unboundMutSearchSpace; //the search space of the unbound mutable (protein) 
+    SearchProblem unboundNonMutSearchSpace; // the search space of the unbound non-mutable (ligand)
+
+    LME objFcn; //objective function 
+    LME[] gmecConstraints; //constraints on the GMEC 
+    LME[] ensembleConstraints; // constraints on the free-energy/change in free-energy
+
     int numTreeLevels; //number of mutable positions
+
     final int numStates = 2; //number of states considered
     ArrayList<ArrayList<String>> AATypeOptions = null; //AA types allowed at each mutable position
     ArrayList<ArrayList<Integer>> mutable2StatePosNums = new ArrayList<>();
 
-    double Ew; // energy window for enumerating conformations: 0 for just GMEC
-    double I0 = 0; // initial value of iMinDEE pruning interval
-    boolean doIMinDEE;//do iMinDEE
-
-    boolean useContFlex;
-    //boolean enumByPairwiseLowerBound;//are we using a search method that 
-    //enumerates by pairwise lower bound (minDEE-style)
-    //or by (possibly approximated) true energy (rigid, EPIC, or tuple expander)?
-
-    boolean outputGMECStruct;//write the GMEC structure to a PDB file
-
-    boolean useEPIC = false;
-    boolean useTupExp = false;
-
-    boolean checkApproxE = true;//Use the actual energy function to evaluate
-    //each enumerated conformation rather than just relying on the EPIC or tup-exp approximation
-
-    boolean useEllipses = false;
-
-    boolean useComets = false;
-
     boolean doExhaustive = false;
-
-    boolean rankByKStar = true;
 
     ExpFunction ef = new ExpFunction();
     double constRT = PoissonBoltzmannEnergy.constRT;
-    int numSamplesGumbel = 200;
 
     public String[] bestSequence;
-    
+
     public SublinearKStarDoer(ConfigFileParser cfp) {
         this.cfp = cfp;
-        Ew = cfp.params.getDouble("Ew");
-        doIMinDEE = cfp.params.getBool("imindee");
-        if (doIMinDEE) {
-            I0 = cfp.params.getDouble("Ival");
-        }
 
-        useContFlex = cfp.params.getBool("doMinimize");
-        if (useContFlex || doIMinDEE) {
+        boolean useContinuousFlex = cfp.params.getBool("doMinimize");
+        if (useContinuousFlex) {
             throw new RuntimeException("Continuous Flexibility Not Yet Supported");
         }
 
-        useTupExp = cfp.params.getBool("UseTupExp");
-        useEPIC = cfp.params.getBool("UseEPIC");
+        boolean useTupExp = cfp.params.getBool("UseTupExp");
+        boolean useEPIC = cfp.params.getBool("UseEPIC");
         if (useTupExp || useEPIC) {
             throw new RuntimeException("LUTE and EPIC Not Yet Supported");
         }
-
-        checkApproxE = cfp.params.getBool("CheckApproxE");
-
-        if (doIMinDEE && !useContFlex) {
-            throw new RuntimeException("ERROR: iMinDEE requires continuous flexibility");
-        }
-
-        outputGMECStruct = cfp.params.getBool("OUTPUTGMECSTRUCT");
     }
 
     /**
-     * Run KaDEE and compute the sequence with the highest K* score. TODO: For
-     * now this class only computes the partition function for the sequence with
-     * the highest K* score.
+     * Run SublinearKStar and compute the sequence with the highest K* score.
+     * TODO: For now this class only computes the partition function for the
+     * sequence with the highest K* score.
      */
-    public void doVariationalKStar(boolean doExhaustive) {
+    public void doSublinearKStar(boolean doExhaustive) {
         if (doExhaustive) {
-            SublinearKStarTree tree = setupSublinearKStarTree();
-            exhaustiveSublinearKStarSearch(rankByKStar);
+            setupSublinearKStarTree();
+            exhaustiveSublinearKStarSearch();
         } else {
             SublinearKStarTree tree = setupSublinearKStarTree();
             long startTime = System.currentTimeMillis();
@@ -136,15 +106,9 @@ public class SublinearKStarDoer {
 
             System.out.println("Precomputing Energy Matrix for " + searchProblem.name + " state");
             searchProblem.loadEnergyMatrix();
-            if (useEPIC) {
-                searchProblem.loadEPICMatrix();
-            }
-            if (useTupExp) {
-                searchProblem.loadTupExpEMatrix();
-            }
             System.out.println("Initializing Pruning for " + searchProblem.name + " state");
             initializePruning(searchProblem);
-            PruningControl pruning = cfp.setupPruning(searchProblem, pruningInterval, useEPIC, useTupExp);
+            PruningControl pruning = cfp.setupPruning(searchProblem, pruningInterval, false, false);
             pruning.prune();
         }
     }
@@ -154,15 +118,30 @@ public class SublinearKStarDoer {
     //The nonmutable unbound state is added and used just as a constant to the objective function
     public SublinearKStarTree setupSublinearKStarTree() {
         this.searchSpaces = cfp.getMSDSearchProblems();
+        List<SearchProblem> searchProbs = Arrays.asList(this.searchSpaces);
+
         //For each state, for each position, this contains a list of allowed 
         //amino acids at that position
-        ArrayList<ArrayList<ArrayList<String>>> allowedAAsPerState = new ArrayList<>();
-        for (int state = 0; state < searchSpaces.length; state++) {
-            allowedAAsPerState.add(getAllowedAA(state));
-        }
-
+        ArrayList<ArrayList<ArrayList<String>>> allowedAAsPerState = searchProbs.stream()
+                .map(searchProb -> getAllowedAA(searchProb))
+                .collect(Collectors.toCollection(ArrayList::new));
+        
+        SearchProblem boundSP = getBoundSearchProblem(searchSpaces);
+        ArrayList<ArrayList<String>> allowedAAsPerPosBound = getAllowedAA(boundSP);
+        // filter pos numbers for more than one amino acid
+        ArrayList<Integer> mutable2BoundStatePosNums = IntStream.range(0,allowedAAsPerPosBound.size())
+                .filter(pos -> allowedAAsPerPosBound.get(pos).size() > 1)
+                .boxed().collect(Collectors.toCollection(ArrayList::new));
+        
+        SearchProblem unboundMutSP = getUnboundMutableSearchProblem(searchSpaces);
+        ArrayList<ArrayList<String>> allowedAAsPerPosUnboundMut = getAllowedAA(unboundMutSP);
+        ArrayList<Integer> mut2UnboundMutStatePosNums = IntStream.range(0,allowedAAsPerPosUnboundMut.size())
+                .filter(pos -> allowedAAsPerPosBound.get(pos).size() > 1)
+                .boxed().collect(Collectors.toCollection(ArrayList::new));
+        
+        
         //Load the energy matrices and do pruning
-        double pruningInterval = 40;
+        double pruningInterval = Double.POSITIVE_INFINITY;
         loadEMatandPruneComets(pruningInterval);
 
         //For each state this arraylist gives the mutable pos nums of that state
@@ -209,12 +188,12 @@ public class SublinearKStarDoer {
 //                unboundProteinLogPartFunction = 0.0;
             }
         }
-        System.out.println("Unbound Non Mutable: "+unboundProteinLogPartFunction);
+        System.out.println("Unbound Non Mutable: " + unboundProteinLogPartFunction);
         this.mutableSearchSpace = mutableStates;
         this.numTreeLevels = getNumMutablePos(mutableState2StatePosNumList);
         this.AATypeOptions = handleAATypeOptions(mutableStateAllowedAAs);
         this.objFcn = new LME(new double[]{1, -1}, unboundProteinLogPartFunction, 2);
-        this.constraints = new LME[0];
+        this.gmecConstraints = new LME[0];
         int numMaxMut = -1;
         String[] wtSeq = null;
 
@@ -224,9 +203,85 @@ public class SublinearKStarDoer {
             ArrayList<Integer> converted = new ArrayList(mutable2PosNum);
             mutableState2StatePosNum.add(converted);
         }
-        SublinearKStarTree tree = new SublinearKStarTree(numTreeLevels, objFcn, constraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, nonMutableState, mutableState2StatePosNum);
+        SublinearKStarTree tree = new SublinearKStarTree(numTreeLevels, objFcn, gmecConstraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, nonMutableState, mutableState2StatePosNum);
 
         return tree;
+    }
+
+    //Return the bound search problem
+    private SearchProblem getBoundSearchProblem(SearchProblem[] searchProbs) {
+        List<SearchProblem> searchProblems = Arrays.asList(searchProbs);
+        //Sort in reverse order by number of residues
+        SearchProblem boundSP = searchProblems.stream()
+                .sorted((sp1, sp2) -> Integer.compare(sp2.confSpace.numPos, sp1.confSpace.numPos))
+                .findFirst().get();
+        return boundSP;
+    }
+    
+    private SearchProblem getUnboundMutableSearchProblem(SearchProblem[] searchProbs) {
+        List<SearchProblem> searchProblems = Arrays.asList(searchProbs);
+        SearchProblem boundSP = getBoundSearchProblem(searchProbs);
+        
+        // get unbound search problems
+        List<SearchProblem> unBoundSearchProblems = searchProblems.stream()
+                .filter(searchProb -> !searchProb.name.equals(boundSP.name))
+                .collect(Collectors.toList());
+        
+        // for each unbound search problem filter if all positions have only one amino acid
+        List<SearchProblem> mutableUnboundSp = unBoundSearchProblems.stream()
+                .filter(sp -> getAllowedAA(sp).stream().anyMatch(pos -> pos.size() > 1))
+                .collect(Collectors.toList());
+        
+        // make sure we only have one mutable strand
+        if (mutableUnboundSp.size() > 1){
+            throw new RuntimeException("ERROR: Only One Strand Can Currently Be Mutable");
+        }
+        return mutableUnboundSp.get(0);
+    }
+
+    private ArrayList<ArrayList<String>> getAllowedAA(SearchProblem sp) {
+        //First get all allowed AA's for bound position
+        ArrayList<ArrayList<String>> allowedAAsComplex = cfp.getAllowedAAs();
+        ArrayList<String> flexResNumComplex = cfp.getFlexRes();
+        
+        SearchProblem boundSP = getBoundSearchProblem(this.searchSpaces);
+        for (int posNum = 0; posNum < boundSP.confSpace.numPos; posNum++) {
+            ArrayList<String> currentAAOptions = allowedAAsComplex.get(posNum);
+            if (cfp.params.getBool("AddWT")) {
+                Residue res = boundSP.confSpace.m.getResByPDBResNumber(flexResNumComplex.get(posNum));
+                if (!StringParsing.containsIgnoreCase(allowedAAsComplex.get(posNum), res.template.name)) {
+                    currentAAOptions.add(res.template.name);
+                }
+            }
+            if (currentAAOptions.isEmpty()) {
+                throw new RuntimeException("ERROR: No AAtype for Position: " + posNum);
+            }
+        }
+        int numPosBound = allowedAAsComplex.size();
+        
+        // Now depending on the search problem get the appropriate subset of allowed AAs
+        ArrayList<ArrayList<String>> allowedAAs;
+        boolean isBound = sp.name.equals(boundSP.name);
+        //is the search problem the bound search problem
+        if (isBound) {
+            allowedAAs = allowedAAsComplex;
+        } else {
+            // if not bound, is it strand0 or strand1
+            // unbound strand names should end with strand0 or strand1
+            boolean isStrand0 = sp.name.endsWith("strand0");
+            if (!(isStrand0 || sp.name.endsWith("strand1"))){
+                throw new RuntimeException("Error: Strand Naming Conventions Appear to Be Off");
+            }
+
+            int numFlex = sp.confSpace.numPos;
+            if (isStrand0) {
+                allowedAAs = new ArrayList(allowedAAsComplex.subList(0, numFlex));
+            }
+            else{
+                allowedAAs = new ArrayList(allowedAAsComplex.subList(numPosBound - numFlex, numPosBound));
+            }
+        }
+        return allowedAAs;
     }
 
     private ArrayList<ArrayList<String>> getAllowedAA(int state) {
@@ -355,8 +410,8 @@ public class SublinearKStarDoer {
         System.out.println("COMPETITOR PRUNING DONE");
     }
 
-    //For quality control, it's good to be able to check KaDEE results by exhaustive search
-    public void exhaustiveSublinearKStarSearch(boolean rankByKStar) {
+    //For testing/debugging purposes
+    public void exhaustiveSublinearKStarSearch() {
 
         System.out.println();
         System.out.println("CHECKING Sulinear KStar RESULT BY EXHAUSTIVE SEARCH");
@@ -397,8 +452,8 @@ public class SublinearKStarDoer {
                     stateScore[seqNum][state] = -tree.computeEpsilonApprox(0.5);
                 }
             }
-            System.out.print("  Score: " + (stateScore[seqNum][0] - stateScore[seqNum][1] + objFcn.constTerm)+"\n");
-            
+            System.out.print("  Score: " + (stateScore[seqNum][0] - stateScore[seqNum][1] + objFcn.constTerm) + "\n");
+
         }
 
         //now find the best sequence and obj fcn value
@@ -409,7 +464,7 @@ public class SublinearKStarDoer {
                 seqNum < numSeqs;
                 seqNum++) {
             boolean constrSatisfied = true;
-            for (LME constr : constraints) {
+            for (LME constr : gmecConstraints) {
                 if (constr.eval(stateScore[seqNum]) > 0) {
                     constrSatisfied = false;
                 }
@@ -436,20 +491,6 @@ public class SublinearKStarDoer {
         }
 
         System.out.println();
-    }
-
-    private double computeLogZGumbel(EnergyMatrix emat, PruningMatrix pruneMat, int numSamples) {
-        double average = 0.0;
-        for (int i = 0; i < numSamples; i++) {
-            GumbelMapTree gTree = new GumbelMapTree(emat, pruneMat);
-            gTree.nextConf();
-            average += gTree.currentBestFeasibleScore;
-            if (gTree.currentBestFeasibleScore > 0) {
-                System.out.println(gTree.currentBestFeasibleScore);
-            }
-        }
-        double logZ = -average / (this.constRT * numSamples);
-        return logZ;
     }
 
     private void handleStatePruning(PruningMatrix pruneMat, ConfSpace cSpace, String[] sequence, ArrayList<Integer> mutable2StatePosNum) {
@@ -577,7 +618,7 @@ public class SublinearKStarDoer {
         this.numTreeLevels = getNumMutablePos(mutableState2StatePosNumList);
         this.AATypeOptions = handleAATypeOptions(mutableStateAllowedAAs);
         this.objFcn = new LME(new double[]{1, -1}, -unboundLigandGMECEnergy, 2);
-        this.constraints = new LME[0];
+        this.gmecConstraints = new LME[0];
         int numMaxMut = -1;
         String[] wtSeq = null;
 
@@ -587,7 +628,7 @@ public class SublinearKStarDoer {
             ArrayList<Integer> converted = new ArrayList(mutable2PosNum);
             mutableState2StatePosNum.add(converted);
         }
-        COMETSTree tree = new COMETSTree(numTreeLevels, objFcn, constraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, mutableState2StatePosNum);
+        COMETSTree tree = new COMETSTree(numTreeLevels, objFcn, gmecConstraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, mutableState2StatePosNum);
         return tree;
     }
 

@@ -9,6 +9,7 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.RC;
+import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -60,7 +61,7 @@ public class GMECFinder {
 
     private String confFileName;//file to which we write conformations
 
-    boolean onlyDiffBB = true;
+    boolean onlyDiffBB = false;
 
     public GMECFinder(ConfigFileParser cfgP) {
         //fill in all the settings
@@ -128,7 +129,9 @@ public class GMECFinder {
             }
             precomputeMatrices(Ew + curInterval);//precompute the energy, pruning, and maybe EPIC or tup-exp matrices
             //must be done separately for each round of iMinDEE
-
+            
+            prunePerturbedRCs(searchSpace);
+            
             //Finally, do A*, which will output the top conformations
             ConfSearch search = initSearch(searchSpace);//e.g. new AStarTree from searchSpace & params
             //can have options to instantiate other kinds of search here too...choose based on params
@@ -215,7 +218,9 @@ public class GMECFinder {
                     System.out.println("A* returned no conformations.");
                     break;
                 }
-
+                if (!useContFlex && Ew == 0) {
+                    break;
+                }
             } while (bestESoFar + Ew >= lowerBound);//lower bound above GMEC + Ew...can stop enumerating
 
             double confSearchTimeMinutes = (System.currentTimeMillis() - confSearchStartTime) / 60000.0;
@@ -414,6 +419,23 @@ public class GMECFinder {
         //initialize some kind of combinatorial search, like A*
         //FOR NOW just using A*; may also want BWM*, WCSP, or something according to settings
         return new ConfTree(searchSpace);
+    }
+
+    void prunePerturbedRCs(SearchProblem sp) {
+        for (int pos = 0; pos < sp.confSpace.numPos; pos++) {
+            prunePerturbedRCs(sp, pos);
+        }
+    }
+
+    void prunePerturbedRCs(SearchProblem sp, int pos) {
+        for (int rc : sp.pruneMat.unprunedRCsAtPos(pos)) {
+            for (int dof = 0; dof < sp.confSpace.posFlex.get(pos).RCs.get(rc).DOFmax.size(); dof++) {
+                double dofVal = sp.confSpace.posFlex.get(pos).RCs.get(rc).DOFmax.get(dof);
+                if (dofVal == 1.0) {
+                    sp.pruneMat.setOneBody(pos, rc, true);
+                }
+            }
+        }
     }
 
     double lowestPairwiseBound(SearchProblem prob) {

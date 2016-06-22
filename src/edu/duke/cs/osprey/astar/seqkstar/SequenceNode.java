@@ -3,10 +3,11 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package edu.duke.cs.osprey.partitionfunctionbounds;
+package edu.duke.cs.osprey.astar.seqkstar;
 
 import edu.duke.cs.osprey.astar.AStarNode;
 import edu.duke.cs.osprey.astar.partfunc.PartFuncTree;
+import edu.duke.cs.osprey.partitionfunctionbounds.TRBP;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import java.util.ArrayList;
 

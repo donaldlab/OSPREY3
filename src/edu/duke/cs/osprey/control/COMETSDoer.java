@@ -198,7 +198,7 @@ class COMETSDoer {
         }
     }
     
-    
+
     private ArrayList<Integer> stateMutablePos(int state, ParamSet sParams, int numTreeLevels){
         //read the list of which of this state's flexible positions are mutable
         ArrayList<Integer> m2s = new ArrayList<>();

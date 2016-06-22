@@ -34,12 +34,12 @@ public class SublinearKStarTests {
         SublinearKStarDoer skd = new SublinearKStarDoer(cfp);
         if (args[2].equalsIgnoreCase("DOEXHAUSTIVE")) {
             Stopwatch.start();
-            skd.doVariationalKStar(true);
+            skd.doSublinearKStar(true);
             Stopwatch.stop();
             System.out.println("Exhaustive took: "+Stopwatch.getTime(TimeUnit.MILLISECONDS));
         } else {
             Stopwatch.start();
-            skd.doVariationalKStar(false);
+            skd.doSublinearKStar(false);
             Stopwatch.stop();
             System.out.println("Exhaustive took: "+Stopwatch.getTime(TimeUnit.MILLISECONDS));
         }

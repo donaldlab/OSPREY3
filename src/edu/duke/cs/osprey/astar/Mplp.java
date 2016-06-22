@@ -154,70 +154,6 @@ public class Mplp {
         return Ebound;
     }
 
-    public double optimizeMPLP(int aPartialConf[], int iterations, double[][][] dualVariables, double[][] beliefs) {
-        // The partial conf contains references to rotamers that were pruned, while our pairwise matrix removed those rotamers. Thus, we must creat
-        //  a new partial conf that maps to our pruned matrix.
-        int mappedPartialConf[] = mapConformation(aPartialConf);
-        feasibleSolution = aPartialConf.clone();
-
-        // availableRots is just a list of lists with the list of rotamers available for the calculation at each rotamer; it is more convenient
-        // 		than partialConf.  This code might be unnecessary but it makes the algorithm more elegant, IMO
-        int availableRots[][] = getAvailableRots(mappedPartialConf);
-
-        /**
-         * Here comes the actual algorithm *
-         */
-        // lambda is the message matrix for MPLP; we set all messages to zero
-//        this.lambda = CreateMatrix.create3DMsgMat(numPos, rotsPerPos, 0.0f);
-        this.lambda = dualVariables;
-
-        // the belief on each rotamer
-        //b_i(x_i) = intrE(x_i) + sum_{k in N(i)} lambda_{k,i -> i}(x_i)
-        this.belief = beliefs;
-        //initialize beliefs to intra energy term
-/*        for (int pos = 0; pos < numPos; pos++) {
-         for (int rot = 0; rot < this.rotsPerPos[pos]; rot++) {
-         //need index of rot into original emat
-         int rot_Emat = this.unprunedRotsPerPos[pos][rot];
-         belief[pos][rot] += this.emat.getOneBody(pos, rot_Emat);
-         }
-         }*/
-
-        // Ebound is the fscore
-        double Ebound = Double.NEGATIVE_INFINITY;
-        //To find out when we should stop, we use a delta factor to see the rate of change.
-        //For now, our rate of change is fixed at 0.01kcal.
-        double minRateOfChange = 0.0001;
-
-        //MPLP Algorithm
-        for (int i = 0; i < iterations; i++) {
-            runMPLP(availableRots);
-            double oldEbound = Ebound;
-            Ebound = 0.0f;
-            for (int posI = 0; posI < numPos; posI++) {
-                // We must ignore other rotamers at position that were already assigned when computing the min.
-                Ebound += computeMinBeliefInReducedAvailableRots(belief[posI], availableRots[posI]);
-            }
-            // If we already converged, then we can exit
-            if (Math.abs(Ebound - oldEbound) < minRateOfChange && i > 20) {
-                if (debugMode) {
-                    System.out.println("Finished after " + i + " iterations with new way");
-                }
-                break;
-            }
-        }
-        if (debugMode) {
-            System.out.println("Bound: " + Ebound);
-        }
-//        getFeasibleSolution(belief, availableRots);
-        if (debugMode) {
-            double primal = this.emat.getInternalEnergy(new RCTuple(this.feasibleSolution));
-            System.out.println("Primal: " + primal);
-        }
-        System.out.println();
-        return Ebound;
-    }
-
     void runMPLP(int[][] availableRots) {
         for (int posI = 0; posI < numPos; posI++) {
             for (int posJ = posI + 1; posJ < numPos; posJ++) {
@@ -229,37 +165,68 @@ public class Mplp {
                         //lambda_{i}^{-j}(x_i) + theta_i(x_i) = b_i(x_i) - lambda_{j,i -> i}(x_i)
                         //This is computationally more efficient
                         belief[posI][rotIR] -= lambda[posJ][posI][rotIR];// now b_i(x_i) = lambda_{i}^{-j}(x_i) + theta_i(x_i)
+                        if (Double.isNaN(belief[posI][rotIR])) {
+                            System.out.println("Belief is NaN");
+                        }
 
                         double minMessageRotsAtJ_to_rotIR = Double.POSITIVE_INFINITY;
                         for (int rotJS : availableRots[posJ]) {
                             //Create a tuple to check if pair is pruned
                             double message = belief[posJ][rotJS] - lambda[posI][posJ][rotJS] + emat.getPairwise(posJ, unprunedRotsPerPos[posJ][rotJS], posI, unprunedRotsPerPos[posI][rotIR]);
+
+                            if (Double.isNaN(message)) {
+                                System.out.println("Message is Nan");
+                            }
+
                             minMessageRotsAtJ_to_rotIR = Math.min(minMessageRotsAtJ_to_rotIR, message);
                         }
                         if (availableRots[posJ].length == 0) {
                             System.out.println("NO ROTS MPLP CRASHING");
                             throw new RuntimeException("NO ROTS MPLP CRASHING");
                         }
+                        if (Double.isNaN(-0.5 * belief[posI][rotIR] + 0.5 * minMessageRotsAtJ_to_rotIR)) {
+                            System.out.println("Lambda is NaN");
+                        }
 //                            lambda[posJ][posI][rotIR] = -0.5 * belief[posI][rotIR] + 0.5 * Collections.min(msgsFromRotsAtJ_to_rotIR);
                         lambda[posJ][posI][rotIR] = -0.5 * belief[posI][rotIR] + 0.5 * minMessageRotsAtJ_to_rotIR;
+
                         belief[posI][rotIR] += lambda[posJ][posI][rotIR];
+                        if (Double.isNaN(belief[posI][rotIR])) {
+                            System.out.println("Belief is NaN");
+                        }
                     }
                     //Now we update lambda[posI][posJ][rotJS]
                     for (int rotJS : availableRots[posJ]) {
                         belief[posJ][rotJS] -= lambda[posI][posJ][rotJS]; // now b_j(x_j) = lambda_(j}^{-i}(x_j) + theta_j(x_j)
+                        if (Double.isNaN(belief[posJ][rotJS])) {
+                            System.out.println("Belief is NaN");
+                        }
 
                         double minMessageFromRotsAtI_to_rotsJS = Double.POSITIVE_INFINITY;
                         for (int rotIR : availableRots[posI]) {
                             double message = belief[posI][rotIR] - lambda[posJ][posI][rotIR] + emat.getPairwise(posI, unprunedRotsPerPos[posI][rotIR], posJ, unprunedRotsPerPos[posJ][rotJS]);
+
+                            if (Double.isNaN(message)) {
+                                System.out.println("Message is Nan");
+                            }
+
                             minMessageFromRotsAtI_to_rotsJS = Math.min(minMessageFromRotsAtI_to_rotsJS, message);
                         }
                         if (availableRots[posI].length == 0) {
                             System.out.println("NO ROTS MPLP CRASHING");
                             throw new RuntimeException("NO ROTS MPLP CRASHING");
                         }
+
 //                            lambda[posI][posJ][rotJS] = -0.5 * belief[posJ][rotJS] + 0.5 * Collections.min(msgFromRotsAtI_to_rotJS);
                         lambda[posI][posJ][rotJS] = -0.5 * belief[posJ][rotJS] + 0.5 * minMessageFromRotsAtI_to_rotsJS;
+                        if (Double.isNaN(lambda[posI][posJ][rotJS])) {
+                            System.out.println("Lambda is NaN");
+                        }
+
                         belief[posJ][rotJS] += lambda[posI][posJ][rotJS];
+                        if (Double.isNaN(belief[posJ][rotJS])) {
+                            System.out.println("Belief is NaN");
+                        }
                     }
                 }
             }

@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package edu.duke.cs.osprey.partitionfunctionbounds;
+package edu.duke.cs.osprey.astar.seqkstar;
 
 import edu.duke.cs.osprey.astar.AStarNode;
 import edu.duke.cs.osprey.astar.AStarTree;
@@ -16,6 +16,8 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
+import edu.duke.cs.osprey.partitionfunctionbounds.MarkovRandomField;
+import edu.duke.cs.osprey.partitionfunctionbounds.TRBP;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import java.util.ArrayList;
@@ -490,7 +492,7 @@ public class SublinearKStarTree extends AStarTree {
             this.bestChangeFreeEnergy = seqNode.getScore();
             this.bestSequence = getSequence(node);
 
-            System.out.println("GMEC FOUND");
+            System.out.println("Best Sequence FOUND");
             return true;
         }
 

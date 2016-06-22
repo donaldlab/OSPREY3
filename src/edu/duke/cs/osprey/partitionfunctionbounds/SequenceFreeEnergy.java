@@ -5,6 +5,7 @@
  */
 package edu.duke.cs.osprey.partitionfunctionbounds;
 
+import edu.duke.cs.osprey.astar.seqkstar.SequenceNode;
 import edu.duke.cs.osprey.astar.AStarNode;
 import edu.duke.cs.osprey.astar.AStarTree;
 import edu.duke.cs.osprey.astar.comets.UpdatedPruningMatrix;

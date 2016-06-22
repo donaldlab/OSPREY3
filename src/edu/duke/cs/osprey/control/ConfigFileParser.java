@@ -18,8 +18,8 @@ import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.PDBFileWriter;
 import edu.duke.cs.osprey.tools.StringParsing;
 import java.io.File;
-import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.StringTokenizer;
 
 /**
@@ -676,10 +676,10 @@ public class ConfigFileParser {
         }
 
         Molecule molLigand = PDBFileReader.readPDBFileBetweenTermini(pdbFile, strand0Termini[0], strand0Termini[1]);
-        String pdbLigand = pdbName + "_strand1.pdb";
+        String pdbLigand = pdbName + "_strand0.pdb";
         PDBFileWriter.writePDBFile(molLigand, pdbLigand);
 
-        searchProblems[1] = new SearchProblem(name + "_strand1", pdbLigand,
+        searchProblems[1] = new SearchProblem(name + "_strand0", pdbLigand,
                 flexResUnbound0, allowedAAsUnbound0,
                 params.getBool("AddWT"),
                 params.getBool("AddWTRots"),
@@ -701,10 +701,10 @@ public class ConfigFileParser {
         }
 
         Molecule molProtein = PDBFileReader.readPDBFileBetweenTermini(pdbFile, strand1Termini[0], strand1Termini[1]);
-        String pdbProtein = pdbName + "_strand2.pdb";
+        String pdbProtein = pdbName + "_strand1.pdb";
         PDBFileWriter.writePDBFile(molProtein, pdbProtein);
 
-        searchProblems[2] = new SearchProblem(name + "_strand2", pdbProtein,
+        searchProblems[2] = new SearchProblem(name + "_strand1", pdbProtein,
                 flexResUnbound1, allowedAAsUnbound1,
                 params.getBool("AddWT"),
                 params.getBool("AddWTRots"),

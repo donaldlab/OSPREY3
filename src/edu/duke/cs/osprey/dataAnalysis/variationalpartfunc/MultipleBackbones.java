@@ -14,6 +14,7 @@ import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 /**
  *
@@ -37,9 +38,12 @@ public class MultipleBackbones {
         Pruner deeBB = new Pruner(spBB, false, cfpBB.params.getDouble("BOUNDSTHRESH"),
                 Double.POSITIVE_INFINITY, false, false);
 
-        
         ConfTree tree = new ConfTree(spBB.emat, spBB.pruneMat);
+        
         int[] conf;
+        int[] wt = new int[spBB.emat.numPos()];
+        Arrays.fill(wt, 1);
+        double E = spBB.emat.getInternalEnergy(new RCTuple(wt));
         do {
             conf = tree.nextConf();
             if (conf != null) {
@@ -51,6 +55,7 @@ public class MultipleBackbones {
         return;
     }
 
+    
     
     
     static void precomputeMatrices(SearchProblem searchSpace, ConfigFileParser cfp, double pruningInterval) {

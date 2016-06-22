@@ -9,7 +9,7 @@ import edu.duke.cs.osprey.astar.partfunc.PartFuncTree;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.control.SublinearKStarDoer;
-import edu.duke.cs.osprey.partitionfunctionbounds.SublinearKStarTree;
+import edu.duke.cs.osprey.astar.seqkstar.SublinearKStarTree;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.Stopwatch;
@@ -73,7 +73,7 @@ public class DataAnalysisSublinearKStar {
                 Stopwatch.start();
                 String[] bestSequence;
                 if (doExhaustive) {
-                    skDoer.exhaustiveSublinearKStarSearch(false);
+                    skDoer.exhaustiveSublinearKStarSearch();
                     bestSequence = skDoer.bestSequence;
                 } else {
                     int[] topSequence = tree.nextConf();

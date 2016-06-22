@@ -101,6 +101,9 @@ public class PerturbationSelector {
                 if(isStateReasonable(state,pos)){
                     resPertStates.add(state);
                 }
+                else{
+                    System.out.println("Did not pass rama check");
+                }
                 
                 state = nextPossibleState(state);
                 //increment to next state, or skip over clearly impossible ones
@@ -522,7 +525,9 @@ public class PerturbationSelector {
         failingPertIndex = -1;//did not fail to apply perturbation
         boolean ok = ramaCheck(m.getResByPDBResNumber(flexibleRes.get(pos)));//just check res,
         //see if works for any Ramachandran category except Gly
-        
+        if (!ok){
+            System.out.println("Failed Rama Check for pos "+pos);
+        }
         restoreFlexResCoords(backupCoords);
         return ok;
     }

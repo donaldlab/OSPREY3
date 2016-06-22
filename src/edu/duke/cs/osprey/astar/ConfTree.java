@@ -38,14 +38,14 @@ public class ConfTree extends AStarTree {
     //These are lists of residue-specific RC numbers for the unpruned RCs at each residue
 
     //ADVANCED SCORING METHODS: TO CHANGE LATER (EPIC, MPLP, etc.)
-    public static boolean traditionalScore = false;
+    public static boolean traditionalScore = true;
     boolean useRefinement = false;//refine nodes (might want EPIC, MPLP, or something else)
-    public static boolean mplpScore = true;
+    public static boolean mplpScore = false;
 
     //MPLP object for node refinement
     public Mplp mplpMinimizer;
 
-    public static boolean useDynamicAStar = false;
+    public static boolean useDynamicAStar = true;
 
     //HMN: This is Helpful for MPLP
     boolean useEpic = false;
@@ -143,6 +143,7 @@ public class ConfTree extends AStarTree {
             int[] childConf = curNode.nodeAssignments.clone();
             childConf[nextLevel] = rc;
             AStarNode childNode = new AStarNode(childConf, scoreConf(childConf), useRefinement);
+//            System.out.println(childNode.score);
             if (mplpScore){
                 this.numIterations += this.mplpMinimizer.numIterations;
                 this.numScores++;

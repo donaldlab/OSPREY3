@@ -9,7 +9,7 @@ import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.astar.comets.COMETSTree;
 import edu.duke.cs.osprey.astar.comets.LME;
 import edu.duke.cs.osprey.partitionfunctionbounds.GumbelMapTree;
-import edu.duke.cs.osprey.partitionfunctionbounds.SublinearKStarTree;
+import edu.duke.cs.osprey.astar.seqkstar.SublinearKStarTree;
 import edu.duke.cs.osprey.astar.partfunc.PartFuncTree;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.RCTuple;
