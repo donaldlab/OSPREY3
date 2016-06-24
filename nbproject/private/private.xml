@@ -3,9 +3,19 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/astar/ConfTree.java</file>
-            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/astar/Mplp.java</file>
+            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/control/GMECFinder.java</file>
             <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/dataAnalysis/variationalpartfunc/MultipleBackbones.java</file>
+            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/control/Main.java</file>
+            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/astar/comets/UpdatedPruningMatrix.java</file>
+            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/confspace/SearchProblem.java</file>
+            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/dof/deeper/perts/PartialStructureSwitch.java</file>
+            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/partitionfunctionbounds/TRBP.java</file>
+            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/astar/ConfTree.java</file>
+            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/control/ConfigFileParser.java</file>
+            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/control/SublinearKStarDoer.java</file>
+            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/astar/seqkstar/SublinearKStarTree.java</file>
+            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/astar/seqkstar/SequenceNode.java</file>
+            <file>file:/usr/project/dlab/Users/hunter/OSPREY_CODE/OSPREY_refactor_v2/src/edu/duke/cs/osprey/tests/variationalkstar/SublinearKStarTests.java</file>
         </group>
     </open-files>
 </project-private>

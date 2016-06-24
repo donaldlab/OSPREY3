@@ -178,8 +178,9 @@ public class ConfTree extends AStarTree {
 
     @Override
     public boolean canPruneNode(AStarNode node) {
-        RCTuple tup = new RCTuple(node.nodeAssignments);
-        return this.pruneMat.isPruned(tup);
+/*        RCTuple tup = new RCTuple(node.nodeAssignments);
+        return this.pruneMat.isPruned(tup);*/
+        return false;
     }
 
     //operations supporting special features like dynamic A*

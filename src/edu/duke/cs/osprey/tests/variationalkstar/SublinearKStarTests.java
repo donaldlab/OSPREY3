@@ -41,7 +41,7 @@ public class SublinearKStarTests {
             Stopwatch.start();
             skd.doSublinearKStar(false);
             Stopwatch.stop();
-            System.out.println("Exhaustive took: "+Stopwatch.getTime(TimeUnit.MILLISECONDS));
+            System.out.println("Sublinear KStar took: "+Stopwatch.getTime(TimeUnit.MILLISECONDS));
         }
     }
     

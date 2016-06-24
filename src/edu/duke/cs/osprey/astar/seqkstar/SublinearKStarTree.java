@@ -51,6 +51,9 @@ public class SublinearKStarTree extends AStarTree {
 
     public SearchProblem nonMutableSearchProblem;
 
+    ArrayList<Integer> mutable2StatePosNumBound; //For each mutable position (level of tree) get the bound state pos num
+    ArrayList<Integer> mutable2StatePosNumUnbound; //For each mutable position (level of tree) get the unbound state pos num
+    
     ArrayList<ArrayList<Integer>> mutable2StatePosNums;
     //mutable2StatePosNum.get(state) maps levels in this tree to flexible positions for state
     //(not necessarily an onto mapping)
@@ -154,6 +157,7 @@ public class SublinearKStarTree extends AStarTree {
                         int[] childAssignments = curAssignments.clone();
                         childAssignments[splitPos] = aa;
                         UpdatedPruningMatrix[] childPruneMat = new UpdatedPruningMatrix[numStates];
+                        
                         for (int state = 0; state < numStates; state++) {
                             childPruneMat[state] = doChildPruning(state, seqNode.pruneMats[state], splitPos, aa);
                         }
@@ -167,6 +171,9 @@ public class SublinearKStarTree extends AStarTree {
                         printSequence(getSequence(childNode));
                         childNode.setScore(boundFreeEnergyChange(childNode));
                         System.out.println("Score: " + childNode.getScore());
+                        if (Double.isInfinite(childNode.getScore())){
+                            this.numPruned++;
+                        }
                         ans.add(childNode);
                     }
 
@@ -175,53 +182,6 @@ public class SublinearKStarTree extends AStarTree {
             }
             throw new RuntimeException("ERROR: Not splittable position found but sequence not fully defined...");
         }
-    }
-
-    private double calcSequenceScore(SequenceNode seqNode) {
-        if (seqNode.stateTrees[0] == null || seqNode.stateTrees[1] == null) {
-            return Double.POSITIVE_INFINITY;
-        }
-
-        SearchProblem boundSP = this.mutableSearchProblems[0];
-        SearchProblem ligandSP = this.mutableSearchProblems[1];
-
-        EnergyMatrix boundEmat = boundSP.useTupExpForSearch ? boundSP.tupExpEMat : boundSP.emat;
-        EnergyMatrix unboundEmat = ligandSP.useTupExpForSearch ? ligandSP.tupExpEMat : ligandSP.emat;
-
-//            double Ebound = computeLogZGumbel(boundEmat, seqNode.pruneMat[0]);
-//            double EunBound = computeLogZGumbel(unboundEmat, seqNode.pruneMat[1]);
-        PartFuncTree treeB = new PartFuncTree(boundEmat, seqNode.pruneMats[0]);
-        PartFuncTree treeU = new PartFuncTree(unboundEmat, seqNode.pruneMats[1]);
-        double Ebound = treeB.computeEpsilonApprox(0.1);
-        double EunBound = treeU.computeEpsilonApprox(0.1);
-        double score = Ebound - EunBound + objFcn.getConstTerm();
-
-        return -score;
-
-    }
-
-    private double calcIEScore(SequenceNode seqNode) {
-        SearchProblem boundSP = mutableSearchProblems[0];
-        SearchProblem ligandSP = mutableSearchProblems[1];
-        
-        ArrayList<Integer> boundPosNums = getAllBoundPosNums();
-        ArrayList<Integer> proteinBoundPosNums = getProteinPosNums(true);
-        ArrayList<Integer> ligandBoundPosNums = getLigandPosNums(true);
-        boolean[][] interactionGraph = createInteractionGraph(boundPosNums, proteinBoundPosNums, ligandBoundPosNums);
-        EmatBoundCrossTerms ematCT = new EmatBoundCrossTerms(interactionGraph, boundSP.emat);
-
-        EnergyMatrix ematSubset = new EnergyMatrix(boundSP.emat.getSubsetMatrix(boundPosNums));
-        ematSubset.updateMatrixCrossTerms(interactionGraph);
-        ematSubset.addCrossTermInternalEnergies(boundSP.emat, ligandSP.emat, ligandBoundPosNums, boundPosNumToUnboundPosNum);
-        ematSubset.addCrossTermInternalEnergies(boundSP.emat, nonMutableSearchProblem.emat, proteinBoundPosNums, boundPosNumToUnboundPosNum);
-
-        ConfTree ct = new ConfTree(ematSubset, seqNode.pruneMats[0]);
-        int[] gmecCT = ct.nextConf();
-        double bound = Double.POSITIVE_INFINITY;
-        if (gmecCT != null) {
-            bound = ematCT.getInternalEnergy(new RCTuple(gmecCT)) / this.constRT;
-        }
-        return bound;
     }
 
     private double calcMaxInterfaceScore(SequenceNode seqNode) {
@@ -255,28 +215,6 @@ public class SublinearKStarTree extends AStarTree {
 //            score = -computeLogZGumbel(ematSubset, pruneMatSubset);
 //            score = -tree.computeEpsilonApprox(0.1);
         TRBP.setNumEdgeProbUpdates(0);
-//        System.out.println("Unpruned: " + seqNode.pruneMats[0].unprunedRCsAtPos(5));
-
-
-        /*        ConfTree tree = new ConfTree(ematSubset, seqNode.pruneMats[0]);
-         int[] gmec = tree.nextConf();
-         if (gmec != null) {
-         RCTuple tup = new RCTuple(gmec);
-         System.out.println("GMEC: " + ematSubset.getInternalEnergy(tup) / this.constRT);
-         String aa = boundSP.confSpace.posFlex.get(7).RCs.get(gmec[7]).AAType;
-         boundSP.outputMinimizedStruct(gmec, aa + ".x.pdb");
-         } else {
-         System.out.println("GMEC NULL");
-         }
-         */
-//        ConfTree tree2 = new ConfTree(boundSP.emat, seqNode.pruneMats[0]);
-//        int[] gmec2 = tree2.nextConf();
-//        RCTuple tup2 = new RCTuple(gmec2);
-//.        System.out.println("GMEC: " + boundSP.emat.getInternalEnergy(tup2) / this.constRT);
-//        boundSP.outputMinimizedStruct(gmec2, "trp.gmec.pdb");
-//        if (boundSP.emat.getInternalEnergy(tup2) > 100) {
-//            throw new RuntimeException();
-//        }
         if (hasUnprunedRCs(seqNode.pruneMats[0])) {
             MarkovRandomField mrf = new MarkovRandomField(ematSubset, seqNode.pruneMats[0], 0.0);
             TRBP trbp = new TRBP(mrf);
@@ -533,7 +471,6 @@ public class SublinearKStarTree extends AStarTree {
 
     @Override
     public boolean canPruneNode(AStarNode node) {
-        System.out.println("Checking if we can prune");
         //Check if node can be pruned
         //This is traditionally based on constraints, thought we could pruned nodes
         //that are provably suboptimal
@@ -563,7 +500,6 @@ public class SublinearKStarTree extends AStarTree {
         }
         if (Double.isInfinite(seqNode.getScore())) {
             numPruned++;
-            System.out.println("Pruned Due To Infinite Energy");
             return true;
         }
         //TODO: for (LME constr : constraints) {....
