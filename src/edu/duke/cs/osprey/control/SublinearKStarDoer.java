@@ -56,6 +56,7 @@ public class SublinearKStarDoer {
     ArrayList<ArrayList<Integer>> mutable2StatePosNums = new ArrayList<>();
 
     boolean doExhaustive = false;
+    boolean computeNonMutPF = false; //Compute the non-mutable partition function (for obj func const term)
 
     ExpFunction ef = new ExpFunction();
     double constRT = PoissonBoltzmannEnergy.constRT;
@@ -81,6 +82,7 @@ public class SublinearKStarDoer {
      * Run SublinearKStar and compute the sequence with the highest K* score.
      * TODO: For now this class only computes the partition function for the
      * sequence with the highest K* score.
+     * @param doExhaustive Should we do exhaustive search (for debugging/testing)
      */
     public void doSublinearKStar(boolean doExhaustive) {
         if (doExhaustive) {
@@ -89,101 +91,60 @@ public class SublinearKStarDoer {
         } else {
             SublinearKStarTree tree = setupSublinearKStarTree();
             long startTime = System.currentTimeMillis();
-            int[] seq1 = tree.nextConf();
+            tree.nextConf();
             long totalTime = System.currentTimeMillis() - startTime;
+            System.out.println("Sublinear KStar Finished in " + totalTime + " ms");
         }
     }
 
-    //Given three search problems (Bound, UnBound Prot, Unbound Lig) this function
-    //sets up the KaDEE tree.
-    //The nonmutable unbound state is added and used just as a constant to the objective function
     public SublinearKStarTree setupSublinearKStarTree() {
         this.searchSpaces = cfp.getMSDSearchProblems();
-        List<SearchProblem> searchProbs = Arrays.asList(this.searchSpaces);
 
-        //For each state, for each position, this contains a list of allowed 
-        //amino acids at that position
-        ArrayList<ArrayList<ArrayList<String>>> allowedAAsPerState = searchProbs.stream()
-                .map(searchProb -> getAllowedAA(searchProb))
-                .collect(Collectors.toCollection(ArrayList::new));
-
-        SearchProblem boundSP = getBoundSearchProblem(searchSpaces);
-        ArrayList<ArrayList<String>> allowedAAsPerPosBound = getAllowedAA(boundSP);
-        // filter pos numbers for more than one amino acid
-        ArrayList<Integer> mutable2BoundStatePosNums = IntStream.range(0, allowedAAsPerPosBound.size())
-                .filter(pos -> allowedAAsPerPosBound.get(pos).size() > 1)
+        // Get the Bound Search Problem
+        this.boundSearchSpace = getBoundSearchProblem(searchSpaces);
+        // Get the amino acids allowed at each position for the bound search problem
+        ArrayList<ArrayList<String>> allowedAAsPerBoundPos = getAllowedAA(this.boundSearchSpace);
+        // Get the position numbers that have more than one amino acid for this search problem
+        ArrayList<Integer> mutable2BoundStatePosNums = IntStream.range(0, allowedAAsPerBoundPos.size())
+                .filter(pos -> allowedAAsPerBoundPos.get(pos).size() > 1)// filter pos numbers for more than one amino acid
                 .boxed().collect(Collectors.toCollection(ArrayList::new));
 
-        SearchProblem unboundMutSP = getUnboundMutableSearchProblem(searchSpaces);
-        ArrayList<ArrayList<String>> allowedAAsPerPosUnboundMut = getAllowedAA(unboundMutSP);
-        ArrayList<Integer> mut2UnboundMutStatePosNums = IntStream.range(0, allowedAAsPerPosUnboundMut.size())
-                .filter(pos -> allowedAAsPerPosBound.get(pos).size() > 1)
+        // Get the Unbound Mutable Search Problem
+        this.unboundMutSearchSpace = getUnboundMutableSearchProblem(searchSpaces);
+        // Get the amino acids allowed at each position for the unbound mutable search problem
+        ArrayList<ArrayList<String>> allowedAsPerUnboundPos = getAllowedAA(this.unboundMutSearchSpace);
+        // Get the position numbers that have more than one amino acid for this search problem
+        ArrayList<Integer> mutable2UnboundStatePosNums = IntStream.range(0, allowedAsPerUnboundPos.size())
+                .filter(pos -> allowedAAsPerBoundPos.get(pos).size() > 1)// filter pos numbers for more than one amino acid
                 .boxed().collect(Collectors.toCollection(ArrayList::new));
+        
+        // Get the Unbound Non-Mutable Search Problem
+        this.unboundNonMutSearchSpace = getUnboundNonMutableSearchProblem(searchSpaces);
 
-        //Load the energy matrices and do pruning
+        // Load the energy matrices and do pruning
         double pruningInterval = Double.POSITIVE_INFINITY;
         loadEMatandPrune(pruningInterval);
 
-        //For each state this arraylist gives the mutable pos nums of that state
-        //TODO: GET A BETTER NAME/Approach
-        //This is like mutable2StatePosNums but includes all 3 states
-        //This all should just be changed
-        ArrayList<ArrayList<Integer>> searchSpace2StatePosNum = handleMutable2StatePosNums(allowedAAsPerState);
-
-        //determine which states are mutable and which are non-mutable
-        boolean[] stateIsMutable = new boolean[this.searchSpaces.length];
-        int numMutableState = 0;
-        int numNonMutableState = 0;
-        for (int state = 0; state < searchSpaces.length; state++) {
-            stateIsMutable[state] = !(searchSpace2StatePosNum.get(state).isEmpty()); //If not empty, it is mutable
-            if (stateIsMutable[state]) {
-                numMutableState++;
-                this.mutable2StatePosNums.add(searchSpace2StatePosNum.get(state));
-            } else {
-                numNonMutableState++;
-            }
+        // The constant term for the objective function is the unbound non-mutable partition function
+        double unboundNonMutLogPartFunction;
+        if (computeNonMutPF) {
+            PartFuncTree pft = new PartFuncTree(this.unboundMutSearchSpace);
+            unboundNonMutLogPartFunction = pft.computeEpsilonApprox(0.1);
+        } else {
+            unboundNonMutLogPartFunction = 0.0;
         }
+        System.out.println("Unbound Non Mutable Log PF: " + unboundNonMutLogPartFunction);
 
-        //Get Mutable States
-        SearchProblem[] mutableStates = new SearchProblem[numMutableState];
-        //For each MUTABLE state, this arraylist gives the mutable pos nums of that state
-        //This is what will go into the COMETS tree
-        ArrayList<ArrayList<Integer>> mutableState2StatePosNumList = new ArrayList<>();
-        ArrayList<ArrayList<ArrayList<String>>> mutableStateAllowedAAs = new ArrayList<>();
-        int mutableStateIndex = 0;
-
-        SearchProblem nonMutableState = searchSpaces[1];//Just to initialize it
-        double unboundProteinLogPartFunction = 0.0;
-        for (int state = 0; state < searchSpaces.length; state++) {
-            if (stateIsMutable[state]) {
-                mutableStates[mutableStateIndex] = searchSpaces[state];
-                mutableState2StatePosNumList.add(mutable2StatePosNums.get(mutableStateIndex));
-                mutableStateAllowedAAs.add(allowedAAsPerState.get(state));
-                mutableStateIndex++;
-            } else {
-                nonMutableState = searchSpaces[state];
-                //For the const term of the LME objective function
-                PartFuncTree pft = new PartFuncTree(nonMutableState);
-                unboundProteinLogPartFunction = pft.computeEpsilonApprox(0.1);
-//                unboundProteinLogPartFunction = 0.0;
-            }
-        }
-        System.out.println("Unbound Non Mutable: " + unboundProteinLogPartFunction);
-        this.mutableSearchSpace = mutableStates;
-        this.numTreeLevels = getNumMutablePos(mutableState2StatePosNumList);
-        this.AATypeOptions = handleAATypeOptions(mutableStateAllowedAAs);
-        this.objFcn = new LME(new double[]{1, -1}, unboundProteinLogPartFunction, 2);
+        this.numTreeLevels = mutable2BoundStatePosNums.size();
+        this.AATypeOptions = handleAATypeOptions(allowedAAsPerBoundPos, allowedAsPerUnboundPos);
+        this.objFcn = new LME(new double[]{1, -1}, unboundNonMutLogPartFunction, 2);
         this.gmecConstraints = new LME[0];
         int numMaxMut = -1;
-        String[] wtSeq = null;
+        String[] wtSeq = getWTSequence(mutable2BoundStatePosNums); 
 
-        //Convert to ArrayList<>
-        ArrayList<ArrayList<Integer>> mutableState2StatePosNum = new ArrayList<>();
-        for (List<Integer> mutable2PosNum : mutableState2StatePosNumList) {
-            ArrayList<Integer> converted = new ArrayList(mutable2PosNum);
-            mutableState2StatePosNum.add(converted);
-        }
-        SublinearKStarTree tree = new SublinearKStarTree(numTreeLevels, objFcn, gmecConstraints, AATypeOptions, numMaxMut, wtSeq, mutableStateIndex, mutableStates, nonMutableState, mutableState2StatePosNum);
+        SublinearKStarTree tree = new SublinearKStarTree(numTreeLevels, objFcn, gmecConstraints, AATypeOptions, 
+                numMaxMut, wtSeq, this.boundSearchSpace, this.unboundMutSearchSpace, this.unboundNonMutSearchSpace, 
+                mutable2BoundStatePosNums, mutable2UnboundStatePosNums);
 
         return tree;
     }
@@ -300,61 +261,25 @@ public class SublinearKStarDoer {
         return wtSequence;
     }
 
-    //for each state, returns a list of mutable pos numbers. 
-    //If the state has no mutable positions an empty list is returned
-    //Thus, we can use this to decide which states go in the comets search
-    private ArrayList<ArrayList<Integer>> handleMutable2StatePosNums(ArrayList<ArrayList<ArrayList<String>>> allowedAAPerState) {
-        ArrayList<ArrayList<Integer>> mutable2StatePosNum = new ArrayList<>();
-
-        for (int state = 0; state < allowedAAPerState.size(); state++) {
-            ArrayList<ArrayList<String>> allowedAAForState = allowedAAPerState.get(state);
-            ArrayList<Integer> mutablePositionsForState = getMutablePosNums(allowedAAForState);
-            mutable2StatePosNum.add(mutablePositionsForState);
-        }
-
-        return mutable2StatePosNum;
-    }
-
-    //Given the allowed AAs at a state, get the mutable position numbers
-    private ArrayList<Integer> getMutablePosNums(ArrayList<ArrayList<String>> allowedAAForState) {
-        ArrayList<Integer> mutablePosNum = new ArrayList<>();
-        for (int posNum = 0; posNum < allowedAAForState.size(); posNum++) {
-            if (allowedAAForState.get(posNum).size() > 1) {
-                mutablePosNum.add(posNum);
-            }
-        }
-        return mutablePosNum;
-    }
-
-    private int getNumMutablePos(ArrayList<ArrayList<Integer>> mutable2StatePosNum) {
-        int numMutable = -1;
-        for (int state = 0; state < mutable2StatePosNum.size(); state++) {
-            int numMutableAtState = mutable2StatePosNum.get(state).size();
-            numMutable = Math.max(numMutable, numMutableAtState);
-        }
-        return numMutable;
-    }
-
     //Make sure each mutable state has the same Allowed AA
     //Return Allowed AA for all mutable positions
-    private ArrayList<ArrayList<String>> handleAATypeOptions(ArrayList<ArrayList<ArrayList<String>>> mutableStateAllowedAAs) {
-        ArrayList<ArrayList<String>> AATypeOptions = mutableStateAllowedAAs.get(0).stream().filter(aaTypes -> aaTypes.size() > 1).collect(Collectors.toCollection(ArrayList::new));
+    private ArrayList<ArrayList<String>> handleAATypeOptions(ArrayList<ArrayList<String>> boundAllowedAAs, ArrayList<ArrayList<String>> unboundAllowedAAs) {
+        ArrayList<ArrayList<String>> AATypeOptionsBound = boundAllowedAAs.stream().filter(aaTypes -> aaTypes.size() > 1).collect(Collectors.toCollection(ArrayList::new));
 
-        for (int state = 1; state < mutableStateAllowedAAs.size(); state++) {
-            ArrayList<ArrayList<String>> AATypesForState = mutableStateAllowedAAs.get(state).stream().filter(aaTypes -> aaTypes.size() > 1).collect(Collectors.toCollection(ArrayList::new));
-            if (AATypesForState.size() != AATypeOptions.size()) {
-                throw new RuntimeException("ERROR: Different Number of Mutable Positions between Bound and Unbound");
-            }
-            for (int posNum = 0; posNum < AATypesForState.size(); posNum++) {
-                ArrayList<String> AATypesForPos = AATypesForState.get(posNum);
-                for (int aaIndex = 0; aaIndex < AATypesForPos.size(); aaIndex++) {
-                    if (!(AATypeOptions.get(posNum).contains(AATypesForPos.get(aaIndex)))) {
-                        throw new RuntimeException("ERROR: AAType Different for Bound and Unbound Mutable Residues");
-                    }
+        ArrayList<ArrayList<String>> AATypeOptionsUnbound = unboundAllowedAAs.stream().filter(aaTypes -> aaTypes.size() > 1).collect(Collectors.toCollection(ArrayList::new));
+        if (AATypeOptionsUnbound.size() != AATypeOptionsBound.size()) {
+            throw new RuntimeException("ERROR: Different Number of Mutable Positions between Bound and Unbound");
+        }
+        for (int posNum = 0; posNum < AATypeOptionsUnbound.size(); posNum++) {
+            ArrayList<String> AATypesForPos = AATypeOptionsUnbound.get(posNum);
+            for (int aaIndex = 0; aaIndex < AATypesForPos.size(); aaIndex++) {
+                if (!(AATypeOptionsBound.get(posNum).contains(AATypesForPos.get(aaIndex)))) {
+                    throw new RuntimeException("ERROR: AAType Different for Bound and Unbound Mutable Residues");
                 }
             }
         }
-        return AATypeOptions;
+        
+        return AATypeOptionsBound;
     }
 
     //Loads energy matrices and prune for COMETS
@@ -402,7 +327,7 @@ public class SublinearKStarDoer {
                 System.out.print(aa + " ");
             }
             for (int state = 0; state < this.numStates; state++) {
-                SearchProblem searchProb = this.mutableSearchSpace[state];
+                SearchProblem searchProb = state == 0 ? boundSearchSpace : unboundMutSearchSpace;
 
                 ArrayList<Integer> posNumsForState = new ArrayList<>();
                 for (int pos = 0; pos < searchProb.confSpace.numPos; pos++) {
@@ -428,7 +353,6 @@ public class SublinearKStarDoer {
                 }
             }
             System.out.print("  Score: " + (stateScore[seqNum][0] - stateScore[seqNum][1] + objFcn.constTerm) + "\n");
-
         }
 
         //now find the best sequence and obj fcn value

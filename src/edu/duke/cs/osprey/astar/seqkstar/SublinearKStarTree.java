@@ -7,10 +7,8 @@ package edu.duke.cs.osprey.astar.seqkstar;
 
 import edu.duke.cs.osprey.astar.AStarNode;
 import edu.duke.cs.osprey.astar.AStarTree;
-import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.astar.comets.LME;
 import edu.duke.cs.osprey.astar.comets.UpdatedPruningMatrix;
-import edu.duke.cs.osprey.astar.kadee.EmatBoundCrossTerms;
 import edu.duke.cs.osprey.astar.partfunc.PartFuncTree;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
@@ -33,10 +31,9 @@ import org.apache.commons.lang.ArrayUtils;
  */
 public class SublinearKStarTree extends AStarTree {
 
-    public int numTreeLevels; //number of mutable residues
-
     LME objFcn; //objective function to minimize
     LME[] constraints; //constraints on our sequence
+    public int numTreeLevels; //number of mutable residues
 
     public ArrayList<ArrayList<String>> AATypeOptions; //The allowed amino-acids at each level
 
@@ -51,42 +48,35 @@ public class SublinearKStarTree extends AStarTree {
 
     public SearchProblem nonMutableSearchProblem;
 
-    ArrayList<Integer> mutable2StatePosNumBound; //For each mutable position (level of tree) get the bound state pos num
-    ArrayList<Integer> mutable2StatePosNumUnbound; //For each mutable position (level of tree) get the unbound state pos num
-    
     ArrayList<ArrayList<Integer>> mutable2StatePosNums;
     //mutable2StatePosNum.get(state) maps levels in this tree to flexible positions for state
     //(not necessarily an onto mapping)
 
-    int stateNumPos[];
+    int[] numPosPerState;
 
-    //Maps the bound res num to the corresponding unbound emat
-    HashMap<Integer, EnergyMatrix> boundResNumToUnboundEmat;
     //Maps the bound res num to the corresponding unbound res num
     HashMap<Integer, Integer> boundPosNumToUnboundPosNum;
     //Maps the bound res num to boolean that is true if res num is part of mutable
     //strand
     HashMap<Integer, Boolean> boundResNumToIsMutableStrand;
-    //determines if two residues are on the same strand
-    boolean[][] belongToSameStrand;
-
-    boolean useComets = false;
-
-    int numSamplesGumbel = 50;
-    final double constRT = PoissonBoltzmannEnergy.constRT;
 
     double bestChangeFreeEnergy;
     String[] bestSequence;
 
     double pruningInterval = 50;
 
+    final double constRT = PoissonBoltzmannEnergy.constRT;
+
     public int numLeafNodesVisited = 0;
     public int numLeafNodesExpanded = 0;
 
+    boolean verbose = true;
+
     public SublinearKStarTree(int numTreeLevels, LME objFcn, LME[] constraints,
             ArrayList<ArrayList<String>> AATypeOptions, int numMaxMut, String[] wtSeq,
-            int numStates, SearchProblem[] stateSP, SearchProblem nonMutableSearchProblem,
-            ArrayList<ArrayList<Integer>> mutable2StatePosNums) {
+            SearchProblem boundSearchProblem, SearchProblem unboundSearchProblem,
+            SearchProblem nonMutableSearchProblem,
+            ArrayList<Integer> mutable2BoundState, ArrayList<Integer> mutable2UnboundState) {
 
         this.numTreeLevels = numTreeLevels;
         this.objFcn = objFcn;
@@ -94,21 +84,22 @@ public class SublinearKStarTree extends AStarTree {
         this.AATypeOptions = AATypeOptions;
         this.numMaxMut = numMaxMut;
         this.wtSeq = wtSeq;
-        this.numStates = numStates;
-        this.mutableSearchProblems = stateSP;
+        this.numStates = 2;
+
+        this.mutableSearchProblems = new SearchProblem[]{boundSearchProblem, unboundSearchProblem};
+
         this.nonMutableSearchProblem = nonMutableSearchProblem;
-        this.mutable2StatePosNums = mutable2StatePosNums;
 
-        stateNumPos = new int[numStates];
+        this.mutable2StatePosNums = new ArrayList<>();
+        this.mutable2StatePosNums.add(mutable2BoundState);
+        this.mutable2StatePosNums.add(mutable2UnboundState);
+
+        numPosPerState = new int[numStates];
         for (int state = 0; state < numStates; state++) {
-            stateNumPos[state] = stateSP[state].confSpace.numPos;
+            numPosPerState[state] = this.mutableSearchProblems[state].confSpace.numPos;
         }
-
-        this.boundResNumToUnboundEmat = getBoundPosNumToUnboundEmat();
         this.boundPosNumToUnboundPosNum = getBoundPosNumToUnboundPosNum();
         this.boundResNumToIsMutableStrand = getBoundPosNumberToIsMutableStrand();
-        this.belongToSameStrand = getSameStrandMatrix();
-
     }
 
     private double boundFreeEnergyChange(SequenceNode seqNode) {
@@ -124,13 +115,7 @@ public class SublinearKStarTree extends AStarTree {
             score -= seqNode.stateUBFreeEnergy[1];
             return score + this.objFcn.constTerm;
         } else {
-//            double realBound = computeExactBoundPerSequence(seqNode);
-//            double maxIntBound = computeMaxInterfacePerSequence(seqNode, mutableSearchProblems[0].emat, seqNode.pruneMat[0]);
             double logKStarUB = calcMaxInterfaceScore(seqNode);
-/*            System.out.println("Original: " + logKStarUB);
-            double logKStarUB_cross = calcIEScore(seqNode);
-            System.out.println("New:      " + logKStarUB_cross);*/
-//            return logKStarUB;
             return logKStarUB;
         }
     }
@@ -157,7 +142,7 @@ public class SublinearKStarTree extends AStarTree {
                         int[] childAssignments = curAssignments.clone();
                         childAssignments[splitPos] = aa;
                         UpdatedPruningMatrix[] childPruneMat = new UpdatedPruningMatrix[numStates];
-                        
+
                         for (int state = 0; state < numStates; state++) {
                             childPruneMat[state] = doChildPruning(state, seqNode.pruneMats[state], splitPos, aa);
                         }
@@ -168,10 +153,13 @@ public class SublinearKStarTree extends AStarTree {
                             makeSeqPartFuncTree(childNode);
                             this.numLeafNodesVisited++;
                         }
-                        printSequence(getSequence(childNode));
+
                         childNode.setScore(boundFreeEnergyChange(childNode));
-                        System.out.println("Score: " + childNode.getScore());
-                        if (Double.isInfinite(childNode.getScore())){
+                        if (verbose) {
+                            printSequence(getSequence(childNode));
+                            System.out.println("Score: " + childNode.getScore());
+                        }
+                        if (Double.isInfinite(childNode.getScore())) {
                             this.numPruned++;
                         }
                         ans.add(childNode);
@@ -196,7 +184,7 @@ public class SublinearKStarTree extends AStarTree {
         boolean[][] interactionGraph_p_l = createInteractionGraph(boundPosNums, proteinBoundPosNums, ligandBoundPosNums);
         boolean[][] interactionGraph = addInteractionGraphs(interactionGraph_protein, interactionGraph_p_l);
 
-        EnergyMatrix ematSubset = new EnergyMatrix(boundSP.emat.getSubsetMatrix(boundPosNums));
+        EnergyMatrix ematSubset;
         if (boundSP.useTupExpForSearch) {
             ematSubset = new EnergyMatrix(boundSP.tupExpEMat.getSubsetMatrix(boundPosNums));
             ematSubset.updateMatrixCrossTerms(interactionGraph);
@@ -208,12 +196,8 @@ public class SublinearKStarTree extends AStarTree {
             ematSubset.addInternalEnergies(boundSP.emat, proteinBoundPosNums);
             ematSubset.addCrossTermInternalEnergies(boundSP.emat, ligandSP.emat, ligandBoundPosNums, boundPosNumToUnboundPosNum);
         }
-//        PruningMatrix pruneMatSubset = new PruningMatrix(seqNode.pruneMats[0].getSubsetMatrix(boundPosNums));
-
         double score;
-//            PartFuncTree tree = new PartFuncTree(ematSubset, pruneMatSubset);
-//            score = -computeLogZGumbel(ematSubset, pruneMatSubset);
-//            score = -tree.computeEpsilonApprox(0.1);
+
         TRBP.setNumEdgeProbUpdates(0);
         if (hasUnprunedRCs(seqNode.pruneMats[0])) {
             MarkovRandomField mrf = new MarkovRandomField(ematSubset, seqNode.pruneMats[0], 0.0);
@@ -234,103 +218,6 @@ public class SublinearKStarTree extends AStarTree {
         return true;
     }
 
-    private double computeExactBoundPerSequence(SequenceNode seqNode) {
-        int[][] seqList = getAllSequences(seqNode);
-        double score = Double.POSITIVE_INFINITY;
-        for (int[] seq : seqList) {
-            UpdatedPruningMatrix pruneMatSeqBound = new UpdatedPruningMatrix(seqNode.pruneMats[0]);
-            UpdatedPruningMatrix pruneMatSeqUnbound = new UpdatedPruningMatrix(seqNode.pruneMats[1]);
-            updateBoundPruneMatAtSequence(seqNode, pruneMatSeqBound, seq);
-            updateUnoundPruneMatAtSequence(seqNode, pruneMatSeqUnbound, seq);
-            PartFuncTree pfTreeBound = new PartFuncTree(mutableSearchProblems[0].emat, pruneMatSeqBound);
-            PartFuncTree pfTreeUnbound = new PartFuncTree(mutableSearchProblems[1].emat, pruneMatSeqUnbound);
-
-            double boundScore = -pfTreeBound.computeEpsilonApprox(0.1);
-            double unboundScore = -pfTreeUnbound.computeEpsilonApprox(0.1);
-//            double boundScore = -computeLogZGumbel(mutableSearchProblems[0].emat, pruneMatSeqBound);
-//            double unboundScore = -computeLogZGumbel(mutableSearchProblems[1].emat, pruneMatSeqUnbound);
-            System.out.print("Sequence: ");
-            for (int pos = 0; pos < seq.length; pos++) {
-                System.out.print(this.AATypeOptions.get(pos).get(seq[pos]) + " ");
-            }
-            System.out.println("   Score: " + (boundScore - unboundScore));
-//            DiscretePartFunc dpf = new DiscretePartFunc(mutableSearchProblems[0].emat, pruneMatSeqBound, 0.1);
-//            double exactScoreBound = -dpf.getLogZ();
-//            DiscretePartFuncCalc dpfBound = new DiscretePartFuncCalc(mutableSearchProblems[0].emat, pruneMatSeqBound, 100, 0.1);
-//            double exactScoreBound = dpfBound.calcLogZ();
-//            DiscretePartFuncCalc dpfUnbound = new DiscretePartFuncCalc(mutableSearchProblems[1].emat, pruneMatSeqUnbound, 100, 0.1);
-//            double exactScoreUnbound = dpfUnbound.calcLogZ();
-//            DiscretePartFunc dfpU = new DiscretePartFunc(mutableSearchProblems[1].emat, pruneMatSeqUnbound, 0.1);
-//            double exactScoreUnbound = -dfpU.getLogZ();
-//            System.out.println("Exact Score: "+(exactScoreBound-exactScoreUnbound));
-            score = Math.min(score, (boundScore - unboundScore));
-        }
-        return score;
-    }
-
-    /**
-     * Creates an interaction graph over the set of residues defined by
-     * allPositions Every element in subsetI is interacting with every element
-     * in subsetJ interactions = {(i,j) | i in subsetI and j in subsetJ}
-     *
-     * @param allPositions all the positions that we are considering sorted by
-     * original posNumber
-     * @param subsetI list of positions interacting with subsetJ
-     * @param subsetJ list of positions interacting with subsetI
-     * @return interaction graph interactions = {(i,j) | i in subsetI and j in
-     * subsetJ}
-     */
-    private boolean[][] createInteractionGraph(ArrayList<Integer> allPositions, ArrayList<Integer> subsetI, ArrayList<Integer> subsetJ) {
-        int numPos = allPositions.size();
-        boolean[][] interactionGraph = new boolean[numPos][numPos];
-
-        //Initialize interactoin graph
-        for (int posI = 0; posI < numPos; posI++) {
-            for (int posJ = 0; posJ < numPos; posJ++) {
-                interactionGraph[posI][posJ] = false;
-            }
-        }
-
-        for (int posI : subsetI) {
-            int newPosNum_I = allPositions.indexOf(posI);
-            for (int posJ : subsetJ) {
-                //We don't consider self-interactions here so we will leave it as false
-                if (posI != posJ) {
-                    int newPosNum_J = allPositions.indexOf(posJ);
-                    interactionGraph[newPosNum_I][newPosNum_J] = true;
-                    interactionGraph[newPosNum_J][newPosNum_I] = true;
-                }
-            }
-        }
-        return interactionGraph;
-    }
-
-    /**
-     * Given two interaction graphs over the same graph we "add" them By this I
-     * mean, (i,j) is interacting if (i,j) is interacting in either graphI or
-     * graphJ
-     *
-     * @param interactionGraphI
-     * @param interactionGraphJ
-     * @return
-     */
-    private boolean[][] addInteractionGraphs(boolean[][] interactionGraphI, boolean[][] interactionGraphJ) {
-        //Check to make sure each graph is the same size
-        if (interactionGraphI.length != interactionGraphJ.length) {
-            throw new RuntimeException("ERROR: Cannot add two interaction graphs of different size");
-        }
-
-        int numPos = interactionGraphI.length;
-        boolean[][] interactionGraph = new boolean[numPos][numPos];
-        for (int i = 0; i < numPos; i++) {
-            for (int j = i + 1; j < numPos; j++) {
-                interactionGraph[i][j] = (interactionGraphI[i][j] || interactionGraphJ[i][j]);
-                interactionGraph[j][i] = interactionGraph[i][j];
-            }
-        }
-        return interactionGraph;
-    }
-
     private void makeSeqPartFuncTree(SequenceNode node) {
         //Given a node with a fully defined sequence, build its conformational search trees
         //for each state
@@ -344,7 +231,7 @@ public class SublinearKStarTree extends AStarTree {
 
             //first make sure there are RCs available at each position
             boolean RCsAvailable = true;
-            for (int pos = 0; pos < stateNumPos[state]; pos++) {
+            for (int pos = 0; pos < numPosPerState[state]; pos++) {
                 if (node.pruneMats[state].unprunedRCsAtPos(pos).isEmpty()) {
                     RCsAvailable = false;
                     break;
@@ -507,39 +394,106 @@ public class SublinearKStarTree extends AStarTree {
         return false;
     }
 
+    void printBestSeqInfo(SequenceNode seqNode) {
+        //About to return the given fully assigned sequence from A*
+        //provide information
+        System.out.println("SeqTree: A* returning conformation; lower bound = " + seqNode.getScore() + " nodes expanded: " + numExpanded);
+
+        System.out.print("Sequence: ");
+
+        for (int level = 0; level < numTreeLevels; level++) {
+            System.out.print(AATypeOptions.get(level).get(seqNode.getNodeAssignments()[level]) + " ");
+        }
+        System.out.println();
+
+        System.out.println();
+        System.out.println(numExpanded + " expanded; " + getQueue().size() + " nodes in tree, of which "
+                + numPruned + " pruned.");
+    }
+
+    @Override
+    public int[] outputNode(AStarNode node) {
+        System.out.println();
+        SequenceNode bestSeqNode = (SequenceNode) node;
+        bestSeqNode.stateTrees[0].updateEffectiveEpsilon();
+        bestSeqNode.stateTrees[1].updateEffectiveEpsilon();
+        System.out.println("Epsilon Bound:   " + bestSeqNode.getEffectiveEpsilon(0));
+        System.out.println("Epsilon Unbound: " + bestSeqNode.getEffectiveEpsilon(1));
+        printBestSeqInfo(bestSeqNode);
+        System.out.println("Num Leaf Visited: " + this.numLeafNodesVisited);
+        System.out.println("Num Pruned:       " + this.numPruned);
+        return node.getNodeAssignments();
+    }
+
+    public void printSequence(String[] sequence) {
+        StringBuffer buffer = new StringBuffer();
+        for (String aaType : sequence) {
+            buffer.append(" " + aaType);
+        }
+        System.out.println(buffer);
+    }
+
     /**
-     * For flexible position in bound matrix (0,1,2,...,numRes-1) we map to the
-     * corresponding unbound energy matrix
+     * Creates an interaction graph over the set of residues defined by
+     * allPositions Every element in subsetI is interacting with every element
+     * in subsetJ interactions = {(i,j) | i in subsetI and j in subsetJ}
      *
+     * @param allPositions all the positions that we are considering sorted by
+     * original posNumber
+     * @param subsetI list of positions interacting with subsetJ
+     * @param subsetJ list of positions interacting with subsetI
+     * @return interaction graph interactions = {(i,j) | i in subsetI and j in
+     * subsetJ}
+     */
+    private boolean[][] createInteractionGraph(ArrayList<Integer> allPositions, ArrayList<Integer> subsetI, ArrayList<Integer> subsetJ) {
+        int numPos = allPositions.size();
+        boolean[][] interactionGraph = new boolean[numPos][numPos];
+
+        //Initialize interactoin graph
+        for (int posI = 0; posI < numPos; posI++) {
+            for (int posJ = 0; posJ < numPos; posJ++) {
+                interactionGraph[posI][posJ] = false;
+            }
+        }
+
+        for (int posI : subsetI) {
+            int newPosNum_I = allPositions.indexOf(posI);
+            for (int posJ : subsetJ) {
+                //We don't consider self-interactions here so we will leave it as false
+                if (posI != posJ) {
+                    int newPosNum_J = allPositions.indexOf(posJ);
+                    interactionGraph[newPosNum_I][newPosNum_J] = true;
+                    interactionGraph[newPosNum_J][newPosNum_I] = true;
+                }
+            }
+        }
+        return interactionGraph;
+    }
+
+    /**
+     * Given two interaction graphs over the same graph we "add" them By this I
+     * mean, (i,j) is interacting if (i,j) is interacting in either graphI or
+     * graphJ
+     *
+     * @param interactionGraphI
+     * @param interactionGraphJ
      * @return
      */
-    public HashMap<Integer, EnergyMatrix> getBoundPosNumToUnboundEmat() {
-        SearchProblem boundState = this.mutableSearchProblems[0];
-        //Get res number from each flexible position in the bound state
-        List<String> resNumsBound = boundState.confSpace.posFlex.stream()
-                .map(posFlex -> posFlex.res.resNum)
-                .collect(Collectors.toCollection(ArrayList::new));
-
-        //Get res number for each flexible position in the unbound mutable state
-        SearchProblem unBoundMutableState = this.mutableSearchProblems[1];
-        List<String> resNumsUnboundMutable = unBoundMutableState.confSpace.posFlex.stream()
-                .map(posFlex -> posFlex.res.resNum)
-                .collect(Collectors.toCollection(ArrayList::new));
-
-        //Get res number for each flexible position in the unbound non-mutable state
-        SearchProblem unBoundNonMutableState = this.nonMutableSearchProblem;
-        List<String> resNumsUnboundNonMutable = unBoundNonMutableState.confSpace.posFlex.stream()
-                .map(posFlex -> posFlex.res.resNum)
-                .collect(Collectors.toCollection(ArrayList::new));
-        //Map to corresponding energy matrix
-        List<EnergyMatrix> unboundEmatPerPos = resNumsBound.stream()
-                .map(posNum -> ArrayUtils.contains(resNumsUnboundMutable.toArray(), posNum) ? unBoundMutableState.emat : unBoundNonMutableState.emat)
-                .collect(Collectors.toCollection(ArrayList::new));
-        HashMap<Integer, EnergyMatrix> boundPosNumToUnboundEmat = new HashMap<>();
-        for (int posNum = 0; posNum < unboundEmatPerPos.size(); posNum++) {
-            boundPosNumToUnboundEmat.put(posNum, unboundEmatPerPos.get(posNum));
+    private boolean[][] addInteractionGraphs(boolean[][] interactionGraphI, boolean[][] interactionGraphJ) {
+        //Check to make sure each graph is the same size
+        if (interactionGraphI.length != interactionGraphJ.length) {
+            throw new RuntimeException("ERROR: Cannot add two interaction graphs of different size");
         }
-        return boundPosNumToUnboundEmat;
+
+        int numPos = interactionGraphI.length;
+        boolean[][] interactionGraph = new boolean[numPos][numPos];
+        for (int i = 0; i < numPos; i++) {
+            for (int j = i + 1; j < numPos; j++) {
+                interactionGraph[i][j] = (interactionGraphI[i][j] || interactionGraphJ[i][j]);
+                interactionGraph[j][i] = interactionGraph[i][j];
+            }
+        }
+        return interactionGraph;
     }
 
     /**
@@ -572,56 +526,11 @@ public class SublinearKStarTree extends AStarTree {
                                 : ArrayUtils.indexOf(resNumsUnboundNonMutable.toArray(), posNum))
                 .collect(Collectors.toCollection(ArrayList::new));
 
-        HashMap<Integer, Integer> boundPosNumToUnboundPosNum = new HashMap<>();
+        HashMap<Integer, Integer> boundPosNumsToUnboundPosNum = new HashMap<>();
         for (int posNum = 0; posNum < unboundPosNumsPerPos.size(); posNum++) {
-            boundPosNumToUnboundPosNum.put(posNum, unboundPosNumsPerPos.get(posNum));
+            boundPosNumsToUnboundPosNum.put(posNum, unboundPosNumsPerPos.get(posNum));
         }
-        return boundPosNumToUnboundPosNum;
-    }
-
-    /**
-     * For flexible position in bound matrix (0,1,2,...,numRes-1) we map to the
-     * corresponding strand number
-     *
-     * @return
-     */
-    public boolean[][] getSameStrandMatrix() {
-        SearchProblem boundState = this.mutableSearchProblems[0];
-        //Get res number from each flexible position in the bound state
-        List<String> resNumsBound = boundState.confSpace.posFlex.stream()
-                .map(posFlex -> posFlex.res.resNum)
-                .collect(Collectors.toList());
-
-        //Get res number for each flexible position in the unbound mutable state
-        SearchProblem unBoundMutableState = this.mutableSearchProblems[1];
-        List<String> resNumsUnboundMutable = unBoundMutableState.confSpace.posFlex.stream()
-                .map(posFlex -> posFlex.res.resNum)
-                .collect(Collectors.toList());
-
-        //Get res number for each flexible position in the unbound non-mutable state
-        SearchProblem unBoundNonMutableState = this.nonMutableSearchProblem;
-        List<String> resNumsUnboundNonMutable = unBoundNonMutableState.confSpace.posFlex.stream()
-                .map(posFlex -> posFlex.res.resNum)
-                .collect(Collectors.toList());
-        //Map to corresponding unbound position number
-        List<Integer> boundPosNumToStrandNum = resNumsBound.stream()
-                .map(posNum -> ArrayUtils.contains(resNumsUnboundMutable.toArray(), posNum) ? 0 : 1)
-                .collect(Collectors.toList());
-
-        int numResidues = boundPosNumToStrandNum.size();
-        boolean[][] belongToSameStrand = new boolean[numResidues][numResidues];
-        for (int i = 0; i < numResidues; i++) {
-            for (int j = i + 1; j < numResidues; j++) {
-                if (boundPosNumToStrandNum.get(i).equals(boundPosNumToStrandNum.get(j))) {
-                    belongToSameStrand[i][j] = true;
-                    belongToSameStrand[j][i] = true;
-                } else {
-                    belongToSameStrand[i][j] = false;
-                    belongToSameStrand[j][i] = false;
-                }
-            }
-        }
-        return belongToSameStrand;
+        return boundPosNumsToUnboundPosNum;
     }
 
     /**
@@ -637,16 +546,9 @@ public class SublinearKStarTree extends AStarTree {
         List<String> resNumsBound = boundState.confSpace.posFlex.stream()
                 .map(posFlex -> posFlex.res.resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
-
         //Get res number for each flexible position in the unbound mutable state
         SearchProblem unBoundMutableState = this.mutableSearchProblems[1];
         List<String> resNumsUnboundMutable = unBoundMutableState.confSpace.posFlex.stream()
-                .map(posFlex -> posFlex.res.resNum)
-                .collect(Collectors.toCollection(ArrayList::new));
-
-        //Get res number for each flexible position in the unbound non-mutable state
-        SearchProblem unBoundNonMutableState = this.nonMutableSearchProblem;
-        List<String> resNumsUnboundNonMutable = unBoundNonMutableState.confSpace.posFlex.stream()
                 .map(posFlex -> posFlex.res.resNum)
                 .collect(Collectors.toCollection(ArrayList::new));
         //Map to corresponding unbound position number
@@ -659,98 +561,6 @@ public class SublinearKStarTree extends AStarTree {
             boundPosNumToIsMutableStrand.put(posNum, boundPosNumIsMutable.get(posNum));
         }
         return boundPosNumToIsMutableStrand;
-    }
-
-    /**
-     * This returns the list of integers corresponding to the assigned position
-     * numbers of the ligand in the confSpace This is useful for computing GMECs
-     * over partial spaces.
-     *
-     * @param seqNode the current sequence node
-     * @param useBoundState do we want to position numbers corresponding to
-     * bound state (true) or unbound state (false)
-     * @return
-     */
-    private ArrayList<Integer> getLigandAssignedPosNums(SequenceNode seqNode, boolean useBoundState) {
-        int[] partialSeq = seqNode.getNodeAssignments();
-        //Get the mapping between mutable position in sequence node assignment and
-        //the corresponding position number in the confSpace for bound or unbound ligand
-        ArrayList<Integer> mutable2PosNum = useBoundState ? this.mutable2StatePosNums.get(0) : this.mutable2StatePosNums.get(1);
-        //Get the corresponding searchProblem for bound or unbound ligand
-        SearchProblem searchProblem = useBoundState ? this.mutableSearchProblems[0] : this.mutableSearchProblems[1];
-
-        ArrayList<Integer> ligandAssignedPosNums = new ArrayList<>();
-
-        //Iterate over flexible position numbers 
-        for (int posNum = 0; posNum < searchProblem.confSpace.numPos; posNum++) {
-
-            //If we are using the bound state, we must check if the position belongs to 
-            //Ligand or protein
-            //If we are not using the bound state then it must belong to ligand
-            if (this.boundResNumToIsMutableStrand.get(posNum) || !(useBoundState)) {
-                //position is on mutable strand, implying it belongs to ligand
-
-                //Now check if the posNum is mutable
-                if (mutable2PosNum.contains(posNum)) {
-                    //It is mutable so get the index of mutable position wrt sequence node assignment
-                    int index = mutable2PosNum.indexOf(posNum);
-                    //Now we check if this mutable position is assigned
-                    if (partialSeq[index] >= 0) {
-                        //It is assigned so add it to our list
-                        ligandAssignedPosNums.add(posNum);
-                    }
-                } else {//if the posNum is NOT mutable then it is assigned already assigned
-                    //add since it is assigned and on ligand
-                    ligandAssignedPosNums.add(posNum);
-                }
-            }
-        }
-        return ligandAssignedPosNums;
-    }
-
-    /**
-     * This returns the list of integers corresponding to the assigned position
-     * numbers of the ligand in the confSpace This is useful for computing GMECs
-     * over partial spaces.
-     *
-     * @param seqNode current sequence node in tree
-     * @param useBoundState do we want the posNums to correspond to the bound
-     * state or unbound state
-     * @return
-     */
-    private ArrayList<Integer> getLigandUnassignedPosNums(SequenceNode seqNode, boolean useBoundState) {
-        int[] partialSeq = seqNode.getNodeAssignments();
-
-        //Get the mapping between mutable position in sequence node assignment and
-        //the corresponding position number in the confSpace for bound or unbound ligand
-        ArrayList<Integer> mutable2PosNum = useBoundState ? this.mutable2StatePosNums.get(0) : this.mutable2StatePosNums.get(1);
-        //Get the corresponding searchProblem for bound or unbound ligand
-        SearchProblem searchProblem = useBoundState ? this.mutableSearchProblems[0] : this.mutableSearchProblems[1];
-
-        ArrayList<Integer> ligandUnassignedPosNums = new ArrayList<>();
-
-        //Iterate over flexible position numbers
-        for (int posNum = 0; posNum < searchProblem.confSpace.numPos; posNum++) {
-
-            //If we are using the bound state, we must check if the position belongs to 
-            //Ligand or protein
-            //If we are not using the bound state then it must belong to ligand
-            if (this.boundResNumToIsMutableStrand.get(posNum) || !(useBoundState)) {
-                //Position is on the mutable (ligand) strand
-
-                //Now check if the posNum is mutable
-                if (mutable2PosNum.contains(posNum)) {
-                    //It is mutable so get the index of the mutable position wrt sequence node assignment
-                    int index = mutable2PosNum.indexOf(posNum);
-                    //Now we check if this mutable position is unassigned
-                    if (partialSeq[index] < 0) {
-                        //It is unassigned so add to our list
-                        ligandUnassignedPosNums.add(posNum);
-                    }
-                }
-            }
-        }
-        return ligandUnassignedPosNums;
     }
 
     /**
@@ -819,139 +629,6 @@ public class SublinearKStarTree extends AStarTree {
         return allPosNums;
     }
 
-    boolean updateUB(int state, AStarNode expNode, SequenceNode seqNode) {
-        //Get an upper-bound on the node by a little FASTER run, generating UBConf
-        //store UBConf and UB in expNode
-        //expNode is in seqNode.stateTrees[state]
-        //we'll start with the starting conf (likely from a parent) if provided
-        //return true unless no valid conf is possible...then false
-
-        int assignments[] = expNode.getNodeAssignments();
-        ArrayList<ArrayList<Integer>> allowedRCs = new ArrayList<>();
-
-        for (int pos = 0; pos < stateNumPos[state]; pos++) {
-
-            ArrayList<Integer> posOptions = new ArrayList<>();
-
-            if (assignments[pos] == -1) {
-                posOptions = seqNode.pruneMats[state].unprunedRCsAtPos(pos);
-                if (posOptions.isEmpty())//no options at this position
-                {
-                    return false;
-                }
-            } else//assigned
-            {
-                posOptions.add(assignments[pos]);
-            }
-
-            allowedRCs.add(posOptions);
-        }
-
-        int startingConf[] = expNode.UBConf;
-        int[] UBConf = startingConf.clone();
-        //ok first get rid of anything in startingConf not in expNode's conf space,
-        //replace with the lowest-intra+shell-E conf
-        for (int level = 0; level < stateNumPos[state]; level++) {
-
-            if (!allowedRCs.get(level).contains(startingConf[level])) {
-                //if( ! levelOptions.get(level).get(expNode.conf[level]).contains( startingConf[level] ) ){
-
-                double bestISE = Double.POSITIVE_INFINITY;
-                int bestRC = allowedRCs.get(level).get(0);
-                for (int rc : allowedRCs.get(level)) {
-                    double ise = getEnergyMatrix(state).getOneBody(level, rc);
-                    if (ise < bestISE) {
-                        bestISE = ise;
-                        bestRC = rc;
-                    }
-                }
-
-                UBConf[level] = bestRC;
-            }
-        }
-
-        double curE = getEnergyMatrix(state).confE(UBConf);
-        boolean done = false;
-
-        while (!done) {
-
-            done = true;
-
-            for (int level = 0; level < stateNumPos[state]; level++) {
-
-                int testConf[] = UBConf.clone();
-
-                for (int rc : allowedRCs.get(level)) {
-                    testConf[level] = rc;
-
-                    //if(!canPrune(testConf)){//pruned conf unlikely to be good UB
-                    //would only prune if using pruned pair flags in A*
-                    double testE = getEnergyMatrix(state).confE(testConf);
-                    if (testE < curE) {
-                        curE = testE;
-                        UBConf[level] = rc;
-                        done = false;
-                    }
-                    //}
-                }
-            }
-        }
-
-        expNode.UBConf = UBConf;
-        expNode.UB = getEnergyMatrix(state).confE(UBConf);
-
-        return true;
-    }
-
-    private EnergyMatrix getEnergyMatrix(int state) {
-        if (mutableSearchProblems[state].useTupExpForSearch)//Using LUTE
-        {
-            return mutableSearchProblems[state].tupExpEMat;
-        } else//discrete flexibility w/o LUTE
-        {
-            return mutableSearchProblems[state].emat;
-        }
-    }
-
-    void printBestSeqInfo(SequenceNode seqNode) {
-        //About to return the given fully assigned sequence from A*
-        //provide information
-        System.out.println("SeqTree: A* returning conformation; lower bound = " + seqNode.getScore() + " nodes expanded: " + numExpanded);
-
-        System.out.print("Sequence: ");
-
-        for (int level = 0; level < numTreeLevels; level++) {
-            System.out.print(AATypeOptions.get(level).get(seqNode.getNodeAssignments()[level]) + " ");
-        }
-        System.out.println();
-
-        System.out.println();
-        System.out.println(numExpanded + " expanded; " + getQueue().size() + " nodes in tree, of which "
-                + numPruned + " pruned.");
-    }
-
-    @Override
-    public int[] outputNode(AStarNode node) {
-        System.out.println();
-        SequenceNode bestSeqNode = (SequenceNode) node;
-        bestSeqNode.stateTrees[0].updateEffectiveEpsilon();
-        bestSeqNode.stateTrees[1].updateEffectiveEpsilon();
-        System.out.println("Epsilon Bound:   "+bestSeqNode.getEffectiveEpsilon(0));
-        System.out.println("Epsilon Unbound: "+bestSeqNode.getEffectiveEpsilon(1));
-        printBestSeqInfo(bestSeqNode);
-        System.out.println("Num Leaf Visited: "+this.numLeafNodesVisited);
-        System.out.println("Num Pruned:       "+this.numPruned);
-        return node.getNodeAssignments();
-    }
-
-    public void printSequence(String[] sequence) {
-        StringBuffer buffer = new StringBuffer();
-        for (String aaType : sequence) {
-            buffer.append(" " + aaType);
-        }
-        System.out.println(buffer);
-    }
-
     public String[] getSequence(SequenceNode node) {
         int[] assignments = node.getNodeAssignments();
         int numMotPos = assignments.length;
@@ -968,6 +645,38 @@ public class SublinearKStarTree extends AStarTree {
             sequence[mutPos] = aaType;
         }
         return sequence;
+    }
+
+    /*
+     **************************************************************
+     **************************************************************
+     **These Methods Below Are Really Just For Debugging Purposes**
+     ************************************************************** 
+     **************************************************************
+     */
+    private double computeExactBoundPerSequence(SequenceNode seqNode) {
+        int[][] seqList = getAllSequences(seqNode);
+        double score = Double.POSITIVE_INFINITY;
+        for (int[] seq : seqList) {
+            UpdatedPruningMatrix pruneMatSeqBound = new UpdatedPruningMatrix(seqNode.pruneMats[0]);
+            UpdatedPruningMatrix pruneMatSeqUnbound = new UpdatedPruningMatrix(seqNode.pruneMats[1]);
+            updateBoundPruneMatAtSequence(seqNode, pruneMatSeqBound, seq);
+            updateUnboundPruneMatAtSequence(seqNode, pruneMatSeqUnbound, seq);
+            PartFuncTree pfTreeBound = new PartFuncTree(mutableSearchProblems[0].emat, pruneMatSeqBound);
+            PartFuncTree pfTreeUnbound = new PartFuncTree(mutableSearchProblems[1].emat, pruneMatSeqUnbound);
+
+            double boundScore = -pfTreeBound.computeEpsilonApprox(0.1);
+            double unboundScore = -pfTreeUnbound.computeEpsilonApprox(0.1);
+//            double boundScore = -computeLogZGumbel(mutableSearchProblems[0].emat, pruneMatSeqBound);
+//            double unboundScore = -computeLogZGumbel(mutableSearchProblems[1].emat, pruneMatSeqUnbound);
+            System.out.print("Sequence: ");
+            for (int pos = 0; pos < seq.length; pos++) {
+                System.out.print(this.AATypeOptions.get(pos).get(seq[pos]) + " ");
+            }
+            System.out.println("   Score: " + (boundScore - unboundScore));
+            score = Math.min(score, (boundScore - unboundScore));
+        }
+        return score;
     }
 
     int[][] getAllSequences(SequenceNode seqNode) {
@@ -1042,7 +751,7 @@ public class SublinearKStarTree extends AStarTree {
         }
     }
 
-    void updateUnoundPruneMatAtSequence(SequenceNode seqNode, PruningMatrix pruneMat, int[] seq) {
+    void updateUnboundPruneMatAtSequence(SequenceNode seqNode, PruningMatrix pruneMat, int[] seq) {
         int[] assignments = seqNode.getNodeAssignments();
         SearchProblem ligandSP = mutableSearchProblems[1];
 

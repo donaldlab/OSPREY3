@@ -22,7 +22,7 @@ public class SublinearKStarTests {
             throws Exception {
 
         String path = new File("").getAbsolutePath();
-        if (!path.endsWith("VariationalKStar/SublinearKStar/4HEM")) {
+        if (!path.endsWith("VariationalKStar/SublinearKStar/4HEM/Smaller")) {
             throw new Error("This test was designed to be run in testVariationalKStar/SublinearKStar/4HEM folder\n\tcwd: " + path);
         }
 
