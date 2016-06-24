@@ -81,7 +81,10 @@ public class GMECFinder {
             I0 = cfgP.params.getDouble("Ival");
         }
         
-        useContFlex = cfgP.params.getBool("doMinimize");
+        useContFlex = cfgP.params.getBool("doMinimize") || cfgP.params.getBool("doPerturbations");
+        //using either continuous sidechain flexibility, or backbone flexibility (which may be continuous)
+        //Note discrete flexibility is just a special case of continuous flexibility
+        
         useTupExp = cfgP.params.getBool("UseTupExp");
         useEPIC = cfgP.params.getBool("UseEPIC");
         

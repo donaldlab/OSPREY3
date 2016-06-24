@@ -161,6 +161,7 @@ public class LoopClosureAdjustment extends Perturbation {
         if(numSoln>0)
             solns[unperturbed] = solns[0];
         
+        solns[0] = new RigidBodyMotion[2];
         solns[0][0] = new RigidBodyMotion(new double[3], RotationMatrix.identity(), new double[3]);
         solns[0][1] = new RigidBodyMotion(new double[3], RotationMatrix.identity(), new double[3]);
         
