@@ -4,6 +4,11 @@ import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 
+import edu.duke.cs.osprey.control.EnvironmentVars;
+import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
+
 public class TestBase {
 	
 	private static final double Epsilon = 1e-14;
@@ -35,5 +40,44 @@ public class TestBase {
 					.appendText(" that's greater than epsilon ").appendValue(Epsilon);
 			}
 		};
+	}
+	
+	protected static ForcefieldParams makeDefaultFFParams() {
+		// values from default config file
+		String forceField = "AMBER";
+		boolean distDeptDielect = true;
+		double dielectConst = 6;
+		double vdwMult = 0.95;
+		boolean doSolv = true;
+		double solvScale = 0.5;
+		boolean useHForElectrostatics = true;
+		boolean useHForVdw = true;
+		return new ForcefieldParams(
+			forceField, distDeptDielect, dielectConst, vdwMult,
+			doSolv, solvScale, useHForElectrostatics, useHForVdw
+		);
+	}
+	
+	protected static void initDefaultEnvironment() {
+		
+		// values from default config file
+		EnvironmentVars.setDataDir("dataFiles");
+		
+		// make energy function
+		double shellDistCutoff = Double.POSITIVE_INFINITY;
+		boolean usePoissonBoltzmann = false;
+		EnvironmentVars.curEFcnGenerator = new EnergyFunctionGenerator(makeDefaultFFParams(), shellDistCutoff, usePoissonBoltzmann);
+		
+		// make residue templates
+		EnvironmentVars.resTemplates = new GenericResidueTemplateLibrary(
+			new String[] { "all_amino94.in", "all_aminont94.in", "all_aminoct94.in", "all_nuc94_and_gr.in" },
+			makeDefaultFFParams()
+		);
+		EnvironmentVars.resTemplates.loadTemplateCoords("all_amino_coords.in");
+		EnvironmentVars.resTemplates.makeDAminoAcidTemplates();
+		
+		// make rotamers
+		boolean useBackboneDependentRotamers = false;
+		EnvironmentVars.resTemplates.loadRotamerLibrary("LovellRotamer.dat", useBackboneDependentRotamers);
 	}
 }
