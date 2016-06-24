@@ -1,1 +1,4 @@
 build/*
+nbproject/*
+lib/nblibraries.properties
+build.xml
