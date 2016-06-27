@@ -68,8 +68,8 @@ public class EPICSettings implements Serializable {
     
     boolean useEPIC;
     
-    double EPICThresh1;//AKA b1
-    public double EPICThresh2;//b2
+    double EPICThresh1=10;//AKA b1
+    public double EPICThresh2=25;//b2
     
     public double EPICGoalResid;//(default = 1e-4)
 
