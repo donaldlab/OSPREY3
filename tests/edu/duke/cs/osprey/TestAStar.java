@@ -3,10 +3,6 @@ package edu.duke.cs.osprey;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -25,95 +21,13 @@ import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.ematrix.EnergyMatrixCalculator;
-import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
-import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.tools.HashCalculator;
 
 public class TestAStar extends TestBase {
 	
 	@BeforeClass
 	public static void before() {
 		initDefaultEnvironment();
-	}
-	
-	private static Map<EnergyMatrixConfig,EnergyMatrix> m_energyMatrixCache;
-	
-	static {
-		m_energyMatrixCache = new HashMap<>();
-	}
-	
-	private static class EnergyMatrixConfig {
-		
-		String pdbPath;
-		int numFlexible;
-		boolean addWtRots;
-		boolean doMinimize;
-		
-		@Override
-		public boolean equals(Object other) {
-			if (other instanceof EnergyMatrixConfig) {
-				return equals((EnergyMatrixConfig)other);
-			}
-			return false;
-		}
-		
-		public boolean equals(EnergyMatrixConfig other) {
-			return this.pdbPath.equals(other.pdbPath)
-				&& this.numFlexible == other.numFlexible
-				&& this.addWtRots == other.addWtRots
-				&& this.doMinimize == other.doMinimize;
-		}
-		
-		@Override
-		public int hashCode() {
-			return HashCalculator.combineHashes(
-				this.pdbPath.hashCode(),
-				Integer.valueOf(this.numFlexible).hashCode(),
-				Boolean.valueOf(this.addWtRots).hashCode(),
-				Boolean.valueOf(this.doMinimize).hashCode()
-			);
-		}
-	}
-	
-	private SearchProblem makeSearchProblem(EnergyMatrixConfig emConfig) {
-		
-		// make the search problem
-		ArrayList<String> flexRes = new ArrayList<>();
-		ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
-		for (int i=0; i<emConfig.numFlexible; i++) {
-			flexRes.add(Integer.toString(i + 1));
-			allowedAAs.add(new ArrayList<String>());
-		}
-		boolean addWt = true;
-		boolean useEpic = false;
-		boolean useTupleExpansion = false;
-		boolean useEllipses = false;
-		boolean useERef = false;
-		boolean addResEntropy = false;
-		ArrayList<String[]> moveableStrands = new ArrayList<String[]>();
-		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
-		SearchProblem search = new SearchProblem(
-			"test", emConfig.pdbPath, 
-			flexRes, allowedAAs, addWt, emConfig.doMinimize, useEpic, new EPICSettings(), useTupleExpansion,
-			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, emConfig.addWtRots
-		);
-		
-		// calculate the energy matrix, but check the cache first
-		search.emat = m_energyMatrixCache.get(emConfig);
-		if (search.emat == null) {
-			EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(search.confSpace, search.shellResidues, useERef, addResEntropy);
-			emCalc.calcPEM();
-			search.emat = emCalc.getEMatrix();
-			m_energyMatrixCache.put(emConfig, search.emat);
-		}
-		
-		// calculate an "identity" pruning matrix (ie, no pruning)
-		search.pruneMat = new PruningMatrix(search.confSpace, search.emat.getPruningInterval());
-		
-		return search;
 	}
 	
 	
@@ -218,7 +132,7 @@ public class TestAStar extends TestBase {
 	}
 	
 	@Test
-	public void testRigidStaticScoreOrderMPLPEdge1Iter() {
+	public void testDagkRigidStaticScoreOrderMPLPEdge1Iter() {
 		SearchProblem search = makeSearchProblemDagkRigid();
 		
 		RCs rcs = new RCs(search.pruneMat);
@@ -230,7 +144,7 @@ public class TestAStar extends TestBase {
 	}
 	
 	@Test
-	public void testRigidStaticScoreOrderMPLPEdge20Iter() {
+	public void testDagkRigidStaticScoreOrderMPLPEdge20Iter() {
 		SearchProblem search = makeSearchProblemDagkRigid();
 		
 		RCs rcs = new RCs(search.pruneMat);
@@ -301,6 +215,88 @@ public class TestAStar extends TestBase {
 		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
 		
 		checkDagkRigid(tree, search);
+	}
+	
+	
+	// RIGID TESTS (with infinite energies)
+	
+	private SearchProblem makeSearchProblemDagkRigidInf() {
+		SearchProblem search = makeSearchProblemDagkRigid();
+		
+		// add some infinite energies to see if any of the A* algorithms break
+		search.emat = new EnergyMatrix(search.emat);
+		for (int pos1=0; pos1<search.emat.getNumPos(); pos1++) {
+			for (int pos2=0; pos2<pos1; pos2++) {
+				search.emat.setPairwise(pos1, 0, pos2, 0, Double.POSITIVE_INFINITY);
+			}
+		}
+		
+		return search;
+	}
+	
+	private void checkDagkRigidInf(ConfSearch tree, SearchProblem search) {
+		int[] conf = tree.nextConf();
+		double confEnergy = search.emat.getInternalEnergy(new RCTuple(conf));
+		
+		assertThat(confEnergy, isRelatively(-73.662409496771));
+		assertThat(conf, is(new int[] { 0, 6, 7, 16, 16, 1, 2, 6 }));
+	}
+	
+	@Test
+	public void testDagkRigidInfConfTree() {
+		SearchProblem search = makeSearchProblemDagkRigidInf();
+		
+		ConfSearch tree = ConfTree.makeFull(search);
+		
+		checkDagkRigidInf(tree, search);
+	}
+	
+	@Test
+	public void testDagkRigidInfDynamicScoreOrderTraditional() {
+		SearchProblem search = makeSearchProblemDagkRigidInf();
+		
+		RCs rcs = new RCs(search.pruneMat);
+		AStarOrder order = new DynamicHMeanAStarOrder();
+		AStarScorer hscorer = new TraditionalPairwiseHScorer(search.emat, rcs);
+		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		
+		checkDagkRigidInf(tree, search);
+	}
+	
+	@Test
+	public void testDagkRigidInfStaticScoreOrderMPLP0Iter() {
+		SearchProblem search = makeSearchProblemDagkRigidInf();
+		
+		RCs rcs = new RCs(search.pruneMat);
+		AStarOrder order = new StaticScoreHMeanAStarOrder();
+		AStarScorer hscorer = new MPLPPairwiseHScorer(null, search.emat, 0, 0.0001);
+		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		
+		checkDagkRigidInf(tree, search);
+	}
+	
+	@Test
+	public void testDagkRigidInfStaticScoreOrderMPLPNode1Iter() {
+		SearchProblem search = makeSearchProblemDagkRigidInf();
+		
+		RCs rcs = new RCs(search.pruneMat);
+		AStarOrder order = new StaticScoreHMeanAStarOrder();
+		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001);
+		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		
+		checkDagkRigidInf(tree, search);
+	}
+	
+	@Test
+	public void testDagkRigidInfStaticScoreOrderMPLPEdge1Iter() {
+		SearchProblem search = makeSearchProblemDagkRigidInf();
+		
+		RCs rcs = new RCs(search.pruneMat);
+		AStarOrder order = new StaticScoreHMeanAStarOrder();
+		AStarScorer hscorer = new MPLPPairwiseHScorer(new EdgeUpdater(), search.emat, 1, 0.0001);
+		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		
+		checkDagkRigidInf(tree, search);
 	}
 	
 	
@@ -405,7 +401,7 @@ public class TestAStar extends TestBase {
 	}
 	
 	@Test
-	public void testContinuousStaticScoreOrderMPLPEdge1Iter() {
+	public void testDagkContinuousStaticScoreOrderMPLPEdge1Iter() {
 		SearchProblem search = makeSearchProblemDagkContinuous();
 		
 		RCs rcs = new RCs(search.pruneMat);
@@ -417,7 +413,7 @@ public class TestAStar extends TestBase {
 	}
 	
 	@Test
-	public void testContinuousStaticScoreOrderMPLPEdge20Iter() {
+	public void testDagkContinuousStaticScoreOrderMPLPEdge20Iter() {
 		SearchProblem search = makeSearchProblemDagkContinuous();
 		
 		RCs rcs = new RCs(search.pruneMat);

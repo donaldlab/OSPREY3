@@ -82,6 +82,20 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
         higherTerms = null;
     }
     
+    protected AbstractTupleMatrix(AbstractTupleMatrix<T> other) {
+    	this.numPos = other.numPos;
+    	this.numConfAtPos = other.numConfAtPos.clone();
+    	this.oneBodyOffsets = other.oneBodyOffsets.clone();
+    	this.pairwiseOffsets = other.pairwiseOffsets.clone();
+    	this.numPairwiseTerms = other.numPairwiseTerms;
+    	this.pruningInterval = other.pruningInterval;
+    	if (other.higherTerms != null) {
+    		throw new UnsupportedOperationException("copying higher order terms isn't implemented yet");
+    	}
+    	this.higherTerms = null;
+    	this.defaultHigherInteraction = null;
+    }
+    
     protected abstract void allocate(int numOneBody, int numPairwise);
     
     public double getPruningInterval() {

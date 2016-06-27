@@ -31,7 +31,6 @@ public class EdgeUpdater implements MPLPUpdater {
 		// the algorithm is designed for immediate updates to the lambda vars
 		// as long as the outer loops are over pos1,pos2
 		
-		RCs rcs = lambdas.getRCs();
 		ConfIndex confIndex = lambdas.getConfIndex();
 		
 		for (int posi1=0; posi1<confIndex.getNumUndefined(); posi1++) {
@@ -44,38 +43,39 @@ public class EdgeUpdater implements MPLPUpdater {
 					continue;
 				}
 				
-				for (int rci1=0; rci1<rcs.getNum(pos1); rci1++) {
-					int rc1 = rcs.get(pos1, rci1);
-					
-					double minEnergy = Double.POSITIVE_INFINITY;
-					for (int rci2=0; rci2<rcs.getNum(pos2); rci2++) {
-						int rc2 = rcs.get(pos2, rci2);
-						double energy = lambdas.getEnergyWithout(posi2, rci2, posi1)
-							+ emat.getPairwise(pos1, rc1, pos2, rc2);
-						minEnergy = Math.min(minEnergy, energy);
-					}
-					
-					minEnergy = (minEnergy - lambdas.getEnergyWithout(posi1, rci1, posi2))/2;
-					
-					lambdas.set(posi2, posi1, rci1, minEnergy);
-				}
-				
-				for (int rci2=0; rci2<rcs.getNum(pos2); rci2++) {
-					int rc2 = rcs.get(pos2, rci2);
-					
-					double minEnergy = Double.POSITIVE_INFINITY;
-					for (int rci1=0; rci1<rcs.getNum(pos1); rci1++) {
-						int rc1 = rcs.get(pos1, rci1);
-						double energy = lambdas.getEnergyWithout(posi1, rci1, posi2)
-							+ emat.getPairwise(pos1, rc1, pos2, rc2);
-						minEnergy = Math.min(minEnergy, energy);
-					}
-					
-					minEnergy = (minEnergy - lambdas.getEnergyWithout(posi2, rci2, posi1))/2;
-					
-					lambdas.set(posi1, posi2, rci2, minEnergy);
-				}
+				update(lambdas, emat, posi1, posi2);
+				update(lambdas, emat, posi2, posi1);
 			}
+		}
+	}
+	
+	private void update(MessageVars lambdas, EnergyMatrix emat, int posi1, int posi2) {
+
+		RCs rcs = lambdas.getRCs();
+		ConfIndex confIndex = lambdas.getConfIndex();
+		
+		int pos1 = confIndex.getUndefinedPos()[posi1];
+		int pos2 = confIndex.getUndefinedPos()[posi2];
+
+		for (int rci1=0; rci1<rcs.getNum(pos1); rci1++) {
+			int rc1 = rcs.get(pos1, rci1);
+			
+			double minEnergy = Double.POSITIVE_INFINITY;
+			for (int rci2=0; rci2<rcs.getNum(pos2); rci2++) {
+				int rc2 = rcs.get(pos2, rci2);
+				double energy = lambdas.getEnergyWithout(posi2, rci2, posi1)
+					+ emat.getPairwise(pos1, rc1, pos2, rc2);
+				minEnergy = Math.min(minEnergy, energy);
+			}
+			
+			double energyWithout = lambdas.getEnergyWithout(posi1, rci1, posi2);
+			if (Double.isFinite(energyWithout)) {
+				minEnergy = (minEnergy - energyWithout)/2;
+			} else {
+				minEnergy = Double.POSITIVE_INFINITY;
+			}
+			
+			lambdas.set(posi2, posi1, rci1, minEnergy);
 		}
 	}
 }

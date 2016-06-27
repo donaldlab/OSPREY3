@@ -8,6 +8,7 @@ import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
+import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
 import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
@@ -104,7 +105,8 @@ public class MPLPPLayground {
 		TraditionalPairwiseHScorer tradHScorer = new TraditionalPairwiseHScorer(search.emat, rcs);
 		//MPLPUpdater mplpUpdater = new EdgeUpdater();
 		MPLPUpdater mplpUpdater = new NodeUpdater();
-		int numIterations = 500;
+		//int numIterations = 0;
+		int numIterations = 1;
 		//int numIterations = 10;
 		MPLPPairwiseHScorer mplpHScorer = new MPLPPairwiseHScorer(mplpUpdater, search.emat, numIterations, 0.000001);
 		
@@ -114,7 +116,7 @@ public class MPLPPLayground {
 		double mplpHScore = mplpHScorer.calc(confIndex, rcs);
 		System.out.println(String.format("MPLP H Score: %16.12f", mplpHScore));
 		
-		// get the real min bound conf
+		// get the real min bound conf using a trusted A* implementation
 		ConfAStarTree tree = new ConfAStarTree(
 			new DynamicHMeanAStarOrder(),
 			new PairwiseGScorer(search.emat),
@@ -122,7 +124,17 @@ public class MPLPPLayground {
 			rcs
 		);
 		ConfAStarNode minBoundNode = tree.nextLeafNode();
-		System.out.println(String.format("min bound e:  %16.12f", minBoundNode.getScore()));
+		System.out.println(String.format("min bound e (trad):  %16.12f", minBoundNode.getScore()));
+		
+		// get the min bound conf using MPLP
+		tree = new ConfAStarTree(
+			new StaticScoreHMeanAStarOrder(),
+			new PairwiseGScorer(search.emat),
+			mplpHScorer,
+			rcs
+		);
+		ConfAStarNode minBoundNodeMplp = tree.nextLeafNode();
+		System.out.println(String.format("min bound e (MPLP):  %16.12f", minBoundNodeMplp.getScore()));
 		
 		int[] minBoundConf = new int[NumFlexible];
 		minBoundNode.getConf(minBoundConf);
