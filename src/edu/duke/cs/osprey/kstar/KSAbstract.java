@@ -31,6 +31,7 @@ public abstract class KSAbstract implements KSInterface {
 	protected ConfigFileParser cfp = null;
 	protected ArrayList<String> wtSeq = null;
 	protected KSCalc wtKSCalc = null;
+	protected KSCalc bestCalc = null;
 	protected String outFilePath = null;
 	protected String ematDir = null;
 	protected String checkPointDir = null;
@@ -53,6 +54,8 @@ public abstract class KSAbstract implements KSInterface {
 	public static boolean doCheckPoint = false;
 	protected static long checkpointInterval = 50000;
 
+	public static double interMutationConst = 0.0;
+	
 	private long startTime = 0; // beginning time
 	private int numSeqsCompleted = 0;
 
@@ -70,6 +73,29 @@ public abstract class KSAbstract implements KSInterface {
 		addResEntropy = cfp.getParams().getBool("AddResEntropy");
 	}
 
+	
+	public synchronized void setBestCalc(KSCalc calc) {
+		if(bestCalc == null || calc.getKStarScoreLog10(false) > bestCalc.getKStarScoreLog10(false))
+			bestCalc = calc;
+	}
+	
+	
+	public KSCalc getBestCalc() {
+		return bestCalc;
+	}
+	
+	
+	public boolean passesInterMutationPruning(KSCalc calc) {
+		
+		if(bestCalc == null || KSAbstract.interMutationConst <= 0.0)
+			return true;
+		
+		if(calc.getKStarScoreLog10(true) >= Math.log10(KSAbstract.interMutationConst) + bestCalc.getKStarScoreLog10(false))
+			return true;
+		
+		return false;
+	}
+	
 
 	public int getNumSeqsCompleted(int increment) {
 		numSeqsCompleted += increment;
@@ -292,8 +318,8 @@ public abstract class KSAbstract implements KSInterface {
 		ArrayList<Integer> indexes = new ArrayList<>();
 		for(int i = 0; i < strands.size(); i++) indexes.add(i);
 
-		indexes.parallelStream().forEach((index) -> {
-		//for(int index = 0; index < strands.size(); ++index) {
+		//indexes.parallelStream().forEach((index) -> {
+		for(int index = 0; index < strands.size(); ++index) {
 
 			int strand = strands.get(index);
 			boolean contSCFlex = contSCFlexVals.get(strand);
@@ -334,8 +360,8 @@ public abstract class KSAbstract implements KSInterface {
 					pf.setNumPruned();
 				}
 			}
-		//}
-		});
+		}
+		//});
 
 		if(ans.size() != 3)
 			throw new RuntimeException("ERROR: returned map must contain three different partition functions");
@@ -486,7 +512,6 @@ public abstract class KSAbstract implements KSInterface {
 
 
 	protected BigInteger countMinimizedConfs() {
-
 		BigInteger ans = BigInteger.ZERO;
 		for(PFAbstract pf : name2PF.values()) ans = ans.add(pf.getMinimizedConfsSetSize());
 		return ans;

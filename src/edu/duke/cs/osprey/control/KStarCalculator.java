@@ -82,8 +82,10 @@ public class KStarCalculator {
 
 		KSAbstract.doCheckPoint = cfp.getParams().getBool("doKStarCheckpoint", false);
 		KSAbstract.setCheckPointInterval(cfp.getParams().getInt("kStarCheckpoint", 50000));
+		KSAbstract.interMutationConst = cfp.getParams().getDouble("kStarInterMutationConst", 0.0);
 		
 		KSImplKAStar.useTightBounds = cfp.getParams().getBool("kStarUseTightBounds", true);
+		KSImplKAStar.nodeExpansionMethod = cfp.getParams().getValue("kStarNodeExpansion", "parallel_1");
 	}
 
 

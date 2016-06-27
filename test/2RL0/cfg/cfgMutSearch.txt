@@ -1,9 +1,9 @@
 runName output
 %mutfile mutfile.txt
-iMinDEE false
-typeDep true
-stericThresh 100
-ival 1.0
+iMinDEE true
+typedep true
+stericthresh 100
+ival 5.0
 ew 0
 
 useDunbrackRotamers false
@@ -11,44 +11,35 @@ useERef false
 ematDir emat.lovell
 deleteEmatDir false
 
-epsilon 0.68
+epsilon 0.9
 useTupExp false
-doMinimize false
+doMinimize true
 doPerturbations false
 selectPerturbations false
+%startingPerturbationFile cfgPert.txt
+onlyStartingPerturbations false
+minimizePerturbations false
 addWT true
 addWTRots true
 saveTopConfsAsPDB false
-numTopConfsToSave 1
+numTopConfsToSave 10
 useMaxKSConfs false
 maxKSconfs 200000
 doKStarCheckpoint false
 kStarCheckpoint 100
+kStarPhase2Method fast
 
-numMutations 0
-resAllowed648 GLU
-resAllowed649 PHE ALA VAL ILE LEU TYR
+numMutations 1
+resAllowed649 PHE TYR ALA VAL ILE LEU
 resAllowed650 ASP GLU
 resAllowed651 GLU ASP
-resAllowed652 GLU
-resAllowed653 SER
 resAllowed654 THR SER ASN GLN
-resAllowed156 PHE ALA VAL ILE LEU TYR
-resAllowed172 LYS ARG HID
-resAllowed174 THR
-resAllowed180 VAL
-resAllowed182 CYS
-resAllowed183 THR
-resAllowed184 CYS
-resAllowed185 LEU
-resAllowed187 GLU
-resAllowed189 SER
-resAllowed191 ARG LYS HID
-resAllowed192 ILE ALA VAL ILE LEU PHE TYR
-resAllowed193 THR SER ASN GLN
-resAllowed194 CYS
+resAllowed156 PHE TYR ALA VAL ILE LEU
+resAllowed172 LYS ASP GLU
+resAllowed192 ILE ALA VAL LEU PHE TYR
+resAllowed193 THR SER ASN
 
-pFuncSuppressOutput true
+pFuncSuppressOutput false
 pFunctHotMethod none
 pFuncHot_0 191 193 650
 pFuncHot_1 172 192 194 649 651
@@ -57,8 +48,8 @@ pFuncHotBoundPct 0.05
 pFuncHotTopRotsPct 0.33
 pFuncStabThresh 0
 pFuncMethod new01
-pFuncThreads 4
-numThreads 4
+pFuncThreads 40
+numThreads 48
 eMinMethod ccd
 kStarMethod linear
 kStarUseTightBounds true

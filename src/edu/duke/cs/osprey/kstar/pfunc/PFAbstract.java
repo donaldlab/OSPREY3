@@ -672,7 +672,7 @@ public abstract class PFAbstract implements Serializable {
 		setNumUnPruned();
 		setNumPruned(); // needed for p*
 
-		if( !phase2Method.equalsIgnoreCase("fast") ) {
+		if( !phase2Method.equalsIgnoreCase("fast") || !isFullyDefined() ) {
 			// conservative implementation that re-enumerates all
 			restart();
 			return;

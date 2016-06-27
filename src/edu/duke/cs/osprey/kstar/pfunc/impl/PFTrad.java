@@ -43,7 +43,7 @@ public class PFTrad extends PFAbstract implements Serializable {
 	public void start() {
 
 		setRunState(RunState.STARTED);
-
+		
 		if(canUseHotByManualSelection()) 
 			createHotsFromCFG();
 		

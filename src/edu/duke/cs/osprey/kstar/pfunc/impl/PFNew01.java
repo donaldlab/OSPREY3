@@ -47,6 +47,9 @@ public class PFNew01 extends PFTrad implements Serializable {
 
 	public void cleanup() {
 		super.cleanup();
+		confsQ = null;
+		qPrimeCalculator = null;
+		pStarCalculator = null;
 	}
 
 
@@ -171,7 +174,7 @@ public class PFNew01 extends PFTrad implements Serializable {
 			// this condition only occurs when we are checkpointing
 			if( KSAbstract.doCheckPoint) {
 
-				if( !confsQ.isExhausted() && confsQ.getState() == Thread.State.NEW ) {
+				if( confsQ != null && !confsQ.isExhausted() && confsQ.getState() == Thread.State.NEW ) {
 
 					// for safety, we can re-start the conformation tree, since i am not
 					// entirely sure how cleanly the conformation tree can be serialized and de-serialized
@@ -182,7 +185,7 @@ public class PFNew01 extends PFTrad implements Serializable {
 					}
 				}
 
-				if( !qPrimeCalculator.isExhausted() && qPrimeCalculator.getState() == Thread.State.NEW ) {
+				if( qPrimeCalculator!= null && !qPrimeCalculator.isExhausted() && qPrimeCalculator.getState() == Thread.State.NEW ) {
 					qPrimeCalculator.start();
 				}
 				
@@ -394,9 +397,9 @@ public class PFNew01 extends PFTrad implements Serializable {
 
 			eAppx = EApproxReached.NOT_POSSIBLE;
 
-			confsQ.cleanUp(nullify);
+			if(confsQ != null) confsQ.cleanUp(nullify);
 
-			qPrimeCalculator.cleanUp(nullify);
+			if(qPrimeCalculator != null) qPrimeCalculator.cleanUp(nullify);
 			
 			if(pStarCalculator != null) pStarCalculator.cleanUp(nullify);
 

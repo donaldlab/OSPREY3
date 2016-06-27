@@ -42,7 +42,7 @@ public class PFNew02 extends PFNew01 implements Serializable {
 
 	public void cleanup() {
 		super.cleanup();
-		sps.clear();
+		sps = null;
 	}
 
 

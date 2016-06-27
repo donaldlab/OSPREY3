@@ -1,21 +1,29 @@
 package edu.duke.cs.osprey.kstar.impl;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
+
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.kstar.AllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSAbstract;
+import edu.duke.cs.osprey.kstar.KSCalc;
 import edu.duke.cs.osprey.kstar.KAStarNode;
 import edu.duke.cs.osprey.kstar.KAStarTree;
 import edu.duke.cs.osprey.kstar.Termini;
+import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 
 public class KSImplKAStar extends KSAbstract {
 
 	public static boolean useTightBounds = true;
+	public static String nodeExpansionMethod = "parallel_1";
+	protected HashSet<PFAbstract> leafNodePFs = null; // nodes that get energy minimized
 
 	public KSImplKAStar(ConfigFileParser cfp) {
 		super(cfp);
+		leafNodePFs = new HashSet<>();
 	}
 
 	@Override
@@ -24,7 +32,7 @@ public class KSImplKAStar extends KSAbstract {
 		this.strand2AllowedSeqs = strand2AllowedSeqs;
 
 		printSequences();
-		
+
 		createEmatDir();
 
 		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(true, false));
@@ -35,6 +43,22 @@ public class KSImplKAStar extends KSAbstract {
 	@Override
 	public String getKSMethod() {
 		return "kastar";
+	}
+
+
+	public void addLeafNode(KSCalc leaf) {
+		for(int strand : Arrays.asList(Termini.LIGAND, Termini.PROTEIN, Termini.COMPLEX))
+			leafNodePFs.add(leaf.getPF(strand));
+	}
+
+
+	protected BigInteger countMinimizedConfs() {
+		BigInteger ans = BigInteger.ZERO;
+
+		for(PFAbstract pf : leafNodePFs)
+			ans = ans.add(pf.getMinimizedConfsSetSize());
+
+		return ans;
 	}
 
 
@@ -52,10 +76,11 @@ public class KSImplKAStar extends KSAbstract {
 			numOutput = runLB();
 
 		System.out.println("\nseqsCompleted: " + KAStarNode.getNumLeavesCompleted() 
-			+ " seqsCreated: " + KAStarNode.getNumLeavesCreated()
-			+ " seqsPossible: " + strand2AllowedSeqs.get(Termini.COMPLEX).getNumSeqs()
-			+ " seqsInOutput: " + numOutput);
-		
+		+ " seqsCreated: " + KAStarNode.getNumLeavesCreated()
+		+ " seqsPossible: " + strand2AllowedSeqs.get(Termini.COMPLEX).getNumSeqs()
+		+ " seqsInOutput: " + numOutput);
+
+		System.out.println("K* leaf conformations processed: " + countMinimizedConfs());
 		System.out.println("K* running time: " + (System.currentTimeMillis()-getStartTime())/1000 + " seconds\n");
 
 		abortPFs();
@@ -63,15 +88,16 @@ public class KSImplKAStar extends KSAbstract {
 
 
 	private int runTB() {
-		
+
 		int completed = 0;
-		
+
 		// compute wt sequence for reference
 		wtKSCalc = computeWTCalc();
-		
+		setBestCalc(wtKSCalc);
+
 		if( strand2AllowedSeqs.get(Termini.COMPLEX).getNumSeqs() <= 1 )
 			return completed; // wt is sequence[0]
-		
+
 		// initialize KUStar tree
 		KAStarTree tree = new KAStarTree(this, strand2AllowedSeqs, wtKSCalc);
 
@@ -86,13 +112,15 @@ public class KSImplKAStar extends KSAbstract {
 			if( best.isFullyProcessed() ) {
 
 				best.checkConsistency(best);
-
-				best.lb.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCompleted(0) );
+				
+				if(passesInterMutationPruning(best.lb))
+					best.lb.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCompleted(0) );
+				
 				completed++;
 				continue;
 			}
 
-			ArrayList<KAStarNode> children = best.expand(useTightBounds);
+			ArrayList<KAStarNode> children = best.expand();
 			tree.add(children);
 		}
 
@@ -105,10 +133,10 @@ public class KSImplKAStar extends KSAbstract {
 		// than the upper bound of any previously completed sequence
 
 		int completed = 0;
-		
+
 		// compute wt sequence for reference
 		wtKSCalc = computeWTCalc();
-		
+
 		if( strand2AllowedSeqs.get(Termini.COMPLEX).getNumSeqs() <= 1 )
 			return completed; // wt is sequence[0]
 
@@ -137,7 +165,7 @@ public class KSImplKAStar extends KSAbstract {
 				continue;
 			}
 
-			ArrayList<KAStarNode> children = best.expand(useTightBounds);
+			ArrayList<KAStarNode> children = best.expand();
 			tree.add(children);
 		}
 

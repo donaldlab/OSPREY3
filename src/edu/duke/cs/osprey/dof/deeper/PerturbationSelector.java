@@ -522,7 +522,8 @@ public class PerturbationSelector {
         //OK if we get here the pert state is geometrically possible
         //Check Ramachandran for this residue...
         failingPertIndex = -1;//did not fail to apply perturbation
-        boolean ok = ramaCheck(m.getResByPDBResNumber(flexibleRes.get(pos)));//just check res,
+        //boolean ok = ramaCheck(m.getResByPDBResNumber(flexibleRes.get(pos)));//just check res,
+        boolean ok = true;
         //see if works for any Ramachandran category except Gly
         
         restoreFlexResCoords(backupCoords);
