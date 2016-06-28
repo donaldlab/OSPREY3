@@ -6,5 +6,6 @@ import edu.duke.cs.osprey.confspace.RC;
 
 public interface RCSplitter {
 
-	List<RC> split(RC rc);
+	boolean willSplit(int pos, RC rc);
+	List<RC> split(int pos, RC rc);
 }
