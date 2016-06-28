@@ -38,9 +38,9 @@ public class TestSimpleEnergyCalculator extends TestBase {
 		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(
 			EnvironmentVars.curEFcnGenerator,
 			search.confSpace,
-			search.shellResidues
+			search.shellResidues,
+			SimpleEnergyCalculator.ShellDistribution.AllOnSingles
 		);
-		SimpleEnergyCalculator.ShellDistribution dist = SimpleEnergyCalculator.ShellDistribution.AllOnSingles;
 		
 		final double Epsilon = 1e-6;
 		
@@ -51,7 +51,7 @@ public class TestSimpleEnergyCalculator extends TestBase {
 			for (int rc1=0; rc1<search.emat.getNumConfAtPos(pos1); rc1++) {
 
 				exp = search.emat.getOneBody(pos1, rc1);
-				obs = ecalc.calcSingle(pos1, rc1, dist).getEnergy();
+				obs = ecalc.calcSingle(pos1, rc1).getEnergy();
 				assertThat(obs, isRelatively(exp, Epsilon));
 				
 				// pairwise
@@ -59,7 +59,7 @@ public class TestSimpleEnergyCalculator extends TestBase {
 					for (int rc2=0; rc2<search.emat.getNumConfAtPos(pos2); rc2++) {
 						
 						exp = search.emat.getPairwise(pos1, rc1, pos2, rc2);
-						obs = ecalc.calcPair(pos1, rc1, pos2, rc2, dist).getEnergy();
+						obs = ecalc.calcPair(pos1, rc1, pos2, rc2).getEnergy();
 						assertThat(obs, isRelatively(exp, Epsilon));
 					}
 				}

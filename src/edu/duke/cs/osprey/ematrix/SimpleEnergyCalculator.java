@@ -43,6 +43,11 @@ public class SimpleEnergyCalculator {
 		public abstract double getSingleWeight(int numPos);
 	}
 	
+	// in empirical testing, the Even dist seems to outperform AllOnSingles by a lot
+	// and Even outperforms the others most of the time, but not all the time
+	// AllOnPairs seems to do pretty badly most of the time too
+	public static ShellDistribution DefaultDist = ShellDistribution.Even;
+	
 	public static class Result {
 		
 		private double[] minDofValues;
@@ -65,15 +70,22 @@ public class SimpleEnergyCalculator {
 	private EnergyFunctionGenerator efuncGen;
 	private ConfSpace confSpace;
 	private ArrayList<Residue> shellResidues;
+	private ShellDistribution dist;
 	
 	public SimpleEnergyCalculator(EnergyFunctionGenerator efuncGen, ConfSpace confSpace, ArrayList<Residue> shellResidues) {
+		this(efuncGen, confSpace, shellResidues, DefaultDist);
+	}
+	
+	public SimpleEnergyCalculator(EnergyFunctionGenerator efuncGen, ConfSpace confSpace, ArrayList<Residue> shellResidues, ShellDistribution dist) {
 		this.efuncGen = efuncGen;
 		this.confSpace = confSpace;
 		this.shellResidues = shellResidues;
+		this.dist = dist;
 	}
 	
-	public EnergyMatrix calcEnergyMatrix(ShellDistribution dist) {
+	public EnergyMatrix calcEnergyMatrix() {
 		
+		System.out.println("Calculating energy matrix, shell distribution: " + dist);
 		EnergyMatrix emat = new EnergyMatrix(confSpace, 0);
 		
 		for (int pos1=0; pos1<emat.getNumPos(); pos1++) {
@@ -81,7 +93,7 @@ public class SimpleEnergyCalculator {
 			// singles
 			System.out.println(String.format("calculating single energy %d...", pos1));
 			for (int rc1=0; rc1<emat.getNumConfAtPos(pos1); rc1++) {
-				emat.setOneBody(pos1, rc1, calcSingle(pos1, rc1, dist).getEnergy());
+				emat.setOneBody(pos1, rc1, calcSingle(pos1, rc1).getEnergy());
 			}
 				
 			// pairwise
@@ -89,7 +101,7 @@ public class SimpleEnergyCalculator {
 				System.out.println(String.format("calculating pair energy %d,%d...", pos1, pos2));
 				for (int rc1=0; rc1<emat.getNumConfAtPos(pos1); rc1++) {
 					for (int rc2=0; rc2<emat.getNumConfAtPos(pos2); rc2++) {
-						emat.setPairwise(pos1, rc1, pos2, rc2, calcPair(pos1, rc1, pos2, rc2, dist).getEnergy());
+						emat.setPairwise(pos1, rc1, pos2, rc2, calcPair(pos1, rc1, pos2, rc2).getEnergy());
 					}
 				}
 			}
@@ -98,30 +110,22 @@ public class SimpleEnergyCalculator {
 		return emat;
 	}
 	
-	public EnergyFunction getSingleEfunc(int pos, int rc, ShellDistribution dist) {
+	public EnergyFunction getSingleEfunc(int pos, int rc) {
 		double singleWeight = dist.getSingleWeight(confSpace.numPos);
-		if (singleWeight == 1.0) {
-			return efuncGen.intraAndShellEnergy(getResidue(pos), shellResidues);
-		} else {
-			return efuncGen.intraAndDistributedShellEnergy(getResidue(pos), shellResidues, confSpace.numPos, singleWeight); 
-		}
+		return efuncGen.intraAndDistributedShellEnergy(getResidue(pos), shellResidues, confSpace.numPos, singleWeight); 
 	}
 	
-	public Result calcSingle(int pos, int rc, ShellDistribution dist) {
-		return calc(getSingleEfunc(pos, rc, dist), new RCTuple(pos, rc));
-	}
-
-	public EnergyFunction getPairEfunc(int pos1, int rc1, int pos2, int rc2, ShellDistribution dist) {
-		double singleWeight = dist.getSingleWeight(confSpace.numPos);
-		if (singleWeight == 1.0) {
-			return efuncGen.resPairEnergy(getResidue(pos1), getResidue(pos2));
-		} else {
-			return efuncGen.resPairAndDistributedShellEnergy(getResidue(pos1), getResidue(pos2), shellResidues, confSpace.numPos, singleWeight); 
-		}
+	public Result calcSingle(int pos, int rc) {
+		return calc(getSingleEfunc(pos, rc), new RCTuple(pos, rc));
 	}
 	
-	public Result calcPair(int pos1, int rc1, int pos2, int rc2, ShellDistribution dist) {
-		return calc(getPairEfunc(pos1, rc1, pos2, rc2, dist), new RCTuple(pos1, rc1, pos2, rc2));
+	public EnergyFunction getPairEfunc(int pos1, int rc1, int pos2, int rc2) {
+		double singleWeight = dist.getSingleWeight(confSpace.numPos);
+		return efuncGen.resPairAndDistributedShellEnergy(getResidue(pos1), getResidue(pos2), shellResidues, confSpace.numPos, singleWeight); 
+	}
+	
+	public Result calcPair(int pos1, int rc1, int pos2, int rc2) {
+		return calc(getPairEfunc(pos1, rc1, pos2, rc2), new RCTuple(pos1, rc1, pos2, rc2));
 	}
 	
 	private Result calc(EnergyFunction efunc, RCTuple tuple) {
