@@ -395,18 +395,19 @@ public class Playground extends TestBase {
 			search.confSpace,
 			search.shellResidues
 		);
+		SimpleEnergyCalculator.ShellDistribution dist = SimpleEnergyCalculator.ShellDistribution.AllOnSingles;
 		
     	for (int pos1=0; pos1<search.confSpace.numPos; pos1++) {
 			System.out.println(String.format("Minimizing DOFs for residue %2d", pos1));
 			for (int rc1=0; rc1<dofmat.getNumConfAtPos(pos1); rc1++) {
 
 				// one-body
-				dofmat.setOneBody(pos1, rc1, ecalc.calcSingle(pos1, rc1).getDofValues());
+				dofmat.setOneBody(pos1, rc1, ecalc.calcSingle(pos1, rc1, dist).getDofValues());
 				
 				// pairwise
 				for (int pos2=0; pos2<pos1; pos2++) {
 					for (int rc2=0; rc2<dofmat.getNumConfAtPos(pos2); rc2++) {
-						dofmat.setPairwise(pos1, rc1, pos2, rc2, ecalc.calcPair(pos1, rc1, pos2, rc2).getDofValues());
+						dofmat.setPairwise(pos1, rc1, pos2, rc2, ecalc.calcPair(pos1, rc1, pos2, rc2, dist).getDofValues());
 					}
 				}
 			}
@@ -429,6 +430,7 @@ public class Playground extends TestBase {
 			search.confSpace,
 			search.shellResidues
 		);
+		SimpleEnergyCalculator.ShellDistribution dist = SimpleEnergyCalculator.ShellDistribution.AllOnSingles;
 		
     	for (int pos1=0; pos1<search.confSpace.numPos; pos1++) {
 			for (int rc1=0; rc1<newEmat.getNumConfAtPos(pos1); rc1++) {
@@ -441,7 +443,7 @@ public class Playground extends TestBase {
 				
 				// one-body
 				if (oldRc1 == null) {
-					Result result = ecalc.calcSingle(pos1, rc1);
+					Result result = ecalc.calcSingle(pos1, rc1, dist);
 					newDofmat.setOneBody(pos1, rc1, result.getDofValues());
 					newEmat.setOneBody(pos1, rc1, result.getEnergy());
 				} else {
@@ -460,7 +462,7 @@ public class Playground extends TestBase {
 						}
 						
 						if (oldRc1 == null || oldRc2 == null) {
-							Result result = ecalc.calcPair(pos1, rc1, pos2, rc2);
+							Result result = ecalc.calcPair(pos1, rc1, pos2, rc2, dist);
 							newDofmat.setPairwise(pos1, rc1, pos2, rc2, result.getDofValues());
 							newEmat.setPairwise(pos1, rc1, pos2, rc2, result.getEnergy());
 						} else {

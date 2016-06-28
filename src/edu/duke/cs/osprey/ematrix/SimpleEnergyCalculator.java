@@ -13,6 +13,36 @@ import edu.duke.cs.osprey.structure.Residue;
 
 public class SimpleEnergyCalculator {
 	
+	public static enum ShellDistribution {
+		
+		AllOnSingles {
+			@Override
+			public double getSingleWeight(int numPos) {
+				return 1.0;
+			}
+		},
+		HalfSinglesHalfPairs {
+			@Override
+			public double getSingleWeight(int numPos) {
+				return 0.5;
+			}
+		},
+		Even {
+			@Override
+			public double getSingleWeight(int numPos) {
+				return 1.0/numPos;
+			}
+		},
+		AllOnPairs {
+			@Override
+			public double getSingleWeight(int numPos) {
+				return 0.0;
+			}
+		};
+		
+		public abstract double getSingleWeight(int numPos);
+	}
+	
 	public static class Result {
 		
 		private double[] minDofValues;
@@ -41,31 +71,65 @@ public class SimpleEnergyCalculator {
 		this.confSpace = confSpace;
 		this.shellResidues = shellResidues;
 	}
-
-	public Result calcSingle(int pos, int rc) {
+	
+	public EnergyMatrix calcEnergyMatrix(ShellDistribution dist) {
 		
-		// make the energy function
-		Residue res = getResidue(pos);
-		EnergyFunction efunc = efuncGen.intraAndShellEnergy(res, shellResidues);
-
-		return calc(efunc, new RCTuple(pos, rc));
+		EnergyMatrix emat = new EnergyMatrix(confSpace, 0);
+		
+		for (int pos1=0; pos1<emat.getNumPos(); pos1++) {
+			
+			// singles
+			System.out.println(String.format("calculating single energy %d...", pos1));
+			for (int rc1=0; rc1<emat.getNumConfAtPos(pos1); rc1++) {
+				emat.setOneBody(pos1, rc1, calcSingle(pos1, rc1, dist).getEnergy());
+			}
+				
+			// pairwise
+			for (int pos2=0; pos2<pos1; pos2++) {
+				System.out.println(String.format("calculating pair energy %d,%d...", pos1, pos2));
+				for (int rc1=0; rc1<emat.getNumConfAtPos(pos1); rc1++) {
+					for (int rc2=0; rc2<emat.getNumConfAtPos(pos2); rc2++) {
+						emat.setPairwise(pos1, rc1, pos2, rc2, calcPair(pos1, rc1, pos2, rc2, dist).getEnergy());
+					}
+				}
+			}
+		}
+		
+		return emat;
 	}
 	
-	public Result calcPair(int pos1, int rc1, int pos2, int rc2) {
-		
-		// make the energy function
-		Residue res1 = getResidue(pos1);
-		Residue res2 = getResidue(pos2);
-		EnergyFunction efunc = efuncGen.resPairEnergy(res1, res2);
-		
-		return calc(efunc, new RCTuple(pos1, rc1, pos2, rc2));
+	public EnergyFunction getSingleEfunc(int pos, int rc, ShellDistribution dist) {
+		double singleWeight = dist.getSingleWeight(confSpace.numPos);
+		if (singleWeight == 1.0) {
+			return efuncGen.intraAndShellEnergy(getResidue(pos), shellResidues);
+		} else {
+			return efuncGen.intraAndDistributedShellEnergy(getResidue(pos), shellResidues, confSpace.numPos, singleWeight); 
+		}
+	}
+	
+	public Result calcSingle(int pos, int rc, ShellDistribution dist) {
+		return calc(getSingleEfunc(pos, rc, dist), new RCTuple(pos, rc));
+	}
+
+	public EnergyFunction getPairEfunc(int pos1, int rc1, int pos2, int rc2, ShellDistribution dist) {
+		double singleWeight = dist.getSingleWeight(confSpace.numPos);
+		if (singleWeight == 1.0) {
+			return efuncGen.resPairEnergy(getResidue(pos1), getResidue(pos2));
+		} else {
+			return efuncGen.resPairAndDistributedShellEnergy(getResidue(pos1), getResidue(pos2), shellResidues, confSpace.numPos, singleWeight); 
+		}
+	}
+	
+	public Result calcPair(int pos1, int rc1, int pos2, int rc2, ShellDistribution dist) {
+		return calc(getPairEfunc(pos1, rc1, pos2, rc2, dist), new RCTuple(pos1, rc1, pos2, rc2));
 	}
 	
 	private Result calc(EnergyFunction efunc, RCTuple tuple) {
 		
-		// optimize the degrees of freedom using the min efunc, if needed
-		MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(efunc, confSpace, tuple);
 		double[] minDofValues = null;
+		
+		// optimize the degrees of freedom, if needed
+		MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(efunc, confSpace, tuple);
 		if (mof.getNumDOFs() > 0) {
 			CCDMinimizer ccdMin = new CCDMinimizer(mof, true);
 			DoubleMatrix1D minDofVec = ccdMin.minimize();
@@ -73,7 +137,7 @@ public class SimpleEnergyCalculator {
 			mof.setDOFs(minDofVec);
 		}
 
-		// calculate the energy using the eval efunc
+		// calculate the energy
 		return new Result(minDofValues, efunc.getEnergy());
 	}
 	

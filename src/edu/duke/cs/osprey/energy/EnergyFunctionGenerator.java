@@ -68,6 +68,26 @@ public class EnergyFunctionGenerator {
         return intraAndShellE;
     }
     
+    public EnergyFunction intraAndDistributedShellEnergy(Residue res, ArrayList<Residue> shellResidues, int numPos, double singleWeight) {
+        MultiTermEnergyFunction efunc = new MultiTermEnergyFunction();
+        efunc.addTerm(new SingleResEnergy(res, ffParams));
+        for (Residue shellRes : shellResidues) {
+        	efunc.addTerm(new ScaledEnergyFunction(new ResPairEnergy(res, shellRes, ffParams), singleWeight));
+        }
+        return efunc;
+    }
+    
+    public EnergyFunction resPairAndDistributedShellEnergy(Residue res1, Residue res2, ArrayList<Residue> shellResidues, int numPos, double singleWeight) {
+    	double pairWeight = (1.0 - singleWeight)/(numPos - 1);
+        MultiTermEnergyFunction efunc = new MultiTermEnergyFunction();
+        efunc.addTerm(new ResPairEnergy(res1, res2, ffParams));
+        for (Residue shellRes : shellResidues) {
+        	efunc.addTerm(new ScaledEnergyFunction(new ResPairEnergy(res1, shellRes, ffParams), pairWeight));
+        	efunc.addTerm(new ScaledEnergyFunction(new ResPairEnergy(res2, shellRes, ffParams), pairWeight));
+        }
+        return efunc;
+    }
+    
     //want partial versions of the above too?
     
     

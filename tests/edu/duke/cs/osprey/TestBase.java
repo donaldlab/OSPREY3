@@ -22,7 +22,7 @@ import edu.duke.cs.osprey.tools.HashCalculator;
 
 public class TestBase {
 	
-	private static final double Epsilon = 1e-14;
+	private static final double DefaultEpsilon = 1e-14;
 	
 	private static Map<EnergyMatrixConfig,EnergyMatrix> m_energyMatrixCache;
 	
@@ -67,13 +67,17 @@ public class TestBase {
 		return Math.abs(expected - observed)/Math.abs(observed);
 	}
 	
-	protected Matcher<Double> isRelatively(final double expected) {
+	protected Matcher<Double> isRelatively(double expected) {
+		return isRelatively(expected, DefaultEpsilon);
+	}
+	
+	protected Matcher<Double> isRelatively(final double expected, final double epsilon) {
 		return new BaseMatcher<Double>() {
 
 			@Override
 			public boolean matches(Object obj) {
 				double observed = ((Double)obj).doubleValue();
-				return getRelativeError(expected, observed) <= Epsilon;
+				return getRelativeError(expected, observed) <= epsilon;
 			}
 
 			@Override
@@ -87,7 +91,7 @@ public class TestBase {
 				double relErr = getRelativeError(expected, observed);
 				desc.appendText("value ").appendValue(observed)
 					.appendText(" has relative err ").appendValue(relErr)
-					.appendText(" that's greater than epsilon ").appendValue(Epsilon);
+					.appendText(" that's greater than epsilon ").appendValue(epsilon);
 			}
 		};
 	}
