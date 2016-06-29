@@ -46,7 +46,7 @@ public class TRBP_Profiler {
         Stopwatch.stop();
 
         System.out.println("Finished in " + Stopwatch.getTime(TimeUnit.MILLISECONDS));
-
+        System.out.println("Best Time: "+12564);
     }
 
     static void precomputeMatrices(SearchProblem searchSpace, ConfigFileParser cfp, double pruningInterval) {

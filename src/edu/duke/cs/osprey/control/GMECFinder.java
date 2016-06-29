@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
+import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -130,7 +131,7 @@ public class GMECFinder {
             precomputeMatrices(Ew + curInterval);//precompute the energy, pruning, and maybe EPIC or tup-exp matrices
             //must be done separately for each round of iMinDEE
             
-            prunePerturbedRCs(searchSpace);
+//            prunePerturbedRCs(searchSpace);
             
             //Finally, do A*, which will output the top conformations
             ConfSearch search = initSearch(searchSpace);//e.g. new AStarTree from searchSpace & params
@@ -234,8 +235,7 @@ public class GMECFinder {
 
         closeConfFile(confFileHandle);
         System.out.println("GMEC calculation complete.  ");
-
-        System.out.println("GMEC energy: " + bestESoFar);
+        System.out.println("GMEC energy: " + bestESoFar/PoissonBoltzmannEnergy.constRT);
         //HMN:
         System.out.println();
         System.out.println("IVal: " + curInterval);

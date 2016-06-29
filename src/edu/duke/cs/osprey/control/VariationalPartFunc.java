@@ -42,13 +42,15 @@ public class VariationalPartFunc {
     public VariationalPartFunc(ConfigFileParser aCFP) {
         this.cfp = aCFP;
         this.cfp.params.setValue("STERICTHRESH", "1000");
-        SearchProblem[] spList = cfp.getMSDSearchProblems();
+//        SearchProblem[] spList = cfp.getMSDSearchProblems();
 
-        for (SearchProblem searchProb : spList) {
+  /*      for (SearchProblem searchProb : spList) {
             loadEMatandPrune(searchProb, Double.POSITIVE_INFINITY);
-        }
+        }*/
 
-        sp = spList[0];
+//        sp = spList[0];
+        sp = cfp.getSearchProblem();
+        loadEMatandPrune(sp, Double.POSITIVE_INFINITY);
         if (testSCMF) {
 //            testSCMF(sp);
 
@@ -89,10 +91,13 @@ public class VariationalPartFunc {
                 PartFuncTree tree = new PartFuncTree(sp.emat, sp.pruneMat);
                 long startTime = System.currentTimeMillis();
                 double maxTime = 3600000;
-                System.out.println("Starting Part Func Calculation");
+
+                System.out.println("Starting Part Func Calculation with Epsilon: " + epsilon);
                 double logZ = tree.computeEpsilonApprox(epsilon, maxTime);
                 long totalTime = (System.currentTimeMillis() - startTime);
                 System.out.println("New Alg Took: " + totalTime + " milliseconds");
+//                DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, sp.pruneMat, 0.1, maxTime);
+//                System.out.println("DFP: " + dfp.getLogZ());
                 String filename = "data_";
                 filename += epsilon + "_1Hour.txt";
                 File statistics = new File(filename);
@@ -108,6 +113,7 @@ public class VariationalPartFunc {
                     }
                     fw.write("NewAlgorithm: logZ " + logZ + "\n");
                     DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, sp.pruneMat, 0.1, maxTime);
+                    System.out.println("DFP: " + dfp.getLogZ());
                     if (dfp.finishedInTime) {
                         fw.write("KStar: finished true" + "\n");
                         fw.write("KStar: totalTime " + dfp.totalTime);
@@ -241,8 +247,8 @@ public class VariationalPartFunc {
         PruningControl pruning = cfp.setupPruning(searchProb, pruningInterval, false, false);
         pruning.prune();
     }
-    
-    private void prune(SearchProblem searchProb, double pruningInterval){
+
+    private void prune(SearchProblem searchProb, double pruningInterval) {
         PruningControl pruning = cfp.setupPruning(searchProb, pruningInterval, false, false);
         pruning.prune();
     }
@@ -257,7 +263,6 @@ public class VariationalPartFunc {
         searchProblem.competitorPruneMat = searchProblem.pruneMat;
         searchProblem.pruneMat = null;
     }
-
 
     private double getLogZGumbelSample(SearchProblem searchProb, int numSamples) {
         double average = 0.0;

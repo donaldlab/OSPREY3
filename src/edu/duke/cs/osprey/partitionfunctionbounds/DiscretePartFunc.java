@@ -28,7 +28,7 @@ public class DiscretePartFunc {
     double constRT = PoissonBoltzmannEnergy.constRT;
     ExpFunction ef = new ExpFunction();
 
-    boolean printEffectiveEpsilon = false;
+    boolean printEffectiveEpsilon = true;
 
     double logZ;
 

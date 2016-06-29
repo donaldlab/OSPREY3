@@ -34,7 +34,8 @@ public class TRBP {
     double constRT = PoissonBoltzmannEnergy.constRT;
 
     double damping = 0.5;
-    static int maxNumEdgeUpdates = 3;
+//    static int maxNumEdgeUpdates = 3;
+    static int maxNumEdgeUpdates = 0;
 
     public double[][] edgeProbabilities;
     //Edge Weights are given by the negative mutual information
@@ -90,8 +91,8 @@ public class TRBP {
         this.numMessagesPairs = 2 * getNumEdges(this.interactionGraph);
 
         initializeEdgeWeights();
-        
-        runTRBP2();
+
+        runTRBP();
     }
 
     public TRBP(MarkovRandomField mrf, double parentUpperBound) {
@@ -117,69 +118,10 @@ public class TRBP {
         this.parentUpperBound = parentUpperBound;
         this.useParentUpperBound = true;
 
-        runTRBP2();
+        runTRBP();
     }
-    
+
     private void runTRBP() {
-        int numEdgeUpdates = 0;
-
-        //Keep track of last logZ from previous edge update
-        double lastLogZEdge = Double.POSITIVE_INFINITY;
-
-        while (numEdgeUpdates <= maxNumEdgeUpdates) {
-            if (numEdgeUpdates > 0) {
-                if (verbose) {
-                    System.out.println("Updating Edge Probabilities...  logZ: " + lastLogZEdge);
-                }
-                updateEdgeProbabilities(numEdgeUpdates);
-                //this.logMessages = initializeLogMessages(0.0);
-            }
-            this.messageEnergies = precomputeMessageEnergies();
-
-            double changeBetweenMessageUpdates = Double.POSITIVE_INFINITY;
-            //Keep track of last logZ from previous message update
-            double lastLogZMessage = Double.POSITIVE_INFINITY;
-            int numMessageUpdates = 0;
-            //Increase accuracy after initial edge update
-            if (numEdgeUpdates == 1) {
-                accuracyWithinEdgeProb /= 10.;
-            }
-            // While we have not converged...
-            while ((changeBetweenMessageUpdates > accuracyWithinEdgeProb) || numMessageUpdates < 10) {
-                //This is the meat of the algorithm
-                updateMessagesParallel(logMessages, damping);
-//                updateMessagesSequentially(logMessages, useDamping);
-                // Update the marginals and compute LogZ every 10 runs
-                if (numMessageUpdates % 10 == 0) {
-                    updateMarginals();
-                    double currentlogZ = calcUBLogZ();
-                    // Get the change in logZ
-                    // Classically, people use change in messages rather than change
-                    // in logZ, which may be better...
-                    double change = Math.abs(lastLogZMessage - currentlogZ);
-                    lastLogZMessage = currentlogZ;
-                    changeBetweenMessageUpdates = change;
-                    if (verbose&& numMessageUpdates % 10 ==0) {
-                        System.out.println("   LogZUB: " + currentlogZ + "  Change: " + change + "  AveMess: " + this.averageChange);
-                    }
-                }
-                numMessageUpdates++;
-            }
-            lastLogZEdge = lastLogZMessage;
-            this.logZ = Math.min(this.logZ, lastLogZEdge);
-            // This is (only) useful for the partFuncTree calculation
-            // Basically, we don't need high accuracy if the partition function is very small
-            // Compared to the parent node 
-            if (useParentUpperBound && (lastLogZMessage + cutOffUpperBound < parentUpperBound)) {
-                break;
-            }
-            numEdgeUpdates++;
-        }
-        double[] degrees = GraphUtils.getWeightedDegrees(edgeWeights);
-        this.nodeWeights = degrees;
-    }
-
-    private void runTRBP2() {
         int numEdgeUpdates = 0;
 
         //Keep track of last logZ from previous edge update
@@ -201,6 +143,7 @@ public class TRBP {
             double changeBetweenMessageUpdates = Double.POSITIVE_INFINITY;
             // While we have not converged...
             while (((this.averageChange > this.messageConvergence) || changeBetweenMessageUpdates > this.accuracyWithinEdgeProb) || numMessageUpdates < 10) {
+                this.averageChange = 0.0;
                 //This is the meat of the algorithm
                 updateMessagesParallel(logMessages, damping);
 //                updateMessagesSequentially(logMessages, useDamping);
@@ -210,17 +153,19 @@ public class TRBP {
                     double currentlogZ = calcUBLogZ();
                     // Get the change in logZ
                     // Classically, people use change in messages rather than change
-                    // in logZ, which may be better...
+                    // in logZ, which may be better... we use both
                     double change = Math.abs(lastLogZMessage - currentlogZ);
                     lastLogZMessage = currentlogZ;
                     changeBetweenMessageUpdates = change;
                     if (verbose) {
                         System.out.println("Average Message Change: " + this.averageChange);
                     }
-                }
-                else{
-                    if (verbose){
+                } else {
+                    if (verbose) {
                         System.out.println("Average Message Change: " + this.averageChange);
+                        /*                        updateMarginals();
+                         double currentLogZ = calcUBLogZ();
+                         System.out.println("UBLogZ: " + currentLogZ);*/
                     }
                 }
                 numMessageUpdates++;
@@ -238,7 +183,7 @@ public class TRBP {
             numEdgeUpdates++;
         }
         double[] degrees = GraphUtils.getWeightedDegrees(edgeWeights);
-        if (degrees == null){
+        if (degrees == null) {
             throw new RuntimeException("Degrees is Null");
         }
         this.nodeWeights = degrees;
@@ -349,7 +294,16 @@ public class TRBP {
             double prevMessage = previous[i];
             double damped = updated[i] * damper + ((1 - damper) * previous[i]);
             updatedLogMessages[sendIndex][receiveIndex][i] = damped;
-            double change = Math.abs(damped - prevMessage);
+            double change;
+            if (Double.isFinite(damped) && Double.isFinite(prevMessage)) {
+                change = Math.abs(damped - prevMessage);
+            }
+            else if (Double.isInfinite(damped) && Double.isInfinite(prevMessage)){
+                change = 0.0;
+            }
+            else {
+                change = Double.POSITIVE_INFINITY;
+            }
             sumChange += change;
         }
         return sumChange / (double) updated.length;
@@ -522,8 +476,8 @@ public class TRBP {
         double[] updatedLogMessages = new double[receivingNode.getNumLabels()];
         double largestLogMessage = Double.NEGATIVE_INFINITY;
 
-        ArrayList<Double> oneBodyESending = this.emat.getOneBodyEnergies(sendingNode.posNum);
-        ArrayList<ArrayList<Double>> twoBodyE = this.emat.getTwoBodyEnergies(sendingNode.posNum, receivingNode.posNum);
+//        ArrayList<Double> oneBodyESending = this.emat.getOneBodyEnergies(sendingNode.posNum);
+//        ArrayList<ArrayList<Double>> twoBodyE = this.emat.getTwoBodyEnergies(sendingNode.posNum, receivingNode.posNum);
 
         /*double[] sumLogMessagesMinusReceiver = new double[sendingNode.getNumLabels()];
          for (int i = 0; i < sumLogMessages.length; i++) {
@@ -552,22 +506,42 @@ public class TRBP {
 
 //                double sumLogMessage = sumLogMessages[sendingLabelIndex] - getLogMessage(receivingNode, sendingNode, sendingLabel);
                 double sumLogMessage = sumLogMessagesMinusReceiver[sendingLabelIndex];
-
+                if (Double.isNaN(sumLogMessage)) {
+                    throw new RuntimeException("SumLogMessage is Nan");
+                }
 //                toBeSummed[sendingLabelIndex] = (((pairwisePot / edgeProbability) + sendingLabelPot) / constRT) + sumLogMessage;
                 //toBeSummed[sendingLabelIndex] = getMessageUpdateInSum(pairwisePot, edgeProbability, sendingLabelPot, sumLogMessage);
                 toBeSummed[sendingLabelIndex] = getMessageUpdateInSum(pot, sumLogMessage);
 
+                if (Double.isNaN(toBeSummed[sendingLabelIndex])) {
+                    throw new RuntimeException("TOBESUMMED NAN");
+                }
+
                 normalizer = Math.max(normalizer, toBeSummed[sendingLabelIndex]);
             }
-            int numToBeSummed = sendingNode.getNumLabels();
-            double sum = sumNormalizedToBeSummed(toBeSummed, normalizer, numToBeSummed);
 
+            int numToBeSummed = sendingNode.getNumLabels();
+            double sum;
+            if (Double.isInfinite(normalizer)) {
+                sum = sumNormalizedToBeSummed(toBeSummed, 0.0, numToBeSummed);
+            } else {
+                sum = sumNormalizedToBeSummed(toBeSummed, normalizer, numToBeSummed);
+            }
+            if (Double.isNaN(sum)) {
+                throw new RuntimeException("Sum is Nan");
+            }
 //            double nonNormalizedLogMessage = Math.log(sum) + normalizer;
             double nonNormalizedLogMessage = getNonNormalizedLogMessage(sum, normalizer);
 
+            if (Double.isNaN(nonNormalizedLogMessage)) {
+                throw new RuntimeException("nonNormlizedLogM is Nan");
+            }
             largestLogMessage = Math.max(largestLogMessage, nonNormalizedLogMessage);
             //int messageIndex = receivingNode.labelList.indexOf(receivingLabel);
             updatedLogMessages[receivingLabelIndex] = nonNormalizedLogMessage;
+        }
+        if (Double.isInfinite(largestLogMessage)) {
+            throw new RuntimeException("LARGEST LOG MESSAGE INFINITE");
         }
         //Normalize by subtracting the largest logMessage;
         normalizeLogMessages(updatedLogMessages, largestLogMessage);
@@ -586,7 +560,21 @@ public class TRBP {
     double[] subtractReceiver(double[] sumLogMessages, MRFNode sender, MRFNode receiver) {
         double[] sumLogMessagesMinusReceiver = new double[sender.getNumLabels()];
         for (int i = 0; i < sender.getNumLabels(); i++) {
-            sumLogMessagesMinusReceiver[i] = sumLogMessages[i] - getLogMessage(receiver, sender, i);
+            double logMessageToSubtract = getLogMessage(receiver, sender, i);
+            if (Double.isFinite(logMessageToSubtract)) {
+                sumLogMessagesMinusReceiver[i] = sumLogMessages[i] - getLogMessage(receiver, sender, i);
+            } else {
+//                System.out.println("Using new technique");
+                double sum = 0.0;
+                for (int j = 0; j < sender.getNumLabels(); j++) {
+                    if (j != i) {
+                        sum += getLogMessage(receiver, sender, j);
+                    }
+                }
+                sumLogMessagesMinusReceiver[i] = sum;
+            }
+//            System.out.println("sumLogMessages "+sumLogMessages[i]);
+//            System.out.println("logMessageMinus "+getLogMessage(receiver, sender, i));
         }
         return sumLogMessagesMinusReceiver;
     }
@@ -744,7 +732,11 @@ public class TRBP {
                 int labelJ = nodeJ.labels[j];
                 double E = emat.getPairwise(nodeI.posNum, labelI, nodeJ.posNum, labelJ);
                 double prob = this.marginalProbabilities.getPairwise(nodeI.index, i, nodeJ.index, j);
-                enthalpy += E * prob;
+                if (Double.isInfinite(E)) {
+                    enthalpy += 0.0;
+                } else {
+                    enthalpy += E * prob;
+                }
             }
         }
         return enthalpy;
@@ -803,5 +795,5 @@ public class TRBP {
         assert (numUpdates >= 0);
         maxNumEdgeUpdates = numUpdates;
     }
-    
+
 }

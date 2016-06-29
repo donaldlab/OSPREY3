@@ -18,13 +18,16 @@ public class UpdatedEmat extends TupleMatrix<Double> {
     //List of clamped nodes (ie. only have one label)
     ArrayList<MRFNode> clampedNodeList;
     boolean[][] interactionGraph;
-
+    
+    EnergyMatrix parent;
+    
     //The const term will be the original const term plus the internal energies
     //of all the clamped nodes
     private double consTerm;
 
     public UpdatedEmat(EnergyMatrix emat, ArrayList<MRFNode> aClampedNodeList, boolean[][] aInteractionGraph) {
         super(emat);
+        this.parent = emat;
         this.consTerm = emat.getConstTerm();
         this.clampedNodeList = aClampedNodeList;
         for (MRFNode node : clampedNodeList) {
@@ -45,14 +48,23 @@ public class UpdatedEmat extends TupleMatrix<Double> {
 
     @Override
     public Double getOneBody(int res, int index) {
-        double oneBodyE = this.oneBody.get(res).get(index);
+        double oneBodyE = parent.getOneBody(res, index);
         //add the pairwise energy with clamped nodes;
         for (MRFNode node : clampedNodeList) {
             if (interactionGraph[res][node.posNum]) {
-                oneBodyE += this.getPairwise(res, index, node.posNum, node.labels[0]);
+                oneBodyE += parent.getPairwise(res, index, node.posNum, node.labels[0]);
             }
         }
         return oneBodyE;
+    }
+
+    @Override
+    public Double getPairwise(int res1, int rot1, int res2, int rot2) {
+        if (Double.isInfinite(parent.getPairwise(res1, rot1, res2, rot2))) {
+            return 1000.0;
+        } else {
+            return parent.getPairwise(res1, rot1, res2, rot2);
+        }
     }
 
     public double getConstTerm() {

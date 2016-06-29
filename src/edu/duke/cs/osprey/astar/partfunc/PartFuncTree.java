@@ -392,8 +392,9 @@ public class PartFuncTree extends AStarTree {
 
         PartFuncNode root = new PartFuncNode(conf);
         root.isRoot = true;
-        root.setUpperBoundLogZ(computeUpperBound(root, null));
         root.setLowerBoundLogZ(computeLowerBound(root));
+        System.out.println("Lower Bound: " + root.getLowerBoundLogZ());
+        root.setUpperBoundLogZ(computeUpperBound(root, null));
         root.setScore(scoreNode(root));
         updateBounds(root);
         if (verbose) {
@@ -457,6 +458,7 @@ public class PartFuncTree extends AStarTree {
         ReparamMRF mrf = new ReparamMRF(this.emat, this.pruneMat, node.getNodeAssignments(), this.eCut);
         SCMF_Clamp scmf = new SCMF_Clamp(mrf);
         double lbLogZ = scmf.getLogZLB();
+        System.out.println("SCMF: "+lbLogZ);
         return lbLogZ;
     }
 

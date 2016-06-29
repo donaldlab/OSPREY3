@@ -1,0 +1,2 @@
+Seq ID	Sequence	K* Score	Total # Confs.	Complex Partition Function	Complex Epsilon	Complex # Minimized Confs.	Protein Partition Function	Protein Epsilon	Protein # Minimized Confs.	Ligand Partition Function	Ligand Epsilon	Ligand # Minimized Confs.
+

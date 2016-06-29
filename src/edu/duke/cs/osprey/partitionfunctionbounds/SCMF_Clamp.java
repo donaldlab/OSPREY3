@@ -8,6 +8,7 @@ package edu.duke.cs.osprey.partitionfunctionbounds;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import java.util.ArrayList;
+import java.util.Comparator;
 
 /**
  *
@@ -70,6 +71,9 @@ public class SCMF_Clamp {
 
             if (iter == 100) {
                 this.freeEnergy = calcFreeEnergy();
+                if (verbose) {
+                    System.out.println("Free Energy: " + this.freeEnergy);
+                }
                 this.scmfTemp = this.scmfTemp * 1000;
 //                lambda = 1.0;
             }
@@ -161,7 +165,9 @@ public class SCMF_Clamp {
         for (int labelIndex = 0; labelIndex < node.getNumLabels(); labelIndex++) {
             int label = node.labels[labelIndex];
             double E = this.emat.getOneBody(node.posNum, label);
-            enthalpy += E * this.beliefs[node.index][labelIndex];
+            if (Double.isFinite(E)) {
+                enthalpy += E * this.beliefs[node.index][labelIndex];
+            }
         }
         return enthalpy;
     }
@@ -171,7 +177,12 @@ public class SCMF_Clamp {
         for (int i = 0; i < node1.getNumLabels(); i++) {
             for (int j = 0; j < node2.getNumLabels(); j++) {
                 double E = emat.getPairwise(node1.posNum, node1.labels[i], node2.posNum, node2.labels[j]);
-                enthalpy += E * this.beliefs[node1.index][i] * this.beliefs[node2.index][j];
+                double prob = this.beliefs[node1.index][i] * this.beliefs[node2.index][j];
+                if (Double.isInfinite(E)) {
+                    enthalpy += 0;
+                } else {
+                    enthalpy += E * prob;
+                }
             }
         }
         return enthalpy;
@@ -194,7 +205,7 @@ public class SCMF_Clamp {
 
     private double getSingleNodeEntropy(MRFNode node) {
         double entropy = 0.0;
-        for (int i=0; i<node.getNumLabels(); i++){
+        for (int i = 0; i < node.getNumLabels(); i++) {
             double belief = this.beliefs[node.index][i];
             if (belief == 0.0) {
                 entropy += 0.0;
@@ -226,8 +237,6 @@ public class SCMF_Clamp {
         return -(this.freeEnergy + this.emat.getConstTerm()) / this.scmfTemp;
     }
 
- 
-
     //Returns the MeanFieldEnergy for a label
     private double getMeanFieldEnergy(MRFNode node, int label) {
         double meanFieldE = 0.0;
@@ -238,21 +247,60 @@ public class SCMF_Clamp {
                 meanFieldE += averageE;
             }
         }
+        if (Double.isNaN(meanFieldE)) {
+            throw new RuntimeException("MeanFieldE is NaN");
+        }
         return meanFieldE;
     }
-
-   
 
     //Get average energy of label1 from node1, with respect to all labels of node2
     //this is used as a subroutine in getMeanField()
     private double getAverageEnergy(MRFNode node1, int label1, MRFNode node2) {
         double averageE = 0.0;
+        double nonInfBeliefSum = getSumBeliefNonInfiniteE(node1, label1, node2);
         for (int i = 0; i < node2.getNumLabels(); i++) {
             int label2 = node2.labels[i];
             double E = this.emat.getPairwise(node1.posNum, label1, node2.posNum, label2);
-            averageE += E * this.beliefs[node2.index][i];
+            if (Double.isNaN(E)){
+                System.out.println("E is NaN");
+            }
+            if (nonInfBeliefSum == 0.0){
+                System.out.println("NonInfBelief is 0");
+            }
+            if (Double.isFinite(E)) {
+                System.out.println("Belief: "+this.beliefs[node2.index][i]);
+                System.out.println("E: "+E);
+                System.out.println("nonInfBelief: "+nonInfBeliefSum);
+                averageE += E * (this.beliefs[node2.index][i] / (nonInfBeliefSum));
+            }
+        }
+        nodeList.stream().sorted(Comparator.comparingInt(MRFNode::getNumLabels));
+        if (Double.isNaN(averageE)) {
+            throw new RuntimeException("AverageE is NaN");
         }
         return averageE;
+    }
+
+    int getNumLabelsInfiniteE(MRFNode node1, int label1, MRFNode node2) {
+        int numInf = 0;
+        for (int i = 0; i < node2.getNumLabels(); i++) {
+            int label2 = node2.labels[i];
+            if (Double.isInfinite(this.emat.getPairwise(node1.posNum, label1, node2.posNum, label2))) {
+                numInf++;
+            }
+        }
+        return numInf;
+    }
+
+    double getSumBeliefNonInfiniteE(MRFNode node1, int label1, MRFNode node2) {
+        double sum = 0.0;
+        for (int i = 0; i < node2.getNumLabels(); i++) {
+            int label2 = node2.labels[i];
+            if (!Double.isInfinite(this.emat.getPairwise(node1.posNum, label1, node2.posNum, label2))) {
+                sum += this.beliefs[node2.index][i];
+            }
+        }
+        return sum;
     }
 
     private void initializeBeliefs() {
@@ -278,6 +326,9 @@ public class SCMF_Clamp {
             double minOneBody = getMinOneBodyE(node);
             double minMeanField = getMinMeanFieldE(node);
             expNormMessages[i] = -(minOneBody + minMeanField);
+            if (Double.isNaN(expNormMessages[i])) {
+                throw new RuntimeException("Exp Norm is NaN");
+            }
         }
     }
 
