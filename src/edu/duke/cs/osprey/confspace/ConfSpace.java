@@ -43,6 +43,8 @@ public class ConfSpace implements Serializable {
 	//This class can be put in an AnnotatedConfSpace to add annotations like what RCs are pruned,
 	//what their pairwise energies are, etc.  
 
+	private static final long serialVersionUID = 8536487316245485068L;
+
 	public Molecule m;
 	//The molecule will be composed of residues. 
 	//It will have one set of coordinates, which are stored in the residues to make mutation

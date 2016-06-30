@@ -14,7 +14,7 @@ import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.kstar.AllowedSeqs;
+import edu.duke.cs.osprey.kstar.KSAllowedSeqs;
 import edu.duke.cs.osprey.kstar.Termini;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -71,7 +71,7 @@ public class ConfigFileParser implements Serializable {
 	}
 	
 
-	AllowedSeqs getAllowedSequences(int strand, AllowedSeqs complexSeqs) {
+	KSAllowedSeqs getAllowedSequences(int strand, KSAllowedSeqs complexSeqs) {
 		
 		Termini limits = getStrandLimits(strand);
 
@@ -88,7 +88,7 @@ public class ConfigFileParser implements Serializable {
 
 			int numMutations = params.getInt("NUMMUTATIONS", 1);
 
-			complexSeqs = new AllowedSeqs(strand, limits, setupDEEPer(), 
+			complexSeqs = new KSAllowedSeqs(strand, limits, setupDEEPer(), 
 					freeBBZoneTermini(limits), moveableStrandTermini(limits), 
 					flexRes, allowedAAs, getWTSequence(), numMutations);
 
@@ -115,7 +115,7 @@ public class ConfigFileParser implements Serializable {
 		// filter allowedSeqs for protein and ligand strands
 		filterResiduesByStrand( strand, flexRes, allowedAAs );
 
-		AllowedSeqs strandSeqs = new AllowedSeqs(strand, getStrandLimits(strand), setupDEEPer(strand), 
+		KSAllowedSeqs strandSeqs = new KSAllowedSeqs(strand, getStrandLimits(strand), setupDEEPer(strand), 
 				freeBBZoneTermini(limits), moveableStrandTermini(limits), flexRes, complexSeqs, allowedAAs, lb, ub);
 
 		return strandSeqs;
@@ -264,7 +264,7 @@ public class ConfigFileParser implements Serializable {
 	 * @param strandSeqs
 	 * @return
 	 */
-	public SearchProblem getSearchProblem( int strand, AllowedSeqs strandSeqs ) {
+	public SearchProblem getSearchProblem( int strand, KSAllowedSeqs strandSeqs ) {
 
 		String ematDir = params.getValue("ematdir", "emat");
 		ObjectIO.makeDir(ematDir, params.getBool("deleteEmatDir", false));
@@ -561,10 +561,10 @@ public class ConfigFileParser implements Serializable {
 			return ans;
 			
 		case Termini.LIGAND:
-			return filterContentsByStrand(getStrandLimits(Termini.LIGAND), ans);
+			return filterHOTListByStrand(getStrandLimits(Termini.LIGAND), ans);
 			
 		case Termini.PROTEIN:
-			return filterContentsByStrand(getStrandLimits(Termini.PROTEIN), ans);
+			return filterHOTListByStrand(getStrandLimits(Termini.PROTEIN), ans);
 			
 		default:
 			throw new RuntimeException("ERROR: invalid strand");
@@ -611,7 +611,7 @@ public class ConfigFileParser implements Serializable {
 	}
 	
 	
-	ArrayList<ArrayList<String>> filterContentsByStrand( Termini strand, ArrayList<ArrayList<String>> list ) {
+	ArrayList<ArrayList<String>> filterHOTListByStrand( Termini strand, ArrayList<ArrayList<String>> list ) {
 		@SuppressWarnings("unchecked")
 		ArrayList<ArrayList<String>> ans = (ArrayList<ArrayList<String>>) ObjectIO.deepCopy(list);
 		
@@ -698,7 +698,7 @@ public class ConfigFileParser implements Serializable {
 		// PGC 2015: Always load the Lovell Rotamer Library.
 		resTemplates.loadRotamerLibrary(params.getValue("ROTFILE"), false);//see below; also gRotFile0 etc
 
-		// AAO load generic rotamer libraries
+		// AAO 2016: load generic rotamer libraries
 		for(String grotFile : params.searchParams("GROTFILE")) {
 			resTemplates.loadRotamerLibrary(params.getValue(grotFile), false);
 		}

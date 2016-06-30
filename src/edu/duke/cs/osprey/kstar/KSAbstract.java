@@ -31,14 +31,14 @@ public abstract class KSAbstract implements KSInterface {
 	protected ConfigFileParser cfp = null;
 	protected ArrayList<String> wtSeq = null;
 	protected KSCalc wtKSCalc = null;
-	protected KSCalc bestCalc = null;
+	//protected KSCalc bestCalc = null;
 	protected String outFilePath = null;
 	protected String ematDir = null;
 	protected String checkPointDir = null;
 	protected String runName = null;
 	protected String checkPointFilePath = null;
 
-	protected HashMap<Integer, AllowedSeqs> strand2AllowedSeqs = new HashMap<>();
+	protected HashMap<Integer, KSAllowedSeqs> strand2AllowedSeqs = new HashMap<>();
 	protected ConcurrentHashMap<String, SearchProblem> name2SP = new ConcurrentHashMap<>();
 	protected ConcurrentHashMap<String, PFAbstract> name2PF = new ConcurrentHashMap<>();
 
@@ -54,7 +54,7 @@ public abstract class KSAbstract implements KSInterface {
 	public static boolean doCheckPoint = false;
 	protected static long checkpointInterval = 50000;
 
-	public static double interMutationConst = 0.0;
+	//public static double interMutationConst = 0.0;
 	
 	private long startTime = 0; // beginning time
 	private int numSeqsCompleted = 0;
@@ -74,6 +74,7 @@ public abstract class KSAbstract implements KSInterface {
 	}
 
 	
+	/*
 	public synchronized void setBestCalc(KSCalc calc) {
 		if(bestCalc == null || calc.getKStarScoreLog10(false) > bestCalc.getKStarScoreLog10(false))
 			bestCalc = calc;
@@ -95,6 +96,7 @@ public abstract class KSAbstract implements KSInterface {
 		
 		return false;
 	}
+	*/
 	
 
 	public int getNumSeqsCompleted(int increment) {
@@ -378,7 +380,7 @@ public abstract class KSAbstract implements KSInterface {
 
 	protected SearchProblem createPanSeqSP( boolean contSCFlex, int strand ) {
 
-		ArrayList<ArrayList<String>> allowedAAs = AllowedSeqs.removePosFromAllowedAAs(strand2AllowedSeqs.get(strand).getAllowedAAs());
+		ArrayList<ArrayList<String>> allowedAAs = KSAllowedSeqs.removePosFromAllowedAAs(strand2AllowedSeqs.get(strand).getAllowedAAs());
 		ArrayList<String> flexibleRes = strand2AllowedSeqs.get(strand).getFlexRes();
 		ArrayList<String[]> moveableStrands = strand2AllowedSeqs.get(strand).getMoveableStrandTermini();
 		ArrayList<String[]> freeBBZones = strand2AllowedSeqs.get(strand).getFreeBBZoneTermini();

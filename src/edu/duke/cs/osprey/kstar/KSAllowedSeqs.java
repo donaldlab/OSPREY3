@@ -9,7 +9,7 @@ import java.util.LinkedHashSet;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.tools.ObjectIO;
 
-public class AllowedSeqs {
+public class KSAllowedSeqs {
 
 	private DEEPerSettings dset;
 	private ArrayList<String[]> moveableStrandTermini;
@@ -25,7 +25,7 @@ public class AllowedSeqs {
 	private LinkedHashMap<ArrayList<String>, Integer> allowedSeq2Index = null;
 	ArrayList<HashSet<ArrayList<String>>> allowedSubSeqs = null;
 
-	public AllowedSeqs( int strand, Termini limits, DEEPerSettings dset, 
+	public KSAllowedSeqs( int strand, Termini limits, DEEPerSettings dset, 
 			ArrayList<String[]> freeBBZoneTermini,
 			ArrayList<String[]> moveableStrandTermini,
 			ArrayList<String> flexRes, 
@@ -45,10 +45,10 @@ public class AllowedSeqs {
 	}
 
 
-	public AllowedSeqs( int strand, Termini limits, DEEPerSettings dset, 
+	public KSAllowedSeqs( int strand, Termini limits, DEEPerSettings dset, 
 			ArrayList<String[]> freeBBZoneTermini,
 			ArrayList<String[]> moveableStrandTermini,
-			ArrayList<String> flexRes, AllowedSeqs in, 
+			ArrayList<String> flexRes, KSAllowedSeqs in, 
 			ArrayList<ArrayList<String>> allowedAAs, int lb, int ub ) {
 
 		this.strand = strand;
@@ -280,7 +280,7 @@ public class AllowedSeqs {
 	
 	
 	public ArrayList<HashSet<ArrayList<String>>> getStrandSubSeqList2( 
-			AllowedSeqs p, AllowedSeqs l ) {
+			KSAllowedSeqs p, KSAllowedSeqs l ) {
 
 		if( strand != Termini.COMPLEX )
 			throw new RuntimeException("ERROR: this version of the method "
@@ -328,7 +328,7 @@ public class AllowedSeqs {
 	}
 
 
-	public HashSet<ArrayList<String>> getStrandSubSeqsAtDepth( int depth, AllowedSeqs p, AllowedSeqs l ) {
+	public HashSet<ArrayList<String>> getStrandSubSeqsAtDepth( int depth, KSAllowedSeqs p, KSAllowedSeqs l ) {
 
 		if( strand != Termini.COMPLEX )
 			throw new RuntimeException("ERROR: this version of the method "

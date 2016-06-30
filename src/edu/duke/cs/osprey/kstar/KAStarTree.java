@@ -8,7 +8,7 @@ public class KAStarTree {
 
 	private PriorityQueue<KAStarNode> pq = null;
 	
-	public KAStarTree( KSAbstract ksObj, HashMap<Integer, AllowedSeqs> strand2AllowedSeqs, KSCalc wt ) {
+	public KAStarTree( KSAbstract ksObj, HashMap<Integer, KSAllowedSeqs> strand2AllowedSeqs, KSCalc wt ) {
 		
 		// initialize KUStarNode static methods
 		KAStarNode.init(ksObj, strand2AllowedSeqs, wt);

@@ -10,7 +10,7 @@ import java.util.HashMap;
  */
 public interface KSInterface {
 
-	public void init( HashMap<Integer, AllowedSeqs> strand2AllowedSeqs );
+	public void init( HashMap<Integer, KSAllowedSeqs> strand2AllowedSeqs );
 	
 	public void createEmats( ArrayList<Boolean> contSCFlexVals );
 	

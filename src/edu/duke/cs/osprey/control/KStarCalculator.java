@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 
-import edu.duke.cs.osprey.kstar.AllowedSeqs;
+import edu.duke.cs.osprey.kstar.KSAllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.Termini;
 import edu.duke.cs.osprey.kstar.impl.KSImplLinear;
@@ -34,7 +34,7 @@ public class KStarCalculator {
 	boolean doIMinDEE;
 	boolean useContFlex;
 
-	HashMap<Integer, AllowedSeqs> strand2AllowedSeqs = new HashMap<>();
+	HashMap<Integer, KSAllowedSeqs> strand2AllowedSeqs = new HashMap<>();
 
 	public KStarCalculator( ConfigFileParser cfgP ) {
 		cfp = cfgP;
@@ -82,7 +82,7 @@ public class KStarCalculator {
 
 		KSAbstract.doCheckPoint = cfp.getParams().getBool("doKStarCheckpoint", false);
 		KSAbstract.setCheckPointInterval(cfp.getParams().getInt("kStarCheckpoint", 50000));
-		KSAbstract.interMutationConst = cfp.getParams().getDouble("kStarInterMutationConst", 0.0);
+		//KSAbstract.interMutationConst = cfp.getParams().getDouble("kStarInterMutationConst", 0.0);
 		
 		KSImplKAStar.useTightBounds = cfp.getParams().getBool("kStarUseTightBounds", true);
 		KSImplKAStar.nodeExpansionMethod = cfp.getParams().getValue("kStarNodeExpansion", "parallel_1");
@@ -116,7 +116,7 @@ public class KStarCalculator {
 
 		if(ans.size() > 0) {
 			// check for correct length
-			AllowedSeqs pl = strand2AllowedSeqs.get(Termini.COMPLEX);
+			KSAllowedSeqs pl = strand2AllowedSeqs.get(Termini.COMPLEX);
 			
 			for(ArrayList<String> seq : ans) {
 				if(seq.size() != pl.getSequenceLength())
@@ -126,7 +126,7 @@ public class KStarCalculator {
 			
 			// add residue numbers
 			for(int i = 0; i < ans.size(); ++i) {
-				ArrayList<String> seq = AllowedSeqs.addPosToSeq(ans.get(i), pl.getFlexRes());
+				ArrayList<String> seq = KSAllowedSeqs.addPosToSeq(ans.get(i), pl.getFlexRes());
 				if(!pl.isAllowed(seq)) {
 					throw new RuntimeException("ERROR: sequence " + KSAbstract.list1D2String(ans.get(i), " ") + 
 							" is not allowed in the design space.\n Change resAllowed.");
@@ -149,9 +149,9 @@ public class KStarCalculator {
 		if(mutations == null) 
 			return null;
 
-		AllowedSeqs pl = strand2AllowedSeqs.get(Termini.COMPLEX);
-		AllowedSeqs p = strand2AllowedSeqs.get(Termini.PROTEIN);
-		AllowedSeqs l = strand2AllowedSeqs.get(Termini.LIGAND);
+		KSAllowedSeqs pl = strand2AllowedSeqs.get(Termini.COMPLEX);
+		KSAllowedSeqs p = strand2AllowedSeqs.get(Termini.PROTEIN);
+		KSAllowedSeqs l = strand2AllowedSeqs.get(Termini.LIGAND);
 
 		int plLen = pl.getSequenceLength(), pLen = p.getSequenceLength();
 
@@ -186,7 +186,7 @@ public class KStarCalculator {
 
 	private void generateAllowedSequences() {
 		
-		AllowedSeqs complexSeqs = cfp.getAllowedSequences(Termini.COMPLEX, null);
+		KSAllowedSeqs complexSeqs = cfp.getAllowedSequences(Termini.COMPLEX, null);
 		strand2AllowedSeqs.put(Termini.COMPLEX, complexSeqs);
 		strand2AllowedSeqs.put(Termini.PROTEIN, cfp.getAllowedSequences(Termini.PROTEIN, complexSeqs));
 		strand2AllowedSeqs.put(Termini.LIGAND, cfp.getAllowedSequences(Termini.LIGAND, complexSeqs));

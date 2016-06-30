@@ -9,7 +9,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
-import edu.duke.cs.osprey.kstar.AllowedSeqs;
+import edu.duke.cs.osprey.kstar.KSAllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSConf;
 import edu.duke.cs.osprey.kstar.RCEnergyContribs;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
@@ -111,7 +111,7 @@ public class PFTrad extends PFAbstract implements Serializable {
 	
 	protected void createHotsFromCFG() {
 		
-		ArrayList<String> flexRes = AllowedSeqs.getFlexResFromSeq(getSequence());
+		ArrayList<String> flexRes = KSAllowedSeqs.getFlexResFromSeq(getSequence());
 		ArrayList<ArrayList<String>> hots = cfp.getHighOrderTuplesByStrand(strand);
 		
 		for( ArrayList<String> hot : hots ) {

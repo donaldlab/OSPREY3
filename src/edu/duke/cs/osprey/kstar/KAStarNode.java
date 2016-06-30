@@ -26,7 +26,7 @@ import edu.duke.cs.osprey.kstar.pfunc.impl.PFnew00;
 public class KAStarNode {
 
 	private static KSCalc wt;
-	private static HashMap<Integer, AllowedSeqs> strand2AllowedSeqs;
+	private static HashMap<Integer, KSAllowedSeqs> strand2AllowedSeqs;
 	private static KSAbstract ksObj;
 	private static int numCreated = 0;
 	private static int numExpanded = 0;
@@ -43,7 +43,7 @@ public class KAStarNode {
 
 
 	public static void init( KSAbstract ksObj, 
-			HashMap<Integer, AllowedSeqs> strand2AllowedSeqs, KSCalc wt ) {
+			HashMap<Integer, KSAllowedSeqs> strand2AllowedSeqs, KSCalc wt ) {
 
 		KAStarNode.ksObj = ksObj;
 		KAStarNode.strand2AllowedSeqs = strand2AllowedSeqs;
@@ -117,8 +117,8 @@ public class KAStarNode {
 		ArrayList<ArrayList<String>> seqs = new ArrayList<>(); 
 		for( int i = 0; i < strands.size(); ++i ) seqs.add(new ArrayList<String>());
 
-		AllowedSeqs pSeqs = strand2AllowedSeqs.get(Termini.PROTEIN);
-		AllowedSeqs lSeqs = strand2AllowedSeqs.get(Termini.LIGAND);
+		KSAllowedSeqs pSeqs = strand2AllowedSeqs.get(Termini.PROTEIN);
+		KSAllowedSeqs lSeqs = strand2AllowedSeqs.get(Termini.LIGAND);
 
 		// get next depths for each strand
 		for( int strand : strands ) {
@@ -132,7 +132,7 @@ public class KAStarNode {
 			}
 
 			else {
-				AllowedSeqs strandSeqs = strand2AllowedSeqs.get(strand);
+				KSAllowedSeqs strandSeqs = strand2AllowedSeqs.get(strand);
 				// go to the first non-zero depth
 				int depth = 1;
 
@@ -198,7 +198,7 @@ public class KAStarNode {
 			}
 
 			pruneIncompatibleSuccessors( children, nextDepths );
-			doIntermutationPruning(children);
+			//doIntermutationPruning(children);
 		}
 
 		return children;
@@ -245,6 +245,7 @@ public class KAStarNode {
 	}
 
 
+	/*
 	private void doIntermutationPruning( ArrayList<KAStarNode> children ) {
 
 		if(!KSImplKAStar.useTightBounds) 
@@ -282,6 +283,7 @@ public class KAStarNode {
 			}
 		}
 	}
+	*/
 
 
 	private void pruneSequences( ArrayList<String> seq, int strand, int depth ) {
@@ -292,7 +294,7 @@ public class KAStarNode {
 			set = strand2AllowedSeqs.get(strand).getStrandSubSeqsAtDepth(depth);
 			int oldSize = set.size();
 
-			AllowedSeqs.deleteFromSet(seq, set);
+			KSAllowedSeqs.deleteFromSet(seq, set);
 			numPruned += (oldSize - set.size());
 		}
 	}
@@ -337,7 +339,7 @@ public class KAStarNode {
 
 			if( child.lb.getEpsilonStatus() == EApproxReached.TRUE ) {
 				numLeavesCompleted = ksObj.getNumSeqsCompleted(1);
-				if(KSImplKAStar.useTightBounds) ksObj.setBestCalc(child.lb);
+				//if(KSImplKAStar.useTightBounds) ksObj.setBestCalc(child.lb);
 			}
 
 			child.lbScore = -1.0 * child.lb.getKStarScoreLog10(true);
@@ -552,7 +554,7 @@ public class KAStarNode {
 					ConcurrentHashMap<Integer, PFAbstract> tightPFs = ksObj.createPFs4Seqs(strandSeqs, tightContSCFlexVals, tightPFImplVals);
 
 					// assign sequence number from allowedSequences obj
-					AllowedSeqs complexSeqs = ksObj.strand2AllowedSeqs.get(Termini.COMPLEX);
+					KSAllowedSeqs complexSeqs = ksObj.strand2AllowedSeqs.get(Termini.COMPLEX);
 					int seqID = complexSeqs.getPosOfSeq(tightPFs.get(Termini.COMPLEX).getSequence());
 
 					// create new KUStar node with tight score

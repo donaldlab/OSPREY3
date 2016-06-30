@@ -15,7 +15,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.kstar.AllowedSeqs;
+import edu.duke.cs.osprey.kstar.KSAllowedSeqs;
 import edu.duke.cs.osprey.kstar.KAStarConfTree;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KSConf;
@@ -965,8 +965,8 @@ public abstract class PFAbstract implements Serializable {
 			ArrayList<String> seq, ArrayList<Integer> absolutePos ) {
 
 		SearchProblem reducedSP = panSP.getReducedSearchProblem(reducedSPName, 
-				KSAbstract.list1D2ListOfLists(AllowedSeqs.getAAsFromSeq(seq)), 
-				AllowedSeqs.getFlexResFromSeq(seq), 
+				KSAbstract.list1D2ListOfLists(KSAllowedSeqs.getAAsFromSeq(seq)), 
+				KSAllowedSeqs.getFlexResFromSeq(seq), 
 				absolutePos);
 
 		return reducedSP;

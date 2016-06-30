@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 
 import edu.duke.cs.osprey.control.ConfigFileParser;
-import edu.duke.cs.osprey.kstar.AllowedSeqs;
+import edu.duke.cs.osprey.kstar.KSAllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KSCalc;
 import edu.duke.cs.osprey.kstar.KAStarNode;
@@ -27,7 +27,7 @@ public class KSImplKAStar extends KSAbstract {
 	}
 
 	@Override
-	public void init( HashMap<Integer, AllowedSeqs> strand2AllowedSeqs ) {
+	public void init( HashMap<Integer, KSAllowedSeqs> strand2AllowedSeqs ) {
 
 		this.strand2AllowedSeqs = strand2AllowedSeqs;
 
@@ -93,7 +93,7 @@ public class KSImplKAStar extends KSAbstract {
 
 		// compute wt sequence for reference
 		wtKSCalc = computeWTCalc();
-		setBestCalc(wtKSCalc);
+		//setBestCalc(wtKSCalc);
 
 		if( strand2AllowedSeqs.get(Termini.COMPLEX).getNumSeqs() <= 1 )
 			return completed; // wt is sequence[0]
@@ -113,8 +113,8 @@ public class KSImplKAStar extends KSAbstract {
 
 				best.checkConsistency(best);
 				
-				if(passesInterMutationPruning(best.lb))
-					best.lb.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCompleted(0) );
+				//if(passesInterMutationPruning(best.lb))
+				best.lb.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCompleted(0) );
 				
 				completed++;
 				continue;

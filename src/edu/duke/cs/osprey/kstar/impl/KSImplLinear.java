@@ -6,7 +6,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.concurrent.ConcurrentHashMap;
 import edu.duke.cs.osprey.control.ConfigFileParser;
-import edu.duke.cs.osprey.kstar.AllowedSeqs;
+import edu.duke.cs.osprey.kstar.KSAllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KSCalc;
 import edu.duke.cs.osprey.kstar.Termini;
@@ -25,7 +25,7 @@ public class KSImplLinear extends KSAbstract {
 		super( cfp );
 	}
 
-	public void init( HashMap<Integer, AllowedSeqs> strand2AllowedSeqs ) {
+	public void init( HashMap<Integer, KSAllowedSeqs> strand2AllowedSeqs ) {
 
 		this.strand2AllowedSeqs = strand2AllowedSeqs;
 

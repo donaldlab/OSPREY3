@@ -62,15 +62,12 @@ public class SearchProblem implements Serializable {
 	public ReducedPruningMatrix reducedMat = null;
 	public InvertedPruningMatrix inverseMat = null;
 
-	public boolean addWT;
-
 	public boolean contSCFlex;
 
 	public ArrayList<String> flexibleRes = null;
 	public ArrayList<ArrayList<String>> allowedAAs = null;
 	public ArrayList<ArrayList<String>> reducedAllowedAAs = null;
 	public ArrayList<Integer> posNums = null;
-	public String PDBFile;
 
 	public DEEPerSettings dset;
 	public ArrayList<String[]> moveableStrands;
@@ -125,9 +122,7 @@ public class SearchProblem implements Serializable {
 		this.reducedAllowedAAs = reducedAllowedAAs;		
 		flexibleRes = newFlexibleRes;
 		this.posNums = newPosNums;
-		PDBFile = origSP.PDBFile;
 
-		addWT = false;
 		contSCFlex = origSP.contSCFlex;
 		useTupExpForSearch = origSP.useTupExpForSearch;
 		useEllipses = origSP.useEllipses;
@@ -167,9 +162,7 @@ public class SearchProblem implements Serializable {
 
 		this.flexibleRes = flexibleRes;
 		this.allowedAAs = allowedAAs;
-		this.PDBFile = PDBFile;
 
-		this.addWT = addWT;
 		this.contSCFlex = contSCFlex;
 		this.useTupExpForSearch = useTupExp;
 		this.useEllipses = useEllipses;
