@@ -118,9 +118,7 @@ public class Playground extends TestBase {
 	private static class SplitWorld {
 	
 		private ConfSpace confSpace;
-		private List<List<RC>> parentRCs;
-		private Map<RC,RC> parentRCsByChild;
-		private Map<RC,List<RC>> childRCsByParent;
+		private RCSplits splits;
 		private List<List<Integer>> rcMapsNewToOld;
 		private List<List<List<Integer>>> rcMapsOldToNew;
 		private EnergyMatrix emat;
@@ -129,50 +127,32 @@ public class Playground extends TestBase {
 		private EnergyFunction efunc;
 		
 		public SplitWorld(SearchProblem search, DofMatrix dofmat, EnergyFunctionGenerator egen, ShellDistribution dist) {
+			
+			// copy the confspace, the positions, and the rcs
 			this.confSpace = new ConfSpace(search.confSpace);
-			this.parentRCs = new ArrayList<>();
-			this.parentRCsByChild = new HashMap<>();
-			this.childRCsByParent = new HashMap<>();
+			for (int pos=0; pos<this.confSpace.numPos; pos++) {
+				this.confSpace.posFlex.set(pos, new PositionConfSpace(search.confSpace.posFlex.get(pos)));
+			}
+			
+			this.splits = new RCSplits(confSpace);
+			
 			this.rcMapsNewToOld = new ArrayList<>();
 			this.rcMapsOldToNew = new ArrayList<>();
+			for (int pos=0; pos<this.confSpace.numPos; pos++) {
+				this.rcMapsNewToOld.add(null);
+				this.rcMapsOldToNew.add(null);
+			}
+			
 			this.emat = new EnergyMatrix(search.emat);
 			this.dofmat = dofmat;
 			this.ecalc = new SimpleEnergyCalculator(egen, confSpace, search.shellResidues, dist);
 			this.efunc = egen.fullConfEnergy(confSpace, search.shellResidues);
-			
-			for (int pos=0; pos<this.confSpace.numPos; pos++) {
-				
-				// copy the pos conf space so we can modify it with splits
-				this.confSpace.posFlex.set(pos, new PositionConfSpace(search.confSpace.posFlex.get(pos)));
-				
-				// save all the rotamer ids of the parent rcs
-				// init rcs by  too
-				this.parentRCs.add(new ArrayList<>());
-				for (RC rc : this.confSpace.posFlex.get(pos).RCs) {
-					
-					this.parentRCs.get(pos).add(rc);
-					
-					List<RC> rcs = new ArrayList<>();
-					rcs.add(rc);
-					this.childRCsByParent.put(rc, rcs);
-					this.parentRCsByChild.put(rc, rc);
-				}
-				
-				this.rcMapsNewToOld.add(null);
-				this.rcMapsOldToNew.add(null);
-			}
 		}
 		
 		public void replaceRc(int pos, RC rc, List<RC> splitRCs) {
 			
 			// keep track of which children go to which parents
-			RC parentRc = parentRCsByChild.get(rc);
-			List<RC> childRCs = childRCsByParent.get(parentRc);
-			childRCs.remove(rc);
-			childRCs.addAll(splitRCs);
-			for (RC splitRc : splitRCs) {
-				parentRCsByChild.put(splitRc, parentRc);
-			}
+			splits.split(rc, splitRCs);
 			
 			PositionConfSpace posConfSpace = confSpace.posFlex.get(pos);
 			int numOldRCs = posConfSpace.RCs.size();
@@ -279,20 +259,25 @@ public class Playground extends TestBase {
 			PruningMatrix pruneMat = new PruningMatrix(confSpace, 0);
 			for (int pos=0; pos<confSpace.numPos; pos++) {
 				
-				int parentRc = conf[pos];
-				List<RC> childRCs = childRCsByParent.get(parentRCs.get(pos).get(parentRc));
-				
-				// make a lookup table for the split rcs
-				TreeSet<Integer> rcLookup = new TreeSet<>();
-				for (RC rcObj : childRCs) {
-					rcLookup.add(rcObj.RCIndex);
-				}
-				
-				// prune all but the child rcs
 				List<RC> rcsAtPos = confSpace.posFlex.get(pos).RCs;
-				for (int rc=0; rc<rcsAtPos.size(); rc++) {
-					if (!rcLookup.contains(rc)) {
-						pruneMat.setOneBody(pos, rc, true);
+				RCSplits.RCInfo info = splits.getRCInfo(pos, conf[pos]);
+				
+				if (info.isSplit()) {
+					
+					// prune all but the splits
+					for (int rc=0; rc<rcsAtPos.size(); rc++) {
+						if (!info.isChild(rc)) {
+							pruneMat.setOneBody(pos, rc, true);
+						}
+					}
+					
+				} else {
+					
+					// prune all but the parent
+					for (int rc=0; rc<rcsAtPos.size(); rc++) {
+						if (!info.isParent(rc)) {
+							pruneMat.setOneBody(pos, rc, true);
+						}
 					}
 				}
 			}
@@ -322,8 +307,8 @@ public class Playground extends TestBase {
 		//String aaNames = "ALA VAL LEU ILE GLU ASN GLN GLY";
 		String aaNames = "ALA VAL LEU ILE";
 		//String aaNames = "ALA";
-		String flexRes = "38 39 40 41 42 43 44";
-		//String flexRes = "38 39 40 41";
+		//String flexRes = "38 39 40 41 42 43 44";
+		String flexRes = "38 39 40 41";
 		//String flexRes = "41 42 43 44";
 		ArrayList<String> flexResList = new ArrayList<>(Arrays.asList(flexRes.split(" ")));
 		ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
