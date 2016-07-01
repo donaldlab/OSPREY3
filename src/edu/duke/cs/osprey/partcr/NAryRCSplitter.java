@@ -1,14 +1,11 @@
 package edu.duke.cs.osprey.partcr;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import edu.duke.cs.osprey.confspace.RC;
-import edu.duke.cs.osprey.tools.HashCalculator;
 
-public class NAryRCSplitter implements RCSplitter {
+public class NAryRCSplitter extends RCSplitter {
 	
 	private static enum Side {
 		
@@ -22,54 +19,8 @@ public class NAryRCSplitter implements RCSplitter {
 		}
 	}
 	
-	private static class RotId {
-		
-		private int pos;
-		private int rotNum;
-		
-		public RotId(int pos, int rotNum) {
-			this.pos = pos;
-			this.rotNum = rotNum;
-		}
-		
-		@Override
-		public boolean equals(Object other) {
-			if (other instanceof RotId) {
-				return equals((RotId)other);
-			}
-			return false;
-		}
-		
-		public boolean equals(RotId other) {
-			return this.pos == other.pos
-				&& this.rotNum == other.rotNum;
-		}
-		
-		@Override
-		public int hashCode() {
-			return HashCalculator.hashIds(pos, rotNum);
-		}
-	}
-	
-	
-	private Set<RotId> splitRotIds;
-	
-	public NAryRCSplitter() {
-		splitRotIds = new HashSet<>();
-	}
-	
-	@Override
-	public boolean willSplit(int pos, RC rc) {
-		
-		// only split each rotamer once
-		return !splitRotIds.contains(new RotId(pos, rc.rotNum));
-	}
-
 	@Override
 	public List<RC> split(int pos, RC rc) {
-		
-		// make sure we don't split this one again
-		splitRotIds.add(new RotId(pos, rc.rotNum));
 		
 		List<RC> rcs = new ArrayList<>();
 		

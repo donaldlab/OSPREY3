@@ -4,8 +4,14 @@ import java.util.List;
 
 import edu.duke.cs.osprey.confspace.RC;
 
-public interface RCSplitter {
+public abstract class RCSplitter {
 
-	boolean willSplit(int pos, RC rc);
-	List<RC> split(int pos, RC rc);
+	public abstract List<RC> split(int pos, RC rc);
+	
+	protected RC makeRC(RC rc, int dofIndex, double min, double max) {
+		RC subRc = new RC(rc);
+		subRc.DOFmin.set(dofIndex, min);
+		subRc.DOFmax.set(dofIndex, max);
+		return subRc;
+	}
 }

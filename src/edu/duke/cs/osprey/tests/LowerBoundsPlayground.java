@@ -137,7 +137,7 @@ public class LowerBoundsPlayground extends TestBase {
 			
 			// single term
 			double singleBoundEnergy = search.emat.getOneBody(pos1, rc1);
-			double singleMinimizedEnergy = ecalc.getSingleEfunc(pos1, rc1).getEnergy();
+			double singleMinimizedEnergy = ecalc.getSingleEfunc(pos1).getEnergy();
 			
 			//double singleErr = singleMinimizedEnergy - singleBoundEnergy;
 			//System.out.println(String.format("%5d: %f, %f, %f", pos1, singleBoundEnergy, singleMinimizedEnergy, singleErr));
@@ -150,7 +150,7 @@ public class LowerBoundsPlayground extends TestBase {
 				int rc2 = minBoundConf[pos2];
 				
 				double pairwiseBoundEnergy = search.emat.getPairwise(pos1, rc1, pos2, rc2);
-				double pairwiseMinimizedEnergy = ecalc.getPairEfunc(pos1, rc1, pos2, rc2).getEnergy();
+				double pairwiseMinimizedEnergy = ecalc.getPairEfunc(pos1, pos2).getEnergy();
 				
 				//double pairwiseErr = pairwiseMinimizedEnergy - pairwiseBoundEnergy;
 				//System.out.println(String.format("%2d,%2d: %f, %f, %f", pos1, pos2, pairwiseBoundEnergy, pairwiseMinimizedEnergy, pairwiseErr));
