@@ -140,6 +140,16 @@ public class PositionConfSpace implements Serializable {
         
     }
     
+    public PositionConfSpace(PositionConfSpace other) {
+    	this.RCs = new ArrayList<>();
+    	for (RC rc : other.RCs) {
+    		this.RCs.add(new RC(rc));
+    	}
+    	this.wtRCs = new ArrayList<>(other.wtRCs);
+    	this.res = other.res;
+    	this.designIndex = other.designIndex;
+    }
+    
     
     private RC createRC(double[] dihedrals, String AAType, ResidueTemplate template, int rot, boolean contSCFlex, ArrayList<DegreeOfFreedom> dofListForRot,
             int proPucker, ArrayList<DegreeOfFreedom> strandDOFs, BBFreeBlock bfb, ArrayList<int[]> pertState, 

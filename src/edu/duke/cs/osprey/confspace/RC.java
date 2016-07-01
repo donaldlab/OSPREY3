@@ -42,6 +42,16 @@ public class RC implements Serializable {
         this.RCIndex = RCIndex;
     }
     
+    public RC(RC other) {
+    	this.AAType = other.AAType;
+    	this.template = other.template;
+    	this.rotNum = other.rotNum;
+    	this.DOFs = other.DOFs;
+    	this.DOFmin = new ArrayList<>(other.DOFmin);
+    	this.DOFmax = new ArrayList<>(other.DOFmax);
+    	this.RCIndex = other.RCIndex;
+    }
+    
     
     public boolean isParametricallyIncompatibleWith(RC rc2){
         //Two RCs are parametrically incompatible if and only if there is a DOF that they share

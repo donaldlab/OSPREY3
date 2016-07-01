@@ -191,6 +191,15 @@ public class ConfSpace implements Serializable {
         PDBFileWriter.writePDBFile(m, "STRUCT3.pdb");*/
     }
     
+    public ConfSpace(ConfSpace other) {
+    	// just make a shallow copy
+    	this.m = other.m;
+    	this.confDOFs = new ArrayList<>(other.confDOFs);
+    	this.mutDOFs = new ArrayList<>(other.mutDOFs);
+		this.posFlex = new ArrayList<>(other.posFlex);
+    	this.numPos = other.numPos;
+    	this.useEllipses = other.useEllipses;
+    }
     
     private ArrayList<BBFreeBlock> getBBFreeBlocks(ArrayList<String[]> freeBBZones, ArrayList<String> flexibleRes){
         //create a BFB for each (start res, end res) pair.  PDB residue numbers provided.  
