@@ -36,8 +36,9 @@ public class PositionConfSpace implements Serializable {
     //including allowed amino-acid types, and rotamers/RCs for each type 
     //subclass PositionConfSpace to make super-residues with super-RCs...
     
-    
-    public ArrayList<RC> RCs = new ArrayList<>();
+	private static final long serialVersionUID = 2705824580246579508L;
+	
+	public ArrayList<RC> RCs = new ArrayList<>();
     public ArrayList<RC> wtRCs = new ArrayList<>();
     
     public Residue res;//The residue involved
@@ -299,7 +300,6 @@ public class PositionConfSpace implements Serializable {
             // TODO: move getellipsoidalcoords to ellipsetransform
             double[] ellValues = getEllipsoidalCoords(dihValues);
             DoubleMatrix2D A = DoubleFactory2D.dense.identity(ellValues.length);
-            DoubleMatrix1D c = DoubleFactory1D.dense.make(new double[ellValues.length]);
             for (int i=0; i<ellValues.length; i++) {
                     EllipseCoordDOF ellDOF = new EllipseCoordDOF(
                                     (i==0),
