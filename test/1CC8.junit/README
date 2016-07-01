@@ -1,0 +1,1 @@
+This is a version of the 1CC8 test system for use with the TestFindGMEC JUnit test.  As such it is meant to be run from the OSPREY root directory.  It uses continuous sidechain flexibility with EPIC and LUTE. Let's keep precomputed matrices here so we can test with the matrices in place (recomputing for test purposes may be useful sometimes too though). 
