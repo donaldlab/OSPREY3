@@ -79,10 +79,6 @@ public class RCSplits {
 		}
 	}
 	
-	public PosInfo getPosInfo(int pos) {
-		return infoByPos.get(pos);
-	}
-	
 	public RCInfo getRCInfo(int pos, int parentRC) {
 		return infoByPos.get(pos).infoByRC.get(parentRC);
 	}

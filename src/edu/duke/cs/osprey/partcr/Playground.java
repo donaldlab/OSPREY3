@@ -5,11 +5,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.TreeMap;
-import java.util.TreeSet;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
@@ -24,6 +21,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.PositionConfSpace;
 import edu.duke.cs.osprey.confspace.RC;
+import edu.duke.cs.osprey.confspace.RCIndexMap;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.EnvironmentVars;
@@ -119,8 +117,7 @@ public class Playground extends TestBase {
 	
 		private ConfSpace confSpace;
 		private RCSplits splits;
-		private List<List<Integer>> rcMapsNewToOld;
-		private List<List<List<Integer>>> rcMapsOldToNew;
+		private List<RCIndexMap> rcMaps;
 		private EnergyMatrix emat;
 		private DofMatrix dofmat;
 		private SimpleEnergyCalculator ecalc;
@@ -136,11 +133,9 @@ public class Playground extends TestBase {
 			
 			this.splits = new RCSplits(confSpace);
 			
-			this.rcMapsNewToOld = new ArrayList<>();
-			this.rcMapsOldToNew = new ArrayList<>();
+			this.rcMaps = new ArrayList<>();
 			for (int pos=0; pos<this.confSpace.numPos; pos++) {
-				this.rcMapsNewToOld.add(null);
-				this.rcMapsOldToNew.add(null);
+				this.rcMaps.add(null);
 			}
 			
 			this.emat = new EnergyMatrix(search.emat);
@@ -154,93 +149,86 @@ public class Playground extends TestBase {
 			// keep track of which children go to which parents
 			splits.split(rc, splitRCs);
 			
-			PositionConfSpace posConfSpace = confSpace.posFlex.get(pos);
-			int numOldRCs = posConfSpace.RCs.size();
-			
-			// split the rc and save the new->old map for updateMatrices()
-			List<Integer> rcMap = posConfSpace.replaceRC(rc, splitRCs);
-			rcMapsNewToOld.set(pos, rcMap);
-	
-			// create the old->new map too
-			List<List<Integer>> invertedRcMap = new ArrayList<>();
-			for (int oldRc=0; oldRc<numOldRCs; oldRc++) {
-				invertedRcMap.add(new ArrayList<>());
-			}
-			for (int newRc=0; newRc<confSpace.posFlex.get(pos).RCs.size(); newRc++) {
-				Integer oldRc = rcMap.get(newRc);
-				if (oldRc == null) {
-					invertedRcMap.get(rc.RCIndex).add(newRc);
-				} else {
-					invertedRcMap.get(oldRc).add(newRc);
-				}
-			}
-			rcMapsOldToNew.set(pos, invertedRcMap);
+			// split the rc and save the index map for updateMatrices()
+			RCIndexMap map = confSpace.posFlex.get(pos).replaceRC(rc, splitRCs);
+			rcMaps.set(pos, map);
 		}
 		
-		public List<List<Integer>> getRcMapOldToNew(int pos) {
-			return rcMapsOldToNew.get(pos);
+		public RCIndexMap getRcMap(int pos) {
+			return rcMaps.get(pos);
 		}
 		
 		public void updateMatrices() {
 		
 			int numPos = confSpace.numPos;
 			
-			EnergyMatrix oldEmat = emat;
-			DofMatrix oldDofmat = dofmat;
+			assert (emat != null);
+			assert (dofmat != null);
 			
 			// copy as many energies as possible from the old matrix
 			// to a new matrix that is sized for the new conf space (with the added rotamers)
-			EnergyMatrix newEmat = new EnergyMatrix(confSpace, oldEmat.getPruningInterval());
+			EnergyMatrix newEmat = new EnergyMatrix(confSpace, emat.getPruningInterval());
 			DofMatrix newDofmat = new DofMatrix(confSpace);
 			
 			for (int pos1=0; pos1<numPos; pos1++) {
+				RCIndexMap rcMap1 = rcMaps.get(pos1);
 				for (int rc1=0; rc1<newEmat.getNumConfAtPos(pos1); rc1++) {
 
 					// get the old rc1, if any
 					Integer oldRc1 = rc1;
-					if (rcMapsNewToOld.get(pos1) != null) {
-						oldRc1 = rcMapsNewToOld.get(pos1).get(rc1);
+					if (rcMap1 != null) {
+						oldRc1 = rcMap1.newToOld(rc1);
 					}
 					
 					// one-body
-					if (oldRc1 == null) {
+					if (oldRc1 != null) {
+						
+						// copy values from the old matrices
+						newDofmat.setOneBody(pos1, rc1, dofmat.getOneBody(pos1, oldRc1));
+						newEmat.setOneBody(pos1, rc1, emat.getOneBody(pos1, oldRc1));
+						
+					} else {
+						
+						// calculate new values
 						Result result = ecalc.calcSingle(pos1, rc1);
 						newDofmat.setOneBody(pos1, rc1, result.getDofValues());
 						newEmat.setOneBody(pos1, rc1, result.getEnergy());
-					} else {
-						newDofmat.setOneBody(pos1, rc1, oldDofmat.getOneBody(pos1, oldRc1));
-						newEmat.setOneBody(pos1, rc1, oldEmat.getOneBody(pos1, oldRc1));
 					}
 					
 					// pairwise
 					for (int pos2=0; pos2<pos1; pos2++) {
+						RCIndexMap rcMap2 = rcMaps.get(pos2);
 						for (int rc2=0; rc2<newEmat.getNumConfAtPos(pos2); rc2++) {
 							
 							// get the old rc2, if any
 							Integer oldRc2 = rc2;
-							if (rcMapsNewToOld.get(pos2) != null) {
-								oldRc2 = rcMapsNewToOld.get(pos2).get(rc2);
+							if (rcMap2 != null) {
+								oldRc2 = rcMap2.newToOld(rc2);
 							}
 							
-							if (oldRc1 == null || oldRc2 == null) {
+							if (oldRc1 != null && oldRc2 != null) {
+								
+								// copy values from the old matrices
+								newDofmat.setPairwise(pos1, rc1, pos2, rc2, dofmat.getPairwise(pos1, oldRc1, pos2, oldRc2));
+								newEmat.setPairwise(pos1, rc1, pos2, rc2, emat.getPairwise(pos1, oldRc1, pos2, oldRc2));
+							
+							} else {
+								
+								// calculate new values
 								Result result = ecalc.calcPair(pos1, rc1, pos2, rc2);
 								newDofmat.setPairwise(pos1, rc1, pos2, rc2, result.getDofValues());
 								newEmat.setPairwise(pos1, rc1, pos2, rc2, result.getEnergy());
-							} else {
-								newDofmat.setPairwise(pos1, rc1, pos2, rc2, oldDofmat.getPairwise(pos1, oldRc1, pos2, oldRc2));
-								newEmat.setPairwise(pos1, rc1, pos2, rc2, oldEmat.getPairwise(pos1, oldRc1, pos2, oldRc2));
 							}
 						}
 					}
-				}	
+				}
 			}
 			
-			// clear the new->old rc maps
-			for (int pos=0; pos<numPos; pos++) {
-				rcMapsNewToOld.set(pos, null);
-				rcMapsOldToNew.set(pos, null);
+			// clear the maps now that we're done with them
+			for (int pos1=0; pos1<numPos; pos1++) {
+				rcMaps.set(pos1, null);
 			}
-			
+				
 			emat = newEmat;
 			dofmat = newDofmat;
 		}
@@ -573,7 +561,7 @@ public class Playground extends TestBase {
 				int numConfs = confs.size();
 				for (int j=0; j<numConfs; j++) {
 					int[] conf = confs.getConf(j);
-					List<Integer> newRcs = splitWorld.getRcMapOldToNew(splitPos).get(conf[splitPos]);
+					List<Integer> newRcs = splitWorld.getRcMap(splitPos).oldToNew(conf[splitPos]);
 					if (newRcs.size() == 1) {
 						conf[splitPos] = newRcs.get(0);
 					} else {

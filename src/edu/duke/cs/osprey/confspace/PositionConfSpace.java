@@ -366,7 +366,11 @@ public class PositionConfSpace implements Serializable {
     	return this.ellipsoidalDOFs;
     }
 
-	public List<Integer> replaceRC(RC oldRC, List<RC> newRCs) {
+	public RCIndexMap replaceRC(RC oldRC, List<RC> newRCs) {
+		
+		if (newRCs.isEmpty()) {
+			throw new IllegalArgumentException("newRCs can't be empty");
+		}
 		
 		// find the old rc to remove
 		Integer oldIndex = findRcIndex(oldRC);
@@ -374,32 +378,24 @@ public class PositionConfSpace implements Serializable {
 			throw new IllegalArgumentException("can't remove RC, it's not at this pos");
 		}
 		
-		// set the new RCs to the index we're about to remove
-		for (RC rc : newRCs) {
-			rc.RCIndex = oldIndex;
+		RCIndexMap map = new RCIndexMap(RCs.size());
+		
+		// replace the old RC with the first new one
+		RC rc = newRCs.get(0);
+		RCs.set(oldIndex, rc);
+		rc.RCIndex = oldIndex;
+		map.remove(oldIndex);
+		map.add(oldIndex, oldIndex);
+		
+		// add the rest of the new ones
+		for (int i=1; i<newRCs.size(); i++) {
+			rc = newRCs.get(i);
+			RCs.add(rc);
+			rc.RCIndex = RCs.size() - 1;
+			map.add(oldIndex, rc.RCIndex);
 		}
 		
-		// remove the old rc, add the new ones
-		RCs.remove((int)oldIndex);
-		RCs.addAll(newRCs);
-		
-		// build a map from the new indices to the old ones
-		List<Integer> indexMap = new ArrayList<>();
-		for (int i=0; i<RCs.size(); i++) {
-			RC rc = RCs.get(i);
-			if (rc.RCIndex == oldIndex) {
-				indexMap.add(null);
-			} else {
-				indexMap.add(RCs.get(i).RCIndex);
-			}
-		}
-		
-		// renumber all the rcs
-		for (int i=0; i<RCs.size(); i++) {
-			RCs.get(i).RCIndex = i;
-		}
-		
-		return indexMap;
+		return map;
 	}
 	
 	private Integer findRcIndex(RC rc) {
