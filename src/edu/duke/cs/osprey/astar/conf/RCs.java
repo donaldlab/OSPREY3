@@ -6,14 +6,17 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 public class RCs {
 	
+	private PruningMatrix pruneMat;
 	private int[][] unprunedRCsAtPos;
 	
 	public RCs(PruningMatrix pruneMat) {
 		
+		this.pruneMat = pruneMat;
+		
 		// pack unpruned rotamers into an efficient lookup structure
-		int numPos = pruneMat.getNumPos();
-        unprunedRCsAtPos = new int[numPos][];
-        for (int pos=0; pos<numPos; pos++) {
+		int n = getNumPos();
+        unprunedRCsAtPos = new int[n][];
+        for (int pos=0; pos<n; pos++) {
         	ArrayList<Integer> srcRCs = pruneMat.unprunedRCsAtPos(pos);
         	int[] destRCs = new int[srcRCs.size()];
         	for (int i=0; i<srcRCs.size(); i++) {
@@ -23,8 +26,12 @@ public class RCs {
         }
 	}
 	
+	public PruningMatrix getPruneMat() {
+		return pruneMat;
+	}
+	
 	public int getNumPos() {
-		return unprunedRCsAtPos.length;
+		return pruneMat.getNumPos();
 	}
 	
 	public int getNumTrivialPos() {

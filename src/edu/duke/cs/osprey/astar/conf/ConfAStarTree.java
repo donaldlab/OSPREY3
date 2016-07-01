@@ -106,10 +106,17 @@ public class ConfAStarTree implements ConfSearch {
 			int numChildren = 0;
 			confIndex.index(node);
 			int nextPos = order.getNextPos(confIndex, rcs);
-			for (int rc : rcs.get(nextPos)) {
+			assert (!confIndex.isDefined(nextPos));
+			assert (confIndex.isUndefined(nextPos));
+			
+			for (int nextRc : rcs.get(nextPos)) {
 				
-				ConfAStarNode child = new ConfAStarNode(node, nextPos, rc);
-				scoreNodeDifferential(node, child, nextPos, rc);
+				if (hasPrunedPair(confIndex, nextPos, nextRc)) {
+					continue;
+				}
+				
+				ConfAStarNode child = new ConfAStarNode(node, nextPos, nextRc);
+				scoreNodeDifferential(node, child, nextPos, nextRc);
 				
 				// impossible node? skip it
 				if (child.getScore() == Double.POSITIVE_INFINITY) {
@@ -126,6 +133,18 @@ public class ConfAStarTree implements ConfSearch {
 		}
 	}
 	
+	private boolean hasPrunedPair(ConfIndex confIndex, int nextPos, int nextRc) {
+		for (int i=0; i<confIndex.getNumDefined(); i++) {
+			int pos = confIndex.getDefinedPos()[i];
+			int rc = confIndex.getDefinedRCs()[i];
+			assert (pos != nextPos || rc != nextRc);
+			if (rcs.getPruneMat().getPairwise(pos, rc, nextPos, nextRc)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private void scoreNode(ConfAStarNode node) {
 		confIndex.index(node);
 		node.setGScore(gscorer.calc(confIndex, rcs));
