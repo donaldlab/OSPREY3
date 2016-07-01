@@ -1,23 +1,27 @@
 /*
- * To change this template, choose Tools | Templates
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package edu.duke.cs.osprey.tests;
+package edu.duke.cs.osprey;
+
+
+import org.junit.BeforeClass;
+import org.junit.Test;
 
 import edu.duke.cs.osprey.tools.RigidBodyMotion;
 import edu.duke.cs.osprey.tools.RotationMatrix;
 
 /**
  *
+ * Testing stuff from the tools package
+ * 
  * @author mhall44
  */
-
-//Testing stuff from the tools package
-
-public class ToolTests {
+public class TestTools extends TestBase {
     
-    
-    public static void RigidMotionTest(){
+    @Test
+    public void RigidMotionTest(){
         //Take 3 random points in 3-D, apply a random rigid motion to them, then try to reconstruct 
         //the rigid motion based on superposition
         double points[][] = new double[3][3];
@@ -51,15 +55,15 @@ public class ToolTests {
             }
         }
         
-        
-        System.out.println("ERROR IN RIGID MOTION TEST: "+error);
+        //error will be positive and should be very close to 0
+        assert(error<1e-16);
     }
     
     
     
     
-    
-    public static void SuperposingRotMatrixTest(){
+    @Test
+    public void SuperposingRotMatrixTest(){
         //Take 2 random points in 3-D, apply a random rotation to them about the origin, then try to reconstruct 
         //the rotation based on superposition
         //(i.e., rotation-only version of RigidMotionTest)
@@ -94,7 +98,8 @@ public class ToolTests {
             }
         }
         
-        System.out.println("ERROR IN SUPERIMPOSING MATRIX TEST: "+error);
+        assert(error<1e-16);
     }
+    
     
 }

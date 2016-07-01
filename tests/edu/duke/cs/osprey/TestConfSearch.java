@@ -1,12 +1,14 @@
 /*
- * To change this template, choose Tools | Templates
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package edu.duke.cs.osprey.tests;
+package edu.duke.cs.osprey;
 
-import java.util.ArrayList;
-import java.util.Random;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
+import static edu.duke.cs.osprey.TestBase.initDefaultEnvironment;
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.RCTuple;
@@ -16,17 +18,35 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.InfiniteIterator;
+import java.util.ArrayList;
+import java.util.Random;
+import org.junit.BeforeClass;
 
 /**
  *
  * @author mhall44
  */
-public class ConfSearchTests {
-    //Making sure each type of ConfSearch minimizes properly, 
+public class TestConfSearch extends TestBase {
+    //Checking accuracy of conformational search under various conditions,
     //and that DEE pruning does not change the overall minimum
     //this is testing discrete conformational search
     
-    public static void testExhaustive(boolean useTriples, boolean useEllipses){
+    @BeforeClass
+    public static void before() {
+            initDefaultEnvironment();
+    }
+    
+    
+    @Test
+    public void runTests(){
+        testDEE(true);
+        testDEE(false);
+        testExhaustive(false, false);
+        testExhaustive(false, true);
+        testExhaustive(true, false);
+    }
+    
+    public void testExhaustive(boolean useTriples, boolean useEllipses){
         //For a small, simple search space, ensure that the ConfSearch object
         //enumerates all conformations in ascending order
         
@@ -139,7 +159,7 @@ public class ConfSearchTests {
             allowedAAs.add(AAatPos);
         }
         
-        SearchProblem ans = new SearchProblem( "testResults/CONFSEARCHTEST"+numPos, "1CC8.ss.pdb", 
+        SearchProblem ans = new SearchProblem( "test/1CC8/testResults/CONFSEARCHTEST"+numPos, "test/1CC8/1CC8.ss.pdb", 
                 flexRes, allowedAAs,false, false, false, null, 
                 false, new DEEPerSettings(), new ArrayList<>(), new ArrayList<>(), 
                 useEllipses, false, false, false);
