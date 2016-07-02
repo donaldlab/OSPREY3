@@ -32,6 +32,8 @@ import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator.Result;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
+import edu.duke.cs.osprey.partcr.RCSplitter;
+import edu.duke.cs.osprey.partcr.SmartRCSplitter;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Residue;
