@@ -58,6 +58,57 @@ public class ResidueTemplate implements Serializable {
         this.name = name;
     }
 
+    //HMN: Taken from Jeff's implemenation in the Master Branch
+    public static ResidueTemplate makeFromResidueConf(Residue residue) {
+        ResidueTemplate oldTemplate = residue.template;
+        Residue templateRes = new Residue(residue);
+        templateRes.copyIntraBondsFrom(residue);
+        ResidueTemplate newTemplate = new ResidueTemplate(templateRes, oldTemplate.name);
+
+        // copy template info
+        newTemplate.setNumberOfPhiPsiBins(oldTemplate.numberOfPhiPsiBins);
+        newTemplate.initializeRotamerArrays();
+        newTemplate.dihedral4Atoms = oldTemplate.dihedral4Atoms;
+        newTemplate.numDihedrals = oldTemplate.numDihedrals;
+        newTemplate.setNumRotamers(1);
+
+        //measure dihedral for wt conf
+        double[][] wtDihedrals = new double[1][newTemplate.numDihedrals];
+        for (int i = 0; i < residue.getNumDihedrals(); i++) {
+            wtDihedrals[1][i] = residue.getDihedralAngle(i);
+        }
+
+        newTemplate.setRotamericDihedrals(wtDihedrals);
+        newTemplate.computeDihedralMovingAtoms();
+
+        return newTemplate;
+    }
+
+    double[][] getRotamericDihedralsAtBin(int phiBin, int psiBin) {
+        return this.rotamericDihedrals[phiBin][psiBin];
+    }
+
+    public double[] getRotamericDihedrals(int rotNum) {
+        return getRotamericDihedrals(0, 0, rotNum);
+    }
+
+    public double[] getRotamericDihedrals(double phi, double psi, int rotNum) {
+
+        if (Double.isNaN(phi) || Double.isNaN(psi)) {//dihedrals not defined for this residue
+            if (numberOfPhiPsiBins > 1) {
+                throw new RuntimeException("ERROR: Can't use Dunbrack library on residues w/o phi/psi defined");
+            }
+
+            return rotamericDihedrals[0][0][rotNum];
+        }
+        // Under the dunbrack rotamer library, backbone dependent rotamers have a resolution of 10 degrees, 
+        //    while in backbone-independent rotamer libraries they have a resolution of 360.    		
+        //  Therefore, we round to the closest "bin" and add numberOfPhiPsiBins/2 (to make all numbers positive)
+        int phiBin = (int) (Math.round(phi / this.phiPsiResolution)) + this.numberOfPhiPsiBins / 2;
+        int psiBin = (int) (Math.round(psi / this.phiPsiResolution)) + this.numberOfPhiPsiBins / 2;
+        return rotamericDihedrals[phiBin][psiBin][rotNum];
+    }
+
     //information on dihedrals
     public int[] getDihedralDefiningAtoms(int dihedralNum) {
         //numbers (indices among the atoms in this template) of the 4 atoms defining the dihedral
@@ -161,6 +212,12 @@ public class ResidueTemplate implements Serializable {
 
     }
 
+    /**
+     *
+     * @param rotNum
+     * @param dihedralNum
+     * @return
+     */
     public double getRotamericDihedrals(int rotNum, int dihedralNum) {
         return getRotamericDihedrals(0, 0, rotNum, dihedralNum);
     }

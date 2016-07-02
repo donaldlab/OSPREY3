@@ -128,11 +128,11 @@ public class GMECFinder {
             if (useEPIC) {
                 checkEPICThresh2(curInterval);//Make sure EPIC thresh 2 matches current interval
             }
+//            precomputeMatrices(Double.POSITIVE_INFINITY);
+
             precomputeMatrices(Ew + curInterval);//precompute the energy, pruning, and maybe EPIC or tup-exp matrices
             //must be done separately for each round of iMinDEE
-            
-//            prunePerturbedRCs(searchSpace);
-            
+
             //Finally, do A*, which will output the top conformations
             ConfSearch search = initSearch(searchSpace);//e.g. new AStarTree from searchSpace & params
             //can have options to instantiate other kinds of search here too...choose based on params
@@ -188,6 +188,7 @@ public class GMECFinder {
                             conformationCount++;
                         }
                     } else {
+                        System.out.println("Reached Here");
                         printConf(conf, confE, lowerBound, bestESoFar, confFileHandle, conformationCount);
                         conformationCount++;
                     }
@@ -235,7 +236,156 @@ public class GMECFinder {
 
         closeConfFile(confFileHandle);
         System.out.println("GMEC calculation complete.  ");
-        System.out.println("GMEC energy: " + bestESoFar/PoissonBoltzmannEnergy.constRT);
+        System.out.println("GMEC energy: " + bestESoFar / PoissonBoltzmannEnergy.constRT);
+        //HMN:
+        System.out.println();
+        System.out.println("IVal: " + curInterval);
+        return bestESoFar;
+    }
+
+    public double calcGMEC2() {
+        //Calculate the GMEC
+
+        double curInterval = I0;//For iMinDEE.  curInterval will need to be an upper bound
+        //on GMEC-lowestBound
+        //but we can start with an estimate I0 and raise if needed
+        boolean needToRepeat;
+
+        //GMEC is the lowest-energy conformation enumerated in this whole search
+        int GMECConf[] = null;
+        double bestESoFar = Double.POSITIVE_INFINITY;
+
+        searchSpace = cfp.getSearchProblem();
+        precomputeMatrices(Double.POSITIVE_INFINITY);
+
+        BufferedWriter confFileHandle = openConfFile();
+
+        Set<int[]> confsWithDiffBB = new HashSet<>();
+        double[] backboneDOFs = {0.0, 1.0};
+        for (double dof : backboneDOFs) {
+            precomputeMatrices(Double.POSITIVE_INFINITY);
+            System.out.println("Pruning with BB DOF: " + dof);
+            prunePerturbedRCs(searchSpace, dof);
+            searchSpace.competitorPruneMat = null;
+            do {
+                needToRepeat = false;
+
+                //initialize a search problem with current Ival
+                // 11/11/2015 JJ: This logic belongs out here. A function that does nothing if a flag is false should 
+                // have its flag promoted outside of the function, unless it's used multiple times. In that case
+                // the function needs to be named accordingly.
+                if (useEPIC) {
+                    checkEPICThresh2(curInterval);//Make sure EPIC thresh 2 matches current interval
+                }
+//            precomputeMatrices(Double.POSITIVE_INFINITY);
+
+//                precomputeMatrices(Ew + curInterval);//precompute the energy, pruning, and maybe EPIC or tup-exp matrices
+                //must be done separately for each round of iMinDEE
+                //Finally, do A*, which will output the top conformations
+                ConfSearch search = initSearch(searchSpace);//e.g. new AStarTree from searchSpace & params
+                //can have options to instantiate other kinds of search here too...choose based on params
+
+                double lowerBound;
+                int conformationCount = 0;
+
+                System.out.println();
+                System.out.println("BEGINNING CONFORMATION ENUMERATION");
+                System.out.println();
+
+                long confSearchStartTime = System.currentTimeMillis();
+
+                do {
+                    int conf[] = search.nextConf();
+
+                    if (conf == null) {//no confs left in tree. Effectively, infinite lower bound on remaining confs
+                        System.out.println("Is Null");
+                        lowerBound = Double.POSITIVE_INFINITY;
+                    } else {//tree not empty
+
+                        double confE = getConfEnergy(conf);//MINIMIZED, EPIC, OR MATRIX E AS APPROPRIATE
+                        //this is the true energy; if !checkApproxE may be an approximation to it
+
+                        lowerBound = confE;//the lower bound and confE are the same in rigid
+                        //or non-checkApproxE EPIC and tup-exp calculations
+                        //lowerBound is always what we enumerate in order of
+                        if (useContFlex) {
+                            if (useTupExp || useEPIC) {
+                                if (checkApproxE)//confE is the "true" energy function
+                                {
+                                    lowerBound = searchSpace.approxMinimizedEnergy(conf);
+                                }
+                            } else {
+                                lowerBound = searchSpace.lowerBound(conf);
+                            }
+                        } else if (EFullConfOnly && checkApproxE)//get tup-exp approx
+                        {
+                            lowerBound = searchSpace.approxMinimizedEnergy(conf);
+                        }
+
+                        if (confE < bestESoFar) {
+                            bestESoFar = confE;
+                            GMECConf = conf;
+                            System.out.println("New best energy: " + confE);
+                        }
+
+                        lowestBound = Math.min(lowestBound, lowerBound);
+                        if (onlyDiffBB) {
+                            if (hasDifferentBackbone(searchSpace, confsWithDiffBB, conf)) {
+                                confsWithDiffBB.add(conf);
+                                System.out.println("New Backbone Enumerated!");
+                                printConf(conf, confE, lowerBound, bestESoFar, confFileHandle, conformationCount);
+                                conformationCount++;
+                            }
+                        } else {
+                            System.out.println("Reached Here");
+                            printConf(conf, confE, lowerBound, bestESoFar, confFileHandle, conformationCount);
+                            conformationCount++;
+                        }
+                    }
+
+                    //DEBUG!!!!
+                /*
+                     int conf2[] = new int[] {5,7,12,5,0,7,4};
+                     boolean b2 = searchSpace.pruneMat.isPruned(new RCTuple(conf2));
+                     double LB2 = searchSpace.lowerBound(conf2);
+                     double E2 = searchSpace.approxMinimizedEnergy(conf2);
+                     double EPIC2 = searchSpace.EPICMinimizedEnergy(conf2);
+                     int aaa = 0;
+                     */
+                    if (doIMinDEE) {//if there are no conformations with minimized energy
+                        //within curInterval of the lowestBound
+                        //then we have to repeat with a higher curInterval
+                        if ((lowerBound > lowestBound + curInterval)
+                                && (bestESoFar > lowestBound + curInterval)) {
+
+                            curInterval = bestESoFar - lowestBound + 0.001;//give it a little buffer for numerical issues
+                            System.out.println("Raising pruning interval to " + curInterval);
+                            needToRepeat = true;
+                            break;
+                        }
+                    }
+
+                    if (bestESoFar == Double.POSITIVE_INFINITY) {//no conformations found
+                        System.out.println("A* returned no conformations.");
+                        break;
+                    }
+                    if (!useContFlex && Ew == 0) {
+                        break;
+                    }
+                } while (bestESoFar + Ew >= lowerBound);//lower bound above GMEC + Ew...can stop enumerating
+
+                double confSearchTimeMinutes = (System.currentTimeMillis() - confSearchStartTime) / 60000.0;
+                System.out.println("Conf search time (minutes): " + confSearchTimeMinutes);
+
+            } while (needToRepeat);
+        }
+        if (outputGMECStruct && GMECConf != null) {
+            searchSpace.outputMinimizedStruct(GMECConf, searchSpace.name + ".GMEC.pdb");
+        }
+
+        closeConfFile(confFileHandle);
+        System.out.println("GMEC calculation complete.  ");
+        System.out.println("GMEC energy: " + bestESoFar / PoissonBoltzmannEnergy.constRT);
         //HMN:
         System.out.println();
         System.out.println("IVal: " + curInterval);
@@ -421,17 +571,17 @@ public class GMECFinder {
         return new ConfTree(searchSpace);
     }
 
-    void prunePerturbedRCs(SearchProblem sp) {
+    void prunePerturbedRCs(SearchProblem sp, double dof) {
         for (int pos = 0; pos < sp.confSpace.numPos; pos++) {
-            prunePerturbedRCs(sp, pos);
+            prunePerturbedRCs(sp, pos, dof);
         }
     }
 
-    void prunePerturbedRCs(SearchProblem sp, int pos) {
+    void prunePerturbedRCs(SearchProblem sp, int pos, double dof) {
         for (int rc : sp.pruneMat.unprunedRCsAtPos(pos)) {
-            for (int dof = 0; dof < sp.confSpace.posFlex.get(pos).RCs.get(rc).DOFmax.size(); dof++) {
-                double dofVal = sp.confSpace.posFlex.get(pos).RCs.get(rc).DOFmax.get(dof);
-                if (dofVal == 1.0) {
+            for (int dofIndex = 0; dofIndex < sp.confSpace.posFlex.get(pos).RCs.get(rc).DOFmax.size(); dofIndex++) {
+                double dofVal = sp.confSpace.posFlex.get(pos).RCs.get(rc).DOFmax.get(dofIndex);
+                if (dofVal == dof) {
                     sp.pruneMat.setOneBody(pos, rc, true);
                 }
             }

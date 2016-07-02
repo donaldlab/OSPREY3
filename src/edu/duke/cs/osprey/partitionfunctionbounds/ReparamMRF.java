@@ -297,4 +297,7 @@ public class ReparamMRF {
         return neighbors;
     }
 
+    public UpdatedEmat getEmat(){
+        return this.emat;
+    }
 }

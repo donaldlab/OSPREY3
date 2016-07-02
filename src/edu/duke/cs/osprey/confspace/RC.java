@@ -6,9 +6,7 @@ package edu.duke.cs.osprey.confspace;
 
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import java.io.Serializable;
-import edu.duke.cs.osprey.tools.MinVolEllipse;
-import cern.colt.matrix.DoubleMatrix2D;
-import cern.colt.matrix.impl.DenseDoubleMatrix2D;
+import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import java.util.ArrayList;
 
 /**
@@ -21,6 +19,7 @@ public class RC implements Serializable {
     
     public String AAType;//amino-acid type
     public int rotNum;//rotamer number (same library, for the given AAType)
+    public ResidueTemplate template;
     
     //bounds on degrees of freedom
     //some of these are defined by the AAType and rotNum
@@ -32,8 +31,10 @@ public class RC implements Serializable {
     
     int RCIndex;//index within the RCs for this residue in the PositionConfSpace
 
-    public RC(String AAType, int rotNum, ArrayList<DegreeOfFreedom> DOFs, ArrayList<Double> DOFmin, ArrayList<Double> DOFmax, int RCIndex) {
+    
+     public RC(String AAType, ResidueTemplate template, int rotNum, ArrayList<DegreeOfFreedom> DOFs, ArrayList<Double> DOFmin, ArrayList<Double> DOFmax, int RCIndex) {
         this.AAType = AAType;
+        this.template = template;
         this.rotNum = rotNum;
         this.DOFs = DOFs;
         this.DOFmin = DOFmin;

@@ -35,7 +35,7 @@ public class TRBP {
 
     double damping = 0.5;
 //    static int maxNumEdgeUpdates = 3;
-    static int maxNumEdgeUpdates = 0;
+    static int maxNumEdgeUpdates = 3;
 
     public double[][] edgeProbabilities;
     //Edge Weights are given by the negative mutual information
@@ -343,8 +343,14 @@ public class TRBP {
                     sumWeightedLogMessages += edgeProb * logMessageNeighborToNode;
                 }
             }
+            if (Double.isNaN(sumWeightedLogMessages)){
+                throw new RuntimeException("sumWeightedLogMessages is NaN");
+            }
             normalizer = Math.max(normalizer, labelPot + sumWeightedLogMessages);
             marginals[labelIndex] = labelPot + sumWeightedLogMessages;
+            if (Double.isNaN(marginals[labelIndex])){
+                throw new RuntimeException("Marginal is NaN");
+            }
         }
         for (int labelIndex = 0; labelIndex < node.getNumLabels(); labelIndex++) {
             marginals[labelIndex] -= normalizer;
@@ -354,6 +360,11 @@ public class TRBP {
         for (int labelIndex = 0; labelIndex < node.getNumLabels(); labelIndex++) {
             double nonNormalizedMarginal = marginals[labelIndex];
             this.marginalProbabilities.setOneBody(node.index, labelIndex, nonNormalizedMarginal / partFunc);
+            if (Double.isNaN(this.marginalProbabilities.getOneBody(node.index, labelIndex))){
+                System.out.println("nonNormMarg: "+nonNormalizedMarginal);
+                System.out.println("partFunc: "+partFunc);
+                throw new RuntimeException("marginal is NaN");
+            }
         }
     }
 
@@ -541,8 +552,10 @@ public class TRBP {
             updatedLogMessages[receivingLabelIndex] = nonNormalizedLogMessage;
         }
         if (Double.isInfinite(largestLogMessage)) {
-            throw new RuntimeException("LARGEST LOG MESSAGE INFINITE");
+            return updatedLogMessages;
+            //   throw new RuntimeException("LARGEST LOG MESSAGE INFINITE");
         }
+        
         //Normalize by subtracting the largest logMessage;
         normalizeLogMessages(updatedLogMessages, largestLogMessage);
 
@@ -650,12 +663,21 @@ public class TRBP {
         for (int i = 0; i < this.nodeList.size(); i++) {
             MRFNode node1 = nodeList.get(i);
             enthalpy += getSingleNodeEnthalpy(node1);
+            if (Double.isNaN(enthalpy)){
+                throw new RuntimeException("Enthalpy is NaN after Single Node");
+            }
             for (int j = 0; j < i; j++) {
                 MRFNode node2 = nodeList.get(j);
                 if (this.interactionGraph[node1.index][node2.index]) {
                     enthalpy += getPairwiseNodeEnthalpy(node1, node2);
+                    if (Double.isNaN(enthalpy)){
+                        throw new RuntimeException("Enthalpy is NaN after Double Node");
+                    }
                 }
             }
+        }
+        if (Double.isNaN(enthalpy)){
+            throw new RuntimeException("Enthalpy is NaN");
         }
         return enthalpy;
     }
@@ -677,6 +699,9 @@ public class TRBP {
                 }
             }
         }
+        if (Double.isNaN(entropy)){
+            throw new RuntimeException("Entropy is NaN");
+        }
         return entropy;
     }
 
@@ -686,6 +711,12 @@ public class TRBP {
             int label = node.labels[i];
             double E = this.emat.getOneBody(node.posNum, label);
             double prob = this.marginalProbabilities.getOneBody(node.index, i);
+            if (Double.isNaN(E)){
+                throw new RuntimeException("E is NaN in SNEnth");
+            }
+            if (Double.isNaN(prob)){
+                throw new RuntimeException("prob is NaN in SNEnth");
+            }
             enthalpy += E * prob;
         }
         return enthalpy;

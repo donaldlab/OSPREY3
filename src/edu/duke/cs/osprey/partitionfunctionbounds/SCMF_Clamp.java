@@ -111,18 +111,36 @@ public class SCMF_Clamp {
 
         double[] updatedBeliefs = new double[node.getNumLabels()];
 
-        //iterate over labels to get partition function value
+        // iterate over labels to get partition function value
         for (int labelIndex = 0; labelIndex < node.getNumLabels(); labelIndex++) {
             int label = node.labels[labelIndex];
             double oneBodyE = this.emat.getOneBody(node.posNum, label);
             double meanFieldE = getMeanFieldEnergy(node, label);
+            if (Double.isNaN(meanFieldE)) {
+                throw new RuntimeException("meanFieldE is Nan");
+            }
+            if (Double.isNaN(oneBodyE)) {
+                throw new RuntimeException("OneBodyE is NaN");
+            }
+            if (Double.isNaN(this.expNormMessages[node.index])) {
+                throw new RuntimeException("expNormMessage is NaN");
+            }
             //unnormalized updateBelief
             double logUnnormalizedBelief = -(oneBodyE + meanFieldE) / scmfTemp;
             double logExpNormalizedBelief = logUnnormalizedBelief - (this.expNormMessages[node.index] / scmfTemp);
+//            System.out.println("ExpNormMessage: "+expNormMessages[node.index]);
+            if (Double.isInfinite(this.expNormMessages[node.index])) {
+                continue;
+            }
+            if (Double.isNaN(logExpNormalizedBelief)) {
+                System.out.println("LogUnnmalizedBelief: " + logUnnormalizedBelief);
+                throw new RuntimeException("LogExpNormalizedBelief");
+            }
+            
             updatedBeliefs[labelIndex] = Math.exp(logExpNormalizedBelief);
             partFunction += Math.exp(logExpNormalizedBelief);
         }
-        //now we update the beliefs using our partFunction (normalizing constant)
+        // now we update the beliefs using our partFunction (normalizing constant)
         for (int labelIndex = 0; labelIndex < node.getNumLabels(); labelIndex++) {
             //keep track of old belief
             double oldBelief = this.beliefs[node.index][labelIndex];
@@ -135,8 +153,11 @@ public class SCMF_Clamp {
                 newBelief = updatedBeliefs[labelIndex] / partFunction;
                 newBelief = lambda * newBelief + (1.0 - lambda) * oldBelief;
             }
+            if (Double.isNaN(newBelief)) {
+                throw new RuntimeException("New Belief is NaN");
+            }
             this.beliefs[node.index][labelIndex] = newBelief;
-            //update maxEpsilon
+            // update maxEpsilon
             if (Math.abs(newBelief - oldBelief) > maxEpsilon) {
                 maxEpsilon = Math.abs(newBelief - oldBelief);
             }
@@ -261,16 +282,13 @@ public class SCMF_Clamp {
         for (int i = 0; i < node2.getNumLabels(); i++) {
             int label2 = node2.labels[i];
             double E = this.emat.getPairwise(node1.posNum, label1, node2.posNum, label2);
-            if (Double.isNaN(E)){
+            if (Double.isNaN(E)) {
                 System.out.println("E is NaN");
             }
-            if (nonInfBeliefSum == 0.0){
+            if (nonInfBeliefSum == 0.0) {
                 System.out.println("NonInfBelief is 0");
             }
             if (Double.isFinite(E)) {
-                System.out.println("Belief: "+this.beliefs[node2.index][i]);
-                System.out.println("E: "+E);
-                System.out.println("nonInfBelief: "+nonInfBeliefSum);
                 averageE += E * (this.beliefs[node2.index][i] / (nonInfBeliefSum));
             }
         }
