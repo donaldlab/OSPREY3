@@ -202,21 +202,6 @@ public class TupleMatrix<T> implements Serializable {
         }
     }
 
-    public void setTupleValue(SuperRCTuple tup, T val) {
-        //assign the given value to the specified RC tuple
-        int tupSize = tup.pos.size();
-        if (tupSize == 1)//just a one-body quantity
-        {
-            setOneBody(tup.pos.get(0), tup.superRCs.get(0), val);
-        } else if (tupSize == 2)//two-body
-        {
-            setPairwise(tup.pos.get(0), tup.superRCs.get(0), tup.pos.get(1), tup.superRCs.get(1), val);
-        } else if (tupSize > 2) {//higher-order
-            setHigherOrder(tup, val);
-        } else {
-            throw new UnsupportedOperationException("ERROR: Not supporting tuple size " + tupSize);
-        }
-    }
 
     public void setHigherOrder(RCTuple tup, T val) {
         //set a higher-order term
@@ -246,41 +231,6 @@ public class TupleMatrix<T> implements Serializable {
                 }
 
                 RCTuple subTup = tup.subtractMember(index1).subtractMember(index2);
-
-                htf.setInteraction(subTup, val);
-            }
-        }
-
-    }
-
-    public void setHigherOrder(SuperRCTuple tup, T val) {
-        //set a higher-order term
-        //we need all pairs contained in tup to know about it
-
-        //loop over pairs
-        for (int index1 = 0; index1 < tup.pos.size(); index1++) {
-            for (int index2 = 0; index2 < index1; index2++) {
-
-                int pos1 = tup.pos.get(index1);
-                int rc1 = tup.superRCs.get(index1);
-                int pos2 = tup.pos.get(index2);
-                int rc2 = tup.superRCs.get(index2);
-
-                //put tup into the HigherTupleFinder for this pair
-                HigherTupleFinder<T> htf = getHigherOrderTerms(pos1, rc1, pos2, rc2);
-
-                //create a HigherTupleFinder if there is none yet
-                if (htf == null) {
-                    htf = new HigherTupleFinder(defaultHigherInteraction);
-
-                    if (pos1 > pos2) {
-                        higherTerms.get(pos1).get(pos2).get(rc1).set(rc2, htf);
-                    } else {
-                        higherTerms.get(pos2).get(pos1).get(rc2).set(rc1, htf);
-                    }
-                }
-
-                SuperRCTuple subTup = tup.subtractMember(index1).subtractMember(index2);
 
                 htf.setInteraction(subTup, val);
             }

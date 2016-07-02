@@ -29,7 +29,7 @@ public class PruningControl {
 
     double stericThresh;//Steric pruning threshold
     boolean onlyGoldstein = false;//for competitor pruning
-    boolean verbose = false;
+    boolean verbose = true;
 
     public PruningControl(SearchProblem searchSpace, double pruningInterval, boolean typeDep,
             double boundsThresh, int algOption, boolean useFlags, boolean useTriples,

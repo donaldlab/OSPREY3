@@ -17,6 +17,7 @@ import edu.duke.cs.osprey.tools.VectorAlgebra;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 /**
  *
@@ -106,6 +107,83 @@ public class Residue implements Serializable {
         }
 
         fullName = nameFull;
+    }
+
+    public Residue(ArrayList<Atom> atoms, double[] coords, String fullname, Molecule molec) {
+        //HMN: From Master
+        this.atoms = atoms;
+        this.fullName = fullname;
+        this.molec = molec;
+
+        int numAtoms = atoms.size();
+        this.coords = coords;
+        if (coords != null) {
+            if (numAtoms * 3 != coords.length) {
+                throw new RuntimeException("ERROR: Trying to instantiate residue with "
+                        + numAtoms + " atoms but " + coords.length + "/3 atom coordinates");
+            }
+        }
+        for (int a = 0; a < numAtoms; a++) {
+            atoms.get(a).res = this;
+            atoms.get(a).indexInRes = a;
+        }
+    }
+
+    public Residue(Residue other) {
+        this(copyAtoms(other.atoms), Arrays.copyOf(other.coords, other.coords.length), other.fullName, other.molec);
+    }
+
+    private static ArrayList<Atom> copyAtoms(ArrayList<Atom> atoms) {
+        ArrayList<Atom> out = new ArrayList<>();
+        atoms.forEach(atom -> out.add(atom.copy()));
+        return out;
+    }
+
+    public void copyIntraBondsFrom(Residue other) {
+        boolean[][] isBonded = other.getIntraResBondMatrix();
+        int numAtoms = atoms.size();
+
+        // double check the residue match atoms
+        for (int i = 0; i < numAtoms; i++) {
+            if (!atoms.get(i).name.equalsIgnoreCase(other.atoms.get(i).name)) {
+                throw new Error("ERROR: Atom names don't match across residues, can't copy bonds");
+            }
+        }
+
+        // copy the bonds
+        for (int i = 0; i < numAtoms; i++) {
+            Atom atomi = atoms.get(i);
+            for (int j = 0; j < numAtoms; j++) {
+                if (isBonded[i][j]){
+                    Atom atomj = atoms.get(j);
+                    atomi.bonds.add(atomj);
+                }
+            }
+        }
+        checkBonds();
+    }
+
+    public boolean[][] getIntraResBondMatrix() {
+        //matrix(i,j) indicates whether atoms i and j are bonded to each other
+
+        int numAtoms = atoms.size();
+        boolean intraResBondMatrix[][] = new boolean[numAtoms][numAtoms];
+        for (int atNum1 = 0; atNum1 < numAtoms; atNum1++) {
+            for (int atNum2 = 0; atNum2 < atNum1; atNum2++) {
+                Atom atom1 = this.atoms.get(atNum1);
+                Atom atom2 = this.atoms.get(atNum2);
+
+                //check if atom2 is in bond list for atom1
+                for (Atom bondedAtom : atom1.bonds) {
+                    if (bondedAtom == atom2) {
+                        intraResBondMatrix[atNum1][atNum2] = true;
+                        intraResBondMatrix[atNum2][atNum1] = true;
+                        break;
+                    }
+                }
+            }
+        }
+        return intraResBondMatrix;
     }
 
     public String getPDBResNumber() {
@@ -389,12 +467,23 @@ public class Residue implements Serializable {
                 }
             }
             // Compute the dihedral of the four atoms.
-            dihedrals[dih] = Protractor.measureDihedral(curDihCoordinates);
-
+            try {
+                dihedrals[dih] = Protractor.measureDihedral(curDihCoordinates);
+            } catch (Exception e) {
+                throw new RuntimeException("Could Not Messure Dihedral For Residue " + this.fullName + " Check atom names against rotamer lib");
+            }
         }
         return dihedrals;
     }
 
+    public int getNumDihedrals(){
+        return EnvironmentVars.resTemplates.numDihedralsForResType(template.name);
+    }
+    
+    public double getDihedralAngle(int i){
+        return Protractor.measureDihedral(coords, template.getDihedralDefiningAtoms(i));
+    }
+    
     public double distanceTo(Residue res2) {
         //distance between the residues (measured at the closest atoms)
         double minDist = Double.POSITIVE_INFINITY;//minimum distance
@@ -479,10 +568,9 @@ public class Residue implements Serializable {
 
     public void setResNum() {
         if (fullName.length() > 5) {
-            resNum =  ((StringParsing.getToken(fullName.substring(5), 1)));
-        }
-        else {
-            resNum = Integer.toString(indexInMolecule+1);
+            resNum = ((StringParsing.getToken(fullName.substring(5), 1)));
+        } else {
+            resNum = Integer.toString(indexInMolecule + 1);
         }
     }
 

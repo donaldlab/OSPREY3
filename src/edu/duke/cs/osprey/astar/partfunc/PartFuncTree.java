@@ -329,6 +329,7 @@ public class PartFuncTree extends AStarTree {
     }
 
     private void updateUpperBound(PartFuncNode node) {
+        System.out.println("LogZ UB: "+node.getUpperBoundLogZ());
         this.ubZ = this.ubZ.add(this.ef.exp(node.getUpperBoundLogZ()));
     }
 
@@ -464,6 +465,10 @@ public class PartFuncTree extends AStarTree {
 
     private double computeLowerBound(int[] partialConf) {
         ReparamMRF mrf = new ReparamMRF(this.emat, this.pruneMat, partialConf, this.eCut);
+        if (Double.isInfinite(mrf.getEmat().getConstTerm())){
+            System.out.println("Bound Computed Due To Const Term");
+            return Double.NEGATIVE_INFINITY;
+        }
         SCMF_Clamp scmf = new SCMF_Clamp(mrf);
         double lbLogZ = scmf.getLogZLB();
         return lbLogZ;
@@ -484,7 +489,11 @@ public class PartFuncTree extends AStarTree {
                 SCMF_Clamp scmf = new SCMF_Clamp(mrf2);
                 return scmf.getLogZLB();
             }
-
+            ReparamMRF rMRF = new ReparamMRF(this.emat, this.pruneMat, node.getNodeAssignments(), this.eCut);
+            if (Double.isInfinite(rMRF.getEmat().getConstTerm())){
+                System.out.println("Bound Computed Due To Const Term");
+                return Double.NEGATIVE_INFINITY;
+            }
             double ubLogZ;
             if (!node.isRoot) {
                 TRBP trbp = new TRBP(mrf, parentNode.ubLogZ);

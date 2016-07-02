@@ -6,12 +6,9 @@
 package edu.duke.cs.osprey.astar;
 
 import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.SuperRCTuple;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.CreateMatrix;
-import java.util.ArrayList;
-import java.util.Collections;
 import org.apache.commons.lang.ArrayUtils;
 
 /**

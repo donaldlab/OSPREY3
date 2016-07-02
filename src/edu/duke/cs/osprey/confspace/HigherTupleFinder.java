@@ -118,38 +118,6 @@ public class HigherTupleFinder<T> implements Serializable {
         }
     }
 
-    public void setInteraction(SuperRCTuple tup, T val) {
-        //set the interaction of this tuple with tup to the given value
-
-        if (tup.pos.size() == 1) {//store interaction directly in this HigherTupleFinder
-            int pos = tup.pos.get(0);
-            int superRC = tup.superRCs.get(0);
-
-            int posIndex = getPosIndex(pos);
-
-            interactions.get(posIndex).put(superRC, val);
-        } else {//kick it up to the next level.  Make sure all sub-tuples of tup know about this interaction.  
-
-            for (int index = 0; index < tup.pos.size(); index++) {
-                int pos = tup.pos.get(index);
-                int rc = tup.superRCs.get(index);
-
-                int posIndex = getPosIndex(pos);
-
-                SuperRCTuple subTup = tup.subtractMember(index);
-
-                HigherTupleFinder<T> nextHTF = higher.get(posIndex).get(rc);
-
-                if (nextHTF == null) {//allocate next-level HTF if not currently existent
-                    nextHTF = new HigherTupleFinder<>(defaultInteraction);
-                    higher.get(posIndex).put(rc, nextHTF);
-                }
-
-                nextHTF.setInteraction(subTup, val);
-            }
-        }
-    }
-
     private int getPosIndex(int pos) {
         //find the index in interactingPos of pos
         //Create one if non-existent
@@ -283,17 +251,6 @@ public class HigherTupleFinder<T> implements Serializable {
         return htf;
     }
 
-    public ArrayList<SuperRCTuple> listInteractionsWithValueSuper(T val) {
-        //list tuples with the given interaction value
-        //stored here
-
-        ArrayList<SuperRCTuple> ans = new ArrayList<>();
-
-        //search recursively, recording tuples in decsending order of position
-        recordInteractionsWithValueSuper(val, ans, Integer.MAX_VALUE);
-
-        return ans;
-    }
 
     private void recordInteractionsWithValue(T val, ArrayList<RCTuple> tupList, int maxPos) {
         //Find tuples with all pos numbers less than maxPos that have interactions value val
@@ -328,40 +285,6 @@ public class HigherTupleFinder<T> implements Serializable {
         }
     }
 
-    //Same as above recordInteractionsWithValue but with SuperRCTuple
-    private void recordInteractionsWithValueSuper(T val, ArrayList<SuperRCTuple> tupList, int maxPos) {
-        //Find tuples with all pos numbers less than maxPos that have interactions value val
-        //add them to tupList
-
-        for (int interactionNum = 0; interactionNum < interactingPos.size(); interactionNum++) {
-
-            int pos = interactingPos.get(interactionNum);
-
-            if (pos < maxPos) {
-
-                for (int rc : interactions.get(interactionNum).keySet()) {
-
-                    if (interactions.get(interactionNum).get(rc) == val) {
-                        tupList.add(new SuperRCTuple(pos, rc));
-                    }
-                }
-
-                for (int rc : higher.get(interactionNum).keySet()) {
-
-                    ArrayList<SuperRCTuple> subTupList = new ArrayList<>();
-                    higher.get(interactionNum).get(rc).recordInteractionsWithValueSuper(val, subTupList, pos);
-                    //the HigherTupleFinders in higher don't know about (pos,rc), so add that
-
-                    for (SuperRCTuple subTup : subTupList) {
-                        subTup.pos.add(pos);
-                        subTup.superRCs.add(rc);
-                        tupList.add(subTup);
-                    }
-                }
-            }
-        }
-    }
-    
     public ArrayList<TreeMap<Integer, T>> getInteractions(){
         return this.interactions;
     }

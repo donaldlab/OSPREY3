@@ -8,7 +8,6 @@ import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.bbfree.BBFreeBlock;
 import edu.duke.cs.osprey.control.EnvironmentVars;
-import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.dof.MoveableStrand;
@@ -22,6 +21,7 @@ import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MolecEObjFunction;
+import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.PDBFileWriter;
@@ -31,7 +31,7 @@ import edu.duke.cs.osprey.tools.StringParsing;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
-import org.apache.commons.lang.ArrayUtils;
+import java.util.List;
 
 /**
  *
@@ -100,6 +100,14 @@ public class ConfSpace implements Serializable {
         //read the structure and assign templates, deleting unassignable res...
         m = PDBFileReader.readPDBFile(PDBFile);
 
+        List<ResidueTemplate> wtRotTemps = new ArrayList<>(Collections.nCopies(numPos, null));
+        if (addWTRots){
+            for (int i=0; i<numPos; i++){
+                Residue res = m.getResByPDBResNumber(flexibleRes.get(i));
+                wtRotTemps.set(i, ResidueTemplate.makeFromResidueConf(res));
+            }
+        }
+        
         //Make all the degrees of freedom
         //start with proline puckers (added to res)
         makeRingPuckers(allowedAAs, flexibleRes);
@@ -194,8 +202,6 @@ public class ConfSpace implements Serializable {
     public ConfSpace() {
     }
 
-    ;
-    
     private ArrayList<BBFreeBlock> getBBFreeBlocks(ArrayList<String[]> freeBBZones, ArrayList<String> flexibleRes) {
         //create a BFB for each (start res, end res) pair.  PDB residue numbers provided.  
         ArrayList<BBFreeBlock> ans = new ArrayList<>();
@@ -397,6 +403,7 @@ public class ConfSpace implements Serializable {
             optDOFVals = min.minimize();
         } else//molecule is already in the right, rigid conformation
         {
+            System.out.println("Outputting Rigid Struct");
             optDOFVals = DoubleFactory1D.dense.make(0);
         }
 

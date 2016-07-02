@@ -7,7 +7,6 @@ package edu.duke.cs.osprey.ematrix;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.SuperRCTuple;
 import edu.duke.cs.osprey.confspace.TupleMatrix;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -82,35 +81,6 @@ public class EnergyMatrix extends TupleMatrix<Double> {
         return E;
     }
 
-    public double getInternalEnergy(SuperRCTuple tup) {
-        //internal energy of a tuple of super-RCs 
-
-        int numPosInTuple = tup.pos.size();
-        double E = 0.0;
-
-        for (int indexInTuple = 0; indexInTuple < numPosInTuple; indexInTuple++) {
-            int posNum = tup.pos.get(indexInTuple);
-            int superRCNum = tup.superRCs.get(indexInTuple);
-
-            double oneBodyE = getOneBody(posNum, superRCNum);
-            E += oneBodyE;
-
-            for (int index2 = 0; index2 < indexInTuple; index2++) {
-                int pos2 = tup.pos.get(index2);
-                int superRCNum2 = tup.superRCs.get(index2);
-
-                double twoBodyE = getPairwise(posNum, superRCNum, pos2, superRCNum2);
-                E += twoBodyE;
-
-                HigherTupleFinder<Double> htf = getHigherOrderTerms(posNum, superRCNum, pos2, superRCNum2);
-                if (htf != null) {
-                    E += internalEHigherOrder(tup, index2, htf);
-                }
-            }
-        }
-        return E;
-    }
-
     double internalEHigherOrder(RCTuple tup, int curIndex, HigherTupleFinder<Double> htf) {
         //Computes the portion of the internal energy for tuple tup
         //that consists of interactions in htf (corresponds to some sub-tuple of tup)
@@ -141,38 +111,6 @@ public class EnergyMatrix extends TupleMatrix<Double> {
             }
         }
 
-        return E;
-    }
-
-    double internalEHigherOrder(SuperRCTuple tup, int curIndex, HigherTupleFinder<Double> htf) {
-        //Computes the portion of the internal energy for tuple tup
-        //that consists of interactions in htf (corresponds to some sub-tuple of tup)
-        //with RCs whose indices in tup are < curIndex
-        double E = 0;
-        ArrayList<Integer> interactingPos = htf.getInteractingPos();
-
-        for (int ipos : interactingPos) {
-
-            //see if ipos is in tup with index < curIndex
-            int iposIndex = -1;
-            for (int ind = 0; ind < curIndex; ind++) {
-                if (tup.pos.get(ind) == ipos) {
-                    iposIndex = ind;
-                    break;
-                }
-            }
-
-            if (iposIndex > -1) {//ipos interactions need to be counted
-                int iposRC = tup.superRCs.get(iposIndex);
-                E += htf.getInteraction(ipos, iposRC);
-
-                //see if need to go up to highers order again...
-                HigherTupleFinder htf2 = htf.getHigherInteractions(ipos, iposRC);
-                if (htf2 != null) {
-                    E += internalEHigherOrder(tup, iposIndex, htf2);
-                }
-            }
-        }
         return E;
     }
 

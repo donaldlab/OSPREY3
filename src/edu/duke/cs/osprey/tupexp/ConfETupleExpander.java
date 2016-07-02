@@ -7,7 +7,6 @@ package edu.duke.cs.osprey.tupexp;
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.SuperRCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.epic.EPICEnergyFunction;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
@@ -15,7 +14,6 @@ import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MolecEObjFunction;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import java.util.ArrayList;
-import java.util.Collections;
 
 /**
  * Implementation of a tuple expander that expands conformational energies--
@@ -163,32 +161,6 @@ public class ConfETupleExpander extends TupleExpander {
                 }
             }
 
-            return otherTups;
-        } else//no interactions
-        {
-            return new ArrayList<>();
-        }
-    }
-
-    ArrayList<SuperRCTuple> higherOrderPrunedTuples(SuperRCTuple tup) {
-        //list higher-order pruned tuples containing the pair tup
-
-        if (tup.pos.size() != 2) {
-            throw new RuntimeException("ERROR: higherOrderPrunedTuples is meant to take an RC pair as argument");
-        }
-
-        HigherTupleFinder<Boolean> htf
-                = sp.pruneMat.getHigherOrderTerms(tup.pos.get(0), tup.superRCs.get(0), tup.pos.get(1), tup.superRCs.get(1));
-
-        if (htf != null) {
-            ArrayList<SuperRCTuple> otherTups = htf.listInteractionsWithValueSuper(true);
-            //otherTups are recorded as what tup interacts with...add in tup to get the whole pruned tuple
-            for (SuperRCTuple otherTup : otherTups) {
-                for (int i = 0; i < 2; i++) {
-                    otherTup.pos.add(tup.pos.get(i));
-                    otherTup.superRCs.add(tup.superRCs.get(i));
-                }
-            }
             return otherTups;
         } else//no interactions
         {

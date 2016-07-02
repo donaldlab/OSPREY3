@@ -38,9 +38,9 @@ public class ConfTree extends AStarTree {
     //These are lists of residue-specific RC numbers for the unpruned RCs at each residue
 
     //ADVANCED SCORING METHODS: TO CHANGE LATER (EPIC, MPLP, etc.)
-    public static boolean traditionalScore = true;
+    public static boolean traditionalScore = false;
     boolean useRefinement = false;//refine nodes (might want EPIC, MPLP, or something else)
-    public static boolean mplpScore = false;
+    public static boolean mplpScore = true;
 
     //MPLP object for node refinement
     public Mplp mplpMinimizer;

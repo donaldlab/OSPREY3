@@ -33,14 +33,6 @@ public class TupleEnumerator {
         return enumerateUnprunedTuples(posTupleCand);
     }
 
-    //same as enumerateUnprunedTuples but with SuperRCs
-    public ArrayList<SuperRCTuple> enumerateUnprunedSuperTuples(int numPosInTuple) {
-        //enumerate all unpruned tuples of the specified size, at any position
-        //e.g. if numPosInTuple==2 then enumerate all unpruned pairs
-        ArrayList<ArrayList<Integer>> posTupleCand = allPositionTuples(numPosInTuple);
-        return enumerateUnprunedSuperTuples(posTupleCand);
-    }
-
     public ArrayList<RCTuple> enumerateUnprunedTuples(ArrayList<ArrayList<Integer>> posTupleCand) {
         //Enumerate all unpruned RC tuples at the specified position tuples
 
@@ -54,18 +46,6 @@ public class TupleEnumerator {
         return allCandidates;
     }
 
-    //Same as enumerateUnprunedTuples but with superRCs
-    public ArrayList<SuperRCTuple> enumerateUnprunedSuperTuples(ArrayList<ArrayList<Integer>> posTupleCand) {
-        //Enumerate all unpruned RC tuples at the specified position tuples
-
-        ArrayList<SuperRCTuple> allCandidates = new ArrayList<>();
-
-        for (ArrayList<Integer> posTuple : posTupleCand) {
-            ArrayList<SuperRCTuple> candidatesAtPos = pruneMat.unprunedSuperRCTuplesAtPos(posTuple);
-            allCandidates.addAll(candidatesAtPos);
-        }
-        return allCandidates;
-    }
 
     public ArrayList<ArrayList<Integer>> allPositionTuples(int numPosInTuple) {
         //get all possible sets of positions, of the specified size
@@ -206,57 +186,6 @@ public class TupleEnumerator {
             tupList.add(tupe.tup);
         }
         for (TupE tupe : top2Pair) {
-            tupList.add(tupe.tup);
-        }
-
-        return tupList;
-    }
-
-    public ArrayList<SuperRCTuple> clique2PairTriplesSuper(int numTriplesPerType) {
-        //enumerate RC triples based on containing either two or three strong pairwise interactions in emat
-        //we take the best triples for each measure (numTriplesPerType of each)
-
-        ArrayList<SuperRCTuple> tupList = new ArrayList<>();
-
-        PriorityQueue<SuperTupE> topCliques = new PriorityQueue<>();//top triples in terms of all pairs strong
-        PriorityQueue<SuperTupE> top2Pair = new PriorityQueue<>();//top triples in terms of having 2 strong pairs
-
-        ArrayList<SuperRCTuple> possibleTriples = enumerateUnprunedSuperTuples(3);//consider all unpruned triples
-
-        //go through possible triples
-        for (SuperRCTuple triple : possibleTriples) {
-            double[] pairAbsE = new double[3];
-            double minAbsE = Double.POSITIVE_INFINITY;
-            double max2PairE = Double.NEGATIVE_INFINITY;
-
-            for (int i = 0; i < 3; i++) {
-                SuperRCTuple pair = triple.subtractMember(i);
-                pairAbsE[i] = Math.abs(emat.getPairwise(pair.pos.get(0), pair.superRCs.get(0),
-                        pair.pos.get(1), pair.superRCs.get(1)));
-
-                minAbsE = Math.min(minAbsE, pairAbsE[i]);
-            }
-
-            for (int i = 0; i < 3; i++) {
-                max2PairE = Math.max(max2PairE, Math.min(pairAbsE[(i + 1) % 3], pairAbsE[(i + 2) % 3]));
-            }
-
-            topCliques.add(new SuperTupE(triple, minAbsE));
-            top2Pair.add(new SuperTupE(triple, max2PairE));
-
-            //now throw out the weakest-interacting triples if we have too many
-            if (topCliques.size() > numTriplesPerType) {
-                topCliques.poll();//CHECK DIRECTIONS
-            }
-            if (top2Pair.size() > numTriplesPerType) {
-                top2Pair.poll();
-            }
-        }
-
-        for (SuperTupE tupe : topCliques) {
-            tupList.add(tupe.tup);
-        }
-        for (SuperTupE tupe : top2Pair) {
             tupList.add(tupe.tup);
         }
 
