@@ -201,7 +201,6 @@ public class ResidueTemplate implements Serializable {
      * Number of "bins" for Phi/Psi angles for backbone dependent rotamer
      * libraries. For example, in the Dunbrack library there are 37 bins.
      *
-     * @param numberOfPsiBins
      */
     public void setNumberOfPhiPsiBins(int numberOfPhiPsiBins) {
         this.numberOfPhiPsiBins = numberOfPhiPsiBins;
@@ -213,7 +212,6 @@ public class ResidueTemplate implements Serializable {
      * Dunbrack rotamer library this is 10. Set in the corresponding parser of
      * the rotamer library.
      *
-     * @param phiPsiResolution.
      */
     public void setRLphiPsiResolution(double phiPsiResolution) {
         this.phiPsiResolution = phiPsiResolution;
@@ -264,7 +262,6 @@ public class ResidueTemplate implements Serializable {
      * PGC 2015: Sets the number of rotamers for a residue template; phi and psi
      * are only used when using a backbone dependent rotamer library.
      *
-     * @param numRotamers Number of rotamers
      * @param phiBin Bin in the rotamer array where the rotameric dihedrals will
      * be stored.
      * @param psiBin Bin in the rotamer array where the rotameric dihedrals will
