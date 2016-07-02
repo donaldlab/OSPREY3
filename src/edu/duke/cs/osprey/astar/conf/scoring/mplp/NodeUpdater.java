@@ -69,7 +69,7 @@ public class NodeUpdater implements MPLPUpdater {
 			
 			// calculate the gammas
 			// NOTE: as far as I know, this precalculation can't be moved outside of the loop =(
-			MessageVars gammas = new MessageVars(rcs, confIndex, emat);
+			MessageVars gammas = new MessageVars(rcs, confIndex);
 			for (int posi2=0; posi2<confIndex.getNumUndefined(); posi2++) {
 				int pos2 = confIndex.getUndefinedPos()[posi2];
 				
@@ -104,8 +104,17 @@ public class NodeUpdater implements MPLPUpdater {
 				
 				// delta_{posi2,posi1}(rci1) = gamma_{posi2,posi1}(rci1) - gamma_posi1(rci1)/numUndefined
 				for (int rci1=0; rci1<rcs.getNum(pos1); rci1++) {
-					double lambda = gammas.get(posi2, posi1, rci1)
-						- gammas.getEnergy(posi1, rci1)/confIndex.getNumUndefined();
+					
+					double gamma = gammas.get(posi2, posi1, rci1);
+					double gammaEnergy = gammas.getEnergy(posi1, rci1)/confIndex.getNumUndefined();
+					
+					double lambda;
+					if (Double.isFinite(gammaEnergy)) {
+						lambda = gamma - gammaEnergy;
+					} else {
+						lambda = Double.POSITIVE_INFINITY;
+					}
+					
 					lambdas.set(posi2, posi1, rci1, lambda);
 				}
 				
@@ -128,8 +137,14 @@ public class NodeUpdater implements MPLPUpdater {
 						double gamma2 = gammas.get(posi2, posi1, rci1);
 						minVal = Math.min(minVal, theta + 2*gamma1/confIndex.getNumUndefined() - gamma2);
 					}
-					minVal -= lambdas.getEnergyWithout(posi2, rci2, posi1);
-					minVal /= 2;
+					
+					double energyWithout = lambdas.getEnergyWithout(posi2, rci2, posi1);
+					if (Double.isFinite(energyWithout)) {
+						minVal = (minVal - energyWithout)/2;
+					} else {
+						minVal = Double.POSITIVE_INFINITY;
+					}
+					
 					lambdas.set(posi1, posi2, rci2, minVal);
 				}
 			}

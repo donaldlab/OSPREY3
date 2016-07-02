@@ -25,29 +25,8 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 		
 		// init lambdas using the traditional A* heuristic
 		// NOTE: we must use these initial values for early stopping to be sound
-		MessageVars lambdas = new MessageVars(rcs, confIndex, emat);
-		for (int posi1=0; posi1<confIndex.getNumUndefined(); posi1++) {
-			int pos1 = confIndex.getUndefinedPos()[posi1];
-			
-			for (int rci1=0; rci1<rcs.getNum(pos1); rci1++) {
-				int rc1 = rcs.get(pos1, rci1);
-			
-				for (int posi2=0; posi2<confIndex.getNumUndefined(); posi2++) {
-					int pos2 = confIndex.getUndefinedPos()[posi2];
-					
-					if (pos2 >= pos1) {
-						continue;
-					}
-					
-					double minEnergy = Double.POSITIVE_INFINITY;
-					for (int rc2 : rcs.get(pos2)) {
-						minEnergy = Math.min(minEnergy, emat.getPairwise(pos1, rc1, pos2, rc2));
-					}
-					
-					lambdas.set(posi2, posi1, rci1, minEnergy);
-				}
-			}
-		}
+		MessageVars lambdas = new MessageVars(rcs, confIndex);
+		lambdas.initTraditionalAStar(emat);
 		
 		// run MPLP
 		double energy = lambdas.getTotalEnergy();
