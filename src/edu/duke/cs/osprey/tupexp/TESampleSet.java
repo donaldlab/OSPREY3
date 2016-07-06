@@ -23,11 +23,8 @@ public class TESampleSet implements Serializable {
     ArrayList<Double> trueVals = new ArrayList<>();//corresponding true values
     ArrayList<Double> curFitVals = new ArrayList<>();//corresponding current tuple-expansion values
     
-    //ArrayList<ArrayList<Integer>> tupleSamples = new ArrayList<>();//for each tuple, lists samples involving this tuple
     ArrayList<Integer> tupleNumSamples = new ArrayList<>();//number of samples for each tuple
     
-    ArrayList<BitSet> tupleSamplesAboveCutoff = new ArrayList<>();//which of the tupleSamples are above the bCutoff
-    //ArrayList<ArrayList<Integer>> sampleTuples = new ArrayList<>();//for each sample, list tuples it involves
     ArrayList<Double> tupleResids = new ArrayList<>();//mean-square residual for samples involving this term 
     double totalResid = 0;//residual over all samples
     
@@ -44,43 +41,14 @@ public class TESampleSet implements Serializable {
     
     TupleExpander te;
     
-    
-    //we may need to repeat some drawing to get samples under bCutoff
-    //we'll redraw sampleRCs up to maxDiscReps times
-    //if that fails, then we probably can't get all the terms we need with the current bCutoff,
-    //so we raise bCutoff to clear the minimum energy we got in all these reps
-    double minEOverReps;
-    
-    static int maxDiscrReps = 100;
-    
-    
-    int tupleFailCounts[];//if using tuple bCutoffs, then use this to decide when to raise
-    //it keeps track of how many samples with the given tuple have failed to yield a sub-bCutoff
-    //true value since the last success
-
-    
-    
-    ArrayList<Double> sampleBCutoffs = new ArrayList<>();
-    
-    //DEBUG!!!!!
-    //trying to find the bottleneck in sampling
-    /*int numNoIter = 0;
-    int numNoLoop = 0;
-    int numNeededSamples = 0;*///one sample per tuple, maxing out at 10 per
-    //should go up at every draw
-    
-    
-    
+        
     public TESampleSet(TupleExpander te) {
         
         this.te = te;
         
         //allocate sample arrays for each term...
         for( RCTuple tup : te.tuples ){
-            //tupleSamples.add( new ArrayList<Integer>() );
             tupleNumSamples.add(0);//no samples for any tuple yet
-            
-            tupleSamplesAboveCutoff.add(new BitSet());
             tupleResids.add(0.);
         }
         
@@ -94,182 +62,24 @@ public class TESampleSet implements Serializable {
         }
     }
     
-    
+       
     
     void updateSamples(int tup){
         //We just raised created or raised the order of approximation for the given tuple terms
         //we need to create more samples for it
         
-        
-        //DEBUG!!!
-        //This simpler version should be more overfitting-resistant,
-        //probably will end up ditching bcutoff (pruning fills that function) and just using this
-        if(te.bCutoff == Double.POSITIVE_INFINITY){
-            updateSamples2(tup);
-            //updateSamplesMultithread(tup);
-            return;
-        }
-        
-        int numSampsNeeded = te.numSamplesNeeded(tup) - tupleNumSamples.get(tup);//tupleSamples.get(tup).size();
-        int numSubCutoffSampsNeeded = te.numSamplesNeeded(tup)/2 - 
-                //(tupleSamples.get(tup).size()-tupleSamplesAboveCutoff.get(tup).cardinality());
-                (tupleNumSamples.get(tup)-tupleSamplesAboveCutoff.get(tup).cardinality());
-        
-        
-        if(te.subCutoffSamplesOnly)
-            numSubCutoffSampsNeeded = numSampsNeeded;
-        
-        
-        int maxSampsDrawn = maxDiscrReps*Math.max(numSampsNeeded,numSubCutoffSampsNeeded);
-        //the most samples we're willing to draw
-        
-        PriorityQueue<ConfPair> bestAboveCutoff = new PriorityQueue<>();
-        //best samples above cutoff so far
-        //note the head of this queue is its highest energy member!  This ensures that we only keep 
-        //at most numSubCutoffSampsNeeded confs in there
-        
-        for(int s=0; numSampsNeeded>0 || numSubCutoffSampsNeeded>0; s++){
-                        
-            
-            int[] sample = drawUnprunedSample(te.tuples.get(tup), true);
-            /*int[] sample = new int[te.numPos];
-
-            //fill the current tuple into RCSample
-            //for(int[] op : te.tuples.get(tup))
-            //    sample[op[0]] = op[1];
-
-            //if term isn't pruned there must be some way to finishRCSample
-            boolean success;
-            do{
-                Arrays.fill(sample, -1);
-                te.assignTupleInSample(sample, te.tuples.get(tup));
-                success = finishSample(sample);
-            }
-            while(!success);*/
-
-            //figure out which terms the sample applies to
-            double trueVal = te.scoreAssignmentList(sample);
-            
-            if(trueVal<=te.bCutoff || numSampsNeeded>numSubCutoffSampsNeeded){
-                //we'll take this sample now if it is below the standard bCutoff
-                //or we still can use over-bcutoff samples
-                ArrayList<Integer> sampTuples = calcSampleTuples(sample);
-
-
-                //sampleTuples.add(sampTuples);
-                samples.add(sample);
-                int sampleIndex = samples.size()-1;
-
-                //update tupleSamples
-                for(int term : sampTuples){
-                    //tupleSamples.get(term).add(sampleIndex);
-                    tupleNumSamples.set( term , tupleNumSamples.get(term)+1 );
-                    
-                    if(trueVal>te.bCutoff)
-                        //tupleSamplesAboveCutoff.get(term).set(tupleSamples.get(term).size()-1);
-                        tupleSamplesAboveCutoff.get(term).set(tupleNumSamples.get(term)-1);
-                }
-                
-
-                trueVals.add(trueVal);
-                curFitVals.add(0.);//to be replaced by updateFitVal
-                
-                sampleBCutoffs.add(te.bCutoff);
-            }
-            else {
-                bestAboveCutoff.add(new ConfPair(sample,new double[] {trueVal}));
-                //we only need the best numSubCutoffSampsNeeded over-cutoff samples to be stored here
-                while(bestAboveCutoff.size()>numSubCutoffSampsNeeded)
-                    bestAboveCutoff.remove();
-            }
-            
-            numSampsNeeded = te.numSamplesNeeded(tup) - tupleNumSamples.get(tup);//tupleSamples.get(tup).size();
-            numSubCutoffSampsNeeded = te.numSamplesNeeded(tup)/2 - 
-                //(tupleSamples.get(tup).size()-tupleSamplesAboveCutoff.get(tup).cardinality());
-               (tupleNumSamples.get(tup)-tupleSamplesAboveCutoff.get(tup).cardinality());
-            
-            if(te.subCutoffSamplesOnly)
-                numSubCutoffSampsNeeded = numSampsNeeded;
-            
-            if(s==maxSampsDrawn){
-                //maxed out on samples to draw...indicates we're probably not getting
-                //enough samples below standard bcutoff for this tuple
-                //so introduce raised-bcutoff samples to avoid overfitting
-                
-                if(numSampsNeeded>numSubCutoffSampsNeeded)//should have drawn way more than enough over-cutoff samples by now
-                    //since that's what drives us to max out...
-                    throw new RuntimeException("ERROR: Maxed out on sampling in TESampleSet2 but still need over-cutoff samples...");
-                
-                //remove any but the best above-cutoff samples
-                while(bestAboveCutoff.size()>numSubCutoffSampsNeeded)
-                    bestAboveCutoff.remove();
-                
-                for(int q=0; q<numSubCutoffSampsNeeded; q++){
-                    //add the best samples from the queue
-                    //bCutoffs put at the true value, meaning these samples get
-                    //the regular least-squares penalties for fitting purposes
-                    ConfPair sv = bestAboveCutoff.poll();
-
-                    sample = sv.conf;
-                    trueVal = sv.energy[0];
-                    
-                    ArrayList<Integer> sampTuples = calcSampleTuples(sample);
-
-                    //sampleTuples.add(sampTuples);
-                    samples.add(sample);
-                    int sampleIndex = samples.size()-1;
-
-                    //update tupleSamples
-                    for(int term : sampTuples){
-                        //tupleSamples.get(term).add(sampleIndex);
-                        tupleNumSamples.set( term, tupleNumSamples.get(term)+1 );
-                        //these don't count as tupleSamplesAboveCutoff because they aren't fit as such
-                    }
-
-                    trueVals.add(trueVal);
-                    curFitVals.add(0.);//to be replaced by updateFitVal
-
-                    sampleBCutoffs.add(trueVal);
-                }
-                
-                if(!bestAboveCutoff.isEmpty())//DEBUG!!!
-                    throw new RuntimeException("ERROR: bestAboveCutoff too big!");
-                
-                break;
-            }
-        }
-    }
-    
-    
-    
-    
-    void updateSamples2(int tup){
-        //We just raised created or raised the order of approximation for the given tuple terms
-        //we need to create more samples for it
-        
-        //VERSION ASSUMING INFINITE BCUTOFF
-        //AND AVOIDING SAMPLE DUPLICATION
-        
-        
-        //ASSUMING LACK OF SAMPLE DUPLICATION
-        //ENFORCING THIS BELOW BY ADDING ONLY DISTINCT ONES
         int numSampsNeeded = te.numSamplesNeeded(tup) - tupleNumSamples.get(tup);//tupleSamples.get(tup).size();//numDistinctSamples(tup);
         //We may need to have <numSamplesNeeded distinct samples because some tuples have a limited number of possible confs;
         //however, we would overfit if we counted a repeated sample from some other tuple with a small conf space
         // as satisfying the requirement for this tuple
         //(this tuple might have a larger conf space, so this could cause overfitting)
-        //Alternative approach is to require 10 distinct samples for each tuple
-        //(use DFS to confirm that there are really less)
-        //But this may be expensive and unnecessary
-        
         
         for(int s=0; s<numSampsNeeded; s++){
             int[] sample = drawUnprunedSample(te.tuples.get(tup), true);
             //we know sample won't be null because we checked if tupleFeasible
             
-            
             //don't add if not distinct.  Indicates small conf space
-            if( ! isNewSampleDistinct(sample/*,tupleSamples.get(tup)*/))
+            if( ! isNewSampleDistinct(sample) )
                 continue;
             
             double trueVal = te.scoreAssignmentList(sample);
@@ -278,133 +88,24 @@ public class TESampleSet implements Serializable {
             ArrayList<Integer> sampTuples = calcSampleTuples(sample);
             sampTuples.trimToSize();
 
-            //sampleTuples.add(sampTuples);
             samples.add(sample);
-            int sampleIndex = samples.size()-1;
 
             //update tupleSamples
             for(int term : sampTuples){
-                //tupleSamples.get(term).add(sampleIndex);
                 tupleNumSamples.set( term, tupleNumSamples.get(term)+1 );
-                if(trueVal>te.bCutoff)
-                    //tupleSamplesAboveCutoff.get(term).set(tupleSamples.get(term).size()-1);
-                    tupleSamplesAboveCutoff.get(term).set(tupleNumSamples.get(term)-1);
             }
-
 
             trueVals.add(trueVal);
             curFitVals.add(0.);//to be replaced by updateFitVal
-
-            sampleBCutoffs.add(te.bCutoff);
         }
     }
     
     
     
-    void updateSamplesMultithread(int tup){
-        //Multithreaded version of updateSamples2
-        //Requires energy terms that don't share objects they modify!
-        
-        //ASSUMING LACK OF SAMPLE DUPLICATION
-        //ENFORCING THIS BELOW BY ADDING ONLY DISTINCT ONES
-        int numSampsNeeded = te.numSamplesNeeded(tup) - tupleNumSamples.get(tup);//tupleSamples.get(tup).size();//numDistinctSamples(tup);
-        //We may need to have <numSamplesNeeded distinct samples because some tuples have a limited number of possible confs;
-        //however, we would overfit if we counted a repeated sample from some other tuple with a small conf space
-        // as satisfying the requirement for this tuple
-        //(this tuple might have a larger conf space, so this could cause overfitting)
-        //Alternative approach is to require 10 distinct samples for each tuple
-        //(use DFS to confirm that there are really less)
-        //But this may be expensive and unnecessary
-        
-        //OK let's draw some samples and then score them in parallel
-        ArrayList<int[]> sampleList = new ArrayList<>();
-        
-        for(int s=0; s<numSampsNeeded; s++){
-            int[] sample = drawUnprunedSample(te.tuples.get(tup), true);
-            //we know sample won't be null because we checked if tupleFeasible
-            
-            //don't add if not distinct.  Indicates small conf space
-            if( isNewSampleDistinct(sample/*,tupleSamples.get(tup)*/))
-                sampleList.add(sample);
-        }
-        
-        double trueValList[] = scoreSamplesMultithread(sampleList);
-        
-        
-        //now record the samples we created
-        for(int s=0; s<sampleList.size(); s++){ 
-            int sample[] = sampleList.get(s);
-            double trueVal = trueValList[s];
-            
-            ArrayList<Integer> sampTuples = calcSampleTuples(sample);
-            sampTuples.trimToSize();
-
-            //sampleTuples.add(sampTuples);
-            samples.add(sample);
-            //int sampleIndex = samples.size()-1;
-
-            //update tupleSamples
-            for(int term : sampTuples){
-                //tupleSamples.get(term).add(sampleIndex);
-                tupleNumSamples.set( term, tupleNumSamples.get(term)+1 );
-                if(trueVal>te.bCutoff)
-                    //tupleSamplesAboveCutoff.get(term).set(tupleSamples.get(term).size()-1);
-                    tupleSamplesAboveCutoff.get(term).set(tupleNumSamples.get(term)-1);
-            }
-
-
-            trueVals.add(trueVal);
-            curFitVals.add(0.);//to be replaced by updateFitVal
-
-            sampleBCutoffs.add(te.bCutoff);
-        }
-    }
-    
-    
-    double[] scoreSamplesMultithread(final ArrayList<int[]> sampleList){
-        //Given a list of samples, compute their scores in different threads
-        
-        int numSamp = sampleList.size();
-        final double trueValList[] = new double[numSamp];
-        
-        Thread[] threads = new Thread[numSamp];
-            
-        for(int s=0; s<numSamp; s++){
-
-            final int sampCount = s;
-            threads[sampCount] = new Thread(){
-
-                @Override
-                public void run(){
-                    double trueVal = te.scoreAssignmentList(sampleList.get(sampCount));
-
-                    synchronized(trueValList){
-                        trueValList[sampCount] = trueVal;
-                    }
-                }
-            };
-        }
-
-        for(int s=0; s<numSamp; s++)//start all the threads
-            threads[s].start();
-
-        try {
-            for(int s=0; s<numSamp; s++)//wait for all the threads to finish
-                threads[s].join();
-        }
-        catch(InterruptedException e){
-            throw new RuntimeException("ERROR: Threaded calc interrupted!");
-        }
-
-        return trueValList;
-    }
-    
-    
-    boolean isNewSampleDistinct(int[] sample/*, ArrayList<Integer> otherSampList*/){
+    boolean isNewSampleDistinct(int[] sample){
         //Is the new sample distinct from those listed?  (i.e. those that
         //share a tuple and thus could be the same)
        
-        //for(int sampNum2 : otherSampList){//not storing tupleSamples now, so just check them all
         for(int sampNum2=0; sampNum2<samples.size(); sampNum2++){
             
             int[] sample2 = samples.get(sampNum2);
@@ -425,105 +126,10 @@ public class TESampleSet implements Serializable {
         return true;
     }
     
-    
-    /*int numDistinctSamples(int tup){
-        //how many distinct samples are there containing tuple # tup?
-        int numDistinct = 0;
-        ArrayList<Integer> tupSamp = tupleSamples.get(tup);
-        
-        for(int s=0; s<tupSamp.size(); s++){
             
-            int sample[] = samples.get(tupSamp.get(s));
-            //compare to each of the previous samples containing tup, see if it's distinct from them
-            boolean sampleDistinct = true;
-            
-            for(int s2=0; s2<s; s2++){
-                int sample2[] = samples.get(tupSamp.get(s2));
-                
-                boolean samplesIdentical = true;
-                
-                for(int pos=0; pos<te.numPos; pos++){
-                    if(sample[pos]!=sample2[pos]){
-                        samplesIdentical = false;
-                        break;
-                    }
-                }
-                
-                if(samplesIdentical){
-                    sampleDistinct = false;
-                    break;
-                }
-            }
-            
-            if(sampleDistinct)
-                numDistinct++;
-        }
-        
-        return numDistinct;
-    }*/
-    
-    
-        
     boolean tupleFeasible(RCTuple tup){
-        //see if this tup yields sub-bcutoff samples in normal drawing
-        //meant to predict (conservatively) if updateSamples will be OK getting samples for it
-        
-        
-        if(te.bCutoff == Double.POSITIVE_INFINITY){
-            //samples not restricted to be below some bcutoff,
-            //so we can just do DFS to see if there is any unpruned conf containing tup
-            int sample[] = drawUnprunedSample(tup, false);
-            return (sample!=null);//were we able to draw a sample?
-        }
-        
-        int goodSampCount = 0;//we'll demand this to be a bit higher than necessary in updateSamples,
-        //for maxDiscrReps (max number of tries in updateSamples per sample needed)
-        
-        for(int s=0; s<maxDiscrReps; s++){
-                        
-
-            int sample[] = drawUnprunedSample(tup, false);
-            boolean success = (sample!=null);//we were able to draw a sample 
-            
-            //DEBUG!!  Now with DFS drawing can break if no success, because won't ever have success
-            if(!success)
-                break;
-                    
-                    
-            /*
-            int[] sample = new int[te.numPos];
-
-            //if term isn't pruned there must be some way to finishRCSample
-            boolean success;
-            
-            //DEBUG!!
-            //do{
-                Arrays.fill(sample, -1);
-
-                //fill the current tuple into RCSample
-                //for(int[] op : te.tuples.get(tup))
-                //    sample[op[0]] = op[1];
-                te.assignTupleInSample(sample, tup);
-                
-                success = finishSample(sample);
-            //}
-            //while(!success);
-            */
-            
-            if(success){
-
-                //figure out which terms the sample applies to
-                double trueVal = te.scoreAssignmentList(sample);
-
-                if(trueVal<=te.bCutoff)
-                    goodSampCount++;
-
-                if(goodSampCount==3)//can be pretty sure of good updateSamples
-                    return true;
-            }
-        }
-        
-        return false;//if we get here the drawing failed!
+        int sample[] = drawUnprunedSample(tup, false);
+        return (sample!=null);//were we able to draw a sample?
     }
     
     
@@ -560,22 +166,6 @@ public class TESampleSet implements Serializable {
                             distr[a] = 0;
                             break;
                         }
-                        /*
-                        RCTuple pair = new RCTuple(nextPos, a, pos, sample[pos]);
-                        
-                        
-                        if(te.isPruned(pair)){
-                            distr[a] = 0;
-                            break;
-                        }
-                        
-                        //and any higher-order pruned stuff...
-                        for(RCTuple prunedTup : te.higherOrderPrunedTuples(pair)){
-                            if(te.sampleMatchesTuple(sample,prunedTup)){
-                                distr[a] = 0;
-                                break;
-                            }
-                        }*/
                     }
                 }
                 
@@ -675,28 +265,6 @@ public class TESampleSet implements Serializable {
         
         for(int s=0; s<samples.size(); s++){
             double targetVal = trueVals.get(s);
-            double sampBCutoff = sampleBCutoffs.get(s);
-            double sampBCutoff2 = sampBCutoff + te.bCutoff2 - te.bCutoff;
-            
-            if(targetVal>sampBCutoff){
-                if(targetVal>sampBCutoff2){
-                    if(curFitVals.get(s)>sampBCutoff){
-                        sampleResids.add(0.);
-                        continue;//sample doesn't count towards residual
-                    }
-                    else
-                        targetVal = sampBCutoff;
-                }
-                else {
-                    if(curFitVals.get(s)<sampBCutoff)
-                        targetVal = sampBCutoff;
-                    else if(curFitVals.get(s)<=targetVal){
-                        sampleResids.add(0.);
-                        continue;
-                    }
-                }
-            }
-            
             double sampResid = (curFitVals.get(s)-targetVal)*(curFitVals.get(s)-targetVal);
             totalResid += sampResid;
             //for(int tup : sampleTuples.get(s))
@@ -712,16 +280,6 @@ public class TESampleSet implements Serializable {
             tupleResids.set(t,tupleResids.get(t)/tupleNumSamples.get(t));//tupleSamples.get(t).size());
             worstResid = Math.max(worstResid,tupleResids.get(t));
         }
-        
-        
-        
-        /*System.out.print("Current worst residual: "+worstResid+" for");
-        for(int ind : worstResidIndex)
-            System.out.print(" "+nwpf.termString(ind));
-        System.out.println();*/
-        
-        //System.out.println("Current biggest term residual gradient norm: "+biggestGradNorm
-        //        +" for "+biggestGradNormIndex);
     }
     
     
@@ -731,23 +289,13 @@ public class TESampleSet implements Serializable {
         //tup will be tuples.size()-1
         
         //record relationship to current samples
-        //tupleSamples.add( new ArrayList<Integer>() );
         tupleNumSamples.add(0);
-        
-        tupleSamplesAboveCutoff.add(new BitSet());
         
         for(int s=0; s<samples.size(); s++){
             int sample[] = samples.get(s);
             
             if(te.sampleMatchesTuple(sample,te.tuples.get(tup))){
-                //sampleTuples.get(s).add(tup);
-                
-                //tupleSamples.get(tup).add(s);
                 tupleNumSamples.set( tup, tupleNumSamples.get(tup)+1 );
-                
-                if(trueVals.get(s) > sampleBCutoffs.get(s))
-                    //tupleSamplesAboveCutoff.get(tup).set(tupleSamples.get(tup).size()-1);
-                    tupleSamplesAboveCutoff.get(tup).set(tupleNumSamples.get(tup)-1);
             }
         }
         
@@ -757,26 +305,6 @@ public class TESampleSet implements Serializable {
         
         //draw any new samples needed
         updateSamples(tup);
-    }
-    
-    
-    void updateSampBelowCutoff(){
-        //accommodate raising of bcutoff by updating the tupleSamplesAboveCutoff bitsets
-        
-        if(te.bCutoff == Double.POSITIVE_INFINITY)//expected case now...
-            return;
-        
-        throw new RuntimeException("ERROR: Not expecting finite bcutoff here...");//would need the stuff below
-        
-        /*
-        for(int term=0; term<te.tuples.size(); term++){
-            for(int samp=0; samp<tupleSamples.get(term).size(); samp++){
-                if(trueVals.get(tupleSamples.get(term).get(samp))>sampleBCutoffs.get(samp))
-                    tupleSamplesAboveCutoff.get(term).set(samp,true);
-                else
-                    tupleSamplesAboveCutoff.get(term).set(samp,false);
-            }
-        }*/
     }
     
     
@@ -1004,7 +532,7 @@ public class TESampleSet implements Serializable {
     }
     
     
-    ArrayList<Integer> shuffleOptions(ArrayList<int[]> optList){
+    static ArrayList<Integer> shuffleOptions(ArrayList<int[]> optList){
         //given a bunch of (pos,rc) pairs, return the rc's in random order
         ArrayList<Integer> ans = new ArrayList<>();
         int numRCs = optList.size();
@@ -1018,7 +546,7 @@ public class TESampleSet implements Serializable {
         return ans;
     }
     
-    ArrayList<Integer> randomOrdering(int n){
+    static ArrayList<Integer> randomOrdering(int n){
         //random order of integers [0,n)
         ArrayList<Integer> a = new ArrayList<>();
         ArrayList<Integer> ans = new ArrayList<>();

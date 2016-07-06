@@ -47,50 +47,11 @@ public class ConfETupleExpander extends TupleExpander {
                     throw new RuntimeException("ERROR: Infinite E for unpruned conf: "+tup.stringListing());
             }
             
-            
-            //DEBUG!!!!!
-            /*RCTuple tup = new RCTuple(assignmentList);
-            EPICEnergyFunction efunc = sp.epicMat.internalEnergyFunction(tup);
-            MolecEObjFunction objFcn = new MolecEObjFunction(efunc,sp.epicMat.getConfSpace(),tup);
-            Minimizer minim = new CCDMinimizer(objFcn,false);
-            DoubleMatrix1D bestDOFVals = minim.minimize();
-            
-            ArrayList<Double> epicTermValues = efunc.allTermValues();
-            
-            //EPIC terms are meant to be positive, so if there's a negative one we have trouble
-            //if this happens for different tuples, combinations of those tuples could
-            //yield very negative cont E, as observed in 2O9S_nopert
-            double lowestTermVal = Collections.min(epicTermValues);
-            if( lowestTermVal < -1 ){
-                //TRUBBLE TRUBBLE TRUBBLE
-                System.out.println("ERROR: Term has value "+lowestTermVal+" E="+E);
-                System.out.print( "Assignments: ");
-                for(int a : assignmentList)
-                    System.out.print(a+", ");
-                
-                System.out.println("Best DOF vals check: "+bestDOFVals);
-                double Echeck = objFcn.getValue(bestDOFVals);
-                System.out.println("E check: "+Echeck);
-                
-                System.out.println("EPIC term values: ");
-                efunc.printAllTermValues();
-                System.out.println("End EPIC term values");
-                
-                if(lowestTermVal < worstELBDiff){
-                    worstELBDiff = lowestTermVal;
-                    System.out.println("Outputting obj fcn to problem_obj_fcn"+worstELBDiff+".dat");
-                    ObjectIO.writeObject(objFcn, "problem_obj_fcn"+worstELBDiff+".dat");
-                }
-                
-            }
-            */          
-            
-            
+                  
+            /*
+            //code for debugging inaccurate pairwise lower bounds
             double LB = sp.lowerBound(assignmentList);
             if(E - LB  < -10){
-                //Cont energy < -10 yeah this is a problem
-                //but it must be happening because observed tup exp E of -243 with lower bound of 
-                //about -225...
                 System.out.println("ERROR: E="+E+" LB="+LB);
                 System.out.print( "Assignments: ");
                 for(int a : assignmentList)
@@ -115,12 +76,7 @@ public class ConfETupleExpander extends TupleExpander {
                     System.out.println("Outputting obj fcn to problem_obj_fcn"+worstELBDiff+".dat");
                     ObjectIO.writeObject(objFcn, "problem_obj_fcn"+worstELBDiff+".dat");
                 }
-            }
-            
-            //DEBUG!!!
-            
-            
-            
+            }*/
             
             return E;
         }

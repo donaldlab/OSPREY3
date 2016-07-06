@@ -41,15 +41,6 @@ public abstract class TupleExpander implements Serializable {
     double constTerm = Double.NaN;
     //so we approximate our function as constTerm + sum_{tup in current tuples} tupleTerms[tup]
     
-    double bCutoff;
-    double bCutoff2;
-    
-    boolean subCutoffSamplesOnly = true;//only fit to sub-cutoff samples (basic least squares)
-    //justification: in the discrete-fit setting here, we need to be able to quantitatively determine
-    //all non-pruned tuples' coeffs from the sub-cutoff region
-    //so we can get the effect of modified least squares by pruning tuples not found in sub-cutoff region
-    //and then fitting coeffs that are found there
-    
     TESampleSet trainingSamples=null, CVSamples=null;
     
     
@@ -93,7 +84,6 @@ public abstract class TupleExpander implements Serializable {
             return Double.POSITIVE_INFINITY;
         
         
-        //DEBUG!!
         for(int iter=0; iter<500/*0*/; iter++){
             int sample[] = new int[numPos];
             boolean success;
@@ -112,21 +102,7 @@ public abstract class TupleExpander implements Serializable {
     
     public double calcExpansion(ArrayList<RCTuple> tuplesToFit){
         //calculate the tuple coefficients
-        //return cross-validation total residual
-        
-        
-        //DEBUG!!!
-        //this was used to access these things from Main in 2O9S debug
-        /*for(int s=0; s<trainingSamples.samples.size(); s++){
-            int[] samp = trainingSamples.samples.get(s);
-            double trueVal = trainingSamples.trueVals.get(s);
-            double fitVal = trainingSamples.curFitVals.get(s);
-            for(int rc : samp)
-                System.out.print(rc+" ");
-            System.out.println(trueVal+" "+fitVal);
-        }
-        System.exit(0);*/
-        
+        //return cross-validation total residual        
         
         if(Double.isNaN(constTerm))//constTerm not computed yet
             constTerm = computeInitGMECEst();
@@ -137,20 +113,10 @@ public abstract class TupleExpander implements Serializable {
             return 0;//all confs are pruned, and will be correctly assigned infinite energy
         }
         
-        
-        //bCutoff = constTerm+5;//DEBUG!!
-        bCutoff = constTerm+20;
-        bCutoff2 = constTerm+50;
-        
-        
-        //DEBUG!!!
-        bCutoff = Double.POSITIVE_INFINITY;
-        bCutoff2 = Double.POSITIVE_INFINITY;
-        
         //this can be used for the first tuple expansion for this object, or to add tuples later (not take away though)
         
         System.out.println("About to calculate tuple expansion with "+tuplesToFit.size()+" tuples.");
-        System.out.println("constTerm: "+constTerm+" bCutoff: "+bCutoff+" bCutoff2: "+bCutoff2);
+        //System.out.println("constTerm: "+constTerm+" bCutoff: "+bCutoff+" bCutoff2: "+bCutoff2);
 
         
         setupSamples(tuplesToFit);//set up the training set (in the process, prune tuples that don't provide reasonable energies)
@@ -165,30 +131,6 @@ public abstract class TupleExpander implements Serializable {
         
         System.out.println("CV SAMPLES: ");
         CVSamples.printResids();
-        
-         
-        //checkHighEnergyConfs();//DEBUG!!!!
-        
-        //DEBUG!!!!
-        /*System.out.println("OUTPUTTING TUPLE EXPANDER");
-        ObjectIO.writeObject(this, "TUPLE_EXPANDER.dat");
-        System.exit(0);
-        */
-        
-        
-        //DEBUG!!!!
-        //to check on GMEC energy for 1CC8 system
-        /*
-        int conf2[] = new int[] {5,7,12,5,0,7,4};
-        boolean b2 = isPruned(new RCTuple(conf2));
-        ArrayList<Integer> sampleTuples2 = trainingSamples.calcSampleTuples(conf2);
-        ArrayList<Integer> sampleTuples2CV = CVSamples.calcSampleTuples(conf2);
-        double E2 = fitValueForTuples(sampleTuples2);
-        double EPIC2 = scoreAssignmentList(conf2);
-        int aaa = 0;
-        */
-        
-        
         
         return CVSamples.totalResid;
     }
@@ -369,14 +311,7 @@ public abstract class TupleExpander implements Serializable {
         //generate the training sample set, and for each tuple we want to fit, either prune it or get samples for it
         
         numSampsPerTuple = 10;
-        
-        
-        //137DEBUG!!!!!
-        boolean targetRun = (tuplesToFit.size() == 115793);
-        if(targetRun)
-            System.out.print("TARGET RUN");
-        
-        
+                
         if(trainingSamples==null)//first tuple expansion for this object: initialize training samples
             trainingSamples = new TESampleSet(this);
         else {
@@ -412,38 +347,7 @@ public abstract class TupleExpander implements Serializable {
         for(int tupNum=0; tupNum<tuplesToFit.size(); tupNum++){
             if(tupNum>0 && (tupNum%printedUpdateNumTuples==0))
                 System.out.println(tupNum+" tuples added");
-            
-            
-            
-            //137DEBUG!!!
-            /*if(tupNum>=1200 && targetRun){
-                
-                //want to see what's taking up the memory.  Look at size of tuple expander and components.  
-                for( String stype : new String[] {"training","CV"} ){
-                    TESampleSet tss = trainingSamples;
-                    if(stype.equalsIgnoreCase("CV"))
-                        tss = CVSamples;
-                    
-                    System.out.println("Dumping "+stype+" sampleTuples");
-                    ObjectIO.writeObject(tss.sampleTuples, stype+".sampleTuples.dat");
-                    
-                    System.out.println("Dumping "+stype+" tupleSamples");
-                    ObjectIO.writeObject(tss.tupleSamples, stype+".tupleSamples.dat");
-                    
-                    System.out.println("Dumping "+stype+" tupleSamplesAboveCutoff");
-                    ObjectIO.writeObject(tss.tupleSamplesAboveCutoff, stype+".tupleSamplesAboveCutoff.dat");
-                    
-                    System.out.println("Dumping full "+stype+" sample set");
-                    ObjectIO.writeObject(tss, stype+".full.dat");
-                }
-                
-                System.out.println("Dumping tuple expander to TUP_EXP_TARGETRUN.dat");
-                ObjectIO.writeObject(this, "TUP_EXP_TARGETRUN.dat");
-                //System.exit(0);
-            }*/
-            
-            
-            
+  
             tryAddingTuple(tuplesToFit.get(tupNum));//prune or get samples
         }
         
@@ -487,16 +391,6 @@ public abstract class TupleExpander implements Serializable {
         //set up to call fitSeriesIterative
         int numTrainingSamples = trainingSamples.samples.size();
         
-        /*DoubleMatrix1D samp[] = new DoubleMatrix1D[numTrainingSamples];//just what terms are active at each sample
-        
-        for(int s=0; s<numTrainingSamples; s++){
-            samp[s] = DoubleFactory1D.dense.make(tuples.size());
-            for(int t=0; t<tuples.size(); t++){
-                if(trainingSamples.sampleTuples.get(s).contains(t))
-                    samp[s].set(t,1);
-            }
-        }*/
-        
         double[] trueVals = new double[numTrainingSamples];
         
         for(int s=0; s<numTrainingSamples; s++){
@@ -507,87 +401,13 @@ public abstract class TupleExpander implements Serializable {
         /*double fitTerms[] = SeriesFitter.fitSeriesIterative(samp, trueVals, weights, lambda, false, 1,
                     bCutoffs, bCutoffs2, 1, null);*/
         
-        
-        if(!subCutoffSamplesOnly)
-            throw new RuntimeException("ERROR: CG fitting doesn't support modified least squares at this time");
-        
-        //DEBUG!!  Adding regularization...
-        //RegTupleFitter fitter = new RegTupleFitter(trainingSamples.sampleTuples,tuples.size(),trueVals);
-        /*ArrayList<ArrayList<Integer>> sampleTuples = new ArrayList<>();
-        for(int[] sample : trainingSamples.samples)
-            sampleTuples.add(trainingSamples.calcSampleTuples(sample));
-        RegTupleFitter fitter = new RegTupleFitter(sampleTuples,tuples.size(),trueVals);*/
-        
-        //RegTupleFitter2 fitter = new RegTupleFitter2(trainingSamples, tuples.size(), trueVals);
         TupleIndexMatrix tim = getTupleIndexMatrix();
-        CGTupleFitter2 fitter = new CGTupleFitter2(tim, trainingSamples.samples, tuples.size(), trueVals);
-        
-        
-        
-        
-        //DEBUG!!!  Addressing infinite residuals for 40-residue sidechain placement
-        /*System.out.println("Preparing to fit tuples.  Const term: "+constTerm+" Num tuples: "+tuples.size());
-        System.out.println("Writing to true vals to TRUEVALS.dat and samplesTuples to SAMPLETUPLES.dat");
-        
-        ObjectIO.writeObject(trueVals, "TRUEVALS.dat");
-        ObjectIO.writeObject(trainingSamples.sampleTuples, "SAMPLETUPLES.dat");
-        
-        for(int s=0; s<numTrainingSamples; s++){
-            if(Double.isInfinite(trueVals[s])){
-                System.out.println("INFINITE TRUE VAL: "+trueVals[s]);
-                
-                int conf[] = trainingSamples.samples.get(s);
-                System.out.print("conf: ");
-                for(int c : conf)
-                    System.out.print(c+" ");
-                System.out.println();
-                
-                System.out.println("Conf pruned: "+isPruned(new RCTuple(conf)));
-                
-                System.out.println("Score for conf: "+scoreAssignmentList(conf));
-                
-                ConfETupleExpander cete = (ConfETupleExpander)this;
-                System.out.println( "Flat E: " + cete.sp.emat.confE(conf) );
-                System.out.println( "EPIC E: " + cete.sp.epicMat.minContE(conf) );
-                
-                System.out.println("Outputting EPIC energy function for conf");
-                ObjectIO.writeObject(cete.sp.epicMat.internalEnergyFunction(new RCTuple(conf)), "EPICEFUNC_inf.dat");
-                System.exit(0);
-            }
-        }*/
-        
-        
+        CGTupleFitter fitter = new CGTupleFitter(tim, trainingSamples.samples, tuples.size(), trueVals);
         
         double fitTerms[] = fitter.doFit();
         tupleTerms = fitTerms;
-        
-        
-        
-        
-        //DEBUG!!! still 40-res issue
-        /*
-        System.out.println("CHECKING FOR INFINITE VALUES AFTER FIT");
-        for(int s=0; s<numTrainingSamples; s++){
-            if(Double.isInfinite(trueVals[s])){
-                System.out.println("INFINITE TRUE VAL: "+trueVals[s]);
-            }
-        }
-        
-        for(int t=0; t<tuples.size(); t++){
-            if(Double.isInfinite(tupleTerms[t])){
-                System.out.println("INFINITE TUPLE TERM: "+tupleTerms[t]);
-                System.out.print("Tuple: "+tuples.get(t).stringListing());
-            }
-        }
-        System.out.println("DONE CHECKING FOR INFINITE VALUES AFTER FIT");
-        */
-        
-        
     }
-    
-    
-    
-    
+ 
     
     
     int numSampsPerTuple = 10;
@@ -597,84 +417,23 @@ public abstract class TupleExpander implements Serializable {
         return numSampsPerTuple;//one param per tuple, so 10 samples should securely avoid overfitting
     }
     
-    
-    /*void addTuple(int[][] tup, boolean updateSamples){
-        tuples.add(tup);
-        int newTupleIndex = tuples.size()-1;//tup index in tuples
-        
-        for(int[] op : tup){
-            //add index in tuples of tup to tuplesForAssignments
-            if(op[1]>=0)
-                tuplesForAssignments.get(op[0]).get(op[1]).add(newTupleIndex);
-        }
-        
-        if(useTupleBCutoffs)
-            tupleBCutoffs.add(bCutoff);
-        
-        if(updateSamples){//sample sets already drawn, need to update
-            trainingSamples.addTuple(newTupleIndex);
-            CVSamples.addTuple(newTupleIndex);
-        }
-    }*/
-    
     void tryAddingTuple(RCTuple tup){
-        //We assume here that the training set has been created
-        //and we are going to add the tuple if it has sub-bcutoff samples
-        //DEBUG!!! we currently just try drawing a while (tupleFeasible()) 
-        //and declare it impossible upon failure,
-        //but later will need to pull out more rigorous pruning methods 
-        //to exclude tuples for which we find tupleFeasible==false
         
         if(trainingSamples.tupleFeasible(tup)){
-
             tuples.add(tup);
             int newTupleIndex = tuples.size()-1;//tup index in tuples
-
-            /*for(int[] op : tup){
-                //add index in tuples of tup to tuplesForAssignments
-                if(op[1]>=0)
-                    tuplesForAssignments.get(op[0]).get(op[1]).add(newTupleIndex);
-            }
-
-            if(useTupleBCutoffs)
-                tupleBCutoffs.add(bCutoff);*/
 
             trainingSamples.addTuple(newTupleIndex);
             if(CVSamples!=null)
                 CVSamples.addTuple(newTupleIndex);
         }
         else {
-            
             //mark as pruned
             pruneTuple(tup);
-
-            //DEBUG!!
             ezPruneCount++;
         }
     }
-    
-    
-    /*void pruneTuple(int[][] tup){
-        //Mark the tuple is pruned, so we exclude it from the conformational space
-        //represented by this tuple expansion
-        //also remove previously drawn samples that include it
-        
-        if(tup.length==1)
-            throw new RuntimeException("ERROR: On-the-fly singles pruning not supported currently");
-        else if(tup.length==2)
-            prunePair(tup[0][0],tup[0][1],tup[1][0],tup[1][1]);
-        else
-            higherOrderPrunedTuples.add(tup);
-        
-        if(trainingSamples!=null)
-            ((TESampleSet2)trainingSamples).removeSamplesWithTuple(tup);
-        if(CVSamples!=null)
-            ((TESampleSet2)CVSamples).removeSamplesWithTuple(tup);
-    }*/
-    
-    
-    
-    
+       
     
     double fitValueForTuples(ArrayList<Integer> tuples){
         //given a list of tuples to which a term belongs
@@ -685,16 +444,6 @@ public abstract class TupleExpander implements Serializable {
         return ans;
     }
     
-    void updateSampBelowCutoffOtherSet(TESampleSet callingSet){
-        //if when drawing samples we need to raise the bCutoff
-        //we need to update all sample set(s)'s tupleSamplesAboveCutoff fields
-        //this will probably be called when drawing either training or CV samples
-        //and will be used to update the other one
-        if(trainingSamples!=null && trainingSamples!=callingSet)
-            trainingSamples.updateSampBelowCutoff();
-        if(CVSamples!=null && CVSamples!=callingSet)
-            CVSamples.updateSampBelowCutoff();
-    }
     
     
     

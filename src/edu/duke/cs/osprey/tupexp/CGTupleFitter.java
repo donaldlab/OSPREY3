@@ -41,14 +41,16 @@ public class CGTupleFitter {
     //(A is matrix defined by samp, b is true energies)
     
     int numSamp, numTup;
-    ArrayList<ArrayList<Integer>> sampTuples;
+    TupleIndexMatrix tupIndMat;
+    ArrayList<int[]> samples;
     
-    public CGTupleFitter(ArrayList<ArrayList<Integer>> sampleTuples, int numTuples, double[] trueVals){
-        //sampleTuples.get(s) lists tuple numbers for sample s
+    public CGTupleFitter(TupleIndexMatrix tim, ArrayList<int[]> samp, int numTuples, double[] trueVals){
+        //We'll fit the specified (sample,trueVal) pairs to an expansion in the tuples in tim
         
-        numSamp = sampleTuples.size();
+        samples = samp;
+        numSamp = samples.size();
         numTup = numTuples;
-        sampTuples = sampleTuples;
+        tupIndMat = tim;
         
         
         AtA = new RealLinearOperator(){
@@ -68,7 +70,7 @@ public class CGTupleFitter {
                 //first apply A
                 double Arv[] = new double[numSamp];
                 for(int s=0; s<numSamp; s++){
-                    ArrayList<Integer> sampTup = sampTuples.get(s);
+                    ArrayList<Integer> sampTup = tupIndMat.calcSampleTuples(samples.get(s));
                     for(int t : sampTup)
                         Arv[s] += rv.getEntry(t);
                 }
@@ -76,7 +78,7 @@ public class CGTupleFitter {
                 //then apply A^T to Arv
                 double ans[] = new double[numTup];
                 for(int s=0; s<numSamp; s++){
-                    ArrayList<Integer> sampTup = sampTuples.get(s);
+                    ArrayList<Integer> sampTup = tupIndMat.calcSampleTuples(samples.get(s));
                     for(int t : sampTup)
                         ans[t] += Arv[s];
                 }
@@ -90,7 +92,7 @@ public class CGTupleFitter {
         double atb[] = new double[numTup];
         //apply A^T to true vals
         for(int s=0; s<numSamp; s++){
-            ArrayList<Integer> sampTup = sampTuples.get(s);
+            ArrayList<Integer> sampTup = tupIndMat.calcSampleTuples(samples.get(s));
             for(int t : sampTup)
                 atb[t] += trueVals[s];
         }
