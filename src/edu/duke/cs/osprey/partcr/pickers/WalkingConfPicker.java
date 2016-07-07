@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.partcr.picker;
+package edu.duke.cs.osprey.partcr.pickers;
 
 import java.util.HashMap;
 import java.util.List;
