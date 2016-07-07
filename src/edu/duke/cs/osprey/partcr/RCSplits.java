@@ -33,6 +33,10 @@ public class RCSplits {
 			children = new ArrayList<>();
 		}
 		
+		public RC getParent() {
+			return parent;
+		}
+		
 		public boolean isSplit() {
 			return !children.isEmpty();
 		}
@@ -59,6 +63,14 @@ public class RCSplits {
 				}
 			}
 			return false;
+		}
+		
+		public int getNumVoxels() {
+			if (isSplit()) {
+				return children.size();
+			} else {
+				return 1;
+			}
 		}
 	}
 	

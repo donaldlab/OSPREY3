@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.partcr;
+package edu.duke.cs.osprey.partcr.splitters;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -7,12 +7,15 @@ import edu.duke.cs.osprey.confspace.RC;
 
 public class SmartRCSplitter extends RCSplitter {
 	
+	// NOTE: in quick (and certinaly not exhaustive tests),
+	// this splitter didn't perform as well as the Binary or NAry splitters
+	
 	private double[] dofBoundValues;
 	private int baseDofIndex;
 
-	public SmartRCSplitter(double[] dofBoundValues) {
+	public SmartRCSplitter(double[] dofBoundValues, int baseDofIndex) {
 		this.dofBoundValues = dofBoundValues;
-		this.baseDofIndex = 0;
+		this.baseDofIndex = baseDofIndex;
 	}
 
 	@Override
@@ -30,8 +33,6 @@ public class SmartRCSplitter extends RCSplitter {
 			double currentVal = getCurrentVal(rc, widestDofIndex);
 			double mid = (boundVal + currentVal)/2;
 			
-			// TEMP
-			System.out.println(String.format("split RC along dof %d: min:%f, bound:%f, [%f,%f] %f", widestDofIndex, currentVal, boundVal, min, max, mid));
 			assert (boundVal >= min && boundVal <= max);
 			assert (currentVal >= min && currentVal <= max);
 			
@@ -39,8 +40,6 @@ public class SmartRCSplitter extends RCSplitter {
 			rcs.add(makeRC(rc, widestDofIndex, min, mid));
 			rcs.add(makeRC(rc, widestDofIndex, mid, max));
 		}
-		
-		baseDofIndex += rc.DOFs.size();
 		
 		return rcs;
 	}

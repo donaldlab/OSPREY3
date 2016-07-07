@@ -83,6 +83,14 @@ public class SimpleEnergyCalculator {
 		this.dist = dist;
 	}
 	
+	public EnergyFunctionGenerator getEnergyFunctionGenerator() {
+		return efuncGen;
+	}
+	
+	public ShellDistribution getShellDistribution() {
+		return dist;
+	}
+	
 	public int getNumPos() {
 		return confSpace.numPos;
 	}

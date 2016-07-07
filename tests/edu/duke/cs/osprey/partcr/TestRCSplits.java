@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.partcr.RCSplits.RCInfo;
+import edu.duke.cs.osprey.partcr.splitters.BinaryRCSplitter;
 
 public class TestRCSplits extends TestBase {
 	

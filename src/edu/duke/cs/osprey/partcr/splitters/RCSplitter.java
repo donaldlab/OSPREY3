@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.partcr;
+package edu.duke.cs.osprey.partcr.splitters;
 
 import java.util.List;
 
