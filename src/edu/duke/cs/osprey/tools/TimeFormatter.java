@@ -35,15 +35,16 @@ public class TimeFormatter {
 	}
 	
 	public static String format(long ns, int decimals) {
-		if (getTimeH(ns) > 1) {
+		long nsabs = Math.abs(ns);
+		if (getTimeH(nsabs) > 1) {
 			return format(ns, TimeUnit.HOURS, decimals);
-		} else if (getTimeM(ns) > 1) {
+		} else if (getTimeM(nsabs) > 1) {
 			return format(ns, TimeUnit.MINUTES, decimals);
-		} else if (getTimeS(ns) > 1) {
+		} else if (getTimeS(nsabs) > 1) {
 			return format(ns, TimeUnit.SECONDS, decimals);
-		} else if (getTimeMs(ns) > 1) {
+		} else if (getTimeMs(nsabs) > 1) {
 			return format(ns, TimeUnit.MILLISECONDS, decimals);
-		} else if (getTimeUs(ns) > 1) {
+		} else if (getTimeUs(nsabs) > 1) {
 			return format(ns, TimeUnit.MICROSECONDS, decimals);
 		} else {
 			return format(ns, TimeUnit.NANOSECONDS, decimals);

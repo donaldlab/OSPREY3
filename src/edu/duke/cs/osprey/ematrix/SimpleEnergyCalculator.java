@@ -11,6 +11,7 @@ import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.tools.Progress;
 
 public class SimpleEnergyCalculator {
 	
@@ -137,11 +138,22 @@ public class SimpleEnergyCalculator {
 		
 		Result result;
 		
+		// count how much work there is to do
+		long numWork = 0;
+		for (int pos1=0; pos1<sizemat.getNumPos(); pos1++) {
+			numWork += sizemat.getNumConfAtPos(pos1);
+			for (int pos2=0; pos2<pos1; pos2++) {
+				for (int rc1=0; rc1<sizemat.getNumConfAtPos(pos1); rc1++) {
+					numWork += sizemat.getNumConfAtPos(pos2);
+				}
+			}
+		}
+		Progress progress = new Progress(numWork);
+		
 		System.out.println("Calculating energies with shell distribution: " + dist);
 		for (int pos1=0; pos1<sizemat.getNumPos(); pos1++) {
 			
 			// singles
-			System.out.println(String.format("calculating single energy %d...", pos1));
 			for (int rc1=0; rc1<sizemat.getNumConfAtPos(pos1); rc1++) {
 				
 				result = calcSingle(pos1, rc1);
@@ -152,11 +164,12 @@ public class SimpleEnergyCalculator {
 				if (dofmat != null) {
 					dofmat.setOneBody(pos1, rc1, result.getDofValues());
 				}
+				
+				progress.incrementProgress();
 			}
 				
 			// pairwise
 			for (int pos2=0; pos2<pos1; pos2++) {
-				System.out.println(String.format("calculating pair energy %d,%d...", pos1, pos2));
 				for (int rc1=0; rc1<sizemat.getNumConfAtPos(pos1); rc1++) {
 					for (int rc2=0; rc2<sizemat.getNumConfAtPos(pos2); rc2++) {
 						
@@ -168,6 +181,8 @@ public class SimpleEnergyCalculator {
 						if (dofmat != null) {
 							dofmat.setPairwise(pos1, rc1, pos2, rc2, result.getDofValues());
 						}
+						
+						progress.incrementProgress();
 					}
 				}
 			}
