@@ -80,6 +80,11 @@ public class PartCR {
 	}
 	
 	public void autoIterate() {
+		// three strikes seems like a good default
+		autoIterate(3);
+	}
+	
+	public void autoIterate(int maxNumStrikes) {
 		
 		// the basic idea here is to keep iterating as long as
 		// we can prune conformations faster than it takes to enumerate/minimize them
@@ -87,6 +92,7 @@ public class PartCR {
 		int initialNumConfs = nodes.size();
 		int numConfs = initialNumConfs;
 		long startTimeNs = System.nanoTime();
+		int numStrikes = 0;
 		
 		while (true) {
 			
@@ -99,11 +105,24 @@ public class PartCR {
 			int numPruned = numConfs - nodes.size();
 			numConfs = nodes.size();
 			if (numPruned < targetPruning) {
-				System.out.println(String.format("Pruned %d/%d conformations. time to stop", numPruned, targetPruning));
-				break;
-			}
+				
+				numStrikes++;
+				boolean shouldStop = numStrikes >= maxNumStrikes;
+				
+				System.out.println(String.format("Pruned %d/%d conformations. %d/%d strikes. %s",
+					numPruned, targetPruning, numStrikes, maxNumStrikes,
+					shouldStop ? " time to stop." : ""
+				));
+				
+				if (shouldStop) {
+					// YOU'RE OUTTA HERE!!
+					break;
+				}
+				
+			} else {
 			
-			System.out.println(String.format("Pruned %d/%d conformations. keep iterating", numPruned, targetPruning));
+				System.out.println(String.format("Pruned %d/%d conformations. keep iterating", numPruned, targetPruning));
+			}
 		}
 		
 		long initialTimeNs = getAvgMinimizationTimeNs()*initialNumConfs;

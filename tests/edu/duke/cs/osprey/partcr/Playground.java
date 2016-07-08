@@ -47,8 +47,8 @@ public class Playground extends TestBase {
 		// make the search problem
 		//String aaNames = "ALA VAL LEU ILE PHE TYR TRP CYS MET SER THR LYS ARG HIE HID ASP GLU ASN GLN GLY";
 		//String aaNames = "ALA VAL LEU ILE GLU ASN GLN GLY";
-		String aaNames = "ALA VAL LEU ILE";
-		//String aaNames = "ALA";
+		//String aaNames = "ALA VAL LEU ILE";
+		String aaNames = "ALA ARG";
 		String flexRes = "38 39 40 41 42 43 44";
 		//String flexRes = "38 39 40 41";
 		//String flexRes = "41 42 43 44";
@@ -147,7 +147,8 @@ public class Playground extends TestBase {
 		pcr.setSplitter(splitter);
 		
 		// run it!!
-		pcr.autoIterate();
+		int numStrikes = 3;
+		pcr.autoIterate(numStrikes);
 	}
 	
 	private static List<ConfAStarNode> enumerateConformations(ConfAStarTree tree, double minimizedEnergy) {
