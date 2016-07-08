@@ -145,7 +145,7 @@ public class PartCR {
 		
 		long startIterNs = System.nanoTime();
 		
-		int numPos = splitWorld.getConfSpace().numPos;
+		int numPos = splitWorld.getSearchProblem().confSpace.numPos;
 		
 		// pick a conformation to analyze
 		int[] conf = new int[numPos];
@@ -173,7 +173,7 @@ public class PartCR {
 		double minimizedEnergyCheck = 0;
 		TreeMap<Double,Integer> positionsByScore = new TreeMap<>();
 		for (int pos=0; pos<numPos; pos++) {
-			RC rcObj = splitWorld.getConfSpace().posFlex.get(pos).RCs.get(conf[pos]);
+			RC rcObj = splitWorld.getSearchProblem().confSpace.posFlex.get(pos).RCs.get(conf[pos]);
 			
 			double posBoundEnergy = calcPosBoundEnergy(conf, pos);
 			double posMinimizedEnergy = calcPosMinimizedEnergy(pos);
@@ -192,14 +192,15 @@ public class PartCR {
 		checkEnergy(minimizedEnergyCheck, minimizedEnergy);
 		
 		// split the RC at the position with the highest score
+		System.out.println("splitting residue conformation...");
 		int splitPos = positionsByScore.lastEntry().getValue();
 		RC rcObj = splitWorld.getRC(splitPos, conf[splitPos]);
 		List<RC> splitRCs = splitter.split(splitPos, rcObj);
 		splitWorld.replaceRc(splitPos, rcObj, splitRCs);
 		
 		// update energy matrix
-		System.out.println("updating energy matrix...");
-		splitWorld.updateEnergyMatrix();
+		System.out.println("updating matrices...");
+		splitWorld.updateMatrices(nodes.get(0).getGScore(), bestMinimizedEnergy, Ew);
 		
 		// prune nodes based on the new bounds
 		System.out.println("pruning conformations...");
@@ -240,7 +241,7 @@ public class PartCR {
 		
 		double energy = 0;
 		
-		EnergyMatrix emat = splitWorld.getEmat();
+		EnergyMatrix emat = splitWorld.getSearchProblem().emat;
 		int numPos = emat.getNumPos();
 		
 		for (int pos1=0; pos1<numPos; pos1++) {
@@ -267,7 +268,7 @@ public class PartCR {
 		// for position energies, distribute all the adjacent pairwise energies over this position
 		// instead of just picking the ones where pos2 < pos1
 		
-		EnergyMatrix emat = splitWorld.getEmat();
+		EnergyMatrix emat = splitWorld.getSearchProblem().emat;
 		int numPos = emat.getNumPos();
 		
 		int rc1 = conf[pos1];

@@ -31,6 +31,7 @@ import edu.duke.cs.osprey.partcr.scorers.RCScorer;
 import edu.duke.cs.osprey.partcr.scorers.VolumeRCScorer;
 import edu.duke.cs.osprey.partcr.splitters.NAryRCSplitter;
 import edu.duke.cs.osprey.partcr.splitters.RCSplitter;
+import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ObjectIO;
 
@@ -47,8 +48,8 @@ public class Playground extends TestBase {
 		// make the search problem
 		//String aaNames = "ALA VAL LEU ILE PHE TYR TRP CYS MET SER THR LYS ARG HIE HID ASP GLU ASN GLN GLY";
 		//String aaNames = "ALA VAL LEU ILE GLU ASN GLN GLY";
-		//String aaNames = "ALA VAL LEU ILE";
-		String aaNames = "ALA ARG";
+		String aaNames = "ALA VAL LEU ILE";
+		//String aaNames = "ALA ARG";
 		String flexRes = "38 39 40 41 42 43 44";
 		//String flexRes = "38 39 40 41";
 		//String flexRes = "41 42 43 44";
@@ -81,7 +82,7 @@ public class Playground extends TestBase {
 		//ShellDistribution dist = ShellDistribution.HalfSinglesHalfPairs;
 		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(egen, search.confSpace, search.shellResidues, dist);
 		
-		// compute the energy and dof matrices
+		// compute the energy matrix
 		File ematFile = new File(String.format("/tmp/emat.partcr.%s.dat", dist));
 		if (ematFile.exists()) {
 			System.out.println("\nReading matrices...");
@@ -92,8 +93,22 @@ public class Playground extends TestBase {
 			ObjectIO.writeObject(search.emat, ematFile.getAbsolutePath());
 		}
 		
-		// don't do any pruning, it's pointless in the continuous case anyway
-		search.pruneMat = new PruningMatrix(search.confSpace, 1000);
+		// do DEE, in general it doesn't prune any low-energy conformations
+		// but it will speedup PartCR energy matrix updates
+		double pruningInterval = 10;
+		search.pruneMat = new PruningMatrix(search.confSpace, pruningInterval);
+		boolean typeDep = false;
+		double boundsThresh = 100;
+		int algOption = 1;
+		boolean useFlags = true;
+		boolean useTriples = false;
+		boolean preDACS = false;
+		boolean useTupExp = false;
+		double stericThresh = 100;
+		new PruningControl(
+			search, pruningInterval, typeDep, boundsThresh, algOption,
+			useFlags, useTriples, preDACS, useEpic, useTupExp, stericThresh
+		).prune();
 		
 		// get the min bound conformation
 		RCs rcs = new RCs(search.pruneMat);
@@ -133,7 +148,7 @@ public class Playground extends TestBase {
 		//ConfPicker picker = new FirstConfPicker();
 		ConfPicker picker = new WalkingConfPicker();
 		
-		//RCScorer scorer = new NopRCErrorScorer();
+		//RCScorer scorer = new NopRCScorer();
 		//RCScorer scorer = new SplitsRCScorer();
 		RCScorer scorer = new VolumeRCScorer();
 		
