@@ -90,25 +90,20 @@ public class PartCR {
 		
 		while (true) {
 			
-			// based on timing info, how many nodes should we prune this iteration?
-			int targetPruning = 0;
-			if (numIterations > 0) {
-				targetPruning = (int)(getAvgIterationTimeNs()/getAvgMinimizationTimeNs());
-			}
-			
 			iterate();
+			
+			// based on timing info, how many nodes should we prune this iteration?
+			int targetPruning = (int)(getAvgIterationTimeNs()/getAvgMinimizationTimeNs());
 			
 			// did we prune enough to keep iterating?
 			int numPruned = numConfs - nodes.size();
+			numConfs = nodes.size();
 			if (numPruned < targetPruning) {
-				
 				System.out.println(String.format("Pruned %d/%d conformations. time to stop", numPruned, targetPruning));
-				
 				break;
 			}
 			
 			System.out.println(String.format("Pruned %d/%d conformations. keep iterating", numPruned, targetPruning));
-			numConfs = nodes.size();
 		}
 		
 		long initialTimeNs = getAvgMinimizationTimeNs()*initialNumConfs;
