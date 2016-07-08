@@ -3,6 +3,7 @@ package edu.duke.cs.osprey.ematrix;
 import java.util.ArrayList;
 
 import cern.colt.matrix.DoubleMatrix1D;
+import edu.duke.cs.osprey.confspace.AbstractTupleMatrix;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.energy.EnergyFunction;
@@ -109,25 +110,39 @@ public class SimpleEnergyCalculator {
 	
 	public void calcMatrices(EnergyMatrix emat, DofMatrix dofmat) {
 		
-		// make sure emat and dofmat match
-		if (emat.getNumPos() != dofmat.getNumPos()) {
-			throw new IllegalArgumentException("emat and dofmat must match size!");
-		} else {
-			for (int i=0; i<emat.getNumPos(); i++) {
-				if (emat.getNumConfAtPos(i) != dofmat.getNumConfAtPos(i)) {
-					throw new IllegalArgumentException("emat and dofmat must match size!");
+		if (emat != null && dofmat != null) {
+			
+			// make sure emat and dofmat match
+			if (emat.getNumPos() != dofmat.getNumPos()) {
+				throw new IllegalArgumentException("emat and dofmat must match size!");
+			} else {
+				for (int i=0; i<emat.getNumPos(); i++) {
+					if (emat.getNumConfAtPos(i) != dofmat.getNumConfAtPos(i)) {
+						throw new IllegalArgumentException("emat and dofmat must match size!");
+					}
 				}
 			}
+		}
+		
+		AbstractTupleMatrix<?> sizemat = null;
+		if (emat != null) {
+			sizemat = emat;
+		}
+		if (dofmat != null) {
+			sizemat = dofmat;
+		}
+		if (sizemat == null) {
+			throw new IllegalArgumentException("emat and dofmat cannot both be null");
 		}
 		
 		Result result;
 		
 		System.out.println("Calculating energies with shell distribution: " + dist);
-		for (int pos1=0; pos1<emat.getNumPos(); pos1++) {
+		for (int pos1=0; pos1<sizemat.getNumPos(); pos1++) {
 			
 			// singles
 			System.out.println(String.format("calculating single energy %d...", pos1));
-			for (int rc1=0; rc1<emat.getNumConfAtPos(pos1); rc1++) {
+			for (int rc1=0; rc1<sizemat.getNumConfAtPos(pos1); rc1++) {
 				
 				result = calcSingle(pos1, rc1);
 				
@@ -142,8 +157,8 @@ public class SimpleEnergyCalculator {
 			// pairwise
 			for (int pos2=0; pos2<pos1; pos2++) {
 				System.out.println(String.format("calculating pair energy %d,%d...", pos1, pos2));
-				for (int rc1=0; rc1<emat.getNumConfAtPos(pos1); rc1++) {
-					for (int rc2=0; rc2<emat.getNumConfAtPos(pos2); rc2++) {
+				for (int rc1=0; rc1<sizemat.getNumConfAtPos(pos1); rc1++) {
+					for (int rc2=0; rc2<sizemat.getNumConfAtPos(pos2); rc2++) {
 						
 						result = calcPair(pos1, rc1, pos2, rc2);
 						
