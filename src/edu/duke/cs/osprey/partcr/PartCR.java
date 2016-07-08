@@ -100,10 +100,18 @@ public class PartCR {
 			
 			// based on timing info, how many nodes should we prune this iteration?
 			int targetPruning = (int)(getAvgIterationTimeNs()/getAvgMinimizationTimeNs());
-			
-			// did we prune enough to keep iterating?
 			int numPruned = numConfs - nodes.size();
 			numConfs = nodes.size();
+			
+			// are there even that many conformations left?
+			if (numConfs <= targetPruning) {
+				System.out.println(String.format("Pruned %d/%d conformations. Only %d conformations left, time to stop.",
+					numPruned, targetPruning, numConfs
+				));
+				break;
+			}
+			
+			// did we prune enough to keep iterating?
 			if (numPruned < targetPruning) {
 				
 				numStrikes++;

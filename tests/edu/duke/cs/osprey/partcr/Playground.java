@@ -46,20 +46,27 @@ public class Playground extends TestBase {
 		MultiTermEnergyFunction.setNumThreads(4);
 		
 		// make the search problem
-		//String aaNames = "ALA VAL LEU ILE PHE TYR TRP CYS MET SER THR LYS ARG HIE HID ASP GLU ASN GLN GLY";
+		String aaNames = "ALA VAL LEU ILE PHE TYR TRP CYS MET SER THR LYS ARG HIE HID ASP GLU ASN GLN GLY";
 		//String aaNames = "ALA VAL LEU ILE GLU ASN GLN GLY";
-		String aaNames = "ALA VAL LEU ILE";
-		//String aaNames = "ALA ARG";
-		String flexRes = "38 39 40 41 42 43 44";
+		//String aaNames = "ALA VAL LEU ILE";
+		//String aaNames = "ALA";
+		String mutRes = "39 43";
+		//String flexRes = "38 39 40 41 42 43 44";
+		String flexRes = "38 40 41 42 44";
 		//String flexRes = "38 39 40 41";
-		//String flexRes = "41 42 43 44";
-		ArrayList<String> flexResList = new ArrayList<>(Arrays.asList(flexRes.split(" ")));
+		//String flexRes = "38 39";
+		ArrayList<String> flexResList = new ArrayList<>();
 		ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
-		for (int i=0; i<flexResList.size(); i++) {
+		for (String res : mutRes.split(" ")) {
+			flexResList.add(res);
 			allowedAAs.add(new ArrayList<>(Arrays.asList(aaNames.split(" "))));
 		}
+		for (String res : flexRes.split(" ")) {
+			flexResList.add(res);
+			allowedAAs.add(new ArrayList<>());
+		}
 		boolean doMinimize = true;
-		boolean addWt = false;
+		boolean addWt = true;
 		boolean useEpic = false;
 		boolean useTupleExpansion = false;
 		boolean useEllipses = false;

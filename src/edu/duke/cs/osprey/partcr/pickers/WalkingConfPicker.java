@@ -43,6 +43,8 @@ public class WalkingConfPicker implements ConfPicker {
 			// yeah, but took much, so look to the next node
 		}
 		
-		throw new IllegalStateException("ran out of conformations, can't pick one");
+		// we ran out of conformations, start over
+		iteratedNodes.clear();
+		return pick(nodes);
 	}
 }
