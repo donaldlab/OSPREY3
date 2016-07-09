@@ -1,6 +1,8 @@
 package edu.duke.cs.osprey.astar.conf;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.PriorityQueue;
 
 import edu.duke.cs.osprey.astar.AStarProgress;
@@ -51,9 +53,7 @@ public class ConfAStarTree implements ConfSearch {
 
 	@Override
 	public int[] nextConf() {
-		int[] conf = new int[rcs.getNumPos()];
-		nextLeafNode().getConf(conf);
-		return conf;
+		return nextLeafNode().makeConf(rcs.getNumPos());
 	}
 	
 	public ConfAStarNode nextLeafNode() {
@@ -131,6 +131,33 @@ public class ConfAStarTree implements ConfSearch {
             	progress.reportNode(node.getLevel(), node.getGScore(), node.getHScore(), queue.size(), numChildren);
             }
 		}
+	}
+	
+	public List<ConfAStarNode> nextLeafNodes(double maxEnergy) {
+		List<ConfAStarNode> nodes = new ArrayList<>();
+		while (true) {
+			
+			ConfAStarNode node = nextLeafNode();
+			if (node == null) {
+				break;
+			}
+			
+			nodes.add(node);
+			
+			if (node.getGScore() >= maxEnergy) {
+				break;
+			}
+		}
+		return nodes;
+	}
+	
+	@Override
+	public List<int[]> nextConfs(double maxEnergy) {
+		List<int[]> confs = new ArrayList<>();
+		for (ConfAStarNode node : nextLeafNodes(maxEnergy)) {
+			confs.add(node.makeConf(rcs.getNumPos()));
+		}
+		return confs;
 	}
 	
 	private boolean hasPrunedPair(ConfIndex confIndex, int nextPos, int nextRc) {

@@ -4,7 +4,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.TreeMap;
 
-import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -22,7 +21,7 @@ public class PartCR {
 	private SearchProblem search;
 	private double Ew;
 	private SimpleEnergyCalculator ecalc;
-	private List<ConfAStarNode> nodes;
+	private List<int[]> confs;
 	private SplitWorld splitWorld;
 	private ConfPicker picker;
 	private RCScorer scorer;
@@ -32,12 +31,12 @@ public class PartCR {
 	private long iterationNs;
 	private int numIterations;
 	
-	public PartCR(SearchProblem search, double Ew, SimpleEnergyCalculator ecalc, List<ConfAStarNode> nodes) {
+	public PartCR(SearchProblem search, double Ew, SimpleEnergyCalculator ecalc, List<int[]> confs) {
 		
 		this.search = search;
 		this.Ew = Ew;
 		this.ecalc = ecalc;
-		this.nodes = nodes;
+		this.confs = confs;
 		
 		// make a separate conf space for splitting RCs
 		splitWorld = new SplitWorld(search, ecalc.getEnergyFunctionGenerator(), ecalc.getShellDistribution());
@@ -67,8 +66,8 @@ public class PartCR {
 		splitter = val;
 	}
 	
-	public List<ConfAStarNode> getNodes() {
-		return nodes;
+	public List<int[]> getConfs() {
+		return confs;
 	}
 	
 	public long getAvgMinimizationTimeNs() {
@@ -89,7 +88,7 @@ public class PartCR {
 		// the basic idea here is to keep iterating as long as
 		// we can prune conformations faster than it takes to enumerate/minimize them
 		
-		int initialNumConfs = nodes.size();
+		int initialNumConfs = confs.size();
 		int numConfs = initialNumConfs;
 		long startTimeNs = System.nanoTime();
 		int numStrikes = 0;
@@ -100,8 +99,8 @@ public class PartCR {
 			
 			// based on timing info, how many nodes should we prune this iteration?
 			int targetPruning = (int)(getAvgIterationTimeNs()/getAvgMinimizationTimeNs());
-			int numPruned = numConfs - nodes.size();
-			numConfs = nodes.size();
+			int numPruned = numConfs - confs.size();
+			numConfs = confs.size();
 			
 			// are there even that many conformations left?
 			if (numConfs <= targetPruning) {
@@ -156,21 +155,20 @@ public class PartCR {
 		int numPos = splitWorld.getSearchProblem().confSpace.numPos;
 		
 		// pick a conformation to analyze
-		int[] conf = new int[numPos];
-		picker.pick(nodes).getConf(conf);
+		int[] analyzeConf = picker.pick(confs);
 		
 		// analyze the conf and put our protein in the minimized conformation
 		// NOTE: it's very important that the protein be in the minimized conformation to calculate bound errors correctly
-		double boundEnergy = calcBoundEnergy(conf);
+		double boundEnergy = calcBoundEnergy(analyzeConf);
 		System.out.println("minimizing conformation...");
 		long startMinNs = System.nanoTime();
-		double minimizedEnergy = calcMinimizedEnergy(conf);
+		double minimizedEnergy = calcMinimizedEnergy(analyzeConf);
 		long diffMinNs = System.nanoTime() - startMinNs;
 		minimizationNs += diffMinNs;
 		
 		if (numIterations == 1) {
 			System.out.println(String.format("initial conformations: %d, estimated time to enumerate: %s",
-				nodes.size(), TimeFormatter.format(getAvgMinimizationTimeNs()*nodes.size(), 1)
+				confs.size(), TimeFormatter.format(getAvgMinimizationTimeNs()*confs.size(), 1)
 			));
 		}
 		
@@ -181,9 +179,9 @@ public class PartCR {
 		double minimizedEnergyCheck = 0;
 		TreeMap<Double,Integer> positionsByScore = new TreeMap<>();
 		for (int pos=0; pos<numPos; pos++) {
-			RC rcObj = splitWorld.getSearchProblem().confSpace.posFlex.get(pos).RCs.get(conf[pos]);
+			RC rcObj = splitWorld.getSearchProblem().confSpace.posFlex.get(pos).RCs.get(analyzeConf[pos]);
 			
-			double posBoundEnergy = calcPosBoundEnergy(conf, pos);
+			double posBoundEnergy = calcPosBoundEnergy(analyzeConf, pos);
 			double posMinimizedEnergy = calcPosMinimizedEnergy(pos);
 			
 			boundEnergyCheck += posBoundEnergy;
@@ -202,22 +200,22 @@ public class PartCR {
 		// split the RC at the position with the highest score
 		System.out.println("splitting residue conformation...");
 		int splitPos = positionsByScore.lastEntry().getValue();
-		RC rcObj = splitWorld.getRC(splitPos, conf[splitPos]);
+		RC rcObj = splitWorld.getRC(splitPos, analyzeConf[splitPos]);
 		List<RC> splitRCs = splitter.split(splitPos, rcObj);
 		splitWorld.replaceRc(splitPos, rcObj, splitRCs);
 		
 		// update energy matrix
 		System.out.println("updating matrices...");
-		splitWorld.updateMatrices(nodes.get(0).getGScore(), bestMinimizedEnergy, Ew);
+		splitWorld.updateMatrices(calcBoundEnergy(analyzeConf), bestMinimizedEnergy, Ew);
 		
 		// prune nodes based on the new bounds
 		System.out.println("pruning conformations...");
-		Iterator<ConfAStarNode> iter = nodes.iterator();
+		Iterator<int[]> iter = confs.iterator();
 		while (iter.hasNext()) {
-			ConfAStarNode node = iter.next();
+			int[] conf = iter.next();
 			
 			// use the split world to get a tighter bound
-			double improvedBoundEnergy = splitWorld.improveNode(node).getGScore();
+			double improvedBoundEnergy = splitWorld.improveBound(conf);
 			
 			// if the new bound pushes the node over the threshold, prune it
 			if (improvedBoundEnergy > bestMinimizedEnergy + Ew) {
@@ -230,7 +228,7 @@ public class PartCR {
 		iterationNs += diffIterNs;
 		
 		System.out.println(String.format("conformations remaining: %d, estimated time to enumerate: %s",
-			nodes.size(), TimeFormatter.format(getAvgMinimizationTimeNs()*nodes.size(), 1)
+			confs.size(), TimeFormatter.format(getAvgMinimizationTimeNs()*confs.size(), 1)
 		));
 	}
 	

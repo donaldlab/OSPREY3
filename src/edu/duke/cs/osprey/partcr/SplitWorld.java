@@ -3,7 +3,6 @@ package edu.duke.cs.osprey.partcr;
 import java.util.ArrayList;
 import java.util.List;
 
-import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
@@ -166,10 +165,7 @@ public class SplitWorld {
 		}
 	}
 	
-	public RCs makeRCs(ConfAStarNode leafNode) {
-		
-		int[] conf = new int[search.confSpace.numPos];
-		leafNode.getConf(conf);
+	public RCs makeRCs(int[] conf) {
 		
 		// make a pruning matrix that only leaves the parent rc at unsplit positions
 		// and the split rcs at the split positions
@@ -202,11 +198,11 @@ public class SplitWorld {
 		return new RCs(pruneMat);
 	}
 
-	public ConfAStarNode improveNode(ConfAStarNode node) {
-		RCs subRcs = makeRCs(node);
+	public double improveBound(int[] conf) {
+		RCs subRcs = makeRCs(conf);
 		AStarOrder order = new StaticScoreHMeanAStarOrder();
 		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001);
 		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, subRcs);
-		return tree.nextLeafNode();
+		return tree.nextLeafNode().getGScore();
 	}
 }

@@ -1,15 +1,17 @@
 package edu.duke.cs.osprey.partcr.pickers;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
+import java.util.stream.Collectors;
 
 public class WalkingConfPicker implements ConfPicker {
 
 	private int numItersPerConf;
-	private Map<ConfAStarNode,Integer> iteratedNodes;
+	
+	// NOTE: don't use int[] as the key value, primitive arrays doesn't have a good hashCode() method
+	private Map<List<Integer>,Integer> pickedConfs;
 	
 	public WalkingConfPicker() {
 		this(1);
@@ -17,34 +19,38 @@ public class WalkingConfPicker implements ConfPicker {
 	
 	public WalkingConfPicker(int numItersPerConf) {
 		this.numItersPerConf = numItersPerConf;
-		iteratedNodes = new HashMap<>(); // yeah, ok to match on instance
+		pickedConfs = new HashMap<>(); // yeah, ok to match on instance
 	}
 
 	@Override
-	public ConfAStarNode pick(List<ConfAStarNode> nodes) {
+	public int[] pick(List<int[]> confs) {
 		
-		for (ConfAStarNode node : nodes) {
-		
-			// have we iterated this node/conf yet?
-			Integer numIters = iteratedNodes.get(node);
+		for (int[] conf : confs) {
+			
+			// use Java 8 magic to convert the array to a list
+			// sadly, Arrays.toList() won't work here =(
+			List<Integer> confList = Arrays.stream(conf).boxed().collect(Collectors.toList());
+			
+			// have we picked this conf yet?
+			Integer numIters = pickedConfs.get(confList);
 			if (numIters == null) {
 				
 				// nope, let's start
-				iteratedNodes.put(node, 1);
-				return node;
+				pickedConfs.put(confList, 1);
+				return conf;
 				
 			} else if (numIters < numItersPerConf) {
 				
 				// yup, but not enough
-				iteratedNodes.put(node, numIters + 1);
-				return node;
+				pickedConfs.put(confList, numIters + 1);
+				return conf;
 			}
 			
-			// yeah, but took much, so look to the next node
+			// yeah, but picked it too much already, so look to the next conf
 		}
 		
-		// we ran out of conformations, start over
-		iteratedNodes.clear();
-		return pick(nodes);
+		// we ran out of confs, start over
+		pickedConfs.clear();
+		return pick(confs);
 	}
 }

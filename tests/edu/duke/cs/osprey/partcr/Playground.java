@@ -6,7 +6,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import edu.duke.cs.osprey.TestBase;
-import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
@@ -46,9 +45,9 @@ public class Playground extends TestBase {
 		MultiTermEnergyFunction.setNumThreads(4);
 		
 		// make the search problem
-		String aaNames = "ALA VAL LEU ILE PHE TYR TRP CYS MET SER THR LYS ARG HIE HID ASP GLU ASN GLN GLY";
+		//String aaNames = "ALA VAL LEU ILE PHE TYR TRP CYS MET SER THR LYS ARG HIE HID ASP GLU ASN GLN GLY";
 		//String aaNames = "ALA VAL LEU ILE GLU ASN GLN GLY";
-		//String aaNames = "ALA VAL LEU ILE";
+		String aaNames = "ALA VAL LEU ILE";
 		//String aaNames = "ALA";
 		String mutRes = "39 43";
 		//String flexRes = "38 39 40 41 42 43 44";
@@ -143,8 +142,8 @@ public class Playground extends TestBase {
 			
 		// estimate how many confs there are between the min bound and the min GMEC
 		System.out.println("estimating conformations...");
-		List<ConfAStarNode> nodes = enumerateConformations(tree, minimizedEnergy);
-		int minBoundCount = nodes.size();
+		List<int[]> confs = tree.nextConfs(minimizedEnergy);
+		int minBoundCount = confs.size();
 		minBoundCounts.add(minBoundCount);
 		
 		// TODO: some enterprising student could try to optimize the PartCR configuration
@@ -163,7 +162,7 @@ public class Playground extends TestBase {
 		//RCSplitter splitter = new BinaryRCSplitter();
 		
 		double Ew = 0;
-		PartCR pcr = new PartCR(search, Ew, ecalc, nodes);
+		PartCR pcr = new PartCR(search, Ew, ecalc, confs);
 		pcr.setPicker(picker);
 		pcr.setScorer(scorer);
 		pcr.setSplitter(splitter);
@@ -171,20 +170,5 @@ public class Playground extends TestBase {
 		// run it!!
 		int numStrikes = 3;
 		pcr.autoIterate(numStrikes);
-	}
-	
-	private static List<ConfAStarNode> enumerateConformations(ConfAStarTree tree, double minimizedEnergy) {
-		List<ConfAStarNode> nodes = new ArrayList<>();
-		while (true) {
-			ConfAStarNode node = tree.nextLeafNode();
-			if (node == null) {
-				break;
-			}
-			nodes.add(node);
-			if (node.getGScore() >= minimizedEnergy) {
-				break;
-			}
-		}
-		return nodes;
 	}
 }
