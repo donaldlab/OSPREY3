@@ -70,13 +70,19 @@ public class ResidueTemplate implements Serializable {
         newTemplate.initializeRotamerArrays();
         newTemplate.dihedral4Atoms = oldTemplate.dihedral4Atoms;
         newTemplate.numDihedrals = oldTemplate.numDihedrals;
-        newTemplate.setNumRotamers(1);
-
         //measure dihedral for wt conf
         double[][] wtDihedrals = new double[1][newTemplate.numDihedrals];
         for (int i = 0; i < residue.getNumDihedrals(); i++) {
-            wtDihedrals[1][i] = residue.getDihedralAngle(i);
+            wtDihedrals[0][i] = residue.getDihedralAngle(i);
         }
+        for (int phiBin =0; phiBin<newTemplate.numberOfPhiPsiBins; phiBin++){
+            for (int psiBin = 0; psiBin<newTemplate.numberOfPhiPsiBins; psiBin++){
+                newTemplate.numRotamers[phiBin][psiBin] = 1;
+                newTemplate.rotamericDihedrals[phiBin][psiBin] = wtDihedrals;
+            }
+        }
+
+
 
         newTemplate.setRotamericDihedrals(wtDihedrals);
         newTemplate.computeDihedralMovingAtoms();

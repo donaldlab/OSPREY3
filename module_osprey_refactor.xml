@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="module_osprey_refactor" default="compile.module.osprey_refactor">
+  <dirname property="module.osprey_refactor.basedir" file="${ant.file.module_osprey_refactor}"/>
+  
+  <property name="module.jdk.home.osprey_refactor" value="${project.jdk.home}"/>
+  <property name="module.jdk.bin.osprey_refactor" value="${project.jdk.bin}"/>
+  <property name="module.jdk.classpath.osprey_refactor" value="${project.jdk.classpath}"/>
+  
+  <property name="compiler.args.osprey_refactor" value="-encoding UTF-8 -source 8 -target 8 ${compiler.args}"/>
+  
+  <property name="osprey_refactor.output.dir" value="${module.osprey_refactor.basedir}/out/production/OSPREY_refactor"/>
+  <property name="osprey_refactor.testoutput.dir" value="${module.osprey_refactor.basedir}/out/test/OSPREY_refactor"/>
+  
+  <path id="osprey_refactor.module.bootclasspath">
+    <!-- Paths to be included in compilation bootclasspath -->
+  </path>
+  
+  <path id="osprey_refactor.module.production.classpath">
+    <path refid="${module.jdk.classpath.osprey_refactor}"/>
+    <path refid="library.junit_4.classpath"/>
+    <path refid="library.lib.classpath"/>
+    <path refid="library.lib1.classpath"/>
+  </path>
+  
+  <path id="osprey_refactor.runtime.production.module.classpath">
+    <pathelement location="${osprey_refactor.output.dir}"/>
+    <path refid="library.junit_4.classpath"/>
+    <path refid="library.lib.classpath"/>
+    <path refid="library.lib1.classpath"/>
+  </path>
+  
+  <path id="osprey_refactor.module.classpath">
+    <path refid="${module.jdk.classpath.osprey_refactor}"/>
+    <pathelement location="${osprey_refactor.output.dir}"/>
+    <path refid="library.junit_4.classpath"/>
+    <path refid="library.lib.classpath"/>
+    <path refid="library.lib1.classpath"/>
+  </path>
+  
+  <path id="osprey_refactor.runtime.module.classpath">
+    <pathelement location="${osprey_refactor.testoutput.dir}"/>
+    <pathelement location="${osprey_refactor.output.dir}"/>
+    <path refid="library.junit_4.classpath"/>
+    <path refid="library.lib.classpath"/>
+    <path refid="library.lib1.classpath"/>
+  </path>
+  
+  
+  <patternset id="excluded.from.module.osprey_refactor">
+    <patternset refid="ignored.files"/>
+  </patternset>
+  
+  <patternset id="excluded.from.compilation.osprey_refactor">
+    <patternset refid="excluded.from.module.osprey_refactor"/>
+  </patternset>
+  
+  <path id="osprey_refactor.module.sourcepath">
+    <dirset dir="${module.osprey_refactor.basedir}">
+      <include name="src"/>
+    </dirset>
+  </path>
+  
+  
+  <target name="compile.module.osprey_refactor" depends="compile.module.osprey_refactor.production,compile.module.osprey_refactor.tests" description="Compile module OSPREY_refactor"/>
+  
+  <target name="compile.module.osprey_refactor.production" depends="register.custom.compilers" description="Compile module OSPREY_refactor; production classes">
+    <mkdir dir="${osprey_refactor.output.dir}"/>
+    <javac2 destdir="${osprey_refactor.output.dir}" debug="${compiler.debug}" nowarn="${compiler.generate.no.warnings}" memorymaximumsize="${compiler.max.memory}" fork="true" executable="${module.jdk.bin.osprey_refactor}/javac">
+      <compilerarg line="${compiler.args.osprey_refactor}"/>
+      <bootclasspath refid="osprey_refactor.module.bootclasspath"/>
+      <classpath refid="osprey_refactor.module.production.classpath"/>
+      <src refid="osprey_refactor.module.sourcepath"/>
+      <patternset refid="excluded.from.compilation.osprey_refactor"/>
+    </javac2>
+    
+    <copy todir="${osprey_refactor.output.dir}">
+      <fileset dir="${module.osprey_refactor.basedir}/src">
+        <patternset refid="compiler.resources"/>
+        <type type="file"/>
+      </fileset>
+    </copy>
+  </target>
+  
+  <target name="compile.module.osprey_refactor.tests" depends="register.custom.compilers,compile.module.osprey_refactor.production" description="compile module OSPREY_refactor; test classes" unless="skip.tests"/>
+  
+  <target name="clean.module.osprey_refactor" description="cleanup module">
+    <delete dir="${osprey_refactor.output.dir}"/>
+    <delete dir="${osprey_refactor.testoutput.dir}"/>
+  </target>
+</project>

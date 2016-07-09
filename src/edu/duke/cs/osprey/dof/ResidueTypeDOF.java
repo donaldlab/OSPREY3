@@ -134,9 +134,88 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
                 + " as argument; can't take "+paramVal);
     }
     
-    
-    
-    
-    
-    
+
+    public ResidueTemplate getLibraryTemplate(String resType) {
+        return EnvironmentVars.resTemplates.getTemplateForMutation(resType, res, true);
+    }
+
+    public boolean isTemplate(ResidueTemplate template){
+        return this.res.template == template;
+    }
+
+    public void switchToTemplate(ResidueTemplate newTemplate) {
+        ResidueTemplate oldTemplate = res.template;
+
+        //the residue's going to change some, so break its inter-residue bonds
+        res.removeInterResBonds();
+        res.intraResBondsMarked = false;//we'll need to redo these too
+
+        res.template = newTemplate;
+
+        res.fullName = newTemplate.name + res.fullName.substring(3);
+        //res type name is first three characters of full name
+
+
+        //coordinates will come from the template,
+        //but we'll move them as a rigid body to match the backbone atoms
+        int[][] mutAlignAtoms = HardCodedResidueInfo.findMutAlignmentAtoms(oldTemplate,newTemplate);
+        //2x4 array of which atoms are used in the old and new residues to align
+        //to do the mutation
+
+        double oldMAACoords[][] = extractCoords(mutAlignAtoms[0],res.coords);
+        //coordinates of the atoms in the old residue to align
+
+        double newCoords[] = newTemplate.templateRes.coords.clone();
+        double templateMAACords[][] = extractCoords(mutAlignAtoms[1],newCoords);
+
+        //we now construct a rigid-body motion that will map the sidechain (or generally,
+        //the non-"backbone" part, if not a standard amino acid) from the template to the residue's
+        //curent frame of reference
+        RigidBodyMotion templMotion = new RigidBodyMotion(templateMAACords,oldMAACoords);
+
+        templMotion.transform(newCoords);
+
+        //the backbone atoms will be kept exactly as before the mutation
+        //if the sidechain attaches only to the first mutAlignAtom, this method keeps bond lengths
+        //exactly as in the template for sidechain, and as in the old backbone otherwise
+        ArrayList<String> BBAtomNames =  HardCodedResidueInfo.listBBAtomsForMut(newTemplate,oldTemplate);
+        for(String BBAtomName : BBAtomNames){
+            int BBAtomIndexOld = oldTemplate.templateRes.getAtomIndexByName(BBAtomName);
+            int BBAtomIndexNew = newTemplate.templateRes.getAtomIndexByName(BBAtomName);
+
+            //copy coordinates of the BB atom from old to new coordinates
+            System.arraycopy(res.coords, 3*BBAtomIndexOld, newCoords, 3*BBAtomIndexNew, 3);
+        }
+
+        res.coords = newCoords;
+
+        //finally, update atoms in res to match new template
+        ArrayList<Atom> newAtoms = new ArrayList<>();
+        for(Atom at : newTemplate.templateRes.atoms){
+            Atom newAtom = at.copy();
+            newAtom.res = res;
+            newAtoms.add(newAtom);
+        }
+        res.atoms = newAtoms;
+
+        //reconnect all bonds
+        res.markIntraResBondsByTemplate();
+        HardCodedResidueInfo.reconnectInterResBonds(res);
+
+        //special case if sidechain loops back in additional place to backbone...
+        if(oldTemplate.name.equalsIgnoreCase("PRO") || newTemplate.name.equalsIgnoreCase("PRO")){
+            SidechainIdealizer.idealizeSidechain(res);
+            if(!newTemplate.name.equalsIgnoreCase("PRO")){//if mutating from Pro, no ring closure issues possible anymore
+                if(res.pucker!=null){
+                    if(res.pucker.puckerProblem != null){
+                        res.pucker.puckerProblem.removeFromRes();
+                        res.pucker.puckerProblem = null;
+                    }
+                }
+            }
+        }
+    }
+
+
+
 }

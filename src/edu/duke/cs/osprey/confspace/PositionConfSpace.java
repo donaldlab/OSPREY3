@@ -21,11 +21,11 @@ import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.*;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
- *
  * @author mhall44
  */
 public class PositionConfSpace implements Serializable {
@@ -50,9 +50,9 @@ public class PositionConfSpace implements Serializable {
     ArrayList<EllipseCoordDOF> ellipsoidalDOFs = new ArrayList<>();
 
     public PositionConfSpace(int pos, Residue res, ArrayList<DegreeOfFreedom> resDOFs, ArrayList<String> allowedAAs,
-            boolean contSCFlex, ArrayList<DegreeOfFreedom> strandDOFs,
-            ArrayList<Perturbation> perts, ArrayList<ArrayList<double[]>> pertIntervals,
-            ArrayList<ArrayList<int[]>> pertStates, BBFreeBlock bfb, boolean useEllipses, ResidueTemplate wtRots) {
+                             boolean contSCFlex, ArrayList<DegreeOfFreedom> strandDOFs,
+                             ArrayList<Perturbation> perts, ArrayList<ArrayList<double[]>> pertIntervals,
+                             ArrayList<ArrayList<int[]>> pertStates, BBFreeBlock bfb, boolean useEllipses, ResidueTemplate wtRots) {
 
         //We'll start with just one RC for each rotamer
         //But in general there are a lot of options for RCs...
@@ -66,6 +66,8 @@ public class PositionConfSpace implements Serializable {
         }
 
         // add RCs for wt rots?
+
+
         if (wtRots != null) {
             for (int i = 0; i < wtRots.getNumRotamers(); i++) {
 
@@ -79,61 +81,73 @@ public class PositionConfSpace implements Serializable {
                 // make the RC for each perturbation state
                 boolean rotUsesEllipses = useEllipses && (res.template.numDihedrals > 1);//ellipses only meaningful if > 1 dihedral
                 for (ArrayList<int[]> pertState : pertStates) {
-                    RC rc = createRC(dihedrals, res.template.name, wtRots, i, contSCFlex, dofListForRot, -1, strandDOFs,
-                            bfb, pertState, perts, pertIntervals, rotUsesEllipses);
-                    wtRCs.add(rc);
+                    //HMN: Should we also add wt template (i.e. coordinates) ?
+                    if (true) {
+                        RC rc = createRC(dihedrals, res.template.name, wtRots, i, contSCFlex, dofListForRot, -1, strandDOFs,
+                                bfb, pertState, perts, pertIntervals, rotUsesEllipses);
+                    } else {
+                        RC rc = createRC(dihedrals, res.template.name, null, i, contSCFlex, dofListForRot, -1, strandDOFs,
+                                bfb, pertState, perts, pertIntervals, rotUsesEllipses);
+                    }
                 }
+                wtRCs.add(rc);
             }
         }
+    }
 
-        for (String AAType : allowedAAs) {
-            int numDihedrals = templateLib.numDihedralsForResType(AAType);
+    for(
+    String AAType
+    :allowedAAs)
 
-            //	Compute phi and psi, necessary for backbone dependent rotamers.        
-            double[] phipsi = Protractor.getPhiPsi(this.res);
-            int numRot = templateLib.numRotForResType(designIndex, AAType, phipsi[0], phipsi[1]);
+    {
+        int numDihedrals = templateLib.numDihedralsForResType(AAType);
 
-            //resDOFs is all sidechain DOFs, for now
-            ArrayList<DegreeOfFreedom> dofListForRot = new ArrayList<>();
-            for (int dih = 0; dih < numDihedrals; dih++)//get the first numDihedrals dihedrals
-            {
-                dofListForRot.add(resDOFs.get(dih));
-            }
+        //	Compute phi and psi, necessary for backbone dependent rotamers.
+        double[] phipsi = Protractor.getPhiPsi(this.res);
+        int numRot = templateLib.numRotForResType(designIndex, AAType, phipsi[0], phipsi[1]);
 
-            for (ArrayList<int[]> pertState : pertStates) {
+        //resDOFs is all sidechain DOFs, for now
+        ArrayList<DegreeOfFreedom> dofListForRot = new ArrayList<>();
+        for (int dih = 0; dih < numDihedrals; dih++)//get the first numDihedrals dihedrals
+        {
+            dofListForRot.add(resDOFs.get(dih));
+        }
 
-                if (AAType.equalsIgnoreCase("PRO")) {//special case: has ring pucker
-                    //If PRO is set to be flexible we'll assume this includes pucker flexibility
-                    //(the main flexibility of proline)
-                    for (int puckerVal : new int[]{0, 1}) {//create both puckers
-                        createRC(null, AAType, null, -1, contSCFlex, dofListForRot, puckerVal,
-                                strandDOFs, bfb, pertState, perts, pertIntervals, false);
+        for (ArrayList<int[]> pertState : pertStates) {
+
+            if (AAType.equalsIgnoreCase("PRO")) {//special case: has ring pucker
+                //If PRO is set to be flexible we'll assume this includes pucker flexibility
+                //(the main flexibility of proline)
+                for (int puckerVal : new int[]{0, 1}) {//create both puckers
+                    createRC(null, AAType, null, -1, contSCFlex, dofListForRot, puckerVal,
+                            strandDOFs, bfb, pertState, perts, pertIntervals, false);
+                }
+            } else if (numRot == 0) {//ALA or GLY: no rotamers or dihedrals, so create a single rigid RC (or one for each pert state)
+                createRC(null, AAType, null, -1, contSCFlex, dofListForRot, -1, strandDOFs, bfb,
+                        pertState, perts, pertIntervals, false);
+            } else {
+                boolean AATypeUsesEllipses = useEllipses && (numDihedrals > 1);//ellipses only meaningful if > 1 dihedral
+
+                for (int rot = 0; rot < numRot; rot++) {
+
+                    // get rotamer dihedrals
+                    double[] dihedrals = new double[numDihedrals];
+                    for (int i = 0; i < numDihedrals; i++) {
+                        dihedrals[i] = templateLib.getDihedralForRotamer(designIndex, AAType, phipsi[0], phipsi[1], rot, i);
                     }
-                } else if (numRot == 0) {//ALA or GLY: no rotamers or dihedrals, so create a single rigid RC (or one for each pert state)
-                    createRC(null, AAType, null, -1, contSCFlex, dofListForRot, -1, strandDOFs, bfb,
-                            pertState, perts, pertIntervals, false);
-                } else {
-                    boolean AATypeUsesEllipses = useEllipses && (numDihedrals > 1);//ellipses only meaningful if > 1 dihedral
 
-                    for (int rot = 0; rot < numRot; rot++) {
-
-                        // get rotamer dihedrals
-                        double[] dihedrals = new double[numDihedrals];
-                        for (int i = 0; i < numDihedrals; i++) {
-                            dihedrals[i] = templateLib.getDihedralForRotamer(designIndex, AAType, phipsi[0], phipsi[1], rot, i);
-                        }
-
-                        createRC(dihedrals, AAType, null, rot, contSCFlex, dofListForRot, -1, strandDOFs,
-                                bfb, pertState, perts, pertIntervals, AATypeUsesEllipses);
-                    }
+                    createRC(dihedrals, AAType, null, rot, contSCFlex, dofListForRot, -1, strandDOFs,
+                            bfb, pertState, perts, pertIntervals, AATypeUsesEllipses);
                 }
             }
         }
     }
 
+}
+
     private RC createRC(double[] dihedrals, String AAType, ResidueTemplate template, int rot, boolean contSCFlex, ArrayList<DegreeOfFreedom> dofListForRot,
-            int proPucker, ArrayList<DegreeOfFreedom> strandDOFs, BBFreeBlock bfb, ArrayList<int[]> pertState,
-            ArrayList<Perturbation> perts, ArrayList<ArrayList<double[]>> pertIntervals, boolean useEllipses) {
+                        int proPucker, ArrayList<DegreeOfFreedom> strandDOFs, BBFreeBlock bfb, ArrayList<int[]> pertState,
+                        ArrayList<Perturbation> perts, ArrayList<ArrayList<double[]>> pertIntervals, boolean useEllipses) {
 
         //Create an RC with the specified rotamer and (if set) perturbation state
         //create RC
@@ -175,74 +189,72 @@ public class PositionConfSpace implements Serializable {
         return newRC;
     }
 
-        private void boundRotDOFs(ArrayList<Double> dofLB, ArrayList<Double> dofUB,
-            boolean contSCFlex, double[] dihedrals, ArrayList<EllipseCoordDOF> ellCoords, boolean useEllipses){
+    private void boundRotDOFs(ArrayList<Double> dofLB, ArrayList<Double> dofUB,
+                              boolean contSCFlex, double[] dihedrals, ArrayList<EllipseCoordDOF> ellCoords, boolean useEllipses) {
         //Put the bounds on a rotamer's degrees of freedom (dihedrals or ellipsoidal DOFs) in dofLB and dofUB
-        
-        for(int dih=0; dih<dihedrals.length; dih++){
-            if(useEllipses){
+
+        for (int dih = 0; dih < dihedrals.length; dih++) {
+            if (useEllipses) {
                 if (contSCFlex) {
                     dofLB.add(ellipseMin);
                     double radMax = 30;
-                    dofUB.add((dih==0) ? radMax : // TODO: make this better
-                                    (dih==dihedrals.length-1) ? ellipseFinAngMax : ellipseAngMax);
+                    dofUB.add((dih == 0) ? radMax : // TODO: make this better
+                            (dih == dihedrals.length - 1) ? ellipseFinAngMax : ellipseAngMax);
                 } else {
                     dofLB.add(ellCoords.get(dih).getCurVal());
                     dofUB.add(ellCoords.get(dih).getCurVal());
                 }
-            }
-            else {
-                if(contSCFlex){//allow continuous flexibility up to dihedFlexInterval in each direction
-                    dofLB.add(dihedrals[dih]-dihedFlexInterval);
-                    dofUB.add(dihedrals[dih]+dihedFlexInterval);
-                }
-                else {
+            } else {
+                if (contSCFlex) {//allow continuous flexibility up to dihedFlexInterval in each direction
+                    dofLB.add(dihedrals[dih] - dihedFlexInterval);
+                    dofUB.add(dihedrals[dih] + dihedFlexInterval);
+                } else {
                     dofLB.add(dihedrals[dih]);
                     dofUB.add(dihedrals[dih]);
                 }
             }
         }
     }
-    
+
     public double[] makeDOFBounds(double chi) {
-		return new double[] {
-			chi - PositionConfSpace.dihedFlexInterval,
-			chi + PositionConfSpace.dihedFlexInterval
-		};
+        return new double[]{
+                chi - PositionConfSpace.dihedFlexInterval,
+                chi + PositionConfSpace.dihedFlexInterval
+        };
     }
-    
-    private ArrayList<EllipseCoordDOF> makeEllCoords(boolean useEllipses, double dihValues[], 
-            ArrayList<DegreeOfFreedom> dofListForRot){
+
+    private ArrayList<EllipseCoordDOF> makeEllCoords(boolean useEllipses, double dihValues[],
+                                                     ArrayList<DegreeOfFreedom> dofListForRot) {
         //build the ellipsoidal coordinates for an RC.  Empty list if not using ellipses.  
-        
+
         ArrayList<EllipseCoordDOF> ellCoords = new ArrayList<>();
 
-        if(useEllipses){
+        if (useEllipses) {
             // generate the list of ellipsoidal DOFs
             // TODO: move getellipsoidalcoords to ellipsetransform
             double[] ellValues = getEllipsoidalCoords(dihValues);
             DoubleMatrix2D A = DoubleFactory2D.dense.identity(ellValues.length);
             DoubleMatrix1D c = DoubleFactory1D.dense.make(new double[ellValues.length]);
-            for (int i=0; i<ellValues.length; i++) {
-                    EllipseCoordDOF ellDOF = new EllipseCoordDOF(
-                                    (i==0),
-                                    i,
-                                    ellValues[i],
-                                    A,
-                                    dofListForRot,
-                                    dihValues);
-                    ellCoords.add(ellDOF);
+            for (int i = 0; i < ellValues.length; i++) {
+                EllipseCoordDOF ellDOF = new EllipseCoordDOF(
+                        (i == 0),
+                        i,
+                        ellValues[i],
+                        A,
+                        dofListForRot,
+                        dihValues);
+                ellCoords.add(ellDOF);
 
             }
         }
-        
+
         return ellCoords;
     }
 
-    
+
     //methods to add DOFs besides sidechain flexibility to an RC
     private void addStrandDOFs(ArrayList<DegreeOfFreedom> strandDOFs, ArrayList<DegreeOfFreedom> dofListForRC,
-            ArrayList<Double> dofLB, ArrayList<Double> dofUB) {
+                               ArrayList<Double> dofLB, ArrayList<Double> dofUB) {
         //Add strand rotation/translation DOFs to an RC, if there are any, putting them in dofListForRC, dofLB, and dofUB
         //these are DOFs whose strand includes this residue!
         for (DegreeOfFreedom strandDOF : strandDOFs) {
@@ -254,7 +266,7 @@ public class PositionConfSpace implements Serializable {
     }
 
     private void addBFBDOFs(BBFreeBlock bfb, ArrayList<DegreeOfFreedom> dofListForRC,
-            ArrayList<Double> dofLB, ArrayList<Double> dofUB) {
+                            ArrayList<Double> dofLB, ArrayList<Double> dofUB) {
         //Add free-BB block DOFs to an RC, if any
 
         if (bfb != null) {//This res is in a free-backbone block
@@ -270,9 +282,9 @@ public class PositionConfSpace implements Serializable {
     }
 
     private void addDEEPerDOFs(ArrayList<int[]> pertState,
-            ArrayList<Perturbation> perts, ArrayList<ArrayList<double[]>> pertIntervals,
-            ArrayList<DegreeOfFreedom> dofListForRC,
-            ArrayList<Double> dofLB, ArrayList<Double> dofUB) {
+                               ArrayList<Perturbation> perts, ArrayList<ArrayList<double[]>> pertIntervals,
+                               ArrayList<DegreeOfFreedom> dofListForRC,
+                               ArrayList<Double> dofLB, ArrayList<Double> dofUB) {
         //Add DEEPer DOFs to an RC, if any
 
         if (pertState != null) {
@@ -291,7 +303,7 @@ public class PositionConfSpace implements Serializable {
     }
 
     private void boundRotDOFs(ArrayList<Double> dofLB, ArrayList<Double> dofUB, int numDihedrals,
-            boolean contSCFlex, double[] dihValues, ArrayList<EllipseCoordDOF> ellCoords, boolean useEllipses) {
+                              boolean contSCFlex, double[] dihValues, ArrayList<EllipseCoordDOF> ellCoords, boolean useEllipses) {
         //Put the bounds on a rotamer's degrees of freedom (dihedrals or ellipsoidal DOFs) in dofLB and dofUB
 
         for (int dih = 0; dih < numDihedrals; dih++) {
@@ -317,7 +329,7 @@ public class PositionConfSpace implements Serializable {
         }
     }
 
-    
+
     public double[] getEllipsoidalCoords(double[] dihedrals) {
 
         if (dihedrals.length == 0) {
