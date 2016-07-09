@@ -281,7 +281,8 @@ public class SCMF_Clamp {
         double nonInfBeliefSum = getSumBeliefNonInfiniteE(node1, label1, node2);
         for (int i = 0; i < node2.getNumLabels(); i++) {
             int label2 = node2.labels[i];
-            double E = this.emat.getPairwise(node1.posNum, label1, node2.posNum, label2);
+            double E = this.emat.getPairwise(node1.posNum, label1, node2.posNum, label2);// + this.emat.getOneBody(node2.posNum, label2);
+            //System.out.println(E);
             if (Double.isNaN(E)) {
                 System.out.println("E is NaN");
             }
@@ -363,7 +364,7 @@ public class SCMF_Clamp {
             double minPairwiseE = Double.POSITIVE_INFINITY;
             for (int nodeLabel : node.labels) {
                 for (int neighborLabel : neighbor.labels) {
-                    double pairwiseE = this.emat.getPairwise(node.posNum, nodeLabel, neighbor.posNum, neighborLabel);
+                    double pairwiseE = this.emat.getPairwise(node.posNum, nodeLabel, neighbor.posNum, neighborLabel);// + this.emat.getOneBody(neighbor.posNum, neighborLabel);
                     minPairwiseE = Math.min(minPairwiseE, pairwiseE);
                 }
             }

@@ -7,8 +7,10 @@ package edu.duke.cs.osprey.tests.variationalkstar;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
+import edu.duke.cs.osprey.partitionfunctionbounds.MarkovRandomField;
 import edu.duke.cs.osprey.partitionfunctionbounds.ReparamMRF;
 import edu.duke.cs.osprey.partitionfunctionbounds.SCMF_Clamp;
+import edu.duke.cs.osprey.partitionfunctionbounds.TRBP;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import java.io.File;
@@ -24,7 +26,7 @@ public class SCMFTests {
             throws Exception {
 
         String path = new File("").getAbsolutePath();
-        if (!path.endsWith("VariationalKStar/SCMF")){
+            if (!path.endsWith("VariationalKStar/SCMF")){
             throw new Error("This tests was designed to be run in test/VariationalKStar/SCMF folder\n\tcwd: " + path);
         }
 
@@ -56,7 +58,11 @@ public class SCMFTests {
         Stopwatch.stop();
         double logZ2 = scmf2.getLogZLB();
         double correctLogZ2 = 894.6048097520684;
-        
+
+/*        MarkovRandomField mrfT = new MarkovRandomField(searchProb.emat, searchProb.pruneMat,0.0);
+        TRBP trbp = new TRBP(mrfT);
+        System.out.println(trbp.calcUBLogZ());
+*/
         System.out.println("Finished Test 2 in " + Stopwatch.getTime(TimeUnit.MILLISECONDS));
         System.out.println("LogZ: " + logZ2);
         System.out.println("Error: " + Math.abs(correctLogZ2 - logZ2));

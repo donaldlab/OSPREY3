@@ -169,7 +169,7 @@ public class ConfSpace implements Serializable {
             BBFreeBlock curBFB = getCurBFB(bfbList,res);
             
             PositionConfSpace rcs = new PositionConfSpace(pos, res, resDOFs, allowedAAs.get(pos), contSCFlex,
-                    resStrandDOFs, perts, dset.getPertIntervals(), dset.getPertStates(pos), curBFB, useEllipses, addWTRots);
+                    resStrandDOFs, perts, dset.getPertIntervals(), dset.getPertStates(pos), curBFB, useEllipses, wtRotTemps.get(pos));
 
             posFlex.add(rcs);
 

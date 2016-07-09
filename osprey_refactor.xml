@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="osprey_refactor" default="all">
+  
+  
+  <property file="osprey_refactor.properties"/>
+  <!-- Uncomment the following property if no tests compilation is needed -->
+  <!-- 
+  <property name="skip.tests" value="true"/>
+   -->
+  
+  <!-- Compiler options -->
+  
+  <property name="compiler.debug" value="on"/>
+  <property name="compiler.generate.no.warnings" value="off"/>
+  <property name="compiler.args" value=""/>
+  <property name="compiler.max.memory" value="700m"/>
+  <patternset id="ignored.files">
+    <exclude name="**/*.hprof/**"/>
+    <exclude name="**/*.pyc/**"/>
+    <exclude name="**/*.pyo/**"/>
+    <exclude name="**/*.rbc/**"/>
+    <exclude name="**/*.yarb/**"/>
+    <exclude name="**/*~/**"/>
+    <exclude name="**/.DS_Store/**"/>
+    <exclude name="**/.git/**"/>
+    <exclude name="**/.hg/**"/>
+    <exclude name="**/.svn/**"/>
+    <exclude name="**/CVS/**"/>
+    <exclude name="**/RCS/**"/>
+    <exclude name="**/SCCS/**"/>
+    <exclude name="**/__pycache__/**"/>
+    <exclude name="**/_svn/**"/>
+    <exclude name="**/rcs/**"/>
+    <exclude name="**/vssver.scc/**"/>
+    <exclude name="**/vssver2.scc/**"/>
+  </patternset>
+  <patternset id="library.patterns">
+    <include name="*.war"/>
+    <include name="*.swc"/>
+    <include name="*.apk"/>
+    <include name="*.zip"/>
+    <include name="*.ear"/>
+    <include name="*.egg"/>
+    <include name="*.ane"/>
+    <include name="*.jar"/>
+  </patternset>
+  <patternset id="compiler.resources">
+    <exclude name="**/?*.java"/>
+    <exclude name="**/?*.form"/>
+    <exclude name="**/?*.class"/>
+    <exclude name="**/?*.groovy"/>
+    <exclude name="**/?*.scala"/>
+    <exclude name="**/?*.flex"/>
+    <exclude name="**/?*.kt"/>
+    <exclude name="**/?*.clj"/>
+    <exclude name="**/?*.aj"/>
+  </patternset>
+  
+  <!-- JDK definitions -->
+  
+  <property name="jdk.bin.1.8" value="${jdk.home.1.8}/bin"/>
+  <path id="jdk.classpath.1.8">
+    <fileset dir="${jdk.home.1.8}">
+      <include name="jre/lib/charsets.jar"/>
+      <include name="jre/lib/deploy.jar"/>
+      <include name="jre/lib/ext/cldrdata.jar"/>
+      <include name="jre/lib/ext/dnsns.jar"/>
+      <include name="jre/lib/ext/jaccess.jar"/>
+      <include name="jre/lib/ext/jfxrt.jar"/>
+      <include name="jre/lib/ext/localedata.jar"/>
+      <include name="jre/lib/ext/nashorn.jar"/>
+      <include name="jre/lib/ext/sunec.jar"/>
+      <include name="jre/lib/ext/sunjce_provider.jar"/>
+      <include name="jre/lib/ext/sunpkcs11.jar"/>
+      <include name="jre/lib/ext/zipfs.jar"/>
+      <include name="jre/lib/javaws.jar"/>
+      <include name="jre/lib/jce.jar"/>
+      <include name="jre/lib/jfr.jar"/>
+      <include name="jre/lib/jfxswt.jar"/>
+      <include name="jre/lib/jsse.jar"/>
+      <include name="jre/lib/management-agent.jar"/>
+      <include name="jre/lib/plugin.jar"/>
+      <include name="jre/lib/resources.jar"/>
+      <include name="jre/lib/rt.jar"/>
+      <include name="lib/ant-javafx.jar"/>
+      <include name="lib/dt.jar"/>
+      <include name="lib/javafx-mx.jar"/>
+      <include name="lib/jconsole.jar"/>
+      <include name="lib/packager.jar"/>
+      <include name="lib/sa-jdi.jar"/>
+      <include name="lib/tools.jar"/>
+    </fileset>
+  </path>
+  
+  <property name="project.jdk.home" value="${jdk.home.1.8}"/>
+  <property name="project.jdk.bin" value="${jdk.bin.1.8}"/>
+  <property name="project.jdk.classpath" value="jdk.classpath.1.8"/>
+  
+  
+  <!-- Project Libraries -->
+  
+  <path id="library.junit_4.classpath">
+    <pathelement location="${basedir}/lib/junit_4/junit-4.12-javadoc.jar"/>
+    <pathelement location="${basedir}/lib/junit_4/junit-4.12-sources.jar"/>
+    <pathelement location="${basedir}/lib/junit_4/junit-4.12.jar"/>
+  </path>
+  
+  <path id="library.lib.classpath">
+    <pathelement location="${basedir}/dist/lib/Jama-1.0.3.jar"/>
+    <pathelement location="${basedir}/dist/lib/architecture-rules-3.0.0-M1.jar"/>
+    <pathelement location="${basedir}/dist/lib/colt-1.2.0.jar"/>
+    <pathelement location="${basedir}/dist/lib/commons-beanutils-1.6.jar"/>
+    <pathelement location="${basedir}/dist/lib/commons-collections-2.1.jar"/>
+    <pathelement location="${basedir}/dist/lib/commons-digester-1.6.jar"/>
+    <pathelement location="${basedir}/dist/lib/commons-io-1.4.jar"/>
+    <pathelement location="${basedir}/dist/lib/commons-lang-2.5.jar"/>
+    <pathelement location="${basedir}/dist/lib/commons-logging-1.1.1.jar"/>
+    <pathelement location="${basedir}/dist/lib/commons-math3-3.0.jar"/>
+    <pathelement location="${basedir}/dist/lib/commons-math3-3.3.jar"/>
+    <pathelement location="${basedir}/dist/lib/gurobi.jar"/>
+    <pathelement location="${basedir}/dist/lib/jdepend-2.9.1.jar"/>
+    <pathelement location="${basedir}/dist/lib/joptimizer.jar"/>
+    <pathelement location="${basedir}/dist/lib/junit-3.8.1.jar"/>
+    <pathelement location="${basedir}/dist/lib/junit-4.12.jar"/>
+    <pathelement location="${basedir}/dist/lib/log4j-1.2.14.jar"/>
+    <pathelement location="${basedir}/dist/lib/ojalgo-35.0.jar"/>
+    <pathelement location="${basedir}/dist/lib/xml-apis-1.0.b2.jar"/>
+  </path>
+  
+  <path id="library.lib1.classpath">
+    <pathelement location="${basedir}/lib/Jama-1.0.3.jar"/>
+    <pathelement location="${basedir}/lib/architecture-rules-3.0.0-M1.jar"/>
+    <pathelement location="${basedir}/lib/colt-1.2.0.jar"/>
+    <pathelement location="${basedir}/lib/commons-beanutils-1.6.jar"/>
+    <pathelement location="${basedir}/lib/commons-collections-2.1.jar"/>
+    <pathelement location="${basedir}/lib/commons-digester-1.6.jar"/>
+    <pathelement location="${basedir}/lib/commons-io-1.4.jar"/>
+    <pathelement location="${basedir}/lib/commons-lang-2.5.jar"/>
+    <pathelement location="${basedir}/lib/commons-logging-1.1.1.jar"/>
+    <pathelement location="${basedir}/lib/commons-math3-3.0.jar"/>
+    <pathelement location="${basedir}/lib/commons-math3-3.3.jar"/>
+    <pathelement location="${basedir}/lib/gurobi.jar"/>
+    <pathelement location="${basedir}/lib/jdepend-2.9.1.jar"/>
+    <pathelement location="${basedir}/lib/joptimizer.jar"/>
+    <pathelement location="${basedir}/lib/junit-3.8.1.jar"/>
+    <pathelement location="${basedir}/lib/junit-4.12.jar"/>
+    <pathelement location="${basedir}/lib/log4j-1.2.14.jar"/>
+    <pathelement location="${basedir}/lib/ojalgo-35.0.jar"/>
+    <pathelement location="${basedir}/lib/xml-apis-1.0.b2.jar"/>
+  </path>
+  <!-- Register Custom Compiler Taskdefs -->
+  <property name="javac2.home" value="${idea.home}/lib"/>
+  <path id="javac2.classpath">
+    <pathelement location="${javac2.home}/javac2.jar"/>
+    <pathelement location="${javac2.home}/jdom.jar"/>
+    <pathelement location="${javac2.home}/asm-all.jar"/>
+    <pathelement location="${javac2.home}/jgoodies-forms.jar"/>
+  </path>
+  <target name="register.custom.compilers">
+    <taskdef name="javac2" classname="com.intellij.ant.Javac2" classpathref="javac2.classpath"/>
+    <taskdef name="instrumentIdeaExtensions" classname="com.intellij.ant.InstrumentIdeaExtensions" classpathref="javac2.classpath"/>
+  </target>
+  
+  <!-- Modules -->
+  
+  <import file="${basedir}/module_osprey_refactor.xml"/>
+  
+  <target name="init" description="Build initialization">
+    <!-- Perform any build initialization in this target -->
+  </target>
+  
+  <target name="clean" depends="clean.module.osprey_refactor" description="cleanup all"/>
+  
+  <target name="build.modules" depends="init, clean, compile.module.osprey_refactor" description="build all modules"/>
+  
+  <target name="all" depends="build.modules" description="build all"/>
+</project>
