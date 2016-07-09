@@ -2,8 +2,27 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="fd8fb59b-e5d0-4577-993f-b30d4c7b3722" name="Default" comment="">
+<<<<<<< HEAD
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/PositionConfSpace.java" afterPath="$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/PositionConfSpace.java" />
+=======
+      <change type="DELETED" beforePath="$PROJECT_DIR$/test/VariationalKStar/SCMF/!" afterPath="" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/test/VariationalKStar/SCMF/4HEM.EMAT.dat" afterPath="$PROJECT_DIR$/test/VariationalKStar/SCMF/4HEM.EMAT.dat" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/test/VariationalKStar/TRBP/4HEM.EMAT.dat" afterPath="$PROJECT_DIR$/test/VariationalKStar/TRBP/4HEM.EMAT.dat" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/ConfSpace.java" afterPath="$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/ConfSpace.java" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/PositionConfSpace.java" afterPath="$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/PositionConfSpace.java" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/edu/duke/cs/osprey/dof/ResidueTypeDOF.java" afterPath="$PROJECT_DIR$/src/edu/duke/cs/osprey/dof/ResidueTypeDOF.java" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/edu/duke/cs/osprey/minimization/MolecEObjFunction.java" afterPath="$PROJECT_DIR$/src/edu/duke/cs/osprey/minimization/MolecEObjFunction.java" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/edu/duke/cs/osprey/partitionfunctionbounds/SCMF_Clamp.java" afterPath="$PROJECT_DIR$/src/edu/duke/cs/osprey/partitionfunctionbounds/SCMF_Clamp.java" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/edu/duke/cs/osprey/partitionfunctionbounds/TRBP.java" afterPath="$PROJECT_DIR$/src/edu/duke/cs/osprey/partitionfunctionbounds/TRBP.java" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/ResidueTemplate.java" afterPath="$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/ResidueTemplate.java" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/edu/duke/cs/osprey/tests/variationalkstar/SCMFTests.java" afterPath="$PROJECT_DIR$/src/edu/duke/cs/osprey/tests/variationalkstar/SCMFTests.java" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/test/VariationalKStar/SCMF/DEE.cfg" afterPath="$PROJECT_DIR$/test/VariationalKStar/SCMF/DEE.cfg" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/test/VariationalKStar/SCMF/KStar.cfg" afterPath="$PROJECT_DIR$/test/VariationalKStar/SCMF/KStar.cfg" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/test/VariationalKStar/SCMF/run.sh" afterPath="$PROJECT_DIR$/test/VariationalKStar/SCMF/run.sh" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/test/VariationalKStar/TRBP/KStar.cfg" afterPath="$PROJECT_DIR$/test/VariationalKStar/TRBP/KStar.cfg" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/test/VariationalKStar/TRBP/run.sh" afterPath="$PROJECT_DIR$/test/VariationalKStar/TRBP/run.sh" />
+>>>>>>> 7c34221e92357f32a792b845f1d772afccb15f4c
     </list>
     <ignored path="OSPREY_refactor.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -58,8 +77,13 @@
       <file leaf-file-name="PositionConfSpace.java" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/PositionConfSpace.java">
           <provider selected="true" editor-type-id="text-editor">
+<<<<<<< HEAD
             <state relative-caret-position="555">
               <caret line="96" column="0" selection-start-line="96" selection-start-column="0" selection-end-line="96" selection-end-column="0" />
+=======
+            <state relative-caret-position="480">
+              <caret line="83" column="61" selection-start-line="83" selection-start-column="61" selection-end-line="83" selection-end-column="61" />
+>>>>>>> 7c34221e92357f32a792b845f1d772afccb15f4c
               <folding />
             </state>
           </provider>
@@ -1093,8 +1117,13 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/PositionConfSpace.java">
       <provider selected="true" editor-type-id="text-editor">
+<<<<<<< HEAD
         <state relative-caret-position="555">
           <caret line="96" column="0" selection-start-line="96" selection-start-column="0" selection-end-line="96" selection-end-column="0" />
+=======
+        <state relative-caret-position="480">
+          <caret line="83" column="61" selection-start-line="83" selection-start-column="61" selection-end-line="83" selection-end-column="61" />
+>>>>>>> 7c34221e92357f32a792b845f1d772afccb15f4c
           <folding />
         </state>
       </provider>

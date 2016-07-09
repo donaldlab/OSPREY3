@@ -95,10 +95,7 @@ public class PositionConfSpace implements Serializable {
             }
         }
 
-        for (
-                String AAType
-                : allowedAAs)
-
+        for (String AAType : allowedAAs)
         {
             int numDihedrals = templateLib.numDihedralsForResType(AAType);
 
@@ -141,6 +138,7 @@ public class PositionConfSpace implements Serializable {
                     }
                 }
             }
+
         }
 
     }
