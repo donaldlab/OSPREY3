@@ -5,6 +5,7 @@
 package edu.duke.cs.osprey.pruning;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.tools.TimeFormatter;
 
 /**
  *
@@ -15,7 +16,67 @@ public class PruningControl {
      It thus provides a simple interface that K* or GMEC calculations can use for pruning
      */
     
-    
+    public static enum ReportMode {
+    	
+        Long(true) {
+        	
+            @Override
+            public void preamble(double pruningInterval) {
+                System.out.println();
+                System.out.println("BEGINNING PRUNING.  PRUNING INTERVAL: " + pruningInterval);
+                System.out.println();
+            }
+            
+            @Override
+            public void preRun(int run) {
+                System.out.println("Starting DEE cycle run: " + run);
+            }
+            
+            @Override
+            public void postRun(int run, int numSinglesPruned, int numPairsPruned) {
+                System.out.println("Num pruned rot this run: " + numSinglesPruned);
+                System.out.println("Num pruned pairs this run: " + numPairsPruned);
+                System.out.println();
+            }
+            
+            @Override
+            public void conclusion(int numRuns, int numSinglesPruned, int numPairsPruned, long pruneTimeMs) {
+                System.out.println("Pruning time: " + pruneTimeMs + " ms" );
+                System.out.println();
+            }
+        },
+        
+        Short(false) {
+        	
+            @Override
+            public void conclusion(int numRuns, int numSinglesPruned, int numPairsPruned, long pruneTimeMs) {
+                System.out.println(String.format("DEE took %s to prune %d singles and %d pairs in %d runs",
+                    TimeFormatter.format(pruneTimeMs*TimeFormatter.NSpMS, 1),
+                    numSinglesPruned, numPairsPruned, numRuns
+                ));
+            }
+        },
+        
+        None(false) {
+            // nothing to do
+        };
+    	
+    	private boolean isVerbose;
+    	
+    	private ReportMode(boolean isVerbose) {
+    		this.isVerbose = isVerbose;
+    	}
+    	
+    	public boolean isVerbose() {
+    		return isVerbose;
+    	}
+        
+    	// do nothing by default on all these methods, override to report things
+        public void preamble(double pruningInterval) {}
+        public void preRun(int run) {}
+        public void postRun(int run, int numSinglesPruned, int numPairsPruned) {}
+		public void conclusion(int numRuns, int numSinglesPruned, int numPairsPruned, long pruneTimeMs) {}
+    }
     
     SearchProblem searchSpace;
     double pruningInterval;//relative energy threshold for pruning (includes I for iMinDEE)
@@ -48,18 +109,22 @@ public class PruningControl {
     }
 
     
+    public void prune() {
+    	// be verbose by default, since that's the old behavior
+    	prune(ReportMode.Long);
+    }
     
-    
-    
-    public void prune(){
+    public void prune(ReportMode reportMode){
         
-        System.out.println();
-        System.out.println("BEGINNING PRUNING.  PRUNING INTERVAL: "+pruningInterval);
-        System.out.println();
+        if (reportMode == null) {
+            reportMode = ReportMode.None;
+        }
+        reportMode.preamble(pruningInterval);
         
         long startTime = System.currentTimeMillis();
         
         Pruner dee = new Pruner(searchSpace,typeDep,boundsThresh,pruningInterval,useEPIC,useTupExp);
+        dee.setVerbose(reportMode.isVerbose());
         
         //now go through the various types of pruning that we support
         //see KSParser
@@ -78,9 +143,10 @@ public class PruningControl {
             numPrunedPairs = searchSpace.pruneMat.countPrunedPairs();
         
         
-        for (int numRuns=0; !done; numRuns++){ //repeat the pruning cycle until no more rotamers are pruned	
+        int numRuns;
+        for (numRuns=0; !done; numRuns++){ //repeat the pruning cycle until no more rotamers are pruned	
 
-            System.out.println("Starting DEE cycle run: "+numRuns);
+        	reportMode.preRun(numRuns);
 				
 		//		if (doMinimize && !localUseMinDEEPruningEw) //precompute the interval terms in the MinDEE criterion
 		//			rs.doCompMinDEEIntervals(mp.numberMutable, mp.strandMut, prunedRotAtRes, scaleInt, maxIntScale);
@@ -143,10 +209,7 @@ public class PruningControl {
             int numPrunedRotThisRun = newNumPrunedRot - numPrunedRot;
             int numPrunedPairsThisRun = newNumPrunedPairs - numPrunedPairs;
             
-            
-            System.out.println("Num pruned rot this run: "+numPrunedRotThisRun);
-            System.out.println("Num pruned pairs this run: "+numPrunedPairsThisRun);
-            System.out.println();
+            reportMode.postRun(numRuns, numPrunedRotThisRun, numPrunedPairsThisRun);
             
             if(numPrunedRotThisRun==0 && numPrunedPairsThisRun==0)
                 done = true;
@@ -157,14 +220,10 @@ public class PruningControl {
 
         long pruneTime = System.currentTimeMillis() - startTime;
         
-        System.out.println("Pruning time: " + pruneTime + " ms" );
+        reportMode.conclusion(numRuns, numPrunedRot, numPrunedPairs, pruneTime);
     }
 
     public void setOnlyGoldstein(boolean onlyGoldstein) {
         this.onlyGoldstein = onlyGoldstein;
     }
-    
-    
-    
-    
 }

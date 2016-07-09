@@ -114,7 +114,7 @@ public class Playground extends TestBase {
 		new PruningControl(
 			search, pruningInterval, typeDep, boundsThresh, algOption,
 			useFlags, useTriples, preDACS, useEpic, useTupExp, stericThresh
-		).prune();
+		).prune(PruningControl.ReportMode.Short);
 		
 		// get the min bound conformation
 		RCs rcs = new RCs(search.pruneMat);

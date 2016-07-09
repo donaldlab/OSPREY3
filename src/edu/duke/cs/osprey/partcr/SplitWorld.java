@@ -157,7 +157,7 @@ public class SplitWorld {
 		new PruningControl(
 			search, pruningInterval, typeDep, boundsThresh, algOption,
 			useFlags, useTriples, preDACS, useEpic, useTupExp, stericThresh
-		).prune();
+		).prune(PruningControl.ReportMode.None);
 		
 		// clear the maps now that we're done with them
 		for (int pos1=0; pos1<numPos; pos1++) {

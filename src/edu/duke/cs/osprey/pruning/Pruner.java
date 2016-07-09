@@ -4,17 +4,17 @@
  */
 package edu.duke.cs.osprey.pruning;
 
+import java.util.ArrayList;
+import java.util.TreeSet;
+
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
-import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.confspace.RCTuple;
+import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.TupleEnumerator;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.pruning.PruningMethod.CheckSumType;
-import java.util.ArrayList;
-import java.util.TreeSet;
 
 /**
  *
@@ -49,33 +49,17 @@ public class Pruner {
     
     static int triplesNumPartners = 5;//2//let's do sparse triples, considering like 5 interactions per pos to be strong
     
-    boolean verbose = true;//print what we're doing
-    
+    private boolean verbose = true;//print what we're doing
     
     public Pruner(SearchProblem searchSpace, boolean typeDep, double boundsThreshold, 
             double pruningInterval, boolean useEPIC, boolean useTupExp) {
-        
-        init(searchSpace, searchSpace.pruneMat, typeDep, boundsThreshold, pruningInterval,
-                useEPIC, useTupExp);
+        this(searchSpace, searchSpace.pruneMat, typeDep, boundsThreshold, pruningInterval, useEPIC, useTupExp);
     }
-    
     
     //In COMETS we may be using a node-specific pruning matrix
     //that has more stuff pruned compared to the searchSpace.pruningMatrix
     //Also may not want verbosity
     public Pruner(SearchProblem searchSpace, PruningMatrix pruneMat, boolean typeDep, 
-            double boundsThreshold, 
-            double pruningInterval, boolean useEPIC, boolean useTupExp, boolean verbose) {
-        
-        this.verbose = verbose;
-        init(searchSpace, pruneMat, typeDep, boundsThreshold, pruningInterval,
-                useEPIC, useTupExp);
-    }
-    
-
-    
-    
-    private void init(SearchProblem searchSpace, PruningMatrix pruneMat, boolean typeDep, 
             double boundsThreshold, 
             double pruningInterval, boolean useEPIC, boolean useTupExp) {
         
@@ -103,6 +87,10 @@ public class Pruner {
             throw new RuntimeException("ERROR: Can't prune with both EPIC and tup-exp at the same time");
         
         tupEnum = new TupleEnumerator(pruneMat, emat, searchSpace.confSpace.numPos);
+    }
+    
+    public void setVerbose(boolean val) {
+        verbose = val;
     }
     
     

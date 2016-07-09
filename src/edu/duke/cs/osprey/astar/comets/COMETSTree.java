@@ -194,7 +194,8 @@ public class COMETSTree extends AStarTree<FullAStarNode> {
         int oldNumUpdates;
         
         Pruner dee = new Pruner(stateSP[state],ans,true,Double.POSITIVE_INFINITY,
-                0,false,stateSP[state].useTupExpForSearch,false);
+                0,false,stateSP[state].useTupExpForSearch);
+        dee.setVerbose(false);
         //this is rigid, type-dependent pruning aiming for sequence GMECs
         //So Ew = Ival = 0
         
