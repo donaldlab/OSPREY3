@@ -210,7 +210,7 @@ public class PartCR {
 		// and improveBound() (which calls A*) in the log, or for timing purposes
 		System.out.println("calculating energies and pruning conformations...");
 		
-		splitWorld.resizeMatrices(calcBoundEnergy(analyzeConf), bestMinimizedEnergy, Ew);
+		splitWorld.resizeMatrices();
 		
 		// prune nodes based on the new bounds
 		Iterator<int[]> iter = confs.iterator();

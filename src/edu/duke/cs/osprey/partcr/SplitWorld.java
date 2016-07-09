@@ -77,7 +77,7 @@ public class SplitWorld {
 		return rcMaps.get(pos);
 	}
 	
-	public void resizeMatrices(double minBoundEnergy, double bestMinimizedEnergy, double Ew) {
+	public void resizeMatrices() {
 	
 		int numPos = search.confSpace.numPos;
 		
@@ -89,9 +89,8 @@ public class SplitWorld {
 		// when combined with DEE pruning, this should cut down on the number of energies we have to calculate
 		// and should make PartCR significantly faster
 		
-		double pruningInterval = bestMinimizedEnergy - minBoundEnergy + Ew;
 		LazyEnergyMatrix oldEmat = (LazyEnergyMatrix)search.emat;
-		LazyEnergyMatrix newEmat = new LazyEnergyMatrix(search.confSpace, pruningInterval, ecalc);
+		LazyEnergyMatrix newEmat = new LazyEnergyMatrix(search.confSpace, oldEmat.getPruningInterval(), ecalc);
 		
 		for (int pos1=0; pos1<numPos; pos1++) {
 			RCIndexMap rcMap1 = rcMaps.get(pos1);
