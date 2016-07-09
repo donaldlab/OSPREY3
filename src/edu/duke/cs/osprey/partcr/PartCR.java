@@ -204,12 +204,15 @@ public class PartCR {
 		List<RC> splitRCs = splitter.split(splitPos, rcObj);
 		splitWorld.replaceRc(splitPos, rcObj, splitRCs);
 		
-		// update energy matrix
-		System.out.println("updating matrices...");
-		splitWorld.updateMatrices(calcBoundEnergy(analyzeConf), bestMinimizedEnergy, Ew);
+		// NOTE: since SplitWorld uses lazy evaluation for computing the energy matrix,
+		// the actual energy calculation that gets split across later DEE/A* calls.
+		// so it's actually counter-productive to separate resizeMatrices() (which calculates energies)
+		// and improveBound() (which calls A*) in the log, or for timing purposes
+		System.out.println("calculating energies and pruning conformations...");
+		
+		splitWorld.resizeMatrices(calcBoundEnergy(analyzeConf), bestMinimizedEnergy, Ew);
 		
 		// prune nodes based on the new bounds
-		System.out.println("pruning conformations...");
 		Iterator<int[]> iter = confs.iterator();
 		while (iter.hasNext()) {
 			int[] conf = iter.next();
@@ -217,8 +220,9 @@ public class PartCR {
 			// use the split world to get a tighter bound
 			double improvedBoundEnergy = splitWorld.improveBound(conf);
 			
-			// if the new bound pushes the node over the threshold, prune it
 			if (improvedBoundEnergy > bestMinimizedEnergy + Ew) {
+				
+				// new bound is above pruning threshold, so prune the conf
 				iter.remove();
 			}
 		}
@@ -227,6 +231,7 @@ public class PartCR {
 		long diffIterNs = System.nanoTime() - startIterNs;
 		iterationNs += diffIterNs;
 		
+		System.out.println(String.format("finished iteration in %s", TimeFormatter.format(diffIterNs, 1)));
 		System.out.println(String.format("conformations remaining: %d, estimated time to enumerate: %s",
 			confs.size(), TimeFormatter.format(getAvgMinimizationTimeNs()*confs.size(), 1)
 		));

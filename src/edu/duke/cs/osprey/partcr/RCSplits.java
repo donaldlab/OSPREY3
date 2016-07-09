@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.PositionConfSpace;
 import edu.duke.cs.osprey.confspace.RC;
@@ -41,36 +42,24 @@ public class RCSplits {
 			return !children.isEmpty();
 		}
 		
-		public boolean isParent(int rc) {
-			
-			if (isSplit()) {
-				throw new IllegalStateException("parent rc index is meaningless after splits");
-			}
-			
-			return parent.RCIndex == rc;
-		}
-		
-		public boolean isChild(int rc) {
-			
-			if (!isSplit()) {
-				throw new IllegalStateException("no child RCs since nothing was split");
-			}
-			
-			// TODO: could switch to constant-time lookup if we need the speed
-			for (RC rcObj : children) {
-				if (rcObj.RCIndex == rc) {
-					return true;
-				}
-			}
-			return false;
-		}
-		
 		public int getNumVoxels() {
 			if (isSplit()) {
 				return children.size();
 			} else {
 				return 1;
 			}
+		}
+		
+		public List<Integer> getRCs() {
+			List<Integer> rcs = new ArrayList<>();
+			if (isSplit()) {
+				for (RC child : children) {
+					rcs.add(child.RCIndex);
+				}
+			} else {
+				rcs.add(parent.RCIndex);
+			}
+			return rcs;
 		}
 	}
 	
@@ -111,5 +100,14 @@ public class RCSplits {
 		for (RC splitRCObj : splitRCs) {
 			infoByRC.put(splitRCObj, info);
 		}
+	}
+
+	public RCs makeRCs(int[] conf) {
+		int numPos = infoByPos.size();
+		List<List<Integer>> rcsByPos = new ArrayList<>(numPos);
+		for (int pos=0; pos<numPos; pos++) {
+			rcsByPos.add(getRCInfo(pos, conf[pos]).getRCs());
+		}
+		return new RCs(rcsByPos);
 	}
 }

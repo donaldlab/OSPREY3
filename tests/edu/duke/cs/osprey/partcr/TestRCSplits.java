@@ -43,14 +43,12 @@ public class TestRCSplits extends TestBase {
 		// just spot check a few RCs
 		info = splits.getRCInfo(0, 0);
 		assertThat(info.isSplit(), is(false));
-		assertThat(info.isParent(0), is(true));
-		assertThat(info.isParent(1), is(false));
+		assertThat(info.getRCs(), contains(0));
 		assertThat(splits.getRCInfo(confSpace.posFlex.get(0).RCs.get(0)), is(info));
 		
 		info = splits.getRCInfo(1, 5);
 		assertThat(info.isSplit(), is(false));
-		assertThat(info.isParent(5), is(true));
-		assertThat(info.isParent(0), is(false));
+		assertThat(info.getRCs(), contains(5));
 		assertThat(splits.getRCInfo(confSpace.posFlex.get(1).RCs.get(5)), is(info));
 	}
 	
@@ -65,22 +63,26 @@ public class TestRCSplits extends TestBase {
 		assertThat(childRCs, is(not(nullValue())));
 		splits.split(parentRC, childRCs);
 		
+		// renumber the split RCs
+		childRCs.get(0).RCIndex = parentRC.RCIndex;
+		childRCs.get(1).RCIndex = confSpace.posFlex.get(1).RCs.size() - 1;
+		
 		// check the results
 		RCInfo info;
 		
 		// nothing should have changed at 0,0
 		info = splits.getRCInfo(0, 0);
 		assertThat(info.isSplit(), is(false));
-		assertThat(info.isParent(0), is(true));
-		assertThat(info.isParent(1), is(false));
+		assertThat(info.getRCs(), containsInAnyOrder(0));
 		assertThat(splits.getRCInfo(confSpace.posFlex.get(0).RCs.get(0)), is(info));
 		
 		// check changes at 1,5
 		info = splits.getRCInfo(1, 5);
 		assertThat(info.isSplit(), is(true));
-		assertThat(info.isChild(childRCs.get(0).RCIndex), is(true));
-		assertThat(info.isChild(childRCs.get(1).RCIndex), is(true));
-		assertThat(info.isChild(0), is(false));
+		assertThat(info.getRCs(), containsInAnyOrder(
+			childRCs.get(0).RCIndex,
+			childRCs.get(1).RCIndex
+		));
 		assertThat(splits.getRCInfo(confSpace.posFlex.get(1).RCs.get(5)), is(nullValue()));
 		assertThat(splits.getRCInfo(childRCs.get(0)), is(info));
 		assertThat(splits.getRCInfo(childRCs.get(1)), is(info));
@@ -97,10 +99,18 @@ public class TestRCSplits extends TestBase {
 		assertThat(childRCs, is(not(nullValue())));
 		splits.split(parentRC, childRCs);
 		
+		// renumber the split RCs
+		childRCs.get(0).RCIndex = parentRC.RCIndex;
+		childRCs.get(1).RCIndex = confSpace.posFlex.get(1).RCs.size();
+		
 		// make second split
 		List<RC> childChildRCs = new BinaryRCSplitter().split(1, childRCs.get(0));
 		assertThat(childChildRCs, is(not(nullValue())));
 		splits.split(childRCs.get(0), childChildRCs);
+		
+		// renumber the split RCs
+		childChildRCs.get(0).RCIndex = childRCs.get(0).RCIndex;
+		childChildRCs.get(1).RCIndex = confSpace.posFlex.get(1).RCs.size() - 1;
 		
 		// check the results
 		RCInfo info;
@@ -108,18 +118,17 @@ public class TestRCSplits extends TestBase {
 		// nothing should have changed at 0,0
 		info = splits.getRCInfo(0, 0);
 		assertThat(info.isSplit(), is(false));
-		assertThat(info.isParent(0), is(true));
-		assertThat(info.isParent(1), is(false));
+		assertThat(info.getRCs(), containsInAnyOrder(0));
 		assertThat(splits.getRCInfo(confSpace.posFlex.get(0).RCs.get(0)), is(info));
 		
 		// check changes at 1,5
 		info = splits.getRCInfo(1, 5);
 		assertThat(info.isSplit(), is(true));
-		assertThat(info.isChild(childRCs.get(0).RCIndex), is(true));
-		assertThat(info.isChild(childRCs.get(1).RCIndex), is(true));
-		assertThat(info.isChild(childChildRCs.get(0).RCIndex), is(true));
-		assertThat(info.isChild(childChildRCs.get(1).RCIndex), is(true));
-		assertThat(info.isChild(0), is(false));
+		assertThat(info.getRCs(), containsInAnyOrder(
+			childRCs.get(1).RCIndex,
+			childChildRCs.get(0).RCIndex,
+			childChildRCs.get(1).RCIndex
+		));
 		assertThat(splits.getRCInfo(confSpace.posFlex.get(1).RCs.get(5)), is(nullValue()));
 		assertThat(splits.getRCInfo(childRCs.get(0)), is(nullValue()));
 		assertThat(splits.getRCInfo(childRCs.get(1)), is(info));

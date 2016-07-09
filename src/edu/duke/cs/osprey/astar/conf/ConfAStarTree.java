@@ -9,6 +9,7 @@ import edu.duke.cs.osprey.astar.AStarProgress;
 import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 public class ConfAStarTree implements ConfSearch {
 	
@@ -161,11 +162,18 @@ public class ConfAStarTree implements ConfSearch {
 	}
 	
 	private boolean hasPrunedPair(ConfIndex confIndex, int nextPos, int nextRc) {
+		
+		// do we even have pruned pairs?
+		PruningMatrix pmat = rcs.getPruneMat();
+		if (pmat == null) {
+			return false;
+		}
+		
 		for (int i=0; i<confIndex.getNumDefined(); i++) {
 			int pos = confIndex.getDefinedPos()[i];
 			int rc = confIndex.getDefinedRCs()[i];
 			assert (pos != nextPos || rc != nextRc);
-			if (rcs.getPruneMat().getPairwise(pos, rc, nextPos, nextRc)) {
+			if (pmat.getPairwise(pos, rc, nextPos, nextRc)) {
 				return true;
 			}
 		}

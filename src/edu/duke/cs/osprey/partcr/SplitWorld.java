@@ -20,7 +20,6 @@ import edu.duke.cs.osprey.ematrix.LazyEnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator.ShellDistribution;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
-import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 public class SplitWorld {
@@ -78,12 +77,11 @@ public class SplitWorld {
 		return rcMaps.get(pos);
 	}
 	
-	public void updateMatrices(double minBoundEnergy, double bestMinimizedEnergy, double Ew) {
+	public void resizeMatrices(double minBoundEnergy, double bestMinimizedEnergy, double Ew) {
 	
 		int numPos = search.confSpace.numPos;
 		
 		assert (search.emat != null);
-		assert (search.pruneMat != null);
 		
 		// copy as many energies as possible from the old matrix
 		// to a new matrix that is sized for the new conf space (with the added rcs)
@@ -94,27 +92,31 @@ public class SplitWorld {
 		double pruningInterval = bestMinimizedEnergy - minBoundEnergy + Ew;
 		LazyEnergyMatrix oldEmat = (LazyEnergyMatrix)search.emat;
 		LazyEnergyMatrix newEmat = new LazyEnergyMatrix(search.confSpace, pruningInterval, ecalc);
-		PruningMatrix oldPmat = search.pruneMat;
-		PruningMatrix newPmat = new PruningMatrix(search.confSpace, pruningInterval);
 		
 		for (int pos1=0; pos1<numPos; pos1++) {
 			RCIndexMap rcMap1 = rcMaps.get(pos1);
 			for (int rc1=0; rc1<newEmat.getNumConfAtPos(pos1); rc1++) {
 
+				// one-body
+				
 				// get the old rc1, if any
 				Integer oldRc1 = rc1;
 				if (rcMap1 != null) {
 					oldRc1 = rcMap1.newToOld(rc1);
 				}
 				
-				// one-body
+				// are there old values to copy?
 				if (oldRc1 != null) {
 					
-					// copy values from the old matrices
+					// copy them
 					if (oldEmat.hasOneBody(pos1, oldRc1)) {
 						newEmat.setOneBody(pos1, rc1, oldEmat.getOneBody(pos1, oldRc1));
 					}
-					newPmat.setOneBody(pos1, rc1, oldPmat.getOneBody(pos1, oldRc1));
+					
+				} else {
+					
+					// we'll definitely need the single energy, so just calculate it now
+					newEmat.setOneBody(pos1, rc1, ecalc.calcSingle(pos1, rc1).getEnergy());
 				}
 				
 				// pairwise
@@ -128,13 +130,20 @@ public class SplitWorld {
 							oldRc2 = rcMap2.newToOld(rc2);
 						}
 						
+						// are there old values to copy?
 						if (oldRc1 != null && oldRc2 != null) {
 							
-							// copy values from the old matrices
+							// copy them
 							if (oldEmat.hasPairwise(pos1, oldRc1, pos2, oldRc2)) {
 								newEmat.setPairwise(pos1, rc1, pos2, rc2, oldEmat.getPairwise(pos1, oldRc1, pos2, oldRc2));
 							}
-							newPmat.setPairwise(pos1, rc1, pos2, rc2, oldPmat.getPairwise(pos1, oldRc1, pos2, oldRc2));
+							
+						} else {
+							
+							// we might not need the pair energy, so don't calculate it yet
+							// do it lazily later if we really need it
+							// gives about a 2x speedup in practice
+							//newEmat.setPairwise(pos1, rc1, pos2, rc2, ecalc.calcPair(pos1, rc1, pos2, rc2).getEnergy());
 						}
 					}
 				}
@@ -142,22 +151,6 @@ public class SplitWorld {
 		}
 		
 		search.emat = newEmat;
-		search.pruneMat = newPmat;
-		
-		// do DEE to update the pruning matrix
-		boolean typeDep = false;
-		double boundsThresh = 100;
-		int algOption = 1;
-		boolean useFlags = true;
-		boolean useTriples = false;
-		boolean preDACS = false;
-		boolean useEpic = false;
-		boolean useTupExp = false;
-		double stericThresh = 100;
-		new PruningControl(
-			search, pruningInterval, typeDep, boundsThresh, algOption,
-			useFlags, useTriples, preDACS, useEpic, useTupExp, stericThresh
-		).prune(PruningControl.ReportMode.None);
 		
 		// clear the maps now that we're done with them
 		for (int pos1=0; pos1<numPos; pos1++) {
@@ -165,41 +158,10 @@ public class SplitWorld {
 		}
 	}
 	
-	public RCs makeRCs(int[] conf) {
-		
-		// make a pruning matrix that only leaves the parent rc at unsplit positions
-		// and the split rcs at the split positions
-		PruningMatrix pruneMat = new PruningMatrix(search.confSpace, 0);
-		for (int pos=0; pos<search.confSpace.numPos; pos++) {
-			
-			List<RC> rcsAtPos = search.confSpace.posFlex.get(pos).RCs;
-			RCSplits.RCInfo info = splits.getRCInfo(pos, conf[pos]);
-			
-			if (info.isSplit()) {
-				
-				// prune all but the splits
-				for (int rc=0; rc<rcsAtPos.size(); rc++) {
-					if (!info.isChild(rc)) {
-						pruneMat.setOneBody(pos, rc, true);
-					}
-				}
-				
-			} else {
-				
-				// prune all but the parent
-				for (int rc=0; rc<rcsAtPos.size(); rc++) {
-					if (!info.isParent(rc)) {
-						pruneMat.setOneBody(pos, rc, true);
-					}
-				}
-			}
-		}
-		
-		return new RCs(pruneMat);
-	}
-
 	public double improveBound(int[] conf) {
-		RCs subRcs = makeRCs(conf);
+		
+		// do A* search to find the improved bound
+		RCs subRcs = splits.makeRCs(conf);
 		AStarOrder order = new StaticScoreHMeanAStarOrder();
 		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001);
 		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, subRcs);
