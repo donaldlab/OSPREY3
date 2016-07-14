@@ -11,7 +11,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SparseFFEnergy;
-import edu.duke.cs.osprey.minimization.MolecEObjFunction;
+import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
@@ -37,7 +37,7 @@ public class SAPE implements Serializable {
     
     //stuff for standalone evaluation
     //Molecule mStandalone;//PROBABLY JUST HANDLE W/I OBJ FCN
-    MolecEObjFunction mofStandalone;//objective function that sets the molecule DOFs and 
+    MoleculeModifierAndScorer mofStandalone;//objective function that sets the molecule DOFs and 
     //returns the 
     
     //stuff for shared-molecule evaluation
@@ -51,7 +51,7 @@ public class SAPE implements Serializable {
     
     
     
-    public SAPE (MolecEObjFunction objFcn, double distCutoff, DoubleMatrix1D[] sampAbs){
+    public SAPE (MoleculeModifierAndScorer objFcn, double distCutoff, DoubleMatrix1D[] sampAbs){
         //We'll initialize the SAPE for standalone work, and also
         //initialize information sufficient to reinitialize with a shared molecule
         
@@ -60,7 +60,7 @@ public class SAPE implements Serializable {
         //(we'll deep-copy, deleting fields not needed for SAPE)
         EnergyFunction mainEF = objFcn.getEfunc();
         objFcn.setEfunc(null);
-        mofStandalone = (MolecEObjFunction) ObjectIO.deepCopy(objFcn);
+        mofStandalone = (MoleculeModifierAndScorer) ObjectIO.deepCopy(objFcn);
         objFcn.setEfunc(mainEF);
         
         

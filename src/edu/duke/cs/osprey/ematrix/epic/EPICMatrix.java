@@ -4,17 +4,15 @@
  */
 package edu.duke.cs.osprey.ematrix.epic;
 
+import java.util.ArrayList;
+
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.TupleMatrix;
+import edu.duke.cs.osprey.confspace.TupleMatrixGeneric;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.Minimizer;
-import edu.duke.cs.osprey.minimization.MolecEObjFunction;
-import edu.duke.cs.osprey.tools.ObjectIO;
-
-import java.io.Serializable;
-import java.util.ArrayList;
+import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 
 /**
  *
@@ -23,8 +21,7 @@ import java.util.ArrayList;
  * 
  * @author mhall44
  */
-@SuppressWarnings("serial")
-public class EPICMatrix extends TupleMatrix<EPoly> implements Serializable {
+public class EPICMatrix extends TupleMatrixGeneric<EPoly> {
     
     ConfSpace confSpace = null;//the conformational space for which the energy polynomials are defined
     //we need this to be able to get conformational energies from the polynomials
@@ -56,7 +53,7 @@ public class EPICMatrix extends TupleMatrix<EPoly> implements Serializable {
         if(efunc==null)//pruned!
             return Double.POSITIVE_INFINITY;
         
-        MolecEObjFunction objFcn = new MolecEObjFunction(efunc,confSpace,RCTup);
+        MoleculeModifierAndScorer objFcn = new MoleculeModifierAndScorer(efunc,confSpace,RCTup);
         
         Minimizer minim = new CCDMinimizer(objFcn,false);
         

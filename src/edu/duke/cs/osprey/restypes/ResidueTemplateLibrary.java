@@ -1,10 +1,8 @@
 package edu.duke.cs.osprey.restypes;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 
-@SuppressWarnings("serial")
-public abstract class ResidueTemplateLibrary implements Serializable {
+public abstract class ResidueTemplateLibrary {
 
 	public ArrayList<ResidueTemplate> templates = new ArrayList<>();
 

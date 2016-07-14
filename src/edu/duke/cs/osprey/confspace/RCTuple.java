@@ -13,7 +13,9 @@ import java.util.ArrayList;
  */
 public class RCTuple implements Serializable {
     
-    //a tuple of RCs
+	private static final long serialVersionUID = 3773470316855163174L;
+	
+	//a tuple of RCs
     public ArrayList<Integer> pos;//which flexible positions
     public ArrayList<Integer> RCs;//the RCs themselves (residue-specific numbering, as in the TupleMatrices)
 
@@ -33,23 +35,15 @@ public class RCTuple implements Serializable {
     
     //one-RC tuple
     public RCTuple(int pos1, int RC1){
-        pos = new ArrayList<>();
-        RCs = new ArrayList<>();
-        pos.add(pos1);
-        RCs.add(RC1);
+    	this();
+    	set(pos1, RC1);
     }
     
     
     //a pair
     public RCTuple(int pos1, int RC1, int pos2, int RC2){
-        pos = new ArrayList<>();
-        RCs = new ArrayList<>();
-        
-        pos.add(pos1);
-        pos.add(pos2);
-        
-        RCs.add(RC1);
-        RCs.add(RC2);
+    	this();
+    	set(pos1, RC1, pos2, RC2);
     }
     
     //Sometimes we'll want to generate an RC tuple from a conformation, specified as RCs for all positions
@@ -57,10 +51,32 @@ public class RCTuple implements Serializable {
     //In this case, negative values are not (fully) defined, so the tuple contains all positions
     //with positive values in conf
     public RCTuple(int[] conf){
+    	this();
+    	set(conf);
+    }
+    
+    public void set(int pos, int rc) {
+    	this.pos.clear();
+    	this.RCs.clear();
+    	
+        this.pos.add(pos);
+        this.RCs.add(rc);
+    }
+    
+    public void set(int pos1, int rc1, int pos2, int rc2) {
+    	this.pos.clear();
+    	this.RCs.clear();
+    	
+        this.pos.add(pos1);
+        this.RCs.add(rc1);
         
-        pos = new ArrayList<>();
-        RCs = new ArrayList<>();
-        
+        this.pos.add(pos2);
+        this.RCs.add(rc2);
+    }
+    
+    public void set(int[] conf) {
+    	pos.clear();
+    	RCs.clear();
         for(int posNum=0; posNum<conf.length; posNum++){
             if(conf[posNum]>=0){//RC fully defined
                 pos.add(posNum);
@@ -69,8 +85,25 @@ public class RCTuple implements Serializable {
         }
     }
     
+    public void set(RCTuple other) {
+    	pos.clear();
+    	RCs.clear();
+    	pos.addAll(other.pos);
+    	RCs.addAll(other.RCs);
+    }
+    
+    public int size() {
+    	return pos.size();
+    }
+    
     
     public boolean isSameTuple(RCTuple tuple2){
+    	
+    	// short circuit: same instance must have same value
+    	if (this == tuple2) {
+    		return true;
+    	}
+    	
         //do the two tuple objects specify the same tuple of RCs?
         if( (pos.size()!=RCs.size()) || (tuple2.pos.size()!=tuple2.RCs.size()) )
             throw new RuntimeException("ERROR: Ill-defined RC tuple");
@@ -120,7 +153,8 @@ public class RCTuple implements Serializable {
         return new RCTuple(newPos,newRCs);
     }
     
-    public RCTuple addRC(int addedPos, int addedRC){
+    @SuppressWarnings("unchecked")
+	public RCTuple addRC(int addedPos, int addedRC){
         //Make a copy of this RCTuple with (addPos,addRC) added
         ArrayList<Integer> newPos = (ArrayList<Integer>) pos.clone();
         ArrayList<Integer> newRCs = (ArrayList<Integer>) RCs.clone();

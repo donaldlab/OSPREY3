@@ -19,7 +19,7 @@ import java.util.StringTokenizer;
  *
  * @author mhall44
  */
-class COMETSDoer {
+public class COMETSDoer {
     
     COMETSTree tree;//The tree used for the COMETS search
     int numSeqsWanted;//How many sequences to enumerate
@@ -98,9 +98,11 @@ class COMETSDoer {
         }
 
         numSeqsWanted = sParams.getInt("NUMSEQS");
+        boolean outputGMECStructs = sParams.getBool("OutputStateGMECStructs");
         
         tree = new COMETSTree(numTreeLevels, objFcn, constraints, 
-            AATypeOptions, numMaxMut, wtSeq, numStates, stateSP, mutable2StatePosNums);
+            AATypeOptions, numMaxMut, wtSeq, numStates, stateSP, 
+            mutable2StatePosNums, outputGMECStructs);
     }
     
     
@@ -156,7 +158,7 @@ class COMETSDoer {
         
         ArrayList<ArrayList<String>> stateAAOptions = cfgP.getAllowedAAs();
         
-        Molecule wtMolec = PDBFileReader.readPDBFile( cfgP.params.getValue("PDBName"), null );
+        Molecule wtMolec = PDBFileReader.readPDBFile( cfgP.params.getValue("PDBName") );
         ArrayList<String> flexRes = cfgP.getFlexRes();
         
         
@@ -218,7 +220,7 @@ class COMETSDoer {
     }
     
     
-    public void calcBestSequences(){
+    public ArrayList<String> calcBestSequences(){
                     
         System.out.println("Performing multistate A*");
         
@@ -226,12 +228,15 @@ class COMETSDoer {
         //how many sequences to enumerate
 
         long startAStarTime = System.currentTimeMillis();
-
+        
+        ArrayList<String> bestSequences = new ArrayList<>();
 
         for(int seqNum=0; seqNum<numSeqsWanted; seqNum++){
             int seq[] = tree.nextConf();//this will find the best sequence and print it
             if(seq == null)//empty sequence...indicates no more sequence possibilities
                 break;
+            else
+                bestSequences.add(tree.seqAsString(seq));
         }
 
         long stopTime = System.currentTimeMillis();
@@ -240,6 +245,7 @@ class COMETSDoer {
         
         //DEBUG!!!  Checking by exhaustive search
         //exhaustiveMultistateSearch();
+        return bestSequences;
     }
         
         

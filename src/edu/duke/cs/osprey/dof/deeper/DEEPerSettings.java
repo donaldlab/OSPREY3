@@ -6,11 +6,7 @@
 package edu.duke.cs.osprey.dof.deeper;
 
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
-import edu.duke.cs.osprey.kstar.Termini;
 import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.tools.ObjectIO;
-
-import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
@@ -19,8 +15,7 @@ import java.util.ArrayList;
  * 
  * @author mhall44
  */
-@SuppressWarnings("serial")
-public class DEEPerSettings implements Serializable {
+public class DEEPerSettings {
     
     PertSet perts = null;//Describes the actual perturbations
     
@@ -65,7 +60,7 @@ public class DEEPerSettings implements Serializable {
     }
     
     
-    public void loadPertFile(Termini termini){
+    public void loadPertFile(){
         //load the perturbation file; select perturbations if there is none
         
         if(!doPerturbations)//No perturbations: leave perts null
@@ -73,18 +68,18 @@ public class DEEPerSettings implements Serializable {
         
         perts = new PertSet();
         
-        if( !perts.loadPertFile(pertFileName, true, termini) ){//file not found
+        if( ! perts.loadPertFile(pertFileName,true) ){//file not found
             
             if(!selectPerturbations)
                 throw new RuntimeException("ERROR: Perturbation file not found"
                         + " but not supposed to select perturbations");
             
             PerturbationSelector sele = new PerturbationSelector(startingPertFile, onlyStarting, 
-                    maxShearParam, maxBackrubParam, selectLCAs, flexibleRes, PDBFile, termini);
+                    maxShearParam, maxBackrubParam, selectLCAs, flexibleRes, PDBFile);
             
-            PertSet ps = sele.selectPerturbations(termini);
+            PertSet ps = sele.selectPerturbations();
             ps.writePertFile(pertFileName);
-            perts.loadPertFile(pertFileName, true, termini);
+            perts.loadPertFile(pertFileName,true);
         }
     }
     
@@ -106,7 +101,7 @@ public class DEEPerSettings implements Serializable {
     }
     
     public ArrayList<ArrayList<int[]>> getPertStates(int pos){
-        if(perts==null || perts.pertStates.size() == 0)
+        if(perts==null)
             return null;
         
         return perts.pertStates.get(pos);

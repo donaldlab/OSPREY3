@@ -4,16 +4,13 @@
  */
 package edu.duke.cs.osprey.tools;
 
-import java.io.Serializable;
-
 import cern.colt.matrix.DoubleFactory1D;
 
 /**
  *
  * @author mhall44
  */
-@SuppressWarnings("serial")
-public class RotationMatrix implements Serializable {
+public class RotationMatrix {
     
     double[][] matrix;
     

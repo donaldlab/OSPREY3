@@ -22,7 +22,7 @@ import edu.duke.cs.osprey.tools.Protractor;
 public class DOFTests {
     
     public static void testMutation(){
-        Molecule m = PDBFileReader.readPDBFile("1CC8.ss.pdb", null);
+        Molecule m = PDBFileReader.readPDBFile("1CC8.ss.pdb");
         ResidueTypeDOF mutDOF = new ResidueTypeDOF(m.residues.get(37));//Ser 39 originally
         mutDOF.mutateTo("ALA");
         PDBFileWriter.writePDBFile(m, "testResults/1CC8.S39A.pdb");
@@ -31,7 +31,7 @@ public class DOFTests {
     
     public static void testDihedral(){
         
-        Molecule m = PDBFileReader.readPDBFile("1CC8.ss.pdb", null);
+        Molecule m = PDBFileReader.readPDBFile("1CC8.ss.pdb");
         Residue res = m.residues.get(37);
         
         FreeDihedral chi1 = new FreeDihedral(res,0);//Ser 39

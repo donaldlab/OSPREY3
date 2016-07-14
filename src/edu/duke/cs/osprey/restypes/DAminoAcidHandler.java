@@ -63,10 +63,10 @@ public class DAminoAcidHandler {
                     res.getCoordsByAtomName("HA"),
                 };
                 
-                for(int i = 0; i < 4; ++i) {
-                	if(coords[i] == null) {
-                		throw new RuntimeException("ERROR: residue " + res.fullName + " does not have one of the expected atoms: N, CA, CB, or HA");
-                	}
+                for(int c=0; c<4; c++){
+                    if(coords[c] == null)
+                        throw new RuntimeException("ERROR: Can't check if " + res.fullName +
+                                " is L or D (one or more of N, CA, CB, HA is missing)");
                 }
                 
                 double ang = Protractor.measureDihedral(coords);

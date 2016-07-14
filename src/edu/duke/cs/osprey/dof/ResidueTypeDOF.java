@@ -12,15 +12,13 @@ import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.RigidBodyMotion;
-
-import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
  *
  * @author mhall44
  */
-public class ResidueTypeDOF extends DegreeOfFreedom implements Serializable {
+public class ResidueTypeDOF extends DegreeOfFreedom {
     //This degree of freedom is the residue type (e.g., AA type) at a particular position
     //So applying values of it means mutating the residue
     
@@ -32,14 +30,20 @@ public class ResidueTypeDOF extends DegreeOfFreedom implements Serializable {
         this.res = res;
     }
     
-    
     public void mutateTo(String resType) {
-        //paramVal is the index in the ResidueTemplateLibrary of the new parameter type
-        //so it must be an integer...
-        GenericResidueTemplateLibrary templateLib = EnvironmentVars.resTemplates;
-        
+        switchToTemplate(getLibraryTemplate(resType));
+    }
+    
+    public ResidueTemplate getLibraryTemplate(String resType) {
+        return EnvironmentVars.resTemplates.getTemplateForMutation(resType, res, true);
+    }
+    
+    public boolean isTemplate(ResidueTemplate template) {
+    	return this.res.template == template;
+    }
+    
+    public void switchToTemplate(ResidueTemplate newTemplate) {
         ResidueTemplate oldTemplate = res.template;
-        ResidueTemplate newTemplate = templateLib.getTemplateForMutation(resType,res,true);
         
         //the residue's going to change some, so break its inter-residue bonds
         res.removeInterResBonds();
@@ -138,6 +142,8 @@ public class ResidueTypeDOF extends DegreeOfFreedom implements Serializable {
     
     
     
+    @Override
+    public Residue getResidue() { return res; }
     
     
     

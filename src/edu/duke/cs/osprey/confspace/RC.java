@@ -4,12 +4,11 @@
  */
 package edu.duke.cs.osprey.confspace;
 
-import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import java.io.Serializable;
-import edu.duke.cs.osprey.tools.MinVolEllipse;
-import cern.colt.matrix.DoubleMatrix2D;
-import cern.colt.matrix.impl.DenseDoubleMatrix2D;
 import java.util.ArrayList;
+
+import edu.duke.cs.osprey.dof.DegreeOfFreedom;
+import edu.duke.cs.osprey.restypes.ResidueTemplate;
 
 /**
  *
@@ -20,7 +19,8 @@ public class RC implements Serializable {
     //A residue conformation.  Meant to be part of a PositionConfSpace
     
     public String AAType;//amino-acid type
-    public int rotNum;//rotamer number (same library, for the given AAType)
+    public ResidueTemplate template; // RC-specific template, null means use template library
+    public int rotNum;//rotamer number (same library, for the given AAType, or refers to this.template when set)
     
     //bounds on degrees of freedom
     //some of these are defined by the AAType and rotNum
@@ -30,10 +30,11 @@ public class RC implements Serializable {
     //note: for AA type we do not use DOFmin or DOFmax (can leave at 0 or whatever): use AAType instead
     
     
-    int RCIndex;//index within the RCs for this residue in the PositionConfSpace
+    public int RCIndex;//index within the RCs for this residue in the PositionConfSpace
 
-    public RC(String AAType, int rotNum, ArrayList<DegreeOfFreedom> DOFs, ArrayList<Double> DOFmin, ArrayList<Double> DOFmax, int RCIndex) {
+    public RC(String AAType, ResidueTemplate template, int rotNum, ArrayList<DegreeOfFreedom> DOFs, ArrayList<Double> DOFmin, ArrayList<Double> DOFmax, int RCIndex) {
         this.AAType = AAType;
+        this.template = template;
         this.rotNum = rotNum;
         this.DOFs = DOFs;
         this.DOFmin = DOFmin;

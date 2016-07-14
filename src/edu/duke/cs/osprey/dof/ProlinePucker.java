@@ -114,4 +114,8 @@ public class ProlinePucker extends DegreeOfFreedom {
     
     
     
+    @Override
+    public Residue getResidue() { return res; }
+    
+    
 }

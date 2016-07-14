@@ -16,10 +16,12 @@ import java.io.IOException;
 /* TODO:
  * Get this running as a separate class. There's no reason to have to invoke it with all the other
  * parameters from the command line.
+
+  MH 7/1/16: I have converted most of the tests that were here to JUnit tests and moved them
+  to the tests directory that Jeff created.  The remaining ones create PDB files that
+  you can look at...I left them here in case they might come in handy.  
  */
 public class UnitTestSuite {
-    //Suite of all unit tests to run
-    //can be good to check that we didn't break something
     //this suite is meant to run in the directory 1CC8
     
     public static void runAllTests(){
@@ -35,28 +37,10 @@ public class UnitTestSuite {
         catch(IOException e){//this is weird
             throw new RuntimeException(e.getMessage());
         }
-        
-        EnergyTests.test1CC8Energy();
-        
+                
         DOFTests.testMutation();
         DOFTests.testDihedral();
-        
-        ToolTests.SuperposingRotMatrixTest();
-        ToolTests.RigidMotionTest();
-        
-        ConfSpaceTests.testConfSpaceGeneration();
-        PDBTests.testPDBReadWrite();
-        
-        ConfSearchTests.testDEE(true);
-        ConfSearchTests.testDEE(false);
-        ConfSearchTests.testExhaustive(false, false);
-        ConfSearchTests.testExhaustive(false, true);
-        ConfSearchTests.testExhaustive(true, false);
     }
     
-    public static void main(String[] args)
-    {
-        runAllTests();
-    }
     
 }

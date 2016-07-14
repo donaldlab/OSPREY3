@@ -4,18 +4,18 @@
  */
 package edu.duke.cs.osprey.restypes;
 
-import edu.duke.cs.osprey.control.EnvironmentVars;
-import edu.duke.cs.osprey.structure.Atom;
-import edu.duke.cs.osprey.structure.Residue;
-
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import edu.duke.cs.osprey.structure.Atom;
+import edu.duke.cs.osprey.structure.Residue;
 
 /**
  *
  * @author mhall44
  */
-@SuppressWarnings("serial")
 public class ResidueTemplate implements Serializable {
     //This class defines a residue type, like ARG or H2O or whatever
     //structures are composed entirely of residues. 
@@ -55,6 +55,47 @@ public class ResidueTemplate implements Serializable {
     public int numberOfPhiPsiBins = -1;
     // Resolution of phi and psi backbone dihedrals in the backbone dependent rotamer library. For example, in the Dunbrack rotamer library the resolution is 10. 
     public double phiPsiResolution = -1;
+    
+    public static ResidueTemplate makeFromResidueConfs(Residue ... residues) {
+    	return makeFromResidueConfs(Arrays.asList(residues));
+    }
+    
+    public static ResidueTemplate makeFromResidueConfs(List<Residue> residues) {
+    	
+    	// copy the first residue conformation to embed into the template
+    	Residue firstRes = residues.get(0);
+    	ResidueTemplate oldTemplate = firstRes.template;
+    	Residue templateRes = new Residue(firstRes);
+    	templateRes.copyIntraBondsFrom(firstRes);
+		ResidueTemplate newTemplate = new ResidueTemplate(templateRes, oldTemplate.name);
+    	
+    	// copy template info
+		newTemplate.setNumberOfPhiPsiBins(oldTemplate.numberOfPhiPsiBins);
+		newTemplate.initializeRotamerArrays();
+		newTemplate.dihedral4Atoms = oldTemplate.dihedral4Atoms;
+		newTemplate.numDihedrals = oldTemplate.numDihedrals;
+		newTemplate.setNumRotamers(residues.size());
+		
+		// measure the dihedrals for all conformations
+		double[][] dihedrals = new double[residues.size()][newTemplate.numDihedrals];
+		for (int i=0; i<residues.size(); i++) {
+			Residue res = residues.get(i);
+			assert (res.template == oldTemplate);
+			for (int j=0; j<res.getNumDihedrals(); j++) {
+				dihedrals[i][j] = res.getDihedralAngle(j);
+			}
+		}
+		newTemplate.setRotamericDihedrals(dihedrals);
+		newTemplate.computeDihedralMovingAtoms();
+		
+		// TODO: the second conformation doesn't necessarily differ from the first only by dihedrals
+		// if these are eg crystallographic alternates, they could differ in eg bond angles too
+		// ideally, the template should allow arbitrary conformations for each rotamer
+		// but that's a much bigger refactor than we have to do today =)
+		// for now, we'll get the i=0 rotamer conformation right, and the i>0 conformations will be approximations
+		
+		return newTemplate;
+    }
 
     public ResidueTemplate(Residue res, String name){
         //initializes only with info from a template file.  res won't even have coordinates yet
@@ -136,13 +177,25 @@ public class ResidueTemplate implements Serializable {
      * @param dihedralNum The dihedral's index number.
      * @return the angle value for the desired dihedral.
      */
-    public double getRotamericDihedrals(double phi, double psi, int rotNum, int dihedralNum){
-
+    public double getRotamericDihedrals(double phi, double psi, int rotNum, int dihedralNum) {
+    	return getRotamericDihedrals(phi, psi, rotNum)[dihedralNum];
+    }
+    
+    public double getRotamericDihedrals(int rotNum, int dihedralNum) {
+        return getRotamericDihedrals(0,0,rotNum,dihedralNum);
+    }
+    
+    public double[] getRotamericDihedrals(int rotNum) {
+    	return getRotamericDihedrals(0, 0, rotNum);
+    }
+    
+    public double[] getRotamericDihedrals(double phi, double psi, int rotNum) {
+    	
         if(Double.isNaN(phi) || Double.isNaN(psi)){//dihedrals not defined for this residue
             if(numberOfPhiPsiBins > 1)
                 throw new RuntimeException("ERROR: Can't use Dunbrack library on residues w/o phi/psi defined");
 
-            return rotamericDihedrals[0][0][rotNum][dihedralNum];
+            return rotamericDihedrals[0][0][rotNum];
         }
 
         // Under the dunbrack rotamer library, backbone dependent rotamers have a resolution of 10 degrees, 
@@ -150,12 +203,7 @@ public class ResidueTemplate implements Serializable {
         //  Therefore, we round to the closest "bin" and add numberOfPhiPsiBins/2 (to make all numbers positive)
         int phiBin = (int)(Math.round(phi/this.phiPsiResolution)) + this.numberOfPhiPsiBins/2;
         int psiBin = (int)(Math.round(psi/this.phiPsiResolution)) + this.numberOfPhiPsiBins/2;
-        return rotamericDihedrals[phiBin][psiBin][rotNum][dihedralNum];
-
-    }
-    
-    public double getRotamericDihedrals(int rotNum, int dihedralNum){
-        return getRotamericDihedrals(0,0,rotNum,dihedralNum);
+        return rotamericDihedrals[phiBin][psiBin][rotNum];
     }
     
     /**

@@ -4,14 +4,11 @@
  */
 package edu.duke.cs.osprey.tools;
 
-import java.io.Serializable;
-
 /**
  *
  * @author mhall44
  */
-@SuppressWarnings("serial")
-public class RigidBodyMotion implements Serializable {
+public class RigidBodyMotion {
     //This class can represent any rigid-body motion
     //subtract center1, apply rotation about the origin, and then add center2
     

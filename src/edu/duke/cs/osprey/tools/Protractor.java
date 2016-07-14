@@ -61,9 +61,20 @@ public class Protractor {
             return ans;
     }
     
+    public static double measureDihedral(double[] coords, int[] indices) {
+    	return measureDihedral(coords, indices[0], indices[1], indices[2], indices[3]);
+    }
     
+    public static double measureDihedral(double[] coords, int a, int b, int c, int d) {
+    	return measureDihedral(coords, a, coords, b, coords, c, coords, d);
+    }
     
-    public static double measureDihedral(double[][] coords){
+    public static double measureDihedral(double[][] coords) {
+    	return measureDihedral(coords[0], 0, coords[1], 0, coords[2], 0, coords[3], 0);
+    }
+    
+    public static double measureDihedral(double[] acoords, int aindex, double[] bcoords, int bindex, double[] ccoords, int cindex, double[] dcoords, int dindex) {
+    
         //given 3D coords for four atoms, return their dihedral (standard sign convention; in degrees)
     
 	// This was not written by me, but I have checked it
@@ -83,15 +94,15 @@ public class Protractor {
         double bi, bk;
         double ct, d, ap, app, bibk;
 
-        xij = coords[0][0] - coords[1][0];
-        yij = coords[0][1] - coords[1][1];
-        zij = coords[0][2] - coords[1][2];
-        xkj = coords[2][0] - coords[1][0];
-        ykj = coords[2][1] - coords[1][1];
-        zkj = coords[2][2] - coords[1][2];
-        xkl = coords[2][0] - coords[3][0];
-        ykl = coords[2][1] - coords[3][1];
-        zkl = coords[2][2] - coords[3][2];
+        xij = acoords[aindex*3 + 0] - bcoords[bindex*3 + 0];
+        yij = acoords[aindex*3 + 1] - bcoords[bindex*3 + 1];
+        zij = acoords[aindex*3 + 2] - bcoords[bindex*3 + 2];
+        xkj = ccoords[cindex*3 + 0] - bcoords[bindex*3 + 0];
+        ykj = ccoords[cindex*3 + 1] - bcoords[bindex*3 + 1];
+        zkj = ccoords[cindex*3 + 2] - bcoords[bindex*3 + 2];
+        xkl = ccoords[cindex*3 + 0] - dcoords[dindex*3 + 0];
+        ykl = ccoords[cindex*3 + 1] - dcoords[dindex*3 + 1];
+        zkl = ccoords[cindex*3 + 2] - dcoords[dindex*3 + 2];
 
                     // d = ij cross kj
                     // g = kl cross kj

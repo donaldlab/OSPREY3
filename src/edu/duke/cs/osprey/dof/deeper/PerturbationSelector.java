@@ -6,8 +6,6 @@
 package edu.duke.cs.osprey.dof.deeper;
 
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
-import edu.duke.cs.osprey.kstar.Termini;
-import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -34,6 +32,8 @@ public class PerturbationSelector {
     Molecule m;//generated from provided PDB file
     
     
+    
+    
     //Stuff generated and used in the selection process
     ArrayList<Perturbation> perts;//the perturbations, implemented in m
     PertSet ps;//the perturbation set we're generating
@@ -51,7 +51,7 @@ public class PerturbationSelector {
     
     public PerturbationSelector(String startingPertFile, boolean onlyStarting, 
             double maxShearParam, double maxBackrubParam, boolean selectLCAs, 
-            ArrayList<String> flexibleRes, String PDBFile, Termini termini) {
+            ArrayList<String> flexibleRes, String PDBFile) {
         
         this.startingPertFile = startingPertFile;
         this.onlyStarting = onlyStarting;
@@ -60,17 +60,17 @@ public class PerturbationSelector {
         this.selectLCAs = selectLCAs;
         this.flexibleRes = flexibleRes;
         
-        m = PDBFileReader.readPDBFile(PDBFile, termini);
+        m = PDBFileReader.readPDBFile(PDBFile);
     }
     
     
     
-    public PertSet selectPerturbations(Termini termini){
+    public PertSet selectPerturbations(){
         ps = new PertSet();
         
-        if( !startingPertFile.equalsIgnoreCase("none") ){//lists perturbations to include
+        if( ! startingPertFile.equalsIgnoreCase("none") ){//lists perturbations to include
             //that would not be automatically selected.  (Probably partial structure switches)
-            if( !ps.loadPertFile(startingPertFile,false, termini) ){
+            if( ! ps.loadPertFile(startingPertFile,false) ){
                 throw new RuntimeException( "ERROR: Can't find starting perturbation file "
                         + startingPertFile );
             }
@@ -118,11 +118,9 @@ public class PerturbationSelector {
     
     void mutateFlexResToGly(){
         for(String resNum : flexibleRes){
-       
             Residue res = m.getResByPDBResNumber(resNum);
             
-            if(HardCodedResidueInfo.hasAminoAcidBB(res))
-            	new ResidueTypeDOF(res).mutateTo("GLY");
+            new ResidueTypeDOF(res).mutateTo("GLY");
         }
     }
     
@@ -522,8 +520,7 @@ public class PerturbationSelector {
         //OK if we get here the pert state is geometrically possible
         //Check Ramachandran for this residue...
         failingPertIndex = -1;//did not fail to apply perturbation
-        //boolean ok = ramaCheck(m.getResByPDBResNumber(flexibleRes.get(pos)));//just check res,
-        boolean ok = true;
+        boolean ok = ramaCheck(m.getResByPDBResNumber(flexibleRes.get(pos)));//just check res,
         //see if works for any Ramachandran category except Gly
         
         restoreFlexResCoords(backupCoords);

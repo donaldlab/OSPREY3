@@ -11,16 +11,13 @@ import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
-
-import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
  *
  * @author mhall44
  */
-@SuppressWarnings("serial")
-public class EnergyFunctionGenerator implements Serializable {
+public class EnergyFunctionGenerator {
     //This is an object that generates an energy function (maps conformation-->energy) for a molecule or a portion thereof
     //it specifies settings for how this energy should be estimated
     
@@ -69,6 +66,30 @@ public class EnergyFunctionGenerator implements Serializable {
         }
         
         return intraAndShellE;
+    }
+    
+    public EnergyFunction intraAndDistributedShellEnergy(Residue res, ArrayList<Residue> shellResidues, int numPos, double singleWeight) {
+        MultiTermEnergyFunction efunc = new MultiTermEnergyFunction();
+        efunc.addTerm(new SingleResEnergy(res, ffParams));
+        if (singleWeight > 0) {
+        	for (Residue shellRes : shellResidues) {
+        		efunc.addTerm(new ScaledEnergyFunction(new ResPairEnergy(res, shellRes, ffParams), singleWeight));
+        	}
+        }
+        return efunc;
+    }
+    
+    public EnergyFunction resPairAndDistributedShellEnergy(Residue res1, Residue res2, ArrayList<Residue> shellResidues, int numPos, double singleWeight) {
+    	double pairWeight = (1.0 - singleWeight)/(numPos - 1);
+        MultiTermEnergyFunction efunc = new MultiTermEnergyFunction();
+        efunc.addTerm(new ResPairEnergy(res1, res2, ffParams));
+        if (pairWeight > 0) {
+        	for (Residue shellRes : shellResidues) {
+        		efunc.addTerm(new ScaledEnergyFunction(new ResPairEnergy(res1, shellRes, ffParams), pairWeight));
+        		efunc.addTerm(new ScaledEnergyFunction(new ResPairEnergy(res2, shellRes, ffParams), pairWeight));
+        	}
+        }
+        return efunc;
     }
     
     //want partial versions of the above too?

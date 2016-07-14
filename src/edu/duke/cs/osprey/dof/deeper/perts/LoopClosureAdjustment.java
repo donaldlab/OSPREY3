@@ -160,7 +160,10 @@ public class LoopClosureAdjustment extends Perturbation {
         //There may be another solution in solns[0], which will be moved to the unperturbed soln
         if(numSoln>0)
             solns[unperturbed] = solns[0];
+        else//ok there should always be an unperturbed state; this would suggest numerical error
+            solns = new RigidBodyMotion[1][2];//we'll put the unperturbed state here
         
+        solns[0] = new RigidBodyMotion[2];
         solns[0][0] = new RigidBodyMotion(new double[3], RotationMatrix.identity(), new double[3]);
         solns[0][1] = new RigidBodyMotion(new double[3], RotationMatrix.identity(), new double[3]);
         

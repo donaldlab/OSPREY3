@@ -4,20 +4,22 @@
  */
 package edu.duke.cs.osprey.control;
 
-import java.util.ArrayList;
-
 import edu.duke.cs.osprey.astar.ConfTree;
-import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
+import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
+import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
+import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.RCTuple;
+import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.structure.PDBFileReader;
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
 
 /**
  *
@@ -84,7 +86,10 @@ public class GMECFinder {
             I0 = cfgP.params.getDouble("Ival");
         }
         
-        useContFlex = cfgP.params.getBool("doMinimize");
+        useContFlex = cfgP.params.getBool("doMinimize") || cfgP.params.getBool("doPerturbations");
+        //using either continuous sidechain flexibility, or backbone flexibility (which may be continuous)
+        //Note discrete flexibility is just a special case of continuous flexibility
+        
         useTupExp = cfgP.params.getBool("UseTupExp");
         useEPIC = cfgP.params.getBool("UseEPIC");
         
@@ -118,7 +123,8 @@ public class GMECFinder {
         
         searchSpace = cfp.getSearchProblem();
         
-        BufferedWriter confFileHandle = openConfFile();
+        boolean printEPICEnergy = checkApproxE && useEPIC && useTupExp;
+        ConfPrinter confPrinter = new ConfPrinter(searchSpace, confFileName, printEPICEnergy);
         
         do {
             needToRepeat = false;
@@ -142,6 +148,11 @@ public class GMECFinder {
             
             System.out.println();
             System.out.println("BEGINNING CONFORMATION ENUMERATION");
+            try {
+            	System.out.println("\tsearching " + search.getNumConformations().floatValue() + " conformations...");
+            } catch (UnsupportedOperationException ex) {
+            	// conf tree doesn't support it, no big deal
+            }
             System.out.println();
             
             long confSearchStartTime = System.currentTimeMillis();
@@ -180,7 +191,7 @@ public class GMECFinder {
 
                     lowestBound = Math.min(lowestBound,lowerBound);
 
-                    printConf(conf,confE,lowerBound,bestESoFar,confFileHandle,conformationCount);
+                    confPrinter.printConf(conf,confE,lowerBound,bestESoFar,conformationCount);
                     conformationCount++;
                 }
                 
@@ -221,6 +232,11 @@ public class GMECFinder {
                     break;
                 }
                 
+                // if we're finding a rigidGMEC with no energy window, don't wait for the second conformation
+                if (!useContFlex && Ew == 0) {
+                	break;
+                }
+                
             } while( bestESoFar+Ew >= lowerBound );//lower bound above GMEC + Ew...can stop enumerating
             
             double confSearchTimeMinutes = (System.currentTimeMillis()-confSearchStartTime)/60000.0;
@@ -231,7 +247,7 @@ public class GMECFinder {
         if(outputGMECStruct && GMECConf!=null)
             searchSpace.outputMinimizedStruct( GMECConf, searchSpace.name+".GMEC.pdb" );
         
-        closeConfFile(confFileHandle);
+        confPrinter.closeConfFile();
         System.out.println("GMEC calculation complete.  ");
         
         System.out.println("GMEC energy: "+bestESoFar);
@@ -365,64 +381,51 @@ public class GMECFinder {
         else
             return searchSpace.lowerBound(conf);//for rigid calc w/ pairwise E-mtx, can just calc from mtx
     }
-    
-    void printConf(int[] conf, double confE, double lowerBound, double bestESoFar, 
-            BufferedWriter confFileHandle, int confCount ){
-        try {
-            System.out.println("ENUMERATING CONFORMATION.  RCs (residue-based numbers):");
-            confFileHandle.write(confCount + " CONF: ");
-            for(int rc : conf){
-                System.out.print(rc + " ");
-                confFileHandle.write(rc + " ");
-            }
-            System.out.println();
-
-
-            System.out.println("Residue types: ");
-            confFileHandle.write("RESTYPES: ");
-            for(int pos=0; pos<searchSpace.confSpace.numPos; pos++){
-                String resType = searchSpace.confSpace.posFlex.get(pos).RCs.get(conf[pos]).AAType;
-                System.out.print( resType + " " );
-                confFileHandle.write(resType + " ");
-            }
-            System.out.println();
-
-
-            System.out.println("Rotamer numbers: ");
-            confFileHandle.write("ROTS: ");
-            for(int pos=0; pos<searchSpace.confSpace.numPos; pos++){
-                int rotNum = searchSpace.confSpace.posFlex.get(pos).RCs.get(conf[pos]).rotNum;
-                System.out.print( rotNum + " " );
-                confFileHandle.write( rotNum + " " );
-            }
-            System.out.println();
-
-
-            String energyStatement = "Lower bound/enumeration energy: "+lowerBound+" Energy: "+confE+" Best so far: "+bestESoFar;
-            //Lower bound/enumeration energy is what we enumerate in order of
-            //(either a lower bound on the actual energy, or the same as Energy)
-
-            if(checkApproxE && useEPIC && useTupExp)//useful to see EPIC energy (confE is regular E, lowerBound is tup-exp)
-                energyStatement = energyStatement + " EPIC energy: " + searchSpace.EPICMinimizedEnergy(conf);
-
-            System.out.println(energyStatement);
-            
-            confFileHandle.write(energyStatement);
-            confFileHandle.newLine();
-        }
-        catch(IOException e){
-            e.printStackTrace();
-            throw new RuntimeException(e.getMessage());
-        }
-    }
-                
-    
-    
-    
+        
     ConfSearch initSearch(SearchProblem searchSpace){
+    	
         //initialize some kind of combinatorial search, like A*
         //FOR NOW just using A*; may also want BWM*, WCSP, or something according to settings
-        return new ConfTree(searchSpace);
+    	
+    	if (searchSpace.searchNeedsHigherOrderTerms()) {
+    	
+    		// if we need higher-order terms, use the old A* code
+    		return ConfTree.makeFull(searchSpace);
+    		
+    	} else {
+    		
+    		// when we don't need higher order terms, we can do fast pairwise-only things
+    		
+    		// get the appropriate configuration for A*
+    		AStarScorer gscorer = new PairwiseGScorer(searchSpace.emat);
+    		AStarScorer hscorer;
+    		AStarOrder order;
+			RCs rcs = new RCs(searchSpace.pruneMat);
+    		
+    		// how many iterations of MPLP should we do?
+    		int numMPLPIters = cfp.getParams().getInt("NumMPLPIters");
+    		if (numMPLPIters <= 0) {
+    			
+    			// zero MPLP iterations is exactly the traditional heuristic, so use the fast implementation
+    			hscorer = new TraditionalPairwiseHScorer(searchSpace.emat, rcs);
+    			order = new DynamicHMeanAStarOrder();
+    			
+    		} else {
+    			
+    			// simple (but not exhaustive) testing showed node-based MPLP is basically
+    			// always faster than edge-based MPLP, so just use node-based MPLP all the time.
+    			// also, always use a static order with MPLP
+    			// MPLP isn't optimized to do differential node scoring quickly so DynamicHMean is super slow!
+    			double convergenceThreshold = cfp.getParams().getDouble("MPLPConvergenceThreshold");
+    			hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), searchSpace.emat, numMPLPIters, convergenceThreshold);
+    			order = new StaticScoreHMeanAStarOrder();
+    		}
+    		
+    		// init the A* tree
+			ConfAStarTree tree = new ConfAStarTree(order, gscorer, hscorer, rcs);
+			tree.initProgress();
+			return tree;
+    	}
     }
     
     
@@ -461,30 +464,5 @@ public class GMECFinder {
             searchSpace.epicSettings.EPICThresh2 = curInterval+Ew;
         }
     }
-    
-    
-    private BufferedWriter openConfFile(){
-        //open (for writing) a file to record conformations in
-        
-        try {
-            return new BufferedWriter(new FileWriter(confFileName));
-        }
-        catch(Exception e){
-            throw new RuntimeException("ERROR OPENING CONF FILE.  NAME: "
-                    + confFileName + e.getMessage());
-        }
-    }
-    
-    private void closeConfFile(BufferedWriter confFileHandle){
-        //close it
-        
-        try {
-            confFileHandle.close();
-        }
-        catch(Exception e){
-            throw new RuntimeException("ERROR CLOSING CONF FILE.  NAME: "
-                    + confFileName + e.getMessage());
-        }
-    }
-    
+   
 }

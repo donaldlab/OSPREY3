@@ -4,6 +4,8 @@
  */
 package edu.duke.cs.osprey.confspace;
 
+import java.math.BigInteger;
+
 //This is a general interface for things that search conformational space
 //like an A* trees, a BWM* search, or a WCSP solver
 //For each of these, we instantiate the ConfSearch, 
@@ -15,6 +17,7 @@ package edu.duke.cs.osprey.confspace;
  */
 public interface ConfSearch {
     
+	BigInteger getNumConformations();
     int[] nextConf();
     
 }
