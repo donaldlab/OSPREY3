@@ -171,7 +171,7 @@ public class TestWorkCrew {
 	
 	// uncomment this test for deep debugging of hard-to-reproduce concurrency issues
 	// it takes way too long for typical regression testing though
-	@Test
+	//@Test
 	public void testManyManyManyRoundsRandomWorkload()
 	throws Exception {
 		WorkCrew<IncrementWorker> crew = new WorkCrew<>("Test");
