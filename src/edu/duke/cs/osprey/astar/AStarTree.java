@@ -32,8 +32,12 @@ public abstract class AStarTree<T extends AStarNode> implements ConfSearch {
     public int numPruned = 0;//counting number of nodes pruned
     
     @Override
-    public int[] nextConf() {
-    	return outputNode(nextLeafNode());
+    public ScoredConf nextConf() {
+    	T leafNode = nextLeafNode();
+    	if (leafNode == null) {
+    		return null;
+    	}
+    	return outputNode(leafNode);
     }
     
     private T nextLeafNode() {
@@ -89,10 +93,10 @@ public abstract class AStarTree<T extends AStarNode> implements ConfSearch {
     }
     
 	@Override
-	public List<int[]> nextConfs(double maxEnergy) {
-		List<int[]> confs = new ArrayList<>();
+	public List<ScoredConf> nextConfs(double maxEnergy) {
+		List<ScoredConf> confs = new ArrayList<>();
 		for (AStarNode node : nextLeafNodes(maxEnergy)) {
-			confs.add(node.getNodeAssignments());
+			confs.add(new ScoredConf(node.getNodeAssignments(), node.getScore()));
 		}
 		return confs;
 	}
@@ -130,12 +134,12 @@ public abstract class AStarTree<T extends AStarNode> implements ConfSearch {
     }
     
     
-    public int[] outputNode(T node){
+    public ScoredConf outputNode(T node){
     	
         //by default, the output of the A* tree will be simply the node assignments for the optimal node
         //but we may sometimes want to process it in some way
         System.out.println("A* returning conf.  "+pq.size()+" nodes in A* tree.  Score: "+node.getScore());
-        return node.getNodeAssignments();
+        return new ScoredConf(node.getNodeAssignments(), node.getScore());
     }
     
     

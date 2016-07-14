@@ -4,7 +4,6 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
@@ -14,7 +13,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
-import edu.duke.cs.osprey.confspace.RCTuple;
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
@@ -105,14 +104,13 @@ public class LowerBoundsPlayground extends TestBase {
 		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 4, 0.0001);
 		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
 		tree.initProgress();
-		int[] minBoundConf = tree.nextConf();
-		System.out.println("conformation:     " + Arrays.toString(minBoundConf));
+		ConfSearch.ScoredConf minBoundConf = tree.nextConf();
+		System.out.println("conformation:     " + Arrays.toString(minBoundConf.getAssignments()));
 		
 		// get the min bound and minimized energies
-		double minBoundEnergy = search.emat.getInternalEnergy(new RCTuple(minBoundConf));
-		double minimizedEnergy = search.minimizedEnergy(minBoundConf);
-		double boundError = minimizedEnergy - minBoundEnergy;
-		System.out.println("min bound energy: " + minBoundEnergy);
+		double minimizedEnergy = search.minimizedEnergy(minBoundConf.getAssignments());
+		double boundError = minimizedEnergy - minBoundConf.getScore();
+		System.out.println("min bound energy: " + minBoundConf.getScore());
 		System.out.println("minimized energy: " + minimizedEnergy);
 		System.out.println("Bound error:      " + boundError);
 		
@@ -133,7 +131,7 @@ public class LowerBoundsPlayground extends TestBase {
 		// check the minimized energy to make sure we didn't break anything
 		// when we were messing around with the energy functions
 		for (int pos1=0; pos1<search.emat.getNumPos(); pos1++) {
-			int rc1 = minBoundConf[pos1];
+			int rc1 = minBoundConf.getAssignments()[pos1];
 			
 			// single term
 			double singleBoundEnergy = search.emat.getOneBody(pos1, rc1);
@@ -147,7 +145,7 @@ public class LowerBoundsPlayground extends TestBase {
 			
 			// pairwise energies
 			for (int pos2=0; pos2<pos1; pos2++) {
-				int rc2 = minBoundConf[pos2];
+				int rc2 = minBoundConf.getAssignments()[pos2];
 				
 				double pairwiseBoundEnergy = search.emat.getPairwise(pos1, rc1, pos2, rc2);
 				double pairwiseMinimizedEnergy = ecalc.getPairEfunc(pos1, pos2).getEnergy();
@@ -161,7 +159,7 @@ public class LowerBoundsPlayground extends TestBase {
 		}
 		
 		final double Epsilon = 1e-12;
-		assert (Math.abs(minBoundEnergy - minBoundCheck) <= Epsilon);
+		assert (Math.abs(minBoundConf.getScore() - minBoundCheck) <= Epsilon);
 		assert (Math.abs(minimizedEnergy - minimizedCheck) <= Epsilon);
 		System.out.println("minimized energy checks passed, energies are correct");
 	}

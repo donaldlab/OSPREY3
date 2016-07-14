@@ -18,8 +18,50 @@ import java.util.List;
  */
 public interface ConfSearch {
     
-	BigInteger getNumConformations();
-    int[] nextConf();
-    List<int[]> nextConfs(double maxEnergy);
+    BigInteger getNumConformations();
+    ScoredConf nextConf();
+    List<ScoredConf> nextConfs(double maxEnergy);
     
+    public static class ScoredConf {
+        
+        private int[] assignments;
+        private double score;
+        
+        public ScoredConf(int[] assignments, double score) {
+            this.assignments = assignments;
+            this.score = score;
+        }
+        
+        public ScoredConf(ScoredConf other) {
+        	this.assignments = other.assignments.clone();
+        	this.score = other.score;
+        }
+        
+        public int[] getAssignments() {
+            return assignments;
+        }
+        
+        public double getScore() {
+            return score;
+        }
+    }
+    
+    public static class EnergiedConf extends ScoredConf {
+        
+        private double energy;
+        
+        public EnergiedConf(ScoredConf conf, double energy) {
+        	super(conf);
+            this.energy = energy;
+        }
+        
+        public EnergiedConf(int[] conf, double score, double energy) {
+        	super(conf, score);
+        	this.energy = energy;
+        }
+        
+        public double getEnergy() {
+            return energy;
+        }
+    }
 }

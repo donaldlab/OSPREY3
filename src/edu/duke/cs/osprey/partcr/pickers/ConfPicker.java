@@ -2,7 +2,9 @@ package edu.duke.cs.osprey.partcr.pickers;
 
 import java.util.List;
 
+import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
+
 public interface ConfPicker {
 	
-	int[] pick(List<int[]> confs);
+	ScoredConf pick(List<ScoredConf> confs);
 }

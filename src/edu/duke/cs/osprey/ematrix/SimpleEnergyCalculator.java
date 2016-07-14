@@ -45,10 +45,12 @@ public class SimpleEnergyCalculator {
 		public abstract double getSingleWeight(int numPos);
 	}
 	
-	// in empirical testing, the Even dist seems to outperform AllOnSingles by a lot
-	// and Even outperforms the others most of the time, but not all the time
-	// AllOnPairs seems to do pretty badly most of the time too
-	public static ShellDistribution DefaultDist = ShellDistribution.Even;
+	// NOTE: empirical testing didn't reveal any distribution to be consistently better than
+	// the others on a variety of designs.
+	// It probably depends on the ratio of flexible positions to shell positions
+	// anyway, AllOnSingles is waaay faster since it doesn't compute shell energies for pairwise terms
+	// also, the other energy calculator uses this distribution, so we should match to be consistent by default
+	public static ShellDistribution DefaultDist = ShellDistribution.AllOnSingles;
 	
 	public static class Result {
 		

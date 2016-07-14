@@ -13,10 +13,11 @@ public class Stopwatch {
 		startTime = -1;
 	}
 	
-	public void start() {
+	public Stopwatch start() {
 		assert (!isRunning);
 		startTime = System.nanoTime();
 		isRunning = true;
+		return this;
 	}
 	
 	public void stop() {

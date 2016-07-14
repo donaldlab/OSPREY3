@@ -11,6 +11,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
+import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.PositionConfSpace;
 import edu.duke.cs.osprey.confspace.RC;
@@ -157,13 +158,13 @@ public class SplitWorld {
 		}
 	}
 	
-	public double improveBound(int[] conf) {
+	public ScoredConf translateConf(ScoredConf conf) {
 		
 		// do A* search to find the improved bound
-		RCs subRcs = splits.makeRCs(conf);
+		RCs subRcs = splits.makeRCs(conf.getAssignments());
 		AStarOrder order = new StaticScoreHMeanAStarOrder();
 		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001);
 		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, subRcs);
-		return tree.nextLeafNode().getGScore();
+		return tree.nextConf();
 	}
 }

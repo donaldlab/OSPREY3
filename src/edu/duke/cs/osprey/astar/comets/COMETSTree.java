@@ -334,10 +334,10 @@ public class COMETSTree extends AStarTree<FullAStarNode> {
     
     
     @Override
-    public int[] outputNode(FullAStarNode node){
+    public ScoredConf outputNode(FullAStarNode node){
         //Let's print more info when outputting a node
         printBestSeqInfo((COMETSNode)node);
-        return node.getNodeAssignments();
+        return new ScoredConf(node.getNodeAssignments(), node.getScore());
     }
     
     

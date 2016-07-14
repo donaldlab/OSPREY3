@@ -2,10 +2,12 @@ package edu.duke.cs.osprey.partcr.pickers;
 
 import java.util.List;
 
+import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
+
 public class FirstConfPicker implements ConfPicker {
 
 	@Override
-	public int[] pick(List<int[]> confs) {
+	public ScoredConf pick(List<ScoredConf> confs) {
 		return confs.get(0);
 	}
 }

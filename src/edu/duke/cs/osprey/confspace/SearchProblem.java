@@ -32,7 +32,9 @@ public class SearchProblem implements Serializable {
     //annotations are based on RCs and indicate pairwise energies, pruning information, etc.
     //they also include iterators over RCs and pairs of interest
     
-    public ConfSpace confSpace;
+	private static final long serialVersionUID = 595064696416508529L;
+
+	public ConfSpace confSpace;
     
     public EnergyMatrix emat;//energy matrix.  Meanings:
     //-Defines full energy in the rigid case
@@ -67,22 +69,22 @@ public class SearchProblem implements Serializable {
     
     
     public SearchProblem(SearchProblem sp1){//shallow copy
-    	confSpace = sp1.confSpace;
-    	emat = sp1.emat;
+        confSpace = sp1.confSpace;
+        emat = sp1.emat;
         epicMat = sp1.epicMat;
         epicSettings = sp1.epicSettings;
         tupExpEMat = sp1.tupExpEMat;
         
-    	fullConfE = sp1.fullConfE;
-    	shellResidues = sp1.shellResidues;
-    	name = sp1.name + System.currentTimeMillis();//probably will want to change this to something more meaningful
+        fullConfE = sp1.fullConfE;
+        shellResidues = sp1.shellResidues;
+        name = sp1.name + System.currentTimeMillis();//probably will want to change this to something more meaningful
         
-    	pruneMat = sp1.pruneMat;
-    	competitorPruneMat = sp1.competitorPruneMat;
+        pruneMat = sp1.pruneMat;
+        competitorPruneMat = sp1.competitorPruneMat;
         
-    	contSCFlex = sp1.contSCFlex;
-    	useEPIC = sp1.useEPIC;
-    	useTupExpForSearch = sp1.useTupExpForSearch;
+        contSCFlex = sp1.contSCFlex;
+        useEPIC = sp1.useEPIC;
+        useTupExpForSearch = sp1.useTupExpForSearch;
         
         useERef = sp1.useERef;
         addResEntropy = sp1.addResEntropy;
@@ -234,7 +236,7 @@ public class SearchProblem implements Serializable {
         //matrix file names are determined by the name of the search problem
         
         if(!loadMatrixFromFile( type, matrixFileName )){
-            TupleMatrix matrix = calcMatrix(type);
+            TupleMatrix<?> matrix = calcMatrix(type);
             ObjectIO.writeObject( matrix, matrixFileName );
             loadMatrixFromFile( type, matrixFileName );
         }
@@ -242,7 +244,7 @@ public class SearchProblem implements Serializable {
     
     
     //compute the matrix of the specified type
-    private TupleMatrix calcMatrix(MatrixType type){
+    private TupleMatrix<?> calcMatrix(MatrixType type){
         
         if(type == MatrixType.EMAT){
             EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(confSpace,shellResidues,
@@ -307,7 +309,7 @@ public class SearchProblem implements Serializable {
         
         //check pruning interval.  Current interval is in pruneMat if we have pruned already;
         //if not then we need a matrix with infinite pruning interval (valid for all RCs).
-        double matrixPruningInterval = ((TupleMatrix)matrixFromFile).getPruningInterval();
+        double matrixPruningInterval = ((TupleMatrix<?>)matrixFromFile).getPruningInterval();
         
         if( matrixPruningInterval == Double.POSITIVE_INFINITY )//definitely valid
             return true;

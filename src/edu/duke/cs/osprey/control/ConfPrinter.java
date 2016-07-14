@@ -5,10 +5,12 @@
  */
 package edu.duke.cs.osprey.control;
 
-import edu.duke.cs.osprey.confspace.SearchProblem;
-import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Writer;
+
+import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
+import edu.duke.cs.osprey.confspace.SearchProblem;
 
 /**
  *
@@ -19,8 +21,10 @@ import java.io.IOException;
 public class ConfPrinter {
     
     SearchProblem searchSpace;
-    BufferedWriter confFileHandle;
+    Writer confFileHandle;
     String confFileName;
+    int numConfs;
+    double minEnergy;
     
     boolean printEPICEnergy;
     
@@ -28,10 +32,15 @@ public class ConfPrinter {
         //open (for writing) a file to record conformations in
         searchSpace = searchProb;
         this.confFileName = confFileName;
+        this.numConfs = 0;
+        this.minEnergy = Double.POSITIVE_INFINITY;
         this.printEPICEnergy = printEPICEnergy;
         
         try {
-            confFileHandle = new BufferedWriter(new FileWriter(confFileName));
+            // NOTE: don't use buffered writers here
+            // we want to flush writes to disk ASAP so we keep as much info as
+            // possible after a failure that aborts the program
+            confFileHandle = new FileWriter(confFileName);
         }
         catch(Exception e){
             throw new RuntimeException("ERROR OPENING CONF FILE.  NAME: "
@@ -39,61 +48,99 @@ public class ConfPrinter {
         }
     }
     
+    public String getConfReport(EnergiedConf conf) {
+    	return getConfReport(conf, null);
+    }
     
-    void printConf(int[] conf, double confE, double lowerBound, double bestESoFar, 
-            int confCount ){
+    public String getConfReport(EnergiedConf conf, Double minEnergy) {
+    	StringBuilder buf = new StringBuilder();
+    	
+    	int labelSize = 30;
+    	String labelFormat = "\t%-" + labelSize + "s";
+    	
+		buf.append(String.format(labelFormat, "RCs (residue-based numbers)"));
+		for(int rc : conf.getAssignments()){
+			buf.append(String.format(" %3d", rc));
+		}
+		buf.append("\n");
+
+
+		buf.append(String.format(labelFormat, "Residue types"));
+		for(int pos=0; pos<searchSpace.confSpace.numPos; pos++){
+			String resType = searchSpace.confSpace.posFlex.get(pos).RCs.get(conf.getAssignments()[pos]).AAType;
+			buf.append(String.format(" %3s", resType));
+		}
+		buf.append("\n");
+
+
+		buf.append(String.format(labelFormat, "Rotamer numbers"));
+		for(int pos=0; pos<searchSpace.confSpace.numPos; pos++){
+			int rotNum = searchSpace.confSpace.posFlex.get(pos).RCs.get(conf.getAssignments()[pos]).rotNum;
+			buf.append(String.format(" %3d", rotNum));
+		}
+		buf.append("\n");
+
+		Double epicEnergy = null;
+		if(printEPICEnergy) { //useful to see EPIC energy (confE is regular E, lowerBound is tup-exp)
+			epicEnergy = searchSpace.EPICMinimizedEnergy(conf.getAssignments());
+		}
+		
+		buf.append(String.format(labelFormat + " %.6f", "Energy", conf.getEnergy()));
+		if (minEnergy != null) {
+			buf.append(String.format(" (best so far: %.6f)", minEnergy));
+		}
+		buf.append("\n");
+		buf.append(String.format(labelFormat + " %.6f (gap: %.6f)\n", "Score", conf.getScore(), Math.abs(conf.getScore() - conf.getEnergy())));
+		if (epicEnergy != null) {
+			buf.append(String.format(labelFormat + "%.6f\n", "EPIC", epicEnergy));
+		}
+		
+    	return buf.toString();
+    }
+    
+    
+    public void printConf(EnergiedConf conf){
         
         try {
-            System.out.println("ENUMERATING CONFORMATION.  RCs (residue-based numbers):");
-            confFileHandle.write(confCount + " CONF: ");
-            for(int rc : conf){
-                System.out.print(rc + " ");
+        	
+            confFileHandle.write((numConfs++) + " CONF: ");
+            for(int rc : conf.getAssignments()){
                 confFileHandle.write(rc + " ");
             }
-            System.out.println();
 
-
-            System.out.println("Residue types: ");
             confFileHandle.write("RESTYPES: ");
             for(int pos=0; pos<searchSpace.confSpace.numPos; pos++){
-                String resType = searchSpace.confSpace.posFlex.get(pos).RCs.get(conf[pos]).AAType;
-                System.out.print( resType + " " );
+                String resType = searchSpace.confSpace.posFlex.get(pos).RCs.get(conf.getAssignments()[pos]).AAType;
                 confFileHandle.write(resType + " ");
             }
-            System.out.println();
 
-
-            System.out.println("Rotamer numbers: ");
             confFileHandle.write("ROTS: ");
             for(int pos=0; pos<searchSpace.confSpace.numPos; pos++){
-                int rotNum = searchSpace.confSpace.posFlex.get(pos).RCs.get(conf[pos]).rotNum;
-                System.out.print( rotNum + " " );
+                int rotNum = searchSpace.confSpace.posFlex.get(pos).RCs.get(conf.getAssignments()[pos]).rotNum;
                 confFileHandle.write( rotNum + " " );
             }
-            System.out.println();
 
+            minEnergy = Math.min(minEnergy, conf.getEnergy());
 
-            String energyStatement = "Lower bound/enumeration energy: "+lowerBound+" Energy: "+confE+" Best so far: "+bestESoFar;
-            //Lower bound/enumeration energy is what we enumerate in order of
-            //(either a lower bound on the actual energy, or the same as Energy)
-
-            if(printEPICEnergy)//useful to see EPIC energy (confE is regular E, lowerBound is tup-exp)
-                energyStatement = energyStatement + " EPIC energy: " + searchSpace.EPICMinimizedEnergy(conf);
-
-            System.out.println(energyStatement);
+            Double epicEnergy = null;
+            if(printEPICEnergy) { //useful to see EPIC energy (confE is regular E, lowerBound is tup-exp)
+            	epicEnergy = searchSpace.EPICMinimizedEnergy(conf.getAssignments());
+            }
             
-            confFileHandle.write(energyStatement);
-            confFileHandle.newLine();
+            confFileHandle.write("Score: "+conf.getScore()+" Energy: "+conf.getEnergy()+" Best so far: "+minEnergy);
+            if (epicEnergy != null) {
+            	confFileHandle.write(" EPIC energy: " + searchSpace.EPICMinimizedEnergy(conf.getAssignments()));
+            }
+            confFileHandle.write("\n");
+            
+            // flush writes to disk immediately so we save as much info as possible after a failure
+            confFileHandle.flush();
         }
         catch(IOException e){
             e.printStackTrace();
             throw new RuntimeException(e.getMessage());
         }
     }
-
-    
-    
-        
     
     void closeConfFile(){
         //close it

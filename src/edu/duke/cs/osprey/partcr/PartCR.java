@@ -4,6 +4,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.TreeMap;
 
+import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
+import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -21,7 +23,7 @@ public class PartCR {
 	private SearchProblem search;
 	private double Ew;
 	private SimpleEnergyCalculator ecalc;
-	private List<int[]> confs;
+	private List<ScoredConf> confs;
 	private SplitWorld splitWorld;
 	private ConfPicker picker;
 	private RCScorer scorer;
@@ -31,7 +33,7 @@ public class PartCR {
 	private long iterationNs;
 	private int numIterations;
 	
-	public PartCR(SearchProblem search, double Ew, SimpleEnergyCalculator ecalc, List<int[]> confs) {
+	public PartCR(SearchProblem search, double Ew, SimpleEnergyCalculator ecalc, List<ScoredConf> confs) {
 		
 		this.search = search;
 		this.Ew = Ew;
@@ -66,7 +68,7 @@ public class PartCR {
 		splitter = val;
 	}
 	
-	public List<int[]> getConfs() {
+	public List<ScoredConf> getConfs() {
 		return confs;
 	}
 	
@@ -135,10 +137,12 @@ public class PartCR {
 		long initialTimeNs = getAvgMinimizationTimeNs()*initialNumConfs;
 		long afterTimeNs = getAvgMinimizationTimeNs()*numConfs;
 		long diffTimeNs = System.nanoTime() - startTimeNs;
-		System.out.println(String.format("\nPartCR took %s and saved you %s for a net savings of %s!",
+		long savingsNs = initialTimeNs - afterTimeNs;
+		long netSavingsNs = savingsNs - diffTimeNs;
+		System.out.println(String.format("\nPartCR took %s and saved %s of minimization time for a net %s",
 			TimeFormatter.format(diffTimeNs, 1),
-			TimeFormatter.format(initialTimeNs - afterTimeNs, 1),
-			TimeFormatter.format(initialTimeNs - afterTimeNs - diffTimeNs, 1)
+			TimeFormatter.format(savingsNs, 1),
+			String.format("%s of %s", (netSavingsNs > 0) ? "SAVINGS" : "LOSS", TimeFormatter.format(Math.abs(netSavingsNs), 1))
 		));
 		System.out.println(String.format("PartCR pruned %.1f%% of low-energy conformations",
 			100.0*(initialNumConfs - numConfs)/initialNumConfs
@@ -154,17 +158,18 @@ public class PartCR {
 		
 		int numPos = splitWorld.getSearchProblem().confSpace.numPos;
 		
-		// pick a conformation to analyze
-		int[] analyzeConf = picker.pick(confs);
+		// pick a conformation to analyze, and translate it into the split world
+		ScoredConf pickedConf = picker.pick(confs);
+		ScoredConf translatedPickedConf = splitWorld.translateConf(pickedConf);
 		
 		// analyze the conf and put our protein in the minimized conformation
 		// NOTE: it's very important that the protein be in the minimized conformation to calculate bound errors correctly
-		double boundEnergy = calcBoundEnergy(analyzeConf);
 		System.out.println("minimizing conformation...");
 		long startMinNs = System.nanoTime();
-		double minimizedEnergy = calcMinimizedEnergy(analyzeConf);
+		EnergiedConf analyzeConf = new EnergiedConf(translatedPickedConf, calcMinimizedEnergy(pickedConf.getAssignments()));
 		long diffMinNs = System.nanoTime() - startMinNs;
 		minimizationNs += diffMinNs;
+		bestMinimizedEnergy = Math.min(bestMinimizedEnergy, analyzeConf.getEnergy());
 		
 		if (numIterations == 1) {
 			System.out.println(String.format("initial conformations: %d, estimated time to enumerate: %s",
@@ -172,16 +177,14 @@ public class PartCR {
 			));
 		}
 		
-		bestMinimizedEnergy = Math.min(bestMinimizedEnergy, minimizedEnergy);
-		
-		// score all the positions
-		double boundEnergyCheck = 0;
+		// score all the positions (using the split world)
+		double boundEnergyCheck = search.emat.getConstTerm();
 		double minimizedEnergyCheck = 0;
 		TreeMap<Double,Integer> positionsByScore = new TreeMap<>();
 		for (int pos=0; pos<numPos; pos++) {
-			RC rcObj = splitWorld.getSearchProblem().confSpace.posFlex.get(pos).RCs.get(analyzeConf[pos]);
+			RC rcObj = splitWorld.getSearchProblem().confSpace.posFlex.get(pos).RCs.get(analyzeConf.getAssignments()[pos]);
 			
-			double posBoundEnergy = calcPosBoundEnergy(analyzeConf, pos);
+			double posBoundEnergy = calcPosBoundEnergy(analyzeConf.getAssignments(), pos);
 			double posMinimizedEnergy = calcPosMinimizedEnergy(pos);
 			
 			boundEnergyCheck += posBoundEnergy;
@@ -193,14 +196,15 @@ public class PartCR {
 			positionsByScore.put(score, pos);
 		}
 		
-		// just in case...
-		checkEnergy(boundEnergyCheck, boundEnergy);
-		checkEnergy(minimizedEnergyCheck, minimizedEnergy);
+		// make sure the sums of our position energies match the conf energies
+		// otherwise, our re-distribution of energy terms is wrong and it's a bug
+		checkEnergy(boundEnergyCheck, analyzeConf.getScore());
+		checkEnergy(minimizedEnergyCheck, analyzeConf.getEnergy());
 		
 		// split the RC at the position with the highest score
 		System.out.println("splitting residue conformation...");
 		int splitPos = positionsByScore.lastEntry().getValue();
-		RC rcObj = splitWorld.getRC(splitPos, analyzeConf[splitPos]);
+		RC rcObj = splitWorld.getRC(splitPos, analyzeConf.getAssignments()[splitPos]);
 		List<RC> splitRCs = splitter.split(splitPos, rcObj);
 		splitWorld.replaceRc(splitPos, rcObj, splitRCs);
 		
@@ -213,12 +217,12 @@ public class PartCR {
 		splitWorld.resizeMatrices();
 		
 		// prune nodes based on the new bounds
-		Iterator<int[]> iter = confs.iterator();
+		Iterator<ScoredConf> iter = confs.iterator();
 		while (iter.hasNext()) {
-			int[] conf = iter.next();
+			ScoredConf conf = iter.next();
 			
 			// use the split world to get a tighter bound
-			double improvedBoundEnergy = splitWorld.improveBound(conf);
+			double improvedBoundEnergy = splitWorld.translateConf(conf).getScore();
 			
 			if (improvedBoundEnergy > bestMinimizedEnergy + Ew) {
 				
@@ -248,28 +252,6 @@ public class PartCR {
 		}
 	}
 
-	private double calcBoundEnergy(int[] conf) {
-		
-		double energy = 0;
-		
-		EnergyMatrix emat = splitWorld.getSearchProblem().emat;
-		int numPos = emat.getNumPos();
-		
-		for (int pos1=0; pos1<numPos; pos1++) {
-			int rc1 = conf[pos1];
-			
-			energy += emat.getOneBody(pos1, rc1);
-			
-			for (int pos2=0; pos2<pos1; pos2++) {
-				int rc2 = conf[pos2];
-				
-				energy += emat.getPairwise(pos1, rc1, pos2, rc2);
-			}
-		}
-		
-		return energy;
-	}
-	
 	private double calcMinimizedEnergy(int[] conf) {
 		return search.minimizedEnergy(conf);
 	}

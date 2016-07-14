@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
+
 public class WalkingConfPicker implements ConfPicker {
 
 	private int numItersPerConf;
@@ -23,13 +25,13 @@ public class WalkingConfPicker implements ConfPicker {
 	}
 
 	@Override
-	public int[] pick(List<int[]> confs) {
+	public ScoredConf pick(List<ScoredConf> confs) {
 		
-		for (int[] conf : confs) {
+		for (ScoredConf conf : confs) {
 			
 			// use Java 8 magic to convert the array to a list
 			// sadly, Arrays.toList() won't work here =(
-			List<Integer> confList = Arrays.stream(conf).boxed().collect(Collectors.toList());
+			List<Integer> confList = Arrays.stream(conf.getAssignments()).boxed().collect(Collectors.toList());
 			
 			// have we picked this conf yet?
 			Integer numIters = pickedConfs.get(confList);

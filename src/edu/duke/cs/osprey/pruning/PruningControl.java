@@ -92,6 +92,8 @@ public class PruningControl {
     double stericThresh;//Steric pruning threshold
     boolean onlyGoldstein = false;//for competitor pruning
     
+    private ReportMode reportMode;
+    
     public PruningControl(SearchProblem searchSpace, double pruningInterval, boolean typeDep, 
             double boundsThresh, int algOption, boolean useFlags, boolean useTriples, 
             boolean preDACS, boolean useEPIC, boolean useTupExp, double stericThresh) {
@@ -106,19 +108,32 @@ public class PruningControl {
         this.useEPIC = useEPIC;
         this.useTupExp = useTupExp;
         this.stericThresh = stericThresh;
-    }
-
-    
-    public void prune() {
-    	// be verbose by default, since that's the old behavior
-    	prune(ReportMode.Long);
-    }
-    
-    public void prune(ReportMode reportMode){
         
+    	// be verbose by default, since that's the old behavior
+        reportMode = ReportMode.Long;
+    }
+    
+    public void setPruningInterval(double val) {
+    	pruningInterval = val;
+    }
+    
+    public void setUseEPIC(boolean val) {
+    	useEPIC = val;
+    }
+    
+    public void setUseTupExp(boolean val) {
+    	useTupExp = val;
+    }
+    
+    public void setReportMode(ReportMode val) {
+    	reportMode = val;
         if (reportMode == null) {
             reportMode = ReportMode.None;
         }
+    }
+    
+    public void prune() {
+        
         reportMode.preamble(pruningInterval);
         
         long startTime = System.currentTimeMillis();

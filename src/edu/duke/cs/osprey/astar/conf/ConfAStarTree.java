@@ -53,8 +53,12 @@ public class ConfAStarTree implements ConfSearch {
 	}
 
 	@Override
-	public int[] nextConf() {
-		return nextLeafNode().makeConf(rcs.getNumPos());
+	public ScoredConf nextConf() {
+		ConfAStarNode leafNode = nextLeafNode();
+		return new ScoredConf(
+			leafNode.makeConf(rcs.getNumPos()),
+			leafNode.getGScore()
+		);
 	}
 	
 	public ConfAStarNode nextLeafNode() {
@@ -153,10 +157,13 @@ public class ConfAStarTree implements ConfSearch {
 	}
 	
 	@Override
-	public List<int[]> nextConfs(double maxEnergy) {
-		List<int[]> confs = new ArrayList<>();
+	public List<ScoredConf> nextConfs(double maxEnergy) {
+		List<ScoredConf> confs = new ArrayList<>();
 		for (ConfAStarNode node : nextLeafNodes(maxEnergy)) {
-			confs.add(node.makeConf(rcs.getNumPos()));
+			confs.add(new ScoredConf(
+				node.makeConf(rcs.getNumPos()),
+				node.getGScore()
+			));
 		}
 		return confs;
 	}
