@@ -7,7 +7,15 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 
-import edu.duke.cs.osprey.astar.PairwiseConfTree;
+import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
+import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
+import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
@@ -38,9 +46,17 @@ public class ConfTreeProfiling {
 		MultiTermEnergyFunction.setNumThreads(4);
 		
 		// init a conf space with lots of flexible residues, but no mutations
+		
+		boolean doMinimize = true;
+		//final int NumFlexible = 16;
+		//final int NumFlexible = 25;
+		final int NumFlexible = 40;
+		
+		//boolean doMinimize = false;
 		//final int NumFlexible = 27;
 		//final int NumFlexible = 34;
-		final int NumFlexible = 55;
+		//final int NumFlexible = 55;
+		
 		ArrayList<String> flexRes = new ArrayList<>();
 		ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
 		for (int i=0; i<NumFlexible; i++) {
@@ -48,7 +64,6 @@ public class ConfTreeProfiling {
 			allowedAAs.add(new ArrayList<String>());
 		}
 		boolean addWt = true;
-		boolean doMinimize = false;
 		boolean useEpic = false;
 		boolean useTupleExpansion = false;
 		boolean useEllipses = false;
@@ -65,7 +80,7 @@ public class ConfTreeProfiling {
 		);
 		
 		// compute the energy matrix
-		File ematFile = new File(String.format("emat.%d.dat", NumFlexible));
+		File ematFile = new File(String.format("emat.%s%d.dat", doMinimize ? "min." : "", NumFlexible));
 		if (ematFile.exists()) {
 			System.out.println("\nReading energy matrix...");
 			search.emat = (EnergyMatrix)ObjectIO.readObject(ematFile.getAbsolutePath(), true);
@@ -80,11 +95,30 @@ public class ConfTreeProfiling {
 		
 		// don't bother with pruning, set all to unpruned
 		search.pruneMat = new PruningMatrix(search.confSpace, search.emat.getPruningInterval());
+		RCs rcs = new RCs(search.pruneMat);
+		
+		/* TEMP: set some positions to just one residue, to test A* order
+		rcs.set(0, new int[] { 0 });
+		rcs.set(1, new int[] { 0 });
+		rcs.set(2, new int[] { 7 });
+		rcs.set(3, new int[] { 16 });
+		rcs.set(4, new int[] { 16 });
+		rcs.set(5, new int[] { 0 });
+		*/
 		
 		// init the conformation search
-		//ConfTree<?> tree = ConfTree.makeFull(search);
-		PairwiseConfTree tree = new PairwiseConfTree(search);
-		tree.initProgress(search.confSpace.numPos);
+		//AStarOrder order = new StaticEnergyHMeanAStarOrder(search.emat);
+		//AStarOrder order = new DynamicHMeanAStarOrder();
+		AStarOrder order = new StaticScoreHMeanAStarOrder();
+		//AStarScorer hscorer = new TraditionalPairwiseHScorer(search.emat, rcs);
+		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 5, 0.0001);
+		ConfAStarTree tree = new ConfAStarTree(
+			order,
+			new PairwiseGScorer(search.emat),
+			hscorer,
+			rcs
+		);
+		tree.initProgress();
 		
 		// notation below (trialN values in milliseconds):
 		// numFlexPos: [trial1, trial2, trial2]
@@ -163,23 +197,60 @@ public class ConfTreeProfiling {
 		System.out.println("finished in " + stopwatch.getTime(TimeUnit.MILLISECONDS));
 		System.out.println("conf:     " + Arrays.toString(conf));
 		
-		// TODO: check for accuracy, energy should be:
-		// 27:   -260.91555715297517
-		// 34:   -346.32024675046176
-		// 55:   -514.1055956242977
-
-		// make sure we still have the right answer!
-		Map<Integer,int[]> expectedConfs = new TreeMap<>();
-		expectedConfs.put(27, new int[] { 0, 6, 7, 0, 16, 0, 0, 6, 25, 6, 0, 0, 0, 0, 0, 0, 16, 2, 12, 1, 0, 15, 0, 1, 0, 0, 0 });
-		expectedConfs.put(34, new int[] { 0, 6, 7, 0, 16, 0, 0, 6, 25, 6, 0, 0, 0, 0, 0, 0, 16, 2, 12, 1, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 29, 0, 0 });
-		expectedConfs.put(55, new int[] { 0, 6, 7, 0, 16, 0, 0, 6, 25, 6, 0, 0, 0, 0, 0, 0, 16, 2, 12, 1, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 29, 0, 0, 1, 2, 1, 0, 0, 3, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0 });
-		checkConf(expectedConfs.get(NumFlexible), conf);
+		double observedEnergy = search.emat.getInternalEnergy(new RCTuple(conf));
+		System.out.println(String.format("energy: %16.10f", observedEnergy));
+		
+		if (doMinimize) {
+			
+			// make sure we still have the right answer!
+			Map<Integer,int[]> expectedConfs = new TreeMap<>();
+			expectedConfs.put(16, new int[] { 0, 0, 7, 16, 16, 0, 1, 0, 25, 6, 0, 21, 0, 0, 0, 6 });
+			expectedConfs.put(25, new int[] { 0, 0, 7, 16, 16, 0, 1, 0, 25, 6, 0, 21, 0, 0, 0, 6, 3, 2, 10, 1, 0, 0, 0, 1, 0 });
+			expectedConfs.put(40, new int[] { 0, 0, 7, 16, 16, 0, 1, 0, 25, 6, 0, 21, 0, 0, 0, 6, 3, 2, 10, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 1, 0, 0, 3 });
+			checkConf(expectedConfs.get(NumFlexible), conf);
+			
+			// make sure the energy matches
+			Map<Integer,Double> expectedEnergies = new TreeMap<>();
+			expectedEnergies.put(16, -160.9788154538);
+			expectedEnergies.put(25, -261.3928439504);
+			expectedEnergies.put(40, -421.9530270377);
+			checkEnergy(expectedEnergies.get(NumFlexible), observedEnergy);
+			
+		} else {
+		
+			// make sure we still have the right answer!
+			Map<Integer,int[]> expectedConfs = new TreeMap<>();
+			expectedConfs.put(27, new int[] { 0, 6, 7, 0, 16, 0, 0, 6, 25, 6, 0, 0, 0, 0, 0, 0, 16, 2, 12, 1, 0, 15, 0, 1, 0, 0, 0 });
+			expectedConfs.put(34, new int[] { 0, 6, 7, 0, 16, 0, 0, 6, 25, 6, 0, 0, 0, 0, 0, 0, 16, 2, 12, 1, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 29, 0, 0 });
+			expectedConfs.put(55, new int[] { 0, 6, 7, 0, 16, 0, 0, 6, 25, 6, 0, 0, 0, 0, 0, 0, 16, 2, 12, 1, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 29, 0, 0, 1, 2, 1, 0, 0, 3, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0 });
+			checkConf(expectedConfs.get(NumFlexible), conf);
+			
+			// make sure the energy matches
+			Map<Integer,Double> expectedEnergies = new TreeMap<>();
+			expectedEnergies.put(27, -260.91555715297517);
+			expectedEnergies.put(34, -346.32024675046176);
+			expectedEnergies.put(55, -514.1055956242977);
+			checkEnergy(expectedEnergies.get(NumFlexible), observedEnergy);
+		}
 	}
 	
 	private static void checkConf(int[] expected, int[] observed) {
 		if (!Arrays.equals(expected, observed)) {
 			System.out.println("expected: " + Arrays.toString(expected));
 			throw new Error("GMEC changed! Undo that \"optimization!\"");
+		}
+	}
+	
+	private static void checkEnergy(double expected, double observed) {
+		final double Epsilon = 1e-14;
+		double relErr = Math.abs(expected - observed)/expected;
+		if (relErr > Epsilon) {
+			throw new Error(String.format(
+				"Energy is wrong, undo that 'optimization'!\n\texpected: %.15f\n\tcalculated: %.15f\n\trelErr: %.15f",
+				expected, observed, relErr
+			));
+		} else {
+			System.out.println(String.format("Energy is correct\n\trelErr: %.15f", relErr));
 		}
 	}
 }

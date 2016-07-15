@@ -28,7 +28,7 @@ public class TestAmberEnergy extends TestBase {
 	
 	@BeforeClass
 	public static void before() {
-		
+            
 		// load static config for amber forcefield
 		EnvironmentVars.setDataDir("dataFiles");
 		EnvironmentVars.resTemplates = new GenericResidueTemplateLibrary(
@@ -52,7 +52,7 @@ public class TestAmberEnergy extends TestBase {
 		);
 	}
 	
-	@Test
+        @Test
 	public void test1CC8WithSolv()
 	throws Exception {
 		

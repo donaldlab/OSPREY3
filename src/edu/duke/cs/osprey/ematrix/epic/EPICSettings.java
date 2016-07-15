@@ -57,7 +57,7 @@ package edu.duke.cs.osprey.ematrix.epic;
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.control.ParamSet;
 import edu.duke.cs.osprey.energy.EnergyFunction;
-import edu.duke.cs.osprey.minimization.MolecEObjFunction;
+import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import java.io.Serializable;
 
 
@@ -68,10 +68,10 @@ public class EPICSettings implements Serializable {
     
     boolean useEPIC;
     
-    double EPICThresh1;//AKA b1
-    public double EPICThresh2;//b2
+    double EPICThresh1=10;//AKA b1
+    public double EPICThresh2=25;//b2
     
-    public double EPICGoalResid;//(default = 1e-4)
+    public double EPICGoalResid=1e-4;//(default = 1e-4)
 
     
     boolean useSAPE = true;

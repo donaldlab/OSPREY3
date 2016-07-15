@@ -322,6 +322,15 @@ public class SearchProblem implements Serializable {
         }
     }
     
-        
     
+    
+    public boolean searchNeedsHigherOrderTerms(){
+        //Will a conformation search using this SearchProblem need to use
+        //higher-than-pairwise terms?
+        if(useTupExpForSearch)
+            return tupExpEMat.hasHigherOrderTerms();
+        else
+            return emat.hasHigherOrderTerms();
+    }
+   
 }

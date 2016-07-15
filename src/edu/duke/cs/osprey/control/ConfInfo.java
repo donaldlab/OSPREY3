@@ -26,11 +26,19 @@ public class ConfInfo {
     boolean outputPDBs;
     int numConfsToOutput;
     
+    boolean doFullOutput;//If true, describe each conf in full, not just energy
+    //(written to stdout and a conf file as in findGMEC)
+    String outputConfFileName;//If doFullOutput, will write to this file
+    
+    
     public ConfInfo(ConfigFileParser cfp){
         this.cfp = cfp;
         numRes = cfp.getFlexRes().size();
         outputPDBs = cfp.params.getBool("outputPDBs");
         numConfsToOutput = cfp.params.getInt("NumConfsToOutput");
+        
+        doFullOutput = cfp.params.getBool("doFullOutput");
+        outputConfFileName = cfp.params.getRunSpecificFileName("OutputConfFileName", ".outputconfs.txt");
     }
     
     
@@ -41,26 +49,43 @@ public class ConfInfo {
             BufferedReader br = new BufferedReader(new FileReader(confFileName));
             SearchProblem searchProb = cfp.getSearchProblem();
             
-            if(searchProb.useERef)
+            if(searchProb.useERef || doFullOutput)
                 searchProb.loadEnergyMatrix();
             
             System.out.println("OUTPUTTING CONF INFO...");
-
+            
+            ConfPrinter confPrinter = null;
             if(outputPDBs)
                 setupPDBDir();
+            if(doFullOutput)
+                confPrinter = new ConfPrinter(searchProb, outputConfFileName, false);
+            
+            double bestESoFar = Double.POSITIVE_INFINITY;
 
             for(int confCount=0; confCount<numConfsToOutput; confCount++){
                 //Each line in conf file describes a conf
                 String confLine = br.readLine();
                 int[] conf = parseConfLine(confLine);
                 double confE = searchProb.minimizedEnergy(conf);
-                System.out.println("Conf "+confCount+" energy: "+confE);
+                
+                bestESoFar = Math.min(confE,bestESoFar);
+
+                if(doFullOutput){
+                    double lowerBound = searchProb.lowerBound(conf);
+                    //let's just show the standard lower bound here
+                    confPrinter.printConf(conf,confE,lowerBound,bestESoFar,confCount);
+                }
+                else
+                    System.out.println("Conf "+confCount+" energy: "+confE);
 
                 if(outputPDBs){
                     searchProb.outputMinimizedStruct(conf, "pdbs/"+searchProb.name+".STRUCT"+confCount+".pdb");
                 }
             }
-
+            
+            if(doFullOutput)
+                confPrinter.closeConfFile();
+            
             System.out.println("DONE OUTPUTTING CONF INFO.");
         }
         catch(IOException e){

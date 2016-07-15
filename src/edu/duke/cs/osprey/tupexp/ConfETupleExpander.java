@@ -11,7 +11,7 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.epic.EPICEnergyFunction;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.Minimizer;
-import edu.duke.cs.osprey.minimization.MolecEObjFunction;
+import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -98,7 +98,7 @@ public class ConfETupleExpander extends TupleExpander {
                 
                 RCTuple tup = new RCTuple(assignmentList);
                 EPICEnergyFunction efunc = sp.epicMat.internalEnergyFunction(tup);
-                MolecEObjFunction objFcn = new MolecEObjFunction(efunc,sp.epicMat.getConfSpace(),tup);
+                MoleculeModifierAndScorer objFcn = new MoleculeModifierAndScorer(efunc,sp.epicMat.getConfSpace(),tup);
                 
                 Minimizer minim = new CCDMinimizer(objFcn,false);
                 DoubleMatrix1D bestDOFVals = minim.minimize();

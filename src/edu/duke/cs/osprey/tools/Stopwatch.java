@@ -88,7 +88,14 @@ public class Stopwatch {
 	}
 	
 	public String getTime(TimeUnit unit, int decimals) {
-		String formatSpec = "%." + decimals + "f ";
+		
+		String formatSpec;
+		if (unit == TimeUnit.NANOSECONDS) {
+			formatSpec = "%d ";
+		} else {
+			formatSpec = "%." + decimals + "f ";
+		}
+		
 		switch (unit) {
 			case NANOSECONDS: return String.format(formatSpec + "ns", getTimeNs());
 			case MICROSECONDS: return String.format(formatSpec + "us", getTimeUs());

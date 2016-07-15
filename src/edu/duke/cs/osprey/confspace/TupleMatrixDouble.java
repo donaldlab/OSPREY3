@@ -22,6 +22,12 @@ public class TupleMatrixDouble extends AbstractTupleMatrix<Double> {
     	super(numPos, numAllowedAtPos, pruningInterval, defaultHigherInteraction);
     }
     
+    public TupleMatrixDouble(TupleMatrixDouble other) {
+    	super(other);
+    	this.oneBody = other.oneBody.clone();
+    	this.pairwise = other.pairwise.clone();
+    }
+    
     @Override
     protected void allocate(int numOneBody, int numPairwise) {
         oneBody = new double[numOneBody];

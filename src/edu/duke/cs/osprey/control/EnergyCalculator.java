@@ -5,7 +5,7 @@ import edu.duke.cs.osprey.confspace.PositionConfSpace;
 import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
-import edu.duke.cs.osprey.minimization.MolecEObjFunction;
+import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 
 public class EnergyCalculator {
 
@@ -48,7 +48,7 @@ public class EnergyCalculator {
 			// run CCD over the continuous degrees of freedom
 			// (on existing structure, not any RCs)
 			System.out.println("Building energy function...");
-			MolecEObjFunction objFunc = new MolecEObjFunction(search.fullConfE, search.confSpace);
+			MoleculeModifierAndScorer objFunc = new MoleculeModifierAndScorer(search.fullConfE, search.confSpace);
 			System.out.println(String.format("Minimizing %d degrees of freedom...", objFunc.getNumDOFs()));
 			DoubleMatrix1D optDOFVals = new CCDMinimizer(objFunc, false).minimize();
 			

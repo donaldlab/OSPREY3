@@ -20,7 +20,7 @@ import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.handlempi.MPISlaveTask;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
-import edu.duke.cs.osprey.minimization.MolecEObjFunction;
+import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
@@ -178,7 +178,7 @@ public class TermECalculator implements MPISlaveTask {
         }
         
         if(!skipTuple){
-            MolecEObjFunction mof = new MolecEObjFunction(termE,confSpace,RCs);
+            MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(termE,confSpace,RCs);
 
             DoubleMatrix1D bestDOFVals;
 
@@ -246,7 +246,7 @@ public class TermECalculator implements MPISlaveTask {
     }
     
     
-    private EPoly compEPICFit ( MolecEObjFunction mof, double minEnergy, 
+    private EPoly compEPICFit ( MoleculeModifierAndScorer mof, double minEnergy, 
             DoubleMatrix1D bestDOFVals, RCTuple RCList ){
         
             //Do the EPIC series fits for this rotamer pair
@@ -324,7 +324,7 @@ public class TermECalculator implements MPISlaveTask {
     
     
     private void printFitTests(EPICFitter fitter, RCTuple RCList, double minEnergy,
-            MolecEObjFunction mof, DoubleMatrix1D bestDOFVals, ArrayList<EPoly> series){
+            MoleculeModifierAndScorer mof, DoubleMatrix1D bestDOFVals, ArrayList<EPoly> series){
         //Do some tests on fit performance, and print the results
         int numDOFs = fitter.numDOFs;
 
@@ -380,7 +380,7 @@ public class TermECalculator implements MPISlaveTask {
     
     
     
-    private boolean checkStaysPositive(EPoly term, MolecEObjFunction mof){
+    private boolean checkStaysPositive(EPoly term, MoleculeModifierAndScorer mof){
         //Check, by minimization, that this EPIC term doesn't go too far negative
         //mof defines the voxel for the term conveniently
         
@@ -388,7 +388,7 @@ public class TermECalculator implements MPISlaveTask {
         termList.add(term);
         EPICEnergyFunction epicEF = new EPICEnergyFunction(termList);
         
-        MolecEObjFunction ofEPIC = new MolecEObjFunction( epicEF, mof.getConstraints(),
+        MoleculeModifierAndScorer ofEPIC = new MoleculeModifierAndScorer( epicEF, mof.getConstraints(),
                 mof.getMolec(), mof.getDOFs() );
         
         CCDMinimizer emin = new CCDMinimizer(ofEPIC, true);

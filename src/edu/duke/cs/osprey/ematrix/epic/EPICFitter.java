@@ -16,7 +16,7 @@ import cern.colt.matrix.DoubleFactory2D;
 import cern.colt.matrix.DoubleMatrix1D;
 import cern.colt.matrix.DoubleMatrix2D;
 import cern.jet.math.Functions;
-import edu.duke.cs.osprey.minimization.MolecEObjFunction;
+import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -41,12 +41,12 @@ public class EPICFitter {
     public EPoly PCTemplate = null;//template to use for EPolyPCs
     //needs to be set (by quadratic fitting) before trying to make any of these
     
-    MolecEObjFunction objFcn;//the energy as a function of DOF values...this
+    MoleculeModifierAndScorer objFcn;//the energy as a function of DOF values...this
     //is what we're trying to approximate
     
     static int sampPerParam = 10;
     
-    public EPICFitter ( MolecEObjFunction mof, EPICSettings eset,
+    public EPICFitter ( MoleculeModifierAndScorer mof, EPICSettings eset,
             DoubleMatrix1D cen, double me ) {
         //given the CCDMinimizer used to minimize for a rotamer pair (or intra+shell)
         //construct an EpicFitter for it
@@ -430,9 +430,19 @@ public class EPICFitter {
     }
     
     
-
-
-
+    
+    
+    
+    void sampleFromVoxel(int s, DoubleMatrix1D[] sampRel, DoubleMatrix1D[] sampAbs, double[] trueVal,
+            ObjectiveFunction of, double[] relMin, double[] relMax, GaussianLowEnergySampler gs){
+        //sample from the voxel, using gs if not null, else uniformly
+        if(gs==null)
+            uniformVoxelSample(s,sampRel,sampAbs,trueVal,objFcn,relMin,relMax);
+        else
+            gaussianVoxelSample(s,sampRel,sampAbs,trueVal,objFcn,gs);
+    }
+    
+    
     void generateSamples(int numSamples,
             DoubleMatrix1D[] sampRel, DoubleMatrix1D[] sampAbs, double[] trueVal, int maxOverCutoff){
 
@@ -440,21 +450,16 @@ public class EPICFitter {
         //and give their energies (trueVal), relative to baseE
         //we'll allow at most maxOverCutoff samples above es.EPICThresh1
         //to prevent overfitting
+        
+        //MH 6/16: Metropolis is slow and still seems too autocorrelated
+        //so let's generate the first quarter uniformly
+        //if they all fail then let's move to Gaussian sampling,
+        //variances determined by sampling on sphere and 
 
         //by default, uniform voxel sampling is used
-        //shift to Metropolis if we end up drawing numSamples/2 samples over bCutoff
-        //and by that time less than maxUniFrac*numSamples/2 have been drawn under bCutoff
-        //double maxUniFrac = 0.05;
-        
-        //Let's instead say if uniform draw fails enough times (maxFailCount) in a row we bail out and do Metropolis
-        int maxFailCount = 10000;//big because Metropolis is expensive
-        
-        //DEBUG!!  To test Metropolis
-        //generateSamplesMetropolis(numSamples,sampRel,sampAbs,trueVal,0);
-        //return;
-        //DEBUG!!!
-        
-        
+        //If in the first numSamples/4 samples we don't get any below the threshold,
+        //then we will use Gaussian sampling near the center
+        GaussianLowEnergySampler gs = null;//only allocate if needed
         
         int countOverCutoff = 0;//how many of our samples are over the cutoff
                         
@@ -465,63 +470,30 @@ public class EPICFitter {
             relMin[dof] = DOFmin.get(dof) - center.get(dof);
         }
 
-
         
         for(int s=0; s<numSamples; s++){
 
             if(countOverCutoff<maxOverCutoff){//normal draw
-                uniformVoxelSample(s,sampRel,sampAbs,trueVal,objFcn,relMin,relMax);
+                sampleFromVoxel(s,sampRel,sampAbs,trueVal,objFcn,relMin,relMax,gs);
+                    
                 if(trueVal[s]>es.EPICThresh1)
                     countOverCutoff++;
             }
             else {//force sub-threshold draw
-                /*if(s-countOverCutoff<maxUniFrac*countOverCutoff){//not getting enough sub-threshold samples
-                    //switch to Metropolis
-                    generateSamplesMetropolis(numSamples,sampRel,sampAbs,trueVal,s);
-                    break;
-                }
-                else {//getting enough some-threshold samples to keep up the uniform method
-                    */
-                    int failCount = 0;//how many uniform samples ended up above the cutoff in a rows
-                    
-                    do {
-                        uniformVoxelSample(s,sampRel,sampAbs,trueVal,objFcn,relMin,relMax);
-                        
-                        if(failCount>maxFailCount){//bail and do Metropolis
-                            generateSamplesMetropolis(numSamples,sampRel,sampAbs,trueVal,s);
-                            System.out.println("Drew "+numSamples+" samples of which "+countOverCutoff+" are over bCutoff");
-                            return;
-                        }
-                        failCount++;
-                            
-                    } while(trueVal[s]>es.EPICThresh1);
-                //}
+                do {
+                    sampleFromVoxel(s,sampRel,sampAbs,trueVal,objFcn,relMin,relMax,gs);
+                } while(trueVal[s]>es.EPICThresh1);
+            }
+            
+            if( (gs==null) && (countOverCutoff==s+1) && (countOverCutoff>=numSamples/4) ){
+                //getting no "good" samples by uniform sampling...try Gaussian
+                gs = new GaussianLowEnergySampler(es.EPICThresh1,objFcn,DOFmin,DOFmax,center);
             }
         }
         
         System.out.println("Drew "+numSamples+" samples of which "+countOverCutoff+" are over bCutoff");
     }
-            
 
-    void generateSamplesMetropolis(int numSamples,
-            DoubleMatrix1D[] sampRel, DoubleMatrix1D[] sampAbs, double[] trueVal, int startSampNum){
-        //Use Metropolis (in SubThreshSampler) to get samples
-        //way less efficient than uniform sampling if much of the voxel is below EPICThresh1
-        //but can hopefully deal with very small hypervolumes being below EPICThresh1
-        //this function can start drawing at 
-        //so we can have uniformly drawn samples before it (e.g. the above-the-cutoff ones)
-        
-        SubThreshSampler sts = new SubThreshSampler(es.EPICThresh1+minE,objFcn,DOFmin,DOFmax);
-        
-        sts.burnIn(center);//start at center because it's known to be below the threshold
-        
-        for(int s=startSampNum; s<numSamples; s++){
-            sampAbs[s] = sts.nextSample();
-            trueVal[s] = objFcn.getValue(sampAbs[s]) - minE;
-            sampRel[s] = sampAbs[s].copy();
-            sampRel[s].assign(center,Functions.minus);
-        }
-    }
     
     void uniformVoxelSample(int s, DoubleMatrix1D[] sampRel, DoubleMatrix1D[] sampAbs, double[] trueVal,
             ObjectiveFunction of, double[] relMin, double[] relMax){
@@ -540,9 +512,33 @@ public class EPICFitter {
         }
 
         trueVal[s] = of.getValue(x) - minE;
-
+        
         sampRel[s] = dx;
         sampAbs[s] = x;
+    }
+    
+    
+    void gaussianVoxelSample(int s, DoubleMatrix1D[] sampRel, DoubleMatrix1D[] sampAbs, double[] trueVal,
+            ObjectiveFunction of, GaussianLowEnergySampler gs){
+        //Draw sample # s for generateSamples, filling in trueVal, sampRel, and sampAbs
+        sampAbs[s] = gs.nextSample();
+        trueVal[s] = of.getValue(sampAbs[s]) - minE;
+        sampRel[s] = sampAbs[s].copy();
+        sampRel[s].assign(center,Functions.minus);
+        
+        //The Gaussian still seems to sample the good region too rarely
+        //(although much more than uniform does)
+        //so let's enrich that region by moving closer to the center sometimes
+        //(assumes decent sampling on the sphere, which comes from construction of gs)
+        if(Math.random()>0.5){//let's do this half the time
+            while( trueVal[s] > es.EPICThresh1){
+                //move sample halfway to center
+                sampRel[s].assign(Functions.mult(0.5));
+                sampAbs[s].assign(center);
+                sampAbs[s].assign(sampRel[s], Functions.plus);
+                trueVal[s] = of.getValue(sampAbs[s]) - minE;
+            }
+        }
     }
     
     

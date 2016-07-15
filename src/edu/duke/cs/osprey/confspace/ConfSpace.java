@@ -26,7 +26,7 @@ import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.Minimizer;
-import edu.duke.cs.osprey.minimization.MolecEObjFunction;
+import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
@@ -340,7 +340,7 @@ public class ConfSpace implements Serializable {
         //if outputPDBFile isn't null, then output the minimized conformation to that file
         
         RCTuple RCs = new RCTuple(conf);
-        MolecEObjFunction energy = new MolecEObjFunction(efunc,this,RCs);
+        MoleculeModifierAndScorer energy = new MoleculeModifierAndScorer(efunc,this,RCs);
         
         DoubleMatrix1D optDOFVals;
         

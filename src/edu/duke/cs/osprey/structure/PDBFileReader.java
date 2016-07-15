@@ -153,7 +153,7 @@ public class PDBFileReader {
     
     
     static void assignTemplates(Molecule m){
-        
+                
         for(int resNum=m.residues.size()-1; resNum>=0; resNum--){
             //go through residues backwards so we can delete some if needed
             
@@ -169,8 +169,14 @@ public class PDBFileReader {
             
             if(EnvironmentVars.deleteNonTemplateResidues && !templateAssigned){
                 //residue unrecognized or incomplete...delete it
-                System.out.println( "Warning: deleting unrecognized or incomplete residue "
-                        + m.residues.get(resNum).fullName );
+                String warningString = "Warning: deleting unrecognized or incomplete residue "
+                        + m.residues.get(resNum).fullName;
+                
+                System.out.println( warningString );
+                
+                //also write to special log if there is one
+                if(EnvironmentVars.deletedResWarningLog!=null)
+                    EnvironmentVars.deletedResWarningLog.write(warningString);
                 
                 m.deleteResidue(resNum);
             }
