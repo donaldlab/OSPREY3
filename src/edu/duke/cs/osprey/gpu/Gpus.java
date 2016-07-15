@@ -37,17 +37,15 @@ public class Gpus {
 		assert (context == null);
 		context = CLContext.create();
 		
-		// get the gpus
+		// get the gpus that support doubles
 		gpus = new ArrayList<>();
 		for (CLDevice device : context.getDevices()) {
 			if (device.getType() == CLDevice.Type.GPU) {
-				gpus.add(new Gpu(device));
+				Gpu gpu = new Gpu(device);
+				if (gpu.supportsDoubles()) {
+					gpus.add(gpu);
+				}
 			}
-		}
-		
-		// make sure we have GPUs
-		if (gpus.isEmpty()) {
-			throw new IllegalStateException("no gpus!");
 		}
 		
 		// sort gpus by flops
@@ -72,7 +70,14 @@ public class Gpus {
 		return context;
 	}
 	
+	public List<Gpu> getGpus() {
+		return Collections.unmodifiableList(gpus);
+	}
+	
 	public Gpu getBestGpu() {
+		if (gpus.isEmpty()) {
+			return null;
+		}
 		return gpus.get(0);
 	}
 	
