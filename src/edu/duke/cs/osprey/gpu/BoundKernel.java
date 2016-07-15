@@ -50,6 +50,13 @@ public abstract class BoundKernel<T extends BoundKernel<T>> {
 		waitForGpu();
 	}
 	
+	public void uploadRunDownloadSync() {
+		uploadAsync();
+		runAsync();
+		waitForGpu();
+		downloadSync();
+	}
+	
 	public void waitForGpu() {
 		gpu.getQueue().finish();
 	}
@@ -58,9 +65,9 @@ public abstract class BoundKernel<T extends BoundKernel<T>> {
 		int groupSize = gpu.getDevice().getMaxWorkGroupSize();
 		int r = groupSize % workSize;
 		if (r == 0) {
-			return groupSize;
+			return workSize;
 		} else {
-			return groupSize + workSize - r;
+			return (workSize + groupSize -1 )/groupSize*groupSize;
 		}
 	}
 	
