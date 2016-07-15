@@ -1,12 +1,15 @@
 package edu.duke.cs.osprey.astar.conf;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.PriorityQueue;
 
 import edu.duke.cs.osprey.astar.AStarProgress;
 import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 public class ConfAStarTree implements ConfSearch {
 	
@@ -50,10 +53,12 @@ public class ConfAStarTree implements ConfSearch {
 	}
 
 	@Override
-	public int[] nextConf() {
-		int[] conf = new int[rcs.getNumPos()];
-		nextLeafNode().getConf(conf);
-		return conf;
+	public ScoredConf nextConf() {
+		ConfAStarNode leafNode = nextLeafNode();
+		return new ScoredConf(
+			leafNode.makeConf(rcs.getNumPos()),
+			leafNode.getGScore()
+		);
 	}
 	
 	public ConfAStarNode nextLeafNode() {
@@ -106,10 +111,17 @@ public class ConfAStarTree implements ConfSearch {
 			int numChildren = 0;
 			confIndex.index(node);
 			int nextPos = order.getNextPos(confIndex, rcs);
-			for (int rc : rcs.get(nextPos)) {
+			assert (!confIndex.isDefined(nextPos));
+			assert (confIndex.isUndefined(nextPos));
+			
+			for (int nextRc : rcs.get(nextPos)) {
 				
-				ConfAStarNode child = new ConfAStarNode(node, nextPos, rc);
-				scoreNodeDifferential(node, child, nextPos, rc);
+				if (hasPrunedPair(confIndex, nextPos, nextRc)) {
+					continue;
+				}
+				
+				ConfAStarNode child = new ConfAStarNode(node, nextPos, nextRc);
+				scoreNodeDifferential(node, child, nextPos, nextRc);
 				
 				// impossible node? skip it
 				if (child.getScore() == Double.POSITIVE_INFINITY) {
@@ -126,6 +138,55 @@ public class ConfAStarTree implements ConfSearch {
 		}
 	}
 	
+	public List<ConfAStarNode> nextLeafNodes(double maxEnergy) {
+		List<ConfAStarNode> nodes = new ArrayList<>();
+		while (true) {
+			
+			ConfAStarNode node = nextLeafNode();
+			if (node == null) {
+				break;
+			}
+			
+			nodes.add(node);
+			
+			if (node.getGScore() >= maxEnergy) {
+				break;
+			}
+		}
+		return nodes;
+	}
+	
+	@Override
+	public List<ScoredConf> nextConfs(double maxEnergy) {
+		List<ScoredConf> confs = new ArrayList<>();
+		for (ConfAStarNode node : nextLeafNodes(maxEnergy)) {
+			confs.add(new ScoredConf(
+				node.makeConf(rcs.getNumPos()),
+				node.getGScore()
+			));
+		}
+		return confs;
+	}
+	
+	private boolean hasPrunedPair(ConfIndex confIndex, int nextPos, int nextRc) {
+		
+		// do we even have pruned pairs?
+		PruningMatrix pmat = rcs.getPruneMat();
+		if (pmat == null) {
+			return false;
+		}
+		
+		for (int i=0; i<confIndex.getNumDefined(); i++) {
+			int pos = confIndex.getDefinedPos()[i];
+			int rc = confIndex.getDefinedRCs()[i];
+			assert (pos != nextPos || rc != nextRc);
+			if (pmat.getPairwise(pos, rc, nextPos, nextRc)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private void scoreNode(ConfAStarNode node) {
 		confIndex.index(node);
 		node.setGScore(gscorer.calc(confIndex, rcs));
