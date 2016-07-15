@@ -1,17 +1,22 @@
 package edu.duke.cs.osprey.gpu;
 
+import static org.hamcrest.Matchers.*;
+import static org.junit.Assert.*;
+
 import java.util.Random;
+
+import org.junit.Test;
 
 import edu.duke.cs.osprey.gpu.kernels.TestFancyKernel;
 
-public class MainAccuracyTest {
+public class TestGpu {
 	
-	public static void main(String[] args)
+	@Test
+	public void testAccuracy()
 	throws Exception {
 		
 		// init random doubles
-		System.out.println("creating data...");
-		final int n = 1024 * 1024 * 16;
+		final int n = 1024 * 1024;
 		double[] a = new double[n];
 		double[] b = new double[n];
 		double[] out = new double[n];
@@ -22,7 +27,7 @@ public class MainAccuracyTest {
 			out[i] = Math.sqrt(a[i]*a[i] + b[i]*b[i]);
 		}
 		
-		final int NumRuns = 1000;
+		final int NumRuns = 10;
 		
 		TestFancyKernel.Bound kernel = new TestFancyKernel().bind();
 		
@@ -38,17 +43,18 @@ public class MainAccuracyTest {
 		// upload args to gpu
 		kernel.uploadSync();
 		
-		System.out.println("checking gpu...");
 		for (int i=0; i<NumRuns; i++) {
+			
+			// run the kernel
 			kernel.runSync();
 			kernel.downloadSync();
+			
+			// check the results for accuracy
 			for (int j=0; j<n; j++) {
 				double gpuVal = kernel.getOut().get(j);
 				double err = Math.abs(out[j] - gpuVal);
-				assert (err <= 1e-15) : "err: " + err;
+				assertThat(err, lessThanOrEqualTo(1e-15));
 			}
 		}
-		
-		System.out.println("done, no errors detected");
 	}
 }
