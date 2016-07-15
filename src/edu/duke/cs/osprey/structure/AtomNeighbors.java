@@ -91,7 +91,6 @@ public class AtomNeighbors {
         return getPairsByType(atoms1,atoms2,internalE,NEIGHBORTYPE.NONBONDED);
     }
     
-    
     public static List<Atom[]> getPairsByType( List<Atom> atoms1, 
             List<Atom> atoms2, boolean internalE, NEIGHBORTYPE type ){
         
@@ -124,6 +123,32 @@ public class AtomNeighbors {
         }
         
         return ans;
+    }
+    
+    public static List<int[]> getPairIndicesByType(List<Atom> atoms1, List<Atom> atoms2, boolean internalE, NEIGHBORTYPE type) {
+        
+        List<int[]> indexPairs = new ArrayList<>();
+        
+        for (int i1=0; i1<atoms1.size(); i1++) {
+            AtomNeighbors neighbors = new AtomNeighbors(atoms1.get(i1));
+            
+            // if we're doing internal energies, atoms1 and atoms2 is the same
+            // so all pairs is different than when atoms1 and atoms2 are different
+            int n;
+            if (internalE) {
+                n = i1;
+            } else {
+                n = atoms2.size();
+            }
+            
+            for (int i2=0; i2<n; i2++) {
+                if (neighbors.classifyAtom(atoms2.get(i2)) == type) {
+                    indexPairs.add(new int[] {i1, i2});
+                }
+            }
+        }
+        
+        return indexPairs;
     }
     
     

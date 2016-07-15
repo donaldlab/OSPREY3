@@ -79,7 +79,45 @@ public class ForcefieldParams implements Serializable {
     boolean hVDW = true;
     
     public enum FORCEFIELD {
-            AMBER, CHARMM22, CHARMM19NEUTRAL, CHARMM19
+        
+        // KER: if charmm19 then reduce C radii for 1-4 interactions
+        AMBER(false, 0.5, 1),
+        CHARMM22(false, Double.NaN, Double.NaN) {
+            
+            @Override
+            public double getAij14Factor() {
+                throw new Error("vdW 1-4 factors not defined for this " + this + " forcefield");
+            }
+            
+            @Override
+            public double getBij14Factor() {
+                throw new Error("vdW 1-4 factors not defined for this " + this + " forcefield");
+            }
+        },
+        CHARMM19NEUTRAL(true, 1, 2),
+        CHARMM19(true, 1, 2);
+        
+        private boolean reduceCRadii;
+        private double Aij14Factor;
+        private double Bij14Factor;
+        
+        private FORCEFIELD(boolean reduceCRadii, double Aij14Factor, double Bij14Factor) {
+            this.reduceCRadii = reduceCRadii;
+            this.Aij14Factor = Aij14Factor;
+            this.Bij14Factor = Bij14Factor;
+        }
+        
+        public boolean reduceCRadii() {
+            return reduceCRadii;
+        }
+        
+        public double getAij14Factor() {
+            return Aij14Factor;
+        }
+        
+        public double getBij14Factor() {
+            return Bij14Factor;
+        }
     }
     
     public FORCEFIELD forcefld;//what forcefield are these parameters for?
@@ -679,13 +717,18 @@ public class ForcefieldParams implements Serializable {
 	}
 
 
+	public static class NBParams {
+		public double r;
+		public double epsilon;
+	}
+	
 	// This function returns the r and epsilon paramters for a given atom type
-	public boolean getNonBondedParameters(int atomType, double r[], double epsilon[]){
-
+	public boolean getNonBondedParameters(int atomType, NBParams out) {
+		
 		for(int q=0;q<vdwAtomType1.length;q++) {
 			if (vdwAtomType1[q]==atomType) {
-				r[0]=vdwR[q];
-				epsilon[0]=vdwE[q];
+				out.r=vdwR[q];
+				out.epsilon=vdwE[q];
 				return (true);
 			}
 		}
@@ -694,8 +737,8 @@ public class ForcefieldParams implements Serializable {
 		int equivType = getEquivalentType(atomType);
 		for(int q=0;q<vdwAtomType1.length;q++) {
 			if (vdwAtomType1[q]==equivType) {
-				r[0]=vdwR[q];
-				epsilon[0]=vdwE[q];
+				out.r=vdwR[q];
+				out.epsilon=vdwE[q];
 				return (true);
 			}
 		}

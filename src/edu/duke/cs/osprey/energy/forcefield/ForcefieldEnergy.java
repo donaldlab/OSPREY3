@@ -5,9 +5,9 @@
 package edu.duke.cs.osprey.energy.forcefield;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.List;
 
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.NBParams;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.AtomNeighbors;
 import edu.duke.cs.osprey.structure.Residue;
@@ -78,7 +78,9 @@ public class ForcefieldEnergy implements Serializable {
             //and point res2 to res1, etc
             atomCache = new AtomCache(res1, res2);
             energyCache = Double.NaN;
-            useCache = true;
+            // TEMP
+            //useCache = true;
+            useCache = false;
             
             this.params = params;
             
@@ -231,8 +233,7 @@ public class ForcefieldEnergy implements Serializable {
 		int atom1, atom2, atom4;//, ix2, ix4, ix4b;
 		int atomType1, atomType2, atomType4;
 		boolean isHydrogen1, isHydrogen2;
-		double equilibriumDistance[] = new double[1];
-		double epsilon[] = new double[1];
+		NBParams nbparams = new NBParams();
 		double smallerArray[];
 		double Amult, Bmult;
 		
@@ -267,7 +268,7 @@ public class ForcefieldEnergy implements Serializable {
 			isHydrogen2 = res2.atoms.get(atom4).elementType.equalsIgnoreCase("H");
 			
 			double epsilonProduct = 0, ri = 0, rj = 0;
-			if (!(params.getNonBondedParameters(atomType1, equilibriumDistance, epsilon)))
+			if (!(params.getNonBondedParameters(atomType1, nbparams)))
 				System.out.println("WARNING: Could not find nb parameters for " + atom1 + " type: " + res1.atoms.get(atom1).forceFieldType);
 			else {
 				if((params.forcefld == ForcefieldParams.FORCEFIELD.CHARMM19 
@@ -278,10 +279,10 @@ public class ForcefieldEnergy implements Serializable {
 					ri = 1.9;
 				}
 				else{
-					epsilonProduct = epsilon[0];
-					ri = equilibriumDistance[0];
+					epsilonProduct = nbparams.epsilon;
+					ri = nbparams.r;
 				}
-				if (!(params.getNonBondedParameters(atomType4, equilibriumDistance, epsilon)))
+				if (!(params.getNonBondedParameters(atomType4, nbparams)))
 					System.out.println("WARNING: Could not find nb parameters for " + atom4 + " type: " + res2.atoms.get(atom1).forceFieldType);
 				else {
 					if((params.forcefld == ForcefieldParams.FORCEFIELD.CHARMM19 
@@ -292,8 +293,8 @@ public class ForcefieldEnergy implements Serializable {
 						rj = 1.9;
 					}
 					else{
-						epsilonProduct *= epsilon[0];
-						rj = equilibriumDistance[0];
+						epsilonProduct *= nbparams.epsilon;
+						rj = nbparams.r;
 					}
 					epsilonProduct = Math.sqrt(epsilonProduct);
 					// This part is 1-4 interactions which are scaled by 1/2
@@ -358,16 +359,16 @@ public class ForcefieldEnergy implements Serializable {
 			isHydrogen1 = res1.atoms.get(atom1).elementType.equalsIgnoreCase("H");
 			isHydrogen2 = res2.atoms.get(atom2).elementType.equalsIgnoreCase("H");
 			
-			if (!(params.getNonBondedParameters(atomType1, equilibriumDistance, epsilon)))
+			if (!(params.getNonBondedParameters(atomType1, nbparams)))
 				System.out.println("WARNING: Could not find nb parameters for (at1) " + atom1 + " type: " + res1.atoms.get(atom1).forceFieldType);
 			else {
-				double epsilonProduct = epsilon[0];
-				double ri = equilibriumDistance[0];
-				if (!(params.getNonBondedParameters(atomType2, equilibriumDistance, epsilon)))
+				double epsilonProduct = nbparams.epsilon;
+				double ri = nbparams.r;
+				if (!(params.getNonBondedParameters(atomType2, nbparams)))
 					System.out.println("WARNING: Could not find nb parameters for (at2) " + atom2 + " type: " + res2.atoms.get(atom2).forceFieldType);
 				else {						
-					epsilonProduct *= epsilon[0];
-					double rj = equilibriumDistance[0];
+					epsilonProduct *= nbparams.epsilon;
+					double rj = nbparams.r;
 					epsilonProduct = Math.sqrt(epsilonProduct);
 					double Bij = ( ri + rj ) * ( ri + rj );
 					Bij = Bij * Bij * Bij;
