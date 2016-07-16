@@ -42,9 +42,19 @@ public class ForcefieldInteractions extends ArrayList<AtomGroup[]> {
 		}
 	}
 	
+	public void addResidue(Residue res) {
+		// dynamic by default is the safest option
+		// so potential coords changes get detected
+		addResidue(res, true);
+	}
+	
 	public void addResidue(Residue res, boolean isDynamic) {
 		AtomGroup group = new AtomGroup(res.indexInMolecule, res.atoms, res.coords, isDynamic);
 		add(new AtomGroup[] { group, group });
+	}
+	
+	public void addResiduePair(Residue res1, Residue res2) {
+		addResiduePair(res1, true, res2, true);
 	}
 	
 	public void addResiduePair(Residue res1, boolean isDynamic1, Residue res2, boolean isDynamic2) {

@@ -2,9 +2,11 @@ package edu.duke.cs.osprey.gpu;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.control.EnvironmentVars;
-import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
+import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
 import edu.duke.cs.osprey.gpu.kernels.ForceFieldKernel;
@@ -27,6 +29,7 @@ public class TestForceFieldKernel extends TestBase {
 		Molecule mol = PDBFileReader.readPDBFile("test/DAGK/2KDC.P.forOsprey.pdb");
 		
 		// pick some subset of the molecule for energy calculations
+		Residue gly06 = mol.getResByPDBResNumber("6");
 		Residue gly15 = mol.getResByPDBResNumber("15");
 		Residue ser17 = mol.getResByPDBResNumber("17");
 		Residue trp18 = mol.getResByPDBResNumber("18");
@@ -51,6 +54,8 @@ public class TestForceFieldKernel extends TestBase {
 		Residue val65 = mol.getResByPDBResNumber("65");
 		Residue met66 = mol.getResByPDBResNumber("66");
 		
+		//Residue[] residues = { gly15 };
+		//Residue[] residues = { gly06, gly15 };
 		//Residue[] residues = { gly15, ser17 }; // 2x speedup
 		//Residue[] residues = { gly15, ser17, trp18, trp25 }; // 19x speedup
 		//Residue[] residues = { gly15, ser17, trp18, trp25, arg22, ala24 }; // 41x speedup
@@ -59,45 +64,56 @@ public class TestForceFieldKernel extends TestBase {
 		Residue[] residues = { gly15, ser17, trp18, trp25, arg22, ala24, ile26, phe31, arg32, glu34, val36, leu39, trp47, leu48,
 			ile53, arg55, val56, leu57, ile59, val62, leu64, val65, met66 }; // 92x speedup
 		
-		System.out.println("Building energy function...");
+		System.out.println("\nBuilding energy function...");
 		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
 		MultiTermEnergyFunction efunc = new MultiTermEnergyFunction();
+		ForcefieldInteractions interactions = new ForcefieldInteractions();
 		int numTerms = 0;
 		for (int pos1=0; pos1<residues.length; pos1++) {
 			
 			SingleResEnergy single = new SingleResEnergy(residues[pos1], egen.ffParams);
 			numTerms += single.getFFEnergy().getNumTerms();
 			efunc.addTerm(single);
+			interactions.addResidue(residues[pos1]);
 			
 			for (int pos2=0; pos2<pos1; pos2++) {
 				
 				ResPairEnergy pair = new ResPairEnergy(residues[pos1], residues[pos2], egen.ffParams);
 				numTerms += pair.getFFEnergy().getNumTerms();
 				efunc.addTerm(pair);
+				interactions.addResiduePair(residues[pos1], residues[pos2]);
 			}
 		}
 		System.out.println("energy terms: " + numTerms);
 		
-		/*
-		// make the energy function
+		// make the big forcefield energy function
+		System.out.println("\nBuilding big forcefield...");
+		
 		ForcefieldParams ffparams = TestBase.makeDefaultFFParams();
-		ForcefieldEnergy ffenergy = new ForcefieldEnergy(false, atomsA, atomsB, ffparams);
-		ffenergy.setUseCache(false);
-		int numTerms = ffenergy.getNumTerms();
-		System.out.println("energy terms: " + numTerms);
-		*/
+		BigForcefieldEnergy ffenergy = new BigForcefieldEnergy(ffparams, interactions);
+		System.out.println("energy terms: " + ffenergy.getNumAtomPairs());
 		
-		final int NumRuns = 10000;
+		final int NumRuns = 1;
 		
-		// benchmark the cpu
+		// benchmark the cpu on the energy function
 		double energy = 0;
-		System.out.println("running forcefield on CPU...");
-		Stopwatch cpuStopwatch = new Stopwatch().start();
+		System.out.println("\nrunning energy function on CPU...");
+		Stopwatch cpuEfuncStopwatch = new Stopwatch().start();
 		for (int i=0; i<NumRuns; i++) {
 			energy = efunc.getEnergy();
 		}
-		cpuStopwatch.stop();
-		System.out.println("Cpu time: " + cpuStopwatch.getTime(1));
+		cpuEfuncStopwatch.stop();
+		System.out.println("Cpu time: " + cpuEfuncStopwatch.getTime(1));
+		System.out.println("Energy: " + energy);
+		
+		// benchmark the cpu on the big forcefield
+		System.out.println("\nrunning big forcefield on CPU...");
+		Stopwatch cpuBigffStopwatch = new Stopwatch().start();
+		for (int i=0; i<NumRuns; i++) {
+			energy = ffenergy.calculateTotalEnergy();
+		}
+		cpuBigffStopwatch.stop();
+		System.out.println("Cpu time: " + cpuBigffStopwatch.getTime(1));
 		System.out.println("Energy: " + energy);
 		
 		// prep the gpu
@@ -110,7 +126,7 @@ public class TestForceFieldKernel extends TestBase {
 		kernel.uploadSync();
 		
 		// benchmark the gpu
-		System.out.println("running forcefield on GPU...");
+		System.out.println("\nrunning forcefield on GPU...");
 		Stopwatch gpuStopwatch = new Stopwatch().start();
 		for (int i=0; i<NumRuns; i++) {
 			kernel.uploadRunDownloadSync();
@@ -122,6 +138,6 @@ public class TestForceFieldKernel extends TestBase {
 		System.out.println("Gpu time: " + gpuStopwatch.getTime(1));
 		System.out.println("Energy: " + energy);
 		
-		System.out.println(String.format("%.2fx speedup", (float)cpuStopwatch.getTimeNs()/gpuStopwatch.getTimeNs()));
+		System.out.println(String.format("%.2fx speedup", (float)cpuBigffStopwatch.getTimeNs()/gpuStopwatch.getTimeNs()));
 	}
 }

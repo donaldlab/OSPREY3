@@ -81,43 +81,99 @@ public class ForcefieldParams implements Serializable {
     public enum FORCEFIELD {
         
         // KER: if charmm19 then reduce C radii for 1-4 interactions
-        AMBER(false, 0.5, 1),
-        CHARMM22(false, Double.NaN, Double.NaN) {
+        AMBER {
+            
+            @Override
+            public boolean reduceCRadii() {
+                return false;
+            }
             
             @Override
             public double getAij14Factor() {
-                throw new Error("vdW 1-4 factors not defined for this " + this + " forcefield");
+                return 0.5;
             }
             
             @Override
             public double getBij14Factor() {
-                throw new Error("vdW 1-4 factors not defined for this " + this + " forcefield");
+                return 1.0;
+            }
+            
+            @Override
+            public double getCoulombScaling() {
+                return 1.0/1.2;
             }
         },
-        CHARMM19NEUTRAL(true, 1, 2),
-        CHARMM19(true, 1, 2);
+        CHARMM22 {
+            
+            @Override
+            public boolean reduceCRadii() {
+                return false;
+            }
+            
+            @Override
+            public double getAij14Factor() {
+                throw new Error("vdW 1-4 factors not defined for " + this + " forcefield");
+            }
+            
+            @Override
+            public double getBij14Factor() {
+                throw new Error("vdW 1-4 factors not defined for " + this + " forcefield");
+            }
+
+            @Override
+            public double getCoulombScaling() {
+                throw new Error("coulomb scaling not defined for " + this + " forcefield");
+            }
+        },
+        CHARMM19NEUTRAL {
+            
+            @Override
+            public boolean reduceCRadii() {
+                return CHARMM19.reduceCRadii();
+            }
+            
+            @Override
+            public double getAij14Factor() {
+                return CHARMM19.getAij14Factor();
+            }
+            
+            @Override
+            public double getBij14Factor() {
+                return CHARMM19.getBij14Factor();
+            }
+            
+            @Override
+            public double getCoulombScaling() {
+                return CHARMM19.getCoulombScaling();
+            }
+        },
+        CHARMM19 {
+            
+            @Override
+            public boolean reduceCRadii() {
+                return true;
+            }
+            
+            @Override
+            public double getAij14Factor() {
+                return 1.0;
+            }
+            
+            @Override
+            public double getBij14Factor() {
+                return 2.0;
+            }
+            
+            @Override
+            public double getCoulombScaling() {
+                return 0.4;
+            }
+        };
         
-        private boolean reduceCRadii;
-        private double Aij14Factor;
-        private double Bij14Factor;
-        
-        private FORCEFIELD(boolean reduceCRadii, double Aij14Factor, double Bij14Factor) {
-            this.reduceCRadii = reduceCRadii;
-            this.Aij14Factor = Aij14Factor;
-            this.Bij14Factor = Bij14Factor;
-        }
-        
-        public boolean reduceCRadii() {
-            return reduceCRadii;
-        }
-        
-        public double getAij14Factor() {
-            return Aij14Factor;
-        }
-        
-        public double getBij14Factor() {
-            return Bij14Factor;
-        }
+        public abstract boolean reduceCRadii();
+        public abstract double getAij14Factor();
+        public abstract double getBij14Factor();
+        public abstract double getCoulombScaling();
     }
     
     public FORCEFIELD forcefld;//what forcefield are these parameters for?

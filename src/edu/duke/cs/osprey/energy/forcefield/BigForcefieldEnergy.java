@@ -3,14 +3,17 @@ package edu.duke.cs.osprey.energy.forcefield;
 import java.nio.DoubleBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import edu.duke.cs.osprey.energy.forcefield.EEF1.SolvParams;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions.AtomGroup;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.NBParams;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.AtomNeighbors;
+import edu.duke.cs.osprey.structure.AtomNeighbors.NEIGHBORTYPE;
 
 public class BigForcefieldEnergy {
 	
@@ -70,22 +73,28 @@ public class BigForcefieldEnergy {
 	}
 	
 	private ForcefieldParams params;
-	private ForcefieldInteractions interactions;
 	private Groups groups;
 	
 	// atom coordinates for all groups
 	private int[] atomOffsets;
 	// layout per atom: x, y, z
 	private DoubleBuffer coords;
+	private int numAtoms;
 	
-	// pre-computed vdW parameters
-	// layout per atom pair:
-	//    ints:    atom1 flags, atom2 flags
-	//    doubles: Aij, Bij
-	private IntBuffer flags14;
-	private DoubleBuffer pre14;
-	private IntBuffer flagsNb;
-	private DoubleBuffer preNb;
+	// atom pair into
+	// layout per atom pair: atom1 flags, atom2 flags
+	private IntBuffer atomFlags;
+	private int num14Pairs;
+	private int numNbPairs;
+	
+	// pre-computed vdW, electrostatics params
+	// layout per atom pair: Aij, Bij
+	private DoubleBuffer preVdwEs;
+	
+	// pre-computed solvation params
+	// layout per atom: lambda, radius, alpha
+	private DoubleBuffer preSolv;
+	private double internalSolvEnergy;
 	
 	public BigForcefieldEnergy(ForcefieldParams params, ForcefieldInteractions interactions) {
 		
@@ -96,13 +105,12 @@ public class BigForcefieldEnergy {
 		if (!params.hVDW) {
 			throw new UnsupportedOperationException("toggling vdW for hydrogens is not yet supported by this forcefield implementation");
 		}
-		// TODO: implement these if anyone cares?
-		
-		// TODO: implement solvation precomputation
-		// TODO: implement energy calculation!
+		// TODO: implement hydrogen toggles (if anyone cares?)
+		// TODO: implement solvation toggle
+		// TODO: implement dynamic vs static atom groups
+		// TODO: internal solvation energy?
 		
 		this.params = params;
-		this.interactions = interactions;
 		
 		// get one list of the unique atom groups in a stable order
 		// (this is all the variable info, collecting it in one place will make uploading to the gpu faster)
@@ -112,7 +120,7 @@ public class BigForcefieldEnergy {
 		}
 		
 		// convert the group list into an atom list
-		int numAtoms = 0;
+		numAtoms = 0;
 		atomOffsets = new int[groups.getNumGroups()];
 		for (int i=0; i<groups.getNumGroups(); i++) {
 			AtomGroup group = groups.get(i);
@@ -126,100 +134,248 @@ public class BigForcefieldEnergy {
 		}
 		coords.flip();
 		
-		// pre-pre-compute some vdW constants
-		double Bmult = params.vdwMultiplier*params.vdwMultiplier;
-		Bmult = Bmult*Bmult*Bmult;
-		double Amult = Bmult*Bmult;
-		NBParams nbparams1 = new NBParams();
-		NBParams nbparams2 = new NBParams();
-		VdwParams vdwparams = new VdwParams();
-		
-		// precompute all the position-independent params
-		
-		// first, vdW params
+		// do one pass over the group pairs to count the number of atom pairs
+		int numAtomPairs = 0;
+		int numHeavyAtomPairs = 0;
 		for (int groupPairIndex=0; groupPairIndex<interactions.size(); groupPairIndex++) {
 			
 			AtomGroup[] groupPair = interactions.get(groupPairIndex);
 			AtomGroup group1 = groupPair[0];
 			AtomGroup group2 = groupPair[1];
-			int group1Index = groups.getGroup1Index(groupPairIndex);
-			int group2Index = groups.getGroup2Index(groupPairIndex);
 			
-			// handle 1-4 interactions
-			List<int[]> atomPairs14 = AtomNeighbors.getPairIndicesByType(
-				group1.getAtoms(),
-				group2.getAtoms(),
-				group1 == group2,
-				AtomNeighbors.NEIGHBORTYPE.BONDED14
-			);
+			for (NEIGHBORTYPE type : Arrays.asList(NEIGHBORTYPE.BONDED14, NEIGHBORTYPE.NONBONDED)) {
 			
-			flags14 = IntBuffer.allocate(atomPairs14.size()*2);
-			pre14 = DoubleBuffer.allocate(atomPairs14.size()*2);
-			
-			for (int i=0; i<atomPairs14.size(); i++) {
-				int[] atomIndices = atomPairs14.get(i);
-				Atom atom1 = group1.getAtoms().get(atomIndices[0]);
-				Atom atom2 = group2.getAtoms().get(atomIndices[1]);
+				List<int[]> atomPairs = AtomNeighbors.getPairIndicesByType(
+					group1.getAtoms(),
+					group2.getAtoms(),
+					group1 == group2,
+					type
+				);
 				
-				// save the atom flags
-				flags14.put(makeFlags(group1Index, atomIndices[0], atom1));
-				flags14.put(makeFlags(group2Index, atomIndices[1], atom2));
-				
-				// save the vdw params
-				getNonBondedParams(atom1, nbparams1);
-				getNonBondedParams(atom2, nbparams2);
-				calcVdw(nbparams1, nbparams2, Amult, Bmult, vdwparams);
-				
-				// vdW scaling for 1-4 interactions
-				vdwparams.Aij *= params.forcefld.getAij14Factor();
-				vdwparams.Bij *= params.forcefld.getBij14Factor();
-				
-				pre14.put(vdwparams.Aij);
-				pre14.put(vdwparams.Bij);
-			}
-			
-			// handle non-bonded interactions
-			List<int[]> atomPairsNb = AtomNeighbors.getPairIndicesByType(
-				group1.getAtoms(),
-				group2.getAtoms(),
-				group1 == group2,
-				AtomNeighbors.NEIGHBORTYPE.NONBONDED
-			);
-			
-			flagsNb = IntBuffer.allocate(atomPairsNb.size()*2);
-			preNb = DoubleBuffer.allocate(atomPairsNb.size()*2);
-			
-			for (int i=0; i<atomPairsNb.size(); i++) {
-				int[] atomIndices = atomPairsNb.get(i);
-				Atom atom1 = group1.getAtoms().get(atomIndices[0]);
-				Atom atom2 = group2.getAtoms().get(atomIndices[1]);
-				
-				// save the atom flags
-				flagsNb.put(makeFlags(group1Index, atomIndices[0], atom1));
-				flagsNb.put(makeFlags(group2Index, atomIndices[1], atom2));
-				
-				// save the vdw params
-				getNonBondedParams(atom1, nbparams1);
-				getNonBondedParams(atom2, nbparams2);
-				calcVdw(nbparams1, nbparams2, Amult, Bmult, vdwparams);
-				preNb.put(vdwparams.Aij);
-				preNb.put(vdwparams.Bij);
+				for (int i=0; i<atomPairs.size(); i++) {
+					int[] atomIndices = atomPairs.get(i);
+					Atom atom1 = group1.getAtoms().get(atomIndices[0]);
+					Atom atom2 = group2.getAtoms().get(atomIndices[1]);
+					
+					numAtomPairs++;
+					
+					if (!atom1.isHydrogen() && !atom2.isHydrogen()) {
+						numHeavyAtomPairs++;
+					}
+				}
 			}
 		}
 		
-		// second, solvation params
+		// pre-pre-compute some vdW constants
+		double Bmult = params.vdwMultiplier*params.vdwMultiplier;
+		Bmult = Bmult*Bmult*Bmult;
+		double Amult = Bmult*Bmult;
 		
-		// pseudocode:
-		// for each heavy atom pair 1-4 bonded or farther
-		//    save pairs of solvation param lists
-		// the lists don't actually interact,
-		// but we can duplicate some values to increase cpu cache performance
+		// pre-pre-compute some solvation constants
+		double solvCoeff = 2.0/(4.0*Math.PI*Math.sqrt(Math.PI));
+		
+		NBParams nbparams1 = new NBParams();
+		NBParams nbparams2 = new NBParams();
+		VdwParams vdwparams = new VdwParams();
+		SolvParams solvparams1 = new SolvParams();
+		SolvParams solvparams2 = new SolvParams();
+		
+		// allocate our buffers
+		atomFlags = IntBuffer.allocate(numAtomPairs*2);
+		preVdwEs = DoubleBuffer.allocate(numAtomPairs*3);
+		num14Pairs = 0;
+		numNbPairs = 0;
+		preSolv = DoubleBuffer.allocate(numHeavyAtomPairs*6);
+		
+		for (NEIGHBORTYPE type : Arrays.asList(NEIGHBORTYPE.BONDED14, NEIGHBORTYPE.NONBONDED)) {
+			
+			// do another pass over the groups to precompute all the position-independent params
+			for (int groupPairIndex=0; groupPairIndex<interactions.size(); groupPairIndex++) {
+				
+				AtomGroup[] groupPair = interactions.get(groupPairIndex);
+				AtomGroup group1 = groupPair[0];
+				AtomGroup group2 = groupPair[1];
+				int group1Index = groups.getGroup1Index(groupPairIndex);
+				int group2Index = groups.getGroup2Index(groupPairIndex);
+			
+				List<int[]> atomPairs = AtomNeighbors.getPairIndicesByType(
+					group1.getAtoms(),
+					group2.getAtoms(),
+					group1 == group2,
+					type
+				);
+			
+				for (int i=0; i<atomPairs.size(); i++) {
+					int[] atomIndices = atomPairs.get(i);
+					Atom atom1 = group1.getAtoms().get(atomIndices[0]);
+					Atom atom2 = group2.getAtoms().get(atomIndices[1]);
+					
+					// save atom flags
+					atomFlags.put(makeFlags(group1Index, atomIndices[0], atom1));
+					atomFlags.put(makeFlags(group2Index, atomIndices[1], atom2));
+					
+					if (type == NEIGHBORTYPE.BONDED14) {
+						num14Pairs++;
+					} else if (type == NEIGHBORTYPE.NONBONDED) {
+						numNbPairs++;
+					}
+					
+					// save the vdw params
+					getNonBondedParams(atom1, nbparams1);
+					getNonBondedParams(atom2, nbparams2);
+					calcVdw(nbparams1, nbparams2, Amult, Bmult, vdwparams);
+					
+					// vdW scaling for 1-4 interactions
+					if (type == NEIGHBORTYPE.BONDED14) {
+						vdwparams.Aij *= params.forcefld.getAij14Factor();
+						vdwparams.Bij *= params.forcefld.getBij14Factor();
+					} else if (type == NEIGHBORTYPE.NONBONDED) {
+						vdwparams.Bij *= 2;
+					}
+					
+					preVdwEs.put(vdwparams.Aij);
+					preVdwEs.put(vdwparams.Bij);
+					preVdwEs.put(atom1.charge*atom2.charge);
+	
+					// is this a heavy pair?
+					if (!atom1.isHydrogen() && !atom2.isHydrogen()) {
+						
+						// save the solvation params
+						getSolvParams(atom1, solvparams1);
+						getSolvParams(atom2, solvparams2);
+						
+						double alpha1 = solvCoeff*solvparams1.dGfree*solvparams2.volume/solvparams1.lambda;
+						double alpha2 = solvCoeff*solvparams2.dGfree*solvparams1.volume/solvparams2.lambda;
+				
+						preSolv.put(solvparams1.lambda);
+						preSolv.put(solvparams1.radius);
+						preSolv.put(alpha1);
+						preSolv.put(solvparams2.lambda);
+						preSolv.put(solvparams2.radius);
+						preSolv.put(alpha2);
+					}
+				}
+			}
+		}
+		
+		// flip our buffers
+		atomFlags.flip();
+		preVdwEs.flip();
+		preSolv.flip();
+		
+		// compute internal solvation energy
+		// ie, add up all the dGref terms for all atoms
+		internalSolvEnergy = 0;
+		for (int i=0; i<groups.getNumGroups(); i++) {
+			AtomGroup group = groups.get(i);
+			for (Atom atom : group.getAtoms()) {
+				if (!atom.isHydrogen()) {
+					getSolvParams(atom, solvparams1);
+					internalSolvEnergy += solvparams1.dGref;
+				}
+			}
+		}
+	}
+	
+	public int getNumAtomPairs() {
+		return num14Pairs + numNbPairs;
+	}
+	
+	public double calculateTotalEnergy() {
+		
+		// physical constants and constant params
+		final double coulombConstant = 332.0;
+		final double solvCutoff = 9.0;
+		
+		// pre-compute some more constants
+		double coulombFactor = coulombConstant/params.dielectric;
+		double scaledCoulombFactor = coulombFactor*params.forcefld.getCoulombScaling();
+		double solvCutoff2 = solvCutoff*solvCutoff;
+		
+		// compute all the energies
+		double esEnergy = 0;
+		double vdwEnergy = 0;
+		double solvEnergy = internalSolvEnergy;
+		atomFlags.rewind();
+		preVdwEs.rewind();
+		preSolv.rewind();
+		int numVdwEsPairs = num14Pairs + numNbPairs;
+		for (int i=0; i<numVdwEsPairs; i++) {
+			boolean is14Pair = i < num14Pairs;
+			
+			// read flags
+			int atom1Flags = atomFlags.get();
+			int atom2Flags = atomFlags.get();
+			int atom1Index = getAtomIndex(atom1Flags);
+			int atom2Index = getAtomIndex(atom2Flags);
+			boolean atom1isH = isHydrogen(atom1Flags);
+			boolean atom2isH = isHydrogen(atom2Flags);
+			
+			// read precomputed vdw/es params
+			double Aij = preVdwEs.get();
+			double Bij = preVdwEs.get();
+			double charge = preVdwEs.get();
+			
+			// get the squared radius
+			double r2 = calcr2(atom1Index, atom2Index);
+			
+			// TODO: implement hydrogen flags
+			
+			// compute electrostatics
+			double c;
+			if (is14Pair) {
+				c = scaledCoulombFactor;
+			} else {
+				c = coulombFactor;
+			}
+			if (params.distDepDielect) {
+				c /= r2;
+			} else {
+				c /= Math.sqrt(r2);
+			}
+			c *= charge;
+			esEnergy += c;
+
+			// compute vdw
+			double r6 = r2*r2*r2;
+			double r12 = r6*r6;
+			vdwEnergy += Aij/r12 - Bij/r6;
+			
+			if (!atom1isH && !atom2isH) {
+				
+				// read precomputed solvation params
+				double lambda1 = preSolv.get();
+				double radius1 = preSolv.get();
+				double alpha1 = preSolv.get();
+				double lambda2 = preSolv.get();
+				double radius2 = preSolv.get();
+				double alpha2 = preSolv.get();
+				
+				if (r2 < solvCutoff2) {
+					
+					// compute solvation energy
+					double r = Math.sqrt(r2);
+					double Xij = (r - radius1)/lambda1;
+					double Xji = (r - radius2)/lambda2;
+					solvEnergy -= (alpha1*Math.exp(-Xij*Xij) + alpha2*Math.exp(-Xji*Xji))/r2;
+				}
+			}
+		}
+		
+		// just in case...
+		assert (atomFlags.position() == atomFlags.limit());
+		assert (preVdwEs.position() == preVdwEs.limit());
+		assert (preSolv.position() == preSolv.limit());
+		
+		solvEnergy *= params.solvScale;
+		
+		return esEnergy + vdwEnergy + solvEnergy;
 	}
 
 	private int makeFlags(int groupIndex, int atomIndexInGroup, Atom atom) {
 		return makeFlags(
 			atomOffsets[groupIndex] + atomIndexInGroup,
-			atom.elementType.equalsIgnoreCase("H")
+			atom.isHydrogen()
 		);
 	}
 
@@ -243,11 +399,11 @@ public class BigForcefieldEnergy {
 	}
 	
 	public int getAtomIndex(int flags) {
-		// undo the bump we did in makeFlags14()
+		// undo the bump we did in makeFlags()
 		return Math.abs(flags) - 1;
 	}
 	
-	public boolean getIsHydrogen(int flags) {
+	public boolean isHydrogen(int flags) {
 		assert (flags != 0);
 		return flags > 0;
 	}
@@ -269,7 +425,7 @@ public class BigForcefieldEnergy {
 	private void getNonBondedParams(Atom atom, NBParams nbparams) {
 		
 		// HACKHACK: overrides for C atoms
-		if (atom.elementType.equalsIgnoreCase("C") && params.forcefld.reduceCRadii()) {
+		if (atom.isCarbon() && params.forcefld.reduceCRadii()) {
 			
 			// Jeff: shouldn't these settings be in a config file somewhere?
 			nbparams.epsilon = 0.1;
@@ -282,5 +438,21 @@ public class BigForcefieldEnergy {
 				throw new Error("couldn't find non-bonded parameters for atom type: " + atom.forceFieldType);
 			}
 		}
+	}
+	
+	private void getSolvParams(Atom atom, SolvParams solvparams) {
+		boolean success = params.eef1parms.getSolvationParameters(atom, solvparams);
+		if (!success) {
+			throw new Error("couldn't find solvation parameters for atom type: " + atom.forceFieldType);
+		}
+	}
+	
+	private double calcr2(int atom1Index, int atom2Index) {
+		int atom1Index3 = atom1Index*3;
+		int atom2Index3 = atom2Index*3;
+		double rx = coords.get(atom1Index3) - coords.get(atom2Index3);
+		double ry = coords.get(atom1Index3 + 1) - coords.get(atom2Index3 + 1);
+		double rz = coords.get(atom1Index3 + 2) - coords.get(atom2Index3 + 2);
+		return rx*rx + ry*ry + rz*rz;
 	}
 }

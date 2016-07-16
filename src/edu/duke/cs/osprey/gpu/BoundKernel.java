@@ -63,11 +63,11 @@ public abstract class BoundKernel<T extends BoundKernel<T>> {
 	
 	private int roundUpWorkSize(int workSize, Gpu gpu) {
 		int groupSize = gpu.getDevice().getMaxWorkGroupSize();
-		int r = groupSize % workSize;
+		int r = workSize % groupSize;
 		if (r == 0) {
 			return workSize;
 		} else {
-			return (workSize + groupSize -1 )/groupSize*groupSize;
+			return (workSize + groupSize - 1)/groupSize*groupSize;
 		}
 	}
 	

@@ -7,6 +7,7 @@ package edu.duke.cs.osprey.energy.forcefield;
 import java.io.Serializable;
 import java.util.List;
 
+import edu.duke.cs.osprey.energy.forcefield.EEF1.SolvParams;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.NBParams;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.AtomNeighbors;
@@ -501,6 +502,8 @@ public class ForcefieldEnergy implements Serializable {
 		//in the specified residue
 		
 		double termList[] = new double[atomList.size() * 6];
+		
+		SolvParams solvparams = new SolvParams();
 
 		int ix6 = -6;
 		int numTerms = 0;
@@ -512,14 +515,7 @@ public class ForcefieldEnergy implements Serializable {
 
 				ix6 += 6;
 
-				double dGref[] = new double[1];
-				double dGfree[] = new double[1];
-				double atVolume[] = new double[1];
-				double lambda[] = new double[1];
-				double vdWradiusExt[] = new double[1]; //extended vdWradius (uses the EEF1 parameters)
-
-				if (!(params.eef1parms.getSolvationParameters(atomList.get(i),dGref,
-					dGfree,atVolume,lambda,vdWradiusExt))){
+				if (!(params.eef1parms.getSolvationParameters(atomList.get(i),solvparams))) {
 				
 					throw new RuntimeException("WARNING: Could not find solvation parameters for atom: " 
 						+ atom1 + " (" + atomList.get(i).name+") res: " + atomList.get(i).res.fullName);
@@ -527,11 +523,11 @@ public class ForcefieldEnergy implements Serializable {
 				else {
 
 					termList[ix6] = atom1;
-					termList[ix6 + 1] = dGref[0];
-					termList[ix6 + 2] = dGfree[0];
-					termList[ix6 + 3] = atVolume[0];
-					termList[ix6 + 4] = lambda[0];
-					termList[ix6 + 5] = vdWradiusExt[0];
+					termList[ix6 + 1] = solvparams.dGref;
+					termList[ix6 + 2] = solvparams.dGfree;
+					termList[ix6 + 3] = solvparams.volume;
+					termList[ix6 + 4] = solvparams.lambda;
+					termList[ix6 + 5] = solvparams.radius;
 					numTerms++;
 				}
 			}
@@ -654,7 +650,7 @@ public class ForcefieldEnergy implements Serializable {
 
 			// shared math
 			rij2 = rijx * rijx + rijy * rijy + rijz * rijz;
-
+			
 			if (isHeavy || useHydrogenEs) {
 				
 				// electrostatics only math
@@ -788,7 +784,7 @@ public class ForcefieldEnergy implements Serializable {
 		}
 		
 		solvEnergy *= solvScale;
-			
+		
 		// finally, we're done
 		energyCache = esEnergy + vdwEnergy + solvEnergy;
 		checkEnergy(energyCache);
