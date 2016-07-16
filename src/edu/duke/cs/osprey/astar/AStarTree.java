@@ -5,6 +5,8 @@
 package edu.duke.cs.osprey.astar;
 
 import edu.duke.cs.osprey.confspace.ConfSearch;
+
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.PriorityQueue;
 
@@ -13,13 +15,15 @@ import java.util.PriorityQueue;
  * @author mhall44
  */
 
-public abstract class AStarTree<T extends AStarNode> implements ConfSearch {
+public abstract class AStarTree<T extends AStarNode> implements ConfSearch, Serializable {
     //This replaces MSAStar with something more generic
     //The goal is that subclasses of this, differing only in the abstract methods,
     //can cover the A* variations we're considering:
     //dynamic ordering, different node scoring heuristics, COMETS, super-rotamers, etc.
-        
-    private PriorityQueue<T> pq = null;
+    
+	private static final long serialVersionUID = 2311735341816014431L;
+
+	private PriorityQueue<T> pq = null;
         
     //AStarNode can be lightweight: just int[], score, and flag for if score needs refinement
     //the meanings are assigned by subclasses of this class, which define things like scoring
@@ -102,7 +106,9 @@ public abstract class AStarTree<T extends AStarNode> implements ConfSearch {
     	
         //by default, the output of the A* tree will be simply the node assignments for the optimal node
         //but we may sometimes want to process it in some way
-        System.out.println("A* returning conf.  "+pq.size()+" nodes in A* tree.  Score: "+node.getScore());
+        
+    	// AAO 2016: commenting out messages for now
+    	//System.out.println("A* returning conf.  "+pq.size()+" nodes in A* tree.  Score: "+node.getScore());
         return node.getNodeAssignments();
     }
     

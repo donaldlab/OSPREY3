@@ -340,16 +340,6 @@ public class COMETSTree extends AStarTree<FullAStarNode> {
     }
     
     
-    public String seqAsString(int[] seqNodeAssignments){
-        //Given the integer representation of sequence used in COMETSNode,
-        //create a string representation of the sequence
-        String seq = "";
-        for(int level=0; level<numTreeLevels; level++)
-            seq = seq + AATypeOptions.get(level).get( seqNodeAssignments[level] )+"_";
-        
-        return seq;
-    }
-    
     void printBestSeqInfo(COMETSNode seqNode){
         //About to return the given fully assigned sequence from A*
         //provide information
@@ -359,7 +349,9 @@ public class COMETSTree extends AStarTree<FullAStarNode> {
         
         System.out.print("Sequence: ");
         
-        String seq = seqAsString(seqNode.getNodeAssignments());
+        String seq = "";
+        for(int level=0; level<numTreeLevels; level++)
+            seq = seq + AATypeOptions.get(level).get( seqNode.getNodeAssignments()[level] )+"_";
         System.out.println(seq);
         
         

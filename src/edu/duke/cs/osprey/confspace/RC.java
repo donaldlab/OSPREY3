@@ -30,7 +30,7 @@ public class RC implements Serializable {
     //note: for AA type we do not use DOFmin or DOFmax (can leave at 0 or whatever): use AAType instead
     
     
-    public int RCIndex;//index within the RCs for this residue in the PositionConfSpace
+    int RCIndex;//index within the RCs for this residue in the PositionConfSpace
 
     public RC(String AAType, ResidueTemplate template, int rotNum, ArrayList<DegreeOfFreedom> DOFs, ArrayList<Double> DOFmin, ArrayList<Double> DOFmax, int RCIndex) {
         this.AAType = AAType;

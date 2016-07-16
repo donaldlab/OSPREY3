@@ -6,6 +6,7 @@
 package edu.duke.cs.osprey.dof.deeper;
 
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
+import edu.duke.cs.osprey.kstar.KSTermini;
 import edu.duke.cs.osprey.structure.Molecule;
 import java.util.ArrayList;
 
@@ -60,7 +61,7 @@ public class DEEPerSettings {
     }
     
     
-    public void loadPertFile(){
+    public void loadPertFile(KSTermini termini){
         //load the perturbation file; select perturbations if there is none
         
         if(!doPerturbations)//No perturbations: leave perts null
@@ -68,18 +69,18 @@ public class DEEPerSettings {
         
         perts = new PertSet();
         
-        if( ! perts.loadPertFile(pertFileName,true) ){//file not found
+        if( !perts.loadPertFile(pertFileName, true, termini) ){//file not found
             
             if(!selectPerturbations)
                 throw new RuntimeException("ERROR: Perturbation file not found"
                         + " but not supposed to select perturbations");
             
             PerturbationSelector sele = new PerturbationSelector(startingPertFile, onlyStarting, 
-                    maxShearParam, maxBackrubParam, selectLCAs, flexibleRes, PDBFile);
+                    maxShearParam, maxBackrubParam, selectLCAs, flexibleRes, PDBFile, termini);
             
-            PertSet ps = sele.selectPerturbations();
+            PertSet ps = sele.selectPerturbations(termini);
             ps.writePertFile(pertFileName);
-            perts.loadPertFile(pertFileName,true);
+            perts.loadPertFile(pertFileName, true, termini);
         }
     }
     

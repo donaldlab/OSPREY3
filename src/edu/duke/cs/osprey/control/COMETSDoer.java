@@ -19,7 +19,7 @@ import java.util.StringTokenizer;
  *
  * @author mhall44
  */
-public class COMETSDoer {
+class COMETSDoer {
     
     COMETSTree tree;//The tree used for the COMETS search
     int numSeqsWanted;//How many sequences to enumerate
@@ -158,7 +158,7 @@ public class COMETSDoer {
         
         ArrayList<ArrayList<String>> stateAAOptions = cfgP.getAllowedAAs();
         
-        Molecule wtMolec = PDBFileReader.readPDBFile( cfgP.params.getValue("PDBName") );
+        Molecule wtMolec = PDBFileReader.readPDBFile( cfgP.params.getValue("PDBName"), null );
         ArrayList<String> flexRes = cfgP.getFlexRes();
         
         
@@ -220,7 +220,7 @@ public class COMETSDoer {
     }
     
     
-    public ArrayList<String> calcBestSequences(){
+    public void calcBestSequences(){
                     
         System.out.println("Performing multistate A*");
         
@@ -228,15 +228,12 @@ public class COMETSDoer {
         //how many sequences to enumerate
 
         long startAStarTime = System.currentTimeMillis();
-        
-        ArrayList<String> bestSequences = new ArrayList<>();
+
 
         for(int seqNum=0; seqNum<numSeqsWanted; seqNum++){
             int seq[] = tree.nextConf();//this will find the best sequence and print it
             if(seq == null)//empty sequence...indicates no more sequence possibilities
                 break;
-            else
-                bestSequences.add(tree.seqAsString(seq));
         }
 
         long stopTime = System.currentTimeMillis();
@@ -245,7 +242,6 @@ public class COMETSDoer {
         
         //DEBUG!!!  Checking by exhaustive search
         //exhaustiveMultistateSearch();
-        return bestSequences;
     }
         
         

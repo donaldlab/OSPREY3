@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
+import edu.duke.cs.osprey.kstar.KSTermini;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -32,7 +33,9 @@ public class SearchProblem implements Serializable {
     //annotations are based on RCs and indicate pairwise energies, pruning information, etc.
     //they also include iterators over RCs and pairs of interest
     
-    public ConfSpace confSpace;
+	private static final long serialVersionUID = 2590525329048496524L;
+
+	public ConfSpace confSpace;
     
     public EnergyMatrix emat;//energy matrix.  Meanings:
     //-Defines full energy in the rigid case
@@ -51,7 +54,7 @@ public class SearchProblem implements Serializable {
     
     public PruningMatrix pruneMat;
     
-    boolean contSCFlex;
+    public boolean contSCFlex;
     
     public PruningMatrix competitorPruneMat;//a pruning matrix performed at pruning interval 0,
     //to decide which RC tuples are valid competitors for pruning
@@ -63,7 +66,7 @@ public class SearchProblem implements Serializable {
     
     
     public boolean useERef = false;
-    boolean addResEntropy = false;
+    public boolean addResEntropy = false;
     
     
     public SearchProblem(SearchProblem sp1){//shallow copy
@@ -93,9 +96,9 @@ public class SearchProblem implements Serializable {
     public SearchProblem(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
             boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset, 
             ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef,
-            boolean addResEntropy, boolean addWTRots){
+            boolean addResEntropy, boolean addWTRots, KSTermini termini){
         
-        confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses, addWTRots);
+        confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses, addWTRots, termini);
         this.name = name;
         
         

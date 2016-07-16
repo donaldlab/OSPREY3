@@ -71,7 +71,7 @@ public class EPICSettings implements Serializable {
     double EPICThresh1=10;//AKA b1
     public double EPICThresh2=25;//b2
     
-    public double EPICGoalResid=1e-4;//(default = 1e-4)
+    public double EPICGoalResid;//(default = 1e-4)
 
     
     boolean useSAPE = true;

@@ -8,6 +8,8 @@ import edu.duke.cs.osprey.energy.LigandResEnergies;
 import java.util.HashMap;
 import java.util.Map;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
+import edu.duke.cs.osprey.kstar.KSConfigFileParser;
+import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 import edu.duke.cs.osprey.tests.UnitTestSuite;
 
 /**
@@ -23,7 +25,7 @@ public class Main {
 	public static Map<String, Runnable> commands;
         
         private static final String usageString = "Command expects arguments "
-                + "(e.g. -c KStar.cfg {findGMEC|fcalcKStar} System.cfg DEE.cfg";
+                + "(e.g. -c KStar.cfg {findGMEC|calcKStar} System.cfg DEE.cfg";
 
 	public static void main(String[] args){
 		//args expected to be "-c KStar.cfg command config_file_1.cfg ..."
@@ -53,9 +55,6 @@ public class Main {
 
 
 		//DEBUG!!
-		// set number of threads for energy function evaluation
-		MultiTermEnergyFunction.setNumThreads( cfp.params.getInt("eEvalThreads") );
-
 		initCommands(args, cfp);
 
 		if(commands.containsKey(command))
@@ -71,6 +70,11 @@ public class Main {
 	}
 
 	private static void initCommands(String[] args, ConfigFileParser cfp) {
+		
+		// set degree of thread parallelism
+		ThreadParallelism.setNumThreads(cfp.params.getInt("numThreads", ThreadParallelism.getNumThreads()));
+		MultiTermEnergyFunction.setNumThreads(ThreadParallelism.getNumThreads());
+		
 		// TODO Auto-generated method stub
 		commands = new HashMap<String, Runnable>();
 
@@ -85,7 +89,12 @@ public class Main {
 		commands.put("calcKStar", new Runnable() {
 			@Override
 			public void run() {
-				System.err.println("Feature not implemented in this version.");
+				// kstar subclasses configfileparser, so re-load
+				KSConfigFileParser ksCfp = new KSConfigFileParser(args);
+				ksCfp.loadData();
+				
+				KStarCalculator ksc = new KStarCalculator(ksCfp);
+				ksc.calcKStarScores();
 			}
 		});
 

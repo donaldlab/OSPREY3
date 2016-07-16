@@ -10,7 +10,6 @@ import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.control.EnvironmentVars;
-import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.ematrix.epic.EPICEnergyFunction;
 import edu.duke.cs.osprey.ematrix.epic.EPICFitter;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
@@ -22,10 +21,10 @@ import edu.duke.cs.osprey.handlempi.MPISlaveTask;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 
 /**
  *
@@ -61,6 +60,8 @@ public class TermECalculator implements MPISlaveTask {
     ArrayList<ArrayList<Double>> pairwiseE = new ArrayList<>();
     ArrayList<EPoly> oneBodyPoly = new ArrayList<>();
     ArrayList<ArrayList<EPoly>> pairwisePoly = new ArrayList<>();
+    HashMap<ArrayList<Integer>, Double> nBodyE = new HashMap<>();
+    ArrayList<MoleculeModifierAndScorer> mofs = null;
     
     
     public TermECalculator(ConfSpace s, ArrayList<Residue> shellResidues, 
@@ -88,8 +89,20 @@ public class TermECalculator implements MPISlaveTask {
                 Residue secondRes = confSpace.posFlex.get(res[1]).res;
                 termE = EnvironmentVars.curEFcnGenerator.resPairEnergy(firstRes, secondRes);
             }
+            else if(res.length > 2){
+				// add all respair energies
+				termE = new MultiTermEnergyFunction();
+				
+				for (int i = 0; i < res.length; i++) {
+					Residue l = confSpace.posFlex.get(res[i]).res;
+					for (int j = i+1; j < res.length; j++) {
+						Residue r = confSpace.posFlex.get(res[j]).res;
+						((MultiTermEnergyFunction)termE).addTerm(EnvironmentVars.curEFcnGenerator.resPairEnergy(l, r));
+					}
+				}
+			}
             else{
-                throw new RuntimeException("ERROR: Can only precompute energy for 1- and 2-body terms");
+                throw new UnsupportedOperationException("ERROR: Can only precompute energy for >= 1 body terms");
                 //we are excluding shell-shell interactions throughout this version of OSPREY,
                 //since they don't change and are time-consuming
             }
@@ -120,8 +133,17 @@ public class TermECalculator implements MPISlaveTask {
             else
                 return pairwiseE;
         }
+        else if(res.length > 2) {
+			
+			nBodyCalc();
+
+			if(doingEPIC)
+				throw new UnsupportedOperationException("ERROR: have not implemented >2-body energies with EPIC");
+			else
+				return nBodyE;
+		}
         else
-            throw new RuntimeException("ERROR: Trying to precompute term for "+res.length+" bodies");
+            throw new UnsupportedOperationException("ERROR: Trying to precompute term for "+res.length+" bodies");
     }
     
     
@@ -154,6 +176,106 @@ public class TermECalculator implements MPISlaveTask {
     }
     
     
+	public void nBodyCalc() {
+		if(pruneMat == null)
+			throw new RuntimeException("ERROR: n-body calc requires a pruning matrix");
+		
+		ArrayList<ArrayList<RC>> RCLists = new ArrayList<>(res.length);
+		for(int index = 0; index < res.length; ++index) RCLists.add(new ArrayList<>());
+		
+		for(int i = 0; i < res.length; ++i) {
+			for(Integer rcNum : pruneMat.unprunedRCsAtPos(res[i]))
+				RCLists.get(i).add(confSpace.posFlex.get(res[i]).RCs.get(rcNum));
+		}
+
+		Integer[] resElements = new Integer[res.length]; Arrays.fill(resElements, -1);
+		Integer[] rcNums = new Integer[res.length]; Arrays.fill(rcNums, -1);
+		createNBodyTuples(RCLists, resElements, rcNums, 0);
+	}
+
+
+	private void createNBodyTuples( ArrayList<ArrayList<RC>> RCLists, Integer[] resElements, Integer[] rcNums, int depth ) {
+
+		if(depth == resElements.length) {
+			// resIndex and rcNums are fully populated
+			RCTuple nTuple = new RCTuple(new ArrayList<>(Arrays.asList(resElements)), new ArrayList<>(Arrays.asList(rcNums)));
+			calcTupleEnergy(nTuple);
+			return;
+		}
+
+		if(resElements[depth] == -1) 
+			resElements[depth] = new Integer(res[depth]);
+
+		for(int rcNum = 0; rcNum < RCLists.get(depth).size(); ++rcNum) {
+			rcNums[depth] = rcNum;
+			createNBodyTuples(RCLists, resElements, rcNums, depth+1);
+		}
+	}
+	
+	
+    public void calcTupleEnergyLazy(RCTuple RCs) {
+        // supports parallel version of the function
+    	mofs = new ArrayList<>();
+    	
+        boolean skipTuple = false;
+        
+        if(RCs.pos.size()==2){//pair: need to check for parametric incompatibility
+            //If there are DOFs spanning multiple residues, then parametric incompatibility
+            //is whether the pair is mathematically possible (i.e. has a well-defined voxel)
+            RC rc1 = confSpace.posFlex.get( RCs.pos.get(0) ).RCs.get( RCs.RCs.get(0) );
+            RC rc2 = confSpace.posFlex.get( RCs.pos.get(1) ).RCs.get( RCs.RCs.get(1) );
+            if(rc1.isParametricallyIncompatibleWith(rc2)){
+                skipTuple = true;
+            }
+        }
+        
+		else if(RCs.pos.size() > 2){
+			ArrayList<RC> indivRCs = new ArrayList<>(RCs.pos.size());
+			for(int i = 0; i < RCs.pos.size(); ++i) indivRCs.add(confSpace.posFlex.get(RCs.pos.get(i)).RCs.get(RCs.RCs.get(i)));
+
+			for(int i = 0; i < indivRCs.size(); ++i) {
+				RC rc1 = indivRCs.get(i);
+
+				for(int j = i+1; j < indivRCs.size(); ++j) {
+					RC rc2 = indivRCs.get(j);
+
+					if(rc1.isParametricallyIncompatibleWith(rc2)) {
+						skipTuple = true;
+						break;
+					}
+				}
+
+				if(skipTuple) break;
+			}
+		}
+        
+        if( (pruneMat!=null) && (!skipTuple) ){
+            if(pruneMat.isPruned(RCs))
+                skipTuple = true;
+        }
+        
+        if(!skipTuple) {
+            MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(termE,confSpace,RCs);
+            mofs.add(mof);
+
+            DoubleMatrix1D bestDOFVals;
+
+            if(mof.getNumDOFs()>0){//there are continuously flexible DOFs to minimize
+                CCDMinimizer ccdMin = new CCDMinimizer(mof,true);
+                bestDOFVals = ccdMin.minimize();
+            }
+            else//molecule is already in the right, rigid conformation
+                bestDOFVals = DoubleFactory1D.dense.make(0);
+
+            double minEnergy = mof.getValue(bestDOFVals);
+
+            if(doingEPIC){
+               throw new UnsupportedOperationException("ERROR: EPIC is not supprted in this function");
+            }
+        }
+    }
+    
+    
     public void calcTupleEnergy(RCTuple RCs){
         //calculate the rigid energy, minimum energy or EPIC fit for an RC tuple
         //(depending on what type of matrix is being calculated)
@@ -172,6 +294,27 @@ public class TermECalculator implements MPISlaveTask {
                 skipTuple = true;
             }
         }
+        
+		else if(RCs.pos.size() > 2){
+			ArrayList<RC> indivRCs = new ArrayList<>(RCs.pos.size());
+			for(int i = 0; i < RCs.pos.size(); ++i) indivRCs.add(confSpace.posFlex.get(RCs.pos.get(i)).RCs.get(RCs.RCs.get(i)));
+
+			for(int i = 0; i < indivRCs.size(); ++i) {
+				RC rc1 = indivRCs.get(i);
+
+				for(int j = i+1; j < indivRCs.size(); ++j) {
+					RC rc2 = indivRCs.get(j);
+
+					if(rc1.isParametricallyIncompatibleWith(rc2)) {
+						skipTuple = true;
+						break;
+					}
+				}
+
+				if(skipTuple) break;
+			}
+		}
+        
         if( (pruneMat!=null) && (!skipTuple) ){
             if(pruneMat.isPruned(RCs))
                 skipTuple = true;
@@ -229,8 +372,16 @@ public class TermECalculator implements MPISlaveTask {
                 pairwiseE.get(firstRCNum).add(minEnergy);
             }
         }
-        else//only 1- and 2-body precomputations supported here
-            throw new RuntimeException("ERROR: Trying to precompute term for "+numBodies+" bodies");
+        else if( numBodies > 2 ) {
+			if(doingEPIC)
+				throw new RuntimeException("ERROR: have not implemented > 2-body terms with EPIC");
+			
+			// store rc and its energy
+			if(!skipTuple)
+				nBodyE.put(RCs.RCs, minEnergy);
+		}
+        else
+            throw new UnsupportedOperationException("ERROR: Trying to precompute term for "+numBodies+" bodies");
     }
     
     
