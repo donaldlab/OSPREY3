@@ -246,8 +246,8 @@ public class KSCalc {
 
 		if( doingKAStar() ) {
 			// can easily get clashes for rigid rotamers in p, l
-			//if( (pl.multiply(p).multiply(l)).compareTo(BigDecimal.ZERO) == 0 )
-			if( (p.multiply(l)).compareTo(BigDecimal.ZERO) == 0 )
+			if( (pl.multiply(p).multiply(l)).compareTo(BigDecimal.ZERO) == 0 )
+			//if( (p.multiply(l)).compareTo(BigDecimal.ZERO) == 0 )
 				return Double.POSITIVE_INFINITY;
 		}
 		

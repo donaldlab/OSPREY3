@@ -156,11 +156,11 @@ public class KSImplKAStar extends KSAbstract {
 
 				double bestUB = best.getUBScore();
 
-				if(completed++ == 0) gUB = bestUB;
+				if( completed++ == 0 ) gUB = bestUB;
 
-				else if(best.getLBScore() > gUB) break;
+				else if( best.getLBScore() > gUB && gUB > Double.NEGATIVE_INFINITY ) break;
 
-				else if(bestUB > gUB) gUB = bestUB;
+				else if( bestUB > gUB ) gUB = bestUB;
 
 				continue;
 			}
