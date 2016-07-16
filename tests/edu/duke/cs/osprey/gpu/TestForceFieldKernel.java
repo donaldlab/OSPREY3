@@ -93,7 +93,7 @@ public class TestForceFieldKernel extends TestBase {
 		BigForcefieldEnergy ffenergy = new BigForcefieldEnergy(ffparams, interactions);
 		System.out.println("energy terms: " + ffenergy.getNumAtomPairs());
 		
-		final int NumRuns = 1;
+		final int NumRuns = 1000;
 		
 		// benchmark the cpu on the energy function
 		double energy = 0;
@@ -103,7 +103,7 @@ public class TestForceFieldKernel extends TestBase {
 			energy = efunc.getEnergy();
 		}
 		cpuEfuncStopwatch.stop();
-		System.out.println("Cpu time: " + cpuEfuncStopwatch.getTime(1));
+		System.out.println("Cpu time: " + cpuEfuncStopwatch.getTime(2));
 		System.out.println("Energy: " + energy);
 		
 		// benchmark the cpu on the big forcefield
@@ -113,7 +113,7 @@ public class TestForceFieldKernel extends TestBase {
 			energy = ffenergy.calculateTotalEnergy();
 		}
 		cpuBigffStopwatch.stop();
-		System.out.println("Cpu time: " + cpuBigffStopwatch.getTime(1));
+		System.out.println("Cpu time: " + cpuBigffStopwatch.getTime(2));
 		System.out.println("Energy: " + energy);
 		
 		// prep the gpu
@@ -129,13 +129,13 @@ public class TestForceFieldKernel extends TestBase {
 		System.out.println("\nrunning forcefield on GPU...");
 		Stopwatch gpuStopwatch = new Stopwatch().start();
 		for (int i=0; i<NumRuns; i++) {
-			kernel.uploadRunDownloadSync();
-			//kernel.runAsync();
+			//kernel.uploadRunDownloadSync();
+			kernel.runAsync();
 		}
 		kernel.waitForGpu();
 		energy = kernel.getOut().get(0);
 		gpuStopwatch.stop();
-		System.out.println("Gpu time: " + gpuStopwatch.getTime(1));
+		System.out.println("Gpu time: " + gpuStopwatch.getTime(2));
 		System.out.println("Energy: " + energy);
 		
 		System.out.println(String.format("%.2fx speedup", (float)cpuBigffStopwatch.getTimeNs()/gpuStopwatch.getTimeNs()));

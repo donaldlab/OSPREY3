@@ -75,6 +75,8 @@ public class BigForcefieldEnergy {
 	private ForcefieldParams params;
 	private Groups groups;
 	
+	// NOTE: use buffers here instead of arrays to make syncing with GPU easier
+	
 	// atom coordinates for all groups
 	private int[] atomOffsets;
 	// layout per atom: x, y, z
@@ -98,17 +100,8 @@ public class BigForcefieldEnergy {
 	
 	public BigForcefieldEnergy(ForcefieldParams params, ForcefieldInteractions interactions) {
 		
-		// make sure the settings are supported
-		if (!params.hElect) {
-			throw new UnsupportedOperationException("toggling eletrostatics for hydrogens is not yet supported by this forcefield implementation");
-		}
-		if (!params.hVDW) {
-			throw new UnsupportedOperationException("toggling vdW for hydrogens is not yet supported by this forcefield implementation");
-		}
-		// TODO: implement hydrogen toggles (if anyone cares?)
 		// TODO: implement solvation toggle
 		// TODO: implement dynamic vs static atom groups
-		// TODO: internal solvation energy?
 		
 		this.params = params;
 		
@@ -283,6 +276,17 @@ public class BigForcefieldEnergy {
 	
 	public double calculateTotalEnergy() {
 		
+		// OPTIMIZATION: this function gets hit a lot! so even pedantic optimizations can make a difference
+		
+		// copy some things to the local stack
+		int num14Pairs = this.num14Pairs;
+		boolean distDepDielect = params.distDepDielect;
+		boolean useHEs = params.hElect;
+		boolean useHVdw = params.hVDW;
+		IntBuffer atomFlags = this.atomFlags;
+		DoubleBuffer preVdwEs = this.preVdwEs;
+		DoubleBuffer preSolv = this.preSolv;
+		
 		// physical constants and constant params
 		final double coulombConstant = 332.0;
 		final double solvCutoff = 9.0;
@@ -291,6 +295,21 @@ public class BigForcefieldEnergy {
 		double coulombFactor = coulombConstant/params.dielectric;
 		double scaledCoulombFactor = coulombFactor*params.forcefld.getCoulombScaling();
 		double solvCutoff2 = solvCutoff*solvCutoff;
+		
+		// declare all loop variables here
+		// this actually as a measurable impact on performance
+		// probably due to register allocation by jvm based on what the compiler output
+		int atom1Flags, atom2Flags;
+		int atom1Index, atom2Index;
+		boolean atom1isH, atom2isH;
+		boolean is14Pair, bothHeavy, inRangeForSolv;
+		double r2, r6, r12;
+		double r = 0; // need to initialize this one
+		double Aij, Bij, charge;
+		double c;
+		double lambda1, radius1, alpha1;
+		double lambda2, radius2, alpha2;
+		double Xij, Xji;
 		
 		// compute all the energies
 		double esEnergy = 0;
@@ -301,71 +320,79 @@ public class BigForcefieldEnergy {
 		preSolv.rewind();
 		int numVdwEsPairs = num14Pairs + numNbPairs;
 		for (int i=0; i<numVdwEsPairs; i++) {
-			boolean is14Pair = i < num14Pairs;
+			is14Pair = i < num14Pairs;
 			
 			// read flags
-			int atom1Flags = atomFlags.get();
-			int atom2Flags = atomFlags.get();
-			int atom1Index = getAtomIndex(atom1Flags);
-			int atom2Index = getAtomIndex(atom2Flags);
-			boolean atom1isH = isHydrogen(atom1Flags);
-			boolean atom2isH = isHydrogen(atom2Flags);
-			
-			// read precomputed vdw/es params
-			double Aij = preVdwEs.get();
-			double Bij = preVdwEs.get();
-			double charge = preVdwEs.get();
+			atom1Flags = atomFlags.get();
+			atom2Flags = atomFlags.get();
+			atom1Index = getAtomIndex(atom1Flags);
+			atom2Index = getAtomIndex(atom2Flags);
+			atom1isH = isHydrogen(atom1Flags);
+			atom2isH = isHydrogen(atom2Flags);
+			bothHeavy = !atom1isH && !atom2isH;
 			
 			// get the squared radius
-			double r2 = calcr2(atom1Index, atom2Index);
+			r2 = calcr2(atom1Index, atom2Index);
 			
-			// TODO: implement hydrogen flags
+			// do we need the sqrt?
+			inRangeForSolv = r2 < solvCutoff2;
+			if (!distDepDielect || (bothHeavy && inRangeForSolv)) {
+				r = Math.sqrt(r2);
+			}
 			
-			// compute electrostatics
-			double c;
-			if (is14Pair) {
-				c = scaledCoulombFactor;
-			} else {
-				c = coulombFactor;
+			// read precomputed vdw/es params
+			Aij = preVdwEs.get();
+			Bij = preVdwEs.get();
+			charge = preVdwEs.get();
+			
+			if (bothHeavy || useHEs) {
+				
+				// compute electrostatics
+				if (is14Pair) {
+					c = scaledCoulombFactor;
+				} else {
+					c = coulombFactor;
+				}
+				if (distDepDielect) {
+					c /= r2;
+				} else {
+					c /= r;
+				}
+				c *= charge;
+				esEnergy += c;
 			}
-			if (params.distDepDielect) {
-				c /= r2;
-			} else {
-				c /= Math.sqrt(r2);
-			}
-			c *= charge;
-			esEnergy += c;
 
-			// compute vdw
-			double r6 = r2*r2*r2;
-			double r12 = r6*r6;
-			vdwEnergy += Aij/r12 - Bij/r6;
+			if (bothHeavy || useHVdw) {
+				
+				// compute vdw
+				r6 = r2*r2*r2;
+				r12 = r6*r6;
+				vdwEnergy += Aij/r12 - Bij/r6;
+			}
 			
-			if (!atom1isH && !atom2isH) {
-				
-				// read precomputed solvation params
-				double lambda1 = preSolv.get();
-				double radius1 = preSolv.get();
-				double alpha1 = preSolv.get();
-				double lambda2 = preSolv.get();
-				double radius2 = preSolv.get();
-				double alpha2 = preSolv.get();
-				
-				if (r2 < solvCutoff2) {
+			if (bothHeavy) {
+				if (inRangeForSolv) {
+					
+					// read precomputed solvation params
+					lambda1 = preSolv.get();
+					radius1 = preSolv.get();
+					alpha1 = preSolv.get();
+					lambda2 = preSolv.get();
+					radius2 = preSolv.get();
+					alpha2 = preSolv.get();
 					
 					// compute solvation energy
-					double r = Math.sqrt(r2);
-					double Xij = (r - radius1)/lambda1;
-					double Xji = (r - radius2)/lambda2;
+					Xij = (r - radius1)/lambda1;
+					Xji = (r - radius2)/lambda2;
 					solvEnergy -= (alpha1*Math.exp(-Xij*Xij) + alpha2*Math.exp(-Xji*Xji))/r2;
+					
+				} else {
+					
+					// skip the precomputed terms we don't need
+					preSolv.position(preSolv.position() + 6);
 				}
 			}
 		}
-		
-		// just in case...
-		assert (atomFlags.position() == atomFlags.limit());
-		assert (preVdwEs.position() == preVdwEs.limit());
-		assert (preSolv.position() == preSolv.limit());
 		
 		solvEnergy *= params.solvScale;
 		
