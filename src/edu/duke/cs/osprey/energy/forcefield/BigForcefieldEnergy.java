@@ -129,7 +129,6 @@ public class BigForcefieldEnergy {
 		
 		// do one pass over the group pairs to count the number of atom pairs
 		int numAtomPairs = 0;
-		int numHeavyAtomPairs = 0;
 		for (int groupPairIndex=0; groupPairIndex<interactions.size(); groupPairIndex++) {
 			
 			AtomGroup[] groupPair = interactions.get(groupPairIndex);
@@ -137,25 +136,12 @@ public class BigForcefieldEnergy {
 			AtomGroup group2 = groupPair[1];
 			
 			for (NEIGHBORTYPE type : Arrays.asList(NEIGHBORTYPE.BONDED14, NEIGHBORTYPE.NONBONDED)) {
-			
-				List<int[]> atomPairs = AtomNeighbors.getPairIndicesByType(
+				numAtomPairs += AtomNeighbors.getPairIndicesByType(
 					group1.getAtoms(),
 					group2.getAtoms(),
 					group1 == group2,
 					type
-				);
-				
-				for (int i=0; i<atomPairs.size(); i++) {
-					int[] atomIndices = atomPairs.get(i);
-					Atom atom1 = group1.getAtoms().get(atomIndices[0]);
-					Atom atom2 = group2.getAtoms().get(atomIndices[1]);
-					
-					numAtomPairs++;
-					
-					if (!atom1.isHydrogen() && !atom2.isHydrogen()) {
-						numHeavyAtomPairs++;
-					}
-				}
+				).size()*2;
 			}
 		}
 		
@@ -178,7 +164,7 @@ public class BigForcefieldEnergy {
 		preVdwEs = DoubleBuffer.allocate(numAtomPairs*3);
 		num14Pairs = 0;
 		numNbPairs = 0;
-		preSolv = DoubleBuffer.allocate(numHeavyAtomPairs*6);
+		preSolv = DoubleBuffer.allocate(numAtomPairs*6);
 		
 		for (NEIGHBORTYPE type : Arrays.asList(NEIGHBORTYPE.BONDED14, NEIGHBORTYPE.NONBONDED)) {
 			
@@ -246,6 +232,16 @@ public class BigForcefieldEnergy {
 						preSolv.put(solvparams2.lambda);
 						preSolv.put(solvparams2.radius);
 						preSolv.put(alpha2);
+						
+					} else {
+						
+						// use bogus info for the precalculated parameters
+						// yeah, it takes up extra space, but space is cheap
+						// it's more important that we make the location of these
+						// parameters predictable so we can use parallelism to compute energies
+						for (int j=0; j<6; j++) {
+							preSolv.put(0);
+						}
 					}
 				}
 			}
@@ -299,6 +295,7 @@ public class BigForcefieldEnergy {
 		// declare all loop variables here
 		// this actually as a measurable impact on performance
 		// probably due to register allocation by jvm based on what the compiler output
+		int i2, i3, i6;
 		int atom1Flags, atom2Flags;
 		int atom1Index, atom2Index;
 		boolean atom1isH, atom2isH;
@@ -320,11 +317,14 @@ public class BigForcefieldEnergy {
 		preSolv.rewind();
 		int numVdwEsPairs = num14Pairs + numNbPairs;
 		for (int i=0; i<numVdwEsPairs; i++) {
+			i2 = i*2;
+			i3 = i*3;
+			i6 = i*6;
 			is14Pair = i < num14Pairs;
 			
 			// read flags
-			atom1Flags = atomFlags.get();
-			atom2Flags = atomFlags.get();
+			atom1Flags = atomFlags.get(i2);
+			atom2Flags = atomFlags.get(i2 + 1);
 			atom1Index = getAtomIndex(atom1Flags);
 			atom2Index = getAtomIndex(atom2Flags);
 			atom1isH = isHydrogen(atom1Flags);
@@ -341,9 +341,9 @@ public class BigForcefieldEnergy {
 			}
 			
 			// read precomputed vdw/es params
-			Aij = preVdwEs.get();
-			Bij = preVdwEs.get();
-			charge = preVdwEs.get();
+			Aij = preVdwEs.get(i3);
+			Bij = preVdwEs.get(i3 + 1);
+			charge = preVdwEs.get(i3 + 2);
 			
 			if (bothHeavy || useHEs) {
 				
@@ -374,12 +374,12 @@ public class BigForcefieldEnergy {
 				if (inRangeForSolv) {
 					
 					// read precomputed solvation params
-					lambda1 = preSolv.get();
-					radius1 = preSolv.get();
-					alpha1 = preSolv.get();
-					lambda2 = preSolv.get();
-					radius2 = preSolv.get();
-					alpha2 = preSolv.get();
+					lambda1 = preSolv.get(i6);
+					radius1 = preSolv.get(i6 + 1);
+					alpha1 = preSolv.get(i6 + 2);
+					lambda2 = preSolv.get(i6 + 3);
+					radius2 = preSolv.get(i6 + 4);
+					alpha2 = preSolv.get(i6 + 5);
 					
 					// compute solvation energy
 					Xij = (r - radius1)/lambda1;
