@@ -48,6 +48,10 @@ public abstract class BoundKernel<T extends BoundKernel<T>> {
 		gpu.getQueue().finish();
 	}
 	
+	public void cleanup() {
+		kernel.cleanup();
+	}
+	
 	protected int roundUpWorkSize(int workSize) {
 		
 		// get the number of threads per work group

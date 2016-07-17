@@ -132,11 +132,7 @@ public class BigForcefieldEnergy {
 		} else {
 			coords = DoubleBuffer.allocate(numAtoms*3);
 		}
-		for (int i=0; i<groups.getNumGroups(); i++) {
-			AtomGroup group = groups.get(i);
-			coords.put(group.getCoords());
-		}
-		coords.flip();
+		updateCoords();
 		
 		// do one pass over the group pairs to count the number of atom pairs
 		int numAtomPairs = 0;
@@ -335,6 +331,14 @@ public class BigForcefieldEnergy {
 	
 	public double getInternalSolvationEnergy() {
 		return internalSolvEnergy;
+	}
+	
+	public void updateCoords() {
+		coords.rewind();
+		for (int i=0; i<groups.getNumGroups(); i++) {
+			AtomGroup group = groups.get(i);
+			coords.put(group.getCoords());
+		}
 	}
 	
 	public double calculateTotalEnergy() {

@@ -22,4 +22,8 @@ public abstract class Kernel<T extends BoundKernel<T>> {
 	}
 	
 	public abstract T bind(Gpu gpu);
+	
+	public void cleanup() {
+		kernel.release();
+	}
 }

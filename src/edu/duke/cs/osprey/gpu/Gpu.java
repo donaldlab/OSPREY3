@@ -32,4 +32,8 @@ public class Gpu {
 	public String toString() {
 		return device.getName();
 	}
+	
+	public void cleanup() {
+		queue.release();
+	}
 }
