@@ -60,11 +60,11 @@ public class TestForceFieldKernel extends TestBase {
 		//Residue[] residues = { gly06, gly15 };
 		//Residue[] residues = { gly15, ser17 }; // 2x speedup
 		//Residue[] residues = { gly15, ser17, trp18, trp25 }; // 19x speedup
-		//Residue[] residues = { gly15, ser17, trp18, trp25, arg22, ala24 }; // 41x speedup
+		Residue[] residues = { gly15, ser17, trp18, trp25, arg22, ala24 }; // 41x speedup
 		//Residue[] residues = { gly15, ser17, trp18, trp25, arg22, ala24, ile26, phe31, arg32, glu34 }; // 80x speedup
 		//Residue[] residues = { gly15, ser17, trp18, trp25, arg22, ala24, ile26, phe31, arg32, glu34, val36, leu39, trp47, leu48 }; // 95x speedup
-		Residue[] residues = { gly06, gly15, ser17, trp18, trp25, arg22, ala24, ile26, phe31, arg32, glu34, val36, leu39, trp47, leu48,
-			ile53, arg55, val56, leu57, ile59, val62, leu64, val65, met66 }; // 92x speedup
+		//Residue[] residues = { gly06, gly15, ser17, trp18, trp25, arg22, ala24, ile26, phe31, arg32, glu34, val36, leu39, trp47, leu48,
+		//	ile53, arg55, val56, leu57, ile59, val62, leu64, val65, met66 }; // 92x speedup
 		
 		System.out.println("\nBuilding energy function...");
 		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
@@ -95,7 +95,7 @@ public class TestForceFieldKernel extends TestBase {
 		BigForcefieldEnergy ffenergy = new BigForcefieldEnergy(ffparams, interactions, true);
 		System.out.println("energy terms: " + ffenergy.getNumAtomPairs());
 		
-		final int NumRuns = 100;
+		final int NumRuns = 3000;
 		
 		// benchmark the cpu on the energy function
 		double energy = 0;

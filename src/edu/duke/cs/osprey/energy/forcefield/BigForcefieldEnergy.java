@@ -336,37 +336,28 @@ public class BigForcefieldEnergy {
 	public double calculateTotalEnergy() {
 		
 		// OPTIMIZATION: this function gets hit a lot! so even pedantic optimizations can make a difference
+		// I've also tweaked the code with fancy scoping to try to reduce register pressure
+		// the idea is to limit the scope of temporary variables as much as possible
+		// so the compiler/jvm has the most flexibilty to use registers
+		// this actually has a measurable impact on performance
 		
 		// copy some things to the local stack
 		int num14Pairs = this.num14Pairs;
+		int numAtomPairs = getNumAtomPairs();
 		boolean distDepDielect = useDistDependentDielectric();
-		boolean useHEs = params.hElect;
-		boolean useHVdw = params.hVDW;
+		boolean useHEs = useHElectrostatics();
+		boolean useHVdw = useHVdw();
 		IntBuffer atomFlags = this.atomFlags;
 		DoubleBuffer precomputed = this.precomputed;
-		
-		// pre-compute some more constants
 		double coulombFactor = getCoulombFactor();
 		double scaledCoulombFactor = getScaledCoulombFactor();
 		double solvCutoff2 = getSolvationCutoff2();
 		
-		// declare all loop variables here
-		// this actually as a measurable impact on performance
-		// probably due to register allocation by jvm based on what the compiler output
-		int i2, i9;
-		int atom1Flags, atom2Flags;
-		int atom1Index, atom2Index;
-		int atom1Index3, atom2Index3;
-		boolean atom1isH, atom2isH;
-		boolean is14Pair, bothHeavy, inRangeForSolv;
-		double r2, r6, r12;
-		double rx, ry, rz;
-		double r = 0; // need to initialize this one
-		double Aij, Bij, charge;
-		double c;
-		double lambda1, radius1, alpha1;
-		double lambda2, radius2, alpha2;
-		double Xij, Xji;
+		// the benchmarks seem to run faster when the loop-scoped variables are declared here
+		boolean bothHeavy, inRangeForSolv;
+		double r2;
+		double r = 0;
+		int i9;
 		
 		// compute all the energies
 		double esEnergy = 0;
@@ -374,78 +365,76 @@ public class BigForcefieldEnergy {
 		double solvEnergy = internalSolvEnergy;
 		atomFlags.rewind();
 		precomputed.rewind();
-		int numVdwEsPairs = num14Pairs + numNbPairs;
-		for (int i=0; i<numVdwEsPairs; i++) {
-			i2 = i*2;
+		for (int i=0; i<numAtomPairs; i++) {
 			i9 = i*9;
-			is14Pair = i < num14Pairs;
 			
 			// read flags
-			atom1Flags = atomFlags.get(i2);
-			atom2Flags = atomFlags.get(i2 + 1);
-			atom1Index = getAtomIndex(atom1Flags);
-			atom2Index = getAtomIndex(atom2Flags);
-			atom1isH = isHydrogen(atom1Flags);
-			atom2isH = isHydrogen(atom2Flags);
-			bothHeavy = !atom1isH && !atom2isH;
-			
-			// get the squared radius
-			atom1Index3 = atom1Index*3;
-			atom2Index3 = atom2Index*3;
-			rx = coords.get(atom1Index3) - coords.get(atom2Index3);
-			ry = coords.get(atom1Index3 + 1) - coords.get(atom2Index3 + 1);
-			rz = coords.get(atom1Index3 + 2) - coords.get(atom2Index3 + 2);
-			r2 = rx*rx + ry*ry + rz*rz;
+			{
+				int atom1Index, atom2Index;
+				{
+					int i2 = i*2;
+					int atom1Flags = atomFlags.get(i2);
+					int atom2Flags = atomFlags.get(i2 + 1);
+					atom1Index = getAtomIndex(atom1Flags);
+					atom2Index = getAtomIndex(atom2Flags);
+					bothHeavy = !isHydrogen(atom1Flags) && !isHydrogen(atom2Flags);
+				}
+				
+				// get the squared radius
+				{
+					int atom1Index3 = atom1Index*3;
+					int atom2Index3 = atom2Index*3;
+					double rx = coords.get(atom1Index3) - coords.get(atom2Index3);
+					double ry = coords.get(atom1Index3 + 1) - coords.get(atom2Index3 + 1);
+					double rz = coords.get(atom1Index3 + 2) - coords.get(atom2Index3 + 2);
+					r2 = rx*rx + ry*ry + rz*rz;
+				}
+			}
 			
 			// do we need the sqrt?
+			// they're expensive to compute, so let's only do it once per atom pair
 			inRangeForSolv = r2 < solvCutoff2;
 			if (!distDepDielect || (bothHeavy && inRangeForSolv)) {
 				r = Math.sqrt(r2);
 			}
 			
-			// read precomputed vdw/es params
-			Aij = precomputed.get(i9);
-			Bij = precomputed.get(i9 + 1);
-			charge = precomputed.get(i9 + 2);
-			
 			if (bothHeavy || useHEs) {
 				
+				// read precomputed params
+				double charge = precomputed.get(i9 + 2);
+				
 				// compute electrostatics
-				if (is14Pair) {
-					c = scaledCoulombFactor;
-				} else {
-					c = coulombFactor;
-				}
-				if (distDepDielect) {
-					c /= r2;
-				} else {
-					c /= r;
-				}
-				c *= charge;
-				esEnergy += c;
+				boolean is14Pair = i < num14Pairs;
+				esEnergy += (is14Pair ? scaledCoulombFactor : coulombFactor)
+					/ (distDepDielect ? r2 : r)
+					* charge;
 			}
 
 			if (bothHeavy || useHVdw) {
 				
+				// read precomputed params
+				double Aij = precomputed.get(i9);
+				double Bij = precomputed.get(i9 + 1);
+				
 				// compute vdw
-				r6 = r2*r2*r2;
-				r12 = r6*r6;
+				double r6 = r2*r2*r2;
+				double r12 = r6*r6;
 				vdwEnergy += Aij/r12 - Bij/r6;
 			}
 			
 			if (bothHeavy && inRangeForSolv) {
 					
-				// read precomputed solvation params
-				lambda1 = precomputed.get(i9 + 3);
-				radius1 = precomputed.get(i9 + 4);
-				alpha1 = precomputed.get(i9 + 5);
-				lambda2 = precomputed.get(i9 + 6);
-				radius2 = precomputed.get(i9 + 7);
-				alpha2 = precomputed.get(i9 + 8);
+				// read precomputed params
+				double lambda1 = precomputed.get(i9 + 3);
+				double radius1 = precomputed.get(i9 + 4);
+				double alpha1 = precomputed.get(i9 + 5);
+				double lambda2 = precomputed.get(i9 + 6);
+				double radius2 = precomputed.get(i9 + 7);
+				double alpha2 = precomputed.get(i9 + 8);
 				
 				// compute solvation energy
-				Xij = (r - radius1)/lambda1;
-				Xji = (r - radius2)/lambda2;
+				double Xij = (r - radius1)/lambda1;
+				double Xji = (r - radius2)/lambda2;
 				solvEnergy -= (alpha1*Math.exp(-Xij*Xij) + alpha2*Math.exp(-Xji*Xji))/r2;
 			}
 		}
