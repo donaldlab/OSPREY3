@@ -32,14 +32,6 @@ public class TestFancyKernel extends Kernel<TestFancyKernel.Bound> {
 			super(kernel, gpu);
 		}
 		
-		@Override
-		protected void initBuffers(int workSize) {
-			bufA = makeOrIncreaseBuffer(bufA, workSize, CLMemory.Mem.READ_ONLY);
-			bufB = makeOrIncreaseBuffer(bufB, workSize, CLMemory.Mem.READ_ONLY);
-			bufOut = makeOrIncreaseBuffer(bufOut, workSize, CLMemory.Mem.WRITE_ONLY);
-			getKernel().getCLKernel().putArgs(bufA, bufB, bufOut);
-		}
-		
 		public DoubleBuffer getA() {
 			return bufA.getBuffer();
 		}
@@ -51,14 +43,25 @@ public class TestFancyKernel extends Kernel<TestFancyKernel.Bound> {
 		public DoubleBuffer getOut() {
 			return bufOut.getBuffer();
 		}
-
-		@Override
-		public void uploadAsync() {
-			uploadBufferAsync(bufA);
-			uploadBufferAsync(bufB);
+		
+		public void setArgs(int workSize) {
+			workSize = roundUpWorkSize(workSize);
+			setWorkSize(workSize);
+			bufA = makeOrIncreaseBuffer(bufA, workSize, CLMemory.Mem.READ_ONLY);
+			bufB = makeOrIncreaseBuffer(bufB, workSize, CLMemory.Mem.READ_ONLY);
+			bufOut = makeOrIncreaseBuffer(bufOut, workSize, CLMemory.Mem.WRITE_ONLY);
+			getKernel().getCLKernel()
+				.putArg(bufA)
+				.putArg(bufB)
+				.putArg(bufOut);
 		}
 
-		@Override
+		public void uploadSync() {
+			uploadBufferAsync(bufA);
+			uploadBufferAsync(bufB);
+			waitForGpu();
+		}
+
 		public void downloadSync() {
 			downloadBufferSync(bufOut);
 		}

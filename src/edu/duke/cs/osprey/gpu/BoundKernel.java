@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.gpu;
 
+import java.nio.Buffer;
 import java.nio.DoubleBuffer;
 
 import com.jogamp.opencl.CLBuffer;
@@ -27,21 +28,14 @@ public abstract class BoundKernel<T extends BoundKernel<T>> {
 		return gpu;
 	}
 	
-	public void setWorkSize(int workSize) {
-		this.workSize = roundUpWorkSize(workSize, gpu);
-		initBuffers(workSize);
-	}
-	
-	protected abstract void initBuffers(int workSize);
-	public abstract void uploadAsync();
-	public abstract void downloadSync();
-	
-	public void uploadSync() {
-		uploadAsync();
-		waitForGpu();
+	protected void setWorkSize(int val) {
+		workSize = val;
 	}
 	
 	public void runAsync() {
+		if (workSize <= 0) {
+			throw new IllegalStateException("invalid work size: " + workSize);
+		}
 		gpu.getQueue().put1DRangeKernel(kernel.getCLKernel(), 0, workSize, groupSize);
 	}
 	
@@ -50,25 +44,17 @@ public abstract class BoundKernel<T extends BoundKernel<T>> {
 		waitForGpu();
 	}
 	
-	public void uploadRunDownloadSync() {
-		uploadAsync();
-		runAsync();
-		waitForGpu();
-		downloadSync();
-	}
-	
 	public void waitForGpu() {
 		gpu.getQueue().finish();
 	}
 	
-	private int roundUpWorkSize(int workSize, Gpu gpu) {
+	protected int roundUpWorkSize(int workSize) {
+		
+		// get the number of threads per work group
 		int groupSize = gpu.getDevice().getMaxWorkGroupSize();
-		int r = workSize % groupSize;
-		if (r == 0) {
-			return workSize;
-		} else {
-			return (workSize + groupSize - 1)/groupSize*groupSize;
-		}
+		
+		// round up to the nearest multiple of groupSize
+		return (workSize + groupSize - 1)/groupSize*groupSize;
 	}
 	
 	protected CLBuffer<DoubleBuffer> makeOrIncreaseBuffer(CLBuffer<DoubleBuffer> buf, int workSize) {
@@ -80,6 +66,10 @@ public abstract class BoundKernel<T extends BoundKernel<T>> {
 			buf = Gpus.get().getContext().createDoubleBuffer(workSize, type);
 		}
 		return buf;
+	}
+	
+	protected <B extends Buffer> CLBuffer<B> wrapBuffer(B buf, CLMemory.Mem type) {
+		return gpu.getDevice().getContext().createBuffer(buf, type);
 	}
 	
 	protected void uploadBufferAsync(CLBuffer<?> buf) {

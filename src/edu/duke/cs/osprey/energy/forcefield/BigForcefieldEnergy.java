@@ -1,5 +1,7 @@
 package edu.duke.cs.osprey.energy.forcefield;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.DoubleBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
@@ -72,6 +74,10 @@ public class BigForcefieldEnergy {
 		public double Bij;
 	}
 	
+	// physical constants and constant params
+	private static final double coulombConstant = 332.0;
+	private static final double solvCutoff = 9.0;
+	
 	private ForcefieldParams params;
 	private Groups groups;
 	
@@ -89,16 +95,17 @@ public class BigForcefieldEnergy {
 	private int num14Pairs;
 	private int numNbPairs;
 	
-	// pre-computed vdW, electrostatics params
-	// layout per atom pair: Aij, Bij
-	private DoubleBuffer preVdwEs;
+	// pre-computed vdW, electrostatics, and solvation params
+	// layout per atom pair: Aij, Bij, charge, lambda1, radius1, alpha1, lambda2, radius2, alpha2
+	private DoubleBuffer precomputed;
 	
-	// pre-computed solvation params
-	// layout per atom: lambda, radius, alpha
-	private DoubleBuffer preSolv;
 	private double internalSolvEnergy;
 	
 	public BigForcefieldEnergy(ForcefieldParams params, ForcefieldInteractions interactions) {
+		this(params, interactions, false);
+	}
+	
+	public BigForcefieldEnergy(ForcefieldParams params, ForcefieldInteractions interactions, boolean useDirectBuffers) {
 		
 		// TODO: implement solvation toggle
 		// TODO: implement dynamic vs static atom groups
@@ -120,7 +127,11 @@ public class BigForcefieldEnergy {
 			atomOffsets[i] = numAtoms;
 			numAtoms += group.getAtoms().size();
 		}
-		coords = DoubleBuffer.allocate(numAtoms*3);
+		if (useDirectBuffers) {
+			coords = ByteBuffer.allocateDirect(numAtoms*3*Double.BYTES).order(ByteOrder.nativeOrder()).asDoubleBuffer();
+		} else {
+			coords = DoubleBuffer.allocate(numAtoms*3);
+		}
 		for (int i=0; i<groups.getNumGroups(); i++) {
 			AtomGroup group = groups.get(i);
 			coords.put(group.getCoords());
@@ -160,11 +171,15 @@ public class BigForcefieldEnergy {
 		SolvParams solvparams2 = new SolvParams();
 		
 		// allocate our buffers
-		atomFlags = IntBuffer.allocate(numAtomPairs*2);
-		preVdwEs = DoubleBuffer.allocate(numAtomPairs*3);
+		if (useDirectBuffers) {
+			atomFlags = ByteBuffer.allocateDirect(numAtomPairs*2*Integer.BYTES).order(ByteOrder.nativeOrder()).asIntBuffer();
+			precomputed = ByteBuffer.allocateDirect(numAtomPairs*9*Double.BYTES).order(ByteOrder.nativeOrder()).asDoubleBuffer();
+		} else {
+			atomFlags = IntBuffer.allocate(numAtomPairs*2);
+			precomputed = DoubleBuffer.allocate(numAtomPairs*9);
+		}
 		num14Pairs = 0;
 		numNbPairs = 0;
-		preSolv = DoubleBuffer.allocate(numAtomPairs*6);
 		
 		for (NEIGHBORTYPE type : Arrays.asList(NEIGHBORTYPE.BONDED14, NEIGHBORTYPE.NONBONDED)) {
 			
@@ -212,9 +227,9 @@ public class BigForcefieldEnergy {
 						vdwparams.Bij *= 2;
 					}
 					
-					preVdwEs.put(vdwparams.Aij);
-					preVdwEs.put(vdwparams.Bij);
-					preVdwEs.put(atom1.charge*atom2.charge);
+					precomputed.put(vdwparams.Aij);
+					precomputed.put(vdwparams.Bij);
+					precomputed.put(atom1.charge*atom2.charge);
 	
 					// is this a heavy pair?
 					if (!atom1.isHydrogen() && !atom2.isHydrogen()) {
@@ -226,12 +241,12 @@ public class BigForcefieldEnergy {
 						double alpha1 = solvCoeff*solvparams1.dGfree*solvparams2.volume/solvparams1.lambda;
 						double alpha2 = solvCoeff*solvparams2.dGfree*solvparams1.volume/solvparams2.lambda;
 				
-						preSolv.put(solvparams1.lambda);
-						preSolv.put(solvparams1.radius);
-						preSolv.put(alpha1);
-						preSolv.put(solvparams2.lambda);
-						preSolv.put(solvparams2.radius);
-						preSolv.put(alpha2);
+						precomputed.put(solvparams1.lambda);
+						precomputed.put(solvparams1.radius);
+						precomputed.put(alpha1);
+						precomputed.put(solvparams2.lambda);
+						precomputed.put(solvparams2.radius);
+						precomputed.put(alpha2);
 						
 					} else {
 						
@@ -239,8 +254,9 @@ public class BigForcefieldEnergy {
 						// yeah, it takes up extra space, but space is cheap
 						// it's more important that we make the location of these
 						// parameters predictable so we can use parallelism to compute energies
+						// also, syncing the solvation params with the vdw/es params helps cache performance
 						for (int j=0; j<6; j++) {
-							preSolv.put(0);
+							precomputed.put(0);
 						}
 					}
 				}
@@ -249,8 +265,7 @@ public class BigForcefieldEnergy {
 		
 		// flip our buffers
 		atomFlags.flip();
-		preVdwEs.flip();
-		preSolv.flip();
+		precomputed.flip();
 		
 		// compute internal solvation energy
 		// ie, add up all the dGref terms for all atoms
@@ -266,8 +281,56 @@ public class BigForcefieldEnergy {
 		}
 	}
 	
+	public DoubleBuffer getCoords() {
+		return coords;
+	}
+	
+	public IntBuffer getAtomFlags() {
+		return atomFlags;
+	}
+	
+	public DoubleBuffer getPrecomputed() {
+		return precomputed;
+	}
+	
 	public int getNumAtomPairs() {
 		return num14Pairs + numNbPairs;
+	}
+	
+	public int getNum14AtomPairs() {
+		return num14Pairs;
+	}
+	
+	public double getCoulombFactor() {
+		return coulombConstant/params.dielectric;
+	}
+	
+	public double getScaledCoulombFactor() {
+		return getCoulombFactor()*params.forcefld.getCoulombScaling();
+	}
+	
+	public double getSolvationCutoff2() {
+		return solvCutoff*solvCutoff;
+	}
+	
+	public boolean useDistDependentDielectric() {
+		return params.distDepDielect;
+	}
+	
+	public boolean useHElectrostatics() {
+		return params.hElect;
+	}
+	
+	public boolean useHVdw() {
+		return params.hVDW;
+	}
+	
+	public double getSolvationScale() {
+		return params.solvScale;
+	}
+	
+	public double getInternalSolvationEnergy() {
+		return internalSolvEnergy;
 	}
 	
 	public double calculateTotalEnergy() {
@@ -276,31 +339,28 @@ public class BigForcefieldEnergy {
 		
 		// copy some things to the local stack
 		int num14Pairs = this.num14Pairs;
-		boolean distDepDielect = params.distDepDielect;
+		boolean distDepDielect = useDistDependentDielectric();
 		boolean useHEs = params.hElect;
 		boolean useHVdw = params.hVDW;
 		IntBuffer atomFlags = this.atomFlags;
-		DoubleBuffer preVdwEs = this.preVdwEs;
-		DoubleBuffer preSolv = this.preSolv;
-		
-		// physical constants and constant params
-		final double coulombConstant = 332.0;
-		final double solvCutoff = 9.0;
+		DoubleBuffer precomputed = this.precomputed;
 		
 		// pre-compute some more constants
-		double coulombFactor = coulombConstant/params.dielectric;
-		double scaledCoulombFactor = coulombFactor*params.forcefld.getCoulombScaling();
-		double solvCutoff2 = solvCutoff*solvCutoff;
+		double coulombFactor = getCoulombFactor();
+		double scaledCoulombFactor = getScaledCoulombFactor();
+		double solvCutoff2 = getSolvationCutoff2();
 		
 		// declare all loop variables here
 		// this actually as a measurable impact on performance
 		// probably due to register allocation by jvm based on what the compiler output
-		int i2, i3, i6;
+		int i2, i9;
 		int atom1Flags, atom2Flags;
 		int atom1Index, atom2Index;
+		int atom1Index3, atom2Index3;
 		boolean atom1isH, atom2isH;
 		boolean is14Pair, bothHeavy, inRangeForSolv;
 		double r2, r6, r12;
+		double rx, ry, rz;
 		double r = 0; // need to initialize this one
 		double Aij, Bij, charge;
 		double c;
@@ -313,13 +373,11 @@ public class BigForcefieldEnergy {
 		double vdwEnergy = 0;
 		double solvEnergy = internalSolvEnergy;
 		atomFlags.rewind();
-		preVdwEs.rewind();
-		preSolv.rewind();
+		precomputed.rewind();
 		int numVdwEsPairs = num14Pairs + numNbPairs;
 		for (int i=0; i<numVdwEsPairs; i++) {
 			i2 = i*2;
-			i3 = i*3;
-			i6 = i*6;
+			i9 = i*9;
 			is14Pair = i < num14Pairs;
 			
 			// read flags
@@ -332,7 +390,12 @@ public class BigForcefieldEnergy {
 			bothHeavy = !atom1isH && !atom2isH;
 			
 			// get the squared radius
-			r2 = calcr2(atom1Index, atom2Index);
+			atom1Index3 = atom1Index*3;
+			atom2Index3 = atom2Index*3;
+			rx = coords.get(atom1Index3) - coords.get(atom2Index3);
+			ry = coords.get(atom1Index3 + 1) - coords.get(atom2Index3 + 1);
+			rz = coords.get(atom1Index3 + 2) - coords.get(atom2Index3 + 2);
+			r2 = rx*rx + ry*ry + rz*rz;
 			
 			// do we need the sqrt?
 			inRangeForSolv = r2 < solvCutoff2;
@@ -341,9 +404,9 @@ public class BigForcefieldEnergy {
 			}
 			
 			// read precomputed vdw/es params
-			Aij = preVdwEs.get(i3);
-			Bij = preVdwEs.get(i3 + 1);
-			charge = preVdwEs.get(i3 + 2);
+			Aij = precomputed.get(i9);
+			Bij = precomputed.get(i9 + 1);
+			charge = precomputed.get(i9 + 2);
 			
 			if (bothHeavy || useHEs) {
 				
@@ -370,31 +433,24 @@ public class BigForcefieldEnergy {
 				vdwEnergy += Aij/r12 - Bij/r6;
 			}
 			
-			if (bothHeavy) {
-				if (inRangeForSolv) {
+			if (bothHeavy && inRangeForSolv) {
 					
-					// read precomputed solvation params
-					lambda1 = preSolv.get(i6);
-					radius1 = preSolv.get(i6 + 1);
-					alpha1 = preSolv.get(i6 + 2);
-					lambda2 = preSolv.get(i6 + 3);
-					radius2 = preSolv.get(i6 + 4);
-					alpha2 = preSolv.get(i6 + 5);
-					
-					// compute solvation energy
-					Xij = (r - radius1)/lambda1;
-					Xji = (r - radius2)/lambda2;
-					solvEnergy -= (alpha1*Math.exp(-Xij*Xij) + alpha2*Math.exp(-Xji*Xji))/r2;
-					
-				} else {
-					
-					// skip the precomputed terms we don't need
-					preSolv.position(preSolv.position() + 6);
-				}
+				// read precomputed solvation params
+				lambda1 = precomputed.get(i9 + 3);
+				radius1 = precomputed.get(i9 + 4);
+				alpha1 = precomputed.get(i9 + 5);
+				lambda2 = precomputed.get(i9 + 6);
+				radius2 = precomputed.get(i9 + 7);
+				alpha2 = precomputed.get(i9 + 8);
+				
+				// compute solvation energy
+				Xij = (r - radius1)/lambda1;
+				Xji = (r - radius2)/lambda2;
+				solvEnergy -= (alpha1*Math.exp(-Xij*Xij) + alpha2*Math.exp(-Xji*Xji))/r2;
 			}
 		}
 		
-		solvEnergy *= params.solvScale;
+		solvEnergy *= getSolvationScale();
 		
 		return esEnergy + vdwEnergy + solvEnergy;
 	}
@@ -472,14 +528,5 @@ public class BigForcefieldEnergy {
 		if (!success) {
 			throw new Error("couldn't find solvation parameters for atom type: " + atom.forceFieldType);
 		}
-	}
-	
-	private double calcr2(int atom1Index, int atom2Index) {
-		int atom1Index3 = atom1Index*3;
-		int atom2Index3 = atom2Index*3;
-		double rx = coords.get(atom1Index3) - coords.get(atom2Index3);
-		double ry = coords.get(atom1Index3 + 1) - coords.get(atom2Index3 + 1);
-		double rz = coords.get(atom1Index3 + 2) - coords.get(atom2Index3 + 2);
-		return rx*rx + ry*ry + rz*rz;
 	}
 }

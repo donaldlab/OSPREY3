@@ -32,14 +32,6 @@ public class TestAddKernel extends Kernel<TestAddKernel.Bound> {
 			super(kernel, gpu);
 		}
 		
-		@Override
-		protected void initBuffers(int workSize) {
-			bufA = makeOrIncreaseBuffer(bufA, workSize, CLMemory.Mem.READ_ONLY);
-			bufB = makeOrIncreaseBuffer(bufB, workSize, CLMemory.Mem.READ_ONLY);
-			bufOut = makeOrIncreaseBuffer(bufOut, workSize, CLMemory.Mem.WRITE_ONLY);
-			getKernel().getCLKernel().putArgs(bufA, bufB, bufOut);
-		}
-		
 		public DoubleBuffer getA() {
 			return bufA.getBuffer();
 		}
@@ -51,14 +43,24 @@ public class TestAddKernel extends Kernel<TestAddKernel.Bound> {
 		public DoubleBuffer getOut() {
 			return bufOut.getBuffer();
 		}
-
-		@Override
+		
+		public void setArgs(int workSize) {
+			workSize = roundUpWorkSize(workSize);
+			setWorkSize(workSize);
+			bufA = makeOrIncreaseBuffer(bufA, workSize, CLMemory.Mem.READ_ONLY);
+			bufB = makeOrIncreaseBuffer(bufB, workSize, CLMemory.Mem.READ_ONLY);
+			bufOut = makeOrIncreaseBuffer(bufOut, workSize, CLMemory.Mem.WRITE_ONLY);
+			getKernel().getCLKernel()
+				.putArg(bufA)
+				.putArg(bufB)
+				.putArg(bufOut);
+		}
+		
 		public void uploadAsync() {
 			uploadBufferAsync(bufA);
 			uploadBufferAsync(bufB);
 		}
 
-		@Override
 		public void downloadSync() {
 			downloadBufferSync(bufOut);
 		}

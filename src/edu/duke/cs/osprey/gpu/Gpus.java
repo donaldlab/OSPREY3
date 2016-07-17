@@ -10,8 +10,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.io.IOUtils;
-
 import com.jogamp.opencl.CLContext;
 import com.jogamp.opencl.CLDevice;
 import com.jogamp.opencl.CLProgram;
@@ -97,10 +95,16 @@ public class Gpus {
 			throw new IOException(String.format("can't find gpu program file: %s\nlooked in folder: %s", filename, getClass().getResource("kernels").toString()));
 		}
 		try (InputStream in = url.openStream()) {
-			String source = IOUtils.toString(in);
-			CLProgram program = context.createProgram(source).build();
+			
+			CLProgram program = context.createProgram(in).build();
+			
+			// DEBUG: see compiler output, if there is any
+			//CLProgram program = context.createProgram(in).build("-cl-nv-verbose");
+			//System.out.println(program.getBuildLog());
+			
 			programs.put(filename, program);
 			return program;
+			
 		} catch (IOException ex) {
 			throw new IOException(String.format("error compiling gpu program file: %s", filename), ex);
 		}

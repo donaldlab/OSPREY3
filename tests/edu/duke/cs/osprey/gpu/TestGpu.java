@@ -32,7 +32,7 @@ public class TestGpu {
 		TestFancyKernel.Bound kernel = new TestFancyKernel().bind();
 		
 		// copy data to buffers
-		kernel.setWorkSize(n);
+		kernel.setArgs(n);
 		for (int i=0; i<n; i++) {
 			kernel.getA().put(a[i]);
 			kernel.getB().put(b[i]);

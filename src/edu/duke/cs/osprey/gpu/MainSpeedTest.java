@@ -23,7 +23,7 @@ public class MainSpeedTest {
 			b[i] = rand.nextDouble();
 		}
 		
-		final int NumRuns = 100;
+		final int NumRuns = 10;
 		
 		// benchmark vector addition on cpu
 		System.out.println("benchmarking CPU...");
@@ -40,7 +40,7 @@ public class MainSpeedTest {
 		TestFancyKernel.Bound kernel = new TestFancyKernel().bind();
 			
 		// copy data to buffers
-		kernel.setWorkSize(n);
+		kernel.setArgs(n);
 		for (int i=0; i<n; i++) {
 			kernel.getA().put(a[i]);
 			kernel.getB().put(b[i]);

@@ -1,5 +1,7 @@
 package edu.duke.cs.osprey.gpu;
 
+import java.nio.DoubleBuffer;
+
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
@@ -61,7 +63,7 @@ public class TestForceFieldKernel extends TestBase {
 		//Residue[] residues = { gly15, ser17, trp18, trp25, arg22, ala24 }; // 41x speedup
 		//Residue[] residues = { gly15, ser17, trp18, trp25, arg22, ala24, ile26, phe31, arg32, glu34 }; // 80x speedup
 		//Residue[] residues = { gly15, ser17, trp18, trp25, arg22, ala24, ile26, phe31, arg32, glu34, val36, leu39, trp47, leu48 }; // 95x speedup
-		Residue[] residues = { gly15, ser17, trp18, trp25, arg22, ala24, ile26, phe31, arg32, glu34, val36, leu39, trp47, leu48,
+		Residue[] residues = { gly06, gly15, ser17, trp18, trp25, arg22, ala24, ile26, phe31, arg32, glu34, val36, leu39, trp47, leu48,
 			ile53, arg55, val56, leu57, ile59, val62, leu64, val65, met66 }; // 92x speedup
 		
 		System.out.println("\nBuilding energy function...");
@@ -90,10 +92,10 @@ public class TestForceFieldKernel extends TestBase {
 		System.out.println("\nBuilding big forcefield...");
 		
 		ForcefieldParams ffparams = TestBase.makeDefaultFFParams();
-		BigForcefieldEnergy ffenergy = new BigForcefieldEnergy(ffparams, interactions);
+		BigForcefieldEnergy ffenergy = new BigForcefieldEnergy(ffparams, interactions, true);
 		System.out.println("energy terms: " + ffenergy.getNumAtomPairs());
 		
-		final int NumRuns = 1000;
+		final int NumRuns = 100;
 		
 		// benchmark the cpu on the energy function
 		double energy = 0;
@@ -117,24 +119,40 @@ public class TestForceFieldKernel extends TestBase {
 		System.out.println("Energy: " + energy);
 		
 		// prep the gpu
+		System.out.println("\nprepping GPU...");
 		ForceFieldKernel.Bound kernel = new ForceFieldKernel().bind();
-		kernel.setWorkSize(numTerms);
-		for (int i=0; i<numTerms; i++) {
-			kernel.getIn().put(i);
-		}
-		kernel.getIn().rewind();
-		kernel.uploadSync();
+		kernel.setForcefield(ffenergy);
+		System.out.println("Uploading " + ffenergy.getAtomFlags().limit()*Integer.BYTES/1024 + " KiB...");
+		System.out.println("Uploading " + ffenergy.getPrecomputed().limit()*Double.BYTES/1024 + " KiB...");
+		kernel.uploadStaticAsync();
+		System.out.println("Uploading " + (ffenergy.getCoords().limit()*Double.BYTES)/1024 + " KiB...");
+		kernel.uploadCoordsAsync();
+		kernel.waitForGpu();
 		
 		// benchmark the gpu
 		System.out.println("\nrunning forcefield on GPU...");
 		Stopwatch gpuStopwatch = new Stopwatch().start();
 		for (int i=0; i<NumRuns; i++) {
-			//kernel.uploadRunDownloadSync();
+			
+			// no overhead
+			//kernel.runAsync();
+			
+			// full overhead
+			kernel.uploadCoordsAsync();
 			kernel.runAsync();
+			kernel.waitForGpu();
+			/*
+			energy = ffenergy.getInternalSolvationEnergy()*ffenergy.getSolvationScale();
+			DoubleBuffer out = kernel.downloadEnergiesSync();
+			out.rewind();
+			for (int j=0; j<ffenergy.getNumAtomPairs(); j++) {
+				energy += out.get(j);
+			}
+			*/
 		}
 		kernel.waitForGpu();
-		energy = kernel.getOut().get(0);
 		gpuStopwatch.stop();
+		
 		System.out.println("Gpu time: " + gpuStopwatch.getTime(2));
 		System.out.println("Energy: " + energy);
 		
