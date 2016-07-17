@@ -46,23 +46,24 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 			
 			int workSize = roundUpWorkSize(ff.getNumAtomPairs());
 			setWorkSize(workSize);
+			int numGroups = getNumGroups(workSize);
 			
 			CLContext context = getGpu().getDevice().getContext();
 			this.coords = context.createBuffer(ff.getCoords(), CLMemory.Mem.READ_WRITE);
 			this.atomFlags = context.createBuffer(ff.getAtomFlags(), CLMemory.Mem.READ_ONLY);
 			this.precomputed = context.createBuffer(ff.getPrecomputed(), CLMemory.Mem.READ_ONLY);
-			this.energies = context.createDoubleBuffer(workSize, CLMemory.Mem.WRITE_ONLY);
+			this.energies = context.createDoubleBuffer(numGroups, CLMemory.Mem.WRITE_ONLY);
 			getKernel().getCLKernel()
 				.putArg(this.coords)
 				.putArg(this.atomFlags)
 				.putArg(this.precomputed)
+				.putNullArg(getGpu().getDevice().getMaxWorkGroupSize()*Double.BYTES)
 				.putArg(this.energies)
 				.putArg(ff.getNumAtomPairs())
 				.putArg(ff.getNum14AtomPairs())
 				.putArg(ff.getCoulombFactor())
 				.putArg(ff.getScaledCoulombFactor())
 				.putArg(ff.getSolvationCutoff2())
-				.putArg(ff.getSolvationScale())
 				// opencl kernels don't support boolean args, so encode as int
 				// but bitpack them to save on registers (we're really low on registers in the kernel!)
 				.putArg(

@@ -163,6 +163,7 @@ public class BigForcefieldEnergy {
 		
 		// pre-pre-compute some solvation constants
 		double solvCoeff = 2.0/(4.0*Math.PI*Math.sqrt(Math.PI));
+		solvCoeff *= params.solvScale;
 		
 		NBParams nbparams1 = new NBParams();
 		NBParams nbparams2 = new NBParams();
@@ -279,6 +280,7 @@ public class BigForcefieldEnergy {
 				}
 			}
 		}
+		internalSolvEnergy *= params.solvScale;
 	}
 	
 	public DoubleBuffer getCoords() {
@@ -323,10 +325,6 @@ public class BigForcefieldEnergy {
 	
 	public boolean useHVdw() {
 		return params.hVDW;
-	}
-	
-	public double getSolvationScale() {
-		return params.solvScale;
 	}
 	
 	public double getInternalSolvationEnergy() {
@@ -438,8 +436,6 @@ public class BigForcefieldEnergy {
 				solvEnergy -= (alpha1*Math.exp(-Xij*Xij) + alpha2*Math.exp(-Xji*Xji))/r2;
 			}
 		}
-		
-		solvEnergy *= getSolvationScale();
 		
 		return esEnergy + vdwEnergy + solvEnergy;
 	}

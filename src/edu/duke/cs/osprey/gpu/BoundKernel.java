@@ -57,6 +57,10 @@ public abstract class BoundKernel<T extends BoundKernel<T>> {
 		return (workSize + groupSize - 1)/groupSize*groupSize;
 	}
 	
+	protected int getNumGroups(int workSize) {
+		return workSize/gpu.getDevice().getMaxWorkGroupSize();
+	}
+	
 	protected CLBuffer<DoubleBuffer> makeOrIncreaseBuffer(CLBuffer<DoubleBuffer> buf, int workSize) {
 		return makeOrIncreaseBuffer(buf, workSize, CLMemory.Mem.READ_WRITE);
 	}

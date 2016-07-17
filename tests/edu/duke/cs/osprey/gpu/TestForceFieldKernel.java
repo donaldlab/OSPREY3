@@ -56,36 +56,24 @@ public class TestForceFieldKernel extends TestBase {
 		Residue val65 = mol.getResByPDBResNumber("65");
 		Residue met66 = mol.getResByPDBResNumber("66");
 		
-		//Residue[] residues = { gly15 };
-		//Residue[] residues = { gly06, gly15 };
-		//Residue[] residues = { gly15, ser17 }; // 2x speedup
-		//Residue[] residues = { gly15, ser17, trp18, trp25 }; // 19x speedup
-		Residue[] residues = { gly15, ser17, trp18, trp25, arg22, ala24 }; // 41x speedup
-		//Residue[] residues = { gly15, ser17, trp18, trp25, arg22, ala24, ile26, phe31, arg32, glu34 }; // 80x speedup
-		//Residue[] residues = { gly15, ser17, trp18, trp25, arg22, ala24, ile26, phe31, arg32, glu34, val36, leu39, trp47, leu48 }; // 95x speedup
+		//Residue[] residues = { gly15 }; // 0.68x speedup
+		Residue[] residues = { gly06, gly15 }; // 1.56x speedup;
+		//Residue[] residues = { gly15, ser17 }; // 2.65x speedup
+		//Residue[] residues = { trp18, trp25 }; // 13.00x speedup;
+		//Residue[] residues = { gly15, ser17, trp18, trp25 }; // 11.42x speedup
+		//Residue[] residues = { gly15, ser17, trp18, trp25, arg22, ala24 }; // 17.27x speedup
+		// TODO: kernel launches for residues below cause an opencl driver segfault in the Kernel.runAsync() call =(
+		//Residue[] residues = { gly15, ser17, trp18, trp25, arg22, ala24, ile26, phe31, arg32, glu34 };
+		//Residue[] residues = { gly15, ser17, trp18, trp25, arg22, ala24, ile26, phe31, arg32, glu34, val36, leu39, trp47, leu48 };
 		//Residue[] residues = { gly06, gly15, ser17, trp18, trp25, arg22, ala24, ile26, phe31, arg32, glu34, val36, leu39, trp47, leu48,
-		//	ile53, arg55, val56, leu57, ile59, val62, leu64, val65, met66 }; // 92x speedup
+		//	ile53, arg55, val56, leu57, ile59, val62, leu64, val65, met66 };
 		
 		System.out.println("\nBuilding energy function...");
 		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
 		MultiTermEnergyFunction efunc = new MultiTermEnergyFunction();
 		ForcefieldInteractions interactions = new ForcefieldInteractions();
-		int numTerms = 0;
-		for (int pos1=0; pos1<residues.length; pos1++) {
-			
-			SingleResEnergy single = new SingleResEnergy(residues[pos1], egen.ffParams);
-			numTerms += single.getFFEnergy().getNumTerms();
-			efunc.addTerm(single);
-			interactions.addResidue(residues[pos1]);
-			
-			for (int pos2=0; pos2<pos1; pos2++) {
-				
-				ResPairEnergy pair = new ResPairEnergy(residues[pos1], residues[pos2], egen.ffParams);
-				numTerms += pair.getFFEnergy().getNumTerms();
-				efunc.addTerm(pair);
-				interactions.addResiduePair(residues[pos1], residues[pos2]);
-			}
-		}
+		//int numTerms = buildAllPairsEfunc(residues, egen, efunc, interactions);
+		int numTerms = buildSingleAndShellEfunc(residues, egen, efunc, interactions);
 		System.out.println("energy terms: " + numTerms);
 		
 		// make the big forcefield energy function
@@ -93,9 +81,9 @@ public class TestForceFieldKernel extends TestBase {
 		
 		ForcefieldParams ffparams = TestBase.makeDefaultFFParams();
 		BigForcefieldEnergy ffenergy = new BigForcefieldEnergy(ffparams, interactions, true);
-		System.out.println("energy terms: " + ffenergy.getNumAtomPairs());
+		System.out.println("atom pairs: " + ffenergy.getNumAtomPairs());
 		
-		final int NumRuns = 3000;
+		final int NumRuns = 100;
 		
 		// benchmark the cpu on the energy function
 		double energy = 0;
@@ -131,24 +119,19 @@ public class TestForceFieldKernel extends TestBase {
 		
 		// benchmark the gpu
 		System.out.println("\nrunning forcefield on GPU...");
+		double internalSolvEnergy = ffenergy.getInternalSolvationEnergy();
 		Stopwatch gpuStopwatch = new Stopwatch().start();
 		for (int i=0; i<NumRuns; i++) {
 			
-			// no overhead
-			//kernel.runAsync();
-			
-			// full overhead
 			kernel.uploadCoordsAsync();
 			kernel.runAsync();
-			kernel.waitForGpu();
-			/*
-			energy = ffenergy.getInternalSolvationEnergy()*ffenergy.getSolvationScale();
+			
+			energy = internalSolvEnergy;
 			DoubleBuffer out = kernel.downloadEnergiesSync();
 			out.rewind();
-			for (int j=0; j<ffenergy.getNumAtomPairs(); j++) {
-				energy += out.get(j);
+			while (out.hasRemaining()) {
+				energy += out.get();
 			}
-			*/
 		}
 		kernel.waitForGpu();
 		gpuStopwatch.stop();
@@ -157,5 +140,47 @@ public class TestForceFieldKernel extends TestBase {
 		System.out.println("Energy: " + energy);
 		
 		System.out.println(String.format("%.2fx speedup", (float)cpuBigffStopwatch.getTimeNs()/gpuStopwatch.getTimeNs()));
+	}
+
+	private static int buildAllPairsEfunc(Residue[] residues, EnergyFunctionGenerator egen, MultiTermEnergyFunction efunc, ForcefieldInteractions interactions) {
+		
+		int numTerms = 0;
+		
+		for (int i=0; i<residues.length; i++) {
+			
+			SingleResEnergy single = new SingleResEnergy(residues[i], egen.ffParams);
+			numTerms += single.getFFEnergy().getNumTerms();
+			efunc.addTerm(single);
+			interactions.addResidue(residues[i]);
+			
+			for (int pos2=0; pos2<i; pos2++) {
+				
+				ResPairEnergy pair = new ResPairEnergy(residues[i], residues[pos2], egen.ffParams);
+				numTerms += pair.getFFEnergy().getNumTerms();
+				efunc.addTerm(pair);
+				interactions.addResiduePair(residues[i], residues[pos2]);
+			}
+		}
+		
+		return numTerms;
+	}
+	
+	private static int buildSingleAndShellEfunc(Residue[] residues, EnergyFunctionGenerator egen, MultiTermEnergyFunction efunc, ForcefieldInteractions interactions) {
+		int numTerms = 0;
+		
+		SingleResEnergy single = new SingleResEnergy(residues[0], egen.ffParams);
+		numTerms += single.getFFEnergy().getNumTerms();
+		efunc.addTerm(single);
+		interactions.addResidue(residues[0]);
+		
+		for (int i=1; i<residues.length; i++) {
+			
+			ResPairEnergy pair = new ResPairEnergy(residues[0], residues[i], egen.ffParams);
+			numTerms += pair.getFFEnergy().getNumTerms();
+			efunc.addTerm(pair);
+			interactions.addResiduePair(residues[0], residues[i]);
+		}
+		
+		return numTerms;
 	}
 }
