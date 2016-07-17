@@ -79,9 +79,7 @@ public class ForcefieldEnergy implements Serializable {
             //and point res2 to res1, etc
             atomCache = new AtomCache(res1, res2);
             energyCache = Double.NaN;
-            // TEMP
-            //useCache = true;
-            useCache = false;
+            useCache = true;
             
             this.params = params;
             
