@@ -269,14 +269,20 @@ public class BigForcefieldEnergy {
 		precomputed.flip();
 		
 		// compute internal solvation energy
-		// ie, add up all the dGref terms for all atoms
+		// ie, add up all the dGref terms for all atoms in internal groups
 		internalSolvEnergy = 0;
-		for (int i=0; i<groups.getNumGroups(); i++) {
-			AtomGroup group = groups.get(i);
-			for (Atom atom : group.getAtoms()) {
-				if (!atom.isHydrogen()) {
-					getSolvParams(atom, solvparams1);
-					internalSolvEnergy += solvparams1.dGref;
+		for (int groupPairIndex=0; groupPairIndex<interactions.size(); groupPairIndex++) {
+			
+			AtomGroup[] groupPair = interactions.get(groupPairIndex);
+			AtomGroup group1 = groupPair[0];
+			AtomGroup group2 = groupPair[1];
+			
+			if (group1 == group2) {
+				for (Atom atom : group1.getAtoms()) {
+					if (!atom.isHydrogen()) {
+						getSolvParams(atom, solvparams1);
+						internalSolvEnergy += solvparams1.dGref;
+					}
 				}
 			}
 		}
