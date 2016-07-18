@@ -38,39 +38,42 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 		private CLBuffer<DoubleBuffer> precomputed;
 		private CLBuffer<DoubleBuffer> energies;
 		
+		private int workSize;
+		private int groupSize;
+		
 		public Bound(Kernel<ForceFieldKernel.Bound> kernel, Gpu gpu) {
 			super(kernel, gpu);
 		}
 		
-		public void setForcefield(BigForcefieldEnergy ff) {
+		public void setForcefield(BigForcefieldEnergy ffenergy) {
 			
-			int workSize = roundUpWorkSize(ff.getNumAtomPairs());
-			setWorkSize(workSize);
-			int numGroups = getNumGroups(workSize);
+			groupSize = getMaxGroupSize();
+			workSize = roundUpWorkSize(ffenergy.getNumAtomPairs(), groupSize);
 			
 			CLContext context = getGpu().getDevice().getContext();
-			this.coords = context.createBuffer(ff.getCoords(), CLMemory.Mem.READ_WRITE);
-			this.atomFlags = context.createBuffer(ff.getAtomFlags(), CLMemory.Mem.READ_ONLY);
-			this.precomputed = context.createBuffer(ff.getPrecomputed(), CLMemory.Mem.READ_ONLY);
-			this.energies = context.createDoubleBuffer(numGroups, CLMemory.Mem.WRITE_ONLY);
+			coords = context.createBuffer(ffenergy.getCoords(), CLMemory.Mem.READ_WRITE, CLMemory.Mem.ALLOCATE_BUFFER);
+			atomFlags = context.createBuffer(ffenergy.getAtomFlags(), CLMemory.Mem.READ_ONLY, CLMemory.Mem.ALLOCATE_BUFFER);
+			precomputed = context.createBuffer(ffenergy.getPrecomputed(), CLMemory.Mem.READ_ONLY, CLMemory.Mem.ALLOCATE_BUFFER);
+			
 			getKernel().getCLKernel()
-				.putArg(this.coords)
-				.putArg(this.atomFlags)
-				.putArg(this.precomputed)
-				.putNullArg(getGpu().getDevice().getMaxWorkGroupSize()*Double.BYTES)
-				.putArg(this.energies)
-				.putArg(ff.getNumAtomPairs())
-				.putArg(ff.getNum14AtomPairs())
-				.putArg(ff.getCoulombFactor())
-				.putArg(ff.getScaledCoulombFactor())
-				.putArg(ff.getSolvationCutoff2())
+				.setArg(0, coords)
+				.setArg(1, atomFlags)
+				.setArg(2, precomputed)
+				//.setArg(3, energies) // energies set in runAsync()
+				.setArg(4, ffenergy.getNumAtomPairs())
+				.setArg(5, ffenergy.getNum14AtomPairs())
+				.setArg(6, ffenergy.getCoulombFactor())
+				.setArg(7, ffenergy.getScaledCoulombFactor())
+				.setArg(8, ffenergy.getSolvationCutoff2())
 				// opencl kernels don't support boolean args, so encode as int
 				// but bitpack them to save on registers (we're really low on registers in the kernel!)
-				.putArg(
-					(ff.useDistDependentDielectric() ? 1 : 0)
-					| (ff.useHElectrostatics() ? 1 : 0) << 1
-					| (ff.useHVdw() ? 1 : 0) << 2
-				);
+				.setArg(9,
+					(ffenergy.useDistDependentDielectric() ? 1 : 0)
+					| (ffenergy.useHElectrostatics() ? 1 : 0) << 1
+					| (ffenergy.useHVdw() ? 1 : 0) << 2
+				)
+				// allocate the gpu local memory
+				.setNullArg(10, groupSize*Double.BYTES);
 		}
 		
 		public void uploadStaticAsync() {
@@ -86,9 +89,46 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 			uploadBufferAsync(coords);
 		}
 
+		public void runAsync() {
+			
+			// for some reason, we have to allocate a new energies buffer every kernel run
+			// otherwise, the opencl driver segfaults =(
+			// thankfully, it's a small buffer
+			// TODO: find a way to avoid doing this
+			if (energies != null) {
+				energies.release();
+				energies = null;
+			}
+			CLContext context = getGpu().getDevice().getContext();
+			int numGroups = workSize/groupSize;
+			energies = context.createDoubleBuffer(numGroups, CLMemory.Mem.WRITE_ONLY, CLMemory.Mem.ALLOCATE_BUFFER);
+			
+			getKernel().getCLKernel().setArg(3, energies);
+			
+			runAsync(workSize, groupSize);
+		}
+		
 		public DoubleBuffer downloadEnergiesSync() {
 			downloadBufferSync(energies);
 			return energies.getBuffer();
+		}
+		
+		public int getGpuBytesNeeded() {
+			return this.coords.getCLCapacity()
+				+ this.atomFlags.getCLCapacity()
+				+ this.precomputed.getCLCapacity()
+				+ workSize/groupSize*Double.BYTES
+				+ groupSize*Double.BYTES;
+		}
+		
+		@Override
+		public void cleanup() {
+			coords.release();
+			atomFlags.release();
+			precomputed.release();
+			if (energies != null) {
+				energies.release();
+			}
 		}
 	}
 }

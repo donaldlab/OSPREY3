@@ -141,16 +141,16 @@ public class TestForceFieldKernel extends TestBase {
 		
 		Forcefields ff = makeForcefields(residues, EnergyFunctionType.AllPairs);
 		assertThat(ff.efunc.getEnergy(), isRelatively(allPairsEnergy));
-		assertThat(ff.bigff.calculateTotalEnergy(), isRelatively(allPairsEnergy));
+		assertThat(ff.bigff.getEnergy(), isRelatively(allPairsEnergy));
 		ff.gpuff.initGpu();
-		assertThat(ff.gpuff.calculateTotalEnergy(), isRelatively(allPairsEnergy));
+		assertThat(ff.gpuff.getEnergy(), isRelatively(allPairsEnergy));
 		ff.gpuff.cleanup();
 		
 		ff = makeForcefields(residues, EnergyFunctionType.SingleAndShell);
 		assertThat(ff.efunc.getEnergy(), isRelatively(singleAndShellEnergy));
-		assertThat(ff.bigff.calculateTotalEnergy(), isRelatively(singleAndShellEnergy));
+		assertThat(ff.bigff.getEnergy(), isRelatively(singleAndShellEnergy));
 		ff.gpuff.initGpu();
-		assertThat(ff.gpuff.calculateTotalEnergy(), isRelatively(singleAndShellEnergy));
+		assertThat(ff.gpuff.getEnergy(), isRelatively(singleAndShellEnergy));
 		ff.gpuff.cleanup();
 	}
 	

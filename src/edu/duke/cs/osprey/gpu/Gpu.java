@@ -13,6 +13,10 @@ public class Gpu {
 	public Gpu(CLDevice device) {
 		this.device = device;
 		this.queue = device.createCommandQueue();
+		
+		if (this.queue.isOutOfOrderModeEnabled()) {
+			throw new Error("GPU command queue should be strictly ordered... this is a bug");
+		}
 	}
 	
 	public CLDevice getDevice() {

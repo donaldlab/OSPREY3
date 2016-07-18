@@ -28,6 +28,9 @@ public class TestFancyKernel extends Kernel<TestFancyKernel.Bound> {
 		private CLBuffer<DoubleBuffer> bufB;
 		private CLBuffer<DoubleBuffer> bufOut;
 		
+		private int workSize;
+		private int groupSize;
+		
 		public Bound(Kernel<TestFancyKernel.Bound> kernel, Gpu gpu) {
 			super(kernel, gpu);
 		}
@@ -45,15 +48,20 @@ public class TestFancyKernel extends Kernel<TestFancyKernel.Bound> {
 		}
 		
 		public void setArgs(int workSize) {
-			workSize = roundUpWorkSize(workSize);
-			setWorkSize(workSize);
+			groupSize = getMaxGroupSize();
+			this.workSize = roundUpWorkSize(workSize, groupSize);
 			bufA = makeOrIncreaseBuffer(bufA, workSize, CLMemory.Mem.READ_ONLY);
 			bufB = makeOrIncreaseBuffer(bufB, workSize, CLMemory.Mem.READ_ONLY);
 			bufOut = makeOrIncreaseBuffer(bufOut, workSize, CLMemory.Mem.WRITE_ONLY);
+		}
+		
+		public void runAsync() {
 			getKernel().getCLKernel()
 				.putArg(bufA)
 				.putArg(bufB)
-				.putArg(bufOut);
+				.putArg(bufOut)
+				.rewind();
+			runAsync(workSize, groupSize);
 		}
 
 		public void uploadSync() {

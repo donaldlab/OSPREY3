@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.EEF1.SolvParams;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions.AtomGroup;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.NBParams;
@@ -17,8 +18,10 @@ import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.AtomNeighbors;
 import edu.duke.cs.osprey.structure.AtomNeighbors.NEIGHBORTYPE;
 
-public class BigForcefieldEnergy {
+public class BigForcefieldEnergy implements EnergyFunction {
 	
+	private static final long serialVersionUID = 5242606861996508290L;
+
 	private static class Groups {
 		
 		private List<AtomGroup> groups;
@@ -148,24 +151,18 @@ public class BigForcefieldEnergy {
 					group2.getAtoms(),
 					group1 == group2,
 					type
-				).size()*2;
+				).size();
 			}
 		}
 		
-		// pre-pre-compute some vdW constants
-		double Bmult = params.vdwMultiplier*params.vdwMultiplier;
-		Bmult = Bmult*Bmult*Bmult;
-		double Amult = Bmult*Bmult;
-		
-		// pre-pre-compute some solvation constants
-		double solvCoeff = 2.0/(4.0*Math.PI*Math.sqrt(Math.PI));
-		solvCoeff *= params.solvScale;
-		
-		NBParams nbparams1 = new NBParams();
-		NBParams nbparams2 = new NBParams();
-		VdwParams vdwparams = new VdwParams();
-		SolvParams solvparams1 = new SolvParams();
-		SolvParams solvparams2 = new SolvParams();
+		// NOTE: DAGK has 32,006,379 atom pairs
+		// the precomputed buffer would take 2,304,459,288 bytes (2.15 GiB)
+		// sadly, this actually overflows an int for the buffer size
+		// overflows aren't well detected by java, so let's explicitly check here
+		long bufferSize = (long)numAtomPairs * 9*Double.BYTES;
+		if (bufferSize > Integer.MAX_VALUE) {
+			throw new IllegalArgumentException("Too many atom pairs, can't allocate large enough buffer");
+		}
 		
 		// allocate our buffers
 		if (useDirectBuffers) {
@@ -177,6 +174,21 @@ public class BigForcefieldEnergy {
 		}
 		num14Pairs = 0;
 		numNbPairs = 0;
+		
+		NBParams nbparams1 = new NBParams();
+		NBParams nbparams2 = new NBParams();
+		VdwParams vdwparams = new VdwParams();
+		SolvParams solvparams1 = new SolvParams();
+		SolvParams solvparams2 = new SolvParams();
+		
+		// pre-pre-compute some vdW constants
+		double Bmult = params.vdwMultiplier*params.vdwMultiplier;
+		Bmult = Bmult*Bmult*Bmult;
+		double Amult = Bmult*Bmult;
+		
+		// pre-pre-compute some solvation constants
+		double solvCoeff = 2.0/(4.0*Math.PI*Math.sqrt(Math.PI));
+		solvCoeff *= params.solvScale;
 		
 		for (NEIGHBORTYPE type : Arrays.asList(NEIGHBORTYPE.BONDED14, NEIGHBORTYPE.NONBONDED)) {
 			
@@ -341,7 +353,8 @@ public class BigForcefieldEnergy {
 		}
 	}
 	
-	public double calculateTotalEnergy() {
+	@Override
+	public double getEnergy() {
 		
 		// OPTIMIZATION: this function gets hit a lot! so even pedantic optimizations can make a difference
 		// I've also tweaked the code with fancy scoping to try to reduce register pressure

@@ -46,7 +46,7 @@ public class TestGpu {
 		for (int i=0; i<NumRuns; i++) {
 			
 			// run the kernel
-			kernel.runSync();
+			kernel.runAsync();
 			kernel.downloadSync();
 			
 			// check the results for accuracy

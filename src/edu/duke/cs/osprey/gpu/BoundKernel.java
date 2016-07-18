@@ -10,14 +10,10 @@ public abstract class BoundKernel<T extends BoundKernel<T>> {
 	
 	private Kernel<T> kernel;
 	private Gpu gpu;
-	private int groupSize;
-	private int workSize;
 	
 	public BoundKernel(Kernel<T> kernel, Gpu gpu) {
 		this.kernel = kernel;
 		this.gpu = gpu;
-		groupSize = gpu.getDevice().getMaxWorkGroupSize();
-		workSize = 0;
 	}
 	
 	public Kernel<T> getKernel() {
@@ -28,22 +24,6 @@ public abstract class BoundKernel<T extends BoundKernel<T>> {
 		return gpu;
 	}
 	
-	protected void setWorkSize(int val) {
-		workSize = val;
-	}
-	
-	public void runAsync() {
-		if (workSize <= 0) {
-			throw new IllegalStateException("invalid work size: " + workSize);
-		}
-		gpu.getQueue().put1DRangeKernel(kernel.getCLKernel(), 0, workSize, groupSize);
-	}
-	
-	public void runSync() {
-		runAsync();
-		waitForGpu();
-	}
-	
 	public void waitForGpu() {
 		gpu.getQueue().finish();
 	}
@@ -52,17 +32,12 @@ public abstract class BoundKernel<T extends BoundKernel<T>> {
 		kernel.cleanup();
 	}
 	
-	protected int roundUpWorkSize(int workSize) {
-		
-		// get the number of threads per work group
-		int groupSize = gpu.getDevice().getMaxWorkGroupSize();
-		
-		// round up to the nearest multiple of groupSize
-		return (workSize + groupSize - 1)/groupSize*groupSize;
+	protected int getMaxGroupSize() {
+		return gpu.getDevice().getMaxWorkGroupSize();
 	}
 	
-	protected int getNumGroups(int workSize) {
-		return workSize/gpu.getDevice().getMaxWorkGroupSize();
+	protected int roundUpWorkSize(int workSize, int groupSize) {
+		return (workSize + groupSize - 1)/groupSize*groupSize;
 	}
 	
 	protected CLBuffer<DoubleBuffer> makeOrIncreaseBuffer(CLBuffer<DoubleBuffer> buf, int workSize) {
@@ -81,10 +56,14 @@ public abstract class BoundKernel<T extends BoundKernel<T>> {
 	}
 	
 	protected void uploadBufferAsync(CLBuffer<?> buf) {
-		getGpu().getQueue().putWriteBuffer(buf, false);
+		gpu.getQueue().putWriteBuffer(buf, false);
+	}
+	
+	protected void runAsync(int workSize, int groupSize) {
+		gpu.getQueue().put1DRangeKernel(kernel.getCLKernel(), 0, workSize, groupSize);
 	}
 	
 	protected void downloadBufferSync(CLBuffer<?> buf) {
-		getGpu().getQueue().putReadBuffer(buf, true);
+		gpu.getQueue().putReadBuffer(buf, true);
 	}
 }

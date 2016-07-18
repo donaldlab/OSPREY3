@@ -33,9 +33,10 @@ bool useHVdw(const int flags) {
 }
 
 kernel void calc(
-	global const double *coords, global const int *atomFlags, global const double *precomputed, local double *scratch, global double *out,
+	global const double *coords, global const int *atomFlags, global const double *precomputed, global double *out,
 	const int numPairs, const int num14Pairs, const double coulombFactor, const double scaledCoulombFactor,
-	const double solvCutoff2, const int flags
+	const double solvCutoff2, const int flags,
+	local double *scratch
 ) {
 
 	// NOTE: looks like we don't have enough gpu registers to inline everything
