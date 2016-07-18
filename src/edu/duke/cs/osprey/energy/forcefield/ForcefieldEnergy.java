@@ -726,7 +726,7 @@ public class ForcefieldEnergy implements Serializable {
 		}
 		
 		// not doing solvation? we're done
-		if (!doSolvationE) {
+		if (useCache && !doSolvationE) {
 			energyCache = esEnergy + vdwEnergy;
 			checkEnergy(energyCache);
 			return energyCache;
