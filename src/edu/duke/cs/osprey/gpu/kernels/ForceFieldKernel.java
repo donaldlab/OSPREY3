@@ -51,15 +51,17 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 			workSize = roundUpWorkSize(ffenergy.getNumAtomPairs(), groupSize);
 			
 			CLContext context = getGpu().getDevice().getContext();
-			coords = context.createBuffer(ffenergy.getCoords(), CLMemory.Mem.READ_WRITE, CLMemory.Mem.ALLOCATE_BUFFER);
-			atomFlags = context.createBuffer(ffenergy.getAtomFlags(), CLMemory.Mem.READ_ONLY, CLMemory.Mem.ALLOCATE_BUFFER);
-			precomputed = context.createBuffer(ffenergy.getPrecomputed(), CLMemory.Mem.READ_ONLY, CLMemory.Mem.ALLOCATE_BUFFER);
+			coords = context.createBuffer(ffenergy.getCoords(), CLMemory.Mem.READ_ONLY);
+			atomFlags = context.createBuffer(ffenergy.getAtomFlags(), CLMemory.Mem.READ_ONLY);
+			precomputed = context.createBuffer(ffenergy.getPrecomputed(), CLMemory.Mem.READ_ONLY);
+			
+			energies = context.createDoubleBuffer(workSize/groupSize, CLMemory.Mem.WRITE_ONLY);
 			
 			getKernel().getCLKernel()
 				.setArg(0, coords)
 				.setArg(1, atomFlags)
 				.setArg(2, precomputed)
-				//.setArg(3, energies) // energies set in runAsync()
+				.setArg(3, energies)
 				.setArg(4, ffenergy.getNumAtomPairs())
 				.setArg(5, ffenergy.getNum14AtomPairs())
 				.setArg(6, ffenergy.getCoulombFactor())
@@ -77,38 +79,33 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 		}
 		
 		public void uploadStaticAsync() {
-			// NOTE: rewind the buffers before uploading, otherwise we get garbage on the gpu
+			
+			// IMPORTANT: rewind the buffers before uploading, otherwise we get garbage on the gpu
 			atomFlags.getBuffer().rewind();
-			uploadBufferAsync(atomFlags);
 			precomputed.getBuffer().rewind();
+			
+			uploadBufferAsync(atomFlags);
 			uploadBufferAsync(precomputed);
 		}
 		
 		public void uploadCoordsAsync() {
+			
+			// IMPORTANT: rewind the buffers before uploading, otherwise we get garbage on the gpu
 			coords.getBuffer().rewind();
+			
 			uploadBufferAsync(coords);
 		}
 
 		public void runAsync() {
-			
-			// for some reason, we have to allocate a new energies buffer every kernel run
-			// otherwise, the opencl driver segfaults =(
-			// thankfully, it's a small buffer
-			// TODO: find a way to avoid doing this
-			if (energies != null) {
-				energies.release();
-				energies = null;
-			}
-			CLContext context = getGpu().getDevice().getContext();
-			int numGroups = workSize/groupSize;
-			energies = context.createDoubleBuffer(numGroups, CLMemory.Mem.WRITE_ONLY, CLMemory.Mem.ALLOCATE_BUFFER);
-			
-			getKernel().getCLKernel().setArg(3, energies);
-			
 			runAsync(workSize, groupSize);
 		}
 		
 		public DoubleBuffer downloadEnergiesSync() {
+			
+			// IMPORTANT!! rewind the output buffer before downloading energies
+			// otherwise we get weird segfaults in nvidia's opencl driver that are next to impossible to diagnose!
+			energies.getBuffer().rewind();
+			
 			downloadBufferSync(energies);
 			return energies.getBuffer();
 		}
