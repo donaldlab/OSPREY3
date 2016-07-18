@@ -28,7 +28,7 @@ public class ForcefieldEnergy implements Serializable {
     Residue res1, res2;//res1==res2 if internal energy of res1.  Else this is interaction of res1, res2
     AtomCache atomCache;
     double energyCache;
-    boolean useCache;
+    boolean useCache = true;
     
     ForcefieldParams params;
         
@@ -79,7 +79,6 @@ public class ForcefieldEnergy implements Serializable {
             //and point res2 to res1, etc
             atomCache = new AtomCache(res1, res2);
             energyCache = Double.NaN;
-            useCache = true;
             
             this.params = params;
             
