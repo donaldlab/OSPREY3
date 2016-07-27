@@ -24,12 +24,18 @@ import edu.duke.cs.osprey.dof.StrandTranslation;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.energy.EnergyFunction;
+<<<<<<< HEAD
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.kstar.KSTermini;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
+=======
+import edu.duke.cs.osprey.minimization.CCDMinimizer;
+import edu.duke.cs.osprey.minimization.Minimizer;
+import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
+>>>>>>> donaldlab/master
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
@@ -49,7 +55,9 @@ public class ConfSpace implements Serializable {
     //This class can be put in an AnnotatedConfSpace to add annotations like what RCs are pruned,
     //what their pairwise energies are, etc.  
     
-    public Molecule m;
+	private static final long serialVersionUID = 1825609388425259881L;
+
+	public Molecule m;
     //The molecule will be composed of residues. 
     //It will have one set of coordinates, which are stored in the residues to make mutation
     //and pairwise energy computation easy (no need for complicated partial arrays, subtracting off
@@ -75,7 +83,7 @@ public class ConfSpace implements Serializable {
     //defines the flexible positions and what RCs they have
     //generally each position is a residue, but it could be more than one ("super-residue" with "super-RCs")
 
-    
+    public ArrayList<String> flexibleRes;
     public int numPos;//number of flexible positions
     
     public boolean useEllipses = false;
@@ -97,7 +105,11 @@ public class ConfSpace implements Serializable {
      */
     public ConfSpace(String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, 
             boolean addWT, boolean contSCFlex, DEEPerSettings dset, ArrayList<String[]> moveableStrands, 
+<<<<<<< HEAD
             ArrayList<String[]> freeBBZones, boolean ellipses, boolean addWTRots, KSTermini termini){
+=======
+            ArrayList<String[]> freeBBZones, boolean ellipses, boolean addWTRots){
+>>>>>>> donaldlab/master
     
     	useEllipses = ellipses;  	
     	this.flexibleRes = flexibleRes;
@@ -105,6 +117,16 @@ public class ConfSpace implements Serializable {
         
         //read the structure and assign templates, deleting unassignable res...
         m = PDBFileReader.readPDBFile(PDBFile, termini);
+        
+        // before making any structure changes, capture the wt rots if needed
+        List<ResidueTemplate> wtRots = new ArrayList<>(Collections.nCopies(numPos, null));
+        if (addWTRots) {
+        	for (int i=0; i<numPos; i++) {
+        		// TODO: support alternate conformations?
+        		Residue res = m.getResByPDBResNumber(flexibleRes.get(i));
+        		wtRots.set(i, ResidueTemplate.makeFromResidueConfs(res));
+        	}
+        }
         
         // before making any structure changes, capture the wt rots if needed
         List<ResidueTemplate> wtRots = new ArrayList<>(Collections.nCopies(numPos, null));

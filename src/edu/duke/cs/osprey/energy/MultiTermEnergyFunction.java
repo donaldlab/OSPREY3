@@ -7,6 +7,7 @@ package edu.duke.cs.osprey.energy;
 import java.util.ArrayList;
 
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
+import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
 import edu.duke.cs.osprey.structure.Residue;
