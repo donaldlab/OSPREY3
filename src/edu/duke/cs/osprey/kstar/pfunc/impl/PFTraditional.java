@@ -24,9 +24,6 @@ public class PFTraditional extends PFAbstract implements Serializable {
 	
 	protected ConfSearch confSearch = null;
 
-	// temp for benchmarking
-	protected long startTime;
-
 	public PFTraditional() { 
 		super();
 	}
@@ -73,6 +70,8 @@ public class PFTraditional extends PFAbstract implements Serializable {
 			if( eAppx == EApproxReached.FALSE )
 				eAppx = EApproxReached.NOT_POSSIBLE;
 		}
+		
+		exitIfTimeOut();
 	}
 
 

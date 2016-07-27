@@ -33,6 +33,8 @@ import edu.duke.cs.osprey.tools.ObjectIO;
 @SuppressWarnings("serial")
 public abstract class PFAbstract implements Serializable {
 
+	protected long startTime;
+	
 	public static enum EApproxReached { TRUE, FALSE, NOT_POSSIBLE, NOT_STABLE }
 	protected EApproxReached eAppx = EApproxReached.FALSE;
 
@@ -587,7 +589,11 @@ public abstract class PFAbstract implements Serializable {
 		return e.exp(-E / RT);
 	}
 
-
+	protected void exitIfTimeOut() {
+		if( KSAbstract.runTimeout != Integer.MAX_VALUE && System.currentTimeMillis()-startTime > KSAbstract.runTimeout * 86400000 )
+			throw new RuntimeException("ERROR: running time exceeds " + KSAbstract.runTimeout + " days!");
+	}
+	
 	public abstract void start();
 
 	public void runSlice(long target) {

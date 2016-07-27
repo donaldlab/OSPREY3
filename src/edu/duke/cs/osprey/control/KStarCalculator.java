@@ -80,6 +80,7 @@ public class KStarCalculator {
 		PFAbstract.setHotBoundPct( "kStarPFuncHotBoundPct", cfp.getParams().getDouble("kStarPFuncHotBoundPct", 0.03) );
 		PFAbstract.setHotTopRotsPct( "KStarPFuncHotTopRotsPct", cfp.getParams().getDouble("kStarPFuncHotTopRotsPct", 0.0) );
 
+		KSAbstract.runTimeout = cfp.getParams().getInt("kStarRunTimeout", Integer.MAX_VALUE);
 		KSAbstract.doCheckPoint = cfp.getParams().getBool("kStarDoCheckpoint", false);
 		KSAbstract.setCheckPointInterval(cfp.getParams().getInt("kStarCheckpointInterval", 50000));
 		//KSAbstract.interMutationConst = cfp.getParams().getDouble("kStarInterMutationConst", 0.0);

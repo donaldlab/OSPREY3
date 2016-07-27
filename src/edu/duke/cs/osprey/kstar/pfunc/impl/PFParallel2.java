@@ -188,6 +188,8 @@ public class PFParallel2 extends PFParallel1 implements Serializable {
 		}
 
 		resetSPs();
+		
+		exitIfTimeOut();
 	}
 
 

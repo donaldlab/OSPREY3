@@ -25,9 +25,6 @@ import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 @SuppressWarnings("serial")
 public class PFParallel1 extends PFTraditional implements Serializable {
 
-	// temp for benchmarking
-	protected long startTime;
-
 	protected KSConfQ confsQ = null;
 	protected KSQPrimeCalculator qPrimeCalculator = null;
 	protected KSPStarCalculator pStarCalculator = null;
@@ -162,7 +159,9 @@ public class PFParallel1 extends PFTraditional implements Serializable {
 			confsQ.cleanUp(true);
 			qPrimeCalculator.cleanUp(true);
 			if(pStarCalculator != null) pStarCalculator.cleanUp(true);
-		}	
+		}
+		
+		exitIfTimeOut();
 	}
 
 
