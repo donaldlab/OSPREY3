@@ -10,7 +10,7 @@ useERef false
 ematDir test/2RL0.kstar/emat.lovell
 deleteEmatDir false
 
-epsilon 0.9
+epsilon 0.95
 doMinimize true
 addWT true
 addWTRots true
