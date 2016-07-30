@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.tests;
+package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.control.KStarCalculator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;

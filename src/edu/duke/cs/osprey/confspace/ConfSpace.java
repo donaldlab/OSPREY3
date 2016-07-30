@@ -75,7 +75,7 @@ public class ConfSpace implements Serializable {
     //defines the flexible positions and what RCs they have
     //generally each position is a residue, but it could be more than one ("super-residue" with "super-RCs")
 
-    
+    public ArrayList<String> flexibleRes;
     public int numPos;//number of flexible positions
     
     public boolean useEllipses = false;

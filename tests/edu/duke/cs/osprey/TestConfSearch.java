@@ -162,7 +162,7 @@ public class TestConfSearch extends TestBase {
         SearchProblem ans = new SearchProblem( "test/1CC8/testResults/CONFSEARCHTEST"+numPos, "test/1CC8/1CC8.ss.pdb", 
                 flexRes, allowedAAs,false, false, false, null, 
                 false, new DEEPerSettings(), new ArrayList<>(), new ArrayList<>(), 
-                useEllipses, false, false, false);
+                useEllipses, false, false, false, null);
                 //don't add WT, and no minimization, EPIC, tuple expansion, DEEPer, or strand motions
 
         

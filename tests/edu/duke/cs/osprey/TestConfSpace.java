@@ -56,7 +56,7 @@ public class TestConfSpace extends TestBase {
         //let's start with just wild-type
         
         ConfSpace cs = new ConfSpace("test/1CC8/1CC8.ss.pdb", flexibleRes, allowedAAs, true, true,
-                new DEEPerSettings(), new ArrayList<>(), new ArrayList<>(), false, false);
+                new DEEPerSettings(), new ArrayList<>(), new ArrayList<>(), false, false, null);
         
         //assert some things about the space
         //these are based on the Lovell Rotamer library
@@ -76,7 +76,7 @@ public class TestConfSpace extends TestBase {
         allowedAAs.get(1).add("ALA");//no dihedrals or rotamers (but should add one RC)
 
         cs = new ConfSpace("test/1CC8/1CC8.ss.pdb", flexibleRes, allowedAAs, true, false,
-                new DEEPerSettings(), new ArrayList<>(), new ArrayList<>(), false, false);
+                new DEEPerSettings(), new ArrayList<>(), new ArrayList<>(), false, false, null);
         
         assert cs.confDOFs.size()==10;
         assert cs.mutDOFs.size()==4;
@@ -98,7 +98,7 @@ public class TestConfSpace extends TestBase {
     public void testDihedral(){
         //Checking that the dihedral application and measurement functions are consistent
         
-        Molecule m = PDBFileReader.readPDBFile("test/1CC8/1CC8.ss.pdb");
+        Molecule m = PDBFileReader.readPDBFile("test/1CC8/1CC8.ss.pdb", null);
         Residue res = m.residues.get(37);
         
         FreeDihedral chi1 = new FreeDihedral(res,0);//Ser 39

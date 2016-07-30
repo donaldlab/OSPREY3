@@ -18,7 +18,6 @@ import edu.duke.cs.osprey.kstar.impl.KSImplLinear;
 import edu.duke.cs.osprey.kstar.impl.KSImplKAStar;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.impl.PFParallel2;
-import edu.duke.cs.osprey.kstar.pfunc.impl.PFTraditional;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 import edu.duke.cs.osprey.tools.StringParsing;
 
@@ -59,7 +58,7 @@ public class KStarCalculator {
 		PFAbstract.setPhase2Method(cfp.getParams().getValue("kStarPhase2Method", "slow"));
 		PFAbstract.qCapacity = cfp.getParams().getInt("kStarPFuncQCap", ThreadParallelism.getNumThreads()*8);
 
-		PFAbstract.setCFGImpl(cfp.getParams().getValue("kStarPFuncMethod", new PFTraditional().getImpl()));
+		PFAbstract.setCFGImpl(cfp.getParams().getValue("kStarPFuncMethod"));
 		MultiTermEnergyFunction.useParallelEFunc = PFAbstract.getCFGImpl().equalsIgnoreCase(new PFParallel2().getImpl()) ? false : true; // setting this to false allows concurrent minimizers
 		PFAbstract.setStabilityThresh( cfp.getParams().getDouble("kStarPFuncStabThresh", 0) );
 		PFAbstract.setConfsThreadBuffer( cfp.getParams().getInt("kStarPFuncConfsThreadBuffer", 4) );

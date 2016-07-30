@@ -111,7 +111,7 @@ public class ConfigFileParser {
     }
     
     //creation of objects needed in calculations like GMEC and K*
-    SearchProblem getSearchProblem(){//this version is for a single search problem...can modify for
+    public SearchProblem getSearchProblem(){//this version is for a single search problem...can modify for
         //additional states (unbound, etc.)
         
         String name = params.getValue("RUNNAME");
