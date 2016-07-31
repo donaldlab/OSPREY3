@@ -233,9 +233,12 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 
 	public SearchProblem getSearchProblem( int strand, KSAllowedSeqs strandSeqs ) {
 
-		String ematDir = params.getValue("ematdir", "emat");
-		ObjectIO.makeDir(ematDir, params.getBool("deleteEmatDir", false));
-		String name = ematDir + File.separator + params.getValue("RUNNAME");
+		String tmp = getParams().getValue("kStarOutputDir", "runName");
+		if(tmp.equalsIgnoreCase("runName")) tmp = getParams().getValue("RUNNAME");
+		
+		String ematDir = tmp + File.separator + getParams().getValue("kStarEmatDir");
+		ObjectIO.makeDir(ematDir, getParams().getBool("kStarDeleteEmatDir", false));
+		String name = ematDir + File.separator + getParams().getValue("RUNNAME");
 
 		String suffix = KSTermini.getTerminiString(strand);
 
@@ -245,19 +248,19 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 
 		System.out.println("CREATING SEARCH PROBLEM.  NAME: "+name);
 
-		return new SearchProblem( name+"."+suffix, params.getValue("PDBNAME"), 
+		return new SearchProblem( name+"."+suffix, getParams().getValue("PDBNAME"), 
 				strandSeqs.getFlexRes(), 
 				strandSeqs.getAllowedAAs(),
-				params.getBool("AddWT"), 
-				params.getBool("AddWT", true), 
-				params.getBool("doMinimize", false),
+				getParams().getBool("AddWT"), 
+				getParams().getBool("AddWT", true), 
+				getParams().getBool("doMinimize", false),
 				new EPICSettings(params),
-				params.getBool("UseTupExp", false),
+				getParams().getBool("UseTupExp", false),
 				dset, moveableStrands, freeBBZones,
-				params.getBool("useEllipses", false),
-				params.getBool("useERef", false),
-				params.getBool("AddResEntropy", false),
-				params.getBool("addWTRots", false),
+				getParams().getBool("useEllipses", false),
+				getParams().getBool("useERef", false),
+				getParams().getBool("AddResEntropy", false),
+				getParams().getBool("addWTRots", false),
 				getStrandLimits(strand));
 	}
 

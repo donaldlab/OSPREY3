@@ -31,6 +31,8 @@ public class KSImplLinear extends KSAbstract {
 
 		printSequences();
 
+		createOutputDir();
+		
 		createEmatDir();
 
 		if(doCheckPoint) createCheckPointDir();
@@ -76,14 +78,19 @@ public class KSImplLinear extends KSAbstract {
 		// pl, p, and l conformation spaces, respectively
 		ArrayList<ArrayList<String>> strandSeqs = null;	
 		boolean contSCFlex = cfp.getParams().getBool("doMinimize", true);
-		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(contSCFlex, contSCFlex, contSCFlex));
-		ArrayList<String> pfImplVals = new ArrayList<String>(Arrays.asList(PFAbstract.getCFGImpl(), 
+		ArrayList<Boolean> contSCFlexVals = new ArrayList<>(Arrays.asList(contSCFlex, contSCFlex, contSCFlex));
+		ArrayList<String> pfImplVals = new ArrayList<>(Arrays.asList(PFAbstract.getCFGImpl(), 
 				PFAbstract.getCFGImpl(), PFAbstract.getCFGImpl()));
 
-		wtKSCalc = computeWTCalc();
-
+		// run wt
+		int startSeq = 0;
+		if( doWTCalc ) {
+			computeWTCalc();
+			startSeq = 1;
+		}
+			
 		int numSeqs = strand2AllowedSeqs.get(KSTermini.COMPLEX).getNumSeqs();
-		for( int i = 1; i < numSeqs; ++i ) {
+		for( int i = startSeq; i < numSeqs; ++i ) {
 
 			// wt is seq 0, mutants are others
 			System.out.println("\nComputing K* for sequence " + i + "/" + 
@@ -117,17 +124,17 @@ public class KSImplLinear extends KSAbstract {
 		// pl, p, and l conformation spaces, respectively
 		ArrayList<ArrayList<String>> strandSeqs = null;	
 		boolean contSCFlex = cfp.getParams().getBool("doMinimize", true);
-		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(contSCFlex, contSCFlex, contSCFlex));
-		ArrayList<String> pfImplVals = new ArrayList<String>(Arrays.asList(PFAbstract.getCFGImpl(), 
+		ArrayList<Boolean> contSCFlexVals = new ArrayList<>(Arrays.asList(contSCFlex, contSCFlex, contSCFlex));
+		ArrayList<String> pfImplVals = new ArrayList<>(Arrays.asList(PFAbstract.getCFGImpl(), 
 				PFAbstract.getCFGImpl(), PFAbstract.getCFGImpl()));
 
 		// get all sequences		
 		@SuppressWarnings("unchecked")
-		HashSet<ArrayList<String>> seqSet = new HashSet<ArrayList<String>>((ArrayList<ArrayList<String>>) 
+		HashSet<ArrayList<String>> seqSet = new HashSet<>((ArrayList<ArrayList<String>>) 
 				ObjectIO.deepCopy(strand2AllowedSeqs.get(KSTermini.COMPLEX).getStrandSeqList()));
 
 		// run wt
-		wtKSCalc = computeWTCalc();
+		if( doWTCalc ) computeWTCalc();
 		
 		// remove completed seqs from the set of calculations we must compute
 		seqSet.removeAll(getSeqsFromFile(getOputputFilePath()));

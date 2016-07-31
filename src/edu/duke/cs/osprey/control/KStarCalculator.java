@@ -51,25 +51,25 @@ public class KStarCalculator {
 			throw new RuntimeException("ERROR: iMinDEE requires continuous flexibility. "
 					+ "Change the value of doMinimize to 'true'.");
 		
-		PositionConfSpace.dihedFlexInterval = cfp.getParams().getDouble("dihedFlexInterval", 9);
+		PositionConfSpace.dihedFlexInterval = cfp.getParams().getDouble("dihedFlexInterval");
 		
-		PFAbstract.suppressOutput = cfp.getParams().getBool("kStarPFuncSuppressOutput", false);
-		PFAbstract.targetEpsilon = cfp.getParams().getDouble("epsilon", 0.03);
-		PFAbstract.setPhase2Method(cfp.getParams().getValue("kStarPhase2Method", "slow"));
+		PFAbstract.suppressOutput = cfp.getParams().getBool("kStarPFuncSuppressOutput");
+		PFAbstract.targetEpsilon = cfp.getParams().getDouble("epsilon");
+		PFAbstract.setPhase2Method(cfp.getParams().getValue("kStarPhase2Method"));
 		PFAbstract.qCapacity = cfp.getParams().getInt("kStarPFuncQCap", ThreadParallelism.getNumThreads()*8);
 
 		PFAbstract.setCFGImpl(cfp.getParams().getValue("kStarPFuncMethod"));
 		MultiTermEnergyFunction.useParallelEFunc = PFAbstract.getCFGImpl().equalsIgnoreCase(new PFParallel2().getImpl()) ? false : true; // setting this to false allows concurrent minimizers
-		PFAbstract.setStabilityThresh( cfp.getParams().getDouble("kStarPFuncStabThresh", 0) );
+		PFAbstract.setStabilityThresh( cfp.getParams().getDouble("kStarPFuncStabThresh") );
 		PFAbstract.setConfsThreadBuffer( cfp.getParams().getInt("kStarPFuncConfsThreadBuffer", 4) );
-		PFAbstract.setNumThreads( cfp.getParams().getInt("kStarPFuncThreads", ThreadParallelism.getNumThreads()) );
+		PFAbstract.setNumThreads( cfp.getParams().getInt("kStarPFuncThreads") );
 
-		PFAbstract.saveTopConfsAsPDB = cfp.getParams().getBool("kStarSaveTopConfsAsPDB", false);
-		PFAbstract.setNumTopConfsToSave( cfp.getParams().getInt("kStarNumTopConfsToSave", 10) );
-		PFAbstract.useMaxKSConfs = cfp.getParams().getBool("kStarUseMaxKSConfs", false);
-		PFAbstract.setMaxKSconfs( cfp.getParams().getInt("kStarMaxKSConfs", 100000) );
+		PFAbstract.saveTopConfsAsPDB = cfp.getParams().getBool("kStarSaveTopConfsAsPDB");
+		PFAbstract.setNumTopConfsToSave( cfp.getParams().getInt("kStarNumTopConfsToSave") );
+		PFAbstract.useMaxKSConfs = cfp.getParams().getBool("kStarUseMaxKSConfs");
+		PFAbstract.setMaxKSconfs( cfp.getParams().getInt("kStarMaxKSConfs") );
 		
-		PFAbstract.setHotMethod( "kStarPFunctHotMethod", cfp.getParams().getValue("kStarPFunctHotMethod", "none") );
+		PFAbstract.setHotMethod( "kStarPFunctHotMethod", cfp.getParams().getValue("kStarPFunctHotMethod") );
 		
 		// check hots for validity
 		if(!PFAbstract.getHotMethod().equalsIgnoreCase("none"))
@@ -80,8 +80,8 @@ public class KStarCalculator {
 		PFAbstract.setHotTopRotsPct( "KStarPFuncHotTopRotsPct", cfp.getParams().getDouble("kStarPFuncHotTopRotsPct", 0.0) );
 
 		KSAbstract.runTimeout = cfp.getParams().getInt("kStarRunTimeout", Integer.MAX_VALUE);
-		KSAbstract.doCheckPoint = cfp.getParams().getBool("kStarDoCheckpoint", false);
-		KSAbstract.setCheckPointInterval(cfp.getParams().getInt("kStarCheckpointInterval", 50000));
+		KSAbstract.doCheckPoint = cfp.getParams().getBool("kStarDoCheckpoint");
+		KSAbstract.setCheckPointInterval(cfp.getParams().getInt("kStarCheckpointInterval"));
 		//KSAbstract.interMutationConst = cfp.getParams().getDouble("kStarInterMutationConst", 0.0);
 		
 		KSImplKAStar.useTightBounds = cfp.getParams().getBool("kStarUseTightBounds", true);

@@ -152,8 +152,8 @@ public class KSCalc {
 			if( !forceRun && getEpsilonStatus() != EApproxReached.FALSE ) return;
 
 			boolean complete = KSAbstract.doCheckPoint && strand == KSTermini.COMPLEX ? false : true;
-			PFAbstract wtPF = wtKSCalc.getPF(strand);
-			if(strand == KSTermini.COMPLEX) stabilityCheck = false;
+			PFAbstract wtPF = wtKSCalc == null ? null : wtKSCalc.getPF(strand);
+			if(wtPF == null || strand == KSTermini.COMPLEX) stabilityCheck = false;
 			runPF(getPF(strand), wtPF, complete, stabilityCheck);
 		}
 	}

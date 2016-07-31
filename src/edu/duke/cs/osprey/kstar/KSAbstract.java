@@ -27,8 +27,10 @@ public abstract class KSAbstract implements KSInterface {
 
 	protected KSConfigFileParser cfp = null;
 	protected ArrayList<String> wtSeq = null;
+	protected boolean doWTCalc = true;
 	protected KSCalc wtKSCalc = null;
 	//protected KSCalc bestCalc = null;
+	protected String outputDir = null;
 	protected String outFilePath = null;
 	protected String ematDir = null;
 	protected String checkPointDir = null;
@@ -127,6 +129,12 @@ public abstract class KSAbstract implements KSInterface {
 		preparePanSeqSPs(contSCFlexVals);
 	}
 
+	
+	protected void createOutputDir() {
+		if( !new File(getOutputDir()).exists() )
+			ObjectIO.makeDir(getOutputDir(), false);
+	}
+	
 
 	protected void createCheckPointDir() {
 		if( !new File(getCheckPointDir()).exists() )
@@ -135,7 +143,7 @@ public abstract class KSAbstract implements KSInterface {
 
 
 	protected void createEmatDir() {
-		ObjectIO.makeDir(getEMATdir(), cfp.getParams().getBool("deleteematdir", false));
+		ObjectIO.makeDir(getEMATdir(), cfp.getParams().getBool("kStarDeleteEmatDir", false));
 	}
 
 
@@ -217,6 +225,20 @@ public abstract class KSAbstract implements KSInterface {
 
 
 	protected void printSequences() {
+		
+		doWTCalc = !cfp.getParams().getBool("kStarSkipWTCalc");
+		
+		if(!doWTCalc) {
+			wtKSCalc = null;
+			System.out.println("WARNING: skipping K* calculation for wild-type sequence: ");
+			
+			ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(KSTermini.LIGAND, 
+					KSTermini.PROTEIN, KSTermini.COMPLEX));
+
+			for( int strand : strands ) 
+				strand2AllowedSeqs.get(strand).removeStrandSeq(0); // wt is seq 0
+		}
+		
 		System.out.println("\nPreparing to compute K* for the following sequences:");
 		int i = 0;
 		for(ArrayList<String> al : strand2AllowedSeqs.get(KSTermini.COMPLEX).getStrandSeqList()) {
@@ -407,7 +429,7 @@ public abstract class KSAbstract implements KSInterface {
 	protected String getOputputFilePath() {
 
 		if(outFilePath == null)
-			outFilePath = getRunName() + "." + getSummaryFileExtension();
+			outFilePath = getOutputDir() + File.separator + getRunName() + "." + getSummaryFileExtension();
 
 		return outFilePath;
 	}
@@ -442,6 +464,15 @@ public abstract class KSAbstract implements KSInterface {
 	}
 
 
+	protected String getOutputDir() {
+		if(outputDir == null) {
+			outputDir = cfp.getParams().getValue("kStarOutputDir", "runName");
+			if(outputDir.equalsIgnoreCase("runName")) outputDir = getRunName();
+		}
+		return outputDir; 
+	}
+
+
 	protected String getRunName() {
 		if(runName == null) runName = cfp.getParams().getValue("runName");
 		return runName;
@@ -449,13 +480,13 @@ public abstract class KSAbstract implements KSInterface {
 
 
 	protected String getEMATdir() {
-		if(ematDir == null) ematDir = cfp.getParams().getValue("ematdir", "emat");
+		if(ematDir == null) ematDir = getOutputDir() + File.separator + cfp.getParams().getValue("kStarEmatDir");
 		return ematDir;
 	}
 
 
 	protected synchronized String getCheckPointDir() {
-		if(checkPointDir == null) checkPointDir = cfp.getParams().getValue("checkPointDir", "checkpoint");
+		if(checkPointDir == null) checkPointDir = getOutputDir() + File.separator + cfp.getParams().getValue("kStarCheckPointDir");
 		return checkPointDir;
 	}
 
@@ -484,7 +515,6 @@ public abstract class KSAbstract implements KSInterface {
 
 
 	protected BigInteger countTotNumConfs() {
-
 		BigInteger ans = BigInteger.ZERO;
 		for(PFAbstract pf : name2PF.values()) ans = ans.add(pf.getNumUnPruned());
 		return ans;

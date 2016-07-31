@@ -33,6 +33,8 @@ public class KSImplKAStar extends KSAbstract {
 
 		printSequences();
 
+		createOutputDir();
+		
 		createEmatDir();
 
 		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(true, false));
