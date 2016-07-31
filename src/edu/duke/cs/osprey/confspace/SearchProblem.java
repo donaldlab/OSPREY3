@@ -385,12 +385,12 @@ public class SearchProblem implements Serializable {
      * position_I and position_J
      */
     public void updateMatrixCrossTerm(boolean[][] interactionGraph) {
-        this.emat.updateMatrixCrossTerms(interactionGraph);
+        this.emat.updateMatrixCrossTerms(interactionGraph, false, 0.0);
         if (useEPIC) {
             this.epicMat.updateMatrixCrossTerms(interactionGraph);
         }
         if (useTupExpForSearch) {
-            this.tupExpEMat.updateMatrixCrossTerms(interactionGraph);
+            this.tupExpEMat.updateMatrixCrossTerms(interactionGraph, false, 0.0);
         }
     }
 

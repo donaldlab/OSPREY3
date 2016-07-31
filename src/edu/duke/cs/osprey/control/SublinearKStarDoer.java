@@ -5,6 +5,7 @@
  */
 package edu.duke.cs.osprey.control;
 
+import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.astar.comets.LME;
 import edu.duke.cs.osprey.astar.partfunc.PartFuncTree;
 import edu.duke.cs.osprey.confspace.ConfSpace;
@@ -56,7 +57,7 @@ public class SublinearKStarDoer {
     ArrayList<ArrayList<Integer>> mutable2StatePosNums = new ArrayList<>();
 
     boolean doExhaustive = false;
-    boolean computeNonMutPF = false; //Compute the non-mutable partition function (for obj func const term)
+    boolean computeNonMutPF = true; //Compute the non-mutable partition function (for obj func const term)
 
     ExpFunction ef = new ExpFunction();
     double constRT = PoissonBoltzmannEnergy.constRT;
@@ -124,11 +125,11 @@ public class SublinearKStarDoer {
         // Load the energy matrices and do pruning
         double pruningInterval = Double.POSITIVE_INFINITY;
         loadEMatandPrune(pruningInterval);
-
+        
         // The constant term for the objective function is the unbound non-mutable partition function
         double unboundNonMutLogPartFunction;
         if (computeNonMutPF) {
-            PartFuncTree pft = new PartFuncTree(this.unboundMutSearchSpace);
+            PartFuncTree pft = new PartFuncTree(this.unboundNonMutSearchSpace);
             unboundNonMutLogPartFunction = pft.computeEpsilonApprox(0.1);
         } else {
             unboundNonMutLogPartFunction = 0.0;

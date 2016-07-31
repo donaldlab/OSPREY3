@@ -8,6 +8,7 @@ package edu.duke.cs.osprey.tests.variationalkstar;
 import edu.duke.cs.osprey.astar.partfunc.PartFuncTree;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.control.SublinearKStarDoer;
+import edu.duke.cs.osprey.partitionfunctionbounds.TRBP;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import java.io.File;
 import java.util.concurrent.TimeUnit;
@@ -23,14 +24,15 @@ public class SublinearKStarTests {
 
         String path = new File("").getAbsolutePath();
         if (!path.endsWith("VariationalKStar/SublinearKStar/4HEM/Smaller")) {
-            throw new Error("This test was designed to be run in testVariationalKStar/SublinearKStar/4HEM folder\n\tcwd: " + path);
+            throw new Error("This test was designed to be run in test/VariationalKStar/SublinearKStar/4HEM folder\n\tcwd: " + path);
         }
 
         //load configurations
         ConfigFileParser cfp = new ConfigFileParser(args);
         cfp.loadData();
         
-        PartFuncTree.verbose = false;
+        PartFuncTree.verbose = true;
+        TRBP.verbose = false;
         SublinearKStarDoer skd = new SublinearKStarDoer(cfp);
         if (args[2].equalsIgnoreCase("DOEXHAUSTIVE")) {
             Stopwatch.start();

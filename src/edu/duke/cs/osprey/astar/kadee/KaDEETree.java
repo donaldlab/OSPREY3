@@ -688,7 +688,7 @@ public class KaDEETree extends AStarTree {
 //        SearchProblem interfaceSP = boundSP.getPartialSearchProblem(boundPosNums, seqNode.pruneMat[0]);
         EnergyMatrix ematSubset = new EnergyMatrix(boundSP.emat.getSubsetMatrix(boundPosNums));
         PruningMatrix pruneMatSubset = new PruningMatrix(seqNode.pruneMat[0].getSubsetMatrix(boundPosNums));
-        ematSubset.updateMatrixCrossTerms(interactionGraph);
+        ematSubset.updateMatrixCrossTerms(interactionGraph, false, 0.0);
         ematSubset.addInternalEnergies(boundSP.emat, proteinBoundPosNums);
         ematSubset.addCrossTermInternalEnergies(boundSP.emat, ligandSP.emat, ligandBoundPosNums, boundPosNumToUnboundPosNum);
 

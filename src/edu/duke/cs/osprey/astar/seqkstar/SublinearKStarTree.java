@@ -7,6 +7,7 @@ package edu.duke.cs.osprey.astar.seqkstar;
 
 import edu.duke.cs.osprey.astar.AStarNode;
 import edu.duke.cs.osprey.astar.AStarTree;
+import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.astar.comets.LME;
 import edu.duke.cs.osprey.astar.comets.UpdatedPruningMatrix;
 import edu.duke.cs.osprey.astar.partfunc.PartFuncTree;
@@ -113,10 +114,21 @@ public class SublinearKStarTree extends AStarTree {
             }
             score += seqNode.stateLBFreeEnergy[0];
             score -= seqNode.stateUBFreeEnergy[1];
-            return score + this.objFcn.constTerm;
+            score += this.objFcn.constTerm;
+            double logKStarUB = calcMaxInterfaceScore(seqNode);
+            System.out.println("Exact score using partition functions of the sequence: "+(score));
+            System.out.println("Bound using Hunter's bound "+logKStarUB );
+            double bound = calcMinimalMaxInterfaceScore(seqNode);
+            System.out.println("Bound using Pablo's bound "+bound );
+            //double gmecScore = calcGMECScore(seqNode);
+            //System.out.println("GMEC score:  "+gmecScore );
+            return score;
         } else {
             double logKStarUB = calcMaxInterfaceScore(seqNode);
-            return logKStarUB;
+            double bound = calcMinimalMaxInterfaceScore(seqNode);
+            System.out.println("Bound using Hunter's bound "+logKStarUB );
+            System.out.println("Bound using Pablo's bound "+bound );
+            return bound;
         }
     }
 
@@ -187,15 +199,16 @@ public class SublinearKStarTree extends AStarTree {
         EnergyMatrix ematSubset;
         if (boundSP.useTupExpForSearch) {
             ematSubset = new EnergyMatrix(boundSP.tupExpEMat.getSubsetMatrix(boundPosNums));
-            ematSubset.updateMatrixCrossTerms(interactionGraph);
+            ematSubset.updateMatrixCrossTerms(interactionGraph, false, 0.0);
             ematSubset.addInternalEnergies(boundSP.tupExpEMat, proteinBoundPosNums);
             ematSubset.addCrossTermInternalEnergies(boundSP.tupExpEMat, ligandSP.tupExpEMat, ligandBoundPosNums, boundPosNumToUnboundPosNum);
         } else {
             ematSubset = new EnergyMatrix(boundSP.emat.getSubsetMatrix(boundPosNums));
-            ematSubset.updateMatrixCrossTerms(interactionGraph);
+            ematSubset.updateMatrixCrossTerms(interactionGraph, false, 0.0);
             ematSubset.addInternalEnergies(boundSP.emat, proteinBoundPosNums);
             ematSubset.addCrossTermInternalEnergies(boundSP.emat, ligandSP.emat, ligandBoundPosNums, boundPosNumToUnboundPosNum);
         }
+        
         double score;
 
         TRBP.setNumEdgeProbUpdates(0);
@@ -206,7 +219,81 @@ public class SublinearKStarTree extends AStarTree {
         } else {
             score = Double.POSITIVE_INFINITY;
         }
+        System.out.println("constTerm = "+ objFcn.getConstTerm());
         return score + objFcn.getConstTerm();
+    }
+    private double calcMinimalMaxInterfaceScore(SequenceNode seqNode) {
+        SearchProblem boundSP = mutableSearchProblems[0];
+        SearchProblem ligandSP = mutableSearchProblems[1];
+        SearchProblem proteinSP = this.nonMutableSearchProblem;
+
+        ArrayList<Integer> boundPosNums = getAllBoundPosNums();
+        ArrayList<Integer> proteinBoundPosNums = getProteinPosNums(true);
+        ArrayList<Integer> ligandBoundPosNums = getLigandPosNums(true);
+
+        boolean[][] interactionGraph_p_l = createInteractionGraph(boundPosNums, proteinBoundPosNums, ligandBoundPosNums);
+
+        EnergyMatrix ematSubset;
+        if (boundSP.useTupExpForSearch) {
+            ematSubset = new EnergyMatrix(boundSP.tupExpEMat.getSubsetMatrix(boundPosNums));
+            ematSubset.updateMatrixCrossTerms(interactionGraph_p_l, true, 30.0);
+            ematSubset.addCrossTermInternalEnergies(boundSP.tupExpEMat, ligandSP.tupExpEMat, ligandBoundPosNums, boundPosNumToUnboundPosNum);
+            ematSubset.addCrossTermInternalEnergies(boundSP.tupExpEMat, proteinSP.tupExpEMat, proteinBoundPosNums, boundPosNumToUnboundPosNum);
+
+
+        } else {
+            ematSubset = new EnergyMatrix(boundSP.emat.getSubsetMatrix(boundPosNums));
+            ematSubset.updateMatrixCrossTerms(interactionGraph_p_l, true, 30.0);
+            ematSubset.addCrossTermInternalEnergies(boundSP.emat, ligandSP.emat, ligandBoundPosNums, boundPosNumToUnboundPosNum);
+            ematSubset.addCrossTermInternalEnergies(boundSP.emat, proteinSP.emat, proteinBoundPosNums, boundPosNumToUnboundPosNum);
+
+        }
+        double score;
+        ConfTree crossTree = new ConfTree(ematSubset, seqNode.pruneMats[0]);
+        int[] gmecCross = crossTree.nextConf();
+        double gminCross = Double.POSITIVE_INFINITY;
+        if (gmecCross != null) {
+            gminCross= ematSubset.getInternalEnergy(new RCTuple(gmecCross));
+        }
+        score = gminCross;
+
+        return score/PoissonBoltzmannEnergy.constRT;
+    }
+    // For debugging purposes; assumes seqNode is fully assigned.
+    private double calcGMECScore(SequenceNode seqNode) {
+        SearchProblem boundSP = mutableSearchProblems[0];
+        SearchProblem ligandSP = mutableSearchProblems[1];
+        SearchProblem proteinSP = this.nonMutableSearchProblem;
+
+        ArrayList<Integer> boundPosNums = getAllBoundPosNums();
+        ArrayList<Integer> proteinBoundPosNums = getProteinPosNums(true);
+        ArrayList<Integer> ligandBoundPosNums = getLigandPosNums(true);
+        
+        ConfTree tree = new ConfTree(boundSP.emat, seqNode.pruneMats[0]);
+        int[] gmec = tree.nextConf();
+        double gmin = Double.POSITIVE_INFINITY;
+        if (gmec != null) {
+            gmin= boundSP.emat.getInternalEnergy(new RCTuple(gmec));
+        }
+        System.out.println("GMEC Complex /constRT= "+gmin/PoissonBoltzmannEnergy.constRT);
+        
+        tree = new ConfTree(ligandSP.emat, seqNode.pruneMats[1]);
+        int gmecUBL[] = tree.nextConf();
+        double gminUBL = Double.POSITIVE_INFINITY;
+        if (gmecUBL != null) {
+            gminUBL= ligandSP.emat.getInternalEnergy(new RCTuple(gmecUBL));
+        }
+        System.out.println("GMEC Unbound  /constRT= "+gminUBL/PoissonBoltzmannEnergy.constRT);
+        
+        tree = new ConfTree(proteinSP.emat, proteinSP.pruneMat);
+        int gmecUBP[] = tree.nextConf();
+        double gminUBP = Double.POSITIVE_INFINITY;
+        if (gmecUBP != null) {
+            gminUBP= proteinSP.emat.getInternalEnergy(new RCTuple(gmecUBP));
+        }
+        System.out.println("GMEC Unbound /constRT = "+gminUBP/PoissonBoltzmannEnergy.constRT);
+
+        return (gmin-gminUBL-gminUBP)/PoissonBoltzmannEnergy.constRT;
     }
 
     private boolean hasUnprunedRCs(PruningMatrix pm) {
