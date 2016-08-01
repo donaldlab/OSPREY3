@@ -25,8 +25,10 @@ import edu.duke.cs.osprey.dof.deeper.perts.Shear;
 import edu.duke.cs.osprey.ematrix.epic.EPICEnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
+import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.structure.Residue;
 
 /**
  *
@@ -95,16 +97,23 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
             
             ResidueTypeDOF mutDOF = cSpace.mutDOFs.get(posNum);
             
-            // make sure the residue is using the right template
-            ResidueTemplate desiredTemplate;
-            if (rc.template != null) {
-            	desiredTemplate = rc.template;
-            } else {
-            	desiredTemplate = mutDOF.getLibraryTemplate(rc.AAType);
+            // AAO 2016: this code was written for AAs, specifically anything
+            // in all_amino_coords.in and not for generic non-AA residues. skipping this
+            // step for non AAs (for now).
+            Residue res = cSpace.m.getResByPDBResNumber( cSpace.flexibleRes.get(posNum) );
+            if(HardCodedResidueInfo.hasAminoAcidBB(res) && !res.fullName.startsWith("FOL")) {
+            	// make sure the residue is using the right template
+            	ResidueTemplate desiredTemplate;
+            	if (rc.template != null) {
+            		desiredTemplate = rc.template;
+            	} else {
+            		desiredTemplate = mutDOF.getLibraryTemplate(rc.AAType);
+            	}
+
+            	if (!mutDOF.isTemplate(desiredTemplate)) {
+            		mutDOF.switchToTemplate(desiredTemplate);
+            	}
             }
-			if (!mutDOF.isTemplate(desiredTemplate)) {
-				mutDOF.switchToTemplate(desiredTemplate);
-			}
             
             for(int dofIndexInRC=0; dofIndexInRC<rc.DOFs.size(); dofIndexInRC++){
                 

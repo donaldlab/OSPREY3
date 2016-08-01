@@ -155,7 +155,7 @@ public class TestBase {
 		SearchProblem search = new SearchProblem(
 			"test", emConfig.pdbPath, 
 			flexRes, allowedAAs, addWt, emConfig.doMinimize, useEpic, new EPICSettings(), useTupleExpansion,
-			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, emConfig.addWtRots
+			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, emConfig.addWtRots, null
 		);
 		
 		// calculate the energy matrix, but check the cache first

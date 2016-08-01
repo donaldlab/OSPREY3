@@ -24,9 +24,12 @@ import edu.duke.cs.osprey.dof.StrandTranslation;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.energy.EnergyFunction;
+import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
+import edu.duke.cs.osprey.kstar.KSTermini;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
+import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
@@ -72,7 +75,7 @@ public class ConfSpace implements Serializable {
     //defines the flexible positions and what RCs they have
     //generally each position is a residue, but it could be more than one ("super-residue" with "super-RCs")
 
-    
+    public ArrayList<String> flexibleRes;
     public int numPos;//number of flexible positions
     
     public boolean useEllipses = false;
@@ -94,14 +97,14 @@ public class ConfSpace implements Serializable {
      */
     public ConfSpace(String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, 
             boolean addWT, boolean contSCFlex, DEEPerSettings dset, ArrayList<String[]> moveableStrands, 
-            ArrayList<String[]> freeBBZones, boolean ellipses, boolean addWTRots){
+            ArrayList<String[]> freeBBZones, boolean ellipses, boolean addWTRots, KSTermini termini){
     
     	useEllipses = ellipses;  	
-    	
+    	this.flexibleRes = flexibleRes;
         numPos = flexibleRes.size();
         
         //read the structure and assign templates, deleting unassignable res...
-        m = PDBFileReader.readPDBFile(PDBFile);
+        m = PDBFileReader.readPDBFile(PDBFile, termini);
         
         // before making any structure changes, capture the wt rots if needed
         List<ResidueTemplate> wtRots = new ArrayList<>(Collections.nCopies(numPos, null));
@@ -305,7 +308,10 @@ public class ConfSpace implements Serializable {
                     }
                 }                
                 
-                mutDOF.mutateTo(resName);
+                // AAO 2016: mutation assumes residue is an amino acid. throws an exception otherwise
+                if(HardCodedResidueInfo.hasAminoAcidBB(res) && !res.fullName.startsWith("FOL")) {
+                	mutDOF.mutateTo(resName);
+                }
             }
         }
     }
@@ -376,6 +382,32 @@ public class ConfSpace implements Serializable {
         
         return minE;
     }
+    
+    
+	public MultiTermEnergyFunction getDecomposedMinimizedEnergy(int[] conf, EnergyFunction efunc, String outputPDBFile){
+		//minimize the energy of a conformation, within the DOF bounds indicated by conf (a list of RCs)
+		//return the minimized energy
+		//if outputPDBFile isn't null, then output the minimized conformation to that file
+
+		RCTuple RCs = new RCTuple(conf);
+		MoleculeModifierAndScorer energy = new MoleculeModifierAndScorer(efunc,this,RCs);
+
+		DoubleMatrix1D optDOFVals;
+
+		if(energy.getNumDOFs()>0){//there are continuously flexible DOFs to minimize
+			Minimizer min = new CCDMinimizer(energy,false);
+			optDOFVals = min.minimize();
+		}
+		else//molecule is already in the right, rigid conformation
+			optDOFVals = DoubleFactory1D.dense.make(0);
+
+		double minE = energy.getValue(optDOFVals);//this will put m into the minimized conformation
+		
+		if(outputPDBFile!=null)
+			PDBFileWriter.writePDBFile(m, outputPDBFile, minE);
+		
+		return (MultiTermEnergyFunction)energy.getEfunc();
+	}
     
     
     public int[] getNumRCsAtPos(){

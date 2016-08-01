@@ -1,11 +1,15 @@
 package edu.duke.cs.osprey.astar;
 
+import java.io.Serializable;
 import java.util.Arrays;
 
-public class FullAStarNode implements AStarNode {
+public class FullAStarNode implements AStarNode, Serializable {
 	
-	public static class Factory implements AStarNode.Factory<FullAStarNode> {
-		
+	private static final long serialVersionUID = -537132381411057989L;
+
+	public static class Factory implements AStarNode.Factory<FullAStarNode>, Serializable {
+
+		private static final long serialVersionUID = -6909420740336320965L;
 		private int numPos;
 		
 		public Factory(int numPos) {

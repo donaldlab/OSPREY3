@@ -57,6 +57,25 @@ public class PruningMatrix extends TupleMatrixBoolean {
         return out;
     }
     
+
+    public void prunedRCsAtPos(ArrayList<Integer> out, int pos) {
+    	out.clear();
+    	int numRCs = getNumConfAtPos(pos);
+		for (int index=0; index<numRCs; index++) {
+			if(getOneBody(pos,index))
+				out.add(index);
+		}
+    }
+    
+    
+    public ArrayList<Integer> prunedRCsAtPos(int pos){
+        //which RCs at the given position are unpruned?
+        //Return index of the RCs within the position
+        ArrayList<Integer> out = new ArrayList<>();
+        prunedRCsAtPos(out, pos);
+        return out;
+    }
+    
     
     public ArrayList<RCTuple> unprunedRCTuplesAtPos(ArrayList<Integer> pos){
         //get a list of unpruned RCTuples with the given positions

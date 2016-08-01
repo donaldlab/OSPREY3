@@ -26,7 +26,7 @@ public class ConfigFileParser {
     //An object that parses configuration files and uses them to initialize objects needed
     //in various calculations (i.e. for data file loading, conf space definition, pruning, etc.)
     
-    ParamSet params = new ParamSet();
+    protected ParamSet params = new ParamSet();
     
     public ConfigFileParser(String[] args){
         //parse all config files into params
@@ -45,7 +45,7 @@ public class ConfigFileParser {
     }
     
     
-    DEEPerSettings setupDEEPer(){
+    protected DEEPerSettings setupDEEPer(){
         //Set up the DEEPerSettings object, including the PertSet (describes the perturbations)
         String runName = params.getValue("runName");
         
@@ -62,7 +62,7 @@ public class ConfigFileParser {
                 params.getValue("PDBNAME")
         );
         
-        dset.loadPertFile();//load the PertSet from its file
+        dset.loadPertFile(null);//load the PertSet from its file
         return dset;
     }
     
@@ -141,13 +141,14 @@ public class ConfigFileParser {
                 params.getBool("useEllipses"),
                 params.getBool("useERef"),
                 params.getBool("AddResEntropy"),
-                params.getBool("addWTRots")
+                params.getBool("addWTRots"),
+                null
         );
     }
     
     
     
-    ArrayList<String> getFlexRes(){
+    protected ArrayList<String> getFlexRes(){
         //list of flexible residues.  PDB-based residue numbers
         //we'll include all flexible residues: for compatibility (MAY BE TEMPORARY),
         //all residues in a "StrandMut" record will be included here
@@ -174,7 +175,7 @@ public class ConfigFileParser {
     }
     
     
-    ArrayList<ArrayList<String>> getAllowedAAs(){
+    protected ArrayList<ArrayList<String>> getAllowedAAs(){
         //List allowed AA types for each flexible position
         //We can accept either RESALLOWED0_0 (for flexible res 0 of strand 0)
         //or RESALLOWED255 (for residue with PDB number 255)
@@ -264,7 +265,7 @@ public class ConfigFileParser {
     }
     
     
-    PruningControl setupPruning(SearchProblem searchSpace, double pruningInterval, boolean useEPIC, boolean useTupExp){
+    public PruningControl setupPruning(SearchProblem searchSpace, double pruningInterval, boolean useEPIC, boolean useTupExp){
         //setup pruning.  Conformations in searchSpace more than (Ew+Ival) over the GMEC are liable to pruning
         
         //initialize the pruning matrix for searchSpace, if not already initialized
@@ -330,6 +331,11 @@ public class ConfigFileParser {
         if(dunbrackRots){ // Use the dunbrack rotamer library
         	resTemplates.loadRotamerLibrary(params.getValue("DUNBRACKROTFILE"), true);//see below; also gRotFile0 etc
         }
+        
+		// AAO 2016: load generic rotamer libraries
+		for(String grotFile : params.searchParams("GROTFILE")) {
+			resTemplates.loadRotamerLibrary(params.getValue(grotFile), false);
+		}
         
         resTemplates.loadResEntropy(params.getValue("RESENTROPYFILE"));
         

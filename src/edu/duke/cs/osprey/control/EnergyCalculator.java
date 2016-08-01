@@ -6,6 +6,8 @@ import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
+import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
+import edu.duke.cs.osprey.structure.Residue;
 
 public class EnergyCalculator {
 
@@ -39,7 +41,12 @@ public class EnergyCalculator {
 				));
 			}
 			RC rc = pos.wtRCs.get(0);
-			search.confSpace.mutDOFs.get(i).switchToTemplate(rc.template);
+			
+			// AAO 2016: switch template assumes an amino acid. will throw an exception otherwise.
+			Residue res = search.confSpace.m.getResByPDBResNumber( search.confSpace.flexibleRes.get(i) );
+            if(HardCodedResidueInfo.hasAminoAcidBB(res) && !res.fullName.startsWith("FOL")) {
+            	search.confSpace.mutDOFs.get(i).switchToTemplate(rc.template);
+            }
 		}
 		
 		double energy;

@@ -6,10 +6,17 @@ package edu.duke.cs.osprey.tools;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
+
+import org.apache.commons.io.FileUtils;
 
 /**
  *
@@ -36,7 +43,7 @@ public class ObjectIO {
                 if (allowNull)
                     return null;
                 else
-                    throw new RuntimeException("ERROR: Failed to read object from file "+fileName);
+                	throw new RuntimeException("ERROR: Failed to read object from file " + fileName + "\n" + e.getMessage());
         }
 
         return inObj;
@@ -58,7 +65,7 @@ public class ObjectIO {
         catch (Exception e){
                 System.out.println(e.toString());
                 System.out.println("ERROR: An exception occurred while writing object file");
-                System.exit(0);
+                System.exit(1);
         }
     }
     
@@ -102,4 +109,62 @@ public class ObjectIO {
           }
        }
     
+	
+
+	public static File[] getFilesInDir( String path ) {
+
+		File[] listOfFiles = null;
+
+		try {
+			
+			File loc = new File(path);
+			if( loc.isDirectory() )
+				listOfFiles = loc.listFiles();
+			
+		} catch (Exception e){
+			System.out.println(e.getMessage());
+			e.printStackTrace();
+			System.exit(1);
+		}
+
+		return listOfFiles;
+	}
+	
+	
+	public static void delete( String path ) {
+		try {
+			File loc = new File(path);
+			if( loc.exists() ) {
+				if( loc.isDirectory() ) FileUtils.deleteDirectory(loc);
+				else loc.delete();
+			}
+		} 
+		catch (Exception e) {
+			System.out.println(e.getMessage());
+			e.printStackTrace();
+			System.exit(1);
+		}
+	}
+
+
+	public static void makeDir( String path, boolean deleteExisting ) {
+		try {
+			File dir = new File(path);
+			if( deleteExisting && dir.exists() ) delete(path);
+			if( !dir.exists() ) dir.mkdirs();
+		} 
+		catch (Exception e) {
+			System.out.println(e.getMessage());
+			e.printStackTrace();
+			System.exit(1);
+		}
+	}
+	
+	
+	public static String formatBigDecimal(BigDecimal x, int decimalPoints) {
+		NumberFormat formatter = new DecimalFormat("0.0E0");
+		formatter.setRoundingMode(RoundingMode.CEILING);
+		formatter.setMinimumFractionDigits(decimalPoints);
+		return formatter.format(x);
+	}
 }

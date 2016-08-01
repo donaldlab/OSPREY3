@@ -8,6 +8,7 @@ package edu.duke.cs.osprey.dof.deeper;
 import edu.duke.cs.osprey.dof.deeper.perts.PartialStructureSwitch;
 import edu.duke.cs.osprey.dof.deeper.perts.LoopClosureAdjustment;
 import edu.duke.cs.osprey.dof.deeper.perts.Shear;
+import edu.duke.cs.osprey.kstar.KSTermini;
 import edu.duke.cs.osprey.dof.deeper.perts.Backrub;
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.dof.deeper.perts.PerturbationBlock;
@@ -52,8 +53,7 @@ public class PertSet {
     ArrayList<ArrayList<String>> additionalInfo = new ArrayList<>();
     
     
-    
-    public boolean loadPertFile(String pertFileName, boolean loadStates){
+    public boolean loadPertFile(String pertFileName, boolean loadStates, KSTermini termini){
         //load perturbations from the pert file
         //Return whether we found the file or not
         //Load perturbations and their intervals; if loadStates then residue pert states too
@@ -62,7 +62,7 @@ public class PertSet {
             BufferedReader br=new BufferedReader(new FileReader(pertFileName));
             StringTokenizer st;
             br.readLine();//Title
-            readPerts(br);
+            readPerts(br, termini);
             
             if(loadStates){
             
@@ -167,6 +167,66 @@ public class PertSet {
             
             pertIntervals.add(curPertIntervals);
         }
+    }
+    
+    
+    public void readPerts(BufferedReader br, KSTermini termini) throws Exception {
+        //read the actual perturbations, including the residues they affect
+        //and the parameter intervals we're using for them
+
+        int numPerts = Integer.valueOf(br.readLine().trim());
+
+        StringTokenizer st;
+        
+        pertTypes = new ArrayList<>();
+        resNums = new ArrayList<>();
+        pertIntervals = new ArrayList<>();
+        additionalInfo = new ArrayList<>();
+        
+
+        for(int a=0;a<numPerts;a++){//Read perturbations
+            String pertType = br.readLine();
+            pertTypes.add(pertType);
+            
+            st = new StringTokenizer(br.readLine()," ");
+            int numAffectedRes = st.countTokens();
+            ArrayList<String> pertResNums = new ArrayList<>();
+
+            for(int b=0;b<numAffectedRes;b++){
+                String inputNumber = st.nextToken();
+                if(termini == null || termini.contains(Integer.valueOf(inputNumber))) {
+                	pertResNums.add(inputNumber);
+                }
+            }
+            
+            if(pertResNums.isEmpty()) {
+            	pertTypes.remove(pertTypes.size()-1);
+            	continue;
+            }
+            
+            resNums.add(pertResNums);
+
+            recordAdditionalInfo(br, pertType);
+            
+            st = new StringTokenizer(br.readLine()," ");
+            int numStates = Integer.valueOf(st.nextToken());
+            ArrayList<double[]> curPertIntervals = new ArrayList<>();
+
+            for(int b=0;b<numStates;b++){
+                st = new StringTokenizer(br.readLine()," ");
+                if(st.countTokens() != 2)
+                    throw new java.lang.Exception("Bad formatting of perturbation "+a);
+                //read the interval
+                double lo = Double.valueOf(st.nextToken());
+                double hi = Double.valueOf(st.nextToken());
+                curPertIntervals.add( new double[] {lo,hi} );
+            }
+            
+            pertIntervals.add(curPertIntervals);
+        }
+        
+        // pertfile does not apply to this strand. advance the pertfile to end
+        if(pertTypes.isEmpty()) while(br.readLine() != null);
     }
     
     

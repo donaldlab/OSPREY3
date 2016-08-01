@@ -1,12 +1,15 @@
 package edu.duke.cs.osprey.astar;
 
+import java.io.Serializable;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
 
 import edu.duke.cs.osprey.tools.Stopwatch;
 
-public class AStarProgress {
-	
+public class AStarProgress implements Serializable {
+
+	private static final long serialVersionUID = 767988861537797830L;
+
 	private static final int ReportIntervalMs = 10 * 1000; // TODO: make configurable
 	
 	private int numLevels;

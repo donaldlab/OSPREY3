@@ -82,7 +82,7 @@ public class Playground extends TestBase {
 		SearchProblem search = new SearchProblem(
 			"test", "test/1CC8/1CC8.ss.pdb", 
 			flexResList, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion,
-			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots
+			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null
 		);
 		
 		// compute the energy matrix

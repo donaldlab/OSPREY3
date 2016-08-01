@@ -28,6 +28,9 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
     //and improvements like dynamic A*
     //we may also want to allow other negative indices, to indicate partially assigned RCs
 	
+	private static final long serialVersionUID = -2776047349227703884L;
+
+
 	public static ConfTree<FullAStarNode> makeFull(SearchProblem search) {
 		return new ConfTree<FullAStarNode>(new FullAStarNode.Factory(search.confSpace.numPos), search);
 	}
@@ -65,11 +68,15 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
     protected int[] definedPos;
     protected int[] definedRCs;
     protected int[] undefinedPos;
-    private int[] childConf;
+    protected int[] childConf;
     
     
     public ConfTree(AStarNode.Factory<T> nodeFactory, SearchProblem sp){
         this(nodeFactory, sp, sp.pruneMat, sp.useEPIC);
+    }
+    
+    public ConfTree(AStarNode.Factory<T> nodeFactory, SearchProblem sp, PruningMatrix pruneMat){
+        this(nodeFactory, sp, pruneMat, sp.useEPIC);
     }
     
     public ConfTree(AStarNode.Factory<T> nodeFactory, SearchProblem sp, PruningMatrix pruneMat, boolean useEPIC){
@@ -84,7 +91,10 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
 		}
 		
 		this.nodeFactory = nodeFactory;
-        numPos = sp.confSpace.numPos;
+		// AAO 2016: for fully defined sequences, this change has no effect. for partially defined
+		// sequences, however, it obviates the need for a separate function to initialize the data
+		// structures below.
+        numPos = pruneMat.getNumPos();
         
         // allocate temp space
         rcTuple = new RCTuple();

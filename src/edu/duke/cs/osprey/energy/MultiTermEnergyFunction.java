@@ -22,64 +22,68 @@ import edu.duke.cs.osprey.structure.Residue;
 //Total energy = sum_i (coeff[i] * energy i)
 
 public class MultiTermEnergyFunction implements EnergyFunction {
-    
-    private static int NUM_THREADS = 1;
-    
-    ArrayList<EnergyFunction> terms = new ArrayList<>();
-    ArrayList<Double> coeffs = new ArrayList<>();
-    ArrayList<Double> partialE = new ArrayList<>();
-    ArrayList<Integer> indexes = new ArrayList<>();
-    
-    private ParallelEnergyFunction parallelEfunc = null;
+
+	private static final long serialVersionUID = -3516267414126293331L;
+
+	private static int NUM_THREADS = 1;
+	public static boolean useParallelEFunc = true;
+
+	ArrayList<EnergyFunction> terms = new ArrayList<>();
+	ArrayList<Double> coeffs = new ArrayList<>();
+	ArrayList<Double> partialE = new ArrayList<>();
+	ArrayList<Integer> indexes = new ArrayList<>();
+	double preCompE = 0.0;
+
+	private ParallelEnergyFunction parallelEfunc = null;
 
 
-    //Constructor with no terms
-    public MultiTermEnergyFunction(){
-        
-    }
+	//Constructor with no terms
+	public MultiTermEnergyFunction(){
 
-    public void addTerm(EnergyFunction ef){
-        terms.add(ef);
-        coeffs.add(1.);
-        partialE.add(0.0);
-        indexes.add(indexes.size());
-    }
+	}
 
-    //add a term to this with a given coefficient
-    public void addTermWithCoeff(EnergyFunction ef, double coeff){
-        terms.add(ef);
-        coeffs.add(coeff);
-        partialE.add(0.0);
-        indexes.add(indexes.size());
-    }
-    
-    
-    public static void setNumThreads( int threads ) { 
-            NUM_THREADS = threads;
+	public void addTerm(EnergyFunction ef){
+		terms.add(ef);
+		coeffs.add(1.);
+		partialE.add(0.0);
+		indexes.add(indexes.size());
+	}
 
-            if(NUM_THREADS < 1) NUM_THREADS = 1;
-
-            else if(NUM_THREADS > Runtime.getRuntime().availableProcessors()) 
-                    NUM_THREADS = Runtime.getRuntime().availableProcessors();
-    }
+	//add a term to this with a given coefficient
+	public void addTermWithCoeff(EnergyFunction ef, double coeff){
+		terms.add(ef);
+		coeffs.add(coeff);
+		partialE.add(0.0);
+		indexes.add(indexes.size());
+	}
 
 
-    public static int getNumThreads() {
-            return NUM_THREADS;
-    }
-    
+	public static void setNumThreads( int threads ) { 
+		NUM_THREADS = threads;
 
-    @Override
-    public double getEnergy(){
-        
-        double E = 0;
-        
-        if(terms.size()!=coeffs.size()){
-            throw new RuntimeException("ERROR: MultiTermEnergyFunction has "+terms.size()
-                    +" terms but "+coeffs.size()+" coefficients");
-        }
-        
-        /* OPTIMIZATION: It might seem like we could optimize more here by only
+		if(NUM_THREADS < 1) NUM_THREADS = 1;
+
+		else if(NUM_THREADS > Runtime.getRuntime().availableProcessors()) 
+			NUM_THREADS = Runtime.getRuntime().availableProcessors();
+	}
+
+
+	public static int getNumThreads() {
+		return NUM_THREADS;
+	}
+
+
+	@Override
+	public double getEnergy(){
+
+		double E = 0;
+
+		if(terms.size()!=coeffs.size()){
+			throw new RuntimeException("ERROR: MultiTermEnergyFunction has "+terms.size()
+			+" terms but "+coeffs.size()+" coefficients");
+		}
+
+		/* OPTIMIZATION: It might seem like we could optimize more here by only
         synchronizing with the thread pool if there are enough terms to make paying
         the syncronization cost worth it. ie, only call the threads if numTerms > c.
         Counterintuitively, this actually performs worse in practice! My tests indicated
@@ -93,77 +97,94 @@ public class MultiTermEnergyFunction implements EnergyFunction {
         causing many cpu cache misses and slowing down overall performance.
         But that's just a theory. Either way, just use parallelism all the time even for 1 or
         2 energy term because emperically it works much better! =)
-    	*/        
-        if(NUM_THREADS == 1) {
-                for(int termNum=0; termNum<terms.size(); termNum++){
-                        double termE = terms.get(termNum).getEnergy();
-                        E += coeffs.get(termNum)*termE;
-                }
-        } else {
-        	if (!ParallelEnergyFunction.isCrewStarted()) {
-        		ParallelEnergyFunction.startCrew(NUM_THREADS);
-        	}
-        	if (parallelEfunc == null) {
-        		parallelEfunc = new ParallelEnergyFunction(terms, coeffs);
-        	}
-        	E = parallelEfunc.getEnergy();
-        }
-        
+		 */        
+		if(NUM_THREADS == 1) {
+			for(int termNum=0; termNum<terms.size(); termNum++){
+				double termE = terms.get(termNum).getEnergy();
+				E += coeffs.get(termNum)*termE;
+			}
+		} else {
 
-        if(Double.isNaN(E) || Double.isInfinite(E))//This can happen if there are positive and negative terms
-            //with infinite energy...we assume this to be an impossible conformation
-            //and thus return inifinity
-            return Double.POSITIVE_INFINITY;
+			if(useParallelEFunc) {
+				if (!ParallelEnergyFunction.isCrewStarted()) {
+					ParallelEnergyFunction.startCrew(NUM_THREADS);
+				}
+				if (parallelEfunc == null) {
+					parallelEfunc = new ParallelEnergyFunction(terms, coeffs);
+				}
+				E = parallelEfunc.getEnergy();
+			}
+			
+			// AAO 2016: can allow concurrent minimizers, which is 25x faster for systems 
+			// that cannot saturate the threadpool with a single minimizer object. only my code actually enters this block
+			else {
+				indexes.parallelStream().forEach((term) -> partialE.set(term, terms.get(term).getEnergy()*coeffs.get(term)));
+				for(int term = 0; term < indexes.size(); ++term) E += partialE.get(term);
+			}
+		}
 
-        return E;
-    }
+		if(Double.isNaN(E) || Double.isInfinite(E))//This can happen if there are positive and negative terms
+			//with infinite energy...we assume this to be an impossible conformation
+			//and thus return inifinity
+			return Double.POSITIVE_INFINITY;
 
-    public ArrayList<EnergyFunction> getTerms() {
-        return terms;
-    }
+		return preCompE = E;
+	}
 
-    public ArrayList<Double> getCoeffs() {
-        return coeffs;
-    }
+	public ArrayList<EnergyFunction> getTerms() {
+		return terms;
+	}
 
-    public ArrayList<EnergyFunction> makeDOFPartialEFuncs(ArrayList<DegreeOfFreedom> dofs) {
-            ArrayList<EnergyFunction> dofEfuncs = new ArrayList<>();
-            for (DegreeOfFreedom dof : dofs) {
+	public ArrayList<Double> getCoeffs() {
+		return coeffs;
+	}
 
-                    if(dof.getResidue() == null){//degree of freedom moves multiple residues
-                        dofEfuncs.add(this);//use the full energy
-                    }
-                    else {//degree of freedom moves just one residue
-                        dofEfuncs.add(makeResidueEfunc(dof.getResidue()));
-                    }
-            }
-            return dofEfuncs;
-    }
+	public ArrayList<EnergyFunction> makeDOFPartialEFuncs(ArrayList<DegreeOfFreedom> dofs) {
+		ArrayList<EnergyFunction> dofEfuncs = new ArrayList<>();
+		for (DegreeOfFreedom dof : dofs) {
 
-    private EnergyFunction makeResidueEfunc(Residue residue) {
+			if(dof.getResidue() == null){//degree of freedom moves multiple residues
+				dofEfuncs.add(this);//use the full energy
+			}
+			else {//degree of freedom moves just one residue
+				dofEfuncs.add(makeResidueEfunc(dof.getResidue()));
+			}
+		}
+		return dofEfuncs;
+	}
 
-            // find all the terms that involve this residue
-            MultiTermEnergyFunction resEfunc = new MultiTermEnergyFunction();
-            for (EnergyFunction term : terms) {
+	private EnergyFunction makeResidueEfunc(Residue residue) {
 
-                    // TODO: could make the energy term worry about residue association queries
-                    // instead of switching on type here
-                    if (term instanceof SingleResEnergy) {
-                            SingleResEnergy singleResTerm = (SingleResEnergy)term;
-                            if (singleResTerm.getRes() == residue) {
-                                    resEfunc.addTerm(singleResTerm);
-                            }
-                    } else if (term instanceof ResPairEnergy) {
-                            ResPairEnergy resPairTerm = (ResPairEnergy)term;
-                            if (resPairTerm.getRes1() == residue || resPairTerm.getRes2() == residue) {
-                                    resEfunc.addTerm(resPairTerm);
-                            }
-                    } else {//not a one-body or pairwise forcefield term--may involve all residues
-                        resEfunc.addTerm(term);
-                            //throw new Error("Unsupported energy function term: " + term.getClass().getName());
-                    }
-            }
-            return resEfunc;
-    }
+		// find all the terms that involve this residue
+		MultiTermEnergyFunction resEfunc = new MultiTermEnergyFunction();
+		for (EnergyFunction term : terms) {
+
+			// TODO: could make the energy term worry about residue association queries
+			// instead of switching on type here
+			if (term instanceof SingleResEnergy) {
+				SingleResEnergy singleResTerm = (SingleResEnergy)term;
+				if (singleResTerm.getRes() == residue) {
+					resEfunc.addTerm(singleResTerm);
+				}
+			} else if (term instanceof ResPairEnergy) {
+				ResPairEnergy resPairTerm = (ResPairEnergy)term;
+				if (resPairTerm.getRes1() == residue || resPairTerm.getRes2() == residue) {
+					resEfunc.addTerm(resPairTerm);
+				}
+			} else {//not a one-body or pairwise forcefield term--may involve all residues
+				resEfunc.addTerm(term);
+				//throw new Error("Unsupported energy function term: " + term.getClass().getName());
+			}
+		}
+		return resEfunc;
+	}
+
+	public double getPreCompE() {
+		return preCompE;
+	}
+
+	public void setPreCompE(double in) {
+		preCompE = in;
+	}
 }
 

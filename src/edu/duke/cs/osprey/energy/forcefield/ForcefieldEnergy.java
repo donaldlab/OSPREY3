@@ -508,12 +508,30 @@ public class ForcefieldEnergy implements Serializable {
 				double lambda[] = new double[1];
 				double vdWradiusExt[] = new double[1]; //extended vdWradius (uses the EEF1 parameters)
 
+				/*
 				if (!(params.eef1parms.getSolvationParameters(atomList.get(i),dGref,
 					dGfree,atVolume,lambda,vdWradiusExt))){
 				
 					throw new RuntimeException("WARNING: Could not find solvation parameters for atom: " 
 						+ atom1 + " (" + atomList.get(i).name+") res: " + atomList.get(i).res.fullName);
 				}
+				*/
+				
+				if (!(params.eef1parms.getSolvationParameters(atomList.get(i),dGref,
+						dGfree,atVolume,lambda,vdWradiusExt))){
+
+					// System.out.println("WARNING: Could not find solvation parameters for atom: " 
+							// + atom1 + " (" + atomList.get(i).name+") res: " + atomList.get(i).res.fullName);
+
+					termList[ix6] = atom1;
+					termList[ix6 + 1] = 0;
+					termList[ix6 + 2] = 0;
+					termList[ix6 + 3] = 0;
+					termList[ix6 + 4] = 1;
+					termList[ix6 + 5] = 0;
+					numTerms++;
+				}
+				
 				else {
 
 					termList[ix6] = atom1;

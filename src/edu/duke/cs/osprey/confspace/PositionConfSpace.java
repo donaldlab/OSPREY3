@@ -43,7 +43,7 @@ public class PositionConfSpace implements Serializable {
     public Residue res;//The residue involved
     public int designIndex;
     
-    static double dihedFlexInterval = 9;// +/- 9 degree sidechain dihedral continuous flexibility...
+    public static double dihedFlexInterval = 9;// +/- 9 degree sidechain dihedral continuous flexibility...
     //later can allow this to vary across different dihedrals
     
     static double ellipseAngMax = Math.PI;

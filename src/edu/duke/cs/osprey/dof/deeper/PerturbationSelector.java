@@ -6,6 +6,8 @@
 package edu.duke.cs.osprey.dof.deeper;
 
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
+import edu.duke.cs.osprey.kstar.KSTermini;
+import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -51,7 +53,7 @@ public class PerturbationSelector {
     
     public PerturbationSelector(String startingPertFile, boolean onlyStarting, 
             double maxShearParam, double maxBackrubParam, boolean selectLCAs, 
-            ArrayList<String> flexibleRes, String PDBFile) {
+            ArrayList<String> flexibleRes, String PDBFile, KSTermini termini) {
         
         this.startingPertFile = startingPertFile;
         this.onlyStarting = onlyStarting;
@@ -60,17 +62,17 @@ public class PerturbationSelector {
         this.selectLCAs = selectLCAs;
         this.flexibleRes = flexibleRes;
         
-        m = PDBFileReader.readPDBFile(PDBFile);
+        m = PDBFileReader.readPDBFile(PDBFile, termini);
     }
     
     
     
-    public PertSet selectPerturbations(){
+    public PertSet selectPerturbations(KSTermini termini){
         ps = new PertSet();
         
-        if( ! startingPertFile.equalsIgnoreCase("none") ){//lists perturbations to include
+        if( !startingPertFile.equalsIgnoreCase("none") ){//lists perturbations to include
             //that would not be automatically selected.  (Probably partial structure switches)
-            if( ! ps.loadPertFile(startingPertFile,false) ){
+            if( !ps.loadPertFile(startingPertFile,false, termini) ){
                 throw new RuntimeException( "ERROR: Can't find starting perturbation file "
                         + startingPertFile );
             }
@@ -118,9 +120,11 @@ public class PerturbationSelector {
     
     void mutateFlexResToGly(){
         for(String resNum : flexibleRes){
+       
+        	// AAO 2016: mutation assumes residue is an amino acid. throws an exception otherwise
             Residue res = m.getResByPDBResNumber(resNum);
-            
-            new ResidueTypeDOF(res).mutateTo("GLY");
+            if(HardCodedResidueInfo.hasAminoAcidBB(res) && !res.fullName.startsWith("FOL"))
+            	new ResidueTypeDOF(res).mutateTo("GLY");
         }
     }
     
