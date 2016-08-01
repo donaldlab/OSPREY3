@@ -62,14 +62,12 @@ public class TestConfSearch extends TestBase {
             double curE = Double.NEGATIVE_INFINITY;
             
             while(true){
-                int[] conf = search.nextConf();
+                ConfSearch.ScoredConf conf = search.nextConf();
                 if(conf==null)
                     break;
                 
-                double newConfE = searchSpace.emat.confE(conf);
-                
-                assert newConfE > curE - 1e-3;//enumerating in ascending order (within numerical tolerance)
-                curE = Math.max(curE,newConfE);
+                assert conf.getScore() > curE - 1e-3;//enumerating in ascending order (within numerical tolerance)
+                curE = Math.max(curE,conf.getScore());
                 resultCount++;
             }
             
@@ -91,9 +89,9 @@ public class TestConfSearch extends TestBase {
         searchSpace.pruneMat = new PruningMatrix(searchSpace.confSpace,-1);//no pruning
         ConfSearch aStar = ConfTree.makeFull(searchSpace);//Regular A* is cool for this purpose
         
-        int topConf[] = aStar.nextConf();
+        ConfSearch.ScoredConf topConf = aStar.nextConf();
         
-        System.out.println("Conf E: "+searchSpace.emat.confE(topConf));
+        System.out.println("Conf E: "+topConf.getScore());
         
         int algOption = 3;
         double boundsThresh = Double.POSITIVE_INFINITY;//could also try energy of topConf...
@@ -106,13 +104,12 @@ public class TestConfSearch extends TestBase {
         
         aStar = ConfTree.makeFull(searchSpace);
         
-        int topConfWithPruning[] = aStar.nextConf();
-        
-        System.out.println("Conf E: "+searchSpace.emat.confE(topConf));
+        ConfSearch.ScoredConf topConfWithPruning = aStar.nextConf();
+        System.out.println("Conf E: "+topConfWithPruning.getScore());
 
         
         for(int pos=0; pos<searchSpace.confSpace.numPos; pos++){
-            boolean match = ( topConf[pos] == topConfWithPruning[pos] );
+            boolean match = ( topConf.getAssignments()[pos] == topConfWithPruning.getAssignments()[pos] );
             assert match;
         }
         

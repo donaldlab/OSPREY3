@@ -81,7 +81,8 @@ public class Main {
 		commands.put("findGMEC", new Runnable() {
 			@Override
 			public void run() {
-				GMECFinder gf = new GMECFinder(cfp);
+				GMECFinder gf = new GMECFinder();
+				gf.init(cfp);
 				gf.calcGMEC();
 			}
 		});

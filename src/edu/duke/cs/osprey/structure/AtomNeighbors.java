@@ -5,8 +5,8 @@
 package edu.duke.cs.osprey.structure;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashSet;
+import java.util.List;
 
 /**
  *
@@ -83,19 +83,18 @@ public class AtomNeighbors {
     //internalE implies that atoms1 and atoms2 are the same, and we're calculating the internal energy
     //of their residue (or part of a residue).  In this case we need to avoid double-counting.
     //Otherwise they're assumed to be different and interacting with each other
-    public static ArrayList<Atom[]> getPairs14( ArrayList<Atom> atoms1, ArrayList<Atom> atoms2, boolean internalE ){
+    public static List<Atom[]> getPairs14( List<Atom> atoms1, List<Atom> atoms2, boolean internalE ){
         return getPairsByType(atoms1,atoms2,internalE,NEIGHBORTYPE.BONDED14);
     }
         
-    public static ArrayList<Atom[]> getPairsNonBonded( ArrayList<Atom> atoms1, ArrayList<Atom> atoms2, boolean internalE ){
+    public static List<Atom[]> getPairsNonBonded( List<Atom> atoms1, List<Atom> atoms2, boolean internalE ){
         return getPairsByType(atoms1,atoms2,internalE,NEIGHBORTYPE.NONBONDED);
     }
     
-    
-    public static ArrayList<Atom[]> getPairsByType( ArrayList<Atom> atoms1, 
-            ArrayList<Atom> atoms2, boolean internalE, NEIGHBORTYPE type ){
+    public static List<Atom[]> getPairsByType( List<Atom> atoms1, 
+            List<Atom> atoms2, boolean internalE, NEIGHBORTYPE type ){
         
-        ArrayList<Atom[]> ans = new ArrayList<>();
+        List<Atom[]> ans = new ArrayList<>();
         
         if(internalE){//atoms1 and atoms2 expected to be the same
             for(int atNum=0; atNum<atoms1.size(); atNum++){
@@ -126,11 +125,37 @@ public class AtomNeighbors {
         return ans;
     }
     
+    public static List<int[]> getPairIndicesByType(List<Atom> atoms1, List<Atom> atoms2, boolean internalE, NEIGHBORTYPE type) {
+        
+        List<int[]> indexPairs = new ArrayList<>();
+        
+        for (int i1=0; i1<atoms1.size(); i1++) {
+            AtomNeighbors neighbors = new AtomNeighbors(atoms1.get(i1));
+            
+            // if we're doing internal energies, atoms1 and atoms2 is the same
+            // so all pairs is different than when atoms1 and atoms2 are different
+            int n;
+            if (internalE) {
+                n = i1;
+            } else {
+                n = atoms2.size();
+            }
+            
+            for (int i2=0; i2<n; i2++) {
+                if (neighbors.classifyAtom(atoms2.get(i2)) == type) {
+                    indexPairs.add(new int[] {i1, i2});
+                }
+            }
+        }
+        
+        return indexPairs;
+    }
+    
     
     //sometimes we have a list of selected atom pairs, and we want to separate out the ones that have a certain neighbory type
-    public static ArrayList<Atom[]> getPairsByType( ArrayList<Atom[]> atomPairs, NEIGHBORTYPE type ){
+    public static List<Atom[]> getPairsByType( List<Atom[]> atomPairs, NEIGHBORTYPE type ){
         
-        ArrayList<Atom[]> ans = new ArrayList<>();
+        List<Atom[]> ans = new ArrayList<>();
         
         for(Atom[] pair : atomPairs){
             
@@ -144,11 +169,11 @@ public class AtomNeighbors {
     }
     
     //special versions
-     public static ArrayList<Atom[]> getPairs14( ArrayList<Atom[]> atomPairs ){
+     public static List<Atom[]> getPairs14( List<Atom[]> atomPairs ){
         return getPairsByType(atomPairs, NEIGHBORTYPE.BONDED14);
     }
         
-    public static ArrayList<Atom[]> getPairsNonBonded( ArrayList<Atom[]> atomPairs ){
+    public static List<Atom[]> getPairsNonBonded( List<Atom[]> atomPairs ){
         return getPairsByType(atomPairs, NEIGHBORTYPE.NONBONDED);
     }
         

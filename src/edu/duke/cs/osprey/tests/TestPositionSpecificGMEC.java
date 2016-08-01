@@ -38,7 +38,8 @@ public class TestPositionSpecificGMEC extends TestCase {
     public void testFindAlternateGMEC() throws Exception
     {
         ResidueTemplateLibrary library = PositionSpecificRotamerLibrary.generateLibraryFromPDB(PDBFileLocation);
-        GMECFinder gf = new GMECFinder(cfp);
+        GMECFinder gf = new GMECFinder();
+        gf.init(cfp);
         gf.calcGMEC();
     }
 

@@ -6,6 +6,7 @@ import java.util.Collections;
 
 import cern.colt.Arrays;
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.kstar.KSAllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSConf;
@@ -54,13 +55,13 @@ public class PFTraditional extends PFAbstract implements Serializable {
 
 	protected void iterate() throws Exception {
 
-		int conf[];
+		ScoredConf conf;
 
 		if( (conf = confSearch.nextConf()) != null ) {
 
-			if( minimizedConfsSet.contains(conf) ) return;
+			if( minimizedConfsSet.contains(conf.getAssignments()) ) return;
 
-			KSConf ksConf = new KSConf(conf, getConfBound(confSearch, conf));
+			KSConf ksConf = new KSConf(conf.getAssignments(), getConfBound(confSearch, conf.getAssignments()));
 
 			accumulate(ksConf);
 		}

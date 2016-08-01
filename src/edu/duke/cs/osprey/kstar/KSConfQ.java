@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
 
@@ -50,10 +51,10 @@ public class KSConfQ extends Thread implements Serializable {
 
 	public double getNextConfBound() {
 
-		int c[] = null;
+		ScoredConf c = null;
 
 		if( (c = confSearch.nextConf()) != null ) {
-			return enQueue(c);
+			return enQueue(c.getAssignments());
 		}
 
 		// should never get here
@@ -177,7 +178,7 @@ public class KSConfQ extends Thread implements Serializable {
 
 			if(confsExhausted) return;
 
-			int conf[];
+			ScoredConf conf;
 
 			while( true ) {
 
@@ -192,7 +193,7 @@ public class KSConfQ extends Thread implements Serializable {
 					}
 
 					// this means the energy lower bound is pos infinity. no need to keep enumerating
-					if( enQueue(conf) == Double.POSITIVE_INFINITY ) { confsExhausted = true; lock.notify(); return; }
+					if( enQueue(conf.getAssignments()) == Double.POSITIVE_INFINITY ) { confsExhausted = true; lock.notify(); return; }
 
 					// notify queue consumer ONLY if queue was empty before
 					// i added latest conformation. this condition means that

@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
 
@@ -111,7 +112,7 @@ public class KSPStarCalculator extends Thread implements Serializable {
 
 		if(confsExhausted) { nullify(); return; }
 
-		int conf[];
+		ScoredConf conf;
 
 		while( true ) {
 
@@ -121,7 +122,7 @@ public class KSPStarCalculator extends Thread implements Serializable {
 
 				if( conf == null ) { nullify(); return; }
 
-				lastEnergyBound = pf.getConfBound(confSearch, conf);
+				lastEnergyBound = pf.getConfBound(confSearch, conf.getAssignments());
 				if( lastEnergyBound == Double.POSITIVE_INFINITY ) { nullify(); return; }
 
 				lastBoltzmannWeight = pf.getBoltzmannWeight(lastEnergyBound);

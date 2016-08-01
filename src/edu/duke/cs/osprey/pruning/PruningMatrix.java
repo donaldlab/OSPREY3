@@ -30,6 +30,10 @@ public class PruningMatrix extends TupleMatrixBoolean {
 	protected PruningMatrix(){//no allocation (for overriding by UpdatedPruningMatrix)
 		super();
     }
+	
+	public PruningMatrix(PruningMatrix other) {
+		super(other);
+	}
         
     public PruningMatrix(ConfSpace cSpace, double pruningInterval){
         super(cSpace, pruningInterval, false);//higher tuples are unpruned unless otherwise indicated

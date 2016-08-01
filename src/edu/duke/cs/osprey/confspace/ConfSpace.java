@@ -49,7 +49,9 @@ public class ConfSpace implements Serializable {
     //This class can be put in an AnnotatedConfSpace to add annotations like what RCs are pruned,
     //what their pairwise energies are, etc.  
     
-    public Molecule m;
+	private static final long serialVersionUID = 6414329117813457771L;
+
+	public Molecule m;
     //The molecule will be composed of residues. 
     //It will have one set of coordinates, which are stored in the residues to make mutation
     //and pairwise energy computation easy (no need for complicated partial arrays, subtracting off
@@ -194,6 +196,16 @@ public class ConfSpace implements Serializable {
         PDBFileWriter.writePDBFile(m, "STRUCT3.pdb");*/
     }
     
+    public ConfSpace(ConfSpace other) {
+    	// just make a shallow copy
+    	this.m = other.m;
+    	this.confDOFs = new ArrayList<>(other.confDOFs);
+    	this.mutDOFs = new ArrayList<>(other.mutDOFs);
+		this.posFlex = new ArrayList<>(other.posFlex);
+		this.flexibleRes = new ArrayList<>(other.flexibleRes);
+    	this.numPos = other.numPos;
+    	this.useEllipses = other.useEllipses;
+    }
     
     private ArrayList<BBFreeBlock> getBBFreeBlocks(ArrayList<String[]> freeBBZones, ArrayList<String> flexibleRes){
         //create a BFB for each (start res, end res) pair.  PDB residue numbers provided.  

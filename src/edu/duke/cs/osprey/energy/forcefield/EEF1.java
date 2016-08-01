@@ -162,9 +162,17 @@ public class EEF1 implements Serializable {
 	//		extended Param 19 (see Appendix B, Neria & Karplus, 1996) parameters for the solvation energy computation only;
 	//The groups in eef1 are based on the natural amino acids. Additional groups may have to be included, 
 	//		and the current groups may have to be modified if new non-natural amino acids or other
-	//		atom types or molecules (such as AMP or ATP) are included 
-	public boolean getSolvationParameters(Atom at1,double dGref[],double dGfree[],
-			double atVolume[],double lambda[], double vdWr[]){
+	//		atom types or molecules (such as AMP or ATP) are included
+	
+	public static class SolvParams {
+		public double dGref;
+		public double dGfree;
+		public double volume;
+		public double lambda;
+		public double radius;
+	}
+	
+	public boolean getSolvationParameters(Atom at1, SolvParams solvparams) {
 				
 		int solvGroupIndex = getSolvGroupIndex(at1);
 		
@@ -173,11 +181,11 @@ public class EEF1 implements Serializable {
 		if (solvGroupIndex==-1) //group not found
 			return false;
 		else {
-			dGref[0] = dGiRef[solvGroupIndex];
-			dGfree[0] = dGiFree[solvGroupIndex];
-			atVolume[0] = atEEF1Vol[solvGroupIndex];
-			lambda[0] = lambdai[solvGroupIndex];
-			vdWr[0] = vdWri[solvGroupIndex];
+			solvparams.dGref = dGiRef[solvGroupIndex];
+			solvparams.dGfree = dGiFree[solvGroupIndex];
+			solvparams.volume = atEEF1Vol[solvGroupIndex];
+			solvparams.lambda = lambdai[solvGroupIndex];
+			solvparams.radius = vdWri[solvGroupIndex];
 			
 			//System.out.println("           "+groupEEF1names[solvGroupIndex]);
 			

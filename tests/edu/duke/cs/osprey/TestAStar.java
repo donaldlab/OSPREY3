@@ -19,7 +19,6 @@ import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
-import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 
@@ -43,11 +42,9 @@ public class TestAStar extends TestBase {
 	}
 	
 	private void checkDagkRigid(ConfSearch tree, SearchProblem search) {
-		int[] conf = tree.nextConf();
-		double confEnergy = search.emat.getInternalEnergy(new RCTuple(conf));
-	
-		assertThat(confEnergy, isRelatively(-78.78903548260008));
-		assertThat(conf, is(new int[] { 0, 6, 7, 0, 16, 1, 0, 6 }));
+		ConfSearch.ScoredConf conf = tree.nextConf();
+		assertThat(conf.getScore(), isRelatively(-78.78903548260008));
+		assertThat(conf.getAssignments(), is(new int[] { 0, 6, 7, 0, 16, 1, 0, 6 }));
 	}
 	
 	@Test
@@ -235,11 +232,9 @@ public class TestAStar extends TestBase {
 	}
 	
 	private void checkDagkRigidInf(ConfSearch tree, SearchProblem search) {
-		int[] conf = tree.nextConf();
-		double confEnergy = search.emat.getInternalEnergy(new RCTuple(conf));
-		
-		assertThat(confEnergy, isRelatively(-73.662409496771));
-		assertThat(conf, is(new int[] { 0, 6, 7, 16, 16, 1, 2, 6 }));
+		ConfSearch.ScoredConf conf = tree.nextConf();
+		assertThat(conf.getScore(), isRelatively(-73.662409496771));
+		assertThat(conf.getAssignments(), is(new int[] { 0, 6, 7, 16, 16, 1, 2, 6 }));
 	}
 	
 	@Test
@@ -312,11 +307,9 @@ public class TestAStar extends TestBase {
 	}
 	
 	private void checkDagkContinuous(ConfSearch tree, SearchProblem search) {
-		int[] conf = tree.nextConf();
-		double confEnergy = search.emat.getInternalEnergy(new RCTuple(conf));
-	
-		assertThat(confEnergy, isRelatively(-84.85105599013883));
-		assertThat(conf, is(new int[] { 0, 0, 7, 16, 16, 1, 1, 17 }));
+		ConfSearch.ScoredConf conf = tree.nextConf();
+		assertThat(conf.getScore(), isRelatively(-84.85105599013883));
+		assertThat(conf.getAssignments(), is(new int[] { 0, 0, 7, 16, 16, 1, 1, 17 }));
 	}
 	
 	@Test
