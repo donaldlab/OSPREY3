@@ -514,6 +514,7 @@ public class GMECFinder {
         }
         
         // configure the pruner
+        pruningControl.setOnlyGoldstein(false);
         pruningControl.setPruningInterval(pruningInterval);
         pruningControl.setUseEPIC(useEPIC);
         pruningControl.setUseTupExp(useTupExp);
