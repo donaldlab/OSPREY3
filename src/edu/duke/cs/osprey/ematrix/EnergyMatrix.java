@@ -181,8 +181,13 @@ public class EnergyMatrix extends TupleMatrix<Double> {
      *
      * @param interactionGraph interaction graph that maps posI and posJ to true
      * if we should keep the pairwise energies between posI and posJ
+     * @param PGC: useStericE is a heuristic to disallow any rotamers that have an energy above stericE
+     *		from the bound computation. This heuristic assumes that these rotamers are never going to be used.
+     *		It is not a provable heuristic because if one of these rotamers is part of the best sequence, then 
+     *		the bound will not be sound. However, it is unlikely that a clashing rotamer will be part of the GMEC
+     *		in a real biophysical setting (of course, there is always minimization, but that is a different matter).
      */
-    public void updateMatrixCrossTerms(boolean[][] interactionGraph) {
+    public void updateMatrixCrossTerms(boolean[][] interactionGraph, boolean useStericE, double stericE) {
         int numPos = this.oneBody.size();
 
         int[] numRCsPerPos = new int[numPos];
@@ -193,7 +198,13 @@ public class EnergyMatrix extends TupleMatrix<Double> {
         for (int i = 0; i < numPos; i++) {
             //Set all one-body terms to "zero"
             for (int rot = 0; rot < numRCsPerPos[i]; rot++) {
-                this.setOneBody(i, rot, 0.0);
+            	// PGC 2016: Heuristic to disallow clashing rotamers.
+            	if(useStericE && this.getOneBody(i, rot) > stericE ){
+            		this.setOneBody(i, rot, 1000.0);
+            	}
+            	else{
+            		this.setOneBody(i, rot, 0.0);
+            	}
             }
 
             for (int j = 0; j < i; j++) {
@@ -202,8 +213,13 @@ public class EnergyMatrix extends TupleMatrix<Double> {
                 if (!interactionGraph[i][j]) {
                     for (int rcI = 0; rcI < numRCsPerPos[i]; rcI++) {
                         for (int rcJ = 0; rcJ < numRCsPerPos[j]; rcJ++) {
-                            //Set pairwise to "zero"
-                            this.setPairwise(i, rcI, j, rcJ, 0.0);
+                        	// Disallow rotamer pairs that clash. 
+                        	if(useStericE && this.getPairwise(i, rcI, j, rcJ) > stericE){
+                        		this.setPairwise(i, rcI, j, rcJ, 1000.0);        
+                        	}
+                        	else{//Set pairwise to "zero"
+                        		this.setPairwise(i, rcI, j, rcJ, 0.0);
+                        	}
                             //now we need to check if we should include higher-order terms
                             HigherTupleFinder<Double> htf = getHigherOrderTerms(i, rcI, j, rcJ);
                             if (htf != null) {
@@ -234,7 +250,8 @@ public class EnergyMatrix extends TupleMatrix<Double> {
             }
         }
     }
-
+    
+    
     public void addInternalEnergies(EnergyMatrix originalEmat, ArrayList<Integer> posToAddE) {
         for (int pos : posToAddE) {
             for (int rc = 0; rc < this.numRCsAtPos(pos); rc++) {
