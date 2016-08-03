@@ -91,9 +91,9 @@ public class BenchmarkForcefieldKernel extends TestBase {
 			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null
 		);
 		
-		benchmarkEfunc(search);
+		//benchmarkEfunc(search);
 		//benchmarkEmat(search);
-		//benchmarkMinimize(search);
+		benchmarkMinimize(search);
 	}
 	
 	private static void benchmarkEfunc(SearchProblem search)
@@ -276,6 +276,7 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		RCTuple tuple = new RCTuple(conf.getAssignments());
 		MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(efunc, confSpace, tuple);
 		new CCDMinimizer(mof, true).minimize();
+		//new SimpleCCDMinimizer(mof).minimize();
 		return efunc.getEnergy();
 	}
 }
