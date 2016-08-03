@@ -11,8 +11,16 @@ public class Gpu {
 	private CLCommandQueue queue;
 	
 	public Gpu(CLDevice device) {
+		this(device, false);
+	}
+	
+	public Gpu(CLDevice device, boolean useProfiling) {
 		this.device = device;
-		this.queue = device.createCommandQueue();
+		if (useProfiling) {
+			this.queue = device.createCommandQueue(CLCommandQueue.Mode.PROFILING_MODE);
+		} else {
+			this.queue = device.createCommandQueue();
+		}
 		
 		if (this.queue.isOutOfOrderModeEnabled()) {
 			throw new Error("GPU command queue should be strictly ordered... this is a bug");

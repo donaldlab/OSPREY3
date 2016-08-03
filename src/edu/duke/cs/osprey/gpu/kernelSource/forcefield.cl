@@ -51,9 +51,10 @@ kernel void calc(
 	// pos 2 is useHVdw
 	// packing the bools into one int saves registers too
 	
+	int i9 = get_global_id(0)*9;
+	
 	// start with zero energy
-	int locali = get_local_id(0);
-	scratch[locali] = 0;
+	double energy = 0;
 	
 	// which atom pair are we calculating?
 	if (get_global_id(0) < numPairs) {
@@ -87,10 +88,9 @@ kernel void calc(
 		if (bothHeavy || useHEs(flags)) {
 		
 			bool is14Pair = get_global_id(0) < num14Pairs;
-			int i9 = get_global_id(0)*9;
 			double charge = precomputed[i9 + 2];
 			
-			scratch[locali] += calcElectrostatics(
+			energy += calcElectrostatics(
 				is14Pair ? scaledCoulombFactor : coulombFactor,
 				useDistDepDielec(flags) ? r2 : sqrt(r2),
 				charge
@@ -102,7 +102,6 @@ kernel void calc(
 			
 			double Aij, Bij;
 			{
-				int i9 = get_global_id(0)*9;
 				Aij = precomputed[i9];
 				Bij = precomputed[i9 + 1];
 			}
@@ -110,27 +109,26 @@ kernel void calc(
 			// compute vdw
 			double r6 = r2*r2*r2;
 			double r12 = r6*r6;
-			scratch[locali] += Aij/r12 - Bij/r6;
+			energy += Aij/r12 - Bij/r6;
 		}
 		
 		// calculate solvation
 		if (bothHeavy && r2 < solvCutoff2) {
 				
-			int i9 = get_global_id(0)*9;
 			double r = sqrt(r2);
 			{
 				double lambda1 = precomputed[i9 + 3];
 				double radius1 = precomputed[i9 + 4];
 				double alpha1 = precomputed[i9 + 5];
 				double Xij = (r - radius1)/lambda1;
-				scratch[locali] -= alpha1*exp(-Xij*Xij)/r2;
+				energy -= alpha1*exp(-Xij*Xij)/r2;
 			}
 			{
 				double lambda2 = precomputed[i9 + 6];
 				double radius2 = precomputed[i9 + 7];
 				double alpha2 = precomputed[i9 + 8];
 				double Xji = (r - radius2)/lambda2;
-				scratch[locali] -= alpha2*exp(-Xji*Xji)/r2;
+				energy -= alpha2*exp(-Xji*Xji)/r2;
 			}
 		}
 	}
@@ -138,6 +136,9 @@ kernel void calc(
 	// compute the energy sum in SIMD-style
 	// see url for a tutorial on GPU reductions:
 	// http://developer.amd.com/resources/articles-whitepapers/opencl-optimization-case-study-simple-reductions/
+	
+	int locali = get_local_id(0);
+	scratch[locali] = energy;
 	
 	barrier(CLK_LOCAL_MEM_FENCE);
 	

@@ -27,15 +27,17 @@ public class Diagnostics {
 				System.out.println("\n\t" + device.getName());
 				System.out.println("\t\tprocessors (not cores):  " + device.getMaxComputeUnits());
 				System.out.println("\t\tclock speed:             " + device.getMaxClockFrequency() + " Mhz");
-				System.out.println("\t\tmemory:                  " + device.getGlobalMemSize()/1024/1024 + " MiB");
+				System.out.println("\t\tglobal memory:           " + device.getGlobalMemSize()/1024/1024 + " MiB");
+				System.out.println("\t\tlocal memory:            " + device.getLocalMemSize()/1024 + " KiB");
 				System.out.println("\t\tsamplers:                " + device.getMaxSamplers());
 				System.out.println("\t\t64-bit double support:   " + supportsDoubles(device));
+				System.out.println("\t\tMax workgroup size:      " + device.getMaxWorkGroupSize());
 			}
 		}
 		
 		// show the usable GPUs
 		System.out.println("\nGPUs usable by Osprey:");
-		Gpus gpus = new Gpus();
+		Gpus gpus = Gpus.get();
 		for (Gpu gpu : gpus.getGpus()) {
 			System.out.print("\t" + gpu);
 			if (gpus.getGpus().size() > 1 && gpu == gpus.getBestGpu()) {

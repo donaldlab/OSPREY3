@@ -5,6 +5,7 @@ import static org.junit.Assert.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
@@ -33,11 +34,17 @@ import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.Stopwatch;
+import edu.duke.cs.osprey.tools.TimeFormatter;
 
 public class BenchmarkForcefieldKernel extends TestBase {
 	
+	// NOTE: useful info for optimizing gpu kernels:
+	// http://www.nvidia.com/content/GTC/documents/1068_GTC09.pdf
+	
 	public static void main(String[] args)
 	throws Exception {
+		
+		Gpus.useProfiling = true;
 		
 		initDefaultEnvironment();
 		
@@ -86,9 +93,9 @@ public class BenchmarkForcefieldKernel extends TestBase {
 			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null
 		);
 		
-		//benchmarkEfunc(search);
+		benchmarkEfunc(search);
 		//benchmarkEmat(search);
-		benchmarkMinimize(search);
+		//benchmarkMinimize(search);
 	}
 	
 	private static void benchmarkEfunc(SearchProblem search)
@@ -130,22 +137,43 @@ public class BenchmarkForcefieldKernel extends TestBase {
 			efunc.getEnergy();
 		}
 		cpuStopwatch.stop();
-		System.out.println(" finished in " + cpuStopwatch.getTime(2));
+		System.out.println(String.format(" finished in %s, avg time per op: %s",
+			cpuStopwatch.getTime(2),
+			TimeFormatter.format(cpuStopwatch.getTimeNs()/numRuns, TimeUnit.MICROSECONDS)
+		));
 		
 		// benchmark the gpu
 		System.out.print("Benchmarking GPU...");
 		Stopwatch gpuStopwatch = new Stopwatch().start();
+		List<String> profiles = new ArrayList<>();
 		for (int i=0; i<numRuns; i++) {
+			
+			boolean isProfileRun = i == 0 || i == numRuns - 1;
+			if (isProfileRun) {
+				gpuefunc.startProfile();
+			}
+			
 			gpuefunc.getEnergy();
+			
+			if (isProfileRun) {
+				profiles.add(gpuefunc.dumpProfile());
+			}
 		}
 		gpuStopwatch.stop();
 		gpuefunc.cleanup();
-		System.out.println(String.format(" finished in %s, speedup: %.2fx, numPairs: %d, GPU mem used: %.2f MiB",
+		System.out.println(String.format(" finished in %s, avg time per op: %s, speedup: %.2fx, numPairs: %d, GPU mem used: %.2f MiB",
 			gpuStopwatch.getTime(2),
+			TimeFormatter.format(gpuStopwatch.getTimeNs()/numRuns, TimeUnit.MICROSECONDS),
 			(double)cpuStopwatch.getTimeNs()/gpuStopwatch.getTimeNs(),
 			gpuefunc.getForcefieldEnergy().getNumAtomPairs(),
 			(double)gpuefunc.getGpuBytesNeeded()/1024/1024
-		)); 
+		));
+		if (!profiles.isEmpty()) {
+			System.out.println("GPU profiling info:");
+			for (int i=0; i<profiles.size(); i++) {
+				System.out.print(String.format("%s run:\n\t%s\n", i == 0 ? "first" : "last", profiles.get(i).replace("\n", "\n\t").trim()));
+			}
+		}
 	}
 	
 	private static void benchmarkEmat(SearchProblem search)

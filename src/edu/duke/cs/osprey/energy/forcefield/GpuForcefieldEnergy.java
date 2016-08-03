@@ -2,9 +2,15 @@ package edu.duke.cs.osprey.energy.forcefield;
 
 import java.io.IOException;
 import java.nio.DoubleBuffer;
+import java.util.concurrent.TimeUnit;
+
+import com.jogamp.opencl.CLEvent;
+import com.jogamp.opencl.CLEvent.ProfilingCommand;
+import com.jogamp.opencl.CLEventList;
 
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.gpu.kernels.ForceFieldKernel;
+import edu.duke.cs.osprey.tools.TimeFormatter;
 
 public class GpuForcefieldEnergy implements EnergyFunction {
 	
@@ -34,6 +40,26 @@ public class GpuForcefieldEnergy implements EnergyFunction {
 		kernel.setForcefield(ffenergy);
 		kernel.uploadStaticAsync();
 		kernel.waitForGpu();
+	}
+	
+	public void startProfile() {
+		kernel.initProfilingEvents();
+	}
+	
+	public String dumpProfile() {
+		StringBuilder buf = new StringBuilder();
+		CLEventList events = kernel.getProfilingEvents();
+		for (CLEvent event : events) {
+			long startNs = event.getProfilingInfo(ProfilingCommand.START);
+			long endNs = event.getProfilingInfo(ProfilingCommand.END);
+			buf.append(String.format(
+				"%s %s\n",
+				event.getType(),
+				TimeFormatter.format(endNs - startNs, TimeUnit.MICROSECONDS)
+			));
+		}
+		kernel.clearProfilingEvents();
+		return buf.toString();
 	}
 	
 	@Override

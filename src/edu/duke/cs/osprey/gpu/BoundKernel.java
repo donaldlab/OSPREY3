@@ -4,16 +4,22 @@ import java.nio.Buffer;
 import java.nio.DoubleBuffer;
 
 import com.jogamp.opencl.CLBuffer;
+import com.jogamp.opencl.CLCommandQueue;
+import com.jogamp.opencl.CLEventList;
 import com.jogamp.opencl.CLMemory;
 
 public abstract class BoundKernel<T extends BoundKernel<T>> {
 	
+	public static final int EventListSize = 128;
+	
 	private Kernel<T> kernel;
 	private Gpu gpu;
+	private CLEventList events;
 	
 	public BoundKernel(Kernel<T> kernel, Gpu gpu) {
 		this.kernel = kernel;
 		this.gpu = gpu;
+		this.events = null;
 	}
 	
 	public Kernel<T> getKernel() {
@@ -56,14 +62,32 @@ public abstract class BoundKernel<T extends BoundKernel<T>> {
 	}
 	
 	protected void uploadBufferAsync(CLBuffer<?> buf) {
-		gpu.getQueue().putWriteBuffer(buf, false);
+		gpu.getQueue().putWriteBuffer(buf, false, events);
 	}
 	
 	protected void runAsync(int workSize, int groupSize) {
-		gpu.getQueue().put1DRangeKernel(kernel.getCLKernel(), 0, workSize, groupSize);
+		gpu.getQueue().put1DRangeKernel(kernel.getCLKernel(), 0, workSize, groupSize, events);
 	}
 	
 	protected void downloadBufferSync(CLBuffer<?> buf) {
-		gpu.getQueue().putReadBuffer(buf, true);
+		gpu.getQueue().putReadBuffer(buf, true, events);
+	}
+	
+	public void initProfilingEvents() {
+		
+		// just in case...
+		if (!gpu.getDevice().getQueueProperties().contains(CLCommandQueue.Mode.PROFILING_MODE)) {
+			throw new IllegalStateException("profiling not enabled for this device. set Gpus.useProfiling = true before calling Gpus.get()");
+		}
+		
+		events = new CLEventList(EventListSize);
+	}
+	
+	public CLEventList getProfilingEvents() {
+		return events;
+	}
+	
+	public void clearProfilingEvents() {
+		events = null;
 	}
 }
