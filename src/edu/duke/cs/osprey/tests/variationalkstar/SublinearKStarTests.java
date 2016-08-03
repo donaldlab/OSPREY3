@@ -46,5 +46,4 @@ public class SublinearKStarTests {
             System.out.println("Sublinear KStar took: "+Stopwatch.getTime(TimeUnit.MILLISECONDS));
         }
     }
-    
 }

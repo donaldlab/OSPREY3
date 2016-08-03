@@ -1,28 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="fd8fb59b-e5d0-4577-993f-b30d4c7b3722" name="Default" comment="">
-<<<<<<< HEAD
+    <list default="true" id="9134291a-d742-433f-b18e-ecb37e745102" name="Default" comment="">
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/astar/kadee/KaDEETree.class" afterPath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/astar/kadee/KaDEETree.class" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/astar/seqkstar/SublinearKStarTree.class" afterPath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/astar/seqkstar/SublinearKStarTree.class" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/confspace/PositionConfSpace.class" afterPath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/confspace/PositionConfSpace.class" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/confspace/SearchProblem.class" afterPath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/confspace/SearchProblem.class" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/control/SublinearKStarDoer.class" afterPath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/control/SublinearKStarDoer.class" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/ematrix/EnergyMatrix.class" afterPath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/ematrix/EnergyMatrix.class" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/tests/variationalkstar/SublinearKStarTests.class" afterPath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/tests/variationalkstar/SublinearKStarTests.class" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/test/VariationalKStar/SublinearKStar/4HEM/Smaller/4HEM_Bound.EMAT.dat" afterPath="$PROJECT_DIR$/test/VariationalKStar/SublinearKStar/4HEM/Smaller/4HEM_Bound.EMAT.dat" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/PositionConfSpace.java" afterPath="$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/PositionConfSpace.java" />
-=======
-      <change type="DELETED" beforePath="$PROJECT_DIR$/test/VariationalKStar/SCMF/!" afterPath="" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/test/VariationalKStar/SCMF/4HEM.EMAT.dat" afterPath="$PROJECT_DIR$/test/VariationalKStar/SCMF/4HEM.EMAT.dat" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/test/VariationalKStar/TRBP/4HEM.EMAT.dat" afterPath="$PROJECT_DIR$/test/VariationalKStar/TRBP/4HEM.EMAT.dat" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/ConfSpace.java" afterPath="$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/ConfSpace.java" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/PositionConfSpace.java" afterPath="$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/PositionConfSpace.java" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/edu/duke/cs/osprey/dof/ResidueTypeDOF.java" afterPath="$PROJECT_DIR$/src/edu/duke/cs/osprey/dof/ResidueTypeDOF.java" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/edu/duke/cs/osprey/minimization/MolecEObjFunction.java" afterPath="$PROJECT_DIR$/src/edu/duke/cs/osprey/minimization/MolecEObjFunction.java" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/edu/duke/cs/osprey/partitionfunctionbounds/SCMF_Clamp.java" afterPath="$PROJECT_DIR$/src/edu/duke/cs/osprey/partitionfunctionbounds/SCMF_Clamp.java" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/edu/duke/cs/osprey/partitionfunctionbounds/TRBP.java" afterPath="$PROJECT_DIR$/src/edu/duke/cs/osprey/partitionfunctionbounds/TRBP.java" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/ResidueTemplate.java" afterPath="$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/ResidueTemplate.java" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/edu/duke/cs/osprey/tests/variationalkstar/SCMFTests.java" afterPath="$PROJECT_DIR$/src/edu/duke/cs/osprey/tests/variationalkstar/SCMFTests.java" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/test/VariationalKStar/SCMF/DEE.cfg" afterPath="$PROJECT_DIR$/test/VariationalKStar/SCMF/DEE.cfg" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/test/VariationalKStar/SCMF/KStar.cfg" afterPath="$PROJECT_DIR$/test/VariationalKStar/SCMF/KStar.cfg" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/test/VariationalKStar/SCMF/run.sh" afterPath="$PROJECT_DIR$/test/VariationalKStar/SCMF/run.sh" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/test/VariationalKStar/TRBP/KStar.cfg" afterPath="$PROJECT_DIR$/test/VariationalKStar/TRBP/KStar.cfg" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/test/VariationalKStar/TRBP/run.sh" afterPath="$PROJECT_DIR$/test/VariationalKStar/TRBP/run.sh" />
->>>>>>> 7c34221e92357f32a792b845f1d772afccb15f4c
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/edu/duke/cs/osprey/tests/variationalkstar/SublinearKStarTests.java" afterPath="$PROJECT_DIR$/src/edu/duke/cs/osprey/tests/variationalkstar/SublinearKStarTests.java" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/test/VariationalKStar/SublinearKStar/4HEM/Smaller/KStar.cfg" afterPath="$PROJECT_DIR$/test/VariationalKStar/SublinearKStar/4HEM/Smaller/KStar.cfg" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/test/VariationalKStar/SublinearKStar/4HEM/Smaller/run.sh" afterPath="$PROJECT_DIR$/test/VariationalKStar/SublinearKStar/4HEM/Smaller/run.sh" />
     </list>
     <ignored path="OSPREY_refactor.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -44,57 +36,70 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file leaf-file-name="EnergyMatrixCalculator.java" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/ematrix/EnergyMatrixCalculator.java">
+      <file leaf-file-name="SublinearKStarTree.java" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/astar/seqkstar/SublinearKStarTree.java">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1845">
-              <caret line="136" column="67" selection-start-line="136" selection-start-column="67" selection-end-line="136" selection-end-column="67" />
+            <state relative-caret-position="995">
+              <caret line="224" column="19" selection-start-line="224" selection-start-column="19" selection-end-line="224" selection-end-column="19" />
+              <folding>
+                <element signature="e#0#37455#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="SublinearKStarTests.java" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/tests/variationalkstar/SublinearKStarTests.java">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="525">
+              <caret line="41" column="16" selection-start-line="41" selection-start-column="16" selection-end-line="41" selection-end-column="16" />
+              <folding>
+                <element signature="e#0#1709#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="DataAnalysisSublinearKStar.java" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/dataAnalysis/sublinearkstar/DataAnalysisSublinearKStar.java">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="150">
+              <caret line="75" column="31" selection-start-line="75" selection-start-column="30" selection-end-line="75" selection-end-column="31" />
               <folding />
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="MolecEObjFunction.java" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/minimization/MolecEObjFunction.java">
+      <file leaf-file-name="TRBP.java" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/partitionfunctionbounds/TRBP.java">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="810">
-              <caret line="77" column="74" selection-start-line="77" selection-start-column="74" selection-end-line="77" selection-end-column="74" />
+            <state relative-caret-position="375">
+              <caret line="69" column="41" selection-start-line="69" selection-start-column="41" selection-end-line="69" selection-end-column="41" />
               <folding />
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="ResidueTypeDOF.java" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/dof/ResidueTypeDOF.java">
+      <file leaf-file-name="EnergyMatrix.java" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/ematrix/EnergyMatrix.java">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1980">
-              <caret line="147" column="0" selection-start-line="147" selection-start-column="0" selection-end-line="147" selection-end-column="0" />
-              <folding />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="PositionConfSpace.java" pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/PositionConfSpace.java">
-          <provider selected="true" editor-type-id="text-editor">
-<<<<<<< HEAD
-            <state relative-caret-position="555">
-              <caret line="96" column="0" selection-start-line="96" selection-start-column="0" selection-end-line="96" selection-end-column="0" />
-=======
-            <state relative-caret-position="480">
-              <caret line="83" column="61" selection-start-line="83" selection-start-column="61" selection-end-line="83" selection-end-column="61" />
->>>>>>> 7c34221e92357f32a792b845f1d772afccb15f4c
-              <folding />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="Main.java" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/control/Main.java">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="267">
-              <caret line="69" column="64" selection-start-line="69" selection-start-column="64" selection-end-line="69" selection-end-column="64" />
-              <folding />
+            <state relative-caret-position="2640">
+              <caret line="197" column="39" selection-start-line="197" selection-start-column="39" selection-end-line="197" selection-end-column="39" />
+              <folding>
+                <element signature="e#0#13410#0" expanded="false" />
+                <element signature="imports" expanded="false" />
+                <element signature="e#1279#1280#0" expanded="false" />
+                <element signature="e#1308#1309#0" expanded="false" />
+                <element signature="e#1340#1341#0" expanded="false" />
+                <element signature="e#1365#1366#0" expanded="false" />
+                <element signature="e#4452#4453#0" expanded="false" />
+                <element signature="e#4484#4485#0" expanded="false" />
+                <element signature="e#4534#4535#0" expanded="false" />
+                <element signature="e#4576#4577#0" expanded="false" />
+                <element signature="e#5437#5438#0" expanded="false" />
+                <element signature="e#5467#5468#0" expanded="false" />
+                <marker date="1470228775000" expanded="true" signature="6162:6556" ph="/**...*/" />
+              </folding>
             </state>
           </provider>
         </entry>
@@ -103,11 +108,6 @@
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
-    <option name="RECENT_BRANCH_BY_REPOSITORY">
-      <map>
-        <entry key="$PROJECT_DIR$" value="master" />
-      </map>
-    </option>
   </component>
   <component name="GradleLocalSettings">
     <option name="externalProjectsViewState">
@@ -117,194 +117,17 @@
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
       <list>
-        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/astar/partfunc/PartFuncTree.java" />
-        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/control/EnergyCalculator.java" />
-        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/astar/comets/COMETSNode.java" />
-        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/astar/AStarTree.java" />
-        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/control/ConfigFileParser.java" />
-        <option value="$PROJECT_DIR$/tests/edu/duke/cs/osprey/TestAmberEnergy.java" />
-        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/structure/Residue.java" />
-        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/RC.java" />
-        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/TupleEnumerator.java" />
-        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/SuperRC.java" />
-        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/HigherTupleFinder.java" />
-        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/TupleMatrix.java" />
-        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/ematrix/EnergyMatrix.java" />
-        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/pruning/PruningMatrix.java" />
-        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/tupexp/ConfETupleExpander.java" />
-        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/ConfSpace.java" />
+        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/astar/seqkstar/SublinearKStarTree.java" />
+        <option value="$PROJECT_DIR$/.idea/workspace.xml" />
+        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/tests/variationalkstar/SublinearKStarTests.java" />
+        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/dataAnalysis/sublinearkstar/DataAnalysisSublinearKStar.java" />
         <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/partitionfunctionbounds/TRBP.java" />
-        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/ResidueTemplate.java" />
-        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/partitionfunctionbounds/SCMF_Clamp.java" />
-        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/tests/variationalkstar/SCMFTests.java" />
-        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/energy/forcefield/SingleResEnergy.java" />
-        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/dof/ResidueTypeDOF.java" />
-        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/minimization/MolecEObjFunction.java" />
-        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/PositionConfSpace.java" />
       </list>
     </option>
   </component>
-  <component name="MavenImportPreferences">
-    <option name="generalSettings">
-      <MavenGeneralSettings>
-        <option name="mavenHome" value="Bundled (Maven 3)" />
-      </MavenGeneralSettings>
-    </option>
-  </component>
   <component name="ProjectFrameBounds">
-    <option name="x" value="4" />
-    <option name="y" value="23" />
-    <option name="width" value="1276" />
-    <option name="height" value="777" />
-  </component>
-  <component name="ProjectInspectionProfilesVisibleTreeState">
-    <entry key="Project Default">
-      <profile-state>
-        <expanded-state>
-          <State>
-            <id />
-          </State>
-          <State>
-            <id>Abstraction issuesJava</id>
-          </State>
-          <State>
-            <id>Android</id>
-          </State>
-          <State>
-            <id>Android Lint</id>
-          </State>
-          <State>
-            <id>Assignment issuesJava</id>
-          </State>
-          <State>
-            <id>Class metricsJava</id>
-          </State>
-          <State>
-            <id>Class structureJava</id>
-          </State>
-          <State>
-            <id>Cloning issuesJava</id>
-          </State>
-          <State>
-            <id>Code maturity issuesJava</id>
-          </State>
-          <State>
-            <id>Code style issuesJava</id>
-          </State>
-          <State>
-            <id>Control FlowGroovy</id>
-          </State>
-          <State>
-            <id>Control flow issuesJava</id>
-          </State>
-          <State>
-            <id>Data flow issuesJava</id>
-          </State>
-          <State>
-            <id>Declaration redundancyJava</id>
-          </State>
-          <State>
-            <id>Encapsulation issuesJava</id>
-          </State>
-          <State>
-            <id>Error handlingJava</id>
-          </State>
-          <State>
-            <id>Finalization issuesJava</id>
-          </State>
-          <State>
-            <id>GPath inspectionsGroovy</id>
-          </State>
-          <State>
-            <id>GeneralJava</id>
-          </State>
-          <State>
-            <id>Groovy</id>
-          </State>
-          <State>
-            <id>Inheritance issuesJava</id>
-          </State>
-          <State>
-            <id>Initialization issuesJava</id>
-          </State>
-          <State>
-            <id>Internationalization issuesJava</id>
-          </State>
-          <State>
-            <id>J2ME issuesJava</id>
-          </State>
-          <State>
-            <id>JUnit issuesJava</id>
-          </State>
-          <State>
-            <id>Java</id>
-          </State>
-          <State>
-            <id>Java language level migration aidsJava</id>
-          </State>
-          <State>
-            <id>JavaBeans issuesJava</id>
-          </State>
-          <State>
-            <id>Kotlin</id>
-          </State>
-          <State>
-            <id>Logging issuesJava</id>
-          </State>
-          <State>
-            <id>Memory issuesJava</id>
-          </State>
-          <State>
-            <id>Naming conventionsJava</id>
-          </State>
-          <State>
-            <id>Numeric issuesJava</id>
-          </State>
-          <State>
-            <id>Performance issuesJava</id>
-          </State>
-          <State>
-            <id>Plugin DevKit</id>
-          </State>
-          <State>
-            <id>Portability issuesJava</id>
-          </State>
-          <State>
-            <id>Probable bugsGroovy</id>
-          </State>
-          <State>
-            <id>Probable bugsJava</id>
-          </State>
-          <State>
-            <id>Resource management issuesJava</id>
-          </State>
-          <State>
-            <id>Security issuesJava</id>
-          </State>
-          <State>
-            <id>Serialization issuesJava</id>
-          </State>
-          <State>
-            <id>StyleGroovy</id>
-          </State>
-          <State>
-            <id>TestNGJava</id>
-          </State>
-          <State>
-            <id>Threading issuesGroovy</id>
-          </State>
-          <State>
-            <id>Threading issuesJava</id>
-          </State>
-          <State>
-            <id>Verbose or redundant code constructsJava</id>
-          </State>
-          <State>
-            <id>Visibility issuesJava</id>
-          </State>
-        </expanded-state>
-      </profile-state>
-    </entry>
+    <option name="width" value="1280" />
+    <option name="height" value="800" />
   </component>
   <component name="ProjectLevelVcsManager" settingsEditedManually="false">
     <OptionsSetting value="true" id="Add" />
@@ -317,7 +140,7 @@
     <ConfirmationsSetting value="0" id="Remove" />
   </component>
   <component name="ProjectView">
-    <navigator currentView="ProjectPane" proportions="" version="1">
+    <navigator proportions="" version="1">
       <flattenPackages />
       <showMembers />
       <showModules />
@@ -330,72 +153,17 @@
       <manualOrder />
       <foldersAlwaysOnTop value="true" />
     </navigator>
-    <panes>
-      <pane id="Scratches" />
-      <pane id="PackagesPane" />
-      <pane id="Scope" />
-      <pane id="ProjectPane">
-        <subPane />
-      </pane>
-    </panes>
+    <panes />
   </component>
   <component name="PropertiesComponent">
-    <property name="FileHistory.git4idea.history.GitHistoryProvider_flatWidth0" value="91" />
-    <property name="FileHistory.git4idea.history.GitHistoryProvider_flatOrder0" value="0" />
-    <property name="FileHistory.git4idea.history.GitHistoryProvider_flatWidth1" value="140" />
-    <property name="FileHistory.git4idea.history.GitHistoryProvider_flatOrder1" value="1" />
-    <property name="FileHistory.git4idea.history.GitHistoryProvider_flatWidth2" value="110" />
-    <property name="FileHistory.git4idea.history.GitHistoryProvider_flatOrder2" value="2" />
-    <property name="FileHistory.git4idea.history.GitHistoryProvider_flatWidth3" value="885" />
-    <property name="FileHistory.git4idea.history.GitHistoryProvider_flatOrder3" value="3" />
-    <property name="FileHistory.git4idea.history.GitHistoryProvider_treeWidth0" value="205" />
-    <property name="FileHistory.git4idea.history.GitHistoryProvider_treeOrder0" value="0" />
-    <property name="FileHistory.git4idea.history.GitHistoryProvider_treeWidth1" value="205" />
-    <property name="FileHistory.git4idea.history.GitHistoryProvider_treeOrder1" value="1" />
-    <property name="FileHistory.git4idea.history.GitHistoryProvider_treeWidth2" value="207" />
-    <property name="FileHistory.git4idea.history.GitHistoryProvider_treeOrder2" value="2" />
-    <property name="FileHistory.git4idea.history.GitHistoryProvider_treeWidth3" value="609" />
-    <property name="FileHistory.git4idea.history.GitHistoryProvider_treeOrder3" value="3" />
-    <property name="settings.editor.selected.configurable" value="preferences.keymap" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/lib/xml-apis-1.0.b2.jar!/" />
+    <property name="FullScreen" value="true" />
+    <property name="project.structure.last.edited" value="Project" />
+    <property name="project.structure.proportion" value="0.0" />
+    <property name="project.structure.side.proportion" value="0.0" />
+    <property name="settings.editor.selected.configurable" value="preferences.lookFeel" />
     <property name="settings.editor.splitter.proportion" value="0.2" />
-    <property name="GenerateAntBuildDialog.enableUiFormCompile" value="true" />
-    <property name="GenerateAntBuildDialog.forceTargetJdk" value="true" />
-    <property name="GenerateAntBuildDialog.backupFiles" value="true" />
-    <property name="GenerateAntBuildDialog.outputFileNameProperty" value="osprey_refactor" />
-    <property name="full.screen.before.presentation.mode" value="false" />
-    <property name="project.structure.last.edited" value="Libraries" />
-    <property name="project.structure.proportion" value="0.15" />
-    <property name="project.structure.side.proportion" value="0.2" />
-    <property name="SearchEverywhereHistoryKey" value="wtrot&#9;PSI&#9;JAVA://edu.duke.cs.osprey.TestBase.EnergyMatrixConfig#addWtRots&#10;rotamer&#9;PSI&#9;JAVA://edu.duke.cs.osprey.restypes.RotamerLibraryReader.BBDepRotamersForType#addNewRotamer&#10;WTRots&#9;PSI&#9;JAVA://edu.duke.cs.osprey.TestBase.EnergyMatrixConfig#addWtRots&#10;ter&#9;ACTION&#9;ActivateTerminalToolWindow&#10;Pruner&#9;FILE&#9;file:///Users/hunternisonoff/Projects/DonaldLab/Osprey/OSPREY_refactor/src/edu/duke/cs/osprey/pruning/Pruner.java" />
   </component>
-  <component name="RunManager" selected="Application.SCMF_Test">
-    <configuration default="false" name="TestAmberEnergy" type="JUnit" factoryName="JUnit" temporary="true" nameIsGenerated="true">
-      <extension name="coverage" enabled="false" merge="false" sample_coverage="true" runner="idea">
-        <pattern>
-          <option name="PATTERN" value="edu.duke.cs.osprey.*" />
-          <option name="ENABLED" value="true" />
-        </pattern>
-      </extension>
-      <module name="OSPREY_refactor" />
-      <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="false" />
-      <option name="ALTERNATIVE_JRE_PATH" />
-      <option name="PACKAGE_NAME" value="edu.duke.cs.osprey" />
-      <option name="MAIN_CLASS_NAME" value="edu.duke.cs.osprey.TestAmberEnergy" />
-      <option name="METHOD_NAME" value="" />
-      <option name="TEST_OBJECT" value="class" />
-      <option name="VM_PARAMETERS" value="-ea" />
-      <option name="PARAMETERS" value="" />
-      <option name="WORKING_DIRECTORY" value="file://$MODULE_DIR$" />
-      <option name="ENV_VARIABLES" />
-      <option name="PASS_PARENT_ENVS" value="true" />
-      <option name="TEST_SEARCH_SCOPE">
-        <value defaultName="singleModule" />
-      </option>
-      <envs />
-      <patterns />
-      <method />
-    </configuration>
+  <component name="RunManager" selected="Application.Sublinear KStar Tests">
     <configuration default="true" type="#org.jetbrains.idea.devkit.run.PluginConfigurationType" factoryName="Plugin">
       <module name="" />
       <option name="VM_PARAMETERS" value="-Xmx512m -Xms256m -XX:MaxPermSize=250m -ea" />
@@ -675,12 +443,12 @@
       <envs />
       <method />
     </configuration>
-    <configuration default="false" name="SCMF_Test" type="Application" factoryName="Application">
+    <configuration default="false" name="Sublinear KStar Tests" type="Application" factoryName="Application">
       <extension name="coverage" enabled="false" merge="false" sample_coverage="true" runner="idea" />
-      <option name="MAIN_CLASS_NAME" value="edu.duke.cs.osprey.tests.variationalkstar.SCMFTests" />
+      <option name="MAIN_CLASS_NAME" value="edu.duke.cs.osprey.dataAnalysis.sublinearkstar.DataAnalysisSublinearKStar" />
       <option name="VM_PARAMETERS" value="" />
-      <option name="PROGRAM_PARAMETERS" value="-c KStar.cfg noCommand DEE.cfg System.cfg" />
-      <option name="WORKING_DIRECTORY" value="file://$PROJECT_DIR$/test/VariationalKStar/SCMF" />
+      <option name="PROGRAM_PARAMETERS" value="" />
+      <option name="WORKING_DIRECTORY" value="file://$PROJECT_DIR$" />
       <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="false" />
       <option name="ALTERNATIVE_JRE_PATH" />
       <option name="ENABLE_SWING_INSPECTOR" value="false" />
@@ -690,15 +458,9 @@
       <envs />
       <method />
     </configuration>
-    <list size="2">
-      <item index="0" class="java.lang.String" itemvalue="Application.SCMF_Test" />
-      <item index="1" class="java.lang.String" itemvalue="JUnit.TestAmberEnergy" />
+    <list size="1">
+      <item index="0" class="java.lang.String" itemvalue="Application.Sublinear KStar Tests" />
     </list>
-    <recent_temporary>
-      <list size="1">
-        <item index="0" class="java.lang.String" itemvalue="JUnit.TestAmberEnergy" />
-      </list>
-    </recent_temporary>
   </component>
   <component name="SbtLocalSettings">
     <option name="externalProjectsViewState">
@@ -713,62 +475,42 @@
   </component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
-      <changelist id="fd8fb59b-e5d0-4577-993f-b30d4c7b3722" name="Default" comment="" />
-      <created>1467164956337</created>
+      <changelist id="9134291a-d742-433f-b18e-ecb37e745102" name="Default" comment="" />
+      <created>1470187763823</created>
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
-      <updated>1467164956337</updated>
+      <updated>1470187763823</updated>
     </task>
-    <task id="LOCAL-00001" summary="Merged ResidueTemplate &#10;">
-      <created>1467493594936</created>
-      <option name="number" value="00001" />
-      <option name="presentableId" value="LOCAL-00001" />
-      <option name="project" value="LOCAL" />
-      <updated>1467493594936</updated>
-    </task>
-    <task id="LOCAL-00002" summary="Deleted Super RC References">
-      <created>1467494545367</created>
-      <option name="number" value="00002" />
-      <option name="presentableId" value="LOCAL-00002" />
-      <option name="project" value="LOCAL" />
-      <updated>1467494545368</updated>
-    </task>
-    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
-  <component name="TestHistory">
-    <history-entry file="TestAmberEnergy - 2016.06.30 at 21h 51m 07s.xml">
-      <configuration name="TestAmberEnergy" configurationId="JUnit" />
-    </history-entry>
-  </component>
   <component name="ToolWindowManager">
-    <frame x="4" y="23" width="1276" height="777" extended-state="6" />
+    <frame x="0" y="0" width="1280" height="800" extended-state="0" />
     <editor active="true" />
     <layout>
-      <window_info id="Palette" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
-      <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="9" side_tool="false" content_ui="tabs" />
-      <window_info id="Palette&#9;" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
-      <window_info id="Capture Analysis" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
-      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.20958084" sideWeight="0.50318474" order="2" side_tool="true" content_ui="tabs" />
-      <window_info id="Maven Projects" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
-      <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.21856287" sideWeight="0.49479166" order="5" side_tool="false" content_ui="tabs" />
-      <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.20958084" sideWeight="0.4968153" order="6" side_tool="false" content_ui="tabs" />
+      <window_info id="Palette" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
+      <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
+      <window_info id="Messages" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32913843" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
+      <window_info id="Palette&#9;" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
+      <window_info id="Capture Analysis" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
+      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="true" content_ui="tabs" />
+      <window_info id="Maven Projects" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
+      <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
+      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.45152724" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
+      <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Capture Tool" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Designer" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
-      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.2057903" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
-      <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.32934928" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
+      <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.375" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Ant Build" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
-      <window_info id="UI Designer" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
-      <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="4" side_tool="true" content_ui="tabs" />
-      <window_info id="Cvs" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="10" side_tool="false" content_ui="tabs" />
-      <window_info id="Messages" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32062146" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
-      <window_info id="Message" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
-      <window_info id="Commander" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
-      <window_info id="Inspection" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.39979756" sideWeight="0.49791667" order="8" side_tool="false" content_ui="tabs" />
-      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.47740114" sideWeight="0.49479166" order="4" side_tool="false" content_ui="tabs" />
-      <window_info id="Hierarchy" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.24960877" sideWeight="0.5" order="6" side_tool="false" content_ui="combo" />
-      <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32784432" sideWeight="0.4936306" order="1" side_tool="false" content_ui="tabs" />
-      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.3997175" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
+      <window_info id="UI Designer" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
+      <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="true" content_ui="tabs" />
+      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
+      <window_info id="Cvs" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
+      <window_info id="Message" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
+      <window_info id="Commander" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
+      <window_info id="Inspection" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
+      <window_info id="Hierarchy" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="2" side_tool="false" content_ui="combo" />
     </layout>
   </component>
   <component name="Vcs.Log.UiProperties">
@@ -782,23 +524,8 @@
   <component name="VcsContentAnnotationSettings">
     <option name="myLimit" value="2678400000" />
   </component>
-  <component name="VcsManagerConfiguration">
-    <MESSAGE value="Merged ResidueTemplate &#10;" />
-    <MESSAGE value="Deleted Super RC References" />
-    <option name="LAST_COMMIT_MESSAGE" value="Deleted Super RC References" />
-  </component>
   <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" type="java-line">
-          <url>file://$PROJECT_DIR$/src/edu/duke/cs/osprey/ematrix/EnergyMatrixCalculator.java</url>
-          <line>195</line>
-          <properties />
-          <option name="timeStamp" value="11" />
-        </line-breakpoint>
-      </breakpoints>
-      <option name="time" value="14" />
-    </breakpoint-manager>
+    <breakpoint-manager />
     <watches-manager />
   </component>
   <component name="antWorkspaceConfiguration">
@@ -806,324 +533,77 @@
     <option name="FILTER_TARGETS" value="false" />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/astar/comets/COMETSNode.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="450">
-          <caret line="73" column="23" selection-start-line="73" selection-start-column="23" selection-end-line="73" selection-end-column="23" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/astar/comets/LME.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="165">
-          <caret line="16" column="13" selection-start-line="16" selection-start-column="13" selection-end-line="16" selection-end-column="13" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/astar/AStarTree.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="98">
-          <caret line="78" column="30" selection-start-line="78" selection-start-column="30" selection-end-line="78" selection-end-column="30" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/control/ParamSet.java">
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/astar/seqkstar/SublinearKStarTree.java">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/control/ConfigFileParser.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="278">
-          <caret line="253" column="77" selection-start-line="253" selection-start-column="77" selection-end-line="253" selection-end-column="77" />
           <folding>
-            <element signature="e#0#32043#0" expanded="true" />
+            <element signature="e#0#37455#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/PositionSpecificRotamerLibrary.java">
+    <entry file="file://$PROJECT_DIR$/.idea/workspace.xml">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="143">
-          <caret line="30" column="23" selection-start-line="30" selection-start-column="23" selection-end-line="30" selection-end-column="23" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/tests/edu/duke/cs/osprey/mplp/TestMessageVars.java" />
-    <entry file="file://$PROJECT_DIR$/tests/edu/duke/cs/osprey/TestAStar.java" />
-    <entry file="file://$PROJECT_DIR$/tests/edu/duke/cs/osprey/TestAmberEnergy.java" />
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/pruning/Pruner.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="345">
-          <caret line="36" column="71" selection-start-line="36" selection-start-column="71" selection-end-line="36" selection-end-column="71" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/tests/edu/duke/cs/osprey/TestBase.java" />
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/structure/Molecule.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="196">
-          <caret line="31" column="34" selection-start-line="31" selection-start-column="26" selection-end-line="31" selection-end-column="34" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/HardCodedResidueInfo.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="166">
-          <caret line="180" column="23" selection-start-line="180" selection-start-column="23" selection-end-line="180" selection-end-column="23" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/structure/Atom.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="180">
-          <caret line="24" column="13" selection-start-line="24" selection-start-column="13" selection-end-line="24" selection-end-column="13" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/tests/ConfSpaceTests.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="166">
-          <caret line="34" column="23" selection-start-line="34" selection-start-column="23" selection-end-line="34" selection-end-column="23" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/SearchProblem.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="166">
-          <caret line="97" column="30" selection-start-line="97" selection-start-column="30" selection-end-line="97" selection-end-column="30" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/minimization/CCDMinimizer.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="271">
-          <caret line="148" column="20" selection-start-line="148" selection-start-column="20" selection-end-line="148" selection-end-column="20" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/minimization/Minimizer.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="225">
-          <caret line="18" column="1" selection-start-line="18" selection-start-column="1" selection-end-line="18" selection-end-column="1" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/ResTemplateMatching.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="376">
-          <caret line="209" column="39" selection-start-line="209" selection-start-column="33" selection-end-line="209" selection-end-column="39" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/structure/PDBFileReader.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="151">
-          <caret line="167" column="45" selection-start-line="184" selection-start-column="29" selection-end-line="184" selection-end-column="46" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/tools/Protractor.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="198">
-          <caret line="66" column="0" selection-start-line="66" selection-start-column="0" selection-end-line="66" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/control/EnergyCalculator.java" />
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/astar/comets/COMETSTree.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1670">
-          <caret line="160" column="79" selection-start-line="160" selection-start-column="79" selection-end-line="160" selection-end-column="79" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/minimization/MoleculeModifierAndScorer.java" />
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/RotamerLibraryReader.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="393">
-          <caret line="323" column="34" selection-start-line="323" selection-start-column="34" selection-end-line="323" selection-end-column="34" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/TupleEnumerator.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="560">
-          <caret line="184" column="13" selection-start-line="184" selection-start-column="13" selection-end-line="184" selection-end-column="13" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/astar/Mplp_old.java" />
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/SuperRC.java" />
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/HigherTupleFinder.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="90">
-          <caret line="120" column="0" selection-start-line="120" selection-start-column="0" selection-end-line="120" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/TupleMatrix.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="4065">
-          <caret line="313" column="0" selection-start-line="313" selection-start-column="0" selection-end-line="313" selection-end-column="0" />
+        <state relative-caret-position="95">
+          <caret line="1086" column="17" selection-start-line="1086" selection-start-column="17" selection-end-line="1086" selection-end-column="17" />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/ematrix/EnergyMatrix.java">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="195">
-          <caret line="116" column="0" selection-start-line="116" selection-start-column="0" selection-end-line="116" selection-end-column="0" />
+        <state relative-caret-position="2640">
+          <caret line="197" column="39" selection-start-line="197" selection-start-column="39" selection-end-line="197" selection-end-column="39" />
+          <folding>
+            <element signature="e#0#13410#0" expanded="false" />
+            <element signature="imports" expanded="false" />
+            <element signature="e#1279#1280#0" expanded="false" />
+            <element signature="e#1308#1309#0" expanded="false" />
+            <element signature="e#1340#1341#0" expanded="false" />
+            <element signature="e#1365#1366#0" expanded="false" />
+            <element signature="e#4452#4453#0" expanded="false" />
+            <element signature="e#4484#4485#0" expanded="false" />
+            <element signature="e#4534#4535#0" expanded="false" />
+            <element signature="e#4576#4577#0" expanded="false" />
+            <element signature="e#5437#5438#0" expanded="false" />
+            <element signature="e#5467#5468#0" expanded="false" />
+            <marker date="1470228775000" expanded="true" signature="6162:6556" ph="/**...*/" />
+          </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/pruning/PruningMatrix.java">
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/astar/seqkstar/SublinearKStarTree.java">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="120">
-          <caret line="11" column="29" selection-start-line="11" selection-start-column="29" selection-end-line="11" selection-end-column="29" />
+        <state relative-caret-position="995">
+          <caret line="224" column="19" selection-start-line="224" selection-start-column="19" selection-end-line="224" selection-end-column="19" />
+          <folding>
+            <element signature="e#0#37455#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/tupexp/ConfETupleExpander.java">
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/tests/variationalkstar/SublinearKStarTests.java">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="540">
-          <caret line="145" column="0" selection-start-line="145" selection-start-column="0" selection-end-line="145" selection-end-column="0" />
+        <state relative-caret-position="525">
+          <caret line="41" column="16" selection-start-line="41" selection-start-column="16" selection-end-line="41" selection-end-column="16" />
+          <folding>
+            <element signature="e#0#1709#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/dataAnalysis/sublinearkstar/DataAnalysisSublinearKStar.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="150">
+          <caret line="75" column="31" selection-start-line="75" selection-start-column="30" selection-end-line="75" selection-end-column="31" />
+          <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/partitionfunctionbounds/TRBP.java">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="247">
-          <caret line="97" column="44" selection-start-line="97" selection-start-column="44" selection-end-line="97" selection-end-column="44" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/tests/variationalkstar/TRBPTests.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-442">
-          <caret line="23" column="30" selection-start-line="23" selection-start-column="30" selection-end-line="23" selection-end-column="30" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/ConfSpace.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="258">
-          <caret line="106" column="0" selection-start-line="106" selection-start-column="0" selection-end-line="106" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/structure/Residue.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="177">
-          <caret line="85" column="36" selection-start-line="85" selection-start-column="36" selection-end-line="85" selection-end-column="36" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/ematrix/TermECalculator.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="252">
-          <caret line="85" column="71" selection-start-line="85" selection-start-column="71" selection-end-line="85" selection-end-column="71" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/energy/EnergyFunctionGenerator.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="267">
-          <caret line="47" column="28" selection-start-line="47" selection-start-column="28" selection-end-line="47" selection-end-column="28" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/energy/forcefield/SingleResEnergy.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="305">
-          <caret line="39" column="4" selection-start-line="39" selection-start-column="4" selection-end-line="39" selection-end-column="4" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/RC.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="252">
-          <caret line="42" column="0" selection-start-line="42" selection-start-column="0" selection-end-line="42" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/ResidueTemplateLibrary.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="510">
-          <caret line="55" column="0" selection-start-line="55" selection-start-column="0" selection-end-line="55" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/partitionfunctionbounds/SCMF_Clamp.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="5580">
-          <caret line="383" column="0" selection-start-line="383" selection-start-column="0" selection-end-line="383" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/tests/variationalkstar/SCMFTests.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="123">
-          <caret line="65" column="56" selection-start-line="65" selection-start-column="55" selection-end-line="65" selection-end-column="56" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/ResidueTemplate.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="123">
-          <caret line="249" column="0" selection-start-line="249" selection-start-column="0" selection-end-line="249" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/ematrix/EnergyMatrixCalculator.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1845">
-          <caret line="136" column="67" selection-start-line="136" selection-start-column="67" selection-end-line="136" selection-end-column="67" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/GenericResidueTemplateLibrary.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="466">
-          <caret line="312" column="42" selection-start-line="312" selection-start-column="42" selection-end-line="312" selection-end-column="42" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/minimization/MolecEObjFunction.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="810">
-          <caret line="77" column="74" selection-start-line="77" selection-start-column="74" selection-end-line="77" selection-end-column="74" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/dof/ResidueTypeDOF.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1980">
-          <caret line="147" column="0" selection-start-line="147" selection-start-column="0" selection-end-line="147" selection-end-column="0" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/control/Main.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="267">
-          <caret line="69" column="64" selection-start-line="69" selection-start-column="64" selection-end-line="69" selection-end-column="64" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/PositionConfSpace.java">
-      <provider selected="true" editor-type-id="text-editor">
-<<<<<<< HEAD
-        <state relative-caret-position="555">
-          <caret line="96" column="0" selection-start-line="96" selection-start-column="0" selection-end-line="96" selection-end-column="0" />
-=======
-        <state relative-caret-position="480">
-          <caret line="83" column="61" selection-start-line="83" selection-start-column="61" selection-end-line="83" selection-end-column="61" />
->>>>>>> 7c34221e92357f32a792b845f1d772afccb15f4c
+        <state relative-caret-position="375">
+          <caret line="69" column="41" selection-start-line="69" selection-start-column="41" selection-end-line="69" selection-end-column="41" />
           <folding />
         </state>
       </provider>
@@ -1191,21 +671,9 @@
           </splitter-proportions>
         </settings>
       </state>
-      <state key="ProjectJDKs.UI">
-        <settings>
-          <last-edited>1.8</last-edited>
-          <splitter-proportions>
-            <option name="proportions">
-              <list>
-                <option value="0.2" />
-              </list>
-            </option>
-          </splitter-proportions>
-        </settings>
-      </state>
       <state key="ProjectLibrariesConfigurable.UI">
         <settings>
-          <last-edited>lib</last-edited>
+          <last-edited>junit_4</last-edited>
           <splitter-proportions>
             <option name="proportions">
               <list>
