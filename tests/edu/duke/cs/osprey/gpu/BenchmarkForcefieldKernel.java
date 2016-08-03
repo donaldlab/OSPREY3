@@ -44,8 +44,6 @@ public class BenchmarkForcefieldKernel extends TestBase {
 	public static void main(String[] args)
 	throws Exception {
 		
-		Gpus.useProfiling = true;
-		
 		initDefaultEnvironment();
 		
 		// for these small problems, more than one thread is actually slower
@@ -102,9 +100,9 @@ public class BenchmarkForcefieldKernel extends TestBase {
 	throws Exception {
 		
 		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
-		GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams());
+		GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), true);
 		
-		System.out.println("NOTE: disable the energy cache in ForcefieldEnergy, or these tests will make the GPU looks really bad! =P");
+		System.out.println("NOTE: disable the energy cache in ForcefieldEnergy, or these tests will make the GPU look really bad! =P");
 		
 		System.out.println("\nFull conf energy:");
 		benchmarkEfunc(1000,
@@ -122,6 +120,10 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		// TODO: GPU is actually significantly slower for these terms
 		// there's so few atom pairs, the overhead with the GPU is slowing us down
 		// need to optimize more, maybe look into faster memory transfers?
+		// NOTE: profiling says the memory transfers are really fast, ~4/43 us or ~9%
+		// most of the overhead seems to be coming from synchronization with the GPU, ~26/43 us or ~60%
+		// don't think there's anything we can do to speed that up...
+		// sync overhead is relatively smaller for other sizes, ~18% for full conf energy, ~42% for intra and shell energy
 		benchmarkEfunc(100000,
 			egen.resPairEnergy(search.confSpace.posFlex.get(0).res, search.confSpace.posFlex.get(2).res),
 			gpuegen.resPairEnergy(search.confSpace.posFlex.get(0).res, search.confSpace.posFlex.get(2).res)

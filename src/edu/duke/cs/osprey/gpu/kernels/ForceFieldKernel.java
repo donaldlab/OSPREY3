@@ -27,8 +27,8 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 	}
 	
 	@Override
-	public Bound bind(Gpu gpu) {
-		return new Bound(this, gpu);
+	public Bound bind(Gpu gpu, boolean useProfiling) {
+		return new Bound(this, gpu, useProfiling);
 	}
 	
 	public static class Bound extends BoundKernel<Bound> {
@@ -41,13 +41,27 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 		private int workSize;
 		private int groupSize;
 		
-		public Bound(Kernel<ForceFieldKernel.Bound> kernel, Gpu gpu) {
-			super(kernel, gpu);
+		public Bound(Kernel<ForceFieldKernel.Bound> kernel, Gpu gpu, boolean useProfiling) {
+			super(kernel, gpu, useProfiling);
 		}
 		
 		public void setForcefield(BigForcefieldEnergy ffenergy) {
 			
-			groupSize = getMaxGroupSize();
+			/* OPTIMIZATION: this kernel uses lots and lots of registers, so maxing out the work group size is sub-optimal
+				using a smaller group size works noticeably better!
+				empirically, using 1/4 the max seems to make the difference between 11x speedups and 15x speedups
+			
+				times in us for (131k atom pairs, 11k atom pairs, 200 atom pairs) on 1000th run, 6000th run, and 100000th run respectively
+					1024: 369, 44, 18 (max on my hardware)
+					256: 272, 33, 15
+					128: 257, 31, 14
+					64: 293, 33, 13
+					32: 411, 44, 12
+				
+				looks to have slight dependency on num atom pairs, but 128 looks like a good compromise for all sizes
+			*/
+			groupSize = 128;
+			
 			workSize = roundUpWorkSize(ffenergy.getNumAtomPairs(), groupSize);
 			
 			CLContext context = getGpu().getDevice().getContext();

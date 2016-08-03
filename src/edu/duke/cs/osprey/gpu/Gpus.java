@@ -16,18 +16,15 @@ import com.jogamp.opencl.CLProgram;
 
 public class Gpus {
 	
-	public static boolean useProfiling;
-	
 	private static Gpus instance;
 	
 	static {
-		useProfiling = false;
 		instance = null;
 	}
 	
 	public static Gpus get() {
 		if (instance == null) {
-			instance = new Gpus(useProfiling);
+			instance = new Gpus();
 		}
 		return instance;
 	}
@@ -36,7 +33,7 @@ public class Gpus {
 	private List<Gpu> gpus;
 	private Map<String,CLProgram> programs;
 	
-	private Gpus(boolean useProfiling) {
+	private Gpus() {
 		
 		assert (context == null);
 		context = CLContext.create();
@@ -45,7 +42,7 @@ public class Gpus {
 		gpus = new ArrayList<>();
 		for (CLDevice device : context.getDevices()) {
 			if (device.getType() == CLDevice.Type.GPU) {
-				Gpu gpu = new Gpu(device, useProfiling);
+				Gpu gpu = new Gpu(device);
 				if (gpu.supportsDoubles()) {
 					gpus.add(gpu);
 				}

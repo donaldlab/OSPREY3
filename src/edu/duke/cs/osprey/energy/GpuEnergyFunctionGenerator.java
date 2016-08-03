@@ -13,13 +13,20 @@ import edu.duke.cs.osprey.structure.Residue;
 
 public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 	
+	private boolean useProfiling;
+	
 	public GpuEnergyFunctionGenerator(ForcefieldParams ffParams) {
+		this(ffParams, false);
+	}
+	
+	public GpuEnergyFunctionGenerator(ForcefieldParams ffParams, boolean useProfiling) {
 		super(ffParams, Double.POSITIVE_INFINITY, false);
+		this.useProfiling = useProfiling;
 	}
 	
 	private GpuForcefieldEnergy makeGpuForcefield(ForcefieldInteractions interactions) {
 		try {
-			GpuForcefieldEnergy ff = new GpuForcefieldEnergy(ffParams, interactions);
+			GpuForcefieldEnergy ff = new GpuForcefieldEnergy(ffParams, interactions, useProfiling);
 			ff.initGpu();
 			return ff;
 		} catch (IOException ex) {

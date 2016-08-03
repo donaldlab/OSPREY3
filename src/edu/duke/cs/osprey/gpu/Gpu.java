@@ -2,13 +2,11 @@ package edu.duke.cs.osprey.gpu;
 
 import java.util.Set;
 
-import com.jogamp.opencl.CLCommandQueue;
 import com.jogamp.opencl.CLDevice;
 
 public class Gpu {
 	
 	private CLDevice device;
-	private CLCommandQueue queue;
 	
 	public Gpu(CLDevice device) {
 		this(device, false);
@@ -16,23 +14,10 @@ public class Gpu {
 	
 	public Gpu(CLDevice device, boolean useProfiling) {
 		this.device = device;
-		if (useProfiling) {
-			this.queue = device.createCommandQueue(CLCommandQueue.Mode.PROFILING_MODE);
-		} else {
-			this.queue = device.createCommandQueue();
-		}
-		
-		if (this.queue.isOutOfOrderModeEnabled()) {
-			throw new Error("GPU command queue should be strictly ordered... this is a bug");
-		}
 	}
 	
 	public CLDevice getDevice() {
 		return device;
-	}
-	
-	public CLCommandQueue getQueue() {
-		return queue;
 	}
 	
 	public boolean supportsDoubles() {
@@ -43,9 +28,5 @@ public class Gpu {
 	@Override
 	public String toString() {
 		return device.getName();
-	}
-	
-	public void cleanup() {
-		queue.release();
 	}
 }

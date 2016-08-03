@@ -14,12 +14,22 @@ public abstract class BoundKernel<T extends BoundKernel<T>> {
 	
 	private Kernel<T> kernel;
 	private Gpu gpu;
+	private CLCommandQueue queue;
 	private CLEventList events;
 	
-	public BoundKernel(Kernel<T> kernel, Gpu gpu) {
+	public BoundKernel(Kernel<T> kernel, Gpu gpu, boolean useProfiling) {
 		this.kernel = kernel;
 		this.gpu = gpu;
+		if (useProfiling) {
+			this.queue = gpu.getDevice().createCommandQueue(CLCommandQueue.Mode.PROFILING_MODE);
+		} else {
+			this.queue = gpu.getDevice().createCommandQueue();
+		}
 		this.events = null;
+		
+		if (this.queue.isOutOfOrderModeEnabled()) {
+			throw new Error("GPU command queue should be strictly ordered... this is a bug");
+		}
 	}
 	
 	public Kernel<T> getKernel() {
@@ -31,11 +41,12 @@ public abstract class BoundKernel<T extends BoundKernel<T>> {
 	}
 	
 	public void waitForGpu() {
-		gpu.getQueue().finish();
+		queue.finish();
 	}
 	
 	public void cleanup() {
 		kernel.cleanup();
+		queue.release();
 	}
 	
 	protected int getMaxGroupSize() {
@@ -62,21 +73,21 @@ public abstract class BoundKernel<T extends BoundKernel<T>> {
 	}
 	
 	protected void uploadBufferAsync(CLBuffer<?> buf) {
-		gpu.getQueue().putWriteBuffer(buf, false, events);
+		queue.putWriteBuffer(buf, false, events);
 	}
 	
 	protected void runAsync(int workSize, int groupSize) {
-		gpu.getQueue().put1DRangeKernel(kernel.getCLKernel(), 0, workSize, groupSize, events);
+		queue.put1DRangeKernel(kernel.getCLKernel(), 0, workSize, groupSize, events);
 	}
 	
 	protected void downloadBufferSync(CLBuffer<?> buf) {
-		gpu.getQueue().putReadBuffer(buf, true, events);
+		queue.putReadBuffer(buf, true, events);
 	}
 	
 	public void initProfilingEvents() {
 		
 		// just in case...
-		if (!gpu.getDevice().getQueueProperties().contains(CLCommandQueue.Mode.PROFILING_MODE)) {
+		if (!queue.isProfilingEnabled()) {
 			throw new IllegalStateException("profiling not enabled for this device. set Gpus.useProfiling = true before calling Gpus.get()");
 		}
 		

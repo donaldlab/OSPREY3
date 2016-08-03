@@ -18,8 +18,8 @@ public class TestAddKernel extends Kernel<TestAddKernel.Bound> {
 	}
 	
 	@Override
-	public Bound bind(Gpu gpu) {
-		return new Bound(this, gpu);
+	public Bound bind(Gpu gpu, boolean useProfiling) {
+		return new Bound(this, gpu, useProfiling);
 	}
 	
 	public static class Bound extends BoundKernel<Bound> {
@@ -31,8 +31,8 @@ public class TestAddKernel extends Kernel<TestAddKernel.Bound> {
 		private int workSize;
 		private int groupSize;
 		
-		public Bound(Kernel<TestAddKernel.Bound> kernel, Gpu gpu) {
-			super(kernel, gpu);
+		public Bound(Kernel<TestAddKernel.Bound> kernel, Gpu gpu, boolean useProfiling) {
+			super(kernel, gpu, useProfiling);
 		}
 		
 		public DoubleBuffer getA() {

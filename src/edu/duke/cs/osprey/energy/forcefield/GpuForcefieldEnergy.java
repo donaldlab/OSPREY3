@@ -21,11 +21,16 @@ public class GpuForcefieldEnergy implements EnergyFunction {
 	
 	public GpuForcefieldEnergy(ForcefieldParams ffparams, ForcefieldInteractions interactions)
 	throws IOException {
+		this(ffparams, interactions, false);
+	}
+	
+	public GpuForcefieldEnergy(ForcefieldParams ffparams, ForcefieldInteractions interactions, boolean useProfiling)
+	throws IOException {
 		
 		ffenergy = new BigForcefieldEnergy(ffparams, interactions, true);
 		
 		// prep the kernel, upload precomputed data
-		kernel = new ForceFieldKernel().bind();
+		kernel = new ForceFieldKernel().bind(useProfiling);
 	}
 	
 	public BigForcefieldEnergy getForcefieldEnergy() {

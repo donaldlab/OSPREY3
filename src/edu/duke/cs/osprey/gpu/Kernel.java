@@ -18,10 +18,14 @@ public abstract class Kernel<T extends BoundKernel<T>> {
 	}
 	
 	public T bind() {
-		return bind(Gpus.get().getBestGpu());
+		return bind(false);
 	}
 	
-	public abstract T bind(Gpu gpu);
+	public T bind(boolean useProfiling) {
+		return bind(Gpus.get().getBestGpu(), useProfiling);
+	}
+	
+	public abstract T bind(Gpu gpu, boolean useProfiling);
 	
 	public void cleanup() {
 		kernel.release();
