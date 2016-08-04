@@ -93,6 +93,7 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 		}
 		
 		public void uploadStaticAsync() {
+			checkInit();
 			
 			// IMPORTANT: rewind the buffers before uploading, otherwise we get garbage on the gpu
 			atomFlags.getBuffer().rewind();
@@ -103,6 +104,7 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 		}
 		
 		public void uploadCoordsAsync() {
+			checkInit();
 			
 			// IMPORTANT: rewind the buffers before uploading, otherwise we get garbage on the gpu
 			coords.getBuffer().rewind();
@@ -111,10 +113,12 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 		}
 
 		public void runAsync() {
+			checkInit();
 			runAsync(workSize, groupSize);
 		}
 		
 		public DoubleBuffer downloadEnergiesSync() {
+			checkInit();
 			
 			// IMPORTANT!! rewind the output buffer before downloading energies
 			// otherwise we get weird segfaults in nvidia's opencl driver that are next to impossible to diagnose!
@@ -139,6 +143,12 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 			precomputed.release();
 			if (energies != null) {
 				energies.release();
+			}
+		}
+		
+		private void checkInit() {
+			if (coords == null) {
+				throw new IllegalStateException("call setForcefield() before calling anything else");
 			}
 		}
 	}

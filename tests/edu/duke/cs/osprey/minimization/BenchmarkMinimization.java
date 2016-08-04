@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import cern.colt.matrix.DoubleFactory1D;
+import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
@@ -17,6 +19,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
@@ -81,8 +84,12 @@ public class BenchmarkMinimization extends TestBase {
 			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null
 		);
 		
-		//EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
-		EnergyFunctionGenerator egen = new GpuEnergyFunctionGenerator(makeDefaultFFParams());
+		final boolean useGpu = true;
+		
+		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
+		if (useGpu) {
+			egen = new GpuEnergyFunctionGenerator(makeDefaultFFParams());
+		}
 		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(egen, search.confSpace, search.shellResidues);
 		
 		int numConfs = 10;
@@ -137,12 +144,47 @@ public class BenchmarkMinimization extends TestBase {
 			
 			RCTuple tuple = new RCTuple(conf.getAssignments());
 			MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(efunc, search.confSpace, tuple);
-			//Minimizer minimizer = new CCDMinimizer(mof, true);
-			Minimizer minimizer = new SimpleCCDMinimizer(mof);
+	
+			double energy = 0;
 			
-			// minimize!
-			minimizer.minimize();
-			double energy = efunc.getEnergy();
+			final int simulateMinimization = 0;
+			if (simulateMinimization > 0) {
+				
+				// don't actually minimize, just move the protein and calculate energies
+				int numDofs = mof.getNumDOFs(); // is 17
+				DoubleMatrix1D x = DoubleFactory1D.dense.make(numDofs);
+				for (int d=0; d<numDofs; d++) {
+					x.set(d, (mof.getConstraints()[0].get(d) + mof.getConstraints()[1].get(d))/2);
+				}
+				mof.setDOFs(x);
+				
+				if (simulateMinimization == 1) {
+					
+					// just slam the whole energy function a bunch
+					for (int j=0; j<160; j++) {
+						energy = mof.getValue(x);
+					}
+					
+				} else if (simulateMinimization == 2) {
+					
+					// emulate CCD, move just one dof at a time
+					for (int iter=0; iter<10; iter++) {
+						for (int d=0; d<numDofs; d++) {
+							for (int j=0; j<6; j++) {
+								energy = mof.getValForDOF(d, x.get(d));
+							}
+						}
+					}
+				}
+			
+			} else {
+				
+				// minimize!
+				Minimizer minimizer = new CCDMinimizer(mof, true);
+				//Minimizer minimizer = new SimpleCCDMinimizer(mof);
+				minimizer.minimize();
+				energy = efunc.getEnergy();
+			}
 			
 			// check the energy
 			final double Epsilon = 1e-6;

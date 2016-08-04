@@ -297,6 +297,10 @@ public class BigForcefieldEnergy implements EnergyFunction {
 		internalSolvEnergy *= params.solvScale;
 	}
 	
+	public ForcefieldParams getParams() {
+		return params;
+	}
+	
 	public DoubleBuffer getCoords() {
 		return coords;
 	}

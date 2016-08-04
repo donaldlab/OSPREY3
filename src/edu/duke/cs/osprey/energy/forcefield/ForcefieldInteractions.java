@@ -63,4 +63,14 @@ public class ForcefieldInteractions extends ArrayList<AtomGroup[]> {
 			new AtomGroup(res2.indexInMolecule, res2.atoms, res2.coords, isDynamic2)
 		});
 	}
+	
+	public ForcefieldInteractions makeSubsetByResidue(Residue res) {
+		ForcefieldInteractions subInteractions = new ForcefieldInteractions();
+		for (AtomGroup[] groupPair : this) {
+			if (groupPair[0].getId() == res.indexInMolecule || groupPair[1].getId() == res.indexInMolecule) {
+				subInteractions.add(groupPair);
+			}
+		}
+		return subInteractions;
+	}
 }

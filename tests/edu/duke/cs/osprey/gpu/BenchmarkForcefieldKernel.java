@@ -91,9 +91,9 @@ public class BenchmarkForcefieldKernel extends TestBase {
 			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null
 		);
 		
-		//benchmarkEfunc(search);
+		benchmarkEfunc(search);
 		//benchmarkEmat(search);
-		benchmarkMinimize(search);
+		//benchmarkMinimize(search);
 	}
 	
 	private static void benchmarkEfunc(SearchProblem search)

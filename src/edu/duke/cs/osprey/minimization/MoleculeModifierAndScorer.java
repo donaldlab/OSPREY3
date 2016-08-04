@@ -6,6 +6,7 @@ package edu.duke.cs.osprey.minimization;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
@@ -22,9 +23,7 @@ import edu.duke.cs.osprey.dof.StrandRotation;
 import edu.duke.cs.osprey.dof.StrandTranslation;
 import edu.duke.cs.osprey.dof.deeper.perts.Backrub;
 import edu.duke.cs.osprey.dof.deeper.perts.Shear;
-import edu.duke.cs.osprey.ematrix.epic.EPICEnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunction;
-import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -43,7 +42,9 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
     //It would be very expensive to copy the molecule for each minimization, so we
     //apply the DOFs in place and then evaluate the energy
     
-    EnergyFunction efunc;
+	private static final long serialVersionUID = 3898313221157632380L;
+	
+	EnergyFunction efunc;
     Molecule molec;
     ArrayList<DegreeOfFreedom> DOFs;
     DoubleMatrix1D[] constraints;
@@ -57,7 +58,7 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
     maybe keep an unmoved molecule;
     */
     
-    ArrayList<EnergyFunction> partialEFuncs = null;//if not null, can use when searching along a single DOF
+    List<EnergyFunction> partialEFuncs = null;//if not null, can use when searching along a single DOF
     
     public MoleculeModifierAndScorer(EnergyFunction ef, DoubleMatrix1D[] constr, Molecule m, 
             ArrayList<DegreeOfFreedom> DOFList){
@@ -69,7 +70,7 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
         
         curDOFVals = DoubleFactory1D.dense.make(DOFs.size());
         
-        initEPIC();
+        initEfunc();
     }
     
     
@@ -184,24 +185,20 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
         
         curDOFVals = DoubleFactory1D.dense.make(DOFs.size());
         
-        
-        initEPIC();
+        initEfunc();
     }
     
-    private void initEPIC(){//Initialize EPIC stuff if needed
-        if(efunc instanceof EPICEnergyFunction){
-            ((EPICEnergyFunction)efunc).assignConfReference(curDOFVals,DOFs,molec);
-            
-            //let's make partial energy functions too for speed...
-            partialEFuncs = ((EPICEnergyFunction)efunc).getDOFPartialEFuncs(DOFs,molec);
-        }
-        
-        // partial funcs sound awesome for CCD performance
-        // let's do that for MultiTermEnergyFunction too
-        else if (efunc instanceof MultiTermEnergyFunction) {
-        	MultiTermEnergyFunction mtefunc = (MultiTermEnergyFunction)efunc;
-        	partialEFuncs = mtefunc.makeDOFPartialEFuncs(DOFs);
-        }
+    private void initEfunc() {
+    	
+    	// init efunc if needed
+    	if (efunc instanceof EnergyFunction.NeedsInit) {
+    		((EnergyFunction.NeedsInit)efunc).init(molec, DOFs, curDOFVals);
+    	}
+    	
+    	// decompose by dofs if supported
+    	if (efunc instanceof EnergyFunction.DecomposableByDof) {
+    		partialEFuncs = ((EnergyFunction.DecomposableByDof)efunc).decomposeByDof(molec, DOFs);
+    	}
     }
     
     
