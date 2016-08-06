@@ -530,6 +530,10 @@ public class BigForcefieldEnergy implements EnergyFunction {
 			
 			boolean success = params.getNonBondedParameters(atom.type, nbparams);
 			if (!success) {
+				// TODO: what's the right error-handling behavior here?
+				// skip any atom pairs without params and keep computing?
+				// use default values for nbparams?
+				// or crash and tell the user to fix the problem?
 				throw new Error("couldn't find non-bonded parameters for atom type: " + atom.forceFieldType);
 			}
 		}
@@ -538,7 +542,14 @@ public class BigForcefieldEnergy implements EnergyFunction {
 	private void getSolvParams(Atom atom, SolvParams solvparams) {
 		boolean success = params.eef1parms.getSolvationParameters(atom, solvparams);
 		if (!success) {
-			throw new Error("couldn't find solvation parameters for atom type: " + atom.forceFieldType);
+			
+			// if there's no params, don't crash, use defaults instead
+			System.err.println("WARNING: couldn't find solvation parameters for atom type: " + atom.forceFieldType + ", using default values");
+			solvparams.dGref = 0;
+			solvparams.dGfree = 0;
+			solvparams.volume = 0;
+			solvparams.lambda = 1;
+			solvparams.radius = 0;
 		}
 	}
 }
