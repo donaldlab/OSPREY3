@@ -2,8 +2,8 @@ package edu.duke.cs.osprey.energy;
 
 import java.util.ArrayList;
 
-import edu.duke.cs.osprey.astar.parallel.WorkCrew;
-import edu.duke.cs.osprey.astar.parallel.Worker;
+import edu.duke.cs.osprey.parallelism.WorkCrew;
+import edu.duke.cs.osprey.parallelism.Worker;
 
 public class ParallelEnergyFunction implements EnergyFunction {
 	

@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.astar.parallel;
+package edu.duke.cs.osprey.parallelism;
 
 public abstract class Worker extends Thread {
 	

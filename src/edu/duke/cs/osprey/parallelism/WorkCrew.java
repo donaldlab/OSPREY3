@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.astar.parallel;
+package edu.duke.cs.osprey.parallelism;
 
 import java.util.ArrayList;
 import java.util.Iterator;
