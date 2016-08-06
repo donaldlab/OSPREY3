@@ -9,10 +9,6 @@ public class Diagnostics {
 	
 	public static void main(String[] args) {
 		
-		// TODO: sometimes you have to `sudo clinfo` to "wake up" the OpenCL implementation
-		// before it will work for non-root users. =(
-		// need to find a workaround for that...
-		
 		// show platforms
 		System.out.println("All OpenCL platforms:");
 		for (int i=0; i<CLPlatform.listCLPlatforms().length; i++) {
