@@ -28,6 +28,7 @@ import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
+import edu.duke.cs.osprey.gpu.GpuQueuePool;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Stopwatch;
@@ -88,7 +89,7 @@ public class BenchmarkMinimization extends TestBase {
 		
 		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
 		if (useGpu) {
-			egen = new GpuEnergyFunctionGenerator(makeDefaultFFParams());
+			egen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuQueuePool(1, 1, false));
 		}
 		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(egen, search.confSpace, search.shellResidues);
 		

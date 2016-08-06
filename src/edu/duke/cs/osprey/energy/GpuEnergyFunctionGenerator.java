@@ -7,26 +7,27 @@ import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
+import edu.duke.cs.osprey.gpu.GpuQueuePool;
 import edu.duke.cs.osprey.gpu.GpuInitException;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 
 public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 	
-	private boolean useProfiling;
+	private GpuQueuePool queues;
 	
-	public GpuEnergyFunctionGenerator(ForcefieldParams ffParams) {
-		this(ffParams, false);
+	public GpuEnergyFunctionGenerator(ForcefieldParams ffParams, GpuQueuePool queues) {
+		super(ffParams, Double.POSITIVE_INFINITY, false);
+		this.queues = queues;
 	}
 	
-	public GpuEnergyFunctionGenerator(ForcefieldParams ffParams, boolean useProfiling) {
-		super(ffParams, Double.POSITIVE_INFINITY, false);
-		this.useProfiling = useProfiling;
+	public GpuQueuePool getQueuePool() {
+		return queues;
 	}
 	
 	private GpuForcefieldEnergy makeGpuForcefield(ForcefieldInteractions interactions) {
 		try {
-			GpuForcefieldEnergy ff = new GpuForcefieldEnergy(ffParams, interactions, useProfiling);
+			GpuForcefieldEnergy ff = new GpuForcefieldEnergy(ffParams, interactions, queues.getRoundRobinQueue());
 			ff.initGpu();
 			return ff;
 		} catch (IOException ex) {

@@ -5,12 +5,12 @@ import java.nio.DoubleBuffer;
 import java.nio.IntBuffer;
 
 import com.jogamp.opencl.CLBuffer;
+import com.jogamp.opencl.CLCommandQueue;
 import com.jogamp.opencl.CLContext;
 import com.jogamp.opencl.CLMemory;
 
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.gpu.BoundKernel;
-import edu.duke.cs.osprey.gpu.Gpu;
 import edu.duke.cs.osprey.gpu.Kernel;
 
 public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
@@ -27,8 +27,8 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 	}
 	
 	@Override
-	public Bound bind(Gpu gpu, boolean useProfiling) {
-		return new Bound(this, gpu, useProfiling);
+	public Bound bind(CLCommandQueue queue) {
+		return new Bound(this, queue);
 	}
 	
 	public static class Bound extends BoundKernel<Bound> {
@@ -41,8 +41,8 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 		private int workSize;
 		private int groupSize;
 		
-		public Bound(Kernel<ForceFieldKernel.Bound> kernel, Gpu gpu, boolean useProfiling) {
-			super(kernel, gpu, useProfiling);
+		public Bound(Kernel<ForceFieldKernel.Bound> kernel, CLCommandQueue queue) {
+			super(kernel, queue);
 		}
 		
 		public void setForcefield(BigForcefieldEnergy ffenergy) {
@@ -64,7 +64,7 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 			
 			workSize = roundUpWorkSize(ffenergy.getNumAtomPairs(), groupSize);
 			
-			CLContext context = getGpu().getDevice().getContext();
+			CLContext context = getQueue().getContext();
 			coords = context.createBuffer(ffenergy.getCoords(), CLMemory.Mem.READ_ONLY);
 			atomFlags = context.createBuffer(ffenergy.getAtomFlags(), CLMemory.Mem.READ_ONLY);
 			precomputed = context.createBuffer(ffenergy.getPrecomputed(), CLMemory.Mem.READ_ONLY);

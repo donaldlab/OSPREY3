@@ -13,18 +13,12 @@ public abstract class BoundKernel<T extends BoundKernel<T>> {
 	public static final int EventListSize = 128;
 	
 	private Kernel<T> kernel;
-	private Gpu gpu;
 	private CLCommandQueue queue;
 	private CLEventList events;
 	
-	public BoundKernel(Kernel<T> kernel, Gpu gpu, boolean useProfiling) {
+	public BoundKernel(Kernel<T> kernel, CLCommandQueue queue) {
 		this.kernel = kernel;
-		this.gpu = gpu;
-		if (useProfiling) {
-			this.queue = gpu.getDevice().createCommandQueue(CLCommandQueue.Mode.PROFILING_MODE);
-		} else {
-			this.queue = gpu.getDevice().createCommandQueue();
-		}
+		this.queue = queue;
 		this.events = null;
 		
 		if (this.queue.isOutOfOrderModeEnabled()) {
@@ -36,8 +30,8 @@ public abstract class BoundKernel<T extends BoundKernel<T>> {
 		return kernel;
 	}
 	
-	public Gpu getGpu() {
-		return gpu;
+	public CLCommandQueue getQueue() {
+		return queue;
 	}
 	
 	public void waitForGpu() {
@@ -50,7 +44,7 @@ public abstract class BoundKernel<T extends BoundKernel<T>> {
 	}
 	
 	protected int getMaxGroupSize() {
-		return gpu.getDevice().getMaxWorkGroupSize();
+		return queue.getDevice().getMaxWorkGroupSize();
 	}
 	
 	protected int roundUpWorkSize(int workSize, int groupSize) {
@@ -69,7 +63,7 @@ public abstract class BoundKernel<T extends BoundKernel<T>> {
 	}
 	
 	protected <B extends Buffer> CLBuffer<B> wrapBuffer(B buf, CLMemory.Mem type) {
-		return gpu.getDevice().getContext().createBuffer(buf, type);
+		return queue.getContext().createBuffer(buf, type);
 	}
 	
 	protected void uploadBufferAsync(CLBuffer<?> buf) {
@@ -84,11 +78,15 @@ public abstract class BoundKernel<T extends BoundKernel<T>> {
 		queue.putReadBuffer(buf, true, events);
 	}
 	
+	protected void downloadBufferAsync(CLBuffer<?> buf) {
+		queue.putReadBuffer(buf, false);
+	}
+	
 	public void initProfilingEvents() {
 		
 		// just in case...
 		if (!queue.isProfilingEnabled()) {
-			throw new IllegalStateException("profiling not enabled for this device. set Gpus.useProfiling = true before calling Gpus.get()");
+			throw new IllegalStateException("profiling not enabled for the bound command queue");
 		}
 		
 		events = new CLEventList(EventListSize);

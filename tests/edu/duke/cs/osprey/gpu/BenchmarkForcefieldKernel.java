@@ -7,6 +7,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import com.jogamp.opencl.CLCommandQueue;
+import com.jogamp.opencl.CLKernel;
+
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
@@ -91,29 +94,39 @@ public class BenchmarkForcefieldKernel extends TestBase {
 			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null
 		);
 		
-		benchmarkEfunc(search);
-		//benchmarkEmat(search);
-		//benchmarkMinimize(search);
+		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
+		GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuQueuePool(2, 2));
+		
+		benchmarkEfunc(search, egen, gpuegen);
+		//benchmarkEmat(search, egen, gpuegen);
+		//benchmarkMinimize(search, egen, gpuegen);
 	}
 	
-	private static void benchmarkEfunc(SearchProblem search)
+	private static void benchmarkEfunc(SearchProblem search, EnergyFunctionGenerator egen, GpuEnergyFunctionGenerator gpuegen)
 	throws Exception {
-		
-		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
-		GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), true);
 		
 		System.out.println("NOTE: disable the energy cache in ForcefieldEnergy, or these tests will make the GPU look really bad! =P");
 		
+		List<GpuForcefieldEnergy> gpuefuncs = null;
+		
 		System.out.println("\nFull conf energy:");
-		benchmarkEfunc(1000,
+		gpuefuncs = new ArrayList<>();
+		for (int i=0; i<gpuegen.getQueuePool().getNumQueues(); i++) {
+			gpuefuncs.add(gpuegen.fullConfEnergy(search.confSpace, search.shellResidues));
+		}
+		benchmarkEfunc(4000,
 			egen.fullConfEnergy(search.confSpace, search.shellResidues),
-			gpuegen.fullConfEnergy(search.confSpace, search.shellResidues)
+			gpuefuncs
 		);
 		
 		System.out.println("\nIntra and shell energy:");
-		benchmarkEfunc(6000,
+		gpuefuncs = new ArrayList<>();
+		for (int i=0; i<gpuegen.getQueuePool().getNumQueues(); i++) {
+			gpuefuncs.add(gpuegen.intraAndShellEnergy(search.confSpace.posFlex.get(0).res, search.shellResidues));
+		}
+		benchmarkEfunc(20000,
 			egen.intraAndShellEnergy(search.confSpace.posFlex.get(0).res, search.shellResidues),
-			gpuegen.intraAndShellEnergy(search.confSpace.posFlex.get(0).res, search.shellResidues)
+			gpuefuncs
 		);
 		
 		System.out.println("\nPairwise energy:");
@@ -124,13 +137,17 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		// most of the overhead seems to be coming from synchronization with the GPU, ~26/43 us or ~60%
 		// don't think there's anything we can do to speed that up...
 		// sync overhead is relatively smaller for other sizes, ~18% for full conf energy, ~42% for intra and shell energy
+		gpuefuncs = new ArrayList<>();
+		for (int i=0; i<gpuegen.getQueuePool().getNumQueues(); i++) {
+			gpuefuncs.add(gpuegen.resPairEnergy(search.confSpace.posFlex.get(0).res, search.confSpace.posFlex.get(2).res));
+		}
 		benchmarkEfunc(100000,
 			egen.resPairEnergy(search.confSpace.posFlex.get(0).res, search.confSpace.posFlex.get(2).res),
-			gpuegen.resPairEnergy(search.confSpace.posFlex.get(0).res, search.confSpace.posFlex.get(2).res)
+			gpuefuncs
 		);
 	}
 	
-	private static void benchmarkEfunc(int numRuns, EnergyFunction efunc, GpuForcefieldEnergy gpuefunc) {
+	private static void benchmarkEfunc(int numRuns, EnergyFunction efunc, List<GpuForcefieldEnergy> gpuefuncs) {
 		
 		// benchmark the cpu
 		System.out.print("Benchmarking CPU...");
@@ -145,30 +162,58 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		));
 		
 		// benchmark the gpu
-		System.out.print("Benchmarking GPU...");
+		System.out.print("Benchmarking GPU...\n");
+		
+		// set up thread pool to match queue pool
+		List<Thread> threads = new ArrayList<>();
+		final List<String> profiles = new ArrayList<>();
+		for (int i=0; i<gpuefuncs.size(); i++) {
+			final GpuForcefieldEnergy gpuefunc = gpuefuncs.get(i);
+			final boolean isFirstThread = i == 0;
+			Thread thread = new Thread("Gpu-" + i) {
+				@Override
+				public void run() {
+					
+					int numLocalRuns = numRuns/gpuefuncs.size();
+					boolean useProfiling = gpuefunc.getKernel().getQueue().isProfilingEnabled();
+					
+					for (int j=0; j<numLocalRuns; j++) {
+						
+						boolean isProfileRun = useProfiling && isFirstThread && (j == 0 || j == numLocalRuns - 1);
+						if (isProfileRun) {
+							gpuefunc.startProfile();
+						}
+						
+						gpuefunc.getEnergy();
+						
+						if (isProfileRun) {
+							profiles.add(gpuefunc.dumpProfile());
+						}
+					}
+				}
+			};
+			threads.add(thread);
+		}
+		
 		Stopwatch gpuStopwatch = new Stopwatch().start();
-		List<String> profiles = new ArrayList<>();
-		for (int i=0; i<numRuns; i++) {
-			
-			boolean isProfileRun = i == 0 || i == numRuns - 1;
-			if (isProfileRun) {
-				gpuefunc.startProfile();
-			}
-			
-			gpuefunc.getEnergy();
-			
-			if (isProfileRun) {
-				profiles.add(gpuefunc.dumpProfile());
+		for (Thread thread : threads) {
+			thread.start();
+		}
+		for (Thread thread : threads) {
+			try {
+				thread.join();
+			} catch (InterruptedException ex) {
+				throw new Error(ex);
 			}
 		}
+		
 		gpuStopwatch.stop();
-		gpuefunc.cleanup();
 		System.out.println(String.format(" finished in %s, avg time per op: %s, speedup: %.2fx, numPairs: %d, GPU mem used: %.2f MiB",
 			gpuStopwatch.getTime(2),
 			TimeFormatter.format(gpuStopwatch.getTimeNs()/numRuns, TimeUnit.MICROSECONDS),
 			(double)cpuStopwatch.getTimeNs()/gpuStopwatch.getTimeNs(),
-			gpuefunc.getForcefieldEnergy().getNumAtomPairs(),
-			(double)gpuefunc.getGpuBytesNeeded()/1024/1024
+			gpuefuncs.get(0).getForcefieldEnergy().getNumAtomPairs(),
+			(double)gpuefuncs.get(0).getKernel().getGpuBytesNeeded()/1024/1024
 		));
 		if (!profiles.isEmpty()) {
 			System.out.println("GPU profiling info:");
@@ -176,15 +221,17 @@ public class BenchmarkForcefieldKernel extends TestBase {
 				System.out.print(String.format("%s run:\n\t%s\n", i == 0 ? "first" : "last", profiles.get(i).replace("\n", "\n\t").trim()));
 			}
 		}
+		
+		// cleanup
+		for (GpuForcefieldEnergy gpuefunc : gpuefuncs) {
+			gpuefunc.cleanup();
+		}
 	}
 	
-	private static void benchmarkEmat(SearchProblem search)
+	private static void benchmarkEmat(SearchProblem search, EnergyFunctionGenerator egen, GpuEnergyFunctionGenerator gpuegen)
 	throws Exception {
 		
-		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
 		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(egen, search.confSpace, search.shellResidues);
-		
-		GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams());
 		SimpleEnergyCalculator gpuecalc = new SimpleEnergyCalculator(gpuegen, search.confSpace, search.shellResidues);
 		
 		// benchmark the cpu
@@ -219,13 +266,10 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		}
 	}
 	
-	private static void benchmarkMinimize(SearchProblem search)
+	private static void benchmarkMinimize(SearchProblem search, EnergyFunctionGenerator egen, GpuEnergyFunctionGenerator gpuegen)
 	throws Exception {
 		
-		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
 		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(egen, search.confSpace, search.shellResidues);
-		
-		GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams());
 		
 		int numConfs = 10;
 		

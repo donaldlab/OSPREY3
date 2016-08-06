@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.gpu;
 
 import java.io.IOException;
 
+import com.jogamp.opencl.CLCommandQueue;
 import com.jogamp.opencl.CLKernel;
 
 public abstract class Kernel<T extends BoundKernel<T>> {
@@ -17,15 +18,7 @@ public abstract class Kernel<T extends BoundKernel<T>> {
 		return kernel;
 	}
 	
-	public T bind() {
-		return bind(false);
-	}
-	
-	public T bind(boolean useProfiling) {
-		return bind(Gpus.get().getBestGpu(), useProfiling);
-	}
-	
-	public abstract T bind(Gpu gpu, boolean useProfiling);
+	public abstract T bind(CLCommandQueue queue);
 	
 	public void cleanup() {
 		kernel.release();

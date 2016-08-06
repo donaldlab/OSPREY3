@@ -4,10 +4,10 @@ import java.io.IOException;
 import java.nio.DoubleBuffer;
 
 import com.jogamp.opencl.CLBuffer;
+import com.jogamp.opencl.CLCommandQueue;
 import com.jogamp.opencl.CLMemory;
 
 import edu.duke.cs.osprey.gpu.BoundKernel;
-import edu.duke.cs.osprey.gpu.Gpu;
 import edu.duke.cs.osprey.gpu.Kernel;
 
 public class TestFancyKernel extends Kernel<TestFancyKernel.Bound> {
@@ -18,8 +18,8 @@ public class TestFancyKernel extends Kernel<TestFancyKernel.Bound> {
 	}
 	
 	@Override
-	public Bound bind(Gpu gpu, boolean useProfiling) {
-		return new Bound(this, gpu, useProfiling);
+	public Bound bind(CLCommandQueue queue) {
+		return new Bound(this, queue);
 	}
 	
 	public static class Bound extends BoundKernel<Bound> {
@@ -31,8 +31,8 @@ public class TestFancyKernel extends Kernel<TestFancyKernel.Bound> {
 		private int workSize;
 		private int groupSize;
 		
-		public Bound(Kernel<TestFancyKernel.Bound> kernel, Gpu gpu, boolean useProfiling) {
-			super(kernel, gpu, useProfiling);
+		public Bound(Kernel<TestFancyKernel.Bound> kernel, CLCommandQueue queue) {
+			super(kernel, queue);
 		}
 		
 		public DoubleBuffer getA() {

@@ -8,9 +8,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import com.jogamp.opencl.CLCommandQueue;
 import com.jogamp.opencl.CLEvent;
 import com.jogamp.opencl.CLEvent.ProfilingCommand;
 import com.jogamp.opencl.CLEventList;
+import com.jogamp.opencl.CLException;
 
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.energy.EnergyFunction;
@@ -28,20 +30,11 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof {
 	private ForceFieldKernel.Bound kernel;
 	private Map<List<DegreeOfFreedom>,List<GpuForcefieldEnergy>> decomposedEfuncs;
 	
-	public GpuForcefieldEnergy(ForcefieldParams ffparams, ForcefieldInteractions interactions)
+	public GpuForcefieldEnergy(ForcefieldParams ffparams, ForcefieldInteractions interactions, CLCommandQueue queue)
 	throws IOException {
-		this(ffparams, interactions, false);
-	}
-	
-	public GpuForcefieldEnergy(ForcefieldParams ffparams, ForcefieldInteractions interactions, boolean useProfiling)
-	throws IOException {
-		
 		this.interactions = interactions;
 		ffenergy = new BigForcefieldEnergy(ffparams, interactions, true);
-		
-		// prep the kernel, upload precomputed data
-		kernel = new ForceFieldKernel().bind(useProfiling);
-		
+		kernel = new ForceFieldKernel().bind(queue);
 		decomposedEfuncs = new HashMap<>();
 	}
 	
@@ -49,11 +42,13 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof {
 		return ffenergy;
 	}
 	
-	public int getGpuBytesNeeded() {
-		return kernel.getGpuBytesNeeded();
+	public ForceFieldKernel.Bound getKernel() {
+		return kernel;
 	}
 	
 	public void initGpu() {
+		
+		// prep the kernel, upload precomputed data
 		kernel.setForcefield(ffenergy);
 		kernel.uploadStaticAsync();
 		kernel.waitForGpu();
@@ -67,13 +62,17 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof {
 		StringBuilder buf = new StringBuilder();
 		CLEventList events = kernel.getProfilingEvents();
 		for (CLEvent event : events) {
-			long startNs = event.getProfilingInfo(ProfilingCommand.START);
-			long endNs = event.getProfilingInfo(ProfilingCommand.END);
-			buf.append(String.format(
-				"%s %s\n",
-				event.getType(),
-				TimeFormatter.format(endNs - startNs, TimeUnit.MICROSECONDS)
-			));
+			try {
+				long startNs = event.getProfilingInfo(ProfilingCommand.START);
+				long endNs = event.getProfilingInfo(ProfilingCommand.END);
+				buf.append(String.format(
+					"%s %s\n",
+					event.getType(),
+					TimeFormatter.format(endNs - startNs, TimeUnit.MICROSECONDS)
+				));
+			} catch (CLException.CLProfilingInfoNotAvailableException ex) {
+				buf.append(String.format("%s (unknown timing)\n", event.getType()));
+			}
 		}
 		kernel.clearProfilingEvents();
 		return buf.toString();
@@ -81,6 +80,10 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof {
 	
 	@Override
 	public double getEnergy() {
+		return getEnergySync();
+	}
+	
+	public double getEnergySync() {
 		
 		// upload coords
 		ffenergy.updateCoords();
@@ -90,15 +93,18 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof {
 		kernel.runAsync();
 		
 		// read the results
-		DoubleBuffer out = kernel.downloadEnergiesSync();
+		return sumEnergy(kernel.downloadEnergiesSync());
+	}
+	
+	private double sumEnergy(DoubleBuffer buf) {
 		
 		// do the last bit of the energy sum on the cpu
 		// add one element per work group on the gpu
-		// typically, it's a factor of 1024 less than the number of atom pairs
-		out.rewind();
+		// typically, it's a factor of groupSize less than the number of atom pairs
+		buf.rewind();
 		double energy = ffenergy.getInternalSolvationEnergy();
-		while (out.hasRemaining()) {
-			energy += out.get();
+		while (buf.hasRemaining()) {
+			energy += buf.get();
 		}
 		return energy;
 	}
@@ -137,7 +143,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof {
 					// otherwise, make an efunc for only that residue
 					try {
 						
-						GpuForcefieldEnergy gpuEfunc = new GpuForcefieldEnergy(ffenergy.getParams(), interactions.makeSubsetByResidue(res));
+						GpuForcefieldEnergy gpuEfunc = new GpuForcefieldEnergy(ffenergy.getParams(), interactions.makeSubsetByResidue(res), kernel.getQueue());
 						gpuEfunc.initGpu();
 						efuncs.add(gpuEfunc);
 						
