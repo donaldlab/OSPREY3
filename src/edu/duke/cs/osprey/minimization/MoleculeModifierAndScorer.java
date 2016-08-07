@@ -117,6 +117,13 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
             // step for non AAs (for now).
             Residue res = this.molec.getResByPDBResNumber( cSpace.flexibleRes.get(posNum) );
             if(HardCodedResidueInfo.hasAminoAcidBB(res) && !res.fullName.startsWith("FOL")) {
+            	
+				// if we're not using the conf space molecule, copy the dof
+				if (mol != null) {
+					mutDOF = (ResidueTypeDOF)mutDOF.copy();
+					mutDOF.setMolecule(mol);
+				}
+            	
                 // make sure the residue is using the right template
                 ResidueTemplate desiredTemplate;
                 if (rc.template != null) {

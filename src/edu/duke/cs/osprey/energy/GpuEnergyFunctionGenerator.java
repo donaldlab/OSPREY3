@@ -1,14 +1,14 @@
 package edu.duke.cs.osprey.energy;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.List;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
-import edu.duke.cs.osprey.gpu.GpuQueuePool;
 import edu.duke.cs.osprey.gpu.GpuInitException;
+import edu.duke.cs.osprey.gpu.GpuQueuePool;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 
@@ -50,7 +50,7 @@ public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 	}
 	
 	@Override
-	public GpuForcefieldEnergy intraAndShellEnergy(Residue res, ArrayList<Residue> shellResidues) {
+	public GpuForcefieldEnergy intraAndShellEnergy(Residue res, List<Residue> shellResidues) {
 		ForcefieldInteractions interactions = new ForcefieldInteractions();
 		interactions.addResidue(res);
 		for (Residue shellRes : shellResidues) {
@@ -60,19 +60,19 @@ public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 	}
 	
 	@Override
-	public GpuForcefieldEnergy intraAndDistributedShellEnergy(Residue res, ArrayList<Residue> shellResidues, int numPos, double singleWeight) {
+	public GpuForcefieldEnergy intraAndDistributedShellEnergy(Residue res, List<Residue> shellResidues, int numPos, double singleWeight) {
 		checkSingleWeight(singleWeight);
 		return intraAndShellEnergy(res, shellResidues);
 	}
 
 	@Override
-	public GpuForcefieldEnergy resPairAndDistributedShellEnergy(Residue res1, Residue res2, ArrayList<Residue> shellResidues, int numPos, double singleWeight) {
+	public GpuForcefieldEnergy resPairAndDistributedShellEnergy(Residue res1, Residue res2, List<Residue> shellResidues, int numPos, double singleWeight) {
 		checkSingleWeight(singleWeight);
 		return resPairEnergy(res1, res2);
 	}
 	
 	@Override
-	public GpuForcefieldEnergy fullConfEnergy(ConfSpace confSpace, ArrayList<Residue> shellResidues) {
+	public GpuForcefieldEnergy fullConfEnergy(ConfSpace confSpace, List<Residue> shellResidues) {
 		
 		ForcefieldInteractions interactions = new ForcefieldInteractions();
 		

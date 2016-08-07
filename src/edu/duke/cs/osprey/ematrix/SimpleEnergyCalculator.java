@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.ematrix;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.confspace.ConfSpace;
@@ -104,7 +105,7 @@ public class SimpleEnergyCalculator {
 	
 	public EnergyFunction getSingleEfunc(int pos, Molecule mol) {
 		double singleWeight = dist.getSingleWeight(confSpace.numPos);
-		return efuncGen.intraAndDistributedShellEnergy(getResidue(pos, mol), shellResidues, confSpace.numPos, singleWeight); 
+		return efuncGen.intraAndDistributedShellEnergy(getResidue(pos, mol), getResidues(shellResidues, mol), confSpace.numPos, singleWeight); 
 	}
 	
 	public Result calcSingle(int pos, int rc) {
@@ -121,7 +122,7 @@ public class SimpleEnergyCalculator {
 	
 	public EnergyFunction getPairEfunc(int pos1, int pos2, Molecule mol) {
 		double singleWeight = dist.getSingleWeight(confSpace.numPos);
-		return efuncGen.resPairAndDistributedShellEnergy(getResidue(pos1, mol), getResidue(pos2, mol), shellResidues, confSpace.numPos, singleWeight); 
+		return efuncGen.resPairAndDistributedShellEnergy(getResidue(pos1, mol), getResidue(pos2, mol), getResidues(shellResidues, mol), confSpace.numPos, singleWeight); 
 	}
 	
 	public Result calcPair(int pos1, int rc1, int pos2, int rc2) {
@@ -159,5 +160,20 @@ public class SimpleEnergyCalculator {
 		}
 		
 		return res;
+	}
+	
+	private List<Residue> getResidues(List<Residue> residues, Molecule mol) {
+		
+		// no molecule? just return the original residues
+		if (mol == null) {
+			return residues;
+		}
+		
+		// but if there is a molecule, then match the residues to it
+		List<Residue> matched = new ArrayList<>(residues.size());
+		for (Residue res : residues) {
+			matched.add(mol.getResByPDBResNumber(res.getPDBResNumber()));
+		}
+		return matched;
 	}
 }

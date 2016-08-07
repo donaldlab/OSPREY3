@@ -29,8 +29,8 @@ public class BenchmarkEmat extends TestBase {
 		//String aaNames = "ALA VAL LEU ILE";
 		String aaNames = "ALA";
 		String mutRes = "39 43";
-		//String flexRes = "40 41 42 44 45";
-		String flexRes = "40 41";
+		String flexRes = "40 41 42 44 45";
+		//String flexRes = "40 41";
 		ArrayList<String> flexResList = new ArrayList<>();
 		ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
 		for (String res : mutRes.split(" ")) {
@@ -62,7 +62,8 @@ public class BenchmarkEmat extends TestBase {
 		);
 		
 		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
-		//GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuQueuePool(2, 2));
+		//EnergyFunctionGenerator egen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuQueuePool(4, 1));
+		// NOTE: the gpu is pretty slow at the very small energy functions (eg pairwise residies) compared to the cpu
 		
 		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(egen, search.confSpace, search.shellResidues);
 		
@@ -78,6 +79,17 @@ public class BenchmarkEmat extends TestBase {
 		Stopwatch thread2Stopwatch = new Stopwatch().start();
 		new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix(tasks);
 		thread2Stopwatch.stop();
+		System.out.println(String.format("Speedup: %.2fx", (float)thread1Stopwatch.getTimeNs()/thread2Stopwatch.getTimeNs()));
+		
+		tasks.stopAndWait(10000);
+		
+		tasks.start(4);
+		
+		System.out.println("\nBenchmarking Emat calculation, 4 threads...");
+		Stopwatch thread4Stopwatch = new Stopwatch().start();
+		new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix(tasks);
+		thread4Stopwatch.stop();
+		System.out.println(String.format("Speedup: %.2fx", (float)thread1Stopwatch.getTimeNs()/thread4Stopwatch.getTimeNs()));
 		
 		tasks.stopAndWait(10000);
 	}

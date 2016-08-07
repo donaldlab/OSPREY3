@@ -4,6 +4,9 @@
  */
 package edu.duke.cs.osprey.energy;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.PositionConfSpace;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
@@ -11,7 +14,6 @@ import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
-import java.util.ArrayList;
 
 /**
  *
@@ -52,7 +54,7 @@ public class EnergyFunctionGenerator {
     }
     
     
-    public EnergyFunction intraAndShellEnergy(Residue res, ArrayList<Residue> shellResidues){
+    public EnergyFunction intraAndShellEnergy(Residue res, List<Residue> shellResidues){
         //internal energy of res, plus its interactions with the residues in shellRes
         
         EnergyFunction intraE = singleResEnergy(res);
@@ -68,7 +70,7 @@ public class EnergyFunctionGenerator {
         return intraAndShellE;
     }
     
-    public EnergyFunction intraAndDistributedShellEnergy(Residue res, ArrayList<Residue> shellResidues, int numPos, double singleWeight) {
+    public EnergyFunction intraAndDistributedShellEnergy(Residue res, List<Residue> shellResidues, int numPos, double singleWeight) {
         MultiTermEnergyFunction efunc = new MultiTermEnergyFunction();
         efunc.addTerm(new SingleResEnergy(res, ffParams));
         if (singleWeight > 0) {
@@ -79,7 +81,7 @@ public class EnergyFunctionGenerator {
         return efunc;
     }
     
-    public EnergyFunction resPairAndDistributedShellEnergy(Residue res1, Residue res2, ArrayList<Residue> shellResidues, int numPos, double singleWeight) {
+    public EnergyFunction resPairAndDistributedShellEnergy(Residue res1, Residue res2, List<Residue> shellResidues, int numPos, double singleWeight) {
     	double pairWeight = (1.0 - singleWeight)/(numPos - 1);
         MultiTermEnergyFunction efunc = new MultiTermEnergyFunction();
         efunc.addTerm(new ResPairEnergy(res1, res2, ffParams));
@@ -96,7 +98,7 @@ public class EnergyFunctionGenerator {
     
     
     
-    public EnergyFunction fullConfEnergy(ConfSpace cSpace, ArrayList<Residue> shellResidues){
+    public EnergyFunction fullConfEnergy(ConfSpace cSpace, List<Residue> shellResidues){
         //make an energy function estimating the energy of all flexible residues in cSpace,
         //plus any interactions with other (shell) residues that are within distCutoff of anything in cSpace
         //this can be used as the full energy for any conformation in cSpace
