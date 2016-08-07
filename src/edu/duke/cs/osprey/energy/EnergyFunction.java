@@ -29,4 +29,8 @@ public interface EnergyFunction extends Serializable {
     public static interface NeedsInit extends EnergyFunction {
     	void init(Molecule m, List<DegreeOfFreedom> dofs, DoubleMatrix1D initialX);
     }
+    
+    public static interface NeedsCleanup extends EnergyFunction {
+    	void cleanup();
+    }
 }

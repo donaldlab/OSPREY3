@@ -27,9 +27,7 @@ public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 	
 	private GpuForcefieldEnergy makeGpuForcefield(ForcefieldInteractions interactions) {
 		try {
-			GpuForcefieldEnergy ff = new GpuForcefieldEnergy(ffParams, interactions, queues.getRoundRobinQueue());
-			ff.initGpu();
-			return ff;
+			return new GpuForcefieldEnergy(ffParams, interactions, queues.getRoundRobinQueue());
 		} catch (IOException ex) {
 			throw new GpuInitException("can't init gpu forcefield", ex);
 		}

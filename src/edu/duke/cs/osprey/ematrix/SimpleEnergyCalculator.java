@@ -147,7 +147,14 @@ public class SimpleEnergyCalculator {
 		}
 
 		// calculate the energy
-		return new Result(minDofValues, efunc.getEnergy());
+		Result result = new Result(minDofValues, efunc.getEnergy());
+		
+		// cleanup the energy function if needed
+		if (efunc instanceof EnergyFunction.NeedsCleanup) {
+			((EnergyFunction.NeedsCleanup)efunc).cleanup();
+		}
+		
+		return result;
 	}
 	
 	private Residue getResidue(int pos, Molecule mol) {

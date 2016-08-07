@@ -36,6 +36,7 @@ public class Molecule implements Serializable {
         // make a deep copy of the residues
         for (Residue residue : other.residues) {
             residue = new Residue(residue);
+            residue.molec = this;
             this.residues.add(residue);
         }
         for (Map.Entry<Integer,ArrayList<Residue>> entry : other.alternates.entrySet()) {

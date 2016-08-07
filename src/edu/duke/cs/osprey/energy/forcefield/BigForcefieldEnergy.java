@@ -135,7 +135,6 @@ public class BigForcefieldEnergy implements EnergyFunction {
 		} else {
 			coords = DoubleBuffer.allocate(numAtoms*3);
 		}
-		updateCoords();
 		
 		// do one pass over the group pairs to count the number of atom pairs
 		int numAtomPairs = 0;
@@ -350,6 +349,22 @@ public class BigForcefieldEnergy implements EnergyFunction {
 	}
 	
 	public void updateCoords() {
+		
+		// look for atom changes
+		// NOTE: this isn't perfect since it won't detect atom type changes
+		// it only catches changes in the number of atoms, but it's better than nothing
+		int numCoords = 0;
+		for (int i=0; i<groups.getNumGroups(); i++) {
+			AtomGroup group = groups.get(i);
+			numCoords += group.getCoords().length;
+		}
+		if (numCoords != coords.capacity()) {
+			throw new IllegalStateException("Changes in forcefield atoms detected (other than position)."
+				+ " Don't re-use instance of this forcefield after changing residue templates."
+				+ " Make a new forcefield instead.");
+		}
+		
+		// copy atom coords into the buffer
 		coords.rewind();
 		for (int i=0; i<groups.getNumGroups(); i++) {
 			AtomGroup group = groups.get(i);
@@ -365,6 +380,8 @@ public class BigForcefieldEnergy implements EnergyFunction {
 		// the idea is to limit the scope of temporary variables as much as possible
 		// so the compiler/jvm has the most flexibilty to use registers
 		// this actually has a measurable impact on performance
+		
+		updateCoords();
 		
 		// copy some things to the local stack
 		int num14Pairs = this.num14Pairs;

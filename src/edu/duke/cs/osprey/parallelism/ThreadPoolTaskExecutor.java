@@ -2,6 +2,8 @@ package edu.duke.cs.osprey.parallelism;
 
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -79,6 +81,17 @@ public class ThreadPoolTaskExecutor extends TaskExecutor {
 				}
 			}
 		};
+		pool.setThreadFactory(new ThreadFactory() {
+			@Override
+			public Thread newThread(Runnable task) {
+				
+				// set the daemon status on the thread pool threads
+				// so the thread pool shuts down automatically if all the main threads exit
+				Thread thread = Executors.defaultThreadFactory().newThread(task);
+				thread.setDaemon(true);
+				return thread;
+			}
+		});
 		pool.prestartAllCoreThreads();
 		
 		// init finish detection state

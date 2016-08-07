@@ -16,15 +16,17 @@ import com.jogamp.opencl.CLException;
 
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.energy.EnergyFunction;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions.AtomGroup;
 import edu.duke.cs.osprey.gpu.kernels.ForceFieldKernel;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.TimeFormatter;
 
-public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof {
+public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, EnergyFunction.NeedsCleanup {
 	
 	private static final long serialVersionUID = -9142317985561910731L;
 	
+	private ForcefieldParams ffparams;
 	private ForcefieldInteractions interactions;
 	private BigForcefieldEnergy ffenergy;
 	private ForceFieldKernel.Bound kernel;
@@ -32,10 +34,22 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof {
 	
 	public GpuForcefieldEnergy(ForcefieldParams ffparams, ForcefieldInteractions interactions, CLCommandQueue queue)
 	throws IOException {
+		
+		this.ffparams = ffparams;
 		this.interactions = interactions;
-		ffenergy = new BigForcefieldEnergy(ffparams, interactions, true);
+		
 		kernel = new ForceFieldKernel().bind(queue);
+		makeForcefield();
 		decomposedEfuncs = new HashMap<>();
+	}
+	
+	private void makeForcefield() {
+		
+		// prep the kernel, upload precomputed data
+		ffenergy = new BigForcefieldEnergy(ffparams, interactions, true);
+		kernel.setForcefield(ffenergy);
+		kernel.uploadStaticAsync();
+		kernel.waitForGpu();
 	}
 	
 	public BigForcefieldEnergy getForcefieldEnergy() {
@@ -44,14 +58,6 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof {
 	
 	public ForceFieldKernel.Bound getKernel() {
 		return kernel;
-	}
-	
-	public void initGpu() {
-		
-		// prep the kernel, upload precomputed data
-		kernel.setForcefield(ffenergy);
-		kernel.uploadStaticAsync();
-		kernel.waitForGpu();
 	}
 	
 	public void startProfile() {
@@ -85,6 +91,20 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof {
 	
 	public double getEnergySync() {
 		
+		// look for residue template changes and rebuild forcefield if needed
+		boolean isChanged = false;
+		for (AtomGroup[] pair : interactions) {
+			for (AtomGroup group : pair) {
+				if (group.hasChemicalChange()) {
+					isChanged = true;
+				}
+				group.ackChemicalChange();
+			}
+		}
+		if (isChanged) {
+			makeForcefield();
+		}
+		
 		// upload coords
 		ffenergy.updateCoords();
 		kernel.uploadCoordsAsync();
@@ -109,6 +129,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof {
 		return energy;
 	}
 	
+	@Override
 	public void cleanup() {
 		
 		kernel.cleanup();
@@ -143,9 +164,11 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof {
 					// otherwise, make an efunc for only that residue
 					try {
 						
-						GpuForcefieldEnergy gpuEfunc = new GpuForcefieldEnergy(ffenergy.getParams(), interactions.makeSubsetByResidue(res), kernel.getQueue());
-						gpuEfunc.initGpu();
-						efuncs.add(gpuEfunc);
+						efuncs.add(new GpuForcefieldEnergy(
+							ffenergy.getParams(),
+							interactions.makeSubsetByResidue(res),
+							kernel.getQueue()
+						));
 						
 					} catch (IOException ex) {
 						
