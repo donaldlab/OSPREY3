@@ -7,9 +7,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import com.jogamp.opencl.CLCommandQueue;
-import com.jogamp.opencl.CLKernel;
-
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
@@ -27,6 +24,7 @@ import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
+import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
@@ -97,8 +95,8 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
 		GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuQueuePool(2, 2));
 		
-		benchmarkEfunc(search, egen, gpuegen);
-		//benchmarkEmat(search, egen, gpuegen);
+		//benchmarkEfunc(search, egen, gpuegen);
+		benchmarkEmat(search, egen, gpuegen);
 		//benchmarkMinimize(search, egen, gpuegen);
 	}
 	
@@ -237,13 +235,13 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		// benchmark the cpu
 		System.out.println("\nBenchmarking CPU...");
 		Stopwatch cpuStopwatch = new Stopwatch().start();
-		EnergyMatrix emat = ecalc.calcEnergyMatrix();
+		EnergyMatrix emat = new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix();
 		cpuStopwatch.stop();
 		
 		// benchmark the gpu
 		System.out.println("\nBenchmarking GPU...");
 		Stopwatch gpuStopwatch = new Stopwatch().start();
-		EnergyMatrix gpuemat = gpuecalc.calcEnergyMatrix();
+		EnergyMatrix gpuemat = new SimpleEnergyMatrixCalculator(gpuecalc).calcEnergyMatrix();
 		gpuStopwatch.stop();
 		
 		// calculate speedup
@@ -274,7 +272,7 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		int numConfs = 10;
 		
 		// get a few arbitrary conformations
-		search.emat = ecalc.calcEnergyMatrix();
+		search.emat = new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix();
 		search.pruneMat = new PruningMatrix(search.confSpace, 1000);
 		RCs rcs = new RCs(search.pruneMat);
 		AStarOrder order = new StaticScoreHMeanAStarOrder();

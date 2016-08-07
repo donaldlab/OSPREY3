@@ -74,15 +74,29 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
     }
     
     
-    public MoleculeModifierAndScorer(EnergyFunction ef, ConfSpace cSpace, RCTuple RCTup){
+    public MoleculeModifierAndScorer(EnergyFunction ef, ConfSpace cSpace, RCTuple RCTup) {
+        this(ef, cSpace, RCTup, null);
+    }
+    
+    public MoleculeModifierAndScorer(EnergyFunction ef, ConfSpace cSpace, RCTuple RCTup, Molecule mol) {
         /*Initialize an objective function to evaluate ef over the portion of cSpace
          * defined by the RCs in RCTup.  Ensure that all confDOFs of residues in RCTup are bounded
          * (if able to vary continuously) or set correctly (if not)
          */
         
         efunc = ef;
-        molec = cSpace.m;
         
+        // which molecule are we using?
+        if (mol == null) {
+        	
+        	// the one from the conf space
+            this.molec = cSpace.m;
+            
+        } else {
+        	
+        	// a separate molecule, so we don't modify the one in the conf space
+            this.molec = mol;
+        }
         
         LinkedHashMap<DegreeOfFreedom,double[]> DOFBounds = new LinkedHashMap<>();//bounds for each conformational DOF
         //LinkedHashMap used to achieve consistency between runs (iterating over a regular HashMap
@@ -101,19 +115,19 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
             // AAO 2016: this code was written for AAs, specifically anything
             // in all_amino_coords.in and not for generic non-AA residues. skipping this
             // step for non AAs (for now).
-            Residue res = cSpace.m.getResByPDBResNumber( cSpace.flexibleRes.get(posNum) );
+            Residue res = this.molec.getResByPDBResNumber( cSpace.flexibleRes.get(posNum) );
             if(HardCodedResidueInfo.hasAminoAcidBB(res) && !res.fullName.startsWith("FOL")) {
-            	// make sure the residue is using the right template
-            	ResidueTemplate desiredTemplate;
-            	if (rc.template != null) {
-            		desiredTemplate = rc.template;
-            	} else {
-            		desiredTemplate = mutDOF.getLibraryTemplate(rc.AAType);
-            	}
+                // make sure the residue is using the right template
+                ResidueTemplate desiredTemplate;
+                if (rc.template != null) {
+                    desiredTemplate = rc.template;
+                } else {
+                    desiredTemplate = mutDOF.getLibraryTemplate(rc.AAType);
+                }
 
-            	if (!mutDOF.isTemplate(desiredTemplate)) {
-            		mutDOF.switchToTemplate(desiredTemplate);
-            	}
+                if (!mutDOF.isTemplate(desiredTemplate)) {
+                    mutDOF.switchToTemplate(desiredTemplate);
+                }
             }
             
             for(int dofIndexInRC=0; dofIndexInRC<rc.DOFs.size(); dofIndexInRC++){
@@ -132,6 +146,13 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
                     }
                 }
                 else {//store bounds
+                    
+                    // if we're not using the conf space molecule, copy the dofs
+                    if (mol != null) {
+                        curDOF = curDOF.copy();
+                        curDOF.setMolecule(mol);
+                    }
+                    
                     DOFBounds.put(curDOF, new double[] {minVal,maxVal});
                     numMinDOFs++;
                 }
@@ -150,11 +171,11 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
         
     	// build the DoFs based on the current structure instead of residue conformations
         for (int i=0; i<confSpace.posFlex.size(); i++) {
-        	PositionConfSpace pos = confSpace.posFlex.get(i);
-			for(int j=0; j<pos.res.getNumDihedrals(); j++) {
-				DOFBounds.put(new FreeDihedral(pos.res, j), pos.makeDOFBounds(pos.res.getDihedralAngle(j)));
-				numMinDOFs++;
-			}
+            PositionConfSpace pos = confSpace.posFlex.get(i);
+            for(int j=0; j<pos.res.getNumDihedrals(); j++) {
+                DOFBounds.put(new FreeDihedral(pos.res, j), pos.makeDOFBounds(pos.res.getDihedralAngle(j)));
+                numMinDOFs++;
+            }
         }
         
         init(numMinDOFs, DOFBounds);
@@ -189,20 +210,17 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
     }
     
     private void initEfunc() {
-    	
-    	// init efunc if needed
-    	if (efunc instanceof EnergyFunction.NeedsInit) {
-    		((EnergyFunction.NeedsInit)efunc).init(molec, DOFs, curDOFVals);
-    	}
-    	
-    	// decompose by dofs if supported
-    	if (efunc instanceof EnergyFunction.DecomposableByDof) {
-    		partialEFuncs = ((EnergyFunction.DecomposableByDof)efunc).decomposeByDof(molec, DOFs);
-    	}
+        
+        // init efunc if needed
+        if (efunc instanceof EnergyFunction.NeedsInit) {
+            ((EnergyFunction.NeedsInit)efunc).init(molec, DOFs, curDOFVals);
+        }
+        
+        // decompose by dofs if supported
+        if (efunc instanceof EnergyFunction.DecomposableByDof) {
+            partialEFuncs = ((EnergyFunction.DecomposableByDof)efunc).decomposeByDof(molec, DOFs);
+        }
     }
-    
-    
-    
     
     @Override
     public int getNumDOFs() {

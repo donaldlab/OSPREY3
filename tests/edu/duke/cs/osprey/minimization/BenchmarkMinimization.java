@@ -23,6 +23,7 @@ import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
+import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
@@ -103,7 +104,7 @@ public class BenchmarkMinimization extends TestBase {
 		}
 		if (search.emat == null) {
 			System.out.println("\nComputing energy matrix...");
-			search.emat =ecalc.calcEnergyMatrix(); 
+			search.emat = new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix(); 
 			ObjectIO.writeObject(search.emat, ematFile.getAbsolutePath());
 		}
 		
