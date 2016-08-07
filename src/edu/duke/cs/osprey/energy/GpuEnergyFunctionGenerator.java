@@ -1,13 +1,11 @@
 package edu.duke.cs.osprey.energy;
 
-import java.io.IOException;
 import java.util.List;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
-import edu.duke.cs.osprey.gpu.GpuInitException;
 import edu.duke.cs.osprey.gpu.GpuQueuePool;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
@@ -26,11 +24,7 @@ public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 	}
 	
 	private GpuForcefieldEnergy makeGpuForcefield(ForcefieldInteractions interactions) {
-		try {
-			return new GpuForcefieldEnergy(ffParams, interactions, queues.getRoundRobinQueue());
-		} catch (IOException ex) {
-			throw new GpuInitException("can't init gpu forcefield", ex);
-		}
+		return new GpuForcefieldEnergy(ffParams, interactions, queues.getRoundRobinQueue());
 	}
 	
 	@Override

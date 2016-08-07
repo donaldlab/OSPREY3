@@ -28,28 +28,18 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	
 	private ForcefieldParams ffparams;
 	private ForcefieldInteractions interactions;
+	private CLCommandQueue queue;
 	private BigForcefieldEnergy ffenergy;
 	private ForceFieldKernel.Bound kernel;
 	private Map<List<DegreeOfFreedom>,List<GpuForcefieldEnergy>> decomposedEfuncs;
 	
-	public GpuForcefieldEnergy(ForcefieldParams ffparams, ForcefieldInteractions interactions, CLCommandQueue queue)
-	throws IOException {
+	public GpuForcefieldEnergy(ForcefieldParams ffparams, ForcefieldInteractions interactions, CLCommandQueue queue) {
 		
 		this.ffparams = ffparams;
 		this.interactions = interactions;
+		this.queue = queue;
 		
-		kernel = new ForceFieldKernel().bind(queue);
-		makeForcefield();
 		decomposedEfuncs = new HashMap<>();
-	}
-	
-	private void makeForcefield() {
-		
-		// prep the kernel, upload precomputed data
-		ffenergy = new BigForcefieldEnergy(ffparams, interactions, true);
-		kernel.setForcefield(ffenergy);
-		kernel.uploadStaticAsync();
-		kernel.waitForGpu();
 	}
 	
 	public BigForcefieldEnergy getForcefieldEnergy() {
@@ -86,23 +76,29 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	
 	@Override
 	public double getEnergy() {
-		return getEnergySync();
-	}
-	
-	public double getEnergySync() {
 		
-		// look for residue template changes and rebuild forcefield if needed
-		boolean isChanged = false;
-		for (AtomGroup[] pair : interactions) {
-			for (AtomGroup group : pair) {
-				if (group.hasChemicalChange()) {
-					isChanged = true;
-				}
-				group.ackChemicalChange();
+		// do we need to rebuild the forcefield?
+		if (kernel == null || hasChemicalChanges()) {
+			
+			// cleanup any old kernel if needed
+			if (kernel != null) {
+				kernel.cleanup();
+				kernel = null;
 			}
-		}
-		if (isChanged) {
-			makeForcefield();
+			
+			try {
+				
+				// prep the kernel, upload precomputed data
+				ffenergy = new BigForcefieldEnergy(ffparams, interactions, true);
+				kernel = new ForceFieldKernel().bind(queue);
+				kernel.setForcefield(ffenergy);
+				kernel.uploadStaticAsync();
+				
+			} catch (IOException ex) {
+				
+				// if we can't find the gpu kernel source, that's something a programmer needs to fix
+				throw new Error("can't initialize gpu kernel", ex);
+			}
 		}
 		
 		// upload coords
@@ -116,6 +112,21 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		return sumEnergy(kernel.downloadEnergiesSync());
 	}
 	
+	private boolean hasChemicalChanges() {
+		
+		// look for residue template changes so we can rebuild the forcefield
+		boolean hasChanges = false;
+		for (AtomGroup[] pair : interactions) {
+			for (AtomGroup group : pair) {
+				if (group.hasChemicalChange()) {
+					hasChanges = true;
+				}
+				group.ackChemicalChange();
+			}
+		}
+		return hasChanges;
+	}
+
 	private double sumEnergy(DoubleBuffer buf) {
 		
 		// do the last bit of the energy sum on the cpu
@@ -132,7 +143,9 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	@Override
 	public void cleanup() {
 		
-		kernel.cleanup();
+		if (kernel != null) {
+			kernel.cleanup();
+		}
 		
 		for (List<GpuForcefieldEnergy> efuncs : decomposedEfuncs.values()) {
 			for (GpuForcefieldEnergy efunc : efuncs) {
@@ -162,19 +175,11 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 				} else {
 					
 					// otherwise, make an efunc for only that residue
-					try {
-						
-						efuncs.add(new GpuForcefieldEnergy(
-							ffenergy.getParams(),
-							interactions.makeSubsetByResidue(res),
-							kernel.getQueue()
-						));
-						
-					} catch (IOException ex) {
-						
-						// couldn't init gpu kernel for some reason, bail hard
-						throw new Error("can't init gpu kernel for decomposed energy function", ex);
-					}
+					efuncs.add(new GpuForcefieldEnergy(
+						ffparams,
+						interactions.makeSubsetByResidue(res),
+						queue
+					));
 				}
 			}
 			

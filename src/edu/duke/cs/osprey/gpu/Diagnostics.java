@@ -21,13 +21,14 @@ public class Diagnostics {
 			System.out.println("\tDevices:");
 			for (CLDevice device : platform.listCLDevices()) {
 				System.out.println("\n\t" + device.getName());
-				System.out.println("\t\tprocessors (not cores):  " + device.getMaxComputeUnits());
-				System.out.println("\t\tclock speed:             " + device.getMaxClockFrequency() + " Mhz");
-				System.out.println("\t\tglobal memory:           " + device.getGlobalMemSize()/1024/1024 + " MiB");
-				System.out.println("\t\tlocal memory:            " + device.getLocalMemSize()/1024 + " KiB");
-				System.out.println("\t\tsamplers:                " + device.getMaxSamplers());
-				System.out.println("\t\t64-bit double support:   " + supportsDoubles(device));
-				System.out.println("\t\tMax workgroup size:      " + device.getMaxWorkGroupSize());
+				System.out.println(String.format("\t\t%-30s %b", "64-bit double support:", supportsDoubles(device)));
+				System.out.println(String.format("\t\t%-30s %d", "compute units:", device.getMaxComputeUnits()));
+				System.out.println(String.format("\t\t%-30s %d", "work items per compute unit:", device.getMaxWorkGroupSize()/device.getMaxComputeUnits()));
+				System.out.println(String.format("\t\t%-30s %d", "max workgroup size:", device.getMaxWorkGroupSize()));
+				System.out.println(String.format("\t\t%-30s %d Mhz", "clock speed:", device.getMaxClockFrequency()));
+				System.out.println(String.format("\t\t%-30s %d MiB", "global memory:", device.getGlobalMemSize()/1024/1024));
+				System.out.println(String.format("\t\t%-30s %d KiB", "local memory:", device.getLocalMemSize()/1024));
+				System.out.println(String.format("\t\t%-30s %d MiB", "max allocation:", device.getMaxMemAllocSize()/1024/1024));
 			}
 		}
 		

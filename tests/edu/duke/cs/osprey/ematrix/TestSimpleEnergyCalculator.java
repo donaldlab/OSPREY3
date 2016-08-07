@@ -83,7 +83,7 @@ public class TestSimpleEnergyCalculator extends TestBase {
 		
 		EnergyMatrixConfig emConfig = new EnergyMatrixConfig();
 		emConfig.pdbPath = "test/DAGK/2KDC.P.forOsprey.pdb";
-		emConfig.numFlexible = 4;
+		emConfig.numFlexible = 3;
 		emConfig.addWtRots = true;
 		emConfig.doMinimize = doMinimize;
 		SearchProblem search = makeSearchProblem(emConfig);
