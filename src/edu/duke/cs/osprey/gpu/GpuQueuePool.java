@@ -1,68 +1,84 @@
 package edu.duke.cs.osprey.gpu;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 
 import com.jogamp.opencl.CLCommandQueue;
 
 public class GpuQueuePool {
 	
-	private int queuesPerGpu;
-	private List<List<CLCommandQueue>> queues;
-	private int nextIndex;
+	private int numQueuesPerGpu;
+	private List<List<CLCommandQueue>> queuesByGpu;
+	private List<CLCommandQueue> queues;
+	private Deque<CLCommandQueue> availableQueues;
 	
 	public GpuQueuePool(int numGpus, int queuesPerGpu) {
 		this(numGpus, queuesPerGpu, false);
 	}
 	
-	public GpuQueuePool(int numGpus, int queuesPerGpu, boolean useProfiling) {
+	public GpuQueuePool(int numGpus, int numQueuesPerGpu, boolean useProfiling) {
 		
-		this.queuesPerGpu = queuesPerGpu;
+		this.numQueuesPerGpu = numQueuesPerGpu;
 		
 		// make sure we don't try to use too many gpus
 		List<Gpu> gpus = Gpus.get().getGpus();
 		numGpus = Math.min(numGpus, gpus.size());
 		
 		// make n queues for each gpu
-		queues = new ArrayList<>(numGpus);
+		queuesByGpu = new ArrayList<>(numGpus);
 		for (int i=0; i<numGpus; i++) {
 			Gpu gpu = gpus.get(i);
 			List<CLCommandQueue> queuesAtGpu = new ArrayList<>();
-			for (int j=0; j<queuesPerGpu; j++) {
+			for (int j=0; j<numQueuesPerGpu; j++) {
 				queuesAtGpu.add(gpu.makeQueue(useProfiling));
 			}
-			queues.add(queuesAtGpu);
+			queuesByGpu.add(queuesAtGpu);
 		}
 		
-		nextIndex = 0;
+		// flatten the queues into a list
+		// visit the first queue on each gpu first, then the second, etc...
+		queues = new ArrayList<>(numGpus*numQueuesPerGpu);
+		for (int i=0; i<numQueuesPerGpu; i++) {
+			for (int j=0; j<numGpus; j++) {
+				queues.add(queuesByGpu.get(j).get(i));
+			}
+		}
+		
+		// initially, all queues are available
+		availableQueues = new ArrayDeque<>(queues);
 	}
 	
 	public int getNumGpus() {
-		return queues.size();
+		return queuesByGpu.size();
 	}
 	
-	public int getQueuesPerGpu() {
-		return queuesPerGpu;
+	public int getNumQueuesPerGpu() {
+		return numQueuesPerGpu;
 	}
 	
 	public int getNumQueues() {
-		return queues.size()*queuesPerGpu;
+		return queues.size();
 	}
 	
-	public CLCommandQueue getQueue(int index) {
+	public synchronized CLCommandQueue checkout() {
 		
-		// visit the first queue on each gpu first, then the second, etc...
-		int gpuIndex = index%queues.size();
-		int queueIndex = index/queues.size();
+		if (availableQueues.isEmpty()) {
+			throw new IllegalStateException("no more queues to checkout");
+		}
 		
-		return getQueue(gpuIndex, queueIndex);
+		return availableQueues.removeFirst();
 	}
 	
-	public CLCommandQueue getQueue(int gpuIndex, int queueIndex) {
-		return queues.get(gpuIndex).get(queueIndex);
+	public synchronized void release(CLCommandQueue queue) {
+		availableQueues.addLast(queue);
 	}
-	
-	public CLCommandQueue getRoundRobinQueue() {
-		return getQueue(nextIndex++ % getNumQueues());
+
+	public void cleanup() {
+		for (CLCommandQueue queue : queues) {
+			queue.release();
+		}
+		queuesByGpu.clear();
 	}
 }

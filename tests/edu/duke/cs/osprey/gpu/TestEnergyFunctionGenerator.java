@@ -16,6 +16,7 @@ import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
+import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
 import edu.duke.cs.osprey.structure.Residue;
 
 public class TestEnergyFunctionGenerator extends TestBase {
@@ -79,12 +80,18 @@ public class TestEnergyFunctionGenerator extends TestBase {
 			Residue res = search.confSpace.posFlex.get(pos).res;
 			
 			double energy = egen.singleResEnergy(res).getEnergy();
-			double gpuenergy = gpuegen.singleResEnergy(res).getEnergy();
+			double gpuenergy = getGpuEnergy(gpuegen.singleResEnergy(res));
 			
 			assertThat(gpuenergy, isRelatively(energy));
 		}
 	}
 	
+	private double getGpuEnergy(GpuForcefieldEnergy efunc) {
+		double energy = efunc.getEnergy();
+		efunc.cleanup();
+		return energy;
+	}
+
 	@Test
 	public void testSinglesRigid() {
 		testSingles(false);
@@ -108,7 +115,7 @@ public class TestEnergyFunctionGenerator extends TestBase {
 				Residue res2 = search.confSpace.posFlex.get(pos2).res;
 				
 				double energy = egen.resPairEnergy(res1, res2).getEnergy();
-				double gpuenergy = gpuegen.resPairEnergy(res1, res2).getEnergy();
+				double gpuenergy = getGpuEnergy(gpuegen.resPairEnergy(res1, res2));
 				
 				assertThat(gpuenergy, isRelatively(energy));
 			}
@@ -135,7 +142,7 @@ public class TestEnergyFunctionGenerator extends TestBase {
 			Residue res = search.confSpace.posFlex.get(pos).res;
 			
 			double energy = egen.intraAndShellEnergy(res, search.shellResidues).getEnergy();
-			double gpuenergy = gpuegen.intraAndShellEnergy(res, search.shellResidues).getEnergy();
+			double gpuenergy = getGpuEnergy(gpuegen.intraAndShellEnergy(res, search.shellResidues));
 			
 			assertThat(gpuenergy, isRelatively(energy));
 		}

@@ -7,8 +7,6 @@ import java.io.IOException;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import com.jogamp.opencl.CLCommandQueue;
-
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
@@ -30,7 +28,7 @@ public class TestForceFieldKernel extends TestBase {
 	private static class Forcefields {
 		public MultiTermEnergyFunction efunc;
 		public BigForcefieldEnergy bigff;
-		public CLCommandQueue queue;
+		public GpuQueuePool queuePool;
 		public GpuForcefieldEnergy gpuff;
 	}
 	
@@ -126,8 +124,8 @@ public class TestForceFieldKernel extends TestBase {
 		
 		ForcefieldParams ffparams = TestBase.makeDefaultFFParams();
 		ff.bigff = new BigForcefieldEnergy(ffparams, interactions);
-		ff.queue = Gpus.get().getBestGpu().makeQueue();
-		ff.gpuff = new GpuForcefieldEnergy(ffparams, interactions, ff.queue);
+		ff.queuePool = new GpuQueuePool(1, 1);
+		ff.gpuff = new GpuForcefieldEnergy(ffparams, interactions, ff.queuePool);
 		return ff;
 	}
 	
@@ -139,14 +137,14 @@ public class TestForceFieldKernel extends TestBase {
 		assertThat(ff.bigff.getEnergy(), isRelatively(allPairsEnergy));
 		assertThat(ff.gpuff.getEnergy(), isRelatively(allPairsEnergy));
 		ff.gpuff.cleanup();
-		ff.queue.release();
+		ff.queuePool.cleanup();
 		
 		ff = makeForcefields(residues, EnergyFunctionType.SingleAndShell);
 		assertThat(ff.efunc.getEnergy(), isRelatively(singleAndShellEnergy));
 		assertThat(ff.bigff.getEnergy(), isRelatively(singleAndShellEnergy));
 		assertThat(ff.gpuff.getEnergy(), isRelatively(singleAndShellEnergy));
 		ff.gpuff.cleanup();
-		ff.queue.release();
+		ff.queuePool.cleanup();
 	}
 	
 	@Test

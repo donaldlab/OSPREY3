@@ -17,6 +17,7 @@ import com.jogamp.opencl.CLException;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions.AtomGroup;
+import edu.duke.cs.osprey.gpu.GpuQueuePool;
 import edu.duke.cs.osprey.gpu.kernels.ForceFieldKernel;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
@@ -28,18 +29,33 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	
 	private ForcefieldParams ffparams;
 	private ForcefieldInteractions interactions;
+	private GpuQueuePool queuePool;
 	private CLCommandQueue queue;
 	private BigForcefieldEnergy ffenergy;
 	private ForceFieldKernel.Bound kernel;
 	private Map<List<DegreeOfFreedom>,List<GpuForcefieldEnergy>> decomposedEfuncs;
 	
-	public GpuForcefieldEnergy(ForcefieldParams ffparams, ForcefieldInteractions interactions, CLCommandQueue queue) {
+	private GpuForcefieldEnergy() {
+		decomposedEfuncs = new HashMap<>();
+	}
+	
+	public GpuForcefieldEnergy(ForcefieldParams ffparams, ForcefieldInteractions interactions, GpuQueuePool queuePool) {
+		this();
 		
 		this.ffparams = ffparams;
 		this.interactions = interactions;
-		this.queue = queue;
+		this.queuePool = queuePool;
 		
-		decomposedEfuncs = new HashMap<>();
+		queue = queuePool.checkout();
+	}
+	
+	private GpuForcefieldEnergy(GpuForcefieldEnergy parent, ForcefieldInteractions interactions) {
+		this();
+		
+		this.ffparams = parent.ffparams;
+		this.interactions = interactions;
+		this.queuePool = null;
+		this.queue = parent.queue;
 	}
 	
 	public BigForcefieldEnergy getForcefieldEnergy() {
@@ -143,6 +159,10 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	@Override
 	public void cleanup() {
 		
+		if (queuePool != null) {
+			queuePool.release(queue);
+		}
+		
 		if (kernel != null) {
 			kernel.cleanup();
 		}
@@ -175,11 +195,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 				} else {
 					
 					// otherwise, make an efunc for only that residue
-					efuncs.add(new GpuForcefieldEnergy(
-						ffparams,
-						interactions.makeSubsetByResidue(res),
-						queue
-					));
+					efuncs.add(new GpuForcefieldEnergy(this, interactions.makeSubsetByResidue(res)));
 				}
 			}
 			

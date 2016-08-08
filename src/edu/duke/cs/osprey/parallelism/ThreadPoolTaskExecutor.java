@@ -55,29 +55,30 @@ public class ThreadPoolTaskExecutor extends TaskExecutor {
 			
 			@Override
 			public void afterExecute(Runnable task, Throwable error) {
-				try {
 					
-					// was there an error?
-					if (error != null) {
-	
-						// update the finish detection
-						synchronized (this) {
-							numTasksFinished++;
-						}
-						
-						// NOTE: the error already gets written to the console by the thread pool
-						
-					} else {
+				// was there an error?
+				if (error != null) {
+
+					// update the finish detection
+					synchronized (this) {
+						numTasksFinished++;
+					}
 					
+					// NOTE: the error already gets written to the console by the thread pool
+					
+				} else {
+					
+					try {
+						
 						// pass off to listener thread, wait if needed
 						boolean wasAdded = false;
 						while (!wasAdded) {
 							wasAdded = outgoingQueue.offer(task, 1, TimeUnit.SECONDS);
 						}
+						
+					} catch (InterruptedException ex) {
+						throw new RuntimeException(ex);
 					}
-					
-				} catch (InterruptedException ex) {
-					throw new RuntimeException(ex);
 				}
 			}
 		};

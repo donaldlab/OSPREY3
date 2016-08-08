@@ -24,7 +24,7 @@ public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 	}
 	
 	private GpuForcefieldEnergy makeGpuForcefield(ForcefieldInteractions interactions) {
-		return new GpuForcefieldEnergy(ffParams, interactions, queues.getRoundRobinQueue());
+		return new GpuForcefieldEnergy(ffParams, interactions, queues);
 	}
 	
 	@Override
