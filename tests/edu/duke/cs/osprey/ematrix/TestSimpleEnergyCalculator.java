@@ -108,11 +108,12 @@ public class TestSimpleEnergyCalculator extends TestBase {
     	for (int pos1=0; pos1<search.confSpace.numPos; pos1++) {
 			for (int rc1=0; rc1<search.emat.getNumConfAtPos(pos1); rc1++) {
 
+				// singles
 				exp = search.emat.getOneBody(pos1, rc1);
 				obs = ecalc.calcSingle(pos1, rc1, mol).getEnergy();
 				assertThat(obs, isRelatively(exp, Epsilon));
 				
-				// pairwise
+				// pairs
 				for (int pos2=0; pos2<pos1; pos2++) {
 					for (int rc2=0; rc2<search.emat.getNumConfAtPos(pos2); rc2++) {
 						

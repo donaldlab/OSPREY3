@@ -113,7 +113,10 @@ public class SimpleEnergyCalculator {
 	}
 	
 	public Result calcSingle(int pos, int rc, Molecule mol) {
-		return calc(getSingleEfunc(pos, mol), new RCTuple(pos, rc), mol);
+		EnergyFunction efunc = getSingleEfunc(pos, mol);
+		Result result = calc(efunc, new RCTuple(pos, rc), mol);
+		cleanup(efunc);
+		return result;
 	}
 	
 	public EnergyFunction getPairEfunc(int pos1, int pos2) {
@@ -130,7 +133,10 @@ public class SimpleEnergyCalculator {
 	}
 	
 	public Result calcPair(int pos1, int rc1, int pos2, int rc2, Molecule mol) {
-		return calc(getPairEfunc(pos1, pos2, mol), new RCTuple(pos1, rc1, pos2, rc2), mol);
+		EnergyFunction efunc = getPairEfunc(pos1, pos2, mol);
+		Result result = calc(efunc, new RCTuple(pos1, rc1, pos2, rc2), mol);
+		cleanup(efunc);
+		return result;
 	}
 	
 	public Result calc(EnergyFunction efunc, RCTuple tuple, Molecule mol) {
@@ -150,6 +156,14 @@ public class SimpleEnergyCalculator {
 
 		// calculate the energy
 		return new Result(minDofValues, efunc.getEnergy());
+	}
+	
+	private void cleanup(EnergyFunction efunc) {
+		
+		// cleanup the energy function if needed
+		if (efunc instanceof EnergyFunction.NeedsCleanup) {
+			((EnergyFunction.NeedsCleanup)efunc).cleanup();
+		}
 	}
 	
 	private Residue getResidue(int pos, Molecule mol) {
