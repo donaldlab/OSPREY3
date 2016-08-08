@@ -103,8 +103,6 @@ public class BenchmarkForcefieldKernel extends TestBase {
 	private static void benchmarkEfunc(SearchProblem search, EnergyFunctionGenerator egen, GpuEnergyFunctionGenerator gpuegen)
 	throws Exception {
 		
-		System.out.println("NOTE: disable the energy cache in ForcefieldEnergy, or these tests will make the GPU look really bad! =P");
-		
 		List<GpuForcefieldEnergy> gpuefuncs = null;
 		
 		System.out.println("\nFull conf energy:");
