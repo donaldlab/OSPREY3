@@ -71,27 +71,50 @@ public class EnergyFunctionGenerator {
     }
     
     public EnergyFunction intraAndDistributedShellEnergy(Residue res, List<Residue> shellResidues, int numPos, double singleWeight) {
-        MultiTermEnergyFunction efunc = new MultiTermEnergyFunction();
-        efunc.addTerm(new SingleResEnergy(res, ffParams));
-        if (singleWeight > 0) {
-        	for (Residue shellRes : shellResidues) {
-        		efunc.addTerm(new ScaledEnergyFunction(new ResPairEnergy(res, shellRes, ffParams), singleWeight));
-        	}
-        }
-        return efunc;
+    	
+    	if (singleWeight == 0) {
+    		
+    		return new SingleResEnergy(res, ffParams);
+    		
+    	} else {
+    	
+			MultiTermEnergyFunction efunc = new MultiTermEnergyFunction();
+			efunc.addTerm(new SingleResEnergy(res, ffParams));
+			for (Residue shellRes : shellResidues) {
+				efunc.addTerm(scaleEfunc(new ResPairEnergy(res, shellRes, ffParams), singleWeight));
+			}
+			return efunc;
+    	}
     }
     
     public EnergyFunction resPairAndDistributedShellEnergy(Residue res1, Residue res2, List<Residue> shellResidues, int numPos, double singleWeight) {
-    	double pairWeight = (1.0 - singleWeight)/(numPos - 1);
-        MultiTermEnergyFunction efunc = new MultiTermEnergyFunction();
-        efunc.addTerm(new ResPairEnergy(res1, res2, ffParams));
-        if (pairWeight > 0) {
-        	for (Residue shellRes : shellResidues) {
-        		efunc.addTerm(new ScaledEnergyFunction(new ResPairEnergy(res1, shellRes, ffParams), pairWeight));
-        		efunc.addTerm(new ScaledEnergyFunction(new ResPairEnergy(res2, shellRes, ffParams), pairWeight));
-        	}
-        }
-        return efunc;
+    	
+    	if (singleWeight == 1) {
+    		
+    		return new ResPairEnergy(res1, res2, ffParams);
+    		
+    	} else {
+    	
+			double pairWeight = (1.0 - singleWeight)/(numPos - 1);
+			
+			MultiTermEnergyFunction efunc = new MultiTermEnergyFunction();
+			efunc.addTerm(new ResPairEnergy(res1, res2, ffParams));
+			for (Residue shellRes : shellResidues) {
+				efunc.addTerm(scaleEfunc(new ResPairEnergy(res1, shellRes, ffParams), pairWeight));
+				efunc.addTerm(scaleEfunc(new ResPairEnergy(res2, shellRes, ffParams), pairWeight));
+			}
+			return efunc;
+    	}
+    }
+        
+    private EnergyFunction scaleEfunc(EnergyFunction efunc, double scale) {
+    	
+    	// don't add the scaling function if the scale is just 1
+    	if (scale == 1) {
+    		return efunc;
+    	}
+    	
+    	return new ScaledEnergyFunction(efunc, scale);
     }
     
     //want partial versions of the above too?

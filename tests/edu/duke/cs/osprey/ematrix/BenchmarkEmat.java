@@ -26,8 +26,8 @@ public class BenchmarkEmat extends TestBase {
 		// make a search problem
 		System.out.println("Building search problem...");
 		
-		//String aaNames = "ALA VAL LEU ILE";
-		String aaNames = "ALA";
+		String aaNames = "ALA VAL LEU ILE";
+		//String aaNames = "ALA";
 		//String mutRes = "39";
 		String mutRes = "39 43";
 		String flexRes = "40 41 42 44 45";
@@ -64,26 +64,24 @@ public class BenchmarkEmat extends TestBase {
 		);
 		
 		System.out.println("\nCalculating reference emat...");
-		EnergyMatrixCalculator emcalc = new EnergyMatrixCalculator(search.confSpace, search.shellResidues, useERef, addResEntropy);
 		Stopwatch baseStopwatch = new Stopwatch().start();
+		EnergyMatrixCalculator emcalc = new EnergyMatrixCalculator(search.confSpace, search.shellResidues, useERef, addResEntropy);
 		emcalc.calcPEM();
+		search.emat = emcalc.getEMatrix();
 		baseStopwatch.stop();
 		System.out.println("finished in " + baseStopwatch.getTime());
-		search.emat = emcalc.getEMatrix();
 		
 		int[] numThreadsList = { 1, 2, 4, 8 };
 		
 		// what energy function generator to use?
 		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
 		
-		// NOTE: the gpu is pretty slow at the very small energy functions (eg pairwise residues) compared to the cpu
-		//int maxNumThreads = numThreadsList[numThreadsList.length - 1];
-		//GpuQueuePool pool = new GpuQueuePool(maxNumThreads, 1);
-		//GpuQueuePool pool = new GpuQueuePool(1, maxNumThreads);
-		//EnergyFunctionGenerator egen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), pool);
-		
-		// TODO: need to optimize rigid energy calculation
-		// it's really slow for some reason
+		/* NOTE: the gpu is pretty slow at the very small energy functions (eg pairwise residues) compared to the cpu
+		int maxNumThreads = numThreadsList[numThreadsList.length - 1];
+		GpuQueuePool pool = new GpuQueuePool(maxNumThreads, 1);
+		GpuQueuePool pool = new GpuQueuePool(1, maxNumThreads);
+		EnergyFunctionGenerator egen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), pool);
+		*/
 		
 		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(egen, search.confSpace, search.shellResidues);
 		
@@ -119,13 +117,13 @@ public class BenchmarkEmat extends TestBase {
 			for (int rc1=0; rc1<exp.getNumConfAtPos(pos1); rc1++) {
 			
 				// singles
-				checkEnergy(obs.getOneBody(pos1, rc1), exp.getOneBody(pos1, rc1));
+				checkEnergy(exp.getOneBody(pos1, rc1), obs.getOneBody(pos1, rc1));
 				
 				// pairs
 				for (int pos2=0; pos2<pos1; pos2++) {
 					for (int rc2=0; rc2<exp.getNumConfAtPos(pos2); rc2++) {
 						
-						checkEnergy(obs.getPairwise(pos1, rc1, pos2, rc2), exp.getPairwise(pos1, rc1, pos2, rc2));
+						checkEnergy(exp.getPairwise(pos1, rc1, pos2, rc2), obs.getPairwise(pos1, rc1, pos2, rc2));
 					}
 				}
 			}

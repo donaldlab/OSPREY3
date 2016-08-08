@@ -1,26 +1,16 @@
 package edu.duke.cs.osprey.structure;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
+import edu.duke.cs.osprey.tools.Factory;
+import edu.duke.cs.osprey.tools.ObjectPool;
 
-public class MoleculePool {
+public class MoleculePool extends ObjectPool<Molecule> {
 	
-	private Molecule mol;
-	private Deque<Molecule> mols;
-	
-	public MoleculePool(Molecule mol) {
-		this.mol = mol;
-		this.mols = new ArrayDeque<>();
-	}
-	
-	public synchronized Molecule checkout() {
-		if (mols.isEmpty()) {
-			mols.add(new Molecule(mol));
-		}
-		return mols.removeFirst();
-	}
-	
-	public synchronized void release(Molecule mol) {
-		mols.add(mol);
+	public MoleculePool(final Molecule mol) {
+		super(new Factory<Molecule,Void>() {
+			@Override
+			public Molecule make(Void context) {
+				return new Molecule(mol);
+			}
+		});
 	}
 }

@@ -105,7 +105,7 @@ public class SimpleEnergyCalculator {
 	
 	public EnergyFunction getSingleEfunc(int pos, Molecule mol) {
 		double singleWeight = dist.getSingleWeight(confSpace.numPos);
-		return efuncGen.intraAndDistributedShellEnergy(getResidue(pos, mol), getResidues(shellResidues, mol), confSpace.numPos, singleWeight); 
+		return efuncGen.intraAndDistributedShellEnergy(getResidue(pos, mol), getResidues(shellResidues, mol), confSpace.numPos, singleWeight);
 	}
 	
 	public Result calcSingle(int pos, int rc) {
@@ -122,7 +122,7 @@ public class SimpleEnergyCalculator {
 	
 	public EnergyFunction getPairEfunc(int pos1, int pos2, Molecule mol) {
 		double singleWeight = dist.getSingleWeight(confSpace.numPos);
-		return efuncGen.resPairAndDistributedShellEnergy(getResidue(pos1, mol), getResidue(pos2, mol), getResidues(shellResidues, mol), confSpace.numPos, singleWeight); 
+		return efuncGen.resPairAndDistributedShellEnergy(getResidue(pos1, mol), getResidue(pos2, mol), getResidues(shellResidues, mol), confSpace.numPos, singleWeight);
 	}
 	
 	public Result calcPair(int pos1, int rc1, int pos2, int rc2) {
@@ -133,12 +133,14 @@ public class SimpleEnergyCalculator {
 		return calc(getPairEfunc(pos1, pos2, mol), new RCTuple(pos1, rc1, pos2, rc2), mol);
 	}
 	
-	private Result calc(EnergyFunction efunc, RCTuple tuple, Molecule mol) {
+	public Result calc(EnergyFunction efunc, RCTuple tuple, Molecule mol) {
 		
 		double[] minDofValues = null;
 		
-		// optimize the degrees of freedom, if needed
+		// put molecule in correct conformation for rcs
 		MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(efunc, confSpace, tuple, mol);
+		
+		// optimize the degrees of freedom, if needed
 		if (mof.getNumDOFs() > 0) {
 			CCDMinimizer ccdMin = new CCDMinimizer(mof, true);
 			DoubleMatrix1D minDofVec = ccdMin.minimize();
@@ -147,14 +149,7 @@ public class SimpleEnergyCalculator {
 		}
 
 		// calculate the energy
-		Result result = new Result(minDofValues, efunc.getEnergy());
-		
-		// cleanup the energy function if needed
-		if (efunc instanceof EnergyFunction.NeedsCleanup) {
-			((EnergyFunction.NeedsCleanup)efunc).cleanup();
-		}
-		
-		return result;
+		return new Result(minDofValues, efunc.getEnergy());
 	}
 	
 	private Residue getResidue(int pos, Molecule mol) {

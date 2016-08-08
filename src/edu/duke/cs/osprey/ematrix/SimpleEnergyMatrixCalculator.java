@@ -1,84 +1,89 @@
 package edu.duke.cs.osprey.ematrix;
 
 import edu.duke.cs.osprey.confspace.AbstractTupleMatrix;
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator.Result;
+import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
+import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.MoleculePool;
 import edu.duke.cs.osprey.tools.Progress;
 
 public class SimpleEnergyMatrixCalculator {
 	
-	private class SingleTask implements Runnable {
+	private class MoleculeTask {
 		
 		public MoleculePool mols;
-		public int pos1;
-		public int rc1;
-		public Result result;
-
-		@Override
-		public void run() {
-			Molecule mol = mols.checkout();
-			result = ecalc.calcSingle(pos1, rc1, mol);
-			mols.release(mol);
+		
+		protected Molecule getMolecule() {
+			synchronized (mols) {
+				return mols.checkout();
+			}
+		}
+		
+		protected void cleanup(Molecule mol, EnergyFunction efunc) {
+			
+			// release the molecule back to the pool
+			synchronized (mols) {
+				mols.release(mol);
+			}
+			
+			// cleanup the energy function if needed
+			if (efunc instanceof EnergyFunction.NeedsCleanup) {
+				((EnergyFunction.NeedsCleanup)efunc).cleanup();
+			}
 		}
 	}
 	
-	private class PairTask implements Runnable {
+	private class SingleTask extends MoleculeTask implements Runnable {
 		
-		public MoleculePool mols;
 		public int pos1;
-		public int rc1;
+		public int numRcs;
+		public Result[] results;
+
+		@Override
+		public void run() {
+			
+			Molecule mol = getMolecule();
+			EnergyFunction efunc = ecalc.getSingleEfunc(pos1, mol);
+			RCTuple tup = new RCTuple();
+			
+			results = new Result[numRcs];
+			for (int rc1=0; rc1<numRcs; rc1++) {
+				tup.set(pos1, rc1);
+				results[rc1] = ecalc.calc(efunc, tup, mol);
+			}
+			
+			cleanup(mol, efunc);
+		}
+	}
+	
+	private class PairTask extends MoleculeTask implements Runnable {
+		
+		public int pos1;
+		public int numRcs1;
 		public int pos2;
-		public int rc2;
-		public Result result;
+		public int numRcs2;
+		public Result[] results;
 
 		@Override
 		public void run() {
-			Molecule mol = mols.checkout();
-			result = ecalc.calcPair(pos1, rc1, pos2, rc2, mol);
-			mols.release(mol);
-		}
-	}
-	
-	private abstract class TaskListener implements TaskExecutor.TaskListener {
-		
-		public EnergyMatrix emat;
-		public DofMatrix dofmat;
-		public Progress progress;
-	}
-	
-	private class SingleListener extends TaskListener {
-		
-		@Override
-		public void onFinished(Runnable taskBase) {
-			SingleTask task = (SingleTask)taskBase;
 			
-			if (emat != null) {
-				emat.setOneBody(task.pos1, task.rc1, task.result.getEnergy());
-			}
-			if (dofmat != null) {
-				dofmat.setOneBody(task.pos1, task.rc1, task.result.getDofValues());
+			Molecule mol = getMolecule();
+			EnergyFunction efunc = ecalc.getPairEfunc(pos1, pos2, mol);
+			RCTuple tup = new RCTuple();
+			
+			results = new Result[numRcs1*numRcs2];
+			int i = 0;
+			for (int rc1=0; rc1<numRcs1; rc1++) {
+				for (int rc2=0; rc2<numRcs2; rc2++) {
+					tup.set(pos1, rc1, pos2, rc2);
+					results[i++] = ecalc.calc(efunc, tup, mol);
+				}
 			}
 			
-			progress.incrementProgress();
-		}
-	}
-	
-	private class PairListener extends TaskListener {
-		
-		@Override
-		public void onFinished(Runnable taskBase) {
-			PairTask task = (PairTask)taskBase;
-		
-			if (emat != null) {
-				emat.setPairwise(task.pos1, task.rc1, task.pos2, task.rc2, task.result.getEnergy());
-			}
-			if (dofmat != null) {
-				dofmat.setPairwise(task.pos1, task.rc1, task.pos2, task.rc2, task.result.getDofValues());
-			}
-			
-			progress.incrementProgress();
+			cleanup(mol, efunc);
 		}
 	}
 	
@@ -156,44 +161,75 @@ public class SimpleEnergyMatrixCalculator {
 		}
 		Progress progress = new Progress(numWork);
 		
-		// init task listeners
-		SingleListener singleListener = new SingleListener();
-		singleListener.emat = emat;
-		singleListener.dofmat = dofmat;
-		singleListener.progress = progress;
-		
-		PairListener pairListener = new PairListener();
-		pairListener.emat = emat;
-		pairListener.dofmat = dofmat;
-		pairListener.progress = progress;
-		
 		// init molecule pool
 		MoleculePool mols = new MoleculePool(ecalc.getConfSpace().m);
 		
-		System.out.println("Calculating energies with shell distribution: " + ecalc.getShellDistribution());
-		for (int pos1=0; pos1<sizemat.getNumPos(); pos1++) {
-			for (int rc1=0; rc1<sizemat.getNumConfAtPos(pos1); rc1++) {
+		// init task listeners
+		TaskListener singleListener = new TaskListener() {
+			@Override
+			public void onFinished(Runnable taskBase) {
+				SingleTask task = (SingleTask)taskBase;
 				
-				// singles
-				SingleTask singleTask = new SingleTask();
-				singleTask.mols = mols;
-				singleTask.pos1 = pos1;
-				singleTask.rc1 = rc1;
-				tasks.submit(singleTask, singleListener);
-				
-				// pairs
-				for (int pos2=0; pos2<pos1; pos2++) {
-					for (int rc2=0; rc2<sizemat.getNumConfAtPos(pos2); rc2++) {
+				for (int rc1=0; rc1<task.numRcs; rc1++) {
 					
-						PairTask pairTask = new PairTask();
-						pairTask.mols = mols;
-						pairTask.pos1 = pos1;
-						pairTask.rc1 = rc1;
-						pairTask.pos2 = pos2;
-						pairTask.rc2 = rc2;
-						tasks.submit(pairTask, pairListener);
+					Result result = task.results[rc1];
+					
+					if (emat != null) {
+						emat.setOneBody(task.pos1, rc1, result.getEnergy());
+					}
+					if (dofmat != null) {
+						dofmat.setOneBody(task.pos1, rc1, result.getDofValues());
 					}
 				}
+				
+				progress.incrementProgress(task.results.length);
+			}
+		};
+		TaskListener pairListener = new TaskListener() {
+			@Override
+			public void onFinished(Runnable taskBase) {
+				PairTask task = (PairTask)taskBase;
+			
+				int i = 0;
+				for (int rc1=0; rc1<task.numRcs1; rc1++) {
+					for (int rc2=0; rc2<task.numRcs2; rc2++) {
+						
+						Result result = task.results[i++];
+						
+						if (emat != null) {
+							emat.setPairwise(task.pos1, rc1, task.pos2, rc2, result.getEnergy());
+						}
+						if (dofmat != null) {
+							dofmat.setPairwise(task.pos1, rc1, task.pos2, rc2, result.getDofValues());
+						}
+					}
+				}
+				
+				progress.incrementProgress(task.results.length);
+			}
+		};
+		
+		System.out.println("Calculating energies with shell distribution: " + ecalc.getShellDistribution());
+		
+		for (int pos1=0; pos1<emat.getNumPos(); pos1++) {
+			
+			// singles
+			SingleTask singleTask = new SingleTask();
+			singleTask.mols = mols;
+			singleTask.pos1 = pos1;
+			singleTask.numRcs = emat.getNumConfAtPos(pos1);
+			tasks.submit(singleTask, singleListener);
+			
+			// pairs
+			for (int pos2=0; pos2<pos1; pos2++) {
+				
+				PairTask pairTask = new PairTask();
+				pairTask.mols = mols;
+				pairTask.pos1 = pos1;
+				pairTask.numRcs1 = emat.getNumConfAtPos(pos1);
+				pairTask.pos2 = pos2;
+				pairTask.numRcs2 = emat.getNumConfAtPos(pos2);
+				tasks.submit(pairTask, pairListener);
 			}
 		}
 		
