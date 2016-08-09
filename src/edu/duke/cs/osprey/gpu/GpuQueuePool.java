@@ -4,13 +4,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import com.jogamp.opencl.CLCommandQueue;
-
 public class GpuQueuePool {
 	
 	private int numQueuesPerGpu;
-	private List<List<CLCommandQueue>> queuesByGpu;
-	private List<CLCommandQueue> queues;
+	private List<List<GpuQueue>> queuesByGpu;
+	private List<GpuQueue> queues;
 	private boolean[] checkedOut;
 	
 	public GpuQueuePool(int numGpus, int queuesPerGpu) {
@@ -29,7 +27,7 @@ public class GpuQueuePool {
 		queuesByGpu = new ArrayList<>(numGpus);
 		for (int i=0; i<numGpus; i++) {
 			Gpu gpu = gpus.get(i);
-			List<CLCommandQueue> queuesAtGpu = new ArrayList<>();
+			List<GpuQueue> queuesAtGpu = new ArrayList<>();
 			for (int j=0; j<numQueuesPerGpu; j++) {
 				queuesAtGpu.add(gpu.makeQueue(useProfiling));
 			}
@@ -64,7 +62,7 @@ public class GpuQueuePool {
 		return queues.size();
 	}
 	
-	public synchronized CLCommandQueue checkout() {
+	public synchronized GpuQueue checkout() {
 		
 		// find an available queue
 		for (int i=0; i<queues.size(); i++) {
@@ -77,7 +75,7 @@ public class GpuQueuePool {
 		throw new IllegalStateException("no more queues to checkout");
 	}
 	
-	public synchronized void release(CLCommandQueue queue) {
+	public synchronized void release(GpuQueue queue) {
 		
 		for (int i=0; i<queues.size(); i++) {
 			if (queues.get(i) == queue) {
@@ -87,8 +85,8 @@ public class GpuQueuePool {
 	}
 
 	public void cleanup() {
-		for (CLCommandQueue queue : queues) {
-			queue.release();
+		for (GpuQueue queue : queues) {
+			queue.cleanup();
 		}
 		queuesByGpu.clear();
 	}

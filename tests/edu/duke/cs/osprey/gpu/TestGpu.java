@@ -7,8 +7,6 @@ import java.util.Random;
 
 import org.junit.Test;
 
-import com.jogamp.opencl.CLCommandQueue;
-
 import edu.duke.cs.osprey.gpu.kernels.TestFancyKernel;
 
 public class TestGpu {
@@ -31,8 +29,9 @@ public class TestGpu {
 		
 		final int NumRuns = 10;
 		
-		CLCommandQueue queue = Gpus.get().getBestGpu().makeQueue();
-		TestFancyKernel.Bound kernel = new TestFancyKernel().bind(queue);
+		Gpu gpu = Gpus.get().getBestGpu();
+		GpuQueue queue = gpu.makeQueue();
+		TestFancyKernel.Bound kernel = new TestFancyKernel(gpu).bind(queue);
 		
 		// copy data to buffers
 		kernel.setArgs(n);
@@ -59,5 +58,7 @@ public class TestGpu {
 				assertThat(err, lessThanOrEqualTo(1e-15));
 			}
 		}
+		
+		kernel.cleanup();
 	}
 }

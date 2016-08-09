@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import com.jogamp.opencl.CLCommandQueue;
 import com.jogamp.opencl.CLEvent;
 import com.jogamp.opencl.CLEvent.ProfilingCommand;
 import com.jogamp.opencl.CLEventList;
@@ -15,6 +14,7 @@ import com.jogamp.opencl.CLException;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions.AtomGroup;
+import edu.duke.cs.osprey.gpu.GpuQueue;
 import edu.duke.cs.osprey.gpu.GpuQueuePool;
 import edu.duke.cs.osprey.gpu.kernels.ForceFieldKernel;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -50,7 +50,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 					
 					// prep the kernel, upload precomputed data
 					ffenergy = new BigForcefieldEnergy(ffparams, interactions, true);
-					kernel = new ForceFieldKernel().bind(queue);
+					kernel = new ForceFieldKernel(queue.getGpu()).bind(queue);
 					kernel.setForcefield(ffenergy);
 					kernel.uploadStaticAsync();
 					
@@ -91,7 +91,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	private BigForcefieldEnergy ffenergy;
 	private KernelBuilder kernelBuilder;
 	private GpuQueuePool queuePool;
-	private CLCommandQueue queue;
+	private GpuQueue queue;
 	
 	private GpuForcefieldEnergy(ForcefieldParams ffparams, ForcefieldInteractions interactions) {
 		this.ffparams = ffparams;

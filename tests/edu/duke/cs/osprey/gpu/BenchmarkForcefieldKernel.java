@@ -33,12 +33,12 @@ import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
+import edu.duke.cs.osprey.parallelism.TimingThread;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tools.TimeFormatter;
-import edu.duke.cs.osprey.tools.TimingThread;
 
 public class BenchmarkForcefieldKernel extends TestBase {
 	
@@ -98,7 +98,7 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		);
 		
 		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
-		GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuQueuePool(8, 2));
+		GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuQueuePool(8, 4));
 		
 		benchmarkEfunc(search, egen, gpuegen);
 		//benchmarkEmat(search, egen, gpuegen);
@@ -117,9 +117,9 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		System.out.println("\nFull conf energy:");
 		benchmarkEfunc(
 			//500,
-			//1000,
+			1000,
 			//2000,
-			10000,
+			//10000,
 			search.confSpace.m,
 			new Factory<EnergyFunction,Molecule>() {
 				@Override
@@ -144,13 +144,13 @@ public class BenchmarkForcefieldKernel extends TestBase {
 			new Factory<EnergyFunction,Molecule>() {
 				@Override
 				public EnergyFunction make(Molecule mol) {
-					return egen.intraAndShellEnergy(search.confSpace.posFlex.get(0).res, search.shellResidues, mol); 
+					return egen.intraAndShellEnergy(search.confSpace.posFlex.get(0).res, search.shellResidues); 
 				}
 			},
 			new Factory<GpuForcefieldEnergy,Molecule>() {
 				@Override
 				public GpuForcefieldEnergy make(Molecule mol) {
-					return gpuegen.intraAndShellEnergy(search.confSpace.posFlex.get(0).res, search.shellResidues, mol);
+					return gpuegen.intraAndShellEnergy(search.confSpace.posFlex.get(0).res, search.shellResidues);
 				}
 			},
 			numThreadsList
@@ -170,13 +170,13 @@ public class BenchmarkForcefieldKernel extends TestBase {
 			new Factory<EnergyFunction,Molecule>() {
 				@Override
 				public EnergyFunction make(Molecule mol) {
-					return egen.resPairEnergy(search.confSpace.posFlex.get(0).res, search.confSpace.posFlex.get(2).res, mol); 
+					return egen.resPairEnergy(search.confSpace.posFlex.get(0).res, search.confSpace.posFlex.get(2).res); 
 				}
 			},
 			new Factory<GpuForcefieldEnergy,Molecule>() {
 				@Override
 				public GpuForcefieldEnergy make(Molecule mol) {
-					return gpuegen.resPairEnergy(search.confSpace.posFlex.get(0).res, search.confSpace.posFlex.get(2).res, mol);
+					return gpuegen.resPairEnergy(search.confSpace.posFlex.get(0).res, search.confSpace.posFlex.get(2).res);
 				}
 			},
 			numThreadsList
@@ -185,6 +185,9 @@ public class BenchmarkForcefieldKernel extends TestBase {
 	}
 	
 	private static void benchmarkEfunc(int numRuns, Molecule baseMol, Factory<EnergyFunction,Molecule> efuncs, Factory<GpuForcefieldEnergy,Molecule> gpuefuncs, List<Integer> numThreadsList) {
+		
+		// get the answer
+		double expectedEnergy = efuncs.make(baseMol).getEnergy();
 		
 		// benchmark cpus
 		Stopwatch cpuStopwatch = null;
@@ -210,9 +213,12 @@ public class BenchmarkForcefieldKernel extends TestBase {
 					
 					@Override
 					public void time() {
+						
+						final double expEnergy = expectedEnergy;
+						
 						int numLocalRuns = numRuns/numThreads;
 						for (int k=0; k<numLocalRuns; k++) {
-							efunc.getEnergy();
+							checkEnergy(expEnergy, efunc.getEnergy());
 						}
 					}
 				});
@@ -265,9 +271,11 @@ public class BenchmarkForcefieldKernel extends TestBase {
 					@Override
 					public void time() {
 						
+						final double expEnergy = expectedEnergy;
+						
 						int numLocalRuns = numRuns/numThreads;
 						for (int j=0; j<numLocalRuns; j++) {
-							gpuefunc.getEnergy();
+							checkEnergy(expEnergy, gpuefunc.getEnergy());
 						}
 						
 						gpuefunc.cleanup();
@@ -301,6 +309,19 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		gpuefunc.cleanup();
 	}
 	
+	protected static void checkEnergy(double exp, double obs) {
+		final double Epsilon = 1e-12;
+		double absErr = Math.abs(exp - obs);
+		double relErr = absErr/Math.abs(exp);
+		if (relErr > Epsilon) {
+			// TEMP
+			System.out.println("foo");
+			throw new Error(String.format("Wrong energy! exp: %12.6f  obs: %12.6f  absErr: %12.6f  relErr: %12.6f",
+				exp, obs, absErr, relErr
+			));
+		}
+	}
+
 	private static void benchmarkEmat(SearchProblem search, EnergyFunctionGenerator egen, GpuEnergyFunctionGenerator gpuegen)
 	throws Exception {
 		

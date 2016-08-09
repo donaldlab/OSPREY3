@@ -5,12 +5,13 @@ import java.nio.DoubleBuffer;
 import java.nio.IntBuffer;
 
 import com.jogamp.opencl.CLBuffer;
-import com.jogamp.opencl.CLCommandQueue;
 import com.jogamp.opencl.CLContext;
 import com.jogamp.opencl.CLMemory;
 
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.gpu.BoundKernel;
+import edu.duke.cs.osprey.gpu.Gpu;
+import edu.duke.cs.osprey.gpu.GpuQueue;
 import edu.duke.cs.osprey.gpu.Kernel;
 
 public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
@@ -21,13 +22,13 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 	// also, reductions on GPUs are tricky. here's a reductions tutorial:
 	// http://developer.amd.com/resources/articles-whitepapers/opencl-optimization-case-study-simple-reductions/
 	
-	public ForceFieldKernel()
+	public ForceFieldKernel(Gpu gpu)
 	throws IOException {
-		super("forcefield.cl", "calc");
+		super(gpu, "forcefield.cl", "calc");
 	}
 	
 	@Override
-	public Bound bind(CLCommandQueue queue) {
+	public Bound bind(GpuQueue queue) {
 		return new Bound(this, queue);
 	}
 	
@@ -41,7 +42,7 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 		private int workSize;
 		private int groupSize;
 		
-		public Bound(Kernel<ForceFieldKernel.Bound> kernel, CLCommandQueue queue) {
+		public Bound(Kernel<ForceFieldKernel.Bound> kernel, GpuQueue queue) {
 			super(kernel, queue);
 		}
 		
@@ -64,7 +65,7 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 			
 			workSize = roundUpWorkSize(ffenergy.getNumAtomPairs(), groupSize);
 			
-			CLContext context = getQueue().getContext();
+			CLContext context = getQueue().getCLQueue().getContext();
 			coords = context.createBuffer(ffenergy.getCoords(), CLMemory.Mem.READ_ONLY);
 			atomFlags = context.createBuffer(ffenergy.getAtomFlags(), CLMemory.Mem.READ_ONLY);
 			precomputed = context.createBuffer(ffenergy.getPrecomputed(), CLMemory.Mem.READ_ONLY);
