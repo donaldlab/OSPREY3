@@ -73,14 +73,14 @@ public class SimpleEnergyCalculator {
 	
 	private EnergyFunctionGenerator efuncGen;
 	private ConfSpace confSpace;
-	private ArrayList<Residue> shellResidues;
+	private List<Residue> shellResidues;
 	private ShellDistribution dist;
 	
-	public SimpleEnergyCalculator(EnergyFunctionGenerator efuncGen, ConfSpace confSpace, ArrayList<Residue> shellResidues) {
+	public SimpleEnergyCalculator(EnergyFunctionGenerator efuncGen, ConfSpace confSpace, List<Residue> shellResidues) {
 		this(efuncGen, confSpace, shellResidues, DefaultDist);
 	}
 	
-	public SimpleEnergyCalculator(EnergyFunctionGenerator efuncGen, ConfSpace confSpace, ArrayList<Residue> shellResidues, ShellDistribution dist) {
+	public SimpleEnergyCalculator(EnergyFunctionGenerator efuncGen, ConfSpace confSpace, List<Residue> shellResidues, ShellDistribution dist) {
 		this.efuncGen = efuncGen;
 		this.confSpace = confSpace;
 		this.shellResidues = shellResidues;

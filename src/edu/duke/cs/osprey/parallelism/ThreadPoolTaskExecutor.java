@@ -194,6 +194,10 @@ public class ThreadPoolTaskExecutor extends TaskExecutor {
 		}
 	}
 	
+	public void stop() {
+		pool.shutdown();
+	}
+	
 	public boolean stopAndWait(int timeoutMs)
 	throws InterruptedException {
 		pool.shutdown();

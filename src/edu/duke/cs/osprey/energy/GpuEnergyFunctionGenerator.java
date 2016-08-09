@@ -134,4 +134,8 @@ public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 			throw new UnsupportedOperationException("only all-on-pairs shell energy distribution supported in GPU forcefields so far");
 		}
 	}
+	
+	public void cleanup() {
+		queues.cleanup();
+	}
 }
