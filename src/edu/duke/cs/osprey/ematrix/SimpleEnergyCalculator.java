@@ -172,7 +172,7 @@ public class SimpleEnergyCalculator {
 		
 		// if we're using a separate molecule, match this residue to the one in the molecule
 		if (mol != null) {
-			res = mol.getResByPDBResNumber(res.getPDBResNumber());
+			res = mol.residues.get(res.indexInMolecule);
 		}
 		
 		return res;
@@ -188,7 +188,7 @@ public class SimpleEnergyCalculator {
 		// but if there is a molecule, then match the residues to it
 		List<Residue> matched = new ArrayList<>(residues.size());
 		for (Residue res : residues) {
-			matched.add(mol.getResByPDBResNumber(res.getPDBResNumber()));
+			matched.add(mol.residues.get(res.indexInMolecule));
 		}
 		return matched;
 	}

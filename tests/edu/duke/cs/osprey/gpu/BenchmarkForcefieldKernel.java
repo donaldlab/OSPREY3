@@ -96,8 +96,8 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuQueuePool(2, 2));
 		
 		//benchmarkEfunc(search, egen, gpuegen);
-		benchmarkEmat(search, egen, gpuegen);
-		//benchmarkMinimize(search, egen, gpuegen);
+		//benchmarkEmat(search, egen, gpuegen);
+		benchmarkMinimize(search, egen, gpuegen);
 	}
 	
 	private static void benchmarkEfunc(SearchProblem search, EnergyFunctionGenerator egen, GpuEnergyFunctionGenerator gpuegen)

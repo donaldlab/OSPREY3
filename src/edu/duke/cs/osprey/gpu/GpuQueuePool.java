@@ -48,6 +48,8 @@ public class GpuQueuePool {
 		
 		// initially, all queues are available
 		availableQueues = new ArrayDeque<>(queues);
+		
+		System.out.println(String.format("GpuQueuePool: using %d command queue(s) across %d gpu(s)", queues.size(), numGpus));
 	}
 	
 	public int getNumGpus() {

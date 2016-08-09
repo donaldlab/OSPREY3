@@ -65,11 +65,17 @@ public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 	
 	@Override
 	public GpuForcefieldEnergy fullConfEnergy(ConfSpace confSpace, List<Residue> shellResidues) {
+		return fullConfEnergy(confSpace, shellResidues, null);
+	}
+	
+	@Override
+	public GpuForcefieldEnergy fullConfEnergy(ConfSpace confSpace, List<Residue> shellResidues, Molecule mol) {
 		
 		ForcefieldInteractions interactions = new ForcefieldInteractions();
 		
 		for (int pos1=0; pos1<confSpace.posFlex.size(); pos1++) {
 			Residue res1 = confSpace.posFlex.get(pos1).res;
+			res1 = matchResidue(res1, mol);
 			
 			// intra energy
 			interactions.addResidue(res1);
@@ -77,16 +83,25 @@ public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 			// pair energies
 			for (int pos2=0; pos2<pos1; pos2++) {
 				Residue res2 = confSpace.posFlex.get(pos2).res;
+				res2 = matchResidue(res2, mol);
 				interactions.addResiduePair(res1, res2);
 			}
 			
 			// shell energies
 			for (Residue shellRes : shellResidues) {
+				shellRes = matchResidue(shellRes, mol);
 				interactions.addResiduePair(res1, shellRes);
 			}
 		}
 		
 		return makeGpuForcefield(interactions);
+	}
+	
+	private Residue matchResidue(Residue res, Molecule mol) {
+		if (mol == null) {
+			return res;
+		}
+		return mol.residues.get(res.indexInMolecule);
 	}
 	
 	@Override

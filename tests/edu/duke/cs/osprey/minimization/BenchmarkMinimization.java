@@ -5,8 +5,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import cern.colt.matrix.DoubleFactory1D;
-import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
@@ -16,8 +14,8 @@ import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
+import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
-import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
@@ -30,7 +28,10 @@ import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.gpu.GpuQueuePool;
+import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
@@ -86,15 +87,23 @@ public class BenchmarkMinimization extends TestBase {
 			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null
 		);
 		
+		// settings
+		final int numConfs = 40;
+		final int[] numThreadsList = { 1, 2, 4, 8 };
 		final boolean useGpu = true;
 		
-		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
+		int maxNumThreads = numThreadsList[numThreadsList.length - 1];
+		
+		// get the energy function generator
+		final EnergyFunctionGenerator egen;
 		if (useGpu) {
-			egen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuQueuePool(1, 1, false));
+			GpuQueuePool gpuPool = new GpuQueuePool(maxNumThreads, 1);
+			//GpuQueuePool gpuPool = new GpuQueuePool(1, maxNumThreads);
+			egen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), gpuPool);
+		} else {
+			egen = EnvironmentVars.curEFcnGenerator;
 		}
 		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(egen, search.confSpace, search.shellResidues);
-		
-		int numConfs = 10;
 		
 		// get the energy matrix
 		File ematFile = new File("/tmp/emat.benchmarkMinimization.dat");
@@ -119,100 +128,101 @@ public class BenchmarkMinimization extends TestBase {
 			confs.add(tree.nextConf());
 		}
 		
-		// build the energy function
-		System.out.println("\nBuilding energy function...");
-		EnergyFunction efunc = egen.fullConfEnergy(search.confSpace, search.shellResidues);
-		
 		// what do we expect the energies to be?
 		double[] expectedEnergies = {
-			-107.0147146474797,
-			-107.14427781822944,
-			-106.79145713460538,
-			-106.92139365966113,
-			-106.28769309286602,
-			-107.11801397196132,
-			-106.6789221601205,
-			-106.41908247287255,
-			-106.89600279647362,
-			-106.74468003272366
+			-107.01471465433335,
+			-107.14427781940432,
+			-106.79145713231975,
+			-106.92139365967053,
+			-106.28769308885211,
+			-107.11801397703762,
+			-106.678922061133,
+			-106.41908247351522,
+			-106.89600279606412,
+			-106.74468003314176,
+			-106.45689550906734,
+			-106.95533592350961,
+			-106.43786020587382,
+			-106.52194038276753,
+			-106.39164304147317,
+			-106.72599111242266,
+			-106.10055039136107,
+			-106.73371625732581,
+			-106.45590591321724,
+			-105.95183095436968,
+			-106.40589873963415,
+			-106.16492362939529,
+			-106.50474766966147,
+			-105.73721952508399,
+			-105.82709235989205,
+			-106.01931524286667,
+			-106.23489219140693,
+			-106.38648146252073,
+			-106.23062800511192,
+			-106.01634808496966,
+			-106.51221811051244,
+			-106.13624568652024,
+			-105.51519524725856,
+			-105.58610640846234,
+			-106.16496203741923,
+			-105.99987206614541,
+			-105.72752981857495,
+			-105.98691660302913,
+			-106.18174504161567,
+			-105.79283093027898
 		};
 		
-		// benchmark minimization
-		System.out.println("\nBenchmarking...");
-		Stopwatch cpuStopwatch = new Stopwatch().start();
-		for (int i=0; i<confs.size(); i++) {
-			
-			ScoredConf conf = confs.get(i);
-			
-			RCTuple tuple = new RCTuple(conf.getAssignments());
-			MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(efunc, search.confSpace, tuple);
-	
-			double energy = 0;
-			
-			final int simulateMinimization = 0;
-			if (simulateMinimization > 0) {
-				
-				// don't actually minimize, just move the protein and calculate energies
-				int numDofs = mof.getNumDOFs(); // is 17
-				DoubleMatrix1D x = DoubleFactory1D.dense.make(numDofs);
-				for (int d=0; d<numDofs; d++) {
-					x.set(d, (mof.getConstraints()[0].get(d) + mof.getConstraints()[1].get(d))/2);
-				}
-				mof.setDOFs(x);
-				
-				if (simulateMinimization == 1) {
-					
-					// just slam the whole energy function a bunch
-					for (int j=0; j<160; j++) {
-						energy = mof.getValue(x);
-					}
-					
-				} else if (simulateMinimization == 2) {
-					
-					// emulate CCD, move just one dof at a time
-					for (int iter=0; iter<10; iter++) {
-						for (int d=0; d<numDofs; d++) {
-							for (int j=0; j<6; j++) {
-								energy = mof.getValForDOF(d, x.get(d));
-							}
-						}
-					}
-				}
-			
-			} else {
-				
-				// minimize!
-				Minimizer minimizer = new CCDMinimizer(mof, true);
-				//Minimizer minimizer = new SimpleCCDMinimizer(mof);
-				minimizer.minimize();
-				energy = efunc.getEnergy();
+		// make the energy function factory
+		Factory<EnergyFunction,Molecule> efuncs = new Factory<EnergyFunction,Molecule>() {
+			@Override
+			public EnergyFunction make(Molecule mol) {
+				return egen.fullConfEnergy(search.confSpace, search.shellResidues, mol);
 			}
+		};
+		
+		List<EnergiedConf> minimizedConfs;
+		
+		// benchmark base minimization
+		System.out.println("\nBenchmarking main thread...");
+		Stopwatch baseStopwatch = new Stopwatch().start();
+		minimizedConfs = new ConfMinimizer().minimize(confs, efuncs, search.confSpace);
+		baseStopwatch.stop();
+		checkEnergies(expectedEnergies, minimizedConfs);
+		
+		// benchmark parallel minimization
+		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
+		
+		for (int numThreads : numThreadsList) {
 			
-			// check the energy
-			final double Epsilon = 1e-6;
+			tasks.start(numThreads);
+			
+			System.out.println("\nBenchmarking " + numThreads + " task thread(s)...");
+			Stopwatch taskStopwatch = new Stopwatch().start();
+			minimizedConfs = new ConfMinimizer().minimize(confs, efuncs, search.confSpace, tasks);
+			taskStopwatch.stop();
+			System.out.println(String.format("Speedup: %.2fx", (float)baseStopwatch.getTimeNs()/taskStopwatch.getTimeNs()));
+			checkEnergies(expectedEnergies, minimizedConfs);
+			
+			tasks.stopAndWait(10000);
+		}
+	}
+
+	private static void checkEnergies(double[] expectedEnergies, List<EnergiedConf> minimizedConfs) {
+		
+		final double Epsilon = 1e-6;
+		
+		int n = minimizedConfs.size();
+		for (int i=0; i<n; i++) {
+			
+			double energy = minimizedConfs.get(i).getEnergy();
 			double absErr = energy - expectedEnergies[i];
 			double relErr = absErr/Math.abs(expectedEnergies[i]);
-			System.out.print(String.format("\texp:%12.8f  obs:%12.8f  absErr:%12.8f  relErr:%12.8f",
-				expectedEnergies[i], energy,
-				absErr, relErr
-			));
 			if (relErr > Epsilon) {
-				System.out.print("     --=={  ENERGY TOO HIGH  }==--");
+				System.out.println(String.format("\tWARNING: low precision energy: exp:%12.8f  obs:%12.8f  absErr:%12.8f  relErr:%12.8f",
+					expectedEnergies[i], energy,
+					absErr, relErr
+				));
 			}
-			System.out.println();
 		}
-		cpuStopwatch.stop();
-		System.out.println("finished in " + cpuStopwatch.getTime(2));
-		
-		/* what's the fastest speedup we can expect by optimizing the minimizer?
-		
-			the GPU energy function is about 15x faster than the CPU energy function on these energy functions
-			but the minimizer only sees about a 2.5x speedup with the GPU energy function
-			which means there's a lot of overhead in the minimizer itself!
-			this benchmark takes the CCD minimizer about 7 seconds to finish with the CPU energy function
-			and about 2.7 seconds with the GPU energy function
-			which means if we properly optimize the minimizer itself to catch up to the energy function evaluation speed,
-			we should be targeting about 0.5 s total run time for this benchmark with the GPU energy function
-		*/
 	}
 }

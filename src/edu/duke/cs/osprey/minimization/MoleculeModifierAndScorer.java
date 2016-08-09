@@ -353,6 +353,16 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
         	partialEFuncs = null;
         }
     }
+    
+    public void cleanup() {
+        if (partialEFuncs != null) {
+            for (EnergyFunction efunc : partialEFuncs) {
+                if (efunc instanceof EnergyFunction.NeedsCleanup) {
+                    ((EnergyFunction.NeedsCleanup)efunc).cleanup();
+                }
+            }
+        }
+    }
 
     public Molecule getMolec() {
         return molec;
