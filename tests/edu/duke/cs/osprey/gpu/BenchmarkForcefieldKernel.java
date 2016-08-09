@@ -34,8 +34,11 @@ import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tools.TimeFormatter;
+import edu.duke.cs.osprey.tools.TimingThread;
 
 public class BenchmarkForcefieldKernel extends TestBase {
 	
@@ -57,11 +60,13 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		//String aaNames = "ALA VAL LEU ILE";
 		String aaNames = "ALA";
 		//String mutRes = "39";
-		String mutRes = "39 43";
+		//String mutRes = "39 43";
+		String mutRes = "39 43 46 47";
 		//String flexRes = "";
 		//String flexRes = "40";
 		//String flexRes = "40 41";
-		String flexRes = "40 41 42 44 45";
+		//String flexRes = "40 41 42 44 45";
+		String flexRes = "40 41 42 44 45 48 49 50 51 52 53";
 		ArrayList<String> flexResList = new ArrayList<>();
 		ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
 		for (String res : mutRes.split(" ")) {
@@ -93,36 +98,62 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		);
 		
 		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
-		GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuQueuePool(2, 2));
+		GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuQueuePool(8, 2));
 		
-		//benchmarkEfunc(search, egen, gpuegen);
+		benchmarkEfunc(search, egen, gpuegen);
 		//benchmarkEmat(search, egen, gpuegen);
-		benchmarkMinimize(search, egen, gpuegen);
+		//benchmarkMinimize(search, egen, gpuegen);
 	}
 	
 	private static void benchmarkEfunc(SearchProblem search, EnergyFunctionGenerator egen, GpuEnergyFunctionGenerator gpuegen)
 	throws Exception {
 		
-		List<GpuForcefieldEnergy> gpuefuncs = null;
+		// figure out how many threads to use based on the gpu queue pool
+		List<Integer> numThreadsList = new ArrayList<>();
+		for (int i=1; i<=gpuegen.getQueuePool().getNumQueues(); i<<=1) {
+			numThreadsList.add(i);
+		}
 		
 		System.out.println("\nFull conf energy:");
-		gpuefuncs = new ArrayList<>();
-		for (int i=0; i<gpuegen.getQueuePool().getNumQueues(); i++) {
-			gpuefuncs.add(gpuegen.fullConfEnergy(search.confSpace, search.shellResidues));
-		}
-		benchmarkEfunc(4000,
-			egen.fullConfEnergy(search.confSpace, search.shellResidues),
-			gpuefuncs
+		benchmarkEfunc(
+			//500,
+			//1000,
+			//2000,
+			10000,
+			search.confSpace.m,
+			new Factory<EnergyFunction,Molecule>() {
+				@Override
+				public EnergyFunction make(Molecule mol) {
+					return egen.fullConfEnergy(search.confSpace, search.shellResidues, mol);
+				}
+			},
+			new Factory<GpuForcefieldEnergy,Molecule>() {
+				@Override
+				public GpuForcefieldEnergy make(Molecule mol) {
+					return gpuegen.fullConfEnergy(search.confSpace, search.shellResidues, mol);
+				}
+			},
+			numThreadsList
 		);
 		
+		/* TEMP
 		System.out.println("\nIntra and shell energy:");
-		gpuefuncs = new ArrayList<>();
-		for (int i=0; i<gpuegen.getQueuePool().getNumQueues(); i++) {
-			gpuefuncs.add(gpuegen.intraAndShellEnergy(search.confSpace.posFlex.get(0).res, search.shellResidues));
-		}
-		benchmarkEfunc(20000,
-			egen.intraAndShellEnergy(search.confSpace.posFlex.get(0).res, search.shellResidues),
-			gpuefuncs
+		benchmarkEfunc(
+			10000,
+			search.confSpace.m,
+			new Factory<EnergyFunction,Molecule>() {
+				@Override
+				public EnergyFunction make(Molecule mol) {
+					return egen.intraAndShellEnergy(search.confSpace.posFlex.get(0).res, search.shellResidues, mol); 
+				}
+			},
+			new Factory<GpuForcefieldEnergy,Molecule>() {
+				@Override
+				public GpuForcefieldEnergy make(Molecule mol) {
+					return gpuegen.intraAndShellEnergy(search.confSpace.posFlex.get(0).res, search.shellResidues, mol);
+				}
+			},
+			numThreadsList
 		);
 		
 		System.out.println("\nPairwise energy:");
@@ -133,95 +164,141 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		// most of the overhead seems to be coming from synchronization with the GPU, ~26/43 us or ~60%
 		// don't think there's anything we can do to speed that up...
 		// sync overhead is relatively smaller for other sizes, ~18% for full conf energy, ~42% for intra and shell energy
-		gpuefuncs = new ArrayList<>();
-		for (int i=0; i<gpuegen.getQueuePool().getNumQueues(); i++) {
-			gpuefuncs.add(gpuegen.resPairEnergy(search.confSpace.posFlex.get(0).res, search.confSpace.posFlex.get(2).res));
-		}
-		benchmarkEfunc(100000,
-			egen.resPairEnergy(search.confSpace.posFlex.get(0).res, search.confSpace.posFlex.get(2).res),
-			gpuefuncs
+		benchmarkEfunc(
+			50000,
+			search.confSpace.m,
+			new Factory<EnergyFunction,Molecule>() {
+				@Override
+				public EnergyFunction make(Molecule mol) {
+					return egen.resPairEnergy(search.confSpace.posFlex.get(0).res, search.confSpace.posFlex.get(2).res, mol); 
+				}
+			},
+			new Factory<GpuForcefieldEnergy,Molecule>() {
+				@Override
+				public GpuForcefieldEnergy make(Molecule mol) {
+					return gpuegen.resPairEnergy(search.confSpace.posFlex.get(0).res, search.confSpace.posFlex.get(2).res, mol);
+				}
+			},
+			numThreadsList
 		);
+		*/
 	}
 	
-	private static void benchmarkEfunc(int numRuns, EnergyFunction efunc, List<GpuForcefieldEnergy> gpuefuncs) {
+	private static void benchmarkEfunc(int numRuns, Molecule baseMol, Factory<EnergyFunction,Molecule> efuncs, Factory<GpuForcefieldEnergy,Molecule> gpuefuncs, List<Integer> numThreadsList) {
 		
-		// benchmark the cpu
-		System.out.print("Benchmarking CPU...");
-		Stopwatch cpuStopwatch = new Stopwatch().start(); 
-		for (int i=0; i<numRuns; i++) {
-			efunc.getEnergy();
-		}
-		cpuStopwatch.stop();
-		System.out.println(String.format(" finished in %s, avg time per op: %s",
-			cpuStopwatch.getTime(2),
-			TimeFormatter.format(cpuStopwatch.getTimeNs()/numRuns, TimeUnit.MICROSECONDS)
-		));
-		
-		// benchmark the gpu
-		System.out.print("Benchmarking GPU...\n");
-		
-		// set up thread pool to match queue pool
-		List<Thread> threads = new ArrayList<>();
-		final List<String> profiles = new ArrayList<>();
-		for (int i=0; i<gpuefuncs.size(); i++) {
-			final GpuForcefieldEnergy gpuefunc = gpuefuncs.get(i);
-			final boolean isFirstThread = i == 0;
-			Thread thread = new Thread("Gpu-" + i) {
-				@Override
-				public void run() {
+		// benchmark cpus
+		Stopwatch cpuStopwatch = null;
+		for (int numThreads : numThreadsList) {
+			System.out.print("Benchmarking " + numThreads + " CPUs... ");
+			
+			// make the thread pool
+			List<TimingThread> threads = new ArrayList<>();
+			for (int i=0; i<numThreads; i++) {
+				threads.add(new TimingThread("Cpu-" + i) {
 					
-					int numLocalRuns = numRuns/gpuefuncs.size();
-					boolean useProfiling = gpuefunc.getKernel().getQueue().isProfilingEnabled();
+					private Molecule mol;
+					private EnergyFunction efunc;
 					
-					for (int j=0; j<numLocalRuns; j++) {
-						
-						boolean isProfileRun = useProfiling && isFirstThread && (j == 0 || j == numLocalRuns - 1);
-						if (isProfileRun) {
-							gpuefunc.startProfile();
-						}
-						
-						gpuefunc.getEnergy();
-						
-						if (isProfileRun) {
-							profiles.add(gpuefunc.dumpProfile());
+					@Override
+					public void warmup() {
+						mol = new Molecule(baseMol);
+						efunc = efuncs.make(mol);
+						for (int k=0; k<10; k++) {
+							efunc.getEnergy();
 						}
 					}
-				}
-			};
-			threads.add(thread);
-		}
-		
-		Stopwatch gpuStopwatch = new Stopwatch().start();
-		for (Thread thread : threads) {
-			thread.start();
-		}
-		for (Thread thread : threads) {
-			try {
-				thread.join();
-			} catch (InterruptedException ex) {
-				throw new Error(ex);
+					
+					@Override
+					public void time() {
+						int numLocalRuns = numRuns/numThreads;
+						for (int k=0; k<numLocalRuns; k++) {
+							efunc.getEnergy();
+						}
+					}
+				});
 			}
-		}
-		
-		gpuStopwatch.stop();
-		System.out.println(String.format(" finished in %s, avg time per op: %s, speedup: %.2fx, numPairs: %d, GPU mem used: %.2f MiB",
-			gpuStopwatch.getTime(2),
-			TimeFormatter.format(gpuStopwatch.getTimeNs()/numRuns, TimeUnit.MICROSECONDS),
-			(double)cpuStopwatch.getTimeNs()/gpuStopwatch.getTimeNs(),
-			gpuefuncs.get(0).getForcefieldEnergy().getNumAtomPairs(),
-			(double)gpuefuncs.get(0).getKernel().getGpuBytesNeeded()/1024/1024
-		));
-		if (!profiles.isEmpty()) {
-			System.out.println("GPU profiling info:");
-			for (int i=0; i<profiles.size(); i++) {
-				System.out.print(String.format("%s run:\n\t%s\n", i == 0 ? "first" : "last", profiles.get(i).replace("\n", "\n\t").trim()));
+			
+			// run threads and wait
+			Stopwatch cpusStopwatch = TimingThread.timeThreads(threads);
+			
+			if (numThreads == 1) {
+				cpuStopwatch = cpusStopwatch;
 			}
+			
+			// show timing info
+			System.out.println(String.format(" finished in %s, avg time per op: %s, speedup: %.2fx",
+				cpusStopwatch.getTime(2),
+				TimeFormatter.format(cpusStopwatch.getTimeNs()/numRuns, TimeUnit.MICROSECONDS),
+				(double)cpuStopwatch.getTimeNs()/cpusStopwatch.getTimeNs()
+			));
 		}
 		
-		// cleanup
-		for (GpuForcefieldEnergy gpuefunc : gpuefuncs) {
-			gpuefunc.cleanup();
+		// benchmark gpus
+		for (int numThreads : numThreadsList) {
+			System.out.print("Benchmarking " + numThreads + " GPUs... ");
+			
+			// TEMP
+			//System.out.println();
+			
+			// make the thread pool
+			List<TimingThread> threads = new ArrayList<>();
+			for (int i=0; i<numThreads; i++) {
+				threads.add(new TimingThread("Gpu-" + i) {
+					
+					private Molecule mol;
+					private GpuForcefieldEnergy gpuefunc;
+					
+					@Override
+					public void warmup() {
+						mol = new Molecule(baseMol);
+						gpuefunc = gpuefuncs.make(mol);
+						for (int j=0; j<10; j++) {
+							gpuefunc.getEnergy();
+						}
+						/* TEMP
+						System.out.println(String.format("Thread %s has gpu %d",
+							getName(), efunc.getKernel().getQueue().getDevice().getID()
+						));
+						*/
+					}
+					
+					@Override
+					public void time() {
+						
+						int numLocalRuns = numRuns/numThreads;
+						for (int j=0; j<numLocalRuns; j++) {
+							gpuefunc.getEnergy();
+						}
+						
+						gpuefunc.cleanup();
+					}
+				});
+			}
+			
+			// run the threads and wait
+			Stopwatch gpuStopwatch = TimingThread.timeThreads(threads);
+			
+			// show timing info
+			System.out.println(String.format(" finished in %s, avg time per op: %s, speedup: %.2fx",
+				gpuStopwatch.getTime(2),
+				TimeFormatter.format(gpuStopwatch.getTimeNs()/numRuns, TimeUnit.MICROSECONDS),
+				(double)cpuStopwatch.getTimeNs()/gpuStopwatch.getTimeNs()
+			));
 		}
+		
+		// do a final gpu run for profiling
+		GpuForcefieldEnergy gpuefunc = gpuefuncs.make(null);
+		if (gpuefunc.getKernel().getQueue().isProfilingEnabled()) {
+			gpuefunc.startProfile();
+		}
+		gpuefunc.getEnergy();
+		System.out.println("GPU profiling info:");
+		System.out.println("atom pairs:      " + gpuefunc.getForcefieldEnergy().getNumAtomPairs());
+		System.out.println("GPU memory used: " + gpuefunc.getKernel().getGpuBytesNeeded()/1024 + " KiB");
+		if (gpuefunc.getKernel().getQueue().isProfilingEnabled()) {
+			System.out.print(gpuefunc.dumpProfile());
+		}
+		gpuefunc.cleanup();
 	}
 	
 	private static void benchmarkEmat(SearchProblem search, EnergyFunctionGenerator egen, GpuEnergyFunctionGenerator gpuegen)
