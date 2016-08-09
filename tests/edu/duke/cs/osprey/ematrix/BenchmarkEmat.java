@@ -9,7 +9,9 @@ import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
+import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
+import edu.duke.cs.osprey.gpu.GpuQueuePool;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
@@ -75,13 +77,8 @@ public class BenchmarkEmat extends TestBase {
 		
 		// what energy function generator to use?
 		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
-		
-		/* NOTE: the gpu is pretty slow at the very small energy functions (eg pairwise residues) compared to the cpu
-		int maxNumThreads = numThreadsList[numThreadsList.length - 1];
-		GpuQueuePool pool = new GpuQueuePool(maxNumThreads, 1);
-		GpuQueuePool pool = new GpuQueuePool(1, maxNumThreads);
-		EnergyFunctionGenerator egen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), pool);
-		*/
+		// NOTE: the gpu is pretty slow at the very small energy functions (eg pairwise residues) compared to the cpu
+		//EnergyFunctionGenerator egen = new GpuEnergyFunctionGenerator(makeDefaultFFParams());
 		
 		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(egen, search.confSpace, search.shellResidues);
 		
@@ -107,8 +104,6 @@ public class BenchmarkEmat extends TestBase {
 		
 			tasks.stopAndWait(10000);
 		}
-		
-		//pool.cleanup();
 	}
 
 	private static void checkEmat(EnergyMatrix exp, EnergyMatrix obs) {

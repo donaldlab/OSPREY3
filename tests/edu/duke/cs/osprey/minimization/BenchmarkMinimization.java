@@ -90,7 +90,7 @@ public class BenchmarkMinimization extends TestBase {
 		// settings
 		final int numConfs = 40;
 		final int[] numThreadsList = { 1, 2, 4, 8 };
-		final boolean useGpu = true;
+		final boolean useGpu = false;
 		
 		int maxNumThreads = numThreadsList[numThreadsList.length - 1];
 		

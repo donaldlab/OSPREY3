@@ -11,6 +11,14 @@ public class GpuQueuePool {
 	private List<GpuQueue> queues;
 	private boolean[] checkedOut;
 	
+	public GpuQueuePool() {
+		this(1);
+	}
+	
+	public GpuQueuePool(int queuesPerGpu) {
+		this(Gpus.get().getGpus().size(), queuesPerGpu);
+	}
+	
 	public GpuQueuePool(int numGpus, int queuesPerGpu) {
 		this(numGpus, queuesPerGpu, false);
 	}

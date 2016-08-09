@@ -14,6 +14,10 @@ public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 	
 	private GpuQueuePool queues;
 	
+	public GpuEnergyFunctionGenerator(ForcefieldParams ffParams) {
+		this(ffParams, new GpuQueuePool());
+	}
+	
 	public GpuEnergyFunctionGenerator(ForcefieldParams ffParams, GpuQueuePool queues) {
 		super(ffParams, Double.POSITIVE_INFINITY, false);
 		this.queues = queues;

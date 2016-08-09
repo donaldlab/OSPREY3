@@ -36,6 +36,7 @@ import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.parallelism.TimingThread;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tools.TimeFormatter;
@@ -98,7 +99,7 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		);
 		
 		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
-		GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuQueuePool(8, 4));
+		GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams());
 		
 		benchmarkEfunc(search, egen, gpuegen);
 		//benchmarkEmat(search, egen, gpuegen);
@@ -116,10 +117,7 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		
 		System.out.println("\nFull conf energy:");
 		benchmarkEfunc(
-			//500,
 			1000,
-			//2000,
-			//10000,
 			search.confSpace.m,
 			new Factory<EnergyFunction,Molecule>() {
 				@Override
@@ -136,21 +134,22 @@ public class BenchmarkForcefieldKernel extends TestBase {
 			numThreadsList
 		);
 		
-		/* TEMP
 		System.out.println("\nIntra and shell energy:");
 		benchmarkEfunc(
-			10000,
+			40000,
 			search.confSpace.m,
 			new Factory<EnergyFunction,Molecule>() {
 				@Override
 				public EnergyFunction make(Molecule mol) {
-					return egen.intraAndShellEnergy(search.confSpace.posFlex.get(0).res, search.shellResidues); 
+					Residue res = search.confSpace.posFlex.get(0).res;
+					return egen.intraAndShellEnergy(getResidue(res, mol), getResidues(search.shellResidues, mol)); 
 				}
 			},
 			new Factory<GpuForcefieldEnergy,Molecule>() {
 				@Override
 				public GpuForcefieldEnergy make(Molecule mol) {
-					return gpuegen.intraAndShellEnergy(search.confSpace.posFlex.get(0).res, search.shellResidues);
+					Residue res = search.confSpace.posFlex.get(0).res;
+					return gpuegen.intraAndShellEnergy(getResidue(res, mol), getResidues(search.shellResidues, mol));
 				}
 			},
 			numThreadsList
@@ -165,23 +164,38 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		// don't think there's anything we can do to speed that up...
 		// sync overhead is relatively smaller for other sizes, ~18% for full conf energy, ~42% for intra and shell energy
 		benchmarkEfunc(
-			50000,
+			1000000,
 			search.confSpace.m,
 			new Factory<EnergyFunction,Molecule>() {
 				@Override
 				public EnergyFunction make(Molecule mol) {
-					return egen.resPairEnergy(search.confSpace.posFlex.get(0).res, search.confSpace.posFlex.get(2).res); 
+					Residue res1 = search.confSpace.posFlex.get(0).res;
+					Residue res2 = search.confSpace.posFlex.get(2).res;
+					return egen.resPairEnergy(getResidue(res1, mol), getResidue(res2, mol));
 				}
 			},
 			new Factory<GpuForcefieldEnergy,Molecule>() {
 				@Override
 				public GpuForcefieldEnergy make(Molecule mol) {
-					return gpuegen.resPairEnergy(search.confSpace.posFlex.get(0).res, search.confSpace.posFlex.get(2).res);
+					Residue res1 = search.confSpace.posFlex.get(0).res;
+					Residue res2 = search.confSpace.posFlex.get(2).res;
+					return gpuegen.resPairEnergy(getResidue(res1, mol), getResidue(res2, mol));
 				}
 			},
 			numThreadsList
 		);
-		*/
+	}
+	
+	private static Residue getResidue(Residue res, Molecule mol) {
+		return mol.residues.get(res.indexInMolecule);
+	}
+	
+	private static List<Residue> getResidues(List<Residue> residues, Molecule mol) {
+		List<Residue> matched = new ArrayList<>();
+		for (Residue res : residues) {
+			matched.add(getResidue(res, mol));
+		}
+		return matched;
 	}
 	
 	private static void benchmarkEfunc(int numRuns, Molecule baseMol, Factory<EnergyFunction,Molecule> efuncs, Factory<GpuForcefieldEnergy,Molecule> gpuefuncs, List<Integer> numThreadsList) {
@@ -295,7 +309,7 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		}
 		
 		// do a final gpu run for profiling
-		GpuForcefieldEnergy gpuefunc = gpuefuncs.make(null);
+		GpuForcefieldEnergy gpuefunc = gpuefuncs.make(baseMol);
 		if (gpuefunc.getKernel().getQueue().isProfilingEnabled()) {
 			gpuefunc.startProfile();
 		}
@@ -344,7 +358,6 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		System.out.println(String.format("\nspeedup: %.2fx", (double)cpuStopwatch.getTimeNs()/gpuStopwatch.getTimeNs()));
 		
 		// check the result
-		// TODO: apparently these results don't match, need to find out why
 		for (int pos1=0; pos1<emat.getNumPos(); pos1++) {
 			for (int rc1=0; rc1<emat.getNumConfAtPos(pos1); rc1++) {
 				
