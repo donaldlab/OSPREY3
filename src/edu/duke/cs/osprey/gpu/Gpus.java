@@ -5,7 +5,6 @@ import java.io.InputStream;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,20 +48,6 @@ public class Gpus {
 			}
 		}
 		
-		// sort gpus by flops
-		Collections.sort(gpus, new Comparator<Gpu>() {
-			
-			@Override
-			public int compare(Gpu a, Gpu b) {
-				// NOTE: compare in reverse to get descending sort
-				return Long.compare(getSpeed(b), getSpeed(a));
-			}
-			
-			private long getSpeed(Gpu gpu) {
-				return gpu.getDevice().getMaxComputeUnits() * gpu.getDevice().getMaxClockFrequency();
-			}
-		});
-		
 		// other init
 		programs = new HashMap<>();
 	}
@@ -76,10 +61,19 @@ public class Gpus {
 	}
 	
 	public Gpu getBestGpu() {
-		if (gpus.isEmpty()) {
-			return null;
+		
+		Gpu bestGpu = null;
+		long bestScore = 0;
+		
+		for (Gpu gpu : gpus) {
+			long score = gpu.getDevice().getMaxComputeUnits() * gpu.getDevice().getMaxClockFrequency();
+			if (score > bestScore) {
+				bestScore = score;
+				bestGpu = gpu;
+			}
 		}
-		return gpus.get(0);
+		
+		return bestGpu;
 	}
 	
 	public CLProgram getProgram(String filename)
