@@ -12,6 +12,8 @@ public class ExampleParallelEmat {
 	
 	public static EnergyMatrix calcEmat(ConfSpace confSpace, List<Residue> shellResidues, int numThreads) {
 		
+		// use the cpu efunc generator for computing energy matrices
+		// the gpu efuncs are really slow for emats since almost all the emat entries use tiny pairwise energy functions
 		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
 		
 		// build the energy matrix calculator
