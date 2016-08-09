@@ -1,0 +1,223 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package edu.duke.cs.osprey.voxq;
+
+import cern.colt.matrix.DoubleFactory1D;
+import cern.colt.matrix.DoubleMatrix1D;
+import cern.colt.matrix.linalg.Algebra;
+import cern.jet.math.Functions;
+import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
+import java.util.ArrayList;
+import java.util.Collections;
+
+/**
+ *
+ * Calculate the energy difference between two voxels, using BAR-type method
+ * 
+ * @author mhall44
+ */
+public class VoxelsDeltaG {
+    
+    static int sampleBatchSize = 100;//samples will be drawn in batches of this size
+    
+    int numDOFs;
+    //samples from each voxel
+    ArrayList<Sample> samples1, samples2;
+    //the samplers that generate them
+    IntraVoxelSampler sampler1, sampler2;
+    
+    SampleNormalization sn1, sn2;//normalizations for the two voxels
+    
+    //current estimates of delta G (and relative error in integrals)
+    double estDeltaG = 0;//0 is initial guess
+    double integRelErr1 = Double.POSITIVE_INFINITY;
+    double integRelErr2 = Double.POSITIVE_INFINITY;
+    
+    
+    
+    public VoxelsDeltaG(MoleculeModifierAndScorer mms1, MoleculeModifierAndScorer mms2){
+        //just need to set sampler1, sampler2, numDOFs
+        System.out.println("INITIALIZING IVS1");
+        sampler1 = new IntraVoxelSampler(mms1);
+        System.out.println("INITIALIZING IVS2");
+        sampler2 = new IntraVoxelSampler(mms2);
+        System.out.println("DONE INITIALIZING IVS");
+        numDOFs = sampler1.numDOFs;
+        if(sampler2.numDOFs!=numDOFs)
+            throw new RuntimeException("ERROR: Not supporting delta G for voxels w/ different # DOFs currently...");
+    }
+    
+    
+    
+    
+    private class Sample {
+        double Ediff;//difference between voxel 2 and voxel 1 energies
+        //at the point in DOF space corresponding to this sample
+        //DEBUG!!!  should also have jacRatio (dz2/dy)/(dz1/dy)
+        
+        Sample(DoubleMatrix1D DOFVals, boolean isVox1){
+            //generate sample given DOF values and whether they're drawn from voxel 1 or 2
+            DoubleMatrix1D z1, z2;//corresponding points in voxels 1 and 2
+            if(isVox1){
+                z1 = DOFVals;
+                z2 = sn2.unnormalize(sn1.normalize(DOFVals));
+                
+                if(sampler2.mms.isOutOfRange(z2)){//energies outside voxel considered infinite
+                    Ediff = Double.POSITIVE_INFINITY;
+                    return;
+                }
+            }
+            else {
+                z2 = DOFVals;
+                z1 = sn1.unnormalize(sn2.normalize(DOFVals));
+                
+                if(sampler1.mms.isOutOfRange(z1)){//energies outside voxel considered infinite
+                    Ediff = Double.NEGATIVE_INFINITY;
+                    return;
+                }
+            }
+            
+            Ediff = sampler2.mms.getValue(z2) - sampler1.mms.getValue(z1);
+        }
+    }
+    
+    
+    private class SampleNormalization {
+        DoubleMatrix1D center;
+        DoubleMatrix1D scaling;
+        double jacDet;//determinant of Jacobian of (linear) mapping from normalized to actual DOFs
+        
+        SampleNormalization(ArrayList<DoubleMatrix1D> fullSamples){
+            center = DoubleFactory1D.dense.make(numDOFs);
+            scaling = DoubleFactory1D.dense.make(numDOFs);
+            jacDet = 1;
+            
+            for(int dofNum=0; dofNum<numDOFs; dofNum++){
+                ArrayList<Double> vals = new ArrayList<>();
+                int numSamples = fullSamples.size();
+                double cen = 0;
+                for(DoubleMatrix1D samp : fullSamples){
+                    vals.add(samp.get(dofNum));
+                    cen += samp.get(dofNum);
+                }
+                center.set(dofNum, cen/numSamples);
+                Collections.sort(vals);
+                //estimate spread using interquartile range
+                double sc = vals.get(3*numSamples/4) - vals.get(numSamples/4);
+                jacDet *= sc;
+                scaling.set(dofNum, sc);
+            }
+        }
+        
+        DoubleMatrix1D unnormalize(DoubleMatrix1D y){//normalized to unnormalized DOF vals
+            return y.copy().assign(scaling, Functions.mult).assign(center, Functions.plus);
+        }
+        DoubleMatrix1D normalize(DoubleMatrix1D z){//unnormalized to normalized DOF vals
+            return z.copy().assign(center, Functions.minus).assign(scaling, Functions.div);
+        }
+    }
+    
+    
+    public double estDeltaG(double stdErr){
+        
+        double integRelErrTarget = stdErr / IntraVoxelSampler.RT;//desired relative error for each integral
+        
+        //first, draw some initial samples
+        ArrayList<DoubleMatrix1D> fullSamples1 = new ArrayList<>();//will need full samples for alignment
+        ArrayList<DoubleMatrix1D> fullSamples2 = new ArrayList<>();
+        for(int n=0; n<sampleBatchSize; n++){
+            System.out.println("DRAWING SAMP 1");
+            DoubleMatrix1D samp1 = sampler1.nextSample();
+            fullSamples1.add(samp1);
+            System.out.println("DRAWING SAMP 2");
+            DoubleMatrix1D samp2 = sampler2.nextSample();
+            fullSamples2.add(samp2);
+        }
+        //and use these initial samples to figure out what alignment we want
+        sn1 = new SampleNormalization(fullSamples1);
+        sn2 = new SampleNormalization(fullSamples2);
+        
+        //now can add these samples to our lists
+        samples1 = new ArrayList<>();
+        samples2 = new ArrayList<>();
+        for(int n=0; n<sampleBatchSize; n++){
+            samples1.add(new Sample(fullSamples1.get(n), true));
+            samples2.add(new Sample(fullSamples2.get(n), false));
+        }
+        
+        
+        //Next, estimate the integral based on said alignment
+        //will need to iterate to converge self-consistently on a delta-E estimate
+        while(true){
+            //estimate energy from samples so far
+            double newDeltaG = curDeltaGEstimate();
+            
+            //see if converged
+            if(Math.abs(newDeltaG-estDeltaG)<stdErr && totIntegRelErr()<integRelErrTarget){
+                return newDeltaG;//this estimate is good
+            }
+            else{
+                estDeltaG = newDeltaG;
+                //draw a new batch of samples from each voxel
+                for(int n=0; n<sampleBatchSize; n++){
+                    samples1.add(new Sample(sampler1.nextSample(), true));
+                    samples2.add(new Sample(sampler2.nextSample(), false));
+                }
+            }
+        }
+    }
+    
+    
+    private double totIntegRelErr(){
+        return Math.sqrt(integRelErr1*integRelErr1 + integRelErr2*integRelErr2);
+    }
+    
+    
+    private static double fd(double E){//Fermi-dirac distribution
+        return 1./(1+Math.exp(E/IntraVoxelSampler.RT));
+    }
+    
+    static double mean(ArrayList<Double> arr){
+        double ans = 0;
+        for(double a : arr)
+            ans += a;
+        return ans / arr.size();
+    }
+    
+    static double relStdDev(ArrayList<Double> arr, double mean){
+        //Given arr and its mean, return standard deviation / mean
+        double ans = 0;
+        for(double a : arr)
+            ans += (a-mean)*(a-mean);
+        ans /= (arr.size()-1);
+        ans = Math.sqrt(ans);
+        ans /= mean;
+        return ans;
+    }
+    
+    double curDeltaGEstimate(){
+        //Estimate delta G using BAR and current samples
+        //return estimate, set relative errors for the two integrals we compute (integRelErrs)
+        
+        //compute the integrals
+        //integrals are averages of f1, f2
+        ArrayList<Double> f1 = new ArrayList<Double>();
+        ArrayList<Double> f2 = new ArrayList<Double>();
+        for(Sample s : samples1)//DEBUG!!!  fd should be multiplied by sqrt(s.jacRatio)
+            f1.add(fd(s.Ediff-estDeltaG));
+        for(Sample s : samples2)
+            f2.add(fd(estDeltaG-s.Ediff));
+        
+        double integ1 = mean(f1);
+        double integ2 = mean(f2);
+        integRelErr1 = relStdDev(f1,integ1) / Math.sqrt(f1.size());
+        integRelErr2 = relStdDev(f2,integ2) / Math.sqrt(f2.size());
+        
+        return estDeltaG - IntraVoxelSampler.RT * ( Math.log(integ1*sn1.jacDet) - Math.log(integ2*sn2.jacDet) );
+    }
+    
+    
+}

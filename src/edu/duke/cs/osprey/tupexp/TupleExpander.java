@@ -43,6 +43,8 @@ public abstract class TupleExpander implements Serializable {
     
     TESampleSet trainingSamples=null, CVSamples=null;
     
+    FittingObjFcn fof = new FittingObjFcn();//the objective function for fitting (e.g. basic or modified least squares)
+    
     
     double pruningInterval;//what pruning interval is this expansion valid up to?
        
@@ -62,6 +64,8 @@ public abstract class TupleExpander implements Serializable {
             
             assignmentSets.add(new ArrayList<ArrayList<Integer>>());
         }
+        
+        fof = new FittingObjFcn(pruningInterval,0.5);
     }
     
     
@@ -69,7 +73,6 @@ public abstract class TupleExpander implements Serializable {
     
     
     double computeInitGMECEst(){//let's find this by some random iterations...
-        //double ans = 0;//ASSUMING WILL BE <0 DEBUG!!!
         double ans = Double.POSITIVE_INFINITY;
         TESampleSet tss = new TESampleSet(this);
         
@@ -123,8 +126,8 @@ public abstract class TupleExpander implements Serializable {
                 
         fitLeastSquares();
         
-        trainingSamples.updateFitVals();
-        CVSamples.updateFitVals();
+        trainingSamples.updateFitVals(fof);
+        CVSamples.updateFitVals(fof);
         
         System.out.println("TRAINING SAMPLES: ");
         trainingSamples.printResids();
@@ -287,8 +290,8 @@ public abstract class TupleExpander implements Serializable {
                 
         fitLeastSquares();
         
-        trainingSamples.updateFitVals();
-        CVSamples.updateFitVals();
+        trainingSamples.updateFitVals(fof);
+        CVSamples.updateFitVals(fof);
         
         System.out.println("TRAINING SAMPLES: ");
         trainingSamples.printResids();
@@ -304,7 +307,8 @@ public abstract class TupleExpander implements Serializable {
     
     
     
-    //DEBUG!!
+    //Counts how many RC tuples were pruned by inability of DFS to find samples for them
+    //(i.e., it follows from the existing pruning matrix that they can be pruned)
     int ezPruneCount = 0;
     
     void setupSamples(ArrayList<RCTuple> tuplesToFit){
@@ -402,7 +406,8 @@ public abstract class TupleExpander implements Serializable {
                     bCutoffs, bCutoffs2, 1, null);*/
         
         TupleIndexMatrix tim = getTupleIndexMatrix();
-        CGTupleFitter fitter = new CGTupleFitter(tim, trainingSamples.samples, tuples.size(), trueVals);
+        CGTupleFitter fitter = fof.makeTupleFitter(tim, trainingSamples.samples, tuples.size(), trueVals);
+        //CGTupleFitter fitter = new CGTupleFitter(tim, trainingSamples.samples, tuples.size(), trueVals);
         
         double fitTerms[] = fitter.doFit();
         tupleTerms = fitTerms;

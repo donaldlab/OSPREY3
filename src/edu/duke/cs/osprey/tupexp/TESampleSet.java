@@ -243,35 +243,35 @@ public class TESampleSet implements Serializable {
     
     
     //update all the fit values
-    void updateFitVals(){
+    void updateFitVals(FittingObjFcn fof){
         for(int s=0; s<samples.size(); s++)
             //curFitVals.set( s, te.fitValueForTuples(sampleTuples.get(s)) );
             curFitVals.set( s, te.fitValueForTuples(calcSampleTuples(samples.get(s))) );
         
         //and update residuals accordingly
-        updateAllResids();
+        updateAllResids(fof);
     }
     
     
     
     
-    void updateAllResids(){
+    void updateAllResids(FittingObjFcn fof){
         
         totalResid = 0;
         for(int t=0; t<te.tuples.size(); t++)
             tupleResids.set(t,0.);
         
-        sampleResids = new ArrayList<>();
+        sampleResids = fof.computeAllResids(trueVals, curFitVals, te.constTerm);
         
         for(int s=0; s<samples.size(); s++){
-            double targetVal = trueVals.get(s);
-            double sampResid = (curFitVals.get(s)-targetVal)*(curFitVals.get(s)-targetVal);
+            //double targetVal = trueVals.get(s) - te.constTerm;
+            //double sampResid = fof.computeResid(curFitVals.get(s)-te.constTerm, targetVal);
+            double sampResid = sampleResids.get(s);
             totalResid += sampResid;
-            //for(int tup : sampleTuples.get(s))
             for(int tup : calcSampleTuples(samples.get(s)) )
                 tupleResids.set( tup, tupleResids.get(tup)+sampResid );
             
-            sampleResids.add(sampResid);
+            //sampleResids.add(sampResid);
         }
         
         totalResid /= samples.size();

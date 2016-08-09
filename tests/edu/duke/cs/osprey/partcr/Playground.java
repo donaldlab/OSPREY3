@@ -76,7 +76,7 @@ public class Playground extends TestBase {
 		boolean useEllipses = false;
 		boolean useERef = false;
 		boolean addResEntropy = false;
-		boolean addWtRots = false;
+		boolean addWtRots = false;                
 		ArrayList<String[]> moveableStrands = new ArrayList<String[]>();
 		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
 		SearchProblem search = new SearchProblem(

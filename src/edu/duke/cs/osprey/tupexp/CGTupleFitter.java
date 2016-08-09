@@ -44,13 +44,18 @@ public class CGTupleFitter {
     TupleIndexMatrix tupIndMat;
     ArrayList<int[]> samples;
     
-    public CGTupleFitter(TupleIndexMatrix tim, ArrayList<int[]> samp, int numTuples, double[] trueVals){
+    ArrayList<Double> weights;//weights for samples
+    
+    public CGTupleFitter(){}//for subclassing
+    
+    public CGTupleFitter(TupleIndexMatrix tim, ArrayList<int[]> samp, int numTuples, double[] trueVals, ArrayList<Double> weights){
         //We'll fit the specified (sample,trueVal) pairs to an expansion in the tuples in tim
         
         samples = samp;
         numSamp = samples.size();
         numTup = numTuples;
         tupIndMat = tim;
+        this.weights = weights;
         
         
         AtA = new RealLinearOperator(){
@@ -80,7 +85,7 @@ public class CGTupleFitter {
                 for(int s=0; s<numSamp; s++){
                     ArrayList<Integer> sampTup = tupIndMat.calcSampleTuples(samples.get(s));
                     for(int t : sampTup)
-                        ans[t] += Arv[s];
+                        ans[t] += Arv[s] * weights.get(s);
                 }
                 
                 return new ArrayRealVector(ans,false);//make RealVector without copying ans
@@ -94,7 +99,7 @@ public class CGTupleFitter {
         for(int s=0; s<numSamp; s++){
             ArrayList<Integer> sampTup = tupIndMat.calcSampleTuples(samples.get(s));
             for(int t : sampTup)
-                atb[t] += trueVals[s];
+                atb[t] += trueVals[s] * weights.get(s);
         }
         
         Atb = new ArrayRealVector(atb);

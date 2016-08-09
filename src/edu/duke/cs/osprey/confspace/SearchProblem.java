@@ -26,7 +26,7 @@ import java.util.ArrayList;
  */
 public class SearchProblem implements Serializable {
     //This object keeps track of the positions and the possible assignments for them, as used in the search algorithms
-    //generally these will be rDesidues (or super-residues) and their RCs; subclass SearchProblem to change this
+    //generally these will be residues (or super-residues) and their RCs; subclass SearchProblem to change this
     
     //We keep a ConfSpace together with "annotations" that help us find its GMEC, partition functions, etc.
     //annotations are based on RCs and indicate pairwise energies, pruning information, etc.
