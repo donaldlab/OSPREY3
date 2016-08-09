@@ -1,8 +1,7 @@
 package edu.duke.cs.osprey.gpu;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
+import java.util.Arrays;
 import java.util.List;
 
 import com.jogamp.opencl.CLCommandQueue;
@@ -12,7 +11,7 @@ public class GpuQueuePool {
 	private int numQueuesPerGpu;
 	private List<List<CLCommandQueue>> queuesByGpu;
 	private List<CLCommandQueue> queues;
-	private Deque<CLCommandQueue> availableQueues;
+	private boolean[] checkedOut;
 	
 	public GpuQueuePool(int numGpus, int queuesPerGpu) {
 		this(numGpus, queuesPerGpu, false);
@@ -47,7 +46,8 @@ public class GpuQueuePool {
 		}
 		
 		// initially, all queues are available
-		availableQueues = new ArrayDeque<>(queues);
+		checkedOut = new boolean[queues.size()];
+		Arrays.fill(checkedOut, false);
 		
 		System.out.println(String.format("GpuQueuePool: using %d command queue(s) across %d gpu(s)", queues.size(), numGpus));
 	}
@@ -66,15 +66,24 @@ public class GpuQueuePool {
 	
 	public synchronized CLCommandQueue checkout() {
 		
-		if (availableQueues.isEmpty()) {
-			throw new IllegalStateException("no more queues to checkout");
+		// find an available queue
+		for (int i=0; i<queues.size(); i++) {
+			if (!checkedOut[i]) {
+				checkedOut[i] = true;
+				return queues.get(i);
+			}
 		}
 		
-		return availableQueues.removeFirst();
+		throw new IllegalStateException("no more queues to checkout");
 	}
 	
 	public synchronized void release(CLCommandQueue queue) {
-		availableQueues.addLast(queue);
+		
+		for (int i=0; i<queues.size(); i++) {
+			if (queues.get(i) == queue) {
+				checkedOut[i] = false;
+			}
+		}
 	}
 
 	public void cleanup() {
