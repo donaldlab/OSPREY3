@@ -64,7 +64,7 @@ public class IntraVoxelSampler {
         }
         
         //DEBUG!!!!
-        System.out.println("Acceptance ratio: "+(1.0*numAccepted/numDrawn));
+        //System.out.println("Acceptance ratio: "+(1.0*numAccepted/numDrawn));
         
         return getCurDOFVals();
     }

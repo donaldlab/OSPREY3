@@ -48,6 +48,24 @@ public class VoxelsDeltaG {
         numDOFs = sampler1.numDOFs;
         if(sampler2.numDOFs!=numDOFs)
             throw new RuntimeException("ERROR: Not supporting delta G for voxels w/ different # DOFs currently...");
+        
+        
+        //SETTING UP NORMALIZATIONS
+        
+                //first, draw some initial samples
+        ArrayList<DoubleMatrix1D> fullSamples1 = new ArrayList<>();//will need full samples for alignment
+        ArrayList<DoubleMatrix1D> fullSamples2 = new ArrayList<>();
+        for(int n=0; n<sampleBatchSize; n++){
+            //System.out.println("DRAWING SAMP 1");
+            DoubleMatrix1D samp1 = sampler1.nextSample();
+            fullSamples1.add(samp1);
+            //System.out.println("DRAWING SAMP 2");
+            DoubleMatrix1D samp2 = sampler2.nextSample();
+            fullSamples2.add(samp2);
+        }
+        //and use these initial samples to figure out what alignment we want
+        sn1 = new SampleNormalization(fullSamples1);
+        sn2 = new SampleNormalization(fullSamples2);
     }
     
     
@@ -124,28 +142,17 @@ public class VoxelsDeltaG {
     public double estDeltaG(double stdErr){
         
         double integRelErrTarget = stdErr / IntraVoxelSampler.RT;//desired relative error for each integral
-        
-        //first, draw some initial samples
-        ArrayList<DoubleMatrix1D> fullSamples1 = new ArrayList<>();//will need full samples for alignment
-        ArrayList<DoubleMatrix1D> fullSamples2 = new ArrayList<>();
-        for(int n=0; n<sampleBatchSize; n++){
-            System.out.println("DRAWING SAMP 1");
-            DoubleMatrix1D samp1 = sampler1.nextSample();
-            fullSamples1.add(samp1);
-            System.out.println("DRAWING SAMP 2");
-            DoubleMatrix1D samp2 = sampler2.nextSample();
-            fullSamples2.add(samp2);
-        }
-        //and use these initial samples to figure out what alignment we want
-        sn1 = new SampleNormalization(fullSamples1);
-        sn2 = new SampleNormalization(fullSamples2);
-        
+                
         //now can add these samples to our lists
         samples1 = new ArrayList<>();
         samples2 = new ArrayList<>();
         for(int n=0; n<sampleBatchSize; n++){
-            samples1.add(new Sample(fullSamples1.get(n), true));
-            samples2.add(new Sample(fullSamples2.get(n), false));
+            //samples1.add(new Sample(fullSamples1.get(n), true));
+            //samples2.add(new Sample(fullSamples2.get(n), false));
+            //WATCH OUT USING SAME SAMPLES TO DO NORMALIZATION & ENERGY CAUSES BIAS
+            //ANY NORMALIZATION IS FINE BUT MUST BE INDEPENDENT OF ENERGY SAMPLES
+            samples1.add(new Sample(sampler1.nextSample(), true));
+            samples2.add(new Sample(sampler2.nextSample(), false));
         }
         
         
@@ -216,7 +223,7 @@ public class VoxelsDeltaG {
         integRelErr1 = relStdDev(f1,integ1) / Math.sqrt(f1.size());
         integRelErr2 = relStdDev(f2,integ2) / Math.sqrt(f2.size());
         
-        return estDeltaG - IntraVoxelSampler.RT * ( Math.log(integ1*sn1.jacDet) - Math.log(integ2*sn2.jacDet) );
+        return estDeltaG - IntraVoxelSampler.RT * ( Math.log(integ1*sn2.jacDet) - Math.log(integ2*sn1.jacDet) );
     }
     
     

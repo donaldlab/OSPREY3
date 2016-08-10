@@ -116,8 +116,8 @@ public class QuadraticQFunction {
         
         if( E2-E1 < slope*(x2-x1) ){//middle point lies below line between outer points
             //build quadratic
-            setupQuadratic(x1, x2, x3, E1, E2, E3);
-            if( ( a!=0 && (!erfcInvNumericsOK()) ) || Double.isInfinite(Math.exp(c-0.25*b*b/a)) ){
+            boolean success = setupQuadratic(x1, x2, x3, E1, E2, E3);
+            if( ( a!=0 && (!erfcInvNumericsOK()) ) || (!success) ){
                 //quadratic bad numerically.  First condition is for erfc numerics, second for normalization constant
                 setupLinear(x1, x3, E1, E3);
             }
@@ -169,7 +169,7 @@ public class QuadraticQFunction {
     }
     
     
-    void setupQuadratic(double x1, double x2, double x3, double E1, double E2, double E3){
+    boolean setupQuadratic(double x1, double x2, double x3, double E1, double E2, double E3){
         //set up the prior by putting a quadratic through the specified points
         a = ( (E2-E1)/(x2-x1) - (E3-E1)/(x3-x1) ) / (x2-x3);
         b = ( E3-E1 - a*(x3*x3-x1*x1) )/ (x3-x1);
@@ -181,7 +181,7 @@ public class QuadraticQFunction {
         c /= -IntraVoxelSampler.RT;
         
         //Finally, normalize the distribution
-        normalizeDistr();
+        return normalizeDistr();
     }
     
     void setupLinear(double x1, double x3, double E1, double E3){
@@ -214,9 +214,9 @@ public class QuadraticQFunction {
         }
     }
     
-    private void normalizeDistr(){
+    private boolean normalizeDistr(){
         //want integral of exp(ax^2+bx+c) from xLo to x to equal 1
-        //adjust c accordingly
+        //adjust c accordingly.  Return false if unsuccessful
         if(Math.abs(a)<1e-14){//linear case
             //integral = exp(b*xLo+c) * (exp(b*(xHi-xLo))-1) / b
             double expl = b / (Math.exp(b*(xHi-xLo))-1);
@@ -236,8 +236,12 @@ public class QuadraticQFunction {
         }
         
         double newNorm = cumulDistr(xHi);
-        if( Math.abs(newNorm-1) > 1e-5 )
+        if(Double.isInfinite(newNorm) && Math.abs(a)>=1e-14 )
+            return false;//quadratic can't be normalized, so will be replaced by linear
+        else if( Math.abs(newNorm-1) > 1e-5 )
             throw new RuntimeException("ERROR: Unsuccessful normalization");
+        
+        return true;
     }
     
     private double cdErfArg(double x){

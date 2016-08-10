@@ -9,7 +9,9 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.control.GMECFinder;
+import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
+import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.voxq.VoxelsDeltaG;
 
 /**
@@ -36,14 +38,36 @@ public class VoxDeltaGPlayground {
         int conf2[] = new int[] {5,7,7,5,0,7,4};
         //int conf2[] = new int[] {5,7,10,5,1,7,4};
         
-        MoleculeModifierAndScorer mms1 = new MoleculeModifierAndScorer(sp1.fullConfE,
-            sp1.confSpace, new RCTuple(conf1) );
+        EPICMatrix epicMat1 = (EPICMatrix) ObjectIO.readObject("1CC8.EPICMAT.dat", true);
+        EPICMatrix epicMat2 = (EPICMatrix) ObjectIO.readObject("1CC8.EPICMAT.dat", true);
+                
+        /*MoleculeModifierAndScorer mms1 = new MoleculeModifierAndScorer(sp1.fullConfE,
+            sp1.confSpace, new RCTuple(conf1) );*/
+        
+        MoleculeModifierAndScorer mms1 = new MoleculeModifierAndScorer(
+                epicMat1.internalEnergyFunction(new RCTuple(conf1)), 
+                epicMat1.getConfSpace(), new RCTuple(conf1) );
+        
+        MoleculeModifierAndScorer mms2 = new MoleculeModifierAndScorer(
+                epicMat2.internalEnergyFunction(new RCTuple(conf2)), 
+                epicMat2.getConfSpace(), new RCTuple(conf2) );
 
-        MoleculeModifierAndScorer mms2 = new MoleculeModifierAndScorer(sp2.fullConfE,
-            sp2.confSpace, new RCTuple(conf2) );
-
+        
         VoxelsDeltaG vdg = new VoxelsDeltaG(mms1,mms2);
         double dG = vdg.estDeltaG(0.05);
+        System.out.println("delta G: "+dG);
+        dG = vdg.estDeltaG(0.05);
+        System.out.println("delta G: "+dG);
+        dG = vdg.estDeltaG(0.05);
+        System.out.println("delta G: "+dG);
+        
+        System.out.println("New normalization");
+        vdg = new VoxelsDeltaG(mms1,mms2);
+        dG = vdg.estDeltaG(0.05);
+        System.out.println("delta G: "+dG);
+        dG = vdg.estDeltaG(0.05);
+        System.out.println("delta G: "+dG);
+        dG = vdg.estDeltaG(0.05);
         System.out.println("delta G: "+dG);
         /*IntraVoxelSampler ivs = new IntraVoxelSampler(mms);
         for(int s=0; s<20; s++){
