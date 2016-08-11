@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 
+import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.kstar.KSConf;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
@@ -19,7 +20,7 @@ import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
  *
  */
 @SuppressWarnings("serial")
-public class PFParallel0  extends PFParallel1 implements Serializable {
+public class PFParallel0 extends PFParallel1 implements Serializable {
 	
 	public PFParallel0() {
 		super();
@@ -75,13 +76,13 @@ public class PFParallel0  extends PFParallel1 implements Serializable {
 	
 	protected void iterate() throws Exception {
 
-		int conf[];
+		ScoredConf conf;
 
 		if( (conf = confSearch.nextConf()) != null ) {
 
 			if( minimizedConfsSet.contains(conf) ) return;
 
-			KSConf ksConf = new KSConf(conf, getConfBound(confSearch, conf));
+			KSConf ksConf = new KSConf(conf.getAssignments(), getConfBound(confSearch, conf.getAssignments()));
 
 			accumulate(ksConf);
 			
