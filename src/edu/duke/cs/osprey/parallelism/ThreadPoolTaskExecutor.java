@@ -1,13 +1,125 @@
 package edu.duke.cs.osprey.parallelism;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class ThreadPoolTaskExecutor extends TaskExecutor {
+	
+	private class FailedTask implements Runnable {
+		
+		@Override
+		public void run() {
+			// don't need to do anything
+		}
+	}
+	
+	private class FinishState extends Signal {
+		
+		private boolean submissionsOpen;
+		private int numSubmitted;
+		private int numWin;
+		private int numFail;
+		
+		public FinishState() {
+			reset();
+		}
+		
+		@Override
+		public synchronized void reset() {
+			super.reset();
+			submissionsOpen = true;
+			numSubmitted = 0;
+			numWin = 0;
+			numFail = 0;
+		}
+		
+		public synchronized void recordSubmission() {
+			if (!submissionsOpen) {
+				reset();
+			}
+			numSubmitted++;
+		}
+		
+		@Override
+		public synchronized void waitForSignal() {
+			submissionsOpen = false;
+			super.waitForSignal();
+		}
+	
+		public synchronized void recordResult(boolean isFail) {
+			
+			// record the result
+			if (isFail) {
+				numFail++;
+			} else {
+				numWin++;
+			}
+			
+			// if this the last task, send the signal
+			boolean isLastTask = numWin + numFail == numSubmitted;
+			if (isLastTask) {
+				sendSignal();
+			}
+		}
+	}
+	
+	private class TaskThread extends WorkQueueThread<Runnable> {
+		
+		private TaskThread(int index, BlockingQueue<Runnable> queue) {
+			super("TaskThread-" + index, queue);
+		}
+		
+		@Override
+		public void doWork(Runnable task)
+		throws InterruptedException {
+			
+			// run the task
+			try {
+				task.run();
+			} catch (Throwable t) {
+				t.printStackTrace(System.err);
+				task = new FailedTask();
+			}
+			
+			// signal task finished
+			boolean wasAdded = false;
+			while (!wasAdded) {
+				wasAdded = outgoingQueue.offer(task, 1, TimeUnit.SECONDS);
+			}
+		}
+	}
+	
+	private class ListenerThread extends WorkQueueThread<Runnable> {
+		
+		public ListenerThread(BlockingQueue<Runnable> queue) {
+			super("TaskThread-listener", queue);
+		}
+	
+		@Override
+		public void doWork(Runnable task)
+		throws InterruptedException {
+				
+			// what happened to the task
+			boolean isFail = task instanceof FailedTask;
+			
+			// should we call a listener?
+			if (!isFail && task instanceof ListeningTask) {
+				try {
+					ListeningTask listeningTask = (ListeningTask)task;
+					listeningTask.listener.onFinished(listeningTask.task);
+				} catch (Throwable t) {
+					t.printStackTrace(System.err);
+					isFail = true;
+				}
+			}
+			
+			// record the result
+			finishState.recordResult(isFail);
+		}
+	}
 	
 	private static class ListeningTask implements Runnable {
 		
@@ -26,131 +138,40 @@ public class ThreadPoolTaskExecutor extends TaskExecutor {
 	}
 	
 	private BlockingQueue<Runnable> incomingQueue;
-	private ThreadPoolExecutor pool;
-	private Thread listenerThread;
 	private BlockingQueue<Runnable> outgoingQueue;
-	private int numTasksToFinish;
-	private int numTasksFinished;
-	private boolean isFinishing; // NOTE: we could make this volatile or not, it doesn't matter much
-	private Object finishSignal;
+	private List<TaskThread> threads;
+	private ListenerThread listenerThread;
+	private FinishState finishState;
 	
 	public ThreadPoolTaskExecutor() {
 		incomingQueue = null;
-		pool = null;
-		listenerThread = null;
 		outgoingQueue = null;
-		numTasksToFinish = 0;
-		numTasksFinished = 0;
-		isFinishing = false;
-		finishSignal = new Object();
+		threads = null;
+		listenerThread = null;
+		finishState = new FinishState();
 	}
 	
 	public void start(int numThreads) {
 		
-		// make the incoming queue about twice the number of threads,
-		// so the main thread can keep it as full as possible
+		// make the queues about twice the number of threads,
+		// so the worker threads probably never have to block waiting for the next task
 		incomingQueue = new ArrayBlockingQueue<>(numThreads*2);
-		
-		pool = new ThreadPoolExecutor(numThreads, numThreads, 0, TimeUnit.SECONDS, incomingQueue) {
-			
-			@Override
-			public void afterExecute(Runnable task, Throwable error) {
-					
-				// was there an error?
-				if (error != null) {
-
-					// update the finish detection
-					synchronized (this) {
-						numTasksFinished++;
-					}
-					
-					// NOTE: the error already gets written to the console by the thread pool
-					
-				} else {
-					
-					try {
-						
-						// pass off to listener thread, wait if needed
-						boolean wasAdded = false;
-						while (!wasAdded) {
-							wasAdded = outgoingQueue.offer(task, 1, TimeUnit.SECONDS);
-						}
-						
-					} catch (InterruptedException ex) {
-						throw new RuntimeException(ex);
-					}
-				}
-			}
-		};
-		pool.setThreadFactory(new ThreadFactory() {
-			@Override
-			public Thread newThread(Runnable task) {
-				
-				// set the daemon status on the thread pool threads
-				// so the thread pool shuts down automatically if all the main threads exit
-				Thread thread = Executors.defaultThreadFactory().newThread(task);
-				thread.setDaemon(true);
-				return thread;
-			}
-		});
-		pool.prestartAllCoreThreads();
-		
-		// init finish detection state
-		numTasksToFinish = 0;
-		numTasksFinished = 0;
-		isFinishing = false;
-		
-		// start the listener thread if needed
 		outgoingQueue = new ArrayBlockingQueue<>(numThreads*2);
-		listenerThread = new Thread("TaskExecutor-listener") {
-			
-			// this is like a constructor =)
-			{
-				setDaemon(true);
-			}
-			
-			@Override
-			public void run() {
-				try {
-					while (!pool.isTerminated()) {
-					
-						// wait for the next task to finish, or timeout
-						Runnable task = outgoingQueue.poll(1, TimeUnit.SECONDS);
-						if (task != null) {
-							
-							// call the listener if needed
-							if (task instanceof ListeningTask) {
-								ListeningTask listeningTask = (ListeningTask)task;
-								listeningTask.listener.onFinished(listeningTask.task);
-							}
-							
-							// is this the last task?
-							boolean isLastTask;
-							synchronized (this) {
-								numTasksFinished++;
-								isLastTask = isFinishing && numTasksFinished == numTasksToFinish;
-							}
-							
-							if (isLastTask) {
-								
-								// we're done!
-								synchronized (this) {
-									isFinishing = false;
-								}
-								
-								// tell anyone who cares that we're done processing tasks
-								synchronized (finishSignal) {
-									finishSignal.notifyAll();
-								}
-							}
-						}
-					}
-						
-				} catch (InterruptedException ex) {
-					// something told us to stop, so exit this thread
-				}
-			}
-		};
+		
+		// init state
+		finishState.reset();
+		
+		// start all the threads
+		threads = new ArrayList<>(numThreads);
+		for (int i=0; i<numThreads; i++) {
+			threads.add(new TaskThread(i, incomingQueue));
+		}
+		for (TaskThread thread : threads) {
+			thread.start();
+		}
+		
+		// start the listener thread
+		listenerThread = new ListenerThread(outgoingQueue);
 		listenerThread.start();
 	}
 	
@@ -161,16 +182,13 @@ public class ThreadPoolTaskExecutor extends TaskExecutor {
 			throw new IllegalStateException("thread pool is not started, can't submit tasks");
 		}
 		
-		// update finish detection
-		synchronized (this) {
-			numTasksToFinish++;
-		}
-		
 		// send the task, and wait for space in the queue if needed
+		// TODO: try to cut this down to one synchronization instead of two?
 		try {
+			finishState.recordSubmission(); // sync
 			boolean wasAdded = false;
 			while (!wasAdded) {
-				wasAdded = incomingQueue.offer(task, 1, TimeUnit.SECONDS);
+				wasAdded = incomingQueue.offer(task, 1, TimeUnit.SECONDS); // sync
 			}
 		} catch (InterruptedException ex) {
 			throw new RuntimeException(ex);
@@ -184,27 +202,22 @@ public class ThreadPoolTaskExecutor extends TaskExecutor {
 	
 	@Override
 	public void waitForFinish() {
-		try {
-			isFinishing = true;
-			synchronized (finishSignal) {
-				finishSignal.wait();
-			}
-		} catch (InterruptedException ex) {
-			throw new RuntimeException(ex);
-		}
+		finishState.waitForSignal();
 	}
 	
 	public void stop() {
-		pool.shutdown();
+		for (TaskThread thread : threads) {
+			thread.askToStop();
+		}
+		listenerThread.askToStop();
 	}
 	
-	public boolean stopAndWait(int timeoutMs)
+	public void stopAndWait(int timeoutMs)
 	throws InterruptedException {
-		pool.shutdown();
-		if (!pool.awaitTermination(timeoutMs, TimeUnit.MILLISECONDS)) {
-			return false;
+		stop();
+		for (TaskThread thread : threads) {
+			thread.join(timeoutMs);
 		}
 		listenerThread.join(timeoutMs);
-		return outgoingQueue.isEmpty();
 	}
 }

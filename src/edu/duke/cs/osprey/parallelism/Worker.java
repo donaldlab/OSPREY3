@@ -1,9 +1,6 @@
 package edu.duke.cs.osprey.parallelism;
 
-public abstract class Worker extends Thread {
-	
-	// this flag is hit from multiple threads concurrently, so make it volatile
-	private volatile boolean isRunning;
+public abstract class Worker extends WorkThread {
 	
 	private WorkCrew<Worker> crew;
 	
@@ -15,38 +12,25 @@ public abstract class Worker extends Thread {
 		super(crew.getName() + "-" + crew.workers.size());
 		this.crew = (WorkCrew<Worker>)crew;
 		this.crew.workers.add(this);
-		setDaemon(true);
 		hasWork = false;
 	}
 	
 	@Override
-	public void run() {
+	public void doWork()
+	throws InterruptedException {
 		
-		isRunning = true;
-		while (isRunning) {
+		// is there any work to do?
+		if (hasWork) {
 			
-			// is there any work to do?
-			if (hasWork) {
-				
-				workIt();
-				hasWork = false;
-				
-				crew.finishedWork();
-			}
+			workIt();
+			hasWork = false;
 			
-			// wait until we get more work
-			// but check the isRunning flag every second or so
-			try {
-				crew.waitForWork(this, 1000);
-			} catch (InterruptedException ex) {
-				// something wants us to stop, so exit this thread
-				break;
-			}
+			crew.finishedWork();
 		}
-	}
-	
-	public void askToStop() {
-		isRunning = false;
+		
+		// wait until we get more work
+		// but check the isRunning flag every second or so
+		crew.waitForWork(this, 1000);
 	}
 	
 	protected abstract void workIt();

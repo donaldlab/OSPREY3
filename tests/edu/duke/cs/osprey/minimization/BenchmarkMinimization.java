@@ -89,7 +89,7 @@ public class BenchmarkMinimization extends TestBase {
 		
 		// settings
 		final int numConfs = 40;
-		final int[] numThreadsList = { 1, 2, 4, 8 };
+		final int[] numThreadsList = { 1, 2, 4 };//, 8 };
 		final boolean useGpu = false;
 		
 		int maxNumThreads = numThreadsList[numThreadsList.length - 1];
@@ -97,8 +97,8 @@ public class BenchmarkMinimization extends TestBase {
 		// get the energy function generator
 		final EnergyFunctionGenerator egen;
 		if (useGpu) {
-			GpuQueuePool gpuPool = new GpuQueuePool(maxNumThreads, 1);
-			//GpuQueuePool gpuPool = new GpuQueuePool(1, maxNumThreads);
+			//GpuQueuePool gpuPool = new GpuQueuePool(maxNumThreads, 1);
+			GpuQueuePool gpuPool = new GpuQueuePool(1, maxNumThreads);
 			egen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), gpuPool);
 		} else {
 			egen = EnvironmentVars.curEFcnGenerator;
