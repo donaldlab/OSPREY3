@@ -79,7 +79,101 @@ public class ForcefieldParams implements Serializable {
     boolean hVDW = true;
     
     public enum FORCEFIELD {
-            AMBER, CHARMM22, CHARMM19NEUTRAL, CHARMM19
+        
+        // KER: if charmm19 then reduce C radii for 1-4 interactions
+        AMBER {
+            
+            @Override
+            public boolean reduceCRadii() {
+                return false;
+            }
+            
+            @Override
+            public double getAij14Factor() {
+                return 0.5;
+            }
+            
+            @Override
+            public double getBij14Factor() {
+                return 1.0;
+            }
+            
+            @Override
+            public double getCoulombScaling() {
+                return 1.0/1.2;
+            }
+        },
+        CHARMM22 {
+            
+            @Override
+            public boolean reduceCRadii() {
+                return false;
+            }
+            
+            @Override
+            public double getAij14Factor() {
+                throw new Error("vdW 1-4 factors not defined for " + this + " forcefield");
+            }
+            
+            @Override
+            public double getBij14Factor() {
+                throw new Error("vdW 1-4 factors not defined for " + this + " forcefield");
+            }
+
+            @Override
+            public double getCoulombScaling() {
+                throw new Error("coulomb scaling not defined for " + this + " forcefield");
+            }
+        },
+        CHARMM19NEUTRAL {
+            
+            @Override
+            public boolean reduceCRadii() {
+                return CHARMM19.reduceCRadii();
+            }
+            
+            @Override
+            public double getAij14Factor() {
+                return CHARMM19.getAij14Factor();
+            }
+            
+            @Override
+            public double getBij14Factor() {
+                return CHARMM19.getBij14Factor();
+            }
+            
+            @Override
+            public double getCoulombScaling() {
+                return CHARMM19.getCoulombScaling();
+            }
+        },
+        CHARMM19 {
+            
+            @Override
+            public boolean reduceCRadii() {
+                return true;
+            }
+            
+            @Override
+            public double getAij14Factor() {
+                return 1.0;
+            }
+            
+            @Override
+            public double getBij14Factor() {
+                return 2.0;
+            }
+            
+            @Override
+            public double getCoulombScaling() {
+                return 0.4;
+            }
+        };
+        
+        public abstract boolean reduceCRadii();
+        public abstract double getAij14Factor();
+        public abstract double getBij14Factor();
+        public abstract double getCoulombScaling();
     }
     
     public FORCEFIELD forcefld;//what forcefield are these parameters for?
@@ -679,13 +773,18 @@ public class ForcefieldParams implements Serializable {
 	}
 
 
+	public static class NBParams {
+		public double r;
+		public double epsilon;
+	}
+	
 	// This function returns the r and epsilon paramters for a given atom type
-	public boolean getNonBondedParameters(int atomType, double r[], double epsilon[]){
-
+	public boolean getNonBondedParameters(int atomType, NBParams out) {
+		
 		for(int q=0;q<vdwAtomType1.length;q++) {
 			if (vdwAtomType1[q]==atomType) {
-				r[0]=vdwR[q];
-				epsilon[0]=vdwE[q];
+				out.r=vdwR[q];
+				out.epsilon=vdwE[q];
 				return (true);
 			}
 		}
@@ -694,8 +793,8 @@ public class ForcefieldParams implements Serializable {
 		int equivType = getEquivalentType(atomType);
 		for(int q=0;q<vdwAtomType1.length;q++) {
 			if (vdwAtomType1[q]==equivType) {
-				r[0]=vdwR[q];
-				epsilon[0]=vdwE[q];
+				out.r=vdwR[q];
+				out.epsilon=vdwE[q];
 				return (true);
 			}
 		}

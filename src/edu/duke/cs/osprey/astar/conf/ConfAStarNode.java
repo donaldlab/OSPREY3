@@ -87,6 +87,12 @@ public class ConfAStarNode implements Comparable<ConfAStarNode> {
 		}
 	}
 	
+	public int[] makeConf(int numPos) {
+		int[] conf = new int[numPos];
+		getConf(conf);
+		return conf;
+	}
+	
 	public double getScore() {
 		return gscore + hscore;
 	}

@@ -5,12 +5,14 @@
  */
 package edu.duke.cs.osprey.control;
 
-import edu.duke.cs.osprey.confspace.SearchProblem;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.StringTokenizer;
+
+import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
+import edu.duke.cs.osprey.confspace.SearchProblem;
 
 /**
  *
@@ -44,9 +46,9 @@ public class ConfInfo {
     
     public void outputConfInfo(){
         
-        try {
-            String confFileName = cfp.params.getRunSpecificFileName("CONFFILENAME", ".confs.txt");
-            BufferedReader br = new BufferedReader(new FileReader(confFileName));
+        String confFileName = cfp.params.getRunSpecificFileName("CONFFILENAME", ".confs.txt");
+        try (BufferedReader br = new BufferedReader(new FileReader(confFileName))) {
+            
             SearchProblem searchProb = cfp.getSearchProblem();
             
             if(searchProb.useERef || doFullOutput)
@@ -71,9 +73,13 @@ public class ConfInfo {
                 bestESoFar = Math.min(confE,bestESoFar);
 
                 if(doFullOutput){
-                    double lowerBound = searchProb.lowerBound(conf);
+                	
                     //let's just show the standard lower bound here
-                    confPrinter.printConf(conf,confE,lowerBound,bestESoFar,confCount);
+                    EnergiedConf econf = new EnergiedConf(conf, searchProb.lowerBound(conf), confE);
+                    
+                    confPrinter.printConf(econf);
+                    System.out.println("ENUMERATING CONFORMATION:");
+                    System.out.print(confPrinter.getConfReport(econf));
                 }
                 else
                     System.out.println("Conf "+confCount+" energy: "+confE);

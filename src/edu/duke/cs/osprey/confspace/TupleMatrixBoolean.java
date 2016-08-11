@@ -20,6 +20,12 @@ public class TupleMatrixBoolean extends AbstractTupleMatrix<Boolean> {
 		// apparently UpdatedPruningMatrix wants to override all the methods,
 		// but not use any of the storage here
 	}
+	
+	public TupleMatrixBoolean(TupleMatrixBoolean other) {
+		super(other);
+		this.oneBody = (BitSet)other.oneBody.clone();
+		this.pairwise = (BitSet)other.pairwise.clone();
+	}
     
     public TupleMatrixBoolean(ConfSpace cSpace, double pruningInterval, boolean defaultHigherInteraction) {
     	super(cSpace, pruningInterval, defaultHigherInteraction);

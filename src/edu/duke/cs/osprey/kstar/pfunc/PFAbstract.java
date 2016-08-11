@@ -13,10 +13,11 @@ import java.util.PriorityQueue;
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.astar.FullAStarNode;
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.kstar.KSAllowedSeqs;
 import edu.duke.cs.osprey.kstar.KAStarConfTree;
 import edu.duke.cs.osprey.kstar.KSAbstract;
+import edu.duke.cs.osprey.kstar.KSAllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSConf;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.kstar.KSSearchProblem;
@@ -547,9 +548,9 @@ public abstract class PFAbstract implements Serializable {
 			return;
 		}
 
-		int conf[];
+		ScoredConf conf;
 		if( (conf = confSearch.nextConf()) != null ) {
-			setPStar( getConfBound(confSearch, conf) );
+			setPStar( getConfBound(confSearch, conf.getAssignments()) );
 		}
 
 		else 

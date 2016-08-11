@@ -11,10 +11,8 @@ import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Collections;
 
 /**
  *
@@ -22,6 +20,10 @@ import java.util.Collections;
  */
 public class PDBFileReader {
 
+	public static Molecule readPDBFile(String PDBFile) {
+		return readPDBFile(PDBFile, null);
+	}
+	
 	public static Molecule readPDBFile( String PDBFile, KSTermini termini ){
 		//Take pretty much verbatim from PDBChemModel
 		//if templates not null, four things we may decide to do (should give options):

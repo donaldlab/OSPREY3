@@ -5,6 +5,9 @@
  */
 package edu.duke.cs.osprey;
 
+import static org.hamcrest.Matchers.*;
+import static org.junit.Assert.*;
+
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.control.COMETSDoer;
 import java.util.ArrayList;
@@ -37,11 +40,9 @@ public class TestCOMETS {
         
         //OK let's make sure the returned 5 best sequences match the actual ones
         //we can expect an exact match here because the search is discrete
-        assert( bestSequences.size()==5 );
-        for(int seqNum=0; seqNum<5; seqNum++)
-            assert( bestSequences.get(seqNum).equalsIgnoreCase(actualBestSequences[seqNum]) );
+        assertThat(bestSequences.size(), is(5));
+        for(int seqNum=0; seqNum<5; seqNum++) {
+            assertThat(bestSequences.get(seqNum), is(actualBestSequences[seqNum]));
+        }
     }
-    
-    
-    
 }

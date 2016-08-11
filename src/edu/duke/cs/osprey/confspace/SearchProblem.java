@@ -35,7 +35,8 @@ public class SearchProblem implements Serializable {
     
 	private static final long serialVersionUID = 2590525329048496524L;
 
-	public ConfSpace confSpace;
+    
+    public ConfSpace confSpace;
     
     public EnergyMatrix emat;//energy matrix.  Meanings:
     //-Defines full energy in the rigid case
@@ -237,7 +238,7 @@ public class SearchProblem implements Serializable {
         //matrix file names are determined by the name of the search problem
         
         if(!loadMatrixFromFile( type, matrixFileName )){
-            TupleMatrix matrix = calcMatrix(type);
+            TupleMatrix<?> matrix = calcMatrix(type);
             ObjectIO.writeObject( matrix, matrixFileName );
             loadMatrixFromFile( type, matrixFileName );
         }
@@ -245,7 +246,7 @@ public class SearchProblem implements Serializable {
     
     
     //compute the matrix of the specified type
-    private TupleMatrix calcMatrix(MatrixType type){
+    private TupleMatrix<?> calcMatrix(MatrixType type){
         
         if(type == MatrixType.EMAT){
             EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(confSpace,shellResidues,
@@ -310,7 +311,7 @@ public class SearchProblem implements Serializable {
         
         //check pruning interval.  Current interval is in pruneMat if we have pruned already;
         //if not then we need a matrix with infinite pruning interval (valid for all RCs).
-        double matrixPruningInterval = ((TupleMatrix)matrixFromFile).getPruningInterval();
+        double matrixPruningInterval = ((TupleMatrix<?>)matrixFromFile).getPruningInterval();
         
         if( matrixPruningInterval == Double.POSITIVE_INFINITY )//definitely valid
             return true;

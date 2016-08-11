@@ -63,15 +63,15 @@ public class TestBase {
 		}
 	}
 
-	protected double getRelativeError(double expected, double observed) {
+	protected static double getRelativeError(double expected, double observed) {
 		return Math.abs(expected - observed)/Math.abs(observed);
 	}
 	
-	protected Matcher<Double> isRelatively(double expected) {
+	protected static Matcher<Double> isRelatively(double expected) {
 		return isRelatively(expected, DefaultEpsilon);
 	}
 	
-	protected Matcher<Double> isRelatively(final double expected, final double epsilon) {
+	protected static Matcher<Double> isRelatively(final double expected, final double epsilon) {
 		return new BaseMatcher<Double>() {
 
 			@Override

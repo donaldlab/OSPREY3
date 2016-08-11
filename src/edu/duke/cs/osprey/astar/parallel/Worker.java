@@ -7,11 +7,11 @@ public abstract class Worker extends Thread {
 	
 	private WorkCrew<Worker> crew;
 	
-	// protected so the sync can use it
+	// protected so the WorkCrew can use it
 	protected boolean hasWork;
 	
 	@SuppressWarnings("unchecked")
-	public  Worker(WorkCrew<? extends Worker> crew) {
+	public Worker(WorkCrew<? extends Worker> crew) {
 		super(crew.getName() + "-" + crew.workers.size());
 		this.crew = (WorkCrew<Worker>)crew;
 		this.crew.workers.add(this);
