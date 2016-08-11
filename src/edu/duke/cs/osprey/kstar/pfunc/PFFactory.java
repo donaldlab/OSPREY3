@@ -6,6 +6,7 @@ import edu.duke.cs.osprey.kstar.pfunc.impl.PFTraditional;
 import edu.duke.cs.osprey.kstar.pfunc.impl.PFParallel2;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.kstar.KSSearchProblem;
+import edu.duke.cs.osprey.kstar.pfunc.impl.PFParallel0;
 import edu.duke.cs.osprey.kstar.pfunc.impl.PFParallel1;
 import edu.duke.cs.osprey.kstar.pfunc.impl.PFUB;
 
@@ -30,6 +31,9 @@ public class PFFactory {
 		
 		case "ub":
 			return new PFUB( strand, sequence, absolutePos, checkPointPath, searchProblemName, cfp, sp );
+
+		case "parallel0":
+			return new PFParallel0( strand, sequence, absolutePos, checkPointPath, searchProblemName, cfp, sp );
 			
 		case "parallel1":
 			return new PFParallel1( strand, sequence, absolutePos, checkPointPath, searchProblemName, cfp, sp );

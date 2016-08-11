@@ -233,7 +233,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 
 	public SearchProblem getSearchProblem( int strand, KSAllowedSeqs strandSeqs ) {
 
-		String tmp = getParams().getValue("kStarOutputDir", "runName");
+		String tmp = getParams().getValue("kStarOutputDir");
 		if(tmp.equalsIgnoreCase("runName")) tmp = getParams().getValue("RUNNAME");
 		
 		String ematDir = tmp + File.separator + getParams().getValue("kStarEmatDir");
@@ -315,11 +315,16 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 			int numMutations = params.getInt("NUMMUTATIONS", 1);
 
 			complexSeqs = new KSAllowedSeqs(strand, limits, setupDEEPer(), 
-					freeBBZoneTermini(limits), moveableStrandTermini(limits), 
-					flexRes, allowedAAs, getWTSequence(), numMutations);
+					freeBBZoneTermini(limits), moveableStrandTermini(limits), flexRes, 
+					allowedAAs, getWTSequence(), getParams().getBool("addWT"), numMutations);
 
+			if( !complexSeqs.containsWTSeq() ) {
+				System.out.println("WARNING: allowed sequences does not contain the wild-type sequence: " + 
+						KSAbstract.list1D2String(complexSeqs.getWTSeq(), " ") + "\n");
+			}
+			
 			// if this condition is true, then only the wild type sequence is returned
-			if(numMutations > 0 && complexSeqs.getNumSeqs() == 1)
+			if(numMutations > 0 && complexSeqs.getNumSeqs() == 1 && complexSeqs.containsWTSeq())
 				throw new RuntimeException("ERROR: cannot generate any sequences "
 						+ "for NUMMUTATIONS=" + numMutations + " mutation(s). "
 						+ "Change the value of NUMMUTATIONS parameter.");

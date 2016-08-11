@@ -28,6 +28,7 @@ public class PFParallel1 extends PFTraditional implements Serializable {
 	protected KSConfQ confsQ = null;
 	protected KSQPrimeCalculator qPrimeCalculator = null;
 	protected KSPStarCalculator pStarCalculator = null;
+	protected long initSleepTime = 3000;
 
 	public PFParallel1() {
 		super();
@@ -75,6 +76,8 @@ public class PFParallel1 extends PFTraditional implements Serializable {
 			if(pStarCalculator != null) pStarCalculator.start();
 			qPrimeCalculator.start();
 			confsQ.start();
+			
+			if(!isContinuous() && isFullyDefined()) Thread.sleep(initSleepTime);
 
 		} catch(Exception e) {
 			System.out.println(e.getMessage());
@@ -156,7 +159,7 @@ public class PFParallel1 extends PFTraditional implements Serializable {
 
 		if( eAppx != EApproxReached.FALSE ) {
 			// we leave this function
-			confsQ.cleanUp(true);
+			if(confsQ != null) confsQ.cleanUp(true);
 			qPrimeCalculator.cleanUp(true);
 			if(pStarCalculator != null) pStarCalculator.cleanUp(true);
 		}
@@ -353,12 +356,7 @@ public class PFParallel1 extends PFTraditional implements Serializable {
 
 			if(qPrimeCalculator == null) return;
 
-			if(!isContinuous() && isFullyDefined()) {
-				long timeout = 100, start = System.currentTimeMillis();
-				while( qPrimeCalculator.getPercentQPrime() < 0.33 && System.currentTimeMillis()-start < timeout ) Thread.sleep(100);
-			}
-
-			while( partialQLB.compareTo(qPrimeCalculator.getTotalPF()) > 0 ) Thread.sleep(1);
+			while( partialQLB.compareTo(qPrimeCalculator.getTotalPF()) > 0 ) Thread.sleep(1000);
 
 			qPrime = qPrimeCalculator.getQPrime(partialQLB);
 

@@ -129,12 +129,12 @@ public abstract class KSAbstract implements KSInterface {
 		preparePanSeqSPs(contSCFlexVals);
 	}
 
-	
+
 	protected void createOutputDir() {
 		if( !new File(getOutputDir()).exists() )
 			ObjectIO.makeDir(getOutputDir(), false);
 	}
-	
+
 
 	protected void createCheckPointDir() {
 		if( !new File(getCheckPointDir()).exists() )
@@ -225,20 +225,25 @@ public abstract class KSAbstract implements KSInterface {
 
 
 	protected void printSequences() {
-		
-		doWTCalc = !cfp.getParams().getBool("kStarSkipWTCalc");
-		
+
+		doWTCalc = strand2AllowedSeqs.get(KSTermini.COMPLEX).containsWTSeq() && !cfp.getParams().getBool("kStarSkipWTCalc");
+
 		if(!doWTCalc) {
 			wtKSCalc = null;
-			System.out.println("WARNING: skipping K* calculation for wild-type sequence: ");
-			
-			ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(KSTermini.LIGAND, 
-					KSTermini.PROTEIN, KSTermini.COMPLEX));
+			System.out.println("\nWARNING: skipping K* calculation for wild-type sequence: " + 
+					KSAbstract.list1D2String(strand2AllowedSeqs.get(KSTermini.COMPLEX).getWTSeq(), " ") + "\n");
 
-			for( int strand : strands ) 
-				strand2AllowedSeqs.get(strand).removeStrandSeq(0); // wt is seq 0
+			if(strand2AllowedSeqs.get(KSTermini.COMPLEX).containsWTSeq()) {
+				
+				ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(KSTermini.LIGAND, 
+						KSTermini.PROTEIN, KSTermini.COMPLEX));
+				
+				for( int strand : strands ) {
+					strand2AllowedSeqs.get(strand).removeStrandSeq(0); // wt is seq 0
+				}
+			}
 		}
-		
+
 		System.out.println("\nPreparing to compute K* for the following sequences:");
 		int i = 0;
 		for(ArrayList<String> al : strand2AllowedSeqs.get(KSTermini.COMPLEX).getStrandSeqList()) {
@@ -466,7 +471,7 @@ public abstract class KSAbstract implements KSInterface {
 
 	protected String getOutputDir() {
 		if(outputDir == null) {
-			outputDir = cfp.getParams().getValue("kStarOutputDir", "runName");
+			outputDir = cfp.getParams().getValue("kStarOutputDir");
 			if(outputDir.equalsIgnoreCase("runName")) outputDir = getRunName();
 		}
 		return outputDir; 

@@ -137,6 +137,8 @@ public class PFParallel2 extends PFParallel1 implements Serializable {
 			if(pStarCalculator != null) pStarCalculator.start();
 			qPrimeCalculator.start();
 			confsQ.start();
+			
+			if(!isContinuous() && isFullyDefined()) Thread.sleep(initSleepTime);
 
 		} catch(Exception e) {
 			System.out.println(e.getMessage());

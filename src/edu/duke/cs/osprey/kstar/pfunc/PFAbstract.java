@@ -937,13 +937,14 @@ public abstract class PFAbstract implements Serializable {
 
 		case "traditional":
 		case "ub":
+		case "parallel0":
 		case "parallel1":
 		case "parallel2":
 			pFuncCFGImpl = implementation;
 			break;
 
 		default:
-			throw new RuntimeException("ERROR: specified value of parameter pFuncMethod is invalid");
+			throw new RuntimeException("ERROR: specified value of implementation " + implementation.toLowerCase() + " is invalid");
 		}
 	}
 
