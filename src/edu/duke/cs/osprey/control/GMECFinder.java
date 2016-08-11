@@ -254,7 +254,7 @@ public class GMECFinder {
     
     private List<EnergiedConf> calcGMEC(double interval) {
         
-        System.out.println("Calcluating GMEC with interval = " + interval);
+        System.out.println("Calculating GMEC with interval = " + interval);
         
         boolean printEPICEnergy = checkApproxE && useEPIC && useTupExp;
         ConfPrinter confPrinter = new ConfPrinter(searchSpace, confFileName, printEPICEnergy);
@@ -379,28 +379,36 @@ public class GMECFinder {
         // get the min energy conf
         EnergiedConf minEnergyConf = econfs.get(0);
         
-        // could the minGMEC have been pruned due to a pruning interval that's too small?
-        if (doIMinDEE && minEnergyConf.getEnergy() > minScoreConf.getScore() + interval) {
+
             
-            // yeah, it could have been. we can't prove minEnergyConf is the minGMEC
-            // we have to pick a new interval and try again
-            System.out.println("Pruning interval is too small. minGMEC could have been pruned.");
-            System.out.println("Will estimate new interval based on conformations evaluated so far and restart");
+        if(doIMinDEE){//iMinDEE...figure out if a second round is needed
             
+            double lowestBound;//lowest lower-bound on a conformation
             // if we're using epic or tuple expansion, we need to compute the min bound using the energy matrix
             // otherwise, our pruning interval estimate will be wrong
-            double nextInterval;
-            if ((useEPIC||useTupExp) && doIMinDEE) {
-                nextInterval = minEnergyConf.getEnergy() - lowestPairwiseBound(searchSpace);
-            } else {
-                nextInterval = minEnergyConf.getEnergy() - minScoreConf.getScore();
+            if ((useEPIC||useTupExp))//enumeration is by approximated energy...calculate lower bound separately
+                lowestBound = lowestPairwiseBound(searchSpace);
+            else//enumeration is by lower bound, so use that
+                lowestBound = minScoreConf.getScore();
+        
+            // could the minGMEC have been pruned due to a pruning interval that's too small?
+            if (minEnergyConf.getEnergy() > lowestBound + interval) {
+
+                // yeah, it could have been. we can't prove minEnergyConf is the minGMEC
+                // we have to pick a new interval and try again
+                System.out.println("Pruning interval is too small. minGMEC could have been pruned.");
+                System.out.println("Will estimate new interval based on conformations evaluated so far and restart");
+
+
+                double nextInterval = minEnergyConf.getEnergy() - lowestBound;
+
+                // pad the new interval a bit to avoid numerical instability
+                nextInterval += 0.001;
+
+                return calcGMEC(nextInterval);
             }
-            
-            // pad the new interval a bit to avoid numerical instability
-            nextInterval += 0.001;
-            
-            return calcGMEC(nextInterval);
         }
+
         
         // we didn't prune it! minEnergyConf is the minGMEC!! =)
         EnergiedConf minGMEC = minEnergyConf;
