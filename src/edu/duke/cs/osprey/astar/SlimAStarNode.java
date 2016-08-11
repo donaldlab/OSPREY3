@@ -1,11 +1,15 @@
 package edu.duke.cs.osprey.astar;
 
+import java.io.Serializable;
 import java.util.Arrays;
 
-public class SlimAStarNode implements AStarNode {
+public class SlimAStarNode implements AStarNode, Serializable {
 	
-	public static class Factory implements AStarNode.Factory<SlimAStarNode> {
+	private static final long serialVersionUID = -8612409900432350474L;
+
+	public static class Factory implements AStarNode.Factory<SlimAStarNode>, Serializable {
 		
+		private static final long serialVersionUID = 4759571366344935185L;
 		private int numPos;
 		
 		public Factory(int numPos) {
@@ -23,8 +27,9 @@ public class SlimAStarNode implements AStarNode {
 		}
 	}
 	
-	public static class Link implements Comparable<Link> {
+	public static class Link implements Comparable<Link>, Serializable {
 		
+		private static final long serialVersionUID = -6371596109692467264L;
 		// NOTE: try to keep storage here as small as possible
 		// we expect to have millions of nodes in memory
 		private Link parent;

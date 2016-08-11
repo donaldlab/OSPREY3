@@ -4,20 +4,26 @@
  */
 package edu.duke.cs.osprey.astar;
 
-import edu.duke.cs.osprey.confspace.ConfSearch;
+import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.PriorityQueue;
+
+import edu.duke.cs.osprey.confspace.ConfSearch;
 
 /**
  *
  * @author mhall44
  */
 
-public abstract class AStarTree<T extends AStarNode> implements ConfSearch {
+public abstract class AStarTree<T extends AStarNode> implements ConfSearch, Serializable {
     //This replaces MSAStar with something more generic
     //The goal is that subclasses of this, differing only in the abstract methods,
     //can cover the A* variations we're considering:
     //dynamic ordering, different node scoring heuristics, COMETS, super-rotamers, etc.
+    
+	private static final long serialVersionUID = 2311735341816014431L;
+
         
     private PriorityQueue<T> pq = null;
         
@@ -30,7 +36,15 @@ public abstract class AStarTree<T extends AStarNode> implements ConfSearch {
     public int numPruned = 0;//counting number of nodes pruned
     
     @Override
-    public int[] nextConf(){
+    public ScoredConf nextConf() {
+    	T leafNode = nextLeafNode();
+    	if (leafNode == null) {
+    		return null;
+    	}
+    	return outputNode(leafNode);
+    }
+    
+    private T nextLeafNode() {
         //return best conformation remaining in tree
         
         if(pq==null){//need to initialize tree (indicates haven't enumerated anything from this tree yet)
@@ -65,7 +79,7 @@ public abstract class AStarTree<T extends AStarNode> implements ConfSearch {
                 }
                 
                 if(isFullyAssigned(curNode)){
-                    return outputNode(curNode);
+                    return curNode;
                 }
 
                 //expand
@@ -82,6 +96,32 @@ public abstract class AStarTree<T extends AStarNode> implements ConfSearch {
         
     }
     
+	@Override
+	public List<ScoredConf> nextConfs(double maxEnergy) {
+		List<ScoredConf> confs = new ArrayList<>();
+		for (AStarNode node : nextLeafNodes(maxEnergy)) {
+			confs.add(new ScoredConf(node.getNodeAssignments(), node.getScore()));
+		}
+		return confs;
+	}
+	
+	public List<AStarNode> nextLeafNodes(double maxEnergy) {
+		List<AStarNode> nodes = new ArrayList<>();
+		while (true) {
+			
+			AStarNode node = nextLeafNode();
+			if (node == null) {
+				break;
+			}
+			
+			nodes.add(node);
+			
+			if (node.getScore() >= maxEnergy) {
+				break;
+			}
+		}
+		return nodes;
+	}
     
     public void initQueue(T node){
         pq = new PriorityQueue<>();
@@ -98,12 +138,13 @@ public abstract class AStarTree<T extends AStarNode> implements ConfSearch {
     }
     
     
-    public int[] outputNode(T node){
+    public ScoredConf outputNode(T node){
     	
         //by default, the output of the A* tree will be simply the node assignments for the optimal node
         //but we may sometimes want to process it in some way
-        System.out.println("A* returning conf.  "+pq.size()+" nodes in A* tree.  Score: "+node.getScore());
-        return node.getNodeAssignments();
+    	// AAO 2016: commenting out messages for now
+    	//System.out.println("A* returning conf.  "+pq.size()+" nodes in A* tree.  Score: "+node.getScore());
+        return new ScoredConf(node.getNodeAssignments(), node.getScore());
     }
     
     

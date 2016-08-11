@@ -63,15 +63,15 @@ public class TestBase {
 		}
 	}
 
-	protected double getRelativeError(double expected, double observed) {
+	protected static double getRelativeError(double expected, double observed) {
 		return Math.abs(expected - observed)/Math.abs(observed);
 	}
 	
-	protected Matcher<Double> isRelatively(double expected) {
+	protected static Matcher<Double> isRelatively(double expected) {
 		return isRelatively(expected, DefaultEpsilon);
 	}
 	
-	protected Matcher<Double> isRelatively(final double expected, final double epsilon) {
+	protected static Matcher<Double> isRelatively(final double expected, final double epsilon) {
 		return new BaseMatcher<Double>() {
 
 			@Override
@@ -155,7 +155,7 @@ public class TestBase {
 		SearchProblem search = new SearchProblem(
 			"test", emConfig.pdbPath, 
 			flexRes, allowedAAs, addWt, emConfig.doMinimize, useEpic, new EPICSettings(), useTupleExpansion,
-			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, emConfig.addWtRots
+			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, emConfig.addWtRots, null
 		);
 		
 		// calculate the energy matrix, but check the cache first

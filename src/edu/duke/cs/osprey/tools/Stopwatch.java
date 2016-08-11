@@ -4,12 +4,6 @@ import java.util.concurrent.TimeUnit;
 
 public class Stopwatch {
 
-	public static final long NSpUS = 1000;
-	public static final long NSpMS = NSpUS * 1000;
-	public static final long NSpS = NSpMS * 1000;
-	public static final long NSpM = NSpS * 60;
-	public static final long NSpH = NSpM * 60;
-	
 	private boolean isRunning;
 	private long startTime;
 	private long stopTime;
@@ -19,10 +13,11 @@ public class Stopwatch {
 		startTime = -1;
 	}
 	
-	public void start() {
+	public Stopwatch start() {
 		assert (!isRunning);
 		startTime = System.nanoTime();
 		isRunning = true;
+		return this;
 	}
 	
 	public void stop() {
@@ -44,67 +39,38 @@ public class Stopwatch {
 	}
 	
 	public double getTimeUs() {
-		return (double)getTimeNs()/NSpUS;
+		return TimeFormatter.getTimeUs(getTimeNs());
 	}
 	
 	public double getTimeMs() {
-		return (double)getTimeNs()/NSpMS;
+		return TimeFormatter.getTimeMs(getTimeNs());
 	}
 	
 	public double getTimeS() {
-		return (double)getTimeNs()/NSpS;
+		return TimeFormatter.getTimeS(getTimeNs());
 	}
 	
 	public double getTimeM() {
-		return (double)getTimeNs()/NSpM;
+		return TimeFormatter.getTimeM(getTimeNs());
 	}
 	
 	public double getTimeH() {
-		return (double)getTimeNs()/NSpH;
+		return TimeFormatter.getTimeH(getTimeNs());
 	}
 	
 	public String getTime() {
-		return getTime(0);
+		return TimeFormatter.format(getTimeNs());
 	}
 	
 	public String getTime(int decimals) {
-		if (getTimeH() > 1) {
-			return getTime(TimeUnit.HOURS, decimals);
-		} else if (getTimeM() > 1) {
-			return getTime(TimeUnit.MINUTES, decimals);
-		} else if (getTimeS() > 1) {
-			return getTime(TimeUnit.SECONDS, decimals);
-		} else if (getTimeMs() > 1) {
-			return getTime(TimeUnit.MILLISECONDS, decimals);
-		} else if (getTimeUs() > 1) {
-			return getTime(TimeUnit.MICROSECONDS, decimals);
-		} else {
-			return getTime(TimeUnit.NANOSECONDS, decimals);
-		}
+		return TimeFormatter.format(getTimeNs(), decimals);
 	}
 	
 	public String getTime(TimeUnit unit) {
-		return getTime(unit, 0);
+		return TimeFormatter.format(getTimeNs(), unit);
 	}
 	
 	public String getTime(TimeUnit unit, int decimals) {
-		
-		String formatSpec;
-		if (unit == TimeUnit.NANOSECONDS) {
-			formatSpec = "%d ";
-		} else {
-			formatSpec = "%." + decimals + "f ";
-		}
-		
-		switch (unit) {
-			case NANOSECONDS: return String.format(formatSpec + "ns", getTimeNs());
-			case MICROSECONDS: return String.format(formatSpec + "us", getTimeUs());
-			case MILLISECONDS: return String.format(formatSpec + "ms", getTimeMs());
-			case SECONDS: return String.format(formatSpec + "s", getTimeS());
-			case MINUTES: return String.format(formatSpec + "m", getTimeM());
-			case HOURS: return String.format(formatSpec + "h", getTimeH());
-			default:
-				throw new Error("Unsupported time unit: " + unit);
-		}
+		return TimeFormatter.format(getTimeNs(), unit, decimals);
 	}
 }

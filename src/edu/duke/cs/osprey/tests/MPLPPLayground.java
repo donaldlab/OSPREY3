@@ -65,7 +65,7 @@ public class MPLPPLayground {
 			"energyMatrixProfiling",
 			"2KDC.P.forOsprey.pdb", 
 			flexRes, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion,
-			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots
+			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null
 		);
 		
 		// compute the energy matrix

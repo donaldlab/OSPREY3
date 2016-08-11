@@ -30,6 +30,10 @@ public class PruningMatrix extends TupleMatrixBoolean {
 	protected PruningMatrix(){//no allocation (for overriding by UpdatedPruningMatrix)
 		super();
     }
+	
+	public PruningMatrix(PruningMatrix other) {
+		super(other);
+	}
         
     public PruningMatrix(ConfSpace cSpace, double pruningInterval){
         super(cSpace, pruningInterval, false);//higher tuples are unpruned unless otherwise indicated
@@ -54,6 +58,25 @@ public class PruningMatrix extends TupleMatrixBoolean {
         //Return index of the RCs within the position
         ArrayList<Integer> out = new ArrayList<>();
         unprunedRCsAtPos(out, pos);
+        return out;
+    }
+    
+
+    public void prunedRCsAtPos(ArrayList<Integer> out, int pos) {
+    	out.clear();
+    	int numRCs = getNumConfAtPos(pos);
+		for (int index=0; index<numRCs; index++) {
+			if(getOneBody(pos,index))
+				out.add(index);
+		}
+    }
+    
+    
+    public ArrayList<Integer> prunedRCsAtPos(int pos){
+        //which RCs at the given position are unpruned?
+        //Return index of the RCs within the position
+        ArrayList<Integer> out = new ArrayList<>();
+        prunedRCsAtPos(out, pos);
         return out;
     }
     

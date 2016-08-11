@@ -116,11 +116,18 @@ public class ParallelEnergyFunction implements EnergyFunction {
 		
 		// wait for the work to finish
 		try {
-			boolean finished = crew.waitForResults(10000000);
-                        //formerly 10 but sometimes there are temporary slowdowns on the cluster and runs crash unnecessarily
+			// wait 10 seconds at first
+			boolean finished = crew.waitForResults(10000);
 			if (!finished) {
-				throw new Error("Timed out waiting 10000 seconds for energy calculations to finish!"
-					+ "\nEnergy calculation shouldn't take more than 10000 seconds, right?");
+				System.err.println("WARNING: ParallelEnergyFunction is taking more than 10 seconds to evaluate. Maybe something is wrong?");
+				
+				// wait 10000 more seconds
+				//sometimes there are temporary slowdowns on the cluster and runs crash unnecessarily if we have a hard cap around 10 s
+				finished = crew.waitForResults(10000000);
+				if (!finished) {
+					throw new Error("Timed out waiting 10000 seconds for energy calculations to finish!"
+							+ "\nEnergy calculation shouldn't take more than 10000 seconds, right?");
+				}
 			}
 		} catch (InterruptedException ex) {
 			// something wanted us to stop, so stop, then forward the exception

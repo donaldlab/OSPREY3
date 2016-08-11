@@ -4,11 +4,14 @@
  */
 package edu.duke.cs.osprey.energy.forcefield;
 
+import java.io.Serializable;
+import java.util.List;
+
+import edu.duke.cs.osprey.energy.forcefield.EEF1.SolvParams;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.NBParams;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.AtomNeighbors;
 import edu.duke.cs.osprey.structure.Residue;
-import java.io.Serializable;
-import java.util.ArrayList;
 
 /**
  *
@@ -25,6 +28,7 @@ public class ForcefieldEnergy implements Serializable {
     Residue res1, res2;//res1==res2 if internal energy of res1.  Else this is interaction of res1, res2
     AtomCache atomCache;
     double energyCache;
+    boolean useCache = true;
     
     ForcefieldParams params;
         
@@ -67,7 +71,7 @@ public class ForcefieldEnergy implements Serializable {
 	boolean useHydrogenVdw;
 	
 	
-	public ForcefieldEnergy(boolean intra, ArrayList<Atom> atoms1, ArrayList<Atom> atoms2,
+	public ForcefieldEnergy(boolean intra, List<Atom> atoms1, List<Atom> atoms2,
                 ForcefieldParams params){
             
             isInternal = intra;
@@ -92,7 +96,7 @@ public class ForcefieldEnergy implements Serializable {
             initializeCalculation(atoms1,atoms2);
 	}
 	
-        public ForcefieldEnergy(ArrayList<Atom[]> atomPairs, ForcefieldParams params){
+        public ForcefieldEnergy(List<Atom[]> atomPairs, ForcefieldParams params){
             /* Sparse energy function that includes only the electrostatic and VDW interactions between the specified atom pairs
              * Used for SAPE
              */
@@ -125,13 +129,13 @@ public class ForcefieldEnergy implements Serializable {
             doSolvationE = false;//not including solvation in these sparse energies
             
             //so initialize just the EV energies
-            ArrayList<Atom[]> pairs14 = AtomNeighbors.getPairs14(atomPairs);
-            ArrayList<Atom[]> pairsNonBonded = AtomNeighbors.getPairsNonBonded(atomPairs);
+            List<Atom[]> pairs14 = AtomNeighbors.getPairs14(atomPairs);
+            List<Atom[]> pairsNonBonded = AtomNeighbors.getPairsNonBonded(atomPairs);
             
             initializeEVCalculation(pairs14, pairsNonBonded);
 	}
         
-        void checkResComposition(boolean intra, ArrayList<Atom> atoms1, ArrayList<Atom> atoms2){
+        void checkResComposition(boolean intra, List<Atom> atoms1, List<Atom> atoms2){
             //set up res1 and res2 and make sure they are defined consistently
             
             if(intra){
@@ -189,6 +193,11 @@ public class ForcefieldEnergy implements Serializable {
 		}
 		return num;
 	}
+	
+	public void setUseCache(boolean val) {
+		// useful to disable for benchmarking
+		useCache = val;
+	}
         
         
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -201,11 +210,11 @@ public class ForcefieldEnergy implements Serializable {
 	//  are not included
         //we're looking at the interaction between atoms1 and atoms2 (or internal energy of atom1
         //if atoms2 is null)
-	public void initializeCalculation(ArrayList<Atom> atoms1, ArrayList<Atom> atoms2){
+	public void initializeCalculation(List<Atom> atoms1, List<Atom> atoms2){
 		
             //enumerate interacting pairs of atoms
-            ArrayList<Atom[]> pairs14 = AtomNeighbors.getPairs14(atoms1, atoms2, (res1==res2));
-            ArrayList<Atom[]> pairsNonBonded = AtomNeighbors.getPairsNonBonded(atoms1, atoms2, (res1==res2));
+            List<Atom[]> pairs14 = AtomNeighbors.getPairs14(atoms1, atoms2, (res1==res2));
+            List<Atom[]> pairsNonBonded = AtomNeighbors.getPairsNonBonded(atoms1, atoms2, (res1==res2));
             //these pairs should exclude any SC or BB components we don't want
             
             initializeEVCalculation(pairs14,pairsNonBonded); //initialize the calculation of the electrostatic and vdW terms
@@ -217,13 +226,12 @@ public class ForcefieldEnergy implements Serializable {
 	// This function sets up the arrays for energy evaluation
 	//  for electrostatics and vdW only (EV)
         //we initialize using lists of interacting pairs of atoms (1,4-bonded and non-bonded)
-	private void initializeEVCalculation(ArrayList<Atom[]> pairs14, ArrayList<Atom[]> pairsNonBonded){
+	private void initializeEVCalculation(List<Atom[]> pairs14, List<Atom[]> pairsNonBonded){
 
 		int atom1, atom2, atom4;//, ix2, ix4, ix4b;
 		int atomType1, atomType2, atomType4;
 		boolean isHydrogen1, isHydrogen2;
-		double equilibriumDistance[] = new double[1];
-		double epsilon[] = new double[1];
+		NBParams nbparams = new NBParams();
 		double smallerArray[];
 		double Amult, Bmult;
 		
@@ -258,7 +266,7 @@ public class ForcefieldEnergy implements Serializable {
 			isHydrogen2 = res2.atoms.get(atom4).elementType.equalsIgnoreCase("H");
 			
 			double epsilonProduct = 0, ri = 0, rj = 0;
-			if (!(params.getNonBondedParameters(atomType1, equilibriumDistance, epsilon)))
+			if (!(params.getNonBondedParameters(atomType1, nbparams)))
 				System.out.println("WARNING: Could not find nb parameters for " + atom1 + " type: " + res1.atoms.get(atom1).forceFieldType);
 			else {
 				if((params.forcefld == ForcefieldParams.FORCEFIELD.CHARMM19 
@@ -269,10 +277,10 @@ public class ForcefieldEnergy implements Serializable {
 					ri = 1.9;
 				}
 				else{
-					epsilonProduct = epsilon[0];
-					ri = equilibriumDistance[0];
+					epsilonProduct = nbparams.epsilon;
+					ri = nbparams.r;
 				}
-				if (!(params.getNonBondedParameters(atomType4, equilibriumDistance, epsilon)))
+				if (!(params.getNonBondedParameters(atomType4, nbparams)))
 					System.out.println("WARNING: Could not find nb parameters for " + atom4 + " type: " + res2.atoms.get(atom1).forceFieldType);
 				else {
 					if((params.forcefld == ForcefieldParams.FORCEFIELD.CHARMM19 
@@ -283,8 +291,8 @@ public class ForcefieldEnergy implements Serializable {
 						rj = 1.9;
 					}
 					else{
-						epsilonProduct *= epsilon[0];
-						rj = equilibriumDistance[0];
+						epsilonProduct *= nbparams.epsilon;
+						rj = nbparams.r;
 					}
 					epsilonProduct = Math.sqrt(epsilonProduct);
 					// This part is 1-4 interactions which are scaled by 1/2
@@ -349,16 +357,16 @@ public class ForcefieldEnergy implements Serializable {
 			isHydrogen1 = res1.atoms.get(atom1).elementType.equalsIgnoreCase("H");
 			isHydrogen2 = res2.atoms.get(atom2).elementType.equalsIgnoreCase("H");
 			
-			if (!(params.getNonBondedParameters(atomType1, equilibriumDistance, epsilon)))
+			if (!(params.getNonBondedParameters(atomType1, nbparams)))
 				System.out.println("WARNING: Could not find nb parameters for (at1) " + atom1 + " type: " + res1.atoms.get(atom1).forceFieldType);
 			else {
-				double epsilonProduct = epsilon[0];
-				double ri = equilibriumDistance[0];
-				if (!(params.getNonBondedParameters(atomType2, equilibriumDistance, epsilon)))
+				double epsilonProduct = nbparams.epsilon;
+				double ri = nbparams.r;
+				if (!(params.getNonBondedParameters(atomType2, nbparams)))
 					System.out.println("WARNING: Could not find nb parameters for (at2) " + atom2 + " type: " + res2.atoms.get(atom2).forceFieldType);
 				else {						
-					epsilonProduct *= epsilon[0];
-					double rj = equilibriumDistance[0];
+					epsilonProduct *= nbparams.epsilon;
+					double rj = nbparams.r;
 					epsilonProduct = Math.sqrt(epsilonProduct);
 					double Bij = ( ri + rj ) * ( ri + rj );
 					Bij = Bij * Bij * Bij;
@@ -394,7 +402,7 @@ public class ForcefieldEnergy implements Serializable {
 	//	not for cofactors. To determine if an atom belongs to a protein or a ligand,
 	//	we use the isProtein flag of the Strand class. In KSParser, this flag is
 	//	set to true for the protein and the ligand, but not for the cofactor
-	private void initializeSolvationCalculation(ArrayList<Atom> atoms1, ArrayList<Atom> atoms2){
+	private void initializeSolvationCalculation(List<Atom> atoms1, List<Atom> atoms2){
 		
 		if (debug)
 			System.out.println("Starting initializeSolvationCalculation");
@@ -486,11 +494,13 @@ public class ForcefieldEnergy implements Serializable {
 		}
 	}
         
-	private double[] listSolvationTerms(ArrayList<Atom> atomList){
+	private double[] listSolvationTerms(List<Atom> atomList){
 		//list the solvation terms (atom numbers within residue, and params) for the specified atoms
 		//in the specified residue
 		
 		double termList[] = new double[atomList.size() * 6];
+		
+		SolvParams solvparams = new SolvParams();
 
 		int ix6 = -6;
 		int numTerms = 0;
@@ -502,26 +512,30 @@ public class ForcefieldEnergy implements Serializable {
 
 				ix6 += 6;
 
-				double dGref[] = new double[1];
-				double dGfree[] = new double[1];
-				double atVolume[] = new double[1];
-				double lambda[] = new double[1];
-				double vdWradiusExt[] = new double[1]; //extended vdWradius (uses the EEF1 parameters)
-
-				if (!(params.eef1parms.getSolvationParameters(atomList.get(i),dGref,
-					dGfree,atVolume,lambda,vdWradiusExt))){
+				if (!(params.eef1parms.getSolvationParameters(atomList.get(i),solvparams))) {
 				
+                    /*
 					throw new RuntimeException("WARNING: Could not find solvation parameters for atom: " 
 						+ atom1 + " (" + atomList.get(i).name+") res: " + atomList.get(i).res.fullName);
+                    */
+
+                    // use default params instead of crashing
+					termList[ix6] = atom1;
+					termList[ix6 + 1] = 0;
+					termList[ix6 + 2] = 0;
+					termList[ix6 + 3] = 0;
+					termList[ix6 + 4] = 1;
+					termList[ix6 + 5] = 0;
+					numTerms++;
 				}
 				else {
 
 					termList[ix6] = atom1;
-					termList[ix6 + 1] = dGref[0];
-					termList[ix6 + 2] = dGfree[0];
-					termList[ix6 + 3] = atVolume[0];
-					termList[ix6 + 4] = lambda[0];
-					termList[ix6 + 5] = vdWradiusExt[0];
+					termList[ix6 + 1] = solvparams.dGref;
+					termList[ix6 + 2] = solvparams.dGfree;
+					termList[ix6 + 3] = solvparams.volume;
+					termList[ix6 + 4] = solvparams.lambda;
+					termList[ix6 + 5] = solvparams.radius;
 					numTerms++;
 				}
 			}
@@ -557,7 +571,7 @@ public class ForcefieldEnergy implements Serializable {
 		
 		// did the atoms change?
 		boolean isChanged = atomCache.updateCoords();
-		if (!isChanged) {
+		if (useCache && !isChanged) {
 			return energyCache;
 		}
 		
@@ -644,7 +658,7 @@ public class ForcefieldEnergy implements Serializable {
 
 			// shared math
 			rij2 = rijx * rijx + rijy * rijy + rijz * rijz;
-
+			
 			if (isHeavy || useHydrogenEs) {
 				
 				// electrostatics only math
@@ -722,7 +736,7 @@ public class ForcefieldEnergy implements Serializable {
 		}
 		
 		// not doing solvation? we're done
-		if (!doSolvationE) {
+		if (useCache && !doSolvationE) {
 			energyCache = esEnergy + vdwEnergy;
 			checkEnergy(energyCache);
 			return energyCache;
@@ -778,7 +792,7 @@ public class ForcefieldEnergy implements Serializable {
 		}
 		
 		solvEnergy *= solvScale;
-			
+		
 		// finally, we're done
 		energyCache = esEnergy + vdwEnergy + solvEnergy;
 		checkEnergy(energyCache);

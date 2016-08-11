@@ -5,8 +5,11 @@
 package edu.duke.cs.osprey.ematrix;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
@@ -62,6 +65,32 @@ public class EnergyMatrixCalculator {
         pruneMat = pr;
         epicSettings = es;
     }
+    
+    
+	public EnergyMatrixCalculator(ConfSpace confSpace, ArrayList<Residue> shellResidues, 
+			boolean doEPIC, PruningMatrix prm, EPICSettings es, 
+			boolean addResEntropy, EnergyMatrix emat) {
+
+		this.searchSpace = confSpace;
+		this.shellResidues = shellResidues;
+		this.doEPIC = doEPIC;
+		this.pruneMat = prm;
+		this.epicSettings = es;
+		this.addResEntropy = addResEntropy;
+
+		this.emat = emat;
+	}
+	
+	
+	public void addEnergyTerms(boolean doIntra, int... posNums) {
+		// merge residues at the specified positions; this updates the energy matrix.
+		// the energy matrix currently only support pairs and triples
+		TermECalculator hotECalc = new TermECalculator(searchSpace, shellResidues, 
+				doEPIC, doIntra, pruneMat, epicSettings, addResEntropy, posNums);
+
+		Object hotEnergies = hotECalc.doCalculation();
+		storeEnergy(hotEnergies, posNums);
+	}
     
     
    //Calculate a pairwise energy matrix based on a pairwise energy function
@@ -168,18 +197,41 @@ public class EnergyMatrixCalculator {
         //store the results of this calculation in our matrix.  
         
         if (doEPIC) {
-            if (res.length==1) {
+            if (res.length==1)
                 epicMat.setOneBody(res[0], (ArrayList<EPoly>)calcResult);
-            } else {
+            else
                 epicMat.setPairwise(res[0], res[1], (ArrayList<ArrayList<EPoly>>)calcResult);
-            }
         }
         else {
-            if (res.length==1) {
+            if (res.length==1)
                 emat.setOneBody(res[0], (ArrayList<Double>)calcResult);
-            } else {
+            
+            else if(res.length==2)
                 emat.setPairwise(res[0], res[1], (ArrayList<ArrayList<Double>>)calcResult);
-            }
+            
+			else if(res.length > 2) {
+				Integer[] pos = new Integer[res.length]; for(int i = 0; i < pos.length; ++i) pos[i] = new Integer(res[i]);
+
+				HashMap<ArrayList<Integer>, Double> nBody2E = (HashMap<ArrayList<Integer>, Double>)calcResult;
+				for(ArrayList<Integer> rc : nBody2E.keySet()) {
+
+					double nbE = nBody2E.get(rc);
+
+					// subtract out pairwise terms
+					double pwE = 0;
+					for(int i = 0; i < pos.length; ++i) {
+						for(int j = i+1; j < pos.length; ++j) {
+							pwE += emat.getPairwise(pos[i], rc.get(i), pos[j], rc.get(j));
+						}
+					}
+					
+					// AAO 2016: 
+					// TODO: subtract out 3 to n-1 order terms
+					
+					RCTuple nBody = new RCTuple(new ArrayList<>(Arrays.asList(pos)), new ArrayList<>(rc));
+					emat.setHigherOrder(nBody, nbE-pwE);
+				}
+			}
         }
     }
     

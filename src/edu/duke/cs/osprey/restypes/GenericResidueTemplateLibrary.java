@@ -311,8 +311,8 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
     
     
     
-    public ResidueTemplate getTemplateForMutation(String resTypeName, Residue res, boolean errorIfNone){
-        //We want to mutate res to type resTypeName.  Get the appropriate template.
+    public ResidueTemplate getTemplateForMutation(String resTypeName, Residue res, boolean errorIfNone){   	
+    	//We want to mutate res to type resTypeName.  Get the appropriate template.
         //Currently only one template capable of being mutated to (i.e., having coordinates)
         //is available for each residue type.  If this changes update here!
         for(ResidueTemplate template : templates){

@@ -15,7 +15,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
-import edu.duke.cs.osprey.confspace.RCTuple;
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
@@ -76,7 +76,7 @@ public class ConfTreeProfiling {
 			"energyMatrixProfiling",
 			"2KDC.P.forOsprey.pdb", 
 			flexRes, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion,
-			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots
+			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null
 		);
 		
 		// compute the energy matrix
@@ -192,12 +192,12 @@ public class ConfTreeProfiling {
 		System.out.println("\nFinding GMEC among " + tree.getNumConformations().doubleValue() + " conformations ...");
 		Stopwatch stopwatch = new Stopwatch();
 		stopwatch.start();
-		int[] conf = tree.nextConf();
+		ConfSearch.ScoredConf conf = tree.nextConf();
 		stopwatch.stop();
 		System.out.println("finished in " + stopwatch.getTime(TimeUnit.MILLISECONDS));
-		System.out.println("conf:     " + Arrays.toString(conf));
+		System.out.println("conf:     " + Arrays.toString(conf.getAssignments()));
 		
-		double observedEnergy = search.emat.getInternalEnergy(new RCTuple(conf));
+		double observedEnergy = conf.getScore();
 		System.out.println(String.format("energy: %16.10f", observedEnergy));
 		
 		if (doMinimize) {
@@ -207,7 +207,7 @@ public class ConfTreeProfiling {
 			expectedConfs.put(16, new int[] { 0, 0, 7, 16, 16, 0, 1, 0, 25, 6, 0, 21, 0, 0, 0, 6 });
 			expectedConfs.put(25, new int[] { 0, 0, 7, 16, 16, 0, 1, 0, 25, 6, 0, 21, 0, 0, 0, 6, 3, 2, 10, 1, 0, 0, 0, 1, 0 });
 			expectedConfs.put(40, new int[] { 0, 0, 7, 16, 16, 0, 1, 0, 25, 6, 0, 21, 0, 0, 0, 6, 3, 2, 10, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 1, 0, 0, 3 });
-			checkConf(expectedConfs.get(NumFlexible), conf);
+			checkConf(expectedConfs.get(NumFlexible), conf.getAssignments());
 			
 			// make sure the energy matches
 			Map<Integer,Double> expectedEnergies = new TreeMap<>();
@@ -223,7 +223,7 @@ public class ConfTreeProfiling {
 			expectedConfs.put(27, new int[] { 0, 6, 7, 0, 16, 0, 0, 6, 25, 6, 0, 0, 0, 0, 0, 0, 16, 2, 12, 1, 0, 15, 0, 1, 0, 0, 0 });
 			expectedConfs.put(34, new int[] { 0, 6, 7, 0, 16, 0, 0, 6, 25, 6, 0, 0, 0, 0, 0, 0, 16, 2, 12, 1, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 29, 0, 0 });
 			expectedConfs.put(55, new int[] { 0, 6, 7, 0, 16, 0, 0, 6, 25, 6, 0, 0, 0, 0, 0, 0, 16, 2, 12, 1, 0, 15, 0, 1, 0, 0, 0, 0, 0, 0, 0, 29, 0, 0, 1, 2, 1, 0, 0, 3, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0 });
-			checkConf(expectedConfs.get(NumFlexible), conf);
+			checkConf(expectedConfs.get(NumFlexible), conf.getAssignments());
 			
 			// make sure the energy matches
 			Map<Integer,Double> expectedEnergies = new TreeMap<>();

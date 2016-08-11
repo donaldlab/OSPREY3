@@ -38,7 +38,7 @@ public class EnergyProfiling {
 		ParallelEnergyFunction.startCrew(NumThreads);
 		
 		// read a big test protein, the bigger the better
-		Molecule m = PDBFileReader.readPDBFile("2KDC.P.forOsprey.pdb");
+		Molecule m = PDBFileReader.readPDBFile("2KDC.P.forOsprey.pdb", null);
 		
 		System.out.println("\n\nBuilding energy functions...");
 		

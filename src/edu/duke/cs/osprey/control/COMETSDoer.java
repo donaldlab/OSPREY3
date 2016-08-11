@@ -158,7 +158,7 @@ public class COMETSDoer {
         
         ArrayList<ArrayList<String>> stateAAOptions = cfgP.getAllowedAAs();
         
-        Molecule wtMolec = PDBFileReader.readPDBFile( cfgP.params.getValue("PDBName") );
+        Molecule wtMolec = PDBFileReader.readPDBFile( cfgP.params.getValue("PDBName"), null );
         ArrayList<String> flexRes = cfgP.getFlexRes();
         
         
@@ -232,7 +232,7 @@ public class COMETSDoer {
         ArrayList<String> bestSequences = new ArrayList<>();
 
         for(int seqNum=0; seqNum<numSeqsWanted; seqNum++){
-            int seq[] = tree.nextConf();//this will find the best sequence and print it
+            int seq[] = tree.nextConf().getAssignments();//this will find the best sequence and print it
             if(seq == null)//empty sequence...indicates no more sequence possibilities
                 break;
             else
@@ -255,17 +255,17 @@ public class COMETSDoer {
         
         cfgP.params.setValue("TYPEDEP", "TRUE");//we need to do type-dependent pruning
         
-        GMECFinder gf = new GMECFinder(cfgP); 
-        gf.searchSpace = sp;//Using our search problem here instead of full GMEC calculation
+        GMECFinder gf = new GMECFinder();
+        gf.init(cfgP, sp); //Using our search problem here instead of full GMEC calculation
         
-        double ival = chooseIVal(state,cfgP,gf);
+        double ival = chooseIVal(state,cfgP,gf,sp);
         
         gf.precomputeMatrices(ival);//no Ew...just looking at GMECs
         //and for any valid sequence the GMEC shouldn't be pruned (unless ival manually set lower)
     }
     
     
-    double chooseIVal(int state, ConfigFileParser cfgP, GMECFinder gf){
+    double chooseIVal(int state, ConfigFileParser cfgP, GMECFinder gf, SearchProblem sp){
         //choose the iMinDEE interval we want to use for a state
         
         if( ! gf.useTupExp )//discrete flexibility & pairwise E-fcn...iVal can be 0
@@ -312,11 +312,11 @@ public class COMETSDoer {
 
                     //compute pairwise lowest bound
 
-                    gf.searchSpace.loadEnergyMatrix();
+                    sp.loadEnergyMatrix();
 
                     //allocate pruning matrices, but don't prune since ival unknown
-                    cfgP.setupPruning(gf.searchSpace, Double.POSITIVE_INFINITY, false, false);
-                    double lowestBound = gf.lowestPairwiseBound(gf.searchSpace);
+                    cfgP.setupPruning(sp, Double.POSITIVE_INFINITY, false, false);
+                    double lowestBound = gf.lowestPairwiseBound(sp);
                     iVal = maxStateGMEC - lowestBound;
                 }
             }
@@ -447,8 +447,9 @@ public class COMETSDoer {
             }
         }
         
-        GMECFinder gf = new GMECFinder(cfp);
-        return gf.calcGMEC();
+        GMECFinder gf = new GMECFinder();
+        gf.init(cfp);
+        return gf.calcGMEC().get(0).getEnergy();
     }
     
 }

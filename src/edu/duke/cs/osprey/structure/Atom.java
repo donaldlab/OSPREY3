@@ -96,7 +96,12 @@ public class Atom implements Serializable {
         return new double[] {x,y,z};
     }
     
+    public boolean isHydrogen() {
+        return elementType.equalsIgnoreCase("H");
+    }
     
-    
+    public boolean isCarbon() {
+        return elementType.equalsIgnoreCase("C");
+    }
 
 }

@@ -102,6 +102,10 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
         return pruningInterval;
     }
     
+    public void setPruningInterval(double pruningInterval) {
+    	this.pruningInterval = pruningInterval;
+    }
+    
     public T getDefaultHigherInteraction() {
     	return defaultHigherInteraction;
     }
@@ -206,7 +210,7 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
             throw new UnsupportedOperationException( "ERROR: Not supporting tuple size " + tupSize );
     }
     
-    private void setHigherOrder(RCTuple tup, T val){
+    public void setHigherOrder(RCTuple tup, T val){
         //set a higher-order term
         //we need all pairs contained in tup to know about it
         
