@@ -149,7 +149,7 @@ public class TestBase {
 		boolean useTupleExpansion = false;
 		boolean useEllipses = false;
 		boolean useERef = false;
-		boolean addResEntropy = false;
+		boolean addResEntropy = false;                
 		ArrayList<String[]> moveableStrands = new ArrayList<String[]>();
 		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
 		SearchProblem search = new SearchProblem(
