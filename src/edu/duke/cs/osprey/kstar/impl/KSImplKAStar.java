@@ -116,7 +116,7 @@ public class KSImplKAStar extends KSAbstract {
 				best.checkConsistency(best);
 				
 				//if(passesInterMutationPruning(best.lb))
-				best.lb.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCompleted(0) );
+				best.lb.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCreated(0), getNumSeqsCompleted(0) );
 				
 				completed++;
 				continue;
@@ -154,7 +154,7 @@ public class KSImplKAStar extends KSAbstract {
 
 			if( best.isFullyProcessed() ) {
 
-				best.lb.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCompleted(0) );
+				best.lb.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCreated(0), getNumSeqsCompleted(0) );
 
 				double bestUB = best.getUBScore();
 

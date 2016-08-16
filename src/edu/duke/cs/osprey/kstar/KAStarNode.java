@@ -561,7 +561,7 @@ public class KAStarNode {
 					ans.get(ans.size()-1).parentlbScore = this.lbScore;
 
 					// processed nodes are those whose confs will be minimized
-					numLeavesCreated++;
+					numLeavesCreated = ksObj.getNumSeqsCreated(1);
 
 					// memoize nodes that get energy minimized
 					((KSImplKAStar)ksObj).addLeafNode(ans.get(ans.size()-1).lb);

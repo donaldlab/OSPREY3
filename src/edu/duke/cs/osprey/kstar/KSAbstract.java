@@ -60,6 +60,7 @@ public abstract class KSAbstract implements KSInterface {
 
 	private long startTime = 0; // beginning time
 	private int numSeqsCompleted = 0;
+	private int numSeqsCreated = 0;
 
 	public KSAbstract( KSConfigFileParser cfp ) {
 
@@ -73,8 +74,11 @@ public abstract class KSAbstract implements KSInterface {
 		useEllipses = cfp.getParams().getBool("useEllipses");
 		useERef = cfp.getParams().getBool("useERef");
 		addResEntropy = cfp.getParams().getBool("AddResEntropy");
-		addWT = cfp.getParams().getBool("addWT", true);
-		addWTRots = cfp.getParams().getBool("addWTRots", true);
+		addWT = cfp.getParams().getBool("addWT");
+		addWTRots = cfp.getParams().getBool("addWTRots");
+		
+		if(!addWT && addWTRots)
+			throw new RuntimeException("ERROR: addWTRots is true but addWT is false. addWT must be true if addWTRots is true");
 	}
 
 
@@ -106,6 +110,12 @@ public abstract class KSAbstract implements KSInterface {
 	public int getNumSeqsCompleted(int increment) {
 		numSeqsCompleted += increment;
 		return numSeqsCompleted;
+	}
+	
+	
+	public int getNumSeqsCreated(int increment) {
+		numSeqsCreated += increment;
+		return numSeqsCreated;
 	}
 
 
@@ -231,7 +241,7 @@ public abstract class KSAbstract implements KSInterface {
 		if(!doWTCalc) {
 			wtKSCalc = null;
 			System.out.println("\nWARNING: skipping K* calculation for wild-type sequence: " + 
-					KSAbstract.list1D2String(strand2AllowedSeqs.get(KSTermini.COMPLEX).getWTSeq(), " ") + "\n");
+					KSAbstract.list1D2String(strand2AllowedSeqs.get(KSTermini.COMPLEX).getWTSeq(), " "));
 
 			if(strand2AllowedSeqs.get(KSTermini.COMPLEX).containsWTSeq()) {
 				
@@ -593,11 +603,11 @@ public abstract class KSAbstract implements KSInterface {
 
 		if( calc.getEpsilonStatus() == EApproxReached.TRUE ) {
 			calc.deleteCheckPointFile(KSTermini.COMPLEX);
-			calc.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCompleted(1) );
+			calc.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCreated(1), getNumSeqsCompleted(1) );
 		}
 
 		else {
-			calc.printSummary( getCheckPointFilePath(), getStartTime(), getNumSeqsCompleted(0) );
+			calc.printSummary( getCheckPointFilePath(), getStartTime(), getNumSeqsCreated(0), getNumSeqsCompleted(0) );
 		}
 
 		return calc;

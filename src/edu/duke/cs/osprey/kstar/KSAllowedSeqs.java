@@ -17,7 +17,7 @@ public class KSAllowedSeqs {
 	private ArrayList<String> flexRes;
 	private ArrayList<ArrayList<String>> allowedAAs;
 	private ArrayList<String> wt;
-	private boolean addWT;
+	public boolean addWT;
 	private int dist;
 	private int strand;
 	private KSTermini limits;
@@ -61,6 +61,7 @@ public class KSAllowedSeqs {
 		this.flexRes = flexRes;
 		this.allowedAAs = allowedAAs;
 		this.wt = new ArrayList<String>( in.wt.subList(lb, ub) );
+		this.addWT = in.addWT;
 		this.dist = in.dist;
 		this.allowedSeqs = new ArrayList<ArrayList<String>>();
 
@@ -499,7 +500,8 @@ public class KSAllowedSeqs {
 		ArrayList<ArrayList<String>> ans = new ArrayList<ArrayList<String>>(output); 
 		if( addWT || wtIsPresent ) ans.add(0, wt);
 		
-		System.out.println("\nNumber of sequences with " + dist + " mutation(s) from wild type: " + ans.size() + "\n");
+		int size = dist == 0 ? ans.size() : ans.size()-1;
+		System.out.println("\nNumber of sequences with " + dist + " mutation(s) from wild type: " + size + "\n");
 
 		ans.trimToSize();
 		return ans;
