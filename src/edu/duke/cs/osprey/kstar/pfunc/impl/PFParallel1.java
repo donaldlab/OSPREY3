@@ -310,8 +310,9 @@ public class PFParallel1 extends PFTraditional implements Serializable {
 			if( !PFAbstract.suppressOutput ) {
 				if( !printedHeader ) printHeader();
 
-				System.out.println(boundError + "\t" + energy + "\t" + effectiveEpsilon + "\t" + getNumMinimized4Output() + 
-						"\t" + getNumUnEnumerated() + "\t" + confsQ.size() + "\t" + ((currentTime-startTime)/1000));
+				System.out.println(numberFormat.format(boundError) + "\t" + numberFormat.format(energy) + "\t" 
+						+ numberFormat.format(effectiveEpsilon) + "\t" + getNumMinimized4Output() + "\t" 
+						+ getNumUnEnumerated() + "\t" + confsQ.size() + "\t" + ((currentTime-startTime)/1000));
 			}
 		}
 

@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -35,6 +36,8 @@ import edu.duke.cs.osprey.tools.ObjectIO;
 public abstract class PFAbstract implements Serializable {
 
 	protected long startTime;
+	
+	protected DecimalFormat numberFormat = new DecimalFormat("0.0000");
 	
 	public static enum EApproxReached { TRUE, FALSE, NOT_POSSIBLE, NOT_STABLE }
 	protected EApproxReached eAppx = EApproxReached.FALSE;
