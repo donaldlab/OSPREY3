@@ -33,6 +33,7 @@ import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.Stopwatch;
+import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class BenchmarkForcefieldKernel extends TestBase {
 	
@@ -82,7 +83,7 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
 		SearchProblem search = new SearchProblem(
 			"test", "test/1CC8/1CC8.ss.pdb", 
-			flexResList, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion,
+			flexResList, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
 			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null
 		);
 		

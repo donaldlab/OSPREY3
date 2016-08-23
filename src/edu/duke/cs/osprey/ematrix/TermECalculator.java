@@ -64,6 +64,11 @@ public class TermECalculator implements MPISlaveTask {
     ArrayList<MoleculeModifierAndScorer> mofs = null;
     
     
+    private static final boolean SAPEKeepStandalone = false;
+    //Make SAPE terms in the EPIC matrix retain ability to be evaluated standalone
+    //getting rid of this is fine for normal operation as of Aug '16 and could save memory
+    
+    
     public TermECalculator(ConfSpace s, ArrayList<Residue> shellResidues, 
             boolean doEPIC, boolean doIntra, PruningMatrix prm, EPICSettings es, 
             boolean addResEnt, int... resToCalc){
@@ -469,6 +474,9 @@ public class TermECalculator implements MPISlaveTask {
                 bestFit = fitter.blank();
 
             bestFit.setMinE(minEnergy);
+            
+            if(!SAPEKeepStandalone)
+                bestFit.deleteMOFStandalone();
             
             return bestFit;
     }

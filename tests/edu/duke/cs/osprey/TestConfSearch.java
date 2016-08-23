@@ -18,6 +18,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.InfiniteIterator;
+import edu.duke.cs.osprey.tupexp.LUTESettings;
 import java.util.ArrayList;
 import java.util.Random;
 import org.junit.BeforeClass;
@@ -158,7 +159,7 @@ public class TestConfSearch extends TestBase {
         
         SearchProblem ans = new SearchProblem( "test/1CC8/testResults/CONFSEARCHTEST"+numPos, "test/1CC8/1CC8.ss.pdb", 
                 flexRes, allowedAAs,false, false, false, null, 
-                false, new DEEPerSettings(), new ArrayList<>(), new ArrayList<>(), 
+                false, new LUTESettings(), new DEEPerSettings(), new ArrayList<>(), new ArrayList<>(), 
                 useEllipses, false, false, false, null);
                 //don't add WT, and no minimization, EPIC, tuple expansion, DEEPer, or strand motions
 

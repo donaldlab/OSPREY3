@@ -11,6 +11,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.EnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.tools.Stopwatch;
+import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class EnergyMatrixProfiling {
 
@@ -48,7 +49,7 @@ public class EnergyMatrixProfiling {
 		SearchProblem search = new SearchProblem(
 			"energyMatrixProfiling",
 			"2KDC.P.forOsprey.pdb", 
-			flexRes, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion,
+			flexRes, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
 			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null
 		);
 		

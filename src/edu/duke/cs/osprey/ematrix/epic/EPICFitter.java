@@ -604,6 +604,9 @@ public class EPICFitter {
         if(fp.PCOrder>fp.order)
             throw new RuntimeException("ERROR: SAPE-heavy EPIC fit selection shouldn't have principal components");
         
+        if(es.quadOnly)
+            return raiseFitOrderQuadOnly(fp);
+        
         if(fp.order == 2){//quadratic 
             if(fp.SAPECutoff == 0)
                 return new FitParams(numDOFs,2,0,2,false,3);
@@ -625,6 +628,35 @@ public class EPICFitter {
         }
         
         throw new RuntimeException("ERROR: SAPE-heavy EPIC fit selection shouldn't have this fit order: "+fp.getDescription());
+    }
+    
+    
+    
+    public FitParams raiseFitOrderQuadOnly(FitParams fp){
+        //If there are tons of DOFs then quartic fits may already be no faster than all-atom energy
+        //for these times, we raise only 
+        
+        if(fp.PCOrder>fp.order)
+            throw new RuntimeException("ERROR: SAPE-heavy EPIC fit selection shouldn't have principal components");
+        
+        if(fp.order == 2){//quadratic 
+            if(fp.SAPECutoff == 0)
+                return new FitParams(numDOFs,2,0,2,false,3);
+            if(fp.SAPECutoff == 3)
+                return new FitParams(numDOFs,2,0,2,false,4);
+            if(fp.SAPECutoff == 4)//raise to quartic
+                return new FitParams(numDOFs,2,0,2,false,5);
+            if(fp.SAPECutoff == 5)//raise to quartic
+                return new FitParams(numDOFs,2,0,2,false,7);
+            if(fp.SAPECutoff == 7)//raise to quartic
+                return new FitParams(numDOFs,2,0,2,false,10);
+            if(fp.SAPECutoff == 10)//raise to quartic
+                return new FitParams(numDOFs,2,0,2,false,Double.POSITIVE_INFINITY);
+            if(Double.isInfinite(fp.SAPECutoff))//This should handle any energy...
+                return null;//clearly a problem occurred if the full energy doesn't match itself
+        }
+             
+        throw new RuntimeException("ERROR: Quad-only EPIC fit selection shouldn't have this fit order: "+fp.getDescription());
     }
     
     

@@ -16,6 +16,7 @@ import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.RunState;
 import edu.duke.cs.osprey.kstar.pfunc.PFFactory;
 import edu.duke.cs.osprey.tools.ObjectIO;
+import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 
 /**
@@ -389,7 +390,8 @@ public abstract class KSAbstract implements KSInterface {
 				useEPIC,
 				new EPICSettings(cfp.getParams()),
 				useTupExp,
-				dset, 
+				new LUTESettings(cfp.getParams()),
+                                dset, 
 				moveableStrands, 
 				freeBBZones,
 				useEllipses,

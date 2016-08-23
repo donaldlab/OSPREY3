@@ -17,6 +17,8 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tupexp.ConfETupleExpander;
+import edu.duke.cs.osprey.tupexp.ConfGTupleExpander2;
+import edu.duke.cs.osprey.tupexp.LUTESettings;
 import edu.duke.cs.osprey.tupexp.TupExpChooser;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -45,6 +47,7 @@ public class SearchProblem implements Serializable {
     
     public EPICMatrix epicMat = null;//EPIC matrix, to be used if appropriate
     public EPICSettings epicSettings = null;
+    public LUTESettings luteSettings = null;
     
     public EnergyMatrix tupExpEMat;//Defines full energy in the continuous, tuple-expander case
     
@@ -75,6 +78,7 @@ public class SearchProblem implements Serializable {
     	emat = sp1.emat;
         epicMat = sp1.epicMat;
         epicSettings = sp1.epicSettings;
+        luteSettings = sp1.luteSettings;
         tupExpEMat = sp1.tupExpEMat;
         
     	fullConfE = sp1.fullConfE;
@@ -95,7 +99,7 @@ public class SearchProblem implements Serializable {
     
     
     public SearchProblem(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
-            boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset, 
+            boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, LUTESettings luteSettings, DEEPerSettings dset, 
             ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef,
             boolean addResEntropy, boolean addWTRots, KSTermini termini){
         
@@ -107,6 +111,7 @@ public class SearchProblem implements Serializable {
         this.useTupExpForSearch = useTupExp;
         this.useEPIC = useEPIC;
         this.epicSettings = epicSettings;
+        this.luteSettings = luteSettings;
         
         this.useERef = useERef;
         this.addResEntropy = addResEntropy;
@@ -264,25 +269,32 @@ public class SearchProblem implements Serializable {
         else {
             //need to calculate a tuple-expansion matrix
             
-            double errorThresh = 0.01;
+            //DEBUG!!!!!
+            boolean doG = false;
+            ConfETupleExpander expander;
+            if(doG)
+                expander = new ConfGTupleExpander2(this);
+            else
+                expander = new ConfETupleExpander(this);
+            //ConfETupleExpander expander = new ConfETupleExpander(this);//make a tuple expander
             
-            ConfETupleExpander expander = new ConfETupleExpander(this);//make a tuple expander
+            
             TupleEnumerator tupEnum = new TupleEnumerator(pruneMat,emat,confSpace.numPos);
             TupExpChooser chooser = new TupExpChooser(expander, tupEnum);//make a chooser to choose what tuples will be in the expansion
             
             double curResid = chooser.calcPairwiseExpansion();//start simple...
             
-            if(curResid > errorThresh){//go to triples if needed
+            if(curResid > luteSettings.goalResid){//go to triples if needed
                 System.out.println("EXPANDING PAIRWISE EXPANSION WITH STRONGLY PAIR-INTERACTING TRIPLES (2 PARTNERS)...");
                 curResid = chooser.calcExpansionResTriples(2);
             }
-            if(curResid > errorThresh){//go to 5 partners if still need better resid...
+            if(curResid > luteSettings.goalResid){//go to 5 partners if still need better resid...
                 System.out.println("EXPANDING EXPANSION WITH STRONGLY PAIR-INTERACTING TRIPLES (5 PARTNERS)...");
                 curResid = chooser.calcExpansionResTriples(5);
             }
-            if(curResid > errorThresh){
+            if(curResid > luteSettings.goalResid){
                 System.out.println("WARNING: Desired LUTE residual threshold "+
-                        errorThresh+" not reached; best="+curResid);
+                        luteSettings.goalResid+" not reached; best="+curResid);
             }
             
             return expander.getEnergyMatrix();//get the final energy matrix from the chosen expansion

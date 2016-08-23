@@ -26,6 +26,7 @@ import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Stopwatch;
+import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class ConfTreeProfiling {
 	
@@ -75,7 +76,7 @@ public class ConfTreeProfiling {
 		SearchProblem search = new SearchProblem(
 			"energyMatrixProfiling",
 			"2KDC.P.forOsprey.pdb", 
-			flexRes, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion,
+			flexRes, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
 			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null
 		);
 		

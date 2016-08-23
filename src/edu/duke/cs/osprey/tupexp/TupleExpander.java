@@ -51,7 +51,7 @@ public abstract class TupleExpander implements Serializable {
     
     static int printedUpdateNumTuples = 5;//100 w/o PB.  We print updates as we add tuples...this is how often
     
-    public TupleExpander (int numPos, int[] numAllowed/*, double constTerm*/, double pruningInterval) {
+    public TupleExpander (int numPos, int[] numAllowed/*, double constTerm*/, double pruningInterval, LUTESettings luteSettings) {
         this.numPos = numPos;
         this.numAllowed = numAllowed;
         //this.constTerm = constTerm;
@@ -65,7 +65,7 @@ public abstract class TupleExpander implements Serializable {
             assignmentSets.add(new ArrayList<ArrayList<Integer>>());
         }
         
-        fof = new FittingObjFcn(pruningInterval,0.5);
+        fof = new FittingObjFcn(pruningInterval,0.5,luteSettings.useRelWt);
     }
     
     
@@ -87,7 +87,7 @@ public abstract class TupleExpander implements Serializable {
             return Double.POSITIVE_INFINITY;
         
         
-        for(int iter=0; iter<500/*0*/; iter++){
+        for(int iter=0; iter<50/*00*/; iter++){
             int sample[] = new int[numPos];
             boolean success;
             do {

@@ -16,6 +16,7 @@ import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.StringParsing;
+import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class KSConfigFileParser extends ConfigFileParser implements Serializable {
 
@@ -256,6 +257,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 				getParams().getBool("doMinimize", false),
 				new EPICSettings(params),
 				getParams().getBool("UseTupExp", false),
+                                new LUTESettings(params),
 				dset, moveableStrands, freeBBZones,
 				getParams().getBool("useEllipses", false),
 				getParams().getBool("useERef", false),

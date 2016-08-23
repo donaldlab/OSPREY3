@@ -302,7 +302,7 @@ public class GMECFinder {
         if (minScoreConf == null) {
             
             // no confs in the search space, can't recover, just bail
-            System.out.println("All conformations pruned. Try choosing a larger pruning interval.");
+            System.out.println("All conformations pruned. Try choosing a larger pruning interval or steric threshold.");
             return new ArrayList<>();
         }
         System.out.println("Found min score conformation in " + minScoreStopwatch.getTime(1));

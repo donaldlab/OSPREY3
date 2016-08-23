@@ -14,6 +14,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.StringParsing;
+import edu.duke.cs.osprey.tupexp.LUTESettings;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.StringTokenizer;
@@ -137,6 +138,7 @@ public class ConfigFileParser {
                 params.getBool("UseEPIC"),
                 new EPICSettings(params),
                 params.getBool("UseTupExp"),
+                new LUTESettings(params),
                 dset, moveableStrands, freeBBZones,
                 params.getBool("useEllipses"),
                 params.getBool("useERef"),
