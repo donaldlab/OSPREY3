@@ -33,6 +33,14 @@ public class RigidBodyMotion {
         rotation = new RotationMatrix(axis[0],axis[1],axis[2],angle,angleInRadians);
     }
     
+
+    public RigidBodyMotion(double[] center, double[] axis, double sinAngle, double cosAngle){
+        //rotate about center with the specified axis; sine and cosine of angle given separately
+        center1 = center;
+        center2 = center;
+        
+        rotation = new RotationMatrix(axis[0],axis[1],axis[2],sinAngle,cosAngle);
+    }
     
     public RigidBodyMotion(double[][] initCoords, double[][] finalCoords){
         //we're given three sets of 3-D coordinates, in an initial and a final state
