@@ -263,6 +263,12 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
         
         return efunc.getEnergy();
     }
+    
+    public double getCurValueOfDOF(int dof){
+        //get the value of the specified DOF
+        //(rather than of the objective function)
+        return curDOFVals.get(dof);
+    }
 
     @Override
     public double getInitStepSize(int dof) {
@@ -325,6 +331,22 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
         return DOFs;
     }
     
+    
+    
+    
+    public boolean isOutOfRange(DoubleMatrix1D x){
+        if(x.size()!=DOFs.size())
+            throw new RuntimeException("ERROR: Trying to check range on "+DOFs.size()+" DOFs with "+x.size()+" values");
+        
+        for(int dof=0; dof<DOFs.size(); dof++){
+            if( x.get(dof) < constraints[0].get(dof)-1e-6 )
+                return true;
+            if( x.get(dof) > constraints[1].get(dof)+1e-6 )
+                return true;
+        }
+        
+        return false;
+    }
     
     
 }

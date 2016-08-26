@@ -263,7 +263,6 @@ public class GMECFinder {
         ConfEnergyCalculator ecalc = new ConfEnergyCalculator() {
             @Override
             public double calcEnergy(ScoredConf conf) {
-                
                 // MINIMIZED, EPIC, OR MATRIX E AS APPROPRIATE
                 // TODO: these options should eventually be separate subclasses of ConfEnergyCalculator
             	// that get picked by whatever configures GMECFinder (e.g., ConfigFileParser, Python script)
