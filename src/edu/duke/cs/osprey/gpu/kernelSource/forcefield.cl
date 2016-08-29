@@ -16,10 +16,6 @@ bool isHydrogen(int flags) {
 	return flags > 0;
 }
 
-double calcElectrostatics(const double coulombFactor, const double r, const double charge) {
-	return coulombFactor*charge/r;
-}
-
 bool useDistDepDielec(const int flags) {
 	return (flags & 0x1) == 1;
 }
@@ -33,17 +29,22 @@ bool useHVdw(const int flags) {
 }
 
 kernel void calc(
-	global const double *coords, global const int *atomFlags, global const double *precomputed, global double *out,
+	global const double *coords, global const int *atomFlags, global const double *precomputed, global const int *subsetTable, global double *out,
 	const int numPairs, const int num14Pairs, const double coulombFactor, const double scaledCoulombFactor,
 	const double solvCutoff2, const int flags,
 	local double *scratch
 ) {
 
-	// NOTE: looks like we don't have enough gpu registers to inline everything
-	// so need to call out to subroutines
-	// and try to keep temp variables in small scopes, and generally limit the number of temp variables
+	// NOTE: looks like we're running severely short on gpu registers
+	// if the compiler says we used 29 registers, everything seems to work fine
+	// if we use too many registers though, we get CL_OUT_OF_RESOURCES errors
+	// not sure how many we're allowed to use though
+	// so try to contain intermediate calculations in the smallest possible scopes
 	// that's why the code looks all weird
-	// it's optimized to minimize register usage at the expense of readability and re-computing values sometimes
+	// it's optimized to minimize register usage at the expense of readability
+	// we also re-compute values sometimes to save registers
+	
+	// NOTE: CL_OUT_OF_RESOURCES can also be thrown when you misuse a pointer (ie like a segfault)
 
 	// NOTE: can't have bools in kernel args for some reason, so the int flags encode 0=false, 1=true
 	// pos 0 is useDistDepDielec
@@ -51,13 +52,12 @@ kernel void calc(
 	// pos 2 is useHVdw
 	// packing the bools into one int saves registers too
 	
-	int i9 = get_global_id(0)*9;
-	
 	// start with zero energy
 	double energy = 0;
 	
 	// which atom pair are we calculating?
 	if (get_global_id(0) < numPairs) {
+		int i = subsetTable[get_global_id(0)];
 	
 		// read atom flags and calculate all the things that use the atom flags in this scope
 		bool bothHeavy;
@@ -65,7 +65,7 @@ kernel void calc(
 		{
 			int atom1Flags, atom2Flags;
 			{
-				int i2 = get_global_id(0)*2;
+				int i2 = i*2;
 				atom1Flags = atomFlags[i2];
 				atom2Flags = atomFlags[i2 + 1];
 			}
@@ -84,17 +84,28 @@ kernel void calc(
 			r2 += d*d;
 		}
 		
+		int i9 = i*9;
+		
 		// calculate electrostatics
 		if (bothHeavy || useHEs(flags)) {
 		
-			bool is14Pair = get_global_id(0) < num14Pairs;
-			double charge = precomputed[i9 + 2];
+			double esEnergy = 1;
 			
-			energy += calcElectrostatics(
-				is14Pair ? scaledCoulombFactor : coulombFactor,
-				useDistDepDielec(flags) ? r2 : sqrt(r2),
-				charge
-			);
+			{
+				bool is14Pair = get_global_id(0) < num14Pairs;
+				esEnergy *= is14Pair ? scaledCoulombFactor : coulombFactor;
+			}
+			
+			{
+				double charge = precomputed[i9 + 2];
+				esEnergy *= charge;
+			}
+			
+			{
+				esEnergy /= useDistDepDielec(flags) ? r2 : sqrt(r2);
+			}
+			
+			energy += esEnergy;
 		}
 		
 		// calculate vdw
@@ -136,7 +147,7 @@ kernel void calc(
 	// compute the energy sum in SIMD-style
 	// see url for a tutorial on GPU reductions:
 	// http://developer.amd.com/resources/articles-whitepapers/opencl-optimization-case-study-simple-reductions/
-	
+
 	int locali = get_local_id(0);
 	scratch[locali] = energy;
 	

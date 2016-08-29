@@ -49,9 +49,8 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 				try {
 					
 					// prep the kernel, upload precomputed data
-					ffenergy = new BigForcefieldEnergy(ffparams, interactions, true);
 					kernel = new ForceFieldKernel(queue.getGpu()).bind(queue);
-					kernel.setForcefield(ffenergy);
+					kernel.setForcefield(new BigForcefieldEnergy(ffparams, interactions, true));
 					kernel.uploadStaticAsync();
 					
 				} catch (IOException ex) {
@@ -88,35 +87,31 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	
 	private ForcefieldParams ffparams;
 	private ForcefieldInteractions interactions;
-	private BigForcefieldEnergy ffenergy;
-	private KernelBuilder kernelBuilder;
 	private GpuQueuePool queuePool;
 	private GpuQueue queue;
-	
-	private GpuForcefieldEnergy(ForcefieldParams ffparams, ForcefieldInteractions interactions) {
-		this.ffparams = ffparams;
-		this.interactions = interactions;
-		
-		ffenergy = null;
-		kernelBuilder = new KernelBuilder();
-	}
+	private KernelBuilder kernelBuilder;
+	private BigForcefieldEnergy.Subset ffsubset;
 	
 	public GpuForcefieldEnergy(ForcefieldParams ffparams, ForcefieldInteractions interactions, GpuQueuePool queuePool) {
-		this(ffparams, interactions);
-		
+		this.ffparams = ffparams;
+		this.interactions = interactions;
 		this.queuePool = queuePool;
-		queue = queuePool.checkout();
+		this.queue = queuePool.checkout();
+		this.kernelBuilder = new KernelBuilder();
+		this.ffsubset = null;
 	}
 	
-	private GpuForcefieldEnergy(GpuForcefieldEnergy parent, ForcefieldInteractions interactions) {
-		this(parent.ffparams, interactions);
-		
+	public GpuForcefieldEnergy(GpuForcefieldEnergy parent, ForcefieldInteractions interactions) {
+		this.ffparams = parent.ffparams;
+		this.interactions = interactions;
 		this.queuePool = null;
-		queue = parent.queue;
+		this.queue = parent.queue;
+		this.kernelBuilder = parent.kernelBuilder;
+		this.ffsubset = kernelBuilder.get().getForcefield().new Subset(interactions);
 	}
 	
-	public BigForcefieldEnergy getForcefieldEnergy() {
-		return ffenergy;
+	public boolean isParent() {
+		return queuePool != null;
 	}
 	
 	public ForceFieldKernel.Bound getKernel() {
@@ -153,11 +148,16 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		
 		ForceFieldKernel.Bound kernel = kernelBuilder.get();
 		
-		// upload coords
-		ffenergy.updateCoords();
-		kernel.uploadCoordsAsync();
+		// do we have a subset yet?
+		if (ffsubset == null) {
+			ffsubset = kernel.getSubset();
+			
+		// make sure our subset is the current one
+		} else if (ffsubset != kernel.getSubset()) {
+			kernel.setSubset(ffsubset);
+		}
 		
-		// run the kernel
+		kernel.uploadCoordsAsync();
 		kernel.runAsync();
 		
 		// read the results
@@ -169,9 +169,10 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		// do the last bit of the energy sum on the cpu
 		// add one element per work group on the gpu
 		// typically, it's a factor of groupSize less than the number of atom pairs
+		double energy = ffsubset.getInternalSolvationEnergy();
+		int energySize = kernelBuilder.get().getEnergySize();
 		buf.rewind();
-		double energy = ffenergy.getInternalSolvationEnergy();
-		while (buf.hasRemaining()) {
+		for (int i=0; i<energySize; i++) {
 			energy += buf.get();
 		}
 		return energy;
@@ -179,10 +180,10 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	
 	@Override
 	public void cleanup() {
-		if (queuePool != null) {
+		if (isParent()) {
 			queuePool.release(queue);
+			kernelBuilder.cleanup();
 		}
-		kernelBuilder.cleanup();
 	}
 
 	@Override

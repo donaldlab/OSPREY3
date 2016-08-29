@@ -6,6 +6,7 @@ import java.nio.DoubleBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,10 +40,14 @@ public class BigForcefieldEnergy implements EnergyFunction {
 			groupIndicesByPair[pairIndex*2 + 1] = addOrGetGroupIndex(group2);
 		}
 		
+		public Integer getGroupIndex(AtomGroup group) {
+			return groupIndicesById.get(group.getId());
+		}
+		
 		private int addOrGetGroupIndex(AtomGroup group) {
 			
 			// do we have an index already?
-			Integer groupIndex = groupIndicesById.get(group.getId());
+			Integer groupIndex = getGroupIndex(group);
 			if (groupIndex != null) {
 				return groupIndex;
 			}
@@ -77,6 +82,17 @@ public class BigForcefieldEnergy implements EnergyFunction {
 		public double Bij;
 	}
 	
+	private static class AtomPairsBlock {
+		
+		public int offset;
+		public int length;
+		
+		public AtomPairsBlock(int offset, int length) {
+			this.offset = offset;
+			this.length = length;
+		}
+	}
+	
 	// physical constants and constant params
 	private static final double coulombConstant = 332.0;
 	private static final double solvCutoff = 9.0;
@@ -90,19 +106,18 @@ public class BigForcefieldEnergy implements EnergyFunction {
 	private int[] atomOffsets;
 	// layout per atom: x, y, z
 	private DoubleBuffer coords;
-	private int numAtoms;
 	
 	// atom pair into
 	// layout per atom pair: atom1 flags, atom2 flags
 	private IntBuffer atomFlags;
-	private int num14Pairs;
-	private int numNbPairs;
 	
 	// pre-computed vdW, electrostatics, and solvation params
 	// layout per atom pair: Aij, Bij, charge, lambda1, radius1, alpha1, lambda2, radius2, alpha2
 	private DoubleBuffer precomputed;
 	
-	private double internalSolvEnergy;
+	// TODO: include neighbor type in long key
+	private Map<NEIGHBORTYPE,Map<Long,AtomPairsBlock>> atomPairLookup;
+	private Subset subset;
 	
 	public BigForcefieldEnergy(ForcefieldParams params, ForcefieldInteractions interactions) {
 		this(params, interactions, false);
@@ -123,7 +138,7 @@ public class BigForcefieldEnergy implements EnergyFunction {
 		}
 		
 		// convert the group list into an atom list
-		numAtoms = 0;
+		int numAtoms = 0;
 		atomOffsets = new int[groups.getNumGroups()];
 		for (int i=0; i<groups.getNumGroups(); i++) {
 			AtomGroup group = groups.get(i);
@@ -171,8 +186,6 @@ public class BigForcefieldEnergy implements EnergyFunction {
 			atomFlags = IntBuffer.allocate(numAtomPairs*2);
 			precomputed = DoubleBuffer.allocate(numAtomPairs*9);
 		}
-		num14Pairs = 0;
-		numNbPairs = 0;
 		
 		NBParams nbparams1 = new NBParams();
 		NBParams nbparams2 = new NBParams();
@@ -189,7 +202,15 @@ public class BigForcefieldEnergy implements EnergyFunction {
 		double solvCoeff = 2.0/(4.0*Math.PI*Math.sqrt(Math.PI));
 		solvCoeff *= params.solvScale;
 		
+		int num14Pairs = 0;
+		int numNbPairs = 0;
+		int numPairs = 0;
+		atomPairLookup = new EnumMap<>(NEIGHBORTYPE.class);
+		
 		for (NEIGHBORTYPE type : Arrays.asList(NEIGHBORTYPE.BONDED14, NEIGHBORTYPE.NONBONDED)) {
+			
+			Map<Long,AtomPairsBlock> atomPairLookupForType = new HashMap<>();
+			atomPairLookup.put(type, atomPairLookupForType);
 			
 			// do another pass over the groups to precompute all the position-independent params
 			for (int groupPairIndex=0; groupPairIndex<interactions.size(); groupPairIndex++) {
@@ -206,21 +227,32 @@ public class BigForcefieldEnergy implements EnergyFunction {
 					group1 == group2,
 					type
 				);
+				
+				// update atom pair counts
+				if (type == NEIGHBORTYPE.BONDED14) {
+					num14Pairs += atomPairs.size();
+				} else if (type == NEIGHBORTYPE.NONBONDED) {
+					numNbPairs += atomPairs.size();
+				}
+				
+				// update the atom pair lookup
+				atomPairLookupForType.put(
+					packGroupPairKey(group1Index, group2Index),
+					new AtomPairsBlock(numPairs, atomPairs.size())
+				);
+				numPairs += atomPairs.size();
 			
+				// precompute static vars for each atom pair
 				for (int i=0; i<atomPairs.size(); i++) {
 					int[] atomIndices = atomPairs.get(i);
 					Atom atom1 = group1.getAtoms().get(atomIndices[0]);
 					Atom atom2 = group2.getAtoms().get(atomIndices[1]);
 					
 					// save atom flags
-					atomFlags.put(makeFlags(group1Index, atomIndices[0], atom1));
-					atomFlags.put(makeFlags(group2Index, atomIndices[1], atom2));
-					
-					if (type == NEIGHBORTYPE.BONDED14) {
-						num14Pairs++;
-					} else if (type == NEIGHBORTYPE.NONBONDED) {
-						numNbPairs++;
-					}
+					int atom1Index = getGlobalAtomIndex(group1Index, atomIndices[0]);
+					int atom2Index = getGlobalAtomIndex(group2Index, atomIndices[1]);
+					atomFlags.put(packFlags(atom1Index, atom1));
+					atomFlags.put(packFlags(atom2Index, atom2));
 					
 					// save the vdw params
 					getNonBondedParams(atom1, nbparams1);
@@ -275,25 +307,8 @@ public class BigForcefieldEnergy implements EnergyFunction {
 		atomFlags.flip();
 		precomputed.flip();
 		
-		// compute internal solvation energy
-		// ie, add up all the dGref terms for all atoms in internal groups
-		internalSolvEnergy = 0;
-		for (int groupPairIndex=0; groupPairIndex<interactions.size(); groupPairIndex++) {
-			
-			AtomGroup[] groupPair = interactions.get(groupPairIndex);
-			AtomGroup group1 = groupPair[0];
-			AtomGroup group2 = groupPair[1];
-			
-			if (group1 == group2) {
-				for (Atom atom : group1.getAtoms()) {
-					if (!atom.isHydrogen()) {
-						getSolvParams(atom, solvparams1);
-						internalSolvEnergy += solvparams1.dGref;
-					}
-				}
-			}
-		}
-		internalSolvEnergy *= params.solvScale;
+		// init the subset to encompass all the interactions
+		subset = new Subset(interactions, num14Pairs, numNbPairs);
 	}
 	
 	public ForcefieldParams getParams() {
@@ -312,12 +327,8 @@ public class BigForcefieldEnergy implements EnergyFunction {
 		return precomputed;
 	}
 	
-	public int getNumAtomPairs() {
-		return num14Pairs + numNbPairs;
-	}
-	
-	public int getNum14AtomPairs() {
-		return num14Pairs;
+	public Subset getFullSubset() {
+		return subset;
 	}
 	
 	public double getCoulombFactor() {
@@ -342,10 +353,6 @@ public class BigForcefieldEnergy implements EnergyFunction {
 	
 	public boolean useHVdw() {
 		return params.hVDW;
-	}
-	
-	public double getInternalSolvationEnergy() {
-		return internalSolvEnergy;
 	}
 	
 	public void updateCoords() {
@@ -374,6 +381,10 @@ public class BigForcefieldEnergy implements EnergyFunction {
 	
 	@Override
 	public double getEnergy() {
+		return getEnergy(subset);
+	}
+	
+	public double getEnergy(Subset subset) {
 		
 		// OPTIMIZATION: this function gets hit a lot! so even pedantic optimizations can make a difference
 		// I've also tweaked the code with fancy scoping to try to reduce register pressure
@@ -384,8 +395,9 @@ public class BigForcefieldEnergy implements EnergyFunction {
 		updateCoords();
 		
 		// copy some things to the local stack
-		int num14Pairs = this.num14Pairs;
-		int numAtomPairs = getNumAtomPairs();
+		IntBuffer subsetTable = subset.subsetTable;
+		int num14Pairs = subset.num14Pairs;
+		int numAtomPairs = subset.getNumAtomPairs();
 		boolean distDepDielect = useDistDependentDielectric();
 		boolean useHEs = useHElectrostatics();
 		boolean useHVdw = useHVdw();
@@ -399,27 +411,31 @@ public class BigForcefieldEnergy implements EnergyFunction {
 		boolean bothHeavy, inRangeForSolv;
 		double r2;
 		double r = 0;
+		int i;
+		int i2;
 		int i9;
 		
 		// compute all the energies
 		double esEnergy = 0;
 		double vdwEnergy = 0;
-		double solvEnergy = internalSolvEnergy;
+		double solvEnergy = subset.internalSolvEnergy;
 		atomFlags.rewind();
 		precomputed.rewind();
-		for (int i=0; i<numAtomPairs; i++) {
+		for (int basei=0; basei<numAtomPairs; basei++) {
+			
+			i = subsetTable.get(basei);
+			i2 = i*2;
 			i9 = i*9;
 			
 			// read flags
 			{
 				int atom1Index, atom2Index;
 				{
-					int i2 = i*2;
 					int atom1Flags = atomFlags.get(i2);
 					int atom2Flags = atomFlags.get(i2 + 1);
-					atom1Index = getAtomIndex(atom1Flags);
-					atom2Index = getAtomIndex(atom2Flags);
-					bothHeavy = !isHydrogen(atom1Flags) && !isHydrogen(atom2Flags);
+					atom1Index = unpackAtomIndex(atom1Flags);
+					atom2Index = unpackAtomIndex(atom2Flags);
+					bothHeavy = !unpackIsHydrogen(atom1Flags) && !unpackIsHydrogen(atom2Flags);
 				}
 				
 				// get the squared radius
@@ -483,15 +499,12 @@ public class BigForcefieldEnergy implements EnergyFunction {
 		
 		return esEnergy + vdwEnergy + solvEnergy;
 	}
-
-	private int makeFlags(int groupIndex, int atomIndexInGroup, Atom atom) {
-		return makeFlags(
-			atomOffsets[groupIndex] + atomIndexInGroup,
-			atom.isHydrogen()
-		);
+	
+	private int getGlobalAtomIndex(int groupIndex, int atomIndexInGroup) {
+		return atomOffsets[groupIndex] + atomIndexInGroup;
 	}
 
-	private int makeFlags(int atomIndex, boolean isHydrogen) {
+	private int packFlags(int atomIndex, Atom atom) {
 		
 		// we could use fancy bit-wise encoding if we need it,
 		// but since we only have one int and one boolean,
@@ -503,21 +516,31 @@ public class BigForcefieldEnergy implements EnergyFunction {
 		}
 		atomIndex++;
 		
-		if (isHydrogen) {
+		if (atom.isHydrogen()) {
 			return atomIndex;
 		} else {
 			return -atomIndex;
 		}
 	}
 	
-	public int getAtomIndex(int flags) {
+	private int unpackAtomIndex(int flags) {
+		assert (flags != 0);
+		
 		// undo the bump we did in makeFlags()
 		return Math.abs(flags) - 1;
 	}
 	
-	public boolean isHydrogen(int flags) {
+	private boolean unpackIsHydrogen(int flags) {
 		assert (flags != 0);
 		return flags > 0;
+	}
+	
+	private long packGroupPairKey(int group1Index, int group2Index) {
+		return ((long)group1Index << 32) | (long)group2Index;
+	}
+	
+	private AtomPairsBlock getAtomPairsBlock(NEIGHBORTYPE type, int group1Index, int group2Index) {
+		return atomPairLookup.get(type).get(packGroupPairKey(group1Index, group2Index));
 	}
 	
 	private void calcVdw(NBParams nbparams1, NBParams nbparams2, double Amult, double Bmult, VdwParams vdwparams) {
@@ -567,6 +590,131 @@ public class BigForcefieldEnergy implements EnergyFunction {
 			solvparams.volume = 0;
 			solvparams.lambda = 1;
 			solvparams.radius = 0;
+		}
+	}
+	
+	public class Subset {
+		
+		private int num14Pairs;
+		private int numNbPairs;
+		private double internalSolvEnergy;
+		private IntBuffer subsetTable;
+		
+		public Subset(ForcefieldInteractions interactions, int num14Pairs, int numNbPairs) {
+			this.num14Pairs = num14Pairs;
+			this.numNbPairs = numNbPairs;
+			this.internalSolvEnergy = calcInternalSolvEnergy(interactions);
+			this.subsetTable = makeSubsetTable();
+		}
+		
+		public Subset(ForcefieldInteractions interactions) {
+			this(subset, interactions);
+		}
+		
+		public Subset(Subset parent, ForcefieldInteractions interactions) {
+			
+			// compute the atom pair indices
+			num14Pairs = 0;
+			numNbPairs = 0;
+			List<Integer> atomPairIndices = new ArrayList<>();
+			for (NEIGHBORTYPE type : Arrays.asList(NEIGHBORTYPE.BONDED14, NEIGHBORTYPE.NONBONDED)) {
+				
+				// for each group pair...
+				for (int groupPairIndex=0; groupPairIndex<interactions.size(); groupPairIndex++) {
+					
+					// match the subset groups to the parent groups
+					AtomGroup[] groupPair = interactions.get(groupPairIndex);
+					int group1Index = groups.getGroupIndex(groupPair[0]);
+					int group2Index = groups.getGroupIndex(groupPair[1]);
+					
+					// match the subset atom pairs to the parent atom pairs
+					AtomPairsBlock block = getAtomPairsBlock(type, group1Index, group2Index);
+					if (block == null) {
+						throw new Error("couldn't match subset atom pairs, this is a bug");
+					}
+					
+					for (int i=0; i<block.length; i++) {
+						atomPairIndices.add(block.offset + i);
+					}
+					
+					if (type == NEIGHBORTYPE.BONDED14) {
+						num14Pairs += block.length;
+					} else if (type == NEIGHBORTYPE.NONBONDED) {
+						numNbPairs += block.length;
+					}
+				}
+			}
+			
+			assert (atomPairIndices.size() == getNumAtomPairs());
+			
+			internalSolvEnergy = calcInternalSolvEnergy(interactions);
+			subsetTable = makeSubsetTable(atomPairIndices);
+		}
+		
+		private double calcInternalSolvEnergy(ForcefieldInteractions interactions) {
+			
+			// calc the internal solv energy
+			// ie, add up all the dGref terms for all atoms in internal groups
+			SolvParams solvparams = new SolvParams();
+			double energy = 0;
+			for (int groupPairIndex=0; groupPairIndex<interactions.size(); groupPairIndex++) {
+				
+				AtomGroup[] groupPair = interactions.get(groupPairIndex);
+				AtomGroup group1 = groupPair[0];
+				AtomGroup group2 = groupPair[1];
+				
+				if (group1 == group2) {
+					for (Atom atom : group1.getAtoms()) {
+						if (!atom.isHydrogen()) {
+							getSolvParams(atom, solvparams);
+							energy += solvparams.dGref;
+						}
+					}
+				}
+			}
+			energy *= params.solvScale;
+			
+			return energy;
+		}
+		
+		private IntBuffer makeSubsetTable() {
+			return makeSubsetTable(null);
+		}
+		
+		private IntBuffer makeSubsetTable(List<Integer> atomPairIndices) {
+			
+			IntBuffer subsetTable;
+			if (atomFlags.isDirect()) {
+				subsetTable = ByteBuffer.allocateDirect(getNumAtomPairs()*Integer.BYTES).order(ByteOrder.nativeOrder()).asIntBuffer();
+			} else {
+				subsetTable = IntBuffer.allocate(getNumAtomPairs());
+			}
+			
+			for (int i=0; i<getNumAtomPairs(); i++) {
+				if (atomPairIndices != null) {
+					subsetTable.put(atomPairIndices.get(i));
+				} else {
+					subsetTable.put(i);
+				}
+			}
+			
+			return subsetTable;
+		}
+		
+		public IntBuffer getSubsetTable() {
+			return subsetTable;
+		}
+		
+		public int getNumAtomPairs() {
+			return num14Pairs + numNbPairs;
+		}
+		
+		public int getNum14AtomPairs() {
+			return num14Pairs;
+		}
+		
+		public double getInternalSolvationEnergy() {
+			return internalSolvEnergy;
 		}
 	}
 }

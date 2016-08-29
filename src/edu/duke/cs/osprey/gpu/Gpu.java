@@ -13,6 +13,11 @@ import com.jogamp.opencl.CLProgram;
 
 public class Gpu {
 	
+	// NOTE: the opencl driver caches compiled kernels
+	// so you won't get a log if the driver pulls the binary from the cache
+	// make some trivial change to the source to force a recompile
+	private static final boolean DumpCompilerLog = false;
+	
 	private CLDevice device;
 	private Map<String,CLProgram> programs;
 	
@@ -66,11 +71,13 @@ public class Gpu {
 		}
 		try (InputStream in = url.openStream()) {
 			
-			CLProgram program = device.getContext().createProgram(in).build();
-			
-			// DEBUG: see compiler output, if there is any
-			//CLProgram program = context.createProgram(in).build("-cl-nv-verbose");
-			//System.out.println(program.getBuildLog());
+			CLProgram program;
+			if (DumpCompilerLog) {
+				program = device.getContext().createProgram(in).build("-cl-nv-verbose");
+				System.out.println(program.getBuildLog());
+			} else {
+				program = device.getContext().createProgram(in).build();
+			}
 			
 			programs.put(filename, program);
 			return program;
