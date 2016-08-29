@@ -20,10 +20,11 @@ public class Stopwatch {
 		return this;
 	}
 	
-	public void stop() {
+	public Stopwatch stop() {
 		assert (isRunning);
 		stopTime = System.nanoTime();
 		isRunning = false;
+		return this;
 	}
 	
 	public boolean isRunning() {
