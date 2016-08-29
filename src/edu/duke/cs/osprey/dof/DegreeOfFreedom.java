@@ -39,10 +39,10 @@ public abstract class DegreeOfFreedom implements Serializable {
     // enables parallel molecule manipulation without data races
     public DegreeOfFreedom copy() {
         // TODO: once all subclasses implement this, change to abstract method
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("unsupported by " + getClass().getName());
     }
     public void setMolecule(Molecule val) {
         // TODO: once all subclasses implement this, change to abstract method
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("unsupported by " + getClass().getName());
     }
 }
