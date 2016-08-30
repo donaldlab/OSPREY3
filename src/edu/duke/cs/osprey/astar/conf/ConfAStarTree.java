@@ -97,13 +97,10 @@ public class ConfAStarTree implements ConfSearch {
 			// leaf node? report it
 			if (node.getLevel() == rcs.getNumPos()) {
 				
-				// report final progress for the first leaf node, then stop reporting
-				// the rest of the nodes are relatively trivial to compute
 				if (progress != null) {
-					progress.printProgressReport();
-					progress = null;
+					progress.reportLeafNode(node.getGScore());
 				}
-				
+			
 				return node;
 			}
 			
@@ -133,12 +130,17 @@ public class ConfAStarTree implements ConfSearch {
 			}
 			
             if (progress != null) {
-            	progress.reportNode(node.getLevel(), node.getGScore(), node.getHScore(), queue.size(), numChildren);
+            	progress.reportInternalNode(node.getLevel(), node.getGScore(), node.getHScore(), queue.size(), numChildren);
             }
 		}
 	}
 	
 	public List<ConfAStarNode> nextLeafNodes(double maxEnergy) {
+		
+		if (progress != null) {
+			progress.setGoalScore(maxEnergy);
+		}
+		
 		List<ConfAStarNode> nodes = new ArrayList<>();
 		while (true) {
 			
