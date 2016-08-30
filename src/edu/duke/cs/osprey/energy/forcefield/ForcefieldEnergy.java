@@ -22,16 +22,14 @@ public class ForcefieldEnergy implements Serializable {
 	private static final long serialVersionUID = 944833567342112297L;
 
 	//This can represent either the internal energy of a residue, or the interaction energy of two
-    //some atoms from one or both residues can be excluded if desired (set up at constructor)
-    boolean isInternal;//true for internal, false for interaction
-    
-    Residue res1, res2;//res1==res2 if internal energy of res1.  Else this is interaction of res1, res2
-    AtomCache atomCache;
-    double energyCache;
-    boolean useCache = true;
-    
-    ForcefieldParams params;
-        
+	//some atoms from one or both residues can be excluded if desired (set up at constructor)
+	boolean isInternal;//true for internal, false for interaction
+
+	Residue res1, res2;//res1==res2 if internal energy of res1.  Else this is interaction of res1, res2
+	CoordsAndCharges coordsAndCharges;
+
+	ForcefieldParams params;
+	
 	// If the debug flag is set to true then additional debug statements are
 	//  printed to standard out. I'm hoping that by making it a public static
 	//  final variable that the compiler will be smart and not compile/include
@@ -72,118 +70,116 @@ public class ForcefieldEnergy implements Serializable {
 	
 	
 	public ForcefieldEnergy(boolean intra, List<Atom> atoms1, List<Atom> atoms2,
-                ForcefieldParams params){
-            
-            isInternal = intra;
-            checkResComposition(intra,atoms1,atoms2);//if intra, then make sure all atoms from same res
-            //and point res2 to res1, etc
-            atomCache = new AtomCache(res1, res2);
-            energyCache = Double.NaN;
-            
-            this.params = params;
-            
-            //copy over some things from the params for easier access
-            distDepDielect = params.distDepDielect;
-            dielectric = params.dielectric;
-            vdwMultiplier = params.vdwMultiplier;
-            doSolvationE = params.doSolvationE;
-            solvScale = params.solvScale;
-            useHydrogenEs = params.hElect;
-            useHydrogenVdw = params.hVDW;
-                
-            //set up actual energies 
-            //(interaction between atoms1 & atoms2, or internal of atoms1 if atoms2==null)
-            initializeCalculation(atoms1,atoms2);
+			ForcefieldParams params){
+		
+		isInternal = intra;
+		checkResComposition(intra,atoms1,atoms2);//if intra, then make sure all atoms from same res
+		//and point res2 to res1, etc
+		coordsAndCharges = new CoordsAndCharges(res1, res2);
+		
+		this.params = params;
+		
+		//copy over some things from the params for easier access
+		distDepDielect = params.distDepDielect;
+		dielectric = params.dielectric;
+		vdwMultiplier = params.vdwMultiplier;
+		doSolvationE = params.doSolvationE;
+		solvScale = params.solvScale;
+		useHydrogenEs = params.hElect;
+		useHydrogenVdw = params.hVDW;
+			
+		//set up actual energies 
+		//(interaction between atoms1 & atoms2, or internal of atoms1 if atoms2==null)
+		initializeCalculation(atoms1,atoms2);
 	}
 	
-        public ForcefieldEnergy(List<Atom[]> atomPairs, ForcefieldParams params){
-            /* Sparse energy function that includes only the electrostatic and VDW interactions between the specified atom pairs
-             * Used for SAPE
-             */
-            
-            res1 = atomPairs.get(0)[0].res;
-            res2 = atomPairs.get(0)[1].res;
-            isInternal = (res1==res2);
-            atomCache = new AtomCache(res1, res2);
-            energyCache = Double.NaN;
-            
-            //check that all the atom pairs are at the same residue pair (assumed by structure of ForcefieldEnergy)
-            for(Atom[] pair : atomPairs){
-                if ( pair[0].res!=res1 || pair[1].res!=res2 ){
-                    throw new RuntimeException("ERROR: Sparse forcefield energy given atom pairs with inconsistent residues");
-                }
-            }
-            
-            
-            this.params = params;
-            
-            //copy over some things from the params for easier access
-            distDepDielect = params.distDepDielect;
-            dielectric = params.dielectric;
-            vdwMultiplier = params.vdwMultiplier;
-            solvScale = params.solvScale;
-            
-            useHydrogenEs = params.hElect;
-            useHydrogenVdw = params.hVDW;
-            
-            doSolvationE = false;//not including solvation in these sparse energies
-            
-            //so initialize just the EV energies
-            List<Atom[]> pairs14 = AtomNeighbors.getPairs14(atomPairs);
-            List<Atom[]> pairsNonBonded = AtomNeighbors.getPairsNonBonded(atomPairs);
-            
-            initializeEVCalculation(pairs14, pairsNonBonded);
+	public ForcefieldEnergy(List<Atom[]> atomPairs, ForcefieldParams params){
+		/* Sparse energy function that includes only the electrostatic and VDW interactions between the specified atom pairs
+		 * Used for SAPE
+		 */
+		
+		res1 = atomPairs.get(0)[0].res;
+		res2 = atomPairs.get(0)[1].res;
+		isInternal = (res1==res2);
+		coordsAndCharges = new CoordsAndCharges(res1, res2);
+		
+		//check that all the atom pairs are at the same residue pair (assumed by structure of ForcefieldEnergy)
+		for(Atom[] pair : atomPairs){
+			if ( pair[0].res!=res1 || pair[1].res!=res2 ){
+				throw new RuntimeException("ERROR: Sparse forcefield energy given atom pairs with inconsistent residues");
+			}
+		}
+		
+		
+		this.params = params;
+		
+		//copy over some things from the params for easier access
+		distDepDielect = params.distDepDielect;
+		dielectric = params.dielectric;
+		vdwMultiplier = params.vdwMultiplier;
+		solvScale = params.solvScale;
+		
+		useHydrogenEs = params.hElect;
+		useHydrogenVdw = params.hVDW;
+		
+		doSolvationE = false;//not including solvation in these sparse energies
+		
+		//so initialize just the EV energies
+		List<Atom[]> pairs14 = AtomNeighbors.getPairs14(atomPairs);
+		List<Atom[]> pairsNonBonded = AtomNeighbors.getPairsNonBonded(atomPairs);
+		
+		initializeEVCalculation(pairs14, pairsNonBonded);
+}
+	
+	void checkResComposition(boolean intra, List<Atom> atoms1, List<Atom> atoms2){
+		//set up res1 and res2 and make sure they are defined consistently
+		
+		if(intra){
+			res1 = atoms1.get(0).res;
+			res2 = res1;
+			
+			if(atoms1.size()!=atoms2.size())
+				throw new RuntimeException("ERROR: Atoms for intra-residue energy defined inconsistently");
+			
+			for(int atNum=0; atNum<atoms1.size(); atNum++){
+				if(atoms1.get(atNum)!=atoms2.get(atNum))
+					throw new RuntimeException("ERROR: Atoms for intra-residue energy defined inconsistently");
+				if(atoms1.get(atNum).res != res1)
+					throw new RuntimeException("ERROR: Can't compute intra-residue energy"
+							+ " for list of atoms at different residues");
+			}
+		}
+		else {
+			res1 = atoms1.get(0).res;
+			res2 = atoms2.get(0).res;
+			
+			if (res1==res2){
+				throw new RuntimeException("ERROR: Pairwise energy must be for "
+						+ "two different residues");
+			}
+			
+			for(Atom at : atoms1){
+				if(at.res != res1){
+					throw new RuntimeException("ERROR: Pairwise energy "
+							+ "can't have more than one residue on one side");
+				}
+			}
+			
+			for(Atom at : atoms2){
+				if(at.res != res2){
+					throw new RuntimeException("ERROR: Pairwise energy "
+							+ "can't have more than one residue on one side");
+				}
+			}
+		}
+		
+		//also check that all bonds are marked in the residue(s)
+		if( ! ( res1.interResBondsMarked && res1.intraResBondsMarked
+				&& res2.interResBondsMarked && res2.intraResBondsMarked ) ){
+			throw new RuntimeException("ERROR: Trying to set up force field energy"
+					+ " for a residue whose bonds haven't been marked yet");
+		}
 	}
-        
-        void checkResComposition(boolean intra, List<Atom> atoms1, List<Atom> atoms2){
-            //set up res1 and res2 and make sure they are defined consistently
-            
-            if(intra){
-                res1 = atoms1.get(0).res;
-                res2 = res1;
-                
-                if(atoms1.size()!=atoms2.size())
-                    throw new RuntimeException("ERROR: Atoms for intra-residue energy defined inconsistently");
-                
-                for(int atNum=0; atNum<atoms1.size(); atNum++){
-                    if(atoms1.get(atNum)!=atoms2.get(atNum))
-                        throw new RuntimeException("ERROR: Atoms for intra-residue energy defined inconsistently");
-                    if(atoms1.get(atNum).res != res1)
-                        throw new RuntimeException("ERROR: Can't compute intra-residue energy"
-                                + " for list of atoms at different residues");
-                }
-            }
-            else {
-                res1 = atoms1.get(0).res;
-                res2 = atoms2.get(0).res;
-                
-                if (res1==res2){
-                    throw new RuntimeException("ERROR: Pairwise energy must be for "
-                            + "two different residues");
-                }
-                
-                for(Atom at : atoms1){
-                    if(at.res != res1){
-                        throw new RuntimeException("ERROR: Pairwise energy "
-                                + "can't have more than one residue on one side");
-                    }
-                }
-                
-                for(Atom at : atoms2){
-                    if(at.res != res2){
-                        throw new RuntimeException("ERROR: Pairwise energy "
-                                + "can't have more than one residue on one side");
-                    }
-                }
-            }
-            
-            //also check that all bonds are marked in the residue(s)
-            if( ! ( res1.interResBondsMarked && res1.intraResBondsMarked
-                    && res2.interResBondsMarked && res2.intraResBondsMarked ) ){
-                throw new RuntimeException("ERROR: Trying to set up force field energy"
-                        + " for a residue whose bonds haven't been marked yet");
-            }
-        }
 
 	public int getNumTerms() {
 		// just to get a sense of the size of the work being done
@@ -194,12 +190,7 @@ public class ForcefieldEnergy implements Serializable {
 		return num;
 	}
 	
-	public void setUseCache(boolean val) {
-		// useful to disable for benchmarking
-		useCache = val;
-	}
-        
-        
+	
 //////////////////////////////////////////////////////////////////////////////////////////////////
 //	This section initializes the energy calculation
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -208,24 +199,24 @@ public class ForcefieldEnergy implements Serializable {
 	// It prepares terms for bond, angle, and dihedral, vdw, and electrostatic
 	// Terms involving residues with energyEval == false
 	//  are not included
-        //we're looking at the interaction between atoms1 and atoms2 (or internal energy of atom1
-        //if atoms2 is null)
+	//we're looking at the interaction between atoms1 and atoms2 (or internal energy of atom1
+	//if atoms2 is null)
 	public void initializeCalculation(List<Atom> atoms1, List<Atom> atoms2){
 		
-            //enumerate interacting pairs of atoms
-            List<Atom[]> pairs14 = AtomNeighbors.getPairs14(atoms1, atoms2, (res1==res2));
-            List<Atom[]> pairsNonBonded = AtomNeighbors.getPairsNonBonded(atoms1, atoms2, (res1==res2));
-            //these pairs should exclude any SC or BB components we don't want
-            
-            initializeEVCalculation(pairs14,pairsNonBonded); //initialize the calculation of the electrostatic and vdW terms
+		//enumerate interacting pairs of atoms
+		List<Atom[]> pairs14 = AtomNeighbors.getPairs14(atoms1, atoms2, (res1==res2));
+		List<Atom[]> pairsNonBonded = AtomNeighbors.getPairsNonBonded(atoms1, atoms2, (res1==res2));
+		//these pairs should exclude any SC or BB components we don't want
+		
+		initializeEVCalculation(pairs14,pairsNonBonded); //initialize the calculation of the electrostatic and vdW terms
 
-            if (doSolvationE) //initialize solvation energy calculation
-                    initializeSolvationCalculation(atoms1,atoms2);		
+		if (doSolvationE) //initialize solvation energy calculation
+				initializeSolvationCalculation(atoms1,atoms2);		
 	}
 
 	// This function sets up the arrays for energy evaluation
 	//  for electrostatics and vdW only (EV)
-        //we initialize using lists of interacting pairs of atoms (1,4-bonded and non-bonded)
+	//we initialize using lists of interacting pairs of atoms (1,4-bonded and non-bonded)
 	private void initializeEVCalculation(List<Atom[]> pairs14, List<Atom[]> pairsNonBonded){
 
 		int atom1, atom2, atom4;//, ix2, ix4, ix4b;
@@ -493,7 +484,7 @@ public class ForcefieldEnergy implements Serializable {
 			internalSolvEnergy += solvationTerms1[i*6 + 1];
 		}
 	}
-        
+	
 	private double[] listSolvationTerms(List<Atom> atomList){
 		//list the solvation terms (atom numbers within residue, and params) for the specified atoms
 		//in the specified residue
@@ -514,12 +505,12 @@ public class ForcefieldEnergy implements Serializable {
 
 				if (!(params.eef1parms.getSolvationParameters(atomList.get(i),solvparams))) {
 				
-                    /*
+					/*
 					throw new RuntimeException("WARNING: Could not find solvation parameters for atom: " 
 						+ atom1 + " (" + atomList.get(i).name+") res: " + atomList.get(i).res.fullName);
-                    */
+					 */
 
-                    // use default params instead of crashing
+					// use default params instead of crashing
 					termList[ix6] = atom1;
 					termList[ix6 + 1] = 0;
 					termList[ix6 + 2] = 0;
@@ -564,17 +555,8 @@ public class ForcefieldEnergy implements Serializable {
 		double coulombFactor, tmpCoulFact;
 		boolean isHydrogen, isHeavy;
 		
-		
-		//--------------------------------------------
-		// check the cache, should we even compute energy?
-		//--------------------------------------------
-		
-		// did the atoms change?
-		boolean isChanged = atomCache.updateCoords();
-		if (useCache && !isChanged) {
-			return energyCache;
-		}
-		
+		// update coords
+		coordsAndCharges.updateCoords();
 		
 		//--------------------------------------------
 		// compute electrostatics and vdW energies
@@ -600,9 +582,9 @@ public class ForcefieldEnergy implements Serializable {
 		double[] halfNonBondedTerms = this.halfNonBondedTerms;
 		int numberNonBonded = this.numberNonBonded;
 		double[] nonBondedTerms = this.nonBondedTerms;
-		double[] data = this.atomCache.data;
-		int res1Start = this.atomCache.res1Start;
-		int res2Start = this.atomCache.res2Start;
+		double[] data = this.coordsAndCharges.data;
+		int res1Start = this.coordsAndCharges.res1Start;
+		int res2Start = this.coordsAndCharges.res2Start;
 		boolean useHydrogenEs = this.useHydrogenEs;
 		boolean useHydrogenVdw = this.useHydrogenVdw;
 		boolean distDepDielect = this.distDepDielect;
@@ -736,10 +718,8 @@ public class ForcefieldEnergy implements Serializable {
 		}
 		
 		// not doing solvation? we're done
-		if (useCache && !doSolvationE) {
-			energyCache = esEnergy + vdwEnergy;
-			checkEnergy(energyCache);
-			return energyCache;
+		if (!doSolvationE) {
+			return checkEnergy(esEnergy + vdwEnergy);
 		}
 		
 		//--------------------------------------------
@@ -794,12 +774,10 @@ public class ForcefieldEnergy implements Serializable {
 		solvEnergy *= solvScale;
 		
 		// finally, we're done
-		energyCache = esEnergy + vdwEnergy + solvEnergy;
-		checkEnergy(energyCache);
-		return energyCache;
+		return checkEnergy(esEnergy + vdwEnergy + solvEnergy);
 	}
 	
-	private void checkEnergy(double energy) {
+	private double checkEnergy(double energy) {
 		if(Double.isNaN(energy)){
 			
 			for(double a : res1.coords){
@@ -818,11 +796,13 @@ public class ForcefieldEnergy implements Serializable {
 			
 			throw new RuntimeException("ERROR: NaN returned by ForcefieldEnergy.  No NaN or infinite coordinates.");
 		}
+		
+		return energy;
 	}
 
-        //probably want to handle gradient at some point...below is from Amber96ext
-        //but we'll probably want to be returning the gradient from a particular term
-        //which will be converted to derivatives with respect to minimization degrees of freedom
+	//probably want to handle gradient at some point...below is from Amber96ext
+	//but we'll probably want to be returning the gradient from a particular term
+	//which will be converted to derivatives with respect to minimization degrees of freedom
 	/*
 	//Computes the gradient of the different energy terms;
 	//The computed gradient is in the molecule's gradient member variable
@@ -1089,5 +1069,4 @@ public class ForcefieldEnergy implements Serializable {
 	*/
 
 
-    
 }

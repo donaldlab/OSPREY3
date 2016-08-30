@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.structure.Molecule;
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  *
@@ -18,8 +19,10 @@ import java.util.ArrayList;
  * 
  * @author mhall44
  */
-public class EPICEnergyFunction implements EnergyFunction {
+public class EPICEnergyFunction implements EnergyFunction.NeedsInit, EnergyFunction.DecomposableByDof {
     
+    private static final long serialVersionUID = -6797584391009212938L;
+
     DoubleMatrix1D curDOFVals = null;//this needs to be assigned to something
     //(e.g. curDOFVals in a MolecEObjFunction) that will be appropriately adjusted
     
@@ -41,7 +44,8 @@ public class EPICEnergyFunction implements EnergyFunction {
     
     
     
-    public void assignConfReference(DoubleMatrix1D DOFVector, ArrayList<DegreeOfFreedom> DOFs, Molecule molec){
+    @Override
+    public void init(Molecule molec, List<DegreeOfFreedom> DOFs, DoubleMatrix1D DOFVector) {
         //To use this energy function, something (e.g., a MolecEObjFunction)
         //will set the values of curDOFVals and sharedMolec,
         //and then call this energy function on them
@@ -146,12 +150,8 @@ public class EPICEnergyFunction implements EnergyFunction {
             System.out.println(termVal);
     }
     
-    
-    
-    
-    
-    
-    public ArrayList<EnergyFunction> getDOFPartialEFuncs(ArrayList<DegreeOfFreedom> DOFs, Molecule molec){
+    @Override
+    public List<EnergyFunction> decomposeByDof(Molecule molec, List<DegreeOfFreedom> DOFs) {
         //make a list of energy functions that only include the terms involving each of the specified DOFs
         //of the specified molecule
         //these are assumed to be the same DOFs and molecule used by this energy function
@@ -168,7 +168,7 @@ public class EPICEnergyFunction implements EnergyFunction {
             }
             
             EPICEnergyFunction partial = new EPICEnergyFunction(dofTerms);
-            partial.assignConfReference(curDOFVals, DOFs, molec);
+            partial.init(molec, DOFs, curDOFVals);
             
             ans.add(partial);
         }
@@ -176,8 +176,4 @@ public class EPICEnergyFunction implements EnergyFunction {
         
         return ans;
     }
-    
-    
-    
-    
 }

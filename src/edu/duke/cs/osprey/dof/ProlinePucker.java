@@ -6,9 +6,9 @@
 package edu.duke.cs.osprey.dof;
 
 import edu.duke.cs.osprey.control.EnvironmentVars;
-import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.dof.deeper.SidechainIdealizer;
 import edu.duke.cs.osprey.structure.ConfProblem;
+import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.Protractor;
 
@@ -21,7 +21,9 @@ import edu.duke.cs.osprey.tools.Protractor;
  */
 public class ProlinePucker extends DegreeOfFreedom {
     
-    public static boolean UP=true, DOWN=false;
+	private static final long serialVersionUID = -5326286110623671996L;
+
+	public static boolean UP=true, DOWN=false;
     
     boolean basePucker;//original pucker: param=0 describes this
     boolean curPucker;//pucker that we currently want
@@ -118,4 +120,15 @@ public class ProlinePucker extends DegreeOfFreedom {
     public Residue getResidue() { return res; }
     
     
+    @Override
+    public DegreeOfFreedom copy() {
+        return new ProlinePucker(res);
+    }
+    
+    @Override
+    public void setMolecule(Molecule val) {
+        
+        // match our residue to the one in the other molecule
+        res = val.getResByPDBResNumber(res.getPDBResNumber());
+    }
 }

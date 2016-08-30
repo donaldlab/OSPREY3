@@ -79,6 +79,17 @@ public class Residue implements Serializable {
     
     public Residue(Residue other) {
     	this(copyAtoms(other.atoms), Arrays.copyOf(other.coords, other.coords.length), other.fullName, other.molec);
+    	
+    	this.indexInMolecule = other.indexInMolecule;
+    	this.template = other.template;
+    	this.confProblems = other.confProblems;
+    	this.pucker = other.pucker;
+    	this.secondaryStruct = other.secondaryStruct;
+    	
+    	// init intra-res atom bonds
+    	markIntraResBondsByTemplate();
+    	
+    	// NOTE: we don't copy inter-res atom bonds, so the molecule will have to re-bond everything
     }
     
     private static ArrayList<Atom> copyAtoms(ArrayList<Atom> atoms) {

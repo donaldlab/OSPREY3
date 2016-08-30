@@ -5,11 +5,12 @@
 package edu.duke.cs.osprey.energy;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
-import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
+import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 
 /**
@@ -21,7 +22,7 @@ import edu.duke.cs.osprey.structure.Residue;
 //or ( energy of a pair of residues ) - (energy of residue 1) - (energy of residue 2)
 //Total energy = sum_i (coeff[i] * energy i)
 
-public class MultiTermEnergyFunction implements EnergyFunction {
+public class MultiTermEnergyFunction implements EnergyFunction.DecomposableByDof {
 
 	private static final long serialVersionUID = -3516267414126293331L;
 
@@ -139,8 +140,9 @@ public class MultiTermEnergyFunction implements EnergyFunction {
 		return coeffs;
 	}
 
-	public ArrayList<EnergyFunction> makeDOFPartialEFuncs(ArrayList<DegreeOfFreedom> dofs) {
-		ArrayList<EnergyFunction> dofEfuncs = new ArrayList<>();
+	@Override
+	public List<EnergyFunction> decomposeByDof(Molecule m, List<DegreeOfFreedom> dofs) {
+		List<EnergyFunction> dofEfuncs = new ArrayList<>();
 		for (DegreeOfFreedom dof : dofs) {
 
 			if(dof.getResidue() == null){//degree of freedom moves multiple residues

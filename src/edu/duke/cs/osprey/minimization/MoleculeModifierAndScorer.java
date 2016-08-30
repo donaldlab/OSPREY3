@@ -6,6 +6,8 @@ package edu.duke.cs.osprey.minimization;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
@@ -43,6 +45,8 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
     //It would be very expensive to copy the molecule for each minimization, so we
     //apply the DOFs in place and then evaluate the energy
     
+    private static final long serialVersionUID = 3898313221157632380L;
+    
     EnergyFunction efunc;
     Molecule molec;
     ArrayList<DegreeOfFreedom> DOFs;
@@ -57,31 +61,53 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
     maybe keep an unmoved molecule;
     */
     
-    ArrayList<EnergyFunction> partialEFuncs = null;//if not null, can use when searching along a single DOF
+    List<EnergyFunction> partialEFuncs = null;//if not null, can use when searching along a single DOF
     
     public MoleculeModifierAndScorer(EnergyFunction ef, DoubleMatrix1D[] constr, Molecule m, 
             ArrayList<DegreeOfFreedom> DOFList){
         
-        efunc = ef;
         constraints = constr;
         molec = m;
         DOFs = DOFList;
         
         curDOFVals = DoubleFactory1D.dense.make(DOFs.size());
         
-        initEPIC();
+        setEfunc(ef);
     }
     
     
-    public MoleculeModifierAndScorer(EnergyFunction ef, ConfSpace cSpace, RCTuple RCTup){
+    public MoleculeModifierAndScorer(EnergyFunction ef, ConfSpace cSpace, RCTuple RCTup) {
+        this(ef, cSpace, RCTup, null);
+    }
+    
+    public MoleculeModifierAndScorer(EnergyFunction ef, ConfSpace cSpace, RCTuple RCTup, Molecule mol) {
         /*Initialize an objective function to evaluate ef over the portion of cSpace
          * defined by the RCs in RCTup.  Ensure that all confDOFs of residues in RCTup are bounded
          * (if able to vary continuously) or set correctly (if not)
          */
         
-        efunc = ef;
-        molec = cSpace.m;
+        // TODO: copying the DOFs here and assigning them to the specified mol instance is pretty hacky.
+        // in the future, it would be nice to do a bigger refactor so that anything that modifies
+        // molecules should expect a molecule as an argument, rather than expecting to find one
+        // in a near-global location like the ConfSpace. we'd also have to separate config from state
+        // in the ConfSpace object (ie, take out the molecule entirely)
+    	
+    	// TODO: energy functions often need to have their forcefields immediately rebuilt after
+    	// this constructor changes residue templates which wastes a lot of work. Ideally,
+    	// we wouldn't build the energy function until after this constructor is done changing
+    	// templates, but that refactor will have to wait for another day.
         
+        // which molecule are we using?
+        if (mol == null) {
+            
+            // the one from the conf space
+            this.molec = cSpace.m;
+            
+        } else {
+            
+            // a separate molecule, so we don't modify the one in the conf space
+            this.molec = mol;
+        }
         
         LinkedHashMap<DegreeOfFreedom,double[]> DOFBounds = new LinkedHashMap<>();//bounds for each conformational DOF
         //LinkedHashMap used to achieve consistency between runs (iterating over a regular HashMap
@@ -95,24 +121,31 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
             int RCNum = RCTup.RCs.get(indexInTup);
             RC rc = cSpace.posFlex.get(posNum).RCs.get(RCNum);
             
-            ResidueTypeDOF mutDOF = cSpace.mutDOFs.get(posNum);
-            
             // AAO 2016: this code was written for AAs, specifically anything
             // in all_amino_coords.in and not for generic non-AA residues. skipping this
             // step for non AAs (for now).
-            Residue res = cSpace.m.getResByPDBResNumber( cSpace.flexibleRes.get(posNum) );
+            Residue res = cSpace.posFlex.get(posNum).res;
             if(HardCodedResidueInfo.hasAminoAcidBB(res) && !res.fullName.startsWith("FOL")) {
-            	// make sure the residue is using the right template
-            	ResidueTemplate desiredTemplate;
-            	if (rc.template != null) {
-            		desiredTemplate = rc.template;
-            	} else {
-            		desiredTemplate = mutDOF.getLibraryTemplate(rc.AAType);
-            	}
+                
+                ResidueTypeDOF mutDOF = cSpace.mutDOFs.get(posNum);
+                
+                // if we're not using the conf space molecule, copy the dof
+                if (mol != null) {
+                    mutDOF = (ResidueTypeDOF)mutDOF.copy();
+                    mutDOF.setMolecule(mol);
+                }
+                
+                // make sure the residue is using the right template
+                ResidueTemplate desiredTemplate;
+                if (rc.template != null) {
+                    desiredTemplate = rc.template;
+                } else {
+                    desiredTemplate = mutDOF.getLibraryTemplate(rc.AAType);
+                }
 
-            	if (!mutDOF.isTemplate(desiredTemplate)) {
-            		mutDOF.switchToTemplate(desiredTemplate);
-            	}
+                if (!mutDOF.isTemplate(desiredTemplate)) {
+                    mutDOF.switchToTemplate(desiredTemplate);
+                }
             }
             
             for(int dofIndexInRC=0; dofIndexInRC<rc.DOFs.size(); dofIndexInRC++){
@@ -131,32 +164,47 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
                     }
                 }
                 else {//store bounds
+                    
                     DOFBounds.put(curDOF, new double[] {minVal,maxVal});
                     numMinDOFs++;
                 }
             }
         }
+        
+        // if we're not using the conf space molecule, copy the dofs
+        if (mol != null) {
+            LinkedHashMap<DegreeOfFreedom,double[]> copiedDofs = new LinkedHashMap<>();
+            for (Map.Entry<DegreeOfFreedom,double[]> entry : DOFBounds.entrySet()) {
+                DegreeOfFreedom dof = entry.getKey();
+                dof = dof.copy();
+                dof.setMolecule(mol);
+                copiedDofs.put(dof, entry.getValue());
+            }
+            DOFBounds = copiedDofs;
+        }
+        
         init(numMinDOFs, DOFBounds);
+        setEfunc(ef);
     }
     
     public MoleculeModifierAndScorer(EnergyFunction efunc, ConfSpace confSpace) {
     	
-        this.efunc = efunc;
         this.molec = confSpace.m;
         
         int numMinDOFs = 0;
         LinkedHashMap<DegreeOfFreedom,double[]> DOFBounds = new LinkedHashMap<>();
         
-    	// build the DoFs based on the current structure instead of residue conformations
+        // build the DoFs based on the current structure instead of residue conformations
         for (int i=0; i<confSpace.posFlex.size(); i++) {
-        	PositionConfSpace pos = confSpace.posFlex.get(i);
-			for(int j=0; j<pos.res.getNumDihedrals(); j++) {
-				DOFBounds.put(new FreeDihedral(pos.res, j), pos.makeDOFBounds(pos.res.getDihedralAngle(j)));
-				numMinDOFs++;
-			}
+            PositionConfSpace pos = confSpace.posFlex.get(i);
+            for(int j=0; j<pos.res.getNumDihedrals(); j++) {
+                DOFBounds.put(new FreeDihedral(pos.res, j), pos.makeDOFBounds(pos.res.getDihedralAngle(j)));
+                numMinDOFs++;
+            }
         }
         
         init(numMinDOFs, DOFBounds);
+        setEfunc(efunc);
     }
     
     private void init(int numMinDOFs, LinkedHashMap<DegreeOfFreedom,double[]> DOFBounds) {
@@ -183,29 +231,7 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
         }
         
         curDOFVals = DoubleFactory1D.dense.make(DOFs.size());
-        
-        
-        initEPIC();
     }
-    
-    private void initEPIC(){//Initialize EPIC stuff if needed
-        if(efunc instanceof EPICEnergyFunction){
-            ((EPICEnergyFunction)efunc).assignConfReference(curDOFVals,DOFs,molec);
-            
-            //let's make partial energy functions too for speed...
-            partialEFuncs = ((EPICEnergyFunction)efunc).getDOFPartialEFuncs(DOFs,molec);
-        }
-        
-        // partial funcs sound awesome for CCD performance
-        // let's do that for MultiTermEnergyFunction too
-        else if (efunc instanceof MultiTermEnergyFunction) {
-        	MultiTermEnergyFunction mtefunc = (MultiTermEnergyFunction)efunc;
-        	partialEFuncs = mtefunc.makeDOFPartialEFuncs(DOFs);
-        }
-    }
-    
-    
-    
     
     @Override
     public int getNumDOFs() {
@@ -276,8 +302,8 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
         if(curDOF instanceof FreeDihedral)
             return 0.25;
         else if (curDOF instanceof EllipseCoordDOF) {
-        	EllipseCoordDOF e = (EllipseCoordDOF) curDOF;
-        	return (e.getIndex()==0) ? 10 : 0.3; 
+            EllipseCoordDOF e = (EllipseCoordDOF) curDOF;
+            return (e.getIndex()==0) ? 10 : 0.3; 
         }
         else if(curDOF instanceof StrandRotation)
             return 0.0625;
@@ -320,7 +346,30 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
     }
 
     public void setEfunc(EnergyFunction efunc) {
+        
         this.efunc = efunc;
+        
+        // init efunc if needed
+        if (efunc instanceof EnergyFunction.NeedsInit) {
+            ((EnergyFunction.NeedsInit)efunc).init(molec, DOFs, curDOFVals);
+        }
+        
+        // decompose by dofs if supported
+        if (efunc instanceof EnergyFunction.DecomposableByDof) {
+            partialEFuncs = ((EnergyFunction.DecomposableByDof)efunc).decomposeByDof(molec, DOFs);
+        } else {
+        	partialEFuncs = null;
+        }
+    }
+    
+    public void cleanup() {
+        if (partialEFuncs != null) {
+            for (EnergyFunction efunc : partialEFuncs) {
+                if (efunc instanceof EnergyFunction.NeedsCleanup) {
+                    ((EnergyFunction.NeedsCleanup)efunc).cleanup();
+                }
+            }
+        }
     }
 
     public Molecule getMolec() {
