@@ -86,6 +86,15 @@ public class Main {
 				gf.calcGMEC();
 			}
 		});
+		
+		commands.put("findSequences", new Runnable() {
+			@Override
+			public void run() {
+				GMECFinder gf = new GMECFinder();
+				gf.init(cfp);
+				gf.calcSequences();
+			}
+		});
 
 		commands.put("calcKStar", new Runnable() {
 			@Override
