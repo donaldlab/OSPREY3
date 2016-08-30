@@ -4,22 +4,24 @@ import java.io.IOException;
 import java.nio.DoubleBuffer;
 
 import com.jogamp.opencl.CLBuffer;
+import com.jogamp.opencl.CLContext;
 import com.jogamp.opencl.CLMemory;
 
 import edu.duke.cs.osprey.gpu.BoundKernel;
 import edu.duke.cs.osprey.gpu.Gpu;
+import edu.duke.cs.osprey.gpu.GpuQueue;
 import edu.duke.cs.osprey.gpu.Kernel;
 
 public class TestFancyKernel extends Kernel<TestFancyKernel.Bound> {
 	
-	public TestFancyKernel()
+	public TestFancyKernel(Gpu gpu)
 	throws IOException {
-		super("test.cl", "fancy");
+		super(gpu, "test.cl", "fancy");
 	}
 	
 	@Override
-	public Bound bind(Gpu gpu) {
-		return new Bound(this, gpu);
+	public Bound bind(GpuQueue queue) {
+		return new Bound(this, queue);
 	}
 	
 	public static class Bound extends BoundKernel<Bound> {
@@ -31,8 +33,8 @@ public class TestFancyKernel extends Kernel<TestFancyKernel.Bound> {
 		private int workSize;
 		private int groupSize;
 		
-		public Bound(Kernel<TestFancyKernel.Bound> kernel, Gpu gpu) {
-			super(kernel, gpu);
+		public Bound(Kernel<TestFancyKernel.Bound> kernel, GpuQueue queue) {
+			super(kernel, queue);
 		}
 		
 		public DoubleBuffer getA() {
@@ -50,9 +52,11 @@ public class TestFancyKernel extends Kernel<TestFancyKernel.Bound> {
 		public void setArgs(int workSize) {
 			groupSize = getMaxGroupSize();
 			this.workSize = roundUpWorkSize(workSize, groupSize);
-			bufA = makeOrIncreaseBuffer(bufA, workSize, CLMemory.Mem.READ_ONLY);
-			bufB = makeOrIncreaseBuffer(bufB, workSize, CLMemory.Mem.READ_ONLY);
-			bufOut = makeOrIncreaseBuffer(bufOut, workSize, CLMemory.Mem.WRITE_ONLY);
+			cleanup();
+			CLContext context = getQueue().getCLQueue().getContext();
+			bufA = context.createDoubleBuffer(workSize, CLMemory.Mem.READ_ONLY);
+			bufB = context.createDoubleBuffer(workSize, CLMemory.Mem.READ_ONLY);
+			bufOut = context.createDoubleBuffer(workSize, CLMemory.Mem.WRITE_ONLY);
 		}
 		
 		public void runAsync() {
@@ -72,6 +76,18 @@ public class TestFancyKernel extends Kernel<TestFancyKernel.Bound> {
 
 		public void downloadSync() {
 			downloadBufferSync(bufOut);
+		}
+		
+		public void cleanup() {
+			if (bufA != null) {
+				bufA.release();
+			}
+			if (bufB != null) {
+				bufB.release();
+			}
+			if (bufOut != null) {
+				bufOut.release();
+			}
 		}
 	}
 }

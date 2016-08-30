@@ -7,8 +7,10 @@ package edu.duke.cs.osprey.control;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
@@ -248,6 +250,26 @@ public class GMECFinder {
         confPruner = val;
     }
     
+    private ConfEnergyCalculator makeEcalc() {
+        return new ConfEnergyCalculator() {
+            @Override
+            public double calcEnergy(ScoredConf conf) {
+                // MINIMIZED, EPIC, OR MATRIX E AS APPROPRIATE
+                // TODO: these options should eventually be separate subclasses of ConfEnergyCalculator
+                // that get picked by whatever configures GMECFinder (e.g., ConfigFileParser, Python script)
+                if (useContFlex || EFullConfOnly) {
+                    if ((useEPIC||useTupExp) && (!checkApproxE)) {
+                        return searchSpace.approxMinimizedEnergy(conf.getAssignments());
+                    } else {
+                        return searchSpace.minimizedEnergy(conf.getAssignments());
+                    }
+                } else {
+                    return conf.getScore();//for rigid calc w/ pairwise E-mtx, can just calc from mtx
+                }
+            }
+        };
+    }
+    
     public List<EnergiedConf> calcGMEC(){
         return calcGMEC(I0);
     }
@@ -260,23 +282,7 @@ public class GMECFinder {
         ConfPrinter confPrinter = new ConfPrinter(searchSpace, confFileName, printEPICEnergy);
         
         // what is the "true" energy for a conformation?
-        ConfEnergyCalculator ecalc = new ConfEnergyCalculator() {
-            @Override
-            public double calcEnergy(ScoredConf conf) {
-                // MINIMIZED, EPIC, OR MATRIX E AS APPROPRIATE
-                // TODO: these options should eventually be separate subclasses of ConfEnergyCalculator
-            	// that get picked by whatever configures GMECFinder (e.g., ConfigFileParser, Python script)
-                if (useContFlex || EFullConfOnly) {
-                    if ((useEPIC||useTupExp) && (!checkApproxE)) {
-                        return searchSpace.approxMinimizedEnergy(conf.getAssignments());
-                    } else {
-                        return searchSpace.minimizedEnergy(conf.getAssignments());
-                    }
-                } else {
-                    return conf.getScore();//for rigid calc w/ pairwise E-mtx, can just calc from mtx
-                }
-            }
-        };
+        ConfEnergyCalculator ecalc = makeEcalc();
         
         // 11/11/2015 JJ: This logic belongs out here. A function that does nothing if a flag is false should 
         // have its flag promoted outside of the function, unless it's used multiple times. In that case
@@ -433,7 +439,106 @@ public class GMECFinder {
         return econfs;
     }
     
+    public List<ScoredConf> calcSequences() {
+    	return calcSequences(I0);
+    }
     
+    public List<ScoredConf> calcSequences(double interval) {
+    	
+        System.out.println("Finding sequences with interval " + interval + " and energy window " + Ew + " ...");
+        
+        boolean printEPICEnergy = checkApproxE && useEPIC && useTupExp;
+        ConfPrinter confPrinter = new ConfPrinter(searchSpace, confFileName, printEPICEnergy);
+        
+        // what is the "true" energy for a conformation?
+        ConfEnergyCalculator ecalc = makeEcalc();
+        
+        if (useEPIC) {
+            checkEPICThresh2(interval);//Make sure EPIC thresh 2 matches current interval
+        }
+        
+        // precompute the energy, pruning, and maybe EPIC or tup-exp matrices
+        precomputeMatrices(Ew + interval);
+        
+        // start searching for the min score conf
+        System.out.println("Searching for min score conformation...");
+        Stopwatch minScoreStopwatch = new Stopwatch().start();
+        ConfSearch confSearch = confSearchFactory.make(searchSpace);
+        try {
+            System.out.println("\t(among " + confSearch.getNumConformations().floatValue() + " possibilities)");
+        } catch (UnsupportedOperationException ex) {
+            // conf tree doesn't support it, no big deal
+        }
+        ScoredConf minScoreConf = confSearch.nextConf();
+        if (minScoreConf == null) {
+            
+            // no confs in the search space, can't recover, just bail
+            System.out.println("All conformations pruned. Try choosing a larger pruning interval.");
+            return new ArrayList<>();
+        }
+        System.out.println("Found min score conformation in " + minScoreStopwatch.getTime(1));
+        
+        // evaluate the min score conf
+        System.out.println("Computing energy...");
+        EnergiedConf eMinScoreConf = new EnergiedConf(minScoreConf, ecalc.calcEnergy(minScoreConf));
+        
+        // start the sequence list with the min score conf
+        System.out.println("\nMIN SCORE CONFORMATION");
+        System.out.print(confPrinter.getConfReport(eMinScoreConf));
+        List<ScoredConf> sequenceConfs = new ArrayList<>();
+        Set<String> sequenceKeys = new HashSet<>();
+        sequenceConfs.add(minScoreConf);
+        sequenceKeys.add(makeSequenceKey(minScoreConf));
+        
+        // estimate the top of our energy window
+        // this is an upper bound for now, we'll refine it as we evaluate more structures
+        double windowTopEnergy = eMinScoreConf.getEnergy() + Ew;
+        
+        // enumerate all confs in order of the scores, up to the estimate of the top of the energy window
+        System.out.println("Enumerating other low-scoring conformations...");
+        while (true) {
+            
+            ScoredConf conf = confSearch.nextConf();
+            if (conf == null) {
+                break;
+            }
+            
+            // is this a new sequence?
+            boolean isNewSequence = sequenceKeys.add(makeSequenceKey(conf));
+            if (isNewSequence) {
+                
+                // record the new sequence
+				if (logConfsToConsole) {
+					System.out.println("\nUNIQUE SEQUENCE " + sequenceConfs.size());
+					System.out.print(confPrinter.getConfReport(conf));
+				}
+                sequenceConfs.add(conf);
+            }
+            
+            if (conf.getScore() >= windowTopEnergy) {
+                break;
+            }
+        }
+        
+        return sequenceConfs;
+    }
+    
+    private String makeSequenceKey(ScoredConf conf) {
+        StringBuilder buf = new StringBuilder();
+        
+        for (int pos=0; pos<searchSpace.confSpace.numPos; pos++) {
+            
+            String aaType = searchSpace.confSpace.posFlex.get(pos).RCs.get(conf.getAssignments()[pos]).AAType;
+            
+            if (buf.length() > 0) {
+                buf.append(",");
+            }
+            buf.append(aaType);
+        }
+        
+        return buf.toString();
+    }
+
     void precomputeMatrices(double pruningInterval){
         //Precalculate TupleMatrices needed for GMEC computation.  Some of these may already be computed.  
         //All of these matrices except the basic pairwise energy matrix are pruning-dependent:

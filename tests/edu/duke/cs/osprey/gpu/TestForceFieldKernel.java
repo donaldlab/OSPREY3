@@ -9,7 +9,6 @@ import org.junit.Test;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.control.EnvironmentVars;
-import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
@@ -23,9 +22,12 @@ import edu.duke.cs.osprey.structure.Residue;
 
 public class TestForceFieldKernel extends TestBase {
 	
+	// TODO: test ff options, like solvation, hydrogen inclusions, etc...
+	
 	private static class Forcefields {
 		public MultiTermEnergyFunction efunc;
 		public BigForcefieldEnergy bigff;
+		public GpuQueuePool queuePool;
 		public GpuForcefieldEnergy gpuff;
 	}
 	
@@ -70,52 +72,37 @@ public class TestForceFieldKernel extends TestBase {
 		met66 = mol.getResByPDBResNumber("66");
 	}
 	
-	private static int makeAllPairsEfunc(Residue[] residues, EnergyFunctionGenerator egen, MultiTermEnergyFunction efunc, ForcefieldInteractions interactions) {
+	private static void makeAllPairsEfunc(Residue[] residues, ForcefieldParams ffparams, MultiTermEnergyFunction efunc, ForcefieldInteractions interactions) {
 		
-		int numTerms = 0;
-		
-		for (int i=0; i<residues.length; i++) {
+		for (int pos1=0; pos1<residues.length; pos1++) {
 			
-			SingleResEnergy single = new SingleResEnergy(residues[i], egen.ffParams);
-			numTerms += single.getFFEnergy().getNumTerms();
-			efunc.addTerm(single);
-			interactions.addResidue(residues[i]);
+			efunc.addTerm(new SingleResEnergy(residues[pos1], ffparams));
+			interactions.addResidue(residues[pos1]);
 			
-			for (int pos2=0; pos2<i; pos2++) {
+			for (int pos2=0; pos2<pos1; pos2++) {
 				
-				ResPairEnergy pair = new ResPairEnergy(residues[i], residues[pos2], egen.ffParams);
-				numTerms += pair.getFFEnergy().getNumTerms();
-				efunc.addTerm(pair);
-				interactions.addResiduePair(residues[i], residues[pos2]);
+				efunc.addTerm(new ResPairEnergy(residues[pos1], residues[pos2], ffparams));
+				interactions.addResiduePair(residues[pos1], residues[pos2]);
 			}
 		}
-		
-		return numTerms;
 	}
 	
-	private static int makeSingleAndShellEfunc(Residue[] residues, EnergyFunctionGenerator egen, MultiTermEnergyFunction efunc, ForcefieldInteractions interactions) {
-		int numTerms = 0;
+	private static void makeSingleAndShellEfunc(Residue[] residues, ForcefieldParams ffparams, MultiTermEnergyFunction efunc, ForcefieldInteractions interactions) {
 		
-		SingleResEnergy single = new SingleResEnergy(residues[0], egen.ffParams);
-		numTerms += single.getFFEnergy().getNumTerms();
-		efunc.addTerm(single);
+		efunc.addTerm(new SingleResEnergy(residues[0], ffparams));
 		interactions.addResidue(residues[0]);
 		
-		for (int i=1; i<residues.length; i++) {
+		for (int pos1=1; pos1<residues.length; pos1++) {
 			
-			ResPairEnergy pair = new ResPairEnergy(residues[0], residues[i], egen.ffParams);
-			numTerms += pair.getFFEnergy().getNumTerms();
-			efunc.addTerm(pair);
-			interactions.addResiduePair(residues[0], residues[i]);
+			efunc.addTerm(new ResPairEnergy(residues[0], residues[pos1], ffparams));
+			interactions.addResiduePair(residues[0], residues[pos1]);
 		}
-		
-		return numTerms;
 	}
 	
 	private Forcefields makeForcefields(Residue[] residues, EnergyFunctionType efuncType)
 	throws IOException {
 		
-		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
+		ForcefieldParams ffparams = EnvironmentVars.curEFcnGenerator.ffParams;
 		ForcefieldInteractions interactions = new ForcefieldInteractions();
 		
 		Forcefields ff = new Forcefields();
@@ -123,16 +110,16 @@ public class TestForceFieldKernel extends TestBase {
 		
 		switch (efuncType) {
 			case AllPairs:
-				makeAllPairsEfunc(residues, egen, ff.efunc, interactions);
+				makeAllPairsEfunc(residues, ffparams, ff.efunc, interactions);
 			break;
 			case SingleAndShell:
-				makeSingleAndShellEfunc(residues, egen, ff.efunc, interactions);
+				makeSingleAndShellEfunc(residues, ffparams, ff.efunc, interactions);
 			break;
 		}
 		
-		ForcefieldParams ffparams = TestBase.makeDefaultFFParams();
 		ff.bigff = new BigForcefieldEnergy(ffparams, interactions);
-		ff.gpuff = new GpuForcefieldEnergy(ffparams, interactions);
+		ff.queuePool = new GpuQueuePool(1, 1);
+		ff.gpuff = new GpuForcefieldEnergy(ffparams, interactions, ff.queuePool);
 		return ff;
 	}
 	
@@ -142,16 +129,16 @@ public class TestForceFieldKernel extends TestBase {
 		Forcefields ff = makeForcefields(residues, EnergyFunctionType.AllPairs);
 		assertThat(ff.efunc.getEnergy(), isRelatively(allPairsEnergy));
 		assertThat(ff.bigff.getEnergy(), isRelatively(allPairsEnergy));
-		ff.gpuff.initGpu();
 		assertThat(ff.gpuff.getEnergy(), isRelatively(allPairsEnergy));
 		ff.gpuff.cleanup();
+		ff.queuePool.cleanup();
 		
 		ff = makeForcefields(residues, EnergyFunctionType.SingleAndShell);
 		assertThat(ff.efunc.getEnergy(), isRelatively(singleAndShellEnergy));
 		assertThat(ff.bigff.getEnergy(), isRelatively(singleAndShellEnergy));
-		ff.gpuff.initGpu();
 		assertThat(ff.gpuff.getEnergy(), isRelatively(singleAndShellEnergy));
 		ff.gpuff.cleanup();
+		ff.queuePool.cleanup();
 	}
 	
 	@Test

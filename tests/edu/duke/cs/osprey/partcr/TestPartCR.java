@@ -27,6 +27,7 @@ import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.control.GMECFinder;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
+import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.pruning.PruningControl;
@@ -49,7 +50,7 @@ public class TestPartCR extends TestBase {
 		
 		// calc the energy matrix once
 		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(EnvironmentVars.curEFcnGenerator, search.confSpace, search.shellResidues);
-		search.emat = ecalc.calcEnergyMatrix();
+		search.emat = new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix();
 		
 		List<EnergiedConf> expectedConfs = getConfs(search, false);
 		List<EnergiedConf> partcrConfs = getConfs(search, true);

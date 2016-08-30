@@ -289,7 +289,7 @@ public class PartCR {
 		energy += ecalc.getSingleEfunc(pos1).getEnergy();
 		
 		// pairwise energy
-		for (int pos2=0; pos2<ecalc.getNumPos(); pos2++) {
+		for (int pos2=0; pos2<ecalc.getConfSpace().numPos; pos2++) {
 			if (pos2 != pos1) {
 				energy += ecalc.getPairEfunc(pos1, pos2).getEnergy()/2;
 			}

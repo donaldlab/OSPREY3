@@ -7,8 +7,8 @@ import java.util.Random;
 
 import org.junit.Test;
 
-import edu.duke.cs.osprey.astar.parallel.WorkCrew;
-import edu.duke.cs.osprey.astar.parallel.Worker;
+import edu.duke.cs.osprey.parallelism.WorkCrew;
+import edu.duke.cs.osprey.parallelism.Worker;
 
 public class TestWorkCrew {
 	

@@ -1,17 +1,17 @@
 package edu.duke.cs.osprey.ematrix;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import cern.colt.matrix.DoubleMatrix1D;
-import edu.duke.cs.osprey.confspace.AbstractTupleMatrix;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
+import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.Progress;
 
 public class SimpleEnergyCalculator {
 	
@@ -73,14 +73,14 @@ public class SimpleEnergyCalculator {
 	
 	private EnergyFunctionGenerator efuncGen;
 	private ConfSpace confSpace;
-	private ArrayList<Residue> shellResidues;
+	private List<Residue> shellResidues;
 	private ShellDistribution dist;
 	
-	public SimpleEnergyCalculator(EnergyFunctionGenerator efuncGen, ConfSpace confSpace, ArrayList<Residue> shellResidues) {
+	public SimpleEnergyCalculator(EnergyFunctionGenerator efuncGen, ConfSpace confSpace, List<Residue> shellResidues) {
 		this(efuncGen, confSpace, shellResidues, DefaultDist);
 	}
 	
-	public SimpleEnergyCalculator(EnergyFunctionGenerator efuncGen, ConfSpace confSpace, ArrayList<Residue> shellResidues, ShellDistribution dist) {
+	public SimpleEnergyCalculator(EnergyFunctionGenerator efuncGen, ConfSpace confSpace, List<Residue> shellResidues, ShellDistribution dist) {
 		this.efuncGen = efuncGen;
 		this.confSpace = confSpace;
 		this.shellResidues = shellResidues;
@@ -95,126 +95,58 @@ public class SimpleEnergyCalculator {
 		return dist;
 	}
 	
-	public int getNumPos() {
-		return confSpace.numPos;
-	}
-	
-	public EnergyMatrix calcEnergyMatrix() {
-		EnergyMatrix emat = new EnergyMatrix(confSpace, 0);
-		calcMatrices(emat, null);
-		return emat;
-	}
-	
-	public DofMatrix calcDofMatrix() {
-		DofMatrix dofmat = new DofMatrix(confSpace);
-		calcMatrices(null, dofmat);
-		return dofmat;
-	}
-	
-	public void calcMatrices(EnergyMatrix emat, DofMatrix dofmat) {
-		
-		if (emat != null && dofmat != null) {
-			
-			// make sure emat and dofmat match
-			if (emat.getNumPos() != dofmat.getNumPos()) {
-				throw new IllegalArgumentException("emat and dofmat must match size!");
-			} else {
-				for (int i=0; i<emat.getNumPos(); i++) {
-					if (emat.getNumConfAtPos(i) != dofmat.getNumConfAtPos(i)) {
-						throw new IllegalArgumentException("emat and dofmat must match size!");
-					}
-				}
-			}
-		}
-		
-		AbstractTupleMatrix<?> sizemat = null;
-		if (emat != null) {
-			sizemat = emat;
-		}
-		if (dofmat != null) {
-			sizemat = dofmat;
-		}
-		if (sizemat == null) {
-			throw new IllegalArgumentException("emat and dofmat cannot both be null");
-		}
-		
-		Result result;
-		
-		// count how much work there is to do
-		long numWork = 0;
-		for (int pos1=0; pos1<sizemat.getNumPos(); pos1++) {
-			numWork += sizemat.getNumConfAtPos(pos1);
-			for (int pos2=0; pos2<pos1; pos2++) {
-				for (int rc1=0; rc1<sizemat.getNumConfAtPos(pos1); rc1++) {
-					numWork += sizemat.getNumConfAtPos(pos2);
-				}
-			}
-		}
-		Progress progress = new Progress(numWork);
-		
-		System.out.println("Calculating energies with shell distribution: " + dist);
-		for (int pos1=0; pos1<sizemat.getNumPos(); pos1++) {
-			
-			// singles
-			for (int rc1=0; rc1<sizemat.getNumConfAtPos(pos1); rc1++) {
-				
-				result = calcSingle(pos1, rc1);
-				
-				if (emat != null) {
-					emat.setOneBody(pos1, rc1, result.getEnergy());
-				}
-				if (dofmat != null) {
-					dofmat.setOneBody(pos1, rc1, result.getDofValues());
-				}
-				
-				progress.incrementProgress();
-			}
-				
-			// pairwise
-			for (int pos2=0; pos2<pos1; pos2++) {
-				for (int rc1=0; rc1<sizemat.getNumConfAtPos(pos1); rc1++) {
-					for (int rc2=0; rc2<sizemat.getNumConfAtPos(pos2); rc2++) {
-						
-						result = calcPair(pos1, rc1, pos2, rc2);
-						
-						if (emat != null) {
-							emat.setPairwise(pos1, rc1, pos2, rc2, result.getEnergy());
-						}
-						if (dofmat != null) {
-							dofmat.setPairwise(pos1, rc1, pos2, rc2, result.getDofValues());
-						}
-						
-						progress.incrementProgress();
-					}
-				}
-			}
-		}
+	public ConfSpace getConfSpace() {
+		return confSpace;
 	}
 	
 	public EnergyFunction getSingleEfunc(int pos) {
+		return getSingleEfunc(pos, null);
+	}
+	
+	public EnergyFunction getSingleEfunc(int pos, Molecule mol) {
 		double singleWeight = dist.getSingleWeight(confSpace.numPos);
-		return efuncGen.intraAndDistributedShellEnergy(getResidue(pos), shellResidues, confSpace.numPos, singleWeight); 
+		return efuncGen.intraAndDistributedShellEnergy(getResidue(pos, mol), getResidues(shellResidues, mol), confSpace.numPos, singleWeight);
 	}
 	
 	public Result calcSingle(int pos, int rc) {
-		return calc(getSingleEfunc(pos), new RCTuple(pos, rc));
+		return calcSingle(pos, rc, null);
+	}
+	
+	public Result calcSingle(int pos, int rc, Molecule mol) {
+		EnergyFunction efunc = getSingleEfunc(pos, mol);
+		Result result = calc(efunc, new RCTuple(pos, rc), mol);
+		cleanup(efunc);
+		return result;
 	}
 	
 	public EnergyFunction getPairEfunc(int pos1, int pos2) {
+		return getPairEfunc(pos1, pos2, null);
+	}
+	
+	public EnergyFunction getPairEfunc(int pos1, int pos2, Molecule mol) {
 		double singleWeight = dist.getSingleWeight(confSpace.numPos);
-		return efuncGen.resPairAndDistributedShellEnergy(getResidue(pos1), getResidue(pos2), shellResidues, confSpace.numPos, singleWeight); 
+		return efuncGen.resPairAndDistributedShellEnergy(getResidue(pos1, mol), getResidue(pos2, mol), getResidues(shellResidues, mol), confSpace.numPos, singleWeight);
 	}
 	
 	public Result calcPair(int pos1, int rc1, int pos2, int rc2) {
-		return calc(getPairEfunc(pos1, pos2), new RCTuple(pos1, rc1, pos2, rc2));
+		return calcPair(pos1, rc1, pos2, rc2, null);
 	}
 	
-	private Result calc(EnergyFunction efunc, RCTuple tuple) {
+	public Result calcPair(int pos1, int rc1, int pos2, int rc2, Molecule mol) {
+		EnergyFunction efunc = getPairEfunc(pos1, pos2, mol);
+		Result result = calc(efunc, new RCTuple(pos1, rc1, pos2, rc2), mol);
+		cleanup(efunc);
+		return result;
+	}
+	
+	public Result calc(EnergyFunction efunc, RCTuple tuple, Molecule mol) {
 		
 		double[] minDofValues = null;
 		
+		// put molecule in correct conformation for rcs
+		MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(efunc, confSpace, tuple, mol);
+		
 		// optimize the degrees of freedom, if needed
-		MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(efunc, confSpace, tuple);
 		if (mof.getNumDOFs() > 0) {
 			CCDMinimizer ccdMin = new CCDMinimizer(mof, true);
 			DoubleMatrix1D minDofVec = ccdMin.minimize();
@@ -226,7 +158,38 @@ public class SimpleEnergyCalculator {
 		return new Result(minDofValues, efunc.getEnergy());
 	}
 	
-	private Residue getResidue(int pos) {
-		return confSpace.posFlex.get(pos).res;
+	private void cleanup(EnergyFunction efunc) {
+		
+		// cleanup the energy function if needed
+		if (efunc instanceof EnergyFunction.NeedsCleanup) {
+			((EnergyFunction.NeedsCleanup)efunc).cleanup();
+		}
+	}
+	
+	private Residue getResidue(int pos, Molecule mol) {
+		
+		Residue res = confSpace.posFlex.get(pos).res;
+		
+		// if we're using a separate molecule, match this residue to the one in the molecule
+		if (mol != null) {
+			res = mol.residues.get(res.indexInMolecule);
+		}
+		
+		return res;
+	}
+	
+	private List<Residue> getResidues(List<Residue> residues, Molecule mol) {
+		
+		// no molecule? just return the original residues
+		if (mol == null) {
+			return residues;
+		}
+		
+		// but if there is a molecule, then match the residues to it
+		List<Residue> matched = new ArrayList<>(residues.size());
+		for (Residue res : residues) {
+			matched.add(mol.residues.get(res.indexInMolecule));
+		}
+		return matched;
 	}
 }
