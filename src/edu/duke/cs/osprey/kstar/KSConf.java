@@ -51,6 +51,7 @@ public class KSConf implements Comparable, Serializable {
 	
 	
 	public ArrayList<Integer> getConf() {
+		conf.trimToSize();
 		return conf;
 	}
 

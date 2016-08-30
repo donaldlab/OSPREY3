@@ -330,7 +330,7 @@ public class PFParallel1 extends PFTraditional implements Serializable {
 
 	protected void printHeader() {
 
-		System.out.println("boundError" + "\t" + "energy" + "\t" + "epsilon" + "\t" + "#processed" +
+		System.out.println("error" + "\t" + "energy" + "\t" + "epsilon" + "\t" + "#processed" +
 				"\t" + "#un-enum" + "\t" + "#buf" + "\t"+ "time(sec)");
 
 		printedHeader = true;

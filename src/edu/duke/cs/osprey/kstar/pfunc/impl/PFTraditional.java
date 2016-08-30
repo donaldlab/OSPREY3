@@ -239,7 +239,7 @@ public class PFTraditional extends PFAbstract implements Serializable {
 
 	protected void printHeader() {
 
-		System.out.println("boundError" + "\t" + "energy" + "\t" + "epsilon" + "\t" + "#processed" +
+		System.out.println("error" + "\t" + "energy" + "\t" + "epsilon" + "\t" + "#processed" +
 				"\t" + "#un-enum" + "\t" + "time(sec)");
 
 		printedHeader = true;

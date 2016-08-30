@@ -28,6 +28,7 @@ import edu.duke.cs.osprey.parallelism.ThreadParallelism;
  */
 public class KStarCalculator {
 
+	private static boolean ksIsRunning = false;
 	KSConfigFileParser cfp;
 
 	double Ew;//energy window for enumerating conformations: 0 for just GMEC
@@ -37,6 +38,17 @@ public class KStarCalculator {
 
 	HashMap<Integer, KSAllowedSeqs> strand2AllowedSeqs = new HashMap<>();
 
+	
+	public static void setRunState(boolean val) {
+		ksIsRunning = val;
+	}
+	
+	
+	public static boolean kStarIsRunning() {
+		return ksIsRunning;
+	}
+	
+	
 	public KStarCalculator( KSConfigFileParser cfgP ) {
 		cfp = cfgP;
 
@@ -209,6 +221,8 @@ public class KStarCalculator {
 
 		try {
 
+			KStarCalculator.setRunState(true);
+			
 			cfp.verifyStrandsMutuallyExclusive();
 
 			generateAllowedSequences();
@@ -237,6 +251,8 @@ public class KStarCalculator {
 			default:
 				throw new UnsupportedOperationException("ERROR: currently supported implementations are 'linear' and 'kastar'");
 			}
+			
+			KStarCalculator.setRunState(false);
 
 		} catch(Exception e) {
 			System.out.println(e.getMessage());

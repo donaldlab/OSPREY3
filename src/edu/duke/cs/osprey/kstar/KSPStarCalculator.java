@@ -131,9 +131,9 @@ public class KSPStarCalculator extends Thread implements Serializable {
 				totalPF = totalPF.add( lastBoltzmannWeight );
 				enumerated = enumerated.add(BigInteger.ONE);
 
-				// may not be done yet. do not nullify. owner calls cleanup to nullify
-				// when we are actually done
-				if( pf.getEpsilonStatus() != EApproxReached.FALSE ) { return; }
+				// may not be done yet. do not nullify. owner calls cleanup to nullify when we are actually done
+				// if( pf.getEpsilonStatus() != EApproxReached.FALSE ) { return; }
+				if( pf.getEpsilonStatus() != EApproxReached.FALSE ) { nullify(); return; }
 			}
 
 		}

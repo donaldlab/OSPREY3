@@ -8,6 +8,7 @@ package edu.duke.cs.osprey.dof.deeper;
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.kstar.KSTermini;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
+import edu.duke.cs.osprey.control.KStarCalculator;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -520,6 +521,11 @@ public class PerturbationSelector {
                 }
             }
         }
+        
+        // AAO2016: i'm going to override this check for K*. this class works as originally intended for
+        // all other cases
+        if(KStarCalculator.kStarIsRunning())
+        	return true;
         
         //OK if we get here the pert state is geometrically possible
         //Check Ramachandran for this residue...
