@@ -25,7 +25,7 @@ public class PerturbationSelector {
     
     
     //parameters needed
-    String startingPertFile;
+    String startingPertFile; 
     boolean onlyStarting;
     double maxShearParam, maxBackrubParam;//upper limit on these (by default) single-interval
     //perturbation parameters.  We also allow this value in the negative direction
