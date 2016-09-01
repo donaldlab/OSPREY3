@@ -128,8 +128,7 @@ public class KSImplKAStar extends KSAbstract {
 				
 				completed++;
 				
-				if(!removeLeafNode(best.lb)) 
-					throw new RuntimeException("ERROR: could not remove leaf node");
+				removeLeafNode(best.lb);
 				
 				continue;
 			}

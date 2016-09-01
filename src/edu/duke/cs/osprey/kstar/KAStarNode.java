@@ -97,11 +97,15 @@ public class KAStarNode {
 
 				if( !isFullyProcessed() ) {
 					// we will use tight bounds; compute tight bound		
-					computeScore(this);
+					if(this.lb.canContinue()) 
+						computeScore(this);
 				}
 
 				children = new ArrayList<>();
-				children.add(this);
+				
+				if(this.lb.canContinue())
+					children.add(this);
+				
 				return children;
 			}
 		}
@@ -183,7 +187,7 @@ public class KAStarNode {
 
 			// compute scores
 			switch( KSImplKAStar.nodeExpansionMethod ) {
-				
+
 			case "serial":
 				computeScoresSerial(children);
 				break;
@@ -269,7 +273,7 @@ public class KAStarNode {
 			// intermutation pruning criterion
 			if(ksObj.passesInterMutationPruning(child.lb))
 				continue;
-				
+
 			else {
 				if(child.lb.getEpsilonStatus() == EApproxReached.FALSE) {
 					// this block only applies to leaf nodes where we are minimizing confs
@@ -278,12 +282,12 @@ public class KAStarNode {
 					pf.abort(true);
 					pf.cleanup();
 				}
-			
+
 				iterator.remove();
 			}
 		}
 	}
-	*/
+	 */
 
 
 	private void pruneSequences( ArrayList<String> seq, int strand, int depth ) {
@@ -301,7 +305,7 @@ public class KAStarNode {
 
 
 	private void computeScore(KAStarNode child) {
-		
+
 		if( child.scoreNeedsRefinement() ) {
 
 			PFAbstract.suppressOutput = true;
@@ -335,7 +339,10 @@ public class KAStarNode {
 			// we process leaf nodes as streams (in the complex case, at least)
 			child.lb.run(wt, false, stabilityCheck);
 
-			if( !child.lb.canContinue() ) return; // epsilon is not possible or not stable
+			if( !child.lb.canContinue() ) { // epsilon is not possible or not stable
+				((KSImplKAStar) ksObj).removeLeafNode(child.lb);
+				return;
+			}
 
 			if( child.lb.getEpsilonStatus() == EApproxReached.TRUE ) {
 				numLeavesCompleted = ksObj.getNumSeqsCompleted(1);

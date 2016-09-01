@@ -48,7 +48,7 @@ public class KSCalc {
 	protected boolean doingKAStar() {
 		
 		for( PFAbstract pf : strand2PF.values() ) {
-			if(pf.getImpl().compareToIgnoreCase(PFAbstract.getCFGImpl()) != 0) return true;
+			if(!pf.getImpl().equalsIgnoreCase(PFAbstract.getCFGImpl())) return true;
 		}
 		
 		return false;
