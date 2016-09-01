@@ -37,7 +37,7 @@ public abstract class KSAbstract implements KSInterface {
 	protected String runName = null;
 	protected String checkPointFilePath = null;
 
-	protected HashMap<Integer, KSAllowedSeqs> strand2AllowedSeqs = new HashMap<>();
+	protected HashMap<Integer, KSAllowedSeqs> strand2AllowedSeqs = new HashMap<>(3);
 	protected ConcurrentHashMap<String, KSSearchProblem> name2SP = new ConcurrentHashMap<>();
 	protected ConcurrentHashMap<String, PFAbstract> name2PF = new ConcurrentHashMap<>();
 
@@ -321,14 +321,14 @@ public abstract class KSAbstract implements KSInterface {
 	protected ConcurrentHashMap<Integer, PFAbstract> createPFs4Seqs(ArrayList<ArrayList<String>> seqs, 
 			ArrayList<Boolean> contSCFlexVals, ArrayList<String> pfImplVals) {
 
-		ConcurrentHashMap<Integer, PFAbstract> ans = new ConcurrentHashMap<>();
+		ConcurrentHashMap<Integer, PFAbstract> ans = new ConcurrentHashMap<>(3);
 
 		ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(KSTermini.COMPLEX, KSTermini.PROTEIN, KSTermini.LIGAND));
 		ArrayList<Integer> indexes = new ArrayList<>();
 		for(int i = 0; i < strands.size(); i++) indexes.add(i);
 
-		//indexes.parallelStream().forEach((index) -> {
-		for(int index = 0; index < strands.size(); ++index) {
+		indexes.parallelStream().forEach((index) -> {
+		//for(int index = 0; index < strands.size(); ++index) {
 
 			int strand = strands.get(index);
 			boolean contSCFlex = contSCFlexVals.get(strand);
@@ -369,8 +369,8 @@ public abstract class KSAbstract implements KSInterface {
 					pf.setNumPruned();
 				}
 			}
-		}
-		//});
+		//}
+		});
 
 		if(ans.size() != 3)
 			throw new RuntimeException("ERROR: returned map must contain three different partition functions");

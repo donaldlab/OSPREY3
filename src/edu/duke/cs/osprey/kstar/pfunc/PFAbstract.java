@@ -582,9 +582,12 @@ public abstract class PFAbstract implements Serializable {
 
 		partialQLB = partialQLB.add( getBoltzmannWeight( conf.getEnergyBound() ) );
 
-		minimizedConfsSet.add(conf.getConf());
+		if(isContinuous() && !getImpl().equalsIgnoreCase("UB")) {
+			minimizedConfsSet.add(conf.getConf());
+			minimizedConfsPerm = minimizedConfsPerm.add(BigInteger.ONE); // ...so we need this variable
+		}
+		
 		minimizedConfsTmp = minimizedConfsTmp.add(BigInteger.ONE); // this is reset during phase 2
-		minimizedConfsPerm = minimizedConfsPerm.add(BigInteger.ONE); // ...so we need this variable
 		minimizedConfsDuringInterval = minimizedConfsDuringInterval.add(BigInteger.ONE);
 	}
 
@@ -618,7 +621,8 @@ public abstract class PFAbstract implements Serializable {
 
 		if( saveTopConfsAsPDB && eAppx == EApproxReached.TRUE ) writeTopConfs();
 
-		if( eAppx != EApproxReached.FALSE ) cleanup();
+		if( eAppx != EApproxReached.FALSE ) 
+			cleanup();
 
 		resetMinDuringInterval();
 	}

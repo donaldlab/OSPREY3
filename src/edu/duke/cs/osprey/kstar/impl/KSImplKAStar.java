@@ -13,17 +13,17 @@ import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.kstar.KAStarNode;
 import edu.duke.cs.osprey.kstar.KAStarTree;
 import edu.duke.cs.osprey.kstar.KSTermini;
-import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 
 public class KSImplKAStar extends KSAbstract {
 
 	public static boolean useTightBounds = true;
 	public static String nodeExpansionMethod = "parallel1";
-	protected HashSet<PFAbstract> leafNodePFs = null; // nodes that get energy minimized
+	protected BigInteger numMinimizedConfs = BigInteger.ZERO;
+	protected HashSet<KSCalc> leafNodeKSCalcs = null; // nodes that get energy minimized
 
 	public KSImplKAStar(KSConfigFileParser cfp) {
 		super(cfp);
-		leafNodePFs = new HashSet<>();
+		leafNodeKSCalcs = new HashSet<>();
 	}
 
 	@Override
@@ -49,18 +49,26 @@ public class KSImplKAStar extends KSAbstract {
 
 
 	public void addLeafNode(KSCalc leaf) {
-		for(int strand : Arrays.asList(KSTermini.LIGAND, KSTermini.PROTEIN, KSTermini.COMPLEX))
-			leafNodePFs.add(leaf.getPF(strand));
+		leafNodeKSCalcs.add(leaf);
 	}
 
+	
+	public boolean removeLeafNode(KSCalc leaf) {
+		// also updates minimized confs
+		for(int strand : Arrays.asList(KSTermini.LIGAND, KSTermini.PROTEIN, KSTermini.COMPLEX))
+			numMinimizedConfs = numMinimizedConfs.add(leaf.getPF(strand).getNumMinimized4Output());
+		
+		return leafNodeKSCalcs.remove(leaf);
+	}
+	
 
 	protected BigInteger countMinimizedConfs() {
-		BigInteger ans = BigInteger.ZERO;
+		for(KSCalc leaf : leafNodeKSCalcs) {
+			for(int strand : Arrays.asList(KSTermini.LIGAND, KSTermini.PROTEIN, KSTermini.COMPLEX))
+				numMinimizedConfs = numMinimizedConfs.add(leaf.getPF(strand).getNumMinimized4Output());
+		}
 
-		for(PFAbstract pf : leafNodePFs)
-			ans = ans.add(pf.getMinimizedConfsSetSize());
-
-		return ans;
+		return numMinimizedConfs;
 	}
 
 
@@ -119,6 +127,10 @@ public class KSImplKAStar extends KSAbstract {
 				best.lb.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCreated(0), getNumSeqsCompleted(0) );
 				
 				completed++;
+				
+				if(!removeLeafNode(best.lb)) 
+					throw new RuntimeException("ERROR: could not remove leaf node");
+				
 				continue;
 			}
 
@@ -154,15 +166,16 @@ public class KSImplKAStar extends KSAbstract {
 
 			if( best.isFullyProcessed() ) {
 
-				best.lb.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCreated(0), getNumSeqsCompleted(0) );
+				double uB = best.getUBScore();
 
-				double bestUB = best.getUBScore();
+				if( completed++ == 0 ) gUB = uB;
 
-				if( completed++ == 0 ) gUB = bestUB;
+				if( best.getLBScore() > gUB && gUB > Double.NEGATIVE_INFINITY ) 
+					break;
+				else
+					best.lb.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCreated(0), getNumSeqsCompleted(0) );
 
-				else if( best.getLBScore() > gUB && gUB > Double.NEGATIVE_INFINITY ) break;
-
-				else if( bestUB > gUB ) gUB = bestUB;
+				if( uB > gUB ) gUB = uB;
 
 				continue;
 			}
