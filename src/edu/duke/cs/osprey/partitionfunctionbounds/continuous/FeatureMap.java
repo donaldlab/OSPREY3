@@ -22,5 +22,12 @@ public class FeatureMap {
 	public double eval(double[] y) {
 		return k.eval(this.loc, y);
 	}
-
+	
+	public double[] getLoc() {
+		return this.loc;
+	}
+	
+	public Kernel getKernel() {
+		return this.k;
+	}
 }
