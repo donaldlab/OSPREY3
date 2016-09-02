@@ -117,6 +117,7 @@ public class MultiTermEnergyFunction implements EnergyFunction {
 			
 			// AAO 2016: can allow concurrent minimizers, which is 25x faster for systems 
 			// that cannot saturate the threadpool with a single minimizer object. only my code actually enters this block
+                        //MH: setting up a config option in Main to choose this
 			else {
 				indexes.parallelStream().forEach((term) -> partialE.set(term, terms.get(term).getEnergy()*coeffs.get(term)));
 				for(int term = 0; term < indexes.size(); ++term) E += partialE.get(term);

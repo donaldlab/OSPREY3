@@ -92,8 +92,8 @@ public class CCDMinimizer implements Minimizer {
 
     int numDOFs;
 
-    static int numIter=30;
-    static double EConvTol = 0.001;//convergence threshold
+    public static int numIter=30;
+    public static double EConvTol = 0.001;//convergence threshold
     static double numTol = 1e-6;
     static double GCTol = 1e-10;//tolerance for violation of non-box constraints
 

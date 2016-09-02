@@ -18,6 +18,7 @@ public class LUTESettings {
     boolean useLUTE=false;
     public double goalResid=0.01;
     boolean useRelWt=false;
+    boolean useThreshWt=false;
     
     public LUTESettings(){
         //by default, no LUTE
@@ -29,5 +30,6 @@ public class LUTESettings {
         useLUTE = params.getBool("USETUPEXP");
         goalResid = params.getDouble("LUTEGOALRESID");
         useRelWt = params.getBool("LUTERELWT");
+        useRelWt = params.getBool("LUTETHRESHWT");
     }
 }

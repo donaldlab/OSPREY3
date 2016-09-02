@@ -32,11 +32,13 @@ class FittingObjFcn {
     
     FittingObjFcn(){}//basic least squares, regular weighting
     
-    FittingObjFcn(double thresh, double k, boolean useRelWt){//modified least squares
+    FittingObjFcn(double thresh, double k, boolean useRelWt, boolean useThreshWt){//modified least squares
         this.thresh = thresh;
         this.k = k;
         
-        if(useRelWt)
+        if(useThreshWt)
+            wtMode = WeightingMode.THRESHWT;
+        else if(useRelWt)
             wtMode = WeightingMode.ONEWT;//this seems to be the more effective weighting
         else
             wtMode = WeightingMode.REGULAR;

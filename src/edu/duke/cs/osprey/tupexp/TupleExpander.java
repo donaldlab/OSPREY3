@@ -65,7 +65,7 @@ public abstract class TupleExpander implements Serializable {
             assignmentSets.add(new ArrayList<ArrayList<Integer>>());
         }
         
-        fof = new FittingObjFcn(pruningInterval,0.5,luteSettings.useRelWt);
+        fof = new FittingObjFcn(pruningInterval,0.5,luteSettings.useRelWt,luteSettings.useThreshWt);
     }
     
     

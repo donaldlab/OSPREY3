@@ -194,9 +194,9 @@ public class GMECFinder {
             @Override
             public ConfSearch make(SearchProblem searchProblem) {
                 
-                if (searchSpace.searchNeedsHigherOrderTerms()) {
+                if (searchSpace.searchNeedsHigherOrderTerms() || searchSpace.useEPIC) {
             
-                    // if we need higher-order terms, use the old A* code
+                    // if we need higher-order or EPIC terms, use the old A* code
                     return ConfTree.makeFull(searchSpace);
                 }
                 
