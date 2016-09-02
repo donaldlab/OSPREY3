@@ -51,11 +51,11 @@ public class ConfMinimizer {
 		return new EnergiedConf(conf, energy);
 	}
 	
-	public List<EnergiedConf> minimize(List<ScoredConf> confs, Factory<EnergyFunction,Molecule> efuncs, ConfSpace confSpace) {
+	public List<EnergiedConf> minimize(List<ScoredConf> confs, Factory<? extends EnergyFunction,Molecule> efuncs, ConfSpace confSpace) {
 		return minimize(confs, efuncs, confSpace, new TaskExecutor());
 	}
 	
-	public List<EnergiedConf> minimize(List<ScoredConf> confs, Factory<EnergyFunction,Molecule> efuncs, ConfSpace confSpace, TaskExecutor tasks) {
+	public List<EnergiedConf> minimize(List<ScoredConf> confs, Factory<? extends EnergyFunction,Molecule> efuncs, ConfSpace confSpace, TaskExecutor tasks) {
 		
 		// make space for all the minimized confs
 		List<EnergiedConf> minimizedConfs = new ArrayList<>(confs.size());
