@@ -3,7 +3,9 @@ package edu.duke.cs.osprey.energy.forcefield;
 import java.io.IOException;
 import java.nio.DoubleBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import com.jogamp.opencl.CLEvent;
@@ -107,7 +109,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		this.queuePool = null;
 		this.queue = parent.queue;
 		this.kernelBuilder = parent.kernelBuilder;
-		this.ffsubset = kernelBuilder.get().getForcefield().new Subset(interactions);
+		this.ffsubset = getKernel().getForcefield().new Subset(interactions);
 	}
 	
 	public boolean isParent() {
@@ -118,12 +120,19 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		return kernelBuilder.get();
 	}
 	
+	public BigForcefieldEnergy.Subset getSubset() {
+		if (ffsubset != null) {
+			return ffsubset;
+		}
+		return getKernel().getForcefield().getFullSubset();
+	}
+	
 	public void startProfile() {
-		kernelBuilder.get().initProfilingEvents();
+		getKernel().initProfilingEvents();
 	}
 	
 	public String dumpProfile() {
-		ForceFieldKernel.Bound kernel = kernelBuilder.get();
+		ForceFieldKernel.Bound kernel = getKernel();
 		StringBuilder buf = new StringBuilder();
 		CLEventList events = kernel.getProfilingEvents();
 		for (CLEvent event : events) {
@@ -146,31 +155,21 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	@Override
 	public double getEnergy() {
 		
-		ForceFieldKernel.Bound kernel = kernelBuilder.get();
-		
-		// do we have a subset yet?
-		if (ffsubset == null) {
-			ffsubset = kernel.getSubset();
-			
-		// make sure our subset is the current one
-		} else if (ffsubset != kernel.getSubset()) {
-			kernel.setSubset(ffsubset);
-		}
-		
+		ForceFieldKernel.Bound kernel = getKernel();
+		kernel.setSubset(getSubset());
 		kernel.uploadCoordsAsync();
 		kernel.runAsync();
 		
 		// read the results
-		return sumEnergy(kernel.downloadEnergiesSync());
+		return sumEnergy(kernel.downloadEnergiesSync(), kernel.getEnergySize());
 	}
 	
-	private double sumEnergy(DoubleBuffer buf) {
+	private double sumEnergy(DoubleBuffer buf, int energySize) {
 		
 		// do the last bit of the energy sum on the cpu
 		// add one element per work group on the gpu
 		// typically, it's a factor of groupSize less than the number of atom pairs
-		double energy = ffsubset.getInternalSolvationEnergy();
-		int energySize = kernelBuilder.get().getEnergySize();
+		double energy = getSubset().getInternalSolvationEnergy();
 		buf.rewind();
 		for (int i=0; i<energySize; i++) {
 			energy += buf.get();
@@ -190,6 +189,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	public List<EnergyFunction> decomposeByDof(Molecule m, List<DegreeOfFreedom> dofs) {
 		
 		List<EnergyFunction> efuncs = new ArrayList<>();
+		Map<Residue,GpuForcefieldEnergy> efuncCache = new HashMap<>();
 		
 		for (DegreeOfFreedom dof : dofs) {
 
@@ -202,7 +202,13 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 			} else {
 				
 				// otherwise, make an efunc for only that residue
-				efuncs.add(new GpuForcefieldEnergy(this, interactions.makeSubsetByResidue(res)));
+				// but share efuncs between dofs in the same residue
+				GpuForcefieldEnergy efunc = efuncCache.get(res);
+				if (efunc == null) {
+					efunc = new GpuForcefieldEnergy(this, interactions.makeSubsetByResidue(res));
+					efuncCache.put(res, efunc);
+				}
+				efuncs.add(efunc);
 			}
 		}
 		
