@@ -27,16 +27,12 @@ public class MultiTermEnergyFunction implements EnergyFunction.DecomposableByDof
 	private static final long serialVersionUID = -3516267414126293331L;
 
 	private static int NUM_THREADS = 1;
-	public static boolean useParallelEFunc = true;
 
 	ArrayList<EnergyFunction> terms = new ArrayList<>();
 	ArrayList<Double> coeffs = new ArrayList<>();
 	ArrayList<Double> partialE = new ArrayList<>();
 	ArrayList<Integer> indexes = new ArrayList<>();
 	double preCompE = 0.0;
-
-	private ParallelEnergyFunction parallelEfunc = null;
-
 
 	//Constructor with no terms
 	public MultiTermEnergyFunction(){
@@ -66,6 +62,12 @@ public class MultiTermEnergyFunction implements EnergyFunction.DecomposableByDof
 
 		else if(NUM_THREADS > Runtime.getRuntime().availableProcessors()) 
 			NUM_THREADS = Runtime.getRuntime().availableProcessors();
+		
+		if (NUM_THREADS > 1) {
+			// TODO: make user-friendly error message
+			System.out.println("\n\nWARNING (for Osprey programmers): energy function-level parallelism probably isn't the fastest tool anymore."
+				+ " Try the new parallel SimpleEnergyMatrixCalculator and parallel/gpu-friendly ConfMinimizer classes instead.\n");
+		}
 	}
 
 
@@ -84,21 +86,6 @@ public class MultiTermEnergyFunction implements EnergyFunction.DecomposableByDof
 			+" terms but "+coeffs.size()+" coefficients");
 		}
 
-		/* OPTIMIZATION: It might seem like we could optimize more here by only
-        synchronizing with the thread pool if there are enough terms to make paying
-        the syncronization cost worth it. ie, only call the threads if numTerms > c.
-        Counterintuitively, this actually performs worse in practice! My tests indicated
-        we paid about a 20% performance penalty for forcing the main thread to do the
-        energy calculations for even just one energy term. I suspect this has to do
-        with cpu cache performance. Ignoring inter-core thread migration issues and thread
-        pinning, I suspect that the main thread spends most of its time on one core, and
-        the processor threads on other cores in numTerms<numProcessors cases. That means
-        the cpu cache on the processing cores is already "warmed up" for energy calculations.
-        Forcing the main thread to do that work (and alternate between work in CCD) is probably
-        causing many cpu cache misses and slowing down overall performance.
-        But that's just a theory. Either way, just use parallelism all the time even for 1 or
-        2 energy term because emperically it works much better! =)
-		 */        
 		if(NUM_THREADS == 1) {
 			for(int termNum=0; termNum<terms.size(); termNum++){
 				double termE = terms.get(termNum).getEnergy();
@@ -106,21 +93,9 @@ public class MultiTermEnergyFunction implements EnergyFunction.DecomposableByDof
 			}
 		} else {
 
-			if(useParallelEFunc) {
-				if (!ParallelEnergyFunction.isCrewStarted()) {
-					ParallelEnergyFunction.startCrew(NUM_THREADS);
-				}
-				if (parallelEfunc == null) {
-					parallelEfunc = new ParallelEnergyFunction(terms, coeffs);
-				}
-				E = parallelEfunc.getEnergy();
-			}
-			
-			// AAO 2016: can allow concurrent minimizers, which is 25x faster for systems 
-			// that cannot saturate the threadpool with a single minimizer object. only my code actually enters this block
-			else {
-				indexes.parallelStream().forEach((term) -> partialE.set(term, terms.get(term).getEnergy()*coeffs.get(term)));
-				for(int term = 0; term < indexes.size(); ++term) E += partialE.get(term);
+			indexes.parallelStream().forEach((term) -> partialE.set(term, terms.get(term).getEnergy()*coeffs.get(term)));
+			for (int term = 0; term < indexes.size(); ++term) {
+				E += partialE.get(term);
 			}
 		}
 
