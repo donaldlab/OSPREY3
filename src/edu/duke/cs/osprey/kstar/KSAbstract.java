@@ -338,7 +338,8 @@ public abstract class KSAbstract implements KSInterface {
 			PFAbstract pf = createPF4Seq(contSCFlex, strand, seq, pfImpl);
 
 			// put partition function in global map
-			name2PF.put(pf.getReducedSearchProblemName(), pf);
+			if(pf.isFullyDefined() && pf.getImpl().equalsIgnoreCase(PFAbstract.getCFGImpl()))
+				name2PF.put(pf.getReducedSearchProblemName(), pf);
 
 			// put in local map
 			ans.put(strand, pf);
@@ -524,7 +525,7 @@ public abstract class KSAbstract implements KSInterface {
 
 	protected BigInteger countMinimizedConfs() {
 		BigInteger ans = BigInteger.ZERO;
-		for(PFAbstract pf : name2PF.values()) ans = ans.add(pf.getMinimizedConfsSetSize());
+		for(PFAbstract pf : name2PF.values()) ans = ans.add(pf.getNumMinimized4Output());
 		return ans;
 	}
 

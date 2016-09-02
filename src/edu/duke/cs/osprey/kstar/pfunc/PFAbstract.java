@@ -285,21 +285,25 @@ public abstract class PFAbstract implements Serializable {
 		undefinedPos.removeAll(absolutePos);
 
 		boolean minimizeProduct = isContinuous() ? false : true;
-
+		
 		for( int pos : undefinedPos ) {
-
-			long rcNumAtPos = minimizeProduct ? Integer.MAX_VALUE : Integer.MIN_VALUE;
-
-			// get number of unpruned rcs at that level
-			long num = panSP.pruneMat.unprunedRCsAtPos(pos).size();
-
-			// we don't know how much we'd have to unprune, so count these too
-			if(!minimizeProduct)
-				num += panSP.pruneMat.prunedRCsAtPos(pos).size();
-
-			rcNumAtPos = minimizeProduct ? Math.min(rcNumAtPos, num) : Math.max(rcNumAtPos, num);
-
-			ans = ans.multiply(BigDecimal.valueOf(rcNumAtPos));
+			
+			long unprunedSize = minimizeProduct ? Integer.MAX_VALUE : Integer.MIN_VALUE;
+			long prunedSize = minimizeProduct ? Integer.MAX_VALUE : Integer.MIN_VALUE;
+			
+			ArrayList<String> aasAtPos = panSP.getAAsAtPos(panSP.pruneMat, pos);
+			for(String aa : aasAtPos) {
+				ArrayList<Integer> aaUnprunedRCNums = panSP.rcsAtPos(panSP.pruneMat, pos, aa, false);
+				unprunedSize = minimizeProduct ? Math.min(unprunedSize, aaUnprunedRCNums.size()) : Math.max(unprunedSize, aaUnprunedRCNums.size());
+				
+				if(!minimizeProduct) {
+					ArrayList<Integer> aaPrunedRCNums = panSP.rcsAtPos(panSP.pruneMat, pos, aa, true);
+					prunedSize = Math.max(prunedSize, aaPrunedRCNums.size());
+				}
+			}
+			
+			if(minimizeProduct) prunedSize = 0;
+			ans = ans.multiply(BigDecimal.valueOf(unprunedSize + prunedSize));
 		}
 
 		return ans;
@@ -380,7 +384,7 @@ public abstract class PFAbstract implements Serializable {
 	}
 
 
-	public BigInteger getMinimizedConfsSetSize() {
+	private BigInteger getMinimizedConfsSetSize() {
 		return minimizedConfsPerm;
 	}
 

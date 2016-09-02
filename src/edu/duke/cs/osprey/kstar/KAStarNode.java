@@ -97,15 +97,14 @@ public class KAStarNode {
 
 				if( !isFullyProcessed() ) {
 					// we will use tight bounds; compute tight bound		
-					if(this.lb.canContinue()) 
+					if(this.lb.canContinue())
 						computeScore(this);
 				}
 
 				children = new ArrayList<>();
-				
-				if(this.lb.canContinue())
-					children.add(this);
-				
+				children.add(this);
+				pruneIncompatibleSuccessors(children, null);
+
 				return children;
 			}
 		}
@@ -216,7 +215,7 @@ public class KAStarNode {
 			KAStarNode child = iterator.next();
 
 			// true is not possible, because we are not computing the bound state. this will catch not_stable and not_possible
-			if( child.scoreNeedsRefinement() && child.ub.getEpsilonStatus() != EApproxReached.FALSE ) {
+			if( child.ub != null && child.ub.getEpsilonStatus() != EApproxReached.FALSE ) {
 
 				// remove sequences that contain no valid conformations
 				for( int strand : Arrays.asList(KSTermini.LIGAND, KSTermini.PROTEIN) ) {
@@ -232,7 +231,7 @@ public class KAStarNode {
 						ArrayList<String> seq = pf.getSequence();
 
 						for( int strand2 : Arrays.asList(strand, KSTermini.COMPLEX) ) {
-							pruneSequences(seq, strand2, nextDepths.get(strand2));
+							if(nextDepths != null) pruneSequences(seq, strand2, nextDepths.get(strand2));
 						}
 					}
 				}
@@ -242,7 +241,7 @@ public class KAStarNode {
 				iterator.remove();
 			}
 
-			else if( !child.scoreNeedsRefinement() && !child.lb.canContinue() ) {
+			else if( !child.lb.doingKAStar() && !child.lb.canContinue() ) {
 				iterator.remove();
 			}
 		}
@@ -334,19 +333,32 @@ public class KAStarNode {
 		else {
 			KSAbstract.doCheckPoint = KSImplKAStar.useTightBounds ? true : false;
 
-			boolean stabilityCheck = KSAbstract.doCheckPoint;
+			// we process n-body leaf nodes as streams (in the complex case, anyway)
+			boolean lbStabilityCheck = KSAbstract.doCheckPoint;
 
-			// we process leaf nodes as streams (in the complex case, at least)
-			child.lb.run(wt, false, stabilityCheck);
+			if(!KSImplKAStar.useTightBounds) { // we are not doing n body minimization
+				// compute protein and ligand upper bound pfs; prune if not stable
+				// for stable pfs, compute lower bound
+				for( int strand : Arrays.asList(KSTermini.LIGAND, KSTermini.PROTEIN) ) {
+					if( child.ub.getEpsilonStatus() == EApproxReached.FALSE ) {
+						child.ub.runPF(child.ub.getPF(strand), wt.getPF(strand), true, true);
+					}
+				}
 
-			if( !child.lb.canContinue() ) { // epsilon is not possible or not stable
-				((KSImplKAStar) ksObj).removeLeafNode(child.lb);
+				if(child.ub.getEpsilonStatus() != EApproxReached.FALSE) {
+					KSAbstract.doCheckPoint = false;
+					return;
+				}
+			}
+
+			child.lb.run(wt, false, lbStabilityCheck);
+
+			if( !child.lb.doingKAStar() && !child.lb.canContinue() ) { // epsilon is not possible or not stable
 				return;
 			}
 
 			if( child.lb.getEpsilonStatus() == EApproxReached.TRUE ) {
 				numLeavesCompleted = ksObj.getNumSeqsCompleted(1);
-				//if(KSImplKAStar.useTightBounds) ksObj.setBestCalc(child.lb);
 			}
 
 			child.lbScore = -1.0 * child.lb.getKStarScoreLog10(true);
@@ -569,9 +581,6 @@ public class KAStarNode {
 
 					// processed nodes are those whose confs will be minimized
 					numLeavesCreated = ksObj.getNumSeqsCreated(1);
-
-					// memoize nodes that get energy minimized
-					((KSImplKAStar)ksObj).addLeafNode(ans.get(ans.size()-1).lb);
 				}
 
 				else

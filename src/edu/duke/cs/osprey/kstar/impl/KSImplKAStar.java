@@ -4,26 +4,21 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
-
 import edu.duke.cs.osprey.kstar.KSAllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSAbstract;
-import edu.duke.cs.osprey.kstar.KSCalc;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.kstar.KAStarNode;
 import edu.duke.cs.osprey.kstar.KAStarTree;
 import edu.duke.cs.osprey.kstar.KSTermini;
+import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 
 public class KSImplKAStar extends KSAbstract {
 
 	public static boolean useTightBounds = true;
 	public static String nodeExpansionMethod = "parallel1";
-	protected BigInteger numMinimizedConfs = BigInteger.ZERO;
-	protected HashSet<KSCalc> leafNodeKSCalcs = null; // nodes that get energy minimized
 
 	public KSImplKAStar(KSConfigFileParser cfp) {
 		super(cfp);
-		leafNodeKSCalcs = new HashSet<>();
 	}
 
 	@Override
@@ -46,29 +41,17 @@ public class KSImplKAStar extends KSAbstract {
 	public String getKSMethod() {
 		return "kastar";
 	}
-
-
-	public void addLeafNode(KSCalc leaf) {
-		leafNodeKSCalcs.add(leaf);
-	}
-
-	
-	public boolean removeLeafNode(KSCalc leaf) {
-		// also updates minimized confs
-		for(int strand : Arrays.asList(KSTermini.LIGAND, KSTermini.PROTEIN, KSTermini.COMPLEX))
-			numMinimizedConfs = numMinimizedConfs.add(leaf.getPF(strand).getNumMinimized4Output());
-		
-		return leafNodeKSCalcs.remove(leaf);
-	}
 	
 
 	protected BigInteger countMinimizedConfs() {
-		for(KSCalc leaf : leafNodeKSCalcs) {
-			for(int strand : Arrays.asList(KSTermini.LIGAND, KSTermini.PROTEIN, KSTermini.COMPLEX))
-				numMinimizedConfs = numMinimizedConfs.add(leaf.getPF(strand).getNumMinimized4Output());
+		BigInteger ans = BigInteger.ZERO;
+		
+		for(PFAbstract pf : name2PF.values()) { 
+			if(pf.isFullyDefined() && pf.getImpl().equalsIgnoreCase(PFAbstract.getCFGImpl()))
+				ans = ans.add(pf.getNumMinimized4Output());
 		}
-
-		return numMinimizedConfs;
+		
+		return ans;
 	}
 
 
@@ -128,8 +111,6 @@ public class KSImplKAStar extends KSAbstract {
 				
 				completed++;
 				
-				removeLeafNode(best.lb);
-				
 				continue;
 			}
 
@@ -137,7 +118,7 @@ public class KSImplKAStar extends KSAbstract {
 			tree.add(children);
 		}
 
-		return completed;
+		return completed + 1; // + 1 to count wild type
 	}
 
 
@@ -183,6 +164,6 @@ public class KSImplKAStar extends KSAbstract {
 			tree.add(children);
 		}
 
-		return completed;
+		return completed + 1; // +1 to count wild type
 	}
 }

@@ -254,7 +254,7 @@ public class KSSearchProblem extends SearchProblem {
 	}
 
 
-	private ArrayList<String> getAAsAtPos( PruningMatrix pruneMat, int pos ) {
+	public ArrayList<String> getAAsAtPos( PruningMatrix pruneMat, int pos ) {
 		ArrayList<String> ans = new ArrayList<>();
 
 		ArrayList<Integer> rcsAtPos = pruneMat.unprunedRCsAtPos(pos);
@@ -267,6 +267,21 @@ public class KSSearchProblem extends SearchProblem {
 		return ans;
 	}
 
+	
+	public ArrayList<Integer> rcsAtPos( PruningMatrix pruneMat, int pos, String aaType, boolean pruned ) {
+		ArrayList<Integer> ans = new ArrayList<>();
+		
+		ArrayList<Integer> rcsAtPos = pruned ? pruneMat.prunedRCsAtPos(pos) : pruneMat.unprunedRCsAtPos(pos);
+		for( int RCNum : rcsAtPos ) {
+			int pos1 = posNums.get(pos);
+			String AAType = confSpace.posFlex.get(pos1).RCs.get(RCNum).AAType;
+			if(!AAType.equalsIgnoreCase(aaType)) continue;
+			ans.add(RCNum);
+		}
+		
+		return ans;
+	}
+	
 
 	private ArrayList<ArrayList<String>> getAAsAtPos( PruningMatrix pruneMat ) {
 		ArrayList<ArrayList<String>> ans = new ArrayList<>();
