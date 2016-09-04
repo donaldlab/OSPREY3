@@ -601,7 +601,7 @@ public abstract class PFAbstract implements Serializable {
 	}
 
 	protected void exitIfTimeOut() {
-		if( KSAbstract.runTimeout != Integer.MAX_VALUE && System.currentTimeMillis()-startTime > KSAbstract.runTimeout * 86400000 )
+		if( KSAbstract.runTimeout != 0 && System.currentTimeMillis()-startTime > KSAbstract.runTimeout * 86400000 )
 			throw new RuntimeException("ERROR: running time exceeds " + KSAbstract.runTimeout + " days!");
 	}
 	

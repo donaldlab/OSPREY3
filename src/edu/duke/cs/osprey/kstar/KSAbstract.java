@@ -52,7 +52,7 @@ public abstract class KSAbstract implements KSInterface {
 	private boolean addWT;
 	private boolean addWTRots;
 
-	public static int runTimeout = Integer.MAX_VALUE;
+	public static long runTimeout = 0;
 	public static boolean doCheckPoint = false;
 	protected static long checkpointInterval = 50000;
 
