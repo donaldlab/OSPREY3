@@ -641,7 +641,7 @@ public class GMECFinder {
         
         // evaluate the min score conf
         System.out.println("Computing energy...");
-        EnergiedConf eMinScoreConf = new EnergiedConf(minScoreConf, ecalc.calcEnergy(minScoreConf));
+        EnergiedConf eMinScoreConf = ecalc.calcEnergy(minScoreConf);
         
         // start the sequence list with the min score conf
         System.out.println("\nMIN SCORE CONFORMATION");
@@ -653,7 +653,7 @@ public class GMECFinder {
         
         // estimate the top of our energy window
         // this is an upper bound for now, we'll refine it as we evaluate more structures
-        double windowTopEnergy = eMinScoreConf.getEnergy() + Ew;
+        final EnergyWindow window = new EnergyWindow(eMinScoreConf.getEnergy(), Ew);
         
         // enumerate all confs in order of the scores, up to the estimate of the top of the energy window
         System.out.println("Enumerating other low-scoring conformations...");
@@ -671,12 +671,12 @@ public class GMECFinder {
                 // record the new sequence
 				if (logConfsToConsole) {
 					System.out.println("\nUNIQUE SEQUENCE " + sequenceConfs.size());
-					System.out.print(confPrinter.getConfReport(conf));
+					System.out.print(confPrinter.getConfReport(conf, window));
 				}
                 sequenceConfs.add(conf);
             }
             
-            if (conf.getScore() >= windowTopEnergy) {
+            if (conf.getScore() >= window.getMax()) {
                 break;
             }
         }
