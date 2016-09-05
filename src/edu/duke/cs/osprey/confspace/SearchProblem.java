@@ -11,6 +11,7 @@ import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.EnergyMatrixCalculator;
+import edu.duke.cs.osprey.ematrix.ReferenceEnergies;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
@@ -298,6 +299,24 @@ public class SearchProblem implements Serializable {
                 
                 // cleanup
                 tasks.stop();
+                
+                // need to subtract reference energies?
+                if (useERef) {
+                    System.out.println("Computing reference energies...");
+                    emat.seteRefMat(new ReferenceEnergies(confSpace));
+                }
+                
+                // need to add entropies?
+                if (addResEntropy) {
+                    System.out.println("Computing residue entropies...");
+                	for (int pos=0; pos<emat.getNumPos(); pos++) {
+                		for (int rc=0; rc<emat.getNumConfAtPos(pos); rc++) {
+                			double energy = emat.getOneBody(pos, rc);
+                			energy += confSpace.getRCResEntropy(pos, rc);
+                			emat.setOneBody(pos, rc, energy);
+                		}
+                	}
+                }
                 
                 return emat;
             }

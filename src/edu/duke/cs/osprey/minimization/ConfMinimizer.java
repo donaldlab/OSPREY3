@@ -16,27 +16,6 @@ import edu.duke.cs.osprey.tools.Progress;
 
 public class ConfMinimizer {
 	
-	private static class EfuncAndMol {
-		public Molecule mol;
-		public EnergyFunction efunc;
-	}
-	
-	private class Task implements Runnable {
-		
-		public int index;
-		public ScoredConf conf;
-		public ConfSpace confSpace;
-		public ObjectPool<EfuncAndMol> pool;
-		public EnergiedConf minimizedConf;
-		
-		@Override
-		public void run() {
-			EfuncAndMol em = pool.checkout();
-			minimizedConf = minimize(em.mol, conf, em.efunc, confSpace);
-			pool.release(em);
-		}
-	}
-	
 	public double minimize(Molecule mol, int[] conf, EnergyFunction efunc, ConfSpace confSpace) {
 		RCTuple tuple = new RCTuple(conf);
 		MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(efunc, confSpace, tuple, mol);
@@ -51,63 +30,158 @@ public class ConfMinimizer {
 		return new EnergiedConf(conf, energy);
 	}
 	
+	public List<EnergiedConf> minimize(Molecule mol, List<ScoredConf> confs, EnergyFunction efunc, ConfSpace confSpace) {
+		Progress progress = new Progress(confs.size());
+		List<EnergiedConf> econfs = new ArrayList<>();
+		for (ScoredConf conf : confs) {
+			econfs.add(minimize(mol, conf, efunc, confSpace));
+			progress.incrementProgress();
+		}
+		return econfs;
+	}
+	
 	public List<EnergiedConf> minimize(List<ScoredConf> confs, Factory<? extends EnergyFunction,Molecule> efuncs, ConfSpace confSpace) {
 		return minimize(confs, efuncs, confSpace, new TaskExecutor());
 	}
 	
 	public List<EnergiedConf> minimize(List<ScoredConf> confs, Factory<? extends EnergyFunction,Molecule> efuncs, ConfSpace confSpace, TaskExecutor tasks) {
 		
-		// make space for all the minimized confs
-		List<EnergiedConf> minimizedConfs = new ArrayList<>(confs.size());
+		final Progress progress = new Progress(confs.size());
+		
+		List<EnergiedConf> econfs = new ArrayList<>(confs.size());
 		for (int i=0; i<confs.size(); i++) {
-			minimizedConfs.add(null);
+			econfs.add(null);
 		}
 		
-		// init the listener to collect all the minimized confs
-		Progress progress = new Progress(confs.size());
-		TaskExecutor.TaskListener listener = new TaskExecutor.TaskListener() {
+		Async async = new Async(efuncs, confSpace, tasks);
+		async.setListener(new Async.Listener() {
 			@Override
-			public void onFinished(Runnable taskBase) {
-				
-				Task task = (Task)taskBase;
-				minimizedConfs.set(task.index, task.minimizedConf);
+			public void onMinimized(EnergiedConf econf, Integer id) {
+				econfs.set(id, econf);
 				progress.incrementProgress();
-			}
-		};
-		
-		// make a pool for molecules and energy functions
-		// to keep concurrent tasks from racing each other
-		ObjectPool<EfuncAndMol> pool = new ObjectPool<>(new Factory<EfuncAndMol,Void>() {
-			@Override
-			public EfuncAndMol make(Void context) {
-				
-				EfuncAndMol out = new EfuncAndMol();
-				out.mol = new Molecule(confSpace.m);
-				out.efunc = efuncs.make(out.mol);
-				return out;
 			}
 		});
 		
-		// send all the minimization tasks
+		// minimize them all
 		for (int i=0; i<confs.size(); i++) {
-			
-			Task task = new Task();
-			task.index = i;
-			task.conf = confs.get(i);
-			task.confSpace = confSpace;
-			task.pool = pool;
-			tasks.submit(task, listener);
+			async.minimizeAsync(confs.get(i), i);
+		}
+		async.waitForFinish();
+		async.cleanup();
+		
+		return econfs;
+	}
+	
+	public static class Async {
+		
+		private static class EfuncAndMol {
+			public Molecule mol;
+			public EnergyFunction efunc;
 		}
 		
-		tasks.waitForFinish();
-		
-		// cleanup the energy functions if needed
-		for (EfuncAndMol em : pool) {
-			if (em.efunc instanceof EnergyFunction.NeedsCleanup) {
-				((EnergyFunction.NeedsCleanup)em.efunc).cleanup();
+		private class Task implements Runnable {
+			
+			public Integer id;
+			public ScoredConf conf;
+			public EnergiedConf minimizedConf;
+			
+			@Override
+			public void run() {
+				minimizedConf = minimizeSync(conf);
 			}
 		}
 		
-		return minimizedConfs;
+		public static interface Listener {
+			void onMinimized(EnergiedConf econf, Integer id);
+		}
+	
+		private ConfSpace confSpace;
+		private TaskExecutor tasks;
+		private Listener externalListener;
+		private ConfMinimizer minimizer;
+		private TaskExecutor.TaskListener taskListener;
+		private ObjectPool<EfuncAndMol> pool;
+	
+		public Async(Factory<? extends EnergyFunction,Molecule> efuncs, ConfSpace confSpace, TaskExecutor tasks) {
+			
+			this.confSpace = confSpace;
+			this.tasks = tasks;
+			
+			externalListener = null;
+			minimizer = new ConfMinimizer();
+			
+			// init the listener to collect all the minimized confs
+			taskListener = new TaskExecutor.TaskListener() {
+				@Override
+				public void onFinished(Runnable taskBase) {
+					
+					Task task = (Task)taskBase;
+					
+					// chain listeners
+					externalListener.onMinimized(task.minimizedConf, task.id);
+				}
+			};
+			
+			// make a pool for molecules and energy functions
+			// to keep concurrent tasks from racing each other
+			pool = new ObjectPool<>(new Factory<EfuncAndMol,Void>() {
+				@Override
+				public EfuncAndMol make(Void context) {
+					
+					EfuncAndMol out = new EfuncAndMol();
+					out.mol = new Molecule(confSpace.m);
+					out.efunc = efuncs.make(out.mol);
+					return out;
+				}
+			});
+		}
+		
+		public EnergiedConf minimizeSync(ScoredConf conf) {
+			EfuncAndMol em = pool.checkout();
+			try {
+				return minimizer.minimize(em.mol, conf, em.efunc, confSpace);
+			} finally {
+				pool.release(em);
+			}
+		}
+		
+		public void setListener(Listener val) {
+			externalListener = val;
+		}
+		
+		public void minimizeAsync(ScoredConf conf) {
+			minimizeAsync(conf, null);
+		}
+		
+		public void minimizeAsync(ScoredConf conf, Integer id) {
+			
+			if (externalListener == null) {
+				throw new IllegalStateException("call setListener() before minimizng asynchronously, this is a bug");
+			}
+			
+			// submit the minimization task
+			Task task = new Task();
+			task.id = id;
+			task.conf = conf;
+			tasks.submit(task, taskListener);
+		}
+		
+		public void waitForFinish() {
+			tasks.waitForFinish();
+			
+			// TEMP
+			System.out.println("pool size: " + pool.size());
+		}
+		
+		public void cleanup() {
+			
+			// cleanup the energy functions if needed
+			for (EfuncAndMol em : pool) {
+				if (em.efunc instanceof EnergyFunction.NeedsCleanup) {
+					((EnergyFunction.NeedsCleanup)em.efunc).cleanup();
+				}
+			}
+			pool.clear();
+		}
 	}
 }

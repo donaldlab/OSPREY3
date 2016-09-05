@@ -173,6 +173,18 @@ public class TestMinimization extends TestBase {
 	public void testMainThreadBatch() {
 		
 		ConfMinimizer minimizer = new ConfMinimizer();
+		EnergyFunction efunc = efuncgen.make(search.confSpace.m);
+		
+		// minimize on main thread, in batch mode
+		List<EnergiedConf> econfs = minimizer.minimize(search.confSpace.m, confs, efunc, search.confSpace);
+		
+		assertEnergies(econfs);
+	}
+	
+	@Test
+	public void testMainThreadTasks() {
+		
+		ConfMinimizer minimizer = new ConfMinimizer();
 		
 		// minimize on main thread, in batch mode
 		List<EnergiedConf> econfs = minimizer.minimize(confs, efuncgen, search.confSpace);
