@@ -72,10 +72,10 @@ public class Main {
 	private static void initCommands(String[] args, ConfigFileParser cfp) {
 		
 		// set degree of thread parallelism
-		ThreadParallelism.setNumThreads(cfp.params.getInt("numThreads", ThreadParallelism.getNumThreads()));
+		// NOTE: if we're going to use the config files here, don't override its defaults
+		ThreadParallelism.setNumThreads(cfp.params.getInt("NumThreads"));
 		MultiTermEnergyFunction.setNumThreads(ThreadParallelism.getNumThreads());
 		
-		// TODO Auto-generated method stub
 		commands = new HashMap<String, Runnable>();
 
 		commands.put("findGMEC", new Runnable() {

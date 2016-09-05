@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.minimization;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -20,7 +19,6 @@ import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
@@ -33,7 +31,6 @@ import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Factory;
-import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
 public class BenchmarkMinimization extends TestBase {
@@ -90,7 +87,7 @@ public class BenchmarkMinimization extends TestBase {
 		
 		// settings
 		final int numConfs = 512;
-		final int[] numThreadsList = { 16 };// 1, 2, 4, 8, 16 };
+		final int[] numThreadsList = { 1, 2, 4, 8 };//, 16 };
 		final boolean useGpu = true;
 		
 		int maxNumThreads = numThreadsList[numThreadsList.length - 1];
@@ -98,7 +95,7 @@ public class BenchmarkMinimization extends TestBase {
 		// get the energy function generator
 		final EnergyFunctionGenerator egen;
 		if (useGpu) {
-			GpuQueuePool gpuPool = new GpuQueuePool(maxNumThreads, 2);
+			GpuQueuePool gpuPool = new GpuQueuePool(maxNumThreads, 1);
 			//GpuQueuePool gpuPool = new GpuQueuePool(1, maxNumThreads);
 			egen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), gpuPool);
 		} else {
@@ -106,17 +103,8 @@ public class BenchmarkMinimization extends TestBase {
 		}
 		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(egen, search.confSpace, search.shellResidues);
 		
-		// get the energy matrix
-		File ematFile = new File("/tmp/emat.benchmarkMinimization.dat");
-		if (ematFile.exists()) {
-			System.out.println("\nReading energy matrix...");
-			search.emat = (EnergyMatrix)ObjectIO.readObject(ematFile.getAbsolutePath(), true);
-		}
-		if (search.emat == null) {
-			System.out.println("\nComputing energy matrix...");
-			search.emat = new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix(); 
-			ObjectIO.writeObject(search.emat, ematFile.getAbsolutePath());
-		}
+		// calc the energy matrix
+		search.emat = new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix(); 
 		
 		// get a few arbitrary conformations
 		search.pruneMat = new PruningMatrix(search.confSpace, 1000);

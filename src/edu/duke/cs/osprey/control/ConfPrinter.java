@@ -87,21 +87,25 @@ public class ConfPrinter {
         
         buf.append(getConfReport(conf.getAssignments()));
 
-        buf.append(String.format(LabelFormat + " %.6f", "Energy", conf.getEnergy()));
-        if (minEnergy != null) {
-            buf.append(String.format(" (best so far: %.6f)", minEnergy));
-        }
-        buf.append("\n");
-        
-        buf.append(String.format(LabelFormat + " %.6f (gap: %.6f)\n", "Score", conf.getScore(), Math.abs(conf.getScore() - conf.getEnergy())));
-        
+	buf.append(String.format(LabelFormat + " %.6f", "Energy", conf.getEnergy()));
+	if (window != null) {
+		buf.append(String.format(" (best so far: %.6f)", window.getMin()));
+	}
+	buf.append("\n");
+	
+	buf.append(String.format(LabelFormat + " %.6f (gap: %.6f", "Score", conf.getScore(), Math.abs(conf.getScore() - conf.getEnergy())));
+	if (window != null) {
+		buf.append(String.format(", remaining: %.6f", window.getMax() - conf.getScore()));
+	}
+	buf.append(")\n");
+
         // TODO: should conf printer really know what EPIC is?
         // useful to see EPIC energy (confE is regular E, lowerBound is tup-exp)
         if (printEPICEnergy) {
             buf.append(String.format(LabelFormat + "%.6f\n", "EPIC", searchSpace.EPICMinimizedEnergy(conf.getAssignments())));
         }
-        
-        return buf.toString();
+		
+    	return buf.toString();
     }
     
     public String getConfReport(ScoredConf conf) {

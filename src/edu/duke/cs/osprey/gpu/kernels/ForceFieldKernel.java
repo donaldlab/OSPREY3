@@ -210,9 +210,8 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 			coords.release();
 			atomFlags.release();
 			precomputed.release();
-			if (energies != null) {
-				energies.release();
-			}
+			subsetTable.release();
+			energies.release();
 		}
 		
 		private void checkInit() {

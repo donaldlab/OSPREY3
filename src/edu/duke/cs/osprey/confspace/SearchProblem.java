@@ -4,22 +4,28 @@
  */
 package edu.duke.cs.osprey.confspace;
 
+import java.io.Serializable;
+import java.util.ArrayList;
+
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.EnergyMatrixCalculator;
+import edu.duke.cs.osprey.ematrix.ReferenceEnergies;
+import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
+import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
+import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
 import edu.duke.cs.osprey.kstar.KSTermini;
+import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tupexp.ConfETupleExpander;
 import edu.duke.cs.osprey.tupexp.TupExpChooser;
-import java.io.Serializable;
-import java.util.ArrayList;
 
 /**
  *
@@ -68,6 +74,8 @@ public class SearchProblem implements Serializable {
     
     public boolean useERef = false;
     public boolean addResEntropy = false;
+    
+    public int numEmatThreads = 1;
     
     
     public SearchProblem(SearchProblem sp1){//shallow copy
@@ -247,13 +255,71 @@ public class SearchProblem implements Serializable {
     
     //compute the matrix of the specified type
     private TupleMatrix<?> calcMatrix(MatrixType type){
+    
+        // TODO: the search problem shouldn't concern itself with energy matrices and how to compute them
         
         if(type == MatrixType.EMAT){
-            EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(confSpace,shellResidues,
-                    useERef,addResEntropy);
             
-            emCalc.calcPEM();
-            return emCalc.getEMatrix();
+            if (EnvironmentVars.useMPI) {
+            
+                // if we're using MPI, use the old energy matrix calculator
+                
+                // see if the user tried to use threads too for some reason and try to be helpful
+                if (numEmatThreads > 1) {
+                    System.out.println("\n\nWARNING: multiple threads and MPI both configured for emat calculation."
+                        + " Ignoring thread settings and using only MPI.\n");
+                }
+                
+                EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(confSpace, shellResidues, useERef, addResEntropy);
+                emCalc.calcPEM();
+                return emCalc.getEMatrix();
+            
+            } else {
+            
+                // otherwise, use the new multi-threaded calculator (which doesn't support MPI)
+                
+                // where do energy functions come from?
+                EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
+                if (egen instanceof GpuEnergyFunctionGenerator) {
+                    System.out.println("\n\nWARNING: using the GPU to compute energy matrices is a Bad Idea."
+                        + " It's very slow at small residue-pair forcefields compared to the CPU."
+                        + " You'll probably be better off using multi-threaded CPU parallelism instead.\n");
+                }
+                
+                // how many threads should we use?
+                ThreadPoolTaskExecutor tasks = null;
+                if (numEmatThreads > 1) {
+                    tasks = new ThreadPoolTaskExecutor();
+                    tasks.start(numEmatThreads);
+                }
+                
+                // calculate the emat! Yeah!
+                SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(egen, confSpace, shellResidues);
+                EnergyMatrix emat = new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix(tasks);
+                
+                // cleanup
+                tasks.stop();
+                
+                // need to subtract reference energies?
+                if (useERef) {
+                    System.out.println("Computing reference energies...");
+                    emat.seteRefMat(new ReferenceEnergies(confSpace));
+                }
+                
+                // need to add entropies?
+                if (addResEntropy) {
+                    System.out.println("Computing residue entropies...");
+                	for (int pos=0; pos<emat.getNumPos(); pos++) {
+                		for (int rc=0; rc<emat.getNumConfAtPos(pos); rc++) {
+                			double energy = emat.getOneBody(pos, rc);
+                			energy += confSpace.getRCResEntropy(pos, rc);
+                			emat.setOneBody(pos, rc, energy);
+                		}
+                	}
+                }
+                
+                return emat;
+            }
         }
         else if(type == MatrixType.EPICMAT){
             EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(confSpace,shellResidues,
