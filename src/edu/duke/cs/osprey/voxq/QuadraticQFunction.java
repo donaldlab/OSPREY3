@@ -245,12 +245,26 @@ public class QuadraticQFunction {
         }
         
         double newNorm = cumulDistr(xHi);
+        
+        /*
         if( (Double.isInfinite(newNorm)||Double.isNaN(newNorm)) && Math.abs(a)>=1e-14 )
             return false;//quadratic can't be normalized, so will be replaced by linear
         else if( Math.abs(newNorm-1) > 1e-5 )
             throw new RuntimeException("ERROR: Unsuccessful normalization.  a: "+a+" b: "+b+" c: "+c);
         else if( Double.isNaN(newNorm) )
             throw new RuntimeException("ERROR: NaN normalization.  a: "+a+" b: "+b+" c: "+c);
+        */
+        
+        if( Double.isNaN(newNorm) || Math.abs(newNorm-1) > 1e-5 ){//normalization failed
+            if(Math.abs(a)>=1e-14){//this happens for nearly linear quadratic models
+                //try explicitly linear instead
+                return false;
+            }
+            else {//linear normalization failed...shouldn't happen for remotely realistic energies
+                throw new RuntimeException("ERROR: Unsuccessful normalization.  a: "+a+" b: "+b+" c: "+c
+                        +" newNorm (should be 1): "+newNorm);
+            }
+        }
         
         return true;
     }

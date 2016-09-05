@@ -52,6 +52,8 @@ public abstract class KSAbstract implements KSInterface {
 	private boolean addResEntropy;
 	private boolean addWT;
 	private boolean addWTRots;
+        
+        private boolean useVoxelG;
 
 	public static int runTimeout = Integer.MAX_VALUE;
 	public static boolean doCheckPoint = false;
@@ -76,6 +78,8 @@ public abstract class KSAbstract implements KSInterface {
 		addResEntropy = cfp.getParams().getBool("AddResEntropy");
 		addWT = cfp.getParams().getBool("addWT", true);
 		addWTRots = cfp.getParams().getBool("addWTRots", true);
+                
+                useVoxelG = cfp.getParams().getBool("useVoxelG", false);
 	}
 
 
@@ -398,7 +402,8 @@ public abstract class KSAbstract implements KSInterface {
 				useERef,
 				addResEntropy,
 				addWTRots,
-				cfp.getStrandLimits(strand));
+				cfp.getStrandLimits(strand),
+                                useVoxelG);
 
 		return panSeqSP;
 	}

@@ -34,10 +34,10 @@ public class KSSearchProblem extends SearchProblem {
 			EPICSettings epicSettings, boolean useTupExp, LUTESettings luteSettings,
                         DEEPerSettings dset, ArrayList<String[]> moveableStrands,
 			ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef, boolean addResEntropy,
-			boolean addWTRots, KSTermini termini) {
+			boolean addWTRots, KSTermini termini, boolean useVoxelG) {
 		
 		super(name, PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, useEPIC, epicSettings, useTupExp, luteSettings,
-                        dset, moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWTRots, termini);
+                        dset, moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWTRots, termini, useVoxelG);
 		
 		this.allowedAAs = allowedAAs;
 		this.reducedAllowedAAs = allowedAAs;

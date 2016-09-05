@@ -144,7 +144,8 @@ public class ConfigFileParser {
                 params.getBool("useERef"),
                 params.getBool("AddResEntropy"),
                 params.getBool("addWTRots"),
-                null
+                null,
+                params.getBool("useVoxelG")
         );
     }
     

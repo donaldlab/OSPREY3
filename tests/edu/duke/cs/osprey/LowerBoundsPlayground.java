@@ -62,7 +62,7 @@ public class LowerBoundsPlayground extends TestBase {
 		SearchProblem search = new SearchProblem(
 			"test", "test/1CC8/1CC8.ss.pdb", 
 			flexResList, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion,  new LUTESettings(),
-			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null
+			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null, false
 		);
 		
 		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;

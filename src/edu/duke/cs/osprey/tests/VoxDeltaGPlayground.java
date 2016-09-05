@@ -34,11 +34,15 @@ public class VoxDeltaGPlayground {
         
         //for these three confs, pairwise differences (by alignment) and separable reference G's check out
         //int conf1[] = new int[] {5,7,12,5,1,7,4};
-        int conf1[] = new int[] {5,7,7,5,0,7,4};
+        //int conf1[] = new int[] {5,7,7,5,0,7,4};
         //int conf1[] = new int[] {5,10,5,7,1,7,4};
         
-        EPICMatrix epicMat1 = (EPICMatrix) ObjectIO.readObject("1CC8.EPICMAT.dat", true);
-        EPICMatrix epicMat2 = (EPICMatrix) ObjectIO.readObject("1CC8.EPICMAT.dat", true);
+        int conf1[] = new int[] {5,7,12,5,0,7,4};
+        
+        String epicMatrixName = "1CC8.bbfree.nolute.EPICMAT.dat";//"1CC8.EPICMAT.dat";
+        
+        EPICMatrix epicMat1 = (EPICMatrix) ObjectIO.readObject(epicMatrixName, true);
+        EPICMatrix epicMat2 = (EPICMatrix) ObjectIO.readObject(epicMatrixName, true);
                 
         /*MoleculeModifierAndScorer mms1 = new MoleculeModifierAndScorer(sp1.fullConfE,
             sp1.confSpace, new RCTuple(conf1) );*/

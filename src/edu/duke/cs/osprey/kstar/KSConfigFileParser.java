@@ -263,7 +263,9 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 				getParams().getBool("useERef", false),
 				getParams().getBool("AddResEntropy", false),
 				getParams().getBool("addWTRots", false),
-				getStrandLimits(strand));
+				getStrandLimits(strand),
+                                getParams().getBool("useVoxelG", false)
+                );
 	}
 
 

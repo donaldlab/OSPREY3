@@ -20,6 +20,7 @@ import edu.duke.cs.osprey.tupexp.ConfETupleExpander;
 import edu.duke.cs.osprey.tupexp.ConfGTupleExpander2;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 import edu.duke.cs.osprey.tupexp.TupExpChooser;
+import edu.duke.cs.osprey.voxq.VoxelGCalculator;
 import java.io.Serializable;
 import java.util.ArrayList;
 
@@ -59,6 +60,8 @@ public class SearchProblem implements Serializable {
     public PruningMatrix pruneMat;
     
     public boolean contSCFlex;
+    public boolean useVoxelG = false;//use the free energy of each voxel instead of minimized energy
+    VoxelGCalculator gCalc = null;
     
     public PruningMatrix competitorPruneMat;//a pruning matrix performed at pruning interval 0,
     //to decide which RC tuples are valid competitors for pruning
@@ -101,7 +104,7 @@ public class SearchProblem implements Serializable {
     public SearchProblem(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
             boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, LUTESettings luteSettings, DEEPerSettings dset, 
             ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef,
-            boolean addResEntropy, boolean addWTRots, KSTermini termini){
+            boolean addResEntropy, boolean addWTRots, KSTermini termini, boolean useVoxelG){
         
         confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses, addWTRots, termini);
         this.name = name;
@@ -115,6 +118,7 @@ public class SearchProblem implements Serializable {
         
         this.useERef = useERef;
         this.addResEntropy = addResEntropy;
+        this.useVoxelG = useVoxelG;
         
         //energy function setup
         EnergyFunctionGenerator eGen = EnvironmentVars.curEFcnGenerator;
@@ -156,6 +160,9 @@ public class SearchProblem implements Serializable {
     public double minimizedEnergy(int[] conf){
         //Minimized energy of the conformation
         //whose RCs are listed for all flexible positions in conf
+        if(useVoxelG)//use free instead of minimized energy
+            return gCalc.calcG(conf);
+        
         double E = confSpace.minimizeEnergy(conf, fullConfE, null);
         
         if(useERef)
@@ -179,7 +186,7 @@ public class SearchProblem implements Serializable {
         //EPIC or other approximation for the minimized energy of the conformation
         //whose RCs are listed for all flexible positions in conf
         
-        if( useTupExpForSearch ){//use tup-exp E-matrix direectly
+        if( useTupExpForSearch ){//use tup-exp E-matrix directly
             return tupExpEMat.confE(conf);
         }
         else if( useEPIC ){//EPIC w/o tup-exp
@@ -191,8 +198,18 @@ public class SearchProblem implements Serializable {
     }
     
     
+    public double voxelFreeEnergy(int[] conf){
+        if(gCalc==null)
+            throw new RuntimeException("ERROR: Free energy calculator is null (probably no EPIC matrix loaded)");
+            
+        return gCalc.calcG(conf);
+    }
+    
     public double EPICMinimizedEnergy(int[] conf){
         //approximate energy using EPIC
+        if(useVoxelG)
+            return voxelFreeEnergy(conf);
+        
         double bound = emat.confE(conf);//emat contains the pairwise lower bounds
         double contPart = epicMat.minContE(conf);
         //EPIC handles the continuous part (energy - pairwise lower bounds)
@@ -228,6 +245,9 @@ public class SearchProblem implements Serializable {
     
     public void loadEPICMatrix(){
         loadMatrix(MatrixType.EPICMAT);
+        
+        if(useVoxelG)
+            gCalc = new VoxelGCalculator(this);
     }
     
     
@@ -269,14 +289,7 @@ public class SearchProblem implements Serializable {
         else {
             //need to calculate a tuple-expansion matrix
             
-            //DEBUG!!!!!
-            boolean doG = false;
-            ConfETupleExpander expander;
-            if(doG)
-                expander = new ConfGTupleExpander2(this);
-            else
-                expander = new ConfETupleExpander(this);
-            //ConfETupleExpander expander = new ConfETupleExpander(this);//make a tuple expander
+            ConfETupleExpander expander = new ConfETupleExpander(this);//make a tuple expander
             
             
             TupleEnumerator tupEnum = new TupleEnumerator(pruneMat,emat,confSpace.numPos);
