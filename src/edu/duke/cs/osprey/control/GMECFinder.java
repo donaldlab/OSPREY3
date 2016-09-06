@@ -31,6 +31,7 @@ import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
 import edu.duke.cs.osprey.gpu.GpuQueuePool;
 import edu.duke.cs.osprey.minimization.ConfMinimizer;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.partcr.PartCRConfPruner;
 import edu.duke.cs.osprey.pruning.Pruner;
@@ -99,6 +100,63 @@ public class GMECFinder {
 			}
         }
     }
+	
+	public static class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async {
+		
+		private SearchProblem search;
+		private ConfMinimizer.Async minimizer;
+		private ThreadPoolTaskExecutor tasks;
+		
+		public MinimizingEnergyCalculator(SearchProblem search, ConfMinimizer.Async minimizer, ThreadPoolTaskExecutor tasks) {
+			this.search = search;
+			this.minimizer = minimizer;
+			this.tasks = tasks;
+		}
+		
+		private EnergiedConf postProcessConf(EnergiedConf econf) {
+			
+			// add post-minimization energy modifications
+			if (search.useERef) {
+				econf.offsetEnergy(-search.emat.geteRefMat().confERef(econf.getAssignments()));
+			}
+			if (search.addResEntropy) {
+				econf.offsetEnergy(search.confSpace.getConfResEntropy(econf.getAssignments()));
+			}
+			
+			return econf;
+		}
+
+		@Override
+		public EnergiedConf calcEnergy(ScoredConf conf) {
+			return postProcessConf(minimizer.minimizeSync(conf));
+		}
+		
+		@Override
+		public void setListener(Listener listener) {
+			minimizer.setListener(new ConfMinimizer.Async.Listener() {
+				@Override
+				public void onMinimized(EnergiedConf econf, Integer id) {
+					listener.onEnergy(postProcessConf(econf));
+				}
+			});
+		}
+		
+		@Override
+		public void calcEnergyAsync(ScoredConf conf) {
+			minimizer.minimizeAsync(conf);
+		}
+		
+		@Override
+		public void waitForFinish() {
+			minimizer.waitForFinish();
+		}
+
+		@Override
+		public void cleanup() {
+			minimizer.cleanup();
+			tasks.stop();
+		}
+	}
     
     public static interface ConfPruner {
         void prune(List<ScoredConf> confs, ConfEnergyCalculator ecalc);
@@ -115,6 +173,7 @@ public class GMECFinder {
     private SearchProblem searchSpace;
     private PruningControl pruningControl;
     private Factory<ConfSearch,SearchProblem> confSearchFactory;
+    private ConfEnergyCalculator.Async ecalc;
     private ConfPruner confPruner;
     
     private double Ew;//energy window for enumerating conformations: 0 for just GMEC
@@ -142,7 +201,6 @@ public class GMECFinder {
     
     private double stericThresh;
     private boolean logConfsToConsole;
-    private ConfEnergyCalculator.Async ecalc;
     
     public GMECFinder() {
         
@@ -164,7 +222,7 @@ public class GMECFinder {
         // in the method args in the method that actually needs them
     }
     
-    public void init(SearchProblem search, PruningControl pruningControl, Factory<ConfSearch,SearchProblem> confSearchFactory,
+    public void init(SearchProblem search, PruningControl pruningControl, Factory<ConfSearch,SearchProblem> confSearchFactory, ConfEnergyCalculator.Async ecalc,
         double Ew, boolean doIMinDEE, double I0, boolean useContFlex, boolean useTupExp, boolean useEPIC, boolean checkApproxE,
         boolean outputGMECStruct, boolean eFullConfOnly, String confFileName, double stericThresh) {
         
@@ -179,6 +237,7 @@ public class GMECFinder {
         this.searchSpace = search;
         this.pruningControl = pruningControl;
         this.confSearchFactory = confSearchFactory;
+        this.ecalc = ecalc;
         this.Ew = Ew;
         this.doIMinDEE = doIMinDEE;
         this.I0 = I0;
@@ -316,6 +375,8 @@ public class GMECFinder {
 				
 			} else {
 				
+				// for "regular" conf minimization, use the spiffy new ConfMinimizer!
+				
 				// how many threads/gpus are we using?
 				int numThreads = cfp.getParams().getInt("MinimizationThreads");
 				int numGpus = cfp.getParams().getInt("MinimizationGpus");
@@ -356,53 +417,7 @@ public class GMECFinder {
 				// init the minimizer
 				final ConfMinimizer.Async minimizer = new ConfMinimizer.Async(efuncs, searchSpace.confSpace, tasks);
 					
-				// for "regular" conf minimization, use the spiffy new ConfMinimizer!
-				ecalc = new ConfEnergyCalculator.Async() {
-					
-					private EnergiedConf postProcessConf(EnergiedConf econf) {
-						
-						// add post-minimization energy modifications
-						if (searchSpace.useERef) {
-							econf.offsetEnergy(-searchSpace.emat.geteRefMat().confERef(econf.getAssignments()));
-						}
-						if (searchSpace.addResEntropy) {
-							econf.offsetEnergy(searchSpace.confSpace.getConfResEntropy(econf.getAssignments()));
-						}
-						
-						return econf;
-					}
-
-					@Override
-					public EnergiedConf calcEnergy(ScoredConf conf) {
-						return postProcessConf(minimizer.minimizeSync(conf));
-					}
-					
-					@Override
-					public void setListener(Listener listener) {
-						minimizer.setListener(new ConfMinimizer.Async.Listener() {
-							@Override
-							public void onMinimized(EnergiedConf econf, Integer id) {
-								listener.onEnergy(postProcessConf(econf));
-							}
-						});
-					}
-					
-					@Override
-					public void calcEnergyAsync(ScoredConf conf) {
-						minimizer.minimizeAsync(conf);
-					}
-					
-					@Override
-					public void waitForFinish() {
-						minimizer.waitForFinish();
-					}
-
-					@Override
-					public void cleanup() {
-						minimizer.cleanup();
-						tasks.stop();
-					}
-				};
+				ecalc = new MinimizingEnergyCalculator(searchSpace, minimizer, tasks);
 			}
 			
 		} else {
