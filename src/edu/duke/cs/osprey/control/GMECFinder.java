@@ -27,11 +27,12 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.dof.DegreeOfFreedom;
+import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
 import edu.duke.cs.osprey.gpu.GpuQueuePool;
 import edu.duke.cs.osprey.minimization.ConfMinimizer;
-import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.partcr.PartCRConfPruner;
 import edu.duke.cs.osprey.pruning.Pruner;
@@ -375,49 +376,73 @@ public class GMECFinder {
 				
 			} else {
 				
-				// for "regular" conf minimization, use the spiffy new ConfMinimizer!
-				
-				// how many threads/gpus are we using?
-				int numThreads = cfp.getParams().getInt("MinimizationThreads");
-				int numGpus = cfp.getParams().getInt("MinimizationGpus");
-				
-				final ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
-				
-				// what energy function should we use?
-				// NOTE: the gpu settings override the thread settings
-				final Factory<? extends EnergyFunction,Molecule> efuncs;
-				if (numGpus > 0) {
+				// HACKHACK: need to find out if we're using deeper, which isn't supported by the concurrent molecule code yet
+				// we'd need to implement the copy() and setMolecule() methods on Perturbation DOFs to enable compatibility
+				boolean usingDEEPer = false;
+				for (DegreeOfFreedom dof : searchSpace.confSpace.confDOFs) {
+					if (dof instanceof Perturbation) {
+						usingDEEPer = true;
+						break;
+					}
+				}
+				if (usingDEEPer) {
+					System.out.println("\n\nWARNING: DEEPer perturbations detected, concurrent minimizations disabled due to temporary incompatibility\n");
 					
-					// use gpu-calculated energy functions
-					GpuQueuePool gpuPool = new GpuQueuePool(numGpus, 1);
-					final GpuEnergyFunctionGenerator egen = new GpuEnergyFunctionGenerator(EnvironmentVars.curEFcnGenerator.ffParams, gpuPool);
-					
-					efuncs = new Factory<EnergyFunction,Molecule>() {
+					// fall back to the old SearchProblem.minimize() method
+					ecalc = new ConfEnergyCalculator.Async.Adapter(new ConfEnergyCalculator() {
 						@Override
-						public EnergyFunction make(Molecule mol) {
-							return egen.fullConfEnergy(searchSpace.confSpace, searchSpace.shellResidues, mol);
+						public EnergiedConf calcEnergy(ScoredConf conf) {
+							double energy = searchSpace.minimizedEnergy(conf.getAssignments());
+							return new EnergiedConf(conf, energy);
 						}
-					};
-					
-					tasks.start(gpuPool.getNumQueues());
+					});
 					
 				} else {
-					
-					// plain ol' cpu-calculated energy functions
-					efuncs = new Factory<EnergyFunction,Molecule>() {
-						@Override
-						public EnergyFunction make(Molecule mol) {
-							return EnvironmentVars.curEFcnGenerator.fullConfEnergy(searchSpace.confSpace, searchSpace.shellResidues, mol);
-						}
-					};
-					
-					tasks.start(numThreads);
-				}
 				
-				// init the minimizer
-				final ConfMinimizer.Async minimizer = new ConfMinimizer.Async(efuncs, searchSpace.confSpace, tasks);
+					// for "regular" conf minimization, use the spiffy new ConfMinimizer!
 					
-				ecalc = new MinimizingEnergyCalculator(searchSpace, minimizer, tasks);
+					// how many threads/gpus are we using?
+					int numThreads = cfp.getParams().getInt("MinimizationThreads");
+					int numGpus = cfp.getParams().getInt("MinimizationGpus");
+					
+					final ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
+					
+					// what energy function should we use?
+					// NOTE: the gpu settings override the thread settings
+					final Factory<? extends EnergyFunction,Molecule> efuncs;
+					if (numGpus > 0) {
+						
+						// use gpu-calculated energy functions
+						GpuQueuePool gpuPool = new GpuQueuePool(numGpus, 1);
+						final GpuEnergyFunctionGenerator egen = new GpuEnergyFunctionGenerator(EnvironmentVars.curEFcnGenerator.ffParams, gpuPool);
+						
+						efuncs = new Factory<EnergyFunction,Molecule>() {
+							@Override
+							public EnergyFunction make(Molecule mol) {
+								return egen.fullConfEnergy(searchSpace.confSpace, searchSpace.shellResidues, mol);
+							}
+						};
+						
+						tasks.start(gpuPool.getNumQueues());
+						
+					} else {
+						
+						// plain ol' cpu-calculated energy functions
+						efuncs = new Factory<EnergyFunction,Molecule>() {
+							@Override
+							public EnergyFunction make(Molecule mol) {
+								return EnvironmentVars.curEFcnGenerator.fullConfEnergy(searchSpace.confSpace, searchSpace.shellResidues, mol);
+							}
+						};
+						
+						tasks.start(numThreads);
+					}
+					
+					// init the minimizer
+					final ConfMinimizer.Async minimizer = new ConfMinimizer.Async(efuncs, searchSpace.confSpace, tasks);
+						
+					ecalc = new MinimizingEnergyCalculator(searchSpace, minimizer, tasks);
+				}
 			}
 			
 		} else {

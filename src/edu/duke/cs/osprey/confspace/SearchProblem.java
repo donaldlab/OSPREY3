@@ -8,7 +8,9 @@ import java.io.Serializable;
 import java.util.ArrayList;
 
 import edu.duke.cs.osprey.control.EnvironmentVars;
+import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
+import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.EnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.ReferenceEnergies;
@@ -259,13 +261,25 @@ public class SearchProblem implements Serializable {
         // TODO: the search problem shouldn't concern itself with energy matrices and how to compute them
         
         if(type == MatrixType.EMAT){
-            
-            if (EnvironmentVars.useMPI) {
-            
-                // if we're using MPI, use the old energy matrix calculator
+        	
+        	// HACKHACK: need to find out if we're using deeper, which isn't supported by the concurrent molecule code yet
+        	// we'd need to implement the copy() and setMolecule() methods on Perturbation DOFs to enable compatibility
+			boolean usingDEEPer = false;
+			for (DegreeOfFreedom dof : confSpace.confDOFs) {
+				if (dof instanceof Perturbation) {
+					usingDEEPer = true;
+					break;
+				}
+			}
+			if (usingDEEPer) {
+				System.out.println("\n\nWARNING: DEEPer perturbations detected, concurrent energy matrix calculations disabled due to temporary incompatibility\n");
+			}
+        	
+            // if we're using MPI or DEEPer, use the old energy matrix calculator
+            if (EnvironmentVars.useMPI || usingDEEPer) {
                 
                 // see if the user tried to use threads too for some reason and try to be helpful
-                if (numEmatThreads > 1) {
+                if (EnvironmentVars.useMPI && numEmatThreads > 1) {
                     System.out.println("\n\nWARNING: multiple threads and MPI both configured for emat calculation."
                         + " Ignoring thread settings and using only MPI.\n");
                 }
