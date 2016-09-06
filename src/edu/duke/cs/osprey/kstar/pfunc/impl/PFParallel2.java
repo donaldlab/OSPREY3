@@ -25,9 +25,9 @@ import edu.duke.cs.osprey.tools.ObjectIO;
 public class PFParallel2 extends PFParallel1 implements Serializable {
 
 	protected static HashMap<Integer, ArrayList<KSSearchProblem>> strand2SPs = new HashMap<>();
-	private ArrayList<Integer> indexes = new ArrayList<>();
+	private ArrayList<Integer> indexes = new ArrayList<>(PFAbstract.getNumThreads());
 	private ArrayList<KSSearchProblem> sps = null;
-	private ArrayList<KSConf> partialQConfs = new ArrayList<>();
+	private ArrayList<KSConf> partialQConfs = new ArrayList<>(PFAbstract.getNumThreads());
 
 	public PFParallel2() {
 		super();
@@ -205,7 +205,7 @@ public class PFParallel2 extends PFParallel1 implements Serializable {
 			if(canUseHotByConfError(peb)) tryHotForConf(partialQConfs.get(index), mefs.get(index));
 		}
 	}
-
+	
 
 	protected void accumulate( ArrayList<KSConf> partialQConfs, boolean energiesEvaluated ) throws Exception {
 
