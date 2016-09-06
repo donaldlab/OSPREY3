@@ -298,7 +298,9 @@ public class SearchProblem implements Serializable {
                 EnergyMatrix emat = new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix(tasks);
                 
                 // cleanup
-                tasks.stop();
+                if (tasks != null) {
+                	tasks.stop();
+                }
                 
                 // need to subtract reference energies?
                 if (useERef) {
