@@ -60,7 +60,8 @@ public class ConfigFileParser {
                 params.getDouble("maxBackrubParam"),
                 params.getBool("selectLCAs"),
                 getFlexRes(), 
-                params.getValue("PDBNAME")
+                params.getValue("PDBNAME"),
+                params.getBool("DORAMACHECK")
         );
         
         dset.loadPertFile(null);//load the PertSet from its file

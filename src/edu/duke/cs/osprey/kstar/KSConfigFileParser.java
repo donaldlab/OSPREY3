@@ -117,7 +117,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 
 		DEEPerSettings dset = new DEEPerSettings(
 				params.getBool("doPerturbations"),
-				params.getRunSpecificFileName("perturbationFile", ".pert"),
+				"STR"+strand+"."+params.getRunSpecificFileName("perturbationFile", ".pert"),
 				params.getBool("selectPerturbations"),
 				params.getValue("startingPerturbationFile"),
 				params.getBool("onlyStartingPerturbations"),
@@ -125,7 +125,8 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 				params.getDouble("maxBackrubParam"),
 				params.getBool("selectLCAs"),
 				getFlexResByStrand(strand),
-				params.getValue("PDBNAME")
+				params.getValue("PDBNAME"),
+                                params.getBool("DORAMACHECK")
 				);
 
 		// remove residues not in this strand

@@ -17,7 +17,6 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tupexp.ConfETupleExpander;
-import edu.duke.cs.osprey.tupexp.ConfGTupleExpander2;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 import edu.duke.cs.osprey.tupexp.TupExpChooser;
 import edu.duke.cs.osprey.voxq.VoxelGCalculator;
