@@ -509,10 +509,12 @@ public class GMECFinder {
             searchSpace.loadEPICMatrix();
             
             //we can prune more using the EPIC matrix
-            System.out.println("Beginning post-EPIC pruning.");
-            initPruning(pruningInterval, true, false);
-            pruningControl.prune();
-            System.out.println("Finished post-EPIC pruning.");
+            if(searchSpace.epicSettings.useEPICPruning){
+                System.out.println("Beginning post-EPIC pruning.");
+                initPruning(pruningInterval, true, false);
+                pruningControl.prune();
+                System.out.println("Finished post-EPIC pruning.");
+            }
         }
         if(useTupExp){//preferably do this one EPIC loaded (much faster if can fit to EPIC)
             searchSpace.loadTupExpEMatrix();

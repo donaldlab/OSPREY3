@@ -316,9 +316,11 @@ public abstract class KSAbstract implements KSInterface {
             if(contSP.useEPIC){//currently only supporting EPIC in K* runs if LUTE also used...
                 contSP.loadEPICMatrix();
                 //we can prune more using the EPIC matrix
-                System.out.println("Beginning post-EPIC pruning.");
-                cfp.setupPruning(contSP, EW+I0, true, false).prune();
-                System.out.println("Finished post-EPIC pruning.");
+                if(contSP.epicSettings.useEPICPruning){
+                    System.out.println("Beginning post-EPIC pruning.");
+                    cfp.setupPruning(contSP, EW+I0, true, false).prune();
+                    System.out.println("Finished post-EPIC pruning.");
+                }
             }
             
             contSP.loadTupExpEMatrix();

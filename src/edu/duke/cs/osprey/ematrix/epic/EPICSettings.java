@@ -84,6 +84,8 @@ public class EPICSettings implements Serializable {
     //but makes bound calc more time-consuming
        
     
+    public boolean useEPICPruning = true;//use EPIC terms for continuous pruning
+    
     public EPICSettings(){
         //by default, no EPIC
         //this is cool for operations like K* mutation list or perturbation selection
@@ -103,6 +105,8 @@ public class EPICSettings implements Serializable {
         minPartialConfs = params.getBool("MINPARTIALCONFS");
 
         quadOnly = params.getBool("EPICQUADONLY");
+        
+        useEPICPruning = params.getBool("USEEPICPRUNING");
         
         if(EPICThresh2<EPICThresh1){
             throw new RuntimeException("ERROR: EPICThresh2 must be at least EPICThresh1!  "
