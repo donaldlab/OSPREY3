@@ -109,4 +109,18 @@ public class DEEPerSettings {
     }
     
     
+    public DEEPerSettings makeDiscreteVersion(){
+        //make a version of these settings with continuous intervals changed to discrete points
+        DEEPerSettings discrSettings = new DEEPerSettings(doPerturbations, pertFileName+".DISCR", 
+            selectPerturbations, startingPertFile, onlyStarting, 0, 0, 
+            selectLCAs, flexibleRes, PDBFile);
+        
+        if(perts==null)
+            discrSettings.perts = null;
+        else
+            discrSettings.perts = perts.makeDiscreteVersion();
+        
+        return discrSettings;
+    }
+    
 }

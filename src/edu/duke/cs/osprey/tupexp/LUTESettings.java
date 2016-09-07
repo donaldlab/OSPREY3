@@ -6,6 +6,7 @@
 package edu.duke.cs.osprey.tupexp;
 
 import edu.duke.cs.osprey.control.ParamSet;
+import java.io.Serializable;
 
 /**
  *
@@ -13,7 +14,7 @@ import edu.duke.cs.osprey.control.ParamSet;
  * 
  * @author mhall44
  */
-public class LUTESettings {
+public class LUTESettings implements Serializable {
     
     boolean useLUTE=false;
     public double goalResid=0.01;

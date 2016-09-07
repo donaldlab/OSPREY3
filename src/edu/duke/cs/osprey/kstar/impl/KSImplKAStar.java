@@ -24,12 +24,18 @@ public class KSImplKAStar extends KSAbstract {
 	public KSImplKAStar(KSConfigFileParser cfp) {
 		super(cfp);
 		leafNodePFs = new HashSet<>();
+                
+                if(useVoxelG){
+                    throw new RuntimeException("ERROR: Rigid-rotamer upper bound used by KSImplKAStar "
+                            + "not compatible with continuous entropy (useVoxelG");
+                }
 	}
 
 	@Override
 	public void init( HashMap<Integer, KSAllowedSeqs> strand2AllowedSeqs ) {
 
 		this.strand2AllowedSeqs = strand2AllowedSeqs;
+                checkAPPP();
 
 		printSequences();
 

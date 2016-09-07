@@ -178,7 +178,7 @@ public class ConfigFileParser {
     }
     
     
-    protected ArrayList<ArrayList<String>> getAllowedAAs(){
+    public ArrayList<ArrayList<String>> getAllowedAAs(){
         //List allowed AA types for each flexible position
         //We can accept either RESALLOWED0_0 (for flexible res 0 of strand 0)
         //or RESALLOWED255 (for residue with PDB number 255)

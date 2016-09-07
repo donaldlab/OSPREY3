@@ -86,6 +86,8 @@ public class GMECFinder {
     private double stericThresh;
     private boolean logConfsToConsole;
     
+    private double lowestBound;
+    
     public GMECFinder() {
         
         // Arguably, the stuff below is the initialization, which should be its own function. The constructor may eventually
@@ -252,6 +254,10 @@ public class GMECFinder {
         return calcGMEC(I0);
     }
     
+    public double calcGMECEnergy(){
+        return calcGMEC().get(0).getEnergy();
+    }
+    
     private List<EnergiedConf> calcGMEC(double interval) {
         
         System.out.println("Calculating GMEC with interval = " + interval);
@@ -382,7 +388,7 @@ public class GMECFinder {
             
         if(doIMinDEE){//iMinDEE...figure out if a second round is needed
             
-            double lowestBound;//lowest lower-bound on a conformation
+            //compute the lowest lower-bound on a conformation
             // if we're using epic or tuple expansion, we need to compute the min bound using the energy matrix
             // otherwise, our pruning interval estimate will be wrong
             if ((useEPIC||useTupExp))//enumeration is by approximated energy...calculate lower bound separately
@@ -402,7 +408,10 @@ public class GMECFinder {
                 double nextInterval = minEnergyConf.getEnergy() - lowestBound;
 
                 // pad the new interval a bit to avoid numerical instability
-                nextInterval += 0.001;
+                double intervalPad = 0.001;
+                if(searchSpace.useVoxelG)//GMEC energy has statistical error (~0.1 kcal/mol maybe)
+                    intervalPad = 0.2;
+                nextInterval += intervalPad;
 
                 return calcGMEC(nextInterval);
             }
@@ -431,6 +440,12 @@ public class GMECFinder {
         }
         
         return econfs;
+    }
+    
+    
+    //for use after an iMinDEE run, if we want to see what the lowest bound was
+    public double getLowestBound(){
+        return lowestBound;
     }
     
     

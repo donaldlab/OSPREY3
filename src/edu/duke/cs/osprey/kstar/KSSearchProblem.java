@@ -128,26 +128,6 @@ public class KSSearchProblem extends SearchProblem {
 	}
 
 	
-	public void loadEnergyMatrix(MatrixType type) {
-		switch (type) {
-
-		case EMAT: 
-			loadEnergyMatrix();
-			break;
-
-		case TUPEXPEMAT: 
-			loadTupExpEMatrix();
-			break;
-
-		case EPICMAT:
-			loadEPICMatrix();
-			break;
-
-		default:	
-			throw new RuntimeException("ERROR: unsupported energy matrix type: " + type);
-		}
-	}
-	
 	
 	public String getMatrixFileName(MatrixType type) {
 		return name + "." + type.name() + ".dat";
