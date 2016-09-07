@@ -16,6 +16,7 @@ import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.StringParsing;
+import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class KSConfigFileParser extends ConfigFileParser implements Serializable {
 
@@ -116,7 +117,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 
 		DEEPerSettings dset = new DEEPerSettings(
 				params.getBool("doPerturbations"),
-				params.getRunSpecificFileName("perturbationFile", ".pert"),
+				"STR"+strand+"."+params.getRunSpecificFileName("perturbationFile", ".pert"),
 				params.getBool("selectPerturbations"),
 				params.getValue("startingPerturbationFile"),
 				params.getBool("onlyStartingPerturbations"),
@@ -124,7 +125,8 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 				params.getDouble("maxBackrubParam"),
 				params.getBool("selectLCAs"),
 				getFlexResByStrand(strand),
-				params.getValue("PDBNAME")
+				params.getValue("PDBNAME"),
+                                params.getBool("DORAMACHECK")
 				);
 
 		// remove residues not in this strand
@@ -256,12 +258,15 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 				getParams().getBool("doMinimize", false),
 				new EPICSettings(params),
 				getParams().getBool("UseTupExp", false),
+                                new LUTESettings(params),
 				dset, moveableStrands, freeBBZones,
 				getParams().getBool("useEllipses", false),
 				getParams().getBool("useERef", false),
 				getParams().getBool("AddResEntropy", false),
 				getParams().getBool("addWTRots", false),
-				getStrandLimits(strand));
+				getStrandLimits(strand),
+                                getParams().getBool("useVoxelG", false)
+                );
 	}
 
 

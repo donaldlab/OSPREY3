@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.Map;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
+import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 import edu.duke.cs.osprey.tests.UnitTestSuite;
 
@@ -75,7 +76,11 @@ public class Main {
 		// NOTE: if we're going to use the config files here, don't override its defaults
 		ThreadParallelism.setNumThreads(cfp.params.getInt("NumThreads"));
 		MultiTermEnergyFunction.setNumThreads(ThreadParallelism.getNumThreads());
-		
+
+                CCDMinimizer.EConvTol = cfp.params.getDouble("CCDEConvTol");
+                CCDMinimizer.numIter = cfp.params.getInt("CCDNumIter");
+                
+		// TODO Auto-generated method stub
 		commands = new HashMap<String, Runnable>();
 
 		commands.put("findGMEC", new Runnable() {

@@ -38,13 +38,15 @@ public class VoxelsDeltaG {
     
     
     
-    public VoxelsDeltaG(MoleculeModifierAndScorer mms1, MoleculeModifierAndScorer mms2){
+    public VoxelsDeltaG(MoleculeModifierAndScorer mms1, MoleculeModifierAndScorer mms2, boolean alignByEnergy){
+        //if alignByEnergy we try to align low-energy regions
+        //else we assume aligning voxel bounds suffices
         //just need to set sampler1, sampler2, numDOFs
-        System.out.println("INITIALIZING IVS1");
+        //System.out.println("INITIALIZING IVS1");
         sampler1 = new IntraVoxelSampler(mms1);
-        System.out.println("INITIALIZING IVS2");
+        //System.out.println("INITIALIZING IVS2");
         sampler2 = new IntraVoxelSampler(mms2);
-        System.out.println("DONE INITIALIZING IVS");
+        //System.out.println("DONE INITIALIZING IVS");
         numDOFs = sampler1.numDOFs;
         if(sampler2.numDOFs!=numDOFs)
             throw new RuntimeException("ERROR: Not supporting delta G for voxels w/ different # DOFs currently...");
@@ -52,20 +54,27 @@ public class VoxelsDeltaG {
         
         //SETTING UP NORMALIZATIONS
         
+        
+        if(alignByEnergy){
                 //first, draw some initial samples
-        ArrayList<DoubleMatrix1D> fullSamples1 = new ArrayList<>();//will need full samples for alignment
-        ArrayList<DoubleMatrix1D> fullSamples2 = new ArrayList<>();
-        for(int n=0; n<sampleBatchSize; n++){
-            //System.out.println("DRAWING SAMP 1");
-            DoubleMatrix1D samp1 = sampler1.nextSample();
-            fullSamples1.add(samp1);
-            //System.out.println("DRAWING SAMP 2");
-            DoubleMatrix1D samp2 = sampler2.nextSample();
-            fullSamples2.add(samp2);
+            ArrayList<DoubleMatrix1D> fullSamples1 = new ArrayList<>();//will need full samples for alignment
+            ArrayList<DoubleMatrix1D> fullSamples2 = new ArrayList<>();
+            for(int n=0; n<sampleBatchSize; n++){
+                //System.out.println("DRAWING SAMP 1");
+                DoubleMatrix1D samp1 = sampler1.nextSample();
+                fullSamples1.add(samp1);
+                //System.out.println("DRAWING SAMP 2");
+                DoubleMatrix1D samp2 = sampler2.nextSample();
+                fullSamples2.add(samp2);
+            }
+            //and use these initial samples to figure out what alignment we want
+            sn1 = new SampleNormalization(fullSamples1);
+            sn2 = new SampleNormalization(fullSamples2);
         }
-        //and use these initial samples to figure out what alignment we want
-        sn1 = new SampleNormalization(fullSamples1);
-        sn2 = new SampleNormalization(fullSamples2);
+        else {
+            sn1 = new SampleNormalization(mms1.getConstraints());
+            sn2 = new SampleNormalization(mms2.getConstraints());
+        }
     }
     
     
@@ -107,6 +116,20 @@ public class VoxelsDeltaG {
         DoubleMatrix1D center;
         DoubleMatrix1D scaling;
         double jacDet;//determinant of Jacobian of (linear) mapping from normalized to actual DOFs
+        
+        SampleNormalization(DoubleMatrix1D[] constr){
+            //just normalize so that each normalized DOF runs from -.5 to .5 between the given constraints
+            center = constr[0].copy();
+            center.assign(constr[1],Functions.plus);
+            center.assign(Functions.mult(0.5));
+            
+            scaling = constr[1].copy();
+            scaling.assign(constr[0],Functions.minus);
+            
+            jacDet = 1;
+            for(double el : scaling.toArray())
+                jacDet *= el;
+        }
         
         SampleNormalization(ArrayList<DoubleMatrix1D> fullSamples){
             center = DoubleFactory1D.dense.make(numDOFs);
@@ -224,6 +247,12 @@ public class VoxelsDeltaG {
         integRelErr2 = relStdDev(f2,integ2) / Math.sqrt(f2.size());
         
         return estDeltaG - IntraVoxelSampler.RT * ( Math.log(integ1*sn2.jacDet) - Math.log(integ2*sn1.jacDet) );
+    }
+    
+    public int numSamplesNeeded(){
+        //if we just called estDeltaG, this will let us see how many samples were needed
+        //should be same for samples1 and samples2
+        return samples1.size();
     }
     
     

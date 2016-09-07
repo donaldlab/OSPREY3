@@ -45,6 +45,7 @@ import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tools.TimeFormatter;
+import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 @SuppressWarnings("unused")
 public class BenchmarkForcefieldKernel extends TestBase {
@@ -99,10 +100,9 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		ArrayList<String[]> moveableStrands = new ArrayList<String[]>();
 		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
 		SearchProblem search = new SearchProblem(
-			"test", "test/1CC8/1CC8.ss.pdb",
-			//"test", "test/DAGK/2KDC.P.forOsprey.pdb",
-			flexResList, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion,
-			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null
+                    "test", "test/1CC8/1CC8.ss.pdb", 
+                    flexResList, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
+                    new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null, false
 		);
 		
 		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;

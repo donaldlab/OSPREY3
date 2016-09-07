@@ -25,7 +25,7 @@ public class IntraVoxelSampler {
     private static final int numBurnInSamples = 5;
     private static final int thinningFactor = 5;
     
-    static final double RT = 1.9891/1000.0 * 298.15;//RT in kcal/mol..see PoissonBoltzmannEnergy
+    public static final double RT = 1.9891/1000.0 * 298.15;//RT in kcal/mol..see PoissonBoltzmannEnergy
     
     //acceptance ratio tracking
     double numDrawn=0;

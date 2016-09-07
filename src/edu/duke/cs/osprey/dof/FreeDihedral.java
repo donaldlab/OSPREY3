@@ -49,12 +49,22 @@ public class FreeDihedral extends DegreeOfFreedom {
         for(int a=0; a<4; a++)
             System.arraycopy(res.coords, 3*dihAtomIndices[a], curCoords[a], 0, 3);
         
-        double curDihedralVal = Protractor.measureDihedral(curCoords);//could go faster by not copying...hmm
+        //measuring a dihedral requires evaluating an inverse cosine, which is slow
+        //let's work with sines and cosines of dihedrals directly
+        double curDihedralSC[] = Protractor.measureDihedralSinCos(curCoords);
+        double sinDih = Math.sin(Math.PI*paramVal/180);
+        double cosDih = Math.cos(Math.PI*paramVal/180);
+        double sinDihChange = sinDih*curDihedralSC[1] - cosDih*curDihedralSC[0];
+        double cosDihChange = cosDih*curDihedralSC[1] + sinDih*curDihedralSC[0];
         
+        RigidBodyMotion dihRotation = new DihedralRotation( curCoords[1], curCoords[2], 
+                sinDihChange, cosDihChange );
+        
+        /*double curDihedralVal = Protractor.measureDihedral(curCoords);//could go faster by not copying...hmm
         double dihedralChange = paramVal - curDihedralVal;
         //should we update curVal?
         
-        RigidBodyMotion dihRotation = new DihedralRotation(curCoords[1], curCoords[2], dihedralChange);
+        RigidBodyMotion dihRotation = new DihedralRotation(curCoords[1], curCoords[2], dihedralChange);*/
         //rotate about third atom, axis = third-second atom (i.e. bond vector),
         //rotate by dihedralChange
         

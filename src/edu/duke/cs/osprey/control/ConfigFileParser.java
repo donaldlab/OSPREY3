@@ -14,6 +14,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.StringParsing;
+import edu.duke.cs.osprey.tupexp.LUTESettings;
 import java.util.ArrayList;
 import java.util.StringTokenizer;
 
@@ -58,7 +59,8 @@ public class ConfigFileParser {
                 params.getDouble("maxBackrubParam"),
                 params.getBool("selectLCAs"),
                 getFlexRes(), 
-                params.getValue("PDBNAME")
+                params.getValue("PDBNAME"),
+                params.getBool("DORAMACHECK")
         );
         
         dset.loadPertFile(null);//load the PertSet from its file
@@ -136,12 +138,14 @@ public class ConfigFileParser {
                 params.getBool("UseEPIC"),
                 new EPICSettings(params),
                 params.getBool("UseTupExp"),
+                new LUTESettings(params),
                 dset, moveableStrands, freeBBZones,
                 params.getBool("useEllipses"),
                 params.getBool("useERef"),
                 params.getBool("AddResEntropy"),
                 params.getBool("addWTRots"),
-                null
+                null,
+                params.getBool("useVoxelG")
         );
         
         search.numEmatThreads = params.getInt("EmatThreads");
@@ -178,7 +182,7 @@ public class ConfigFileParser {
     }
     
     
-    protected ArrayList<ArrayList<String>> getAllowedAAs(){
+    public ArrayList<ArrayList<String>> getAllowedAAs(){
         //List allowed AA types for each flexible position
         //We can accept either RESALLOWED0_0 (for flexible res 0 of strand 0)
         //or RESALLOWED255 (for residue with PDB number 255)

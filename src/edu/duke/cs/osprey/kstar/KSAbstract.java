@@ -15,7 +15,9 @@ import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.RunState;
 import edu.duke.cs.osprey.kstar.pfunc.PFFactory;
+import edu.duke.cs.osprey.kstar.pruning.APrioriPruningProver;
 import edu.duke.cs.osprey.tools.ObjectIO;
+import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 
 /**
@@ -51,6 +53,8 @@ public abstract class KSAbstract implements KSInterface {
 	private boolean addResEntropy;
 	private boolean addWT;
 	private boolean addWTRots;
+        
+        protected boolean useVoxelG;
 
 	public static int runTimeout = Integer.MAX_VALUE;
 	public static boolean doCheckPoint = false;
@@ -64,9 +68,9 @@ public abstract class KSAbstract implements KSInterface {
 	public KSAbstract( KSConfigFileParser cfp ) {
 
 		this.cfp = cfp;
-
-		EW = cfp.getParams().getDouble("Ew",0);
-		I0 = cfp.getParams().getDouble("Ival", 5);
+                
+                EW = cfp.getParams().getDouble("Ew",0);
+                I0 = cfp.getParams().getDouble("Ival", 5);
 		pdbName = cfp.getParams().getValue("PDBNAME");
 		useEPIC = cfp.getParams().getBool("UseEPIC");
 		useTupExp = cfp.getParams().getBool("UseTupExp");
@@ -75,7 +79,22 @@ public abstract class KSAbstract implements KSInterface {
 		addResEntropy = cfp.getParams().getBool("AddResEntropy");
 		addWT = cfp.getParams().getBool("addWT", true);
 		addWTRots = cfp.getParams().getBool("addWTRots", true);
+                
+                useVoxelG = cfp.getParams().getBool("useVoxelG", false);
+                if(useVoxelG && !useTupExp)
+                    throw new RuntimeException("ERROR: K* with continuous entropy requires LUTE");
 	}
+        
+        
+        public void checkAPPP(){
+            //check if using a-priori-provable pruning, and set it up if we are
+            if(cfp.getParams().getBool("APrioriProvablePruning", useTupExp)) {
+                //in the case of LUTE this is needed for provability
+                APrioriPruningProver appp = new APrioriPruningProver(this,cfp,strand2AllowedSeqs);
+                EW = appp.calcEw();
+                I0 = appp.calcI0();
+            }
+        }
 
 
 	/*
@@ -248,7 +267,7 @@ public abstract class KSAbstract implements KSInterface {
 	}
 
 
-	protected void loadAndPruneMatrices() {
+	protected void loadAndPruneMatrices(HashMap<String,Integer> name2Strand) {
 
 		try {
 
@@ -263,9 +282,15 @@ public abstract class KSAbstract implements KSInterface {
 				// single seq matrices created using the fast construction 
 				// method are already pruned according to the pruning window
 				if(sp.getEnergyMatrix() == null) {
-					sp.loadEnergyMatrix(sp.getMatrixType());
-					cfp.setupPruning(sp, EW+I0, useEPIC, useTupExp).prune();
-					sp.inverseMat = sp.getInvertedFromUnreducedPruningMatrix(sp);
+					sp.loadEnergyMatrix();
+					cfp.setupPruning(sp, EW+I0, false, false).prune();
+                                        
+                                        if(sp.useTupExpForSearch && sp.contSCFlex){
+                                            int strand = name2Strand.get(key);
+                                            setupLUTESearchProblem(key, strand);
+                                        }
+                                        else
+                                            sp.inverseMat = sp.getInvertedFromUnreducedPruningMatrix(sp);
 				}
 			}
 			//});
@@ -281,6 +306,39 @@ public abstract class KSAbstract implements KSInterface {
 		} 
 	}
 
+        
+        private void setupLUTESearchProblem(String key, int strand){
+            //Use LUTE fitting to replace a continuous search problem in name2SP (denoted there by key)
+            //with a rigid search problem that gives the same energies (within fitting error)
+            //for unpruned conformations
+            KSSearchProblem contSP = name2SP.get(key);//contSP already has its energy & pruning matrices
+            
+            if(contSP.useEPIC){//currently only supporting EPIC in K* runs if LUTE also used...
+                contSP.loadEPICMatrix();
+                //we can prune more using the EPIC matrix
+                if(contSP.epicSettings.useEPICPruning){
+                    System.out.println("Beginning post-EPIC pruning.");
+                    cfp.setupPruning(contSP, EW+I0, true, false).prune();
+                    System.out.println("Finished post-EPIC pruning.");
+                }
+            }
+            
+            contSP.loadTupExpEMatrix();
+            System.out.println("Beginning post-tup-exp pruning.");
+            cfp.setupPruning(contSP, EW, false, true).prune();
+            System.out.println("Finished post-tup-exp pruning.");
+            
+            //Now the pruning matrix and LUTE matrix in contSP define the rigid search problem we want
+            //create this search problem explicitly
+            KSSearchProblem luteSP = createPanSeqSP(false,strand);
+            luteSP.pruneMat = contSP.pruneMat;
+            luteSP.emat = contSP.tupExpEMat;
+            
+            //finally, set up inverse matrix and replace contSP with luteSP in name2SP
+            luteSP.inverseMat = luteSP.getInvertedFromUnreducedPruningMatrix(luteSP);
+            name2SP.put(key,luteSP);
+        }
+        
 
 	protected PFAbstract createPF4Seq(boolean contSCFlex, int strand, ArrayList<String> seq, String pfImpl) {
 		PFAbstract ans = null;
@@ -333,7 +391,7 @@ public abstract class KSAbstract implements KSInterface {
 
 				// get energy matrix
 				if(pf.getReducedSearchProblem().getEnergyMatrix() == null) {
-					pf.getReducedSearchProblem().loadEnergyMatrix(pf.getReducedSearchProblem().getMatrixType());
+					pf.getReducedSearchProblem().loadEnergyMatrix();
 				}
 
 				// re-prune, since we have fewer witnesses now that we have trimmed the emat?
@@ -370,7 +428,7 @@ public abstract class KSAbstract implements KSInterface {
 	}
 
 
-	protected KSSearchProblem createPanSeqSP( boolean contSCFlex, int strand ) {
+	public KSSearchProblem createPanSeqSP( boolean contSCFlex, int strand ) {
 
 		ArrayList<ArrayList<String>> allowedAAs = KSAllowedSeqs.removePosFromAllowedAAs(strand2AllowedSeqs.get(strand).getAllowedAAs());
 		ArrayList<String> flexibleRes = strand2AllowedSeqs.get(strand).getFlexRes();
@@ -379,24 +437,57 @@ public abstract class KSAbstract implements KSInterface {
 		DEEPerSettings dset = strand2AllowedSeqs.get(strand).getDEEPerSettings();
 
 		// create searchproblem
-		KSSearchProblem panSeqSP = new KSSearchProblem( 
-				getSearchProblemName(contSCFlex, strand), 
-				pdbName, 
-				flexibleRes, 
-				allowedAAs, 
-				addWT, 
-				contSCFlex,
-				useEPIC,
-				new EPICSettings(cfp.getParams()),
-				useTupExp,
-				dset, 
-				moveableStrands, 
-				freeBBZones,
-				useEllipses,
-				useERef,
-				addResEntropy,
-				addWTRots,
-				cfp.getStrandLimits(strand));
+                KSSearchProblem panSeqSP;
+                if(contSCFlex){
+                    panSeqSP = new KSSearchProblem( 
+                                    getSearchProblemName(contSCFlex, strand), 
+                                    pdbName, 
+                                    flexibleRes, 
+                                    allowedAAs, 
+                                    addWT, 
+                                    contSCFlex,
+                                    useEPIC,
+                                    new EPICSettings(cfp.getParams()),
+                                    useTupExp,
+                                    new LUTESettings(cfp.getParams()),
+                                    dset, 
+                                    moveableStrands, 
+                                    freeBBZones,
+                                    useEllipses,
+                                    useERef,
+                                    addResEntropy,
+                                    addWTRots,
+                                    cfp.getStrandLimits(strand),
+                                    useVoxelG);
+                }
+                else {
+                    panSeqSP = new KSSearchProblem( 
+                                    getSearchProblemName(contSCFlex, strand), 
+                                    pdbName, 
+                                    flexibleRes, 
+                                    allowedAAs, 
+                                    addWT, 
+                                    contSCFlex,
+                            
+                                    //No EPIC and LUTE needed for discrete case
+                                    false,
+                                    new EPICSettings(),
+                                    false,
+                                    new LUTESettings(),
+                            
+                                    //Need to strip out non-sidechain continuous flexibility
+                                    dset.makeDiscreteVersion(), 
+                                    new ArrayList<>(), 
+                                    new ArrayList<>(),
+                            
+                                    useEllipses,
+                                    useERef,
+                                    addResEntropy,
+                                    addWTRots,
+                                    cfp.getStrandLimits(strand),
+                            
+                                    false);
+                }
 
 		return panSeqSP;
 	}
@@ -407,12 +498,15 @@ public abstract class KSAbstract implements KSInterface {
 		ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(KSTermini.LIGAND, 
 				KSTermini.PROTEIN, KSTermini.COMPLEX));
 
+                HashMap<String,Integer> name2Strand = new HashMap<>();
+                
 		for( boolean contSCFlex : contSCFlexVals ) {
 
 			//strands.parallelStream().forEach(strand -> {
 			for( int strand : strands ) {
 
 				String spName = getSearchProblemName(contSCFlex, strand);
+                                name2Strand.put(spName, strand);
 
 				if( !name2SP.containsKey(spName) ) {
 					KSSearchProblem sp = createPanSeqSP(contSCFlex, strand);
@@ -422,7 +516,7 @@ public abstract class KSAbstract implements KSInterface {
 			//});	
 		}
 
-		loadAndPruneMatrices();
+		loadAndPruneMatrices(name2Strand);
 	}
 
 

@@ -77,10 +77,14 @@ public class EPICSettings implements Serializable {
     boolean useSAPE = true;
     boolean usePC = true;//use principal-component polynomials
     
+    boolean quadOnly = false;//use only quadratic polynomials + SAPE
+    
     public boolean minPartialConfs = true;//In A*, minimize sum of polynomial fits for partially
     //defined conformations, as well as for fully enumerated ones.  Increase A* lower bounds
     //but makes bound calc more time-consuming
        
+    
+    public boolean useEPICPruning = true;//use EPIC terms for continuous pruning
     
     public EPICSettings(){
         //by default, no EPIC
@@ -100,6 +104,10 @@ public class EPICSettings implements Serializable {
         usePC = params.getBool("EPICUSEPC");
         minPartialConfs = params.getBool("MINPARTIALCONFS");
 
+        quadOnly = params.getBool("EPICQUADONLY");
+        
+        useEPICPruning = params.getBool("USEEPICPRUNING");
+        
         if(EPICThresh2<EPICThresh1){
             throw new RuntimeException("ERROR: EPICThresh2 must be at least EPICThresh1!  "
                     + "EPICThresh2="+EPICThresh2+" EPICThresh1="+EPICThresh1);

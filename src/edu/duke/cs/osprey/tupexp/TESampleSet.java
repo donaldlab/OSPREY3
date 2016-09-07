@@ -89,6 +89,12 @@ public class TESampleSet implements Serializable {
             sampTuples.trimToSize();
 
             samples.add(sample);
+            
+            
+            //DEBUG!!!!
+            /*for(int sa : sample)
+                System.out.print(sa+" ");
+            System.out.println();*/
 
             //update tupleSamples
             for(int term : sampTuples){

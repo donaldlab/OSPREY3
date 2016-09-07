@@ -28,13 +28,20 @@ class FittingObjFcn {
         THRESHWT
     }
     
-    WeightingMode wtMode = WeightingMode.REGULAR;//DEBUG!!!
+    WeightingMode wtMode = WeightingMode.REGULAR;
     
-    FittingObjFcn(){}//basic least squares
+    FittingObjFcn(){}//basic least squares, regular weighting
     
-    FittingObjFcn(double thresh, double k){//modified least squares
+    FittingObjFcn(double thresh, double k, boolean useRelWt, boolean useThreshWt){//modified least squares
         this.thresh = thresh;
         this.k = k;
+        
+        if(useThreshWt)
+            wtMode = WeightingMode.THRESHWT;
+        else if(useRelWt)
+            wtMode = WeightingMode.ONEWT;//this seems to be the more effective weighting
+        else
+            wtMode = WeightingMode.REGULAR;
         
         if(k<0 || k>1)
             throw new RuntimeException("ERROR: Invalid modified least squares k value");
@@ -61,7 +68,7 @@ class FittingObjFcn {
         return penalizedError*penalizedError;
     }
     
-    double[] goodRegionBoundsForSample(double trueVal){
+    /*double[] goodRegionBoundsForSample(double trueVal){
         //given the true value for a sample, return the bounds on the "good region"
         //for the fit value for that sample
         double bounds[] = new double[2];
@@ -75,7 +82,7 @@ class FittingObjFcn {
         }
         
         return bounds;
-    }
+    }*/
     
     
     CGTupleFitter makeTupleFitter(TupleIndexMatrix tim, ArrayList<int[]> samp, int numTuples, double[] trueVals){

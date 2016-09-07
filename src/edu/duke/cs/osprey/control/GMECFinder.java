@@ -203,6 +203,8 @@ public class GMECFinder {
     private double stericThresh;
     private boolean logConfsToConsole;
     
+    private double lowestBound;
+    
     public GMECFinder() {
         
         // Arguably, the stuff below is the initialization, which should be its own function. The constructor may eventually
@@ -313,9 +315,9 @@ public class GMECFinder {
             @Override
             public ConfSearch make(SearchProblem searchProblem) {
                 
-                if (searchSpace.searchNeedsHigherOrderTerms()) {
+                if (searchSpace.searchNeedsHigherOrderTerms() || searchSpace.useEPIC) {
             
-                    // if we need higher-order terms, use the old A* code
+                    // if we need higher-order or EPIC terms, use the old A* code
                     return ConfTree.makeFull(searchSpace);
                 }
                 
@@ -469,6 +471,10 @@ public class GMECFinder {
         return calcGMEC(I0);
     }
     
+    public double calcGMECEnergy(){
+        return calcGMEC().get(0).getEnergy();
+    }
+    
     private List<EnergiedConf> calcGMEC(double interval) {
         
         System.out.println("Calculating GMEC with interval = " + interval);
@@ -500,7 +506,7 @@ public class GMECFinder {
         if (minScoreConf == null) {
             
             // no confs in the search space, can't recover, just bail
-            System.out.println("All conformations pruned. Try choosing a larger pruning interval.");
+            System.out.println("All conformations pruned. Try choosing a larger pruning interval or steric threshold.");
             return new ArrayList<>();
         }
         System.out.println("Found min score conformation in " + minScoreStopwatch.getTime(1));
@@ -518,105 +524,113 @@ public class GMECFinder {
 		// this is an upper bound for now, we'll refine it as we evaluate more structures
         final EnergyWindow window = new EnergyWindow(eMinScoreConf.getEnergy(), Ew);
 		
-		// enumerate all confs in order of the scores, up to the estimate of the top of the energy window
-		System.out.println("Enumerating other low-scoring conformations...");
-		List<ScoredConf> lowEnergyConfs = new ArrayList<>();
-		lowEnergyConfs.add(minScoreConf);
-		lowEnergyConfs.addAll(confSearch.nextConfs(window.getMax()));
-		System.out.println(String.format("\tFound %d more", lowEnergyConfs.size() - 1));
-	
-		if (!lowEnergyConfs.isEmpty()) {
-			
-			// prune the confs list
-			if (confPruner != null) {
-				confPruner.prune(lowEnergyConfs, ecalc);
-			}
-			
-			// calculate energy for each conf
-			// this will probably take a while, so track progress
-			final Progress progress = new Progress(lowEnergyConfs.size());
-			
-			// what to do when we get a conf energy?
-			ecalc.setListener(new ConfEnergyCalculator.Async.Listener() {
-				@Override
-				public void onEnergy(EnergiedConf econf) {
-					
-					// save the conf and the energy for later
-					econfs.add(econf);
-					
-					// immediately output the conf, in case the run aborts and we want to resume later
-					confPrinter.printConf(econf);
-					
-					// log the conf to console if desired
-					if (logConfsToConsole) {
-						System.out.println("\nENUMERATING CONFORMATION");
-						System.out.print(confPrinter.getConfReport(econf, window));
-					}
-					
-					progress.incrementProgress();
-					
-					// refine the estimate of the top of the energy window
-					boolean changed = window.update(econf.getEnergy());
-					if (changed) {
-						
-						// prune conformations with the new window
-						for (int i=lowEnergyConfs.size()-1; i>=0; i--) {
-							if (!window.contains(lowEnergyConfs.get(i).getScore())) {
-								lowEnergyConfs.remove(i);
-							} else {
-								break;
-							}
-						}
-						
-						// update progress
-						System.out.println(String.format("\nNew lowest energy: %.6f", window.getMin()));
-						System.out.println(String.format("\tReduced to %d low-energy conformations", lowEnergyConfs.size()));
-						progress.setTotalWork(lowEnergyConfs.size());
-					}
-				}
-			});
-			
-			// calc the conf energy asynchronously
-			System.out.println(String.format("\nComputing energies for %d conformations...", lowEnergyConfs.size()));
-			for (int i=0; i<lowEnergyConfs.size(); i++) {
-				ecalc.calcEnergyAsync(lowEnergyConfs.get(i));
-			}
-			ecalc.waitForFinish();
-			ecalc.cleanup();
-		}
+        // enumerate all confs in order of the scores, up to the estimate of the top of the energy window
+        System.out.println("Enumerating other low-scoring conformations...");
+        List<ScoredConf> lowEnergyConfs = new ArrayList<>();
+        lowEnergyConfs.add(minScoreConf);
+        lowEnergyConfs.addAll(confSearch.nextConfs(window.getMax()));
+        System.out.println(String.format("\tFound %d more", lowEnergyConfs.size() - 1));
+
+        if (!lowEnergyConfs.isEmpty()) {
+
+                // prune the confs list
+                if (confPruner != null) {
+                        confPruner.prune(lowEnergyConfs, ecalc);
+                }
+
+                // calculate energy for each conf
+                // this will probably take a while, so track progress
+                final Progress progress = new Progress(lowEnergyConfs.size());
+
+                // what to do when we get a conf energy?
+                ecalc.setListener(new ConfEnergyCalculator.Async.Listener() {
+                        @Override
+                        public void onEnergy(EnergiedConf econf) {
+
+                                // save the conf and the energy for later
+                                econfs.add(econf);
+
+                                // immediately output the conf, in case the run aborts and we want to resume later
+                                confPrinter.printConf(econf);
+
+                                // log the conf to console if desired
+                                if (logConfsToConsole) {
+                                        System.out.println("\nENUMERATING CONFORMATION");
+                                        System.out.print(confPrinter.getConfReport(econf, window));
+                                }
+
+                                progress.incrementProgress();
+
+                                // refine the estimate of the top of the energy window
+                                boolean changed = window.update(econf.getEnergy());
+                                if (changed) {
+
+                                        // prune conformations with the new window
+                                        for (int i=lowEnergyConfs.size()-1; i>=0; i--) {
+                                                if (!window.contains(lowEnergyConfs.get(i).getScore())) {
+                                                        lowEnergyConfs.remove(i);
+                                                } else {
+                                                        break;
+                                                }
+                                        }
+
+                                        // update progress
+                                        System.out.println(String.format("\nNew lowest energy: %.6f", window.getMin()));
+                                        System.out.println(String.format("\tReduced to %d low-energy conformations", lowEnergyConfs.size()));
+                                        progress.setTotalWork(lowEnergyConfs.size());
+                                }
+                        }
+                });
+
+                // calc the conf energy asynchronously
+                System.out.println(String.format("\nComputing energies for %d conformations...", lowEnergyConfs.size()));
+                for (int i=0; i<lowEnergyConfs.size(); i++) {
+                        ecalc.calcEnergyAsync(lowEnergyConfs.get(i));
+                }
+                ecalc.waitForFinish();
+                ecalc.cleanup();
+        }
 		
-		// sort all the confs by energy
-		Collections.sort(econfs, new Comparator<EnergiedConf>() {
-			@Override
-			public int compare(EnergiedConf a, EnergiedConf b) {
-				return Double.compare(a.getEnergy(), b.getEnergy());
-			}
-		});
+        // sort all the confs by energy
+        Collections.sort(econfs, new Comparator<EnergiedConf>() {
+                @Override
+                public int compare(EnergiedConf a, EnergiedConf b) {
+                        return Double.compare(a.getEnergy(), b.getEnergy());
+                }
+        });
         
         // get the min energy conf
         EnergiedConf minEnergyConf = econfs.get(0);
         
-        // could the minGMEC have been pruned due to a pruning interval that's too small?
-        if (doIMinDEE && minEnergyConf.getEnergy() > minScoreConf.getScore() + interval) {
+        if(doIMinDEE){//iMinDEE...figure out if a second round is needed
             
-            // yeah, it could have been. we can't prove minEnergyConf is the minGMEC
-            // we have to pick a new interval and try again
-            System.out.println("Pruning interval is too small. minGMEC could have been pruned.");
-            System.out.println("Will estimate new interval based on conformations evaluated so far and restart");
-            
+            //compute the lowest lower-bound on a conformation
             // if we're using epic or tuple expansion, we need to compute the min bound using the energy matrix
             // otherwise, our pruning interval estimate will be wrong
-            double nextInterval;
-            if ((useEPIC||useTupExp) && doIMinDEE) {
-                nextInterval = minEnergyConf.getEnergy() - lowestPairwiseBound(searchSpace);
-            } else {
-                nextInterval = minEnergyConf.getEnergy() - minScoreConf.getScore();
+            if ((useEPIC||useTupExp))//enumeration is by approximated energy...calculate lower bound separately
+                lowestBound = lowestPairwiseBound(searchSpace);
+            else//enumeration is by lower bound, so use that
+                lowestBound = minScoreConf.getScore();
+        
+            // could the minGMEC have been pruned due to a pruning interval that's too small?
+            if (minEnergyConf.getEnergy() > lowestBound + interval) {
+
+                // yeah, it could have been. we can't prove minEnergyConf is the minGMEC
+                // we have to pick a new interval and try again
+                System.out.println("Pruning interval is too small. minGMEC could have been pruned.");
+                System.out.println("Will estimate new interval based on conformations evaluated so far and restart");
+
+
+                double nextInterval = minEnergyConf.getEnergy() - lowestBound;
+
+                // pad the new interval a bit to avoid numerical instability
+                double intervalPad = 0.001;
+                if(searchSpace.useVoxelG)//GMEC energy has statistical error (~0.1 kcal/mol maybe)
+                    intervalPad = 0.2;
+                nextInterval += intervalPad;
+
+                return calcGMEC(nextInterval);
             }
-            
-            // pad the new interval a bit to avoid numerical instability
-            nextInterval += 0.001;
-            
-            return calcGMEC(nextInterval);
         }
         
         // we didn't prune it! minEnergyConf is the minGMEC!! =)
@@ -740,6 +754,12 @@ public class GMECFinder {
         return buf.toString();
     }
 
+    //for use after an iMinDEE run, if we want to see what the lowest bound was
+    public double getLowestBound(){
+        return lowestBound;
+    }
+    
+    
     void precomputeMatrices(double pruningInterval){
         //Precalculate TupleMatrices needed for GMEC computation.  Some of these may already be computed.  
         //All of these matrices except the basic pairwise energy matrix are pruning-dependent:
@@ -800,10 +820,12 @@ public class GMECFinder {
             searchSpace.loadEPICMatrix();
             
             //we can prune more using the EPIC matrix
-            System.out.println("Beginning post-EPIC pruning.");
-            initPruning(pruningInterval, true, false);
-            pruningControl.prune();
-            System.out.println("Finished post-EPIC pruning.");
+            if(searchSpace.epicSettings.useEPICPruning){
+                System.out.println("Beginning post-EPIC pruning.");
+                initPruning(pruningInterval, true, false);
+                pruningControl.prune();
+                System.out.println("Finished post-EPIC pruning.");
+            }
         }
         if(useTupExp){//preferably do this one EPIC loaded (much faster if can fit to EPIC)
             searchSpace.loadTupExpEMatrix();

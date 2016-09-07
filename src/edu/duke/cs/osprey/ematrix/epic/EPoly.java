@@ -273,6 +273,15 @@ public class EPoly implements Serializable {
     
     
     
+    public void deleteMOFStandalone(){
+        //If using SAPE, delete the SAPE standalone energy evaluator to save memory
+        if(sapeTerm!=null)
+            sapeTerm.mofStandalone = null;
+    }
+
+    
+    
+    
     
     
 }

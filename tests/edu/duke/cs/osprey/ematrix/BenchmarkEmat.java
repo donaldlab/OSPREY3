@@ -14,6 +14,7 @@ import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.gpu.GpuQueuePool;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.tools.Stopwatch;
+import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class BenchmarkEmat extends TestBase {
 	
@@ -61,8 +62,8 @@ public class BenchmarkEmat extends TestBase {
 		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
 		SearchProblem search = new SearchProblem(
 			"test", "test/1CC8/1CC8.ss.pdb", 
-			flexResList, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion,
-			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null
+			flexResList, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
+			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null, false
 		);
 		
 		System.out.println("\nCalculating reference emat...");

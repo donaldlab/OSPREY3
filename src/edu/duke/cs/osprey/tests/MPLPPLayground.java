@@ -23,6 +23,7 @@ import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ObjectIO;
+import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class MPLPPLayground {
 
@@ -64,8 +65,8 @@ public class MPLPPLayground {
 		SearchProblem search = new SearchProblem(
 			"energyMatrixProfiling",
 			"2KDC.P.forOsprey.pdb", 
-			flexRes, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion,
-			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null
+			flexRes, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion,  new LUTESettings(),
+			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null, false
 		);
 		
 		// compute the energy matrix

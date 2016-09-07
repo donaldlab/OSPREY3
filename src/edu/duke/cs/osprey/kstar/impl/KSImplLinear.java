@@ -28,6 +28,7 @@ public class KSImplLinear extends KSAbstract {
 	public void init( HashMap<Integer, KSAllowedSeqs> strand2AllowedSeqs ) {
 
 		this.strand2AllowedSeqs = strand2AllowedSeqs;
+                checkAPPP();
 
 		printSequences();
 
