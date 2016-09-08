@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.NBParams;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.AtomNeighbors;
 import edu.duke.cs.osprey.structure.Residue;
+import java.util.ArrayList;
 
 /**
  *
@@ -121,15 +122,17 @@ public class ForcefieldEnergy implements Serializable {
 		
 		useHydrogenEs = params.hElect;
 		useHydrogenVdw = params.hVDW;
+                
+                doSolvationE = params.doSolvationE;
 		
-		doSolvationE = false;//not including solvation in these sparse energies
-		
-		//so initialize just the EV energies
 		List<Atom[]> pairs14 = AtomNeighbors.getPairs14(atomPairs);
 		List<Atom[]> pairsNonBonded = AtomNeighbors.getPairsNonBonded(atomPairs);
 		
 		initializeEVCalculation(pairs14, pairsNonBonded);
-}
+                //Now can do solvation too!!
+                if(doSolvationE)
+                    initializeSolvationCalculation(pairs14, pairsNonBonded, isInternal);
+        }
 	
 	void checkResComposition(boolean intra, List<Atom> atoms1, List<Atom> atoms2){
 		//set up res1 and res2 and make sure they are defined consistently
@@ -211,7 +214,7 @@ public class ForcefieldEnergy implements Serializable {
 		initializeEVCalculation(pairs14,pairsNonBonded); //initialize the calculation of the electrostatic and vdW terms
 
 		if (doSolvationE) //initialize solvation energy calculation
-				initializeSolvationCalculation(atoms1,atoms2);		
+                    initializeSolvationCalculation(pairs14,pairsNonBonded,(res1==res2));
 	}
 
 	// This function sets up the arrays for energy evaluation
@@ -386,108 +389,92 @@ public class ForcefieldEnergy implements Serializable {
 	
 	// This function sets up the arrays for energy evaluation
 	//  for solvation energies only
-	// Terms involving residues with energyEval == false
-	//  are not included
 	// Since EEF1 handles only natural amino acids, we compute solvation 
 	//	energies for proteins and ligands (natural amino acids) only, and
-	//	not for cofactors. To determine if an atom belongs to a protein or a ligand,
-	//	we use the isProtein flag of the Strand class. In KSParser, this flag is
-	//	set to true for the protein and the ligand, but not for the cofactor
-	private void initializeSolvationCalculation(List<Atom> atoms1, List<Atom> atoms2){
-		
+	//	not for cofactors. 
+
+        private void initializeSolvationCalculation(List<Atom[]> pairs14, List<Atom[]> pairsNonBonded, 
+                boolean includeIntra){
+            
+                //for solvation we treat 1-4 and nonbonded pairs the same
+                //but atom pairs that include a hydrogen are skipped
+                ArrayList<Atom[]> pairs = new ArrayList<>();
+                for(Atom[] pair : pairs14){
+                    if( ! (pair[0].isHydrogen() || pair[1].isHydrogen()) )
+                        pairs.add(pair);
+                }
+                for(Atom[] pair : pairsNonBonded){
+                    if( ! (pair[0].isHydrogen() || pair[1].isHydrogen()) )
+                        pairs.add(pair);
+                }
+                
+            
 		if (debug)
 			System.out.println("Starting initializeSolvationCalculation");
 		
 		final double solvCoeff = 2/(4*Math.PI*Math.sqrt(Math.PI));
 		
 		// Setup an array of 6 terms: 1=atom1(moleculeAtomNumber), 2=dG(ref), 3=dG(free), 4=volume, 5=lambda,
-		//  6=vdW radius
-		double[] solvationTerms1 = listSolvationTerms(atoms1);
-		double[] solvationTerms2 = listSolvationTerms(atoms2);
-		int num1 = solvationTerms1.length/6;
-		int num2 = solvationTerms2.length/6;
-		
-		// allocate space for combined solvation terms
-		// this is probably too much space, we'll resize later
-		int numSolvationConnections = num1*num2;
-		solvationTerms = new double[numSolvationConnections*8];
+		//  6=vdW radius                
+		double[] solvationTerms1 = listSolvationTerms(res1.atoms, true);
+		double[] solvationTerms2 = listSolvationTerms(res2.atoms, true);
 		
 		//Determine which pairs of atoms can be excluded from the solvation energy computation
 		// collapse the rest into a 1d array, like the non bonded terms
-		numberSolvated = 0;
-		for (int i=0; i<num1; i++) {
-			
-			int ix6 = i*6;
-			int atomi = (int)solvationTerms1[ix6];
-			Atom ati = res1.atoms.get(atomi);
-			AtomNeighbors iNeighbors = new AtomNeighbors(ati);
-			
-			for (int j=0; j<num2; j++){
-				
-				if(isInternal){//for internal energies,
-					//need to avoid double-counting, and don't include self-energies here
-					if(j<=i){
-						continue;
-					}
-				}
+		numberSolvated = pairs.size();
+                solvationTerms = new double[8*numberSolvated];
+                
+                for(int k=0; k<numberSolvated; k++){
+                    
+                    Atom ati = pairs.get(k)[0];
+                    Atom atj = pairs.get(k)[1];
+                    int atomi = ati.indexInRes;
+                    int atomj = atj.indexInRes;
+                    int ix6 = 6 * atomi;//index in solvationTerms1 where ati starts
+                    int jx6 = 6 * atomj;//index in solvationTerms1 where ati starts
+                    
+                    // add the pair to the solvation terms
+                    int kx8 = k*8;
 
-				int jx6 = j*6;
-				int atomj = (int)solvationTerms2[jx6];
-				Atom atj = res2.atoms.get(atomj);
+                    double dGiFree = solvationTerms1[ix6 + 2];
+                    double Vi = solvationTerms1[ix6 + 3];
+                    double Li = solvationTerms1[ix6 + 4];
+                    double vdWi = solvationTerms1[ix6 + 5];
 
-				AtomNeighbors.NEIGHBORTYPE ijType = iNeighbors.classifyAtom(atj);
+                    double dGjFree = solvationTerms2[jx6 + 2];
+                    double Vj = solvationTerms2[jx6 + 3];
+                    double Lj = solvationTerms2[jx6 + 4];
+                    double vdWj = solvationTerms2[jx6 + 5];
 
-				if (ijType==AtomNeighbors.NEIGHBORTYPE.BONDED12 ||  
-					ijType==AtomNeighbors.NEIGHBORTYPE.BONDED13) {
-					//exclude solvation interactions for 1,2- or 1,3-bonded pairs
-					continue;
-				}
-				
-				// add the pair to the solvation terms
-				int kx8 = numberSolvated*8;
-				
-				double dGiFree = solvationTerms1[ix6 + 2];
-				double Vi = solvationTerms1[ix6 + 3];
-				double Li = solvationTerms1[ix6 + 4];
-				double vdWi = solvationTerms1[ix6 + 5];
-				
-				double dGjFree = solvationTerms2[jx6 + 2];
-				double Vj = solvationTerms2[jx6 + 3];
-				double Lj = solvationTerms2[jx6 + 4];
-				double vdWj = solvationTerms2[jx6 + 5];
-				
-				double alpha_i = solvCoeff * dGiFree * Vj / Li;
-				double alpha_j = solvCoeff * dGjFree * Vi / Lj;
-				
-				solvationTerms[kx8 + 0] = atomi;
-				solvationTerms[kx8 + 1] = Li;
-				solvationTerms[kx8 + 2] = vdWi;
-				solvationTerms[kx8 + 3] = alpha_i;
-				
-				solvationTerms[kx8 + 4] = atomj;
-				solvationTerms[kx8 + 5] = Lj;
-				solvationTerms[kx8 + 6] = vdWj;
-				solvationTerms[kx8 + 7] = alpha_j;
-				
-				numberSolvated++;
-			}
-		}
-		
-		// resize the solvation terms array to fit
-		double[] smaller = new double[numberSolvated*8];
-		System.arraycopy(solvationTerms, 0, smaller, 0, numberSolvated*8);
-		solvationTerms = smaller;
-		
-		// compute the internal solvation energy term
+                    double alpha_i = solvCoeff * dGiFree * Vj / Li;
+                    double alpha_j = solvCoeff * dGjFree * Vi / Lj;
+
+                    solvationTerms[kx8 + 0] = atomi;
+                    solvationTerms[kx8 + 1] = Li;
+                    solvationTerms[kx8 + 2] = vdWi;
+                    solvationTerms[kx8 + 3] = alpha_i;
+
+                    solvationTerms[kx8 + 4] = atomj;
+                    solvationTerms[kx8 + 5] = Lj;
+                    solvationTerms[kx8 + 6] = vdWj;
+                    solvationTerms[kx8 + 7] = alpha_j;
+                }
+                
+		//compute the internal solvation energy term
 		internalSolvEnergy = 0;
-		for (int i=0; i<num1; i++) {
-			internalSolvEnergy += solvationTerms1[i*6 + 1];
-		}
+                if(includeIntra){
+                    //include the interaction of each atom in res1 with itself
+                    //used for intra-residue energies
+                    for(int i=0; i<res1.atoms.size(); i++)
+                        internalSolvEnergy += solvationTerms1[i*6 + 1];
+                }
 	}
-	
-	private double[] listSolvationTerms(List<Atom> atomList){
+        
+        
+	private double[] listSolvationTerms(List<Atom> atomList, boolean fullLength){
 		//list the solvation terms (atom numbers within residue, and params) for the specified atoms
 		//in the specified residue
+                //if fullLength then put in 6 zeroes for hydrogens (to match atom indexing in atomList)
 		
 		double termList[] = new double[atomList.size() * 6];
 		
@@ -530,12 +517,18 @@ public class ForcefieldEnergy implements Serializable {
 					numTerms++;
 				}
 			}
+                        else if(fullLength)
+                            ix6 += 6;
 		}
-
-		// Shrink the dihedralAngleTerms array down
-		double[] smallerArray = new double[numTerms * 6];
-		System.arraycopy(termList,0,smallerArray,0,numTerms*6);
-		return smallerArray;
+                
+                if(fullLength)
+                    return termList;
+                else {
+                    // Shrink the dihedralAngleTerms array down
+                    double[] smallerArray = new double[numTerms * 6];
+                    System.arraycopy(termList,0,smallerArray,0,numTerms*6);
+                    return smallerArray;
+                }
 	}
 	
 
