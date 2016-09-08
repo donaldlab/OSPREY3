@@ -11,13 +11,11 @@ import java.util.HashMap;
 import edu.duke.cs.osprey.kstar.KSAllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.confspace.PositionConfSpace;
-import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KSTermini;
 import edu.duke.cs.osprey.kstar.impl.KSImplLinear;
 import edu.duke.cs.osprey.kstar.impl.KSImplKAStar;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
-import edu.duke.cs.osprey.kstar.pfunc.impl.PFParallel2;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 import edu.duke.cs.osprey.tools.StringParsing;
 
@@ -59,7 +57,6 @@ public class KStarCalculator {
 		PFAbstract.qCapacity = cfp.getParams().getInt("kStarPFuncQCap", ThreadParallelism.getNumThreads()*8);
 
 		PFAbstract.setCFGImpl(cfp.getParams().getValue("kStarPFuncMethod"));
-		MultiTermEnergyFunction.useParallelEFunc = PFAbstract.getCFGImpl().equalsIgnoreCase(new PFParallel2().getImpl()) ? false : true; // setting this to false allows concurrent minimizers
 		PFAbstract.setStabilityThresh( cfp.getParams().getDouble("kStarPFuncStabThresh") );
 		PFAbstract.setConfsThreadBuffer( cfp.getParams().getInt("kStarPFuncConfsThreadBuffer", 4) );
 		PFAbstract.setNumThreads( cfp.getParams().getInt("kStarPFuncThreads") );

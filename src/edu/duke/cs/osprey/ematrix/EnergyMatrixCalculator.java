@@ -112,9 +112,7 @@ public class EnergyMatrixCalculator {
        
        if(useERef){
            System.out.println("COMPUTING REFERENCE ENERGIES");
-           emat.eRefMat = new ReferenceEnergies(searchSpace);
-           System.out.println("CORRECTING ENERGY MATRIX BASED ON REFERENCE ENERGIES");
-           emat.eRefMat.correctEnergyMatrix(emat);
+           emat.seteRefMat(new ReferenceEnergies(searchSpace));
        }
        
        System.out.println("ENERGY MATRIX CALCULATION DONE");

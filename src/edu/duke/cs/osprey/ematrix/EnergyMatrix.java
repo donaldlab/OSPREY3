@@ -22,7 +22,7 @@ public class EnergyMatrix extends TupleMatrixDouble {
 	private double constTerm = 0;
     
     //we may want to have reference energies associated with this matrix
-    ReferenceEnergies eRefMat = null;
+    private ReferenceEnergies eRefMat = null;
     
     
     
@@ -221,5 +221,14 @@ public class EnergyMatrix extends TupleMatrixDouble {
 
     public ReferenceEnergies geteRefMat() {
         return eRefMat;
+    }
+    public void seteRefMat(ReferenceEnergies val) {
+        
+        if (eRefMat != null) {
+            throw new IllegalStateException("setting multiple reference energies more than once is not supported, this is a bug");
+        }
+        
+        eRefMat = val;
+        eRefMat.correctEnergyMatrix(this);
     }
 }

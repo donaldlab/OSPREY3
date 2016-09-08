@@ -27,10 +27,15 @@ import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.control.GMECFinder;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
+import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
+import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
+import edu.duke.cs.osprey.minimization.ConfMinimizer;
+import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
@@ -50,7 +55,7 @@ public class TestPartCR extends TestBase {
 		
 		// calc the energy matrix once
 		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(EnvironmentVars.curEFcnGenerator, search.confSpace, search.shellResidues);
-		search.emat = ecalc.calcEnergyMatrix();
+		search.emat = new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix();
 		
 		List<EnergiedConf> expectedConfs = getConfs(search, false);
 		List<EnergiedConf> partcrConfs = getConfs(search, true);
@@ -151,6 +156,18 @@ public class TestPartCR extends TestBase {
 			}
 		};
 		
+		// configure what energies to use
+		Factory<EnergyFunction,Molecule> efuncs = new Factory<EnergyFunction,Molecule>() {
+			@Override
+			public EnergyFunction make(Molecule mol) {
+				return EnvironmentVars.curEFcnGenerator.fullConfEnergy(search.confSpace, search.shellResidues, mol);
+			}
+		};
+		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
+		tasks.start(1);
+		ConfMinimizer.Async minimizer = new ConfMinimizer.Async(efuncs, search.confSpace, tasks);
+		GMECFinder.ConfEnergyCalculator.Async ecalc = new GMECFinder.MinimizingEnergyCalculator(search, minimizer, tasks);
+		
 		// configure the GMEC finder
 		// NOTE: PartCR doesn't help as much with energy window designs
 		// but we still want to test that it works correctly
@@ -166,7 +183,8 @@ public class TestPartCR extends TestBase {
 		tmpFile.deleteOnExit();
 		GMECFinder gmecFinder = new GMECFinder();
 		gmecFinder.init(
-			search, pruningControl, astarFactory, Ew, useIMinDEE, I0, useContFlex, useTupExp, useEPIC,
+			search, pruningControl, astarFactory, ecalc,
+			Ew, useIMinDEE, I0, useContFlex, useTupExp, useEPIC,
 			checkApproxE, outputGMECStruct, eFullConfOnly, tmpFile.getAbsolutePath(), stericThresh
 		);
 		gmecFinder.setLogConfsToConsole(false);

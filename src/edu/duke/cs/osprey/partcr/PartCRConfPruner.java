@@ -41,7 +41,7 @@ public class PartCRConfPruner implements GMECFinder.ConfPruner {
 		// basically, we need a way to calculate PartCR.calcPosMinimizedEnergy() for every kind of energy ConfEnergyCalculator uses
 		// this can't be fixed at runtime, so bail hard
 		System.out.println("\nChecking to see if it's ok to use PartCR with this config...");
-		double expectedMinimizedEnergy = confEcalc.calcEnergy(confs.get(0));
+		double expectedMinimizedEnergy = confEcalc.calcEnergy(confs.get(0)).getEnergy();
 		double partcrMinimizedEnergy = search.minimizedEnergy(confs.get(0).getAssignments());
 		double absErr = Math.abs(expectedMinimizedEnergy - partcrMinimizedEnergy);
 		// NOTE: ideally, these energies should be bitwise-identical, since search.minimizedEnergy() should be being used in both cases,
@@ -52,6 +52,9 @@ public class PartCRConfPruner implements GMECFinder.ConfPruner {
 				+ "\nOr the minimizer is just non-deterministic. The abs error is: " + absErr
 			);
 		}
+		
+		// TODO: also check energy decomposition
+		
 		System.out.println("Yup, we're good. Full speed ahead, captain!");
 		
 		// TODO: some enterprising student could try to optimize the PartCR configuration

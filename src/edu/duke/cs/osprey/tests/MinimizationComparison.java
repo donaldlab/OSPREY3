@@ -39,7 +39,6 @@ public class MinimizationComparison {
         //args like for findGMEC (currently set up for default 1CC8 system)
         
         MultiTermEnergyFunction.setNumThreads(4);
-        MultiTermEnergyFunction.useParallelEFunc = false;
         
         ConfigFileParser cfp = new ConfigFileParser(args);//args 1, 3+ are configuration files
 	cfp.loadData();

@@ -16,7 +16,6 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.StringParsing;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.StringTokenizer;
 
 /**
@@ -132,7 +131,7 @@ public class ConfigFileParser {
         ArrayList<String[]> freeBBZones = freeBBZoneTermini();
         DEEPerSettings dset = setupDEEPer();
         
-        return new SearchProblem( name, params.getValue("PDBNAME"), 
+        SearchProblem search = new SearchProblem( name, params.getValue("PDBNAME"), 
                 flexRes, allowedAAs,
                 params.getBool("AddWT"), 
                 params.getBool("doMinimize"),
@@ -148,6 +147,10 @@ public class ConfigFileParser {
                 null,
                 params.getBool("useVoxelG")
         );
+        
+        search.numEmatThreads = params.getInt("EmatThreads");
+        
+        return search;
     }
     
     

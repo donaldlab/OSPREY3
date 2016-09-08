@@ -21,8 +21,8 @@ public abstract class DegreeOfFreedom implements Serializable {
     
     //Let's say molecule, once created, can only be changed by DegreeOfFreedom.apply!
     
+    private static final long serialVersionUID = 3348198591978172994L;
     
-    /*Molecule molec;*/
     double curVal;
     
     public abstract void apply(double paramVal);//apply the given parameter value
@@ -35,4 +35,14 @@ public abstract class DegreeOfFreedom implements Serializable {
     //Otherwise return null
     //Used in setting up partial energy functions (see MultiTermEnergyFunction)
     public Residue getResidue() { return null; }
+    
+    // enables parallel molecule manipulation without data races
+    public DegreeOfFreedom copy() {
+        // TODO: once all subclasses implement this, change to abstract method
+        throw new UnsupportedOperationException("unsupported by " + getClass().getName());
+    }
+    public void setMolecule(Molecule val) {
+        // TODO: once all subclasses implement this, change to abstract method
+        throw new UnsupportedOperationException("unsupported by " + getClass().getName());
+    }
 }

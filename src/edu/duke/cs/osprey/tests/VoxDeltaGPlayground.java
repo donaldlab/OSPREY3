@@ -39,7 +39,7 @@ public class VoxDeltaGPlayground {
         
         int conf1[] = new int[] {5,7,12,5,0,7,4};
         
-        String epicMatrixName = "1CC8.bbfree.nolute.EPICMAT.dat";//"1CC8.EPICMAT.dat";
+        String epicMatrixName = "1CC8.EPICMAT.dat";//"1CC8.bbfree.nolute.EPICMAT.dat";
         
         EPICMatrix epicMat1 = (EPICMatrix) ObjectIO.readObject(epicMatrixName, true);
         EPICMatrix epicMat2 = (EPICMatrix) ObjectIO.readObject(epicMatrixName, true);

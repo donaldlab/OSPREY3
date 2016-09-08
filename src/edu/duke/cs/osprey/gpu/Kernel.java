@@ -6,22 +6,24 @@ import com.jogamp.opencl.CLKernel;
 
 public abstract class Kernel<T extends BoundKernel<T>> {
 	
+	private Gpu gpu;
 	private CLKernel kernel;
 	
-	public Kernel(String filename, String name)
+	public Kernel(Gpu gpu, String filename, String name)
 	throws IOException {
-		kernel = Gpus.get().getProgram(filename).createCLKernel(name);
+		this.gpu = gpu;
+		kernel = gpu.getProgram(filename).createCLKernel(name);
+	}
+	
+	public Gpu getGpu() {
+		return gpu;
 	}
 	
 	public CLKernel getCLKernel() {
 		return kernel;
 	}
 	
-	public T bind() {
-		return bind(Gpus.get().getBestGpu());
-	}
-	
-	public abstract T bind(Gpu gpu);
+	public abstract T bind(GpuQueue queue);
 	
 	public void cleanup() {
 		kernel.release();

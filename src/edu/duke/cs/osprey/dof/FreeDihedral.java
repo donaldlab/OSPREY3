@@ -4,12 +4,12 @@
  */
 package edu.duke.cs.osprey.dof;
 
+import java.util.ArrayList;
+
+import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.Protractor;
 import edu.duke.cs.osprey.tools.RigidBodyMotion;
-import edu.duke.cs.osprey.tools.RotationMatrix;
-import edu.duke.cs.osprey.tools.VectorAlgebra;
-import java.util.ArrayList;
 
 /**
  *
@@ -20,6 +20,8 @@ public class FreeDihedral extends DegreeOfFreedom {
     // e.g. a sidechain dihedral in any amino acid besides proline
     //we apply the specified angle
     
+    private static final long serialVersionUID = 8005789766951509654L;
+    
     Residue res;//residue we're moving
     int dihedralNum;//is this chi1, chi2 or what?
     double curVal;
@@ -28,13 +30,13 @@ public class FreeDihedral extends DegreeOfFreedom {
         this.res = res;
         this.dihedralNum = dihedralNum;
     }
-
+    
     public double getCurVal() { return curVal; }
     
     
     @Override
     public void apply(double paramVal) {
-            	
+        
         //get indices (within res) of the 4 atoms defining this dihedral
         int[] dihAtomIndices = res.template.getDihedralDefiningAtoms(dihedralNum);
         
@@ -69,13 +71,21 @@ public class FreeDihedral extends DegreeOfFreedom {
         for(int index : rotatedAtomIndices)
             dihRotation.transform(res.coords, index);
 
-    	curVal = paramVal; // store the value
+        curVal = paramVal; // store the value
     }
     
     @Override
     public Residue getResidue() { return res; }
     
-    
-    
-    
+    @Override
+    public DegreeOfFreedom copy() {
+        return new FreeDihedral(res, dihedralNum);
+    }
+
+    @Override
+    public void setMolecule(Molecule val) {
+        
+        // match our residue to the one in the other molecule
+        res = val.getResByPDBResNumber(res.getPDBResNumber());
+    }
 }

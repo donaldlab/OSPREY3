@@ -2,65 +2,216 @@ package edu.duke.cs.osprey.energy.forcefield;
 
 import java.io.IOException;
 import java.nio.DoubleBuffer;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
+import com.jogamp.opencl.CLEvent;
+import com.jogamp.opencl.CLEvent.ProfilingCommand;
+import com.jogamp.opencl.CLEventList;
+import com.jogamp.opencl.CLException;
+
+import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.energy.EnergyFunction;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions.AtomGroup;
+import edu.duke.cs.osprey.gpu.GpuQueue;
+import edu.duke.cs.osprey.gpu.GpuQueuePool;
 import edu.duke.cs.osprey.gpu.kernels.ForceFieldKernel;
+import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.tools.TimeFormatter;
 
-public class GpuForcefieldEnergy implements EnergyFunction {
+public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, EnergyFunction.NeedsCleanup {
 	
 	private static final long serialVersionUID = -9142317985561910731L;
 	
-	private BigForcefieldEnergy ffenergy;
-	private ForceFieldKernel.Bound kernel;
-	
-	public GpuForcefieldEnergy(ForcefieldParams ffparams, ForcefieldInteractions interactions)
-	throws IOException {
+	private class KernelBuilder {
 		
-		ffenergy = new BigForcefieldEnergy(ffparams, interactions, true);
+		private ForceFieldKernel.Bound kernel;
 		
-		// prep the kernel, upload precomputed data
-		kernel = new ForceFieldKernel().bind();
+		public KernelBuilder() {
+			kernel = null;
+		}
+		
+		public ForceFieldKernel.Bound get() {
+			
+			// do we need to rebuild the forcefield?
+			// NOTE: make sure we check for chemical changes even if the kernel is null
+			// so we acknowledge any chemical changes that may have happened 
+			if (hasChemicalChanges() || kernel == null) {
+				
+				// cleanup any old kernel if needed
+				if (kernel != null) {
+					kernel.cleanup();
+					kernel = null;
+				}
+				
+				try {
+					
+					// prep the kernel, upload precomputed data
+					kernel = new ForceFieldKernel(queue.getGpu()).bind(queue);
+					kernel.setForcefield(new BigForcefieldEnergy(ffparams, interactions, true));
+					kernel.uploadStaticAsync();
+					
+				} catch (IOException ex) {
+					
+					// if we can't find the gpu kernel source, that's something a programmer needs to fix
+					throw new Error("can't initialize gpu kernel", ex);
+				}
+			}
+			
+			return kernel;
+		}
+		
+		private boolean hasChemicalChanges() {
+			
+			// look for residue template changes so we can rebuild the forcefield
+			boolean hasChanges = false;
+			for (AtomGroup[] pair : interactions) {
+				for (AtomGroup group : pair) {
+					if (group.hasChemicalChange()) {
+						hasChanges = true;
+					}
+					group.ackChemicalChange();
+				}
+			}
+			return hasChanges;
+		}
+		
+		public void cleanup() {
+			if (kernel != null) {
+				kernel.cleanup();
+			}
+		}
 	}
 	
-	public BigForcefieldEnergy getForcefieldEnergy() {
-		return ffenergy;
+	private ForcefieldParams ffparams;
+	private ForcefieldInteractions interactions;
+	private GpuQueuePool queuePool;
+	private GpuQueue queue;
+	private KernelBuilder kernelBuilder;
+	private BigForcefieldEnergy.Subset ffsubset;
+	
+	public GpuForcefieldEnergy(ForcefieldParams ffparams, ForcefieldInteractions interactions, GpuQueuePool queuePool) {
+		this.ffparams = ffparams;
+		this.interactions = interactions;
+		this.queuePool = queuePool;
+		this.queue = queuePool.checkout();
+		this.kernelBuilder = new KernelBuilder();
+		this.ffsubset = null;
 	}
 	
-	public int getGpuBytesNeeded() {
-		return kernel.getGpuBytesNeeded();
+	public GpuForcefieldEnergy(GpuForcefieldEnergy parent, ForcefieldInteractions interactions) {
+		this.ffparams = parent.ffparams;
+		this.interactions = interactions;
+		this.queuePool = null;
+		this.queue = parent.queue;
+		this.kernelBuilder = parent.kernelBuilder;
+		this.ffsubset = getKernel().getForcefield().new Subset(interactions);
 	}
 	
-	public void initGpu() {
-		kernel.setForcefield(ffenergy);
-		kernel.uploadStaticAsync();
-		kernel.waitForGpu();
+	public boolean isParent() {
+		return queuePool != null;
+	}
+	
+	public ForceFieldKernel.Bound getKernel() {
+		return kernelBuilder.get();
+	}
+	
+	public BigForcefieldEnergy.Subset getSubset() {
+		if (ffsubset != null) {
+			return ffsubset;
+		}
+		return getKernel().getForcefield().getFullSubset();
+	}
+	
+	public void startProfile() {
+		getKernel().initProfilingEvents();
+	}
+	
+	public String dumpProfile() {
+		ForceFieldKernel.Bound kernel = getKernel();
+		StringBuilder buf = new StringBuilder();
+		CLEventList events = kernel.getProfilingEvents();
+		for (CLEvent event : events) {
+			try {
+				long startNs = event.getProfilingInfo(ProfilingCommand.START);
+				long endNs = event.getProfilingInfo(ProfilingCommand.END);
+				buf.append(String.format(
+					"%s %s\n",
+					event.getType(),
+					TimeFormatter.format(endNs - startNs, TimeUnit.MICROSECONDS)
+				));
+			} catch (CLException.CLProfilingInfoNotAvailableException ex) {
+				buf.append(String.format("%s (unknown timing)\n", event.getType()));
+			}
+		}
+		kernel.clearProfilingEvents();
+		return buf.toString();
 	}
 	
 	@Override
 	public double getEnergy() {
 		
-		// upload coords
-		ffenergy.updateCoords();
+		ForceFieldKernel.Bound kernel = getKernel();
+		kernel.setSubset(getSubset());
 		kernel.uploadCoordsAsync();
-		
-		// run the kernel
 		kernel.runAsync();
 		
 		// read the results
-		DoubleBuffer out = kernel.downloadEnergiesSync();
+		return sumEnergy(kernel.downloadEnergiesSync(), kernel.getEnergySize());
+	}
+	
+	private double sumEnergy(DoubleBuffer buf, int energySize) {
 		
 		// do the last bit of the energy sum on the cpu
 		// add one element per work group on the gpu
-		// typically, it's a factor of 1024 less than the number of atom pairs
-		out.rewind();
-		double energy = ffenergy.getInternalSolvationEnergy();
-		while (out.hasRemaining()) {
-			energy += out.get();
+		// typically, it's a factor of groupSize less than the number of atom pairs
+		double energy = getSubset().getInternalSolvationEnergy();
+		buf.rewind();
+		for (int i=0; i<energySize; i++) {
+			energy += buf.get();
 		}
 		return energy;
 	}
 	
+	@Override
 	public void cleanup() {
-		kernel.cleanup();
+		if (isParent()) {
+			queuePool.release(queue);
+			kernelBuilder.cleanup();
+		}
+	}
+
+	@Override
+	public List<EnergyFunction> decomposeByDof(Molecule m, List<DegreeOfFreedom> dofs) {
+		
+		List<EnergyFunction> efuncs = new ArrayList<>();
+		Map<Residue,GpuForcefieldEnergy> efuncCache = new HashMap<>();
+		
+		for (DegreeOfFreedom dof : dofs) {
+
+			Residue res = dof.getResidue();
+			if (res == null) {
+				
+				// when there's no residue at the dof, then use the whole efunc
+				efuncs.add(this);
+				
+			} else {
+				
+				// otherwise, make an efunc for only that residue
+				// but share efuncs between dofs in the same residue
+				GpuForcefieldEnergy efunc = efuncCache.get(res);
+				if (efunc == null) {
+					efunc = new GpuForcefieldEnergy(this, interactions.makeSubsetByResidue(res));
+					efuncCache.put(res, efunc);
+				}
+				efuncs.add(efunc);
+			}
+		}
+		
+		return efuncs;
 	}
 }

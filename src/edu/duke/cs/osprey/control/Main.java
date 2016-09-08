@@ -73,9 +73,10 @@ public class Main {
 	private static void initCommands(String[] args, ConfigFileParser cfp) {
 		
 		// set degree of thread parallelism
-		ThreadParallelism.setNumThreads(cfp.params.getInt("numThreads", ThreadParallelism.getNumThreads()));
+		// NOTE: if we're going to use the config files here, don't override its defaults
+		ThreadParallelism.setNumThreads(cfp.params.getInt("NumThreads"));
 		MultiTermEnergyFunction.setNumThreads(ThreadParallelism.getNumThreads());
-		MultiTermEnergyFunction.useParallelEFunc = cfp.params.getBool("UseParallelEFunc");
+
                 CCDMinimizer.EConvTol = cfp.params.getDouble("CCDEConvTol");
                 CCDMinimizer.numIter = cfp.params.getInt("CCDNumIter");
                 
@@ -88,6 +89,15 @@ public class Main {
 				GMECFinder gf = new GMECFinder();
 				gf.init(cfp);
 				gf.calcGMEC();
+			}
+		});
+		
+		commands.put("findSequences", new Runnable() {
+			@Override
+			public void run() {
+				GMECFinder gf = new GMECFinder();
+				gf.init(cfp);
+				gf.calcSequences();
 			}
 		});
 

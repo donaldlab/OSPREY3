@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.Writer;
 
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
+import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 
 /**
@@ -19,6 +20,9 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
  * @author mhall44
  */
 public class ConfPrinter {
+	
+    private static final int LabelSize = 30;
+    private static final String LabelFormat = "\t%-" + LabelSize + "s";
     
     SearchProblem searchSpace;
     Writer confFileHandle;
@@ -48,56 +52,78 @@ public class ConfPrinter {
         }
     }
     
+    public String getConfReport(int[] conf) {
+        StringBuilder buf = new StringBuilder();
+        
+        buf.append(String.format(LabelFormat, "RCs (residue-based numbers)"));
+        for (int rc : conf) {
+            buf.append(String.format(" %3d", rc));
+        }
+        buf.append("\n");
+
+        buf.append(String.format(LabelFormat, "Residue types"));
+        for (int pos=0; pos<searchSpace.confSpace.numPos; pos++) {
+            String resType = searchSpace.confSpace.posFlex.get(pos).RCs.get(conf[pos]).AAType;
+            buf.append(String.format(" %3s", resType));
+        }
+        buf.append("\n");
+
+        buf.append(String.format(LabelFormat, "Rotamer numbers"));
+        for (int pos=0; pos<searchSpace.confSpace.numPos; pos++) {
+            int rotNum = searchSpace.confSpace.posFlex.get(pos).RCs.get(conf[pos]).rotNum;
+            buf.append(String.format(" %3d", rotNum));
+        }
+        buf.append("\n");
+        
+        return buf.toString();
+    }
+    
     public String getConfReport(EnergiedConf conf) {
+        return getConfReport(conf, null);
+    }
+    
+    public String getConfReport(EnergiedConf conf, EnergyWindow window) {
+        StringBuilder buf = new StringBuilder();
+        
+        buf.append(getConfReport(conf.getAssignments()));
+        
+        buf.append(String.format(LabelFormat + " %.6f", "Energy", conf.getEnergy()));
+        if (window != null) {
+            buf.append(String.format(" (best so far: %.6f)", window.getMin()));
+        }
+        buf.append("\n");
+        
+        buf.append(String.format(LabelFormat + " %.6f (gap: %.6f", "Score", conf.getScore(), Math.abs(conf.getScore() - conf.getEnergy())));
+        if (window != null) {
+            buf.append(String.format(", remaining: %.6f", window.getMax() - conf.getScore()));
+        }
+        buf.append(")\n");
+        
+        // TODO: should conf printer really know what EPIC is?
+        // useful to see EPIC energy (confE is regular E, lowerBound is tup-exp)
+        if (printEPICEnergy) {
+            buf.append(String.format(LabelFormat + "%.6f\n", "EPIC", searchSpace.EPICMinimizedEnergy(conf.getAssignments())));
+        }
+        
+        return buf.toString();
+    }
+    
+    public String getConfReport(ScoredConf conf) {
     	return getConfReport(conf, null);
     }
     
-    public String getConfReport(EnergiedConf conf, Double minEnergy) {
-    	StringBuilder buf = new StringBuilder();
-    	
-    	int labelSize = 30;
-    	String labelFormat = "\t%-" + labelSize + "s";
-    	
-		buf.append(String.format(labelFormat, "RCs (residue-based numbers)"));
-		for(int rc : conf.getAssignments()){
-			buf.append(String.format(" %3d", rc));
-		}
-		buf.append("\n");
-
-
-		buf.append(String.format(labelFormat, "Residue types"));
-		for(int pos=0; pos<searchSpace.confSpace.numPos; pos++){
-			String resType = searchSpace.confSpace.posFlex.get(pos).RCs.get(conf.getAssignments()[pos]).AAType;
-			buf.append(String.format(" %3s", resType));
-		}
-		buf.append("\n");
-
-
-		buf.append(String.format(labelFormat, "Rotamer numbers"));
-		for(int pos=0; pos<searchSpace.confSpace.numPos; pos++){
-			int rotNum = searchSpace.confSpace.posFlex.get(pos).RCs.get(conf.getAssignments()[pos]).rotNum;
-			buf.append(String.format(" %3d", rotNum));
-		}
-		buf.append("\n");
-
-		Double epicEnergy = null;
-		if(printEPICEnergy) { //useful to see EPIC energy (confE is regular E, lowerBound is tup-exp)
-			epicEnergy = searchSpace.EPICMinimizedEnergy(conf.getAssignments());
-		}
-		
-		buf.append(String.format(labelFormat + " %.6f", "Energy", conf.getEnergy()));
-		if (minEnergy != null) {
-			buf.append(String.format(" (best so far: %.6f)", minEnergy));
-		}
-		buf.append("\n");
-		buf.append(String.format(labelFormat + " %.6f (gap: %.6f)\n", "Score", conf.getScore(), Math.abs(conf.getScore() - conf.getEnergy())));
-		if (epicEnergy != null) {
-			buf.append(String.format(labelFormat + "%.6f\n", "EPIC", epicEnergy));
-		}
-		
-    	return buf.toString();
+    public String getConfReport(ScoredConf conf, EnergyWindow window) {
+        StringBuilder buf = new StringBuilder();
+        buf.append(getConfReport(conf.getAssignments()));
+        
+        if (window == null) {
+        	buf.append(String.format(LabelFormat + " %.6f\n", "Score", conf.getScore()));
+        } else {
+        	buf.append(String.format(LabelFormat + " %.6f (remaining: %.6f)\n", "Score", conf.getScore(), window.getMax() - conf.getScore()));
+        }
+        
+        return buf.toString();
     }
-    
     
     public void printConf(EnergiedConf conf){
         

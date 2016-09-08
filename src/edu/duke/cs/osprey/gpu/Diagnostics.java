@@ -9,10 +9,6 @@ public class Diagnostics {
 	
 	public static void main(String[] args) {
 		
-		// TODO: sometimes you have to `sudo clinfo` to "wake up" the OpenCL implementation
-		// before it will work for non-root users. =(
-		// need to find a workaround for that...
-		
 		// show platforms
 		System.out.println("All OpenCL platforms:");
 		for (int i=0; i<CLPlatform.listCLPlatforms().length; i++) {
@@ -25,17 +21,20 @@ public class Diagnostics {
 			System.out.println("\tDevices:");
 			for (CLDevice device : platform.listCLDevices()) {
 				System.out.println("\n\t" + device.getName());
-				System.out.println("\t\tprocessors (not cores):  " + device.getMaxComputeUnits());
-				System.out.println("\t\tclock speed:             " + device.getMaxClockFrequency() + " Mhz");
-				System.out.println("\t\tmemory:                  " + device.getGlobalMemSize()/1024/1024 + " MiB");
-				System.out.println("\t\tsamplers:                " + device.getMaxSamplers());
-				System.out.println("\t\t64-bit double support:   " + supportsDoubles(device));
+				System.out.println(String.format("\t\t%-30s %b", "64-bit double support:", supportsDoubles(device)));
+				System.out.println(String.format("\t\t%-30s %d", "compute units:", device.getMaxComputeUnits()));
+				System.out.println(String.format("\t\t%-30s %d", "work items per compute unit:", device.getMaxWorkGroupSize()/device.getMaxComputeUnits()));
+				System.out.println(String.format("\t\t%-30s %d", "max workgroup size:", device.getMaxWorkGroupSize()));
+				System.out.println(String.format("\t\t%-30s %d Mhz", "clock speed:", device.getMaxClockFrequency()));
+				System.out.println(String.format("\t\t%-30s %d MiB", "global memory:", device.getGlobalMemSize()/1024/1024));
+				System.out.println(String.format("\t\t%-30s %d KiB", "local memory:", device.getLocalMemSize()/1024));
+				System.out.println(String.format("\t\t%-30s %d MiB", "max allocation:", device.getMaxMemAllocSize()/1024/1024));
 			}
 		}
 		
 		// show the usable GPUs
 		System.out.println("\nGPUs usable by Osprey:");
-		Gpus gpus = new Gpus();
+		Gpus gpus = Gpus.get();
 		for (Gpu gpu : gpus.getGpus()) {
 			System.out.print("\t" + gpu);
 			if (gpus.getGpus().size() > 1 && gpu == gpus.getBestGpu()) {

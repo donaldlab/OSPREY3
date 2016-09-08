@@ -1,0 +1,161 @@
+package edu.duke.cs.osprey.gpu;
+
+import static org.junit.Assert.*;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+
+import org.junit.BeforeClass;
+import org.junit.Test;
+
+import edu.duke.cs.osprey.TestBase;
+import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.control.EnvironmentVars;
+import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
+import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
+import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
+import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
+import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
+import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
+import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.tupexp.LUTESettings;
+
+public class TestEnergyFunctionGenerator extends TestBase {
+	
+	@BeforeClass
+	public static void before() {
+		
+		initDefaultEnvironment();
+		
+		// don't use energy function-level parallelism
+		MultiTermEnergyFunction.setNumThreads(1);
+	}
+	
+	private SearchProblem makeSearch(boolean doMinimize) {
+	
+		String aaNames = "ALA";
+		String mutRes = "39 43";
+		String flexRes = "40 41";
+		ArrayList<String> flexResList = new ArrayList<>();
+		ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
+		for (String res : mutRes.split(" ")) {
+			if (!res.isEmpty()) {
+				flexResList.add(res);
+				allowedAAs.add(new ArrayList<>(Arrays.asList(aaNames.split(" "))));
+			}
+		}
+		for (String res : flexRes.split(" ")) {
+			if (!res.isEmpty()) {
+				flexResList.add(res);
+				allowedAAs.add(new ArrayList<>());
+			}
+		}
+		boolean addWt = true;
+		boolean useEpic = false;
+		boolean useTupleExpansion = false;
+		boolean useEllipses = false;
+		boolean useERef = false;
+		boolean addResEntropy = false;
+		boolean addWtRots = false;
+		ArrayList<String[]> moveableStrands = new ArrayList<String[]>();
+		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
+		
+		return new SearchProblem(
+			"test", "test/1CC8/1CC8.ss.pdb", 
+			flexResList, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
+			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null, false
+		);
+	}
+	
+	private GpuEnergyFunctionGenerator makeGpuEgen() {
+		return new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuQueuePool(1, 1));
+	}
+	
+	private void testSingles(boolean doMinimize) {
+		
+		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
+		GpuEnergyFunctionGenerator gpuegen = makeGpuEgen();
+		
+		SearchProblem search = makeSearch(doMinimize);
+		for (int pos=0; pos<search.confSpace.numPos; pos++) {
+			Residue res = search.confSpace.posFlex.get(pos).res;
+			
+			double energy = egen.singleResEnergy(res).getEnergy();
+			double gpuenergy = getGpuEnergy(gpuegen.singleResEnergy(res));
+			
+			assertThat(gpuenergy, isRelatively(energy));
+		}
+	}
+	
+	private double getGpuEnergy(GpuForcefieldEnergy efunc) {
+		double energy = efunc.getEnergy();
+		efunc.cleanup();
+		return energy;
+	}
+
+	@Test
+	public void testSinglesRigid() {
+		testSingles(false);
+	}
+	
+	@Test
+	public void testSinglesContinuous() {
+		testSingles(true);
+	}
+	
+	private void testPairs(boolean doMinimize) {
+		
+		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
+		GpuEnergyFunctionGenerator gpuegen = makeGpuEgen();
+		
+		SearchProblem search = makeSearch(doMinimize);
+		for (int pos1=0; pos1<search.confSpace.numPos; pos1++) {
+			Residue res1 = search.confSpace.posFlex.get(pos1).res;
+			
+			for (int pos2=0; pos2<pos1; pos2++) {
+				Residue res2 = search.confSpace.posFlex.get(pos2).res;
+				
+				double energy = egen.resPairEnergy(res1, res2).getEnergy();
+				double gpuenergy = getGpuEnergy(gpuegen.resPairEnergy(res1, res2));
+				
+				assertThat(gpuenergy, isRelatively(energy));
+			}
+		}
+	}
+	
+	@Test
+	public void testPairsRigid() {
+		testPairs(false);
+	}
+	
+	@Test
+	public void testPairsContinuous() {
+		testPairs(true);
+	}
+	
+	private void testIntraAndShell(boolean doMinimize) {
+		
+		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
+		GpuEnergyFunctionGenerator gpuegen = makeGpuEgen();
+		
+		SearchProblem search = makeSearch(doMinimize);
+		for (int pos=0; pos<search.confSpace.numPos; pos++) {
+			Residue res = search.confSpace.posFlex.get(pos).res;
+			
+			double energy = egen.intraAndShellEnergy(res, search.shellResidues).getEnergy();
+			double gpuenergy = getGpuEnergy(gpuegen.intraAndShellEnergy(res, search.shellResidues));
+			
+			assertThat(gpuenergy, isRelatively(energy));
+		}
+	}
+	
+	@Test
+	public void testIntraAndShellRigid() {
+		testIntraAndShell(false);
+	}
+	
+	@Test
+	public void testIntraAndShellContinuous() {
+		testIntraAndShell(true);
+	}
+}

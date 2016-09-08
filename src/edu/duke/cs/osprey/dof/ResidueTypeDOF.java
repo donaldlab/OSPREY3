@@ -8,8 +8,8 @@ import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.SidechainIdealizer;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
-import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Atom;
+import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.RigidBodyMotion;
 import java.util.ArrayList;
@@ -21,6 +21,8 @@ import java.util.ArrayList;
 public class ResidueTypeDOF extends DegreeOfFreedom {
     //This degree of freedom is the residue type (e.g., AA type) at a particular position
     //So applying values of it means mutating the residue
+    
+    private static final long serialVersionUID = 4285811771185813789L;
     
     Residue res;//what residue in the molecule we are talking about
 
@@ -146,5 +148,13 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
     public Residue getResidue() { return res; }
     
     
+    @Override
+    public DegreeOfFreedom copy() {
+        return new ResidueTypeDOF(res);
+    }
     
+    @Override
+    public void setMolecule(Molecule val) {
+        res = val.getResByPDBResNumber(res.getPDBResNumber());
+    }
 }
