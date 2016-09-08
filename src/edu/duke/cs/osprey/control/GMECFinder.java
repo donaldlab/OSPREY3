@@ -50,57 +50,57 @@ import edu.duke.cs.osprey.tools.Stopwatch;
 public class GMECFinder {
 	
 	public static interface ConfEnergyCalculator {
-		
-        EnergiedConf calcEnergy(ScoredConf conf);
-        
-        // use asynchronous techniques so we can parallelize conformation evaluation
-        public static interface Async extends ConfEnergyCalculator {
-        
-			void setListener(Listener listener);
-			void calcEnergyAsync(ScoredConf conf);
-			void waitForFinish();
-			void cleanup();
-			
-			public static interface Listener {
-				void onEnergy(EnergiedConf conf);
-			}
-			
-			public static class Adapter implements Async {
-				
-				private ConfEnergyCalculator calc;
-				private Listener listener;
 
-				public Adapter(ConfEnergyCalculator calc) {
-					this.calc = calc;
-				}
-				
-				@Override
-				public EnergiedConf calcEnergy(ScoredConf conf) {
-					return calc.calcEnergy(conf);
-				}
+            EnergiedConf calcEnergy(ScoredConf conf);
 
-				@Override
-				public void setListener(Listener listener) {
-					this.listener = listener;
-				}
+            // use asynchronous techniques so we can parallelize conformation evaluation
+            public static interface Async extends ConfEnergyCalculator {
 
-				@Override
-				public void calcEnergyAsync(ScoredConf conf) {
-					listener.onEnergy(calc.calcEnergy(conf));
-				}
-				
-				@Override
-				public void waitForFinish() {
-					// nothing to do
-				}
+                            void setListener(Listener listener);
+                            void calcEnergyAsync(ScoredConf conf);
+                            void waitForFinish();
+                            void cleanup();
 
-				@Override
-				public void cleanup() {
-					// nothing to do
-				}
-			}
+                            public static interface Listener {
+                                    void onEnergy(EnergiedConf conf);
+                            }
+
+                            public static class Adapter implements Async {
+
+                                    private ConfEnergyCalculator calc;
+                                    private Listener listener;
+
+                                    public Adapter(ConfEnergyCalculator calc) {
+                                            this.calc = calc;
+                                    }
+
+                                    @Override
+                                    public EnergiedConf calcEnergy(ScoredConf conf) {
+                                            return calc.calcEnergy(conf);
+                                    }
+
+                                    @Override
+                                    public void setListener(Listener listener) {
+                                            this.listener = listener;
+                                    }
+
+                                    @Override
+                                    public void calcEnergyAsync(ScoredConf conf) {
+                                            listener.onEnergy(calc.calcEnergy(conf));
+                                    }
+
+                                    @Override
+                                    public void waitForFinish() {
+                                            // nothing to do
+                                    }
+
+                                    @Override
+                                    public void cleanup() {
+                                            // nothing to do
+                                    }
+                            }
+            }
         }
-    }
 	
 	public static class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async {
 		
@@ -588,7 +588,6 @@ public class GMECFinder {
                         ecalc.calcEnergyAsync(lowEnergyConfs.get(i));
                 }
                 ecalc.waitForFinish();
-                ecalc.cleanup();
         }
 		
         // sort all the confs by energy
@@ -654,6 +653,7 @@ public class GMECFinder {
             System.out.println(String.format("Also found %d more conformations in energy window", econfs.size() - 1));
         }
         
+        ecalc.cleanup();//Clean up once both rounds of iMinDEE (if applicable) are done
         return econfs;
     }
     
