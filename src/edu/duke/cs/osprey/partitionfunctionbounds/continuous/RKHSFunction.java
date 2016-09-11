@@ -5,13 +5,17 @@ import Jama.*;
 
 public class RKHSFunction {
 
-    private Kernel k;
-    private double[] domainLB;
-    private double[] domainUB;
+    public Kernel k;
+    public double[] domainLB;
+    public double[] domainUB;
 
-    private FeatureMap[] featureMaps;
-    private double[] coeffs;
+    public FeatureMap[] featureMaps;
+    public double[] coeffs;
+    
+    public ToDoubleFunction<double[]> referenceFunction;
 
+    public int numSamplesPerDimension = 10; // we can change this as the function changes
+    
     /**
      * Constructor - takes as parameters feature maps and linear coefficients
      *
@@ -23,9 +27,10 @@ public class RKHSFunction {
 	    double[] coeffs) {
 
 	// check featuremap list for kernel consistency
+	Kernel firstK = featureMaps[0].getKernel();
 	for (FeatureMap fmap : featureMaps) {
 	    Kernel fK = fmap.getKernel();
-	    if (!k.equals(fK)) {
+	    if (!firstK.equals(fK)) {
 		throw new RuntimeException("RKHS Function kernels don't match.");
 	    }
 	}
@@ -34,9 +39,9 @@ public class RKHSFunction {
 	this.coeffs = coeffs;
 
 	// set up kernel, check for consistency 
-	k = featureMaps[0].getKernel();
-	domainLB = new Matrix(k.bounds).transpose().getArray()[0];
-	domainUB = new Matrix(k.bounds).transpose().getArray()[1];
+	this.k = firstK;
+	this.domainLB = new Matrix(firstK.bounds).transpose().getArray()[0];
+	this.domainUB = new Matrix(firstK.bounds).transpose().getArray()[1];
     }
 
     /**
@@ -52,7 +57,8 @@ public class RKHSFunction {
 	// construct feature maps
 	// fit coefficients
 	// test fit --> increase samples if necessary
-	gridSampleFit(k, f, domainLB, domainUB);
+	this.gridSampleFit(k, f, domainLB, domainUB);
+	this.referenceFunction = f;
     }
 
     /**
@@ -64,20 +70,27 @@ public class RKHSFunction {
      * @return
      */
     public double[] fitCoeffs(FeatureMap[] fMaps, ToDoubleFunction<double[]> func, Kernel k) {
-	Matrix gMat = new Matrix(fMaps.length, fMaps.length);
-	for (int i = 0; i < fMaps.length; i++) {
-	    for (int j = 0; j < fMaps.length; j++) {
-		gMat.set(i, j, k.eval(fMaps[i].getLoc(), fMaps[j].getLoc()));
+	Matrix gramMatrix = new Matrix(fMaps.length, fMaps.length);
+	for (int i=0; i<gramMatrix.getRowDimension(); i++) { 
+	    for (int j=0; j<gramMatrix.getColumnDimension(); j++) { 
+		double kernelValue = k.eval(fMaps[i].getLoc(), fMaps[j].getLoc());
+		double perturbation = Math.random() * (kernelValue*0.001);
+		gramMatrix.set(i, j, kernelValue+perturbation);
 	    }
 	}
-
-	Matrix fMat = new Matrix(fMaps.length, 1);
-	for (int i = 0; i < fMaps.length; i++) {
-	    fMat.set(i, 0, func.applyAsDouble(fMaps[i].getLoc()));
+	
+	double[] fV = new double[fMaps.length];
+	for (int i=0; i<fV.length; i++) { 
+	    fV[i] = func.applyAsDouble(fMaps[i].getLoc());
 	}
-
-	Matrix cMat = gMat.solve(fMat);
-	return cMat.transpose().getArray()[0];
+	Matrix fVals = new Matrix(fV, fMaps.length);
+	Matrix ans;
+	try {
+	    ans = gramMatrix.solve(fVals);  
+	} catch(Exception e) { 
+	    throw new RuntimeException("Coefficient fit failed.");
+	}
+	return  ans.transpose().getArray()[0];	    
     }
 
     /**
@@ -95,85 +108,155 @@ public class RKHSFunction {
     }
 
     /**
-     * Grid samples and fits the RKHS function to the DoubleFunction provided Increases number of
-     * samples as necessary
-     *
+     * Grid samples the domain and fits the linear combination of feature maps to the provided
+     * function. If fixSampleNumber is false, then the number of feature maps is increased until 
+     * a specific accuracy level is reached. 
      * @param k
      * @param f
      * @param domainLB
      * @param domainUB
+     * @param fixSampleNumber 
      */
-    private void gridSampleFit(Kernel k, ToDoubleFunction<double[]> f, double[] domainLB, double[] domainUB) {
+    public void gridSampleFit(
+	    Kernel k, 
+	    ToDoubleFunction<double[]> f, 
+	    double[] domainLB, 
+	    double[] domainUB, 
+	    boolean fixSampleNumber) {
 	System.out.println("Beginning fit...");
 
-	int numSamples = 90;
+	
+	int numSamples = this.numSamplesPerDimension; // samples per dimension
+	
 	double rmsd = Double.POSITIVE_INFINITY;
 
 	FeatureMap[] fMaps = new FeatureMap[numSamples];
 	double[] fitCoeffs = new double[numSamples];
 
-	while (rmsd > 0.05) {
-	    numSamples += 10;
+	while (rmsd > 0.05 && !fixSampleNumber) {
+	    numSamples += 1;
 	    double[][] samples = gridSample(numSamples, domainLB, domainUB);
-	    fMaps = new FeatureMap[numSamples];
-	    for (int i = 0; i < numSamples; i++) {
+	    fMaps = new FeatureMap[samples.length];
+	    for (int i = 0; i < samples.length; i++) {
 		fMaps[i] = new FeatureMap(k, samples[i]);
 	    }
-	    fitCoeffs = fitCoeffs(fMaps, f, k);
-	    rmsd = computeFitRMSD(fMaps, fitCoeffs, domainLB, domainUB, f);
-	    System.out.println("With " + numSamples + " functions RMSD is: " + rmsd);
+	    fitCoeffs = this.fitCoeffs(fMaps, f, k);
+	    
+	    rmsd = computeFitRMSDRatio(fMaps, fitCoeffs, domainLB, domainUB, f);
+	    
+	    if (Double.isNaN(rmsd)) { 
+		throw new RuntimeException("RMSD is NaN.");
+	    }
+	    
+	    System.out.println("With " + fMaps.length + " functions RMSD is: " + rmsd);
 	}
 
-	System.out.println("Required " + numSamples + " functions, total RMSD: " + rmsd + ".");
+	System.out.println("Used " + fMaps.length + " functions, total RMSD: " + rmsd + ".");
 
 	this.featureMaps = fMaps;
 	this.coeffs = fitCoeffs;
+	this.domainLB = domainLB;
+	this.domainUB = domainUB;
+	this.k = k;
+	this.referenceFunction = f;
+	this.numSamplesPerDimension = numSamples;
     }
 
+    /** 
+     * Grid samples the domain and fits the linear combination of feature maps to the provided 
+     * function. Increases the number of samples until a sufficient accuracy condition is reached. 
+     * @param k
+     * @param f
+     * @param domainLB
+     * @param domainUB 
+     */
+    private void gridSampleFit(
+	    Kernel k, 
+	    ToDoubleFunction<double[]> f,
+	    double[] domainLB,
+	    double[] domainUB) { 
+	this.gridSampleFit(k, f, domainLB, domainUB, false);
+    }
+    
     /**
-     * Grid samples from n dimensions -- row is sample, column is dimension Note that numSamples
-     * needs to be a cube of some integer
+     * Grid samples from n dimensions -- row is sample, column is dimension
      *
-     * @param numSamples
+     * @param numSamplesPerDimension
      * @param lb
      * @param ub
      * @return
      */
-    public double[][] gridSample(int numSamples, double[] lb, double[] ub) {
+    public double[][] gridSample(int numSamplesPerDimension, double[] lb, double[] ub) {
 	int numDimensions = lb.length;
-	double[][] samples = new double[numSamples][numDimensions];
-	for (int i = 0; i < numDimensions; i++) {
-	    double[] dimSamples = gridSample1D(numSamples, lb[i], ub[i]);
-	    for (int j = 0; j < numSamples; j++) {
-		samples[j][i] = dimSamples[j];
+	int samplesPerDim = numSamplesPerDimension;
+	
+	int[][] coords = getCoordinates(new int[0][0], samplesPerDim, numDimensions);
+		
+	double[][] samples = new double[coords.length][numDimensions];
+	
+	for (int i=0; i<samples.length; i++) { 
+	    for (int j=0; j<samples[0].length; j++) { 
+		samples[i][j] = lb[j] + (ub[j]-lb[j])*(((double) coords[i][j])/(samplesPerDim-1));
 	    }
 	}
+	
 	return samples;
     }
-
+    
     /**
-     * Grid samples from one dimension
-     *
-     * @param nSamples
-     * @param lowerBound
-     * @param upperBound
-     * @return
+     * Returns a list of coordinates of cells in a matrix of length n with numDimensions dimensions
+     * That is, this returns the list of (numDimensions)-tuples in {0...n-1}^(numDimensions)
+     * 
+     * @param coords
+     * @param n
+     * @param numDimensions
+     * @return 
      */
-    public double[] gridSample1D(int nSamples, double lowerBound, double upperBound) {
-	double[] gridSamples = new double[nSamples];
-	int ind = 0;
-	double increment = ((upperBound - lowerBound) / nSamples) * 0.95;
-	double i = lowerBound;
-	while (ind < nSamples) {
-	    gridSamples[ind] = i;
-	    i += increment;
-	    ind++;
+    public int[][] getCoordinates(int[][] coords, int n, int numDimensions) { 
+	if (numDimensions == 0) { 
+	    return coords;
 	}
-	return gridSamples;
+	if (coords.length == 0) { // blank array, so just seed it
+	    coords = new int[n][1];
+	    for (int i=0; i<coords.length; i++) { 
+		coords[i][0] = i;
+	    }
+	    return getCoordinates(coords, n, numDimensions-1);
+	}
+	
+	int[] concats = new int[n];
+	for (int i=0; i<concats.length; i++) { concats[i] = i; }
+		
+	int[][] newCoords = new int[coords.length * n][coords[0].length+1];
+	for (int i=0; i<newCoords.length; i++) { 
+	    int oldCoordIndex = (i / n);
+	    int newCoordIndex = (i % n);
+	    System.arraycopy(coords[oldCoordIndex], 0, newCoords[i], 0, newCoords[i].length-1);
+	    newCoords[i][newCoords[i].length-1] = concats[newCoordIndex];
+	}
+	return getCoordinates(newCoords, n, numDimensions-1);
     }
 
     /**
-     * Computes the RMSD of a fitted linear combination
+     * Computes the accuracy of this RKHS function as compared to a reference function passed in
+     * @param func
+     * @return 
+     */
+    public double computeRKHSAccuracy(ToDoubleFunction<double[]> func) { 
+	return this.computeFitRMSDRatio(
+		this.featureMaps, 
+		this.coeffs, 
+		this.domainLB, 
+		this.domainUB, 
+		func);
+    }
+        
+    /**
+     * Computes the RMSD of a fitted linear combination by sampling more densely than the function
+     * gridSamples used to construct the RKHS representation. It's not a great way to check
+     * RMSD, but I guess it'll do for now. 
+     * 
+     * Ten bucks says it's never getting better... 
      *
      * @param fmaps
      * @param coeffs
@@ -182,22 +265,35 @@ public class RKHSFunction {
      * @param func
      * @return
      */
-    public double computeFitRMSD(
+    public double computeFitRMSDRatio(
 	    FeatureMap[] fmaps,
 	    double[] coeffs,
 	    double[] lBound,
 	    double[] uBound,
 	    ToDoubleFunction<double[]> func) {
 	double rmsd = 0.0;
-	int numSamples = coeffs.length;
-	double[][] testSamples = gridSample(numSamples * 50, lBound, uBound);
+	double funcSum = 0.0;
+	
+	// total samples should be 10 times the number of samples the function uses for the RKHS
+	// representation
+	int numSamples =  
+		(int) Math.exp((1.0/lBound.length)*
+			Math.log(10*Math.pow(this.numSamplesPerDimension, lBound.length)));
+	double[][] testSamples = gridSample(numSamples, lBound, uBound);
 	for (double[] sample : testSamples) {
 	    double funcValue = func.applyAsDouble(sample);
 	    double fitValue = evalLC(fmaps, coeffs, sample);
-	    double delta = funcValue - fitValue;
+	    
+	    double delta = (funcValue - fitValue);
+	    
+	    funcSum += Math.pow(funcValue, 2);
 	    rmsd += Math.pow(delta, 2);
 	}
-	return Math.sqrt(rmsd / testSamples.length);
+	
+	double rmsdRatio = 
+		Math.sqrt(rmsd / testSamples.length)/Math.sqrt(funcSum / testSamples.length);
+	
+	return Math.sqrt(rmsdRatio);
     }
 
     /**
@@ -221,31 +317,39 @@ public class RKHSFunction {
      * @return RKHS function representing the mean map of the function
      */
     public RKHSFunction computeMeanMap() {
-	// sample a point u.a.r from n dimensions
-	// binary search for that point
-	// repeat k times
+	// we need to sample i.i.d. from this function -- so we use inverse transform sampling
+	// and an RKHS-based approximation to the integral of the function to binary search 
+	// the domain for the function with CDF equal to a value sampled u.a.r. from the unit
+	// cube 
+	
 	int numFeatureMaps = this.featureMaps.length;
 
 	// compute value of the integral of the mass function over the whole domain
 	int numDimensions = this.domainLB.length;
-	double domainVolume = 0;
+	double domainVolume = 1.0;
 	for (int i=0; i<numDimensions; i++) { 
 	    domainVolume = domainVolume * (domainUB[i] - domainLB[i]);
 	}
-	RKHSFunction lebesgueMeasure = getLebesgueMeasure(domainLB, domainUB);
+	RKHSFunction lebesgueMeasure = getGridMeasure(domainLB, domainUB);
 	double functionIntegral = domainVolume * this.innerProduct(lebesgueMeasure);
 	
+	// set up array of new feature maps for the mean map 
 	FeatureMap[] newFeatureMaps = new FeatureMap[numFeatureMaps];
 	
+	double[] cdfPoint;
 	for (int fMapIndex = 0; fMapIndex < numFeatureMaps; fMapIndex++) {
-	    double cdfValue = 1;
+	    cdfPoint = new double[numDimensions];
 	    for (int i = 0; i < numDimensions; i++) {
-		cdfValue = cdfValue * ((Math.random() * (domainUB[i] - domainLB[i])) + domainLB[i]);
+		cdfPoint[i] = Math.random(); // u.a.r. CDF sampling
 	    }
-
-	    double[] cdfPoint = binarySearchCDF(cdfValue, domainLB, domainUB, functionIntegral);
 	    
+	    double cdfValue = 1.0;
+	    for (double coord : cdfPoint) { cdfValue = cdfValue * coord; }
+
+//    	    System.out.println("Getting feature map "+(fMapIndex+1)+"/"+numFeatureMaps+" ("+cdfValue+")");
+	    cdfPoint = binarySearchCDF(cdfPoint, domainLB, domainUB, functionIntegral);
 	    newFeatureMaps[fMapIndex] = new FeatureMap(this.k, cdfPoint);
+//	    System.out.println("Got feature map "+(fMapIndex+1)+"/"+numFeatureMaps);
 	}
 
 	ToDoubleFunction<double[]> thisFunction = (point)->(this.eval(point));
@@ -254,74 +358,75 @@ public class RKHSFunction {
     }
 
     /**
+     * Returns the RKHS function with feature maps at "optimal" locations
+     * @return RKHSFunction 
+     */
+    public RKHSFunction convertToOptimalSamples() { 
+	int samplesPerDim = this.numSamplesPerDimension;
+	double[][] optimalSamples = this.getOptimalSamples(samplesPerDim, domainLB, domainUB);
+	FeatureMap[] fmaps = new FeatureMap[this.featureMaps.length];
+	for (int i=0; i<fmaps.length; i++) { 
+	    fmaps[i] = new FeatureMap(this.k, optimalSamples[i]);
+	}
+	double[] newCoeffs = this.fitCoeffs(fmaps, this.referenceFunction, k);
+	return new RKHSFunction(fmaps, newCoeffs);
+    }
+    
+    /**
      * Binary searches the domain to find a point whose CDF matches the value provided
-     * @param cdfValue
+     * @param cdfPoint
      * @param LBs
      * @param UBs
      * @param totalIntegral
      * @return 
      */
     public double[] binarySearchCDF(
-	    double cdfValue,
+	    double[] cdfPoint,
 	    double[] LBs,
 	    double[] UBs,
 	    double totalIntegral) {
 
-	double domainVolume = 1;
 	int numDimensions = UBs.length;
 	double epsilon = 0.005;
 	double[] point = new double[UBs.length];
-	for (int i=0; i<numDimensions; i++) {
-	    point[i] = 0.5*(UBs[i] + UBs[i]);
-	}
+	for (int i=0; i<numDimensions; i++) { point[i] = 0.5*(UBs[i] + LBs[i]); }
 	
 	// compute CDF of the point 
-	RKHSFunction subspaceMeasure = getLebesgueMeasure(domainLB, point);
-	double subspaceVolume = 1;
+	RKHSFunction subspaceMeasure = getGridMeasure(domainLB, point);
+	double subspaceVolume = 1.0;
 	for (int i=0; i<numDimensions; i++) { 
 	    subspaceVolume = subspaceVolume * (point[i] - domainLB[i]);
 	}
-	double pointCDF = (this.innerProduct(subspaceMeasure) * subspaceVolume)/totalIntegral;
-	
-	if (Math.abs(pointCDF - cdfValue) < epsilon) { 
+	double pointCDF = this.innerProduct(subspaceMeasure) * subspaceVolume / totalIntegral;
+	double cdfVal = 1.0; for (double c : cdfPoint) { cdfVal = cdfVal * c; }
+		
+	if (Math.abs((pointCDF - cdfVal)/cdfVal) <= epsilon) { // if the point is close enough 
 	    return point;
-	} else if (pointCDF < cdfValue) { 
-	    // change the bounds
-	    int coordinate = (int) (Math.random() * numDimensions);
-	    double[] newLBs = new double[LBs.length];
-	    for (int i=0; i<newLBs.length; i++) { 
-		newLBs[i] = (i==coordinate) ? point[i] : LBs[i];
-	    }
-	    return binarySearchCDF(cdfValue, newLBs, UBs, totalIntegral);
-	} else if (pointCDF > cdfValue) { 
-	    // change the bounds
-	    int coordinate = (int) (Math.random() * numDimensions);
-	    double[] newUBs = new double[UBs.length];
-	    for (int i=0; i<newUBs.length; i++) { 
-		newUBs[i] = (i==coordinate) ? point[i] : UBs[i];
-	    }
-	    return binarySearchCDF(cdfValue, LBs, newUBs, totalIntegral);
+	} else if (pointCDF < cdfVal) {
+	    return binarySearchCDF(cdfPoint, point, UBs, totalIntegral);
+	} else if (pointCDF > cdfVal) { 
+	    return binarySearchCDF(cdfPoint, LBs, point, totalIntegral);
 	} else {
-	    throw new RuntimeException("Point CDF is neither equal to, greater than, or less than "
-		    + "the required CDF value. What on earth did you do?");
+	    throw new RuntimeException("The point has CDF neither greater than, equal to, or "
+		    + "less than the required CDF value. Congraulations, you broke math. ");
 	}
     }
 
     /**
-     * Computes the inner product of this RKHSFunction with another RKHSFunction Assumes that the
+     * Computes the inner product of this RKHSFunction with another RKHSFunction. Assumes that the 
      * kernel for both functions is the same
      *
      * @param f
      * @return
      */
     public double innerProduct(RKHSFunction f) {
-
 	// check if both kernels are the same
 	if (!this.k.equals(f.k)) {
 	    throw new RuntimeException("Inner product between RKHS functions with different kernels.");
 	}
-
+	
 	double innerProduct = 0;
+	
 	for (int i = 0; i < f.featureMaps.length; i++) {
 	    for (int j = 0; j < this.featureMaps.length; j++) {
 		innerProduct
@@ -355,9 +460,10 @@ public class RKHSFunction {
 	    ToDoubleFunction<Double> pivotFunction
 		    = (x) -> getSamplingObjFcnValue(changeSample(currentSamples, sampleIndex, sampleCoord, x));
 	    currentSamples[sampleIndex][sampleCoord]
-		    = findOptimalCoord(currentSamples[sampleIndex], pivotFunction, lb[sampleCoord], ub[sampleCoord]);
-	    double newVal = getSamplingObjFcnValue(currentSamples);
-	    if (((newVal - currentVal) / currentVal) < epsilonPct) {
+		    = findOptimalCoord(pivotFunction, lb[sampleCoord], ub[sampleCoord]);
+	    double newVal = getSamplingObjFcnValue(currentSamples); 
+	    double error = newVal - currentVal;
+	    if (error < epsilonPct) {
 		converged = true;
 	    }
 	}
@@ -365,7 +471,8 @@ public class RKHSFunction {
     }
 
     /**
-     * Changes the sample by altering the value at the given array coordinates to match the value
+     * Changes the sample by altering the value at the given array coordinates to match the value. 
+     * I know this is the kludgiest thing ever. 
      *
      * @param arr
      * @param coord1
@@ -376,7 +483,7 @@ public class RKHSFunction {
     public double[][] changeSample(double[][] arr, int coord1, int coord2, double val) {
 	double[][] newSamples = new double[arr.length][arr[0].length];
 	for (int i = 0; i < arr.length; i++) {
-	    for (int j = 0; j < arr.length; j++) {
+	    for (int j = 0; j < arr[0].length; j++) {
 		if (i == coord1 && j == coord2) {
 		    newSamples[i][j] = val;
 		} else {
@@ -390,20 +497,15 @@ public class RKHSFunction {
     /**
      * Performs a line search to find the value minimizing the function
      *
-     * @param point
      * @param fcn
      * @param lBound
      * @param uBound
      * @return
      */
-    public double findOptimalCoord(
-	    double[] point,
-	    ToDoubleFunction<Double> fcn,
-	    double lBound,
-	    double uBound) {
+    public double findOptimalCoord(ToDoubleFunction<Double> fcn, double lBound, double uBound) {
 	double maxValue = Double.NEGATIVE_INFINITY;
 	double maxCoord = lBound;
-	for (double candidate = lBound; candidate <= uBound; candidate += (lBound - uBound) / 1000) {
+	for (double candidate = lBound; candidate < uBound; candidate += (uBound - lBound) / 100) {
 	    double value = fcn.applyAsDouble(candidate);
 	    if (value > maxValue) {
 		maxValue = value;
@@ -435,7 +537,7 @@ public class RKHSFunction {
 	Matrix gramMatrixInverse = gramMatrix.inverse();
 
 	// get RKHS representation of the Lebesgue measure for computing k matrix
-	RKHSFunction lebesgueMeasure = getLebesgueMeasure(domainLB, domainUB);
+	RKHSFunction lebesgueMeasure = getGridMeasure(domainLB, domainUB);
 
 	// fill in the k matrix
 	double[][] kDoubleMat = new double[numSamples][numSamples];
@@ -444,7 +546,8 @@ public class RKHSFunction {
 		// get phi_{xi} phi_{xj}
 		FeatureMap phixi = new FeatureMap(this.k, samples[i]);
 		FeatureMap phixj = new FeatureMap(this.k, samples[j]);
-		FeatureMap[] phis = new FeatureMap[]{phixi, phixj};
+		FeatureMap[] phis = new FeatureMap[2];
+		phis[0] = phixi; phis[1] = phixj;
 		ToDoubleFunction<double[]> prodFunction
 			= (point) -> (phixi.eval(point) * phixj.eval(point));
 		double[] lcs = fitCoeffs(phis, prodFunction, this.k);
@@ -461,12 +564,6 @@ public class RKHSFunction {
 	double[][] eigenVecMatrix = kMatrix.eig().getV().getArray();
 	double[][] eigenValMatrix = kMatrix.eig().getD().getArray();
 
-	for (int i = 0; i < eigenValMatrix.length; i++) {
-	    if (eigenValMatrix[i][i] < 0) {
-		throw new RuntimeException("Negative eigenvalue.");
-	    }
-	}
-
 	double[][] sqrtEigenvalues = new double[eigenValMatrix.length][eigenValMatrix[0].length];
 	for (int i = 0; i < sqrtEigenvalues.length; i++) {
 	    sqrtEigenvalues[i][i] = Math.sqrt(eigenValMatrix[i][i]);
@@ -480,10 +577,29 @@ public class RKHSFunction {
 
 	return tr;
     }
+    
+    /**
+     * Computes integral of this function over its domain 
+     * @return totalIntegral
+     */
+    public double computeIntegral() { 
+	System.out.println("Computing integral...");
+	RKHSFunction measure = this.getGridMeasure(this.domainLB, this.domainUB);
+	double domainVolume = 1.0;
+		
+	for (int i=0; i<domainLB.length; i++) { 
+	    domainVolume = domainVolume * (domainUB[i] - domainLB[i]);
+	}
+	double totalIntegral = domainVolume * this.innerProduct(measure);
+	
+	return totalIntegral;
+    }
 
     /**
      * Generates the RKHSFunction approximating the uniform measure over the specified domain. 
      * This amounts to uniform sampling within the bounds. 
+     * This really doesn't work too well - gridMeasure seems to be a better approximation 
+     * 
      * @param lBounds
      * @param uBounds
      * @return 
@@ -492,9 +608,10 @@ public class RKHSFunction {
 	int numDimensions= lBounds.length;
 	
 	int numUniformSamples = 1000;
+	double measureCoeff = 1.0/numUniformSamples;
 	double[][] uniformSamples = new double[numUniformSamples][numDimensions];
 	for (double[] uniformSample : uniformSamples) {
-	    for (int dim = 0; dim < uniformSamples.length; dim++) {
+	    for (int dim = 0; dim < uniformSample.length; dim++) {
 		uniformSample[dim] = Math.random() * (uBounds[dim] - lBounds[dim]) + lBounds[dim];
 	    }
 	}
@@ -504,9 +621,41 @@ public class RKHSFunction {
 	}
 	double[] measureCoeffs = new double[numUniformSamples];
 	for (int coeff = 0; coeff < measureCoeffs.length; coeff++) {
-	    measureCoeffs[coeff] = 1 / numUniformSamples;
+	    measureCoeffs[coeff] = measureCoeff;
 	}
+	
 	RKHSFunction lebesgueMeasure = new RKHSFunction(measureFMs, measureCoeffs);
 	return lebesgueMeasure;
+    }
+    
+    /**
+     * Approximates the Lebesgue measure over the domain using feature maps that uniformly grid
+     * the domain. This isn't as theoretically pretty as getLebesgueMeasure, but it seems to provide 
+     * superior approximations. 
+     * @param lBounds
+     * @param uBounds
+     * @return 
+     */
+    public RKHSFunction getGridMeasure(double[] lBounds, double[] uBounds) {  
+	int numDimensions = lBounds.length;
+	double[][] samples = this.gridSample(this.numSamplesPerDimension, lBounds, uBounds);
+	FeatureMap[] measureFMs = new FeatureMap[samples.length];
+	for (int fm = 0; fm < measureFMs.length; fm++) {
+	    measureFMs[fm] = new FeatureMap(this.k, samples[fm]);
+	}
+	
+	double domainVolume = 1.0;
+	for (int i=0; i<numDimensions; i++) { 
+	    domainVolume = domainVolume * (uBounds[i] - lBounds[i]);
+	}
+	final double dVol = domainVolume;
+	
+	ToDoubleFunction<double[]> measureFunc = (point)->(1.0/dVol);
+	
+	double[] measureCoeffs = fitCoeffs(measureFMs, measureFunc, this.k);
+	
+	RKHSFunction lebesgueMeasure = new RKHSFunction(measureFMs, measureCoeffs);
+	return lebesgueMeasure;
+	
     }
 }

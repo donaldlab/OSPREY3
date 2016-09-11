@@ -16,8 +16,8 @@ public abstract class Kernel {
 	// bounds[i][1] --> upper bound on the ith dimension
 	double[][] bounds; 
 
-	public Kernel(double[][] bounds) {
-		this.bounds = bounds;
+	public Kernel(double[][] domainBounds) {
+		this.bounds = domainBounds;
 	}
 	
 	public abstract double eval(double[] x, double[] y);
@@ -26,10 +26,10 @@ public abstract class Kernel {
 		boolean isValid = true;
 		if (x.length != y.length) { isValid = false; }
 		for (int i=1; i<x.length; i++) {
-			boolean xLB = (x[i] > bounds[i][0]); 
-			boolean xUB = (x[i] < bounds[i][1]);
-			boolean yLB = (y[i] > bounds[i][0]);
-			boolean yUB = (y[i] < bounds[i][1]);
+			boolean xLB = (x[i] >= bounds[i][0]); 
+			boolean xUB = (x[i] <= bounds[i][1]);
+			boolean yLB = (y[i] >= bounds[i][0]);
+			boolean yUB = (y[i] <= bounds[i][1]);
 			isValid = isValid && xLB && xUB && yLB && yUB;
 		}
 		return isValid;

@@ -3,9 +3,13 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
+            <file>file:/home/aditya/OSPREY/src/edu/duke/cs/osprey/tests/variationalkstar/continuous/RKHSFunctionTests.java</file>
+            <file>file:/home/aditya/OSPREY/src/edu/duke/cs/osprey/partitionfunctionbounds/continuous/KernelGaussian.java</file>
             <file>file:/home/aditya/OSPREY/src/edu/duke/cs/osprey/partitionfunctionbounds/continuous/FeatureMap.java</file>
+            <file>file:/home/aditya/OSPREY/src/edu/duke/cs/osprey/tests/variationalkstar/continuous/RKHS_MRFTests.java</file>
             <file>file:/home/aditya/OSPREY/src/edu/duke/cs/osprey/partitionfunctionbounds/continuous/RKHS_MRF.java</file>
             <file>file:/home/aditya/OSPREY/src/edu/duke/cs/osprey/partitionfunctionbounds/continuous/RKHSFunction.java</file>
+            <file>file:/home/aditya/OSPREY/src/edu/duke/cs/osprey/partitionfunctionbounds/continuous/Kernel.java</file>
         </group>
     </open-files>
 </project-private>
