@@ -126,7 +126,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 				params.getBool("selectLCAs"),
 				getFlexResByStrand(strand),
 				params.getValue("PDBNAME"),
-                                params.getBool("DORAMACHECK")
+				params.getBool("DORAMACHECK")
 				);
 
 		// remove residues not in this strand
@@ -237,7 +237,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 
 		String tmp = getParams().getValue("kStarOutputDir");
 		if(tmp.equalsIgnoreCase("runName")) tmp = getParams().getValue("RUNNAME");
-		
+
 		String ematDir = tmp + File.separator + getParams().getValue("kStarEmatDir");
 		ObjectIO.makeDir(ematDir, getParams().getBool("kStarDeleteEmatDir", false));
 		String name = ematDir + File.separator + getParams().getValue("RUNNAME");
@@ -258,15 +258,15 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 				getParams().getBool("doMinimize", false),
 				new EPICSettings(params),
 				getParams().getBool("UseTupExp", false),
-                                new LUTESettings(params),
+				new LUTESettings(params),
 				dset, moveableStrands, freeBBZones,
 				getParams().getBool("useEllipses", false),
 				getParams().getBool("useERef", false),
 				getParams().getBool("AddResEntropy", false),
 				getParams().getBool("addWTRots", false),
 				getStrandLimits(strand),
-                                getParams().getBool("useVoxelG", false)
-                );
+				getParams().getBool("useVoxelG", false)
+				);
 	}
 
 
@@ -327,7 +327,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 				System.out.println("WARNING: allowed sequences does not contain the wild-type sequence: " + 
 						KSAbstract.list1D2String(complexSeqs.getWTSeq(), " ") + "\n");
 			}
-			
+
 			// if this condition is true, then only the wild type sequence is returned
 			if(numMutations > 0 && complexSeqs.getNumSeqs() == 1 && complexSeqs.containsWTSeq())
 				throw new RuntimeException("ERROR: cannot generate any sequences "

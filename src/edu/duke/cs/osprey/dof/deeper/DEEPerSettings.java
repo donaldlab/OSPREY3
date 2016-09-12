@@ -104,11 +104,7 @@ public class DEEPerSettings {
     }
     
     public ArrayList<ArrayList<int[]>> getPertStates(int pos){
-        if(perts==null || perts.pertStates.size() == 0)
-            return null;
-        if(perts.pertStates.isEmpty())//another way of having no perturbations
-            return null;
-        if(perts.pertStates.isEmpty())//another way of having no perturbations
+        if(perts==null || perts.pertStates.isEmpty())
             return null;
         
         return perts.pertStates.get(pos);
