@@ -22,6 +22,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.StringTokenizer;
 
 /**
@@ -381,6 +382,33 @@ public class PertSet {
         //pblock will automatically be stored in each of the perturbations
         
         return ans;
+    }
+    
+    
+    
+    
+    PertSet makeDiscreteVersion(){
+        //Make a discrete version of this PertSet.  Shallow copying when no change
+        PertSet discrSet = new PertSet();
+        discrSet.pertTypes = pertTypes;
+        discrSet.resNums = resNums;
+        discrSet.pertStates = pertStates;
+        discrSet.additionalInfo = additionalInfo;
+        
+        for(ArrayList<double[]> curPertIntervals : pertIntervals){
+            ArrayList<double[]> curDiscr = new ArrayList<>();
+            for(double[] bounds : curPertIntervals){
+                if(bounds[0]==bounds[1])
+                    curDiscr.add(bounds);
+                else{
+                    double discrValue = (bounds[0]+bounds[1])/2;
+                    curDiscr.add(new double[] {discrValue,discrValue});
+                }
+            }
+            discrSet.pertIntervals.add(curDiscr);
+        }
+        
+        return discrSet;
     }
     
     

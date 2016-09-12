@@ -25,6 +25,7 @@ import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.Protractor;
+import java.util.HashMap;
 
 
 /**
@@ -406,4 +407,24 @@ public class PositionConfSpace implements Serializable {
 		}
 		return null;
 	}
+        
+        
+        public int maxNumRCsPerResType(){
+            //maximum (over all residue types) of the number of RCs of that residue type
+            HashMap<String,Integer> resTypeRCCounts = new HashMap<>();
+            
+            for(RC rc : RCs){
+                String type = rc.AAType;
+                if(resTypeRCCounts.containsKey(type))
+                    resTypeRCCounts.put(type, resTypeRCCounts.get(type)+1);
+                else
+                    resTypeRCCounts.put(type, 1);
+            }
+            
+            int maxNumRCs = 0;
+            for(int count : resTypeRCCounts.values())
+                maxNumRCs = Math.max(maxNumRCs,count);
+            
+            return maxNumRCs;
+        }
 }

@@ -15,6 +15,7 @@ import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Stopwatch;
+import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class PruningProfiling {
 	
@@ -56,8 +57,8 @@ public class PruningProfiling {
 		SearchProblem search = new SearchProblem(
 			"energyMatrixProfiling",
 			"2KDC.P.forOsprey.pdb", 
-			flexRes, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion,
-			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null
+			flexRes, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
+			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null, false
 		);
 		
 		// compute/read the energy matrix

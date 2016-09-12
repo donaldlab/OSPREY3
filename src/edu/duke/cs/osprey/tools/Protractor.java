@@ -73,6 +73,10 @@ public class Protractor {
     	return measureDihedral(coords[0], 0, coords[1], 0, coords[2], 0, coords[3], 0);
     }
     
+    public static double[] measureDihedralSinCos(double[][] coords) {
+    	return measureDihedralSinCos(coords[0], 0, coords[1], 0, coords[2], 0, coords[3], 0);
+    }
+    
     public static double measureDihedral(double[] acoords, int aindex, double[] bcoords, int bindex, double[] ccoords, int cindex, double[] dcoords, int dindex) {
     
         //given 3D coords for four atoms, return their dihedral (standard sign convention; in degrees)
@@ -134,6 +138,57 @@ public class Protractor {
         if(app > 180.0)
           app = app - 360.0;
         return(app);
+    }
+    
+    
+    public static double[] measureDihedralSinCos(double[] acoords, int aindex, double[] bcoords, int bindex, double[] ccoords, int cindex, double[] dcoords, int dindex) {
+        //This version returns the {sine,cosine} of the dihedral
+        
+        double xij, yij, zij;
+        double xkj, ykj, zkj;
+        double xkl, ykl, zkl;
+        double dx, dy, dz;
+        double gx, gy, gz;
+        double bi, bk;
+        double ct, d, ap, app, bibk;
+
+        xij = acoords[aindex*3 + 0] - bcoords[bindex*3 + 0];
+        yij = acoords[aindex*3 + 1] - bcoords[bindex*3 + 1];
+        zij = acoords[aindex*3 + 2] - bcoords[bindex*3 + 2];
+        xkj = ccoords[cindex*3 + 0] - bcoords[bindex*3 + 0];
+        ykj = ccoords[cindex*3 + 1] - bcoords[bindex*3 + 1];
+        zkj = ccoords[cindex*3 + 2] - bcoords[bindex*3 + 2];
+        xkl = ccoords[cindex*3 + 0] - dcoords[dindex*3 + 0];
+        ykl = ccoords[cindex*3 + 1] - dcoords[dindex*3 + 1];
+        zkl = ccoords[cindex*3 + 2] - dcoords[dindex*3 + 2];
+
+                    // d = ij cross kj
+                    // g = kl cross kj
+        dx = yij * zkj - zij * ykj;
+        dy = zij * xkj - xij * zkj;
+        dz = xij * ykj - yij * xkj;
+        gx = zkj * ykl - ykj * zkl;
+        gy = xkj * zkl - zkj * xkl;
+        gz = ykj * xkl - xkj * ykl;
+
+        bi = dx * dx + dy * dy + dz * dz;  // magnitude of d
+        bk = gx * gx + gy * gy + gz * gz;  // magnitude of g
+        ct = dx * gx + dy * gy + dz * gz;  // d dot g
+        bibk = bi * bk;
+        if (bibk < 1.0e-6)
+            return new double[] {0,1};//angle==0
+        ct = ct / Math.sqrt(bibk);
+        if(ct < -1.0)
+          ct = -1.0;
+        else if(ct > 1.0)
+          ct = 1.0;
+
+
+        d  = xkj*(dz*gy-dy*gz) + ykj*(dx*gz-dz*gx) + zkj*(dy*gx-dx*gy);
+        if(d < 0.0)
+            return new double[] {-Math.sqrt(1-ct*ct),-ct};
+        else
+            return new double[] {Math.sqrt(1-ct*ct),-ct};
     }
     
     

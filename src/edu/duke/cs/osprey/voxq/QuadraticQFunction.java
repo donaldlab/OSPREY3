@@ -215,17 +215,26 @@ public class QuadraticQFunction {
     }
     
     private boolean normalizeDistr(){
-        //want integral of exp(ax^2+bx+c) from xLo to x to equal 1
+        //want integral of exp(ax^2+bx+c) from xLo to xHi to equal 1
         //adjust c accordingly.  Return false if unsuccessful
         if(Math.abs(a)<1e-14){//linear case
-            //integral = exp(b*xLo+c) * (exp(b*(xHi-xLo))-1) / b
-            double expl = b / (Math.exp(b*(xHi-xLo))-1);
             
-            if(expl==0)
-                throw new RuntimeException("ERROR: UNDERFLOW");
-            //treat second exp >> 1 as special case???
-            
-            c = Math.log(expl)-b*xLo;
+            //for numerical reasons, we will treat this differently dependent on what b is
+            if(Math.abs(b)<1e-7){
+                //no noticeable variation across voxel: basically exp(c) * exp(b*(xHi+xLo)/2) * (xHi-xLo)=1
+                //(comes from linearization of cumulDistr; this form is actually correct to 2nd order in b
+                c = -b*(xHi+xLo)/2 - Math.log(xHi-xLo);
+            }
+            else if(b<0){
+                //integral = exp(b*xLo+c) * (exp(b*(xHi-xLo))-1) / b
+                double expl = b / (Math.exp(b*(xHi-xLo))-1);
+                c = Math.log(expl)-b*xLo;
+            }
+            else {//b>=1e-7
+                //integral = exp(b*xHi+c) * (1-exp(b*(xLo-xHi))) / b
+                double expl = b / (1-Math.exp(b*(xLo-xHi)));
+                c = Math.log(expl)-b*xHi;
+            }
         }
         else {
             double erfDiff = Erf.erf(cdErfArg(xLo), cdErfArg(xHi));
@@ -236,10 +245,26 @@ public class QuadraticQFunction {
         }
         
         double newNorm = cumulDistr(xHi);
-        if(Double.isInfinite(newNorm) && Math.abs(a)>=1e-14 )
+        
+        /*
+        if( (Double.isInfinite(newNorm)||Double.isNaN(newNorm)) && Math.abs(a)>=1e-14 )
             return false;//quadratic can't be normalized, so will be replaced by linear
         else if( Math.abs(newNorm-1) > 1e-5 )
-            throw new RuntimeException("ERROR: Unsuccessful normalization");
+            throw new RuntimeException("ERROR: Unsuccessful normalization.  a: "+a+" b: "+b+" c: "+c);
+        else if( Double.isNaN(newNorm) )
+            throw new RuntimeException("ERROR: NaN normalization.  a: "+a+" b: "+b+" c: "+c);
+        */
+        
+        if( Double.isNaN(newNorm) || Math.abs(newNorm-1) > 1e-5 ){//normalization failed
+            if(Math.abs(a)>=1e-14){//this happens for nearly linear quadratic models
+                //try explicitly linear instead
+                return false;
+            }
+            else {//linear normalization failed...shouldn't happen for remotely realistic energies
+                throw new RuntimeException("ERROR: Unsuccessful normalization.  a: "+a+" b: "+b+" c: "+c
+                        +" newNorm (should be 1): "+newNorm);
+            }
+        }
         
         return true;
     }

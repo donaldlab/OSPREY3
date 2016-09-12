@@ -27,7 +27,7 @@ public class ConfETupleExpander extends TupleExpander {
     SearchProblem sp;
     
     public ConfETupleExpander(SearchProblem sp){
-        super(sp.confSpace.numPos, sp.confSpace.getNumRCsAtPos(), sp.pruneMat.getPruningInterval());
+        super(sp.confSpace.numPos, sp.confSpace.getNumRCsAtPos(), sp.pruneMat.getPruningInterval(), sp.luteSettings);
         this.sp = sp;
     }
 
@@ -36,7 +36,7 @@ public class ConfETupleExpander extends TupleExpander {
     @Override
     double scoreAssignmentList(int[] assignmentList) {
         if(sp.useEPIC){//Faster if we can score by EPIC
-                        
+            
             double E = sp.EPICMinimizedEnergy(assignmentList);
            
             if(E==Double.POSITIVE_INFINITY){//this is going to be a problem if used as a true value
@@ -47,7 +47,7 @@ public class ConfETupleExpander extends TupleExpander {
                     throw new RuntimeException("ERROR: Infinite E for unpruned conf: "+tup.stringListing());
             }
             
-                  
+            
             /*
             //code for debugging inaccurate pairwise lower bounds
             double LB = sp.lowerBound(assignmentList);

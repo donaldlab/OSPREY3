@@ -38,7 +38,7 @@ public class SAPE implements Serializable {
     //stuff for standalone evaluation
     //Molecule mStandalone;//PROBABLY JUST HANDLE W/I OBJ FCN
     MoleculeModifierAndScorer mofStandalone;//objective function that sets the molecule DOFs and 
-    //returns the 
+    //returns the energy
     
     //stuff for shared-molecule evaluation
     //we assume the shared molecule has the same residue numbers as the original molecule!
