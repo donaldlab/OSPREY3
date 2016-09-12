@@ -23,6 +23,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
+import edu.duke.cs.osprey.bbfree.BBFreeDOF;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
@@ -382,7 +383,7 @@ public class GMECFinder {
 				// we'd need to implement the copy() and setMolecule() methods on Perturbation DOFs to enable compatibility
 				boolean usingDEEPer = false;
 				for (DegreeOfFreedom dof : searchSpace.confSpace.confDOFs) {
-					if (dof instanceof Perturbation) {
+					if (dof instanceof Perturbation || dof instanceof BBFreeDOF) {
 						usingDEEPer = true;
 						break;
 					}

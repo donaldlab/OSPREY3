@@ -4,6 +4,7 @@
  */
 package edu.duke.cs.osprey.confspace;
 
+import edu.duke.cs.osprey.bbfree.BBFreeDOF;
 import java.io.Serializable;
 import java.util.ArrayList;
 
@@ -290,7 +291,7 @@ public class SearchProblem implements Serializable {
         	// we'd need to implement the copy() and setMolecule() methods on Perturbation DOFs to enable compatibility
 			boolean usingDEEPer = false;
 			for (DegreeOfFreedom dof : confSpace.confDOFs) {
-				if (dof instanceof Perturbation) {
+				if (dof instanceof Perturbation || dof instanceof BBFreeDOF) {
 					usingDEEPer = true;
 					break;
 				}
