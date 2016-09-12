@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -63,15 +64,19 @@ public class TestBase {
 		}
 	}
 
-	protected static double getRelativeError(double expected, double observed) {
-		return Math.abs(expected - observed)/Math.abs(observed);
+	public static double getRelativeError(double expected, double observed) {
+		double absErr = Math.abs(expected - observed);
+		if (observed == 0) {
+			return absErr;
+		}
+		return absErr/Math.abs(observed);
 	}
 	
-	protected static Matcher<Double> isRelatively(double expected) {
+	public static Matcher<Double> isRelatively(double expected) {
 		return isRelatively(expected, DefaultEpsilon);
 	}
 	
-	protected static Matcher<Double> isRelatively(final double expected, final double epsilon) {
+	public static Matcher<Double> isRelatively(final double expected, final double epsilon) {
 		return new BaseMatcher<Double>() {
 
 			@Override
@@ -95,6 +100,46 @@ public class TestBase {
 			}
 		};
 	}
+	
+	public static double getRelativeError(BigDecimal expected, BigDecimal observed) {
+		//return Math.abs(expected - observed)/Math.abs(observed);
+		// NOTE: don't divide BigDecimals, since they can't represent all rationals
+		BigDecimal absErr = expected.subtract(observed).abs();
+		if (observed.equals(BigDecimal.ZERO)) {
+			return absErr.doubleValue();
+		}
+		return absErr.doubleValue()/observed.abs().doubleValue();
+	}
+	
+	public static Matcher<BigDecimal> isRelatively(BigDecimal expected) {
+		return isRelatively(expected, DefaultEpsilon);
+	}
+	
+	public static Matcher<BigDecimal> isRelatively(final BigDecimal expected, final double epsilon) {
+		return new BaseMatcher<BigDecimal>() {
+
+			@Override
+			public boolean matches(Object obj) {
+				BigDecimal observed = (BigDecimal)obj;
+				return getRelativeError(expected, observed) <= epsilon;
+			}
+
+			@Override
+			public void describeTo(Description desc) {
+				desc.appendText("close to ").appendValue(expected);
+			}
+			
+			@Override
+			public void describeMismatch(Object obj, Description desc) {
+				BigDecimal observed = (BigDecimal)obj;
+				double relErr = getRelativeError(expected, observed);
+				desc.appendText("value ").appendValue(observed)
+					.appendText(" has relative err ").appendValue(relErr)
+					.appendText(" that's greater than epsilon ").appendValue(epsilon);
+			}
+		};
+	}
+	
 	
 	protected static ForcefieldParams makeDefaultFFParams() {
 		// values from default config file

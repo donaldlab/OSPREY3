@@ -20,6 +20,9 @@ import edu.duke.cs.osprey.tools.ObjectIO;
  *
  */
 public class KSImplLinear extends KSAbstract {
+	
+	private boolean contSCFlex;
+	private String pfImpl;
 
 	public KSImplLinear( KSConfigFileParser cfp ) {
 		super( cfp );
@@ -37,9 +40,10 @@ public class KSImplLinear extends KSAbstract {
 
 		if(doCheckPoint) createCheckPointDir();
 
-		boolean contSCFlex = cfp.getParams().getBool("doMinimize", true);
+		contSCFlex = cfp.getParams().getBool("doMinimize", true);
 		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(contSCFlex));
 		createEmats(contSCFlexVals);
+		pfImpl = cfp.getParams().getValue("kStarPFuncMethod");
 	}
 
 
@@ -77,10 +81,8 @@ public class KSImplLinear extends KSAbstract {
 		// each value corresponds to the desired flexibility of the 
 		// pl, p, and l conformation spaces, respectively
 		ArrayList<ArrayList<String>> strandSeqs = null;	
-		boolean contSCFlex = cfp.getParams().getBool("doMinimize", true);
 		ArrayList<Boolean> contSCFlexVals = new ArrayList<>(Arrays.asList(contSCFlex, contSCFlex, contSCFlex));
-		ArrayList<String> pfImplVals = new ArrayList<>(Arrays.asList(PFAbstract.getCFGImpl(), 
-				PFAbstract.getCFGImpl(), PFAbstract.getCFGImpl()));
+		ArrayList<String> pfImplVals = new ArrayList<>(Arrays.asList(pfImpl, pfImpl, pfImpl));
 
 		// run wt
 		int startSeq = 0;
@@ -123,10 +125,8 @@ public class KSImplLinear extends KSAbstract {
 		// each value corresponds to the desired flexibility of the 
 		// pl, p, and l conformation spaces, respectively
 		ArrayList<ArrayList<String>> strandSeqs = null;	
-		boolean contSCFlex = cfp.getParams().getBool("doMinimize", true);
 		ArrayList<Boolean> contSCFlexVals = new ArrayList<>(Arrays.asList(contSCFlex, contSCFlex, contSCFlex));
-		ArrayList<String> pfImplVals = new ArrayList<>(Arrays.asList(PFAbstract.getCFGImpl(), 
-				PFAbstract.getCFGImpl(), PFAbstract.getCFGImpl()));
+		ArrayList<String> pfImplVals = new ArrayList<>(Arrays.asList(pfImpl, pfImpl, pfImpl));
 
 		// get all sequences		
 		@SuppressWarnings("unchecked")
@@ -198,5 +198,14 @@ public class KSImplLinear extends KSAbstract {
 		ObjectIO.delete(getCheckPointDir());
 	}
 
+	public PFAbstract getPartitionFunction(int strand, ArrayList<String> seq) {
+		return name2PF.get(getSearchProblemName(contSCFlex, strand, pfImpl, seq));
+	}
 
+	public double getKStarScoreLog10(int sequenceIndex, boolean useUB) {
+		PFAbstract l = getPartitionFunction(KSTermini.LIGAND, getSequences(KSTermini.LIGAND).get(sequenceIndex));
+		PFAbstract p = getPartitionFunction(KSTermini.PROTEIN, getSequences(KSTermini.PROTEIN).get(sequenceIndex));
+		PFAbstract pl = getPartitionFunction(KSTermini.COMPLEX, getSequences(KSTermini.COMPLEX).get(sequenceIndex));
+		return KSCalc.getKStarScoreLog10(l, p, pl, useUB);
+	}
 }

@@ -251,6 +251,19 @@ public class KSCalc {
 				return Double.POSITIVE_INFINITY;
 		}
 		
+		return getKStarScoreLog10(l, p, pl);
+	}
+	
+	public static double getKStarScoreLog10(PFAbstract l, PFAbstract p, PFAbstract pl, boolean useUB) {
+		return getKStarScoreLog10(
+			l.getQStar(),
+			p.getQStar(),
+			useUB ? pl.getQStarUpperBound() : pl.getQStar()
+		);
+	}
+	
+	public static double getKStarScoreLog10(BigDecimal l, BigDecimal p, BigDecimal pl) {
+		
 		double score = 0.0;
 
 		ExpFunction e = new ExpFunction();
@@ -385,7 +398,7 @@ public class KSCalc {
 
 			out.flush();
 			out.close();
-
+			
 		} catch (Exception e) {
 			System.out.println(e.getMessage());
 			e.printStackTrace();

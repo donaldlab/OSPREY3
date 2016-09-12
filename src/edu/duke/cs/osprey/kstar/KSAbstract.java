@@ -6,7 +6,9 @@ import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.Scanner;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
@@ -246,8 +248,25 @@ public abstract class KSAbstract implements KSInterface {
 		}
 		System.out.println();
 	}
-
-
+	
+	public ArrayList<ArrayList<String>> getSequences(int strand) {
+		return strand2AllowedSeqs.get(strand).getStrandSeqList();
+	}
+	
+	public ArrayList<ArrayList<String>> getUniqueSequences(int strand) {
+		
+		// remove duplicate sequences (but don't change order)
+		Set<ArrayList<String>> uniques = new LinkedHashSet<>();
+		uniques.addAll(getSequences(strand));
+		return new ArrayList<ArrayList<String>>(uniques);
+	}
+	
+	
+	protected PFAbstract getPartitionFunction(boolean contSCFlex, int strand, String pfImpl, ArrayList<String> seq) {
+		return name2PF.get(getSearchProblemName(contSCFlex, strand, pfImpl, seq));
+	}
+	
+	
 	protected void loadAndPruneMatrices() {
 
 		try {
@@ -633,5 +652,5 @@ public abstract class KSAbstract implements KSInterface {
 
 		return ans;
 	}
-
+	
 }

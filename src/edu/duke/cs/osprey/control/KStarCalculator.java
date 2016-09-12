@@ -191,39 +191,17 @@ public class KStarCalculator {
 	}
 
 
-	public void calcKStarScores() {
+	public KSAbstract calcKStarScores() {
+
+		cfp.verifyStrandsMutuallyExclusive();
+		
+		generateAllowedSequences();
 
 		try {
-
-			cfp.verifyStrandsMutuallyExclusive();
-			
-			generateAllowedSequences();
-
 			String mutFilePath = cfp.getParams().getValue("mutfile", "");
 			if(mutFilePath.length() > 0) {
 				truncateAllowedSequences(mutFilePath);
 			}
-
-			String ksMethod = cfp.getParams().getValue("kStarMethod", "linear");
-
-			switch( ksMethod ) {
-
-			case "kastar":
-				KSImplKAStar kastar = new KSImplKAStar(cfp);
-				kastar.init(strand2AllowedSeqs);
-				kastar.run();
-				break;
-			
-			case "linear":
-				KSImplLinear linear = new KSImplLinear(cfp);
-				linear.init(strand2AllowedSeqs);
-				linear.run();
-				break;
-				
-			default:
-				throw new UnsupportedOperationException("ERROR: currently supported implementations are 'linear' and 'kastar'");
-			}
-
 		} catch (IOException ex) {
 			
 			// don't make the caller trap this exception if it doesn't care,
@@ -231,6 +209,25 @@ public class KStarCalculator {
 			throw new Error(ex);
 		}
 
+		String ksMethod = cfp.getParams().getValue("kStarMethod", "linear");
+
+		switch( ksMethod ) {
+
+		case "kastar":
+			KSImplKAStar kastar = new KSImplKAStar(cfp);
+			kastar.init(strand2AllowedSeqs);
+			kastar.run();
+			return kastar;
+		
+		case "linear":
+			KSImplLinear linear = new KSImplLinear(cfp);
+			linear.init(strand2AllowedSeqs);
+			linear.run();
+			return linear;
+			
+		default:
+			throw new UnsupportedOperationException("ERROR: currently supported implementations are 'linear' and 'kastar'");
+		}
 	}
 
 }
