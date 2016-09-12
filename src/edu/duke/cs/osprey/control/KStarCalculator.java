@@ -4,17 +4,18 @@ package edu.duke.cs.osprey.control;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 
-import edu.duke.cs.osprey.kstar.KSAllowedSeqs;
-import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.confspace.PositionConfSpace;
 import edu.duke.cs.osprey.kstar.KSAbstract;
+import edu.duke.cs.osprey.kstar.KSAllowedSeqs;
+import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.kstar.KSTermini;
-import edu.duke.cs.osprey.kstar.impl.KSImplLinear;
 import edu.duke.cs.osprey.kstar.impl.KSImplKAStar;
+import edu.duke.cs.osprey.kstar.impl.KSImplLinear;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 import edu.duke.cs.osprey.tools.StringParsing;
@@ -91,7 +92,7 @@ public class KStarCalculator {
 	}
 
 
-	protected ArrayList<ArrayList<String>> getMutationsFromFile( String path ) throws Exception {
+	protected ArrayList<ArrayList<String>> getMutationsFromFile( String path ) throws IOException {
 
 		if( !new File(path).exists() )
 			throw new RuntimeException("ERROR: " + path + " does not exist");
@@ -137,7 +138,7 @@ public class KStarCalculator {
 	}
 
 
-	public ArrayList<ArrayList<String>> truncateAllowedSequences(String path) throws Exception {
+	public ArrayList<ArrayList<String>> truncateAllowedSequences(String path) throws IOException {
 
 		// read .mut file
 		// filter list of mutations; only run those listed
@@ -223,10 +224,11 @@ public class KStarCalculator {
 				throw new UnsupportedOperationException("ERROR: currently supported implementations are 'linear' and 'kastar'");
 			}
 
-		} catch(Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
+		} catch (IOException ex) {
+			
+			// don't make the caller trap this exception if it doesn't care,
+			// but still give the caller a choice by wrapping the Exception with Error instead of calling System.exit()
+			throw new Error(ex);
 		}
 
 	}
