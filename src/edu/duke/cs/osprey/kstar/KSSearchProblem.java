@@ -15,6 +15,7 @@ import edu.duke.cs.osprey.kstar.pruning.InvertedPruningMatrix;
 import edu.duke.cs.osprey.kstar.pruning.ReducedPruningMatrix;
 import edu.duke.cs.osprey.kstar.pruning.UnprunedPruningMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class KSSearchProblem extends SearchProblem {
 
@@ -30,12 +31,13 @@ public class KSSearchProblem extends SearchProblem {
 	
 	public KSSearchProblem(String name, String PDBFile, ArrayList<String> flexibleRes,
 			ArrayList<ArrayList<String>> allowedAAs, boolean addWT, boolean contSCFlex, boolean useEPIC,
-			EPICSettings epicSettings, boolean useTupExp, DEEPerSettings dset, ArrayList<String[]> moveableStrands,
+			EPICSettings epicSettings, boolean useTupExp, LUTESettings luteSettings,
+                        DEEPerSettings dset, ArrayList<String[]> moveableStrands,
 			ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef, boolean addResEntropy,
-			boolean addWTRots, KSTermini termini) {
+			boolean addWTRots, KSTermini termini, boolean useVoxelG) {
 		
-		super(name, PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, useEPIC, epicSettings, useTupExp, dset,
-				moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWTRots, termini);
+		super(name, PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, useEPIC, epicSettings, useTupExp, luteSettings,
+                        dset, moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWTRots, termini, useVoxelG);
 		
 		this.allowedAAs = allowedAAs;
 		this.reducedAllowedAAs = allowedAAs;
@@ -125,26 +127,6 @@ public class KSSearchProblem extends SearchProblem {
 		}
 	}
 
-	
-	public void loadEnergyMatrix(MatrixType type) {
-		switch (type) {
-
-		case EMAT: 
-			loadEnergyMatrix();
-			break;
-
-		case TUPEXPEMAT: 
-			loadTupExpEMatrix();
-			break;
-
-		case EPICMAT:
-			loadEPICMatrix();
-			break;
-
-		default:	
-			throw new RuntimeException("ERROR: unsupported energy matrix type: " + type);
-		}
-	}
 	
 	
 	public String getMatrixFileName(MatrixType type) {

@@ -44,6 +44,12 @@ public interface ConfSearch {
         public double getScore() {
             return score;
         }
+        public void setScore(double val) {
+        	score = val;
+        }
+        public void offsetScore(double val) {
+        	score += val;
+        }
     }
     
     public static class EnergiedConf extends ScoredConf {
@@ -62,6 +68,12 @@ public interface ConfSearch {
         
         public double getEnergy() {
             return energy;
+        }
+        public void setEnergy(double val) {
+        	energy = val;
+        }
+        public void offsetEnergy(double val) {
+        	energy += val;
         }
     }
 }

@@ -30,6 +30,7 @@ public class PerturbationSelector {
     double maxShearParam, maxBackrubParam;//upper limit on these (by default) single-interval
     //perturbation parameters.  We also allow this value in the negative direction
     boolean selectLCAs;
+    boolean doRamaCheck;//Check if proposed perturbation states are Ramachandran allowed
     ArrayList<String> flexibleRes;//PDB numbers of flexible residues
     
     Molecule m;//generated from provided PDB file
@@ -54,7 +55,7 @@ public class PerturbationSelector {
     
     public PerturbationSelector(String startingPertFile, boolean onlyStarting, 
             double maxShearParam, double maxBackrubParam, boolean selectLCAs, 
-            ArrayList<String> flexibleRes, String PDBFile, KSTermini termini) {
+            ArrayList<String> flexibleRes, String PDBFile, KSTermini termini, boolean doRamaCheck) {
         
         this.startingPertFile = startingPertFile;
         this.onlyStarting = onlyStarting;
@@ -564,6 +565,9 @@ public class PerturbationSelector {
     boolean ramaCheck(Residue res){
         //We'll do Ramachandran check based on gly, since the residue could mutate to gly maybe
         //VDW energies will indicate which gly-allowed states are not cool for a given mutation
+        if(!doRamaCheck)
+            return true;
+        
         boolean[] allowed = RamachandranChecker.getInstance().checkByAAType(res);
         return allowed[0];//denotes Gly
     }

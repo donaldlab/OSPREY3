@@ -32,6 +32,7 @@ public class DEEPerSettings {
     double maxShearParam;
     double maxBackrubParam;
     boolean selectLCAs;
+    boolean doRamaCheck;
     //We will need the following basic information about the design system
     ArrayList<String> flexibleRes;
     String PDBFile;
@@ -46,7 +47,7 @@ public class DEEPerSettings {
     public DEEPerSettings(boolean doPerturbations, String pertFileName, 
             boolean selectPerturbations, String startingPertFile, boolean onlyStarting, 
             double maxShearParam, double maxBackrubParam, boolean selectLCAs, 
-            ArrayList<String> flexibleRes, String PDBFile) {
+            ArrayList<String> flexibleRes, String PDBFile, boolean doRamaCheck) {
         
         this.doPerturbations = doPerturbations;
         this.pertFileName = pertFileName;
@@ -58,6 +59,7 @@ public class DEEPerSettings {
         this.selectLCAs = selectLCAs;
         this.flexibleRes = flexibleRes;
         this.PDBFile = PDBFile;
+        this.doRamaCheck = doRamaCheck;
     }
     
     
@@ -76,7 +78,7 @@ public class DEEPerSettings {
                         + " but not supposed to select perturbations");
             
             PerturbationSelector sele = new PerturbationSelector(startingPertFile, onlyStarting, 
-                    maxShearParam, maxBackrubParam, selectLCAs, flexibleRes, PDBFile, termini);
+                    maxShearParam, maxBackrubParam, selectLCAs, flexibleRes, PDBFile, termini, doRamaCheck);
             
             PertSet ps = sele.selectPerturbations(termini);
             ps.writePertFile(pertFileName);
@@ -104,9 +106,25 @@ public class DEEPerSettings {
     public ArrayList<ArrayList<int[]>> getPertStates(int pos){
         if(perts==null || perts.pertStates.size() == 0)
             return null;
+        if(perts.pertStates.isEmpty())//another way of having no perturbations
+            return null;
         
         return perts.pertStates.get(pos);
     }
     
+    
+    public DEEPerSettings makeDiscreteVersion(){
+        //make a version of these settings with continuous intervals changed to discrete points
+        DEEPerSettings discrSettings = new DEEPerSettings(doPerturbations, pertFileName+".DISCR", 
+            selectPerturbations, startingPertFile, onlyStarting, 0, 0, 
+            selectLCAs, flexibleRes, PDBFile, doRamaCheck);
+        
+        if(perts==null)
+            discrSettings.perts = null;
+        else
+            discrSettings.perts = perts.makeDiscreteVersion();
+        
+        return discrSettings;
+    }
     
 }

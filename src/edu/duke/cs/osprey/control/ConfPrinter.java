@@ -82,18 +82,22 @@ public class ConfPrinter {
         return getConfReport(conf, null);
     }
     
-    public String getConfReport(EnergiedConf conf, Double minEnergy) {
+    public String getConfReport(EnergiedConf conf, EnergyWindow window) {
         StringBuilder buf = new StringBuilder();
         
         buf.append(getConfReport(conf.getAssignments()));
-
+        
         buf.append(String.format(LabelFormat + " %.6f", "Energy", conf.getEnergy()));
-        if (minEnergy != null) {
-            buf.append(String.format(" (best so far: %.6f)", minEnergy));
+        if (window != null) {
+            buf.append(String.format(" (best so far: %.6f)", window.getMin()));
         }
         buf.append("\n");
         
-        buf.append(String.format(LabelFormat + " %.6f (gap: %.6f)\n", "Score", conf.getScore(), Math.abs(conf.getScore() - conf.getEnergy())));
+        buf.append(String.format(LabelFormat + " %.6f (gap: %.6f", "Score", conf.getScore(), Math.abs(conf.getScore() - conf.getEnergy())));
+        if (window != null) {
+            buf.append(String.format(", remaining: %.6f", window.getMax() - conf.getScore()));
+        }
+        buf.append(")\n");
         
         // TODO: should conf printer really know what EPIC is?
         // useful to see EPIC energy (confE is regular E, lowerBound is tup-exp)
@@ -105,9 +109,19 @@ public class ConfPrinter {
     }
     
     public String getConfReport(ScoredConf conf) {
+    	return getConfReport(conf, null);
+    }
+    
+    public String getConfReport(ScoredConf conf, EnergyWindow window) {
         StringBuilder buf = new StringBuilder();
         buf.append(getConfReport(conf.getAssignments()));
-        buf.append(String.format(LabelFormat + " %.6f\n", "Score", conf.getScore()));
+        
+        if (window == null) {
+        	buf.append(String.format(LabelFormat + " %.6f\n", "Score", conf.getScore()));
+        } else {
+        	buf.append(String.format(LabelFormat + " %.6f (remaining: %.6f)\n", "Score", conf.getScore(), window.getMax() - conf.getScore()));
+        }
+        
         return buf.toString();
     }
     

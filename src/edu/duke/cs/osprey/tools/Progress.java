@@ -173,6 +173,9 @@ public class Progress {
 	public long getTotalWork() {
 		return totalWork;
 	}
+	public void setTotalWork(long val) {
+		totalWork = val;
+	}
 	
 	public boolean isFinished() {
 		return currentWork == totalWork;

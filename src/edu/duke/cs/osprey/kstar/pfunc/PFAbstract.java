@@ -75,7 +75,7 @@ public abstract class PFAbstract implements Serializable {
 
 	protected static BigDecimal stabilityThresh = BigDecimal.ONE;
 
-	protected static final double RT = 1.9891/1000.0 * 298.15;
+	public static final double RT = 1.9891/1000.0 * 298.15;
 	public static double targetEpsilon = 0.03;
 	protected double effectiveEpsilon = 1.0;
 	protected static String phase2Method = "fast";
@@ -672,7 +672,7 @@ public abstract class PFAbstract implements Serializable {
 	protected void phase2() {
 
 		System.out.println("\nCould not reach target epsilon approximation of " + targetEpsilon + " for sequence: " + KSAbstract.list1D2String(sequence, " ") + " " + getFlexibility());
-		
+                
 		doingPhase2 = true;
 		
 		if( getEffectiveEpsilon() == EPSILON_NEVER_POSSIBLE ) {
@@ -752,10 +752,6 @@ public abstract class PFAbstract implements Serializable {
 		return panSP;
 	}
 
-
-	public PruningControl setupPruning(KSSearchProblem sp, double pruningInterval) {
-		return cfp.setupPruning(sp, pruningInterval, sp.useEPIC, sp.useTupExpForSearch);
-	}
 
 
 	public BigInteger getNumPruned() {

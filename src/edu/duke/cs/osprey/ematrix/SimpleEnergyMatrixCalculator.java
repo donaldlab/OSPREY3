@@ -39,8 +39,8 @@ public class SimpleEnergyMatrixCalculator {
 	private class SingleTask extends MoleculeTask implements Runnable {
 		
 		public int pos1;
-		public int numRcs;
-		public Result[] results;
+		public int rc1;
+		public Result result;
 
 		@Override
 		public void run() {
@@ -49,11 +49,8 @@ public class SimpleEnergyMatrixCalculator {
 			EnergyFunction efunc = ecalc.getSingleEfunc(pos1, mol);
 			RCTuple tup = new RCTuple();
 			
-			results = new Result[numRcs];
-			for (int rc1=0; rc1<numRcs; rc1++) {
-				tup.set(pos1, rc1);
-				results[rc1] = ecalc.calc(efunc, tup, mol);
-			}
+			tup.set(pos1, rc1);
+			result = ecalc.calc(efunc, tup, mol);
 			
 			cleanup(mol, efunc);
 		}
@@ -62,7 +59,7 @@ public class SimpleEnergyMatrixCalculator {
 	private class PairTask extends MoleculeTask implements Runnable {
 		
 		public int pos1;
-		public int numRcs1;
+		public int rc1;
 		public int pos2;
 		public int numRcs2;
 		public Result[] results;
@@ -74,13 +71,10 @@ public class SimpleEnergyMatrixCalculator {
 			EnergyFunction efunc = ecalc.getPairEfunc(pos1, pos2, mol);
 			RCTuple tup = new RCTuple();
 			
-			results = new Result[numRcs1*numRcs2];
-			int i = 0;
-			for (int rc1=0; rc1<numRcs1; rc1++) {
-				for (int rc2=0; rc2<numRcs2; rc2++) {
-					tup.set(pos1, rc1, pos2, rc2);
-					results[i++] = ecalc.calc(efunc, tup, mol);
-				}
+			results = new Result[numRcs2];
+			for (int rc2=0; rc2<numRcs2; rc2++) {
+				tup.set(pos1, rc1, pos2, rc2);
+				results[rc2] = ecalc.calc(efunc, tup, mol);
 			}
 			
 			cleanup(mol, efunc);
@@ -98,7 +92,7 @@ public class SimpleEnergyMatrixCalculator {
 	}
 	
 	public EnergyMatrix calcEnergyMatrix(TaskExecutor tasks) {
-		EnergyMatrix emat = new EnergyMatrix(ecalc.getConfSpace(), 0);
+		EnergyMatrix emat = new EnergyMatrix(ecalc.getConfSpace(), Double.POSITIVE_INFINITY);
 		calcMatrices(emat, null, tasks);
 		return emat;
 	}
@@ -170,19 +164,14 @@ public class SimpleEnergyMatrixCalculator {
 			public void onFinished(Runnable taskBase) {
 				SingleTask task = (SingleTask)taskBase;
 				
-				for (int rc1=0; rc1<task.numRcs; rc1++) {
-					
-					Result result = task.results[rc1];
-					
-					if (emat != null) {
-						emat.setOneBody(task.pos1, rc1, result.getEnergy());
-					}
-					if (dofmat != null) {
-						dofmat.setOneBody(task.pos1, rc1, result.getDofValues());
-					}
+				if (emat != null) {
+					emat.setOneBody(task.pos1, task.rc1, task.result.getEnergy());
+				}
+				if (dofmat != null) {
+					dofmat.setOneBody(task.pos1, task.rc1, task.result.getDofValues());
 				}
 				
-				progress.incrementProgress(task.results.length);
+				progress.incrementProgress();
 			}
 		};
 		TaskListener pairListener = new TaskListener() {
@@ -190,18 +179,14 @@ public class SimpleEnergyMatrixCalculator {
 			public void onFinished(Runnable taskBase) {
 				PairTask task = (PairTask)taskBase;
 			
-				int i = 0;
-				for (int rc1=0; rc1<task.numRcs1; rc1++) {
-					for (int rc2=0; rc2<task.numRcs2; rc2++) {
-						
-						Result result = task.results[i++];
-						
-						if (emat != null) {
-							emat.setPairwise(task.pos1, rc1, task.pos2, rc2, result.getEnergy());
-						}
-						if (dofmat != null) {
-							dofmat.setPairwise(task.pos1, rc1, task.pos2, rc2, result.getDofValues());
-						}
+				for (int rc2=0; rc2<task.numRcs2; rc2++) {
+					Result result = task.results[rc2];
+					
+					if (emat != null) {
+						emat.setPairwise(task.pos1, task.rc1, task.pos2, rc2, result.getEnergy());
+					}
+					if (dofmat != null) {
+						dofmat.setPairwise(task.pos1, task.rc1, task.pos2, rc2, result.getDofValues());
 					}
 				}
 				
@@ -212,24 +197,29 @@ public class SimpleEnergyMatrixCalculator {
 		System.out.println("Calculating energies with shell distribution: " + ecalc.getShellDistribution());
 		
 		for (int pos1=0; pos1<emat.getNumPos(); pos1++) {
+			for (int rc1=0; rc1<emat.getNumConfAtPos(pos1); rc1++) {
 			
-			// singles
-			SingleTask singleTask = new SingleTask();
-			singleTask.mols = mols;
-			singleTask.pos1 = pos1;
-			singleTask.numRcs = emat.getNumConfAtPos(pos1);
-			tasks.submit(singleTask, singleListener);
-			
-			// pairs
-			for (int pos2=0; pos2<pos1; pos2++) {
+				// NOTE: single terms tend to be much larger than pair terms,
+				// so split up single terms into more different tasks than pair terms
 				
-				PairTask pairTask = new PairTask();
-				pairTask.mols = mols;
-				pairTask.pos1 = pos1;
-				pairTask.numRcs1 = emat.getNumConfAtPos(pos1);
-				pairTask.pos2 = pos2;
-				pairTask.numRcs2 = emat.getNumConfAtPos(pos2);
-				tasks.submit(pairTask, pairListener);
+				// singles
+				SingleTask singleTask = new SingleTask();
+				singleTask.mols = mols;
+				singleTask.pos1 = pos1;
+				singleTask.rc1 = rc1;
+				tasks.submit(singleTask, singleListener);
+				
+				// pairs
+				for (int pos2=0; pos2<pos1; pos2++) {
+					
+					PairTask pairTask = new PairTask();
+					pairTask.mols = mols;
+					pairTask.pos1 = pos1;
+					pairTask.rc1 = rc1;
+					pairTask.pos2 = pos2;
+					pairTask.numRcs2 = emat.getNumConfAtPos(pos2);
+					tasks.submit(pairTask, pairListener);
+				}
 			}
 		}
 		

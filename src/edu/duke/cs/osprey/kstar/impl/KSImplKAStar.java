@@ -4,8 +4,11 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
+
 import edu.duke.cs.osprey.kstar.KSAllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSAbstract;
+import edu.duke.cs.osprey.kstar.KSCalc;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.kstar.KAStarNode;
 import edu.duke.cs.osprey.kstar.KAStarTree;
@@ -19,6 +22,11 @@ public class KSImplKAStar extends KSAbstract {
 
 	public KSImplKAStar(KSConfigFileParser cfp) {
 		super(cfp);
+                
+                if(useVoxelG){
+                    throw new RuntimeException("ERROR: Rigid-rotamer upper bound used by KSImplKAStar "
+                            + "not compatible with continuous entropy (useVoxelG");
+                }
 	}
 
 	@Override
@@ -41,7 +49,6 @@ public class KSImplKAStar extends KSAbstract {
 	public String getKSMethod() {
 		return "kastar";
 	}
-	
 
 	protected BigInteger countMinimizedConfs() {
 		BigInteger ans = BigInteger.ZERO;

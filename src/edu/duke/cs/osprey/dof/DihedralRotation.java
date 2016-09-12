@@ -26,4 +26,9 @@ public class DihedralRotation extends RigidBodyMotion {
         super (atom3Coords, VectorAlgebra.subtract(atom3Coords, atom2Coords), dihedralChange, false);
     }
     
+    public DihedralRotation(double[] atom2Coords, double[] atom3Coords, double sinDihedralChange,
+            double cosDihedralChange){
+        super (atom3Coords, VectorAlgebra.subtract(atom3Coords, atom2Coords), sinDihedralChange, cosDihedralChange);
+    }
+    
 }
