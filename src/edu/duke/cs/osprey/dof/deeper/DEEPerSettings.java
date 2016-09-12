@@ -108,6 +108,8 @@ public class DEEPerSettings {
             return null;
         if(perts.pertStates.isEmpty())//another way of having no perturbations
             return null;
+        if(perts.pertStates.isEmpty())//another way of having no perturbations
+            return null;
         
         return perts.pertStates.get(pos);
     }

@@ -51,6 +51,8 @@ public abstract class KSAbstract implements KSInterface {
 	private boolean addResEntropy;
 	private boolean addWT;
 	private boolean addWTRots;
+        
+        protected boolean useVoxelG;
 
 	public static long runTimeout = 0;
 	public static boolean doCheckPoint = false;
@@ -65,9 +67,9 @@ public abstract class KSAbstract implements KSInterface {
 	public KSAbstract( KSConfigFileParser cfp ) {
 
 		this.cfp = cfp;
-
-		EW = cfp.getParams().getDouble("Ew",0);
-		I0 = cfp.getParams().getDouble("Ival", 5);
+                
+                EW = cfp.getParams().getDouble("Ew",0);
+                I0 = cfp.getParams().getDouble("Ival", 5);
 		pdbName = cfp.getParams().getValue("PDBNAME");
 		useEPIC = cfp.getParams().getBool("UseEPIC");
 		useTupExp = cfp.getParams().getBool("UseTupExp");
