@@ -4,6 +4,14 @@
  */
 package edu.duke.cs.osprey.control;
 
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.InputStreamReader;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.TreeMap;
+
 //This class stores parameters from input files
 //Control package classes will probably each want a param set
 //which will control its choice of algorithms, and will be used to initialize other classes 
@@ -12,20 +20,14 @@ package edu.duke.cs.osprey.control;
 
 import edu.duke.cs.osprey.handlempi.MPIMaster;
 import edu.duke.cs.osprey.tools.StringParsing;
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.InputStreamReader;
-import java.util.StringTokenizer;
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.TreeMap;
 
 /**
  * Handles reading in and managing parameter/value pairs from the input configuration files
  */
 public class ParamSet implements Serializable {
 	
+	private static final long serialVersionUID = 4364963601242324780L;
+
 	private TreeMap<String,String> params = new TreeMap<>();//map parameter/value pairs
         //parameter names will be stored as all upper-case, to avoid confusion
 	
@@ -59,59 +61,47 @@ public class ParamSet implements Serializable {
         }
 	
         
-        private static void loadParams(String fName, TreeMap<String,String> paramMap){
-                //load all parameters for cfg file fName into the map paramMap
-            
-		BufferedReader bufread = null;
-		String curLine = null;
-		boolean done = false;
+	private static void loadParams(String fName, TreeMap<String,String> paramMap) {
+		// load all parameters for cfg file fName into the map paramMap
 		
 		// First attempt to open and read the config file
-		try{
-			FileInputStream is = new FileInputStream(fName);
-			bufread = new BufferedReader(new InputStreamReader(is));
-
-			curLine = bufread.readLine();
-
-			while (curLine != null){
-				done = false;
-				while (!done) {
-                                        if(curLine.isEmpty()){//skip blank lines
-                                            curLine = bufread.readLine();
-                                        }
-                                        else if (curLine.charAt(0) == '%'){
-						curLine = bufread.readLine();
-					}
-					else {
-						done = true;
-					}
-					if (curLine == null)
-						done = true;
+		try (BufferedReader in = new BufferedReader(new InputStreamReader(new FileInputStream(fName)))) {
+			
+			// read line-by-line
+			String line;
+			while ((line = in.readLine()) != null) {
+				
+				// strip comments
+				int commentStartPos = line.indexOf('%');
+				if (commentStartPos >= 0) {
+					line = line.substring(0, commentStartPos);
 				}
-				if (curLine != null){
-					String paramName = StringParsing.getToken(curLine,1).trim();
-                                        paramName = paramName.toUpperCase();
-                                        
-                                        if(paramMap.containsKey(paramName))
-                                            throw new RuntimeException("ERROR: parameter "+paramName+" already read");
-					else { // new parameter
-                                            String paramVal = curLine.substring(paramName.length()+1);
-                                            paramMap.put(paramName, paramVal);
-                                            curLine = bufread.readLine();
-					}
+				
+				// skip blank lines
+				if (line.isEmpty()) {
+					continue;
+				}
+				
+				// parse the param
+				String paramName = StringParsing.getToken(line, 1).trim();
+				paramName = paramName.toUpperCase();
+				if (paramMap.containsKey(paramName)) {
+				
+					// duplicate param
+					throw new RuntimeException("ERROR: parameter " + paramName + " already read");
+					
+				} else {
+					
+					// new param
+					String paramVal = line.substring(paramName.length() + 1);
+					paramMap.put(paramName, paramVal);
 				}
 			}
-			bufread.close();
-		}
-                catch (FileNotFoundException e){
-                    throw new RuntimeException("ERROR: Couldn't find configuration file "+fName);
-                }
-		catch(Exception ex)
-		{
-			System.out.println("ERROR: An error occurred reading configuration file "+fName);
-                        System.out.println(ex.getMessage());
-                        ex.printStackTrace();
-			System.exit(1);
+			
+		} catch (FileNotFoundException ex) {
+			throw new RuntimeException("ERROR: Couldn't find configuration file " + fName);
+		} catch (Exception ex) {
+			throw new Error("ERROR: An error occurred reading configuration file " + fName, ex);
 		}
 	}
 
