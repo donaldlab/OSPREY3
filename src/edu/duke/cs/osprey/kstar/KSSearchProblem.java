@@ -32,7 +32,7 @@ public class KSSearchProblem extends SearchProblem {
 	public KSSearchProblem(String name, String PDBFile, ArrayList<String> flexibleRes,
 			ArrayList<ArrayList<String>> allowedAAs, boolean addWT, boolean contSCFlex, boolean useEPIC,
 			EPICSettings epicSettings, boolean useTupExp, LUTESettings luteSettings,
-                        DEEPerSettings dset, ArrayList<String[]> moveableStrands,
+            DEEPerSettings dset, ArrayList<String[]> moveableStrands,
 			ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef, boolean addResEntropy,
 			boolean addWTRots, KSTermini termini, boolean useVoxelG) {
 		
@@ -77,16 +77,33 @@ public class KSSearchProblem extends SearchProblem {
 	}
 	
 	
-	public enum MatrixType {
-		EMAT, TUPEXPEMAT, EPICMAT;
+	public void loadMatrix() {
+		MatrixType type = getMatrixType();
+		
+		switch (type) {
+
+		case EMAT: 
+			loadEnergyMatrix();
+			break;
+
+		case TUPEXPEMAT: 
+			loadTupExpEMatrix();
+			break;
+
+		case EPICMAT:
+			loadEPICMatrix();
+			break;
+
+		default:	
+			throw new RuntimeException("ERROR: unsupported energy matrix type: " + type);
+		}
 	}
 	
 	
 	public MatrixType getMatrixType() {
 		if(useTupExpForSearch) return MatrixType.TUPEXPEMAT;
 
-		// skipping epic for now
-		// else if(useEPIC) return MatrixType.EPICMAT;
+		else if(useEPIC) return MatrixType.EPICMAT;
 
 		return MatrixType.EMAT;
 	}

@@ -4,11 +4,8 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
-
 import edu.duke.cs.osprey.kstar.KSAllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSAbstract;
-import edu.duke.cs.osprey.kstar.KSCalc;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.kstar.KAStarNode;
 import edu.duke.cs.osprey.kstar.KAStarTree;
@@ -22,11 +19,11 @@ public class KSImplKAStar extends KSAbstract {
 
 	public KSImplKAStar(KSConfigFileParser cfp) {
 		super(cfp);
-                
-                if(useVoxelG){
-                    throw new RuntimeException("ERROR: Rigid-rotamer upper bound used by KSImplKAStar "
-                            + "not compatible with continuous entropy (useVoxelG");
-                }
+
+		if(useVoxelG){
+			throw new RuntimeException("ERROR: Rigid-rotamer upper bound used by KSImplKAStar "
+					+ "not compatible with continuous entropy (useVoxelG");
+		}
 	}
 
 	@Override
@@ -37,7 +34,7 @@ public class KSImplKAStar extends KSAbstract {
 		printSequences();
 
 		createOutputDir();
-		
+
 		createEmatDir();
 
 		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(true, false));
@@ -52,12 +49,12 @@ public class KSImplKAStar extends KSAbstract {
 
 	protected BigInteger countMinimizedConfs() {
 		BigInteger ans = BigInteger.ZERO;
-		
+
 		for(PFAbstract pf : name2PF.values()) { 
 			if(pf.isFullyDefined() && pf.getImpl().equalsIgnoreCase(PFAbstract.getCFGImpl()))
 				ans = ans.add(pf.getNumMinimized4Output());
 		}
-		
+
 		return ans;
 	}
 
@@ -112,12 +109,12 @@ public class KSImplKAStar extends KSAbstract {
 			if( best.isFullyProcessed() ) {
 
 				best.checkConsistency(best);
-				
+
 				//if(passesInterMutationPruning(best.lb))
 				best.lb.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCreated(0), getNumSeqsCompleted(0) );
-				
+
 				completed++;
-				
+
 				continue;
 			}
 

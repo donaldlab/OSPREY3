@@ -13,7 +13,6 @@ import edu.duke.cs.osprey.kstar.KSAllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.kstar.KSTermini;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
-import java.util.ArrayList;
 import java.util.HashMap;
 
 /**

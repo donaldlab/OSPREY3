@@ -15,7 +15,9 @@ import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.RunState;
 import edu.duke.cs.osprey.kstar.pfunc.PFFactory;
+import edu.duke.cs.osprey.kstar.pruning.APrioriPruningProver;
 import edu.duke.cs.osprey.tools.ObjectIO;
+import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 
 /**
@@ -51,8 +53,8 @@ public abstract class KSAbstract implements KSInterface {
 	private boolean addResEntropy;
 	private boolean addWT;
 	private boolean addWTRots;
-        
-        protected boolean useVoxelG;
+
+	protected boolean useVoxelG;
 
 	public static long runTimeout = 0;
 	public static boolean doCheckPoint = false;
@@ -67,9 +69,9 @@ public abstract class KSAbstract implements KSInterface {
 	public KSAbstract( KSConfigFileParser cfp ) {
 
 		this.cfp = cfp;
-                
-                EW = cfp.getParams().getDouble("Ew",0);
-                I0 = cfp.getParams().getDouble("Ival", 5);
+
+		EW = cfp.getParams().getDouble("Ew",0);
+		I0 = cfp.getParams().getDouble("Ival", 5);
 		pdbName = cfp.getParams().getValue("PDBNAME");
 		useEPIC = cfp.getParams().getBool("UseEPIC");
 		useTupExp = cfp.getParams().getBool("UseTupExp");
@@ -78,55 +80,36 @@ public abstract class KSAbstract implements KSInterface {
 		addResEntropy = cfp.getParams().getBool("AddResEntropy");
 		addWT = cfp.getParams().getBool("addWT", true);
 		addWTRots = cfp.getParams().getBool("addWTRots", true);
-        
+
 		if(!addWT && addWTRots)
 			throw new RuntimeException("ERROR: addWTRots is true but addWT is false. addWT must be true if addWTRots is true");
-		
-                useVoxelG = cfp.getParams().getBool("useVoxelG", false);
-                if(useVoxelG && !useTupExp)
-                    throw new RuntimeException("ERROR: K* with continuous entropy requires LUTE");
-	}
-        
-        
-        public void checkAPPP(){
-            //check if using a-priori-provable pruning, and set it up if we are
-            if(cfp.getParams().getBool("APrioriProvablePruning", useTupExp)) {
-                //in the case of LUTE this is needed for provability
-                APrioriPruningProver appp = new APrioriPruningProver(this,cfp,strand2AllowedSeqs);
-                EW = appp.calcEw();
-                I0 = appp.calcI0();
-            }
-        }
 
-
-	/*
-	public synchronized void setBestCalc(KSCalc calc) {
-		if(bestCalc == null || calc.getKStarScoreLog10(false) > bestCalc.getKStarScoreLog10(false))
-			bestCalc = calc;
+		useVoxelG = cfp.getParams().getBool("useVoxelG", false);
+		if(useVoxelG && !useTupExp)
+			throw new RuntimeException("ERROR: K* with continuous entropy requires LUTE");
 	}
 
 
-	public KSCalc getBestCalc() {
-		return bestCalc;
+	public void checkAPPP(){
+		//check if using a-priori-provable pruning, and set it up if we are
+		if(cfp.getParams().getBool("APrioriProvablePruning", useTupExp)) {
+			//in the case of LUTE this is needed for provability
+			APrioriPruningProver appp = new APrioriPruningProver(this,cfp,strand2AllowedSeqs);
+			EW = appp.calcEw();
+			I0 = appp.calcI0();
+		}
 	}
-
-
-	public boolean passesInterMutationPruning(KSCalc calc) {
-
-		if(bestCalc == null || KSAbstract.interMutationConst <= 0.0)
-			return true;
-
-		if(calc.getKStarScoreLog10(true) >= Math.log10(KSAbstract.interMutationConst) + bestCalc.getKStarScoreLog10(false))
-			return true;
-
-		return false;
-	}
-	 */
 
 
 	public int getNumSeqsCompleted(int increment) {
 		numSeqsCompleted += increment;
 		return numSeqsCompleted;
+	}
+	
+	
+	public int getNumSeqsCreated(int increment) {
+		numSeqsCreated += increment;
+		return numSeqsCreated;
 	}
 
 
@@ -150,12 +133,12 @@ public abstract class KSAbstract implements KSInterface {
 		preparePanSeqSPs(contSCFlexVals);
 	}
 
-	
+
 	protected void createOutputDir() {
 		if( !new File(getOutputDir()).exists() )
 			ObjectIO.makeDir(getOutputDir(), false);
 	}
-	
+
 
 	protected void createCheckPointDir() {
 		if( !new File(getCheckPointDir()).exists() )
@@ -246,20 +229,20 @@ public abstract class KSAbstract implements KSInterface {
 
 
 	protected void printSequences() {
-		
+
 		doWTCalc = !cfp.getParams().getBool("kStarSkipWTCalc");
-		
+
 		if(!doWTCalc) {
 			wtKSCalc = null;
 			System.out.println("WARNING: skipping K* calculation for wild-type sequence: ");
-			
+
 			ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(KSTermini.LIGAND, 
 					KSTermini.PROTEIN, KSTermini.COMPLEX));
 
 			for( int strand : strands ) 
 				strand2AllowedSeqs.get(strand).removeStrandSeq(0); // wt is seq 0
 		}
-		
+
 		System.out.println("\nPreparing to compute K* for the following sequences:");
 		int i = 0;
 		for(ArrayList<String> al : strand2AllowedSeqs.get(KSTermini.COMPLEX).getStrandSeqList()) {
@@ -284,7 +267,7 @@ public abstract class KSAbstract implements KSInterface {
 				// single seq matrices created using the fast construction 
 				// method are already pruned according to the pruning window
 				if(sp.getEnergyMatrix() == null) {
-					sp.loadEnergyMatrix(sp.getMatrixType());
+					sp.loadMatrix(sp.getMatrixType());
 					cfp.setupPruning(sp, EW+I0, useEPIC, useTupExp).prune();
 					sp.inverseMat = sp.getInvertedFromUnreducedPruningMatrix(sp);
 				}
@@ -354,7 +337,7 @@ public abstract class KSAbstract implements KSInterface {
 
 				// get energy matrix
 				if(pf.getReducedSearchProblem().getEnergyMatrix() == null) {
-					pf.getReducedSearchProblem().loadEnergyMatrix(pf.getReducedSearchProblem().getMatrixType());
+					pf.getReducedSearchProblem().loadMatrix(pf.getReducedSearchProblem().getMatrixType());
 				}
 
 				// re-prune, since we have fewer witnesses now that we have trimmed the emat?
@@ -391,7 +374,7 @@ public abstract class KSAbstract implements KSInterface {
 	}
 
 
-	protected KSSearchProblem createPanSeqSP( boolean contSCFlex, int strand ) {
+	public KSSearchProblem createPanSeqSP( boolean contSCFlex, int strand ) {
 
 		ArrayList<ArrayList<String>> allowedAAs = KSAllowedSeqs.removePosFromAllowedAAs(strand2AllowedSeqs.get(strand).getAllowedAAs());
 		ArrayList<String> flexibleRes = strand2AllowedSeqs.get(strand).getFlexRes();
@@ -410,6 +393,7 @@ public abstract class KSAbstract implements KSInterface {
 				useEPIC,
 				new EPICSettings(cfp.getParams()),
 				useTupExp,
+				new LUTESettings(cfp.getParams()),
 				dset, 
 				moveableStrands, 
 				freeBBZones,
@@ -417,7 +401,8 @@ public abstract class KSAbstract implements KSInterface {
 				useERef,
 				addResEntropy,
 				addWTRots,
-				cfp.getStrandLimits(strand));
+				cfp.getStrandLimits(strand),
+				cfp.getParams().getBool("useVoxelG"));
 
 		return panSeqSP;
 	}
@@ -530,7 +515,7 @@ public abstract class KSAbstract implements KSInterface {
 
 	protected BigInteger countMinimizedConfs() {
 		BigInteger ans = BigInteger.ZERO;
-		for(PFAbstract pf : name2PF.values()) ans = ans.add(pf.getMinimizedConfsSetSize());
+		for(PFAbstract pf : name2PF.values()) ans = ans.add(pf.getNumMinimized4Output());
 		return ans;
 	}
 
@@ -609,11 +594,11 @@ public abstract class KSAbstract implements KSInterface {
 
 		if( calc.getEpsilonStatus() == EApproxReached.TRUE ) {
 			calc.deleteCheckPointFile(KSTermini.COMPLEX);
-			calc.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCompleted(1) );
+			calc.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCreated(1), getNumSeqsCompleted(1) );
 		}
 
 		else {
-			calc.printSummary( getCheckPointFilePath(), getStartTime(), getNumSeqsCompleted(0) );
+			calc.printSummary( getCheckPointFilePath(), getStartTime(), getNumSeqsCreated(0), getNumSeqsCompleted(0) );
 		}
 
 		return calc;
