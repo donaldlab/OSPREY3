@@ -41,7 +41,7 @@ public abstract class KSAbstract implements KSInterface {
 	protected String runName = null;
 	protected String checkPointFilePath = null;
 
-	protected HashMap<Integer, KSAllowedSeqs> strand2AllowedSeqs = new HashMap<>();
+	protected HashMap<Integer, KSAllowedSeqs> strand2AllowedSeqs = new HashMap<>(3);
 	protected ConcurrentHashMap<String, KSSearchProblem> name2SP = new ConcurrentHashMap<>();
 	protected ConcurrentHashMap<String, PFAbstract> name2PF = new ConcurrentHashMap<>();
 
@@ -55,10 +55,10 @@ public abstract class KSAbstract implements KSInterface {
 	private boolean addResEntropy;
 	private boolean addWT;
 	private boolean addWTRots;
-        
-        protected boolean useVoxelG;
 
-	public static int runTimeout = Integer.MAX_VALUE;
+	protected boolean useVoxelG;
+
+	public static long runTimeout = 0;
 	public static boolean doCheckPoint = false;
 	protected static long checkpointInterval = 50000;
 
@@ -66,13 +66,14 @@ public abstract class KSAbstract implements KSInterface {
 
 	private long startTime = 0; // beginning time
 	private int numSeqsCompleted = 0;
+	private int numSeqsCreated = 0;
 
 	public KSAbstract( KSConfigFileParser cfp ) {
 
 		this.cfp = cfp;
-                
-                EW = cfp.getParams().getDouble("Ew",0);
-                I0 = cfp.getParams().getDouble("Ival", 5);
+
+		EW = cfp.getParams().getDouble("Ew",0);
+		I0 = cfp.getParams().getDouble("Ival", 5);
 		pdbName = cfp.getParams().getValue("PDBNAME");
 		useEPIC = cfp.getParams().getBool("UseEPIC");
 		useTupExp = cfp.getParams().getBool("UseTupExp");
@@ -81,52 +82,36 @@ public abstract class KSAbstract implements KSInterface {
 		addResEntropy = cfp.getParams().getBool("AddResEntropy");
 		addWT = cfp.getParams().getBool("addWT", true);
 		addWTRots = cfp.getParams().getBool("addWTRots", true);
-                
-                useVoxelG = cfp.getParams().getBool("useVoxelG", false);
-                if(useVoxelG && !useTupExp)
-                    throw new RuntimeException("ERROR: K* with continuous entropy requires LUTE");
-	}
-        
-        
-        public void checkAPPP(){
-            //check if using a-priori-provable pruning, and set it up if we are
-            if(cfp.getParams().getBool("APrioriProvablePruning", useTupExp)) {
-                //in the case of LUTE this is needed for provability
-                APrioriPruningProver appp = new APrioriPruningProver(this,cfp,strand2AllowedSeqs);
-                EW = appp.calcEw();
-                I0 = appp.calcI0();
-            }
-        }
 
+		if(!addWT && addWTRots)
+			throw new RuntimeException("ERROR: addWTRots is true but addWT is false. addWT must be true if addWTRots is true");
 
-	/*
-	public synchronized void setBestCalc(KSCalc calc) {
-		if(bestCalc == null || calc.getKStarScoreLog10(false) > bestCalc.getKStarScoreLog10(false))
-			bestCalc = calc;
+		useVoxelG = cfp.getParams().getBool("useVoxelG", false);
+		if(useVoxelG && !useTupExp)
+			throw new RuntimeException("ERROR: K* with continuous entropy requires LUTE");
 	}
 
 
-	public KSCalc getBestCalc() {
-		return bestCalc;
+	public void checkAPPP(){
+		//check if using a-priori-provable pruning, and set it up if we are
+		if(cfp.getParams().getBool("APrioriProvablePruning", useTupExp)) {
+			//in the case of LUTE this is needed for provability
+			APrioriPruningProver appp = new APrioriPruningProver(this,cfp,strand2AllowedSeqs);
+			EW = appp.calcEw();
+			I0 = appp.calcI0();
+		}
 	}
-
-
-	public boolean passesInterMutationPruning(KSCalc calc) {
-
-		if(bestCalc == null || KSAbstract.interMutationConst <= 0.0)
-			return true;
-
-		if(calc.getKStarScoreLog10(true) >= Math.log10(KSAbstract.interMutationConst) + bestCalc.getKStarScoreLog10(false))
-			return true;
-
-		return false;
-	}
-	 */
 
 
 	public int getNumSeqsCompleted(int increment) {
 		numSeqsCompleted += increment;
 		return numSeqsCompleted;
+	}
+	
+	
+	public int getNumSeqsCreated(int increment) {
+		numSeqsCreated += increment;
+		return numSeqsCreated;
 	}
 
 
@@ -150,12 +135,12 @@ public abstract class KSAbstract implements KSInterface {
 		preparePanSeqSPs(contSCFlexVals);
 	}
 
-	
+
 	protected void createOutputDir() {
 		if( !new File(getOutputDir()).exists() )
 			ObjectIO.makeDir(getOutputDir(), false);
 	}
-	
+
 
 	protected void createCheckPointDir() {
 		if( !new File(getCheckPointDir()).exists() )
@@ -246,20 +231,20 @@ public abstract class KSAbstract implements KSInterface {
 
 
 	protected void printSequences() {
-		
+
 		doWTCalc = !cfp.getParams().getBool("kStarSkipWTCalc");
-		
+
 		if(!doWTCalc) {
 			wtKSCalc = null;
 			System.out.println("WARNING: skipping K* calculation for wild-type sequence: ");
-			
+
 			ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(KSTermini.LIGAND, 
 					KSTermini.PROTEIN, KSTermini.COMPLEX));
 
 			for( int strand : strands ) 
 				strand2AllowedSeqs.get(strand).removeStrandSeq(0); // wt is seq 0
 		}
-		
+
 		System.out.println("\nPreparing to compute K* for the following sequences:");
 		int i = 0;
 		for(ArrayList<String> al : strand2AllowedSeqs.get(KSTermini.COMPLEX).getStrandSeqList()) {
@@ -286,7 +271,7 @@ public abstract class KSAbstract implements KSInterface {
 	}
 
 
-	protected void loadAndPruneMatrices(HashMap<String,Integer> name2Strand) {
+	protected void loadAndPruneMatrices() {
 
 		try {
 
@@ -301,15 +286,9 @@ public abstract class KSAbstract implements KSInterface {
 				// single seq matrices created using the fast construction 
 				// method are already pruned according to the pruning window
 				if(sp.getEnergyMatrix() == null) {
-					sp.loadEnergyMatrix();
-					cfp.setupPruning(sp, EW+I0, false, false).prune();
-                                        
-                                        if(sp.useTupExpForSearch && sp.contSCFlex){
-                                            int strand = name2Strand.get(key);
-                                            setupLUTESearchProblem(key, strand);
-                                        }
-                                        else
-                                            sp.inverseMat = sp.getInvertedFromUnreducedPruningMatrix(sp);
+					sp.loadMatrix(sp.getMatrixType());
+					cfp.setupPruning(sp, EW+I0, useEPIC, useTupExp).prune();
+					sp.inverseMat = sp.getInvertedFromUnreducedPruningMatrix(sp);
 				}
 			}
 			//});
@@ -325,39 +304,6 @@ public abstract class KSAbstract implements KSInterface {
 		} 
 	}
 
-        
-        private void setupLUTESearchProblem(String key, int strand){
-            //Use LUTE fitting to replace a continuous search problem in name2SP (denoted there by key)
-            //with a rigid search problem that gives the same energies (within fitting error)
-            //for unpruned conformations
-            KSSearchProblem contSP = name2SP.get(key);//contSP already has its energy & pruning matrices
-            
-            if(contSP.useEPIC){//currently only supporting EPIC in K* runs if LUTE also used...
-                contSP.loadEPICMatrix();
-                //we can prune more using the EPIC matrix
-                if(contSP.epicSettings.useEPICPruning){
-                    System.out.println("Beginning post-EPIC pruning.");
-                    cfp.setupPruning(contSP, EW+I0, true, false).prune();
-                    System.out.println("Finished post-EPIC pruning.");
-                }
-            }
-            
-            contSP.loadTupExpEMatrix();
-            System.out.println("Beginning post-tup-exp pruning.");
-            cfp.setupPruning(contSP, EW, false, true).prune();
-            System.out.println("Finished post-tup-exp pruning.");
-            
-            //Now the pruning matrix and LUTE matrix in contSP define the rigid search problem we want
-            //create this search problem explicitly
-            KSSearchProblem luteSP = createPanSeqSP(false,strand);
-            luteSP.pruneMat = contSP.pruneMat;
-            luteSP.emat = contSP.tupExpEMat;
-            
-            //finally, set up inverse matrix and replace contSP with luteSP in name2SP
-            luteSP.inverseMat = luteSP.getInvertedFromUnreducedPruningMatrix(luteSP);
-            name2SP.put(key,luteSP);
-        }
-        
 
 	protected PFAbstract createPF4Seq(boolean contSCFlex, int strand, ArrayList<String> seq, String pfImpl) {
 		PFAbstract ans = null;
@@ -410,7 +356,7 @@ public abstract class KSAbstract implements KSInterface {
 
 				// get energy matrix
 				if(pf.getReducedSearchProblem().getEnergyMatrix() == null) {
-					pf.getReducedSearchProblem().loadEnergyMatrix();
+					pf.getReducedSearchProblem().loadMatrix(pf.getReducedSearchProblem().getMatrixType());
 				}
 
 				// re-prune, since we have fewer witnesses now that we have trimmed the emat?
@@ -456,57 +402,26 @@ public abstract class KSAbstract implements KSInterface {
 		DEEPerSettings dset = strand2AllowedSeqs.get(strand).getDEEPerSettings();
 
 		// create searchproblem
-                KSSearchProblem panSeqSP;
-                if(contSCFlex){
-                    panSeqSP = new KSSearchProblem( 
-                                    getSearchProblemName(contSCFlex, strand), 
-                                    pdbName, 
-                                    flexibleRes, 
-                                    allowedAAs, 
-                                    addWT, 
-                                    contSCFlex,
-                                    useEPIC,
-                                    new EPICSettings(cfp.getParams()),
-                                    useTupExp,
-                                    new LUTESettings(cfp.getParams()),
-                                    dset, 
-                                    moveableStrands, 
-                                    freeBBZones,
-                                    useEllipses,
-                                    useERef,
-                                    addResEntropy,
-                                    addWTRots,
-                                    cfp.getStrandLimits(strand),
-                                    useVoxelG);
-                }
-                else {
-                    panSeqSP = new KSSearchProblem( 
-                                    getSearchProblemName(contSCFlex, strand), 
-                                    pdbName, 
-                                    flexibleRes, 
-                                    allowedAAs, 
-                                    addWT, 
-                                    contSCFlex,
-                            
-                                    //No EPIC and LUTE needed for discrete case
-                                    false,
-                                    new EPICSettings(),
-                                    false,
-                                    new LUTESettings(),
-                            
-                                    //Need to strip out non-sidechain continuous flexibility
-                                    dset.makeDiscreteVersion(), 
-                                    new ArrayList<>(), 
-                                    new ArrayList<>(),
-                            
-                                    useEllipses,
-                                    useERef,
-                                    addResEntropy,
-                                    addWTRots,
-                                    cfp.getStrandLimits(strand),
-                            
-                                    false);
-                }
+		KSSearchProblem panSeqSP = new KSSearchProblem( 
+				getSearchProblemName(contSCFlex, strand), 
+				pdbName, 
+				flexibleRes, 
+				allowedAAs, 
+				addWT, 
+				contSCFlex,
+				useEPIC,
+				new EPICSettings(cfp.getParams()),
+				useTupExp,
+				new LUTESettings(cfp.getParams()),
+				dset, 
+				moveableStrands, 
+				freeBBZones,
+				useEllipses,
+				useERef,
+				addResEntropy,
+				addWTRots,
+				cfp.getStrandLimits(strand),
+				cfp.getParams().getBool("useVoxelG"));
 
 		return panSeqSP;
 	}
@@ -517,15 +432,12 @@ public abstract class KSAbstract implements KSInterface {
 		ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(KSTermini.LIGAND, 
 				KSTermini.PROTEIN, KSTermini.COMPLEX));
 
-                HashMap<String,Integer> name2Strand = new HashMap<>();
-                
 		for( boolean contSCFlex : contSCFlexVals ) {
 
 			//strands.parallelStream().forEach(strand -> {
 			for( int strand : strands ) {
 
 				String spName = getSearchProblemName(contSCFlex, strand);
-                                name2Strand.put(spName, strand);
 
 				if( !name2SP.containsKey(spName) ) {
 					KSSearchProblem sp = createPanSeqSP(contSCFlex, strand);
@@ -535,7 +447,7 @@ public abstract class KSAbstract implements KSInterface {
 			//});	
 		}
 
-		loadAndPruneMatrices(name2Strand);
+		loadAndPruneMatrices();
 	}
 
 
@@ -622,7 +534,7 @@ public abstract class KSAbstract implements KSInterface {
 
 	protected BigInteger countMinimizedConfs() {
 		BigInteger ans = BigInteger.ZERO;
-		for(PFAbstract pf : name2PF.values()) ans = ans.add(pf.getMinimizedConfsSetSize());
+		for(PFAbstract pf : name2PF.values()) ans = ans.add(pf.getNumMinimized4Output());
 		return ans;
 	}
 
@@ -701,11 +613,11 @@ public abstract class KSAbstract implements KSInterface {
 
 		if( calc.getEpsilonStatus() == EApproxReached.TRUE ) {
 			calc.deleteCheckPointFile(KSTermini.COMPLEX);
-			calc.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCompleted(1) );
+			calc.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCreated(1), getNumSeqsCompleted(1) );
 		}
 
 		else {
-			calc.printSummary( getCheckPointFilePath(), getStartTime(), getNumSeqsCompleted(0) );
+			calc.printSummary( getCheckPointFilePath(), getStartTime(), getNumSeqsCreated(0), getNumSeqsCompleted(0) );
 		}
 
 		return calc;

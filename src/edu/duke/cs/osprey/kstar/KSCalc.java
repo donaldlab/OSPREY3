@@ -48,7 +48,7 @@ public class KSCalc {
 	protected boolean doingKAStar() {
 		
 		for( PFAbstract pf : strand2PF.values() ) {
-			if(pf.getImpl().compareToIgnoreCase(PFAbstract.getCFGImpl()) != 0) return true;
+			if(!pf.getImpl().equalsIgnoreCase(PFAbstract.getCFGImpl())) return true;
 		}
 		
 		return false;
@@ -323,6 +323,8 @@ public class KSCalc {
 		out.print("\t");
 		out.print("Ligand # Confs.");
 		out.print("\t");
+		out.print("# Seqs Created");
+		out.print("\t");
 		out.print("# Seqs Completed");
 		out.print("\t");
 		out.print("Time (sec)");
@@ -348,7 +350,7 @@ public class KSCalc {
 	}
 
 
-	public void printSummary( String outFile, long startTime, long numCompletedSeqs ) {
+	public void printSummary( String outFile, long startTime, long numCreatedSeqs, long numCompletedSeqs ) {
 
 		try {
 			
@@ -387,6 +389,9 @@ public class KSCalc {
 				out.print("\t");
 				out.print(pf.getNumMinimized4Output());
 			}
+			
+			out.print("\t");
+			out.print( numCreatedSeqs );
 			
 			out.print("\t");
 			out.print( numCompletedSeqs );

@@ -12,7 +12,7 @@ import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
 @SuppressWarnings("serial")
 public class KSPStarCalculator extends Thread implements Serializable {
 
-	protected PFAbstract pf;
+	protected PFAbstract pf; 
 	private BigInteger pruned = BigInteger.ZERO;
 	protected BigDecimal lastBoltzmannWeight = BigDecimal.ZERO;
 	protected double lastEnergyBound = Double.NEGATIVE_INFINITY;
@@ -131,9 +131,9 @@ public class KSPStarCalculator extends Thread implements Serializable {
 				totalPF = totalPF.add( lastBoltzmannWeight );
 				enumerated = enumerated.add(BigInteger.ONE);
 
-				// may not be done yet. do not nullify. owner calls cleanup to nullify
-				// when we are actually done
-				if( pf.getEpsilonStatus() != EApproxReached.FALSE ) { return; }
+				// may not be done yet. do not nullify. owner calls cleanup to nullify when we are actually done
+				// if( pf.getEpsilonStatus() != EApproxReached.FALSE ) { return; }
+				if( pf.getEpsilonStatus() != EApproxReached.FALSE ) { nullify(); return; }
 			}
 
 		}

@@ -92,7 +92,7 @@ public class PFUB extends PFTraditional implements Serializable {
 			if( !printedHeader ) printHeader();
 
 			if( enumeratedConfs.longValue() % 512 == 0 ) {
-				System.out.println(Et + "\t" + effectiveEpsilon + "\t" 
+				System.out.println(numberFormat.format(Et) + "\t" + numberFormat.format(effectiveEpsilon) + "\t" 
 						+ enumeratedConfs + "\t" + getNumUnEnumerated() + "\t"+ (currentTime-startTime)/1000);
 			}
 		}

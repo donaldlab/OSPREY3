@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -21,7 +22,6 @@ import edu.duke.cs.osprey.kstar.KSAllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSConf;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.kstar.KSSearchProblem;
-import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ExpFunction;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -35,6 +35,8 @@ import edu.duke.cs.osprey.tools.ObjectIO;
 public abstract class PFAbstract implements Serializable {
 
 	protected long startTime;
+	
+	protected DecimalFormat numberFormat = new DecimalFormat("0.0000");
 	
 	public static enum EApproxReached { TRUE, FALSE, NOT_POSSIBLE, NOT_STABLE }
 	protected EApproxReached eAppx = EApproxReached.FALSE;
@@ -282,21 +284,25 @@ public abstract class PFAbstract implements Serializable {
 		undefinedPos.removeAll(absolutePos);
 
 		boolean minimizeProduct = isContinuous() ? false : true;
-
+		
 		for( int pos : undefinedPos ) {
-
-			long rcNumAtPos = minimizeProduct ? Integer.MAX_VALUE : Integer.MIN_VALUE;
-
-			// get number of unpruned rcs at that level
-			long num = panSP.pruneMat.unprunedRCsAtPos(pos).size();
-
-			// we don't know how much we'd have to unprune, so count these too
-			if(!minimizeProduct)
-				num += panSP.pruneMat.prunedRCsAtPos(pos).size();
-
-			rcNumAtPos = minimizeProduct ? Math.min(rcNumAtPos, num) : Math.max(rcNumAtPos, num);
-
-			ans = ans.multiply(BigDecimal.valueOf(rcNumAtPos));
+			
+			long unprunedSize = minimizeProduct ? Integer.MAX_VALUE : Integer.MIN_VALUE;
+			long prunedSize = minimizeProduct ? Integer.MAX_VALUE : Integer.MIN_VALUE;
+			
+			ArrayList<String> aasAtPos = panSP.getAAsAtPos(panSP.pruneMat, pos);
+			for(String aa : aasAtPos) {
+				ArrayList<Integer> aaUnprunedRCNums = panSP.rcsAtPos(panSP.pruneMat, pos, aa, false);
+				unprunedSize = minimizeProduct ? Math.min(unprunedSize, aaUnprunedRCNums.size()) : Math.max(unprunedSize, aaUnprunedRCNums.size());
+				
+				if(!minimizeProduct) {
+					ArrayList<Integer> aaPrunedRCNums = panSP.rcsAtPos(panSP.pruneMat, pos, aa, true);
+					prunedSize = Math.max(prunedSize, aaPrunedRCNums.size());
+				}
+			}
+			
+			if(minimizeProduct) prunedSize = 0;
+			ans = ans.multiply(BigDecimal.valueOf(unprunedSize + prunedSize));
 		}
 
 		return ans;
@@ -377,7 +383,7 @@ public abstract class PFAbstract implements Serializable {
 	}
 
 
-	public BigInteger getMinimizedConfsSetSize() {
+	private BigInteger getMinimizedConfsSetSize() {
 		return minimizedConfsPerm;
 	}
 
@@ -579,9 +585,12 @@ public abstract class PFAbstract implements Serializable {
 
 		partialQLB = partialQLB.add( getBoltzmannWeight( conf.getEnergyBound() ) );
 
-		minimizedConfsSet.add(conf.getConf());
+		if(isContinuous() && !getImpl().equalsIgnoreCase("UB")) {
+			minimizedConfsSet.add(conf.getConf());
+			minimizedConfsPerm = minimizedConfsPerm.add(BigInteger.ONE); // ...so we need this variable
+		}
+		
 		minimizedConfsTmp = minimizedConfsTmp.add(BigInteger.ONE); // this is reset during phase 2
-		minimizedConfsPerm = minimizedConfsPerm.add(BigInteger.ONE); // ...so we need this variable
 		minimizedConfsDuringInterval = minimizedConfsDuringInterval.add(BigInteger.ONE);
 	}
 
@@ -591,7 +600,7 @@ public abstract class PFAbstract implements Serializable {
 	}
 
 	protected void exitIfTimeOut() {
-		if( KSAbstract.runTimeout != Integer.MAX_VALUE && System.currentTimeMillis()-startTime > KSAbstract.runTimeout * 86400000 )
+		if( KSAbstract.runTimeout != 0 && System.currentTimeMillis()-startTime > KSAbstract.runTimeout * 86400000 )
 			throw new RuntimeException("ERROR: running time exceeds " + KSAbstract.runTimeout + " days!");
 	}
 	
@@ -615,7 +624,8 @@ public abstract class PFAbstract implements Serializable {
 
 		if( saveTopConfsAsPDB && eAppx == EApproxReached.TRUE ) writeTopConfs();
 
-		if( eAppx != EApproxReached.FALSE ) cleanup();
+		if( eAppx != EApproxReached.FALSE ) 
+			cleanup();
 
 		resetMinDuringInterval();
 	}
@@ -934,13 +944,14 @@ public abstract class PFAbstract implements Serializable {
 
 		case "traditional":
 		case "ub":
+		case "parallel0":
 		case "parallel1":
 		case "parallel2":
 			pFuncCFGImpl = implementation;
 			break;
 
 		default:
-			throw new RuntimeException("ERROR: specified value of parameter pFuncMethod is invalid");
+			throw new RuntimeException("ERROR: specified value of implementation " + implementation.toLowerCase() + " is invalid");
 		}
 	}
 
