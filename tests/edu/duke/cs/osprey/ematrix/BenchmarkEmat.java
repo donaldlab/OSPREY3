@@ -1,7 +1,6 @@
 package edu.duke.cs.osprey.ematrix;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.confspace.SearchProblem;
@@ -9,9 +8,7 @@ import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
-import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
-import edu.duke.cs.osprey.gpu.GpuQueuePool;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
@@ -29,27 +26,9 @@ public class BenchmarkEmat extends TestBase {
 		// make a search problem
 		System.out.println("Building search problem...");
 		
-		String aaNames = "ALA VAL LEU ILE";
-		//String aaNames = "ALA";
-		//String mutRes = "39";
-		String mutRes = "39 43";
-		String flexRes = "40 41 42 44 45";
-		//String flexRes = "40 41";
-		//String flexRes = "40";
-		ArrayList<String> flexResList = new ArrayList<>();
-		ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
-		for (String res : mutRes.split(" ")) {
-			if (!res.isEmpty()) {
-				flexResList.add(res);
-				allowedAAs.add(new ArrayList<>(Arrays.asList(aaNames.split(" "))));
-			}
-		}
-		for (String res : flexRes.split(" ")) {
-			if (!res.isEmpty()) {
-				flexResList.add(res);
-				allowedAAs.add(new ArrayList<>());
-			}
-		}
+		ResidueFlexibility resFlex = new ResidueFlexibility();
+		resFlex.addMutable("39 43", "ALA VAL LEU ILE");
+		resFlex.addFlexible("40 41 42 44 45");
 		boolean doMinimize = true;
 		boolean addWt = true;
 		boolean useEpic = false;
@@ -62,7 +41,7 @@ public class BenchmarkEmat extends TestBase {
 		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
 		SearchProblem search = new SearchProblem(
 			"test", "test/1CC8/1CC8.ss.pdb", 
-			flexResList, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
+			resFlex.flexResList, resFlex.allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
 			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null, false
 		);
 		

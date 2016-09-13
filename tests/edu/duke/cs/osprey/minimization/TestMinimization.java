@@ -4,7 +4,6 @@ import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import org.junit.BeforeClass;
@@ -61,23 +60,9 @@ public class TestMinimization extends TestBase {
 		// for these small problems, more than one thread is actually slower
 		MultiTermEnergyFunction.setNumThreads(1);
 		
-		String aaNames = "ALA";
-		String mutRes = "39 43";
-		String flexRes = "40 41 42 44 45";
-		ArrayList<String> flexResList = new ArrayList<>();
-		ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
-		for (String res : mutRes.split(" ")) {
-			if (!res.isEmpty()) {
-				flexResList.add(res);
-				allowedAAs.add(new ArrayList<>(Arrays.asList(aaNames.split(" "))));
-			}
-		}
-		for (String res : flexRes.split(" ")) {
-			if (!res.isEmpty()) {
-				flexResList.add(res);
-				allowedAAs.add(new ArrayList<>());
-			}
-		}
+		ResidueFlexibility resFlex = new ResidueFlexibility();
+		resFlex.addMutable("39 43", "ALA");
+		resFlex.addFlexible("40 41 42 44 45");
 		boolean doMinimize = true;
 		boolean addWt = true;
 		boolean useEpic = false;
@@ -91,7 +76,7 @@ public class TestMinimization extends TestBase {
 		
 		search = new SearchProblem(
 			"test", "test/1CC8/1CC8.ss.pdb", 
-			flexResList, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
+			resFlex.flexResList, resFlex.allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
 			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null, false
 		);
 		
