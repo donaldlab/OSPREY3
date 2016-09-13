@@ -17,6 +17,7 @@ import edu.duke.cs.osprey.kstar.impl.KSImplLinear;
 import edu.duke.cs.osprey.kstar.impl.KSImplKAStar;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
+import edu.duke.cs.osprey.tools.StringParsing;
 
 
 /**
@@ -91,7 +92,7 @@ public class KStarCalculator {
 	}
 
 
-	protected ArrayList<ArrayList<String>> getMutationsFromFile( String path ) throws Exception {
+	protected ArrayList<ArrayList<String>> getMutationsFromFile( String path ) throws IOException {
 
 		if( !new File(path).exists() )
 			throw new RuntimeException("ERROR: " + path + " does not exist");
@@ -140,12 +141,12 @@ public class KStarCalculator {
 			}
 			return ans;
 		}
-
+		
 		return null;
 	}
 
 
-	public ArrayList<ArrayList<String>> truncateAllowedSequences(String path) throws Exception {
+	public ArrayList<ArrayList<String>> truncateAllowedSequences(String path) throws IOException {
 
 		// read .mut file
 		// filter list of mutations; only run those listed
@@ -203,7 +204,11 @@ public class KStarCalculator {
 	}
 
 
-	public void calcKStarScores() {
+	public KSAbstract calcKStarScores() {
+
+		cfp.verifyStrandsMutuallyExclusive();
+		
+		generateAllowedSequences();
 
 		try {
 			
@@ -215,31 +220,31 @@ public class KStarCalculator {
 			if(mutFilePath.length() > 0) {
 				truncateAllowedSequences(mutFilePath);
 			}
+		} catch (IOException ex) {
+			
+			// don't make the caller trap this exception if it doesn't care,
+			// but still give the caller a choice by wrapping the Exception with Error instead of calling System.exit()
+			throw new Error(ex);
+		}
 
 			String ksMethod = cfp.getParams().getValue("kStarMethod");
 
-			switch( ksMethod ) {
+		switch( ksMethod ) {
 
-			case "kastar":
-				KSImplKAStar kastar = new KSImplKAStar(cfp);
-				kastar.init(strand2AllowedSeqs);
-				kastar.run();
-				break;
-
-			case "linear":
-				KSImplLinear linear = new KSImplLinear(cfp);
-				linear.init(strand2AllowedSeqs);
-				linear.run();
-				break;
-
-			default:
-				throw new UnsupportedOperationException("ERROR: currently supported implementations are 'linear' and 'kastar'");
-			}
-
-		} catch(Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
+		case "kastar":
+			KSImplKAStar kastar = new KSImplKAStar(cfp);
+			kastar.init(strand2AllowedSeqs);
+			kastar.run();
+			return kastar;
+		
+		case "linear":
+			KSImplLinear linear = new KSImplLinear(cfp);
+			linear.init(strand2AllowedSeqs);
+			linear.run();
+			return linear;
+			
+		default:
+			throw new UnsupportedOperationException("ERROR: currently supported implementations are 'linear' and 'kastar'");
 		}
 
 	}
