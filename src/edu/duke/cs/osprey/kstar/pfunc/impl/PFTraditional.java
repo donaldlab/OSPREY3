@@ -53,7 +53,7 @@ public class PFTraditional extends PFAbstract implements Serializable {
 	}
 
 
-	protected void iterate() throws Exception {
+	protected void iterate() {
 
 		ScoredConf conf;
 
@@ -78,33 +78,13 @@ public class PFTraditional extends PFAbstract implements Serializable {
 
 	@Override
 	protected void computeSlice() {
-
-		try {
-
-			iterate();
-
-		} catch(Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
-		}
+		iterate();
 	}
 
 
 	protected void compute() {
-
-		try {
-
-			while( eAppx == EApproxReached.FALSE ) {
-
-				iterate();
-
-			}
-
-		} catch(Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
+		while( eAppx == EApproxReached.FALSE ) {
+			iterate();
 		}
 	}
 
