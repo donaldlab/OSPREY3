@@ -4,6 +4,7 @@ package edu.duke.cs.osprey.control;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -17,7 +18,6 @@ import edu.duke.cs.osprey.kstar.impl.KSImplLinear;
 import edu.duke.cs.osprey.kstar.impl.KSImplKAStar;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
-import edu.duke.cs.osprey.tools.StringParsing;
 
 
 /**
