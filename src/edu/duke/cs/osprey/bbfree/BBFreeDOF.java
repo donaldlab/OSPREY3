@@ -12,7 +12,7 @@ import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 
 /**
  *
- * This is a DOF present
+ * This is a DOF that's part of a BBFreeBlock
  * 
  * @author mhall44
  */

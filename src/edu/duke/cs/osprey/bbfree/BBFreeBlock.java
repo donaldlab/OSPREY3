@@ -43,8 +43,6 @@ public class BBFreeBlock implements Serializable, DOFBlock {
     ArrayList<BBFreeDOF> freeDOFs = new ArrayList<>();
     
     double[][] freeDOFVoxel;//voxel of allowed values for free DOFs.  We'll minimize over this.
-    double[][] fullDOFVoxel;//voxel for full DOFs.  Fit is performed over this voxel,
-    //and the freeDOFVoxel is inscribed in it.  
     //Indices: 0/1 (for min/max), DOF # 
     
     double[] curFreeDOFVals;//current values, so we can update one at a time
@@ -98,7 +96,6 @@ public class BBFreeBlock implements Serializable, DOFBlock {
         //Pick voxels?  START W/ UNIT CUBE in middle fading quadratically
         //The function 1 - 4(x-0.5)^2 goes from 0 to 1 to 0 on the unit interval
         //the "anchoring" fully fixed res are effectively residues # -1 and numRes
-        fullDOFVoxel = new double[2][6*numRes-9];
         for(int resNum=1; resNum<numRes; resNum++){
             
             Residue curRes = residues.get(resNum);
@@ -106,24 +103,8 @@ public class BBFreeBlock implements Serializable, DOFBlock {
             System.arraycopy(curRes.getCoordsByAtomName("N"), 0, fullDOFCenter, 6*(resNum-1), 3);
             if(resNum<numRes-1)//CA free too
                 System.arraycopy(curRes.getCoordsByAtomName("CA"), 0, fullDOFCenter, 6*resNum-3, 3);
-            
-            double spotInInterval = (resNum+1)*1.0/(numRes+1);
-            
-            //double boxSize = 1-4*(spotInInterval-0.5)*(spotInInterval-0.5);
-            double boxSize = 0.5-2*(spotInInterval-0.5)*(spotInInterval-0.5);
-            //DEBUG!!!
-            
-            for(int d=0; d<6; d++){//6 DOFs per res
-                fullDOFVoxel[0][6*(resNum-1)+d] = fullDOFCenter[6*(resNum-1)+d] - boxSize/2;
-                fullDOFVoxel[1][6*(resNum-1)+d] = fullDOFCenter[6*(resNum-1)+d] + boxSize/2;
-                if(resNum==numRes-1 && d==2)//no last CA
-                    break;
-            }
-        }
-        
-        
-        //fitFullDOFPolys();
-                
+        }        
+
         freeDOFCenter = DoubleFactory1D.dense.make(numFreeDOFs);
         for(int f=0; f<numFreeDOFs; f++)
             freeDOFCenter.set( f, freeDOFs.get(f).evalAtFullDOFs(DoubleFactory1D.dense.make(fullDOFCenter)) );
@@ -139,14 +120,6 @@ public class BBFreeBlock implements Serializable, DOFBlock {
         
         curFreeDOFVals = new double[numFreeDOFs];//freeDOFCenter.copy().toArray();//may move away from center, so copy
         //treating these as relative!  for voxel and setDOFs purposes
-
-        
-        //DEBUG!!!
-        //THIS PART HAS TO BE REDONE
-        //PROBS MAKE VOXEL, SCALE BASED ON IF POLY GOOD AT CORNERS
-        /*        makeFreeDOFVoxel();*/
-        
-        //TEST SAMPLE DET OF FULL JAC THROUGHOUT VOXEL, TO ENSURE GOOD?
     }
     
     private void setVoxelBySeries(){
@@ -183,68 +156,7 @@ public class BBFreeBlock implements Serializable, DOFBlock {
     }
     
     
-    
-    /*private void makeTaylorSeries(DoubleMatrix2D J){
-        //Build fullDOFPolys as Taylor series, centered at orig conf
-        //J is d(freeDOFs,constrVars)/d(fullDOFs)
-        
-        if(polyOrder>2)
-            throw new RuntimeException("ERROR: Taylor series only set up for order 2 now");
-        
-        int numFullDOFs = 6*residues.size() - 9;
-        int numFreeDOFs = 2*residues.size() - 6;
-        int numParams = SeriesFitter.getNumParams(numFreeDOFs, true, polyOrder);
-        
-        DoubleMatrix2D Jinv = Algebra.DEFAULT.inverse(J);//d(fullDOFs)/d(freeDOFs,constrVars)
-        
-        fullDOFPolys = new double[numFullDOFs][];
-        
-        for(int fullDOF=0; fullDOF<numFullDOFs; fullDOF++){
-            
-            double[] series = new double[numParams];
-            series[0] = fullDOFCenter[fullDOF];
-            
-            for(int freeDOF=0; freeDOF<numFreeDOFs; freeDOF++){
-                series[freeDOF+1] = Jinv.get(fullDOF, freeDOF);
-            }
-            
-            if(polyOrder>=2){
-                int coeffCount = numFreeDOFs+1;
-
-                for(int dof=0; dof<numFreeDOFs; dof++){
-
-                    double wderiv[] = new double[numFullDOFs];//d( dfullDOF/d(dof) ) / d(full DOF # w)
-                    for(int w=0; w<numFullDOFs; w++){
-                        wderiv[w] = 0;
-                        for(JacDerivEntry jde : jacDerivs.get(w))
-                            wderiv[w] += jde.val * invMatrixDeriv(Jinv,fullDOF,dof,jde.u,jde.v);
-                    }
-
-                    for(int dof2=0; dof2<=dof; dof2++){
-
-                        double deriv2 = 0;
-                        for(int w=0; w<numFullDOFs; w++)
-                            deriv2 += wderiv[w] * Jinv.get(w, dof2);
-
-                        if(dof2==dof)//no repeat of this term in polynomial
-                            series[coeffCount] = deriv2/2;
-                        else
-                            series[coeffCount] = deriv2;
-
-                        coeffCount++;
-                    }
-                }
-            }
-            
-            if(polyOrder>=3){
-                
-            }
-            
-                    
-            fullDOFPolys[fullDOF] = series;
-        }
-    }*/
-    
+       
     //Cached stuff for derivative calcs
     //i, v, w will be full-DOF ("x") indices
     //u, j, k, l, m are free-DOF indices (we ultimately differentiate wrt these)
@@ -466,7 +378,6 @@ public class BBFreeBlock implements Serializable, DOFBlock {
         
         //shallow copy is OK for read-only fields
         copiedBlock.freeDOFVoxel = freeDOFVoxel;
-        copiedBlock.fullDOFVoxel = fullDOFVoxel;
         copiedBlock.curFreeDOFVals = curFreeDOFVals.clone();
         copiedBlock.fullDOFCenter = fullDOFCenter;
         copiedBlock.freeDOFCenter = freeDOFCenter;
@@ -686,106 +597,6 @@ public class BBFreeBlock implements Serializable, DOFBlock {
         
         //no jac derivs because this constraint is linear
     }
-    
-    
-    private void makeFreeDOFVoxel(){
-        //Figure out what voxel in free-DOF space we expect our polynomial to be valid over
-        //use this to define RC's and minimize in free-DOF space!
-        
-        int numFullDOFs = 6*residues.size()-9;//first res has no free coords; last has just N
-        int numFreeDOFs = freeDOFs.size();
-        
-        //If we pick a shape for our voxel we can then quickly calc how much scaling up is possible
-        //Let's start with a hypercube, adjust to be bigger in middle if needed?
-        //scale toward curFreeDOFVals since origin should be in middle of voxel
-        //initVox here will be RELATIVE to curFreeDOFVals (expected to be at init conf)
-        double[][] initVox = new double[2][numFreeDOFs];
-        Arrays.fill(initVox[0],-1);
-        Arrays.fill(initVox[1],1);
-        
-        double bestScaling = Double.POSITIVE_INFINITY;
-        
-        for(int fullDOF=0; fullDOF<numFullDOFs; fullDOF++){
-            //Calculate the maximum value over fullDOF of our init voxel
-            //(optimizing over all corners, thus over whole voxel,
-            //by adding max contribution from each free DOF)
-            
-            double ub=0, lb=0;//upper, lower bound on fullDOF in init voxel
-            
-            for(int freeDOF=0; freeDOF<numFreeDOFs; freeDOF++){
-                double coeff = freeDOFs.get(freeDOF).coeffs.get(fullDOF);
-                if(coeff>0){
-                    ub += coeff * (curFreeDOFVals[freeDOF] + initVox[1][freeDOF]);
-                    lb += coeff * (curFreeDOFVals[freeDOF] + initVox[0][freeDOF]);
-                }
-                else if(coeff<=0){
-                    ub += coeff * (curFreeDOFVals[freeDOF] + initVox[0][freeDOF]);
-                    lb += coeff * (curFreeDOFVals[freeDOF] + initVox[1][freeDOF]);
-                }
-            }
-            
-            //...and scale it down to fit within the constraints
-            //assuming fullDOFVoxel[0] all negative, fullDOFVoxel[1] all positive
-            double scalingUB = (fullDOFVoxel[1][fullDOF]-fullDOFCenter[fullDOF]) / (ub-fullDOFCenter[fullDOF]);
-            double scalingLB = (fullDOFVoxel[0][fullDOF]-fullDOFCenter[fullDOF]) / (lb-fullDOFCenter[fullDOF]);
-            double scaling = Math.min( scalingUB, scalingLB );
-            
-            bestScaling = Math.min(scaling, bestScaling);//scale down if needed
-        }
-        
-        freeDOFVoxel = new double[2][numFreeDOFs];
-        for(int a=0; a<2; a++){
-            for(int freeDOF=0; freeDOF<numFreeDOFs; freeDOF++)
-                freeDOFVoxel[a][freeDOF] = curFreeDOFVals[freeDOF] + bestScaling * initVox[a][freeDOF];
-        }
-    }
-    
-    
-    /*private void fitFullDOFPolys(){
-        
-        int numRes = residues.size();
-        int numParams = SeriesFitter.getNumParams(2*numRes-6, true, polyOrder);
-        int numSamples = 10*numParams;
-        
-        LoopVoxelSampler lvs = new LoopVoxelSampler(residues, fullDOFVoxel, pepPlanes);
-        DoubleMatrix2D fullDOFSamples = lvs.sampleFullDOFs(numSamples);//sample from voxel
-        
-        int numFreeDOFs = freeDOFs.size();
-        
-        freeDOFCenter = DoubleFactory1D.dense.make(numFreeDOFs);
-        for(int f=0; f<numFreeDOFs; f++)
-            freeDOFCenter.set( f, freeDOFs.get(f).evalAtFullDOFs(DoubleFactory1D.dense.make(fullDOFCenter)) );
-
-        
-        DoubleMatrix1D[] sampleFreeDOFs = new DoubleMatrix1D[numSamples];
-        //will be relative to center...
-        
-        for(int s=0; s<numSamples; s++){
-            sampleFreeDOFs[s] = DoubleFactory1D.dense.make(numFreeDOFs);
-            for(int f=0; f<numFreeDOFs; f++)
-                sampleFreeDOFs[s].set( f, freeDOFs.get(f).evalAtFullDOFs(fullDOFSamples.viewColumn(s)) );
-            
-            sampleFreeDOFs[s].assign(freeDOFCenter, Functions.minus);
-        }
-        
-        //let's start with quadratic...
-        double[] weights = new double[numSamples];
-        Arrays.fill(weights, 1);
-        
-        
-        fullDOFPolys = new double[6*numRes][];
-        
-        for(int fullDOF=0; fullDOF<6*numRes-9; fullDOF++){
-            fullDOFPolys[fullDOF] = SeriesFitter.fitSeries(sampleFreeDOFs, 
-                    fullDOFSamples.viewRow(fullDOF).toArray(), weights, 0, true, polyOrder);
-        }
-    }
-    */
-    
-    
-    
-    
-    
     
     
     public void setDOFs(DoubleMatrix1D x){
