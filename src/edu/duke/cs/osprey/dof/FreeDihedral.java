@@ -88,4 +88,10 @@ public class FreeDihedral extends DegreeOfFreedom {
         // match our residue to the one in the other molecule
         res = val.getResByPDBResNumber(res.getPDBResNumber());
     }
+    
+    
+    @Override
+    public DOFBlock getBlock(){
+        return null;
+    }
 }

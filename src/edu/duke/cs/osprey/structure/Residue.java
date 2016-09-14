@@ -435,4 +435,19 @@ public class Residue implements Serializable {
 		}
 		return dihedrals;
     }
+    
+    
+    public Residue equivalentInMolec(Molecule mol){
+        //get the equivalent of this residue in molecule mol
+        return mol.getResByPDBResNumber(getPDBResNumber());
+    }
+    
+    public static ArrayList<Residue> equivalentInMolec(ArrayList<Residue> resList, Molecule mol){
+        //list the equivalent in mol of each residue in resList
+        ArrayList<Residue> ans = new ArrayList<>();
+        for(Residue res : resList)
+            ans.add(res.equivalentInMolec(mol));
+        return ans;
+    }
+    
 }

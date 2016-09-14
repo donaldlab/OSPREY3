@@ -6,6 +6,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import edu.duke.cs.osprey.TestBase;
+import edu.duke.cs.osprey.confspace.ParameterizedMoleculeCopy;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
@@ -97,9 +98,9 @@ public class TestSimpleEnergyCalculator extends TestBase {
 		
 		final double Epsilon = 1e-6;
 		
-		Molecule mol = null;
+		ParameterizedMoleculeCopy pmol = null;
 		if (useMolInstance) {
-			mol = new Molecule(search.confSpace.m);
+			pmol = new ParameterizedMoleculeCopy(search.confSpace);
 		}
 		
 		double exp;
@@ -110,7 +111,7 @@ public class TestSimpleEnergyCalculator extends TestBase {
 
 				// singles
 				exp = search.emat.getOneBody(pos1, rc1);
-				obs = ecalc.calcSingle(pos1, rc1, mol).getEnergy();
+				obs = ecalc.calcSingle(pos1, rc1, pmol).getEnergy();
 				assertThat(obs, isRelatively(exp, Epsilon));
 				
 				// pairs
@@ -118,7 +119,7 @@ public class TestSimpleEnergyCalculator extends TestBase {
 					for (int rc2=0; rc2<search.emat.getNumConfAtPos(pos2); rc2++) {
 						
 						exp = search.emat.getPairwise(pos1, rc1, pos2, rc2);
-						obs = ecalc.calcPair(pos1, rc1, pos2, rc2, mol).getEnergy();
+						obs = ecalc.calcPair(pos1, rc1, pos2, rc2, pmol).getEnergy();
 						assertThat(obs, isRelatively(exp, Epsilon));
 					}
 				}

@@ -86,7 +86,8 @@ public class PositionConfSpace implements Serializable {
 				// make the RC for each perturbation state
                 boolean rotUsesEllipses = useEllipses && (res.template.numDihedrals > 1);//ellipses only meaningful if > 1 dihedral
 				for (ArrayList<int[]> pertState : pertStates) {
-					RC rc = createRC(dihedrals, res.template.name, wtRots, i, contSCFlex, dofListForRot, -1, strandDOFs,
+                                        //if proline, use original pucker (pucker value=0)
+					RC rc = createRC(dihedrals, res.template.name, wtRots, i, contSCFlex, dofListForRot, 0, strandDOFs,
 							bfb, pertState, perts, pertIntervals, rotUsesEllipses);
 					wtRCs.add(rc);
 				}

@@ -46,18 +46,18 @@ public class ConfSpace implements Serializable {
     //used for GMEC-based design, K*, or anything else we want to do with a conformational space
     //This class just defines the conformational space itself (the molecule + all kinds of flexibility
     //and possible mutations, and how these are represented as RCs, etc.)
-    //This class can be put in an AnnotatedConfSpace to add annotations like what RCs are pruned,
+    //This class can be put in a SearchProblem to add annotations like what RCs are pruned,
     //what their pairwise energies are, etc.  
     
-	private static final long serialVersionUID = 6414329117813457771L;
-
+	private static final long serialVersionUID = 6414329117813457771L;    
+ 
 	public Molecule m;
     //The molecule will be composed of residues. 
     //It will have one set of coordinates, which are stored in the residues to make mutation
     //and pairwise energy computation easy (no need for complicated partial arrays, subtracting off
     //template energies, etc., and mutation will be very quick and will only require
     //AMBER reinitialization for the affected residue)
-    
+        
     //If we need to keep a copy of, say, the original coordinates, we can have a second molecule origMolec
     //for that
     //Once loaded, the molecule can only be changed by functions overriding DegreeOfFreedom.applyValue
@@ -82,9 +82,8 @@ public class ConfSpace implements Serializable {
     
     public boolean useEllipses = false;
     
-    /** initialize a new conformational space, desomefining all its flexibility
+    /** initialize a new conformational space, defining all its flexibility
     /*   we use one residue per position here
-     *  ADD OTHER OPTIONS: WT ROTAMERS, DIFFERENT ROT WIDTHS, DEEPER, RIGID-BODY MOTIONS
      * 
      * @param PDBFile the structure to read from
      * @param flexibleRes list of residue numbers to be made flexible (as in PDB file)
@@ -456,6 +455,13 @@ public class ConfSpace implements Serializable {
 		}
 		return count;
 	}
+        
+    public ArrayList<DegreeOfFreedom> listAllDOFs(){
+        ArrayList<DegreeOfFreedom> ans = new ArrayList<>();
+        ans.addAll(mutDOFs);
+        ans.addAll(confDOFs);
+        return ans;
+    }
     
     
     /*DoubleMatrix1D[] convertConfToDOFBounds(int[] conf){

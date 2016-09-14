@@ -23,6 +23,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
+import edu.duke.cs.osprey.bbfree.BBFreeDOF;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
@@ -378,17 +379,11 @@ public class GMECFinder {
 				
 			} else {
 				
-				// HACKHACK: need to find out if we're using deeper, which isn't supported by the concurrent molecule code yet
-				// we'd need to implement the copy() and setMolecule() methods on Perturbation DOFs to enable compatibility
-				boolean usingDEEPer = false;
-				for (DegreeOfFreedom dof : searchSpace.confSpace.confDOFs) {
-					if (dof instanceof Perturbation) {
-						usingDEEPer = true;
-						break;
-					}
-				}
-				if (usingDEEPer) {
-					System.out.println("\n\nWARNING: DEEPer perturbations detected, concurrent minimizations disabled due to temporary incompatibility\n");
+				boolean avoidCopyingMolecules = false;
+                                //MH: All the current conformational perturbations as of 9/12/16 should support copying
+                                //to new molecules, but I'll leave this option in case new DOFs or something cause an issue
+				if (avoidCopyingMolecules) {
+					System.out.println("\n\nWARNING: concurrent minimizations disabled\n");
 					
 					// fall back to the old SearchProblem.minimize() method
 					ecalc = new ConfEnergyCalculator.Async.Adapter(new ConfEnergyCalculator() {

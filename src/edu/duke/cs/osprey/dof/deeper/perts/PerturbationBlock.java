@@ -5,14 +5,18 @@
  */
 package edu.duke.cs.osprey.dof.deeper.perts;
 
+import edu.duke.cs.osprey.dof.DOFBlock;
+import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.deeper.GenChi1Calc;
 import edu.duke.cs.osprey.dof.deeper.ResBBState;
 import edu.duke.cs.osprey.dof.deeper.SidechainIdealizer;
+import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.TreeSet;
 
 /**
@@ -28,7 +32,7 @@ import java.util.TreeSet;
  * 
  * @author mhall44
  */
-public class PerturbationBlock implements Serializable {
+public class PerturbationBlock implements Serializable, DOFBlock {
     
     
     ArrayList<Perturbation> perts;
@@ -52,6 +56,14 @@ public class PerturbationBlock implements Serializable {
     //for each perturbation p, a list of all the residues whose conformations depend on the parameter value of p
     
     ArrayList<Residue> allResidues;//all residues in the block
+    
+    
+    
+    
+    public PerturbationBlock(){
+        
+    }
+    
     
     //initialize block with all sidechains idealized (preserving gen chi1),
     //but all perturbations at 0 parameter (so no backbone motion
@@ -178,6 +190,48 @@ public class PerturbationBlock implements Serializable {
         }
         
         return false;
+    }
+
+    @Override
+    public DOFBlock copyForNewMolecule(Molecule mol, LinkedHashMap<DegreeOfFreedom, DegreeOfFreedom> copiedDOFMap) {
+        
+        PerturbationBlock copiedBlock = new PerturbationBlock();
+        
+        //Make copies of all the perturbations
+        copiedBlock.perts = new ArrayList<>();
+        for(Perturbation pert : perts){
+            Perturbation copiedPert = pert.copyForNewMolecule(mol,copiedBlock);
+            copiedDOFMap.put(pert, copiedPert);
+            copiedBlock.perts.add(copiedPert);
+        }
+        
+        copiedBlock.prePertBBStates = new ArrayList<>();
+        for(LinkedHashMap<Residue,ResBBState> bbMap : prePertBBStates){
+            LinkedHashMap<Residue,ResBBState> copiedBBMap = new LinkedHashMap<>();
+            for(Residue res : bbMap.keySet()){
+                Residue otherRes = res.equivalentInMolec(mol);
+                copiedBBMap.put( otherRes, new ResBBState(bbMap.get(res)) );
+            }
+            copiedBlock.prePertBBStates.add(copiedBBMap);
+        }
+        
+        copiedBlock.successors = new ArrayList<>();
+        for(ArrayList<Perturbation> succ : successors){
+            ArrayList<Perturbation> copiedSucc = new ArrayList<>();
+            for(Perturbation pert : succ){
+                copiedSucc.add( (Perturbation) copiedDOFMap.get(pert) );
+            }
+            copiedBlock.successors.add(copiedSucc);
+        }
+       
+        copiedBlock.dependentResidues = new ArrayList<>();
+        for(ArrayList<Residue> dep : dependentResidues){
+            copiedBlock.dependentResidues.add( Residue.equivalentInMolec(dep,mol) );
+        }
+        
+        copiedBlock.allResidues = Residue.equivalentInMolec(allResidues, mol);
+    
+        return copiedBlock;
     }
     
 }

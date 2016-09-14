@@ -44,4 +44,8 @@ public class StrandTranslation extends DegreeOfFreedom {
         return strand;
     }
     
+    @Override
+    public DOFBlock getBlock(){
+        return strand;
+    }
 }
