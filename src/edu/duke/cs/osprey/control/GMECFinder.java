@@ -366,7 +366,7 @@ public class GMECFinder {
         // TODO: these subclasses should be moved to whatever other packages care about these specific algorithms
         // TODO: let the caller set ecalc instances directly (eg in python-land)
 		if (useContFlex || EFullConfOnly) {
-			if ((useEPIC||useTupExp) && (!checkApproxE)) {
+			if ( ((useEPIC||useTupExp) && (!checkApproxE)) || searchSpace.useVoxelG ) {
 				
 				// use the approx minimized energy for confs
 				ecalc = new ConfEnergyCalculator.Async.Adapter(new ConfEnergyCalculator() {
