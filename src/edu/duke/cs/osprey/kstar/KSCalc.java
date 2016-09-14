@@ -48,7 +48,7 @@ public class KSCalc {
 	protected boolean doingKAStar() {
 		
 		for( PFAbstract pf : strand2PF.values() ) {
-			if(pf.getImpl().compareToIgnoreCase(PFAbstract.getCFGImpl()) != 0) return true;
+			if(!pf.getImpl().equalsIgnoreCase(PFAbstract.getCFGImpl())) return true;
 		}
 		
 		return false;
@@ -251,6 +251,19 @@ public class KSCalc {
 				return Double.POSITIVE_INFINITY;
 		}
 		
+		return getKStarScoreLog10(l, p, pl);
+	}
+	
+	public static double getKStarScoreLog10(PFAbstract l, PFAbstract p, PFAbstract pl, boolean useUB) {
+		return getKStarScoreLog10(
+			l.getQStar(),
+			p.getQStar(),
+			useUB ? pl.getQStarUpperBound() : pl.getQStar()
+		);
+	}
+	
+	public static double getKStarScoreLog10(BigDecimal l, BigDecimal p, BigDecimal pl) {
+		
 		double score = 0.0;
 
 		ExpFunction e = new ExpFunction();
@@ -310,6 +323,8 @@ public class KSCalc {
 		out.print("\t");
 		out.print("Ligand # Confs.");
 		out.print("\t");
+		out.print("# Seqs Created");
+		out.print("\t");
 		out.print("# Seqs Completed");
 		out.print("\t");
 		out.print("Time (sec)");
@@ -335,7 +350,7 @@ public class KSCalc {
 	}
 
 
-	public void printSummary( String outFile, long startTime, long numCompletedSeqs ) {
+	public void printSummary( String outFile, long startTime, long numCreatedSeqs, long numCompletedSeqs ) {
 
 		try {
 			
@@ -376,6 +391,9 @@ public class KSCalc {
 			}
 			
 			out.print("\t");
+			out.print( numCreatedSeqs );
+			
+			out.print("\t");
 			out.print( numCompletedSeqs );
 			
 			out.print("\t");
@@ -385,7 +403,7 @@ public class KSCalc {
 
 			out.flush();
 			out.close();
-
+			
 		} catch (Exception e) {
 			System.out.println(e.getMessage());
 			e.printStackTrace();

@@ -14,6 +14,7 @@ import java.io.Serializable;
  * 
  * @author mhall44
  */
+@SuppressWarnings("serial")
 public class LUTESettings implements Serializable {
     
     boolean useLUTE=false;

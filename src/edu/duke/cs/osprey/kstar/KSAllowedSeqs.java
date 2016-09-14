@@ -17,6 +17,7 @@ public class KSAllowedSeqs {
 	private ArrayList<String> flexRes;
 	private ArrayList<ArrayList<String>> allowedAAs;
 	private ArrayList<String> wt;
+	public boolean addWT;
 	private int dist;
 	private int strand;
 	private KSTermini limits;
@@ -30,7 +31,7 @@ public class KSAllowedSeqs {
 			ArrayList<String[]> moveableStrandTermini,
 			ArrayList<String> flexRes, 
 			ArrayList<ArrayList<String>> allowedAAs, 
-			ArrayList<String> wt, int dist ) {
+			ArrayList<String> wt, boolean addWT, int dist ) {
 
 		this.strand = strand;
 		this.limits = limits;
@@ -40,6 +41,7 @@ public class KSAllowedSeqs {
 		this.flexRes = flexRes;
 		this.allowedAAs = addPosToAllowedAAs(allowedAAs, flexRes);		
 		this.wt = addPosToSeq(wt, flexRes);
+		this.addWT = addWT;
 		this.dist = dist;
 		this.allowedSeqs = generateSequences();
 	}
@@ -59,6 +61,7 @@ public class KSAllowedSeqs {
 		this.flexRes = flexRes;
 		this.allowedAAs = allowedAAs;
 		this.wt = new ArrayList<String>( in.wt.subList(lb, ub) );
+		this.addWT = in.addWT;
 		this.dist = in.dist;
 		this.allowedSeqs = new ArrayList<ArrayList<String>>();
 
@@ -489,19 +492,16 @@ public class KSAllowedSeqs {
 		// linked hashset to preserve order
 		LinkedHashSet<ArrayList<String>> output = new LinkedHashSet<>();
 
-		if(dist > 0)
-			generatePermutations( input, output, buffer, 0, 0 );
+		generatePermutations( input, output, buffer, 0, 0 );
 
 		// remove wt, if present
-		output.remove(wt);
-
-		long outputSize = dist == 0 ? 1 : output.size();
-		
-		System.out.println("\nNumber of sequences with " + dist + 
-				" mutation(s) from wild type: " + outputSize + "\n");
+		boolean wtIsPresent = output.remove(wt);
 
 		ArrayList<ArrayList<String>> ans = new ArrayList<ArrayList<String>>(output); 
-		ans.add(0, wt);
+		if( addWT || wtIsPresent ) ans.add(0, wt);
+		
+		int size = dist == 0 ? ans.size() : ans.size()-1;
+		System.out.println("\nNumber of sequences with " + dist + " mutation(s) from wild type: " + size + "\n");
 
 		ans.trimToSize();
 		return ans;
@@ -581,5 +581,13 @@ public class KSAllowedSeqs {
 
 	public ArrayList<String> getWTSeq() {
 		return wt;
+	}
+	
+	
+	public boolean containsWTSeq() {
+		if( allowedSeqs == null || allowedSeqs.size() < 1 ) 
+			return false;
+		
+		return allowedSeqs.get(0).equals(getWTSeq());
 	}
 }

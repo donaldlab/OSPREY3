@@ -109,14 +109,9 @@ public class ExpFunction implements Serializable {
 		return expX;
 	}
 
-	//Returns the BigDecimal number num to the power a
-	public BigDecimal pow(BigDecimal num, int a){
-
-		BigDecimal expPow = new BigDecimal("1.0");
-		for (int i=0; i<a; i++)
-			expPow = expPow.multiply(num);
-
-		return expPow;
+	//Returns the BigDecimal number num to the power a	
+	BigDecimal pow(BigDecimal num, int a) {
+		return num.pow(a);
 	}
 
 	//Returns an approximation to the natural logarithm of the BigDecimal number num

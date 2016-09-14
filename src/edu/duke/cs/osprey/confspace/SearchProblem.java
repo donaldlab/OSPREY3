@@ -261,13 +261,13 @@ public class SearchProblem implements Serializable {
     }
     
     
-    enum MatrixType {
+    public enum MatrixType {
         EMAT, TUPEXPEMAT, EPICMAT;
     }
     
     
     //load the specified matrix; if the right file isn't available then compute and store it
-    private void loadMatrix(MatrixType type){
+    public void loadMatrix(MatrixType type){
         
         String matrixFileName = name + "." + type.name() + ".dat";
         //matrix file names are determined by the name of the search problem

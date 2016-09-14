@@ -4,11 +4,8 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
-
 import edu.duke.cs.osprey.kstar.KSAllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSAbstract;
-import edu.duke.cs.osprey.kstar.KSCalc;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.kstar.KAStarNode;
 import edu.duke.cs.osprey.kstar.KAStarTree;
@@ -19,28 +16,25 @@ public class KSImplKAStar extends KSAbstract {
 
 	public static boolean useTightBounds = true;
 	public static String nodeExpansionMethod = "parallel1";
-	protected HashSet<PFAbstract> leafNodePFs = null; // nodes that get energy minimized
 
 	public KSImplKAStar(KSConfigFileParser cfp) {
 		super(cfp);
-		leafNodePFs = new HashSet<>();
-                
-                if(useVoxelG){
-                    throw new RuntimeException("ERROR: Rigid-rotamer upper bound used by KSImplKAStar "
-                            + "not compatible with continuous entropy (useVoxelG");
-                }
+
+		if(useVoxelG){
+			throw new RuntimeException("ERROR: Rigid-rotamer upper bound used by KSImplKAStar "
+					+ "not compatible with continuous entropy (useVoxelG");
+		}
 	}
 
 	@Override
 	public void init( HashMap<Integer, KSAllowedSeqs> strand2AllowedSeqs ) {
 
 		this.strand2AllowedSeqs = strand2AllowedSeqs;
-                checkAPPP();
 
 		printSequences();
 
 		createOutputDir();
-		
+
 		createEmatDir();
 
 		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(true, false));
@@ -53,18 +47,13 @@ public class KSImplKAStar extends KSAbstract {
 		return "kastar";
 	}
 
-
-	public void addLeafNode(KSCalc leaf) {
-		for(int strand : Arrays.asList(KSTermini.LIGAND, KSTermini.PROTEIN, KSTermini.COMPLEX))
-			leafNodePFs.add(leaf.getPF(strand));
-	}
-
-
 	protected BigInteger countMinimizedConfs() {
 		BigInteger ans = BigInteger.ZERO;
 
-		for(PFAbstract pf : leafNodePFs)
-			ans = ans.add(pf.getMinimizedConfsSetSize());
+		for(PFAbstract pf : name2PF.values()) { 
+			if(pf.isFullyDefined() && pf.getImpl().equalsIgnoreCase(PFAbstract.getCFGImpl()))
+				ans = ans.add(pf.getNumMinimized4Output());
+		}
 
 		return ans;
 	}
@@ -120,11 +109,12 @@ public class KSImplKAStar extends KSAbstract {
 			if( best.isFullyProcessed() ) {
 
 				best.checkConsistency(best);
-				
+
 				//if(passesInterMutationPruning(best.lb))
-				best.lb.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCompleted(0) );
-				
+				best.lb.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCreated(0), getNumSeqsCompleted(0) );
+
 				completed++;
+
 				continue;
 			}
 
@@ -132,7 +122,7 @@ public class KSImplKAStar extends KSAbstract {
 			tree.add(children);
 		}
 
-		return completed;
+		return completed + 1; // + 1 to count wild type
 	}
 
 
@@ -160,15 +150,16 @@ public class KSImplKAStar extends KSAbstract {
 
 			if( best.isFullyProcessed() ) {
 
-				best.lb.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCompleted(0) );
+				double uB = best.getUBScore();
 
-				double bestUB = best.getUBScore();
+				if( completed++ == 0 ) gUB = uB;
 
-				if( completed++ == 0 ) gUB = bestUB;
+				if( best.getLBScore() > gUB && gUB > Double.NEGATIVE_INFINITY ) 
+					break;
+				else
+					best.lb.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCreated(0), getNumSeqsCompleted(0) );
 
-				else if( best.getLBScore() > gUB && gUB > Double.NEGATIVE_INFINITY ) break;
-
-				else if( bestUB > gUB ) gUB = bestUB;
+				if( uB > gUB ) gUB = uB;
 
 				continue;
 			}
@@ -177,6 +168,6 @@ public class KSImplKAStar extends KSAbstract {
 			tree.add(children);
 		}
 
-		return completed;
+		return completed + 1; // +1 to count wild type
 	}
 }

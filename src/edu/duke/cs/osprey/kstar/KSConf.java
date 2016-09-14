@@ -12,7 +12,7 @@ import java.util.Comparator;
 @SuppressWarnings({ "serial", "rawtypes" })
 public class KSConf implements Comparable, Serializable {
 
-	private ArrayList<Integer> conf = null;
+	private ArrayList<Integer> conf = null; 
 	private double energyBound = Double.POSITIVE_INFINITY;
 	private double energy = Double.POSITIVE_INFINITY;
 
@@ -51,6 +51,7 @@ public class KSConf implements Comparable, Serializable {
 	
 	
 	public ArrayList<Integer> getConf() {
+		conf.trimToSize();
 		return conf;
 	}
 
