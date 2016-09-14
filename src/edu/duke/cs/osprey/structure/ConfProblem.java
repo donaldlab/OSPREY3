@@ -37,4 +37,8 @@ public class ConfProblem {
         //the problem is resolved...remove it from its residue
         brokenResidue.confProblems.remove(this);
     }
+    
+    public Residue getBrokenResidue(){
+        return brokenResidue;
+    }
 }

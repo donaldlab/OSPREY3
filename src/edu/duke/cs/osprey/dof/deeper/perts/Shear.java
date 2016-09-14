@@ -5,6 +5,7 @@
  */
 package edu.duke.cs.osprey.dof.deeper.perts;
 
+import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.Protractor;
 import edu.duke.cs.osprey.tools.RigidBodyMotion;
@@ -113,6 +114,16 @@ public class Shear extends Perturbation {
         }
         
         return ans;
+    }
+    
+    
+    @Override
+    public Perturbation copyForNewMolecule(Molecule mol, PerturbationBlock block){
+        Shear s = new Shear(Residue.equivalentInMolec(resDirectlyAffected, mol));
+        s.curParamVal = curParamVal;
+        s.indexInBlock = indexInBlock;
+        s.block = block;
+        return s;
     }
     
 }

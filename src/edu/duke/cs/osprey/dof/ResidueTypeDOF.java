@@ -157,4 +157,9 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
     public void setMolecule(Molecule val) {
         res = val.getResByPDBResNumber(res.getPDBResNumber());
     }
+
+    @Override
+    public DOFBlock getBlock(){
+        return null;
+    }
 }

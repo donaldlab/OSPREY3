@@ -6,7 +6,9 @@
 package edu.duke.cs.osprey.dof.deeper.perts;
 
 import edu.duke.cs.osprey.structure.ConfProblem;
+import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.RigidBodyMotion;
 import edu.duke.cs.osprey.tools.RotationMatrix;
 import edu.duke.cs.osprey.tools.VectorAlgebra;
@@ -189,6 +191,22 @@ public class LoopClosureAdjustment extends Perturbation {
         }
         
         return ans;
+    }
+    
+    
+    @Override
+    public Perturbation copyForNewMolecule(Molecule mol, PerturbationBlock block){
+        LoopClosureAdjustment lca = new LoopClosureAdjustment(Residue.equivalentInMolec(resDirectlyAffected, mol));
+        lca.curParamVal = curParamVal;
+        lca.indexInBlock = indexInBlock;
+        lca.block = block;
+        
+        for(ConfProblem cp : problems)
+            lca.problems.add( new ConfProblem(lca,cp.getBrokenResidue().equivalentInMolec(mol)) );
+
+        solnCache = (HashMap<String,RigidBodyMotion[][]>) ObjectIO.deepCopy(solnCache);
+        
+        return lca;
     }
     
     

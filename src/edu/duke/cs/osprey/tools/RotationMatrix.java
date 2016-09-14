@@ -256,6 +256,11 @@ public class RotationMatrix implements Serializable {
 
         return mtx2.multiply(mtx1);//Return the product of these two rotations
     }
-    
-    
+
+    public RotationMatrix copy() {//deep copy
+        double mtx[][] = new double[matrix.length][];
+        for(int a=0; a<matrix.length; a++)
+            mtx[a] = matrix[a].clone();
+        return new RotationMatrix(mtx);
+    }    
 }
