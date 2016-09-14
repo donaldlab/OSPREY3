@@ -7,6 +7,7 @@ package edu.duke.cs.osprey.bbfree;
 
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
+import edu.duke.cs.osprey.dof.DOFBlock;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 
 /**
@@ -40,4 +41,8 @@ public class BBFreeDOF extends DegreeOfFreedom {
     }
     
     
+    @Override
+    public DOFBlock getBlock(){
+        return block;
+    }
 }

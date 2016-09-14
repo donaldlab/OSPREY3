@@ -70,6 +70,15 @@ public class ResBBState implements Serializable {
     }
     
     
+    public ResBBState(ResBBState state2){//deep copy
+        if(state2.CBCoord!=null)
+            CBCoord = state2.CBCoord.clone();
+        
+        for(String s : state2.coords.keySet())
+            coords.put(s, state2.coords.get(s).clone());
+    }
+    
+    
     public void putInState(Residue res){
         //Put res in the conformational state defined by the backbone coordinates recorded here
         
@@ -125,5 +134,5 @@ public class ResBBState implements Serializable {
         for(int dim=0; dim<3; dim++)
             coord[dim] = refCoord[dim] + distRatio*(coord[dim]-refCoord[dim]);
     }
-    
+
 }

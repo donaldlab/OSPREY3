@@ -12,15 +12,19 @@ import cern.colt.matrix.DoubleMatrix2D;
 import cern.colt.matrix.linalg.Algebra;
 import cern.colt.matrix.linalg.SingularValueDecomposition;
 import cern.jet.math.Functions;
+import edu.duke.cs.osprey.dof.DOFBlock;
+import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.deeper.GenChi1Calc;
 import edu.duke.cs.osprey.dof.deeper.SidechainIdealizer;
 import edu.duke.cs.osprey.ematrix.epic.SeriesFitter;
+import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.RigidBodyMotion;
 import edu.duke.cs.osprey.tools.RotationMatrix;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 /**
@@ -31,7 +35,7 @@ import java.util.List;
  * 
  * @author mhall44
  */
-public class BBFreeBlock implements Serializable {
+public class BBFreeBlock implements Serializable, DOFBlock {
     
     List<Residue> residues;//the residues moving freely, in order 
     //including the two end ones (only carboxyl or amine moving freely)
@@ -61,6 +65,11 @@ public class BBFreeBlock implements Serializable {
     
     
     ArrayList<ArrayList<JacDerivEntry>> jacDerivs;
+    
+    
+    public BBFreeBlock(){
+        
+    }
     
     public BBFreeBlock(List<Residue> residues){
         // Calculate the free DOFs, indicate appropriate voxels for them
@@ -437,6 +446,40 @@ public class BBFreeBlock implements Serializable {
         
         return ans;
     }
+
+    @Override
+    public DOFBlock copyForNewMolecule(Molecule mol, LinkedHashMap<DegreeOfFreedom, DegreeOfFreedom> copiedDOFMap) {
+        BBFreeBlock copiedBlock = new BBFreeBlock();
+        
+        copiedBlock.residues = new ArrayList<>();
+        for(Residue res : residues){
+            Residue newMolRes = mol.getResByPDBResNumber(res.getPDBResNumber());
+            copiedBlock.residues.add(newMolRes);
+        }
+        
+        copiedBlock.freeDOFs = new ArrayList<>();
+        for(BBFreeDOF dof : freeDOFs){
+            BBFreeDOF copiedDOF = new BBFreeDOF(dof.coeffs, copiedBlock, dof.indexInBlock);
+            copiedDOFMap.put(dof, copiedDOF);
+            copiedBlock.freeDOFs.add(copiedDOF);
+        }
+        
+        //shallow copy is OK for read-only fields
+        copiedBlock.freeDOFVoxel = freeDOFVoxel;
+        copiedBlock.fullDOFVoxel = fullDOFVoxel;
+        copiedBlock.curFreeDOFVals = curFreeDOFVals.clone();
+        copiedBlock.fullDOFCenter = fullDOFCenter;
+        copiedBlock.freeDOFCenter = freeDOFCenter;
+        copiedBlock.fullDOFPolys = fullDOFPolys;
+        copiedBlock.pepPlanes = pepPlanes;
+        copiedBlock.freeDOFMatrix = freeDOFMatrix;
+        copiedBlock.jacDerivs = jacDerivs;
+        //no need to copy all the deriv1, deriv2, etc. since they're just used to construct the block
+        
+        return copiedBlock;
+    }
+    
+    
     
     private class JacDerivEntry implements Serializable {
         //The derivative of the Jacobian with respect to the full DOFs is sparse

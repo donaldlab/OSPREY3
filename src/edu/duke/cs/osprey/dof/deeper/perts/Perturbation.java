@@ -5,10 +5,12 @@
  */
 package edu.duke.cs.osprey.dof.deeper.perts;
 
+import edu.duke.cs.osprey.dof.DOFBlock;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.deeper.GenChi1Calc;
 import edu.duke.cs.osprey.dof.deeper.ResBBState;
 import edu.duke.cs.osprey.dof.deeper.SidechainIdealizer;
+import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.RigidBodyMotion;
 import java.util.ArrayList;
@@ -161,4 +163,13 @@ public abstract class Perturbation extends DegreeOfFreedom {
         movePeptidePlane(pepRots[1], 1, false);
     }
     
+    
+    
+    public abstract Perturbation copyForNewMolecule(Molecule mol, PerturbationBlock block);
+    //copy the perturbation to apply to mol; block is the perturbation block for mol
+ 
+    @Override
+    public DOFBlock getBlock(){
+        return block;
+    }
 }
