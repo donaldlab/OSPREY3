@@ -118,7 +118,8 @@ public class TestPartCR extends TestBase {
 		return new SearchProblem(
 			"test", "test/1CC8/1CC8.ss.pdb", 
 			flexResList, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
-			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null, false
+			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null, 
+                        false, new ArrayList<>()
 		);
 	}
 	

@@ -114,9 +114,10 @@ public class SearchProblem implements Serializable {
     public SearchProblem(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
             boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, LUTESettings luteSettings, DEEPerSettings dset, 
             ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef,
-            boolean addResEntropy, boolean addWTRots, KSTermini termini, boolean useVoxelG){
+            boolean addResEntropy, boolean addWTRots, KSTermini termini, boolean useVoxelG, ArrayList<String> wtRotOnlyRes){
         
-        confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses, addWTRots, termini);
+        confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, wtRotOnlyRes,
+                contSCFlex, dset, moveableStrands, freeBBZones, useEllipses, addWTRots, termini);
         this.name = name;
         
         

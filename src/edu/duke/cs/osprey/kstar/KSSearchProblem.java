@@ -37,7 +37,7 @@ public class KSSearchProblem extends SearchProblem {
 			boolean addWTRots, KSTermini termini, boolean useVoxelG) {
 		
 		super(name, PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, useEPIC, epicSettings, useTupExp, luteSettings,
-                        dset, moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWTRots, termini, useVoxelG);
+                        dset, moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWTRots, termini, useVoxelG, new ArrayList<>());
 		
 		this.allowedAAs = allowedAAs;
 		this.reducedAllowedAAs = allowedAAs;
