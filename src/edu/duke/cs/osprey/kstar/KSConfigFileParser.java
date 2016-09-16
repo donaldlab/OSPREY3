@@ -26,6 +26,11 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 	public KSConfigFileParser(String[] args) {
 		super(args);
 	}
+	
+	
+	public KSConfigFileParser() {
+		super();
+	}
 
 
 	public ArrayList<ArrayList<String>> getHighOrderTuplesByStrand(int strand) {

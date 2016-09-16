@@ -86,7 +86,7 @@ public class PFParallel1 extends PFTraditional implements Serializable {
 	}
 
 
-	protected int canSatisfy( int request ) throws Exception {
+	protected int canSatisfy( int request ) throws InterruptedException {
 		int granted = 0;
 
 		// wait for queue to be ready
@@ -128,40 +128,49 @@ public class PFParallel1 extends PFTraditional implements Serializable {
 	}
 
 
-	protected void iterate() throws Exception {
-		// iterate is only called when eAppx = false
-		KSConf conf = null;
+	protected void iterate() {
+		try {
+			
+			// iterate is only called when eAppx = false
+			KSConf conf = null;
 
-		synchronized( confsQ.lock ) {
+			synchronized( confsQ.lock ) {
 
-			if( canSatisfy(1) == 0 )
-				return;
+				if( canSatisfy(1) == 0 )
+					return;
 
-			// we are guaranteed that confs can satisfy our request
+				// we are guaranteed that confs can satisfy our request
 
-			// we don't want to hold a lock when we are minimizing, so 
-			// we dequeue here and release lock for minimizing
-			conf = confsQ.deQueue();
+				// we don't want to hold a lock when we are minimizing, so 
+				// we dequeue here and release lock for minimizing
+				conf = confsQ.deQueue();
 
-			minimizingConfs = minimizingConfs.add( BigInteger.ONE );
+				minimizingConfs = minimizingConfs.add( BigInteger.ONE );
 
-			// this condition means that confsQ was full (and therefore waiting)
-			// before we extracted this conformation, so wake it up
-			// it would be wasteful to call notify upon every dequeue operation
-			if( confsQ.getState() == Thread.State.WAITING ) confsQ.lock.notify();
-		}
+				// this condition means that confsQ was full (and therefore waiting)
+				// before we extracted this conformation, so wake it up
+				// it would be wasteful to call notify upon every dequeue operation
+				if( confsQ.getState() == Thread.State.WAITING ) confsQ.lock.notify();
+			}
 
-		// minimization hapens here
-		accumulate( conf );
+			// minimization hapens here
+			accumulate( conf );
 
-		if( eAppx != EApproxReached.FALSE ) {
-			// we leave this function
-			confsQ.cleanUp(true);
-			qPrimeCalculator.cleanUp(true);
-			if(pStarCalculator != null) pStarCalculator.cleanUp(true);
-		}
+			if( eAppx != EApproxReached.FALSE ) {
+				// we leave this function
+				confsQ.cleanUp(true);
+				qPrimeCalculator.cleanUp(true);
+				if(pStarCalculator != null) pStarCalculator.cleanUp(true);
+			}
+			
+			exitIfTimeOut();
 		
-		exitIfTimeOut();
+		} catch (InterruptedException ex) {
+			// something interrupted us because it wants us to stop,
+			// so throw an exception that no one's supposed to catch
+			// and hopefully bubble to the top of the current thread
+			throw new Error(ex);
+		}
 	}
 
 

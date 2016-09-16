@@ -100,6 +100,10 @@ public class TestBase {
 		public void addFlexible(String residueNumbers) {
 			addMutable(residueNumbers, "");
 		}
+		
+		public int size() {
+			return flexResList.size();
+		}
 	}
 
 	public static double getRelativeError(double expected, double observed) {
@@ -216,6 +220,9 @@ public class TestBase {
 		// make rotamers
 		boolean useBackboneDependentRotamers = false;
 		EnvironmentVars.resTemplates.loadRotamerLibrary("LovellRotamer.dat", useBackboneDependentRotamers);
+		
+		// load residue entropies
+        EnvironmentVars.resTemplates.loadResEntropy("ResEntropy.dat");
 	}
 	
 	protected static SearchProblem makeSearchProblem(EnergyMatrixConfig emConfig) {

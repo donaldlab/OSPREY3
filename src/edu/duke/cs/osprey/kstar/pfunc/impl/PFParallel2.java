@@ -148,48 +148,56 @@ public class PFParallel2 extends PFParallel1 implements Serializable {
 	}
 
 
-	protected void iterate() throws Exception {
+	protected void iterate() {
+		try {
 
-		getSPs();
+			getSPs();
 
-		synchronized( confsQ.lock ) {
+			synchronized( confsQ.lock ) {
 
-			int request = partialQConfs.size();
-			int granted = 0;
+				int request = partialQConfs.size();
+				int granted = 0;
 
-			if( (granted = canSatisfy(request)) == 0 )
-				return;
+				if( (granted = canSatisfy(request)) == 0 )
+					return;
 
-			// reduce the size of partialQconfs and indexes to match request
-			while( partialQConfs.size() > granted ) {
+				// reduce the size of partialQconfs and indexes to match request
+				while( partialQConfs.size() > granted ) {
 
-				partialQConfs.remove(partialQConfs.size()-1);
+					partialQConfs.remove(partialQConfs.size()-1);
 
-				indexes.remove(indexes.size()-1);
+					indexes.remove(indexes.size()-1);
+				}
+
+				for( int i = 0; i < Math.min(granted, partialQConfs.size()); ++i ) {
+					partialQConfs.set(i, confsQ.deQueue());
+				}
+
+				minimizingConfs = minimizingConfs.add( BigInteger.valueOf(partialQConfs.size()) );
+
+				if( confsQ.getState() == Thread.State.WAITING ) confsQ.lock.notify();
 			}
 
-			for( int i = 0; i < Math.min(granted, partialQConfs.size()); ++i ) {
-				partialQConfs.set(i, confsQ.deQueue());
+			// minimization hapens here
+			accumulate(partialQConfs, false); 
+
+			if( eAppx != EApproxReached.FALSE ) {
+				// we leave this function
+				confsQ.cleanUp(true);
+				qPrimeCalculator.cleanUp(true);
+				if(pStarCalculator != null) pStarCalculator.cleanUp(true);
 			}
 
-			minimizingConfs = minimizingConfs.add( BigInteger.valueOf(partialQConfs.size()) );
-
-			if( confsQ.getState() == Thread.State.WAITING ) confsQ.lock.notify();
+			resetSPs();
+			
+			exitIfTimeOut();
+			
+		} catch (InterruptedException ex) {
+			// something interrupted us because it wants us to stop,
+			// so throw an exception that no one's supposed to catch
+			// and hopefully bubble to the top of the current thread
+			throw new Error(ex);
 		}
-
-		// minimization hapens here
-		accumulate(partialQConfs, false); 
-
-		if( eAppx != EApproxReached.FALSE ) {
-			// we leave this function
-			confsQ.cleanUp(true);
-			qPrimeCalculator.cleanUp(true);
-			if(pStarCalculator != null) pStarCalculator.cleanUp(true);
-		}
-
-		resetSPs();
-		
-		exitIfTimeOut();
 	}
 
 
@@ -205,7 +213,7 @@ public class PFParallel2 extends PFParallel1 implements Serializable {
 	}
 
 
-	protected void accumulate( ArrayList<KSConf> partialQConfs, boolean energiesEvaluated ) throws Exception {
+	protected void accumulate( ArrayList<KSConf> partialQConfs, boolean energiesEvaluated ) {
 
 		ArrayList<MultiTermEnergyFunction> mefs = new ArrayList<>(partialQConfs.size());
 		for(int i = 0; i < partialQConfs.size(); ++i) mefs.add(null);

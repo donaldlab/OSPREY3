@@ -44,6 +44,14 @@ public class ConfigFileParser {
         params.addDefaultParams();//We'll look for this in DataDir
     }
     
+    public ConfigFileParser() {
+    	// HACKHACK: transitional constructor so we can make CFP instances without reading input files
+    	// that way we can define config in code and give it to things that expect to read CFP instances
+    	// but all these things that expect CFP instances won't necessarily have to share the same one
+        EnvironmentVars.setDataDir("dataFiles");
+    	params.addDefaultParams();
+    }
+    
     
     protected DEEPerSettings setupDEEPer(){
         //Set up the DEEPerSettings object, including the PertSet (describes the perturbations)
