@@ -20,6 +20,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
+import edu.duke.cs.osprey.confspace.ParameterizedMoleculeCopy;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
@@ -77,7 +78,8 @@ public class TestMinimization extends TestBase {
 		search = new SearchProblem(
 			"test", "test/1CC8/1CC8.ss.pdb", 
 			resFlex.flexResList, resFlex.allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
-			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null, false
+			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null,
+			false, new ArrayList<>()
 		);
 		
 		// make the cpu energy stuff
@@ -149,7 +151,7 @@ public class TestMinimization extends TestBase {
 		// minimize on main thread
 		List<EnergiedConf> econfs = new ArrayList<>();
 		for (ScoredConf conf : confs) {
-			econfs.add(minimizer.minimize(search.confSpace.m, conf, efunc, search.confSpace));
+			econfs.add(minimizer.minimize(ParameterizedMoleculeCopy.makeNoCopy(search.confSpace), conf, efunc, search.confSpace));
 		}
 		
 		assertEnergies(econfs);
@@ -162,7 +164,7 @@ public class TestMinimization extends TestBase {
 		EnergyFunction efunc = efuncgen.make(search.confSpace.m);
 		
 		// minimize on main thread, in batch mode
-		List<EnergiedConf> econfs = minimizer.minimize(search.confSpace.m, confs, efunc, search.confSpace);
+		List<EnergiedConf> econfs = minimizer.minimize(ParameterizedMoleculeCopy.makeNoCopy(search.confSpace), confs, efunc, search.confSpace);
 		
 		assertEnergies(econfs);
 	}
@@ -219,7 +221,7 @@ public class TestMinimization extends TestBase {
 		// minimize on main thread
 		List<EnergiedConf> econfs = new ArrayList<>();
 		for (ScoredConf conf : confs) {
-			econfs.add(minimizer.minimize(search.confSpace.m, conf, efunc, search.confSpace));
+			econfs.add(minimizer.minimize(ParameterizedMoleculeCopy.makeNoCopy(search.confSpace), conf, efunc, search.confSpace));
 		}
 		
 		efunc.cleanup();

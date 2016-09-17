@@ -47,6 +47,23 @@ public class PartialStructureSwitch extends Perturbation {
     }
     
     
+    //for copying
+    public PartialStructureSwitch(ArrayList<Residue> resDirectlyAffected, double curParamVal,
+            int indexInBlock, PerturbationBlock block, ArrayList<ArrayList<ResBBState>> oldAltResConfs){
+        super(resDirectlyAffected);
+        this.curParamVal = curParamVal;
+        this.indexInBlock = indexInBlock;
+        this.block = block;
+        
+        for(ArrayList<ResBBState> arcOld : oldAltResConfs){
+            ArrayList<ResBBState> arc = new ArrayList<>();
+            for(ResBBState rbs : arcOld)
+                arc.add(new ResBBState(rbs));
+            altResConfs.add(arc);
+        }
+    }
+    
+    
     @Override
     public boolean doPerturbationMotion(double paramVal) {
         
@@ -93,6 +110,18 @@ public class PartialStructureSwitch extends Perturbation {
         
         //doesn't match a known backbone atom name
         return false;
+    }
+    
+    
+    @Override
+    public Perturbation copyForNewMolecule(Molecule mol, PerturbationBlock block){
+        return new PartialStructureSwitch(
+                Residue.equivalentInMolec(resDirectlyAffected, mol),
+                curParamVal,
+                indexInBlock,
+                block,
+                altResConfs
+        );
     }
     
     

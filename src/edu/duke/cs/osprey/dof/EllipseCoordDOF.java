@@ -80,5 +80,11 @@ public class EllipseCoordDOF extends DegreeOfFreedom {
 	public int getIndex() { return this.index; }
 	
 	public double getCurVal() { return this.curVal; }
+        
+        
+        @Override
+        public DOFBlock getBlock(){
+            return null;
+        }
 	
 }

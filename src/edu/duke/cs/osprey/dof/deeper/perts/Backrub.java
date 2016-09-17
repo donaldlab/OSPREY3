@@ -6,6 +6,7 @@
 package edu.duke.cs.osprey.dof.deeper.perts;
 
 import edu.duke.cs.osprey.structure.Atom;
+import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.Protractor;
 import edu.duke.cs.osprey.tools.RigidBodyMotion;
@@ -182,6 +183,15 @@ public class Backrub extends Perturbation {
                     a[i] = c[i] + r*(t[i]/d);
 
             return a;
+    }
+    
+    @Override
+    public Perturbation copyForNewMolecule(Molecule mol, PerturbationBlock block){
+        Backrub br = new Backrub(Residue.equivalentInMolec(resDirectlyAffected, mol));
+        br.curParamVal = curParamVal;
+        br.indexInBlock = indexInBlock;
+        br.block = block;
+        return br;
     }
     
 }

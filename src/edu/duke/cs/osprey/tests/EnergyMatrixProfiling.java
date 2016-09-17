@@ -50,7 +50,8 @@ public class EnergyMatrixProfiling {
 			"energyMatrixProfiling",
 			"2KDC.P.forOsprey.pdb", 
 			flexRes, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
-			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null, false
+			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null, 
+                        false, new ArrayList<>()
 		);
 		
 		// compute the energy matrix

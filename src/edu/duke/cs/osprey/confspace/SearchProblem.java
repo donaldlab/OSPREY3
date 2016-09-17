@@ -4,6 +4,7 @@
  */
 package edu.duke.cs.osprey.confspace;
 
+import edu.duke.cs.osprey.bbfree.BBFreeDOF;
 import java.io.Serializable;
 import java.util.ArrayList;
 
@@ -113,9 +114,10 @@ public class SearchProblem implements Serializable {
     public SearchProblem(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
             boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, LUTESettings luteSettings, DEEPerSettings dset, 
             ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef,
-            boolean addResEntropy, boolean addWTRots, KSTermini termini, boolean useVoxelG){
+            boolean addResEntropy, boolean addWTRots, KSTermini termini, boolean useVoxelG, ArrayList<String> wtRotOnlyRes){
         
-        confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses, addWTRots, termini);
+        confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, wtRotOnlyRes,
+                contSCFlex, dset, moveableStrands, freeBBZones, useEllipses, addWTRots, termini);
         this.name = name;
         
         
@@ -266,7 +268,7 @@ public class SearchProblem implements Serializable {
     
     
     //load the specified matrix; if the right file isn't available then compute and store it
-    private void loadMatrix(MatrixType type){
+    public void loadMatrix(MatrixType type){
         
         String matrixFileName = name + "." + type.name() + ".dat";
         //matrix file names are determined by the name of the search problem
@@ -286,22 +288,17 @@ public class SearchProblem implements Serializable {
         
         if(type == MatrixType.EMAT){
         	
-        	// HACKHACK: need to find out if we're using deeper, which isn't supported by the concurrent molecule code yet
-        	// we'd need to implement the copy() and setMolecule() methods on Perturbation DOFs to enable compatibility
-			boolean usingDEEPer = false;
-			for (DegreeOfFreedom dof : confSpace.confDOFs) {
-				if (dof instanceof Perturbation) {
-					usingDEEPer = true;
-					break;
-				}
-			}
-			if (usingDEEPer) {
-				System.out.println("\n\nWARNING: DEEPer perturbations detected, concurrent energy matrix calculations disabled due to temporary incompatibility\n");
-			}
+            boolean avoidCopyingMolecules = false;
+            //MH: All the current conformational perturbations as of 9/12/16 should support copying
+            //to new molecules, but I'll leave this option in case new DOFs or something cause an issue
         	
+            if(avoidCopyingMolecules)
+                System.out.println("\n\nWARNING: concurrent minimizations disabled\n");
+
+            
             // if we're using MPI or DEEPer, use the old energy matrix calculator
-            if (EnvironmentVars.useMPI || usingDEEPer) {
-                
+            if (EnvironmentVars.useMPI || avoidCopyingMolecules) {
+                                
                 // see if the user tried to use threads too for some reason and try to be helpful
                 if (EnvironmentVars.useMPI && numEmatThreads > 1) {
                     System.out.println("\n\nWARNING: multiple threads and MPI both configured for emat calculation."

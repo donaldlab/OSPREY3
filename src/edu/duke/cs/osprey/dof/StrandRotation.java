@@ -49,5 +49,9 @@ public class StrandRotation extends DegreeOfFreedom {
     public MoveableStrand getMoveableStrand(){
         return strand;
     }
-    
+
+    @Override
+    public DOFBlock getBlock(){
+        return strand;
+    }
 }

@@ -5,6 +5,7 @@ import java.util.List;
 
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.confspace.ConfSpace;
+import edu.duke.cs.osprey.confspace.ParameterizedMoleculeCopy;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
@@ -103,18 +104,18 @@ public class SimpleEnergyCalculator {
 		return getSingleEfunc(pos, null);
 	}
 	
-	public EnergyFunction getSingleEfunc(int pos, Molecule mol) {
+	public EnergyFunction getSingleEfunc(int pos, ParameterizedMoleculeCopy pmol) {
 		double singleWeight = dist.getSingleWeight(confSpace.numPos);
-		return efuncGen.intraAndDistributedShellEnergy(getResidue(pos, mol), getResidues(shellResidues, mol), confSpace.numPos, singleWeight);
+		return efuncGen.intraAndDistributedShellEnergy(getResidue(pos, pmol), getResidues(shellResidues, pmol), confSpace.numPos, singleWeight);
 	}
 	
 	public Result calcSingle(int pos, int rc) {
 		return calcSingle(pos, rc, null);
 	}
 	
-	public Result calcSingle(int pos, int rc, Molecule mol) {
-		EnergyFunction efunc = getSingleEfunc(pos, mol);
-		Result result = calc(efunc, new RCTuple(pos, rc), mol);
+	public Result calcSingle(int pos, int rc, ParameterizedMoleculeCopy pmol) {
+		EnergyFunction efunc = getSingleEfunc(pos, pmol);
+		Result result = calc(efunc, new RCTuple(pos, rc), pmol);
 		cleanup(efunc);
 		return result;
 	}
@@ -123,28 +124,28 @@ public class SimpleEnergyCalculator {
 		return getPairEfunc(pos1, pos2, null);
 	}
 	
-	public EnergyFunction getPairEfunc(int pos1, int pos2, Molecule mol) {
+	public EnergyFunction getPairEfunc(int pos1, int pos2, ParameterizedMoleculeCopy pmol) {
 		double singleWeight = dist.getSingleWeight(confSpace.numPos);
-		return efuncGen.resPairAndDistributedShellEnergy(getResidue(pos1, mol), getResidue(pos2, mol), getResidues(shellResidues, mol), confSpace.numPos, singleWeight);
+		return efuncGen.resPairAndDistributedShellEnergy(getResidue(pos1, pmol), getResidue(pos2, pmol), getResidues(shellResidues, pmol), confSpace.numPos, singleWeight);
 	}
 	
 	public Result calcPair(int pos1, int rc1, int pos2, int rc2) {
 		return calcPair(pos1, rc1, pos2, rc2, null);
 	}
 	
-	public Result calcPair(int pos1, int rc1, int pos2, int rc2, Molecule mol) {
-		EnergyFunction efunc = getPairEfunc(pos1, pos2, mol);
-		Result result = calc(efunc, new RCTuple(pos1, rc1, pos2, rc2), mol);
+	public Result calcPair(int pos1, int rc1, int pos2, int rc2, ParameterizedMoleculeCopy pmol) {
+		EnergyFunction efunc = getPairEfunc(pos1, pos2, pmol);
+		Result result = calc(efunc, new RCTuple(pos1, rc1, pos2, rc2), pmol);
 		cleanup(efunc);
 		return result;
 	}
 	
-	public Result calc(EnergyFunction efunc, RCTuple tuple, Molecule mol) {
+	public Result calc(EnergyFunction efunc, RCTuple tuple, ParameterizedMoleculeCopy pmol) {
 		
 		double[] minDofValues = null;
 		
 		// put molecule in correct conformation for rcs
-		MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(efunc, confSpace, tuple, mol);
+		MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(efunc, confSpace, tuple, pmol);
 		
 		// optimize the degrees of freedom, if needed
 		if (mof.getNumDOFs() > 0) {
@@ -166,29 +167,29 @@ public class SimpleEnergyCalculator {
 		}
 	}
 	
-	private Residue getResidue(int pos, Molecule mol) {
+	private Residue getResidue(int pos, ParameterizedMoleculeCopy pmol) {
 		
 		Residue res = confSpace.posFlex.get(pos).res;
 		
 		// if we're using a separate molecule, match this residue to the one in the molecule
-		if (mol != null) {
-			res = mol.residues.get(res.indexInMolecule);
+		if (pmol != null) {
+			res = pmol.getCopiedMolecule().residues.get(res.indexInMolecule);
 		}
 		
 		return res;
 	}
 	
-	private List<Residue> getResidues(List<Residue> residues, Molecule mol) {
+	private List<Residue> getResidues(List<Residue> residues, ParameterizedMoleculeCopy pmol) {
 		
 		// no molecule? just return the original residues
-		if (mol == null) {
+		if (pmol == null) {
 			return residues;
 		}
 		
 		// but if there is a molecule, then match the residues to it
 		List<Residue> matched = new ArrayList<>(residues.size());
 		for (Residue res : residues) {
-			matched.add(mol.residues.get(res.indexInMolecule));
+			matched.add(pmol.getCopiedMolecule().residues.get(res.indexInMolecule));
 		}
 		return matched;
 	}

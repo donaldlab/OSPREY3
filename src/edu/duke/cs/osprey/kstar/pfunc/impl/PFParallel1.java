@@ -28,6 +28,7 @@ public class PFParallel1 extends PFTraditional implements Serializable {
 	protected KSConfQ confsQ = null;
 	protected KSQPrimeCalculator qPrimeCalculator = null;
 	protected KSPStarCalculator pStarCalculator = null;
+	protected long initSleepTime = 3000;
 
 	public PFParallel1() {
 		super();
@@ -75,6 +76,8 @@ public class PFParallel1 extends PFTraditional implements Serializable {
 			if(pStarCalculator != null) pStarCalculator.start();
 			qPrimeCalculator.start();
 			confsQ.start();
+			
+			if(!isContinuous() && isFullyDefined()) Thread.sleep(initSleepTime);
 
 		} catch(Exception e) {
 			System.out.println(e.getMessage());
@@ -316,8 +319,9 @@ public class PFParallel1 extends PFTraditional implements Serializable {
 			if( !PFAbstract.suppressOutput ) {
 				if( !printedHeader ) printHeader();
 
-				System.out.println(boundError + "\t" + energy + "\t" + effectiveEpsilon + "\t" + getNumMinimized4Output() + 
-						"\t" + getNumUnEnumerated() + "\t" + confsQ.size() + "\t" + ((currentTime-startTime)/1000));
+				System.out.println(numberFormat.format(boundError) + "\t" + numberFormat.format(energy) + "\t" 
+						+ numberFormat.format(effectiveEpsilon) + "\t" + getNumMinimized4Output() + "\t" 
+						+ getNumUnEnumerated() + "\t" + confsQ.size() + "\t" + ((currentTime-startTime)/1000));
 			}
 		}
 
@@ -335,7 +339,7 @@ public class PFParallel1 extends PFTraditional implements Serializable {
 
 	protected void printHeader() {
 
-		System.out.println("boundError" + "\t" + "energy" + "\t" + "epsilon" + "\t" + "#processed" +
+		System.out.println("error" + "\t" + "energy" + "\t" + "epsilon" + "\t" + "#processed" +
 				"\t" + "#un-enum" + "\t" + "#buf" + "\t"+ "time(sec)");
 
 		printedHeader = true;
@@ -362,12 +366,7 @@ public class PFParallel1 extends PFTraditional implements Serializable {
 
 			if(qPrimeCalculator == null) return;
 
-			if(!isContinuous() && isFullyDefined()) {
-				long timeout = 100, start = System.currentTimeMillis();
-				while( qPrimeCalculator.getPercentQPrime() < 0.33 && System.currentTimeMillis()-start < timeout ) Thread.sleep(100);
-			}
-
-			while( partialQLB.compareTo(qPrimeCalculator.getTotalPF()) > 0 ) Thread.sleep(1);
+			while( partialQLB.compareTo(qPrimeCalculator.getTotalPF()) > 0 ) Thread.sleep(1000);
 
 			qPrime = qPrimeCalculator.getQPrime(partialQLB);
 

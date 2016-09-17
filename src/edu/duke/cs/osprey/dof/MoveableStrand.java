@@ -5,11 +5,13 @@
  */
 package edu.duke.cs.osprey.dof;
 
+import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.RotationMatrix;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 
 /**
  *
@@ -19,7 +21,7 @@ import java.util.Arrays;
  * 
  * @author mhall44
  */
-public class MoveableStrand implements Serializable {
+public class MoveableStrand implements Serializable, DOFBlock {
     
     ArrayList<Residue> res;//list of residues in the molecule that make up this "strand"
     
@@ -42,6 +44,11 @@ public class MoveableStrand implements Serializable {
     public static final double maxStrandRot = 5;//maximum strand rotation Tait-Bryan angle, in degrees
     public static final double maxStrandTrans = 1.2;//maximum strand translation in any dimension, in angstroms
     //Each of these motions can go in either direction
+    
+    
+    public MoveableStrand(){
+        
+    }
     
     
     public MoveableStrand(ArrayList<Residue> res){
@@ -131,6 +138,34 @@ public class MoveableStrand implements Serializable {
         }
         else
             throw new RuntimeException("ERROR: Not a strand DOF");
+    }
+
+    @Override
+    public DOFBlock copyForNewMolecule(Molecule mol, LinkedHashMap<DegreeOfFreedom, DegreeOfFreedom> copiedDOFMap) {
+        
+        MoveableStrand copiedStrand = new MoveableStrand();
+        
+        copiedStrand.res = new ArrayList<>();
+        for(Residue curRes : res)
+            copiedStrand.res.add( mol.getResByPDBResNumber(curRes.getPDBResNumber()) );
+        
+        copiedStrand.translations = new StrandTranslation[3];
+        copiedStrand.rotations = new StrandRotation[3];
+        for(int coord=0; coord<3; coord++){
+            copiedStrand.translations[coord] = new StrandTranslation(copiedStrand,coord);
+            copiedStrand.rotations[coord] = new StrandRotation(copiedStrand,coord);
+            copiedDOFMap.put(translations[coord], copiedStrand.translations[coord]);
+            copiedDOFMap.put(rotations[coord], copiedStrand.rotations[coord]);
+            copiedStrand.translations[coord].curVal = translations[coord].curVal;
+            copiedStrand.rotations[coord].curVal = rotations[coord].curVal;
+        }
+            
+        copiedStrand.initCenter = initCenter;
+        copiedStrand.curTrans = curTrans.clone();
+        copiedStrand.curRotMatrix = curRotMatrix.copy();
+        copiedStrand.curAngles = curAngles.clone();
+        
+        return copiedStrand;
     }
     
 }

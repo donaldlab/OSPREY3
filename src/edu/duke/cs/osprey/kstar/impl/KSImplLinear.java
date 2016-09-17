@@ -115,7 +115,7 @@ public class KSImplLinear extends KSAbstract {
 			// compute K* scores and print output if all 
 			// partition functions are computed to epsilon accuracy
 			if( calc.getEpsilonStatus() == EApproxReached.TRUE || calc.getEpsilonStatus() == EApproxReached.NOT_POSSIBLE ) {
-				calc.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCompleted(1) );
+				calc.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCreated(1), getNumSeqsCompleted(1) );
 			}
 		}
 	}
@@ -181,7 +181,7 @@ public class KSImplLinear extends KSAbstract {
 					seqSet.remove(seq);
 
 					if( calc.getEpsilonStatus() == EApproxReached.TRUE || calc.getEpsilonStatus() == EApproxReached.NOT_POSSIBLE ) {
-						calc.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCompleted(1) );
+						calc.printSummary( getOputputFilePath(), getStartTime(), getNumSeqsCreated(1), getNumSeqsCompleted(1) );
 					}
 				}
 
@@ -189,7 +189,7 @@ public class KSImplLinear extends KSAbstract {
 					// remove partition funtion from memory, write checkpoint
 					name2PF.remove(pf.getReducedSearchProblemName());
 					calc.serializePF(KSTermini.COMPLEX);
-					calc.printSummary( getCheckPointFilePath(), getStartTime(), getNumSeqsCompleted(0) );
+					calc.printSummary( getCheckPointFilePath(), getStartTime(), getNumSeqsCreated(0), getNumSeqsCompleted(0) );
 				}
 			}
 

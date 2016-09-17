@@ -16,9 +16,13 @@ import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.kstar.impl.KSImplLinear;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
+//(??)import junit.framework.TestResult;
 
 @SuppressWarnings("unused")
 public class TestKStar {
+
+	KStarCalculator ksc;
+	KSConfigFileParser cfp;
 
 	@Test
 	public void test2RL0Linear() {

@@ -25,9 +25,9 @@ import edu.duke.cs.osprey.tools.ObjectIO;
 public class PFParallel2 extends PFParallel1 implements Serializable {
 
 	protected static HashMap<Integer, ArrayList<KSSearchProblem>> strand2SPs = new HashMap<>();
-	private ArrayList<Integer> indexes = new ArrayList<>();
+	private ArrayList<Integer> indexes = new ArrayList<>(PFAbstract.getNumThreads());
 	private ArrayList<KSSearchProblem> sps = null;
-	private ArrayList<KSConf> partialQConfs = new ArrayList<>();
+	private ArrayList<KSConf> partialQConfs = new ArrayList<>(PFAbstract.getNumThreads());
 
 	public PFParallel2() {
 		super();
@@ -137,6 +137,8 @@ public class PFParallel2 extends PFParallel1 implements Serializable {
 			if(pStarCalculator != null) pStarCalculator.start();
 			qPrimeCalculator.start();
 			confsQ.start();
+			
+			if(!isContinuous() && isFullyDefined()) Thread.sleep(initSleepTime);
 
 		} catch(Exception e) {
 			System.out.println(e.getMessage());
@@ -211,7 +213,7 @@ public class PFParallel2 extends PFParallel1 implements Serializable {
 			if(canUseHotByConfError(peb)) tryHotForConf(partialQConfs.get(index), mefs.get(index));
 		}
 	}
-
+	
 
 	protected void accumulate( ArrayList<KSConf> partialQConfs, boolean energiesEvaluated ) {
 
@@ -267,8 +269,9 @@ public class PFParallel2 extends PFParallel1 implements Serializable {
 
 			if( !PFAbstract.suppressOutput ) {
 				if( !printedHeader ) printHeader();
-				System.out.println(boundError + "\t" + energy + "\t" + effectiveEpsilon + "\t" + getNumMinimized4Output() + 
-						"\t" + getNumUnEnumerated() + "\t" + confsQ.size() + "\t" + ((currentTime-startTime)/1000));
+				System.out.println(numberFormat.format(boundError) + "\t" + numberFormat.format(energy) + "\t" 
+						+ numberFormat.format(effectiveEpsilon) + "\t" + getNumMinimized4Output() + "\t" 
+						+ getNumUnEnumerated() + "\t" + confsQ.size() + "\t" + ((currentTime-startTime)/1000));
 			}
 		}
 

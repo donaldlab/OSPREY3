@@ -32,12 +32,12 @@ public class KSSearchProblem extends SearchProblem {
 	public KSSearchProblem(String name, String PDBFile, ArrayList<String> flexibleRes,
 			ArrayList<ArrayList<String>> allowedAAs, boolean addWT, boolean contSCFlex, boolean useEPIC,
 			EPICSettings epicSettings, boolean useTupExp, LUTESettings luteSettings,
-                        DEEPerSettings dset, ArrayList<String[]> moveableStrands,
+            DEEPerSettings dset, ArrayList<String[]> moveableStrands,
 			ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef, boolean addResEntropy,
 			boolean addWTRots, KSTermini termini, boolean useVoxelG) {
 		
 		super(name, PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, useEPIC, epicSettings, useTupExp, luteSettings,
-                        dset, moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWTRots, termini, useVoxelG);
+                        dset, moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWTRots, termini, useVoxelG, new ArrayList<>());
 		
 		this.allowedAAs = allowedAAs;
 		this.reducedAllowedAAs = allowedAAs;
@@ -77,16 +77,33 @@ public class KSSearchProblem extends SearchProblem {
 	}
 	
 	
-	public enum MatrixType {
-		EMAT, TUPEXPEMAT, EPICMAT;
+	public void loadMatrix() {
+		MatrixType type = getMatrixType();
+		
+		switch (type) {
+
+		case EMAT: 
+			loadEnergyMatrix();
+			break;
+
+		case TUPEXPEMAT: 
+			loadTupExpEMatrix();
+			break;
+
+		case EPICMAT:
+			loadEPICMatrix();
+			break;
+
+		default:	
+			throw new RuntimeException("ERROR: unsupported energy matrix type: " + type);
+		}
 	}
 	
 	
 	public MatrixType getMatrixType() {
 		if(useTupExpForSearch) return MatrixType.TUPEXPEMAT;
 
-		// skipping epic for now
-		// else if(useEPIC) return MatrixType.EPICMAT;
+		else if(useEPIC) return MatrixType.EPICMAT;
 
 		return MatrixType.EMAT;
 	}
@@ -236,7 +253,7 @@ public class KSSearchProblem extends SearchProblem {
 	}
 
 
-	private ArrayList<String> getAAsAtPos( PruningMatrix pruneMat, int pos ) {
+	public ArrayList<String> getAAsAtPos( PruningMatrix pruneMat, int pos ) {
 		ArrayList<String> ans = new ArrayList<>();
 
 		ArrayList<Integer> rcsAtPos = pruneMat.unprunedRCsAtPos(pos);
@@ -249,6 +266,21 @@ public class KSSearchProblem extends SearchProblem {
 		return ans;
 	}
 
+	
+	public ArrayList<Integer> rcsAtPos( PruningMatrix pruneMat, int pos, String aaType, boolean pruned ) {
+		ArrayList<Integer> ans = new ArrayList<>();
+		
+		ArrayList<Integer> rcsAtPos = pruned ? pruneMat.prunedRCsAtPos(pos) : pruneMat.unprunedRCsAtPos(pos);
+		for( int RCNum : rcsAtPos ) {
+			int pos1 = posNums.get(pos);
+			String AAType = confSpace.posFlex.get(pos1).RCs.get(RCNum).AAType;
+			if(!AAType.equalsIgnoreCase(aaType)) continue;
+			ans.add(RCNum);
+		}
+		
+		return ans;
+	}
+	
 
 	private ArrayList<ArrayList<String>> getAAsAtPos( PruningMatrix pruneMat ) {
 		ArrayList<ArrayList<String>> ans = new ArrayList<>();

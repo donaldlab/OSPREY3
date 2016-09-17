@@ -37,12 +37,15 @@ public abstract class DegreeOfFreedom implements Serializable {
     public Residue getResidue() { return null; }
     
     // enables parallel molecule manipulation without data races
+    // these two methods are only implemented for perturbations that aren't part of a block
+    // (DOFBlock.copyForNewMolecule handle these operations in that case)
     public DegreeOfFreedom copy() {
-        // TODO: once all subclasses implement this, change to abstract method
         throw new UnsupportedOperationException("unsupported by " + getClass().getName());
     }
     public void setMolecule(Molecule val) {
-        // TODO: once all subclasses implement this, change to abstract method
         throw new UnsupportedOperationException("unsupported by " + getClass().getName());
     }
+    
+    public abstract DOFBlock getBlock();//return the DOF block for a DOF (return null if none)
+
 }

@@ -426,9 +426,15 @@ public class CCDMinimizer implements Minimizer {
     }
 
 
-    protected boolean isOutOfRange(double val, int dof) {//Is the value out of range for the degree of freedom?
+    protected boolean isOutOfRange(double val, int dof) {
+        //default box constraint tolerance is 0
+        return isOutOfRange(val,dof,0);
+    }
+    
+    protected boolean isOutOfRange(double val, int dof, double boxConstrTol) {
+        //Is the value out of range for the degree of freedom?
 
-        if( val<DOFmin.get(dof) || val>DOFmax.get(dof) )//regular box constraints
+        if( val<DOFmin.get(dof)-boxConstrTol || val>DOFmax.get(dof)+boxConstrTol )//regular box constraints
             return true;
         else if( nonBoxConstrAffectingDOF[dof].length > 0 ){//handling non-box constraints
 
@@ -486,7 +492,9 @@ public class CCDMinimizer implements Minimizer {
 
         if(checkx){//check if x is in range...during minimization it should be (considering substituting oorVal into x)
             GCTol = 0.05;//don't be too strict on GCs
-            if(isOutOfRange(x.get(dof),dof))//not a problem if trying to get initial values...
+            //we'll also ease up the box constr tol a bit but not as much
+            //Don't need warnings about being 1e-15 degrees outside the box
+            if(isOutOfRange(x.get(dof),dof,1e-6))//not a problem if trying to get initial values...
                 System.out.println("x="+x.get(dof)+" out of range for getEdgeDOFVal.  DOF min: "
                         +DOFmin.get(dof)+" max: "+DOFmax.get(dof));
             GCTol = 1e-10;

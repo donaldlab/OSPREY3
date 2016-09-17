@@ -9,16 +9,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 
-import edu.duke.cs.osprey.confspace.PositionConfSpace;
-import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KSAllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
+import edu.duke.cs.osprey.confspace.PositionConfSpace;
+import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KSTermini;
-import edu.duke.cs.osprey.kstar.impl.KSImplKAStar;
 import edu.duke.cs.osprey.kstar.impl.KSImplLinear;
+import edu.duke.cs.osprey.kstar.impl.KSImplKAStar;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
-import edu.duke.cs.osprey.tools.StringParsing;
 
 
 /**
@@ -36,7 +35,8 @@ public class KStarCalculator {
 	boolean useContFlex;
 
 	HashMap<Integer, KSAllowedSeqs> strand2AllowedSeqs = new HashMap<>();
-
+	
+	
 	public KStarCalculator( KSConfigFileParser cfgP ) {
 		cfp = cfgP;
 
@@ -49,9 +49,9 @@ public class KStarCalculator {
 		if(doIMinDEE && !useContFlex)
 			throw new RuntimeException("ERROR: iMinDEE requires continuous flexibility. "
 					+ "Change the value of doMinimize to 'true'.");
-		
+
 		PositionConfSpace.dihedFlexInterval = cfp.getParams().getDouble("dihedFlexInterval");
-		
+
 		PFAbstract.suppressOutput = cfp.getParams().getBool("kStarPFuncSuppressOutput");
 		PFAbstract.targetEpsilon = cfp.getParams().getDouble("epsilon");
 		PFAbstract.setPhase2Method(cfp.getParams().getValue("kStarPhase2Method"));
@@ -66,22 +66,22 @@ public class KStarCalculator {
 		PFAbstract.setNumTopConfsToSave( cfp.getParams().getInt("kStarNumTopConfsToSave") );
 		PFAbstract.useMaxKSConfs = cfp.getParams().getBool("kStarUseMaxKSConfs");
 		PFAbstract.setMaxKSconfs( cfp.getParams().getInt("kStarMaxKSConfs") );
-		
+
 		PFAbstract.setHotMethod( "kStarPFunctHotMethod", cfp.getParams().getValue("kStarPFunctHotMethod") );
-		
+
 		// check hots for validity
 		if(!PFAbstract.getHotMethod().equalsIgnoreCase("none"))
 			cfp.getHighOrderTuplesByPDBResNum();
-		
+
 		PFAbstract.setHotNumRes( "kStarPFuncHotNumRes", cfp.getParams().getInt("kStarPFuncHotNumRes", 3) );
 		PFAbstract.setHotBoundPct( "kStarPFuncHotBoundPct", cfp.getParams().getDouble("kStarPFuncHotBoundPct", 0.03) );
 		PFAbstract.setHotTopRotsPct( "KStarPFuncHotTopRotsPct", cfp.getParams().getDouble("kStarPFuncHotTopRotsPct", 0.0) );
 
-		KSAbstract.runTimeout = cfp.getParams().getInt("kStarRunTimeout", Integer.MAX_VALUE);
+		KSAbstract.runTimeout = cfp.getParams().getInt("kStarRunTimeout");
 		KSAbstract.doCheckPoint = cfp.getParams().getBool("kStarDoCheckpoint");
 		KSAbstract.setCheckPointInterval(cfp.getParams().getInt("kStarCheckpointInterval"));
 		//KSAbstract.interMutationConst = cfp.getParams().getDouble("kStarInterMutationConst", 0.0);
-		
+
 		KSImplKAStar.useTightBounds = cfp.getParams().getBool("kStarUseTightBounds", true);
 		KSImplKAStar.nodeExpansionMethod = cfp.getParams().getValue("kStarNodeExpansion", "parallel1");
 	}
@@ -103,8 +103,16 @@ public class KStarCalculator {
 			while ((line = br.readLine()) != null) {
 				ArrayList<String> l = new ArrayList<String>();
 
+				/*
 				int pos = StringParsing.ordinalIndexOf(line, " ", 1) + 1;
 				for( String s : Arrays.asList( line.substring(pos).split(" ") ) ) {
+					l.add(s.trim());
+				}
+				 */
+
+				line = line.trim();
+				for( String s : Arrays.asList( line.split(" ") ) ) {
+					if(s.contains("-")) s = s.split("-")[0];
 					l.add(s.trim());
 				}
 
@@ -115,13 +123,13 @@ public class KStarCalculator {
 		if(ans.size() > 0) {
 			// check for correct length
 			KSAllowedSeqs pl = strand2AllowedSeqs.get(KSTermini.COMPLEX);
-			
+
 			for(ArrayList<String> seq : ans) {
 				if(seq.size() != pl.getSequenceLength())
 					throw new RuntimeException("ERROR: sequence " + KSAbstract.list1D2String(seq, " ") 
-							+ " has a the wrong length");
+					+ " has a the wrong length");
 			}
-			
+
 			// add residue numbers
 			for(int i = 0; i < ans.size(); ++i) {
 				ArrayList<String> seq = KSAllowedSeqs.addPosToSeq(ans.get(i), pl.getFlexRes());
@@ -153,12 +161,17 @@ public class KStarCalculator {
 
 		int plLen = pl.getSequenceLength(), pLen = p.getSequenceLength();
 
-		pl.getStrandSeqList().clear(); pl.getStrandSeqList().add(pl.getWTSeq());
-		p.getStrandSeqList().clear(); p.getStrandSeqList().add(p.getWTSeq());
-		l.getStrandSeqList().clear(); l.getStrandSeqList().add(l.getWTSeq());
+		pl.getStrandSeqList().clear(); 
+		if(pl.addWT) pl.getStrandSeqList().add(pl.getWTSeq());
+		
+		p.getStrandSeqList().clear(); 
+		if(p.addWT) p.getStrandSeqList().add(p.getWTSeq());
+		
+		l.getStrandSeqList().clear(); 
+		if(l.addWT) l.getStrandSeqList().add(l.getWTSeq());
 
 		for(ArrayList<String> seq : mutations) {
-			
+
 			if(!pl.getStrandSeqList().contains(seq)) {
 				pl.getStrandSeqList().add(seq);
 
@@ -183,7 +196,7 @@ public class KStarCalculator {
 
 
 	private void generateAllowedSequences() {
-		
+
 		KSAllowedSeqs complexSeqs = cfp.getAllowedSequences(KSTermini.COMPLEX, null);
 		strand2AllowedSeqs.put(KSTermini.COMPLEX, complexSeqs);
 		strand2AllowedSeqs.put(KSTermini.PROTEIN, cfp.getAllowedSequences(KSTermini.PROTEIN, complexSeqs));
@@ -198,6 +211,11 @@ public class KStarCalculator {
 		generateAllowedSequences();
 
 		try {
+			
+			cfp.verifyStrandsMutuallyExclusive();
+
+			generateAllowedSequences();
+
 			String mutFilePath = cfp.getParams().getValue("mutfile", "");
 			if(mutFilePath.length() > 0) {
 				truncateAllowedSequences(mutFilePath);
@@ -209,7 +227,7 @@ public class KStarCalculator {
 			throw new Error(ex);
 		}
 
-		String ksMethod = cfp.getParams().getValue("kStarMethod", "linear");
+			String ksMethod = cfp.getParams().getValue("kStarMethod");
 
 		switch( ksMethod ) {
 
@@ -228,6 +246,7 @@ public class KStarCalculator {
 		default:
 			throw new UnsupportedOperationException("ERROR: currently supported implementations are 'linear' and 'kastar'");
 		}
+
 	}
 
 }

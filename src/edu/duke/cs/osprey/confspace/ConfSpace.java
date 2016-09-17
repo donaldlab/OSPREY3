@@ -46,18 +46,18 @@ public class ConfSpace implements Serializable {
     //used for GMEC-based design, K*, or anything else we want to do with a conformational space
     //This class just defines the conformational space itself (the molecule + all kinds of flexibility
     //and possible mutations, and how these are represented as RCs, etc.)
-    //This class can be put in an AnnotatedConfSpace to add annotations like what RCs are pruned,
+    //This class can be put in a SearchProblem to add annotations like what RCs are pruned,
     //what their pairwise energies are, etc.  
     
-	private static final long serialVersionUID = 6414329117813457771L;
-
+	private static final long serialVersionUID = 6414329117813457771L;    
+ 
 	public Molecule m;
     //The molecule will be composed of residues. 
     //It will have one set of coordinates, which are stored in the residues to make mutation
     //and pairwise energy computation easy (no need for complicated partial arrays, subtracting off
     //template energies, etc., and mutation will be very quick and will only require
     //AMBER reinitialization for the affected residue)
-    
+        
     //If we need to keep a copy of, say, the original coordinates, we can have a second molecule origMolec
     //for that
     //Once loaded, the molecule can only be changed by functions overriding DegreeOfFreedom.applyValue
@@ -82,9 +82,8 @@ public class ConfSpace implements Serializable {
     
     public boolean useEllipses = false;
     
-    /** initialize a new conformational space, desomefining all its flexibility
+    /** initialize a new conformational space, defining all its flexibility
     /*   we use one residue per position here
-     *  ADD OTHER OPTIONS: WT ROTAMERS, DIFFERENT ROT WIDTHS, DEEPER, RIGID-BODY MOTIONS
      * 
      * @param PDBFile the structure to read from
      * @param flexibleRes list of residue numbers to be made flexible (as in PDB file)
@@ -98,7 +97,7 @@ public class ConfSpace implements Serializable {
      * @param addWTRots add the wild-type 'rotamers'
      */
     public ConfSpace(String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, 
-            boolean addWT, boolean contSCFlex, DEEPerSettings dset, ArrayList<String[]> moveableStrands, 
+            boolean addWT, ArrayList<String> wtRotOnlyRes, boolean contSCFlex, DEEPerSettings dset, ArrayList<String[]> moveableStrands, 
             ArrayList<String[]> freeBBZones, boolean ellipses, boolean addWTRots, KSTermini termini){
     
     	useEllipses = ellipses;  	
@@ -128,11 +127,13 @@ public class ConfSpace implements Serializable {
         for(int pos=0; pos<numPos; pos++){
             Residue res = m.getResByPDBResNumber( flexibleRes.get(pos) );
             
-            if(addWT || allowedAAs.get(pos).isEmpty()){//at this point, m has all wild-type residues, so just see what res is now
-                //we can also do this to fill in a blank AA type
-                String wtName = res.template.name;
-                if( ! StringParsing.containsIgnoreCase(allowedAAs.get(pos), wtName) )
+            //at this point, m has all wild-type residues, so just see what res is now
+            String wtName = res.template.name;
+            if( ! StringParsing.containsIgnoreCase(allowedAAs.get(pos), wtName) ){//wtName not currently in allowedAAs
+                if(addWT || allowedAAs.get(pos).isEmpty())//It should be (addWT or blank AA type)
                     allowedAAs.get(pos).add(wtName);
+                else//it should not be...make sure wt rots aren't included
+                    wtRots.set(pos, null);
             }
             
             ArrayList<DegreeOfFreedom> resDOFs = mutablePosDOFs(res,allowedAAs.get(pos));//add mutation and dihedral confDOFs
@@ -155,14 +156,6 @@ public class ConfSpace implements Serializable {
         ArrayList<Perturbation> perts = dset.makePerturbations(m);//will make pert block here
         confDOFs.addAll(perts);
         
-        //DEBUG!!!!!!!
-        //TRYING BFB ON ALL FLEX RES!!!
-        /*ArrayList<Residue> bfbRes = new ArrayList<>();
-        for(String fr : flexibleRes)
-            bfbRes.add( m.getResByPDBResNumber(fr) );
-        BBFreeBlock bfb = new BBFreeBlock(bfbRes);
-        confDOFs.addAll( bfb.getDOFs() );*/
-        //DEBUG!!!
         ArrayList<BBFreeBlock> bfbList = getBBFreeBlocks(freeBBZones,flexibleRes);
         for(BBFreeBlock bfb : bfbList)
             confDOFs.addAll( bfb.getDOFs() );
@@ -176,8 +169,13 @@ public class ConfSpace implements Serializable {
             
             BBFreeBlock curBFB = getCurBFB(bfbList,res);
             
+            boolean wtRotOnly = wtRotOnlyRes.contains(flexibleRes.get(pos));
+            if(wtRotOnly && !(wtRots.get(pos)!=null&&allowedAAs.get(pos).size()==1) )
+                throw new RuntimeException("ERROR: WT rot only on but residue not single AA type with wild-type rotamer");
+            
             PositionConfSpace rcs = new PositionConfSpace(pos, res, resDOFs, allowedAAs.get(pos), contSCFlex,
-                    resStrandDOFs, perts, dset.getPertIntervals(), dset.getPertStates(pos), curBFB, useEllipses, wtRots.get(pos));
+                    resStrandDOFs, perts, dset.getPertIntervals(), dset.getPertStates(pos), curBFB, useEllipses, 
+                    wtRots.get(pos), wtRotOnly);
             posFlex.add(rcs);
                         
             if (useEllipses) {
@@ -456,6 +454,13 @@ public class ConfSpace implements Serializable {
 		}
 		return count;
 	}
+        
+    public ArrayList<DegreeOfFreedom> listAllDOFs(){
+        ArrayList<DegreeOfFreedom> ans = new ArrayList<>();
+        ans.addAll(mutDOFs);
+        ans.addAll(confDOFs);
+        return ans;
+    }
     
     
     /*DoubleMatrix1D[] convertConfToDOFBounds(int[] conf){

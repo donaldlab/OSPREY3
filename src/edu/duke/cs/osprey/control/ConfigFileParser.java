@@ -153,7 +153,8 @@ public class ConfigFileParser {
                 params.getBool("AddResEntropy"),
                 params.getBool("addWTRots"),
                 null,
-                params.getBool("useVoxelG")
+                params.getBool("useVoxelG"),
+                getWtRotOnlyRes()
         );
         
         search.numEmatThreads = params.getInt("EmatThreads");
@@ -187,6 +188,20 @@ public class ConfigFileParser {
         }
         
         return flexResList;
+    }
+    
+    
+    ArrayList<String> getWtRotOnlyRes(){
+        //List of residues for which we'll only include the wild-type rotamer
+        ArrayList<String> wtRotOnlyRes = new ArrayList<>();
+        String val = params.getValue("WTRotOnlyRes");
+        
+        StringTokenizer tokenizer = new StringTokenizer(val);
+        while(tokenizer.hasMoreTokens()){
+            wtRotOnlyRes.add(tokenizer.nextToken());
+        }
+        
+        return wtRotOnlyRes;
     }
     
     

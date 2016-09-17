@@ -200,8 +200,9 @@ public class PFTraditional extends PFAbstract implements Serializable {
 		if( !PFAbstract.suppressOutput ) {
 			if( !printedHeader ) printHeader();
 
-			System.out.println(boundError + "\t" + energy + "\t" + effectiveEpsilon + "\t" + getNumMinimized4Output() + 
-					"\t" + getNumUnEnumerated() + "\t"+ (currentTime-startTime)/1000);
+			System.out.println(numberFormat.format(boundError) + "\t" + numberFormat.format(energy) + "\t" 
+					+ numberFormat.format(effectiveEpsilon) + "\t" + getNumMinimized4Output() + "\t" 
+					+ getNumUnEnumerated() + "\t"+ (currentTime-startTime)/1000);
 		}
 
 		eAppx = effectiveEpsilon <= targetEpsilon || maxKSConfsReached() ? EApproxReached.TRUE: EApproxReached.FALSE;
@@ -218,7 +219,7 @@ public class PFTraditional extends PFAbstract implements Serializable {
 
 	protected void printHeader() {
 
-		System.out.println("boundError" + "\t" + "energy" + "\t" + "epsilon" + "\t" + "#processed" +
+		System.out.println("error" + "\t" + "energy" + "\t" + "epsilon" + "\t" + "#processed" +
 				"\t" + "#un-enum" + "\t" + "time(sec)");
 
 		printedHeader = true;

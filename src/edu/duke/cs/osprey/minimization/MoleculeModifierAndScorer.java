@@ -13,6 +13,7 @@ import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.bbfree.BBFreeDOF;
 import edu.duke.cs.osprey.confspace.ConfSpace;
+import edu.duke.cs.osprey.confspace.ParameterizedMoleculeCopy;
 import edu.duke.cs.osprey.confspace.PositionConfSpace;
 import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.confspace.RCTuple;
@@ -78,7 +79,8 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
         this(ef, cSpace, RCTup, null);
     }
     
-    public MoleculeModifierAndScorer(EnergyFunction ef, ConfSpace cSpace, RCTuple RCTup, Molecule mol) {
+    public MoleculeModifierAndScorer(EnergyFunction ef, ConfSpace cSpace, RCTuple RCTup, 
+            ParameterizedMoleculeCopy pmc) {
         /*Initialize an objective function to evaluate ef over the portion of cSpace
          * defined by the RCs in RCTup.  Ensure that all confDOFs of residues in RCTup are bounded
          * (if able to vary continuously) or set correctly (if not)
@@ -96,7 +98,7 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
     	// templates, but that refactor will have to wait for another day.
         
         // which molecule are we using?
-        if (mol == null) {
+        if (pmc == null) {
             
             // the one from the conf space
             this.molec = cSpace.m;
@@ -104,7 +106,7 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
         } else {
             
             // a separate molecule, so we don't modify the one in the conf space
-            this.molec = mol;
+            this.molec = pmc.getCopiedMolecule();
         }
         
         LinkedHashMap<DegreeOfFreedom,double[]> DOFBounds = new LinkedHashMap<>();//bounds for each conformational DOF
@@ -128,9 +130,8 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
                 ResidueTypeDOF mutDOF = cSpace.mutDOFs.get(posNum);
                 
                 // if we're not using the conf space molecule, copy the dof
-                if (mol != null) {
-                    mutDOF = (ResidueTypeDOF)mutDOF.copy();
-                    mutDOF.setMolecule(mol);
+                if (pmc != null) {
+                    mutDOF = (ResidueTypeDOF) pmc.getCopiedDOF(mutDOF);
                 }
                 
                 // make sure the residue is using the right template
@@ -170,12 +171,11 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
         }
         
         // if we're not using the conf space molecule, copy the dofs
-        if (mol != null) {
+        if (pmc != null) {
             LinkedHashMap<DegreeOfFreedom,double[]> copiedDofs = new LinkedHashMap<>();
             for (Map.Entry<DegreeOfFreedom,double[]> entry : DOFBounds.entrySet()) {
                 DegreeOfFreedom dof = entry.getKey();
-                dof = dof.copy();
-                dof.setMolecule(mol);
+                dof = pmc.getCopiedDOF(dof);
                 copiedDofs.put(dof, entry.getValue());
             }
             DOFBounds = copiedDofs;
@@ -332,6 +332,8 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
             return true;
         else if(curDOF instanceof Backrub)
             return true;
+        else if(curDOF instanceof BBFreeDOF)
+            return false;
         
         throw new UnsupportedOperationException("Degree of freedom type not support here yet: "+DOFs.get(dof).toString());
     }
