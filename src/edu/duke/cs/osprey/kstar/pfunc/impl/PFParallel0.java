@@ -74,26 +74,34 @@ public class PFParallel0 extends PFParallel1 implements Serializable {
 	}
 	
 	
-	protected void iterate() throws Exception {
+	protected void iterate() {
+		try {
 
-		ScoredConf conf;
-
-		if( (conf = confSearch.nextConf()) != null ) {
-
-			if( minimizedConfsSet.contains(conf) ) return;
-
-			KSConf ksConf = new KSConf(conf.getAssignments(), getConfBound(confSearch, conf.getAssignments()));
-
-			accumulate(ksConf);
-			
-			if( eAppx != EApproxReached.FALSE ) {
-				// we leave this function
-				qPrimeCalculator.cleanUp(true);
-				if(pStarCalculator != null) pStarCalculator.cleanUp(true);
+			ScoredConf conf;
+	
+			if( (conf = confSearch.nextConf()) != null ) {
+	
+				if( minimizedConfsSet.contains(conf) ) return;
+	
+				KSConf ksConf = new KSConf(conf.getAssignments(), getConfBound(confSearch, conf.getAssignments()));
+	
+				accumulate(ksConf);
+				
+				if( eAppx != EApproxReached.FALSE ) {
+					// we leave this function
+					qPrimeCalculator.cleanUp(true);
+					if(pStarCalculator != null) pStarCalculator.cleanUp(true);
+				}
 			}
+			
+			exitIfTimeOut();
+			
+		} catch (InterruptedException ex) {
+			// something interrupted us because it wants us to stop,
+			// so throw an exception that no one's supposed to catch
+			// and hopefully bubble to the top of the current thread
+			throw new Error(ex);
 		}
-		
-		exitIfTimeOut();
 	}
 	
 	
