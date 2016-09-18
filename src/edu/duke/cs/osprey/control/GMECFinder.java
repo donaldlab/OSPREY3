@@ -23,18 +23,14 @@ import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
-import edu.duke.cs.osprey.bbfree.BBFreeDOF;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.dof.DegreeOfFreedom;
-import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
 import edu.duke.cs.osprey.gpu.GpuQueuePool;
-import edu.duke.cs.osprey.minimization.ConfMinimizer;
-import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.partcr.PartCRConfPruner;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningControl;
@@ -50,116 +46,6 @@ import edu.duke.cs.osprey.tools.Stopwatch;
  */
 public class GMECFinder {
 	
-	public static interface ConfEnergyCalculator {
-
-            EnergiedConf calcEnergy(ScoredConf conf);
-
-            // use asynchronous techniques so we can parallelize conformation evaluation
-            public static interface Async extends ConfEnergyCalculator {
-
-                            void setListener(Listener listener);
-                            void calcEnergyAsync(ScoredConf conf);
-                            void waitForFinish();
-                            void cleanup();
-
-                            public static interface Listener {
-                                    void onEnergy(EnergiedConf conf);
-                            }
-
-                            public static class Adapter implements Async {
-
-                                    private ConfEnergyCalculator calc;
-                                    private Listener listener;
-
-                                    public Adapter(ConfEnergyCalculator calc) {
-                                            this.calc = calc;
-                                    }
-
-                                    @Override
-                                    public EnergiedConf calcEnergy(ScoredConf conf) {
-                                            return calc.calcEnergy(conf);
-                                    }
-
-                                    @Override
-                                    public void setListener(Listener listener) {
-                                            this.listener = listener;
-                                    }
-
-                                    @Override
-                                    public void calcEnergyAsync(ScoredConf conf) {
-                                            listener.onEnergy(calc.calcEnergy(conf));
-                                    }
-
-                                    @Override
-                                    public void waitForFinish() {
-                                            // nothing to do
-                                    }
-
-                                    @Override
-                                    public void cleanup() {
-                                            // nothing to do
-                                    }
-                            }
-            }
-        }
-	
-	public static class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async {
-		
-		private SearchProblem search;
-		private ConfMinimizer.Async minimizer;
-		private ThreadPoolTaskExecutor tasks;
-		
-		public MinimizingEnergyCalculator(SearchProblem search, ConfMinimizer.Async minimizer, ThreadPoolTaskExecutor tasks) {
-			this.search = search;
-			this.minimizer = minimizer;
-			this.tasks = tasks;
-		}
-		
-		private EnergiedConf postProcessConf(EnergiedConf econf) {
-			
-			// add post-minimization energy modifications
-			if (search.useERef) {
-				econf.offsetEnergy(-search.emat.geteRefMat().confERef(econf.getAssignments()));
-			}
-			if (search.addResEntropy) {
-				econf.offsetEnergy(search.confSpace.getConfResEntropy(econf.getAssignments()));
-			}
-			
-			return econf;
-		}
-
-		@Override
-		public EnergiedConf calcEnergy(ScoredConf conf) {
-			return postProcessConf(minimizer.minimizeSync(conf));
-		}
-		
-		@Override
-		public void setListener(Listener listener) {
-			minimizer.setListener(new ConfMinimizer.Async.Listener() {
-				@Override
-				public void onMinimized(EnergiedConf econf, Integer id) {
-					listener.onEnergy(postProcessConf(econf));
-				}
-			});
-		}
-		
-		@Override
-		public void calcEnergyAsync(ScoredConf conf) {
-			minimizer.minimizeAsync(conf);
-		}
-		
-		@Override
-		public void waitForFinish() {
-			minimizer.waitForFinish();
-		}
-
-		@Override
-		public void cleanup() {
-			minimizer.cleanup();
-			tasks.stop();
-		}
-	}
-    
     public static interface ConfPruner {
         void prune(List<ScoredConf> confs, ConfEnergyCalculator ecalc);
     }
@@ -174,7 +60,7 @@ public class GMECFinder {
         
     private SearchProblem searchSpace;
     private PruningControl pruningControl;
-    private Factory<ConfSearch,SearchProblem> confSearchFactory;
+    private ConfSearchFactory confSearchFactory;
     private ConfEnergyCalculator.Async ecalc;
     private ConfPruner confPruner;
     
@@ -226,7 +112,7 @@ public class GMECFinder {
         // in the method args in the method that actually needs them
     }
     
-    public void init(SearchProblem search, PruningControl pruningControl, Factory<ConfSearch,SearchProblem> confSearchFactory, ConfEnergyCalculator.Async ecalc,
+    public void init(SearchProblem search, PruningControl pruningControl, ConfSearchFactory confSearchFactory, ConfEnergyCalculator.Async ecalc,
         double Ew, boolean doIMinDEE, double I0, boolean useContFlex, boolean useTupExp, boolean useEPIC, boolean checkApproxE,
         boolean outputGMECStruct, boolean eFullConfOnly, String confFileName, double stericThresh) {
         
@@ -312,9 +198,9 @@ public class GMECFinder {
         
         //initialize some kind of combinatorial search, like A*
         //FOR NOW just using A*; may also want BWM*, WCSP, or something according to settings
-        confSearchFactory = new Factory<ConfSearch,SearchProblem>() {
+        confSearchFactory = new ConfSearchFactory() {
             @Override
-            public ConfSearch make(SearchProblem searchProblem) {
+            public ConfSearch make(EnergyMatrix emat, PruningMatrix pmat) {
                 
                 if (searchSpace.searchNeedsHigherOrderTerms() || searchSpace.useEPIC) {
             
@@ -325,17 +211,17 @@ public class GMECFinder {
                 // when we don't need higher order terms, we can do fast pairwise-only things
                 
                 // get the appropriate configuration for A*
-                AStarScorer gscorer = new PairwiseGScorer(searchSpace.emat);
+                AStarScorer gscorer = new PairwiseGScorer(emat);
                 AStarScorer hscorer;
                 AStarOrder order;
-                RCs rcs = new RCs(searchSpace.pruneMat);
+                RCs rcs = new RCs(pmat);
                 
                 // how many iterations of MPLP should we do?
                 int numMPLPIters = cfp.getParams().getInt("NumMPLPIters");
                 if (numMPLPIters <= 0) {
                     
                     // zero MPLP iterations is exactly the traditional heuristic, so use the fast implementation
-                    hscorer = new TraditionalPairwiseHScorer(searchSpace.emat, rcs);
+                    hscorer = new TraditionalPairwiseHScorer(emat, rcs);
                     order = new DynamicHMeanAStarOrder();
                     
                 } else {
@@ -345,7 +231,7 @@ public class GMECFinder {
                     // also, always use a static order with MPLP
                     // MPLP isn't optimized to do differential node scoring quickly so DynamicHMean is super slow!
                     double convergenceThreshold = cfp.getParams().getDouble("MPLPConvergenceThreshold");
-                    hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), searchSpace.emat, numMPLPIters, convergenceThreshold);
+                    hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), emat, numMPLPIters, convergenceThreshold);
                     order = new StaticScoreHMeanAStarOrder();
                 }
                 
@@ -401,8 +287,7 @@ public class GMECFinder {
 					// how many threads/gpus are we using?
 					int numThreads = cfp.getParams().getInt("MinimizationThreads");
 					int numGpus = cfp.getParams().getInt("MinimizationGpus");
-					
-					final ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
+					int numTasks;
 					
 					// what energy function should we use?
 					// NOTE: the gpu settings override the thread settings
@@ -420,7 +305,7 @@ public class GMECFinder {
 							}
 						};
 						
-						tasks.start(gpuPool.getNumQueues());
+						numTasks = gpuPool.getNumQueues();
 						
 					} else {
 						
@@ -432,13 +317,10 @@ public class GMECFinder {
 							}
 						};
 						
-						tasks.start(numThreads);
+						numTasks = numThreads;
 					}
 					
-					// init the minimizer
-					final ConfMinimizer.Async minimizer = new ConfMinimizer.Async(efuncs, searchSpace.confSpace, tasks);
-						
-					ecalc = new MinimizingEnergyCalculator(searchSpace, minimizer, tasks);
+					ecalc = new MinimizingEnergyCalculator(searchSpace, efuncs, numTasks);
 				}
 			}
 			
@@ -491,7 +373,7 @@ public class GMECFinder {
         // start searching for the min score conf
         System.out.println("Searching for min score conformation...");
         Stopwatch minScoreStopwatch = new Stopwatch().start();
-        ConfSearch confSearch = confSearchFactory.make(searchSpace);
+        ConfSearch confSearch = confSearchFactory.make(searchSpace.emat, searchSpace.pruneMat);
         try {
             System.out.println("\t(among " + confSearch.getNumConformations().floatValue() + " possibilities)");
         } catch (UnsupportedOperationException ex) {
@@ -673,7 +555,7 @@ public class GMECFinder {
         // start searching for the min score conf
         System.out.println("Searching for min score conformation...");
         Stopwatch minScoreStopwatch = new Stopwatch().start();
-        ConfSearch confSearch = confSearchFactory.make(searchSpace);
+        ConfSearch confSearch = confSearchFactory.make(searchSpace.emat, searchSpace.pruneMat);
         try {
             System.out.println("\t(among " + confSearch.getNumConformations().floatValue() + " possibilities)");
         } catch (UnsupportedOperationException ex) {
