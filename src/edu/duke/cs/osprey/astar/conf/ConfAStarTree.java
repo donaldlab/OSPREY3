@@ -45,16 +45,27 @@ public class ConfAStarTree implements ConfSearch {
 	
 	@Override
 	public BigInteger getNumConformations() {
-    	BigInteger num = BigInteger.valueOf(1);
-    	for (int pos=0; pos<rcs.getNumPos(); pos++) {
-    		num = num.multiply(BigInteger.valueOf(rcs.get(pos).length));
-    	}
-    	return num;
+		
+		if (rcs.hasConfs()) {
+			
+			BigInteger num = BigInteger.valueOf(1);
+			for (int pos=0; pos<rcs.getNumPos(); pos++) {
+				num = num.multiply(BigInteger.valueOf(rcs.get(pos).length));
+			}
+			return num;
+			
+		} else {
+			
+			return BigInteger.ZERO;
+		}
 	}
 
 	@Override
 	public ScoredConf nextConf() {
 		ConfAStarNode leafNode = nextLeafNode();
+		if (leafNode == null) {
+			return null;
+		}
 		return new ScoredConf(
 			leafNode.makeConf(rcs.getNumPos()),
 			leafNode.getGScore()
@@ -66,11 +77,16 @@ public class ConfAStarTree implements ConfSearch {
 		// do we have a root node yet?
 		if (rootNode == null) {
 			
+			// should we have one?
+			if (!rcs.hasConfs()) {
+				return null;
+			}
+			
 			rootNode = new ConfAStarNode();
 			
 			// pick all the single-rotamer positions now, regardless of order chosen
 			// if we do them first, we basically get them for free
-			// so worry about them later in the search at all
+			// so we don't have to worry about them later in the search at all
 			ConfAStarNode node = rootNode;
 			for (int pos=0; pos<rcs.getNumPos(); pos++) {
 				if (rcs.getNum(pos) == 1) {
