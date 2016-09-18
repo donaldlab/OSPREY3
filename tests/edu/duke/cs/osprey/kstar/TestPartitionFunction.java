@@ -111,10 +111,9 @@ public class TestPartitionFunction extends TestBase {
 		));
 	}
 	
-	@Test
-	public void testProteinTraditional() {
+	private void testProtein(String pfImpl) {
 		
-		PFAbstract pfunc = makePfunc("traditional", KSTermini.PROTEIN, "648", "654", "649 650 651 654");
+		PFAbstract pfunc = makePfunc(pfImpl, KSTermini.PROTEIN, "648", "654", "649 650 651 654");
 
 		// is this the right partition function?
 		assertThat(pfunc.getNumUnPruned().intValueExact(), is(5130));
@@ -129,107 +128,89 @@ public class TestPartitionFunction extends TestBase {
 		assertThat(pfunc.getEpsilonStatus(), is(EApproxReached.TRUE));
 		assertThat(pfunc.getEffectiveEpsilon(), lessThanOrEqualTo(PFAbstract.targetEpsilon));
 		assertThat(pfunc.getQStar(), isRelatively(new BigDecimal("4.3704590631e+04"), PFAbstract.targetEpsilon));
+	}
+	
+	private void testLigand(String pfImpl) {
+		
+		PFAbstract pfunc = makePfunc(pfImpl, KSTermini.LIGAND, "155", "194", "156 172 192 193");
+
+		// is this the right partition function?
+		assertThat(pfunc.getNumUnPruned().intValueExact(), is(21280));
+		assertThat(pfunc.getNumPruned().intValueExact(), is(0));
+		
+		// compute it
+		PFAbstract.targetEpsilon = 0.8;
+		pfunc.start();
+		pfunc.runToCompletion();
+	
+		// check the answer
+		assertThat(pfunc.getEpsilonStatus(), is(EApproxReached.TRUE));
+		assertThat(pfunc.getEffectiveEpsilon(), lessThanOrEqualTo(PFAbstract.targetEpsilon));
+		assertThat(pfunc.getQStar(), isRelatively(new BigDecimal("4.4699772362e+30"), PFAbstract.targetEpsilon));
+	}
+	
+	private void testComplex(String pfImpl) {
+		
+		PFAbstract pfunc = makePfunc(pfImpl, KSTermini.COMPLEX, null, null, "649 650 651 654 156 172 192 193");
+
+		// is this the right partition function?
+		assertThat(pfunc.getNumUnPruned().intValueExact(), is(109166400));
+		assertThat(pfunc.getNumPruned().intValueExact(), is(0));
+		
+		// compute it
+		PFAbstract.targetEpsilon = 0.90;
+		pfunc.start();
+		pfunc.runToCompletion();
+	
+		// check the answer
+		assertThat(pfunc.getEpsilonStatus(), is(EApproxReached.TRUE));
+		assertThat(pfunc.getEffectiveEpsilon(), lessThanOrEqualTo(PFAbstract.targetEpsilon));
+		assertThat(pfunc.getQStar(), isRelatively(new BigDecimal("3.5178662402e+54"), PFAbstract.targetEpsilon));
+	}
+	
+	@Test
+	public void testProteinTraditional() {
+		testProtein("traditional");
+	}
+	
+	@Test
+	public void testProteinParallel0() {
+		testProtein("parallel0");
+	}
+	
+	@Test
+	public void testProteinParallel1() {
+		testProtein("parallel1");
 	}
 	
 	@Test
 	public void testProteinParallel2() {
-		
-		PFAbstract pfunc = makePfunc("parallel2", KSTermini.PROTEIN, "648", "654", "649 650 651 654");
-
-		// is this the right partition function?
-		assertThat(pfunc.getNumUnPruned().intValueExact(), is(5130));
-		assertThat(pfunc.getNumPruned().intValueExact(), is(0));
-		
-		// compute it
-		PFAbstract.targetEpsilon = 0.05;
-		pfunc.start();
-		pfunc.runToCompletion();
-	
-		// check the answer
-		assertThat(pfunc.getEpsilonStatus(), is(EApproxReached.TRUE));
-		assertThat(pfunc.getEffectiveEpsilon(), lessThanOrEqualTo(PFAbstract.targetEpsilon));
-		assertThat(pfunc.getQStar(), isRelatively(new BigDecimal("4.3704590631e+04"), PFAbstract.targetEpsilon));
+		testProtein("parallel2");
 	}
 	
 	@Test
 	public void testLigandTraditional() {
-		
-		PFAbstract pfunc = makePfunc("traditional", KSTermini.LIGAND, "155", "194", "156 172 192 193");
-
-		// is this the right partition function?
-		assertThat(pfunc.getNumUnPruned().intValueExact(), is(21280));
-		assertThat(pfunc.getNumPruned().intValueExact(), is(0));
-		
-		// compute it
-		PFAbstract.targetEpsilon = 0.80;
-		pfunc.start();
-		pfunc.runToCompletion();
+		testLigand("traditional");
+	}
 	
-		// check the answer
-		assertThat(pfunc.getEpsilonStatus(), is(EApproxReached.TRUE));
-		assertThat(pfunc.getEffectiveEpsilon(), lessThanOrEqualTo(PFAbstract.targetEpsilon));
-		assertThat(pfunc.getQStar(), isRelatively(new BigDecimal("4.4699772362e+30"), PFAbstract.targetEpsilon));
+	// TODO: the parallel implementations don't seem to be working for the ligand 
+	@Test
+	public void testLigandParallel0() {
+		testLigand("parallel0");
+	}
+	
+	@Test
+	public void testLigandParallel1() {
+		testLigand("parallel1");
 	}
 	
 	@Test
 	public void testLigandParallel2() {
-		
-		PFAbstract pfunc = makePfunc("parallel2", KSTermini.LIGAND, "155", "194", "156 172 192 193");
-
-		// is this the right partition function?
-		assertThat(pfunc.getNumUnPruned().intValueExact(), is(21280));
-		assertThat(pfunc.getNumPruned().intValueExact(), is(0));
-		
-		// compute it
-		PFAbstract.targetEpsilon = 0.05;
-		pfunc.start();
-		pfunc.runToCompletion();
-	
-		// check the answer
-		assertThat(pfunc.getEpsilonStatus(), is(EApproxReached.TRUE));
-		assertThat(pfunc.getEffectiveEpsilon(), lessThanOrEqualTo(PFAbstract.targetEpsilon));
-		assertThat(pfunc.getQStar(), isRelatively(new BigDecimal("4.4699772362e+30"), PFAbstract.targetEpsilon));
-	}
-	
-	//@Test
-	// TODO: this never converges in any reasonable time?
-	// is it a bug, or too large problem for this algorithm?
-	public void testComplexTraditional() {
-		
-		PFAbstract pfunc = makePfunc("traditional", KSTermini.COMPLEX, null, null, "649 650 651 654 156 172 192 193");
-
-		// is this the right partition function?
-		assertThat(pfunc.getNumUnPruned().intValueExact(), is(109166400));
-		assertThat(pfunc.getNumPruned().intValueExact(), is(0));
-		
-		// compute it
-		PFAbstract.targetEpsilon = 0.9;
-		pfunc.start();
-		pfunc.runToCompletion();
-	
-		// check the answer
-		assertThat(pfunc.getEpsilonStatus(), is(EApproxReached.TRUE));
-		assertThat(pfunc.getEffectiveEpsilon(), lessThanOrEqualTo(PFAbstract.targetEpsilon));
-		assertThat(pfunc.getQStar(), isRelatively(new BigDecimal("3.5178662402e+54"), PFAbstract.targetEpsilon));
+		testLigand("parallel2");
 	}
 	
 	@Test
 	public void testComplexParallel2() {
-		
-		PFAbstract pfunc = makePfunc("parallel2", KSTermini.COMPLEX, null, null, "649 650 651 654 156 172 192 193");
-
-		// is this the right partition function?
-		assertThat(pfunc.getNumUnPruned().intValueExact(), is(109166400));
-		assertThat(pfunc.getNumPruned().intValueExact(), is(0));
-		
-		// compute it
-		PFAbstract.targetEpsilon = 0.9;
-		pfunc.start();
-		pfunc.runToCompletion();
-	
-		// check the answer
-		assertThat(pfunc.getEpsilonStatus(), is(EApproxReached.TRUE));
-		assertThat(pfunc.getEffectiveEpsilon(), lessThanOrEqualTo(PFAbstract.targetEpsilon));
-		assertThat(pfunc.getQStar(), isRelatively(new BigDecimal("3.5178662402e+54"), PFAbstract.targetEpsilon));
+		testComplex("parallel2");
 	}
 }
