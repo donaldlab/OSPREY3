@@ -282,7 +282,7 @@ public class SearchProblem implements Serializable {
     
     
     //compute the matrix of the specified type
-    private TupleMatrix<?> calcMatrix(MatrixType type){
+    public TupleMatrix<?> calcMatrix(MatrixType type){
     
         // TODO: the search problem shouldn't concern itself with energy matrices and how to compute them
         

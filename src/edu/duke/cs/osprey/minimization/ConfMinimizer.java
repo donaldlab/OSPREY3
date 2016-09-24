@@ -169,9 +169,6 @@ public class ConfMinimizer {
 		
 		public void waitForFinish() {
 			tasks.waitForFinish();
-			
-			// TEMP
-			System.out.println("pool size: " + pool.size());
 		}
 		
 		public void cleanup() {

@@ -64,31 +64,9 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		// make a search problem
 		System.out.println("Building search problem...");
 		
-		//String aaNames = "ALA VAL LEU ILE PHE TYR TRP CYS MET SER THR LYS ARG HIE HID ASP GLU ASN GLN GLY";
-		//String aaNames = "ALA VAL LEU ILE";
-		String aaNames = "ALA";
-		//String mutRes = "39";
-		//String mutRes = "39 43";
-		String mutRes = "39 43 46 47";
-		//String flexRes = "";
-		//String flexRes = "40";
-		//String flexRes = "40 41";
-		//String flexRes = "40 41 42 44 45";
-		String flexRes = "40 41 42 44 45 48 49 50 51 52 53";
-		ArrayList<String> flexResList = new ArrayList<>();
-		ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
-		for (String res : mutRes.split(" ")) {
-			if (!res.isEmpty()) {
-				flexResList.add(res);
-				allowedAAs.add(new ArrayList<>(Arrays.asList(aaNames.split(" "))));
-			}
-		}
-		for (String res : flexRes.split(" ")) {
-			if (!res.isEmpty()) {
-				flexResList.add(res);
-				allowedAAs.add(new ArrayList<>());
-			}
-		}
+		ResidueFlexibility resFlex = new ResidueFlexibility();
+		resFlex.addMutable("39 43 46 47", "ALA");
+		resFlex.addFlexible("40 41 42 44 45 48 49 50 51 52 53");
 		boolean doMinimize = true;
 		boolean addWt = true;
 		boolean useEpic = false;
@@ -100,10 +78,10 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		ArrayList<String[]> moveableStrands = new ArrayList<String[]>();
 		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
 		SearchProblem search = new SearchProblem(
-                    "test", "test/1CC8/1CC8.ss.pdb", 
-                    flexResList, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
-                    new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null, 
-                        false, new ArrayList<>()
+			"test", "test/1CC8/1CC8.ss.pdb", 
+			resFlex.flexResList, resFlex.allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
+			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null,
+			false, new ArrayList<>()
 		);
 		
 		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;

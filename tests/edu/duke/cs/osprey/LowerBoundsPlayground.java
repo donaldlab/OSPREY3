@@ -39,17 +39,8 @@ public class LowerBoundsPlayground extends TestBase {
 		MultiTermEnergyFunction.setNumThreads(4);
 		
 		// make the search problem
-		//String aaNames = "ALA VAL LEU ILE PHE TYR TRP CYS MET SER THR LYS ARG HIE HID ASP GLU ASN GLN GLY";
-		//String aaNames = "ALA VAL LEU ILE GLU ASN GLN GLY";
-		String aaNames = "ALA VAL LEU ILE";
-		//String aaNames = "ALA";
-		//String flexRes = "38 39 40 41 42 43 44";
-		String flexRes = "38 39 40 41";
-		ArrayList<String> flexResList = new ArrayList<>(Arrays.asList(flexRes.split(" ")));
-		ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
-		for (int i=0; i<flexResList.size(); i++) {
-			allowedAAs.add(new ArrayList<>(Arrays.asList(aaNames.split(" "))));
-		}
+		ResidueFlexibility resFlex = new ResidueFlexibility();
+		resFlex.addMutable("38 39 40 41", "ALA");
 		boolean doMinimize = true;
 		boolean addWt = true;
 		boolean useEpic = false;
@@ -62,9 +53,9 @@ public class LowerBoundsPlayground extends TestBase {
 		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
 		SearchProblem search = new SearchProblem(
 			"test", "test/1CC8/1CC8.ss.pdb", 
-			flexResList, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion,  new LUTESettings(),
-			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null, 
-                        false, new ArrayList<>()
+			resFlex.flexResList, resFlex.allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion,  new LUTESettings(),
+			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null,
+			false, new ArrayList<>()
 		);
 		
 		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;

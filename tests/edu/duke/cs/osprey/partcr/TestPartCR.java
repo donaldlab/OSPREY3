@@ -5,7 +5,6 @@ import static org.junit.Assert.*;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import org.junit.BeforeClass;
@@ -23,16 +22,18 @@ import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.control.ConfEnergyCalculator;
+import edu.duke.cs.osprey.control.ConfSearchFactory;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.control.GMECFinder;
+import edu.duke.cs.osprey.control.MinimizingEnergyCalculator;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
-import edu.duke.cs.osprey.minimization.ConfMinimizer;
-import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -87,24 +88,9 @@ public class TestPartCR extends TestBase {
 	
 	private SearchProblem makeSearch() {
 		
-		String aaNames = "ALA VAL LEU ILE";
-		//String aaNames = "ALA";
-		String mutRes = "39 43";
-		String flexRes = "40 41";
-		ArrayList<String> flexResList = new ArrayList<>();
-		ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
-		for (String res : mutRes.split(" ")) {
-			if (!res.isEmpty()) {
-				flexResList.add(res);
-				allowedAAs.add(new ArrayList<>(Arrays.asList(aaNames.split(" "))));
-			}
-		}
-		for (String res : flexRes.split(" ")) {
-			if (!res.isEmpty()) {
-				flexResList.add(res);
-				allowedAAs.add(new ArrayList<>());
-			}
-		}
+		ResidueFlexibility resFlex = new ResidueFlexibility();
+		resFlex.addMutable("39 43", "ALA VAL LEU ILE");
+		resFlex.addFlexible("40 41");
 		boolean doMinimize = true;
 		boolean addWt = true;
 		boolean useEpic = false;
@@ -117,9 +103,9 @@ public class TestPartCR extends TestBase {
 		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
 		return new SearchProblem(
 			"test", "test/1CC8/1CC8.ss.pdb", 
-			flexResList, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
-			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null, 
-                        false, new ArrayList<>()
+			resFlex.flexResList, resFlex.allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
+			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null,
+			false, new ArrayList<>()
 		);
 	}
 	
@@ -145,13 +131,13 @@ public class TestPartCR extends TestBase {
 		pruningControl.setReportMode(PruningControl.ReportMode.Short);
 		
 		// configure A* search
-		Factory<ConfSearch,SearchProblem> astarFactory = new Factory<ConfSearch,SearchProblem>() {
+		ConfSearchFactory astarFactory = new ConfSearchFactory() {
 			@Override
-			public ConfSearch make(SearchProblem search) {
-				RCs rcs = new RCs(search.pruneMat);
+			public ConfSearch make(EnergyMatrix emat, PruningMatrix pmat) {
+				RCs rcs = new RCs(pmat);
 				AStarOrder order = new StaticScoreHMeanAStarOrder();
-				AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001);
-				ConfAStarTree astarTree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+				AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), emat, 1, 0.0001);
+				ConfAStarTree astarTree = new ConfAStarTree(order, new PairwiseGScorer(emat), hscorer, rcs);
 				astarTree.initProgress();
 				return astarTree;
 			}
@@ -164,10 +150,7 @@ public class TestPartCR extends TestBase {
 				return EnvironmentVars.curEFcnGenerator.fullConfEnergy(search.confSpace, search.shellResidues, mol);
 			}
 		};
-		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
-		tasks.start(1);
-		ConfMinimizer.Async minimizer = new ConfMinimizer.Async(efuncs, search.confSpace, tasks);
-		GMECFinder.ConfEnergyCalculator.Async ecalc = new GMECFinder.MinimizingEnergyCalculator(search, minimizer, tasks);
+		ConfEnergyCalculator.Async ecalc = new MinimizingEnergyCalculator(search, efuncs);
 		
 		// configure the GMEC finder
 		// NOTE: PartCR doesn't help as much with energy window designs

@@ -64,6 +64,47 @@ public class TestBase {
 			);
 		}
 	}
+	
+	public static class ResidueFlexibility {
+		
+		public ArrayList<String> flexResList;
+		public ArrayList<ArrayList<String>> allowedAAs;
+		
+		public ResidueFlexibility() {
+			flexResList = new ArrayList<>();
+			allowedAAs = new ArrayList<>();
+		}
+		
+		public void addMutable(String residueNumbers, String aaNames) {
+			
+			// split the amino acid names
+			ArrayList<String> aas = new ArrayList<>();
+			for (String aaName : aaNames.split(" ")) {
+				if (!aaName.isEmpty()) {
+					aas.add(aaName);
+				}
+			}
+			
+			// add the residue numbers
+			for (String residueNumber : residueNumbers.split(" ")) {
+				if (!residueNumber.isEmpty()) {
+					flexResList.add(residueNumber);
+					// NOTE: for some reason, different positions can't share the same amino acid name list
+					// downstream stuff just crashes for weird reasons I don't understand
+					// so make sure to use a new list every time
+					allowedAAs.add(new ArrayList<>(aas));
+				}
+			}
+		}
+		
+		public void addFlexible(String residueNumbers) {
+			addMutable(residueNumbers, "");
+		}
+		
+		public int size() {
+			return flexResList.size();
+		}
+	}
 
 	public static double getRelativeError(double expected, double observed) {
 		double absErr = Math.abs(expected - observed);
@@ -179,6 +220,9 @@ public class TestBase {
 		// make rotamers
 		boolean useBackboneDependentRotamers = false;
 		EnvironmentVars.resTemplates.loadRotamerLibrary("LovellRotamer.dat", useBackboneDependentRotamers);
+		
+		// load residue entropies
+        EnvironmentVars.resTemplates.loadResEntropy("ResEntropy.dat");
 	}
 	
 	protected static SearchProblem makeSearchProblem(EnergyMatrixConfig emConfig) {

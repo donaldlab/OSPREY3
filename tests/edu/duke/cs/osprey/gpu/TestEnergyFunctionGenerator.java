@@ -3,7 +3,6 @@ package edu.duke.cs.osprey.gpu;
 import static org.junit.Assert.*;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -33,23 +32,9 @@ public class TestEnergyFunctionGenerator extends TestBase {
 	
 	private SearchProblem makeSearch(boolean doMinimize) {
 	
-		String aaNames = "ALA";
-		String mutRes = "39 43";
-		String flexRes = "40 41";
-		ArrayList<String> flexResList = new ArrayList<>();
-		ArrayList<ArrayList<String>> allowedAAs = new ArrayList<>();
-		for (String res : mutRes.split(" ")) {
-			if (!res.isEmpty()) {
-				flexResList.add(res);
-				allowedAAs.add(new ArrayList<>(Arrays.asList(aaNames.split(" "))));
-			}
-		}
-		for (String res : flexRes.split(" ")) {
-			if (!res.isEmpty()) {
-				flexResList.add(res);
-				allowedAAs.add(new ArrayList<>());
-			}
-		}
+		ResidueFlexibility resFlex = new ResidueFlexibility();
+		resFlex.addMutable("39 43", "ALA");
+		resFlex.addFlexible("40 41");
 		boolean addWt = true;
 		boolean useEpic = false;
 		boolean useTupleExpansion = false;
@@ -62,9 +47,9 @@ public class TestEnergyFunctionGenerator extends TestBase {
 		
 		return new SearchProblem(
 			"test", "test/1CC8/1CC8.ss.pdb", 
-			flexResList, allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
-			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null, 
-                        false, new ArrayList<>()
+			resFlex.flexResList, resFlex.allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
+			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null,
+			false, new ArrayList<>()
 		);
 	}
 	
