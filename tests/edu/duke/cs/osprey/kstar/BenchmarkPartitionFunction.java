@@ -14,7 +14,6 @@ import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
-@SuppressWarnings("unused")
 public class BenchmarkPartitionFunction extends TestBase {
 	
 	private static final int NumThreads = 2;
@@ -30,14 +29,14 @@ public class BenchmarkPartitionFunction extends TestBase {
 		// set fork join pool parallelism used by PFParallelN
 		ThreadParallelism.setNumThreads(NumThreads);
 		
-		//benchmarkProtein();
-		//benchmarkLigand();
+		benchmarkProtein();
+		benchmarkLigand();
 		benchmarkComplex();
 	}
 	
 	private static void benchmark(KSSearchProblem search, int strand, double targetEpsilon, String qstar) {
 		
-		final boolean reportProgress = true;
+		final boolean reportProgress = false;
 		
 		System.out.println("\n\nBenchmarking " + KSTermini.getTerminiString(strand) + "...\n");
 		
@@ -53,7 +52,7 @@ public class BenchmarkPartitionFunction extends TestBase {
 		System.out.println(String.format("finished in %s", stopwatchParallel.stop().getTime(2)));
 		
 		// test simple implementation
-		SimplePartitionFunction spfunc = TestSimplePartitionFunction.makePfunc(search, NumThreads);
+		SimplePartitionFunction spfunc = TestSimplePartitionFunction.makePfunc(search, 0, NumThreads);
 		spfunc.init(targetEpsilon);
 		spfunc.setReportProgress(reportProgress);
 		
@@ -62,8 +61,19 @@ public class BenchmarkPartitionFunction extends TestBase {
 		spfunc.compute();
 		System.out.println(String.format("fnished in %s, speedup=%.2f", stopwatchSimple.stop().getTime(2), (double)stopwatchParallel.getTimeNs()/stopwatchSimple.getTimeNs()));
 		
+		// test simple implementation on gpu
+		SimplePartitionFunction spfuncgpu = TestSimplePartitionFunction.makePfunc(search, 1, NumThreads);
+		spfuncgpu.init(targetEpsilon);
+		spfuncgpu.setReportProgress(reportProgress);
+		
+		System.out.println("computing pfunc " + spfuncgpu.getClass().getSimpleName() + " on GPU ...");
+		Stopwatch stopwatchSimpleGpu = new Stopwatch().start();
+		spfuncgpu.compute();
+		System.out.println(String.format("fnished in %s, speedup=%.2f", stopwatchSimpleGpu.stop().getTime(2), (double)stopwatchParallel.getTimeNs()/stopwatchSimpleGpu.getTimeNs()));
+		
 		checkProteinPfunc(pfunc, targetEpsilon, qstar);
 		checkProteinPfunc(spfunc, targetEpsilon, qstar);
+		checkProteinPfunc(spfuncgpu, targetEpsilon, qstar);
 		
 		System.out.println();
 	}
@@ -106,7 +116,7 @@ public class BenchmarkPartitionFunction extends TestBase {
 		
 		final double targetEpsilon = 0.8;
 		final String qstar = "3.5178662402e+54"; 
-		int strand = KSTermini.LIGAND;
+		int strand = KSTermini.COMPLEX;
 		
 		KSSearchProblem search = TestPartitionFunction.makeSearch(strand, null, null, "649 650 651 654 156 172 192 193");
 		
