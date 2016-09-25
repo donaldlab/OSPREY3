@@ -35,7 +35,7 @@ public class TestPartitionFunction extends TestBase {
 		MultiTermEnergyFunction.setNumThreads(1);
 	}
 	
-	public static PFAbstract makePfunc(String pfImpl, int strand, String firstResNumber, String lastResNumber, String flexibleResNumbers) {
+	public static KSSearchProblem makeSearch(int strand, String firstResNumber, String lastResNumber, String flexibleResNumbers) {
 		
 		// create the K* search problem
 		ResidueFlexibility resFlex = new ResidueFlexibility();
@@ -67,6 +67,11 @@ public class TestPartitionFunction extends TestBase {
 		// NOTE: don't actually need any pruning, A* is fast enough for this small problem
 		final double pruningInterval = 5;
 		search.pruneMat = new PruningMatrix(search.confSpace, pruningInterval);
+		
+		return search;
+	}
+	
+	public static PFAbstract makePfunc(KSSearchProblem search, String pfImpl, int strand) {
 		
 		// build the sequence info
 		ArrayList<String> sequence = new ArrayList<>();
@@ -113,7 +118,8 @@ public class TestPartitionFunction extends TestBase {
 	
 	private void testProtein(String pfImpl) {
 		
-		PFAbstract pfunc = makePfunc(pfImpl, KSTermini.PROTEIN, "648", "654", "649 650 651 654");
+		KSSearchProblem search = makeSearch(KSTermini.PROTEIN, "648", "654", "649 650 651 654");
+		PFAbstract pfunc = makePfunc(search, pfImpl, KSTermini.PROTEIN);
 
 		// is this the right partition function?
 		assertThat(pfunc.getNumUnPruned().intValueExact(), is(5130));
@@ -132,7 +138,8 @@ public class TestPartitionFunction extends TestBase {
 	
 	private void testLigand(String pfImpl) {
 		
-		PFAbstract pfunc = makePfunc(pfImpl, KSTermini.LIGAND, "155", "194", "156 172 192 193");
+		KSSearchProblem search = makeSearch(KSTermini.LIGAND, "155", "194", "156 172 192 193");
+		PFAbstract pfunc = makePfunc(search, pfImpl, KSTermini.LIGAND);
 
 		// is this the right partition function?
 		assertThat(pfunc.getNumUnPruned().intValueExact(), is(21280));
@@ -151,7 +158,8 @@ public class TestPartitionFunction extends TestBase {
 	
 	private void testComplex(String pfImpl) {
 		
-		PFAbstract pfunc = makePfunc(pfImpl, KSTermini.COMPLEX, null, null, "649 650 651 654 156 172 192 193");
+		KSSearchProblem search = makeSearch(KSTermini.COMPLEX, null, null, "649 650 651 654 156 172 192 193");
+		PFAbstract pfunc = makePfunc(search, pfImpl, KSTermini.COMPLEX);
 
 		// is this the right partition function?
 		assertThat(pfunc.getNumUnPruned().intValueExact(), is(109166400));

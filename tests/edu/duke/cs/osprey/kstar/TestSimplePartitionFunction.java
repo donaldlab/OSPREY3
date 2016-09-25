@@ -4,8 +4,6 @@ import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Arrays;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -25,16 +23,13 @@ import edu.duke.cs.osprey.control.ConfEnergyCalculator;
 import edu.duke.cs.osprey.control.ConfSearchFactory;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.control.MinimizingEnergyCalculator;
-import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Factory;
-import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class TestSimplePartitionFunction extends TestBase {
 	
@@ -43,39 +38,7 @@ public class TestSimplePartitionFunction extends TestBase {
 		initDefaultEnvironment();
 	}
 	
-	public static SimplePartitionFunction makePfunc(int strand, String firstResNumber, String lastResNumber, String flexibleResNumbers) {
-		
-		// create the search problem
-		ResidueFlexibility resFlex = new ResidueFlexibility();
-		resFlex.addFlexible(flexibleResNumbers);
-		boolean doMinimize = true;
-		boolean addWt = true;
-		boolean useEpic = false;
-		boolean useTupleExpansion = false;
-		boolean useEllipses = false;
-		boolean useERef = true;
-		boolean addResEntropy = false;
-		boolean addWtRots = true;
-		ArrayList<String[]> moveableStrands = new ArrayList<String[]>();
-		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
-		KSTermini termini = null;
-		if (firstResNumber != null && lastResNumber != null) {
-			termini = new KSTermini(strand, resFlex.size(), new ArrayList<>(Arrays.asList(firstResNumber, lastResNumber)));
-		}
-		SearchProblem search = new SearchProblem(
-			"test", "test/2RL0.kstar/2RL0.min.reduce.pdb", 
-			resFlex.flexResList, resFlex.allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
-			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, termini,
-			false, new ArrayList<>()
-		);
-		
-		// calc energy matrix
-		search.emat = (EnergyMatrix)search.calcMatrix(SearchProblem.MatrixType.EMAT);
-		
-		// calc pruning matrix
-		// NOTE: don't actually need any pruning, A* is fast enough for this small problem
-		final double pruningInterval = 5;
-		search.pruneMat = new PruningMatrix(search.confSpace, pruningInterval);
+	public static SimplePartitionFunction makePfunc(SearchProblem search) {
 		
 		// make the A* tree factory
 		ConfSearchFactory confSearchFactory = new ConfSearchFactory() {
@@ -107,12 +70,13 @@ public class TestSimplePartitionFunction extends TestBase {
 	@Test
 	public void testProtein() {
 		
-		SimplePartitionFunction pfunc = makePfunc(KSTermini.PROTEIN, "648", "654", "649 650 651 654");
+		KSSearchProblem search = TestPartitionFunction.makeSearch(KSTermini.PROTEIN, "648", "654", "649 650 651 654"); 
+		SimplePartitionFunction pfunc = makePfunc(search);
 
 		// compute it
 		final double targetEpsilon = 0.05;
 		pfunc.init(targetEpsilon);
-		PartitionFunction.Tools.stepUntilDone(pfunc);
+		pfunc.compute();
 	
 		// check the answer
 		assertThat(pfunc.getStatus(), is(PartitionFunction.Status.Estimated));
@@ -123,12 +87,13 @@ public class TestSimplePartitionFunction extends TestBase {
 	@Test
 	public void testLigand() {
 		
-		SimplePartitionFunction pfunc = makePfunc(KSTermini.LIGAND, "155", "194", "156 172 192 193");
+		KSSearchProblem search = TestPartitionFunction.makeSearch(KSTermini.LIGAND, "155", "194", "156 172 192 193");
+		SimplePartitionFunction pfunc = makePfunc(search);
 
 		// compute it
 		final double targetEpsilon = 0.05;
 		pfunc.init(targetEpsilon);
-		PartitionFunction.Tools.stepUntilDone(pfunc);
+		pfunc.compute();
 	
 		// check the answer
 		assertThat(pfunc.getStatus(), is(PartitionFunction.Status.Estimated));
@@ -139,12 +104,13 @@ public class TestSimplePartitionFunction extends TestBase {
 	@Test
 	public void testComplex() {
 		
-		SimplePartitionFunction pfunc = makePfunc(KSTermini.COMPLEX, null, null, "649 650 651 654 156 172 192 193");
+		KSSearchProblem search = TestPartitionFunction.makeSearch(KSTermini.COMPLEX, null, null, "649 650 651 654 156 172 192 193");
+		SimplePartitionFunction pfunc = makePfunc(search);
 
 		// compute it
 		final double targetEpsilon = 0.8;
 		pfunc.init(targetEpsilon);
-		PartitionFunction.Tools.stepUntilDone(pfunc);
+		pfunc.compute();
 	
 		// check the answer
 		assertThat(pfunc.getStatus(), is(PartitionFunction.Status.Estimated));

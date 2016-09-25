@@ -75,16 +75,8 @@ public interface PartitionFunction {
 	Status getStatus();
 	Values getValues();
 	
-	void step();
-	
-	public static class Tools {
-		
-		public static void stepUntilDone(PartitionFunction pfunc) {
-			while (pfunc.getStatus().canContinue()) {
-				pfunc.step();
-			}
-		}
-	}
+	void compute();
+	void compute(int maxNumConfs);
 	
 	public static interface WithCheckpointing extends PartitionFunction {
 		// TODO
