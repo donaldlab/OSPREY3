@@ -61,6 +61,7 @@ public class TestPartitionFunction extends TestBase {
 		);
 		
 		// calc energy matrix
+		search.numEmatThreads = 2;
 		search.emat = (EnergyMatrix)search.calcMatrix(SearchProblem.MatrixType.EMAT);
 		
 		// calc pruning matrix

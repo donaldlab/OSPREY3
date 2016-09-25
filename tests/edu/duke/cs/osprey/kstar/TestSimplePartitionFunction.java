@@ -27,6 +27,8 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
+import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Factory;
@@ -39,6 +41,10 @@ public class TestSimplePartitionFunction extends TestBase {
 	}
 	
 	public static SimplePartitionFunction makePfunc(SearchProblem search) {
+		return makePfunc(search, 0);
+	}
+	
+	public static SimplePartitionFunction makePfunc(SearchProblem search, int numThreads) {
 		
 		// make the A* tree factory
 		ConfSearchFactory confSearchFactory = new ConfSearchFactory() {
@@ -54,6 +60,16 @@ public class TestSimplePartitionFunction extends TestBase {
 			}
 		};
 		
+		// make the task executor
+		TaskExecutor tasks;
+		if (numThreads == 0) {
+			tasks = new TaskExecutor();
+		} else {
+			ThreadPoolTaskExecutor poolTasks = new ThreadPoolTaskExecutor();
+			poolTasks.start(numThreads, 0); // use queue factor of 0 to prevent evaluating too many extra confs
+			tasks = poolTasks;
+		}
+		
 		// make the energy calculator
 		Factory<EnergyFunction,Molecule> efuncs = new Factory<EnergyFunction,Molecule>() {
 			@Override
@@ -61,17 +77,16 @@ public class TestSimplePartitionFunction extends TestBase {
 				return EnvironmentVars.curEFcnGenerator.fullConfEnergy(search.confSpace, search.shellResidues, mol);
 			}
 		};
-		ConfEnergyCalculator.Async ecalc = new MinimizingEnergyCalculator(search, efuncs);
+		ConfEnergyCalculator.Async ecalc = new MinimizingEnergyCalculator(search, efuncs, tasks, true);
 	
 		// make the pfunc
 		return new SimplePartitionFunction(search.emat, search.pruneMat, confSearchFactory, ecalc);
 	}
 	
-	@Test
-	public void testProtein() {
+	private void testProtein(int numThreads) {
 		
 		KSSearchProblem search = TestPartitionFunction.makeSearch(KSTermini.PROTEIN, "648", "654", "649 650 651 654"); 
-		SimplePartitionFunction pfunc = makePfunc(search);
+		SimplePartitionFunction pfunc = makePfunc(search, numThreads);
 
 		// compute it
 		final double targetEpsilon = 0.05;
@@ -85,10 +100,19 @@ public class TestSimplePartitionFunction extends TestBase {
 	}
 	
 	@Test
-	public void testLigand() {
+	public void testProtein() {
+		testProtein(0);
+	}
+	
+	@Test
+	public void testProteinParallel() {
+		testProtein(2);
+	}
+	
+	public void testLigand(int numThreads) {
 		
 		KSSearchProblem search = TestPartitionFunction.makeSearch(KSTermini.LIGAND, "155", "194", "156 172 192 193");
-		SimplePartitionFunction pfunc = makePfunc(search);
+		SimplePartitionFunction pfunc = makePfunc(search, numThreads);
 
 		// compute it
 		final double targetEpsilon = 0.05;
@@ -102,10 +126,19 @@ public class TestSimplePartitionFunction extends TestBase {
 	}
 	
 	@Test
-	public void testComplex() {
+	public void testLigand() {
+		testLigand(0);
+	}
+	
+	@Test
+	public void testLigandParallel() {
+		testLigand(2);
+	}
+	
+	public void testComplex(int numThreads) {
 		
 		KSSearchProblem search = TestPartitionFunction.makeSearch(KSTermini.COMPLEX, null, null, "649 650 651 654 156 172 192 193");
-		SimplePartitionFunction pfunc = makePfunc(search);
+		SimplePartitionFunction pfunc = makePfunc(search, numThreads);
 
 		// compute it
 		final double targetEpsilon = 0.8;
@@ -116,5 +149,15 @@ public class TestSimplePartitionFunction extends TestBase {
 		assertThat(pfunc.getStatus(), is(PartitionFunction.Status.Estimated));
 		assertThat(pfunc.getValues().getEffectiveEpsilon(), lessThanOrEqualTo(targetEpsilon));
 		assertThat(pfunc.getValues().qstar, isRelatively(new BigDecimal("3.5178662402e+54"), targetEpsilon));
+	}
+	
+	@Test
+	public void testComplex() {
+		testComplex(0);
+	}
+	
+	@Test
+	public void testComplexParallel() {
+		testComplex(2);
 	}
 }

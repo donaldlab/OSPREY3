@@ -9,60 +9,107 @@ import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
+@SuppressWarnings("unused")
 public class BenchmarkPartitionFunction extends TestBase {
+	
+	private static final int NumThreads = 2;
 	
 	public static void main(String[] args) {
 		
 		initDefaultEnvironment();
 		
 		// disable energy function-level parallelism
+		// it's actually slower for small designs
 		MultiTermEnergyFunction.setNumThreads(1);
 		
-		// cut down on spam for benchmarking
-		PFAbstract.suppressOutput = true;
+		// set fork join pool parallelism used by PFParallelN
+		ThreadParallelism.setNumThreads(NumThreads);
 		
-		benchmarkProtein();
+		//benchmarkProtein();
+		//benchmarkLigand();
+		benchmarkComplex();
+	}
+	
+	private static void benchmark(KSSearchProblem search, int strand, double targetEpsilon, String qstar) {
+		
+		final boolean reportProgress = true;
+		
+		System.out.println("\n\nBenchmarking " + KSTermini.getTerminiString(strand) + "...\n");
+		
+		// test parallel implementation
+		PFAbstract pfunc = TestPartitionFunction.makePfunc(search, "parallel0", KSTermini.PROTEIN);
+		PFAbstract.suppressOutput = !reportProgress;
+		PFAbstract.targetEpsilon = targetEpsilon;
+		
+		System.out.println("computing pfunc " + pfunc.getClass().getSimpleName() + " ...");
+		Stopwatch stopwatchParallel = new Stopwatch().start();
+		pfunc.start();
+		pfunc.runToCompletion();
+		System.out.println(String.format("finished in %s", stopwatchParallel.stop().getTime(2)));
+		
+		// test simple implementation
+		SimplePartitionFunction spfunc = TestSimplePartitionFunction.makePfunc(search, NumThreads);
+		spfunc.init(targetEpsilon);
+		spfunc.setReportProgress(reportProgress);
+		
+		System.out.println("computing pfunc " + spfunc.getClass().getSimpleName() + " ...");
+		Stopwatch stopwatchSimple = new Stopwatch().start();
+		spfunc.compute();
+		System.out.println(String.format("fnished in %s, speedup=%.2f", stopwatchSimple.stop().getTime(2), (double)stopwatchParallel.getTimeNs()/stopwatchSimple.getTimeNs()));
+		
+		checkProteinPfunc(pfunc, targetEpsilon, qstar);
+		checkProteinPfunc(spfunc, targetEpsilon, qstar);
+		
+		System.out.println();
+	}
+	
+	private static void checkProteinPfunc(PFAbstract pfunc, double targetEpsilon, String qstar) {
+		assertThat(pfunc.getEpsilonStatus(), is(EApproxReached.TRUE));
+		assertThat(pfunc.getEffectiveEpsilon(), lessThanOrEqualTo(targetEpsilon));
+		assertThat(pfunc.getQStar(), isRelatively(new BigDecimal(qstar), targetEpsilon));
+	}
+	
+	private static void checkProteinPfunc(PartitionFunction pfunc, double targetEpsilon, String qstar) {
+		assertThat(pfunc.getStatus(), is(PartitionFunction.Status.Estimated));
+		assertThat(pfunc.getValues().getEffectiveEpsilon(), lessThanOrEqualTo(targetEpsilon));
+		assertThat(pfunc.getValues().qstar, isRelatively(new BigDecimal(qstar), targetEpsilon));
 	}
 	
 	private static void benchmarkProtein() {
 		
 		final double targetEpsilon = 0.01;
+		final String qstar = "4.3704590631e+04";
+		int strand = KSTermini.PROTEIN;
 		
-		KSSearchProblem search = TestPartitionFunction.makeSearch(KSTermini.PROTEIN, "648", "654", "649 650 651 654");
+		KSSearchProblem search = TestPartitionFunction.makeSearch(strand, "648", "654", "649 650 651 654");
 		
-		System.out.println("\n");
-		
-		// test parallel implementation
-		PFAbstract pfunc = TestPartitionFunction.makePfunc(search, "parallel0", KSTermini.PROTEIN);
-		ThreadParallelism.setNumThreads(1);
-		PFAbstract.targetEpsilon = targetEpsilon;
-		
-		Stopwatch stopwatchParallel = new Stopwatch().start();
-		pfunc.start();
-		pfunc.runToCompletion();
-		System.out.println("Pfunc finished in " + stopwatchParallel.stop().getTime(2));
-		
-		checkProteinPfunc(pfunc);
-		
-		// test simple implementation
-		SimplePartitionFunction spfunc = TestSimplePartitionFunction.makePfunc(search);
-		spfunc.init(targetEpsilon);
-		
-		Stopwatch stopwatchSimple = new Stopwatch().start();
-		spfunc.compute();
-		System.out.println("Pfunc finished in " + stopwatchSimple.stop().getTime(2));
-		System.out.println(String.format("\tSpeedup: %.2fx", (double)stopwatchParallel.getTimeNs()/stopwatchSimple.getTimeNs()));
-		
-		checkProteinPfunc(pfunc);
+		benchmark(search, strand, targetEpsilon, qstar);
 	}
 	
-	private static void checkProteinPfunc(PFAbstract pfunc) {
-		assertThat(pfunc.getEpsilonStatus(), is(EApproxReached.TRUE));
-		assertThat(pfunc.getEffectiveEpsilon(), lessThanOrEqualTo(PFAbstract.targetEpsilon));
-		assertThat(pfunc.getQStar(), isRelatively(new BigDecimal("4.3704590631e+04"), PFAbstract.targetEpsilon));
+	private static void benchmarkLigand() {
+		
+		final double targetEpsilon = 0.01;
+		final String qstar = "4.4699772362e+30";
+		int strand = KSTermini.LIGAND;
+		
+		KSSearchProblem search = TestPartitionFunction.makeSearch(strand, "155", "194", "156 172 192 193");
+		
+		benchmark(search, strand, targetEpsilon, qstar);
+	}
+	
+	private static void benchmarkComplex() {
+		
+		final double targetEpsilon = 0.8;
+		final String qstar = "3.5178662402e+54"; 
+		int strand = KSTermini.LIGAND;
+		
+		KSSearchProblem search = TestPartitionFunction.makeSearch(strand, null, null, "649 650 651 654 156 172 192 193");
+		
+		benchmark(search, strand, targetEpsilon, qstar);
 	}
 }
