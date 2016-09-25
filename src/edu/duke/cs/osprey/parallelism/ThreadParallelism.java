@@ -1,5 +1,7 @@
 package edu.duke.cs.osprey.parallelism;
 
+import java.util.concurrent.ForkJoinPool;
+
 public class ThreadParallelism {
 
 	// the default number of threads should probably always be 1
@@ -17,6 +19,11 @@ public class ThreadParallelism {
 			NUM_THREADS = Runtime.getRuntime().availableProcessors();
 		
 		setNumThreads();
+		
+		// I think we can only set this once per process
+		// so at least warn a dev if we try to do that more than once
+		assert (ForkJoinPool.commonPool().getParallelism() == NUM_THREADS)
+			: String.format("tried to set fork join pool to %d threads, but it has %d instead", NUM_THREADS, ForkJoinPool.commonPool().getParallelism());
 	}
 
 	public static int getNumThreads() {

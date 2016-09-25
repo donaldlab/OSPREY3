@@ -76,7 +76,10 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements TaskExecutor
 		public void doWork(Runnable task)
 		throws InterruptedException {
 			
-			hasSpaceSignal.sendSignal();
+			// update signals for waitForSpace()
+			if (queueFactor == 0) {
+				idleThreadsSignal.offset(-1);
+			}
 			
 			// run the task
 			try {
@@ -90,6 +93,11 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements TaskExecutor
 			boolean wasAdded = false;
 			while (!wasAdded) {
 				wasAdded = outgoingQueue.offer(task, 1, TimeUnit.SECONDS);
+			}
+			
+			// update signals for waitForSpace()
+			if (queueFactor == 0) {
+				idleThreadsSignal.offset(1);
 			}
 		}
 	}
@@ -139,12 +147,13 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements TaskExecutor
 		}
 	}
 	
+	private int queueFactor;
 	private BlockingQueue<Runnable> incomingQueue;
 	private BlockingQueue<Runnable> outgoingQueue;
 	private List<TaskThread> threads;
 	private ListenerThread listenerThread;
 	private FinishState finishState;
-	private Signal hasSpaceSignal;
+	private CounterSignal idleThreadsSignal;
 	
 	public ThreadPoolTaskExecutor() {
 		incomingQueue = null;
@@ -152,7 +161,7 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements TaskExecutor
 		threads = null;
 		listenerThread = null;
 		finishState = new FinishState();
-		hasSpaceSignal = new Signal();
+		idleThreadsSignal = null;
 	}
 	
 	public void start(int numThreads) {
@@ -170,6 +179,7 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements TaskExecutor
 	public void start(int numThreads, int queueFactor) {
 		
 		// allocate queues
+		this.queueFactor = queueFactor;
 		incomingQueue = new ArrayBlockingQueue<>(Math.max(1, numThreads*queueFactor));
 		outgoingQueue = new ArrayBlockingQueue<>(numThreads);
 		
@@ -188,6 +198,14 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements TaskExecutor
 		// start the listener thread
 		listenerThread = new ListenerThread(outgoingQueue);
 		listenerThread.start();
+		
+		// init waitForSpace() signals
+		idleThreadsSignal = new CounterSignal(numThreads, new CounterSignal.SignalCondition() {
+			@Override
+			public boolean shouldSignal(int numIdleThreads) {
+				return numIdleThreads > 0;
+			}
+		});
 	}
 	
 	@Override
@@ -217,8 +235,13 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements TaskExecutor
 	
 	@Override
 	public void waitForSpace() {
-		while (incomingQueue.remainingCapacity() <= 0) {
-			hasSpaceSignal.waitForSignal();
+		if (queueFactor == 0) {
+			
+			// wait for a task thread to become idle
+			idleThreadsSignal.waitForSignal();
+			
+		} else {
+			throw new Error("if you need to wait for space, you should set the queue factor to 0 in init()");
 		}
 	}
 	
