@@ -15,7 +15,15 @@ public class TaskExecutor {
 		listener.onFinished(task);
 	}
 	
+	public void waitForSpace() {
+		// nothing to do
+	}
+	
 	public void waitForFinish() {
 		// nothing to do
+	}
+	
+	public static interface NeedsCleanup {
+		void cleanup();
 	}
 }

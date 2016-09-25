@@ -6,7 +6,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-public class ThreadPoolTaskExecutor extends TaskExecutor {
+public class ThreadPoolTaskExecutor extends TaskExecutor implements TaskExecutor.NeedsCleanup {
 	
 	private class FailedTask implements Runnable {
 		
@@ -76,6 +76,8 @@ public class ThreadPoolTaskExecutor extends TaskExecutor {
 		public void doWork(Runnable task)
 		throws InterruptedException {
 			
+			hasSpaceSignal.sendSignal();
+			
 			// run the task
 			try {
 				task.run();
@@ -142,6 +144,7 @@ public class ThreadPoolTaskExecutor extends TaskExecutor {
 	private List<TaskThread> threads;
 	private ListenerThread listenerThread;
 	private FinishState finishState;
+	private Signal hasSpaceSignal;
 	
 	public ThreadPoolTaskExecutor() {
 		incomingQueue = null;
@@ -149,14 +152,26 @@ public class ThreadPoolTaskExecutor extends TaskExecutor {
 		threads = null;
 		listenerThread = null;
 		finishState = new FinishState();
+		hasSpaceSignal = new Signal();
 	}
 	
 	public void start(int numThreads) {
 		
-		// make the queues about twice the number of threads,
+		// by default, make the incoming queue equal to the number of threads,
 		// so the worker threads probably never have to block waiting for the next task
-		incomingQueue = new ArrayBlockingQueue<>(numThreads*2);
-		outgoingQueue = new ArrayBlockingQueue<>(numThreads*2);
+		// the main thread will probably fill up the incoming queue with tasks while the task threads are running
+		start(numThreads, 1);
+		
+		// NOTE: this works well for finite workloads (ie for loops)
+		// for infinite workloads (ie in while loops), you'd probably want a queue factor of 0
+		// to prevent waiting for extra tasks after the loop exits
+	}
+	
+	public void start(int numThreads, int queueFactor) {
+		
+		// allocate queues
+		incomingQueue = new ArrayBlockingQueue<>(Math.max(1, numThreads*queueFactor));
+		outgoingQueue = new ArrayBlockingQueue<>(numThreads);
 		
 		// init state
 		finishState.reset();
@@ -201,8 +216,20 @@ public class ThreadPoolTaskExecutor extends TaskExecutor {
 	}
 	
 	@Override
+	public void waitForSpace() {
+		while (incomingQueue.remainingCapacity() <= 0) {
+			hasSpaceSignal.waitForSignal();
+		}
+	}
+	
+	@Override
 	public void waitForFinish() {
 		finishState.waitForSignal();
+	}
+	
+	@Override
+	public void cleanup() {
+		stop();
 	}
 	
 	public void stop() {

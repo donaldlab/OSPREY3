@@ -149,6 +149,10 @@ public class ConfMinimizer {
 			});
 		}
 		
+		public void waitForSpace() {
+			tasks.waitForSpace();
+		}
+		
 		public void waitForFinish() {
 			tasks.waitForFinish();
 		}

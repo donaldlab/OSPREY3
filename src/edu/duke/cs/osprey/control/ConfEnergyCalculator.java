@@ -11,6 +11,7 @@ public interface ConfEnergyCalculator {
 	public static interface Async extends ConfEnergyCalculator {
 
 		void calcEnergyAsync(ScoredConf conf, Listener listener);
+		void waitForSpace();
 		void waitForFinish();
 		void cleanup();
 
@@ -34,6 +35,11 @@ public interface ConfEnergyCalculator {
 			@Override
 			public void calcEnergyAsync(ScoredConf conf, Listener listener) {
 				listener.onEnergy(calc.calcEnergy(conf));
+			}
+			
+			@Override
+			public void waitForSpace() {
+				// nothing to do
 			}
 
 			@Override

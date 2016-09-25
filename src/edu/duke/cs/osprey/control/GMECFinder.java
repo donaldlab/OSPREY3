@@ -31,6 +31,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
 import edu.duke.cs.osprey.gpu.GpuQueuePool;
+import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.partcr.PartCRConfPruner;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningControl;
@@ -320,7 +321,10 @@ public class GMECFinder {
 						numTasks = numThreads;
 					}
 					
-					ecalc = new MinimizingEnergyCalculator(searchSpace, efuncs, numTasks);
+					// make the thread pool and the energy calculator
+					ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
+					tasks.start(numTasks);
+					ecalc = new MinimizingEnergyCalculator(searchSpace, efuncs, tasks, true);
 				}
 			}
 			
