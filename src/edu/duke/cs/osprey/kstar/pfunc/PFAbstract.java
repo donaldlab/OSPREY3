@@ -686,7 +686,7 @@ public abstract class PFAbstract implements Serializable {
 			// considerations for HOT
 			HOTs.clear(); // clear HOTs
 
-			reducedSP.emat = (EnergyMatrix) ObjectIO.readObject(panSP.getMatrixFileName(panSP.getMatrixType()), true);
+			reducedSP.emat = (EnergyMatrix) ObjectIO.readObject(panSP.getEnergyMatrixFileName(), true);
 		}
 
 		// completely relax pruning

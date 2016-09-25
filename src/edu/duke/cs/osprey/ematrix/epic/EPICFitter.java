@@ -163,7 +163,11 @@ public class EPICFitter {
             for(int s=0; s<numSamples; s++)
                 ySamp[s] = PCFit.toPCBasis(sampRel[s]);
 
-            if(allBelowCutoff){
+            if(Double.isInfinite(fp.SAPECutoff)){//SAPE takes care of everything
+                System.out.println("No fit needed: SAPE is full energy");
+                PCFit.coeffs = new double[numParams];//all 0's for polynomial is best, anything else is noise
+            }
+            else if(allBelowCutoff){
                 System.out.println("Analytical:");
                 PCFit.coeffs = SeriesFitter.fitSeries(ySamp,trueVal,weights,lambda,
                     false,PCFit.fullOrder,PCFit.PCOrder,PCFit.isPC,false,null,null);
@@ -178,7 +182,11 @@ public class EPICFitter {
         }
         else{
             
-            if(allBelowCutoff){
+            if(Double.isInfinite(fp.SAPECutoff)){//SAPE takes care of everything
+                System.out.println("No fit needed: SAPE is full energy");
+                seriesCoeffs = new double[numParams];//all 0's for polynomial is best, anything else is noise
+            }
+            else if(allBelowCutoff){
                 System.out.println("Analytical:");
                 seriesCoeffs = SeriesFitter.fitSeries(sampRel,trueVal,weights,lambda,
                         false,fp.order);
@@ -623,7 +631,9 @@ public class EPICFitter {
                 return new FitParams(numDOFs,4,0,4,false,7);
             if(fp.SAPECutoff == 7)
                 return new FitParams(numDOFs,4,0,4,false,10);
-            if(fp.SAPECutoff == 10)//give up.  This would be weird--what could be going on at this distance?
+            if(fp.SAPECutoff == 10)
+                return new FitParams(numDOFs,4,0,4,false,Double.POSITIVE_INFINITY);
+            if(Double.isInfinite(fp.SAPECutoff))//give up.  The true energy should match itself...
                 return null;
         }
         

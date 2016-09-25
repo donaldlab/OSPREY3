@@ -215,6 +215,9 @@ public class ResidueTemplate implements Serializable {
 
     public int getNumRotamers(double phi, double psi){
 
+        if(numberOfPhiPsiBins==-1)
+            throw new RuntimeException("ERROR: Rotamers not set up for residue "+name);
+        
         if(Double.isNaN(phi) || Double.isNaN(psi)){//dihedrals not defined for this residue
             if(numberOfPhiPsiBins > 1)
                 throw new RuntimeException("ERROR: Can't use Dunbrack library on residues w/o phi/psi defined");
