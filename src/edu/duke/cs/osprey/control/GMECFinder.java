@@ -420,7 +420,7 @@ public class GMECFinder {
                 final Progress progress = new Progress(lowEnergyConfs.size());
 
                 // what to do when we get a conf energy?
-                ecalc.setListener(new ConfEnergyCalculator.Async.Listener() {
+                ConfEnergyCalculator.Async.Listener ecalcListener = new ConfEnergyCalculator.Async.Listener() {
                         @Override
                         public void onEnergy(EnergiedConf econf) {
 
@@ -457,12 +457,12 @@ public class GMECFinder {
                                         progress.setTotalWork(lowEnergyConfs.size());
                                 }
                         }
-                });
+                };
 
                 // calc the conf energy asynchronously
                 System.out.println(String.format("\nComputing energies for %d conformations...", lowEnergyConfs.size()));
                 for (int i=0; i<lowEnergyConfs.size(); i++) {
-                        ecalc.calcEnergyAsync(lowEnergyConfs.get(i));
+                        ecalc.calcEnergyAsync(lowEnergyConfs.get(i), ecalcListener);
                 }
                 ecalc.waitForFinish();
         }

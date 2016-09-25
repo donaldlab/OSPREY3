@@ -59,18 +59,13 @@ public class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async {
 	}
 	
 	@Override
-	public void setListener(Listener listener) {
-		minimizer.setListener(new ConfMinimizer.Async.Listener() {
+	public void calcEnergyAsync(ScoredConf conf, Listener listener) {
+		minimizer.minimizeAsync(conf, new ConfMinimizer.Async.Listener() {
 			@Override
-			public void onMinimized(EnergiedConf econf, Integer id) {
+			public void onMinimized(EnergiedConf econf) {
 				listener.onEnergy(postProcessConf(econf));
 			}
 		});
-	}
-	
-	@Override
-	public void calcEnergyAsync(ScoredConf conf) {
-		minimizer.minimizeAsync(conf);
 	}
 	
 	@Override

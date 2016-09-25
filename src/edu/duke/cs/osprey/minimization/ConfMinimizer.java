@@ -55,17 +55,17 @@ public class ConfMinimizer {
 		}
 		
 		Async async = new Async(efuncs, confSpace, tasks);
-		async.setListener(new Async.Listener() {
-			@Override
-			public void onMinimized(EnergiedConf econf, Integer id) {
-				econfs.set(id, econf);
-				progress.incrementProgress();
-			}
-		});
 		
 		// minimize them all
 		for (int i=0; i<confs.size(); i++) {
-			async.minimizeAsync(confs.get(i), i);
+			final int fi = i;
+			async.minimizeAsync(confs.get(i), new Async.Listener() {
+				@Override
+				public void onMinimized(EnergiedConf econf) {
+					econfs.set(fi, econf);
+					progress.incrementProgress();
+				}
+			});
 		}
 		async.waitForFinish();
 		async.cleanup();
@@ -82,7 +82,6 @@ public class ConfMinimizer {
 		
 		private class Task implements Runnable {
 			
-			public Integer id;
 			public ScoredConf conf;
 			public EnergiedConf minimizedConf;
 			
@@ -93,14 +92,12 @@ public class ConfMinimizer {
 		}
 		
 		public static interface Listener {
-			void onMinimized(EnergiedConf econf, Integer id);
+			void onMinimized(EnergiedConf econf);
 		}
 	
 		private ConfSpace confSpace;
 		private TaskExecutor tasks;
-		private Listener externalListener;
 		private ConfMinimizer minimizer;
-		private TaskExecutor.TaskListener taskListener;
 		private ObjectPool<EfuncAndPMC> pool;
 	
 		public Async(Factory<? extends EnergyFunction,Molecule> efuncs, ConfSpace confSpace, TaskExecutor tasks) {
@@ -108,20 +105,7 @@ public class ConfMinimizer {
 			this.confSpace = confSpace;
 			this.tasks = tasks;
 			
-			externalListener = null;
 			minimizer = new ConfMinimizer();
-			
-			// init the listener to collect all the minimized confs
-			taskListener = new TaskExecutor.TaskListener() {
-				@Override
-				public void onFinished(Runnable taskBase) {
-					
-					Task task = (Task)taskBase;
-					
-					// chain listeners
-					externalListener.onMinimized(task.minimizedConf, task.id);
-				}
-			};
 			
 			// make a pool for molecules and energy functions
 			// to keep concurrent tasks from racing each other
@@ -146,25 +130,23 @@ public class ConfMinimizer {
 			}
 		}
 		
-		public void setListener(Listener val) {
-			externalListener = val;
-		}
-		
-		public void minimizeAsync(ScoredConf conf) {
-			minimizeAsync(conf, null);
-		}
-		
-		public void minimizeAsync(ScoredConf conf, Integer id) {
+		public void minimizeAsync(ScoredConf conf, Listener listener) {
 			
-			if (externalListener == null) {
-				throw new IllegalStateException("call setListener() before minimizng asynchronously, this is a bug");
+			if (listener == null) {
+				throw new IllegalArgumentException("listener can't be null");
 			}
 			
-			// submit the minimization task
+			// make the task to handle the minimization
 			Task task = new Task();
-			task.id = id;
 			task.conf = conf;
-			tasks.submit(task, taskListener);
+			
+			// submit the task with a chaining task listener
+			tasks.submit(task, new TaskExecutor.TaskListener() {
+				@Override
+				public void onFinished(Runnable taskBase) {
+					listener.onMinimized(task.minimizedConf);
+				}
+			});
 		}
 		
 		public void waitForFinish() {
