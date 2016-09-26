@@ -147,7 +147,7 @@ public class TestPartitionFunction extends TestBase {
 		assertThat(pfunc.getNumPruned().intValueExact(), is(0));
 		
 		// compute it
-		PFAbstract.targetEpsilon = 0.8;
+		PFAbstract.targetEpsilon = 0.05;
 		pfunc.start();
 		pfunc.runToCompletion();
 	
@@ -202,7 +202,6 @@ public class TestPartitionFunction extends TestBase {
 		testLigand("traditional");
 	}
 	
-	// TODO: the parallel implementations don't seem to be working for the ligand 
 	@Test
 	public void testLigandParallel0() {
 		testLigand("parallel0");
