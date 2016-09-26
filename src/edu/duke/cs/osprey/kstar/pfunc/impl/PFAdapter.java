@@ -19,9 +19,12 @@ public class PFAdapter extends PFAbstract {
 		this.pfImpl = pfImpl;
 	}
 	
+	public PartitionFunction getPartitionFunction() {
+		return pfunc;
+	}
+	
 	public void setPartitionFunction(PartitionFunction pfunc) {
 		this.pfunc = pfunc;
-		this.pfunc.setReportProgress(!PFAbstract.suppressOutput);
 	}
 
 	@Override
@@ -31,6 +34,7 @@ public class PFAdapter extends PFAbstract {
 
 	@Override
 	public void start() {
+		setRunState(RunState.STARTED);
 		pfunc.init(PFAbstract.targetEpsilon);
 	}
 
