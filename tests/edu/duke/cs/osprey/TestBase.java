@@ -147,10 +147,11 @@ public class TestBase {
 		//return Math.abs(expected - observed)/Math.abs(observed);
 		// NOTE: don't divide BigDecimals, since they can't represent all rationals
 		BigDecimal absErr = expected.subtract(observed).abs();
-		if (observed.equals(BigDecimal.ZERO)) {
+		double denom = observed.abs().doubleValue();
+		if (denom == 0) {
 			return absErr.doubleValue();
 		}
-		return absErr.doubleValue()/observed.abs().doubleValue();
+		return absErr.doubleValue()/denom;
 	}
 	
 	public static Matcher<BigDecimal> isRelatively(BigDecimal expected) {
