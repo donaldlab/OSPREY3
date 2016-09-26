@@ -70,15 +70,14 @@ public interface PartitionFunction {
 		}
 	}
 	
+	void setReportProgress(boolean val);
+	
 	void init(double targetEpsilon);
 	
 	Status getStatus();
 	Values getValues();
+	int getParallelism();
 	
 	void compute();
 	void compute(int maxNumConfs);
-	
-	public static interface WithCheckpointing extends PartitionFunction {
-		// TODO
-	}
 }

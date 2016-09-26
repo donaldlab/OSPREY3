@@ -56,6 +56,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 		isReportingProgress = true;
 	}
 	
+	@Override
 	public void setReportProgress(boolean val) {
 		isReportingProgress = val;
 	}
@@ -68,6 +69,11 @@ public class SimplePartitionFunction implements PartitionFunction {
 	@Override
 	public Values getValues() {
 		return values;
+	}
+	
+	@Override
+	public int getParallelism() {
+		return ecalc.getParallelism();
 	}
 
 	@Override
