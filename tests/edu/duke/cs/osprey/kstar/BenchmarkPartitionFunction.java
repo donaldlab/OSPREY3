@@ -45,7 +45,7 @@ public class BenchmarkPartitionFunction extends TestBase {
 		System.out.println("\n\nBenchmarking " + KSTermini.getTerminiString(strand) + "...\n");
 		
 		// test parallel implementation
-		PFAbstract pfunc = TestPartitionFunction.makePfunc(search, "parallel0", KSTermini.PROTEIN, cfp);
+		PFAbstract pfunc = TestPartitionFunction.makePfunc(search, "parallel0", KSTermini.PROTEIN, null, cfp);
 		PFAbstract.suppressOutput = !reportProgress;
 		PFAbstract.targetEpsilon = targetEpsilon;
 		
@@ -76,7 +76,7 @@ public class BenchmarkPartitionFunction extends TestBase {
 		System.out.println(String.format("finished in %s, speedup=%.2f", stopwatchSimpleGpu.stop().getTime(2), (double)stopwatchParallel.getTimeNs()/stopwatchSimpleGpu.getTimeNs()));
 		
 		// test adapted simple implementation
-		PFAbstract pfuncAdapted = TestPartitionFunction.makePfunc(search, "simple", KSTermini.PROTEIN, cfp);
+		PFAbstract pfuncAdapted = TestPartitionFunction.makePfunc(search, "simple", KSTermini.PROTEIN, null, cfp);
 		
 		System.out.println("computing pfunc " + pfuncAdapted.getClass().getSimpleName() + " ...");
 		Stopwatch stopwatchAdapted = new Stopwatch().start();
