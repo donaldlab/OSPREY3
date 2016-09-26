@@ -175,7 +175,7 @@ public class TestBase {
 			public void describeMismatch(Object obj, Description desc) {
 				BigDecimal observed = (BigDecimal)obj;
 				double relErr = getRelativeError(expected, observed);
-				desc.appendText("value ").appendValue(observed)
+				desc.appendText("value ").appendValue(observed.doubleValue())
 					.appendText(" has relative err ").appendValue(relErr)
 					.appendText(" that's greater than epsilon ").appendValue(epsilon);
 			}
