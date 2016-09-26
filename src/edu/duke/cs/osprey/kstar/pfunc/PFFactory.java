@@ -2,12 +2,16 @@ package edu.duke.cs.osprey.kstar.pfunc;
 
 import java.util.ArrayList;
 
-import edu.duke.cs.osprey.kstar.pfunc.impl.PFTraditional;
-import edu.duke.cs.osprey.kstar.pfunc.impl.PFParallel2;
+import edu.duke.cs.osprey.control.ConfEnergyCalculator;
+import edu.duke.cs.osprey.control.ConfSearchFactory;
+import edu.duke.cs.osprey.control.MinimizingEnergyCalculator;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.kstar.KSSearchProblem;
+import edu.duke.cs.osprey.kstar.pfunc.impl.PFAdapter;
 import edu.duke.cs.osprey.kstar.pfunc.impl.PFParallel0;
 import edu.duke.cs.osprey.kstar.pfunc.impl.PFParallel1;
+import edu.duke.cs.osprey.kstar.pfunc.impl.PFParallel2;
+import edu.duke.cs.osprey.kstar.pfunc.impl.PFTraditional;
 import edu.duke.cs.osprey.kstar.pfunc.impl.PFUB;
 
 
@@ -40,7 +44,22 @@ public class PFFactory {
 
 		case "parallel2":
 			return new PFParallel2( strand, sequence, absolutePos, checkPointPath, searchProblemName, cfp, sp );
-
+			
+		case "simple": {
+			
+			// make the adapter
+			PFAdapter adapter = new PFAdapter("simple", strand, sequence, absolutePos, checkPointPath, searchProblemName, cfp, sp);
+			
+			// make the pfunc and attach it to the adapter
+			KSSearchProblem search = adapter.getReducedSearchProblem();
+			ConfSearchFactory confSearchFactory = ConfSearchFactory.Tools.makeFromConfig(search, cfp);
+			ConfEnergyCalculator.Async ecalc = MinimizingEnergyCalculator.makeFromConfig(search, cfp, 0);
+			PartitionFunction pfunc = new SimplePartitionFunction(search.emat, search.pruneMat, confSearchFactory, ecalc);
+			adapter.setPartitionFunction(pfunc);
+			
+			return adapter;
+		}
+		
 		default:
 			throw new RuntimeException("ERROR: specified value of parameter kStarPFuncMethod is invalid");
 

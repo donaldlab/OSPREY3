@@ -38,10 +38,14 @@ public class BenchmarkPartitionFunction extends TestBase {
 		
 		final boolean reportProgress = false;
 		
+		// setup the config for the pffactory
+		KSConfigFileParser cfp = new KSConfigFileParser();
+		cfp.getParams().setValue("MinimizationThreads", Integer.toString(NumThreads));
+		
 		System.out.println("\n\nBenchmarking " + KSTermini.getTerminiString(strand) + "...\n");
 		
 		// test parallel implementation
-		PFAbstract pfunc = TestPartitionFunction.makePfunc(search, "parallel0", KSTermini.PROTEIN);
+		PFAbstract pfunc = TestPartitionFunction.makePfunc(search, "parallel0", KSTermini.PROTEIN, cfp);
 		PFAbstract.suppressOutput = !reportProgress;
 		PFAbstract.targetEpsilon = targetEpsilon;
 		
@@ -59,7 +63,7 @@ public class BenchmarkPartitionFunction extends TestBase {
 		System.out.println("computing pfunc " + spfunc.getClass().getSimpleName() + " ...");
 		Stopwatch stopwatchSimple = new Stopwatch().start();
 		spfunc.compute();
-		System.out.println(String.format("fnished in %s, speedup=%.2f", stopwatchSimple.stop().getTime(2), (double)stopwatchParallel.getTimeNs()/stopwatchSimple.getTimeNs()));
+		System.out.println(String.format("finished in %s, speedup=%.2f", stopwatchSimple.stop().getTime(2), (double)stopwatchParallel.getTimeNs()/stopwatchSimple.getTimeNs()));
 		
 		// test simple implementation on gpu
 		SimplePartitionFunction spfuncgpu = TestSimplePartitionFunction.makePfunc(search, 1, NumThreads);
@@ -69,11 +73,22 @@ public class BenchmarkPartitionFunction extends TestBase {
 		System.out.println("computing pfunc " + spfuncgpu.getClass().getSimpleName() + " on GPU ...");
 		Stopwatch stopwatchSimpleGpu = new Stopwatch().start();
 		spfuncgpu.compute();
-		System.out.println(String.format("fnished in %s, speedup=%.2f", stopwatchSimpleGpu.stop().getTime(2), (double)stopwatchParallel.getTimeNs()/stopwatchSimpleGpu.getTimeNs()));
+		System.out.println(String.format("finished in %s, speedup=%.2f", stopwatchSimpleGpu.stop().getTime(2), (double)stopwatchParallel.getTimeNs()/stopwatchSimpleGpu.getTimeNs()));
 		
+		// test adapted simple implementation
+		PFAbstract pfuncAdapted = TestPartitionFunction.makePfunc(search, "simple", KSTermini.PROTEIN, cfp);
+		
+		System.out.println("computing pfunc " + pfuncAdapted.getClass().getSimpleName() + " ...");
+		Stopwatch stopwatchAdapted = new Stopwatch().start();
+		pfuncAdapted.start();
+		pfuncAdapted.runToCompletion();
+		System.out.println(String.format("finished in %s, speedup=%.2f", stopwatchAdapted.stop().getTime(2), (double)stopwatchParallel.getTimeNs()/stopwatchAdapted.getTimeNs()));
+		
+		// check the results, just in case
 		checkProteinPfunc(pfunc, targetEpsilon, qstar);
 		checkProteinPfunc(spfunc, targetEpsilon, qstar);
 		checkProteinPfunc(spfuncgpu, targetEpsilon, qstar);
+		checkProteinPfunc(pfuncAdapted, targetEpsilon, qstar);
 		
 		System.out.println();
 	}

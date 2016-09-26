@@ -19,8 +19,9 @@ import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
-import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 import edu.duke.cs.osprey.kstar.pfunc.PFFactory;
+import edu.duke.cs.osprey.kstar.pruning.ReducedPruningMatrix;
+import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
@@ -37,9 +38,15 @@ public class TestPartitionFunction extends TestBase {
 	
 	public static KSSearchProblem makeSearch(int strand, String firstResNumber, String lastResNumber, String flexibleResNumbers) {
 		
-		// create the K* search problem
 		ResidueFlexibility resFlex = new ResidueFlexibility();
 		resFlex.addFlexible(flexibleResNumbers);
+		
+		return makeSearch(strand, firstResNumber, lastResNumber, resFlex);
+	}
+	
+	public static KSSearchProblem makeSearch(int strand, String firstResNumber, String lastResNumber, ResidueFlexibility resFlex) {
+		
+		// create the K* search problem
 		boolean doMinimize = true;
 		boolean addWt = true;
 		boolean useEpic = false;
@@ -74,6 +81,16 @@ public class TestPartitionFunction extends TestBase {
 	
 	public static PFAbstract makePfunc(KSSearchProblem search, String pfImpl, int strand) {
 		
+		// as far as I can tell, partition functions only use the CFP to get the steric threshold
+		// and to configure HOT things
+		// so create a CFP here with just defaults only for the pfunc
+		KSConfigFileParser cfp = new KSConfigFileParser();
+		
+		return makePfunc(search, pfImpl, strand, cfp);
+	}
+	
+	public static PFAbstract makePfunc(KSSearchProblem search, String pfImpl, int strand, KSConfigFileParser cfp) {
+		
 		// build the sequence info
 		ArrayList<String> sequence = new ArrayList<>();
 		ArrayList<Integer> positions = new ArrayList<>();
@@ -82,11 +99,6 @@ public class TestPartitionFunction extends TestBase {
 			sequence.add(posConfSpace.RCs.get(0).AAType + "-" + posConfSpace.res.getPDBResNumber());
 			positions.add(i);
 		}
-		
-		// as far as I can tell, partition functions only use the CFP to get the steric threshold
-		// and to configure HOT things
-		// so create a CFP here with just defaults only for the pfunc
-		KSConfigFileParser cfp = new KSConfigFileParser();
 		
 		// get the pfunc for the wild-type protein
 		String checkpointName = null;
@@ -177,6 +189,7 @@ public class TestPartitionFunction extends TestBase {
 		assertThat(pfunc.getQStar(), isRelatively(new BigDecimal("3.5178662402e+54"), PFAbstract.targetEpsilon));
 	}
 	
+	/*
 	@Test
 	public void testProteinTraditional() {
 		testProtein("traditional");
@@ -220,5 +233,70 @@ public class TestPartitionFunction extends TestBase {
 	@Test
 	public void testComplexParallel2() {
 		testComplex("parallel2");
+	}
+	
+	@Test
+	public void testProteinSimple() {
+		testProtein("simple");
+	}
+	
+	@Test
+	public void testLigandSimple() {
+		testLigand("simple");
+	}
+	
+	@Test
+	public void testComplexSimple() {
+		testComplex("simple");
+	}
+	*/
+	
+	@Test
+	public void testWeirdThing() {
+		
+		//checkPfunc(result, KSTermini.LIGAND, ligandSequences.get(5), "PHE-156 LYS-172 LEU-192 THR-193", "0.0000000000e+00", 1.00000000);
+		
+		ResidueFlexibility resFlex = new ResidueFlexibility();
+		resFlex.addMutable("156", "PHE");
+		resFlex.addMutable("172", "LYS");
+		resFlex.addMutable("192", "LEU");
+		resFlex.addMutable("193", "THR");
+		
+		int strand = KSTermini.LIGAND;
+		KSSearchProblem search = makeSearch(strand, "155", "194", resFlex);
+		
+		// build the sequence info
+		ArrayList<String> sequence = new ArrayList<>(Arrays.asList("PHE-156", "LYS-172", "LEU-192", "THR-193"));
+		ArrayList<Integer> positions = new ArrayList<>(Arrays.asList(0, 1, 2, 3));
+		
+		// make the pfunc
+		String pfImpl = "traditional";
+		String checkpointName = null;
+		String sequenceSearchName = "jeff"; // it's a good name
+		KSConfigFileParser cfp = new KSConfigFileParser();
+		PFAbstract pfunc = PFFactory.getPartitionFunction(
+			pfImpl,
+			strand,
+			sequence,
+			positions,
+			checkpointName,
+			sequenceSearchName,
+			cfp,
+			search
+		);
+		
+		// initialize the partition function internal state
+		pfunc.setNumUnPruned();
+		pfunc.setNumPruned();
+		
+		// compute it
+		PFAbstract.targetEpsilon = 0.95;
+		pfunc.start();
+		pfunc.runToCompletion();
+	
+		// check the answer
+		assertThat(pfunc.getEpsilonStatus(), is(EApproxReached.TRUE));
+		assertThat(pfunc.getEffectiveEpsilon(), lessThanOrEqualTo(PFAbstract.targetEpsilon));
+		assertThat(pfunc.getQStar(), isRelatively(new BigDecimal("0"), PFAbstract.targetEpsilon));
 	}
 }
