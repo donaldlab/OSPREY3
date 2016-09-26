@@ -28,6 +28,10 @@ public interface ConfSearchFactory {
 				@Override
 				public ConfSearch make(EnergyMatrix emat, PruningMatrix pmat) {
 					
+					if (emat.getNumPos() != pmat.getNumPos()) {
+						throw new Error("energy matrix doesn't match pruning matrix, this is a bug");
+					}
+					
 					if (search.searchNeedsHigherOrderTerms() || search.useEPIC) {
 				
 						// if we need higher-order or EPIC terms, use the old A* code
