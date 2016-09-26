@@ -102,7 +102,7 @@ public abstract class KSAbstract implements KSInterface {
 
 	public void checkAPPP(){
 		//check if using a-priori-provable pruning, and set it up if we are
-		if(cfp.getParams().getBool("APrioriProvablePruning", useTupExp)) {
+		if(cfp.getParams().getBool("APrioriProvablePruning", useTupExp&&!usePoissonBoltzmann)) {
 			//in the case of LUTE this is needed for provability
 			APrioriPruningProver appp = new APrioriPruningProver(this,cfp,strand2AllowedSeqs);
 			EW = appp.calcEw();
@@ -333,7 +333,7 @@ public abstract class KSAbstract implements KSInterface {
                 //May want to set a lower thresh than the default (30 perhaps)
                 Pruner pruner = new Pruner(contSP, false, 0, 0, false, false);
                 pruner.pruneSteric(stericThresh);
-
+                
                 contSP.loadTupExpEMatrix();
             }
             else {

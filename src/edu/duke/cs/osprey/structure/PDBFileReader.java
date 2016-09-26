@@ -78,6 +78,9 @@ public class PDBFileReader {
 				int lineLen = curLine.length();
 				for (int i=0; i < (80-lineLen); i++)
 					curLine += " ";
+                                
+                                if(curLine.startsWith("MODEL"))
+                                    System.out.println("Warning: OSPREY doesn't understand PDB files with multiple models. ");
 
 				if ( (curLine.regionMatches(true,0,"ATOM  ",0,6)) || (curLine.regionMatches(true,0,"HETATM",0,6)) ){
 

@@ -4,6 +4,8 @@ import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.energy.EnergyFunction;
+import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
+import edu.duke.cs.osprey.gpu.GpuQueuePool;
 import edu.duke.cs.osprey.minimization.ConfMinimizer;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
@@ -11,31 +13,66 @@ import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Factory;
 
 public class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async {
-		
-	private SearchProblem search;
-	private TaskExecutor tasks;
-	private ConfMinimizer.Async minimizer;
 	
-	public MinimizingEnergyCalculator(SearchProblem search, Factory<? extends EnergyFunction,Molecule> efuncs) {
-		this(search, efuncs, 0);
-	}
-	
-	public MinimizingEnergyCalculator(SearchProblem search, Factory<? extends EnergyFunction,Molecule> efuncs, int numThreads) {
-		this.search = search;
+	public static MinimizingEnergyCalculator make(SearchProblem search, int numGpus, int numThreads, int queueFactor) {
 		
-		// make the task executor
-		if (numThreads == 0) {
+		int numTasks;
+		Factory<? extends EnergyFunction,Molecule> efuncs;
+		
+		if (numGpus > 0) {
 			
-			// use the current thread
-			tasks = new TaskExecutor();
+			// use gpu-calculated energy functions
+			GpuQueuePool gpuPool = new GpuQueuePool(numGpus, 1);
+			final GpuEnergyFunctionGenerator egen = new GpuEnergyFunctionGenerator(EnvironmentVars.curEFcnGenerator.ffParams, gpuPool);
+			
+			efuncs = new Factory<EnergyFunction,Molecule>() {
+				@Override
+				public EnergyFunction make(Molecule mol) {
+					return egen.fullConfEnergy(search.confSpace, search.shellResidues, mol);
+				}
+			};
+			
+			numTasks = gpuPool.getNumQueues();
 			
 		} else {
 			
-			// make a thread pool
-			ThreadPoolTaskExecutor threadPoolTasks = new ThreadPoolTaskExecutor();
-			threadPoolTasks.start(numThreads);
-			tasks = threadPoolTasks;
+			// plain ol' cpu-calculated energy functions
+			efuncs = new Factory<EnergyFunction,Molecule>() {
+				@Override
+				public EnergyFunction make(Molecule mol) {
+					return EnvironmentVars.curEFcnGenerator.fullConfEnergy(search.confSpace, search.shellResidues, mol);
+				}
+			};
+		
+			numTasks = numThreads;
 		}
+		
+		// make the thread pool
+		TaskExecutor tasks;
+		if (numTasks == 0) {
+			tasks = new TaskExecutor();
+		} else {
+			ThreadPoolTaskExecutor poolTasks = new ThreadPoolTaskExecutor();
+			poolTasks.start(numTasks, queueFactor);
+			tasks = poolTasks;
+		}
+		
+		return new MinimizingEnergyCalculator(search, efuncs, tasks, true);
+	}
+		
+	private SearchProblem search;
+	private TaskExecutor tasks;
+	private boolean cleanupTasks;
+	private ConfMinimizer.Async minimizer;
+	
+	public MinimizingEnergyCalculator(SearchProblem search, Factory<? extends EnergyFunction,Molecule> efuncs) {
+		this(search, efuncs, new TaskExecutor(), true);
+	}
+	
+	public MinimizingEnergyCalculator(SearchProblem search, Factory<? extends EnergyFunction,Molecule> efuncs, TaskExecutor tasks, boolean cleanupTasks) {
+		this.search = search;
+		this.tasks = tasks;
+		this.cleanupTasks = cleanupTasks;
 		
 		minimizer = new ConfMinimizer.Async(efuncs, search.confSpace, tasks);
 	}
@@ -59,18 +96,18 @@ public class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async {
 	}
 	
 	@Override
-	public void setListener(Listener listener) {
-		minimizer.setListener(new ConfMinimizer.Async.Listener() {
+	public void calcEnergyAsync(ScoredConf conf, Listener listener) {
+		minimizer.minimizeAsync(conf, new ConfMinimizer.Async.Listener() {
 			@Override
-			public void onMinimized(EnergiedConf econf, Integer id) {
+			public void onMinimized(EnergiedConf econf) {
 				listener.onEnergy(postProcessConf(econf));
 			}
 		});
 	}
 	
 	@Override
-	public void calcEnergyAsync(ScoredConf conf) {
-		minimizer.minimizeAsync(conf);
+	public void waitForSpace() {
+		minimizer.waitForSpace();
 	}
 	
 	@Override
@@ -82,8 +119,8 @@ public class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async {
 	public void cleanup() {
 		minimizer.cleanup();
 		
-		if (tasks instanceof ThreadPoolTaskExecutor) {
-			((ThreadPoolTaskExecutor)tasks).stop();
+		if (cleanupTasks && tasks instanceof TaskExecutor.NeedsCleanup) {
+			((TaskExecutor.NeedsCleanup)tasks).cleanup();
 		}
 	}
 }

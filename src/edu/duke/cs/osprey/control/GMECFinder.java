@@ -28,15 +28,10 @@ import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.energy.EnergyFunction;
-import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
-import edu.duke.cs.osprey.gpu.GpuQueuePool;
 import edu.duke.cs.osprey.partcr.PartCRConfPruner;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tools.Progress;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
@@ -287,40 +282,7 @@ public class GMECFinder {
 					// how many threads/gpus are we using?
 					int numThreads = cfp.getParams().getInt("MinimizationThreads");
 					int numGpus = cfp.getParams().getInt("MinimizationGpus");
-					int numTasks;
-					
-					// what energy function should we use?
-					// NOTE: the gpu settings override the thread settings
-					final Factory<? extends EnergyFunction,Molecule> efuncs;
-					if (numGpus > 0) {
-						
-						// use gpu-calculated energy functions
-						GpuQueuePool gpuPool = new GpuQueuePool(numGpus, 1);
-						final GpuEnergyFunctionGenerator egen = new GpuEnergyFunctionGenerator(EnvironmentVars.curEFcnGenerator.ffParams, gpuPool);
-						
-						efuncs = new Factory<EnergyFunction,Molecule>() {
-							@Override
-							public EnergyFunction make(Molecule mol) {
-								return egen.fullConfEnergy(searchSpace.confSpace, searchSpace.shellResidues, mol);
-							}
-						};
-						
-						numTasks = gpuPool.getNumQueues();
-						
-					} else {
-						
-						// plain ol' cpu-calculated energy functions
-						efuncs = new Factory<EnergyFunction,Molecule>() {
-							@Override
-							public EnergyFunction make(Molecule mol) {
-								return EnvironmentVars.curEFcnGenerator.fullConfEnergy(searchSpace.confSpace, searchSpace.shellResidues, mol);
-							}
-						};
-						
-						numTasks = numThreads;
-					}
-					
-					ecalc = new MinimizingEnergyCalculator(searchSpace, efuncs, numTasks);
+					ecalc = MinimizingEnergyCalculator.make(searchSpace, numGpus, numThreads, 1);
 				}
 			}
 			
@@ -420,7 +382,7 @@ public class GMECFinder {
                 final Progress progress = new Progress(lowEnergyConfs.size());
 
                 // what to do when we get a conf energy?
-                ecalc.setListener(new ConfEnergyCalculator.Async.Listener() {
+                ConfEnergyCalculator.Async.Listener ecalcListener = new ConfEnergyCalculator.Async.Listener() {
                         @Override
                         public void onEnergy(EnergiedConf econf) {
 
@@ -457,12 +419,12 @@ public class GMECFinder {
                                         progress.setTotalWork(lowEnergyConfs.size());
                                 }
                         }
-                });
+                };
 
                 // calc the conf energy asynchronously
                 System.out.println(String.format("\nComputing energies for %d conformations...", lowEnergyConfs.size()));
                 for (int i=0; i<lowEnergyConfs.size(); i++) {
-                        ecalc.calcEnergyAsync(lowEnergyConfs.get(i));
+                        ecalc.calcEnergyAsync(lowEnergyConfs.get(i), ecalcListener);
                 }
                 ecalc.waitForFinish();
         }

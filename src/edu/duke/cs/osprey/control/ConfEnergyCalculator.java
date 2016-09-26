@@ -10,8 +10,8 @@ public interface ConfEnergyCalculator {
 	// use asynchronous techniques so we can parallelize conformation evaluation
 	public static interface Async extends ConfEnergyCalculator {
 
-		void setListener(Listener listener);
-		void calcEnergyAsync(ScoredConf conf);
+		void calcEnergyAsync(ScoredConf conf, Listener listener);
+		void waitForSpace();
 		void waitForFinish();
 		void cleanup();
 
@@ -22,7 +22,6 @@ public interface ConfEnergyCalculator {
 		public static class Adapter implements Async {
 
 			private ConfEnergyCalculator calc;
-			private Listener listener;
 
 			public Adapter(ConfEnergyCalculator calc) {
 				this.calc = calc;
@@ -34,13 +33,13 @@ public interface ConfEnergyCalculator {
 			}
 
 			@Override
-			public void setListener(Listener listener) {
-				this.listener = listener;
-			}
-
-			@Override
-			public void calcEnergyAsync(ScoredConf conf) {
+			public void calcEnergyAsync(ScoredConf conf, Listener listener) {
 				listener.onEnergy(calc.calcEnergy(conf));
+			}
+			
+			@Override
+			public void waitForSpace() {
+				// nothing to do
 			}
 
 			@Override
