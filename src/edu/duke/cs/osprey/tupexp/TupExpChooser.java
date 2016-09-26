@@ -38,7 +38,9 @@ public class TupExpChooser {
         //calculate a full pairwise expansion
         
         ArrayList<RCTuple> pairList = tupEnum.enumerateUnprunedTuples(2);
-
+        if(pairList.isEmpty())//no pairs...indicates <2 flexible positions (or everything pruned, which will be detected)
+            pairList.addAll(tupEnum.enumerateUnprunedTuples(1));//so add singles
+        
         //now calculate the expansion for this list of pairs
         return expander.calcExpansion(pairList);
     }

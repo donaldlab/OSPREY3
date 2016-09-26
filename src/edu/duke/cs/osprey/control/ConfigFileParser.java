@@ -254,7 +254,7 @@ public class ConfigFileParser {
                 StringTokenizer tokenizer = new StringTokenizer(allowedAAString);
             
                 while(tokenizer.hasMoreTokens()){
-                    resAllowedAAs.add( tokenizer.nextToken() );
+                    resAllowedAAs.add( tokenizer.nextToken().toUpperCase() );
                 }
                 
                 allowedAAs.add(resAllowedAAs);
@@ -285,7 +285,7 @@ public class ConfigFileParser {
             StringTokenizer tokenizer = new StringTokenizer(allowedAAString);
 
             while(tokenizer.hasMoreTokens()){
-                resAllowedAAs.add( tokenizer.nextToken() );
+                resAllowedAAs.add( tokenizer.nextToken().toUpperCase() );
             }
 
             allowedAAs.add(resAllowedAAs);
