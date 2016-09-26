@@ -46,7 +46,11 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements TaskExecutor
 		@Override
 		public synchronized void waitForSignal() {
 			submissionsOpen = false;
-			super.waitForSignal();
+			
+			// is there anything to wait for?
+			if (numWin + numFail < numSubmitted) {
+				super.waitForSignal();
+			}
 		}
 	
 		public synchronized void recordResult(boolean isFail) {
