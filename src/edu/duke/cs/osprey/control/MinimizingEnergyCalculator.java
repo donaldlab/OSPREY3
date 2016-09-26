@@ -14,6 +14,14 @@ import edu.duke.cs.osprey.tools.Factory;
 
 public class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async {
 	
+	// TODO: this should eventually go into a CFP-only area
+	// it can be moved when we start refactoring config stuff to prepare for Python-land
+	public static MinimizingEnergyCalculator makeFromConfig(SearchProblem search, ConfigFileParser cfp, int queueFactor) {
+		int numThreads = cfp.getParams().getInt("MinimizationThreads");
+		int numGpus = cfp.getParams().getInt("MinimizationGpus");
+		return make(search, numGpus, numThreads, queueFactor);
+	}
+	
 	public static MinimizingEnergyCalculator make(SearchProblem search, int numGpus, int numThreads, int queueFactor) {
 		
 		int numTasks;
@@ -75,6 +83,11 @@ public class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async {
 		this.cleanupTasks = cleanupTasks;
 		
 		minimizer = new ConfMinimizer.Async(efuncs, search.confSpace, tasks);
+	}
+	
+	@Override
+	public int getParallelism() {
+		return tasks.getParallelism();
 	}
 	
 	private EnergiedConf postProcessConf(EnergiedConf econf) {

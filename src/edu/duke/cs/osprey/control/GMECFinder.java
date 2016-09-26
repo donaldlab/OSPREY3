@@ -13,21 +13,10 @@ import java.util.List;
 import java.util.Set;
 
 import edu.duke.cs.osprey.astar.ConfTree;
-import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
-import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
-import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
-import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.partcr.PartCRConfPruner;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningControl;
@@ -193,49 +182,7 @@ public class GMECFinder {
         
         //initialize some kind of combinatorial search, like A*
         //FOR NOW just using A*; may also want BWM*, WCSP, or something according to settings
-        confSearchFactory = new ConfSearchFactory() {
-            @Override
-            public ConfSearch make(EnergyMatrix emat, PruningMatrix pmat) {
-                
-                if (searchSpace.searchNeedsHigherOrderTerms() || searchSpace.useEPIC) {
-            
-                    // if we need higher-order or EPIC terms, use the old A* code
-                    return ConfTree.makeFull(searchSpace);
-                }
-                
-                // when we don't need higher order terms, we can do fast pairwise-only things
-                
-                // get the appropriate configuration for A*
-                AStarScorer gscorer = new PairwiseGScorer(emat);
-                AStarScorer hscorer;
-                AStarOrder order;
-                RCs rcs = new RCs(pmat);
-                
-                // how many iterations of MPLP should we do?
-                int numMPLPIters = cfp.getParams().getInt("NumMPLPIters");
-                if (numMPLPIters <= 0) {
-                    
-                    // zero MPLP iterations is exactly the traditional heuristic, so use the fast implementation
-                    hscorer = new TraditionalPairwiseHScorer(emat, rcs);
-                    order = new DynamicHMeanAStarOrder();
-                    
-                } else {
-                    
-                    // simple (but not exhaustive) testing showed node-based MPLP is basically
-                    // always faster than edge-based MPLP, so just use node-based MPLP all the time.
-                    // also, always use a static order with MPLP
-                    // MPLP isn't optimized to do differential node scoring quickly so DynamicHMean is super slow!
-                    double convergenceThreshold = cfp.getParams().getDouble("MPLPConvergenceThreshold");
-                    hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), emat, numMPLPIters, convergenceThreshold);
-                    order = new StaticScoreHMeanAStarOrder();
-                }
-                
-                // init the A* tree
-                ConfAStarTree tree = new ConfAStarTree(order, gscorer, hscorer, rcs);
-                tree.initProgress();
-                return tree;
-            }
-        };
+        confSearchFactory = ConfSearchFactory.Tools.makeFromConfig(searchSpace, cfp);
         
         // configure low-energy conformation pruning if needed
         if (cfp.params.getBool("UsePartCR")) {
@@ -278,11 +225,7 @@ public class GMECFinder {
 				} else {
 				
 					// for "regular" conf minimization, use the spiffy new ConfMinimizer!
-					
-					// how many threads/gpus are we using?
-					int numThreads = cfp.getParams().getInt("MinimizationThreads");
-					int numGpus = cfp.getParams().getInt("MinimizationGpus");
-					ecalc = MinimizingEnergyCalculator.make(searchSpace, numGpus, numThreads, 1);
+					ecalc = MinimizingEnergyCalculator.makeFromConfig(search, cfp, 1);
 				}
 			}
 			
