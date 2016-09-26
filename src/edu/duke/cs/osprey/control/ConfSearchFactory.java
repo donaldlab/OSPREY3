@@ -23,7 +23,12 @@ public interface ConfSearchFactory {
 	// TODO: move this info some CFP-only place
 	public static class Tools {
 		
+		// TODO: we should eventually get rid of this when we refactor search problems
 		public static ConfSearchFactory makeFromConfig(SearchProblem search, ConfigFileParser cfp) {
+			return makeFromConfig(search, search.pruneMat, cfp);
+		}
+		
+		public static ConfSearchFactory makeFromConfig(SearchProblem search, PruningMatrix pmat, ConfigFileParser cfp) {
 			return new ConfSearchFactory() {
 				@Override
 				public ConfSearch make(EnergyMatrix emat, PruningMatrix pmat) {
@@ -35,7 +40,7 @@ public interface ConfSearchFactory {
 					if (search.searchNeedsHigherOrderTerms() || search.useEPIC) {
 				
 						// if we need higher-order or EPIC terms, use the old A* code
-						return ConfTree.makeFull(search);
+						return ConfTree.makeFull(search, pmat);
 					}
 					
 					// when we don't need higher order terms, we can do fast pairwise-only things

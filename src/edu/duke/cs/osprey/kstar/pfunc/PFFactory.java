@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import edu.duke.cs.osprey.control.ConfEnergyCalculator;
 import edu.duke.cs.osprey.control.ConfSearchFactory;
 import edu.duke.cs.osprey.control.MinimizingEnergyCalculator;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.kstar.KSSearchProblem;
 import edu.duke.cs.osprey.kstar.pfunc.impl.PFAdapter;
@@ -13,6 +14,7 @@ import edu.duke.cs.osprey.kstar.pfunc.impl.PFParallel1;
 import edu.duke.cs.osprey.kstar.pfunc.impl.PFParallel2;
 import edu.duke.cs.osprey.kstar.pfunc.impl.PFTraditional;
 import edu.duke.cs.osprey.kstar.pfunc.impl.PFUB;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 
 /**
@@ -52,9 +54,11 @@ public class PFFactory {
 			
 			// make the pfunc and attach it to the adapter
 			KSSearchProblem search = adapter.getReducedSearchProblem();
-			ConfSearchFactory confSearchFactory = ConfSearchFactory.Tools.makeFromConfig(search, cfp);
+			EnergyMatrix emat = search.emat;
+			PruningMatrix pmat = search.reducedMat; // why not just replace pruneMat in the SearchProblem instance?
+			ConfSearchFactory confSearchFactory = ConfSearchFactory.Tools.makeFromConfig(search, pmat, cfp);
 			ConfEnergyCalculator.Async ecalc = MinimizingEnergyCalculator.makeFromConfig(search, cfp, 0);
-			PartitionFunction pfunc = new SimplePartitionFunction(search.emat, search.pruneMat, confSearchFactory, ecalc);
+			PartitionFunction pfunc = new SimplePartitionFunction(emat, pmat, confSearchFactory, ecalc);
 			adapter.setPartitionFunction(pfunc);
 			
 			return adapter;
