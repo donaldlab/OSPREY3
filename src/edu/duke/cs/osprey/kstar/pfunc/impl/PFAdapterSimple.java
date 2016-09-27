@@ -18,7 +18,6 @@ public class PFAdapterSimple extends PFAdapter {
 
 	public static final String PfImpl = "simple";
 	
-	private SimplePartitionFunction pfunc;
 	private ConfEnergyCalculator.Async ecalc; 
 	
 	public PFAdapterSimple(int strand, ArrayList<String> sequence, ArrayList<Integer> absolutePos, String checkPointPath, String reducedSPName, KSConfigFileParser cfp, KSSearchProblem panSP) {
@@ -31,7 +30,7 @@ public class PFAdapterSimple extends PFAdapter {
 		
 		ConfSearchFactory confSearchFactory = ConfSearchFactory.Tools.makeFromConfig(search, pmat, cfp);
 		ecalc = MinimizingEnergyCalculator.makeFromConfig(search, cfp, 0);
-		pfunc = new SimplePartitionFunction(emat, pmat, confSearchFactory, ecalc);
+		SimplePartitionFunction pfunc = new SimplePartitionFunction(emat, pmat, confSearchFactory, ecalc);
 		pfunc.setReportProgress(!PFAbstract.suppressOutput);
 		setPartitionFunction(pfunc);
 	}
@@ -39,7 +38,9 @@ public class PFAdapterSimple extends PFAdapter {
 	@Override
 	public void cleanup() {
 		super.cleanup();
+		
 		setPartitionFunction(null);
+		
 		ecalc.cleanup();
 		ecalc = null;
 	}

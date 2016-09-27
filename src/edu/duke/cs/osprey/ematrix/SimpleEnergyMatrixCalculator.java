@@ -2,13 +2,12 @@ package edu.duke.cs.osprey.ematrix;
 
 import edu.duke.cs.osprey.confspace.AbstractTupleMatrix;
 import edu.duke.cs.osprey.confspace.ParameterizedMoleculeCopy;
+import edu.duke.cs.osprey.confspace.ParameterizedMoleculePool;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator.Result;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
-import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.confspace.ParameterizedMoleculePool;
 import edu.duke.cs.osprey.tools.Progress;
 
 public class SimpleEnergyMatrixCalculator {
@@ -48,12 +47,17 @@ public class SimpleEnergyMatrixCalculator {
 			
 			ParameterizedMoleculeCopy pmol = getPMC();
 			EnergyFunction efunc = ecalc.getSingleEfunc(pos1, pmol);
-			RCTuple tup = new RCTuple();
 			
-			tup.set(pos1, rc1);
-			result = ecalc.calc(efunc, tup, pmol);
-			
-			cleanup(pmol, efunc);
+			try {
+				
+				RCTuple tup = new RCTuple();
+				tup.set(pos1, rc1);
+				
+				result = ecalc.calc(efunc, tup, pmol);
+				
+			} finally {
+				cleanup(pmol, efunc);
+			}
 		}
 	}
 	
@@ -70,15 +74,20 @@ public class SimpleEnergyMatrixCalculator {
 			
 			ParameterizedMoleculeCopy pmol = getPMC();
 			EnergyFunction efunc = ecalc.getPairEfunc(pos1, pos2, pmol);
-			RCTuple tup = new RCTuple();
 			
-			results = new Result[numRcs2];
-			for (int rc2=0; rc2<numRcs2; rc2++) {
-				tup.set(pos1, rc1, pos2, rc2);
-				results[rc2] = ecalc.calc(efunc, tup, pmol);
+			try {
+				
+				RCTuple tup = new RCTuple();
+				results = new Result[numRcs2];
+				
+				for (int rc2=0; rc2<numRcs2; rc2++) {
+					tup.set(pos1, rc1, pos2, rc2);
+					results[rc2] = ecalc.calc(efunc, tup, pmol);
+				}
+				
+			} finally {
+				cleanup(pmol, efunc);
 			}
-			
-			cleanup(pmol, efunc);
 		}
 	}
 	

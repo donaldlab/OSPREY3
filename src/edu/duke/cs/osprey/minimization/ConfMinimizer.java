@@ -122,11 +122,16 @@ public class ConfMinimizer {
 		}
 		
 		public EnergiedConf minimizeSync(ScoredConf conf) {
-			EfuncAndPMC em = pool.checkout();
+			EfuncAndPMC em;
+			synchronized (pool) {
+				em = pool.checkout();
+			}
 			try {
 				return minimizer.minimize(em.pmol, conf, em.efunc, confSpace);
 			} finally {
-				pool.release(em);
+				synchronized (pool) {
+					pool.release(em);
+				}
 			}
 		}
 		
@@ -159,13 +164,25 @@ public class ConfMinimizer {
 		
 		public void cleanup() {
 			
-			// cleanup the energy functions if needed
-			for (EfuncAndPMC em : pool) {
-				if (em.efunc instanceof EnergyFunction.NeedsCleanup) {
-					((EnergyFunction.NeedsCleanup)em.efunc).cleanup();
+			// make sure all the tasks are finished before cleaning up
+			// tasks that aren't finished yet won't cleanup properly and leak memory!
+			tasks.waitForFinish();
+			
+			synchronized (pool) {
+				
+				// make sure everything has been returned to the pool
+				if (pool.available() < pool.available()) {
+					throw new Error(String.format("molecule pool in inconsistent state (only %d/%d molecules available), can't cleanup. this is a bug", pool.available(), pool.size()));
 				}
+				
+				// cleanup the energy functions if needed
+				for (EfuncAndPMC em : pool) {
+					if (em.efunc instanceof EnergyFunction.NeedsCleanup) {
+						((EnergyFunction.NeedsCleanup)em.efunc).cleanup();
+					}
+				}
+				pool.clear();
 			}
-			pool.clear();
 		}
 	}
 }
