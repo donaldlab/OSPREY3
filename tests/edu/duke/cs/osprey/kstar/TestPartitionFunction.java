@@ -11,7 +11,6 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import edu.duke.cs.osprey.TestBase;
-import edu.duke.cs.osprey.confspace.PositionConfSpace;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -26,35 +25,35 @@ import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class TestPartitionFunction extends TestBase {
 	
+	private static final int NumThreads = 2;
+	private static final int NumGpus = 0;
+	
 	@BeforeClass
 	public static void before() {
 		initDefaultEnvironment();
 		
 		// configure parallelism
-		ThreadParallelism.setNumThreads(1);
+		ThreadParallelism.setNumThreads(NumThreads);
 		MultiTermEnergyFunction.setNumThreads(1);
 	}
 	
-	public static KSSearchProblem makeSearch(int strand, String firstResNumber, String lastResNumber, String flexibleResNumbers) {
+	public static KSSearchProblem makeSearch(int strand, String firstResNumber, String lastResNumber, String flexibility) {
 		
+		// configure residue flexibility
 		ResidueFlexibility resFlex = new ResidueFlexibility();
-		resFlex.addFlexible(flexibleResNumbers);
-		
-		return makeSearch(strand, firstResNumber, lastResNumber, resFlex);
-	}
-	
-	public static KSSearchProblem makeSearchSequence(int strand, String firstResNumber, String lastResNumber, String sequence) {
-		
-		ResidueFlexibility resFlex = new ResidueFlexibility();
-		for (String pos : sequence.split(" ")) {
+		for (String pos : flexibility.split(" ")) {
 			String[] parts = pos.split("-");
-			resFlex.addMutable(parts[1], parts[0]);
+			if (parts.length == 1) {
+				
+				// just a flexible position
+				resFlex.addFlexible(parts[0]);
+				
+			} else {
+				
+				// mutable position
+				resFlex.addMutable(parts[1], parts[0]);
+			}
 		}
-		
-		return makeSearch(strand, firstResNumber, lastResNumber, resFlex);
-	}
-	
-	public static KSSearchProblem makeSearch(int strand, String firstResNumber, String lastResNumber, ResidueFlexibility resFlex) {
 		
 		// create the K* search problem
 		boolean doMinimize = true;
@@ -89,35 +88,41 @@ public class TestPartitionFunction extends TestBase {
 		return search;
 	}
 	
-	public static PFAbstract makePfunc(KSSearchProblem search, String pfImpl, int strand) {
-		return makePfunc(search, pfImpl, strand, null);
-	}
-	
-	public static PFAbstract makePfunc(KSSearchProblem search, String pfImpl, int strand, String sequence) {
+	public static PFAbstract makePfunc(KSSearchProblem search, String pfImpl, int strand, String flexibility) {
 		
 		// as far as I can tell, partition functions only use the CFP to get the steric threshold
 		// and to configure HOT things
 		// so create a CFP here with just defaults only for the pfunc
 		KSConfigFileParser cfp = new KSConfigFileParser();
 		
-		return makePfunc(search, pfImpl, strand, sequence, cfp);
+		// except set the number of threads/gpus for the new minimizers
+		cfp.getParams().setValue("MinimizationThreads", Integer.toString(NumThreads));
+		cfp.getParams().setValue("MinimizationGpus", Integer.toString(NumGpus));
+		
+		return makePfunc(search, pfImpl, strand, flexibility, cfp);
 	}
 	
-	public static PFAbstract makePfunc(KSSearchProblem search, String pfImpl, int strand, String sequence, KSConfigFileParser cfp) {
+	public static PFAbstract makePfunc(KSSearchProblem search, String pfImpl, int strand, String flexibility, KSConfigFileParser cfp) {
 		
 		// build the sequence info
 		ArrayList<String> sequenceList = new ArrayList<>();
 		ArrayList<Integer> positions = new ArrayList<>();
-		
-		if (sequence != null) {
-			sequenceList.addAll(Arrays.asList(sequence.split(" ")));
-		} else {
-			for (int i=0; i<search.confSpace.posFlex.size(); i++) {
-				PositionConfSpace posConfSpace = search.confSpace.posFlex.get(i);
-				sequenceList.add(posConfSpace.RCs.get(0).AAType + "-" + posConfSpace.res.getPDBResNumber());
+		for (String pos : flexibility.split(" ")) {
+			if (pos.indexOf('-') > 0) {
+				
+				// mutable position
+				sequenceList.add(pos);
+				
+			} else {
+				
+				// flexible position, get wt amino acid
+				int i = sequenceList.size();
+				String aa = search.confSpace.posFlex.get(i).RCs.get(0).AAType;
+				sequenceList.add(aa + "-" + pos);
 			}
 		}
 		
+		assert (flexibility.split(" ").length == search.confSpace.posFlex.size());
 		for (int i=0; i<search.confSpace.posFlex.size(); i++) {
 			positions.add(i);
 		}
@@ -145,80 +150,82 @@ public class TestPartitionFunction extends TestBase {
 	
 	@SuppressWarnings("unused")
 	private void printPfunc(PFAbstract pfunc) {
-		System.out.println(String.format("Q*: %.10e, epsilon: %.8f",
+		System.out.println(String.format("sequence: %s, q*: %.10e, epsilon: %.6f",
+			KSAbstract.list1D2String(pfunc.getSequence(), " "),
 			pfunc.getQStar().doubleValue(),
 			pfunc.getEffectiveEpsilon()
 		));
 	}
 	
-	private PFAbstract makeAndComputePfunc(int strand, String firstResidueNumber, String lastResidueNumber, String sequenceOrFlexibleResidues, String pfImpl, double targetEpsilon) {
-		
-		// do we have a sequence? or a list of flexible residues?
-		PFAbstract pfunc;
-		if (sequenceOrFlexibleResidues.indexOf('-') > 0) {
-			
-			// yup, it's a sequence
-			KSSearchProblem search = makeSearchSequence(strand, firstResidueNumber, lastResidueNumber, sequenceOrFlexibleResidues);
-			pfunc = makePfunc(search, pfImpl, strand, sequenceOrFlexibleResidues);
-			
-		} else {
-			
-			// it's just flexible residues
-			KSSearchProblem search = makeSearch(strand, firstResidueNumber, lastResidueNumber, sequenceOrFlexibleResidues);
-			pfunc = makePfunc(search, pfImpl, strand);
-		}
-		
-		// compute it
+	public static void computePfunc(PFAbstract pfunc, double targetEpsilon) {
 		PFAbstract.targetEpsilon = targetEpsilon;
 		pfunc.start();
 		pfunc.runToCompletion();
-		
+	}
+	
+	private PFAbstract makeAndComputePfunc(String pfImpl, int strand, String firstRes, String lastRes, String flexibility, double targetEpsilon) {
+		KSSearchProblem search = makeSearch(strand, firstRes, lastRes, flexibility);
+		PFAbstract pfunc = makePfunc(search, pfImpl, strand, flexibility);
+		computePfunc(pfunc, targetEpsilon);
 		return pfunc;
 	}
 	
-	private void testProteinWildType(String pfImpl) {
+	private PFAbstract makeAndComputeProteinPfunc(String pfImpl, String flexibility, double targetEpsilon) {
+		return makeAndComputePfunc(pfImpl, KSTermini.PROTEIN, "648", "654", flexibility, targetEpsilon);
+	}
+	
+	private PFAbstract makeAndComputeLigandPfunc(String pfImpl, String flexibility, double targetEpsilon) {
+		return makeAndComputePfunc(pfImpl, KSTermini.LIGAND, "155", "194", flexibility, targetEpsilon);
+	}
+	
+	private PFAbstract makeAndComputeComplexPfunc(String pfImpl, String flexibility, double targetEpsilon) {
+		return makeAndComputePfunc(pfImpl, KSTermini.COMPLEX, null, null, flexibility, targetEpsilon);
+	}
+	
+	private void testProteinWildType(String pfImpl, double targetEpsilon) {
 		
-		PFAbstract pfunc = makeAndComputePfunc(KSTermini.PROTEIN, "648", "654", "649 650 651 654", pfImpl, 0.05);
+		PFAbstract pfunc = makeAndComputeProteinPfunc(pfImpl, "649 650 651 654", targetEpsilon);
 	
 		// is this the right partition function?
 		assertThat(pfunc.getNumUnPruned().intValueExact(), is(5130));
 		assertThat(pfunc.getNumPruned().intValueExact(), is(0));
 
 		// check the answer
-		assertPfunc(pfunc, EApproxReached.TRUE, 0.05, "4.3704590631e+04");
+		assertPfunc(pfunc, EApproxReached.TRUE, targetEpsilon, "4.3704590631e+04" /* e=0.05 */);
 	}
 	
-	private void testLigandWildType(String pfImpl) {
+	private void testLigandWildType(String pfImpl, double targetEpsilon) {
 		
-		PFAbstract pfunc = makeAndComputePfunc(KSTermini.LIGAND, "155", "194", "156 172 192 193", pfImpl, 0.05);
-
+		PFAbstract pfunc = makeAndComputeLigandPfunc(pfImpl, "156 172 192 193", targetEpsilon);
+		
 		// is this the right partition function?
 		assertThat(pfunc.getNumUnPruned().intValueExact(), is(21280));
 		assertThat(pfunc.getNumPruned().intValueExact(), is(0));
 		
 		// check the answer
-		assertPfunc(pfunc, EApproxReached.TRUE, 0.05, "4.4699772362e+30");
+		assertPfunc(pfunc, EApproxReached.TRUE, targetEpsilon, "4.4699772362e+30" /* e=0.05 */);
 	}
 	
-	private void testComplexWildType(String pfImpl) {
+	private void testComplexWildType(String pfImpl, double targetEpsilon) {
 		
-		PFAbstract pfunc = makeAndComputePfunc(KSTermini.COMPLEX, null, null, "649 650 651 654 156 172 192 193", pfImpl, 0.9);
-
+		PFAbstract pfunc = makeAndComputeComplexPfunc(pfImpl, "649 650 651 654 156 172 192 193", targetEpsilon);
+		
 		// is this the right partition function?
 		assertThat(pfunc.getNumUnPruned().intValueExact(), is(109166400));
 		assertThat(pfunc.getNumPruned().intValueExact(), is(0));
 		
 		// check the answer
-		assertPfunc(pfunc, EApproxReached.TRUE, 0.9, "3.5178662402e+54");
+		assertPfunc(pfunc, EApproxReached.TRUE, targetEpsilon, "3.5213742379e+54" /* e=0.05 */);
 	}
 	
-	private void assertPfunc(PFAbstract pfunc, EApproxReached epsilonStatus, double targetEpsilon, String qstar) {
+	public static void assertPfunc(PFAbstract pfunc, EApproxReached epsilonStatus, double targetEpsilon, String approxQstar) {
 		assertThat(pfunc.getEpsilonStatus(), is(epsilonStatus));
 		assertThat(pfunc.getEffectiveEpsilon(), lessThanOrEqualTo(targetEpsilon));
-		assertThat(pfunc.getQStar(), isRelatively(new BigDecimal(qstar), PFAbstract.targetEpsilon));
+		double qbound = new BigDecimal(approxQstar).doubleValue()*(1.0 - targetEpsilon);
+		assertThat(pfunc.getQStar().doubleValue(), greaterThanOrEqualTo(qbound));
 	}
 	
-	private void assertPfunc(PFAbstract pfunc, EApproxReached epsilonStatus) {
+	public static void assertPfunc(PFAbstract pfunc, EApproxReached epsilonStatus) {
 		assertThat(pfunc.getEpsilonStatus(), is(epsilonStatus));
 	}
 	
@@ -227,86 +234,92 @@ public class TestPartitionFunction extends TestBase {
 	
 	@Test
 	public void testProteinWildTypeTraditional() {
-		testProteinWildType("traditional");
+		testProteinWildType("traditional", 0.05);
 	}
 	
 	@Test
 	public void testProteinWildTypeParallel0() {
-		testProteinWildType("parallel0");
+		testProteinWildType("parallel0", 0.05);
 	}
 	
 	@Test
 	public void testLigandWildTypeTraditional() {
-		
-		// use a higher epsilon, since traditional is slow
-		PFAbstract pfunc = makeAndComputePfunc(KSTermini.LIGAND, "155", "194", "156 172 192 193", "traditional", 0.9);
-		assertPfunc(pfunc, EApproxReached.TRUE, 0.9, "4.4699772362e+30");
+		testLigandWildType("traditional", 0.9); // traditional is slow for this one, use a higher epsilon
 	}
 	
 	@Test
 	public void testLigandWildTypeParallel0() {
-		testLigandWildType("parallel0");
+		testLigandWildType("parallel0", 0.05);
 	}
 	
-	// traditional can't get anywhere with this pfunc in a reasonable amount of time
+	// traditional can't get anywhere with the complex pfunc in a reasonable amount of time
 	//@Test
 	//public void testComplexWildTypeTraditional() {
-	//	
-	//	// use a higher epsilon, since traditional is slow
-	//	PFAbstract pfunc = makeAndComputePfunc(KSTermini.COMPLEX, null, null, "649 650 651 654 156 172 192 193", "traditional", 0.99);
-	//	assertPfunc(pfunc, EApproxReached.TRUE, 0.99, "???");
+	//	testComplexWildType("traditional", 0.99);
 	//}
 	
 	@Test
 	public void testComplexWildTypeParallel0() {
-		testComplexWildType("parallel0");
+		testComplexWildType("parallel0", 0.9);
 	}
 	
 	@Test
 	public void testProteinWildTypeSimple() {
-		testProteinWildType("simple");
+		testProteinWildType("simple", 0.05);
 	}
 	
 	@Test
 	public void testLigandWildTypeSimple() {
-		testLigandWildType("simple");
+		testLigandWildType("simple", 0.05);
 	}
 	
 	@Test
 	public void testComplexWildTypeSimple() {
-		testComplexWildType("simple");
+		testComplexWildType("simple", 0.9);
 	}
 	
 	
-	// other sequence tests
+	// mutant tests
 	
 	@Test
 	public void testLigandNotPossibleTraditional() {
-		PFAbstract pfunc = makeAndComputePfunc(KSTermini.LIGAND, "155", "194", "PHE-156 LYS-172 LEU-192 THR-193", "traditional", 0.95);
+		PFAbstract pfunc = makeAndComputeLigandPfunc("traditional", "PHE-156 LYS-172 LEU-192 THR-193", 0.95);
 		assertPfunc(pfunc, EApproxReached.NOT_POSSIBLE);
 	}
 	
 	@Test
 	public void testLigandNotPossibleParallel() {
-		PFAbstract pfunc = makeAndComputePfunc(KSTermini.LIGAND, "155", "194", "PHE-156 LYS-172 LEU-192 THR-193", "parallel0", 0.95);
+		PFAbstract pfunc = makeAndComputeLigandPfunc("parallel0", "PHE-156 LYS-172 LEU-192 THR-193", 0.95);
 		assertPfunc(pfunc, EApproxReached.NOT_POSSIBLE);
 	}
 	
 	@Test
 	public void testLigandNotPossibleSimple() {
-		PFAbstract pfunc = makeAndComputePfunc(KSTermini.LIGAND, "155", "194", "PHE-156 LYS-172 LEU-192 THR-193", "simple", 0.95);
+		PFAbstract pfunc = makeAndComputeLigandPfunc("simple", "PHE-156 LYS-172 LEU-192 THR-193", 0.95);
 		assertPfunc(pfunc, EApproxReached.NOT_POSSIBLE);
 	}
 	
 	@Test
-	public void testComplexMutantParallel0() {
-		PFAbstract pfunc = makeAndComputePfunc(KSTermini.COMPLEX, null, null, "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 ILE-192 THR-193", "parallel0", 0.9);
-		assertPfunc(pfunc, EApproxReached.TRUE, 0.9, "3.519112e+54");
+	public void testComplexMutant1Parallel0() {
+		PFAbstract pfunc = makeAndComputeComplexPfunc("parallel0", "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 ILE-192 THR-193", 0.95);
+		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.5213742379e+54" /* e=0.05 */);
 	}
 	
 	@Test
-	public void testComplexMutantSimple() {
-		PFAbstract pfunc = makeAndComputePfunc(KSTermini.COMPLEX, null, null, "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 ILE-192 THR-193", "simple", 0.9);
-		assertPfunc(pfunc, EApproxReached.TRUE, 0.9, "3.519112e+54");
+	public void testComplexMutant1Simple() {
+		PFAbstract pfunc = makeAndComputeComplexPfunc("simple", "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 ILE-192 THR-193", 0.95);
+		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.5213742379e+54" /* e=0.05 */);
+	}
+	
+	@Test
+	public void testComplexMutant2Parallel0() {
+		PFAbstract pfunc = makeAndComputeComplexPfunc("parallel0", "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 LEU-192 THR-193", 0.95);
+		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.2878232508e+12" /* e=0.05 */);
+	}
+	
+	@Test
+	public void testComplexMutant2Simple() {
+		PFAbstract pfunc = makeAndComputeComplexPfunc("simple", "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 LEU-192 THR-193", 0.95);
+		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.2878232508e+12" /* e=0.05 */);
 	}
 }

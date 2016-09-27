@@ -70,11 +70,15 @@ public class TestSimplePartitionFunction extends TestBase {
 		final double targetEpsilon = 0.05;
 		pfunc.init(targetEpsilon);
 		pfunc.compute();
+		
+		assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, "4.3704590631e+04" /* e=0.05 */);
+	}
 	
-		// check the answer
-		assertThat(pfunc.getStatus(), is(PartitionFunction.Status.Estimated));
+	public static void assertPfunc(PartitionFunction pfunc, PartitionFunction.Status status, double targetEpsilon, String approxQstar) {
+		assertThat(pfunc.getStatus(), is(status));
 		assertThat(pfunc.getValues().getEffectiveEpsilon(), lessThanOrEqualTo(targetEpsilon));
-		assertThat(pfunc.getValues().qstar, isRelatively(new BigDecimal("4.3704590631e+04"), targetEpsilon));
+		double qbound = new BigDecimal(approxQstar).doubleValue()*(1.0 - targetEpsilon);
+		assertThat(pfunc.getValues().qstar.doubleValue(), greaterThanOrEqualTo(qbound));
 	}
 	
 	@Test
@@ -102,10 +106,7 @@ public class TestSimplePartitionFunction extends TestBase {
 		pfunc.init(targetEpsilon);
 		pfunc.compute();
 	
-		// check the answer
-		assertThat(pfunc.getStatus(), is(PartitionFunction.Status.Estimated));
-		assertThat(pfunc.getValues().getEffectiveEpsilon(), lessThanOrEqualTo(targetEpsilon));
-		assertThat(pfunc.getValues().qstar, isRelatively(new BigDecimal("4.4699772362e+30"), targetEpsilon));
+		assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, "4.4699772362e+30" /* e=0.05 */);
 	}
 	
 	@Test
@@ -133,10 +134,7 @@ public class TestSimplePartitionFunction extends TestBase {
 		pfunc.init(targetEpsilon);
 		pfunc.compute();
 	
-		// check the answer
-		assertThat(pfunc.getStatus(), is(PartitionFunction.Status.Estimated));
-		assertThat(pfunc.getValues().getEffectiveEpsilon(), lessThanOrEqualTo(targetEpsilon));
-		assertThat(pfunc.getValues().qstar, isRelatively(new BigDecimal("3.5178662402e+54"), targetEpsilon));
+		assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, "3.5213742379e+54" /* e=0.05 */);
 	}
 	
 	@Test
