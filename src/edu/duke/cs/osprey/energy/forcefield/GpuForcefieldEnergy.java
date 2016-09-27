@@ -83,6 +83,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		public void cleanup() {
 			if (kernel != null) {
 				kernel.cleanup();
+				kernel = null;
 			}
 		}
 	}
