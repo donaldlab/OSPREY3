@@ -5,8 +5,6 @@ import java.lang.management.MemoryUsage;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
-import java.util.ArrayDeque;
-import java.util.Deque;
 
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
@@ -28,12 +26,13 @@ public class SimplePartitionFunction implements PartitionFunction {
 	private double targetEpsilon;
 	private Status status;
 	private Values values;
-	private ConfSearch tree;
 	private BoltzmannCalculator boltzmann;
-	private Deque<ScoredConf> confs;
+	private ConfSearch.Splitter.Stream scoreConfs;
+	private ConfSearch.Splitter.Stream energyConfs;
 	private int numConfsEvaluated;
-	private BigInteger numConfsRemaining;
-	private BigDecimal sumScoreWeights;
+	private BigInteger numConfsToScore;
+	private BigDecimal qprimeUnevaluated;
+	private BigDecimal qprimeUnscored;
 	private Stopwatch stopwatch;
 	private boolean isReportingProgress;
 	
@@ -46,12 +45,14 @@ public class SimplePartitionFunction implements PartitionFunction {
 		targetEpsilon = Double.NaN;
 		status = null;
 		values = null;
-		tree = null;
 		boltzmann = new BoltzmannCalculator();
-		confs = null;
+		scoreConfs = null;
+		energyConfs = null;
 		numConfsEvaluated = 0;
-		numConfsRemaining = null;
-		sumScoreWeights = null;
+		numConfsToScore = null;
+		qprimeUnevaluated = null;
+		qprimeUnscored = null;
+		
 		stopwatch = null;
 		isReportingProgress = true;
 	}
@@ -88,11 +89,14 @@ public class SimplePartitionFunction implements PartitionFunction {
 		values.pstar = calcWeightSumUpperBound(confSearchFactory.make(emat, new InvertedPruningMatrix(pmat)));
 		
 		// make the search tree for computing q*
-		tree = confSearchFactory.make(emat, pmat);
-		confs = new ArrayDeque<>();
+		ConfSearch tree = confSearchFactory.make(emat, pmat);
+		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(tree);
+		scoreConfs = confsSplitter.makeStream();
+		energyConfs = confsSplitter.makeStream();
 		numConfsEvaluated = 0;
-		numConfsRemaining = tree.getNumConformations();
-		sumScoreWeights = BigDecimal.ZERO;
+		numConfsToScore = tree.getNumConformations();
+		qprimeUnevaluated = BigDecimal.ZERO;
+		qprimeUnscored = BigDecimal.ZERO;
 		stopwatch = new Stopwatch().start();
 	}
 
@@ -149,91 +153,44 @@ public class SimplePartitionFunction implements PartitionFunction {
 			throw new IllegalStateException("can't continue from status " + status);
 		}
 		
-		BigDecimal boundOnRemainingScoreWeights = BigDecimal.ZERO;
-		
 		int stopAtConf = numConfsEvaluated + maxNumConfs;
 		while (true) {
 			
-			// the conf energy calculator listener thread can race with the main thread, so sync when using member vars
-			// updating the q' estimate is relatively cheap though (compared to minimization), so just synchronize the whole thing
+			// wait for space to open up Before getting a new conf to minimize
+			ecalc.waitForSpace();
+			
+			// get a conf from the tree
+			// lock though to keep from racing the listener thread on the conf tree
+			ScoredConf conf;
 			synchronized (this) {
 				
 				// should we keep going?
 				if (!status.canContinue() || numConfsEvaluated >= stopAtConf) {
 					break;
 				}
-		
-				// precompute bounds on q' first by looking ahead in the conf tree
-				while (true) {
-					
-					// read a conf from the tree
-					ScoredConf conf = tree.nextConf();
-					if (conf == null) {
-						break;
-					}
-					
-					numConfsRemaining = numConfsRemaining.subtract(BigInteger.ONE);
-					
-					BigDecimal scoreWeight = boltzmann.calc(conf.getScore());
-					if (scoreWeight.compareTo(BigDecimal.ZERO) == 0) {
-						break;
-					}
-					
-					sumScoreWeights = sumScoreWeights.add(scoreWeight);
-					boundOnRemainingScoreWeights = scoreWeight.multiply(new BigDecimal(numConfsRemaining));
-					
-					// save the confs for later so we can update q*
-					confs.add(conf);
-					
-					// stop if the bound is tight enough
-					BigDecimal boundOnAll = sumScoreWeights.add(boundOnRemainingScoreWeights);
-					double effectiveEpsilon = boundOnRemainingScoreWeights.divide(boundOnAll, RoundingMode.HALF_UP).doubleValue();
-					if (effectiveEpsilon <= 0.01) {
-						break;
-					}
+				
+				conf = energyConfs.next();
+				if (conf == null) {
+					status = Status.NotEnoughConformations;
+					return;
 				}
 			}
-			
-			// wait for space in the tasks queue Before trying to make a new task
-			ecalc.waitForSpace();
-			
-			// check again to see if we should keep going
-			// the listener thread might have changed the status while we were doing other stuff
-			synchronized (this) {
-				if (!status.canContinue() || numConfsEvaluated >= stopAtConf) {
-					break;
-				}
-			}
-			
-			// then update q*
-			
-			// get a conf from the queue
-			if (confs.isEmpty()) {
-				status = Status.NotEnoughConformations;
-				return;
-			}
-			ScoredConf conf = confs.removeFirst();
-			
-			// capture some state for the listener
-			final BigDecimal fBoundOnRemainingScoreWeights = boundOnRemainingScoreWeights;
 			
 			// do the energy calculation asynchronously
 			ecalc.calcEnergyAsync(conf, new ConfEnergyCalculator.Async.Listener() {
 				@Override
 				public void onEnergy(EnergiedConf econf) {
 					
-					// energy calculation done, update pfunc state
+					// energy calculation done
 					
-					// this is called on a listener thread, so no need to sync between tasks
-					// still need to sync to avoid races with the main thread though
+					// this is (potentially) running on a task executor listener thread
+					// so lock to keep from racing the main thread
 					synchronized (SimplePartitionFunction.this) {
-						
+					
 						// do we even care about this result anymore?
 						if (!status.canContinue()) {
 							return;
 						}
-						
-						numConfsEvaluated++;
 						
 						// get the boltzmann weight
 						BigDecimal energyWeight = boltzmann.calc(econf.getEnergy());
@@ -242,12 +199,10 @@ public class SimplePartitionFunction implements PartitionFunction {
 							return;
 						}
 						
-						// update q*
+						// update pfunc state
+						numConfsEvaluated++;
 						values.qstar = values.qstar.add(energyWeight);
-						
-						// update q'
-						sumScoreWeights = sumScoreWeights.subtract(boltzmann.calc(econf.getScore()));
-						values.qprime = sumScoreWeights.add(fBoundOnRemainingScoreWeights);
+						values.qprime = updateQprime(econf);
 						
 						// report progress if needed
 						if (isReportingProgress) {
@@ -267,5 +222,39 @@ public class SimplePartitionFunction implements PartitionFunction {
 				}
 			});
 		}
+	}
+
+	protected BigDecimal updateQprime(EnergiedConf econf) {
+		
+		// look through the conf tree to get conf scores
+		// (which should be lower bounds on the conf energy)
+		while (true) {
+			
+			// read a conf from the tree
+			ScoredConf conf = scoreConfs.next();
+			if (conf == null) {
+				break;
+			}
+			
+			// get the boltzmann weight
+			BigDecimal scoreWeight = boltzmann.calc(conf.getScore());
+			if (scoreWeight.compareTo(BigDecimal.ZERO) == 0) {
+				break;
+			}
+			
+			// update q' parts
+			numConfsToScore = numConfsToScore.subtract(BigInteger.ONE);
+			qprimeUnevaluated = qprimeUnevaluated.add(scoreWeight);
+			qprimeUnscored = scoreWeight.multiply(new BigDecimal(numConfsToScore));
+			
+			// stop if the bound on q' is tight enough
+			double effectiveEpsilon = qprimeUnscored.divide(qprimeUnevaluated.add(qprimeUnscored), RoundingMode.HALF_UP).doubleValue();
+			if (effectiveEpsilon <= 0.01) {
+				break;
+			}
+		}
+		
+		qprimeUnevaluated = qprimeUnevaluated.subtract(boltzmann.calc(econf.getScore()));
+		return qprimeUnevaluated.add(qprimeUnscored);
 	}
 }
