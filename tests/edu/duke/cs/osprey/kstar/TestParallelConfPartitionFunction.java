@@ -24,21 +24,21 @@ import edu.duke.cs.osprey.control.ConfSearchFactory;
 import edu.duke.cs.osprey.control.MinimizingEnergyCalculator;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
+import edu.duke.cs.osprey.kstar.pfunc.ParallelConfPartitionFunction;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
-public class TestSimplePartitionFunction extends TestBase {
+public class TestParallelConfPartitionFunction extends TestBase {
 	
 	@BeforeClass
 	public static void before() {
 		initDefaultEnvironment();
 	}
 	
-	public static SimplePartitionFunction makePfunc(SearchProblem search) {
+	public static ParallelConfPartitionFunction makePfunc(SearchProblem search) {
 		return makePfunc(search, 0, 0);
 	}
 	
-	public static SimplePartitionFunction makePfunc(SearchProblem search, int numGpus, int numThreads) {
+	public static ParallelConfPartitionFunction makePfunc(SearchProblem search, int numGpus, int numThreads) {
 		
 		// make the A* tree factory
 		ConfSearchFactory confSearchFactory = new ConfSearchFactory() {
@@ -58,13 +58,13 @@ public class TestSimplePartitionFunction extends TestBase {
 		ConfEnergyCalculator.Async ecalc = MinimizingEnergyCalculator.make(search, numGpus, numThreads, 0);
 		
 		// make the pfunc
-		return new SimplePartitionFunction(search.emat, search.pruneMat, confSearchFactory, ecalc);
+		return new ParallelConfPartitionFunction(search.emat, search.pruneMat, confSearchFactory, ecalc);
 	}
 	
 	private void testProtein(int numGpus, int numThreads) {
 		
 		KSSearchProblem search = TestPartitionFunction.makeSearch(KSTermini.PROTEIN, "648", "654", "649 650 651 654"); 
-		SimplePartitionFunction pfunc = makePfunc(search, numGpus, numThreads);
+		ParallelConfPartitionFunction pfunc = makePfunc(search, numGpus, numThreads);
 
 		// compute it
 		final double targetEpsilon = 0.05;
@@ -99,7 +99,7 @@ public class TestSimplePartitionFunction extends TestBase {
 	public void testLigand(int numGpus, int numThreads) {
 		
 		KSSearchProblem search = TestPartitionFunction.makeSearch(KSTermini.LIGAND, "155", "194", "156 172 192 193");
-		SimplePartitionFunction pfunc = makePfunc(search, numGpus, numThreads);
+		ParallelConfPartitionFunction pfunc = makePfunc(search, numGpus, numThreads);
 
 		// compute it
 		final double targetEpsilon = 0.05;
@@ -127,7 +127,7 @@ public class TestSimplePartitionFunction extends TestBase {
 	public void testComplex(int numGpus, int numThreads) {
 		
 		KSSearchProblem search = TestPartitionFunction.makeSearch(KSTermini.COMPLEX, null, null, "649 650 651 654 156 172 192 193");
-		SimplePartitionFunction pfunc = makePfunc(search, numGpus, numThreads);
+		ParallelConfPartitionFunction pfunc = makePfunc(search, numGpus, numThreads);
 
 		// compute it
 		final double targetEpsilon = 0.8;

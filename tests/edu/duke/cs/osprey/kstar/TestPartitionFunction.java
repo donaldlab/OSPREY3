@@ -264,18 +264,18 @@ public class TestPartitionFunction extends TestBase {
 	}
 	
 	@Test
-	public void testProteinWildTypeSimple() {
-		testProteinWildType("simple", 0.05);
+	public void testProteinWildTypeParallelConf() {
+		testProteinWildType("parallelConf", 0.05);
 	}
 	
 	@Test
-	public void testLigandWildTypeSimple() {
-		testLigandWildType("simple", 0.05);
+	public void testLigandWildTypeParallelConf() {
+		testLigandWildType("parallelConf", 0.05);
 	}
 	
 	@Test
-	public void testComplexWildTypeSimple() {
-		testComplexWildType("simple", 0.9);
+	public void testComplexWildTypeParallelConf() {
+		testComplexWildType("parallelConf", 0.9);
 	}
 	
 	
@@ -294,8 +294,8 @@ public class TestPartitionFunction extends TestBase {
 	}
 	
 	@Test
-	public void testLigandNotPossibleSimple() {
-		PFAbstract pfunc = makeAndComputeLigandPfunc("simple", "PHE-156 LYS-172 LEU-192 THR-193", 0.95);
+	public void testLigandNotPossibleParallelConf() {
+		PFAbstract pfunc = makeAndComputeLigandPfunc("parallelConf", "PHE-156 LYS-172 LEU-192 THR-193", 0.95);
 		assertPfunc(pfunc, EApproxReached.NOT_POSSIBLE);
 	}
 	
@@ -306,8 +306,8 @@ public class TestPartitionFunction extends TestBase {
 	}
 	
 	@Test
-	public void testComplexMutant1Simple() {
-		PFAbstract pfunc = makeAndComputeComplexPfunc("simple", "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 ILE-192 THR-193", 0.95);
+	public void testComplexMutant1ParallelConf() {
+		PFAbstract pfunc = makeAndComputeComplexPfunc("parallelConf", "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 ILE-192 THR-193", 0.95);
 		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.5213742379e+54" /* e=0.05 */);
 	}
 	
@@ -318,8 +318,8 @@ public class TestPartitionFunction extends TestBase {
 	}
 	
 	@Test
-	public void testComplexMutant2Simple() {
-		PFAbstract pfunc = makeAndComputeComplexPfunc("simple", "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 LEU-192 THR-193", 0.95);
+	public void testComplexMutant2ParallelConf() {
+		PFAbstract pfunc = makeAndComputeComplexPfunc("parallelConf", "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 LEU-192 THR-193", 0.95);
 		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.2878232508e+12" /* e=0.05 */);
 	}
 }

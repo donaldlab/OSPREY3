@@ -186,24 +186,24 @@ public class TestKStar {
 	}
 	
 	@Test
-	public void test2RL0LinearSimple() {
+	public void test2RL0LinearParallelConf() {
 		KSConfigFileParser cfp = make2RL0Config();
-		cfp.getParams().setValue("kStarPFuncMethod", "simple");
+		cfp.getParams().setValue("kStarPFuncMethod", "parallelConf");
 		testLinear(cfp);
 	}
 	
 	@Test
-	public void test2RL0LinearSimple2Threads() {
+	public void test2RL0LinearParallelConf2Threads() {
 		KSConfigFileParser cfp = make2RL0Config();
-		cfp.getParams().setValue("kStarPFuncMethod", "simple");
+		cfp.getParams().setValue("kStarPFuncMethod", "parallelConf");
 		cfp.getParams().setValue("MinimizationThreads", "2");
 		testLinear(cfp);
 	}
 	
 	@Test
-	public void test2RL0LinearSimple1Gpu() {
+	public void test2RL0LinearParallelConf1Gpu() {
 		KSConfigFileParser cfp = make2RL0Config();
-		cfp.getParams().setValue("kStarPFuncMethod", "simple");
+		cfp.getParams().setValue("kStarPFuncMethod", "parallelConf");
 		cfp.getParams().setValue("MinimizationGpus", "1");
 		testLinear(cfp);
 	}

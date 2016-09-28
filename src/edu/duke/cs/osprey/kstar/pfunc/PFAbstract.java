@@ -947,7 +947,7 @@ public abstract class PFAbstract implements Serializable {
 		case "parallel0":
 		case "parallel1":
 		case "parallel2":
-		case "simple":
+		case "parallelconf":
 			pFuncCFGImpl = implementation;
 			break;
 

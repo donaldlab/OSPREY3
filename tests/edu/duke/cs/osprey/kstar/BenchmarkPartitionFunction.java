@@ -10,7 +10,7 @@ import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
+import edu.duke.cs.osprey.kstar.pfunc.ParallelConfPartitionFunction;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
@@ -56,7 +56,7 @@ public class BenchmarkPartitionFunction extends TestBase {
 		System.out.println(String.format("finished in %s", stopwatchParallel.stop().getTime(2)));
 		
 		// test simple implementation
-		SimplePartitionFunction spfunc = TestSimplePartitionFunction.makePfunc(search, 0, NumThreads);
+		ParallelConfPartitionFunction spfunc = TestParallelConfPartitionFunction.makePfunc(search, 0, NumThreads);
 		spfunc.init(targetEpsilon);
 		spfunc.setReportProgress(reportProgress);
 		
@@ -66,7 +66,7 @@ public class BenchmarkPartitionFunction extends TestBase {
 		System.out.println(String.format("finished in %s, speedup=%.2f", stopwatchSimple.stop().getTime(2), (double)stopwatchParallel.getTimeNs()/stopwatchSimple.getTimeNs()));
 		
 		// test simple implementation on gpu
-		SimplePartitionFunction spfuncgpu = TestSimplePartitionFunction.makePfunc(search, 1, NumThreads);
+		ParallelConfPartitionFunction spfuncgpu = TestParallelConfPartitionFunction.makePfunc(search, 1, NumThreads);
 		spfuncgpu.init(targetEpsilon);
 		spfuncgpu.setReportProgress(reportProgress);
 		

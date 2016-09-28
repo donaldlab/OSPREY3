@@ -16,7 +16,7 @@ import edu.duke.cs.osprey.pruning.InvertedPruningMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
-public class SimplePartitionFunction implements PartitionFunction {
+public class ParallelConfPartitionFunction implements PartitionFunction {
 	
     private EnergyMatrix emat;
     private PruningMatrix pmat;
@@ -36,7 +36,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 	private Stopwatch stopwatch;
 	private boolean isReportingProgress;
 	
-	public SimplePartitionFunction(EnergyMatrix emat, PruningMatrix pmat, ConfSearchFactory confSearchFactory, ConfEnergyCalculator.Async ecalc) {
+	public ParallelConfPartitionFunction(EnergyMatrix emat, PruningMatrix pmat, ConfSearchFactory confSearchFactory, ConfEnergyCalculator.Async ecalc) {
 		this.emat = emat;
 		this.pmat = pmat;
 		this.confSearchFactory = confSearchFactory;
@@ -185,7 +185,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 					
 					// this is (potentially) running on a task executor listener thread
 					// so lock to keep from racing the main thread
-					synchronized (SimplePartitionFunction.this) {
+					synchronized (ParallelConfPartitionFunction.this) {
 					
 						// do we even care about this result anymore?
 						if (!status.canContinue()) {
