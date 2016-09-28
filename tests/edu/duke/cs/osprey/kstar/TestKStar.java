@@ -19,31 +19,7 @@ import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 
 public class TestKStar {
 
-	// only used for testing standalone on the servers
-	public static void main(String[] args) {
-		new TestKStar().test2RL0Linear();
-	}
-
-	@Test
-	public void test2RL0Linear() {
-		
-		// read config from files
-		KSConfigFileParser cfp = new KSConfigFileParser(new String[] {
-			"-c",
-			"test/2RL0.kstar/cfgKStar.txt", 
-			"Dummy command",
-			"test/2RL0.kstar/cfgMutSearch.txt",
-			"test/2RL0.kstar/cfgSystem.txt"
-		});
-		cfp.loadData();
-		
-		// override file-based config
-		cfp.getParams().setValue("EmatThreads", "2");
-		//cfp.getParams().setValue("kStarPFuncMethod", "parallel0");
-		//cfp.getParams().setValue("kStarPFuncMethod", "simple");
-		//cfp.getParams().setValue("MinimizationThreads", "4");
-		//cfp.getParams().setValue("MinimizationGpus", "1");
-		//cfp.getParams().setValue("epsilon", "0.05");
+	private void testLinear(KSConfigFileParser cfp) {
 		
 		double targetEpsilon = cfp.getParams().getDouble("epsilon");
 		
@@ -62,7 +38,6 @@ public class TestKStar {
 		
 		// check the results
 		// NOTE: expected values were calculated with targetEpsilon=0.05
-		// so they should be more accurate than this test computes with its targetEpsilon=0.95
 		
 		// check ligand partition functions
 		List<ArrayList<String>> ligandSequences = result.getUniqueSequences(KSTermini.LIGAND);
@@ -72,7 +47,7 @@ public class TestKStar {
 		checkPfunc(result, KSTermini.LIGAND, ligandSequences.get(2), "PHE-156 LYS-172 ILE-192 ASN-193", "4.6813161378e+29", targetEpsilon);
 		checkPfunc(result, KSTermini.LIGAND, ligandSequences.get(3), "PHE-156 LYS-172 ALA-192 THR-193", "1.5510745584e+27", targetEpsilon);
 		checkPfunc(result, KSTermini.LIGAND, ligandSequences.get(4), "PHE-156 LYS-172 VAL-192 THR-193", "5.7469787121e+28", targetEpsilon);
-		checkPfunc(result, KSTermini.LIGAND, ligandSequences.get(5), "PHE-156 LYS-172 LEU-192 THR-193");
+		checkPfunc(result, KSTermini.LIGAND, ligandSequences.get(5), "PHE-156 LYS-172 LEU-192 THR-193", EApproxReached.NOT_POSSIBLE);
 		checkPfunc(result, KSTermini.LIGAND, ligandSequences.get(6), "PHE-156 LYS-172 PHE-192 THR-193", "2.8245771923e+24", targetEpsilon);
 		checkPfunc(result, KSTermini.LIGAND, ligandSequences.get(7), "PHE-156 LYS-172 TYR-192 THR-193", "1.4301116312e+26", targetEpsilon);
 		checkPfunc(result, KSTermini.LIGAND, ligandSequences.get(8), "PHE-156 ASP-172 ILE-192 THR-193", "4.2890115335e+20", targetEpsilon);
@@ -108,9 +83,9 @@ public class TestKStar {
 		checkPfunc(result, KSTermini.COMPLEX, complexSequences.get(2), "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 ILE-192 ASN-193", "1.6135714647e+53", targetEpsilon);
 		checkPfunc(result, KSTermini.COMPLEX, complexSequences.get(3), "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 ALA-192 THR-193", "5.6751939710e+49", targetEpsilon);
 		checkPfunc(result, KSTermini.COMPLEX, complexSequences.get(4), "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 VAL-192 THR-193", "8.2838823573e+51", targetEpsilon);
-		checkPfunc(result, KSTermini.COMPLEX, complexSequences.get(5), "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 LEU-192 THR-193");
-		checkPfunc(result, KSTermini.COMPLEX, complexSequences.get(6), "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 PHE-192 THR-193");
-		checkPfunc(result, KSTermini.COMPLEX, complexSequences.get(7), "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 TYR-192 THR-193");
+		checkPfunc(result, KSTermini.COMPLEX, complexSequences.get(5), "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 LEU-192 THR-193", EApproxReached.FALSE);
+		checkPfunc(result, KSTermini.COMPLEX, complexSequences.get(6), "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 PHE-192 THR-193", EApproxReached.NOT_POSSIBLE);
+		checkPfunc(result, KSTermini.COMPLEX, complexSequences.get(7), "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 TYR-192 THR-193", EApproxReached.NOT_POSSIBLE);
 		checkPfunc(result, KSTermini.COMPLEX, complexSequences.get(8), "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 ASP-172 ILE-192 THR-193", "2.2004951030e+41", targetEpsilon);
 		checkPfunc(result, KSTermini.COMPLEX, complexSequences.get(9), "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 GLU-172 ILE-192 THR-193", "3.5518926769e+40", targetEpsilon);
 		checkPfunc(result, KSTermini.COMPLEX, complexSequences.get(10), "PHE-649 ASP-650 GLU-651 THR-654 TYR-156 LYS-172 ILE-192 THR-193", "2.6478756391e+54", targetEpsilon);
@@ -148,6 +123,8 @@ public class TestKStar {
 		));
 		if (pfunc.getEpsilonStatus() == EApproxReached.TRUE) {
 			System.out.print(String.format(", \"%.10e\", targetEpsilon", pfunc.getQStar().doubleValue()));
+		} else {
+			System.out.print(", EApproxReached." + pfunc.getEpsilonStatus().name());
 		}
 		System.out.println(");");
 	}
@@ -167,10 +144,6 @@ public class TestKStar {
 		assertThat(pfunc.getEffectiveEpsilon(), lessThanOrEqualTo(targetEpsilon));
 	}
 	
-	private void checkPfunc(KSImplLinear result, int strand, ArrayList<String> obsSequence, String expSequenceString) {
-		checkPfunc(result, strand, obsSequence, expSequenceString, EApproxReached.NOT_POSSIBLE);
-	}
-	
 	private void checkPfunc(KSImplLinear result, int strand, ArrayList<String> obsSequence, String expSequenceString, EApproxReached epsilonStatus) {
 		
 		PFAbstract pfunc = result.getPartitionFunction(strand, obsSequence);
@@ -180,5 +153,58 @@ public class TestKStar {
 		assertThat(obsSequence, is(expSequence));
 		assertThat(pfunc.getSequence(), is(expSequence));
 		assertThat(pfunc.getEpsilonStatus(), is(epsilonStatus));
+	}
+	
+	private KSConfigFileParser make2RL0Config() {
+		
+		// read config from files
+		KSConfigFileParser cfp = new KSConfigFileParser(new String[] {
+			"-c",
+			"test/2RL0.kstar/cfgKStar.txt", 
+			"Dummy command",
+			"test/2RL0.kstar/cfgMutSearch.txt",
+			"test/2RL0.kstar/cfgSystem.txt"
+		});
+		cfp.loadData();
+		
+		// override file-based config
+		
+		// I'm guessing most people have at least two cores, so compute the energy matrix a bit faster
+		cfp.getParams().setValue("EmatThreads", "2");
+		
+		// this test takes several minutes at the config file's value of e=0.95,
+		// but it only takes about two minutes at e=0.99
+		cfp.getParams().setValue("epsilon", "0.99");
+		
+		return cfp;
+	}
+	
+	@Test
+	public void test2RL0LinearParallel0() {
+		KSConfigFileParser cfp = make2RL0Config();
+		testLinear(cfp);
+	}
+	
+	@Test
+	public void test2RL0LinearSimple() {
+		KSConfigFileParser cfp = make2RL0Config();
+		cfp.getParams().setValue("kStarPFuncMethod", "simple");
+		testLinear(cfp);
+	}
+	
+	@Test
+	public void test2RL0LinearSimple2Threads() {
+		KSConfigFileParser cfp = make2RL0Config();
+		cfp.getParams().setValue("kStarPFuncMethod", "simple");
+		cfp.getParams().setValue("MinimizationThreads", "2");
+		testLinear(cfp);
+	}
+	
+	@Test
+	public void test2RL0LinearSimple1Gpu() {
+		KSConfigFileParser cfp = make2RL0Config();
+		cfp.getParams().setValue("kStarPFuncMethod", "simple");
+		cfp.getParams().setValue("MinimizationGpus", "1");
+		testLinear(cfp);
 	}
 }
