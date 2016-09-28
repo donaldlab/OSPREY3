@@ -34,7 +34,7 @@ public class BenchmarkPartitionFunction extends TestBase {
 		benchmarkComplex();
 	}
 	
-	private static void benchmark(KSSearchProblem search, int strand, double targetEpsilon, String qstar) {
+	private static void benchmark(KSSearchProblem search, int strand, String flexibility, double targetEpsilon, String qstar) {
 		
 		final boolean reportProgress = false;
 		
@@ -45,7 +45,7 @@ public class BenchmarkPartitionFunction extends TestBase {
 		System.out.println("\n\nBenchmarking " + KSTermini.getTerminiString(strand) + "...\n");
 		
 		// test parallel implementation
-		PFAbstract pfunc = TestPartitionFunction.makePfunc(search, "parallel0", KSTermini.PROTEIN, null, cfp);
+		PFAbstract pfunc = TestPartitionFunction.makePfunc(search, "parallel0", KSTermini.PROTEIN, flexibility, cfp);
 		PFAbstract.suppressOutput = !reportProgress;
 		PFAbstract.targetEpsilon = targetEpsilon;
 		
@@ -76,7 +76,7 @@ public class BenchmarkPartitionFunction extends TestBase {
 		System.out.println(String.format("finished in %s, speedup=%.2f", stopwatchSimpleGpu.stop().getTime(2), (double)stopwatchParallel.getTimeNs()/stopwatchSimpleGpu.getTimeNs()));
 		
 		// test adapted simple implementation
-		PFAbstract pfuncAdapted = TestPartitionFunction.makePfunc(search, "simple", KSTermini.PROTEIN, null, cfp);
+		PFAbstract pfuncAdapted = TestPartitionFunction.makePfunc(search, "simple", KSTermini.PROTEIN, flexibility, cfp);
 		
 		System.out.println("computing pfunc " + pfuncAdapted.getClass().getSimpleName() + " ...");
 		Stopwatch stopwatchAdapted = new Stopwatch().start();
@@ -110,10 +110,11 @@ public class BenchmarkPartitionFunction extends TestBase {
 		final double targetEpsilon = 0.01;
 		final String qstar = "4.3704590631e+04";
 		int strand = KSTermini.PROTEIN;
+		String flexibility = "649 650 651 654";
 		
-		KSSearchProblem search = TestPartitionFunction.makeSearch(strand, "648", "654", "649 650 651 654");
+		KSSearchProblem search = TestPartitionFunction.makeSearch(strand, "648", "654", flexibility);
 		
-		benchmark(search, strand, targetEpsilon, qstar);
+		benchmark(search, strand, flexibility, targetEpsilon, qstar);
 	}
 	
 	private static void benchmarkLigand() {
@@ -121,10 +122,11 @@ public class BenchmarkPartitionFunction extends TestBase {
 		final double targetEpsilon = 0.01;
 		final String qstar = "4.4699772362e+30";
 		int strand = KSTermini.LIGAND;
+		String flexibility = "156 172 192 193";
 		
-		KSSearchProblem search = TestPartitionFunction.makeSearch(strand, "155", "194", "156 172 192 193");
+		KSSearchProblem search = TestPartitionFunction.makeSearch(strand, "155", "194", flexibility);
 		
-		benchmark(search, strand, targetEpsilon, qstar);
+		benchmark(search, strand, flexibility, targetEpsilon, qstar);
 	}
 	
 	private static void benchmarkComplex() {
@@ -132,9 +134,10 @@ public class BenchmarkPartitionFunction extends TestBase {
 		final double targetEpsilon = 0.8;
 		final String qstar = "3.5178662402e+54"; 
 		int strand = KSTermini.COMPLEX;
+		String flexibility = "649 650 651 654 156 172 192 193";
 		
-		KSSearchProblem search = TestPartitionFunction.makeSearch(strand, null, null, "649 650 651 654 156 172 192 193");
+		KSSearchProblem search = TestPartitionFunction.makeSearch(strand, null, null, flexibility);
 		
-		benchmark(search, strand, targetEpsilon, qstar);
+		benchmark(search, strand, flexibility, targetEpsilon, qstar);
 	}
 }
