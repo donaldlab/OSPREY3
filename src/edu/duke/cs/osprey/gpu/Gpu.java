@@ -7,7 +7,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-import com.jogamp.opencl.CLCommandQueue;
 import com.jogamp.opencl.CLDevice;
 import com.jogamp.opencl.CLProgram;
 
@@ -28,20 +27,6 @@ public class Gpu {
 	
 	public CLDevice getDevice() {
 		return device;
-	}
-	
-	public GpuQueue makeQueue() {
-		return makeQueue(false);
-	}
-	
-	public GpuQueue makeQueue(boolean useProfiling) {
-		CLCommandQueue queue;
-		if (useProfiling) {
-			queue = device.createCommandQueue(CLCommandQueue.Mode.PROFILING_MODE);
-		} else {
-			queue = device.createCommandQueue();
-		}
-		return new GpuQueue(this, queue);
 	}
 	
 	public boolean supportsDoubles() {

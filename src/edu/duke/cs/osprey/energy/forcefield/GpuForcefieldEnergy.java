@@ -3,12 +3,14 @@ package edu.duke.cs.osprey.energy.forcefield;
 import java.io.IOException;
 import java.nio.DoubleBuffer;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import com.jogamp.opencl.CLEvent;
+import com.jogamp.opencl.CLEvent.CommandType;
 import com.jogamp.opencl.CLEvent.ProfilingCommand;
 import com.jogamp.opencl.CLEventList;
 import com.jogamp.opencl.CLException;
@@ -21,6 +23,7 @@ import edu.duke.cs.osprey.gpu.GpuQueuePool;
 import edu.duke.cs.osprey.gpu.kernels.ForceFieldKernel;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tools.TimeFormatter;
 
 public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, EnergyFunction.NeedsCleanup {
@@ -95,7 +98,20 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	private KernelBuilder kernelBuilder;
 	private BigForcefieldEnergy.Subset ffsubset;
 	
+	private int numProfilingRuns;
+	private Stopwatch uploadStopwatch;
+	private Stopwatch kernelStopwatch;
+	private Stopwatch downloadStopwatch;
+	
+	private GpuForcefieldEnergy() {
+		numProfilingRuns = 0;
+		uploadStopwatch = null;
+		kernelStopwatch = null;
+		downloadStopwatch = null;
+	}
+	
 	public GpuForcefieldEnergy(ForcefieldParams ffparams, ForcefieldInteractions interactions, GpuQueuePool queuePool) {
+		this();
 		this.ffparams = ffparams;
 		this.interactions = interactions;
 		this.queuePool = queuePool;
@@ -105,6 +121,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	}
 	
 	public GpuForcefieldEnergy(GpuForcefieldEnergy parent, ForcefieldInteractions interactions) {
+		this();
 		this.ffparams = parent.ffparams;
 		this.interactions = interactions;
 		this.queuePool = null;
@@ -128,41 +145,94 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		return getKernel().getForcefield().getFullSubset();
 	}
 	
-	public void startProfile() {
-		getKernel().initProfilingEvents();
+	public void startProfile(int numRuns) {
+		numProfilingRuns = numRuns;
+		getKernel().initProfilingEvents(numRuns*3);
+		uploadStopwatch = new Stopwatch();
+		kernelStopwatch = new Stopwatch();
+		downloadStopwatch = new Stopwatch();
 	}
 	
 	public String dumpProfile() {
-		ForceFieldKernel.Bound kernel = getKernel();
+		
 		StringBuilder buf = new StringBuilder();
+		
+		// dump gpu profile
+		buf.append("GPU Profile:\n");
+		Map<CommandType,Long> sums = new EnumMap<>(CommandType.class);
+		ForceFieldKernel.Bound kernel = getKernel();
 		CLEventList events = kernel.getProfilingEvents();
 		for (CLEvent event : events) {
 			try {
 				long startNs = event.getProfilingInfo(ProfilingCommand.START);
 				long endNs = event.getProfilingInfo(ProfilingCommand.END);
-				buf.append(String.format(
-					"%s %s\n",
-					event.getType(),
-					TimeFormatter.format(endNs - startNs, TimeUnit.MICROSECONDS)
-				));
+				long diffNs = endNs - startNs;
+				CommandType type = event.getType();
+				if (sums.containsKey(type)) {
+					sums.put(type, sums.get(type) + diffNs);
+				} else {
+					sums.put(type, diffNs);
+				}
 			} catch (CLException.CLProfilingInfoNotAvailableException ex) {
-				buf.append(String.format("%s (unknown timing)\n", event.getType()));
+				// don't care, just skip it
 			}
 		}
+		for (Map.Entry<CommandType,Long> entry : sums.entrySet()) {
+			buf.append(String.format(
+				"\t%16s %s\n",
+				entry.getKey(),
+				TimeFormatter.format(entry.getValue()/numProfilingRuns, TimeUnit.MICROSECONDS)
+			));
+		}
 		kernel.clearProfilingEvents();
+		
+		// dump cpu profile
+		buf.append("CPU Profile:\n");
+		buf.append(String.format("\t%16s %s\n", "Upload", TimeFormatter.format(uploadStopwatch.getTimeNs()/numProfilingRuns, TimeUnit.MICROSECONDS)));
+		buf.append(String.format("\t%16s %s\n", "Kernel", TimeFormatter.format(kernelStopwatch.getTimeNs()/numProfilingRuns, TimeUnit.MICROSECONDS)));
+		buf.append(String.format("\t%16s %s\n", "Download", TimeFormatter.format(downloadStopwatch.getTimeNs()/numProfilingRuns, TimeUnit.MICROSECONDS)));
+		
+		numProfilingRuns = 0;
+		
 		return buf.toString();
 	}
 	
 	@Override
 	public double getEnergy() {
 		
+		boolean isProfiling = numProfilingRuns > 0;
+		if (isProfiling) {
+			uploadStopwatch.resume();
+		}
+		
+		// upload data
 		ForceFieldKernel.Bound kernel = getKernel();
 		kernel.setSubset(getSubset());
 		kernel.uploadCoordsAsync();
+		
+		if (isProfiling) {
+			kernel.waitForGpu();
+			uploadStopwatch.stop();
+			kernelStopwatch.resume();
+		}
+		
+		// compute the energies
 		kernel.runAsync();
 		
+		if (isProfiling) {
+			kernel.waitForGpu();
+			kernelStopwatch.stop();
+			downloadStopwatch.resume();
+		}
+		
 		// read the results
-		return sumEnergy(kernel.downloadEnergiesSync(), kernel.getEnergySize());
+		double energy = sumEnergy(kernel.downloadEnergiesSync(), kernel.getEnergySize());
+		
+		if (isProfiling) {
+			downloadStopwatch.stop();
+		}
+		
+		return energy;
 	}
 	
 	private double sumEnergy(DoubleBuffer buf, int energySize) {
@@ -177,7 +247,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		}
 		return energy;
 	}
-	
+
 	@Override
 	public void cleanup() {
 		if (isParent()) {

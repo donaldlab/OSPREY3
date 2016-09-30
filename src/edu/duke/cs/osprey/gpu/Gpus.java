@@ -26,6 +26,8 @@ public class Gpus {
 	
 	private Gpus() {
 		
+		System.out.println("Discovering GPUs...");
+		
 		// get the gpus that support doubles
 		CLContext context = CLContext.create();
 		gpus = new ArrayList<>();

@@ -85,12 +85,11 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		);
 		
 		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
-		GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuQueuePool(1, 1));
-		// NOTE: this benchmark isn't designed to use multiple gpus, so always use 1
+		GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuQueuePool(8, 1, true));
 		
-		//benchmarkEfunc(search, egen, gpuegen);
+		benchmarkEfunc(search, egen, gpuegen);
 		//benchmarkEmat(search, egen, gpuegen);
-		benchmarkMinimize(search, egen, gpuegen);
+		//benchmarkMinimize(search, egen, gpuegen);
 		//benchmarkEfuncFine(search.confSpace.m, egen, gpuegen);
 	}
 	
@@ -104,8 +103,10 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		}
 		
 		System.out.println("\nFull conf energy:");
-		benchmarkEfunc(
-			1000,
+		//benchmarkEfunc(
+		//	1000,
+		profileEfunc(
+			5000,
 			search.confSpace.m,
 			new Factory<EnergyFunction,Molecule>() {
 				@Override
@@ -123,7 +124,8 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		);
 		
 		System.out.println("\nIntra and shell energy:");
-		benchmarkEfunc(
+		//benchmarkEfunc(
+		profileEfunc(
 			40000,
 			search.confSpace.m,
 			new Factory<EnergyFunction,Molecule>() {
@@ -144,19 +146,18 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		);
 		
 		System.out.println("\nPairwise energy:");
-		// TODO: GPU is actually significantly slower for these terms
-		// there's so few atom pairs, the overhead with the GPU is slowing us down
-		// need to optimize more, maybe look into faster memory transfers?
-		// NOTE: profiling says the memory transfers are really fast, ~4/43 us or ~9%
-		// most of the overhead seems to be coming from synchronization with the GPU, ~26/43 us or ~60%
-		// don't think there's anything we can do to speed that up...
-		// sync overhead is relatively smaller for other sizes, ~18% for full conf energy, ~42% for intra and shell energy
-		Residue res1 = search.confSpace.posFlex.get(0).res;
-		Residue res2 = search.confSpace.posFlex.get(2).res;
+		// GPU is actually significantly slower for these terms
+		// transfers between the CPU and GPU cause a LOT of overhead!
+		// I've hammered on this for a while, but I haven't found any faster ways of doing the transfers
+		// mapping buffers and pinning memory seems to be significantly slower than direct transfers
+		// at least on my hardware at home =(
+		Residue res1 = search.confSpace.posFlex.get(0).res; // GLY
+		Residue res2 = search.confSpace.posFlex.get(2).res; // GLY
 		//Residue res1 = search.confSpace.m.getResByPDBResNumber("65"); // LYS
 		//Residue res2 = search.confSpace.m.getResByPDBResNumber("68"); // ARG
-		benchmarkEfunc(
-			1000000,
+		//benchmarkEfunc(
+		profileEfunc(
+			50000,
 			search.confSpace.m,
 			new Factory<EnergyFunction,Molecule>() {
 				@Override
@@ -189,7 +190,7 @@ public class BenchmarkForcefieldKernel extends TestBase {
 	private static void benchmarkEfunc(int numRuns, Molecule baseMol, Factory<EnergyFunction,Molecule> efuncs, Factory<GpuForcefieldEnergy,Molecule> gpuefuncs, List<Integer> numThreadsList) {
 		
 		// get the answer
-		double expectedEnergy = efuncs.make(baseMol).getEnergy();
+		final double expectedEnergy = efuncs.make(baseMol).getEnergy();
 		
 		// benchmark cpus
 		Stopwatch cpuStopwatch = null;
@@ -216,12 +217,13 @@ public class BenchmarkForcefieldKernel extends TestBase {
 					@Override
 					public void time() {
 						
-						final double expEnergy = expectedEnergy;
-						
+						double energy = 0;
 						int numLocalRuns = numRuns/numThreads;
 						for (int k=0; k<numLocalRuns; k++) {
-							checkEnergy(expEnergy, efunc.getEnergy());
+							energy = efunc.getEnergy();
 						}
+						
+						checkEnergy(expectedEnergy, energy);
 					}
 				});
 			}
@@ -264,15 +266,20 @@ public class BenchmarkForcefieldKernel extends TestBase {
 					
 					@Override
 					public void time() {
+						try {
+							
+							double energy = 0;
+							int numLocalRuns = numRuns/numThreads;
+							for (int k=0; k<numLocalRuns; k++) {
+								energy = gpuefunc.getEnergy();
+							}
+							
+							// TEMP
+							//checkEnergy(expectedEnergy, energy);
 						
-						final double expEnergy = expectedEnergy;
-						
-						int numLocalRuns = numRuns/numThreads;
-						for (int j=0; j<numLocalRuns; j++) {
-							checkEnergy(expEnergy, gpuefunc.getEnergy());
+						} finally {
+							gpuefunc.cleanup();
 						}
-						
-						gpuefunc.cleanup();
 					}
 				});
 			}
@@ -287,19 +294,46 @@ public class BenchmarkForcefieldKernel extends TestBase {
 				(double)cpuStopwatch.getTimeNs()/gpuStopwatch.getTimeNs()
 			));
 		}
+	}
+	
+	private static void profileEfunc(int numRuns, Molecule baseMol, Factory<EnergyFunction,Molecule> efuncs, Factory<GpuForcefieldEnergy,Molecule> gpuefuncs, List<Integer> numThreadsList) {
 		
-		// do a final gpu run for profiling
 		GpuForcefieldEnergy gpuefunc = gpuefuncs.make(baseMol);
-		if (gpuefunc.getKernel().getQueue().isProfilingEnabled()) {
-			gpuefunc.startProfile();
+		
+		// get the answer
+		final double expectedEnergy = efuncs.make(baseMol).getEnergy();
+		
+		// do warmup
+		for (int i=0; i<numRuns/10; i++) {
+			gpuefunc.getEnergy();
 		}
-		gpuefunc.getEnergy();
+		
+		if (gpuefunc.getKernel().getQueue().isProfilingEnabled()) {
+			gpuefunc.startProfile(numRuns);
+		}
+		
+		Stopwatch stopwatch = new Stopwatch().start();
+		
+		// do profiling
+		double energy = 0;
+		for (int i=0; i<numRuns; i++) {
+			energy = gpuefunc.getEnergy();
+		}
+		
+		stopwatch.stop();
+		
+		// print the report
 		System.out.println("GPU profiling info:");
 		System.out.println("atom pairs:      " + gpuefunc.getKernel().getForcefield().getFullSubset().getNumAtomPairs());
 		System.out.println("GPU memory used: " + gpuefunc.getKernel().getGpuBytesNeeded()/1024 + " KiB");
 		if (gpuefunc.getKernel().getQueue().isProfilingEnabled()) {
 			System.out.print(gpuefunc.dumpProfile());
 		}
+		System.out.println("us per op: " + TimeFormatter.format(stopwatch.getTimeNs()/numRuns, TimeUnit.MICROSECONDS));
+		
+		// TEMP
+		//checkEnergy(expectedEnergy, energy);
+		
 		gpuefunc.cleanup();
 	}
 	

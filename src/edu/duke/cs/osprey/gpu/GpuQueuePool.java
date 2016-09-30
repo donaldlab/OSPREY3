@@ -37,7 +37,11 @@ public class GpuQueuePool {
 			Gpu gpu = gpus.get(i);
 			List<GpuQueue> queuesAtGpu = new ArrayList<>();
 			for (int j=0; j<numQueuesPerGpu; j++) {
-				queuesAtGpu.add(gpu.makeQueue(useProfiling));
+				
+				// make each queue in a separate context,
+				// so queues can run in parallel without fighting each other
+				boolean useSeparateContext = numQueuesPerGpu > 1;
+				queuesAtGpu.add(new GpuQueue(gpu, useProfiling, useSeparateContext));
 			}
 			queuesByGpu.add(queuesAtGpu);
 		}
@@ -80,7 +84,7 @@ public class GpuQueuePool {
 			}
 		}
 		
-		throw new IllegalStateException("no more queues to checkout");
+		throw new IllegalStateException(String.format("no more queues to checkout, %d already used", queues.size()));
 	}
 	
 	public synchronized void release(GpuQueue queue) {

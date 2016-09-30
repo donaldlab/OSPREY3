@@ -8,20 +8,22 @@ import com.jogamp.opencl.CLMemory;
 
 public abstract class BoundKernel<T extends BoundKernel<T>> {
 	
-	public static final int EventListSize = 128;
-	
 	private Kernel<T> kernel;
 	private GpuQueue queue;
 	private CLEventList events;
 	
 	public BoundKernel(Kernel<T> kernel, GpuQueue queue) {
+		
+		if (kernel.getCLKernel().getContext() != queue.getCLQueue().getContext()) {
+			throw new IllegalArgumentException("can't bind to queue, the kernel is from a different context");
+		}
+		if (queue.getCLQueue().isOutOfOrderModeEnabled()) {
+			throw new Error("GPU command queue should be strictly ordered... this is a bug");
+		}
+		
 		this.kernel = kernel;
 		this.queue = queue;
 		this.events = null;
-		
-		if (this.queue.getCLQueue().isOutOfOrderModeEnabled()) {
-			throw new Error("GPU command queue should be strictly ordered... this is a bug");
-		}
 	}
 	
 	public Kernel<T> getKernel() {
@@ -69,14 +71,14 @@ public abstract class BoundKernel<T extends BoundKernel<T>> {
 		queue.getCLQueue().putReadBuffer(buf, false);
 	}
 	
-	public void initProfilingEvents() {
+	public void initProfilingEvents(int eventListSize) {
 		
 		// just in case...
 		if (!queue.isProfilingEnabled()) {
 			throw new IllegalStateException("profiling not enabled for the bound command queue");
 		}
 		
-		events = new CLEventList(EventListSize);
+		events = new CLEventList(eventListSize);
 	}
 	
 	public CLEventList getProfilingEvents() {
