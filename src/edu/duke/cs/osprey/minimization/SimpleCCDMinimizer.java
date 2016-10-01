@@ -13,11 +13,11 @@ public class SimpleCCDMinimizer implements Minimizer {
 	
 	private ObjectiveFunction ofunc;
 	private List<Integer> dofs;
-	private LineSearcher lineSearch;
+	private List<LineSearcher> lineSearchers;
 
 	public SimpleCCDMinimizer(ObjectiveFunction ofunc) {
 		this.ofunc = ofunc;
-		this.lineSearch = new IntervalLineSearcher();
+		this.lineSearchers = new ArrayList<>();
 	}
 	
 	@Override
@@ -44,6 +44,11 @@ public class SimpleCCDMinimizer implements Minimizer {
 			}
 		}
 		
+		// init the line searchers
+		for (int i=0; i<dofs.size(); i++) {
+			lineSearchers.add(new SurfingLineSearcher());
+		}
+		
 		ccd(mins, maxs, vals);
 		
 		return vals;
@@ -62,7 +67,7 @@ public class SimpleCCDMinimizer implements Minimizer {
 			
 			// update all the dofs using line search
 			for (int i : dofs) {
-				lineSearch.search(ofunc, vals, i, mins, maxs);
+				lineSearchers.get(i).search(ofunc, vals, i, mins, maxs);
 			}
 			
 			// did we improve enough to keep going?
@@ -70,7 +75,8 @@ public class SimpleCCDMinimizer implements Minimizer {
 			if (curf - nextf < ConvergenceThreshold) {
 				
 				// nope, we're done
-				return curf;
+				return nextf;
+				
 			} else {
 				
 				// yeah, keep going

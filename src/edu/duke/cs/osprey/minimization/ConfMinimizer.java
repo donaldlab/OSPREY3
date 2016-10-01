@@ -17,11 +17,25 @@ import edu.duke.cs.osprey.tools.Progress;
 
 public class ConfMinimizer {
 	
+	private Factory<Minimizer,MoleculeModifierAndScorer> minimizers;
+	
+	public ConfMinimizer() {
+		this(new Factory<Minimizer,MoleculeModifierAndScorer>() {
+			@Override
+			public Minimizer make(MoleculeModifierAndScorer mof) {
+				return new CCDMinimizer(mof, true);
+			}
+		});
+	}
+	
+	public ConfMinimizer(Factory<Minimizer,MoleculeModifierAndScorer> minimizers) {
+		this.minimizers = minimizers;
+	}
+	
 	public double minimize(ParameterizedMoleculeCopy pmol, int[] conf, EnergyFunction efunc, ConfSpace confSpace) {
 		RCTuple tuple = new RCTuple(conf);
 		MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(efunc, confSpace, tuple, pmol);
-		Minimizer minimizer = new CCDMinimizer(mof, true);
-		minimizer.minimize();
+		minimizers.make(mof).minimize();
 		mof.cleanup();
 		return efunc.getEnergy();
 	}
@@ -54,7 +68,7 @@ public class ConfMinimizer {
 			econfs.add(null);
 		}
 		
-		Async async = new Async(efuncs, confSpace, tasks);
+		Async async = new Async(efuncs, confSpace, tasks, this);
 		
 		// minimize them all
 		for (int i=0; i<confs.size(); i++) {
@@ -97,15 +111,18 @@ public class ConfMinimizer {
 	
 		private ConfSpace confSpace;
 		private TaskExecutor tasks;
-		private ConfMinimizer minimizer;
+		private ConfMinimizer confMinimizer;
 		private ObjectPool<EfuncAndPMC> pool;
 	
 		public Async(Factory<? extends EnergyFunction,Molecule> efuncs, ConfSpace confSpace, TaskExecutor tasks) {
+			this(efuncs, confSpace, tasks, new ConfMinimizer());
+		}
+		
+		public Async(Factory<? extends EnergyFunction,Molecule> efuncs, ConfSpace confSpace, TaskExecutor tasks, ConfMinimizer confMinimizer) {
 			
 			this.confSpace = confSpace;
 			this.tasks = tasks;
-			
-			minimizer = new ConfMinimizer();
+			this.confMinimizer = confMinimizer;
 			
 			// make a pool for molecules and energy functions
 			// to keep concurrent tasks from racing each other
@@ -127,7 +144,7 @@ public class ConfMinimizer {
 				em = pool.checkout();
 			}
 			try {
-				return minimizer.minimize(em.pmol, conf, em.efunc, confSpace);
+				return confMinimizer.minimize(em.pmol, conf, em.efunc, confSpace);
 			} finally {
 				synchronized (pool) {
 					pool.release(em);

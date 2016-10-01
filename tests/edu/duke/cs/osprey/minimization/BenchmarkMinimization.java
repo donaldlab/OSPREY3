@@ -33,6 +33,7 @@ import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
+@SuppressWarnings("unused")
 public class BenchmarkMinimization extends TestBase {
 	
 	public static void main(String[] args)
@@ -66,26 +67,15 @@ public class BenchmarkMinimization extends TestBase {
 			false, new ArrayList<>()
 		);
 		
-		// settings
-		final int numConfs = 512;
-		final int[] numThreadsList = { 1, 2, 4, 8 };//, 16 };
-		final boolean useGpu = true;
-		
-		int maxNumThreads = numThreadsList[numThreadsList.length - 1];
-		
-		// get the energy function generator
-		final EnergyFunctionGenerator egen;
-		if (useGpu) {
-			GpuQueuePool gpuPool = new GpuQueuePool(maxNumThreads, 1);
-			//GpuQueuePool gpuPool = new GpuQueuePool(1, maxNumThreads);
-			egen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), gpuPool);
-		} else {
-			egen = EnvironmentVars.curEFcnGenerator;
-		}
-		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(egen, search.confSpace, search.shellResidues);
-		
 		// calc the energy matrix
-		search.emat = new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix(); 
+		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
+		tasks.start(2);
+		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(EnvironmentVars.curEFcnGenerator, search.confSpace, search.shellResidues);
+		search.emat = new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix(tasks);
+		tasks.stop();
+		
+		// settings
+		final int numConfs = 64;//512;
 		
 		// get a few arbitrary conformations
 		search.pruneMat = new PruningMatrix(search.confSpace, 1000);
@@ -98,8 +88,133 @@ public class BenchmarkMinimization extends TestBase {
 			confs.add(tree.nextConf());
 		}
 		
+		//benchmarkParallelism(search, confs);
+		benchmarkGpu(search, confs);
+	}
+	
+	private static void benchmarkParallelism(SearchProblem search, List<ScoredConf> confs)
+	throws Exception {
+		
+		// settings
+		final int[] numThreadsList = { 1, 2, 4, 8 };//, 16 };
+		final boolean useGpu = false;
+		
+		int maxNumThreads = numThreadsList[numThreadsList.length - 1];
+		
+		// get the energy function generator
+		final EnergyFunctionGenerator egen;
+		if (useGpu) {
+			GpuQueuePool gpuPool = new GpuQueuePool(maxNumThreads, 1);
+			//GpuQueuePool gpuPool = new GpuQueuePool(1, maxNumThreads);
+			egen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), gpuPool);
+		} else {
+			egen = EnvironmentVars.curEFcnGenerator;
+		}
+		
+		// make the energy function factory
+		Factory<EnergyFunction,Molecule> efuncs = new Factory<EnergyFunction,Molecule>() {
+			@Override
+			public EnergyFunction make(Molecule mol) {
+				return egen.fullConfEnergy(search.confSpace, search.shellResidues, mol);
+			}
+		};
+		
+		List<EnergiedConf> minimizedConfs;
+		
+		// benchmark base minimization
+		System.out.println("\nBenchmarking main thread...");
+		Stopwatch baseStopwatch = new Stopwatch().start();
+		minimizedConfs = new ConfMinimizer().minimize(confs, efuncs, search.confSpace);
+		baseStopwatch.stop();
+		System.out.println("precise timing: " + baseStopwatch.getTime(TimeUnit.MILLISECONDS));
+		checkEnergies(minimizedConfs);
+		
+		// benchmark parallel minimization
+		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
+		
+		for (int numThreads : numThreadsList) {
+			
+			tasks.start(numThreads);
+			
+			System.out.println("\nBenchmarking " + numThreads + " task thread(s)...");
+			Stopwatch taskStopwatch = new Stopwatch().start();
+			minimizedConfs = new ConfMinimizer().minimize(confs, efuncs, search.confSpace, tasks);
+			taskStopwatch.stop();
+			System.out.println("precise timing: " + taskStopwatch.getTime(TimeUnit.MILLISECONDS));
+			System.out.println(String.format("Speedup: %.2fx", (float)baseStopwatch.getTimeNs()/taskStopwatch.getTimeNs()));
+			checkEnergies(minimizedConfs);
+			
+			tasks.stopAndWait(10000);
+		}
+	}
+
+	private static void benchmarkGpu(SearchProblem search, List<ScoredConf> confs)
+	throws Exception {
+		
+		// make minimizer factories
+		Factory<Minimizer,MoleculeModifierAndScorer> fastMinimizers = new Factory<Minimizer,MoleculeModifierAndScorer>() {
+			@Override
+			public Minimizer make(MoleculeModifierAndScorer mof) {
+				return new CCDMinimizer(mof, true);
+			}
+		};
+		Factory<Minimizer,MoleculeModifierAndScorer> simpleMinimizers = new Factory<Minimizer,MoleculeModifierAndScorer>() {
+			@Override
+			public Minimizer make(MoleculeModifierAndScorer mof) {
+				return new SimpleCCDMinimizer(mof);
+			}
+		};
+		
+		// make efuncs
+		Factory<EnergyFunction,Molecule> efuncs = new Factory<EnergyFunction,Molecule>() {
+			@Override
+			public EnergyFunction make(Molecule mol) {
+				return EnvironmentVars.curEFcnGenerator.fullConfEnergy(search.confSpace, search.shellResidues, mol);
+			}
+		};
+		GpuQueuePool gpuPool = new GpuQueuePool(1);
+		GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), gpuPool);
+		Factory<EnergyFunction,Molecule> gpuefuncs = new Factory<EnergyFunction,Molecule>() {
+			@Override
+			public EnergyFunction make(Molecule mol) {
+				return gpuegen.fullConfEnergy(search.confSpace, search.shellResidues, mol);
+			}
+		};
+		
+		List<EnergiedConf> minimizedConfs;
+		
+		System.out.println("\nbenchmarking CPU fast...");
+		Stopwatch cpuFastStopwatch = new Stopwatch().start();
+		minimizedConfs = new ConfMinimizer(fastMinimizers).minimize(confs, efuncs, search.confSpace);
+		System.out.println("precise timing: " + cpuFastStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
+		checkEnergies(minimizedConfs);
+		
+		System.out.println("\nbenchmarking CPU simple...");
+		Stopwatch cpuSimpleStopwatch = new Stopwatch().start();
+		minimizedConfs = new ConfMinimizer(simpleMinimizers).minimize(confs, efuncs, search.confSpace);
+		System.out.print("precise timing: " + cpuSimpleStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
+		System.out.println(String.format(", speedup: %.2fx", (double)cpuFastStopwatch.getTimeNs()/cpuSimpleStopwatch.getTimeNs()));
+		checkEnergies(minimizedConfs);
+		
+		System.out.println("\nbenchmarking GPU fast...");
+		Stopwatch gpuFastStopwatch = new Stopwatch().start();
+		minimizedConfs = new ConfMinimizer(fastMinimizers).minimize(confs, gpuefuncs, search.confSpace);
+		System.out.print("precise timing: " + gpuFastStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
+		System.out.println(String.format(", speedup: %.2fx", (double)cpuFastStopwatch.getTimeNs()/gpuFastStopwatch.getTimeNs()));
+		checkEnergies(minimizedConfs);
+		
+		System.out.println("\nbenchmarking GPU simple...");
+		Stopwatch gpuSimpleStopwatch = new Stopwatch().start();
+		minimizedConfs = new ConfMinimizer(simpleMinimizers).minimize(confs, gpuefuncs, search.confSpace);
+		System.out.print("precise timing: " + gpuSimpleStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
+		System.out.println(String.format(", speedup: %.2fx", (double)cpuFastStopwatch.getTimeNs()/gpuSimpleStopwatch.getTimeNs()));
+		checkEnergies(minimizedConfs);
+	}
+	
+	private static void checkEnergies(List<EnergiedConf> minimizedConfs) {
+		
 		// what do we expect the energies to be?
-		double[] expectedEnergies = {
+		final double[] expectedEnergies = {
 			-107.01471465433335, -107.14427781940432, -106.79145713231975, -106.92139365967053, -106.28769308885211, -107.11801397703762,
 			-106.67892206113300, -106.41908247351522, -106.89600279606412, -106.74468003314176, -106.45689550906734, -106.95533592350961,
 			-106.43786020587382, -106.52194038276753, -106.39164304147317, -106.72599111242266, -106.10055039136107, -106.73371625732581,
@@ -187,45 +302,6 @@ public class BenchmarkMinimization extends TestBase {
 			-105.42461876753079, -103.88791784728554, -103.49204285472620, -104.74731777802437, -103.80032545111749, -105.59180680749536,
 			-103.20811235101901, -103.32709352530163
 		};
-		
-		// make the energy function factory
-		Factory<EnergyFunction,Molecule> efuncs = new Factory<EnergyFunction,Molecule>() {
-			@Override
-			public EnergyFunction make(Molecule mol) {
-				return egen.fullConfEnergy(search.confSpace, search.shellResidues, mol);
-			}
-		};
-		
-		List<EnergiedConf> minimizedConfs;
-		
-		// benchmark base minimization
-		System.out.println("\nBenchmarking main thread...");
-		Stopwatch baseStopwatch = new Stopwatch().start();
-		minimizedConfs = new ConfMinimizer().minimize(confs, efuncs, search.confSpace);
-		baseStopwatch.stop();
-		System.out.println("precise timing: " + baseStopwatch.getTime(TimeUnit.MILLISECONDS));
-		checkEnergies(expectedEnergies, minimizedConfs);
-		
-		// benchmark parallel minimization
-		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
-		
-		for (int numThreads : numThreadsList) {
-			
-			tasks.start(numThreads);
-			
-			System.out.println("\nBenchmarking " + numThreads + " task thread(s)...");
-			Stopwatch taskStopwatch = new Stopwatch().start();
-			minimizedConfs = new ConfMinimizer().minimize(confs, efuncs, search.confSpace, tasks);
-			taskStopwatch.stop();
-			System.out.println("precise timing: " + taskStopwatch.getTime(TimeUnit.MILLISECONDS));
-			System.out.println(String.format("Speedup: %.2fx", (float)baseStopwatch.getTimeNs()/taskStopwatch.getTimeNs()));
-			checkEnergies(expectedEnergies, minimizedConfs);
-			
-			tasks.stopAndWait(10000);
-		}
-	}
-
-	private static void checkEnergies(double[] expectedEnergies, List<EnergiedConf> minimizedConfs) {
 		
 		final double Epsilon = 1e-6;
 		

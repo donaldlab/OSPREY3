@@ -5,5 +5,4 @@ import cern.colt.matrix.DoubleMatrix1D;
 public interface LineSearcher {
 	
 	void search(ObjectiveFunction f, DoubleMatrix1D x, int dof, DoubleMatrix1D mins, DoubleMatrix1D maxs);
-	void search(ObjectiveFunction f, DoubleMatrix1D x, DoubleMatrix1D vec, DoubleMatrix1D mins, DoubleMatrix1D maxs);
 }

@@ -39,10 +39,4 @@ public class IntervalLineSearcher implements LineSearcher {
 		// the interval is small now, pick the center as the final value
 		x.set(dof, (a + b)/2);
 	}
-
-	@Override
-	public void search(ObjectiveFunction f, DoubleMatrix1D x, DoubleMatrix1D vec, DoubleMatrix1D mins, DoubleMatrix1D maxs) {
-		// TODO: line search in arbitrary direction
-		throw new Error("implement me");
-	}
 }
