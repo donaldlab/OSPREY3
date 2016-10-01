@@ -251,8 +251,26 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
         if(x.size()!=DOFs.size())
             throw new RuntimeException("ERROR: Trying to set "+DOFs.size()+" DOFs with "+x.size()+" values");
         
-        for(int dof=0; dof<x.size(); dof++){
-            DOFs.get(dof).apply(x.get(dof));
+        // HACKHACK: since this method depends on the current atom coords,
+        // it's actually non-deterministic with respect to x
+        // this is causing problems with energy function accuracies
+        // work around that by forcing the atom coords to converge to a stable value
+        // at least until we can write a more stable and efficient version of this method
+        // sadly, this iteration makes this function at least twice as expensive,
+        // but luckily it's not a bottleneck yet, and it makes minimization energies much more accurate
+        int oldHash = molec.hashCode();
+        for (int i=0; i<100; i++) {
+            
+            for(int dof=0; dof<x.size(); dof++){
+                DOFs.get(dof).apply(x.get(dof));
+            }
+            
+            // did we converge yet?
+            int newHash = molec.hashCode();
+            if (oldHash == newHash) {
+                break;
+            }
+            oldHash = newHash;
         }
     }
     

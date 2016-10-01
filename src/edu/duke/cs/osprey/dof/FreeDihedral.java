@@ -5,6 +5,7 @@
 package edu.duke.cs.osprey.dof;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
@@ -46,30 +47,50 @@ public class FreeDihedral extends DegreeOfFreedom {
         
         //get current coordinates of our four atoms
         double curCoords[][] = new double[4][3];
-        for(int a=0; a<4; a++)
-            System.arraycopy(res.coords, 3*dihAtomIndices[a], curCoords[a], 0, 3);
         
-        //measuring a dihedral requires evaluating an inverse cosine, which is slow
-        //let's work with sines and cosines of dihedrals directly
-        double curDihedralSC[] = Protractor.measureDihedralSinCos(curCoords);
-        double sinDih = Math.sin(Math.PI*paramVal/180);
-        double cosDih = Math.cos(Math.PI*paramVal/180);
-        double sinDihChange = sinDih*curDihedralSC[1] - cosDih*curDihedralSC[0];
-        double cosDihChange = cosDih*curDihedralSC[1] + sinDih*curDihedralSC[0];
+        // HACKHACK: since this method depends on the current atom coords,
+        // it's actually non-deterministic with respect to paramVal
+        // this is causing problems with energy function accuracies
+        // work around that by forcing the atom coords to converge to a stable value
+        // at least until we can write a more stable and efficient version of this method
+        // sadly, this iteration makes this function at least twice as expensive,
+        // but luckily it's not a bottleneck yet, and it makes minimization energies much more accurate
+        int oldHash = Arrays.hashCode(res.coords);
+        for (int i=0; i<100; i++) {
+            
+            for(int a=0; a<4; a++) {
+                System.arraycopy(res.coords, 3*dihAtomIndices[a], curCoords[a], 0, 3);
+            }
         
-        RigidBodyMotion dihRotation = new DihedralRotation( curCoords[1], curCoords[2], 
-                sinDihChange, cosDihChange );
-        
-        /*double curDihedralVal = Protractor.measureDihedral(curCoords);//could go faster by not copying...hmm
-        double dihedralChange = paramVal - curDihedralVal;
-        //should we update curVal?
-        
-        RigidBodyMotion dihRotation = new DihedralRotation(curCoords[1], curCoords[2], dihedralChange);*/
-        //rotate about third atom, axis = third-second atom (i.e. bond vector),
-        //rotate by dihedralChange
-        
-        for(int index : rotatedAtomIndices)
-            dihRotation.transform(res.coords, index);
+            //measuring a dihedral requires evaluating an inverse cosine, which is slow
+            //let's work with sines and cosines of dihedrals directly
+            double curDihedralSC[] = Protractor.measureDihedralSinCos(curCoords);
+            double sinDih = Math.sin(Math.PI*paramVal/180);
+            double cosDih = Math.cos(Math.PI*paramVal/180);
+            double sinDihChange = sinDih*curDihedralSC[1] - cosDih*curDihedralSC[0];
+            double cosDihChange = cosDih*curDihedralSC[1] + sinDih*curDihedralSC[0];
+            
+            RigidBodyMotion dihRotation = new DihedralRotation( curCoords[1], curCoords[2], 
+                    sinDihChange, cosDihChange );
+            
+            /*double curDihedralVal = Protractor.measureDihedral(curCoords);//could go faster by not copying...hmm
+            double dihedralChange = paramVal - curDihedralVal;
+            //should we update curVal?
+            
+            RigidBodyMotion dihRotation = new DihedralRotation(curCoords[1], curCoords[2], dihedralChange);*/
+            //rotate about third atom, axis = third-second atom (i.e. bond vector),
+            //rotate by dihedralChange
+            
+            for(int index : rotatedAtomIndices)
+                dihRotation.transform(res.coords, index);
+            
+            // did we converge yet?
+            int newHash = Arrays.hashCode(res.coords);
+            if (oldHash == newHash) {
+                break;
+            }
+            oldHash = newHash;
+        }
 
         curVal = paramVal; // store the value
     }
