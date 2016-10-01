@@ -1,7 +1,6 @@
 package edu.duke.cs.osprey.energy.forcefield;
 
 import java.io.IOException;
-import java.nio.DoubleBuffer;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -226,7 +225,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		}
 		
 		// read the results
-		double energy = sumEnergy(kernel.downloadEnergiesSync(), kernel.getEnergySize());
+		double energy = kernel.downloadEnergySync();
 		
 		if (isProfiling) {
 			downloadStopwatch.stop();
@@ -235,19 +234,6 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		return energy;
 	}
 	
-	private double sumEnergy(DoubleBuffer buf, int energySize) {
-		
-		// do the last bit of the energy sum on the cpu
-		// add one element per work group on the gpu
-		// typically, it's a factor of groupSize less than the number of atom pairs
-		double energy = getSubset().getInternalSolvationEnergy();
-		buf.rewind();
-		for (int i=0; i<energySize; i++) {
-			energy += buf.get();
-		}
-		return energy;
-	}
-
 	@Override
 	public void cleanup() {
 		if (isParent()) {

@@ -16,22 +16,21 @@ bool isHydrogen(int flags) {
 	return flags > 0;
 }
 
-bool useDistDepDielec(const int flags) {
-	return (flags & 0x1) == 1;
-}
-
-bool useHEs(const int flags) {
-	return ((flags >> 1) & 0x1) == 1;
-}
-
-bool useHVdw(const int flags) {
-	return ((flags >> 2) & 0x1) == 1;
-}
+typedef struct {
+	int numPairs; // 4
+	int num14Pairs; // 4
+	double coulombFactor; // 8
+	double scaledCoulombFactor; // 8
+	double solvCutoff2; // 8
+	bool useDistDepDielec; // 1
+	bool useHEs; // 1
+	bool useHVdw; // 1
+} ForcefieldArgs;
+// sizeof = 35
 
 kernel void calc(
 	global const double *coords, global const int *atomFlags, global const double *precomputed, global const int *subsetTable, global double *out,
-	const int numPairs, const int num14Pairs, const double coulombFactor, const double scaledCoulombFactor,
-	const double solvCutoff2, const int flags,
+	global const ForcefieldArgs *args,
 	local double *scratch
 ) {
 
@@ -46,19 +45,13 @@ kernel void calc(
 	
 	// NOTE: CL_OUT_OF_RESOURCES can also be thrown when you misuse a pointer (ie like a segfault)
 
-	// NOTE: can't have bools in kernel args for some reason, so the int flags encode 0=false, 1=true
-	// pos 0 is useDistDepDielec
-	// pos 1 is useHEs
-	// pos 2 is useHVdw
-	// packing the bools into one int saves registers too
-	
 	// start with zero energy
 	double energy = 0;
 	
 	// which atom pair are we calculating?
-	if (get_global_id(0) < numPairs) {
+	if (get_global_id(0) < args->numPairs) {
 		int i = subsetTable[get_global_id(0)];
-	
+		
 		// read atom flags and calculate all the things that use the atom flags in this scope
 		bool bothHeavy;
 		double r2 = 0;
@@ -87,13 +80,13 @@ kernel void calc(
 		int i9 = i*9;
 		
 		// calculate electrostatics
-		if (bothHeavy || useHEs(flags)) {
+		if (bothHeavy || args->useHEs) {
 		
 			double esEnergy = 1;
-			
+		
 			{
-				bool is14Pair = get_global_id(0) < num14Pairs;
-				esEnergy *= is14Pair ? scaledCoulombFactor : coulombFactor;
+				bool is14Pair = get_global_id(0) < args->num14Pairs;
+				esEnergy *= is14Pair ? args->scaledCoulombFactor : args->coulombFactor;
 			}
 			
 			{
@@ -102,14 +95,15 @@ kernel void calc(
 			}
 			
 			{
-				esEnergy /= useDistDepDielec(flags) ? r2 : sqrt(r2);
+				//esEnergy /= useDistDepDielec(flags) ? r2 : sqrt(r2);
+				esEnergy /= args->useDistDepDielec ? r2 : sqrt(r2);
 			}
 			
 			energy += esEnergy;
 		}
 		
 		// calculate vdw
-		if (bothHeavy || useHVdw(flags)) {
+		if (bothHeavy || args->useHVdw) {
 			
 			double Aij, Bij;
 			{
@@ -124,7 +118,7 @@ kernel void calc(
 		}
 		
 		// calculate solvation
-		if (bothHeavy && r2 < solvCutoff2) {
+		if (bothHeavy && r2 < args->solvCutoff2) {
 				
 			double r = sqrt(r2);
 			{

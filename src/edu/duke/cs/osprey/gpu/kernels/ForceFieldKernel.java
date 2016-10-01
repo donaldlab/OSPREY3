@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.gpu.kernels;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.DoubleBuffer;
 import java.nio.IntBuffer;
 
@@ -40,6 +41,8 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 		private CLBuffer<IntBuffer> subsetTable;
 		private CLBuffer<DoubleBuffer> energies;
 		
+		private CLBuffer<ByteBuffer> args;
+		
 		private int workSize;
 		private int groupSize;
 		
@@ -65,7 +68,7 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 				looks to have slight dependency on num atom pairs, but 128 looks like a good compromise for all sizes
 			*/
 			groupSize = 128;
-	
+			
 			// init defaults
 			workSize = 0;
 			ffenergy = null;
@@ -86,6 +89,20 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 			precomputed = context.createBuffer(ffenergy.getPrecomputed(), CLMemory.Mem.READ_ONLY);
 			subsetTable = context.createIntBuffer(ffenergy.getFullSubset().getNumAtomPairs(), CLMemory.Mem.READ_ONLY);
 			
+			// make the args buffer
+			args = context.createByteBuffer(35, CLMemory.Mem.READ_ONLY);
+			ByteBuffer argsBuf = args.getBuffer();
+			argsBuf.rewind();
+			argsBuf.putInt(0); // set by setSubsetInternal()
+			argsBuf.putInt(0); // 
+			argsBuf.putDouble(ffenergy.getCoulombFactor());
+			argsBuf.putDouble(ffenergy.getScaledCoulombFactor());
+			argsBuf.putDouble(ffenergy.getSolvationCutoff2());
+			argsBuf.put((byte)(ffenergy.useDistDependentDielectric() ? 1 : 0));
+			argsBuf.put((byte)(ffenergy.useHElectrostatics() ? 1 : 0));
+			argsBuf.put((byte)(ffenergy.useHVdw() ? 1 : 0));
+			argsBuf.flip();
+			
 			// set the subset
 			subset = null;
 			setSubsetInternal(ffenergy.getFullSubset());
@@ -94,26 +111,14 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 			// this makes sure we have the biggest energy buffer we'll ever need
 			energies = context.createDoubleBuffer(getEnergySize(), CLMemory.Mem.WRITE_ONLY);
 			
-			// set kernel args
 			getKernel().getCLKernel()
 				.setArg(0, coords)
 				.setArg(1, atomFlags)
 				.setArg(2, precomputed)
 				.setArg(3, subsetTable)
 				.setArg(4, energies)
-				// args 4 and 5 set by setSubset()
-				.setArg(7, ffenergy.getCoulombFactor())
-				.setArg(8, ffenergy.getScaledCoulombFactor())
-				.setArg(9, ffenergy.getSolvationCutoff2())
-				// opencl kernels don't support boolean args, so encode as int
-				// but bitpack them to save on registers (we're really low on registers in the kernel!)
-				.setArg(10,
-					(ffenergy.useDistDependentDielectric() ? 1 : 0)
-					| (ffenergy.useHElectrostatics() ? 1 : 0) << 1
-					| (ffenergy.useHVdw() ? 1 : 0) << 2
-				)
-				// allocate the gpu local memory
-				.setNullArg(11, groupSize*Double.BYTES);
+				.setArg(5, args)
+				.setNullArg(6, groupSize*Double.BYTES);
 		}
 		
 		public BigForcefieldEnergy.Subset getSubset() {
@@ -137,19 +142,19 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 			// make sure the total work size is a multiple of the group size
 			workSize = roundUpWorkSize(subset.getNumAtomPairs(), groupSize);
 			
-			// update kernel args
-			getKernel().getCLKernel()
-				.setArg(5, subset.getNumAtomPairs())
-				.setArg(6, subset.getNum14AtomPairs());
+			// update kernel args and upload
+			ByteBuffer argsBuf = args.getBuffer();
+			argsBuf.rewind();
+			argsBuf.putInt(subset.getNumAtomPairs());
+			argsBuf.putInt(subset.getNum14AtomPairs());
+			argsBuf.rewind();
+			uploadBufferAsync(args);
 			
-			// copy the subset table to the upload buffer
+			// upload subset table
 			subsetTable.getBuffer().clear();
 			subset.getSubsetTable().rewind();
 			subsetTable.getBuffer().put(subset.getSubsetTable());
-			
-			// IMPORTANT: rewind the buffers before uploading, otherwise we get garbage on the gpu
 			subsetTable.getBuffer().rewind();
-			
 			uploadBufferAsync(subsetTable);
 		}
 		
@@ -159,9 +164,11 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 			// IMPORTANT: rewind the buffers before uploading, otherwise we get garbage on the gpu
 			atomFlags.getBuffer().rewind();
 			precomputed.getBuffer().rewind();
+			args.getBuffer().rewind();
 			
 			uploadBufferAsync(atomFlags);
 			uploadBufferAsync(precomputed);
+			uploadBufferAsync(args);
 		}
 		
 		public void uploadCoordsAsync() {
@@ -181,15 +188,26 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 			runAsync(workSize, groupSize);
 		}
 		
-		public DoubleBuffer downloadEnergiesSync() {
+		public double downloadEnergySync() {
 			checkInit();
 			
 			// IMPORTANT!! rewind the output buffer before downloading energies
 			// otherwise we get weird segfaults in nvidia's opencl driver that are next to impossible to diagnose!
 			energies.getBuffer().rewind();
-			
 			downloadBufferSync(energies);
-			return energies.getBuffer();
+			
+			DoubleBuffer buf = energies.getBuffer();
+			
+			// do the last bit of the energy sum on the cpu
+			// add one element per work group on the gpu
+			// typically, it's a factor of groupSize less than the number of atom pairs
+			double energy = subset.getInternalSolvationEnergy();
+			buf.rewind();
+			int n = getEnergySize();
+			for (int i=0; i<n; i++) {
+				energy += buf.get();
+			}
+			return energy;
 		}
 		
 		public int getEnergySize() {
@@ -201,6 +219,7 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 				+ atomFlags.getCLCapacity()*Integer.BYTES
 				+ precomputed.getCLCapacity()*Double.BYTES
 				+ subsetTable.getCLCapacity()*Integer.BYTES
+				+ args.getCLCapacity()
 				+ getEnergySize()*Double.BYTES // global kernel memory to save the reduction results
 				+ groupSize*Double.BYTES; // local kernel memory for the reduction
 		}
@@ -211,6 +230,7 @@ public class ForceFieldKernel extends Kernel<ForceFieldKernel.Bound> {
 			atomFlags.release();
 			precomputed.release();
 			subsetTable.release();
+			args.release();
 			energies.release();
 		}
 		

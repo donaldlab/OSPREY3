@@ -102,11 +102,12 @@ public class BenchmarkForcefieldKernel extends TestBase {
 			numThreadsList.add(i);
 		}
 		
+		/*
 		System.out.println("\nFull conf energy:");
-		//benchmarkEfunc(
-		//	1000,
-		profileEfunc(
-			5000,
+		benchmarkEfunc(
+			1000,
+		//profileEfunc(
+		//	5000,
 			search.confSpace.m,
 			new Factory<EnergyFunction,Molecule>() {
 				@Override
@@ -122,10 +123,11 @@ public class BenchmarkForcefieldKernel extends TestBase {
 			},
 			numThreadsList
 		);
+		*/
 		
 		System.out.println("\nIntra and shell energy:");
-		//benchmarkEfunc(
-		profileEfunc(
+		benchmarkEfunc(
+		//profileEfunc(
 			40000,
 			search.confSpace.m,
 			new Factory<EnergyFunction,Molecule>() {
@@ -145,6 +147,7 @@ public class BenchmarkForcefieldKernel extends TestBase {
 			numThreadsList
 		);
 		
+		/*
 		System.out.println("\nPairwise energy:");
 		// GPU is actually significantly slower for these terms
 		// transfers between the CPU and GPU cause a LOT of overhead!
@@ -155,8 +158,8 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		Residue res2 = search.confSpace.posFlex.get(2).res; // GLY
 		//Residue res1 = search.confSpace.m.getResByPDBResNumber("65"); // LYS
 		//Residue res2 = search.confSpace.m.getResByPDBResNumber("68"); // ARG
-		//benchmarkEfunc(
-		profileEfunc(
+		benchmarkEfunc(
+		//profileEfunc(
 			50000,
 			search.confSpace.m,
 			new Factory<EnergyFunction,Molecule>() {
@@ -173,6 +176,7 @@ public class BenchmarkForcefieldKernel extends TestBase {
 			},
 			numThreadsList
 		);
+		*/
 	}
 	
 	private static Residue getResidue(Residue res, Molecule mol) {
@@ -274,8 +278,7 @@ public class BenchmarkForcefieldKernel extends TestBase {
 								energy = gpuefunc.getEnergy();
 							}
 							
-							// TEMP
-							//checkEnergy(expectedEnergy, energy);
+							checkEnergy(expectedEnergy, energy);
 						
 						} finally {
 							gpuefunc.cleanup();
@@ -331,8 +334,7 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		}
 		System.out.println("us per op: " + TimeFormatter.format(stopwatch.getTimeNs()/numRuns, TimeUnit.MICROSECONDS));
 		
-		// TEMP
-		//checkEnergy(expectedEnergy, energy);
+		checkEnergy(expectedEnergy, energy);
 		
 		gpuefunc.cleanup();
 	}
@@ -342,7 +344,7 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		double absErr = Math.abs(exp - obs);
 		double relErr = absErr/Math.abs(exp);
 		if (relErr > Epsilon) {
-			throw new Error(String.format("Wrong energy! exp: %12.6f  obs: %12.6f  absErr: %12.6f  relErr: %12.6f",
+			System.out.println(String.format("Wrong energy! exp: %12.6f  obs: %12.6f  absErr: %12.6f  relErr: %12.6f",
 				exp, obs, absErr, relErr
 			));
 		}
