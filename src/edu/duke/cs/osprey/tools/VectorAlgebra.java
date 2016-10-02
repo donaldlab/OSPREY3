@@ -9,8 +9,38 @@ package edu.duke.cs.osprey.tools;
  * @author mhall44
  */
 public class VectorAlgebra {
-   
+
+    public static final double[] UnitX = { 1, 0, 0 };
+    public static final double[] UnitY = { 0, 1, 0 };
+    public static final double[] UnitZ = { 0, 0, 1 };
+
+    public static double[] make() {
+        return new double[3];
+    }
     
+    public static double[] make(double[] src) {
+        double[] out = make();
+        copy(src, out);
+        return out;
+    }
+    
+    public static void set(double[] out, double x, double y, double z) {
+        out[0] = x;
+        out[1] = y;
+        out[2] = z;
+    }
+    
+    public static void copy(double[] src, double[] dest) {
+        System.arraycopy(src, 0, dest, 0, 3);
+    }
+   
+    public static void copy(double[] src, int srcOffset, double[] dest) {
+        System.arraycopy(src, srcOffset, dest, 0, 3);
+    }
+    
+    public static void copy(double[] src, double[] dest, int destOffset) {
+        System.arraycopy(src, 0, dest, destOffset, 3);
+    }
     
     public static double distance(double[] coords1, int atNum1, double[] coords2, int atNum2){
         //we're given two arrays of coordinates (concatenated 3-D coordinates of atoms)
@@ -53,6 +83,12 @@ public class VectorAlgebra {
         }
         return ans;
     }
+    
+    public static void addInPlace(double[] a, double[] b) {
+        a[0] += b[0];
+        a[1] += b[1];
+        a[2] += b[2];
+    }
 
     public static double[] subtract(double[] x, double[] y){
         double ans[] = new double[x.length];
@@ -60,6 +96,12 @@ public class VectorAlgebra {
             ans[a] = x[a]-y[a];
 
         return ans;
+    }
+    
+    public static void subtractInPlace(double[] a, double[] b) {
+       a[0] -= b[0];
+       a[1] -= b[1];
+       a[2] -= b[2];
     }
 
 
@@ -81,7 +123,7 @@ public class VectorAlgebra {
 
 
     public static double[] parallelComponent(double[] vec1, double[] vec2){//Component of vec1 parallel to vec2
-        return scale( vec2, dot(vec1,vec2) / (norm(vec2)*norm(vec2)) );
+        return scale( vec2, dot(vec1,vec2) / dot(vec2,vec2) );
     }
 
     public static double[] perpendicularComponent(double[] vec1, double[] vec2){//Component of vec1 perpendicular to vec2
@@ -107,6 +149,13 @@ public class VectorAlgebra {
 
     public static double[] normalize(double vec[]){
         return scale( vec, 1.0/norm(vec) );
+    }
+    
+    public static void normalizeInPlace(double v[]) {
+        double length = norm(v);
+        v[0] /= length;
+        v[1] /= length;
+        v[2] /= length;
     }
 
 
@@ -167,5 +216,21 @@ public class VectorAlgebra {
         return coeffs;
     }
     
-
+    public static void rotate(double[] inout, double[] x, double[] y, double[] z) {
+        double out0 = inout[0]*x[0] + inout[1]*y[0] + inout[2]*z[0];
+        double out1 = inout[0]*x[1] + inout[1]*y[1] + inout[2]*z[1];
+        double out2 = inout[0]*x[2] + inout[1]*y[2] + inout[2]*z[2];
+        inout[0] = out0;
+        inout[1] = out1;
+        inout[2] = out2;
+    }
+    
+    public static void rotateInverse(double[] inout, double[] x, double[] y, double[] z) {
+        double out0 = dot(inout, x);
+        double out1 = dot(inout, y);
+        double out2 = dot(inout, z);
+        inout[0] = out0;
+        inout[1] = out1;
+        inout[2] = out2;
+    }
 }

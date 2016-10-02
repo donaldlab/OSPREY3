@@ -1,18 +1,26 @@
 package edu.duke.cs.osprey.minimization;
 
+import static edu.duke.cs.osprey.tools.VectorAlgebra.*;
+
+import java.util.List;
+
 import cern.colt.matrix.DoubleMatrix1D;
+import edu.duke.cs.osprey.dof.FreeDihedral;
+import edu.duke.cs.osprey.energy.EnergyFunction;
+import edu.duke.cs.osprey.structure.Residue;
 
 public class GpuStyleSurfingLineSearcher implements LineSearcher {
 	
 	private static final double Tolerance = 1e-6;
 	private static final double InitialStepSize = 0.25; // for dihedral dofs, TODO: make configurable
 	
+	private EnergyFunction efunc;
+	private FreeDihedral dof;
+	
 	private double firstStep;
 	private double lastStep;
 	private int iteration;
 	
-	private ObjectiveFunction f;
-	private int dof;
 	private double xdmin;
 	private double xdmax;
 	private double xd;
@@ -33,6 +41,10 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 	private double xdsurfHere;
 	private double fxdsurfHere;
 	
+	private double[] coords;
+	private int[] dihedralAtomIndices;
+	private int[] rotatedAtomIndices;
+	
 	private boolean doEnergy;
 	private double energyxd;
 	private double energyfxd;
@@ -44,10 +56,13 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 	}
 	
 	@Override
-	public void search(ObjectiveFunction f, DoubleMatrix1D x, int dof, DoubleMatrix1D mins, DoubleMatrix1D maxs) {
+	public void search(ObjectiveFunction f, DoubleMatrix1D x, int d, DoubleMatrix1D mins, DoubleMatrix1D maxs) {
 		
-		this.f = f;
-		this.dof = dof;
+		// HACKHACK: break the interfaces to get the pieces we need
+		// the runtime will complain if we can't do these casts, so we're still safe, but the compiler has no idea what's going on
+		MoleculeModifierAndScorer mof = (MoleculeModifierAndScorer)f;
+		this.efunc = mof.getEfunc(d);
+		this.dof = (FreeDihedral)mof.getDOFs().get(d);
 		
 		// get the step size, try to make it adaptive (based on historical steps if possible; else on step #)
 		if (Math.abs(lastStep) > Tolerance && Math.abs(firstStep) > Tolerance) {
@@ -60,35 +75,53 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 		// so they can only communicate via shared memory
 		
 		// init memory
-		xdmin = mins.get(dof);
-		xdmax = maxs.get(dof);
-		xd = x.get(dof);
+		xdmin = mins.get(d);
+		xdmax = maxs.get(d);
+		xd = x.get(d);
+		
+		Residue res = dof.getResidue();
+		coords = res.coords;
+		dihedralAtomIndices = res.template.getDihedralDefiningAtoms(dof.getDihedralNumber());
+		List<Integer> rotatedAtomIndicesList = res.template.getDihedralRotatedAtoms(dof.getDihedralNumber());
+		rotatedAtomIndices = new int[rotatedAtomIndicesList.size()];
+		for (int i=0; i<rotatedAtomIndicesList.size(); i++) {
+			rotatedAtomIndices[i] = rotatedAtomIndicesList.get(i);
+		}
 		
 		// init first energy calc
 		doEnergy = true;
 		energyxd = xd;
 		
-		// INPUTS: xdmin, xdmax, xd, doEnergy, energyxd
+		// INPUTS: xdmin, xdmax, xd, coords, dihedralAtomIndices, rotatedAtomIndices, doEnergy, energyxd
 		
+		pose();
 		energy();
 		search1();
+		pose();
 		energy();
 		search2();
+		pose();
 		energy();
 		search3();
+		pose();
 		energy();
 		search4();
+		pose();
 		energy();
 		search5();
+		pose();
 		energy();
 		search6();
 		for (int i=0; i<10; i++) {
 			searchSurf();
+			pose();
 			energy();
 		}
 		search7();
+		pose();
 		energy();
 		search8();
+		pose();
 		energy();
 		search9();
 		
@@ -101,16 +134,90 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 		}
 
 		// update the dofs and the conf
-		x.set(dof, xdstar);
-		f.setDOF(dof, xdstar);
+		x.set(d, xdstar);
+		f.setDOF(d, xdstar);
 		
 		iteration++;
 	}
 	
-	private void energy() {
-		if (doEnergy) {
-			energyfxd = f.getValForDOF(dof, energyxd);
+	private void pose() {
+		
+		if (!doEnergy) {
+			return;
 		}
+		
+		// too easy... gotta make it harder =P
+		//dof.apply(energyxd);
+		
+		// NOTE: simulate the vector types on the gpu to make porting the logic easier
+		
+		// get the old dihedral
+		
+		// get the four atom positions: a, b, c, d
+		double[] a = make();
+		double[] b = make();
+		double[] c = make();
+		double[] d = make();
+		
+		copy(coords, dihedralAtomIndices[0]*3, a);
+		copy(coords, dihedralAtomIndices[1]*3, b);
+		copy(coords, dihedralAtomIndices[2]*3, c);
+		copy(coords, dihedralAtomIndices[3]*3, d);
+		
+		// translate so everything is centered on b
+		subtractInPlace(a, b);
+		subtractInPlace(c, b);
+		subtractInPlace(d, b);
+		
+		// build a right orthnormal matrix [rx,ry,rz] where z is bc and ba points along x
+		double[] rz = make(c);
+		normalizeInPlace(rz);
+		double[] rx = subtract(a, scale(c, dot(a, c)/dot(c, c)));
+		normalizeInPlace(rx);
+		double[] ry = cross(rz, rx);
+		normalizeInPlace(ry);
+		
+		// use r^{-1} to rotate d into our axis-aligned space
+		rotateInverse(d, rx, ry, rz);
+		
+		// look at the x,y coords of d to get the dihedral angle
+		d[2] = 0;
+		normalizeInPlace(d);
+		double currentSin = d[1];
+		double currentCos = d[0];
+		
+		// get the delta dihedral
+		double newDihedral = Math.toRadians(energyxd);
+		double newSin = Math.sin(newDihedral);
+		double newCos = Math.cos(newDihedral);
+		double deltaSin = newSin*currentCos - newCos*currentSin;
+		double deltaCos = newCos*currentCos + newSin*currentSin;
+		
+		// build the delta rotation matrix about z by angle deltaDihedral
+		double[] dx = { deltaCos, deltaSin, 0 };
+		double[] dy = { -deltaSin, deltaCos, 0 };
+		double[] dz = UnitZ;
+		
+		// apply transformation to every downstream atom
+		double[] p = make();
+		for (int index : rotatedAtomIndices) {
+			copy(coords, index*3, p);
+			subtractInPlace(p, b);
+			rotateInverse(p, rx, ry, rz);
+			rotate(p, dx, dy, dz);
+			rotate(p, rx, ry, rz);
+			addInPlace(p, b);
+			copy(p, coords, index*3);
+		}
+	}
+	
+	private void energy() {
+		
+		if (!doEnergy) {
+			return;
+		}
+		
+		energyfxd = efunc.getEnergy();
 	}
 	
 	private void search1() {

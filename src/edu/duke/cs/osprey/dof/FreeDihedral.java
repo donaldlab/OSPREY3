@@ -98,6 +98,10 @@ public class FreeDihedral extends DegreeOfFreedom {
     @Override
     public Residue getResidue() { return res; }
     
+    public int getDihedralNumber() {
+    	return dihedralNum;
+    }
+    
     @Override
     public DegreeOfFreedom copy() {
         return new FreeDihedral(res, dihedralNum);

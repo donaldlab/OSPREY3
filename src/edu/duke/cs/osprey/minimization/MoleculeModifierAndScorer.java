@@ -362,6 +362,13 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
     public EnergyFunction getEfunc() {
         return efunc;
     }
+    
+    public EnergyFunction getEfunc(int dof) {
+        if(partialEFuncs == null) {
+            return null;
+        }
+        return partialEFuncs.get(dof);
+    }
 
     public void setEfunc(EnergyFunction efunc) {
         
