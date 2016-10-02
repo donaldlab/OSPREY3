@@ -5,6 +5,7 @@ import java.util.List;
 
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
+import edu.duke.cs.osprey.tools.Factory;
 
 public class SimpleCCDMinimizer implements Minimizer {
 	
@@ -14,22 +15,30 @@ public class SimpleCCDMinimizer implements Minimizer {
 	private ObjectiveFunction ofunc;
 	private List<Integer> dofs;
 	private List<LineSearcher> lineSearchers;
+	private DoubleMatrix1D mins;
+	private DoubleMatrix1D maxs;
+	private DoubleMatrix1D vals;
 
 	public SimpleCCDMinimizer(ObjectiveFunction ofunc) {
-		this.ofunc = ofunc;
-		this.lineSearchers = new ArrayList<>();
+		this(ofunc, new Factory<LineSearcher,Void>() {
+			@Override
+			public LineSearcher make(Void context) {
+				return new SurfingLineSearcher();
+			}
+		});
 	}
 	
-	@Override
-	public DoubleMatrix1D minimize() {
+	public SimpleCCDMinimizer(ObjectiveFunction ofunc, Factory<LineSearcher,Void> lineSearchers) {
+		
+		this.ofunc = ofunc;
 		
 		// get bounds
 		int numDofs = ofunc.getNumDOFs();
-		DoubleMatrix1D mins = ofunc.getConstraints()[0];
-		DoubleMatrix1D maxs = ofunc.getConstraints()[1];
+		mins = ofunc.getConstraints()[0];
+		maxs = ofunc.getConstraints()[1];
 		
 		// set initial values to the center of the bounds
-		DoubleMatrix1D vals = DoubleFactory1D.dense.make(numDofs);
+		vals = DoubleFactory1D.dense.make(numDofs);
 		for (int i=0; i<numDofs; i++) {
 			vals.set(i, (maxs.get(i) + mins.get(i))/2);
 		}
@@ -45,16 +54,14 @@ public class SimpleCCDMinimizer implements Minimizer {
 		}
 		
 		// init the line searchers
+		this.lineSearchers = new ArrayList<>();
 		for (int i=0; i<dofs.size(); i++) {
-			lineSearchers.add(new SurfingLineSearcher());
+			this.lineSearchers.add(lineSearchers.make(null));
 		}
-		
-		ccd(mins, maxs, vals);
-		
-		return vals;
 	}
 	
-	private double ccd(DoubleMatrix1D mins, DoubleMatrix1D maxs, DoubleMatrix1D vals) {
+	@Override
+	public DoubleMatrix1D minimize() {
 		
 		// ccd is pretty simple actually
 		// just do a line search along each dimension until we stop improving
@@ -75,7 +82,7 @@ public class SimpleCCDMinimizer implements Minimizer {
 			if (curf - nextf < ConvergenceThreshold) {
 				
 				// nope, we're done
-				return nextf;
+				break;
 				
 			} else {
 				
@@ -84,6 +91,6 @@ public class SimpleCCDMinimizer implements Minimizer {
 			}
 		}
 		
-		return curf;
+		return vals;
 	}
 }

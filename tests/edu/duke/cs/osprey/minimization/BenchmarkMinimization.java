@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.minimization;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -18,6 +19,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
@@ -30,6 +32,7 @@ import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Factory;
+import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
@@ -68,14 +71,20 @@ public class BenchmarkMinimization extends TestBase {
 		);
 		
 		// calc the energy matrix
-		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
-		tasks.start(2);
-		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(EnvironmentVars.curEFcnGenerator, search.confSpace, search.shellResidues);
-		search.emat = new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix(tasks);
-		tasks.stop();
+		File ematFile = new File("/tmp/benchmarMinimization.emat.dat");
+		if (ematFile.exists()) {
+			search.emat = (EnergyMatrix)ObjectIO.readObject(ematFile.getAbsolutePath(), false);
+		} else {
+			ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
+			tasks.start(2);
+			SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(EnvironmentVars.curEFcnGenerator, search.confSpace, search.shellResidues);
+			search.emat = new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix(tasks);
+			tasks.stop();
+			ObjectIO.writeObject(search.emat, ematFile.getAbsolutePath());
+		}
 		
 		// settings
-		final int numConfs = 64;//512;
+		final int numConfs = 8;//64;//512;
 		
 		// get a few arbitrary conformations
 		search.pruneMat = new PruningMatrix(search.confSpace, 1000);
@@ -161,7 +170,12 @@ public class BenchmarkMinimization extends TestBase {
 		Factory<Minimizer,MoleculeModifierAndScorer> simpleMinimizers = new Factory<Minimizer,MoleculeModifierAndScorer>() {
 			@Override
 			public Minimizer make(MoleculeModifierAndScorer mof) {
-				return new SimpleCCDMinimizer(mof);
+				return new SimpleCCDMinimizer(mof, new Factory<LineSearcher,Void>() {
+					@Override
+					public LineSearcher make(Void context) {
+						return new GpuStyleSurfingLineSearcher();
+					}
+				});
 			}
 		};
 		
@@ -303,7 +317,7 @@ public class BenchmarkMinimization extends TestBase {
 			-103.20811235101901, -103.32709352530163
 		};
 		
-		final double Epsilon = 1e-6;
+		final double Epsilon = 1e-3;
 		
 		int n = minimizedConfs.size();
 		for (int i=0; i<n; i++) {
@@ -313,11 +327,9 @@ public class BenchmarkMinimization extends TestBase {
 			if (i < expectedEnergies.length) {
 				
 				double absErr = energy - expectedEnergies[i];
-				double relErr = absErr/Math.abs(expectedEnergies[i]);
-				if (relErr > Epsilon) {
-					System.out.println(String.format("\tWARNING: low precision energy: exp:%12.8f  obs:%12.8f  absErr:%12.8f  relErr:%12.8f",
-						expectedEnergies[i], energy,
-						absErr, relErr
+				if (absErr > Epsilon) {
+					System.out.println(String.format("\tWARNING: low precision energy: exp:%12.8f  obs:%12.8f  absErr:%12.8f",
+						expectedEnergies[i], energy, absErr
 					));
 				}
 				
