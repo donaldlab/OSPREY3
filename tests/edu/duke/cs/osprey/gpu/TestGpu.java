@@ -29,9 +29,8 @@ public class TestGpu {
 		
 		final int NumRuns = 10;
 		
-		Gpu gpu = Gpus.get().getBestGpu();
-		GpuQueue queue = new GpuQueue(gpu);
-		TestFancyKernel.Bound kernel = new TestFancyKernel(gpu).bind(queue);
+		GpuQueue queue = new GpuQueue(Gpus.get().getBestGpu());
+		TestFancyKernel kernel = new TestFancyKernel(queue);
 		
 		// copy data to buffers
 		kernel.setArgs(n);
@@ -60,5 +59,6 @@ public class TestGpu {
 		}
 		
 		kernel.cleanup();
+		queue.cleanup();
 	}
 }

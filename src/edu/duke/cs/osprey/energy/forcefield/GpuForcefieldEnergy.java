@@ -31,13 +31,13 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	
 	private class KernelBuilder {
 		
-		private ForceFieldKernel.Bound kernel;
+		private ForceFieldKernel kernel;
 		
 		public KernelBuilder() {
 			kernel = null;
 		}
 		
-		public ForceFieldKernel.Bound get() {
+		public ForceFieldKernel get() {
 			
 			// do we need to rebuild the forcefield?
 			// NOTE: make sure we check for chemical changes even if the kernel is null
@@ -53,7 +53,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 				try {
 					
 					// prep the kernel, upload precomputed data
-					kernel = new ForceFieldKernel(queue.getGpu()).bind(queue);
+					kernel = new ForceFieldKernel(queue);
 					kernel.setForcefield(new BigForcefieldEnergy(ffparams, interactions, true));
 					kernel.uploadStaticAsync();
 					
@@ -133,7 +133,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		return queuePool != null;
 	}
 	
-	public ForceFieldKernel.Bound getKernel() {
+	public ForceFieldKernel getKernel() {
 		return kernelBuilder.get();
 	}
 	
@@ -159,7 +159,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		// dump gpu profile
 		buf.append("GPU Profile:\n");
 		Map<CommandType,Long> sums = new EnumMap<>(CommandType.class);
-		ForceFieldKernel.Bound kernel = getKernel();
+		ForceFieldKernel kernel = getKernel();
 		CLEventList events = kernel.getProfilingEvents();
 		for (CLEvent event : events) {
 			try {
@@ -205,7 +205,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		}
 		
 		// upload data
-		ForceFieldKernel.Bound kernel = getKernel();
+		ForceFieldKernel kernel = getKernel();
 		kernel.setSubset(getSubset());
 		kernel.uploadCoordsAsync();
 		
