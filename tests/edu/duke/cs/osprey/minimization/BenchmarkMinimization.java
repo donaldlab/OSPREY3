@@ -178,6 +178,17 @@ public class BenchmarkMinimization extends TestBase {
 				});
 			}
 		};
+		Factory<Minimizer,MoleculeModifierAndScorer> gpuSimpleMinimizers = new Factory<Minimizer,MoleculeModifierAndScorer>() {
+			@Override
+			public Minimizer make(MoleculeModifierAndScorer mof) {
+				return new SimpleCCDMinimizer(mof, new Factory<LineSearcher,Void>() {
+					@Override
+					public LineSearcher make(Void context) {
+						return new GpuSurfingLineSearcher();
+					}
+				});
+			}
+		};
 		
 		// make efuncs
 		Factory<EnergyFunction,Molecule> efuncs = new Factory<EnergyFunction,Molecule>() {
@@ -197,31 +208,38 @@ public class BenchmarkMinimization extends TestBase {
 		
 		List<EnergiedConf> minimizedConfs;
 		
+		/*
 		System.out.println("\nbenchmarking CPU fast...");
 		Stopwatch cpuFastStopwatch = new Stopwatch().start();
 		minimizedConfs = new ConfMinimizer(fastMinimizers).minimize(confs, efuncs, search.confSpace);
 		System.out.println("precise timing: " + cpuFastStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
 		checkEnergies(minimizedConfs);
+		*/
+		//Stopwatch cpuFastStopwatch = new Stopwatch().start().stop();
 		
+		/*
 		System.out.println("\nbenchmarking CPU simple...");
 		Stopwatch cpuSimpleStopwatch = new Stopwatch().start();
 		minimizedConfs = new ConfMinimizer(simpleMinimizers).minimize(confs, efuncs, search.confSpace);
 		System.out.print("precise timing: " + cpuSimpleStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
 		System.out.println(String.format(", speedup: %.2fx", (double)cpuFastStopwatch.getTimeNs()/cpuSimpleStopwatch.getTimeNs()));
 		checkEnergies(minimizedConfs);
+		*/
 		
 		System.out.println("\nbenchmarking GPU fast...");
 		Stopwatch gpuFastStopwatch = new Stopwatch().start();
 		minimizedConfs = new ConfMinimizer(fastMinimizers).minimize(confs, gpuefuncs, search.confSpace);
 		System.out.print("precise timing: " + gpuFastStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
-		System.out.println(String.format(", speedup: %.2fx", (double)cpuFastStopwatch.getTimeNs()/gpuFastStopwatch.getTimeNs()));
+		//System.out.println(String.format(", speedup: %.2fx", (double)cpuFastStopwatch.getTimeNs()/gpuFastStopwatch.getTimeNs()));
+		System.out.println();
 		checkEnergies(minimizedConfs);
 		
 		System.out.println("\nbenchmarking GPU simple...");
 		Stopwatch gpuSimpleStopwatch = new Stopwatch().start();
-		minimizedConfs = new ConfMinimizer(simpleMinimizers).minimize(confs, gpuefuncs, search.confSpace);
+		minimizedConfs = new ConfMinimizer(gpuSimpleMinimizers).minimize(confs, gpuefuncs, search.confSpace);
 		System.out.print("precise timing: " + gpuSimpleStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
-		System.out.println(String.format(", speedup: %.2fx", (double)cpuFastStopwatch.getTimeNs()/gpuSimpleStopwatch.getTimeNs()));
+		//System.out.println(String.format(", speedup: %.2fx", (double)cpuFastStopwatch.getTimeNs()/gpuSimpleStopwatch.getTimeNs()));
+		System.out.println(String.format(", speedup: %.2fx", (double)gpuFastStopwatch.getTimeNs()/gpuSimpleStopwatch.getTimeNs()));
 		checkEnergies(minimizedConfs);
 	}
 	

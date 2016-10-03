@@ -16,7 +16,7 @@ bool isHydrogen(int flags) {
 	return flags > 0;
 }
 
-typedef struct {
+typedef struct __attribute__((aligned(8))) {
 	int numPairs; // 4
 	int num14Pairs; // 4
 	double coulombFactor; // 8

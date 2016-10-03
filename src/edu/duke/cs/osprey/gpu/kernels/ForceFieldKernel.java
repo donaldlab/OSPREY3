@@ -73,7 +73,7 @@ public class ForceFieldKernel extends Kernel {
 		
 		// allocate some of the buffers we need
 		CLContext context = getQueue().getCLQueue().getContext();
-		coords = context.createBuffer(ffenergy.getCoords(), CLMemory.Mem.READ_ONLY);
+		coords = context.createBuffer(ffenergy.getCoords(), CLMemory.Mem.READ_WRITE);
 		atomFlags = context.createBuffer(ffenergy.getAtomFlags(), CLMemory.Mem.READ_ONLY);
 		precomputed = context.createBuffer(ffenergy.getPrecomputed(), CLMemory.Mem.READ_ONLY);
 		subsetTable = context.createIntBuffer(ffenergy.getFullSubset().getNumAtomPairs(), CLMemory.Mem.READ_ONLY);
@@ -175,6 +175,11 @@ public class ForceFieldKernel extends Kernel {
 		coords.getBuffer().rewind();
 		
 		uploadBufferAsync(coords);
+	}
+	
+	public void downloadCoordsSync() {
+		coords.getBuffer().rewind();
+		downloadBufferSync(coords);
 	}
 
 	public void runAsync() {

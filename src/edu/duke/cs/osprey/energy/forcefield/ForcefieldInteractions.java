@@ -1,7 +1,9 @@
 package edu.duke.cs.osprey.energy.forcefield;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions.AtomGroup;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
@@ -56,13 +58,24 @@ public class ForcefieldInteractions extends ArrayList<AtomGroup[]> {
 		}
 	}
 	
+	private Map<Integer,AtomGroup> groupsById;
+	
+	public ForcefieldInteractions() {
+		groupsById = new HashMap<>();
+	}
+	
 	public void addResidue(Residue res) {
 		AtomGroup group = new ResidueAtomGroup(res);
+		groupsById.put(group.getId(), group);
 		add(new AtomGroup[] { group, group });
 	}
 	
 	public void addResiduePair(Residue res1, Residue res2) {
-		add(new AtomGroup[] { new ResidueAtomGroup(res1), new ResidueAtomGroup(res2) });
+		AtomGroup group1 = new ResidueAtomGroup(res1);
+		AtomGroup group2 = new ResidueAtomGroup(res2);
+		groupsById.put(group1.getId(), group1);
+		groupsById.put(group2.getId(), group2);
+		add(new AtomGroup[] { group1, group2 });
 	}
 	
 	public ForcefieldInteractions makeSubsetByResidue(Residue res) {
@@ -73,5 +86,13 @@ public class ForcefieldInteractions extends ArrayList<AtomGroup[]> {
 			}
 		}
 		return subInteractions;
+	}
+	
+	public ResidueAtomGroup getResidueAtomGroup(Residue res) {
+		AtomGroup group = groupsById.get(res.indexInMolecule);
+		if (group instanceof ResidueAtomGroup) {
+			return (ResidueAtomGroup)group;
+		}
+		return null;
 	}
 }

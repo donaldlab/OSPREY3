@@ -98,6 +98,7 @@ public class BigForcefieldEnergy implements EnergyFunction {
 	private static final double solvCutoff = 9.0;
 	
 	private ForcefieldParams params;
+	private ForcefieldInteractions interactions;
 	private Groups groups;
 	
 	// NOTE: use buffers here instead of arrays to make syncing with GPU easier
@@ -129,6 +130,7 @@ public class BigForcefieldEnergy implements EnergyFunction {
 		// TODO: implement dynamic vs static atom groups
 		
 		this.params = params;
+		this.interactions = interactions;
 		
 		// get one list of the unique atom groups in a stable order
 		// (this is all the variable info, collecting it in one place will make uploading to the gpu faster)
@@ -315,8 +317,20 @@ public class BigForcefieldEnergy implements EnergyFunction {
 		return params;
 	}
 	
+	public ForcefieldInteractions getInteractions() {
+		return interactions;
+	}
+	
 	public DoubleBuffer getCoords() {
 		return coords;
+	}
+	
+	public int getAtomOffset(AtomGroup group) {
+		Integer groupIndex = groups.getGroupIndex(group);
+		if (groupIndex == null) {
+			throw new IllegalArgumentException("group not found");
+		}
+		return getGlobalAtomIndex(groupIndex, 0);
 	}
 	
 	public IntBuffer getAtomFlags() {

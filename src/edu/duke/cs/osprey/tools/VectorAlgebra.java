@@ -4,6 +4,8 @@
  */
 package edu.duke.cs.osprey.tools;
 
+import java.nio.DoubleBuffer;
+
 /**
  *
  * @author mhall44
@@ -40,6 +42,26 @@ public class VectorAlgebra {
     
     public static void copy(double[] src, double[] dest, int destOffset) {
         System.arraycopy(src, 0, dest, destOffset, 3);
+    }
+    
+    public static void copy(double[] src, DoubleBuffer dest, int destOffset) {
+    	copy(src, 0, dest, destOffset);
+    }
+    
+    public static void copy(double[] src, int srcOffset, DoubleBuffer dest, int destOffset) {
+    	dest.position(destOffset);
+    	dest.put(src, srcOffset, 3);
+    }
+    
+    public static void copy(DoubleBuffer src, int srcOffset, double[] dest) {
+    	copy(src, srcOffset, dest, 0);
+    }
+    
+    public static void copy(DoubleBuffer src, int srcOffset, double[] dest, int destOffset) {
+    	src.position(srcOffset);
+    	dest[destOffset + 0] = src.get();
+    	dest[destOffset + 1] = src.get();
+    	dest[destOffset + 2] = src.get();
     }
     
     public static double distance(double[] coords1, int atNum1, double[] coords2, int atNum2){

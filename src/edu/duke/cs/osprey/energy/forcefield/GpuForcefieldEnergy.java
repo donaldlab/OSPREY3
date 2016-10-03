@@ -207,7 +207,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		// upload data
 		ForceFieldKernel kernel = getKernel();
 		kernel.setSubset(getSubset());
-		kernel.uploadCoordsAsync();
+		kernel.updateAndUploadCoordsAsync();
 		
 		if (isProfiling) {
 			kernel.waitForGpu();
