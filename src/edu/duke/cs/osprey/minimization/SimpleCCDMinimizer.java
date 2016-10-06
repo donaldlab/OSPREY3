@@ -7,78 +7,81 @@ import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.tools.Factory;
 
-public class SimpleCCDMinimizer implements Minimizer {
+public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup {
 	
 	private static final double MaxIterations = 30; // same as CCDMinimizer
 	private static final double ConvergenceThreshold = 0.001; // same as CCDMinimizer
 	
-	private ObjectiveFunction ofunc;
-	private List<Integer> dofs;
+	private ObjectiveFunction f;
+	private List<ObjectiveFunction.OneDof> dofs;
 	private List<LineSearcher> lineSearchers;
-	private DoubleMatrix1D mins;
-	private DoubleMatrix1D maxs;
-	private DoubleMatrix1D vals;
 
 	public SimpleCCDMinimizer(ObjectiveFunction ofunc) {
 		this(ofunc, new Factory<LineSearcher,Void>() {
 			@Override
-			public LineSearcher make(Void context) {
+			public LineSearcher make(Void ignore) {
 				return new SurfingLineSearcher();
 			}
 		});
 	}
 	
-	public SimpleCCDMinimizer(ObjectiveFunction ofunc, Factory<LineSearcher,Void> lineSearchers) {
+	public SimpleCCDMinimizer(ObjectiveFunction f, Factory<LineSearcher,Void> lineSearcherFactory) {
 		
-		this.ofunc = ofunc;
+		this.f = f;
 		
-		// get bounds
-		int numDofs = ofunc.getNumDOFs();
-		mins = ofunc.getConstraints()[0];
-		maxs = ofunc.getConstraints()[1];
-		
-		// set initial values to the center of the bounds
-		vals = DoubleFactory1D.dense.make(numDofs);
-		for (int i=0; i<numDofs; i++) {
-			vals.set(i, (maxs.get(i) + mins.get(i))/2);
-		}
-		
-		// which dofs should we update?
+		// build the dofs
 		dofs = new ArrayList<>();
-		for (int i=0; i<numDofs; i++) {
+		lineSearchers = new ArrayList<>();
+		for (int d=0; d<f.getNumDOFs(); d++) {
 			
-			// is there even a range for this dof?
-			if (mins.get(i) != maxs.get(i)) {
-				dofs.add(i);
+			ObjectiveFunction.OneDof fd = new ObjectiveFunction.OneDof(f, d);
+			dofs.add(fd);
+			
+			if (fd.getXMin() < fd.getXMax()) {
+				LineSearcher lineSearcher = lineSearcherFactory.make(null);
+				lineSearcher.init(fd);
+				lineSearchers.add(lineSearcher);
+			} else {
+				lineSearchers.add(null);
 			}
-		}
-		
-		// init the line searchers
-		this.lineSearchers = new ArrayList<>();
-		for (int i=0; i<dofs.size(); i++) {
-			this.lineSearchers.add(lineSearchers.make(null));
 		}
 	}
 	
 	@Override
 	public DoubleMatrix1D minimize() {
 		
+		// init x to the center of the bounds
+		int n = f.getNumDOFs();
+		DoubleMatrix1D x = DoubleFactory1D.dense.make(n);
+		for (int d=0; d<n; d++) {
+			ObjectiveFunction.OneDof dof = dofs.get(d);
+			x.set(d, (dof.getXMin() + dof.getXMax())/2);
+		}
+		
 		// ccd is pretty simple actually
 		// just do a line search along each dimension until we stop improving
 		// we deal with cycles by just capping the number of iterations
 		
 		// get the current objective function value
-		double curf = ofunc.getValue(vals);
+		double curf = f.getValue(x);
 		
 		for (int iter=0; iter<MaxIterations; iter++) {
 			
 			// update all the dofs using line search
-			for (int i : dofs) {
-				lineSearchers.get(i).search(ofunc, vals, i, mins, maxs);
+			for (int d=0; d<n; d++) {
+				
+				LineSearcher lineSearcher = lineSearchers.get(d);
+				if (lineSearcher != null) {
+					
+					// get the next x value for this dof
+					double xd = x.get(d);
+					xd = lineSearcher.search(xd);
+					x.set(d, xd);
+				}
 			}
 			
 			// did we improve enough to keep going?
-			double nextf = ofunc.getValue(vals);
+			double nextf = f.getValue(x);
 			if (curf - nextf < ConvergenceThreshold) {
 				
 				// nope, we're done
@@ -91,6 +94,15 @@ public class SimpleCCDMinimizer implements Minimizer {
 			}
 		}
 		
-		return vals;
+		return x;
+	}
+	
+	@Override
+	public void cleanup() {
+		for (LineSearcher lineSearcher : lineSearchers) {
+			if (lineSearcher instanceof LineSearcher.NeedsCleanup) {
+				((LineSearcher.NeedsCleanup)lineSearcher).cleanup();
+			}
+		}
 	}
 }

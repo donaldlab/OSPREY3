@@ -11,7 +11,6 @@ import java.util.concurrent.TimeUnit;
 import com.jogamp.opencl.CLEvent;
 import com.jogamp.opencl.CLEvent.CommandType;
 import com.jogamp.opencl.CLEvent.ProfilingCommand;
-import com.jogamp.opencl.CLEventList;
 import com.jogamp.opencl.CLException;
 
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
@@ -19,6 +18,7 @@ import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions.AtomGroup;
 import edu.duke.cs.osprey.gpu.GpuQueue;
 import edu.duke.cs.osprey.gpu.GpuQueuePool;
+import edu.duke.cs.osprey.gpu.ProfilingEvents;
 import edu.duke.cs.osprey.gpu.kernels.ForceFieldKernel;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
@@ -55,7 +55,6 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 					// prep the kernel, upload precomputed data
 					kernel = new ForceFieldKernel(queue);
 					kernel.setForcefield(new BigForcefieldEnergy(ffparams, interactions, true));
-					kernel.uploadStaticAsync();
 					
 				} catch (IOException ex) {
 					
@@ -146,7 +145,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	
 	public void startProfile(int numRuns) {
 		numProfilingRuns = numRuns;
-		getKernel().initProfilingEvents(numRuns*3);
+		getKernel().setProfilingEvents(new ProfilingEvents(numRuns*3));
 		uploadStopwatch = new Stopwatch();
 		kernelStopwatch = new Stopwatch();
 		downloadStopwatch = new Stopwatch();
@@ -159,9 +158,8 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		// dump gpu profile
 		buf.append("GPU Profile:\n");
 		Map<CommandType,Long> sums = new EnumMap<>(CommandType.class);
-		ForceFieldKernel kernel = getKernel();
-		CLEventList events = kernel.getProfilingEvents();
-		for (CLEvent event : events) {
+		ProfilingEvents events = getKernel().getProfilingEvents();
+		for (CLEvent event : events.getCLEvents()) {
 			try {
 				long startNs = event.getProfilingInfo(ProfilingCommand.START);
 				long endNs = event.getProfilingInfo(ProfilingCommand.END);
@@ -183,7 +181,8 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 				TimeFormatter.format(entry.getValue()/numProfilingRuns, TimeUnit.MICROSECONDS)
 			));
 		}
-		kernel.clearProfilingEvents();
+		events.cleanup();
+		getKernel().setProfilingEvents(null);
 		
 		// dump cpu profile
 		buf.append("CPU Profile:\n");
@@ -199,6 +198,9 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	@Override
 	public double getEnergy() {
 		
+		// PROFILING
+		//Profiler p = new Profiler("upload");
+		
 		boolean isProfiling = numProfilingRuns > 0;
 		if (isProfiling) {
 			uploadStopwatch.resume();
@@ -207,7 +209,11 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		// upload data
 		ForceFieldKernel kernel = getKernel();
 		kernel.setSubset(getSubset());
-		kernel.updateAndUploadCoordsAsync();
+		kernel.uploadCoordsAsync();
+		
+		// PROFILING
+		//kernel.waitForGpu();
+		//p.start("kernel");
 		
 		if (isProfiling) {
 			kernel.waitForGpu();
@@ -218,6 +224,10 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		// compute the energies
 		kernel.runAsync();
 		
+		// PROFILING
+		//kernel.waitForGpu();
+		//p.start("download");
+		
 		if (isProfiling) {
 			kernel.waitForGpu();
 			kernelStopwatch.stop();
@@ -226,6 +236,9 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		
 		// read the results
 		double energy = kernel.downloadEnergySync();
+		
+		// PROFILING
+		//System.out.println(p.makeReport(TimeUnit.MICROSECONDS));
 		
 		if (isProfiling) {
 			downloadStopwatch.stop();

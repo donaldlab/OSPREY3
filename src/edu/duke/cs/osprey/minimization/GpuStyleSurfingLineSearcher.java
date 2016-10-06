@@ -2,20 +2,28 @@ package edu.duke.cs.osprey.minimization;
 
 import static edu.duke.cs.osprey.tools.VectorAlgebra.*;
 
+import java.nio.ByteBuffer;
+import java.nio.DoubleBuffer;
 import java.util.List;
 
-import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.tools.VectorAlgebra;
 
 public class GpuStyleSurfingLineSearcher implements LineSearcher {
 	
-	private static final double Tolerance = 1e-6;
-	private static final double InitialStepSize = 0.25; // for dihedral dofs, TODO: make configurable
+	// NOTE: this class isn't useful by itself
+	// but it was a prototype for how the GPU-based version works
+	// and it's probably easier to understand the logic by reading this one =)
 	
+	// lots of the methods are public so their results can be individually compared to the gpu implementation
+	
+	private static final double Tolerance = 1e-6;
+	private static final double InitialStepSize = 0.25; // for dihedral dofs
+	
+	private ObjectiveFunction.OneDof f;
 	private EnergyFunction efunc;
-	private FreeDihedral dof;
 	
 	private double firstStep;
 	private double lastStep;
@@ -49,36 +57,22 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 	private double energyxd;
 	private double energyfxd;
 	
-	public GpuStyleSurfingLineSearcher() {
+	@Override
+	public void init(ObjectiveFunction.OneDof f) {
+		
+		this.f = f;
+		
 		firstStep = 1;
 		lastStep = 1;
 		iteration = 0;
-	}
-	
-	@Override
-	public void search(ObjectiveFunction f, DoubleMatrix1D x, int d, DoubleMatrix1D mins, DoubleMatrix1D maxs) {
 		
 		// HACKHACK: break the interfaces to get the pieces we need
 		// the runtime will complain if we can't do these casts, so we're still safe, but the compiler has no idea what's going on
-		MoleculeModifierAndScorer mof = (MoleculeModifierAndScorer)f;
-		this.efunc = mof.getEfunc(d);
-		this.dof = (FreeDihedral)mof.getDOFs().get(d);
+		MoleculeModifierAndScorer mof = (MoleculeModifierAndScorer)f.getParent();
+		this.efunc = mof.getEfunc(f.getDimension());
+		FreeDihedral dof = (FreeDihedral)mof.getDOFs().get(f.getDimension());
 		
-		// get the step size, try to make it adaptive (based on historical steps if possible; else on step #)
-		if (Math.abs(lastStep) > Tolerance && Math.abs(firstStep) > Tolerance) {
-			step = InitialStepSize*Math.abs(lastStep / firstStep);
-		} else {
-			step = InitialStepSize/Math.pow(iteration + 1, 3);
-		}
-		
-		// pretend like each function call is a kernel launch
-		// so they can only communicate via shared memory
-		
-		// init memory
-		xdmin = mins.get(d);
-		xdmax = maxs.get(d);
-		xd = x.get(d);
-		
+		// get coords and atom indices
 		Residue res = dof.getResidue();
 		coords = res.coords;
 		dihedralAtomIndices = res.template.getDihedralDefiningAtoms(dof.getDihedralNumber());
@@ -87,66 +81,87 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 		for (int i=0; i<rotatedAtomIndicesList.size(); i++) {
 			rotatedAtomIndices[i] = rotatedAtomIndicesList.get(i);
 		}
+	}
+	
+	@Override
+	public double search(double xd) {
 		
-		// init first energy calc
-		doEnergy = true;
-		energyxd = xd;
+		preSearch(xd);
 		
-		// INPUTS: xdmin, xdmax, xd, coords, dihedralAtomIndices, rotatedAtomIndices, doEnergy, energyxd
+		// pretend like each function call is a kernel launch
+		// so they can only communicate via shared memory
 		
-		pose();
-		energy();
-		search1();
-		pose();
-		energy();
-		search2();
-		pose();
-		energy();
-		search3();
-		pose();
-		energy();
-		search4();
-		pose();
-		energy();
-		search5();
-		pose();
-		energy();
-		search6();
+		for (int i=0; i<=5; i++) {
+			pose();
+			energy();
+			search(i);
+		}
 		for (int i=0; i<10; i++) {
-			searchSurf();
+			surf();
 			pose();
 			energy();
 		}
-		search7();
-		pose();
-		energy();
-		search8();
-		pose();
-		energy();
-		search9();
-		
-		// OUTPUTS: step, xdstar
-		
-		// update the step
-		lastStep = step;
-		if (iteration == 0) {
-			firstStep = lastStep;
+		search6();
+		for (int i=7; i<=8; i++) {
+			pose();
+			energy();
+			search(i);
 		}
-
-		// update the dofs and the conf
-		x.set(d, xdstar);
-		f.setDOF(d, xdstar);
+		pose();
 		
-		iteration++;
+		postSearch();
+		
+		return xdstar;
 	}
 	
-	private void pose() {
+	public void preSearch(double xd) {
+		
+		// zero out memory
+		surfStep = 0;
+		
+		xdmin = 0;
+		xdmax = 0;
+		this.xd = 0;
+		fxd = 0;
+		fxdmin = 0;
+		fxdmax = 0;
+		step = 0;
+		xdm = 0;
+		xdp = 0;
+		fxdm = 0;
+		fxdp = 0;
+		xdstar = 0;
+		fxdstar = 0;
+		stepScale = 0;
+		xdsurfHere = 0;
+		fxdsurfHere = 0;
+		energyxd = 0;
+		energyfxd = 0;
+		
+		isSurfing = false;
+		
+		// get the step size, try to make it adaptive (based on historical steps if possible; else on step #)
+		if (Math.abs(lastStep) > Tolerance && Math.abs(firstStep) > Tolerance) {
+			step = InitialStepSize*Math.abs(lastStep / firstStep);
+		} else {
+			step = InitialStepSize/Math.pow(iteration + 1, 3);
+		}
+		
+		// init args
+		this.xd = xd;
+		xdmin = f.getXMin();
+		xdmax = f.getXMax();
+		doEnergy = true;
+		energyxd = xd;
+	}
+	
+	public void pose() {
 		
 		if (!doEnergy) {
 			return;
 		}
 		
-		// too easy... gotta make it harder =P
+		// can't call this on the GPU, gotta do it ourselves
 		//dof.apply(energyxd);
 		
 		// NOTE: simulate the vector types on the gpu to make porting the logic easier
@@ -211,7 +226,7 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 		}
 	}
 	
-	private void energy() {
+	public void energy() {
 		
 		if (!doEnergy) {
 			return;
@@ -220,7 +235,24 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 		energyfxd = efunc.getEnergy();
 	}
 	
-	private void search1() {
+	public void search(int i) {
+		
+		// this is dumb, but whatever...
+		// no function pointers ftw!
+		switch (i) {
+			case 0: search0(); break;
+			case 1: search1(); break;
+			case 2: search2(); break;
+			case 3: search3(); break;
+			case 4: search4(); break;
+			case 5: search5(); break;
+			case 6: search6(); break;
+			case 7: search7(); break;
+			case 8: search8(); break;
+		}
+	}
+	
+	public void search0() {
 		
 		// read energy result
 		fxd = energyfxd;
@@ -230,7 +262,7 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 		energyxd = xdmin;
 	}
 	
-	private void search2() {
+	public void search1() {
 		
 		// read energy result
 		fxdmin = energyfxd;
@@ -240,7 +272,7 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 		energyxd = xdmax;
 	}
 	
-	private void search3() {
+	public void search2() {
 		
 		// read energy result
 		fxdmax = energyfxd;
@@ -253,7 +285,7 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 		energyxd = xdm;
 	}
 	
-	private void search4() {
+	public void search3() {
 		
 		// read energy result
 		fxdm = Double.POSITIVE_INFINITY;
@@ -269,7 +301,7 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 		energyxd = xdp;
 	}
 	
-	private void search5() {
+	public void search4() {
 		
 		// read energy result
 		fxdp = Double.POSITIVE_INFINITY;
@@ -320,13 +352,13 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 		energyxd = xdstar;
 	}
 	
-	private void search6() {
+	public void search5() {
 		
 		// read energy result
 		fxdstar = energyfxd;
 		
 		// if we went downhill, use growing steps
-		if (fxdstar < fxd) {
+		if (fxdstar < fxd + getTolerance(fxd)) {
 			stepScale = 2;
 		} else {
 			stepScale = 0.5;
@@ -339,7 +371,7 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 		fxdsurfHere = fxdstar;
 	}
 	
-	private void searchSurf() {
+	public void surf() {
 		
 		doEnergy = false;
 			
@@ -397,7 +429,7 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 		}
 	}
 	
-	private void search7() {
+	public void search6() {
 		
 		// did the quadratic step help at all?
 		if (fxdstar < fxd) {
@@ -432,27 +464,29 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 		energyxd = xdm;
 	}
 	
-	private void search8() {
+	public void search7() {
+		
+		double xdstarOld = xdstar;
 		
 		// read energy result
 		if (doEnergy) {
-			if (energyfxd < fxdstar) {
+			if (energyfxd < fxdstar - getTolerance(fxdstar)) {
 				xdstar = energyxd;
 				fxdstar = energyfxd;
 			}
 		}
 		
 		// init next energy calc
-		double xdp = xdstar + 1;
+		double xdp = xdstarOld + 1;
 		doEnergy = xdp <= xdmax;
 		energyxd = xdp;
 	}
 	
-	private void search9() {
+	public void search8() {
 		
 		// read energy result
 		if (doEnergy) {
-			if (energyfxd < fxdstar) {
+			if (energyfxd < fxdstar - getTolerance(fxdstar)) {
 				xdstar = energyxd;
 				fxdstar = energyfxd;
 			}
@@ -460,6 +494,21 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 		
 		// update the step to the one we actually took
 		step = xdstar - xd;
+		
+		// prep one final pose to leave the protein in the final pose
+		doEnergy = true;
+		energyxd = xdstar;
+	}
+	
+	public void postSearch() {
+		
+		// update the step
+		lastStep = step;
+		if (iteration == 0) {
+			firstStep = lastStep;
+		}
+		
+		iteration++;
 	}
 	
 	private double getTolerance(double f) {
@@ -467,5 +516,90 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 		// use full tolerance, unless f is very small
 		// then scale by the magnitude of f
 		return Tolerance * Math.max(1, Math.abs(f));
+	}
+	
+	public void check(String name, DoubleBuffer coords, int coordsOffset, ByteBuffer args, double internalSolvEnergy, double firstStep, double lastStep, int iteration) {
+		try {
+			
+			// check coords
+			double[] cpuCoord = make();
+			double[] gpuCoord = make();
+			for (int index : rotatedAtomIndices) {
+				copy(this.coords, index*3, cpuCoord);
+				copy(coords, (index + coordsOffset)*3, gpuCoord);
+				check(cpuCoord, gpuCoord);
+			}
+			
+			// check fields
+			check(this.firstStep, firstStep);
+			check(this.lastStep, lastStep);
+			check(this.iteration, iteration);
+			
+			// check args
+			check(rotatedAtomIndices.length, args.getInt(0));
+			check(surfStep, args.getInt(4));
+			check(xdmin, args.getDouble(8));
+			check(xdmax, args.getDouble(16));
+			check(xd, args.getDouble(24));
+			check(fxd, args.getDouble(32));
+			check(fxdmin, args.getDouble(40));
+			check(fxdmax, args.getDouble(48));
+			check(step, args.getDouble(56));
+			check(xdm, args.getDouble(64));
+			check(xdp, args.getDouble(72));
+			check(fxdm, args.getDouble(80));
+			check(fxdp, args.getDouble(88));
+			check(xdstar, args.getDouble(96));
+			check(fxdstar, args.getDouble(104));
+			check(stepScale, args.getDouble(112));
+			check(xdsurfHere, args.getDouble(120));
+			check(fxdsurfHere, args.getDouble(128));
+			check(energyxd, args.getDouble(136));
+			check(internalSolvEnergy, args.getDouble(144));
+			check(isSurfing, args.get(152) == 1);
+			
+		} catch (Throwable t) {
+			throw new Error("check failure after kernel: " + name, t);
+		}
+	}
+	
+	public void check(double exp, double obs) {
+		check(exp, obs, 1e-4);
+	}
+	
+	public void check(double exp, double obs, double epsilon) {
+		double absErr = Math.abs(exp - obs);
+		if (absErr > epsilon) {
+			throw new Error(String.format("expected: %12.6f, observed: %12.6f, absErr: %.12f", exp, obs, absErr));
+		}
+	}
+	
+	public void check(double[] exp, double[] obs) {
+		check(exp, obs, 1e-4);
+	}
+	
+	public void check(double[] exp, double[] obs, double epsilon) {
+		double dist = VectorAlgebra.distance(exp, obs);
+		if (dist > epsilon) {
+			throw new Error(String.format("\nexpected: (%12.6f,%12.6f,%12.6f)\nobserved: (%12.6f,%12.6f,%12.6f)\ndist:     %.12f",
+				exp[0], exp[1], exp[2], obs[0], obs[1], obs[2], dist
+			));
+		}
+	}
+	
+	public void check(int exp, int obs) {
+		if (exp != obs) {
+			throw new Error(String.format("expected: %d, observed: %d", exp, obs));
+		}
+	}
+	
+	public void check(boolean exp, boolean obs) {
+		if (exp != obs) {
+			throw new Error(String.format("expected: %b, observed: %b", exp, obs));
+		}
+	}
+	
+	public void compare(double exp, double obs) {
+		System.out.println(String.format("%12.6f, %12.6f, diff: %.16f, equal: %b", exp, obs, exp - obs, exp == obs));
 	}
 }

@@ -44,5 +44,45 @@ public interface ObjectiveFunction extends Serializable {
     
     public boolean isDOFAngle(int dof);//Is the given degree of freedom an angle?
     //This is important because angles can wrap around (at 360-degree intervals)
+    
+    
+	public static class OneDof {
+		
+		private ObjectiveFunction f;
+		private int d;
+		private double xdmin;
+		private double xdmax;
+		
+		public OneDof(ObjectiveFunction f, int d) {
+			this.f = f;
+			this.d = d;
+			this.xdmin = f.getConstraints()[0].get(d);
+			this.xdmax = f.getConstraints()[1].get(d);
+		}
+		
+		public ObjectiveFunction getParent() {
+			return f;
+		}
+		
+		public int getDimension() {
+			return d;
+		}
+		
+		public double getXMin() {
+			return xdmin;
+		}
+		
+		public double getXMax() {
+			return xdmax;
+		}
+		
+		public void setX(double xd) {
+			f.setDOF(d, xd);
+		}
+		
+		public double getValue(double xd) {
+			return f.getValForDOF(d, xd);
+		}
+	}
 }
 

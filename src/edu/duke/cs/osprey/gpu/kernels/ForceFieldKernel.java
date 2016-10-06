@@ -64,22 +64,43 @@ public class ForceFieldKernel extends Kernel {
 		return coords;
 	}
 	
+	public CLBuffer<DoubleBuffer> getEnergies() {
+		return energies;
+	}
+	
+	public CLBuffer<ByteBuffer> getArgs() {
+		return args;
+	}
+	
 	public BigForcefieldEnergy getForcefield() {
 		return ffenergy;
 	}
 	public void setForcefield(BigForcefieldEnergy ffenergy) {
 		
+		if (this.ffenergy != null) {
+			throw new IllegalStateException("kernel already has a force field");
+		}
+		
 		this.ffenergy = ffenergy;
 		
-		// allocate some of the buffers we need
+		// allocate the buffers
 		CLContext context = getQueue().getCLQueue().getContext();
 		coords = context.createBuffer(ffenergy.getCoords(), CLMemory.Mem.READ_WRITE);
 		atomFlags = context.createBuffer(ffenergy.getAtomFlags(), CLMemory.Mem.READ_ONLY);
 		precomputed = context.createBuffer(ffenergy.getPrecomputed(), CLMemory.Mem.READ_ONLY);
 		subsetTable = context.createIntBuffer(ffenergy.getFullSubset().getNumAtomPairs(), CLMemory.Mem.READ_ONLY);
+		energies = context.createDoubleBuffer(getEnergySize(ffenergy.getFullSubset()), CLMemory.Mem.WRITE_ONLY);
+		
+		// IMPORTANT: rewind the buffers before uploading, otherwise we get garbage on the gpu
+		atomFlags.getBuffer().rewind();
+		precomputed.getBuffer().rewind();
+		
+		// upload static info
+		uploadBufferAsync(atomFlags);
+		uploadBufferAsync(precomputed);
 		
 		// make the args buffer
-		args = context.createByteBuffer(35, CLMemory.Mem.READ_ONLY);
+		args = context.createByteBuffer(36, CLMemory.Mem.READ_ONLY);
 		ByteBuffer argsBuf = args.getBuffer();
 		argsBuf.rewind();
 		argsBuf.putInt(0); // set by setSubsetInternal()
@@ -90,15 +111,13 @@ public class ForceFieldKernel extends Kernel {
 		argsBuf.put((byte)(ffenergy.useDistDependentDielectric() ? 1 : 0));
 		argsBuf.put((byte)(ffenergy.useHElectrostatics() ? 1 : 0));
 		argsBuf.put((byte)(ffenergy.useHVdw() ? 1 : 0));
+		argsBuf.put((byte)1);
 		argsBuf.flip();
 		
 		// set the subset
+		// NOTE: setting the subset uploads the args too
 		subset = null;
 		setSubsetInternal(ffenergy.getFullSubset());
-		
-		// allocate the energy buffer after setting the full subset
-		// this makes sure we have the biggest energy buffer we'll ever need
-		energies = context.createDoubleBuffer(getEnergySize(), CLMemory.Mem.WRITE_ONLY);
 		
 		getCLKernel()
 			.setArg(0, coords)
@@ -114,16 +133,16 @@ public class ForceFieldKernel extends Kernel {
 		return subset;
 	}
 	
-	public void setSubset(BigForcefieldEnergy.Subset subset) {
+	public boolean setSubset(BigForcefieldEnergy.Subset subset) {
 		checkInit();
-		setSubsetInternal(subset);
+		return setSubsetInternal(subset);
 	}
 	
-	private void setSubsetInternal(BigForcefieldEnergy.Subset subset) {
+	private boolean setSubsetInternal(BigForcefieldEnergy.Subset subset) {
 		
 		// short circuit: don't change things unless we need to
 		if (this.subset == subset) {
-			return;
+			return false;
 		}
 		
 		this.subset = subset;
@@ -132,54 +151,51 @@ public class ForceFieldKernel extends Kernel {
 		workSize = roundUpWorkSize(subset.getNumAtomPairs(), groupSize);
 		
 		// update kernel args and upload
-		ByteBuffer argsBuf = args.getBuffer();
-		argsBuf.rewind();
-		argsBuf.putInt(subset.getNumAtomPairs());
-		argsBuf.putInt(subset.getNum14AtomPairs());
-		argsBuf.rewind();
+		ByteBuffer buf = args.getBuffer();
+		buf.putInt(0, subset.getNumAtomPairs());
+		buf.putInt(4, subset.getNum14AtomPairs());
+		buf.put(35, (byte)1); // doEnergy = true
+		buf.rewind();
 		uploadBufferAsync(args);
 		
 		// upload subset table
 		subsetTable.getBuffer().clear();
 		subset.getSubsetTable().rewind();
 		subsetTable.getBuffer().put(subset.getSubsetTable());
-		subsetTable.getBuffer().rewind();
-		uploadBufferAsync(subsetTable);
+		subsetTable.getBuffer().flip();
+		uploadPartialBufferAsync(subsetTable);
+		
+		return true;
 	}
 	
-	public void uploadStaticAsync() {
-		checkInit();
-		
-		// IMPORTANT: rewind the buffers before uploading, otherwise we get garbage on the gpu
-		atomFlags.getBuffer().rewind();
-		precomputed.getBuffer().rewind();
-		args.getBuffer().rewind();
-		
-		uploadBufferAsync(atomFlags);
-		uploadBufferAsync(precomputed);
+	public boolean isDoEnergy() {
+		downloadBufferSync(args);
+		return args.getBuffer().get(35) == 1;
+	}
+	
+	public void setDoEnergy(boolean val) {
+		ByteBuffer buf = args.getBuffer();
+		buf.put(35, (byte)(val ? 1 : 0));
+		buf.rewind();
 		uploadBufferAsync(args);
 	}
 	
-	public void updateAndUploadCoordsAsync() {
+	public void uploadCoordsAsync() {
 		checkInit();
 		
 		// tell the forcefield to gather updated coords
 		ffenergy.updateCoords();
 	
-		uploadCoordsAsync();
-	}
-	
-	public void uploadCoordsAsync() {
-		
 		// IMPORTANT: rewind the buffers before uploading, otherwise we get garbage on the gpu
 		coords.getBuffer().rewind();
 		
 		uploadBufferAsync(coords);
 	}
 	
-	public void downloadCoordsSync() {
+	public DoubleBuffer downloadCoordsSync() {
 		coords.getBuffer().rewind();
 		downloadBufferSync(coords);
+		return coords.getBuffer();
 	}
 
 	public void runAsync() {
@@ -210,7 +226,11 @@ public class ForceFieldKernel extends Kernel {
 	}
 	
 	public int getEnergySize() {
-		return workSize/groupSize;
+		return getEnergySize(subset);
+	}
+	
+	public int getEnergySize(BigForcefieldEnergy.Subset subset) {
+		return roundUpWorkSize(subset.getNumAtomPairs(), groupSize)/groupSize;
 	}
 	
 	public int getGpuBytesNeeded() {

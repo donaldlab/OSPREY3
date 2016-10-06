@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.EEF1.SolvParams;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions.AtomGroup;
@@ -18,8 +19,10 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.NBParams;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.AtomNeighbors;
 import edu.duke.cs.osprey.structure.AtomNeighbors.NEIGHBORTYPE;
+import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.structure.Residue;
 
-public class BigForcefieldEnergy implements EnergyFunction {
+public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof {
 	
 	private static final long serialVersionUID = 5242606861996508290L;
 
@@ -512,6 +515,36 @@ public class BigForcefieldEnergy implements EnergyFunction {
 		}
 		
 		return esEnergy + vdwEnergy + solvEnergy;
+	}
+	
+	@Override
+	public List<EnergyFunction> decomposeByDof(Molecule m, List<DegreeOfFreedom> dofs) {
+		
+		List<EnergyFunction> efuncs = new ArrayList<>();
+		Map<Residue,BigForcefieldEnergy> efuncCache = new HashMap<>();
+		
+		for (DegreeOfFreedom dof : dofs) {
+
+			Residue res = dof.getResidue();
+			if (res == null) {
+				
+				// when there's no residue at the dof, then use the whole efunc
+				efuncs.add(this);
+				
+			} else {
+				
+				// otherwise, make an efunc for only that residue
+				// but share efuncs between dofs in the same residue
+				BigForcefieldEnergy efunc = efuncCache.get(res);
+				if (efunc == null) {
+					efunc = new BigForcefieldEnergy(params, interactions.makeSubsetByResidue(res), coords.isDirect());
+					efuncCache.put(res, efunc);
+				}
+				efuncs.add(efunc);
+			}
+		}
+		
+		return efuncs;
 	}
 	
 	private int getGlobalAtomIndex(int groupIndex, int atomIndexInGroup) {

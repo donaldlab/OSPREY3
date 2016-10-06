@@ -1,18 +1,19 @@
 package edu.duke.cs.osprey.gpu;
 
 import java.io.IOException;
-import java.nio.Buffer;
 
 import com.jogamp.opencl.CLBuffer;
-import com.jogamp.opencl.CLEventList;
+import com.jogamp.opencl.CLException;
 import com.jogamp.opencl.CLKernel;
-import com.jogamp.opencl.CLMemory;
+import com.jogamp.opencl.CLPlatform;
+import com.jogamp.opencl.llb.CL;
+import com.jogamp.opencl.util.CLUtil;
 
 public abstract class Kernel {
 	
 	private GpuQueue queue;
 	private CLKernel kernel;
-	private CLEventList events;
+	private ProfilingEvents events;
 	
 	public Kernel(GpuQueue queue, String fileName, String kernelName)
 	throws IOException {
@@ -40,9 +41,6 @@ public abstract class Kernel {
 	
 	public void cleanup() {
 		kernel.release();
-		if (events != null) {
-			events.release();
-		}
 	}
 	
 	protected int getMaxGroupSize() {
@@ -53,48 +51,61 @@ public abstract class Kernel {
 		return (workSize + groupSize - 1)/groupSize*groupSize;
 	}
 	
-	protected <B extends Buffer> CLBuffer<B> wrapBuffer(B buf, CLMemory.Mem type) {
-		return queue.getCLQueue().getContext().createBuffer(buf, type);
+	protected void uploadBufferAsync(CLBuffer<?> buf) {
+		queue.getCLQueue().putWriteBuffer(buf, false, events != null ? events.getCLEvents() : null);
 	}
 	
-	protected void uploadBufferAsync(CLBuffer<?> buf) {
-		queue.getCLQueue().putWriteBuffer(buf, false, events);
+	protected void uploadPartialBufferAsync(CLBuffer<?> buf) {
+		
+		// only write the part of the buffer below the limit
+		buf.getBuffer().rewind();
+		int size = buf.getElementSize()*buf.getBuffer().limit();
+		
+		// use the lower-level interface to upload partial buffers
+		CL cl = CLPlatform.getLowLevelCLInterface();
+		final int ret = cl.clEnqueueWriteBuffer(
+			queue.getCLQueue().getID(),
+			buf.getID(),
+			CLUtil.clBoolean(false),
+			0,
+			size,
+			buf.getBuffer(),
+			0,
+			null,
+			events != null ? events.getCLIds() : null
+		);
+
+		if(ret != CL.CL_SUCCESS) {
+			throw CLException.newException(ret, "can not enqueue write-buffer: " + buf);
+		}
 	}
 	
 	protected void runAsync(int workSize, int groupSize) {
-		queue.getCLQueue().put1DRangeKernel(kernel, 0, workSize, groupSize, events);
+		queue.getCLQueue().put1DRangeKernel(kernel, 0, workSize, groupSize, events != null ? events.getCLEvents() : null);
 	}
 	
 	protected void downloadBufferSync(CLBuffer<?> buf) {
-		queue.getCLQueue().putReadBuffer(buf, true, events);
+		queue.getCLQueue().putReadBuffer(buf, true, events != null ? events.getCLEvents() : null);
 	}
 	
 	protected void downloadBufferAsync(CLBuffer<?> buf) {
-		queue.getCLQueue().putReadBuffer(buf, false);
+		queue.getCLQueue().putReadBuffer(buf, false, events != null ? events.getCLEvents() : null);
 	}
 	
-	public void initProfilingEvents(int eventListSize) {
+	public ProfilingEvents getProfilingEvents() {
+		return events;
+	}
+	public void setProfilingEvents(ProfilingEvents val) {
+		
+		if (val == events) {
+			return;
+		}
 		
 		// just in case...
 		if (!queue.isProfilingEnabled()) {
-			throw new IllegalStateException("profiling not enabled for the bound command queue");
+			throw new IllegalStateException("profiling not enabled for the gpu queue");
 		}
 		
-		if (events != null) {
-			events.release();
-		}
-		
-		events = new CLEventList(eventListSize);
-	}
-	
-	public CLEventList getProfilingEvents() {
-		return events;
-	}
-	
-	public void clearProfilingEvents() {
-		if (events != null) {
-			events.release();
-			events = null;
-		}
+		events = val;
 	}
 }

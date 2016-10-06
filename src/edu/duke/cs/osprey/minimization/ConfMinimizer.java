@@ -33,11 +33,36 @@ public class ConfMinimizer {
 	}
 	
 	public double minimize(ParameterizedMoleculeCopy pmol, int[] conf, EnergyFunction efunc, ConfSpace confSpace) {
+		
+		// PROFILING
+		//Profiler p = new Profiler("init");
+		
 		RCTuple tuple = new RCTuple(conf);
 		MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(efunc, confSpace, tuple, pmol);
-		minimizers.make(mof).minimize();
+		Minimizer minimizer = minimizers.make(mof);
+		
+		// PROFILING
+		//p.start("minimize");
+		
+		minimizer.minimize();
+		if (minimizer instanceof Minimizer.NeedsCleanup) {
+			((Minimizer.NeedsCleanup)minimizer).cleanup();
+		}
+		
+		// PROFILING
+		//p.start("cleanup");
+		
 		mof.cleanup();
-		return efunc.getEnergy();
+		
+		// PROFILING
+		//p.start("energy");
+		
+		double energy = efunc.getEnergy();
+		
+		// PROFILING
+		//System.out.println(p.makeReport(TimeUnit.MILLISECONDS));
+	
+		return energy;
 	}
 	
 	public EnergiedConf minimize(ParameterizedMoleculeCopy pmol, ScoredConf conf, EnergyFunction efunc, ConfSpace confSpace) {

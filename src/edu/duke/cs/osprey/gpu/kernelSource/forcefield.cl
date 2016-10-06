@@ -17,22 +17,27 @@ bool isHydrogen(int flags) {
 }
 
 typedef struct __attribute__((aligned(8))) {
-	int numPairs; // 4
-	int num14Pairs; // 4
-	double coulombFactor; // 8
-	double scaledCoulombFactor; // 8
-	double solvCutoff2; // 8
-	bool useDistDepDielec; // 1
-	bool useHEs; // 1
-	bool useHVdw; // 1
+	int numPairs; // @ 0
+	int num14Pairs; // @ 4
+	double coulombFactor; // @ 8
+	double scaledCoulombFactor; // @ 16
+	double solvCutoff2; // @ 24
+	bool useDistDepDielec; // @ 32
+	bool useHEs; // @ 33
+	bool useHVdw; // @ 34
+	bool doEnergy; // @ 35
 } ForcefieldArgs;
-// sizeof = 35
+// sizeof = 36
 
 kernel void calc(
 	global const double *coords, global const int *atomFlags, global const double *precomputed, global const int *subsetTable, global double *out,
 	global const ForcefieldArgs *args,
 	local double *scratch
 ) {
+
+	if (!args->doEnergy) {
+		return;
+	}
 
 	// NOTE: looks like we're running severely short on gpu registers
 	// if the compiler says we used 29 registers, everything seems to work fine

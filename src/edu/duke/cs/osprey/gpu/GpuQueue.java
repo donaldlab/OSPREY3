@@ -52,4 +52,12 @@ public class GpuQueue {
 	public boolean isProfilingEnabled() {
 		return queue.isProfilingEnabled();
 	}
+	
+	public void flush() {
+		queue.flush();
+	}
+
+	public void waitForGpu() {
+		queue.finish();
+	}
 }

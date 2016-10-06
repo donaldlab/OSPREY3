@@ -1,15 +1,14 @@
 package edu.duke.cs.osprey.minimization;
 
-import cern.colt.matrix.DoubleMatrix1D;
-
 public class SurfingLineSearcher implements LineSearcher {
 	
 	// NOTE: this class is based on the algorithm in the CCDMinimizer
 	// this version is just easier to read and a little bit more optimized
-	// TODO: port this to the GPU
 	
 	private static final double Tolerance = 1e-6;
 	private static final double InitialStepSize = 0.25; // for dihedral dofs, TODO: make configurable
+	
+	private ObjectiveFunction.OneDof f;
 	
 	private double firstStep;
 	private double lastStep;
@@ -22,13 +21,17 @@ public class SurfingLineSearcher implements LineSearcher {
 	}
 	
 	@Override
-	public void search(ObjectiveFunction f, DoubleMatrix1D x, int dof, DoubleMatrix1D mins, DoubleMatrix1D maxs) {
+	public void init(ObjectiveFunction.OneDof f) {
+		this.f = f;
+	}
+	
+	@Override
+	public double search(double xd) {
 		
-		double xdmin = mins.get(dof);
-		double xdmax = maxs.get(dof);
-		double xd = x.get(dof);
+		double xdmin = f.getXMin();
+		double xdmax = f.getXMax();
 		
-		double fxd = f.getValForDOF(dof, xd);
+		double fxd = f.getValue(xd);
 		Double fxdmin = null;
 		Double fxdmax = null;
 		
@@ -45,11 +48,11 @@ public class SurfingLineSearcher implements LineSearcher {
 		double xdm = xd - step;
 		double fxdp = Double.POSITIVE_INFINITY;
 		if (xdp <= xdmax) {
-			fxdp = f.getValForDOF(dof, xdp);
+			fxdp = f.getValue(xdp);
 		}
 		double fxdm = Double.POSITIVE_INFINITY;
 		if (xdm >= xdmin) {
-			fxdm = f.getValForDOF(dof, xdm);
+			fxdm = f.getValue(xdm);
 		}
 		
 		// fit a quadratic to the objective function, locally:
@@ -90,7 +93,7 @@ public class SurfingLineSearcher implements LineSearcher {
 			xdstar = xdmax;
 		}
 		
-		double fxdstar = f.getValForDOF(dof, xdstar);
+		double fxdstar = f.getValue(xdstar);
 		
 		// did we go downhill?
 		if (fxdstar < fxd) {
@@ -108,7 +111,7 @@ public class SurfingLineSearcher implements LineSearcher {
 					
 					// if the min is better, go there instead
 					if (fxdmin == null) {
-						fxdmin = f.getValForDOF(dof, xdmin);
+						fxdmin = f.getValue(xdmin);
 					}
 					if (fxdmin < fxdstar) {
 						xdsurfHere = xdmin;
@@ -121,7 +124,7 @@ public class SurfingLineSearcher implements LineSearcher {
 					
 					// if the max is better, go there instead
 					if (fxdmax == null) {
-						fxdmax = f.getValForDOF(dof, xdmax);
+						fxdmax = f.getValue(xdmax);
 					}
 					if (fxdmax < fxdstar) {
 						xdsurfHere = xdmax;
@@ -130,7 +133,7 @@ public class SurfingLineSearcher implements LineSearcher {
 					break;
 				}
 				
-				double fxdsurfNext = f.getValForDOF(dof, xdsurfNext);
+				double fxdsurfNext = f.getValue(xdsurfNext);
 				
 				// did we improve the min enough to keep surfing?
 				if (fxdsurfNext < fxdsurfHere - getTolerance(fxdsurfHere)) {
@@ -160,7 +163,7 @@ public class SurfingLineSearcher implements LineSearcher {
 				
 				// cut the step in half
 				double xdsurfNext = xd + (xdsurfHere - xd)/2;
-				double fxdsurfNext = f.getValForDOF(dof, xdsurfNext);
+				double fxdsurfNext = f.getValue(xdsurfNext);
 				
 				// did we improve the min enough to keep surfing?
 				if (fxdsurfNext < fxdsurfHere - getTolerance(fxdsurfHere)) {
@@ -206,7 +209,7 @@ public class SurfingLineSearcher implements LineSearcher {
 		
 		xdm = xdstar - 1;
 		if (xdm >= xdmin) {
-			fxdm = f.getValForDOF(dof, xdm);
+			fxdm = f.getValue(xdm);
 			if (fxdm < fxdstar) {
 				xdstar = xdm;
 				fxdstar = fxdm;
@@ -215,7 +218,7 @@ public class SurfingLineSearcher implements LineSearcher {
 		
 		xdp = xdstar + 1;
 		if (xdp <= xdmax) {
-			fxdp = f.getValForDOF(dof, xdp);
+			fxdp = f.getValue(xdp);
 			if (fxdp < fxdstar) {
 				xdstar = xdp;
 				fxdstar = fxdp;
@@ -227,11 +230,10 @@ public class SurfingLineSearcher implements LineSearcher {
 			firstStep = lastStep;
 		}
 
-		// update the dofs and the conf
-		x.set(dof, xdstar);
-		f.setDOF(dof, xdstar);
-		
 		iteration++;
+		
+		f.setX(xdstar);
+		return xdstar;
 	}
 	
 	private double getTolerance(double f) {

@@ -16,4 +16,8 @@ public interface Minimizer {
     
     DoubleMatrix1D minimize();//return argmin for the ObjectiveFunction
     //(the minimum can then be obtained by calling the objective function on those values)
+    
+    public static interface NeedsCleanup extends Minimizer {
+    	void cleanup();
+    }
 }
