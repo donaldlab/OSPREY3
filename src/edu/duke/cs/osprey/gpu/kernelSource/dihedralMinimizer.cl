@@ -17,30 +17,29 @@ typedef struct __attribute__((aligned(8))) {
 	int numRotatedIndices; // @ 0
 	int surfStep; // @ 4
 	
-	double xdmin; // @ 8, 18 doubles
+	double xdmin; // @ 8, 16 doubles
 	double xdmax; // @ 16
 	double xd; // @ 24
 	double fxd; // @ 32
-	double fxdmin; // @ 40
-	double fxdmax; // @ 48
-	double step; // @ 56
-	double xdm; // @ 64
-	double xdp; // @ 72
-	double fxdm; // @ 80
-	double fxdp; // @ 88
-	double xdstar; // @ 96
-	double fxdstar; // @ 104
-	double stepScale; // @ 112
-	double xdsurfHere; // @ 120
-	double fxdsurfHere; // @ 128
-	double dihedralDegrees; // @ 136, in degrees
-	double internalSolvEnergy; // @ 144
+	double step; // @ 40
+	double xdm; // @ 48
+	double xdp; // @ 56
+	double fxdm; // @ 64
+	double fxdp; // @ 72
+	double xdstar; // @ 80
+	double fxdstar; // @ 88
+	double stepScale; // @ 96
+	double xdsurfHere; // @ 104
+	double fxdsurfHere; // @ 112
+	double dihedralDegrees; // @ 120, in degrees
+	double internalSolvEnergy; // @ 128
 	
-	bool isSurfing; // @ 152
+	bool isSurfing; // @ 136
+	bool surfHitEdge; // @ 137
 	
 	// 7 pad
 	
-} Args; // size = 160
+} Args; // size = 144
 
 
 typedef struct __attribute__((aligned(8))) {
@@ -188,41 +187,7 @@ kernel void search0(global const double *energies, const int numEnergies, global
 	
 	// read energy result
 	args->fxd = scratch[0];
-	
-	// get the min edge
-	ffargs->doEnergy = true;
-	args->dihedralDegrees = args->xdmin;
-}
 
-kernel void search1(global const double *energies, const int numEnergies, global ForcefieldArgs *ffargs, global Args *args, local double *scratch) {
-
-	// sum the energies
-	sumEnergy(energies, numEnergies, args, scratch);
-	if (get_global_id(0) != 0) {
-		return;
-	}
-	
-	// read energy result
-	args->fxdmin = scratch[0];
-	
-	// get the max edge
-	ffargs->doEnergy = true;
-	args->dihedralDegrees = args->xdmax;
-}
-
-kernel void search2(global const double *energies, const int numEnergies, global ForcefieldArgs *ffargs, global Args *args, local double *scratch) {
-
-	// sum the energies
-	if (ffargs->doEnergy) {
-		sumEnergy(energies, numEnergies, args, scratch);
-	}
-	if (get_global_id(0) != 0) {
-		return;
-	}
-	
-	// read energy result
-	args->fxdmax = scratch[0];
-	
 	// get the minus neighbor
 	args->xdm = args->xd - args->step;
 	
@@ -231,7 +196,7 @@ kernel void search2(global const double *energies, const int numEnergies, global
 	args->dihedralDegrees = args->xdm;
 }
 
-kernel void search3(global const double *energies, const int numEnergies, global ForcefieldArgs *ffargs, global Args *args, local double *scratch) {
+kernel void search1(global const double *energies, const int numEnergies, global ForcefieldArgs *ffargs, global Args *args, local double *scratch) {
 
 	// sum the energies
 	if (ffargs->doEnergy) {
@@ -255,7 +220,7 @@ kernel void search3(global const double *energies, const int numEnergies, global
 	args->dihedralDegrees = args->xdp;
 }
 
-kernel void search4(global const double *energies, const int numEnergies, global ForcefieldArgs *ffargs, global Args *args, local double *scratch) {
+kernel void search2(global const double *energies, const int numEnergies, global ForcefieldArgs *ffargs, global Args *args, local double *scratch) {
 
 	// sum the energies
 	if (ffargs->doEnergy) {
@@ -314,7 +279,7 @@ kernel void search4(global const double *energies, const int numEnergies, global
 	args->dihedralDegrees = args->xdstar;
 }
 
-kernel void search5(global const double *energies, const int numEnergies, global ForcefieldArgs *ffargs, global Args *args, local double *scratch) {
+kernel void search3(global const double *energies, const int numEnergies, global ForcefieldArgs *ffargs, global Args *args, local double *scratch) {
 
 	// sum the energies
 	if (ffargs->doEnergy) {
@@ -371,6 +336,11 @@ kernel void surf(global const double *energies, const int numEnergies, global Fo
 			// nope, stop surfing
 			args->isSurfing = false;
 		}
+		
+		// if we hit the edge, stop anyway
+		if (args->surfHitEdge) {
+			args->isSurfing = false;
+		}
 	}
 		
 	if (args->isSurfing) {
@@ -378,37 +348,23 @@ kernel void surf(global const double *energies, const int numEnergies, global Fo
 		// surf a step
 		double xdsurfNext = args->xd + args->stepScale*(args->xdsurfHere - args->xd);
 		
-		// did we step off the min?
+		// clamp the x val
 		if (xdsurfNext < args->xdmin) {
-			
-			// if the min is better, go there instead
-			if (args->fxdmin < args->fxdstar) {
-				args->xdsurfHere = args->xdmin;
-			}
-			
-			args->isSurfing = false;
-		
-		// did we step off the max?
+			args->surfHitEdge = true;
+			xdsurfNext = args->xdmin;
 		} else if (xdsurfNext > args->xdmax) {
-			
-			// if the max is better, go there instead
-			if (args->fxdmax < args->fxdstar) {
-				args->xdsurfHere = args->xdmax;
-			}
-			
-			args->isSurfing = false;
-			
-		} else {
-		
-			// init energy calc for new surf spot
-			args->surfStep++;
-			ffargs->doEnergy = true;
-			args->dihedralDegrees = xdsurfNext;
+			args->surfHitEdge = true;
+			xdsurfNext = args->xdmax;
 		}
+		
+		// init energy calc for new surf spot
+		args->surfStep++;
+		ffargs->doEnergy = true;
+		args->dihedralDegrees = xdsurfNext;
 	}
 }
 
-kernel void search6(global const double *energies, const int numEnergies, global ForcefieldArgs *ffargs, global Args *args, local double *scratch) {
+kernel void search4(global const double *energies, const int numEnergies, global ForcefieldArgs *ffargs, global Args *args, local double *scratch) {
 
 	// did the quadratic step help at all?
 	if (args->fxdstar < args->fxd) {
@@ -443,7 +399,7 @@ kernel void search6(global const double *energies, const int numEnergies, global
 	args->dihedralDegrees = xdm;
 }
 
-kernel void search7(global const double *energies, const int numEnergies, global ForcefieldArgs *ffargs, global Args *args, local double *scratch) {
+kernel void search5(global const double *energies, const int numEnergies, global ForcefieldArgs *ffargs, global Args *args, local double *scratch) {
 
 	// sum the energies
 	if (ffargs->doEnergy) {
@@ -470,7 +426,7 @@ kernel void search7(global const double *energies, const int numEnergies, global
 	args->dihedralDegrees = xdp;
 }
 
-kernel void search8(global const double *energies, const int numEnergies, global ForcefieldArgs *ffargs, global Args *args, local double *scratch) {
+kernel void search6(global const double *energies, const int numEnergies, global ForcefieldArgs *ffargs, global Args *args, local double *scratch) {
 
 	// sum the energies
 	if (ffargs->doEnergy) {

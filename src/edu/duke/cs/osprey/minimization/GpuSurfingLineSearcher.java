@@ -73,7 +73,7 @@ public class GpuSurfingLineSearcher implements LineSearcher.NeedsCleanup {
 			
 			poseKernel = new DihedralMinimizer.PoseKernel(queue);
 			searchKernels = new DihedralMinimizer.SearchKernel[9];
-			for (int i=0; i<9; i++) {
+			for (int i=0; i<7; i++) {
 				searchKernels[i] = new DihedralMinimizer.SearchKernel(queue, i);
 			}
 			surfKernel = new DihedralMinimizer.SurfKernel(queue);
@@ -84,7 +84,7 @@ public class GpuSurfingLineSearcher implements LineSearcher.NeedsCleanup {
 		
 		int numEnergies = ffKernel.getEnergySize(efunc.getSubset());
 		poseKernel.initForcefield(ffKernel.getCoords(), dihedralAtomIndices, rotatedAtomIndices, ffKernel.getArgs());
-		for (int i=0; i<9; i++) {
+		for (int i=0; i<7; i++) {
 			searchKernels[i].init(ffKernel.getEnergies(), numEnergies, ffKernel.getArgs(), poseKernel.getArgs());
 		}
 		surfKernel.init(ffKernel.getEnergies(), numEnergies, ffKernel.getArgs(), poseKernel.getArgs());
@@ -106,7 +106,7 @@ public class GpuSurfingLineSearcher implements LineSearcher.NeedsCleanup {
 		ProfilingEvents events = new ProfilingEvents(100);
 		efunc.getKernel().setProfilingEvents(events);
 		poseKernel.setProfilingEvents(events);
-		for (int i=0; i<=8; i++) {
+		for (int i=0; i<7; i++) {
 			searchKernels[i].setProfilingEvents(events);
 		}
 		surfKernel.setProfilingEvents(events);
@@ -149,7 +149,7 @@ public class GpuSurfingLineSearcher implements LineSearcher.NeedsCleanup {
 		//p.start("kernels");
 		
 		// pipeline all the kernels
-		for (int i=0; i<=5; i++) {
+		for (int i=0; i<=3; i++) {
 			
 			poseKernel.runAsync();
 			ffKernel.runAsync();
@@ -193,14 +193,14 @@ public class GpuSurfingLineSearcher implements LineSearcher.NeedsCleanup {
 			*/
 		}
 		
-		searchKernels[6].runAsync();
+		searchKernels[4].runAsync();
 		
 		/* DEBUG
-		cpuSide.search(6);
-		check("search 6");
+		cpuSide.search(4);
+		check("search 4");
 		*/
 		
-		for (int i=7; i<=8; i++) {
+		for (int i=5; i<=6; i++) {
 			
 			poseKernel.runAsync();
 			ffKernel.runAsync();
@@ -230,8 +230,8 @@ public class GpuSurfingLineSearcher implements LineSearcher.NeedsCleanup {
 		
 		// download the final outputs from the gpu
 		ByteBuffer args = poseKernel.downloadArgsSync();
-		double bestDihedral = args.getDouble(96);
-		double lastStep = args.getDouble(56);
+		double bestDihedral = args.getDouble(80);
+		double lastStep = args.getDouble(40);
 		
 		// PROFILING
 		//p.start("post");
@@ -258,7 +258,7 @@ public class GpuSurfingLineSearcher implements LineSearcher.NeedsCleanup {
 		events.cleanup();
 		efunc.getKernel().setProfilingEvents(null);
 		poseKernel.setProfilingEvents(null);
-		for (int i=0; i<=8; i++) {
+		for (int i=0; i<7; i++) {
 			searchKernels[i].setProfilingEvents(null);
 		}
 		surfKernel.setProfilingEvents(null);

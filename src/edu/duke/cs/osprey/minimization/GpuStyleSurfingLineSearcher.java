@@ -33,8 +33,6 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 	private double xdmax;
 	private double xd;
 	private double fxd;
-	private double fxdmin;
-	private double fxdmax;
 	private double step;
 	private double xdm;
 	private double xdp;
@@ -48,6 +46,7 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 	private int surfStep;
 	private double xdsurfHere;
 	private double fxdsurfHere;
+	private boolean surfHitEdge;
 	
 	private double[] coords;
 	private int[] dihedralAtomIndices;
@@ -91,18 +90,21 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 		// pretend like each function call is a kernel launch
 		// so they can only communicate via shared memory
 		
-		for (int i=0; i<=5; i++) {
+		for (int i=0; i<=3; i++) {
 			pose();
 			energy();
 			search(i);
 		}
-		for (int i=0; i<10; i++) {
+		for (int i=0; i<100; i++) {
 			surf();
+			if (i % 2 == 0 && !doEnergy) {
+				break;
+			}
 			pose();
 			energy();
 		}
-		search6();
-		for (int i=7; i<=8; i++) {
+		search4();
+		for (int i=5; i<=6; i++) {
 			pose();
 			energy();
 			search(i);
@@ -123,8 +125,6 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 		xdmax = 0;
 		this.xd = 0;
 		fxd = 0;
-		fxdmin = 0;
-		fxdmax = 0;
 		step = 0;
 		xdm = 0;
 		xdp = 0;
@@ -139,6 +139,7 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 		energyfxd = 0;
 		
 		isSurfing = false;
+		surfHitEdge = false;
 		
 		// get the step size, try to make it adaptive (based on historical steps if possible; else on step #)
 		if (Math.abs(lastStep) > Tolerance && Math.abs(firstStep) > Tolerance) {
@@ -247,8 +248,6 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 			case 4: search4(); break;
 			case 5: search5(); break;
 			case 6: search6(); break;
-			case 7: search7(); break;
-			case 8: search8(); break;
 		}
 	}
 	
@@ -256,26 +255,6 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 		
 		// read energy result
 		fxd = energyfxd;
-		
-		// get the min edge
-		doEnergy = true;
-		energyxd = xdmin;
-	}
-	
-	public void search1() {
-		
-		// read energy result
-		fxdmin = energyfxd;
-		
-		// get the max edge
-		doEnergy = true;
-		energyxd = xdmax;
-	}
-	
-	public void search2() {
-		
-		// read energy result
-		fxdmax = energyfxd;
 		
 		// get the minus neighbor
 		xdm = xd - step;
@@ -285,7 +264,7 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 		energyxd = xdm;
 	}
 	
-	public void search3() {
+	public void search1() {
 		
 		// read energy result
 		fxdm = Double.POSITIVE_INFINITY;
@@ -301,7 +280,7 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 		energyxd = xdp;
 	}
 	
-	public void search4() {
+	public void search2() {
 		
 		// read energy result
 		fxdp = Double.POSITIVE_INFINITY;
@@ -352,7 +331,7 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 		energyxd = xdstar;
 	}
 	
-	public void search5() {
+	public void search3() {
 		
 		// read energy result
 		fxdstar = energyfxd;
@@ -392,6 +371,11 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 				// nope, stop surfing
 				isSurfing = false;
 			}
+			
+			// if we hit the edge, stop anyway
+			if (surfHitEdge) {
+				isSurfing = false;
+			}
 		}
 			
 		if (isSurfing) {
@@ -399,37 +383,23 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 			// surf a step
 			double xdsurfNext = xd + stepScale*(xdsurfHere - xd);
 			
-			// did we step off the min?
+			// clamp the x val
 			if (xdsurfNext < xdmin) {
-				
-				// if the min is better, go there instead
-				if (fxdmin < fxdstar) {
-					xdsurfHere = xdmin;
-				}
-				
-				isSurfing = false;
-			
-			// did we step off the max?
+				surfHitEdge = true;
+				xdsurfNext = xdmin;
 			} else if (xdsurfNext > xdmax) {
-				
-				// if the max is better, go there instead
-				if (fxdmax < fxdstar) {
-					xdsurfHere = xdmax;
-				}
-				
-				isSurfing = false;
-				
-			} else {
-			
-				// init energy calc for new surf spot
-				surfStep++;
-				doEnergy = true;
-				energyxd = xdsurfNext;
+				surfHitEdge = true;
+				xdsurfNext = xdmax;
 			}
+			
+			// init energy calc for new surf spot
+			surfStep++;
+			doEnergy = true;
+			energyxd = xdsurfNext;
 		}
 	}
 	
-	public void search6() {
+	public void search4() {
 		
 		// did the quadratic step help at all?
 		if (fxdstar < fxd) {
@@ -464,7 +434,7 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 		energyxd = xdm;
 	}
 	
-	public void search7() {
+	public void search5() {
 		
 		double xdstarOld = xdstar;
 		
@@ -482,7 +452,7 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 		energyxd = xdp;
 	}
 	
-	public void search8() {
+	public void search6() {
 		
 		// read energy result
 		if (doEnergy) {
@@ -542,21 +512,20 @@ public class GpuStyleSurfingLineSearcher implements LineSearcher {
 			check(xdmax, args.getDouble(16));
 			check(xd, args.getDouble(24));
 			check(fxd, args.getDouble(32));
-			check(fxdmin, args.getDouble(40));
-			check(fxdmax, args.getDouble(48));
-			check(step, args.getDouble(56));
-			check(xdm, args.getDouble(64));
-			check(xdp, args.getDouble(72));
-			check(fxdm, args.getDouble(80));
-			check(fxdp, args.getDouble(88));
-			check(xdstar, args.getDouble(96));
-			check(fxdstar, args.getDouble(104));
-			check(stepScale, args.getDouble(112));
-			check(xdsurfHere, args.getDouble(120));
-			check(fxdsurfHere, args.getDouble(128));
-			check(energyxd, args.getDouble(136));
-			check(internalSolvEnergy, args.getDouble(144));
-			check(isSurfing, args.get(152) == 1);
+			check(step, args.getDouble(40));
+			check(xdm, args.getDouble(48));
+			check(xdp, args.getDouble(56));
+			check(fxdm, args.getDouble(64));
+			check(fxdp, args.getDouble(72));
+			check(xdstar, args.getDouble(80));
+			check(fxdstar, args.getDouble(88));
+			check(stepScale, args.getDouble(96));
+			check(xdsurfHere, args.getDouble(104));
+			check(fxdsurfHere, args.getDouble(112));
+			check(energyxd, args.getDouble(120));
+			check(internalSolvEnergy, args.getDouble(128));
+			check(isSurfing, args.get(136) == 1);
+			check(surfHitEdge, args.get(137) == 1);
 			
 		} catch (Throwable t) {
 			throw new Error("check failure after kernel: " + name, t);

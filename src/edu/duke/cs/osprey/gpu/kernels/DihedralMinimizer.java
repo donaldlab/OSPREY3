@@ -48,17 +48,17 @@ public class DihedralMinimizer {
 			uploadBufferAsync(this.rotatedIndices);
 			
 			// make the args buffer
-			int argSize = 160;
+			int argSize = 144;
 			args = context.createByteBuffer(argSize, CLMemory.Mem.READ_WRITE);
 			ByteBuffer buf = args.getBuffer();
 			buf.rewind();
 			for (int i=0; i<2; i++) {
 				buf.putInt(0);
 			}
-			for (int i=0; i<18; i++) {
+			for (int i=0; i<16; i++) {
 				buf.putDouble(0);
 			}
-			for (int i=0; i<1; i++) {
+			for (int i=0; i<8; i++) {
 				buf.put((byte)0);
 			}
 			buf.clear(); // doesn't actually empty the buffer, just resets pos and limit
@@ -89,9 +89,9 @@ public class DihedralMinimizer {
 			buf.putDouble(8, xdmin);
 			buf.putDouble(16, xdmax);
 			buf.putDouble(24, xd);
-			buf.putDouble(56, step);
-			buf.putDouble(136, xd); // dihedralDegrees = xd
-			buf.putDouble(144, internalSolvEnergy);
+			buf.putDouble(40, step);
+			buf.putDouble(120, xd); // dihedralDegrees = xd
+			buf.putDouble(128, internalSolvEnergy);
 			
 			// upload the args
 			buf.rewind();
