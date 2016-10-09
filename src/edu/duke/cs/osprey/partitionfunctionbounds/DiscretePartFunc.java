@@ -12,11 +12,11 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ExpFunction;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
 /**
- *
  * @author hmn5
  */
 public class DiscretePartFunc {
@@ -35,7 +35,9 @@ public class DiscretePartFunc {
     public long totalTime;
     public double effectiveEpsilonReached;
     public boolean finishedInTime;
-    
+    double lowerBoundLogZ;
+    double upperBoundLogZ;
+
     public DiscretePartFunc(SearchProblem sp, double epsilon) {
         if (epsilon < 0 || epsilon >= 1.0) {
             throw new RuntimeException("Epsilon must be between 0 and 1");
@@ -54,7 +56,7 @@ public class DiscretePartFunc {
 
         this.logZ = computePartFunc();
     }
-    
+
     public DiscretePartFunc(EnergyMatrix emat, PruningMatrix pruneMat, double epsilon, double maxTimeLimitMilli) {
         this.epsilon = epsilon;
         this.emat = emat;
@@ -141,11 +143,14 @@ public class DiscretePartFunc {
                     }
                     if (effectiveEpsilon <= epsilon) {
                         epsilonReached = true;
-                    }
-                    else if (System.currentTimeMillis() - startTime > maxTimeMilli){
-                        System.out.println("Effective Epsilon after "+maxTimeMilli+" milliseconds: "+effectiveEpsilon);
+                        this.lowerBoundLogZ = (normalize) + ef.log(lowerBound).doubleValue();
+                        this.upperBoundLogZ = (normalize) + ef.log(upperBound).doubleValue();
+                    } else if (System.currentTimeMillis() - startTime > maxTimeMilli) {
+                        System.out.println("Effective Epsilon after " + maxTimeMilli + " milliseconds: " + effectiveEpsilon);
                         this.effectiveEpsilonReached = effectiveEpsilon;
                         finishedInTime = false;
+                        this.lowerBoundLogZ = (normalize) + ef.log(lowerBound).doubleValue();
+                        this.upperBoundLogZ = (normalize) + ef.log(upperBound).doubleValue();
                         return (normalize) + Math.log(runningSum);
                     }
                 }
@@ -154,6 +159,14 @@ public class DiscretePartFunc {
         this.totalTime = System.currentTimeMillis() - startTime;
         finishedInTime = true;
         return (normalize) + Math.log(runningSum);
+    }
+
+    public double getLowerBoundLogZ() {
+        return lowerBoundLogZ;
+    }
+
+    public double getUpperBoundLogZ() {
+        return upperBoundLogZ;
     }
 
     double getEffectiveEpsilon(BigDecimal upperBound, BigDecimal lowerBound) {

@@ -18,6 +18,7 @@ import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ExpFunction;
+
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -27,7 +28,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- *
  * @author hmn5
  */
 public class VariationalPartFunc {
@@ -39,7 +39,7 @@ public class VariationalPartFunc {
     boolean testSCMF = true;
     double epsilon;
 
-    public VariationalPartFunc(ConfigFileParser aCFP) {
+    public VariationalPartFunc(ConfigFileParser aCFP, int numHours) {
         this.cfp = aCFP;
         this.cfp.params.setValue("STERICTHRESH", "1000");
 //        SearchProblem[] spList = cfp.getMSDSearchProblems();
@@ -51,177 +51,61 @@ public class VariationalPartFunc {
 //        sp = spList[0];
         sp = cfp.getSearchProblem();
         loadEMatandPrune(sp, Double.POSITIVE_INFINITY);
-        if (testSCMF) {
-//            testSCMF(sp);
+        prune(sp, 30);
+        System.out.println("Finished Pruning");
 
-//            DiscretePartFunc dpf = new DiscretePartFunc(sp, 0.1);
-//            double logZKStar = dpf.getLogZ();
-//            System.out.println("KStar LogZ: " + logZKStar);
-            prune(sp, 30);
-            System.out.println("Finished Pruning");
-            /*if (true) {
-             partFuncTree tree = new partFuncTree(sp.emat, upm);
-             double logZ = tree.computeEpsilonApprox(0.1);
-             System.out.println("Epsilon Approx BB: " + logZ);
-             }
-             */
-            if (false) {
-                double average = 0.0;
-                int averageNodesExpanded = 0;
-                int numSamples = 10;
-                for (int i = 0; i < numSamples; i++) {
-                    GumbelMapTree tree = new GumbelMapTree(sp);
-                    tree.nextConf();
-                    double score = tree.currentBestFeasibleScore;
-                    average += score;
-                    double logZestimate = -average / (this.constRT * (i + 1));
-                    System.out.println("Number of Nodes Expanded: " + tree.numExpanded);
-                    averageNodesExpanded += tree.numExpanded;
-                    System.out.println("Current Sample: " + -score / this.constRT);
-                    System.out.println("Current Average: " + logZestimate);
-                    System.out.println("Current Average Nodes Exp: " + averageNodesExpanded / (i + 1));
-                }
-                System.out.println("Average Nodes Expanded: " + averageNodesExpanded / numSamples);
-                double logZ = -average / (this.constRT * numSamples);
-                System.out.println("Gumbel logZ: " + logZ);
-                System.exit(0);
-            }
-            if (true) {
-                epsilon = 0.1;
-                PartFuncTree tree = new PartFuncTree(sp.emat, sp.pruneMat);
-                long startTime = System.currentTimeMillis();
-                double maxTime = 3600000;
-
-                System.out.println("Starting Part Func Calculation with Epsilon: " + epsilon);
-                double logZ = tree.computeEpsilonApprox(epsilon, maxTime);
-                long totalTime = (System.currentTimeMillis() - startTime);
-                System.out.println("New Alg Took: " + totalTime + " milliseconds");
-//                DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, sp.pruneMat, 0.1, maxTime);
-//                System.out.println("DFP: " + dfp.getLogZ());
-                String filename = "data_";
-                filename += epsilon + "_1Hour.txt";
-                File statistics = new File(filename);
-                try {
-                    FileWriter fw = new FileWriter(statistics);
-                    fw.write("LogConfSpace: " + getLogConfSpace(sp.pruneMat) + "\n");
-                    fw.write("NewAlgorithm: " + totalTime + "\n");
-                    if (tree.timeOut) {
-                        fw.write("NewAlgorithm: finished false" + "\n");
-                        fw.write("NewAlgorithm: effectiveEpsilon " + tree.effectiveEpsilon + "\n");
-                    } else {
-                        fw.write("NewAlgorithm: finished true" + "\n");
-                    }
-                    fw.write("NewAlgorithm: logZ " + logZ + "\n");
-                    DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, sp.pruneMat, 0.1, maxTime);
-                    System.out.println("DFP: " + dfp.getLogZ());
-                    if (dfp.finishedInTime) {
-                        fw.write("KStar: finished true" + "\n");
-                        fw.write("KStar: totalTime " + dfp.totalTime);
-                    } else {
-                        fw.write("KStar: finished false" + "\n");
-                        fw.write("KStar: effectiveEpsilon " + dfp.effectiveEpsilonReached + "\n");
-                        fw.write("KStar: logZLB " + dfp.getLogZ());
-                    }
-
-                    fw.close();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-                System.out.println("Epsilon Approx BB: " + logZ);
-            }
-            if (false) {
-                PartFuncTree tree = new PartFuncTree(sp.emat, sp.pruneMat);
-                long startTime = System.currentTimeMillis();
-                double maxTime = 3600000;
-                double logZ = tree.computeEpsilonApprox(0.1, maxTime);
-                long totalTime = (System.currentTimeMillis() - startTime);
-                System.out.println("New Alg Took: " + totalTime + " milliseconds");
-                File statistics = new File("data_var_p_2.txt");
-                try {
-                    FileWriter fw = new FileWriter(statistics);
-                    fw.write("LogConfSpace: " + getLogConfSpace(sp.pruneMat) + "\n");
-                    fw.write("NewAlgorithm: " + totalTime + "\n");
-                    if (tree.timeOut) {
-                        fw.write("NewAlgorithm: finished false" + "\n");
-                        fw.write("NewAlgorithm: effectiveEpsilon " + tree.effectiveEpsilon + "\n");
-                    } else {
-                        fw.write("NewAlgorithm: finished true" + "\n");
-                    }
-                    fw.write("NewAlgorithm: logZ " + logZ);
-                    fw.close();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-                System.out.println("Epsilon Approx BB: " + logZ);
-            }
-            /*            ReparamMRF mrf = new ReparamMRF(sp.emat, upm, 0.0);
-             MarkovRandomField mrf2 = new MarkovRandomField(sp, 0.0);
-             SCMF_Clamp scmf = new SCMF_Clamp(mrf);
-             System.out.println("Lower Bound: "+scmf.getLogZLB());
-             //            DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, upm, 0.1);
-            
-             //            TRBP_Refactor_2 trbpR = new TRBP_Refactor_2(mrf2);
-             /*            TRBPSeq trbp = new TRBPSeq(mrf);
-             double ubLogZ = trbp.getLogZ();
-             System.out.println("ubLogZ: " + ubLogZ);
-             if (false) {
-             DiscretePartFunc dpf = new DiscretePartFunc(sp, 0.1);
-             double logZKStar = dpf.getLogZ();
-             System.out.println("KStar LogZ: " + logZKStar);
-             }
-             */
-        }
-    }
-
-    public VariationalPartFunc(ConfigFileParser aCFP, double epsilon, double eCut, boolean useTRBPSplit) {
-        this.cfp = aCFP;
-        this.cfp.params.setValue("STERICTHRESH", "1000");
-        SearchProblem[] spList = cfp.getMSDSearchProblems();
-
-        for (SearchProblem searchProb : spList) {
-            loadEMatandPrune(searchProb, Double.POSITIVE_INFINITY);
-        }
-
-        sp = spList[0];
-
-        UpdatedPruningMatrix upm = new UpdatedPruningMatrix(sp.pruneMat);
-        prune(sp, upm, 30);
-        this.epsilon = epsilon;
-        PartFuncTree tree = new PartFuncTree(sp.emat, upm, eCut, useTRBPSplit);
+        epsilon = 0.1;
+        PartFuncTree tree = new PartFuncTree(sp.emat, sp.pruneMat);
         long startTime = System.currentTimeMillis();
-        double maxTime = 3600000;
+        double maxTime = 60.0 * 60.0 * 1000.0 * numHours;
+
+        System.out.println("Starting Part Func Calculation with Epsilon: " + epsilon);
         double logZ = tree.computeEpsilonApprox(epsilon, maxTime);
+        double lowerBoundLogZ = tree.getCurrentLowerBoundLogZ();
+        double upperBoundLogZ = tree.getCurrentUpperBoundLogZ();
+
         long totalTime = (System.currentTimeMillis() - startTime);
         System.out.println("New Alg Took: " + totalTime + " milliseconds");
+//                DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, sp.pruneMat, 0.1, maxTime);
+//                System.out.println("DFP: " + dfp.getLogZ());
         String filename = "data_";
-        filename += epsilon + "_1Hour.txt";
+        filename += epsilon + "_"+Integer.toString(numHours)+"Hour.txt";
         File statistics = new File(filename);
         try {
             FileWriter fw = new FileWriter(statistics);
-            fw.write("LogConfSpace: " + getLogConfSpace(upm) + "\n");
-            fw.write("NewAlgorithm: " + totalTime + "\n");
+            fw.write("LogConfSpace: " + getLogConfSpace(sp.pruneMat) + "\n");
+
             if (tree.timeOut) {
                 fw.write("NewAlgorithm: finished false" + "\n");
                 fw.write("NewAlgorithm: effectiveEpsilon " + tree.effectiveEpsilon + "\n");
+                fw.write("NewAlgorithm: totalTime "+maxTime+"\n");
             } else {
                 fw.write("NewAlgorithm: finished true" + "\n");
+                fw.write("NewAlgorithm: totalTime " + totalTime + "\n");
             }
-            fw.write("NewAlgorithm: logZ " + logZ + "\n");
-            DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, upm, epsilon, maxTime);
+            fw.write("NewAlgorithm: LowerBoundLogZ " + lowerBoundLogZ + "\n");
+            fw.write("NewAlgorithm: UpperBoundLogZ " + upperBoundLogZ + "\n");
+            DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, sp.pruneMat, 0.1, maxTime);
+            double dpfLowerBoundLogZ = dfp.getLowerBoundLogZ();
+            double dpfUpperBoundLogZ = dfp.getUpperBoundLogZ();
+            System.out.println("DFP: " + dfp.getLogZ());
             if (dfp.finishedInTime) {
                 fw.write("KStar: finished true" + "\n");
-                fw.write("KStar: totalTime " + dfp.totalTime);
+                fw.write("KStar: totalTime " + dfp.totalTime + "\n");
+                fw.write("KStar: LowerBoundLogZ " + dpfLowerBoundLogZ + "\n");
+                fw.write("KStar: UpperBoundLogZ " + dpfUpperBoundLogZ);
             } else {
                 fw.write("KStar: finished false" + "\n");
                 fw.write("KStar: effectiveEpsilon " + dfp.effectiveEpsilonReached + "\n");
-                fw.write("KStar: logZLB " + dfp.getLogZ());
+                fw.write("KStar: LowerBoundLogZ " + dpfLowerBoundLogZ + "\n");
+                fw.write("KStar: UpperBoundLogZ " + dpfUpperBoundLogZ);
             }
-
             fw.close();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
         System.out.println("Epsilon Approx BB: " + logZ);
+
     }
 
     private double getLogConfSpace(PruningMatrix pruneMat) {
@@ -272,26 +156,18 @@ public class VariationalPartFunc {
             tree.nextConf();
             double score = tree.currentBestFeasibleScore;
             average += score;
-            double logZestimate = -average / (this.constRT * (i + 1));
+            double logZestimate = -average / (constRT * (i + 1));
             System.out.println("Number of Nodes Expanded: " + tree.numExpanded);
             averageNodesExpanded += tree.numExpanded;
-            System.out.println("Current Sample: " + -score / this.constRT);
+            System.out.println("Current Sample: " + -score / constRT);
             System.out.println("Current Average: " + logZestimate);
             System.out.println("Current Average Nodes Exp: " + averageNodesExpanded / (i + 1));
         }
         System.out.println("Average Nodes Expanded: " + averageNodesExpanded / numSamples);
-        double logZ = -average / (this.constRT * numSamples);
+        double logZ = -average / (constRT * numSamples);
         System.out.println("Gumbel logZ: " + logZ);
 
         return logZ;
-    }
-
-    private double kstarScoreGumbelSample(SearchProblem[] spList, int numSamples) {
-        double logZBound = getLogZGumbelSample(spList[0], numSamples);
-        double logZProtein = getLogZGumbelSample(spList[1], numSamples);
-        double logZLigand = getLogZGumbelSample(spList[2], numSamples);
-
-        return logZBound - (logZLigand + logZProtein);
     }
 
     private HashMap<Integer, Integer> getUnboundPosNum2BoundPosNum(SearchProblem unboundSP, SearchProblem boundSP) {
