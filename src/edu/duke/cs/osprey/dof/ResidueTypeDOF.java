@@ -115,6 +115,9 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
                 }
             }
         }
+        else if(EnvironmentVars.alwaysIdealizeSidechainsAfterMutation){
+            SidechainIdealizer.idealizeSidechain(res);
+        }
     }
     
     

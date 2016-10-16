@@ -143,6 +143,10 @@ public class CCDMinimizer implements Minimizer {
     double minTime;//time for most recent minimization (ms)
     
     
+    private static final boolean useInitFixableDOFs = false;
+    //using sidechain-minimized conf to initialize all-DOF minimization in CATS
+    
+    
     //137DEBUG!!
     public int GVCountEstmin=0, GVCountEdge=0, GVCountBigger=0, GVCountSmaller=0; 
 
@@ -155,9 +159,6 @@ public class CCDMinimizer implements Minimizer {
     }
 
     public DoubleMatrix1D minimize() {
-
-        long minStartTime = System.currentTimeMillis();
-        
         //First figure out the constraints and initial values
         //(since the minimizer might be used for many rotameric states, etc.,
         //this can't be done in the constructor)
@@ -167,7 +168,14 @@ public class CCDMinimizer implements Minimizer {
         
         if(!compInitVals())//Initialize x
             return null;//No initial values found (this is currently only for IBEX)
+        
+        minimizeFromCurPoint();
+        return x;
+    }
 
+    public void minimizeFromCurPoint(){//minimize from current starting vector
+        long minStartTime = System.currentTimeMillis();
+        
         firstStep = new double[numDOFs];
         lastStep = new double[numDOFs];
         Arrays.fill(firstStep, 1);
@@ -399,8 +407,6 @@ public class CCDMinimizer implements Minimizer {
         
 
         minTime = System.currentTimeMillis() - minStartTime;
-        return x;
-
     }
     
 
@@ -623,6 +629,13 @@ public class CCDMinimizer implements Minimizer {
             compInitValsCorners();
         else
             compInitValsMiddle();
+        
+        if(useInitFixableDOFs){
+            ArrayList<Integer> initFixableDOFs = objFcn.getInitFixableDOFs();
+            if( ! initFixableDOFs.isEmpty() ){
+                initByPartialMin(initFixableDOFs);
+            }
+        }
 
         return true;//indicates success
     }
@@ -711,6 +724,26 @@ public class CCDMinimizer implements Minimizer {
             x = bestInitVals;
         }
 
+    }
+    
+    
+    void initByPartialMin(ArrayList<Integer> initFixableDOFs){
+        //do a minimization with respect to the DOFs not in initFixableDOFs
+        //Used in CATS so that early backbone motions don't throw us into an unfavorable well
+        //(in which case the initial point for full minimization is the sidechain-minimized conformation)
+        //The fact that we have to do this indicates CATS is pushing the limits of the local minimization assumption...
+        DoubleMatrix1D DOFminSave = DOFmin.copy();
+        DoubleMatrix1D DOFmaxSave = DOFmax.copy();
+        
+        for(int fixDOF : initFixableDOFs){//fix the fixable DOFs
+            DOFmin.set(fixDOF, x.get(fixDOF));
+            DOFmax.set(fixDOF, x.get(fixDOF));
+        }
+        
+        minimizeFromCurPoint();//update x
+        
+        DOFmin = DOFminSave;
+        DOFmax = DOFmaxSave;
     }
 
    

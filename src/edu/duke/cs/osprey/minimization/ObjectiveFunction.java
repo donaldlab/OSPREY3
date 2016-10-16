@@ -6,6 +6,7 @@ package edu.duke.cs.osprey.minimization;
 
 import cern.colt.matrix.DoubleMatrix1D;
 import java.io.Serializable;
+import java.util.ArrayList;
 
 /**
  *
@@ -44,5 +45,10 @@ public interface ObjectiveFunction extends Serializable {
     
     public boolean isDOFAngle(int dof);//Is the given degree of freedom an angle?
     //This is important because angles can wrap around (at 360-degree intervals)
+    
+    
+    public ArrayList<Integer> getInitFixableDOFs();
+    //If we're going to initialize full minimization with minimization over a limited number of DOFs,
+    //these are the indices of the DOFs that will be fixed
 }
 
