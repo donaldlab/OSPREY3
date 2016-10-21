@@ -34,12 +34,11 @@
             <zipfileset excludes="META-INF/*.SF" src="${lib}/architecture-rules-3.0.0-M1.jar"/>
             <zipfileset excludes="META-INF/*.SF" src="${lib}/colt-1.2.0.jar"/>
             <zipfileset excludes="META-INF/*.SF" src="${lib}/commons-beanutils-1.6.jar"/>
-            <zipfileset excludes="META-INF/*.SF" src="${lib}/commons-collections-2.1.jar"/>
+            <zipfileset excludes="META-INF/*.SF" src="${lib}/commons-collections4-4.1.jar"/>
             <zipfileset excludes="META-INF/*.SF" src="${lib}/commons-digester-1.6.jar"/>
             <zipfileset excludes="META-INF/*.SF" src="${lib}/commons-io-1.4.jar"/>
             <zipfileset excludes="META-INF/*.SF" src="${lib}/commons-lang-2.5.jar"/>
             <zipfileset excludes="META-INF/*.SF" src="${lib}/commons-logging-1.1.1.jar"/>
-            <zipfileset excludes="META-INF/*.SF" src="${lib}/commons-math3-3.0.jar"/>
             <zipfileset excludes="META-INF/*.SF" src="${lib}/commons-math3-3.3.jar"/>
             <zipfileset excludes="META-INF/*.SF" src="${lib}/jdepend-2.9.1.jar"/>
             <zipfileset excludes="META-INF/*.SF" src="${lib}/joptimizer.jar"/>
