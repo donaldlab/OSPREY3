@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.jogamp.opencl.CLContext;
 import com.jogamp.opencl.CLDevice;
+import com.jogamp.opencl.CLPlatform;
 
 public class Gpus {
 	
@@ -26,14 +27,19 @@ public class Gpus {
 	
 	private Gpus() {
 		
-		System.out.println("Discovering GPUs...");
+		System.out.print("Discovering GPUs...");
 		
 		// get the gpus that support doubles
-		CLContext context = CLContext.create();
 		gpus = new ArrayList<>();
-		for (CLDevice device : context.getDevices()) {
-			if (device.getType() == CLDevice.Type.GPU) {
+		for (int i=0; i<CLPlatform.listCLPlatforms().length; i++) {
+			CLPlatform platform = CLPlatform.listCLPlatforms()[i];
+			for (CLDevice device : platform.listCLDevices()) {
 				
+				// CPUs are slow, don't even bother
+				if (device.getType() == CLDevice.Type.CPU) {
+					continue;
+				}
+					
 				// make an independent context for each gpu
 				CLContext gpuContext = CLContext.create(device);
 				CLDevice isolatedDevice = gpuContext.getDevices()[0];
@@ -50,6 +56,12 @@ public class Gpus {
 					gpuContext.release();
 				}
 			}
+		}
+		
+		if (gpus.isEmpty()) {
+			System.out.println(" none found");
+		} else {
+			System.out.println(" found " + gpus.size());
 		}
 	}
 	
