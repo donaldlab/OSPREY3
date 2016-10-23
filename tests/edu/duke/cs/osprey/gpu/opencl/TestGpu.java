@@ -31,7 +31,7 @@ public class TestGpu {
 		
 		final int NumRuns = 10;
 		
-		GpuQueue queue = new GpuQueue(Gpus.get().getBestGpu());
+		GpuQueue queue = new GpuQueue(Gpus.get().getGpus().get(0));
 		TestFancyKernel kernel = new TestFancyKernel(queue);
 		
 		// copy data to buffers

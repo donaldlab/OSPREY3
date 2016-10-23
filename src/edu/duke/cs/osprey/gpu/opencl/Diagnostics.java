@@ -33,14 +33,10 @@ public class Diagnostics {
 		}
 		
 		// show the usable GPUs
-		System.out.println("\nGPUs usable by Osprey:");
+		System.out.println("\nOpenCL GPUs usable by Osprey:");
 		Gpus gpus = Gpus.get();
 		for (Gpu gpu : gpus.getGpus()) {
-			System.out.print("\t" + gpu);
-			if (gpus.getGpus().size() > 1 && gpu == gpus.getBestGpu()) {
-				System.out.print("   (best GPU)");
-			}
-			System.out.println();
+			System.out.println("\t" + gpu);
 		}
 	}
 	

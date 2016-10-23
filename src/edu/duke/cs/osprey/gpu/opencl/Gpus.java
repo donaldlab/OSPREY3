@@ -68,20 +68,4 @@ public class Gpus {
 	public List<Gpu> getGpus() {
 		return Collections.unmodifiableList(gpus);
 	}
-	
-	public Gpu getBestGpu() {
-		
-		Gpu bestGpu = null;
-		long bestScore = 0;
-		
-		for (Gpu gpu : gpus) {
-			long score = gpu.getDevice().getMaxComputeUnits() * gpu.getDevice().getMaxClockFrequency();
-			if (score > bestScore) {
-				bestScore = score;
-				bestGpu = gpu;
-			}
-		}
-		
-		return bestGpu;
-	}
 }
