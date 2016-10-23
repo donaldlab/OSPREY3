@@ -50,6 +50,9 @@
             <zipfileset excludes="META-INF/*.SF" src="${lib}/jocl-2.3.2.jar"/>
             <zipfileset excludes="META-INF/*.SF" src="${lib}/hamcrest-all-1.3.jar"/>
             <zipfileset excludes="META-INF/*.SF" src="${lib}/junit-4.12.jar"/>
+            <zipfileset excludes="META-INF/*.SF" src="${lib}/jcuda-0.8.0RC.jar"/>
+            <zipfileset excludes="META-INF/*.SF" src="${lib}/jcuda-natives-0.8.0RC-linux-x86_64.jar"/>
+            <zipfileset excludes="META-INF/*.SF" src="${lib}/jcuda-natives-0.8.0RC-windows-x86_64.jar"/>
         </jar>
     </target>
 	
