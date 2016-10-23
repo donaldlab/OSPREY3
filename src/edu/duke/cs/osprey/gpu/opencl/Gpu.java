@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.gpu;
+package edu.duke.cs.osprey.gpu.opencl;
 
 import java.io.IOException;
 import java.io.InputStream;

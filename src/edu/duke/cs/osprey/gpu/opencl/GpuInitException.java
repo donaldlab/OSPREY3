@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.gpu;
+package edu.duke.cs.osprey.gpu.opencl;
 
 public class GpuInitException extends RuntimeException {
 

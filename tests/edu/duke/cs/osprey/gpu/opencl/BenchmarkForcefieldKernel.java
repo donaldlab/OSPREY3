@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.gpu;
+package edu.duke.cs.osprey.gpu.opencl;
 
 import static org.junit.Assert.*;
 
@@ -36,6 +36,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
+import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.parallelism.TimingThread;

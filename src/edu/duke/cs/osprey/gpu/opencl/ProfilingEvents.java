@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.gpu;
+package edu.duke.cs.osprey.gpu.opencl;
 
 import java.lang.reflect.Field;
 import java.util.concurrent.TimeUnit;

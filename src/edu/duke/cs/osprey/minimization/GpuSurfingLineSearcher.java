@@ -7,9 +7,9 @@ import java.util.List;
 import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
-import edu.duke.cs.osprey.gpu.GpuQueue;
-import edu.duke.cs.osprey.gpu.kernels.DihedralMinimizer;
-import edu.duke.cs.osprey.gpu.kernels.ForceFieldKernel;
+import edu.duke.cs.osprey.gpu.opencl.GpuQueue;
+import edu.duke.cs.osprey.gpu.opencl.kernels.DihedralMinimizer;
+import edu.duke.cs.osprey.gpu.opencl.kernels.ForceFieldKernel;
 import edu.duke.cs.osprey.structure.Residue;
 
 public class GpuSurfingLineSearcher implements LineSearcher.NeedsCleanup {

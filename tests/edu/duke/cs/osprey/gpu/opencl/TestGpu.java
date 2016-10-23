@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.gpu;
+package edu.duke.cs.osprey.gpu.opencl;
 
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
@@ -7,7 +7,9 @@ import java.util.Random;
 
 import org.junit.Test;
 
-import edu.duke.cs.osprey.gpu.kernels.TestFancyKernel;
+import edu.duke.cs.osprey.gpu.opencl.GpuQueue;
+import edu.duke.cs.osprey.gpu.opencl.Gpus;
+import edu.duke.cs.osprey.gpu.opencl.kernels.TestFancyKernel;
 
 public class TestGpu {
 	

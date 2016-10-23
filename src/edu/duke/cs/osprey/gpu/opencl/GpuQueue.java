@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.gpu;
+package edu.duke.cs.osprey.gpu.opencl;
 
 import com.jogamp.opencl.CLCommandQueue;
 import com.jogamp.opencl.CLContext;

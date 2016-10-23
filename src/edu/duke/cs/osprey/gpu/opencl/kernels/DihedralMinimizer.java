@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.gpu.kernels;
+package edu.duke.cs.osprey.gpu.opencl.kernels;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -9,8 +9,8 @@ import com.jogamp.opencl.CLBuffer;
 import com.jogamp.opencl.CLContext;
 import com.jogamp.opencl.CLMemory;
 
-import edu.duke.cs.osprey.gpu.Kernel;
-import edu.duke.cs.osprey.gpu.GpuQueue;
+import edu.duke.cs.osprey.gpu.opencl.GpuQueue;
+import edu.duke.cs.osprey.gpu.opencl.Kernel;
 
 public class DihedralMinimizer {
 	
