@@ -16,6 +16,7 @@ import com.jogamp.opencl.CLException;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions.AtomGroup;
+import edu.duke.cs.osprey.gpu.BufferTools;
 import edu.duke.cs.osprey.gpu.opencl.GpuQueue;
 import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
 import edu.duke.cs.osprey.gpu.opencl.ProfilingEvents;
@@ -54,7 +55,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 					
 					// prep the kernel, upload precomputed data
 					kernel = new ForceFieldKernel(queue);
-					kernel.setForcefield(new BigForcefieldEnergy(ffparams, interactions, true));
+					kernel.setForcefield(new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct));
 					
 				} catch (IOException ex) {
 					

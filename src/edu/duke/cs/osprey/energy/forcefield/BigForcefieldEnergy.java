@@ -16,6 +16,7 @@ import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.EEF1.SolvParams;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions.AtomGroup;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.NBParams;
+import edu.duke.cs.osprey.gpu.BufferTools;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.AtomNeighbors;
 import edu.duke.cs.osprey.structure.AtomNeighbors.NEIGHBORTYPE;
@@ -102,6 +103,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof {
 	
 	private ForcefieldParams params;
 	private ForcefieldInteractions interactions;
+	private BufferTools.Type bufferType;
 	private Groups groups;
 	
 	// NOTE: use buffers here instead of arrays to make syncing with GPU easier
@@ -124,16 +126,17 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof {
 	private Subset subset;
 	
 	public BigForcefieldEnergy(ForcefieldParams params, ForcefieldInteractions interactions) {
-		this(params, interactions, false);
+		this(params, interactions, BufferTools.Type.Normal);
 	}
 	
-	public BigForcefieldEnergy(ForcefieldParams params, ForcefieldInteractions interactions, boolean useDirectBuffers) {
+	public BigForcefieldEnergy(ForcefieldParams params, ForcefieldInteractions interactions, BufferTools.Type bufferType) {
 		
 		// TODO: implement solvation toggle
 		// TODO: implement dynamic vs static atom groups
 		
 		this.params = params;
 		this.interactions = interactions;
+		this.bufferType = bufferType;
 		
 		// get one list of the unique atom groups in a stable order
 		// (this is all the variable info, collecting it in one place will make uploading to the gpu faster)
@@ -150,11 +153,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof {
 			atomOffsets[i] = numAtoms;
 			numAtoms += group.getAtoms().size();
 		}
-		if (useDirectBuffers) {
-			coords = ByteBuffer.allocateDirect(numAtoms*3*Double.BYTES).order(ByteOrder.nativeOrder()).asDoubleBuffer();
-		} else {
-			coords = DoubleBuffer.allocate(numAtoms*3);
-		}
+		coords = BufferTools.makeDouble(numAtoms*3, bufferType);
 		
 		// do one pass over the group pairs to count the number of atom pairs
 		int numAtomPairs = 0;
@@ -184,13 +183,8 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof {
 		}
 		
 		// allocate our buffers
-		if (useDirectBuffers) {
-			atomFlags = ByteBuffer.allocateDirect(numAtomPairs*2*Integer.BYTES).order(ByteOrder.nativeOrder()).asIntBuffer();
-			precomputed = ByteBuffer.allocateDirect(numAtomPairs*9*Double.BYTES).order(ByteOrder.nativeOrder()).asDoubleBuffer();
-		} else {
-			atomFlags = IntBuffer.allocate(numAtomPairs*2);
-			precomputed = DoubleBuffer.allocate(numAtomPairs*9);
-		}
+		atomFlags = BufferTools.makeInt(numAtomPairs*2, bufferType);
+		precomputed = BufferTools.makeDouble(numAtomPairs*9, bufferType);
 		
 		NBParams nbparams1 = new NBParams();
 		NBParams nbparams2 = new NBParams();
@@ -537,7 +531,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof {
 				// but share efuncs between dofs in the same residue
 				BigForcefieldEnergy efunc = efuncCache.get(res);
 				if (efunc == null) {
-					efunc = new BigForcefieldEnergy(params, interactions.makeSubsetByResidue(res), coords.isDirect());
+					efunc = new BigForcefieldEnergy(params, interactions.makeSubsetByResidue(res), bufferType);
 					efuncCache.put(res, efunc);
 				}
 				efuncs.add(efunc);

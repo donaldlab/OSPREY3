@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.gpu.cuda;
 
-import jcuda.driver.CUcontext;
 import jcuda.driver.CUdevice;
 import jcuda.driver.CUdevice_attribute;
 import jcuda.driver.JCudaDriver;
@@ -72,16 +71,6 @@ public class Gpu {
 	
 	public boolean supportsDynamicParallelism() {
 		return isComputeVersionAtLeast(3, 5);
-	}
-	
-	public CUcontext makeContextForThisThread() {
-		CUcontext context = new CUcontext();
-		JCudaDriver.cuCtxCreate(context, 0, device);
-		return context;
-	}
-	
-	public void waitForGpu() {
-		JCudaDriver.cuCtxSynchronize();
 	}
 	
 	@Override
