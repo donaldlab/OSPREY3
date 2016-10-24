@@ -32,7 +32,7 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 	
 	public ForcefieldKernelCuda(Context context)
 	throws IOException {
-		super(context, "forcefield.cubin", "calc");
+		super(context, "forcefield", "calc");
 		
 		// OPTIMIZATION: 128 is empirically fastest on my GeForce 560 Ti at home
 		// but we should experiment with the CS dept Teslas too
@@ -76,10 +76,6 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 		precomputed = new CUBuffer<>(getContext(), ffenergy.getPrecomputed());
 		subsetTable = new CUBuffer<>(getContext(), BufferTools.makeInt(ffenergy.getFullSubset().getNumAtomPairs(), BufferTools.Type.Direct));
 		energies = new CUBuffer<>(getContext(), BufferTools.makeDouble(getEnergySize(ffenergy.getFullSubset(), blockThreads), BufferTools.Type.Direct));
-		
-		// IMPORTANT: rewind the buffers before uploading, otherwise we get garbage on the gpu
-		atomFlags.getHostBuffer().rewind();
-		precomputed.getHostBuffer().rewind();
 		
 		// upload static info
 		atomFlags.uploadAsync();

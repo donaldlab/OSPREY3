@@ -1,4 +1,8 @@
 
+// compile with:
+// nvcc -fatbin -arch=compute_20 "kernelSource/forcefield.cu" -o "kernelBinaries/forcefield.bin"
+
+
 typedef struct __align__(8) {
 	int numPairs; // @ 0
 	int num14Pairs; // @ 4

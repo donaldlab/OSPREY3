@@ -85,9 +85,11 @@ public class CudaPlayground extends TestBase {
 		kernel.cleanup();
 	}
 	
-	private static void deviceLoop(CUmodule module) {
+	private static void deviceLoop(Context context)
+	throws IOException {
 		
 		// get the kernel func
+		CUmodule module = context.getKernel("testDP");
 		CUfunction func = new CUfunction();
 		JCudaDriver.cuModuleGetFunction(func, module, "loop");
 		

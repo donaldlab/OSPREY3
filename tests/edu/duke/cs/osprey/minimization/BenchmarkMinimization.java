@@ -2,7 +2,6 @@ package edu.duke.cs.osprey.minimization;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -28,6 +27,7 @@ import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
+import edu.duke.cs.osprey.gpu.cuda.ContextPool;
 import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -221,18 +221,28 @@ public class BenchmarkMinimization extends TestBase {
 				return EnvironmentVars.curEFcnGenerator.fullConfEnergy(search.confSpace, search.shellResidues, mol);
 			}
 		};
-		GpuQueuePool gpuPool = new GpuQueuePool(1);
-		GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), gpuPool);
-		Factory<EnergyFunction,Molecule> gpuefuncs = new Factory<EnergyFunction,Molecule>() {
+		
+		GpuQueuePool openclPool = new GpuQueuePool(1);
+		GpuEnergyFunctionGenerator openclEgen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), openclPool);
+		Factory<EnergyFunction,Molecule> openclEfuncs = new Factory<EnergyFunction,Molecule>() {
 			@Override
 			public EnergyFunction make(Molecule mol) {
-				return gpuegen.fullConfEnergy(search.confSpace, search.shellResidues, mol);
+				return openclEgen.fullConfEnergy(search.confSpace, search.shellResidues, mol);
+			}
+		};
+		
+		ContextPool cudaPool = new ContextPool();
+		GpuEnergyFunctionGenerator cudaEgen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), cudaPool);
+		Factory<EnergyFunction,Molecule> cudaEfuncs = new Factory<EnergyFunction,Molecule>() {
+			@Override
+			public EnergyFunction make(Molecule mol) {
+				return cudaEgen.fullConfEnergy(search.confSpace, search.shellResidues, mol);
 			}
 		};
 		
 		// warm up the energy function
 		// avoids anomolous timings on the first conf
-		EnergyFunction efunc = gpuefuncs.make(search.confSpace.m);
+		EnergyFunction efunc = openclEfuncs.make(search.confSpace.m);
 		efunc.getEnergy();
 		((EnergyFunction.NeedsCleanup)efunc).cleanup();
 		
@@ -244,6 +254,7 @@ public class BenchmarkMinimization extends TestBase {
 		System.out.println("precise timing: " + cpuOriginalStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
 		checkEnergies(minimizedConfs);
 		
+		/*
 		System.out.println("\nbenchmarking CPU simple...");
 		Stopwatch cpuSimpleStopwatch = new Stopwatch().start();
 		minimizedConfs = new ConfMinimizer(simpleMinimizers).minimize(confs, efuncs, search.confSpace);
@@ -257,21 +268,32 @@ public class BenchmarkMinimization extends TestBase {
 		System.out.print("precise timing: " + cpuPipelinedStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
 		System.out.println(String.format(", speedup: %.2fx", (double)cpuOriginalStopwatch.getTimeNs()/cpuPipelinedStopwatch.getTimeNs()));
 		checkEnergies(minimizedConfs);
+		*/
 		
-		System.out.println("\nbenchmarking GPU original...");
-		Stopwatch gpuOriginalStopwatch = new Stopwatch().start();
-		minimizedConfs = new ConfMinimizer(originalMinimizers).minimize(confs, gpuefuncs, search.confSpace);
-		System.out.print("precise timing: " + gpuOriginalStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
-		System.out.println(String.format(", speedup: %.2fx", (double)cpuOriginalStopwatch.getTimeNs()/gpuOriginalStopwatch.getTimeNs()));
+		System.out.println("\nbenchmarking OpenCL original...");
+		Stopwatch openclOriginalStopwatch = new Stopwatch().start();
+		minimizedConfs = new ConfMinimizer(originalMinimizers).minimize(confs, openclEfuncs, search.confSpace);
+		System.out.print("precise timing: " + openclOriginalStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
+		System.out.println(String.format(", speedup: %.2fx", (double)cpuOriginalStopwatch.getTimeNs()/openclOriginalStopwatch.getTimeNs()));
 		checkEnergies(minimizedConfs);
 		
-		System.out.println("\nbenchmarking GPU pipelined...");
-		Stopwatch gpuPipelinedStopwatch = new Stopwatch().start();
-		minimizedConfs = new ConfMinimizer(gpuPipelinedMinimizers).minimize(confs, gpuefuncs, search.confSpace);
-		System.out.print("precise timing: " + gpuPipelinedStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
-		System.out.println(String.format(", speedup over cpu: %.2fx, speedup over original gpu: %.2fx",
-			(double)cpuOriginalStopwatch.getTimeNs()/gpuPipelinedStopwatch.getTimeNs(),
-			(double)gpuOriginalStopwatch.getTimeNs()/gpuPipelinedStopwatch.getTimeNs()
+		System.out.println("\nbenchmarking OpenCL pipelined...");
+		Stopwatch openclPipelinedStopwatch = new Stopwatch().start();
+		minimizedConfs = new ConfMinimizer(gpuPipelinedMinimizers).minimize(confs, openclEfuncs, search.confSpace);
+		System.out.print("precise timing: " + openclPipelinedStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
+		System.out.println(String.format(", speedup over cpu: %.2fx, speedup over original opencl: %.2fx",
+			(double)cpuOriginalStopwatch.getTimeNs()/openclPipelinedStopwatch.getTimeNs(),
+			(double)openclOriginalStopwatch.getTimeNs()/openclPipelinedStopwatch.getTimeNs()
+		));
+		checkEnergies(minimizedConfs);
+		
+		System.out.println("\nbenchmaring Cuda original...");
+		Stopwatch cudaOriginalStopwatch = new Stopwatch().start();
+		minimizedConfs = new ConfMinimizer(originalMinimizers).minimize(confs, cudaEfuncs, search.confSpace);
+		System.out.print("precise timing: " + cudaOriginalStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
+		System.out.println(String.format(", speedup over cpu: %.2fx, speedup over original opencl: %.2fx",
+			(double)cpuOriginalStopwatch.getTimeNs()/cudaOriginalStopwatch.getTimeNs(),
+			(double)openclOriginalStopwatch.getTimeNs()/cudaOriginalStopwatch.getTimeNs()
 		));
 		checkEnergies(minimizedConfs);
 	}
@@ -326,13 +348,13 @@ public class BenchmarkMinimization extends TestBase {
 				double absErr = energy - expectedEnergies[i];
 				if (absErr > Epsilon) {
 					
-					System.out.println(String.format("\tWARNING: low precision energy: i:%-3d  exp:%12.8f  obs:%12.8f  absErr:%12.8f",
+					System.out.println(String.format("\tWARNING: low precision energy: i:%-3d  exp:%12.8f  obs:%12.8f       absErr:%12.8f",
 						i, expectedEnergies[i], energy, absErr
 					));
 					
 				} else if (absErr < -Epsilon) {
 				
-					System.out.println(String.format("\timproved energy: i:%-3d  exp:%12.8f  obs:%12.8f  improvement:%12.8f",
+					System.out.println(String.format("\t              improved energy: i:%-3d  exp:%12.8f  obs:%12.8f  improvement:%12.8f",
 						i, expectedEnergies[i], energy, -absErr
 					));
 				}

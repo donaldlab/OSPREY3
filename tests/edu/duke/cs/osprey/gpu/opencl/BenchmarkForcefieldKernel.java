@@ -109,7 +109,6 @@ public class BenchmarkForcefieldKernel extends TestBase {
 			numThreadsList.add(1);
 		}
 		
-		/*
 		System.out.println("\nFull conf energy:");
 		benchmarkEfunc(
 			1000,
@@ -130,7 +129,6 @@ public class BenchmarkForcefieldKernel extends TestBase {
 			},
 			numThreadsList
 		);
-		*/
 		
 		System.out.println("\nIntra and shell energy:");
 		benchmarkEfunc(
@@ -154,7 +152,6 @@ public class BenchmarkForcefieldKernel extends TestBase {
 			numThreadsList
 		);
 		
-		/*
 		System.out.println("\nPairwise energy:");
 		// GPU is actually significantly slower for these terms
 		// transfers between the CPU and GPU cause a LOT of overhead!
@@ -183,7 +180,6 @@ public class BenchmarkForcefieldKernel extends TestBase {
 			},
 			numThreadsList
 		);
-		*/
 	}
 	
 	private static Residue getResidue(Residue res, Molecule mol) {

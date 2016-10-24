@@ -6,28 +6,25 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URL;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 
 public class ResourceExtractor {
 	
-	public static File extract(String resourcePath)
-	throws IOException {
-		return extract(resourcePath, ResourceExtractor.class);
-	}
-	
-	public static File extract(String resourcePath, Class<?> relativeTo)
+	public static File extract(URL url)
 	throws IOException {
 		
-		try (InputStream in = relativeTo.getResourceAsStream(resourcePath)) {
-			
-			if (in == null) {
-				throw new FileNotFoundException("can't find native library at: " + resourcePath);
-			}
+		if (url == null) {
+			throw new FileNotFoundException("url can't be null");
+		}
+		
+		try (InputStream in = url.openStream()) {
 			
 			// copy the library to a temp file
-			File file = File.createTempFile(FilenameUtils.getBaseName(resourcePath) + ".", "." + FilenameUtils.getExtension(resourcePath));
+			String filename = url.getFile();
+			File file = File.createTempFile(FilenameUtils.getBaseName(filename) + ".", "." + FilenameUtils.getExtension(filename));
 			file.deleteOnExit();
 			try (OutputStream out = new FileOutputStream(file)) {
 				IOUtils.copy(in, out);

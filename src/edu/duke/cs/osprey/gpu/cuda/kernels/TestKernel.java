@@ -22,7 +22,7 @@ public class TestKernel extends Kernel {
 	
 	public TestKernel(Context context, int numElements)
 	throws IOException {
-		super(context, "test.cubin", "add");
+		super(context, "test", "add");
 		
 		a = new CUBuffer<>(getContext(), BufferTools.makeDouble(numElements, BufferTools.Type.Direct));
 		b = new CUBuffer<>(getContext(), BufferTools.makeDouble(numElements, BufferTools.Type.Direct));
