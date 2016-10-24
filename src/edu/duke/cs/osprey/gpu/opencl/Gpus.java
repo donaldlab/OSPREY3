@@ -27,7 +27,7 @@ public class Gpus {
 	
 	private Gpus() {
 		
-		System.out.print("Discovering GPUs...");
+		System.out.print("Discovering OpenCL GPUs...");
 		
 		// get the gpus that support doubles
 		gpus = new ArrayList<>();

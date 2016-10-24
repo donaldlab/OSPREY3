@@ -15,12 +15,15 @@ import jcuda.driver.JCudaDriver;
 
 public class Context {
 	
+	private Gpu gpu;
 	private CUcontext context;
 	private Thread thread;
 	
 	private Map<String,CUmodule> kernels;
 	
 	public Context(Gpu gpu) {
+		
+		this.gpu = gpu;
 		
 		// create the cuda context
 		context = new CUcontext();
@@ -31,6 +34,10 @@ public class Context {
 		thread = Thread.currentThread();
 		
 		kernels = new HashMap<>();
+	}
+	
+	public Gpu getGpu() {
+		return gpu;
 	}
 	
 	public CUmodule getKernel(String kernelFilename)
@@ -80,13 +87,13 @@ public class Context {
 		JCudaDriver.cuMemcpyDtoH(phBuf, pdBuf, numBytes);
 	}
 	
-	public void launchKernel(CUfunction func, int gridBlocks, int blockThreads, Pointer pArgs) {
+	public void launchKernel(CUfunction func, int gridBlocks, int blockThreads, int sharedMemBytes, Pointer pArgs) {
 		checkThread();
 		JCudaDriver.cuLaunchKernel(
 			func,
 			gridBlocks, 1, 1,
 			blockThreads, 1, 1,
-			0,
+			sharedMemBytes,
 			null,
 			pArgs,
 			null

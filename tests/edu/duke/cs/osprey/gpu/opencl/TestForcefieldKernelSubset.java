@@ -16,7 +16,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
-import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
+import edu.duke.cs.osprey.gpu.cuda.ContextPool;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.Residue;
@@ -24,13 +24,23 @@ import edu.duke.cs.osprey.structure.Residue;
 public class TestForcefieldKernelSubset extends TestBase {
 	
 	private static class Forcefields {
+		
 		public MultiTermEnergyFunction efunc;
 		public BigForcefieldEnergy bigff;
-		public GpuQueuePool queuePool;
-		public GpuForcefieldEnergy gpuff;
+		public GpuQueuePool openclQueuePool;
+		public GpuForcefieldEnergy gpuffopencl;
 		public MultiTermEnergyFunction efuncSub;
 		public BigForcefieldEnergy.Subset bigffSub;
-		public GpuForcefieldEnergy gpuffSub;
+		public GpuForcefieldEnergy gpuffSubopencl;
+		public ContextPool cudaContextPool;
+		public GpuForcefieldEnergy gpuffcuda;
+		public GpuForcefieldEnergy gpuffSubcuda;
+		
+		public void cleanup() {
+			gpuffopencl.cleanup();
+			openclQueuePool.cleanup();
+			gpuffcuda.cleanup();
+		}
 	}
 	
 	private static Molecule mol;
@@ -75,7 +85,6 @@ public class TestForcefieldKernelSubset extends TestBase {
 		ForcefieldParams ffparams = EnvironmentVars.curEFcnGenerator.ffParams;
 		
 		Forcefields ff = new Forcefields();
-		ff.queuePool = new GpuQueuePool(1, 2);
 		
 		// make the all pairs energy functions
 		ff.efunc = new MultiTermEnergyFunction();
@@ -93,7 +102,10 @@ public class TestForcefieldKernelSubset extends TestBase {
 		}
 		
 		ff.bigff = new BigForcefieldEnergy(ffparams, interactions);
-		ff.gpuff = new GpuForcefieldEnergy(ffparams, interactions, ff.queuePool);
+		ff.openclQueuePool = new GpuQueuePool(1, 1);
+		ff.gpuffopencl = new GpuForcefieldEnergy(ffparams, interactions, ff.openclQueuePool);
+		ff.cudaContextPool = new ContextPool(1);
+		ff.gpuffcuda = new GpuForcefieldEnergy(ffparams, interactions, ff.cudaContextPool);
 		
 		// make the subset energy functions (first residue against the rest)
 		ff.efuncSub = new MultiTermEnergyFunction();
@@ -104,7 +116,8 @@ public class TestForcefieldKernelSubset extends TestBase {
 		
 		ForcefieldInteractions subsetInteractions = interactions.makeSubsetByResidue(residues[0]);
 		ff.bigffSub = ff.bigff.new Subset(subsetInteractions);
-		ff.gpuffSub = new GpuForcefieldEnergy(ff.gpuff, subsetInteractions);
+		ff.gpuffSubopencl = new GpuForcefieldEnergy(ff.gpuffopencl, subsetInteractions);
+		ff.gpuffSubcuda = new GpuForcefieldEnergy(ff.gpuffcuda, subsetInteractions);
 		
 		return ff;
 	}
@@ -117,15 +130,16 @@ public class TestForcefieldKernelSubset extends TestBase {
 		// check the all pairs energy functions
 		assertThat(ff.efunc.getEnergy(), isRelatively(allPairsEnergy));
 		assertThat(ff.bigff.getEnergy(), isRelatively(allPairsEnergy));
-		assertThat(ff.gpuff.getEnergy(), isRelatively(allPairsEnergy));
+		assertThat(ff.gpuffopencl.getEnergy(), isRelatively(allPairsEnergy));
+		assertThat(ff.gpuffcuda.getEnergy(), isRelatively(allPairsEnergy));
 		
 		// check the subset energy functions
 		assertThat(ff.efuncSub.getEnergy(), isRelatively(subsetEnergy));
 		assertThat(ff.bigff.getEnergy(ff.bigffSub), isRelatively(subsetEnergy));
-		assertThat(ff.gpuffSub.getEnergy(), isRelatively(subsetEnergy));
+		assertThat(ff.gpuffSubopencl.getEnergy(), isRelatively(subsetEnergy));
+		assertThat(ff.gpuffSubcuda.getEnergy(), isRelatively(subsetEnergy));
 		
-		ff.gpuff.cleanup();
-		ff.queuePool.cleanup();
+		ff.cleanup();
 	}
 
 	@Test

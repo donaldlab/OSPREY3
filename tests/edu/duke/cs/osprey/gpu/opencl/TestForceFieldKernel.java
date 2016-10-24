@@ -16,7 +16,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
-import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
+import edu.duke.cs.osprey.gpu.cuda.ContextPool;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.Residue;
@@ -26,10 +26,19 @@ public class TestForceFieldKernel extends TestBase {
 	// TODO: test ff options, like solvation, hydrogen inclusions, etc...
 	
 	private static class Forcefields {
+		
 		public MultiTermEnergyFunction efunc;
 		public BigForcefieldEnergy bigff;
-		public GpuQueuePool queuePool;
-		public GpuForcefieldEnergy gpuff;
+		public GpuQueuePool openclQueuePool;
+		public GpuForcefieldEnergy gpuffopencl;
+		public ContextPool cudaContextPool;
+		public GpuForcefieldEnergy gpuffcuda;
+		
+		public void cleanup() {
+			gpuffopencl.cleanup();
+			openclQueuePool.cleanup();
+			gpuffcuda.cleanup();
+		}
 	}
 	
 	private static enum EnergyFunctionType {
@@ -119,8 +128,10 @@ public class TestForceFieldKernel extends TestBase {
 		}
 		
 		ff.bigff = new BigForcefieldEnergy(ffparams, interactions);
-		ff.queuePool = new GpuQueuePool(1, 1);
-		ff.gpuff = new GpuForcefieldEnergy(ffparams, interactions, ff.queuePool);
+		ff.openclQueuePool = new GpuQueuePool(1, 1);
+		ff.gpuffopencl = new GpuForcefieldEnergy(ffparams, interactions, ff.openclQueuePool);
+		ff.cudaContextPool = new ContextPool(1);
+		ff.gpuffcuda = new GpuForcefieldEnergy(ffparams, interactions, ff.cudaContextPool);
 		return ff;
 	}
 	
@@ -130,16 +141,16 @@ public class TestForceFieldKernel extends TestBase {
 		Forcefields ff = makeForcefields(residues, EnergyFunctionType.AllPairs);
 		assertThat(ff.efunc.getEnergy(), isRelatively(allPairsEnergy));
 		assertThat(ff.bigff.getEnergy(), isRelatively(allPairsEnergy));
-		assertThat(ff.gpuff.getEnergy(), isRelatively(allPairsEnergy));
-		ff.gpuff.cleanup();
-		ff.queuePool.cleanup();
+		assertThat(ff.gpuffopencl.getEnergy(), isRelatively(allPairsEnergy));
+		assertThat(ff.gpuffcuda.getEnergy(), isRelatively(allPairsEnergy));
+		ff.cleanup();
 		
 		ff = makeForcefields(residues, EnergyFunctionType.SingleAndShell);
 		assertThat(ff.efunc.getEnergy(), isRelatively(singleAndShellEnergy));
 		assertThat(ff.bigff.getEnergy(), isRelatively(singleAndShellEnergy));
-		assertThat(ff.gpuff.getEnergy(), isRelatively(singleAndShellEnergy));
-		ff.gpuff.cleanup();
-		ff.queuePool.cleanup();
+		assertThat(ff.gpuffopencl.getEnergy(), isRelatively(singleAndShellEnergy));
+		assertThat(ff.gpuffcuda.getEnergy(), isRelatively(singleAndShellEnergy));
+		ff.cleanup();
 	}
 	
 	@Test

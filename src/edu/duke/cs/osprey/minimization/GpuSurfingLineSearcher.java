@@ -9,7 +9,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
 import edu.duke.cs.osprey.gpu.opencl.GpuQueue;
 import edu.duke.cs.osprey.gpu.opencl.kernels.DihedralMinimizer;
-import edu.duke.cs.osprey.gpu.opencl.kernels.ForceFieldKernel;
+import edu.duke.cs.osprey.gpu.opencl.kernels.ForcefieldKernelOpenCL;
 import edu.duke.cs.osprey.structure.Residue;
 
 public class GpuSurfingLineSearcher implements LineSearcher.NeedsCleanup {
@@ -47,7 +47,7 @@ public class GpuSurfingLineSearcher implements LineSearcher.NeedsCleanup {
 		FreeDihedral dof = (FreeDihedral)mof.getDOFs().get(f.getDimension());
 		efunc = ((GpuForcefieldEnergy)mof.getEfunc(f.getDimension()));
 		
-		ForceFieldKernel ffKernel = efunc.getKernel();
+		ForcefieldKernelOpenCL ffKernel = (ForcefieldKernelOpenCL)efunc.getKernel();
 		
 		// translate residue atom indices to global atom indices
 		Residue res = dof.getResidue();
@@ -123,8 +123,8 @@ public class GpuSurfingLineSearcher implements LineSearcher.NeedsCleanup {
 		// PROFILING
 		//Profiler p = new Profiler("args");
 		
-		ForceFieldKernel ffKernel = efunc.getKernel();
-		GpuQueue queue = efunc.getKernel().getQueue();
+		ForcefieldKernelOpenCL ffKernel = (ForcefieldKernelOpenCL)efunc.getKernel();
+		GpuQueue queue = ffKernel.getQueue();
 		
 		// init pose/search/surf kernel args
 		poseKernel.initArgs(step, f.getXMin(), f.getXMax(), xd, efunc.getSubset().getInternalSolvationEnergy());

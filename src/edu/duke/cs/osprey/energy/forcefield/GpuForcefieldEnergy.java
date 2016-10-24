@@ -17,10 +17,14 @@ import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions.AtomGroup;
 import edu.duke.cs.osprey.gpu.BufferTools;
+import edu.duke.cs.osprey.gpu.ForcefieldKernel;
+import edu.duke.cs.osprey.gpu.cuda.Context;
+import edu.duke.cs.osprey.gpu.cuda.ContextPool;
+import edu.duke.cs.osprey.gpu.cuda.kernels.ForcefieldKernelCuda;
 import edu.duke.cs.osprey.gpu.opencl.GpuQueue;
 import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
 import edu.duke.cs.osprey.gpu.opencl.ProfilingEvents;
-import edu.duke.cs.osprey.gpu.opencl.kernels.ForceFieldKernel;
+import edu.duke.cs.osprey.gpu.opencl.kernels.ForcefieldKernelOpenCL;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.Stopwatch;
@@ -32,13 +36,13 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	
 	private class KernelBuilder {
 		
-		private ForceFieldKernel kernel;
+		private ForcefieldKernel kernel;
 		
 		public KernelBuilder() {
 			kernel = null;
 		}
 		
-		public ForceFieldKernel get() {
+		public ForcefieldKernel get() {
 			
 			// do we need to rebuild the forcefield?
 			// NOTE: make sure we check for chemical changes even if the kernel is null
@@ -54,7 +58,13 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 				try {
 					
 					// prep the kernel, upload precomputed data
-					kernel = new ForceFieldKernel(queue);
+					if (openclQueue != null) {
+						kernel = new ForcefieldKernelOpenCL(openclQueue);
+					} else if (cudaContext != null) {
+						kernel = new ForcefieldKernelCuda(cudaContext);
+					} else {
+						throw new Error("bad gpu queue/context configuration, this is a bug");
+					}
 					kernel.setForcefield(new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct));
 					
 				} catch (IOException ex) {
@@ -92,8 +102,10 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	
 	private ForcefieldParams ffparams;
 	private ForcefieldInteractions interactions;
-	private GpuQueuePool queuePool;
-	private GpuQueue queue;
+	private GpuQueuePool openclQueuePool;
+	private GpuQueue openclQueue;
+	private ContextPool cudaContextPool;
+	private Context cudaContext;
 	private KernelBuilder kernelBuilder;
 	private BigForcefieldEnergy.Subset ffsubset;
 	
@@ -113,8 +125,22 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		this();
 		this.ffparams = ffparams;
 		this.interactions = interactions;
-		this.queuePool = queuePool;
-		this.queue = queuePool.checkout();
+		this.openclQueuePool = queuePool;
+		this.openclQueue = queuePool.checkout();
+		this.cudaContextPool = null;
+		this.cudaContext = null;
+		this.kernelBuilder = new KernelBuilder();
+		this.ffsubset = null;
+	}
+	
+	public GpuForcefieldEnergy(ForcefieldParams ffparams, ForcefieldInteractions interactions, ContextPool cudaContextPool) {
+		this();
+		this.ffparams = ffparams;
+		this.interactions = interactions;
+		this.openclQueuePool = null;
+		this.openclQueue = null;
+		this.cudaContextPool = cudaContextPool;
+		this.cudaContext = cudaContextPool.checkout();
 		this.kernelBuilder = new KernelBuilder();
 		this.ffsubset = null;
 	}
@@ -123,17 +149,22 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		this();
 		this.ffparams = parent.ffparams;
 		this.interactions = interactions;
-		this.queuePool = null;
-		this.queue = parent.queue;
+		if (parent.openclQueue != null) {
+			this.openclQueuePool = null;
+			this.openclQueue = parent.openclQueue;
+			this.cudaContextPool = null;
+			this.cudaContext = null;
+		} else {
+			this.openclQueuePool = null;
+			this.openclQueue = null;
+			this.cudaContextPool = null;
+			this.cudaContext = parent.cudaContext;
+		}
 		this.kernelBuilder = parent.kernelBuilder;
 		this.ffsubset = getKernel().getForcefield().new Subset(interactions);
 	}
 	
-	public boolean isParent() {
-		return queuePool != null;
-	}
-	
-	public ForceFieldKernel getKernel() {
+	public ForcefieldKernel getKernel() {
 		return kernelBuilder.get();
 	}
 	
@@ -146,7 +177,9 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	
 	public void startProfile(int numRuns) {
 		numProfilingRuns = numRuns;
-		getKernel().setProfilingEvents(new ProfilingEvents(numRuns*3));
+		if (getKernel() instanceof ForcefieldKernelOpenCL) {
+			((ForcefieldKernelOpenCL)getKernel()).setProfilingEvents(new ProfilingEvents(numRuns*3));
+		}
 		uploadStopwatch = new Stopwatch();
 		kernelStopwatch = new Stopwatch();
 		downloadStopwatch = new Stopwatch();
@@ -156,34 +189,38 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		
 		StringBuilder buf = new StringBuilder();
 		
-		// dump gpu profile
-		buf.append("GPU Profile:\n");
-		Map<CommandType,Long> sums = new EnumMap<>(CommandType.class);
-		ProfilingEvents events = getKernel().getProfilingEvents();
-		for (CLEvent event : events.getCLEvents()) {
-			try {
-				long startNs = event.getProfilingInfo(ProfilingCommand.START);
-				long endNs = event.getProfilingInfo(ProfilingCommand.END);
-				long diffNs = endNs - startNs;
-				CommandType type = event.getType();
-				if (sums.containsKey(type)) {
-					sums.put(type, sums.get(type) + diffNs);
-				} else {
-					sums.put(type, diffNs);
+		if (getKernel() instanceof ForcefieldKernelOpenCL) {
+			ForcefieldKernelOpenCL kernel = (ForcefieldKernelOpenCL)getKernel();
+			
+			// dump gpu profile
+			buf.append("GPU Profile:\n");
+			Map<CommandType,Long> sums = new EnumMap<>(CommandType.class);
+			ProfilingEvents events = kernel.getProfilingEvents();
+			for (CLEvent event : events.getCLEvents()) {
+				try {
+					long startNs = event.getProfilingInfo(ProfilingCommand.START);
+					long endNs = event.getProfilingInfo(ProfilingCommand.END);
+					long diffNs = endNs - startNs;
+					CommandType type = event.getType();
+					if (sums.containsKey(type)) {
+						sums.put(type, sums.get(type) + diffNs);
+					} else {
+						sums.put(type, diffNs);
+					}
+				} catch (CLException.CLProfilingInfoNotAvailableException ex) {
+					// don't care, just skip it
 				}
-			} catch (CLException.CLProfilingInfoNotAvailableException ex) {
-				// don't care, just skip it
 			}
+			for (Map.Entry<CommandType,Long> entry : sums.entrySet()) {
+				buf.append(String.format(
+					"\t%16s %s\n",
+					entry.getKey(),
+					TimeFormatter.format(entry.getValue()/numProfilingRuns, TimeUnit.MICROSECONDS)
+				));
+			}
+			events.cleanup();
+			kernel.setProfilingEvents(null);
 		}
-		for (Map.Entry<CommandType,Long> entry : sums.entrySet()) {
-			buf.append(String.format(
-				"\t%16s %s\n",
-				entry.getKey(),
-				TimeFormatter.format(entry.getValue()/numProfilingRuns, TimeUnit.MICROSECONDS)
-			));
-		}
-		events.cleanup();
-		getKernel().setProfilingEvents(null);
 		
 		// dump cpu profile
 		buf.append("CPU Profile:\n");
@@ -208,7 +245,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		}
 		
 		// upload data
-		ForceFieldKernel kernel = getKernel();
+		ForcefieldKernel kernel = getKernel();
 		kernel.setSubset(getSubset());
 		kernel.uploadCoordsAsync();
 		
@@ -250,9 +287,15 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	
 	@Override
 	public void cleanup() {
-		if (isParent()) {
-			queuePool.release(queue);
-			kernelBuilder.cleanup();
+		
+		kernelBuilder.cleanup();
+		
+		if (openclQueuePool != null) {
+			openclQueuePool.release(openclQueue);
+		}
+		
+		if (cudaContextPool != null) {
+			cudaContextPool.release(cudaContext);
 		}
 	}
 

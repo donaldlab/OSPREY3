@@ -6,29 +6,67 @@ import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
+import edu.duke.cs.osprey.gpu.cuda.ContextPool;
 import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 
 public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 	
-	private GpuQueuePool queues;
-	
-	public GpuEnergyFunctionGenerator(ForcefieldParams ffParams) {
-		this(ffParams, new GpuQueuePool());
+	public static class NoGpusException extends Exception {
+
+		private static final long serialVersionUID = -8696449488422888399L;
 	}
 	
-	public GpuEnergyFunctionGenerator(ForcefieldParams ffParams, GpuQueuePool queues) {
+	public static GpuEnergyFunctionGenerator make(ForcefieldParams ffParams)
+	throws NoGpusException {
+		
+		// if CUDA is supported, prefer that, since it's faster
+		List<edu.duke.cs.osprey.gpu.cuda.Gpu> cudaGpus = edu.duke.cs.osprey.gpu.cuda.Gpus.get().getGpus();
+		if (!cudaGpus.isEmpty()) {
+			return new GpuEnergyFunctionGenerator(ffParams, new ContextPool());
+		}
+		
+		// otherwise, try OpenCL
+		List<edu.duke.cs.osprey.gpu.opencl.Gpu> openclGpus = edu.duke.cs.osprey.gpu.opencl.Gpus.get().getGpus();
+		if (!openclGpus.isEmpty()) {
+			return new GpuEnergyFunctionGenerator(ffParams, new GpuQueuePool());
+		}
+		
+		throw new NoGpusException();
+	}
+	
+	private GpuQueuePool openclQueues;
+	private ContextPool cudaContexts;
+	
+	public GpuEnergyFunctionGenerator(ForcefieldParams ffParams, GpuQueuePool openclQueues) {
 		super(ffParams, Double.POSITIVE_INFINITY, false);
-		this.queues = queues;
+		this.openclQueues = openclQueues;
+		this.cudaContexts = null;
 	}
 	
-	public GpuQueuePool getQueuePool() {
-		return queues;
+	public GpuEnergyFunctionGenerator(ForcefieldParams ffParams, ContextPool cudaContexts) {
+		super(ffParams, Double.POSITIVE_INFINITY, false);
+		this.openclQueues = null;
+		this.cudaContexts = cudaContexts;
+	}
+	
+	public GpuQueuePool getOpenclQueuePool() {
+		return openclQueues;
+	}
+	
+	public ContextPool getCudaContexts() {
+		return cudaContexts;
 	}
 	
 	private GpuForcefieldEnergy makeGpuForcefield(ForcefieldInteractions interactions) {
-		return new GpuForcefieldEnergy(ffParams, interactions, queues);
+		if (openclQueues != null) {
+			return new GpuForcefieldEnergy(ffParams, interactions, openclQueues);
+		} else if (cudaContexts != null) {
+			return new GpuForcefieldEnergy(ffParams, interactions, cudaContexts);
+		} else {
+			throw new Error("bad gpu queue/context config, this is a bug");
+		}
 	}
 	
 	@Override
@@ -136,6 +174,6 @@ public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 	}
 	
 	public void cleanup() {
-		queues.cleanup();
+		openclQueues.cleanup();
 	}
 }

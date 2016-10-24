@@ -36,7 +36,8 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
-import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
+import edu.duke.cs.osprey.gpu.cuda.ContextPool;
+import edu.duke.cs.osprey.gpu.opencl.kernels.ForcefieldKernelOpenCL;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.parallelism.TimingThread;
@@ -86,7 +87,8 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		);
 		
 		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
-		GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuQueuePool(8, 1, true));
+		//GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuQueuePool(1, 1, true));
+		GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new ContextPool(1));
 		
 		benchmarkEfunc(search, egen, gpuegen);
 		//benchmarkEmat(search, egen, gpuegen);
@@ -99,8 +101,12 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		
 		// figure out how many threads to use based on the gpu queue pool
 		List<Integer> numThreadsList = new ArrayList<>();
-		for (int i=1; i<=gpuegen.getQueuePool().getNumQueues(); i<<=1) {
-			numThreadsList.add(i);
+		if (gpuegen.getOpenclQueuePool() != null) {
+			for (int i=1; i<=gpuegen.getOpenclQueuePool().getNumQueues(); i<<=1) {
+				numThreadsList.add(i);
+			}
+		} else {
+			numThreadsList.add(1);
 		}
 		
 		/*
@@ -312,7 +318,8 @@ public class BenchmarkForcefieldKernel extends TestBase {
 			gpuefunc.getEnergy();
 		}
 		
-		if (gpuefunc.getKernel().getQueue().isProfilingEnabled()) {
+		ForcefieldKernelOpenCL kernel = (ForcefieldKernelOpenCL)gpuefunc.getKernel();
+		if (kernel.getQueue().isProfilingEnabled()) {
 			gpuefunc.startProfile(numRuns);
 		}
 		
@@ -328,9 +335,9 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		
 		// print the report
 		System.out.println("GPU profiling info:");
-		System.out.println("atom pairs:      " + gpuefunc.getKernel().getForcefield().getFullSubset().getNumAtomPairs());
-		System.out.println("GPU memory used: " + gpuefunc.getKernel().getGpuBytesNeeded()/1024 + " KiB");
-		if (gpuefunc.getKernel().getQueue().isProfilingEnabled()) {
+		System.out.println("atom pairs:      " + kernel.getForcefield().getFullSubset().getNumAtomPairs());
+		System.out.println("GPU memory used: " + kernel.getGpuBytesNeeded()/1024 + " KiB");
+		if (kernel.getQueue().isProfilingEnabled()) {
 			System.out.print(gpuefunc.dumpProfile());
 		}
 		System.out.println("us per op: " + TimeFormatter.format(stopwatch.getTimeNs()/numRuns, TimeUnit.MICROSECONDS));
@@ -553,6 +560,6 @@ public class BenchmarkForcefieldKernel extends TestBase {
 			}
 		}
 		
-		return new GpuForcefieldEnergy(egen.ffParams, interactions, egen.getQueuePool());
+		return new GpuForcefieldEnergy(egen.ffParams, interactions, egen.getOpenclQueuePool());
 	}
 }

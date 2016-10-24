@@ -26,7 +26,7 @@ public class Gpus {
 	
 	private Gpus() {
 		
-		System.out.print("Discovering GPUs...");
+		System.out.print("Discovering CUDA GPUs...");
 		
 		// according to docs, init flags must always be zero
 		JCudaDriver.setExceptionsEnabled(true);

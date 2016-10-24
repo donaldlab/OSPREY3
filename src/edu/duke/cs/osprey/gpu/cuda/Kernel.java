@@ -28,8 +28,8 @@ public class Kernel {
 		return context;
 	}
 	
-	protected void runAsync(int numBlocks, int blockThreads, Pointer pArgs) {
-		context.launchKernel(func, numBlocks, blockThreads, pArgs);
+	protected void runAsync(int numBlocks, int blockThreads, int sharedMemBytes, Pointer pArgs) {
+		context.launchKernel(func, numBlocks, blockThreads, sharedMemBytes, pArgs);
 	}
 	
 	public void waitForGpu() {

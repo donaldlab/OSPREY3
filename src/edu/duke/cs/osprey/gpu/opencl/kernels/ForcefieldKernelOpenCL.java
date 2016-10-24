@@ -10,10 +10,11 @@ import com.jogamp.opencl.CLContext;
 import com.jogamp.opencl.CLMemory;
 
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
+import edu.duke.cs.osprey.gpu.ForcefieldKernel;
 import edu.duke.cs.osprey.gpu.opencl.GpuQueue;
 import edu.duke.cs.osprey.gpu.opencl.Kernel;
 
-public class ForceFieldKernel extends Kernel {
+public class ForcefieldKernelOpenCL extends Kernel implements ForcefieldKernel {
 	
 	// FYI, useful OpenCL tutorial:
 	// http://www.cc.gatech.edu/~vetter/keeneland/tutorial-2011-04-14/06-intro_to_opencl.pdf
@@ -35,7 +36,7 @@ public class ForceFieldKernel extends Kernel {
 	private BigForcefieldEnergy ffenergy;
 	private BigForcefieldEnergy.Subset subset;
 
-	public ForceFieldKernel(GpuQueue queue)
+	public ForcefieldKernelOpenCL(GpuQueue queue)
 	throws IOException {
 		super(queue, "forcefield.cl", "calc");
 		
@@ -72,9 +73,12 @@ public class ForceFieldKernel extends Kernel {
 		return args;
 	}
 	
+	@Override
 	public BigForcefieldEnergy getForcefield() {
 		return ffenergy;
 	}
+	
+	@Override
 	public void setForcefield(BigForcefieldEnergy ffenergy) {
 		
 		if (this.ffenergy != null) {
@@ -129,10 +133,12 @@ public class ForceFieldKernel extends Kernel {
 			.setNullArg(6, groupSize*Double.BYTES);
 	}
 	
+	@Override
 	public BigForcefieldEnergy.Subset getSubset() {
 		return subset;
 	}
 	
+	@Override
 	public boolean setSubset(BigForcefieldEnergy.Subset subset) {
 		checkInit();
 		return setSubsetInternal(subset);
@@ -180,6 +186,7 @@ public class ForceFieldKernel extends Kernel {
 		uploadBufferAsync(args);
 	}
 	
+	@Override
 	public void uploadCoordsAsync() {
 		checkInit();
 		
@@ -198,11 +205,13 @@ public class ForceFieldKernel extends Kernel {
 		return coords.getBuffer();
 	}
 
+	@Override
 	public void runAsync() {
 		checkInit();
 		runAsync(workSize, groupSize);
 	}
 	
+	@Override
 	public double downloadEnergySync() {
 		checkInit();
 		

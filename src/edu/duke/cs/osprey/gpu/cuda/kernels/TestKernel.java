@@ -59,7 +59,7 @@ public class TestKernel extends Kernel {
 	}
 	
 	public void runAsync() {
-		runAsync(numBlocks, blockThreads, pArgs);
+		runAsync(numBlocks, blockThreads, 0, pArgs);
 	}
 	
 	public DoubleBuffer downloadSync() {
