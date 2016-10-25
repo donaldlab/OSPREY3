@@ -3,9 +3,14 @@ package edu.duke.cs.osprey.gpu.cuda;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.nio.ByteBuffer;
+import java.nio.DoubleBuffer;
+import java.nio.IntBuffer;
+import java.nio.LongBuffer;
 import java.util.HashMap;
 import java.util.Map;
 
+import edu.duke.cs.osprey.gpu.BufferTools;
 import edu.duke.cs.osprey.tools.ResourceExtractor;
 import jcuda.Pointer;
 import jcuda.driver.CUcontext;
@@ -113,6 +118,22 @@ public class Context {
 	public void waitForGpu() {
 		checkThread();
 		JCudaDriver.cuCtxSynchronize();
+	}
+	
+	public CUBuffer<ByteBuffer> makeByteBuffer(int size) {
+		return new CUBuffer<>(this, BufferTools.makeByte(size, BufferTools.Type.Direct));
+	}
+	
+	public CUBuffer<IntBuffer> makeIntBuffer(int size) {
+		return new CUBuffer<>(this, BufferTools.makeInt(size, BufferTools.Type.Direct));
+	}
+	
+	public CUBuffer<DoubleBuffer> makeDoubleBuffer(int size) {
+		return new CUBuffer<>(this, BufferTools.makeDouble(size, BufferTools.Type.Direct));
+	}
+	
+	public CUBuffer<LongBuffer> makeLongBuffer(int size) {
+		return new CUBuffer<>(this, BufferTools.makeLong(size, BufferTools.Type.Direct));
 	}
 	
 	public void cleanup() {

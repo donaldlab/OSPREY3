@@ -48,6 +48,18 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 		return coords;
 	}
 	
+	public CUBuffer<IntBuffer> getAtomFlags() {
+		return atomFlags;
+	}
+	
+	public CUBuffer<DoubleBuffer> getPrecomputed() {
+		return precomputed;
+	}
+	
+	public CUBuffer<IntBuffer> getSubsetTable() {
+		return subsetTable;
+	}
+	
 	public CUBuffer<DoubleBuffer> getEnergies() {
 		return energies;
 	}

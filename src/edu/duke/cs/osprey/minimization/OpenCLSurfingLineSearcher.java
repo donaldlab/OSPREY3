@@ -12,7 +12,7 @@ import edu.duke.cs.osprey.gpu.opencl.kernels.DihedralMinimizer;
 import edu.duke.cs.osprey.gpu.opencl.kernels.ForcefieldKernelOpenCL;
 import edu.duke.cs.osprey.structure.Residue;
 
-public class GpuSurfingLineSearcher implements LineSearcher.NeedsCleanup {
+public class OpenCLSurfingLineSearcher implements LineSearcher.NeedsCleanup {
 	
 	private static final double Tolerance = 1e-6;
 	private static final double InitialStepSize = 0.25; // for dihedral dofs

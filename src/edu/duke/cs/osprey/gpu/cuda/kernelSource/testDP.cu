@@ -9,13 +9,9 @@
 	see: http://docs.nvidia.com/cuda/maxwell-compatibility-guide/index.html#building-maxwell-compatible-apps-using-cuda-6-0
 */
 
-const int NumElements = 10000;
-const int NumRuns = 10;
+const int NumRuns = 1000;
 
-const int BlockThreads = 256;
-const int GridBlocks = 40;//(NumElements + BlockThreads - 1)/BlockThreads;
-
-extern "C" __global__ void add(int n, float *a, float *b, float *out) {
+__global__ void add(int n, float *a, float *b, float *out) {
 
 	int i = blockIdx.x*blockDim.x + threadIdx.x;
 	
@@ -24,14 +20,22 @@ extern "C" __global__ void add(int n, float *a, float *b, float *out) {
 	}
 }
 
+__device__ int calcNumBlocks(int numThreads, int blockThreads) {
+	return (numThreads + blockThreads - 1)/blockThreads;
+}
 
 extern "C" __global__ void loop(int n, float *a, float *b, float *out) {
 	
-	if (threadIdx.x == 0) {
+	// just in case
+	if (threadIdx.x != 0) {
+		return;
+	}
 	
-		for (int i=0; i<NumRuns; i++) {
-			add<<<GridBlocks, BlockThreads>>>(n, a, b, out);
-			cudaDeviceSynchronize();
-		}
+	int blockThreads = 256;
+	int gridBlocks = calcNumBlocks(n, blockThreads);
+	
+	for (int i=0; i<NumRuns; i++) {
+		add<<<gridBlocks, blockThreads>>>(n, a, b, out);
+		cudaDeviceSynchronize();
 	}
 }

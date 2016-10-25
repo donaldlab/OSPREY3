@@ -322,6 +322,10 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof {
 		return coords;
 	}
 	
+	public int getAtomOffset(Residue res) {
+		return getAtomOffset(interactions.getResidueAtomGroup(res));
+	}
+	
 	public int getAtomOffset(AtomGroup group) {
 		Integer groupIndex = groups.getGroupIndex(group);
 		if (groupIndex == null) {

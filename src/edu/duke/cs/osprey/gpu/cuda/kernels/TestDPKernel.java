@@ -9,20 +9,17 @@ import edu.duke.cs.osprey.gpu.cuda.Context;
 import edu.duke.cs.osprey.gpu.cuda.Kernel;
 import jcuda.Pointer;
 
-public class TestKernel extends Kernel {
+public class TestDPKernel extends Kernel {
 	
 	private CUBuffer<DoubleBuffer> a;
 	private CUBuffer<DoubleBuffer> b;
 	private CUBuffer<DoubleBuffer> out;
 	
-	private int numBlocks;
-	private int blockThreads;
-	
 	private Pointer pArgs;
 	
-	public TestKernel(Context context, int numElements)
+	public TestDPKernel(Context context, int numElements)
 	throws IOException {
-		super(context, "test", "add");
+		super(context, "testDP", "loop");
 		
 		a = new CUBuffer<>(getContext(), BufferTools.makeDouble(numElements, BufferTools.Type.Direct));
 		b = new CUBuffer<>(getContext(), BufferTools.makeDouble(numElements, BufferTools.Type.Direct));
@@ -34,9 +31,6 @@ public class TestKernel extends Kernel {
 			b.makeDevicePointer(),
 			out.makeDevicePointer()
 		);
-		
-		blockThreads = 256;
-		numBlocks = calcNumBlocks(numElements, blockThreads);
 	}
 	
 	public DoubleBuffer getA() {
@@ -57,7 +51,7 @@ public class TestKernel extends Kernel {
 	}
 	
 	public void runAsync() {
-		runAsync(numBlocks, blockThreads, 0, pArgs);
+		runAsync(1, 1, 0, pArgs);
 	}
 	
 	public DoubleBuffer downloadSync() {

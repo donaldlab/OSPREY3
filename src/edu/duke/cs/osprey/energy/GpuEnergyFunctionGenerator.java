@@ -174,6 +174,8 @@ public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 	}
 	
 	public void cleanup() {
-		openclQueues.cleanup();
+		if (openclQueues != null) {
+			openclQueues.cleanup();
+		}
 	}
 }
