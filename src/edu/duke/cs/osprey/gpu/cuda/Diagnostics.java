@@ -33,16 +33,27 @@ public class Diagnostics {
 			System.out.println(String.format("\t\t%-30s %d MHz", "clock rate:", gpu.getAttribute(CUdevice_attribute.CU_DEVICE_ATTRIBUTE_CLOCK_RATE)/1000));
 			System.out.println(String.format("\t\t%-30s %d", "multiprocessors:", gpu.getAttribute(CUdevice_attribute.CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT)));
 			System.out.println(String.format("\t\t%-30s %d", "threads per multiprocessor:", gpu.getAttribute(CUdevice_attribute.CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_MULTIPROCESSOR)));
-			System.out.println(String.format("\t\t%-30s %d", "max parallel threads:",
-				gpu.getAttribute(CUdevice_attribute.CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_MULTIPROCESSOR)
-				* gpu.getAttribute(CUdevice_attribute.CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT)
-			));
 			System.out.println(String.format("\t\t%-30s %d", "warp size:", gpu.getAttribute(CUdevice_attribute.CU_DEVICE_ATTRIBUTE_WARP_SIZE)));
 			System.out.println(String.format("\t\t%-30s %d", "block threads:", gpu.getAttribute(CUdevice_attribute.CU_DEVICE_ATTRIBUTE_MAX_BLOCK_DIM_X)));
 			System.out.println(String.format("\t\t%-30s %d", "max grid blocks:", gpu.getAttribute(CUdevice_attribute.CU_DEVICE_ATTRIBUTE_MAX_GRID_DIM_X)));
 			System.out.println(String.format("\t\t%-30s %d", "registers per block:", gpu.getAttribute(CUdevice_attribute.CU_DEVICE_ATTRIBUTE_MAX_REGISTERS_PER_BLOCK)));
 			System.out.println(String.format("\t\t%-30s %d KiB", "memory per block:", gpu.getAttribute(CUdevice_attribute.CU_DEVICE_ATTRIBUTE_MAX_SHARED_MEMORY_PER_BLOCK)/1024));
 			System.out.println(String.format("\t\t%-30s %d KiB", "constant memory:", gpu.getAttribute(CUdevice_attribute.CU_DEVICE_ATTRIBUTE_TOTAL_CONSTANT_MEMORY)/1024));
+			
+			System.out.println();
+			
+			int maxBlockThreads = gpu.getAttribute(CUdevice_attribute.CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_MULTIPROCESSOR);
+			int warpThreads = gpu.getAttribute(CUdevice_attribute.CU_DEVICE_ATTRIBUTE_WARP_SIZE);
+			int procThreads = gpu.getAttribute(CUdevice_attribute.CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_MULTIPROCESSOR);
+			int procs = gpu.getAttribute(CUdevice_attribute.CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT);
+			int warps = procs*maxBlockThreads/warpThreads;
+			System.out.println(String.format("\t\t%-30s %d", "warps per multiprocessor:", maxBlockThreads/warpThreads));
+			System.out.println(String.format("\t\t%-30s %d", "max parallel threads:", procs*procThreads));
+			System.out.println(String.format("\t\t%-30s %d", "max parallel warps:", warps));
+			System.out.println(String.format("\t\t%-30s %d", "max parallel 1024-blocks:", warps/divUp(1024, warpThreads)));
+			System.out.println(String.format("\t\t%-30s %d", "max parallel 512-blocks:", warps/divUp(512, warpThreads)));
+			System.out.println(String.format("\t\t%-30s %d", "max parallel 256-blocks:", warps/divUp(256, warpThreads)));
+			System.out.println(String.format("\t\t%-30s %d", "max parallel 128-blocks:", warps/divUp(128, warpThreads)));
 			
 			System.out.println();
 			
@@ -56,5 +67,9 @@ public class Diagnostics {
 		for (Gpu gpu : gpus.getGpus()) {
 			System.out.println("\t" + gpu);
 		}
+	}
+	
+	private static int divUp(int a, int b) {
+		return (a + b - 1)/b;
 	}
 }
