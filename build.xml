@@ -53,6 +53,7 @@
             <zipfileset excludes="META-INF/*.SF" src="${lib}/jcuda-0.8.0RC.jar"/>
             <zipfileset excludes="META-INF/*.SF" src="${lib}/jcuda-natives-0.8.0RC-linux-x86_64.jar"/>
             <zipfileset excludes="META-INF/*.SF" src="${lib}/jcuda-natives-0.8.0RC-windows-x86_64.jar"/>
+            <zipfileset excludes="META-INF/*.SF" src="${lib}/ojalgo-40.0.0.jar"/>
         </jar>
     </target>
 	
