@@ -48,6 +48,8 @@ public class FreeDihedral extends DegreeOfFreedom {
         //get current coordinates of our four atoms
         double curCoords[][] = new double[4][3];
         
+        /* sadly, this became a bottleneck
+        
         // HACKHACK: since this method depends on the current atom coords,
         // it's actually non-deterministic with respect to paramVal
         // this is causing problems with energy function accuracies
@@ -57,7 +59,8 @@ public class FreeDihedral extends DegreeOfFreedom {
         // but luckily it's not a bottleneck yet, and it makes minimization energies much more accurate
         int oldHash = Arrays.hashCode(res.coords);
         for (int i=0; i<100; i++) {
-            
+        */
+        
             for(int a=0; a<4; a++) {
                 System.arraycopy(res.coords, 3*dihAtomIndices[a], curCoords[a], 0, 3);
             }
@@ -84,6 +87,7 @@ public class FreeDihedral extends DegreeOfFreedom {
             for(int index : rotatedAtomIndices)
                 dihRotation.transform(res.coords, index);
             
+        /* bottleneck
             // did we converge yet?
             int newHash = Arrays.hashCode(res.coords);
             if (oldHash == newHash) {
@@ -91,6 +95,7 @@ public class FreeDihedral extends DegreeOfFreedom {
             }
             oldHash = newHash;
         }
+        */
 
         curVal = paramVal; // store the value
     }

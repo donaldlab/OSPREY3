@@ -251,6 +251,8 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
         if(x.size()!=DOFs.size())
             throw new RuntimeException("ERROR: Trying to set "+DOFs.size()+" DOFs with "+x.size()+" values");
         
+        /* this became a bottleneck =(  disabling for now
+        
         // HACKHACK: since this method depends on the current atom coords,
         // it's actually non-deterministic with respect to x
         // this is causing problems with energy function accuracies
@@ -272,6 +274,11 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
             }
             oldHash = newHash;
         }
+        */
+        
+		for(int dof=0; dof<x.size(); dof++){
+			DOFs.get(dof).apply(x.get(dof));
+		}
     }
     
 
