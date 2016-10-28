@@ -2,26 +2,16 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="2c0a4ea4-b7b0-4c7a-a778-d7cb54f72df3" name="Default" comment="">
-      <change type="DELETED" beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/.idea/libraries/lib1.xml" afterPath="" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/astar/comets/LME.class" afterPath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/astar/comets/LME.class" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/astar/kadee/KaDEETree.class" afterPath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/astar/kadee/KaDEETree.class" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/astar/seqkstar/SublinearKStarTree.class" afterPath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/astar/seqkstar/SublinearKStarTree.class" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/confspace/PositionConfSpace.class" afterPath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/confspace/PositionConfSpace.class" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/confspace/SearchProblem.class" afterPath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/confspace/SearchProblem.class" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/control/COMETSDoer.class" afterPath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/control/COMETSDoer.class" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/control/ConfigFileParser.class" afterPath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/control/ConfigFileParser.class" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/control/GMECFinder.class" afterPath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/control/GMECFinder.class" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/control/SublinearKStarDoer.class" afterPath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/control/SublinearKStarDoer.class" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/ematrix/EnergyMatrix.class" afterPath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/ematrix/EnergyMatrix.class" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/restypes/DAminoAcidHandler.class" afterPath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/restypes/DAminoAcidHandler.class" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/tests/variationalkstar/SublinearKStarTests.class" afterPath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/tests/variationalkstar/SublinearKStarTests.class" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/libraries/junit_4.xml" afterPath="$PROJECT_DIR$/.idea/libraries/junit_4.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/libraries/lib.xml" afterPath="$PROJECT_DIR$/.idea/libraries/lib.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/misc.xml" afterPath="$PROJECT_DIR$/.idea/misc.xml" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/control/Main.class" afterPath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/control/Main.class" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/control/VariationalPartFunc.class" afterPath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/control/VariationalPartFunc.class" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/partitionfunctionbounds/DiscretePartFunc.class" afterPath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/partitionfunctionbounds/DiscretePartFunc.class" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/restypes/ResidueTemplate.class" afterPath="$PROJECT_DIR$/out/production/OSPREY_refactor/edu/duke/cs/osprey/restypes/ResidueTemplate.class" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/OSPREY_refactor.iml" afterPath="$PROJECT_DIR$/OSPREY_refactor.iml" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/edu/duke/cs/osprey/control/Main.java" afterPath="$PROJECT_DIR$/src/edu/duke/cs/osprey/control/Main.java" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/edu/duke/cs/osprey/control/VariationalPartFunc.java" afterPath="$PROJECT_DIR$/src/edu/duke/cs/osprey/control/VariationalPartFunc.java" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/edu/duke/cs/osprey/partitionfunctionbounds/DiscretePartFunc.java" afterPath="$PROJECT_DIR$/src/edu/duke/cs/osprey/partitionfunctionbounds/DiscretePartFunc.java" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/edu/duke/cs/osprey/partitionfunctionbounds/TRBP.java" afterPath="$PROJECT_DIR$/src/edu/duke/cs/osprey/partitionfunctionbounds/TRBP.java" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/ResidueTemplate.java" afterPath="$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/ResidueTemplate.java" />
     </list>
     <ignored path="OSPREY_refactor.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -45,9 +35,11 @@
       <file leaf-file-name="TRBP.java" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/partitionfunctionbounds/TRBP.java">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="45">
-              <caret line="3" column="0" selection-start-line="3" selection-start-column="0" selection-end-line="3" selection-end-column="0" />
-              <folding />
+            <state relative-caret-position="321">
+              <caret line="694" column="36" selection-start-line="694" selection-start-column="25" selection-end-line="694" selection-end-column="36" />
+              <folding>
+                <element signature="e#0#35996#0" expanded="true" />
+              </folding>
             </state>
           </provider>
         </entry>
@@ -60,6 +52,27 @@
   <component name="GradleLocalSettings">
     <option name="externalProjectsViewState">
       <projects_view />
+    </option>
+  </component>
+  <component name="IdeDocumentHistory">
+    <option name="CHANGED_PATHS">
+      <list>
+        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/RotamerLibraryReader.java" />
+        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/ConfSpace.java" />
+        <option value="/JSON Fragment (ResidueTemplate.java:3024).json" />
+        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/ResidueTemplate.java" />
+        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/control/Main.java" />
+        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/partitionfunctionbounds/DiscretePartFunc.java" />
+        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/control/VariationalPartFunc.java" />
+        <option value="$PROJECT_DIR$/src/edu/duke/cs/osprey/partitionfunctionbounds/TRBP.java" />
+      </list>
+    </option>
+  </component>
+  <component name="MavenImportPreferences">
+    <option name="generalSettings">
+      <MavenGeneralSettings>
+        <option name="mavenHome" value="Bundled (Maven 3)" />
+      </MavenGeneralSettings>
     </option>
   </component>
   <component name="ProjectFrameBounds">
@@ -93,7 +106,7 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
-      <pane id="Scratches" />
+      <pane id="PackagesPane" />
       <pane id="ProjectPane">
         <subPane>
           <PATH>
@@ -148,21 +161,95 @@
               <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
             </PATH_ELEMENT>
             <PATH_ELEMENT>
-              <option name="myItemId" value="partitionfunctionbounds" />
+              <option name="myItemId" value="dataAnalysis" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+          </PATH>
+          <PATH>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="OSPREY_refactor" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="OSPREY_refactor" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="src" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="osprey" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="control" />
               <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
             </PATH_ELEMENT>
           </PATH>
         </subPane>
       </pane>
+      <pane id="Scratches" />
       <pane id="Scope" />
-      <pane id="PackagesPane" />
     </panes>
   </component>
-  <component name="RunManager">
+  <component name="PropertiesComponent">
+    <property name="settings.editor.selected.configurable" value="reference.settingsdialog.IDE.editor.postfix.templates" />
+    <property name="settings.editor.splitter.proportion" value="0.2" />
+    <property name="SearchEverywhereHistoryKey" value="&#9;FILE&#9;file:///Users/hunternisonoff/Projects/DonaldLab/Entropy/OSPREY_refactor/src/edu/duke/cs/osprey/restypes/ResidueTemplate.java&#10;control/&#9;FILE&#9;file:///Users/hunternisonoff/Projects/DonaldLab/Entropy/OSPREY_refactor/src/edu/duke/cs/osprey/control&#10;V&#9;FILE&#9;file:///Users/hunternisonoff/Projects/DonaldLab/Entropy/OSPREY_refactor/src/edu/duke/cs/osprey/control/VariationalPartFunc.java&#10;Var&#9;FILE&#9;file:///Users/hunternisonoff/Projects/DonaldLab/Entropy/OSPREY_refactor/src/edu/duke/cs/osprey/control/VariationalPartFunc.java&#10;Varpf&#9;FILE&#9;file:///Users/hunternisonoff/Projects/DonaldLab/Entropy/OSPREY_refactor/src/edu/duke/cs/osprey/control/VariationalPartFunc.java&#10;wtRot&#9;null&#9;null&#10;phi &#9;PSI&#9;JAVA://edu.duke.cs.osprey.restypes.RotamerLibraryReader.BBDepRotamersForTypePhiAndPsi#phi&#10;phi&#9;PSI&#9;JAVA://edu.duke.cs.osprey.restypes.RotamerLibraryReader.BBDepRotamersForTypePhiAndPsi&#10;Rotamer Librar&#9;PSI&#9;JAVA://edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary#loadRotamerLibrary" />
+  </component>
+  <component name="RunManager" selected="Application.TestingVarPF">
     <configuration default="true" type="#org.jetbrains.idea.devkit.run.PluginConfigurationType" factoryName="Plugin">
       <module name="" />
       <option name="VM_PARAMETERS" value="-Xmx512m -Xms256m -XX:MaxPermSize=250m -ea" />
       <option name="PROGRAM_PARAMETERS" />
+      <method />
+    </configuration>
+    <configuration default="true" type="AndroidRunConfigurationType" factoryName="Android Application">
+      <module name="" />
+      <option name="DEPLOY" value="true" />
+      <option name="ARTIFACT_NAME" value="" />
+      <option name="PM_INSTALL_OPTIONS" value="" />
+      <option name="ACTIVITY_EXTRA_FLAGS" value="" />
+      <option name="MODE" value="default_activity" />
+      <option name="TARGET_SELECTION_MODE" value="SHOW_DIALOG" />
+      <option name="PREFERRED_AVD" value="" />
+      <option name="CLEAR_LOGCAT" value="false" />
+      <option name="SHOW_LOGCAT_AUTOMATICALLY" value="true" />
+      <option name="SKIP_NOOP_APK_INSTALLATIONS" value="true" />
+      <option name="FORCE_STOP_RUNNING_APP" value="true" />
+      <option name="DEBUGGER_TYPE" value="Java" />
+      <option name="USE_LAST_SELECTED_DEVICE" value="false" />
+      <option name="PREFERRED_AVD" value="" />
+      <Java />
+      <Profilers>
+        <option name="GAPID_DISABLE_PCS" value="false" />
+      </Profilers>
+      <option name="DEEP_LINK" value="" />
+      <option name="ACTIVITY_CLASS" value="" />
+      <method />
+    </configuration>
+    <configuration default="true" type="AndroidTestRunConfigurationType" factoryName="Android Tests">
+      <module name="" />
+      <option name="TESTING_TYPE" value="0" />
+      <option name="INSTRUMENTATION_RUNNER_CLASS" value="" />
+      <option name="METHOD_NAME" value="" />
+      <option name="CLASS_NAME" value="" />
+      <option name="PACKAGE_NAME" value="" />
+      <option name="EXTRA_OPTIONS" value="" />
+      <option name="TARGET_SELECTION_MODE" value="SHOW_DIALOG" />
+      <option name="PREFERRED_AVD" value="" />
+      <option name="CLEAR_LOGCAT" value="false" />
+      <option name="SHOW_LOGCAT_AUTOMATICALLY" value="true" />
+      <option name="SKIP_NOOP_APK_INSTALLATIONS" value="true" />
+      <option name="FORCE_STOP_RUNNING_APP" value="true" />
+      <option name="DEBUGGER_TYPE" value="Java" />
+      <option name="USE_LAST_SELECTED_DEVICE" value="false" />
+      <option name="PREFERRED_AVD" value="" />
+      <Java />
+      <Profilers>
+        <option name="GAPID_DISABLE_PCS" value="false" />
+      </Profilers>
       <method />
     </configuration>
     <configuration default="true" type="Applet" factoryName="Applet">
@@ -188,6 +275,22 @@
       <envs />
       <method />
     </configuration>
+    <configuration default="true" type="GradleRunConfiguration" factoryName="Gradle">
+      <ExternalSystemSettings>
+        <option name="executionName" />
+        <option name="externalProjectPath" />
+        <option name="externalSystemIdString" value="GRADLE" />
+        <option name="scriptParameters" />
+        <option name="taskDescriptions">
+          <list />
+        </option>
+        <option name="taskNames">
+          <list />
+        </option>
+        <option name="vmOptions" />
+      </ExternalSystemSettings>
+      <method />
+    </configuration>
     <configuration default="true" type="JUnit" factoryName="JUnit">
       <extension name="coverage" enabled="false" merge="false" sample_coverage="true" runner="idea" />
       <module name="" />
@@ -207,6 +310,73 @@
       </option>
       <envs />
       <patterns />
+      <method />
+    </configuration>
+    <configuration default="true" type="JUnitTestDiscovery" factoryName="JUnit Test Discovery" changeList="All">
+      <extension name="coverage" enabled="false" merge="false" sample_coverage="true" runner="idea" />
+      <module name="" />
+      <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="false" />
+      <option name="ALTERNATIVE_JRE_PATH" />
+      <option name="PACKAGE_NAME" />
+      <option name="MAIN_CLASS_NAME" />
+      <option name="METHOD_NAME" />
+      <option name="TEST_OBJECT" value="class" />
+      <option name="VM_PARAMETERS" />
+      <option name="PARAMETERS" />
+      <option name="WORKING_DIRECTORY" />
+      <option name="ENV_VARIABLES" />
+      <option name="PASS_PARENT_ENVS" value="true" />
+      <option name="TEST_SEARCH_SCOPE">
+        <value defaultName="singleModule" />
+      </option>
+      <envs />
+      <patterns />
+      <method />
+    </configuration>
+    <configuration default="true" type="JarApplication" factoryName="JAR Application">
+      <extension name="coverage" enabled="false" merge="false" sample_coverage="true" runner="idea" />
+      <envs />
+      <method />
+    </configuration>
+    <configuration default="true" type="Java Scratch" factoryName="Java Scratch">
+      <extension name="coverage" enabled="false" merge="false" sample_coverage="true" runner="idea" />
+      <option name="SCRATCH_FILE_ID" value="0" />
+      <option name="MAIN_CLASS_NAME" />
+      <option name="VM_PARAMETERS" />
+      <option name="PROGRAM_PARAMETERS" />
+      <option name="WORKING_DIRECTORY" />
+      <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="false" />
+      <option name="ALTERNATIVE_JRE_PATH" />
+      <option name="ENABLE_SWING_INSPECTOR" value="false" />
+      <option name="ENV_VARIABLES" />
+      <option name="PASS_PARENT_ENVS" value="true" />
+      <module name="" />
+      <envs />
+      <method />
+    </configuration>
+    <configuration default="true" type="JetRunConfigurationType" factoryName="Kotlin">
+      <extension name="coverage" enabled="false" merge="false" sample_coverage="true" runner="idea" />
+      <option name="MAIN_CLASS_NAME" />
+      <option name="VM_PARAMETERS" />
+      <option name="PROGRAM_PARAMETERS" />
+      <option name="WORKING_DIRECTORY" />
+      <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="false" />
+      <option name="ALTERNATIVE_JRE_PATH" />
+      <option name="PASS_PARENT_ENVS" value="true" />
+      <module name="OSPREY_refactor" />
+      <envs />
+      <method />
+    </configuration>
+    <configuration default="true" type="KotlinStandaloneScriptRunConfigurationType" factoryName="Kotlin script">
+      <extension name="coverage" enabled="false" merge="false" sample_coverage="true" runner="idea" />
+      <option name="filePath" />
+      <option name="vmParameters" />
+      <option name="alternativeJrePath" />
+      <option name="programParameters" />
+      <option name="passParentEnvs" value="true" />
+      <option name="workingDirectory" />
+      <option name="isAlternativeJrePathEnabled" value="false" />
+      <envs />
       <method />
     </configuration>
     <configuration default="true" type="Remote" factoryName="Remote">
@@ -245,9 +415,58 @@
       <listeners />
       <method />
     </configuration>
+    <configuration default="true" type="TestNGTestDiscovery" factoryName="TestNG Test Discovery" changeList="All">
+      <extension name="coverage" enabled="false" merge="false" sample_coverage="true" runner="idea" />
+      <module name="" />
+      <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="false" />
+      <option name="ALTERNATIVE_JRE_PATH" />
+      <option name="SUITE_NAME" />
+      <option name="PACKAGE_NAME" />
+      <option name="MAIN_CLASS_NAME" />
+      <option name="METHOD_NAME" />
+      <option name="GROUP_NAME" />
+      <option name="TEST_OBJECT" value="CLASS" />
+      <option name="VM_PARAMETERS" />
+      <option name="PARAMETERS" />
+      <option name="WORKING_DIRECTORY" />
+      <option name="OUTPUT_DIRECTORY" />
+      <option name="ANNOTATION_TYPE" />
+      <option name="ENV_VARIABLES" />
+      <option name="PASS_PARENT_ENVS" value="true" />
+      <option name="TEST_SEARCH_SCOPE">
+        <value defaultName="singleModule" />
+      </option>
+      <option name="USE_DEFAULT_REPORTERS" value="false" />
+      <option name="PROPERTIES_FILE" />
+      <envs />
+      <properties />
+      <listeners />
+      <method />
+    </configuration>
+    <configuration default="false" name="TestingVarPF" type="Application" factoryName="Application">
+      <extension name="coverage" enabled="false" merge="false" sample_coverage="true" runner="idea" />
+      <option name="MAIN_CLASS_NAME" value="edu.duke.cs.osprey.control.Main" />
+      <option name="VM_PARAMETERS" value="" />
+      <option name="PROGRAM_PARAMETERS" value="-c KStar.cfg calcVarKStar 2 DEE.cfg System.cfg" />
+      <option name="WORKING_DIRECTORY" value="file://$PROJECT_DIR$/../VarBBPaper/Data/TestRuns/Nano4HEM/VarPF" />
+      <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="false" />
+      <option name="ALTERNATIVE_JRE_PATH" />
+      <option name="ENABLE_SWING_INSPECTOR" value="false" />
+      <option name="ENV_VARIABLES" />
+      <option name="PASS_PARENT_ENVS" value="true" />
+      <module name="OSPREY_refactor" />
+      <envs />
+      <method />
+    </configuration>
+    <list size="1">
+      <item index="0" class="java.lang.String" itemvalue="Application.TestingVarPF" />
+    </list>
   </component>
   <component name="ShelveChangesManager" show_recycled="false">
     <option name="remove_strategy" value="false" />
+  </component>
+  <component name="SvnConfiguration">
+    <configuration />
   </component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
@@ -263,31 +482,60 @@
     <frame x="1440" y="23" width="1920" height="1057" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info id="Palette" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="-1" side_tool="false" content_ui="tabs" />
+      <window_info id="Palette" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
-      <window_info id="Messages" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="-1" side_tool="false" content_ui="tabs" />
-      <window_info id="Palette&#9;" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="-1" side_tool="false" content_ui="tabs" />
-      <window_info id="Capture Analysis" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="-1" side_tool="false" content_ui="tabs" />
-      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="-1" side_tool="true" content_ui="tabs" />
-      <window_info id="Maven Projects" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="-1" side_tool="false" content_ui="tabs" />
-      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
-      <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="-1" side_tool="false" content_ui="tabs" />
-      <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="-1" side_tool="false" content_ui="tabs" />
-      <window_info id="Capture Tool" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="-1" side_tool="false" content_ui="tabs" />
-      <window_info id="Designer" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="-1" side_tool="false" content_ui="tabs" />
-      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
-      <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
-      <window_info id="Ant Build" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
-      <window_info id="UI Designer" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="-1" side_tool="false" content_ui="tabs" />
-      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
-      <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="-1" side_tool="true" content_ui="tabs" />
+      <window_info id="Palette&#9;" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
+      <window_info id="Capture Analysis" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
+      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="true" content_ui="tabs" />
+      <window_info id="Maven Projects" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
+      <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="10" side_tool="false" content_ui="tabs" />
+      <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="9" side_tool="false" content_ui="tabs" />
+      <window_info id="Capture Tool" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
+      <window_info id="Designer" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32291666" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.24930362" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
+      <window_info id="Ant Build" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
+      <window_info id="UI Designer" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
+      <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32864583" sideWeight="0.5" order="4" side_tool="true" content_ui="tabs" />
       <window_info id="Cvs" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
-      <window_info id="Hierarchy" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="2" side_tool="false" content_ui="combo" />
       <window_info id="Message" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
-      <window_info id="Commander" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
-      <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
+      <window_info id="Commander" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
+      <window_info id="Hierarchy" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="3" side_tool="false" content_ui="combo" />
+      <window_info id="Inspection Results" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.030571992" sideWeight="0.5" order="11" side_tool="false" content_ui="tabs" />
+      <window_info id="Dynamic Properties" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
+      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.39940828" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
+      <window_info id="Messages" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32840237" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
       <window_info id="Inspection" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
+      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
+      <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32741618" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
     </layout>
+    <layout-to-restore>
+      <window_info id="Palette" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
+      <window_info id="Cvs" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
+      <window_info id="Message" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
+      <window_info id="Commander" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
+      <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="true" content_ui="tabs" />
+      <window_info id="Maven Projects" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
+      <window_info id="Capture Tool" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
+      <window_info id="Designer" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
+      <window_info id="Hierarchy" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="3" side_tool="false" content_ui="combo" />
+      <window_info id="Dynamic Properties" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
+      <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
+      <window_info id="Ant Build" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
+      <window_info id="UI Designer" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
+      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
+      <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
+      <window_info id="Messages" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32920793" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
+      <window_info id="Palette&#9;" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
+      <window_info id="Capture Analysis" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
+      <window_info id="Inspection" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.4" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
+      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
+      <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="10" side_tool="false" content_ui="tabs" />
+      <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="9" side_tool="false" content_ui="tabs" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.16991644" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Find" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.3282532" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
+      <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="4" side_tool="true" content_ui="tabs" />
+    </layout-to-restore>
   </component>
   <component name="Vcs.Log.UiProperties">
     <option name="RECENTLY_FILTERED_USER_GROUPS">
@@ -301,7 +549,23 @@
     <option name="myLimit" value="2678400000" />
   </component>
   <component name="XDebuggerManager">
-    <breakpoint-manager />
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/src/edu/duke/cs/osprey/control/Main.java</url>
+          <line>69</line>
+          <properties />
+          <option name="timeStamp" value="3" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/src/edu/duke/cs/osprey/control/VariationalPartFunc.java</url>
+          <line>61</line>
+          <properties />
+          <option name="timeStamp" value="5" />
+        </line-breakpoint>
+      </breakpoints>
+      <option name="time" value="6" />
+    </breakpoint-manager>
     <watches-manager />
   </component>
   <component name="antWorkspaceConfiguration">
@@ -309,11 +573,592 @@
     <option name="FILTER_TARGETS" value="false" />
   </component>
   <component name="editorHistoryManager">
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/control/VariationalPartFunc.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1290">
+          <caret line="86" column="78" selection-start-line="86" selection-start-column="78" selection-end-line="86" selection-end-column="78" />
+          <folding>
+            <marker date="1476036206000" expanded="false" signature="0:184" ph="/.../" />
+            <marker date="1476036206000" expanded="false" signature="229:1108" ph="..." />
+            <marker date="1476036206000" expanded="true" signature="1110:1133" ph="/**...*/" />
+            <marker date="1476036206000" expanded="true" signature="1442:4701" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="2546:2707" ph="//..." />
+            <marker date="1476036206000" expanded="true" signature="4762:4978" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="5069:5226" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="5351:5734" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="5809:5935" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="6001:6489" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="6572:7544" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="7661:8450" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="8204:8306" ph="//..." />
+            <marker date="1476036206000" expanded="true" signature="8587:9341" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="9056:9158" ph="//..." />
+            <marker date="1476036206000" expanded="true" signature="9491:10209" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="9960:10062" ph="//..." />
+            <marker date="1476036206000" expanded="true" signature="10288:10606" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="10773:12114" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="12198:12525" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="12606:13450" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="13532:14610" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="14746:15409" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="15527:16098" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="16136:16739" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="16788:17243" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="17296:17715" ph="{...}" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/ResidueTemplate.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding>
+            <marker date="1475983448000" expanded="true" signature="0:99" ph="/.../" />
+            <marker date="1475983448000" expanded="false" signature="145:417" ph="..." />
+            <marker date="1475983448000" expanded="true" signature="419:448" ph="/**...*/" />
+            <marker date="1475983448000" expanded="true" signature="508:996" ph="//..." />
+            <marker date="1475983448000" expanded="true" signature="2878:3034" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="3171:4412" ph="{...}" />
+            <marker date="1475983448000" expanded="false" signature="4479:4490" ph=" { " />
+            <marker date="1475983448000" expanded="false" signature="4537:4543" ph=" }" />
+            <marker date="1475983448000" expanded="false" signature="4598:4609" ph=" { " />
+            <marker date="1475983448000" expanded="false" signature="4652:4658" ph=" }" />
+            <marker date="1475983448000" expanded="true" signature="4738:5653" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="5076:5388" ph="//..." />
+            <marker date="1475983448000" expanded="true" signature="5745:5894" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="5967:6117" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="6157:7466" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="6167:6698" ph="//..." />
+            <marker date="1475983448000" expanded="true" signature="7561:8945" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="7571:7758" ph="//..." />
+            <marker date="1475983448000" expanded="true" signature="8661:8783" ph="//..." />
+            <marker date="1475983448000" expanded="true" signature="8951:9422" ph="/**...*/" />
+            <marker date="1475983448000" expanded="true" signature="9516:10459" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="9868:10180" ph="//..." />
+            <marker date="1475983448000" expanded="true" signature="10465:10545" ph="/**...*/" />
+            <marker date="1475983448000" expanded="true" signature="10615:10687" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="10693:11057" ph="/**...*/" />
+            <marker date="1475983448000" expanded="true" signature="11112:12007" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="11436:11748" ph="//..." />
+            <marker date="1475983448000" expanded="false" signature="12040:12051" ph=" { " />
+            <marker date="1475983448000" expanded="false" signature="12079:12085" ph=" }" />
+            <marker date="1475983448000" expanded="true" signature="12091:12257" ph="/**...*/" />
+            <marker date="1475983448000" expanded="false" signature="12319:12330" ph=" { " />
+            <marker date="1475983448000" expanded="false" signature="12375:12381" ph=" }" />
+            <marker date="1475983448000" expanded="true" signature="12387:12664" ph="/**...*/" />
+            <marker date="1475983448000" expanded="false" signature="12727:12738" ph=" { " />
+            <marker date="1475983448000" expanded="false" signature="12779:12785" ph=" }" />
+            <marker date="1475983448000" expanded="true" signature="12791:12930" ph="/**...*/" />
+            <marker date="1475983448000" expanded="true" signature="12973:13356" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="13362:13774" ph="/**...*/" />
+            <marker date="1475983448000" expanded="true" signature="13847:13912" ph="{...}" />
+            <marker date="1475983448000" expanded="false" signature="13961:13972" ph=" { " />
+            <marker date="1475983448000" expanded="false" signature="14006:14012" ph=" }" />
+            <marker date="1475983448000" expanded="true" signature="14018:14096" ph="/**...*/" />
+            <marker date="1475983448000" expanded="false" signature="14146:14157" ph=" { " />
+            <marker date="1475983448000" expanded="false" signature="14190:14196" ph=" }" />
+            <marker date="1475983448000" expanded="true" signature="14202:14569" ph="/**...*/" />
+            <marker date="1475983448000" expanded="true" signature="14666:14746" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="14820:14887" ph="{...}" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/control/Main.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1215">
+          <caret line="86" column="61" selection-start-line="86" selection-start-column="45" selection-end-line="86" selection-end-column="61" />
+          <folding>
+            <marker date="1476033621000" expanded="false" signature="0:99" ph="/.../" />
+            <marker date="1476033621000" expanded="false" signature="144:311" ph="..." />
+            <marker date="1476033621000" expanded="true" signature="313:605" ph="/**...*/" />
+            <marker date="1476033621000" expanded="true" signature="670:4484" ph="{...}" />
+            <marker date="1476033621000" expanded="true" signature="1516:1589" ph="//..." />
+            <marker date="1476033621000" expanded="true" signature="1971:2096" ph="//..." />
+            <marker date="1476033621000" expanded="true" signature="2475:2564" ph="//..." />
+            <marker date="1476033621000" expanded="true" signature="4543:6452" ph="{...}" />
+            <marker date="1476033621000" expanded="true" signature="6225:6446" ph="//..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/control/ConfigFileParser.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="3495">
+          <caret line="256" column="26" selection-start-line="256" selection-start-column="26" selection-end-line="256" selection-end-column="26" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/SearchProblem.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1200">
+          <caret line="99" column="27" selection-start-line="99" selection-start-column="27" selection-end-line="99" selection-end-column="27" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/ConfSpace.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="915">
+          <caret line="91" column="22" selection-start-line="91" selection-start-column="22" selection-end-line="91" selection-end-column="22" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/control/SublinearKStarDoer.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1815">
+          <caret line="145" column="22" selection-start-line="145" selection-start-column="22" selection-end-line="145" selection-end-column="22" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/astar/seqkstar/SublinearKStarTree.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="5775">
+          <caret line="408" column="9" selection-start-line="408" selection-start-column="9" selection-end-line="408" selection-end-column="9" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/partitionfunctionbounds/TRBP.java">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="45">
-          <caret line="3" column="0" selection-start-line="3" selection-start-column="0" selection-end-line="3" selection-end-column="0" />
+        <state relative-caret-position="15">
+          <caret line="1" column="49" selection-start-line="1" selection-start-column="49" selection-end-line="1" selection-end-column="49" />
+          <folding>
+            <element signature="e#0#35996#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/HardCodedResidueInfo.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="4680">
+          <caret line="320" column="17" selection-start-line="320" selection-start-column="17" selection-end-line="320" selection-end-column="17" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/ResidueTemplate.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="0">
+          <caret line="0" column="0" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
+          <folding>
+            <marker date="1475983448000" expanded="true" signature="0:99" ph="/.../" />
+            <marker date="1475983448000" expanded="false" signature="145:417" ph="..." />
+            <marker date="1475983448000" expanded="true" signature="419:448" ph="/**...*/" />
+            <marker date="1475983448000" expanded="true" signature="508:996" ph="//..." />
+            <marker date="1475983448000" expanded="true" signature="2878:3034" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="3171:4412" ph="{...}" />
+            <marker date="1475983448000" expanded="false" signature="4479:4490" ph=" { " />
+            <marker date="1475983448000" expanded="false" signature="4537:4543" ph=" }" />
+            <marker date="1475983448000" expanded="false" signature="4598:4609" ph=" { " />
+            <marker date="1475983448000" expanded="false" signature="4652:4658" ph=" }" />
+            <marker date="1475983448000" expanded="true" signature="4738:5653" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="5076:5388" ph="//..." />
+            <marker date="1475983448000" expanded="true" signature="5745:5894" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="5967:6117" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="6157:7466" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="6167:6698" ph="//..." />
+            <marker date="1475983448000" expanded="true" signature="7561:8945" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="7571:7758" ph="//..." />
+            <marker date="1475983448000" expanded="true" signature="8661:8783" ph="//..." />
+            <marker date="1475983448000" expanded="true" signature="8951:9422" ph="/**...*/" />
+            <marker date="1475983448000" expanded="true" signature="9516:10459" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="9868:10180" ph="//..." />
+            <marker date="1475983448000" expanded="true" signature="10465:10545" ph="/**...*/" />
+            <marker date="1475983448000" expanded="true" signature="10615:10687" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="10693:11057" ph="/**...*/" />
+            <marker date="1475983448000" expanded="true" signature="11112:12007" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="11436:11748" ph="//..." />
+            <marker date="1475983448000" expanded="false" signature="12040:12051" ph=" { " />
+            <marker date="1475983448000" expanded="false" signature="12079:12085" ph=" }" />
+            <marker date="1475983448000" expanded="true" signature="12091:12257" ph="/**...*/" />
+            <marker date="1475983448000" expanded="false" signature="12319:12330" ph=" { " />
+            <marker date="1475983448000" expanded="false" signature="12375:12381" ph=" }" />
+            <marker date="1475983448000" expanded="true" signature="12387:12664" ph="/**...*/" />
+            <marker date="1475983448000" expanded="false" signature="12727:12738" ph=" { " />
+            <marker date="1475983448000" expanded="false" signature="12779:12785" ph=" }" />
+            <marker date="1475983448000" expanded="true" signature="12791:12930" ph="/**...*/" />
+            <marker date="1475983448000" expanded="true" signature="12973:13356" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="13362:13774" ph="/**...*/" />
+            <marker date="1475983448000" expanded="true" signature="13847:13912" ph="{...}" />
+            <marker date="1475983448000" expanded="false" signature="13961:13972" ph=" { " />
+            <marker date="1475983448000" expanded="false" signature="14006:14012" ph=" }" />
+            <marker date="1475983448000" expanded="true" signature="14018:14096" ph="/**...*/" />
+            <marker date="1475983448000" expanded="false" signature="14146:14157" ph=" { " />
+            <marker date="1475983448000" expanded="false" signature="14190:14196" ph=" }" />
+            <marker date="1475983448000" expanded="true" signature="14202:14569" ph="/**...*/" />
+            <marker date="1475983448000" expanded="true" signature="14666:14746" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="14820:14887" ph="{...}" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/control/EnvironmentVars.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="90">
+          <caret line="13" column="13" selection-start-line="13" selection-start-column="13" selection-end-line="13" selection-end-column="13" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/GenericResidueTemplateLibrary.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="4830">
+          <caret line="338" column="29" selection-start-line="338" selection-start-column="29" selection-end-line="338" selection-end-column="29" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/PositionConfSpace.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1215">
+          <caret line="103" column="42" selection-start-line="103" selection-start-column="42" selection-end-line="103" selection-end-column="42" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/ResidueTemplateLibrary.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="450">
+          <caret line="30" column="7" selection-start-line="30" selection-start-column="7" selection-end-line="30" selection-end-column="7" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/HardCodedResidueInfo.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="4680">
+          <caret line="320" column="17" selection-start-line="320" selection-start-column="17" selection-end-line="320" selection-end-column="17" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/PositionConfSpace.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1215">
+          <caret line="103" column="42" selection-start-line="103" selection-start-column="42" selection-end-line="103" selection-end-column="42" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/ResidueTemplateLibrary.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="450">
+          <caret line="30" column="7" selection-start-line="30" selection-start-column="7" selection-end-line="30" selection-end-column="7" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/GenericResidueTemplateLibrary.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="4830">
+          <caret line="338" column="29" selection-start-line="338" selection-start-column="29" selection-end-line="338" selection-end-column="29" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/RotamerLibraryReader.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-2467">
+          <caret line="142" column="22" selection-start-line="142" selection-start-column="22" selection-end-line="142" selection-end-column="22" />
           <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/control/EnvironmentVars.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="90">
+          <caret line="13" column="13" selection-start-line="13" selection-start-column="13" selection-end-line="13" selection-end-column="13" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/astar/seqkstar/SublinearKStarTree.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="343">
+          <caret line="408" column="9" selection-start-line="408" selection-start-column="9" selection-end-line="408" selection-end-column="9" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/control/SublinearKStarDoer.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="442">
+          <caret line="145" column="22" selection-start-line="145" selection-start-column="22" selection-end-line="145" selection-end-column="22" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/ConfSpace.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="75">
+          <caret line="91" column="22" selection-start-line="91" selection-start-column="22" selection-end-line="91" selection-end-column="22" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/confspace/SearchProblem.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="195">
+          <caret line="99" column="27" selection-start-line="99" selection-start-column="27" selection-end-line="99" selection-end-column="27" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/restypes/ResidueTemplate.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="345">
+          <caret line="30" column="15" selection-start-line="30" selection-start-column="15" selection-end-line="30" selection-end-column="15" />
+          <folding>
+            <marker date="1475983448000" expanded="true" signature="0:99" ph="/.../" />
+            <marker date="1475983448000" expanded="false" signature="145:417" ph="..." />
+            <marker date="1475983448000" expanded="true" signature="419:448" ph="/**...*/" />
+            <marker date="1475983448000" expanded="true" signature="508:996" ph="//..." />
+            <marker date="1475983448000" expanded="true" signature="2878:3034" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="3171:4412" ph="{...}" />
+            <marker date="1475983448000" expanded="false" signature="4479:4490" ph=" { " />
+            <marker date="1475983448000" expanded="false" signature="4537:4543" ph=" }" />
+            <marker date="1475983448000" expanded="false" signature="4598:4609" ph=" { " />
+            <marker date="1475983448000" expanded="false" signature="4652:4658" ph=" }" />
+            <marker date="1475983448000" expanded="true" signature="4738:5653" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="5076:5388" ph="//..." />
+            <marker date="1475983448000" expanded="true" signature="5745:5894" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="5967:6117" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="6157:7466" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="6167:6698" ph="//..." />
+            <marker date="1475983448000" expanded="true" signature="7561:8945" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="7571:7758" ph="//..." />
+            <marker date="1475983448000" expanded="true" signature="8661:8783" ph="//..." />
+            <marker date="1475983448000" expanded="true" signature="8951:9422" ph="/**...*/" />
+            <marker date="1475983448000" expanded="true" signature="9516:10459" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="9868:10180" ph="//..." />
+            <marker date="1475983448000" expanded="true" signature="10465:10545" ph="/**...*/" />
+            <marker date="1475983448000" expanded="true" signature="10615:10687" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="10693:11057" ph="/**...*/" />
+            <marker date="1475983448000" expanded="true" signature="11112:12007" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="11436:11748" ph="//..." />
+            <marker date="1475983448000" expanded="false" signature="12040:12051" ph=" { " />
+            <marker date="1475983448000" expanded="false" signature="12079:12085" ph=" }" />
+            <marker date="1475983448000" expanded="true" signature="12091:12257" ph="/**...*/" />
+            <marker date="1475983448000" expanded="false" signature="12319:12330" ph=" { " />
+            <marker date="1475983448000" expanded="false" signature="12375:12381" ph=" }" />
+            <marker date="1475983448000" expanded="true" signature="12387:12664" ph="/**...*/" />
+            <marker date="1475983448000" expanded="false" signature="12727:12738" ph=" { " />
+            <marker date="1475983448000" expanded="false" signature="12779:12785" ph=" }" />
+            <marker date="1475983448000" expanded="true" signature="12791:12930" ph="/**...*/" />
+            <marker date="1475983448000" expanded="true" signature="12973:13356" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="13362:13774" ph="/**...*/" />
+            <marker date="1475983448000" expanded="true" signature="13847:13912" ph="{...}" />
+            <marker date="1475983448000" expanded="false" signature="13961:13972" ph=" { " />
+            <marker date="1475983448000" expanded="false" signature="14006:14012" ph=" }" />
+            <marker date="1475983448000" expanded="true" signature="14018:14096" ph="/**...*/" />
+            <marker date="1475983448000" expanded="false" signature="14146:14157" ph=" { " />
+            <marker date="1475983448000" expanded="false" signature="14190:14196" ph=" }" />
+            <marker date="1475983448000" expanded="true" signature="14202:14569" ph="/**...*/" />
+            <marker date="1475983448000" expanded="true" signature="14666:14746" ph="{...}" />
+            <marker date="1475983448000" expanded="true" signature="14820:14887" ph="{...}" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="jar:///Library/Java/JavaVirtualMachines/jdk1.8.0_101.jdk/Contents/Home/src.zip!/java/lang/String.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="870">
+          <caret line="110" column="19" selection-start-line="110" selection-start-column="19" selection-end-line="110" selection-end-column="19" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/control/ConfigFileParser.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="353">
+          <caret line="247" column="57" selection-start-line="247" selection-start-column="57" selection-end-line="247" selection-end-column="57" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/control/Main.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="195">
+          <caret line="69" column="0" selection-start-line="69" selection-start-column="0" selection-end-line="69" selection-end-column="0" />
+          <folding>
+            <marker date="1476033621000" expanded="false" signature="0:99" ph="/.../" />
+            <marker date="1476033621000" expanded="false" signature="144:311" ph="..." />
+            <marker date="1476033621000" expanded="true" signature="313:605" ph="/**...*/" />
+            <marker date="1476033621000" expanded="true" signature="670:4484" ph="{...}" />
+            <marker date="1476033621000" expanded="true" signature="1516:1589" ph="//..." />
+            <marker date="1476033621000" expanded="true" signature="1971:2096" ph="//..." />
+            <marker date="1476033621000" expanded="true" signature="2475:2564" ph="//..." />
+            <marker date="1476033621000" expanded="true" signature="4543:6452" ph="{...}" />
+            <marker date="1476033621000" expanded="true" signature="6225:6446" ph="//..." />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/tools/ExpFunction.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="203">
+          <caret line="120" column="22" selection-start-line="120" selection-start-column="22" selection-end-line="120" selection-end-column="22" />
+          <folding>
+            <marker date="1473821635000" expanded="false" signature="0:2066" ph="/.../" />
+            <marker date="1473821635000" expanded="true" signature="2124:2448" ph="/**...*/" />
+            <marker date="1473821635000" expanded="true" signature="2809:2815" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="3295:3998" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="4098:4230" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="4353:5313" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="5410:5948" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="5834:5924" ph="//..." />
+            <marker date="1473821635000" expanded="true" signature="6045:6410" ph="{...}" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/partitionfunctionbounds/DiscretePartFunc.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="405">
+          <caret line="169" column="5" selection-start-line="169" selection-start-column="5" selection-end-line="169" selection-end-column="5" />
+          <folding>
+            <marker date="1476035583000" expanded="false" signature="0:184" ph="/.../" />
+            <marker date="1476035583000" expanded="false" signature="245:633" ph="..." />
+            <marker date="1476035583000" expanded="true" signature="635:658" ph="/**...*/" />
+            <marker date="1476035583000" expanded="true" signature="1141:1416" ph="{...}" />
+            <marker date="1476035583000" expanded="true" signature="1505:1644" ph="{...}" />
+            <marker date="1476035583000" expanded="true" signature="1759:1915" ph="{...}" />
+            <marker date="1476035583000" expanded="false" signature="1944:1955" ph=" { " />
+            <marker date="1476035583000" expanded="false" signature="1972:1978" ph=" }" />
+            <marker date="1476035583000" expanded="true" signature="2009:3665" ph="{...}" />
+            <marker date="1476035583000" expanded="true" signature="3715:6417" ph="{...}" />
+            <marker date="1476035583000" expanded="true" signature="6456:6467" ph=" { " />
+            <marker date="1476035583000" expanded="true" signature="6489:6495" ph=" }" />
+            <marker date="1476035583000" expanded="true" signature="6534:6545" ph=" { " />
+            <marker date="1476035583000" expanded="true" signature="6567:6573" ph=" }" />
+            <marker date="1476035583000" expanded="true" signature="6652:6732" ph="{...}" />
+            <marker date="1476035583000" expanded="true" signature="6835:7226" ph="{...}" />
+            <marker date="1476035583000" expanded="true" signature="7279:7590" ph="{...}" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/control/VariationalPartFunc.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="180">
+          <caret line="62" column="43" selection-start-line="62" selection-start-column="43" selection-end-line="62" selection-end-column="43" />
+          <folding>
+            <marker date="1476036206000" expanded="false" signature="0:184" ph="/.../" />
+            <marker date="1476036206000" expanded="false" signature="229:1108" ph="..." />
+            <marker date="1476036206000" expanded="true" signature="1110:1133" ph="/**...*/" />
+            <marker date="1476036206000" expanded="true" signature="1442:4701" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="2546:2707" ph="//..." />
+            <marker date="1476036206000" expanded="true" signature="4762:4978" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="5069:5226" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="5351:5734" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="5809:5935" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="6001:6489" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="6572:7544" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="7661:8450" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="8204:8306" ph="//..." />
+            <marker date="1476036206000" expanded="true" signature="8587:9341" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="9056:9158" ph="//..." />
+            <marker date="1476036206000" expanded="true" signature="9491:10209" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="9960:10062" ph="//..." />
+            <marker date="1476036206000" expanded="true" signature="10288:10606" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="10773:12114" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="12198:12525" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="12606:13450" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="13532:14610" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="14746:15409" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="15527:16098" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="16136:16739" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="16788:17243" ph="{...}" />
+            <marker date="1476036206000" expanded="true" signature="17296:17715" ph="{...}" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/astar/partfunc/PartFuncTree.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="2535">
+          <caret line="237" column="16" selection-start-line="237" selection-start-column="16" selection-end-line="237" selection-end-column="16" />
+          <folding>
+            <marker date="1473821635000" expanded="false" signature="0:184" ph="/.../" />
+            <marker date="1473821635000" expanded="false" signature="236:1246" ph="..." />
+            <marker date="1473821635000" expanded="true" signature="1248:1274" ph="/**...*/" />
+            <marker date="1473821635000" expanded="false" signature="2422:2433" ph=" { " />
+            <marker date="1473821635000" expanded="false" signature="2467:2473" ph=" }" />
+            <marker date="1473821635000" expanded="true" signature="2559:2672" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="2771:3063" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="3147:3465" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="3571:3940" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="4024:4731" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="4810:8488" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="6484:6620" ph="//..." />
+            <marker date="1473821635000" expanded="true" signature="6932:7158" ph="//..." />
+            <marker date="1473821635000" expanded="true" signature="7340:7462" ph="//..." />
+            <marker date="1473821635000" expanded="true" signature="8543:9907" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="9978:11215" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="9988:10109" ph="//..." />
+            <marker date="1473821635000" expanded="true" signature="10743:10936" ph="//..." />
+            <marker date="1473821635000" expanded="true" signature="11272:11433" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="11490:11574" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="11631:11715" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="11766:11917" ph="{...}" />
+            <marker date="1473821635000" expanded="false" signature="11971:11982" ph=" { " />
+            <marker date="1473821635000" expanded="false" signature="12045:12051" ph=" }" />
+            <marker date="1473821635000" expanded="true" signature="12106:12251" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="12294:12428" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="12471:12825" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="12877:13067" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="13116:13407" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="13462:13674" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="13741:14487" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="14535:15482" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="15539:15676" ph="{...}" />
+            <marker date="1473821635000" expanded="false" signature="15722:15733" ph=" { " />
+            <marker date="1473821635000" expanded="false" signature="15797:15803" ph=" }" />
+            <marker date="1473821635000" expanded="false" signature="15849:15860" ph=" { " />
+            <marker date="1473821635000" expanded="false" signature="15924:15930" ph=" }" />
+            <marker date="1473821635000" expanded="true" signature="16003:16256" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="16306:17227" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="17285:17554" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="17612:18007" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="18090:19657" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="18575:18688" ph="//..." />
+            <marker date="1473821635000" expanded="true" signature="19766:20963" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="19776:19941" ph="//..." />
+            <marker date="1473821635000" expanded="true" signature="21019:21358" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="21407:21616" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="21704:22559" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="22632:23038" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="23096:23268" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="23332:23648" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="23713:24084" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="24208:25270" ph="{...}" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/partitionfunctionbounds/GraphUtils.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="338">
+          <caret line="122" column="27" selection-start-line="122" selection-start-column="27" selection-end-line="122" selection-end-column="27" />
+          <folding>
+            <marker date="1473821635000" expanded="false" signature="0:184" ph="/.../" />
+            <marker date="1473821635000" expanded="false" signature="245:312" ph="..." />
+            <marker date="1473821635000" expanded="true" signature="314:340" ph="/**...*/" />
+            <marker date="1473821635000" expanded="false" signature="454:465" ph=" { " />
+            <marker date="1473821635000" expanded="false" signature="506:512" ph=" }" />
+            <marker date="1473821635000" expanded="true" signature="589:1063" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="1069:1252" ph="/**...*/" />
+            <marker date="1473821635000" expanded="true" signature="1324:1786" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="1856:2268" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="2334:2743" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="2825:3511" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="3517:3700" ph="/**...*/" />
+            <marker date="1473821635000" expanded="true" signature="3775:4448" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="4520:4857" ph="{...}" />
+            <marker date="1473821635000" expanded="true" signature="4916:5146" ph="{...}" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/edu/duke/cs/osprey/partitionfunctionbounds/TRBP.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="321">
+          <caret line="694" column="36" selection-start-line="694" selection-start-column="25" selection-end-line="694" selection-end-column="36" />
+          <folding>
+            <element signature="e#0#35996#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>

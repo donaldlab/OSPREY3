@@ -9,11 +9,10 @@ import edu.duke.cs.osprey.partitionfunctionbounds.SequenceFreeEnergy;
 import edu.duke.cs.osprey.tests.UnitTestSuite;
 
 /**
- *
  * @author mhall44 Parse arguments and call high-level functions like DEE/A* and
- * K* These will each be controlled by dedicated classes, unlike in the old
- * KSParser to keep this class more concise, and to separate these functions for
- * modularity purposes
+ *         K* These will each be controlled by dedicated classes, unlike in the old
+ *         KSParser to keep this class more concise, and to separate these functions for
+ *         modularity purposes
  */
 public class Main {
 
@@ -30,9 +29,13 @@ public class Main {
         }
 
         long startTime = System.currentTimeMillis();
-
-        ConfigFileParser cfp = new ConfigFileParser(args);//args 1, 3+ are configuration files
-
+        ConfigFileParser cfp;
+        if (command.equals("calcVarKStar")) {
+            String[] toPass = {args[0], args[1], args[2], args[4], args[5]};
+            cfp = new ConfigFileParser(toPass); //args 1, 3+ are configuration files
+        } else {
+            cfp = new ConfigFileParser(args);//args 1, 3+ are configuration files
+        }
         //load data filescloneclone
         cfp.loadData();
 
@@ -64,8 +67,9 @@ public class Main {
             KaDEEDoer kd = new KaDEEDoer(cfp);
             kd.doKaDEE();
         } else if (command.equalsIgnoreCase("calcVarKStar")) {
-            VariationalPartFunc gd = new VariationalPartFunc(cfp);
-            
+            int numHours = Integer.valueOf(args[3]);
+            VariationalPartFunc gd = new VariationalPartFunc(cfp, numHours);
+
         } else if (command.equalsIgnoreCase("variationalSublinear")) {
             SequenceFreeEnergy sf = new SequenceFreeEnergy(cfp);
             if (true) {
@@ -82,9 +86,7 @@ public class Main {
                 System.out.println("Num Sequences: " + sf.numSequencesEnumerated);
                 System.out.println();
             }
-        } else if (command.equalsIgnoreCase("doGumbelEcut")){
-            VariationalPartFunc v = new VariationalPartFunc(cfp,0.1, 0.1, false);
-        } else if (command.equalsIgnoreCase("doSublinearKStar")){
+        }  else if (command.equalsIgnoreCase("doSublinearKStar")) {
             SublinearKStarDoer skd = new SublinearKStarDoer(cfp);
             skd.doSublinearKStar(false);
         }
@@ -100,8 +102,8 @@ public class Main {
 
     private static void debuggingCommands(String[] args) {
 
-		//MolecEObjFunction mof = (MolecEObjFunction)ObjectIO.readObject("OBJFCN1442697734046.dat", true);
-		/*MolecEObjFunction mof = (MolecEObjFunction)ObjectIO.readObject("OBJFCN1442697735769.dat", true);
+        //MolecEObjFunction mof = (MolecEObjFunction)ObjectIO.readObject("OBJFCN1442697734046.dat", true);
+        /*MolecEObjFunction mof = (MolecEObjFunction)ObjectIO.readObject("OBJFCN1442697735769.dat", true);
 
          CCDMinimizer minim = new CCDMinimizer(mof, false);
          DoubleMatrix1D bestVals = minim.minimize();

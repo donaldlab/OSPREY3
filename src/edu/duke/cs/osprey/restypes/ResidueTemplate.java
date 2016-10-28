@@ -7,7 +7,9 @@ package edu.duke.cs.osprey.restypes;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Residue;
+import org.omg.PortableInterceptor.SYSTEM_EXCEPTION;
 
+import java.io.BufferedReader;
 import java.io.Serializable;
 import java.util.ArrayList;
 
