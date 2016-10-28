@@ -87,7 +87,7 @@ public class VariationalPartFunc {
                 System.exit(0);
             }
             if (true) {
-                epsilon = 0.1;
+                epsilon = 0.3;
                 PartFuncTree tree = new PartFuncTree(sp.emat, sp.pruneMat);
                 long startTime = System.currentTimeMillis();
                 double maxTime = 3600000;

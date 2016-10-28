@@ -20,8 +20,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.PriorityQueue;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.lang.ArrayUtils;
 
@@ -127,6 +129,9 @@ public class KaDEETree extends AStarTree {
             if (true) {
                 System.out.println("Max Int: " + maxInt);
             }
+            
+            double map2 = calcLBPartialSeqKaDEE_MAP2(seqNode);
+            
 
             double exactNum = calcExactNumerator(seqNode);
             double numKadee = calcLBNumeratorKaDEE_NewBound_Hunter(seqNode);
@@ -410,6 +415,279 @@ public class KaDEETree extends AStarTree {
 
         return score;
 
+    }
+    
+    // PGC 2016: This new MAP^2 bound works as follows. 
+    //   1) First, we compute what we call the "representative rotamers" for each possible amino acid
+    //		at every residue position of the unbound ligand. 
+    //	  2) Then, the energy of the best rotamers (and pairs of best rotamers) for every amino acid type
+    //		is substracted from the energies of all rotamers for that amino acid type in the bound complex. 
+    //		Then the GMEC is computed for the bound complex. 
+    private double calcLBPartialSeqKaDEE_MAP2(KaDEENode seqNode){
+        SearchProblem boundSP = mutableSearchProblems[0];
+        SearchProblem ligandSP = mutableSearchProblems[1];
+        SearchProblem proteinSP = this.nonMutableSearchProblem;
+        
+        // Compute the GMEC of the proteinSP
+        ConfTree proteinSearch = new ConfTree(proteinSP.emat, proteinSP.pruneMat);
+        int[] protein_gmec_conformation = proteinSearch.nextConf();   
+        
+        RCTuple tup_protein = new RCTuple(protein_gmec_conformation);
+        double protein_gmec_energy = proteinSP.emat.getInternalEnergy(tup_protein);
+        
+        // PART 1: Determining the rotamers in the ligand space that will "represent" every allowed amino acid
+        // For this part we need to do three things: 
+        //		1.a Create a forward and backward mapping between the ligand space and a new "virtual" space that will be 
+        //		optimized to find representative rotamers.
+        //		1.b Create a new energy matrix for the virtual space and run A* on this space.
+        //		1.c Create a new energy matrix that contains the energies of the representative rotamers.
+        
+        //  1.a We will first create a new search space where each amino acid will be its own residue. 
+        // 	Therefore the size of this space in terms of number of "residues" will be order n*AA, where n is the
+        //   number of residues and AA is the number of allowed residues at each position.
+        //   We will do this very rudimentarily to avoid using Arraylists (which I hate, although I use them temporarily here). 
+        int[] assignments = seqNode.getNodeAssignments();
+        
+        int a[] = assignments;
+        if (a[0] == 4 && a[1] == 2 && a[2] == 0 && a[3] == 5){
+        //if (a[0] == 4){
+        System.out.print("Assignments: ");
+        for(int i = 0; i < assignments.length; i++){
+        	System.out.print(assignments[i]+" ");
+        }
+        System.out.println();
+        }
+        
+        int numMutPos = assignments.length;
+        
+        // DEBUG: I want to print out the entire energy matrix to analyze by hand.
+        if (a[0] == 4 && a[1] == 2 && a[2] == 0 && a[3] == 1115){
+        for (int mutPos1 = 0; mutPos1 < numMutPos; mutPos1++) {
+        	for (int rc1: seqNode.pruneMat[1].unprunedRCsAtPos(mutPos1)){
+        		String aatype1 = ligandSP.confSpace.posFlex.get(mutPos1).RCs.get(rc1).AAType;
+        		double onebody = ligandSP.emat.getOneBody(mutPos1, rc1);
+        		System.out.println("ligand onebody: "+mutPos1+ aatype1 + rc1 + " = "+onebody);
+        		for (int mutPos2 = mutPos1+1; mutPos2 < numMutPos; mutPos2++) {
+        			for (int rc2: seqNode.pruneMat[1].unprunedRCsAtPos(mutPos2)){
+                		String aatype2 = ligandSP.confSpace.posFlex.get(mutPos2).RCs.get(rc2).AAType;
+                		double pairwise = ligandSP.emat.getPairwise(mutPos1, rc1, mutPos2, rc2);
+        				System.out.println("ligand pair: "+mutPos1+ aatype1+rc1+ ","+mutPos2+aatype2+rc2+ " = "+pairwise);
+        			}
+        		}
+        	}
+        }
+        }
+        
+        ArrayList <ArrayList<String>> amino_acids_per_pos = new ArrayList<ArrayList<String>>();
+        //  First, compute how many virtual residues we will have and how many amino acids per position.
+        int num_virtual_residues = 0; 
+        for (int mutPos = 0; mutPos < numMutPos; mutPos++) {
+        	int aaTypeVal = assignments[mutPos];
+        	ArrayList<String> tmpAl = new ArrayList<String>();
+        	if (aaTypeVal == -1){
+            	for (int rc: seqNode.pruneMat[1].unprunedRCsAtPos(mutPos)){
+            		String aatype = ligandSP.confSpace.posFlex.get(mutPos).RCs.get(rc).AAType;
+            		if(!tmpAl.contains(aatype)){
+            			tmpAl.add(aatype);
+            		}
+            	}
+        	}
+        	else{        		
+        		tmpAl.add(AATypeOptions.get(mutPos).get(aaTypeVal));
+        	}
+        	amino_acids_per_pos.add(tmpAl);
+        	num_virtual_residues += tmpAl.size();
+        }
+        // How many virtual rotamers per virtual residue we will have:
+        int rcs_per_virtual_residue[] = new int[num_virtual_residues];
+        // Map from ligand residue number to all the virtual residues at that position:
+        int map_from_ligand_res_to_virtual_res [][] = new int[numMutPos][]; 
+        // Map from ligand res, ligand rc number to the virtual rc index:
+        int map_from_ligand_rc_to_virtual_rc [][] = new int[numMutPos][];
+        // Map from virtual residue number to ligand residue:
+        int map_from_virtual_res_to_ligand_res [] = new int[num_virtual_residues]; 
+        // Map from virtual rc to ligand rc, indexed by virtual_res
+        int map_from_virtual_rc_to_ligand_rc [][] = new int[num_virtual_residues][];
+        int cur_virt_res = 0;
+        
+        // The following loops create mappings for the new virtual space. 
+        for (int mutPos = 0; mutPos < numMutPos; mutPos++) {
+        	map_from_ligand_res_to_virtual_res[mutPos] = new int[amino_acids_per_pos.get(mutPos).size()];
+        	for(int aa_ix = 0; aa_ix < amino_acids_per_pos.get(mutPos).size(); aa_ix++){
+        		map_from_ligand_res_to_virtual_res[mutPos][aa_ix] = cur_virt_res;
+        		map_from_virtual_res_to_ligand_res[cur_virt_res] = mutPos;
+        		rcs_per_virtual_residue[cur_virt_res] = 0;
+        		ArrayList<Integer> list_of_rcs_for_current_virt_res = new ArrayList<Integer>();
+        		map_from_ligand_rc_to_virtual_rc[mutPos] = new int [ligandSP.pruneMat.allRCs(mutPos).size()];
+        		for(int i = 0; i < map_from_ligand_rc_to_virtual_rc.length; i++){
+        			map_from_ligand_rc_to_virtual_rc[mutPos][i] = -1;
+        		}
+        		for (int rc: seqNode.pruneMat[1].unprunedRCsAtPos(mutPos)){
+            		String aatype = ligandSP.confSpace.posFlex.get(mutPos).RCs.get(rc).AAType;
+            		int virt_rc_index = 0;
+            		if(aatype.equals(amino_acids_per_pos.get(mutPos).get(aa_ix))){
+            			rcs_per_virtual_residue[cur_virt_res] += 1;
+            			list_of_rcs_for_current_virt_res.add(rc);
+            			map_from_ligand_rc_to_virtual_rc[mutPos][rc] = virt_rc_index;
+            			virt_rc_index++;
+            		}            		
+        		}
+        		map_from_virtual_rc_to_ligand_rc[cur_virt_res] = new int[list_of_rcs_for_current_virt_res.size()];
+        		for(int i = 0; i < list_of_rcs_for_current_virt_res.size(); i++){
+        			map_from_virtual_rc_to_ligand_rc[cur_virt_res][i] = list_of_rcs_for_current_virt_res.get(i);
+        		}
+        		cur_virt_res++;
+        	}
+        }
+       
+        // 1.b Create a new energy matrix for the virtual space and run A* on this space.
+        // Pruning matrix is necessary to call optimization algorithm; no pruning will be actually done.
+        PruningMatrix virtual_pm = new PruningMatrix(num_virtual_residues, rcs_per_virtual_residue, 
+        		Double.POSITIVE_INFINITY);        
+        // Create a new unbound matrix. 
+        EmatUnboundMAP2 virtual_emat = new EmatUnboundMAP2(ligandSP.emat, num_virtual_residues, 
+        		rcs_per_virtual_residue,map_from_virtual_res_to_ligand_res, map_from_virtual_rc_to_ligand_rc);
+        
+        ConfTree unboundmap2_search = new ConfTree(virtual_emat, virtual_pm);
+        int[] virtual_gmec_conformation = unboundmap2_search.nextConf();   
+        
+        if(virtual_gmec_conformation == null){
+        	return Double.POSITIVE_INFINITY;
+        }
+        
+        // 1.c Create a new energy matrix that replaces the energy of every rotamer for each amino acid, 
+        //		by the energy of the representative rotamer. This energy matrix will be indexed by the parent rotamer.
+        int num_flex_pos_bound = getAllBoundPosNums().size();
+        // A map from ligand to bound
+        int map_from_ligand_to_bound[] = new int[numMutPos];
+        for (int i = 0; i < numMutPos; i++){
+        	map_from_ligand_to_bound[i] = num_flex_pos_bound-numMutPos+i;
+        }
+        // A map from bound to ligand
+        int map_from_bound_to_ligand[] = new int[num_flex_pos_bound];
+        for (int i = 0; i < num_flex_pos_bound; i++){
+        	if(i < (num_flex_pos_bound - numMutPos)){ // Assign a -1 if it is part of the constant, unmutable protein 
+        		map_from_bound_to_ligand[i] = -1;
+        	}
+        	else{
+        		map_from_bound_to_ligand[i] = i - (num_flex_pos_bound - numMutPos);
+        	}
+        }
+        double onebody_subtraction_matrix[][] = new double[num_flex_pos_bound][];
+        for(int bound_res = 0; bound_res < num_flex_pos_bound; bound_res++){
+        	int total_rcs_this_pos = boundSP.pruneMat.allRCs(bound_res).size();
+        	onebody_subtraction_matrix[bound_res] = new double [total_rcs_this_pos]; // initialized to zero by default in Java.
+        	int ligand_pos = map_from_bound_to_ligand[bound_res];
+        	if(ligand_pos >= 0){
+	        	int list_of_virtual_residues_for_this_pos [] = map_from_ligand_res_to_virtual_res[ligand_pos];
+	        	for (int virt_res_ix = 0; virt_res_ix < list_of_virtual_residues_for_this_pos.length; virt_res_ix++){
+	        		String aa_for_this_virt_res = amino_acids_per_pos.get(ligand_pos).get(virt_res_ix);
+	        		int virtual_res = list_of_virtual_residues_for_this_pos[virt_res_ix];
+	        		int representative_virt_rc = virtual_gmec_conformation[virtual_res];
+	        		double energy_representative_rc = virtual_emat.getOneBody(virtual_res, representative_virt_rc);
+	        		for(int rc: seqNode.pruneMat[0].unprunedRCsAtPos(bound_res)){
+	        			String aatype = boundSP.confSpace.posFlex.get(bound_res).RCs.get(rc).AAType;
+	        			if(aatype.equals(aa_for_this_virt_res)){
+	        				onebody_subtraction_matrix[bound_res][rc] = energy_representative_rc;
+	        			}
+	        		}
+	        	}
+        	}
+        }
+        
+        double pair_subtraction_matrix [][][][] = new double [num_flex_pos_bound][][][];
+     // Initialize pair_substraction_matrix.
+        for(int bound_res1 = 0; bound_res1 < num_flex_pos_bound; bound_res1++){
+        	int total_rcs_pos1 = boundSP.pruneMat.allRCs(bound_res1).size();
+        	pair_subtraction_matrix[bound_res1] = new double [total_rcs_pos1][][];
+        	
+        	for (int bound_rc1 = 0; bound_rc1 < boundSP.pruneMat.allRCs(bound_res1).size(); bound_rc1++){
+        		pair_subtraction_matrix[bound_res1][bound_rc1] = new double [num_flex_pos_bound][];
+        		for(int bound_res2 = 0; bound_res2 < num_flex_pos_bound; bound_res2++){
+        			int total_rcs_pos2 = boundSP.pruneMat.allRCs(bound_res2).size();
+        			// All double fields are initialized by default to zero in java:
+        			pair_subtraction_matrix[bound_res1][bound_rc1][bound_res2] = new double[total_rcs_pos2];
+        		}
+        	}
+        }
+        for(int bound_res1 = 0; bound_res1 < num_flex_pos_bound; bound_res1++){
+        	int ligand_pos1 = map_from_bound_to_ligand[bound_res1];
+        	if(ligand_pos1 >= 0){
+	        	int list_of_virt_res_for_ligand_pos1 [] = map_from_ligand_res_to_virtual_res[ligand_pos1];
+	        	// Here the virt_res_ix1 correspond to each amino acid allowed at ligand_pos1.
+	        	for (int virt_res_ix1 = 0; virt_res_ix1 < list_of_virt_res_for_ligand_pos1.length; virt_res_ix1++){
+	        		String aa_for_virt_res1 = amino_acids_per_pos.get(ligand_pos1).get(virt_res_ix1);
+	        		int virtual_res1 = list_of_virt_res_for_ligand_pos1[virt_res_ix1];
+	        		int representative_virt_rc1 = virtual_gmec_conformation[virtual_res1];
+	        		for(int rc1: seqNode.pruneMat[0].unprunedRCsAtPos(bound_res1)){
+	        			String aatype1 = boundSP.confSpace.posFlex.get(bound_res1).RCs.get(rc1).AAType;
+	        			if(aatype1.equals(aa_for_virt_res1)){	        				
+	        				for(int bound_res2 = bound_res1+1; bound_res2 < num_flex_pos_bound; bound_res2++){
+	        					int ligand_pos2 = map_from_bound_to_ligand[bound_res2];
+	        					if(ligand_pos2 >= 0){
+	        						int list_of_virt_res_for_ligand_pos2 [] = map_from_ligand_res_to_virtual_res[ligand_pos2];
+	        						for (int virt_res_ix2 = 0; virt_res_ix2 < list_of_virt_res_for_ligand_pos2.length; virt_res_ix2++){
+	        							String aa_for_virt_res2 = amino_acids_per_pos.get(ligand_pos2).get(virt_res_ix2);
+	        							int virtual_res2 = list_of_virt_res_for_ligand_pos2[virt_res_ix2];
+	        							int representative_virt_rc2 = virtual_gmec_conformation[virtual_res2];
+	        							double representative_energy_virt_res1_virt_res2 = virtual_emat.getPairwise
+	        									(virtual_res1, representative_virt_rc1, virtual_res2, representative_virt_rc2);
+	        							for(int rc2: seqNode.pruneMat[0].unprunedRCsAtPos(bound_res2)){
+	        								String aatype2 = boundSP.confSpace.posFlex.get(bound_res2).RCs.get(rc2).AAType;
+	        								if(aatype2.equals(aa_for_virt_res2)){
+	        									if (a[0] == 4 && a[1] == 2 && a[2] == 0 && a[3] == 5){
+	        										//System.out.println();
+	        									}
+	        									pair_subtraction_matrix[bound_res1][rc1][bound_res2][rc2] = 
+	        										pair_subtraction_matrix[bound_res2][rc2][bound_res1][rc1] =
+	        										representative_energy_virt_res1_virt_res2;
+
+	        								}
+	        							}
+	        						}
+	        					}
+	        				}
+	        			}
+	        		}
+	        	}
+        	}
+        }
+        // DEBUG: I want to print out the entire energy matrix to analyze by hand.
+        if (a[0] == 4 && a[1] == 2 && a[2] == 0 && a[3] == 1115){
+	        for (int mutPos1 = 0; mutPos1 < num_flex_pos_bound; mutPos1++) {
+	        	for (int rc1: seqNode.pruneMat[0].unprunedRCsAtPos(mutPos1)){
+	        		String aatype1 = boundSP.confSpace.posFlex.get(mutPos1).RCs.get(rc1).AAType;
+	        		double onebody = boundSP.emat.getOneBody(mutPos1, rc1);
+	        		System.out.println("complex onebody: "+mutPos1+ aatype1 + rc1 + " = "+onebody);
+	        		for (int mutPos2 = mutPos1+1; mutPos2 < num_flex_pos_bound; mutPos2++) {
+	        			for (int rc2: seqNode.pruneMat[0].unprunedRCsAtPos(mutPos2)){
+	                		String aatype2 = boundSP.confSpace.posFlex.get(mutPos2).RCs.get(rc2).AAType;
+	                		double pairwise = boundSP.emat.getPairwise(mutPos1, rc1, mutPos2, rc2);
+	        				System.out.println("complex pair: "+mutPos1+ aatype1+rc1+ ","+mutPos2+aatype2+rc2+ " = "+pairwise);
+	        			}
+	        		}
+	        	}
+	        }
+        }
+        
+        // Now that we created the subtraction matrices, we compute the upper bound 
+        //	and pass as parameters the subtraction matrices to the energy matrix.
+       EmatBoundMAP2 bound_emat = new EmatBoundMAP2(boundSP.emat, onebody_subtraction_matrix, pair_subtraction_matrix);
+       ConfTree boundSearch = new ConfTree(bound_emat, seqNode.pruneMat[0]);
+       int[] bound_gmec_conformation = boundSearch.nextConf();   
+       
+       RCTuple tup_bound = new RCTuple(bound_gmec_conformation);
+       double bound_gmec_energy = bound_emat.getInternalEnergy(tup_bound) - protein_gmec_energy;
+       System.out.println("Bound according to MAP^2: " + bound_gmec_energy);
+        
+        
+        // Create a super space 
+        
+        // boundSP.
+        
+        return bound_gmec_energy;
+    	
+    	
     }
 
     private double calcLBPartialSeqKaDEE_NewBound_Hunter(KaDEENode seqNode) {

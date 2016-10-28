@@ -15,7 +15,7 @@ import java.io.File;
  */
 public class KaDEETests {
 
-    static String[] dirNums = {"01", "02", "03", "04", "05", "06", "07", "08", "09"};
+    static String[] dirNums = {"06"};
 //    static String[] dirNums = {"04"};
 //        "11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
 //        "21", "22", "23", "24", "25", "26", "27", "28", "29", "30"};
@@ -26,7 +26,7 @@ public class KaDEETests {
             throw new Error("This test was designed to be run in test/VariationalKStar/KaDEE folder\n\tcwd: " + path);
         }
 //        String[] pathsToDir = {"LargeTest/4HEM/", "LargeTest/3GXU/", "LargeTest/4LAJ/"};
-         String[] pathsToDir = {"LargeTest/3GXU/"};
+         String[] pathsToDir = {"LargeTest/4HEM/"};
         for (String pathToDir : pathsToDir) {
             for (String dir : dirNums) {
                 String runPath = pathToDir + dir + "_Run/";

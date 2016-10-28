@@ -4,3 +4,6 @@ dist/
 build/
 nbdist/
 nbrproject/**
+.classpath
+*.dat
+KStar.cfg

@@ -80,6 +80,16 @@ public class PruningMatrix extends TupleMatrix<Boolean> {
 
         return ans;
     }
+    public ArrayList<Integer> allRCs(int pos) {
+        // Return all Rcs at position.
+        ArrayList<Integer> ans = new ArrayList<>();
+        int numRCs = numRCsAtPos(pos);
+
+        for (int index = 0; index < numRCs; index++) {
+        	ans.add(index);
+        }
+        return ans;
+    }
 
     public ArrayList<RCTuple> unprunedRCTuplesAtPos(ArrayList<Integer> pos) {
         //get a list of unpruned RCTuples with the given positions
