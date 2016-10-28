@@ -82,9 +82,10 @@ public class SurfingLineSearcher implements LineSearcher {
 			
 			// then minimize the quadratic to get the minimum x:
 			// 2*a*(x - xd) + b = 0
+			
 			xdstar = xd - b/2/a;
 		}
-
+		
 		// clamp xdstar to the range
 		if (xdstar < xdmin) {
 			xdstar = xdmin;
@@ -95,22 +96,6 @@ public class SurfingLineSearcher implements LineSearcher {
 		
 		double fxdstar = f.getValue(xdstar);
 		
-		// TEMP
-		int numUpSurfs = 0;
-		int numDownSurfs = 0;
-		
-		/* TEMP
-		System.out.println(String.format(makeFormat("min", "max", "init", "minus", "plus", "opt") + " surfs=[%2d,%2d]",
-			xdmin, fxdmin,
-			xdmax, fxdmax,
-			xd, fxd,
-			xdm, fxdm,
-			xdp, fxdp,
-			xdstar, fxdstar,
-			numUpSurfs, numDownSurfs
-		));
-		*/
-		
 		// did we go downhill?
 		if (fxdstar < fxd) {
 			
@@ -118,9 +103,6 @@ public class SurfingLineSearcher implements LineSearcher {
 			double xdsurfHere = xdstar;
 			double fxdsurfHere = fxdstar;
 			while (true) {
-				
-				// TEMP
-				numUpSurfs++;
 				
 				// take a step twice as far as we did last time
 				double xdsurfNext = xd + 2*(xdsurfHere - xd);
@@ -156,13 +138,6 @@ public class SurfingLineSearcher implements LineSearcher {
 				
 				double fxdsurfNext = f.getValue(xdsurfNext);
 				
-				/* TEMP
-				System.out.println(String.format(makeFormat("surf") + " surfs=[%2d,%2d]",
-					xdsurfNext, fxdsurfNext,
-					numUpSurfs, numDownSurfs
-				));
-				*/
-				
 				// did we improve the min enough to keep surfing?
 				if (fxdsurfNext < fxdsurfHere - getTolerance(fxdsurfHere)) {
 				
@@ -188,9 +163,6 @@ public class SurfingLineSearcher implements LineSearcher {
 			double xdsurfHere = xdstar;
 			double fxdsurfHere = fxdstar;
 			while (true) {
-				
-				// TEMP
-				numDownSurfs++;
 				
 				// cut the step in half
 				double xdsurfNext = xd + (xdsurfHere - xd)/2;
@@ -231,18 +203,6 @@ public class SurfingLineSearcher implements LineSearcher {
 			}
 		}
 		
-		/* TEMP
-		System.out.println(String.format(makeFormat("min", "max", "init", "minus", "plus", "opt") + " surfs=[%2d,%2d]",
-			xdmin, fxdmin,
-			xdmax, fxdmax,
-			xd, fxd,
-			xdm, fxdm,
-			xdp, fxdp,
-			xdstar, fxdstar,
-			numUpSurfs, numDownSurfs
-		));
-		*/
-		
 		// try to jump over walls arbitrarily
 		// look in a 1-degree step for a better minimum
 		
@@ -268,18 +228,6 @@ public class SurfingLineSearcher implements LineSearcher {
 			}
 		}
 		
-		/* TEMP
-		System.out.println(String.format(makeFormat("min", "max", "init", "minus", "plus", "opt") + " surfs=[%2d,%2d]",
-			xdmin, fxdmin,
-			xdmax, fxdmax,
-			xd, fxd,
-			xdm, fxdm,
-			xdp, fxdp,
-			xdstar, fxdstar,
-			numUpSurfs, numDownSurfs
-		));
-		*/
-		
 		lastStep = xdstar - xd;
 		if (iteration == 0) {
 			firstStep = lastStep;
@@ -289,19 +237,6 @@ public class SurfingLineSearcher implements LineSearcher {
 		
 		f.setX(xdstar);
 		return xdstar;
-	}
-	
-	// TEMP
-	private String makeFormat(String ... names) {
-		StringBuilder buf = new StringBuilder();
-		for (String name : names) {
-			if (buf.length() > 0) {
-				buf.append("   ");
-			}
-			buf.append(name);
-			buf.append(":%8.3f,%14.6f");
-		}
-		return buf.toString();
 	}
 	
 	private double getTolerance(double f) {
