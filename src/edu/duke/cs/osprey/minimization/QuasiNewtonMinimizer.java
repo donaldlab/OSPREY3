@@ -9,155 +9,132 @@ import org.ojalgo.matrix.store.PrimitiveDenseStore;
 
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
+import edu.duke.cs.osprey.gpu.cuda.kernels.SubForcefieldsKernelCuda;
 import edu.duke.cs.osprey.tools.Profiler;
 
-public class QuasiNewtonMinimizer implements Minimizer.NeedsCleanup {
+public class QuasiNewtonMinimizer implements Minimizer {
+	
+	private static class Sample {
+		
+		public DoubleMatrix1D x;
+		public double fx;
+		
+		public Sample(int n) {
+			x = DoubleFactory1D.dense.make(n);
+			fx = 0;
+		}
+
+		public void set(Sample other) {
+			x.assign(other.x);
+			fx = other.fx;
+		}
+	}
 	
 	private static final double MaxIterations = 30; // same as CCDMinimizer
 	private static final double ConvergenceThreshold = 0.001; // same as CCDMinimizer
 	
 	private static final double Tolerance = 1e-6;
-	private static final double InitialStepSize = 0.25; // for dihedral dofs, TODO: make configurable
+	private static final double InitialSurfaceDelta = 1; // for dihedral dofs, TODO: make configurable
+	
+	// TODO: play with step logic
+	// looks like a bigger initial step size than 0.25 works better
 	
 	private ObjectiveFunction f;
+	private ObjectiveFunction.DofBounds dofBounds;
 	private List<ObjectiveFunction.OneDof> dofs;
 	
-	private boolean constrainSurface;
+	private SubForcefieldsKernelCuda kernel;
 	
 	public QuasiNewtonMinimizer(ObjectiveFunction f) {
-		
-		// using the constraints on the quadratic surface minimization seems to give better accuracy
-		// so it should probably be on by default
-		// turning off constraints gives significantly faster performance, but accuracy suffers a bit
-		this(f, true);
+		this(f, null);
 	}
-
-	public QuasiNewtonMinimizer(ObjectiveFunction f, boolean constrainSurface) {
+	
+	public QuasiNewtonMinimizer(ObjectiveFunction f, SubForcefieldsKernelCuda kernel) {
 		
-		this.f = f;
-		this.constrainSurface = constrainSurface;
+		this.dofBounds = new ObjectiveFunction.DofBounds(f.getConstraints());
 		
 		// collect the the dofs
-		dofs = new ArrayList<>();
+		this.f = f;
+		this.dofs = new ArrayList<>();
 		for (int d=0; d<f.getNumDOFs(); d++) {
-			ObjectiveFunction.OneDof fd = new ObjectiveFunction.OneDof(f, d);
-			dofs.add(fd);
+			this.dofs.add(new ObjectiveFunction.OneDof(f, d));
 		}
+		
+		this.kernel = kernel;
 	}
 	
 	@Override
 	public DoubleMatrix1D minimize() {
 		
+		int n = dofBounds.size();
+		
 		Profiler profiler = new Profiler();
-		
-		// init x to the center of the bounds
-		int n = dofs.size();
-		DoubleMatrix1D x = DoubleFactory1D.dense.make(n);
-		for (int d=0; d<n; d++) {
-			ObjectiveFunction.OneDof dof = dofs.get(d);
-			x.set(d, (dof.getXMin() + dof.getXMax())/2);
-		}
-		
-		DoubleMatrix1D dir = DoubleFactory1D.dense.make(n);
-		
-		profiler.resume("energy");
+		profiler.start("energy");
 		
 		// get the current objective function value
-		double curf = f.getValue(x);
+		// at the center of the bounds
+		Sample here = new Sample(n);
+		dofBounds.getCenter(here.x);
+		here.fx = f.getValue(here.x);
 		
 		profiler.stop();
 		
-		double firstStep = 1;
-		double lastStep = 1;
+		DoubleMatrix1D dir = DoubleFactory1D.dense.make(n);
+		Sample next = new Sample(n);
+		
+		double firstStep = InitialSurfaceDelta;
+		double lastStep = InitialSurfaceDelta;
 		
 		for (int iter=0; iter<MaxIterations; iter++) {
 			
 			// update the surface delta, try to make it adaptive (based on historical steps if possible; else on step #)
 			double surfaceDelta;
 			if (Math.abs(lastStep) > Tolerance && Math.abs(firstStep) > Tolerance) {
-				surfaceDelta = InitialStepSize*Math.abs(lastStep/firstStep);
+				surfaceDelta = InitialSurfaceDelta*Math.abs(lastStep/firstStep);
 			} else {
-				surfaceDelta = InitialStepSize/Math.pow(iter + 1, 3);
+				surfaceDelta = InitialSurfaceDelta/Math.pow(iter + 1, 3);
 			}
 			
 			// TEMP
-			//System.out.println(String.format("surface delta: %f", surfaceDelta));
+			//System.out.println(String.format("surface delta: %f   last: %f   prev: %f   ratio: %f", surfaceDelta, lastStep, prevStep, Math.abs(lastStep/prevStep)));
 			
 			profiler.resume("solve surface");
+			Profiler stepProfiler = new Profiler();
+			stepProfiler.start("solve surface");
 			
 			// solve for the local quadratic surface at x
-			PrimitiveDenseStore surface = solveSurface(x, surfaceDelta, curf);
+			PrimitiveDenseStore surface = solveSurface(here, surfaceDelta);
 			
-			if (constrainSurface) {
-				
-				profiler.resume("minimize surface");
-				
-				// analytically minimize the surface and get the direction relative to x
-				DoubleMatrix1D xstar = minimizeSurface(surface, true);
-				for (int d=0; d<n; d++) {
-					dir.set(d, xstar.get(d) - x.get(d));
-				}
-				
-				profiler.resume("line search");
-				
-				lineSearch(x, dir);
-				
-				profiler.stop();
-				
-			} else {
-				
-				profiler.resume("minimize surface");
-				
-				// analytically minimize the surface and get the direction relative to x
-				DoubleMatrix1D xstar = minimizeSurface(surface, false);
-				for (int d=0; d<n; d++) {
-					dir.set(d, xstar.get(d) - x.get(d));
-				}
-				
-				// TEMP
-				//System.out.println("direction: " + dump(dir));
-				
-				// damp the direction to avoid weighting steep dimensions too heavily
-				// (helps to avoid being too "scared" of clashes)
-					
-				// magic number, chosen empirically based on limited test cases
-				// seems to work well in practice, but could be sub-optimal in some cases
-				final double DampRate = 1.1;
-				
-				for (int d=0; d<n; d++) {
-					double xd = dir.get(d);
-					
-					if (xd > 0) {
-						xd = Math.log(xd + 1)*DampRate;
-					} else if (xd < 0) {
-						xd = -Math.log(1 - xd)*DampRate;
-					}
-					
-					// NOTE: this damping function seems to work well too,
-					// but not as well as the log
-					//xd = Math.atan(xd);
-					
-					dir.set(d, xd);
-				}
-				
-				// TEMP
-				//System.out.println("damped dr: " + dump(dir));
-				
-				// hard clamp the dir so we stay within the bounds
-				clampDir(x, dir);
-				
-				/* NOTE: don't try to preserve the step direction with scaling.
-					this causes the steps to heavily favor steeper dimensions.
-					attempting to account for that by ignoring dimensions that hit a bound
-					doesn't perform as well as this simpler damp-and-clamp method
-				*/
-				
-				profiler.stop();
+			profiler.resume("minimize surface");
+			stepProfiler.start("minimize surface");
+			
+			// analytically minimize the surface and get the direction relative to x
+			DoubleMatrix1D xstar = minimizeSurfaceConstrained(surface);
+			for (int d=0; d<n; d++) {
+				dir.set(d, xstar.get(d) - here.x.get(d));
 			}
 			
-			profiler.resume("step");
+			// TEMP
+			//System.out.println(dump(dir));
+			
+			profiler.resume("line search");
+			stepProfiler.start("line search");
+			
+			lineSearch(here, dir, next);
+			
+			profiler.stop();
+			stepProfiler.stop();
+			
+			// TEMP
+			//System.out.println(dump(dir));
 			
 			// update step metadata
+			/* TODO: play with step choosing
+			lastStep = 0;
+			for (int d=0; d<n; d++) {
+				lastStep = Math.max(lastStep, Math.abs(dir.get(d)));
+			}
+			*/
 			lastStep = Math.sqrt(dir.zDotProduct(dir));
 			if (iter == 0) {
 				firstStep = lastStep;
@@ -166,101 +143,167 @@ public class QuasiNewtonMinimizer implements Minimizer.NeedsCleanup {
 			// TEMP
 			//System.out.println("effstep: " + lastStep);
 			
-			// take the step
-			for (int d=0; d<n; d++) {
-				x.set(d, x.get(d) + dir.get(d));
-			}
-			
-			profiler.resume("energy");
-			
-			double nextf = f.getValue(x);
-			
-			profiler.stop();
+			double improvement = here.fx - next.fx;
 			
 			// TEMP
-			System.out.println(String.format("iter %3d   energy %12.6f   improvement %12.6f", iter, nextf, curf - nextf));
+			System.out.println(String.format("iter %3d   energy %12.6f   improvement %12.6f", iter, next.fx, improvement));
+			//System.out.println(stepProfiler.makeReport(TimeUnit.MICROSECONDS));
 			
-			// did we improve enough to keep going?
-			if (curf - nextf < ConvergenceThreshold) {
+			if (improvement > 0) {
 				
-				// nope, we're done
-				break;
+				// keep the step
+				here.set(next);
+				
+				if (improvement < ConvergenceThreshold) {
+					break;
+				}
 				
 			} else {
-				
-				// yeah, keep going
-				curf = nextf;
+				break;
 			}
 		}
 		
-		System.out.println(profiler.makeReport(TimeUnit.MILLISECONDS));
+		// TEMP
+		//System.out.println(profiler.makeReport(TimeUnit.MILLISECONDS));
 		
-		return x;
+		// update the protein
+		f.setDOFs(here.x);
+		
+		return here.x;
 	}
 	
 	private String dump(DoubleMatrix1D x) {
 		StringBuilder buf = new StringBuilder();
-		int n = x.size();
-		for (int d=0; d<n; d++) {
-			if (d > 0) {
+		for (int i=0; i<x.size(); i++) {
+			if (i > 0) {
 				buf.append(" ");
 			}
-			buf.append(String.format("%8.3f", x.get(d)));
+			buf.append(String.format("%8.3f", x.get(i)));
 		}
 		return buf.toString();
 	}
-
-	private PrimitiveDenseStore solveSurface(DoubleMatrix1D x, double delta, double fx) {
+	
+	private String dump(PrimitiveDenseStore x) {
+		StringBuilder buf = new StringBuilder();
+		for (int i=0; i<x.count(); i++) {
+			if (i > 0) {
+				buf.append(" ");
+			}
+			buf.append(String.format(" %8.3f", x.get(i)));
+		}
+		return buf.toString();
+	}
+	
+	private PrimitiveDenseStore solveSurface(Sample here, double delta) {
 		
-		int n = dofs.size();
+		int n = dofBounds.size();
 		int m = 2*n + 1;
 		PrimitiveDenseStore A = PrimitiveDenseStore.FACTORY.makeZero(m, m);
 		PrimitiveDenseStore b = PrimitiveDenseStore.FACTORY.makeZero(m, 1);
 		
 		int r = 0;
+		DoubleMatrix1D y = DoubleFactory1D.dense.make(n);
 		
 		// sample the center point
-		setSurfaceRow(A, b, r++, x, fx);
+		setSurfaceRow(A, b, r++, here.x, here.fx);
 		
-		DoubleMatrix1D y = x.copy();
-		for (int d=0; d<n; d++) {
+		// do we have a gpu kernel?
+		if (kernel != null) {
 			
-			y.assign(x);
+			// yup, compute the dof energies in parallel
+			f.setDOFs(here.x);
+			kernel.calcEnergies(here.x, delta);
 			
-			double xd = x.get(d);
-			ObjectiveFunction.OneDof dof = dofs.get(d);
+			// copy the samples into A,b
+			for (int d=0; d<n; d++) {
+				
+				y.assign(here.x);
+				double xd = here.x.get(d);
+				
+				y.set(d, xd - delta);
+				setSurfaceRow(A, b, r++, y, here.fx + kernel.getFxdmOffset(d));
+				
+				y.set(d, xd + delta);
+				setSurfaceRow(A, b, r++, y, here.fx + kernel.getFxdpOffset(d));
+				
+				// TODO: make a unit test to check for accuracy
+				//System.out.println(String.format("\td %2d   m %12.6f   p %12.6f", d, kernel.getFxdmOffset(d), kernel.getFxdpOffset(d)));
+			}
 			
-			double fxd = dof.getValue(xd);
+		} else {
 			
-			// sample the minus delta point
-			double xdm = xd - delta;
-			y.set(d, xdm);
-			double fxdm = dof.getValue(xdm);
-			//double fxdm = f.getValue(y);
-			//setSurfaceRow(numActiveDofs, A, b, r++, y, fxdm);
-			setSurfaceRow(A, b, r++, y, fx - fxd + fxdm);
-			
-			// sample the plus delta point
-			double xdp = xd + delta;
-			y.set(d, xdp);
-			double fxdp = dof.getValue(xdp);
-			//double fxdp = f.getValue(y);
-			//setSurfaceRow(numActiveDofs, A, b, r++, y, fxdp);
-			setSurfaceRow(A, b, r++, y, fx - fxd + fxdp);
+			// nope, compute the dof energies in serial
+			for (int d=0; d<n; d++) {
+				
+				// reset the protein to x
+				f.setDOFs(here.x);
+				y.assign(here.x);
+				
+				double xd = here.x.get(d);
+				ObjectiveFunction.OneDof dof = dofs.get(d);
+				
+				double fxd = dof.getValue(xd);
+				
+				// sample the minus delta point
+				double xdm = xd - delta;
+				y.set(d, xdm);
+				double fxdm = dof.getValue(xdm);
+				setSurfaceRow(A, b, r++, y, here.fx - fxd + fxdm);
+				
+				// sample the plus delta point
+				double xdp = xd + delta;
+				y.set(d, xdp);
+				double fxdp = dof.getValue(xdp);
+				setSurfaceRow(A, b, r++, y, here.fx - fxd + fxdp);
+				
+				// TEMP
+				//System.out.println(String.format("\td %2d   m %12.6f   p %12.6f", d, fxdm - fxd, fxdp - fxd));
+			}
 		}
 		
 		assert (r == m);
 		
 		// solve the linear system Ax=b
-		LU<Double> solver = LU.PRIMITIVE.make(A);
+		LU<Double> solver = LU.PRIMITIVE.make();
 		solver.decompose(A);
 		assert (solver.isSolvable());
-		return (PrimitiveDenseStore)solver.solve(b);
+		PrimitiveDenseStore surface = (PrimitiveDenseStore)solver.solve(b);
+		
+		/* DEBUG: check the surface for accuracy
+		checkSurface(0, here.x, y, 0, surface);
+		for (int d=0; d<n; d++) {
+			checkSurface(d, here.x, y, -delta, surface);
+			checkSurface(d, here.x, y, delta, surface);
+		}
+		*/
+		
+		return surface;
+	}
+	
+	private void checkSurface(int d, DoubleMatrix1D x, DoubleMatrix1D y, double delta, PrimitiveDenseStore surface) {
+		
+		// update y
+		y.assign(x);
+		y.set(d, y.get(d) + delta);
+		
+		// get the real energy
+		double fy = f.getValue(y);
+		
+		// evaluate the quadratic surface
+		int r = 0;
+		double qy = surface.get(r++, 0);
+		for (int d2=0; d2<dofBounds.size(); d2++) {
+			double yd = y.get(d2);
+			qy += surface.get(r++, 0)*yd;
+			qy += surface.get(r++, 0)*yd*yd;
+		}
+		
+		System.out.println(String.format("\td: %2d   delta: %7.4f   fx: %12.6f   fqx: %12.6f   err: %.12f", d, delta, fy, qy, Math.abs(fy - qy)));
 	}
 
 	private void setSurfaceRow(PrimitiveDenseStore A, PrimitiveDenseStore b, int r, DoubleMatrix1D x, double fx) {
 	
-		int n = dofs.size();
+		int n = dofBounds.size();
 		int c = 0;
 		
 		// constant term
@@ -281,14 +324,8 @@ public class QuasiNewtonMinimizer implements Minimizer.NeedsCleanup {
 		b.set(r, fx);
 	}
 	
-	private DoubleMatrix1D minimizeSurface(PrimitiveDenseStore surface, boolean useConstraints) {
-		if (useConstraints) {
-			return minimizeSurfaceConstrained(surface);
-		} else {
-			return minimizeSurfaceUnconstrained(surface);
-		}
-	}
-	
+	// sadly, this doesn't work as well as using the constraints
+	// it's harder to pick a step size when the goal could be outside the bounds
 	private DoubleMatrix1D minimizeSurfaceUnconstrained(PrimitiveDenseStore surface) {
 		
 		// minimize the quadratic surface (but ignore the bounds)
@@ -299,7 +336,7 @@ public class QuasiNewtonMinimizer implements Minimizer.NeedsCleanup {
 		// NOTE: I tried including cross-dimensional terms in the quadratic surface,
 		// but this resulted in poor minimization quality (ie, higher energies)
 		
-		int n = dofs.size();
+		int n = dofBounds.size();
 		DoubleMatrix1D x = DoubleFactory1D.dense.make(n);
 		
 		// ignore the first row, it has the constant value which we don't need anyway
@@ -325,7 +362,7 @@ public class QuasiNewtonMinimizer implements Minimizer.NeedsCleanup {
 		// ie don't necessarily choose the vertex
 		// TODO: use a QP solver. it'll probably be faster than CCD
 		
-		int n = dofs.size();
+		int n = dofBounds.size();
 		
 		// make an objective function for the quadratic surface
 		ObjectiveFunction fq = new ObjectiveFunction() {
@@ -360,7 +397,7 @@ public class QuasiNewtonMinimizer implements Minimizer.NeedsCleanup {
 
 			@Override
 			public DoubleMatrix1D[] getConstraints() {
-				return f.getConstraints();
+				return dofBounds.getBounds();
 			}
 
 			@Override
@@ -396,7 +433,7 @@ public class QuasiNewtonMinimizer implements Minimizer.NeedsCleanup {
 
 			@Override
 			public double getInitStepSize(int dof) {
-				return InitialStepSize;
+				return InitialSurfaceDelta;
 			}
 
 			@Override
@@ -409,69 +446,32 @@ public class QuasiNewtonMinimizer implements Minimizer.NeedsCleanup {
 		return new CCDMinimizer(fq, false).minimize();
 	}
 	
-	private void clampDir(DoubleMatrix1D x, DoubleMatrix1D dir) {
+	public void lineSearch(Sample here, DoubleMatrix1D dir, Sample out) {
 		
-		int n = x.size();
-		
-		for (int d=0; d<n; d++) {
-			
-			double xd = x.get(d);
-			double yd = xd + dir.get(d);
-			
-			ObjectiveFunction.OneDof dof = dofs.get(d);
-			if (yd < dof.getXMin()) {
-				dir.set(d, dof.getXMin() - xd);
-			} else if (yd > dof.getXMax()) {
-				dir.set(d, dof.getXMax() - xd);
-			}
-		}
-	}
-
-	private boolean isInBounds(DoubleMatrix1D x) {
-		int n = x.size();
-		for (int d=0; d<n; d++) {
-			double xd = x.get(d);
-			
-			ObjectiveFunction.OneDof dof = dofs.get(d);
-			if (xd < dof.getXMin() || xd > dof.getXMax()) {
-				return false;
-			}
-		}
-		
-		return true;
-	}
-
-	public void lineSearch(DoubleMatrix1D x, DoubleMatrix1D dir) {
-		
-		int n = x.size();
+		int n = here.x.size();
 		
 		// see where a full step would take us
 		double step = 1;
-		DoubleMatrix1D y = DoubleFactory1D.dense.make(n);
-		updateY(y, x, dir, step);
-		double fy = f.getValue(y);
-		
-		DoubleMatrix1D yNext = DoubleFactory1D.dense.make(n); 
-		double fyNext = 0;
-		double stepNext = 0;
+		takeStep(out, here, dir, step);
+		out.fx = f.getValue(out.x);
 		
 		// surf!
+		double stepNext = 0;
+		Sample next = new Sample(n);
+		next.set(out);
 		while (true) {
 			
 			// cut the step in half
 			stepNext = step/2;
-			
-			// check f
-			updateY(yNext, x, dir, stepNext);
-			fyNext = f.getValue(yNext);
+			takeStep(next, here, dir, stepNext);
+			next.fx = f.getValue(next.x);
 			
 			// did we improve enough to keep surfing?
-			if (fyNext < fy - getTolerance(fy)) {
+			if (next.fx < out.fx - getTolerance(out.fx)) {
 			
 				// yeah, keep going
 				step = stepNext;
-				y.assign(yNext);
-				fy = fyNext;
+				out.set(next);
 				
 			} else {
 				
@@ -483,41 +483,39 @@ public class QuasiNewtonMinimizer implements Minimizer.NeedsCleanup {
 		// try to jump over walls arbitrarily
 		// look in a 1-degree step for a better minimum
 		
-		updateY(yNext, x, dir, stepNext, -1);
-		if (isInBounds(yNext)) {
-			fyNext = f.getValue(yNext);
-			if (fyNext < fy) {
-				y.assign(yNext);
-				fy = fyNext;
+		takeStep(next, here, dir, stepNext, -1);
+		if (dofBounds.isInBounds(next.x)) {
+			next.fx = f.getValue(next.x);
+			if (next.fx < out.fx) {
+				out.set(next);
 			}
 		}
 		
-		updateY(yNext, x, dir, stepNext, 1);
-		if (isInBounds(yNext)) {
-			fyNext = f.getValue(yNext);
-			if (fyNext < fy) {
-				y.assign(yNext);
-				fy = fyNext;
+		takeStep(next, here, dir, stepNext, 1);
+		if (dofBounds.isInBounds(next.x)) {
+			next.fx = f.getValue(next.x);
+			if (next.fx < out.fx) {
+				out.set(next);
 			}
 		}
 		
 		// update dir
 		for (int d=0; d<n; d++) {
-			dir.set(d, y.get(d) - x.get(d));
+			dir.set(d, out.x.get(d) - here.x.get(d));
 		}
 	}
 
-	private void updateY(DoubleMatrix1D y, DoubleMatrix1D x, DoubleMatrix1D dir, double step) {
-		updateY(y, x, dir, step, 0);
+	private void takeStep(Sample out, Sample here, DoubleMatrix1D dir, double step) {
+		takeStep(out, here, dir, step, 0);
 	}
 	
-	private void updateY(DoubleMatrix1D y, DoubleMatrix1D x, DoubleMatrix1D dir, double step, double offset) {
+	private void takeStep(Sample out, Sample here, DoubleMatrix1D dir, double step, double offset) {
 		
-		int n = x.size();
+		int n = here.x.size();
 		Double length = null;
 		
 		for (int d=0; d<n; d++) {
-			double xd = x.get(d);
+			double xd = here.x.get(d);
 			
 			xd += dir.get(d)*step;
 			
@@ -528,7 +526,7 @@ public class QuasiNewtonMinimizer implements Minimizer.NeedsCleanup {
 				xd += dir.get(d)*offset/length;
 			}
 			
-			y.set(d, xd);
+			out.x.set(d, xd);
 		}
 	}
 	
@@ -537,10 +535,5 @@ public class QuasiNewtonMinimizer implements Minimizer.NeedsCleanup {
 		// use full tolerance, unless f is very small
 		// then scale by the magnitude of f
 		return Tolerance * Math.max(1, Math.abs(f));
-	}
-
-	@Override
-	public void cleanup() {
-		// TODO
 	}
 }

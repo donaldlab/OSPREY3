@@ -50,9 +50,10 @@ public class CUBuffer<T extends Buffer> {
 		context.uploadAsync(pdBuf, phBuf, numBytes);
 	}
 	
-	public void downloadSync() {
+	public T downloadSync() {
 		buf.rewind();
 		context.downloadSync(phBuf, pdBuf, numBytes);
+		return buf;
 	}
 	
 	public void cleanup() {

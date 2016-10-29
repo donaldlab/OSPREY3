@@ -103,6 +103,9 @@ public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup {
 			
 			if (curf - nextf < ConvergenceThreshold) {
 				
+				// TODO BUG: make sure we send back the x with the lowest energy
+				// eg, when nextf > curf
+				
 				// nope, we're done
 				break;
 				
