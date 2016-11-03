@@ -349,7 +349,7 @@ public class GMECFinder {
 
                                         // prune conformations with the new window
                                         for (int i=lowEnergyConfs.size()-1; i>=0; i--) {
-                                                if (!window.contains(lowEnergyConfs.get(i).getScore())) {
+                                                if (lowEnergyConfs.get(i).getScore() > window.getMax()) {
                                                         lowEnergyConfs.remove(i);
                                                 } else {
                                                         break;
