@@ -65,7 +65,8 @@ public class CudaPlayground extends TestBase {
 		
 		//dynamicParallelism(context);
 		//linesearch(context);
-		subForcefields(context);
+		//subForcefields(context);
+		forcefield(context);
 	
 		context.cleanup();
 	}
@@ -375,5 +376,84 @@ public class CudaPlayground extends TestBase {
 
 	private static void checkEnergy(double cpuEnergy, double gpuEnergy) {
 		System.out.println(String.format("cpu: %12.6f   gpu: %12.6f   err: %.12f", cpuEnergy, gpuEnergy, Math.abs(cpuEnergy - gpuEnergy)));
+	}
+	
+	private static void forcefield(Context context)
+	throws Exception {
+		
+		// make a search problem
+		System.out.println("Building search problem...");
+		
+		ResidueFlexibility resFlex = new ResidueFlexibility();
+		resFlex.addMutable("39 43", "ALA");
+		resFlex.addFlexible("40 41 42 44 45");
+		boolean doMinimize = true;
+		boolean addWt = true;
+		boolean useEpic = false;
+		boolean useTupleExpansion = false;
+		boolean useEllipses = false;
+		boolean useERef = false;
+		boolean addResEntropy = false;
+		boolean addWtRots = false;
+		ArrayList<String[]> moveableStrands = new ArrayList<String[]>();
+		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
+		SearchProblem search = new SearchProblem(
+			"test", "test/1CC8/1CC8.ss.pdb", 
+			resFlex.flexResList, resFlex.allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
+			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null,
+			false, new ArrayList<>()
+		);
+		
+		// calc the energy matrix
+		File ematFile = new File("/tmp/benchmarkMinimization.emat.dat");
+		if (ematFile.exists()) {
+			search.emat = (EnergyMatrix)ObjectIO.readObject(ematFile.getAbsolutePath(), false);
+		} else {
+			ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
+			tasks.start(2);
+			SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(EnvironmentVars.curEFcnGenerator, search.confSpace, search.shellResidues);
+			search.emat = new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix(tasks);
+			tasks.stop();
+			ObjectIO.writeObject(search.emat, ematFile.getAbsolutePath());
+		}
+		
+		// get the ith conformation
+		search.pruneMat = new PruningMatrix(search.confSpace, 1000);
+		RCs rcs = new RCs(search.pruneMat);
+		AStarOrder order = new StaticScoreHMeanAStarOrder();
+		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 4, 0.0001);
+		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ScoredConf conf = null;
+		for (int i=0; i<1; i++) {
+			conf = tree.nextConf();
+		}
+		RCTuple tuple = new RCTuple(conf.getAssignments());
+		
+		// init cpu side
+		ParameterizedMoleculeCopy cpuMol = new ParameterizedMoleculeCopy(search.confSpace);
+		EnergyFunction cpuEfunc = EnvironmentVars.curEFcnGenerator.fullConfEnergy(search.confSpace, search.shellResidues, cpuMol.getCopiedMolecule());
+		MoleculeModifierAndScorer cpuMof = new MoleculeModifierAndScorer(cpuEfunc, search.confSpace, tuple, cpuMol);
+		
+		DoubleMatrix1D x = DoubleFactory1D.dense.make(cpuMof.getNumDOFs());
+		ObjectiveFunction.DofBounds dofBounds = new ObjectiveFunction.DofBounds(cpuMof.getConstraints());
+		
+		dofBounds.getCenter(x);
+		double cpuEnergy = cpuMof.getValue(x);
+		
+		// init cuda side
+		ParameterizedMoleculeCopy cudaMol = new ParameterizedMoleculeCopy(search.confSpace);
+		GpuEnergyFunctionGenerator cudaEgen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new ContextPool(1));
+		GpuForcefieldEnergy cudaEfunc = cudaEgen.fullConfEnergy(search.confSpace, search.shellResidues, cudaMol.getCopiedMolecule());
+		MoleculeModifierAndScorer cudaMof = new MoleculeModifierAndScorer(cudaEfunc, search.confSpace, tuple, cudaMol);
+		
+		System.out.println("atom pairs: " + cudaEfunc.getKernel().getSubset().getNumAtomPairs());
+		
+		double gpuEnergy = cudaMof.getValue(x);
+		checkEnergy(cpuEnergy, gpuEnergy);
+		
+		// cleanup
+		cudaMof.cleanup();
+		cudaEfunc.cleanup();
+		cudaEgen.cleanup();
 	}
 }
