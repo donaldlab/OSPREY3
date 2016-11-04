@@ -12,7 +12,6 @@ import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
-import edu.duke.cs.osprey.gpu.BufferTools;
 import edu.duke.cs.osprey.gpu.cuda.CUBuffer;
 import edu.duke.cs.osprey.gpu.cuda.Kernel;
 import edu.duke.cs.osprey.structure.Residue;
@@ -35,7 +34,7 @@ public class SubForcefieldsKernelCuda extends Kernel {
 	
 	public SubForcefieldsKernelCuda(ForcefieldKernelCuda ffKernel, List<FreeDihedral> dofs)
 	throws IOException {
-		super(ffKernel.getContext(), "subForcefields", "calcEnergies");
+		super(ffKernel.getStream(), "subForcefields", "calcEnergies");
 		
 		this.ffKernel = ffKernel;
 		
@@ -75,12 +74,12 @@ public class SubForcefieldsKernelCuda extends Kernel {
 		}
 		
 		// allocate the buffers
-		dihedrals = new CUBuffer<>(getContext(), BufferTools.makeDouble(numBlocks, BufferTools.Type.Direct));
-		dihedralIndices = new CUBuffer<>(getContext(), BufferTools.makeInt(dofs.size()*4, BufferTools.Type.Direct));
-		rotatedIndices = new CUBuffer<>(getContext(), BufferTools.makeInt(1 + dofs.size()*(1 + maxRotatedAtoms), BufferTools.Type.Direct));
-		subsets = new CUBuffer<>(getContext(), BufferTools.makeInt(subsetsList.size()*(2 + maxSubsetSize), BufferTools.Type.Direct));
-		subsetOffsets = new CUBuffer<>(getContext(), BufferTools.makeInt(numBlocks, BufferTools.Type.Direct));
-		energies = new CUBuffer<>(getContext(), BufferTools.makeDouble(numBlocks, BufferTools.Type.Direct));
+		dihedrals = getStream().makeDoubleBuffer(numBlocks);
+		dihedralIndices = getStream().makeIntBuffer(dofs.size()*4);
+		rotatedIndices = getStream().makeIntBuffer(1 + dofs.size()*(1 + maxRotatedAtoms));
+		subsets = getStream().makeIntBuffer(subsetsList.size()*(2 + maxSubsetSize));
+		subsetOffsets = getStream().makeIntBuffer(numBlocks);
+		energies = getStream().makeDoubleBuffer(numBlocks);
 		
 		// make the dihedral and rotated indices
 		IntBuffer dihedralIndicesBuf = dihedralIndices.getHostBuffer();

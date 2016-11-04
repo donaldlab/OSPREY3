@@ -16,7 +16,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
-import edu.duke.cs.osprey.gpu.cuda.ContextPool;
+import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.Residue;
@@ -31,7 +31,7 @@ public class TestForceFieldKernel extends TestBase {
 		public BigForcefieldEnergy bigff;
 		public GpuQueuePool openclQueuePool;
 		public GpuForcefieldEnergy gpuffopencl;
-		public ContextPool cudaContextPool;
+		public GpuStreamPool cudaContextPool;
 		public GpuForcefieldEnergy gpuffcuda;
 		
 		public void cleanup() {
@@ -130,7 +130,7 @@ public class TestForceFieldKernel extends TestBase {
 		ff.bigff = new BigForcefieldEnergy(ffparams, interactions);
 		ff.openclQueuePool = new GpuQueuePool(1, 1);
 		ff.gpuffopencl = new GpuForcefieldEnergy(ffparams, interactions, ff.openclQueuePool);
-		ff.cudaContextPool = new ContextPool(1);
+		ff.cudaContextPool = new GpuStreamPool(1);
 		ff.gpuffcuda = new GpuForcefieldEnergy(ffparams, interactions, ff.cudaContextPool);
 		return ff;
 	}

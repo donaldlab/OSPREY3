@@ -10,7 +10,6 @@ import edu.duke.cs.osprey.gpu.cuda.CUBuffer;
 import edu.duke.cs.osprey.gpu.cuda.Kernel;
 import edu.duke.cs.osprey.structure.Residue;
 import jcuda.Pointer;
-import jcuda.driver.CUdevice;
 import jcuda.driver.CUlimit;
 import jcuda.driver.JCudaDriver;
 
@@ -28,7 +27,7 @@ public class LineSearchKernel extends Kernel {
 	
 	public LineSearchKernel(ForcefieldKernelCuda ffKernel, FreeDihedral dof)
 	throws IOException {
-		super(ffKernel.getContext(), "linesearch", "calc");
+		super(ffKernel.getStream(), "linesearch", "calc");
 		
 		this.ffKernel = ffKernel;
 		
@@ -37,7 +36,7 @@ public class LineSearchKernel extends Kernel {
 		int coordsOffset = ffKernel.getForcefield().getAtomOffset(res);
 	
 		int[] dihedralIndicesSrc = res.template.getDihedralDefiningAtoms(dof.getDihedralNumber());
-		dihedralIndices = getContext().makeIntBuffer(dihedralIndicesSrc.length);
+		dihedralIndices = getStream().makeIntBuffer(dihedralIndicesSrc.length);
 		for (int i=0; i<dihedralIndicesSrc.length; i++) {
 			dihedralIndices.getHostBuffer().put(dihedralIndicesSrc[i] + coordsOffset);
 		}
@@ -45,7 +44,7 @@ public class LineSearchKernel extends Kernel {
 		dihedralIndices.uploadAsync();
 		
 		List<Integer> rotatedIndicesSrc = res.template.getDihedralRotatedAtoms(dof.getDihedralNumber());
-		rotatedIndices = getContext().makeIntBuffer(rotatedIndicesSrc.size());
+		rotatedIndices = getStream().makeIntBuffer(rotatedIndicesSrc.size());
 		for (int i=0; i<rotatedIndicesSrc.size(); i++) {
 			rotatedIndices.getHostBuffer().put(rotatedIndicesSrc.get(i) + coordsOffset);
 		}
@@ -53,8 +52,8 @@ public class LineSearchKernel extends Kernel {
 		rotatedIndices.uploadAsync();
 		
 		// allocate the rest of the buffers
-		lsargs = getContext().makeDoubleBuffer(4);
-		result = getContext().makeDoubleBuffer(2);
+		lsargs = getStream().makeDoubleBuffer(4);
+		result = getStream().makeDoubleBuffer(2);
 		
 		pKernelArgs = Pointer.to(
 			ffKernel.getCoords().makeDevicePointer(),

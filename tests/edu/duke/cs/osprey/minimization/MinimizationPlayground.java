@@ -33,7 +33,7 @@ import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
-import edu.duke.cs.osprey.gpu.cuda.ContextPool;
+import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
 import edu.duke.cs.osprey.gpu.cuda.kernels.ForcefieldKernelCuda;
 import edu.duke.cs.osprey.gpu.cuda.kernels.SubForcefieldsKernelCuda;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
@@ -105,7 +105,7 @@ public class MinimizationPlayground extends TestBase {
 		
 		// get an arbitrary energy function
 		ParameterizedMoleculeCopy pmol = new ParameterizedMoleculeCopy(search.confSpace);
-		GpuEnergyFunctionGenerator egen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new ContextPool(1));
+		GpuEnergyFunctionGenerator egen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuStreamPool(1));
 		GpuForcefieldEnergy efunc = egen.fullConfEnergy(search.confSpace, search.shellResidues, pmol.getCopiedMolecule());
 		MoleculeModifierAndScorer f = new MoleculeModifierAndScorer(efunc, search.confSpace, new RCTuple(conf.getAssignments()), pmol);
 		
@@ -159,7 +159,7 @@ public class MinimizationPlayground extends TestBase {
 		
 		// init cuda minimization directly
 		ParameterizedMoleculeCopy cudaMol = new ParameterizedMoleculeCopy(search.confSpace);
-		GpuEnergyFunctionGenerator cudaEgen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new ContextPool(1));
+		GpuEnergyFunctionGenerator cudaEgen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuStreamPool(1));
 		GpuForcefieldEnergy cudaEfunc = cudaEgen.fullConfEnergy(search.confSpace, search.shellResidues, cudaMol.getCopiedMolecule());
 		MoleculeModifierAndScorer cudaMof = new MoleculeModifierAndScorer(cudaEfunc, search.confSpace, new RCTuple(conf.getAssignments()), cudaMol);
 		List<FreeDihedral> dofs = new ArrayList<>();

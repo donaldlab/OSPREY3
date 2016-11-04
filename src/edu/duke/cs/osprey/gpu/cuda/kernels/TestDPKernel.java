@@ -3,9 +3,8 @@ package edu.duke.cs.osprey.gpu.cuda.kernels;
 import java.io.IOException;
 import java.nio.DoubleBuffer;
 
-import edu.duke.cs.osprey.gpu.BufferTools;
 import edu.duke.cs.osprey.gpu.cuda.CUBuffer;
-import edu.duke.cs.osprey.gpu.cuda.Context;
+import edu.duke.cs.osprey.gpu.cuda.GpuStream;
 import edu.duke.cs.osprey.gpu.cuda.Kernel;
 import jcuda.Pointer;
 
@@ -17,13 +16,13 @@ public class TestDPKernel extends Kernel {
 	
 	private Pointer pArgs;
 	
-	public TestDPKernel(Context context, int numElements)
+	public TestDPKernel(GpuStream stream, int numElements)
 	throws IOException {
-		super(context, "testDP", "loop");
+		super(stream, "testDP", "loop");
 		
-		a = new CUBuffer<>(getContext(), BufferTools.makeDouble(numElements, BufferTools.Type.Direct));
-		b = new CUBuffer<>(getContext(), BufferTools.makeDouble(numElements, BufferTools.Type.Direct));
-		out = new CUBuffer<>(getContext(), BufferTools.makeDouble(numElements, BufferTools.Type.Direct));
+		a = stream.makeDoubleBuffer(numElements);
+		b = stream.makeDoubleBuffer(numElements);
+		out = stream.makeDoubleBuffer(numElements);
 		
 		pArgs = Pointer.to(
 			Pointer.to(new int[] { numElements }),

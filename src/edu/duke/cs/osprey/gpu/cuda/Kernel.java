@@ -8,32 +8,36 @@ import jcuda.driver.JCudaDriver;
 
 public class Kernel {
 	
-	private Context context;
+	private GpuStream stream;
 	private CUfunction func;
 	
-	public Kernel(Context context, String filename, String funcName)
+	public Kernel(GpuStream stream, String filename, String funcName)
 	throws IOException {
 		
-		if (context == null) {
-			throw new IllegalArgumentException("context can't be null");
+		if (stream == null) {
+			throw new IllegalArgumentException("stream can't be null");
 		}
 		
-		this.context = context;
+		this.stream = stream;
 		
 		func = new CUfunction();
-		JCudaDriver.cuModuleGetFunction(func, context.getKernel(filename), funcName);
+		JCudaDriver.cuModuleGetFunction(func, getContext().getKernel(filename), funcName);
+	}
+	
+	public GpuStream getStream() {
+		return stream;
 	}
 	
 	public Context getContext() {
-		return context;
+		return stream.getContext();
 	}
 	
 	protected void runAsync(int numBlocks, int blockThreads, int sharedMemBytes, Pointer pArgs) {
-		context.launchKernel(func, numBlocks, blockThreads, sharedMemBytes, pArgs);
+		getContext().launchKernel(func, numBlocks, blockThreads, sharedMemBytes, pArgs, stream);
 	}
 	
 	public void waitForGpu() {
-		context.waitForGpu();
+		getContext().waitForGpu();
 	}
 	
 	protected static int calcNumBlocks(int numThreads, int blockThreads) {

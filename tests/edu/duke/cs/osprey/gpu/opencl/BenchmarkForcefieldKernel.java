@@ -36,7 +36,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
-import edu.duke.cs.osprey.gpu.cuda.ContextPool;
+import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
 import edu.duke.cs.osprey.gpu.opencl.kernels.ForcefieldKernelOpenCL;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
@@ -88,7 +88,7 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		
 		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
 		//GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuQueuePool(1, 1, true));
-		GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new ContextPool(1));
+		GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuStreamPool(1));
 		
 		benchmarkEfunc(search, egen, gpuegen);
 		//benchmarkEmat(search, egen, gpuegen);

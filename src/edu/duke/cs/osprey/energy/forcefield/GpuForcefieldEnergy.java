@@ -18,9 +18,9 @@ import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions.AtomGroup;
 import edu.duke.cs.osprey.gpu.BufferTools;
 import edu.duke.cs.osprey.gpu.ForcefieldKernel;
-import edu.duke.cs.osprey.gpu.cuda.Context;
-import edu.duke.cs.osprey.gpu.cuda.ContextPool;
-import edu.duke.cs.osprey.gpu.cuda.kernels.ForcefieldKernelOneBlockCuda;
+import edu.duke.cs.osprey.gpu.cuda.GpuStream;
+import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
+import edu.duke.cs.osprey.gpu.cuda.kernels.ForcefieldKernelCuda;
 import edu.duke.cs.osprey.gpu.opencl.GpuQueue;
 import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
 import edu.duke.cs.osprey.gpu.opencl.ProfilingEvents;
@@ -61,10 +61,11 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 					if (openclQueue != null) {
 						kernel = new ForcefieldKernelOpenCL(openclQueue);
 						kernel.setForcefield(new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct));
-					} else if (cudaContext != null) {
+					} else if (cudaStream != null) {
 						// TEMP
-						//kernel = new ForcefieldKernelCuda(cudaContext);
-						kernel = new ForcefieldKernelOneBlockCuda(cudaContext, new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct));
+						kernel = new ForcefieldKernelCuda(cudaStream);
+						kernel.setForcefield(new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct));
+						//kernel = new ForcefieldKernelOneBlockCuda(cudaContext, new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct));
 					} else {
 						throw new Error("bad gpu queue/context configuration, this is a bug");
 					}
@@ -106,8 +107,8 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	private ForcefieldInteractions interactions;
 	private GpuQueuePool openclQueuePool;
 	private GpuQueue openclQueue;
-	private ContextPool cudaContextPool;
-	private Context cudaContext;
+	private GpuStreamPool cudaStreamPool;
+	private GpuStream cudaStream;
 	private KernelBuilder kernelBuilder;
 	private BigForcefieldEnergy.Subset ffsubset;
 	
@@ -129,20 +130,20 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		this.interactions = interactions;
 		this.openclQueuePool = queuePool;
 		this.openclQueue = queuePool.checkout();
-		this.cudaContextPool = null;
-		this.cudaContext = null;
+		this.cudaStreamPool = null;
+		this.cudaStream = null;
 		this.kernelBuilder = new KernelBuilder();
 		this.ffsubset = null;
 	}
 	
-	public GpuForcefieldEnergy(ForcefieldParams ffparams, ForcefieldInteractions interactions, ContextPool cudaContextPool) {
+	public GpuForcefieldEnergy(ForcefieldParams ffparams, ForcefieldInteractions interactions, GpuStreamPool streamPool) {
 		this();
 		this.ffparams = ffparams;
 		this.interactions = interactions;
 		this.openclQueuePool = null;
 		this.openclQueue = null;
-		this.cudaContextPool = cudaContextPool;
-		this.cudaContext = cudaContextPool.checkout();
+		this.cudaStreamPool = streamPool;
+		this.cudaStream = streamPool.checkout();
 		this.kernelBuilder = new KernelBuilder();
 		this.ffsubset = null;
 	}
@@ -154,13 +155,13 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		if (parent.openclQueue != null) {
 			this.openclQueuePool = null;
 			this.openclQueue = parent.openclQueue;
-			this.cudaContextPool = null;
-			this.cudaContext = null;
+			this.cudaStreamPool = null;
+			this.cudaStream = null;
 		} else {
 			this.openclQueuePool = null;
 			this.openclQueue = null;
-			this.cudaContextPool = null;
-			this.cudaContext = parent.cudaContext;
+			this.cudaStreamPool = null;
+			this.cudaStream = parent.cudaStream;
 		}
 		this.kernelBuilder = parent.kernelBuilder;
 		this.ffsubset = getKernel().getForcefield().new Subset(interactions);
@@ -296,8 +297,8 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 			openclQueuePool.release(openclQueue);
 		}
 		
-		if (cudaContextPool != null) {
-			cudaContextPool.release(cudaContext);
+		if (cudaStreamPool != null) {
+			cudaStreamPool.release(cudaStream);
 		}
 	}
 

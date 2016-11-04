@@ -60,19 +60,18 @@ public class CudaPlayground extends TestBase {
 		// info on dynamic parallelism:
 		// http://docs.nvidia.com/cuda/cuda-c-programming-guide/#cuda-dynamic-parallelism
 		
-		// init CUDA
-		Context context = new Context(Gpus.get().getGpus().get(0));
-		
-		//dynamicParallelism(context);
-		//linesearch(context);
-		//subForcefields(context);
-		forcefield(context);
-	
-		context.cleanup();
+		//dynamicParallelism();
+		//linesearch();
+		//subForcefields();
+		forcefield();
 	}
 	
-	private static void dynamicParallelism(Context context)
+	private static void dynamicParallelism()
 	throws IOException {
+		
+		// init CUDA
+		Context context = new Context(Gpus.get().getGpus().get(0));
+		GpuStream stream = new GpuStream(context);
 		
 		final int NumElements = 122000;
 		final int NumRuns = 1000;
@@ -80,7 +79,7 @@ public class CudaPlayground extends TestBase {
 		System.out.println("dynamic parallelism test: " + NumElements + " threads");
 		
 		// init host-loop kernel
-		TestKernel hostKernel = new TestKernel(context, NumElements);
+		TestKernel hostKernel = new TestKernel(stream, NumElements);
 		DoubleBuffer a = hostKernel.getA();
 		DoubleBuffer b = hostKernel.getB();
 		a.clear();
@@ -104,7 +103,7 @@ public class CudaPlayground extends TestBase {
 		hostKernel.cleanup();
 		
 		// init device-loop kernel
-		TestDPKernel deviceKernel = new TestDPKernel(context, NumElements);
+		TestDPKernel deviceKernel = new TestDPKernel(stream, NumElements);
 		a = deviceKernel.getA();
 		b = deviceKernel.getB();
 		a.clear();
@@ -125,9 +124,12 @@ public class CudaPlayground extends TestBase {
 			(float)hostStopwatch.getTimeNs()/deviceStopwatch.getTimeNs()
 		));
 		deviceKernel.cleanup();
+		
+		stream.cleanup();
+		context.cleanup();
 	}
 	
-	private static void linesearch(Context context)
+	private static void linesearch()
 	throws IOException {
 		
 		// make a search problem
@@ -243,7 +245,7 @@ public class CudaPlayground extends TestBase {
 		
 		// init cuda side
 		ParameterizedMoleculeCopy cudaMol = new ParameterizedMoleculeCopy(search.confSpace);
-		GpuEnergyFunctionGenerator cudaEgen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new ContextPool(1));
+		GpuEnergyFunctionGenerator cudaEgen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuStreamPool(1));
 		GpuForcefieldEnergy cudaEfunc = cudaEgen.fullConfEnergy(search.confSpace, search.shellResidues, cudaMol.getCopiedMolecule());
 		MoleculeModifierAndScorer cudaMof = new MoleculeModifierAndScorer(cudaEfunc, search.confSpace, tuple, cudaMol);
 		ObjectiveFunction.OneDof cudaFd = new ObjectiveFunction.OneDof(cudaMof, d);
@@ -286,7 +288,7 @@ public class CudaPlayground extends TestBase {
 		cudaEgen.cleanup();
 	}
 	
-	private static void subForcefields(Context context)
+	private static void subForcefields()
 	throws Exception {
 		
 		// make a search problem
@@ -350,7 +352,7 @@ public class CudaPlayground extends TestBase {
 		
 		// init cuda side
 		ParameterizedMoleculeCopy cudaMol = new ParameterizedMoleculeCopy(search.confSpace);
-		GpuEnergyFunctionGenerator cudaEgen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new ContextPool(1));
+		GpuEnergyFunctionGenerator cudaEgen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuStreamPool(1));
 		GpuForcefieldEnergy cudaEfunc = cudaEgen.fullConfEnergy(search.confSpace, search.shellResidues, cudaMol.getCopiedMolecule());
 		MoleculeModifierAndScorer cudaMof = new MoleculeModifierAndScorer(cudaEfunc, search.confSpace, tuple, cudaMol);
 		
@@ -378,7 +380,7 @@ public class CudaPlayground extends TestBase {
 		System.out.println(String.format("cpu: %12.6f   gpu: %12.6f   err: %.12f", cpuEnergy, gpuEnergy, Math.abs(cpuEnergy - gpuEnergy)));
 	}
 	
-	private static void forcefield(Context context)
+	private static void forcefield()
 	throws Exception {
 		
 		// make a search problem
@@ -442,7 +444,7 @@ public class CudaPlayground extends TestBase {
 		
 		// init cuda side
 		ParameterizedMoleculeCopy cudaMol = new ParameterizedMoleculeCopy(search.confSpace);
-		GpuEnergyFunctionGenerator cudaEgen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new ContextPool(1));
+		GpuEnergyFunctionGenerator cudaEgen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuStreamPool(1));
 		GpuForcefieldEnergy cudaEfunc = cudaEgen.fullConfEnergy(search.confSpace, search.shellResidues, cudaMol.getCopiedMolecule());
 		MoleculeModifierAndScorer cudaMof = new MoleculeModifierAndScorer(cudaEfunc, search.confSpace, tuple, cudaMol);
 		

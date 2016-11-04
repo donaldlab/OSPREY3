@@ -9,15 +9,15 @@ import jcuda.driver.CUdeviceptr;
 
 public class CUBuffer<T extends Buffer> {
 	
-	private Context context;
+	private GpuStream stream;
 	private T buf;
 	private long numBytes;
 	private Pointer phBuf;
 	private CUdeviceptr pdBuf;
 	
-	public CUBuffer(Context context, T buf) {
+	public CUBuffer(GpuStream stream, T buf) {
 		
-		this.context = context;
+		this.stream = stream;
 		this.buf = buf;
 		
 		numBytes = buf.capacity()*Buffers.sizeOfBufferElem(buf);
@@ -26,7 +26,7 @@ public class CUBuffer<T extends Buffer> {
 		phBuf = Pointer.to(buf);
 		
 		// allocate device buffer
-		pdBuf = context.malloc(numBytes);
+		pdBuf = stream.getContext().malloc(numBytes);
 	}
 	
 	public T getHostBuffer() {
@@ -42,21 +42,21 @@ public class CUBuffer<T extends Buffer> {
 	}
 	
 	public void uploadSync() {
-		context.uploadSync(pdBuf, phBuf, numBytes);
+		stream.getContext().uploadSync(pdBuf, phBuf, numBytes);
 	}
 	
 	public void uploadAsync() {
 		buf.rewind();
-		context.uploadAsync(pdBuf, phBuf, numBytes);
+		stream.getContext().uploadAsync(pdBuf, phBuf, numBytes, stream);
 	}
 	
 	public T downloadSync() {
 		buf.rewind();
-		context.downloadSync(phBuf, pdBuf, numBytes);
+		stream.getContext().downloadSync(phBuf, pdBuf, numBytes);
 		return buf;
 	}
 	
 	public void cleanup() {
-		context.free(pdBuf);
+		stream.getContext().free(pdBuf);
 	}
 }

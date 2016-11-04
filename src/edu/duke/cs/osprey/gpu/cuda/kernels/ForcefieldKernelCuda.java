@@ -6,10 +6,9 @@ import java.nio.DoubleBuffer;
 import java.nio.IntBuffer;
 
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
-import edu.duke.cs.osprey.gpu.BufferTools;
 import edu.duke.cs.osprey.gpu.ForcefieldKernel;
 import edu.duke.cs.osprey.gpu.cuda.CUBuffer;
-import edu.duke.cs.osprey.gpu.cuda.Context;
+import edu.duke.cs.osprey.gpu.cuda.GpuStream;
 import edu.duke.cs.osprey.gpu.cuda.Kernel;
 import jcuda.Pointer;
 
@@ -30,9 +29,9 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 	private BigForcefieldEnergy ffenergy;
 	private BigForcefieldEnergy.Subset subset;
 	
-	public ForcefieldKernelCuda(Context context)
+	public ForcefieldKernelCuda(GpuStream stream)
 	throws IOException {
-		super(context, "forcefield", "calc");
+		super(stream, "forcefield", "calc");
 		
 		// OPTIMIZATION: 128 is empirically fastest on my GeForce 560 Ti at home
 		// but we should experiment with the CS dept Teslas too
@@ -83,18 +82,18 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 		this.ffenergy = ffenergy;
 		
 		// allocate the buffers
-		coords = new CUBuffer<>(getContext(), ffenergy.getCoords());
-		atomFlags = new CUBuffer<>(getContext(), ffenergy.getAtomFlags());
-		precomputed = new CUBuffer<>(getContext(), ffenergy.getPrecomputed());
-		subsetTable = new CUBuffer<>(getContext(), BufferTools.makeInt(ffenergy.getFullSubset().getNumAtomPairs(), BufferTools.Type.Direct));
-		energies = new CUBuffer<>(getContext(), BufferTools.makeDouble(getEnergySize(ffenergy.getFullSubset(), blockThreads), BufferTools.Type.Direct));
+		coords = getStream().makeBuffer(ffenergy.getCoords());
+		atomFlags = getStream().makeBuffer(ffenergy.getAtomFlags());
+		precomputed = getStream().makeBuffer(ffenergy.getPrecomputed());
+		subsetTable = getStream().makeIntBuffer(ffenergy.getFullSubset().getNumAtomPairs());
+		energies = getStream().makeDoubleBuffer(getEnergySize(ffenergy.getFullSubset(), blockThreads));
 		
 		// upload static info
 		atomFlags.uploadAsync();
 		precomputed.uploadAsync();
 		
 		// make the args buffer
-		args = new CUBuffer<>(getContext(), BufferTools.makeByte(36, BufferTools.Type.Direct));
+		args = getStream().makeByteBuffer(36);
 		ByteBuffer argsBuf = args.getHostBuffer();
 		argsBuf.rewind();
 		argsBuf.putInt(0); // set by setSubsetInternal()

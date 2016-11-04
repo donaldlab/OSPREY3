@@ -6,7 +6,7 @@ import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
-import edu.duke.cs.osprey.gpu.cuda.ContextPool;
+import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
 import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
@@ -24,7 +24,7 @@ public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 		// if CUDA is supported, prefer that, since it's faster
 		List<edu.duke.cs.osprey.gpu.cuda.Gpu> cudaGpus = edu.duke.cs.osprey.gpu.cuda.Gpus.get().getGpus();
 		if (!cudaGpus.isEmpty()) {
-			return new GpuEnergyFunctionGenerator(ffParams, new ContextPool());
+			return new GpuEnergyFunctionGenerator(ffParams, new GpuStreamPool());
 		}
 		
 		// otherwise, try OpenCL
@@ -37,7 +37,7 @@ public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 	}
 	
 	private GpuQueuePool openclQueues;
-	private ContextPool cudaContexts;
+	private GpuStreamPool cudaContexts;
 	
 	public GpuEnergyFunctionGenerator(ForcefieldParams ffParams, GpuQueuePool openclQueues) {
 		super(ffParams, Double.POSITIVE_INFINITY, false);
@@ -45,7 +45,7 @@ public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 		this.cudaContexts = null;
 	}
 	
-	public GpuEnergyFunctionGenerator(ForcefieldParams ffParams, ContextPool cudaContexts) {
+	public GpuEnergyFunctionGenerator(ForcefieldParams ffParams, GpuStreamPool cudaContexts) {
 		super(ffParams, Double.POSITIVE_INFINITY, false);
 		this.openclQueues = null;
 		this.cudaContexts = cudaContexts;
@@ -55,7 +55,7 @@ public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 		return openclQueues;
 	}
 	
-	public ContextPool getCudaContexts() {
+	public GpuStreamPool getCudaContexts() {
 		return cudaContexts;
 	}
 	

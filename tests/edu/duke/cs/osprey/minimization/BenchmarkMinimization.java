@@ -28,7 +28,7 @@ import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
-import edu.duke.cs.osprey.gpu.cuda.ContextPool;
+import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
 import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -243,7 +243,7 @@ public class BenchmarkMinimization extends TestBase {
 			}
 		};
 		
-		ContextPool cudaPool = new ContextPool();
+		GpuStreamPool cudaPool = new GpuStreamPool();
 		GpuEnergyFunctionGenerator cudaEgen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), cudaPool);
 		Factory<EnergyFunction,Molecule> cudaEfuncs = new Factory<EnergyFunction,Molecule>() {
 			@Override
