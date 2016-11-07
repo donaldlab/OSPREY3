@@ -35,7 +35,7 @@ public class TestKernel extends Kernel {
 		);
 		
 		blockThreads = 256;
-		numBlocks = calcNumBlocks(numElements, blockThreads);
+		numBlocks = divUp(numElements, blockThreads);
 	}
 	
 	public DoubleBuffer getA() {

@@ -24,6 +24,7 @@ public class CUBuffer<T extends Buffer> {
 		
 		// make the host pointer
 		phBuf = Pointer.to(buf);
+		stream.getContext().pinBuffer(phBuf, numBytes);
 		
 		// allocate device buffer
 		pdBuf = stream.getContext().malloc(numBytes);
@@ -41,22 +42,24 @@ public class CUBuffer<T extends Buffer> {
 		return numBytes;
 	}
 	
-	public void uploadSync() {
-		stream.getContext().uploadSync(pdBuf, phBuf, numBytes);
-	}
-	
 	public void uploadAsync() {
 		buf.rewind();
 		stream.getContext().uploadAsync(pdBuf, phBuf, numBytes, stream);
 	}
 	
-	public T downloadSync() {
+	public void downloadAsync() {
 		buf.rewind();
-		stream.getContext().downloadSync(phBuf, pdBuf, numBytes);
+		stream.getContext().downloadAsync(phBuf, pdBuf, numBytes, stream);
+	}
+	
+	public T downloadSync() {
+		downloadAsync();
+		stream.waitForGpu();
 		return buf;
 	}
 	
 	public void cleanup() {
+		stream.getContext().unpinBuffer(phBuf);
 		stream.getContext().free(pdBuf);
 	}
 }

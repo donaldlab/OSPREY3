@@ -194,7 +194,6 @@ __device__ double calcPairEnergy(
 	
 	int i9 = i*9;
 	
-	/*
 	// calculate electrostatics
 	if (bothHeavy || args->useHEs) {
 	
@@ -211,7 +210,6 @@ __device__ double calcPairEnergy(
 		
 		energy += esEnergy;
 	}
-	*/
 	
 	// calculate vdw
 	if (bothHeavy || args->useHVdw) {
@@ -228,7 +226,6 @@ __device__ double calcPairEnergy(
 		energy += Aij/r12 - Bij/r6;
 	}
 	
-	/*
 	// calculate solvation
 	if (bothHeavy && r2 < args->solvCutoff2) {
 			
@@ -248,7 +245,6 @@ __device__ double calcPairEnergy(
 			energy -= alpha2*exp(-Xji*Xji)/r2;
 		}
 	}
-	*/
 	
 	return energy;
 }

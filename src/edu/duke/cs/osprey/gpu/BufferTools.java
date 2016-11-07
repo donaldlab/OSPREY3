@@ -21,20 +21,13 @@ public class BufferTools {
 			public ByteBuffer make(int size) {
 				return ByteBuffer.allocateDirect(size).order(ByteOrder.nativeOrder());
 			}
-		},
-		CudaPinned {
-			@Override
-			public ByteBuffer make(int size) {
-				// TODO
-				throw new Error("not implemented yet");
-			}
 		};
 		
 		public abstract ByteBuffer make(int size);
 	}
 	
 	public static ByteBuffer makeByte(int size, Type type) {
-		return ByteBuffer.allocateDirect(size).order(ByteOrder.nativeOrder());
+		return type.make(size);
 	}
 	
 	public static DoubleBuffer makeDouble(int size, Type type) {

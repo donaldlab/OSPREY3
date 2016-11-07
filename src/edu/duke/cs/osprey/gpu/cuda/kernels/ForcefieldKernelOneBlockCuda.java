@@ -22,9 +22,11 @@ public class ForcefieldKernelOneBlockCuda extends Kernel implements ForcefieldKe
 	
 	private CUBuffer<ByteBuffer> args;
 	
-	private int blockThreads;
-	private int numBlocks;
 	private Pointer pKernelArgs;
+	
+	private int blockThreads;
+	private int maxNumBlocks;
+	private int numBlocks;
 	
 	private BigForcefieldEnergy ffenergy;
 	private BigForcefieldEnergy.Subset subset;
@@ -33,30 +35,24 @@ public class ForcefieldKernelOneBlockCuda extends Kernel implements ForcefieldKe
 	throws IOException {
 		super(stream, "forcefieldOneBlock", "calcEnergy");
 		
-		// OPTIMIZATION: 640 is empirically fastest on my GeForce 560 Ti at home
-		// but we should experiment with the CS dept Teslas too
-		blockThreads = 512 + 128;
-		numBlocks = 1;
+		// OPTIMIZATION: 1024 threads seems to work best on modern cards, including GTX 1070 and Tesla K80
+		blockThreads = 512;
+		numBlocks = 0; // calculated later by setSubset()
+		
+		// TODO: make arg
+		maxNumBlocks = 4;
 		
 		this.ffenergy = ffenergy;
 		
-		// allocate the buffers
+		// wrap the incoming buffers
 		coords = stream.makeBuffer(ffenergy.getCoords());
 		atomFlags = stream.makeBuffer(ffenergy.getAtomFlags());
 		precomputed = stream.makeBuffer(ffenergy.getPrecomputed());
-		subsetTable = stream.makeIntBuffer(ffenergy.getFullSubset().getNumAtomPairs());
-		energies = stream.makeDoubleBuffer(1);
-		
-		// upload static info
-		atomFlags.uploadAsync();
-		precomputed.uploadAsync();
 		
 		// make the args buffer
-		args = stream.makeByteBuffer(40);
+		args = stream.makeByteBuffer(32);
 		ByteBuffer argsBuf = args.getHostBuffer();
 		argsBuf.rewind();
-		argsBuf.putInt(0); // set by setSubsetInternal()
-		argsBuf.putInt(0); // 
 		argsBuf.putDouble(ffenergy.getCoulombFactor());
 		argsBuf.putDouble(ffenergy.getScaledCoulombFactor());
 		argsBuf.putDouble(ffenergy.getSolvationCutoff2());
@@ -64,19 +60,22 @@ public class ForcefieldKernelOneBlockCuda extends Kernel implements ForcefieldKe
 		argsBuf.put((byte)(ffenergy.useHElectrostatics() ? 1 : 0));
 		argsBuf.put((byte)(ffenergy.useHVdw() ? 1 : 0));
 		
-		// set the subset
-		// NOTE: setting the subset uploads the args too
-		subset = null;
-		setSubsetInternal(ffenergy.getFullSubset());
+		// make the energy buffer for the full subset
+		energies = stream.makeDoubleBuffer(calcNumBlocks(ffenergy.getFullSubset()));
 		
-		pKernelArgs = Pointer.to(
-			coords.makeDevicePointer(),
-			atomFlags.makeDevicePointer(),
-			precomputed.makeDevicePointer(),
-			subsetTable.makeDevicePointer(),
-			args.makeDevicePointer(),
-			energies.makeDevicePointer()
-		);
+		// upload static info
+		atomFlags.uploadAsync();
+		precomputed.uploadAsync();
+		args.uploadAsync();
+		
+		// set the subset
+		subsetTable = stream.makeIntBuffer(ffenergy.getFullSubset().getNumAtomPairs());
+		subset = null;
+		setSubset(ffenergy.getFullSubset());
+	}
+	
+	private int calcNumBlocks(BigForcefieldEnergy.Subset subset) {
+		return Math.min(maxNumBlocks, divUp(subset.getNumAtomPairs(), blockThreads));
 	}
 	
 	public CUBuffer<DoubleBuffer> getCoords() {
@@ -115,10 +114,6 @@ public class ForcefieldKernelOneBlockCuda extends Kernel implements ForcefieldKe
 	
 	@Override
 	public boolean setSubset(BigForcefieldEnergy.Subset subset) {
-		return setSubsetInternal(subset);
-	}
-	
-	private boolean setSubsetInternal(BigForcefieldEnergy.Subset subset) {
 		
 		// short circuit: don't change things unless we need to
 		if (this.subset == subset) {
@@ -126,12 +121,7 @@ public class ForcefieldKernelOneBlockCuda extends Kernel implements ForcefieldKe
 		}
 		
 		this.subset = subset;
-		
-		// update kernel args and upload
-		ByteBuffer buf = args.getHostBuffer();
-		buf.putInt(0, subset.getNumAtomPairs());
-		buf.putInt(4, subset.getNum14AtomPairs());
-		args.uploadAsync();
+		this.numBlocks = calcNumBlocks(subset);
 		
 		// upload subset table
 		subsetTable.getHostBuffer().clear();
@@ -140,12 +130,25 @@ public class ForcefieldKernelOneBlockCuda extends Kernel implements ForcefieldKe
 		subsetTable.getHostBuffer().flip();
 		subsetTable.uploadAsync();
 		
+		// update kernel args
+		pKernelArgs = Pointer.to(
+			coords.makeDevicePointer(),
+			atomFlags.makeDevicePointer(),
+			precomputed.makeDevicePointer(),
+			args.makeDevicePointer(),
+			subsetTable.makeDevicePointer(),
+			Pointer.to(new int[] { subset.getNumAtomPairs() }),
+			Pointer.to(new int[] { subset.getNum14AtomPairs() }),
+			energies.makeDevicePointer()
+		);
+		
 		return true;
 	}
 	
 	@Override
 	public void runAsync() {
-		runAsync(numBlocks, blockThreads, blockThreads*Double.BYTES, pKernelArgs);
+		int sharedMemSize = blockThreads*Double.BYTES;
+		runAsync(numBlocks, blockThreads, sharedMemSize, pKernelArgs);
 	}
 	
 	@Override
@@ -171,7 +174,16 @@ public class ForcefieldKernelOneBlockCuda extends Kernel implements ForcefieldKe
 
 	@Override
 	public double downloadEnergySync() {
-		return energies.downloadSync().get(0) + subset.getInternalSolvationEnergy();
+		
+		DoubleBuffer buf = energies.downloadSync();
+		buf.rewind();
+		
+		// do the final reduction across blocks on the cpu
+		double energy = subset.getInternalSolvationEnergy();
+		for (int i=0; i<numBlocks; i++) {
+			energy += buf.get();
+		}
+		return energy;
 	}
 
 	// TODO: change interface to suck less

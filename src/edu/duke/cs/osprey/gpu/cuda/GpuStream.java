@@ -50,6 +50,10 @@ public class GpuStream {
 		return new CUBuffer<>(this, BufferTools.makeLong(size, BufferTools.Type.Direct));
 	}
 	
+	public void waitForGpu() {
+		JCudaDriver.cuStreamSynchronize(stream);
+	}
+	
 	public void cleanup() {
 		JCudaDriver.cuStreamDestroy(stream);
 		stream = null;

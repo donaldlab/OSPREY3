@@ -37,10 +37,10 @@ public class Kernel {
 	}
 	
 	public void waitForGpu() {
-		getContext().waitForGpu();
+		getStream().waitForGpu();
 	}
 	
-	protected static int calcNumBlocks(int numThreads, int blockThreads) {
-		return (numThreads + blockThreads - 1)/blockThreads;
+	protected static int divUp(int num, int denom) {
+		return (num + denom - 1)/denom;
 	}
 }

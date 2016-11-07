@@ -42,6 +42,7 @@ import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction;
 import edu.duke.cs.osprey.minimization.SurfingLineSearcher;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
+import edu.duke.cs.osprey.parallelism.TimingThread;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Stopwatch;
@@ -431,6 +432,9 @@ public class CudaPlayground extends TestBase {
 		}
 		RCTuple tuple = new RCTuple(conf.getAssignments());
 		
+		int numRuns = 10000;
+		int d = 0;
+		
 		// init cpu side
 		ParameterizedMoleculeCopy cpuMol = new ParameterizedMoleculeCopy(search.confSpace);
 		EnergyFunction cpuEfunc = EnvironmentVars.curEFcnGenerator.fullConfEnergy(search.confSpace, search.shellResidues, cpuMol.getCopiedMolecule());
@@ -441,6 +445,20 @@ public class CudaPlayground extends TestBase {
 		
 		dofBounds.getCenter(x);
 		double cpuEnergy = cpuMof.getValue(x);
+		double cpuEnergyD = cpuMof.getValForDOF(d, x.get(d));
+		
+		// benchmark
+		System.out.println("benchmarking CPU...");
+		Stopwatch cpuStopwatch = new Stopwatch().start();
+		for (int i=0; i<numRuns; i++) {
+			cpuMof.getValForDOF(d, x.get(d));
+		}
+		System.out.println(String.format("finished in %s, %.1f ops",
+			cpuStopwatch.stop().getTime(1),
+			numRuns/cpuStopwatch.getTimeS()
+		));
+		
+		System.out.println();
 		
 		// init cuda side
 		ParameterizedMoleculeCopy cudaMol = new ParameterizedMoleculeCopy(search.confSpace);
@@ -448,14 +466,150 @@ public class CudaPlayground extends TestBase {
 		GpuForcefieldEnergy cudaEfunc = cudaEgen.fullConfEnergy(search.confSpace, search.shellResidues, cudaMol.getCopiedMolecule());
 		MoleculeModifierAndScorer cudaMof = new MoleculeModifierAndScorer(cudaEfunc, search.confSpace, tuple, cudaMol);
 		
+		// full efunc
 		System.out.println("atom pairs: " + cudaEfunc.getKernel().getSubset().getNumAtomPairs());
-		
 		double gpuEnergy = cudaMof.getValue(x);
 		checkEnergy(cpuEnergy, gpuEnergy);
+		
+		// one dof
+		System.out.println("d " + d + " atom pairs: " + ((GpuForcefieldEnergy)cudaMof.getEfunc(d)).getSubset().getNumAtomPairs());
+		double gpuEnergyD = cudaMof.getValForDOF(d, x.get(d));
+		checkEnergy(cpuEnergyD, gpuEnergyD);
+		
+		/*
+		// benchmark
+		// 1024 threads
+		// 1 block: ~5.1k ops
+		// 2 blocks: ~8.1k ops
+		// 4 blocks: ~10.1k ops
+		// 8 blocks: ~12.2k ops
+		// 16 blocks: ~13.6k ops
+		System.out.println("benchmarking GPU dof...");
+		Stopwatch gpuStopwatch = new Stopwatch().start();
+		for (int i=0; i<numRuns; i++) {
+			cudaMof.getValForDOF(d, x.get(d));
+		}
+		System.out.println(String.format("finished in %s, %.1f ops, speedup: %.1fx",
+			gpuStopwatch.stop().getTime(1),
+			numRuns/gpuStopwatch.getTimeS(),
+			(double)cpuStopwatch.getTimeNs()/gpuStopwatch.getTimeNs()
+		));
+		*/
 		
 		// cleanup
 		cudaMof.cleanup();
 		cudaEfunc.cleanup();
 		cudaEgen.cleanup();
+		
+		class StreamThread extends TimingThread {
+			
+			private GpuEnergyFunctionGenerator egen;
+			private ParameterizedMoleculeCopy mol;
+			private GpuForcefieldEnergy efunc;
+			private MoleculeModifierAndScorer mof;
+			
+			public StreamThread(int i, GpuEnergyFunctionGenerator egen) {
+				super("stream-" + i);
+				this.egen = egen;
+			}
+
+			@Override
+			protected void warmup() {
+				
+				mol = new ParameterizedMoleculeCopy(search.confSpace);
+				efunc = egen.fullConfEnergy(search.confSpace, search.shellResidues, mol.getCopiedMolecule());
+				mof = new MoleculeModifierAndScorer(efunc, search.confSpace, tuple, mol);
+				
+				for (int i=0; i<100; i++) {
+					mof.getValForDOF(d, x.get(d));
+				}
+			}
+
+			@Override
+			protected void time() {
+				for (int i=0; i<numRuns; i++) {
+					mof.getValForDOF(d, x.get(d));
+				}
+			}
+			
+			@Override
+			protected void cleanup() {
+				efunc.cleanup();
+				mof.cleanup();
+			}
+		}
+		
+		int[] numStreamsList = { 1, 2 };//{ 1, 2, 4, 8, 16, 32, 64, 128 };
+		
+		long stream1TimeNs = 0;
+		
+		for (int numStreams : numStreamsList) {
+			
+			// benchmark streams
+			// cpu: 2.2k
+			
+			// wait: spin - 1024 threads
+			// 1 block:     1:5.2    2:9.9    4:16.9   8:16.2
+			// 2 blocks:    1:8.5    2:15.8   4:23.5   8:20.1
+			// 4 blocks:    1:10.8   2:20.1   4:27.0   8:23.0
+			// 8 blocks:    1:13.2   2:24.1   4:27.8   8:23.9
+			// 16 blocks:   1:13.4   2:26.3   4:27.8   8:24.1
+			
+			// wait: yield - 128 threads
+			// 4 blocks:    1:6.6    2:11.3   4:20.4   8:23.9
+			// 16 blocks:   1:11.6   2:19.3   4:28.0   8:25.8
+			// n blocks:    1:17.1   2:28.0   4:33.2   8:26.2
+			// wait: yield - 256 threads
+			// 4 blocks:    1:9.8    2:16.3   4:27.6   8:25.7
+			// 16 blocks:   1:13.1   2:22.3   4:27.9   8:25.3
+			// n blocks:    1:16.8   2:30.1   4:28.5   8:25.2
+			// wait: yield - 512 threads
+			// 4 blocks:    1:10.1   2:18.8   4:27.3   8:25.4
+			// 16 blocks:   1:14.3   2:25.3   4:28.2   8:25.6
+			// n blocks:    1:16.9   2:31.1   4:29.1   8:26.1
+			// wait: yield - 1024 threads
+			// 1 block:     1:5.2    2:9.9    4:18.5   8:24.5   16:21.2
+			// 2 blocks:    1:8.6    2:15.3   4:26.3   8:24.6
+			// 4 blocks:    1:10.7   2:19.8   4:27.4   8:25.1
+			// 8 blocks:    1:13.2   2:23.5   4:28.1   8:25.6
+			// 16 blocks:   1:14.8   2:28.3   4:29.6   8:25.5
+			// n blocks:    1:16.8   2:26.4   4:29.1   8:28.8
+			
+			// wait: yield - n blocks
+			// 128 threads:    1:17.1   2:28.0   4:33.2   8:26.2
+			// 256 threads:    1:16.8   2:30.1   4:28.5   8:25.2
+			// 512 threads:    1:16.9   2:31.1   4:29.1   8:26.1
+			// 1024 threads:   1:16.8   2:26.4   4:29.1   8:28.8
+			
+			// wait: blocking sync is really bad
+			// yield < spin < blocking sync
+			// more blocks => more better
+			
+			// sample to find tradeoff between threads and streams
+			
+			int numGpus = 1;
+			GpuStreamPool streamPool = new GpuStreamPool(numGpus, divUp(numStreams, numGpus));
+			GpuEnergyFunctionGenerator streamsEgen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), streamPool);
+			List<TimingThread> threads = new ArrayList<>();
+			for (int i=0; i<numStreams; i++) {
+				threads.add(new StreamThread(i, streamsEgen));
+			}
+			System.out.println("benchmarking " + numStreams + " GPU streams...");
+			Stopwatch gpuStreamsStopwatch = TimingThread.timeThreads(threads);
+			if (numStreams == 1) {
+				stream1TimeNs = gpuStreamsStopwatch.getTimeNs();
+			}
+			System.out.println(String.format("finished in %s, %.1f ops, speedup over cpu: %.1fx, speedup over 1 stream: %.1fx",
+				gpuStreamsStopwatch.getTime(1),
+				numStreams*numRuns/gpuStreamsStopwatch.getTimeS(),
+				(double)numStreams*cpuStopwatch.getTimeNs()/gpuStreamsStopwatch.getTimeNs(),
+				(double)numStreams*stream1TimeNs/gpuStreamsStopwatch.getTimeNs()
+			));
+			streamsEgen.cleanup();
+		}
+	}
+	
+	private static int divUp(int a, int b) {
+		return (a + b - 1)/b;
 	}
 }

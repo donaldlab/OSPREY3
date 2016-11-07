@@ -8,6 +8,7 @@ public abstract class TimingThread extends Thread {
 	
 	public Signal warmupSignal;
 	public Signal goSignal;
+	public Signal doneSignal;
 	
 	public TimingThread(String name) {
 		super(name);
@@ -15,10 +16,15 @@ public abstract class TimingThread extends Thread {
 		
 		warmupSignal = new Signal();
 		goSignal = new Signal();
+		doneSignal = new Signal();
 	}
 	
 	protected abstract void warmup();
 	protected abstract void time();
+	
+	protected void cleanup() {
+		// nothing to do by default
+	}
 	
 	@Override
 	public void run() {
@@ -26,6 +32,8 @@ public abstract class TimingThread extends Thread {
 		warmupSignal.sendSignal();
 		goSignal.waitForSignal();
 		time();
+		doneSignal.sendSignal();
+		cleanup();
 	}
 	
 	public void waitForFinish() {
@@ -55,12 +63,18 @@ public abstract class TimingThread extends Thread {
 			thread.goSignal.sendSignal();
 		}
 		
-		// wait for it to finish
+		// wait for timing to finish
+		for (TimingThread thread : threads) {
+			thread.doneSignal.waitForSignal();
+		}
+		
+		stopwatch.stop();
+		
+		// wait for cleanup
 		for (TimingThread thread : threads) {
 			thread.waitForFinish();
 		}
 		
-		stopwatch.stop();
 		return stopwatch;
 	}
 }

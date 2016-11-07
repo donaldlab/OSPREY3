@@ -20,7 +20,7 @@ import edu.duke.cs.osprey.gpu.BufferTools;
 import edu.duke.cs.osprey.gpu.ForcefieldKernel;
 import edu.duke.cs.osprey.gpu.cuda.GpuStream;
 import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
-import edu.duke.cs.osprey.gpu.cuda.kernels.ForcefieldKernelCuda;
+import edu.duke.cs.osprey.gpu.cuda.kernels.ForcefieldKernelOneBlockCuda;
 import edu.duke.cs.osprey.gpu.opencl.GpuQueue;
 import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
 import edu.duke.cs.osprey.gpu.opencl.ProfilingEvents;
@@ -63,9 +63,9 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 						kernel.setForcefield(new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct));
 					} else if (cudaStream != null) {
 						// TEMP
-						kernel = new ForcefieldKernelCuda(cudaStream);
-						kernel.setForcefield(new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct));
-						//kernel = new ForcefieldKernelOneBlockCuda(cudaContext, new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct));
+						//kernel = new ForcefieldKernelCuda(cudaStream);
+						//kernel.setForcefield(new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct));
+						kernel = new ForcefieldKernelOneBlockCuda(cudaStream, new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct));
 					} else {
 						throw new Error("bad gpu queue/context configuration, this is a bug");
 					}
@@ -239,53 +239,16 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	@Override
 	public double getEnergy() {
 		
-		// PROFILING
-		//Profiler p = new Profiler("upload");
-		
-		boolean isProfiling = numProfilingRuns > 0;
-		if (isProfiling) {
-			uploadStopwatch.resume();
-		}
-		
 		// upload data
 		ForcefieldKernel kernel = getKernel();
 		kernel.setSubset(getSubset());
 		kernel.uploadCoordsAsync();
 		
-		// PROFILING
-		//kernel.waitForGpu();
-		//p.start("kernel");
-		
-		if (isProfiling) {
-			kernel.waitForGpu();
-			uploadStopwatch.stop();
-			kernelStopwatch.resume();
-		}
-		
 		// compute the energies
 		kernel.runAsync();
 		
-		// PROFILING
-		//kernel.waitForGpu();
-		//p.start("download");
-		
-		if (isProfiling) {
-			kernel.waitForGpu();
-			kernelStopwatch.stop();
-			downloadStopwatch.resume();
-		}
-		
 		// read the results
-		double energy = kernel.downloadEnergySync();
-		
-		// PROFILING
-		//System.out.println(p.makeReport(TimeUnit.MICROSECONDS));
-		
-		if (isProfiling) {
-			downloadStopwatch.stop();
-		}
-		
-		return energy;
+		return kernel.downloadEnergySync();
 	}
 	
 	@Override

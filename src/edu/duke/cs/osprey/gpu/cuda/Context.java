@@ -9,6 +9,7 @@ import java.util.Map;
 import edu.duke.cs.osprey.tools.ResourceExtractor;
 import jcuda.Pointer;
 import jcuda.driver.CUcontext;
+import jcuda.driver.CUctx_flags;
 import jcuda.driver.CUdeviceptr;
 import jcuda.driver.CUfunction;
 import jcuda.driver.CUmodule;
@@ -27,7 +28,10 @@ public class Context {
 		
 		// create the cuda context
 		context = new CUcontext();
-		JCudaDriver.cuCtxCreate(context, 0, gpu.getDevice());
+		int flags = CUctx_flags.CU_CTX_SCHED_YIELD;
+		//int flags = CUctx_flags.CU_CTX_SCHED_SPIN;
+		//int flags = CUctx_flags.CU_CTX_SCHED_BLOCKING_SYNC;
+		JCudaDriver.cuCtxCreate(context, flags, gpu.getDevice());
 		
 		kernels = new HashMap<>();
 	}
@@ -74,16 +78,20 @@ public class Context {
 		JCudaDriver.cuMemFree(pdBuf);
 	}
 	
-	public void uploadSync(CUdeviceptr pdBuf, Pointer phBuf, long numBytes) {
-		JCudaDriver.cuMemcpyHtoD(pdBuf, phBuf, numBytes);
-	}
-	
 	public void uploadAsync(CUdeviceptr pdBuf, Pointer phBuf, long numBytes, GpuStream stream) {
 		JCudaDriver.cuMemcpyHtoDAsync(pdBuf, phBuf, numBytes, stream.getStream());
 	}
 	
-	public void downloadSync(Pointer phBuf, CUdeviceptr pdBuf, long numBytes) {
-		JCudaDriver.cuMemcpyDtoH(phBuf, pdBuf, numBytes);
+	public void downloadAsync(Pointer phBuf, CUdeviceptr pdBuf, long numBytes, GpuStream stream) {
+		JCudaDriver.cuMemcpyDtoHAsync(phBuf, pdBuf, numBytes, stream.getStream());
+	}
+	
+	public void pinBuffer(Pointer phBuf, long numBytes) {
+		JCudaDriver.cuMemHostRegister(phBuf, numBytes, 0);
+	}
+	
+	public void unpinBuffer(Pointer phBuf) {
+		JCudaDriver.cuMemHostUnregister(phBuf);
 	}
 	
 	public void launchKernel(CUfunction func, int gridBlocks, int blockThreads, int sharedMemBytes, Pointer pArgs, GpuStream stream) {

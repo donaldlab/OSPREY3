@@ -6,8 +6,6 @@
 
 
 typedef struct __align__(8) {
-	int numPairs;
-	int num14Pairs;
 	double coulombFactor;
 	double scaledCoulombFactor;
 	double solvCutoff2;
@@ -15,7 +13,7 @@ typedef struct __align__(8) {
 	bool useHEs;
 	bool useHVdw;
 } ForcefieldArgs;
-// sizeof = 40
+// sizeof = 32
 
 
 __device__ int divUp(int a, int b) {
@@ -36,7 +34,8 @@ __device__ double calcPairEnergy(
 	const int *atomFlags,
 	const double *precomputed,
 	const ForcefieldArgs *args,
-	const int i
+	const int i,
+	const bool is14Pair
 ) {
 
 	// start with zero energy
@@ -72,12 +71,7 @@ __device__ double calcPairEnergy(
 	// calculate electrostatics
 	if (bothHeavy || args->useHEs) {
 	
-		double esEnergy;
-		
-		{
-			bool is14Pair = i < args->num14Pairs;
-			esEnergy = is14Pair ? args->scaledCoulombFactor : args->coulombFactor;
-		}
+		double esEnergy = is14Pair ? args->scaledCoulombFactor : args->coulombFactor;
 		
 		{
 			double charge = precomputed[i9 + 2];
@@ -156,7 +150,8 @@ __device__ void blockSum(double *scratch, double *out) {
 	
 	// finally, if we're the 0 thread, write the summed energy for this work group
 	if (threadId == 0) {
-		out[0] = scratch[0];
+		int blockId = blockIdx.x;
+		out[blockId] = scratch[0];
 	}
 }
 
@@ -164,8 +159,10 @@ extern "C" __global__ void calcEnergy(
 	const double *coords,
 	const int *atomFlags,
 	const double *precomputed,
-	const int *subsetTable,
 	const ForcefieldArgs *args,
+	const int *subsetTable,
+	const int numPairs,
+	const int num14Pairs,
 	double *out
 ) {
 
@@ -173,18 +170,26 @@ extern "C" __global__ void calcEnergy(
 	
 	int threadId = threadIdx.x;
 	int numThreads = blockDim.x;
-	int numPairs = args->numPairs;
+	int blockId = blockIdx.x;
+	int numBlocks = gridDim.x;
 	
 	double energy = 0;
+	
+	// partition atom pairs among blocks
+	// NOTE: keep adjacent pairs in the same block, to improve memory locality
+	int blockThreads = divUp(numPairs, numBlocks);
+	int firstBlockI = blockId*blockThreads;
+	int lastBlockI = min(numPairs, (blockId + 1)*blockThreads);
 	
 	// partition atom pairs among threads
 	// NOTE: stagger atom pairs so we get efficient memory access (all threads share the same cache)
 	// ie, thread 1 does pair pair 1, thread 2 does atom pair 2, etc
-	int i = threadId;
-	while (i < numPairs) {
-		energy += calcPairEnergy(coords, atomFlags, precomputed, args, subsetTable[i]);
+	int i = firstBlockI + threadId;
+	while (i < lastBlockI) {
+		energy += calcPairEnergy(coords, atomFlags, precomputed, args, subsetTable[i], i < num14Pairs);
 		i += numThreads;
 	}
+	
 	threadEnergies[threadId] = energy;
 	
 	// sum energies from all threads

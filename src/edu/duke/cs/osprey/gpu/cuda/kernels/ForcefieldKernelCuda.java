@@ -35,7 +35,7 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 		
 		// OPTIMIZATION: 128 is empirically fastest on my GeForce 560 Ti at home
 		// but we should experiment with the CS dept Teslas too
-		blockThreads = 128;
+		blockThreads = 512;
 		
 		// init defaults
 		numBlocks = 0;
@@ -142,7 +142,7 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 		
 		this.subset = subset;
 		
-		numBlocks = calcNumBlocks(subset.getNumAtomPairs(), blockThreads);
+		numBlocks = divUp(subset.getNumAtomPairs(), blockThreads);
 		
 		// update kernel args and upload
 		ByteBuffer buf = args.getHostBuffer();
@@ -169,7 +169,7 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 	}
 	
 	private static int getEnergySize(BigForcefieldEnergy.Subset subset, int blockThreads) {
-		return calcNumBlocks(subset.getNumAtomPairs(), blockThreads);
+		return divUp(subset.getNumAtomPairs(), blockThreads);
 	}
 	
 	@Override
