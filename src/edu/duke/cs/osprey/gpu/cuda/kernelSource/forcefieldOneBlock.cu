@@ -345,10 +345,10 @@ __device__ void pose(double *coords, const int *dihedralIndices, const int numRo
 	double deltaSin = newSin*currentCos - newCos*currentSin;
 	double deltaCos = newCos*currentCos + newSin*currentSin;
 	
-	// there are only 10s of atoms rotate
-	// it's probably not worth doing a kernel launch here
-	for (int i=0; i<numRotatedIndices; i++) {
-		int index = rotatedIndices[i];
+	// modify the atoms in parallel
+	int threadId = threadIdx.x;
+	if (threadId < numRotatedIndices) {
+		int index = rotatedIndices[threadId]; 
 		double3 p = readCoord(coords, index);
 		sub(p, b);
 		rotateVecInverse(p, rx, ry, rz);
@@ -360,36 +360,28 @@ __device__ void pose(double *coords, const int *dihedralIndices, const int numRo
 	__syncthreads();
 }
 
-__device__ void blockSum(double threadEnergy, double *threadEnergies, double *blockEnergies) {
+__device__ void blockSum(const Partition &p, double threadEnergy, double *threadEnergies) {
 
-	int threadId = threadIdx.x;
-	int numThreads = blockDim.x;
-	
 	// compute the energy sum in SIMD-style
 	// see url for a tutorial on GPU reductions:
 	// http://developer.amd.com/resources/articles-whitepapers/opencl-optimization-case-study-simple-reductions/
 
-	threadEnergies[threadId] = threadEnergy;
+	threadEnergies[p.threadId] = threadEnergy;
 	
 	__syncthreads();
 	
-	for (int offset = 1; offset < numThreads; offset <<= 1) {
+	for (int offset = 1; offset < p.numThreads; offset <<= 1) {
 	
 		// sum this level of the reduction tree
 		int mask = (offset << 1) - 1;
-		if ((threadId & mask) == 0) {
-			int pos = threadId + offset;
-			if (pos < numThreads) {
-				threadEnergies[threadId] += threadEnergies[pos];
+		if ((p.threadId & mask) == 0) {
+			int pos = p.threadId + offset;
+			if (pos < p.numThreads) {
+				threadEnergies[p.threadId] += threadEnergies[pos];
 			}
 		}
 		
 		__syncthreads();
-	}
-	
-	// finally, if we're the 0 thread, write the summed energy for this work group
-	if (threadId == 0) {
-		blockEnergies[blockIdx.x] = threadEnergies[0];
 	}
 }
 
@@ -421,7 +413,12 @@ extern "C" __global__ void calcEnergy(
 			NULL, 0, 0
 		);
 	}
-	blockSum(energy, threadEnergies, out);
+	blockSum(p, energy, threadEnergies);
+	
+	// finally, if we're the 0 thread, write the summed energy for this work group
+	if (p.threadId == 0) {
+		out[p.blockId] = threadEnergies[0];
+	}
 }
 
 extern "C" __global__ void calcDofEnergy(
@@ -455,7 +452,58 @@ extern "C" __global__ void calcDofEnergy(
 			NULL, 0, 0
 		);
 	}
-	blockSum(energy, threadEnergies, out);
+	blockSum(p, energy, threadEnergies);
+	
+	// finally, if we're the 0 thread, write the summed energy for this work group
+	if (p.threadId == 0) {
+		out[p.blockId] = threadEnergies[0];
+	}
+}
+
+__device__ void copyCoords(const Partition &p, const DofArgs *dofdargs, const double *coords, double *modifiedCoords) {
+
+	int numModifiedCoords = dofdargs->lastModifiedCoord - dofdargs->firstModifiedCoord + 1;
+	for (int i = p.threadId; i < numModifiedCoords; i += p.blockThreads) {
+		modifiedCoords[i] = coords[dofdargs->firstModifiedCoord + i];
+	}
+	__syncthreads();
+}
+
+typedef struct {
+	const double *coords;
+	const int *atomFlags;
+	const double *precomputed;
+	const ForcefieldArgs *ffargs;
+	const int *subsetTable;
+	const int *dihedralIndices;
+	const int *rotatedIndices;
+	const DofArgs *dofdargs;
+	const Partition *partition;
+	double *modifiedCoords;
+	double *threadEnergies;
+} DofPoseAndEnergyArgs;
+
+__device__ void poseAndCalcDofEnergy(const DofPoseAndEnergyArgs &args, double dihedralRadians) {
+	
+	// pose the coords
+	pose(args.modifiedCoords, args.dihedralIndices, args.dofdargs->numRotatedIndices, args.rotatedIndices, dihedralRadians);
+	
+	int firstI = args.partition->threadFirstPair;
+	int endI = args.partition->blockLastPair;
+	int stride = args.partition->threadStride;
+	
+	// add up the pairwise energies
+	double energy = 0;
+	for (int i = firstI; i < endI; i += stride) {
+		bool is14Pair = i < args.dofdargs->num14Pairs;
+		energy += calcPairEnergy(
+			args.coords, args.atomFlags, args.precomputed, args.ffargs,
+			args.subsetTable[i], is14Pair,
+			args.modifiedCoords, args.dofdargs->firstModifiedCoord, args.dofdargs->lastModifiedCoord
+		);
+	}
+	
+	blockSum(*args.partition, energy, args.threadEnergies);
 }
 
 extern "C" __global__ void poseAndCalcDofEnergy(
@@ -475,6 +523,8 @@ extern "C" __global__ void poseAndCalcDofEnergy(
 	// get our dof
 	const DofArgs *dofdargs = dofargs + d;
 	const int *subsetTable = subsetTables + dofdargs->subsetTableOffset;
+	const int *dihedralIndicesD = dihedralIndices + d;
+	const int *rotatedIndicesD = rotatedIndices + d;
 	
 	// partition work among blocks/threads
 	Partition p;
@@ -485,26 +535,22 @@ extern "C" __global__ void poseAndCalcDofEnergy(
 	double *modifiedCoords = (double *)(shared + p.numThreads*sizeof(double));
 	
 	// copy the coords we need to modify to shared mem
-	int numModifiedCoords = dofdargs->lastModifiedCoord - dofdargs->firstModifiedCoord + 1;
-	for (int i = p.threadId; i < numModifiedCoords; i += p.blockThreads) {
-		modifiedCoords[i] = coords[dofdargs->firstModifiedCoord + i];
-	}
-	__syncthreads();
+	copyCoords(p, dofdargs, coords, modifiedCoords);
 	
-	// pose the coords
-	const int *dihedralIndicesD = dihedralIndices + d;
-	const int *rotatedIndicesD = rotatedIndices + d;
-	pose(modifiedCoords, dihedralIndicesD, dofdargs->numRotatedIndices, rotatedIndicesD, dihedralRadians);
+	// build the poseAndCalcDofEnergy() args
+	const DofPoseAndEnergyArgs args = {
+		coords, atomFlags, precomputed, ffargs,
+		subsetTable, dihedralIndicesD, rotatedIndicesD, dofdargs,
+		&p,
+		modifiedCoords, threadEnergies
+	};
 	
-	// add up the pairwise energies
-	double energy = 0;
-	for (int i = p.threadFirstPair; i < p.blockLastPair; i += p.threadStride) {
-		energy += calcPairEnergy(
-			coords, atomFlags, precomputed, ffargs,
-			subsetTable[i], i < dofdargs->num14Pairs,
-			modifiedCoords, dofdargs->firstModifiedCoord, dofdargs->lastModifiedCoord
-		);
+	// reduce all the magic to a single function call
+	poseAndCalcDofEnergy(args, dihedralRadians);
+	
+	// finally, if we're the 0 thread, write the summed energy for this work group
+	if (p.threadId == 0) {
+		out[p.blockId] = threadEnergies[0];
 	}
-	blockSum(energy, threadEnergies, out);
 }
 
