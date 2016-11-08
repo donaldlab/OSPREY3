@@ -4,14 +4,42 @@ import java.io.IOException;
 
 import jcuda.Pointer;
 import jcuda.driver.CUfunction;
+import jcuda.driver.CUmodule;
 import jcuda.driver.JCudaDriver;
 
 public class Kernel {
 	
-	private GpuStream stream;
-	private CUfunction func;
+	public class Function {
+		
+		public int numBlocks;
+		public int blockThreads;
+		public int sharedMemBytes;
+		
+		private CUfunction func;
+		private Pointer pArgs;
+		
+		public Function(String name) {
+			func = new CUfunction();
+			JCudaDriver.cuModuleGetFunction(func, module, name);
+			pArgs = null;
+			numBlocks = 1;
+			blockThreads = 1;
+			sharedMemBytes = 0;
+		}
+		
+		public void setArgs(Pointer val) {
+			pArgs = val;
+		}
+		
+		public void runAsync() {
+			getContext().launchKernel(func, numBlocks, blockThreads, sharedMemBytes, pArgs, stream);
+		}
+	}
 	
-	public Kernel(GpuStream stream, String filename, String funcName)
+	private GpuStream stream;
+	private CUmodule module;
+	
+	public Kernel(GpuStream stream, String filename)
 	throws IOException {
 		
 		if (stream == null) {
@@ -20,8 +48,7 @@ public class Kernel {
 		
 		this.stream = stream;
 		
-		func = new CUfunction();
-		JCudaDriver.cuModuleGetFunction(func, getContext().getKernel(filename), funcName);
+		module = getContext().getKernel(filename);
 	}
 	
 	public GpuStream getStream() {
@@ -32,8 +59,8 @@ public class Kernel {
 		return stream.getContext();
 	}
 	
-	protected void runAsync(int numBlocks, int blockThreads, int sharedMemBytes, Pointer pArgs) {
-		getContext().launchKernel(func, numBlocks, blockThreads, sharedMemBytes, pArgs, stream);
+	public Function makeFunction(String name) {
+		return new Function(name);
 	}
 	
 	public void waitForGpu() {

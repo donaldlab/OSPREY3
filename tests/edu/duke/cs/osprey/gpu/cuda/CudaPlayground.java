@@ -2,7 +2,6 @@ package edu.duke.cs.osprey.gpu.cuda;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.DoubleBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -31,18 +30,21 @@ import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
+import edu.duke.cs.osprey.energy.ForcefieldInteractionsGenerator;
 import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
+import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
+import edu.duke.cs.osprey.gpu.BufferTools;
 import edu.duke.cs.osprey.gpu.cuda.kernels.ForcefieldKernelCuda;
+import edu.duke.cs.osprey.gpu.cuda.kernels.ForcefieldKernelOneBlockCuda;
 import edu.duke.cs.osprey.gpu.cuda.kernels.SubForcefieldsKernelCuda;
-import edu.duke.cs.osprey.gpu.cuda.kernels.TestDPKernel;
-import edu.duke.cs.osprey.gpu.cuda.kernels.TestKernel;
 import edu.duke.cs.osprey.minimization.CudaSurfingLineSearcher;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction;
 import edu.duke.cs.osprey.minimization.SurfingLineSearcher;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
-import edu.duke.cs.osprey.parallelism.TimingThread;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Stopwatch;
@@ -67,70 +69,7 @@ public class CudaPlayground extends TestBase {
 		forcefield();
 	}
 	
-	private static void dynamicParallelism()
-	throws IOException {
-		
-		// init CUDA
-		Context context = new Context(Gpus.get().getGpus().get(0));
-		GpuStream stream = new GpuStream(context);
-		
-		final int NumElements = 122000;
-		final int NumRuns = 1000;
-	
-		System.out.println("dynamic parallelism test: " + NumElements + " threads");
-		
-		// init host-loop kernel
-		TestKernel hostKernel = new TestKernel(stream, NumElements);
-		DoubleBuffer a = hostKernel.getA();
-		DoubleBuffer b = hostKernel.getB();
-		a.clear();
-		b.clear();
-		for (int i=0; i<NumElements; i++) {
-			a.put((double)i);
-			b.put((double)i);
-		}
-		
-		System.out.println("host-side loop...");
-		Stopwatch hostStopwatch = new Stopwatch().start();
-		for (int i=0; i<NumRuns; i++) {
-			hostKernel.uploadAsync();
-			hostKernel.runAsync();
-			hostKernel.downloadSync();
-		}
-		System.out.println(String.format("finished in %8s, ops: %5.0f",
-			hostStopwatch.stop().getTime(TimeUnit.MILLISECONDS),
-			NumRuns/hostStopwatch.getTimeS()
-		));
-		hostKernel.cleanup();
-		
-		// init device-loop kernel
-		TestDPKernel deviceKernel = new TestDPKernel(stream, NumElements);
-		a = deviceKernel.getA();
-		b = deviceKernel.getB();
-		a.clear();
-		b.clear();
-		for (int i=0; i<NumElements; i++) {
-			a.put((double)i);
-			b.put((double)i);
-		}
-		
-		System.out.println("device-side loop...");
-		Stopwatch deviceStopwatch = new Stopwatch().start();
-		deviceKernel.uploadAsync();
-		deviceKernel.runAsync();
-		deviceKernel.downloadSync();
-		System.out.println(String.format("finished in %8s, ops: %5.0f, speedup: %.1fx",
-			deviceStopwatch.stop().getTime(TimeUnit.MILLISECONDS),
-			NumRuns/deviceStopwatch.getTimeS(),
-			(float)hostStopwatch.getTimeNs()/deviceStopwatch.getTimeNs()
-		));
-		deviceKernel.cleanup();
-		
-		stream.cleanup();
-		context.cleanup();
-	}
-	
-	private static void linesearch()
+	private static SearchProblem makeSearch()
 	throws IOException {
 		
 		// make a search problem
@@ -169,10 +108,31 @@ public class CudaPlayground extends TestBase {
 			ObjectIO.writeObject(search.emat, ematFile.getAbsolutePath());
 		}
 		
-		RCTuple tuple = new RCTuple();
-		for (int i=0; i<search.confSpace.numPos; i++) {
-			tuple = tuple.addRC(i, 0);
+		return search;
+	}
+	
+	private static RCTuple getConf(SearchProblem search, int i) {
+		
+		// get the ith conformation
+		search.pruneMat = new PruningMatrix(search.confSpace, 1000);
+		RCs rcs = new RCs(search.pruneMat);
+		AStarOrder order = new StaticScoreHMeanAStarOrder();
+		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 4, 0.0001);
+		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ScoredConf conf = null;
+		i++;
+		for (int j=0; j<i; j++) {
+			conf = tree.nextConf();
 		}
+		return new RCTuple(conf.getAssignments());
+	}
+	
+	private static void linesearch()
+	throws IOException {
+		
+		SearchProblem search = makeSearch();
+		RCTuple tuple = getConf(search, 0);
+		ForcefieldParams ffparams = EnvironmentVars.curEFcnGenerator.ffParams;
 		
 		int d = 0;
 		
@@ -246,7 +206,7 @@ public class CudaPlayground extends TestBase {
 		
 		// init cuda side
 		ParameterizedMoleculeCopy cudaMol = new ParameterizedMoleculeCopy(search.confSpace);
-		GpuEnergyFunctionGenerator cudaEgen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuStreamPool(1));
+		GpuEnergyFunctionGenerator cudaEgen = new GpuEnergyFunctionGenerator(ffparams, new GpuStreamPool(1));
 		GpuForcefieldEnergy cudaEfunc = cudaEgen.fullConfEnergy(search.confSpace, search.shellResidues, cudaMol.getCopiedMolecule());
 		MoleculeModifierAndScorer cudaMof = new MoleculeModifierAndScorer(cudaEfunc, search.confSpace, tuple, cudaMol);
 		ObjectiveFunction.OneDof cudaFd = new ObjectiveFunction.OneDof(cudaMof, d);
@@ -292,53 +252,9 @@ public class CudaPlayground extends TestBase {
 	private static void subForcefields()
 	throws Exception {
 		
-		// make a search problem
-		System.out.println("Building search problem...");
-		
-		ResidueFlexibility resFlex = new ResidueFlexibility();
-		resFlex.addMutable("39 43", "ALA");
-		resFlex.addFlexible("40 41 42 44 45");
-		boolean doMinimize = true;
-		boolean addWt = true;
-		boolean useEpic = false;
-		boolean useTupleExpansion = false;
-		boolean useEllipses = false;
-		boolean useERef = false;
-		boolean addResEntropy = false;
-		boolean addWtRots = false;
-		ArrayList<String[]> moveableStrands = new ArrayList<String[]>();
-		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
-		SearchProblem search = new SearchProblem(
-			"test", "test/1CC8/1CC8.ss.pdb", 
-			resFlex.flexResList, resFlex.allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
-			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null,
-			false, new ArrayList<>()
-		);
-		
-		// calc the energy matrix
-		File ematFile = new File("/tmp/benchmarkMinimization.emat.dat");
-		if (ematFile.exists()) {
-			search.emat = (EnergyMatrix)ObjectIO.readObject(ematFile.getAbsolutePath(), false);
-		} else {
-			ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
-			tasks.start(2);
-			SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(EnvironmentVars.curEFcnGenerator, search.confSpace, search.shellResidues);
-			search.emat = new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix(tasks);
-			tasks.stop();
-			ObjectIO.writeObject(search.emat, ematFile.getAbsolutePath());
-		}
-		
-		// get the ith conformation
-		search.pruneMat = new PruningMatrix(search.confSpace, 1000);
-		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new StaticScoreHMeanAStarOrder();
-		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 4, 0.0001);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
-		ScoredConf conf = null;
-		for (int i=0; i<1; i++) {
-			conf = tree.nextConf();
-		}
-		RCTuple tuple = new RCTuple(conf.getAssignments());
+		SearchProblem search = makeSearch();
+		RCTuple tuple = getConf(search, 0);
+		ForcefieldParams ffparams = EnvironmentVars.curEFcnGenerator.ffParams;
 		
 		// init cpu side
 		ParameterizedMoleculeCopy cpuMol = new ParameterizedMoleculeCopy(search.confSpace);
@@ -353,7 +269,7 @@ public class CudaPlayground extends TestBase {
 		
 		// init cuda side
 		ParameterizedMoleculeCopy cudaMol = new ParameterizedMoleculeCopy(search.confSpace);
-		GpuEnergyFunctionGenerator cudaEgen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuStreamPool(1));
+		GpuEnergyFunctionGenerator cudaEgen = new GpuEnergyFunctionGenerator(ffparams, new GpuStreamPool(1));
 		GpuForcefieldEnergy cudaEfunc = cudaEgen.fullConfEnergy(search.confSpace, search.shellResidues, cudaMol.getCopiedMolecule());
 		MoleculeModifierAndScorer cudaMof = new MoleculeModifierAndScorer(cudaEfunc, search.confSpace, tuple, cudaMol);
 		
@@ -384,56 +300,13 @@ public class CudaPlayground extends TestBase {
 	private static void forcefield()
 	throws Exception {
 		
-		// make a search problem
-		System.out.println("Building search problem...");
-		
-		ResidueFlexibility resFlex = new ResidueFlexibility();
-		resFlex.addMutable("39 43", "ALA");
-		resFlex.addFlexible("40 41 42 44 45");
-		boolean doMinimize = true;
-		boolean addWt = true;
-		boolean useEpic = false;
-		boolean useTupleExpansion = false;
-		boolean useEllipses = false;
-		boolean useERef = false;
-		boolean addResEntropy = false;
-		boolean addWtRots = false;
-		ArrayList<String[]> moveableStrands = new ArrayList<String[]>();
-		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
-		SearchProblem search = new SearchProblem(
-			"test", "test/1CC8/1CC8.ss.pdb", 
-			resFlex.flexResList, resFlex.allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
-			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null,
-			false, new ArrayList<>()
-		);
-		
-		// calc the energy matrix
-		File ematFile = new File("/tmp/benchmarkMinimization.emat.dat");
-		if (ematFile.exists()) {
-			search.emat = (EnergyMatrix)ObjectIO.readObject(ematFile.getAbsolutePath(), false);
-		} else {
-			ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
-			tasks.start(2);
-			SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(EnvironmentVars.curEFcnGenerator, search.confSpace, search.shellResidues);
-			search.emat = new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix(tasks);
-			tasks.stop();
-			ObjectIO.writeObject(search.emat, ematFile.getAbsolutePath());
-		}
-		
-		// get the ith conformation
-		search.pruneMat = new PruningMatrix(search.confSpace, 1000);
-		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new StaticScoreHMeanAStarOrder();
-		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 4, 0.0001);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
-		ScoredConf conf = null;
-		for (int i=0; i<1; i++) {
-			conf = tree.nextConf();
-		}
-		RCTuple tuple = new RCTuple(conf.getAssignments());
+		SearchProblem search = makeSearch();
+		RCTuple tuple = getConf(search, 0);
+		ForcefieldParams ffparams = EnvironmentVars.curEFcnGenerator.ffParams;
 		
 		int numRuns = 10000;
 		int d = 0;
+		// TODO: test different dimensions
 		
 		// init cpu side
 		ParameterizedMoleculeCopy cpuMol = new ParameterizedMoleculeCopy(search.confSpace);
@@ -447,22 +320,24 @@ public class CudaPlayground extends TestBase {
 		double cpuEnergy = cpuMof.getValue(x);
 		double cpuEnergyD = cpuMof.getValForDOF(d, x.get(d));
 		
+		/* TEMP
 		// benchmark
-		System.out.println("benchmarking CPU...");
+		System.out.println("\nbenchmarking CPU...");
 		Stopwatch cpuStopwatch = new Stopwatch().start();
 		for (int i=0; i<numRuns; i++) {
 			cpuMof.getValForDOF(d, x.get(d));
 		}
-		System.out.println(String.format("finished in %s, %.1f ops",
+		System.out.println(String.format("finished in %s, %.1f ops\n",
 			cpuStopwatch.stop().getTime(1),
 			numRuns/cpuStopwatch.getTimeS()
 		));
+		*/
 		
 		System.out.println();
 		
 		// init cuda side
 		ParameterizedMoleculeCopy cudaMol = new ParameterizedMoleculeCopy(search.confSpace);
-		GpuEnergyFunctionGenerator cudaEgen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuStreamPool(1));
+		GpuEnergyFunctionGenerator cudaEgen = new GpuEnergyFunctionGenerator(ffparams, new GpuStreamPool(1));
 		GpuForcefieldEnergy cudaEfunc = cudaEgen.fullConfEnergy(search.confSpace, search.shellResidues, cudaMol.getCopiedMolecule());
 		MoleculeModifierAndScorer cudaMof = new MoleculeModifierAndScorer(cudaEfunc, search.confSpace, tuple, cudaMol);
 		
@@ -479,20 +354,16 @@ public class CudaPlayground extends TestBase {
 		/*
 		// benchmark
 		// 1024 threads
-		// 1 block: ~5.1k ops
-		// 2 blocks: ~8.1k ops
-		// 4 blocks: ~10.1k ops
-		// 8 blocks: ~12.2k ops
-		// 16 blocks: ~13.6k ops
-		System.out.println("benchmarking GPU dof...");
-		Stopwatch gpuStopwatch = new Stopwatch().start();
+		// 16 blocks: ~14.7k ops
+		System.out.println("\nbenchmarking old GPU dof...");
+		Stopwatch gpuOldStopwatch = new Stopwatch().start();
 		for (int i=0; i<numRuns; i++) {
 			cudaMof.getValForDOF(d, x.get(d));
 		}
-		System.out.println(String.format("finished in %s, %.1f ops, speedup: %.1fx",
-			gpuStopwatch.stop().getTime(1),
-			numRuns/gpuStopwatch.getTimeS(),
-			(double)cpuStopwatch.getTimeNs()/gpuStopwatch.getTimeNs()
+		System.out.println(String.format("finished in %s, %.1f ops, speedup: %.1fx\n",
+			gpuOldStopwatch.stop().getTime(1),
+			numRuns/gpuOldStopwatch.getTimeS(),
+			(double)cpuStopwatch.getTimeNs()/gpuOldStopwatch.getTimeNs()
 		));
 		*/
 		
@@ -501,6 +372,56 @@ public class CudaPlayground extends TestBase {
 		cudaEfunc.cleanup();
 		cudaEgen.cleanup();
 		
+		// collects the dofs
+		List<FreeDihedral> dofs = new ArrayList<>();
+		for (DegreeOfFreedom dof : cudaMof.getDOFs()) {
+			dofs.add((FreeDihedral)dof);
+		}
+		
+		// make the kernel directly
+		GpuStreamPool cudaPool = new GpuStreamPool(1);
+		GpuStream stream = cudaPool.checkout();
+		ForcefieldInteractionsGenerator intergen = new ForcefieldInteractionsGenerator();
+		ForcefieldInteractions interactions = intergen.makeFullConf(search.confSpace, search.shellResidues, cudaMol.getCopiedMolecule());
+		BigForcefieldEnergy bigff = new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct);
+		ForcefieldKernelOneBlockCuda ffkernel = new ForcefieldKernelOneBlockCuda(stream, bigff, dofs);
+		
+		// check accuracy
+		ffkernel.uploadCoordsAsync();
+		checkEnergy(cpuEnergy, ffkernel.calcEnergySync());
+		checkEnergy(cpuEnergyD, ffkernel.calcEnergyDofSync(d));
+		
+		double dihedralRadians = Math.toRadians(x.get(d));
+		checkEnergy(cpuEnergyD, ffkernel.poseAndCalcEnergyDofSync(d, dihedralRadians));
+		
+		/* TEMP
+		// benchmark
+		// 1024 threads
+		// 1 block: ~5.2k ops
+		// 2 blocks: ~8.1k ops
+		// 4 blocks: ~10.1k ops
+		// 8 blocks: ~12.2k ops
+		// 16 blocks: ~13.6k ops
+		System.out.println("\nbenchmarking one-block GPU dof...");
+		Stopwatch gpuOneBlockStopwatch = new Stopwatch().start();
+		for (int i=0; i<numRuns; i++) {
+			ffkernel.uploadCoordsAsync();
+			ffkernel.calcEnergyDofSync(d);
+		}
+		System.out.println(String.format("finished in %s, %.1f ops, speedup over cpu: %.1fx, speedup over old: %.1fx\n",
+			gpuOneBlockStopwatch.stop().getTime(1),
+			numRuns/gpuOneBlockStopwatch.getTimeS(),
+			(double)cpuStopwatch.getTimeNs()/gpuOneBlockStopwatch.getTimeNs(),
+			(double)gpuOldStopwatch.getTimeNs()/gpuOneBlockStopwatch.getTimeNs()
+		));
+		*/
+		
+		// cleanup
+		cudaPool.release(stream);
+		ffkernel.cleanup();
+		cudaPool.cleanup();
+		
+		/*
 		class StreamThread extends TimingThread {
 			
 			private GpuEnergyFunctionGenerator egen;
@@ -607,6 +528,7 @@ public class CudaPlayground extends TestBase {
 			));
 			streamsEgen.cleanup();
 		}
+		*/
 	}
 	
 	private static int divUp(int a, int b) {

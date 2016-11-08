@@ -36,19 +36,25 @@ public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 		throw new NoGpusException();
 	}
 	
+	private ForcefieldInteractionsGenerator intergen;
 	private GpuQueuePool openclQueues;
-	private GpuStreamPool cudaContexts;
+	private GpuStreamPool cudaStreams;
+	
+	private GpuEnergyFunctionGenerator(ForcefieldParams ffParams) {
+		super(ffParams, Double.POSITIVE_INFINITY, false);
+		this.intergen = new ForcefieldInteractionsGenerator();
+		this.openclQueues = null;
+		this.cudaStreams = null;
+	}
 	
 	public GpuEnergyFunctionGenerator(ForcefieldParams ffParams, GpuQueuePool openclQueues) {
-		super(ffParams, Double.POSITIVE_INFINITY, false);
+		this(ffParams);
 		this.openclQueues = openclQueues;
-		this.cudaContexts = null;
 	}
 	
 	public GpuEnergyFunctionGenerator(ForcefieldParams ffParams, GpuStreamPool cudaContexts) {
-		super(ffParams, Double.POSITIVE_INFINITY, false);
-		this.openclQueues = null;
-		this.cudaContexts = cudaContexts;
+		this(ffParams);
+		this.cudaStreams = cudaContexts;
 	}
 	
 	public GpuQueuePool getOpenclQueuePool() {
@@ -56,14 +62,14 @@ public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 	}
 	
 	public GpuStreamPool getCudaContexts() {
-		return cudaContexts;
+		return cudaStreams;
 	}
 	
 	private GpuForcefieldEnergy makeGpuForcefield(ForcefieldInteractions interactions) {
 		if (openclQueues != null) {
 			return new GpuForcefieldEnergy(ffParams, interactions, openclQueues);
-		} else if (cudaContexts != null) {
-			return new GpuForcefieldEnergy(ffParams, interactions, cudaContexts);
+		} else if (cudaStreams != null) {
+			return new GpuForcefieldEnergy(ffParams, interactions, cudaStreams);
 		} else {
 			throw new Error("bad gpu queue/context config, this is a bug");
 		}
@@ -71,111 +77,50 @@ public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 	
 	@Override
 	public GpuForcefieldEnergy singleResEnergy(Residue res) {
-		ForcefieldInteractions interactions = new ForcefieldInteractions();
-		interactions.addResidue(res);
-		return makeGpuForcefield(interactions);
+		return makeGpuForcefield(intergen.makeSingleRes(res));
 	}
 
 	@Override
 	public GpuForcefieldEnergy resPairEnergy(Residue res1, Residue res2) {
-		ForcefieldInteractions interactions = new ForcefieldInteractions();
-		interactions.addResiduePair(res1, res2);
-		return makeGpuForcefield(interactions);
+		return makeGpuForcefield(intergen.makeResPair(res1, res2));
 	}
 	
 	@Override
 	public GpuForcefieldEnergy intraAndShellEnergy(Residue res, List<Residue> shellResidues) {
-		ForcefieldInteractions interactions = new ForcefieldInteractions();
-		interactions.addResidue(res);
-		for (Residue shellRes : shellResidues) {
-			interactions.addResiduePair(res, shellRes);
-		}
-		return makeGpuForcefield(interactions);
+		return makeGpuForcefield(intergen.makeIntraAndShell(res, shellResidues));
 	}
 	
 	@Override
 	public GpuForcefieldEnergy intraAndDistributedShellEnergy(Residue res, List<Residue> shellResidues, int numPos, double singleWeight) {
-		checkSingleWeight(singleWeight);
-		return intraAndShellEnergy(res, shellResidues);
+		return makeGpuForcefield(intergen.makeIntraAndDistributedShell(res, shellResidues, numPos, singleWeight));
 	}
 
 	@Override
 	public GpuForcefieldEnergy resPairAndDistributedShellEnergy(Residue res1, Residue res2, List<Residue> shellResidues, int numPos, double singleWeight) {
-		checkSingleWeight(singleWeight);
-		return resPairEnergy(res1, res2);
+		return makeGpuForcefield(intergen.makeResPairAndDistributedShell(res1, res2, shellResidues, numPos, singleWeight));
 	}
 	
 	@Override
 	public GpuForcefieldEnergy fullConfEnergy(ConfSpace confSpace, List<Residue> shellResidues) {
-		return fullConfEnergy(confSpace, shellResidues, null);
+		return makeGpuForcefield(intergen.makeFullConf(confSpace, shellResidues));
 	}
 	
 	@Override
 	public GpuForcefieldEnergy fullConfEnergy(ConfSpace confSpace, List<Residue> shellResidues, Molecule mol) {
-		
-		ForcefieldInteractions interactions = new ForcefieldInteractions();
-		
-		for (int pos1=0; pos1<confSpace.posFlex.size(); pos1++) {
-			Residue res1 = confSpace.posFlex.get(pos1).res;
-			res1 = matchResidue(res1, mol);
-			
-			// intra energy
-			interactions.addResidue(res1);
-			
-			// pair energies
-			for (int pos2=0; pos2<pos1; pos2++) {
-				Residue res2 = confSpace.posFlex.get(pos2).res;
-				res2 = matchResidue(res2, mol);
-				interactions.addResiduePair(res1, res2);
-			}
-			
-			// shell energies
-			for (Residue shellRes : shellResidues) {
-				shellRes = matchResidue(shellRes, mol);
-				interactions.addResiduePair(res1, shellRes);
-			}
-		}
-		
-		return makeGpuForcefield(interactions);
-	}
-	
-	private Residue matchResidue(Residue res, Molecule mol) {
-		if (mol == null) {
-			return res;
-		}
-		return mol.residues.get(res.indexInMolecule);
+		return makeGpuForcefield(intergen.makeFullConf(confSpace, shellResidues, mol));
 	}
 	
 	@Override
 	public GpuForcefieldEnergy fullMolecEnergy(Molecule mol) {
-		
-		ForcefieldInteractions interactions = new ForcefieldInteractions();
-		
-		for (Residue res1 : mol.residues) {
-			
-			// intra energy
-			interactions.addResidue(res1);
-			
-			// pair energies
-			for (Residue res2 : mol.residues) {
-				interactions.addResiduePair(res1, res2);
-			}
-		}
-		
-		return makeGpuForcefield(interactions);
-	}
-	
-	private void checkSingleWeight(double singleWeight) {
-		
-		// only single weight of 1 supported
-		if (singleWeight != 1) {
-			throw new UnsupportedOperationException("only all-on-pairs shell energy distribution supported in GPU forcefields so far");
-		}
+		return makeGpuForcefield(intergen.makeFullMol(mol));
 	}
 	
 	public void cleanup() {
 		if (openclQueues != null) {
 			openclQueues.cleanup();
+		}
+		if (cudaStreams != null) {
+			cudaStreams.cleanup();
 		}
 	}
 }

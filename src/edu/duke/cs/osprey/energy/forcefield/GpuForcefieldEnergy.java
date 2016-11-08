@@ -20,7 +20,7 @@ import edu.duke.cs.osprey.gpu.BufferTools;
 import edu.duke.cs.osprey.gpu.ForcefieldKernel;
 import edu.duke.cs.osprey.gpu.cuda.GpuStream;
 import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
-import edu.duke.cs.osprey.gpu.cuda.kernels.ForcefieldKernelOneBlockCuda;
+import edu.duke.cs.osprey.gpu.cuda.kernels.ForcefieldKernelCuda;
 import edu.duke.cs.osprey.gpu.opencl.GpuQueue;
 import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
 import edu.duke.cs.osprey.gpu.opencl.ProfilingEvents;
@@ -60,15 +60,12 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 					// prep the kernel, upload precomputed data
 					if (openclQueue != null) {
 						kernel = new ForcefieldKernelOpenCL(openclQueue);
-						kernel.setForcefield(new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct));
 					} else if (cudaStream != null) {
-						// TEMP
-						//kernel = new ForcefieldKernelCuda(cudaStream);
-						//kernel.setForcefield(new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct));
-						kernel = new ForcefieldKernelOneBlockCuda(cudaStream, new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct));
+						kernel = new ForcefieldKernelCuda(cudaStream);
 					} else {
 						throw new Error("bad gpu queue/context configuration, this is a bug");
 					}
+					kernel.setForcefield(new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct));
 					
 				} catch (IOException ex) {
 					

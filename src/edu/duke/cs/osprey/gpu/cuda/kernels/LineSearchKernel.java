@@ -10,10 +10,10 @@ import edu.duke.cs.osprey.gpu.cuda.CUBuffer;
 import edu.duke.cs.osprey.gpu.cuda.Kernel;
 import edu.duke.cs.osprey.structure.Residue;
 import jcuda.Pointer;
-import jcuda.driver.CUlimit;
-import jcuda.driver.JCudaDriver;
 
 public class LineSearchKernel extends Kernel {
+	
+	private Kernel.Function func;
 	
 	private CUBuffer<IntBuffer> dihedralIndices;
 	private CUBuffer<IntBuffer> rotatedIndices;
@@ -21,13 +21,11 @@ public class LineSearchKernel extends Kernel {
 	
 	private CUBuffer<DoubleBuffer> result;
 	
-	private Pointer pKernelArgs;
-	
 	private ForcefieldKernelCuda ffKernel;
 	
 	public LineSearchKernel(ForcefieldKernelCuda ffKernel, FreeDihedral dof)
 	throws IOException {
-		super(ffKernel.getStream(), "linesearch", "calc");
+		super(ffKernel.getStream(), "linesearch");
 		
 		this.ffKernel = ffKernel;
 		
@@ -54,8 +52,10 @@ public class LineSearchKernel extends Kernel {
 		// allocate the rest of the buffers
 		lsargs = getStream().makeDoubleBuffer(4);
 		result = getStream().makeDoubleBuffer(2);
-		
-		pKernelArgs = Pointer.to(
+	
+		// init the kernel function
+		func = makeFunction("calc");
+		func.setArgs(Pointer.to(
 			ffKernel.getCoords().makeDevicePointer(),
 			dihedralIndices.makeDevicePointer(),
 			Pointer.to(new int[] { rotatedIndicesSrc.size() }),
@@ -66,11 +66,7 @@ public class LineSearchKernel extends Kernel {
 			ffKernel.getArgs().makeDevicePointer(),
 			lsargs.makeDevicePointer(),
 			result.makeDevicePointer()
-		);
-		
-		// TEMP: try optimizing dynamic parallelism options
-		JCudaDriver.cuCtxSetLimit(CUlimit.CU_LIMIT_DEV_RUNTIME_SYNC_DEPTH, 1);
-		JCudaDriver.cuCtxSetLimit(CUlimit.CU_LIMIT_DEV_RUNTIME_PENDING_LAUNCH_COUNT, 1);
+		));
 	}
 	
 	public void runAsync(double xdmin, double xdmax, double xd, double step) {
@@ -84,7 +80,7 @@ public class LineSearchKernel extends Kernel {
 		lsargsBuf.put(step);
 		lsargs.uploadAsync();
 		
-		runAsync(1, 1, 0, pKernelArgs);
+		func.runAsync();
 	}
 	
 	public void cleanup() {

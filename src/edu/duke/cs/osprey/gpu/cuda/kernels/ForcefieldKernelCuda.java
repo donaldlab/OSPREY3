@@ -14,6 +14,8 @@ import jcuda.Pointer;
 
 public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 	
+	private Kernel.Function func;
+	
 	private CUBuffer<DoubleBuffer> coords;
 	private CUBuffer<IntBuffer> atomFlags;
 	private CUBuffer<DoubleBuffer> precomputed;
@@ -22,23 +24,18 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 	
 	private CUBuffer<ByteBuffer> args;
 	
-	private int blockThreads;
-	private int numBlocks;
-	private Pointer pKernelArgs;
-	
 	private BigForcefieldEnergy ffenergy;
 	private BigForcefieldEnergy.Subset subset;
 	
 	public ForcefieldKernelCuda(GpuStream stream)
 	throws IOException {
-		super(stream, "forcefield", "calc");
+		super(stream, "forcefield");
 		
-		// OPTIMIZATION: 128 is empirically fastest on my GeForce 560 Ti at home
-		// but we should experiment with the CS dept Teslas too
-		blockThreads = 512;
+		func = makeFunction("calc");
+		func.blockThreads = 512;
+		func.sharedMemBytes = func.blockThreads*Double.BYTES;
 		
 		// init defaults
-		numBlocks = 0;
 		ffenergy = null;
 		subset = null;
 	}
@@ -86,7 +83,7 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 		atomFlags = getStream().makeBuffer(ffenergy.getAtomFlags());
 		precomputed = getStream().makeBuffer(ffenergy.getPrecomputed());
 		subsetTable = getStream().makeIntBuffer(ffenergy.getFullSubset().getNumAtomPairs());
-		energies = getStream().makeDoubleBuffer(getEnergySize(ffenergy.getFullSubset(), blockThreads));
+		energies = getStream().makeDoubleBuffer(getEnergySize(ffenergy.getFullSubset(), func.blockThreads));
 		
 		// upload static info
 		atomFlags.uploadAsync();
@@ -112,14 +109,14 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 		subset = null;
 		setSubsetInternal(ffenergy.getFullSubset());
 		
-		pKernelArgs = Pointer.to(
+		func.setArgs(Pointer.to(
 			coords.makeDevicePointer(),
 			atomFlags.makeDevicePointer(),
 			precomputed.makeDevicePointer(),
 			subsetTable.makeDevicePointer(),
 			args.makeDevicePointer(),
 			energies.makeDevicePointer()
-		);
+		));
 	}
 	
 	@Override
@@ -142,7 +139,7 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 		
 		this.subset = subset;
 		
-		numBlocks = divUp(subset.getNumAtomPairs(), blockThreads);
+		func.numBlocks = divUp(subset.getNumAtomPairs(), func.blockThreads);
 		
 		// update kernel args and upload
 		ByteBuffer buf = args.getHostBuffer();
@@ -165,7 +162,7 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 	@Override
 	public void runAsync() {
 		checkInit();
-		runAsync(numBlocks, blockThreads, blockThreads*Double.BYTES, pKernelArgs);
+		func.runAsync();
 	}
 	
 	private static int getEnergySize(BigForcefieldEnergy.Subset subset, int blockThreads) {
@@ -212,7 +209,7 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 		// typically, it's a factor of groupSize less than the number of atom pairs
 		double energy = subset.getInternalSolvationEnergy();
 		buf.rewind();
-		int n = getEnergySize(subset, blockThreads);
+		int n = getEnergySize(subset, func.blockThreads);
 		for (int i=0; i<n; i++) {
 			energy += buf.get();
 		}

@@ -19,6 +19,8 @@ import jcuda.Pointer;
 
 public class SubForcefieldsKernelCuda extends Kernel {
 	
+	private Kernel.Function func;
+	
 	private CUBuffer<DoubleBuffer> dihedrals;
 	private CUBuffer<IntBuffer> dihedralIndices;
 	private CUBuffer<IntBuffer> rotatedIndices;
@@ -26,21 +28,18 @@ public class SubForcefieldsKernelCuda extends Kernel {
 	private CUBuffer<IntBuffer> subsetOffsets;
 	private CUBuffer<DoubleBuffer> energies;
 	
-	private int blockThreads;
-	private int numBlocks;
-	private Pointer pKernelArgs;
-	
 	private ForcefieldKernelCuda ffKernel;
 	
 	public SubForcefieldsKernelCuda(ForcefieldKernelCuda ffKernel, List<FreeDihedral> dofs)
 	throws IOException {
-		super(ffKernel.getStream(), "subForcefields", "calcEnergies");
+		super(ffKernel.getStream(), "subForcefields");
 		
 		this.ffKernel = ffKernel;
 		
 		// TODO: optimize block threads
-		blockThreads = 512;
-		numBlocks = 3*dofs.size();
+		func = makeFunction("calcEnergies");
+		func.blockThreads = 512;
+		func.numBlocks = 3*dofs.size();
 		
 		// get the max num rotated indices
 		int maxRotatedAtoms = 0;
@@ -74,12 +73,12 @@ public class SubForcefieldsKernelCuda extends Kernel {
 		}
 		
 		// allocate the buffers
-		dihedrals = getStream().makeDoubleBuffer(numBlocks);
+		dihedrals = getStream().makeDoubleBuffer(func.numBlocks);
 		dihedralIndices = getStream().makeIntBuffer(dofs.size()*4);
 		rotatedIndices = getStream().makeIntBuffer(1 + dofs.size()*(1 + maxRotatedAtoms));
 		subsets = getStream().makeIntBuffer(subsetsList.size()*(2 + maxSubsetSize));
-		subsetOffsets = getStream().makeIntBuffer(numBlocks);
-		energies = getStream().makeDoubleBuffer(numBlocks);
+		subsetOffsets = getStream().makeIntBuffer(func.numBlocks);
+		energies = getStream().makeDoubleBuffer(func.numBlocks);
 		
 		// make the dihedral and rotated indices
 		IntBuffer dihedralIndicesBuf = dihedralIndices.getHostBuffer();
@@ -129,7 +128,7 @@ public class SubForcefieldsKernelCuda extends Kernel {
 		// make the subset offsets
 		IntBuffer subsetMapBuf = subsetOffsets.getHostBuffer();
 		subsetMapBuf.rewind();
-		for (int i=0; i<numBlocks; i++) {
+		for (int i=0; i<func.numBlocks; i++) {
 			int subsetIndex = subsetIndexByDof.get(i/3);
 			subsetMapBuf.put(subsetIndex*(2 + maxSubsetSize));
 		}
@@ -139,8 +138,9 @@ public class SubForcefieldsKernelCuda extends Kernel {
 		rotatedIndices.uploadAsync();
 		subsets.uploadAsync();
 		subsetOffsets.uploadAsync();
-		
-		pKernelArgs = Pointer.to(
+	
+		// init the kernel function
+		func.setArgs(Pointer.to(
 			ffKernel.getCoords().makeDevicePointer(),
 			Pointer.to(new int[] { ffKernel.getCoords().getHostBuffer().capacity() }),
 			ffKernel.getAtomFlags().makeDevicePointer(),
@@ -152,7 +152,7 @@ public class SubForcefieldsKernelCuda extends Kernel {
 			subsets.makeDevicePointer(),
 			subsetOffsets.makeDevicePointer(),
 			energies.makeDevicePointer()
-		);
+		));
 	}
 	
 	public void calcEnergies(DoubleMatrix1D x, double delta) {
@@ -172,11 +172,11 @@ public class SubForcefieldsKernelCuda extends Kernel {
 		dihedrals.uploadAsync();
 		
 		// calc shared memory size
-		int sharedMemBytes = 0;
-		sharedMemBytes += blockThreads*Double.BYTES; // energy sum
-		sharedMemBytes += ffKernel.getCoords().getNumBytes(); // coords copy
+		func.sharedMemBytes = 0;
+		func.sharedMemBytes += func.blockThreads*Double.BYTES; // energy sum
+		func.sharedMemBytes += ffKernel.getCoords().getNumBytes(); // coords copy
 		
-		runAsync(numBlocks, blockThreads, sharedMemBytes, pKernelArgs);
+		func.runAsync();
 		
 		energies.downloadSync();
 		
