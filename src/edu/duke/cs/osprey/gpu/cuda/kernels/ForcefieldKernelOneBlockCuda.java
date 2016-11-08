@@ -7,11 +7,14 @@ import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
+import cern.colt.matrix.DoubleFactory1D;
+import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.gpu.cuda.CUBuffer;
 import edu.duke.cs.osprey.gpu.cuda.GpuStream;
 import edu.duke.cs.osprey.gpu.cuda.Kernel;
+import edu.duke.cs.osprey.minimization.ObjectiveFunction;
 import edu.duke.cs.osprey.structure.Residue;
 import jcuda.Pointer;
 
@@ -54,8 +57,33 @@ public class ForcefieldKernelOneBlockCuda extends Kernel {
 		}
 		
 		public void set(DoubleBuffer buf, double internalSolvationEnergy) {
-			dihedralRadians = buf.get(0);
-			energy = buf.get(1) + internalSolvationEnergy;
+			buf.rewind();
+			dihedralRadians = buf.get();
+			energy = buf.get() + internalSolvationEnergy;
+		}
+	}
+	
+	public static class CCDResult {
+		
+		public DoubleMatrix1D x;
+		public double energy;
+		
+		public CCDResult(int numDofs) {
+			x = DoubleFactory1D.dense.make(numDofs);
+			energy = 0;
+		}
+		
+		public CCDResult(CCDResult other) {
+			x.assign(other.x);
+			energy = other.energy;
+		}
+		
+		public void set(int numDofs, DoubleBuffer buf, double internalSolvationEnergy) {
+			buf.rewind();
+			energy = buf.get() + internalSolvationEnergy;
+			for (int d=0; d<numDofs; d++) {
+				x.set(d, buf.get());
+			}
 		}
 	}
 	
@@ -63,6 +91,7 @@ public class ForcefieldKernelOneBlockCuda extends Kernel {
 	private Kernel.Function funcDof;
 	private Kernel.Function funcPoseDof;
 	private Kernel.Function funcLinesearch;
+	private Kernel.Function funcCCD;
 	
 	private CUBuffer<DoubleBuffer> coords;
 	private CUBuffer<IntBuffer> atomFlags;
@@ -74,9 +103,13 @@ public class ForcefieldKernelOneBlockCuda extends Kernel {
 	private CUBuffer<IntBuffer> dihedralIndices;
 	private CUBuffer<IntBuffer> rotatedIndices;
 	
+	private CUBuffer<DoubleBuffer> xAndBounds;
+	
 	private CUBuffer<DoubleBuffer> energies;
 	private CUBuffer<DoubleBuffer> linesearchOut;
 	private LinesearchResult linesearchResult;
+	private CUBuffer<DoubleBuffer> ccdOut;
+	private CCDResult ccdResult;
 	
 	private List<DofInfo> dofInfos;
 	
@@ -96,6 +129,7 @@ public class ForcefieldKernelOneBlockCuda extends Kernel {
 		super(stream, "forcefieldOneBlock");
 		
 		// OPTIMIZATION: 1024 threads seems to work best on modern cards, including GTX 1070 and Tesla K80
+		// NOTE: 512 threads for the CCD kernel is pretty close to out of resources on my GTX 1070 though =(
 		blockThreads = 512;
 		
 		// TODO: make arg
@@ -149,7 +183,7 @@ public class ForcefieldKernelOneBlockCuda extends Kernel {
 		IntBuffer subsetTablesBuf = subsetTables.getHostBuffer();
 		subsetTablesBuf.clear();
 		
-		dofargs = stream.makeByteBuffer(dofs.size()*32);
+		dofargs = stream.makeByteBuffer(dofs.size()*40);
 		ByteBuffer dofargsBuf = dofargs.getHostBuffer();
 		dofargsBuf.clear();
 		
@@ -162,11 +196,14 @@ public class ForcefieldKernelOneBlockCuda extends Kernel {
 		rotatedIndicesBuf.clear();
 		
 		// populate dof buffers
+		int maxNumCoords = 0;
 		for (int d=0; d<dofs.size(); d++) {
 			DofInfo dofInfo = dofInfos.get(d);
 			
 			int firstCoord = dofInfo.atomOffset*3;
 			int lastCoord = (dofInfo.atomOffset + dofInfo.numAtoms)*3 - 1;
+			int numCoords = lastCoord - firstCoord + 1;
+			maxNumCoords = Math.max(maxNumCoords, numCoords);
 			
 			// update dofargs
 			dofargsBuf.putInt(subsetTablesBuf.position());
@@ -206,8 +243,11 @@ public class ForcefieldKernelOneBlockCuda extends Kernel {
 		xdmaxArg = new double[1];
 		stepArg = new double[1];
 		
+		xAndBounds = stream.makeDoubleBuffer(dofs.size()*3);
 		linesearchOut = stream.makeDoubleBuffer(2);
 		linesearchResult = new LinesearchResult();
+		ccdOut = stream.makeDoubleBuffer(dofs.size() + 1);
+		ccdResult = new CCDResult(dofs.size());
 		
 		// init the kernel functions
 		
@@ -269,6 +309,29 @@ public class ForcefieldKernelOneBlockCuda extends Kernel {
 			Pointer.to(stepArg),
 			linesearchOut.makeDevicePointer()
 		));
+		
+		// TODO: move this somewhere else?
+		final double InitialStep = Math.toRadians(0.25);
+		
+		funcCCD = makeFunction("ccd");
+		funcCCD.numBlocks = 1;
+		funcCCD.blockThreads = blockThreads;
+		funcCCD.sharedMemBytes = blockThreads*Double.BYTES + maxNumCoords*Double.BYTES + dofs.size()*Double.BYTES;
+		funcCCD.setArgs(Pointer.to(
+			coords.makeDevicePointer(),
+			atomFlags.makeDevicePointer(),
+			precomputed.makeDevicePointer(),
+			ffargs.makeDevicePointer(),
+			subsetTables.makeDevicePointer(),
+			dihedralIndices.makeDevicePointer(),
+			rotatedIndices.makeDevicePointer(),
+			dofargs.makeDevicePointer(),
+			Pointer.to(new int[] { maxNumCoords }),
+			xAndBounds.makeDevicePointer(),
+			Pointer.to(new int[] { dofs.size() }),
+			Pointer.to(new double[] { InitialStep }),
+			ccdOut.makeDevicePointer()
+		));
 	}
 	
 	public void uploadCoordsAsync() {
@@ -318,6 +381,25 @@ public class ForcefieldKernelOneBlockCuda extends Kernel {
 		return linesearchResult;
 	}
 	
+	public CCDResult ccdSync(DoubleMatrix1D x, ObjectiveFunction.DofBounds dofBounds) {
+		
+		// upload x and bounds
+		DoubleBuffer buf = xAndBounds.getHostBuffer();
+		buf.clear();
+		int numDofs = dofInfos.size();
+		for (int d=0; d<numDofs; d++) {
+			buf.put(Math.toRadians(x.get(d)));
+			buf.put(Math.toRadians(dofBounds.getMin(d)));
+			buf.put(Math.toRadians(dofBounds.getMax(d)));
+		}
+		xAndBounds.uploadAsync();
+		
+		// run ccd, wait for the result, and return it
+		funcCCD.runAsync();
+		ccdResult.set(numDofs, ccdOut.downloadSync(), ffenergy.getFullSubset().getInternalSolvationEnergy());
+		return ccdResult;
+	}
+	
 	public void cleanup() {
 		coords.cleanup();
 		atomFlags.cleanup();
@@ -327,8 +409,10 @@ public class ForcefieldKernelOneBlockCuda extends Kernel {
 		subsetTables.cleanup();
 		dihedralIndices.cleanup();
 		rotatedIndices.cleanup();
+		xAndBounds.cleanup();
 		energies.cleanup();
 		linesearchOut.cleanup();
+		ccdOut.cleanup();
 	}
 	
 	private int calcNumBlocks(int numPairs) {

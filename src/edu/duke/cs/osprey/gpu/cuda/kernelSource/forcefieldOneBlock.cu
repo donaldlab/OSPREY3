@@ -9,6 +9,12 @@ const double Tolerance = 1e-6;
 const double OneDegree = 0.017453293; // in radians
 
 
+// TEMP
+__device__ double toDegrees(double radians) {
+	return radians*180/M_PI;
+}
+
+
 typedef struct __align__(8) {
 	int numPairs;
 	int num14Pairs;
@@ -31,7 +37,7 @@ typedef struct __align__(8) {
 	int lastModifiedCoord;
 	// 4 bytes space
 } DofArgs;
-// sizeof = 32
+// sizeof = 40
 
 
 typedef struct {
@@ -389,6 +395,23 @@ __device__ void blockSum(const Partition &p, double threadEnergy, double *thread
 	}
 }
 
+__device__ double calcEnergy(const double *coords, const int *atomFlags, const double *precomputed, const ForcefieldArgs *ffargs, double *threadEnergies, const Partition &p) {
+
+	// add up the pairwise energies
+	double energy = 0;
+	for (int i = p.threadFirstPair; i < p.blockLastPair; i += p.threadStride) {
+		energy += calcPairEnergy(
+			coords, atomFlags, precomputed, ffargs,
+			i, i < ffargs->num14Pairs,
+			NULL, 0, 0
+		);
+	}
+	blockSum(p, energy, threadEnergies);
+	
+	return threadEnergies[0];
+}
+
+
 // NOTE: can't declare as pointer, must be array
 extern __shared__ unsigned char shared[];
 
@@ -408,16 +431,8 @@ extern "C" __global__ void calcEnergy(
 	// partition shared memory
 	double *threadEnergies = (double *)shared;
 	
-	// add up the pairwise energies
-	double energy = 0;
-	for (int i = p.threadFirstPair; i < p.blockLastPair; i += p.threadStride) {
-		energy += calcPairEnergy(
-			coords, atomFlags, precomputed, ffargs,
-			i, i < ffargs->num14Pairs,
-			NULL, 0, 0
-		);
-	}
-	blockSum(p, energy, threadEnergies);
+	// calculate the forcefield energy
+	calcEnergy(coords, atomFlags, precomputed, ffargs, threadEnergies, p);
 	
 	// finally, if we're the 0 thread, write the summed energy for this work group
 	if (p.threadId == 0) {
@@ -464,11 +479,22 @@ extern "C" __global__ void calcDofEnergy(
 	}
 }
 
-__device__ void copyCoords(const Partition &p, const DofArgs *dofdargs, const double *coords, double *modifiedCoords) {
+__device__ void copyCoordsGtoS(const Partition &p, const DofArgs *dofdargs, const double *coords, double *modifiedCoords) {
 
 	int numModifiedCoords = dofdargs->lastModifiedCoord - dofdargs->firstModifiedCoord + 1;
+	
 	for (int i = p.threadId; i < numModifiedCoords; i += p.blockThreads) {
 		modifiedCoords[i] = coords[dofdargs->firstModifiedCoord + i];
+	}
+	__syncthreads();
+}
+
+__device__ void copyCoordsStoG(const Partition &p, const DofArgs *dofdargs, double *coords, const double *modifiedCoords) {
+
+	int numModifiedCoords = dofdargs->lastModifiedCoord - dofdargs->firstModifiedCoord + 1;
+	
+	for (int i = p.threadId; i < numModifiedCoords; i += p.blockThreads) {
+		coords[dofdargs->firstModifiedCoord + i] = modifiedCoords[i];
 	}
 	__syncthreads();
 }
@@ -534,8 +560,8 @@ extern "C" __global__ void poseAndCalcDofEnergy(
 	// get our dof
 	const DofArgs *dofdargs = dofargs + d;
 	const int *subsetTable = subsetTables + dofdargs->subsetTableOffset;
-	const int *dihedralIndicesD = dihedralIndices + d;
-	const int *rotatedIndicesD = rotatedIndices + d;
+	const int *dihedralIndicesD = dihedralIndices + d*4;
+	const int *rotatedIndicesD = rotatedIndices + dofdargs->rotatedIndicesOffset;
 	
 	// partition work among blocks/threads
 	Partition p;
@@ -543,10 +569,10 @@ extern "C" __global__ void poseAndCalcDofEnergy(
 	
 	// partition shared memory
 	double *threadEnergies = (double *)shared;
-	double *modifiedCoords = (double *)(shared + p.numThreads*sizeof(double));
+	double *modifiedCoords = threadEnergies + p.numThreads;
 	
 	// copy the coords we need to modify to shared mem
-	copyCoords(p, dofdargs, coords, modifiedCoords);
+	copyCoordsGtoS(p, dofdargs, coords, modifiedCoords);
 	
 	// build the poseAndCalcDofEnergy() args
 	const DofPoseAndEnergyArgs args = {
@@ -577,48 +603,8 @@ typedef struct {
 	double fxdstar;
 } LinesearchOut;
 
-extern "C" __global__ void linesearch(
-	const double *coords,
-	const int *atomFlags,
-	const double *precomputed,
-	const ForcefieldArgs *ffargs,
-	const int *subsetTables,
-	const int *dihedralIndices,
-	const int *rotatedIndices,
-	const DofArgs *dofargs,
-	const int d,
-	const double xd,
-	const double xdmin,
-	const double xdmax,
-	const double step,
-	LinesearchOut *out
-) {
+__device__ LinesearchOut linesearch(const DofPoseAndEnergyArgs &args, const double xd, const double xdmin, const double xdmax, const double step) {
 
-	// get our dof
-	const DofArgs *dofdargs = dofargs + d;
-	const int *subsetTable = subsetTables + dofdargs->subsetTableOffset;
-	const int *dihedralIndicesD = dihedralIndices + d;
-	const int *rotatedIndicesD = rotatedIndices + d;
-	
-	// partition work among blocks/threads
-	Partition p;
-	makePartition(p, dofdargs->numPairs);
-	
-	// partition shared memory
-	double *threadEnergies = (double *)shared;
-	double *modifiedCoords = (double *)(shared + p.numThreads*sizeof(double));
-	
-	// copy the coords we need to modify to shared mem
-	copyCoords(p, dofdargs, coords, modifiedCoords);
-	
-	// build the poseAndCalcDofEnergy() args
-	const DofPoseAndEnergyArgs args = {
-		coords, atomFlags, precomputed, ffargs,
-		subsetTable, dihedralIndicesD, rotatedIndicesD, dofdargs,
-		&p,
-		modifiedCoords, threadEnergies
-	};
-	
 	// sample energy at the starting point
 	double fxd = poseAndCalcDofEnergy(args, xd);
 	
@@ -633,8 +619,8 @@ extern "C" __global__ void linesearch(
 	}
 	
 	// get the negative (n) neighbor
-	double fxdm = INFINITY;
 	double xdm = xd - step;
+	double fxdm = INFINITY;
 	if (xdm >= xdmin) {
 		fxdm = poseAndCalcDofEnergy(args, xdm);
 	}
@@ -814,9 +800,189 @@ extern "C" __global__ void linesearch(
 	// one last pose
 	pose(args, xdstar);
 	
+	// set outputs
+	LinesearchOut out = {xdstar, fxdstar};
+	return out;
+}
+
+extern "C" __global__ void linesearch(
+	const double *coords,
+	const int *atomFlags,
+	const double *precomputed,
+	const ForcefieldArgs *ffargs,
+	const int *subsetTables,
+	const int *dihedralIndices,
+	const int *rotatedIndices,
+	const DofArgs *dofargs,
+	const int d,
+	const double xd,
+	const double xdmin,
+	const double xdmax,
+	const double step,
+	LinesearchOut *out
+) {
+
+	// get our dof
+	const DofArgs *dofdargs = dofargs + d;
+	const int *subsetTable = subsetTables + dofdargs->subsetTableOffset;
+	const int *dihedralIndicesD = dihedralIndices + d*4;
+	const int *rotatedIndicesD = rotatedIndices + dofdargs->rotatedIndicesOffset;
+	
+	// partition work among blocks/threads
+	Partition p;
+	makePartition(p, dofdargs->numPairs);
+	
+	// partition shared memory
+	double *threadEnergies = (double *)shared;
+	double *modifiedCoords = threadEnergies + p.numThreads;
+	
+	// copy the coords we need to modify to shared mem
+	copyCoordsGtoS(p, dofdargs, coords, modifiedCoords);
+	
+	// build the poseAndCalcDofEnergy() args
+	const DofPoseAndEnergyArgs args = {
+		coords, atomFlags, precomputed, ffargs,
+		subsetTable, dihedralIndicesD, rotatedIndicesD, dofdargs,
+		&p,
+		modifiedCoords, threadEnergies
+	};
+	
+	LinesearchOut lsout = linesearch(args, xd, xdmin, xdmax, step);
+	
 	// finally, if we're the 0 thread, write out the results
 	if (p.threadId == 0) {
-		out->xdstar = xdstar;
-		out->fxdstar = fxdstar;
+		*out = lsout;
 	}
+}
+
+__device__ void copyx(const double *src, double *dest, int size) {
+	int threadId = threadIdx.x;
+	int stride = blockDim.x;
+	for (int i = threadId; i < size; i += stride) {
+		dest[i] = src[i];
+	}
+	__syncthreads();
+}
+
+typedef struct __align__(8) {
+	double xd;
+	double xdmin;
+	double xdmax;
+} XdAndBounds;
+// sizeof = 24
+
+extern "C" __global__ void ccd(
+	double *coords, // NOTE: this does get modified now
+	const int *atomFlags,
+	const double *precomputed,
+	const ForcefieldArgs *ffargs,
+	const int *subsetTables,
+	const int *dihedralIndices,
+	const int *rotatedIndices,
+	const DofArgs *dofargs,
+	const int maxNumModifiedCoords,
+	const XdAndBounds *xAndBounds,
+	const int numDofs,
+	const double initialStep,
+	double *out // size is numDofs + 1
+) {
+
+	// use same settings as CCDMinimizer on the java side
+	const int MaxIterations = 30;
+	const double ConvergenceThreshold = 0.001;
+
+	// partition work among blocks/threads
+	Partition p;
+	makePartition(p, ffargs->numPairs);
+	Partition pd;
+	
+	// partition shared memory
+	double *threadEnergies = (double *)shared;
+	double *modifiedCoords = threadEnergies + p.numThreads;
+	double *nextx = modifiedCoords + maxNumModifiedCoords;
+	
+	// partition out memory
+	double *outfx = out;
+	double *outx = out + 1; // size is numDofs
+	
+	// build the poseAndCalcDofEnergy() args
+	// at least, the parts that are independent of the dof
+	DofPoseAndEnergyArgs args = {
+		coords, atomFlags, precomputed, ffargs,
+		NULL, NULL, NULL, NULL,
+		&pd,
+		modifiedCoords, threadEnergies
+	};
+	
+	// make a copy of x (in parallel)
+	double *herex = outx;
+	for (int d=p.threadId; d<numDofs; d+=p.threadStride) {
+		herex[d] = xAndBounds[d].xd;
+	}
+	__syncthreads();
+	
+	// get the initial energy
+	double herefx = calcEnergy(coords, atomFlags, precomputed, ffargs, threadEnergies, p);
+	
+	copyx(herex, nextx, numDofs);
+	
+	for (int iter=0; iter<MaxIterations; iter++) {
+	
+		// TODO: step adjustment
+		double step = initialStep;
+	
+		// for each dimension...
+		for (int d=0; d<numDofs; d++) {
+		
+			// get the dof info
+			args.dofdargs = dofargs + d;
+			args.subsetTable = subsetTables + args.dofdargs->subsetTableOffset;
+			args.dihedralIndices = dihedralIndices + d*4;
+			args.rotatedIndices = rotatedIndices + args.dofdargs->rotatedIndicesOffset;
+			
+			// make the partition for this dof
+			makePartition(pd, args.dofdargs->numPairs);
+			
+			// copy the coords we need to modify to shared mem
+			copyCoordsGtoS(pd, args.dofdargs, coords, modifiedCoords);
+			
+			// do line search
+			LinesearchOut lsout = linesearch(
+				args,
+				nextx[d],
+				xAndBounds[d].xdmin,
+				xAndBounds[d].xdmax,
+				step
+			);
+			
+			// update x and the global protein pose
+			if (p.threadId == 0) {
+				nextx[d] = lsout.xdstar;
+			}
+			__syncthreads();
+			
+			copyCoordsStoG(pd, args.dofdargs, coords, modifiedCoords);
+		}
+		
+		// evaluate the whole energy function
+		double nextfx = calcEnergy(coords, atomFlags, precomputed, ffargs, threadEnergies, p);
+		double improvement = herefx - nextfx;
+		
+		if (improvement > 0) {
+		
+			// take the step
+			copyx(nextx, herex, numDofs);
+			herefx = nextfx;
+			
+			if (improvement < ConvergenceThreshold) {
+				break;
+			}
+			
+		} else {
+			break;
+		}
+	}
+	
+	// update outputs
+	*outfx = herefx;
 }

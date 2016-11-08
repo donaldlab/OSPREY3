@@ -2,12 +2,10 @@ package edu.duke.cs.osprey.minimization;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.tools.Factory;
-import edu.duke.cs.osprey.tools.Profiler;
 
 public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup {
 	
@@ -54,11 +52,13 @@ public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup {
 		
 		// init x to the center of the bounds
 		int n = f.getNumDOFs();
-		DoubleMatrix1D x = DoubleFactory1D.dense.make(n);
+		DoubleMatrix1D herex = DoubleFactory1D.dense.make(n);
 		for (int d=0; d<n; d++) {
 			ObjectiveFunction.OneDof dof = dofs.get(d);
-			x.set(d, (dof.getXMin() + dof.getXMax())/2);
+			herex.set(d, (dof.getXMin() + dof.getXMax())/2);
 		}
+		
+		DoubleMatrix1D nextx = herex.copy();
 		
 		// ccd is pretty simple actually
 		// just do a line search along each dimension until we stop improving
@@ -69,7 +69,7 @@ public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup {
         //profiler.resume("energy");
         
 		// get the current objective function value
-		double curf = f.getValue(x);
+		double herefx = f.getValue(herex);
 		
 		// TEMP
 		//profiler.stop();
@@ -86,43 +86,44 @@ public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup {
 				if (lineSearcher != null) {
 					
 					// get the next x value for this dof
-					double xd = x.get(d);
+					double xd = nextx.get(d);
 					xd = lineSearcher.search(xd);
-					x.set(d, xd);
+					nextx.set(d, xd);
 				}
 			}
 			
 			// TEMP
 			//profiler.resume("energy");
 			
-			// did we improve enough to keep going?
-			double nextf = f.getValue(x);
+			// how much did we improve?
+			double nextfx = f.getValue(nextx);
+			double improvement = herefx - nextfx;
 			
 			// TEMP
 			//profiler.stop();
 			
 			// TEMP
-			//System.out.println(String.format("iter %3d   energy %12.6f   improvement %12.6f", iter, nextf, curf - nextf));
+			//System.out.println(String.format("iter %3d   energy %12.6f   improvement %12.6f", iter, nextf, improvement));
 			
-			if (curf - nextf < ConvergenceThreshold) {
+			if (improvement > 0) {
 				
-				// TODO BUG: make sure we send back the x with the lowest energy
-				// eg, when nextf > curf
+				// take the step
+				herex.assign(nextx);
+				herefx = nextfx;
 				
-				// nope, we're done
-				break;
+				if (improvement < ConvergenceThreshold) {
+					break;
+				}
 				
 			} else {
-				
-				// yeah, keep going
-				curf = nextf;
+				break;
 			}
 		}
 		
         // TEMP
 		//System.out.println(profiler.makeReport(TimeUnit.MILLISECONDS));
 		
-		return x;
+		return herex;
 	}
 	
 	@Override
