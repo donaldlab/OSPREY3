@@ -5,6 +5,10 @@
 #include <stdio.h>
 
 
+const double Tolerance = 1e-6;
+const double OneDegree = 0.017453293; // in radians
+
+
 typedef struct __align__(8) {
 	int numPairs;
 	int num14Pairs;
@@ -483,10 +487,15 @@ typedef struct {
 	double *threadEnergies;
 } DofPoseAndEnergyArgs;
 
-__device__ void poseAndCalcDofEnergy(const DofPoseAndEnergyArgs &args, double dihedralRadians) {
+
+__device__ void pose(const DofPoseAndEnergyArgs &args, double dihedralRadians) {
+	pose(args.modifiedCoords, args.dihedralIndices, args.dofdargs->numRotatedIndices, args.rotatedIndices, dihedralRadians);
+}
+
+__device__ double poseAndCalcDofEnergy(const DofPoseAndEnergyArgs &args, double dihedralRadians) {
 	
 	// pose the coords
-	pose(args.modifiedCoords, args.dihedralIndices, args.dofdargs->numRotatedIndices, args.rotatedIndices, dihedralRadians);
+	pose(args, dihedralRadians);
 	
 	int firstI = args.partition->threadFirstPair;
 	int endI = args.partition->blockLastPair;
@@ -504,6 +513,8 @@ __device__ void poseAndCalcDofEnergy(const DofPoseAndEnergyArgs &args, double di
 	}
 	
 	blockSum(*args.partition, energy, args.threadEnergies);
+	
+	return args.threadEnergies[0];
 }
 
 extern "C" __global__ void poseAndCalcDofEnergy(
@@ -546,11 +557,266 @@ extern "C" __global__ void poseAndCalcDofEnergy(
 	};
 	
 	// reduce all the magic to a single function call
-	poseAndCalcDofEnergy(args, dihedralRadians);
+	double energy = poseAndCalcDofEnergy(args, dihedralRadians);
 	
 	// finally, if we're the 0 thread, write the summed energy for this work group
 	if (p.threadId == 0) {
-		out[p.blockId] = threadEnergies[0];
+		out[p.blockId] = energy;
 	}
 }
 
+__device__ double getTolerance(double f) {
+	
+	// use full tolerance, unless f is very small
+	// then scale by the magnitude of f
+	return Tolerance * fmax(1.0, fabs(f));
+}
+
+typedef struct {
+	double xdstar;
+	double fxdstar;
+} LinesearchOut;
+
+extern "C" __global__ void linesearch(
+	const double *coords,
+	const int *atomFlags,
+	const double *precomputed,
+	const ForcefieldArgs *ffargs,
+	const int *subsetTables,
+	const int *dihedralIndices,
+	const int *rotatedIndices,
+	const DofArgs *dofargs,
+	const int d,
+	const double xd,
+	const double xdmin,
+	const double xdmax,
+	const double step,
+	LinesearchOut *out
+) {
+
+	// get our dof
+	const DofArgs *dofdargs = dofargs + d;
+	const int *subsetTable = subsetTables + dofdargs->subsetTableOffset;
+	const int *dihedralIndicesD = dihedralIndices + d;
+	const int *rotatedIndicesD = rotatedIndices + d;
+	
+	// partition work among blocks/threads
+	Partition p;
+	makePartition(p, dofdargs->numPairs);
+	
+	// partition shared memory
+	double *threadEnergies = (double *)shared;
+	double *modifiedCoords = (double *)(shared + p.numThreads*sizeof(double));
+	
+	// copy the coords we need to modify to shared mem
+	copyCoords(p, dofdargs, coords, modifiedCoords);
+	
+	// build the poseAndCalcDofEnergy() args
+	const DofPoseAndEnergyArgs args = {
+		coords, atomFlags, precomputed, ffargs,
+		subsetTable, dihedralIndicesD, rotatedIndicesD, dofdargs,
+		&p,
+		modifiedCoords, threadEnergies
+	};
+	
+	// sample energy at the starting point
+	double fxd = poseAndCalcDofEnergy(args, xd);
+	
+	double fxdmin = NAN;
+	double fxdmax = NAN;
+	
+	// get the positive (p) neighbor
+	double xdp = xd + step;
+	double fxdp = INFINITY;
+	if (xdp <= xdmax) {
+		fxdp = poseAndCalcDofEnergy(args, xdp);
+	}
+	
+	// get the negative (n) neighbor
+	double fxdm = INFINITY;
+	double xdm = xd - step;
+	if (xdm >= xdmin) {
+		fxdm = poseAndCalcDofEnergy(args, xdm);
+	}
+	
+	// fit a quadratic to the objective function, locally:
+	// q(x) = fx + a*(x - xd)^2 + b*(x - xd)
+	// a*step^2 + b*step = fxp - fx
+	// a*step^2 - b*step = fxm - fx
+	
+	// solve for a to determine the shape
+	double a = (fxdp + fxdm - 2*fxd)/(2*step*step);
+	double xdstar = 0;
+	if (a <= 0 || a == NAN || a == INFINITY) {
+		
+		// negative a means quadratic is concave down, I think
+		// infinite or nan a means we're hitting a constraint or impossible conformation
+		// so just minimize over the endpoints of the interval
+		if (fxdm < fxdp) {
+			xdstar = xdm;
+		} else {
+			xdstar = xdp;
+		}
+		
+	} else {
+		
+		// positive a means quadratic is concave up, I think
+		// solve for the b param
+		double b = (fxdp - fxd)/step - a*step;
+		
+		// then minimize the quadratic to get the minimum x:
+		// 2*a*(x - xd) + b = 0
+		xdstar = xd - b/2/a;
+	}
+
+	// clamp xdstar to the range
+	if (xdstar < xdmin) {
+		xdstar = xdmin;
+	}
+	if (xdstar > xdmax) {
+		xdstar = xdmax;
+	}
+	
+	double fxdstar = poseAndCalcDofEnergy(args, xdstar);
+	
+	// did we go downhill?
+	if (fxdstar < fxd) {
+		
+		// surf along f locally to try to find better minimum
+		double xdsurfHere = xdstar;
+		double fxdsurfHere = fxdstar;
+		while (true) {
+		
+			// take a step twice as far as we did last time
+			double xdsurfNext = xd + 2*(xdsurfHere - xd);
+			
+			// did we step off the min?
+			if (xdsurfNext < xdmin) {
+				
+				// if the min is better, go there instead
+				if (isnan(fxdmin)) {
+					fxdmin = poseAndCalcDofEnergy(args, xdmin);
+				}
+				if (fxdmin < fxdstar) {
+					xdsurfHere = xdmin;
+					fxdsurfHere = fxdmin;
+				}
+				
+				break;
+			
+			// did we step off the max?
+			} else if (xdsurfNext > xdmax) {
+				
+				// if the max is better, go there instead
+				if (isnan(fxdmax)) {
+					fxdmax = poseAndCalcDofEnergy(args, xdmax);
+				}
+				if (fxdmax < fxdstar) {
+					xdsurfHere = xdmax;
+					fxdsurfHere = fxdmax;
+				}
+				
+				break;
+			}
+			
+			double fxdsurfNext = poseAndCalcDofEnergy(args, xdsurfNext);
+			
+			// did we improve the min enough to keep surfing?
+			if (fxdsurfNext < fxdsurfHere - getTolerance(fxdsurfHere)) {
+			
+				// yeah, keep going
+				xdsurfHere = xdsurfNext;
+				fxdsurfHere = fxdsurfNext;
+				
+			} else {
+				
+				// nope, stop surfing
+				break;
+			}
+		}
+		
+		// update the minimum estimate so far
+		xdstar = xdsurfHere;
+		fxdstar = fxdsurfHere;
+		
+	// did we go significantly uphill?
+	} else if (fxdstar > fxd + Tolerance) {
+		
+		// try to surf back downhill
+		double xdsurfHere = xdstar;
+		double fxdsurfHere = fxdstar;
+		while (true) {
+		
+			// cut the step in half
+			double xdsurfNext = xd + (xdsurfHere - xd)/2;
+			double fxdsurfNext = poseAndCalcDofEnergy(args, xdsurfNext);
+			
+			// did we improve the min enough to keep surfing?
+			if (fxdsurfNext < fxdsurfHere - getTolerance(fxdsurfHere)) {
+			
+				// yeah, keep going
+				xdsurfHere = xdsurfNext;
+				fxdsurfHere = fxdsurfNext;
+				
+			} else {
+				
+				// nope, stop surfing
+				break;
+			}
+		}
+		
+		// did the quadratic step help at all?
+		if (fxdstar < fxd) {
+			
+			// yeah, keep it!
+			
+		} else {
+			
+			// nope, the original spot was lower
+			xdstar = xd;
+			fxdstar = fxd;
+		}
+		
+		// did surfing help at all?
+		if (fxdsurfHere < fxdstar) {
+			
+			// yeah, use the surf spot
+			xdstar = xdsurfHere;
+			fxdstar = fxdsurfHere;
+		}
+	}
+	
+	// try to jump over walls arbitrarily
+	// look in a 1-degree step for a better minimum
+	
+	// NOTE: skipping this can make minimization a bit faster,
+	// but skipping this causes a noticeable rise in final energies too
+	// it's best to keep doing it I think
+	
+	xdm = xdstar - OneDegree;
+	if (xdm >= xdmin) {
+		fxdm = poseAndCalcDofEnergy(args, xdm);
+		if (fxdm < fxdstar) {
+			xdstar = xdm;
+			fxdstar = fxdm;
+		}
+	}
+	
+	xdp = xdstar + OneDegree;
+	if (xdp <= xdmax) {
+		fxdp = poseAndCalcDofEnergy(args, xdp);
+		if (fxdp < fxdstar) {
+			xdstar = xdp;
+			fxdstar = fxdp;
+		}
+	}
+	
+	// one last pose
+	pose(args, xdstar);
+	
+	// finally, if we're the 0 thread, write out the results
+	if (p.threadId == 0) {
+		out->xdstar = xdstar;
+		out->fxdstar = fxdstar;
+	}
+}

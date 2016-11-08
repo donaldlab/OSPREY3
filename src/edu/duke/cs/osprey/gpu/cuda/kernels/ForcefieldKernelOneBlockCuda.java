@@ -38,9 +38,31 @@ public class ForcefieldKernelOneBlockCuda extends Kernel {
 		}
 	}
 	
+	public static class LinesearchResult {
+		
+		public double dihedralRadians;
+		public double energy;
+		
+		public LinesearchResult() {
+			dihedralRadians = 0;
+			energy = 0;
+		}
+		
+		public LinesearchResult(LinesearchResult other) {
+			this.dihedralRadians = other.dihedralRadians;
+			this.energy = other.energy;
+		}
+		
+		public void set(DoubleBuffer buf, double internalSolvationEnergy) {
+			dihedralRadians = buf.get(0);
+			energy = buf.get(1) + internalSolvationEnergy;
+		}
+	}
+	
 	private Kernel.Function funcFull;
 	private Kernel.Function funcDof;
 	private Kernel.Function funcPoseDof;
+	private Kernel.Function funcLinesearch;
 	
 	private CUBuffer<DoubleBuffer> coords;
 	private CUBuffer<IntBuffer> atomFlags;
@@ -53,11 +75,16 @@ public class ForcefieldKernelOneBlockCuda extends Kernel {
 	private CUBuffer<IntBuffer> rotatedIndices;
 	
 	private CUBuffer<DoubleBuffer> energies;
+	private CUBuffer<DoubleBuffer> linesearchOut;
+	private LinesearchResult linesearchResult;
 	
 	private List<DofInfo> dofInfos;
 	
 	private int[] dofArg;
-	private double[] dihedralArg;
+	private double[] xdArg;
+	private double[] xdminArg;
+	private double[] xdmaxArg;
+	private double[] stepArg;
 	
 	private int blockThreads;
 	private int maxNumBlocks;
@@ -134,7 +161,7 @@ public class ForcefieldKernelOneBlockCuda extends Kernel {
 		IntBuffer rotatedIndicesBuf = rotatedIndices.getHostBuffer();
 		rotatedIndicesBuf.clear();
 		
-		// second pass: populate buffers
+		// populate dof buffers
 		for (int d=0; d<dofs.size(); d++) {
 			DofInfo dofInfo = dofInfos.get(d);
 			
@@ -172,10 +199,17 @@ public class ForcefieldKernelOneBlockCuda extends Kernel {
 		dihedralIndices.uploadAsync();
 		rotatedIndices.uploadAsync();
 		
-		// init the kernel functions
-		
+		// init other kernel function inputs,outputs
 		dofArg = new int[1];
-		dihedralArg = new double[1];
+		xdArg = new double[1];
+		xdminArg = new double[1];
+		xdmaxArg = new double[1];
+		stepArg = new double[1];
+		
+		linesearchOut = stream.makeDoubleBuffer(2);
+		linesearchResult = new LinesearchResult();
+		
+		// init the kernel functions
 		
 		funcFull = makeFunction("calcEnergy");
 		funcFull.numBlocks = calcNumBlocks(allPairs);
@@ -212,8 +246,28 @@ public class ForcefieldKernelOneBlockCuda extends Kernel {
 			rotatedIndices.makeDevicePointer(),
 			dofargs.makeDevicePointer(),
 			Pointer.to(dofArg),
-			Pointer.to(dihedralArg),
+			Pointer.to(xdArg),
 			energies.makeDevicePointer()
+		));
+		
+		funcLinesearch = makeFunction("linesearch");
+		funcLinesearch.numBlocks = 1;
+		funcLinesearch.blockThreads = blockThreads;
+		funcLinesearch.setArgs(Pointer.to(
+			coords.makeDevicePointer(),
+			atomFlags.makeDevicePointer(),
+			precomputed.makeDevicePointer(),
+			ffargs.makeDevicePointer(),
+			subsetTables.makeDevicePointer(),
+			dihedralIndices.makeDevicePointer(),
+			rotatedIndices.makeDevicePointer(),
+			dofargs.makeDevicePointer(),
+			Pointer.to(dofArg),
+			Pointer.to(xdArg),
+			Pointer.to(xdminArg),
+			Pointer.to(xdmaxArg),
+			Pointer.to(stepArg),
+			linesearchOut.makeDevicePointer()
 		));
 	}
 	
@@ -240,15 +294,28 @@ public class ForcefieldKernelOneBlockCuda extends Kernel {
 		return downloadEnergySync(funcDof.numBlocks) + dofInfo.subset.getInternalSolvationEnergy();
 	}
 	
-	public double poseAndCalcEnergyDofSync(int d, double dihedralRadians) {
+	public double poseAndCalcEnergyDofSync(int d, double xdRadians) {
 		DofInfo dofInfo = dofInfos.get(d);
 		funcPoseDof.numBlocks = calcNumBlocks(dofInfo.subset.getNumAtomPairs());
 		funcPoseDof.blockThreads = blockThreads;
 		funcPoseDof.sharedMemBytes = blockThreads*Double.BYTES + dofInfo.numAtoms*3*Double.BYTES;
 		dofArg[0] = d;
-		dihedralArg[0] = dihedralRadians;
+		xdArg[0] = xdRadians;
 		funcPoseDof.runAsync();
 		return downloadEnergySync(funcPoseDof.numBlocks) + dofInfo.subset.getInternalSolvationEnergy();
+	}
+	
+	public LinesearchResult linesearchSync(int d, double xdRadians, double xdminRadians, double xdmaxRadians, double stepRadians) {
+		DofInfo dofInfo = dofInfos.get(d);
+		funcLinesearch.sharedMemBytes = blockThreads*Double.BYTES + dofInfo.numAtoms*3*Double.BYTES;
+		dofArg[0] = d;
+		xdArg[0] = xdRadians;
+		xdminArg[0] = xdminRadians;
+		xdmaxArg[0] = xdmaxRadians;
+		stepArg[0] = stepRadians;
+		funcLinesearch.runAsync();
+		linesearchResult.set(linesearchOut.downloadSync(), dofInfo.subset.getInternalSolvationEnergy());
+		return linesearchResult;
 	}
 	
 	public void cleanup() {
@@ -261,6 +328,7 @@ public class ForcefieldKernelOneBlockCuda extends Kernel {
 		dihedralIndices.cleanup();
 		rotatedIndices.cleanup();
 		energies.cleanup();
+		linesearchOut.cleanup();
 	}
 	
 	private int calcNumBlocks(int numPairs) {

@@ -19,6 +19,10 @@ public abstract class TimingThread extends Thread {
 		doneSignal = new Signal();
 	}
 	
+	protected void init() throws Exception {
+		// nothing to do by default
+	}
+	
 	protected abstract void warmup();
 	protected abstract void time();
 	
@@ -28,6 +32,11 @@ public abstract class TimingThread extends Thread {
 	
 	@Override
 	public void run() {
+		try {
+			init();
+		} catch (Exception ex) {
+			throw new Error(ex);
+		}
 		warmup();
 		warmupSignal.sendSignal();
 		goSignal.waitForSignal();

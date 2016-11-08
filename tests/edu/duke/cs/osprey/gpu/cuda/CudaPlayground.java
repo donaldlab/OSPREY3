@@ -40,11 +40,11 @@ import edu.duke.cs.osprey.gpu.BufferTools;
 import edu.duke.cs.osprey.gpu.cuda.kernels.ForcefieldKernelCuda;
 import edu.duke.cs.osprey.gpu.cuda.kernels.ForcefieldKernelOneBlockCuda;
 import edu.duke.cs.osprey.gpu.cuda.kernels.SubForcefieldsKernelCuda;
-import edu.duke.cs.osprey.minimization.CudaSurfingLineSearcher;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction;
 import edu.duke.cs.osprey.minimization.SurfingLineSearcher;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
+import edu.duke.cs.osprey.parallelism.TimingThread;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Stopwatch;
@@ -63,10 +63,9 @@ public class CudaPlayground extends TestBase {
 		// info on dynamic parallelism:
 		// http://docs.nvidia.com/cuda/cuda-c-programming-guide/#cuda-dynamic-parallelism
 		
-		//dynamicParallelism();
-		//linesearch();
 		//subForcefields();
-		forcefield();
+		//forcefield();
+		linesearch();
 	}
 	
 	private static SearchProblem makeSearch()
@@ -134,33 +133,38 @@ public class CudaPlayground extends TestBase {
 		RCTuple tuple = getConf(search, 0);
 		ForcefieldParams ffparams = EnvironmentVars.curEFcnGenerator.ffParams;
 		
-		int d = 0;
+		final int NumRuns = 1000;
+		final int d = 0;
 		
 		// init cpu side
 		ParameterizedMoleculeCopy cpuMol = new ParameterizedMoleculeCopy(search.confSpace);
 		EnergyFunction cpuEfunc = EnvironmentVars.curEFcnGenerator.fullConfEnergy(search.confSpace, search.shellResidues, cpuMol.getCopiedMolecule());
 		MoleculeModifierAndScorer cpuMof = new MoleculeModifierAndScorer(cpuEfunc, search.confSpace, tuple, cpuMol);
-		ObjectiveFunction.OneDof cpuFd = new ObjectiveFunction.OneDof(cpuMof, d);
 		
-		final int NumRuns = 1000;
-		double xd = (cpuFd.getXMin() + cpuFd.getXMax())/2;
-		double xdstar = 0;
+		DoubleMatrix1D x = DoubleFactory1D.dense.make(cpuMof.getNumDOFs());
+		ObjectiveFunction.DofBounds dofBounds = new ObjectiveFunction.DofBounds(cpuMof.getConstraints());
+		dofBounds.getCenter(x);
 		
-		// benchmark cpu side
-		System.out.println("benchmarking cpu...");
 		SurfingLineSearcher cpuLineSearcher = new SurfingLineSearcher();
+		ObjectiveFunction.OneDof cpuFd = new ObjectiveFunction.OneDof(cpuMof, d);
 		cpuLineSearcher.init(cpuFd);
+		
+		// restore coords
+		cpuMof.setDOFs(x);
+		
+		double cpuXdstar = cpuLineSearcher.search(x.get(d));
+		double cpuFxdstar = cpuFd.getValue(cpuXdstar);
+		
+		// benchmark cpu side: ~0.35k ops
+		System.out.println("\nbenchmarking cpu...");
 		Stopwatch cpuStopwatch = new Stopwatch().start();
 		for (int i=0; i<NumRuns; i++) {
-			xdstar = cpuLineSearcher.search(xd);
+			cpuLineSearcher.search(x.get(d));
 		}
-		System.out.println(String.format("finished in %8s, ops: %5.0f",
+		System.out.println(String.format("finished in %8s, ops: %5.0f\n",
 			cpuStopwatch.stop().getTime(TimeUnit.MILLISECONDS),
 			NumRuns/cpuStopwatch.getTimeS()
 		));
-		
-		double cpuXdstar = xdstar;
-		
 		
 		/* TEMP
 		// init opencl side
@@ -211,42 +215,144 @@ public class CudaPlayground extends TestBase {
 		MoleculeModifierAndScorer cudaMof = new MoleculeModifierAndScorer(cudaEfunc, search.confSpace, tuple, cudaMol);
 		ObjectiveFunction.OneDof cudaFd = new ObjectiveFunction.OneDof(cudaMof, d);
 		
-		System.out.println("Num atom pairs: " + cudaEfunc.getSubset().getNumAtomPairs());
-		
-		// benchmark cuda side
-		System.out.println("benchmarking cuda original...");
 		SurfingLineSearcher cudaOriginalLineSearcher = new SurfingLineSearcher();
 		cudaOriginalLineSearcher.init(cudaFd);
+		
+		// restore coords
+		cudaMof.setDOFs(x);
+		
+		// check accuracy
+		double xdstar = cudaOriginalLineSearcher.search(x.get(d));
+		checkEnergy(cpuXdstar, xdstar);
+		checkEnergy(cpuFxdstar, cudaFd.getValue(xdstar));
+		
+		// benchmark cuda side: ~2.4k ops
+		System.out.println("\nbenchmarking cuda original...");
 		Stopwatch cudaOriginalStopwatch = new Stopwatch().start();
 		for (int i=0; i<NumRuns; i++) {
-			xdstar = cudaOriginalLineSearcher.search(xd);
+			cudaOriginalLineSearcher.search(x.get(d));
 		}
-		System.out.println(String.format("finished in %8s, ops: %5.0f, speedup over cpu: %.1fx, dxd*: %.6f",
+		System.out.println(String.format("finished in %8s, ops: %5.0f, speedup over cpu: %.1fx\n",
 			cudaOriginalStopwatch.stop().getTime(TimeUnit.MILLISECONDS),
 			NumRuns/cudaOriginalStopwatch.getTimeS(),
-			(float)cpuStopwatch.getTimeNs()/cudaOriginalStopwatch.getTimeNs(),
-			xdstar - cpuXdstar
-		));
-		
-		// benchmark cuda side
-		System.out.println("benchmarking cuda pipelined...");
-		CudaSurfingLineSearcher cudaPipelinedLineSearcher = new CudaSurfingLineSearcher();
-		cudaPipelinedLineSearcher.init(cudaFd);
-		Stopwatch cudaPipelinedStopwatch = new Stopwatch().start();
-		for (int i=0; i<NumRuns; i++) {
-			xdstar = cudaPipelinedLineSearcher.search(xd);
-		}
-		System.out.println(String.format("finished in %8s, ops: %5.0f, speedup over cpu: %.1fx, dxd*: %.6f",
-			cudaPipelinedStopwatch.stop().getTime(TimeUnit.MILLISECONDS),
-			NumRuns/cudaPipelinedStopwatch.getTimeS(),
-			(float)cpuStopwatch.getTimeNs()/cudaPipelinedStopwatch.getTimeNs(),
-			xdstar - cpuXdstar
+			(float)cpuStopwatch.getTimeNs()/cudaOriginalStopwatch.getTimeNs()
 		));
 		
 		// cleanup
 		cudaMof.cleanup();
 		cudaEfunc.cleanup();
 		cudaEgen.cleanup();
+		
+		// collects the dofs
+		List<FreeDihedral> dofs = new ArrayList<>();
+		for (DegreeOfFreedom dof : cudaMof.getDOFs()) {
+			dofs.add((FreeDihedral)dof);
+		}
+		
+		// make the kernel directly
+		GpuStreamPool cudaPool = new GpuStreamPool(1);
+		GpuStream stream = cudaPool.checkout();
+		ForcefieldInteractionsGenerator intergen = new ForcefieldInteractionsGenerator();
+		ForcefieldInteractions interactions = intergen.makeFullConf(search.confSpace, search.shellResidues, cudaMol.getCopiedMolecule());
+		BigForcefieldEnergy bigff = new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct);
+		ForcefieldKernelOneBlockCuda ffkernel = new ForcefieldKernelOneBlockCuda(stream, bigff, dofs);
+		
+		// restore coords
+		cudaMof.setDOFs(x);
+		ffkernel.uploadCoordsAsync();
+		
+		double xdRadians = Math.toRadians(x.get(d));
+		double xdminRadians = Math.toRadians(dofBounds.getMin(d));
+		double xdmaxRadians = Math.toRadians(dofBounds.getMax(d));
+		double stepRadians = Math.toRadians(0.25);
+		
+		// check accuracy
+		ForcefieldKernelOneBlockCuda.LinesearchResult linesearchResult = ffkernel.linesearchSync(d, xdRadians, xdminRadians, xdmaxRadians, stepRadians);
+		checkEnergy(cpuXdstar, Math.toDegrees(linesearchResult.dihedralRadians));
+		checkEnergy(cpuFxdstar, linesearchResult.energy);
+		
+		// benchmark: ~1.1k ops
+		System.out.println("\nbenchmarking cuda one-block...");
+		Stopwatch cudaOneBlockStopwatch = new Stopwatch().start();
+		for (int i=0; i<NumRuns; i++) {
+			ffkernel.linesearchSync(d, xdRadians, xdminRadians, xdmaxRadians, stepRadians);	
+		}
+		System.out.println(String.format("finished in %8s, ops: %5.0f, speedup over cpu: %.1fx, speedup over original: %.1fx\n",
+			cudaOneBlockStopwatch.stop().getTime(TimeUnit.MILLISECONDS),
+			NumRuns/cudaOneBlockStopwatch.getTimeS(),
+			(float)cpuStopwatch.getTimeNs()/cudaOneBlockStopwatch.getTimeNs(),
+			(float)cudaOriginalStopwatch.getTimeNs()/cudaOneBlockStopwatch.getTimeNs()
+		));
+		
+		// cleanup
+		cudaPool.release(stream);
+		ffkernel.cleanup();
+		cudaPool.cleanup();
+		
+		class StreamThread extends TimingThread {
+			
+			private GpuStreamPool streams;
+			private GpuStream stream;
+			private ForcefieldKernelOneBlockCuda ffkernel;
+			
+			public StreamThread(int i, GpuStreamPool streams) {
+				super("stream-" + i);
+				this.streams = streams;
+			}
+			
+			@Override
+			protected void init()
+			throws Exception {
+				stream = streams.checkout();
+				ForcefieldInteractionsGenerator intergen = new ForcefieldInteractionsGenerator();
+				ForcefieldInteractions interactions = intergen.makeFullConf(search.confSpace, search.shellResidues, cudaMol.getCopiedMolecule());
+				BigForcefieldEnergy bigff = new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct);
+				ffkernel = new ForcefieldKernelOneBlockCuda(stream, bigff, dofs);
+			}
+
+			@Override
+			protected void warmup() {
+				for (int i=0; i<10; i++) {
+					ffkernel.linesearchSync(d, xdRadians, xdminRadians, xdmaxRadians, stepRadians);	
+				}
+			}
+
+			@Override
+			protected void time() {
+				for (int i=0; i<NumRuns; i++) {
+					ffkernel.linesearchSync(d, xdRadians, xdminRadians, xdmaxRadians, stepRadians);	
+				}
+			}
+			
+			@Override
+			protected void cleanup() {
+				ffkernel.cleanup();
+				streams.release(stream);
+			}
+		}
+		
+		int[] numStreamsList = { 2, 4, 8, 16, 32 };
+		
+		for (int numStreams : numStreamsList) {
+			
+			int numGpus = 1;
+			cudaPool = new GpuStreamPool(numGpus, divUp(numStreams, numGpus));
+			
+			List<TimingThread> threads = new ArrayList<>();
+			for (int i=0; i<numStreams; i++) {
+				threads.add(new StreamThread(i, cudaPool));
+			}
+			System.out.println("benchmarking " + numStreams + " GPU streams...");
+			Stopwatch gpuStreamsStopwatch = TimingThread.timeThreads(threads);
+			System.out.println(String.format("finished in %s, %.1f ops, speedup over cpu: %.1fx, speedup over 1 stream: %.1fx",
+				gpuStreamsStopwatch.getTime(1),
+				numStreams*NumRuns/gpuStreamsStopwatch.getTimeS(),
+				(double)numStreams*cpuStopwatch.getTimeNs()/gpuStreamsStopwatch.getTimeNs(),
+				(double)numStreams*cudaOneBlockStopwatch.getTimeNs()/gpuStreamsStopwatch.getTimeNs()
+			));
+			
+			cudaPool.cleanup();
+		}
 	}
 	
 	private static void subForcefields()
@@ -320,7 +426,6 @@ public class CudaPlayground extends TestBase {
 		double cpuEnergy = cpuMof.getValue(x);
 		double cpuEnergyD = cpuMof.getValForDOF(d, x.get(d));
 		
-		/* TEMP
 		// benchmark
 		System.out.println("\nbenchmarking CPU...");
 		Stopwatch cpuStopwatch = new Stopwatch().start();
@@ -331,7 +436,6 @@ public class CudaPlayground extends TestBase {
 			cpuStopwatch.stop().getTime(1),
 			numRuns/cpuStopwatch.getTimeS()
 		));
-		*/
 		
 		System.out.println();
 		
@@ -351,7 +455,6 @@ public class CudaPlayground extends TestBase {
 		double gpuEnergyD = cudaMof.getValForDOF(d, x.get(d));
 		checkEnergy(cpuEnergyD, gpuEnergyD);
 		
-		/*
 		// benchmark
 		// 1024 threads
 		// 16 blocks: ~14.7k ops
@@ -365,7 +468,6 @@ public class CudaPlayground extends TestBase {
 			numRuns/gpuOldStopwatch.getTimeS(),
 			(double)cpuStopwatch.getTimeNs()/gpuOldStopwatch.getTimeNs()
 		));
-		*/
 		
 		// cleanup
 		cudaMof.cleanup();
@@ -386,16 +488,23 @@ public class CudaPlayground extends TestBase {
 		BigForcefieldEnergy bigff = new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct);
 		ForcefieldKernelOneBlockCuda ffkernel = new ForcefieldKernelOneBlockCuda(stream, bigff, dofs);
 		
-		// check accuracy
+		// restore coords
+		cudaMof.setDOFs(x);
 		ffkernel.uploadCoordsAsync();
+		
+		// check accuracy
 		checkEnergy(cpuEnergy, ffkernel.calcEnergySync());
 		checkEnergy(cpuEnergyD, ffkernel.calcEnergyDofSync(d));
 		
 		double dihedralRadians = Math.toRadians(x.get(d));
 		checkEnergy(cpuEnergyD, ffkernel.poseAndCalcEnergyDofSync(d, dihedralRadians));
+		checkEnergy(cpuEnergyD, ffkernel.linesearchSync(d, dihedralRadians, 0, 0, 0).energy);
 		
-		/* TEMP
-		// benchmark
+		// restore coords
+		cudaMof.setDOFs(x);
+		ffkernel.uploadCoordsAsync();
+		
+		// benchmark pose and dof energy
 		// 1024 threads
 		// 1 block: ~5.2k ops
 		// 2 blocks: ~8.1k ops
@@ -414,7 +523,21 @@ public class CudaPlayground extends TestBase {
 			(double)cpuStopwatch.getTimeNs()/gpuOneBlockStopwatch.getTimeNs(),
 			(double)gpuOldStopwatch.getTimeNs()/gpuOneBlockStopwatch.getTimeNs()
 		));
-		*/
+		
+		// benchmark linesearch
+		// 1024 threads:  ~5.8k ops
+		System.out.println("\nbenchmarking GPU linesearch...");
+		Stopwatch gpuLinesearchStopwatch = new Stopwatch().start();
+		for (int i=0; i<numRuns/10; i++) {
+			ffkernel.linesearchSync(d, dihedralRadians, 0, 0, 0);
+		}
+		System.out.println(String.format("finished in %s, %.1f ops, speedup over cpu: %.1fx, speedup over old: %.1fx, speedup over one-block: %.1fx\n",
+			gpuLinesearchStopwatch.stop().getTime(1),
+			numRuns/gpuLinesearchStopwatch.getTimeS(),
+			(double)cpuStopwatch.getTimeNs()/gpuLinesearchStopwatch.getTimeNs(),
+			(double)gpuOldStopwatch.getTimeNs()/gpuLinesearchStopwatch.getTimeNs(),
+			(double)gpuOneBlockStopwatch.getTimeNs()/gpuLinesearchStopwatch.getTimeNs()
+		));
 		
 		// cleanup
 		cudaPool.release(stream);
