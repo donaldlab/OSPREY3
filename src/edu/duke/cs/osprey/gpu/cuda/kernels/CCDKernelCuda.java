@@ -18,7 +18,7 @@ import edu.duke.cs.osprey.minimization.ObjectiveFunction;
 import edu.duke.cs.osprey.structure.Residue;
 import jcuda.Pointer;
 
-public class CCDKernel extends Kernel {
+public class CCDKernelCuda extends Kernel {
 	
 	private class DofInfo {
 		
@@ -81,12 +81,12 @@ public class CCDKernel extends Kernel {
 	
 	private List<DofInfo> dofInfos;
 	
-	public CCDKernel(GpuStream stream, BigForcefieldEnergy ffenergy, List<FreeDihedral> dofs)
+	public CCDKernelCuda(GpuStream stream, BigForcefieldEnergy ffenergy, List<FreeDihedral> dofs)
 	throws IOException {
 		this(stream, ffenergy, dofs, DefaultNumThreads);
 	}
 	
-	public CCDKernel(GpuStream stream, BigForcefieldEnergy ffenergy, List<FreeDihedral> dofs, int numThreads)
+	public CCDKernelCuda(GpuStream stream, BigForcefieldEnergy ffenergy, List<FreeDihedral> dofs, int numThreads)
 	throws IOException {
 		super(stream, "ccd");
 		

@@ -64,20 +64,10 @@ public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup {
 		// just do a line search along each dimension until we stop improving
 		// we deal with cycles by just capping the number of iterations
 		
-        // TEMP
-        //Profiler profiler = new Profiler();
-        //profiler.resume("energy");
-        
 		// get the current objective function value
 		double herefx = f.getValue(herex);
 		
-		// TEMP
-		//profiler.stop();
-		
 		for (int iter=0; iter<MaxIterations; iter++) {
-			
-			// TEMP
-			//profiler.resume("line search");
 			
 			// update all the dofs using line search
 			for (int d=0; d<n; d++) {
@@ -92,18 +82,9 @@ public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup {
 				}
 			}
 			
-			// TEMP
-			//profiler.resume("energy");
-			
 			// how much did we improve?
 			double nextfx = f.getValue(nextx);
 			double improvement = herefx - nextfx;
-			
-			// TEMP
-			//profiler.stop();
-			
-			// TEMP
-			//System.out.println(String.format("iter %3d   energy %12.6f   improvement %12.6f", iter, nextf, improvement));
 			
 			if (improvement > 0) {
 				
@@ -119,9 +100,6 @@ public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup {
 				break;
 			}
 		}
-		
-        // TEMP
-		//System.out.println(profiler.makeReport(TimeUnit.MILLISECONDS));
 		
 		return herex;
 	}

@@ -89,7 +89,7 @@ public class BenchmarkMinimization extends TestBase {
 		}
 		
 		// settings
-		final int numConfs = 64;//256;
+		final int numConfs = 8;//64;//256;
 		
 		// get a few arbitrary conformations
 		search.pruneMat = new PruningMatrix(search.confSpace, 1000);
@@ -192,39 +192,6 @@ public class BenchmarkMinimization extends TestBase {
 				});
 			}
 		};
-		Factory<Minimizer,MoleculeModifierAndScorer> pipelinedMinimizers = new Factory<Minimizer,MoleculeModifierAndScorer>() {
-			@Override
-			public Minimizer make(MoleculeModifierAndScorer mof) {
-				return new SimpleCCDMinimizer(mof, new Factory<LineSearcher,Void>() {
-					@Override
-					public LineSearcher make(Void ignore) {
-						return new GpuStyleSurfingLineSearcher();
-					}
-				});
-			}
-		};
-		Factory<Minimizer,MoleculeModifierAndScorer> openclPipelinedMinimizers = new Factory<Minimizer,MoleculeModifierAndScorer>() {
-			@Override
-			public Minimizer make(MoleculeModifierAndScorer mof) {
-				return new SimpleCCDMinimizer(mof, new Factory<LineSearcher,Void>() {
-					@Override
-					public LineSearcher make(Void ignore) {
-						return new OpenCLSurfingLineSearcher();
-					}
-				});
-			}
-		};
-		Factory<Minimizer,MoleculeModifierAndScorer> cudaPipelinedMinimizers = new Factory<Minimizer,MoleculeModifierAndScorer>() {
-			@Override
-			public Minimizer make(MoleculeModifierAndScorer mof) {
-				return new SimpleCCDMinimizer(mof, new Factory<LineSearcher,Void>() {
-					@Override
-					public LineSearcher make(Void ignore) {
-						return new CudaSurfingLineSearcher();
-					}
-				});
-			}
-		};
 		
 		// make efuncs
 		Factory<EnergyFunction,Molecule> efuncs = new Factory<EnergyFunction,Molecule>() {
@@ -291,16 +258,6 @@ public class BenchmarkMinimization extends TestBase {
 		System.out.println(String.format(", speedup: %.2fx", (double)cpuOriginalStopwatch.getTimeNs()/openclOriginalStopwatch.getTimeNs()));
 		checkEnergies(minimizedConfs);
 		
-		System.out.println("\nbenchmarking OpenCL pipelined...");
-		Stopwatch openclPipelinedStopwatch = new Stopwatch().start();
-		minimizedConfs = new ConfMinimizer(openclPipelinedMinimizers).minimize(confs, openclEfuncs, search.confSpace);
-		System.out.print("precise timing: " + openclPipelinedStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
-		System.out.println(String.format(", speedup over cpu: %.2fx, speedup over original opencl: %.2fx",
-			(double)cpuOriginalStopwatch.getTimeNs()/openclPipelinedStopwatch.getTimeNs(),
-			(double)openclOriginalStopwatch.getTimeNs()/openclPipelinedStopwatch.getTimeNs()
-		));
-		checkEnergies(minimizedConfs);
-		
 		{
 			// warm up the energy function
 			// avoids anomalous timings on the first conf
@@ -316,16 +273,6 @@ public class BenchmarkMinimization extends TestBase {
 		System.out.println(String.format(", speedup over cpu: %.2fx, speedup over original opencl: %.2fx",
 			(double)cpuOriginalStopwatch.getTimeNs()/cudaOriginalStopwatch.getTimeNs(),
 			(double)openclOriginalStopwatch.getTimeNs()/cudaOriginalStopwatch.getTimeNs()
-		));
-		checkEnergies(minimizedConfs);
-		
-		System.out.println("\nbenchmarking Cuda pipelined...");
-		Stopwatch cudaPipelinedStopwatch = new Stopwatch().start();
-		minimizedConfs = new ConfMinimizer(cudaPipelinedMinimizers).minimize(confs, cudaEfuncs, search.confSpace);
-		System.out.print("precise timing: " + cudaPipelinedStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
-		System.out.println(String.format(", speedup over cpu: %.2fx, speedup over pipelined opencl: %.2fx",
-			(double)cpuOriginalStopwatch.getTimeNs()/cudaPipelinedStopwatch.getTimeNs(),
-			(double)openclPipelinedStopwatch.getTimeNs()/cudaPipelinedStopwatch.getTimeNs()
 		));
 		checkEnergies(minimizedConfs);
 	}
