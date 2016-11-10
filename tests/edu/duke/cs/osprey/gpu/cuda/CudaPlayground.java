@@ -6,8 +6,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import org.ojalgo.optimisation.MathProgSysModel;
-
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.TestBase;
@@ -39,6 +37,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
 import edu.duke.cs.osprey.gpu.BufferTools;
+import edu.duke.cs.osprey.gpu.cuda.kernels.CCDKernel;
 import edu.duke.cs.osprey.gpu.cuda.kernels.ForcefieldKernelCuda;
 import edu.duke.cs.osprey.gpu.cuda.kernels.ForcefieldKernelOneBlockCuda;
 import edu.duke.cs.osprey.gpu.cuda.kernels.SubForcefieldsKernelCuda;
@@ -728,14 +727,15 @@ public class CudaPlayground extends TestBase {
 		ForcefieldInteractionsGenerator intergen = new ForcefieldInteractionsGenerator();
 		ForcefieldInteractions interactions = intergen.makeFullConf(search.confSpace, search.shellResidues, cudaMol.getCopiedMolecule());
 		BigForcefieldEnergy bigff = new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct);
-		ForcefieldKernelOneBlockCuda ffkernel = new ForcefieldKernelOneBlockCuda(stream, bigff, dofs);
+		//ForcefieldKernelOneBlockCuda kernel = new ForcefieldKernelOneBlockCuda(stream, bigff, dofs);
+		CCDKernel kernel = new CCDKernel(stream, bigff, dofs);
 		
 		// restore coords
 		cudaMof.setDOFs(x);
-		ffkernel.uploadCoordsAsync();
+		kernel.uploadCoordsAsync();
 		
 		// check accuracy
-		ForcefieldKernelOneBlockCuda.CCDResult result = ffkernel.ccdSync(x, dofBounds);
+		CCDKernel.Result result = kernel.runSync(x, dofBounds);
 		System.out.println(String.format("max xd dist: %8.6f", maxxddist(cpuXstar, result.x, true)));
 		checkEnergy(cpuEnergy, result.energy);
 		
@@ -746,8 +746,8 @@ public class CudaPlayground extends TestBase {
 			System.out.println("\nbenchmarking cuda one-block...");
 			cudaOneBlockStopwatch = new Stopwatch().start();
 			for (int i=0; i<NumRuns; i++) {
-				ffkernel.uploadCoordsAsync();
-				ffkernel.ccdSync(x, dofBounds);
+				kernel.uploadCoordsAsync();
+				kernel.runSync(x, dofBounds);
 			}
 			System.out.println(String.format("finished in %8s, ops: %5.0f, speedup over cpu: %.1fx, speedup over original: %.1fx\n",
 				cudaOneBlockStopwatch.stop().getTime(TimeUnit.MILLISECONDS),
@@ -759,7 +759,7 @@ public class CudaPlayground extends TestBase {
 		
 		// cleanup
 		cudaPool.release(stream);
-		ffkernel.cleanup();
+		kernel.cleanup();
 		cudaPool.cleanup();
 		
 		if (doBenchmarks) {
@@ -808,7 +808,10 @@ public class CudaPlayground extends TestBase {
 				}
 			}
 			
-			int[] numStreamsList = { 2, 4, 8, 16, 32 };
+			int[] numStreamsList = { 16, 32 };
+			// 512 threads
+			// 16 streams: ~56 ops
+			// 32 streams: ~60 ops
 			
 			for (int numStreams : numStreamsList) {
 				
