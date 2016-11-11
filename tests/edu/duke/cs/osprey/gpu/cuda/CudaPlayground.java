@@ -39,6 +39,7 @@ import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
 import edu.duke.cs.osprey.gpu.BufferTools;
 import edu.duke.cs.osprey.gpu.cuda.kernels.CCDKernelCuda;
 import edu.duke.cs.osprey.minimization.LineSearcher;
+import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction;
 import edu.duke.cs.osprey.minimization.SimpleCCDMinimizer;
@@ -51,7 +52,10 @@ import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
+@SuppressWarnings("unused")
 public class CudaPlayground extends TestBase {
+	
+	// TODO: split into accuracy unit tests and benchmarks
 	
 	public static void main(String[] args)
 	throws Exception {
@@ -235,8 +239,7 @@ public class CudaPlayground extends TestBase {
 		// restore coords
 		cpuMof.setDOFs(x);
 		
-		DoubleMatrix1D cpuXstar = cpuMinimizer.minimize();
-		double cpuEnergy = cpuMof.getValue(cpuXstar);
+		Minimizer.Result cpuResult = cpuMinimizer.minimize();
 		
 		Stopwatch cpuStopwatch = null;
 		if (doBenchmarks) {
@@ -271,9 +274,9 @@ public class CudaPlayground extends TestBase {
 		cudaMof.setDOFs(x);
 		
 		// check accuracy
-		DoubleMatrix1D cudaXstar = cudaMinimizer.minimize();
-		System.out.println(String.format("max xd dist: %8.6f", maxxddist(cpuXstar, cudaXstar, false)));
-		checkEnergy(cpuEnergy, cpuMof.getValue(cpuXstar));
+		Minimizer.Result cudaResult = cudaMinimizer.minimize();
+		System.out.println(String.format("max xd dist: %8.6f", maxxddist(cpuResult.dofValues, cudaResult.dofValues)));
+		checkEnergy(cpuResult.energy, cpuMof.getValue(cpuResult.dofValues));
 		
 		Stopwatch cudaOriginalStopwatch = null;
 		if (doBenchmarks) {
@@ -316,9 +319,9 @@ public class CudaPlayground extends TestBase {
 		kernel.uploadCoordsAsync();
 		
 		// check accuracy
-		CCDKernelCuda.Result result = kernel.runSync(x, dofBounds);
-		System.out.println(String.format("max xd dist: %8.6f", maxxddist(cpuXstar, result.x, true)));
-		checkEnergy(cpuEnergy, result.energy);
+		Minimizer.Result result = kernel.runSync(x, dofBounds);
+		System.out.println(String.format("max xd dist: %8.6f", maxxddist(cpuResult.dofValues, result.dofValues)));
+		checkEnergy(cpuResult.energy, result.energy);
 		
 		Stopwatch cudaOneBlockStopwatch = null;
 		if (doBenchmarks) {
@@ -421,17 +424,12 @@ public class CudaPlayground extends TestBase {
 		}
 	}
 	
-	private static double maxxddist(DoubleMatrix1D a, DoubleMatrix1D b, boolean convertToDegrees) {
+	private static double maxxddist(DoubleMatrix1D a, DoubleMatrix1D b) {
 		double maxDist = 0;
 		assert (a.size() == b.size());
 		int numDofs = a.size();
 		for (int d=0; d<numDofs; d++) {
-			double ad = a.get(d);
-			double bd = b.get(d);
-			if (convertToDegrees) {
-				bd = Math.toDegrees(bd);
-			}
-			maxDist = Math.max(maxDist, Math.abs(ad - bd));
+			maxDist = Math.max(maxDist, Math.abs(a.get(d) - b.get(d)));
 		}
 		return maxDist;
 	}

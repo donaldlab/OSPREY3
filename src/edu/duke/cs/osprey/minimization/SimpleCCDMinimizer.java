@@ -48,7 +48,7 @@ public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup {
 	}
 	
 	@Override
-	public DoubleMatrix1D minimize() {
+	public Minimizer.Result minimize() {
 		
 		// init x to the center of the bounds
 		int n = f.getNumDOFs();
@@ -101,7 +101,7 @@ public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup {
 			}
 		}
 		
-		return herex;
+		return new Minimizer.Result(herex, herefx);
 	}
 	
 	@Override

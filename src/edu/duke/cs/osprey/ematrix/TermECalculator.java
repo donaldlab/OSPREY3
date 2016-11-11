@@ -267,7 +267,7 @@ public class TermECalculator implements MPISlaveTask {
 
             if(mof.getNumDOFs()>0){//there are continuously flexible DOFs to minimize
                 CCDMinimizer ccdMin = new CCDMinimizer(mof,true);
-                bestDOFVals = ccdMin.minimize();
+                bestDOFVals = ccdMin.minimize().dofValues;
             }
             else//molecule is already in the right, rigid conformation
                 bestDOFVals = DoubleFactory1D.dense.make(0);
@@ -332,7 +332,7 @@ public class TermECalculator implements MPISlaveTask {
 
             if(mof.getNumDOFs()>0){//there are continuously flexible DOFs to minimize
                 CCDMinimizer ccdMin = new CCDMinimizer(mof,true);
-                bestDOFVals = ccdMin.minimize();
+                bestDOFVals = ccdMin.minimize().dofValues;
             }
             else//molecule is already in the right, rigid conformation
                 bestDOFVals = DoubleFactory1D.dense.make(0);
@@ -551,7 +551,7 @@ public class TermECalculator implements MPISlaveTask {
                 mof.getMolec(), mof.getDOFs() );
         
         CCDMinimizer emin = new CCDMinimizer(ofEPIC, true);
-        DoubleMatrix1D lowPoint = emin.minimize();
+        DoubleMatrix1D lowPoint = emin.minimize().dofValues;
         
         //energies will be relative to the voxel center energy (from the initial minimization)
         double lowPointTrueE = mof.getValue(lowPoint) - term.getMinE();

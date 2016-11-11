@@ -14,6 +14,7 @@ import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.gpu.cuda.CUBuffer;
 import edu.duke.cs.osprey.gpu.cuda.GpuStream;
 import edu.duke.cs.osprey.gpu.cuda.Kernel;
+import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction;
 import edu.duke.cs.osprey.structure.Residue;
 import jcuda.Pointer;
@@ -41,26 +42,10 @@ public class CCDKernelCuda extends Kernel {
 		}
 	}
 	
-	public static class Result {
-		
-		public final DoubleMatrix1D x;
-		public final double energy;
-		
-		public Result(int numDofs, DoubleBuffer buf, double internalSolvationEnergy) {
-			x = DoubleFactory1D.dense.make(numDofs);
-			buf.rewind();
-			energy = buf.get() + internalSolvationEnergy;
-			for (int d=0; d<numDofs; d++) {
-				x.set(d, buf.get());
-			}
-		}
-	}
-	
 	// OPTIMIZATION: generally, more threads = more faster, but more threads use more GPU SM resources
 	// this default value will probably under-saturate newer cards and require too many resources for older cards
 	// ideally, this should be optimized for each hardware platform
 	private static final int DefaultNumThreads = 512;
-		
 	
 	private BigForcefieldEnergy ffenergy;
 	
@@ -241,15 +226,26 @@ public class CCDKernelCuda extends Kernel {
 		func.runAsync();
 	}
 	
-	public Result downloadResultSync() {
-		return new Result(
-			dofInfos.size(),
-			ccdOut.downloadSync(),
-			ffenergy.getFullSubset().getInternalSolvationEnergy()
-		);
+	public Minimizer.Result downloadResultSync() {
+		
+		// allocate space for the result
+		int numDofs = dofInfos.size();
+		Minimizer.Result result = new Minimizer.Result(DoubleFactory1D.dense.make(numDofs), 0);
+		
+		// wait for the kernel to finish and download the out buffer
+		DoubleBuffer buf = ccdOut.downloadSync();
+		
+		// copy to the result
+		buf.rewind();
+		result.energy = buf.get() + ffenergy.getFullSubset().getInternalSolvationEnergy();
+		for (int d=0; d<numDofs; d++) {
+			result.dofValues.set(d, Math.toDegrees(buf.get()));
+		}
+		
+		return result;
 	}
 	
-	public Result runSync(DoubleMatrix1D x, ObjectiveFunction.DofBounds dofBounds) {
+	public Minimizer.Result runSync(DoubleMatrix1D x, ObjectiveFunction.DofBounds dofBounds) {
 		runAsync(x, dofBounds);
 		return downloadResultSync();
 	}

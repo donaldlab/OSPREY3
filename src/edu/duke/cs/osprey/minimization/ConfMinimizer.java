@@ -32,42 +32,25 @@ public class ConfMinimizer {
 		this.minimizers = minimizers;
 	}
 	
-	public double minimize(ParameterizedMoleculeCopy pmol, int[] conf, EnergyFunction efunc, ConfSpace confSpace) {
-		
-		// PROFILING
-		//Profiler p = new Profiler("init");
+	public Minimizer.Result minimize(ParameterizedMoleculeCopy pmol, int[] conf, EnergyFunction efunc, ConfSpace confSpace) {
 		
 		RCTuple tuple = new RCTuple(conf);
 		MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(efunc, confSpace, tuple, pmol);
 		Minimizer minimizer = minimizers.make(mof);
 		
-		// PROFILING
-		//p.start("minimize");
+		Minimizer.Result result = minimizer.minimize();
 		
-		minimizer.minimize();
 		if (minimizer instanceof Minimizer.NeedsCleanup) {
 			((Minimizer.NeedsCleanup)minimizer).cleanup();
 		}
-		
-		// PROFILING
-		//p.start("cleanup");
-		
 		mof.cleanup();
 		
-		// PROFILING
-		//p.start("energy");
-		
-		double energy = efunc.getEnergy();
-		
-		// PROFILING
-		//System.out.println(p.makeReport(TimeUnit.MILLISECONDS));
-	
-		return energy;
+		return result;
 	}
 	
 	public EnergiedConf minimize(ParameterizedMoleculeCopy pmol, ScoredConf conf, EnergyFunction efunc, ConfSpace confSpace) {
-		double energy = minimize(pmol, conf.getAssignments(), efunc, confSpace);
-		return new EnergiedConf(conf, energy);
+		Minimizer.Result result = minimize(pmol, conf.getAssignments(), efunc, confSpace);
+		return new EnergiedConf(conf, result.energy);
 	}
 	
 	public List<EnergiedConf> minimize(ParameterizedMoleculeCopy pmol, List<ScoredConf> confs, EnergyFunction efunc, ConfSpace confSpace) {

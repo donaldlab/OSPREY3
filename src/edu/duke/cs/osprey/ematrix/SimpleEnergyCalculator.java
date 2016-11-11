@@ -3,15 +3,14 @@ package edu.duke.cs.osprey.ematrix;
 import java.util.ArrayList;
 import java.util.List;
 
-import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.ParameterizedMoleculeCopy;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
-import edu.duke.cs.osprey.minimization.CCDMinimizer;
+import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
-import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.minimization.SimpleCCDMinimizer;
 import edu.duke.cs.osprey.structure.Residue;
 
 public class SimpleEnergyCalculator {
@@ -53,25 +52,6 @@ public class SimpleEnergyCalculator {
 	// also, the other energy calculator uses this distribution, so we should match to be consistent by default
 	public static ShellDistribution DefaultDist = ShellDistribution.AllOnSingles;
 	
-	public static class Result {
-		
-		private double[] minDofValues;
-		private double energy;
-		
-		public Result(double[] minDofValues, double energy) {
-			this.minDofValues = minDofValues;
-			this.energy = energy;
-		}
-		
-		public double[] getDofValues() {
-			return minDofValues;
-		}
-		
-		public double getEnergy() {
-			return energy;
-		}
-	}
-	
 	private EnergyFunctionGenerator efuncGen;
 	private ConfSpace confSpace;
 	private List<Residue> shellResidues;
@@ -109,13 +89,13 @@ public class SimpleEnergyCalculator {
 		return efuncGen.intraAndDistributedShellEnergy(getResidue(pos, pmol), getResidues(shellResidues, pmol), confSpace.numPos, singleWeight);
 	}
 	
-	public Result calcSingle(int pos, int rc) {
+	public Minimizer.Result calcSingle(int pos, int rc) {
 		return calcSingle(pos, rc, null);
 	}
 	
-	public Result calcSingle(int pos, int rc, ParameterizedMoleculeCopy pmol) {
+	public Minimizer.Result calcSingle(int pos, int rc, ParameterizedMoleculeCopy pmol) {
 		EnergyFunction efunc = getSingleEfunc(pos, pmol);
-		Result result = calc(efunc, new RCTuple(pos, rc), pmol);
+		Minimizer.Result result = calc(efunc, new RCTuple(pos, rc), pmol);
 		cleanup(efunc);
 		return result;
 	}
@@ -129,34 +109,31 @@ public class SimpleEnergyCalculator {
 		return efuncGen.resPairAndDistributedShellEnergy(getResidue(pos1, pmol), getResidue(pos2, pmol), getResidues(shellResidues, pmol), confSpace.numPos, singleWeight);
 	}
 	
-	public Result calcPair(int pos1, int rc1, int pos2, int rc2) {
+	public Minimizer.Result calcPair(int pos1, int rc1, int pos2, int rc2) {
 		return calcPair(pos1, rc1, pos2, rc2, null);
 	}
 	
-	public Result calcPair(int pos1, int rc1, int pos2, int rc2, ParameterizedMoleculeCopy pmol) {
+	public Minimizer.Result calcPair(int pos1, int rc1, int pos2, int rc2, ParameterizedMoleculeCopy pmol) {
 		EnergyFunction efunc = getPairEfunc(pos1, pos2, pmol);
-		Result result = calc(efunc, new RCTuple(pos1, rc1, pos2, rc2), pmol);
+		Minimizer.Result result = calc(efunc, new RCTuple(pos1, rc1, pos2, rc2), pmol);
 		cleanup(efunc);
 		return result;
 	}
 	
-	public Result calc(EnergyFunction efunc, RCTuple tuple, ParameterizedMoleculeCopy pmol) {
-		
-		double[] minDofValues = null;
+	public Minimizer.Result calc(EnergyFunction efunc, RCTuple tuple, ParameterizedMoleculeCopy pmol) {
 		
 		// put molecule in correct conformation for rcs
 		MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(efunc, confSpace, tuple, pmol);
 		
 		// optimize the degrees of freedom, if needed
 		if (mof.getNumDOFs() > 0) {
-			CCDMinimizer ccdMin = new CCDMinimizer(mof, true);
-			DoubleMatrix1D minDofVec = ccdMin.minimize();
-			minDofValues = minDofVec.toArray();
-			mof.setDOFs(minDofVec);
+			// TODO: use configurable minimizer
+			Minimizer minimizer = new SimpleCCDMinimizer(mof);
+			return minimizer.minimize();
 		}
 
-		// calculate the energy
-		return new Result(minDofValues, efunc.getEnergy());
+		// otherwise, just evaulate the energy function
+		return new Minimizer.Result(null, efunc.getEnergy());
 	}
 	
 	private void cleanup(EnergyFunction efunc) {

@@ -62,14 +62,9 @@ package edu.duke.cs.osprey.minimization;
 
 import cern.colt.matrix.DoubleMatrix1D;
 import cern.colt.matrix.DoubleFactory1D;
-import cern.colt.matrix.DoubleFactory2D;
-import cern.colt.matrix.DoubleMatrix2D;
-import cern.colt.matrix.linalg.Algebra;
 import cern.jet.math.Functions;
-import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.ArrayList;
-import java.util.BitSet;
 
 
 //This is a modular CCD minimizer
@@ -154,7 +149,7 @@ public class CCDMinimizer implements Minimizer {
         //No constraints specified until minimize() is called
     }
 
-    public DoubleMatrix1D minimize() {
+    public Minimizer.Result minimize() {
 
         long minStartTime = System.currentTimeMillis();
         
@@ -399,7 +394,7 @@ public class CCDMinimizer implements Minimizer {
         
 
         minTime = System.currentTimeMillis() - minStartTime;
-        return x;
+        return new Minimizer.Result(x, objFcn.getValue(x));
 
     }
     

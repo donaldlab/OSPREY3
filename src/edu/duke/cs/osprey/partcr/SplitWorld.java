@@ -116,7 +116,7 @@ public class SplitWorld {
 				} else {
 					
 					// we'll definitely need the single energy, so just calculate it now
-					newEmat.setOneBody(pos1, rc1, ecalc.calcSingle(pos1, rc1).getEnergy());
+					newEmat.setOneBody(pos1, rc1, ecalc.calcSingle(pos1, rc1).energy);
 				}
 				
 				// pairwise

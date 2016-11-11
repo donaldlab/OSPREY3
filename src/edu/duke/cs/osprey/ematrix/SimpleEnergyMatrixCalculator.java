@@ -4,8 +4,8 @@ import edu.duke.cs.osprey.confspace.AbstractTupleMatrix;
 import edu.duke.cs.osprey.confspace.ParameterizedMoleculeCopy;
 import edu.duke.cs.osprey.confspace.ParameterizedMoleculePool;
 import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator.Result;
 import edu.duke.cs.osprey.energy.EnergyFunction;
+import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
 import edu.duke.cs.osprey.tools.Progress;
@@ -40,7 +40,7 @@ public class SimpleEnergyMatrixCalculator {
 		
 		public int pos1;
 		public int rc1;
-		public Result result;
+		public Minimizer.Result result;
 
 		@Override
 		public void run() {
@@ -67,7 +67,7 @@ public class SimpleEnergyMatrixCalculator {
 		public int rc1;
 		public int pos2;
 		public int numRcs2;
-		public Result[] results;
+		public Minimizer.Result[] results;
 
 		@Override
 		public void run() {
@@ -78,7 +78,7 @@ public class SimpleEnergyMatrixCalculator {
 			try {
 				
 				RCTuple tup = new RCTuple();
-				results = new Result[numRcs2];
+				results = new Minimizer.Result[numRcs2];
 				
 				for (int rc2=0; rc2<numRcs2; rc2++) {
 					tup.set(pos1, rc1, pos2, rc2);
@@ -175,10 +175,10 @@ public class SimpleEnergyMatrixCalculator {
 				SingleTask task = (SingleTask)taskBase;
 				
 				if (emat != null) {
-					emat.setOneBody(task.pos1, task.rc1, task.result.getEnergy());
+					emat.setOneBody(task.pos1, task.rc1, task.result.energy);
 				}
 				if (dofmat != null) {
-					dofmat.setOneBody(task.pos1, task.rc1, task.result.getDofValues());
+					dofmat.setOneBody(task.pos1, task.rc1, task.result.dofValues);
 				}
 				
 				progress.incrementProgress();
@@ -190,13 +190,13 @@ public class SimpleEnergyMatrixCalculator {
 				PairTask task = (PairTask)taskBase;
 			
 				for (int rc2=0; rc2<task.numRcs2; rc2++) {
-					Result result = task.results[rc2];
+					Minimizer.Result result = task.results[rc2];
 					
 					if (emat != null) {
-						emat.setPairwise(task.pos1, task.rc1, task.pos2, rc2, result.getEnergy());
+						emat.setPairwise(task.pos1, task.rc1, task.pos2, rc2, result.energy);
 					}
 					if (dofmat != null) {
-						dofmat.setPairwise(task.pos1, task.rc1, task.pos2, rc2, result.getDofValues());
+						dofmat.setPairwise(task.pos1, task.rc1, task.pos2, rc2, result.dofValues);
 					}
 				}
 				

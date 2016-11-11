@@ -62,7 +62,7 @@ public class MinimizationComparison {
         RCTuple RCs = new RCTuple(conf1);
         MoleculeModifierAndScorer energy = new MoleculeModifierAndScorer(sp.fullConfE,sp.confSpace,RCs);
         Minimizer min = new CCDMinimizer(energy,false);
-        DoubleMatrix1D optDOFVals = min.minimize();
+        DoubleMatrix1D optDOFVals = min.minimize().dofValues;
         double Ereg2 = energy.getValue(optDOFVals);
         System.out.println("Check regular E: "+Ereg2);
         
@@ -70,7 +70,7 @@ public class MinimizationComparison {
         EPICEnergyFunction epicEFunc = sp.epicMat.internalEnergyFunction(RCs);
         MoleculeModifierAndScorer epicEnergy = new MoleculeModifierAndScorer(epicEFunc,sp.epicMat.getConfSpace(),RCs);
         Minimizer epicMin = new CCDMinimizer(epicEnergy,false);
-        DoubleMatrix1D epicOptDOFVals = epicMin.minimize();
+        DoubleMatrix1D epicOptDOFVals = epicMin.minimize().dofValues;
         double Eepic2 = bound + epicEnergy.getValue(epicOptDOFVals);
         double EepicRegCheck = bound + epicEnergy.getValue(optDOFVals);
         

@@ -12,7 +12,6 @@ import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
 import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
-import edu.duke.cs.osprey.structure.Molecule;
 
 public class TestSimpleEnergyCalculator extends TestBase {
 	
@@ -111,7 +110,7 @@ public class TestSimpleEnergyCalculator extends TestBase {
 
 				// singles
 				exp = search.emat.getOneBody(pos1, rc1);
-				obs = ecalc.calcSingle(pos1, rc1, pmol).getEnergy();
+				obs = ecalc.calcSingle(pos1, rc1, pmol).energy;
 				assertThat(obs, isRelatively(exp, Epsilon));
 				
 				// pairs
@@ -119,7 +118,7 @@ public class TestSimpleEnergyCalculator extends TestBase {
 					for (int rc2=0; rc2<search.emat.getNumConfAtPos(pos2); rc2++) {
 						
 						exp = search.emat.getPairwise(pos1, rc1, pos2, rc2);
-						obs = ecalc.calcPair(pos1, rc1, pos2, rc2, pmol).getEnergy();
+						obs = ecalc.calcPair(pos1, rc1, pos2, rc2, pmol).energy;
 						assertThat(obs, isRelatively(exp, Epsilon));
 					}
 				}
