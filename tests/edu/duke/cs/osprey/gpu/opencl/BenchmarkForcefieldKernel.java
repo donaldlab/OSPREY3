@@ -315,9 +315,6 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		}
 		
 		ForcefieldKernelOpenCL kernel = (ForcefieldKernelOpenCL)gpuefunc.getKernel();
-		if (kernel.getQueue().isProfilingEnabled()) {
-			gpuefunc.startProfile(numRuns);
-		}
 		
 		Stopwatch stopwatch = new Stopwatch().start();
 		
@@ -333,9 +330,6 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		System.out.println("GPU profiling info:");
 		System.out.println("atom pairs:      " + kernel.getForcefield().getFullSubset().getNumAtomPairs());
 		System.out.println("GPU memory used: " + kernel.getGpuBytesNeeded()/1024 + " KiB");
-		if (kernel.getQueue().isProfilingEnabled()) {
-			System.out.print(gpuefunc.dumpProfile());
-		}
 		System.out.println("us per op: " + TimeFormatter.format(stopwatch.getTimeNs()/numRuns, TimeUnit.MICROSECONDS));
 		
 		checkEnergy(expectedEnergy, energy);

@@ -5,7 +5,6 @@ import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 public interface ForcefieldKernel {
 	
 	BigForcefieldEnergy getForcefield();
-	void setForcefield(BigForcefieldEnergy ffenergy);
 	BigForcefieldEnergy.Subset getSubset();
 	boolean setSubset(BigForcefieldEnergy.Subset subset);
 	void uploadCoordsAsync();

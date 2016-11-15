@@ -27,7 +27,7 @@ typedef struct __align__(8) {
 	bool useDistDepDielec; // @ 32
 	bool useHEs; // @ 33
 	bool useHVdw; // @ 34
-	bool doEnergy; // @ 35
+	bool useSubset; // @ 35
 } ForcefieldArgs;
 // sizeof = 36
 
@@ -58,7 +58,13 @@ extern "C" __global__ void calc(
 	
 	// which atom pair are we calculating?
 	if (globalId < args->numPairs) {
-		int i = subsetTable[globalId];
+	
+		int i = globalId;
+		
+		// are we using the subset?
+		if (args->useSubset) {
+			i = subsetTable[i];
+		}
 		
 		// read atom flags and calculate all the things that use the atom flags in this scope
 		bool bothHeavy;

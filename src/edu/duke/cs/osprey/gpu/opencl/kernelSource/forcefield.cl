@@ -25,7 +25,7 @@ typedef struct __attribute__((aligned(8))) {
 	bool useDistDepDielec; // @ 32
 	bool useHEs; // @ 33
 	bool useHVdw; // @ 34
-	bool doEnergy; // @ 35
+	bool useSubset; // @ 35
 } ForcefieldArgs;
 // sizeof = 36
 
@@ -34,10 +34,6 @@ kernel void calc(
 	global const ForcefieldArgs *args,
 	local double *scratch
 ) {
-
-	if (!args->doEnergy) {
-		return;
-	}
 
 	// NOTE: looks like we're running severely short on gpu registers
 	// if the compiler says we used 29 registers, everything seems to work fine
@@ -55,7 +51,13 @@ kernel void calc(
 	
 	// which atom pair are we calculating?
 	if (get_global_id(0) < args->numPairs) {
-		int i = subsetTable[get_global_id(0)];
+	
+		int i = get_global_id(0);
+		
+		// are we using the subset?
+		if (args->useSubset) {
+			i = subsetTable[i];
+		}
 		
 		// read atom flags and calculate all the things that use the atom flags in this scope
 		bool bothHeavy;

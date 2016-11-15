@@ -36,7 +36,7 @@ public class ForcefieldKernelOpenCL extends Kernel implements ForcefieldKernel {
 	private BigForcefieldEnergy ffenergy;
 	private BigForcefieldEnergy.Subset subset;
 
-	public ForcefieldKernelOpenCL(GpuQueue queue)
+	public ForcefieldKernelOpenCL(GpuQueue queue, BigForcefieldEnergy ffenergy)
 	throws IOException {
 		super(queue, "forcefield.cl", "calc");
 		
@@ -57,33 +57,6 @@ public class ForcefieldKernelOpenCL extends Kernel implements ForcefieldKernel {
 		
 		// init defaults
 		workSize = 0;
-		ffenergy = null;
-		subset = null;
-	}
-	
-	public CLBuffer<DoubleBuffer> getCoords() {
-		return coords;
-	}
-	
-	public CLBuffer<DoubleBuffer> getEnergies() {
-		return energies;
-	}
-	
-	public CLBuffer<ByteBuffer> getArgs() {
-		return args;
-	}
-	
-	@Override
-	public BigForcefieldEnergy getForcefield() {
-		return ffenergy;
-	}
-	
-	@Override
-	public void setForcefield(BigForcefieldEnergy ffenergy) {
-		
-		if (this.ffenergy != null) {
-			throw new IllegalStateException("kernel already has a force field");
-		}
 		
 		this.ffenergy = ffenergy;
 		
@@ -109,13 +82,13 @@ public class ForcefieldKernelOpenCL extends Kernel implements ForcefieldKernel {
 		argsBuf.rewind();
 		argsBuf.putInt(0); // set by setSubsetInternal()
 		argsBuf.putInt(0); // 
-		argsBuf.putDouble(ffenergy.getCoulombFactor());
-		argsBuf.putDouble(ffenergy.getScaledCoulombFactor());
-		argsBuf.putDouble(ffenergy.getSolvationCutoff2());
-		argsBuf.put((byte)(ffenergy.useDistDependentDielectric() ? 1 : 0));
-		argsBuf.put((byte)(ffenergy.useHElectrostatics() ? 1 : 0));
-		argsBuf.put((byte)(ffenergy.useHVdw() ? 1 : 0));
-		argsBuf.put((byte)1);
+		argsBuf.putDouble(ffenergy.getParams().coulombFactor);
+		argsBuf.putDouble(ffenergy.getParams().scaledCoulombFactor);
+		argsBuf.putDouble(ffenergy.getParams().solvationCutoff2);
+		argsBuf.put((byte)(ffenergy.getParams().useDistDependentDielectric ? 1 : 0));
+		argsBuf.put((byte)(ffenergy.getParams().useHElectrostatics ? 1 : 0));
+		argsBuf.put((byte)(ffenergy.getParams().useHVdw ? 1 : 0));
+		argsBuf.put((byte)0); // set by setSubsetInternal()
 		argsBuf.flip();
 		
 		// set the subset
@@ -133,6 +106,23 @@ public class ForcefieldKernelOpenCL extends Kernel implements ForcefieldKernel {
 			.setNullArg(6, groupSize*Double.BYTES);
 	}
 	
+	public CLBuffer<DoubleBuffer> getCoords() {
+		return coords;
+	}
+	
+	public CLBuffer<DoubleBuffer> getEnergies() {
+		return energies;
+	}
+	
+	public CLBuffer<ByteBuffer> getArgs() {
+		return args;
+	}
+	
+	@Override
+	public BigForcefieldEnergy getForcefield() {
+		return ffenergy;
+	}
+	
 	@Override
 	public BigForcefieldEnergy.Subset getSubset() {
 		return subset;
@@ -140,7 +130,6 @@ public class ForcefieldKernelOpenCL extends Kernel implements ForcefieldKernel {
 	
 	@Override
 	public boolean setSubset(BigForcefieldEnergy.Subset subset) {
-		checkInit();
 		return setSubsetInternal(subset);
 	}
 	
@@ -152,6 +141,7 @@ public class ForcefieldKernelOpenCL extends Kernel implements ForcefieldKernel {
 		}
 		
 		this.subset = subset;
+		boolean useSubset = subset.getSubsetTable() != null;
 		
 		// make sure the total work size is a multiple of the group size
 		workSize = roundUpWorkSize(subset.getNumAtomPairs(), groupSize);
@@ -160,16 +150,19 @@ public class ForcefieldKernelOpenCL extends Kernel implements ForcefieldKernel {
 		ByteBuffer buf = args.getBuffer();
 		buf.putInt(0, subset.getNumAtomPairs());
 		buf.putInt(4, subset.getNum14AtomPairs());
-		buf.put(35, (byte)1); // doEnergy = true
+		buf.put(35, (byte)(useSubset ? 1 : 0));
 		buf.rewind();
 		uploadBufferAsync(args);
 		
-		// upload subset table
-		subsetTable.getBuffer().clear();
-		subset.getSubsetTable().rewind();
-		subsetTable.getBuffer().put(subset.getSubsetTable());
-		subsetTable.getBuffer().flip();
-		uploadPartialBufferAsync(subsetTable);
+		if (useSubset) {
+			
+			// upload subset table
+			subsetTable.getBuffer().clear();
+			subset.getSubsetTable().rewind();
+			subsetTable.getBuffer().put(subset.getSubsetTable());
+			subsetTable.getBuffer().flip();
+			uploadPartialBufferAsync(subsetTable);
+		}
 		
 		return true;
 	}
@@ -188,7 +181,6 @@ public class ForcefieldKernelOpenCL extends Kernel implements ForcefieldKernel {
 	
 	@Override
 	public void uploadCoordsAsync() {
-		checkInit();
 		
 		// tell the forcefield to gather updated coords
 		ffenergy.updateCoords();
@@ -207,13 +199,11 @@ public class ForcefieldKernelOpenCL extends Kernel implements ForcefieldKernel {
 
 	@Override
 	public void runAsync() {
-		checkInit();
 		runAsync(workSize, groupSize);
 	}
 	
 	@Override
 	public double downloadEnergySync() {
-		checkInit();
 		
 		// IMPORTANT!! rewind the output buffer before downloading energies
 		// otherwise we get weird segfaults in nvidia's opencl driver that are next to impossible to diagnose!
@@ -260,11 +250,5 @@ public class ForcefieldKernelOpenCL extends Kernel implements ForcefieldKernel {
 		subsetTable.release();
 		args.release();
 		energies.release();
-	}
-	
-	private void checkInit() {
-		if (coords == null) {
-			throw new IllegalStateException("call setForcefield() before calling anything else");
-		}
 	}
 }

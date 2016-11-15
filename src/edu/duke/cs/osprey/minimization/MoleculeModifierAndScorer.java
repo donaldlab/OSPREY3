@@ -163,7 +163,6 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
                     }
                 }
                 else {//store bounds
-                    
                     DOFBounds.put(curDOF, new double[] {minVal,maxVal});
                     numMinDOFs++;
                 }
@@ -391,6 +390,16 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
             partialEFuncs = ((EnergyFunction.DecomposableByDof)efunc).decomposeByDof(molec, DOFs);
         } else {
         	partialEFuncs = null;
+        }
+        
+		// we might have made chemical changes, explicitly update the efuncs if supported
+        if (efunc instanceof EnergyFunction.ExplicitChemicalChanges) {
+        	((EnergyFunction.ExplicitChemicalChanges)efunc).handleChemicalChanges();
+        }
+        for (EnergyFunction dofEfunc : partialEFuncs) {
+        	if (dofEfunc instanceof EnergyFunction.ExplicitChemicalChanges) {
+        		((EnergyFunction.ExplicitChemicalChanges)dofEfunc).handleChemicalChanges();
+        	}
         }
     }
     

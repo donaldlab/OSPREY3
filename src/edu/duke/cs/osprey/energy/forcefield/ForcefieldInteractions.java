@@ -19,22 +19,28 @@ public class ForcefieldInteractions extends ArrayList<AtomGroup[]> {
 		int getId();
 		List<Atom> getAtoms();
 		double[] getCoords();
-		boolean hasChemicalChange();
-		void ackChemicalChange();
+		int getSequenceNumber();
 	}
 	
 	public static class ResidueAtomGroup implements AtomGroup {
 		
 		private Residue res;
 		private ResidueTemplate template;
+		private int sequenceNumber;
 		
 		public ResidueAtomGroup(Residue res) {
 			this.res = res;
+			this.template = res.template;
+			this.sequenceNumber = 0;
+		}
+		
+		public static int getId(Residue res) {
+			return res.indexInMolecule;
 		}
 		
 		@Override
 		public int getId() {
-			return res.indexInMolecule;
+			return getId(res);
 		}
 		
 		@Override
@@ -48,13 +54,15 @@ public class ForcefieldInteractions extends ArrayList<AtomGroup[]> {
 		}
 		
 		@Override
-		public boolean hasChemicalChange() {
-			return template != res.template;
-		}
-		
-		@Override
-		public void ackChemicalChange() {
-			template = res.template;
+		public int getSequenceNumber() {
+			
+			// did the template change?
+			if (this.template != res.template) {
+				this.template = res.template;
+				sequenceNumber++;
+			}
+			
+			return sequenceNumber;
 		}
 	}
 	
@@ -64,15 +72,25 @@ public class ForcefieldInteractions extends ArrayList<AtomGroup[]> {
 		groupsById = new HashMap<>();
 	}
 	
+	private ResidueAtomGroup makeResidueAtomGroup(Residue res) {
+		int id = ResidueAtomGroup.getId(res);
+		ResidueAtomGroup group = (ResidueAtomGroup)groupsById.get(id);
+		if (group == null) {
+			group = new ResidueAtomGroup(res);
+			groupsById.put(id, group);
+		}
+		return group;
+	}
+	
 	public void addResidue(Residue res) {
-		AtomGroup group = new ResidueAtomGroup(res);
+		AtomGroup group = makeResidueAtomGroup(res);
 		groupsById.put(group.getId(), group);
 		add(new AtomGroup[] { group, group });
 	}
 	
 	public void addResiduePair(Residue res1, Residue res2) {
-		AtomGroup group1 = new ResidueAtomGroup(res1);
-		AtomGroup group2 = new ResidueAtomGroup(res2);
+		AtomGroup group1 = makeResidueAtomGroup(res1);
+		AtomGroup group2 = makeResidueAtomGroup(res2);
 		groupsById.put(group1.getId(), group1);
 		groupsById.put(group2.getId(), group2);
 		add(new AtomGroup[] { group1, group2 });

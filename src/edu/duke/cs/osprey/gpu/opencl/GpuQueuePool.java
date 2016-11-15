@@ -37,11 +37,7 @@ public class GpuQueuePool {
 			Gpu gpu = gpus.get(i);
 			List<GpuQueue> queuesAtGpu = new ArrayList<>();
 			for (int j=0; j<numQueuesPerGpu; j++) {
-				
-				// make each queue in a separate context,
-				// so queues can run in parallel without fighting each other
-				boolean useSeparateContext = numQueuesPerGpu > 1;
-				queuesAtGpu.add(new GpuQueue(gpu, useProfiling, useSeparateContext));
+				queuesAtGpu.add(new GpuQueue(gpu, useProfiling, false));
 			}
 			queuesByGpu.add(queuesAtGpu);
 		}

@@ -36,7 +36,6 @@ public class GpuStreamPool {
 		contexts = new ArrayList<>();
 		for (Gpu gpu : gpus) {
 			Context context = new Context(gpu);
-			context.detatchCurrentThread();
 			contexts.add(context);
 		}
 		
@@ -50,7 +49,6 @@ public class GpuStreamPool {
 				queuesAtGpu.add(new GpuStream(context));
 			}
 			streamsByGpu.add(queuesAtGpu);
-			context.detatchCurrentThread();
 		}
 		
 		// flatten the streams into a list
@@ -97,8 +95,6 @@ public class GpuStreamPool {
 	}
 	
 	public synchronized void release(GpuStream stream) {
-		
-		stream.getContext().detatchCurrentThread();
 		
 		for (int i=0; i<streams.size(); i++) {
 			if (streams.get(i) == stream) {

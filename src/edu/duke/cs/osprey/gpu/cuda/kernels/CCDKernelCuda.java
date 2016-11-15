@@ -6,17 +6,21 @@ import java.nio.DoubleBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
+import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.gpu.cuda.CUBuffer;
 import edu.duke.cs.osprey.gpu.cuda.GpuStream;
 import edu.duke.cs.osprey.gpu.cuda.Kernel;
 import edu.duke.cs.osprey.minimization.Minimizer;
+import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.tools.Profiler;
 import jcuda.Pointer;
 
 public class CCDKernelCuda extends Kernel {
@@ -30,11 +34,9 @@ public class CCDKernelCuda extends Kernel {
 		public final int atomOffset;
 		public final int numAtoms;
 		
-		public DofInfo(FreeDihedral dof) {
-			
+		public DofInfo(FreeDihedral dof, BigForcefieldEnergy.Subset subset) {
 			this.res = dof.getResidue();
-			this.subset = ffenergy.new Subset(ffenergy.getInteractions().makeSubsetByResidue(res));
-			
+			this.subset = subset;
 			this.dihedralIndices = res.template.getDihedralDefiningAtoms(dof.getDihedralNumber());
 			this.rotatedIndices = res.template.getDihedralRotatedAtoms(dof.getDihedralNumber());
 			this.atomOffset = ffenergy.getAtomOffset(res);
@@ -48,6 +50,7 @@ public class CCDKernelCuda extends Kernel {
 	private static final int DefaultNumThreads = 512;
 	
 	private BigForcefieldEnergy ffenergy;
+	private int ffSequenceNumber;
 	
 	private Kernel.Function func;
 	
@@ -66,21 +69,37 @@ public class CCDKernelCuda extends Kernel {
 	
 	private List<DofInfo> dofInfos;
 	
-	public CCDKernelCuda(GpuStream stream, BigForcefieldEnergy ffenergy, List<FreeDihedral> dofs)
+	public CCDKernelCuda(GpuStream stream, MoleculeModifierAndScorer mof)
 	throws IOException {
-		this(stream, ffenergy, dofs, DefaultNumThreads);
+		this(stream, mof, DefaultNumThreads);
 	}
 	
-	public CCDKernelCuda(GpuStream stream, BigForcefieldEnergy ffenergy, List<FreeDihedral> dofs, int numThreads)
+	public CCDKernelCuda(GpuStream stream, MoleculeModifierAndScorer mof, int numThreads)
 	throws IOException {
 		super(stream, "ccd");
 		
-		this.ffenergy = ffenergy;
+		// TEMP
+		Profiler profiler = new Profiler();
+		profiler.start("efunc");
+		
+		// get the energy function
+		if (mof.getEfunc() instanceof BigForcefieldEnergy) {
+			this.ffenergy = (BigForcefieldEnergy)mof.getEfunc();
+		} else {
+			throw new Error("CCD kernel needs a " + BigForcefieldEnergy.class.getSimpleName() + ", not a " + mof.getEfunc().getClass().getSimpleName() + ". this is a bug.");
+		}
+		ffSequenceNumber = ffenergy.getFullSubset().handleChemicalChanges();
+		
+		// TEMP
+		profiler.start("ff allocate"); // SLOW
 		
 		// wrap the incoming buffers
 		coords = stream.makeBuffer(ffenergy.getCoords());
 		atomFlags = stream.makeBuffer(ffenergy.getAtomFlags());
 		precomputed = stream.makeBuffer(ffenergy.getPrecomputed());
+		
+		// TEMP
+		profiler.start("args");
 		
 		// make the args buffer
 		ffargs = stream.makeByteBuffer(40);
@@ -88,25 +107,42 @@ public class CCDKernelCuda extends Kernel {
 		argsBuf.rewind();
 		argsBuf.putInt(ffenergy.getFullSubset().getNumAtomPairs());
 		argsBuf.putInt(ffenergy.getFullSubset().getNum14AtomPairs());
-		argsBuf.putDouble(ffenergy.getCoulombFactor());
-		argsBuf.putDouble(ffenergy.getScaledCoulombFactor());
-		argsBuf.putDouble(ffenergy.getSolvationCutoff2());
-		argsBuf.put((byte)(ffenergy.useDistDependentDielectric() ? 1 : 0));
-		argsBuf.put((byte)(ffenergy.useHElectrostatics() ? 1 : 0));
-		argsBuf.put((byte)(ffenergy.useHVdw() ? 1 : 0));
+		argsBuf.putDouble(ffenergy.getParams().coulombFactor);
+		argsBuf.putDouble(ffenergy.getParams().scaledCoulombFactor);
+		argsBuf.putDouble(ffenergy.getParams().solvationCutoff2);
+		argsBuf.put((byte)(ffenergy.getParams().useDistDependentDielectric ? 1 : 0));
+		argsBuf.put((byte)(ffenergy.getParams().useHElectrostatics ? 1 : 0));
+		argsBuf.put((byte)(ffenergy.getParams().useHVdw ? 1 : 0));
+		
+		// TEMP
+		profiler.start("ff upload");
 		
 		// upload static forcefield info
 		atomFlags.uploadAsync();
 		precomputed.uploadAsync();
 		ffargs.uploadAsync();
 		
+		// TEMP
+		profiler.start("dofs");
+		
 		// get info about the dofs
 		dofInfos = new ArrayList<>();
 		int subsetsSize = 0;
 		int numRotatedAtoms = 0;
-		for (FreeDihedral dof : dofs) {
+		for (int d=0; d<mof.getNumDOFs(); d++) {
 			
-			DofInfo dofInfo = new DofInfo(dof);
+			// make sure the DoF is a FreeDihedral. that's all we support on the gpu at the moment
+			DegreeOfFreedom dofBase = mof.getDOFs().get(d);
+			if (!(dofBase instanceof FreeDihedral)) {
+				throw new Error("degree-of-freedom type " + dofBase.getClass().getSimpleName() + " not yet supported by CCD kerne."
+					+ " Use CPU minimizer with GPU energy function instead");
+			}
+			
+			// get the dof and its ff subset
+			FreeDihedral dof = (FreeDihedral)dofBase;
+			BigForcefieldEnergy.Subset subset = (BigForcefieldEnergy.Subset)mof.getEfunc(d);
+			
+			DofInfo dofInfo = new DofInfo(dof, subset);
 			dofInfos.add(dofInfo);
 			
 			// update counts
@@ -114,16 +150,19 @@ public class CCDKernelCuda extends Kernel {
 			numRotatedAtoms += dofInfo.rotatedIndices.size();
 		}
 		
+		// TEMP
+		profiler.start("dof allocate");
+		
 		// allocate dof-related buffers
 		subsetTables = stream.makeIntBuffer(subsetsSize);
 		IntBuffer subsetTablesBuf = subsetTables.getHostBuffer();
 		subsetTablesBuf.clear();
 		
-		dofargs = stream.makeByteBuffer(dofs.size()*40);
+		dofargs = stream.makeByteBuffer(dofInfos.size()*40);
 		ByteBuffer dofargsBuf = dofargs.getHostBuffer();
 		dofargsBuf.clear();
 		
-		dihedralIndices = stream.makeIntBuffer(dofs.size()*4);
+		dihedralIndices = stream.makeIntBuffer(dofInfos.size()*4);
 		IntBuffer dihedralIndicesBuf = dihedralIndices.getHostBuffer();
 		dihedralIndicesBuf.clear();
 		
@@ -131,9 +170,12 @@ public class CCDKernelCuda extends Kernel {
 		IntBuffer rotatedIndicesBuf = rotatedIndices.getHostBuffer();
 		rotatedIndicesBuf.clear();
 		
+		// TEMP
+		profiler.start("dof populate");
+		
 		// populate dof buffers
 		int maxNumCoords = 0;
-		for (int d=0; d<dofs.size(); d++) {
+		for (int d=0; d<dofInfos.size(); d++) {
 			DofInfo dofInfo = dofInfos.get(d);
 			
 			int firstCoord = dofInfo.atomOffset*3;
@@ -166,15 +208,21 @@ public class CCDKernelCuda extends Kernel {
 			}
 		}
 		
+		// TEMP
+		profiler.start("dof upload");
+		
 		// upload more bufs
 		dofargs.uploadAsync();
 		subsetTables.uploadAsync();
 		dihedralIndices.uploadAsync();
 		rotatedIndices.uploadAsync();
 		
+		// TEMP
+		profiler.start("func");
+		
 		// init other ccd inputs,outputs
-		xAndBounds = stream.makeDoubleBuffer(dofs.size()*3);
-		ccdOut = stream.makeDoubleBuffer(dofs.size() + 1);
+		xAndBounds = stream.makeDoubleBuffer(dofInfos.size()*3);
+		ccdOut = stream.makeDoubleBuffer(dofInfos.size() + 1);
 		
 		// init the kernel function
 		func = makeFunction("ccd");
@@ -182,9 +230,9 @@ public class CCDKernelCuda extends Kernel {
 		func.blockThreads = numThreads;
 		func.sharedMemBytes = numThreads*Double.BYTES // energy reduction
 			+ maxNumCoords*Double.BYTES // coords copy
-			+ dofs.size()*Double.BYTES // nextx
-			+ dofs.size()*Double.BYTES // firstSteps
-			+ dofs.size()*Double.BYTES; // lastSteps
+			+ dofInfos.size()*Double.BYTES // nextx
+			+ dofInfos.size()*Double.BYTES // firstSteps
+			+ dofInfos.size()*Double.BYTES; // lastSteps
 		func.setArgs(Pointer.to(
 			coords.makeDevicePointer(),
 			atomFlags.makeDevicePointer(),
@@ -196,9 +244,13 @@ public class CCDKernelCuda extends Kernel {
 			dofargs.makeDevicePointer(),
 			Pointer.to(new int[] { maxNumCoords }),
 			xAndBounds.makeDevicePointer(),
-			Pointer.to(new int[] { dofs.size() }),
+			Pointer.to(new int[] { dofInfos.size() }),
 			ccdOut.makeDevicePointer()
 		));
+		
+		// TEMP
+		profiler.stop();
+		System.out.println("\tccd kernel: " + profiler.makeReport(TimeUnit.MILLISECONDS));
 	}
 	
 	public void uploadCoordsAsync() {
@@ -210,6 +262,11 @@ public class CCDKernelCuda extends Kernel {
 	}
 	
 	public void runAsync(DoubleMatrix1D x, ObjectiveFunction.DofBounds dofBounds) {
+		
+		// make sure the energy function is still valid
+		if (ffenergy.getFullSubset().handleChemicalChanges() != ffSequenceNumber) {
+			throw new Error("don't re-use kernel instances after chemical changes. This is a bug");
+		}
 		
 		// upload x and bounds
 		DoubleBuffer buf = xAndBounds.getHostBuffer();

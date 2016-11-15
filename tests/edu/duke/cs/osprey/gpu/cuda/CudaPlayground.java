@@ -312,7 +312,8 @@ public class CudaPlayground extends TestBase {
 		ForcefieldInteractionsGenerator intergen = new ForcefieldInteractionsGenerator();
 		ForcefieldInteractions interactions = intergen.makeFullConf(search.confSpace, search.shellResidues, cudaMol.getCopiedMolecule());
 		BigForcefieldEnergy bigff = new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct);
-		CCDKernelCuda kernel = new CCDKernelCuda(stream, bigff, dofs);
+		MoleculeModifierAndScorer bigMof = new MoleculeModifierAndScorer(bigff, search.confSpace, tuple, cudaMol);
+		CCDKernelCuda kernel = new CCDKernelCuda(stream, bigMof);
 		
 		// restore coords
 		cudaMof.setDOFs(x);
@@ -366,7 +367,8 @@ public class CudaPlayground extends TestBase {
 					ForcefieldInteractionsGenerator intergen = new ForcefieldInteractionsGenerator();
 					ForcefieldInteractions interactions = intergen.makeFullConf(search.confSpace, search.shellResidues, cudaMol.getCopiedMolecule());
 					BigForcefieldEnergy bigff = new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct);
-					ffkernel = new CCDKernelCuda(stream, bigff, dofs);
+					MoleculeModifierAndScorer bigMof = new MoleculeModifierAndScorer(bigff, search.confSpace, tuple, cudaMol);
+					ffkernel = new CCDKernelCuda(stream, bigMof);
 				}
 
 				@Override

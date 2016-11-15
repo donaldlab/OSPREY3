@@ -1,11 +1,12 @@
 package edu.duke.cs.osprey.minimization;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import cern.colt.matrix.DoubleFactory1D;
+import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
@@ -17,6 +18,9 @@ import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
+import edu.duke.cs.osprey.confspace.ParameterizedMoleculeCopy;
+import edu.duke.cs.osprey.confspace.PositionConfSpace;
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
@@ -25,7 +29,6 @@ import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
-import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.ForcefieldInteractionsGenerator;
 import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
@@ -61,10 +64,11 @@ public class BenchmarkMinimization extends TestBase {
 		System.out.println("Building search problem...");
 		
 		ResidueFlexibility resFlex = new ResidueFlexibility();
+		//resFlex.addMutable("39 43 47 52", "ALA GLY VAL ILE TRP HIS");
 		resFlex.addMutable("39 43", "ALA");
 		resFlex.addFlexible("40 41 42 44 45");
 		boolean doMinimize = true;
-		boolean addWt = true;
+		boolean addWt = false;
 		boolean useEpic = false;
 		boolean useTupleExpansion = false;
 		boolean useEllipses = false;
@@ -94,9 +98,10 @@ public class BenchmarkMinimization extends TestBase {
 		}
 		
 		// settings
-		final int numConfs = 64;//256;
+		final int numConfs = 16;//64;//256;
 		
 		// get a few arbitrary conformations
+		System.out.println("getting confs...");
 		search.pruneMat = new PruningMatrix(search.confSpace, 1000);
 		RCs rcs = new RCs(search.pruneMat);
 		AStarOrder order = new StaticScoreHMeanAStarOrder();
@@ -116,107 +121,147 @@ public class BenchmarkMinimization extends TestBase {
 		confs = newConfs;
 		*/
 		
-		benchmarkSerial(search, confs);
-		//benchmarkParallel(search, confs);
+		System.out.println("benchmarking...");
+		
+		//benchmarkSerial(search, confs);
+		benchmarkParallel(search, confs);
+	}
+	
+	private static class Factories {
+		
+		public final GpuQueuePool openclPool;
+		public final GpuStreamPool cudaPool;
+		public final Factory<Minimizer,MoleculeModifierAndScorer> originalMinimizers;
+		public final Factory<Minimizer,MoleculeModifierAndScorer> simpleMinimizers;
+		public final Factory<Minimizer,MoleculeModifierAndScorer> cudaMinimizers;
+		public final Factory<EnergyFunction,Molecule> cpuEfuncs;
+		public final Factory<EnergyFunction,Molecule> openclEfuncs;
+		public final Factory<EnergyFunction,Molecule> cudaEfuncs;
+		public final Factory<EnergyFunction,Molecule> bigEfuncs;
+		
+		public Factories(SearchProblem search, int maxNumStreams) {
+			
+			System.out.println("making gpu queues...");
+			
+			openclPool = new GpuQueuePool(1, maxNumStreams);
+			
+			System.out.println("making gpu streams...");
+			
+			cudaPool = new GpuStreamPool(1, maxNumStreams);
+			
+			System.out.println("making minimizers...");
+			
+			// make minimizer factories
+			originalMinimizers = new Factory<Minimizer,MoleculeModifierAndScorer>() {
+				@Override
+				public Minimizer make(MoleculeModifierAndScorer mof) {
+					return new CCDMinimizer(mof, true);
+				}
+			};
+			simpleMinimizers = new Factory<Minimizer,MoleculeModifierAndScorer>() {
+				@Override
+				public Minimizer make(MoleculeModifierAndScorer mof) {
+					return new SimpleCCDMinimizer(mof, new Factory<LineSearcher,Void>() {
+						@Override
+						public LineSearcher make(Void ignore) {
+							return new SurfingLineSearcher();
+						}
+					});
+				}
+			};
+			
+			cudaMinimizers = new Factory<Minimizer,MoleculeModifierAndScorer>() {
+				@Override
+				public Minimizer make(MoleculeModifierAndScorer mof) {
+					return new CudaCCDMinimizer(cudaPool, mof);
+				}
+			};
+			
+			System.out.println("making efuncs...");
+			
+			// make efuncs
+			cpuEfuncs = new Factory<EnergyFunction,Molecule>() {
+				@Override
+				public EnergyFunction make(Molecule mol) {
+					return EnvironmentVars.curEFcnGenerator.fullConfEnergy(search.confSpace, search.shellResidues, mol);
+				}
+			};
+			
+			GpuEnergyFunctionGenerator openclEgen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), openclPool);
+			openclEfuncs = new Factory<EnergyFunction,Molecule>() {
+				@Override
+				public EnergyFunction make(Molecule mol) {
+					return openclEgen.fullConfEnergy(search.confSpace, search.shellResidues, mol);
+				}
+			};
+			
+			GpuEnergyFunctionGenerator cudaEgen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), cudaPool);
+			cudaEfuncs = new Factory<EnergyFunction,Molecule>() {
+				@Override
+				public EnergyFunction make(Molecule mol) {
+					return cudaEgen.fullConfEnergy(search.confSpace, search.shellResidues, mol);
+				}
+			};
+			
+			ForcefieldInteractionsGenerator ffintergen = new ForcefieldInteractionsGenerator();
+			bigEfuncs = new Factory<EnergyFunction,Molecule>() {
+				@Override
+				public EnergyFunction make(Molecule mol) {
+					ForcefieldInteractions interactions = ffintergen.makeFullConf(search.confSpace, search.shellResidues, mol);
+					return new BigForcefieldEnergy(EnvironmentVars.curEFcnGenerator.ffParams, interactions, BufferTools.Type.Direct);
+				}
+			};
+			
+			System.out.println("factories complete");
+		}
+		
+		public void cleanup() {
+			openclPool.cleanup();
+			cudaPool.cleanup();
+		}
 	}
 	
 	private static void benchmarkSerial(SearchProblem search, List<ScoredConf> confs)
 	throws Exception {
-		
-		GpuQueuePool openclPool = new GpuQueuePool(1, 1);
-		GpuStreamPool cudaPool = new GpuStreamPool(1, 1);
-		
-		// make minimizer factories
-		Factory<Minimizer,MoleculeModifierAndScorer> originalMinimizers = new Factory<Minimizer,MoleculeModifierAndScorer>() {
-			@Override
-			public Minimizer make(MoleculeModifierAndScorer mof) {
-				return new CCDMinimizer(mof, true);
-			}
-		};
-		Factory<Minimizer,MoleculeModifierAndScorer> simpleMinimizers = new Factory<Minimizer,MoleculeModifierAndScorer>() {
-			@Override
-			public Minimizer make(MoleculeModifierAndScorer mof) {
-				return new SimpleCCDMinimizer(mof, new Factory<LineSearcher,Void>() {
-					@Override
-					public LineSearcher make(Void ignore) {
-						return new SurfingLineSearcher();
-					}
-				});
-			}
-		};
-		
-		Factory<Minimizer,MoleculeModifierAndScorer> cudaMinimizers = new Factory<Minimizer,MoleculeModifierAndScorer>() {
-			@Override
-			public Minimizer make(MoleculeModifierAndScorer mof) {
-				try {
-					return new CudaCCDMinimizer(cudaPool, mof);
-				} catch (IOException ex) {
-					throw new Error(ex);
-				}
-			}
-		};
-		
-		// make efuncs
-		Factory<EnergyFunction,Molecule> efuncs = new Factory<EnergyFunction,Molecule>() {
-			@Override
-			public EnergyFunction make(Molecule mol) {
-				return EnvironmentVars.curEFcnGenerator.fullConfEnergy(search.confSpace, search.shellResidues, mol);
-			}
-		};
-		
-		GpuEnergyFunctionGenerator openclEgen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), openclPool);
-		Factory<EnergyFunction,Molecule> openclEfuncs = new Factory<EnergyFunction,Molecule>() {
-			@Override
-			public EnergyFunction make(Molecule mol) {
-				return openclEgen.fullConfEnergy(search.confSpace, search.shellResidues, mol);
-			}
-		};
-		
-		GpuEnergyFunctionGenerator cudaEgen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), cudaPool);
-		Factory<EnergyFunction,Molecule> cudaEfuncs = new Factory<EnergyFunction,Molecule>() {
-			@Override
-			public EnergyFunction make(Molecule mol) {
-				return cudaEgen.fullConfEnergy(search.confSpace, search.shellResidues, mol);
-			}
-		};
-		
-		ForcefieldInteractionsGenerator ffintergen = new ForcefieldInteractionsGenerator();
-		Factory<EnergyFunction,Molecule> bigEfuncs = new Factory<EnergyFunction,Molecule>() {
-			@Override
-			public EnergyFunction make(Molecule mol) {
-				ForcefieldInteractions interactions = ffintergen.makeFullConf(search.confSpace, search.shellResidues, mol);
-				return new BigForcefieldEnergy(EnvironmentVars.curEFcnGenerator.ffParams, interactions, BufferTools.Type.Direct);
-			}
-		};
-		
+
+		Factories f = new Factories(search, 1);
 		List<EnergiedConf> minimizedConfs;
 		
 		System.out.println("\nbenchmarking CPU original...");
 		Stopwatch cpuOriginalStopwatch = new Stopwatch().start();
-		minimizedConfs = new ConfMinimizer(originalMinimizers).minimize(confs, efuncs, search.confSpace);
+		minimizedConfs = new ConfMinimizer(f.originalMinimizers).minimize(confs, f.cpuEfuncs, search.confSpace);
 		System.out.println("precise timing: " + cpuOriginalStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
 		checkEnergies(minimizedConfs);
 		
 		System.out.println("\nbenchmarking CPU simple...");
 		Stopwatch cpuSimpleStopwatch = new Stopwatch().start();
-		minimizedConfs = new ConfMinimizer(simpleMinimizers).minimize(confs, efuncs, search.confSpace);
+		minimizedConfs = new ConfMinimizer(f.simpleMinimizers).minimize(confs, f.cpuEfuncs, search.confSpace);
 		System.out.print("precise timing: " + cpuSimpleStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
 		System.out.println(String.format(", speedup: %.2fx",
 			(double)cpuOriginalStopwatch.getTimeNs()/cpuSimpleStopwatch.getTimeNs()
 		));
 		checkEnergies(minimizedConfs);
 		
+		System.out.println("\nbenchmarking CPU simple big...");
+		Stopwatch cpuSimpleBigStopwatch = new Stopwatch().start();
+		minimizedConfs = new ConfMinimizer(f.simpleMinimizers).minimize(confs, f.bigEfuncs, search.confSpace);
+		System.out.print("precise timing: " + cpuSimpleBigStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
+		System.out.println(String.format(", speedup: %.2fx",
+			(double)cpuOriginalStopwatch.getTimeNs()/cpuSimpleBigStopwatch.getTimeNs()
+		));
+		checkEnergies(minimizedConfs);
+		
 		{
 			// warm up the energy function
 			// avoids anomalous timings on the first conf
-			GpuForcefieldEnergy efunc = (GpuForcefieldEnergy)openclEfuncs.make(search.confSpace.m);
+			GpuForcefieldEnergy efunc = (GpuForcefieldEnergy)f.openclEfuncs.make(search.confSpace.m);
 			efunc.getEnergy();
 			efunc.cleanup();
 		}
 		
 		System.out.println("\nbenchmarking OpenCL simple...");
 		Stopwatch openclSimpleStopwatch = new Stopwatch().start();
-		minimizedConfs = new ConfMinimizer(simpleMinimizers).minimize(confs, openclEfuncs, search.confSpace);
+		minimizedConfs = new ConfMinimizer(f.simpleMinimizers).minimize(confs, f.openclEfuncs, search.confSpace);
 		System.out.print("precise timing: " + openclSimpleStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
 		System.out.println(String.format(", speedup over CPU simple: %.2fx",
 			(double)cpuSimpleStopwatch.getTimeNs()/openclSimpleStopwatch.getTimeNs()
@@ -226,14 +271,14 @@ public class BenchmarkMinimization extends TestBase {
 		{
 			// warm up the energy function
 			// avoids anomalous timings on the first conf
-			GpuForcefieldEnergy efunc = (GpuForcefieldEnergy)cudaEfuncs.make(search.confSpace.m);
+			GpuForcefieldEnergy efunc = (GpuForcefieldEnergy)f.cudaEfuncs.make(search.confSpace.m);
 			efunc.getEnergy();
 			efunc.cleanup();
 		}
 		
 		System.out.println("\nbenchmarking Cuda simple...");
 		Stopwatch cudaSimpleStopwatch = new Stopwatch().start();
-		minimizedConfs = new ConfMinimizer(simpleMinimizers).minimize(confs, cudaEfuncs, search.confSpace);
+		minimizedConfs = new ConfMinimizer(f.simpleMinimizers).minimize(confs, f.cudaEfuncs, search.confSpace);
 		System.out.print("precise timing: " + cudaSimpleStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
 		System.out.println(String.format(", speedup over CPU simple: %.2fx, speedup over OpenCL simple: %.2fx",
 			(double)cpuSimpleStopwatch.getTimeNs()/cudaSimpleStopwatch.getTimeNs(),
@@ -245,7 +290,7 @@ public class BenchmarkMinimization extends TestBase {
 		
 		System.out.println("\nbenchmarking Cuda CCD..");
 		Stopwatch cudaCCDStopwatch = new Stopwatch().start();
-		minimizedConfs = new ConfMinimizer(cudaMinimizers).minimize(confs, bigEfuncs, search.confSpace);
+		minimizedConfs = new ConfMinimizer(f.cudaMinimizers).minimize(confs, f.bigEfuncs, search.confSpace);
 		System.out.print("precise timing: " + cudaCCDStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
 		System.out.println(String.format(", speedup over CPU simple: %.2fx, speedup over Cuda simple: %.2fx",
 			(double)cpuSimpleStopwatch.getTimeNs()/cudaCCDStopwatch.getTimeNs(),
@@ -254,104 +299,127 @@ public class BenchmarkMinimization extends TestBase {
 		checkEnergies(minimizedConfs);
 		
 		// cleanup
-		openclPool.cleanup();
-		cudaPool.cleanup();
+		f.cleanup();
 	}
 	
 	private static void benchmarkParallel(SearchProblem search, List<ScoredConf> confs)
 	throws Exception {
 		
 		// settings
-		final int[] numThreadsList = { 1, 2, 4, 8 };//, 16 };
-		final boolean useGpu = false;
+		final int[] numThreadsList = { 1 };//, 2, 4 };
+		final int[] numStreamsList = { 1, 2, 4, 8 };//, 16, 32 };
+		int maxNumStreams = numStreamsList[numStreamsList.length - 1];
 		
-		int maxNumThreads = numThreadsList[numThreadsList.length - 1];
-		
-		// get the energy function generator
-		final EnergyFunctionGenerator egen;
-		if (useGpu) {
-			GpuQueuePool gpuPool = new GpuQueuePool(maxNumThreads, 1);
-			//GpuQueuePool gpuPool = new GpuQueuePool(1, maxNumThreads);
-			egen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), gpuPool);
-		} else {
-			egen = EnvironmentVars.curEFcnGenerator;
-		}
-		
-		// make the energy function factory
-		Factory<EnergyFunction,Molecule> efuncs = new Factory<EnergyFunction,Molecule>() {
-			@Override
-			public EnergyFunction make(Molecule mol) {
-				return egen.fullConfEnergy(search.confSpace, search.shellResidues, mol);
-			}
-		};
-		
+		Factories f = new Factories(search, maxNumStreams);
 		List<EnergiedConf> minimizedConfs;
-		
-		// benchmark base minimization
-		System.out.println("\nBenchmarking main thread...");
-		Stopwatch baseStopwatch = new Stopwatch().start();
-		minimizedConfs = new ConfMinimizer().minimize(confs, efuncs, search.confSpace);
-		baseStopwatch.stop();
-		System.out.println("precise timing: " + baseStopwatch.getTime(TimeUnit.MILLISECONDS));
-		checkEnergies(minimizedConfs);
-		
-		// benchmark parallel minimization
 		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
 		
+		// benchmark cpu
+		Stopwatch oneCpuStopwatch = null;
 		for (int numThreads : numThreadsList) {
 			
 			tasks.start(numThreads);
 			
-			System.out.println("\nBenchmarking " + numThreads + " task thread(s)...");
+			System.out.println("\nBenchmarking " + numThreads + " thread(s) with CPU efuncs...");
 			Stopwatch taskStopwatch = new Stopwatch().start();
-			minimizedConfs = new ConfMinimizer().minimize(confs, efuncs, search.confSpace, tasks);
+			minimizedConfs = new ConfMinimizer(f.simpleMinimizers).minimize(confs, f.cpuEfuncs, search.confSpace, tasks);
 			taskStopwatch.stop();
+			if (oneCpuStopwatch == null) {
+				oneCpuStopwatch = taskStopwatch;
+			}
 			System.out.println("precise timing: " + taskStopwatch.getTime(TimeUnit.MILLISECONDS));
-			System.out.println(String.format("Speedup: %.2fx", (float)baseStopwatch.getTimeNs()/taskStopwatch.getTimeNs()));
+			System.out.println(String.format("Speedup over one: %.2fx",
+				(float)oneCpuStopwatch.getTimeNs()/taskStopwatch.getTimeNs()
+			));
 			checkEnergies(minimizedConfs);
 			
 			tasks.stopAndWait(10000);
 		}
 		
-		// TODO: add CCD kernel
+		// benchmark opencl
+		Stopwatch oneOpenCLStopwatch = null;
+		for (int numThreads : numThreadsList) {
+			
+			tasks.start(numThreads);
+			
+			System.out.println("\nBenchmarking " + numThreads + " thread(s) with OpenCL efuncs...");
+			Stopwatch taskStopwatch = new Stopwatch().start();
+			minimizedConfs = new ConfMinimizer(f.simpleMinimizers).minimize(confs, f.openclEfuncs, search.confSpace, tasks);
+			taskStopwatch.stop();
+			if (oneOpenCLStopwatch == null) {
+				oneOpenCLStopwatch = taskStopwatch;
+			}
+			System.out.println("precise timing: " + taskStopwatch.getTime(TimeUnit.MILLISECONDS));
+			System.out.println(String.format("Speedup over one CPU: %.2fx, Speedup over one: %.2fx",
+				(float)oneCpuStopwatch.getTimeNs()/taskStopwatch.getTimeNs(),
+				(float)oneOpenCLStopwatch.getTimeNs()/taskStopwatch.getTimeNs()
+			));
+			checkEnergies(minimizedConfs);
+			
+			tasks.stopAndWait(10000);
+		}
+		
+		// benchmark cuda
+		Stopwatch oneCudaStopwatch = null;
+		for (int numThreads : numThreadsList) {
+			
+			tasks.start(numThreads);
+			
+			System.out.println("\nBenchmarking " + numThreads + " thread(s) with Cuda efuncs...");
+			Stopwatch taskStopwatch = new Stopwatch().start();
+			minimizedConfs = new ConfMinimizer(f.simpleMinimizers).minimize(confs, f.cudaEfuncs, search.confSpace, tasks);
+			taskStopwatch.stop();
+			if (oneCudaStopwatch == null) {
+				oneCudaStopwatch = taskStopwatch;
+			}
+			System.out.println("precise timing: " + taskStopwatch.getTime(TimeUnit.MILLISECONDS));
+			System.out.println(String.format("Speedup over one CPU: %.2fx, Speedup over one: %.2fx",
+				(float)oneCpuStopwatch.getTimeNs()/taskStopwatch.getTimeNs(),
+				(float)oneCudaStopwatch.getTimeNs()/taskStopwatch.getTimeNs()
+			));
+			checkEnergies(minimizedConfs);
+			
+			tasks.stopAndWait(10000);
+		}
+
+		// benchmark cuda ccd
+		Stopwatch oneCudaCCDStopwatch = null;
+		for (int numStreams : numStreamsList) {
+			
+			tasks.start(numStreams);
+			
+			System.out.println("\nBenchmarking " + numStreams + " CCD stream(s)...");
+			Stopwatch taskStopwatch = new Stopwatch().start();
+			minimizedConfs = new ConfMinimizer(f.cudaMinimizers).minimize(confs, f.bigEfuncs, search.confSpace, tasks);
+			taskStopwatch.stop();
+			if (oneCudaCCDStopwatch == null) {
+				oneCudaCCDStopwatch = taskStopwatch;
+			}
+			System.out.println("precise timing: " + taskStopwatch.getTime(TimeUnit.MILLISECONDS));
+			System.out.println(String.format("Speedup over one CPU: %.2fx, Speedup over one: %.2fx",
+				(float)oneCpuStopwatch.getTimeNs()/taskStopwatch.getTimeNs(),
+				(float)oneCudaCCDStopwatch.getTimeNs()/taskStopwatch.getTimeNs()
+			));
+			checkEnergies(minimizedConfs);
+			
+			tasks.stopAndWait(10000);
+		}
+		
+		f.cleanup();
 	}
 
 	private static void checkEnergies(List<EnergiedConf> minimizedConfs) {
 		
 		// what do we expect the energies to be?
 		final double[] expectedEnergies = {
-			 -107.01471459,  -107.14427777,  -106.79145720,  -106.92142505,  -106.28769323,  -107.11806915,  -106.67892491,  -106.41908246,
-			 -106.89600270,  -106.74467994,  -106.45688996,  -106.95533586,  -106.43785971,  -106.52194061,  -106.39162552,  -106.72599183,
-			 -106.10055035,  -106.73371624,  -106.45589638,  -105.95183007,  -106.40589795,  -106.16492360,  -106.50474688,  -105.73727276,
-			 -105.82709238,  -106.01931530,  -106.23489220,  -106.38648271,  -106.23062795,  -106.01634700,  -106.51222044,  -106.13624516,
-			 -105.51519164,  -105.58612419,  -106.16496207,  -105.99895146,  -105.72750978,  -105.98690390,  -106.18174766,  -105.79283124,
-			 -106.28946688,  -105.72932750,  -106.31993137,  -105.46572215,  -105.37426006,  -105.64006776,  -106.15810861,  -105.00807833,
-			 -105.50647942,  -105.76577844,  -105.95677321,  -105.30211004,  -106.10569822,  -106.34665576,  -104.96297178,  -105.24942710,
-			 -105.65937038,  -105.80862838,  -106.04288092,  -105.28676434,  -105.78599604,  -105.60879882,  -105.59757051,  -105.93243523,
-			 -104.85660318,  -105.82786054,  -105.52743753,  -106.07292822,  -104.76277318,  -105.70197187,  -105.41907447,  -105.59816112,
-			 -105.57514850,  -105.00078697,  -105.25981970,  -105.45768990,  -105.69570612,  -105.81569229,  -105.37345137,  -105.32516163,
-			 -105.18453534,  -104.77552447,  -105.66372894,  -104.74544305,  -105.20104130,  -105.62118650,  -105.94380708,  -105.47714940,
-			 -105.19874793,  -105.68525828,  -105.25523303,  -106.00921372,  -105.42817906,  -105.37039116,  -104.92177477,  -105.12020005,
-			 -105.08078506,  -105.10353405,  -104.54518056,  -105.42372788,  -104.36276160,  -105.57048219,  -104.25304132,  -105.44707834,
-			 -105.85164970,  -105.31005854,  -105.97179071,  -104.91206281,  -105.69003208,  -105.51827466,  -104.98031915,  -105.57272140,
-			 -104.69168806,  -104.40878076,  -104.86724947,  -104.93314076,  -105.42707029,  -105.34975959,  -104.90747149,  -105.62328258,
-			 -105.75073814,  -104.86824433,  -105.33459151,  -104.57528847,  -105.69902440,  -104.64177276,  -105.30313879,  -105.00371520,
-			 -105.54711433,  -104.08473685,  -105.57243620,  -104.97243129,  -104.69473109,  -105.43236988,  -105.00083400,  -105.71047073,
-			 -104.82613769,  -105.57488855,  -104.05917939,  -105.31305372,  -105.41318547,  -104.32261347,  -104.59880840,  -105.91694962,
-			 -105.33273335,  -105.42512567,  -104.14833099,  -105.78969791,  -104.52078892,  -104.37539318,  -106.21454791,  -105.17643874,
-			 -104.41988197,  -104.65436707,  -106.16331996,  -105.40771477,  -104.77866487,  -104.83518526,  -104.09812772,  -105.19467591,
-			 -104.81302279,  -105.06326489,  -104.85752660,  -104.47460566,  -105.48509406,  -103.97419265,  -104.72747351,  -106.26512238,
-			 -105.30567872,  -104.62741587,  -104.39179561,  -106.19581383,  -104.90730321,  -104.58659249,  -104.00093258,  -105.29750442,
-			 -105.16157435,  -104.44814917,  -104.90144203,  -104.89764416,  -106.10554281,  -105.94295558,  -105.92238245,  -103.77998285,
-			 -105.24487515,  -105.04573505,  -104.12203689,  -104.32154083,  -104.94327460,  -104.89193137,  -104.46913816,  -104.62824592,
-			 -105.26879510,  -105.54998474,  -105.53386738,  -105.73441590,  -105.25534260,  -105.67282977,  -105.41589873,  -103.86876868,
-			 -105.21164829,  -105.41910383,  -104.38504775,  -105.31640073,  -106.02276866,  -105.95464693,  -104.61106233,  -104.99476755,
-			 -106.19848688,  -104.55644170,  -105.90533052,  -105.24132852,  -105.93190072,  -105.13953344,  -105.09304051,  -103.82124776,
-			 -105.03716091,  -104.52429798,  -104.86147576,  -104.53266535,  -103.67841444,  -104.67901055,  -104.68040140,  -104.21567143,
-			 -104.38923651,  -105.61715733,  -104.90348587,  -105.84652956,  -104.82413091,  -105.19331684,  -105.75282474,  -105.24102379,
-			 -104.91834144,  -106.01403595,  -105.23197119,  -105.37357883,  -106.14771254,  -103.86535116,  -103.91555954,  -104.49899593,
-			 -106.07429149,  -105.94805621,  -104.30300892,  -104.59024552,  -104.83172202,  -105.61273732,  -105.51815959,  -105.04124813,
-			 -104.27625896,  -104.12444693,  -105.29785190,  -103.72015330,  -104.89585332,  -104.67573400,  -104.78906648,  -104.71149972
+		  -89.40966965,   -89.10792020,   -89.80959784,   -88.63999170,   -89.12813427,   -89.50404295,   -88.39619839,   -88.88944800,
+		  -88.91538573,   -88.37400350,   -88.72521732,   -88.95813013,   -88.71957443,   -89.13542393,   -88.39342982,   -88.61512253,
+		  -87.67170876,   -87.75762493,   -88.82437753,   -87.49111955,   -88.39267148,   -88.73093938,   -88.16624474,   -88.47911298,
+		  -88.77040379,   -88.59812445,   -88.63729374,   -88.83029528,   -88.07022384,   -87.82115594,   -89.15034617,   -89.52776262,
+		  -88.08922551,   -87.24538989,   -87.66296341,   -89.47261229,   -88.53548693,   -88.21416862,   -87.18239056,   -88.37126489,
+		  -88.91533055,   -88.95432276,   -88.34024189,   -88.53617041,   -87.76065876,   -87.75246826,   -89.32887293,   -89.12214183,
+		  -87.53435849,   -89.30674536,   -88.86121108,   -88.00498514,   -89.24745408,   -86.93536186,   -87.83485265,   -89.18378421,
+		  -87.60530136,   -87.88059458,   -88.99239407,   -89.00570101,   -88.47514883,   -88.62549053,   -89.05482774,   -88.65430730
 		};
 		
 		final double Epsilon = 1e-3;
@@ -363,18 +431,25 @@ public class BenchmarkMinimization extends TestBase {
 			
 			if (i < expectedEnergies.length) {
 				
-				double absErr = energy - expectedEnergies[i];
-				if (absErr > Epsilon) {
-					
-					System.out.println(String.format("\tWARNING: low precision energy: i:%-3d  exp:%12.8f  obs:%12.8f       absErr:%12.8f",
-						i, expectedEnergies[i], energy, absErr
+				if (Double.isNaN(energy)) {
+					System.out.println(String.format("\tWARNING: invalid energy: i:%-3d  exp:%12.8f  obs: NaN",
+						i, expectedEnergies[i]
 					));
-					
-				} else if (absErr < -Epsilon) {
+				} else {
 				
-					System.out.println(String.format("\t              improved energy: i:%-3d  exp:%12.8f  obs:%12.8f  improvement:%12.8f",
-						i, expectedEnergies[i], energy, -absErr
-					));
+					double absErr = energy - expectedEnergies[i];
+					if (absErr > Epsilon) {
+						
+						System.out.println(String.format("\tWARNING: low precision energy: i:%-3d  exp:%12.8f  obs:%12.8f       absErr:%12.8f",
+							i, expectedEnergies[i], energy, absErr
+						));
+						
+					} else if (absErr < -Epsilon) {
+					
+						System.out.println(String.format("\t              improved energy: i:%-3d  exp:%12.8f  obs:%12.8f  improvement:%12.8f",
+							i, expectedEnergies[i], energy, -absErr
+						));
+					}
 				}
 				
 			} else {

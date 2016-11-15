@@ -124,6 +124,9 @@ public class TestBase {
 			@Override
 			public boolean matches(Object obj) {
 				double observed = ((Double)obj).doubleValue();
+				if (Double.isNaN(observed)) {
+					return false;
+				}
 				return getRelativeError(expected, observed) <= epsilon;
 			}
 

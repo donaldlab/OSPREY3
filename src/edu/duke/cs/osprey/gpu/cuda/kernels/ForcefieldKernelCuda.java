@@ -27,17 +27,55 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 	private BigForcefieldEnergy ffenergy;
 	private BigForcefieldEnergy.Subset subset;
 	
-	public ForcefieldKernelCuda(GpuStream stream)
+	public ForcefieldKernelCuda(GpuStream stream, BigForcefieldEnergy ffenergy)
 	throws IOException {
 		super(stream, "forcefield");
+		
+		this.ffenergy = ffenergy;
 		
 		func = makeFunction("calc");
 		func.blockThreads = 512;
 		func.sharedMemBytes = func.blockThreads*Double.BYTES;
 		
-		// init defaults
-		ffenergy = null;
+		// allocate the buffers
+		coords = getStream().makeBuffer(ffenergy.getCoords());
+		atomFlags = getStream().makeBuffer(ffenergy.getAtomFlags());
+		precomputed = getStream().makeBuffer(ffenergy.getPrecomputed());
+		subsetTable = getStream().makeIntBuffer(ffenergy.getFullSubset().getNumAtomPairs());
+		energies = getStream().makeDoubleBuffer(getEnergySize(ffenergy.getFullSubset(), func.blockThreads));
+		
+		// upload static info
+		atomFlags.uploadAsync();
+		precomputed.uploadAsync();
+		
+		// make the args buffer
+		args = getStream().makeByteBuffer(36);
+		ByteBuffer argsBuf = args.getHostBuffer();
+		argsBuf.rewind();
+		argsBuf.putInt(0); // set by setSubsetInternal()
+		argsBuf.putInt(0); // 
+		argsBuf.putDouble(ffenergy.getParams().coulombFactor);
+		argsBuf.putDouble(ffenergy.getParams().scaledCoulombFactor);
+		argsBuf.putDouble(ffenergy.getParams().solvationCutoff2);
+		argsBuf.put((byte)(ffenergy.getParams().useDistDependentDielectric ? 1 : 0));
+		argsBuf.put((byte)(ffenergy.getParams().useHElectrostatics ? 1 : 0));
+		argsBuf.put((byte)(ffenergy.getParams().useHVdw ? 1 : 0));
+		argsBuf.put((byte)0); // set by setSubsetInternal()
+		argsBuf.flip();
+		
+		// set the subset
+		// NOTE: setting the subset uploads the args too
 		subset = null;
+		setSubsetInternal(ffenergy.getFullSubset());
+		
+		func.setArgs(Pointer.to(
+			coords.makeDevicePointer(),
+			atomFlags.makeDevicePointer(),
+			precomputed.makeDevicePointer(),
+			subsetTable.makeDevicePointer(),
+			args.makeDevicePointer(),
+			energies.makeDevicePointer()
+		));
 	}
 	
 	public CUBuffer<DoubleBuffer> getCoords() {
@@ -70,63 +108,12 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 	}
 	
 	@Override
-	public void setForcefield(BigForcefieldEnergy ffenergy) {
-		
-		if (this.ffenergy != null) {
-			throw new IllegalStateException("kernel already has a force field");
-		}
-		
-		this.ffenergy = ffenergy;
-		
-		// allocate the buffers
-		coords = getStream().makeBuffer(ffenergy.getCoords());
-		atomFlags = getStream().makeBuffer(ffenergy.getAtomFlags());
-		precomputed = getStream().makeBuffer(ffenergy.getPrecomputed());
-		subsetTable = getStream().makeIntBuffer(ffenergy.getFullSubset().getNumAtomPairs());
-		energies = getStream().makeDoubleBuffer(getEnergySize(ffenergy.getFullSubset(), func.blockThreads));
-		
-		// upload static info
-		atomFlags.uploadAsync();
-		precomputed.uploadAsync();
-		
-		// make the args buffer
-		args = getStream().makeByteBuffer(36);
-		ByteBuffer argsBuf = args.getHostBuffer();
-		argsBuf.rewind();
-		argsBuf.putInt(0); // set by setSubsetInternal()
-		argsBuf.putInt(0); // 
-		argsBuf.putDouble(ffenergy.getCoulombFactor());
-		argsBuf.putDouble(ffenergy.getScaledCoulombFactor());
-		argsBuf.putDouble(ffenergy.getSolvationCutoff2());
-		argsBuf.put((byte)(ffenergy.useDistDependentDielectric() ? 1 : 0));
-		argsBuf.put((byte)(ffenergy.useHElectrostatics() ? 1 : 0));
-		argsBuf.put((byte)(ffenergy.useHVdw() ? 1 : 0));
-		argsBuf.put((byte)1);
-		argsBuf.flip();
-		
-		// set the subset
-		// NOTE: setting the subset uploads the args too
-		subset = null;
-		setSubsetInternal(ffenergy.getFullSubset());
-		
-		func.setArgs(Pointer.to(
-			coords.makeDevicePointer(),
-			atomFlags.makeDevicePointer(),
-			precomputed.makeDevicePointer(),
-			subsetTable.makeDevicePointer(),
-			args.makeDevicePointer(),
-			energies.makeDevicePointer()
-		));
-	}
-	
-	@Override
 	public BigForcefieldEnergy.Subset getSubset() {
 		return subset;
 	}
 	
 	@Override
 	public boolean setSubset(BigForcefieldEnergy.Subset subset) {
-		checkInit();
 		return setSubsetInternal(subset);
 	}
 	
@@ -138,6 +125,7 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 		}
 		
 		this.subset = subset;
+		boolean useSubset = subset.getSubsetTable() != null;
 		
 		func.numBlocks = divUp(subset.getNumAtomPairs(), func.blockThreads);
 		
@@ -145,23 +133,25 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 		ByteBuffer buf = args.getHostBuffer();
 		buf.putInt(0, subset.getNumAtomPairs());
 		buf.putInt(4, subset.getNum14AtomPairs());
-		buf.put(35, (byte)1); // doEnergy = true
+		buf.put(35, (byte)(useSubset ? 1 : 0));
 		buf.rewind();
 		args.uploadAsync();
 		
-		// upload subset table
-		subsetTable.getHostBuffer().clear();
-		subset.getSubsetTable().rewind();
-		subsetTable.getHostBuffer().put(subset.getSubsetTable());
-		subsetTable.getHostBuffer().flip();
-		subsetTable.uploadAsync();
+		if (useSubset) {
+			
+			// upload subset table
+			subsetTable.getHostBuffer().clear();
+			subset.getSubsetTable().rewind();
+			subsetTable.getHostBuffer().put(subset.getSubsetTable());
+			subsetTable.getHostBuffer().flip();
+			subsetTable.uploadAsync();
+		}
 		
 		return true;
 	}
 	
 	@Override
 	public void runAsync() {
-		checkInit();
 		func.runAsync();
 	}
 	
@@ -181,15 +171,8 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 		}
 	}
 	
-	private void checkInit() {
-		if (coords == null) {
-			throw new IllegalStateException("call setForcefield() before calling anything else");
-		}
-	}
-
 	@Override
 	public void uploadCoordsAsync() {
-		checkInit();
 		
 		// tell the forcefield to gather updated coords
 		ffenergy.updateCoords();
@@ -199,7 +182,6 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 
 	@Override
 	public double downloadEnergySync() {
-		checkInit();
 		
 		energies.downloadSync();
 		DoubleBuffer buf = energies.getHostBuffer();

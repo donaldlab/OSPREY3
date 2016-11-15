@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.minimization;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
@@ -13,6 +14,7 @@ import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tools.ObjectPool;
+import edu.duke.cs.osprey.tools.Profiler;
 import edu.duke.cs.osprey.tools.Progress;
 
 public class ConfMinimizer {
@@ -34,16 +36,38 @@ public class ConfMinimizer {
 	
 	public Minimizer.Result minimize(ParameterizedMoleculeCopy pmol, int[] conf, EnergyFunction efunc, ConfSpace confSpace) {
 		
+		// TEMP
+		Profiler p = new Profiler();
+		p.start("mof");
+		
 		RCTuple tuple = new RCTuple(conf);
 		MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(efunc, confSpace, tuple, pmol);
+		
+		// TEMP
+		p.start("minimizer");
+		
 		Minimizer minimizer = minimizers.make(mof);
 		
+		// TEMP
+		p.start("minimize");
+		
 		Minimizer.Result result = minimizer.minimize();
+		
+		// TEMP
+		p.start("cleanup minimizer");
 		
 		if (minimizer instanceof Minimizer.NeedsCleanup) {
 			((Minimizer.NeedsCleanup)minimizer).cleanup();
 		}
+		
+		// TEMP
+		p.start("cleanup mof");
+		
 		mof.cleanup();
+		
+		// TEMP
+		p.stop();
+		System.out.println("ConfMinimizer " + p.makeReport(TimeUnit.MILLISECONDS));
 		
 		return result;
 	}
@@ -196,7 +220,7 @@ public class ConfMinimizer {
 			synchronized (pool) {
 				
 				// make sure everything has been returned to the pool
-				if (pool.available() < pool.available()) {
+				if (pool.available() < pool.size()) {
 					throw new Error(String.format("molecule pool in inconsistent state (only %d/%d molecules available), can't cleanup. this is a bug", pool.available(), pool.size()));
 				}
 				

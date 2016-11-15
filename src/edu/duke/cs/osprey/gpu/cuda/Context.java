@@ -111,11 +111,7 @@ public class Context {
 	}
 	
 	public void attachCurrentThread() {
-		JCudaDriver.cuCtxPushCurrent(context);
-	}
-	
-	public void detatchCurrentThread() {
-		JCudaDriver.cuCtxPopCurrent(context);
+		JCudaDriver.cuCtxSetCurrent(context);
 	}
 	
 	public synchronized void cleanup() {
