@@ -245,6 +245,11 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements TaskExecutor
 	}
 	
 	@Override
+	public int getParallelism() {
+		return threads.size();
+	}
+	
+	@Override
 	public void submit(Runnable task) {
 		
 		if (incomingQueue == null) {
