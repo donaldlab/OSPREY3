@@ -58,6 +58,22 @@ public class CUBuffer<T extends Buffer> {
 		return buf;
 	}
 	
+	public void expand(T buf) {
+		
+		// is the existing buffer big enough?
+		int newNumBytes = buf.capacity()*Buffers.sizeOfBufferElem(buf);
+		if (newNumBytes <= numBytes) {
+			
+			// yup
+			return;
+		}
+		
+		// nope, resize the device side
+		stream.getContext().free(pdBuf);
+		numBytes = newNumBytes;
+		pdBuf = stream.getContext().malloc(numBytes);
+	}
+	
 	public void cleanup() {
 		stream.getContext().unpinBuffer(phBuf);
 		stream.getContext().free(pdBuf);

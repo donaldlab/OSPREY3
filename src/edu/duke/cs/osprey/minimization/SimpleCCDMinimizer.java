@@ -7,17 +7,18 @@ import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.tools.Factory;
 
-public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup {
+public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup, Minimizer.Reusable {
 	
 	private static final double MaxIterations = 30; // same as CCDMinimizer
 	private static final double ConvergenceThreshold = 0.001; // same as CCDMinimizer
 	
+	private Factory<LineSearcher,Void> lineSearcherFactory;
 	private ObjectiveFunction f;
 	private List<ObjectiveFunction.OneDof> dofs;
 	private List<LineSearcher> lineSearchers;
 
-	public SimpleCCDMinimizer(ObjectiveFunction ofunc) {
-		this(ofunc, new Factory<LineSearcher,Void>() {
+	public SimpleCCDMinimizer() {
+		this(new Factory<LineSearcher,Void>() {
 			@Override
 			public LineSearcher make(Void ignore) {
 				return new SurfingLineSearcher();
@@ -25,13 +26,22 @@ public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup {
 		});
 	}
 	
-	public SimpleCCDMinimizer(ObjectiveFunction f, Factory<LineSearcher,Void> lineSearcherFactory) {
+	public SimpleCCDMinimizer(Factory<LineSearcher,Void> lineSearcherFactory) {
+		this.lineSearcherFactory = lineSearcherFactory;
+		
+		dofs = new ArrayList<>();
+		lineSearchers = new ArrayList<>();
+	}
+
+	@Override
+	public void init(ObjectiveFunction f) {
 		
 		this.f = f;
 		
 		// build the dofs
-		dofs = new ArrayList<>();
-		lineSearchers = new ArrayList<>();
+		dofs.clear();
+		lineSearchers.clear();
+		
 		for (int d=0; d<f.getNumDOFs(); d++) {
 			
 			ObjectiveFunction.OneDof fd = new ObjectiveFunction.OneDof(f, d);

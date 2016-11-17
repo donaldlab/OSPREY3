@@ -9,6 +9,8 @@ public class Gpu {
 	private CUdevice device;
 	private String name;
 	private int[] computeVersion;
+	private int warpThreads;
+	private int maxBlockThreads;
 	private long memory;
 
 	public Gpu(CUdevice device) {
@@ -30,6 +32,8 @@ public class Gpu {
 			getAttribute(CUdevice_attribute.CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR),
 			getAttribute(CUdevice_attribute.CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR)
 		};
+		warpThreads = getAttribute(CUdevice_attribute.CU_DEVICE_ATTRIBUTE_WARP_SIZE);
+		maxBlockThreads = getAttribute(CUdevice_attribute.CU_DEVICE_ATTRIBUTE_MAX_BLOCK_DIM_X);
 	}
 	
 	public CUdevice getDevice() {
@@ -71,6 +75,14 @@ public class Gpu {
 	
 	public boolean supportsDynamicParallelism() {
 		return isComputeVersionAtLeast(3, 5);
+	}
+	
+	public int getWarpThreads() {
+		return warpThreads;
+	}
+	
+	public int getMaxBlockThreads() {
+		return maxBlockThreads;
 	}
 	
 	@Override

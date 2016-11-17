@@ -396,10 +396,12 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
         if (efunc instanceof EnergyFunction.ExplicitChemicalChanges) {
         	((EnergyFunction.ExplicitChemicalChanges)efunc).handleChemicalChanges();
         }
-        for (EnergyFunction dofEfunc : partialEFuncs) {
-        	if (dofEfunc instanceof EnergyFunction.ExplicitChemicalChanges) {
-        		((EnergyFunction.ExplicitChemicalChanges)dofEfunc).handleChemicalChanges();
-        	}
+        if (partialEFuncs != null) {
+			for (EnergyFunction dofEfunc : partialEFuncs) {
+				if (dofEfunc instanceof EnergyFunction.ExplicitChemicalChanges) {
+					((EnergyFunction.ExplicitChemicalChanges)dofEfunc).handleChemicalChanges();
+				}
+			}
         }
     }
     

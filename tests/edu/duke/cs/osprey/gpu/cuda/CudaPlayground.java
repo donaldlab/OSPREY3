@@ -229,12 +229,8 @@ public class CudaPlayground extends TestBase {
 		ObjectiveFunction.DofBounds dofBounds = new ObjectiveFunction.DofBounds(cpuMof.getConstraints());
 		dofBounds.getCenter(x);
 		
-		SimpleCCDMinimizer cpuMinimizer = new SimpleCCDMinimizer(cpuMof, new Factory<LineSearcher,Void>() {
-			@Override
-			public LineSearcher make(Void context) {
-				return new SurfingLineSearcher();
-			}
-		});
+		SimpleCCDMinimizer cpuMinimizer = new SimpleCCDMinimizer();
+		cpuMinimizer.init(cpuMof);
 		
 		// restore coords
 		cpuMof.setDOFs(x);
@@ -263,12 +259,8 @@ public class CudaPlayground extends TestBase {
 		GpuForcefieldEnergy cudaEfunc = cudaEgen.fullConfEnergy(search.confSpace, search.shellResidues, cudaMol.getCopiedMolecule());
 		MoleculeModifierAndScorer cudaMof = new MoleculeModifierAndScorer(cudaEfunc, search.confSpace, tuple, cudaMol);
 		
-		SimpleCCDMinimizer cudaMinimizer = new SimpleCCDMinimizer(cudaMof, new Factory<LineSearcher,Void>() {
-			@Override
-			public LineSearcher make(Void context) {
-				return new SurfingLineSearcher();
-			}
-		});
+		SimpleCCDMinimizer cudaMinimizer = new SimpleCCDMinimizer();
+		cudaMinimizer.init(cudaMof);
 		
 		// restore coords
 		cudaMof.setDOFs(x);
@@ -313,7 +305,8 @@ public class CudaPlayground extends TestBase {
 		ForcefieldInteractions interactions = intergen.makeFullConf(search.confSpace, search.shellResidues, cudaMol.getCopiedMolecule());
 		BigForcefieldEnergy bigff = new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct);
 		MoleculeModifierAndScorer bigMof = new MoleculeModifierAndScorer(bigff, search.confSpace, tuple, cudaMol);
-		CCDKernelCuda kernel = new CCDKernelCuda(stream, bigMof);
+		CCDKernelCuda kernel = new CCDKernelCuda(stream);
+		kernel.init(bigMof);
 		
 		// restore coords
 		cudaMof.setDOFs(x);
@@ -368,7 +361,8 @@ public class CudaPlayground extends TestBase {
 					ForcefieldInteractions interactions = intergen.makeFullConf(search.confSpace, search.shellResidues, cudaMol.getCopiedMolecule());
 					BigForcefieldEnergy bigff = new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct);
 					MoleculeModifierAndScorer bigMof = new MoleculeModifierAndScorer(bigff, search.confSpace, tuple, cudaMol);
-					ffkernel = new CCDKernelCuda(stream, bigMof);
+					ffkernel = new CCDKernelCuda(stream);
+					ffkernel.init(bigMof);
 				}
 
 				@Override

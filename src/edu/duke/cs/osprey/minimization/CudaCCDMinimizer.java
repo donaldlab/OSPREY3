@@ -8,7 +8,7 @@ import edu.duke.cs.osprey.gpu.cuda.GpuStream;
 import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
 import edu.duke.cs.osprey.gpu.cuda.kernels.CCDKernelCuda;
 
-public class CudaCCDMinimizer implements Minimizer.NeedsCleanup {
+public class CudaCCDMinimizer implements Minimizer.NeedsCleanup, Minimizer.Reusable {
 	
 	private GpuStreamPool streams;
 	private MoleculeModifierAndScorer mof;
@@ -17,18 +17,30 @@ public class CudaCCDMinimizer implements Minimizer.NeedsCleanup {
 	private ObjectiveFunction.DofBounds dofBounds;
 	private DoubleMatrix1D x;
 
-	public CudaCCDMinimizer(GpuStreamPool streams, MoleculeModifierAndScorer mof) {
-		
+	public CudaCCDMinimizer(GpuStreamPool streams) {
 		this.streams = streams;
-		this.mof = mof;
-		this.stream = streams.checkout();
+	}
+	
+	@Override
+	public void init(ObjectiveFunction f) {
 		
-		// make the kernel
-		try {
-			kernel = new CCDKernelCuda(this.stream, mof);
-		} catch (IOException ex) {
-			throw new Error("can't make CCD kernel", ex);
+		// get the molecule objective function
+		if (f instanceof MoleculeModifierAndScorer) {
+			mof = (MoleculeModifierAndScorer)f;
+		} else {
+			throw new Error("objective function should be a " + MoleculeModifierAndScorer.class.getSimpleName() + ", not a " + f.getClass().getSimpleName() + ". this is a bug");
 		}
+		
+		if (kernel == null) {
+			// make the kernel
+			try {
+				stream = streams.checkout();
+				kernel = new CCDKernelCuda(this.stream);
+			} catch (IOException ex) {
+				throw new Error("can't make CCD kernel", ex);
+			}
+		}
+		kernel.init(mof);
 		
 		// init x to the center of the bounds
 		dofBounds = new ObjectiveFunction.DofBounds(mof.getConstraints());

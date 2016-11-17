@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.gpu.cuda;
 
 import java.io.IOException;
 
+import jcuda.CudaException;
 import jcuda.Pointer;
 import jcuda.driver.CUfunction;
 import jcuda.driver.CUmodule;
@@ -9,14 +10,26 @@ import jcuda.driver.JCudaDriver;
 
 public class Kernel {
 	
-	public class Function {
+	public static interface SharedMemCalculator {
 		
-		public int numBlocks;
-		public int blockThreads;
-		public int sharedMemBytes;
+		int calcBytes(int blockThreads);
+		
+		public static class None implements SharedMemCalculator {
+			@Override
+			public int calcBytes(int blockThreads) {
+				return 0;
+			}
+		}
+	}
+		
+	public class Function {
 		
 		private CUfunction func;
 		private Pointer pArgs;
+		
+		public int numBlocks;
+		public int blockThreads;
+		public SharedMemCalculator sharedMemCalc;
 		
 		public Function(String name) {
 			func = new CUfunction();
@@ -24,7 +37,7 @@ public class Kernel {
 			pArgs = null;
 			numBlocks = 1;
 			blockThreads = 1;
-			sharedMemBytes = 0;
+			sharedMemCalc = new SharedMemCalculator.None();
 		}
 		
 		public void setArgs(Pointer val) {
@@ -32,7 +45,41 @@ public class Kernel {
 		}
 		
 		public void runAsync() {
-			getContext().launchKernel(func, numBlocks, blockThreads, sharedMemBytes, pArgs, stream);
+			getContext().launchKernel(func, numBlocks, blockThreads, sharedMemCalc.calcBytes(blockThreads), pArgs, stream);
+		}
+		
+		public int calcMaxBlockThreads() {
+			
+			// try the most threads, then step back until something works
+			Gpu gpu = getContext().getGpu();
+			for (int blockThreads = gpu.getMaxBlockThreads(); blockThreads > 0; blockThreads -= gpu.getWarpThreads()) {
+				
+				// can we launch at this size?
+				if (canLaunch(blockThreads)) {
+					return blockThreads;
+				}
+			}
+		
+			// we ran out of threads, this is really bad
+			throw new Error("can't determine thread count for kernel launch, all thread counts failed");
+		}
+		
+		private boolean canLaunch(int blockThreads) {
+			try {
+				
+				// try to launch it (without changing internal state)
+				int numBlocks = 1;
+				getContext().launchKernel(func, numBlocks, blockThreads, sharedMemCalc.calcBytes(blockThreads), pArgs, stream);
+				stream.waitForGpu();
+				return true;
+				
+			} catch (CudaException ex) {
+				if (ex.getMessage().equalsIgnoreCase("CUDA_ERROR_LAUNCH_OUT_OF_RESOURCES")) {
+					return false;
+				} else {
+					throw ex;
+				}
+			}
 		}
 	}
 	
@@ -47,6 +94,9 @@ public class Kernel {
 		}
 		
 		this.stream = stream;
+		
+		// make sure this thread is attached to this context
+		stream.getContext().attachCurrentThread();
 		
 		module = getContext().getKernel(filename);
 	}

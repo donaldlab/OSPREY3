@@ -50,6 +50,62 @@ public class GpuStream {
 		return new CUBuffer<>(this, BufferTools.makeLong(size, BufferTools.Type.Direct));
 	}
 	
+	public CUBuffer<ByteBuffer> makeOrExpandByteBuffer(CUBuffer<ByteBuffer> buf, int size) {
+		buf = useOrCleanupBuffer(buf, size);
+		if (buf == null) {
+			buf = makeByteBuffer(size);
+		}
+		return buf;
+	}
+	
+	public CUBuffer<IntBuffer> makeOrExpandIntBuffer(CUBuffer<IntBuffer> buf, int size) {
+		buf = useOrCleanupBuffer(buf, size);
+		if (buf == null) {
+			buf = makeIntBuffer(size);
+		}
+		return buf;
+	}
+	
+	public CUBuffer<DoubleBuffer> makeOrExpandDoubleBuffer(CUBuffer<DoubleBuffer> buf, int size) {
+		buf = useOrCleanupBuffer(buf, size);
+		if (buf == null) {
+			buf = makeDoubleBuffer(size);
+		}
+		return buf;
+	}
+	
+	public CUBuffer<LongBuffer> makeOrExpandLongBuffer(CUBuffer<LongBuffer> buf, int size) {
+		buf = useOrCleanupBuffer(buf, size);
+		if (buf == null) {
+			buf = makeLongBuffer(size);
+		}
+		return buf;
+	}
+	
+	private <T extends Buffer> CUBuffer<T> useOrCleanupBuffer(CUBuffer<T> buf, int size) {
+		
+		if (buf == null) {
+			return null;
+		}
+		
+		// if the old buffer is big enough, use that
+		if (buf.getHostBuffer().capacity() >= size) {
+			return buf;
+		}
+		
+		// otherwise, clean it up
+		buf.cleanup();
+		return null;
+	}
+	
+	public <T extends Buffer> CUBuffer<T> makeOrExpandBuffer(CUBuffer<T> dest, T src) {
+		if (dest == null) {
+			return makeBuffer(src);
+		}
+		dest.expand(src);
+		return dest;
+	}
+	
 	public void waitForGpu() {
 		JCudaDriver.cuStreamSynchronize(stream);
 	}

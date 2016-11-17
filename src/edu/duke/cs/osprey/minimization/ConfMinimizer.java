@@ -21,13 +21,15 @@ public class ConfMinimizer {
 	
 	private Factory<Minimizer,MoleculeModifierAndScorer> minimizers;
 	
+	private static final Factory<Minimizer,MoleculeModifierAndScorer> DefaultMinimizers = new Factory<Minimizer,MoleculeModifierAndScorer>() {
+		@Override
+		public Minimizer make(MoleculeModifierAndScorer mof) {
+			return new CCDMinimizer(mof, true);
+		}
+	};
+	
 	public ConfMinimizer() {
-		this(new Factory<Minimizer,MoleculeModifierAndScorer>() {
-			@Override
-			public Minimizer make(MoleculeModifierAndScorer mof) {
-				return new CCDMinimizer(mof, true);
-			}
-		});
+		this(DefaultMinimizers);
 	}
 	
 	public ConfMinimizer(Factory<Minimizer,MoleculeModifierAndScorer> minimizers) {
@@ -100,7 +102,7 @@ public class ConfMinimizer {
 			econfs.add(null);
 		}
 		
-		Async async = new Async(efuncs, confSpace, tasks, this);
+		Async async = new Async(efuncs, confSpace, tasks, minimizers);
 		
 		// minimize them all
 		for (int i=0; i<confs.size(); i++) {
@@ -121,9 +123,10 @@ public class ConfMinimizer {
 	
 	public static class Async {
 		
-		private static class EfuncAndPMC {
+		private static class TaskStuff {
 			public ParameterizedMoleculeCopy pmol;
 			public EnergyFunction efunc;
+			public Minimizer.Reusable minimizer;
 		}
 		
 		private class Task implements Runnable {
@@ -143,43 +146,74 @@ public class ConfMinimizer {
 	
 		private ConfSpace confSpace;
 		private TaskExecutor tasks;
-		private ConfMinimizer confMinimizer;
-		private ObjectPool<EfuncAndPMC> pool;
+		private Factory<Minimizer,MoleculeModifierAndScorer> minimizers;
+		private ObjectPool<TaskStuff> taskStuffPool;
 	
 		public Async(Factory<? extends EnergyFunction,Molecule> efuncs, ConfSpace confSpace, TaskExecutor tasks) {
-			this(efuncs, confSpace, tasks, new ConfMinimizer());
+			this(efuncs, confSpace, tasks, DefaultMinimizers);
 		}
 		
-		public Async(Factory<? extends EnergyFunction,Molecule> efuncs, ConfSpace confSpace, TaskExecutor tasks, ConfMinimizer confMinimizer) {
+		public Async(Factory<? extends EnergyFunction,Molecule> efuncs, ConfSpace confSpace, TaskExecutor tasks, Factory<Minimizer,MoleculeModifierAndScorer> minimizers) {
 			
 			this.confSpace = confSpace;
 			this.tasks = tasks;
-			this.confMinimizer = confMinimizer;
+			this.minimizers = minimizers;
 			
 			// make a pool for molecules and energy functions
 			// to keep concurrent tasks from racing each other
-			pool = new ObjectPool<>(new Factory<EfuncAndPMC,Void>() {
+			taskStuffPool = new ObjectPool<>(new Factory<TaskStuff,Void>() {
 				@Override
-				public EfuncAndPMC make(Void context) {
+				public TaskStuff make(Void context) {
 					
-					EfuncAndPMC out = new EfuncAndPMC();
+					TaskStuff out = new TaskStuff();
 					out.pmol = new ParameterizedMoleculeCopy(confSpace);
 					out.efunc = efuncs.make(out.pmol.getCopiedMolecule());
+					out.minimizer = null;
 					return out;
 				}
 			});
+			
+			// pre-allocate the pool
+			taskStuffPool.allocate(tasks.getParallelism());
 		}
 		
 		public EnergiedConf minimizeSync(ScoredConf conf) {
-			EfuncAndPMC em;
-			synchronized (pool) {
-				em = pool.checkout();
+			
+			TaskStuff stuff;
+			synchronized (taskStuffPool) {
+				stuff = taskStuffPool.checkout();
 			}
 			try {
-				return confMinimizer.minimize(em.pmol, conf, em.efunc, confSpace);
+				
+				// set the molecule to the conf
+				RCTuple tuple = new RCTuple(conf.getAssignments());
+				MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(stuff.efunc, confSpace, tuple, stuff.pmol);
+				
+				// get (or reuse) the minimizer
+				Minimizer minimizer;
+				if (stuff.minimizer == null) {
+					minimizer = minimizers.make(mof);
+				} else {
+					stuff.minimizer.init(mof);
+					minimizer = stuff.minimizer;
+				}
+				
+				// minimize the conf
+				Minimizer.Result result = minimizer.minimize();
+				
+				// cleanup the minimizer, if needed
+				mof.cleanup();
+				if (minimizer instanceof Minimizer.Reusable) {
+					stuff.minimizer = (Minimizer.Reusable)minimizer;
+				} else if (minimizer instanceof Minimizer.NeedsCleanup) {
+					((Minimizer.NeedsCleanup)minimizer).cleanup();
+				}
+				
+				return new EnergiedConf(conf, result.energy);
+				
 			} finally {
-				synchronized (pool) {
-					pool.release(em);
+				synchronized (taskStuffPool) {
+					taskStuffPool.release(stuff);
 				}
 			}
 		}
@@ -217,20 +251,24 @@ public class ConfMinimizer {
 			// tasks that aren't finished yet won't cleanup properly and leak memory!
 			tasks.waitForFinish();
 			
-			synchronized (pool) {
+			synchronized (taskStuffPool) {
 				
 				// make sure everything has been returned to the pool
-				if (pool.available() < pool.size()) {
-					throw new Error(String.format("molecule pool in inconsistent state (only %d/%d molecules available), can't cleanup. this is a bug", pool.available(), pool.size()));
+				if (taskStuffPool.available() < taskStuffPool.size()) {
+					throw new Error(String.format("molecule pool in inconsistent state (only %d/%d molecules available), can't cleanup. this is a bug", taskStuffPool.available(), taskStuffPool.size()));
 				}
 				
-				// cleanup the energy functions if needed
-				for (EfuncAndPMC em : pool) {
-					if (em.efunc instanceof EnergyFunction.NeedsCleanup) {
-						((EnergyFunction.NeedsCleanup)em.efunc).cleanup();
+				// cleanup the task stuff if needed
+				for (TaskStuff stuff : taskStuffPool) {
+					
+					if (stuff.efunc instanceof EnergyFunction.NeedsCleanup) {
+						((EnergyFunction.NeedsCleanup)stuff.efunc).cleanup();
+					}
+					if (stuff.minimizer instanceof Minimizer.NeedsCleanup) {
+						((Minimizer.NeedsCleanup)stuff.minimizer).cleanup();
 					}
 				}
-				pool.clear();
+				taskStuffPool.clear();
 			}
 		}
 	}

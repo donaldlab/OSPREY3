@@ -30,4 +30,8 @@ public interface Minimizer {
     public static interface NeedsCleanup extends Minimizer {
     	void cleanup();
     }
+    
+    public static interface Reusable extends Minimizer {
+    	void init(ObjectiveFunction f);
+    }
 }

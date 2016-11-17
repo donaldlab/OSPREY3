@@ -34,8 +34,13 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 		this.ffenergy = ffenergy;
 		
 		func = makeFunction("calc");
-		func.blockThreads = 512;
-		func.sharedMemBytes = func.blockThreads*Double.BYTES;
+		func.blockThreads = 512; // NOTE: optimizing this doesn't make much difference
+		func.sharedMemCalc = new Kernel.SharedMemCalculator() {
+			@Override
+			public int calcBytes(int blockThreads) {
+				return blockThreads*Double.BYTES;
+			}
+		};
 		
 		// allocate the buffers
 		coords = getStream().makeBuffer(ffenergy.getCoords());

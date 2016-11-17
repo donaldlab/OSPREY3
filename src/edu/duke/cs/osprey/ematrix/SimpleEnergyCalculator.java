@@ -128,7 +128,8 @@ public class SimpleEnergyCalculator {
 		// optimize the degrees of freedom, if needed
 		if (mof.getNumDOFs() > 0) {
 			// TODO: use configurable minimizer
-			Minimizer minimizer = new SimpleCCDMinimizer(mof);
+			SimpleCCDMinimizer minimizer = new SimpleCCDMinimizer();
+			minimizer.init(mof);
 			return minimizer.minimize();
 		}
 

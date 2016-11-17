@@ -6,7 +6,6 @@ import java.nio.DoubleBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
@@ -20,7 +19,6 @@ import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.Profiler;
 import jcuda.Pointer;
 
 public class CCDKernelCuda extends Kernel {
@@ -44,15 +42,11 @@ public class CCDKernelCuda extends Kernel {
 		}
 	}
 	
-	// OPTIMIZATION: generally, more threads = more faster, but more threads use more GPU SM resources
-	// this default value will probably under-saturate newer cards and require too many resources for older cards
-	// ideally, this should be optimized for each hardware platform
-	private static final int DefaultNumThreads = 512;
-	
 	private BigForcefieldEnergy ffenergy;
 	private int ffSequenceNumber;
 	
 	private Kernel.Function func;
+	private static Integer blockThreads = null;
 	
 	private CUBuffer<DoubleBuffer> coords;
 	private CUBuffer<IntBuffer> atomFlags;
@@ -69,18 +63,16 @@ public class CCDKernelCuda extends Kernel {
 	
 	private List<DofInfo> dofInfos;
 	
-	public CCDKernelCuda(GpuStream stream, MoleculeModifierAndScorer mof)
-	throws IOException {
-		this(stream, mof, DefaultNumThreads);
-	}
-	
-	public CCDKernelCuda(GpuStream stream, MoleculeModifierAndScorer mof, int numThreads)
+	public CCDKernelCuda(GpuStream stream)
 	throws IOException {
 		super(stream, "ccd");
 		
-		// TEMP
-		Profiler profiler = new Profiler();
-		profiler.start("efunc");
+		ffargs = stream.makeByteBuffer(40);
+	}
+	
+	public void init(MoleculeModifierAndScorer mof) {
+		
+		GpuStream stream = getStream();
 		
 		// get the energy function
 		if (mof.getEfunc() instanceof BigForcefieldEnergy) {
@@ -88,21 +80,17 @@ public class CCDKernelCuda extends Kernel {
 		} else {
 			throw new Error("CCD kernel needs a " + BigForcefieldEnergy.class.getSimpleName() + ", not a " + mof.getEfunc().getClass().getSimpleName() + ". this is a bug.");
 		}
-		ffSequenceNumber = ffenergy.getFullSubset().handleChemicalChanges();
 		
-		// TEMP
-		profiler.start("ff allocate"); // SLOW
+		// handle any chemical changes
+		ffSequenceNumber = ffenergy.getFullSubset().handleChemicalChanges();
+		ffenergy.updateCoords();
 		
 		// wrap the incoming buffers
-		coords = stream.makeBuffer(ffenergy.getCoords());
-		atomFlags = stream.makeBuffer(ffenergy.getAtomFlags());
-		precomputed = stream.makeBuffer(ffenergy.getPrecomputed());
-		
-		// TEMP
-		profiler.start("args");
+		coords = stream.makeOrExpandBuffer(coords, ffenergy.getCoords());
+		atomFlags = stream.makeOrExpandBuffer(atomFlags, ffenergy.getAtomFlags());
+		precomputed = stream.makeOrExpandBuffer(precomputed, ffenergy.getPrecomputed());
 		
 		// make the args buffer
-		ffargs = stream.makeByteBuffer(40);
 		ByteBuffer argsBuf = ffargs.getHostBuffer();
 		argsBuf.rewind();
 		argsBuf.putInt(ffenergy.getFullSubset().getNumAtomPairs());
@@ -114,16 +102,10 @@ public class CCDKernelCuda extends Kernel {
 		argsBuf.put((byte)(ffenergy.getParams().useHElectrostatics ? 1 : 0));
 		argsBuf.put((byte)(ffenergy.getParams().useHVdw ? 1 : 0));
 		
-		// TEMP
-		profiler.start("ff upload");
-		
 		// upload static forcefield info
 		atomFlags.uploadAsync();
 		precomputed.uploadAsync();
 		ffargs.uploadAsync();
-		
-		// TEMP
-		profiler.start("dofs");
 		
 		// get info about the dofs
 		dofInfos = new ArrayList<>();
@@ -150,28 +132,22 @@ public class CCDKernelCuda extends Kernel {
 			numRotatedAtoms += dofInfo.rotatedIndices.size();
 		}
 		
-		// TEMP
-		profiler.start("dof allocate");
-		
 		// allocate dof-related buffers
-		subsetTables = stream.makeIntBuffer(subsetsSize);
+		subsetTables = stream.makeOrExpandIntBuffer(subsetTables, subsetsSize);
 		IntBuffer subsetTablesBuf = subsetTables.getHostBuffer();
 		subsetTablesBuf.clear();
 		
-		dofargs = stream.makeByteBuffer(dofInfos.size()*40);
+		dofargs = stream.makeOrExpandByteBuffer(dofargs, dofInfos.size()*40);
 		ByteBuffer dofargsBuf = dofargs.getHostBuffer();
 		dofargsBuf.clear();
 		
-		dihedralIndices = stream.makeIntBuffer(dofInfos.size()*4);
+		dihedralIndices = stream.makeOrExpandIntBuffer(dihedralIndices, dofInfos.size()*4);
 		IntBuffer dihedralIndicesBuf = dihedralIndices.getHostBuffer();
 		dihedralIndicesBuf.clear();
 		
-		rotatedIndices = stream.makeIntBuffer(numRotatedAtoms);
+		rotatedIndices = stream.makeOrExpandIntBuffer(rotatedIndices, numRotatedAtoms);
 		IntBuffer rotatedIndicesBuf = rotatedIndices.getHostBuffer();
 		rotatedIndicesBuf.clear();
-		
-		// TEMP
-		profiler.start("dof populate");
 		
 		// populate dof buffers
 		int maxNumCoords = 0;
@@ -207,9 +183,7 @@ public class CCDKernelCuda extends Kernel {
 				rotatedIndicesBuf.put(dofInfo.rotatedIndices.get(i));
 			}
 		}
-		
-		// TEMP
-		profiler.start("dof upload");
+		final int fMaxNumCoords = maxNumCoords;
 		
 		// upload more bufs
 		dofargs.uploadAsync();
@@ -217,22 +191,23 @@ public class CCDKernelCuda extends Kernel {
 		dihedralIndices.uploadAsync();
 		rotatedIndices.uploadAsync();
 		
-		// TEMP
-		profiler.start("func");
-		
 		// init other ccd inputs,outputs
-		xAndBounds = stream.makeDoubleBuffer(dofInfos.size()*3);
-		ccdOut = stream.makeDoubleBuffer(dofInfos.size() + 1);
+		xAndBounds = stream.makeOrExpandDoubleBuffer(xAndBounds, dofInfos.size()*3);
+		ccdOut = stream.makeOrExpandDoubleBuffer(ccdOut, dofInfos.size() + 1);
 		
 		// init the kernel function
 		func = makeFunction("ccd");
 		func.numBlocks = 1;
-		func.blockThreads = numThreads;
-		func.sharedMemBytes = numThreads*Double.BYTES // energy reduction
-			+ maxNumCoords*Double.BYTES // coords copy
-			+ dofInfos.size()*Double.BYTES // nextx
-			+ dofInfos.size()*Double.BYTES // firstSteps
-			+ dofInfos.size()*Double.BYTES; // lastSteps
+		func.sharedMemCalc = new Kernel.SharedMemCalculator() {
+			@Override
+			public int calcBytes(int blockThreads) {
+				return blockThreads*Double.BYTES // energy reduction
+					+ fMaxNumCoords*Double.BYTES // coords copy
+					+ dofInfos.size()*Double.BYTES // nextx
+					+ dofInfos.size()*Double.BYTES // firstSteps
+					+ dofInfos.size()*Double.BYTES; // lastSteps
+			}
+		};
 		func.setArgs(Pointer.to(
 			coords.makeDevicePointer(),
 			atomFlags.makeDevicePointer(),
@@ -248,9 +223,11 @@ public class CCDKernelCuda extends Kernel {
 			ccdOut.makeDevicePointer()
 		));
 		
-		// TEMP
-		profiler.stop();
-		System.out.println("\tccd kernel: " + profiler.makeReport(TimeUnit.MILLISECONDS));
+		// calc the number of block threads
+		if (blockThreads == null) {
+			blockThreads = func.calcMaxBlockThreads();
+		}
+		func.blockThreads = blockThreads;
 	}
 	
 	public void uploadCoordsAsync() {
