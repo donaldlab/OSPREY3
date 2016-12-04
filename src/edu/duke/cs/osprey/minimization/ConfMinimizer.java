@@ -2,7 +2,6 @@ package edu.duke.cs.osprey.minimization;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
@@ -14,14 +13,13 @@ import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tools.ObjectPool;
-import edu.duke.cs.osprey.tools.Profiler;
 import edu.duke.cs.osprey.tools.Progress;
 
 public class ConfMinimizer {
 	
-	private Factory<Minimizer,MoleculeModifierAndScorer> minimizers;
+	private Factory<? extends Minimizer,MoleculeModifierAndScorer> minimizers;
 	
-	private static final Factory<Minimizer,MoleculeModifierAndScorer> DefaultMinimizers = new Factory<Minimizer,MoleculeModifierAndScorer>() {
+	private static final Factory<? extends Minimizer,MoleculeModifierAndScorer> DefaultMinimizers = new Factory<Minimizer,MoleculeModifierAndScorer>() {
 		@Override
 		public Minimizer make(MoleculeModifierAndScorer mof) {
 			return new CCDMinimizer(mof, true);
@@ -32,44 +30,23 @@ public class ConfMinimizer {
 		this(DefaultMinimizers);
 	}
 	
-	public ConfMinimizer(Factory<Minimizer,MoleculeModifierAndScorer> minimizers) {
+	public ConfMinimizer(Factory<? extends Minimizer,MoleculeModifierAndScorer> minimizers) {
 		this.minimizers = minimizers;
 	}
 	
 	public Minimizer.Result minimize(ParameterizedMoleculeCopy pmol, int[] conf, EnergyFunction efunc, ConfSpace confSpace) {
 		
-		// TEMP
-		Profiler p = new Profiler();
-		p.start("mof");
-		
 		RCTuple tuple = new RCTuple(conf);
 		MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(efunc, confSpace, tuple, pmol);
 		
-		// TEMP
-		p.start("minimizer");
-		
 		Minimizer minimizer = minimizers.make(mof);
-		
-		// TEMP
-		p.start("minimize");
-		
 		Minimizer.Result result = minimizer.minimize();
-		
-		// TEMP
-		p.start("cleanup minimizer");
 		
 		if (minimizer instanceof Minimizer.NeedsCleanup) {
 			((Minimizer.NeedsCleanup)minimizer).cleanup();
 		}
 		
-		// TEMP
-		p.start("cleanup mof");
-		
 		mof.cleanup();
-		
-		// TEMP
-		p.stop();
-		System.out.println("ConfMinimizer " + p.makeReport(TimeUnit.MILLISECONDS));
 		
 		return result;
 	}
@@ -146,14 +123,14 @@ public class ConfMinimizer {
 	
 		private ConfSpace confSpace;
 		private TaskExecutor tasks;
-		private Factory<Minimizer,MoleculeModifierAndScorer> minimizers;
+		private Factory<? extends Minimizer,MoleculeModifierAndScorer> minimizers;
 		private ObjectPool<TaskStuff> taskStuffPool;
 	
 		public Async(Factory<? extends EnergyFunction,Molecule> efuncs, ConfSpace confSpace, TaskExecutor tasks) {
 			this(efuncs, confSpace, tasks, DefaultMinimizers);
 		}
 		
-		public Async(Factory<? extends EnergyFunction,Molecule> efuncs, ConfSpace confSpace, TaskExecutor tasks, Factory<Minimizer,MoleculeModifierAndScorer> minimizers) {
+		public Async(Factory<? extends EnergyFunction,Molecule> efuncs, ConfSpace confSpace, TaskExecutor tasks, Factory<? extends Minimizer,MoleculeModifierAndScorer> minimizers) {
 			
 			this.confSpace = confSpace;
 			this.tasks = tasks;
@@ -201,7 +178,7 @@ public class ConfMinimizer {
 				// minimize the conf
 				Minimizer.Result result = minimizer.minimize();
 				
-				// cleanup the minimizer, if needed
+				// cleanup
 				mof.cleanup();
 				if (minimizer instanceof Minimizer.Reusable) {
 					stuff.minimizer = (Minimizer.Reusable)minimizer;

@@ -9,6 +9,7 @@ import java.util.List;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.PositionConfSpace;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
@@ -203,5 +204,21 @@ public class EnergyFunctionGenerator {
         }
         
         return fullEFunc;
+    }
+    
+    public EnergyFunction interactionEnergy(ForcefieldInteractions interactions) {
+        MultiTermEnergyFunction efunc = new MultiTermEnergyFunction();
+        for (ForcefieldInteractions.AtomGroup[] groups : interactions) {
+            // NOTE: this cast only works when the interactions are between residues
+            // for now, that's always true, but maybe it won't be in the future?
+            ForcefieldInteractions.ResidueAtomGroup group0 = (ForcefieldInteractions.ResidueAtomGroup)groups[0];
+            ForcefieldInteractions.ResidueAtomGroup group1 = (ForcefieldInteractions.ResidueAtomGroup)groups[1];
+            if (group0 == group1) {
+                efunc.addTerm(singleResEnergy(group0.getResidue()));
+            } else {
+                efunc.addTerm(resPairEnergy(group0.getResidue(), group1.getResidue()));
+            }
+        }
+        return efunc;
     }
 }

@@ -5,8 +5,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import cern.colt.matrix.DoubleFactory1D;
-import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
@@ -18,10 +16,6 @@ import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
-import edu.duke.cs.osprey.confspace.ConfSpace;
-import edu.duke.cs.osprey.confspace.ParameterizedMoleculeCopy;
-import edu.duke.cs.osprey.confspace.PositionConfSpace;
-import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
@@ -35,6 +29,7 @@ import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
 import edu.duke.cs.osprey.gpu.BufferTools;
 import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
@@ -123,186 +118,37 @@ public class BenchmarkMinimization extends TestBase {
 		
 		System.out.println("benchmarking...");
 		
-		//benchmarkSerial(search, confs);
+		benchmarkSerial(search, confs);
 		benchmarkParallel(search, confs);
 	}
-	
-	private static class Factories {
-		
-		public final GpuQueuePool openclPool;
-		public final GpuStreamPool cudaPool;
-		public final Factory<Minimizer,MoleculeModifierAndScorer> originalMinimizers;
-		public final Factory<Minimizer,MoleculeModifierAndScorer> simpleMinimizers;
-		public final Factory<Minimizer,MoleculeModifierAndScorer> cudaMinimizers;
-		public final Factory<EnergyFunction,Molecule> cpuEfuncs;
-		public final Factory<EnergyFunction,Molecule> openclEfuncs;
-		public final Factory<EnergyFunction,Molecule> cudaEfuncs;
-		public final Factory<EnergyFunction,Molecule> bigEfuncs;
-		
-		public Factories(SearchProblem search, int maxNumStreams) {
-			
-			System.out.println("making gpu queues...");
-			
-			openclPool = new GpuQueuePool(1, maxNumStreams);
-			
-			System.out.println("making gpu streams...");
-			
-			int numCudaGpus = 1;
-			cudaPool = new GpuStreamPool(numCudaGpus, maxNumStreams/numCudaGpus);
-			
-			System.out.println("making minimizers...");
-			
-			// make minimizer factories
-			originalMinimizers = new Factory<Minimizer,MoleculeModifierAndScorer>() {
-				@Override
-				public Minimizer make(MoleculeModifierAndScorer mof) {
-					return new CCDMinimizer(mof, true);
-				}
-			};
-			simpleMinimizers = new Factory<Minimizer,MoleculeModifierAndScorer>() {
-				@Override
-				public Minimizer make(MoleculeModifierAndScorer mof) {
-					SimpleCCDMinimizer minimizer = new SimpleCCDMinimizer(new Factory<LineSearcher,Void>() {
-						@Override
-						public LineSearcher make(Void ignore) {
-							return new SurfingLineSearcher();
-						}
-					});
-					minimizer.init(mof);
-					return minimizer;
-				}
-			};
-			
-			cudaMinimizers = new Factory<Minimizer,MoleculeModifierAndScorer>() {
-				@Override
-				public Minimizer make(MoleculeModifierAndScorer mof) {
-					CudaCCDMinimizer minimizer = new CudaCCDMinimizer(cudaPool);
-					minimizer.init(mof);
-					return minimizer;
-				}
-			};
-			
-			System.out.println("making efuncs...");
-			
-			// make efuncs
-			cpuEfuncs = new Factory<EnergyFunction,Molecule>() {
-				@Override
-				public EnergyFunction make(Molecule mol) {
-					return EnvironmentVars.curEFcnGenerator.fullConfEnergy(search.confSpace, search.shellResidues, mol);
-				}
-			};
-			
-			GpuEnergyFunctionGenerator openclEgen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), openclPool);
-			openclEfuncs = new Factory<EnergyFunction,Molecule>() {
-				@Override
-				public EnergyFunction make(Molecule mol) {
-					return openclEgen.fullConfEnergy(search.confSpace, search.shellResidues, mol);
-				}
-			};
-			
-			GpuEnergyFunctionGenerator cudaEgen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), cudaPool);
-			cudaEfuncs = new Factory<EnergyFunction,Molecule>() {
-				@Override
-				public EnergyFunction make(Molecule mol) {
-					return cudaEgen.fullConfEnergy(search.confSpace, search.shellResidues, mol);
-				}
-			};
-			
-			ForcefieldInteractionsGenerator ffintergen = new ForcefieldInteractionsGenerator();
-			bigEfuncs = new Factory<EnergyFunction,Molecule>() {
-				@Override
-				public EnergyFunction make(Molecule mol) {
-					ForcefieldInteractions interactions = ffintergen.makeFullConf(search.confSpace, search.shellResidues, mol);
-					return new BigForcefieldEnergy(EnvironmentVars.curEFcnGenerator.ffParams, interactions, BufferTools.Type.Direct);
-				}
-			};
-			
-			System.out.println("factories complete");
-		}
-		
-		public void cleanup() {
-			openclPool.cleanup();
-			cudaPool.cleanup();
-		}
-	}
-	
+
 	private static void benchmarkSerial(SearchProblem search, List<ScoredConf> confs)
 	throws Exception {
 
-		Factories f = new Factories(search, 1);
-		List<EnergiedConf> minimizedConfs;
+		ForcefieldInteractionsGenerator ffintergen = new ForcefieldInteractionsGenerator();
+		Factory<ForcefieldInteractions,Molecule> interactionsFactory = (mol) -> ffintergen.makeFullConf(search.confSpace, search.shellResidues, mol);
+		ForcefieldParams ffparams = makeDefaultFFParams();
 		
 		System.out.println("\nbenchmarking CPU original...");
-		Stopwatch cpuOriginalStopwatch = new Stopwatch().start();
-		minimizedConfs = new ConfMinimizer(f.originalMinimizers).minimize(confs, f.cpuEfuncs, search.confSpace);
-		System.out.println("precise timing: " + cpuOriginalStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
-		checkEnergies(minimizedConfs);
-		
-		System.out.println("\nbenchmarking CPU simple...");
-		Stopwatch cpuSimpleStopwatch = new Stopwatch().start();
-		minimizedConfs = new ConfMinimizer(f.simpleMinimizers).minimize(confs, f.cpuEfuncs, search.confSpace);
-		System.out.print("precise timing: " + cpuSimpleStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
-		System.out.println(String.format(", speedup: %.2fx",
-			(double)cpuOriginalStopwatch.getTimeNs()/cpuSimpleStopwatch.getTimeNs()
-		));
-		checkEnergies(minimizedConfs);
-		
-		System.out.println("\nbenchmarking CPU simple big...");
-		Stopwatch cpuSimpleBigStopwatch = new Stopwatch().start();
-		minimizedConfs = new ConfMinimizer(f.simpleMinimizers).minimize(confs, f.bigEfuncs, search.confSpace);
-		System.out.print("precise timing: " + cpuSimpleBigStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
-		System.out.println(String.format(", speedup: %.2fx",
-			(double)cpuOriginalStopwatch.getTimeNs()/cpuSimpleBigStopwatch.getTimeNs()
-		));
-		checkEnergies(minimizedConfs);
-		
+		Stopwatch cpuOriginalStopwatch = new Stopwatch();
 		{
-			// warm up the energy function
-			// avoids anomalous timings on the first conf
-			GpuForcefieldEnergy efunc = (GpuForcefieldEnergy)f.openclEfuncs.make(search.confSpace.m);
-			efunc.getEnergy();
-			efunc.cleanup();
+			Factory<Minimizer,MoleculeModifierAndScorer> minimizers = (mof) -> new CCDMinimizer(mof, false);
+			Factory<EnergyFunction,Molecule> efuncs = (mol) -> EnvironmentVars.curEFcnGenerator.fullConfEnergy(search.confSpace, search.shellResidues, mol);
+			cpuOriginalStopwatch.start();
+			List<EnergiedConf> minimizedConfs = new ConfMinimizer(minimizers).minimize(confs, efuncs, search.confSpace);
+			cpuOriginalStopwatch.stop();
+			System.out.println(String.format("precise timing: %s, ops: %.1f", cpuOriginalStopwatch.getTime(TimeUnit.MILLISECONDS), confs.size()/cpuOriginalStopwatch.getTimeS()));
+			checkEnergies(minimizedConfs);
 		}
+		
+		System.out.println("\nbenchmarking CPU conf minimizer...");
+		Stopwatch cpuSimpleStopwatch = benchmark(new CpuConfMinimizer(1, ffparams, interactionsFactory, search.confSpace), confs, cpuOriginalStopwatch);
 		
 		System.out.println("\nbenchmarking OpenCL simple...");
-		Stopwatch openclSimpleStopwatch = new Stopwatch().start();
-		minimizedConfs = new ConfMinimizer(f.simpleMinimizers).minimize(confs, f.openclEfuncs, search.confSpace);
-		System.out.print("precise timing: " + openclSimpleStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
-		System.out.println(String.format(", speedup over CPU simple: %.2fx",
-			(double)cpuSimpleStopwatch.getTimeNs()/openclSimpleStopwatch.getTimeNs()
-		));
-		checkEnergies(minimizedConfs);
+		benchmark(new GpuConfMinimizer(GpuConfMinimizer.Type.OpenCL, 1, 1, ffparams, interactionsFactory, search.confSpace), confs, cpuSimpleStopwatch);
 		
-		{
-			// warm up the energy function
-			// avoids anomalous timings on the first conf
-			GpuForcefieldEnergy efunc = (GpuForcefieldEnergy)f.cudaEfuncs.make(search.confSpace.m);
-			efunc.getEnergy();
-			efunc.cleanup();
-		}
-		
-		System.out.println("\nbenchmarking Cuda simple...");
-		Stopwatch cudaSimpleStopwatch = new Stopwatch().start();
-		minimizedConfs = new ConfMinimizer(f.simpleMinimizers).minimize(confs, f.cudaEfuncs, search.confSpace);
-		System.out.print("precise timing: " + cudaSimpleStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
-		System.out.println(String.format(", speedup over CPU simple: %.2fx, speedup over OpenCL simple: %.2fx",
-			(double)cpuSimpleStopwatch.getTimeNs()/cudaSimpleStopwatch.getTimeNs(),
-			(double)openclSimpleStopwatch.getTimeNs()/cudaSimpleStopwatch.getTimeNs()
-		));
-		checkEnergies(minimizedConfs);
-		
-		System.out.println("\nbenchmarking Cuda CCD..");
-		Stopwatch cudaCCDStopwatch = new Stopwatch().start();
-		minimizedConfs = new ConfMinimizer(f.cudaMinimizers).minimize(confs, f.bigEfuncs, search.confSpace);
-		System.out.print("precise timing: " + cudaCCDStopwatch.stop().getTime(TimeUnit.MILLISECONDS));
-		System.out.println(String.format(", speedup over CPU simple: %.2fx, speedup over Cuda simple: %.2fx",
-			(double)cpuSimpleStopwatch.getTimeNs()/cudaCCDStopwatch.getTimeNs(),
-			(double)cudaSimpleStopwatch.getTimeNs()/cudaCCDStopwatch.getTimeNs()
-		));
-		checkEnergies(minimizedConfs);
-		
-		// cleanup
-		f.cleanup();
+		System.out.println("\nbenchmarking Cuda CCD...");
+		benchmark(new GpuConfMinimizer(GpuConfMinimizer.Type.Cuda, 1, 1, ffparams, interactionsFactory, search.confSpace), confs, cpuSimpleStopwatch);
 	}
 	
 	private static void benchmarkParallel(SearchProblem search, List<ScoredConf> confs)
@@ -313,7 +159,10 @@ public class BenchmarkMinimization extends TestBase {
 		final int[] numStreamsList = { 1, 2, 4, 8, 16 };//, 32, 64, 128, 256 };
 		int maxNumStreams = numStreamsList[numStreamsList.length - 1];
 		
-		Factories f = new Factories(search, maxNumStreams);
+		ForcefieldInteractionsGenerator ffintergen = new ForcefieldInteractionsGenerator();
+		Factory<ForcefieldInteractions,Molecule> interactionsFactory = (mol) -> ffintergen.makeFullConf(search.confSpace, search.shellResidues, mol);
+		ForcefieldParams ffparams = makeDefaultFFParams();
+		
 		List<EnergiedConf> minimizedConfs;
 		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
 		
@@ -324,122 +173,63 @@ public class BenchmarkMinimization extends TestBase {
 			tasks.start(numThreads);
 			
 			System.out.println("\nBenchmarking " + numThreads + " thread(s) with CPU efuncs...");
-			ConfMinimizer.Async minimizer = new ConfMinimizer.Async(f.cpuEfuncs, search.confSpace, tasks, f.simpleMinimizers);
-			Stopwatch taskStopwatch = new Stopwatch().start();
-			minimizedConfs = minimizeConfs(minimizer, confs);
-			taskStopwatch.stop();
-			minimizer.cleanup();
+			Stopwatch stopwatch = benchmark(new CpuConfMinimizer(numThreads, ffparams, interactionsFactory, search.confSpace), confs, null);
 			if (oneCpuStopwatch == null) {
-				oneCpuStopwatch = taskStopwatch;
+				oneCpuStopwatch = stopwatch;
 			}
-			System.out.println("precise timing: " + taskStopwatch.getTime(TimeUnit.MILLISECONDS));
-			System.out.println(String.format("Speedup over one: %.2fx",
-				(float)oneCpuStopwatch.getTimeNs()/taskStopwatch.getTimeNs()
-			));
-			checkEnergies(minimizedConfs);
 			
 			tasks.stopAndWait(10000);
 		}
 		
 		// benchmark opencl
 		Stopwatch oneOpenCLStopwatch = null;
-		for (int numThreads : numThreadsList) {
+		for (int numStreams : numStreamsList) {
 			
-			tasks.start(numThreads);
+			tasks.start(numStreams);
 			
-			System.out.println("\nBenchmarking " + numThreads + " thread(s) with OpenCL efuncs...");
-			ConfMinimizer.Async minimizer = new ConfMinimizer.Async(f.openclEfuncs, search.confSpace, tasks, f.simpleMinimizers);
-			Stopwatch taskStopwatch = new Stopwatch().start();
-			minimizedConfs = minimizeConfs(minimizer, confs);
-			taskStopwatch.stop();
-			minimizer.cleanup();
-			if (oneOpenCLStopwatch == null) {
-				oneOpenCLStopwatch = taskStopwatch;
-			}
-			System.out.println("precise timing: " + taskStopwatch.getTime(TimeUnit.MILLISECONDS));
-			System.out.println(String.format("Speedup over one CPU: %.2fx, Speedup over one: %.2fx",
-				(float)oneCpuStopwatch.getTimeNs()/taskStopwatch.getTimeNs(),
-				(float)oneOpenCLStopwatch.getTimeNs()/taskStopwatch.getTimeNs()
-			));
-			checkEnergies(minimizedConfs);
+			System.out.println("\nBenchmarking " + numStreams + " stream(s) with OpenCL efuncs...");
+			benchmark(new GpuConfMinimizer(GpuConfMinimizer.Type.OpenCL, 1, numStreams, ffparams, interactionsFactory, search.confSpace), confs, oneCpuStopwatch);
 			
 			tasks.stopAndWait(10000);
 		}
 		
 		// benchmark cuda
 		Stopwatch oneCudaStopwatch = null;
-		for (int numThreads : numThreadsList) {
-			
-			tasks.start(numThreads);
-			
-			System.out.println("\nBenchmarking " + numThreads + " thread(s) with Cuda efuncs...");
-			ConfMinimizer.Async minimizer = new ConfMinimizer.Async(f.cudaEfuncs, search.confSpace, tasks, f.simpleMinimizers);
-			Stopwatch taskStopwatch = new Stopwatch().start();
-			minimizedConfs = minimizeConfs(minimizer, confs);
-			taskStopwatch.stop();
-			minimizer.cleanup();
-			if (oneCudaStopwatch == null) {
-				oneCudaStopwatch = taskStopwatch;
-			}
-			System.out.println("precise timing: " + taskStopwatch.getTime(TimeUnit.MILLISECONDS));
-			System.out.println(String.format("Speedup over one CPU: %.2fx, Speedup over one: %.2fx",
-				(float)oneCpuStopwatch.getTimeNs()/taskStopwatch.getTimeNs(),
-				(float)oneCudaStopwatch.getTimeNs()/taskStopwatch.getTimeNs()
-			));
-			checkEnergies(minimizedConfs);
-			
-			tasks.stopAndWait(10000);
-		}
-
-		// benchmark cuda ccd
-		Stopwatch oneCudaCCDStopwatch = null;
 		for (int numStreams : numStreamsList) {
 			
 			tasks.start(numStreams);
 			
-			System.out.println("\nBenchmarking " + numStreams + " CCD stream(s)...");
-			ConfMinimizer.Async minimizer = new ConfMinimizer.Async(f.bigEfuncs, search.confSpace, tasks, f.cudaMinimizers);
-			Stopwatch taskStopwatch = new Stopwatch().start();
-			minimizedConfs = minimizeConfs(minimizer, confs);
-			taskStopwatch.stop();
-			minimizer.cleanup();
-			if (oneCudaCCDStopwatch == null) {
-				oneCudaCCDStopwatch = taskStopwatch;
-			}
-			System.out.println("precise timing: " + taskStopwatch.getTime(TimeUnit.MILLISECONDS));
-			System.out.println(String.format("Speedup over one CPU: %.2fx, Speedup over one: %.2fx",
-				(float)oneCpuStopwatch.getTimeNs()/taskStopwatch.getTimeNs(),
-				(float)oneCudaCCDStopwatch.getTimeNs()/taskStopwatch.getTimeNs()
-			));
-			checkEnergies(minimizedConfs);
+			System.out.println("\nBenchmarking " + numStreams + " stream(s) with Cuda CCD minimizer...");
+			benchmark(new GpuConfMinimizer(GpuConfMinimizer.Type.Cuda, 1, numStreams, ffparams, interactionsFactory, search.confSpace), confs, oneCpuStopwatch);
 			
 			tasks.stopAndWait(10000);
 		}
-		
-		f.cleanup();
 	}
 	
-	private static List<EnergiedConf> minimizeConfs(ConfMinimizer.Async minimizer, List<ScoredConf> confs) {
+	private static Stopwatch benchmark(SpecializedConfMinimizer minimizer, List<ScoredConf> confs, Stopwatch referenceStopwatch)
+	throws Exception {
 		
-		List<EnergiedConf> econfs = new ArrayList<>(confs.size());
-		for (int i=0; i<confs.size(); i++) {
-			econfs.add(null);
+		Stopwatch stopwatch = new Stopwatch().start();
+		List<EnergiedConf> minimizedConfs = minimizer.minimize(confs);
+		stopwatch.stop();
+		
+		System.out.print(String.format("precise timing: %s, ops: %.1f", stopwatch.getTime(TimeUnit.MILLISECONDS), confs.size()/stopwatch.getTimeS()));
+		
+		if (referenceStopwatch != null) {
+			System.out.println(String.format(", speedup: %.2fx",
+				(double)referenceStopwatch.getTimeNs()/stopwatch.getTimeNs()
+			));
+		} else {
+			System.out.println();
 		}
 		
-		for (int i=0; i<confs.size(); i++) {
-			final int fi = i;
-			minimizer.minimizeAsync(confs.get(i), new ConfMinimizer.Async.Listener() {
-				@Override
-				public void onMinimized(EnergiedConf econf) {
-					econfs.set(fi, econf);
-				}
-			});
-		}
-		minimizer.waitForFinish();
+		minimizer.cleanup();
 		
-		return econfs;
+		checkEnergies(minimizedConfs);
+		
+		return stopwatch;
 	}
-
+	
 	private static void checkEnergies(List<EnergiedConf> minimizedConfs) {
 		
 		// what do we expect the energies to be?

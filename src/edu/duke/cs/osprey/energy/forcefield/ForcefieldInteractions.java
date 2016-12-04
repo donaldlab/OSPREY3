@@ -34,6 +34,10 @@ public class ForcefieldInteractions extends ArrayList<AtomGroup[]> {
 			this.sequenceNumber = 0;
 		}
 		
+		public Residue getResidue() {
+			return res;
+		}
+		
 		public static int getId(Residue res) {
 			return res.indexInMolecule;
 		}

@@ -13,29 +13,6 @@ import edu.duke.cs.osprey.structure.Residue;
 
 public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 	
-	public static class NoGpusException extends Exception {
-
-		private static final long serialVersionUID = -8696449488422888399L;
-	}
-	
-	public static GpuEnergyFunctionGenerator make(ForcefieldParams ffParams)
-	throws NoGpusException {
-		
-		// if CUDA is supported, prefer that, since it's faster
-		List<edu.duke.cs.osprey.gpu.cuda.Gpu> cudaGpus = edu.duke.cs.osprey.gpu.cuda.Gpus.get().getGpus();
-		if (!cudaGpus.isEmpty()) {
-			return new GpuEnergyFunctionGenerator(ffParams, new GpuStreamPool());
-		}
-		
-		// otherwise, try OpenCL
-		List<edu.duke.cs.osprey.gpu.opencl.Gpu> openclGpus = edu.duke.cs.osprey.gpu.opencl.Gpus.get().getGpus();
-		if (!openclGpus.isEmpty()) {
-			return new GpuEnergyFunctionGenerator(ffParams, new GpuQueuePool());
-		}
-		
-		throw new NoGpusException();
-	}
-	
 	private ForcefieldInteractionsGenerator intergen;
 	private GpuQueuePool openclQueues;
 	private GpuStreamPool cudaStreams;

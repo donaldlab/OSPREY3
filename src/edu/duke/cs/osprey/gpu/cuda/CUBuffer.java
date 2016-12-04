@@ -68,13 +68,20 @@ public class CUBuffer<T extends Buffer> {
 			return;
 		}
 		
-		// nope, resize the device side
+		// nope, resize host side
+		stream.getContext().unpinBuffer(phBuf);
+		this.buf = buf;
+		phBuf = Pointer.to(this.buf);
+		stream.getContext().pinBuffer(phBuf, numBytes);
+		
+		// resize the device side
 		stream.getContext().free(pdBuf);
 		numBytes = newNumBytes;
 		pdBuf = stream.getContext().malloc(numBytes);
 	}
 	
 	public void cleanup() {
+		stream.getContext().attachCurrentThread();
 		stream.getContext().unpinBuffer(phBuf);
 		stream.getContext().free(pdBuf);
 	}
