@@ -4,6 +4,11 @@
  */
 package edu.duke.cs.osprey.minimization;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+
+import cern.colt.matrix.DoubleFactory1D;
+
 /*
 	This file is part of OSPREY.
 
@@ -61,10 +66,7 @@ package edu.duke.cs.osprey.minimization;
 
 
 import cern.colt.matrix.DoubleMatrix1D;
-import cern.colt.matrix.DoubleFactory1D;
 import cern.jet.math.Functions;
-import java.util.Arrays;
-import java.util.ArrayList;
 
 
 //This is a modular CCD minimizer
@@ -139,7 +141,23 @@ public class CCDMinimizer implements Minimizer {
     
     
     //137DEBUG!!
-    public int GVCountEstmin=0, GVCountEdge=0, GVCountBigger=0, GVCountSmaller=0; 
+    public int GVCountEstmin=0, GVCountEdge=0, GVCountBigger=0, GVCountSmaller=0;
+    
+    // Jeff: the original version of this code has something that looks like a bug, but I'm not sure if it is or not
+    // so here's a switch to pick the behavior you want:
+    // the original code was logically equivalent to a value of true, but I think a false value is more logically consistent
+    // with the idea of minimization, and it doesn't change our minimization energies enough to worry about.
+    private boolean preferUpRipple = false;
+    /* The behavior has to do with how ripple jumping is handled:
+       The original code prefers the up ripple if it's better than the current efunc val, even if the down ripple was better than both.
+       One might expect the "optimal" code would choose the lowest of the three energies (current val, down ripple val, up ripple val),
+       but in empirical tests on 1024 low energy confs of 1CC8, this proposed "optimal" code achieves an improvement (a lower minimized
+       energy) only on 1/1024 confs (a 0.13366473 kcal/mol improvement), and results in an error (a higher minimized energy) of at least
+       0.001 kcal/mol on 7/1024 confs, with the highest error at 0.14134541 kcal/mol.
+       This "bug" appears to perform slightly better than the proposed "optimal" behavior, although the difference is very small.
+       I feel pretty safe with using the "optimal" approach generally (and the other minimizers do the "optimal" thing), but I'll leave
+       this flag here in case anyone wants the old behavior.
+    */
 
     public CCDMinimizer( ObjectiveFunction ofn, boolean useCorners ){
 
@@ -147,6 +165,10 @@ public class CCDMinimizer implements Minimizer {
         numDOFs = ofn.getNumDOFs();
         nonBoxConstrAffectingDOF = new int[numDOFs][0];
         //No constraints specified until minimize() is called
+    }
+    
+    public void setPreferUpRipple(boolean val) {
+        preferUpRipple = val;
     }
 
     public Minimizer.Result minimize() {
@@ -368,12 +390,20 @@ public class CCDMinimizer implements Minimizer {
                 double upRipple = x.get(dof)+1;
                 curVal = objFcn.getValForDOF(dof, x.get(dof));
                 if( ! isOutOfRange( downRipple, dof) ){
-                    if( objFcn.getValForDOF(dof,downRipple) < curVal )
+                    double downRippleVal = objFcn.getValForDOF(dof,downRipple);
+                    if (downRippleVal < curVal) {
                         x.set(dof, downRipple);
+                        if (!preferUpRipple) {
+                            curVal = downRippleVal;
+                        }
+                    }
                 }
                 if( ! isOutOfRange( upRipple, dof ) ){
-                    if( objFcn.getValForDOF(dof,upRipple) < curVal )
+                    double upRippleVal = objFcn.getValForDOF(dof,upRipple);
+                    if (upRippleVal < curVal) {
                         x.set(dof, upRipple);
+                        curVal = upRippleVal;
+                    }
                 }
                 //END RIPPLE JUMPER
 
