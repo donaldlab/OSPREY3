@@ -142,7 +142,11 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
                     desiredTemplate = mutDOF.getLibraryTemplate(rc.AAType);
                 }
 
-                if (!mutDOF.isTemplate(desiredTemplate)) {
+                if (mutDOF.isTemplate(desiredTemplate)) {
+                    // restore coords from the template to fight roundoff error
+                    mutDOF.restoreCoordsFromTemplate();
+                } else {
+                    // mutate to the new template (which also uses template coords and fights roundoff error)
                     mutDOF.switchToTemplate(desiredTemplate);
                 }
             }

@@ -36,8 +36,6 @@ import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class TestMinimizationStability extends TestBase {
 	
-	private static final double EnergyEpsilon = 1e-8;
-	
 	private static SearchProblem search;
 	private static List<ScoredConf> confs;
 	private static EnergyFunctionGenerator egen;
@@ -119,7 +117,8 @@ public class TestMinimizationStability extends TestBase {
 			descendingEnergies[i] = minimize(confs.get(i), pmol);
 		}
 		
-		checkResults(ascendingEnergies, descendingEnergies, EnergyEpsilon);
+		// energies should be exactly the same
+		checkResults(ascendingEnergies, descendingEnergies, 0);
 	}
 	
 	@Test
@@ -161,7 +160,7 @@ public class TestMinimizationStability extends TestBase {
 			System.out.println(String.format("asc: %20.12f   desc: %20.12f   err: %e   %s",
 				ascendingEnergies[i], descendingEnergies[i],
 				absErr,
-				absErr > EnergyEpsilon ? "   <-- too much err" : ""
+				absErr > energyEpsilon ? "   <-- too much err" : ""
 			));
 		}
 		
