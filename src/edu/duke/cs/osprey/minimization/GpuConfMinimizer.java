@@ -1,7 +1,11 @@
 package edu.duke.cs.osprey.minimization;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
+import edu.duke.cs.osprey.confspace.RC;
+import edu.duke.cs.osprey.dof.DegreeOfFreedom;
+import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.energy.EnergyFunction;
+import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
@@ -22,42 +26,94 @@ public class GpuConfMinimizer extends SpecializedConfMinimizer {
 			public boolean isSupported() {
 				return !edu.duke.cs.osprey.gpu.cuda.Gpus.get().getGpus().isEmpty();
 			}
+			
+			private boolean hasAllDihedralDofs(ConfSpace confSpace) {
+				for (int pos=0; pos<confSpace.numPos; pos++) {
+					for (RC rc : confSpace.posFlex.get(pos).RCs) {
+						for (DegreeOfFreedom dof : rc.DOFs) {
+							if (!(dof instanceof FreeDihedral)) {
+								return false;
+							}
+						}
+					}
+				}
+				return true;
+			}
 
 			@Override
-			public Context makeContext(int numGpus, int streamsPerGpu) {
+			public Context makeContext(int numGpus, int streamsPerGpu, ConfSpace confSpace) {
 				
-				// use a CPU energy function, but send it to the Cuda CCD minimizer (which has a built-in GPU energy function)
-				return new Context() {
+				if (hasAllDihedralDofs(confSpace)) {
+				
+					// use a CPU energy function, but send it to the Cuda CCD minimizer (which has a built-in GPU energy function)
+					return new Context() {
+						
+						private GpuStreamPool pool;
+						
+						{
+							pool = new GpuStreamPool(numGpus, streamsPerGpu);
+							minimizers = new Factory<CudaCCDMinimizer,MoleculeModifierAndScorer>() {
+								@Override
+								public CudaCCDMinimizer make(MoleculeModifierAndScorer mof) {
+									CudaCCDMinimizer minimizer = new CudaCCDMinimizer(pool);
+									minimizer.init(mof);
+									return minimizer;
+								}
+							};
+						}
+						
+						@Override
+						public int getNumStreams() {
+							return pool.getNumStreams();
+						}
+						
+						@Override
+						public EnergyFunction makeEfunc(ForcefieldParams ffparams, ForcefieldInteractions interactions) {
+							return new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct);
+						}
+						
+						@Override
+						public void cleanup() {
+							pool.cleanup();
+						}
+					};
 					
-					private GpuStreamPool pool;
+				} else {
 					
-					{
-						pool = new GpuStreamPool(numGpus, streamsPerGpu);
-						minimizers = new Factory<CudaCCDMinimizer,MoleculeModifierAndScorer>() {
-							@Override
-							public CudaCCDMinimizer make(MoleculeModifierAndScorer mof) {
-								CudaCCDMinimizer minimizer = new CudaCCDMinimizer(pool);
-								minimizer.init(mof);
-								return minimizer;
-							}
-						};
-					}
-					
-					@Override
-					public int getNumStreams() {
-						return pool.getNumStreams();
-					}
-					
-					@Override
-					public EnergyFunction makeEfunc(ForcefieldParams ffparams, ForcefieldInteractions interactions) {
-						return new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct);
-					}
-					
-					@Override
-					public void cleanup() {
-						pool.cleanup();
-					}
-				};
+					// use the cuda GPU energy function, but do CCD on the cpu
+					// the GPU CCD implementation can't handle non-dihedral dofs yet
+					return new Context() {
+						
+						private GpuStreamPool pool;
+						
+						{
+							pool = new GpuStreamPool(numGpus, streamsPerGpu);
+							minimizers = new Factory<SimpleCCDMinimizer,MoleculeModifierAndScorer>() {
+								@Override
+								public SimpleCCDMinimizer make(MoleculeModifierAndScorer mof) {
+									SimpleCCDMinimizer minimizer = new SimpleCCDMinimizer();
+									minimizer.init(mof);
+									return minimizer;
+								}
+							};
+						}
+						
+						@Override
+						public int getNumStreams() {
+							return pool.getNumStreams();
+						}
+						
+						@Override
+						public EnergyFunction makeEfunc(ForcefieldParams ffparams, ForcefieldInteractions interactions) {
+							return new EnergyFunctionGenerator(ffparams, Double.POSITIVE_INFINITY, false).interactionEnergy(interactions);
+						}
+						
+						@Override
+						public void cleanup() {
+							pool.cleanup();
+						}
+					};
+				}
 			}
 		},
 		OpenCL {
@@ -68,7 +124,7 @@ public class GpuConfMinimizer extends SpecializedConfMinimizer {
 			}
 
 			@Override
-			public Context makeContext(int numGpus, int streamsPerGpu) {
+			public Context makeContext(int numGpus, int streamsPerGpu, ConfSpace confSpace) {
 				
 				// use the CPU CCD minimizer, with an OpenCL energy function
 				return new Context() {
@@ -121,7 +177,7 @@ public class GpuConfMinimizer extends SpecializedConfMinimizer {
 		}
 		
 		public abstract boolean isSupported();
-		public abstract Context makeContext(int numGpus, int streamsPerGpu);
+		public abstract Context makeContext(int numGpus, int streamsPerGpu, ConfSpace confSpace);
 		
 		public static Type pickBest() {
 			
@@ -156,7 +212,7 @@ public class GpuConfMinimizer extends SpecializedConfMinimizer {
 		}
 		
 		// make the gpu context
-		context = type.makeContext(numGpus, streamsPerGpu);
+		context = type.makeContext(numGpus, streamsPerGpu, confSpace);
 		
 		// make the minimizer
 		Factory<? extends EnergyFunction,Molecule> efuncs = new Factory<EnergyFunction,Molecule>() {
