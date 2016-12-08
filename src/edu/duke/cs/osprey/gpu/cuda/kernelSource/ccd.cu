@@ -16,12 +16,13 @@ nvcc -fatbin -O2
 	See Maxwell compatibility guide for more info:
 	http://docs.nvidia.com/cuda/maxwell-compatibility-guide/index.html#building-maxwell-compatible-apps-using-cuda-6-0
 */
-	
+
+
 // use same settings as CCDMinimizer on the java side
 const int MaxIterations = 30;
 const double ConvergenceThreshold = 0.001;
 const double Tolerance = 1e-6;
-const double OneDegree = 0.017453293; // in radians
+const double OneDegree = M_PI/180.0;
 const double InitialStep = OneDegree*0.25;
 
 
@@ -31,11 +32,12 @@ typedef struct __align__(8) {
 	double coulombFactor;
 	double scaledCoulombFactor;
 	double solvCutoff2;
+	double internalSolvationEnergy;
 	bool useDistDepDielec;
 	bool useHEs;
 	bool useHVdw;
 } ForcefieldArgs;
-// sizeof = 40
+// sizeof = 48
 
 typedef struct __align__(8) {
 	int subsetTableOffset;
@@ -46,8 +48,9 @@ typedef struct __align__(8) {
 	int firstModifiedCoord;
 	int lastModifiedCoord;
 	// 4 bytes space
+	double internalSolvationEnergy;
 } DofArgs;
-// sizeof = 40
+// sizeof = 48
 
 typedef struct {
 	const double *coords;
@@ -63,6 +66,7 @@ typedef struct {
 } DofPoseAndEnergyArgs;
 
 typedef struct {
+	double step;
 	double xdstar;
 	double fxdstar;
 } LinesearchOut;
@@ -350,7 +354,7 @@ __device__ double calcFullEnergy(const double *coords, const int *atomFlags, con
 	}
 	blockSum(energy, threadEnergies);
 	
-	return threadEnergies[0];
+	return threadEnergies[0] + ffargs->internalSolvationEnergy;
 }
 
 __device__ void pose(const DofPoseAndEnergyArgs &args, double dihedralRadians) {
@@ -448,13 +452,12 @@ __device__ double poseAndCalcDofEnergy(const DofPoseAndEnergyArgs &args, double 
 	
 	blockSum(energy, args.threadEnergies);
 	
-	return args.threadEnergies[0];
+	return args.threadEnergies[0] + args.dofdargs->internalSolvationEnergy;
 }
 
 __device__ double getTolerance(double f) {
 	
-	// use full tolerance, unless f is very small
-	// then scale by the magnitude of f
+	// scale abs(f) by tolerance, unless f is very small
 	return Tolerance * fmax(1.0, fabs(f));
 }
 
@@ -489,10 +492,11 @@ __device__ LinesearchOut linesearch(const DofPoseAndEnergyArgs &args, const doub
 	// solve for a to determine the shape
 	double xdstar = 0;
 	{
-		double a = (fxdp + fxdm - 2*fxd)/(2*step*step);
-		if (a <= 0 || a == NAN || a == INFINITY) {
+		double shape = fxdp + fxdm - 2*fxd;
+		const double ShapeEpsilon = 1e-12;
+		if (shape < -ShapeEpsilon || shape == NAN || shape == INFINITY) {
 			
-			// negative a means quadratic is concave down, I think
+			// negative shape means quadratic is concave down
 			// infinite or nan a means we're hitting a constraint or impossible conformation
 			// so just minimize over the endpoints of the interval
 			if (fxdm < fxdp) {
@@ -500,16 +504,17 @@ __device__ LinesearchOut linesearch(const DofPoseAndEnergyArgs &args, const doub
 			} else {
 				xdstar = xd + step;
 			}
+		
+		} else if (shape <= ShapeEpsilon) {
+		
+			// flat here, don't step
+			xdstar = xd;
 			
 		} else {
 			
-			// positive a means quadratic is concave up, I think
-			// solve for the b param
-			double b = (fxdp - fxd)/step - a*step;
-			
-			// then minimize the quadratic to get the minimum x:
-			// 2*a*(x - xd) + b = 0
-			xdstar = xd - b/2/a;
+			// positive shape means quadratic is concave up
+			// step to the optimum
+			xdstar = xd + (fxdm - fxdp)*step/2/shape;
 		}
 	}
 
@@ -544,7 +549,7 @@ __device__ LinesearchOut linesearch(const DofPoseAndEnergyArgs &args, const doub
 				if (isnan(fxdmin)) {
 					fxdmin = poseAndCalcDofEnergy(args, xdmin);
 				}
-				if (fxdmin < fxdstar) {
+				if (fxdmin < fxdsurfHere) {
 					xdsurfHere = xdmin;
 					fxdsurfHere = fxdmin;
 				}
@@ -558,7 +563,7 @@ __device__ LinesearchOut linesearch(const DofPoseAndEnergyArgs &args, const doub
 				if (isnan(fxdmax)) {
 					fxdmax = poseAndCalcDofEnergy(args, xdmax);
 				}
-				if (fxdmax < fxdstar) {
+				if (fxdmax < fxdsurfHere) {
 					xdsurfHere = xdmax;
 					fxdsurfHere = fxdmax;
 				}
@@ -633,6 +638,10 @@ __device__ LinesearchOut linesearch(const DofPoseAndEnergyArgs &args, const doub
 		}
 	}
 	
+	// compute the step taken before wall jumping
+	LinesearchOut out;
+	out.step = xdstar - xd;
+	
 	// try to jump over walls arbitrarily
 	// look in a 1-degree step for a better minimum
 	
@@ -640,25 +649,20 @@ __device__ LinesearchOut linesearch(const DofPoseAndEnergyArgs &args, const doub
 	// but skipping this causes a noticeable rise in final energies too
 	// it's best to keep doing it I think
 	
-	{
-		double xdm = xdstar - OneDegree;
-		if (xdm >= xdmin) {
-			fxdm = poseAndCalcDofEnergy(args, xdm);
-			if (fxdm < fxdstar) {
-				xdstar = xdm;
-				fxdstar = fxdm;
-			}
+	double xdm = xdstar - OneDegree;
+	double xdp = xdstar + OneDegree;
+	if (xdm >= xdmin) {
+		fxdm = poseAndCalcDofEnergy(args, xdm);
+		if (fxdm < fxdstar) {
+			xdstar = xdm;
+			fxdstar = fxdm;
 		}
 	}
-	
-	{
-		double xdp = xdstar + OneDegree;
-		if (xdp <= xdmax) {
-			fxdp = poseAndCalcDofEnergy(args, xdp);
-			if (fxdp < fxdstar) {
-				xdstar = xdp;
-				fxdstar = fxdp;
-			}
+	if (xdp <= xdmax) {
+		fxdp = poseAndCalcDofEnergy(args, xdp);
+		if (fxdp < fxdstar) {
+			xdstar = xdp;
+			fxdstar = fxdp;
 		}
 	}
 	
@@ -666,7 +670,8 @@ __device__ LinesearchOut linesearch(const DofPoseAndEnergyArgs &args, const doub
 	pose(args, xdstar);
 	
 	// set outputs
-	LinesearchOut out = { xdstar, fxdstar };
+	out.xdstar = xdstar;
+	out.fxdstar = fxdstar;
 	return out;
 }
 
@@ -721,8 +726,8 @@ extern "C" __global__ void ccd(
 	
 	// init the step sizes
 	for (int d = threadIdx.x; d < numDofs; d+= blockDim.x) {
-		firstSteps[d] = 1;
-		lastSteps[d] = 1;
+		firstSteps[d] = OneDegree;
+		lastSteps[d] = OneDegree;
 	}
 	__syncthreads();
 	
@@ -744,37 +749,39 @@ extern "C" __global__ void ccd(
 			
 			// copy the coords we need to modify to shared mem
 			copyCoordsGtoS(args.dofdargs, coords, modifiedCoords);
+
+			double xd = nextx[d];
+			double xdmin = xAndBounds[d].xdmin;
+			double xdmax = xAndBounds[d].xdmax;
 			
 			// get the step size, try to make it adaptive (based on historical steps if possible; else on step #)
 			double step;
 			{
 				double firstStep = firstSteps[d];
 				double lastStep = lastSteps[d];
-				if (lastStep > Tolerance && firstStep > Tolerance) {
-					step = InitialStep*lastStep/firstStep;
+				if (fabs(lastStep) > Tolerance && fabs(firstStep) > Tolerance) {
+					step = InitialStep*fabs(lastStep/firstStep);
 				} else {
 					step = InitialStep/pow(iter + 1.0, 3.0);
+				}
+				
+				// make sure the step isn't so big that the quadratic approximation is worthless
+				while (xdmax > xdmin && xd - step < xdmin && xd + step > xdmax) {
+					step /= 2;
 				}
 			}
 			
 			// do line search
-			LinesearchOut lsout = linesearch(
-				args,
-				nextx[d],
-				xAndBounds[d].xdmin,
-				xAndBounds[d].xdmax,
-				step
-			);
+			LinesearchOut lsout = linesearch(args, xd, xdmin, xdmax, step);
 			
 			// update x and the step
 			if (threadIdx.x == 0) {
 			
 				// update step tracking
-				double step = lsout.xdstar - nextx[d];
 				if (iter == 0) {
-					firstSteps[d] = step;
+					firstSteps[d] = lsout.step;
 				}
-				lastSteps[d] = step;
+				lastSteps[d] = lsout.step;
 				
 				// update nextxd
 				nextx[d] = lsout.xdstar;

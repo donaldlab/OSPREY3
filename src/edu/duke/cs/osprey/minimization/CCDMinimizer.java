@@ -245,8 +245,12 @@ public class CCDMinimizer implements Minimizer {
                 double dof_base = x.get(dof);
                 double curVal = objFcn.getValForDOF(dof,dof_base);//Get value for DOF, shifted up or down as needed
                 double step = getStepSize(dof,iter);//Step size for the given degree of freedom, adjusted for iteration
-
-
+                
+                // make sure the step isn't so big that the quadratic approximation is worthless
+                while (isOutOfRange(dof_base - step, dof) && isOutOfRange(dof_base + step, dof)) {
+                	step /= 2;
+                }
+                
                 //Values up or down a step for this DOF: initialized to inf (indicating infeasibility)
                 //in case the DOF value is out of range
                 double upVal = Double.POSITIVE_INFINITY;
@@ -260,57 +264,36 @@ public class CCDMinimizer implements Minimizer {
                 //quadratic approximation of obj function: curVal + a*(dof_val-dof_base)^2 + b*(dof_val-dof_base);
                 //a*step^2 + b*step = upVal - curVal;
                 //a*step^2 - b*step = downVal-curVal;
-                //
 
-
-                double a = (upVal+downVal-2*curVal)/(2*step*step);
                 double estmin=0;
-
                 
-                //TRYING DIFFERENT VERSIONS
-                if( ( a <= 0 ) || Double.isNaN(a) || Double.isInfinite(a) ){
+                double shape = upVal + downVal - 2*curVal;
+                final double ShapeEpsilon = 1e-12;
+                if (shape < -ShapeEpsilon || Double.isNaN(shape) || Double.isInfinite(shape)) {
                     //negative a is not a good sign...use the lesser of upVal, downVal
                     //infinite or nan a means we're hitting a constraint or impossible conformation
-                    if( upVal < downVal )
+                    if (upVal < downVal) {
                         estmin = dof_base+step;
-                    else
+                    } else {
                         estmin = dof_base-step;
-                }
-                
-                
-               /* if(Double.isInfinite(upVal)){//near upper constraint...need to be able to go right up to edge
-                    //or away from edge as appropriate
-                    if(downVal<curVal)
-                        estmin = dof_base-step;
-                    else
-                        estmin = dof_base+step;
-                }
-                else if(Double.isInfinite(downVal)){//near lower constraint
-                    if(upVal<curVal)
-                        estmin = dof_base+step;
-                    else
-                        estmin = dof_base-step;
-                }
-                else if( ( a <= 0 ) || Double.isNaN(a) ){
-                    //negative a is not a good sign...use the lesser of upVal, downVal
-                    //infinite or nan a means we're hitting a constraint or impossible conformation
-                    if( upVal < downVal )
-                        estmin = dof_base+step;
-                    else
-                        estmin = dof_base-step;
-                } */
-                else{
+                    }
+                } else if (shape <= ShapeEpsilon) {
+                    
+                    // flat here, don't step
+                    estmin = dof_base;
+                    
+                } else {
+                    /* improved numerical stability version below
+                    double a = (upVal+downVal-2*curVal)/(2*step*step);
                     double b = (upVal-curVal)/step-a*step;
                     estmin = dof_base-b/(2*a);//2*a*(dof_val-dof_base)+b=0 here, with positive a
+                    */
+                    
+                    estmin = dof_base + (downVal - upVal)*step/2/shape;
                 }
-
 
                 if( isOutOfRange(estmin,dof) )
                     estmin = getEdgeDOFVal(estmin,dof);
-
-
-                //if( Math.abs(estmin-dof_base) < numTol )//This can happen if both upVal and downVal are infinite (perhaps due to a loop closure failure)
-                //    break;
 
                 double estminVal = objFcn.getValForDOF(dof,estmin);
                 double estminValOld = curVal;

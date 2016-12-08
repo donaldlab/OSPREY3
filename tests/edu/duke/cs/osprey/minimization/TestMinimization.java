@@ -21,6 +21,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.ParameterizedMoleculeCopy;
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
@@ -29,9 +30,12 @@ import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
-import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
+import edu.duke.cs.osprey.energy.ForcefieldInteractionsGenerator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
+import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
 import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -42,16 +46,20 @@ import edu.duke.cs.osprey.tupexp.LUTESettings;
 public class TestMinimization extends TestBase {
 	
 	private static double[] ExpectedEnergies = {
-		-107.01471465433335, -107.14427781940432, -106.79145713231975, -106.92139365967053, -106.28769308885211, -107.11801397703762,
-		-106.67892206113300, -106.41908247351522, -106.89600279606412, -106.74468003314176, -106.45689550906734, -106.95533592350961
+		-89.40966969379109,     -89.10792031500127,     -89.80959784194695,     -88.63999143548550,
+		-89.12813398454155,     -89.50404412354314,     -88.39619842051209,     -88.88944810225344,
+		-88.91539256575626,     -88.37401748235720,     -88.72521745741045,     -88.95852827540257,
+		-88.56492542985106,     -89.13542390896973,     -88.39342805731060,     -88.61512935924652
 	};
 	
-	// NOTE: minimization energies aren't super precise
-	private static final double Epsilon = 1e-6;
+	private static final double Epsilon = 1e-8;
 	
 	private static SearchProblem search;
+	private static ForcefieldParams ffparams;
 	private static Factory<EnergyFunction,Molecule> efuncgen;
-	private static Factory<GpuForcefieldEnergy,Molecule> gpuefuncgen;
+	private static Factory<GpuForcefieldEnergy,Molecule> openclEfuncgen;
+	private static Factory<GpuForcefieldEnergy,Molecule> cudaEfuncgen;
+	private static Factory<ForcefieldInteractions,Molecule> intergen;
 	private static List<ScoredConf> confs;
 	
 	@BeforeClass
@@ -65,7 +73,7 @@ public class TestMinimization extends TestBase {
 		resFlex.addMutable("39 43", "ALA");
 		resFlex.addFlexible("40 41 42 44 45");
 		boolean doMinimize = true;
-		boolean addWt = true;
+		boolean addWt = false;
 		boolean useEpic = false;
 		boolean useTupleExpansion = false;
 		boolean useEllipses = false;
@@ -82,23 +90,15 @@ public class TestMinimization extends TestBase {
 			false, new ArrayList<>()
 		);
 		
-		// make the cpu energy stuff
-		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
-		efuncgen = new Factory<EnergyFunction,Molecule>() {
-			@Override
-			public EnergyFunction make(Molecule mol) {
-				return egen.fullConfEnergy(search.confSpace, search.shellResidues, mol);
-			}
-		};
+		ffparams = makeDefaultFFParams();
 		
-		// make the gpu energy stuff
-		GpuEnergyFunctionGenerator gpuegen = new GpuEnergyFunctionGenerator(makeDefaultFFParams(), new GpuQueuePool(1, 2));
-		gpuefuncgen = new Factory<GpuForcefieldEnergy,Molecule>() {
-			@Override
-			public GpuForcefieldEnergy make(Molecule mol) {
-				return gpuegen.fullConfEnergy(search.confSpace, search.shellResidues, mol);
-			}
-		};
+		// make energy function factories
+		ForcefieldInteractionsGenerator ffintergen = new ForcefieldInteractionsGenerator();
+		intergen = (mol) -> ffintergen.makeFullConf(search.confSpace, search.shellResidues, mol);
+		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
+		efuncgen = (mol) -> egen.interactionEnergy(intergen.make(mol));
+		openclEfuncgen = (mol) -> new GpuForcefieldEnergy(ffparams, intergen.make(mol), new GpuQueuePool(1, 2));
+		cudaEfuncgen = (mol) -> new GpuForcefieldEnergy(ffparams, intergen.make(mol), new GpuStreamPool(1, 2));
 		
 		// compute the energy matrix and pruning matrix
 		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(egen, search.confSpace, search.shellResidues);
@@ -112,9 +112,35 @@ public class TestMinimization extends TestBase {
 		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
 		
 		// get the confs
+		final int numConfs = 16;
 		confs = new ArrayList<>();
-		for (int i=0; i<ExpectedEnergies.length; i++) {
+		for (int i=0; i<numConfs; i++) {
 			confs.add(tree.nextConf());
+		}
+	}
+	
+	public static void main(String[] args) {
+		
+		before();
+		
+		// compute the expected energies
+		for (int i=0; i<confs.size(); i++) {
+			
+			// get the objective function
+			ParameterizedMoleculeCopy pmol = new ParameterizedMoleculeCopy(search.confSpace);
+			EnergyFunction efunc = efuncgen.make(pmol.getCopiedMolecule());
+			RCTuple tuple = new RCTuple(confs.get(i).getAssignments());
+			MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(efunc, search.confSpace, tuple, pmol);
+			
+			// use the original CCD minimizer
+			Minimizer.Result result = new CCDMinimizer(mof, false).minimize();
+			
+			// print the expected energy
+			if (i > 0) {
+				System.out.print(",");
+			}
+			System.out.print(i % 4 == 0 ? "\n" : " ");
+			System.out.print(String.format("%22.14f", result.energy));
 		}
 	}
 	
@@ -129,16 +155,19 @@ public class TestMinimization extends TestBase {
 			
 			assertThat(econf.getAssignments(), is(conf.getAssignments()));
 			assertThat(econf.getScore(), is(conf.getScore()));
-			assertThat(econf.getEnergy(), isRelatively(ExpectedEnergies[i], Epsilon));
+			
+			// penalize large errors, but not lower energies
+			double absErr = econf.getEnergy() - ExpectedEnergies[i];
+			assertThat(absErr, lessThanOrEqualTo(Epsilon));
 		}
 	}
 	
 	@Test
-	public void testOldWay() {
+	public void testSearchProblemMinimizer() {
 		
 		for (int i=0; i<ExpectedEnergies.length; i++) {
 			double energy = search.minimizedEnergy(confs.get(i).getAssignments());
-			assertThat(energy, isRelatively(ExpectedEnergies[i], Epsilon));
+			assertThat(energy, isAbsolutely(ExpectedEnergies[i], Epsilon));
 		}
 	}
 	
@@ -213,10 +242,10 @@ public class TestMinimization extends TestBase {
 	}
 	
 	@Test
-	public void testMainGpu() {
+	public void testMainOpenCL() {
 		
 		ConfMinimizer minimizer = new ConfMinimizer();
-		GpuForcefieldEnergy efunc = gpuefuncgen.make(search.confSpace.m);
+		GpuForcefieldEnergy efunc = openclEfuncgen.make(search.confSpace.m);
 		
 		// minimize on main thread
 		List<EnergiedConf> econfs = new ArrayList<>();
@@ -230,7 +259,7 @@ public class TestMinimization extends TestBase {
 	}
 	
 	@Test
-	public void testTaskGpu() {
+	public void testTaskOpenCL() {
 		
 		ConfMinimizer minimizer = new ConfMinimizer();
 		
@@ -238,7 +267,7 @@ public class TestMinimization extends TestBase {
 		tasks.start(1);
 		
 		// minimize on main thread, in batch mode
-		List<EnergiedConf> econfs = minimizer.minimize(confs, gpuefuncgen, search.confSpace, tasks);
+		List<EnergiedConf> econfs = minimizer.minimize(confs, openclEfuncgen, search.confSpace, tasks);
 		
 		tasks.stop();
 		
@@ -246,7 +275,7 @@ public class TestMinimization extends TestBase {
 	}
 	
 	@Test
-	public void test2TaskGpus() {
+	public void test2TaskOpenCL() {
 		
 		ConfMinimizer minimizer = new ConfMinimizer();
 		
@@ -254,10 +283,95 @@ public class TestMinimization extends TestBase {
 		tasks.start(2);
 		
 		// minimize on main thread, in batch mode
-		List<EnergiedConf> econfs = minimizer.minimize(confs, gpuefuncgen, search.confSpace, tasks);
+		List<EnergiedConf> econfs = minimizer.minimize(confs, openclEfuncgen, search.confSpace, tasks);
 		
 		tasks.stop();
 		
+		assertEnergies(econfs);
+	}
+	
+	@Test
+	public void testMainCuda() {
+		
+		ConfMinimizer minimizer = new ConfMinimizer();
+		GpuForcefieldEnergy efunc = cudaEfuncgen.make(search.confSpace.m);
+		
+		// minimize on main thread
+		List<EnergiedConf> econfs = new ArrayList<>();
+		for (ScoredConf conf : confs) {
+			econfs.add(minimizer.minimize(ParameterizedMoleculeCopy.makeNoCopy(search.confSpace), conf, efunc, search.confSpace));
+		}
+		
+		efunc.cleanup();
+		
+		assertEnergies(econfs);
+	}
+	
+	@Test
+	public void testTaskCuda() {
+		
+		ConfMinimizer minimizer = new ConfMinimizer();
+		
+		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
+		tasks.start(1);
+		
+		// minimize on main thread, in batch mode
+		List<EnergiedConf> econfs = minimizer.minimize(confs, cudaEfuncgen, search.confSpace, tasks);
+		
+		tasks.stop();
+		
+		assertEnergies(econfs);
+	}
+	
+	@Test
+	public void test2TaskCuda() {
+		
+		ConfMinimizer minimizer = new ConfMinimizer();
+		
+		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
+		tasks.start(2);
+		
+		// minimize on main thread, in batch mode
+		List<EnergiedConf> econfs = minimizer.minimize(confs, cudaEfuncgen, search.confSpace, tasks);
+		
+		tasks.stop();
+		
+		assertEnergies(econfs);
+	}
+
+	@Test
+	public void testCpuConfMinimizer1Thread() {
+		check(new CpuConfMinimizer(1, ffparams, intergen, search.confSpace));
+	}
+	
+	@Test
+	public void testCpuConfMinimizer2Threads() {
+		check(new CpuConfMinimizer(2, ffparams, intergen, search.confSpace));
+	}
+	
+	@Test
+	public void testCudaConfMinmizer1Stream() {
+		check(new GpuConfMinimizer(GpuConfMinimizer.Type.Cuda, 1, 1, ffparams, intergen, search.confSpace));
+	}
+	
+	@Test
+	public void testCudaConfMinmizer2Streams() {
+		check(new GpuConfMinimizer(GpuConfMinimizer.Type.Cuda, 1, 2, ffparams, intergen, search.confSpace));
+	}
+	
+	@Test
+	public void testOpenCLConfMinmizer1Stream() {
+		check(new GpuConfMinimizer(GpuConfMinimizer.Type.OpenCL, 1, 1, ffparams, intergen, search.confSpace));
+	}
+	
+	@Test
+	public void testOpenCLConfMinmizer2Streams() {
+		check(new GpuConfMinimizer(GpuConfMinimizer.Type.OpenCL, 1, 2, ffparams, intergen, search.confSpace));
+	}
+	
+	private void check(SpecializedConfMinimizer minimizer) {
+		List<EnergiedConf> econfs = minimizer.minimize(confs);
+		minimizer.cleanup();
 		assertEnergies(econfs);
 	}
 }

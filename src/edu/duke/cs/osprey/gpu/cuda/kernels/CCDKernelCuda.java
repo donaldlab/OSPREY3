@@ -67,7 +67,7 @@ public class CCDKernelCuda extends Kernel {
 	throws IOException {
 		super(stream, "ccd");
 		
-		ffargs = stream.makeByteBuffer(40);
+		ffargs = stream.makeByteBuffer(48);
 	}
 	
 	public void init(MoleculeModifierAndScorer mof) {
@@ -98,6 +98,7 @@ public class CCDKernelCuda extends Kernel {
 		argsBuf.putDouble(ffenergy.getParams().coulombFactor);
 		argsBuf.putDouble(ffenergy.getParams().scaledCoulombFactor);
 		argsBuf.putDouble(ffenergy.getParams().solvationCutoff2);
+		argsBuf.putDouble(ffenergy.getFullSubset().getInternalSolvationEnergy());
 		argsBuf.put((byte)(ffenergy.getParams().useDistDependentDielectric ? 1 : 0));
 		argsBuf.put((byte)(ffenergy.getParams().useHElectrostatics ? 1 : 0));
 		argsBuf.put((byte)(ffenergy.getParams().useHVdw ? 1 : 0));
@@ -137,7 +138,7 @@ public class CCDKernelCuda extends Kernel {
 		IntBuffer subsetTablesBuf = subsetTables.getHostBuffer();
 		subsetTablesBuf.clear();
 		
-		dofargs = stream.makeOrExpandByteBuffer(dofargs, dofInfos.size()*40);
+		dofargs = stream.makeOrExpandByteBuffer(dofargs, dofInfos.size()*48);
 		ByteBuffer dofargsBuf = dofargs.getHostBuffer();
 		dofargsBuf.clear();
 		
@@ -168,6 +169,7 @@ public class CCDKernelCuda extends Kernel {
 			dofargsBuf.putInt(firstCoord);
 			dofargsBuf.putInt(lastCoord);
 			dofargsBuf.putInt(0); // spacer for word alignment
+			dofargsBuf.putDouble(dofInfo.subset.getInternalSolvationEnergy());
 			
 			// append subset table
 			dofInfo.subset.getSubsetTable().rewind();
@@ -271,7 +273,7 @@ public class CCDKernelCuda extends Kernel {
 		
 		// copy to the result
 		buf.rewind();
-		result.energy = buf.get() + ffenergy.getFullSubset().getInternalSolvationEnergy();
+		result.energy = buf.get();
 		for (int d=0; d<numDofs; d++) {
 			result.dofValues.set(d, Math.toDegrees(buf.get()));
 		}
