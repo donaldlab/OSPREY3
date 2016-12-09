@@ -240,7 +240,7 @@ public class TestForceFieldKernel extends TestBase {
 		Residue[] residues = { r.gly15, r.ser17, r.trp18, r.trp25, r.arg22, r.ala24 };
 		
 		double expectedWtEnergy = -52.316176530733166;
-		double expectedMutantEnergy = -49.989103034543305;
+		double expectedMutantEnergy = -49.98910298199585;
 		
 		Forcefields ff = makeForcefields(residues, EnergyFunctionType.AllPairs);
 		

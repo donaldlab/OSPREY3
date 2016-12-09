@@ -194,7 +194,7 @@ public class TestForcefieldKernelSubset extends TestBase {
 		Residue[] residues = { r.gly15, r.ser17, r.trp18, r.trp25, r.arg22, r.ala24 };
 		
 		double expectedWtEnergy = -2.7906943839799343;
-		double expectedMutantEnergy = -0.46362088779005894; 
+		double expectedMutantEnergy = -0.4636208352426065;
 		
 		Forcefields ff = makeForcefields(residues);
 		
