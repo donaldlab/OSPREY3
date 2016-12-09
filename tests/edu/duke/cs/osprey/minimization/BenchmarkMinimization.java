@@ -26,17 +26,20 @@ import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
-import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.ForcefieldInteractionsGenerator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
+import edu.duke.cs.osprey.gpu.BufferTools;
+import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tools.ObjectIO;
+import edu.duke.cs.osprey.tools.Progress;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
@@ -117,8 +120,8 @@ public class BenchmarkMinimization extends TestBase {
 		System.out.println("benchmarking...");
 		
 		//benchmarkSerial(search, confs);
-		//benchmarkParallel(search, confs);
-		compareOneConf(search, confs);
+		benchmarkParallel(search, confs);
+		//compareOneConf(search, confs);
 	}
 
 	private static void benchmarkSerial(SearchProblem search, List<ScoredConf> confs)
@@ -161,43 +164,45 @@ public class BenchmarkMinimization extends TestBase {
 		Factory<ForcefieldInteractions,Molecule> interactionsFactory = (mol) -> ffintergen.makeFullConf(search.confSpace, search.shellResidues, mol);
 		ForcefieldParams ffparams = makeDefaultFFParams();
 		
-		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
-		
 		// benchmark cpu
 		Stopwatch oneCpuStopwatch = null;
 		for (int numThreads : numThreadsList) {
 			
-			tasks.start(numThreads);
-			
 			System.out.println("\nBenchmarking " + numThreads + " thread(s) with CPU efuncs...");
-			Stopwatch stopwatch = benchmark(new CpuConfMinimizer.Builder(ffparams, interactionsFactory, search.confSpace).setNumThreads(numThreads).build(), confs, null);
+			ConfMinimizer minimizer = new CpuConfMinimizer.Builder(ffparams, interactionsFactory, search.confSpace)
+				.setNumThreads(numThreads)
+				.build();
+			Stopwatch stopwatch = benchmark(minimizer, confs, null);
 			if (oneCpuStopwatch == null) {
 				oneCpuStopwatch = stopwatch;
 			}
-			
-			tasks.stopAndWait(10000);
 		}
 		
 		// benchmark opencl
 		for (int numStreams : numStreamsList) {
-			
-			tasks.start(numStreams);
-			
 			System.out.println("\nBenchmarking " + numStreams + " stream(s) with OpenCL efuncs...");
-			benchmark(new GpuConfMinimizer.Builder(ffparams, interactionsFactory, search.confSpace).setGpuInfo(GpuConfMinimizer.Type.OpenCL, 1, numStreams).build(), confs, oneCpuStopwatch);
-			
-			tasks.stopAndWait(10000);
+			ConfMinimizer minimizer = new GpuConfMinimizer.Builder(ffparams, interactionsFactory, search.confSpace)
+				.setGpuInfo(GpuConfMinimizer.Type.OpenCL, 1, numStreams)
+				.build();
+			benchmark(minimizer, confs, oneCpuStopwatch);
 		}
 		
 		// benchmark cuda
 		for (int numStreams : numStreamsList) {
-			
-			tasks.start(numStreams);
-			
+			System.out.println("\nBenchmarking " + numStreams + " stream(s) with Cuda efuncs...");
+			ConfMinimizer minimizer = new GpuConfMinimizer.Builder(ffparams, interactionsFactory, search.confSpace)
+				.setGpuInfo(GpuConfMinimizer.Type.Cuda, 1, numStreams)
+				.build();
+			benchmark(minimizer, confs, oneCpuStopwatch);
+		}
+		
+		// benchmark cuda ccd
+		for (int numStreams : numStreamsList) {
 			System.out.println("\nBenchmarking " + numStreams + " stream(s) with Cuda CCD minimizer...");
-			benchmark(new GpuConfMinimizer.Builder(ffparams, interactionsFactory, search.confSpace).setGpuInfo(GpuConfMinimizer.Type.Cuda, 1, numStreams).build(), confs, oneCpuStopwatch);
-			
-			tasks.stopAndWait(10000);
+			ConfMinimizer minimizer = new GpuConfMinimizer.Builder(ffparams, interactionsFactory, search.confSpace)
+				.setGpuInfo(GpuConfMinimizer.Type.CudaCCD, 1, numStreams)
+				.build();
+			benchmark(minimizer, confs, oneCpuStopwatch);
 		}
 	}
 	

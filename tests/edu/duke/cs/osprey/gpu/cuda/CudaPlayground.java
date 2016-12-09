@@ -205,7 +205,6 @@ public class CudaPlayground extends TestBase {
 		}
 		
 		// cleanup
-		cudaMof.cleanup();
 		cudaEfunc.cleanup();
 		cudaEgen.cleanup();
 	}
@@ -288,7 +287,6 @@ public class CudaPlayground extends TestBase {
 		}
 		
 		// cleanup
-		cudaMof.cleanup();
 		cudaEfunc.cleanup();
 		cudaEgen.cleanup();
 		
