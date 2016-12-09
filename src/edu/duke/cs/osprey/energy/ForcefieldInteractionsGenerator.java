@@ -83,7 +83,9 @@ public class ForcefieldInteractionsGenerator {
 			
 			// pair energies
 			for (Residue res2 : mol.residues) {
-				interactions.addResiduePair(res1, res2);
+				if (res1 != res2) {
+					interactions.addResiduePair(res1, res2);
+				}
 			}
 		}
 		

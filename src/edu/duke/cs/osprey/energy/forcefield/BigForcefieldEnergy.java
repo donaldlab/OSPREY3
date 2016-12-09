@@ -276,7 +276,9 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 			groupIndicesByPair[pairIndex*2 + 1] = addOrGetGroupIndex(pair.group2);
 			pairs[pairIndex] = pair;
 			boolean wasAdded = pairIndicesByIds.put(makePairKey(pair.group1, pair.group2), pairIndex) == null;
-			assert (wasAdded);
+			if (!wasAdded) {
+				throw new IllegalArgumentException("group pair was already added, can't add again");
+			}
 		}
 		
 		public int getNumGroupPairs() {
@@ -297,7 +299,15 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		}
 		
 		private int makePairKey(AtomGroup group1, AtomGroup group2) {
+			checkId(group1.getId());
+			checkId(group2.getId());
 			return (group1.getId() << 16) | group2.getId();
+		}
+		
+		private void checkId(int id) {
+			if (id < 0 | id > 32767) {
+				throw new IllegalArgumentException("group id " + id + " out of range [0,32767]");
+			}
 		}
 		
 		public Integer getGroupIndex(AtomGroup group) {
