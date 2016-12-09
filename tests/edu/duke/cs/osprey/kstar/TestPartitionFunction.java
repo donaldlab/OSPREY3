@@ -33,7 +33,7 @@ public class TestPartitionFunction extends TestBase {
 		initDefaultEnvironment();
 		
 		// configure parallelism
-		ThreadParallelism.setNumThreads(NumThreads);
+		ThreadParallelism.setNumThreadsIfPossible(NumThreads);
 		MultiTermEnergyFunction.setNumThreads(1);
 	}
 	

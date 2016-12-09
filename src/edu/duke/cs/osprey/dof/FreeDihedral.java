@@ -28,12 +28,36 @@ public class FreeDihedral extends DegreeOfFreedom {
     double[][] dihedralCoords;
 
     public FreeDihedral(Residue res, int dihedralNum) {
-        
+    	
         this.dihedralCoords = new double[4][3];
         
         this.res = res;
         this.dihedralNum = dihedralNum;
-        this.curVal = measureDihedralDegrees();
+        
+        // NOTE: this class is often instantiated for dihedral angles that don't exist yet
+        // so don't require valid dihedrals in the constructor
+        if (isValid()) {
+        	this.curVal = measureDihedralDegrees();
+        } else {
+        	this.curVal = Double.NaN;
+        }
+    }
+    
+    public boolean isValid() {
+    	return res.template.numDihedrals > 0
+    		&& dihedralNum >= 0
+    		&& dihedralNum < res.template.numDihedrals;
+    }
+    
+    public void checkValid() {
+    	
+    	if (res.template.numDihedrals <= 0) {
+    		throw new IllegalArgumentException(String.format("residue " + res.fullName + " doesn't have any dihedral angles"));
+    	}
+    	
+    	if (dihedralNum < 0 || dihedralNum >= res.template.numDihedrals) {
+    		throw new IllegalArgumentException(String.format("invalid dihedral number %d, expected in [0,%d]", dihedralNum, res.template.numDihedrals - 1));
+    	}
     }
     
     public double getCurVal() {
@@ -41,6 +65,10 @@ public class FreeDihedral extends DegreeOfFreedom {
     }
     
     public double[][] updateDihedralCoords() {
+    	
+    	// once we examine the dihedral angle though, we require it to be valid
+    	checkValid();
+    	
         int[] dihAtomIndices = res.template.getDihedralDefiningAtoms(dihedralNum);
         for(int a=0; a<4; a++) {
             System.arraycopy(res.coords, 3*dihAtomIndices[a], dihedralCoords[a], 0, 3);

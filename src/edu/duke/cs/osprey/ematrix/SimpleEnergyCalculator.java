@@ -8,9 +8,9 @@ import edu.duke.cs.osprey.confspace.ParameterizedMoleculeCopy;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
+import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
-import edu.duke.cs.osprey.minimization.SimpleCCDMinimizer;
 import edu.duke.cs.osprey.structure.Residue;
 
 public class SimpleEnergyCalculator {
@@ -128,8 +128,9 @@ public class SimpleEnergyCalculator {
 		// optimize the degrees of freedom, if needed
 		if (mof.getNumDOFs() > 0) {
 			// TODO: use configurable minimizer
-			SimpleCCDMinimizer minimizer = new SimpleCCDMinimizer();
-			minimizer.init(mof);
+			//SimpleCCDMinimizer minimizer = new SimpleCCDMinimizer();
+			//minimizer.init(mof);
+			CCDMinimizer minimizer = new CCDMinimizer(mof, false);
 			return minimizer.minimize();
 		}
 

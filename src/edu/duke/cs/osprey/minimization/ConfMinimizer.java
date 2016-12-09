@@ -183,6 +183,10 @@ public abstract class ConfMinimizer {
 	
 	protected void init(int numThreads, boolean areConfsStreaming, Factory<? extends EnergyFunction,Molecule> efuncs, Factory<? extends Minimizer,MoleculeModifierAndScorer> minimizers, ConfSpace confSpace) {
 		
+		if (numThreads <= 0) {
+			throw new IllegalArgumentException("numThreads must be > 0");
+		}
+		
 		// start the thread pool
 		tasks = new ThreadPoolTaskExecutor();
 		tasks.start(numThreads, areConfsStreaming ? 0 : 1);
@@ -242,7 +246,9 @@ public abstract class ConfMinimizer {
 	}
 	
 	public void cleanup() {
-		tasks.stop();
+		
+		// NOTE: async minimizer waits for the tasks to finish, so do that before stopping the tasks
 		asyncMinimizer.cleanup();
+		tasks.stop();
 	}
 }

@@ -23,10 +23,6 @@ public class TestKStar {
 		
 		double targetEpsilon = cfp.getParams().getDouble("epsilon");
 		
-		// configure parallel0 parallelism
-		ThreadParallelism.setNumThreads(1);
-		MultiTermEnergyFunction.setNumThreads(1);
-
 		// run K*
 		KSImplLinear result = (KSImplLinear)new KStarCalculator(cfp).calcKStarScores();
 		
@@ -181,6 +177,11 @@ public class TestKStar {
 	
 	@Test
 	public void test2RL0LinearParallel0() {
+		
+		// configure parallel0 parallelism
+		ThreadParallelism.setNumThreadsIfPossible(1);
+		MultiTermEnergyFunction.setNumThreads(1);
+		
 		KSConfigFileParser cfp = make2RL0Config();
 		testLinear(cfp);
 	}

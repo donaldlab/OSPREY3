@@ -39,6 +39,7 @@ public class TestForceFieldKernel extends TestBase {
 			gpuffopencl.cleanup();
 			openclQueuePool.cleanup();
 			gpuffcuda.cleanup();
+			cudaContextPool.cleanup();
 		}
 	}
 	
