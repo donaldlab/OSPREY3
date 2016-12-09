@@ -26,9 +26,10 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
-import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
+import edu.duke.cs.osprey.energy.ForcefieldInteractionsGenerator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -38,6 +39,8 @@ public class TestMinimizationStability extends TestBase {
 	
 	private static SearchProblem search;
 	private static List<ScoredConf> confs;
+	private static ForcefieldParams ffparams;
+	private static ForcefieldInteractionsGenerator intergen;
 	private static EnergyFunctionGenerator egen;
 	
 	@BeforeClass
@@ -68,6 +71,8 @@ public class TestMinimizationStability extends TestBase {
 			false, new ArrayList<>()
 		);
 		
+		ffparams = makeDefaultFFParams();
+		intergen = new ForcefieldInteractionsGenerator();
 		egen = new EnergyFunctionGenerator(makeDefaultFFParams(), Double.POSITIVE_INFINITY, false);
 		
 		// calc the energy matrix
@@ -143,8 +148,11 @@ public class TestMinimizationStability extends TestBase {
 	}
 	
 	private double minimize(ScoredConf conf, ParameterizedMoleculeCopy pmol) {
-		EnergyFunction efunc = egen.fullConfEnergy(search.confSpace, search.shellResidues, pmol.getCopiedMolecule());
-		return new ConfMinimizer().minimize(pmol, conf, efunc, search.confSpace).getEnergy();
+		return new CpuConfMinimizer.Builder(
+			ffparams,
+			(mol) -> intergen.makeFullConf(search.confSpace, search.shellResidues, mol),
+			search.confSpace
+		).build().minimize(conf).getEnergy();
 	}
 	
 	private void checkResults(double[] ascendingEnergies, double[] descendingEnergies, double energyEpsilon) {

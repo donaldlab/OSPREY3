@@ -8,11 +8,52 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Factory;
 
-public class CpuConfMinimizer extends SpecializedConfMinimizer {
+public class CpuConfMinimizer extends ConfMinimizer {
 	
-	public CpuConfMinimizer(int numThreads, ForcefieldParams ffparams, Factory<ForcefieldInteractions,Molecule> interactions, ConfSpace confSpace) {
+	public static class Builder {
 		
-		// make the minimizer
+		public final ForcefieldParams ffparams;
+		public final Factory<ForcefieldInteractions,Molecule> interactions;
+		public final ConfSpace confSpace;
+		
+		public int numThreads;
+		public boolean areConfsStreaming;
+		Factory<Minimizer,MoleculeModifierAndScorer> minimizers;
+		
+		public Builder(ForcefieldParams ffparams, Factory<ForcefieldInteractions,Molecule> interactions, ConfSpace confSpace) {
+			
+			this.ffparams = ffparams;
+			this.interactions = interactions;
+			this.confSpace = confSpace;
+			
+			numThreads = 1;
+			areConfsStreaming = false;
+			minimizers = (mof) -> new SimpleCCDMinimizer(mof);
+		}
+		
+		public Builder setNumThreads(int val) {
+			numThreads = val;
+			return this;
+		}
+		
+		public Builder setAreConfsStreaming(boolean val) {
+			areConfsStreaming = val;
+			return this;
+		}
+		
+		public Builder setMinimizers(Factory<Minimizer,MoleculeModifierAndScorer> val) {
+			minimizers = val;
+			return this;
+		}
+		
+		public CpuConfMinimizer build() {
+			return new CpuConfMinimizer(numThreads, areConfsStreaming, ffparams, interactions, confSpace, minimizers);
+		}
+	}
+	
+	public CpuConfMinimizer(int numThreads, boolean areConfsStreaming, ForcefieldParams ffparams, Factory<ForcefieldInteractions,Molecule> interactions, ConfSpace confSpace, Factory<? extends Minimizer,MoleculeModifierAndScorer> minimizers) {
+		
+		// make the energy function factory
 		EnergyFunctionGenerator egen = new EnergyFunctionGenerator(ffparams, Double.POSITIVE_INFINITY, false);
 		Factory<? extends EnergyFunction,Molecule> efuncs = new Factory<EnergyFunction,Molecule>() {
 			@Override
@@ -20,15 +61,7 @@ public class CpuConfMinimizer extends SpecializedConfMinimizer {
 				return egen.interactionEnergy(interactions.make(mol));
 			}
 		};
-		Factory<? extends Minimizer,MoleculeModifierAndScorer> minimizers = new Factory<SimpleCCDMinimizer,MoleculeModifierAndScorer>() {
-			@Override
-			public SimpleCCDMinimizer make(MoleculeModifierAndScorer mof) {
-				SimpleCCDMinimizer minimizer = new SimpleCCDMinimizer();
-				minimizer.init(mof);
-				return minimizer;
-			}
-		};
 		
-		init(numThreads, efuncs, minimizers, confSpace);
+		init(numThreads, areConfsStreaming, efuncs, minimizers, confSpace);
 	}
 }

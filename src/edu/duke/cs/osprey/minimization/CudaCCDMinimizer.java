@@ -21,6 +21,11 @@ public class CudaCCDMinimizer implements Minimizer.NeedsCleanup, Minimizer.Reusa
 		this.streams = streams;
 	}
 	
+	public CudaCCDMinimizer(GpuStreamPool streams, ObjectiveFunction f) {
+		this(streams);
+		init(f);
+	}
+	
 	@Override
 	public void init(ObjectiveFunction f) {
 		

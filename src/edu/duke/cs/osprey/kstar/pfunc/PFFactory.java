@@ -62,7 +62,7 @@ public class PFFactory {
 					
 					// set the partition function
 					ConfSearchFactory confSearchFactory = ConfSearchFactory.Tools.makeFromConfig(search, pmat, cfp);
-					ecalc = MinimizingEnergyCalculator.makeFromConfig(search, cfp, 0);
+					ecalc = MinimizingEnergyCalculator.makeFromConfig(search, cfp, true);
 					ParallelConfPartitionFunction pfunc = new ParallelConfPartitionFunction(emat, pmat, confSearchFactory, ecalc);
 					pfunc.setReportProgress(!PFAbstract.suppressOutput);
 					setPartitionFunction(pfunc);

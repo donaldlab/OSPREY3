@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.minimization;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
@@ -10,93 +11,13 @@ import edu.duke.cs.osprey.confspace.ParameterizedMoleculeCopy;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
+import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tools.ObjectPool;
 import edu.duke.cs.osprey.tools.Progress;
 
-public class ConfMinimizer {
-	
-	private Factory<? extends Minimizer,MoleculeModifierAndScorer> minimizers;
-	
-	private static final Factory<? extends Minimizer,MoleculeModifierAndScorer> DefaultMinimizers = new Factory<Minimizer,MoleculeModifierAndScorer>() {
-		@Override
-		public Minimizer make(MoleculeModifierAndScorer mof) {
-			return new CCDMinimizer(mof, true);
-		}
-	};
-	
-	public ConfMinimizer() {
-		this(DefaultMinimizers);
-	}
-	
-	public ConfMinimizer(Factory<? extends Minimizer,MoleculeModifierAndScorer> minimizers) {
-		this.minimizers = minimizers;
-	}
-	
-	public Minimizer.Result minimize(ParameterizedMoleculeCopy pmol, int[] conf, EnergyFunction efunc, ConfSpace confSpace) {
-		
-		RCTuple tuple = new RCTuple(conf);
-		MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(efunc, confSpace, tuple, pmol);
-		
-		Minimizer minimizer = minimizers.make(mof);
-		Minimizer.Result result = minimizer.minimize();
-		
-		if (minimizer instanceof Minimizer.NeedsCleanup) {
-			((Minimizer.NeedsCleanup)minimizer).cleanup();
-		}
-		
-		mof.cleanup();
-		
-		return result;
-	}
-	
-	public EnergiedConf minimize(ParameterizedMoleculeCopy pmol, ScoredConf conf, EnergyFunction efunc, ConfSpace confSpace) {
-		Minimizer.Result result = minimize(pmol, conf.getAssignments(), efunc, confSpace);
-		return new EnergiedConf(conf, result.energy);
-	}
-	
-	public List<EnergiedConf> minimize(ParameterizedMoleculeCopy pmol, List<ScoredConf> confs, EnergyFunction efunc, ConfSpace confSpace) {
-		Progress progress = new Progress(confs.size());
-		List<EnergiedConf> econfs = new ArrayList<>();
-		for (ScoredConf conf : confs) {
-			econfs.add(minimize(pmol, conf, efunc, confSpace));
-			progress.incrementProgress();
-		}
-		return econfs;
-	}
-	
-	public List<EnergiedConf> minimize(List<ScoredConf> confs, Factory<? extends EnergyFunction,Molecule> efuncs, ConfSpace confSpace) {
-		return minimize(confs, efuncs, confSpace, new TaskExecutor());
-	}
-	
-	public List<EnergiedConf> minimize(List<ScoredConf> confs, Factory<? extends EnergyFunction,Molecule> efuncs, ConfSpace confSpace, TaskExecutor tasks) {
-		
-		final Progress progress = new Progress(confs.size());
-		
-		List<EnergiedConf> econfs = new ArrayList<>(confs.size());
-		for (int i=0; i<confs.size(); i++) {
-			econfs.add(null);
-		}
-		
-		Async async = new Async(efuncs, confSpace, tasks, minimizers);
-		
-		// minimize them all
-		for (int i=0; i<confs.size(); i++) {
-			final int fi = i;
-			async.minimizeAsync(confs.get(i), new Async.Listener() {
-				@Override
-				public void onMinimized(EnergiedConf econf) {
-					econfs.set(fi, econf);
-					progress.incrementProgress();
-				}
-			});
-		}
-		async.waitForFinish();
-		async.cleanup();
-		
-		return econfs;
-	}
+public abstract class ConfMinimizer {
 	
 	public static class Async {
 		
@@ -126,10 +47,6 @@ public class ConfMinimizer {
 		private Factory<? extends Minimizer,MoleculeModifierAndScorer> minimizers;
 		private ObjectPool<TaskStuff> taskStuffPool;
 	
-		public Async(Factory<? extends EnergyFunction,Molecule> efuncs, ConfSpace confSpace, TaskExecutor tasks) {
-			this(efuncs, confSpace, tasks, DefaultMinimizers);
-		}
-		
 		public Async(Factory<? extends EnergyFunction,Molecule> efuncs, ConfSpace confSpace, TaskExecutor tasks, Factory<? extends Minimizer,MoleculeModifierAndScorer> minimizers) {
 			
 			this.confSpace = confSpace;
@@ -222,6 +139,10 @@ public class ConfMinimizer {
 			tasks.waitForFinish();
 		}
 		
+		public int getParallelism() {
+			return tasks.getParallelism();
+		}
+		
 		public void cleanup() {
 			
 			// make sure all the tasks are finished before cleaning up
@@ -248,5 +169,80 @@ public class ConfMinimizer {
 				taskStuffPool.clear();
 			}
 		}
+	}
+	
+	private ThreadPoolTaskExecutor tasks;
+	private Async asyncMinimizer;
+	private boolean reportProgress;
+	
+	protected ConfMinimizer() {
+		tasks = null;
+		asyncMinimizer = null;
+		reportProgress = false;
+	}
+	
+	protected void init(int numThreads, boolean areConfsStreaming, Factory<? extends EnergyFunction,Molecule> efuncs, Factory<? extends Minimizer,MoleculeModifierAndScorer> minimizers, ConfSpace confSpace) {
+		
+		// start the thread pool
+		tasks = new ThreadPoolTaskExecutor();
+		tasks.start(numThreads, areConfsStreaming ? 0 : 1);
+		
+		// make the minimizer
+		asyncMinimizer = new Async(efuncs, confSpace, tasks, minimizers);
+	}
+	
+	public void setReportProgress(boolean val) {
+		reportProgress = val;
+	}
+	
+	public Async getAsync() {
+		return asyncMinimizer;
+	}
+	
+	/**
+	 * NOTE: don't call this in a loop, you'll loose all the parallelism
+	 * but it's here if you need one-off minimizations
+	 */
+	public EnergiedConf minimize(ScoredConf conf) {
+		return minimize(Arrays.asList(conf)).get(0);
+	}
+	
+	public List<EnergiedConf> minimize(List<ScoredConf> confs) {
+		
+		// allocate space to hold the minimized values
+		List<EnergiedConf> econfs = new ArrayList<>(confs.size());
+		for (int i=0; i<confs.size(); i++) {
+			econfs.add(null);
+		}
+		
+		// track progress if desired
+		final Progress progress;
+		if (reportProgress) {
+			progress = new Progress(confs.size());
+		} else {
+			progress = null;
+		}
+		
+		// minimize them all
+		for (int i=0; i<confs.size(); i++) {
+			final int fi = i;
+			asyncMinimizer.minimizeAsync(confs.get(i), new Async.Listener() {
+				@Override
+				public void onMinimized(EnergiedConf econf) {
+					econfs.set(fi, econf);
+					if (progress != null) {
+						progress.incrementProgress();
+					}
+				}
+			});
+		}
+		asyncMinimizer.waitForFinish();
+		
+		return econfs;
+	}
+	
+	public void cleanup() {
+		tasks.stop();
+		asyncMinimizer.cleanup();
 	}
 }

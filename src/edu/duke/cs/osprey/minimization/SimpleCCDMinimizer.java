@@ -26,6 +26,11 @@ public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup, Minimizer.Reu
 		});
 	}
 	
+	public SimpleCCDMinimizer(ObjectiveFunction f) {
+		this();
+		init(f);
+	}
+	
 	public SimpleCCDMinimizer(Factory<LineSearcher,Void> lineSearcherFactory) {
 		this.lineSearcherFactory = lineSearcherFactory;
 		

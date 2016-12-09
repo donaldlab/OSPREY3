@@ -55,7 +55,7 @@ public class TestParallelConfPartitionFunction extends TestBase {
 		};
 		
 		// make the conf energy calculator
-		ConfEnergyCalculator.Async ecalc = MinimizingEnergyCalculator.make(search, numGpus, numThreads, 0);
+		ConfEnergyCalculator.Async ecalc = MinimizingEnergyCalculator.make(makeDefaultFFParams(), search, numGpus, numThreads, 0, true);
 		
 		// make the pfunc
 		return new ParallelConfPartitionFunction(search.emat, search.pruneMat, confSearchFactory, ecalc);

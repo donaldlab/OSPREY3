@@ -225,7 +225,7 @@ public class GMECFinder {
 				} else {
 				
 					// for "regular" conf minimization, use the spiffy new ConfMinimizer!
-					ecalc = MinimizingEnergyCalculator.makeFromConfig(search, cfp, 1);
+					ecalc = MinimizingEnergyCalculator.makeFromConfig(search, cfp, false);
 				}
 			}
 			

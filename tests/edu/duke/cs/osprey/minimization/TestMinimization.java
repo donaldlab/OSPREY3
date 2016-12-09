@@ -34,10 +34,6 @@ import edu.duke.cs.osprey.energy.ForcefieldInteractionsGenerator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
-import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
-import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
-import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Factory;
@@ -57,8 +53,6 @@ public class TestMinimization extends TestBase {
 	private static SearchProblem search;
 	private static ForcefieldParams ffparams;
 	private static Factory<EnergyFunction,Molecule> efuncgen;
-	private static Factory<GpuForcefieldEnergy,Molecule> openclEfuncgen;
-	private static Factory<GpuForcefieldEnergy,Molecule> cudaEfuncgen;
 	private static Factory<ForcefieldInteractions,Molecule> intergen;
 	private static List<ScoredConf> confs;
 	
@@ -97,8 +91,6 @@ public class TestMinimization extends TestBase {
 		intergen = (mol) -> ffintergen.makeFullConf(search.confSpace, search.shellResidues, mol);
 		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
 		efuncgen = (mol) -> egen.interactionEnergy(intergen.make(mol));
-		openclEfuncgen = (mol) -> new GpuForcefieldEnergy(ffparams, intergen.make(mol), new GpuQueuePool(1, 2));
-		cudaEfuncgen = (mol) -> new GpuForcefieldEnergy(ffparams, intergen.make(mol), new GpuStreamPool(1, 2));
 		
 		// compute the energy matrix and pruning matrix
 		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(egen, search.confSpace, search.shellResidues);
@@ -172,204 +164,46 @@ public class TestMinimization extends TestBase {
 	}
 	
 	@Test
-	public void testMainThread() {
-		
-		ConfMinimizer minimizer = new ConfMinimizer();
-		EnergyFunction efunc = efuncgen.make(search.confSpace.m);
-		
-		// minimize on main thread
-		List<EnergiedConf> econfs = new ArrayList<>();
-		for (ScoredConf conf : confs) {
-			econfs.add(minimizer.minimize(ParameterizedMoleculeCopy.makeNoCopy(search.confSpace), conf, efunc, search.confSpace));
-		}
-		
-		assertEnergies(econfs);
-	}
-	
-	@Test
-	public void testMainThreadBatch() {
-		
-		ConfMinimizer minimizer = new ConfMinimizer();
-		EnergyFunction efunc = efuncgen.make(search.confSpace.m);
-		
-		// minimize on main thread, in batch mode
-		List<EnergiedConf> econfs = minimizer.minimize(ParameterizedMoleculeCopy.makeNoCopy(search.confSpace), confs, efunc, search.confSpace);
-		
-		assertEnergies(econfs);
-	}
-	
-	@Test
-	public void testMainThreadTasks() {
-		
-		ConfMinimizer minimizer = new ConfMinimizer();
-		
-		// minimize on main thread, in batch mode
-		List<EnergiedConf> econfs = minimizer.minimize(confs, efuncgen, search.confSpace);
-		
-		assertEnergies(econfs);
-	}
-	
-	@Test
-	public void testTaskThread() {
-		
-		ConfMinimizer minimizer = new ConfMinimizer();
-		
-		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
-		tasks.start(1);
-		
-		// minimize on main thread, in batch mode
-		List<EnergiedConf> econfs = minimizer.minimize(confs, efuncgen, search.confSpace, tasks);
-		
-		tasks.stop();
-		
-		assertEnergies(econfs);
-	}
-		
-	@Test
-	public void test2TaskThreads() {
-		
-		ConfMinimizer minimizer = new ConfMinimizer();
-		
-		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
-		tasks.start(2);
-		
-		// minimize on main thread, in batch mode
-		List<EnergiedConf> econfs = minimizer.minimize(confs, efuncgen, search.confSpace, tasks);
-		
-		tasks.stop();
-		
-		assertEnergies(econfs);
-	}
-	
-	@Test
-	public void testMainOpenCL() {
-		
-		ConfMinimizer minimizer = new ConfMinimizer();
-		GpuForcefieldEnergy efunc = openclEfuncgen.make(search.confSpace.m);
-		
-		// minimize on main thread
-		List<EnergiedConf> econfs = new ArrayList<>();
-		for (ScoredConf conf : confs) {
-			econfs.add(minimizer.minimize(ParameterizedMoleculeCopy.makeNoCopy(search.confSpace), conf, efunc, search.confSpace));
-		}
-		
-		efunc.cleanup();
-		
-		assertEnergies(econfs);
-	}
-	
-	@Test
-	public void testTaskOpenCL() {
-		
-		ConfMinimizer minimizer = new ConfMinimizer();
-		
-		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
-		tasks.start(1);
-		
-		// minimize on main thread, in batch mode
-		List<EnergiedConf> econfs = minimizer.minimize(confs, openclEfuncgen, search.confSpace, tasks);
-		
-		tasks.stop();
-		
-		assertEnergies(econfs);
-	}
-	
-	@Test
-	public void test2TaskOpenCL() {
-		
-		ConfMinimizer minimizer = new ConfMinimizer();
-		
-		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
-		tasks.start(2);
-		
-		// minimize on main thread, in batch mode
-		List<EnergiedConf> econfs = minimizer.minimize(confs, openclEfuncgen, search.confSpace, tasks);
-		
-		tasks.stop();
-		
-		assertEnergies(econfs);
-	}
-	
-	@Test
-	public void testMainCuda() {
-		
-		ConfMinimizer minimizer = new ConfMinimizer();
-		GpuForcefieldEnergy efunc = cudaEfuncgen.make(search.confSpace.m);
-		
-		// minimize on main thread
-		List<EnergiedConf> econfs = new ArrayList<>();
-		for (ScoredConf conf : confs) {
-			econfs.add(minimizer.minimize(ParameterizedMoleculeCopy.makeNoCopy(search.confSpace), conf, efunc, search.confSpace));
-		}
-		
-		efunc.cleanup();
-		
-		assertEnergies(econfs);
-	}
-	
-	@Test
-	public void testTaskCuda() {
-		
-		ConfMinimizer minimizer = new ConfMinimizer();
-		
-		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
-		tasks.start(1);
-		
-		// minimize on main thread, in batch mode
-		List<EnergiedConf> econfs = minimizer.minimize(confs, cudaEfuncgen, search.confSpace, tasks);
-		
-		tasks.stop();
-		
-		assertEnergies(econfs);
-	}
-	
-	@Test
-	public void test2TaskCuda() {
-		
-		ConfMinimizer minimizer = new ConfMinimizer();
-		
-		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
-		tasks.start(2);
-		
-		// minimize on main thread, in batch mode
-		List<EnergiedConf> econfs = minimizer.minimize(confs, cudaEfuncgen, search.confSpace, tasks);
-		
-		tasks.stop();
-		
-		assertEnergies(econfs);
-	}
-
-	@Test
 	public void testCpuConfMinimizer1Thread() {
-		check(new CpuConfMinimizer(1, ffparams, intergen, search.confSpace));
+		check(new CpuConfMinimizer.Builder(ffparams, intergen, search.confSpace).build());
 	}
 	
 	@Test
 	public void testCpuConfMinimizer2Threads() {
-		check(new CpuConfMinimizer(2, ffparams, intergen, search.confSpace));
+		check(new CpuConfMinimizer.Builder(ffparams, intergen, search.confSpace).setNumThreads(2).build());
 	}
 	
 	@Test
 	public void testCudaConfMinmizer1Stream() {
-		check(new GpuConfMinimizer(GpuConfMinimizer.Type.Cuda, 1, 1, ffparams, intergen, search.confSpace));
+		check(new GpuConfMinimizer.Builder(ffparams, intergen, search.confSpace).setGpuInfo(GpuConfMinimizer.Type.Cuda, 1, 1).build());
 	}
 	
 	@Test
 	public void testCudaConfMinmizer2Streams() {
-		check(new GpuConfMinimizer(GpuConfMinimizer.Type.Cuda, 1, 2, ffparams, intergen, search.confSpace));
+		check(new GpuConfMinimizer.Builder(ffparams, intergen, search.confSpace).setGpuInfo(GpuConfMinimizer.Type.Cuda, 1, 2).build());
+	}
+	
+	@Test
+	public void testCudaCCDConfMinmizer1Stream() {
+		check(new GpuConfMinimizer.Builder(ffparams, intergen, search.confSpace).setGpuInfo(GpuConfMinimizer.Type.CudaCCD, 1, 1).build());
+	}
+	
+	@Test
+	public void testCudaCCDConfMinmizer2Streams() {
+		check(new GpuConfMinimizer.Builder(ffparams, intergen, search.confSpace).setGpuInfo(GpuConfMinimizer.Type.CudaCCD, 1, 2).build());
 	}
 	
 	@Test
 	public void testOpenCLConfMinmizer1Stream() {
-		check(new GpuConfMinimizer(GpuConfMinimizer.Type.OpenCL, 1, 1, ffparams, intergen, search.confSpace));
+		check(new GpuConfMinimizer.Builder(ffparams, intergen, search.confSpace).setGpuInfo(GpuConfMinimizer.Type.OpenCL, 1, 1).build());
 	}
 	
 	@Test
 	public void testOpenCLConfMinmizer2Streams() {
-		check(new GpuConfMinimizer(GpuConfMinimizer.Type.OpenCL, 1, 2, ffparams, intergen, search.confSpace));
+		check(new GpuConfMinimizer.Builder(ffparams, intergen, search.confSpace).setGpuInfo(GpuConfMinimizer.Type.OpenCL, 1, 2).build());
 	}
 	
-	private void check(SpecializedConfMinimizer minimizer) {
+	private void check(ConfMinimizer minimizer) {
 		List<EnergiedConf> econfs = minimizer.minimize(confs);
 		minimizer.cleanup();
 		assertEnergies(econfs);
