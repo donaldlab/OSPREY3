@@ -5,7 +5,6 @@ import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.energy.EnergyFunction;
-import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
@@ -48,7 +47,7 @@ public class GpuConfMinimizer extends ConfMinimizer {
 					
 					@Override
 					public EnergyFunction makeEfunc(ForcefieldParams ffparams, ForcefieldInteractions interactions) {
-						return new EnergyFunctionGenerator(ffparams, Double.POSITIVE_INFINITY, false).interactionEnergy(interactions);
+						return new GpuForcefieldEnergy(ffparams, interactions, pool);
 					}
 					
 					@Override
@@ -113,14 +112,7 @@ public class GpuConfMinimizer extends ConfMinimizer {
 					
 					{
 						pool = new GpuQueuePool(numGpus, streamsPerGpu);
-						minimizers = new Factory<SimpleCCDMinimizer,MoleculeModifierAndScorer>() {
-							@Override
-							public SimpleCCDMinimizer make(MoleculeModifierAndScorer mof) {
-								SimpleCCDMinimizer minimizer = new SimpleCCDMinimizer();
-								minimizer.init(mof);
-								return minimizer;
-							}
-						};
+						minimizers = (mof) -> new SimpleCCDMinimizer(mof);
 					}
 					
 					@Override

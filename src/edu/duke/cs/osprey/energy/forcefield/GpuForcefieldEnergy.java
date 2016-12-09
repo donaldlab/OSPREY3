@@ -81,6 +81,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	private GpuStreamPool cudaStreamPool;
 	private GpuStream cudaStream;
 	private KernelBuilder kernelBuilder;
+	private Map<Residue,GpuForcefieldEnergy> efuncCache;
 	
 	public GpuForcefieldEnergy(ForcefieldParams ffparams, ForcefieldInteractions interactions, GpuQueuePool queuePool) {
 		this.ffenergy = new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct);
@@ -90,6 +91,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		this.cudaStreamPool = null;
 		this.cudaStream = null;
 		this.kernelBuilder = new KernelBuilder();
+		this.efuncCache = new HashMap<>();
 	}
 	
 	public GpuForcefieldEnergy(ForcefieldParams ffparams, ForcefieldInteractions interactions, GpuStreamPool streamPool) {
@@ -100,6 +102,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		this.cudaStreamPool = streamPool;
 		this.cudaStream = streamPool.checkout();
 		this.kernelBuilder = new KernelBuilder();
+		this.efuncCache = new HashMap<>();
 	}
 	
 	public GpuForcefieldEnergy(GpuForcefieldEnergy parent, ForcefieldInteractions interactions) {
@@ -117,6 +120,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 			this.cudaStream = parent.cudaStream;
 		}
 		this.kernelBuilder = parent.kernelBuilder;
+		this.efuncCache = null;
 	}
 	
 	public ForcefieldKernel getKernel() {
@@ -159,13 +163,19 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		if (cudaStreamPool != null) {
 			cudaStreamPool.release(cudaStream);
 		}
+		
+		if (efuncCache != null) {
+			for (GpuForcefieldEnergy efunc : efuncCache.values()) {
+				efunc.cleanup();
+			}
+			efuncCache.clear();
+		}
 	}
 
 	@Override
 	public List<EnergyFunction> decomposeByDof(Molecule m, List<DegreeOfFreedom> dofs) {
 		
 		List<EnergyFunction> efuncs = new ArrayList<>();
-		Map<Residue,GpuForcefieldEnergy> efuncCache = new HashMap<>();
 		
 		for (DegreeOfFreedom dof : dofs) {
 

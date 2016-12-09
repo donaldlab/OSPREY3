@@ -386,6 +386,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	private DoubleBuffer precomputed;
 	
 	private Subset fullSubset;
+	private Map<Residue,Subset> subsetCache;
 	
 	public BigForcefieldEnergy(ForcefieldParams params, ForcefieldInteractions interactions) {
 		this(params, interactions, BufferTools.Type.Normal);
@@ -409,6 +410,8 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		
 		// make the full subset
 		fullSubset = new Subset(interactions, false);
+		
+		subsetCache = new HashMap<>();
 	}
 	
 	private void build() {
@@ -576,7 +579,6 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	public List<EnergyFunction> decomposeByDof(Molecule m, List<DegreeOfFreedom> dofs) {
 		
 		List<EnergyFunction> efuncs = new ArrayList<>();
-		Map<Residue,Subset> subsetCache = new HashMap<>();
 		
 		for (DegreeOfFreedom dof : dofs) {
 

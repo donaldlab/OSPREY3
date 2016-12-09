@@ -96,7 +96,6 @@ public abstract class ConfMinimizer {
 				Minimizer.Result result = minimizer.minimize();
 				
 				// cleanup
-				mof.cleanup();
 				if (minimizer instanceof Minimizer.Reusable) {
 					stuff.minimizer = (Minimizer.Reusable)minimizer;
 				} else if (minimizer instanceof Minimizer.NeedsCleanup) {
