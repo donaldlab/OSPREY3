@@ -9,14 +9,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 
-import edu.duke.cs.osprey.kstar.KSAllowedSeqs;
-import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.confspace.PositionConfSpace;
 import edu.duke.cs.osprey.kstar.KSAbstract;
+import edu.duke.cs.osprey.kstar.KSAllowedSeqs;
+import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.kstar.KSTermini;
-import edu.duke.cs.osprey.kstar.impl.KSImplLinear;
 import edu.duke.cs.osprey.kstar.impl.KSImplKAStar;
+import edu.duke.cs.osprey.kstar.impl.KSImplLinear;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
+import edu.duke.cs.osprey.kstar.pfunc.PFFactory;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 
 
@@ -203,6 +204,13 @@ public class KStarCalculator {
 		strand2AllowedSeqs.put(KSTermini.LIGAND, cfp.getAllowedSequences(KSTermini.LIGAND, complexSeqs));
 	}
 
+	private KSAbstract makeKStar() {
+		switch (cfp.getParams().getValue("kStarMethod")) {
+			case "kastar": return new KSImplKAStar(cfp);
+			case "linear": return new KSImplLinear(cfp);
+			default: throw new UnsupportedOperationException("ERROR: currently supported implementations are 'linear' and 'kastar'");
+		}
+	}
 
 	public KSAbstract calcKStarScores() {
 
@@ -227,26 +235,15 @@ public class KStarCalculator {
 			throw new Error(ex);
 		}
 
-			String ksMethod = cfp.getParams().getValue("kStarMethod");
-
-		switch( ksMethod ) {
-
-		case "kastar":
-			KSImplKAStar kastar = new KSImplKAStar(cfp);
-			kastar.init(strand2AllowedSeqs);
-			kastar.run();
-			return kastar;
+		// run K*
+		KSAbstract kstar = makeKStar();
+		kstar.init(strand2AllowedSeqs);
+		kstar.run();
 		
-		case "linear":
-			KSImplLinear linear = new KSImplLinear(cfp);
-			linear.init(strand2AllowedSeqs);
-			linear.run();
-			return linear;
-			
-		default:
-			throw new UnsupportedOperationException("ERROR: currently supported implementations are 'linear' and 'kastar'");
-		}
-
+		// cleanup strand cache after all pfuncs computed
+		PFFactory.cleanupStrandCache();
+		
+		return kstar;
 	}
 
 }

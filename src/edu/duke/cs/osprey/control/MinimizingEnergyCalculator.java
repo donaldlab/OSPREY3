@@ -1,56 +1,91 @@
 package edu.duke.cs.osprey.control;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
+import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.ematrix.ReferenceEnergies;
 import edu.duke.cs.osprey.energy.ForcefieldInteractionsGenerator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.minimization.ConfMinimizer;
 import edu.duke.cs.osprey.minimization.CpuConfMinimizer;
 import edu.duke.cs.osprey.minimization.GpuConfMinimizer;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Factory;
 
 public class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async {
 	
-	// TODO: this should eventually go into a CFP-only area
-	// it can be moved when we start refactoring config stuff to prepare for Python-land
-	public static MinimizingEnergyCalculator makeFromConfig(SearchProblem search, ConfigFileParser cfp, boolean areConfsStreamed) {
-		int numThreads = cfp.getParams().getInt("MinimizationThreads");
-		int numGpus = cfp.getParams().getInt("MinimizationGpus");
-		int streamsPerGpu = cfp.getParams().getInt("MinimizationStreamsPerGpu");
-		return make(EnvironmentVars.curEFcnGenerator.ffParams, search, numGpus, streamsPerGpu, numThreads, areConfsStreamed);
+	public static MinimizingEnergyCalculator make(ForcefieldParams ffparams, SearchProblem search) {
+		return make(ffparams, search, Parallelism.makeDefault(), false);
 	}
 	
-	public static MinimizingEnergyCalculator make(ForcefieldParams ffparams, SearchProblem search, int numGpus, int streamsPerGpu, int numThreads, boolean areConfsStreaming) {
+	public static MinimizingEnergyCalculator make(ForcefieldParams ffparams, SearchProblem search, Parallelism parallelism, boolean areConfsStreaming) {
 		
 		// make the forcefield interactions factory
 		ForcefieldInteractionsGenerator intergen = new ForcefieldInteractionsGenerator();
 		Factory<ForcefieldInteractions,Molecule> ffinteractions = (mol) -> intergen.makeFullConf(search.confSpace, search.shellResidues, mol);
 		
+		// TODO: simplify this with a unified builder that uses the new Parallelism class
+		// make the minimizer
 		ConfMinimizer minimizer;
-		if (numGpus > 0) {
-			minimizer = new GpuConfMinimizer.Builder(ffparams, ffinteractions, search.confSpace)
-				.setGpuInfo(null, numGpus, streamsPerGpu)
-				.setAreConfsStreaming(areConfsStreaming)
-				.build();
-		} else {
-			minimizer = new CpuConfMinimizer.Builder(ffparams, ffinteractions, search.confSpace)
-				.setAreConfsStreaming(areConfsStreaming)
-				.setNumThreads(numThreads)
-				.build();
+		switch (parallelism.type) {
+			case Cpu:
+				minimizer = new CpuConfMinimizer.Builder(ffparams, ffinteractions, search.confSpace)
+					.setAreConfsStreaming(areConfsStreaming)
+					.setNumThreads(parallelism.numThreads)
+					.build();
+			break;
+			case Gpu:
+				minimizer = new GpuConfMinimizer.Builder(ffparams, ffinteractions, search.confSpace)
+					.setGpuInfo(null, parallelism.numGpus, parallelism.numStreamsPerGpu)
+					.setAreConfsStreaming(areConfsStreaming)
+					.build();
+			break;
+			default:
+				throw new Error("unrecognized type: " + parallelism.type);
 		}
 		
-		return new MinimizingEnergyCalculator(search, minimizer);
-	}
+		MinimizingEnergyCalculator ecalc = new MinimizingEnergyCalculator(minimizer);
 		
-	private SearchProblem search;
-	private ConfMinimizer minimizer;
+		// add post pocessing steps
+		if (search.useERef) {
+			ecalc.addConfPostProcessor(ConfPostProcessor.referenceEnergies(search.emat.geteRefMat()));
+		}
+		if (search.addResEntropy) {
+			ecalc.addConfPostProcessor(ConfPostProcessor.residueEntropy(search.confSpace));
+		}
+		
+		return ecalc;
+	}
 	
-	public MinimizingEnergyCalculator(SearchProblem search, ConfMinimizer minimizer) {
-		this.search = search;
+	public static interface ConfPostProcessor {
+		
+		void postProcess(EnergiedConf conf);
+		
+		public static ConfPostProcessor referenceEnergies(ReferenceEnergies erefMat) {
+			return (econf) -> econf.offsetEnergy(-erefMat.confERef(econf.getAssignments()));
+		}
+		
+		public static ConfPostProcessor residueEntropy(ConfSpace confSpace) {
+			return (econf) -> econf.offsetEnergy(confSpace.getConfResEntropy(econf.getAssignments()));
+		}
+	}
+	
+	private ConfMinimizer minimizer;
+	private List<ConfPostProcessor> postProcessors;
+	
+	public MinimizingEnergyCalculator(ConfMinimizer minimizer) {
 		this.minimizer = minimizer;
+		this.postProcessors = new ArrayList<>();
+	}
+	
+	public void addConfPostProcessor(ConfPostProcessor val) {
+		this.postProcessors.add(val);
 	}
 	
 	@Override
@@ -59,15 +94,9 @@ public class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async {
 	}
 	
 	private EnergiedConf postProcessConf(EnergiedConf econf) {
-		
-		// add post-minimization energy modifications
-		if (search.useERef) {
-			econf.offsetEnergy(-search.emat.geteRefMat().confERef(econf.getAssignments()));
+		for (ConfPostProcessor postProcessor : postProcessors) {
+			postProcessor.postProcess(econf);
 		}
-		if (search.addResEntropy) {
-			econf.offsetEnergy(search.confSpace.getConfResEntropy(econf.getAssignments()));
-		}
-		
 		return econf;
 	}
 

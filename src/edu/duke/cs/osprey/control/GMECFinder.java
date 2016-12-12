@@ -17,6 +17,8 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.partcr.PartCRConfPruner;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningControl;
@@ -225,7 +227,9 @@ public class GMECFinder {
 				} else {
 				
 					// for "regular" conf minimization, use the spiffy new ConfMinimizer!
-					ecalc = MinimizingEnergyCalculator.makeFromConfig(search, cfp, false);
+					ForcefieldParams ffparams = EnvironmentVars.curEFcnGenerator.ffParams;
+					Parallelism parallelism = Parallelism.makeFromConfig(cfp);
+					ecalc = MinimizingEnergyCalculator.make(ffparams, search, parallelism, false);
 				}
 			}
 			

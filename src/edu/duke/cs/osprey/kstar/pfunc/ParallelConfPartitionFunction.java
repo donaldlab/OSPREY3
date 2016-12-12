@@ -187,11 +187,6 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 					// so lock to keep from racing the main thread
 					synchronized (ParallelConfPartitionFunction.this) {
 					
-						// do we even care about this result anymore?
-						if (!status.canContinue()) {
-							return;
-						}
-						
 						// get the boltzmann weight
 						BigDecimal energyWeight = boltzmann.calc(econf.getEnergy());
 						if (energyWeight.compareTo(BigDecimal.ZERO) == 0) {
@@ -222,6 +217,9 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 				}
 			});
 		}
+		
+		// wait for any remaining async minimizations to finish
+		ecalc.waitForFinish();
 	}
 
 	protected BigDecimal updateQprime(EnergiedConf econf) {

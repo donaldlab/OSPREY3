@@ -31,15 +31,10 @@ import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
-import edu.duke.cs.osprey.energy.ForcefieldInteractionsGenerator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
-import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.minimization.CpuConfMinimizer;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class TestPartCR extends TestBase {
@@ -146,11 +141,7 @@ public class TestPartCR extends TestBase {
 		
 		// configure what energies to use
 		ForcefieldParams ffparams = EnvironmentVars.curEFcnGenerator.ffParams;
-		Factory<ForcefieldInteractions,Molecule> ffinteractions = (mol) -> new ForcefieldInteractionsGenerator().makeFullConf(search.confSpace, search.shellResidues, mol);
-		ConfEnergyCalculator.Async ecalc = new MinimizingEnergyCalculator(
-			search,
-			new CpuConfMinimizer.Builder(ffparams, ffinteractions, search.confSpace).build()
-		);
+		ConfEnergyCalculator.Async ecalc = MinimizingEnergyCalculator.make(ffparams, search);
 		
 		// configure the GMEC finder
 		// NOTE: PartCR doesn't help as much with energy window designs

@@ -11,6 +11,7 @@ import edu.duke.cs.osprey.kstar.TestParallelConfPartitionFunction.Pfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
@@ -56,7 +57,7 @@ public class BenchmarkPartitionFunction extends TestBase {
 		System.out.println(String.format("finished in %s", stopwatchParallel.stop().getTime(2)));
 		
 		// test parallel conf implementation
-		Pfunc pcpfunc = TestParallelConfPartitionFunction.makePfunc(search, 0, 0, NumThreads);
+		Pfunc pcpfunc = TestParallelConfPartitionFunction.makePfunc(search, Parallelism.makeCpu(NumThreads));
 		pcpfunc.pfunc.init(targetEpsilon);
 		pcpfunc.pfunc.setReportProgress(reportProgress);
 		
@@ -67,7 +68,7 @@ public class BenchmarkPartitionFunction extends TestBase {
 		pcpfunc.cleanup();
 		
 		// test parallel conf implementation on gpu
-		Pfunc pcpfuncgpu = TestParallelConfPartitionFunction.makePfunc(search, 1, 1, 0);
+		Pfunc pcpfuncgpu = TestParallelConfPartitionFunction.makePfunc(search, Parallelism.makeGpu(1, 1));
 		pcpfuncgpu.pfunc.init(targetEpsilon);
 		pcpfuncgpu.pfunc.setReportProgress(reportProgress);
 		
@@ -78,7 +79,7 @@ public class BenchmarkPartitionFunction extends TestBase {
 		pcpfuncgpu.cleanup();
 		
 		// test parallel conf implementation on gpu
-		Pfunc pcpfuncgpuMulti = TestParallelConfPartitionFunction.makePfunc(search, 1, 16, 0);
+		Pfunc pcpfuncgpuMulti = TestParallelConfPartitionFunction.makePfunc(search, Parallelism.makeGpu(1, 16));
 		pcpfuncgpuMulti.pfunc.init(targetEpsilon);
 		pcpfuncgpuMulti.pfunc.setReportProgress(reportProgress);
 		

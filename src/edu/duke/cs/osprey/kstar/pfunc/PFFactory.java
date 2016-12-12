@@ -1,11 +1,14 @@
 package edu.duke.cs.osprey.kstar.pfunc;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 import edu.duke.cs.osprey.control.ConfEnergyCalculator;
 import edu.duke.cs.osprey.control.ConfSearchFactory;
+import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.control.MinimizingEnergyCalculator;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.kstar.KSSearchProblem;
 import edu.duke.cs.osprey.kstar.pfunc.impl.PFAdapter;
@@ -14,7 +17,7 @@ import edu.duke.cs.osprey.kstar.pfunc.impl.PFParallel1;
 import edu.duke.cs.osprey.kstar.pfunc.impl.PFParallel2;
 import edu.duke.cs.osprey.kstar.pfunc.impl.PFTraditional;
 import edu.duke.cs.osprey.kstar.pfunc.impl.PFUB;
-import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 
 
 /**
@@ -52,30 +55,39 @@ public class PFFactory {
 				
 				private static final long serialVersionUID = 8718298627856880018L;
 				
-				private ConfEnergyCalculator.Async ecalc; 
-				
 				{
-					// get search things
-					KSSearchProblem search = getReducedSearchProblem();
-					EnergyMatrix emat = search.emat;
-					PruningMatrix pmat = search.reducedMat; // why not just replace pruneMat in the SearchProblem instance?
+					// get the two search problems
+					// TODO: there really should be a simpler way to do this...
+					// all that's different is the allowed AAs and the pruning matrix, right?
+					// except it's actually reducedMat... so it doesn't actually replace the pruning matrix
+					KSSearchProblem multiSeqSearch = sp;
+					KSSearchProblem singleSeqSearch = getReducedSearchProblem();
 					
-					// set the partition function
-					ConfSearchFactory confSearchFactory = ConfSearchFactory.Tools.makeFromConfig(search, pmat, cfp);
-					ecalc = MinimizingEnergyCalculator.makeFromConfig(search, cfp, true);
-					ParallelConfPartitionFunction pfunc = new ParallelConfPartitionFunction(emat, pmat, confSearchFactory, ecalc);
+					// just in case...
+					assert (singleSeqSearch.emat == multiSeqSearch.emat);
+					assert (singleSeqSearch.confSpace == multiSeqSearch.confSpace);
+					assert (singleSeqSearch.shellResidues == multiSeqSearch.shellResidues);
+					
+					// get once-per-stand things
+					String strandKey = sp.name;
+					StrandInfo strandInfo = strandCache.get(strandKey);
+					if (strandInfo == null) {
+						strandInfo = new StrandInfo(cfp, multiSeqSearch);
+						strandCache.put(strandKey, strandInfo);
+					}
+					
+					// make the conf search (eg A*)
+					ConfSearchFactory confSearchFactory = ConfSearchFactory.Tools.makeFromConfig(singleSeqSearch, cfp);
+					
+					// make the partition function
+					ParallelConfPartitionFunction pfunc = new ParallelConfPartitionFunction(
+						singleSeqSearch.emat,
+						singleSeqSearch.reducedMat,
+						confSearchFactory,
+						strandInfo.ecalc
+					);
 					pfunc.setReportProgress(!PFAbstract.suppressOutput);
 					setPartitionFunction(pfunc);
-				}
-				
-				@Override
-				public void cleanup() {
-					super.cleanup();
-					
-					setPartitionFunction(null);
-					
-					ecalc.cleanup();
-					ecalc = null;
 				}
 			};
 		
@@ -84,5 +96,29 @@ public class PFFactory {
 
 		}
 	}
-
+	
+	// we can re-use minimizers for the same strand to save overhead on each sequence
+	private static Map<String,StrandInfo> strandCache = new HashMap<>();
+	
+	private static class StrandInfo {
+		
+		public final ConfEnergyCalculator.Async ecalc;
+		
+		public StrandInfo(KSConfigFileParser cfp, KSSearchProblem multiSeqSearch) {
+			Parallelism parallelism = Parallelism.makeFromConfig(cfp);
+			ForcefieldParams ffparams = EnvironmentVars.curEFcnGenerator.ffParams;
+			ecalc = MinimizingEnergyCalculator.make(ffparams, multiSeqSearch, parallelism, true);
+		}
+		
+		public void cleanup() {
+			ecalc.cleanup();
+		}
+	}
+	
+	public static void cleanupStrandCache() {
+		for (StrandInfo strandInfo : strandCache.values()) {
+			strandInfo.cleanup();
+		}
+		strandCache.clear();
+	}
 }

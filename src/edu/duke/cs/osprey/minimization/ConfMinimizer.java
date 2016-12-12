@@ -103,7 +103,7 @@ public abstract class ConfMinimizer {
 				}
 				
 				return new EnergiedConf(conf, result.energy);
-				
+			
 			} finally {
 				synchronized (taskStuffPool) {
 					taskStuffPool.release(stuff);
@@ -146,7 +146,12 @@ public abstract class ConfMinimizer {
 			
 			// make sure all the tasks are finished before cleaning up
 			// tasks that aren't finished yet won't cleanup properly and leak memory!
-			tasks.waitForFinish();
+			try {
+				tasks.waitForFinish();
+			} catch (Throwable t) {
+				// a task failed, but someone else should already know about it
+				// this could be being called in an error handler, so we should still try to cleanup
+			}
 			
 			synchronized (taskStuffPool) {
 				

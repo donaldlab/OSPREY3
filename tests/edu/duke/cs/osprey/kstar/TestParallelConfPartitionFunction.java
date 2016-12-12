@@ -24,6 +24,7 @@ import edu.duke.cs.osprey.control.ConfSearchFactory;
 import edu.duke.cs.osprey.control.MinimizingEnergyCalculator;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.kstar.pfunc.ParallelConfPartitionFunction;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
@@ -50,10 +51,10 @@ public class TestParallelConfPartitionFunction extends TestBase {
 	}
 	
 	public static Pfunc makePfunc(SearchProblem search) {
-		return makePfunc(search, 0, 0, 0);
+		return makePfunc(search, Parallelism.makeCpu(1));
 	}
 	
-	public static Pfunc makePfunc(SearchProblem search, int numGpus, int numStreamsPerGpu, int numThreads) {
+	public static Pfunc makePfunc(SearchProblem search, Parallelism parallelism) {
 		
 		// make the A* tree factory
 		ConfSearchFactory confSearchFactory = new ConfSearchFactory() {
@@ -70,15 +71,15 @@ public class TestParallelConfPartitionFunction extends TestBase {
 		};
 		
 		// make the conf energy calculator
-		ConfEnergyCalculator.Async ecalc = MinimizingEnergyCalculator.make(makeDefaultFFParams(), search, numGpus, numStreamsPerGpu, numThreads, true);
+		ConfEnergyCalculator.Async ecalc = MinimizingEnergyCalculator.make(makeDefaultFFParams(), search, parallelism, true);
 		
 		return new Pfunc(ecalc, search, confSearchFactory);
 	}
 	
-	private void testProtein(int numGpus, int numStreamsPerGpu, int numThreads) {
+	private void testProtein(Parallelism parallelism) {
 		
 		KSSearchProblem search = TestPartitionFunction.makeSearch(KSTermini.PROTEIN, "648", "654", "649 650 651 654"); 
-		Pfunc pfunc = makePfunc(search, numGpus, numStreamsPerGpu, numThreads);
+		Pfunc pfunc = makePfunc(search, parallelism);
 
 		// compute it
 		final double targetEpsilon = 0.05;
@@ -98,28 +99,28 @@ public class TestParallelConfPartitionFunction extends TestBase {
 	
 	@Test
 	public void testProteinCpu1() {
-		testProtein(0, 0, 1);
+		testProtein(Parallelism.makeCpu(1));
 	}
 	
 	@Test
 	public void testProteinCpu2() {
-		testProtein(0, 0, 2);
+		testProtein(Parallelism.makeCpu(2));
 	}
 	
 	@Test
 	public void testProteinGpu1() {
-		testProtein(1, 1, 0);
+		testProtein(Parallelism.makeGpu(1, 1));
 	}
 	
 	@Test
 	public void testProteinGpu2() {
-		testProtein(1, 2, 0);
+		testProtein(Parallelism.makeGpu(1, 2));
 	}
 	
-	public void testLigand(int numGpus, int numStreamsPerGpu, int numThreads) {
+	public void testLigand(Parallelism parallelism) {
 		
 		KSSearchProblem search = TestPartitionFunction.makeSearch(KSTermini.LIGAND, "155", "194", "156 172 192 193");
-		Pfunc pfunc = makePfunc(search, numGpus, numStreamsPerGpu, numThreads);
+		Pfunc pfunc = makePfunc(search, parallelism);
 
 		// compute it
 		final double targetEpsilon = 0.05;
@@ -131,28 +132,28 @@ public class TestParallelConfPartitionFunction extends TestBase {
 	
 	@Test
 	public void testLigandCpu1() {
-		testLigand(0, 0, 1);
+		testLigand(Parallelism.makeCpu(1));
 	}
 	
 	@Test
 	public void testLigandCpu2() {
-		testLigand(0, 0, 2);
+		testLigand(Parallelism.makeCpu(2));
 	}
 	
 	@Test
 	public void testLigandGpu1() {
-		testLigand(1, 1, 0);
+		testLigand(Parallelism.makeGpu(1, 1));
 	}
 	
 	@Test
 	public void testLigandGpu2() {
-		testLigand(1, 2, 0);
+		testLigand(Parallelism.makeGpu(1, 2));
 	}
 	
-	public void testComplex(int numGpus, int numStreamsPerGpu, int numThreads) {
+	public void testComplex(Parallelism parallelism) {
 		
 		KSSearchProblem search = TestPartitionFunction.makeSearch(KSTermini.COMPLEX, null, null, "649 650 651 654 156 172 192 193");
-		Pfunc pfunc = makePfunc(search, numGpus, numStreamsPerGpu, numThreads);
+		Pfunc pfunc = makePfunc(search, parallelism);
 
 		// compute it
 		final double targetEpsilon = 0.8;
@@ -165,21 +166,21 @@ public class TestParallelConfPartitionFunction extends TestBase {
 	
 	@Test
 	public void testComplexCpu1() {
-		testComplex(0, 0, 1);
+		testComplex(Parallelism.makeCpu(1));
 	}
 	
 	@Test
 	public void testComplexCpu2() {
-		testComplex(0, 0, 2);
+		testComplex(Parallelism.makeCpu(2));
 	}
 	
 	@Test
 	public void testComplexGpu1() {
-		testComplex(1, 1, 0);
+		testComplex(Parallelism.makeGpu(1, 1));
 	}
 	
 	@Test
 	public void testComplexGpu2() {
-		testComplex(1, 2, 0);
+		testComplex(Parallelism.makeGpu(1, 2));
 	}
 }
