@@ -41,7 +41,7 @@ public class PartCR {
 		this.confs = confs;
 		
 		// make a separate conf space for splitting RCs
-		splitWorld = new SplitWorld(search, ecalc.getEnergyFunctionGenerator(), ecalc.getShellDistribution());
+		splitWorld = new SplitWorld(search, ecalc);
 		
 		// init default options
 		// NOTE: these options worked best for me on very limited test cases
@@ -286,12 +286,12 @@ public class PartCR {
 		double energy = 0;
 		
 		// single energy
-		energy += ecalc.getSingleEfunc(pos1).getEnergy();
+		energy += ecalc.makeSingleEfunc(pos1).getEnergy();
 		
 		// pairwise energy
 		for (int pos2=0; pos2<ecalc.getConfSpace().numPos; pos2++) {
 			if (pos2 != pos1) {
-				energy += ecalc.getPairEfunc(pos1, pos2).getEnergy()/2;
+				energy += ecalc.makePairEfunc(pos1, pos2).getEnergy()/2;
 			}
 		}
 		

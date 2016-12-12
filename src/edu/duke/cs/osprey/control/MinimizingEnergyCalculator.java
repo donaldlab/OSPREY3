@@ -38,6 +38,7 @@ public class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async {
 		} else {
 			minimizer = new CpuConfMinimizer.Builder(ffparams, ffinteractions, search.confSpace)
 				.setAreConfsStreaming(areConfsStreaming)
+				.setNumThreads(numThreads)
 				.build();
 		}
 		

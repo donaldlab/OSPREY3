@@ -34,6 +34,7 @@ public class EnergyFunctionGenerator {
     //Note: these will not be included in the single-res and pair energy functions,
     //so we need to do only full-conf energies to get the Poisson-Boltzmann term
     
+    // TODO: move distC and usePB into forcefield params!
     
     public EnergyFunctionGenerator(ForcefieldParams fParams, double distC, boolean usePB){
         ffParams = fParams;

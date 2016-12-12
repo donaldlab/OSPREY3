@@ -348,52 +348,13 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		}
 	}
 
-	private static void benchmarkEmat(SearchProblem search, EnergyFunctionGenerator egen, GpuEnergyFunctionGenerator gpuegen)
-	throws Exception {
-		
-		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(egen, search.confSpace, search.shellResidues);
-		SimpleEnergyCalculator gpuecalc = new SimpleEnergyCalculator(gpuegen, search.confSpace, search.shellResidues);
-		
-		// benchmark the cpu
-		System.out.println("\nBenchmarking CPU...");
-		Stopwatch cpuStopwatch = new Stopwatch().start();
-		EnergyMatrix emat = new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix();
-		cpuStopwatch.stop();
-		
-		// benchmark the gpu
-		System.out.println("\nBenchmarking GPU...");
-		Stopwatch gpuStopwatch = new Stopwatch().start();
-		EnergyMatrix gpuemat = new SimpleEnergyMatrixCalculator(gpuecalc).calcEnergyMatrix();
-		gpuStopwatch.stop();
-		
-		// calculate speedup
-		System.out.println(String.format("\nspeedup: %.2fx", (double)cpuStopwatch.getTimeNs()/gpuStopwatch.getTimeNs()));
-		
-		// check the result
-		for (int pos1=0; pos1<emat.getNumPos(); pos1++) {
-			for (int rc1=0; rc1<emat.getNumConfAtPos(pos1); rc1++) {
-				
-				assertThat(emat.getOneBody(pos1, rc1), isRelatively(gpuemat.getOneBody(pos1, rc1)));
-				
-				for (int pos2=0; pos2<pos1; pos2++) {
-					for (int rc2=0; rc2<emat.getNumConfAtPos(pos2); rc2++) {
-						
-						assertThat(emat.getPairwise(pos1, rc1, pos2, rc2), isRelatively(gpuemat.getPairwise(pos1, rc1, pos2, rc2)));
-					}
-				}
-			}
-		}
-	}
-	
 	private static void benchmarkMinimize(SearchProblem search, EnergyFunctionGenerator egen, GpuEnergyFunctionGenerator gpuegen)
 	throws Exception {
-		
-		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(egen, search.confSpace, search.shellResidues);
 		
 		int numConfs = 16;
 		
 		// get a few arbitrary conformations
-		search.emat = new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix();
+		search.emat = new SimpleEnergyMatrixCalculator.Cpu(2, egen.ffParams, search.confSpace, search.shellResidues).calcEnergyMatrix();
 		search.pruneMat = new PruningMatrix(search.confSpace, 1000);
 		RCs rcs = new RCs(search.pruneMat);
 		AStarOrder order = new StaticScoreHMeanAStarOrder();

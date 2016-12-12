@@ -23,14 +23,11 @@ import edu.duke.cs.osprey.confspace.ParameterizedMoleculeCopy;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
-import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.ForcefieldInteractionsGenerator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
@@ -41,7 +38,6 @@ public class TestMinimizationStability extends TestBase {
 	private static List<ScoredConf> confs;
 	private static ForcefieldParams ffparams;
 	private static ForcefieldInteractionsGenerator intergen;
-	private static EnergyFunctionGenerator egen;
 	
 	@BeforeClass
 	public static void before() {
@@ -73,18 +69,13 @@ public class TestMinimizationStability extends TestBase {
 		
 		ffparams = makeDefaultFFParams();
 		intergen = new ForcefieldInteractionsGenerator();
-		egen = new EnergyFunctionGenerator(makeDefaultFFParams(), Double.POSITIVE_INFINITY, false);
 		
 		// calc the energy matrix
 		File ematFile = new File("/tmp/testMinimizationStability.emat.dat");
 		if (ematFile.exists()) {
 			search.emat = (EnergyMatrix)ObjectIO.readObject(ematFile.getAbsolutePath(), false);
 		} else {
-			ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
-			tasks.start(2);
-			SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(egen, search.confSpace, search.shellResidues);
-			search.emat = new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix(tasks);
-			tasks.stop();
+			search.emat = new SimpleEnergyMatrixCalculator.Cpu(2, ffparams, search.confSpace, search.shellResidues).calcEnergyMatrix();
 			ObjectIO.writeObject(search.emat, ematFile.getAbsolutePath());
 		}
 		

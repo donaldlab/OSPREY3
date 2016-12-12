@@ -25,7 +25,6 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
-import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
@@ -93,8 +92,7 @@ public class TestMinimization extends TestBase {
 		efuncgen = (mol) -> egen.interactionEnergy(intergen.make(mol));
 		
 		// compute the energy matrix and pruning matrix
-		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(egen, search.confSpace, search.shellResidues);
-		search.emat = new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix(); 
+		search.emat = new SimpleEnergyMatrixCalculator.Cpu(2, ffparams, search.confSpace, search.shellResidues).calcEnergyMatrix();
 		search.pruneMat = new PruningMatrix(search.confSpace, 1000);
 		
 		// build A* tree

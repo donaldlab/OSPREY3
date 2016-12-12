@@ -4,26 +4,20 @@
  */
 package edu.duke.cs.osprey.confspace;
 
-import edu.duke.cs.osprey.bbfree.BBFreeDOF;
 import java.io.Serializable;
 import java.util.ArrayList;
 
 import edu.duke.cs.osprey.control.EnvironmentVars;
-import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
-import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.EnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.ReferenceEnergies;
-import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
-import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
 import edu.duke.cs.osprey.kstar.KSTermini;
-import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -313,29 +307,9 @@ public class SearchProblem implements Serializable {
             
                 // otherwise, use the new multi-threaded calculator (which doesn't support MPI)
                 
-                // where do energy functions come from?
-                EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
-                if (egen instanceof GpuEnergyFunctionGenerator) {
-                    System.out.println("\n\nWARNING: using the GPU to compute energy matrices is a Bad Idea."
-                        + " It's very slow at small residue-pair forcefields compared to the CPU."
-                        + " You'll probably be better off using multi-threaded CPU parallelism instead.\n");
-                }
-                
-                // how many threads should we use?
-                ThreadPoolTaskExecutor tasks = null;
-                if (numEmatThreads > 1) {
-                    tasks = new ThreadPoolTaskExecutor();
-                    tasks.start(numEmatThreads);
-                }
-                
                 // calculate the emat! Yeah!
-                SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(egen, confSpace, shellResidues);
-                EnergyMatrix emat = new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix(tasks);
-                
-                // cleanup
-                if (tasks != null) {
-                	tasks.stop();
-                }
+                SimpleEnergyMatrixCalculator ecalc = new SimpleEnergyMatrixCalculator.Cpu(numEmatThreads, EnvironmentVars.curEFcnGenerator.ffParams, confSpace, shellResidues);
+                EnergyMatrix emat = ecalc.calcEnergyMatrix();
                 
                 // need to subtract reference energies?
                 if (useERef) {

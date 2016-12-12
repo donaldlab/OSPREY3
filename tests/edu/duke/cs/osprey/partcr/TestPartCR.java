@@ -29,7 +29,6 @@ import edu.duke.cs.osprey.control.GMECFinder;
 import edu.duke.cs.osprey.control.MinimizingEnergyCalculator;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.ForcefieldInteractionsGenerator;
@@ -58,8 +57,7 @@ public class TestPartCR extends TestBase {
 		SearchProblem search = makeSearch();
 		
 		// calc the energy matrix once
-		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(EnvironmentVars.curEFcnGenerator, search.confSpace, search.shellResidues);
-		search.emat = new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix();
+		search.emat = new SimpleEnergyMatrixCalculator.Cpu(2, EnvironmentVars.curEFcnGenerator.ffParams, search.confSpace, search.shellResidues).calcEnergyMatrix();
 		
 		List<EnergiedConf> expectedConfs = getConfs(search, false);
 		List<EnergiedConf> partcrConfs = getConfs(search, true);

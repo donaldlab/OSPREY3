@@ -5,7 +5,6 @@ import java.util.List;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.ConfSpace;
-import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.energy.ForcefieldInteractionsGenerator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
@@ -15,10 +14,10 @@ import edu.duke.cs.osprey.tools.Factory;
 
 public class ExampleParallelMinimization {
 	
-	public static List<EnergiedConf> minimize(ConfSpace confSpace, List<Residue> shellResidues, List<ScoredConf> confs) {
+	@SuppressWarnings("unused")
+	private static List<EnergiedConf> minimize(ForcefieldParams ffparams, ConfSpace confSpace, List<Residue> shellResidues, List<ScoredConf> confs) {
 		
-		// get forcefield params and interactions
-		ForcefieldParams ffparams = EnvironmentVars.curEFcnGenerator.ffParams;
+		// get forcefield interactions
 		ForcefieldInteractionsGenerator intergen = new ForcefieldInteractionsGenerator();
 		Factory<ForcefieldInteractions,Molecule> ffinteractions;
 		

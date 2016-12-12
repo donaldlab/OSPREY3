@@ -69,12 +69,12 @@ public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 	
 	@Override
 	public GpuForcefieldEnergy intraAndDistributedShellEnergy(Residue res, List<Residue> shellResidues, int numPos, double singleWeight) {
-		return makeGpuForcefield(intergen.makeIntraAndDistributedShell(res, shellResidues, numPos, singleWeight));
+		throw new UnsupportedOperationException("shell distributions are not supported by GPU energy functions");
 	}
 
 	@Override
 	public GpuForcefieldEnergy resPairAndDistributedShellEnergy(Residue res1, Residue res2, List<Residue> shellResidues, int numPos, double singleWeight) {
-		return makeGpuForcefield(intergen.makeResPairAndDistributedShell(res1, res2, shellResidues, numPos, singleWeight));
+		throw new UnsupportedOperationException("shell distributions are not supported by GPU energy functions");
 	}
 	
 	@Override

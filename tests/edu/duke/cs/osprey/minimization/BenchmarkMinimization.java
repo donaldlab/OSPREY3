@@ -85,11 +85,7 @@ public class BenchmarkMinimization extends TestBase {
 		if (ematFile.exists()) {
 			search.emat = (EnergyMatrix)ObjectIO.readObject(ematFile.getAbsolutePath(), false);
 		} else {
-			ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
-			tasks.start(2);
-			SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(EnvironmentVars.curEFcnGenerator, search.confSpace, search.shellResidues);
-			search.emat = new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix(tasks);
-			tasks.stop();
+			search.emat = new SimpleEnergyMatrixCalculator.Cpu(2, makeDefaultFFParams(), search.confSpace, search.shellResidues).calcEnergyMatrix();
 			ObjectIO.writeObject(search.emat, ematFile.getAbsolutePath());
 		}
 		

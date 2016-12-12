@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.energy;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
@@ -8,17 +9,35 @@ import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 
 public class ForcefieldInteractionsGenerator {
+	
+	public ForcefieldInteractions makeSingleRes(ConfSpace confSpace, int pos, Molecule mol) {
+		return makeSingleRes(matchResidue(confSpace.posFlex.get(pos).res, mol));
+	}
 		
 	public ForcefieldInteractions makeSingleRes(Residue res) {
 		ForcefieldInteractions interactions = new ForcefieldInteractions();
 		interactions.addResidue(res);
 		return interactions;
 	}
+	
+	public ForcefieldInteractions makeResPair(ConfSpace confSpace, int pos1, int pos2, Molecule mol) {
+		return makeResPair(
+			matchResidue(confSpace.posFlex.get(pos1).res, mol),
+			matchResidue(confSpace.posFlex.get(pos2).res, mol)
+		);
+	}
 
 	public ForcefieldInteractions makeResPair(Residue res1, Residue res2) {
 		ForcefieldInteractions interactions = new ForcefieldInteractions();
 		interactions.addResiduePair(res1, res2);
 		return interactions;
+	}
+	
+	public ForcefieldInteractions makeIntraAndShell(ConfSpace confSpace, int pos, List<Residue> shellResidues, Molecule mol) {
+		return makeIntraAndShell(
+			matchResidue(confSpace.posFlex.get(pos).res, mol),
+			matchResidues(shellResidues, mol)
+		);
 	}
 	
 	public ForcefieldInteractions makeIntraAndShell(Residue res, List<Residue> shellResidues) {
@@ -30,16 +49,24 @@ public class ForcefieldInteractionsGenerator {
 		return interactions;
 	}
 	
-	public ForcefieldInteractions makeIntraAndDistributedShell(Residue res, List<Residue> shellResidues, int numPos, double singleWeight) {
-		checkSingleWeight(singleWeight);
-		return makeIntraAndShell(res, shellResidues);
-	}
-
-	public ForcefieldInteractions makeResPairAndDistributedShell(Residue res1, Residue res2, List<Residue> shellResidues, int numPos, double singleWeight) {
-		checkSingleWeight(singleWeight);
-		return makeResPair(res1, res2);
+	public ForcefieldInteractions makeResPairAndShell(ConfSpace confSpace, int pos1, int pos2, List<Residue> shellResidues, Molecule mol) {
+		return makeResPairAndShell(
+			matchResidue(confSpace.posFlex.get(pos1).res, mol),
+			matchResidue(confSpace.posFlex.get(pos2).res, mol),
+			matchResidues(shellResidues, mol)
+		);
 	}
 	
+	private ForcefieldInteractions makeResPairAndShell(Residue res1, Residue res2, List<Residue> shellResidues) {
+		ForcefieldInteractions interactions = new ForcefieldInteractions();
+		interactions.addResiduePair(res1, res2);
+		for (Residue shellRes : shellResidues) {
+			interactions.addResiduePair(res1, shellRes);
+			interactions.addResiduePair(res2, shellRes);
+		}
+		return interactions;
+	}
+
 	public ForcefieldInteractions makeFullConf(ConfSpace confSpace, List<Residue> shellResidues) {
 		return makeFullConf(confSpace, shellResidues, null);
 	}
@@ -99,11 +126,14 @@ public class ForcefieldInteractionsGenerator {
 		return mol.residues.get(res.indexInMolecule);
 	}
 	
-	private void checkSingleWeight(double singleWeight) {
-		
-		// only single weight of 1 supported
-		if (singleWeight != 1) {
-			throw new UnsupportedOperationException("only all-on-pairs shell energy distribution supported in GPU forcefields so far");
+	private List<Residue> matchResidues(List<Residue> residues, Molecule mol) {
+		if (mol == null) {
+			return residues;
 		}
+		List<Residue> out = new ArrayList<>();
+		for (Residue res : residues) {
+			out.add(matchResidue(res, mol));
+		}
+		return out;
 	}
 }

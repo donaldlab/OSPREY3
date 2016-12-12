@@ -70,7 +70,8 @@ public class PartCRConfPruner implements GMECFinder.ConfPruner {
 		RCSplitter splitter = new NAryRCSplitter();
 		//RCSplitter splitter = new BinaryRCSplitter();
 		
-		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(EnvironmentVars.curEFcnGenerator, search.confSpace, search.shellResidues);
+		// TODO: allow gpu ecalcs
+		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator.Cpu(EnvironmentVars.curEFcnGenerator.ffParams, search.confSpace, search.shellResidues);
 		
 		PartCR pcr = new PartCR(search, Ew, ecalc, confs);
 		pcr.setPicker(picker);
