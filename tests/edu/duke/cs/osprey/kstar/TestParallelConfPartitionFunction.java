@@ -29,16 +29,31 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 public class TestParallelConfPartitionFunction extends TestBase {
 	
+	public static class Pfunc {
+		
+		public ConfEnergyCalculator.Async ecalc;
+		public ParallelConfPartitionFunction pfunc;
+		
+		public Pfunc(ConfEnergyCalculator.Async ecalc, SearchProblem search, ConfSearchFactory confSearchFactory) {
+			this.ecalc = ecalc;
+			this.pfunc = new ParallelConfPartitionFunction(search.emat, search.pruneMat, confSearchFactory, ecalc);
+		}
+		
+		public void cleanup() {
+			this.ecalc.cleanup();
+		}
+	}
+	
 	@BeforeClass
 	public static void before() {
 		initDefaultEnvironment();
 	}
 	
-	public static ParallelConfPartitionFunction makePfunc(SearchProblem search) {
-		return makePfunc(search, 0, 0);
+	public static Pfunc makePfunc(SearchProblem search) {
+		return makePfunc(search, 0, 0, 0);
 	}
 	
-	public static ParallelConfPartitionFunction makePfunc(SearchProblem search, int numGpus, int numThreads) {
+	public static Pfunc makePfunc(SearchProblem search, int numGpus, int numStreamsPerGpu, int numThreads) {
 		
 		// make the A* tree factory
 		ConfSearchFactory confSearchFactory = new ConfSearchFactory() {
@@ -55,23 +70,23 @@ public class TestParallelConfPartitionFunction extends TestBase {
 		};
 		
 		// make the conf energy calculator
-		ConfEnergyCalculator.Async ecalc = MinimizingEnergyCalculator.make(makeDefaultFFParams(), search, numGpus, 1, numThreads, true);
+		ConfEnergyCalculator.Async ecalc = MinimizingEnergyCalculator.make(makeDefaultFFParams(), search, numGpus, numStreamsPerGpu, numThreads, true);
 		
-		// make the pfunc
-		return new ParallelConfPartitionFunction(search.emat, search.pruneMat, confSearchFactory, ecalc);
+		return new Pfunc(ecalc, search, confSearchFactory);
 	}
 	
-	private void testProtein(int numGpus, int numThreads) {
+	private void testProtein(int numGpus, int numStreamsPerGpu, int numThreads) {
 		
 		KSSearchProblem search = TestPartitionFunction.makeSearch(KSTermini.PROTEIN, "648", "654", "649 650 651 654"); 
-		ParallelConfPartitionFunction pfunc = makePfunc(search, numGpus, numThreads);
+		Pfunc pfunc = makePfunc(search, numGpus, numStreamsPerGpu, numThreads);
 
 		// compute it
 		final double targetEpsilon = 0.05;
-		pfunc.init(targetEpsilon);
-		pfunc.compute();
+		pfunc.pfunc.init(targetEpsilon);
+		pfunc.pfunc.compute();
 		
-		assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, "4.3704590631e+04" /* e=0.05 */);
+		assertPfunc(pfunc.pfunc, PartitionFunction.Status.Estimated, targetEpsilon, "4.3704590631e+04" /* e=0.05 */);
+		pfunc.cleanup();
 	}
 	
 	public static void assertPfunc(PartitionFunction pfunc, PartitionFunction.Status status, double targetEpsilon, String approxQstar) {
@@ -82,73 +97,89 @@ public class TestParallelConfPartitionFunction extends TestBase {
 	}
 	
 	@Test
-	public void testProtein() {
-		testProtein(0, 0);
+	public void testProteinCpu1() {
+		testProtein(0, 0, 1);
 	}
 	
 	@Test
-	public void testProteinParallel() {
-		testProtein(0, 2);
+	public void testProteinCpu2() {
+		testProtein(0, 0, 2);
 	}
 	
 	@Test
-	public void testProteinGpu() {
-		testProtein(1, 0);
+	public void testProteinGpu1() {
+		testProtein(1, 1, 0);
 	}
 	
-	public void testLigand(int numGpus, int numThreads) {
+	@Test
+	public void testProteinGpu2() {
+		testProtein(1, 2, 0);
+	}
+	
+	public void testLigand(int numGpus, int numStreamsPerGpu, int numThreads) {
 		
 		KSSearchProblem search = TestPartitionFunction.makeSearch(KSTermini.LIGAND, "155", "194", "156 172 192 193");
-		ParallelConfPartitionFunction pfunc = makePfunc(search, numGpus, numThreads);
+		Pfunc pfunc = makePfunc(search, numGpus, numStreamsPerGpu, numThreads);
 
 		// compute it
 		final double targetEpsilon = 0.05;
-		pfunc.init(targetEpsilon);
-		pfunc.compute();
+		pfunc.pfunc.init(targetEpsilon);
+		pfunc.pfunc.compute();
 	
-		assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, "4.4699772362e+30" /* e=0.05 */);
+		assertPfunc(pfunc.pfunc, PartitionFunction.Status.Estimated, targetEpsilon, "4.4699772362e+30" /* e=0.05 */);
 	}
 	
 	@Test
-	public void testLigand() {
-		testLigand(0, 0);
+	public void testLigandCpu1() {
+		testLigand(0, 0, 1);
 	}
 	
 	@Test
-	public void testLigandParallel() {
-		testLigand(0, 2);
+	public void testLigandCpu2() {
+		testLigand(0, 0, 2);
 	}
 	
 	@Test
-	public void testLigandGpu() {
-		testLigand(1, 0);
+	public void testLigandGpu1() {
+		testLigand(1, 1, 0);
 	}
 	
-	public void testComplex(int numGpus, int numThreads) {
+	@Test
+	public void testLigandGpu2() {
+		testLigand(1, 2, 0);
+	}
+	
+	public void testComplex(int numGpus, int numStreamsPerGpu, int numThreads) {
 		
 		KSSearchProblem search = TestPartitionFunction.makeSearch(KSTermini.COMPLEX, null, null, "649 650 651 654 156 172 192 193");
-		ParallelConfPartitionFunction pfunc = makePfunc(search, numGpus, numThreads);
+		Pfunc pfunc = makePfunc(search, numGpus, numStreamsPerGpu, numThreads);
 
 		// compute it
 		final double targetEpsilon = 0.8;
-		pfunc.init(targetEpsilon);
-		pfunc.compute();
+		pfunc.pfunc.init(targetEpsilon);
+		pfunc.pfunc.compute();
 	
-		assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, "3.5213742379e+54" /* e=0.05 */);
+		assertPfunc(pfunc.pfunc, PartitionFunction.Status.Estimated, targetEpsilon, "3.5213742379e+54" /* e=0.05 */);
+		pfunc.cleanup();
 	}
 	
 	@Test
-	public void testComplex() {
-		testComplex(0, 0);
+	public void testComplexCpu1() {
+		testComplex(0, 0, 1);
 	}
 	
 	@Test
-	public void testComplexParallel() {
-		testComplex(0, 2);
+	public void testComplexCpu2() {
+		testComplex(0, 0, 2);
 	}
 	
 	@Test
-	public void testComplexGpu() {
-		testComplex(1, 0);
+	public void testComplexGpu1() {
+		testComplex(1, 1, 0);
+	}
+	
+	@Test
+	public void testComplexGpu2() {
+		testComplex(1, 2, 0);
 	}
 }

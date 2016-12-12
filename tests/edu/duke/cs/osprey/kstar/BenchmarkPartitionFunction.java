@@ -7,10 +7,10 @@ import java.math.BigDecimal;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
+import edu.duke.cs.osprey.kstar.TestParallelConfPartitionFunction.Pfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.kstar.pfunc.ParallelConfPartitionFunction;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
@@ -55,28 +55,41 @@ public class BenchmarkPartitionFunction extends TestBase {
 		pfunc.runToCompletion();
 		System.out.println(String.format("finished in %s", stopwatchParallel.stop().getTime(2)));
 		
-		// test simple implementation
-		ParallelConfPartitionFunction spfunc = TestParallelConfPartitionFunction.makePfunc(search, 0, NumThreads);
-		spfunc.init(targetEpsilon);
-		spfunc.setReportProgress(reportProgress);
+		// test parallel conf implementation
+		Pfunc pcpfunc = TestParallelConfPartitionFunction.makePfunc(search, 0, 0, NumThreads);
+		pcpfunc.pfunc.init(targetEpsilon);
+		pcpfunc.pfunc.setReportProgress(reportProgress);
 		
-		System.out.println("computing pfunc " + spfunc.getClass().getSimpleName() + " ...");
+		System.out.println("computing pfunc " + pcpfunc.getClass().getSimpleName() + " ...");
 		Stopwatch stopwatchSimple = new Stopwatch().start();
-		spfunc.compute();
+		pcpfunc.pfunc.compute();
 		System.out.println(String.format("finished in %s, speedup=%.2f", stopwatchSimple.stop().getTime(2), (double)stopwatchParallel.getTimeNs()/stopwatchSimple.getTimeNs()));
+		pcpfunc.cleanup();
 		
-		// test simple implementation on gpu
-		ParallelConfPartitionFunction spfuncgpu = TestParallelConfPartitionFunction.makePfunc(search, 1, NumThreads);
-		spfuncgpu.init(targetEpsilon);
-		spfuncgpu.setReportProgress(reportProgress);
+		// test parallel conf implementation on gpu
+		Pfunc pcpfuncgpu = TestParallelConfPartitionFunction.makePfunc(search, 1, 1, 0);
+		pcpfuncgpu.pfunc.init(targetEpsilon);
+		pcpfuncgpu.pfunc.setReportProgress(reportProgress);
 		
-		System.out.println("computing pfunc " + spfuncgpu.getClass().getSimpleName() + " on GPU ...");
+		System.out.println("computing pfunc " + pcpfuncgpu.getClass().getSimpleName() + " on GPU with 1 stream ...");
 		Stopwatch stopwatchSimpleGpu = new Stopwatch().start();
-		spfuncgpu.compute();
+		pcpfuncgpu.pfunc.compute();
 		System.out.println(String.format("finished in %s, speedup=%.2f", stopwatchSimpleGpu.stop().getTime(2), (double)stopwatchParallel.getTimeNs()/stopwatchSimpleGpu.getTimeNs()));
+		pcpfuncgpu.cleanup();
 		
-		// test adapted simple implementation
-		PFAbstract pfuncAdapted = TestPartitionFunction.makePfunc(search, "simple", KSTermini.PROTEIN, flexibility, cfp);
+		// test parallel conf implementation on gpu
+		Pfunc pcpfuncgpuMulti = TestParallelConfPartitionFunction.makePfunc(search, 1, 16, 0);
+		pcpfuncgpuMulti.pfunc.init(targetEpsilon);
+		pcpfuncgpuMulti.pfunc.setReportProgress(reportProgress);
+		
+		System.out.println("computing pfunc " + pcpfuncgpuMulti.getClass().getSimpleName() + " on GPU with 16 streams ...");
+		Stopwatch stopwatchSimpleGpuMulti = new Stopwatch().start();
+		pcpfuncgpuMulti.pfunc.compute();
+		System.out.println(String.format("finished in %s, speedup=%.2f", stopwatchSimpleGpuMulti.stop().getTime(2), (double)stopwatchParallel.getTimeNs()/stopwatchSimpleGpuMulti.getTimeNs()));
+		pcpfuncgpuMulti.cleanup();
+		
+		// test adapted parallel conf implementation
+		PFAbstract pfuncAdapted = TestPartitionFunction.makePfunc(search, "parallelConf", KSTermini.PROTEIN, flexibility, cfp);
 		
 		System.out.println("computing pfunc " + pfuncAdapted.getClass().getSimpleName() + " ...");
 		Stopwatch stopwatchAdapted = new Stopwatch().start();
@@ -86,8 +99,9 @@ public class BenchmarkPartitionFunction extends TestBase {
 		
 		// check the results, just in case
 		checkProteinPfunc(pfunc, targetEpsilon, qstar);
-		checkProteinPfunc(spfunc, targetEpsilon, qstar);
-		checkProteinPfunc(spfuncgpu, targetEpsilon, qstar);
+		checkProteinPfunc(pcpfunc.pfunc, targetEpsilon, qstar);
+		checkProteinPfunc(pcpfuncgpu.pfunc, targetEpsilon, qstar);
+		checkProteinPfunc(pcpfuncgpuMulti.pfunc, targetEpsilon, qstar);
 		checkProteinPfunc(pfuncAdapted, targetEpsilon, qstar);
 		
 		System.out.println();
@@ -131,7 +145,7 @@ public class BenchmarkPartitionFunction extends TestBase {
 	
 	private static void benchmarkComplex() {
 		
-		final double targetEpsilon = 0.8;
+		final double targetEpsilon = 0.1;
 		final String qstar = "3.5178662402e+54"; 
 		int strand = KSTermini.COMPLEX;
 		String flexibility = "649 650 651 654 156 172 192 193";
