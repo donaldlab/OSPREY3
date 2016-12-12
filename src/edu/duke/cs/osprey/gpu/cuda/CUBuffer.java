@@ -81,12 +81,12 @@ public class CUBuffer<T extends Buffer> {
 		stream.getContext().unpinBuffer(phBuf);
 		this.buf = buf;
 		phBuf = Pointer.to(this.buf);
-		stream.getContext().pinBuffer(phBuf, numBytes);
+		stream.getContext().pinBuffer(phBuf, newNumBytes);
 		
 		// resize the device side
 		stream.getContext().free(pdBuf);
+		pdBuf = stream.getContext().malloc(newNumBytes);
 		numBytes = newNumBytes;
-		pdBuf = stream.getContext().malloc(numBytes);
 	}
 	
 	public void cleanup() {
