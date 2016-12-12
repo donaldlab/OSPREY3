@@ -152,7 +152,11 @@ public abstract class ConfMinimizer {
 				
 				// make sure everything has been returned to the pool
 				if (taskStuffPool.available() < taskStuffPool.size()) {
-					throw new Error(String.format("molecule pool in inconsistent state (only %d/%d molecules available), can't cleanup. this is a bug", taskStuffPool.available(), taskStuffPool.size()));
+					System.err.println(String.format(
+						"molecule pool in inconsistent state (only %d/%d molecules available)."
+						+ "Some items will not be cleaned up. this is a bug",
+						taskStuffPool.available(), taskStuffPool.size()
+					));
 				}
 				
 				// cleanup the task stuff if needed

@@ -40,8 +40,10 @@ public class CudaCCDMinimizer implements Minimizer.NeedsCleanup, Minimizer.Reusa
 			// make the kernel
 			try {
 				stream = streams.checkout();
-				kernel = new CCDKernelCuda(this.stream);
+				kernel = new CCDKernelCuda(stream);
 			} catch (IOException ex) {
+				streams.release(stream);
+				stream = null;
 				throw new Error("can't make CCD kernel", ex);
 			}
 		}

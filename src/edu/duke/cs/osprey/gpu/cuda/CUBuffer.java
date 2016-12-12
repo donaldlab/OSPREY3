@@ -4,6 +4,7 @@ import java.nio.Buffer;
 
 import com.jogamp.common.nio.Buffers;
 
+import jcuda.CudaException;
 import jcuda.Pointer;
 import jcuda.driver.CUdeviceptr;
 
@@ -24,7 +25,15 @@ public class CUBuffer<T extends Buffer> {
 		
 		// make the host pointer
 		phBuf = Pointer.to(buf);
-		stream.getContext().pinBuffer(phBuf, numBytes);
+		try {
+			stream.getContext().pinBuffer(phBuf, numBytes);
+		} catch (CudaException ex) {
+			if (ex.getMessage().equals("CUDA_ERROR_HOST_MEMORY_ALREADY_REGISTERED")) {
+				throw new Error("can't create new buffer... usually caused by failure to cleanup old buffers");
+			} else {
+				throw ex;
+			}
+		}
 		
 		// allocate device buffer
 		pdBuf = stream.getContext().malloc(numBytes);
@@ -84,5 +93,13 @@ public class CUBuffer<T extends Buffer> {
 		stream.getContext().attachCurrentThread();
 		stream.getContext().unpinBuffer(phBuf);
 		stream.getContext().free(pdBuf);
+		phBuf = null;
+		pdBuf = null;
+	}
+	
+	protected void finalize() {
+		if (phBuf != null || pdBuf != null) {
+			System.err.println("CUBuffer not cleaned up! This will probably cause future buffer allocations to fail.");
+		}
 	}
 }
