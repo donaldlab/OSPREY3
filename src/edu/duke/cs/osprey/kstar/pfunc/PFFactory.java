@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
+import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.control.ConfEnergyCalculator;
 import edu.duke.cs.osprey.control.ConfSearchFactory;
 import edu.duke.cs.osprey.control.EnvironmentVars;
@@ -55,6 +56,8 @@ public class PFFactory {
 				
 				private static final long serialVersionUID = 8718298627856880018L;
 				
+				private StrandInfo strandInfo;
+				
 				{
 					// get the two search problems
 					// TODO: there really should be a simpler way to do this...
@@ -69,11 +72,16 @@ public class PFFactory {
 					assert (singleSeqSearch.shellResidues == multiSeqSearch.shellResidues);
 					
 					// get once-per-stand things
-					String strandKey = sp.name;
-					StrandInfo strandInfo = strandCache.get(strandKey);
-					if (strandInfo == null) {
+					StrandInfo strandInfo;
+					if (strandInfoCache != null) {
+						strandInfo = strandInfoCache.get(multiSeqSearch.confSpace);
+						if (strandInfo == null) {
+							strandInfo = new StrandInfo(cfp, multiSeqSearch);
+							strandInfoCache.put(multiSeqSearch.confSpace, strandInfo);
+						}
+					} else {
 						strandInfo = new StrandInfo(cfp, multiSeqSearch);
-						strandCache.put(strandKey, strandInfo);
+						this.strandInfo = strandInfo;
 					}
 					
 					// make the conf search (eg A*)
@@ -89,6 +97,18 @@ public class PFFactory {
 					pfunc.setReportProgress(!PFAbstract.suppressOutput);
 					setPartitionFunction(pfunc);
 				}
+
+				@Override
+				public void cleanup() {
+					super.cleanup();
+					
+					setPartitionFunction(null);
+					
+					if (strandInfo != null) {
+						strandInfo.cleanup();
+						strandInfo = null;
+					}
+				}
 			};
 		
 		default:
@@ -98,7 +118,7 @@ public class PFFactory {
 	}
 	
 	// we can re-use minimizers for the same strand to save overhead on each sequence
-	private static Map<String,StrandInfo> strandCache = new HashMap<>();
+	private static Map<ConfSpace,StrandInfo> strandInfoCache = null;
 	
 	private static class StrandInfo {
 		
@@ -115,10 +135,19 @@ public class PFFactory {
 		}
 	}
 	
-	public static void cleanupStrandCache() {
-		for (StrandInfo strandInfo : strandCache.values()) {
-			strandInfo.cleanup();
+	public static void initStrandInfoCache() {
+		if (strandInfoCache != null) {
+			cleanupStrandInfoCache();
 		}
-		strandCache.clear();
+		strandInfoCache = new HashMap<>();
+	}
+	
+	public static void cleanupStrandInfoCache() {
+		if (strandInfoCache != null) {
+			for (StrandInfo strandInfo : strandInfoCache.values()) {
+				strandInfo.cleanup();
+			}
+			strandInfoCache = null;
+		}
 	}
 }

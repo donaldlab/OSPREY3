@@ -329,6 +329,9 @@ public class SearchProblem implements Serializable {
                 	}
                 }
                 
+                // cleanup
+                ecalc.cleanup();
+                
                 return emat;
             }
         }

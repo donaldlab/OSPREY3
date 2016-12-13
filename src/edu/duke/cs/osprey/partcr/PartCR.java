@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.partcr.pickers.ConfPicker;
 import edu.duke.cs.osprey.partcr.pickers.WalkingConfPicker;
 import edu.duke.cs.osprey.partcr.scorers.RCScorer;
@@ -33,15 +34,15 @@ public class PartCR {
 	private long iterationNs;
 	private int numIterations;
 	
-	public PartCR(SearchProblem search, double Ew, SimpleEnergyCalculator ecalc, List<ScoredConf> confs) {
+	public PartCR(SearchProblem search, ForcefieldParams ffparams, double Ew, List<ScoredConf> confs) {
 		
 		this.search = search;
 		this.Ew = Ew;
-		this.ecalc = ecalc;
+		this.ecalc = new SimpleEnergyCalculator.Cpu(ffparams, search.confSpace, search.shellResidues);
 		this.confs = confs;
 		
 		// make a separate conf space for splitting RCs
-		splitWorld = new SplitWorld(search, ecalc);
+		splitWorld = new SplitWorld(search, ffparams);
 		
 		// init default options
 		// NOTE: these options worked best for me on very limited test cases
@@ -289,7 +290,7 @@ public class PartCR {
 		energy += ecalc.makeSingleEfunc(pos1).getEnergy();
 		
 		// pairwise energy
-		for (int pos2=0; pos2<ecalc.getConfSpace().numPos; pos2++) {
+		for (int pos2=0; pos2<ecalc.confSpace.numPos; pos2++) {
 			if (pos2 != pos1) {
 				energy += ecalc.makePairEfunc(pos1, pos2).getEnergy()/2;
 			}

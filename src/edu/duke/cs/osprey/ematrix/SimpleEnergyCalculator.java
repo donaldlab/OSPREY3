@@ -25,9 +25,9 @@ import edu.duke.cs.osprey.structure.Residue;
 
 public abstract class SimpleEnergyCalculator {
 	
-	protected ForcefieldParams ffparams;
-	protected ConfSpace confSpace;
-	protected List<Residue> shellResidues;
+	public final ForcefieldParams ffparams;
+	public ConfSpace confSpace;
+	public List<Residue> shellResidues;
 	protected ForcefieldInteractionsGenerator intergen;
 	
 	protected SimpleEnergyCalculator(ForcefieldParams ffparams, ConfSpace confSpace, List<Residue> shellResidues) {
@@ -35,10 +35,6 @@ public abstract class SimpleEnergyCalculator {
 		this.confSpace = confSpace;
 		this.shellResidues = shellResidues;
 		this.intergen = new ForcefieldInteractionsGenerator();
-	}
-	
-	public ConfSpace getConfSpace() {
-		return confSpace;
 	}
 	
 	public abstract EnergyFunctionGenerator getEnergyFunctionGenerator();
@@ -118,6 +114,13 @@ public abstract class SimpleEnergyCalculator {
 	}
 	
 	
+	/**
+	 * This is pretty slow compared to the CPU,
+	 * so don't actually use it in the real world.
+	 * Maybe someday it could be faster...
+	 * Use the multi-threaded CPU calculator instead
+	 */
+	@Deprecated
 	public static class Cuda extends SimpleEnergyCalculator {
 		
 		public static boolean isSupported() {

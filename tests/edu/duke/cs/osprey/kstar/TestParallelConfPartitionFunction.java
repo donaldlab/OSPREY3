@@ -128,6 +128,7 @@ public class TestParallelConfPartitionFunction extends TestBase {
 		pfunc.pfunc.compute();
 	
 		assertPfunc(pfunc.pfunc, PartitionFunction.Status.Estimated, targetEpsilon, "4.4699772362e+30" /* e=0.05 */);
+		pfunc.cleanup();
 	}
 	
 	@Test

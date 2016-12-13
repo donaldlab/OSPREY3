@@ -97,9 +97,12 @@ public class CUBuffer<T extends Buffer> {
 		pdBuf = null;
 	}
 	
-	protected void finalize() {
+	@Override
+	protected void finalize()
+	throws Throwable {
 		if (phBuf != null || pdBuf != null) {
 			System.err.println("CUBuffer not cleaned up! This will probably cause future buffer allocations to fail.");
 		}
+		super.finalize();
 	}
 }

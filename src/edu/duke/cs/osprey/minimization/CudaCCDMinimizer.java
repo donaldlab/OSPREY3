@@ -71,7 +71,10 @@ public class CudaCCDMinimizer implements Minimizer.NeedsCleanup, Minimizer.Reusa
 
 	@Override
 	public void cleanup() {
-		kernel.cleanup();
+		if (kernel != null) {
+			kernel.cleanup();
+			kernel = null;
+		}
 		streams.release(stream);
 	}
 }

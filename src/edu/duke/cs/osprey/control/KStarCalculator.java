@@ -213,6 +213,9 @@ public class KStarCalculator {
 	}
 
 	public KSAbstract calcKStarScores() {
+		
+		// use the strand cache to reduce minimization overhead
+		PFFactory.initStrandInfoCache();
 
 		cfp.verifyStrandsMutuallyExclusive();
 		
@@ -241,7 +244,7 @@ public class KStarCalculator {
 		kstar.run();
 		
 		// cleanup strand cache after all pfuncs computed
-		PFFactory.cleanupStrandCache();
+		PFFactory.cleanupStrandInfoCache();
 		
 		return kstar;
 	}

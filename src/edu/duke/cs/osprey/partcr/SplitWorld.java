@@ -19,6 +19,7 @@ import edu.duke.cs.osprey.confspace.RCIndexMap;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.LazyEnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 public class SplitWorld {
@@ -28,7 +29,7 @@ public class SplitWorld {
 	private List<RCIndexMap> rcMaps;
 	private SimpleEnergyCalculator ecalc;
 	
-	public SplitWorld(SearchProblem search, SimpleEnergyCalculator ecalc) {
+	public SplitWorld(SearchProblem search, ForcefieldParams ffparams) {
 		
 		// copy the search problem, confspace, the positions, and the rcs
 		this.search = new SearchProblem(search);
@@ -44,10 +45,10 @@ public class SplitWorld {
 			this.rcMaps.add(null);
 		}
 		
-		this.ecalc = ecalc;
-		this.search.fullConfE = ecalc.getEnergyFunctionGenerator().fullConfEnergy(this.search.confSpace, search.shellResidues);
-		this.search.emat = new LazyEnergyMatrix(search.emat, this.ecalc);
-		this.search.pruneMat = new PruningMatrix(search.pruneMat);
+		this.ecalc = new SimpleEnergyCalculator.Cpu(ffparams, this.search.confSpace, this.search.shellResidues);
+		this.search.fullConfE = ecalc.getEnergyFunctionGenerator().fullConfEnergy(this.search.confSpace, this.search.shellResidues);
+		this.search.emat = new LazyEnergyMatrix(this.search.emat, this.ecalc);
+		this.search.pruneMat = new PruningMatrix(this.search.pruneMat);
 	}
 	
 	public SearchProblem getSearchProblem() {
@@ -77,7 +78,7 @@ public class SplitWorld {
 	}
 	
 	public void resizeMatrices() {
-	
+		
 		int numPos = search.confSpace.numPos;
 		
 		assert (search.emat != null);

@@ -83,13 +83,13 @@ public abstract class SimpleEnergyMatrixCalculator {
 	}
 	
 	public EnergyMatrix calcEnergyMatrix() {
-		EnergyMatrix emat = new EnergyMatrix(ecalc.getConfSpace(), Double.POSITIVE_INFINITY);
+		EnergyMatrix emat = new EnergyMatrix(ecalc.confSpace, Double.POSITIVE_INFINITY);
 		calcMatrices(emat, null);
 		return emat;
 	}
 	
 	public DofMatrix calcDofMatrix() {
-		DofMatrix dofmat = new DofMatrix(ecalc.getConfSpace());
+		DofMatrix dofmat = new DofMatrix(ecalc.confSpace);
 		calcMatrices(null, dofmat);
 		return dofmat;
 	}
@@ -139,7 +139,7 @@ public abstract class SimpleEnergyMatrixCalculator {
 		Progress progress = new Progress(numWork);
 		
 		// init molecule pool
-		ParameterizedMoleculePool pmols = new ParameterizedMoleculePool(ecalc.getConfSpace());
+		ParameterizedMoleculePool pmols = new ParameterizedMoleculePool(ecalc.confSpace);
 		
 		// init task listeners
 		TaskListener singleListener = new TaskListener() {

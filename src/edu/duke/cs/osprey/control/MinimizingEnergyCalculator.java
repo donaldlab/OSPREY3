@@ -54,7 +54,10 @@ public class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async {
 		
 		// add post pocessing steps
 		if (search.useERef) {
-			ecalc.addConfPostProcessor(ConfPostProcessor.referenceEnergies(search.emat.geteRefMat()));
+			// the emat might not have been computed yet, so we can't get the ReferenceEnergies reference right now
+			//ecalc.addConfPostProcessor(ConfPostProcessor.referenceEnergies(search.emat.geteRefMat()));
+			// so look in the SearchProblem for the reference energies every time we post process a conf
+			ecalc.addConfPostProcessor((econf) -> econf.offsetEnergy(-search.emat.geteRefMat().confERef(econf.getAssignments())));
 		}
 		if (search.addResEntropy) {
 			ecalc.addConfPostProcessor(ConfPostProcessor.residueEntropy(search.confSpace));

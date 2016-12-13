@@ -139,11 +139,14 @@ public class TestMinimizationStability extends TestBase {
 	}
 	
 	private double minimize(ScoredConf conf, ParameterizedMoleculeCopy pmol) {
-		return new CpuConfMinimizer.Builder(
+		CpuConfMinimizer minimizer = new CpuConfMinimizer.Builder(
 			ffparams,
 			(mol) -> intergen.makeFullConf(search.confSpace, search.shellResidues, mol),
 			search.confSpace
-		).build().minimize(conf).getEnergy();
+		).build();
+		double energy = minimizer.minimize(conf).getEnergy();
+		minimizer.cleanup();
+		return energy;
 	}
 	
 	private void checkResults(double[] ascendingEnergies, double[] descendingEnergies, double energyEpsilon) {

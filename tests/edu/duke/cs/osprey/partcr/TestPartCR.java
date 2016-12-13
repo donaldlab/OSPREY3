@@ -42,7 +42,7 @@ public class TestPartCR extends TestBase {
 	@BeforeClass
 	public static void before() {
 		initDefaultEnvironment();
-		MultiTermEnergyFunction.setNumThreads(4);
+		MultiTermEnergyFunction.setNumThreads(1);
 	}
 	
 	@Test

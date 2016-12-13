@@ -301,18 +301,38 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements TaskExecutor
 	}
 	
 	public void stop() {
+		askThreadsToStop();
+		clearThreads();
+	}
+	
+	public void stopAndWait(int timeoutMs)
+	throws InterruptedException {
+		askThreadsToStop();
+		for (TaskThread thread : threads) {
+			thread.join(timeoutMs);
+		}
+		listenerThread.join(timeoutMs);
+		clearThreads();
+	}
+	
+	private void askThreadsToStop() {
 		for (TaskThread thread : threads) {
 			thread.askToStop();
 		}
 		listenerThread.askToStop();
 	}
 	
-	public void stopAndWait(int timeoutMs)
-	throws InterruptedException {
-		stop();
-		for (TaskThread thread : threads) {
-			thread.join(timeoutMs);
+	private void clearThreads() {
+		threads.clear();
+		listenerThread = null;
+	}
+	
+	@Override
+	protected void finalize()
+	throws Throwable {
+		if (!threads.isEmpty() || listenerThread != null) {
+			System.err.println("thread pool not cleaned up, could lead to failures starting new threads");
 		}
-		listenerThread.join(timeoutMs);
+		super.finalize();
 	}
 }
