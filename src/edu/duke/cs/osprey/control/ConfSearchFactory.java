@@ -23,12 +23,7 @@ public interface ConfSearchFactory {
 	// TODO: move this info some CFP-only place
 	public static class Tools {
 		
-		// TODO: we should eventually get rid of this when we refactor search problems
 		public static ConfSearchFactory makeFromConfig(SearchProblem search, ConfigFileParser cfp) {
-			return makeFromConfig(search, search.pruneMat, cfp);
-		}
-		
-		public static ConfSearchFactory makeFromConfig(SearchProblem search, PruningMatrix pmat, ConfigFileParser cfp) {
 			return new ConfSearchFactory() {
 				@Override
 				public ConfSearch make(EnergyMatrix emat, PruningMatrix pmat) {

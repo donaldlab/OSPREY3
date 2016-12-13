@@ -23,10 +23,6 @@ public class TestKStar {
 		
 		double targetEpsilon = cfp.getParams().getDouble("epsilon");
 		
-		// configure parallel0 parallelism
-		ThreadParallelism.setNumThreads(1);
-		MultiTermEnergyFunction.setNumThreads(1);
-
 		// run K*
 		KSImplLinear result = (KSImplLinear)new KStarCalculator(cfp).calcKStarScores();
 		
@@ -181,6 +177,11 @@ public class TestKStar {
 	
 	@Test
 	public void test2RL0LinearParallel0() {
+		
+		// configure parallel0 parallelism
+		ThreadParallelism.setNumThreadsIfPossible(1);
+		MultiTermEnergyFunction.setNumThreads(1);
+		
 		KSConfigFileParser cfp = make2RL0Config();
 		testLinear(cfp);
 	}
@@ -205,6 +206,24 @@ public class TestKStar {
 		KSConfigFileParser cfp = make2RL0Config();
 		cfp.getParams().setValue("kStarPFuncMethod", "parallelConf");
 		cfp.getParams().setValue("MinimizationGpus", "1");
+		testLinear(cfp);
+	}
+	
+	@Test
+	public void test2RL0LinearParallelConf1Gpu4Streams() {
+		KSConfigFileParser cfp = make2RL0Config();
+		cfp.getParams().setValue("kStarPFuncMethod", "parallelConf");
+		cfp.getParams().setValue("MinimizationGpus", "1");
+		cfp.getParams().setValue("MinimizationStreamsPerGpu", "4");
+		testLinear(cfp);
+	}
+	
+	@Test
+	public void test2RL0LinearParallelConf1Gpu16Streams() {
+		KSConfigFileParser cfp = make2RL0Config();
+		cfp.getParams().setValue("kStarPFuncMethod", "parallelConf");
+		cfp.getParams().setValue("MinimizationGpus", "1");
+		cfp.getParams().setValue("MinimizationStreamsPerGpu", "16");
 		testLinear(cfp);
 	}
 }

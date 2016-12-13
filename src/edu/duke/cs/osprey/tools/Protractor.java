@@ -77,125 +77,102 @@ public class Protractor {
     	return measureDihedralSinCos(coords[0], 0, coords[1], 0, coords[2], 0, coords[3], 0);
     }
     
+    //given 3D coords for four atoms, return their dihedral (standard sign convention; in degrees)
     public static double measureDihedral(double[] acoords, int aindex, double[] bcoords, int bindex, double[] ccoords, int cindex, double[] dcoords, int dindex) {
     
-        //given 3D coords for four atoms, return their dihedral (standard sign convention; in degrees)
-    
-	// This was not written by me, but I have checked it
-	// If all 4 atoms lie in a plane and the first and fourth
-	//  atoms are trans then 180 is returned, if they are cis
-	//  then 0 is returned.
-	// Between these two extremes, the angle of the right
-	//  handed rotation where the axis is the vector from
-	//  atom2 to atom3 (ie thumb points to atom3) is returned.
-	// The returned angle is between -180-epsilon .. +180
+        double[] sincos = measureDihedralSinCos(acoords, aindex, bcoords, bindex, ccoords, cindex, dcoords, dindex);
         
-        double xij, yij, zij;
-        double xkj, ykj, zkj;
-        double xkl, ykl, zkl;
-        double dx, dy, dz;
-        double gx, gy, gz;
-        double bi, bk;
-        double ct, d, ap, app, bibk;
-
-        xij = acoords[aindex*3 + 0] - bcoords[bindex*3 + 0];
-        yij = acoords[aindex*3 + 1] - bcoords[bindex*3 + 1];
-        zij = acoords[aindex*3 + 2] - bcoords[bindex*3 + 2];
-        xkj = ccoords[cindex*3 + 0] - bcoords[bindex*3 + 0];
-        ykj = ccoords[cindex*3 + 1] - bcoords[bindex*3 + 1];
-        zkj = ccoords[cindex*3 + 2] - bcoords[bindex*3 + 2];
-        xkl = ccoords[cindex*3 + 0] - dcoords[dindex*3 + 0];
-        ykl = ccoords[cindex*3 + 1] - dcoords[dindex*3 + 1];
-        zkl = ccoords[cindex*3 + 2] - dcoords[dindex*3 + 2];
-
-                    // d = ij cross kj
-                    // g = kl cross kj
-        dx = yij * zkj - zij * ykj;
-        dy = zij * xkj - xij * zkj;
-        dz = xij * ykj - yij * xkj;
-        gx = zkj * ykl - ykj * zkl;
-        gy = xkj * zkl - zkj * xkl;
-        gz = ykj * xkl - xkj * ykl;
-
-        bi = dx * dx + dy * dy + dz * dz;  // magnitude of d
-        bk = gx * gx + gy * gy + gz * gz;  // magnitude of g
-        ct = dx * gx + dy * gy + dz * gz;  // d dot g
-                    bibk = bi * bk;
-                    if (bibk < 1.0e-6)	
-                            return 0;
-        ct = ct / Math.sqrt(bibk);
-        if(ct < -1.0)
-          ct = -1.0;
-        else if(ct > 1.0)
-          ct = 1.0;
-
-        ap = Math.acos(ct);
-        d  = xkj*(dz*gy-dy*gz) + ykj*(dx*gz-dz*gx) + zkj*(dy*gx-dx*gy);
-        if(d < 0.0)
-          ap = -ap;
-        ap = Math.PI - ap;
-        app = 180.0 * ap / Math.PI;
-        if(app > 180.0)
-          app = app - 360.0;
-        return(app);
+        // compute theta from sin and cos
+        double angleRadians = Math.atan2(sincos[0], sincos[1]);
+        return Protractor.normalizeDegrees(Math.toDegrees(angleRadians));
     }
-    
     
     public static double[] measureDihedralSinCos(double[] acoords, int aindex, double[] bcoords, int bindex, double[] ccoords, int cindex, double[] dcoords, int dindex) {
         //This version returns the {sine,cosine} of the dihedral
         
-        double xij, yij, zij;
-        double xkj, ykj, zkj;
-        double xkl, ykl, zkl;
-        double dx, dy, dz;
-        double gx, gy, gz;
-        double bi, bk;
-        double ct, d, ap, app, bibk;
+        // This was not written by me, but I have checked it
+        // If all 4 atoms lie in a plane and the first and fourth
+        //  atoms are trans then 180 is returned, if they are cis
+        //  then 0 is returned.
+        // Between these two extremes, the angle of the right
+        //  handed rotation where the axis is the vector from
+        //  atom2 to atom3 (ie thumb points to atom3) is returned.
+        // The returned angle is between -180-epsilon .. +180
+        
+        // Jeff: I rewrote this, and fixed the numerical stability issues
+        
+        int a3 = aindex*3;
+        int b3 = bindex*3;
+        int c3 = cindex*3;
+        int d3 = dindex*3;
+        
+        // let ba = a-b
+        double bax = acoords[a3    ] - bcoords[b3    ];
+        double bay = acoords[a3 + 1] - bcoords[b3 + 1];
+        double baz = acoords[a3 + 2] - bcoords[b3 + 2];
+        
+        // let bc = c-b
+        double bcx = ccoords[c3    ] - bcoords[b3    ];
+        double bcy = ccoords[c3 + 1] - bcoords[b3 + 1];
+        double bcz = ccoords[c3 + 2] - bcoords[b3 + 2];
+        
+        // let dc = c-d
+        double dcx = ccoords[c3    ] - dcoords[d3    ];
+        double dcy = ccoords[c3 + 1] - dcoords[d3 + 1];
+        double dcz = ccoords[c3 + 2] - dcoords[d3 + 2];
 
-        xij = acoords[aindex*3 + 0] - bcoords[bindex*3 + 0];
-        yij = acoords[aindex*3 + 1] - bcoords[bindex*3 + 1];
-        zij = acoords[aindex*3 + 2] - bcoords[bindex*3 + 2];
-        xkj = ccoords[cindex*3 + 0] - bcoords[bindex*3 + 0];
-        ykj = ccoords[cindex*3 + 1] - bcoords[bindex*3 + 1];
-        zkj = ccoords[cindex*3 + 2] - bcoords[bindex*3 + 2];
-        xkl = ccoords[cindex*3 + 0] - dcoords[dindex*3 + 0];
-        ykl = ccoords[cindex*3 + 1] - dcoords[dindex*3 + 1];
-        zkl = ccoords[cindex*3 + 2] - dcoords[dindex*3 + 2];
-
-                    // d = ij cross kj
-                    // g = kl cross kj
-        dx = yij * zkj - zij * ykj;
-        dy = zij * xkj - xij * zkj;
-        dz = xij * ykj - yij * xkj;
-        gx = zkj * ykl - ykj * zkl;
-        gy = xkj * zkl - zkj * xkl;
-        gz = ykj * xkl - xkj * ykl;
-
-        bi = dx * dx + dy * dy + dz * dz;  // magnitude of d
-        bk = gx * gx + gy * gy + gz * gz;  // magnitude of g
-        ct = dx * gx + dy * gy + dz * gz;  // d dot g
-        bibk = bi * bk;
-        if (bibk < 1.0e-6)
-            return new double[] {0,1};//angle==0
-        ct = ct / Math.sqrt(bibk);
-        if(ct < -1.0)
-          ct = -1.0;
-        else if(ct > 1.0)
-          ct = 1.0;
-
-
-        d  = xkj*(dz*gy-dy*gz) + ykj*(dx*gz-dz*gx) + zkj*(dy*gx-dx*gy);
-        if(d < 0.0)
-            return new double[] {-Math.sqrt(1-ct*ct),-ct};
-        else
-            return new double[] {Math.sqrt(1-ct*ct),-ct};
+        // let d = ba cross bc
+        double dx = bay*bcz - baz*bcy;
+        double dy = baz*bcx - bax*bcz;
+        double dz = bax*bcy - bay*bcx;
+        
+        // let g = bc cross dc
+        double gx = bcz*dcy - bcy*dcz;
+        double gy = bcx*dcz - bcz*dcx;
+        double gz = bcy*dcx - bcx*dcy;
+        
+        // cos(theta) = (d dot g)/(|d|*|g|)
+        double bi = dx*dx + dy*dy + dz*dz;
+        double bk = gx*gx + gy*gy + gz*gz;
+        double norm = Math.sqrt(bi*bk);
+        double cos = (dx*gx + dy*gy + dz*gz)/norm;
+        
+        /* NOTE: don't do this, this is numerically unstable around 180
+        // sin(theta) follows the unit circle
+        double sin = 0;
+        if (cos > -1 && cos < 1) {
+            sin = Math.sqrt(1 - cos*cos);
+        }
+        */
+        
+        // let v = g cross d
+        double vx = gy*dz - gz*dy;
+        double vy = gz*dx - gx*dz;
+        double vz = gx*dy - gy*dx;
+        
+        // sin(theta) = |v|/(|d|*|g|)
+        double sin = Math.sqrt(vx*vx + vy*vy + vz*vz)/norm;
+        
+        // bc dot v
+        double bcdotv  = bcx*vx + bcy*vy + bcz*vz;
+        
+        // adjust the signs to move sin,cos out of the fist quadrant
+        // and to match dihedral angle conventions
+        cos = -cos;
+        if (bcdotv < 0.0) {
+            sin = -sin;
+        }
+        
+        return new double[] { sin, cos };
     }
     
-    
-    
-    
-        //return (sin(theta/2),cos(theta/2))
+    //return (sin(theta/2),cos(theta/2))
     //meant to be quick, without inverse trig
+    /**
+     * this is numerically unstable, don't use it!
+     * (there's a singularity at -180)
+     */
+    @Deprecated
     public static double[] getHalfAngleSinCos(double sinTheta, double cosTheta){
         //first get the right absolute values
         double s2 = (1-cosTheta)/2;
@@ -248,5 +225,17 @@ public class Protractor {
         ans[1] = Protractor.measureDihedral( new double[][] {NCur,CACur,CCur,NNext} );//psi
 
         return ans;
+    }
+    
+    public static double normalizeDegrees(double angleDegrees) {
+        while (angleDegrees <= -180) {
+            angleDegrees += 360;
+        }
+        while (angleDegrees > 180) {
+            angleDegrees -= 360;
+        }
+        assert (angleDegrees > -180);
+        assert (angleDegrees <= 180);
+        return angleDegrees;
     }
 }

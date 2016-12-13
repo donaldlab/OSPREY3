@@ -24,21 +24,37 @@ import edu.duke.cs.osprey.control.ConfSearchFactory;
 import edu.duke.cs.osprey.control.MinimizingEnergyCalculator;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.kstar.pfunc.ParallelConfPartitionFunction;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 public class TestParallelConfPartitionFunction extends TestBase {
+	
+	public static class Pfunc {
+		
+		public ConfEnergyCalculator.Async ecalc;
+		public ParallelConfPartitionFunction pfunc;
+		
+		public Pfunc(ConfEnergyCalculator.Async ecalc, SearchProblem search, ConfSearchFactory confSearchFactory) {
+			this.ecalc = ecalc;
+			this.pfunc = new ParallelConfPartitionFunction(search.emat, search.pruneMat, confSearchFactory, ecalc);
+		}
+		
+		public void cleanup() {
+			this.ecalc.cleanup();
+		}
+	}
 	
 	@BeforeClass
 	public static void before() {
 		initDefaultEnvironment();
 	}
 	
-	public static ParallelConfPartitionFunction makePfunc(SearchProblem search) {
-		return makePfunc(search, 0, 0);
+	public static Pfunc makePfunc(SearchProblem search) {
+		return makePfunc(search, Parallelism.makeCpu(1));
 	}
 	
-	public static ParallelConfPartitionFunction makePfunc(SearchProblem search, int numGpus, int numThreads) {
+	public static Pfunc makePfunc(SearchProblem search, Parallelism parallelism) {
 		
 		// make the A* tree factory
 		ConfSearchFactory confSearchFactory = new ConfSearchFactory() {
@@ -55,23 +71,23 @@ public class TestParallelConfPartitionFunction extends TestBase {
 		};
 		
 		// make the conf energy calculator
-		ConfEnergyCalculator.Async ecalc = MinimizingEnergyCalculator.make(search, numGpus, numThreads, 0);
+		ConfEnergyCalculator.Async ecalc = MinimizingEnergyCalculator.make(makeDefaultFFParams(), search, parallelism, true);
 		
-		// make the pfunc
-		return new ParallelConfPartitionFunction(search.emat, search.pruneMat, confSearchFactory, ecalc);
+		return new Pfunc(ecalc, search, confSearchFactory);
 	}
 	
-	private void testProtein(int numGpus, int numThreads) {
+	private void testProtein(Parallelism parallelism) {
 		
 		KSSearchProblem search = TestPartitionFunction.makeSearch(KSTermini.PROTEIN, "648", "654", "649 650 651 654"); 
-		ParallelConfPartitionFunction pfunc = makePfunc(search, numGpus, numThreads);
+		Pfunc pfunc = makePfunc(search, parallelism);
 
 		// compute it
 		final double targetEpsilon = 0.05;
-		pfunc.init(targetEpsilon);
-		pfunc.compute();
+		pfunc.pfunc.init(targetEpsilon);
+		pfunc.pfunc.compute();
 		
-		assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, "4.3704590631e+04" /* e=0.05 */);
+		assertPfunc(pfunc.pfunc, PartitionFunction.Status.Estimated, targetEpsilon, "4.3704590631e+04" /* e=0.05 */);
+		pfunc.cleanup();
 	}
 	
 	public static void assertPfunc(PartitionFunction pfunc, PartitionFunction.Status status, double targetEpsilon, String approxQstar) {
@@ -82,73 +98,90 @@ public class TestParallelConfPartitionFunction extends TestBase {
 	}
 	
 	@Test
-	public void testProtein() {
-		testProtein(0, 0);
+	public void testProteinCpu1() {
+		testProtein(Parallelism.makeCpu(1));
 	}
 	
 	@Test
-	public void testProteinParallel() {
-		testProtein(0, 2);
+	public void testProteinCpu2() {
+		testProtein(Parallelism.makeCpu(2));
 	}
 	
 	@Test
-	public void testProteinGpu() {
-		testProtein(1, 0);
+	public void testProteinGpu1() {
+		testProtein(Parallelism.makeGpu(1, 1));
 	}
 	
-	public void testLigand(int numGpus, int numThreads) {
+	@Test
+	public void testProteinGpu2() {
+		testProtein(Parallelism.makeGpu(1, 2));
+	}
+	
+	public void testLigand(Parallelism parallelism) {
 		
 		KSSearchProblem search = TestPartitionFunction.makeSearch(KSTermini.LIGAND, "155", "194", "156 172 192 193");
-		ParallelConfPartitionFunction pfunc = makePfunc(search, numGpus, numThreads);
+		Pfunc pfunc = makePfunc(search, parallelism);
 
 		// compute it
 		final double targetEpsilon = 0.05;
-		pfunc.init(targetEpsilon);
-		pfunc.compute();
+		pfunc.pfunc.init(targetEpsilon);
+		pfunc.pfunc.compute();
 	
-		assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, "4.4699772362e+30" /* e=0.05 */);
+		assertPfunc(pfunc.pfunc, PartitionFunction.Status.Estimated, targetEpsilon, "4.4699772362e+30" /* e=0.05 */);
+		pfunc.cleanup();
 	}
 	
 	@Test
-	public void testLigand() {
-		testLigand(0, 0);
+	public void testLigandCpu1() {
+		testLigand(Parallelism.makeCpu(1));
 	}
 	
 	@Test
-	public void testLigandParallel() {
-		testLigand(0, 2);
+	public void testLigandCpu2() {
+		testLigand(Parallelism.makeCpu(2));
 	}
 	
 	@Test
-	public void testLigandGpu() {
-		testLigand(1, 0);
+	public void testLigandGpu1() {
+		testLigand(Parallelism.makeGpu(1, 1));
 	}
 	
-	public void testComplex(int numGpus, int numThreads) {
+	@Test
+	public void testLigandGpu2() {
+		testLigand(Parallelism.makeGpu(1, 2));
+	}
+	
+	public void testComplex(Parallelism parallelism) {
 		
 		KSSearchProblem search = TestPartitionFunction.makeSearch(KSTermini.COMPLEX, null, null, "649 650 651 654 156 172 192 193");
-		ParallelConfPartitionFunction pfunc = makePfunc(search, numGpus, numThreads);
+		Pfunc pfunc = makePfunc(search, parallelism);
 
 		// compute it
 		final double targetEpsilon = 0.8;
-		pfunc.init(targetEpsilon);
-		pfunc.compute();
+		pfunc.pfunc.init(targetEpsilon);
+		pfunc.pfunc.compute();
 	
-		assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, "3.5213742379e+54" /* e=0.05 */);
+		assertPfunc(pfunc.pfunc, PartitionFunction.Status.Estimated, targetEpsilon, "3.5213742379e+54" /* e=0.05 */);
+		pfunc.cleanup();
 	}
 	
 	@Test
-	public void testComplex() {
-		testComplex(0, 0);
+	public void testComplexCpu1() {
+		testComplex(Parallelism.makeCpu(1));
 	}
 	
 	@Test
-	public void testComplexParallel() {
-		testComplex(0, 2);
+	public void testComplexCpu2() {
+		testComplex(Parallelism.makeCpu(2));
 	}
 	
 	@Test
-	public void testComplexGpu() {
-		testComplex(1, 0);
+	public void testComplexGpu1() {
+		testComplex(Parallelism.makeGpu(1, 1));
+	}
+	
+	@Test
+	public void testComplexGpu2() {
+		testComplex(Parallelism.makeGpu(1, 2));
 	}
 }

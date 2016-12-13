@@ -4,12 +4,15 @@
  */
 package edu.duke.cs.osprey.restypes;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Set;
+
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.VectorAlgebra;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 
 /**
  *
@@ -28,6 +31,9 @@ public class HardCodedResidueInfo {
     public static String[] possibleBBAtoms = new String[] {
         "N", "H", "CA", "C", "O", "OXT", "H1", "H2", "H3"
     };
+    
+    public static Set<String> possibleBBAtomsLookup;
+    
     //BB atoms, which should stay still in mutations and should be moved in perturbations.
     //We'll move HA with the sidechain, so it's not included here.  
     
@@ -40,6 +46,11 @@ public class HardCodedResidueInfo {
         one2three = new LinkedHashMap<String,String>();
         for(String threeLet : three2one.keySet())
             one2three.put(three2one.get(threeLet), threeLet);
+        
+        possibleBBAtomsLookup = new HashSet<>();
+        for (String name : possibleBBAtoms) {
+            possibleBBAtomsLookup.add(name);
+        }
     }
     
     

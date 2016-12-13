@@ -16,10 +16,20 @@ public class ObjectPool<T> implements Iterable<T> {
 		this.size = 0;
 	}
 	
+	public void allocate(int size) {
+		while (this.size < size) {
+			make();
+		}
+	}
+	
+	private void make() {
+		objects.addLast(factory.make(null));
+		size++;
+	}
+	
 	public T checkout() {
 		if (objects.isEmpty()) {
-			objects.addLast(factory.make(null));
-			size++;
+			make();
 		}
 		return objects.removeFirst();
 	}

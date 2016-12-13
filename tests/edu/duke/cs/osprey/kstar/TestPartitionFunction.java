@@ -33,7 +33,7 @@ public class TestPartitionFunction extends TestBase {
 		initDefaultEnvironment();
 		
 		// configure parallelism
-		ThreadParallelism.setNumThreads(NumThreads);
+		ThreadParallelism.setNumThreadsIfPossible(NumThreads);
 		MultiTermEnergyFunction.setNumThreads(1);
 	}
 	
@@ -157,16 +157,13 @@ public class TestPartitionFunction extends TestBase {
 		));
 	}
 	
-	public static void computePfunc(PFAbstract pfunc, double targetEpsilon) {
-		PFAbstract.targetEpsilon = targetEpsilon;
-		pfunc.start();
-		pfunc.runToCompletion();
-	}
-	
 	private PFAbstract makeAndComputePfunc(String pfImpl, int strand, String firstRes, String lastRes, String flexibility, double targetEpsilon) {
 		KSSearchProblem search = makeSearch(strand, firstRes, lastRes, flexibility);
 		PFAbstract pfunc = makePfunc(search, pfImpl, strand, flexibility);
-		computePfunc(pfunc, targetEpsilon);
+		PFAbstract.targetEpsilon = targetEpsilon;
+		pfunc.start();
+		pfunc.runToCompletion();
+		pfunc.cleanup();
 		return pfunc;
 	}
 	

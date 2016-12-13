@@ -62,6 +62,27 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
     
     List<EnergyFunction> partialEFuncs = null;//if not null, can use when searching along a single DOF
     
+    public static boolean hasMinimizableDofs(ConfSpace confSpace, RCTuple tuple) {
+    
+        // for each pos...
+        for (int i=0; i<tuple.size(); i++) {
+            
+            int pos = tuple.pos.get(i);
+            int rc = tuple.RCs.get(i);
+            RC rcObj = confSpace.posFlex.get(pos).RCs.get(rc);
+            
+            for (int d=0; d<rcObj.DOFs.size(); d++) {
+                double xdmin = rcObj.DOFmin.get(d);
+                double xdmax = rcObj.DOFmax.get(d);
+                if (xdmax > xdmin) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    }
+    
     public MoleculeModifierAndScorer(EnergyFunction ef, DoubleMatrix1D[] constr, Molecule m, 
             ArrayList<DegreeOfFreedom> DOFList){
         
@@ -142,7 +163,11 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
                     desiredTemplate = mutDOF.getLibraryTemplate(rc.AAType);
                 }
 
-                if (!mutDOF.isTemplate(desiredTemplate)) {
+                if (mutDOF.isTemplate(desiredTemplate)) {
+                    // restore coords from the template to fight roundoff error
+                    mutDOF.restoreCoordsFromTemplate();
+                } else {
+                    // mutate to the new template (which also uses template coords and fights roundoff error)
                     mutDOF.switchToTemplate(desiredTemplate);
                 }
             }
@@ -163,7 +188,6 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
                     }
                 }
                 else {//store bounds
-                    
                     DOFBounds.put(curDOF, new double[] {minVal,maxVal});
                     numMinDOFs++;
                 }
@@ -251,26 +275,8 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
         if(x.size()!=DOFs.size())
             throw new RuntimeException("ERROR: Trying to set "+DOFs.size()+" DOFs with "+x.size()+" values");
         
-        // HACKHACK: since this method depends on the current atom coords,
-        // it's actually non-deterministic with respect to x
-        // this is causing problems with energy function accuracies
-        // work around that by forcing the atom coords to converge to a stable value
-        // at least until we can write a more stable and efficient version of this method
-        // sadly, this iteration makes this function at least twice as expensive,
-        // but luckily it's not a bottleneck yet, and it makes minimization energies much more accurate
-        int oldHash = molec.hashCode();
-        for (int i=0; i<100; i++) {
-            
-            for(int dof=0; dof<x.size(); dof++){
-                DOFs.get(dof).apply(x.get(dof));
-            }
-            
-            // did we converge yet?
-            int newHash = molec.hashCode();
-            if (oldHash == newHash) {
-                break;
-            }
-            oldHash = newHash;
+        for(int dof=0; dof<x.size(); dof++){
+            DOFs.get(dof).apply(x.get(dof));
         }
     }
     
@@ -385,18 +391,20 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
         } else {
         	partialEFuncs = null;
         }
-    }
-    
-    public void cleanup() {
+        
+		// we might have made chemical changes, explicitly update the efuncs if supported
+        if (efunc instanceof EnergyFunction.ExplicitChemicalChanges) {
+        	((EnergyFunction.ExplicitChemicalChanges)efunc).handleChemicalChanges();
+        }
         if (partialEFuncs != null) {
-            for (EnergyFunction efunc : partialEFuncs) {
-                if (efunc instanceof EnergyFunction.NeedsCleanup) {
-                    ((EnergyFunction.NeedsCleanup)efunc).cleanup();
-                }
-            }
+			for (EnergyFunction dofEfunc : partialEFuncs) {
+				if (dofEfunc instanceof EnergyFunction.ExplicitChemicalChanges) {
+					((EnergyFunction.ExplicitChemicalChanges)dofEfunc).handleChemicalChanges();
+				}
+			}
         }
     }
-
+    
     public Molecule getMolec() {
         return molec;
     }
@@ -421,6 +429,4 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
         
         return false;
     }
-    
-    
 }

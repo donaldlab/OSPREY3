@@ -43,6 +43,11 @@ public class SurfingLineSearcher implements LineSearcher {
 			step = InitialStepSize/Math.pow(iteration + 1, 3);
 		}
 		
+		// make sure the step isn't so big that the quadratic approximation is worthless
+		while (xd - step < xdmin && xd + step > xdmax) {
+			step /= 2;
+		}
+		
 		// get the positive (p) and negative (n) neighbors for our current pos
 		double xdp = xd + step;
 		double xdm = xd - step;
@@ -60,12 +65,13 @@ public class SurfingLineSearcher implements LineSearcher {
 		// a*step^2 + b*step = fxp - fx
 		// a*step^2 - b*step = fxm - fx
 		
-		// solve for a to determine the shape
-		double a = (fxdp + fxdm - 2*fxd)/(2*step*step);
+		// solve for the shape of the parabola
+		double shape = fxdp + fxdm - 2*fxd;
+		final double ShapeEpsilon = 1e-12;
 		double xdstar = 0;
-		if ((a <= 0) || Double.isNaN(a) || Double.isInfinite(a)) {
+		if ((shape < -ShapeEpsilon) || Double.isNaN(shape) || Double.isInfinite(shape)) {
 			
-			// negative a means quadratic is concave down, I think
+			// negative shape means quadratic is concave down
 			// infinite or nan a means we're hitting a constraint or impossible conformation
 			// so just minimize over the endpoints of the interval
 			if (fxdm < fxdp) {
@@ -74,17 +80,30 @@ public class SurfingLineSearcher implements LineSearcher {
 				xdstar = xdp;
 			}
 			
+		} else if (shape <= ShapeEpsilon) {
+			
+			// shape near zero means it's basically flat here
+			// so don't step anywhere
+			xdstar = xd;
+			
 		} else {
 			
-			// positive a means quadratic is concave up, I think
-			// solve for the b param
-			double b = (fxdp - fxd)/step - a*step;
+			// positive shape means quadratic is concave up
+			// step to the optimum
 			
+			/* this isn't terribly numerically stable, don't use it
+			// solve for a and b params
+			double a = shape/(2*step*step);
+			double b = (fxdp - fxd)/step - a*step;
 			// then minimize the quadratic to get the minimum x:
 			// 2*a*(x - xd) + b = 0
-			xdstar = xd - b/2/a;
+			double deltax = -b/2/a;
+			*/
+			
+			// this is much more numerically stable
+			xdstar = xd + (fxdm - fxdp)*step/2/shape;
 		}
-
+		
 		// clamp xdstar to the range
 		if (xdstar < xdmin) {
 			xdstar = xdmin;
@@ -113,8 +132,9 @@ public class SurfingLineSearcher implements LineSearcher {
 					if (fxdmin == null) {
 						fxdmin = f.getValue(xdmin);
 					}
-					if (fxdmin < fxdstar) {
+					if (fxdmin < fxdsurfHere) {
 						xdsurfHere = xdmin;
+						fxdsurfHere = fxdmin;
 					}
 					
 					break;
@@ -126,8 +146,9 @@ public class SurfingLineSearcher implements LineSearcher {
 					if (fxdmax == null) {
 						fxdmax = f.getValue(xdmax);
 					}
-					if (fxdmax < fxdstar) {
+					if (fxdmax < fxdsurfHere) {
 						xdsurfHere = xdmax;
+						fxdsurfHere = fxdmax;
 					}
 					
 					break;
@@ -200,6 +221,12 @@ public class SurfingLineSearcher implements LineSearcher {
 			}
 		}
 		
+		// update step before wall jumping
+		lastStep = xdstar - xd;
+		if (iteration == 0) {
+			firstStep = lastStep;
+		}
+		
 		// try to jump over walls arbitrarily
 		// look in a 1-degree step for a better minimum
 		
@@ -208,6 +235,8 @@ public class SurfingLineSearcher implements LineSearcher {
 		// it's best to keep doing it I think
 		
 		xdm = xdstar - 1;
+		xdp = xdstar + 1;
+		
 		if (xdm >= xdmin) {
 			fxdm = f.getValue(xdm);
 			if (fxdm < fxdstar) {
@@ -216,7 +245,6 @@ public class SurfingLineSearcher implements LineSearcher {
 			}
 		}
 		
-		xdp = xdstar + 1;
 		if (xdp <= xdmax) {
 			fxdp = f.getValue(xdp);
 			if (fxdp < fxdstar) {
@@ -225,11 +253,6 @@ public class SurfingLineSearcher implements LineSearcher {
 			}
 		}
 		
-		lastStep = xdstar - xd;
-		if (iteration == 0) {
-			firstStep = lastStep;
-		}
-
 		iteration++;
 		
 		f.setX(xdstar);
@@ -238,8 +261,7 @@ public class SurfingLineSearcher implements LineSearcher {
 	
 	private double getTolerance(double f) {
 		
-		// use full tolerance, unless f is very small
-		// then scale by the magnitude of f
+		// scale abs(f) by tolerance, unless f is very small
 		return Tolerance * Math.max(1, Math.abs(f));
 	}
 }

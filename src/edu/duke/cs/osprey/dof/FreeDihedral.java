@@ -4,9 +4,6 @@
  */
 package edu.duke.cs.osprey.dof;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.Protractor;
@@ -26,94 +23,112 @@ public class FreeDihedral extends DegreeOfFreedom {
     Residue res;//residue we're moving
     int dihedralNum;//is this chi1, chi2 or what?
     double curVal;
+    
+    // temp space
+    double[][] dihedralCoords;
 
     public FreeDihedral(Residue res, int dihedralNum) {
+    	
+        this.dihedralCoords = new double[4][3];
+        
         this.res = res;
         this.dihedralNum = dihedralNum;
-    }
-    
-    public double getCurVal() { return curVal; }
-    
-    
-    @Override
-    public void apply(double paramVal) {
         
-        //get indices (within res) of the 4 atoms defining this dihedral
-        int[] dihAtomIndices = res.template.getDihedralDefiningAtoms(dihedralNum);
-        
-        //get indices of all the atoms that are moved by the dihedrals (i.e., everything beyond the third atom)
-        ArrayList<Integer> rotatedAtomIndices = res.template.getDihedralRotatedAtoms(dihedralNum);
-        
-        
-        //get current coordinates of our four atoms
-        double curCoords[][] = new double[4][3];
-        
-        // HACKHACK: since this method depends on the current atom coords,
-        // it's actually non-deterministic with respect to paramVal
-        // this is causing problems with energy function accuracies
-        // work around that by forcing the atom coords to converge to a stable value
-        // at least until we can write a more stable and efficient version of this method
-        // sadly, this iteration makes this function at least twice as expensive,
-        // but luckily it's not a bottleneck yet, and it makes minimization energies much more accurate
-        int oldHash = Arrays.hashCode(res.coords);
-        for (int i=0; i<100; i++) {
-            
-            for(int a=0; a<4; a++) {
-                System.arraycopy(res.coords, 3*dihAtomIndices[a], curCoords[a], 0, 3);
-            }
-        
-            //measuring a dihedral requires evaluating an inverse cosine, which is slow
-            //let's work with sines and cosines of dihedrals directly
-            double curDihedralSC[] = Protractor.measureDihedralSinCos(curCoords);
-            double sinDih = Math.sin(Math.PI*paramVal/180);
-            double cosDih = Math.cos(Math.PI*paramVal/180);
-            double sinDihChange = sinDih*curDihedralSC[1] - cosDih*curDihedralSC[0];
-            double cosDihChange = cosDih*curDihedralSC[1] + sinDih*curDihedralSC[0];
-            
-            RigidBodyMotion dihRotation = new DihedralRotation( curCoords[1], curCoords[2], 
-                    sinDihChange, cosDihChange );
-            
-            /*double curDihedralVal = Protractor.measureDihedral(curCoords);//could go faster by not copying...hmm
-            double dihedralChange = paramVal - curDihedralVal;
-            //should we update curVal?
-            
-            RigidBodyMotion dihRotation = new DihedralRotation(curCoords[1], curCoords[2], dihedralChange);*/
-            //rotate about third atom, axis = third-second atom (i.e. bond vector),
-            //rotate by dihedralChange
-            
-            for(int index : rotatedAtomIndices)
-                dihRotation.transform(res.coords, index);
-            
-            // did we converge yet?
-            int newHash = Arrays.hashCode(res.coords);
-            if (oldHash == newHash) {
-                break;
-            }
-            oldHash = newHash;
+        // NOTE: this class is often instantiated for dihedral angles that don't exist yet
+        // so don't require valid dihedrals in the constructor
+        if (isValid()) {
+        	this.curVal = measureDihedralDegrees();
+        } else {
+        	this.curVal = Double.NaN;
         }
-
-        curVal = paramVal; // store the value
+    }
+    
+    public boolean isValid() {
+    	return res.template.numDihedrals > 0
+    		&& dihedralNum >= 0
+    		&& dihedralNum < res.template.numDihedrals;
+    }
+    
+    public void checkValid() {
+    	
+    	if (res.template.numDihedrals <= 0) {
+    		throw new IllegalArgumentException(String.format("residue " + res.fullName + " doesn't have any dihedral angles"));
+    	}
+    	
+    	if (dihedralNum < 0 || dihedralNum >= res.template.numDihedrals) {
+    		throw new IllegalArgumentException(String.format("invalid dihedral number %d, expected in [0,%d]", dihedralNum, res.template.numDihedrals - 1));
+    	}
+    }
+    
+    public double getCurVal() {
+        return curVal;
+    }
+    
+    public double[][] updateDihedralCoords() {
+    	
+    	// once we examine the dihedral angle though, we require it to be valid
+    	checkValid();
+    	
+        int[] dihAtomIndices = res.template.getDihedralDefiningAtoms(dihedralNum);
+        for(int a=0; a<4; a++) {
+            System.arraycopy(res.coords, 3*dihAtomIndices[a], dihedralCoords[a], 0, 3);
+        }
+        return dihedralCoords;
+    }
+    
+    public double measureDihedralDegrees() {
+        updateDihedralCoords();
+        return Protractor.measureDihedral(dihedralCoords);
     }
     
     @Override
-    public Residue getResidue() { return res; }
+    public void apply(double angleDegrees) {
+        
+        // compute the target dihedral
+        double angleRadians = Math.toRadians(angleDegrees);
+        double sin = Math.sin(angleRadians);
+        double cos = Math.cos(angleRadians);
+        
+        // measure the current dihedral
+        // NOTE: measuring a dihedral requires evaluating an inverse cosine, which is slow
+        // let's work with sines and cosines of dihedrals directly
+        updateDihedralCoords();
+        double measuredSinCos[] = Protractor.measureDihedralSinCos(dihedralCoords);
+        
+        // calc the dihedral rotation as a rigid body transformation relative to the current pose
+        double dsin = sin*measuredSinCos[1] - cos*measuredSinCos[0];
+        double dcos = cos*measuredSinCos[1] + sin*measuredSinCos[0];
+        RigidBodyMotion dihRotation = new DihedralRotation(dihedralCoords[1], dihedralCoords[2], dsin, dcos);
+        
+        // rotate all the atoms that are moved by the dihedrals (i.e., everything beyond the third atom)
+        for(int index : res.template.getDihedralRotatedAtoms(dihedralNum)) {
+            dihRotation.transform(res.coords, index);
+        }
+        
+        // store the orignal (unnormalized) value
+        curVal = angleDegrees;
+    }
+    
+    @Override
+    public Residue getResidue() {
+        return res;
+    }
     
     public int getDihedralNumber() {
-    	return dihedralNum;
+        return dihedralNum;
     }
     
     @Override
     public DegreeOfFreedom copy() {
         return new FreeDihedral(res, dihedralNum);
     }
-
+    
     @Override
     public void setMolecule(Molecule val) {
         
         // match our residue to the one in the other molecule
         res = val.getResByPDBResNumber(res.getPDBResNumber());
     }
-    
     
     @Override
     public DOFBlock getBlock(){

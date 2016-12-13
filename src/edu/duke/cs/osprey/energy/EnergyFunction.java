@@ -33,4 +33,8 @@ public interface EnergyFunction extends Serializable {
     public static interface NeedsCleanup extends EnergyFunction {
     	void cleanup();
     }
+    
+    public static interface ExplicitChemicalChanges extends EnergyFunction {
+    	int handleChemicalChanges();
+    }
 }

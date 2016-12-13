@@ -20,6 +20,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.tools.HashCalculator;
+import edu.duke.cs.osprey.tools.Protractor;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class TestBase {
@@ -105,9 +106,13 @@ public class TestBase {
 			return flexResList.size();
 		}
 	}
+	
+	public static double getAbsoluteError(double expected, double observed) {
+		return Math.abs(expected - observed);
+	}
 
 	public static double getRelativeError(double expected, double observed) {
-		double absErr = Math.abs(expected - observed);
+		double absErr = getAbsoluteError(expected, observed);
 		if (observed == 0) {
 			return absErr;
 		}
@@ -124,6 +129,9 @@ public class TestBase {
 			@Override
 			public boolean matches(Object obj) {
 				double observed = ((Double)obj).doubleValue();
+				if (Double.isNaN(observed)) {
+					return false;
+				}
 				return getRelativeError(expected, observed) <= epsilon;
 			}
 
@@ -143,6 +151,120 @@ public class TestBase {
 		};
 	}
 	
+	public static Matcher<Double> isAbsolutely(double expected) {
+		return isAbsolutely(expected, DefaultEpsilon);
+	}
+	
+	public static Matcher<Double> isAbsolutely(final double expected, final double epsilon) {
+		return new BaseMatcher<Double>() {
+
+			@Override
+			public boolean matches(Object obj) {
+				double observed = ((Double)obj).doubleValue();
+				if (Double.isNaN(observed)) {
+					return false;
+				}
+				return getAbsoluteError(expected, observed) <= epsilon;
+			}
+
+			@Override
+			public void describeTo(Description desc) {
+				desc.appendText("close to ").appendValue(expected);
+			}
+			
+			@Override
+			public void describeMismatch(Object obj, Description desc) {
+				double observed = ((Double)obj).doubleValue();
+				double absErr = getAbsoluteError(expected, observed);
+				desc.appendText("value ").appendValue(observed)
+					.appendText(" has absolute err ").appendValue(absErr)
+					.appendText(" that's greater than epsilon ").appendValue(epsilon);
+			}
+		};
+	}
+	
+	public static Matcher<double[]> isAbsolutely(double[] expected) {
+		return isAbsolutely(expected, DefaultEpsilon);
+	}
+	
+	public static Matcher<double[]> isAbsolutely(final double[] expected, final double epsilon) {
+		return new BaseMatcher<double[]>() {
+			
+			int n = expected.length;
+
+			@Override
+			public boolean matches(Object obj) {
+				double[] observed = (double[])obj;
+				if (observed.length != n) {
+					return false;
+				}
+				for (int i=0; i<n; i++) {
+					if (getAbsoluteError(expected[i], observed[i]) > epsilon) {
+						return false;
+					}
+				}
+				return true;
+			}
+
+			@Override
+			public void describeTo(Description desc) {
+				desc.appendText("close to ").appendValue(expected);
+			}
+			
+			@Override
+			public void describeMismatch(Object obj, Description desc) {
+				double[] observed = (double[])obj;
+				
+				// get the max err
+				double maxAbsErr = 0;
+				for (int i=0; i<n; i++) {
+					maxAbsErr = Math.max(maxAbsErr, getAbsoluteError(expected[i], observed[i]));
+				}
+				desc.appendText("value ").appendValue(observed)
+					.appendText(" has mas absolute err ").appendValue(maxAbsErr)
+					.appendText(" that's greater than epsilon ").appendValue(epsilon);
+			}
+		};
+	}
+	
+	public static Matcher<Double> isDegrees(double expected) {
+		return isDegrees(expected, DefaultEpsilon);
+	}
+	
+	public static Matcher<Double> isDegrees(final double expected, final double epsilon) {
+		return new BaseMatcher<Double>() {
+			
+			private double getAbsoluteErrorDegrees(double observed) {
+				// can't compare on R^1, have to compare on S^1
+				return Protractor.normalizeDegrees(expected - observed);
+			}
+
+			@Override
+			public boolean matches(Object obj) {
+				double observed = ((Double)obj).doubleValue();
+				if (Double.isNaN(observed)) {
+					return false;
+				}
+				return getAbsoluteErrorDegrees(observed) <= epsilon;
+			}
+
+			@Override
+			public void describeTo(Description desc) {
+				desc.appendText("close to ").appendValue(expected);
+			}
+			
+			@Override
+			public void describeMismatch(Object obj, Description desc) {
+				double observed = ((Double)obj).doubleValue();
+				double absErr = getAbsoluteErrorDegrees(observed);
+				desc.appendText("value ").appendValue(observed)
+					.appendText(" has absolute err ").appendValue(absErr)
+					.appendText(" that's greater than epsilon ").appendValue(epsilon);
+			}
+		};
+	}
+
+
 	public static double getRelativeError(BigDecimal expected, BigDecimal observed) {
 		//return Math.abs(expected - observed)/Math.abs(observed);
 		// NOTE: don't divide BigDecimals, since they can't represent all rationals

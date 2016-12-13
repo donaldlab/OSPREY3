@@ -49,6 +49,13 @@ public class WorkCrew<T extends Worker> implements Iterable<T> {
 			worker.askToStop();
 		}
 	}
+	
+	@SuppressWarnings("deprecation")
+	public void killThreads() {
+		for (Worker worker : workers) {
+			worker.stop();
+		}
+	}
 
 	@CalledByWorker
 	public void waitForWork(Worker processor, int timeoutMs)

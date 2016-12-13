@@ -7,17 +7,18 @@ import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.tools.Factory;
 
-public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup {
+public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup, Minimizer.Reusable {
 	
 	private static final double MaxIterations = 30; // same as CCDMinimizer
 	private static final double ConvergenceThreshold = 0.001; // same as CCDMinimizer
 	
+	private Factory<LineSearcher,Void> lineSearcherFactory;
 	private ObjectiveFunction f;
 	private List<ObjectiveFunction.OneDof> dofs;
 	private List<LineSearcher> lineSearchers;
 
-	public SimpleCCDMinimizer(ObjectiveFunction ofunc) {
-		this(ofunc, new Factory<LineSearcher,Void>() {
+	public SimpleCCDMinimizer() {
+		this(new Factory<LineSearcher,Void>() {
 			@Override
 			public LineSearcher make(Void ignore) {
 				return new SurfingLineSearcher();
@@ -25,13 +26,27 @@ public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup {
 		});
 	}
 	
-	public SimpleCCDMinimizer(ObjectiveFunction f, Factory<LineSearcher,Void> lineSearcherFactory) {
+	public SimpleCCDMinimizer(ObjectiveFunction f) {
+		this();
+		init(f);
+	}
+	
+	public SimpleCCDMinimizer(Factory<LineSearcher,Void> lineSearcherFactory) {
+		this.lineSearcherFactory = lineSearcherFactory;
+		
+		dofs = new ArrayList<>();
+		lineSearchers = new ArrayList<>();
+	}
+
+	@Override
+	public void init(ObjectiveFunction f) {
 		
 		this.f = f;
 		
 		// build the dofs
-		dofs = new ArrayList<>();
-		lineSearchers = new ArrayList<>();
+		dofs.clear();
+		lineSearchers.clear();
+		
 		for (int d=0; d<f.getNumDOFs(); d++) {
 			
 			ObjectiveFunction.OneDof fd = new ObjectiveFunction.OneDof(f, d);
@@ -48,22 +63,24 @@ public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup {
 	}
 	
 	@Override
-	public DoubleMatrix1D minimize() {
+	public Minimizer.Result minimize() {
 		
 		// init x to the center of the bounds
 		int n = f.getNumDOFs();
-		DoubleMatrix1D x = DoubleFactory1D.dense.make(n);
+		DoubleMatrix1D herex = DoubleFactory1D.dense.make(n);
 		for (int d=0; d<n; d++) {
 			ObjectiveFunction.OneDof dof = dofs.get(d);
-			x.set(d, (dof.getXMin() + dof.getXMax())/2);
+			herex.set(d, (dof.getXMin() + dof.getXMax())/2);
 		}
+		
+		DoubleMatrix1D nextx = herex.copy();
 		
 		// ccd is pretty simple actually
 		// just do a line search along each dimension until we stop improving
 		// we deal with cycles by just capping the number of iterations
 		
 		// get the current objective function value
-		double curf = f.getValue(x);
+		double herefx = f.getValue(herex);
 		
 		for (int iter=0; iter<MaxIterations; iter++) {
 			
@@ -74,27 +91,32 @@ public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup {
 				if (lineSearcher != null) {
 					
 					// get the next x value for this dof
-					double xd = x.get(d);
+					double xd = nextx.get(d);
 					xd = lineSearcher.search(xd);
-					x.set(d, xd);
+					nextx.set(d, xd);
 				}
 			}
 			
-			// did we improve enough to keep going?
-			double nextf = f.getValue(x);
-			if (curf - nextf < ConvergenceThreshold) {
+			// how much did we improve?
+			double nextfx = f.getValue(nextx);
+			double improvement = herefx - nextfx;
+			
+			if (improvement > 0) {
 				
-				// nope, we're done
-				break;
+				// take the step
+				herex.assign(nextx);
+				herefx = nextfx;
+				
+				if (improvement < ConvergenceThreshold) {
+					break;
+				}
 				
 			} else {
-				
-				// yeah, keep going
-				curf = nextf;
+				break;
 			}
 		}
 		
-		return x;
+		return new Minimizer.Result(herex, herefx);
 	}
 	
 	@Override

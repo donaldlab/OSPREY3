@@ -29,15 +29,12 @@ import edu.duke.cs.osprey.control.GMECFinder;
 import edu.duke.cs.osprey.control.MinimizingEnergyCalculator;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
-import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class TestPartCR extends TestBase {
@@ -45,7 +42,7 @@ public class TestPartCR extends TestBase {
 	@BeforeClass
 	public static void before() {
 		initDefaultEnvironment();
-		MultiTermEnergyFunction.setNumThreads(4);
+		MultiTermEnergyFunction.setNumThreads(1);
 	}
 	
 	@Test
@@ -55,8 +52,7 @@ public class TestPartCR extends TestBase {
 		SearchProblem search = makeSearch();
 		
 		// calc the energy matrix once
-		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(EnvironmentVars.curEFcnGenerator, search.confSpace, search.shellResidues);
-		search.emat = new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix();
+		search.emat = new SimpleEnergyMatrixCalculator.Cpu(2, EnvironmentVars.curEFcnGenerator.ffParams, search.confSpace, search.shellResidues).calcEnergyMatrix();
 		
 		List<EnergiedConf> expectedConfs = getConfs(search, false);
 		List<EnergiedConf> partcrConfs = getConfs(search, true);
@@ -144,13 +140,8 @@ public class TestPartCR extends TestBase {
 		};
 		
 		// configure what energies to use
-		Factory<EnergyFunction,Molecule> efuncs = new Factory<EnergyFunction,Molecule>() {
-			@Override
-			public EnergyFunction make(Molecule mol) {
-				return EnvironmentVars.curEFcnGenerator.fullConfEnergy(search.confSpace, search.shellResidues, mol);
-			}
-		};
-		ConfEnergyCalculator.Async ecalc = new MinimizingEnergyCalculator(search, efuncs);
+		ForcefieldParams ffparams = EnvironmentVars.curEFcnGenerator.ffParams;
+		ConfEnergyCalculator.Async ecalc = MinimizingEnergyCalculator.make(ffparams, search);
 		
 		// configure the GMEC finder
 		// NOTE: PartCR doesn't help as much with energy window designs

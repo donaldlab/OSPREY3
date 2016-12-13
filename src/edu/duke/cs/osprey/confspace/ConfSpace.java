@@ -380,7 +380,7 @@ public class ConfSpace implements Serializable {
                 optDOFVals = min.minimize();
             }
             else//NON-DEBUG!*/
-                optDOFVals = min.minimize();
+                optDOFVals = min.minimize().dofValues;
         }
         else//molecule is already in the right, rigid conformation
             optDOFVals = DoubleFactory1D.dense.make(0);
@@ -406,7 +406,7 @@ public class ConfSpace implements Serializable {
 
 		if(energy.getNumDOFs()>0){//there are continuously flexible DOFs to minimize
 			Minimizer min = new CCDMinimizer(energy,false);
-			optDOFVals = min.minimize();
+			optDOFVals = min.minimize().dofValues;
 		}
 		else//molecule is already in the right, rigid conformation
 			optDOFVals = DoubleFactory1D.dense.make(0);

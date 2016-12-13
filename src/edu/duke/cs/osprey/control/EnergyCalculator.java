@@ -57,7 +57,7 @@ public class EnergyCalculator {
 			System.out.println("Building energy function...");
 			MoleculeModifierAndScorer objFunc = new MoleculeModifierAndScorer(search.fullConfE, search.confSpace);
 			System.out.println(String.format("Minimizing %d degrees of freedom...", objFunc.getNumDOFs()));
-			DoubleMatrix1D optDOFVals = new CCDMinimizer(objFunc, false).minimize();
+			DoubleMatrix1D optDOFVals = new CCDMinimizer(objFunc, false).minimize().dofValues;
 			
 			System.out.println("Calculating energy...");
 			energy = objFunc.getValue(optDOFVals);

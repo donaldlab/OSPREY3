@@ -3,33 +3,23 @@ package edu.duke.cs.osprey.ematrix;
 import java.util.List;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
-import edu.duke.cs.osprey.control.EnvironmentVars;
-import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
-import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.structure.Residue;
 
 public class ExampleParallelEmat {
 	
-	public static EnergyMatrix calcEmat(ConfSpace confSpace, List<Residue> shellResidues, int numThreads) {
+	@SuppressWarnings("unused")
+	private static EnergyMatrix calcEmat(int numThreads, ForcefieldParams ffparams, ConfSpace confSpace, List<Residue> shellResidues) {
 		
-		// use the cpu efunc generator for computing energy matrices
-		// the gpu efuncs are really slow for emats since almost all the emat entries use tiny pairwise energy functions
-		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
+		// make the energy matrix calculator
+		SimpleEnergyMatrixCalculator.Cpu ematcalc = new SimpleEnergyMatrixCalculator.Cpu(numThreads, ffparams, confSpace, shellResidues);
+		// NOTE: the super tiny energy matrix minimizations run slowly on the GPU, so just use the CPU for now
 		
-		// build the energy matrix calculator
-		// (you don't have to worry about concurrency issues here, SimpleEnergyCalculator takes care of all of that)
-		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(egen, confSpace, shellResidues);
-		SimpleEnergyMatrixCalculator ematcalc = new SimpleEnergyMatrixCalculator(ecalc);
-		
-		// start a thread pool of whatever size you want
-		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
-		tasks.start(numThreads);
-	
 		// calculate the emat
-		EnergyMatrix emat = ematcalc.calcEnergyMatrix(tasks);
+		EnergyMatrix emat = ematcalc.calcEnergyMatrix();
 		
-		// cleanup
-		tasks.stop();
+		// don't forget to cleanup so we don't leave extra threads hanging around
+		ematcalc.cleanup();
 		
 		return emat;
 	}

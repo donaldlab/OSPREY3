@@ -1,5 +1,7 @@
 package edu.duke.cs.osprey.tools;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryUsage;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
@@ -138,6 +140,7 @@ public class Progress {
 	private Deque<Long> workLog;
 	private Deque<Long> timeMsLog;
 	private long lastReportMs;
+	private boolean reportMemory;
 	
 	public Progress(long totalWork) {
 		this(totalWork, DefaultReportIntervalMs, DefaultModel);
@@ -160,10 +163,15 @@ public class Progress {
 		workLog = new ArrayDeque<>();
 		timeMsLog = new ArrayDeque<>();
 		lastReportMs = 0;
+		reportMemory = false;
 		
 		// add the 0,0 point to the work log
 		stopwatch.start();
 		addLog(0, 0);
+	}
+	
+	public void setReportMemory(boolean val) {
+		reportMemory = val;
 	}
 	
 	public long getNumWorkDone() {
@@ -213,10 +221,19 @@ public class Progress {
 				etaMs = 0;
 			}
 			
-			System.out.println(String.format("Progress: %6.1f%%   ETA: %s",
+			System.out.print(String.format("Progress: %6.1f%%   ETA: %s",
 				100.0*currentWork/totalWork,
 				TimeFormatter.format(etaMs*NSpMS, 1)
 			));
+			if (reportMemory) {
+				MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
+				Runtime runtime = Runtime.getRuntime();
+				System.out.print(String.format("   heap mem: %d MiB / %d MiB   total mem: %d MiB / %d MiB",
+					heapMem.getUsed()/1024/1024, heapMem.getMax()/1024/1024,
+					runtime.totalMemory()/1024/1024, runtime.maxMemory()/1024/1024
+				));
+			}
+			System.out.println();
 			lastReportMs = elapsedMs;
 		}
 		

@@ -48,7 +48,7 @@ public class VoxelGCalculator {
                 epicMat1.getConfSpace(), new RCTuple(assignmentList) );
         
         CCDMinimizer ccdMin = new CCDMinimizer(mms1,false);
-        DoubleMatrix1D center = ccdMin.minimize();
+        DoubleMatrix1D center = ccdMin.minimize().dofValues;
         MoleculeModifierAndScorer mms2 = new IdealSeparableReference(
                 epicMat2.internalEnergyFunction(new RCTuple(assignmentList)), 
                 epicMat2.getConfSpace(), new RCTuple(assignmentList), center );
