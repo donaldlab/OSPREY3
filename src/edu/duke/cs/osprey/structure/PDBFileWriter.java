@@ -49,14 +49,8 @@ public class PDBFileWriter {
                     writer.write();
                     printStream.close();
             }
-            catch (IOException e) {
-                    System.out.println("ERROR: An io exception occurred while writing file "+PDBFileName);
-                    System.exit(0);
-            }
-            catch ( Exception e ){
-                    System.out.println(e.toString());
-                    System.out.println("ERROR: An exception occurred while writing file");
-                    System.exit(0);
+            catch (IOException ex) {
+                throw new Error("can't write PDB file: " + PDBFileName, ex);
             }
     }
 

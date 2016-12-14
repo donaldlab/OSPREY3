@@ -342,10 +342,8 @@ public class KSCalc {
 			out.flush();
 			out.close();
 
-		} catch (Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
+		} catch (Exception ex) {
+			throw new Error("can't write log", ex);
 		}
 	}
 
@@ -404,10 +402,8 @@ public class KSCalc {
 			out.flush();
 			out.close();
 			
-		} catch (Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
+		} catch (Exception ex) {
+			throw new Error("can't write log", ex);
 		}
 	}
 
@@ -432,10 +428,8 @@ public class KSCalc {
 			for(String line : lines) out.println(line);
 			out.flush(); out.close();
 
-		} catch (Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
+		} catch (Exception ex) {
+			throw new Error("can't write to file: " + path, ex);
 		}
 	}
 

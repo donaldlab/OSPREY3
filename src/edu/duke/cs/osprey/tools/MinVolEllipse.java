@@ -494,8 +494,7 @@ public class MinVolEllipse implements Serializable {
         int m = Q.rows();
         int n = Q.columns();
         if(u.size()!=n){
-            System.err.println("Size mismatch in QuQt: "+n+" columns in Q, u length="+u.size());
-            System.exit(1);
+            throw new Error("Size mismatch in QuQt: "+n+" columns in Q, u length="+u.size());
         }
 
         DoubleMatrix2D ans = DoubleFactory2D.dense.make(m,m);
@@ -519,9 +518,8 @@ public class MinVolEllipse implements Serializable {
         int m = A.rows();
         int n = A.columns();
         if(B.rows()!=n || B.columns()!=m){
-            System.err.println("Size mismatch in diagMult: A is "+m+"x"+n+
+            throw new Error("Size mismatch in diagMult: A is "+m+"x"+n+
                     ", B is "+B.rows()+"x"+B.columns());
-            System.exit(1);
         }
 
         DoubleMatrix1D ans = DoubleFactory1D.dense.make(m);
@@ -628,18 +626,14 @@ public class MinVolEllipse implements Serializable {
         try{
             int returnCode = opt.optimize();
             System.out.println("JOptimizer return code: "+returnCode);
-        }
-        catch(Exception e){
-            System.err.print("maximizeQuadratic JOptimizer error: "+e.getMessage());
-            e.printStackTrace();
-            System.exit(1);
+        } catch(Exception ex){
+            throw new Error("maximizeQuadratic JOptimizer error", ex);
         }
         
         double initPoint[] = opt.getOptimizationResponse().getSolution();
         double iv = ellConstr.value(initPoint);
         if( iv >=0 ){
-            System.err.println("ERROR in maximizeQuadratic: no feasible initial point!");
-            System.exit(1);
+            throw new Error("maximizeQuadratic: no feasible initial point!");
         }
         
         //This gives us an initial point at the edge of the feasible region
@@ -686,11 +680,8 @@ public class MinVolEllipse implements Serializable {
             
             //int returnCode = opt.optimize();
             //System.out.println("JOptimizer return code: "+returnCode);
-        }
-        catch(Exception e){
-            System.err.print("JOptimizer error: "+e.getMessage());
-            e.printStackTrace();
-            System.exit(1);
+        } catch(Exception ex){
+            throw new Error("JOpitimizer error", ex);
         }
         
         
@@ -780,10 +771,8 @@ public class MinVolEllipse implements Serializable {
                         int returnCode = opt.optimize();
                         System.out.println("JOptimizer return code: "+returnCode);
                     }
-                    catch(Exception e){
-                        System.err.print("JOptimizer error: "+e.getMessage());
-                        e.printStackTrace();
-                        System.exit(1);
+                    catch(Exception ex){
+                        throw new Error("JOptimizer error", ex);
                     }
 
 

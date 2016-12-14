@@ -193,19 +193,8 @@ public class ForcefieldParams implements Serializable {
         try {
                 readParm96();
         }
-        catch (FileNotFoundException e) {
-                System.out.println("ERROR: File Not Found: "+e);
-                System.exit(0);
-        }
-        catch (IOException e) {
-                System.out.println("ERROR: An error occurred while reading file: "+e);
-                e.printStackTrace();
-                System.exit(0);
-        }
-        catch ( Exception e ){
-                System.out.println("ERROR: An error occurred while reading file: "+e);
-                e.printStackTrace();
-                System.exit(0);
+        catch (Exception ex) {
+            throw new Error("can't read forcefield params", ex);
         }
                 
         //some additional parameters
@@ -222,11 +211,8 @@ public class ForcefieldParams implements Serializable {
         try {
                 eef1parms = new EEF1();
                 eef1parms.readEEF1parm();
-        }
-        catch ( Exception e ){
-                System.err.println("ERROR: An error occurred while reading file: "+e);
-                e.printStackTrace();
-                System.exit(0);
+        } catch (Exception ex) {
+            throw new Error("can't read solvation params", ex);
         }
     }
 		
@@ -821,9 +807,7 @@ public class ForcefieldParams implements Serializable {
 				amberDatInFile = "parmcharmm19.dat";
 				break;
 			default:
-				System.out.println("DON'T RECOGNIZE FORCEFIELD: "+forcefld.name());
-				System.exit(0);
-				break;
+				throw new Error("DON'T RECOGNIZE FORCEFIELD: "+forcefld.name());
 		}
 
 	}

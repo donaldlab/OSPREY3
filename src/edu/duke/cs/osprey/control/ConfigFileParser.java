@@ -475,8 +475,7 @@ public class ConfigFileParser {
                         grFilename = "all_nuc_and_gr_charmm.in";
                         break;
                 default:
-                        System.out.println("FORCEFIELD not recognized...Exiting");
-                        System.exit(0);
+                        throw new Error("FORCEFIELD not recognized");
         }
         
         return new String[] {

@@ -147,9 +147,8 @@ public class FitParams implements Serializable {
         int ans = SeriesFitter.getNumParams(numDims, includeConst, order);
         if(PCOrder>order){
             if(numPCParams==-1){
-                System.err.println("ERROR: Tried to call fitParams.numParams() on PC fit without"
+                throw new Error("Tried to call fitParams.numParams() on PC fit without"
                         + "precomputing numPCParams!");
-                System.exit(1);
             }
             ans += numPCParams;   
         }

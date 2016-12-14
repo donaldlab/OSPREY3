@@ -618,8 +618,7 @@ public void get_poly_coeff(double poly_coeff[])
 
   if (p_final != 16)
    {
-    System.err.println("Error. Degree of polynomial is not 16!\n");
-    System.exit(1);
+    throw new Error("Degree of polynomial is not 16!");
    }
 
 

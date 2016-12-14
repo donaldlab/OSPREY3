@@ -719,8 +719,7 @@ public class EPICFitter {
             
         
         //We'll only want this done once, in a special OSPREY run
-        System.out.println("Voxel figure data complete.");
-        System.exit(0);
+        throw new Error("Voxel figure data complete.");
     }
     
 }

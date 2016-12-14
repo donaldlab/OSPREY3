@@ -4,15 +4,16 @@
  */
 package edu.duke.cs.osprey.structure;
 
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.kstar.KSTermini;
 import edu.duke.cs.osprey.restypes.DAminoAcidHandler;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.InputStreamReader;
-import java.util.ArrayList;
 
 /**
  *
@@ -139,17 +140,9 @@ public class PDBFileReader {
 			
 			//Assign the secondary structure we have read
 			assignSecStruct(m, helixStarts, helixEnds, helixChains, sheetStarts, sheetEnds, sheetChains);
-		}
-		catch(FileNotFoundException e){
-			System.err.println("ERROR: PDB file not found: "+PDBFile);
-			System.err.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
-		}
-		catch(Exception e){
-			System.err.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
+			
+		} catch(IOException ex){
+			throw new Error("can't read PDB file: "+PDBFile, ex);
 		}
 
 		//assign proline puckers?  if treated as DOF might handle along with regular dihedrals

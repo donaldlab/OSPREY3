@@ -103,9 +103,7 @@ public class GenCoord implements Serializable {
                     ans += coeffs[a]*x.get(indices[a]);
                 return ans;
             default:
-                System.err.println("ERROR: Unrecognized generalized coordinate type: "+type);
-                System.exit(1);
-                return 0;
+                throw new Error("Unrecognized generalized coordinate type: "+type);
         }
     }
 
@@ -172,9 +170,7 @@ public class GenCoord implements Serializable {
                     return startVal;
                 
             default:
-                System.err.println("ERROR: Unrecognized generalized coordinate type: "+type);
-                System.exit(1);
-                return 0;
+                throw new Error("Unrecognized generalized coordinate type: "+type);
         }
     }
 
@@ -216,9 +212,7 @@ public class GenCoord implements Serializable {
                 return ans;
                 
             default:
-                System.err.println("ERROR: Unrecognized generalized coordinate type: "+type);
-                System.exit(1);
-                return 0;
+                throw new Error("Unrecognized generalized coordinate type: "+type);
         }
     }
     
@@ -240,9 +234,7 @@ public class GenCoord implements Serializable {
                 return numerator/denominator;
 
             default:
-                System.err.println("ERROR: Unrecognized generalized coordinate type for getMeshWidth: "+type);
-                System.exit(1);
-                return 0;
+                throw new Error("Unrecognized generalized coordinate type for getMeshWidth: "+type);
         }
     }
 

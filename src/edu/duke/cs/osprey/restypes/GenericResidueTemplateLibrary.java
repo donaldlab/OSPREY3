@@ -77,17 +77,9 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
                 }
             }
             bufread.close();
-        }
         
-        catch (FileNotFoundException e) {
-                System.out.println("ERROR: Template File Not Found: "+e);
-                e.printStackTrace();
-                System.exit(0);
-        }
-        catch (IOException e) {
-                System.out.println("ERROR reading template file: "+e);
-                e.printStackTrace();
-                System.exit(0);
+        } catch (IOException ex) {
+            throw new Error("can't read template file: " + templateFile, ex);
         }
     }
     
@@ -256,8 +248,7 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
                                                 }
                                         }
                                         if(!foundAtom){
-                                                System.out.println("Residue coord and forcefield templates did not match up.");
-                                                System.exit(0);
+                                                throw new Error("Residue coord and forcefield templates did not match up.");
                                                 //Possible issue: first occurrence of this name in the template residues is the wrong form for these coordinates?
                                         }		
                                 }
@@ -277,16 +268,9 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
                     curLine = bufread.readLine();
             }
             bufread.close();
-        }
-        catch (FileNotFoundException e) {
-                System.out.println("ERROR: Template File Not Found: "+e);
-                e.printStackTrace();
-                System.exit(0);
-        }
-        catch (IOException e) {
-                System.out.println("ERROR reading template file: "+e);
-                e.printStackTrace();
-                System.exit(0);
+            
+        } catch (IOException ex) {
+            throw new Error("can't read template file: " + fileName, ex);
         }
         
     }
@@ -377,16 +361,9 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
                 curLine = bufread.readLine();
             }
             bufread.close();
-        }
-        catch (FileNotFoundException e) {
-                System.out.println("ERROR: Residue entropy file not found: "+e);
-                e.printStackTrace();
-                System.exit(0);
-        }
-        catch (IOException e) {
-                System.out.println("ERROR reading residue entropy file: "+e);
-                e.printStackTrace();
-                System.exit(0);
+            
+        } catch (IOException ex) {
+            throw new Error("can't read residue entropy file: " + entropyFile, ex);
         }
     }
     

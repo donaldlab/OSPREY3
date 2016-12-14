@@ -646,12 +646,16 @@ public class CCDMinimizer implements Minimizer {
         boolean badInit = satisfyNonBoxConstr();
 
         if(badInit){
-            System.err.println("ERROR: Could not find feasible initial point for minimization.  GenCoord types:");
-            for( GenCoord gc : nonBoxConstrGC )
-                System.err.println(gc.type);
-            new Exception().printStackTrace();
-            System.exit(1);
+            throw new Error("can't find feasible initial point for minimization.  GenCoord types:" + getGenCoordTypes(nonBoxConstrGC));
         }
+    }
+    
+    private static String getGenCoordTypes(GenCoord[] coords) {
+        StringBuilder buf = new StringBuilder();
+        for (GenCoord coord : coords) {
+            buf.append("\n" + coord.type);
+        }
+        return buf.toString();
     }
 
     
@@ -709,11 +713,7 @@ public class CCDMinimizer implements Minimizer {
         }
 
         if( Double.isInfinite(bestCornerE) ){
-            System.err.println("ERROR: Could not find feasible initial point for minimization.  GenCoord types:");
-            for( GenCoord gc : nonBoxConstrGC )
-                System.err.println(gc.type);
-            new Exception().printStackTrace();
-            System.exit(1);
+            throw new Error("can't find feasible initial point for minimization.  GenCoord types:" + getGenCoordTypes(nonBoxConstrGC));
         }
         else{//Set the initial values to the best corner
             x = bestInitVals;
@@ -770,11 +770,7 @@ public class CCDMinimizer implements Minimizer {
         }
 
         if( Double.isInfinite(bestE) ){
-            System.err.println("ERROR: Could not find feasible initial point for minimization.  GenCoord types:");
-            for( GenCoord gc : nonBoxConstrGC )
-                System.err.println(gc.type);
-            new Exception().printStackTrace();
-            System.exit(1);
+            throw new Error("can't find feasible initial point for minimization.  GenCoord types:" + getGenCoordTypes(nonBoxConstrGC));
         }
         else{//Set the initial values to the best corner
             x = bestInitVals;

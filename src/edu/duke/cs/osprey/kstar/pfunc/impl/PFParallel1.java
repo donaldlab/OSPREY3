@@ -79,10 +79,8 @@ public class PFParallel1 extends PFTraditional implements Serializable {
 			
 			if(!isContinuous() && isFullyDefined()) Thread.sleep(initSleepTime);
 
-		} catch(Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
+		} catch(Exception ex) {
+			throw new Error("can't compute partition function", ex);
 		}
 
 		startTime = System.currentTimeMillis();
@@ -207,10 +205,8 @@ public class PFParallel1 extends PFTraditional implements Serializable {
 
 			iterate();
 
-		} catch(Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
+		} catch(Exception ex) {
+			throw new Error("can't compute partition function slice", ex);
 		}
 	}
 
@@ -223,10 +219,8 @@ public class PFParallel1 extends PFTraditional implements Serializable {
 				iterate();
 
 			}
-		} catch(Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
+		} catch(Exception ex) {
+			throw new Error("can't compute partition function", ex);
 		}
 	}
 
@@ -370,10 +364,8 @@ public class PFParallel1 extends PFTraditional implements Serializable {
 
 			qPrime = qPrimeCalculator.getQPrime(partialQLB);
 
-		} catch(Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
+		} catch(Exception ex) {
+			throw new Error("can't compute partition function q'", ex);
 		}
 	}
 
@@ -386,10 +378,8 @@ public class PFParallel1 extends PFTraditional implements Serializable {
 
 			pStar = pStarCalculator.getPStar();
 
-		} catch(Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
+		} catch(Exception ex) {
+			throw new Error("can't compute partition function p*", ex);
 		}
 	}
 
@@ -413,10 +403,8 @@ public class PFParallel1 extends PFTraditional implements Serializable {
 
 			eAppx = EApproxReached.FALSE;
 
-		} catch(Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
+		} catch(Exception ex) {
+			throw new Error("can't abort partition function computation", ex);
 		}
 	}
 

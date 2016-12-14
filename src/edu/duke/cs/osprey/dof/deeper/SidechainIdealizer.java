@@ -55,8 +55,7 @@ public class SidechainIdealizer {
                 HASystem = 2;
             }
             if( HANum == -1 ){
-                System.err.println("Error: could not parse HA names for " + res.fullName );
-                System.exit(1);
+                throw new Error("could not parse HA names for " + res.fullName);
             }
 
 
@@ -78,8 +77,7 @@ public class SidechainIdealizer {
                 HANum = res.getAtomIndexByName("3HA");
 
             if( HANum == -1 ){
-                System.err.println("Error: could not parse HA names for " + res.fullName );
-                System.exit(1);
+                throw new Error("could not parse HA names for " + res.fullName);
             }
 
             t1 = VectorAlgebra.get4thPoint(NCoord, CCoord, CACoord, 1.100f, 109.3f, 121.6f);
@@ -191,8 +189,7 @@ public class SidechainIdealizer {
 
         
         if( ! res.template.name.equalsIgnoreCase("PRO") ){
-            System.err.println("Error: trying to idealize the proline ring on a non-proline");
-            System.exit(1);
+            throw new Error("trying to idealize the proline ring on a non-proline");
         }
         
         double CANCD_ideal = (double)(Math.PI*111.5/180);
@@ -383,8 +380,7 @@ public class SidechainIdealizer {
             System.arraycopy( HD2Coord, 0, res.coords, 3*res.getAtomIndexByName("3HD"), 3 );
         }
         else{
-            System.err.println("Error: Can't parse atom names for " + res.fullName);
-            System.exit(1);
+            throw new Error("Can't parse atom names for " + res.fullName);
         }
 
     }

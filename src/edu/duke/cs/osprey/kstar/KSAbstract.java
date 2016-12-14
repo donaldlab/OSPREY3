@@ -182,10 +182,8 @@ public abstract class KSAbstract implements KSInterface {
 			while (s.hasNextLine()) ans.add(s.nextLine());
 			s.close();
 
-		} catch (Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
+		} catch (Exception ex) {
+			throw new Error("can't scan file", ex);
 		}
 
 		return ans;
@@ -312,10 +310,8 @@ public abstract class KSAbstract implements KSInterface {
 			System.out.println("Running time: " + (System.currentTimeMillis()-begin)/1000 + " seconds\n");
 		} 
 
-		catch (Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
+		catch (Exception ex) {
+			throw new Error("can't load prune matrices", ex);
 		} 
 	}
         
@@ -572,10 +568,8 @@ public abstract class KSAbstract implements KSInterface {
 					+ "." + PFAbstract.getCFGImpl()
 					+ ".txt";
 
-		} catch (Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
+		} catch (Exception ex) {
+			throw new Error("can't get hostname", ex);
 		}
 
 		return ans;

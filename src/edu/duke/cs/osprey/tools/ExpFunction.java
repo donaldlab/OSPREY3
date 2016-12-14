@@ -118,8 +118,7 @@ public class ExpFunction implements Serializable {
 	public BigDecimal log(BigDecimal num){
 
 		if (num.compareTo(new BigDecimal("0.0"))<0){ //num is negative
-			System.out.println("ERROR: log of a negative number..");
-			System.exit(1);
+			throw new IllegalArgumentException("log of a negative number: " + num);
 		}
 
 		BigDecimal sum = new BigDecimal("0.0");
@@ -156,8 +155,7 @@ public class ExpFunction implements Serializable {
 		double eDoub = 2.71828182845904523536;
 		double log10ofE = Math.log10(eDoub);
 		if (num.compareTo(new BigDecimal("0.0"))<0){ //num is negative
-			System.out.println("ERROR: log of a negative number..");
-			System.exit(1);
+			throw new IllegalArgumentException("log of a negative number: " + num);
 		}
 
 		int powerOfTen = num.round(mc).scale() * -1;
@@ -173,8 +171,7 @@ public class ExpFunction implements Serializable {
 	// Returns the logarithm in base 10 of a BigDecimal.
 	public double log10(BigDecimal num){
 		if (num.compareTo(new BigDecimal("0.0"))<0){ //num is negative
-			System.out.println("ERROR: log of a negative number..: "+num.toString());
-			System.exit(1);
+			throw new IllegalArgumentException("log of a negative number: " + num);
 		}
 
 		int powerOfTen = num.round(mc).scale() * -1;

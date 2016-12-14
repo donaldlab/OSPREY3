@@ -9,6 +9,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.math.BigDecimal;
@@ -57,15 +58,13 @@ public class ObjectIO {
                 ObjectOutputStream out = new ObjectOutputStream(fout);
                 out.writeObject(outObj);
                 out.close();
-        }
-        catch(StackOverflowError e){//For objects with lots of links, might need to raise stack size, 
-              //since writing is recursive
-              throw new RuntimeException("ERROR: Stack overflow in deepCopy.  Consider increasing -Xss");
-        }
-        catch (Exception e){
-                System.out.println(e.toString());
-                System.out.println("ERROR: An exception occurred while writing object file");
-                System.exit(1);
+                
+        } catch (StackOverflowError ex) {
+            //For objects with lots of links, might need to raise stack size, 
+            //since writing is recursive
+              throw new Error("Stack overflow in deepCopy.  Consider increasing -Xss");
+        } catch (Exception ex) {
+            throw new Error("can't write object", ex);
         }
     }
     
@@ -97,15 +96,13 @@ public class ObjectIO {
              ois.close();
              
              return ans;
-          }
-          catch(StackOverflowError e){//For objects with lots of links, might need to raise stack size, 
+             
+          } catch(StackOverflowError ex){
+              //For objects with lots of links, might need to raise stack size, 
               //since writing is recursive
-              throw new RuntimeException("ERROR: Stack overflow in deepCopy.  Consider increasing -Xss");
-          }
-          catch(Exception e)
-          {
-             e.printStackTrace();
-             throw new RuntimeException("Deep-copy error: "+e.getMessage());
+              throw new Error("Stack overflow in deepCopy.  Consider increasing -Xss");
+          } catch(Exception ex) {
+              throw new Error("can't deep-copy object", ex);
           }
        }
     
@@ -115,18 +112,10 @@ public class ObjectIO {
 
 		File[] listOfFiles = null;
 
-		try {
+		File loc = new File(path);
+		if( loc.isDirectory() )
+			listOfFiles = loc.listFiles();
 			
-			File loc = new File(path);
-			if( loc.isDirectory() )
-				listOfFiles = loc.listFiles();
-			
-		} catch (Exception e){
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
-		}
-
 		return listOfFiles;
 	}
 	
@@ -139,25 +128,16 @@ public class ObjectIO {
 				else loc.delete();
 			}
 		} 
-		catch (Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
+		catch (IOException ex) {
+			throw new Error("can't delete file: " + path, ex);
 		}
 	}
 
 
 	public static void makeDir( String path, boolean deleteExisting ) {
-		try {
-			File dir = new File(path);
-			if( deleteExisting && dir.exists() ) delete(path);
-			if( !dir.exists() ) dir.mkdirs();
-		} 
-		catch (Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
-		}
+		File dir = new File(path);
+		if( deleteExisting && dir.exists() ) delete(path);
+		if( !dir.exists() ) dir.mkdirs();
 	}
 	
 	

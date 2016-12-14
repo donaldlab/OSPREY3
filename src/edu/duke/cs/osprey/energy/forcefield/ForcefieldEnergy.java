@@ -600,10 +600,7 @@ public class ForcefieldEnergy implements Serializable {
 				coulombFactor = (constCoulomb * 0.4) / (dielectric);
 				break;
 			default:
-				coulombFactor = 0;
-				System.out.println("FORCEFIELD NOT RECOGNIZED!!!");
-				System.exit(0);
-				break;
+				throw new Error("FORCEFIELD NOT RECOGNIZED!!!");
 		}
 		
 		ix5 = -5;
@@ -864,10 +861,7 @@ public class ForcefieldEnergy implements Serializable {
 				coulombFactor = (constCoulomb*0.4) / dielectric;
 				break;
 			default:
-				coulombFactor = 0;
-				System.out.println("FORCEFIELD NOT RECOGNIZED!!!");
-				System.exit(0);
-				break;
+				throw new Error("FORCEFIELD NOT RECOGNIZED!!!");
 		}
 		double tmpCoulFact;
 		for (int i=0; i<numHalfNBterms; i++){

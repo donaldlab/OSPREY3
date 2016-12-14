@@ -79,10 +79,8 @@ public class RamachandranChecker {
 
                 br.close();
             }
-            catch(IOException e){
-                System.err.println( "Error reading Ramachandran plot file " + fileNames[a] );
-                System.err.println(e.getMessage());
-                System.exit(1);
+            catch(IOException ex){
+                throw new Error("can't read Ramachandran plot file " + fileNames[a], ex);
             }
 
         }

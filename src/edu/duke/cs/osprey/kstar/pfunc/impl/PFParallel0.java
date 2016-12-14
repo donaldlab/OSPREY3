@@ -64,10 +64,8 @@ public class PFParallel0 extends PFParallel1 implements Serializable {
 			
 			if(!isContinuous() && isFullyDefined()) Thread.sleep(initSleepTime);
 
-		} catch(Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
+		} catch (Exception ex) {
+			throw new Error("can't compute partition function", ex);
 		}
 
 		startTime = System.currentTimeMillis();

@@ -1328,8 +1328,7 @@ public class SeriesFitter {
         //this only goes up to 4
 
         if(order>4){
-            System.err.println("ERROR: SeriesFitter.evalSeriesByDegree doesn't support order "+order);
-            System.exit(1);
+            throw new Error("SeriesFitter.evalSeriesByDegree doesn't support order "+order);
         }
         
         int count = 0;//for counting through coeffs
@@ -1430,9 +1429,8 @@ public class SeriesFitter {
             boolean includeConst, int order, int PCOrder, boolean isPC[]){
 
         if(order<1||order>6||PCOrder>6){
-            System.err.println("ERROR: SeriesFitter.calcSampParamCoeffs does not support order "
+            throw new Error("SeriesFitter.calcSampParamCoeffs does not support order "
                     +order+" and/or PCOrder "+PCOrder);
-            System.exit(1);
         }
         
         if(order==1 && PCOrder==2)
@@ -1700,10 +1698,7 @@ public class SeriesFitter {
             return count;
         }
 
-        System.err.println("ORDER NOT SUPPORTED IN SeriesFitter.getNumParamsForOrder: "+order);
-        new Exception().printStackTrace();
-        System.exit(1);
-        return 0;
+        throw new Error("ORDER NOT SUPPORTED IN SeriesFitter.getNumParamsForOrder: "+order);
     }
     
     

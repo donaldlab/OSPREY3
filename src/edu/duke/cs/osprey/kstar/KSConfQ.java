@@ -215,10 +215,8 @@ public class KSConfQ extends Thread implements Serializable {
 				}
 			}
 
-		} catch (Exception e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
-			System.exit(1);
+		} catch (InterruptedException ex) {
+			throw new Error(ex);
 		}
 	}
 

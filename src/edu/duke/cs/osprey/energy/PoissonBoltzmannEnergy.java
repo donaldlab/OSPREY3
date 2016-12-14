@@ -45,10 +45,8 @@ public class PoissonBoltzmannEnergy implements EnergyFunction {
             E *= constRT;//convert from thermal energies (Delphi unit) to kcal/mol (OSPREY unit)
             br.close();
         }
-        catch(Exception e){
-            System.err.println(e.getMessage());
-            e.printStackTrace();
-            System.exit(1);
+        catch(Exception ex){
+            throw new Error("can't compute Poisson-Boltzmann energy", ex);
         }
 
         return E;    

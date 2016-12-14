@@ -297,10 +297,9 @@ public class RotamerLibraryReader implements Serializable {
                 }
 			}
 			is.close();
-		}
-		catch(Exception e){
-			System.out.println("Problem reading the dunbrack rotamer library.");
-			System.exit(1);
+			
+		} catch(IOException ex){
+			throw new Error("can't read dunbrack rotamer library: " + rotFilename, ex);
 		}
 		// For each amino acid in the template				
         for(ResidueTemplate myTemplate : templateLib.templates){
@@ -336,9 +335,8 @@ public class RotamerLibraryReader implements Serializable {
 			try {
 				readRotVol(volFilename);
 			}
-			catch (Exception e1){
-				System.out.println("ERROR: "+e1);
-				System.exit(1);
+			catch (Exception ex){
+				throw new Error(ex);
 			}
 		}
 	}
@@ -380,8 +378,7 @@ public class RotamerLibraryReader implements Serializable {
 		bufread.close();
 		
 		if (curResult!=numAAallowed){
-			System.out.println("ERROR: not all amino acid types read from rotamer volumes file");
-			System.exit(1);
+			throw new Error("not all amino acid types read from rotamer volumes file");
 		}
 	}	
 	
