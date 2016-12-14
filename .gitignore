@@ -1,5 +1,8 @@
-build/*
+build/output
+build/classes
 lib/nblibraries.properties
-nbproject/*
+nbproject
 build.xml
 nbbuild.xml
+bin
+.classpath

@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.tests;
+package edu.duke.cs.osprey;
 
 import org.junit.Test;
 import edu.duke.cs.osprey.confspace.SearchProblem;

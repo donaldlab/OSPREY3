@@ -2,7 +2,7 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package edu.duke.cs.osprey.tests;
+package edu.duke.cs.osprey;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;

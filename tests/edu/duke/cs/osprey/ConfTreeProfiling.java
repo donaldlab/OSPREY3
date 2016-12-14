@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.tests;
+package edu.duke.cs.osprey;
 
 import java.io.File;
 import java.util.ArrayList;

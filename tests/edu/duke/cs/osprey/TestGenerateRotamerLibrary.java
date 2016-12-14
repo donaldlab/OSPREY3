@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.tests;
+package edu.duke.cs.osprey;
 
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.control.EnvironmentVars;

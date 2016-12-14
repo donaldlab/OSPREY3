@@ -4,14 +4,14 @@
  */
 package edu.duke.cs.osprey.control;
 
-import edu.duke.cs.osprey.energy.LigandResEnergies;
 import java.util.HashMap;
 import java.util.Map;
+
+import edu.duke.cs.osprey.energy.LigandResEnergies;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
-import edu.duke.cs.osprey.tests.UnitTestSuite;
 
 /**
  *
@@ -110,13 +110,6 @@ public class Main {
 				
 				KStarCalculator ksc = new KStarCalculator(ksCfp);
 				ksc.calcKStarScores();
-			}
-		});
-
-		commands.put("RunTests", new Runnable() {
-			@Override
-			public void run() {
-				UnitTestSuite.runAllTests();
 			}
 		});
 

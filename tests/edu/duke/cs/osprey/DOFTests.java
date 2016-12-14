@@ -2,7 +2,7 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package edu.duke.cs.osprey.tests;
+package edu.duke.cs.osprey;
 
 //testing that DOFs are applied correctly
 //going to use the file 1CC8.ss.pdb so need to have it on hand
