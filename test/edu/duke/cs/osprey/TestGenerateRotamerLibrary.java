@@ -23,8 +23,11 @@ public class TestGenerateRotamerLibrary {
         EnvironmentVars.assignTemplatesToStruct = true;
         EnvironmentVars.resTemplates = null;
         
-        String[] testArgs = new String[]{"-c", "test/4NPD/KStar.cfg", "Dummy command", "test/4NPD/DEE.cfg", "test/4NPD/System.cfg"};
-        ConfigFileParser cfp = new ConfigFileParser(testArgs);//args 1, 3+ are configuration files
+        ConfigFileParser cfp = ConfigFileParser.makeFromResources(
+            "/examples/4NPD/KStar.cfg",
+            "/examples/4NPD/DEE.cfg",
+            "/examples/4NPD/System.cfg"
+        );
         cfp.loadData();
         GMECFinder gf = new GMECFinder();
         gf.init(cfp);

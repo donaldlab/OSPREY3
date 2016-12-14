@@ -5,6 +5,10 @@
  */
 package edu.duke.cs.osprey.control;
 
+import java.io.File;
+import java.util.ArrayList;
+import java.util.StringTokenizer;
+
 import edu.duke.cs.osprey.astar.comets.COMETSTree;
 import edu.duke.cs.osprey.astar.comets.LME;
 import edu.duke.cs.osprey.confspace.SearchProblem;
@@ -12,8 +16,6 @@ import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.StringParsing;
-import java.util.ArrayList;
-import java.util.StringTokenizer;
 
 /**
  *
@@ -34,9 +36,10 @@ public class COMETSDoer {
     //For each state, a list of which flexible positions are mutable
     //these will be listed directly in Multistate.cfg under "STATEMUTRES0" etc.
     
-    String stateArgs[][];//"GMEC search" arguments for each state
     
-    public COMETSDoer (String args[]){
+    ConfigFileParser stateCfps[];//"GMEC search" arguments for each state
+    
+    public COMETSDoer (ConfigFileParser cfp) {
         //fill in all the settings
         //each state will have its own config file parser
         
@@ -44,42 +47,32 @@ public class COMETSDoer {
         System.out.println("Performing multistate A*");
         System.out.println();
         
-        //check format of args
-        if(!args[0].equalsIgnoreCase("-c"))
-            throw new RuntimeException("ERROR: bad arguments (should start with -c)");
+        numStates = cfp.params.getInt("NUMSTATES");
+        numTreeLevels = cfp.params.getInt("NUMMUTRES");
+        int numConstr = cfp.params.getInt("NUMCONSTR");
         
-        
-        ParamSet sParams = new ParamSet();
-        
-        sParams.addParamsFromFile(args[1]);//read KStar.cfg parameters
-        sParams.addParamsFromFile(args[3]);//read multistate parameters
-        sParams.addDefaultParams();
-        
-        String defaultCFGName = args[1];//Each state could have its own KStar.cfg, but this is the default
-        
-        numStates = sParams.getInt("NUMSTATES");
-        numTreeLevels = sParams.getInt("NUMMUTRES");
-        int numConstr = sParams.getInt("NUMCONSTR");
-        
-        stateArgs = new String[numStates][];
-        
-        objFcn = new LME( sParams.getValue("OBJFCN"), numStates );
+        objFcn = new LME( cfp.params.getValue("OBJFCN"), numStates );
         
         constraints = new LME[numConstr];
         for(int constr=0; constr<numConstr; constr++)
-            constraints[constr] = new LME( sParams.getValue("CONSTR"+constr), numStates );
+            constraints[constr] = new LME( cfp.params.getValue("CONSTR"+constr), numStates );
         
         
-        SearchProblem[] stateSP = new SearchProblem[numStates];    
-
+        // read state configs
+        stateCfps = new ConfigFileParser[numStates];
+        for(int state=0; state<numStates; state++){
+            stateCfps[state] = makeStateConfig(state, cfp);
+        }
+        
+        SearchProblem[] stateSP = new SearchProblem[numStates];
         
         System.out.println();
         System.out.println("Preparing matrices and search problems for multistate A*");
         System.out.println();
         
         for(int state=0; state<numStates; state++){
-            mutable2StatePosNums.add( stateMutablePos(state,sParams,numTreeLevels) );
-            stateSP[state] = makeStateSearchProblem(state, sParams, defaultCFGName);
+            mutable2StatePosNums.add( stateMutablePos(state,cfp.params,numTreeLevels) );
+            stateSP[state] = makeStateSearchProblem(state, cfp);
             
             System.out.println();
             System.out.println("State "+state+" matrices ready.");
@@ -91,14 +84,14 @@ public class COMETSDoer {
 
         //we can have a parameter numMaxMut to cap the number of deviations from the specified
         //wt seq (specified explicitly in case there is variation in wt between states...)
-        int numMaxMut = sParams.getInt("NUMMAXMUT");
+        int numMaxMut = cfp.params.getInt("NUMMAXMUT");
         String[] wtSeq = null;
         if(numMaxMut>-1){
-            wtSeq = parseWTSeq( sParams.getValue("WTSEQ"), numTreeLevels );
+            wtSeq = parseWTSeq( cfp.params.getValue("WTSEQ"), numTreeLevels );
         }
 
-        numSeqsWanted = sParams.getInt("NUMSEQS");
-        boolean outputGMECStructs = sParams.getBool("OutputStateGMECStructs");
+        numSeqsWanted = cfp.params.getInt("NUMSEQS");
+        boolean outputGMECStructs = cfp.params.getBool("OutputStateGMECStructs");
         
         tree = new COMETSTree(numTreeLevels, objFcn, constraints, 
             AATypeOptions, numMaxMut, wtSeq, numStates, stateSP, 
@@ -120,24 +113,28 @@ public class COMETSDoer {
         return wt;
     }
     
-    
-    private SearchProblem makeStateSearchProblem(int state, ParamSet sParams, String defaultCFGName){
+    private ConfigFileParser makeStateConfig(int state, ConfigFileParser cfp) {
+        
         //read state-specific configuration files and create a search problem object
         //defaultCFGName is for KStar.cfg
-        String cfgName = sParams.getValue("STATEKSFILE"+state);
+        String cfgName = cfp.params.getValue("STATEKSFILE"+state);
         if(cfgName.equalsIgnoreCase("DEFAULT"))
-            cfgName = defaultCFGName;
+            cfgName = "DefaultState";
 
         //We expect input like
         //STATECFGFILES0 System0.cfg DEE0.cfg
-        String stateConfigFiles = sParams.getValue("STATECFGFILES"+state);
+        String stateConfigFiles = cfp.params.getValue("STATECFGFILES"+state);
         String stateSysFile = StringParsing.getToken(stateConfigFiles, 1);
         String stateDEEFile = StringParsing.getToken(stateConfigFiles, 2);
 
-        stateArgs[state] = new String[] {"-c", cfgName, "n/a", stateSysFile, stateDEEFile};
-
-        ConfigFileParser stateCFGP = new ConfigFileParser(stateArgs[state]);
+        ConfigFileParser stateCFGP = ConfigFileParser.makeFromFilePaths(stateSysFile, stateDEEFile);
         stateCFGP.loadData();
+        return stateCFGP;
+    }
+    
+    
+    private SearchProblem makeStateSearchProblem(int state, ConfigFileParser stateCFGP){
+        
         SearchProblem searchProb = stateCFGP.getSearchProblem();
 
         if ( stateCFGP.params.getBool("doMinimize") && (!searchProb.useTupExpForSearch) ) {
@@ -411,8 +408,7 @@ public class COMETSDoer {
     
     private double calcStateGMEC(int state, String[] AATypes){
         //Calculate the GMEC for the specified state for sequence AATypes
-        ConfigFileParser cfp = new ConfigFileParser(stateArgs[state]);
-        cfp.loadData();
+        ConfigFileParser cfp = new ConfigFileParser(stateCfps[state]);
         
         //set up for particular AA types
         cfp.params.setValue("RUNNAME", "EXHAUSTIVE_SEQ_"+System.currentTimeMillis());

@@ -40,7 +40,7 @@ public class ConfTreeProfiling {
 		}
 
 		// load configuration
-		ConfigFileParser cfp = new ConfigFileParser(new String[] {"-c", "KStar.cfg"});
+		ConfigFileParser cfp = new ConfigFileParser();
 		cfp.loadData();
 		
 		// multi-thread the energy function

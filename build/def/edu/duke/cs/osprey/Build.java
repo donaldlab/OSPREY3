@@ -78,7 +78,7 @@ public class Build extends JkJavaBuild {
 	
 	@Override
 	public JkFileTreeSet editedResources() {
-		return JkFileTreeSet.of(file("assets"));
+		return JkFileTreeSet.of(file("resources"));
 	}
 	
 	@Override

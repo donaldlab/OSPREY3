@@ -28,8 +28,8 @@ public class VoxDeltaGPlayground {
         //Trying to compute delta G's with continuous entropy between voxels.     
         //args like for findGMEC (currently set up for default 1CC8 system)
         
-        ConfigFileParser cfp = new ConfigFileParser(args);//args 1, 3+ are configuration files
-	cfp.loadData();
+        ConfigFileParser cfp = ConfigFileParser.makeFromFilePaths(args);//args are configuration files
+        cfp.loadData();
         
         
         //for these three confs, pairwise differences (by alignment) and separable reference G's check out

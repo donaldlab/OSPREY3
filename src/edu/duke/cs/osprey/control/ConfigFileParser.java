@@ -4,19 +4,22 @@
  */
 package edu.duke.cs.osprey.control;
 
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.StringTokenizer;
+
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.dof.deeper.RamachandranChecker;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
-import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.tools.StringParsing;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
-import java.util.ArrayList;
-import java.util.StringTokenizer;
 
 /**
  *
@@ -26,30 +29,42 @@ public class ConfigFileParser {
     //An object that parses configuration files and uses them to initialize objects needed
     //in various calculations (i.e. for data file loading, conf space definition, pruning, etc.)
     
-    protected ParamSet params = new ParamSet();
+    protected ParamSet params;
     
-    public ConfigFileParser(String[] args){
-        //parse all config files into params
-        
-        //check format of args
-        if(!args[0].equalsIgnoreCase("-c"))
-            throw new RuntimeException("ERROR: bad arguments (should start with -c)");
-        
-        params.addParamsFromFile(args[1]);//KStar.cfg file
-        EnvironmentVars.setDataDir(params.getValue("DataDir"));
-        
-        for(int argNum=3; argNum<args.length; argNum++)//System.cfg, etc.
-            params.addParamsFromFile(args[argNum]);
-        
-        params.addDefaultParams();//We'll look for this in DataDir
+    public static ConfigFileParser makeFromFilePaths(String ... paths) {
+        return makeFromFilePaths(Arrays.asList(paths));
+    }
+    
+    public static ConfigFileParser makeFromFilePaths(Iterable<String> paths) {
+        ConfigFileParser cfp = new ConfigFileParser();
+        for (String path : paths) {
+            cfp.params.addParamsFromFile(new File(path));
+        }
+        return cfp;
+    }
+    
+    public static ConfigFileParser makeFromFiles(Iterable<File> files) {
+        ConfigFileParser cfp = new ConfigFileParser();
+        for (File file : files) {
+            cfp.params.addParamsFromFile(file);
+        }
+        return cfp;
+    }
+    
+    public static ConfigFileParser makeFromResources(String ... resources) {
+        ConfigFileParser cfp = new ConfigFileParser();
+        for (String path : resources) {
+            cfp.params.addParamsFromResource(path);
+        }
+        return cfp;
     }
     
     public ConfigFileParser() {
-    	// HACKHACK: transitional constructor so we can make CFP instances without reading input files
-    	// that way we can define config in code and give it to things that expect to read CFP instances
-    	// but all these things that expect CFP instances won't necessarily have to share the same one
-        EnvironmentVars.setDataDir("dataFiles");
-    	params.addDefaultParams();
+        params = new ParamSet();
+    }
+    
+    public ConfigFileParser(ConfigFileParser other) {
+        params = new ParamSet(other.params);
     }
     
     

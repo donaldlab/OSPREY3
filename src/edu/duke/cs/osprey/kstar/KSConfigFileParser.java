@@ -23,8 +23,8 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 	private static final long serialVersionUID = 3653519769830569960L;
 
 
-	public KSConfigFileParser(String[] args) {
-		super(args);
+	public KSConfigFileParser(ConfigFileParser cfp) {
+		super(cfp);
 	}
 	
 	

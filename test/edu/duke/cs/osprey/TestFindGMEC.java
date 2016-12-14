@@ -26,10 +26,11 @@ public class TestFindGMEC extends TestBase {
     @Test
     public void test1CC8(){
         //Here's a 7-residue test using EPIC and LUTE with continuous sidechain flexibility
-        String[] args = new String[] {"-c","test/1CC8.junit/KStar.cfg","findGMEC",
-            "test/1CC8.junit/System.cfg","test/1CC8.junit/DEE.cfg"};
-        
-        ConfigFileParser cfp = new ConfigFileParser(args);//args 1, 3+ are configuration files
+        ConfigFileParser cfp = ConfigFileParser.makeFromResources(
+            "/examples/1CC8.junit/KStar.cfg",
+            "/examples/1CC8.junit/System.cfg",
+            "/examples/1CC8.junit/DEE.cfg"
+        );
         cfp.loadData();
         
         GMECFinder gf = new GMECFinder();
@@ -53,10 +54,11 @@ public class TestFindGMEC extends TestBase {
     public void testDEEPer(){
         //Here's a 4-residue test using EPIC, LUTE, and DEEPer together.
         //There are two overlapping backrubs
-        String[] args = new String[] {"-c","test/1CC8.deeper/KStar.cfg","findGMEC",
-            "test/1CC8.deeper/System.cfg","test/1CC8.deeper/DEE.cfg"};
-        
-        ConfigFileParser cfp = new ConfigFileParser(args);//args 1, 3+ are configuration files
+        ConfigFileParser cfp = ConfigFileParser.makeFromResources(
+            "/examples/1CC8.deeper/KStar.cfg",
+            "/examples/1CC8.deeper/System.cfg",
+            "/examples/1CC8.deeper/DEE.cfg"
+        );
         cfp.loadData();
         
         GMECFinder gf = new GMECFinder();

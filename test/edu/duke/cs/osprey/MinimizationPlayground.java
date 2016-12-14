@@ -17,8 +17,8 @@ import edu.duke.cs.osprey.control.ConfigFileParser;
 public class MinimizationPlayground {
     
     public static void main(String args[]){
-        ConfigFileParser cfp = new ConfigFileParser(args);//args 1, 3+ are configuration files
-	cfp.loadData();
+        ConfigFileParser cfp = ConfigFileParser.makeFromFilePaths(args);//args are configuration files
+        cfp.loadData();
         SearchProblem sp = cfp.getSearchProblem();
         
         int conf1[] = new int[15];//start with all wt rots

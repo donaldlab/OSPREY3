@@ -25,7 +25,7 @@ public class OneEPICFit {
     
     public static void main(String[] args){
         //Specify desired system and term here
-        args = new String[] {"-c","KStar.cfg","findGMEC","System.cfg","DEE.cfg"};
+        args = new String[] {"System.cfg","DEE.cfg"};
         int pos1=3;
         int rc1=61;
         int pos2=12;
@@ -35,7 +35,7 @@ public class OneEPICFit {
         RCTuple RCs = new RCTuple(pos1,rc1,pos2,rc2);
         
         
-        ConfigFileParser cfp = new ConfigFileParser(args);
+        ConfigFileParser cfp = ConfigFileParser.makeFromFilePaths(args);//args are configuration files
         cfp.loadData();
         SearchProblem sp = cfp.getSearchProblem();
         

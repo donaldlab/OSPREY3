@@ -40,8 +40,8 @@ public class MinimizationComparison {
         
         MultiTermEnergyFunction.setNumThreads(4);
         
-        ConfigFileParser cfp = new ConfigFileParser(args);//args 1, 3+ are configuration files
-	cfp.loadData();
+        ConfigFileParser cfp = ConfigFileParser.makeFromFilePaths(args);//args are configuration files
+        cfp.loadData();
         
         SearchProblem sp = cfp.getSearchProblem();
         sp.pruneMat = new PruningMatrix(sp.confSpace, Double.NEGATIVE_INFINITY);//no need to prune here

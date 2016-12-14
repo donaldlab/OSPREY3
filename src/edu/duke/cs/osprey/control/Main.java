@@ -4,14 +4,20 @@
  */
 package edu.duke.cs.osprey.control;
 
+import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.StringJoiner;
 
+import edu.duke.cs.osprey.Build;
 import edu.duke.cs.osprey.energy.LigandResEnergies;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
+import edu.duke.cs.osprey.tools.Stopwatch;
 
 /**
  *
@@ -22,187 +28,206 @@ import edu.duke.cs.osprey.parallelism.ThreadParallelism;
  */
 
 public class Main {
-
-	public static Map<String, Runnable> commands;
-        
-        private static final String usageString = "Command expects arguments "
-                + "(e.g. -c KStar.cfg {findGMEC|calcKStar} System.cfg DEE.cfg";
-
-	public static void main(String[] args){
-		//args expected to be "-c KStar.cfg command config_file_1.cfg ..."
-
-		debuggingCommands(args);
-
-		String command = "";
-		try{
-                    command = args[2];
-		}
-		catch(Exception e){
-			System.out.println(usageString);
-			System.exit(1);
-		}
-
-
-
-		long startTime = System.currentTimeMillis();
-
-		ConfigFileParser cfp = new ConfigFileParser(args);//args 1, 3+ are configuration files
-
-                EnvironmentVars.openSpecialWarningLogs(cfp);
-
-		//load data files
-		cfp.loadData();
-
-
-
-		//DEBUG!!
-		initCommands(args, cfp);
-
-		if(commands.containsKey(command))
-			commands.get(command).run();
-		else
-			throw new RuntimeException("ERROR: OSPREY command unrecognized: "+command);
-                
-                EnvironmentVars.closeSpecialWarningLogs();
-                
-		long endTime = System.currentTimeMillis();
-		System.out.println("Total OSPREY execution time: " + ((endTime-startTime)/60000) + " minutes.");
-		System.out.println("OSPREY finished");
-	}
-
-	private static void initCommands(String[] args, ConfigFileParser cfp) {
+	
+	public static enum Command {
 		
-		// set degree of thread parallelism
-		// NOTE: if we're going to use the config files here, don't override its defaults
-		ThreadParallelism.setNumThreads(cfp.params.getInt("NumThreads"));
-		MultiTermEnergyFunction.setNumThreads(ThreadParallelism.getNumThreads());
-
-                CCDMinimizer.EConvTol = cfp.params.getDouble("CCDEConvTol");
-                CCDMinimizer.numIter = cfp.params.getInt("CCDNumIter");
-                
-		// TODO Auto-generated method stub
-		commands = new HashMap<String, Runnable>();
-
-		commands.put("findGMEC", new Runnable() {
+		/**
+		 * Prints the version and exits
+		 */
+		Version {
 			@Override
-			public void run() {
+			public void run(CommandArgs args) {
+				System.out.println("OSPREY version: " + new Build().version().name());
+			}
+		},
+		
+		FindGMEC {
+			@Override
+			public void run(CommandArgs args) {
+				ConfigFileParser cfp = args.loadConfig();
 				GMECFinder gf = new GMECFinder();
 				gf.init(cfp);
 				gf.calcGMEC();
+				args.cleanupConfig(cfp);
 			}
-		});
+		},
 		
-		commands.put("findSequences", new Runnable() {
+		FindSequences {
 			@Override
-			public void run() {
+			public void run(CommandArgs args) {
+				ConfigFileParser cfp = args.loadConfig();
 				GMECFinder gf = new GMECFinder();
 				gf.init(cfp);
 				gf.calcSequences();
+				args.cleanupConfig(cfp);
 			}
-		});
-
-		commands.put("calcKStar", new Runnable() {
+		},
+		
+		CalcKStar {
 			@Override
-			public void run() {
-				// kstar subclasses configfileparser, so re-load
-				KSConfigFileParser ksCfp = new KSConfigFileParser(args);
-				ksCfp.loadData();
-				
+			public void run(CommandArgs args) {
+				ConfigFileParser cfp = args.loadConfig();
+				KSConfigFileParser ksCfp = new KSConfigFileParser(cfp);
 				KStarCalculator ksc = new KStarCalculator(ksCfp);
 				ksc.calcKStarScores();
+				args.cleanupConfig(cfp);
 			}
-		});
-
-		commands.put("doCOMETS", new Runnable() {
+		},
+		
+		DoCOMETS {
 			@Override
-			public void run() {
-				COMETSDoer cd = new COMETSDoer(args);
+			public void run(CommandArgs args) {
+				ConfigFileParser cfp = args.loadConfig();
+				COMETSDoer cd = new COMETSDoer(cfp);
 				cd.calcBestSequences();
+				args.cleanupConfig(cfp);
 			}
-		});
-
-		commands.put("calcLigResE", new Runnable() {
+		},
+		
+		CalcLigResE {
 			@Override
-			public void run() {
+			public void run(CommandArgs args) {
+				ConfigFileParser cfp = args.loadConfig();
 				LigandResEnergies lre = new LigandResEnergies(cfp.getParams());
 				lre.printEnergies();
+				args.cleanupConfig(cfp);
 			}
-		});
-
-		commands.put("calcEnergy", new Runnable() {
+		},
+		
+		CalcEnergy {
 			@Override
-			public void run() {
+			public void run(CommandArgs args) {
+				ConfigFileParser cfp = args.loadConfig();
 				new EnergyCalculator().run(cfp);
+				args.cleanupConfig(cfp);
 			}
-		});
-
-		commands.put("ConfInfo", new Runnable() {
+		},
+		
+		ConfInfo {
 			@Override
-			public void run() {
+			public void run(CommandArgs args) {
+				ConfigFileParser cfp = args.loadConfig();
 				ConfInfo ci = new ConfInfo(cfp);
 				ci.outputConfInfo();
+				args.cleanupConfig(cfp);
 			}
-		});
+		},
+		
+		GpuInfo {
+			@Override
+			public void run(CommandArgs args) {
+				// TODO: call gpu diagnostics
+			}
+		};
+		
+		private static Map<String,Command> commands;
+		
+		static {
+			commands = new HashMap<>();
+			for (Command command : Command.values()) {
+				commands.put(normalizeName(command.name()), command);
+			}
+		}
+		
+		public abstract void run(CommandArgs cargs);
+		
+		public static Command get(String name) {
+			return commands.get(normalizeName(name));
+		}
+		
+		public static String listNames() {
+			StringJoiner joiner = new StringJoiner(", ");
+			for (Command command : Command.values()) {
+				joiner.add(command.name());
+			}
+			return joiner.toString();
+		}
+		
+		public static String normalizeName(String name) {
+			return name.toLowerCase();
+		}
+	}
+	
+	private static class CommandArgs {
+		
+		public final List<String> args;
+		
+		public CommandArgs() {
+			args = new ArrayList<>();
+		}
+		
+		public ConfigFileParser loadConfig() {
+			
+			// collect (and check) the config files
+			List<File> configFiles = new ArrayList<>();
+			boolean allExist = true;
+			for (String path : args) {
+				File configFile = new File(path);
+				if (!configFile.exists()) {
+					System.out.println("can't find config file: " + configFile.getAbsolutePath());
+					allExist = false;
+				}
+				configFiles.add(configFile);
+			}
+			if (!allExist) {
+				System.exit(1);
+			}
+			
+			// load the config
+			ConfigFileParser cfp = ConfigFileParser.makeFromFiles(configFiles);
+			cfp.loadData();
+			
+			// init global state
+			// TODO: get rid of global state
+			EnvironmentVars.openSpecialWarningLogs(cfp);
+			ThreadParallelism.setNumThreads(cfp.params.getInt("NumThreads"));
+			MultiTermEnergyFunction.setNumThreads(ThreadParallelism.getNumThreads());
+			CCDMinimizer.EConvTol = cfp.params.getDouble("CCDEConvTol");
+			CCDMinimizer.numIter = cfp.params.getInt("CCDNumIter");
+
+			return cfp;
+		}
+		
+		public void cleanupConfig(ConfigFileParser cfp) {
+			// TODO: get rid of global state
+			EnvironmentVars.closeSpecialWarningLogs();
+		}
 	}
 
-	// TODO: Move these into a test file, and just call it from the test.
-	private static void debuggingCommands(String[] args){
-
-		//MolecEObjFunction mof = (MolecEObjFunction)ObjectIO.readObject("OBJFCN1442697734046.dat", true);
-		/*MolecEObjFunction mof = (MolecEObjFunction)ObjectIO.readObject("OBJFCN1442697735769.dat", true);
-
-        CCDMinimizer minim = new CCDMinimizer(mof, false);
-        DoubleMatrix1D bestVals = minim.minimize();
-        double E = mof.getValue(bestVals);
-
-        DoubleMatrix1D boxBottom = bestVals.copy();
-        DoubleMatrix1D boxTop = bestVals.copy();
-        for(int q=0; q<bestVals.size(); q++){
-            boxTop.set(q, Math.min(mof.getConstraints()[1].get(q), bestVals.get(q)+1));
-            boxBottom.set(q, Math.max(mof.getConstraints()[0].get(q), bestVals.get(q)-1));
-        }
-
-        for(int a=0; a<1000000; a++){
-
-            DoubleMatrix1D x2 = bestVals.like();
-            for(int q=0; q<bestVals.size(); q++)
-                x2.set( q, boxBottom.get(q)+Math.random()*(boxTop.get(q)-boxBottom.get(q)) );
-
-            double E2 = mof.getValue(x2);
-            if(E2 < E-0.1){
-                System.out.println("gg");
-                DoubleMatrix1D dx = x2.copy();
-                dx.assign( bestVals, Functions.minus );
-
-                for(double t=1; true; t*=1.5){
-                    dx.assign(Functions.mult(t));
-                    x2.assign(dx);
-                    x2.assign(bestVals, Functions.plus);
-
-                    boolean oor = false;
-                    for(int q=0; q<x2.size(); q++){
-                        if( x2.get(q) > mof.getConstraints()[1].get(q) )
-                            oor = true;
-                        else if( x2.get(q) < mof.getConstraints()[0].get(q) )
-                            oor = true;
-                    }
-
-                    if(oor)
-                        break;
-
-                    E2= mof.getValue(x2);
-                    int aaa = 1;
-                }
-            }
-        }
-
-        System.exit(0);
-		 */
-		//anything we want to try as an alternate main function, for debugging purposes
-		//likely will want to exit after doing this (specify here)
-		//for normal operation, leave no uncommented code in this function
-
+	public static void main(String[] args){
+		
+		// args expected to be "command config_file_1.cfg ..."
+		
+		// read the command name
+		String commandName;
+		try {
+			commandName = args[0];
+		}
+		catch (Exception e) {
+			System.out.print("OSPREY command needed. Try one of: " + Command.listNames());
+			System.exit(1);
+			return;
+			// yeah, the return is redundant, but the compiler apparently doesn't know that
+			// try commenting it out and see what happens =)
+		}
+		
+		// lookup the command
+		Command command = Command.get(commandName);
+		if (command == null) {
+			System.out.println("ERROR: OSPREY command unrecognized: " + commandName);
+			System.exit(1);
+			return;
+		}
+		
+		// build the command args
+		CommandArgs cargs = new CommandArgs();
+		for (int i=1; i<args.length; i++) {
+			cargs.args.add(args[i]);
+		}
+		
+		// run the command (with timing)
+		Stopwatch stopwatch = new Stopwatch().start();
+		command.run(cargs);
+		System.out.println("OSPREY finished, total execution time: " + stopwatch.stop().getTime() + ".");
 	}
-
-
 }

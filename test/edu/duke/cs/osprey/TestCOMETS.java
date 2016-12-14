@@ -22,15 +22,15 @@ import org.junit.Test;
 public class TestCOMETS {
     
     @Test
-    public void testCOMETS(){
+    public void testCOMETS() {
         //Here's a specificity design with discrete flexibility, 5 mutable residues
-        String[] args = new String[] {"-c","test/comets.junit/KStar.cfg","doCOMETS",
-            "test/comets.junit/multistate.spec0.cfg"};
+        ConfigFileParser cfp = ConfigFileParser.makeFromResources(
+            "/examples/comets.junit/KStar.cfg",
+            "/examples/comets.junit/multistate.spec0.cfg"
+        );
+        cfp.loadData();
         
-        ConfigFileParser cfp = new ConfigFileParser(args);//args 1, 3+ are configuration files
-	cfp.loadData();
-        
-        COMETSDoer cd = new COMETSDoer(args);
+        COMETSDoer cd = new COMETSDoer(cfp);
         ArrayList<String> bestSequences = cd.calcBestSequences();
         
         

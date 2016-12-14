@@ -25,7 +25,7 @@ public class EnergyMatrixProfiling {
 		}
 
 		// load configuration
-		ConfigFileParser cfp = new ConfigFileParser(new String[] {"-c", "KStar.cfg"});
+		ConfigFileParser cfp = new ConfigFileParser();
 		cfp.loadData();
 		
 		// init a conf space with lots of flexible residues, but no mutations

@@ -5,11 +5,17 @@
 package edu.duke.cs.osprey.control;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Serializable;
+import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.TreeMap;
 
 //This class stores parameters from input files
@@ -27,49 +33,81 @@ import edu.duke.cs.osprey.tools.StringParsing;
 public class ParamSet implements Serializable {
 	
 	private static final long serialVersionUID = 4364963601242324780L;
-
-	private TreeMap<String,String> params = new TreeMap<>();//map parameter/value pairs
-        //parameter names will be stored as all upper-case, to avoid confusion
 	
-        private static final String defaultParamFile = "defaults.cfg";
-        private TreeMap<String,String> defaultParams = new TreeMap<>();
-        
-        private TreeMap<String,String> wildcardDefaults = new TreeMap<>();
-        //Handles default params of the form "BLABLA* 1" (would map BLABLA -> 1)
-        //then for example if we needed a default for parameter BLABLABLA, it would return 1
-        
-	//constructor
-	ParamSet(){
-            
+	private Map<String,String> params;//map parameter/value pairs
+	//parameter names will be stored as all upper-case, to avoid confusion
+
+	private Map<String,String> defaultParams;
+	
+	private Map<String,String> wildcardDefaults;
+	//Handles default params of the form "BLABLA* 1" (would map BLABLA -> 1)
+	//then for example if we needed a default for parameter BLABLABLA, it would return 1
+	
+	public ParamSet() {
+		
+		params = new TreeMap<>();
+		defaultParams = new TreeMap<>();
+		wildcardDefaults = new TreeMap<>();
+		
+		loadParamsFromResource("/config/defaults.cfg", defaultParams);
+		
+		// handle wildcard defaults
+		for (String param : defaultParams.keySet()) {
+			if (param.endsWith("*")) {
+				String wildcard = param.substring(0, param.length() - 1);
+				wildcardDefaults.put(wildcard, defaultParams.get(param));
+			}
+		}
 	}
 	
-	//Reads in all parameter pairs from the file fName and updates the params
-	public void addParamsFromFile(String fName){
-            loadParams(fName, params);
-        }
-        
-        public void addDefaultParams(){
-            String defaultFilePath = EnvironmentVars.getDataDir() + defaultParamFile;
-            loadParams(defaultFilePath, defaultParams);
-            
-            for(String param : defaultParams.keySet()){
-                if(param.endsWith("*")){
-                    String wildcard = param.substring(0, param.length()-1);
-                    wildcardDefaults.put( wildcard, defaultParams.get(param) );
-                }
-            }
-        }
+	public ParamSet(ParamSet other) {
+		params = new HashMap<>(other.params);
+		defaultParams = new HashMap<>(other.defaultParams);
+		wildcardDefaults = new HashMap<>(other.wildcardDefaults);
+	}
 	
-        
-	private static void loadParams(String fName, TreeMap<String,String> paramMap) {
+	public void addParamsFromFile(File file) {
+		loadParamsFromFile(file, params);
+	}
+	
+	public void addParamsFromResource(String path) {
+		loadParamsFromResource(path, params);
+	}
+	
+	private void loadParamsFromFile(File file, Map<String,String> paramMap) {
+		try (FileInputStream fin = new FileInputStream(file)) {
+			loadParams(fin, paramMap);
+		} catch (FileNotFoundException ex) {
+			throw new RuntimeException("couldn't find config file: " + file.getAbsolutePath());
+		} catch (IOException ex) {
+			throw new RuntimeException("couldn't read config file: " + file.getAbsolutePath());
+		}
+	}
+	
+	private void loadParamsFromResource(String path, Map<String,String> paramMap) {
+		
+		// try to find the resource
+		URL url = getClass().getResource(path);
+		if (url == null) {
+			throw new RuntimeException("couldn't find config resource: " + path);
+		}
+		
+		try (InputStream in = url.openStream()) {
+			loadParams(in, paramMap);
+		} catch (IOException ex) {
+			throw new RuntimeException("couldn't read config resource: " + url.toString());
+		}
+	}
+	
+	private static void loadParams(InputStream in, Map<String,String> paramMap) {
 		// load all parameters for cfg file fName into the map paramMap
 		
 		// First attempt to open and read the config file
-		try (BufferedReader in = new BufferedReader(new InputStreamReader(new FileInputStream(fName)))) {
+		try (BufferedReader bin = new BufferedReader(new InputStreamReader(in))) {
 			
 			// read line-by-line
 			String line;
-			while ((line = in.readLine()) != null) {
+			while ((line = bin.readLine()) != null) {
 				
 				// strip comments
 				int commentStartPos = line.indexOf('%');
@@ -98,10 +136,8 @@ public class ParamSet implements Serializable {
 				}
 			}
 			
-		} catch (FileNotFoundException ex) {
-			throw new RuntimeException("ERROR: Couldn't find configuration file " + fName);
 		} catch (Exception ex) {
-			throw new Error("ERROR: An error occurred reading configuration file " + fName, ex);
+			throw new Error("ERROR: error reading config", ex);
 		}
 	}
 
