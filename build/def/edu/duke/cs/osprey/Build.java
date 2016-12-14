@@ -83,7 +83,7 @@ public class Build extends JkJavaBuild {
 	
 	@Override
 	public JkFileTreeSet unitTestEditedSources() {
-		return JkFileTreeSet.of(file("tests"));
+		return JkFileTreeSet.of(file("test"));
 	}
 	
 	@Override
