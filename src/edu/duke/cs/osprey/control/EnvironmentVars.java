@@ -11,7 +11,9 @@ import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import java.math.BigInteger;
 
 
+@Deprecated
 public class EnvironmentVars {
+    // TODO: get rid of global state
 	
 	//key parameter sets to use throughout the program for energy-function and flexibility reference
         public static EnergyFunctionGenerator curEFcnGenerator;
