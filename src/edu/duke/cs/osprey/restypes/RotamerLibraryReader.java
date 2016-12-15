@@ -5,6 +5,7 @@
 package edu.duke.cs.osprey.restypes;
 
 import edu.duke.cs.osprey.control.EnvironmentVars;
+import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.StringParsing;
 
 import java.io.*;
@@ -23,54 +24,50 @@ public class RotamerLibraryReader implements Serializable {
 	
 	//Read in all of the rotamers for all amino acids from the rotFilename file
         //into the ResidueTemplateLibrary
-	public static void readRotLibrary(String rotFilename, GenericResidueTemplateLibrary templateLib) {
-            
-            try {
-                
+	public static void readRotLibrary(String text, GenericResidueTemplateLibrary templateLib) {
+		
 		//String volFilename = rotFile + ".vol";
 		
-		// HANDLE THE NORMAL AAs	
-		FileInputStream is = new FileInputStream( EnvironmentVars.getDataDir() + rotFilename );
-		BufferedReader bufread = new BufferedReader(new InputStreamReader(is));
-		String curLine = null;
-
-		// Skip over comments (lines starting with !)
-		curLine = bufread.readLine();
-		while( curLine.charAt(0) == '!' ){
-			curLine = bufread.readLine();
-		}
-        curLine = bufread.readLine();//skip over number of residues in library
-                
+		// HANDLE THE NORMAL AAs
+		Iterator<String> lines = FileTools.parseLines(text).iterator();
 		
-	  	while( curLine != null ) {
-			if(curLine.charAt(0) == '!'){
-				curLine = bufread.readLine();
+		int numLines = 0;
+		while (lines.hasNext()) {
+			String line = lines.next();
+			
+			// Skip over comments (lines starting with !)
+			if (line.startsWith("!")) {
 				continue;
 			}
 			
-	  		String aaName = StringParsing.getToken(curLine,1);
-			int numDihedrals = (new Integer(StringParsing.getToken(curLine,2))).intValue();
-			int numRotamers = (new Integer(StringParsing.getToken(curLine,3))).intValue();
-			if (numRotamers<0)
-                            numRotamers = 0;
+			// skip over the first line (number of residues in library)
+			if (numLines++ == 0) {
+				continue;
+			}
 			
+			String aaName = StringParsing.getToken(line,1);
+			int numDihedrals = (new Integer(StringParsing.getToken(line,2))).intValue();
+			int numRotamers = (new Integer(StringParsing.getToken(line,3))).intValue();
+			if (numRotamers<0) {
+				numRotamers = 0;
+			}
+		
 			String dihedralAtomNames[][] = new String[numDihedrals][4];//atoms involved in each dihedral
 			double rotamerValues[][] = new double[numRotamers][numDihedrals];//dihedral values at each rotamer
-                        
 
 			// Read in the actual dihedrals
 			for(int q=0;q<numDihedrals;q++) {
-				curLine = bufread.readLine();
-				dihedralAtomNames[q][0] = StringParsing.getToken(curLine,1);
-				dihedralAtomNames[q][1] = StringParsing.getToken(curLine,2);
-				dihedralAtomNames[q][2] = StringParsing.getToken(curLine,3);
-				dihedralAtomNames[q][3] = StringParsing.getToken(curLine,4);
+				line = lines.next();
+				dihedralAtomNames[q][0] = StringParsing.getToken(line,1);
+				dihedralAtomNames[q][1] = StringParsing.getToken(line,2);
+				dihedralAtomNames[q][2] = StringParsing.getToken(line,3);
+				dihedralAtomNames[q][3] = StringParsing.getToken(line,4);
 			}
 			// Read in the actual rotamers
 			for(int q=0;q<numRotamers;q++) {
-				curLine = bufread.readLine();
+				line = lines.next();
 				for(int w=0;w<numDihedrals;w++) {
-					rotamerValues[q][w] = (new Integer(StringParsing.getToken(curLine,(w+1)))).intValue();
+					rotamerValues[q][w] = (new Integer(StringParsing.getToken(line,(w+1)))).intValue();
 				}
 			}
 			
@@ -112,22 +109,13 @@ public class RotamerLibraryReader implements Serializable {
                 throw new RuntimeException("ERROR: Have rotamer information for residue type "
                         +aaName+" but can't find a template for it");
             }
-                        
-                        
-                        //update total number of rotamers read into templateLib
+            
+			//update total number of rotamers read into templateLib
 			templateLib.totalNumRotamers += numRotamers;
-			if (numRotamers<=0) //ALA or GLY
+			if (numRotamers<=0) { //ALA or GLY
 				templateLib.totalNumRotamers += 1;
-                        
-			curLine = bufread.readLine();
+			}
 		}
-	  	
-		bufread.close();
-            }
-            catch(Exception e){
-                e.printStackTrace();
-                throw new RuntimeException("ERROR reading rotamer library: "+e.getMessage());
-            }
 	}
 	/**
 	 * 
@@ -220,7 +208,7 @@ public class RotamerLibraryReader implements Serializable {
 	 *    the template library templateLib. 
 	 *  @param templateLib The library of residue templates.
 	 */
-	public static void readDunbrackRotamerLibraryForResiduePosition(String rotFilename, GenericResidueTemplateLibrary templateLib){
+	public static void readDunbrackRotamerLibraryForResiduePosition(String text, GenericResidueTemplateLibrary templateLib){
 
 		// Dunbrack has rotamers in increments of 10 for phi and psi.
 		double dunbrackResolution = 10;
@@ -233,74 +221,67 @@ public class RotamerLibraryReader implements Serializable {
 			allDunbrackRotamersMap.put(template.name, bbDepRotamerForTypeOfTemplate);
 		
 		}
-		String curLine;
-		// Read the file name for the Dunbrack Backbone dependent rotamer library. 
-		try{
-			// Read in the entire dunbrack library
-			FileInputStream is = new FileInputStream( EnvironmentVars.getDataDir() + rotFilename);
-			BufferedReader bufread = new BufferedReader(new InputStreamReader(is));
-			curLine = null;			
-			// Parse the whole file first and add each rotamer entry to the array list
-			while((curLine = bufread.readLine()) != null){
-				// Skip comment lines: those that start with #
-				if(!curLine.startsWith("#")){
-					// Convert the line into a char array.
-					char dbLine [] = curLine.toCharArray(); 
-					// First three letters are the amino acid.
-					String aaNameNewRot = ""+dbLine[0]+dbLine[1]+dbLine[2];
-                	// We compute the number of dihedrals for this AA by counting the number of none zeroes in columns r1-r4.
-                	int r1 = Integer.parseInt((""+dbLine[24]+dbLine[25]).trim());
-                	int r2 = Integer.parseInt((""+dbLine[27]+dbLine[28]).trim());
-                	int r3 = Integer.parseInt((""+dbLine[30]+dbLine[31]).trim());
-                	int r4 = Integer.parseInt((""+dbLine[33]+dbLine[34]).trim());
-                	int numDih = 1;
-                	if(r2 > 0){
-                		numDih++;
-                	} 
-                	if(r3 > 0){
-                		numDih++;
-                	}
-                	if(r4 > 0){
-                		numDih++;
-                	}
-					// Parse the backbone phi and psi for this rotamer.
-					// Phi is in chars 5, 6, 7, and 8 
-					String phiForThisEntryAsStr = ""+dbLine[5]+dbLine[6]+dbLine[7]+dbLine[8];
-					double phiForThisEntry = Double.valueOf(phiForThisEntryAsStr.trim());
-					// Psi is in chars 10, 11, 12, 13
-					String psiForThisEntryAsStr = ""+dbLine[10]+dbLine[11]+dbLine[12]+dbLine[13];
-					double psiForThisEntry = Double.valueOf(psiForThisEntryAsStr.trim());
-
-					// Parse the rotamer probability which is located at position 37 to 44.
-					String probabilityStr = ""+dbLine[37]+dbLine[38]+dbLine[39]+dbLine[40]+dbLine[41]+dbLine[42]+dbLine[43]+dbLine[44];
-					double myProbability = Double.parseDouble(probabilityStr.trim());
-					
-					// The first char for each of the dihedrals is, respectively at 47, 55, 63, 71
-					int dihedralIndices [] = {47, 55, 63, 71}; 
-					// Parse all the dihedrals for each entry
-					double chiAngles[] = new double [numDih];
-					for(int chiIx = 0; chiIx < numDih; chiIx++ ){
-						String dihedralStr = ""+dbLine[dihedralIndices[chiIx]]+dbLine[dihedralIndices[chiIx]+1]+dbLine[dihedralIndices[chiIx]+2]+
-								dbLine[dihedralIndices[chiIx]+3]+dbLine[dihedralIndices[chiIx]+4]+dbLine[dihedralIndices[chiIx]+5];
-						chiAngles[chiIx] = Double.parseDouble(dihedralStr.trim());
-					}
-					// Add a new Rotamer.	
-					if(myProbability >= EnvironmentVars.DUNBRACK_PROBABILTY_CUTOFF){
-						BBDepRotamersForType bbRotForType = allDunbrackRotamersMap.get(aaNameNewRot);
-						// The dunbrack rotamer library contains some rotamers not defined by our template.
-						// Those rotamers are ignored.
-						if(bbRotForType != null){						
-							bbRotForType.addNewRotamer(phiForThisEntry, psiForThisEntry, chiAngles);
-						}
-
-					}
-                }
-			}
-			is.close();
+		
+		// Read in the entire dunbrack library
+		// Parse the whole file first and add each rotamer entry to the array list
+		for (String line : FileTools.parseLines(text)) {
 			
-		} catch(IOException ex){
-			throw new Error("can't read dunbrack rotamer library: " + rotFilename, ex);
+			// Skip comment lines: those that start with #
+			if (line.startsWith("#")) {
+				continue;
+			}
+			
+			// Convert the line into a char array.
+			char dbLine [] = line.toCharArray(); 
+			// First three letters are the amino acid.
+			String aaNameNewRot = ""+dbLine[0]+dbLine[1]+dbLine[2];
+			// We compute the number of dihedrals for this AA by counting the number of none zeroes in columns r1-r4.
+			int r1 = Integer.parseInt((""+dbLine[24]+dbLine[25]).trim());
+			int r2 = Integer.parseInt((""+dbLine[27]+dbLine[28]).trim());
+			int r3 = Integer.parseInt((""+dbLine[30]+dbLine[31]).trim());
+			int r4 = Integer.parseInt((""+dbLine[33]+dbLine[34]).trim());
+			int numDih = 1;
+			if(r2 > 0){
+				numDih++;
+			} 
+			if(r3 > 0){
+				numDih++;
+			}
+			if(r4 > 0){
+				numDih++;
+			}
+			// Parse the backbone phi and psi for this rotamer.
+			// Phi is in chars 5, 6, 7, and 8 
+			String phiForThisEntryAsStr = ""+dbLine[5]+dbLine[6]+dbLine[7]+dbLine[8];
+			double phiForThisEntry = Double.valueOf(phiForThisEntryAsStr.trim());
+			// Psi is in chars 10, 11, 12, 13
+			String psiForThisEntryAsStr = ""+dbLine[10]+dbLine[11]+dbLine[12]+dbLine[13];
+			double psiForThisEntry = Double.valueOf(psiForThisEntryAsStr.trim());
+			
+			// Parse the rotamer probability which is located at position 37 to 44.
+			String probabilityStr = ""+dbLine[37]+dbLine[38]+dbLine[39]+dbLine[40]+dbLine[41]+dbLine[42]+dbLine[43]+dbLine[44];
+			double myProbability = Double.parseDouble(probabilityStr.trim());
+			
+			// The first char for each of the dihedrals is, respectively at 47, 55, 63, 71
+			int dihedralIndices [] = {47, 55, 63, 71}; 
+			// Parse all the dihedrals for each entry
+			double chiAngles[] = new double [numDih];
+			for(int chiIx = 0; chiIx < numDih; chiIx++ ){
+				String dihedralStr = ""+dbLine[dihedralIndices[chiIx]]+dbLine[dihedralIndices[chiIx]+1]+dbLine[dihedralIndices[chiIx]+2]+
+						dbLine[dihedralIndices[chiIx]+3]+dbLine[dihedralIndices[chiIx]+4]+dbLine[dihedralIndices[chiIx]+5];
+				chiAngles[chiIx] = Double.parseDouble(dihedralStr.trim());
+			}
+			// Add a new Rotamer.	
+			if(myProbability >= EnvironmentVars.DUNBRACK_PROBABILTY_CUTOFF){
+				BBDepRotamersForType bbRotForType = allDunbrackRotamersMap.get(aaNameNewRot);
+				// The dunbrack rotamer library contains some rotamers not defined by our template.
+				// Those rotamers are ignored.
+				if(bbRotForType != null){						
+					bbRotForType.addNewRotamer(phiForThisEntry, psiForThisEntry, chiAngles);
+				}
+			}
 		}
+	
 		// For each amino acid in the template				
         for(ResidueTemplate myTemplate : templateLib.templates){
         	myTemplate.setRLphiPsiResolution(dunbrackResolution); 

@@ -4,15 +4,12 @@
  */
 package edu.duke.cs.osprey.energy.forcefield;
 
-import edu.duke.cs.osprey.control.EnvironmentVars;
-import edu.duke.cs.osprey.tools.StringParsing;
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.Serializable;
+import java.util.Iterator;
 import java.util.StringTokenizer;
+
+import edu.duke.cs.osprey.tools.FileTools;
+import edu.duke.cs.osprey.tools.StringParsing;
 
 /**
  *
@@ -66,10 +63,6 @@ public class ForcefieldParams implements Serializable {
     //The solvation parameters object
     EEF1 eef1parms = null;
 
-    String amberDatInFile = "";
-
-    
-    
     double vdwMultiplier = 1.0f;
     double solvScale = 1.0; //the scale factor for the solvation energies
     double dielectric = 1.0;	
@@ -80,100 +73,72 @@ public class ForcefieldParams implements Serializable {
     
     public enum FORCEFIELD {
         
-        // KER: if charmm19 then reduce C radii for 1-4 interactions
-        AMBER {
-            
-            @Override
-            public boolean reduceCRadii() {
-                return false;
-            }
-            
-            @Override
-            public double getAij14Factor() {
-                return 0.5;
-            }
-            
-            @Override
-            public double getBij14Factor() {
-                return 1.0;
-            }
-            
-            @Override
-            public double getCoulombScaling() {
-                return 1.0/1.2;
-            }
-        },
-        CHARMM22 {
-            
-            @Override
-            public boolean reduceCRadii() {
-                return false;
-            }
-            
-            @Override
-            public double getAij14Factor() {
-                throw new Error("vdW 1-4 factors not defined for " + this + " forcefield");
-            }
-            
-            @Override
-            public double getBij14Factor() {
-                throw new Error("vdW 1-4 factors not defined for " + this + " forcefield");
-            }
-
-            @Override
-            public double getCoulombScaling() {
-                throw new Error("coulomb scaling not defined for " + this + " forcefield");
-            }
-        },
-        CHARMM19NEUTRAL {
-            
-            @Override
-            public boolean reduceCRadii() {
-                return CHARMM19.reduceCRadii();
-            }
-            
-            @Override
-            public double getAij14Factor() {
-                return CHARMM19.getAij14Factor();
-            }
-            
-            @Override
-            public double getBij14Factor() {
-                return CHARMM19.getBij14Factor();
-            }
-            
-            @Override
-            public double getCoulombScaling() {
-                return CHARMM19.getCoulombScaling();
-            }
-        },
-        CHARMM19 {
-            
-            @Override
-            public boolean reduceCRadii() {
-                return true;
-            }
-            
-            @Override
-            public double getAij14Factor() {
-                return 1.0;
-            }
-            
-            @Override
-            public double getBij14Factor() {
-                return 2.0;
-            }
-            
-            @Override
-            public double getCoulombScaling() {
-                return 0.4;
-            }
-        };
+        AMBER(
+            "/config/parm96a.dat",
+            "/config/all_amino94.in",
+            "/config/all_aminont94.in",
+            "/config/all_aminoct94.in",
+            "/config/all_nuc94_and_gr.in",
+            false,
+            0.5,
+            1.0,
+            1.0/1.2
+        ),
+        CHARMM22(
+            "/config/parmcharm22.dat",
+            "/config/all_amino_charmm22.txt",
+            "/config/all_amino_charmm22_nt.txt",
+            "/config/all_amino_charmm22_ct.txt",
+            "/config/all_nuc_and_gr_charmm.in",
+            false,
+            Double.NaN,
+            Double.NaN,
+            Double.NaN
+        ),
+        CHARMM19NEUTRAL(
+            "/config/parmcharm19.dat",
+            "/config/all_amino_charmm19_neutral.in",
+            "/config/all_amino_charmm19_neutral_nt.in",
+            "/config/all_amino_charmm19_neutral_ct.in",
+            "/config/all_nuc_and_gr_charmm.in",
+            true,
+            1.0,
+            2.0,
+            0.4
+        ),
+        CHARMM19(
+            "/config/parmcharm19.dat",
+            "/config/all_amino_charmm19.in",
+            "/config/all_amino_charmm19_nt.in",
+            "/config/all_amino_charmm19_ct.in",
+            "/config/all_nuc_and_gr_charmm.in",
+            true,
+            1.0,
+            2.0,
+            0.4
+        );
         
-        public abstract boolean reduceCRadii();
-        public abstract double getAij14Factor();
-        public abstract double getBij14Factor();
-        public abstract double getCoulombScaling();
+        public final String paramsPath;
+        public final String aaPath;
+        public final String aaNTPath;
+        public final String aaCTPath;
+        public final String grPath;
+        public final boolean reduceCRadii;
+        public final double Aij14Factor;
+        public final double Bij14Factor;
+        public final double coulombScaling;
+        
+        private FORCEFIELD(String paramsPath, String aaPath, String aaNTPath, String aaCTPath, String grPath, boolean reduceCRadii, double Aij14Factor, double Bij14Factor, double coulombScaling) {
+            this.paramsPath = paramsPath;
+            this.aaPath = aaPath;
+            this.aaNTPath = aaNTPath;
+            this.aaCTPath = aaCTPath;
+            this.grPath = grPath;
+            this.reduceCRadii = reduceCRadii;
+            this.Aij14Factor = Aij14Factor;
+            this.Bij14Factor = Bij14Factor;
+            this.coulombScaling = coulombScaling;
+        }
     }
     
     public FORCEFIELD forcefld;//what forcefield are these parameters for?
@@ -185,13 +150,10 @@ public class ForcefieldParams implements Serializable {
                 
         forcefld = FORCEFIELD.valueOf(frcefld.toUpperCase());
         
-        setForcefieldInputs();
-
-        
         // Read in AMBER forcefield parameters
         // parm96a.dat
         try {
-                readParm96();
+            readParm96(forcefld);
         }
         catch (Exception ex) {
             throw new Error("can't read forcefield params", ex);
@@ -209,8 +171,8 @@ public class ForcefieldParams implements Serializable {
                 
         // Read in the EEF1 solvation parameters
         try {
-                eef1parms = new EEF1();
-                eef1parms.readEEF1parm();
+            eef1parms = new EEF1();
+            eef1parms.readEEF1parm();
         } catch (Exception ex) {
             throw new Error("can't read solvation params", ex);
         }
@@ -226,22 +188,22 @@ public class ForcefieldParams implements Serializable {
 	//  will most likely be required to read other parameter
 	//  files. Reading of other files should be done in other
 	//  functions
-	private void readParm96() throws Exception {
+	private void readParm96(FORCEFIELD ff) throws Exception {
 	
-		FileInputStream is = new FileInputStream( EnvironmentVars.getDataDir().concat(amberDatInFile) );
-		BufferedReader bufread = new BufferedReader(new InputStreamReader(is));
-		String curLine = null, tmpStr = null;
+		Iterator<String> lines = FileTools.parseLines(FileTools.readResource(ff.paramsPath)).iterator();
+			
+		String curLine = null;
 		int tmpInt = 0;
 		
 		final int initSize = 10; //the initial size of the arrays to store the data that is read
 
 		// Skip over the first line of header info
-		curLine = bufread.readLine();
+		curLine = lines.next();
 		
 		// 1. Read atom names and atomic masses
 		atomTypeNames = new String[initSize];
 		atomAtomicMasses = new double[initSize];
-		curLine = bufread.readLine();		
+		curLine = lines.next();
 		tmpInt = 0; // temporary integer
 		// Until we're at a blank line (or until we've read numAtomTypes)
 		while (!(StringParsing.getToken(curLine,1).equals(""))) {
@@ -254,21 +216,21 @@ public class ForcefieldParams implements Serializable {
 			atomTypeNames[tmpInt] = StringParsing.getToken(curLine,1);  // snag atom name
 			atomAtomicMasses[tmpInt] = (new Double(StringParsing.getToken(curLine,2))).doubleValue();
 			tmpInt++;
-			curLine = bufread.readLine();
+			curLine = lines.next();
 		}
 		atomTypeNames = reduceArraySize(atomTypeNames,tmpInt);
 		atomAtomicMasses = reduceArraySize(atomAtomicMasses,tmpInt);
 		
 
 		// Skip unknown line
-		curLine = bufread.readLine();
+		curLine = lines.next();
 
 		// 2. Read Bonds
 		bondAtomType1 = new int[initSize];
 		bondAtomType2 = new int[initSize];
 		bondHFC = new double[initSize];
 		bondEBL = new double[initSize];
-		curLine = bufread.readLine();		
+		curLine = lines.next();
 		tmpInt = 0;
 		while (!(StringParsing.getToken(curLine,1).equals(""))) {
 			
@@ -285,7 +247,7 @@ public class ForcefieldParams implements Serializable {
 			bondHFC[tmpInt] = (new Double(getDashedToken(curLine,3))).doubleValue();
 			bondEBL[tmpInt] = (new Double(getDashedToken(curLine,4))).doubleValue();
 			tmpInt++;
-			curLine = bufread.readLine();
+			curLine = lines.next();
 		}
 		bondAtomType1 = reduceArraySize(bondAtomType1,tmpInt);
 		bondAtomType2 = reduceArraySize(bondAtomType2,tmpInt);
@@ -299,7 +261,7 @@ public class ForcefieldParams implements Serializable {
 		angleAtomType3 = new int[initSize];
 		angleHFC = new double[initSize];
 		angleEBA = new double[initSize];
-		curLine = bufread.readLine();		
+		curLine = lines.next();
 		tmpInt = 0;
 		while (!(StringParsing.getToken(curLine,1).equals(""))) {
 			
@@ -318,7 +280,7 @@ public class ForcefieldParams implements Serializable {
 			angleHFC[tmpInt] = (new Double(getDashedToken(curLine,4))).doubleValue();
 			angleEBA[tmpInt] = (new Double(getDashedToken(curLine,5))).doubleValue();
 			tmpInt++;
-			curLine = bufread.readLine();
+			curLine = lines.next();
 		}
 		angleAtomType1 = reduceArraySize(angleAtomType1,tmpInt);
 		angleAtomType2 = reduceArraySize(angleAtomType2,tmpInt);
@@ -336,7 +298,7 @@ public class ForcefieldParams implements Serializable {
 		dihedTerm1 = new double[initSize];
 		dihedPhase = new double[initSize];
 		dihedPN = new int[initSize];
-		curLine = bufread.readLine();		
+		curLine = lines.next();
 		tmpInt = 0;
 		double tmpFlt = 0.0f;
 		while (!(StringParsing.getToken(curLine,1).equals(""))) {
@@ -370,7 +332,7 @@ public class ForcefieldParams implements Serializable {
 			if (dihedPN[tmpInt] < 0)
 				dihedPN[tmpInt] = -dihedPN[tmpInt];
 			tmpInt++;
-			curLine = bufread.readLine();
+			curLine = lines.next();
 		}
 		dihedAtomType1 = reduceArraySize(dihedAtomType1,tmpInt);
 		dihedAtomType2 = reduceArraySize(dihedAtomType2,tmpInt);
@@ -389,7 +351,7 @@ public class ForcefieldParams implements Serializable {
 		impDihedTerm1 = new double[initSize];
 		impDihedPhase = new double[initSize];
 		impDihedPN = new int[initSize];
-		curLine = bufread.readLine();		
+		curLine = lines.next();
 		tmpInt = 0;
 		while (!(StringParsing.getToken(curLine,1).equals(""))) {
 			
@@ -412,7 +374,7 @@ public class ForcefieldParams implements Serializable {
 			impDihedPhase[tmpInt] = (new Double(getDashedToken(curLine,6))).doubleValue();
 			impDihedPN[tmpInt] = (new Double(getDashedToken(curLine,7))).intValue();
 			tmpInt++;
-			curLine = bufread.readLine();
+			curLine = lines.next();
 		}
 		impDihedAtomType1 = reduceArraySize(impDihedAtomType1,tmpInt);
 		impDihedAtomType2 = reduceArraySize(impDihedAtomType2,tmpInt);
@@ -424,14 +386,14 @@ public class ForcefieldParams implements Serializable {
 		
 
 		// Skip 2 lines (we might also be able to go until the keyword MOD4
-		curLine = bufread.readLine();
-		curLine = bufread.readLine();
+		curLine = lines.next();
+		curLine = lines.next();
 
 		// Read the equivalence lines
 		// The first atomnum in equivAtoms is the main atom and numbers with index 1..n are
 		//  equivalent to the atom in index 0.
 		equivAtoms = new int[initSize][];
-		curLine = bufread.readLine();
+		curLine = lines.next();
 		tmpInt = 0;
 		while (!(StringParsing.getToken(curLine,1).equals(""))) {
 			
@@ -450,19 +412,19 @@ public class ForcefieldParams implements Serializable {
 				tmpInt2++;
 			}
 			tmpInt++;
-			curLine = bufread.readLine();
+			curLine = lines.next();
 		}
 		equivAtoms = reduceArraySize(equivAtoms,tmpInt);
 		
 				
 		// Skip a line (we might also be able to go until the keyword MOD4
-		curLine = bufread.readLine();		
+		curLine = lines.next();
 
 		// 6. Read vdw
 		vdwAtomType1 = new int[initSize];
 		vdwR = new double[initSize];
 		vdwE = new double[initSize];
-		curLine = bufread.readLine();
+		curLine = lines.next();
 		tmpInt = 0;
 		while (!(StringParsing.getToken(curLine,1).equals(""))) {
 			
@@ -476,14 +438,12 @@ public class ForcefieldParams implements Serializable {
 			vdwR[tmpInt] = (new Double(StringParsing.getToken(curLine,2))).doubleValue();
 			vdwE[tmpInt] = (new Double(StringParsing.getToken(curLine,3))).doubleValue();
 			tmpInt++;
-			curLine = bufread.readLine();
+			curLine = lines.next();
 		}
 		vdwAtomType1 = reduceArraySize(vdwAtomType1,tmpInt);
 		vdwR = reduceArraySize(vdwR,tmpInt);
 		vdwE = reduceArraySize(vdwE,tmpInt);		
-		
-		bufread.close();
-
+			
 	// DEBUG START * Good to keep for when the parameter file changes to
 	//  make sure you're reading it correctly
 /*	System.out.println("ATOM TYPES");
@@ -786,30 +746,6 @@ public class ForcefieldParams implements Serializable {
 		}
 		
 		return(false);
-	}
-        
-        
-        
-        private void setForcefieldInputs(){
-		// These values are specific to parm96a.dat
-		//   parm96a.dat that I made that has Cl info
-		switch(forcefld){
-			case AMBER:
-				amberDatInFile = "parm96a.dat";
-				break;
-			case CHARMM22: 
-				//KER: These numbers are specific to the charmm2Amber.dat file
-				amberDatInFile = "parmcharmm22.dat";
-				break;
-			case CHARMM19:
-			case CHARMM19NEUTRAL:
-				//KER: These numbers are specific for charmm19
-				amberDatInFile = "parmcharmm19.dat";
-				break;
-			default:
-				throw new Error("DON'T RECOGNIZE FORCEFIELD: "+forcefld.name());
-		}
-
 	}
         
         

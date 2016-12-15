@@ -24,9 +24,9 @@ public class TestCOMETS {
     @Test
     public void testCOMETS() {
         //Here's a specificity design with discrete flexibility, 5 mutable residues
-        ConfigFileParser cfp = ConfigFileParser.makeFromResources(
-            "/examples/comets.junit/KStar.cfg",
-            "/examples/comets.junit/multistate.spec0.cfg"
+        ConfigFileParser cfp = ConfigFileParser.makeFromFilePaths(
+            "examples/comets.junit/KStar.cfg",
+            "examples/comets.junit/multistate.spec0.cfg"
         );
         cfp.loadData();
         

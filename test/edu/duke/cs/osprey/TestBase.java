@@ -19,6 +19,7 @@ import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
+import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.HashCalculator;
 import edu.duke.cs.osprey.tools.Protractor;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
@@ -324,28 +325,23 @@ public class TestBase {
 	
 	protected static void initDefaultEnvironment() {
 		
-		// values from default config file
-		EnvironmentVars.setDataDir("dataFiles");
-		
 		// make energy function
 		double shellDistCutoff = Double.POSITIVE_INFINITY;
 		boolean usePoissonBoltzmann = false;
-		EnvironmentVars.curEFcnGenerator = new EnergyFunctionGenerator(makeDefaultFFParams(), shellDistCutoff, usePoissonBoltzmann);
+		ForcefieldParams ffparams = makeDefaultFFParams();
+		EnvironmentVars.curEFcnGenerator = new EnergyFunctionGenerator(ffparams, shellDistCutoff, usePoissonBoltzmann);
 		
 		// make residue templates
-		EnvironmentVars.resTemplates = new GenericResidueTemplateLibrary(
-			new String[] { "all_amino94.in", "all_aminont94.in", "all_aminoct94.in", "all_nuc94_and_gr.in" },
-			makeDefaultFFParams()
-		);
-		EnvironmentVars.resTemplates.loadTemplateCoords("all_amino_coords.in");
+		EnvironmentVars.resTemplates = new GenericResidueTemplateLibrary(ffparams);
+		EnvironmentVars.resTemplates.loadTemplateCoords(FileTools.readResource("/config/all_amino_coords.in"));
 		EnvironmentVars.resTemplates.makeDAminoAcidTemplates();
 		
 		// make rotamers
 		boolean useBackboneDependentRotamers = false;
-		EnvironmentVars.resTemplates.loadRotamerLibrary("LovellRotamer.dat", useBackboneDependentRotamers);
+		EnvironmentVars.resTemplates.loadRotamerLibrary(FileTools.readResource("/config/LovellRotamer.dat"), useBackboneDependentRotamers);
 		
 		// load residue entropies
-        EnvironmentVars.resTemplates.loadResEntropy("ResEntropy.dat");
+        EnvironmentVars.resTemplates.loadResEntropy(FileTools.readResource("/config/ResEntropy.dat"));
 	}
 	
 	protected static SearchProblem makeSearchProblem(EnergyMatrixConfig emConfig) {

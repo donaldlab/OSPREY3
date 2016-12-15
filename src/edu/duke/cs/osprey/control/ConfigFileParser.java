@@ -18,6 +18,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
+import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.StringParsing;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
@@ -47,14 +48,6 @@ public class ConfigFileParser {
         ConfigFileParser cfp = new ConfigFileParser();
         for (File file : files) {
             cfp.params.addParamsFromFile(file);
-        }
-        return cfp;
-    }
-    
-    public static ConfigFileParser makeFromResources(String ... resources) {
-        ConfigFileParser cfp = new ConfigFileParser();
-        for (String path : resources) {
-            cfp.params.addParamsFromResource(path);
         }
         return cfp;
     }
@@ -154,7 +147,7 @@ public class ConfigFileParser {
         ArrayList<String[]> freeBBZones = freeBBZoneTermini();
         DEEPerSettings dset = setupDEEPer();
         
-        SearchProblem search = new SearchProblem( name, params.getValue("PDBNAME"), 
+        SearchProblem search = new SearchProblem( name, params.getFile("PDBNAME").getAbsolutePath(), 
                 flexRes, allowedAAs,
                 params.getBool("AddWT"), 
                 params.getBool("doMinimize"),
@@ -361,28 +354,30 @@ public class ConfigFileParser {
                 params.getDouble("SHELLDISTCUTOFF"),
                 usePoissonBoltzmann );
         
-        String[] resTemplateFiles = getResidueTemplateFiles(curForcefieldParams.forcefld);
-        
-        GenericResidueTemplateLibrary resTemplates = new GenericResidueTemplateLibrary( resTemplateFiles, curForcefieldParams );
+        GenericResidueTemplateLibrary resTemplates = new GenericResidueTemplateLibrary(curForcefieldParams);
         
         //load template coordinates (necessary for all residues we might want to mutate to)
         //these will be matched to templates
-        resTemplates.loadTemplateCoords("all_amino_coords.in");
+        resTemplates.loadTemplateCoords(FileTools.readResource("/config/all_amino_coords.in"));
         
         //load rotamer libraries; the names of residues as they appear in the rotamer library file will be matched to templates
-        boolean dunbrackRots = params.getBool("UseDunbrackRotamers");
+        
+        
         // PGC 2015: Always load the Lovell Rotamer Library.
-    	resTemplates.loadRotamerLibrary(params.getValue("ROTFILE"), false);//see below; also gRotFile0 etc
-        if(dunbrackRots){ // Use the dunbrack rotamer library
-        	resTemplates.loadRotamerLibrary(params.getValue("DUNBRACKROTFILE"), true);//see below; also gRotFile0 etc
+        resTemplates.loadRotamerLibrary(params.readPath("ROTFILE"), false);
+        
+        // load backbone-dependent rotamers only if needed
+        //see below; also gRotFile0 etc
+        if (params.getBool("UseDunbrackRotamers")) {
+            resTemplates.loadRotamerLibrary(params.readPath("DUNBRACKROTFILE"), true);
         }
         
-		// AAO 2016: load generic rotamer libraries
-		for(String grotFile : params.searchParams("GROTFILE")) {
-			resTemplates.loadRotamerLibrary(params.getValue(grotFile), false);
-		}
+        // AAO 2016: load generic rotamer libraries
+        for(String grotFile : params.searchParams("GROTFILE")) {
+            resTemplates.loadRotamerLibrary(params.readPath(grotFile), false);
+        }
         
-        resTemplates.loadResEntropy(params.getValue("RESENTROPYFILE"));
+        resTemplates.loadResEntropy(params.readPath("RESENTROPYFILE"));
         
         //let's make D-amino acid templates by inverting the L-amino acid templates 
         resTemplates.makeDAminoAcidTemplates();
@@ -390,15 +385,13 @@ public class ConfigFileParser {
         EnvironmentVars.resTemplates = resTemplates;
         
         
-        String ramaGlyFile = params.getValue("RAMAGLYFILE");
-
-        if( ! ramaGlyFile.equalsIgnoreCase("none") ){
-            String ramaFiles[] = { EnvironmentVars.getDataDir() + ramaGlyFile,
-            EnvironmentVars.getDataDir() + params.getValue("RAMAPROFILE"),
-            EnvironmentVars.getDataDir() + params.getValue("RAMAGENFILE"),
-            EnvironmentVars.getDataDir() + params.getValue("RAMAPREPROFILE")
-            };
-            RamachandranChecker.getInstance().readInputFiles( ramaFiles );
+        if (!params.getValue("RAMAGLYFILE").equalsIgnoreCase("none")) {
+            RamachandranChecker.getInstance().readInputFiles(
+                params.readPath("RAMAGLYFILE"),
+                params.readPath("RAMAPROFILE"),
+                params.readPath("RAMAGENFILE"),
+                params.readPath("RAMAPREPROFILE")
+            );
         }
         
         
@@ -439,53 +432,8 @@ public class ConfigFileParser {
          */
     }
     
-    
-    String[] getResidueTemplateFiles (ForcefieldParams.FORCEFIELD forcefld){
-        //return names of residue template files
-        
-        //template file names are currently fixed
-        String aaFilename=null, aaNTFilename=null, aaCTFilename=null, grFilename=null;
-        
-        switch(forcefld){
-                case AMBER:
-                        //KER: This is for the standard amber parameters
-                        aaFilename =  "all_amino94.in";
-                        aaNTFilename =  "all_aminont94.in";
-                        aaCTFilename =  "all_aminoct94.in";
-                        grFilename = "all_nuc94_and_gr.in";
-                        break;
-                case CHARMM22:
-                        //KER: This if for using the charmm22 parameters:
-                        aaFilename = "all_amino_charmm22.txt";
-                        aaNTFilename = "all_amino_charmm22_nt.txt";
-                        aaCTFilename = "all_amino_charmm22_ct.txt";
-                        grFilename = "all_nuc_and_gr_charmm.in";
-                        break;
-                case CHARMM19NEUTRAL:
-                        //KER: This is for CHARMM19 parameters:
-                        aaFilename =  "all_amino_charmm19_neutral.in";
-                        aaNTFilename =  "all_amino_charmm19_neutral_nt.in";
-                        aaCTFilename =  "all_amino_charmm19_neutral_ct.in";
-                        grFilename = "all_nuc_and_gr_charmm.in";
-                        break;
-                case CHARMM19:
-                        aaFilename =  "all_amino_charmm19.in";
-                        aaNTFilename =  "all_amino_charmm19_nt.in";
-                        aaCTFilename =  "all_amino_charmm19_ct.in";
-                        grFilename = "all_nuc_and_gr_charmm.in";
-                        break;
-                default:
-                        throw new Error("FORCEFIELD not recognized");
-        }
-        
-        return new String[] {
-            aaFilename, aaNTFilename, aaCTFilename, grFilename
-        };
-    }
     // Getter function for the params.
     public ParamSet getParams(){
-    	return this.params;
+        return this.params;
     }
-    
-    
 }

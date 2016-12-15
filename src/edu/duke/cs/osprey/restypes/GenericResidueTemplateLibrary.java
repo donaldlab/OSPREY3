@@ -4,20 +4,20 @@
  */
 package edu.duke.cs.osprey.restypes;
 
-import edu.duke.cs.osprey.control.EnvironmentVars;
-import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.structure.Atom;
-import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.StringParsing;
-
 import java.io.BufferedReader;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.StringTokenizer;
+import java.util.Iterator;
+
+import edu.duke.cs.osprey.control.EnvironmentVars;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.structure.Atom;
+import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.tools.FileTools;
+import edu.duke.cs.osprey.tools.StringParsing;
 
 /**
  *
@@ -43,77 +43,70 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
     //a set of forcefield parameters
     public ForcefieldParams ffParams;
     
-    public GenericResidueTemplateLibrary(String[] templateFiles, ForcefieldParams fp){
+    public GenericResidueTemplateLibrary(ForcefieldParams fp){
         //create a library based on template files
         //we can then load coordinates and rotamer libraries for these templates separately, if we have these
 
         ffParams = fp;
         
-        for(String fileName : templateFiles){
-            loadTemplates(fileName);
-        }
+        loadTemplates(FileTools.readResource(ffParams.forcefld.aaPath));
+        loadTemplates(FileTools.readResource(ffParams.forcefld.aaNTPath));
+        loadTemplates(FileTools.readResource(ffParams.forcefld.aaCTPath));
+        loadTemplates(FileTools.readResource(ffParams.forcefld.grPath));
     }
         
         
-    public void loadTemplates(String templateFile){//load templates from the indicated files,
-        //and add them to our list of templates
-        try {
+    public void loadTemplates(String text) {
+        
+        Iterator<String> lines = FileTools.parseLines(text).iterator();
+        
+        // Skip over first 2 lines of header info
+        lines.next();
+        lines.next();
 
-            FileInputStream is = new FileInputStream( EnvironmentVars.getDataDir().concat(templateFile) );
-            BufferedReader bufread = new BufferedReader(new InputStreamReader(is));
-
-            // Skip over first 2 lines of header info
-            bufread.readLine();
-            bufread.readLine();
-
-            while(true) {//read all the templates
-                //at the beginning of this loop, curLine is the long amino acid name,
-                //which we discard.  readTemplate will thus start reading the next line
-                ResidueTemplate newTemplate = readTemplate(bufread);
-                if(newTemplate==null)//null newTemplate means lines needed to be skipped or something
-                    break;
-                else {
-                    templates.add(newTemplate);
-                }
+        while (true) {//read all the templates
+            //at the beginning of this loop, curLine is the long amino acid name,
+            //which we discard.  readTemplate will thus start reading the next line
+            ResidueTemplate newTemplate = readTemplate(lines);
+            if (newTemplate==null) {//null newTemplate means lines needed to be skipped or something
+                break;
+            } else {
+                templates.add(newTemplate);
             }
-            bufread.close();
-        
-        } catch (IOException ex) {
-            throw new Error("can't read template file: " + templateFile, ex);
         }
     }
     
 
     
-    private ResidueTemplate readTemplate (BufferedReader bufread) throws IOException {
+    private ResidueTemplate readTemplate(Iterator<String> lines) {
         //read a template from the BufferedReader provided (it reads a template file)
         //null means all templates already read from file
         
-        String curLine = bufread.readLine();
+        String curLine = lines.next();
         if(curLine==null)//file ended!
             return null;
         else if (curLine.length() >= 4){
                 if (curLine.substring(0,4).equalsIgnoreCase("stop")) {
-                        curLine = bufread.readLine();
+                        curLine = lines.next();
                         return null;//finished reading file!
                 }
         }
         // Skip blank line
-        curLine = bufread.readLine();
+        curLine = lines.next();
         // The next line contains the 3 letter amino acid name
-        curLine = bufread.readLine();
+        curLine = lines.next();
         String templateName = StringParsing.getToken(curLine,1);
         
         // Skip next 2 lines
-        curLine = bufread.readLine();
-        curLine = bufread.readLine();
+        curLine = lines.next();
+        curLine = lines.next();
         // Now we're into the section with atoms
-        curLine = bufread.readLine();
+        curLine = lines.next();
         // Skip the dummy atoms
         int dumPresent = 0;
         while (StringParsing.getToken(curLine,2).equalsIgnoreCase("DUMM")) {
                 dumPresent++;
-                curLine = bufread.readLine();
+                curLine = lines.next();
         }
         dumPresent++; // to adjust for 0-based
         
@@ -137,7 +130,7 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
                 }
                 
                 atomList.add(at);
-                curLine = bufread.readLine();  // read next line
+                curLine = lines.next();
         }
 
         
@@ -145,14 +138,14 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
 
 
         do {//we expect one or more blank lines before the LOOP and IMPROPER records
-            curLine = bufread.readLine();
+            curLine = lines.next();
         }
         while(curLine.trim().isEmpty());
         
         //KER: Read LOOP data if any
         if (curLine.length() >= 4){
                 if(StringParsing.getToken(curLine, 1).equalsIgnoreCase("LOOP")){
-                        curLine = bufread.readLine();
+                        curLine = lines.next();
                         while(!StringParsing.getToken(curLine,2).equals("")){
                                 //find atom1
                                 for(Atom a : atomList){
@@ -165,7 +158,7 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
                                                 }
                                         }
                                 }
-                                curLine = bufread.readLine();
+                                curLine = lines.next();
                         }
                 }
         }
@@ -184,7 +177,7 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
         else
                 atDone = false;
         while (!atDone) {
-                curLine = bufread.readLine();
+                curLine = lines.next();
                 if (curLine.length() >= 4)
                         atDone = curLine.substring(0,4).equalsIgnoreCase("done");
         }
@@ -196,21 +189,15 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
     
     
     
-    public void loadTemplateCoords(String fileName){
-        //load coordinates for templates, given in the following file
-        //they should match templates that are already loaded (same residue and atom names)
-        //we will need coordinates for any residue type that we mutate to
+    public void loadTemplateCoords(String text) {
+             
+        Iterator<String> lines = FileTools.parseLines(text).iterator();
         
-        try {
-                
-            FileInputStream is = new FileInputStream( EnvironmentVars.getDataDir().concat(fileName) );
-            BufferedReader bufread = new BufferedReader(new InputStreamReader(is));
-            String curLine = null, tmpName = null;
-            int tmpCtr = 0;
+        String curLine = null;
 
-            curLine = bufread.readLine();
+            curLine = lines.next();
             while ( curLine.startsWith("#") ){
-                    curLine = bufread.readLine();
+                    curLine = lines.next();
             }
             boolean foundRes = false;
             boolean foundAtom = false;
@@ -230,7 +217,7 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
 
                                 foundRes = true;
                                 for(int i=0;i<numAtoms;i++){
-                                        curLine = bufread.readLine();
+                                        curLine = lines.next();
                                         //Find the current atom in the residue
                                         foundAtom = false;
                                         for(int atNum=0; atNum<numAtoms; atNum++){
@@ -259,20 +246,14 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
                     //lines from the file
                     if(!foundRes){
                             for(int i=0; i<numAtoms;i++){
-                                    curLine=bufread.readLine();
+                                    curLine = lines.next();
                             }
                     }
                     //Read to catch the ENDRES line and then
                     //get the start of the next AA
-                    curLine = bufread.readLine();
-                    curLine = bufread.readLine();
+                    curLine = lines.next();
+                    curLine = lines.next();
             }
-            bufread.close();
-            
-        } catch (IOException ex) {
-            throw new Error("can't read template file: " + fileName, ex);
-        }
-        
     }
     
     /** 
@@ -281,13 +262,13 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
      * @param filename for Lovell-style or Dunbrack Rotamer Library.
      * @param backbone_dependent_rotamers Use Dunbrack Rotamer Library? 
      */
-    public void loadRotamerLibrary(String fileName, boolean dunbrack_backbone_dependent_rotamers){
+    public void loadRotamerLibrary(String text, boolean dunbrack_backbone_dependent_rotamers){
 
         if(dunbrack_backbone_dependent_rotamers){
-        	RotamerLibraryReader.readDunbrackRotamerLibraryForResiduePosition(fileName, this);
+        	RotamerLibraryReader.readDunbrackRotamerLibraryForResiduePosition(text, this);
         }
         else{
-        	RotamerLibraryReader.readRotLibrary(fileName, this);
+        	RotamerLibraryReader.readRotLibrary(text, this);
         }
         //read volume here too?
         
@@ -343,27 +324,19 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
     }
     
     
-    public void loadResEntropy(String entropyFile){
+    public void loadResEntropy(String text){
         //It is convenient to load residue entropies into a hash map, rather than
         //into template objects, because they correspond to template names
-        try {
-            FileInputStream is = new FileInputStream( EnvironmentVars.getDataDir().concat(entropyFile) );
-            BufferedReader bufread = new BufferedReader(new InputStreamReader(is));
+        for (String line : FileTools.parseLines(text)) {
             
-            String curLine = bufread.readLine();
-            
-            while (curLine != null ){
-                if(!curLine.startsWith("%")){
-                	String resType = StringParsing.getToken(curLine,1);
-                	double entropy = new Double(StringParsing.getToken(curLine,2)); 
-                	resEntropy.put(resType.toUpperCase(), entropy);
-		}
-                curLine = bufread.readLine();
+            // skip comments
+            if (line.startsWith("%")) {
+                continue;
             }
-            bufread.close();
             
-        } catch (IOException ex) {
-            throw new Error("can't read residue entropy file: " + entropyFile, ex);
+            String resType = StringParsing.getToken(line,1);
+            double entropy = new Double(StringParsing.getToken(line,2)); 
+            resEntropy.put(resType.toUpperCase(), entropy);
         }
     }
     

@@ -56,7 +56,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 			
 			// pre-pre-compute some more stuff
 			this.coulombFactor = coulombConstant/params.dielectric;
-			this.scaledCoulombFactor = this.coulombFactor*params.forcefld.getCoulombScaling();
+			this.scaledCoulombFactor = this.coulombFactor*params.forcefld.coulombScaling;
 			this.solvationCutoff2 = solvCutoff*solvCutoff;
 			
 			// save some flags
@@ -214,8 +214,8 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 				
 				// vdW scaling for 1-4 interactions
 				if (type == NEIGHBORTYPE.BONDED14) {
-					vdwparams.Aij *= pinfo.params.forcefld.getAij14Factor();
-					vdwparams.Bij *= pinfo.params.forcefld.getBij14Factor();
+					vdwparams.Aij *= pinfo.params.forcefld.Aij14Factor;
+					vdwparams.Bij *= pinfo.params.forcefld.Bij14Factor;
 				} else if (type == NEIGHBORTYPE.NONBONDED) {
 					vdwparams.Bij *= 2;
 				}
@@ -631,7 +631,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	private static void getNonBondedParams(ParamInfo pinfo, Atom atom, NBParams nbparams) {
 		
 		// HACKHACK: overrides for C atoms
-		if (atom.isCarbon() && pinfo.params.forcefld.reduceCRadii()) {
+		if (atom.isCarbon() && pinfo.params.forcefld.reduceCRadii) {
 			
 			// Jeff: shouldn't these settings be in a config file somewhere?
 			nbparams.epsilon = 0.1;

@@ -120,34 +120,33 @@ public class EEF1 implements Serializable {
 	//		current function may be necessary
 	public void readEEF1parm() throws Exception {
 		
-		FileInputStream is = new FileInputStream( EnvironmentVars.getDataDir().concat("eef1parm.dat") );
-		BufferedReader bufread = new BufferedReader(new InputStreamReader(is));
-		String curLine = null;
-		int tmpInt = 0;
+		try (BufferedReader bufread = new BufferedReader(new InputStreamReader(getClass().getResourceAsStream("/config/eef1parm.dat")))) {
+			
+			String curLine = null;
+			int tmpInt = 0;
 
-		//Skip over the first line of header info
-		curLine = bufread.readLine();
-		
-		//Read each parameter line, which is in the format:
-		//	Group type   Atom type   Volume   DGi(ref)   DGi(free)   DHi(ref)   DCpi(ref)   lambda_i   vdWri
-		curLine = bufread.readLine();		
-		tmpInt = 0; // temporary integer
-		// Until we're at a blank line (or until we've read numAtomTypes)
-		while (!(curLine==null)) {
-			groupEEF1names[tmpInt] = StringParsing.getToken(curLine,1);  // snag group name
-			atTypeEEF1names[tmpInt] = StringParsing.getToken(curLine,2);  // snag atom type
-			atEEF1Vol[tmpInt] = (new Double(StringParsing.getToken(curLine,3))).doubleValue();
-			dGiRef[tmpInt] = (new Double(StringParsing.getToken(curLine,4))).doubleValue();
-			dGiFree[tmpInt] = (new Double(StringParsing.getToken(curLine,5))).doubleValue();
-			dHiRef[tmpInt] = (new Double(StringParsing.getToken(curLine,6))).doubleValue();
-			dCpiRef[tmpInt] = (new Double(StringParsing.getToken(curLine,7))).doubleValue();
-			lambdai[tmpInt] = (new Double(StringParsing.getToken(curLine,8))).doubleValue();
-			vdWri[tmpInt] = (new Double(StringParsing.getToken(curLine,9))).doubleValue();
-			tmpInt++;
+			//Skip over the first line of header info
 			curLine = bufread.readLine();
+			
+			//Read each parameter line, which is in the format:
+			//	Group type   Atom type   Volume   DGi(ref)   DGi(free)   DHi(ref)   DCpi(ref)   lambda_i   vdWri
+			curLine = bufread.readLine();		
+			tmpInt = 0; // temporary integer
+			// Until we're at a blank line (or until we've read numAtomTypes)
+			while (!(curLine==null)) {
+				groupEEF1names[tmpInt] = StringParsing.getToken(curLine,1);  // snag group name
+				atTypeEEF1names[tmpInt] = StringParsing.getToken(curLine,2);  // snag atom type
+				atEEF1Vol[tmpInt] = (new Double(StringParsing.getToken(curLine,3))).doubleValue();
+				dGiRef[tmpInt] = (new Double(StringParsing.getToken(curLine,4))).doubleValue();
+				dGiFree[tmpInt] = (new Double(StringParsing.getToken(curLine,5))).doubleValue();
+				dHiRef[tmpInt] = (new Double(StringParsing.getToken(curLine,6))).doubleValue();
+				dCpiRef[tmpInt] = (new Double(StringParsing.getToken(curLine,7))).doubleValue();
+				lambdai[tmpInt] = (new Double(StringParsing.getToken(curLine,8))).doubleValue();
+				vdWri[tmpInt] = (new Double(StringParsing.getToken(curLine,9))).doubleValue();
+				tmpInt++;
+				curLine = bufread.readLine();
+			}
 		}
-		
-		bufread.close();
 	}
 	
 	//Returns the dG(ref), dG(free), atom volume, and lambda parameters for 

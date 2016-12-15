@@ -5,6 +5,10 @@
  */
 package edu.duke.cs.osprey.dof.deeper;
 
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.StringTokenizer;
+
 /**
  * 
  * This class checks backbone dihedrals against experimental Ramachandran-plot contours.
@@ -13,10 +17,8 @@ package edu.duke.cs.osprey.dof.deeper;
  */
 
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.Protractor;
-import java.io.*;
-import java.util.Arrays;
-import java.util.StringTokenizer;
 
 
 
@@ -50,39 +52,33 @@ public class RamachandranChecker {
     }
 
 
-    public void readInputFiles(String[] fileNames){//Filenames in order: gly, pro, general, pre-pro
+    public void readInputFiles(String glyText, String proText, String generalText, String preproText) {
 
         tables = new double[4][180][180];
+        
+        String[] texts = { glyText, proText, generalText, preproText };
 
         for(int a=0;a<4;a++){
+        
+            Iterator<String> lines = FileTools.parseLines(texts[a]).iterator();
 
-            try{
-                BufferedReader br = new BufferedReader( new FileReader( fileNames[a] ) );
-                String line = br.readLine();
-
-                while( line.charAt(0) == '#' )
-                    line = br.readLine();
-
-                for(int phiBin=0; phiBin<180; phiBin++){
-                    for(int psiBin=0; psiBin<180; psiBin++){
-
-                        StringTokenizer st = new StringTokenizer(line," ");
-
-                        st.nextToken();
-                        st.nextToken();
-
-                        tables[a][phiBin][psiBin] = Double.valueOf(st.nextToken());
-
-                        line = br.readLine();
+            for(int phiBin=0; phiBin<180; phiBin++){
+                for(int psiBin=0; psiBin<180; psiBin++){
+                
+                    String line = lines.next();
+                    
+                    // skip comments
+                    if (line.startsWith("#")) {
+                        continue;
                     }
+
+                    StringTokenizer st = new StringTokenizer(line," ");
+                    st.nextToken();
+                    st.nextToken();
+
+                    tables[a][phiBin][psiBin] = Double.valueOf(st.nextToken());
                 }
-
-                br.close();
             }
-            catch(IOException ex){
-                throw new Error("can't read Ramachandran plot file " + fileNames[a], ex);
-            }
-
         }
     }
     

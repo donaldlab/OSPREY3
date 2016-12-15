@@ -4,19 +4,11 @@
  */
 package edu.duke.cs.osprey.control;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.Serializable;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.TreeMap;
 
 //This class stores parameters from input files
 //Control package classes will probably each want a param set
@@ -25,6 +17,10 @@ import java.util.TreeMap;
 
 
 import edu.duke.cs.osprey.handlempi.MPIMaster;
+import edu.duke.cs.osprey.tools.FileTools;
+import edu.duke.cs.osprey.tools.FileTools.FilePathRoot;
+import edu.duke.cs.osprey.tools.FileTools.PathRoot;
+import edu.duke.cs.osprey.tools.FileTools.ResourcePathRoot;
 import edu.duke.cs.osprey.tools.StringParsing;
 
 /**
@@ -34,22 +30,35 @@ public class ParamSet implements Serializable {
 	
 	private static final long serialVersionUID = 4364963601242324780L;
 	
-	private Map<String,String> params;//map parameter/value pairs
+	private static class Entry {
+		
+		public final String value;
+		public final PathRoot root;
+		
+		public Entry(String value, PathRoot root) {
+			this.value = value;
+			this.root = root;
+		}
+	}
+	
+	private Map<String,Entry> params;//map parameter/value pairs
 	//parameter names will be stored as all upper-case, to avoid confusion
 
-	private Map<String,String> defaultParams;
+	private Map<String,Entry> defaultParams;
 	
-	private Map<String,String> wildcardDefaults;
+	private Map<String,Entry> wildcardDefaults;
 	//Handles default params of the form "BLABLA* 1" (would map BLABLA -> 1)
 	//then for example if we needed a default for parameter BLABLABLA, it would return 1
 	
 	public ParamSet() {
 		
-		params = new TreeMap<>();
-		defaultParams = new TreeMap<>();
-		wildcardDefaults = new TreeMap<>();
+		params = new HashMap<>();
+		defaultParams = new HashMap<>();
+		wildcardDefaults = new HashMap<>();
 		
-		loadParamsFromResource("/config/defaults.cfg", defaultParams);
+		// load the defaults
+		ResourcePathRoot configRoot = new ResourcePathRoot("/config");
+		loadParams(configRoot, "defaults.cfg", defaultParams);
 		
 		// handle wildcard defaults
 		for (String param : defaultParams.keySet()) {
@@ -66,86 +75,73 @@ public class ParamSet implements Serializable {
 		wildcardDefaults = new HashMap<>(other.wildcardDefaults);
 	}
 	
+	public void addParamsFromFile(String path) {
+		addParamsFromFile(new File(path));
+	}
+	
 	public void addParamsFromFile(File file) {
-		loadParamsFromFile(file, params);
+		FilePathRoot root = new FilePathRoot(file.getParentFile());
+		file = root.makeRelative(file);
+		addParams(root, file.getPath());
 	}
 	
 	public void addParamsFromResource(String path) {
-		loadParamsFromResource(path, params);
+		ResourcePathRoot root = ResourcePathRoot.parentOf(path);
+		path = root.makeRelative(path);
+		addParams(root, path);
 	}
 	
-	private void loadParamsFromFile(File file, Map<String,String> paramMap) {
-		try (FileInputStream fin = new FileInputStream(file)) {
-			loadParams(fin, paramMap);
-		} catch (FileNotFoundException ex) {
-			throw new RuntimeException("couldn't find config file: " + file.getAbsolutePath());
-		} catch (IOException ex) {
-			throw new RuntimeException("couldn't read config file: " + file.getAbsolutePath());
-		}
+	public void addParams(PathRoot root, String path) {
+		loadParams(root, path, params);
 	}
 	
-	private void loadParamsFromResource(String path, Map<String,String> paramMap) {
-		
-		// try to find the resource
-		URL url = getClass().getResource(path);
-		if (url == null) {
-			throw new RuntimeException("couldn't find config resource: " + path);
-		}
-		
-		try (InputStream in = url.openStream()) {
-			loadParams(in, paramMap);
-		} catch (IOException ex) {
-			throw new RuntimeException("couldn't read config resource: " + url.toString());
-		}
-	}
-	
-	private static void loadParams(InputStream in, Map<String,String> paramMap) {
+	private static void loadParams(PathRoot root, String path, Map<String,Entry> paramMap) {
 		// load all parameters for cfg file fName into the map paramMap
 		
+		// read the file
+		String text = root.read(path);
+		
 		// First attempt to open and read the config file
-		try (BufferedReader bin = new BufferedReader(new InputStreamReader(in))) {
+		// read line-by-line
+		for (String line : FileTools.parseLines(text)) {
 			
-			// read line-by-line
-			String line;
-			while ((line = bin.readLine()) != null) {
-				
-				// strip comments
-				int commentStartPos = line.indexOf('%');
-				if (commentStartPos >= 0) {
-					line = line.substring(0, commentStartPos);
-				}
-				
-				// skip blank lines
-				if (line.isEmpty()) {
-					continue;
-				}
-				
-				// parse the param
-				String paramName = StringParsing.getToken(line, 1).trim();
-				paramName = paramName.toUpperCase();
-				if (paramMap.containsKey(paramName)) {
-				
-					// duplicate param
-					throw new RuntimeException("ERROR: parameter " + paramName + " already read");
-					
-				} else {
-					
-					// new param
-					String paramVal = line.substring(paramName.length() + 1);
-					paramMap.put(paramName, paramVal);
-				}
+			// strip comments
+			int commentStartPos = line.indexOf('%');
+			if (commentStartPos >= 0) {
+				line = line.substring(0, commentStartPos);
 			}
 			
-		} catch (Exception ex) {
-			throw new Error("ERROR: error reading config", ex);
+			// skip blank lines
+			if (line.isEmpty()) {
+				continue;
+			}
+			
+			// parse the param
+			String paramName = StringParsing.getToken(line, 1).trim();
+			paramName = paramName.toUpperCase();
+			if (paramMap.containsKey(paramName)) {
+			
+				// duplicate param
+				throw new RuntimeException("parameter " + paramName + " already read");
+				
+			} else {
+				
+				// new param
+				String paramVal = line.substring(paramName.length() + 1);
+				paramMap.put(paramName, new Entry(paramVal, root));
+			}
 		}
 	}
 
 	
 	//Sets the value of parameter paramName to newValue
-	public void setValue(String paramName, String newValue){
+	public void setValue(String paramName, String newValue) {
+		setValue(paramName, newValue, null);
+	}
+	
+	public void setValue(String paramName, String newValue, PathRoot root) {
 		paramName = paramName.toUpperCase();
-		params.put(paramName, newValue);
+		params.put(paramName, new Entry(newValue, root));
 	}
 
         
@@ -155,33 +151,57 @@ public class ParamSet implements Serializable {
         //If there is none, we try to get a value from defaultParams (loaded from default cfg)
         //If there is none there either, this is an error
         
-	public String getValue(String paramName){
+    public String getValue(String paramName){
             
             paramName = paramName.toUpperCase();
-            String val = params.get(paramName);
+            Entry entry = params.get(paramName);
             
-            if(val==null){
-                val = defaultParams.get(paramName);
+            if(entry==null){
+                entry = defaultParams.get(paramName);
                 
-                if(val==null){//See if this is a wildcard param
-                    for(String wildcard : wildcardDefaults.keySet()){
-                        if(paramName.startsWith(wildcard)){
-                            val = wildcardDefaults.get(wildcard);
-                            break;
-                        }
-                    }
+                if(entry==null){//See if this is a wildcard param
+                   entry = findWildcard(paramName);
                 }
                 
-                if(val==null)//still null
+                if(entry==null)//still null
                     throw new RuntimeException("ERROR: Parameter "+paramName+" not found");
 
-                MPIMaster.printIfMaster("Parameter "+paramName+" not set. Using default value "+val);
+                MPIMaster.printIfMaster("Parameter "+paramName+" not set. Using default value "+entry.value);
             }
             else
-                MPIMaster.printIfMaster("Parameter "+paramName+" set to "+val);
+                MPIMaster.printIfMaster("Parameter "+paramName+" set to "+entry.value);
             
-            return val.trim();
-	}
+            return entry.value.trim();
+    }
+    
+    private Entry findWildcard(String paramName) {
+        for(String wildcard : wildcardDefaults.keySet()){
+            if(paramName.startsWith(wildcard)){
+                return wildcardDefaults.get(wildcard);
+            }
+        }
+        return null;
+    }
+    
+    public PathRoot getRoot(String paramName) {
+        
+        paramName = paramName.toUpperCase();
+        Entry entry = params.get(paramName);
+        
+        if (entry == null) {
+            entry = defaultParams.get(paramName);
+        }
+        
+        if (entry == null) {
+            entry = findWildcard(paramName);
+        }
+        
+        if (entry != null) {
+            return entry.root;
+        }
+        
+        return null;
+    }
         
         
         //The following methods return a parameter expected to be a certain non-string type
@@ -223,12 +243,10 @@ public class ParamSet implements Serializable {
             paramName = paramName.toUpperCase();
             
             if(params.containsKey(paramName))
-                return params.get(paramName);
+                return params.get(paramName).value;
             else
                 return getValue("RUNNAME") + suffix;
         }
-        
-        
         
         
         //searching for a parameter
@@ -255,9 +273,10 @@ public class ParamSet implements Serializable {
 	public String getValue(String paramName, String defaultVal){
             
             paramName = paramName.toUpperCase();
-            String val = params.get(paramName);
+            Entry entry = params.get(paramName);
+            String val;
             
-            if(val==null){
+            if(entry==null){
                 if(defaultVal==null)//no default...must be set
                     throw new RuntimeException("ERROR: Parameter "+paramName+" not found");
                 
@@ -265,6 +284,7 @@ public class ParamSet implements Serializable {
                 MPIMaster.printIfMaster("Parameter "+paramName+" not set. Using default value "+defaultVal);
             }
             else
+                val = entry.value;
                 MPIMaster.printIfMaster("Parameter "+paramName+" set to "+val);
             
             return val.trim();
@@ -302,5 +322,20 @@ public class ParamSet implements Serializable {
                 throw new RuntimeException("ERROR: Value "+val+" for parameter "+paramName+" can't be parsed as a double");
             }
         }
+        
+        public File getFile(String paramName) {
+            String path = getValue(paramName);
+            PathRoot root = getRoot(paramName);
+            if (root instanceof FilePathRoot) {
+                return ((FilePathRoot)root).resolve(new File(path));
+            }
+            throw new Error("param " + paramName + " was loaded from a resource, so it can't reference files");
+        }
+
+		public String readPath(String paramName) {
+			String path = getValue(paramName);
+			PathRoot root = getRoot(paramName);
+			return root.read(path);
+		}
         
 }

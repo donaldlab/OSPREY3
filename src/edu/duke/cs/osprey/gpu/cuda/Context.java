@@ -2,11 +2,10 @@ package edu.duke.cs.osprey.gpu.cuda;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 
-import edu.duke.cs.osprey.tools.ResourceExtractor;
+import edu.duke.cs.osprey.tools.FileTools.ResourcePathRoot;
 import jcuda.Pointer;
 import jcuda.driver.CUcontext;
 import jcuda.driver.CUctx_flags;
@@ -46,21 +45,12 @@ public class Context {
 		// check the cache first
 		CUmodule kernel = kernels.get(name);
 		if (kernel == null) {
-				
-			// cache miss, load the kernel
-		
-			// do we have a kernel binary?
-			String resourcePath = String.format("kernelBinaries/%s.bin", name);
-			URL url = getClass().getResource(resourcePath);
-			if (url == null) {
-				throw new IOException("precompiled kernel binary not found at: " + resourcePath);
-			}
 			
-			// yup, load it
-			File kernelFile = ResourceExtractor.extract(url);
+			// cache miss, load the kernel
+			File kernelFile = new ResourcePathRoot(getClass()).extractToTempFile(String.format("kernelBinaries/%s.bin", name));
 			kernel = new CUmodule();
 			JCudaDriver.cuModuleLoad(kernel, kernelFile.getAbsolutePath());
-			
+		
 			// update the cache
 			kernels.put(name, kernel);
 		}

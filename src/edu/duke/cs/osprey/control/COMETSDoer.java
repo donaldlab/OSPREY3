@@ -5,7 +5,6 @@
  */
 package edu.duke.cs.osprey.control;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.StringTokenizer;
 
@@ -15,6 +14,7 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.tools.FileTools.PathRoot;
 import edu.duke.cs.osprey.tools.StringParsing;
 
 /**
@@ -71,8 +71,9 @@ public class COMETSDoer {
         System.out.println();
         
         for(int state=0; state<numStates; state++){
+            ConfigFileParser stateCfp = stateCfps[state];
             mutable2StatePosNums.add( stateMutablePos(state,cfp.params,numTreeLevels) );
-            stateSP[state] = makeStateSearchProblem(state, cfp);
+            stateSP[state] = makeStateSearchProblem(state, stateCfp);
             
             System.out.println();
             System.out.println("State "+state+" matrices ready.");
@@ -127,7 +128,10 @@ public class COMETSDoer {
         String stateSysFile = StringParsing.getToken(stateConfigFiles, 1);
         String stateDEEFile = StringParsing.getToken(stateConfigFiles, 2);
 
-        ConfigFileParser stateCFGP = ConfigFileParser.makeFromFilePaths(stateSysFile, stateDEEFile);
+        ConfigFileParser stateCFGP = new ConfigFileParser();
+        PathRoot root = cfp.params.getRoot("STATECFGFILES" + state);
+        stateCFGP.params.addParams(root, stateSysFile);
+        stateCFGP.params.addParams(root, stateDEEFile);
         stateCFGP.loadData();
         return stateCFGP;
     }
@@ -155,7 +159,7 @@ public class COMETSDoer {
         
         ArrayList<ArrayList<String>> stateAAOptions = cfgP.getAllowedAAs();
         
-        Molecule wtMolec = PDBFileReader.readPDBFile( cfgP.params.getValue("PDBName"), null );
+        Molecule wtMolec = PDBFileReader.readPDBFile( cfgP.params.readPath("PDBName"), null );
         ArrayList<String> flexRes = cfgP.getFlexRes();
         
         

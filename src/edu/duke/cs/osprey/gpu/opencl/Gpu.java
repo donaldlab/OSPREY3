@@ -2,13 +2,14 @@ package edu.duke.cs.osprey.gpu.opencl;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
 import com.jogamp.opencl.CLDevice;
 import com.jogamp.opencl.CLProgram;
+
+import edu.duke.cs.osprey.tools.FileTools;
 
 public class Gpu {
 	
@@ -50,11 +51,8 @@ public class Gpu {
 	
 	public CLProgram compileProgram(String filename)
 	throws IOException {
-		URL url = getClass().getResource("kernelSource/" + filename);
-		if (url == null) {
-			throw new IOException(String.format("can't find gpu program file: %s\nlooked in folder: %s", filename, getClass().getResource("kernels").toString()));
-		}
-		try (InputStream in = url.openStream()) {
+		
+		try (InputStream in = FileTools.openResource("kernelSource/" + filename, getClass())) {
 			
 			CLProgram program;
 			if (DumpCompilerLog) {

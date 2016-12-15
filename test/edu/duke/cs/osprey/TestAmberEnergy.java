@@ -6,11 +6,9 @@ import static org.junit.Assert.*;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 
@@ -28,13 +26,7 @@ public class TestAmberEnergy extends TestBase {
 	
 	@BeforeClass
 	public static void before() {
-            
-		// load static config for amber forcefield
-		EnvironmentVars.setDataDir("dataFiles");
-		EnvironmentVars.resTemplates = new GenericResidueTemplateLibrary(
-			new String[] { "all_amino94.in", "all_aminont94.in", "all_aminoct94.in", "all_nuc94_and_gr.in" },
-			makeFFParams(false)
-		);
+		initDefaultEnvironment();
 	}
 	
 	private static ForcefieldParams makeFFParams(boolean doSolv) {
@@ -52,7 +44,7 @@ public class TestAmberEnergy extends TestBase {
 		);
 	}
 	
-        @Test
+	@Test
 	public void test1CC8WithSolv()
 	throws Exception {
 		

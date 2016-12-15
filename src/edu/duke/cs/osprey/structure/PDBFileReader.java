@@ -4,16 +4,14 @@
  */
 package edu.duke.cs.osprey.structure;
 
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Iterator;
 
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.kstar.KSTermini;
 import edu.duke.cs.osprey.restypes.DAminoAcidHandler;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
+import edu.duke.cs.osprey.tools.FileTools;
 
 /**
  *
@@ -21,11 +19,19 @@ import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
  */
 public class PDBFileReader {
 
-	public static Molecule readPDBFile(String PDBFile) {
-		return readPDBFile(PDBFile, null);
+	public static Molecule readPDBFile(String PDBPath) {
+		return readPDBFile(PDBPath, null);
 	}
 	
-	public static Molecule readPDBFile( String PDBFile, KSTermini termini ){
+	public static Molecule readPDBFile( String PDBPath, KSTermini termini ){
+		return readPDB(FileTools.readFile(PDBPath), termini);
+	}
+	
+	public static Molecule readPDB(String pdbText) {
+		return readPDB(pdbText, null);
+	}
+	
+	public static Molecule readPDB(String pdbText, KSTermini termini) {
 		//Take pretty much verbatim from PDBChemModel
 		//if templates not null, four things we may decide to do (should give options):
 		//1. Assign templates to residues 2. Rename atoms in matching residues to match templates
@@ -52,99 +58,89 @@ public class PDBFileReader {
 		
 		Molecule m = new Molecule();
 
-		try {
+		Iterator<String> lines = FileTools.parseLines(pdbText).iterator();
+		String curLine = lines.next();
 
-			FileInputStream is = new FileInputStream(PDBFile);
-			BufferedReader bufread = new BufferedReader(new InputStreamReader(is));
-
-			String curLine = bufread.readLine();
-
-			ArrayList<String> helixStarts = new ArrayList<>();//Residues where helices start
-			ArrayList<String> helixEnds = new ArrayList<>();//Residues where they end
-			ArrayList<Character> helixChains = new ArrayList<>();
-			ArrayList<String> sheetStarts = new ArrayList<>();
-			ArrayList<String> sheetEnds = new ArrayList<>();
-			ArrayList<Character> sheetChains = new ArrayList<>();
-			//So for each helix/sheet, 
-			//we record its starting and ending residue numbers and its chain
+		ArrayList<String> helixStarts = new ArrayList<>();//Residues where helices start
+		ArrayList<String> helixEnds = new ArrayList<>();//Residues where they end
+		ArrayList<Character> helixChains = new ArrayList<>();
+		ArrayList<String> sheetStarts = new ArrayList<>();
+		ArrayList<String> sheetEnds = new ArrayList<>();
+		ArrayList<Character> sheetChains = new ArrayList<>();
+		//So for each helix/sheet, 
+		//we record its starting and ending residue numbers and its chain
 
 
-			ArrayList<Atom> curResAtoms = new ArrayList<>();
-			ArrayList<double[]> curResCoords = new ArrayList<>();//coordinates for these atoms
-			String curResFullName = "NONE";
+		ArrayList<Atom> curResAtoms = new ArrayList<>();
+		ArrayList<double[]> curResCoords = new ArrayList<>();//coordinates for these atoms
+		String curResFullName = "NONE";
 
-			while(curLine!=null){
+		while(curLine!=null){
 
-				// First pad line to 80 characters
-				int lineLen = curLine.length();
-				for (int i=0; i < (80-lineLen); i++)
-					curLine += " ";
-                                
-                                if(curLine.startsWith("MODEL"))
-                                    System.out.println("Warning: OSPREY doesn't understand PDB files with multiple models. ");
+			// First pad line to 80 characters
+			int lineLen = curLine.length();
+			for (int i=0; i < (80-lineLen); i++)
+				curLine += " ";
+							
+			if(curLine.startsWith("MODEL"))
+				System.out.println("Warning: OSPREY doesn't understand PDB files with multiple models. ");
 
-				if ( (curLine.regionMatches(true,0,"ATOM  ",0,6)) || (curLine.regionMatches(true,0,"HETATM",0,6)) ){
+			if ( (curLine.regionMatches(true,0,"ATOM  ",0,6)) || (curLine.regionMatches(true,0,"HETATM",0,6)) ){
 
-					if( EnvironmentVars.deleteNonTemplateResidues ){//Ignore alternates other than A; treat A alternates as the real structure
-						char alt = curLine.charAt(16);//This specifies which alternate the atom is (space if not an alternate)
-						if( ( alt != ' ' ) && ( alt != 'A' ) ){
-							curLine = bufread.readLine();
-							continue;//skip the line and  go to the next one
-						}
+				if( EnvironmentVars.deleteNonTemplateResidues ){//Ignore alternates other than A; treat A alternates as the real structure
+					char alt = curLine.charAt(16);//This specifies which alternate the atom is (space if not an alternate)
+					if( ( alt != ' ' ) && ( alt != 'A' ) ){
+						curLine = lines.next();
+						continue;//skip the line and  go to the next one
 					}
-
-					String fullResName = fullResidueName(curLine);
-
-					if( (!fullResName.equalsIgnoreCase(curResFullName)) && !curResAtoms.isEmpty() ){
-						
-						Residue newRes = new Residue( curResAtoms, curResCoords, curResFullName, m );
-
-						if(termini != null && !termini.contains(newRes)) filter.add(m.residues.size());
-						
-						m.appendResidue(newRes);
-						
-						curResAtoms = new ArrayList<>();
-						curResCoords = new ArrayList<>();
-					}
-
-					curResFullName = fullResName;
-
-					readAtom(curLine,curResAtoms,curResCoords);
 				}
 
-				else if(curLine.regionMatches(true,0,"HELIX  ",0,7)){//Read helix records
-					helixStarts.add( curLine.substring(21,25).trim() );
-					helixEnds.add( curLine.substring(33,37).trim() );
-					helixChains.add(curLine.charAt(19));
-				}
-				else if(curLine.regionMatches(true,0,"SHEET  ",0,7)){
-					sheetStarts.add( curLine.substring(22,26).trim() );
-					sheetEnds.add( curLine.substring(33,37).trim() );
-					sheetChains.add(curLine.charAt(21));
+				String fullResName = fullResidueName(curLine);
+
+				if( (!fullResName.equalsIgnoreCase(curResFullName)) && !curResAtoms.isEmpty() ){
+					
+					Residue newRes = new Residue( curResAtoms, curResCoords, curResFullName, m );
+
+					if(termini != null && !termini.contains(newRes)) filter.add(m.residues.size());
+					
+					m.appendResidue(newRes);
+					
+					curResAtoms = new ArrayList<>();
+					curResCoords = new ArrayList<>();
 				}
 
-				curLine = bufread.readLine(); 
+				curResFullName = fullResName;
+
+				readAtom(curLine,curResAtoms,curResCoords);
 			}
 
-			//make last residue
-			if( ! curResAtoms.isEmpty() ){
-				Residue newRes = new Residue( curResAtoms, curResCoords, curResFullName, m );
-				if(termini != null && !termini.contains(newRes)) filter.add(m.residues.size());
-				m.appendResidue(newRes);
+			else if(curLine.regionMatches(true,0,"HELIX  ",0,7)){//Read helix records
+				helixStarts.add( curLine.substring(21,25).trim() );
+				helixEnds.add( curLine.substring(33,37).trim() );
+				helixChains.add(curLine.charAt(19));
+			}
+			else if(curLine.regionMatches(true,0,"SHEET  ",0,7)){
+				sheetStarts.add( curLine.substring(22,26).trim() );
+				sheetEnds.add( curLine.substring(33,37).trim() );
+				sheetChains.add(curLine.charAt(21));
 			}
 
-
-			bufread.close();  // close the buffer
-
-			deleteFilteredResidues(m, filter);
-			
-			//Assign the secondary structure we have read
-			assignSecStruct(m, helixStarts, helixEnds, helixChains, sheetStarts, sheetEnds, sheetChains);
-			
-		} catch(IOException ex){
-			throw new Error("can't read PDB file: "+PDBFile, ex);
+			curLine = lines.next(); 
 		}
 
+		//make last residue
+		if( ! curResAtoms.isEmpty() ){
+			Residue newRes = new Residue( curResAtoms, curResCoords, curResFullName, m );
+			if(termini != null && !termini.contains(newRes)) filter.add(m.residues.size());
+			m.appendResidue(newRes);
+		}
+
+
+		deleteFilteredResidues(m, filter);
+		
+		//Assign the secondary structure we have read
+		assignSecStruct(m, helixStarts, helixEnds, helixChains, sheetStarts, sheetEnds, sheetChains);
+			
 		//assign proline puckers?  if treated as DOF might handle along with regular dihedrals
 		if(EnvironmentVars.assignTemplatesToStruct)
 			assignTemplates(m);
