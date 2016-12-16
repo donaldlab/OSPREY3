@@ -2,7 +2,12 @@ package edu.duke.cs.osprey.partitionfunctionbounds.continuous;
 
 import java.util.function.ToDoubleFunction;
 import Jama.*;
+import cern.colt.Arrays;
+import java.time.LocalDateTime;
+import com.quantego.clp.*;
 
+
+import com.quantego.clp.CLP;
 public class RKHSFunction {
 
     public Kernel k;
@@ -52,12 +57,34 @@ public class RKHSFunction {
      * @param domainUB
      * @param f
      */
-    public RKHSFunction(Kernel k, double[] domainLB, double[] domainUB, ToDoubleFunction<double[]> f) {
+    public RKHSFunction(
+	    Kernel k, 
+	    double[] domainLB, 
+	    double[] domainUB, 
+	    ToDoubleFunction<double[]> f) {
 	// gridSample from dimensions
 	// construct feature maps
 	// fit coefficients
 	// test fit --> increase samples if necessary
+	this.domainLB = domainLB;
+	this.domainUB = domainUB;
+	this.k = k;
+	this.referenceFunction = f;
 	this.gridSampleFit(k, f, domainLB, domainUB);
+	this.referenceFunction = f;
+    }
+    
+    public RKHSFunction(
+	    Kernel k, 
+	    double[] domainLB,
+	    double[] domainUB,
+	    ToDoubleFunction<double[]> f, 
+	    int numSamplesPerDim) {
+	this.numSamplesPerDimension = numSamplesPerDim;
+	this.domainLB = domainLB;
+	this.domainUB = domainUB;
+	this.k = k;
+	this.gridSampleFit(k, f, domainLB, domainUB, true);
 	this.referenceFunction = f;
     }
 
@@ -93,6 +120,51 @@ public class RKHSFunction {
 	return  ans.transpose().getArray()[0];	    
     }
 
+    public double[] fitCoeffsInterpolate(FeatureMap[] fMaps, ToDoubleFunction<double[]> func) {
+	double[][] samples = this.gridSample(this.numSamplesPerDimension*10, this.domainLB, this.domainUB);
+	
+	double[][] kVals = new double[samples.length][fMaps.length];
+	for (int i=0; i<kVals.length; i++) { 
+	    for (int j=0; j<kVals[0].length; j++) { 
+		kVals[i][j] = fMaps[j].eval(samples[i]) + Math.random()*fMaps[j].eval(samples[i])*0.001;
+	    }
+	}
+	
+	double[] fVals = new double[samples.length];
+	for (int i=0; i<fVals.length; i++) { 
+	    fVals[i] = func.applyAsDouble(samples[i]);
+	}
+	
+	Matrix gramian = new Matrix(kVals);
+	Matrix funcVal = new Matrix(fVals, fVals.length); 
+	double[] solution = gramian.solve(funcVal).getColumnPackedCopy();
+	
+	return solution;
+    }
+    
+    public double[] fitCoeffsIdentity(FeatureMap[] fMaps, ToDoubleFunction<double[]> func) { 
+	double[][] kVals = new double[fMaps.length][fMaps.length];
+	for (int i=0; i<kVals.length; i++) { 
+	    for (int j=0; j<kVals[0].length; j++) { 
+		kVals[i][j] = fMaps[i].eval(fMaps[j].loc);
+	    }
+	}
+	
+	double[] fVals = new double[fMaps.length];
+	for (int i=0; i<fVals.length; i++) { 
+	    fVals[i] = func.applyAsDouble(fMaps[i].loc);
+	}
+	
+	Matrix gram = new Matrix(kVals);
+	Matrix funcVals = new Matrix(fVals, fVals.length); 
+	Matrix scaledID = Jama.Matrix.identity(gram.getColumnDimension(), gram.getRowDimension());
+	scaledID = scaledID.times(fVals.length*0.0000001);
+	Matrix toSolve = scaledID.plus(gram);
+	double[] solution = toSolve.solve(funcVals).getColumnPackedCopy();
+	
+	return solution;
+    }
+    
     /**
      * Evaluates the RKHS function at a given point
      *
@@ -123,24 +195,30 @@ public class RKHSFunction {
 	    double[] domainLB, 
 	    double[] domainUB, 
 	    boolean fixSampleNumber) {
-	System.out.println("Beginning fit...");
+	System.out.println("Beginning fit:");
+	System.out.println("  lower bounds: "+Arrays.toString(domainLB));
+	System.out.println("  upper bounds: "+Arrays.toString(domainUB));
+	System.out.println("  samples/dim: "+this.numSamplesPerDimension);
 
 	
 	int numSamples = this.numSamplesPerDimension; // samples per dimension
 	
 	double rmsd = Double.POSITIVE_INFINITY;
+	boolean computedRMSDOnce = false;
 
 	FeatureMap[] fMaps = new FeatureMap[numSamples];
 	double[] fitCoeffs = new double[numSamples];
 
-	while (rmsd > 0.05 && !fixSampleNumber) {
+	while ((rmsd > 0.05 && !fixSampleNumber) || !computedRMSDOnce) {
+	    computedRMSDOnce = true;
 	    numSamples += 1;
 	    double[][] samples = gridSample(numSamples, domainLB, domainUB);
 	    fMaps = new FeatureMap[samples.length];
 	    for (int i = 0; i < samples.length; i++) {
 		fMaps[i] = new FeatureMap(k, samples[i]);
 	    }
-	    fitCoeffs = this.fitCoeffs(fMaps, f, k);
+//	    fitCoeffs = this.fitCoeffs(fMaps, f, k);
+	    fitCoeffs = this.fitCoeffsInterpolate(fMaps, f);
 	    
 	    rmsd = computeFitRMSDRatio(fMaps, fitCoeffs, domainLB, domainUB, f);
 	    
@@ -272,7 +350,6 @@ public class RKHSFunction {
 	    double[] uBound,
 	    ToDoubleFunction<double[]> func) {
 	double rmsd = 0.0;
-	double funcSum = 0.0;
 	
 	// total samples should be 10 times the number of samples the function uses for the RKHS
 	// representation
@@ -282,18 +359,15 @@ public class RKHSFunction {
 	double[][] testSamples = gridSample(numSamples, lBound, uBound);
 	for (double[] sample : testSamples) {
 	    double funcValue = func.applyAsDouble(sample);
+	    if (funcValue == 0) { funcValue = 0.000000005; }
 	    double fitValue = evalLC(fmaps, coeffs, sample);
 	    
-	    double delta = (funcValue - fitValue);
+	    double delta = (funcValue - fitValue)/funcValue;
 	    
-	    funcSum += Math.pow(funcValue, 2);
 	    rmsd += Math.pow(delta, 2);
 	}
-	
-	double rmsdRatio = 
-		Math.sqrt(rmsd / testSamples.length)/Math.sqrt(funcSum / testSamples.length);
-	
-	return Math.sqrt(rmsdRatio);
+		
+	return Math.sqrt(rmsd*(1.0/numSamples));
     }
 
     /**
@@ -584,12 +658,15 @@ public class RKHSFunction {
      */
     public double computeIntegral() { 
 	System.out.println("Computing integral...");
-	RKHSFunction measure = this.getGridMeasure(this.domainLB, this.domainUB);
+	RKHSFunction measure = this.getLebesgueMeasure(this.domainLB, this.domainUB);
 	double domainVolume = 1.0;
 		
 	for (int i=0; i<domainLB.length; i++) { 
 	    domainVolume = domainVolume * (domainUB[i] - domainLB[i]);
 	}
+	
+	System.out.println("  domain volume: "+domainVolume);
+	
 	double totalIntegral = domainVolume * this.innerProduct(measure);
 	
 	return totalIntegral;
@@ -607,7 +684,8 @@ public class RKHSFunction {
     public RKHSFunction getLebesgueMeasure(double[] lBounds, double[] uBounds) { 
 	int numDimensions= lBounds.length;
 	
-	int numUniformSamples = 1000;
+	int numUniformSamples = 100;
+	
 	double measureCoeff = 1.0/numUniformSamples;
 	double[][] uniformSamples = new double[numUniformSamples][numDimensions];
 	for (double[] uniformSample : uniformSamples) {
