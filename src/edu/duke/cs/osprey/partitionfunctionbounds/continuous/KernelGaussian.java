@@ -22,7 +22,7 @@ public class KernelGaussian extends Kernel {
 				+ "input was "+Arrays.toString(x)+" and "+Arrays.toString(y)+", but "
 				+ "bounds were "+printBounds());
 		}
-		return Math.exp((-1 * this.distance(x, y))/ this.sigma);
+		return Math.exp(-1 * (Math.pow(this.distance(x, y),2)/ (2 * Math.pow(this.sigma,2))));
 	}
 	
 	// returns the Euclidean distance between x and y
