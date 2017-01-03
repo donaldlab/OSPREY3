@@ -43,7 +43,7 @@ public class TestAStar extends TestBase {
 	
 	private void checkDagkRigid(ConfSearch tree, SearchProblem search) {
 		ConfSearch.ScoredConf conf = tree.nextConf();
-		assertThat(conf.getScore(), isRelatively(-78.78903548260008));
+		assertThat(conf.getScore(), isRelatively(-78.78903544331037));
 		assertThat(conf.getAssignments(), is(new int[] { 0, 6, 7, 0, 16, 1, 0, 6 }));
 	}
 	
@@ -233,7 +233,7 @@ public class TestAStar extends TestBase {
 	
 	private void checkDagkRigidInf(ConfSearch tree, SearchProblem search) {
 		ConfSearch.ScoredConf conf = tree.nextConf();
-		assertThat(conf.getScore(), isRelatively(-73.662409496771));
+		assertThat(conf.getScore(), isRelatively(-73.66240935481423));
 		assertThat(conf.getAssignments(), is(new int[] { 0, 6, 7, 16, 16, 1, 2, 6 }));
 	}
 	
@@ -308,7 +308,7 @@ public class TestAStar extends TestBase {
 	
 	private void checkDagkContinuous(ConfSearch tree, SearchProblem search) {
 		ConfSearch.ScoredConf conf = tree.nextConf();
-		assertThat(conf.getScore(), isRelatively(-84.85105599013883));
+		assertThat(conf.getScore(), isRelatively(-84.85105597709511));
 		assertThat(conf.getAssignments(), is(new int[] { 0, 0, 7, 16, 16, 1, 1, 17 }));
 	}
 	

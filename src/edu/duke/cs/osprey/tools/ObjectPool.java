@@ -8,15 +8,28 @@ public class ObjectPool<T> implements Iterable<T> {
 	
 	private Factory<T,Void> factory;
 	private Deque<T> objects;
+	private int size;
 	
 	public ObjectPool(Factory<T,Void> factory) {
 		this.factory = factory;
 		this.objects = new ArrayDeque<>();
+		this.size = 0;
+	}
+	
+	public void allocate(int size) {
+		while (this.size < size) {
+			make();
+		}
+	}
+	
+	private void make() {
+		objects.addLast(factory.make(null));
+		size++;
 	}
 	
 	public T checkout() {
 		if (objects.isEmpty()) {
-			objects.addLast(factory.make(null));
+			make();
 		}
 		return objects.removeFirst();
 	}
@@ -26,6 +39,10 @@ public class ObjectPool<T> implements Iterable<T> {
 	}
 	
 	public int size() {
+		return size;
+	}
+	
+	public int available() {
 		return objects.size();
 	}
 	

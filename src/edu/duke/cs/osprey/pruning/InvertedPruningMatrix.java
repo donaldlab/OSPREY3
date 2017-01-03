@@ -25,7 +25,7 @@ public class InvertedPruningMatrix extends PruningMatrix {
 		}
 		return !val;
 	}
-
+	
 	@Override
 	public Boolean getOneBody(int res, int conf) {
 		return invert(pmat.getOneBody(res, conf));
@@ -134,6 +134,16 @@ public class InvertedPruningMatrix extends PruningMatrix {
 	@Override
 	public void setHigherOrderTerms(int res1, int conf1, int res2, int conf2, HigherTupleFinder<Boolean> val) {
 		dontwrite();
+	}
+	
+	@Override
+	public int getNumPos() {
+		return pmat.getNumPos();
+	}
+	
+	@Override
+	public int getNumConfAtPos(int pos) {
+		return pmat.getNumConfAtPos(pos);
 	}
 	
 	private void dontwrite() {

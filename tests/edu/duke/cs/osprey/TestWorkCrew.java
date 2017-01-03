@@ -167,6 +167,9 @@ public class TestWorkCrew {
 		boolean isFinished = crew.waitForResults(1000);
 		crew.askToStop();
 		assertThat(isFinished, is(false));
+		
+		// force the threads to stop
+		crew.killThreads();
 	}
 	
 	// uncomment this test for deep debugging of hard-to-reproduce concurrency issues

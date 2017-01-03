@@ -1,9 +1,13 @@
 package edu.duke.cs.osprey.minimization;
 
-import cern.colt.matrix.DoubleMatrix1D;
-
 public interface LineSearcher {
 	
-	void search(ObjectiveFunction f, DoubleMatrix1D x, int dof, DoubleMatrix1D mins, DoubleMatrix1D maxs);
-	void search(ObjectiveFunction f, DoubleMatrix1D x, DoubleMatrix1D vec, DoubleMatrix1D mins, DoubleMatrix1D maxs);
+	void init(ObjectiveFunction.OneDof f);
+	double search(double xd);
+	
+	// NOTE: when implementing search(), make sure to leave the protein at the pose whose value you return
+	
+	public static interface NeedsCleanup extends LineSearcher {
+		void cleanup();
+	}
 }

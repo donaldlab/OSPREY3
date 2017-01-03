@@ -5,79 +5,126 @@ import java.util.List;
 
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
+import edu.duke.cs.osprey.tools.Factory;
 
-public class SimpleCCDMinimizer implements Minimizer {
+public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup, Minimizer.Reusable {
 	
 	private static final double MaxIterations = 30; // same as CCDMinimizer
 	private static final double ConvergenceThreshold = 0.001; // same as CCDMinimizer
 	
-	private ObjectiveFunction ofunc;
-	private List<Integer> dofs;
-	private LineSearcher lineSearch;
+	private Factory<LineSearcher,Void> lineSearcherFactory;
+	private ObjectiveFunction f;
+	private List<ObjectiveFunction.OneDof> dofs;
+	private List<LineSearcher> lineSearchers;
 
-	public SimpleCCDMinimizer(ObjectiveFunction ofunc) {
-		this.ofunc = ofunc;
-		this.lineSearch = new IntervalLineSearcher();
+	public SimpleCCDMinimizer() {
+		this(new Factory<LineSearcher,Void>() {
+			@Override
+			public LineSearcher make(Void ignore) {
+				return new SurfingLineSearcher();
+			}
+		});
+	}
+	
+	public SimpleCCDMinimizer(ObjectiveFunction f) {
+		this();
+		init(f);
+	}
+	
+	public SimpleCCDMinimizer(Factory<LineSearcher,Void> lineSearcherFactory) {
+		this.lineSearcherFactory = lineSearcherFactory;
+		
+		dofs = new ArrayList<>();
+		lineSearchers = new ArrayList<>();
+	}
+
+	@Override
+	public void init(ObjectiveFunction f) {
+		
+		this.f = f;
+		
+		// build the dofs
+		dofs.clear();
+		lineSearchers.clear();
+		
+		for (int d=0; d<f.getNumDOFs(); d++) {
+			
+			ObjectiveFunction.OneDof fd = new ObjectiveFunction.OneDof(f, d);
+			dofs.add(fd);
+			
+			if (fd.getXMin() < fd.getXMax()) {
+				LineSearcher lineSearcher = lineSearcherFactory.make(null);
+				lineSearcher.init(fd);
+				lineSearchers.add(lineSearcher);
+			} else {
+				lineSearchers.add(null);
+			}
+		}
 	}
 	
 	@Override
-	public DoubleMatrix1D minimize() {
+	public Minimizer.Result minimize() {
 		
-		// get bounds
-		int numDofs = ofunc.getNumDOFs();
-		DoubleMatrix1D mins = ofunc.getConstraints()[0];
-		DoubleMatrix1D maxs = ofunc.getConstraints()[1];
-		
-		// set initial values to the center of the bounds
-		DoubleMatrix1D vals = DoubleFactory1D.dense.make(numDofs);
-		for (int i=0; i<numDofs; i++) {
-			vals.set(i, (maxs.get(i) + mins.get(i))/2);
+		// init x to the center of the bounds
+		int n = f.getNumDOFs();
+		DoubleMatrix1D herex = DoubleFactory1D.dense.make(n);
+		for (int d=0; d<n; d++) {
+			ObjectiveFunction.OneDof dof = dofs.get(d);
+			herex.set(d, (dof.getXMin() + dof.getXMax())/2);
 		}
 		
-		// which dofs should we update?
-		dofs = new ArrayList<>();
-		for (int i=0; i<numDofs; i++) {
-			
-			// is there even a range for this dof?
-			if (mins.get(i) != maxs.get(i)) {
-				dofs.add(i);
-			}
-		}
-		
-		ccd(mins, maxs, vals);
-		
-		return vals;
-	}
-	
-	private double ccd(DoubleMatrix1D mins, DoubleMatrix1D maxs, DoubleMatrix1D vals) {
+		DoubleMatrix1D nextx = herex.copy();
 		
 		// ccd is pretty simple actually
 		// just do a line search along each dimension until we stop improving
 		// we deal with cycles by just capping the number of iterations
 		
 		// get the current objective function value
-		double curf = ofunc.getValue(vals);
+		double herefx = f.getValue(herex);
 		
 		for (int iter=0; iter<MaxIterations; iter++) {
 			
 			// update all the dofs using line search
-			for (int i : dofs) {
-				lineSearch.search(ofunc, vals, i, mins, maxs);
+			for (int d=0; d<n; d++) {
+				
+				LineSearcher lineSearcher = lineSearchers.get(d);
+				if (lineSearcher != null) {
+					
+					// get the next x value for this dof
+					double xd = nextx.get(d);
+					xd = lineSearcher.search(xd);
+					nextx.set(d, xd);
+				}
 			}
 			
-			// did we improve enough to keep going?
-			double nextf = ofunc.getValue(vals);
-			if (curf - nextf < ConvergenceThreshold) {
+			// how much did we improve?
+			double nextfx = f.getValue(nextx);
+			double improvement = herefx - nextfx;
+			
+			if (improvement > 0) {
 				
-				// nope, we're done
-				return curf;
+				// take the step
+				herex.assign(nextx);
+				herefx = nextfx;
+				
+				if (improvement < ConvergenceThreshold) {
+					break;
+				}
+				
 			} else {
-				
-				// yeah, keep going
-				curf = nextf;
+				break;
 			}
 		}
 		
-		return curf;
+		return new Minimizer.Result(herex, herefx);
+	}
+	
+	@Override
+	public void cleanup() {
+		for (LineSearcher lineSearcher : lineSearchers) {
+			if (lineSearcher instanceof LineSearcher.NeedsCleanup) {
+				((LineSearcher.NeedsCleanup)lineSearcher).cleanup();
+			}
+		}
 	}
 }

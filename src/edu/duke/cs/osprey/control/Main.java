@@ -151,6 +151,14 @@ public class Main {
 				ci.outputConfInfo();
 			}
 		});
+                
+                commands.put("findSeqGMECs", new Runnable() {
+			@Override
+			public void run() {
+				SeqGMECFinder sgf = new SeqGMECFinder(args, cfp.getParams().getValue("MutFile"));
+                                sgf.calcAllSeqGMECs();
+			}
+		});
 	}
 
 	// TODO: Move these into a test file, and just call it from the test.

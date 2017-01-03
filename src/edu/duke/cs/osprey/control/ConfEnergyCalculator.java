@@ -11,6 +11,7 @@ public interface ConfEnergyCalculator {
 	public static interface Async extends ConfEnergyCalculator {
 
 		void calcEnergyAsync(ScoredConf conf, Listener listener);
+		int getParallelism();
 		void waitForSpace();
 		void waitForFinish();
 		void cleanup();
@@ -27,6 +28,11 @@ public interface ConfEnergyCalculator {
 				this.calc = calc;
 			}
 
+			@Override
+			public int getParallelism() {
+				return 1;
+			}
+			
 			@Override
 			public EnergiedConf calcEnergy(ScoredConf conf) {
 				return calc.calcEnergy(conf);

@@ -4,6 +4,11 @@
  */
 package edu.duke.cs.osprey.minimization;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+
+import cern.colt.matrix.DoubleFactory1D;
+
 /*
 	This file is part of OSPREY.
 
@@ -61,15 +66,7 @@ package edu.duke.cs.osprey.minimization;
 
 
 import cern.colt.matrix.DoubleMatrix1D;
-import cern.colt.matrix.DoubleFactory1D;
-import cern.colt.matrix.DoubleFactory2D;
-import cern.colt.matrix.DoubleMatrix2D;
-import cern.colt.matrix.linalg.Algebra;
 import cern.jet.math.Functions;
-import java.math.BigInteger;
-import java.util.Arrays;
-import java.util.ArrayList;
-import java.util.BitSet;
 
 
 //This is a modular CCD minimizer
@@ -148,7 +145,23 @@ public class CCDMinimizer implements Minimizer {
     
     
     //137DEBUG!!
-    public int GVCountEstmin=0, GVCountEdge=0, GVCountBigger=0, GVCountSmaller=0; 
+    public int GVCountEstmin=0, GVCountEdge=0, GVCountBigger=0, GVCountSmaller=0;
+    
+    // Jeff: the original version of this code has something that looks like a bug, but I'm not sure if it is or not
+    // so here's a switch to pick the behavior you want:
+    // the original code was logically equivalent to a value of true, but I think a false value is more logically consistent
+    // with the idea of minimization, and it doesn't change our minimization energies enough to worry about.
+    private boolean preferUpRipple = false;
+    /* The behavior has to do with how ripple jumping is handled:
+       The original code prefers the up ripple if it's better than the current efunc val, even if the down ripple was better than both.
+       One might expect the "optimal" code would choose the lowest of the three energies (current val, down ripple val, up ripple val),
+       but in empirical tests on 1024 low energy confs of 1CC8, this proposed "optimal" code achieves an improvement (a lower minimized
+       energy) only on 1/1024 confs (a 0.13366473 kcal/mol improvement), and results in an error (a higher minimized energy) of at least
+       0.001 kcal/mol on 7/1024 confs, with the highest error at 0.14134541 kcal/mol.
+       This "bug" appears to perform slightly better than the proposed "optimal" behavior, although the difference is very small.
+       I feel pretty safe with using the "optimal" approach generally (and the other minimizers do the "optimal" thing), but I'll leave
+       this flag here in case anyone wants the old behavior.
+    */
 
     public CCDMinimizer( ObjectiveFunction ofn, boolean useCorners ){
 
@@ -157,8 +170,14 @@ public class CCDMinimizer implements Minimizer {
         nonBoxConstrAffectingDOF = new int[numDOFs][0];
         //No constraints specified until minimize() is called
     }
+    
+    public void setPreferUpRipple(boolean val) {
+        preferUpRipple = val;
+    }
 
-    public DoubleMatrix1D minimize() {
+
+    public Minimizer.Result minimize() {
+        
         //First figure out the constraints and initial values
         //(since the minimizer might be used for many rotameric states, etc.,
         //this can't be done in the constructor)
@@ -170,7 +189,7 @@ public class CCDMinimizer implements Minimizer {
             return null;//No initial values found (this is currently only for IBEX)
         
         minimizeFromCurPoint();
-        return x;
+        return new Minimizer.Result(x, objFcn.getValue(x));
     }
 
     public void minimizeFromCurPoint(){//minimize from current starting vector
@@ -236,8 +255,12 @@ public class CCDMinimizer implements Minimizer {
                 double dof_base = x.get(dof);
                 double curVal = objFcn.getValForDOF(dof,dof_base);//Get value for DOF, shifted up or down as needed
                 double step = getStepSize(dof,iter);//Step size for the given degree of freedom, adjusted for iteration
-
-
+                
+                // make sure the step isn't so big that the quadratic approximation is worthless
+                while (isOutOfRange(dof_base - step, dof) && isOutOfRange(dof_base + step, dof)) {
+                	step /= 2;
+                }
+                
                 //Values up or down a step for this DOF: initialized to inf (indicating infeasibility)
                 //in case the DOF value is out of range
                 double upVal = Double.POSITIVE_INFINITY;
@@ -251,57 +274,36 @@ public class CCDMinimizer implements Minimizer {
                 //quadratic approximation of obj function: curVal + a*(dof_val-dof_base)^2 + b*(dof_val-dof_base);
                 //a*step^2 + b*step = upVal - curVal;
                 //a*step^2 - b*step = downVal-curVal;
-                //
 
-
-                double a = (upVal+downVal-2*curVal)/(2*step*step);
                 double estmin=0;
-
                 
-                //TRYING DIFFERENT VERSIONS
-                if( ( a <= 0 ) || Double.isNaN(a) || Double.isInfinite(a) ){
+                double shape = upVal + downVal - 2*curVal;
+                final double ShapeEpsilon = 1e-12;
+                if (shape < -ShapeEpsilon || Double.isNaN(shape) || Double.isInfinite(shape)) {
                     //negative a is not a good sign...use the lesser of upVal, downVal
                     //infinite or nan a means we're hitting a constraint or impossible conformation
-                    if( upVal < downVal )
+                    if (upVal < downVal) {
                         estmin = dof_base+step;
-                    else
+                    } else {
                         estmin = dof_base-step;
-                }
-                
-                
-               /* if(Double.isInfinite(upVal)){//near upper constraint...need to be able to go right up to edge
-                    //or away from edge as appropriate
-                    if(downVal<curVal)
-                        estmin = dof_base-step;
-                    else
-                        estmin = dof_base+step;
-                }
-                else if(Double.isInfinite(downVal)){//near lower constraint
-                    if(upVal<curVal)
-                        estmin = dof_base+step;
-                    else
-                        estmin = dof_base-step;
-                }
-                else if( ( a <= 0 ) || Double.isNaN(a) ){
-                    //negative a is not a good sign...use the lesser of upVal, downVal
-                    //infinite or nan a means we're hitting a constraint or impossible conformation
-                    if( upVal < downVal )
-                        estmin = dof_base+step;
-                    else
-                        estmin = dof_base-step;
-                } */
-                else{
+                    }
+                } else if (shape <= ShapeEpsilon) {
+                    
+                    // flat here, don't step
+                    estmin = dof_base;
+                    
+                } else {
+                    /* improved numerical stability version below
+                    double a = (upVal+downVal-2*curVal)/(2*step*step);
                     double b = (upVal-curVal)/step-a*step;
                     estmin = dof_base-b/(2*a);//2*a*(dof_val-dof_base)+b=0 here, with positive a
+                    */
+                    
+                    estmin = dof_base + (downVal - upVal)*step/2/shape;
                 }
-
 
                 if( isOutOfRange(estmin,dof) )
                     estmin = getEdgeDOFVal(estmin,dof);
-
-
-                //if( Math.abs(estmin-dof_base) < numTol )//This can happen if both upVal and downVal are infinite (perhaps due to a loop closure failure)
-                //    break;
 
                 double estminVal = objFcn.getValForDOF(dof,estmin);
                 double estminValOld = curVal;
@@ -381,12 +383,20 @@ public class CCDMinimizer implements Minimizer {
                 double upRipple = x.get(dof)+1;
                 curVal = objFcn.getValForDOF(dof, x.get(dof));
                 if( ! isOutOfRange( downRipple, dof) ){
-                    if( objFcn.getValForDOF(dof,downRipple) < curVal )
+                    double downRippleVal = objFcn.getValForDOF(dof,downRipple);
+                    if (downRippleVal < curVal) {
                         x.set(dof, downRipple);
+                        if (!preferUpRipple) {
+                            curVal = downRippleVal;
+                        }
+                    }
                 }
                 if( ! isOutOfRange( upRipple, dof ) ){
-                    if( objFcn.getValForDOF(dof,upRipple) < curVal )
+                    double upRippleVal = objFcn.getValForDOF(dof,upRipple);
+                    if (upRippleVal < curVal) {
                         x.set(dof, upRipple);
+                        curVal = upRippleVal;
+                    }
                 }
                 //END RIPPLE JUMPER
 

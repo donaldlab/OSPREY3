@@ -6,6 +6,10 @@ public class TaskExecutor {
 		void onFinished(Runnable task);
 	}
 	
+	public int getParallelism() {
+		return 1;
+	}
+	
 	public void submit(Runnable task) {
 		task.run();
 	}

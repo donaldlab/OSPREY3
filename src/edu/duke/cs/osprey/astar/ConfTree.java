@@ -32,7 +32,11 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
 
 
 	public static ConfTree<FullAStarNode> makeFull(SearchProblem search) {
-		return new ConfTree<FullAStarNode>(new FullAStarNode.Factory(search.confSpace.numPos), search);
+		return makeFull(search, search.pruneMat);
+	}
+	
+	public static ConfTree<FullAStarNode> makeFull(SearchProblem search, PruningMatrix pmat) {
+		return new ConfTree<FullAStarNode>(new FullAStarNode.Factory(search.confSpace.numPos), search, pmat);
 	}
 	
 	private AStarNode.Factory<T> nodeFactory;

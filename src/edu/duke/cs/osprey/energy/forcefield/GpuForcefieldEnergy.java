@@ -1,59 +1,60 @@
 package edu.duke.cs.osprey.energy.forcefield;
 
 import java.io.IOException;
-import java.nio.DoubleBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
-
-import com.jogamp.opencl.CLEvent;
-import com.jogamp.opencl.CLEvent.ProfilingCommand;
-import com.jogamp.opencl.CLEventList;
-import com.jogamp.opencl.CLException;
 
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.energy.EnergyFunction;
-import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions.AtomGroup;
-import edu.duke.cs.osprey.gpu.GpuQueue;
-import edu.duke.cs.osprey.gpu.GpuQueuePool;
-import edu.duke.cs.osprey.gpu.kernels.ForceFieldKernel;
+import edu.duke.cs.osprey.gpu.BufferTools;
+import edu.duke.cs.osprey.gpu.ForcefieldKernel;
+import edu.duke.cs.osprey.gpu.cuda.GpuStream;
+import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
+import edu.duke.cs.osprey.gpu.cuda.kernels.ForcefieldKernelCuda;
+import edu.duke.cs.osprey.gpu.opencl.GpuQueue;
+import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
+import edu.duke.cs.osprey.gpu.opencl.kernels.ForcefieldKernelOpenCL;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.TimeFormatter;
 
-public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, EnergyFunction.NeedsCleanup {
+public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, EnergyFunction.NeedsCleanup, EnergyFunction.ExplicitChemicalChanges {
 	
 	private static final long serialVersionUID = -9142317985561910731L;
 	
 	private class KernelBuilder {
 		
-		private ForceFieldKernel.Bound kernel;
+		private int subsetSequenceNumber;
+		private ForcefieldKernel kernel;
 		
 		public KernelBuilder() {
+			subsetSequenceNumber = -1;
 			kernel = null;
 		}
 		
-		public ForceFieldKernel.Bound get() {
+		public ForcefieldKernel get(int expectedSequenceNumber) {
 			
-			// do we need to rebuild the forcefield?
-			// NOTE: make sure we check for chemical changes even if the kernel is null
-			// so we acknowledge any chemical changes that may have happened 
-			if (hasChemicalChanges() || kernel == null) {
-				
-				// cleanup any old kernel if needed
-				if (kernel != null) {
-					kernel.cleanup();
-					kernel = null;
-				}
-				
+			// if this kernel doesn't match the sequence, wipe it
+			if (kernel != null && expectedSequenceNumber != subsetSequenceNumber) {
+				kernel.cleanup();
+				kernel = null;
+			}
+			
+			// make a new kernel if needed
+			if (kernel == null) {
 				try {
 					
-					// prep the kernel, upload precomputed data
-					kernel = new ForceFieldKernel(queue.getGpu()).bind(queue);
-					kernel.setForcefield(new BigForcefieldEnergy(ffparams, interactions, true));
-					kernel.uploadStaticAsync();
+					if (openclQueue != null) {
+						kernel = new ForcefieldKernelOpenCL(openclQueue, ffenergy);
+					} else if (cudaStream != null) {
+						kernel = new ForcefieldKernelCuda(cudaStream, ffenergy);
+					} else {
+						throw new Error("bad gpu queue/context configuration, this is a bug");
+					}
+					
+					// update the sequence
+					subsetSequenceNumber = kernel.getForcefield().getFullSubset().handleChemicalChanges();
 					
 				} catch (IOException ex) {
 					
@@ -65,123 +66,109 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 			return kernel;
 		}
 		
-		private boolean hasChemicalChanges() {
-			
-			// look for residue template changes so we can rebuild the forcefield
-			boolean hasChanges = false;
-			for (AtomGroup[] pair : interactions) {
-				for (AtomGroup group : pair) {
-					if (group.hasChemicalChange()) {
-						hasChanges = true;
-					}
-					group.ackChemicalChange();
-				}
-			}
-			return hasChanges;
-		}
-		
 		public void cleanup() {
 			if (kernel != null) {
 				kernel.cleanup();
+				kernel = null;
 			}
 		}
 	}
 	
-	private ForcefieldParams ffparams;
-	private ForcefieldInteractions interactions;
-	private GpuQueuePool queuePool;
-	private GpuQueue queue;
-	private KernelBuilder kernelBuilder;
+	private BigForcefieldEnergy ffenergy;
 	private BigForcefieldEnergy.Subset ffsubset;
+	private GpuQueuePool openclQueuePool;
+	private GpuQueue openclQueue;
+	private GpuStreamPool cudaStreamPool;
+	private GpuStream cudaStream;
+	private KernelBuilder kernelBuilder;
+	private Map<Residue,GpuForcefieldEnergy> efuncCache;
 	
 	public GpuForcefieldEnergy(ForcefieldParams ffparams, ForcefieldInteractions interactions, GpuQueuePool queuePool) {
-		this.ffparams = ffparams;
-		this.interactions = interactions;
-		this.queuePool = queuePool;
-		this.queue = queuePool.checkout();
+		this.ffenergy = new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct);
+		this.ffsubset = ffenergy.getFullSubset();
+		this.openclQueuePool = queuePool;
+		this.openclQueue = queuePool.checkout();
+		this.cudaStreamPool = null;
+		this.cudaStream = null;
 		this.kernelBuilder = new KernelBuilder();
-		this.ffsubset = null;
+		this.efuncCache = new HashMap<>();
+	}
+	
+	public GpuForcefieldEnergy(ForcefieldParams ffparams, ForcefieldInteractions interactions, GpuStreamPool streamPool) {
+		this.ffenergy = new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct);
+		this.ffsubset = ffenergy.getFullSubset();
+		this.openclQueuePool = null;
+		this.openclQueue = null;
+		this.cudaStreamPool = streamPool;
+		this.cudaStream = streamPool.checkout();
+		this.kernelBuilder = new KernelBuilder();
+		this.efuncCache = new HashMap<>();
 	}
 	
 	public GpuForcefieldEnergy(GpuForcefieldEnergy parent, ForcefieldInteractions interactions) {
-		this.ffparams = parent.ffparams;
-		this.interactions = interactions;
-		this.queuePool = null;
-		this.queue = parent.queue;
+		this.ffenergy = parent.ffenergy;
+		this.ffsubset = ffenergy.new Subset(interactions);
+		if (parent.openclQueue != null) {
+			this.openclQueuePool = null;
+			this.openclQueue = parent.openclQueue;
+			this.cudaStreamPool = null;
+			this.cudaStream = null;
+		} else {
+			this.openclQueuePool = null;
+			this.openclQueue = null;
+			this.cudaStreamPool = null;
+			this.cudaStream = parent.cudaStream;
+		}
 		this.kernelBuilder = parent.kernelBuilder;
-		this.ffsubset = getKernel().getForcefield().new Subset(interactions);
+		this.efuncCache = null;
 	}
 	
-	public boolean isParent() {
-		return queuePool != null;
-	}
-	
-	public ForceFieldKernel.Bound getKernel() {
-		return kernelBuilder.get();
+	public ForcefieldKernel getKernel() {
+		return kernelBuilder.get(handleChemicalChanges());
 	}
 	
 	public BigForcefieldEnergy.Subset getSubset() {
-		if (ffsubset != null) {
-			return ffsubset;
-		}
-		return getKernel().getForcefield().getFullSubset();
+		return ffsubset;
 	}
 	
-	public void startProfile() {
-		getKernel().initProfilingEvents();
-	}
-	
-	public String dumpProfile() {
-		ForceFieldKernel.Bound kernel = getKernel();
-		StringBuilder buf = new StringBuilder();
-		CLEventList events = kernel.getProfilingEvents();
-		for (CLEvent event : events) {
-			try {
-				long startNs = event.getProfilingInfo(ProfilingCommand.START);
-				long endNs = event.getProfilingInfo(ProfilingCommand.END);
-				buf.append(String.format(
-					"%s %s\n",
-					event.getType(),
-					TimeFormatter.format(endNs - startNs, TimeUnit.MICROSECONDS)
-				));
-			} catch (CLException.CLProfilingInfoNotAvailableException ex) {
-				buf.append(String.format("%s (unknown timing)\n", event.getType()));
-			}
-		}
-		kernel.clearProfilingEvents();
-		return buf.toString();
+	@Override
+	public int handleChemicalChanges() {
+		return ffsubset.handleChemicalChanges();
 	}
 	
 	@Override
 	public double getEnergy() {
 		
-		ForceFieldKernel.Bound kernel = getKernel();
+		// upload data
+		ForcefieldKernel kernel = getKernel();
 		kernel.setSubset(getSubset());
 		kernel.uploadCoordsAsync();
+		
+		// compute the energies
 		kernel.runAsync();
 		
 		// read the results
-		return sumEnergy(kernel.downloadEnergiesSync(), kernel.getEnergySize());
-	}
-	
-	private double sumEnergy(DoubleBuffer buf, int energySize) {
-		
-		// do the last bit of the energy sum on the cpu
-		// add one element per work group on the gpu
-		// typically, it's a factor of groupSize less than the number of atom pairs
-		double energy = getSubset().getInternalSolvationEnergy();
-		buf.rewind();
-		for (int i=0; i<energySize; i++) {
-			energy += buf.get();
-		}
-		return energy;
+		return kernel.downloadEnergySync();
 	}
 	
 	@Override
 	public void cleanup() {
-		if (isParent()) {
-			queuePool.release(queue);
-			kernelBuilder.cleanup();
+		
+		kernelBuilder.cleanup();
+		
+		if (openclQueuePool != null) {
+			openclQueuePool.release(openclQueue);
+		}
+		
+		if (cudaStreamPool != null) {
+			cudaStreamPool.release(cudaStream);
+		}
+		
+		if (efuncCache != null) {
+			for (GpuForcefieldEnergy efunc : efuncCache.values()) {
+				efunc.cleanup();
+			}
+			efuncCache.clear();
 		}
 	}
 
@@ -189,7 +176,6 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	public List<EnergyFunction> decomposeByDof(Molecule m, List<DegreeOfFreedom> dofs) {
 		
 		List<EnergyFunction> efuncs = new ArrayList<>();
-		Map<Residue,GpuForcefieldEnergy> efuncCache = new HashMap<>();
 		
 		for (DegreeOfFreedom dof : dofs) {
 
@@ -205,7 +191,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 				// but share efuncs between dofs in the same residue
 				GpuForcefieldEnergy efunc = efuncCache.get(res);
 				if (efunc == null) {
-					efunc = new GpuForcefieldEnergy(this, interactions.makeSubsetByResidue(res));
+					efunc = new GpuForcefieldEnergy(this, ffenergy.getInteractions().makeSubsetByResidue(res));
 					efuncCache.put(res, efunc);
 				}
 				efuncs.add(efunc);

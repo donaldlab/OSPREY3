@@ -7,10 +7,11 @@ import java.math.BigDecimal;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
+import edu.duke.cs.osprey.kstar.TestParallelConfPartitionFunction.Pfunc;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
@@ -34,14 +35,18 @@ public class BenchmarkPartitionFunction extends TestBase {
 		benchmarkComplex();
 	}
 	
-	private static void benchmark(KSSearchProblem search, int strand, double targetEpsilon, String qstar) {
+	private static void benchmark(KSSearchProblem search, int strand, String flexibility, double targetEpsilon, String qstar) {
 		
 		final boolean reportProgress = false;
+		
+		// setup the config for the pffactory
+		KSConfigFileParser cfp = new KSConfigFileParser();
+		cfp.getParams().setValue("MinimizationThreads", Integer.toString(NumThreads));
 		
 		System.out.println("\n\nBenchmarking " + KSTermini.getTerminiString(strand) + "...\n");
 		
 		// test parallel implementation
-		PFAbstract pfunc = TestPartitionFunction.makePfunc(search, "parallel0", KSTermini.PROTEIN);
+		PFAbstract pfunc = TestPartitionFunction.makePfunc(search, "parallel0", KSTermini.PROTEIN, flexibility, cfp);
 		PFAbstract.suppressOutput = !reportProgress;
 		PFAbstract.targetEpsilon = targetEpsilon;
 		
@@ -51,29 +56,54 @@ public class BenchmarkPartitionFunction extends TestBase {
 		pfunc.runToCompletion();
 		System.out.println(String.format("finished in %s", stopwatchParallel.stop().getTime(2)));
 		
-		// test simple implementation
-		SimplePartitionFunction spfunc = TestSimplePartitionFunction.makePfunc(search, 0, NumThreads);
-		spfunc.init(targetEpsilon);
-		spfunc.setReportProgress(reportProgress);
+		// test parallel conf implementation
+		Pfunc pcpfunc = TestParallelConfPartitionFunction.makePfunc(search, Parallelism.makeCpu(NumThreads));
+		pcpfunc.pfunc.init(targetEpsilon);
+		pcpfunc.pfunc.setReportProgress(reportProgress);
 		
-		System.out.println("computing pfunc " + spfunc.getClass().getSimpleName() + " ...");
+		System.out.println("computing pfunc " + pcpfunc.getClass().getSimpleName() + " ...");
 		Stopwatch stopwatchSimple = new Stopwatch().start();
-		spfunc.compute();
-		System.out.println(String.format("fnished in %s, speedup=%.2f", stopwatchSimple.stop().getTime(2), (double)stopwatchParallel.getTimeNs()/stopwatchSimple.getTimeNs()));
+		pcpfunc.pfunc.compute();
+		System.out.println(String.format("finished in %s, speedup=%.2f", stopwatchSimple.stop().getTime(2), (double)stopwatchParallel.getTimeNs()/stopwatchSimple.getTimeNs()));
+		pcpfunc.cleanup();
 		
-		// test simple implementation on gpu
-		SimplePartitionFunction spfuncgpu = TestSimplePartitionFunction.makePfunc(search, 1, NumThreads);
-		spfuncgpu.init(targetEpsilon);
-		spfuncgpu.setReportProgress(reportProgress);
+		// test parallel conf implementation on gpu
+		Pfunc pcpfuncgpu = TestParallelConfPartitionFunction.makePfunc(search, Parallelism.makeGpu(1, 1));
+		pcpfuncgpu.pfunc.init(targetEpsilon);
+		pcpfuncgpu.pfunc.setReportProgress(reportProgress);
 		
-		System.out.println("computing pfunc " + spfuncgpu.getClass().getSimpleName() + " on GPU ...");
+		System.out.println("computing pfunc " + pcpfuncgpu.getClass().getSimpleName() + " on GPU with 1 stream ...");
 		Stopwatch stopwatchSimpleGpu = new Stopwatch().start();
-		spfuncgpu.compute();
-		System.out.println(String.format("fnished in %s, speedup=%.2f", stopwatchSimpleGpu.stop().getTime(2), (double)stopwatchParallel.getTimeNs()/stopwatchSimpleGpu.getTimeNs()));
+		pcpfuncgpu.pfunc.compute();
+		System.out.println(String.format("finished in %s, speedup=%.2f", stopwatchSimpleGpu.stop().getTime(2), (double)stopwatchParallel.getTimeNs()/stopwatchSimpleGpu.getTimeNs()));
+		pcpfuncgpu.cleanup();
 		
+		// test parallel conf implementation on gpu
+		Pfunc pcpfuncgpuMulti = TestParallelConfPartitionFunction.makePfunc(search, Parallelism.makeGpu(1, 16));
+		pcpfuncgpuMulti.pfunc.init(targetEpsilon);
+		pcpfuncgpuMulti.pfunc.setReportProgress(reportProgress);
+		
+		System.out.println("computing pfunc " + pcpfuncgpuMulti.getClass().getSimpleName() + " on GPU with 16 streams ...");
+		Stopwatch stopwatchSimpleGpuMulti = new Stopwatch().start();
+		pcpfuncgpuMulti.pfunc.compute();
+		System.out.println(String.format("finished in %s, speedup=%.2f", stopwatchSimpleGpuMulti.stop().getTime(2), (double)stopwatchParallel.getTimeNs()/stopwatchSimpleGpuMulti.getTimeNs()));
+		pcpfuncgpuMulti.cleanup();
+		
+		// test adapted parallel conf implementation
+		PFAbstract pfuncAdapted = TestPartitionFunction.makePfunc(search, "parallelConf", KSTermini.PROTEIN, flexibility, cfp);
+		
+		System.out.println("computing pfunc " + pfuncAdapted.getClass().getSimpleName() + " ...");
+		Stopwatch stopwatchAdapted = new Stopwatch().start();
+		pfuncAdapted.start();
+		pfuncAdapted.runToCompletion();
+		System.out.println(String.format("finished in %s, speedup=%.2f", stopwatchAdapted.stop().getTime(2), (double)stopwatchParallel.getTimeNs()/stopwatchAdapted.getTimeNs()));
+		
+		// check the results, just in case
 		checkProteinPfunc(pfunc, targetEpsilon, qstar);
-		checkProteinPfunc(spfunc, targetEpsilon, qstar);
-		checkProteinPfunc(spfuncgpu, targetEpsilon, qstar);
+		checkProteinPfunc(pcpfunc.pfunc, targetEpsilon, qstar);
+		checkProteinPfunc(pcpfuncgpu.pfunc, targetEpsilon, qstar);
+		checkProteinPfunc(pcpfuncgpuMulti.pfunc, targetEpsilon, qstar);
+		checkProteinPfunc(pfuncAdapted, targetEpsilon, qstar);
 		
 		System.out.println();
 	}
@@ -95,10 +125,11 @@ public class BenchmarkPartitionFunction extends TestBase {
 		final double targetEpsilon = 0.01;
 		final String qstar = "4.3704590631e+04";
 		int strand = KSTermini.PROTEIN;
+		String flexibility = "649 650 651 654";
 		
-		KSSearchProblem search = TestPartitionFunction.makeSearch(strand, "648", "654", "649 650 651 654");
+		KSSearchProblem search = TestPartitionFunction.makeSearch(strand, "648", "654", flexibility);
 		
-		benchmark(search, strand, targetEpsilon, qstar);
+		benchmark(search, strand, flexibility, targetEpsilon, qstar);
 	}
 	
 	private static void benchmarkLigand() {
@@ -106,20 +137,22 @@ public class BenchmarkPartitionFunction extends TestBase {
 		final double targetEpsilon = 0.01;
 		final String qstar = "4.4699772362e+30";
 		int strand = KSTermini.LIGAND;
+		String flexibility = "156 172 192 193";
 		
-		KSSearchProblem search = TestPartitionFunction.makeSearch(strand, "155", "194", "156 172 192 193");
+		KSSearchProblem search = TestPartitionFunction.makeSearch(strand, "155", "194", flexibility);
 		
-		benchmark(search, strand, targetEpsilon, qstar);
+		benchmark(search, strand, flexibility, targetEpsilon, qstar);
 	}
 	
 	private static void benchmarkComplex() {
 		
-		final double targetEpsilon = 0.8;
+		final double targetEpsilon = 0.1;
 		final String qstar = "3.5178662402e+54"; 
 		int strand = KSTermini.COMPLEX;
+		String flexibility = "649 650 651 654 156 172 192 193";
 		
-		KSSearchProblem search = TestPartitionFunction.makeSearch(strand, null, null, "649 650 651 654 156 172 192 193");
+		KSSearchProblem search = TestPartitionFunction.makeSearch(strand, null, null, flexibility);
 		
-		benchmark(search, strand, targetEpsilon, qstar);
+		benchmark(search, strand, flexibility, targetEpsilon, qstar);
 	}
 }

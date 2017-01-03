@@ -108,7 +108,8 @@ public class ParamSet implements Serializable {
 	
 	//Sets the value of parameter paramName to newValue
 	public void setValue(String paramName, String newValue){
-            params.put(paramName, newValue);
+		paramName = paramName.toUpperCase();
+		params.put(paramName, newValue);
 	}
 
         
