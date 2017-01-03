@@ -6,6 +6,7 @@
 package edu.duke.cs.osprey.structure;
 
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
+import java.io.Serializable;
 
 /**
  *
@@ -19,7 +20,7 @@ import edu.duke.cs.osprey.dof.DegreeOfFreedom;
  * 
  * @author mhall44
  */
-public class ConfProblem {
+public class ConfProblem implements Serializable {
     
     DegreeOfFreedom problemDOF;
     Residue brokenResidue;

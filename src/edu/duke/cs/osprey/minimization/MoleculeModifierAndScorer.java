@@ -429,4 +429,20 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
         
         return false;
     }
+    
+    
+    
+    
+    @Override
+    public ArrayList<Integer> getInitFixableDOFs(){
+        //currently only going to do this for CATS
+        ArrayList<Integer> fixableDOFs = new ArrayList<>();
+        for(int dof=0; dof<DOFs.size(); dof++){
+            if(DOFs.get(dof) instanceof BBFreeDOF)
+                fixableDOFs.add(dof);
+        }
+        return fixableDOFs;
+    }
+    
+    
 }

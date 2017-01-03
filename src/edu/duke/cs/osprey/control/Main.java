@@ -79,6 +79,7 @@ public class Main {
 
                 CCDMinimizer.EConvTol = cfp.params.getDouble("CCDEConvTol");
                 CCDMinimizer.numIter = cfp.params.getInt("CCDNumIter");
+                EnvironmentVars.alwaysIdealizeSidechainsAfterMutation = cfp.params.getBool("ALWAYSIDEALIZESIDECHAINSAFTERMUTATION");
                 
 		// TODO Auto-generated method stub
 		commands = new HashMap<String, Runnable>();
