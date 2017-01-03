@@ -19,6 +19,7 @@ public class KSAllowedSeqs {
 	private ArrayList<String> wt;
 	public boolean addWT;
 	private int dist;
+        private boolean allowLessMut;
 	private int strand;
 	private KSTermini limits;
 	private int maxSequences = (int)Math.pow(2, 28);
@@ -31,7 +32,7 @@ public class KSAllowedSeqs {
 			ArrayList<String[]> moveableStrandTermini,
 			ArrayList<String> flexRes, 
 			ArrayList<ArrayList<String>> allowedAAs, 
-			ArrayList<String> wt, boolean addWT, int dist ) {
+			ArrayList<String> wt, boolean addWT, int dist, boolean allowLessMut ) {
 
 		this.strand = strand;
 		this.limits = limits;
@@ -43,6 +44,7 @@ public class KSAllowedSeqs {
 		this.wt = addPosToSeq(wt, flexRes);
 		this.addWT = addWT;
 		this.dist = dist;
+                this.allowLessMut = allowLessMut;
 		this.allowedSeqs = generateSequences();
 	}
 
@@ -535,7 +537,7 @@ public class KSAllowedSeqs {
 		}
 
 		if(depth == input.size()) {
-			if(diff == dist && !output.contains(current)) {
+			if( (diff==dist||allowLessMut) && !output.contains(current)) {
 				ArrayList<String> ans = new ArrayList<String>(current);
 				ans.trimToSize();
 				output.add(ans);
