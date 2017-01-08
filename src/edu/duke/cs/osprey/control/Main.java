@@ -4,6 +4,10 @@
  */
 package edu.duke.cs.osprey.control;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.partitionfunctionbounds.SequenceFreeEnergy;
 import edu.duke.cs.osprey.tests.UnitTestSuite;
@@ -19,6 +23,7 @@ public class Main {
     public static void main(String[] args) {
         //args expected to be "-c KStar.cfg command config_file_1.cfg ..."
 
+	
         debuggingCommands(args);
         String command = "";
         try {
@@ -72,7 +77,7 @@ public class Main {
 
         } else if (command.equalsIgnoreCase("variationalSublinear")) {
             SequenceFreeEnergy sf = new SequenceFreeEnergy(cfp);
-            if (true) {
+            if (false) {
                 sf.exhaustiveSearch();
             } else {
                 int[] bestSequence = sf.nextConf();
@@ -83,8 +88,18 @@ public class Main {
                 }
                 System.out.println();
                 System.out.println("Free Energy: " + sf.bestFreeEnergy);
-                System.out.println("Num Sequences: " + sf.numSequencesEnumerated);
+                System.out.println("Num Sequences: " + sf.numLeafNodesVisited);
                 System.out.println();
+				String filename = "data.txt";
+				File statistics = new File(filename);
+				try {
+					FileWriter fw = new FileWriter(statistics);
+					fw.write("NumSequencesVisited: " + sf.numLeafNodesVisited + "\n");
+					fw.write("LogSequenceSpace: " + sf.getLogSequenceSpace());
+					fw.close();
+				} catch (IOException e) {
+					throw new RuntimeException(e);
+				}
             }
         }  else if (command.equalsIgnoreCase("doSublinearKStar")) {
             SublinearKStarDoer skd = new SublinearKStarDoer(cfp);

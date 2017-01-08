@@ -67,7 +67,7 @@ public class TRBP {
     boolean useParentUpperBound = false;
     double cutOffUpperBound = 3; // Cutoff which we can skip edge updates
 
-    static public boolean verbose = true;
+    static public boolean verbose = false;
 
     // Node weights are used in the branch and bound algorithm
     public double[] nodeWeights;

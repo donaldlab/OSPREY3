@@ -82,6 +82,14 @@ public class SequenceFreeEnergy extends AStarTree {
         }
         return logConfSpace;
     }
+
+	public double getLogSequenceSpace() {
+        double logSeqSpace = 0;
+        for (int pos = 0; pos < this.aaTypeOptions.size(); pos++) {
+            logSeqSpace += Math.log(this.aaTypeOptions.get(pos).size());
+        }
+        return logSeqSpace;
+    }
     
     @Override
     public ArrayList<AStarNode> getChildren(AStarNode curNode) {

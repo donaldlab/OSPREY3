@@ -14,13 +14,13 @@ import java.math.RoundingMode;
  * @author hmn5
  */
 public class GraphUtils {
-
+	
     boolean[][] interactionGraph;
 
     public GraphUtils(boolean[][] interactionGraph) {
         this.interactionGraph = interactionGraph;
     }
-
+        
     private static Matrix getAdjacencyMatrix(boolean[][] interactionGraph) {
         double[][] adjMatAsList = new double[interactionGraph.length][];
         for (int i = 0; i < interactionGraph.length; i++) {

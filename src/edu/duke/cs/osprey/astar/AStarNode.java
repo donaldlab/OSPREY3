@@ -11,7 +11,7 @@ package edu.duke.cs.osprey.astar;
 public class AStarNode implements Comparable {
     
     int nodeAssignments[];//assignments (e.g. partial conformation) for node
-    
+
     double score;//score (probably a lower bound on the energy)
     
     public double perturbation;//useful for GumbelMap (HMN)
@@ -24,7 +24,6 @@ public class AStarNode implements Comparable {
 
     public boolean isRoot = false; //HMN: Temporary
 
-    
     //These are used in COMETS
     public double UB = Double.POSITIVE_INFINITY;//upper bound
     public int UBConf[] = null;//can have an upper bound on GMEC energy for this node's conf space
@@ -85,6 +84,5 @@ public class AStarNode implements Comparable {
         }
         return true;
     }
-    
-    
+
 }

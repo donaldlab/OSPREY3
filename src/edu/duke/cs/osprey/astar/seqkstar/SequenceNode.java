@@ -21,19 +21,23 @@ public class SequenceNode extends AStarNode {
     public PartFuncTree[] stateTrees;
     public double[] stateLBFreeEnergy;
     public double[] stateUBFreeEnergy;
+	public boolean hasBeenVisited;
 
     public SequenceNode(int[] aaNumPerPos, PruningMatrix pm) {
         super(aaNumPerPos, Double.NaN, false);
         this.pruneMats = new PruningMatrix[1];
         this.pruneMats[0] = pm;
+		this.hasBeenVisited = false;
     }
 
     public SequenceNode(int[] aaNumPerPos, PruningMatrix[] pruneMats) {
         super(aaNumPerPos, Double.NaN, false);
         this.pruneMats = pruneMats;
+		this.hasBeenVisited = false;
     }
 
     public void expandConfTree() {
+		this.hasBeenVisited = true;
         TRBP.setNumEdgeProbUpdates(3);
         for (int state = 0; state < stateTrees.length; state++) {
             AStarNode node = stateTrees[state].getQueue().poll();

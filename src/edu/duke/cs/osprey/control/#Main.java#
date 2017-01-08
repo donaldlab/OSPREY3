@@ -4,27 +4,23 @@
  */
 package edu.duke.cs.osprey.control;
 
-import java.util.HashMap;
-import java.util.Map;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.partitionfunctionbounds.SequenceFreeEnergy;
 import edu.duke.cs.osprey.tests.UnitTestSuite;
-import edu.duke.cs.osprey.tools.CreateMatrix;
 
 /**
- *
  * @author mhall44 Parse arguments and call high-level functions like DEE/A* and
- * K* These will each be controlled by dedicated classes, unlike in the old
- * KSParser to keep this class more concise, and to separate these functions for
- * modularity purposes
+ *         K* These will each be controlled by dedicated classes, unlike in the old
+ *         KSParser to keep this class more concise, and to separate these functions for
+ *         modularity purposes
  */
 public class Main {
 
     public static void main(String[] args) {
         //args expected to be "-c KStar.cfg command config_file_1.cfg ..."
 
-        debuggingCommands(args);
 	
+        debuggingCommands(args);
         String command = "";
         try {
             command = args[2];
@@ -34,9 +30,13 @@ public class Main {
         }
 
         long startTime = System.currentTimeMillis();
-
-        ConfigFileParser cfp = new ConfigFileParser(args);//args 1, 3+ are configuration files
-
+        ConfigFileParser cfp;
+        if (command.equals("calcVarKStar")) {
+            String[] toPass = {args[0], args[1], args[2], args[4], args[5]};
+            cfp = new ConfigFileParser(toPass); //args 1, 3+ are configuration files
+        } else {
+            cfp = new ConfigFileParser(args);//args 1, 3+ are configuration files
+        }
         //load data filescloneclone
         cfp.loadData();
 
@@ -67,14 +67,13 @@ public class Main {
         } else if (command.equalsIgnoreCase("doKaDEE")) {
             KaDEEDoer kd = new KaDEEDoer(cfp);
             kd.doKaDEE();
-        } else if (command.equalsIgnoreCase("doGumbel")) {
-            VariationalPartFunc gd = new VariationalPartFunc(cfp);
+        } else if (command.equalsIgnoreCase("calcVarKStar")) {
+            int numHours = Integer.valueOf(args[3]);
+            VariationalPartFunc gd = new VariationalPartFunc(cfp, numHours);
 
-//            KaDEEDoer2 kd = new KaDEEDoer2(cfp);
-//            kd.doKaDEE();
         } else if (command.equalsIgnoreCase("variationalSublinear")) {
             SequenceFreeEnergy sf = new SequenceFreeEnergy(cfp);
-            if (true) {
+            if (false) {
                 sf.exhaustiveSearch();
             } else {
                 int[] bestSequence = sf.nextConf();
@@ -85,14 +84,17 @@ public class Main {
                 }
                 System.out.println();
                 System.out.println("Free Energy: " + sf.bestFreeEnergy);
-                System.out.println("Num Sequences: " + sf.numSequencesEnumerated);
+                System.out.println("Num Sequences: " + sf.numLeafNodesVisited);
                 System.out.println();
+				String filename = "data.txt"
+				File statistics = new File(filename);
+				try {
+					
+				}
             }
-        } else if (command.equalsIgnoreCase("sublinearKStar")){
-            KaDEEDoer2 kadee = new KaDEEDoer2(cfp);
-            kadee.doKaDEE();
-        } else if (command.equalsIgnoreCase("doGumbelEcut")){
-            VariationalPartFunc v = new VariationalPartFunc(cfp,0.1, 0.1, false);
+        }  else if (command.equalsIgnoreCase("doSublinearKStar")) {
+            SublinearKStarDoer skd = new SublinearKStarDoer(cfp);
+            skd.doSublinearKStar(false);
         }
         //etc.
         else {
@@ -106,8 +108,8 @@ public class Main {
 
     private static void debuggingCommands(String[] args) {
 
-		//MolecEObjFunction mof = (MolecEObjFunction)ObjectIO.readObject("OBJFCN1442697734046.dat", true);
-		/*MolecEObjFunction mof = (MolecEObjFunction)ObjectIO.readObject("OBJFCN1442697735769.dat", true);
+        //MolecEObjFunction mof = (MolecEObjFunction)ObjectIO.readObject("OBJFCN1442697734046.dat", true);
+        /*MolecEObjFunction mof = (MolecEObjFunction)ObjectIO.readObject("OBJFCN1442697735769.dat", true);
 
          CCDMinimizer minim = new CCDMinimizer(mof, false);
          DoubleMatrix1D bestVals = minim.minimize();

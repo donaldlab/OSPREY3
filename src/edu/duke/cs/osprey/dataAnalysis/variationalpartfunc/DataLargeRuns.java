@@ -17,6 +17,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 
+
 /**
  *
  * @author hmn5
@@ -61,7 +62,7 @@ public class DataLargeRuns {
                 String[] subDirsToRun = {"3GXU/Lovell/"};
                 runAnalysisKStar(subDirsToRun);
                 runAnalysisKStarUnbound(subDirsToRun);
-            }
+            } 
         } else {
             runAnalysisVariationalPartFunc();
 //            runAnalysisVariationalPartFuncUnbound();

@@ -26,6 +26,7 @@ public class MultipleBackbones {
             throws Exception {
 
         String path = new File("").getAbsolutePath();
+
         /*        if (!path.endsWith("DEEPer/4HEM/Debug")) {
          throw new Error("This test was designed to be run in /usr/project/xtmp/hmn5/DEEPer/4HEM/Debug folder\n\tcwd: " + path);
          }*/
