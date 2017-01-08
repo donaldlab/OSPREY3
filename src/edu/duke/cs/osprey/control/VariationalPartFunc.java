@@ -51,8 +51,133 @@ public class VariationalPartFunc {
 //        sp = spList[0];
         sp = cfp.getSearchProblem();
         loadEMatandPrune(sp, Double.POSITIVE_INFINITY);
-        prune(sp, 30);
-        System.out.println("Finished Pruning");
+<<<<<<< HEAD
+        if (testSCMF) {
+//            testSCMF(sp);
+
+//            DiscretePartFunc dpf = new DiscretePartFunc(sp, 0.1);
+//            double logZKStar = dpf.getLogZ();
+//            System.out.println("KStar LogZ: " + logZKStar);
+            prune(sp, 30);
+            System.out.println("Finished Pruning");
+            /*if (true) {
+             partFuncTree tree = new partFuncTree(sp.emat, upm);
+             double logZ = tree.computeEpsilonApprox(0.1);
+             System.out.println("Epsilon Approx BB: " + logZ);
+             }
+             */
+            if (false) {
+                double average = 0.0;
+                int averageNodesExpanded = 0;
+                int numSamples = 10;
+                for (int i = 0; i < numSamples; i++) {
+                    GumbelMapTree tree = new GumbelMapTree(sp);
+                    tree.nextConf();
+                    double score = tree.currentBestFeasibleScore;
+                    average += score;
+                    double logZestimate = -average / (this.constRT * (i + 1));
+                    System.out.println("Number of Nodes Expanded: " + tree.numExpanded);
+                    averageNodesExpanded += tree.numExpanded;
+                    System.out.println("Current Sample: " + -score / this.constRT);
+                    System.out.println("Current Average: " + logZestimate);
+                    System.out.println("Current Average Nodes Exp: " + averageNodesExpanded / (i + 1));
+                }
+                System.out.println("Average Nodes Expanded: " + averageNodesExpanded / numSamples);
+                double logZ = -average / (this.constRT * numSamples);
+                System.out.println("Gumbel logZ: " + logZ);
+                System.exit(0);
+            }
+            if (true) {
+                epsilon = 0.3;
+                PartFuncTree tree = new PartFuncTree(sp.emat, sp.pruneMat);
+                long startTime = System.currentTimeMillis();
+                double maxTime = 3600000;
+
+                System.out.println("Starting Part Func Calculation with Epsilon: " + epsilon);
+                double logZ = tree.computeEpsilonApprox(epsilon, maxTime);
+                long totalTime = (System.currentTimeMillis() - startTime);
+                System.out.println("New Alg Took: " + totalTime + " milliseconds");
+//                DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, sp.pruneMat, 0.1, maxTime);
+//                System.out.println("DFP: " + dfp.getLogZ());
+                String filename = "data_";
+                filename += epsilon + "_1Hour.txt";
+                File statistics = new File(filename);
+                try {
+                    FileWriter fw = new FileWriter(statistics);
+                    fw.write("LogConfSpace: " + getLogConfSpace(sp.pruneMat) + "\n");
+                    fw.write("NewAlgorithm: " + totalTime + "\n");
+                    if (tree.timeOut) {
+                        fw.write("NewAlgorithm: finished false" + "\n");
+                        fw.write("NewAlgorithm: effectiveEpsilon " + tree.effectiveEpsilon + "\n");
+                    } else {
+                        fw.write("NewAlgorithm: finished true" + "\n");
+                    }
+                    fw.write("NewAlgorithm: logZ " + logZ + "\n");
+                    DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, sp.pruneMat, 0.1, maxTime);
+                    System.out.println("DFP: " + dfp.getLogZ());
+                    if (dfp.finishedInTime) {
+                        fw.write("KStar: finished true" + "\n");
+                        fw.write("KStar: totalTime " + dfp.totalTime);
+                    } else {
+                        fw.write("KStar: finished false" + "\n");
+                        fw.write("KStar: effectiveEpsilon " + dfp.effectiveEpsilonReached + "\n");
+                        fw.write("KStar: logZLB " + dfp.getLogZ());
+                    }
+
+                    fw.close();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+                System.out.println("Epsilon Approx BB: " + logZ);
+            }
+            if (false) {
+                PartFuncTree tree = new PartFuncTree(sp.emat, sp.pruneMat);
+                long startTime = System.currentTimeMillis();
+                double maxTime = 3600000;
+                double logZ = tree.computeEpsilonApprox(0.1, maxTime);
+                long totalTime = (System.currentTimeMillis() - startTime);
+                System.out.println("New Alg Took: " + totalTime + " milliseconds");
+                File statistics = new File("data_var_p_2.txt");
+                try {
+                    FileWriter fw = new FileWriter(statistics);
+                    fw.write("LogConfSpace: " + getLogConfSpace(sp.pruneMat) + "\n");
+                    fw.write("NewAlgorithm: " + totalTime + "\n");
+                    if (tree.timeOut) {
+                        fw.write("NewAlgorithm: finished false" + "\n");
+                        fw.write("NewAlgorithm: effectiveEpsilon " + tree.effectiveEpsilon + "\n");
+                    } else {
+                        fw.write("NewAlgorithm: finished true" + "\n");
+                    }
+                    fw.write("NewAlgorithm: logZ " + logZ);
+                    fw.close();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+                System.out.println("Epsilon Approx BB: " + logZ);
+            }
+            /*            ReparamMRF mrf = new ReparamMRF(sp.emat, upm, 0.0);
+             MarkovRandomField mrf2 = new MarkovRandomField(sp, 0.0);
+             SCMF_Clamp scmf = new SCMF_Clamp(mrf);
+             System.out.println("Lower Bound: "+scmf.getLogZLB());
+             //            DiscretePartFunc dfp = new DiscretePartFunc(sp.emat, upm, 0.1);
+            
+             //            TRBP_Refactor_2 trbpR = new TRBP_Refactor_2(mrf2);
+             /*            TRBPSeq trbp = new TRBPSeq(mrf);
+             double ubLogZ = trbp.getLogZ();
+             System.out.println("ubLogZ: " + ubLogZ);
+             if (false) {
+             DiscretePartFunc dpf = new DiscretePartFunc(sp, 0.1);
+             double logZKStar = dpf.getLogZ();
+             System.out.println("KStar LogZ: " + logZKStar);
+             }
+             */
+        }
+    }
+
+    public VariationalPartFunc(ConfigFileParser aCFP, double epsilon, double eCut, boolean useTRBPSplit) {
+        this.cfp = aCFP;
+        this.cfp.params.setValue("STERICTHRESH", "1000");
+        SearchProblem[] spList = cfp.getMSDSearchProblems();
 
         epsilon = 0.1;
         PartFuncTree tree = new PartFuncTree(sp.emat, sp.pruneMat);
