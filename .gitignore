@@ -1,7 +1,5 @@
 nbproject/ALL*
-build/
 dist/
-build/
 nbdist/
 nbrproject/**
 .classpath
