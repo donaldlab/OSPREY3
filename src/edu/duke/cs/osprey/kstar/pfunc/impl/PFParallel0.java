@@ -81,7 +81,7 @@ public class PFParallel0 extends PFParallel1 implements Serializable {
 	
 			if( (conf = confSearch.nextConf()) != null ) {
 	
-				if( minimizedConfsSet.contains(conf) ) return;
+				if( processedConfsSet.contains(conf) ) return;
 	
 				KSConf ksConf = new KSConf(conf.getAssignments(), getConfBound(confSearch, conf.getAssignments()));
 	
@@ -140,7 +140,7 @@ public class PFParallel0 extends PFParallel1 implements Serializable {
 			if( !printedHeader ) printHeader();
 
 			System.out.println(numberFormat.format(boundError) + "\t" + numberFormat.format(energy) + "\t" 
-					+ numberFormat.format(effectiveEpsilon) + "\t" + getNumMinimized4Output() + "\t" 
+					+ numberFormat.format(effectiveEpsilon) + "\t" + getNumProcessed() + "\t" 
 					+ getNumUnEnumerated() + "\t"+ (currentTime-startTime)/1000);
 		}
 
@@ -176,7 +176,7 @@ public class PFParallel0 extends PFParallel1 implements Serializable {
 	
 	
 	protected BigInteger getNumUnEnumerated() {		
-		BigInteger ans = unPrunedConfs.subtract( getNumMinimized() );
+		BigInteger ans = unPrunedConfs.subtract( getNumProcessed() );
 
 		if( ans.compareTo(BigInteger.ZERO) < 0 ) 
 			throw new RuntimeException("ERROR: the number of un-enumerated conformations must be >= 0");

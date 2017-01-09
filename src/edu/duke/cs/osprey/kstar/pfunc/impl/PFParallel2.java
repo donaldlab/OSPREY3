@@ -175,7 +175,7 @@ public class PFParallel2 extends PFParallel1 implements Serializable {
 					partialQConfs.set(i, confsQ.deQueue());
 				}
 
-				minimizingConfs = minimizingConfs.add( BigInteger.valueOf(partialQConfs.size()) );
+				processingConfs = processingConfs.add( BigInteger.valueOf(partialQConfs.size()) );
 
 				if( confsQ.getState() == Thread.State.WAITING ) confsQ.lock.notify();
 			}
@@ -243,7 +243,7 @@ public class PFParallel2 extends PFParallel1 implements Serializable {
 		double energy = 0, boundError = 0;
 		for( KSConf conf : partialQConfs ) {
 
-			minimizingConfs = minimizingConfs.subtract( BigInteger.ONE );
+			processingConfs = processingConfs.subtract( BigInteger.ONE );
 
 			energy = conf.getEnergy();
 			boundError = conf.getEnergyBound() - conf.getEnergy();
@@ -270,7 +270,7 @@ public class PFParallel2 extends PFParallel1 implements Serializable {
 			if( !PFAbstract.suppressOutput ) {
 				if( !printedHeader ) printHeader();
 				System.out.println(numberFormat.format(boundError) + "\t" + numberFormat.format(energy) + "\t" 
-						+ numberFormat.format(effectiveEpsilon) + "\t" + getNumMinimized4Output() + "\t" 
+						+ numberFormat.format(effectiveEpsilon) + "\t" + getNumProcessed() + "\t" 
 						+ getNumUnEnumerated() + "\t" + confsQ.size() + "\t" + ((currentTime-startTime)/1000));
 			}
 		}

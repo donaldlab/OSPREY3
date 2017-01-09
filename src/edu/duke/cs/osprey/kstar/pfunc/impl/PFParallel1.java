@@ -148,7 +148,7 @@ public class PFParallel1 extends PFTraditional implements Serializable {
 				// we dequeue here and release lock for minimizing
 				conf = confsQ.deQueue();
 
-				minimizingConfs = minimizingConfs.add( BigInteger.ONE );
+				processingConfs = processingConfs.add( BigInteger.ONE );
 
 				// this condition means that confsQ was full (and therefore waiting)
 				// before we extracted this conformation, so wake it up
@@ -298,7 +298,7 @@ public class PFParallel1 extends PFTraditional implements Serializable {
 		conf.setEnergy(energy);
 		boundError = conf.getEnergyBound() - conf.getEnergy();
 
-		minimizingConfs = minimizingConfs.subtract( BigInteger.ONE );
+		processingConfs = processingConfs.subtract( BigInteger.ONE );
 
 		updateQStar( conf );
 
@@ -320,7 +320,7 @@ public class PFParallel1 extends PFTraditional implements Serializable {
 				if( !printedHeader ) printHeader();
 
 				System.out.println(numberFormat.format(boundError) + "\t" + numberFormat.format(energy) + "\t" 
-						+ numberFormat.format(effectiveEpsilon) + "\t" + getNumMinimized4Output() + "\t" 
+						+ numberFormat.format(effectiveEpsilon) + "\t" + getNumProcessed() + "\t" 
 						+ getNumUnEnumerated() + "\t" + confsQ.size() + "\t" + ((currentTime-startTime)/1000));
 			}
 		}
@@ -349,7 +349,7 @@ public class PFParallel1 extends PFTraditional implements Serializable {
 	protected BigInteger getNumUnEnumerated() {
 		// assuming locks are in place
 		
-		BigInteger numProcessing = getNumMinimized().add(BigInteger.valueOf(confsQ.size())).add(minimizingConfs);
+		BigInteger numProcessing = getNumProcessed().add(BigInteger.valueOf(confsQ.size())).add(processingConfs);
 
 		BigInteger ans = unPrunedConfs.subtract( numProcessing );
 
