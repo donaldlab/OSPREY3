@@ -1,38 +1,35 @@
 package edu.duke.cs.osprey.ematrix;
 
+import java.util.List;
+
 import edu.duke.cs.osprey.confspace.AbstractTupleMatrix;
+import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.ParameterizedMoleculeCopy;
-import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator.Result;
-import edu.duke.cs.osprey.energy.EnergyFunction;
+import edu.duke.cs.osprey.confspace.ParameterizedMoleculePool;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
+import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
-import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.confspace.ParameterizedMoleculePool;
+import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
+import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.Progress;
 
-public class SimpleEnergyMatrixCalculator {
+public abstract class SimpleEnergyMatrixCalculator {
 	
 	private class MoleculeTask {
 		
 		public ParameterizedMoleculePool pmols;
 		
-		protected ParameterizedMoleculeCopy getPMC() {
+		protected ParameterizedMoleculeCopy checkout() {
 			synchronized (pmols) {
 				return pmols.checkout();
 			}
 		}
 		
-		protected void cleanup(ParameterizedMoleculeCopy pmol, EnergyFunction efunc) {
-			
-			// release the molecule back to the pool
+		protected void release(ParameterizedMoleculeCopy pmol) {
 			synchronized (pmols) {
 				pmols.release(pmol);
-			}
-			
-			// cleanup the energy function if needed
-			if (efunc instanceof EnergyFunction.NeedsCleanup) {
-				((EnergyFunction.NeedsCleanup)efunc).cleanup();
 			}
 		}
 	}
@@ -41,19 +38,16 @@ public class SimpleEnergyMatrixCalculator {
 		
 		public int pos1;
 		public int rc1;
-		public Result result;
+		public Minimizer.Result result;
 
 		@Override
 		public void run() {
-			
-			ParameterizedMoleculeCopy pmol = getPMC();
-			EnergyFunction efunc = ecalc.getSingleEfunc(pos1, pmol);
-			RCTuple tup = new RCTuple();
-			
-			tup.set(pos1, rc1);
-			result = ecalc.calc(efunc, tup, pmol);
-			
-			cleanup(pmol, efunc);
+			ParameterizedMoleculeCopy pmol = checkout();
+			try {
+				result = ecalc.calcSingle(pos1, rc1, pmol);
+			} finally {
+				release(pmol);
+			}
 		}
 	}
 	
@@ -62,57 +56,45 @@ public class SimpleEnergyMatrixCalculator {
 		public int pos1;
 		public int rc1;
 		public int pos2;
-		public int numRcs2;
-		public Result[] results;
+		public int numrc2;
+		public Minimizer.Result[] results;
 
 		@Override
 		public void run() {
-			
-			ParameterizedMoleculeCopy pmol = getPMC();
-			EnergyFunction efunc = ecalc.getPairEfunc(pos1, pos2, pmol);
-			RCTuple tup = new RCTuple();
-			
-			results = new Result[numRcs2];
-			for (int rc2=0; rc2<numRcs2; rc2++) {
-				tup.set(pos1, rc1, pos2, rc2);
-				results[rc2] = ecalc.calc(efunc, tup, pmol);
+			ParameterizedMoleculeCopy pmol = checkout();
+			try {
+				
+				results = new Minimizer.Result[numrc2];
+				for (int rc2=0; rc2<numrc2; rc2++) {
+					results[rc2] = ecalc.calcPair(pos1, rc1, pos2, rc2, pmol);
+				}
+				
+			} finally {
+				release(pmol);
 			}
-			
-			cleanup(pmol, efunc);
 		}
 	}
 	
-	private SimpleEnergyCalculator ecalc;
+	protected SimpleEnergyCalculator ecalc;
+	protected TaskExecutor tasks;
 	
-	public SimpleEnergyMatrixCalculator(SimpleEnergyCalculator ecalc) {
-		this.ecalc = ecalc;
+	protected SimpleEnergyMatrixCalculator() {
+		// only subclasses should directly make these
 	}
-
+	
 	public EnergyMatrix calcEnergyMatrix() {
-		return calcEnergyMatrix(null);
-	}
-	
-	public EnergyMatrix calcEnergyMatrix(TaskExecutor tasks) {
-		EnergyMatrix emat = new EnergyMatrix(ecalc.getConfSpace(), Double.POSITIVE_INFINITY);
-		calcMatrices(emat, null, tasks);
+		EnergyMatrix emat = new EnergyMatrix(ecalc.confSpace, Double.POSITIVE_INFINITY);
+		calcMatrices(emat, null);
 		return emat;
 	}
 	
 	public DofMatrix calcDofMatrix() {
-		return calcDofMatrix(null);
-	}
-	
-	public DofMatrix calcDofMatrix(TaskExecutor tasks) {
-		DofMatrix dofmat = new DofMatrix(ecalc.getConfSpace());
-		calcMatrices(null, dofmat, tasks);
+		DofMatrix dofmat = new DofMatrix(ecalc.confSpace);
+		calcMatrices(null, dofmat);
 		return dofmat;
 	}
 	
 	public void calcMatrices(EnergyMatrix emat, DofMatrix dofmat) {
-		calcMatrices(emat, dofmat, null);
-	}
-	
-	public void calcMatrices(EnergyMatrix emat, DofMatrix dofmat, TaskExecutor tasks) {
 		
 		if (emat != null && dofmat != null) {
 			
@@ -157,7 +139,7 @@ public class SimpleEnergyMatrixCalculator {
 		Progress progress = new Progress(numWork);
 		
 		// init molecule pool
-		ParameterizedMoleculePool pmols = new ParameterizedMoleculePool(ecalc.getConfSpace());
+		ParameterizedMoleculePool pmols = new ParameterizedMoleculePool(ecalc.confSpace);
 		
 		// init task listeners
 		TaskListener singleListener = new TaskListener() {
@@ -166,10 +148,10 @@ public class SimpleEnergyMatrixCalculator {
 				SingleTask task = (SingleTask)taskBase;
 				
 				if (emat != null) {
-					emat.setOneBody(task.pos1, task.rc1, task.result.getEnergy());
+					emat.setOneBody(task.pos1, task.rc1, task.result.energy);
 				}
 				if (dofmat != null) {
-					dofmat.setOneBody(task.pos1, task.rc1, task.result.getDofValues());
+					dofmat.setOneBody(task.pos1, task.rc1, task.result.dofValues);
 				}
 				
 				progress.incrementProgress();
@@ -180,22 +162,22 @@ public class SimpleEnergyMatrixCalculator {
 			public void onFinished(Runnable taskBase) {
 				PairTask task = (PairTask)taskBase;
 			
-				for (int rc2=0; rc2<task.numRcs2; rc2++) {
-					Result result = task.results[rc2];
-					
-					if (emat != null) {
-						emat.setPairwise(task.pos1, task.rc1, task.pos2, rc2, result.getEnergy());
+				if (emat != null) {
+					for (int rc2=0; rc2<task.numrc2; rc2++) {
+						emat.setPairwise(task.pos1, task.rc1, task.pos2, rc2, task.results[rc2].energy);
 					}
-					if (dofmat != null) {
-						dofmat.setPairwise(task.pos1, task.rc1, task.pos2, rc2, result.getDofValues());
+				}
+				if (dofmat != null) {
+					for (int rc2=0; rc2<task.numrc2; rc2++) {
+						dofmat.setPairwise(task.pos1, task.rc1, task.pos2, rc2, task.results[rc2].dofValues);
 					}
 				}
 				
-				progress.incrementProgress(task.results.length);
+				progress.incrementProgress(task.numrc2);
 			}
 		};
 		
-		System.out.println("Calculating energies with shell distribution: " + ecalc.getShellDistribution());
+		System.out.println("Calculating energies...");
 		
 		for (int pos1=0; pos1<emat.getNumPos(); pos1++) {
 			for (int rc1=0; rc1<emat.getNumConfAtPos(pos1); rc1++) {
@@ -218,12 +200,59 @@ public class SimpleEnergyMatrixCalculator {
 					pairTask.pos1 = pos1;
 					pairTask.rc1 = rc1;
 					pairTask.pos2 = pos2;
-					pairTask.numRcs2 = emat.getNumConfAtPos(pos2);
+					pairTask.numrc2 = emat.getNumConfAtPos(pos2);
 					tasks.submit(pairTask, pairListener);
 				}
 			}
 		}
 		
 		tasks.waitForFinish();
+	}
+	
+	public abstract void cleanup();
+	
+	
+	public static class Cpu extends SimpleEnergyMatrixCalculator {
+		
+		private ThreadPoolTaskExecutor tasks;
+		
+		public Cpu(int numThreads, ForcefieldParams ffparams, ConfSpace confSpace, List<Residue> shellResidues) {
+			ecalc = new SimpleEnergyCalculator.Cpu(ffparams, confSpace, shellResidues);
+			tasks = new ThreadPoolTaskExecutor();
+			tasks.start(numThreads);
+			super.tasks = tasks;
+		}
+		
+		@Override
+		public void cleanup() {
+			tasks.stop();
+		}
+	}
+	
+	/**
+	 * This is pretty slow compared to the CPU,
+	 * so don't actually use it in the real world.
+	 * Maybe someday it could be faster...
+	 * Use the multi-threaded CPU calculator instead
+	 */
+	@Deprecated
+	public static class Cuda extends SimpleEnergyMatrixCalculator {
+		
+		private GpuStreamPool pool;
+		private ThreadPoolTaskExecutor tasks;
+		
+		public Cuda(int numGpus, int numStreamsPerGpu, ForcefieldParams ffparams, ConfSpace confSpace, List<Residue> shellResidues) {
+			pool = new GpuStreamPool(numGpus, numStreamsPerGpu);
+			ecalc = new SimpleEnergyCalculator.Cuda(pool, ffparams, confSpace, shellResidues);
+			tasks = new ThreadPoolTaskExecutor();
+			tasks.start(pool.getNumStreams());
+			super.tasks = tasks;
+		}
+		
+		@Override
+		public void cleanup() {
+			tasks.stop();
+			pool.cleanup();
+		}
 	}
 }

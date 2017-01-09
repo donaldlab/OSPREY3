@@ -115,7 +115,7 @@ public class COMETSDoer {
         String wt[] = new String[numTreeLevels];
         
         for(int level=0; level<numTreeLevels; level++)
-            wt[level] = st.nextToken();
+            wt[level] = st.nextToken().toUpperCase();
         
         return wt;
     }

@@ -44,6 +44,14 @@ public class ConfigFileParser {
         params.addDefaultParams();//We'll look for this in DataDir
     }
     
+    public ConfigFileParser() {
+    	// HACKHACK: transitional constructor so we can make CFP instances without reading input files
+    	// that way we can define config in code and give it to things that expect to read CFP instances
+    	// but all these things that expect CFP instances won't necessarily have to share the same one
+        EnvironmentVars.setDataDir("dataFiles");
+    	params.addDefaultParams();
+    }
+    
     
     protected DEEPerSettings setupDEEPer(){
         //Set up the DEEPerSettings object, including the PertSet (describes the perturbations)
@@ -145,7 +153,8 @@ public class ConfigFileParser {
                 params.getBool("AddResEntropy"),
                 params.getBool("addWTRots"),
                 null,
-                params.getBool("useVoxelG")
+                params.getBool("useVoxelG"),
+                getWtRotOnlyRes()
         );
         
         search.numEmatThreads = params.getInt("EmatThreads");
@@ -179,6 +188,20 @@ public class ConfigFileParser {
         }
         
         return flexResList;
+    }
+    
+    
+    ArrayList<String> getWtRotOnlyRes(){
+        //List of residues for which we'll only include the wild-type rotamer
+        ArrayList<String> wtRotOnlyRes = new ArrayList<>();
+        String val = params.getValue("WTRotOnlyRes");
+        
+        StringTokenizer tokenizer = new StringTokenizer(val);
+        while(tokenizer.hasMoreTokens()){
+            wtRotOnlyRes.add(tokenizer.nextToken());
+        }
+        
+        return wtRotOnlyRes;
     }
     
     
@@ -231,7 +254,7 @@ public class ConfigFileParser {
                 StringTokenizer tokenizer = new StringTokenizer(allowedAAString);
             
                 while(tokenizer.hasMoreTokens()){
-                    resAllowedAAs.add( tokenizer.nextToken() );
+                    resAllowedAAs.add( tokenizer.nextToken().toUpperCase() );
                 }
                 
                 allowedAAs.add(resAllowedAAs);
@@ -262,7 +285,7 @@ public class ConfigFileParser {
             StringTokenizer tokenizer = new StringTokenizer(allowedAAString);
 
             while(tokenizer.hasMoreTokens()){
-                resAllowedAAs.add( tokenizer.nextToken() );
+                resAllowedAAs.add( tokenizer.nextToken().toUpperCase() );
             }
 
             allowedAAs.add(resAllowedAAs);

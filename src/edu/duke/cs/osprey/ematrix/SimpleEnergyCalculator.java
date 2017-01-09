@@ -1,196 +1,210 @@
 package edu.duke.cs.osprey.ematrix;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.ParameterizedMoleculeCopy;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
-import edu.duke.cs.osprey.minimization.CCDMinimizer;
+import edu.duke.cs.osprey.energy.ForcefieldInteractionsGenerator;
+import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
+import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.gpu.BufferTools;
+import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
+import edu.duke.cs.osprey.gpu.cuda.Gpus;
+import edu.duke.cs.osprey.minimization.CudaCCDMinimizer;
+import edu.duke.cs.osprey.minimization.Minimizer;
+import edu.duke.cs.osprey.minimization.Minimizer.Result;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
+import edu.duke.cs.osprey.minimization.SimpleCCDMinimizer;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 
-public class SimpleEnergyCalculator {
+public abstract class SimpleEnergyCalculator {
 	
-	public static enum ShellDistribution {
-		
-		AllOnSingles {
-			@Override
-			public double getSingleWeight(int numPos) {
-				return 1.0;
-			}
-		},
-		HalfSinglesHalfPairs {
-			@Override
-			public double getSingleWeight(int numPos) {
-				return 0.5;
-			}
-		},
-		Even {
-			@Override
-			public double getSingleWeight(int numPos) {
-				return 1.0/numPos;
-			}
-		},
-		AllOnPairs {
-			@Override
-			public double getSingleWeight(int numPos) {
-				return 0.0;
-			}
-		};
-		
-		public abstract double getSingleWeight(int numPos);
-	}
+	public final ForcefieldParams ffparams;
+	public ConfSpace confSpace;
+	public List<Residue> shellResidues;
+	protected ForcefieldInteractionsGenerator intergen;
 	
-	// NOTE: empirical testing didn't reveal any distribution to be consistently better than
-	// the others on a variety of designs.
-	// It probably depends on the ratio of flexible positions to shell positions
-	// anyway, AllOnSingles is waaay faster since it doesn't compute shell energies for pairwise terms
-	// also, the other energy calculator uses this distribution, so we should match to be consistent by default
-	public static ShellDistribution DefaultDist = ShellDistribution.AllOnSingles;
-	
-	public static class Result {
-		
-		private double[] minDofValues;
-		private double energy;
-		
-		public Result(double[] minDofValues, double energy) {
-			this.minDofValues = minDofValues;
-			this.energy = energy;
-		}
-		
-		public double[] getDofValues() {
-			return minDofValues;
-		}
-		
-		public double getEnergy() {
-			return energy;
-		}
-	}
-	
-	private EnergyFunctionGenerator efuncGen;
-	private ConfSpace confSpace;
-	private List<Residue> shellResidues;
-	private ShellDistribution dist;
-	
-	public SimpleEnergyCalculator(EnergyFunctionGenerator efuncGen, ConfSpace confSpace, List<Residue> shellResidues) {
-		this(efuncGen, confSpace, shellResidues, DefaultDist);
-	}
-	
-	public SimpleEnergyCalculator(EnergyFunctionGenerator efuncGen, ConfSpace confSpace, List<Residue> shellResidues, ShellDistribution dist) {
-		this.efuncGen = efuncGen;
+	protected SimpleEnergyCalculator(ForcefieldParams ffparams, ConfSpace confSpace, List<Residue> shellResidues) {
+		this.ffparams = ffparams;
 		this.confSpace = confSpace;
 		this.shellResidues = shellResidues;
-		this.dist = dist;
+		this.intergen = new ForcefieldInteractionsGenerator();
 	}
 	
-	public EnergyFunctionGenerator getEnergyFunctionGenerator() {
-		return efuncGen;
+	public abstract EnergyFunctionGenerator getEnergyFunctionGenerator();
+	
+	public EnergyFunction makeSingleEfunc(int pos) {
+		return makeSingleEfunc(pos, null);
 	}
 	
-	public ShellDistribution getShellDistribution() {
-		return dist;
+	public abstract EnergyFunction makeSingleEfunc(int pos, Molecule mol);
+	
+	public Minimizer.Result calcSingle(int pos, int rc) {
+		return calcSingle(pos, rc, ParameterizedMoleculeCopy.makeNoCopy(confSpace));
 	}
 	
-	public ConfSpace getConfSpace() {
-		return confSpace;
+	public abstract Minimizer.Result calcSingle(int pos, int rc, ParameterizedMoleculeCopy pmol);
+	
+	public EnergyFunction makePairEfunc(int pos1, int pos2) {
+		return makePairEfunc(pos1, pos2, null);
 	}
 	
-	public EnergyFunction getSingleEfunc(int pos) {
-		return getSingleEfunc(pos, null);
+	public abstract EnergyFunction makePairEfunc(int pos1, int pos2, Molecule mol);
+	
+	public Minimizer.Result calcPair(int pos1, int rc1, int pos2, int rc2) {
+		return calcPair(pos1, rc1, pos2, rc2, ParameterizedMoleculeCopy.makeNoCopy(confSpace));
 	}
 	
-	public EnergyFunction getSingleEfunc(int pos, ParameterizedMoleculeCopy pmol) {
-		double singleWeight = dist.getSingleWeight(confSpace.numPos);
-		return efuncGen.intraAndDistributedShellEnergy(getResidue(pos, pmol), getResidues(shellResidues, pmol), confSpace.numPos, singleWeight);
-	}
+	public abstract Minimizer.Result calcPair(int pos1, int rc1, int pos2, int rc2, ParameterizedMoleculeCopy pmol);
 	
-	public Result calcSingle(int pos, int rc) {
-		return calcSingle(pos, rc, null);
-	}
 	
-	public Result calcSingle(int pos, int rc, ParameterizedMoleculeCopy pmol) {
-		EnergyFunction efunc = getSingleEfunc(pos, pmol);
-		Result result = calc(efunc, new RCTuple(pos, rc), pmol);
-		cleanup(efunc);
-		return result;
-	}
-	
-	public EnergyFunction getPairEfunc(int pos1, int pos2) {
-		return getPairEfunc(pos1, pos2, null);
-	}
-	
-	public EnergyFunction getPairEfunc(int pos1, int pos2, ParameterizedMoleculeCopy pmol) {
-		double singleWeight = dist.getSingleWeight(confSpace.numPos);
-		return efuncGen.resPairAndDistributedShellEnergy(getResidue(pos1, pmol), getResidue(pos2, pmol), getResidues(shellResidues, pmol), confSpace.numPos, singleWeight);
-	}
-	
-	public Result calcPair(int pos1, int rc1, int pos2, int rc2) {
-		return calcPair(pos1, rc1, pos2, rc2, null);
-	}
-	
-	public Result calcPair(int pos1, int rc1, int pos2, int rc2, ParameterizedMoleculeCopy pmol) {
-		EnergyFunction efunc = getPairEfunc(pos1, pos2, pmol);
-		Result result = calc(efunc, new RCTuple(pos1, rc1, pos2, rc2), pmol);
-		cleanup(efunc);
-		return result;
-	}
-	
-	public Result calc(EnergyFunction efunc, RCTuple tuple, ParameterizedMoleculeCopy pmol) {
+	public static class Cpu extends SimpleEnergyCalculator {
+
+		private EnergyFunctionGenerator efuncs;
 		
-		double[] minDofValues = null;
+		public Cpu(ForcefieldParams ffparams, ConfSpace confSpace, List<Residue> shellResidues) {
+			super(ffparams, confSpace, shellResidues);
+			efuncs = new EnergyFunctionGenerator(ffparams, Double.POSITIVE_INFINITY, false);
+		}
 		
-		// put molecule in correct conformation for rcs
-		MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(efunc, confSpace, tuple, pmol);
+		@Override
+		public EnergyFunctionGenerator getEnergyFunctionGenerator() {
+			return efuncs;
+		}
 		
-		// optimize the degrees of freedom, if needed
-		if (mof.getNumDOFs() > 0) {
-			CCDMinimizer ccdMin = new CCDMinimizer(mof, true);
-			DoubleMatrix1D minDofVec = ccdMin.minimize();
-			minDofValues = minDofVec.toArray();
-			mof.setDOFs(minDofVec);
+		@Override
+		public EnergyFunction makeSingleEfunc(int pos, Molecule mol) {
+			return efuncs.interactionEnergy(intergen.makeIntraAndShell(confSpace, pos, shellResidues, mol));
 		}
 
-		// calculate the energy
-		return new Result(minDofValues, efunc.getEnergy());
-	}
-	
-	private void cleanup(EnergyFunction efunc) {
+		@Override
+		public EnergyFunction makePairEfunc(int pos1, int pos2, Molecule mol) {
+			return efuncs.interactionEnergy(intergen.makeResPair(confSpace, pos1, pos2, mol));
+		}
+
+		@Override
+		public Result calcSingle(int pos, int rc, ParameterizedMoleculeCopy pmol) {
+			return calc(makeSingleEfunc(pos, pmol.getCopiedMolecule()), new RCTuple(pos, rc), pmol);
+		}
+
+		@Override
+		public Result calcPair(int pos1, int rc1, int pos2, int rc2, ParameterizedMoleculeCopy pmol) {
+			return calc(makePairEfunc(pos1, pos2, pmol.getCopiedMolecule()), new RCTuple(pos1, rc1, pos2, rc2), pmol);
+		}
 		
-		// cleanup the energy function if needed
-		if (efunc instanceof EnergyFunction.NeedsCleanup) {
-			((EnergyFunction.NeedsCleanup)efunc).cleanup();
+		public Minimizer.Result calc(EnergyFunction efunc, RCTuple tuple, ParameterizedMoleculeCopy pmol) {
+			
+			// put molecule in correct conformation for rcs
+			MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(efunc, confSpace, tuple, pmol);
+			
+			// optimize the degrees of freedom, if needed
+			if (mof.getNumDOFs() > 0) {
+				return new SimpleCCDMinimizer(mof).minimize();
+			}
+
+			// otherwise, just evaluate the energy function
+			return new Minimizer.Result(null, efunc.getEnergy());
 		}
 	}
 	
-	private Residue getResidue(int pos, ParameterizedMoleculeCopy pmol) {
-		
-		Residue res = confSpace.posFlex.get(pos).res;
-		
-		// if we're using a separate molecule, match this residue to the one in the molecule
-		if (pmol != null) {
-			res = pmol.getCopiedMolecule().residues.get(res.indexInMolecule);
-		}
-		
-		return res;
-	}
 	
-	private List<Residue> getResidues(List<Residue> residues, ParameterizedMoleculeCopy pmol) {
+	/**
+	 * This is pretty slow compared to the CPU,
+	 * so don't actually use it in the real world.
+	 * Maybe someday it could be faster...
+	 * Use the multi-threaded CPU calculator instead
+	 */
+	@Deprecated
+	public static class Cuda extends SimpleEnergyCalculator {
 		
-		// no molecule? just return the original residues
-		if (pmol == null) {
-			return residues;
+		public static boolean isSupported() {
+			return !Gpus.get().getGpus().isEmpty();
 		}
 		
-		// but if there is a molecule, then match the residues to it
-		List<Residue> matched = new ArrayList<>(residues.size());
-		for (Residue res : residues) {
-			matched.add(pmol.getCopiedMolecule().residues.get(res.indexInMolecule));
+		private GpuStreamPool pool;
+		private GpuEnergyFunctionGenerator efuncs;
+		
+		public Cuda(GpuStreamPool pool, ForcefieldParams ffparams, ConfSpace confSpace, List<Residue> shellResidues) {
+			super(ffparams, confSpace, shellResidues);
+			this.pool = pool;
+			this.efuncs = new GpuEnergyFunctionGenerator(ffparams, pool);
 		}
-		return matched;
+		
+		private BufferTools.Type getBufType(boolean isMinimizing) {
+			// if we're not minimizing, don't incur the overhead of directly-allocated buffers
+			if (isMinimizing) {
+				return BufferTools.Type.Direct;
+			} else {
+				return BufferTools.Type.Normal;
+			}
+		}
+		
+		@Override
+		public EnergyFunctionGenerator getEnergyFunctionGenerator() {
+			return efuncs;
+		}
+
+		@Override
+		public BigForcefieldEnergy makeSingleEfunc(int pos, Molecule mol) {
+			// this function is typically not called during minimization,
+			// but rather by code that's inspecting subsets of the larger energy function,
+			return makeSingleEfunc(pos, mol, getBufType(false));
+		}
+		
+		public BigForcefieldEnergy makeSingleEfunc(int pos, Molecule mol, BufferTools.Type bufType) {
+			ForcefieldInteractions ffinteractions = intergen.makeIntraAndShell(confSpace, pos, shellResidues, mol);
+			return new BigForcefieldEnergy(ffparams, ffinteractions, bufType);
+		}
+
+		@Override
+		public BigForcefieldEnergy makePairEfunc(int pos1, int pos2, Molecule mol) {
+			return makePairEfunc(pos1, pos2, mol, getBufType(false));
+		}
+
+		private BigForcefieldEnergy makePairEfunc(int pos1, int pos2, Molecule mol, BufferTools.Type bufType) {
+			ForcefieldInteractions ffinteractions = intergen.makeResPair(confSpace, pos1, pos2, mol);
+			return new BigForcefieldEnergy(ffparams, ffinteractions, bufType);
+		}
+
+		@Override
+		public Result calcSingle(int pos, int rc, ParameterizedMoleculeCopy pmol) {
+			RCTuple tuple = new RCTuple(pos, rc);
+			boolean isMinimizing = MoleculeModifierAndScorer.hasMinimizableDofs(confSpace, tuple);
+			BigForcefieldEnergy efunc = makeSingleEfunc(pos, pmol.getCopiedMolecule(), getBufType(isMinimizing));
+			return calc(efunc, tuple, pmol);
+		}
+
+		@Override
+		public Result calcPair(int pos1, int rc1, int pos2, int rc2, ParameterizedMoleculeCopy pmol) {
+			RCTuple tuple = new RCTuple(pos1, rc1, pos2, rc2);
+			boolean isMinimizing = MoleculeModifierAndScorer.hasMinimizableDofs(confSpace, tuple);
+			BigForcefieldEnergy efunc = makePairEfunc(pos1, pos2, pmol.getCopiedMolecule(), getBufType(isMinimizing));
+			return calc(efunc, tuple, pmol);
+		}
+		
+		public Minimizer.Result calc(EnergyFunction efunc, RCTuple tuple, ParameterizedMoleculeCopy pmol) {
+			
+			// put molecule in correct conformation for rcs
+			MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(efunc, confSpace, tuple, pmol);
+			
+			// optimize the degrees of freedom, if needed
+			if (mof.getNumDOFs() > 0) {
+				CudaCCDMinimizer minimizer = new CudaCCDMinimizer(pool, mof);
+				try {
+					return minimizer.minimize();
+				} finally {
+					minimizer.cleanup();
+				}
+			}
+
+			// otherwise, just evaluate the energy function
+			return new Minimizer.Result(null, efunc.getEnergy());
+		}
 	}
 }

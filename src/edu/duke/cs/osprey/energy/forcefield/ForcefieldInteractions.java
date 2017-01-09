@@ -1,7 +1,9 @@
 package edu.duke.cs.osprey.energy.forcefield;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions.AtomGroup;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
@@ -17,22 +19,32 @@ public class ForcefieldInteractions extends ArrayList<AtomGroup[]> {
 		int getId();
 		List<Atom> getAtoms();
 		double[] getCoords();
-		boolean hasChemicalChange();
-		void ackChemicalChange();
+		int getSequenceNumber();
 	}
 	
 	public static class ResidueAtomGroup implements AtomGroup {
 		
 		private Residue res;
 		private ResidueTemplate template;
+		private int sequenceNumber;
 		
 		public ResidueAtomGroup(Residue res) {
 			this.res = res;
+			this.template = res.template;
+			this.sequenceNumber = 0;
+		}
+		
+		public Residue getResidue() {
+			return res;
+		}
+		
+		public static int getId(Residue res) {
+			return res.indexInMolecule;
 		}
 		
 		@Override
 		public int getId() {
-			return res.indexInMolecule;
+			return getId(res);
 		}
 		
 		@Override
@@ -46,23 +58,46 @@ public class ForcefieldInteractions extends ArrayList<AtomGroup[]> {
 		}
 		
 		@Override
-		public boolean hasChemicalChange() {
-			return template != res.template;
-		}
-		
-		@Override
-		public void ackChemicalChange() {
-			template = res.template;
+		public int getSequenceNumber() {
+			
+			// did the template change?
+			if (this.template != res.template) {
+				this.template = res.template;
+				sequenceNumber++;
+			}
+			
+			return sequenceNumber;
 		}
 	}
 	
+	private Map<Integer,AtomGroup> groupsById;
+	
+	public ForcefieldInteractions() {
+		groupsById = new HashMap<>();
+	}
+	
+	private ResidueAtomGroup makeResidueAtomGroup(Residue res) {
+		int id = ResidueAtomGroup.getId(res);
+		ResidueAtomGroup group = (ResidueAtomGroup)groupsById.get(id);
+		if (group == null) {
+			group = new ResidueAtomGroup(res);
+			groupsById.put(id, group);
+		}
+		return group;
+	}
+	
 	public void addResidue(Residue res) {
-		AtomGroup group = new ResidueAtomGroup(res);
+		AtomGroup group = makeResidueAtomGroup(res);
+		groupsById.put(group.getId(), group);
 		add(new AtomGroup[] { group, group });
 	}
 	
 	public void addResiduePair(Residue res1, Residue res2) {
-		add(new AtomGroup[] { new ResidueAtomGroup(res1), new ResidueAtomGroup(res2) });
+		AtomGroup group1 = makeResidueAtomGroup(res1);
+		AtomGroup group2 = makeResidueAtomGroup(res2);
+		groupsById.put(group1.getId(), group1);
+		groupsById.put(group2.getId(), group2);
+		add(new AtomGroup[] { group1, group2 });
 	}
 	
 	public ForcefieldInteractions makeSubsetByResidue(Residue res) {
@@ -73,5 +108,13 @@ public class ForcefieldInteractions extends ArrayList<AtomGroup[]> {
 			}
 		}
 		return subInteractions;
+	}
+	
+	public ResidueAtomGroup getResidueAtomGroup(Residue res) {
+		AtomGroup group = groupsById.get(res.indexInMolecule);
+		if (group instanceof ResidueAtomGroup) {
+			return (ResidueAtomGroup)group;
+		}
+		return null;
 	}
 }

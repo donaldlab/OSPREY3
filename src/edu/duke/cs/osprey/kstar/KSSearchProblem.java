@@ -37,7 +37,7 @@ public class KSSearchProblem extends SearchProblem {
 			boolean addWTRots, KSTermini termini, boolean useVoxelG) {
 		
 		super(name, PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, useEPIC, epicSettings, useTupExp, luteSettings,
-                        dset, moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWTRots, termini, useVoxelG);
+                        dset, moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWTRots, termini, useVoxelG, new ArrayList<>());
 		
 		this.allowedAAs = allowedAAs;
 		this.reducedAllowedAAs = allowedAAs;
@@ -75,81 +75,19 @@ public class KSSearchProblem extends SearchProblem {
 		this.competitorPruneMat = other.competitorPruneMat;
 		this.confSpace = other.confSpace;
 	}
-	
-	
-	public void loadMatrix() {
-		MatrixType type = getMatrixType();
-		
-		switch (type) {
-
-		case EMAT: 
-			loadEnergyMatrix();
-			break;
-
-		case TUPEXPEMAT: 
-			loadTupExpEMatrix();
-			break;
-
-		case EPICMAT:
-			loadEPICMatrix();
-			break;
-
-		default:	
-			throw new RuntimeException("ERROR: unsupported energy matrix type: " + type);
-		}
-	}
-	
-	
-	public MatrixType getMatrixType() {
-		if(useTupExpForSearch) return MatrixType.TUPEXPEMAT;
-
-		else if(useEPIC) return MatrixType.EPICMAT;
-
-		return MatrixType.EMAT;
-	}
-
-
+        
 	public EnergyMatrix getEnergyMatrix() {
-
-		MatrixType type = getMatrixType();
-		switch (type) {
-
-		case EMAT: 
-			return emat;
-
-		case TUPEXPEMAT: 
-			return tupExpEMat;
-
-		default:
-			throw new RuntimeException("ERROR: AAO has not added support for type " + type);
-		}
-	}
-
-	
-	public void setEnergyMatrix(EnergyMatrix e) {
-
-		MatrixType type = getMatrixType();
-		switch (type) {
-
-		case EMAT: 
-			emat = e;
-			break;
-
-		case TUPEXPEMAT: 
-			tupExpEMat = e;
-			break;
-
-		default:
-			throw new RuntimeException("ERROR: AAO has not added support for type " + type);
-		}
-	}
-
-	
+            return emat;
+            //If the LUTE matrix is supposed to be used, it will be set as emat
+        }
 	
 	public String getMatrixFileName(MatrixType type) {
 		return name + "." + type.name() + ".dat";
 	}
 	
+        public String getEnergyMatrixFileName() {
+		return name + ".EMAT.dat";
+	}
 	
 	public ArrayList<Integer> getMaxPosNums() {
 		ArrayList<Integer> ans = new ArrayList<>(allowedAAs.size());

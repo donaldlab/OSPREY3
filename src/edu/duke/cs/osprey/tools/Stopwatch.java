@@ -6,14 +6,24 @@ public class Stopwatch {
 
 	private boolean isRunning;
 	private long startTime;
-	private long stopTime;
+	private long timeNs;
 	
 	public Stopwatch() {
 		isRunning = false;
 		startTime = -1;
 	}
 	
+	public Stopwatch reset() {
+		timeNs = 0;
+		return this;
+	}
+	
 	public Stopwatch start() {
+		reset();
+		return resume();
+	}
+	
+	public Stopwatch resume() {
 		assert (!isRunning);
 		startTime = System.nanoTime();
 		isRunning = true;
@@ -22,7 +32,7 @@ public class Stopwatch {
 	
 	public Stopwatch stop() {
 		assert (isRunning);
-		stopTime = System.nanoTime();
+		timeNs += System.nanoTime() - startTime;
 		isRunning = false;
 		return this;
 	}
@@ -33,9 +43,9 @@ public class Stopwatch {
 	
 	public long getTimeNs() {
 		if (isRunning) {
-			return System.nanoTime() - startTime;
+			return timeNs + System.nanoTime() - startTime;
 		} else {
-			return stopTime - startTime;
+			return timeNs;
 		}
 	}
 	

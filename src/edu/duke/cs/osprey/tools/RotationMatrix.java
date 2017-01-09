@@ -22,57 +22,21 @@ public class RotationMatrix implements Serializable {
     
     // This function constructs a rotation matrix from a rotation in
 	//  axis-angle notation.  (fx,fy,fz) is the axis (not necessarily normalized)
-    public RotationMatrix (double fx, double fy, double fz, double angle,
-		boolean angleInRadians) {//if not radians, then degrees
-        
-        if(angleInRadians)
-            angle *= 180./Math.PI;
-                
-        // First convert the axisangle to a quaternion
-        double sin_a = (double) Math.sin(angle*3.14159265/180/2);
-        double cos_a = (double) Math.cos(angle*3.14159265/180/2);
-        double tmp = (double) Math.sqrt(fx*fx + fy*fy + fz*fz);
-        double qx = fx / tmp * sin_a;
-        double qy = fy / tmp * sin_a;
-        double qz = fz / tmp * sin_a;
-        double qw = cos_a;
-        tmp = (double) Math.sqrt(qx*qx + qy*qy + qz*qz + qw*qw);
-        qx /= tmp;
-        qy /= tmp;
-        qz /= tmp;
-        qw /= tmp;
-        double xx = qx * qx;
-        double xy = qx * qy;
-        double xz = qx * qz;
-        double xw = qx * qw;
-
-        double yy = qy * qy;
-        double yz = qy * qz;
-        double yw = qy * qw;
-
-        double zz = qz * qz;
-        double zw = qz * qw;
-        
-        matrix = new double[3][3];
-
-        matrix[0][0] = 1 - 2 * (yy + zz);
-        matrix[0][1] = 2 * (xy - zw);
-        matrix[0][2] = 2 * (xz + yw);
-
-        matrix[1][0] = 2 * (xy + zw);
-        matrix[1][1] = 1 - 2 * (xx + zz);
-        matrix[1][2] = 2 * (yz - xw);
-
-        matrix[2][0] = 2 * (xz - yw);
-        matrix[2][1] = 2 * (yz + xw);
-        matrix[2][2] = 1 - 2 * (xx + yy);
+    public RotationMatrix (double fx, double fy, double fz, double angle, boolean angleInRadians) {//if not radians, then degrees
+        this(
+            fx, fy, fz,
+            angleInRadians ? Math.sin(angle) : Math.sin(Math.toRadians(angle)),
+            angleInRadians ? Math.cos(angle) : Math.cos(Math.toRadians(angle))
+        );
     }
         
         
-    //Rotation in terms of sin, cosine of angle
-    //note for conversion to quaternion we actually will need half-angle sin & cosine ("a" = theta/2)
-    public RotationMatrix (double fx, double fy, double fz, double sinTheta, double cosTheta) {
+    // rotation matrix from axis (fx,fy,fz) angle (sin,cos) representation
+    public RotationMatrix (double fx, double fy, double fz, double sin, double cos) {
 
+        /* this implementation is numerically unstable
+            let's try something simpler
+        
         // First convert the axisangle to a quaternion
         //use half-angle formulae
         double[] halfAngSC = Protractor.getHalfAngleSinCos(sinTheta,cosTheta);
@@ -113,12 +77,36 @@ public class RotationMatrix implements Serializable {
         matrix[2][0] = 2 * (xz - yw);
         matrix[2][1] = 2 * (yz + xw);
         matrix[2][2] = 1 - 2 * (xx + yy);
-    }
-
-
-
-                
+        */
         
+        // normalize f
+        double len = Math.sqrt(fx*fx + fy*fy + fz*fz);
+        double ux = fx/len;
+        double uy = fy/len;
+        double uz = fz/len;
+        
+        double omcos = 1 - cos;
+        double uxyomcos = ux*uy*omcos;
+        double uxzomcos = ux*uz*omcos;
+        double uyzomcos = uy*uz*omcos;
+        double uxsin = ux*sin;
+        double uysin = uy*sin;
+        double uzsin = uz*sin;
+        
+        matrix = new double[3][3];
+        
+        matrix[0][0] = cos + ux*ux*omcos;
+        matrix[0][1] = uxyomcos - uzsin;
+        matrix[0][2] = uxzomcos + uysin;
+        
+        matrix[1][0] = uxyomcos + uzsin;
+        matrix[1][1] = cos + uy*uy*omcos;
+        matrix[1][2] = uyzomcos - uxsin;
+        
+        matrix[2][0] = uxzomcos - uysin;
+        matrix[2][1] = uyzomcos + uxsin;
+        matrix[2][2] = cos + uz*uz*omcos;
+    }
 
     public RotationMatrix multiply(RotationMatrix rotation2){
         return new RotationMatrix(multiplyMatrices(matrix,rotation2.matrix));

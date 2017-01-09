@@ -4,6 +4,11 @@
  */
 package edu.duke.cs.osprey.minimization;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+
+import cern.colt.matrix.DoubleFactory1D;
+
 /*
 	This file is part of OSPREY.
 
@@ -61,15 +66,7 @@ package edu.duke.cs.osprey.minimization;
 
 
 import cern.colt.matrix.DoubleMatrix1D;
-import cern.colt.matrix.DoubleFactory1D;
-import cern.colt.matrix.DoubleFactory2D;
-import cern.colt.matrix.DoubleMatrix2D;
-import cern.colt.matrix.linalg.Algebra;
 import cern.jet.math.Functions;
-import java.math.BigInteger;
-import java.util.Arrays;
-import java.util.ArrayList;
-import java.util.BitSet;
 
 
 //This is a modular CCD minimizer
@@ -143,8 +140,28 @@ public class CCDMinimizer implements Minimizer {
     double minTime;//time for most recent minimization (ms)
     
     
+    private static final boolean useInitFixableDOFs = false;
+    //using sidechain-minimized conf to initialize all-DOF minimization in CATS
+    
+    
     //137DEBUG!!
-    public int GVCountEstmin=0, GVCountEdge=0, GVCountBigger=0, GVCountSmaller=0; 
+    public int GVCountEstmin=0, GVCountEdge=0, GVCountBigger=0, GVCountSmaller=0;
+    
+    // Jeff: the original version of this code has something that looks like a bug, but I'm not sure if it is or not
+    // so here's a switch to pick the behavior you want:
+    // the original code was logically equivalent to a value of true, but I think a false value is more logically consistent
+    // with the idea of minimization, and it doesn't change our minimization energies enough to worry about.
+    private boolean preferUpRipple = false;
+    /* The behavior has to do with how ripple jumping is handled:
+       The original code prefers the up ripple if it's better than the current efunc val, even if the down ripple was better than both.
+       One might expect the "optimal" code would choose the lowest of the three energies (current val, down ripple val, up ripple val),
+       but in empirical tests on 1024 low energy confs of 1CC8, this proposed "optimal" code achieves an improvement (a lower minimized
+       energy) only on 1/1024 confs (a 0.13366473 kcal/mol improvement), and results in an error (a higher minimized energy) of at least
+       0.001 kcal/mol on 7/1024 confs, with the highest error at 0.14134541 kcal/mol.
+       This "bug" appears to perform slightly better than the proposed "optimal" behavior, although the difference is very small.
+       I feel pretty safe with using the "optimal" approach generally (and the other minimizers do the "optimal" thing), but I'll leave
+       this flag here in case anyone wants the old behavior.
+    */
 
     public CCDMinimizer( ObjectiveFunction ofn, boolean useCorners ){
 
@@ -153,10 +170,13 @@ public class CCDMinimizer implements Minimizer {
         nonBoxConstrAffectingDOF = new int[numDOFs][0];
         //No constraints specified until minimize() is called
     }
+    
+    public void setPreferUpRipple(boolean val) {
+        preferUpRipple = val;
+    }
 
-    public DoubleMatrix1D minimize() {
 
-        long minStartTime = System.currentTimeMillis();
+    public Minimizer.Result minimize() {
         
         //First figure out the constraints and initial values
         //(since the minimizer might be used for many rotameric states, etc.,
@@ -167,7 +187,14 @@ public class CCDMinimizer implements Minimizer {
         
         if(!compInitVals())//Initialize x
             return null;//No initial values found (this is currently only for IBEX)
+        
+        minimizeFromCurPoint();
+        return new Minimizer.Result(x, objFcn.getValue(x));
+    }
 
+    public void minimizeFromCurPoint(){//minimize from current starting vector
+        long minStartTime = System.currentTimeMillis();
+        
         firstStep = new double[numDOFs];
         lastStep = new double[numDOFs];
         Arrays.fill(firstStep, 1);
@@ -228,8 +255,12 @@ public class CCDMinimizer implements Minimizer {
                 double dof_base = x.get(dof);
                 double curVal = objFcn.getValForDOF(dof,dof_base);//Get value for DOF, shifted up or down as needed
                 double step = getStepSize(dof,iter);//Step size for the given degree of freedom, adjusted for iteration
-
-
+                
+                // make sure the step isn't so big that the quadratic approximation is worthless
+                while (isOutOfRange(dof_base - step, dof) && isOutOfRange(dof_base + step, dof)) {
+                	step /= 2;
+                }
+                
                 //Values up or down a step for this DOF: initialized to inf (indicating infeasibility)
                 //in case the DOF value is out of range
                 double upVal = Double.POSITIVE_INFINITY;
@@ -243,57 +274,36 @@ public class CCDMinimizer implements Minimizer {
                 //quadratic approximation of obj function: curVal + a*(dof_val-dof_base)^2 + b*(dof_val-dof_base);
                 //a*step^2 + b*step = upVal - curVal;
                 //a*step^2 - b*step = downVal-curVal;
-                //
 
-
-                double a = (upVal+downVal-2*curVal)/(2*step*step);
                 double estmin=0;
-
                 
-                //TRYING DIFFERENT VERSIONS
-                if( ( a <= 0 ) || Double.isNaN(a) || Double.isInfinite(a) ){
+                double shape = upVal + downVal - 2*curVal;
+                final double ShapeEpsilon = 1e-12;
+                if (shape < -ShapeEpsilon || Double.isNaN(shape) || Double.isInfinite(shape)) {
                     //negative a is not a good sign...use the lesser of upVal, downVal
                     //infinite or nan a means we're hitting a constraint or impossible conformation
-                    if( upVal < downVal )
+                    if (upVal < downVal) {
                         estmin = dof_base+step;
-                    else
+                    } else {
                         estmin = dof_base-step;
-                }
-                
-                
-               /* if(Double.isInfinite(upVal)){//near upper constraint...need to be able to go right up to edge
-                    //or away from edge as appropriate
-                    if(downVal<curVal)
-                        estmin = dof_base-step;
-                    else
-                        estmin = dof_base+step;
-                }
-                else if(Double.isInfinite(downVal)){//near lower constraint
-                    if(upVal<curVal)
-                        estmin = dof_base+step;
-                    else
-                        estmin = dof_base-step;
-                }
-                else if( ( a <= 0 ) || Double.isNaN(a) ){
-                    //negative a is not a good sign...use the lesser of upVal, downVal
-                    //infinite or nan a means we're hitting a constraint or impossible conformation
-                    if( upVal < downVal )
-                        estmin = dof_base+step;
-                    else
-                        estmin = dof_base-step;
-                } */
-                else{
+                    }
+                } else if (shape <= ShapeEpsilon) {
+                    
+                    // flat here, don't step
+                    estmin = dof_base;
+                    
+                } else {
+                    /* improved numerical stability version below
+                    double a = (upVal+downVal-2*curVal)/(2*step*step);
                     double b = (upVal-curVal)/step-a*step;
                     estmin = dof_base-b/(2*a);//2*a*(dof_val-dof_base)+b=0 here, with positive a
+                    */
+                    
+                    estmin = dof_base + (downVal - upVal)*step/2/shape;
                 }
-
 
                 if( isOutOfRange(estmin,dof) )
                     estmin = getEdgeDOFVal(estmin,dof);
-
-
-                //if( Math.abs(estmin-dof_base) < numTol )//This can happen if both upVal and downVal are infinite (perhaps due to a loop closure failure)
-                //    break;
 
                 double estminVal = objFcn.getValForDOF(dof,estmin);
                 double estminValOld = curVal;
@@ -373,12 +383,20 @@ public class CCDMinimizer implements Minimizer {
                 double upRipple = x.get(dof)+1;
                 curVal = objFcn.getValForDOF(dof, x.get(dof));
                 if( ! isOutOfRange( downRipple, dof) ){
-                    if( objFcn.getValForDOF(dof,downRipple) < curVal )
+                    double downRippleVal = objFcn.getValForDOF(dof,downRipple);
+                    if (downRippleVal < curVal) {
                         x.set(dof, downRipple);
+                        if (!preferUpRipple) {
+                            curVal = downRippleVal;
+                        }
+                    }
                 }
                 if( ! isOutOfRange( upRipple, dof ) ){
-                    if( objFcn.getValForDOF(dof,upRipple) < curVal )
+                    double upRippleVal = objFcn.getValForDOF(dof,upRipple);
+                    if (upRippleVal < curVal) {
                         x.set(dof, upRipple);
+                        curVal = upRippleVal;
+                    }
                 }
                 //END RIPPLE JUMPER
 
@@ -399,8 +417,6 @@ public class CCDMinimizer implements Minimizer {
         
 
         minTime = System.currentTimeMillis() - minStartTime;
-        return x;
-
     }
     
 
@@ -426,9 +442,15 @@ public class CCDMinimizer implements Minimizer {
     }
 
 
-    protected boolean isOutOfRange(double val, int dof) {//Is the value out of range for the degree of freedom?
+    protected boolean isOutOfRange(double val, int dof) {
+        //default box constraint tolerance is 0
+        return isOutOfRange(val,dof,0);
+    }
+    
+    protected boolean isOutOfRange(double val, int dof, double boxConstrTol) {
+        //Is the value out of range for the degree of freedom?
 
-        if( val<DOFmin.get(dof) || val>DOFmax.get(dof) )//regular box constraints
+        if( val<DOFmin.get(dof)-boxConstrTol || val>DOFmax.get(dof)+boxConstrTol )//regular box constraints
             return true;
         else if( nonBoxConstrAffectingDOF[dof].length > 0 ){//handling non-box constraints
 
@@ -486,7 +508,9 @@ public class CCDMinimizer implements Minimizer {
 
         if(checkx){//check if x is in range...during minimization it should be (considering substituting oorVal into x)
             GCTol = 0.05;//don't be too strict on GCs
-            if(isOutOfRange(x.get(dof),dof))//not a problem if trying to get initial values...
+            //we'll also ease up the box constr tol a bit but not as much
+            //Don't need warnings about being 1e-15 degrees outside the box
+            if(isOutOfRange(x.get(dof),dof,1e-6))//not a problem if trying to get initial values...
                 System.out.println("x="+x.get(dof)+" out of range for getEdgeDOFVal.  DOF min: "
                         +DOFmin.get(dof)+" max: "+DOFmax.get(dof));
             GCTol = 1e-10;
@@ -615,6 +639,13 @@ public class CCDMinimizer implements Minimizer {
             compInitValsCorners();
         else
             compInitValsMiddle();
+        
+        if(useInitFixableDOFs){
+            ArrayList<Integer> initFixableDOFs = objFcn.getInitFixableDOFs();
+            if( ! initFixableDOFs.isEmpty() ){
+                initByPartialMin(initFixableDOFs);
+            }
+        }
 
         return true;//indicates success
     }
@@ -703,6 +734,26 @@ public class CCDMinimizer implements Minimizer {
             x = bestInitVals;
         }
 
+    }
+    
+    
+    void initByPartialMin(ArrayList<Integer> initFixableDOFs){
+        //do a minimization with respect to the DOFs not in initFixableDOFs
+        //Used in CATS so that early backbone motions don't throw us into an unfavorable well
+        //(in which case the initial point for full minimization is the sidechain-minimized conformation)
+        //The fact that we have to do this indicates CATS is pushing the limits of the local minimization assumption...
+        DoubleMatrix1D DOFminSave = DOFmin.copy();
+        DoubleMatrix1D DOFmaxSave = DOFmax.copy();
+        
+        for(int fixDOF : initFixableDOFs){//fix the fixable DOFs
+            DOFmin.set(fixDOF, x.get(fixDOF));
+            DOFmax.set(fixDOF, x.get(fixDOF));
+        }
+        
+        minimizeFromCurPoint();//update x
+        
+        DOFmin = DOFminSave;
+        DOFmax = DOFmaxSave;
     }
 
    

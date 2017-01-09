@@ -26,6 +26,11 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 	public KSConfigFileParser(String[] args) {
 		super(args);
 	}
+	
+	
+	public KSConfigFileParser() {
+		super();
+	}
 
 
 	public ArrayList<ArrayList<String>> getHighOrderTuplesByStrand(int strand) {
@@ -265,7 +270,8 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 				getParams().getBool("AddResEntropy", false),
 				getParams().getBool("addWTRots", false),
 				getStrandLimits(strand),
-				getParams().getBool("useVoxelG", false)
+				getParams().getBool("useVoxelG", false),
+                                new ArrayList<>()
 				);
 	}
 
@@ -318,10 +324,12 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 			}
 
 			int numMutations = params.getInt("NUMMUTATIONS", 1);
+                        boolean allowLessMut = params.getBool("ALLOWLESSMUTATIONS",false);
 
 			complexSeqs = new KSAllowedSeqs(strand, limits, setupDEEPer(), 
 					freeBBZoneTermini(limits), moveableStrandTermini(limits), flexRes, 
-					allowedAAs, getWTSequence(), getParams().getBool("addWT"), numMutations);
+					allowedAAs, getWTSequence(), getParams().getBool("addWT"), 
+                                        numMutations, allowLessMut);
 
 			if( !complexSeqs.containsWTSeq() ) {
 				System.out.println("WARNING: allowed sequences does not contain the wild-type sequence: " + 

@@ -35,6 +35,9 @@ public class PepPlaneLinModel implements Serializable {
         //construct from the current conformations
         //of the residue involved in this peptide plane
         
+        if(res1.template.name.equalsIgnoreCase("PRO") || res2.template.name.equalsIgnoreCase("PRO"))
+            throw new RuntimeException("ERROR: CATS doesn't handle proline");
+        
         double CA1[] = res1.getCoordsByAtomName("CA");
         double CA2[] = res2.getCoordsByAtomName("CA");
         double N[] = res2.getCoordsByAtomName("N");

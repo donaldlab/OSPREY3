@@ -13,34 +13,16 @@ import java.util.List;
 import java.util.Set;
 
 import edu.duke.cs.osprey.astar.ConfTree;
-import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
-import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
-import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
-import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
-import edu.duke.cs.osprey.bbfree.BBFreeDOF;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.dof.DegreeOfFreedom;
-import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
-import edu.duke.cs.osprey.energy.EnergyFunction;
-import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
-import edu.duke.cs.osprey.gpu.GpuQueuePool;
-import edu.duke.cs.osprey.minimization.ConfMinimizer;
-import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.partcr.PartCRConfPruner;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tools.Progress;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
@@ -50,116 +32,6 @@ import edu.duke.cs.osprey.tools.Stopwatch;
  */
 public class GMECFinder {
 	
-	public static interface ConfEnergyCalculator {
-
-            EnergiedConf calcEnergy(ScoredConf conf);
-
-            // use asynchronous techniques so we can parallelize conformation evaluation
-            public static interface Async extends ConfEnergyCalculator {
-
-                            void setListener(Listener listener);
-                            void calcEnergyAsync(ScoredConf conf);
-                            void waitForFinish();
-                            void cleanup();
-
-                            public static interface Listener {
-                                    void onEnergy(EnergiedConf conf);
-                            }
-
-                            public static class Adapter implements Async {
-
-                                    private ConfEnergyCalculator calc;
-                                    private Listener listener;
-
-                                    public Adapter(ConfEnergyCalculator calc) {
-                                            this.calc = calc;
-                                    }
-
-                                    @Override
-                                    public EnergiedConf calcEnergy(ScoredConf conf) {
-                                            return calc.calcEnergy(conf);
-                                    }
-
-                                    @Override
-                                    public void setListener(Listener listener) {
-                                            this.listener = listener;
-                                    }
-
-                                    @Override
-                                    public void calcEnergyAsync(ScoredConf conf) {
-                                            listener.onEnergy(calc.calcEnergy(conf));
-                                    }
-
-                                    @Override
-                                    public void waitForFinish() {
-                                            // nothing to do
-                                    }
-
-                                    @Override
-                                    public void cleanup() {
-                                            // nothing to do
-                                    }
-                            }
-            }
-        }
-	
-	public static class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async {
-		
-		private SearchProblem search;
-		private ConfMinimizer.Async minimizer;
-		private ThreadPoolTaskExecutor tasks;
-		
-		public MinimizingEnergyCalculator(SearchProblem search, ConfMinimizer.Async minimizer, ThreadPoolTaskExecutor tasks) {
-			this.search = search;
-			this.minimizer = minimizer;
-			this.tasks = tasks;
-		}
-		
-		private EnergiedConf postProcessConf(EnergiedConf econf) {
-			
-			// add post-minimization energy modifications
-			if (search.useERef) {
-				econf.offsetEnergy(-search.emat.geteRefMat().confERef(econf.getAssignments()));
-			}
-			if (search.addResEntropy) {
-				econf.offsetEnergy(search.confSpace.getConfResEntropy(econf.getAssignments()));
-			}
-			
-			return econf;
-		}
-
-		@Override
-		public EnergiedConf calcEnergy(ScoredConf conf) {
-			return postProcessConf(minimizer.minimizeSync(conf));
-		}
-		
-		@Override
-		public void setListener(Listener listener) {
-			minimizer.setListener(new ConfMinimizer.Async.Listener() {
-				@Override
-				public void onMinimized(EnergiedConf econf, Integer id) {
-					listener.onEnergy(postProcessConf(econf));
-				}
-			});
-		}
-		
-		@Override
-		public void calcEnergyAsync(ScoredConf conf) {
-			minimizer.minimizeAsync(conf);
-		}
-		
-		@Override
-		public void waitForFinish() {
-			minimizer.waitForFinish();
-		}
-
-		@Override
-		public void cleanup() {
-			minimizer.cleanup();
-			tasks.stop();
-		}
-	}
-    
     public static interface ConfPruner {
         void prune(List<ScoredConf> confs, ConfEnergyCalculator ecalc);
     }
@@ -174,7 +46,7 @@ public class GMECFinder {
         
     private SearchProblem searchSpace;
     private PruningControl pruningControl;
-    private Factory<ConfSearch,SearchProblem> confSearchFactory;
+    private ConfSearchFactory confSearchFactory;
     private ConfEnergyCalculator.Async ecalc;
     private ConfPruner confPruner;
     
@@ -226,7 +98,7 @@ public class GMECFinder {
         // in the method args in the method that actually needs them
     }
     
-    public void init(SearchProblem search, PruningControl pruningControl, Factory<ConfSearch,SearchProblem> confSearchFactory, ConfEnergyCalculator.Async ecalc,
+    public void init(SearchProblem search, PruningControl pruningControl, ConfSearchFactory confSearchFactory, ConfEnergyCalculator.Async ecalc,
         double Ew, boolean doIMinDEE, double I0, boolean useContFlex, boolean useTupExp, boolean useEPIC, boolean checkApproxE,
         boolean outputGMECStruct, boolean eFullConfOnly, String confFileName, double stericThresh) {
         
@@ -312,49 +184,7 @@ public class GMECFinder {
         
         //initialize some kind of combinatorial search, like A*
         //FOR NOW just using A*; may also want BWM*, WCSP, or something according to settings
-        confSearchFactory = new Factory<ConfSearch,SearchProblem>() {
-            @Override
-            public ConfSearch make(SearchProblem searchProblem) {
-                
-                if (searchSpace.searchNeedsHigherOrderTerms() || searchSpace.useEPIC) {
-            
-                    // if we need higher-order or EPIC terms, use the old A* code
-                    return ConfTree.makeFull(searchSpace);
-                }
-                
-                // when we don't need higher order terms, we can do fast pairwise-only things
-                
-                // get the appropriate configuration for A*
-                AStarScorer gscorer = new PairwiseGScorer(searchSpace.emat);
-                AStarScorer hscorer;
-                AStarOrder order;
-                RCs rcs = new RCs(searchSpace.pruneMat);
-                
-                // how many iterations of MPLP should we do?
-                int numMPLPIters = cfp.getParams().getInt("NumMPLPIters");
-                if (numMPLPIters <= 0) {
-                    
-                    // zero MPLP iterations is exactly the traditional heuristic, so use the fast implementation
-                    hscorer = new TraditionalPairwiseHScorer(searchSpace.emat, rcs);
-                    order = new DynamicHMeanAStarOrder();
-                    
-                } else {
-                    
-                    // simple (but not exhaustive) testing showed node-based MPLP is basically
-                    // always faster than edge-based MPLP, so just use node-based MPLP all the time.
-                    // also, always use a static order with MPLP
-                    // MPLP isn't optimized to do differential node scoring quickly so DynamicHMean is super slow!
-                    double convergenceThreshold = cfp.getParams().getDouble("MPLPConvergenceThreshold");
-                    hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), searchSpace.emat, numMPLPIters, convergenceThreshold);
-                    order = new StaticScoreHMeanAStarOrder();
-                }
-                
-                // init the A* tree
-                ConfAStarTree tree = new ConfAStarTree(order, gscorer, hscorer, rcs);
-                tree.initProgress();
-                return tree;
-            }
-        };
+        confSearchFactory = ConfSearchFactory.Tools.makeFromConfig(searchSpace, cfp);
         
         // configure low-energy conformation pruning if needed
         if (cfp.params.getBool("UsePartCR")) {
@@ -366,7 +196,7 @@ public class GMECFinder {
         // TODO: these subclasses should be moved to whatever other packages care about these specific algorithms
         // TODO: let the caller set ecalc instances directly (eg in python-land)
 		if (useContFlex || EFullConfOnly) {
-			if ((useEPIC||useTupExp) && (!checkApproxE)) {
+			if ( ((useEPIC||useTupExp) && (!checkApproxE)) || searchSpace.useVoxelG ) {
 				
 				// use the approx minimized energy for confs
 				ecalc = new ConfEnergyCalculator.Async.Adapter(new ConfEnergyCalculator() {
@@ -397,48 +227,9 @@ public class GMECFinder {
 				} else {
 				
 					// for "regular" conf minimization, use the spiffy new ConfMinimizer!
-					
-					// how many threads/gpus are we using?
-					int numThreads = cfp.getParams().getInt("MinimizationThreads");
-					int numGpus = cfp.getParams().getInt("MinimizationGpus");
-					
-					final ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
-					
-					// what energy function should we use?
-					// NOTE: the gpu settings override the thread settings
-					final Factory<? extends EnergyFunction,Molecule> efuncs;
-					if (numGpus > 0) {
-						
-						// use gpu-calculated energy functions
-						GpuQueuePool gpuPool = new GpuQueuePool(numGpus, 1);
-						final GpuEnergyFunctionGenerator egen = new GpuEnergyFunctionGenerator(EnvironmentVars.curEFcnGenerator.ffParams, gpuPool);
-						
-						efuncs = new Factory<EnergyFunction,Molecule>() {
-							@Override
-							public EnergyFunction make(Molecule mol) {
-								return egen.fullConfEnergy(searchSpace.confSpace, searchSpace.shellResidues, mol);
-							}
-						};
-						
-						tasks.start(gpuPool.getNumQueues());
-						
-					} else {
-						
-						// plain ol' cpu-calculated energy functions
-						efuncs = new Factory<EnergyFunction,Molecule>() {
-							@Override
-							public EnergyFunction make(Molecule mol) {
-								return EnvironmentVars.curEFcnGenerator.fullConfEnergy(searchSpace.confSpace, searchSpace.shellResidues, mol);
-							}
-						};
-						
-						tasks.start(numThreads);
-					}
-					
-					// init the minimizer
-					final ConfMinimizer.Async minimizer = new ConfMinimizer.Async(efuncs, searchSpace.confSpace, tasks);
-						
-					ecalc = new MinimizingEnergyCalculator(searchSpace, minimizer, tasks);
+					ForcefieldParams ffparams = EnvironmentVars.curEFcnGenerator.ffParams;
+					Parallelism parallelism = Parallelism.makeFromConfig(cfp);
+					ecalc = MinimizingEnergyCalculator.make(ffparams, search, parallelism, false);
 				}
 			}
 			
@@ -491,7 +282,7 @@ public class GMECFinder {
         // start searching for the min score conf
         System.out.println("Searching for min score conformation...");
         Stopwatch minScoreStopwatch = new Stopwatch().start();
-        ConfSearch confSearch = confSearchFactory.make(searchSpace);
+        ConfSearch confSearch = confSearchFactory.make(searchSpace.emat, searchSpace.pruneMat);
         try {
             System.out.println("\t(among " + confSearch.getNumConformations().floatValue() + " possibilities)");
         } catch (UnsupportedOperationException ex) {
@@ -538,7 +329,7 @@ public class GMECFinder {
                 final Progress progress = new Progress(lowEnergyConfs.size());
 
                 // what to do when we get a conf energy?
-                ecalc.setListener(new ConfEnergyCalculator.Async.Listener() {
+                ConfEnergyCalculator.Async.Listener ecalcListener = new ConfEnergyCalculator.Async.Listener() {
                         @Override
                         public void onEnergy(EnergiedConf econf) {
 
@@ -562,7 +353,7 @@ public class GMECFinder {
 
                                         // prune conformations with the new window
                                         for (int i=lowEnergyConfs.size()-1; i>=0; i--) {
-                                                if (!window.contains(lowEnergyConfs.get(i).getScore())) {
+                                                if (lowEnergyConfs.get(i).getScore() > window.getMax()) {
                                                         lowEnergyConfs.remove(i);
                                                 } else {
                                                         break;
@@ -575,12 +366,12 @@ public class GMECFinder {
                                         progress.setTotalWork(lowEnergyConfs.size());
                                 }
                         }
-                });
+                };
 
                 // calc the conf energy asynchronously
                 System.out.println(String.format("\nComputing energies for %d conformations...", lowEnergyConfs.size()));
                 for (int i=0; i<lowEnergyConfs.size(); i++) {
-                        ecalc.calcEnergyAsync(lowEnergyConfs.get(i));
+                        ecalc.calcEnergyAsync(lowEnergyConfs.get(i), ecalcListener);
                 }
                 ecalc.waitForFinish();
         }
@@ -673,7 +464,7 @@ public class GMECFinder {
         // start searching for the min score conf
         System.out.println("Searching for min score conformation...");
         Stopwatch minScoreStopwatch = new Stopwatch().start();
-        ConfSearch confSearch = confSearchFactory.make(searchSpace);
+        ConfSearch confSearch = confSearchFactory.make(searchSpace.emat, searchSpace.pruneMat);
         try {
             System.out.println("\t(among " + confSearch.getNumConformations().floatValue() + " possibilities)");
         } catch (UnsupportedOperationException ex) {

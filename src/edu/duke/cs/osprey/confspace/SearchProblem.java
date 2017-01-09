@@ -4,26 +4,20 @@
  */
 package edu.duke.cs.osprey.confspace;
 
-import edu.duke.cs.osprey.bbfree.BBFreeDOF;
 import java.io.Serializable;
 import java.util.ArrayList;
 
 import edu.duke.cs.osprey.control.EnvironmentVars;
-import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
-import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.EnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.ReferenceEnergies;
-import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
-import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
 import edu.duke.cs.osprey.kstar.KSTermini;
-import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -114,9 +108,10 @@ public class SearchProblem implements Serializable {
     public SearchProblem(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
             boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, LUTESettings luteSettings, DEEPerSettings dset, 
             ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef,
-            boolean addResEntropy, boolean addWTRots, KSTermini termini, boolean useVoxelG){
+            boolean addResEntropy, boolean addWTRots, KSTermini termini, boolean useVoxelG, ArrayList<String> wtRotOnlyRes){
         
-        confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, dset, moveableStrands, freeBBZones, useEllipses, addWTRots, termini);
+        confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, wtRotOnlyRes,
+                contSCFlex, dset, moveableStrands, freeBBZones, useEllipses, addWTRots, termini);
         this.name = name;
         
         
@@ -281,7 +276,7 @@ public class SearchProblem implements Serializable {
     
     
     //compute the matrix of the specified type
-    private TupleMatrix<?> calcMatrix(MatrixType type){
+    public TupleMatrix<?> calcMatrix(MatrixType type){
     
         // TODO: the search problem shouldn't concern itself with energy matrices and how to compute them
         
@@ -312,29 +307,9 @@ public class SearchProblem implements Serializable {
             
                 // otherwise, use the new multi-threaded calculator (which doesn't support MPI)
                 
-                // where do energy functions come from?
-                EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
-                if (egen instanceof GpuEnergyFunctionGenerator) {
-                    System.out.println("\n\nWARNING: using the GPU to compute energy matrices is a Bad Idea."
-                        + " It's very slow at small residue-pair forcefields compared to the CPU."
-                        + " You'll probably be better off using multi-threaded CPU parallelism instead.\n");
-                }
-                
-                // how many threads should we use?
-                ThreadPoolTaskExecutor tasks = null;
-                if (numEmatThreads > 1) {
-                    tasks = new ThreadPoolTaskExecutor();
-                    tasks.start(numEmatThreads);
-                }
-                
                 // calculate the emat! Yeah!
-                SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(egen, confSpace, shellResidues);
-                EnergyMatrix emat = new SimpleEnergyMatrixCalculator(ecalc).calcEnergyMatrix(tasks);
-                
-                // cleanup
-                if (tasks != null) {
-                	tasks.stop();
-                }
+                SimpleEnergyMatrixCalculator ecalc = new SimpleEnergyMatrixCalculator.Cpu(numEmatThreads, EnvironmentVars.curEFcnGenerator.ffParams, confSpace, shellResidues);
+                EnergyMatrix emat = ecalc.calcEnergyMatrix();
                 
                 // need to subtract reference energies?
                 if (useERef) {
@@ -353,6 +328,9 @@ public class SearchProblem implements Serializable {
                 		}
                 	}
                 }
+                
+                // cleanup
+                ecalc.cleanup();
                 
                 return emat;
             }

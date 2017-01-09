@@ -6,7 +6,9 @@ package edu.duke.cs.osprey.structure;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
@@ -118,4 +120,12 @@ public class Molecule implements Serializable {
     }
     
     
+    @Override
+    public int hashCode() {
+        List<Integer> hashes = new ArrayList<>();
+        for (Residue residue : residues) {
+            hashes.add(Arrays.hashCode(residue.coords));
+        }
+        return hashes.hashCode();
+    }
 }

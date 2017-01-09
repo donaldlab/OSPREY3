@@ -6,6 +6,10 @@ public class TaskExecutor {
 		void onFinished(Runnable task);
 	}
 	
+	public int getParallelism() {
+		return 1;
+	}
+	
 	public void submit(Runnable task) {
 		task.run();
 	}
@@ -15,7 +19,15 @@ public class TaskExecutor {
 		listener.onFinished(task);
 	}
 	
+	public void waitForSpace() {
+		// nothing to do
+	}
+	
 	public void waitForFinish() {
 		// nothing to do
+	}
+	
+	public static interface NeedsCleanup {
+		void cleanup();
 	}
 }

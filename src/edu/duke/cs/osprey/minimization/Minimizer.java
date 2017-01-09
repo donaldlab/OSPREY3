@@ -13,7 +13,25 @@ import cern.colt.matrix.DoubleMatrix1D;
  * @author mhall44
  */
 public interface Minimizer {
+	
+    public static class Result {
     
-    DoubleMatrix1D minimize();//return argmin for the ObjectiveFunction
-    //(the minimum can then be obtained by calling the objective function on those values)
+        public DoubleMatrix1D dofValues;
+        public double energy;
+        
+        public Result(DoubleMatrix1D dofValues, double energy) {
+            this.dofValues = dofValues;
+            this.energy = energy;
+        }
+    }
+    
+    Result minimize();
+    
+    public static interface NeedsCleanup extends Minimizer {
+    	void cleanup();
+    }
+    
+    public static interface Reusable extends Minimizer {
+    	void init(ObjectiveFunction f);
+    }
 }

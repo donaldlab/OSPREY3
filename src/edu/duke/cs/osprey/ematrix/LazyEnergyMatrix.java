@@ -46,7 +46,7 @@ public class LazyEnergyMatrix extends EnergyMatrix {
     	if (hasVal(val)) {
     		return val;
     	}
-    	val = ecalc.calcSingle(res, conf).getEnergy();
+    	val = ecalc.calcSingle(res, conf).energy;
     	super.setOneBody(res, conf, val);
     	return val;
     }
@@ -57,7 +57,7 @@ public class LazyEnergyMatrix extends EnergyMatrix {
     	if (hasVal(val)) {
     		return val;
     	}
-    	val = ecalc.calcPair(res1, conf1, res2, conf2).getEnergy();
+    	val = ecalc.calcPair(res1, conf1, res2, conf2).energy;
     	super.setPairwise(res1, conf1, res2, conf2, val);
     	return val;
     }

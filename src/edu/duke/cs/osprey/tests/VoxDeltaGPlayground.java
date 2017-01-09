@@ -67,7 +67,7 @@ public class VoxDeltaGPlayground {
         
         //For G calc by separable reference
         CCDMinimizer ccdMin = new CCDMinimizer(mms1,false);
-        DoubleMatrix1D center = ccdMin.minimize();
+        DoubleMatrix1D center = ccdMin.minimize().dofValues;
         MoleculeModifierAndScorer mms2 = new IdealSeparableReference(
                 epicMat2.internalEnergyFunction(new RCTuple(conf1)), 
                 epicMat2.getConfSpace(), new RCTuple(conf1), center );

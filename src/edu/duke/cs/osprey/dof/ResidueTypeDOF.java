@@ -115,6 +115,32 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
                 }
             }
         }
+        else if(EnvironmentVars.alwaysIdealizeSidechainsAfterMutation){
+            SidechainIdealizer.idealizeSidechain(res);
+        }
+    }
+    
+    public void restoreCoordsFromTemplate() {
+    
+        // get the alignment of backbone atoms
+        int[][] mutAlignAtoms = HardCodedResidueInfo.findMutAlignmentAtoms(res.template, res.template);
+        double resBBCoords[][] = extractCoords(mutAlignAtoms[0], res.coords);
+        double templateBBCoords[][] = extractCoords(mutAlignAtoms[1], res.template.templateRes.coords);
+        
+        // rotation from template to res
+        RigidBodyMotion xform = new RigidBodyMotion(templateBBCoords, resBBCoords);
+        for (Atom atom : res.atoms) {
+            
+            // skip backbone atoms
+            if (HardCodedResidueInfo.possibleBBAtomsLookup.contains(atom.name)) {
+                continue;
+            }
+            
+            // transform sidechain atoms
+            int i = atom.indexInRes*3;
+            System.arraycopy(res.template.templateRes.coords, i, res.coords, i, 3);
+            xform.transform(res.coords, atom.indexInRes);
+        }
     }
     
     

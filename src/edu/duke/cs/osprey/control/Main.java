@@ -79,6 +79,7 @@ public class Main {
 
                 CCDMinimizer.EConvTol = cfp.params.getDouble("CCDEConvTol");
                 CCDMinimizer.numIter = cfp.params.getInt("CCDNumIter");
+                EnvironmentVars.alwaysIdealizeSidechainsAfterMutation = cfp.params.getBool("ALWAYSIDEALIZESIDECHAINSAFTERMUTATION");
                 
 		// TODO Auto-generated method stub
 		commands = new HashMap<String, Runnable>();
@@ -148,6 +149,14 @@ public class Main {
 			public void run() {
 				ConfInfo ci = new ConfInfo(cfp);
 				ci.outputConfInfo();
+			}
+		});
+                
+                commands.put("findSeqGMECs", new Runnable() {
+			@Override
+			public void run() {
+				SeqGMECFinder sgf = new SeqGMECFinder(args, cfp.getParams().getValue("MutFile"));
+                                sgf.calcAllSeqGMECs();
 			}
 		});
 	}

@@ -4,10 +4,9 @@ import java.util.List;
 
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.control.ConfEnergyCalculator;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.control.GMECFinder;
-import edu.duke.cs.osprey.control.GMECFinder.ConfEnergyCalculator;
-import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
 import edu.duke.cs.osprey.partcr.pickers.ConfPicker;
 import edu.duke.cs.osprey.partcr.pickers.WalkingConfPicker;
 import edu.duke.cs.osprey.partcr.scorers.RCScorer;
@@ -70,9 +69,7 @@ public class PartCRConfPruner implements GMECFinder.ConfPruner {
 		RCSplitter splitter = new NAryRCSplitter();
 		//RCSplitter splitter = new BinaryRCSplitter();
 		
-		SimpleEnergyCalculator ecalc = new SimpleEnergyCalculator(EnvironmentVars.curEFcnGenerator, search.confSpace, search.shellResidues);
-		
-		PartCR pcr = new PartCR(search, Ew, ecalc, confs);
+		PartCR pcr = new PartCR(search, EnvironmentVars.curEFcnGenerator.ffParams, Ew, confs);
 		pcr.setPicker(picker);
 		pcr.setScorer(scorer);
 		pcr.setSplitter(splitter);

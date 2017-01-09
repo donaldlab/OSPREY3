@@ -63,7 +63,7 @@ public class EPICMatrix extends TupleMatrixGeneric<EPoly> {
         
         
         
-        DoubleMatrix1D bestDOFVals = minim.minimize();
+        DoubleMatrix1D bestDOFVals = minim.minimize().dofValues;
         double E = objFcn.getValue(bestDOFVals);
         
         //DEBUG!!!!!!!!
