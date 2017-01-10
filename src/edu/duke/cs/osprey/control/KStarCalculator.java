@@ -217,10 +217,6 @@ public class KStarCalculator {
 		// use the strand cache to reduce minimization overhead
 		PFFactory.initStrandInfoCache();
 
-		cfp.verifyStrandsMutuallyExclusive();
-		
-		generateAllowedSequences();
-
 		try {
 			
 			cfp.verifyStrandsMutuallyExclusive();

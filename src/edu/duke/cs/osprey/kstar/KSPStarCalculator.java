@@ -123,10 +123,17 @@ public class KSPStarCalculator extends Thread implements Serializable {
 				if( conf == null ) { nullify(); return; }
 
 				lastEnergyBound = pf.getConfBound(confSearch, conf.getAssignments());
-				if( lastEnergyBound == Double.POSITIVE_INFINITY ) { nullify(); return; }
+				if( lastEnergyBound == Double.POSITIVE_INFINITY ) { 
+					lastBoltzmannWeight = BigDecimal.ZERO;
+					totalPF = totalPF.add( BigDecimal.ZERO ); enumerated = enumerated.add(BigInteger.ONE);
+					nullify(); return; 
+				}
 
 				lastBoltzmannWeight = pf.getBoltzmannWeight(lastEnergyBound);
-				if( lastBoltzmannWeight.compareTo(BigDecimal.ZERO) == 0 ) { nullify(); return; }
+				if( lastBoltzmannWeight.compareTo(BigDecimal.ZERO) == 0 ) { 
+					totalPF = totalPF.add( BigDecimal.ZERO ); enumerated = enumerated.add(BigInteger.ONE);
+					nullify(); return; 
+				}
 
 				totalPF = totalPF.add( lastBoltzmannWeight );
 				enumerated = enumerated.add(BigInteger.ONE);

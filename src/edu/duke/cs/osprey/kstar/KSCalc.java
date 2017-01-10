@@ -373,7 +373,7 @@ public class KSCalc {
 			BigInteger numMinConfs = BigInteger.ZERO;
 			for( int strand : strands ) {
 				PFAbstract pf = getPF(strand);
-				numMinConfs = numMinConfs.add( pf.getNumMinimized() );
+				numMinConfs = numMinConfs.add( pf.getNumProcessed() );
 			}
 			out.print("\t");
 			out.print(numMinConfs);
@@ -387,7 +387,7 @@ public class KSCalc {
 				out.print(pf.getEffectiveEpsilon());
 
 				out.print("\t");
-				out.print(pf.getNumMinimized4Output());
+				out.print(pf.getNumProcessed());
 			}
 			
 			out.print("\t");

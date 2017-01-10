@@ -102,16 +102,16 @@ public class KSConfQ extends Thread implements Serializable {
 	protected double enQueue( int[] conf ) {
 
 		double energyBound = pf.getConfBound(confSearch, conf);
-		if( energyBound == Double.POSITIVE_INFINITY ) return Double.POSITIVE_INFINITY;
+		//if( energyBound == Double.POSITIVE_INFINITY ) return Double.POSITIVE_INFINITY;
 
 		BigDecimal boltzmannWeight = pf.getBoltzmannWeight(energyBound);
-		if( boltzmannWeight.compareTo(BigDecimal.ZERO) == 0 ) return Double.POSITIVE_INFINITY;
+		if( boltzmannWeight.compareTo(BigDecimal.ZERO) == 0 ) energyBound = Double.POSITIVE_INFINITY;
 
 		ArrayList<Integer> list = KSConf.array2List(conf);
 
 		if(KSAbstract.doCheckPoint && size() > 0 && energyBound < peekTail().getEnergyBound() ) return energyBound;
 
-		if( pf.getMinimizedConfsSet().contains(list) || q.contains(list) ) return energyBound;
+		if( pf.getProcessedConfsSet().contains(list) || q.contains(list) ) return energyBound;
 
 		q.add(list);
 

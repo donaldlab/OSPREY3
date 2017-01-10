@@ -97,12 +97,10 @@ public abstract class PFAbstract implements Serializable {
 
 	protected BigInteger prunedConfs = BigInteger.ZERO;
 	protected BigInteger unPrunedConfs = BigInteger.ZERO;
-	protected BigInteger minimizedConfsTmp = BigInteger.ZERO;
-	protected HashSet<ArrayList<Integer>> minimizedConfsSet = new HashSet<>();
-	protected BigInteger minimizedConfsPerm = BigInteger.ZERO;
+	protected HashSet<ArrayList<Integer>> processedConfsSet = new HashSet<>();
 	protected BigDecimal partialQLB = BigDecimal.ZERO;
-	protected BigInteger minimizedConfsDuringInterval = BigInteger.ZERO;
-	protected BigInteger minimizingConfs = BigInteger.ZERO; // # confs being minimized at this instant
+	protected BigInteger processedConfsDuringInterval = BigInteger.ZERO;
+	protected BigInteger processingConfs = BigInteger.ZERO; // # confs being minimized at this instant
 
 	protected PriorityQueue<KSConf> topConfsPQ = null;
 
@@ -184,7 +182,7 @@ public abstract class PFAbstract implements Serializable {
 	protected BigDecimal reComputePartialQLB( ConfSearch confSearch ) {
 		partialQLB = BigDecimal.ZERO;
 
-		for(ArrayList<Integer> conf : minimizedConfsSet) {
+		for(ArrayList<Integer> conf : processedConfsSet) {
 			int[] confArray = KSConf.list2Array(conf);
 			partialQLB = partialQLB.add( getBoltzmannWeight(getConfBound(confSearch, confArray)) );
 		}
@@ -378,13 +376,13 @@ public abstract class PFAbstract implements Serializable {
 	}
 
 
-	public HashSet<ArrayList<Integer>> getMinimizedConfsSet() {
-		return minimizedConfsSet;
+	public HashSet<ArrayList<Integer>> getProcessedConfsSet() {
+		return processedConfsSet;
 	}
 
 
-	private BigInteger getMinimizedConfsSetSize() {
-		return minimizedConfsPerm;
+	public BigInteger getNumProcessed() {
+		return BigInteger.valueOf(getProcessedConfsSet().size());
 	}
 
 
@@ -577,21 +575,20 @@ public abstract class PFAbstract implements Serializable {
 
 	protected void updateQStar( KSConf conf ) {
 
-		if(saveTopConfsAsPDB) {
-			saveTopConf(conf);
-		}
-
+		if( processedConfsSet.contains(conf.getConf()) ) 
+			return;
+		
+		processedConfsSet.add(conf.getConf());
+		
 		qStar = qStar.add( getBoltzmannWeight( conf.getEnergy() ) );
 
-		partialQLB = partialQLB.add( getBoltzmannWeight( conf.getEnergyBound() ) );
-
-		if(isContinuous() && !getImpl().equalsIgnoreCase("UB")) {
-			minimizedConfsSet.add(conf.getConf());
-			minimizedConfsPerm = minimizedConfsPerm.add(BigInteger.ONE); // ...so we need this variable
-		}
+		if( getImpl().toLowerCase().contains("parallel") )
+			partialQLB = partialQLB.add( getBoltzmannWeight( conf.getEnergyBound() ) );
 		
-		minimizedConfsTmp = minimizedConfsTmp.add(BigInteger.ONE); // this is reset during phase 2
-		minimizedConfsDuringInterval = minimizedConfsDuringInterval.add(BigInteger.ONE);
+		if(isFullyDefined() && saveTopConfsAsPDB)
+			saveTopConf(conf);
+
+		processedConfsDuringInterval = processedConfsDuringInterval.add(BigInteger.ONE);
 	}
 
 
@@ -608,7 +605,7 @@ public abstract class PFAbstract implements Serializable {
 
 	public void runSlice(long target) {
 
-		while( eAppx == EApproxReached.FALSE && getMinDuringInterval().longValue() < target ) {
+		while( eAppx == EApproxReached.FALSE && getProcessedDuringInterval().longValue() < target ) {
 			computeSlice();
 
 			if( !doingPhase2 && eAppx == EApproxReached.NOT_POSSIBLE ) {
@@ -622,12 +619,12 @@ public abstract class PFAbstract implements Serializable {
 				System.out.println("\nCan never reach target epsilon approximation of " + targetEpsilon + " for sequence: " + KSAbstract.list1D2String(sequence, " ") + " " + getFlexibility());
 		}
 
-		if( saveTopConfsAsPDB && eAppx == EApproxReached.TRUE ) writeTopConfs();
+		if( isFullyDefined() && saveTopConfsAsPDB && eAppx == EApproxReached.TRUE ) writeTopConfs();
 
 		if( eAppx != EApproxReached.FALSE ) 
 			cleanup();
 
-		resetMinDuringInterval();
+		resetProcessedDuringInterval();
 	}
 
 
@@ -645,7 +642,7 @@ public abstract class PFAbstract implements Serializable {
 			}
 		}
 
-		if( saveTopConfsAsPDB && eAppx == EApproxReached.TRUE ) writeTopConfs();
+		if( isFullyDefined() && saveTopConfsAsPDB ) writeTopConfs();
 
 		cleanup();
 	}
@@ -662,9 +659,8 @@ public abstract class PFAbstract implements Serializable {
 	protected void restart() {
 		eAppx = EApproxReached.FALSE;
 		printedHeader = false;
-		minimizedConfsTmp = BigInteger.ZERO;
-		minimizingConfs = BigInteger.ZERO;
-		resetMinDuringInterval();
+		processingConfs = BigInteger.ZERO;
+		resetProcessedDuringInterval();
 		start();
 	}
 
@@ -685,14 +681,11 @@ public abstract class PFAbstract implements Serializable {
 		if(HOTs != null && HOTs.size() > 0) {
 			// considerations for HOT
 			HOTs.clear(); // clear HOTs
-
-			reducedSP.emat = (EnergyMatrix) ObjectIO.readObject(panSP.getEnergyMatrixFileName(), true);
 		}
 
 		// completely relax pruning
-		double maxPruningInterval = cfp.getParams().getDouble("StericThresh", 100);
-		reducedSP.inverseMat = null;
-		reducedSP.reducedMat = reducedSP.getUnprunedPruningMatrix(reducedSP, maxPruningInterval);
+		double maxPruningInterval = cfp.getParams().getDouble("StericThresh");
+		rePruneReducedSP(maxPruningInterval);
 		
 		setNumUnPruned();
 		setNumPruned(); // needed for p*
@@ -738,7 +731,7 @@ public abstract class PFAbstract implements Serializable {
 		cfp = null;
 		panSP = null;
 		reducedSP = null;
-		minimizedConfsSet = null;
+		processedConfsSet = null;
 	}
 
 
@@ -752,14 +745,13 @@ public abstract class PFAbstract implements Serializable {
 	}
 
 
-
 	public BigInteger getNumPruned() {
 		return prunedConfs;
 	}
 
 
 	protected BigInteger getNumUnEnumerated() {
-		return unPrunedConfs.subtract(minimizedConfsTmp);
+		return unPrunedConfs.subtract(getNumProcessed());
 	}
 
 
@@ -768,27 +760,13 @@ public abstract class PFAbstract implements Serializable {
 	}
 
 
-	public BigInteger getNumMinimized() {
-		return minimizedConfsTmp;
+	protected BigInteger getProcessedDuringInterval() {
+		return processedConfsDuringInterval;
 	}
 
 
-	// hack to count number of minimized confs after a re-start occurs
-	// used only for output purposes
-	public BigInteger getNumMinimized4Output() {
-		BigInteger numMinimized = getNumMinimized();
-		if(doingPhase2) numMinimized = numMinimized.add(getMinimizedConfsSetSize());
-		return numMinimized;
-	}
-
-
-	protected BigInteger getMinDuringInterval() {
-		return minimizedConfsDuringInterval;
-	}
-
-
-	protected void resetMinDuringInterval() {
-		minimizedConfsDuringInterval = BigInteger.ZERO;
+	protected void resetProcessedDuringInterval() {
+		processedConfsDuringInterval = BigInteger.ZERO;
 	}
 
 
@@ -916,7 +894,7 @@ public abstract class PFAbstract implements Serializable {
 
 
 	public boolean maxKSConfsReached() {
-		return useMaxKSConfs && minimizedConfsTmp.longValue() >= maxKSConfs;
+		return useMaxKSConfs && getNumProcessed().longValue() >= maxKSConfs;
 	}
 
 
@@ -966,6 +944,14 @@ public abstract class PFAbstract implements Serializable {
 				absolutePos);
 
 		return reducedSP;
+	}
+	
+	
+	public void rePruneReducedSP(double pruningInterval) {	
+		panSP = (KSSearchProblem) ObjectIO.deepCopy(panSP);
+		panSP.emat = (EnergyMatrix) ObjectIO.readObject(panSP.getMatrixFileName(panSP.getMatrixType()), true);
+		cfp.setupPruning(panSP, pruningInterval, panSP.useEPIC, panSP.useTupExpForSearch).prune();
+		reducedSP = createReducedSP(panSP.contSCFlex, strand, sequence, absolutePos);
 	}
 
 }
