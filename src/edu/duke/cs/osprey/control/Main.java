@@ -95,7 +95,15 @@ public class Main {
 				try {
 					FileWriter fw = new FileWriter(statistics);
 					fw.write("NumSequencesVisited: " + sf.numLeafNodesVisited + "\n");
-					fw.write("LogSequenceSpace: " + sf.getLogSequenceSpace());
+					fw.write("LogSequenceSpace: " + sf.getLogSequenceSpace() + "\n");
+					fw.write("MaxTime: " + sf.maxTime + "\n");
+					if (sf.timeOut){
+					    fw.write("Finished: False");
+					}
+					else{
+					    fw.write("Finished: True");
+					}
+					
 					fw.close();
 				} catch (IOException e) {
 					throw new RuntimeException(e);

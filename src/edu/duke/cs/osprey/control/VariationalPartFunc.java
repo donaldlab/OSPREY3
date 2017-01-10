@@ -51,7 +51,6 @@ public class VariationalPartFunc {
 //        sp = spList[0];
         sp = cfp.getSearchProblem();
         loadEMatandPrune(sp, Double.POSITIVE_INFINITY);
-<<<<<<< HEAD
         if (testSCMF) {
 //            testSCMF(sp);
 
@@ -174,7 +173,7 @@ public class VariationalPartFunc {
         }
     }
 
-    public VariationalPartFunc(ConfigFileParser aCFP, double epsilon, double eCut, boolean useTRBPSplit) {
+    public VariationalPartFunc(ConfigFileParser aCFP, double epsilon, double eCut, boolean useTRBPSplit, int numHours) {
         this.cfp = aCFP;
         this.cfp.params.setValue("STERICTHRESH", "1000");
         SearchProblem[] spList = cfp.getMSDSearchProblems();
@@ -217,7 +216,7 @@ public class VariationalPartFunc {
             if (dfp.finishedInTime) {
                 fw.write("KStar: finished true" + "\n");
                 fw.write("KStar: totalTime " + dfp.totalTime + "\n");
-                fw.write("KStar: LowerBoundLogZ " + dpfLowerBoundLogZ + "\n");
+                fw.write("KStar: LowerBoundLogZ " + dpfLoxwerBoundLogZ + "\n");
                 fw.write("KStar: UpperBoundLogZ " + dpfUpperBoundLogZ);
             } else {
                 fw.write("KStar: finished false" + "\n");

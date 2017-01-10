@@ -43,9 +43,15 @@ public class SequenceFreeEnergy extends AStarTree {
 //    int spToOptimizeIndex;
     double epsilon = 0.1;
     public int numSequencesEnumerated = 0;
+    
+    public boolean checkTime = false;
+    public boolean timeOut = false;
 
     public double bestFreeEnergy;
     public String[] bestSequence;
+    
+    public double maxTime;
+    public double startTime;
 
     public static boolean normalizeFreeEnergy = false;
     public SequenceFreeEnergy(ConfigFileParser cfp) {
@@ -61,6 +67,9 @@ public class SequenceFreeEnergy extends AStarTree {
         if (normalizeFreeEnergy){
             normalizeDiscretization(spToOptimize);
         }
+	double numHours = 2.0;
+	this.maxTime = 60.0 * 60.0 * 1000.0 * numHours;
+	this.startTime = System.currentTimeMillis();
     }
 
     private void normalizeDiscretization(SearchProblem sp) {
@@ -174,6 +183,10 @@ public class SequenceFreeEnergy extends AStarTree {
             this.bestSequence = getSequence(node);
             return true;
         }
+	if (this.checkTime) {
+                this.timeOut = (System.currentTimeMillis() - this.startTime) > this.maxTime;
+		return this.timeOut;
+	}
         return false;
     }
 
