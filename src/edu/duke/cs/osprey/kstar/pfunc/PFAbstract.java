@@ -100,6 +100,7 @@ public abstract class PFAbstract implements Serializable {
 	protected HashSet<ArrayList<Integer>> processedConfsSet = new HashSet<>();
 	protected BigDecimal partialQLB = BigDecimal.ZERO;
 	protected BigInteger processedConfsDuringInterval = BigInteger.ZERO;
+	protected BigInteger processedConfs = BigInteger.ZERO;
 	protected BigInteger processingConfs = BigInteger.ZERO; // # confs being minimized at this instant
 
 	protected PriorityQueue<KSConf> topConfsPQ = null;
@@ -382,7 +383,7 @@ public abstract class PFAbstract implements Serializable {
 
 
 	public BigInteger getNumProcessed() {
-		return BigInteger.valueOf(getProcessedConfsSet().size());
+		return processedConfs;
 	}
 
 
@@ -588,6 +589,7 @@ public abstract class PFAbstract implements Serializable {
 		if(isFullyDefined() && saveTopConfsAsPDB)
 			saveTopConf(conf);
 
+		processedConfs = processedConfs.add(BigInteger.ONE);
 		processedConfsDuringInterval = processedConfsDuringInterval.add(BigInteger.ONE);
 	}
 
