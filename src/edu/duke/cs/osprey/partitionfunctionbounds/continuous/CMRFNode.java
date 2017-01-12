@@ -30,4 +30,14 @@ public class CMRFNode {
 	}
 	throw new RuntimeException("Point invalid.");
     }
+    
+    public Kernel getKernel() { 
+	Kernel k = domains[0].k; 
+	for (int i=1; i<domains.length; i++) { 
+	    if (!(k.equals(domains[i].k))) { 
+		throw new RuntimeException("Kernels aren't the same -- what are you doing?!");
+	    }
+	}
+	return k;
+    }
 }
