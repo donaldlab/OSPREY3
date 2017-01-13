@@ -62,16 +62,21 @@ public class RKHSFunction {
 	    double[] domainLB, 
 	    double[] domainUB, 
 	    ToDoubleFunction<double[]> f) {
-	// gridSample from dimensions
-	// construct feature maps
-	// fit coefficients
-	// test fit --> increase samples if necessary
+	// constructs an RKHS approximation to a function
+        // points are uniformly sampled with a fixed number of samples 
+        
+        // we want to roughly end up taking 1000 samples
+        //   take the floor to err on the side of fewer samples to prevent the
+        //   computer from kind of blowing up 
+        int numDims = domainLB.length;
+        this.numSamplesPerDimension = 
+                (int) Math.round(Math.floor(Math.log(1000)/Math.log(numDims)));
+        
 	this.domainLB = domainLB;
 	this.domainUB = domainUB;
 	this.k = k;
 	this.referenceFunction = f;
-	this.gridSampleFit(k, f, domainLB, domainUB);
-	this.referenceFunction = f;
+	this.gridSampleFit(k, f, domainLB, domainUB, true);
     }
     
     public RKHSFunction(

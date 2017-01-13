@@ -259,6 +259,7 @@ public class CMRF {
 	int i = this.getIndexInArray(sender, nodes); 
 	int j = this.getIndexInArray(receiver, nodes); 
 	CMRFEdge edge = this.edges[i][j];
+        // god i wish i could write all this crap in python 
 	return new RKHSFunction(
 		domain.k,
 		domain.domainLB,
