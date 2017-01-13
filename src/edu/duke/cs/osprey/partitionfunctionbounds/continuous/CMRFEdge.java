@@ -6,6 +6,7 @@
 package edu.duke.cs.osprey.partitionfunctionbounds.continuous;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.function.ToDoubleFunction;
 
 /**
@@ -66,4 +67,19 @@ public class CMRFEdge {
 	throw new RuntimeException("Point is not valid input to pairwise energy function.");
     }
     
+    public CMRFEdgeDomain getEdgeDomain(CMRFNodeDomain d1, CMRFNodeDomain d2) { 
+        for (CMRFEdgeDomain edgeDomain : domainLinks) { 
+            if (((Arrays.equals(d1.domainLB, edgeDomain.resOneLB)) &&
+                    (Arrays.equals(d1.domainUB, edgeDomain.resOneUB)) &&
+                    (Arrays.equals(d2.domainLB, edgeDomain.resTwoLB)) && 
+                    (Arrays.equals(d2.domainUB, edgeDomain.resTwoUB))) ||                     
+                ((Arrays.equals(d1.domainLB, edgeDomain.resTwoLB)) &&
+                    (Arrays.equals(d1.domainUB, edgeDomain.resTwoUB)) &&
+                    (Arrays.equals(d2.domainLB, edgeDomain.resOneLB)) && 
+                    (Arrays.equals(d2.domainUB, edgeDomain.resOneUB)))) { 
+                return edgeDomain;
+            }
+        }
+        throw new RuntimeException("Couldn't find the required edge domain.");
+    }
 }

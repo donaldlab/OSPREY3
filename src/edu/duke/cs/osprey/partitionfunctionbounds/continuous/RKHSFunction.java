@@ -8,6 +8,7 @@ import com.quantego.clp.*;
 
 
 import com.quantego.clp.CLP;
+import java.util.ArrayList;
 public class RKHSFunction {
 
     public Kernel k;
@@ -739,6 +740,30 @@ public class RKHSFunction {
 	
 	RKHSFunction lebesgueMeasure = new RKHSFunction(measureFMs, measureCoeffs);
 	return lebesgueMeasure;
-	
+    }
+    
+    public static RKHSFunction getCartesianProductFunction(
+            RKHSFunction func1,
+            RKHSFunction func2,
+            Kernel k) { 
+        double[] newLB = CMRF.concatArrays(func1.domainLB, func2.domainLB);
+        double[] newUB = CMRF.concatArrays(func1.domainUB, func2.domainUB);
+        return new RKHSFunction(
+                k,
+                newLB,
+                newUB,
+                (point) -> (evaluateFunctionSplit(point, func1.domainLB.length, func1, func2))
+        );
+    }
+    
+    public static double evaluateFunctionSplit(
+            double[] concatPoint,
+            int firstDimSize,
+            RKHSFunction func1,
+            RKHSFunction func2) {
+        ArrayList<double[]> points =  CMRF.splitArray(concatPoint, firstDimSize);
+        double[] point1 = points.get(0); 
+        double[] point2 = points.get(1);
+        return func1.eval(point1)*func2.eval(point2);
     }
 }

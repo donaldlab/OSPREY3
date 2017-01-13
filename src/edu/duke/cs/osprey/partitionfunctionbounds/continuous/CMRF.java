@@ -50,11 +50,11 @@ public class CMRF {
 	    nodes[i] = new CMRFNode(domains.get(i));
 	}
 	
-	for (Integer i : edgeEnergyFuncMap.keySet()) { 
-	    for (Integer j : edgeEnergyFuncMap.get(i).keySet()) { 
-		edges[i][j] = new CMRFEdge(nodes[i], nodes[j], edgeEnergyFuncMap.get(i).get(j));
-	    }
-	}
+        edgeEnergyFuncMap.keySet().stream().forEach((i) -> { 
+            edgeEnergyFuncMap.get(i).keySet().stream().forEach((j) -> {
+                edges[i][j] = new CMRFEdge(nodes[i], nodes[j], edgeEnergyFuncMap.get(i).get(j));
+            });
+        });
 	
 	nodesAdded = true;
     }
@@ -101,7 +101,7 @@ public class CMRF {
 		    if (sender.outMessages.get(receiver) == null) {
 			sender.outMessages.put(
 				receiver, 
-				new HashMap<CMRFNodeDomain, RKHSFunction>());
+				new HashMap<>());
 		    }
 		    sender.outMessages.get(receiver).put(d, message);
 		}
@@ -122,17 +122,17 @@ public class CMRF {
 	// we'll store all the messages in a hashmap buffer
 	// map from sender --> receiver --> receiver domain --> rkhsFunction
 	HashMap<CMRFNode, HashMap<CMRFNode, HashMap<CMRFNodeDomain, RKHSFunction>>> messageMaps = 
-		new HashMap<CMRFNode, HashMap<CMRFNode, HashMap<CMRFNodeDomain, RKHSFunction>>>();
+		new HashMap<>();
 	for (CMRFNode sender : nodes) { 
 	    HashMap<CMRFNode, HashMap<CMRFNodeDomain, RKHSFunction>> senderMap = 
-		    new HashMap<CMRFNode, HashMap<CMRFNodeDomain, RKHSFunction>>();
+		    new HashMap<>();
 	    for (CMRFNode receiver : nodes) {  
 		if (sender.equals(receiver)) { continue; }
-		HashMap<CMRFNodeDomain, RKHSFunction> domainMap = new HashMap<CMRFNodeDomain, RKHSFunction>();
+		HashMap<CMRFNodeDomain, RKHSFunction> domainMap = new HashMap<>();
 		for (CMRFNodeDomain domain : receiver.domains) { 
 		    domainMap.put(
 			    domain,
-			    new RKHSFunction(
+			    new RKHSFunction( // default to the uniform distribution, but this is just a placeholder
 				    domain.k,
 				    domain.domainLB,
 				    domain.domainUB,
@@ -168,7 +168,7 @@ public class CMRF {
 						1-edgeProb)));
 			
 			// numerator of quotient
-			ArrayList<CMRFNode> parents = new ArrayList<CMRFNode>();
+			ArrayList<CMRFNode> parents = new ArrayList<>();
 			for (CMRFNode n : nodes) {
 			    if (!n.equals(sender) && !n.equals(receiver)) {
 				parents.add(n);
@@ -187,7 +187,7 @@ public class CMRF {
 				d.domainUB,
 				(point) -> (getProdOfFuncPowers(parentMsgs, parentProbs, point)));
 			
-			// exponential component of update
+			// now let's put it all together
 			RKHSFunction updateFunc = new RKHSFunction(
 				recDom.k,
 				recDom.domainLB,
@@ -198,8 +198,9 @@ public class CMRF {
 					d.domainUB,
 					(Xt)->(
 						this.getModifiedExponentialFunction(sender, receiver, d, point).eval(Xt) 
-							*  numFunc.eval(Xt)/denomFunc.eval(Xt))).computeIntegral())
-				);
+							*  numFunc.eval(Xt)/denomFunc.eval(Xt))).computeIntegral()));
+                        // goddamn that is beautiful 
+                        // we get a function for each sender domain, and sum over
 			senderFuncs[this.getIndexInArray(d, sender.domains)] = updateFunc;
 		    }
 		    receiverDomainFuncs[this.getIndexInArray(recDom, receiver.domains)] = 
@@ -240,7 +241,9 @@ public class CMRF {
 	    for (CMRFNode receiver : nodes) { 
 		if (sender.equals(receiver)) { continue; }
 		for (CMRFNodeDomain domain : receiver.domains) { 
-		    sender.outMessages.get(receiver).put(domain, messageMaps.get(sender).get(receiver).get(domain));
+		    sender.outMessages.get(receiver).put(
+                            domain, 
+                            messageMaps.get(sender).get(receiver).get(domain));
 		}
 	    }
 	}
@@ -281,6 +284,17 @@ public class CMRF {
 	}
 	return res;
     }
+    // and introduce a variant that lets us evaluate LCs of RKHS functions
+    public double sumOverMessages(double[] point, RKHSFunction[] funcs, double[] coeffs) { 
+        if (funcs.length != coeffs.length) { 
+            throw new RuntimeException("Coefficients don't match functions.");
+        }
+        double res = 0.0;
+        for (int i=0; i<funcs.length; i++) { 
+            res += coeffs[i] * funcs[i].eval(point);
+        }
+        return res;
+    }
     
     /**
      * Splits an array at the nth slot
@@ -289,7 +303,7 @@ public class CMRF {
      * @return 
      */
     public static ArrayList<double[]> splitArray(double[] arr, int n) { 
-	ArrayList<double[]> arrs = new ArrayList<double[]>();
+	ArrayList<double[]> arrs = new ArrayList<>();
 	arrs.add(Arrays.copyOfRange(arr, 0, n));
 	arrs.add(Arrays.copyOfRange(arr, n, arr.length));
 	return arrs;
@@ -298,6 +312,7 @@ public class CMRF {
     /**
      * Concats two arrays
      * I feel really stupid having actually written this method 
+     * It's literally just a wrapper to save me some characters 
      * @param arr1
      * @param arr2
      * @return 
@@ -341,8 +356,96 @@ public class CMRF {
 	return 0.0;
     }
     
+    /**
+     * Computes the enthalpy of the cMRF in its current state 
+     * @return 
+     */
     public double computeEnthalpy() { 
-	return 0.0;
+        double totalEnthalpy = 0.0;
+        // sum over nodes of p*E plus pariwise p*E
+        for (CMRFNode v : nodes) { 
+            int recNodeIndex = this.getIndexInArray(v, nodes);
+            double nodeEnthalpy = 0.0; 
+            
+            for (CMRFNodeDomain d : v.domains) { 
+                // get the pdf for the node domain 
+                //   p(x_s) = \sum_{neibhors} {m_{t->s}{x_s) * \mu_{ts}}
+                RKHSFunction[] messages = new RKHSFunction[nodes.length-1];
+                double[] vEdgeProbs = new double[nodes.length-1];
+                for (CMRFNode n : nodes) { 
+                    if (n.equals(v)) { continue; }
+                    int sendNodeIndex = this.getIndexInArray(n, nodes);
+                    messages[sendNodeIndex] = n.outMessages.get(v).get(d);
+                    vEdgeProbs[sendNodeIndex] = this.edgeProbs[sendNodeIndex][recNodeIndex];
+                }                
+                RKHSFunction probabilityFunc = new RKHSFunction(
+                        d.k,
+                        d.domainLB,
+                        d.domainUB,
+                        (point) -> (
+                           this.sumOverMessages(point, messages, vEdgeProbs)));
+                
+                // compute single-node domain enthalpy 
+                RKHSFunction enthalpyFunc = new RKHSFunction(
+                        d.k,
+                        d.domainLB,
+                        d.domainUB,
+                        (point) -> (
+                                probabilityFunc.eval(point) * d.energyFunction.applyAsDouble(point)));
+                nodeEnthalpy += enthalpyFunc.computeIntegral();
+                
+                for (CMRFNode neighbor : nodes) { 
+                    if (neighbor.equals(v)) { continue; }
+                    for (CMRFNodeDomain nd : neighbor.domains) { 
+                        // get the pdf for the neighbor's domain 
+                        int nRecNodeInd = this.getIndexInArray(neighbor, nodes);
+                        RKHSFunction[] nMessages = new RKHSFunction[nodes.length-1];
+                        double[] nEdgeProbs = new double[nodes.length-1];
+                        for (CMRFNode n : nodes) { 
+                            if (n.equals(neighbor)) { continue; }
+                            int sendNodeIndex = this.getIndexInArray(n, nodes); 
+                            nMessages[sendNodeIndex] = n.outMessages.get(neighbor).get(nd);
+                            nEdgeProbs[sendNodeIndex] = this.edgeProbs[sendNodeIndex][nRecNodeInd];
+                        }
+                        RKHSFunction nProbabilityFunc = new RKHSFunction(
+                                nd.k,
+                                nd.domainLB,
+                                nd.domainUB,
+                                (point) -> (
+                                        this.sumOverMessages(point, nMessages, nEdgeProbs)));
+                        
+                        // get the edge domain energy function for these two domains
+                        CMRFEdgeDomain edgeDomain = edges[nRecNodeInd][recNodeIndex].getEdgeDomain(d, nd);
+                        RKHSFunction pairwiseEnergyFunc = edgeDomain.eFuncRKHS;
+                        
+                        // set up the pairwise probability function as an RKHSFunction
+                        RKHSFunction pairwiseProbFunc = 
+                                RKHSFunction.getCartesianProductFunction(
+                                        probabilityFunc, 
+                                        nProbabilityFunc, 
+                                        edgeDomain.resAllK);
+
+                        // quick sanity check to make sure the Cartesian product didn't blow up 
+                        if (!(Arrays.equals(pairwiseProbFunc.domainLB, pairwiseEnergyFunc.domainLB)) ||
+                            !(Arrays.equals(pairwiseProbFunc.domainUB, pairwiseProbFunc.domainUB))) { 
+                            throw new RuntimeException("Cartesian product domains don't match.");
+                        }
+                        
+                        
+                        // compute enthalpy, add it to single node enthalpy 
+                        RKHSFunction pairwiseEnthalpyFunc = new RKHSFunction(
+                                pairwiseProbFunc.k,
+                                pairwiseProbFunc.domainLB,
+                                pairwiseProbFunc.domainUB,
+                                (point) -> (pairwiseProbFunc.eval(point) * pairwiseEnergyFunc.eval(point))
+                        );
+                        nodeEnthalpy += pairwiseEnthalpyFunc.computeIntegral();
+                    }
+                }
+            }
+            totalEnthalpy += nodeEnthalpy;
+        }
+	return totalEnthalpy;
     }
     
     public double computeEntropy() { 
