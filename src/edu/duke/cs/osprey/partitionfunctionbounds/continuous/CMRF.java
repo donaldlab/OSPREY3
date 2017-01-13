@@ -38,6 +38,11 @@ public class CMRF {
 	nodes = new CMRFNode[numNodes];
     }
     
+    /**
+     * Adds a list of nodes to the cMRF -- each node is given a set of domains and associated energy functions
+     * @param domains
+     * @param edgeEnergyFuncMap 
+     */
     public void addNodes(
 	    Map<Integer, CMRFNodeDomain[]> domains,
 	    Map<Integer, Map<Integer, ToDoubleFunction<double[]>>> edgeEnergyFuncMap) { 
@@ -54,6 +59,9 @@ public class CMRF {
 	nodesAdded = true;
     }
     
+    /**
+     * Initializes edge probabilities -- this is shamelessly stolen from Hunter's code 
+     */
     public void initializeEdgeProbsTRBP() { 
 	if (! nodesAdded) { 
 	    throw new RuntimeException("Can't initialize edge probabilities for the"
@@ -75,6 +83,9 @@ public class CMRF {
 	}
     }
 
+    /**
+     * Initializes TRBP update messages as uniform distributions 
+     */
     public void initializeMessagesTRBP() { 
 	for (int i=0; i<numNodes; i++) { 
 	    CMRFNode sender = nodes[i];
@@ -102,21 +113,34 @@ public class CMRF {
 	
     }
     
+    /**
+     * TRBP message update procedure 
+     */
     public void updateMessagesTRBP() {
-	// first, construct the messages; then, update them
-	// sender -> receiver -> domain -> function
-	HashMap<CMRFNode, HashMap<CMRFNode, HashMap<CMRFNodeDomain, RKHSFunction>>> messageMap =
+	// first, construct the messages; then, update them all at once 
+
+	// we'll store all the messages in a hashmap buffer
+	// map from sender --> receiver --> receiver domain --> rkhsFunction
+	HashMap<CMRFNode, HashMap<CMRFNode, HashMap<CMRFNodeDomain, RKHSFunction>>> messageMaps = 
 		new HashMap<CMRFNode, HashMap<CMRFNode, HashMap<CMRFNodeDomain, RKHSFunction>>>();
-	
-	// initialize all the empty maps
-	for (int i=0; i<numNodes; i++) {
-	    messageMap.put(nodes[i], new HashMap<CMRFNode, HashMap<CMRFNodeDomain, RKHSFunction>>());
-	    HashMap<CMRFNode, HashMap<CMRFNodeDomain, RKHSFunction>> senderMap =
-		    messageMap.get(nodes[i]);
-	    for (int j=0; j<numNodes; j++) {
-		if (i==j) { continue; }
-		senderMap.put(nodes[j], new HashMap<CMRFNodeDomain, RKHSFunction>());
+	for (CMRFNode sender : nodes) { 
+	    HashMap<CMRFNode, HashMap<CMRFNodeDomain, RKHSFunction>> senderMap = 
+		    new HashMap<CMRFNode, HashMap<CMRFNodeDomain, RKHSFunction>>();
+	    for (CMRFNode receiver : nodes) {  
+		if (sender.equals(receiver)) { continue; }
+		HashMap<CMRFNodeDomain, RKHSFunction> domainMap = new HashMap<CMRFNodeDomain, RKHSFunction>();
+		for (CMRFNodeDomain domain : receiver.domains) { 
+		    domainMap.put(
+			    domain,
+			    new RKHSFunction(
+				    domain.k,
+				    domain.domainLB,
+				    domain.domainUB,
+				    (point)->(1.0/domain.volume)));
+		}
+		senderMap.put(receiver, domainMap);
 	    }
+	    messageMaps.put(sender, senderMap);
 	}
 	
 	for (int i=0; i<numNodes; i++) {  // i is the sender
@@ -186,7 +210,7 @@ public class CMRF {
 				    (point) -> (this.sumOverMessages(point, senderFuncs)));
 		}
 		
-		// introduce the normalization 
+		// normalize the messages 
 		double normalizingConstant = 0.0;
 		for (RKHSFunction func : receiverDomainFuncs) { 
 		    normalizingConstant += func.computeIntegral();
@@ -200,15 +224,29 @@ public class CMRF {
 			    oldFunc.domainUB,
 			    (point) -> (oldFunc.eval(point)/Q));
 		}
-		Map<CMRFNodeDomain, RKHSFunction> funcMap = sender.outMessages.get(receiver);
+		
+		// dump it all to the buffer hashmap
+		HashMap<CMRFNodeDomain, RKHSFunction> funcMap = sender.outMessages.get(receiver);
 		for (CMRFNodeDomain rD : receiver.domains) { 
 		    RKHSFunction rDFunc = receiverDomainFuncs[this.getIndexInArray(rD, receiver.domains)];
 		    funcMap.put(rD, rDFunc);
 		}
-		sender.outMessages.put(receiver, funcMap);
+		messageMaps.get(sender).put(receiver, funcMap);
 	    }
 	}
 	
+	// now update the messages from the buffer
+	for (CMRFNode sender : nodes) { 
+	    for (CMRFNode receiver : nodes) { 
+		if (sender.equals(receiver)) { continue; }
+		for (CMRFNodeDomain domain : receiver.domains) { 
+		    sender.outMessages.get(receiver).put(domain, messageMaps.get(sender).get(receiver).get(domain));
+		}
+	    }
+	}
+	
+	// let's make a poor stab at pretending we care about software engineering 	
+	messageMaps.clear();
     }
     
     // returns the exponential function at a specific point for the TRBP message update
@@ -229,7 +267,12 @@ public class CMRF {
 			sender.getDomainForPoint(Xt).getEnergyAtPoint(Xt))));
     }
        
-
+    /** 
+     * Returns the sum of an array of RKHSFunctions evaluated at a given point
+     * @param point
+     * @param funcs
+     * @return 
+     */
     public double sumOverMessages(double[] point, RKHSFunction[] funcs) { 
 	double res = 0.0;
 	for (RKHSFunction func : funcs) {
@@ -238,6 +281,12 @@ public class CMRF {
 	return res;
     }
     
+    /**
+     * Splits an array at the nth slot
+     * @param arr
+     * @param n
+     * @return 
+     */
     public static ArrayList<double[]> splitArray(double[] arr, int n) { 
 	ArrayList<double[]> arrs = new ArrayList<double[]>();
 	arrs.add(Arrays.copyOfRange(arr, 0, n));
@@ -245,10 +294,24 @@ public class CMRF {
 	return arrs;
     }
     
+    /**
+     * Concats two arrays
+     * I feel really stupid having actually written this method 
+     * @param arr1
+     * @param arr2
+     * @return 
+     */
     public static double[] concatArrays(double[] arr1, double[] arr2) { 
 	return CMRFEdgeDomain.concatArrays(arr1, arr2);
     }
     
+    /** 
+     * Gets the product of several RKHSFunctions, each raised to a possibly distinct power 
+     * @param funcs
+     * @param powers
+     * @param point
+     * @return 
+     */
     public double getProdOfFuncPowers(RKHSFunction[] funcs, double[] powers, double[] point) { 
 	double result = 1.0;
 	for (int i=0; i<funcs.length; i++) { 
@@ -257,6 +320,13 @@ public class CMRF {
 	return result;
     }
     
+    /**
+     * Gets the index of an object in an array
+     * Honestly what the hell was I thinking I don't even know anymore 
+     * @param o
+     * @param arr
+     * @return 
+     */
     public int getIndexInArray(Object o, Object[] arr) { 
 	for (int i=0; i<arr.length; i++) { 
 	    if (arr[i].equals(o)) { 

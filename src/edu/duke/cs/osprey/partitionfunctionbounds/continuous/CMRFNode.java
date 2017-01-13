@@ -7,6 +7,7 @@ package edu.duke.cs.osprey.partitionfunctionbounds.continuous;
 
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.function.ToDoubleFunction;
 
@@ -16,7 +17,7 @@ import java.util.function.ToDoubleFunction;
  */
 public class CMRFNode {
     public CMRFNodeDomain[] domains;
-    public Map<CMRFNode, Map<CMRFNodeDomain, RKHSFunction>> outMessages;
+    public HashMap<CMRFNode, HashMap<CMRFNodeDomain, RKHSFunction>> outMessages;
     
     public CMRFNode(CMRFNodeDomain[] doms) { 
 	domains = doms;
