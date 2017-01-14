@@ -29,6 +29,7 @@ public class CMRFEdgeDomain {
     ToDoubleFunction<double[]> eFunc; //eFunc and pFunc take concatenations of the coordinates
     ToDoubleFunction<double[]> pFunc;
     RKHSFunction eFuncRKHS;
+    RKHSFunction pFuncRKHS;
     
     double constRT = PoissonBoltzmannEnergy.constRT;
     
@@ -43,8 +44,8 @@ public class CMRFEdgeDomain {
 	this.resTwoLB = rTwoLB;
 	this.resTwoUB = rTwoUB;
 	
-	this.resOneVolume = this.getVolume(rOneLB, rOneUB);
-	this.resTwoVolume = this.getVolume(rTwoLB, rTwoUB);
+	this.resOneVolume = CMRFEdgeDomain.getVolume(rOneLB, rOneUB);
+	this.resTwoVolume = CMRFEdgeDomain.getVolume(rTwoLB, rTwoUB);
 	this.volume = resOneVolume * resTwoVolume;
 	
 	this.resOneK = rOneK;
@@ -54,25 +55,26 @@ public class CMRFEdgeDomain {
 	this.eFunc = energyFunc;
 	this.eFuncRKHS = new RKHSFunction(
 		resAllK, 
-		this.concatArrays(resOneLB, resTwoLB),
-		this.concatArrays(resOneUB, resTwoUB),
+		CMRFEdgeDomain.concatArrays(resOneLB, resTwoLB),
+		CMRFEdgeDomain.concatArrays(resOneUB, resTwoUB),
 		eFunc);
 	double totalEnergy = eFuncRKHS.computeIntegral();
 	this.pFunc = (point)->(Math.exp((-1*eFunc.applyAsDouble(point))/constRT)/totalEnergy);
+        this.pFuncRKHS = new RKHSFunction(
+                resAllK,
+                CMRFEdgeDomain.concatArrays(resOneLB, resTwoLB),
+                CMRFEdgeDomain.concatArrays(resOneUB, resTwoUB),
+                pFunc);
     }
     
     public static double[] concatArrays(double[] arrOne, double[] arrTwo) { 
 	double[] arr = new double[arrOne.length+arrTwo.length];
-	for (int i=0; i<arrOne.length; i++) { 
-	    arr[i] = arrOne[i];
-	}
-	for (int i=0; i<arrTwo.length; i++) { 
-	    arr[i+arrOne.length] = arrTwo[i];
-	}
+        System.arraycopy(arrOne, 0, arr, 0, arrOne.length);
+        System.arraycopy(arrTwo, 0, arr, arrOne.length, arrTwo.length);
 	return arr;
     }
     
-    public double getVolume(double[] LB, double[] UB) {
+    public static double getVolume(double[] LB, double[] UB) {
 	if (LB.length != UB.length) {
 	    throw new RuntimeException("Uneven dimensions.");
 	}

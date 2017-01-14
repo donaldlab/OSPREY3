@@ -27,16 +27,25 @@ public class CMRF {
     public double[][] edgeProbs;
     public CMRFEdge[][] edges;
     
-    double logZ = Double.POSITIVE_INFINITY;
     double threshold = 1e-6;
+    
+    // all the thermodynamic information about the MRF -- initially everything is just infinity 
     double constRT = PoissonBoltzmannEnergy.constRT;
+    double entropy = Double.POSITIVE_INFINITY;
+    double enthalpy = Double.POSITIVE_INFINITY;
+    double logZ = Double.POSITIVE_INFINITY;
     
     boolean nodesAdded = false;
-    
+
+    /**
+     * Constructor just sets up the array -- population of the MRF is later 
+     * @param numNodes 
+     */    
     public CMRF(int numNodes) { 
 	this.numNodes = numNodes;
 	nodes = new CMRFNode[numNodes];
     }
+    
     
     /**
      * Adds a list of nodes to the cMRF -- each node is given a set of domains and associated energy functions
@@ -107,10 +116,6 @@ public class CMRF {
 		}
 	    }
 	}	
-    }
-    
-    public void updateMessagesMeanField() { 
-	
     }
     
     /**
@@ -310,7 +315,7 @@ public class CMRF {
     }
     
     /**
-     * Concats two arrays
+     * Concatenates two arrays
      * I feel really stupid having actually written this method 
      * It's literally just a wrapper to save me some characters 
      * @param arr1
@@ -352,103 +357,51 @@ public class CMRF {
 	return -1;
     }
     
-    public double getLogZ() {
-	return 0.0;
-    }
     
     /**
-     * Computes the enthalpy of the cMRF in its current state 
+     * Returns the PDF for a particular CMRF node's domain 
+     * @param v
+     * @param d
      * @return 
      */
-    public double computeEnthalpy() { 
-        double totalEnthalpy = 0.0;
-        // sum over nodes of p*E plus pariwise p*E
-        for (CMRFNode v : nodes) { 
-            int recNodeIndex = this.getIndexInArray(v, nodes);
-            double nodeEnthalpy = 0.0; 
-            
-            for (CMRFNodeDomain d : v.domains) { 
-                // get the pdf for the node domain 
-                //   p(x_s) = \sum_{neibhors} {m_{t->s}{x_s) * \mu_{ts}}
-                RKHSFunction[] messages = new RKHSFunction[nodes.length-1];
-                double[] vEdgeProbs = new double[nodes.length-1];
-                for (CMRFNode n : nodes) { 
-                    if (n.equals(v)) { continue; }
-                    int sendNodeIndex = this.getIndexInArray(n, nodes);
-                    messages[sendNodeIndex] = n.outMessages.get(v).get(d);
-                    vEdgeProbs[sendNodeIndex] = this.edgeProbs[sendNodeIndex][recNodeIndex];
-                }                
-                RKHSFunction probabilityFunc = new RKHSFunction(
-                        d.k,
-                        d.domainLB,
-                        d.domainUB,
-                        (point) -> (
-                           this.sumOverMessages(point, messages, vEdgeProbs)));
-                
-                // compute single-node domain enthalpy 
-                RKHSFunction enthalpyFunc = new RKHSFunction(
-                        d.k,
-                        d.domainLB,
-                        d.domainUB,
-                        (point) -> (
-                                probabilityFunc.eval(point) * d.energyFunction.applyAsDouble(point)));
-                nodeEnthalpy += enthalpyFunc.computeIntegral();
-                
-                for (CMRFNode neighbor : nodes) { 
-                    if (neighbor.equals(v)) { continue; }
-                    for (CMRFNodeDomain nd : neighbor.domains) { 
-                        // get the pdf for the neighbor's domain 
-                        int nRecNodeInd = this.getIndexInArray(neighbor, nodes);
-                        RKHSFunction[] nMessages = new RKHSFunction[nodes.length-1];
-                        double[] nEdgeProbs = new double[nodes.length-1];
-                        for (CMRFNode n : nodes) { 
-                            if (n.equals(neighbor)) { continue; }
-                            int sendNodeIndex = this.getIndexInArray(n, nodes); 
-                            nMessages[sendNodeIndex] = n.outMessages.get(neighbor).get(nd);
-                            nEdgeProbs[sendNodeIndex] = this.edgeProbs[sendNodeIndex][nRecNodeInd];
-                        }
-                        RKHSFunction nProbabilityFunc = new RKHSFunction(
-                                nd.k,
-                                nd.domainLB,
-                                nd.domainUB,
-                                (point) -> (
-                                        this.sumOverMessages(point, nMessages, nEdgeProbs)));
-                        
-                        // get the edge domain energy function for these two domains
-                        CMRFEdgeDomain edgeDomain = edges[nRecNodeInd][recNodeIndex].getEdgeDomain(d, nd);
-                        RKHSFunction pairwiseEnergyFunc = edgeDomain.eFuncRKHS;
-                        
-                        // set up the pairwise probability function as an RKHSFunction
-                        RKHSFunction pairwiseProbFunc = 
-                                RKHSFunction.getCartesianProductFunction(
-                                        probabilityFunc, 
-                                        nProbabilityFunc, 
-                                        edgeDomain.resAllK);
-
-                        // quick sanity check to make sure the Cartesian product didn't blow up 
-                        if (!(Arrays.equals(pairwiseProbFunc.domainLB, pairwiseEnergyFunc.domainLB)) ||
-                            !(Arrays.equals(pairwiseProbFunc.domainUB, pairwiseProbFunc.domainUB))) { 
-                            throw new RuntimeException("Cartesian product domains don't match.");
-                        }
-                        
-                        
-                        // compute enthalpy, add it to single node enthalpy 
-                        RKHSFunction pairwiseEnthalpyFunc = new RKHSFunction(
-                                pairwiseProbFunc.k,
-                                pairwiseProbFunc.domainLB,
-                                pairwiseProbFunc.domainUB,
-                                (point) -> (pairwiseProbFunc.eval(point) * pairwiseEnergyFunc.eval(point))
-                        );
-                        nodeEnthalpy += pairwiseEnthalpyFunc.computeIntegral();
-                    }
-                }
-            }
-            totalEnthalpy += nodeEnthalpy;
+    public RKHSFunction getPDF(CMRFNode v, CMRFNodeDomain d) { 
+        // get the pdf for the node domain
+        //   p(x_s) = \sum_{neibhors} {m_{t->s}{x_s) * \mu_{ts}}
+        int recNodeIndex = this.getIndexInArray(v, nodes);
+        RKHSFunction[] messages = new RKHSFunction[nodes.length-1];
+        double[] vEdgeProbs = new double[nodes.length-1];
+        
+        for (CMRFNode n : nodes) {
+            if (n.equals(v)) { continue; }
+            int sendNodeIndex = this.getIndexInArray(n, nodes);
+            messages[sendNodeIndex] = n.outMessages.get(v).get(d);
+            vEdgeProbs[sendNodeIndex] = this.edgeProbs[sendNodeIndex][recNodeIndex];
         }
-	return totalEnthalpy;
+        RKHSFunction probabilityFunc = new RKHSFunction(
+                d.k,
+                d.domainLB,
+                d.domainUB,
+                (point) -> (
+                        this.sumOverMessages(point, messages, vEdgeProbs)));
+        return probabilityFunc;
     }
-    
-    public double computeEntropy() { 
-	return 0.0;
+
+    /**
+     * Returns a function that returns the product of the two PDFs -- note this is NOT the inter-rotamer probability
+     * density but the product of the intra-rotamer probability densities! 
+     * @param n1
+     * @param d1
+     * @param n2
+     * @param d2
+     * @return 
+     */
+    public RKHSFunction getProductOverCrossPDF(CMRFNode n1, CMRFNodeDomain d1, CMRFNode n2, CMRFNodeDomain d2) { 
+        RKHSFunction pdf1 = this.getPDF(n1, d1);
+        RKHSFunction pdf2 = this.getPDF(n2, d2);
+        
+        int sendNodeInd = this.getIndexInArray(n1, nodes);
+        int recNodeInd = this.getIndexInArray(n2, nodes);
+        Kernel prodK = this.edges[sendNodeInd][recNodeInd].getEdgeDomain(d1, d2).resAllK;
+        return RKHSFunction.getCartesianProductFunction(pdf1, pdf2, prodK);
     }
 }
