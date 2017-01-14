@@ -43,7 +43,6 @@ public class CMRF {
     
 
 
-
     /**
      * Skeleton stub for the running of TRBP 
      * @return 
@@ -262,7 +261,7 @@ public class CMRF {
 	// let's make a poor stab at pretending we care about software engineering 	
 	messageMaps.clear();
     }
-
+    
     /**
      * Computes the enthalpy of the cMRF in its current state 
      * @return 
@@ -350,8 +349,8 @@ public class CMRF {
         }
         
         return totalEntropy;
-    }    
-    
+    }
+        
     /**
      * Adds a list of nodes to the cMRF -- each node is given a set of domains and associated energy functions
      * @param domains
