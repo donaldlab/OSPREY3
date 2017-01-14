@@ -36,16 +36,136 @@ public class CMRF {
     double logZ = Double.POSITIVE_INFINITY;
     
     boolean nodesAdded = false;
-
+    
     /**
-     * Constructor just sets up the array -- population of the MRF is later 
+     * Sets up an empty cMRF -- population is done later 
      * @param numNodes 
-     */    
+     */
     public CMRF(int numNodes) { 
 	this.numNodes = numNodes;
 	nodes = new CMRFNode[numNodes];
     }
     
+    /**
+     * Skeleton stub for the running of TRBP 
+     * @return 
+     */
+    public double runTRBP() { 
+        this.initializeEdgeProbsTRBP();
+        this.initializeMessagesTRBP();
+        
+        double oldEnth = Double.POSITIVE_INFINITY;
+        double oldEntr = Double.NEGATIVE_INFINITY; 
+        double oldLogZ = Double.POSITIVE_INFINITY; 
+        double enth = oldEnth;
+        double entr = oldEntr;
+        double logZ = oldLogZ;
+        
+        while (true) { 
+            this.updateMessagesTRBP();
+            enth = this.computeEnthalpy();
+            entr = this.computeEntropy();
+            
+            double freeEnergy = enth - this.constRT*entr;
+            logZ = Math.log(-freeEnergy/this.constRT);
+            if (Math.abs(logZ-oldLogZ) <= this.threshold) { 
+                return logZ;
+            }
+            
+            oldEnth = enth;
+            oldEntr = entr;
+            oldLogZ = logZ;
+        }
+    }    
+    
+    /**
+     * Computes the enthalpy of the cMRF in its current state 
+     * @return 
+     */
+    public double computeEnthalpy() { 
+        double totalEnthalpy = 0.0;
+        // sum over nodes of p*E plus pariwise p*E
+        for (CMRFNode v : nodes) { 
+            int recNodeIndex = this.getIndexInArray(v, nodes);
+            double nodeEnthalpy = 0.0; 
+            
+            for (CMRFNodeDomain d : v.domains) { 
+                // compute single-node domain enthalpy 
+                RKHSFunction probabilityFunc = this.getPDF(v, d);
+                RKHSFunction enthalpyFunc = new RKHSFunction(
+                        d.k,
+                        d.domainLB,
+                        d.domainUB,
+                        (point) -> (
+                                probabilityFunc.eval(point) * d.energyFunction.applyAsDouble(point)));
+                nodeEnthalpy += enthalpyFunc.computeIntegral();
+                
+                for (CMRFNode neighbor : nodes) { 
+                    if (neighbor.equals(v)) { continue; }
+                    for (CMRFNodeDomain nd : neighbor.domains) { 
+                        // get the pdf for the neighbor's domain 
+                        int nRecNodeInd = this.getIndexInArray(neighbor, nodes);
+                        CMRFEdgeDomain edgeDomain = this.edges[nRecNodeInd][recNodeIndex].getEdgeDomain(d, nd);
+                        RKHSFunction pairwiseProbFunc = edgeDomain.pFuncRKHS;
+                        RKHSFunction pairwiseEnergyFunc = edgeDomain.eFuncRKHS;
+                        
+                        // compute enthalpy, add it to single node enthalpy 
+                        RKHSFunction pairwiseEnthalpyFunc = new RKHSFunction(
+                                pairwiseProbFunc.k,
+                                pairwiseProbFunc.domainLB,
+                                pairwiseProbFunc.domainUB,
+                                (point) -> (pairwiseProbFunc.eval(point) * pairwiseEnergyFunc.eval(point)));
+                        nodeEnthalpy += pairwiseEnthalpyFunc.computeIntegral();
+                    }
+                }
+            }
+            totalEnthalpy += nodeEnthalpy;
+        }
+	return totalEnthalpy;
+    }
+    
+    /**
+     * Computes the entropy of the cMRF in its current state 
+     * @return 
+     */
+    public double computeEntropy() { 
+        double totalEntropy = 0.0;
+        for (CMRFNode node : nodes) { 
+            double nodeEntropy = 0.0;
+            for (CMRFNodeDomain domain : node.domains) { 
+                RKHSFunction domainPDF = this.getPDF(node, domain);
+                RKHSFunction domainEntropyFunc = new RKHSFunction(
+                        domainPDF.k,
+                        domainPDF.domainLB,
+                        domainPDF.domainUB,
+                        (point)->(-1*domainPDF.eval(point)*Math.log(domainPDF.eval(point))));
+                double domainEntropy = domainEntropyFunc.computeIntegral();
+                nodeEntropy += domainEntropy;
+                
+                double edgeEntropy = 0.0;
+                for (CMRFNode neighbor : nodes) { 
+                    if (node.equals(neighbor)) { continue; } 
+                    for (CMRFNodeDomain neighborDomain : neighbor.domains) { 
+                        int nodeInd = this.getIndexInArray(node, nodes);
+                        int neighborInd = this.getIndexInArray(neighbor, nodes);
+                        CMRFEdgeDomain edgeDomain = 
+                                this.edges[nodeInd][neighborInd].getEdgeDomain(domain, neighborDomain);
+                        
+                        RKHSFunction pairwiseProbFunc = edgeDomain.pFuncRKHS;
+                        RKHSFunction pairwiseEntropy = new RKHSFunction(
+                                pairwiseProbFunc.k,
+                                pairwiseProbFunc.domainLB,
+                                pairwiseProbFunc.domainUB,
+                                (point) -> (-1*pairwiseProbFunc.eval(point)*Math.log(pairwiseProbFunc.eval(point))));
+                        edgeEntropy += pairwiseEntropy.computeIntegral();
+                    }
+                }
+            }
+            totalEntropy += nodeEntropy;
+        }
+        
+        return totalEntropy;
+    }
     
     /**
      * Adds a list of nodes to the cMRF -- each node is given a set of domains and associated energy functions
