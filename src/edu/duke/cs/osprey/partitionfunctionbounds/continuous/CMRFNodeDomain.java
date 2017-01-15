@@ -22,6 +22,7 @@ public class CMRFNodeDomain {
     ToDoubleFunction<double[]> energyFunction;
     RKHSFunction energyRKHS;
     ToDoubleFunction<double[]> pdf;
+    RKHSFunction probabilityRKHS;
     double constRT = PoissonBoltzmannEnergy.constRT;
     
     public CMRFNodeDomain(
@@ -41,6 +42,7 @@ public class CMRFNodeDomain {
 	this.energyRKHS = new RKHSFunction(k, lBound, uBound, eFunc);
 	double energyInt = energyRKHS.computeIntegral();
 	this.pdf = (x)->(Math.exp(-energyFunction.applyAsDouble(x)/constRT)/energyInt);
+        this.probabilityRKHS = new RKHSFunction(k, lBound, uBound, this.pdf);
     }
     
     public double getEnergyIntegral() { 

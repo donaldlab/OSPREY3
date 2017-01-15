@@ -17,7 +17,8 @@ import java.util.function.ToDoubleFunction;
  */
 public class CMRFNode {
     public CMRFNodeDomain[] domains;
-    public HashMap<CMRFNode, HashMap<CMRFNodeDomain, RKHSFunction>> outMessages;
+    public HashMap<CMRFNode, HashMap<CMRFNodeDomain, RKHSFunction>> outMessages; // messages for TRBP 
+    public HashMap<CMRFNodeDomain, RKHSFunction> marginals; // marginals for SCMF 
     
     public CMRFNode(CMRFNodeDomain[] doms) { 
 	domains = doms;
