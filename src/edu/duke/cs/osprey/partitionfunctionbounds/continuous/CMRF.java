@@ -350,6 +350,35 @@ public class CMRF {
         
         return totalEntropy;
     }
+
+    /**
+     * Runs a mean-field approximation to the partition function for a lower bound 
+     * @return 
+     */
+    public double runSCMF() { 
+        this.initializeMarginalsSCMF();
+        
+        double oldEnth = Double.NEGATIVE_INFINITY;
+        double oldEntr = Double.POSITIVE_INFINITY; 
+        double oldLogZ = Double.NEGATIVE_INFINITY; 
+        
+        while (true) { 
+            this.updateMarginalsSCMF();
+            double enth = this.computeEnthalpySCMF();
+            double entr = this.computeEntropySCMF();
+            
+            double freeEnergy = enth - this.constRT*entr;
+            double logZ = Math.log(-freeEnergy/this.constRT);
+            if (Math.abs(logZ-oldLogZ) <= this.threshold) { 
+                return logZ;
+            }
+            
+            oldEnth = enth;
+            oldEntr = entr;
+            oldLogZ = logZ;
+        }
+        
+    }
     
     /**
      * Initializes marginal beliefs for SCMF -- those beliefs are just the probabilities induced by the intra-rotamer
@@ -425,9 +454,8 @@ public class CMRF {
             }
             
             double normalizingConstant = 0.0;
-            for (RKHSFunction func : marginals.values()) { 
-                normalizingConstant += func.computeIntegral();
-            }
+            normalizingConstant = marginals.values().stream().map((func) -> 
+                    func.computeIntegral()).reduce(normalizingConstant, (accumulator, _item) -> accumulator + _item);
             final double Q = normalizingConstant;
             marginals.keySet().stream().forEach((domain) -> { 
                 marginals.put(
@@ -446,6 +474,57 @@ public class CMRF {
         for (CMRFNode node : nodes) { 
             node.marginals = newBeliefs.get(node);
         }
+    }
+
+    /**
+     * Computes the enthalpy when running SCMF -- note that there are no pairwise terms 
+     * @return 
+     */
+    public double computeEnthalpySCMF() { 
+        double totalEnthalpy = 0.0;
+        // sum over nodes of p*E plus pariwise p*E
+        for (CMRFNode v : nodes) { 
+            int recNodeIndex = this.getIndexInArray(v, nodes);
+            double nodeEnthalpy = 0.0; 
+            
+            for (CMRFNodeDomain d : v.domains) { 
+                // compute single-node domain enthalpy 
+                RKHSFunction probabilityFunc = v.marginals.get(d);
+                RKHSFunction enthalpyFunc = new RKHSFunction(
+                        d.k,
+                        d.domainLB,
+                        d.domainUB,
+                        (point) -> (
+                                probabilityFunc.eval(point) * d.energyFunction.applyAsDouble(point)));
+                nodeEnthalpy += enthalpyFunc.computeIntegral();
+                
+            }
+            totalEnthalpy += nodeEnthalpy;
+        }
+	return totalEnthalpy;
+    }
+    
+    /**
+     * Computes the entropy when running SCMF -- again, there are no pairwise terms 
+     * @return 
+     */
+    public double computeEntropySCMF() { 
+        double totalEntropy = 0.0;
+        for (CMRFNode node : nodes) { 
+            double nodeEntropy = 0.0;
+            for (CMRFNodeDomain domain : node.domains) { 
+                RKHSFunction domainPDF = node.marginals.get(domain);
+                RKHSFunction domainEntropyFunc = new RKHSFunction(
+                        domainPDF.k,
+                        domainPDF.domainLB,
+                        domainPDF.domainUB,
+                        (point)->(-1*domainPDF.eval(point)*Math.log(domainPDF.eval(point))));
+                double domainEntropy = domainEntropyFunc.computeIntegral();
+                nodeEntropy += domainEntropy;                
+            }
+            totalEntropy += nodeEntropy;
+        }
+        return totalEntropy;
     }
     
     /**
