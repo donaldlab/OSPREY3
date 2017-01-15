@@ -1,5 +1,9 @@
 package edu.duke.cs.osprey.partitionfunctionbounds.continuous;
 
+/**
+ * Represents a kernel over some domain. 
+ * @author aditya
+ */
 public abstract class Kernel {
 	
 	/**
@@ -15,13 +19,29 @@ public abstract class Kernel {
 	// bounds[i][0] --> lower bound on the ith dimension
 	// bounds[i][1] --> upper bound on the ith dimension
 	double[][] bounds; 
-
+        
+        /**
+         * Kernel needs to take bounds on the domain as a parameter 
+         * @param domainBounds 
+         */
 	public Kernel(double[][] domainBounds) {
 		this.bounds = domainBounds;
 	}
 	
+        /**
+         * You want to be able to evaluate the kernel at particular points 
+         * @param x
+         * @param y
+         * @return 
+         */
 	public abstract double eval(double[] x, double[] y);
 	
+        /**
+         * Determines whether or not the input is valid (within the domain bounds) 
+         * @param x
+         * @param y
+         * @return 
+         */
 	public boolean validInput(double[] x, double[] y) {
 		boolean isValid = true;
 		if (x.length != y.length) { isValid = false; }
