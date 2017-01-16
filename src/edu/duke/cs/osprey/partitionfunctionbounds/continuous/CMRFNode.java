@@ -26,7 +26,7 @@ public class CMRFNode {
     
     public CMRFNodeDomain getDomainForPoint(double[] point) { 
 	for (CMRFNodeDomain d : domains ) {
-	    if (d.pointInDomain(point)) { 
+	    if (d.isPointInDomain(point)) { 
 		return d;
 	    }
 	}

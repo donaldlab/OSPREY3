@@ -9,7 +9,8 @@ import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import java.util.function.ToDoubleFunction;
 
 /**
- *
+ * Represents a domain for an edge of the MRF, corresponding to a continuous region of pairwise conformational space 
+ * 
  * @author aditya
  */
 public class CMRFEdgeDomain {
