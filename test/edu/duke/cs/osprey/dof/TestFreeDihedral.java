@@ -24,7 +24,7 @@ public class TestFreeDihedral extends TestBase {
 	public static void beforeClass() {
 		initDefaultEnvironment();
 		
-		mol = PDBFileReader.readPDBFile("test/1CC8/1CC8.ss.pdb", null);
+		mol = PDBFileReader.readPDBFile("examples/1CC8/1CC8.ss.pdb", null);
 	}
 	
 	private Residue makePhe() {

@@ -32,7 +32,7 @@ public class UnitTestSuite {
             is.close();
         }
         catch(FileNotFoundException e){
-            throw new RuntimeException("ERROR: Tests need to be run in the directory test/1CC8");
+            throw new RuntimeException("ERROR: Tests need to be run in the directory examples/1CC8");
         }
         catch(IOException e){//this is weird
             throw new RuntimeException(e.getMessage());

@@ -12,17 +12,17 @@ import junit.framework.TestCase;
 public class TestPositionSpecificGMEC extends TestCase {
 
     ConfigFileParser cfp;
-    String PDBFileLocation = "test/4NPD/4NPD.pdb";
+    String PDBFileLocation = "examples/4NPD/4NPD.pdb";
     protected void setUp () throws Exception {
         super.setUp();
         
         EnvironmentVars.assignTemplatesToStruct = true;
         EnvironmentVars.resTemplates = null;
         
-        cfp = ConfigFileParser.makeFromResources(
-            "/examples/4NPD/KStar.cfg",
-            "/examples/4NPD/DEE.cfg",
-            "/examples/4NPD/System.cfg"
+        cfp = ConfigFileParser.makeFromFilePaths(
+            "examples/4NPD/KStar.cfg",
+            "examples/4NPD/DEE.cfg",
+            "examples/4NPD/System.cfg"
         );
         cfp.loadData();
     }

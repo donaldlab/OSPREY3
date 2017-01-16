@@ -26,7 +26,7 @@ public class TestConfSearchSplitter extends TestBase {
 		
 		// make any search problem, doesn't matter
 		EnergyMatrixConfig emConfig = new EnergyMatrixConfig();
-		emConfig.pdbPath = "test/DAGK/2KDC.P.forOsprey.pdb";
+		emConfig.pdbPath = "examples/DAGK/2KDC.P.forOsprey.pdb";
 		emConfig.numFlexible = 2; // total confs in tree is 16
 		emConfig.addWtRots = true;
 		emConfig.doMinimize = false;

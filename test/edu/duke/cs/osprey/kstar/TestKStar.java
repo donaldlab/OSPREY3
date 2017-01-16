@@ -155,9 +155,9 @@ public class TestKStar {
 	private KSConfigFileParser make2RL0Config() {
 		
 		// read config from files
-		KSConfigFileParser cfp = new KSConfigFileParser(ConfigFileParser.makeFromResources(
-			"/examples/2RL0.kstar/cfgMutSearch.txt",
-			"/examples/2RL0.kstar/cfgSystem.txt"
+		KSConfigFileParser cfp = new KSConfigFileParser(ConfigFileParser.makeFromFilePaths(
+			"examples/2RL0.kstar/cfgMutSearch.txt",
+			"examples/2RL0.kstar/cfgSystem.txt"
 		));
 		cfp.loadData();
 		

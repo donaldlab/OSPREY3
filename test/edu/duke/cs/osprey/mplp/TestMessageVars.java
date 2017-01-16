@@ -24,7 +24,7 @@ public class TestMessageVars extends TestBase {
 	
 	private SearchProblem makeSearchProblemDagkRigid() {
 		EnergyMatrixConfig emConfig = new EnergyMatrixConfig();
-		emConfig.pdbPath = "test/DAGK/2KDC.P.forOsprey.pdb";
+		emConfig.pdbPath = "examples/DAGK/2KDC.P.forOsprey.pdb";
 		emConfig.numFlexible = 8;
 		emConfig.addWtRots = true;
 		emConfig.doMinimize = false;

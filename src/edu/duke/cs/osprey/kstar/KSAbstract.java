@@ -79,7 +79,7 @@ public abstract class KSAbstract implements KSInterface {
 
 		EW = cfp.getParams().getDouble("Ew",0);
 		I0 = cfp.getParams().getDouble("Ival", 5);
-		pdbName = cfp.getParams().getValue("PDBNAME");
+		pdbName = cfp.getParams().getFile("PDBNAME").getAbsolutePath();
 		useEPIC = cfp.getParams().getBool("UseEPIC");
 		useTupExp = cfp.getParams().getBool("UseTupExp");
 		useEllipses = cfp.getParams().getBool("useEllipses");

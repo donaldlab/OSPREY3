@@ -1,4 +1,4 @@
-pdbname test/2RL0.kstar/2RL0.min.reduce.pdb
+pdbname 2RL0.min.reduce.pdb
 numOfStrands 2
 strand0 648 654
 strand1 155 194

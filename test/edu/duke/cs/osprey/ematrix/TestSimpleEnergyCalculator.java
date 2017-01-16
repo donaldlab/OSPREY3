@@ -99,7 +99,7 @@ public class TestSimpleEnergyCalculator extends TestBase {
 	private void test(boolean doMinimize, boolean useMolInstance, Type type) {
 		
 		EnergyMatrixConfig emConfig = new EnergyMatrixConfig();
-		emConfig.pdbPath = "test/DAGK/2KDC.P.forOsprey.pdb";
+		emConfig.pdbPath = "examples/DAGK/2KDC.P.forOsprey.pdb";
 		emConfig.numFlexible = 3;
 		emConfig.addWtRots = true;
 		emConfig.doMinimize = doMinimize;

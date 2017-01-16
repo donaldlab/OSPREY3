@@ -26,7 +26,7 @@ public class TestRCSplits extends TestBase {
 		// need to get RCs from anywhere, doesn't matter where
 		
 		EnergyMatrixConfig emConfig = new EnergyMatrixConfig();
-		emConfig.pdbPath = "test/DAGK/2KDC.P.forOsprey.pdb";
+		emConfig.pdbPath = "examples/DAGK/2KDC.P.forOsprey.pdb";
 		emConfig.numFlexible = 2;
 		emConfig.addWtRots = false;
 		emConfig.doMinimize = true;

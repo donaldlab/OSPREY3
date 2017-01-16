@@ -54,7 +54,7 @@ public class TestForceFieldKernel extends TestBase {
 			val36, leu39, trp47, leu48, ile53, arg55, val56, leu57, ile59, val62, leu64, val65, met66;
 		
 		public Residues() {
-			Molecule mol = PDBFileReader.readPDBFile("test/DAGK/2KDC.P.forOsprey.pdb");
+			Molecule mol = PDBFileReader.readPDBFile("examples/DAGK/2KDC.P.forOsprey.pdb");
 			gly06 = mol.getResByPDBResNumber("6");
 			gly15 = mol.getResByPDBResNumber("15");
 			ser17 = mol.getResByPDBResNumber("17");

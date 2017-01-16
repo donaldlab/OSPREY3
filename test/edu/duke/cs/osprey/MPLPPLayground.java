@@ -32,8 +32,8 @@ public class MPLPPLayground {
 		
 		// check the cwd
 		String path = new File("").getAbsolutePath();
-		if (!path.endsWith("test/DAGK")) {
-			throw new Error("This profiler was designed to run in the test/DAGK folder\n\tcwd: " + path);
+		if (!path.endsWith("examples/DAGK")) {
+			throw new Error("This profiler was designed to run in the examples/DAGK folder\n\tcwd: " + path);
 		}
 
 		// load configuration

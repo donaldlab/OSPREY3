@@ -80,7 +80,7 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		ArrayList<String[]> moveableStrands = new ArrayList<String[]>();
 		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
 		SearchProblem search = new SearchProblem(
-			"test", "test/1CC8/1CC8.ss.pdb", 
+			"test", "examples/1CC8/1CC8.ss.pdb", 
 			resFlex.flexResList, resFlex.allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
 			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null,
 			false, new ArrayList<>()

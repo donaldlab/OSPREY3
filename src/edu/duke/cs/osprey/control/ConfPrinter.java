@@ -46,9 +46,9 @@ public class ConfPrinter {
             // possible after a failure that aborts the program
             confFileHandle = new FileWriter(confFileName);
         }
-        catch(Exception e){
+        catch(IOException ex){
             throw new RuntimeException("ERROR OPENING CONF FILE.  NAME: "
-                    + confFileName + e.getMessage());
+                    + confFileName, ex);
         }
     }
     

@@ -13,7 +13,7 @@ public class TestGenerateRotamerLibrary {
         // Init Environment for test
         initEnvironmentVariables();
         
-        String PDBFileLocation = "test/4NPD/4NPD.pdb";
+        String PDBFileLocation = "examples/4NPD/4NPD.pdb";
         
         ResidueTemplateLibrary library = PositionSpecificRotamerLibrary.generateLibraryFromPDB(PDBFileLocation);
     }
@@ -23,10 +23,10 @@ public class TestGenerateRotamerLibrary {
         EnvironmentVars.assignTemplatesToStruct = true;
         EnvironmentVars.resTemplates = null;
         
-        ConfigFileParser cfp = ConfigFileParser.makeFromResources(
-            "/examples/4NPD/KStar.cfg",
-            "/examples/4NPD/DEE.cfg",
-            "/examples/4NPD/System.cfg"
+        ConfigFileParser cfp = ConfigFileParser.makeFromFilePaths(
+            "examples/4NPD/KStar.cfg",
+            "examples/4NPD/DEE.cfg",
+            "examples/4NPD/System.cfg"
         );
         cfp.loadData();
         GMECFinder gf = new GMECFinder();
