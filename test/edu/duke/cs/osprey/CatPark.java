@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package edu.duke.cs.osprey.tests;
+package edu.duke.cs.osprey;
 
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.bbfree.BBFreeDOF;
@@ -64,8 +64,8 @@ public class CatPark {
         //calcRMSDs(args);        
         //System.exit(0);
         
-        ConfigFileParser cfp = new ConfigFileParser(args);//args 1, 3+ are configuration files
-	cfp.loadData();
+        ConfigFileParser cfp = ConfigFileParser.makeFromFilePaths(args[1], args[3], args[4]);
+        cfp.loadData();
         
         SearchProblem sp = cfp.getSearchProblem();
         

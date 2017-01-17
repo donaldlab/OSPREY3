@@ -5,10 +5,10 @@
  */
 package edu.duke.cs.osprey.control;
 
-import edu.duke.cs.osprey.tools.StringParsing;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.StringTokenizer;
@@ -22,21 +22,18 @@ import java.util.StringTokenizer;
  */
 public class SeqGMECFinder {
     
-    String[] args;
-    String mutFileName;
+    ConfigFileParser cfp;
+    File mutFile;
     
-    public SeqGMECFinder(String[] args, String mutFileName){
-        if(args.length != 5)
-            System.err.println("ERROR: FindSeqGMECS expects 5 arguments");
-        
-        this.args = args;
-        this.mutFileName = mutFileName;
+    public SeqGMECFinder(ConfigFileParser cfp){
+        this.cfp = cfp;
+        this.mutFile = cfp.getParams().getFile("MutFile");
     }
     
     
     public void calcAllSeqGMECs(){
         try{
-            FileInputStream is = new FileInputStream(mutFileName);
+            FileInputStream is = new FileInputStream(mutFile);
             BufferedReader bufread = new BufferedReader(new InputStreamReader(is));
             
             int seqNum=0;
@@ -54,12 +51,8 @@ public class SeqGMECFinder {
             
             bufread.close();
         }
-        catch(FileNotFoundException e){
-            throw new RuntimeException("ERROR: Couldn't find mut file "+mutFileName);
-        }
-        catch(Exception e){
-            e.printStackTrace();
-            throw new RuntimeException(e.getMessage());
+        catch(IOException ex){
+            throw new RuntimeException(ex);
         }
     }
     
@@ -75,7 +68,7 @@ public class SeqGMECFinder {
         System.out.println();
         System.out.println();
         
-        ConfigFileParser cfp = new ConfigFileParser(args);
+        ConfigFileParser cfp = new ConfigFileParser(this.cfp);
         cfp.loadData();
         
         if(cfp.getFlexRes().size()!=AATypes.length){

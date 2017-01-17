@@ -123,7 +123,7 @@ public class Main {
 			@Override
 			public void run(CommandArgs args) {
 				ConfigFileParser cfp = args.loadConfig();
-				new SeqGMECFinder().calcAllSeqGMECs();
+				new SeqGMECFinder(cfp).calcAllSeqGMECs();
 			}
 		};
 		
