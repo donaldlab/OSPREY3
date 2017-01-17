@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
 
-import edu.duke.cs.osprey.Build;
 import edu.duke.cs.osprey.energy.LigandResEnergies;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
@@ -37,7 +36,7 @@ public class Main {
 		Version {
 			@Override
 			public void run(CommandArgs args) {
-				System.out.println("OSPREY version: " + new Build().version().name());
+				System.out.println("OSPREY version: 3.0-alpha1");
 			}
 		},
 		
