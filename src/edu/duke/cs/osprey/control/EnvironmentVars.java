@@ -24,6 +24,8 @@ public class EnvironmentVars {
         //We'll keep this true unless explicitly set otherwise since most calculations require templates
         public static boolean deleteNonTemplateResidues = true;//Delete residues for which we don't have a template
         
+        public static boolean alwaysIdealizeSidechainsAfterMutation;
+        
         public static boolean useMPI = false;//distribute things like energy matrix calculations, K* calculation for sequences using MPI
         
         public static double DUNBRACK_PROBABILTY_CUTOFF = 0.001;

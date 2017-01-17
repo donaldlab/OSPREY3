@@ -420,17 +420,23 @@ public abstract class KSAbstract implements KSInterface {
 				if(pf.getReducedSearchProblem().numConfs(pf.getReducedPruningMatrix()).compareTo(BigInteger.ZERO) == 0) {
 					// no conformations in search space, so this cannot give a valid
 					// partition function
-					pf.setEpsilonStatus(EApproxReached.NOT_POSSIBLE);
-
-					System.out.println("\nWARNING: there are no valid conformations for sequence " + 
-							KSAbstract.list1D2String(pf.getSequence(), " ") + " " + pf.getFlexibility() + "\n");
+					
+					System.out.println("\nRe-pruning to steric threshold...");
+					double maxPruningInterval = cfp.getParams().getDouble("StericThresh");
+					pf.rePruneReducedSP(maxPruningInterval);
+					
+					if(pf.getReducedSearchProblem().numConfs(pf.getReducedPruningMatrix()).compareTo(BigInteger.ZERO) == 0) {
+						
+						System.out.println("\nWARNING: there are no valid conformations for sequence " + 
+								KSAbstract.list1D2String(pf.getSequence(), " ") + " " + pf.getFlexibility() + "\n");
+						
+						pf.setEpsilonStatus(EApproxReached.NOT_POSSIBLE);
+					}
 				}
 
-				else {	
-					// initialize conf counts for K*
-					pf.setNumUnPruned();
-					pf.setNumPruned();
-				}
+				// initialize conf counts for K*
+				pf.setNumUnPruned();
+				pf.setNumPruned();
 			}
 		}
 		//});
@@ -619,9 +625,9 @@ public abstract class KSAbstract implements KSInterface {
 	}
 
 
-	protected BigInteger countMinimizedConfs() {
+	protected BigInteger countProcessedConfs() {
 		BigInteger ans = BigInteger.ZERO;
-		for(PFAbstract pf : name2PF.values()) ans = ans.add(pf.getNumMinimized4Output());
+		for(PFAbstract pf : name2PF.values()) ans = ans.add(pf.getNumProcessed());
 		return ans;
 	}
 
@@ -662,9 +668,9 @@ public abstract class KSAbstract implements KSInterface {
 		// compute wt sequence for reference
 		ArrayList<ArrayList<String>> strandSeqs = getStrandStringsAtPos(0);		
 		boolean contSCFlex = cfp.getParams().getBool("doMinimize", true);
+		String impl = PFAbstract.getCFGImpl();
 		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(contSCFlex, contSCFlex, contSCFlex));
-		ArrayList<String> pfImplVals = new ArrayList<String>(Arrays.asList(PFAbstract.getCFGImpl(), 
-				PFAbstract.getCFGImpl(), PFAbstract.getCFGImpl()));
+		ArrayList<String> pfImplVals = new ArrayList<String>(Arrays.asList(impl, impl, impl));
 
 		ConcurrentHashMap<Integer, PFAbstract> pfs = createPFs4Seqs(strandSeqs, contSCFlexVals, pfImplVals);
 		KSCalc calc = new KSCalc(0, pfs);

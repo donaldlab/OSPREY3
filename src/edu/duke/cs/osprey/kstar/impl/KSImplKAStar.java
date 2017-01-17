@@ -48,12 +48,12 @@ public class KSImplKAStar extends KSAbstract {
 		return "kastar";
 	}
 
-	protected BigInteger countMinimizedConfs() {
+	protected BigInteger countProcessedConfs() {
 		BigInteger ans = BigInteger.ZERO;
 
 		for(PFAbstract pf : name2PF.values()) { 
 			if(pf.isFullyDefined() && pf.getImpl().equalsIgnoreCase(PFAbstract.getCFGImpl()))
-				ans = ans.add(pf.getNumMinimized4Output());
+				ans = ans.add(pf.getNumProcessed());
 		}
 
 		return ans;
@@ -78,7 +78,7 @@ public class KSImplKAStar extends KSAbstract {
 		+ " seqsPossible: " + strand2AllowedSeqs.get(KSTermini.COMPLEX).getNumSeqs()
 		+ " seqsInOutput: " + numOutput);
 
-		System.out.println("K* leaf conformations processed: " + countMinimizedConfs());
+		System.out.println("K* leaf conformations processed: " + countProcessedConfs());
 		System.out.println("K* running time: " + (System.currentTimeMillis()-getStartTime())/1000 + " seconds\n");
 
 		abortPFs();

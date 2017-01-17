@@ -6,6 +6,7 @@ package edu.duke.cs.osprey.minimization;
 
 import cern.colt.matrix.DoubleMatrix1D;
 import java.io.Serializable;
+import java.util.ArrayList;
 
 /**
  *
@@ -46,7 +47,12 @@ public interface ObjectiveFunction extends Serializable {
     //This is important because angles can wrap around (at 360-degree intervals)
     
     
-	public static class OneDof {
+
+    public ArrayList<Integer> getInitFixableDOFs();
+    //If we're going to initialize full minimization with minimization over a limited number of DOFs,
+    //these are the indices of the DOFs that will be fixed
+
+    public static class OneDof {
 		
 		private ObjectiveFunction f;
 		private int d;
@@ -174,5 +180,6 @@ public interface ObjectiveFunction extends Serializable {
 			return true;
 		}
 	}
+
 }
 

@@ -117,6 +117,14 @@ public class Main {
 			public void run(CommandArgs args) {
 				// TODO: call gpu diagnostics
 			}
+		},
+
+		FindSeqGMECs {
+			@Override
+			public void run(CommandArgs args) {
+				ConfigFileParser cfp = args.loadConfig();
+				new SeqGMECFinder().calcAllSeqGMECs();
+			}
 		};
 		
 		private static Map<String,Command> commands;
@@ -183,6 +191,7 @@ public class Main {
 			MultiTermEnergyFunction.setNumThreads(ThreadParallelism.getNumThreads());
 			CCDMinimizer.EConvTol = cfp.params.getDouble("CCDEConvTol");
 			CCDMinimizer.numIter = cfp.params.getInt("CCDNumIter");
+			EnvironmentVars.alwaysIdealizeSidechainsAfterMutation = cfp.params.getBool("ALWAYSIDEALIZESIDECHAINSAFTERMUTATION");
 
 			return cfp;
 		}

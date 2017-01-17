@@ -115,7 +115,7 @@ public class RamachandranChecker {
 
     
     //Returns {phi,psi} for the residue. 
-    public double[] getPhiPsi(Residue res){
+    public static double[] getPhiPsi(Residue res){
 
         double ans[] = new double[2];
 

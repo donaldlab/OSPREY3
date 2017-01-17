@@ -71,7 +71,7 @@ public class KSImplLinear extends KSAbstract {
 		// print statistics
 		System.out.println("\nK* calculations computed: " + getNumSeqsCompleted(0));
 		System.out.println("Total # sequences: " + strand2AllowedSeqs.get(KSTermini.COMPLEX).getNumSeqs());
-		System.out.println("K* conformations processed: " + countMinimizedConfs());
+		System.out.println("K* conformations processed: " + countProcessedConfs());
 		System.out.println("Total # of conformations in search space: " + countTotNumConfs());
 		System.out.println("K* running time: " + (System.currentTimeMillis()-getStartTime())/1000 + " seconds\n");
 	}

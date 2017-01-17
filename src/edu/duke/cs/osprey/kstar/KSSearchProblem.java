@@ -75,7 +75,18 @@ public class KSSearchProblem extends SearchProblem {
 		this.competitorPruneMat = other.competitorPruneMat;
 		this.confSpace = other.confSpace;
 	}
-        
+    
+	public enum MatrixType {
+		EMAT, EPICMAT;
+	}
+	
+	public MatrixType getMatrixType() {
+		//If the LUTE matrix is supposed to be used, it will be set as emat
+		if(useEPIC) throw new UnsupportedOperationException("ERROR: EPIC is currently not supported in K*");
+
+		return MatrixType.EMAT;
+	}
+	
 	public EnergyMatrix getEnergyMatrix() {
             return emat;
             //If the LUTE matrix is supposed to be used, it will be set as emat
