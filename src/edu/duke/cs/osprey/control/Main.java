@@ -124,6 +124,7 @@ public class Main {
 			public void run(CommandArgs args) {
 				ConfigFileParser cfp = args.loadConfig();
 				new SeqGMECFinder(cfp).calcAllSeqGMECs();
+				args.cleanupConfig(cfp);
 			}
 		};
 		
@@ -212,7 +213,7 @@ public class Main {
 			commandName = args[0];
 		}
 		catch (Exception e) {
-			System.out.print("OSPREY command needed. Try one of: " + Command.listNames());
+			System.out.println("OSPREY command needed. Try one of: " + Command.listNames());
 			System.exit(1);
 			return;
 			// yeah, the return is redundant, but the compiler apparently doesn't know that
