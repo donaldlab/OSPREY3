@@ -6,3 +6,5 @@ build.xml
 nbbuild.xml
 bin
 .classpath
+python/osprey.egg-info
+**/*.pyc

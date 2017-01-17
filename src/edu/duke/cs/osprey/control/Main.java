@@ -28,6 +28,8 @@ import edu.duke.cs.osprey.tools.Stopwatch;
 
 public class Main {
 	
+	public static final String Version = "3.0-alpha1";
+	
 	public static enum Command {
 		
 		/**
@@ -36,7 +38,7 @@ public class Main {
 		Version {
 			@Override
 			public void run(CommandArgs args) {
-				System.out.println("OSPREY version: 3.0-alpha1");
+				System.out.println("OSPREY version: " + Version);
 			}
 		},
 		
