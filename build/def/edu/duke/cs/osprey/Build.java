@@ -5,9 +5,11 @@ import java.io.File;
 import org.jerkar.api.depmanagement.JkDependencies;
 import org.jerkar.api.depmanagement.JkModuleId;
 import org.jerkar.api.depmanagement.JkVersion;
+import org.jerkar.api.file.JkFileTree;
 import org.jerkar.api.file.JkFileTreeSet;
 import org.jerkar.api.file.JkPathFilter;
 import org.jerkar.api.java.JkJavaCompiler;
+import org.jerkar.api.utils.JkUtilsFile;
 import org.jerkar.tool.builtins.javabuild.JkJavaBuild;
 import org.jerkar.tool.builtins.javabuild.JkJavaPacker;
 
@@ -104,5 +106,40 @@ public class Build extends JkJavaBuild {
 				baseDir().include("README.md")
 			))
 			.build();
+	}
+	
+	public void doDist() {
+		
+		// make the osprey jar
+		doPack();
+	
+		// clean the dist dir
+		File dirDist = ouputDir("dist");
+		dirDist.mkdirs();
+		JkUtilsFile.deleteDirContent(dirDist);
+		
+		// copy the python package
+		JkFileTree.of(baseDir().file("python"))
+			.exclude("**/*.pyc")
+			.copyTo(dirDist);
+		
+		// can't exclude whole folders for some reason, so just delete it post-hoc
+		JkUtilsFile.deleteDir(new File(dirDist, "osprey.egg-info"));
+		
+		// copy the osprey jar
+		File dirOsprey = new File(dirDist, "osprey");
+		File jarFile = packer().fatJarFile();
+		JkUtilsFile.copyFileToDir(jarFile, dirOsprey);
+		
+		// update the osprey jar path
+		File initFile = new File(dirOsprey, "__init__.py");
+		String initFileContent = JkUtilsFile.read(initFile);
+		initFileContent = initFileContent.replace("_ospreyPath = '../../bin'", "_ospreyPath = '" + jarFile.getName() + "'");
+		JkUtilsFile.writeString(initFile, initFileContent, false);
+		
+		// copy text files
+		JkUtilsFile.copyFileToDir(baseDir().file("LICENSE.txt"), dirDist);
+		JkUtilsFile.copyFileToDir(baseDir().file("README.md"), dirDist);
+		// TODO: do we need a different README (in RST format) for python packages?
 	}
 }
