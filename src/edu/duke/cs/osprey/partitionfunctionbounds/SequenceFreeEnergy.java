@@ -173,6 +173,12 @@ public class SequenceFreeEnergy extends AStarTree {
     @Override
     public boolean isFullyAssigned(AStarNode node) {
         boolean isAssigned = node.isFullyDefined();
+	if (this.checkTime) {
+                this.timeOut = (System.currentTimeMillis() - this.startTime) > this.maxTime;
+		if (this.timeOut){
+		    return this.timeOut;
+		}
+	}
         if (!isAssigned) {
             return false;
         }
@@ -183,10 +189,6 @@ public class SequenceFreeEnergy extends AStarTree {
             this.bestSequence = getSequence(node);
             return true;
         }
-	if (this.checkTime) {
-                this.timeOut = (System.currentTimeMillis() - this.startTime) > this.maxTime;
-		return this.timeOut;
-	}
         return false;
     }
 
