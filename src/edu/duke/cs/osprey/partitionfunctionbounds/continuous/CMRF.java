@@ -14,7 +14,10 @@ import java.util.Map;
 import java.util.function.ToDoubleFunction;
 
 /**
- *
+ * Continuous-label Markov Random Field
+ * 
+ * Includes an implementation of TRBP/SCMF upper/lower bounds on the log partition function 
+ * 
  * @author aditya
  */
 public class CMRF {
@@ -44,7 +47,7 @@ public class CMRF {
 
 
     /**
-     * Skeleton stub for the running of TRBP 
+     * Runs the TRBP algorithm and returns an upper bound on the log partition function 
      * @return 
      */
     public double runTRBP() { 
@@ -341,7 +344,7 @@ public class CMRF {
                                 pairwiseProbFunc.domainLB,
                                 pairwiseProbFunc.domainUB,
                                 (point) -> (-1*pairwiseProbFunc.eval(point)*Math.log(pairwiseProbFunc.eval(point))));
-                        edgeEntropy += pairwiseEntropy.computeIntegral();
+                        edgeEntropy += edgeProbs[nodeInd][neighborInd]*pairwiseEntropy.computeIntegral();
                     }
                 }
             }
@@ -352,7 +355,7 @@ public class CMRF {
     }
 
     /**
-     * Runs a mean-field approximation to the partition function for a lower bound 
+     * Runs a mean-field approximation to the partition function for a lower bound on the log partition function 
      * @return 
      */
     public double runSCMF() { 
@@ -567,20 +570,28 @@ public class CMRF {
     
         
     /**
-     * Adds a list of nodes to the cMRF -- each node is given a set of domains and associated energy functions
+     * Adds a list of nodes to the cMRF -- each node is given a set of domains and edges are set up
+     * The eFuncMap is a map that gives you the pairwise energy functions. If N is the set of nodes and D_i is the set 
+     * of domains for node i, then eFuncMap is a function from N x N -> D_i x D_j -> function
+     * 
      * @param domains
-     * @param edgeEnergyFuncMap 
+     * @param eFuncMap
      */
     public void addNodes(
-	    Map<Integer, CMRFNodeDomain[]> domains,
-	    Map<Integer, Map<Integer, ToDoubleFunction<double[]>>> edgeEnergyFuncMap) { 
+	    HashMap<Integer, CMRFNodeDomain[]> domains,
+            // mapping is node 1 --> node 2 --> domain 1 --> domain 2 --> eFunc
+            HashMap<Integer, 
+                    HashMap<Integer, 
+                    HashMap<CMRFNodeDomain, 
+                    HashMap<CMRFNodeDomain, 
+                    ToDoubleFunction<double[]>>>>> eFuncMap) { 
 	for (int i=0; i<numNodes; i++) { 
 	    nodes[i] = new CMRFNode(domains.get(i));
 	}
-	
-        edgeEnergyFuncMap.keySet().stream().forEach((i) -> { 
-            edgeEnergyFuncMap.get(i).keySet().stream().forEach((j) -> {
-                edges[i][j] = new CMRFEdge(nodes[i], nodes[j], edgeEnergyFuncMap.get(i).get(j));
+        
+        domains.keySet().stream().forEach((i) -> { 
+            domains.keySet().stream().forEach((j) -> {
+                edges[i][j] = new CMRFEdge(nodes[i], nodes[j], eFuncMap.get(i).get(j));
             });
         });
 	

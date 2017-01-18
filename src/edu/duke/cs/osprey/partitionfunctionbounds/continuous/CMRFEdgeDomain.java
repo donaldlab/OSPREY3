@@ -41,7 +41,7 @@ public class CMRFEdgeDomain {
     double constRT = PoissonBoltzmannEnergy.constRT;
     
     /**
-     * Constructor analogous to the one in CMRFNodeDomain. Should be self-explanatory. 
+     * Constructor analogous to the one in CMRFNodeDomain. 
      * @param rOneLB
      * @param rOneUB
      * @param rTwoLB
@@ -57,19 +57,23 @@ public class CMRFEdgeDomain {
 	    Kernel rOneK, Kernel rTwoK, Kernel prodK,
 	    ToDoubleFunction<double[]> energyFunc) { 
 	
+        // we store the upper and lower bounds for both domains involved in the edge
 	this.resOneLB = rOneLB;
 	this.resOneUB = rOneUB;
 	this.resTwoLB = rTwoLB;
 	this.resTwoUB = rTwoUB;
 	
+        // we also store individual/collective volumes 
 	this.resOneVolume = CMRFEdgeDomain.getVolume(rOneLB, rOneUB);
 	this.resTwoVolume = CMRFEdgeDomain.getVolume(rTwoLB, rTwoUB);
 	this.volume = resOneVolume * resTwoVolume;
 	
+        // we store individual and pairwise kernels -- for simplicity, we may want to keep these the same for now 
 	this.resOneK = rOneK;
 	this.resTwoK = rTwoK;
 	this.resAllK = prodK;
 	
+        // energy function, pdf, and associated RKHS representations 
 	this.eFunc = energyFunc;
 	this.eFuncRKHS = new RKHSFunction(
 		resAllK, 

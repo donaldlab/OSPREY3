@@ -3,23 +3,32 @@ package edu.duke.cs.osprey.partitionfunctionbounds.continuous;
 import java.util.function.ToDoubleFunction;
 import Jama.*;
 import cern.colt.Arrays;
-import java.time.LocalDateTime;
-import com.quantego.clp.*;
-
-
-import com.quantego.clp.CLP;
 import java.util.ArrayList;
-public class RKHSFunction {
 
+/**
+ * A reproducing kernel Hilbert space (RKHS) representation of a function that represents arbitrary 
+ * ToDoubleFunction<double[]>'s as linear combinations of FeatureMap's. 
+ * @author am439
+ */
+public class RKHSFunction {
+    
+    // a word of warning: this code here is a complete mess, and iff I have time I'll get to it, but in all honesty
+    // the best bet for future code sanitation is probably a total rewrite of this steaming pile 
+
+    // kernel and domain bounds 
     public Kernel k;
     public double[] domainLB;
     public double[] domainUB;
 
+    // list of feature maps and coefficients 
     public FeatureMap[] featureMaps;
     public double[] coeffs;
-    
+
+    // the function we care about     
     public ToDoubleFunction<double[]> referenceFunction;
 
+    // number of samples per dimension -- we can change the later, and in any case we probably want to use a 
+    // hard cap to avoid having ridiculously long LCs 
     public int numSamplesPerDimension = 10; // we can change this as the function changes
     
     /**
@@ -51,8 +60,9 @@ public class RKHSFunction {
     }
 
     /**
-     * Constructor - given a kernel, domain, and function -- fits the RKHS function
-     *
+     * Constructor -- given a kernel, domain, and function -- fits the RKHS function
+     * This is the constructor you'll want to use the most. 
+     * 
      * @param k
      * @param domainLB
      * @param domainUB
@@ -80,6 +90,14 @@ public class RKHSFunction {
 	this.gridSampleFit(k, f, domainLB, domainUB, true);
     }
     
+    /**
+     * Constructor that also accepts a parameter for the number of samples per dimension 
+     * @param k
+     * @param domainLB
+     * @param domainUB
+     * @param f
+     * @param numSamplesPerDim 
+     */
     public RKHSFunction(
 	    Kernel k, 
 	    double[] domainLB,
@@ -126,6 +144,10 @@ public class RKHSFunction {
 	return  ans.transpose().getArray()[0];	    
     }
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//;;;;;;;;;;;;;;;;;;;;;;;; HERE BE DRAGONS ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    
     public double[] fitCoeffsInterpolate(FeatureMap[] fMaps, ToDoubleFunction<double[]> func) {
 	double[][] samples = this.gridSample(this.numSamplesPerDimension*10, this.domainLB, this.domainUB);
 	
@@ -170,6 +192,12 @@ public class RKHSFunction {
 	
 	return solution;
     }
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//;;;;;;;;;;;;;;;;;;;;;;;; END OF DRAGONS ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+    
     
     /**
      * Evaluates the RKHS function at a given point
@@ -341,6 +369,8 @@ public class RKHSFunction {
      * RMSD, but I guess it'll do for now. 
      * 
      * Ten bucks says it's never getting better... 
+     * 
+     * Update (2017/01/17) -- this is a piece of crap that hasn't worked for the past month, ignore it! 
      *
      * @param fmaps
      * @param coeffs
@@ -742,6 +772,15 @@ public class RKHSFunction {
 	return lebesgueMeasure;
     }
     
+    /**
+     * Given two RKHSFunctions, returns a new function over the Cartesian product of their domains where
+     * the first set of coordinates are passed to the first function and the second set to the second function 
+     * 
+     * @param func1
+     * @param func2
+     * @param k
+     * @return 
+     */
     public static RKHSFunction getCartesianProductFunction(
             RKHSFunction func1,
             RKHSFunction func2,
@@ -756,6 +795,15 @@ public class RKHSFunction {
         );
     }
     
+    /**
+     * Given a point concatenating coordinates from two domains with RKHS functions over those domains, returns the
+     * product of those functions evaluated at the de-concatenated points 
+     * @param concatPoint
+     * @param firstDimSize
+     * @param func1
+     * @param func2
+     * @return 
+     */
     public static double evaluateFunctionSplit(
             double[] concatPoint,
             int firstDimSize,

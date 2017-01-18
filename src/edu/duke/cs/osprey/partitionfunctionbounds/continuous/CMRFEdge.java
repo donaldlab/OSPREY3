@@ -7,10 +7,12 @@ package edu.duke.cs.osprey.partitionfunctionbounds.continuous;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.function.ToDoubleFunction;
 
 /**
- *
+ * Represents an edge connecting two domains/nodes in the cMRF 
+ * 
  * @author aditya
  */
 public class CMRFEdge {
@@ -19,12 +21,21 @@ public class CMRFEdge {
     
     CMRFEdgeDomain[] domainLinks;
     
-        
-    public CMRFEdge(CMRFNode n1, CMRFNode n2, ToDoubleFunction<double[]> eFunc) { 
+    /**
+     * Constructs an edge given two nodes and a map of pairwise energy functions 
+     * Energy function map takes a domain from node 1 and a domain from node 2 and outputs the corresponding function
+     * @param n1
+     * @param n2 
+     * @param eFuncs 
+     */
+    public CMRFEdge(
+            CMRFNode n1, 
+            CMRFNode n2, 
+            HashMap<CMRFNodeDomain, HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>> eFuncs) { 
 	this.node1 = n1;
 	this.node2 = n2;
 	
-	ArrayList<CMRFEdgeDomain> doms = new ArrayList<CMRFEdgeDomain>();
+	ArrayList<CMRFEdgeDomain> doms = new ArrayList<>();
 	
 	for (CMRFNodeDomain d1 : node1.domains) { 
 	    for (CMRFNodeDomain d2 : node2.domains) { 
@@ -45,7 +56,7 @@ public class CMRFEdge {
 			d1.domainLB, d1.domainUB,
 			d2.domainLB, d2.domainUB,
 			d1.k, d2.k, prodK,
-			eFunc));
+			eFuncs.get(d1).get(d2)));
 	    }
 	}
 	
@@ -55,6 +66,11 @@ public class CMRFEdge {
 	}
     }
     
+    /**
+     * Gets the energy at a point 
+     * @param point
+     * @return 
+     */
     public double getEnergyAtPoint(double[] point) { 
 	ArrayList<double[]> coords = CMRF.splitArray(point, node1.domains[0].domainLB.length);
 	double[] coord1 = coords.get(0);
@@ -67,6 +83,12 @@ public class CMRFEdge {
 	throw new RuntimeException("Point is not valid input to pairwise energy function.");
     }
     
+    /**
+     * Gets the edge domain corresponding two the two CMRFNodeDomains
+     * @param d1
+     * @param d2
+     * @return 
+     */
     public CMRFEdgeDomain getEdgeDomain(CMRFNodeDomain d1, CMRFNodeDomain d2) { 
         for (CMRFEdgeDomain edgeDomain : domainLinks) { 
             if (((Arrays.equals(d1.domainLB, edgeDomain.resOneLB)) &&

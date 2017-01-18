@@ -22,10 +22,19 @@ public class CMRFNode {
     public HashMap<CMRFNode, HashMap<CMRFNodeDomain, RKHSFunction>> outMessages; // messages for TRBP 
     public HashMap<CMRFNodeDomain, RKHSFunction> marginals; // marginals for SCMF 
     
+    /**
+     * Constructor -- a node is built off of its domains -- AND they all should have the same kernel 
+     * @param doms 
+     */
     public CMRFNode(CMRFNodeDomain[] doms) { 
 	domains = doms;
     }
     
+    /**
+     * Gets the domain corresponding to a particular point 
+     * @param point
+     * @return CMRFNodeDomain domain 
+     */
     public CMRFNodeDomain getDomainForPoint(double[] point) { 
 	for (CMRFNodeDomain d : domains ) {
 	    if (d.isPointInDomain(point)) { 
@@ -35,6 +44,10 @@ public class CMRFNode {
 	throw new RuntimeException("Point invalid.");
     }
     
+    /**
+     * Gets kernel for the CMRFNode
+     * @return 
+     */
     public Kernel getKernel() { 
 	Kernel k = domains[0].k; 
 	for (int i=1; i<domains.length; i++) { 

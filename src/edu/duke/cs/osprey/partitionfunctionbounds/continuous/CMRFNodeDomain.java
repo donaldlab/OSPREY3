@@ -62,14 +62,29 @@ public class CMRFNodeDomain {
         this.probabilityRKHS = new RKHSFunction(k, lBound, uBound, this.pdf);
     }
 
+    /**
+     * Gets the pdf value at a particular point
+     * @param point
+     * @return probability
+     */
     public double getProbAtPoint(double[] point) { 
 	return this.pdf.applyAsDouble(point);
     }
     
+    /**
+     * Gets the value of the energy function at a particular point
+     * @param point
+     * @return energy
+     */
     public double getEnergyAtPoint(double[] point) { 
 	return this.energyFunction.applyAsDouble(point);
     }
     
+    /**
+     * Determines whether or not a function is in the node domain
+     * @param point
+     * @return true/false 
+     */
     public boolean isPointInDomain(double[] point) { 
 	return this.k.validInput(point, point);
     }
