@@ -43,15 +43,9 @@ public class SequenceFreeEnergy extends AStarTree {
 //    int spToOptimizeIndex;
     double epsilon = 0.1;
     public int numSequencesEnumerated = 0;
-    
-    public boolean checkTime = true;
-    public boolean timeOut = false;
 
     public double bestFreeEnergy;
     public String[] bestSequence;
-    
-    public double maxTime;
-    public double startTime;
 
     public static boolean normalizeFreeEnergy = false;
     public SequenceFreeEnergy(ConfigFileParser cfp) {
@@ -67,10 +61,6 @@ public class SequenceFreeEnergy extends AStarTree {
         if (normalizeFreeEnergy){
             normalizeDiscretization(spToOptimize);
         }
-	double numHours = 2.0;
-	//this.maxTime = 60.0 * 60.0 * 1000.0 * numHours;
-	this.maxTime = 60.0 * 1000.0 * numHours;
-	this.startTime = System.currentTimeMillis();
     }
 
     private void normalizeDiscretization(SearchProblem sp) {
@@ -94,11 +84,11 @@ public class SequenceFreeEnergy extends AStarTree {
     }
 
 	public double getLogSequenceSpace() {
-        double logSeqSpace = 0;
-        for (int pos = 0; pos < this.aaTypeOptions.size(); pos++) {
-            logSeqSpace += Math.log(this.aaTypeOptions.get(pos).size());
+        double logConfSpace = 0;
+        for (int pos = 0; pos < this.aaTypeOptions.length(); pos++) {
+            logConfSpace += .size());
         }
-        return logSeqSpace;
+        return logConfSpace;
     }
     
     @Override
@@ -174,12 +164,6 @@ public class SequenceFreeEnergy extends AStarTree {
     @Override
     public boolean isFullyAssigned(AStarNode node) {
         boolean isAssigned = node.isFullyDefined();
-		if (this.checkTime) {
-                this.timeOut = (System.currentTimeMillis() - this.startTime) > this.maxTime;
-				if (this.timeOut){
-					return true;
-				}
-		}
         if (!isAssigned) {
             return false;
         }
