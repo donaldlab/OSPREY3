@@ -14,19 +14,25 @@ import java.util.function.ToDoubleFunction;
  * @author aditya
  */
 public class CMRFEdgeDomain {
+    
+    // bounds for the two residues 
     double[] resOneLB;
     double[] resOneUB;
     double[] resTwoLB;
     double[] resTwoUB;
     
+    // volme for both residues and total volume 
     double resOneVolume;
     double resTwoVolume;
     double volume;
     
+    // kernel for both residues, and a kernel for the pairwise domain 
+    // probably want to make all of these the same 
     Kernel resOneK;
     Kernel resTwoK;
     Kernel resAllK;
     
+    // energy and probability functions 
     ToDoubleFunction<double[]> eFunc; //eFunc and pFunc take concatenations of the coordinates
     ToDoubleFunction<double[]> pFunc;
     RKHSFunction eFuncRKHS;
@@ -34,6 +40,17 @@ public class CMRFEdgeDomain {
     
     double constRT = PoissonBoltzmannEnergy.constRT;
     
+    /**
+     * Constructor analogous to the one in CMRFNodeDomain. Should be self-explanatory. 
+     * @param rOneLB
+     * @param rOneUB
+     * @param rTwoLB
+     * @param rTwoUB
+     * @param rOneK
+     * @param rTwoK
+     * @param prodK
+     * @param energyFunc 
+     */
     public CMRFEdgeDomain(
 	    double[] rOneLB, double[] rOneUB,
 	    double[] rTwoLB, double[] rTwoUB,
@@ -68,6 +85,12 @@ public class CMRFEdgeDomain {
                 pFunc);
     }
     
+    /**
+     * Concatenates two arrays
+     * @param arrOne
+     * @param arrTwo
+     * @return concatenated array
+     */
     public static double[] concatArrays(double[] arrOne, double[] arrTwo) { 
 	double[] arr = new double[arrOne.length+arrTwo.length];
         System.arraycopy(arrOne, 0, arr, 0, arrOne.length);
@@ -75,6 +98,12 @@ public class CMRFEdgeDomain {
 	return arr;
     }
     
+    /**
+     * Returns the volume of the region with given bounds
+     * @param LB
+     * @param UB
+     * @return volume
+     */
     public static double getVolume(double[] LB, double[] UB) {
 	if (LB.length != UB.length) {
 	    throw new RuntimeException("Uneven dimensions.");
@@ -86,10 +115,21 @@ public class CMRFEdgeDomain {
 	return vol;
     }
     
+    /**
+     * Returns the energy at a particular point 
+     * @param point
+     * @return 
+     */
     public double getEnergyAtPoint(double[] point) { 
 	return this.eFunc.applyAsDouble(point);
     }
     
+    /**
+     * Checks if the coordinates are valid/within the confspace 
+     * @param point1
+     * @param point2
+     * @return 
+     */
     public boolean isValidPoint(double[] point1, double[] point2) { 
 	for (int i=0; i<point1.length; i++) { 
 	    if ((resOneLB[i] > point1[i]) || (resOneUB[i] < point1[i])) { 

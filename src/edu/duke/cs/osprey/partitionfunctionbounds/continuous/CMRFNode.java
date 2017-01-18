@@ -12,10 +12,12 @@ import java.util.Map;
 import java.util.function.ToDoubleFunction;
 
 /**
- *
+ * Represents a cMRF Node
+ * 
  * @author aditya
  */
 public class CMRFNode {
+    // each node can have multiple domains (i.e. multiple disjoint domains of continuous flexibility) 
     public CMRFNodeDomain[] domains;
     public HashMap<CMRFNode, HashMap<CMRFNodeDomain, RKHSFunction>> outMessages; // messages for TRBP 
     public HashMap<CMRFNodeDomain, RKHSFunction> marginals; // marginals for SCMF 
