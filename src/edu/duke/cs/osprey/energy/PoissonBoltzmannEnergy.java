@@ -21,7 +21,7 @@ public class PoissonBoltzmannEnergy implements EnergyFunction {
     
     static String delphiFolder = "OSPREY_delphi";//where the Delphi calculations will happen
 
-    static double constRT = 1.9891/1000.0 * 298.15;//RT in kcal/mol
+    public static double constRT = 1.9891/1000.0 * 298.15;//RT in kcal/mol
     
     
     public PoissonBoltzmannEnergy(Molecule m) {
