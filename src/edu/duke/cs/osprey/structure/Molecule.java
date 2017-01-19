@@ -7,6 +7,7 @@ package edu.duke.cs.osprey.structure;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,14 +57,24 @@ public class Molecule implements Serializable {
     
     public Residue getResByPDBResNumber(String resNumber){
         
-        for(Residue res : residues){
-            if(res.getPDBResNumber().equalsIgnoreCase(resNumber))
-                return res;
+        Residue res = getResByPDBResNumberOrNull(resNumber);
+        if (res != null) {
+            return res;
         }
         
         throw new RuntimeException("ERROR: Can't find residue in molecule with PDB-based number "+resNumber);
     }
     
+    public Residue getResByPDBResNumberOrNull(String resNumber){
+        
+        for (Residue res : residues) {
+            if (res.getPDBResNumber().equalsIgnoreCase(resNumber)) {
+                return res;
+            }
+        }
+     
+        return null;
+    }
     
     public void appendResidue(Residue res){
         //Add a residue to the end of the molecule
@@ -75,7 +86,16 @@ public class Molecule implements Serializable {
     {
         if(!alternates.containsKey(resIndex))
             alternates.put(resIndex, new ArrayList<Residue>());
+        res.indexInMolecule = resIndex;
         alternates.get(resIndex).add(res);
+    }
+    
+    public List<Residue> getAlternates(int resIndex) {
+        List<Residue> residues = alternates.get(resIndex);
+        if (residues == null) {
+            residues = Collections.emptyList();
+        }
+        return residues;
     }
     
     public void deleteResidue(int resIndex){
@@ -118,7 +138,6 @@ public class Molecule implements Serializable {
         
         return resList;
     }
-    
     
     @Override
     public int hashCode() {

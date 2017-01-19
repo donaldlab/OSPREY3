@@ -5,16 +5,18 @@
  */
 package edu.duke.cs.osprey.dof.deeper;
 
+import java.util.ArrayList;
+import java.util.TreeSet;
+
+import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.kstar.KSTermini;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
-import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.Residue;
-import java.util.ArrayList;
-import java.util.TreeSet;
+import edu.duke.cs.osprey.structure.Residue.SecondaryStructure;
 
 /**
  *
@@ -458,7 +460,7 @@ public class PerturbationSelector {
         if(pertType.equalsIgnoreCase("SHEAR")){
             int count = 0;
             for(Residue res : resList){
-                if( res.secondaryStruct == Residue.HELIX )
+                if( res.secondaryStruct == SecondaryStructure.HELIX )
                     count++;
             }
             if(count < 3)
@@ -467,7 +469,7 @@ public class PerturbationSelector {
 
         else if(pertType.equalsIgnoreCase("BACKRUB")){
             for(Residue res : resList){
-                if( res.secondaryStruct == Residue.HELIX )
+                if( res.secondaryStruct == SecondaryStructure.HELIX )
                     good = false;
             }
         }
@@ -475,7 +477,7 @@ public class PerturbationSelector {
         else if(pertType.equalsIgnoreCase("LOOP CLOSURE ADJUSTMENT")){
             int count = 0;
             for(Residue res : resList){
-                if( res.secondaryStruct == Residue.LOOP )
+                if( res.secondaryStruct == SecondaryStructure.LOOP )
                     count++;
             }
             if(count < 2)

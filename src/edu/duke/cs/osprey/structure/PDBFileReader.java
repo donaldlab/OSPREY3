@@ -11,6 +11,7 @@ import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.kstar.KSTermini;
 import edu.duke.cs.osprey.restypes.DAminoAcidHandler;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
+import edu.duke.cs.osprey.structure.Residue.SecondaryStructure;
 import edu.duke.cs.osprey.tools.FileTools;
 
 /**
@@ -248,7 +249,7 @@ public class PDBFileReader {
 			ArrayList<Character> sheetChains){
 
 		//this isn't the most efficient, but I doubt it'll be a bottleneck
-		int curSecStruct = Residue.LOOP;
+		SecondaryStructure curSecStruct = SecondaryStructure.LOOP;
 		int curHelixNum = -1;//if we're in a helix or sheet, keep track of which one
 		int curSheetNum = -1;
 
@@ -257,13 +258,13 @@ public class PDBFileReader {
 			String curResNum = res.getPDBResNumber();
 			char curChain = res.fullName.charAt(4);
 
-			if(curSecStruct == Residue.LOOP){
+			if(curSecStruct == SecondaryStructure.LOOP){
 				//look for the start of a helix or sheet
 				for(int helixNum=0; helixNum<helixStarts.size(); helixNum++){
 					if(helixChains.get(helixNum) == curChain){
 						if(helixStarts.get(helixNum).equalsIgnoreCase(curResNum)){
 							curHelixNum = helixNum;
-							curSecStruct = Residue.HELIX;
+							curSecStruct = SecondaryStructure.HELIX;
 						}
 					}
 				}
@@ -271,7 +272,7 @@ public class PDBFileReader {
 					if(sheetChains.get(sheetNum) == curChain){
 						if(sheetStarts.get(sheetNum).equalsIgnoreCase(curResNum)){
 							curSheetNum = sheetNum;
-							curSecStruct = Residue.SHEET;
+							curSecStruct = SecondaryStructure.SHEET;
 						}
 					}
 				}
@@ -281,17 +282,17 @@ public class PDBFileReader {
 			//if we're at the end residue of a helix or loop, stay in it for this residue
 			//now check if we're at the end so the next residue can be something else
 
-			if(curSecStruct == Residue.HELIX){
+			if(curSecStruct == SecondaryStructure.HELIX){
 				//look for end of helix
 				if(helixEnds.get(curHelixNum).equalsIgnoreCase(curResNum)){
 					curHelixNum = -1;
-					curSecStruct = Residue.LOOP;
+					curSecStruct = SecondaryStructure.LOOP;
 				}
 			}
-			else if (curSecStruct == Residue.SHEET){ //sheet
+			else if (curSecStruct == SecondaryStructure.SHEET){ //sheet
 				if(sheetEnds.get(curSheetNum).equalsIgnoreCase(curResNum)){
 					curSheetNum = -1;
-					curSecStruct = Residue.LOOP;
+					curSecStruct = SecondaryStructure.LOOP;
 				}
 			}
 		}

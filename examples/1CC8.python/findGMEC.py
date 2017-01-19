@@ -3,10 +3,10 @@ import osprey
 
 osprey.start()
 
-# TODO: make all of this actually work
-
 # load a molecule
 mol = osprey.loadPdb('1CC8.ss.pdb')
+
+# TODO: make the rest of this actually work
 
 # define the strands
 strand = osprey.FlexibleStrand(mol, 2, 73)

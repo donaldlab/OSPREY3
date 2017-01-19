@@ -2,6 +2,7 @@
 import sys
 import jvm, jpype
 
+
 # NOTE: this var gets set by the build system during packaging
 # so the release version of this script will point to the final jar file for osprey
 # instead of the development classes folder
@@ -38,4 +39,8 @@ def start(heapSizeMB=1024, enableAssertions=False):
 
 	# print the preamble
 	print("OSPREY %s" % c.control.Main.Version)
+
+
+def loadPdb(path):
+	return c.structure.PDBIO.readFile(path)
 

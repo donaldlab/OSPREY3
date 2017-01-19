@@ -69,12 +69,12 @@ public class Residue implements Serializable {
     public ProlinePucker pucker = null;
     
     
-    
-    public int secondaryStruct;
-    //Types of secondary structure
-    public final static int HELIX = 0;
-    public final static int SHEET = 1;
-    public final static int LOOP = 2;
+    public static enum SecondaryStructure {
+    	HELIX,
+    	SHEET,
+    	LOOP;
+    }
+    public SecondaryStructure secondaryStruct = SecondaryStructure.LOOP;
     
     
     public Residue(Residue other) {
@@ -144,6 +144,10 @@ public class Residue implements Serializable {
             if (fullName.length() > 5)
                     return( (StringParsing.getToken(fullName.substring(5),1)) );
             return Integer.toString(indexInMolecule+1);
+    }
+    
+    public char getChainId() {
+        return fullName.charAt(4);
     }
     
     boolean assignTemplate (){

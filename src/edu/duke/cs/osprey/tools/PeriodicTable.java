@@ -4,6 +4,8 @@
  */
 package edu.duke.cs.osprey.tools;
 
+import org.apache.commons.lang3.text.WordUtils;
+
 import edu.duke.cs.osprey.structure.Atom;
 
 /**
@@ -35,8 +37,10 @@ public class PeriodicTable {
         // Sets default properties such as radii, element number, mass, element type
         // RHL I don't know where the radii values come from but they are good estimates
         //  usually atoms will be assigned better information from a forcefield
+    
+            // make sure the element type/name is in Title Case, so it matches the if/elseif blocks below
+            name = WordUtils.capitalize(name.toLowerCase());
 
-            String nameUpper = name.toUpperCase();
             int elementNumber=0;
             double radius=0, mass=0;
             String elementType=null;
@@ -607,86 +611,86 @@ public class PeriodicTable {
             }
             //The radii for C, H, N, O, P, S were changed to those used by the Richardsons' PROBE;
             //		The old radii are commented out to the side
-            else if( nameUpper.indexOf("C") == 0 ){
+            else if( name.indexOf("C") == 0 ){
                     radius = 165; //radius = 180;
                     elementNumber = 6;
                     mass = 12.01;
                     elementType = "C";
             }
-            else if( (nameUpper.indexOf("H") == 0) || 
-                            ( (nameUpper.indexOf("H") == 1) && ((name.charAt(0)>='0') && (name.charAt(0)<='9')) ) ){
+            else if( (name.indexOf("H") == 0) || 
+                            ( (name.indexOf("H") == 1) && ((name.charAt(0)>='0') && (name.charAt(0)<='9')) ) ){
                     radius = 100; //radius = 80;
                     elementNumber = 1;
                     mass = 1;
                     elementType = "H";
             }
-            else if( nameUpper.indexOf("N") == 0 ){
+            else if( name.indexOf("N") == 0 ){
                     radius = 155; //radius = 170;
                     elementNumber = 7;
                     mass = 14.01;
                     elementType = "N";
             }
-            else if( nameUpper.indexOf("O") == 0 ){
+            else if( name.indexOf("O") == 0 ){
                     radius = 140; //radius = 170;
                     elementNumber = 8;
                     mass = 16;
                     elementType = "O";
             }
-            else if( nameUpper.indexOf("B") == 0 ){
+            else if( name.indexOf("B") == 0 ){
                     radius = 208;
                     elementNumber = 5;
                     mass = 10.81;
                     elementType = "B";
             }
-            else if( nameUpper.indexOf("I") == 0 ){
+            else if( name.indexOf("I") == 0 ){
                     radius = 350;
                     elementNumber = 53;
                     mass = 126.9;
                     elementType = "I";
             }
-            else if( nameUpper.indexOf("F") == 0 ){
+            else if( name.indexOf("F") == 0 ){
                     radius = 160;
                     elementNumber = 9;
                     mass = 19.0;
                     elementType = "F";
             }
-            else if( nameUpper.indexOf("P") == 0 ){
+            else if( name.indexOf("P") == 0 ){
                     radius = 180; //radius = 259;
                     elementNumber = 15;
                     mass = 30.97;
                     elementType = "P";
             }
-            else if( nameUpper.indexOf("K") == 0 ){
+            else if( name.indexOf("K") == 0 ){
                     radius = 332;
                     elementNumber = 19;
                     mass = 39.1;
                     elementType = "K";
             }
-            else if( nameUpper.indexOf("S") == 0 ){
+            else if( name.indexOf("S") == 0 ){
                     radius = 180; //radius = 255;
                     elementNumber = 16;
                     mass = 32.07;
                     elementType = "S";
             }
-            else if( nameUpper.indexOf("U") == 0 ){
+            else if( name.indexOf("U") == 0 ){
                     radius = 242;
                     elementNumber = 92;
                     mass = 238;
                     elementType = "U";
             }
-            else if( nameUpper.indexOf("V") == 0 ){
+            else if( name.indexOf("V") == 0 ){
                     radius = 332;
                     elementNumber = 23;
                     mass = 50.94;
                     elementType = "V";
             }
-            else if( nameUpper.indexOf("W") == 0 ){
+            else if( name.indexOf("W") == 0 ){
                     radius = 342;
                     elementNumber = 74;
                     mass = 183.9;
                     elementType = "W";
             }
-            else if( nameUpper.indexOf("Y") == 0 ){
+            else if( name.indexOf("Y") == 0 ){
                     radius = 445;
                     elementNumber = 39;
                     mass = 88.91;
