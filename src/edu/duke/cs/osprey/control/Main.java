@@ -16,6 +16,7 @@ import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
+import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
 /**
@@ -28,7 +29,7 @@ import edu.duke.cs.osprey.tools.Stopwatch;
 
 public class Main {
 	
-	public static final String Version = "3.0-alpha1";
+	public static final String Version = FileTools.readResource("/config/version").trim();
 	
 	public static enum Command {
 		
@@ -38,7 +39,7 @@ public class Main {
 		Version {
 			@Override
 			public void run(CommandArgs args) {
-				System.out.println("OSPREY version: " + Version);
+				System.out.println("OSPREY version: " + Main.Version);
 			}
 		},
 		

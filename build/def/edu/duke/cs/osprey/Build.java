@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey;
 
 import java.io.File;
+import java.util.regex.Pattern;
 
 import org.jerkar.api.depmanagement.JkDependencies;
 import org.jerkar.api.depmanagement.JkModuleId;
@@ -31,7 +32,7 @@ public class Build extends JkJavaBuild {
 	
 	@Override
 	public JkVersion version() {
-		return JkVersion.name("3.0-alpha1");
+		return JkVersion.name(JkUtilsFile.read(new File("resources/config/version")).trim());
 	}
 
 	@Override
@@ -134,7 +135,7 @@ public class Build extends JkJavaBuild {
 		// update the osprey jar path
 		File initFile = new File(dirOsprey, "__init__.py");
 		String initFileContent = JkUtilsFile.read(initFile);
-		initFileContent = initFileContent.replace("_ospreyPath = '../../bin'", "_ospreyPath = '" + jarFile.getName() + "'");
+		initFileContent = initFileContent.replaceFirst("_ospreyPaths = .*\\n", "_ospreyPaths = ['" + jarFile.getName() + "']\n");
 		JkUtilsFile.writeString(initFile, initFileContent, false);
 		
 		// copy text files
