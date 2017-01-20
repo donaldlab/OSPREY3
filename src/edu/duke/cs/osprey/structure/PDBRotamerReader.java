@@ -8,6 +8,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import edu.duke.cs.osprey.control.EnvironmentVars;
+import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.restypes.PositionSpecificRotamerLibrary;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 
@@ -22,6 +24,8 @@ public class PDBRotamerReader {
 
     public static void createTemplates(Molecule m, PositionSpecificRotamerLibrary library, String PDBFileName)
     {
+        GenericResidueTemplateLibrary templateLib = EnvironmentVars.resTemplates;
+        
         Map<Integer, Map<String, ArrayList<Residue>>> positionSpecificRotamers = new HashMap<>();
         try {
 
@@ -68,12 +72,12 @@ public class PDBRotamerReader {
                                             alternateResidueCoords.get(c), curResFullName, m);
                                     try
                                     {
-                                        boolean success = alternateConformation.assignTemplate();
+                                        boolean success = alternateConformation.assignTemplate(templateLib);
                                         System.out.println("Template assignment succeeded?:"+success);
                                         if(!success)
                                         {
                                             System.out.println("Assignment failed.");
-                                            alternateConformation.assignTemplate();
+                                            alternateConformation.assignTemplate(templateLib);
                                             continue;
                                         }
                                         m.addAlternate(residueIndex, alternateConformation);

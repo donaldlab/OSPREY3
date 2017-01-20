@@ -175,7 +175,7 @@ public class PDBFileReader {
 			DAminoAcidHandler.tryRenamingAsD(res);//We accept D-amino acid named using the usual L names, but must change them here
 			//so the right template name is used
 
-			boolean templateAssigned = res.assignTemplate();
+			boolean templateAssigned = res.assignTemplate(EnvironmentVars.resTemplates);
 
 			if(EnvironmentVars.deleteNonTemplateResidues && !templateAssigned){
 				//residue unrecognized or incomplete...delete it

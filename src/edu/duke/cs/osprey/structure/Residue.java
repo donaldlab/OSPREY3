@@ -87,7 +87,9 @@ public class Residue implements Serializable {
     	this.secondaryStruct = other.secondaryStruct;
     	
     	// init intra-res atom bonds
-    	markIntraResBondsByTemplate();
+    	if (this.template != null) {
+    		markIntraResBondsByTemplate();
+    	}
     	
     	// NOTE: we don't copy inter-res atom bonds, so the molecule will have to re-bond everything
     }
@@ -150,12 +152,9 @@ public class Residue implements Serializable {
         return fullName.charAt(4);
     }
     
-    boolean assignTemplate (){
+    public boolean assignTemplate(GenericResidueTemplateLibrary templateLib) {
         //assign a template to this residue if possible, using the ResidueTemplateLibrary
         //return if successful or not
-        
-        //we'll use the default ResidueTemplateLibrary (from EnvironmentVars)
-        GenericResidueTemplateLibrary templateLib = EnvironmentVars.resTemplates;
         
         //first see if there are any templates matching this name
         ArrayList<ResidueTemplate> templCandidates = new ArrayList<>();
