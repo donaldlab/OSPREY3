@@ -15,9 +15,11 @@ import edu.duke.cs.osprey.structure.Residue.SecondaryStructure;
 import edu.duke.cs.osprey.tools.FileTools;
 
 /**
- *
+ * Use PDBIO instead. If you need bonds or templates, make the Strand too
+ * 
  * @author mhall44
  */
+@Deprecated
 public class PDBFileReader {
 
 	public static Molecule readPDBFile(String PDBPath) {

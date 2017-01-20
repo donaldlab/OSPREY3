@@ -185,7 +185,11 @@ public class PDBIO {
 				char chain = line.charAt(19);
 				
 				for (Molecule mol : mols) {
-					assignSecondaryStructure(mol, chain, startResNum, stopResNum, SecondaryStructure.SHEET);
+					for (Residue res : mol.getResRangeByPDBResNumber(startResNum, stopResNum)) {
+						if (res.getChainId() == chain) {
+							res.secondaryStruct = SecondaryStructure.HELIX;
+						}
+					}
 				}
 				
 			} else if (isLine(line, "SHEET")) {
@@ -200,38 +204,16 @@ public class PDBIO {
 
 				String startResNum = line.substring(22, 26).trim();
 				String stopResNum = line.substring(33, 37).trim();
-				char chain = line.charAt(19);
+				char chain = line.charAt(21);
 				
 				for (Molecule mol : mols) {
-					assignSecondaryStructure(mol, chain, startResNum, stopResNum, SecondaryStructure.SHEET);
+					for (Residue res : mol.getResRangeByPDBResNumber(startResNum, stopResNum)) {
+						if (res.getChainId() == chain) {
+							res.secondaryStruct = SecondaryStructure.SHEET;
+						}
+					}
 				}
 			}	
-		}
-	}
-
-	private static void assignSecondaryStructure(Molecule mol, char chain, String startResNum, String stopResNum, SecondaryStructure secondaryStructure) {
-	
-		boolean isInside = false;
-		
-		for (Residue res : mol.residues) {
-			
-			if (res.getChainId() != chain) {
-				isInside = false;
-				continue;
-			}
-			
-			String resNum = res.getPDBResNumber();
-			if (resNum.equalsIgnoreCase(startResNum)) {
-				isInside = true;
-			}
-			
-			if (isInside) {
-				res.secondaryStruct = secondaryStructure;
-			}
-				
-			if (resNum.equalsIgnoreCase(stopResNum)) {
-				break;
-			}
 		}
 	}
 	

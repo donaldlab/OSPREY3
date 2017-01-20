@@ -5,7 +5,7 @@ import static org.hamcrest.Matchers.*;
 
 import org.junit.Test;
 
-import edu.duke.cs.osprey.tools.FileTools;
+import edu.duke.cs.osprey.structure.Residue.SecondaryStructure;
 
 public class TestPDBIO {
 	
@@ -27,6 +27,28 @@ public class TestPDBIO {
 		assertAtom(mol.residues.get(71).atoms.get(0), "N", "N", 7.624, 25.000, 9.774);
 		assertAtom(mol.residues.get(71).atoms.get(19), "OXT", "O", 5.315, 27.215, 11.392);
 		assertThat(mol.getAlternates(71).isEmpty(), is(true));
+		
+		// check secondary structure
+		assertThat(mol.residues.get(0).secondaryStruct, is(SecondaryStructure.LOOP));
+		assertThat(mol.residues.get(2).secondaryStruct, is(SecondaryStructure.LOOP));
+		assertThat(mol.residues.get(3).secondaryStruct, is(SecondaryStructure.SHEET));
+		assertThat(mol.residues.get(9).secondaryStruct, is(SecondaryStructure.SHEET));
+		assertThat(mol.residues.get(10).secondaryStruct, is(SecondaryStructure.LOOP));
+		assertThat(mol.residues.get(30).secondaryStruct, is(SecondaryStructure.LOOP));
+		assertThat(mol.residues.get(31).secondaryStruct, is(SecondaryStructure.SHEET));
+		assertThat(mol.residues.get(37).secondaryStruct, is(SecondaryStructure.SHEET));
+		assertThat(mol.residues.get(38).secondaryStruct, is(SecondaryStructure.LOOP));
+		assertThat(mol.residues.get(41).secondaryStruct, is(SecondaryStructure.LOOP));
+		assertThat(mol.residues.get(42).secondaryStruct, is(SecondaryStructure.SHEET));
+		assertThat(mol.residues.get(47).secondaryStruct, is(SecondaryStructure.SHEET));
+		assertThat(mol.residues.get(48).secondaryStruct, is(SecondaryStructure.LOOP));
+		assertThat(mol.residues.get(50).secondaryStruct, is(SecondaryStructure.LOOP));
+		assertThat(mol.residues.get(51).secondaryStruct, is(SecondaryStructure.HELIX));
+		assertThat(mol.residues.get(61).secondaryStruct, is(SecondaryStructure.HELIX));
+		assertThat(mol.residues.get(62).secondaryStruct, is(SecondaryStructure.LOOP));
+		assertThat(mol.residues.get(64).secondaryStruct, is(SecondaryStructure.LOOP));
+		assertThat(mol.residues.get(65).secondaryStruct, is(SecondaryStructure.SHEET));
+		assertThat(mol.residues.get(71).secondaryStruct, is(SecondaryStructure.SHEET));
 	}
 	
 	@Test
@@ -84,6 +106,26 @@ public class TestPDBIO {
 		assertThat(mol.getAlternates(164).size(), is(1));
 		assertRes(mol.getAlternates(164).get(0), "HOH A 304", 164, "304");
 		assertAtom(mol.getAlternates(164).get(0).atoms.get(0), "O", "O", 15.973, 24.086, 4.831, 11.48);
+		
+		// check secondary structure
+		assertThat(mol.residues.get(0).secondaryStruct, is(SecondaryStructure.LOOP));
+		assertThat(mol.residues.get(4).secondaryStruct, is(SecondaryStructure.LOOP));
+		assertThat(mol.residues.get(5).secondaryStruct, is(SecondaryStructure.HELIX));
+		assertThat(mol.residues.get(18).secondaryStruct, is(SecondaryStructure.HELIX));
+		assertThat(mol.residues.get(19).secondaryStruct, is(SecondaryStructure.LOOP));
+		assertThat(mol.residues.get(21).secondaryStruct, is(SecondaryStructure.LOOP));
+		assertThat(mol.residues.get(22).secondaryStruct, is(SecondaryStructure.HELIX));
+		assertThat(mol.residues.get(36).secondaryStruct, is(SecondaryStructure.HELIX));
+		assertThat(mol.residues.get(37).secondaryStruct, is(SecondaryStructure.LOOP));
+		assertThat(mol.residues.get(38).secondaryStruct, is(SecondaryStructure.LOOP));
+		assertThat(mol.residues.get(39).secondaryStruct, is(SecondaryStructure.HELIX));
+		assertThat(mol.residues.get(54).secondaryStruct, is(SecondaryStructure.HELIX));
+		assertThat(mol.residues.get(55).secondaryStruct, is(SecondaryStructure.LOOP));
+		assertThat(mol.residues.get(57).secondaryStruct, is(SecondaryStructure.LOOP));
+		assertThat(mol.residues.get(58).secondaryStruct, is(SecondaryStructure.LOOP));
+		assertThat(mol.residues.get(60).secondaryStruct, is(SecondaryStructure.LOOP));
+		assertThat(mol.residues.get(64).secondaryStruct, is(SecondaryStructure.LOOP));
+		assertThat(mol.residues.get(164).secondaryStruct, is(SecondaryStructure.LOOP));
 	}
 	
 	private void assertRes(Residue res, String name, int index, String resNum) {

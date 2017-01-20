@@ -9,8 +9,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 
@@ -74,6 +76,70 @@ public class Molecule implements Serializable {
         }
      
         return null;
+    }
+    
+    public Iterable<Residue> getResRangeByPDBResNumber(String firstResNum, String lastResNum) {
+    	return new Iterable<Residue>() {
+
+			@Override
+			public Iterator<Residue> iterator() {
+				
+				return new Iterator<Residue>() {
+
+					private Iterator<Residue> iter;
+					private Residue nextRes;
+					private boolean isInside;
+					
+					{
+						iter = residues.iterator();
+						isInside = false;
+						nextRes = find();
+					}
+					
+					@Override
+					public boolean hasNext() {
+						return nextRes != null;
+					}
+
+					@Override
+					public Residue next() {
+						
+						if (nextRes == null) {
+							throw new NoSuchElementException();
+						}
+						
+						Residue res = nextRes;
+						nextRes = find();
+						return res;
+					}
+					
+					private Residue find() {
+						
+						while (iter.hasNext()) {
+							
+							Residue res = iter.next();
+							
+							String resNum = res.getPDBResNumber();
+							
+							if (resNum.equals(firstResNum)) {
+								isInside = true;
+							}
+							
+							if (isInside) {
+								
+								if (resNum.equals(lastResNum)) {
+									isInside = false;
+								}
+								
+								return res;
+							}
+						}
+						
+						return null;
+					}
+				};
+			}
+    	};
     }
     
     public void appendResidue(Residue res){
