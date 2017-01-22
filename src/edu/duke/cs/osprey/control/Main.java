@@ -81,11 +81,13 @@ public class Main {
                 sf.exhaustiveSearch();
             } else {
                 int[] bestSequence = sf.nextConf();
-                System.out.println();
-                for (int pos = 0; pos < bestSequence.length; pos++) {
-                    String AA = sf.aaTypeOptions.get(pos).get(bestSequence[pos]);
-                    System.out.print(AA + " ");
-                }
+				if (!sf.timeOut){
+					System.out.println();
+					for (int pos = 0; pos < bestSequence.length; pos++) {
+						String AA = sf.aaTypeOptions.get(pos).get(bestSequence[pos]);
+						System.out.print(AA + " ");
+					}
+				}
                 System.out.println();
                 System.out.println("Free Energy: " + sf.bestFreeEnergy);
                 System.out.println("Num Sequences: " + sf.numLeafNodesVisited);
@@ -103,7 +105,6 @@ public class Main {
 					else{
 					    fw.write("Finished: True");
 					}
-					
 					fw.close();
 				} catch (IOException e) {
 					throw new RuntimeException(e);

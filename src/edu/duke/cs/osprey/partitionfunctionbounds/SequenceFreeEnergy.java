@@ -68,8 +68,8 @@ public class SequenceFreeEnergy extends AStarTree {
             normalizeDiscretization(spToOptimize);
         }
 	double numHours = 2.0;
-	//this.maxTime = 60.0 * 60.0 * 1000.0 * numHours;
-	this.maxTime = 60.0 * 1000.0 * numHours;
+	this.maxTime = 60.0 * 60.0 * 1000.0 * numHours;
+	//this.maxTime = 60.0 * 1000.0 * numHours;
 	this.startTime = System.currentTimeMillis();
     }
 
