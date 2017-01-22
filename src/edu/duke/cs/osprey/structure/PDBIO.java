@@ -1,11 +1,14 @@
 package edu.duke.cs.osprey.structure;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import org.apache.commons.lang3.text.WordUtils;
 
 import edu.duke.cs.osprey.structure.Residue.SecondaryStructure;
 import edu.duke.cs.osprey.tools.FileTools;
@@ -45,10 +48,12 @@ public class PDBIO {
 		}
 	}
 	
-	private static Pattern AtomLetter = Pattern.compile("([a-zA-Z])");
-	
 	public static Molecule readFile(String path) {
 		return read(FileTools.readFile(path));
+	}
+	
+	public static Molecule readFile(File file) {
+		return read(FileTools.readFile(file));
 	}
 	
 	public static Molecule read(String pdbText) {
@@ -104,14 +109,9 @@ public class PDBIO {
 				double y = Double.parseDouble(line.substring(38, 46).trim());
 				double z = Double.parseDouble(line.substring(46, 54).trim());
 				double bFactor = Double.parseDouble(defaultVal("0", line.substring(60, 66).trim()));
-				String elem = line.substring(76, 78).trim();
 				
-				if (elem.isEmpty()) {
-					// no explicit element, infer from atom name
-					Matcher matcher = AtomLetter.matcher(atomName);
-					matcher.find();
-					elem = matcher.group();
-				}
+				// read the element, but enforce proper capitalization so we can match to the names in PeriodicTable
+				String elem = WordUtils.capitalize(line.substring(76, 78).trim().toLowerCase());
 				
 				// should we start a new residue (with alts)?
 				if (!resName.equals(curResName)) {
@@ -127,8 +127,26 @@ public class PDBIO {
 					resInfos.put(alt, resInfo);
 				}
 				
+				// make the atom and check the element
+				Atom atom;
+				if (elem.isEmpty()) {
+					atom = new Atom(atomName);
+				} else {
+					atom = new Atom(atomName, elem);
+				}
+				if (atom.elementType.equalsIgnoreCase("du")) {
+					System.out.println(String.format("WARNING: Can't detect atom element: residue=%s, name=%s, element=%s\n"
+						+ "\nPlease include element types in the PDB file to avoid this problem.",
+						resInfo.name, atomName, elem
+					));
+				}
+				
+				// save the rest of the atom properties
+				atom.BFactor = bFactor;
+				atom.modelAtomNumber = atomNum;
+				
 				// update the res info with the atom
-				resInfo.atoms.add(new Atom(atomName, elem, bFactor, atomNum));
+				resInfo.atoms.add(atom);
 				resInfo.coords.add(new double[] { x, y, z });
 			}
 		}

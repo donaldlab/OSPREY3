@@ -42,13 +42,6 @@ public class Atom implements Serializable {
 
     
     
-    public Atom(String name, String elementType, double BFactor, int modelAtomNumber) {
-        this.name = name;
-        PeriodicTable.setElementProperties(this,elementType);
-        this.BFactor = BFactor;
-        this.modelAtomNumber = modelAtomNumber;
-    }
-    
     public Atom(String name, String elementType) {
         this.name = name;
         PeriodicTable.setElementProperties(this,elementType);
@@ -65,7 +58,9 @@ public class Atom implements Serializable {
     public Atom copy(){
         //copy the atom, leaving the residue and bonds blank
         //(since these will need to be pointed to the right objects)
-        Atom ans = new Atom(name,elementType,BFactor,modelAtomNumber);
+        Atom ans = new Atom(name,elementType);
+        ans.BFactor = BFactor;
+        ans.modelAtomNumber = modelAtomNumber;
         
         ans.indexInRes = indexInRes;
         //this is useful because we'll usually be copying from the template

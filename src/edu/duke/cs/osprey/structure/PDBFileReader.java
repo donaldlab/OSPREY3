@@ -220,7 +220,9 @@ public class PDBFileReader {
 		if (elementType.equalsIgnoreCase(""))
 			elementType = getEleType(curLine.substring(12,15));
 
-		Atom newAtom = new Atom(atomName, elementType, BFactor, modelAtomNumber);
+		Atom newAtom = new Atom(atomName, elementType);
+		newAtom.BFactor = BFactor;
+		newAtom.modelAtomNumber = modelAtomNumber;
 		double coords[] = new double[] {x,y,z};
 		atomList.add(newAtom);
 		coordList.add(coords);

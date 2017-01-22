@@ -4,8 +4,6 @@
  */
 package edu.duke.cs.osprey.tools;
 
-import org.apache.commons.lang3.text.WordUtils;
-
 import edu.duke.cs.osprey.structure.Atom;
 
 /**
@@ -38,9 +36,6 @@ public class PeriodicTable {
         // RHL I don't know where the radii values come from but they are good estimates
         //  usually atoms will be assigned better information from a forcefield
     
-            // make sure the element type/name is in Title Case, so it matches the if/elseif blocks below
-            name = WordUtils.capitalize(name.toLowerCase());
-
             int elementNumber=0;
             double radius=0, mass=0;
             String elementType=null;
