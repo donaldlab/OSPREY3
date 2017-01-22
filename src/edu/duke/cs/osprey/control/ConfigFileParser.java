@@ -331,6 +331,7 @@ public class ConfigFileParser {
     
     //loading of data files
     //residue templates, rotamer libraries, forcefield parameters, and Ramachandran data
+    @Deprecated
     public void loadData(){
                 
         boolean usePoissonBoltzmann = params.getBool("USEPOISSONBOLTZMANN");
@@ -382,7 +383,6 @@ public class ConfigFileParser {
         resTemplates.makeDAminoAcidTemplates();
         
         EnvironmentVars.resTemplates = resTemplates;
-        
         
         if (!params.getValue("RAMAGLYFILE").equalsIgnoreCase("none")) {
             RamachandranChecker.getInstance().readInputFiles(

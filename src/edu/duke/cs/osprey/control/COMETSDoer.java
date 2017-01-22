@@ -38,10 +38,12 @@ public class COMETSDoer {
     //For each state, a list of which flexible positions are mutable
     //these will be listed directly in Multistate.cfg under "STATEMUTRES0" etc.
     
-    
-    ConfigFileParser stateCfps[];//"GMEC search" arguments for each state
+    private ConfigFileParser cfp;
     
     public COMETSDoer (ConfigFileParser cfp) {
+    	
+    	this.cfp = cfp;
+    	
         //fill in all the settings
         //each state will have its own config file parser
         
@@ -60,12 +62,6 @@ public class COMETSDoer {
             constraints[constr] = new LME( cfp.params.getValue("CONSTR"+constr), numStates );
         
         
-        // read state configs
-        stateCfps = new ConfigFileParser[numStates];
-        for(int state=0; state<numStates; state++){
-            stateCfps[state] = makeStateConfig(state, cfp);
-        }
-        
         SearchProblem[] stateSP = new SearchProblem[numStates];
         
         System.out.println();
@@ -73,9 +69,8 @@ public class COMETSDoer {
         System.out.println();
         
         for(int state=0; state<numStates; state++){
-            ConfigFileParser stateCfp = stateCfps[state];
             mutable2StatePosNums.add( stateMutablePos(state,cfp.params,numTreeLevels) );
-            stateSP[state] = makeStateSearchProblem(state, stateCfp);
+            stateSP[state] = makeStateSearchProblem(state);
             
             System.out.println();
             System.out.println("State "+state+" matrices ready.");
@@ -116,21 +111,29 @@ public class COMETSDoer {
         return wt;
     }
     
-    private ConfigFileParser makeStateConfig(int state, ConfigFileParser cfp) {
+    private ConfigFileParser makeStateConfig(int state) {
         
         //read state-specific configuration files and create a search problem object
-        //defaultCFGName is for KStar.cfg
-        String cfgName = cfp.params.getValue("STATEKSFILE"+state);
-        if(cfgName.equalsIgnoreCase("DEFAULT"))
-            cfgName = "DefaultState";
+        ConfigFileParser stateCFGP;
 
+        if (cfp.params.getValue("STATEKSFILE"+ state).equalsIgnoreCase("DEFAULT")) {
+        	
+        	// state has no config file, inherit from the main CFP
+        	stateCFGP = new ConfigFileParser(cfp);
+        	
+        } else {
+        	
+        	// otherwise, start with that config (and no defaults)
+        	stateCFGP = new ConfigFileParser();
+        	stateCFGP.params.addParamsFromFile(cfp.params.getFile("STATEKSFILE" + state));
+        }
+        
         //We expect input like
         //STATECFGFILES0 System0.cfg DEE0.cfg
         String stateConfigFiles = cfp.params.getValue("STATECFGFILES"+state);
         String stateSysFile = StringParsing.getToken(stateConfigFiles, 1);
         String stateDEEFile = StringParsing.getToken(stateConfigFiles, 2);
 
-        ConfigFileParser stateCFGP = new ConfigFileParser();
         PathRoot root = cfp.params.getRoot("STATECFGFILES" + state);
         stateCFGP.params.addParams(root, stateSysFile);
         stateCFGP.params.addParams(root, stateDEEFile);
@@ -139,8 +142,9 @@ public class COMETSDoer {
     }
     
     
-    private SearchProblem makeStateSearchProblem(int state, ConfigFileParser stateCFGP){
+    private SearchProblem makeStateSearchProblem(int state){
         
+    	ConfigFileParser stateCFGP = makeStateConfig(state);
         SearchProblem searchProb = stateCFGP.getSearchProblem();
 
         if ( stateCFGP.params.getBool("doMinimize") && (!searchProb.useTupExpForSearch) ) {
@@ -417,18 +421,18 @@ public class COMETSDoer {
     
     private double calcStateGMEC(int state, String[] AATypes){
         //Calculate the GMEC for the specified state for sequence AATypes
-        ConfigFileParser cfp = new ConfigFileParser(stateCfps[state]);
+        ConfigFileParser stateCfp = makeStateConfig(state);
         
         //set up for particular AA types
-        cfp.params.setValue("RUNNAME", "EXHAUSTIVE_SEQ_"+System.currentTimeMillis());
+        stateCfp.params.setValue("RUNNAME", "EXHAUSTIVE_SEQ_"+System.currentTimeMillis());
         
         //also want to restrict to only this seq: addWT = false
-        cfp.params.setValue("ADDWT", "false");        
+        stateCfp.params.setValue("ADDWT", "false");        
         
         //DEBUG!!!
         //cfp.params.setValue("USETUPEXP", "false");
         
-        String seq[] = new String[cfp.getFlexRes().size()];
+        String seq[] = new String[stateCfp.getFlexRes().size()];
         for(int mutPos=0; mutPos<numTreeLevels; mutPos++)
             seq[mutable2StatePosNums.get(state).get(mutPos)] = AATypes[mutPos];
         
@@ -437,7 +441,7 @@ public class COMETSDoer {
         int posCount = 0;
         
         for(int str=0; str<10; str++){
-            ArrayList<String> resAllowedRecords = cfp.params.searchParams("RESALLOWED"+str);
+            ArrayList<String> resAllowedRecords = stateCfp.params.searchParams("RESALLOWED"+str);
             int numRecordsInStrand = resAllowedRecords.size();
             
             //must go through residues in numerical order
@@ -445,7 +449,7 @@ public class COMETSDoer {
                 
                 if(seq[posCount] != null){
                     String param = "RESALLOWED" + str + "_" + recNum;
-                    cfp.params.setValue(param, seq[posCount]);
+                    stateCfp.params.setValue(param, seq[posCount]);
                 }
                 
                 posCount++;
@@ -453,7 +457,7 @@ public class COMETSDoer {
         }
         
         GMECFinder gf = new GMECFinder();
-        gf.init(cfp);
+        gf.init(stateCfp);
         return gf.calcGMEC().get(0).getEnergy();
     }
     

@@ -10,7 +10,11 @@ import static org.junit.Assert.*;
 
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.control.COMETSDoer;
+
+import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
+
 import org.junit.Test;
 
 /**
@@ -23,6 +27,13 @@ public class TestCOMETS {
     
     @Test
     public void testCOMETS() {
+    	
+    	// IMPORTANT: delete the cached energy matrices before running this test!
+    	// cached energy matrices can hide errors involving config or emat calculation
+    	for (String path : Arrays.asList("3K75.b.EMAT.dat", "3K75.ub.EMAT.dat", "3LQC.b.EMAT.dat", "3LQC.ub.EMAT.dat")) {
+    		new File("examples/comets.junit/" + path).delete();
+    	}
+    	
         //Here's a specificity design with discrete flexibility, 5 mutable residues
         ConfigFileParser cfp = ConfigFileParser.makeFromFilePaths(
             "examples/comets.junit/KStar.cfg",
