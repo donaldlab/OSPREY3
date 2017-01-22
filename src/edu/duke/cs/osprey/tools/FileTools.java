@@ -30,7 +30,7 @@ public class FileTools {
 			try {
 				return readStream(open(path));
 			} catch (IOException ex) {
-				throw new RuntimeException("can't read " + type + ": " + path);
+				throw new RuntimeException("can't read " + type + ": " + path, ex);
 			}
 		}
 	}
