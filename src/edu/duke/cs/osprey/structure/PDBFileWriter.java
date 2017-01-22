@@ -14,6 +14,7 @@ import java.util.Hashtable;
  *
  * @author mhall44
  */
+@Deprecated
 public class PDBFileWriter {
     
     //USE THIS OPTIONALLY WHEN FIND GMEC
