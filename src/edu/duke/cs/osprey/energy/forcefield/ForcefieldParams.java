@@ -8,6 +8,7 @@ import java.io.Serializable;
 import java.util.Iterator;
 import java.util.StringTokenizer;
 
+import edu.duke.cs.osprey.control.Defaults;
 import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.StringParsing;
 
@@ -17,6 +18,7 @@ import edu.duke.cs.osprey.tools.StringParsing;
  */
 public class ForcefieldParams implements Serializable {
     
+    private static final long serialVersionUID = 3124964506851762586L;
     
     final int atomTypeX = -2; //the atom type number for the X wildcard atom type
     private final int noMatchInt = 9999;
@@ -60,16 +62,24 @@ public class ForcefieldParams implements Serializable {
 
 
     
+    //what forcefield are these parameters for?
+    public FORCEFIELD forcefld = FORCEFIELD.AMBER;
+    
     //The solvation parameters object
     EEF1 eef1parms = null;
-
-    double vdwMultiplier = 1.0f;
-    double solvScale = 1.0; //the scale factor for the solvation energies
-    double dielectric = 1.0;	
-    boolean distDepDielect = true;
-    public boolean doSolvationE = false; //should solvation energies be computed
-    boolean hElect = true;
-    boolean hVDW = true;
+    
+    // default values copied from resources/config/defalts.cfg
+    public double vdwMultiplier = 0.95;
+    public double solvScale = 0.5; //the scale factor for the solvation energies
+    public double dielectric = 6;	
+    public boolean distDepDielect = true;
+    public boolean doSolvationE = true; //should solvation energies be computed
+    public boolean hElect = true;
+    public boolean hVDW = true;
+    
+    // TODO: should these really be here?
+    public double shellDistCutoff = Double.POSITIVE_INFINITY;
+    public boolean usePoissonBoltzmann = false;
     
     public enum FORCEFIELD {
         
@@ -141,14 +151,17 @@ public class ForcefieldParams implements Serializable {
         }
     }
     
-    public FORCEFIELD forcefld;//what forcefield are these parameters for?
+    public ForcefieldParams() {
+        this(Defaults.forcefield);
+    }
     
+    public ForcefieldParams(String frcefld) {
+        this(FORCEFIELD.valueOf(frcefld.toUpperCase()));
+    }
     
-    
-    public ForcefieldParams( String frcefld, boolean ddDielect, double dielectConst, 
-            double vdwMult, boolean doSolv, double solvScFactor, boolean helec, boolean hv ){
-                
-        forcefld = FORCEFIELD.valueOf(frcefld.toUpperCase());
+    public ForcefieldParams(FORCEFIELD frcefld) {
+         
+        this.forcefld = frcefld;
         
         // Read in AMBER forcefield parameters
         // parm96a.dat
@@ -159,16 +172,6 @@ public class ForcefieldParams implements Serializable {
             throw new Error("can't read forcefield params", ex);
         }
                 
-        //some additional parameters
-        distDepDielect = ddDielect;
-        dielectric = dielectConst;
-        vdwMultiplier = vdwMult;
-        doSolvationE = doSolv;
-        solvScale = solvScFactor;
-        hElect = helec;
-        hVDW = hv;
-        
-                
         // Read in the EEF1 solvation parameters
         try {
             eef1parms = new EEF1();
@@ -176,6 +179,20 @@ public class ForcefieldParams implements Serializable {
         } catch (Exception ex) {
             throw new Error("can't read solvation params", ex);
         }
+    }
+    
+    public ForcefieldParams(ForcefieldParams other) {
+    	this(other.forcefld);
+    	
+    	vdwMultiplier = other.vdwMultiplier;
+    	solvScale = other.solvScale;
+    	dielectric = other.dielectric;	
+    	distDepDielect = other.distDepDielect;
+    	doSolvationE = other.doSolvationE;
+    	hElect = other.hElect;
+    	hVDW = other.hVDW;
+    	shellDistCutoff = other.shellDistCutoff;
+    	usePoissonBoltzmann = other.usePoissonBoltzmann;
     }
 		
     
@@ -856,10 +873,4 @@ public class ForcefieldParams implements Serializable {
 		}
 		return tmp;
 	}
-
-        public double getSolvScale() {
-            return solvScale;
-        }
-	
-               
 }

@@ -7,6 +7,7 @@ package edu.duke.cs.osprey.structure;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -144,6 +145,7 @@ public class Molecule implements Serializable {
     
     public void appendResidue(Residue res){
         //Add a residue to the end of the molecule
+    	res.molec = this;
         res.indexInMolecule = residues.size();
         residues.add(res);
     }
@@ -152,6 +154,7 @@ public class Molecule implements Serializable {
     {
         if(!alternates.containsKey(resIndex))
             alternates.put(resIndex, new ArrayList<Residue>());
+        res.molec = this;
         res.indexInMolecule = resIndex;
         alternates.get(resIndex).add(res);
     }
@@ -167,11 +170,26 @@ public class Molecule implements Serializable {
     public void deleteResidue(int resIndex){
         //delete the residue with the specified index in residues
         residues.remove(resIndex);
+        alternates.remove(resIndex);
         //this changes the indexInMolecule for all subsequent residues
-        for(int index2=resIndex; index2<residues.size(); index2++)
+        for(int index2=resIndex; index2<residues.size(); index2++) {
             residues.get(index2).indexInMolecule--;
+            for (Residue altRes : alternates.get(index2)) {
+                altRes.indexInMolecule--;
+            }
+        }
     }
     
+    public void deleteResidues(Collection<String> resNames) {
+        
+        // iterate backwards to make deletion easier
+        for (int i=residues.size() - 1; i >= 0; i--) {
+            Residue res = residues.get(i);
+            if (resNames.contains(res.fullName)) {
+                deleteResidue(i);
+            }
+        }
+    }
     
     
     public ArrayList<Residue> resListFromTermini(String[] termini, ArrayList<String> flexibleRes){

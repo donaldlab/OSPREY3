@@ -8,13 +8,14 @@ package edu.duke.cs.osprey.dof.deeper;
 import java.util.ArrayList;
 import java.util.TreeSet;
 
+import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.kstar.KSTermini;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.structure.PDBFileReader;
+import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.structure.Residue.SecondaryStructure;
 
@@ -65,7 +66,7 @@ public class PerturbationSelector {
         this.selectLCAs = selectLCAs;
         this.flexibleRes = flexibleRes;
         
-        m = PDBFileReader.readPDBFile(PDBFile, termini);
+        m = Strand.builder(PDBIO.readFile(PDBFile)).setResidues(termini).build().mol;
     }
     
     

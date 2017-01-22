@@ -28,6 +28,7 @@ public class ResidueTemplate implements Serializable {
     //any of the information below can be null (i.e., not provided), but if so 
     //then attempts to call it will produce an error
 
+    private static final long serialVersionUID = 4568917747972477569L;
 
     public String name;//e.g. ARG
 
@@ -80,7 +81,7 @@ public class ResidueTemplate implements Serializable {
 		double[][] dihedrals = new double[residues.size()][newTemplate.numDihedrals];
 		for (int i=0; i<residues.size(); i++) {
 			Residue res = residues.get(i);
-			assert (res.template == oldTemplate);
+			assert (res.template.numDihedrals == oldTemplate.numDihedrals);
 			for (int j=0; j<res.getNumDihedrals(); j++) {
 				dihedrals[i][j] = res.getDihedralAngle(j);
 			}

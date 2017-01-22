@@ -5,12 +5,14 @@
  */
 package edu.duke.cs.osprey.dof.deeper.perts;
 
+import java.util.ArrayList;
+
+import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.dof.deeper.ResBBState;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.structure.PDBFileReader;
+import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
-import java.util.ArrayList;
 
 /**
  *
@@ -35,7 +37,7 @@ public class PartialStructureSwitch extends Perturbation {
         //the same numbers as resDirectlyAffected
         //in the altConfPDBFiles
         for(String altPDB : altConfPDBFiles){
-            Molecule altMolec = PDBFileReader.readPDBFile(altPDB, null);
+            Molecule altMolec = Strand.builder(PDBIO.readFile(altPDB)).build().mol;
             ArrayList<ResBBState> altConf = new ArrayList<>();
             
             for(Residue origRes : resDirectlyAffected){

@@ -1,16 +1,17 @@
 package edu.duke.cs.osprey.structure;
 
-import static org.junit.Assert.*;
 import static org.hamcrest.Matchers.*;
+import static org.junit.Assert.*;
 
 import org.junit.Test;
 
 import edu.duke.cs.osprey.structure.Residue.SecondaryStructure;
+import edu.duke.cs.osprey.tools.FileTools;
 
 public class TestPDBIO {
 	
 	@Test
-	public void test1CC8() {
+	public void read1CC8() {
 		
 		Molecule mol = PDBIO.readFile("examples/1CC8/1CC8.ss.pdb");
 		
@@ -52,7 +53,7 @@ public class TestPDBIO {
 	}
 	
 	@Test
-	public void test4NPD() {
+	public void read4NPD() {
 		
 		Molecule mol = PDBIO.readFile("examples/4NPD/4NPD.pdb");
 		
@@ -83,6 +84,18 @@ public class TestPDBIO {
 		assertThat(mol.getAlternates(14).get(1).atoms.size(), is(14));
 		assertAtom(mol.getAlternates(14).get(1).atoms.get(0), "N", "N", 12.889, 17.024, 11.679, 3.60);
 		assertAtom(mol.getAlternates(14).get(1).atoms.get(13), "HG3", "H", 15.305, 19.571, 13.551, 6.15);
+		
+		assertRes(mol.residues.get(21), "LEU A  22", 21, "22");
+		assertThat(mol.residues.get(21).atoms.size(), is(19));
+		assertAtom(mol.residues.get(21).atoms.get(0), "N", "N", 8.697, 23.455, 20.979, 4.67);
+		assertAtom(mol.residues.get(21).atoms.get(9), "HA", "H", 7.257, 24.674, 20.449, 4.33);
+		assertAtom(mol.residues.get(21).atoms.get(18), "HD23", "H", 8.354, 25.557, 18.774, 4.96);
+		
+		assertThat(mol.getAlternates(21).size(), is(1));
+		assertThat(mol.getAlternates(21).get(0).atoms.size(), is(19));
+		assertAtom(mol.getAlternates(21).get(0).atoms.get(0), "N", "N", 8.668, 23.395, 21.029, 4.77);
+		assertAtom(mol.getAlternates(21).get(0).atoms.get(9), "HA", "H", 7.283, 24.675, 20.417, 4.33);
+		assertAtom(mol.getAlternates(21).get(0).atoms.get(18), "HD23", "H", 8.354, 25.557, 18.774, 4.96);
 		
 		assertThat(mol.getAlternates(57).size(), is(1));
 		assertRes(mol.getAlternates(57).get(0), "LYS A  58", 57, "58");
@@ -128,6 +141,11 @@ public class TestPDBIO {
 		assertThat(mol.residues.get(164).secondaryStruct, is(SecondaryStructure.LOOP));
 	}
 	
+	@Test
+	public void readWrite1CC8() {
+		assertReadWrite(FileTools.readFile("examples/1CC8/1CC8.copy.pdb"));
+	}
+	
 	private void assertRes(Residue res, String name, int index, String resNum) {
 		assertThat(res.fullName, is(name));
 		assertThat(res.indexInMolecule, is(index));
@@ -146,5 +164,11 @@ public class TestPDBIO {
 		assertThat(coords[1], is(y));
 		assertThat(coords[2], is(z));
 		assertThat(atom.BFactor, is(bFactor));
+	}
+	
+	private void assertReadWrite(String pdbText) {
+		Molecule mol = PDBIO.read(pdbText);
+		String pdbText2 = PDBIO.write(mol);
+		assertThat(pdbText2, is(pdbText));
 	}
 }

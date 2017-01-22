@@ -11,8 +11,10 @@ import java.util.StringTokenizer;
 import edu.duke.cs.osprey.astar.comets.COMETSTree;
 import edu.duke.cs.osprey.astar.comets.LME;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.confspace.Strand;
+import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.structure.PDBFileReader;
+import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.FileTools.PathRoot;
 import edu.duke.cs.osprey.tools.StringParsing;
@@ -159,7 +161,7 @@ public class COMETSDoer {
         
         ArrayList<ArrayList<String>> stateAAOptions = cfgP.getAllowedAAs();
         
-        Molecule wtMolec = PDBFileReader.readPDBFile( cfgP.params.getFile("PDBName").getAbsolutePath(), null );
+        Molecule wtMolec = Strand.builder(PDBIO.readFile(cfgP.params.getFile("PDBName"))).build().mol;
         ArrayList<String> flexRes = cfgP.getFlexRes();
         
         
@@ -233,11 +235,14 @@ public class COMETSDoer {
         ArrayList<String> bestSequences = new ArrayList<>();
 
         for(int seqNum=0; seqNum<numSeqsWanted; seqNum++){
-            int seq[] = tree.nextConf().getAssignments();//this will find the best sequence and print it
-            if(seq == null)//empty sequence...indicates no more sequence possibilities
-                break;
-            else
-                bestSequences.add(tree.seqAsString(seq));
+        	//this will find the best sequence and print it
+        	ScoredConf conf = tree.nextConf();
+        	if (conf == null) {
+        		//empty sequence...indicates no more sequence possibilities
+        		break;
+        	} else {
+                bestSequences.add(tree.seqAsString(conf.getAssignments()));
+        	}
         }
 
         long stopTime = System.currentTimeMillis();

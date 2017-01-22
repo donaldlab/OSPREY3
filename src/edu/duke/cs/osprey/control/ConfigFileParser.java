@@ -338,15 +338,14 @@ public class ConfigFileParser {
         
         //a lot of this depends on forcefield type so figure that out first
         //general forcefield data loaded into the ForcefieldParams in EnvironmentVars
-        ForcefieldParams curForcefieldParams = new ForcefieldParams(
-                params.getValue("Forcefield"),
-                params.getBool("DISTDEPDIELECT"),
-		params.getDouble("DIELECTCONST"),
-                params.getDouble("VDWMULT"),
-		useEEF1,//Only EEF1 solvation is part of the forcefield (P-B calls Delphi)
-		params.getDouble("SOLVSCALE"),
-                params.getBool("HELECT"),
-                params.getBool("HVDW") );
+        ForcefieldParams curForcefieldParams = new ForcefieldParams(params.getValue("Forcefield"));
+        curForcefieldParams.distDepDielect = params.getBool("DISTDEPDIELECT");
+        curForcefieldParams.dielectric = params.getDouble("DIELECTCONST");
+        curForcefieldParams.vdwMultiplier = params.getDouble("VDWMULT");
+        curForcefieldParams.doSolvationE = useEEF1;//Only EEF1 solvation is part of the forcefield (P-B calls Delphi)
+        curForcefieldParams.solvScale = params.getDouble("SOLVSCALE");
+        curForcefieldParams.hElect = params.getBool("HELECT");
+        curForcefieldParams.hVDW = params.getBool("HVDW");
         
         
         EnvironmentVars.curEFcnGenerator = new EnergyFunctionGenerator( 
@@ -364,17 +363,17 @@ public class ConfigFileParser {
         
         
         // PGC 2015: Always load the Lovell Rotamer Library.
-        resTemplates.loadRotamerLibrary(params.readPath("ROTFILE"), false);
+        resTemplates.loadRotamerLibrary(params.readPath("ROTFILE"));
         
         // load backbone-dependent rotamers only if needed
         //see below; also gRotFile0 etc
         if (params.getBool("UseDunbrackRotamers")) {
-            resTemplates.loadRotamerLibrary(params.readPath("DUNBRACKROTFILE"), true);
+            resTemplates.loadBackboneDependentRotamerLibrary(params.readPath("DUNBRACKROTFILE"));
         }
         
         // AAO 2016: load generic rotamer libraries
         for(String grotFile : params.searchParams("GROTFILE")) {
-            resTemplates.loadRotamerLibrary(params.readPath(grotFile), false);
+            resTemplates.loadRotamerLibrary(params.readPath(grotFile));
         }
         
         resTemplates.loadResEntropy(params.readPath("RESENTROPYFILE"));

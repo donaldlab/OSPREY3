@@ -4,6 +4,7 @@
  */
 package edu.duke.cs.osprey.restypes;
 
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Residue;
 import java.util.ArrayList;
@@ -18,6 +19,7 @@ public class ResTemplateMatching {
     //the residue and template we're matching
     ResidueTemplate template;
     Residue res;
+    ForcefieldParams ffParams;
     
     int[] matching;//for each atom in the template, index of the corresponding atom in the residue
     
@@ -37,11 +39,12 @@ public class ResTemplateMatching {
     //(ordered as in the residue)
     double[][] templateDistanceMatrix;
     
-    public ResTemplateMatching(Residue res, ResidueTemplate template){
+    public ResTemplateMatching(Residue res, ResidueTemplate template, ForcefieldParams ffParams){
         //compute the best matching
         
         this.res = res;
         this.template = template;
+        this.ffParams = ffParams;
         
         score = Double.POSITIVE_INFINITY;//start without any good matching found
         
@@ -78,7 +81,7 @@ public class ResTemplateMatching {
             templateDistanceMatrix = template.templateRes.atomDistanceMatrix();
         else//we actually only need estimates of bond lengths in the template...other distances don't matter
             //estimate these as the equilibrium bond lengths
-            templateDistanceMatrix = template.templateRes.estBondDistanceMatrix();
+            templateDistanceMatrix = template.templateRes.estBondDistanceMatrix(ffParams);
         
         residueDistanceMatrix = res.atomDistanceMatrix();
         

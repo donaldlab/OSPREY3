@@ -8,7 +8,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.ProlinePucker;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
@@ -28,6 +27,8 @@ public class Residue implements Serializable {
     //in the general sense: it's a piece of a molecular system that can mutate, take on RCs, etc.
     //and is the basic unit for energy calculations: energy is broken down to intra-residue energies,
     //pairwise interactions between residues, and maybe a few triples etc.
+    
+    private static final long serialVersionUID = -6188262155881479376L;
     
     //residue information
     public String fullName;//short name is the first three characters of this
@@ -177,7 +178,7 @@ public class Residue implements Serializable {
         double bestScore = Double.POSITIVE_INFINITY;
         
         for(ResidueTemplate templ : templCandidates){
-            ResTemplateMatching templMatching = new ResTemplateMatching(this,templ);
+            ResTemplateMatching templMatching = new ResTemplateMatching(this, templ, templateLib.ffParams);
             if(templMatching.score < bestScore){
                 bestScore = templMatching.score;
                 bestMatching = templMatching;
@@ -371,14 +372,12 @@ public class Residue implements Serializable {
         return ans;
     }
     
-    public double[][] estBondDistanceMatrix(){
+    public double[][] estBondDistanceMatrix(ForcefieldParams ffParams) {
         //similar to atomDistanceMatrix, but only has nonzero values for bonded atoms,
         //and these are estimated based on forcefield equilibrium bond lengths
         //useful when we don't have coordinate available (e.g. in some template assignments)
         int numAtoms = atoms.size();
         double[][] ans = new double[numAtoms][numAtoms];
-        
-        ForcefieldParams ffParams = EnvironmentVars.resTemplates.ffParams;
         
         for(int atNum1=0; atNum1<numAtoms; atNum1++){
             
@@ -424,19 +423,19 @@ public class Residue implements Serializable {
     }
     
     public int getNumDihedrals() {
-    	return EnvironmentVars.resTemplates.numDihedralsForResType(template.name);
+        return template.numDihedrals;
     }
     
     public double getDihedralAngle(int i) {
-		return Protractor.measureDihedral(coords, template.getDihedralDefiningAtoms(i));
+        return Protractor.measureDihedral(coords, template.getDihedralDefiningAtoms(i));
     }
     
     public double[] getDihedralAngles() {
-    	double[] dihedrals = new double[getNumDihedrals()];
-		for(int i=0; i<dihedrals.length; i++) {
-			dihedrals[i] = getDihedralAngle(i);
-		}
-		return dihedrals;
+        double[] dihedrals = new double[getNumDihedrals()];
+        for(int i=0; i<dihedrals.length; i++) {
+            dihedrals[i] = getDihedralAngle(i);
+        }
+        return dihedrals;
     }
     
     

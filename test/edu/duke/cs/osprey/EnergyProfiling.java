@@ -4,6 +4,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
+import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.energy.EnergyFunction;
@@ -13,7 +14,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
 import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.structure.PDBFileReader;
+import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
@@ -38,20 +39,20 @@ public class EnergyProfiling {
 		ParallelEnergyFunction.startCrew(NumThreads);
 		
 		// read a big test protein, the bigger the better
-		Molecule m = PDBFileReader.readPDBFile("2KDC.P.forOsprey.pdb", null);
+		Molecule mol = Strand.builder(PDBIO.readFile("2KDC.P.forOsprey.pdb")).build().mol;
 		
 		System.out.println("\n\nBuilding energy functions...");
 		
 		// get all the energy function terms
 		ForcefieldParams ffparams = EnvironmentVars.curEFcnGenerator.ffParams;
 		ArrayList<SingleResEnergy> singleTerms = new ArrayList<>();
-		for (Residue res : m.residues) {
+		for (Residue res : mol.residues) {
 			singleTerms.add(new SingleResEnergy(res, ffparams));
 		}
 		ArrayList<ResPairEnergy> pairTerms = new ArrayList<>();
-		for (int i=0; i<m.residues.size(); i++) {
+		for (int i=0; i<mol.residues.size(); i++) {
 			for (int j=0; j<i; j++) {
-				pairTerms.add(new ResPairEnergy(m.residues.get(i), m.residues.get(j), ffparams));
+				pairTerms.add(new ResPairEnergy(mol.residues.get(i), mol.residues.get(j), ffparams));
 			}
 		}
 		

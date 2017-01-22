@@ -4,9 +4,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.structure.PDBFileReader;
-import edu.duke.cs.osprey.structure.PDBRotamerReader;
+
+import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.structure.Residue;
 
 /***
@@ -19,54 +18,43 @@ import edu.duke.cs.osprey.structure.Residue;
  */
 public class PositionSpecificRotamerLibrary extends ResidueTemplateLibrary {
 
-	private Map<Integer, Map<String, List<ResidueTemplate>>> positionSpecificRotamers = new HashMap<>();
-	public static PositionSpecificRotamerLibrary generateLibraryFromPDB(String pdbFileName)
-	{
-
-		PositionSpecificRotamerLibrary library = new PositionSpecificRotamerLibrary();
-		Molecule m = PDBFileReader.readPDBFile(pdbFileName, null);
-		PDBRotamerReader.createTemplates(m, library, pdbFileName);
-
-
-		for(Residue r: m.residues)
-		{
-			outputResidueTemplateInfo(r);
+	private Map<Integer,Map<String,List<ResidueTemplate>>> positionSpecificRotamers = new HashMap<>();
+	
+	public PositionSpecificRotamerLibrary(Strand strand) {
+		
+		for (int i=0; i<strand.mol.residues.size(); i++) {
+			
+			// gather all the residues for each position, even alts
+			List<Residue> residues = new ArrayList<>();
+			residues.add(strand.mol.residues.get(i));
+			residues.addAll(strand.mol.getAlternates(i));
+			
+			addResidueTemplate(i, residues.get(0).template.name, ResidueTemplate.makeFromResidueConfs(residues));
 		}
-		return library;
 	}
-
-	// This constructor left intentionally empty. Never create one in a non-static fashion.
-	private void PositionSpecificRotamerLibrary(){}
-
-	private static void outputResidueTemplateInfo(Residue r)
-	{
-	}
-
 
 	@Override
 	public int numRotForResType(int pos, String resType, double phi, double psi) {
-		Map<String, List<ResidueTemplate>> templatesAtDesignIndex = getTemplatesForDesignIndex(pos);
-		return templatesAtDesignIndex.get(resType).size();
+		return getTemplatesForDesignIndex(pos).get(resType).size();
 	}
 
 	@Override
-	public double getDihedralForRotamer(int pos, String resType, double phi, double psi,
-			int rotNum, int dihedralNum) {
-		Map<String, List<ResidueTemplate>> templatesAtDesignIndex = getTemplatesForDesignIndex(pos);
-		return templatesAtDesignIndex.get(resType).get(pos).getRotamericDihedrals(phi, psi, rotNum, dihedralNum);
+	public double getDihedralForRotamer(int pos, String resType, double phi, double psi, int rotNum, int dihedralNum) {
+		return getTemplatesForDesignIndex(pos).get(resType).get(pos).getRotamericDihedrals(phi, psi, rotNum, dihedralNum);
 	}
 
-	private Map<String, List<ResidueTemplate>> getTemplatesForDesignIndex (int pos) {
-		if(!positionSpecificRotamers.containsKey(pos))
+	public Map<String,List<ResidueTemplate>> getTemplatesForDesignIndex(int pos) {
+		if(!positionSpecificRotamers.containsKey(pos)) {
 			positionSpecificRotamers.put(pos, new HashMap<>());
+		}
 		return positionSpecificRotamers.get(pos);
 	}
 
-	public void addResidueTemplate (int residueIndex, String resType, ResidueTemplate allowedConformations) {
-		// TODO Auto-generated method stub
-		Map<String, List<ResidueTemplate>> templatesAtDesignIndex = getTemplatesForDesignIndex(residueIndex);
-		if(!templatesAtDesignIndex.containsKey(resType))
-			templatesAtDesignIndex.put(resType, new ArrayList<ResidueTemplate>());
+	private void addResidueTemplate(int residueIndex, String resType, ResidueTemplate allowedConformations) {
+		Map<String,List<ResidueTemplate>> templatesAtDesignIndex = getTemplatesForDesignIndex(residueIndex);
+		if(!templatesAtDesignIndex.containsKey(resType)) {
+			templatesAtDesignIndex.put(resType, new ArrayList<>());
+		}
 		templatesAtDesignIndex.get(resType).add(allowedConformations);
 	}
 }

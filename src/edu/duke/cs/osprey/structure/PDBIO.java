@@ -3,10 +3,7 @@ package edu.duke.cs.osprey.structure;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.TreeSet;
 
 import org.apache.commons.lang3.text.WordUtils;
 
@@ -22,29 +19,74 @@ public class PDBIO {
 	private static class ResInfo {
 		
 		public String name = null;
-		public ArrayList<Atom> atoms = new ArrayList<>();
-		public ArrayList<double[]> coords = new ArrayList<>();
 		
-		public void makeResidue(Molecule mol) {
+		private ArrayList<Atom> atoms = new ArrayList<>();
+		private ArrayList<double[]> coords = new ArrayList<>();
+		private ArrayList<Character> alts = new ArrayList<>();
+		
+		public void clear() {
+			name = null;
+			atoms.clear();
+			coords.clear();
+			alts.clear();
+		}
+		
+		public void addAtom(Atom atom, double x, double y, double z, char alt) {
+			atoms.add(atom);
+			coords.add(new double[] { x, y, z });
+			alts.add(alt);
+		}
+		
+		public void flush(Molecule mol) {
 			
-			// regardless of the alt name, if this is the first res for this res number, make it the main coords
-			// otherwise, add an alternate
-			// NOTE: the alternate name name name is discarded
+			assert (atoms.size() == coords.size());
+			assert (atoms.size() == alts.size());
 			
-			Residue newRes = new Residue(atoms, coords, name, mol);
-			Residue curRes = mol.getResByPDBResNumberOrNull(newRes.getPDBResNumber());
-			if (curRes == null) {
-				mol.appendResidue(newRes);
-			} else {
-				mol.addAlternate(mol.residues.size() - 1, newRes);
+			if (atoms.isEmpty()) {
+				clear();
+				return;
 			}
+			
+			// collect the unique alt names
+			TreeSet<Character> altNames = new TreeSet<>(alts);
+			altNames.remove(' ');
+			
+			// pick the main alt
+			char mainAlt;
+			if (altNames.isEmpty()) {
+				mainAlt = ' ';
+			} else {
+				mainAlt = altNames.first();
+				altNames.remove(mainAlt);
+			}
+			
+			// make the main residue
+			Residue mainRes = makeResidue(mainAlt, mol);
+			mol.appendResidue(mainRes);
+			
+			// add the alt residues, if any
+			for (Character alt : altNames) {
+				mol.addAlternate(mainRes.indexInMolecule, makeResidue(alt, mol));
+			}
+			
+			clear();
 		}
 
-		public static void flush(Map<Character,ResInfo> resInfos, Molecule mol) {
-			for (ResInfo resInfo : resInfos.values()) {
-				resInfo.makeResidue(mol);
+		private Residue makeResidue(char alt, Molecule mol) {
+			
+			ArrayList<Atom> resAtoms = new ArrayList<>();
+			ArrayList<double[]> resCoords = new ArrayList<>();
+			
+			// pick the atoms,coords that match the main or this alt
+			for (int i=0; i<atoms.size(); i++) {
+				char atomAlt = alts.get(i);
+				if (atomAlt == ' ' || atomAlt == alt) {
+					resAtoms.add(atoms.get(i));
+					resCoords.add(coords.get(i));
+				}
 			}
-			resInfos.clear();
+			
+			return new Residue(resAtoms, resCoords, name, mol);
 		}
 	}
 	
@@ -71,12 +113,7 @@ public class PDBIO {
 		List<Molecule> mols = new ArrayList<>();
 		Molecule mol = new Molecule();
 		mols.add(mol);
-		String curResName = null;
-		
-		// NOTE: tree map is important here
-		// we need residues to be sorted by alt key in alphabetic order
-		// A (or no alt) needs to get added before the alternates in ResInfo.flush() so the indices are correct
-		Map<Character,ResInfo> resInfos = new TreeMap<>();
+		ResInfo resInfo = new ResInfo();
 		
 		for (String line : FileTools.parseLines(pdbText)) {
 			line = padLine(line);
@@ -88,7 +125,7 @@ public class PDBIO {
 					// ignore
 				} else {
 					// advance to the next molecule
-					ResInfo.flush(resInfos, mol);
+					resInfo.flush(mol);
 					mol = new Molecule();
 					mols.add(mol);
 				}
@@ -114,17 +151,9 @@ public class PDBIO {
 				String elem = WordUtils.capitalize(line.substring(76, 78).trim().toLowerCase());
 				
 				// should we start a new residue (with alts)?
-				if (!resName.equals(curResName)) {
-					ResInfo.flush(resInfos, mol);
-					curResName = resName;
-				}
-				
-				// get the res info
-				ResInfo resInfo = resInfos.get(alt);
-				if (resInfo == null) {
-					resInfo = new ResInfo();
+				if (!resName.equals(resInfo.name)) {
+					resInfo.flush(mol);
 					resInfo.name = resName;
-					resInfos.put(alt, resInfo);
 				}
 				
 				// make the atom and check the element
@@ -146,12 +175,12 @@ public class PDBIO {
 				atom.modelAtomNumber = atomNum;
 				
 				// update the res info with the atom
-				resInfo.atoms.add(atom);
-				resInfo.coords.add(new double[] { x, y, z });
+				resInfo.addAtom(atom, x, y, z, alt);
 			}
 		}
 		
-		ResInfo.flush(resInfos, mol);
+		resInfo.flush(mol);
+		
 		return mols;
 	}
 	

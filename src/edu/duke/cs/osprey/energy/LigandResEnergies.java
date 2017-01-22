@@ -5,13 +5,14 @@
  */
 package edu.duke.cs.osprey.energy;
 
+import java.util.ArrayList;
+
+import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.control.ParamSet;
-import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.structure.PDBFileReader;
+import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
-import java.util.ArrayList;
 
 /**
  *
@@ -26,11 +27,11 @@ public class LigandResEnergies {
     
     
     public LigandResEnergies(ParamSet params){
-        Molecule m = PDBFileReader.readPDBFile(params.getValue("pdbName"), null);
+        Molecule mol = Strand.builder(PDBIO.readFile(params.getFile("pdbName"))).build().mol;
         String ligandTermini[] = new String[] {params.getValue("ligandStart"),params.getValue("ligandEnd")};
         String targetTermini[] = new String[] {params.getValue("targetStart"),params.getValue("targetEnd")};
-        ligandRes = m.resListFromTermini(ligandTermini, null);
-        targetRes = m.resListFromTermini(targetTermini, null);
+        ligandRes = mol.resListFromTermini(ligandTermini, null);
+        targetRes = mol.resListFromTermini(targetTermini, null);
     }
     
     

@@ -15,6 +15,6 @@ public class ScriptPlayground {
 	throws Exception {
 		
 		Molecule mol = PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb");
-		Strand strand = new Strand(mol, "2", "73");
+		Strand strand = Strand.builder(mol).setResidues(2, 73).build();
 	}
 }

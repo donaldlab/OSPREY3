@@ -90,6 +90,9 @@ public class PDBFileWriter {
                     //residueCounter++;
                     
                     tmpStg = residue.fullName;
+                    while (tmpStg.length() < 10) {
+                    	tmpStg += ' ';
+                    }
                     //We'll call the residue by its full name in the PDB file
                     //full name should occupy columns 17-26 (zero-based).  
                     tmpStg.getChars(0,10,tmpChr,17);

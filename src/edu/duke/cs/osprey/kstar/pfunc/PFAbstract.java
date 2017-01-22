@@ -951,7 +951,12 @@ public abstract class PFAbstract implements Serializable {
 	
 	public void rePruneReducedSP(double pruningInterval) {	
 		panSP = (KSSearchProblem) ObjectIO.deepCopy(panSP);
-		panSP.emat = (EnergyMatrix) ObjectIO.readObject(panSP.getMatrixFileName(panSP.getMatrixType()), true);
+		File file = new File(panSP.getMatrixFileName(panSP.getMatrixType()));
+		if (file.exists()) {
+			panSP.emat = (EnergyMatrix) ObjectIO.readObject(file.getAbsolutePath(), true);
+		} else {
+			System.out.println("WARNING: can't find file to reload energy matrix: " + file.getAbsolutePath() + "\n\tre-using existing energy matrix instead.");
+		}
 		cfp.setupPruning(panSP, pruningInterval, panSP.useEPIC, panSP.useTupExpForSearch).prune();
 		reducedSP = createReducedSP(panSP.contSCFlex, strand, sequence, absolutePos);
 	}

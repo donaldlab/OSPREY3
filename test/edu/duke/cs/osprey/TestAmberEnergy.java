@@ -1,16 +1,14 @@
 package edu.duke.cs.osprey;
 
-import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
-import org.junit.BeforeClass;
 import org.junit.Test;
 
+import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.structure.PDBFileReader;
+import edu.duke.cs.osprey.structure.PDBIO;
 
 public class TestAmberEnergy extends TestBase {
 	
@@ -24,34 +22,13 @@ public class TestAmberEnergy extends TestBase {
 	// also, don't write to logs
 	// use assert statements to check for correct output
 	
-	@BeforeClass
-	public static void before() {
-		initDefaultEnvironment();
-	}
-	
-	private static ForcefieldParams makeFFParams(boolean doSolv) {
-		// NOTE: values from default config file
-		String forceField = "AMBER";
-		boolean distDeptDielect = true;
-		double dielectConst = 6;
-		double vdwMult = 0.95;
-		double solvScale = 0.5;
-		boolean useHForElectrostatics = true;
-		boolean useHForVdw = true;
-		return new ForcefieldParams(
-			forceField, distDeptDielect, dielectConst, vdwMult,
-			doSolv, solvScale, useHForElectrostatics, useHForVdw
-		);
-	}
-	
 	@Test
 	public void test1CC8WithSolv()
 	throws Exception {
 		
 		// setup the test
-		Molecule m = PDBFileReader.readPDBFile("examples/1CC8/1CC8.ss.pdb", null);
-		assertThat(m, is(not(nullValue())));
-		EnergyFunction efunc = makeEfunc(m, true);
+		Strand strand = Strand.builder(PDBIO.readFile("examples/1CC8/1CC8.ss.pdb")).build();
+		EnergyFunction efunc = makeEfunc(strand, true);
 		
 		// run the test
 		double energy = efunc.getEnergy();
@@ -65,9 +42,8 @@ public class TestAmberEnergy extends TestBase {
 	throws Exception {
 		
 		// setup the test
-		Molecule m = PDBFileReader.readPDBFile("examples/1CC8/1CC8.ss.pdb", null);
-		assertThat(m, is(not(nullValue())));
-		EnergyFunction efunc = makeEfunc(m, false);
+		Strand strand = Strand.builder(PDBIO.readFile("examples/1CC8/1CC8.ss.pdb")).build();
+		EnergyFunction efunc = makeEfunc(strand, false);
 		
 		// run the test
 		double energy = efunc.getEnergy();
@@ -76,14 +52,17 @@ public class TestAmberEnergy extends TestBase {
 		assertThat(energy, isRelatively(-639.7025085949941));
 	}
 	
-	private EnergyFunction makeEfunc(Molecule mol, boolean doSolv) {
+	private EnergyFunction makeEfunc(Strand strand, boolean doSolv) {
+		ForcefieldParams ffparams = new ForcefieldParams(strand.templateLib.ffParams);
+		ffparams.doSolvationE = doSolv;
+		// TODO: move these params into ForcefieldParams
 		double shellDistCutoff = Double.POSITIVE_INFINITY;
 		boolean usePoissonBoltzmann = false;
 		EnergyFunctionGenerator efuncgen = new EnergyFunctionGenerator(
-			makeFFParams(doSolv),
+			ffparams,
 			shellDistCutoff,
 			usePoissonBoltzmann
 		);
-		return efuncgen.fullMolecEnergy(mol);
+		return efuncgen.fullMolecEnergy(strand.mol);
 	}
 }

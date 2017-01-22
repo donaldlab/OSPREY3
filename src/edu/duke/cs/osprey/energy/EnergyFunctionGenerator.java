@@ -28,8 +28,8 @@ public class EnergyFunctionGenerator {
     
     public ForcefieldParams ffParams;
     
+    // TODO: remove these and update referrers to use values in ffParams instead
     public double distCutoff;//distance cutoff for interactions (angstroms)
-    
     public boolean usePoissonBoltzmann;//Use Poisson-Boltzmann energies for solvation
     //Note: these will not be included in the single-res and pair energy functions,
     //so we need to do only full-conf energies to get the Poisson-Boltzmann term
@@ -167,7 +167,7 @@ public class EnergyFunctionGenerator {
         
         //now add Poisson-Boltzmann energy, if applicable
         if (usePoissonBoltzmann) {
-            fullEFunc.addTermWithCoeff(new PoissonBoltzmannEnergy(cSpace.m), ffParams.getSolvScale());
+            fullEFunc.addTermWithCoeff(new PoissonBoltzmannEnergy(cSpace.m), ffParams.solvScale);
         }
         
         return fullEFunc;

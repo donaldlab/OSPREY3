@@ -7,8 +7,9 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import edu.duke.cs.osprey.TestBase;
+import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.structure.PDBFileReader;
+import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.Protractor;
 
@@ -24,7 +25,7 @@ public class TestFreeDihedral extends TestBase {
 	public static void beforeClass() {
 		initDefaultEnvironment();
 		
-		mol = PDBFileReader.readPDBFile("examples/1CC8/1CC8.ss.pdb", null);
+		mol = Strand.builder(PDBIO.readFile("examples/1CC8/1CC8.ss.pdb")).build().mol;
 	}
 	
 	private Residue makePhe() {

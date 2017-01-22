@@ -34,6 +34,7 @@ import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.PDBFileWriter;
+import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.StringParsing;
 
@@ -105,7 +106,7 @@ public class ConfSpace implements Serializable {
         numPos = flexibleRes.size();
         
         //read the structure and assign templates, deleting unassignable res...
-        m = PDBFileReader.readPDBFile(PDBFile, termini);
+        m = Strand.builder(PDBIO.readFile(PDBFile)).setResidues(termini).build().mol;
         
         // before making any structure changes, capture the wt rots if needed
         List<ResidueTemplate> wtRots = new ArrayList<>(Collections.nCopies(numPos, null));

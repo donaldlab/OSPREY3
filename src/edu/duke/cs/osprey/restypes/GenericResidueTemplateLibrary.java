@@ -4,15 +4,11 @@
  */
 package edu.duke.cs.osprey.restypes;
 
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 
-import edu.duke.cs.osprey.control.EnvironmentVars;
+import edu.duke.cs.osprey.control.Defaults;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Residue;
@@ -30,9 +26,6 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
     //however, many residues will have multiple slightly different forms (N-terminal, etc.) 
     //and these will share a name and a rotamer library entry
     
-    
-
-    
     public int totalNumRotamers = 0;//total number of rotamers read in from rotamer library file(s)
     //starts at 0
     
@@ -41,9 +34,13 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
     
     //the templates contain forcefield information like atom types, so they need to go with 
     //a set of forcefield parameters
-    public ForcefieldParams ffParams;
+    public final ForcefieldParams ffParams;
     
-    public GenericResidueTemplateLibrary(ForcefieldParams fp){
+    public GenericResidueTemplateLibrary() {
+        this(Defaults.forcefieldParams);
+    }
+    
+    public GenericResidueTemplateLibrary(ForcefieldParams fp) {
         //create a library based on template files
         //we can then load coordinates and rotamer libraries for these templates separately, if we have these
 
@@ -256,22 +253,12 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
             }
     }
     
-    /** 
-     * PGC 2015: Supporting two rotamer libraries right now, Lovell and Dunbrack backbone dependent rotamers.
-     * load rotamer information into templates.
-     * @param filename for Lovell-style or Dunbrack Rotamer Library.
-     * @param backbone_dependent_rotamers Use Dunbrack Rotamer Library? 
-     */
-    public void loadRotamerLibrary(String text, boolean dunbrack_backbone_dependent_rotamers){
-
-        if(dunbrack_backbone_dependent_rotamers){
-        	RotamerLibraryReader.readDunbrackRotamerLibraryForResiduePosition(text, this);
-        }
-        else{
-        	RotamerLibraryReader.readRotLibrary(text, this);
-        }
-        //read volume here too?
-        
+    public void loadRotamerLibrary(String text) {
+        RotamerLibraryReader.readRotLibrary(text, this);
+    }
+    
+    public void loadBackboneDependentRotamerLibrary(String text) {
+        RotamerLibraryReader.readDunbrackRotamerLibraryForResiduePosition(text, this);
     }
     
     

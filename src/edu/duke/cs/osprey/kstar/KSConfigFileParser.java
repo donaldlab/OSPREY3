@@ -8,11 +8,12 @@ import java.util.Iterator;
 import java.util.StringTokenizer;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.structure.PDBFileReader;
+import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.StringParsing;
@@ -222,7 +223,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 
 	public ArrayList<String> getWTSequence() {
 
-		Molecule m = PDBFileReader.readPDBFile(params.getFile("PDBNAME").getAbsolutePath());
+		Molecule m = Strand.builder(PDBIO.readFile(params.getFile("PDBNAME"))).build().mol;
 		ArrayList<String> flexibleRes = getFlexRes();
 		int numPos = flexibleRes.size();
 		ArrayList<String> wt = new ArrayList<>(); for( int pos = 0; pos < numPos; ++pos ) wt.add(null);

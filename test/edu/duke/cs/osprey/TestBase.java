@@ -10,6 +10,7 @@ import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.control.Defaults;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -18,8 +19,6 @@ import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
-import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.HashCalculator;
 import edu.duke.cs.osprey.tools.Protractor;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
@@ -307,22 +306,12 @@ public class TestBase {
 	}
 	
 	
+	@Deprecated
 	protected static ForcefieldParams makeDefaultFFParams() {
-		// values from default config file
-		String forceField = "AMBER";
-		boolean distDeptDielect = true;
-		double dielectConst = 6;
-		double vdwMult = 0.95;
-		boolean doSolv = true;
-		double solvScale = 0.5;
-		boolean useHForElectrostatics = true;
-		boolean useHForVdw = true;
-		return new ForcefieldParams(
-			forceField, distDeptDielect, dielectConst, vdwMult,
-			doSolv, solvScale, useHForElectrostatics, useHForVdw
-		);
+		return new ForcefieldParams(ForcefieldParams.FORCEFIELD.AMBER);
 	}
 	
+	@Deprecated
 	protected static void initDefaultEnvironment() {
 		
 		// make energy function
@@ -332,16 +321,7 @@ public class TestBase {
 		EnvironmentVars.curEFcnGenerator = new EnergyFunctionGenerator(ffparams, shellDistCutoff, usePoissonBoltzmann);
 		
 		// make residue templates
-		EnvironmentVars.resTemplates = new GenericResidueTemplateLibrary(ffparams);
-		EnvironmentVars.resTemplates.loadTemplateCoords(FileTools.readResource("/config/all_amino_coords.in"));
-		EnvironmentVars.resTemplates.makeDAminoAcidTemplates();
-		
-		// make rotamers
-		boolean useBackboneDependentRotamers = false;
-		EnvironmentVars.resTemplates.loadRotamerLibrary(FileTools.readResource("/config/LovellRotamer.dat"), useBackboneDependentRotamers);
-		
-		// load residue entropies
-        EnvironmentVars.resTemplates.loadResEntropy(FileTools.readResource("/config/ResEntropy.dat"));
+		EnvironmentVars.resTemplates = Defaults.genericTemplateLibrary;
 	}
 	
 	protected static SearchProblem makeSearchProblem(EnergyMatrixConfig emConfig) {
