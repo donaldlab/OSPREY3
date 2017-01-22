@@ -172,10 +172,12 @@ public class Molecule implements Serializable {
         residues.remove(resIndex);
         alternates.remove(resIndex);
         //this changes the indexInMolecule for all subsequent residues
-        for(int index2=resIndex; index2<residues.size(); index2++) {
-            residues.get(index2).indexInMolecule--;
-            for (Residue altRes : alternates.get(index2)) {
-                altRes.indexInMolecule--;
+        for(int i=resIndex; i<residues.size(); i++) {
+            residues.get(i).indexInMolecule--;
+            if (alternates.containsKey(i)) {
+				for (Residue altRes : alternates.get(i)) {
+					altRes.indexInMolecule--;
+				}
             }
         }
     }
