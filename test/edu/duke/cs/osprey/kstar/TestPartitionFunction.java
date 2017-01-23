@@ -97,8 +97,8 @@ public class TestPartitionFunction extends TestBase {
 		KSConfigFileParser cfp = new KSConfigFileParser();
 		
 		// except set the number of threads/gpus for the new minimizers
-		cfp.getParams().setValue("MinimizationThreads", Integer.toString(NumThreads));
-		cfp.getParams().setValue("MinimizationGpus", Integer.toString(NumGpus));
+		cfp.params.setValue("MinimizationThreads", Integer.toString(NumThreads));
+		cfp.params.setValue("MinimizationGpus", Integer.toString(NumGpus));
 		
 		return makePfunc(search, pfImpl, strand, flexibility, cfp);
 	}

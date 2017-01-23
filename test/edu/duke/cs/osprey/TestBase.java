@@ -16,7 +16,6 @@ import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.EnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
-import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.HashCalculator;
@@ -308,17 +307,14 @@ public class TestBase {
 	
 	@Deprecated
 	protected static ForcefieldParams makeDefaultFFParams() {
-		return new ForcefieldParams(ForcefieldParams.FORCEFIELD.AMBER);
+		return new ForcefieldParams();
 	}
 	
 	@Deprecated
 	protected static void initDefaultEnvironment() {
 		
 		// make energy function
-		double shellDistCutoff = Double.POSITIVE_INFINITY;
-		boolean usePoissonBoltzmann = false;
-		ForcefieldParams ffparams = makeDefaultFFParams();
-		EnvironmentVars.curEFcnGenerator = new EnergyFunctionGenerator(ffparams, shellDistCutoff, usePoissonBoltzmann);
+		EnvironmentVars.curEFcnGenerator = Defaults.efuncGenerator;
 		
 		// make residue templates
 		EnvironmentVars.resTemplates = Defaults.genericTemplateLibrary;

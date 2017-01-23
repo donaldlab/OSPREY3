@@ -5,6 +5,7 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 import edu.duke.cs.osprey.control.Defaults;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.KSTermini;
 import edu.duke.cs.osprey.restypes.DAminoAcidHandler;
 import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
@@ -55,6 +56,12 @@ public class Strand {
 		public Builder setTemplateLibrary(GenericResidueTemplateLibrary val) {
 			this.templateLib = val;
 			return this;
+		}
+		
+		public Builder setDefaultTemplateLibrary(ForcefieldParams ffparams) {
+			return setTemplateLibrary(GenericResidueTemplateLibrary.builder()
+				.setForcefield(ffparams)
+				.build());
 		}
 		
 		public Builder setErrorOnNonTemplateResidues(boolean val) {

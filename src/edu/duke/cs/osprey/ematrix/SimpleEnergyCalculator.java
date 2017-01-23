@@ -70,7 +70,7 @@ public abstract class SimpleEnergyCalculator {
 		
 		public Cpu(ForcefieldParams ffparams, ConfSpace confSpace, List<Residue> shellResidues) {
 			super(ffparams, confSpace, shellResidues);
-			efuncs = new EnergyFunctionGenerator(ffparams, Double.POSITIVE_INFINITY, false);
+			efuncs = new EnergyFunctionGenerator(ffparams);
 		}
 		
 		@Override

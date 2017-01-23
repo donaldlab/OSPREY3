@@ -43,7 +43,7 @@ public class APrioriPruningProver {
         this.ks = ks;
         this.cfp = cfp;
         this.strand2AllowedSeqs = strand2AllowedSeqs;
-        contSCFlex = cfp.getParams().getBool("doMinimize", true);
+        contSCFlex = cfp.params.getBool("doMinimize", true);
     }
        
     
@@ -58,7 +58,7 @@ public class APrioriPruningProver {
         if(!contSCFlex)//bounds will be tight in discrete case
             return 0;
         
-        if(!cfp.getParams().getBool("iMinDEE"))
+        if(!cfp.params.getBool("iMinDEE"))
             throw new RuntimeException("ERROR: Trying to calc I0 but not using iMinDEE");
         
         System.out.println("Determining I0 to get provable K*");
@@ -73,7 +73,7 @@ public class APrioriPruningProver {
             I0 = Math.max(I0, gmec-lowestBound);
         }
         
-        double stabilityGap = cfp.getParams().getDouble("StabilityGap",10);
+        double stabilityGap = cfp.params.getDouble("StabilityGap",10);
         //Add the stability constraint (how much less stable we can be than the most stable sequence)
         I0 += stabilityGap;
         
@@ -87,7 +87,7 @@ public class APrioriPruningProver {
         //p* <= (total_num_confs) exp(-(E_GMEC+Ew)/RT), while q* >=  exp(-E_GMEC/RT)
         //(these bounds are probably fairly loose but it's hard to do better a priori)
         //so let's set exp(-Ew/RT) * upper_bound(total_num_confs) = epsilon
-        double epsilon = cfp.getParams().getDouble("epsilon");
+        double epsilon = cfp.params.getDouble("epsilon");
         if(epsilon<=0 || epsilon >=1)
             throw new RuntimeException("ERROR: Can't calc Ew based on this epsilon: "+epsilon);
         

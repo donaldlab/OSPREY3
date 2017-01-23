@@ -38,9 +38,9 @@ public class Parallelism {
 	// it can be moved when we start refactoring config stuff to prepare for Python-land
 	public static Parallelism makeFromConfig(ConfigFileParser cfp) {
 		return new Parallelism(
-			cfp.getParams().getInt("MinimizationThreads", 1),
-			cfp.getParams().getInt("MinimizationGpus", 0),
-			cfp.getParams().getInt("MinimizationStreamsPerGpu", 1)
+			cfp.params.getInt("MinimizationThreads", 1),
+			cfp.params.getInt("MinimizationGpus", 0),
+			cfp.params.getInt("MinimizationStreamsPerGpu", 1)
 		);
 	}
 	

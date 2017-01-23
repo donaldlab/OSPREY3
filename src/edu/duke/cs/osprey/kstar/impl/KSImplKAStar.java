@@ -102,7 +102,7 @@ public class KSImplKAStar extends KSAbstract {
 		// add root node
 		tree.add( new KAStarNode(null, null, true) );
 
-		int target = cfp.getParams().getInt("KStarNumSeqs", 5);
+		int target = cfp.params.getInt("KStarNumSeqs", 5);
 
 		for( KAStarNode best = tree.poll(); best != null && completed < target; 
 				best = tree.poll() ) {

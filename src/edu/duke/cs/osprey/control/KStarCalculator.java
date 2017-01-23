@@ -41,50 +41,50 @@ public class KStarCalculator {
 	public KStarCalculator( KSConfigFileParser cfgP ) {
 		cfp = cfgP;
 
-		Ew = cfp.getParams().getDouble("Ew", 5);
-		doIMinDEE = cfp.getParams().getBool("imindee",false);
+		Ew = cfp.params.getDouble("Ew", 5);
+		doIMinDEE = cfp.params.getBool("imindee",false);
 		if(doIMinDEE){
-			I0 = cfp.getParams().getDouble("Ival", 5);
+			I0 = cfp.params.getDouble("Ival", 5);
 		}
-		useContFlex = cfp.getParams().getBool("doMinimize",false);
+		useContFlex = cfp.params.getBool("doMinimize",false);
 		if(doIMinDEE && !useContFlex)
 			throw new RuntimeException("ERROR: iMinDEE requires continuous flexibility. "
 					+ "Change the value of doMinimize to 'true'.");
 
-		PositionConfSpace.dihedFlexInterval = cfp.getParams().getDouble("dihedFlexInterval");
+		PositionConfSpace.dihedFlexInterval = cfp.params.getDouble("dihedFlexInterval");
 
-		PFAbstract.suppressOutput = cfp.getParams().getBool("kStarPFuncSuppressOutput");
-		PFAbstract.targetEpsilon = cfp.getParams().getDouble("epsilon");
-		PFAbstract.setPhase2Method(cfp.getParams().getValue("kStarPhase2Method"));
-		PFAbstract.qCapacity = cfp.getParams().getInt("kStarPFuncQCap", ThreadParallelism.getNumThreads()*8);
+		PFAbstract.suppressOutput = cfp.params.getBool("kStarPFuncSuppressOutput");
+		PFAbstract.targetEpsilon = cfp.params.getDouble("epsilon");
+		PFAbstract.setPhase2Method(cfp.params.getValue("kStarPhase2Method"));
+		PFAbstract.qCapacity = cfp.params.getInt("kStarPFuncQCap", ThreadParallelism.getNumThreads()*8);
 
-		PFAbstract.setCFGImpl(cfp.getParams().getValue("kStarPFuncMethod"));
-		PFAbstract.setStabilityThresh( cfp.getParams().getDouble("kStarPFuncStabThresh") );
-		PFAbstract.setConfsThreadBuffer( cfp.getParams().getInt("kStarPFuncConfsThreadBuffer", 4) );
-		PFAbstract.setNumThreads( cfp.getParams().getInt("kStarPFuncThreads") );
+		PFAbstract.setCFGImpl(cfp.params.getValue("kStarPFuncMethod"));
+		PFAbstract.setStabilityThresh( cfp.params.getDouble("kStarPFuncStabThresh") );
+		PFAbstract.setConfsThreadBuffer( cfp.params.getInt("kStarPFuncConfsThreadBuffer", 4) );
+		PFAbstract.setNumThreads( cfp.params.getInt("kStarPFuncThreads") );
 
-		PFAbstract.saveTopConfsAsPDB = cfp.getParams().getBool("kStarSaveTopConfsAsPDB");
-		PFAbstract.setNumTopConfsToSave( cfp.getParams().getInt("kStarNumTopConfsToSave") );
-		PFAbstract.useMaxKSConfs = cfp.getParams().getBool("kStarUseMaxKSConfs");
-		PFAbstract.setMaxKSconfs( cfp.getParams().getInt("kStarMaxKSConfs") );
+		PFAbstract.saveTopConfsAsPDB = cfp.params.getBool("kStarSaveTopConfsAsPDB");
+		PFAbstract.setNumTopConfsToSave( cfp.params.getInt("kStarNumTopConfsToSave") );
+		PFAbstract.useMaxKSConfs = cfp.params.getBool("kStarUseMaxKSConfs");
+		PFAbstract.setMaxKSconfs( cfp.params.getInt("kStarMaxKSConfs") );
 
-		PFAbstract.setHotMethod( "kStarPFunctHotMethod", cfp.getParams().getValue("kStarPFunctHotMethod") );
+		PFAbstract.setHotMethod( "kStarPFunctHotMethod", cfp.params.getValue("kStarPFunctHotMethod") );
 
 		// check hots for validity
 		if(!PFAbstract.getHotMethod().equalsIgnoreCase("none"))
 			cfp.getHighOrderTuplesByPDBResNum();
 
-		PFAbstract.setHotNumRes( "kStarPFuncHotNumRes", cfp.getParams().getInt("kStarPFuncHotNumRes", 3) );
-		PFAbstract.setHotBoundPct( "kStarPFuncHotBoundPct", cfp.getParams().getDouble("kStarPFuncHotBoundPct", 0.03) );
-		PFAbstract.setHotTopRotsPct( "KStarPFuncHotTopRotsPct", cfp.getParams().getDouble("kStarPFuncHotTopRotsPct", 0.0) );
+		PFAbstract.setHotNumRes( "kStarPFuncHotNumRes", cfp.params.getInt("kStarPFuncHotNumRes", 3) );
+		PFAbstract.setHotBoundPct( "kStarPFuncHotBoundPct", cfp.params.getDouble("kStarPFuncHotBoundPct", 0.03) );
+		PFAbstract.setHotTopRotsPct( "KStarPFuncHotTopRotsPct", cfp.params.getDouble("kStarPFuncHotTopRotsPct", 0.0) );
 
-		KSAbstract.runTimeout = cfp.getParams().getInt("kStarRunTimeout");
-		KSAbstract.doCheckPoint = cfp.getParams().getBool("kStarDoCheckpoint");
-		KSAbstract.setCheckPointInterval(cfp.getParams().getInt("kStarCheckpointInterval"));
-		//KSAbstract.interMutationConst = cfp.getParams().getDouble("kStarInterMutationConst", 0.0);
+		KSAbstract.runTimeout = cfp.params.getInt("kStarRunTimeout");
+		KSAbstract.doCheckPoint = cfp.params.getBool("kStarDoCheckpoint");
+		KSAbstract.setCheckPointInterval(cfp.params.getInt("kStarCheckpointInterval"));
+		//KSAbstract.interMutationConst = cfp.params.getDouble("kStarInterMutationConst", 0.0);
 
-		KSImplKAStar.useTightBounds = cfp.getParams().getBool("kStarUseTightBounds", true);
-		KSImplKAStar.nodeExpansionMethod = cfp.getParams().getValue("kStarNodeExpansion", "parallel1");
+		KSImplKAStar.useTightBounds = cfp.params.getBool("kStarUseTightBounds", true);
+		KSImplKAStar.nodeExpansionMethod = cfp.params.getValue("kStarNodeExpansion", "parallel1");
 	}
 
 
@@ -205,7 +205,7 @@ public class KStarCalculator {
 	}
 
 	private KSAbstract makeKStar() {
-		switch (cfp.getParams().getValue("kStarMethod")) {
+		switch (cfp.params.getValue("kStarMethod")) {
 			case "kastar": return new KSImplKAStar(cfp);
 			case "linear": return new KSImplLinear(cfp);
 			default: throw new UnsupportedOperationException("ERROR: currently supported implementations are 'linear' and 'kastar'");
@@ -223,7 +223,7 @@ public class KStarCalculator {
 
 			generateAllowedSequences();
 
-			String mutFilePath = cfp.getParams().getValue("mutfile", "");
+			String mutFilePath = cfp.params.getValue("mutfile", "");
 			if(mutFilePath.length() > 0) {
 				truncateAllowedSequences(mutFilePath);
 			}

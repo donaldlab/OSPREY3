@@ -8,6 +8,9 @@ package edu.duke.cs.osprey;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
+import java.io.File;
+import java.util.Arrays;
+
 import org.junit.Test;
 
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
@@ -16,8 +19,7 @@ import edu.duke.cs.osprey.control.GMECFinder;
 
 /**
  *
- * Testing full computation of GMEC (precomputed energy matrices will be used,
- * but delete them if you want to test that part too)
+ * Testing full computation of GMEC
  * 
  * @author mhall44
  */
@@ -25,6 +27,21 @@ public class TestFindGMEC extends TestBase {
     
     @Test
     public void test1CC8(){
+        
+        // IMPORTANT: need to delete cached files for each test to keep the caches from hiding errors
+        for (String name : Arrays.asList("1CC8.EMAT.dat", "1CC8.EPICMAT.dat", "1CC8.TUPEXPEMAT.dat")) {
+            new File("examples/1CC8.junit/" + name).delete();
+        }
+        
+        // test once without cached files
+        test1CC8Gmec();
+        
+        // test again with cached files
+        test1CC8Gmec();
+    }
+    
+    private void test1CC8Gmec() {
+        
         //Here's a 7-residue test using EPIC and LUTE with continuous sidechain flexibility
         ConfigFileParser cfp = ConfigFileParser.makeFromFilePaths(
             "examples/1CC8.junit/KStar.cfg",
@@ -52,6 +69,12 @@ public class TestFindGMEC extends TestBase {
     
     @Test
     public void testDEEPer(){
+        
+        // IMPORTANT: need to delete cached files for each test to keep the caches from hiding errors
+        for (String name : Arrays.asList("1CC8.EMAT.dat", "1CC8.EPICMAT.dat", "1CC8.TUPEXPEMAT.dat")) {
+            new File("examples/1CC8.deeper/" + name).delete();
+        }
+        
         //Here's a 4-residue test using EPIC, LUTE, and DEEPer together.
         //There are two overlapping backrubs
         ConfigFileParser cfp = ConfigFileParser.makeFromFilePaths(
@@ -72,5 +95,4 @@ public class TestFindGMEC extends TestBase {
         0 CONF: 5 7 36 5 RESTYPES: Ile Ser LEU Glu ROTS: 5 7 3 5 Lower bound/enumeration energy: -49.83992986938508 Energy: -49.94563050249759 Best so far: -49.94563050249759 EPIC energy: -49.927475207707005
         */
     }
-    
 }

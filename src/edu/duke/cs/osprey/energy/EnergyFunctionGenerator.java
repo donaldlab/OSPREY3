@@ -9,10 +9,12 @@ import java.util.List;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.PositionConfSpace;
+import edu.duke.cs.osprey.control.Defaults;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 
@@ -24,22 +26,14 @@ public class EnergyFunctionGenerator {
     //This is an object that generates an energy function (maps conformation-->energy) for a molecule or a portion thereof
     //it specifies settings for how this energy should be estimated
     
-    //Start with AMBER/EEF1, add Poisson-Boltzmann (instead of EEF1), and ultimately QM and explicit water hopefully
-    
     public ForcefieldParams ffParams;
     
-    // TODO: remove these and update referrers to use values in ffParams instead
-    public double distCutoff;//distance cutoff for interactions (angstroms)
-    public boolean usePoissonBoltzmann;//Use Poisson-Boltzmann energies for solvation
-    //Note: these will not be included in the single-res and pair energy functions,
-    //so we need to do only full-conf energies to get the Poisson-Boltzmann term
+    public EnergyFunctionGenerator() {
+    	this(Defaults.forcefieldParams);
+    }
     
-    // TODO: move distC and usePB into forcefield params!
-    
-    public EnergyFunctionGenerator(ForcefieldParams fParams, double distC, boolean usePB){
+    public EnergyFunctionGenerator(ForcefieldParams fParams) {
         ffParams = fParams;
-        distCutoff = distC;
-        usePoissonBoltzmann = usePB;
     }
     
     
@@ -166,7 +160,7 @@ public class EnergyFunctionGenerator {
         }
         
         //now add Poisson-Boltzmann energy, if applicable
-        if (usePoissonBoltzmann) {
+        if (ffParams.solvationForcefield == SolvationForcefield.PoissonBoltzmann) {
             fullEFunc.addTermWithCoeff(new PoissonBoltzmannEnergy(cSpace.m), ffParams.solvScale);
         }
         

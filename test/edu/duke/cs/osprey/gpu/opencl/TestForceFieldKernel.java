@@ -4,13 +4,10 @@ import static org.junit.Assert.*;
 
 import java.io.IOException;
 
-import org.junit.BeforeClass;
 import org.junit.Test;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.confspace.Strand;
-import edu.duke.cs.osprey.control.Defaults;
-import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
@@ -86,11 +83,6 @@ public class TestForceFieldKernel extends TestBase {
 			val65 = mol.getResByPDBResNumber("65");
 			met66 = mol.getResByPDBResNumber("66");
 		}
-	}
-	
-	@BeforeClass
-	public static void beforeClass() {
-		EnvironmentVars.resTemplates = Defaults.genericTemplateLibrary;
 	}
 	
 	private static void makeAllPairsEfunc(Residue[] residues, ForcefieldParams ffparams, MultiTermEnergyFunction efunc, ForcefieldInteractions interactions) {
@@ -257,7 +249,7 @@ public class TestForceFieldKernel extends TestBase {
 		assertThat(ff.gpuffcuda.getEnergy(), isRelatively(expectedWtEnergy));
 		
 		// mutate a residue
-		ResidueTypeDOF mutator = new ResidueTypeDOF(r.gly15);
+		ResidueTypeDOF mutator = new ResidueTypeDOF(r.strand.templateLib, r.gly15);
 		mutator.mutateTo("VAL");
 
 		assertThat(ff.efunc.getEnergy(), isRelatively(expectedMutantEnergy));

@@ -9,6 +9,7 @@ import java.util.List;
 
 import edu.duke.cs.osprey.energy.forcefield.EEF1.SolvParams;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.NBParams;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.AtomNeighbors;
 import edu.duke.cs.osprey.structure.Residue;
@@ -37,10 +38,6 @@ public class ForcefieldEnergy implements Serializable {
 	//  code that is unreachable.
 	public static final boolean debug = false;
 		
-	boolean doSolvationE = false; //should solvation energies be computed
-	
-	double dielectric = 1.0;	
-	boolean distDepDielect = true;
 	final double constCoulomb = 332.0;
 
 	
@@ -56,7 +53,6 @@ public class ForcefieldEnergy implements Serializable {
 	
 	double D2R = 0.01745329251994329576;
 	double R2D = 57.29577951308232090712;
-	double vdwMultiplier = 1.0f;
 	double internalSolvEnergy = 0;
 	
 	
@@ -64,14 +60,7 @@ public class ForcefieldEnergy implements Serializable {
 	//		Only count solvation interactions between atoms within 9.0A distance
 	final double solvCutoff = 9.0;
 	
-	double solvScale = 1.0; //the scale factor for the solvation energies
-	
-	boolean useHydrogenEs;;
-	boolean useHydrogenVdw;
-	
-	
-	public ForcefieldEnergy(boolean intra, List<Atom> atoms1, List<Atom> atoms2,
-			ForcefieldParams params){
+	public ForcefieldEnergy(boolean intra, List<Atom> atoms1, List<Atom> atoms2, ForcefieldParams params) {
 		
 		isInternal = intra;
 		checkResComposition(intra,atoms1,atoms2);//if intra, then make sure all atoms from same res
@@ -80,15 +69,6 @@ public class ForcefieldEnergy implements Serializable {
 		
 		this.params = params;
 		
-		//copy over some things from the params for easier access
-		distDepDielect = params.distDepDielect;
-		dielectric = params.dielectric;
-		vdwMultiplier = params.vdwMultiplier;
-		doSolvationE = params.doSolvationE;
-		solvScale = params.solvScale;
-		useHydrogenEs = params.hElect;
-		useHydrogenVdw = params.hVDW;
-			
 		//set up actual energies 
 		//(interaction between atoms1 & atoms2, or internal of atoms1 if atoms2==null)
 		initializeCalculation(atoms1,atoms2);
@@ -114,25 +94,16 @@ public class ForcefieldEnergy implements Serializable {
 		
 		this.params = params;
 		
-		//copy over some things from the params for easier access
-		distDepDielect = params.distDepDielect;
-		dielectric = params.dielectric;
-		vdwMultiplier = params.vdwMultiplier;
-		solvScale = params.solvScale;
-		
-		useHydrogenEs = params.hElect;
-		useHydrogenVdw = params.hVDW;
-                
-                doSolvationE = params.doSolvationE;
-		
 		List<Atom[]> pairs14 = AtomNeighbors.getPairs14(atomPairs);
 		List<Atom[]> pairsNonBonded = AtomNeighbors.getPairsNonBonded(atomPairs);
 		
 		initializeEVCalculation(pairs14, pairsNonBonded);
-                //Now can do solvation too!!
-                if(doSolvationE)
-                    initializeSolvationCalculation(pairs14, pairsNonBonded, isInternal);
-        }
+		
+		//Now can do solvation too!!
+		if (params.solvationForcefield == SolvationForcefield.EEF1) {
+			initializeSolvationCalculation(pairs14, pairsNonBonded, isInternal);
+		}
+	}
 	
 	void checkResComposition(boolean intra, List<Atom> atoms1, List<Atom> atoms2){
 		//set up res1 and res2 and make sure they are defined consistently
@@ -187,7 +158,7 @@ public class ForcefieldEnergy implements Serializable {
 	public int getNumTerms() {
 		// just to get a sense of the size of the work being done
 		int num = numberNonBonded + numberHalfNonBonded;
-		if (doSolvationE) {
+		if (params.solvationForcefield == SolvationForcefield.EEF1) {
 			num += numberSolvated;
 		}
 		return num;
@@ -213,8 +184,9 @@ public class ForcefieldEnergy implements Serializable {
 		
 		initializeEVCalculation(pairs14,pairsNonBonded); //initialize the calculation of the electrostatic and vdW terms
 
-		if (doSolvationE) //initialize solvation energy calculation
-                    initializeSolvationCalculation(pairs14,pairsNonBonded,(res1==res2));
+		if (params.solvationForcefield == SolvationForcefield.EEF1) {
+			initializeSolvationCalculation(pairs14,pairsNonBonded,(res1==res2));
+		}
 	}
 
 	// This function sets up the arrays for energy evaluation
@@ -231,7 +203,7 @@ public class ForcefieldEnergy implements Serializable {
 		
 		// calculate vdW multiplier
 		// Note: Bmult = vdwMultiplier^6 and Amult = vdwMultiplier^12
-		Bmult = vdwMultiplier * vdwMultiplier;
+		Bmult = params.vdwMultiplier * params.vdwMultiplier;
 		Bmult = Bmult*Bmult*Bmult;
 		Amult = Bmult*Bmult;
 		
@@ -578,9 +550,9 @@ public class ForcefieldEnergy implements Serializable {
 		double[] data = this.coordsAndCharges.data;
 		int res1Start = this.coordsAndCharges.res1Start;
 		int res2Start = this.coordsAndCharges.res2Start;
-		boolean useHydrogenEs = this.useHydrogenEs;
-		boolean useHydrogenVdw = this.useHydrogenVdw;
-		boolean distDepDielect = this.distDepDielect;
+		boolean useHydrogenEs = params.hElect;
+		boolean useHydrogenVdw = params.hVDW;
+		boolean distDepDielect = params.distDepDielect;
 		boolean isInternal = this.isInternal;
 		double solvCutoff2 = this.solvCutoff*this.solvCutoff;
 		int numberSolvated = this.numberSolvated;
@@ -593,11 +565,11 @@ public class ForcefieldEnergy implements Serializable {
 		// 1-4 electrostatic terms are scaled by 1/1.2
 		switch(params.forcefld){
 			case AMBER:
-				coulombFactor = (constCoulomb/1.2) / (dielectric);
+				coulombFactor = (constCoulomb/1.2) / (params.dielectric);
 				break;
 			case CHARMM19:
 			case CHARMM19NEUTRAL:
-				coulombFactor = (constCoulomb * 0.4) / (dielectric);
+				coulombFactor = (constCoulomb * 0.4) / (params.dielectric);
 				break;
 			default:
 				throw new Error("FORCEFIELD NOT RECOGNIZED!!!");
@@ -654,7 +626,7 @@ public class ForcefieldEnergy implements Serializable {
 		}
 
 		// The full nonbonded electrostatic terms are NOT scaled down by 1/1.2
-		coulombFactor = constCoulomb / (dielectric);
+		coulombFactor = constCoulomb / (params.dielectric);
 		
 		// OPTIMIZATION: non-bonded terms usually far outnumber the other terms
 		ix5 = -5;
@@ -708,7 +680,7 @@ public class ForcefieldEnergy implements Serializable {
 		}
 		
 		// not doing solvation? we're done
-		if (!doSolvationE) {
+		if (params.solvationForcefield != SolvationForcefield.EEF1) {
 			return checkEnergy(esEnergy + vdwEnergy);
 		}
 		
@@ -761,7 +733,7 @@ public class ForcefieldEnergy implements Serializable {
 			}
 		}
 		
-		solvEnergy *= solvScale;
+		solvEnergy *= params.solvScale;
 		
 		// finally, we're done
 		return checkEnergy(esEnergy + vdwEnergy + solvEnergy);

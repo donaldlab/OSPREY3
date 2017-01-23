@@ -27,7 +27,7 @@ public class SeqGMECFinder {
     
     public SeqGMECFinder(ConfigFileParser cfp){
         this.cfp = cfp;
-        this.mutFile = cfp.getParams().getFile("MutFile");
+        this.mutFile = cfp.params.getFile("MutFile");
     }
     
     

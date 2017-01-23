@@ -4,12 +4,9 @@ import static org.junit.Assert.*;
 
 import java.io.IOException;
 
-import org.junit.BeforeClass;
 import org.junit.Test;
 
 import edu.duke.cs.osprey.TestBase;
-import edu.duke.cs.osprey.control.Defaults;
-import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
@@ -42,11 +39,6 @@ public class TestForcefieldKernelSubset extends TestBase {
 			openclQueuePool.cleanup();
 			gpuffcuda.cleanup();
 		}
-	}
-	
-	@BeforeClass
-	public static void before() {
-		EnvironmentVars.resTemplates = Defaults.genericTemplateLibrary;
 	}
 	
 	private Forcefields makeForcefields(Residues r, Residue[] residues)
@@ -206,7 +198,7 @@ public class TestForcefieldKernelSubset extends TestBase {
 		assertThat(ff.gpuffSubcuda.getEnergy(), isRelatively(expectedWtEnergy));
 		
 		// mutate a residue
-		ResidueTypeDOF mutator = new ResidueTypeDOF(r.gly15);
+		ResidueTypeDOF mutator = new ResidueTypeDOF(r.strand.templateLib, r.gly15);
 		mutator.mutateTo("VAL");
 
 		assertThat(ff.efuncSub.getEnergy(), isRelatively(expectedMutantEnergy));

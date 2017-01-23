@@ -41,7 +41,7 @@ public class BenchmarkPartitionFunction extends TestBase {
 		
 		// setup the config for the pffactory
 		KSConfigFileParser cfp = new KSConfigFileParser();
-		cfp.getParams().setValue("MinimizationThreads", Integer.toString(NumThreads));
+		cfp.params.setValue("MinimizationThreads", Integer.toString(NumThreads));
 		
 		System.out.println("\n\nBenchmarking " + KSTermini.getTerminiString(strand) + "...\n");
 		

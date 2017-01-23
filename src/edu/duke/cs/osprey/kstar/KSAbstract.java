@@ -77,24 +77,24 @@ public abstract class KSAbstract implements KSInterface {
 
 		this.cfp = cfp;
 
-		EW = cfp.getParams().getDouble("Ew",0);
-		I0 = cfp.getParams().getDouble("Ival", 5);
-		pdbName = cfp.getParams().getFile("PDBNAME").getAbsolutePath();
-		useEPIC = cfp.getParams().getBool("UseEPIC");
-		useTupExp = cfp.getParams().getBool("UseTupExp");
-		useEllipses = cfp.getParams().getBool("useEllipses");
-		useERef = cfp.getParams().getBool("useERef");
-		addResEntropy = cfp.getParams().getBool("AddResEntropy");
-		addWT = cfp.getParams().getBool("addWT", true);
-		addWTRots = cfp.getParams().getBool("addWTRots", true);
+		EW = cfp.params.getDouble("Ew",0);
+		I0 = cfp.params.getDouble("Ival", 5);
+		pdbName = cfp.params.getFile("PDBNAME").getAbsolutePath();
+		useEPIC = cfp.params.getBool("UseEPIC");
+		useTupExp = cfp.params.getBool("UseTupExp");
+		useEllipses = cfp.params.getBool("useEllipses");
+		useERef = cfp.params.getBool("useERef");
+		addResEntropy = cfp.params.getBool("AddResEntropy");
+		addWT = cfp.params.getBool("addWT", true);
+		addWTRots = cfp.params.getBool("addWTRots", true);
 
 		if(!addWT && addWTRots)
 			throw new RuntimeException("ERROR: addWTRots is true but addWT is false. addWT must be true if addWTRots is true");
 
-                usePoissonBoltzmann = cfp.getParams().getBool("UsePoissonBoltzmann");
-                stericThresh = cfp.getParams().getDouble("StericThresh");
+                usePoissonBoltzmann = cfp.params.getBool("UsePoissonBoltzmann");
+                stericThresh = cfp.params.getDouble("StericThresh");
                 
-		useVoxelG = cfp.getParams().getBool("useVoxelG", false);
+		useVoxelG = cfp.params.getBool("useVoxelG", false);
 		if(useVoxelG && !useTupExp)
 			throw new RuntimeException("ERROR: K* with continuous entropy requires LUTE");
 	}
@@ -102,7 +102,7 @@ public abstract class KSAbstract implements KSInterface {
 
 	public void checkAPPP(){
 		//check if using a-priori-provable pruning, and set it up if we are
-		if(cfp.getParams().getBool("APrioriProvablePruning", useTupExp&&!usePoissonBoltzmann)) {
+		if(cfp.params.getBool("APrioriProvablePruning", useTupExp&&!usePoissonBoltzmann)) {
 			//in the case of LUTE this is needed for provability
 			APrioriPruningProver appp = new APrioriPruningProver(this,cfp,strand2AllowedSeqs);
 			EW = appp.calcEw();
@@ -157,7 +157,7 @@ public abstract class KSAbstract implements KSInterface {
 
 
 	protected void createEmatDir() {
-		ObjectIO.makeDir(getEMATdir(), cfp.getParams().getBool("kStarDeleteEmatDir", false));
+		ObjectIO.makeDir(getEMATdir(), cfp.params.getBool("kStarDeleteEmatDir", false));
 	}
 
 
@@ -238,7 +238,7 @@ public abstract class KSAbstract implements KSInterface {
 
 	protected void printSequences() {
 
-		doWTCalc = !cfp.getParams().getBool("kStarSkipWTCalc");
+		doWTCalc = !cfp.params.getBool("kStarSkipWTCalc");
 
 		if(!doWTCalc) {
 			wtKSCalc = null;
@@ -422,7 +422,7 @@ public abstract class KSAbstract implements KSInterface {
 					// partition function
 					
 					System.out.println("\nRe-pruning to steric threshold...");
-					double maxPruningInterval = cfp.getParams().getDouble("StericThresh");
+					double maxPruningInterval = cfp.params.getDouble("StericThresh");
 					pf.rePruneReducedSP(maxPruningInterval);
 					
 					if(pf.getReducedSearchProblem().numConfs(pf.getReducedPruningMatrix()).compareTo(BigInteger.ZERO) == 0) {
@@ -473,9 +473,9 @@ public abstract class KSAbstract implements KSInterface {
                                     addWT, 
                                     contSCFlex,
                                     useEPIC,
-                                    new EPICSettings(cfp.getParams()),
+                                    new EPICSettings(cfp.params),
                                     useTupExp,
-                                    new LUTESettings(cfp.getParams()),
+                                    new LUTESettings(cfp.params),
                                     dset, 
                                     moveableStrands, 
                                     freeBBZones,
@@ -584,7 +584,7 @@ public abstract class KSAbstract implements KSInterface {
 
 	protected String getOutputDir() {
 		if(outputDir == null) {
-			outputDir = cfp.getParams().getValue("kStarOutputDir", "runName");
+			outputDir = cfp.params.getValue("kStarOutputDir", "runName");
 			if(outputDir.equalsIgnoreCase("runName")) outputDir = getRunName();
 		}
 		return outputDir; 
@@ -592,19 +592,19 @@ public abstract class KSAbstract implements KSInterface {
 
 
 	protected String getRunName() {
-		if(runName == null) runName = cfp.getParams().getValue("runName");
+		if(runName == null) runName = cfp.params.getValue("runName");
 		return runName;
 	}
 
 
 	protected String getEMATdir() {
-		if(ematDir == null) ematDir = getOutputDir() + File.separator + cfp.getParams().getValue("kStarEmatDir");
+		if(ematDir == null) ematDir = getOutputDir() + File.separator + cfp.params.getValue("kStarEmatDir");
 		return ematDir;
 	}
 
 
 	protected synchronized String getCheckPointDir() {
-		if(checkPointDir == null) checkPointDir = getOutputDir() + File.separator + cfp.getParams().getValue("kStarCheckPointDir");
+		if(checkPointDir == null) checkPointDir = getOutputDir() + File.separator + cfp.params.getValue("kStarCheckPointDir");
 		return checkPointDir;
 	}
 
@@ -667,7 +667,7 @@ public abstract class KSAbstract implements KSInterface {
 
 		// compute wt sequence for reference
 		ArrayList<ArrayList<String>> strandSeqs = getStrandStringsAtPos(0);		
-		boolean contSCFlex = cfp.getParams().getBool("doMinimize", true);
+		boolean contSCFlex = cfp.params.getBool("doMinimize", true);
 		String impl = PFAbstract.getCFGImpl();
 		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(contSCFlex, contSCFlex, contSCFlex));
 		ArrayList<String> pfImplVals = new ArrayList<String>(Arrays.asList(impl, impl, impl));

@@ -9,12 +9,12 @@ import java.util.ArrayList;
 import java.util.TreeSet;
 
 import edu.duke.cs.osprey.confspace.Strand;
+import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.kstar.KSTermini;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.structure.Atom;
-import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.structure.Residue.SecondaryStructure;
@@ -35,7 +35,7 @@ public class PerturbationSelector {
     boolean doRamaCheck;//Check if proposed perturbation states are Ramachandran allowed
     ArrayList<String> flexibleRes;//PDB numbers of flexible residues
     
-    Molecule m;//generated from provided PDB file
+    Strand strand;//generated from provided PDB file
     
     
     
@@ -66,7 +66,10 @@ public class PerturbationSelector {
         this.selectLCAs = selectLCAs;
         this.flexibleRes = flexibleRes;
         
-        m = Strand.builder(PDBIO.readFile(PDBFile)).setResidues(termini).build().mol;
+        strand = Strand.builder(PDBIO.readFile(PDBFile))
+        	.setTemplateLibrary(EnvironmentVars.resTemplates)
+        	.setResidues(termini)
+        	.build();
     }
     
     
@@ -91,7 +94,7 @@ public class PerturbationSelector {
         
         mutateFlexResToGly();
 
-        perts = ps.makePerturbations(m);
+        perts = ps.makePerturbations(strand.mol);
         ps.pertStates = new ArrayList<>();
         
         //OK now figure out which states are available for each residue
@@ -126,9 +129,9 @@ public class PerturbationSelector {
         for(String resNum : flexibleRes){
        
         	// AAO 2016: mutation assumes residue is an amino acid. throws an exception otherwise
-            Residue res = m.getResByPDBResNumber(resNum);
+            Residue res = strand.mol.getResByPDBResNumber(resNum);
             if(HardCodedResidueInfo.hasAminoAcidBB(res) && !res.fullName.startsWith("FOL"))
-            	new ResidueTypeDOF(res).mutateTo("GLY");
+            	new ResidueTypeDOF(strand.templateLib, res).mutateTo("GLY");
         }
     }
     
@@ -399,8 +402,8 @@ public class PerturbationSelector {
             boolean correctBonding = true;
             
             for(int offset=1; offset<resCount; offset++){
-                Residue res1 = m.getResByPDBResNumber(flexibleRes.get(pos+offset-1));
-                Residue res2 = m.getResByPDBResNumber(flexibleRes.get(pos+offset));
+                Residue res1 = strand.mol.getResByPDBResNumber(flexibleRes.get(pos+offset-1));
+                Residue res2 = strand.mol.getResByPDBResNumber(flexibleRes.get(pos+offset));
                 
                 int Cindex = res1.getAtomIndexByName("C");
                 int Nindex = res2.getAtomIndexByName("N");
@@ -422,7 +425,7 @@ public class PerturbationSelector {
                 //we have a stretch of bonded residues.  Check secondary structure.
                 ArrayList<Residue> candidateRes = new ArrayList<>();
                 for(int offset=0; offset<resCount; offset++){
-                    candidateRes.add(m.getResByPDBResNumber(flexibleRes.get(pos+offset)));
+                    candidateRes.add(strand.mol.getResByPDBResNumber(flexibleRes.get(pos+offset)));
                 }
                 if( secondaryStructureCorrect(candidateRes,pertType) ){
                     startPos.add(pos);
@@ -528,7 +531,7 @@ public class PerturbationSelector {
         //OK if we get here the pert state is geometrically possible
         //Check Ramachandran for this residue...
         failingPertIndex = -1;//did not fail to apply perturbation
-        boolean ok = ramaCheck(m.getResByPDBResNumber(flexibleRes.get(pos)));//just check res,
+        boolean ok = ramaCheck(strand.mol.getResByPDBResNumber(flexibleRes.get(pos)));//just check res,
         //see if works for any Ramachandran category except Gly
         
         restoreFlexResCoords(backupCoords);
@@ -541,7 +544,7 @@ public class PerturbationSelector {
         int numPos = flexibleRes.size();
         double[][] backup = new double[numPos][];
         for(int flexRes=0; flexRes<numPos; flexRes++){
-            Residue res = m.getResByPDBResNumber(flexibleRes.get(flexRes));
+            Residue res = strand.mol.getResByPDBResNumber(flexibleRes.get(flexRes));
             backup[flexRes] = res.coords.clone();
         }
         
@@ -553,7 +556,7 @@ public class PerturbationSelector {
         //restore from backup
         int numPos = flexibleRes.size();
         for(int flexRes=0; flexRes<numPos; flexRes++){
-            Residue res = m.getResByPDBResNumber(flexibleRes.get(flexRes));
+            Residue res = strand.mol.getResByPDBResNumber(flexibleRes.get(flexRes));
             res.coords = backup[flexRes];
         }
     }

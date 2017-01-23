@@ -241,12 +241,12 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 
 	public SearchProblem getSearchProblem( int strand, KSAllowedSeqs strandSeqs ) {
 
-		String tmp = getParams().getValue("kStarOutputDir");
-		if(tmp.equalsIgnoreCase("runName")) tmp = getParams().getValue("RUNNAME");
+		String tmp = params.getValue("kStarOutputDir");
+		if(tmp.equalsIgnoreCase("runName")) tmp = params.getValue("RUNNAME");
 
-		String ematDir = tmp + File.separator + getParams().getValue("kStarEmatDir");
-		ObjectIO.makeDir(ematDir, getParams().getBool("kStarDeleteEmatDir", false));
-		String name = ematDir + File.separator + getParams().getValue("RUNNAME");
+		String ematDir = tmp + File.separator + params.getValue("kStarEmatDir");
+		ObjectIO.makeDir(ematDir, params.getBool("kStarDeleteEmatDir", false));
+		String name = ematDir + File.separator + params.getValue("RUNNAME");
 
 		String suffix = KSTermini.getTerminiString(strand);
 
@@ -256,22 +256,22 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 
 		System.out.println("CREATING SEARCH PROBLEM.  NAME: "+name);
 
-		return new SearchProblem( name+"."+suffix, getParams().getValue("PDBNAME"), 
+		return new SearchProblem( name+"."+suffix, params.getValue("PDBNAME"), 
 				strandSeqs.getFlexRes(), 
 				strandSeqs.getAllowedAAs(),
-				getParams().getBool("AddWT"), 
-				getParams().getBool("AddWT", true), 
-				getParams().getBool("doMinimize", false),
+				params.getBool("AddWT"), 
+				params.getBool("AddWT", true), 
+				params.getBool("doMinimize", false),
 				new EPICSettings(params),
-				getParams().getBool("UseTupExp", false),
+				params.getBool("UseTupExp", false),
 				new LUTESettings(params),
 				dset, moveableStrands, freeBBZones,
-				getParams().getBool("useEllipses", false),
-				getParams().getBool("useERef", false),
-				getParams().getBool("AddResEntropy", false),
-				getParams().getBool("addWTRots", false),
+				params.getBool("useEllipses", false),
+				params.getBool("useERef", false),
+				params.getBool("AddResEntropy", false),
+				params.getBool("addWTRots", false),
 				getStrandLimits(strand),
-				getParams().getBool("useVoxelG", false),
+				params.getBool("useVoxelG", false),
                                 new ArrayList<>()
 				);
 	}
@@ -329,7 +329,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 
 			complexSeqs = new KSAllowedSeqs(strand, limits, setupDEEPer(), 
 					freeBBZoneTermini(limits), moveableStrandTermini(limits), flexRes, 
-					allowedAAs, getWTSequence(), getParams().getBool("addWT"), 
+					allowedAAs, getWTSequence(), params.getBool("addWT"), 
                                         numMutations, allowLessMut);
 
 			if( !complexSeqs.containsWTSeq() ) {

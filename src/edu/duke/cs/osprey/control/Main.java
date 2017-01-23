@@ -90,7 +90,7 @@ public class Main {
 			@Override
 			public void run(CommandArgs args) {
 				ConfigFileParser cfp = args.loadConfig();
-				LigandResEnergies lre = new LigandResEnergies(cfp.getParams());
+				LigandResEnergies lre = new LigandResEnergies(cfp.params);
 				lre.printEnergies();
 				args.cleanupConfig(cfp);
 			}
@@ -195,8 +195,7 @@ public class Main {
 			MultiTermEnergyFunction.setNumThreads(ThreadParallelism.getNumThreads());
 			CCDMinimizer.EConvTol = cfp.params.getDouble("CCDEConvTol");
 			CCDMinimizer.numIter = cfp.params.getInt("CCDNumIter");
-			EnvironmentVars.alwaysIdealizeSidechainsAfterMutation = cfp.params.getBool("ALWAYSIDEALIZESIDECHAINSAFTERMUTATION");
-
+			
 			return cfp;
 		}
 		

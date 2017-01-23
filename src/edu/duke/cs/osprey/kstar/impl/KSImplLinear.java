@@ -41,10 +41,10 @@ public class KSImplLinear extends KSAbstract {
 
 		if(doCheckPoint) createCheckPointDir();
 
-		contSCFlex = cfp.getParams().getBool("doMinimize", true);
+		contSCFlex = cfp.params.getBool("doMinimize", true);
 		ArrayList<Boolean> contSCFlexVals = new ArrayList<Boolean>(Arrays.asList(contSCFlex));
 		createEmats(contSCFlexVals);
-		pfImpl = cfp.getParams().getValue("kStarPFuncMethod");
+		pfImpl = cfp.params.getValue("kStarPFuncMethod");
 	}
 
 

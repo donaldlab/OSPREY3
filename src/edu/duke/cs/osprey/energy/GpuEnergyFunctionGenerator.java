@@ -18,7 +18,7 @@ public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 	private GpuStreamPool cudaStreams;
 	
 	private GpuEnergyFunctionGenerator(ForcefieldParams ffParams) {
-		super(ffParams, Double.POSITIVE_INFINITY, false);
+		super(ffParams);
 		this.intergen = new ForcefieldInteractionsGenerator();
 		this.openclQueues = null;
 		this.cudaStreams = null;

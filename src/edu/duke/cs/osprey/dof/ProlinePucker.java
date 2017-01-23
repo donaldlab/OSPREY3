@@ -5,8 +5,8 @@
  */
 package edu.duke.cs.osprey.dof;
 
-import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.SidechainIdealizer;
+import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.ConfProblem;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
@@ -27,19 +27,21 @@ public class ProlinePucker extends DegreeOfFreedom {
     
     boolean basePucker;//original pucker: param=0 describes this
     boolean curPucker;//pucker that we currently want
+    GenericResidueTemplateLibrary templateLib;
     Residue res;
     
     
     ConfProblem puckerProblem = null;//if not null, indicates failure to close ring
     
     
-    public ProlinePucker(Residue res){
+    public ProlinePucker(GenericResidueTemplateLibrary templateLib, Residue res){
+        this.templateLib = templateLib;
         this.res = res;
         
         if(res.fullName.toUpperCase().startsWith("PRO"))
             basePucker = computePucker(res);
         else {//pucker will arise by mutation.  Use ideal Pro pucker
-            Residue idealPro = EnvironmentVars.resTemplates.getTemplateForMutation("PRO", res, true).templateRes;
+            Residue idealPro = this.templateLib.getTemplateForMutation("PRO", res).templateRes;
             basePucker = computePucker(idealPro);
         }
         
@@ -76,7 +78,7 @@ public class ProlinePucker extends DegreeOfFreedom {
             throw new RuntimeException("ERROR: Bad parameter value of proline pucker: "+paramVal);
         
         //let's generate the correct geometry for the current pucker.  
-        SidechainIdealizer.idealizeSidechain(res);
+        SidechainIdealizer.idealizeSidechain(templateLib, res);
     }
     
     
@@ -122,7 +124,7 @@ public class ProlinePucker extends DegreeOfFreedom {
     
     @Override
     public DegreeOfFreedom copy() {
-        return new ProlinePucker(res);
+        return new ProlinePucker(templateLib, res);
     }
     
     @Override

@@ -12,6 +12,7 @@ import cern.colt.matrix.DoubleMatrix2D;
 import cern.colt.matrix.linalg.Algebra;
 import cern.colt.matrix.linalg.SingularValueDecomposition;
 import cern.jet.math.Functions;
+import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.DOFBlock;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.deeper.GenChi1Calc;
@@ -667,7 +668,7 @@ public class BBFreeBlock implements Serializable, DOFBlock {
             RigidBodyMotion motion = new RigidBodyMotion(new double[3], RotationMatrix.identity(), SCTranslations[resNum]);
             SidechainIdealizer.moveSidechain(residues.get(resNum), motion);
             //...now idealize
-            SidechainIdealizer.idealizeSidechain(residues.get(resNum));
+            SidechainIdealizer.idealizeSidechain(EnvironmentVars.resTemplates, residues.get(resNum));
             //and get gen chi1 to where it was before, so this BB motion commutes w/ sidechain dihedral changes
             GenChi1Calc.setGenChi1(residues.get(resNum), genChi1[resNum]);
         }

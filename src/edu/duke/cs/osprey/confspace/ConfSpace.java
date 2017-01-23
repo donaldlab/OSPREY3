@@ -238,11 +238,11 @@ public class ConfSpace implements Serializable {
             Residue res = m.getResByPDBResNumber( flexibleRes.get(pos) );
             
             if(res.template.name.equalsIgnoreCase("PRO"))//the reisdue is a proline
-                res.pucker = new ProlinePucker(res);
+                res.pucker = new ProlinePucker(EnvironmentVars.resTemplates, res);
             else {//see if it can mutate to a proline
                 for(String AAType : allowedAAs.get(pos)){
                     if(AAType.equalsIgnoreCase("PRO")){
-                        res.pucker = new ProlinePucker(res);
+                        res.pucker = new ProlinePucker(EnvironmentVars.resTemplates, res);
                         break;
                     }
                 }
@@ -303,9 +303,9 @@ public class ConfSpace implements Serializable {
             Residue res = m.getResByPDBResNumber( flexibleRes.get(pos) );
             String resName = res.template.name;
             
-            if(EnvironmentVars.resTemplates.getTemplateForMutation(resName, res, false) != null){
+            if(EnvironmentVars.resTemplates.getTemplate(resName) != null){
                 //mutation to current residue type is possible, i.e., this position is mutatable
-            //if(HardCodedResidueInfo.canMutateTo(res.template)){//this messes up for N-term mutations
+                //if(HardCodedResidueInfo.canMutateTo(res.template)){//this messes up for N-term mutations
                 
                 ResidueTypeDOF mutDOF = mutDOFs.get(pos);
                 
@@ -317,11 +317,11 @@ public class ConfSpace implements Serializable {
                         mutDOF.mutateTo("PRO");
                         break;
                     }
-                }                
+                }
                 
                 // AAO 2016: mutation assumes residue is an amino acid. throws an exception otherwise
                 if(HardCodedResidueInfo.hasAminoAcidBB(res) && !res.fullName.startsWith("FOL")) {
-                	mutDOF.mutateTo(resName);
+                    mutDOF.mutateTo(resName);
                 }
             }
         }
@@ -334,7 +334,7 @@ public class ConfSpace implements Serializable {
         //assuming for now that this is a single-residue position...if multiple just add the following confDOFs for each residue
         
         //mutation DOF
-        ans.add(new ResidueTypeDOF(res));
+        ans.add(new ResidueTypeDOF(EnvironmentVars.resTemplates, res));
         
         int maxNumDihedrals = 0;//we need to create enough dihedral confDOFs for the allowed AA type with the most dihedrals
         

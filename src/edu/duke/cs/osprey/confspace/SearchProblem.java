@@ -127,7 +127,7 @@ public class SearchProblem implements Serializable {
         
         //energy function setup
         EnergyFunctionGenerator eGen = EnvironmentVars.curEFcnGenerator;
-        decideShellResidues(eGen.distCutoff);
+        decideShellResidues(eGen.ffParams.shellDistCutoff);
         fullConfE = eGen.fullConfEnergy(confSpace,shellResidues);
     }
     

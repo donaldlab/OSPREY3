@@ -47,7 +47,7 @@ public interface ConfSearchFactory {
 					RCs rcs = new RCs(pmat);
 					
 					// how many iterations of MPLP should we do?
-					int numMPLPIters = cfp.getParams().getInt("NumMPLPIters");
+					int numMPLPIters = cfp.params.getInt("NumMPLPIters");
 					if (numMPLPIters <= 0) {
 						
 						// zero MPLP iterations is exactly the traditional heuristic, so use the fast implementation
@@ -60,7 +60,7 @@ public interface ConfSearchFactory {
 						// always faster than edge-based MPLP, so just use node-based MPLP all the time.
 						// also, always use a static order with MPLP
 						// MPLP isn't optimized to do differential node scoring quickly so DynamicHMean is super slow!
-						double convergenceThreshold = cfp.getParams().getDouble("MPLPConvergenceThreshold");
+						double convergenceThreshold = cfp.params.getDouble("MPLPConvergenceThreshold");
 						hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), emat, numMPLPIters, convergenceThreshold);
 						order = new StaticScoreHMeanAStarOrder();
 					}

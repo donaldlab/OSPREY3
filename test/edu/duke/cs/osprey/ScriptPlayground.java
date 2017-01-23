@@ -3,7 +3,6 @@ package edu.duke.cs.osprey;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.FORCEFIELD;
-import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 
@@ -30,17 +29,12 @@ public class ScriptPlayground {
 		
 		// make the forcefield
 		ForcefieldParams ffparams = new ForcefieldParams(FORCEFIELD.AMBER);
-		ffparams.doSolvationE = false;
-		
-		// make the template library
-		GenericResidueTemplateLibrary lib = GenericResidueTemplateLibrary.builder()
-			.setForcefield(ffparams)
-			.build();
+		ffparams.solvationForcefield = null;
 		
 		// make the strand
 		Strand strand = Strand.builder(mol)
 			.setResidues(2, 73)
-			.setTemplateLibrary(lib)
+			.setDefaultTemplateLibrary(ffparams)
 			.build();
 	}
 }

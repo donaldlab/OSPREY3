@@ -22,12 +22,12 @@ public class EnergyCalculator {
 		
 		// this calculator doesn't really work with perturbations
 		// the whole point is to evaluate the input structure without changing it
-		if (cfp.getParams().getBool("doPerturbations")) {
+		if (cfp.params.getBool("doPerturbations")) {
 			throw new Error("DEEPer not supported by Energy Calculator");
 		}
 		
 		// also, it doesn't make much sense to run on non-wild-type rotamers
-		if (!cfp.getParams().getBool("addWTRots")) {
+		if (!cfp.params.getBool("addWTRots")) {
 			throw new Error("Must turn on addWTRots to use Energy Calculator. Otherwise, you're just evaluating arbitrary conformations");
 		}
 		
@@ -50,7 +50,7 @@ public class EnergyCalculator {
 		}
 		
 		double energy;
-		if (cfp.getParams().getBool("doMinimize")) {
+		if (cfp.params.getBool("doMinimize")) {
 			
 			// run CCD over the continuous degrees of freedom
 			// (on existing structure, not any RCs)

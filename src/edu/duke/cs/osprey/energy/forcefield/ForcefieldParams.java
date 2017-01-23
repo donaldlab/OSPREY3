@@ -73,13 +73,10 @@ public class ForcefieldParams implements Serializable {
     public double solvScale = 0.5; //the scale factor for the solvation energies
     public double dielectric = 6;	
     public boolean distDepDielect = true;
-    public boolean doSolvationE = true; //should solvation energies be computed
     public boolean hElect = true;
     public boolean hVDW = true;
-    
-    // TODO: should these really be here?
-    public double shellDistCutoff = Double.POSITIVE_INFINITY;
-    public boolean usePoissonBoltzmann = false;
+    public double shellDistCutoff = Double.POSITIVE_INFINITY; //distance cutoff for interactions (angstroms)
+    public SolvationForcefield solvationForcefield = Defaults.solvationForcefield;
     
     public enum FORCEFIELD {
         
@@ -151,6 +148,11 @@ public class ForcefieldParams implements Serializable {
         }
     }
     
+    public static enum SolvationForcefield {
+        EEF1,
+        PoissonBoltzmann;
+    }
+    
     public ForcefieldParams() {
         this(Defaults.forcefield);
     }
@@ -173,6 +175,7 @@ public class ForcefieldParams implements Serializable {
         }
                 
         // Read in the EEF1 solvation parameters
+        // TODO: lazy loading of EEF1 params?
         try {
             eef1parms = new EEF1();
             eef1parms.readEEF1parm();
@@ -182,19 +185,18 @@ public class ForcefieldParams implements Serializable {
     }
     
     public ForcefieldParams(ForcefieldParams other) {
-    	this(other.forcefld);
-    	
-    	vdwMultiplier = other.vdwMultiplier;
-    	solvScale = other.solvScale;
-    	dielectric = other.dielectric;	
-    	distDepDielect = other.distDepDielect;
-    	doSolvationE = other.doSolvationE;
-    	hElect = other.hElect;
-    	hVDW = other.hVDW;
-    	shellDistCutoff = other.shellDistCutoff;
-    	usePoissonBoltzmann = other.usePoissonBoltzmann;
+        this(other.forcefld);
+        
+        vdwMultiplier = other.vdwMultiplier;
+        solvScale = other.solvScale;
+        dielectric = other.dielectric;	
+        distDepDielect = other.distDepDielect;
+        hElect = other.hElect;
+        hVDW = other.hVDW;
+        shellDistCutoff = other.shellDistCutoff;
+        solvationForcefield = other.solvationForcefield;
     }
-		
+    
     
     
     //************************************

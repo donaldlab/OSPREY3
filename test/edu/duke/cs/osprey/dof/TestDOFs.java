@@ -2,16 +2,17 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package edu.duke.cs.osprey;
+package edu.duke.cs.osprey.dof;
 
-//testing that DOFs are applied correctly
-//going to use the file 1CC8.ss.pdb so need to have it on hand
+import static org.hamcrest.Matchers.*;
+import static org.junit.Assert.*;
 
-import edu.duke.cs.osprey.dof.FreeDihedral;
-import edu.duke.cs.osprey.dof.ResidueTypeDOF;
+import org.junit.Test;
+
+import edu.duke.cs.osprey.TestBase;
+import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.structure.PDBFileReader;
-import edu.duke.cs.osprey.structure.PDBFileWriter;
+import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.Protractor;
 
@@ -19,25 +20,46 @@ import edu.duke.cs.osprey.tools.Protractor;
  *
  * @author mhall44
  */
-public class DOFTests {
+public class TestDOFs extends TestBase {
     
-    public static void testMutation(){
-        Molecule m = PDBFileReader.readPDBFile("1CC8.ss.pdb", null);
-        ResidueTypeDOF mutDOF = new ResidueTypeDOF(m.residues.get(37));//Ser 39 originally
+    @Test
+    public void testMutation() {
+        
+        Strand strand = Strand.builder(PDBIO.readFile("examples/1CC8/1CC8.ss.pdb")).build();
+        Residue res = strand.mol.residues.get(37); // Ser 39 originally
+        
+        res.pucker = new ProlinePucker(strand.templateLib, res);
+        ResidueTypeDOF mutDOF = new ResidueTypeDOF(strand.templateLib, res);
+        
         mutDOF.mutateTo("ALA");
-        PDBFileWriter.writePDBFile(m, "testResults/1CC8.S39A.pdb");
-        System.out.println("Wrote mutation test output: testResults/1CC8.S39A.pdb");
+        assertThat(res.template.name, is("ALA"));
+        
+        mutDOF.mutateTo("ILE");
+        assertThat(res.template.name, is("ILE"));
+        
+        mutDOF.mutateTo("VAL");
+        assertThat(res.template.name, is("VAL"));
+        
+        mutDOF.mutateTo("PRO");
+        assertThat(res.template.name, is("PRO"));
+        
+        mutDOF.mutateTo("GLY");
+        assertThat(res.template.name, is("GLY"));
+        
+        mutDOF.mutateTo("ARG");
+        assertThat(res.template.name, is("ARG"));
     }
     
-    public static void testDihedral(){
+    @Test
+    public void testDihedral(){
         
-        Molecule m = PDBFileReader.readPDBFile("1CC8.ss.pdb", null);
+        Molecule m = Strand.builder(PDBIO.readFile("examples/1CC8/1CC8.ss.pdb")).build().mol;
         Residue res = m.residues.get(37);
         
         FreeDihedral chi1 = new FreeDihedral(res,0);//Ser 39
         FreeDihedral chi2 = new FreeDihedral(res,1);
         
-        chi1.apply(45.);
+        chi1.apply(45);
         chi2.apply(-121);
         
         //measure dihedrals.  Start by collecting coordinates
@@ -47,13 +69,7 @@ public class DOFTests {
         double OG[] = res.getCoordsByAtomName("OG");
         double HG[] = res.getCoordsByAtomName("HG");
         
-        double chi1Measured = Protractor.measureDihedral(new double[][] {N,CA,CB,OG});
-        double chi2Measured = Protractor.measureDihedral(new double[][] {CA,CB,OG,HG});
-        
-        System.out.println("chi1 applied as 45, measured as "+chi1Measured);
-        System.out.println("chi2 applied as -121, measured as "+chi2Measured);
-        System.out.println("Outputting dihedral-adjusted structure as testResults/1CC8.dih.pdb");
-        PDBFileWriter.writePDBFile(m, "testResults/1CC8.dih.pdb");
+        assertThat(Protractor.measureDihedral(new double[][] {N,CA,CB,OG}), isRelatively(45));
+        assertThat(Protractor.measureDihedral(new double[][] {CA,CB,OG,HG}), isRelatively(-121));
     }
-    
 }

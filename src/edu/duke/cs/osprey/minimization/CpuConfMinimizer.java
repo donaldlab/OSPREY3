@@ -54,7 +54,7 @@ public class CpuConfMinimizer extends ConfMinimizer {
 	public CpuConfMinimizer(int numThreads, boolean areConfsStreaming, ForcefieldParams ffparams, Factory<ForcefieldInteractions,Molecule> interactions, ConfSpace confSpace, Factory<? extends Minimizer,MoleculeModifierAndScorer> minimizers) {
 		
 		// make the energy function factory
-		EnergyFunctionGenerator egen = new EnergyFunctionGenerator(ffparams, Double.POSITIVE_INFINITY, false);
+		EnergyFunctionGenerator egen = new EnergyFunctionGenerator(ffparams);
 		Factory<? extends EnergyFunction,Molecule> efuncs = new Factory<EnergyFunction,Molecule>() {
 			@Override
 			public EnergyFunction make(Molecule mol) {

@@ -686,7 +686,7 @@ public abstract class PFAbstract implements Serializable {
 		}
 
 		// completely relax pruning
-		double maxPruningInterval = cfp.getParams().getDouble("StericThresh");
+		double maxPruningInterval = cfp.params.getDouble("StericThresh");
 		rePruneReducedSP(maxPruningInterval);
 		
 		setNumUnPruned();

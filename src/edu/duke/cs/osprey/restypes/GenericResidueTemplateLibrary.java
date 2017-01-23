@@ -4,7 +4,7 @@
  */
 package edu.duke.cs.osprey.restypes;
 
-import java.io.File;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -14,33 +14,37 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.FileTools;
-import edu.duke.cs.osprey.tools.FileTools.Path;
 import edu.duke.cs.osprey.tools.StringParsing;
 
 /**
  *
  * @author mhall44
  */
-public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
+public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary implements Serializable {
+	
     //This library of residue templates defines what types of residues we can model
     //and what flexibility and energy parameters come with each type
     //NAMING: We assume each distinct residue (AA or otherwise) has its own name
     //however, many residues will have multiple slightly different forms (N-terminal, etc.) 
     //and these will share a name and a rotamer library entry
 	
+	private static final long serialVersionUID = 2643396106081986558L;
+
 	public static class Builder {
 		
 		private ForcefieldParams ffparams;
-		private Path templateCoords;
-		private Path rotamers;
-		private Path entropy;
+		private String templateCoordsText;
+		private String rotamersText;
+		private String backboneDependentRotamersText;
+		private String entropyText;
 		private boolean makeDAminoAcidTemplates;
 		
 		public Builder() {
 			ffparams = Defaults.forcefieldParams;
-			templateCoords = Path.makeResource("/config/all_amino_coords.in");
-			rotamers = Path.makeResource("/config/LovellRotamer.dat");
-			entropy = Path.makeResource("/config/ResEntropy.dat");
+			templateCoordsText = FileTools.readResource("/config/all_amino_coords.in");
+			rotamersText = FileTools.readResource("/config/LovellRotamer.dat");
+			backboneDependentRotamersText = null;
+			entropyText = FileTools.readResource("/config/ResEntropy.dat");
 			makeDAminoAcidTemplates = true;
 		}
 		
@@ -49,30 +53,23 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
 			return this;
 		}
 		
-		public Builder setTemplateCoordsFile(File val) {
-			templateCoords = Path.makeFile(val);
-			return this;
-		}
-		public Builder setTemplateCoordsFile(String val) {
-			templateCoords = Path.makeFile(val);
+		public Builder setTemplateCoords(String text) {
+			templateCoordsText = text;
 			return this;
 		}
 		
-		public Builder setRotamersFile(File val) {
-			rotamers = Path.makeFile(val);
-			return this;
-		}
-		public Builder setRotamersFile(String val) {
-			rotamers = Path.makeFile(val);
+		public Builder setRotamers(String text) {
+			rotamersText = text;
 			return this;
 		}
 		
-		public Builder setEntropyFile(File val) {
-			entropy = Path.makeFile(val);
+		public Builder setBackboneDependentRotamers(String text) {
+			backboneDependentRotamersText = text;
 			return this;
 		}
-		public Builder setEntropyFile(String val) {
-			entropy = Path.makeFile(val);
+		
+		public Builder setEntropy(String text) {
+			entropyText = text;
 			return this;
 		}
 		
@@ -83,15 +80,18 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
 		
 		public GenericResidueTemplateLibrary build() {
 			GenericResidueTemplateLibrary lib = new GenericResidueTemplateLibrary(ffparams);
-			lib.loadTemplateCoords(templateCoords.read());
-			if (rotamers != null) {
-				lib.loadRotamerLibrary(rotamers.read());
+			lib.loadTemplateCoords(templateCoordsText);
+			if (rotamersText != null) {
+				lib.loadRotamerLibrary(rotamersText);
+			}
+			if (backboneDependentRotamersText != null) {
+				lib.loadBackboneDependentRotamerLibrary(backboneDependentRotamersText);
 			}
 			if (makeDAminoAcidTemplates) {
 				lib.makeDAminoAcidTemplates();
 			}
-			if (entropy != null) {
-				lib.loadResEntropy(entropy.read());
+			if (entropyText != null) {
+				lib.loadResEntropy(entropyText);
 			}
 			return lib;
 		}
@@ -122,8 +122,7 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
         loadTemplates(FileTools.readResource(ffParams.forcefld.aaCTPath));
         loadTemplates(FileTools.readResource(ffParams.forcefld.grPath));
     }
-        
-        
+    
     public void loadTemplates(String text) {
         
         Iterator<String> lines = FileTools.parseLines(text).iterator();
@@ -334,8 +333,7 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
     
     
     
-    public ResidueTemplate getTemplateForMutation(String resTypeName, Residue res, boolean errorIfNone){   	
-    	//We want to mutate res to type resTypeName.  Get the appropriate template.
+    public ResidueTemplate getTemplate(String resTypeName) {
         //Currently only one template capable of being mutated to (i.e., having coordinates)
         //is available for each residue type.  If this changes update here!
         for(ResidueTemplate template : templates){
@@ -346,13 +344,18 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
                 }
             }
         }
-        
-        if(errorIfNone){//actually trying to mutate...throw an error if can't get a mutation
-            throw new RuntimeException("ERROR: Couldn't find a template for mutating "+res.fullName
-                    +" to "+resTypeName);
+        return null;
+    }
+    
+    public ResidueTemplate getTemplateForMutation(String resTypeName, Residue res) {
+        //We want to mutate res to type resTypeName.  Get the appropriate template.
+        ResidueTemplate template = getTemplate(resTypeName);
+        if (template != null) {
+            return template;
         }
-        else//just checking if template available for mutation...return null to indicate not possible
-            return null;
+        
+        //actually trying to mutate...throw an error if can't get a mutation
+        throw new RuntimeException("ERROR: Couldn't find a template for mutating " + res.fullName + " to " + resTypeName);
     }
     
     

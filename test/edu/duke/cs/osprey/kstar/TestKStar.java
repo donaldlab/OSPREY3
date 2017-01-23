@@ -22,7 +22,7 @@ public class TestKStar {
 
 	private void testLinear(KSConfigFileParser cfp) {
 		
-		double targetEpsilon = cfp.getParams().getDouble("epsilon");
+		double targetEpsilon = cfp.params.getDouble("epsilon");
 		
 		// run K*
 		KSImplLinear result = (KSImplLinear)new KStarCalculator(cfp).calcKStarScores();
@@ -164,11 +164,11 @@ public class TestKStar {
 		// override file-based config
 		
 		// I'm guessing most people have at least two cores, so compute the energy matrix a bit faster
-		cfp.getParams().setValue("EmatThreads", "2");
+		cfp.params.setValue("EmatThreads", "2");
 		
 		// this test takes several minutes at the config file's value of e=0.95,
 		// but it only takes about two minutes at e=0.99
-		cfp.getParams().setValue("epsilon", "0.99");
+		cfp.params.setValue("epsilon", "0.99");
 		
 		return cfp;
 	}
@@ -187,41 +187,41 @@ public class TestKStar {
 	@Test
 	public void test2RL0LinearParallelConf() {
 		KSConfigFileParser cfp = make2RL0Config();
-		cfp.getParams().setValue("kStarPFuncMethod", "parallelConf");
+		cfp.params.setValue("kStarPFuncMethod", "parallelConf");
 		testLinear(cfp);
 	}
 	
 	@Test
 	public void test2RL0LinearParallelConf2Threads() {
 		KSConfigFileParser cfp = make2RL0Config();
-		cfp.getParams().setValue("kStarPFuncMethod", "parallelConf");
-		cfp.getParams().setValue("MinimizationThreads", "2");
+		cfp.params.setValue("kStarPFuncMethod", "parallelConf");
+		cfp.params.setValue("MinimizationThreads", "2");
 		testLinear(cfp);
 	}
 	
 	@Test
 	public void test2RL0LinearParallelConf1Gpu() {
 		KSConfigFileParser cfp = make2RL0Config();
-		cfp.getParams().setValue("kStarPFuncMethod", "parallelConf");
-		cfp.getParams().setValue("MinimizationGpus", "1");
+		cfp.params.setValue("kStarPFuncMethod", "parallelConf");
+		cfp.params.setValue("MinimizationGpus", "1");
 		testLinear(cfp);
 	}
 	
 	@Test
 	public void test2RL0LinearParallelConf1Gpu4Streams() {
 		KSConfigFileParser cfp = make2RL0Config();
-		cfp.getParams().setValue("kStarPFuncMethod", "parallelConf");
-		cfp.getParams().setValue("MinimizationGpus", "1");
-		cfp.getParams().setValue("MinimizationStreamsPerGpu", "4");
+		cfp.params.setValue("kStarPFuncMethod", "parallelConf");
+		cfp.params.setValue("MinimizationGpus", "1");
+		cfp.params.setValue("MinimizationStreamsPerGpu", "4");
 		testLinear(cfp);
 	}
 	
 	@Test
 	public void test2RL0LinearParallelConf1Gpu16Streams() {
 		KSConfigFileParser cfp = make2RL0Config();
-		cfp.getParams().setValue("kStarPFuncMethod", "parallelConf");
-		cfp.getParams().setValue("MinimizationGpus", "1");
-		cfp.getParams().setValue("MinimizationStreamsPerGpu", "16");
+		cfp.params.setValue("kStarPFuncMethod", "parallelConf");
+		cfp.params.setValue("MinimizationGpus", "1");
+		cfp.params.setValue("MinimizationStreamsPerGpu", "16");
 		testLinear(cfp);
 	}
 }

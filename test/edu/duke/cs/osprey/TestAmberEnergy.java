@@ -8,6 +8,7 @@ import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
 import edu.duke.cs.osprey.structure.PDBIO;
 
 public class TestAmberEnergy extends TestBase {
@@ -23,46 +24,26 @@ public class TestAmberEnergy extends TestBase {
 	// use assert statements to check for correct output
 	
 	@Test
-	public void test1CC8WithSolv()
-	throws Exception {
-		
-		// setup the test
-		Strand strand = Strand.builder(PDBIO.readFile("examples/1CC8/1CC8.ss.pdb")).build();
-		EnergyFunction efunc = makeEfunc(strand, true);
-		
-		// run the test
-		double energy = efunc.getEnergy();
-		
-		// check the result
-		assertThat(energy, isRelatively(-986.6491862981836));
+	public void test1CC8WithSolv() {
+		test("examples/1CC8/1CC8.ss.pdb", SolvationForcefield.EEF1, -986.6491862981836);
 	}
 
 	@Test
-	public void test1CC8NoSolv()
-	throws Exception {
-		
-		// setup the test
-		Strand strand = Strand.builder(PDBIO.readFile("examples/1CC8/1CC8.ss.pdb")).build();
-		EnergyFunction efunc = makeEfunc(strand, false);
-		
-		// run the test
-		double energy = efunc.getEnergy();
-		
-		// check the result
-		assertThat(energy, isRelatively(-639.7025085949941));
+	public void test1CC8NoSolv() {
+		test("examples/1CC8/1CC8.ss.pdb", null, -639.7025085949941);
 	}
-	
-	private EnergyFunction makeEfunc(Strand strand, boolean doSolv) {
-		ForcefieldParams ffparams = new ForcefieldParams(strand.templateLib.ffParams);
-		ffparams.doSolvationE = doSolv;
-		// TODO: move these params into ForcefieldParams
-		double shellDistCutoff = Double.POSITIVE_INFINITY;
-		boolean usePoissonBoltzmann = false;
-		EnergyFunctionGenerator efuncgen = new EnergyFunctionGenerator(
-			ffparams,
-			shellDistCutoff,
-			usePoissonBoltzmann
-		);
-		return efuncgen.fullMolecEnergy(strand.mol);
+
+	private void test(String pdbPath, SolvationForcefield solvff, double energy) {
+		
+		ForcefieldParams ffparams = new ForcefieldParams();
+		ffparams.solvationForcefield = solvff;
+		
+		//compute the full energy for 1CC8 using the default AMBER forcefield, and compare it to OSPREY 2 values
+		Strand strand = Strand.builder(PDBIO.readFile(pdbPath))
+			.setDefaultTemplateLibrary(ffparams)
+			.build();
+		EnergyFunction efunc = new EnergyFunctionGenerator(ffparams).fullMolecEnergy(strand.mol);
+		
+		assertThat(efunc.getEnergy(), isRelatively(energy));
 	}
 }

@@ -15,10 +15,10 @@ import edu.duke.cs.osprey.dof.deeper.RamachandranChecker;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
-import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.StringParsing;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
@@ -30,7 +30,7 @@ public class ConfigFileParser {
     //An object that parses configuration files and uses them to initialize objects needed
     //in various calculations (i.e. for data file loading, conf space definition, pruning, etc.)
     
-    protected ParamSet params;
+    public final ParamSet params;
     
     public static ConfigFileParser makeFromFilePaths(String ... paths) {
         return makeFromFilePaths(Arrays.asList(paths));
@@ -63,8 +63,6 @@ public class ConfigFileParser {
     
     protected DEEPerSettings setupDEEPer(){
         //Set up the DEEPerSettings object, including the PertSet (describes the perturbations)
-        String runName = params.getValue("runName");
-        
         DEEPerSettings dset = new DEEPerSettings(
                 params.getBool("doPerturbations"),
                 params.getRunSpecificFileName("perturbationFile", ".pert"),
@@ -331,59 +329,45 @@ public class ConfigFileParser {
     
     //loading of data files
     //residue templates, rotamer libraries, forcefield parameters, and Ramachandran data
+    // TODO: update CFP members instead of EnvironmentVars, then replace loadData() with getters
     @Deprecated
     public void loadData(){
-                
-        boolean usePoissonBoltzmann = params.getBool("USEPOISSONBOLTZMANN");
-        boolean useEEF1 = params.getBool("DOSOLVATIONE") && (!usePoissonBoltzmann);
         
         //a lot of this depends on forcefield type so figure that out first
         //general forcefield data loaded into the ForcefieldParams in EnvironmentVars
-        ForcefieldParams curForcefieldParams = new ForcefieldParams(params.getValue("Forcefield"));
-        curForcefieldParams.distDepDielect = params.getBool("DISTDEPDIELECT");
-        curForcefieldParams.dielectric = params.getDouble("DIELECTCONST");
-        curForcefieldParams.vdwMultiplier = params.getDouble("VDWMULT");
-        curForcefieldParams.doSolvationE = useEEF1;//Only EEF1 solvation is part of the forcefield (P-B calls Delphi)
-        curForcefieldParams.solvScale = params.getDouble("SOLVSCALE");
-        curForcefieldParams.hElect = params.getBool("HELECT");
-        curForcefieldParams.hVDW = params.getBool("HVDW");
+        ForcefieldParams ffparams = new ForcefieldParams(params.getValue("Forcefield"));
+        ffparams.distDepDielect = params.getBool("DISTDEPDIELECT");
+        ffparams.dielectric = params.getDouble("DIELECTCONST");
+        ffparams.vdwMultiplier = params.getDouble("VDWMULT");
+        ffparams.solvScale = params.getDouble("SOLVSCALE");
+        ffparams.hElect = params.getBool("HELECT");
+        ffparams.hVDW = params.getBool("HVDW");
+        ffparams.shellDistCutoff = params.getDouble("SHELLDISTCUTOFF");
         
-        
-        EnvironmentVars.curEFcnGenerator = new EnergyFunctionGenerator( 
-                curForcefieldParams,
-                params.getDouble("SHELLDISTCUTOFF"),
-                usePoissonBoltzmann );
-        
-        GenericResidueTemplateLibrary resTemplates = new GenericResidueTemplateLibrary(curForcefieldParams);
-        
-        //load template coordinates (necessary for all residues we might want to mutate to)
-        //these will be matched to templates
-        resTemplates.loadTemplateCoords(FileTools.readResource("/config/all_amino_coords.in"));
-        
-        //load rotamer libraries; the names of residues as they appear in the rotamer library file will be matched to templates
-        
-        
-        // PGC 2015: Always load the Lovell Rotamer Library.
-        resTemplates.loadRotamerLibrary(params.readPath("ROTFILE"));
-        
-        // load backbone-dependent rotamers only if needed
-        //see below; also gRotFile0 etc
-        if (params.getBool("UseDunbrackRotamers")) {
-            resTemplates.loadBackboneDependentRotamerLibrary(params.readPath("DUNBRACKROTFILE"));
+        if (params.getBool("USEPOISSONBOLTZMANN")) {
+            ffparams.solvationForcefield = SolvationForcefield.PoissonBoltzmann;
+        } else if (params.getBool("DOSOLVATIONE")) {
+            ffparams.solvationForcefield = SolvationForcefield.EEF1;
+        } else {
+            ffparams.solvationForcefield = null;
         }
+        
+        EnvironmentVars.curEFcnGenerator = new EnergyFunctionGenerator(ffparams);
+        
+        // make the template library
+        EnvironmentVars.resTemplates = GenericResidueTemplateLibrary.builder()
+            .setForcefield(ffparams)
+            .setRotamers(params.readPath("ROTFILE"))
+            .setBackboneDependentRotamers(params.getBool("UseDunbrackRotamers") ? params.readPath("DUNBRACKROTFILE") : null)
+            .setEntropy(params.readPath("RESENTROPYFILE"))
+            .build();
         
         // AAO 2016: load generic rotamer libraries
         for(String grotFile : params.searchParams("GROTFILE")) {
-            resTemplates.loadRotamerLibrary(params.readPath(grotFile));
+            EnvironmentVars.resTemplates.loadRotamerLibrary(params.readPath(grotFile));
         }
         
-        resTemplates.loadResEntropy(params.readPath("RESENTROPYFILE"));
-        
-        //let's make D-amino acid templates by inverting the L-amino acid templates 
-        resTemplates.makeDAminoAcidTemplates();
-        
-        EnvironmentVars.resTemplates = resTemplates;
-        
+        // load rama data
         if (!params.getValue("RAMAGLYFILE").equalsIgnoreCase("none")) {
             RamachandranChecker.getInstance().readInputFiles(
                 params.readPath("RAMAGLYFILE"),
@@ -393,46 +377,7 @@ public class ConfigFileParser {
             );
         }
         
-        
-        /*
-         * A lot of this is similar to this KSParser.setConfigPars code:
-         * 
-         hElect = (new Boolean((String)rParams.getValue("HELECT", "true"))).booleanValue();
-		hVDW = (new Boolean((String)rParams.getValue("HVDW", "true"))).booleanValue();
-		hSteric = (new Boolean((String)rParams.getValue("HSTERIC","false"))).booleanValue();
-		distDepDielect = (new Boolean((String)rParams.getValue("DISTDEPDIELECT","true"))).booleanValue();
-		dielectConst = (new Double((String)rParams.getValue("DIELECTCONST","6.0"))).doubleValue();
-		doDihedE = (new Boolean((String)rParams.getValue("DODIHEDE","false"))).booleanValue();
-		doSolvationE = (new Boolean((String)rParams.getValue("DOSOLVATIONE","true"))).booleanValue();
-		solvScale = (new Double((String)rParams.getValue("SOLVSCALE","0.5"))).doubleValue();
-		softvdwMultiplier = (new Double((String)rParams.getValue("VDWMULT","0.95"))).doubleValue();
-		stericThresh = (new Double((String)rParams.getValue("STERICTHRESH","0.4"))).doubleValue();
-		softStericThresh = (new Double((String)rParams.getValue("SOFTSTERICTHRESH","1.5"))).doubleValue();
-		EnvironmentVars.setDataDir(rParams.getValue("DATADIR","./"));
-		EnvironmentVars.setForcefld(rParams.getValue("FORCEFIELD","AMBER"));
-		double entropyScale = (new Double((String)rParams.getValue("ENTROPYSCALE","0.0"))).doubleValue();
-		EnvironmentVars.setEntropyScale(entropyScale);
-		
-		EnvironmentVars.setAArotLib(EnvironmentVars.getDataDir().concat(rParams.getValue("ROTFILE","LovellRotamer.dat")));
-
-                EnvironmentVars.autoFix = new Boolean((String)rParams.getValue("AUTOFIX","true")).booleanValue();
-                
-                String ramaGlyFile = (String)rParams.getValue("RAMAGLYFILE","rama500-gly-sym.data");
-
-                if( ! ramaGlyFile.equalsIgnoreCase("none") ){
-                    String ramaFiles[] = { EnvironmentVars.dataDir + ramaGlyFile,
-                    EnvironmentVars.dataDir + (String)rParams.getValue("RAMAPROFILE","rama500-pro.data"),
-                    EnvironmentVars.dataDir + (String)rParams.getValue("RAMAGENFILE","rama500-general.data"),
-                    EnvironmentVars.dataDir + (String)rParams.getValue("RAMAPREPROFILE","rama500-prepro.data")
-                    };
-                    RamachandranChecker.getInstance().readInputFiles( ramaFiles );
-                }
-
-         */
-    }
-    
-    // Getter function for the params.
-    public ParamSet getParams(){
-        return this.params;
+        // TODO: pass this to the conf space somehow
+        EnvironmentVars.alwaysIdealizeSidechainsAfterMutation = params.getBool("ALWAYSIDEALIZESIDECHAINSAFTERMUTATION");
     }
 }

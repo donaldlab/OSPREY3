@@ -5,6 +5,7 @@
  */
 package edu.duke.cs.osprey.dof.deeper.perts;
 
+import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.DOFBlock;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.deeper.GenChi1Calc;
@@ -89,7 +90,7 @@ public abstract class Perturbation extends DegreeOfFreedom {
         
         for(int resNum=0; resNum<dependentResidues.size(); resNum++){
             Residue res = dependentResidues.get(resNum);
-            SidechainIdealizer.idealizeSidechain(res);
+            SidechainIdealizer.idealizeSidechain(EnvironmentVars.resTemplates, res);
             GenChi1Calc.setGenChi1(res, dependentGenChi1.get(resNum));
         }
     }

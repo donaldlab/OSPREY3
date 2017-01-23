@@ -71,9 +71,9 @@ public class Residue implements Serializable {
     
     
     public static enum SecondaryStructure {
-    	HELIX,
-    	SHEET,
-    	LOOP;
+        HELIX,
+        SHEET,
+        LOOP;
     }
     public SecondaryStructure secondaryStruct = SecondaryStructure.LOOP;
     

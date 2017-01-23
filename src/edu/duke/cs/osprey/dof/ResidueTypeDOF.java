@@ -4,15 +4,19 @@
  */
 package edu.duke.cs.osprey.dof;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.util.ArrayList;
+
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.SidechainIdealizer;
+import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.RigidBodyMotion;
-import java.util.ArrayList;
 
 /**
  *
@@ -24,12 +28,32 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
     
     private static final long serialVersionUID = 4285811771185813789L;
     
-    Residue res;//what residue in the molecule we are talking about
-
+    // TODO: this should be final and not transient, but we're stuck using weird serialization for now
+    public transient GenericResidueTemplateLibrary templateLib;
     
+    private Residue res;//what residue in the molecule we are talking about
+    private boolean idealizeSidechainAfterMutation;
     
-    public ResidueTypeDOF(Residue res) {
+    public ResidueTypeDOF(GenericResidueTemplateLibrary templateLib, Residue res) {
+        this(templateLib, res, false);
+    }
+    
+    public ResidueTypeDOF(GenericResidueTemplateLibrary templateLib, Residue res, boolean idealizeSidechainAfterMutation) {
+        this.templateLib = templateLib;
         this.res = res;
+        this.idealizeSidechainAfterMutation = idealizeSidechainAfterMutation;
+    }
+    
+    // TEMP TODO HACKHACK: Java's serialization system forces us to de-serialize object without any context
+    // but these DoFs need the template library, which apparently doesn't serialize correctly
+    // (it's stupid... we shouldn't need to serialize the template library as part of the EPIC matrix anyway...)
+    // so explicitly force Java's default de-serializer to use the EnvironmentVars
+    // for now... need to find a better way to do this in the future
+    private void readObject(ObjectInputStream ois)
+    throws ClassNotFoundException, IOException {
+        ois.defaultReadObject();
+        templateLib = EnvironmentVars.resTemplates;
+        assert (templateLib != null);
     }
     
     public void mutateTo(String resType) {
@@ -37,7 +61,7 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
     }
     
     public ResidueTemplate getLibraryTemplate(String resType) {
-        return EnvironmentVars.resTemplates.getTemplateForMutation(resType, res, true);
+        return templateLib.getTemplateForMutation(resType, res);
     }
     
     public boolean isTemplate(ResidueTemplate template) {
@@ -105,7 +129,7 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
         
         //special case if sidechain loops back in additional place to backbone...
         if(oldTemplate.name.equalsIgnoreCase("PRO") || newTemplate.name.equalsIgnoreCase("PRO")){
-            SidechainIdealizer.idealizeSidechain(res);
+            SidechainIdealizer.idealizeSidechain(templateLib, res);
             if(!newTemplate.name.equalsIgnoreCase("PRO")){//if mutating from Pro, no ring closure issues possible anymore
                 if(res.pucker!=null){
                     if(res.pucker.puckerProblem != null){
@@ -115,8 +139,8 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
                 }
             }
         }
-        else if(EnvironmentVars.alwaysIdealizeSidechainsAfterMutation){
-            SidechainIdealizer.idealizeSidechain(res);
+        else if(idealizeSidechainAfterMutation){
+            SidechainIdealizer.idealizeSidechain(templateLib, res);
         }
     }
     
@@ -176,7 +200,7 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
     
     @Override
     public DegreeOfFreedom copy() {
-        return new ResidueTypeDOF(res);
+        return new ResidueTypeDOF(templateLib, res);
     }
     
     @Override
