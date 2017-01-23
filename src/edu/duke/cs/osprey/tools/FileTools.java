@@ -106,6 +106,18 @@ public class FileTools {
 			return read(file.getPath());
 		}
 		
+		public void write(String text, File file) {
+			write(text, file.getPath());
+		}
+		
+		public void write(String text, String path) {
+			try (FileOutputStream out = new FileOutputStream(resolve(path))) {
+				writeStream(text, out);
+			} catch (IOException ex) {
+				throw new RuntimeException(ex);
+			}
+		}
+		
 		@Override
 		public String toString() {
 			return "FileRoot:" + rootFile;
@@ -283,6 +295,19 @@ public class FileTools {
 	private static String readStream(InputStream in)
 	throws IOException {
 		return IOUtils.toString(in, (Charset)null);
+	}
+	
+	public static void writeFile(String text, String path) {
+		new FilePathRoot().write(text, path);
+	}
+	
+	public static void writeFile(String text, File file) {
+		new FilePathRoot().write(text, file);
+	}
+	
+	private static void writeStream(String text, OutputStream out)
+	throws IOException {
+		IOUtils.write(text, out, (Charset)null);
 	}
 	
 	public static Iterable<String> parseLines(String text) {

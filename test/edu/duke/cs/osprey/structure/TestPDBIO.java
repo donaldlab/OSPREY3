@@ -3,6 +3,8 @@ package edu.duke.cs.osprey.structure;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
+import java.util.Iterator;
+
 import org.junit.Test;
 
 import edu.duke.cs.osprey.structure.Residue.SecondaryStructure;
@@ -169,6 +171,12 @@ public class TestPDBIO {
 	private void assertReadWrite(String pdbText) {
 		Molecule mol = PDBIO.read(pdbText);
 		String pdbText2 = PDBIO.write(mol);
+		Iterator<String> lines = FileTools.parseLines(pdbText).iterator();
+		Iterator<String> lines2 = FileTools.parseLines(pdbText2).iterator();
+		while (lines.hasNext()) {
+			assertThat(lines2.hasNext(), is(true));
+			assertThat(lines2.next(), is(lines.next()));
+		}
 		assertThat(pdbText2, is(pdbText));
 	}
 }
