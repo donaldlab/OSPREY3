@@ -7,7 +7,7 @@ stericthresh 100
 ival 5.0
 ew 0
 
-kStarOutputDir test/2RL0.kstar
+kStarOutputDir examples/2RL0.kstar
 kStarPFuncMethod parallel0
 
 
