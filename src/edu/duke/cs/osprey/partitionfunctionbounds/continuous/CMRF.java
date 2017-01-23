@@ -370,8 +370,8 @@ public class CMRF {
             double enth = this.computeEnthalpySCMF();
             double entr = this.computeEntropySCMF();
             
-            double freeEnergy = enth - this.constRT*entr;
-            double logZ = Math.log(-freeEnergy/this.constRT);
+            double freeEnergy = enth + entr;
+            double logZ = freeEnergy; // freeEnergy is a direct lower bound on logZ
             if (Math.abs(logZ-oldLogZ) <= this.threshold) { 
                 return logZ;
             }
@@ -491,14 +491,14 @@ public class CMRF {
             double nodeEnthalpy = 0.0; 
             
             for (CMRFNodeDomain d : v.domains) { 
-                // compute single-node domain enthalpy 
+                // compute single-node domain enthalpy -- Ex~Q[\ln phi]
                 RKHSFunction probabilityFunc = v.marginals.get(d);
                 RKHSFunction enthalpyFunc = new RKHSFunction(
                         d.k,
                         d.domainLB,
                         d.domainUB,
                         (point) -> (
-                                probabilityFunc.eval(point) * d.energyFunction.applyAsDouble(point)));
+                                probabilityFunc.eval(point) * Math.log(d.energyFunction.applyAsDouble(point))));
                 nodeEnthalpy += enthalpyFunc.computeIntegral();
                 
             }
