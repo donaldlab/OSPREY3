@@ -32,8 +32,6 @@ import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.structure.PDBFileReader;
-import edu.duke.cs.osprey.structure.PDBFileWriter;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.StringParsing;
@@ -388,8 +386,9 @@ public class ConfSpace implements Serializable {
         
         double minE = energy.getValue(optDOFVals);//this will put m into the minimized conformation
         
-        if(outputPDBFile!=null)
-            PDBFileWriter.writePDBFile(m, outputPDBFile, minE);
+        if (outputPDBFile!=null) {
+            PDBIO.writeFile(m, "", minE, outputPDBFile);
+        }
         
         return minE;
     }
@@ -414,8 +413,9 @@ public class ConfSpace implements Serializable {
 
 		double minE = energy.getValue(optDOFVals);//this will put m into the minimized conformation
 		
-		if(outputPDBFile!=null)
-			PDBFileWriter.writePDBFile(m, outputPDBFile, minE);
+		if (outputPDBFile!=null) {
+			PDBIO.writeFile(m, "", minE, outputPDBFile);
+		}
 		
 		return (MultiTermEnergyFunction)energy.getEfunc();
 	}

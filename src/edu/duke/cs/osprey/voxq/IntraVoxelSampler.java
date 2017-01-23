@@ -9,7 +9,7 @@ import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
-import edu.duke.cs.osprey.structure.PDBFileWriter;
+import edu.duke.cs.osprey.structure.PDBIO;
 
 /**
  *
@@ -120,7 +120,7 @@ public class IntraVoxelSampler {
     //DEBUG!!!!
     void printMolec(String PDBName){
         System.out.println("DOF VALS BEING WRITTEN TO "+ PDBName +": "+getCurDOFVals());
-        PDBFileWriter.writePDBFile(mms.getMolec(), PDBName);
+        PDBIO.writeFile(mms.getMolec(), PDBName);
     }
     
     

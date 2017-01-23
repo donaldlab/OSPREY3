@@ -5,31 +5,22 @@
  */
 package edu.duke.cs.osprey;
 
-import cern.colt.matrix.DoubleMatrix1D;
+import java.io.File;
+import java.util.ArrayList;
+
 import edu.duke.cs.osprey.bbfree.BBFreeDOF;
 import edu.duke.cs.osprey.confspace.RC;
-import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
-import edu.duke.cs.osprey.dof.DihedralRotation;
 import edu.duke.cs.osprey.dof.deeper.RamachandranChecker;
-import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
-import edu.duke.cs.osprey.minimization.CCDMinimizer;
-import edu.duke.cs.osprey.minimization.IdealSeparableReference;
-import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
-import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.structure.PDBFileReader;
-import edu.duke.cs.osprey.structure.PDBFileWriter;
+import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.VectorAlgebra;
-import edu.duke.cs.osprey.voxq.VoxelsDeltaG;
-import java.io.File;
-import java.util.ArrayList;
 
 /**
  *
@@ -89,11 +80,11 @@ public class CatPark {
         
         //to do :
         //1. show confs at corners of 2-D projection
-        PDBFileWriter.writePDBFile(sp.confSpace.m, "proj_00.pdb");
+        PDBIO.writeFile(sp.confSpace.m, "proj_00.pdb");
         bbDOFs.get(0).apply(bbBound);
-        PDBFileWriter.writePDBFile(sp.confSpace.m, "proj_10.pdb");
+        PDBIO.writeFile(sp.confSpace.m, "proj_10.pdb");
         bbDOFs.get(1).apply(bbBound);
-        PDBFileWriter.writePDBFile(sp.confSpace.m, "proj_11.pdb");
+        PDBIO.writeFile(sp.confSpace.m, "proj_11.pdb");
         
         //2. Show the boundaries of the voxel in (phi,psi) space for residue (middle of loop)
         Residue midRes = sp.confSpace.m.getResByPDBResNumber("856");
@@ -124,11 +115,11 @@ public class CatPark {
         
         for(BBFreeDOF bbDOF : bbDOFs)
             bbDOF.apply(bbBound);
-        PDBFileWriter.writePDBFile(sp.confSpace.m, "corner+.pdb");
+        PDBIO.writeFile(sp.confSpace.m, "corner+.pdb");
         
         for(BBFreeDOF bbDOF : bbDOFs)
             bbDOF.apply(-bbBound);
-        PDBFileWriter.writePDBFile(sp.confSpace.m, "corner-.pdb");
+        PDBIO.writeFile(sp.confSpace.m, "corner-.pdb");
     }
     
 
@@ -136,8 +127,8 @@ public class CatPark {
     public static double[] segmentRMSD(String struct1, String struct2){
         //Compares two structures with backbones differing in a segment, e.g. CATS and rigid bb 
         //Returns {backbone RMSD, max residue backbone RMSD} for the flexible backbone segment
-        Molecule m1 = PDBFileReader.readPDBFile(struct1);
-        Molecule m2 = PDBFileReader.readPDBFile(struct2);
+        Molecule m1 = Strand.builder(PDBIO.readFile(struct1)).setTemplateLibrary(EnvironmentVars.resTemplates).build().mol;
+        Molecule m2 = Strand.builder(PDBIO.readFile(struct2)).setTemplateLibrary(EnvironmentVars.resTemplates).build().mol;
         
         int numRes = m1.residues.size();
         if(numRes != m2.residues.size())

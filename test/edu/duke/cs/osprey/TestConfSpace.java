@@ -5,24 +5,14 @@
  */
 package edu.duke.cs.osprey;
 
-import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
-
-import static edu.duke.cs.osprey.TestBase.initDefaultEnvironment;
-import edu.duke.cs.osprey.confspace.ConfSpace;
-import edu.duke.cs.osprey.confspace.RC;
-import edu.duke.cs.osprey.dof.FreeDihedral;
-import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
-import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.structure.PDBFileReader;
-import edu.duke.cs.osprey.structure.PDBFileWriter;
-import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.Protractor;
 import java.util.ArrayList;
-import org.junit.BeforeClass;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
+
+import edu.duke.cs.osprey.confspace.ConfSpace;
+import edu.duke.cs.osprey.confspace.RC;
+import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 
 /**
  *
@@ -92,35 +82,4 @@ public class TestConfSpace extends TestBase {
         //if we get here, test passed
         System.out.println("CONFSPACE GENERATION TEST PASSED");
     }
-    
-    
-    @Test
-    public void testDihedral(){
-        //Checking that the dihedral application and measurement functions are consistent
-        
-        Molecule m = PDBFileReader.readPDBFile("examples/1CC8/1CC8.ss.pdb", null);
-        Residue res = m.residues.get(37);
-        
-        FreeDihedral chi1 = new FreeDihedral(res,0);//Ser 39
-        FreeDihedral chi2 = new FreeDihedral(res,1);
-        
-        chi1.apply(45.);
-        chi2.apply(-121);
-        
-        //measure dihedrals.  Start by collecting coordinates
-        double N[] = res.getCoordsByAtomName("N");
-        double CA[] = res.getCoordsByAtomName("CA");
-        double CB[] = res.getCoordsByAtomName("CB");
-        double OG[] = res.getCoordsByAtomName("OG");
-        double HG[] = res.getCoordsByAtomName("HG");
-        
-        double chi1Measured = Protractor.measureDihedral(new double[][] {N,CA,CB,OG});
-        double chi2Measured = Protractor.measureDihedral(new double[][] {CA,CB,OG,HG});
-        
-        //This procedure introduces some numerical error, which should be less than ~1e-6
-        assert Math.abs(chi1Measured-45.) < 1e-6;
-        assert Math.abs(chi2Measured+121.) < 1e-6;
-    }
-    
-    
 }
