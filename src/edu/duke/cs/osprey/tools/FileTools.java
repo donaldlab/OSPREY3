@@ -209,6 +209,45 @@ public class FileTools {
 		}
 	}
 	
+	public static class Path {
+		
+		public static Path makeFile(File file) {
+			if (file == null) {
+				return null;
+			}
+			return new Path(new FilePathRoot(), file.getAbsolutePath());
+		}
+		public static Path makeFile(String path) {
+			if (path == null) {
+				return null;
+			}
+			return new Path(new FilePathRoot(), path);
+		}
+		
+		public static Path makeResource(String path) {
+			if (path == null) {
+				return null;
+			}
+			return new Path(new ResourcePathRoot(), path);
+		}
+		
+		public final PathRoot root;
+		public final String path;
+		
+		public Path(PathRoot root, String path) {
+			this.root = root;
+			this.path = path;
+		}
+		
+		public InputStream open() {
+			return root.open(path);
+		}
+		
+		public String read() {
+			return root.read(path);
+		}
+	}
+	
 	public static FileInputStream openFile(File file) {
 		return new FilePathRoot().open(file.getPath());
 	}

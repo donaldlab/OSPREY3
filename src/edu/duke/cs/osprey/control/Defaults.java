@@ -3,7 +3,6 @@ package edu.duke.cs.osprey.control;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.FORCEFIELD;
 import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
-import edu.duke.cs.osprey.tools.FileTools;
 
 public class Defaults {
 	
@@ -70,14 +69,8 @@ public class Defaults {
 	public static final GenericResidueTemplateLibrary genericTemplateLibrary;
 	
 	static {
-		
 		forcefield = FORCEFIELD.AMBER;
 		forcefieldParams = new ForcefieldParams();
-		
-		genericTemplateLibrary = new GenericResidueTemplateLibrary();
-		genericTemplateLibrary.loadTemplateCoords(FileTools.readResource("/config/all_amino_coords.in"));
-		genericTemplateLibrary.loadRotamerLibrary(FileTools.readResource("/config/LovellRotamer.dat"));
-		genericTemplateLibrary.makeDAminoAcidTemplates();
-		genericTemplateLibrary.loadResEntropy(FileTools.readResource("/config/ResEntropy.dat"));
+		genericTemplateLibrary = GenericResidueTemplateLibrary.builder().build();
 	}
 }

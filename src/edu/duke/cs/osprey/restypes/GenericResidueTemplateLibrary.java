@@ -4,6 +4,7 @@
  */
 package edu.duke.cs.osprey.restypes;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -13,6 +14,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.FileTools;
+import edu.duke.cs.osprey.tools.FileTools.Path;
 import edu.duke.cs.osprey.tools.StringParsing;
 
 /**
@@ -25,6 +27,79 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
     //NAMING: We assume each distinct residue (AA or otherwise) has its own name
     //however, many residues will have multiple slightly different forms (N-terminal, etc.) 
     //and these will share a name and a rotamer library entry
+	
+	public static class Builder {
+		
+		private ForcefieldParams ffparams;
+		private Path templateCoords;
+		private Path rotamers;
+		private Path entropy;
+		private boolean makeDAminoAcidTemplates;
+		
+		public Builder() {
+			ffparams = Defaults.forcefieldParams;
+			templateCoords = Path.makeResource("/config/all_amino_coords.in");
+			rotamers = Path.makeResource("/config/LovellRotamer.dat");
+			entropy = Path.makeResource("/config/ResEntropy.dat");
+			makeDAminoAcidTemplates = true;
+		}
+		
+		public Builder setForcefield(ForcefieldParams val) {
+			ffparams = val;
+			return this;
+		}
+		
+		public Builder setTemplateCoordsFile(File val) {
+			templateCoords = Path.makeFile(val);
+			return this;
+		}
+		public Builder setTemplateCoordsFile(String val) {
+			templateCoords = Path.makeFile(val);
+			return this;
+		}
+		
+		public Builder setRotamersFile(File val) {
+			rotamers = Path.makeFile(val);
+			return this;
+		}
+		public Builder setRotamersFile(String val) {
+			rotamers = Path.makeFile(val);
+			return this;
+		}
+		
+		public Builder setEntropyFile(File val) {
+			entropy = Path.makeFile(val);
+			return this;
+		}
+		public Builder setEntropyFile(String val) {
+			entropy = Path.makeFile(val);
+			return this;
+		}
+		
+		public Builder setMakeDAminoAcidTemplates(boolean val) {
+			makeDAminoAcidTemplates = val;
+			return this;
+		}
+		
+		public GenericResidueTemplateLibrary build() {
+			GenericResidueTemplateLibrary lib = new GenericResidueTemplateLibrary(ffparams);
+			lib.loadTemplateCoords(templateCoords.read());
+			if (rotamers != null) {
+				lib.loadRotamerLibrary(rotamers.read());
+			}
+			if (makeDAminoAcidTemplates) {
+				lib.makeDAminoAcidTemplates();
+			}
+			if (entropy != null) {
+				lib.loadResEntropy(entropy.read());
+			}
+			return lib;
+		}
+	}
+	
+	public static Builder builder() {
+		return new Builder();
+	}
     
     public int totalNumRotamers = 0;//total number of rotamers read in from rotamer library file(s)
     //starts at 0
@@ -35,10 +110,6 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary {
     //the templates contain forcefield information like atom types, so they need to go with 
     //a set of forcefield parameters
     public final ForcefieldParams ffParams;
-    
-    public GenericResidueTemplateLibrary() {
-        this(Defaults.forcefieldParams);
-    }
     
     public GenericResidueTemplateLibrary(ForcefieldParams fp) {
         //create a library based on template files
