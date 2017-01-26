@@ -22,6 +22,8 @@ import edu.duke.cs.osprey.tools.RigidBodyMotion;
  *
  * @author mhall44
  */
+
+// TODO: this isn't really a DOF
 public class ResidueTypeDOF extends DegreeOfFreedom {
     //This degree of freedom is the residue type (e.g., AA type) at a particular position
     //So applying values of it means mutating the residue
@@ -34,10 +36,18 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
     private Residue res;//what residue in the molecule we are talking about
     private boolean idealizeSidechainAfterMutation;
     
+    /**
+     * this doesn't need to be a DOF anymore, just the static function switchToTemplate()
+     */
+    @Deprecated
     public ResidueTypeDOF(GenericResidueTemplateLibrary templateLib, Residue res) {
         this(templateLib, res, false);
     }
     
+    /**
+     * this doesn't need to be a DOF anymore, just the static function switchToTemplate()
+     */
+    @Deprecated
     public ResidueTypeDOF(GenericResidueTemplateLibrary templateLib, Residue res, boolean idealizeSidechainAfterMutation) {
         this.templateLib = templateLib;
         this.res = res;
@@ -69,6 +79,10 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
     }
     
     public void switchToTemplate(ResidueTemplate newTemplate) {
+    	switchToTemplate(templateLib, res, newTemplate, idealizeSidechainAfterMutation);
+    }
+    
+    public static void switchToTemplate(GenericResidueTemplateLibrary templateLib, Residue res, ResidueTemplate newTemplate, boolean idealizeSidechainAfterMutation) {
         ResidueTemplate oldTemplate = res.template;
         
         //the residue's going to change some, so break its inter-residue bonds

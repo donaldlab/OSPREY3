@@ -32,6 +32,8 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary implem
 
 	public static class Builder {
 		
+		private static final String LovellRotamersPath = "/config/LovellRotamer.dat";
+		
 		private ForcefieldParams ffparams;
 		private String templateCoordsText;
 		private String rotamersText;
@@ -42,7 +44,7 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary implem
 		public Builder() {
 			ffparams = Defaults.forcefieldParams;
 			templateCoordsText = FileTools.readResource("/config/all_amino_coords.in");
-			rotamersText = FileTools.readResource("/config/LovellRotamer.dat");
+			rotamersText = FileTools.readResource(LovellRotamersPath);
 			backboneDependentRotamersText = null;
 			entropyText = FileTools.readResource("/config/ResEntropy.dat");
 			makeDAminoAcidTemplates = true;
@@ -61,6 +63,10 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary implem
 		public Builder setRotamers(String text) {
 			rotamersText = text;
 			return this;
+		}
+		
+		public Builder setLovellRotamers() {
+			return setRotamers(FileTools.readResource(LovellRotamersPath));
 		}
 		
 		public Builder setBackboneDependentRotamers(String text) {

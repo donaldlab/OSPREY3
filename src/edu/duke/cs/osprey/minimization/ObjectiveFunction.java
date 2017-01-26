@@ -4,9 +4,12 @@
  */
 package edu.duke.cs.osprey.minimization;
 
+import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  *
@@ -95,6 +98,47 @@ public interface ObjectiveFunction extends Serializable {
 		
 		private DoubleMatrix1D[] bounds;
 		
+		public static DofBounds concatenate(DofBounds ... bounds) {
+			return concatenate(Arrays.asList(bounds));
+		}
+		
+		public static DofBounds concatenate(List<DofBounds> subBoundsList) {
+			
+			// allocate the dof bounds
+			int size = 0;
+			for (DofBounds subBounds : subBoundsList) {
+				if (subBounds != null) {
+					size += subBounds.size();
+				}
+			}
+			DofBounds bounds = new DofBounds(size);
+			
+			// copy the bounds
+			int i=0;
+			for (DofBounds subBounds : subBoundsList) {
+				if (subBounds != null) {
+					for (int j=0; j<subBounds.size(); j++) {
+						bounds.set(i++, subBounds.getMin(j), subBounds.getMax(j));
+					}
+				}
+			}
+			return bounds;
+		}
+		
+		public DofBounds(int numDofs) {
+			bounds = new DoubleMatrix1D[] {
+				DoubleFactory1D.dense.make(numDofs),
+				DoubleFactory1D.dense.make(numDofs)
+			};
+		}
+		
+		public DofBounds(DofBounds other) {
+			bounds = new DoubleMatrix1D[] {
+				other.bounds[0].copy(),
+				other.bounds[1].copy()
+			};
+		}
+		
 		public DofBounds(DoubleMatrix1D[] bounds) {
 			this.bounds = bounds;
 		}
@@ -131,6 +175,11 @@ public interface ObjectiveFunction extends Serializable {
 			for (int d=0; d<size(); d++) {
 				out.set(d, getCenter(d));
 			}
+		}
+		
+		public void set(int d, double min, double max) {
+			bounds[0].set(d, min);
+			bounds[1].set(d, max);
 		}
 		
 		public double clamp(int d, double xd) {

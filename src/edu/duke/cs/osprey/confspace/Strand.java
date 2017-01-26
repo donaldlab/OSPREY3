@@ -1,7 +1,12 @@
 package edu.duke.cs.osprey.confspace;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import edu.duke.cs.osprey.control.Defaults;
@@ -10,11 +15,12 @@ import edu.duke.cs.osprey.kstar.KSTermini;
 import edu.duke.cs.osprey.restypes.DAminoAcidHandler;
 import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
-import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 
 public class Strand {
+	
+	public static final String WildType = "__WT__";
 	
 	public static class Builder {
 		
@@ -78,12 +84,150 @@ public class Strand {
 		return new Builder(mol);
 	}
 	
+	/**
+	 * configured flexibility for one residue
+	 */
+	public static class ResidueFlex {
+		
+		public final String wildType;
+		
+		public VoxelShape voxelShape;
+		public Set<String> resTypes;
+		public boolean addWildTypeRotamers;
+		
+		protected ResidueFlex(String wildType) {
+			
+			this.wildType = wildType;
+			
+			this.resTypes = new LinkedHashSet<>();
+			
+			// default flexibility
+			setDiscrete();
+			setNoRotamers();
+		}
+		
+		public boolean isFlexible() {
+			return !resTypes.isEmpty() || addWildTypeRotamers == true;
+		}
+		
+		public ResidueFlex setNoRotamers() {
+			resTypes.clear();
+			addWildTypeRotamers = false;
+			return this;
+		}
+		
+		/**
+		 * Add the wild type conformation as a rotamer, including any alternate conformations.
+		 */
+		public ResidueFlex addWildTypeRotamers() {
+			addWildTypeRotamers = true;
+			return this;
+		}
+		
+		/**
+		 * Set the mutatable residue types (e.g., amino acids) for this residue.
+		 * Use {@link WildType} to represent the wild type residue type.
+		 * If no residue types are passed, the wild type will be used. 
+		 */
+		public ResidueFlex setLibraryRotamers(String ... resTypes) {
+			return setLibraryRotamers(Arrays.asList(resTypes));
+		}
+		
+		public ResidueFlex setLibraryRotamers(List<String> resTypes) {
+			
+			this.resTypes.clear();
+			
+			if (resTypes.isEmpty()) {
+				
+				// no mutations explicitly chosen, assume wild type only
+				this.resTypes.add(wildType);
+				
+			} else {
+				
+				for (String resType : resTypes) {
+					
+					// replace WT with actual amino acid
+					if (resType.equalsIgnoreCase(WildType)) {
+						resType = wildType;
+					}
+					
+					this.resTypes.add(resType);
+				}
+			}
+			
+			return this;
+		}
+		
+		public ResidueFlex setDiscrete() {
+			return setVoxelShape(new VoxelShape.Point());
+		}
+		
+		public ResidueFlex setContinuous() {
+			return setVoxelShape(new VoxelShape.Rect());
+		}
+		
+		public ResidueFlex setContinuous(double voxelWidth) {
+			return setVoxelShape(new VoxelShape.Rect(voxelWidth));
+		}
+		
+		public ResidueFlex setContinuousEllipses() {
+			return setVoxelShape(new VoxelShape.Ellipse());
+		}
+		
+		public ResidueFlex setContinuousEllipses(double voxelWidth) {
+			return setVoxelShape(new VoxelShape.Ellipse(voxelWidth));
+		}
+		
+		public ResidueFlex setVoxelShape(VoxelShape voxelShape) {
+			this.voxelShape = voxelShape;
+			return this;
+		}
+	}
+	
+	public class Flexibility {
+		
+		private Map<String,ResidueFlex> residues;
+		
+		public Flexibility(List<Residue> residues) {
+			this.residues = new HashMap<>();
+			for (Residue res : residues) {
+				this.residues.put(res.getPDBResNumber(), new ResidueFlex(res.template.name));
+			}
+		}
+		
+		public ResidueFlex get(int resNum) {
+			return get(Integer.toString(resNum));
+		}
+		
+		public ResidueFlex get(String resNum) {
+			return residues.get(resNum);
+		}
+		
+		public List<String> getFlexibleResidueNumbers() {
+			
+			List<String> resNums = new ArrayList<>();
+			
+			for (Map.Entry<String,ResidueFlex> entry : residues.entrySet()) {
+				
+				String resNum = entry.getKey();
+				ResidueFlex resFlex = entry.getValue();
+				
+				if (resFlex.isFlexible()) {
+					resNums.add(resNum);
+				}
+			}
+			
+			return resNums;
+		}
+	}
+	
 	public final Molecule mol;
 	public final GenericResidueTemplateLibrary templateLib;
 	public final Set<String> nonTemplateResNames;
+	public final Flexibility flexibility;
 	
 	/**
-	 * it's probably easier to use the Builder rather than call this constructor directly.
+	 * it's probably easier to use the {@link Builder} rather than call this constructor directly.
 	 */
 	public Strand(Molecule mol, String firstResNumber, String lastResNumber, GenericResidueTemplateLibrary templateLib, boolean errorOnNonTemplateResidues) {
 		
@@ -159,27 +303,7 @@ public class Strand {
 		// assigning templates marks intra-res bonds; we can now mark inter-res too
 		HardCodedResidueInfo.markInterResBonds(this.mol);
 		
-		// DEBUG: make sure various structure the pointers are all set correctly
-		for (int i=0; i<this.mol.residues.size(); i++) {
-			
-			Residue res = this.mol.residues.get(i);
-			assert (res.molec == this.mol);
-			
-			// make sure all the bonds are marked
-			assert (res.intraResBondsMarked);
-			assert (res.interResBondsMarked);
-			
-			// make sure all the atoms point to the right residues
-			for (Atom atom : res.atoms) {
-				assert (atom.res == res);
-			}
-			
-			// check the alternates too
-			for (Residue altRes : this.mol.getAlternates(i)) {
-				for (Atom atom : altRes.atoms) {
-					assert (atom.res == altRes);
-				}
-			}
-		}
+		// init flexibility
+		flexibility = new Flexibility(this.mol.residues);
 	}
 }
