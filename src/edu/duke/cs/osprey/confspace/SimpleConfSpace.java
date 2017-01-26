@@ -21,6 +21,46 @@ import edu.duke.cs.osprey.structure.Residue;
  */
 public class SimpleConfSpace {
 	
+	public static class Builder {
+		
+		private SimpleConfSpace confSpace;
+		private double shellDist;
+		
+		public Builder() {
+			confSpace = new SimpleConfSpace();
+			shellDist = Double.POSITIVE_INFINITY;
+		}
+		
+		public Builder addStrand(Strand strand, StrandFlex ... flexType) {
+			confSpace.addStrand(strand, flexType);
+			return this;
+		}
+		
+		public Builder setShellDistance(double val) {
+			shellDist = val;
+			return this;
+		}
+		
+		public SimpleConfSpace build() {
+			
+			// make sure we have some design positions
+			if (confSpace.positions.isEmpty()) {
+				throw new IllegalStateException("ConfSpace has no design positions, try adding some strand flexibility");
+			}
+			
+			confSpace.makeShell(shellDist);
+			return confSpace;
+		}
+	}
+	
+	public static Builder builder() {
+		return new Builder();
+	}
+	
+	public static SimpleConfSpace build(Strand strand) {
+		return builder().addStrand(strand).build();
+	}
+	
 	public static class Position {
 		
 		public final int index;
@@ -67,24 +107,19 @@ public class SimpleConfSpace {
 	
 	public final List<Strand> strands;
 	public final List<Position> positions;
+	public final List<Residue> shell;
 	
 	private Map<Strand,List<StrandFlex>> strandFlex; // yeah, map on instance, not identity
 	
-	public SimpleConfSpace() {
+	private SimpleConfSpace() {
 		strands = new ArrayList<>();
 		positions = new ArrayList<>();
+		shell = new ArrayList<>();
 		
 		strandFlex = new HashMap<>();
 	}
 	
-	public SimpleConfSpace(Strand ... strands) {
-		this();
-		for (Strand strand : strands) {
-			addStrand(strand);
-		}
-	}
-	
-	public void addStrand(Strand strand, StrandFlex ... flexType) {
+	private void addStrand(Strand strand, StrandFlex ... flexType) {
 		
 		// add the strand
 		strands.add(strand);
@@ -93,18 +128,18 @@ public class SimpleConfSpace {
 		// make the positions
 		for (String resNum : strand.flexibility.getFlexibleResidueNumbers()) {
 			Residue res = strand.mol.getResByPDBResNumber(resNum);
+			Strand.ResidueFlex resFlex = strand.flexibility.get(resNum);
 			
 			// make the pos
 			Position pos = new Position(positions.size(), strand, res);
 			positions.add(pos);
 			
-			// make the residue confs
-			Strand.ResidueFlex resFlex = strand.flexibility.get(resNum);
-			
+			// make residue confs from library rotamers
 			for (String resType : resFlex.resTypes) {
 				makeResidueConfsFromTemplate(pos, strand.templateLib.getTemplate(resType), ResidueConf.Type.Library);
 			}
 			
+			// make residue confs from wild type rotamers
 			if (resFlex.addWildTypeRotamers) {
 				
 				List<Residue> residues = new ArrayList<>();
@@ -142,7 +177,29 @@ public class SimpleConfSpace {
 			}
 		}
 	}
-
+	
+	private void makeShell(double shellDist) {
+		
+		shell.clear();
+	
+		for (Strand strand : strands) {
+			for (String staticResNum : strand.flexibility.getStaticResidueNumbers()) {
+				Residue staticRes = strand.mol.getResByPDBResNumber(staticResNum);
+				
+				for (String flexResNum : strand.flexibility.getFlexibleResidueNumbers()) {
+					Residue flexRes = strand.mol.getResByPDBResNumber(flexResNum);
+					
+					if (staticRes.distanceTo(flexRes) <= shellDist) {
+						shell.add(staticRes);
+						break;
+					}
+				}
+			}
+		}
+	}
+	
+	// TODO: support partial conformations
+	
 	/**
 	 * create a new {@link ParametricMolecule} in the specified conformation
 	 * for analysis (e.g., minimization)

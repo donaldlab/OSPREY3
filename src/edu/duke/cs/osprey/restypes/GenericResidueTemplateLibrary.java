@@ -11,6 +11,7 @@ import java.util.Iterator;
 
 import edu.duke.cs.osprey.control.Defaults;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.Forcefield;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.FileTools;
@@ -34,7 +35,7 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary implem
 		
 		private static final String LovellRotamersPath = "/config/LovellRotamer.dat";
 		
-		private ForcefieldParams ffparams;
+		private Forcefield forcefield;
 		private String templateCoordsText;
 		private String rotamersText;
 		private String backboneDependentRotamersText;
@@ -42,7 +43,7 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary implem
 		private boolean makeDAminoAcidTemplates;
 		
 		public Builder() {
-			ffparams = Defaults.forcefieldParams;
+			forcefield = Defaults.forcefield;
 			templateCoordsText = FileTools.readResource("/config/all_amino_coords.in");
 			rotamersText = FileTools.readResource(LovellRotamersPath);
 			backboneDependentRotamersText = null;
@@ -50,8 +51,8 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary implem
 			makeDAminoAcidTemplates = true;
 		}
 		
-		public Builder setForcefield(ForcefieldParams val) {
-			ffparams = val;
+		public Builder setForcefield(Forcefield val) {
+			forcefield = val;
 			return this;
 		}
 		
@@ -85,7 +86,7 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary implem
 		}
 		
 		public GenericResidueTemplateLibrary build() {
-			GenericResidueTemplateLibrary lib = new GenericResidueTemplateLibrary(ffparams);
+			GenericResidueTemplateLibrary lib = new GenericResidueTemplateLibrary(forcefield);
 			lib.loadTemplateCoords(templateCoordsText);
 			if (rotamersText != null) {
 				lib.loadRotamerLibrary(rotamersText);
@@ -117,11 +118,11 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary implem
     //a set of forcefield parameters
     public final ForcefieldParams ffParams;
     
-    public GenericResidueTemplateLibrary(ForcefieldParams fp) {
+    public GenericResidueTemplateLibrary(Forcefield forcefield) {
         //create a library based on template files
         //we can then load coordinates and rotamer libraries for these templates separately, if we have these
 
-        ffParams = fp;
+        ffParams = new ForcefieldParams(forcefield);
         
         loadTemplates(FileTools.readResource(ffParams.forcefld.aaPath));
         loadTemplates(FileTools.readResource(ffParams.forcefld.aaNTPath));

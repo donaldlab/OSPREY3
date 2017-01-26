@@ -63,7 +63,7 @@ public class ForcefieldParams implements Serializable {
 
     
     //what forcefield are these parameters for?
-    public FORCEFIELD forcefld = FORCEFIELD.AMBER;
+    public Forcefield forcefld = Forcefield.AMBER;
     
     //The solvation parameters object
     EEF1 eef1parms = null;
@@ -78,7 +78,7 @@ public class ForcefieldParams implements Serializable {
     public double shellDistCutoff = Double.POSITIVE_INFINITY; //distance cutoff for interactions (angstroms)
     public SolvationForcefield solvationForcefield = Defaults.solvationForcefield;
     
-    public enum FORCEFIELD {
+    public enum Forcefield {
         
         AMBER(
             "/config/parm96a.dat",
@@ -135,7 +135,7 @@ public class ForcefieldParams implements Serializable {
         public final double Bij14Factor;
         public final double coulombScaling;
         
-        private FORCEFIELD(String paramsPath, String aaPath, String aaNTPath, String aaCTPath, String grPath, boolean reduceCRadii, double Aij14Factor, double Bij14Factor, double coulombScaling) {
+        private Forcefield(String paramsPath, String aaPath, String aaNTPath, String aaCTPath, String grPath, boolean reduceCRadii, double Aij14Factor, double Bij14Factor, double coulombScaling) {
             this.paramsPath = paramsPath;
             this.aaPath = aaPath;
             this.aaNTPath = aaNTPath;
@@ -145,6 +145,10 @@ public class ForcefieldParams implements Serializable {
             this.Aij14Factor = Aij14Factor;
             this.Bij14Factor = Bij14Factor;
             this.coulombScaling = coulombScaling;
+        }
+        
+        public static Forcefield get(String name) {
+        	return valueOf(name.toUpperCase());
         }
     }
     
@@ -158,10 +162,10 @@ public class ForcefieldParams implements Serializable {
     }
     
     public ForcefieldParams(String frcefld) {
-        this(FORCEFIELD.valueOf(frcefld.toUpperCase()));
+        this(Forcefield.valueOf(frcefld.toUpperCase()));
     }
     
-    public ForcefieldParams(FORCEFIELD frcefld) {
+    public ForcefieldParams(Forcefield frcefld) {
          
         this.forcefld = frcefld;
         
@@ -207,7 +211,7 @@ public class ForcefieldParams implements Serializable {
 	//  will most likely be required to read other parameter
 	//  files. Reading of other files should be done in other
 	//  functions
-	private void readParm96(FORCEFIELD ff) throws Exception {
+	private void readParm96(Forcefield ff) throws Exception {
 	
 		Iterator<String> lines = FileTools.parseLines(FileTools.readResource(ff.paramsPath)).iterator();
 			

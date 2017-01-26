@@ -235,8 +235,8 @@ public class ForcefieldEnergy implements Serializable {
 			if (!(params.getNonBondedParameters(atomType1, nbparams)))
 				System.out.println("WARNING: Could not find nb parameters for " + atom1 + " type: " + res1.atoms.get(atom1).forceFieldType);
 			else {
-				if((params.forcefld == ForcefieldParams.FORCEFIELD.CHARMM19 
-						|| params.forcefld == ForcefieldParams.FORCEFIELD.CHARMM19NEUTRAL )
+				if((params.forcefld == ForcefieldParams.Forcefield.CHARMM19 
+						|| params.forcefld == ForcefieldParams.Forcefield.CHARMM19NEUTRAL )
 						&& pairs14.get(i)[0].elementType.equalsIgnoreCase("C")){
 					//KER: if charmm19 then reduce C radii for 1-4 interactions
 					epsilonProduct = 0.1;
@@ -249,8 +249,8 @@ public class ForcefieldEnergy implements Serializable {
 				if (!(params.getNonBondedParameters(atomType4, nbparams)))
 					System.out.println("WARNING: Could not find nb parameters for " + atom4 + " type: " + res2.atoms.get(atom1).forceFieldType);
 				else {
-					if((params.forcefld == ForcefieldParams.FORCEFIELD.CHARMM19 
-							|| params.forcefld == ForcefieldParams.FORCEFIELD.CHARMM19NEUTRAL )
+					if((params.forcefld == ForcefieldParams.Forcefield.CHARMM19 
+							|| params.forcefld == ForcefieldParams.Forcefield.CHARMM19NEUTRAL )
 							&& pairs14.get(i)[0].elementType.equalsIgnoreCase("C")){
 						//KER: if charmm19 then reduce C radii for 1-4 interactions
 						epsilonProduct *= 0.1;

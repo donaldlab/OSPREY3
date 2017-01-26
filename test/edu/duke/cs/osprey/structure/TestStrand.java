@@ -7,6 +7,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import edu.duke.cs.osprey.confspace.Strand;
+import edu.duke.cs.osprey.confspace.Strand.ResidueFlex;
 
 public class TestStrand {
 	
@@ -72,5 +73,47 @@ public class TestStrand {
 				assert (altRes.template != null);
 			}
 		}
+	}
+	
+	@Test
+	public void defaultFlexibilty() {
+		
+		Strand strand = Strand.builder(mol)
+			.setResidues(2, 5)
+			.build();
+		
+		for (Residue res : strand.mol.residues) {
+			ResidueFlex resFlex = strand.flexibility.get(res.getPDBResNumber());
+			assertThat(resFlex.isFlexible(), is(false));
+		}
+		
+		assertThat(strand.flexibility.getFlexibleResidueNumbers().isEmpty(), is(true));
+		assertThat(strand.flexibility.getStaticResidueNumbers(), contains("2", "3", "4", "5"));
+	}
+	
+	@Test
+	public void flexibleResidueNumbers() {
+		
+		Strand strand = Strand.builder(mol)
+			.setResidues(2, 5)
+			.build();
+		
+		strand.flexibility.get(2).setLibraryRotamers();
+		strand.flexibility.get(4).setLibraryRotamers();
+		
+		assertThat(strand.flexibility.getFlexibleResidueNumbers(), contains("2", "4"));
+	}
+	
+	@Test
+	public void staticResidueNumbers() {
+		
+		Strand strand = Strand.builder(mol)
+			.setResidues(2, 5)
+			.build();
+		
+		strand.flexibility.get(2).setLibraryRotamers();
+		strand.flexibility.get(4).setLibraryRotamers();
+		
+		assertThat(strand.flexibility.getStaticResidueNumbers(), contains("3", "5"));
 	}
 }

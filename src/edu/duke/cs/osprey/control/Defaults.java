@@ -2,8 +2,9 @@ package edu.duke.cs.osprey.control;
 
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.FORCEFIELD;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.Forcefield;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 
 public class Defaults {
@@ -66,17 +67,19 @@ public class Defaults {
 	 * }
 	 */
 	
-	public static final FORCEFIELD forcefield;
+	public static final Forcefield forcefield;
 	public static final SolvationForcefield solvationForcefield;
 	public static final ForcefieldParams forcefieldParams;
 	public static final GenericResidueTemplateLibrary genericTemplateLibrary;
 	public static final EnergyFunctionGenerator efuncGenerator;
+	public static final Parallelism parallelism;
 	
 	static {
-		forcefield = FORCEFIELD.AMBER;
+		forcefield = Forcefield.AMBER;
 		solvationForcefield = SolvationForcefield.EEF1;
 		forcefieldParams = new ForcefieldParams();
 		genericTemplateLibrary = GenericResidueTemplateLibrary.builder().build();
 		efuncGenerator = new EnergyFunctionGenerator();
+		parallelism = Parallelism.makeDefault();
 	}
 }

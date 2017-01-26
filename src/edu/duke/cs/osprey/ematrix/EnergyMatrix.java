@@ -4,12 +4,16 @@
  */
 package edu.duke.cs.osprey.ematrix;
 
+import java.io.File;
 import java.util.ArrayList;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.TupleMatrixDouble;
+import edu.duke.cs.osprey.tools.ObjectIO;
+import edu.duke.cs.osprey.tools.ObjectIO.BadFileException;
+import edu.duke.cs.osprey.tools.ObjectIO.CantWriteException;
 
 /**
  *
@@ -18,6 +22,17 @@ import edu.duke.cs.osprey.confspace.TupleMatrixDouble;
 public class EnergyMatrix extends TupleMatrixDouble {
 
 	private static final long serialVersionUID = 6503270845014990929L;
+	
+	
+	public static EnergyMatrix read(File file)
+	throws BadFileException {
+		return ObjectIO.read(file, EnergyMatrix.class);
+	}
+	
+	public static void write(EnergyMatrix emat, File file)
+	throws CantWriteException {
+		ObjectIO.write(emat, file);
+	}
 
 	private double constTerm = 0;
     

@@ -32,6 +32,18 @@ public abstract class StrandFlex {
 		public static final double DefaultMaxRotDegrees = 5;
 		public static final double DefaultMaxTranslation = 1.2;
 		
+		private double maxRotDegrees;
+		private double maxTranslation;
+		
+		public TranslateRotate() {
+			this(DefaultMaxRotDegrees, DefaultMaxTranslation);
+		}
+		
+		public TranslateRotate(double maxRotDegrees, double maxTranslation) {
+			this.maxRotDegrees = maxRotDegrees;
+			this.maxTranslation = maxTranslation;
+		}
+		
 		@Override
 		public List<DegreeOfFreedom> makeDofs(Strand strand) {
 			return new MoveableStrand(strand.mol.residues).getDOFs();
@@ -40,12 +52,12 @@ public abstract class StrandFlex {
 		@Override
 		public DofBounds makeBounds(Strand strand) {
 			DofBounds bounds = new DofBounds(6);
-			bounds.set(0, -DefaultMaxRotDegrees, DefaultMaxRotDegrees);
-			bounds.set(1, -DefaultMaxRotDegrees, DefaultMaxRotDegrees);
-			bounds.set(2, -DefaultMaxRotDegrees, DefaultMaxRotDegrees);
-			bounds.set(3, -DefaultMaxTranslation, DefaultMaxTranslation);
-			bounds.set(4, -DefaultMaxTranslation, DefaultMaxTranslation);
-			bounds.set(5, -DefaultMaxTranslation, DefaultMaxTranslation);
+			bounds.set(0, -maxRotDegrees, maxRotDegrees);
+			bounds.set(1, -maxRotDegrees, maxRotDegrees);
+			bounds.set(2, -maxRotDegrees, maxRotDegrees);
+			bounds.set(3, -maxTranslation, maxTranslation);
+			bounds.set(4, -maxTranslation, maxTranslation);
+			bounds.set(5, -maxTranslation, maxTranslation);
 			return bounds;
 		}
 	}

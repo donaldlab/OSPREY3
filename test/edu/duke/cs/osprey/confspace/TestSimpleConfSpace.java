@@ -39,8 +39,9 @@ public class TestSimpleConfSpace extends TestBase {
 	public void moleculeCopy() {
 		
 		Strand strand = makeStrand();
-		SimpleConfSpace confSpace = new SimpleConfSpace(strand);
-		int[] conf = {};
+		strand.flexibility.get(2).setLibraryRotamers();
+		SimpleConfSpace confSpace = SimpleConfSpace.build(strand);
+		int[] conf = { 0 };
 		ParametricMolecule pmol = confSpace.makeMolecule(conf);
 		
 		// all the residues should be there, but not the same instances
@@ -60,35 +61,12 @@ public class TestSimpleConfSpace extends TestBase {
 	}
 	
 	@Test
-	public void noPositions() {
-		
-		Strand strand = makeStrand();
-		SimpleConfSpace confSpace = new SimpleConfSpace(strand);
-		
-		assertThat(confSpace.strands, contains(strand));
-		assertThat(confSpace.positions.size(), is(0));
-		
-		// check all residues have no flexibility
-		assertThat(strand.flexibility.getFlexibleResidueNumbers().size(), is(0));
-		for (Residue res : strand.mol.residues) {
-			Strand.ResidueFlex resFlex = strand.flexibility.get(res.getPDBResNumber());
-			assertThat(resFlex.resTypes.size(), is(0));
-			assertThat(resFlex.isFlexible(), is(false));
-		}
-	
-		// check DOFs and bounds
-		int[] conf = {};
-		assertThat(confSpace.makeMolecule(conf).dofs.size(), is(0));
-		assertThat(confSpace.makeBounds(conf).size(), is(0));
-	}
-	
-	@Test
 	public void onePosition() {
 		
 		Strand strand = makeStrand();
 		strand.flexibility.get(2).setLibraryRotamers();
 		
-		SimpleConfSpace confSpace = new SimpleConfSpace(strand);
+		SimpleConfSpace confSpace = SimpleConfSpace.build(strand);
 		
 		// check the pos
 		assertThat(confSpace.positions.size(), is(1));
@@ -105,7 +83,7 @@ public class TestSimpleConfSpace extends TestBase {
 		strand.flexibility.get(2).setLibraryRotamers();
 		strand.flexibility.get(42).setLibraryRotamers();
 		
-		SimpleConfSpace confSpace = new SimpleConfSpace(strand);
+		SimpleConfSpace confSpace = SimpleConfSpace.build(strand);
 		
 		assertThat(confSpace.positions.size(), is(2));
 		
@@ -121,13 +99,50 @@ public class TestSimpleConfSpace extends TestBase {
 	}
 	
 	@Test
+	public void onePositionShell() {
+		
+		Strand strand = makeStrand();
+		strand.flexibility.get(2).setLibraryRotamers();
+		
+		SimpleConfSpace confSpace = SimpleConfSpace.build(strand);
+		
+		assertThat(confSpace.shell.size(), is(72 - 1));
+		
+		for (String flexResNum : strand.flexibility.getFlexibleResidueNumbers()) {
+			assertThat(strand.mol.getResByPDBResNumber(flexResNum), not(isIn(confSpace.shell)));
+		}
+		for (String flexResNum : strand.flexibility.getStaticResidueNumbers()) {
+			assertThat(strand.mol.getResByPDBResNumber(flexResNum), isIn(confSpace.shell));
+		}
+	}
+	
+	@Test
+	public void twoPositionsShell() {
+		
+		Strand strand = makeStrand();
+		strand.flexibility.get(2).setLibraryRotamers();
+		strand.flexibility.get(42).setLibraryRotamers();
+		
+		SimpleConfSpace confSpace = SimpleConfSpace.build(strand);
+		
+		assertThat(confSpace.shell.size(), is(72 - 2));
+		
+		for (String flexResNum : strand.flexibility.getFlexibleResidueNumbers()) {
+			assertThat(strand.mol.getResByPDBResNumber(flexResNum), not(isIn(confSpace.shell)));
+		}
+		for (String flexResNum : strand.flexibility.getStaticResidueNumbers()) {
+			assertThat(strand.mol.getResByPDBResNumber(flexResNum), isIn(confSpace.shell));
+		}
+	}
+	
+	@Test
 	public void oneDiscreteWildType() {
 		
 		Strand strand = makeStrand();
 		strand.flexibility.get(2).setLibraryRotamers();
 		assertThat(strand.mol.getResByPDBResNumber("2").fullName, is("ALA A   2"));
 		
-		SimpleConfSpace confSpace = new SimpleConfSpace(strand);
+		SimpleConfSpace confSpace = SimpleConfSpace.build(strand);
 		
 		List<ResidueConf> resConfs = confSpace.positions.get(0).resConfs;
 		assertThat(resConfs.size(), is(1));
@@ -151,7 +166,7 @@ public class TestSimpleConfSpace extends TestBase {
 		Strand strand = makeStrand();
 		strand.flexibility.get(2).setLibraryRotamers("GLY");
 		
-		SimpleConfSpace confSpace = new SimpleConfSpace(strand);
+		SimpleConfSpace confSpace = SimpleConfSpace.build(strand);
 		
 		List<ResidueConf> resConfs = confSpace.positions.get(0).resConfs;
 		assertThat(resConfs.size(), is(1));
@@ -175,7 +190,7 @@ public class TestSimpleConfSpace extends TestBase {
 		Strand strand = makeStrand();
 		strand.flexibility.get(2).setLibraryRotamers(Strand.WildType, "GLY");
 		
-		SimpleConfSpace confSpace = new SimpleConfSpace(strand);
+		SimpleConfSpace confSpace = SimpleConfSpace.build(strand);
 		
 		List<ResidueConf> resConfs = confSpace.positions.get(0).resConfs;
 		assertThat(resConfs.size(), is(2));
@@ -212,7 +227,7 @@ public class TestSimpleConfSpace extends TestBase {
 		Strand strand = makeStrand();
 		strand.flexibility.get(2).setLibraryRotamers("VAL");
 		
-		SimpleConfSpace confSpace = new SimpleConfSpace(strand);
+		SimpleConfSpace confSpace = SimpleConfSpace.build(strand);
 		
 		List<ResidueConf> resConfs = confSpace.positions.get(0).resConfs;
 		assertThat(resConfs.size(), is(3)); // valine has 3 rotamers
@@ -275,7 +290,7 @@ public class TestSimpleConfSpace extends TestBase {
 		Strand strand = makeStrand();
 		strand.flexibility.get(2).setLibraryRotamers("VAL").setContinuous(3);
 		
-		SimpleConfSpace confSpace = new SimpleConfSpace(strand);
+		SimpleConfSpace confSpace = SimpleConfSpace.build(strand);
 		
 		ResidueTemplate template = strand.templateLib.getTemplate("VAL");
 		
@@ -336,7 +351,7 @@ public class TestSimpleConfSpace extends TestBase {
 		strand.flexibility.get(2).addWildTypeRotamers();
 		assertThat(strand.mol.getResByPDBResNumber("2").fullName, is("ALA A   2"));
 		
-		SimpleConfSpace confSpace = new SimpleConfSpace(strand);
+		SimpleConfSpace confSpace = SimpleConfSpace.build(strand);
 		
 		List<ResidueConf> resConfs = confSpace.positions.get(0).resConfs;
 		assertThat(resConfs.size(), is(1)); // no alternates in 1CC8
@@ -363,7 +378,7 @@ public class TestSimpleConfSpace extends TestBase {
 		strand.flexibility.get(2).setLibraryRotamers("VAL").addWildTypeRotamers();
 		assertThat(strand.mol.getResByPDBResNumber("2").fullName, is("ALA A   2"));
 		
-		SimpleConfSpace confSpace = new SimpleConfSpace(strand);
+		SimpleConfSpace confSpace = SimpleConfSpace.build(strand);
 		
 		List<ResidueConf> resConfs = confSpace.positions.get(0).resConfs;
 		assertThat(resConfs.size(), is(4)); // no alternates in 1CC8, 3 rotamers for valine

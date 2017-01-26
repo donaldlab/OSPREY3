@@ -15,6 +15,7 @@ import edu.duke.cs.osprey.dof.deeper.RamachandranChecker;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.Forcefield;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -332,10 +333,12 @@ public class ConfigFileParser {
     // TODO: update CFP members instead of EnvironmentVars, then replace loadData() with getters
     @Deprecated
     public void loadData(){
+    	
+    	Forcefield ff = Forcefield.get(params.getValue("Forcefield"));
         
         //a lot of this depends on forcefield type so figure that out first
         //general forcefield data loaded into the ForcefieldParams in EnvironmentVars
-        ForcefieldParams ffparams = new ForcefieldParams(params.getValue("Forcefield"));
+        ForcefieldParams ffparams = new ForcefieldParams(ff);
         ffparams.distDepDielect = params.getBool("DISTDEPDIELECT");
         ffparams.dielectric = params.getDouble("DIELECTCONST");
         ffparams.vdwMultiplier = params.getDouble("VDWMULT");
@@ -356,7 +359,7 @@ public class ConfigFileParser {
         
         // make the template library
         EnvironmentVars.resTemplates = GenericResidueTemplateLibrary.builder()
-            .setForcefield(ffparams)
+            .setForcefield(ff)
             .setRotamers(params.readPath("ROTFILE"))
             .setBackboneDependentRotamers(params.getBool("UseDunbrackRotamers") ? params.readPath("DUNBRACKROTFILE") : null)
             .setEntropy(params.readPath("RESENTROPYFILE"))

@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.confspace;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -8,9 +7,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import edu.duke.cs.osprey.control.Defaults;
-import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.Forcefield;
 import edu.duke.cs.osprey.kstar.KSTermini;
 import edu.duke.cs.osprey.restypes.DAminoAcidHandler;
 import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
@@ -64,9 +64,9 @@ public class Strand {
 			return this;
 		}
 		
-		public Builder setDefaultTemplateLibrary(ForcefieldParams ffparams) {
+		public Builder setDefaultTemplateLibrary(Forcefield forcefield) {
 			return setTemplateLibrary(GenericResidueTemplateLibrary.builder()
-				.setForcefield(ffparams)
+				.setForcefield(forcefield)
 				.build());
 		}
 		
@@ -204,20 +204,29 @@ public class Strand {
 		}
 		
 		public List<String> getFlexibleResidueNumbers() {
-			
-			List<String> resNums = new ArrayList<>();
-			
-			for (Map.Entry<String,ResidueFlex> entry : residues.entrySet()) {
-				
-				String resNum = entry.getKey();
-				ResidueFlex resFlex = entry.getValue();
-				
-				if (resFlex.isFlexible()) {
-					resNums.add(resNum);
-				}
-			}
-			
-			return resNums;
+			return residues.entrySet().stream()
+				.filter((entry) -> {
+					ResidueFlex resFlex = entry.getValue();
+					return resFlex.isFlexible();
+				})
+				.map((entry) -> {
+					String resNum = entry.getKey();
+					return resNum;
+				})
+				.collect(Collectors.toList());
+		}
+		
+		public List<String> getStaticResidueNumbers() {
+			return residues.entrySet().stream()
+				.filter((entry) -> {
+					ResidueFlex resFlex = entry.getValue();
+					return !resFlex.isFlexible();
+				})
+				.map((entry) -> {
+					String resNum = entry.getKey();
+					return resNum;
+				})
+				.collect(Collectors.toList());
 		}
 	}
 	

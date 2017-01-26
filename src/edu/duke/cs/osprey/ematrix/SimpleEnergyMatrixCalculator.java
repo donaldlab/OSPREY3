@@ -1,21 +1,64 @@
 package edu.duke.cs.osprey.ematrix;
 
+import java.io.File;
 import java.util.List;
 
 import edu.duke.cs.osprey.confspace.AbstractTupleMatrix;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.ParameterizedMoleculeCopy;
 import edu.duke.cs.osprey.confspace.ParameterizedMoleculePool;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.control.Defaults;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
 import edu.duke.cs.osprey.minimization.Minimizer;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Progress;
 
 public abstract class SimpleEnergyMatrixCalculator {
+	
+	public static class Builder {
+		
+		private SimpleConfSpace confSpace;
+		private ForcefieldParams ffparams;
+		private Parallelism parallelism;
+		
+		public Builder(SimpleConfSpace confSpace) {
+			this.confSpace = confSpace;
+			this.ffparams = Defaults.forcefieldParams;
+			this.parallelism = Defaults.parallelism;
+		}
+		
+		public Builder setForcefieldParams(ForcefieldParams val) {
+			ffparams = val;
+			return this;
+		}
+		
+		public Builder setParallelism(Parallelism val) {
+			parallelism = val;
+			return this;
+		}
+		
+		public SimpleEnergyMatrixCalculator build() {
+			
+			// NOTE: don't use GPUs on energy matrices, it's too slow
+			// always use the CPU
+			return new SimpleEnergyMatrixCalculator.Cpu(parallelism.numThreads, ffparams, confSpace);
+		}
+	}
+	
+	public static Builder builder(SimpleConfSpace confSpace) {
+		return new Builder(confSpace);
+	}
+	
+	public static SimpleEnergyMatrixCalculator build(SimpleConfSpace confSpace) {
+		return builder(confSpace).build();
+	}
 	
 	private class MoleculeTask {
 		
@@ -80,6 +123,10 @@ public abstract class SimpleEnergyMatrixCalculator {
 	
 	protected SimpleEnergyMatrixCalculator() {
 		// only subclasses should directly make these
+	}
+	
+	public EnergyMatrix calcEnergyMatrix(File cacheFile) {
+		return ObjectIO.readOrMake(cacheFile, EnergyMatrix.class, "energy matrix", (context) -> calcEnergyMatrix());
 	}
 	
 	public EnergyMatrix calcEnergyMatrix() {
@@ -223,6 +270,10 @@ public abstract class SimpleEnergyMatrixCalculator {
 			super.tasks = tasks;
 		}
 		
+		public Cpu(int numThreads, ForcefieldParams ffparams, SimpleConfSpace confSpace) {
+			// TODO Auto-generated constructor stub
+		}
+
 		@Override
 		public void cleanup() {
 			tasks.stop();

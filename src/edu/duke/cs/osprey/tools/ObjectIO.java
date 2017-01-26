@@ -10,8 +10,11 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InvalidClassException;
+import java.io.NotSerializableException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.OptionalDataException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
@@ -28,6 +31,32 @@ import org.apache.commons.io.FileUtils;
 //We can also deep-copy objects by passing them through a stream, as if to store to/load from a file
 
 public class ObjectIO {
+
+    public static class BadFileException extends Exception {
+        
+        private static final long serialVersionUID = -9191066141220686516L;
+        
+        private static final String MsgFormat = "Can't load file data from %s: %s";
+        
+        public BadFileException(File file, String msg) {
+            super(String.format(MsgFormat, file.getAbsolutePath(), msg));
+        }
+        
+        public BadFileException(File file, String msg, Throwable cause) {
+            super(String.format(MsgFormat, file.getAbsolutePath(), msg), cause);
+        }
+    }
+    
+    public static class CantWriteException extends Exception {
+        
+        private static final long serialVersionUID = 8152920955998224621L;
+        
+        private static final String MsgFormat = "Can't write file data to %s";
+        
+        public CantWriteException(File file, Throwable cause) {
+            super(String.format(MsgFormat, file.getAbsolutePath()), cause);
+        }
+    }
     
     public static Object readObject( String fileName, boolean allowNull ){
         //Read the object from the file
@@ -51,6 +80,58 @@ public class ObjectIO {
     }
     
     
+    // these read methods have some more error-checking, so callers better decide how to recover from errors
+    
+    public static <T> T read(String path, Class<T> type)
+    throws BadFileException {
+        return read(new File(path), type);
+    }
+    
+    public static <T> T read(File file, Class<T> type)
+    throws BadFileException {
+        
+        if (!file.exists()) {
+            return null;
+        }
+        
+        // reading objects using Java's built-in serialization is Fraught With Peril!
+        // recovery from failures is possible, but the caller should decide how to do it.
+        // for things that can't be saved (like stack overflows), we'll just have to hard exit the process
+        // but punt problems with files to the caller using a simpler friendlier exception format
+        
+        try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(file))) {
+        
+            // try to read the object and see what happens
+            Object obj = in.readObject();
+            
+            // did we read the object we expected?
+            if (obj == null) {
+                throw new BadFileException(file, "file contained no data");
+            }
+            
+            if (!type.isAssignableFrom(obj.getClass())) {
+                throw new BadFileException(file, "file did not contain a " + type.getName());
+            }
+            
+            @SuppressWarnings("unchecked")
+            // no really, we just checked this above
+            T castObj = (T)obj;
+            
+            return castObj;
+            
+        // can't recover from this one, need to bail hard
+        } catch(StackOverflowError ex) {
+            throw new Error("stack overflow, consider increasing -Xss", ex);
+        
+        // the caller can decide how to recover from this, so throw a friendlier exception
+        } catch (ClassNotFoundException | InvalidClassException | OptionalDataException ex) {
+            throw new BadFileException(file, "Osprey version doesn't match file", ex);
+        } catch (IOException ex) {
+            throw new BadFileException(file, "file is unreadable or corrupt", ex);
+        }
+    }
+    
+    
     
     public static void writeObject( Object outObj, String outFile ){
         try{
@@ -68,6 +149,70 @@ public class ObjectIO {
         }
     }
     
+    
+    public static void write(Object obj, String path)
+    throws CantWriteException {
+        write(obj, new File(path));
+    }
+    
+    public static void write(Object obj, File file)
+    throws CantWriteException {
+        
+        // writing is much less fraught with peril, and errors are much less likely to happen
+        // so just pass along the errors
+        
+        try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(file))) {
+            
+            // try to write the object and see what happens
+            out.writeObject(obj);
+        
+        // if this happens, bail hard and tell a programmer (hopefully it won't happen in production)
+        } catch (InvalidClassException | NotSerializableException ex) {
+            throw new Error("Can't write file data, classes not configured for serialization. This is a bug", ex);
+        
+        // sadly, unrecoverable, so bail hard
+        } catch (StackOverflowError ex) {
+            throw new Error("stack overflow, consider increasing -Xss", ex);
+        
+        // nothing we can do about the rest of the IOExceptions, just pass them up
+        } catch (IOException ex) {
+            throw new CantWriteException(file, ex);
+        }
+    }
+    
+    
+    public static <T> T readOrMake(File file, Class<T> type, String name, Factory<T,Void> factory) {
+        
+        // try to read from the cache
+        try {
+            
+            T thing = read(file, type);
+            if (thing != null) {
+                System.out.println("read " + name + " from file: " + file.getAbsolutePath());
+                return thing;
+            }
+            
+        } catch (BadFileException ex) {
+            ex.printStackTrace(System.out);
+            System.out.println("WARNING: can't read " + name + ", will created new one");
+        }
+        
+        // make the thing
+        T thing = factory.make(null);
+        
+        // try to write to the cache
+        try {
+            
+            write(thing, file);
+            System.out.println("wrote " + name + " to file: " + file.getAbsolutePath());
+            
+        } catch (CantWriteException ex) {
+            ex.printStackTrace(System.out);
+            System.out.println("WARNING: can't write " + name + ", will have to be created again next time");
+        }
+        
+        return thing;
+    }
     
     
     
