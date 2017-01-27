@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
@@ -12,6 +13,10 @@ public class ForcefieldInteractionsGenerator {
 	
 	public ForcefieldInteractions makeSingleRes(ConfSpace confSpace, int pos, Molecule mol) {
 		return makeSingleRes(matchResidue(confSpace.posFlex.get(pos).res, mol));
+	}
+
+	public ForcefieldInteractions makeSingleRes(SimpleConfSpace confSpace, int pos, Molecule mol) {
+		return makeSingleRes(mol.getResByPDBResNumber(confSpace.positions.get(pos).resNum));
 	}
 		
 	public ForcefieldInteractions makeSingleRes(Residue res) {
@@ -24,6 +29,13 @@ public class ForcefieldInteractionsGenerator {
 		return makeResPair(
 			matchResidue(confSpace.posFlex.get(pos1).res, mol),
 			matchResidue(confSpace.posFlex.get(pos2).res, mol)
+		);
+	}
+	
+	public ForcefieldInteractions makeResPair(SimpleConfSpace confSpace, int pos1, int pos2, Molecule mol) {
+		return makeResPair(
+			mol.getResByPDBResNumber(confSpace.positions.get(pos1).resNum),
+			mol.getResByPDBResNumber(confSpace.positions.get(pos2).resNum)
 		);
 	}
 
@@ -40,6 +52,13 @@ public class ForcefieldInteractionsGenerator {
 		);
 	}
 	
+	public ForcefieldInteractions makeIntraAndShell(SimpleConfSpace confSpace, int pos, Molecule mol) {
+		return makeIntraAndShell(
+			mol.getResByPDBResNumber(confSpace.positions.get(pos).resNum),
+			mol.getResiduesByPDBResNumbers(confSpace.shellResNumbers)
+		);
+	}
+	
 	public ForcefieldInteractions makeIntraAndShell(Residue res, List<Residue> shellResidues) {
 		ForcefieldInteractions interactions = new ForcefieldInteractions();
 		interactions.addResidue(res);
@@ -49,24 +68,6 @@ public class ForcefieldInteractionsGenerator {
 		return interactions;
 	}
 	
-	public ForcefieldInteractions makeResPairAndShell(ConfSpace confSpace, int pos1, int pos2, List<Residue> shellResidues, Molecule mol) {
-		return makeResPairAndShell(
-			matchResidue(confSpace.posFlex.get(pos1).res, mol),
-			matchResidue(confSpace.posFlex.get(pos2).res, mol),
-			matchResidues(shellResidues, mol)
-		);
-	}
-	
-	private ForcefieldInteractions makeResPairAndShell(Residue res1, Residue res2, List<Residue> shellResidues) {
-		ForcefieldInteractions interactions = new ForcefieldInteractions();
-		interactions.addResiduePair(res1, res2);
-		for (Residue shellRes : shellResidues) {
-			interactions.addResiduePair(res1, shellRes);
-			interactions.addResiduePair(res2, shellRes);
-		}
-		return interactions;
-	}
-
 	public ForcefieldInteractions makeFullConf(ConfSpace confSpace, List<Residue> shellResidues) {
 		return makeFullConf(confSpace, shellResidues, null);
 	}
@@ -92,6 +93,32 @@ public class ForcefieldInteractionsGenerator {
 			// shell energies
 			for (Residue shellRes : shellResidues) {
 				shellRes = matchResidue(shellRes, mol);
+				interactions.addResiduePair(res1, shellRes);
+			}
+		}
+		
+		return interactions;
+	}
+	
+	public ForcefieldInteractions makeFullConf(SimpleConfSpace confSpace, Molecule mol) {
+		
+		ForcefieldInteractions interactions = new ForcefieldInteractions();
+		
+		for (int pos1=0; pos1<confSpace.positions.size(); pos1++) {
+			Residue res1 = mol.getResByPDBResNumber(confSpace.positions.get(pos1).resNum);
+			
+			// intra energy
+			interactions.addResidue(res1);
+			
+			// pair energies
+			for (int pos2=0; pos2<pos1; pos2++) {
+				Residue res2 = mol.getResByPDBResNumber(confSpace.positions.get(pos2).resNum);
+				interactions.addResiduePair(res1, res2);
+			}
+			
+			// shell energies
+			for (String resNum : confSpace.shellResNumbers) {
+				Residue shellRes = mol.getResByPDBResNumber(resNum);
 				interactions.addResiduePair(res1, shellRes);
 			}
 		}

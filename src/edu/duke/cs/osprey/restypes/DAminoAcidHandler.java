@@ -113,8 +113,8 @@ public class DAminoAcidHandler {
         }
         
         if(DTemplRes.pucker != null){
-            DTemplRes.pucker.setBasePucker( ! DTemplRes.pucker.getBasePucker() );
-            DTemplRes.pucker.setCurPucker( ! DTemplRes.pucker.getCurPucker() );
+            DTemplRes.pucker.setBasePucker( DTemplRes.pucker.getBasePucker().flip() );
+            DTemplRes.pucker.setCurPucker( DTemplRes.pucker.getCurPucker().flip() );
         }
                         
         return DTemplate;

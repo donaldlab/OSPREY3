@@ -3,12 +3,16 @@ package edu.duke.cs.osprey.confspace;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
+import edu.duke.cs.osprey.dof.ProlinePucker;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction.DofBounds;
+import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -49,6 +53,7 @@ public class SimpleConfSpace {
 			}
 			
 			confSpace.makeShell(shellDist);
+			confSpace.countResConfs();
 			return confSpace;
 		}
 	}
@@ -65,13 +70,15 @@ public class SimpleConfSpace {
 		
 		public final int index;
 		public final Strand strand;
-		public final Residue res;
+		public final String resNum;
+		public final Strand.ResidueFlex resFlex;
 		public final List<ResidueConf> resConfs;
 		
-		public Position(int index, Strand strand, Residue residue) {
+		public Position(int index, Strand strand, Residue res) {
 			this.index = index;
 			this.strand = strand;
-			this.res = residue;
+			this.resNum = res.getPDBResNumber();
+			this.resFlex = strand.flexibility.get(resNum);
 			this.resConfs = new ArrayList<>();
 		}
 	}
@@ -83,10 +90,16 @@ public class SimpleConfSpace {
 			WildType;
 		}
 		
+		public static interface PostTemplateModifier {
+			void modify(Residue res);
+		}
+		
 		public final int index;
 		public final ResidueTemplate template;
 		public final Type type;
 		public final Integer rotamerIndex;
+		
+		public PostTemplateModifier postTemplateModifier;
 		
 		public ResidueConf(int index, ResidueTemplate template, Type type) {
 			this(index, template, type, null);
@@ -102,21 +115,41 @@ public class SimpleConfSpace {
 			this.template = template;
 			this.type = type;
 			this.rotamerIndex = rotamerIndex;
+			
+			this.postTemplateModifier = null;
+		}
+
+		public void updateResidue(GenericResidueTemplateLibrary templateLib, Residue res) {
+			
+			// HACKHACK: make sure prolines have puckers
+			if (res.template.name.equalsIgnoreCase("PRO") || template.name.equalsIgnoreCase("PRO")) {
+				res.pucker = new ProlinePucker(templateLib, res);
+			}
+			
+			if (postTemplateModifier != null) {
+				postTemplateModifier.modify(res);
+			}
+			
+			ResidueTypeDOF.switchToTemplate(templateLib, res, template, false);
 		}
 	}
 	
 	public final List<Strand> strands;
 	public final List<Position> positions;
-	public final List<Residue> shell;
+	public final Set<String> shellResNumbers;
 	
 	private Map<Strand,List<StrandFlex>> strandFlex; // yeah, map on instance, not identity
+	private Map<Strand,Set<String>> shellResNumbersByStrand;
+	private int[] numResConfsByPos;
 	
 	private SimpleConfSpace() {
 		strands = new ArrayList<>();
 		positions = new ArrayList<>();
-		shell = new ArrayList<>();
+		shellResNumbers = new HashSet<>();
 		
 		strandFlex = new HashMap<>();
+		shellResNumbersByStrand = new HashMap<>();
+		numResConfsByPos = null;
 	}
 	
 	private void addStrand(Strand strand, StrandFlex ... flexType) {
@@ -155,7 +188,20 @@ public class SimpleConfSpace {
 	
 	private void makeResidueConfsFromTemplate(Position pos, ResidueTemplate template, ResidueConf.Type type) {
 		
-		if (template.getNumRotamers() <= 0) {
+		if (template.name.equalsIgnoreCase("PRO")) {
+			
+			// HACKHACK: add one cone for each proline pucker
+			for (ProlinePucker.Direction dir : ProlinePucker.Direction.values()) {
+				ResidueConf resConf = new ResidueConf(
+					pos.resConfs.size(),
+					template,
+					type
+				);
+				resConf.postTemplateModifier = (res) -> res.pucker.apply(dir);
+				pos.resConfs.add(resConf);
+			}
+			
+		} else if (template.getNumRotamers() <= 0) {
 			
 			// make one template for the library template
 			pos.resConfs.add(new ResidueConf(
@@ -180,9 +226,13 @@ public class SimpleConfSpace {
 	
 	private void makeShell(double shellDist) {
 		
-		shell.clear();
+		shellResNumbers.clear();
+		shellResNumbersByStrand.clear();
 	
 		for (Strand strand : strands) {
+			
+			Set<String> resNumbers = new HashSet<>();
+			
 			for (String staticResNum : strand.flexibility.getStaticResidueNumbers()) {
 				Residue staticRes = strand.mol.getResByPDBResNumber(staticResNum);
 				
@@ -190,15 +240,51 @@ public class SimpleConfSpace {
 					Residue flexRes = strand.mol.getResByPDBResNumber(flexResNum);
 					
 					if (staticRes.distanceTo(flexRes) <= shellDist) {
-						shell.add(staticRes);
+						resNumbers.add(staticResNum);
 						break;
 					}
 				}
 			}
+			
+			shellResNumbers.addAll(resNumbers);
+			shellResNumbersByStrand.put(strand, resNumbers);
 		}
 	}
 	
-	// TODO: support partial conformations
+	private void countResConfs() {
+		numResConfsByPos = new int[positions.size()];
+		for (int i=0; i<positions.size(); i++) {
+			numResConfsByPos[i] = positions.get(i).resConfs.size();
+		}
+	}
+	
+	public int[] getNumResConfsByPos() {
+		return numResConfsByPos;
+	}
+	
+	public int getNumResConfs(int pos) {
+		return positions.get(pos).resConfs.size();
+	}
+	
+	public int getNumResConfs() {
+		int count = 0;
+		for (int pos=0; pos<positions.size(); pos++) {
+			count += numResConfsByPos[pos];
+		}
+		return count;
+	}
+	
+	public int getNumResConfPairs() {
+		int count = 0;
+		for (int pos1=0; pos1<positions.size(); pos1++) {
+			for (int pos2=0; pos2<pos1; pos2++) {
+				for (int rc1=0; rc1<numResConfsByPos[pos2]; rc1++) {
+					count += numResConfsByPos[pos2];
+				}
+			}
+		}
+		return count;
+	}
 	
 	/**
 	 * create a new {@link ParametricMolecule} in the specified conformation
@@ -209,6 +295,10 @@ public class SimpleConfSpace {
 	 * from accumulating across separate analyses. 
 	 */
 	public ParametricMolecule makeMolecule(int[] conf) {
+		return makeMolecule(new RCTuple(conf));
+	}
+	
+	public ParametricMolecule makeMolecule(RCTuple conf) {
 		
 		// make the molecule from the strands (ignore alternates)
 		Molecule mol = new Molecule();
@@ -222,26 +312,34 @@ public class SimpleConfSpace {
         HardCodedResidueInfo.markInterResBonds(mol);
 		
 		// mutate to the conf templates
-		for (Position pos : positions) {
-			ResidueConf resConf = pos.resConfs.get(conf[pos.index]);
-			Residue res = mol.getResByPDBResNumber(pos.res.getPDBResNumber());
-			ResidueTypeDOF.switchToTemplate(pos.strand.templateLib, res, resConf.template, false);
+		for (int i=0; i<conf.size(); i++) {
+			
+			Position pos = positions.get(conf.pos.get(i));
+			ResidueConf resConf = pos.resConfs.get(conf.RCs.get(i));
+			Residue res = mol.getResByPDBResNumber(pos.resNum);
+			
+			resConf.updateResidue(pos.strand.templateLib, res);
 		}
 		
 		// make all the DOFs
 		List<DegreeOfFreedom> dofs = new ArrayList<>();
-		for (Strand strand : strands) {
+		
+		// first, strand DOFs
+		for (Strand strand : getConfStrands(conf)) {
 			for (StrandFlex flex : strandFlex.get(strand)) {
 				dofs.addAll(flex.makeDofs(strand));
 			}
 			// NOTE: strand DOFs are "centered" on initial molecule pos, so there's no need to set anything here to match the conf
 		}
-		for (Position pos : positions) {
-			ResidueConf resConf = pos.resConfs.get(conf[pos.index]);
-			Residue res = mol.getResByPDBResNumber(pos.res.getPDBResNumber());
+		
+		// then, residue conf DOFs
+		for (int i=0; i<conf.size(); i++) {
+			Position pos = positions.get(conf.pos.get(i));
+			ResidueConf resConf = pos.resConfs.get(conf.RCs.get(i));
+			Residue res = mol.getResByPDBResNumber(pos.resNum);
 			
 			// make the residue DOFs
-			Strand.ResidueFlex resFlex = pos.strand.flexibility.get(res.getPDBResNumber());
+			Strand.ResidueFlex resFlex = pos.strand.flexibility.get(pos.resNum);
 			dofs.addAll(resFlex.voxelShape.makeDihedralDOFs(res));
 			
 			// pose the residue to match the rotamer
@@ -251,30 +349,48 @@ public class SimpleConfSpace {
 			}
 		}
 		
+		// TODO: make sure prolines have puckers
 		// TODO: make DOFs for non-residue continuous motions (eg, blocks, DEEPer)
 		
 		return new ParametricMolecule(mol, dofs);
 	}
 	
 	public DofBounds makeBounds(int[] conf) {
+		return makeBounds(new RCTuple(conf));
+	}
+	
+	public DofBounds makeBounds(RCTuple conf) {
 		
 		// gather all the DOF bounds
 		List<DofBounds> bounds = new ArrayList<>();
-		for (Strand strand : strands) {
+		
+		// first, strand bounds
+		for (Strand strand : getConfStrands(conf)) {
 			for (StrandFlex flex : strandFlex.get(strand)) {
 				bounds.add(flex.makeBounds(strand));
 			}
 		}
-		for (Position pos : positions) {
-			ResidueConf resConf = pos.resConfs.get(conf[pos.index]);
+		
+		// then, residue conf bounds
+		for (int i=0; i<conf.size(); i++) {
+			Position pos = positions.get(conf.pos.get(i));
+			ResidueConf resConf = pos.resConfs.get(conf.RCs.get(i));
 			if (resConf.rotamerIndex != null) {
-				Strand.ResidueFlex resFlex = pos.strand.flexibility.get(pos.res.getPDBResNumber());
-				bounds.add(resFlex.voxelShape.makeDihedralBounds(resConf.template, resConf.rotamerIndex));
+				bounds.add(pos.resFlex.voxelShape.makeDihedralBounds(resConf.template, resConf.rotamerIndex));
 			}
 		}
 		
 		// TODO: make DOF bounds for non-residue continuous motions (eg, blocks, DEEPer)
 		
 		return DofBounds.concatenate(bounds);
+	}
+	
+	private Set<Strand> getConfStrands(RCTuple conf) {
+		Set<Strand> confStrands = new HashSet<>();
+		for (int i=0; i<conf.size(); i++) {
+			Position pos = positions.get(conf.pos.get(i));
+			confStrands.add(pos.strand);
+		}
+		return confStrands;
 	}
 }

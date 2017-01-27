@@ -19,14 +19,31 @@ import edu.duke.cs.osprey.tools.Protractor;
  * 
  * @author mhall44
  */
+// TODO: is this really a DOF? or a conf?
 public class ProlinePucker extends DegreeOfFreedom {
     
-	private static final long serialVersionUID = -5326286110623671996L;
+    private static final long serialVersionUID = -5326286110623671996L;
 
-	public static boolean UP=true, DOWN=false;
+    public static enum Direction {
+        
+        UP {
+            @Override
+            public Direction flip() {
+                return DOWN;
+            }
+        },
+        DOWN {
+            @Override
+            public Direction flip() {
+                return UP;
+            }
+        };
+        
+        public abstract Direction flip();
+    }
     
-    boolean basePucker;//original pucker: param=0 describes this
-    boolean curPucker;//pucker that we currently want
+    Direction basePucker;//original pucker: param=0 describes this
+    Direction curPucker;//pucker that we currently want
     GenericResidueTemplateLibrary templateLib;
     Residue res;
     
@@ -49,7 +66,7 @@ public class ProlinePucker extends DegreeOfFreedom {
     }
     
     
-    public static boolean computePucker(Residue res){
+    public static Direction computePucker(Residue res){
         //Compute the pucker with the current geometry, based on chi2
         //get the coordinates defining chi2
         double CA[] = res.getCoordsByAtomName("CA");
@@ -60,9 +77,9 @@ public class ProlinePucker extends DegreeOfFreedom {
         double chi2 = Protractor.measureDihedral( new double[][] {CA,CB,CG,CD} );
 
         if( chi2 > 0 )
-            return UP;
+            return Direction.UP;
         else
-            return DOWN;
+            return Direction.DOWN;
     }
     
 
@@ -71,11 +88,15 @@ public class ProlinePucker extends DegreeOfFreedom {
     public void apply(double paramVal) {
         
         if(paramVal==0)//original pucker
-            curPucker = basePucker;
+            apply(basePucker);
         else if(paramVal==1)//flipped pucker
-            curPucker = !basePucker;
+            apply(basePucker.flip());
         else
             throw new RuntimeException("ERROR: Bad parameter value of proline pucker: "+paramVal);
+    }
+    
+    public void apply(Direction val) {
+        curPucker = val;
         
         //let's generate the correct geometry for the current pucker.  
         SidechainIdealizer.idealizeSidechain(templateLib, res);
@@ -98,21 +119,21 @@ public class ProlinePucker extends DegreeOfFreedom {
         //else stay as-is
     }
 
-    public boolean getCurPucker() {
+    public Direction getCurPucker() {
         return curPucker;
     }
 
-    public boolean getBasePucker() {
+    public Direction getBasePucker() {
         return basePucker;
     }
     
     
 
-    public void setBasePucker(boolean basePucker) {
+    public void setBasePucker(Direction basePucker) {
         this.basePucker = basePucker;
     }
 
-    public void setCurPucker(boolean curPucker) {
+    public void setCurPucker(Direction curPucker) {
         this.curPucker = curPucker;
     }
     

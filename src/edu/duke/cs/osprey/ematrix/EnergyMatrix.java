@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.TupleMatrixDouble;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.ObjectIO.BadFileException;
@@ -46,6 +47,10 @@ public class EnergyMatrix extends TupleMatrixDouble {
         //(matrix valid for all RCs),
         //but EnergyMatrix objects from tup-exp may only be valid for a finite pruning interval
         super(cSpace, pruningInterval, 0.);//default higher interaction for energies is 0
+    }
+    
+    public EnergyMatrix(SimpleConfSpace confSpace) {
+        super(confSpace, Double.POSITIVE_INFINITY, 0);
     }
     
     public EnergyMatrix(int numPos, int[] numRCsAtPos, double pruningInterval){

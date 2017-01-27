@@ -73,7 +73,7 @@ public class TestSimpleConfSpace extends TestBase {
 		SimpleConfSpace.Position pos = confSpace.positions.get(0);
 		assertThat(pos.index, is(0));
 		assertThat(pos.strand, is(strand));
-		assertThat(pos.res, is(strand.mol.getResByPDBResNumber("2")));
+		assertThat(pos.resNum, is("2"));
 	}
 	
 	@Test
@@ -90,12 +90,12 @@ public class TestSimpleConfSpace extends TestBase {
 		SimpleConfSpace.Position pos = confSpace.positions.get(0);
 		assertThat(pos.index, is(0));
 		assertThat(pos.strand, is(strand));
-		assertThat(pos.res, is(strand.mol.getResByPDBResNumber("2")));
+		assertThat(pos.resNum, is("2"));
 		
 		pos = confSpace.positions.get(1);
 		assertThat(pos.index, is(1));
 		assertThat(pos.strand, is(strand));
-		assertThat(pos.res, is(strand.mol.getResByPDBResNumber("42")));
+		assertThat(pos.resNum, is("42"));
 	}
 	
 	@Test
@@ -106,13 +106,13 @@ public class TestSimpleConfSpace extends TestBase {
 		
 		SimpleConfSpace confSpace = SimpleConfSpace.build(strand);
 		
-		assertThat(confSpace.shell.size(), is(72 - 1));
+		assertThat(confSpace.shellResNumbers.size(), is(72 - 1));
 		
-		for (String flexResNum : strand.flexibility.getFlexibleResidueNumbers()) {
-			assertThat(strand.mol.getResByPDBResNumber(flexResNum), not(isIn(confSpace.shell)));
+		for (String resNum : strand.flexibility.getFlexibleResidueNumbers()) {
+			assertThat(resNum, not(isIn(confSpace.shellResNumbers)));
 		}
-		for (String flexResNum : strand.flexibility.getStaticResidueNumbers()) {
-			assertThat(strand.mol.getResByPDBResNumber(flexResNum), isIn(confSpace.shell));
+		for (String resNum : strand.flexibility.getStaticResidueNumbers()) {
+			assertThat(resNum, isIn(confSpace.shellResNumbers));
 		}
 	}
 	
@@ -125,13 +125,13 @@ public class TestSimpleConfSpace extends TestBase {
 		
 		SimpleConfSpace confSpace = SimpleConfSpace.build(strand);
 		
-		assertThat(confSpace.shell.size(), is(72 - 2));
+		assertThat(confSpace.shellResNumbers.size(), is(72 - 2));
 		
-		for (String flexResNum : strand.flexibility.getFlexibleResidueNumbers()) {
-			assertThat(strand.mol.getResByPDBResNumber(flexResNum), not(isIn(confSpace.shell)));
+		for (String resNum : strand.flexibility.getFlexibleResidueNumbers()) {
+			assertThat(resNum, not(isIn(confSpace.shellResNumbers)));
 		}
-		for (String flexResNum : strand.flexibility.getStaticResidueNumbers()) {
-			assertThat(strand.mol.getResByPDBResNumber(flexResNum), isIn(confSpace.shell));
+		for (String resNum : strand.flexibility.getStaticResidueNumbers()) {
+			assertThat(resNum, isIn(confSpace.shellResNumbers));
 		}
 	}
 	

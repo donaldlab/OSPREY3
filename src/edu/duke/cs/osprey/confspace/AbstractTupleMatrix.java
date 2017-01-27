@@ -22,6 +22,8 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
     private int[] pairwiseOffsets;
     private int numPairwiseTerms;
     
+    // TODO: do we really need a pruning interval to make an energy matrix?
+    // or can we simplify the code overall by storing the pruning interval somewhere else?
     private double pruningInterval;//This matrix needs to hold entries for all RCs
     //that cannot be pruned with the specified pruning interval (Ew + Ival)
     //i.e. the matrix must describe all conformations within pruningInterval 
@@ -40,6 +42,10 @@ public abstract class AbstractTupleMatrix<T> implements TupleMatrix<T>, Serializ
     protected AbstractTupleMatrix(ConfSpace cSpace, double pruningInterval, T defaultHigherInteraction) {
         //allocate the matrix based on the provided conformational space
     	this(cSpace.numPos, cSpace.getNumRCsAtPos(), pruningInterval, defaultHigherInteraction);
+    }
+    
+    protected AbstractTupleMatrix(SimpleConfSpace confSpace, double pruningInterval, T defaultHigherInteraction) {
+        this(confSpace.positions.size(), confSpace.getNumResConfsByPos(), pruningInterval, defaultHigherInteraction);
     }
     
     protected AbstractTupleMatrix(int numPos, int[] numConfAtPos, double pruningInterval, T defaultHigherInteraction) {

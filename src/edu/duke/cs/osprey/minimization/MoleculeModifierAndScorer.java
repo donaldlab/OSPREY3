@@ -320,22 +320,26 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
 
     @Override
     public double getInitStepSize(int dof) {
-        DegreeOfFreedom curDOF = DOFs.get(dof);
-        if(curDOF instanceof FreeDihedral)
+    	return getInitStepSize(DOFs.get(dof));
+    }
+    
+    // TODO: move this into DegreeOfFreedom
+    public static double getInitStepSize(DegreeOfFreedom dof) {
+        if(dof instanceof FreeDihedral)
             return 0.25;
-        else if (curDOF instanceof EllipseCoordDOF) {
-            EllipseCoordDOF e = (EllipseCoordDOF) curDOF;
+        else if (dof instanceof EllipseCoordDOF) {
+            EllipseCoordDOF e = (EllipseCoordDOF) dof;
             return (e.getIndex()==0) ? 10 : 0.3; 
         }
-        else if(curDOF instanceof StrandRotation)
+        else if(dof instanceof StrandRotation)
             return 0.0625;
-        else if(curDOF instanceof StrandTranslation)
+        else if(dof instanceof StrandTranslation)
             return 0.025;
-        else if(curDOF instanceof Shear)
+        else if(dof instanceof Shear)
             return 0.125;
-        else if(curDOF instanceof Backrub)
+        else if(dof instanceof Backrub)
             return 0.125;
-        else if(curDOF instanceof BBFreeDOF)
+        else if(dof instanceof BBFreeDOF)
             return 0.05;
         else
             throw new UnsupportedOperationException("ERROR: DOF type not recognized for step size purposes");
@@ -343,23 +347,25 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
 
     @Override
     public boolean isDOFAngle(int dof) {
-        
-        DegreeOfFreedom curDOF = DOFs.get(dof);
-        
-        if(curDOF instanceof FreeDihedral)
+    	return isDOFAngle(DOFs.get(dof));
+    }
+    
+    // TODO: move this into DegreeOfFreedom
+    public static boolean isDOFAngle(DegreeOfFreedom dof) {
+        if(dof instanceof FreeDihedral)
             return true;
-        else if(curDOF instanceof StrandRotation)
+        else if(dof instanceof StrandRotation)
             return true;
-        else if(curDOF instanceof StrandTranslation)
+        else if(dof instanceof StrandTranslation)
             return false;
-        else if(curDOF instanceof Shear)
+        else if(dof instanceof Shear)
             return true;
-        else if(curDOF instanceof Backrub)
+        else if(dof instanceof Backrub)
             return true;
-        else if(curDOF instanceof BBFreeDOF)
+        else if(dof instanceof BBFreeDOF)
             return false;
         
-        throw new UnsupportedOperationException("Degree of freedom type not support here yet: "+DOFs.get(dof).toString());
+        throw new UnsupportedOperationException("Degree of freedom type not support here yet: "+dof.toString());
     }
     
     

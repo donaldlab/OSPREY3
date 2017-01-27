@@ -23,6 +23,7 @@ import edu.duke.cs.osprey.minimization.SimpleCCDMinimizer;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 
+@Deprecated
 public abstract class SimpleEnergyCalculator {
 	
 	public final ForcefieldParams ffparams;

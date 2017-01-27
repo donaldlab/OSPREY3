@@ -269,7 +269,7 @@ public class SidechainIdealizer {
             double newChi1;
             
             //we want to idealize the pucker given by res.pucker.curPucker
-            if(res.pucker.getCurPucker() == ProlinePucker.UP)
+            if(res.pucker.getCurPucker() == ProlinePucker.Direction.UP)
                 newChi1 = asr - beta;
             else//DOWN
                 newChi1 = (double)Math.PI - beta - asr;//Larger newChi1, since an arcsine is acute (puckers merge when asr = pi/2, i.e. A=R)

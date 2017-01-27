@@ -6,7 +6,7 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.confspace.StrandFlex;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
+import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.Forcefield;
 import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
@@ -37,7 +37,7 @@ public class ScriptPlayground {
 		SimpleConfSpace confSpace = SimpleConfSpace.build(strand);
 		
 		// get an energy matrix
-		SimpleEnergyMatrixCalculator ematcalc = SimpleEnergyMatrixCalculator.build(confSpace);
+		SimplerEnergyMatrixCalculator ematcalc = SimplerEnergyMatrixCalculator.build(confSpace);
 		EnergyMatrix emat = ematcalc.calcEnergyMatrix(new File("/tmp/emat.dat"));
 	}
 	
@@ -89,7 +89,7 @@ public class ScriptPlayground {
 		ffparams.solvationForcefield = null; // turn off solvation energy
 		
 		// get an energy matrix
-		SimpleEnergyMatrixCalculator ematcalc = SimpleEnergyMatrixCalculator.builder(confSpace)
+		SimplerEnergyMatrixCalculator ematcalc = SimplerEnergyMatrixCalculator.builder(confSpace)
 			.setForcefieldParams(ffparams)
 			.build();
 		EnergyMatrix emat = ematcalc.calcEnergyMatrix(new File("/tmp/emat.dat"));

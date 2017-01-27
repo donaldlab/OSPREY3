@@ -6,6 +6,8 @@ package edu.duke.cs.osprey.confspace;
 
 import java.util.ArrayList;
 
+import org.apache.commons.collections4.iterators.ArrayIterator;
+
 public class TupleMatrixDouble extends AbstractTupleMatrix<Double> {
 	
 	private static final long serialVersionUID = -1286639255089978027L;
@@ -16,6 +18,10 @@ public class TupleMatrixDouble extends AbstractTupleMatrix<Double> {
     
     public TupleMatrixDouble(ConfSpace cSpace, double pruningInterval, double defaultHigherInteraction) {
     	super(cSpace, pruningInterval, defaultHigherInteraction);
+    }
+    
+    public TupleMatrixDouble(SimpleConfSpace confSpace, double pruningInterval, double defaultHigherInteraction) {
+        super(confSpace, pruningInterval, defaultHigherInteraction);
     }
     
     public TupleMatrixDouble(int numPos, int[] numAllowedAtPos, double pruningInterval, double defaultHigherInteraction) {
@@ -71,5 +77,11 @@ public class TupleMatrixDouble extends AbstractTupleMatrix<Double> {
     			pairwise[getPairwiseIndex(res1, i1, res2, i2)] = val.get(i1).get(i2);
     		}
     	}
+    }
+    
+    public void fill(double[] vals) {
+    	ArrayIterator<Double> iter = new ArrayIterator<>(vals);
+    	fill(iter);
+    	assert (iter.hasNext() == false);
     }
 }

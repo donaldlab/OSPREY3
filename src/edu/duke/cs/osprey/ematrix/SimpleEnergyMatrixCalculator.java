@@ -7,12 +7,9 @@ import edu.duke.cs.osprey.confspace.AbstractTupleMatrix;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.ParameterizedMoleculeCopy;
 import edu.duke.cs.osprey.confspace.ParameterizedMoleculePool;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.control.Defaults;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
 import edu.duke.cs.osprey.minimization.Minimizer;
-import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
@@ -20,45 +17,8 @@ import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Progress;
 
+@Deprecated
 public abstract class SimpleEnergyMatrixCalculator {
-	
-	public static class Builder {
-		
-		private SimpleConfSpace confSpace;
-		private ForcefieldParams ffparams;
-		private Parallelism parallelism;
-		
-		public Builder(SimpleConfSpace confSpace) {
-			this.confSpace = confSpace;
-			this.ffparams = Defaults.forcefieldParams;
-			this.parallelism = Defaults.parallelism;
-		}
-		
-		public Builder setForcefieldParams(ForcefieldParams val) {
-			ffparams = val;
-			return this;
-		}
-		
-		public Builder setParallelism(Parallelism val) {
-			parallelism = val;
-			return this;
-		}
-		
-		public SimpleEnergyMatrixCalculator build() {
-			
-			// NOTE: don't use GPUs on energy matrices, it's too slow
-			// always use the CPU
-			return new SimpleEnergyMatrixCalculator.Cpu(parallelism.numThreads, ffparams, confSpace);
-		}
-	}
-	
-	public static Builder builder(SimpleConfSpace confSpace) {
-		return new Builder(confSpace);
-	}
-	
-	public static SimpleEnergyMatrixCalculator build(SimpleConfSpace confSpace) {
-		return builder(confSpace).build();
-	}
 	
 	private class MoleculeTask {
 		
@@ -263,17 +223,17 @@ public abstract class SimpleEnergyMatrixCalculator {
 		
 		private ThreadPoolTaskExecutor tasks;
 		
-		public Cpu(int numThreads, ForcefieldParams ffparams, ConfSpace confSpace, List<Residue> shellResidues) {
-			ecalc = new SimpleEnergyCalculator.Cpu(ffparams, confSpace, shellResidues);
-			tasks = new ThreadPoolTaskExecutor();
-			tasks.start(numThreads);
+		private Cpu(int numThreads, SimpleEnergyCalculator ecalc) {
+			this.ecalc = ecalc;
+			this.tasks = new ThreadPoolTaskExecutor();
+			this.tasks.start(numThreads);
 			super.tasks = tasks;
 		}
 		
-		public Cpu(int numThreads, ForcefieldParams ffparams, SimpleConfSpace confSpace) {
-			// TODO Auto-generated constructor stub
+		public Cpu(int numThreads, ForcefieldParams ffparams, ConfSpace confSpace, List<Residue> shellResidues) {
+			this(numThreads, new SimpleEnergyCalculator.Cpu(ffparams, confSpace, shellResidues));
 		}
-
+		
 		@Override
 		public void cleanup() {
 			tasks.stop();
