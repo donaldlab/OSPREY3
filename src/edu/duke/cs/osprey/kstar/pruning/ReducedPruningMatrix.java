@@ -80,4 +80,8 @@ public class ReducedPruningMatrix extends PruningMatrix {
 	public int getNumPos() {
 		return sp.posNums.size();
 	}
+	
+	public int countUpdates() {
+		return upm.countUpdates();
+	}
 }

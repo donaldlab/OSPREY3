@@ -14,42 +14,43 @@ import edu.duke.cs.osprey.kstar.emat.ReducedEnergyMatrix;
 import edu.duke.cs.osprey.kstar.pruning.InvertedPruningMatrix;
 import edu.duke.cs.osprey.kstar.pruning.ReducedPruningMatrix;
 import edu.duke.cs.osprey.kstar.pruning.UnprunedPruningMatrix;
+import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class KSSearchProblem extends SearchProblem {
 
 	private static final long serialVersionUID = -6946555904198558059L;
-	
+
 	public ReducedPruningMatrix reducedMat = null;
 	public InvertedPruningMatrix inverseMat = null;
 	public ArrayList<String> flexibleRes = null;
 	public ArrayList<ArrayList<String>> allowedAAs = null;
 	public ArrayList<ArrayList<String>> reducedAllowedAAs = null;
 	public ArrayList<Integer> posNums = null;
-	
-	
+
+
 	public KSSearchProblem(String name, String PDBFile, ArrayList<String> flexibleRes,
 			ArrayList<ArrayList<String>> allowedAAs, boolean addWT, boolean contSCFlex, boolean useEPIC,
 			EPICSettings epicSettings, boolean useTupExp, LUTESettings luteSettings,
-            DEEPerSettings dset, ArrayList<String[]> moveableStrands,
+			DEEPerSettings dset, ArrayList<String[]> moveableStrands,
 			ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef, boolean addResEntropy,
 			boolean addWTRots, KSTermini termini, boolean useVoxelG) {
-		
+
 		super(name, PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, useEPIC, epicSettings, useTupExp, luteSettings,
-                        dset, moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWTRots, termini, useVoxelG, new ArrayList<>());
-		
+				dset, moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWTRots, termini, useVoxelG, new ArrayList<>());
+
 		this.allowedAAs = allowedAAs;
 		this.reducedAllowedAAs = allowedAAs;
 		this.posNums = getMaxPosNums();
 	}
 
-	
+
 	public KSSearchProblem(SearchProblem sp1) {
 		super(sp1);
 	}
 
-	
+
 	public KSSearchProblem(KSSearchProblem other, 
 			String newSPName, 
 			ArrayList<ArrayList<String>> reducedAllowedAAs, 
@@ -57,7 +58,7 @@ public class KSSearchProblem extends SearchProblem {
 			ArrayList<Integer> newPosNums) {
 
 		super(other);
-		
+
 		name = newSPName;
 		this.allowedAAs = other.allowedAAs;
 		this.reducedAllowedAAs = reducedAllowedAAs;		
@@ -75,38 +76,38 @@ public class KSSearchProblem extends SearchProblem {
 		this.competitorPruneMat = other.competitorPruneMat;
 		this.confSpace = other.confSpace;
 	}
-    
+
 	public enum MatrixType {
 		EMAT, EPICMAT;
 	}
-	
+
 	public MatrixType getMatrixType() {
 		//If the LUTE matrix is supposed to be used, it will be set as emat
 		if(useEPIC) throw new UnsupportedOperationException("ERROR: EPIC is currently not supported in K*");
 
 		return MatrixType.EMAT;
 	}
-	
+
 	public EnergyMatrix getEnergyMatrix() {
-            return emat;
-            //If the LUTE matrix is supposed to be used, it will be set as emat
-        }
-	
+		return emat;
+		//If the LUTE matrix is supposed to be used, it will be set as emat
+	}
+
 	public String getMatrixFileName(MatrixType type) {
 		return name + "." + type.name() + ".dat";
 	}
-	
-        public String getEnergyMatrixFileName() {
+
+	public String getEnergyMatrixFileName() {
 		return name + ".EMAT.dat";
 	}
-	
+
 	public ArrayList<Integer> getMaxPosNums() {
 		ArrayList<Integer> ans = new ArrayList<>(allowedAAs.size());
 		for(int i = 0; i < allowedAAs.size(); ++i) ans.add(i);
 		return ans;
 	}
-	
-	
+
+
 	public InvertedPruningMatrix getInvertedFromUnreducedPruningMatrix(KSSearchProblem sp) {
 		ReducedPruningMatrix unreduced = new ReducedPruningMatrix(this);
 
@@ -116,7 +117,7 @@ public class KSSearchProblem extends SearchProblem {
 		// throw exception if there is a sequence mismatch
 		if(!pruneMatIsValid(ans))
 			throw new RuntimeException("ERROR: pruning did not reduce RCs to sequence space of allowedAAs");
-		
+
 		BigInteger numConfs = numConfs(ans);
 		return numConfs.compareTo(BigInteger.ZERO) == 0 ? null : ans;
 	}
@@ -175,6 +176,21 @@ public class KSSearchProblem extends SearchProblem {
 				ans.getUpdatedPruningMatrix().markAsPruned(new RCTuple(pos,rc));
 		}
 
+		// single sequence type dependent pruning for better efficiency
+		//now do any consequent singles & pairs pruning
+		int numUpdates = ans.countUpdates();
+		int oldNumUpdates;
+
+		Pruner dee = new Pruner(sp, ans.getUpdatedPruningMatrix(), true, Double.POSITIVE_INFINITY, ans.getPruningInterval(), sp.useEPIC, sp.useTupExpForSearch);
+		dee.setVerbose(false);
+
+		do {//repeat as long as we're pruning things
+			oldNumUpdates = numUpdates;
+			dee.prune("GOLDSTEIN");
+			dee.prune("GOLDSTEIN PAIRS FULL");
+			numUpdates = ans.countUpdates();
+		} while (numUpdates > oldNumUpdates);
+
 		// throw exception if there is a sequence mismatch
 		if(!pruneMatIsValid(ans))
 			throw new RuntimeException("ERROR: pruning did not reduce RCs to sequence space of allowedAAs");
@@ -194,7 +210,7 @@ public class KSSearchProblem extends SearchProblem {
 		KSSearchProblem reducedSP = new KSSearchProblem(this, name, allowedAAs, flexRes, posNums);
 
 		reducedSP.reducedMat = reducedSP.getReducedPruningMatrix(reducedSP); // for q*, q'
-		
+
 		if(reducedSP.reducedMat != null)
 			reducedSP.inverseMat = reducedSP.getInvertedFromReducedPruningMatrix(reducedSP); // for p*
 
@@ -215,10 +231,10 @@ public class KSSearchProblem extends SearchProblem {
 		return ans;
 	}
 
-	
+
 	public ArrayList<Integer> rcsAtPos( PruningMatrix pruneMat, int pos, String aaType, boolean pruned ) {
 		ArrayList<Integer> ans = new ArrayList<>();
-		
+
 		ArrayList<Integer> rcsAtPos = pruned ? pruneMat.prunedRCsAtPos(pos) : pruneMat.unprunedRCsAtPos(pos);
 		for( int RCNum : rcsAtPos ) {
 			int pos1 = posNums.get(pos);
@@ -226,10 +242,10 @@ public class KSSearchProblem extends SearchProblem {
 			if(!AAType.equalsIgnoreCase(aaType)) continue;
 			ans.add(RCNum);
 		}
-		
+
 		return ans;
 	}
-	
+
 
 	private ArrayList<ArrayList<String>> getAAsAtPos( PruningMatrix pruneMat ) {
 		ArrayList<ArrayList<String>> ans = new ArrayList<>();
@@ -282,8 +298,8 @@ public class KSSearchProblem extends SearchProblem {
 
 		return new ReducedEnergyMatrix(this, emat);
 	}
-	
-	
+
+
 	public MultiTermEnergyFunction decompMinimizedEnergy(int[] conf){
 		//Minimized energy of the conformation
 		//whose RCs are listed for all flexible positions in conf
@@ -303,8 +319,8 @@ public class KSSearchProblem extends SearchProblem {
 
 		return mef;
 	}
-	
-	
+
+
 	public void mergeResiduePositions(int... posToCombine) {
 
 		EnergyMatrixCalculator emc = new EnergyMatrixCalculator(confSpace, 
@@ -312,8 +328,8 @@ public class KSSearchProblem extends SearchProblem {
 
 		emc.addEnergyTerms(false, posToCombine);
 	}
-	
-	
+
+
 	public double lowerBoundContribByRC(int pos, int[] conf, int numResInHot) {
 		double bound = emat.rcContribAtPos(pos, conf, numResInHot);	
 		return bound;
