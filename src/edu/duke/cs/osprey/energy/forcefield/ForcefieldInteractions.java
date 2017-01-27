@@ -20,6 +20,7 @@ public class ForcefieldInteractions extends ArrayList<AtomGroup[]> {
 		List<Atom> getAtoms();
 		double[] getCoords();
 		int getSequenceNumber();
+		boolean isBroken();
 	}
 	
 	public static class ResidueAtomGroup implements AtomGroup {
@@ -67,6 +68,11 @@ public class ForcefieldInteractions extends ArrayList<AtomGroup[]> {
 			}
 			
 			return sequenceNumber;
+		}
+		
+		@Override
+		public boolean isBroken() {
+			return !res.confProblems.isEmpty();
 		}
 	}
 	

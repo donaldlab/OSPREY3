@@ -82,6 +82,14 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
     	switchToTemplate(templateLib, res, newTemplate, idealizeSidechainAfterMutation);
     }
     
+    public static void switchToTemplate(GenericResidueTemplateLibrary templateLib, Residue res, String resType) {
+    	switchToTemplate(templateLib, res, templateLib.getTemplate(resType));
+    }
+    
+    public static void switchToTemplate(GenericResidueTemplateLibrary templateLib, Residue res, ResidueTemplate newTemplate) {
+    	switchToTemplate(templateLib, res, newTemplate, false);
+    }
+    
     public static void switchToTemplate(GenericResidueTemplateLibrary templateLib, Residue res, ResidueTemplate newTemplate, boolean idealizeSidechainAfterMutation) {
         ResidueTemplate oldTemplate = res.template;
         

@@ -769,6 +769,15 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 			return internalSolvEnergy;
 		}
 		
+		public boolean isBroken() {
+			for (GroupPair pair : groupPairs) {
+				if (pair.group1.isBroken() || pair.group2.isBroken()) {
+					return true;
+				}
+			}
+			return false;
+		}
+		
 		@Override
 		public int handleChemicalChanges() {
 			int seq = handleChemicalChangesInternal();
@@ -790,6 +799,10 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 			
 			handleChemicalChanges();
 			updateCoords();
+			
+			if (isBroken()) {
+				return Double.POSITIVE_INFINITY;
+			}
 			
 			// copy some things to the local stack
 			IntBuffer subsetTable = this.subsetTable;

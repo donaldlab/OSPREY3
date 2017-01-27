@@ -139,6 +139,11 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	@Override
 	public double getEnergy() {
 		
+		// check for broken confs
+		if (ffsubset.isBroken()) {
+			return Double.POSITIVE_INFINITY;
+		}
+		
 		// upload data
 		ForcefieldKernel kernel = getKernel();
 		kernel.setSubset(getSubset());
