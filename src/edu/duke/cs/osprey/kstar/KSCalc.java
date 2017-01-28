@@ -370,13 +370,13 @@ public class KSCalc {
 			ArrayList<Integer> strands = new ArrayList<Integer>(Arrays.asList(KSTermini.COMPLEX, 
 					KSTermini.PROTEIN, KSTermini.LIGAND));
 
-			BigInteger numMinConfs = BigInteger.ZERO;
+			BigInteger numProcessedConfs = BigInteger.ZERO;
 			for( int strand : strands ) {
 				PFAbstract pf = getPF(strand);
-				numMinConfs = numMinConfs.add( pf.getNumProcessed() );
+				numProcessedConfs = numProcessedConfs.add( pf.getNumProcessed() );
 			}
 			out.print("\t");
-			out.print(numMinConfs);
+			out.print(numProcessedConfs);
 
 			for( int strand : strands ) {
 				PFAbstract pf = getPF(strand);
