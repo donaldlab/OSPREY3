@@ -181,7 +181,7 @@ public class KSSearchProblem extends SearchProblem {
 		int numUpdates = ans.countUpdates();
 		int oldNumUpdates;
 
-		Pruner dee = new Pruner(sp, ans.getUpdatedPruningMatrix(), true, Double.POSITIVE_INFINITY, ans.getPruningInterval(), sp.useEPIC, sp.useTupExpForSearch);
+		Pruner dee = new Pruner(sp, ans.getUpdatedPruningMatrix(), true, 100.0, ans.getPruningInterval(), sp.useEPIC, sp.useTupExpForSearch);
 		dee.setVerbose(false);
 
 		do {//repeat as long as we're pruning things
@@ -189,7 +189,8 @@ public class KSSearchProblem extends SearchProblem {
 			dee.prune("GOLDSTEIN");
 			dee.prune("GOLDSTEIN PAIRS FULL");
 			numUpdates = ans.countUpdates();
-		} while (numUpdates > oldNumUpdates);
+		} while (numUpdates > oldNumUpdates && numConfs(ans).compareTo(BigInteger.valueOf(50000)) > 0);
+
 
 		// throw exception if there is a sequence mismatch
 		if(!pruneMatIsValid(ans))
