@@ -65,7 +65,7 @@ public class ScriptPlayground {
 		// configure protein flexibility
 		protein.flexibility.get(2).setLibraryRotamers("ALA", "GLY");
 		protein.flexibility.get(3).setLibraryRotamers(Strand.WildType, "VAL", "ARG").setContinuous(10);
-		protein.flexibility.get(4).setLibraryRotamers(Strand.WildType, "TRP", "PHE").setContinuousEllipses(10);
+		//protein.flexibility.get(4).setLibraryRotamers(Strand.WildType, "TRP", "PHE").setContinuousEllipses(10); // not implemented yet
 		protein.flexibility.get(5).addWildTypeRotamers();
 		
 		// make the ligand

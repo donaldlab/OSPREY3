@@ -58,6 +58,10 @@ public class ObjectIO {
         }
     }
     
+    public static interface Validator<T> {
+    	boolean isValid(T thing);
+    }
+    
     public static Object readObject( String fileName, boolean allowNull ){
         //Read the object from the file
         //If cannot (e.g., because object doesn't exist), then return null if allowNull, else 
@@ -182,6 +186,10 @@ public class ObjectIO {
     
     
     public static <T> T readOrMake(File file, Class<T> type, String name, Factory<T,Void> factory) {
+    	return readOrMake(file, type, name, (thing) -> true, factory);
+    }
+    
+    public static <T> T readOrMake(File file, Class<T> type, String name, Validator<T> validator, Factory<T,Void> factory) {
         
         // try to read from the cache
         try {
@@ -189,7 +197,13 @@ public class ObjectIO {
             T thing = read(file, type);
             if (thing != null) {
                 System.out.println("read " + name + " from file: " + file.getAbsolutePath());
-                return thing;
+                
+                // make sure it's valid
+                if (validator.isValid(thing)) {
+                	return thing;
+                }
+                
+                System.out.println("WARNING: " + name + " from file is invalid, will created new one");
             }
             
         } catch (BadFileException ex) {

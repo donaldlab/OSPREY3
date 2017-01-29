@@ -121,7 +121,30 @@ public class SimplerEnergyMatrixCalculator {
 	}
 	
 	public EnergyMatrix calcEnergyMatrix(File cacheFile) {
-		return ObjectIO.readOrMake(cacheFile, EnergyMatrix.class, "energy matrix", (context) -> calcEnergyMatrix());
+		return ObjectIO.readOrMake(
+			cacheFile,
+			EnergyMatrix.class,
+			"energy matrix",
+			(emat) -> doesEmatMatch(emat),
+			(context) -> calcEnergyMatrix()
+		);
+	}
+	
+	private boolean doesEmatMatch(EnergyMatrix emat) {
+		
+		// check number of design positions
+		if (emat.getNumPos() != confSpace.positions.size()) {
+			return false;
+		}
+	
+		// check number of residue confs at each position
+		for (SimpleConfSpace.Position pos : confSpace.positions) {
+			if (pos.resConfs.size() != emat.getNumConfAtPos(pos.index)) {
+				return false;
+			}
+		}
+		
+		return true;
 	}
 	
 	public EnergyMatrix calcEnergyMatrix() {
