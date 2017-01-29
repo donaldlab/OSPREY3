@@ -9,11 +9,13 @@ import java.util.Arrays;
 import org.junit.Test;
 
 import edu.duke.cs.osprey.TestBase;
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
+import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
@@ -21,12 +23,632 @@ import edu.duke.cs.osprey.tupexp.LUTESettings;
 public class TestSimplerEnergyMatrixCalculator extends TestBase {
 	
 	@Test
+	public void discreteALAat10() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 10, "ALA");
+		assertSingles(confSpace, new double[] {
+			-12.69666891725211
+		});
+	}
+	@Test
+	public void discreteALAat11() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 11, "ALA");
+		assertSingles(confSpace, new double[] {
+			-13.15430764159240
+		});
+	}
+	@Test
+	public void discreteALAat12() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 12, "ALA");
+		assertSingles(confSpace, new double[] {
+			-11.45813233944024
+		});
+	}
+	@Test
+	public void discreteALAat13() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 13, "ALA");
+		assertSingles(confSpace, new double[] {
+			-11.87416711976494
+		});
+	}
+
+	@Test
+	public void discreteVALat10() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 10, "VAL");
+		assertSingles(confSpace, new double[] {
+			396.25083612502620,-14.69867910000487,174.46446174980517
+		});
+	}
+	@Test
+	public void discreteVALat11() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 11, "VAL");
+		assertSingles(confSpace, new double[] {
+			19.47592126111716,-17.17516256426266,31.48218026243530
+		});
+	}
+	@Test
+	public void discreteVALat12() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 12, "VAL");
+		assertSingles(confSpace, new double[] {
+			9.34378533431910,-12.63153233953821,7.96157591033511
+		});
+	}
+	@Test
+	public void discreteVALat13() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 13, "VAL");
+		assertSingles(confSpace, new double[] {
+			79.86024836692275,40.47258842584643,36.78125729570677
+		});
+	}
+
+	@Test
+	public void discreteARGat10() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 10, "ARG");
+		assertSingles(confSpace, new double[] {
+			56343048.23570737000000,579.39706538145960,81164969.02657376000000,655.14863804486970,5314096159.72615050000000,297.48056280318497,
+			73902464.83018443000000,-19.02521468677143,2050.49278161737450,21244.43943755320300,128376.77398585914000,253061.91563428318000,
+			114.29837097221494,221.24780273769570,-35.19546263798888,-35.13999597466904,10799.96670343954800,-28.85857834698063,
+			-34.54118356269152,-34.64087003965189,-33.37435942873476,-33.32153284806847,-31.07853882634830,-31.43646074063365,
+			-33.63574214824589,-33.62072538908934,482.99340738297460,290.91410026715960,87.21343586034403,922.38341419046650,
+			1199.63536823797450,7088.21938326955750,1034.39413561292700,565.77124434439120
+		});
+	}
+	@Test
+	public void discreteARGat11() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 11, "ARG");
+		assertSingles(confSpace, new double[] {
+			102715827.07099618000000,4478729.76795961150000,1088314400919.83830000000000,4731987229.52829100000000,118811045.67737170000000,2251109.50034663800000,
+			13969474222.74331700000000,711084.18780993320000,1434663451.57182930000000,67224786.93445627000000,36794.39342142169000,50497.72302602212600,
+			148494.69699242053000,813757081027.37110000000000,2507.58467397729870,479669753.20372080000000,263473.82004322980000,16490651.01640772400000,
+			101413.43250321630000,397687303.71608310000000,559114.83296944340000,337808232.32578045000000,156725.08209436748000,10188.78319922956000,
+			19360963590.30088000000000,2842498.36887226860000,43831237523.45173000000000,878705.05301469860000,1919101.85156615820000,1702945271.08319900000000,
+			17896373616.69212700000000,394095.15783572575000,7467989.73984597250000,385453411.08065370000000
+		});
+	}
+	@Test
+	public void discreteARGat12() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 12, "ARG");
+		assertSingles(confSpace, new double[] {
+			1541248512.46164510000000,141215726.53431967000000,280.69261645517090,265.71960888584374,1178912671.10312180000000,109.49300692249138,
+			111.09336466811246,-31.24584640732834,-31.82027384452459,-19.84327380071865,-32.97299894058452,-31.29614571750964,
+			-33.96830425277512,107.84524374929426,-33.99084926119196,-34.49114881050276,-25.06817825043814,8835.45014702011000,
+			-23.22641409654541,-36.10774173666279,110.15869015804905,110.64623789174462,110.07761966910849,95346.09233818240000,
+			2834.84455996298950,821.60620153520340,12786043.78687814600000,23849789.71948394600000,18986106.87954741700000,5679.31416558902600,
+			1723.57148204747840,2576.11879220284500,-32.30515069986586,-32.56288830883562
+		});
+	}
+	@Test
+	public void discreteARGat13() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 13, "ARG");
+		assertSingles(confSpace, new double[] {
+			3337572.77991629950000,3294152.54535851500000,710093302.51250680000000,15917913.71498998600000,133099709055.01216000000000,4801563729505.82800000000000,
+			4801576419413.77800000000000,533038439.79168690000000,443126.72956875403000,226846.41225531689000,20837774.89774106000000,3234924254.02268360000000,
+			3068019180.16881900000000,3335653044.78905770000000,413248843.29690343000000,222016.47451258264000,442682.27509270210000,76626.97231332821000,
+			133323.68481809003000,882227184.28396300000000,56003204.98683555000000,35825720.59591460000000,2180923.73791479830000,499476.55813721340000,
+			702999.50943198740000,6653.66331217276100,97957.17366154466000,322028.69703886006000,131.93949899186290,60142219646.89902500000000,
+			1874816.58250321980000,15988.04109407721600,73635143.88237545000000,159471081260320.72000000000000
+		});
+	}
+
+	@Test
+	public void discretePROat10() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 10, "PRO");
+		assertSingles(confSpace, new double[] {
+			Double.POSITIVE_INFINITY,Double.POSITIVE_INFINITY
+		});
+	}
+	@Test
+	public void discretePROat11() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 11, "PRO");
+		assertSingles(confSpace, new double[] {
+			Double.POSITIVE_INFINITY,Double.POSITIVE_INFINITY
+		});
+	}
+	@Test
+	public void discretePROat12() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 12, "PRO");
+		assertSingles(confSpace, new double[] {
+			101771.19435558538000,17766.72158716243000
+		});
+	}
+	@Test
+	public void discretePROat13() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 13, "PRO");
+		assertSingles(confSpace, new double[] {
+			Double.POSITIVE_INFINITY,Double.POSITIVE_INFINITY
+		});
+	}
+
+	@Test
+	public void discreteLEUat10() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 10, "LEU");
+		assertSingles(confSpace, new double[] {
+			4694555.93770604400000,17.48761152046505,37.97563037855740,-12.68443340951747,1882.42275026271820
+		});
+	}
+	@Test
+	public void discreteLEUat11() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 11, "LEU");
+		assertSingles(confSpace, new double[] {
+			58784.21884701415500,51.80506084516539,60.34644321090021,407.64872336278670,1096.17459418563300
+		});
+	}
+	@Test
+	public void discreteLEUat12() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 12, "LEU");
+		assertSingles(confSpace, new double[] {
+			3428844.76079163750000,-12.23363676601438,-1.94154544513084,29.20342022336552,379.54234151032900
+		});
+	}
+	@Test
+	public void discreteLEUat13() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 13, "LEU");
+		assertSingles(confSpace, new double[] {
+			20666744.72983168800000,1199604.68333470900000,2131302.33510759660000,15.91099873397199,9.32540533793335
+		});
+	}
+
+	@Test
+	public void discretePHEat10() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 10, "PHE");
+		assertSingles(confSpace, new double[] {
+			162516655.03290004000000,1161.22928139693500,187.95665040172767,2623.45743171848650
+		});
+	}
+	@Test
+	public void discretePHEat11() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 11, "PHE");
+		assertSingles(confSpace, new double[] {
+			305984828.89335220000000,13652.82094287018700,2972869.03802562130000,4545.93569607702600
+		});
+	}
+	@Test
+	public void discretePHEat12() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 12, "PHE");
+		assertSingles(confSpace, new double[] {
+			5917472.55506810450000,30.60868320878065,2018.30666331423480,1009468.03169236320000
+		});
+	}
+	@Test
+	public void discretePHEat13() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 13, "PHE");
+		assertSingles(confSpace, new double[] {
+			1288151813495.98830000000000,793844506.96673920000000,17792.36400344047000,61.11637413764255
+		});
+	}
+
+	@Test
+	public void discreteTHRat10() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 10, "THR");
+		assertSingles(confSpace, new double[] {
+			-9.60831835704874,-9.80499482321600,-8.44916624055827,-9.53404243956254,-8.83633582675501,-8.92348661381635,
+			477.58605421839360,477.04302629278584,477.60889815208077,477.28505954272356,477.32202831556700,477.67549535206580,
+			-18.21692687254067,-18.21235738221050,-17.70691838446186,-18.29755726431351,-17.83234657656701,-18.06465403147951
+		});
+	}
+	@Test
+	public void discreteTHRat11() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 11, "THR");
+		assertSingles(confSpace, new double[] {
+			-16.29018735981431,-17.17176568515227,-16.52469102070694,-16.96101436915492,-16.80946785201232,-16.23786712965228,
+			15.80240534128683,15.85635687353529,15.68550479881661,15.99313207113857,15.79783477886055,15.57354960211940,
+			-19.16168199617284,-19.47303724751162,-19.36171080933660,-19.33421558730525,-19.47446926042962,-19.28299834547580
+		});
+	}
+	@Test
+	public void discreteTHRat12() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 12, "THR");
+		assertSingles(confSpace, new double[] {
+			-13.44999350724677,-14.14201918723017,-13.41215613829489,-13.95450332480944,-13.31846689403499,-13.56523767004068,
+			7.06645091052562,6.74514352271787,6.45605813261890,7.10090816568600,6.50411226061839,6.68839660073257,
+			-15.50252637106665,-15.74943617747870,-16.77782634824157,-15.47737563471156,-16.46895516436925,-15.98734340905233
+		});
+	}
+	@Test
+	public void discreteTHRat13() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 13, "THR");
+		assertSingles(confSpace, new double[] {
+			-11.20778602586725,-10.99698649688516,-10.57845348813976,-10.58078759713326,-10.75289184203710,-11.00224978205113,
+			69.95418627108724,71.22615811986262,70.06846973272570,71.08173040894454,70.56826708684080,69.43469194735525,
+			38.70681941817195,37.58750579848925,38.26118190432410,38.16983254847784,37.80956147961889,38.55764814467396
+		});
+	}
+
+	@Test
+	public void discreteLYSat10() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 10, "LYS");
+		assertSingles(confSpace, new double[] {
+			676189.83497802600000,15700208.41864713700000,945.76536615675160,563056.44977351280000,555.63885675010950,54.00158282017770,
+			123.12015479338420,4.55318023616803,7686.90531851778700,12.31009975227060,-20.30202976208145,-20.10722368461198,
+			-14.00727215121759,-19.75679275486062,-19.50929125513042,185.07373878291048,-18.11434795387376,-18.35234067875615,
+			-17.61447452455994,-18.60838319454741,-18.19676017757567,234.98723627452216,3334.34941791264650,1337.39417498655700,
+			1652.86545385348450,1476.28611823082430,615.59329546531510
+		});
+	}
+	@Test
+	public void discreteLYSat11() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 11, "LYS");
+		assertSingles(confSpace, new double[] {
+			2144965.57933704930000,129183007.33876583000000,70908.28908200457000,45059.55821341886600,53160.24495681152000,49221.78169653419000,
+			11460.99515413466700,3060.00097405383030,8983.64232341394600,606851.74020416280000,3822.88605749027650,171128349.10491928000000,
+			1780.40443988446440,490.64157050183660,776.68693936090160,4072122.11817667630000,1537.36267085065220,895.67628367805530,
+			1657.41669715943340,500373278.66949135000000,20094.98729142180700,81836.36155140829000,629712.32464023820000,12800.93160822744400,
+			1032824.45681229840000,23826.77465878245000,9344.13717786387000
+		});
+	}
+	@Test
+	public void discreteLYSat12() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 12, "LYS");
+		assertSingles(confSpace, new double[] {
+			5174818.03025382700000,930.59627364274250,711.41973654480240,1655997.14317585710000,118.88366757164212,3.14105663448442,
+			-18.31914058918627,-17.69042237112890,-17.33883667465622,-19.68179780023592,-19.03361404171609,-19.92052605861886,
+			6.33590828855181,-20.96033603806149,-18.93012481539868,559873.65588798290000,190.08833695787650,187.95551590606618,
+			654085.89559014560000,5020.92947056868250,933.65631818471150,11938.80878919721500,178446.29320344923000,-16.34979255604794,
+			-16.39555591632479,326.25331974635156,-16.57051160317388
+		});
+	}
+	@Test
+	public void discreteLYSat13() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 13, "LYS");
+		assertSingles(confSpace, new double[] {
+			2495073.31923758750000,32572019.83250775000000,32414034.73555890000000,31988884.98165150000000,671593843665667.00000000000000,2662956.67390299000000,
+			13044118.98643033200000,837151.46416285000000,19740596267.75419600000000,13718260368413210.00000000000000,20134416.50057526000000,160444.17239661064000,
+			155849.51713175443000,92822.04300561998000,417019.24560419600000,32593321.72972560700000,531545.51950390020000,11458.16385466861900,
+			262.71405188482660,223.63463986832272,107.97807463512346,69.76512955010027,-21.62061547667849,183.31514105711267,
+			4271.38763359589800,3642.85786653818900,9369523.44418660400000
+		});
+	}
+
+	@Test
+	public void discreteGLUat10() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 10, "GLU");
+		assertSingles(confSpace, new double[] {
+			325.44708478173890,202183.46753074962000,-5.73448895655529,-25.02723262822549,55553.12585336772000,154.14306453148822,
+			-24.85080716659156,14022.48723115565700
+		});
+	}
+	@Test
+	public void discreteGLUat11() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 11, "GLU");
+		assertSingles(confSpace, new double[] {
+			26894.25457700122600,483.84721405373625,32.86815391331179,141.88204287536877,193226.33748605152000,20140.29101701810600,
+			852.16491572469300,849.72752306572530
+		});
+	}
+	@Test
+	public void discreteGLUat12() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 12, "GLU");
+		assertSingles(confSpace, new double[] {
+			187.23749389993240,2337475.66478547870000,-18.86254488153889,-19.22560221544153,9573.98639943477400,2737.92972976652200,
+			365.17150205459050,-21.36629730247750
+		});
+	}
+	@Test
+	public void discreteGLUat13() {
+		SimpleConfSpace confSpace = makeConfSpace(false, 13, "GLU");
+		assertSingles(confSpace, new double[] {
+			5243.58334916048350,2098.44482079887500,2716.38075705549200,1900.27621655323220,545800.25783020510000,2183.05152739109460,
+			-19.13572754956669,124.95719792719579
+		});
+	}
+
+	@Test
+	public void continuousALAat10() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 10, "ALA");
+		assertSingles(confSpace, new double[] {
+			-12.69666891725211
+		});
+	}
+	@Test
+	public void continuousALAat11() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 11, "ALA");
+		assertSingles(confSpace, new double[] {
+			-13.15430764159240
+		});
+	}
+	@Test
+	public void continuousALAat12() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 12, "ALA");
+		assertSingles(confSpace, new double[] {
+			-11.45813233944024
+		});
+	}
+	@Test
+	public void continuousALAat13() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 13, "ALA");
+		assertSingles(confSpace, new double[] {
+			-11.87416711976494
+		});
+	}
+
+	@Test
+	public void continuousVALat10() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 10, "VAL");
+		assertSingles(confSpace, new double[] {
+			62.14496323265180,-14.90025408831916,32.32795959778965
+		});
+	}
+	@Test
+	public void continuousVALat11() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 11, "VAL");
+		assertSingles(confSpace, new double[] {
+			12.63690402989719,-18.75742019128871,13.23250240028139
+		});
+	}
+	@Test
+	public void continuousVALat12() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 12, "VAL");
+		assertSingles(confSpace, new double[] {
+			8.02165581418594,-12.65214486629394,7.92548474344134
+		});
+	}
+	@Test
+	public void continuousVALat13() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 13, "VAL");
+		assertSingles(confSpace, new double[] {
+			65.84547279228687,5.31719889505351,23.87885411379908
+		});
+	}
+
+	@Test
+	public void continuousARGat10() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 10, "ARG");
+		assertSingles(confSpace, new double[] {
+			16498.85853555735000,49.61991066715400,1225786.35400247080000,275.47092378955550,115008.04656973168000,73.98644576633401,
+			284793.47389117075000,-33.99270338766021,-31.63326797832978,3.51840546461714,70.83866137230139,323.80170144963460,
+			-33.54615326415861,-32.02649044870589,-35.72394550350501,-35.15700003650038,-33.00617441735968,-33.49645383264431,
+			-34.83627895759657,-35.34717155809033,-34.58383593723006,-34.29028002165823,-33.21714053835623,-34.10877582285354,
+			-34.50232546824618,-34.80507666982112,-27.49539955822932,-26.84787866879763,-31.47581464840185,12.76493870737142,
+			16.37041711339186,154.05995282636067,2.10379272394659,-26.85734991012119
+		});
+	}
+	@Test
+	public void continuousARGat11() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 11, "ARG");
+		assertSingles(confSpace, new double[] {
+			418338.18846395790000,41610.85452582272000,170468.25651668722000,109114.59593332998000,101595.06165900196000,6560.91115104822000,
+			280669.35573200276000,3586.31427188826600,6667.44944008919600,28555.72545483618500,1947.74360517813650,1145.02563194562780,
+			4460.22851833337400,81360.12228444825000,475.46461644986330,37527169.24045370000000,648.92812727092700,4716.23175377909300,
+			67837.32525598740000,102065.41524319783000,3553.78461265236700,7029.74926664652100,9174.35497460325300,7043.22437057653400,
+			4824.75086131642100,972.26307063767070,208242.01387457742000,28022.48318397822700,29256.23911532655600,6243.39438827056300,
+			288685.08257663855000,5040.88017666709400,3510.69180320959140,19023.85343407539000
+		});
+	}
+	@Test
+	public void continuousARGat12() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 12, "ARG");
+		assertSingles(confSpace, new double[] {
+			62148421.25385725000000,7103.96778424942200,27.98290313257352,25.83709695620482,3993475.73945789640000,8.53400706942282,
+			10.23931965446292,-32.97205666364494,-33.41163983503019,-34.87302262858511,-33.57385399337947,-33.92747973291882,
+			-34.85448646280618,-28.31912487195003,-34.31051784324831,-35.03795640058898,-33.97111575091919,402.93025905703920,
+			-34.42472938998923,-37.08260533574643,-17.50319551499512,-20.04789932530111,-17.72834533697541,2003.43180795270060,
+			14.57040977786101,9.88212136637196,291.67532788886166,463.52910780965740,210239.48788920890000,-31.32759144692056,
+			-31.07466353165080,-20.14991812915281,-33.45231196774338,-33.55167955177462
+		});
+	}
+	@Test
+	public void continuousARGat13() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 13, "ARG");
+		assertSingles(confSpace, new double[] {
+			5625.00036988318900,1351.66219006210080,23185219.53341683000000,150081.45108063697000,3725698.44569358000000,1397059.84851077200000,
+			2360803.89811731830000,1256768.92289058030000,5290.94042040810000,28587.68018937310300,1000260.12100091860000,407594.48337878570000,
+			576470.15223369190000,127582.03425339272000,764945.04828077350000,12213.44282904487200,47083.96406633398000,377.59792096107634,
+			20231.78855272149300,7341984.26475459700000,147320.39693789775000,515612.30476869230000,747.43606611127830,29438.71288985778300,
+			27976.89114376512600,1180.27380974506830,115.52562061751695,736.35002252199260,-15.56318959203869,71629.93155518571000,
+			1985.67403736915620,516.28916574134000,205724.63643789222000,6157162.79574698000000
+		});
+	}
+
+	@Test
+	public void continuousPROat10() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 10, "PRO");
+		assertSingles(confSpace, new double[] {
+			Double.POSITIVE_INFINITY,Double.POSITIVE_INFINITY
+		});
+	}
+	@Test
+	public void continuousPROat11() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 11, "PRO");
+		assertSingles(confSpace, new double[] {
+			Double.POSITIVE_INFINITY,Double.POSITIVE_INFINITY
+		});
+	}
+	@Test
+	public void continuousPROat12() {
+		// NOTE: this is the only test where proline doesn't have conf problems
+		// ie, we get finite energies here
+		SimpleConfSpace confSpace = makeConfSpace(true, 12, "PRO");
+		assertSingles(confSpace, new double[] {
+			101771.19435558538000,17766.72158716243000
+		});
+	}
+	@Test
+	public void continuousPROat13() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 13, "PRO");
+		assertSingles(confSpace, new double[] {
+			Double.POSITIVE_INFINITY,Double.POSITIVE_INFINITY
+		});
+	}
+
+	@Test
+	public void continuousLEUat10() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 10, "LEU");
+		assertSingles(confSpace, new double[] {
+			837097.50184635750000,-12.64708073819766,-11.61589985913956,-14.32694917861948,31.30244943565061
+		});
+	}
+	@Test
+	public void continuousLEUat11() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 11, "LEU");
+		assertSingles(confSpace, new double[] {
+			18135.04661794376000,37.42861587418536,-10.38732315034924,165.34820435572357,617.96253281987050
+		});
+	}
+	@Test
+	public void continuousLEUat12() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 12, "LEU");
+		assertSingles(confSpace, new double[] {
+			72769.43689368735000,-13.39863599385466,-11.81158022790220,-8.22535905852000,60.62288888313260
+		});
+	}
+	@Test
+	public void continuousLEUat13() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 13, "LEU");
+		assertSingles(confSpace, new double[] {
+			29597.73285663485500,11986.15872043812300,68168.69646346256000,-0.25051398177132,-13.95447870698099
+		});
+	}
+
+	@Test
+	public void continuousPHEat10() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 10, "PHE");
+		assertSingles(confSpace, new double[] {
+			3637582.30473935980000,-2.16394976228906,-12.96626948159071,64.35642712008150
+		});
+	}
+	@Test
+	public void continuousPHEat11() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 11, "PHE");
+		assertSingles(confSpace, new double[] {
+			1084876.06144880460000,10546.71879268759600,8144.65059196565000,969.91257233874660
+		});
+	}
+	@Test
+	public void continuousPHEat12() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 12, "PHE");
+		assertSingles(confSpace, new double[] {
+			584646.64827945140000,-8.08549614187687,458.28353876499290,7539.20871500066000
+		});
+	}
+	@Test
+	public void continuousPHEat13() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 13, "PHE");
+		assertSingles(confSpace, new double[] {
+			953367.40082424300000,2669428.07767566200000,529.41028382188030,45.16556412329300
+		});
+	}
+
+	@Test
+	public void continuousTHRat10() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 10, "THR");
+		assertSingles(confSpace, new double[] {
+			-14.14088218030851,-13.61337500568927,-12.47648721137899,-13.47526078237647,-12.96280392316086,-13.66364404131135,
+			72.69589104943117,72.16024188773366,72.66725077657809,72.42459278241694,72.35430562544755,72.78646167240302,
+			-18.63082757062709,-18.66913014953231,-18.10865163518616,-18.74689911925026,-18.34362665140533,-18.48544204570376
+		});
+	}
+	@Test
+	public void continuousTHRat11() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 11, "THR");
+		assertSingles(confSpace, new double[] {
+			-16.41119821919324,-17.38433438338003,-16.65722556618435,-17.35006906099130,-16.90102105634410,-16.33061311605634,
+			11.17087226794999,11.25696932568680,11.08371954543446,11.35839150735534,11.19780109631335,11.00637118313378,
+			-20.35670844313994,-20.69418442738629,-20.53221585009801,-20.56563949846909,-20.67147501721451,-20.44466223129886
+		});
+	}
+	@Test
+	public void continuousTHRat12() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 12, "THR");
+		assertSingles(confSpace, new double[] {
+			-13.67434642734197,-14.36620876030489,-13.61721889566467,-14.17435405084187,-13.48060293414165,-13.79109621707043,
+			4.75823761475827,4.49854224135211,4.22479170987210,4.87135721379240,4.26631250636086,4.41490470307813,
+			-15.94888610352922,-16.21948455764298,-17.29081966249179,-15.91307017871355,-16.93553543549995,-16.56807799714450
+		});
+	}
+	@Test
+	public void continuousTHRat13() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 13, "THR");
+		assertSingles(confSpace, new double[] {
+			-15.51592359322734,-14.96467833787075,-14.92796981106832,-15.22631931808176,-14.99044249209065,-15.37336894207380,
+			28.08513250719079,29.49013599908995,28.27151763761004,29.14973503101176,28.91176772988028,27.61144827026070,
+			0.87955141918212,-0.36122928884290,0.53333311778052,0.25279936993078,-0.02741562202855,0.83639591457118
+		});
+	}
+
+	@Test
+	public void continuousLYSat10() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 10, "LYS");
+		assertSingles(confSpace, new double[] {
+			122.33018659764190,8829.28402244064000,639.12268064468890,18249.60813105754300,185.31027899969908,-10.77066497786510,
+			-14.52306296387104,-19.19193720496622,42.58529548785467,-18.03329368103528,-20.67996132522209,-20.41799051727656,
+			-19.43400042197833,-20.34966374019472,-20.38572483883375,-18.40248602870868,-19.62646267505800,-19.65180850357086,
+			-19.26049660241277,-19.89748992258656,-19.69114453964284,-9.31454217997359,3.55900001611279,35.47312474979685,
+			42.97601282125492,176.94734402042230,-11.36474954589414
+		});
+	}
+	@Test
+	public void continuousLYSat11() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 11, "LYS");
+		assertSingles(confSpace, new double[] {
+			40000.67635194762000,849300.77472173180000,21240.86608054120400,14070.37462520016600,10515.13862040789400,484.77645457687550,
+			124.38506909971699,61.89267324284393,1789.09848622818440,959.18937936563900,582.70961188189000,10741723.29623147000000,
+			650.36294381939920,150.20964846105713,62.03454799944217,1247.29865813433500,82.06437822649137,396.57529014313290,
+			867.06571400385420,8678.48374305250000,414.29781428006817,5550.92729156558300,4237.66288424078300,224.76803469136547,
+			2114.52053215687300,6456.79755901741900,582.33667174877610
+		});
+	}
+	@Test
+	public void continuousLYSat12() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 12, "LYS");
+		assertSingles(confSpace, new double[] {
+			1401.23256798114430,58.83776724569968,53.76554865279540,57942.62377191142000,25.22569498314587,-18.78906508526520,
+			-19.02020901528003,-18.93581110673657,-18.53320686547477,-20.97641021084721,-19.61867194608093,-20.30048152740476,
+			-18.50426037191262,-21.76221162963867,-19.75034609498356,468.40540576498324,2.95248081880122,1.33935979407349,
+			3428.08334064458900,39.48907637933474,36.40375043446331,756.15159588607420,12088.63720169499700,-20.13203501184136,
+			-18.46105966689958,-16.41905198854522,-18.36239818354909
+		});
+	}
+	@Test
+	public void continuousLYSat13() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 13, "LYS");
+		assertSingles(confSpace, new double[] {
+			1052.77054722525210,175466.92382837873000,117859.57315758846000,355371.12072144094000,71638667.35572597000000,331548.39231622266000,
+			85860.96694414206000,26073.93938082118600,9635741.87472551700000,6335745.52947419000000,20402.69552537183700,13554.12279986917700,
+			13998.22953026067800,2260.43119275999920,1056.95336999283930,975.35413841175670,247.00766006783735,5696.54111373476500,
+			-11.17754725030058,18.60973834870556,-8.67147754035173,-19.19745400975485,-23.33997281599913,22.54423808661629,
+			64.20346642219633,93.62695329490340,5446.71957921134800
+		});
+	}
+
+	@Test
+	public void continuousGLUat10() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 10, "GLU");
+		assertSingles(confSpace, new double[] {
+			85.14390853092256,39439.87458391501000,-18.13597559307399,-25.27202980944163,67.61016355691078,-5.34081109009057,
+			-25.31741272474850,156.42539750875530
+		});
+	}
+	@Test
+	public void continuousGLUat11() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 11, "GLU");
+		assertSingles(confSpace, new double[] {
+			585.86671180958330,183.22538824663758,11.95523111386433,26.96357357281653,1896.96946036113560,1360.78263445343700,
+			22.19229815935954,498.57018575353140
+		});
+	}
+	@Test
+	public void continuousGLUat12() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 12, "GLU");
+		assertSingles(confSpace, new double[] {
+			20.16380604035198,14374.08858031909400,-20.13068447164413,-19.93315573238242,121.32233932029351,380.87396495108820,
+			-5.03900571051331,-21.72184735285783
+		});
+	}
+	@Test
+	public void continuousGLUat13() {
+		SimpleConfSpace confSpace = makeConfSpace(true, 13, "GLU");
+		assertSingles(confSpace, new double[] {
+			93.81720795230409,1691.02918971144600,677.57673143633870,1736.49666416634070,5780.45863350600100,304.12738407685400,
+			-23.26274146400608,20.26498689961222
+		});
+	}
+	
+	@Test
 	public void discreteALAtoVAL() {
 		SimpleConfSpace confSpace = makeConfSpace(false, "ALA", "THR", "ARG", "VAL");
 		assertEnergyMatrix(
 			confSpace,
 			makeExpectedEmatDiscreteALAtoVAL(confSpace),
-			SimplerEnergyMatrixCalculator.build(confSpace).calcEnergyMatrix()
+			makeEmatCalc(confSpace).calcEnergyMatrix()
 		);
 	}
 	
@@ -36,7 +658,7 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 		assertEnergyMatrix(
 			confSpace,
 			makeExpectedEmatDiscreteGLYtoGLU(confSpace),
-			SimplerEnergyMatrixCalculator.build(confSpace).calcEnergyMatrix()
+			makeEmatCalc(confSpace).calcEnergyMatrix()
 		);
 	}
 	
@@ -46,7 +668,7 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 		assertEnergyMatrix(
 			confSpace,
 			makeExpectedEmatDiscreteASPtoPHE(confSpace),
-			SimplerEnergyMatrixCalculator.build(confSpace).calcEnergyMatrix()
+			makeEmatCalc(confSpace).calcEnergyMatrix()
 		);
 	}
 	
@@ -56,7 +678,7 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 		assertEnergyMatrix(
 			confSpace,
 			makeExpectedEmatDiscreteGLNtoTRP(confSpace),
-			SimplerEnergyMatrixCalculator.build(confSpace).calcEnergyMatrix()
+			makeEmatCalc(confSpace).calcEnergyMatrix()
 		);
 	}
 	
@@ -66,7 +688,7 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 		assertEnergyMatrix(
 			confSpace,
 			makeExpectedEmatDiscreteHIStoTYR(confSpace),
-			SimplerEnergyMatrixCalculator.build(confSpace).calcEnergyMatrix()
+			makeEmatCalc(confSpace).calcEnergyMatrix()
 		);
 	}
 	
@@ -76,7 +698,7 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 		assertEnergyMatrix(
 			confSpace,
 			makeExpectedEmatDiscretePROtoPRO(confSpace),
-			SimplerEnergyMatrixCalculator.build(confSpace).calcEnergyMatrix()
+			makeEmatCalc(confSpace).calcEnergyMatrix()
 		);
 	}
 	
@@ -86,27 +708,27 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 		assertEnergyMatrix(
 			confSpace,
 			makeExpectedEmatDiscreteLYStoVAL(confSpace),
-			SimplerEnergyMatrixCalculator.build(confSpace).calcEnergyMatrix()
+			makeEmatCalc(confSpace).calcEnergyMatrix()
 		);
 	}
 	
 	@Test
 	public void continuousALAtoVAL() {
-		SimpleConfSpace confSpace = makeConfSpace(false, "ALA", "THR", "ARG", "VAL");
+		SimpleConfSpace confSpace = makeConfSpace(true, "ALA", "THR", "ARG", "VAL");
 		assertEnergyMatrix(
 			confSpace,
 			makeExpectedEmatContinuousALAtoVAL(confSpace),
-			SimplerEnergyMatrixCalculator.build(confSpace).calcEnergyMatrix()
+			makeEmatCalc(confSpace).calcEnergyMatrix()
 		);
 	}
-	
+
 	@Test
 	public void continuousGLYtoGLU() {
 		SimpleConfSpace confSpace = makeConfSpace(true, "GLY", "SER", "ASN", "GLU");
 		assertEnergyMatrix(
 			confSpace,
 			makeExpectedEmatContinuousGLYtoGLU(confSpace),
-			SimplerEnergyMatrixCalculator.build(confSpace).calcEnergyMatrix()
+			makeEmatCalc(confSpace).calcEnergyMatrix()
 		);
 	}
 	
@@ -116,7 +738,7 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 		assertEnergyMatrix(
 			confSpace,
 			makeExpectedEmatContinuousASPtoPHE(confSpace),
-			SimplerEnergyMatrixCalculator.build(confSpace).calcEnergyMatrix()
+			makeEmatCalc(confSpace).calcEnergyMatrix()
 		);
 	}
 	
@@ -126,7 +748,7 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 		assertEnergyMatrix(
 			confSpace,
 			makeExpectedEmatContinuousGLNtoTRP(confSpace),
-			SimplerEnergyMatrixCalculator.build(confSpace).calcEnergyMatrix()
+			makeEmatCalc(confSpace).calcEnergyMatrix()
 		);
 	}
 	
@@ -136,7 +758,7 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 		assertEnergyMatrix(
 			confSpace,
 			makeExpectedEmatContinuousHIStoTYR(confSpace),
-			SimplerEnergyMatrixCalculator.build(confSpace).calcEnergyMatrix()
+			makeEmatCalc(confSpace).calcEnergyMatrix()
 		);
 	}
 	
@@ -146,7 +768,7 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 		assertEnergyMatrix(
 			confSpace,
 			makeExpectedEmatContinuousPROtoPRO(confSpace),
-			SimplerEnergyMatrixCalculator.build(confSpace).calcEnergyMatrix()
+			makeEmatCalc(confSpace).calcEnergyMatrix()
 		);
 	}
 	
@@ -156,16 +778,22 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 		assertEnergyMatrix(
 			confSpace,
 			makeExpectedEmatContinuousLYStoVAL(confSpace),
-			SimplerEnergyMatrixCalculator.build(confSpace).calcEnergyMatrix()
+			makeEmatCalc(confSpace).calcEnergyMatrix()
 		);
 	}
 	
 	private SimpleConfSpace makeConfSpace(boolean doMinimize, String ... aminoAcids) {
+		return makeConfSpace(doMinimize, 10, aminoAcids);
+	}
+	
+	private SimpleConfSpace makeConfSpace(boolean doMinimize, int firstResNum, String ... aminoAcids) {
 		
 		Molecule mol = PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb");
-		Strand strand = Strand.builder(mol).build();
+		Strand strand = Strand.builder(mol)
+			.setLovellTemplateLibrary() // explicitly choose Lovell rotamers
+			.build();
 		
-		int resNum = 10;
+		int resNum = firstResNum;
 		for (String aminoAcid : aminoAcids) {
 			strand.flexibility.get(resNum).setLibraryRotamers(aminoAcid);
 			if (doMinimize) {
@@ -175,6 +803,23 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 		}
 		
 		return SimpleConfSpace.build(strand);
+	}
+	
+	private SimplerEnergyMatrixCalculator makeEmatCalc(SimpleConfSpace confSpace) {
+		return SimplerEnergyMatrixCalculator.builder(confSpace)
+			.setMinimizerFactory((f) -> new CCDMinimizer(f, false))
+			.build();
+	}
+	
+	private void assertSingles(SimpleConfSpace confSpace, double[] exp) {
+		for (int i=0; i<confSpace.positions.get(0).resConfs.size(); i++) {
+			assertEnergy(
+				confSpace.makeBounds(new RCTuple(0, i)).size() > 0,
+				exp[i],
+				makeEmatCalc(confSpace).calcSingle(0, i).energy,
+				describe(confSpace, 0, i)
+			); 
+		}
 	}
 	
 	private static void assertEnergyMatrix(SimpleConfSpace confSpace, EnergyMatrix exp, EnergyMatrix obs) {
@@ -197,48 +842,64 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 		}
 	}
 	
+	private static String describe(SimpleConfSpace confSpace, int pos1, int rc1) {
+		return String.format("%s %s, %d",
+			confSpace.positions.get(pos1).resNum,
+			confSpace.positions.get(pos1).resConfs.get(rc1).template.name,
+			rc1
+		);
+	}
+	
+	private static String describe(SimpleConfSpace confSpace, int pos1, int rc1, int pos2, int rc2) {
+		return String.format("%s %s, %d x %s %s, %d",
+			confSpace.positions.get(pos1).resNum,
+			confSpace.positions.get(pos1).resConfs.get(rc1).template.name,
+			rc1,
+			confSpace.positions.get(pos2).resNum,
+			confSpace.positions.get(pos2).resConfs.get(rc2).template.name,
+			rc2
+		);
+	}
+
 	private static void assertSingle(SimpleConfSpace confSpace, EnergyMatrix exp, EnergyMatrix obs, int pos1, int rc1) {
 		assertEnergy(
+			confSpace.makeBounds(new RCTuple(pos1, rc1)).size() > 0,
 			exp.getOneBody(pos1, rc1),
 			obs.getOneBody(pos1, rc1),
-			String.format("%d %s, %d",
-				pos1,
-				confSpace.positions.get(pos1).resConfs.get(rc1).template.name,
-				rc1
-			)
+			describe(confSpace, pos1, rc1)
 		);
 	}
 	
 	private static void assertPair(SimpleConfSpace confSpace, EnergyMatrix exp, EnergyMatrix obs, int pos1, int rc1, int pos2, int rc2) {
 		assertEnergy(
+			confSpace.makeBounds(new RCTuple(pos1, rc1, pos2, rc2)).size() > 0,
 			exp.getPairwise(pos1, rc1, pos2, rc2),
 			obs.getPairwise(pos1, rc1, pos2, rc2),
-			String.format("%d %s, %d x %d %s, %d",
-				pos1,
-				confSpace.positions.get(pos1).resConfs.get(rc1).template.name,
-				rc1,
-				pos2,
-				confSpace.positions.get(pos2).resConfs.get(rc2).template.name,
-				rc2
-			)
+			describe(confSpace, pos1, rc1, pos2, rc2)
 		);
 	}
 	
-	private static void assertEnergy(double exp, double obs, String description) {
+	private static void assertEnergy(boolean isMinimized, double exp, double obs, String description) {
 		
 		// explicitly check for infinity
 		if (exp == Double.POSITIVE_INFINITY) {
 			assertThat(description, obs, is(Double.POSITIVE_INFINITY));
 		} else {
 			
-			// extremely large (in magnitude) energies won't be as accurate
-			// because we literally ran out of bits, so switch to relative checks
-			if (Math.abs(exp) > 1000) {
-				assertThat(description, obs, isRelatively(exp, 1e-6));
+			// for minimized energies, lower observed energy is ok,
+			// since improvements to minimizers over time could give us lower energies
+			if (isMinimized && obs < exp) {
+				return;
+			}
+			
+			// high energies won't be as accurate,
+			// so use a looser relative check
+			if (Math.abs(exp) > 100) {
+				assertThat(description, obs, isRelatively(exp, 1e-4));
 				
-			// otherwise, use a very tight absolute check
+			// otherwise, use a tight absolute check
 			} else {
-				assertThat(description, obs, isAbsolutely(exp, 1e-12));
+				assertThat(description, obs, isAbsolutely(exp, 1e-6));
 			}
 		}
 	}
@@ -252,6 +913,7 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 		
 		StringBuilder buf = new StringBuilder();
 		for (boolean doMinimize : Arrays.asList(false, true)) {
+			
 			getExpectedEnergies(buf, doMinimize, "ALA", "THR", "ARG", "VAL");
 			getExpectedEnergies(buf, doMinimize, "GLY", "SER", "ASN", "GLU");
 			getExpectedEnergies(buf, doMinimize, "ASP", "CYS", "MET", "PHE");
@@ -259,43 +921,23 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 			getExpectedEnergies(buf, doMinimize, "HIS", "LYS", "TYR");
 			getExpectedEnergies(buf, doMinimize, "PRO");
 			getExpectedEnergies(buf, doMinimize, "LYS", "PRO", "VAL");
+			
+			getExpectedEnergy(buf, doMinimize, "ALA");
+			getExpectedEnergy(buf, doMinimize, "VAL");
+			getExpectedEnergy(buf, doMinimize, "ARG");
+			getExpectedEnergy(buf, doMinimize, "PRO");
+			getExpectedEnergy(buf, doMinimize, "LEU");
+			getExpectedEnergy(buf, doMinimize, "PHE");
+			getExpectedEnergy(buf, doMinimize, "THR");
+			getExpectedEnergy(buf, doMinimize, "LYS");
+			getExpectedEnergy(buf, doMinimize, "GLU");
 		}
-		
 		System.out.println(buf);
 	}
 	
 	private static void getExpectedEnergies(StringBuilder buf, boolean doMinimize, String ... aminoAcids) {
 		
-		// TODO: when the old energy matrix calculator is deprecated, update this tool to use the new one
-		
-		ResidueFlexibility resFlex = new ResidueFlexibility();
-		
-		int resNum = 10;
-		for (String aminoAcid : aminoAcids) {
-			resFlex.addMutable(Integer.toString(resNum), aminoAcid);
-			resNum++;
-		}
-		
-		boolean addWt = false;
-		boolean useEpic = false;
-		boolean useTupleExpansion = false;
-		boolean useEllipses = false;
-		boolean useERef = false;
-		boolean addResEntropy = false;
-		boolean addWtRots = false;
-		ArrayList<String[]> moveableStrands = new ArrayList<String[]>();
-		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
-		SearchProblem search = new SearchProblem(
-			"test", "examples/1CC8/1CC8.ss.pdb", 
-			resFlex.flexResList, resFlex.allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
-			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null,
-			false, new ArrayList<>()
-		);
-		
-		System.out.println("Calculating expected energies...");
-		EnergyMatrixCalculator emcalc = new EnergyMatrixCalculator(search.confSpace, search.shellResidues, useERef, addResEntropy);
-		emcalc.calcPEM();
-		search.emat = emcalc.getEMatrix();
+		SearchProblem search = calcExpectedEmat(doMinimize, aminoAcids);
 		
 		// print code to make the emat from these energies
 		String type = doMinimize ? "Continuous" : "Discrete";
@@ -330,6 +972,79 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 		buf.append("\t}\n");
 	}
 	
+	private static void getExpectedEnergy(StringBuilder buf, boolean doMinimize, String aminoAcid) {
+		
+		buf.append("\n");
+		
+		for (int i=0; i<4; i++) {
+			
+			int resNum = 10 + i;
+			SearchProblem search = calcExpectedEmat(doMinimize, resNum, aminoAcid);
+		
+			String type = doMinimize ? "continuous" : "discrete";
+			buf.append("\n");
+			buf.append("\t@Test\n");
+			buf.append("\tpublic void " + type + aminoAcid + "at" + resNum + "() {\n");
+			buf.append("\t\tSimpleConfSpace confSpace = makeConfSpace(" + doMinimize + ", " + resNum + ", \"" + aminoAcid + "\");\n");
+			buf.append("\t\tassertSingles(confSpace, new double[] {");
+				
+			assertThat(search.emat.getNumPos(), is(1));
+			
+			for (int rc1=0; rc1<search.confSpace.getNumRCsAtPos()[0]; rc1++) {
+				if (rc1 > 0) buf.append(",");
+				if (rc1 % 6 == 0) buf.append("\n\t\t\t");
+				buf.append(formatEnergy(search.emat.getOneBody(0, rc1)));
+			}
+			buf.append("\n\t\t});\n");
+			buf.append("\t}");
+		}
+	}
+	
+	private static SearchProblem makeSearchProblem(boolean doMinimize, int startResNum, String ... aminoAcids) {
+		
+		ResidueFlexibility resFlex = new ResidueFlexibility();
+		
+		int resNum = startResNum;
+		for (String aminoAcid : aminoAcids) {
+			resFlex.addMutable(Integer.toString(resNum), aminoAcid);
+			resNum++;
+		}
+		
+		boolean addWt = false;
+		boolean useEpic = false;
+		boolean useTupleExpansion = false;
+		boolean useEllipses = false;
+		boolean useERef = false;
+		boolean addResEntropy = false;
+		boolean addWtRots = false;
+		ArrayList<String[]> moveableStrands = new ArrayList<String[]>();
+		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
+		return new SearchProblem(
+			"test", "examples/1CC8/1CC8.ss.pdb", 
+			resFlex.flexResList, resFlex.allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
+			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null,
+			false, new ArrayList<>()
+		);
+	}
+
+	private static SearchProblem calcExpectedEmat(boolean doMinimize, String ... aminoAcids) {
+		return calcExpectedEmat(doMinimize, 10, aminoAcids);
+	}
+	
+	private static SearchProblem calcExpectedEmat(boolean doMinimize, int startResNum, String ... aminoAcids) {
+		
+		// TODO: when the old energy matrix calculator is deprecated, update this tool to use the new one
+		
+		SearchProblem search = makeSearchProblem(doMinimize, startResNum, aminoAcids);
+		
+		System.out.println("Calculating expected energies...");
+		EnergyMatrixCalculator emcalc = new EnergyMatrixCalculator(search.confSpace, search.shellResidues, search.useERef, search.addResEntropy);
+		emcalc.calcPEM();
+		search.emat = emcalc.getEMatrix();
+		
+		return search;
+	}
+
 	private static String formatEnergy(double energy) {
 		if (energy == Double.POSITIVE_INFINITY) {
 			return "Double.POSITIVE_INFINITY";

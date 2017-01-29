@@ -70,6 +70,19 @@ public class Strand {
 				.build());
 		}
 		
+		public Builder setLovellTemplateLibrary() {
+			return setTemplateLibrary(GenericResidueTemplateLibrary.builder()
+				.setLovellRotamers()
+				.build());
+		}
+		
+		public Builder setLovellTemplateLibrary(Forcefield forcefield) {
+			return setTemplateLibrary(GenericResidueTemplateLibrary.builder()
+				.setForcefield(forcefield)
+				.setLovellRotamers()
+				.build());
+		}
+		
 		public Builder setErrorOnNonTemplateResidues(boolean val) {
 			this.errorOnNonTemplateResidues = val;
 			return this;

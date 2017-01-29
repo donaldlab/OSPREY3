@@ -19,23 +19,25 @@ import edu.duke.cs.osprey.tools.Protractor;
  * 
  * @author mhall44
  */
-// TODO: is this really a DOF? or a conf?
+// TODO: is this really a DOF? or a residue conf?
 public class ProlinePucker extends DegreeOfFreedom {
     
     private static final long serialVersionUID = -5326286110623671996L;
 
     public static enum Direction {
         
-        UP {
-            @Override
-            public Direction flip() {
-                return DOWN;
-            }
-        },
+    	// NOTE: this enum value order is important
+    	// for residue confs to have the same order as older proline/conf space code
         DOWN {
             @Override
             public Direction flip() {
                 return UP;
+            }
+        },
+        UP {
+            @Override
+            public Direction flip() {
+                return DOWN;
             }
         };
         

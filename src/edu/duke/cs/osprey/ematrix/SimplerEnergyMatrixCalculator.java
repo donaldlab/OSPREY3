@@ -12,10 +12,12 @@ import edu.duke.cs.osprey.energy.ForcefieldInteractionsGenerator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MoleculeObjectiveFunction;
+import edu.duke.cs.osprey.minimization.ObjectiveFunction;
 import edu.duke.cs.osprey.minimization.SimpleCCDMinimizer;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
 import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
+import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Progress;
 
@@ -29,11 +31,13 @@ public class SimplerEnergyMatrixCalculator {
 		private SimpleConfSpace confSpace;
 		private ForcefieldParams ffparams;
 		private Parallelism parallelism;
+		private Factory<Minimizer,ObjectiveFunction> minimizerFactory;
 		
 		public Builder(SimpleConfSpace confSpace) {
 			this.confSpace = confSpace;
 			this.ffparams = Defaults.forcefieldParams;
 			this.parallelism = Defaults.parallelism;
+			this.minimizerFactory = (f) -> new SimpleCCDMinimizer(f);
 		}
 		
 		public Builder setForcefieldParams(ForcefieldParams val) {
@@ -46,8 +50,13 @@ public class SimplerEnergyMatrixCalculator {
 			return this;
 		}
 		
+		public Builder setMinimizerFactory(Factory<Minimizer,ObjectiveFunction> val) {
+			minimizerFactory = val;
+			return this;
+		}
+		
 		public SimplerEnergyMatrixCalculator build() {
-			return new SimplerEnergyMatrixCalculator(confSpace, ffparams, parallelism.numThreads);
+			return new SimplerEnergyMatrixCalculator(confSpace, ffparams, parallelism.numThreads, minimizerFactory);
 		}
 	}
 	
@@ -67,10 +76,7 @@ public class SimplerEnergyMatrixCalculator {
 
 		@Override
 		public void run() {
-			RCTuple conf = new RCTuple(pos1, rc1);
-			ParametricMolecule pmol = confSpace.makeMolecule(conf);
-			EnergyFunction efunc = efuncgen.interactionEnergy(intergen.makeIntraAndShell(confSpace, pos1, pmol.mol));
-			result = calcEnergy(pmol, conf, efunc);
+			result = calcSingle(pos1, rc1);
 		}
 	}
 	
@@ -86,41 +92,32 @@ public class SimplerEnergyMatrixCalculator {
 		public void run() {
 			results = new Minimizer.Result[numrc2];
 			for (int rc2=0; rc2<numrc2; rc2++) {
-				RCTuple conf = new RCTuple(pos1, rc1, pos2, rc2);
-				ParametricMolecule pmol = confSpace.makeMolecule(conf);
-				EnergyFunction efunc = efuncgen.interactionEnergy(intergen.makeResPair(confSpace, pos1, pos2, pmol.mol));
-				results[rc2] = calcEnergy(pmol, conf, efunc);
+				results[rc2] = calcPair(pos1, rc1, pos2, rc2);
 			}
 		}
 	}
 	
-	private Minimizer.Result calcEnergy(ParametricMolecule pmol, RCTuple conf, EnergyFunction efunc) {
-		
-		// no continuous DOFs? just evaluate the energy function
-		if (pmol.dofs.isEmpty()) {
-			return new Minimizer.Result(null, efunc.getEnergy());
-		}
-		
-		// otherwise, minimize over the DOFs
-		return new SimpleCCDMinimizer(new MoleculeObjectiveFunction(
-			pmol,
-			confSpace.makeBounds(conf),
-			efunc
-		)).minimize();
-	}
-	
 	private SimpleConfSpace confSpace;
 	private int numThreads;
-	
+	private Factory<Minimizer,ObjectiveFunction> minimizerFactory;
 	private ForcefieldInteractionsGenerator intergen;
 	private EnergyFunctionGenerator efuncgen;
 
-	private SimplerEnergyMatrixCalculator(SimpleConfSpace confSpace, ForcefieldParams ffparams, int numThreads) {
+	private SimplerEnergyMatrixCalculator(SimpleConfSpace confSpace, ForcefieldParams ffparams, int numThreads, Factory<Minimizer,ObjectiveFunction> minimizerFactory) {
 		this.confSpace = confSpace;
 		this.numThreads = numThreads;
+		this.minimizerFactory = minimizerFactory;
 		
 		intergen = new ForcefieldInteractionsGenerator();
 		efuncgen = new EnergyFunctionGenerator(ffparams);
+	}
+	
+	public void setNumThreads(int val) {
+		numThreads = val;
+	}
+	
+	public void setMinimizerFactory(Factory<Minimizer,ObjectiveFunction> val) {
+		minimizerFactory = val;
 	}
 	
 	public EnergyMatrix calcEnergyMatrix(File cacheFile) {
@@ -184,5 +181,34 @@ public class SimplerEnergyMatrixCalculator {
 		tasks.cleanup();
 		
 		return emat;
+	}
+	
+	public Minimizer.Result calcSingle(int pos1, int rc1) {
+		RCTuple conf = new RCTuple(pos1, rc1);
+		ParametricMolecule pmol = confSpace.makeMolecule(conf);
+		EnergyFunction efunc = efuncgen.interactionEnergy(intergen.makeIntraAndShell(confSpace, pos1, pmol.mol));
+		return calcEnergy(pmol, conf, efunc);
+	}
+	
+	public Minimizer.Result calcPair(int pos1, int rc1, int pos2, int rc2) {
+		RCTuple conf = new RCTuple(pos1, rc1, pos2, rc2);
+		ParametricMolecule pmol = confSpace.makeMolecule(conf);
+		EnergyFunction efunc = efuncgen.interactionEnergy(intergen.makeResPair(confSpace, pos1, pos2, pmol.mol));
+		return calcEnergy(pmol, conf, efunc);
+	}
+	
+	private Minimizer.Result calcEnergy(ParametricMolecule pmol, RCTuple conf, EnergyFunction efunc) {
+		
+		// no continuous DOFs? just evaluate the energy function
+		if (pmol.dofs.isEmpty()) {
+			return new Minimizer.Result(null, efunc.getEnergy());
+		}
+		
+		// otherwise, minimize over the DOFs
+		return minimizerFactory.make(new MoleculeObjectiveFunction(
+			pmol,
+			confSpace.makeBounds(conf),
+			efunc
+		)).minimize();
 	}
 }

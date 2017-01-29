@@ -12,7 +12,6 @@ import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace.ResidueConf;
 import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction.DofBounds;
-import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -29,9 +28,7 @@ public class TestSimpleConfSpace extends TestBase {
 	
 	public Strand makeStrand() {
 		return Strand.builder(mol)
-			.setTemplateLibrary(GenericResidueTemplateLibrary.builder()
-				.setLovellRotamers() // explicitly choose Lovell rotamers
-				.build())
+			.setLovellTemplateLibrary() // explicitly choose Lovell rotamers
 			.build();
 	}
 	
