@@ -15,7 +15,7 @@ import org.junit.Test;
 
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.control.ConfigFileParser;
-import edu.duke.cs.osprey.control.GMECFinder;
+import edu.duke.cs.osprey.gmec.GMECFinder;
 
 /**
  *

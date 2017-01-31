@@ -29,7 +29,7 @@ import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
-import edu.duke.cs.osprey.energy.ForcefieldInteractionsGenerator;
+import edu.duke.cs.osprey.energy.FFInterGen;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
@@ -86,8 +86,7 @@ public class TestMinimization extends TestBase {
 		ffparams = makeDefaultFFParams();
 		
 		// make energy function factories
-		ForcefieldInteractionsGenerator ffintergen = new ForcefieldInteractionsGenerator();
-		intergen = (mol) -> ffintergen.makeFullConf(search.confSpace, search.shellResidues, mol);
+		intergen = (mol) -> FFInterGen.makeFullConf(search.confSpace, search.shellResidues, mol);
 		EnergyFunctionGenerator egen = EnvironmentVars.curEFcnGenerator;
 		efuncgen = (mol) -> egen.interactionEnergy(intergen.make(mol));
 		

@@ -22,6 +22,14 @@ public abstract class VoxelShape {
 	 * make bounds for degrees of freedom for the residue in its current state (ie, ignore possible mutations)
 	 */
 	public abstract DofBounds makeDihedralBounds(ResidueTemplate template, int rotamerIndex);
+	
+	/**
+	 * can these degrees of freedom be minimized in the GPU CCD minimizer?
+	 * (currently only FreeDihedral DOFs are implemented)
+	 */
+	public boolean isGpuCcdSupported() {
+		return false;
+	}
 
 	public static class Point extends VoxelShape {
 
@@ -37,6 +45,13 @@ public abstract class VoxelShape {
 			
 			// no continuous degrees of freedom
 			return new DofBounds(0);
+		}
+
+		@Override
+		public boolean isGpuCcdSupported() {
+			
+			// no dofs, so don't stop the GPU CCD minimizer
+			return true;
 		} 
 	}
 	
@@ -69,6 +84,11 @@ public abstract class VoxelShape {
 				bounds.set(d, chi - width, chi + width);
 			}
 			return bounds;
+		}
+
+		@Override
+		public boolean isGpuCcdSupported() {
+			return true;
 		}
 	}
 	

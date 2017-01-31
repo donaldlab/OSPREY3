@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.control;
+package edu.duke.cs.osprey.gmec;
 
 public class EnergyWindow {
 	

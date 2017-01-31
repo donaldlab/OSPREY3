@@ -7,7 +7,7 @@ package edu.duke.cs.osprey.kstar.pruning;
 
 import edu.duke.cs.osprey.confspace.PositionConfSpace;
 import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.control.GMECFinder;
+import edu.duke.cs.osprey.gmec.GMECFinder;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KSAllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;

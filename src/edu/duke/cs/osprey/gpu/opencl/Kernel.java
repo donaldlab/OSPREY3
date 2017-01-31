@@ -41,6 +41,20 @@ public abstract class Kernel {
 	
 	public void cleanup() {
 		kernel.release();
+		kernel = null;
+	}
+	
+	@Override
+	protected void finalize()
+	throws Throwable {
+		try {
+			if (kernel != null) {
+				System.err.println("WARNING: " + getClass().getName() + " was garbage collected, but not cleaned up. Attempting cleanup now");
+				cleanup();
+			}
+		} finally {
+			super.finalize();
+		}
 	}
 	
 	protected int getMaxGroupSize() {

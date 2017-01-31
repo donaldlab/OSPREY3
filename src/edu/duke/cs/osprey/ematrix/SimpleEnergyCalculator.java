@@ -7,7 +7,7 @@ import edu.duke.cs.osprey.confspace.ParameterizedMoleculeCopy;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
-import edu.duke.cs.osprey.energy.ForcefieldInteractionsGenerator;
+import edu.duke.cs.osprey.energy.FFInterGen;
 import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
@@ -29,13 +29,11 @@ public abstract class SimpleEnergyCalculator {
 	public final ForcefieldParams ffparams;
 	public ConfSpace confSpace;
 	public List<Residue> shellResidues;
-	protected ForcefieldInteractionsGenerator intergen;
 	
 	protected SimpleEnergyCalculator(ForcefieldParams ffparams, ConfSpace confSpace, List<Residue> shellResidues) {
 		this.ffparams = ffparams;
 		this.confSpace = confSpace;
 		this.shellResidues = shellResidues;
-		this.intergen = new ForcefieldInteractionsGenerator();
 	}
 	
 	public abstract EnergyFunctionGenerator getEnergyFunctionGenerator();
@@ -81,12 +79,12 @@ public abstract class SimpleEnergyCalculator {
 		
 		@Override
 		public EnergyFunction makeSingleEfunc(int pos, Molecule mol) {
-			return efuncs.interactionEnergy(intergen.makeIntraAndShell(confSpace, pos, shellResidues, mol));
+			return efuncs.interactionEnergy(FFInterGen.makeIntraAndShell(confSpace, pos, shellResidues, mol));
 		}
 
 		@Override
 		public EnergyFunction makePairEfunc(int pos1, int pos2, Molecule mol) {
-			return efuncs.interactionEnergy(intergen.makeResPair(confSpace, pos1, pos2, mol));
+			return efuncs.interactionEnergy(FFInterGen.makeResPair(confSpace, pos1, pos2, mol));
 		}
 
 		@Override
@@ -159,7 +157,7 @@ public abstract class SimpleEnergyCalculator {
 		}
 		
 		public BigForcefieldEnergy makeSingleEfunc(int pos, Molecule mol, BufferTools.Type bufType) {
-			ForcefieldInteractions ffinteractions = intergen.makeIntraAndShell(confSpace, pos, shellResidues, mol);
+			ForcefieldInteractions ffinteractions = FFInterGen.makeIntraAndShell(confSpace, pos, shellResidues, mol);
 			return new BigForcefieldEnergy(ffparams, ffinteractions, bufType);
 		}
 
@@ -169,7 +167,7 @@ public abstract class SimpleEnergyCalculator {
 		}
 
 		private BigForcefieldEnergy makePairEfunc(int pos1, int pos2, Molecule mol, BufferTools.Type bufType) {
-			ForcefieldInteractions ffinteractions = intergen.makeResPair(confSpace, pos1, pos2, mol);
+			ForcefieldInteractions ffinteractions = FFInterGen.makeResPair(confSpace, pos1, pos2, mol);
 			return new BigForcefieldEnergy(ffparams, ffinteractions, bufType);
 		}
 

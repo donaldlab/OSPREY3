@@ -13,13 +13,11 @@ import edu.duke.cs.osprey.structure.Residue;
 
 public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 	
-	private ForcefieldInteractionsGenerator intergen;
 	private GpuQueuePool openclQueues;
 	private GpuStreamPool cudaStreams;
 	
 	private GpuEnergyFunctionGenerator(ForcefieldParams ffParams) {
 		super(ffParams);
-		this.intergen = new ForcefieldInteractionsGenerator();
 		this.openclQueues = null;
 		this.cudaStreams = null;
 	}
@@ -54,17 +52,17 @@ public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 	
 	@Override
 	public GpuForcefieldEnergy singleResEnergy(Residue res) {
-		return makeGpuForcefield(intergen.makeSingleRes(res));
+		return makeGpuForcefield(FFInterGen.makeSingleRes(res));
 	}
 
 	@Override
 	public GpuForcefieldEnergy resPairEnergy(Residue res1, Residue res2) {
-		return makeGpuForcefield(intergen.makeResPair(res1, res2));
+		return makeGpuForcefield(FFInterGen.makeResPair(res1, res2));
 	}
 	
 	@Override
 	public GpuForcefieldEnergy intraAndShellEnergy(Residue res, List<Residue> shellResidues) {
-		return makeGpuForcefield(intergen.makeIntraAndShell(res, shellResidues));
+		return makeGpuForcefield(FFInterGen.makeIntraAndShell(res, shellResidues));
 	}
 	
 	@Override
@@ -79,17 +77,17 @@ public class GpuEnergyFunctionGenerator extends EnergyFunctionGenerator {
 	
 	@Override
 	public GpuForcefieldEnergy fullConfEnergy(ConfSpace confSpace, List<Residue> shellResidues) {
-		return makeGpuForcefield(intergen.makeFullConf(confSpace, shellResidues));
+		return makeGpuForcefield(FFInterGen.makeFullConf(confSpace, shellResidues));
 	}
 	
 	@Override
 	public GpuForcefieldEnergy fullConfEnergy(ConfSpace confSpace, List<Residue> shellResidues, Molecule mol) {
-		return makeGpuForcefield(intergen.makeFullConf(confSpace, shellResidues, mol));
+		return makeGpuForcefield(FFInterGen.makeFullConf(confSpace, shellResidues, mol));
 	}
 	
 	@Override
 	public GpuForcefieldEnergy fullMolecEnergy(Molecule mol) {
-		return makeGpuForcefield(intergen.makeFullMol(mol));
+		return makeGpuForcefield(FFInterGen.makeFullMol(mol));
 	}
 	
 	public void cleanup() {

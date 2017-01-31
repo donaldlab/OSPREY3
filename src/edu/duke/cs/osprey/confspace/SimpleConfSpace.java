@@ -86,8 +86,24 @@ public class SimpleConfSpace {
 	public static class ResidueConf {
 		
 		public static enum Type {
-			Library,
-			WildType;
+			
+			Library('L'),
+			WildType('W');
+			
+			public final char letter;
+			
+			private Type(char letter) {
+				this.letter = letter;
+			}
+			
+			public static Type getFromLetter(char letter) {
+				for (Type type : values()) {
+					if (type.letter == letter) {
+						return type;
+					}
+				}
+				return null;
+			}
 		}
 		
 		public static interface PostTemplateModifier {
@@ -132,13 +148,27 @@ public class SimpleConfSpace {
 			
 			ResidueTypeDOF.switchToTemplate(templateLib, res, template, false);
 		}
+		
+		public String getRotamerCode() {
+			StringBuilder buf = new StringBuilder();
+			buf.append(type.letter);
+			if (rotamerIndex != null) {
+				buf.append(rotamerIndex);
+			}
+			return buf.toString();
+		}
+		
+		@Override
+		public String toString() {
+			return template.name + " " + getRotamerCode();
+		}
 	}
 	
 	public final List<Strand> strands;
 	public final List<Position> positions;
 	public final Set<String> shellResNumbers;
+	public final Map<Strand,List<StrandFlex>> strandFlex; // yeah, map on instance, not identity
 	
-	private Map<Strand,List<StrandFlex>> strandFlex; // yeah, map on instance, not identity
 	private Map<Strand,Set<String>> shellResNumbersByStrand;
 	private int[] numResConfsByPos;
 	
@@ -146,8 +176,8 @@ public class SimpleConfSpace {
 		strands = new ArrayList<>();
 		positions = new ArrayList<>();
 		shellResNumbers = new HashSet<>();
-		
 		strandFlex = new HashMap<>();
+		
 		shellResNumbersByStrand = new HashMap<>();
 		numResConfsByPos = null;
 	}
@@ -286,6 +316,10 @@ public class SimpleConfSpace {
 		return count;
 	}
 	
+	public ParametricMolecule makeMolecule(int[] conf) {
+		return makeMolecule(new RCTuple(conf));
+	}
+	
 	/**
 	 * create a new {@link ParametricMolecule} in the specified conformation
 	 * for analysis (e.g., minimization)
@@ -294,10 +328,6 @@ public class SimpleConfSpace {
 	 * with a new molecule instance. this completely prevents roundoff error
 	 * from accumulating across separate analyses. 
 	 */
-	public ParametricMolecule makeMolecule(int[] conf) {
-		return makeMolecule(new RCTuple(conf));
-	}
-	
 	public ParametricMolecule makeMolecule(RCTuple conf) {
 		
 		// make the molecule from the strands (ignore alternates)
@@ -309,7 +339,7 @@ public class SimpleConfSpace {
 				mol.residues.add(res);
 			}
 		}
-        HardCodedResidueInfo.markInterResBonds(mol);
+		HardCodedResidueInfo.markInterResBonds(mol);
 		
 		// mutate to the conf templates
 		for (int i=0; i<conf.size(); i++) {
@@ -355,6 +385,14 @@ public class SimpleConfSpace {
 		return new ParametricMolecule(mol, dofs);
 	}
 	
+	public boolean isContinuouslyFlexible(int[] conf) {
+		return isContinuouslyFlexible(new RCTuple(conf));
+	}
+	
+	public boolean isContinuouslyFlexible(RCTuple conf) {
+		return makeBounds(conf).size() > 0;
+	}
+	
 	public DofBounds makeBounds(int[] conf) {
 		return makeBounds(new RCTuple(conf));
 	}
@@ -392,5 +430,26 @@ public class SimpleConfSpace {
 			confStrands.add(pos.strand);
 		}
 		return confStrands;
+	}
+
+	public boolean isGpuCcdSupported() {
+		
+		// check strand flex
+		for (Strand strand : strands) {
+			for (StrandFlex flex : strandFlex.get(strand)) {
+				if (!flex.isGpuCcdSupported()) {
+					return false;
+				}
+			}
+		}
+		
+		// check residue flex
+		for (Position pos : positions) {
+			if (!pos.resFlex.voxelShape.isGpuCcdSupported()) {
+				return false;
+			}
+		}
+		
+		return true;
 	}
 }

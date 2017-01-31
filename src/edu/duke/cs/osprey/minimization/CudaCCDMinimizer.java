@@ -11,7 +11,7 @@ import edu.duke.cs.osprey.gpu.cuda.kernels.CCDKernelCuda;
 public class CudaCCDMinimizer implements Minimizer.NeedsCleanup, Minimizer.Reusable {
 	
 	private GpuStreamPool streams;
-	private MoleculeModifierAndScorer mof;
+	private ObjectiveFunction f;
 	private GpuStream stream;
 	private CCDKernelCuda kernel;
 	private ObjectiveFunction.DofBounds dofBounds;
@@ -29,12 +29,7 @@ public class CudaCCDMinimizer implements Minimizer.NeedsCleanup, Minimizer.Reusa
 	@Override
 	public void init(ObjectiveFunction f) {
 		
-		// get the molecule objective function
-		if (f instanceof MoleculeModifierAndScorer) {
-			mof = (MoleculeModifierAndScorer)f;
-		} else {
-			throw new Error("objective function should be a " + MoleculeModifierAndScorer.class.getSimpleName() + ", not a " + f.getClass().getSimpleName() + ". this is a bug");
-		}
+		this.f = f;
 		
 		if (kernel == null) {
 			// make the kernel
@@ -47,10 +42,19 @@ public class CudaCCDMinimizer implements Minimizer.NeedsCleanup, Minimizer.Reusa
 				throw new Error("can't make CCD kernel", ex);
 			}
 		}
-		kernel.init(mof);
+		
+		// get the molecule objective function
+		if (f instanceof MoleculeModifierAndScorer) {
+			kernel.init(new MoleculeObjectiveFunction((MoleculeModifierAndScorer)f));
+		} else if (f instanceof MoleculeObjectiveFunction) {
+			kernel.init((MoleculeObjectiveFunction)f);
+		} else {
+			throw new Error("objective function should be a " + MoleculeModifierAndScorer.class.getSimpleName() + ", not a " + f.getClass().getSimpleName() + ". this is a bug");
+		}
+		
 		
 		// init x to the center of the bounds
-		dofBounds = new ObjectiveFunction.DofBounds(mof.getConstraints());
+		dofBounds = new ObjectiveFunction.DofBounds(f.getConstraints());
 		x = DoubleFactory1D.dense.make(dofBounds.size());
 		dofBounds.getCenter(x);
 	}
@@ -59,12 +63,12 @@ public class CudaCCDMinimizer implements Minimizer.NeedsCleanup, Minimizer.Reusa
 	public Minimizer.Result minimize() {
 		
 		// do the minimization
-		mof.setDOFs(x);
+		f.setDOFs(x);
 		kernel.uploadCoordsAsync();
 		Minimizer.Result result = kernel.runSync(x, dofBounds);
 		
 		// update the CPU-side molecule
-		mof.setDOFs(result.dofValues);
+		f.setDOFs(result.dofValues);
 		
 		return result;
 	}

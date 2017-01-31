@@ -170,9 +170,9 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements TaskExecutor
 	private static class ListeningTask implements Runnable {
 		
 		public Runnable task;
-		public TaskExecutor.TaskListener listener;
+		public TaskExecutor.TaskListener<Runnable> listener;
 		
-		public ListeningTask(Runnable task, TaskExecutor.TaskListener listener) {
+		public ListeningTask(Runnable task, TaskExecutor.TaskListener<Runnable> listener) {
 			this.task = task;
 			this.listener = listener;
 		}
@@ -271,8 +271,15 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements TaskExecutor
 	}
 	
 	@Override
-	public void submit(Runnable task, TaskListener listener) {
-		submit(new ListeningTask(task, listener));
+	public <T extends Runnable> void submit(T task, TaskListener<T> listener) {
+		if (listener == null) {
+			submit(task);
+		} else {
+			Runnable runnableTask = (Runnable)task;
+			@SuppressWarnings("unchecked")
+			TaskListener<Runnable> runnableListener = (TaskListener<Runnable>)listener;
+			submit(new ListeningTask(runnableTask, runnableListener));
+		}
 	}
 	
 	@Override
@@ -330,9 +337,12 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements TaskExecutor
 	@Override
 	protected void finalize()
 	throws Throwable {
-		if (!threads.isEmpty() || listenerThread != null) {
-			System.err.println("thread pool not cleaned up, could lead to failures starting new threads");
+		try {
+			if (!threads.isEmpty() || listenerThread != null) {
+				System.err.println("thread pool not cleaned up, could lead to failures starting new threads");
+			}
+		} finally {
+			super.finalize();
 		}
-		super.finalize();
 	}
 }

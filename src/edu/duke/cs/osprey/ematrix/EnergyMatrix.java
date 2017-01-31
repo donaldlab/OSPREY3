@@ -64,6 +64,23 @@ public class EnergyMatrix extends TupleMatrixDouble {
     }
     
     
+    public boolean matches(SimpleConfSpace confSpace) {
+        
+        // check number of design positions
+        if (getNumPos() != confSpace.positions.size()) {
+            return false;
+        }
+        
+        // check number of residue confs at each position
+        for (SimpleConfSpace.Position pos : confSpace.positions) {
+            if (pos.resConfs.size() != getNumConfAtPos(pos.index)) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
     public double rcContribAtPos(int pos, int[] conf, int numResInHot) {
     	// value of an rc
     	RCTuple tup = new RCTuple(conf);

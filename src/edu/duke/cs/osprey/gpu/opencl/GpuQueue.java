@@ -41,11 +41,28 @@ public class GpuQueue {
 	}
 	
 	public void cleanup() {
-		queue.release();
+		
+		if (queue != null) {
+			queue.release();
+			queue = null;
+		}
 		
 		if (separateContext != null) {
 			separateContext.release();
 			separateContext = null;
+		}
+	}
+	
+	@Override
+	protected void finalize()
+	throws Throwable {
+		try {
+			if (queue != null || separateContext != null) {
+				System.err.println("WARNING: " + getClass().getName() + " was garbage collected, but not cleaned up. Attempting cleanup now");
+				cleanup();
+			}
+		} finally {
+			super.finalize();
 		}
 	}
 

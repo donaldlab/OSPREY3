@@ -7,12 +7,79 @@ import java.util.PriorityQueue;
 
 import edu.duke.cs.osprey.astar.AStarProgress;
 import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
+import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
+import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
+import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 public class ConfAStarTree implements ConfSearch {
+
+	public static class Builder {
+		
+		private EnergyMatrix emat;
+		private RCs rcs;
+		private AStarOrder order;
+		private AStarScorer gscorer;
+		private AStarScorer hscorer;
+		
+		public Builder(EnergyMatrix emat, RCs rcs) {
+			this.emat = emat;
+			this.rcs = rcs;
+			
+			// Jeff: MPLP is dramatically faster for large A* searches
+			// and for small searches, who cares how fast A* is,
+			// so I think it makes a good default for all cases
+			setMPLP();
+		}
+		
+		public Builder setTraditional() {
+			this.order = new DynamicHMeanAStarOrder();
+			this.gscorer = new PairwiseGScorer(emat);
+			this.hscorer = new TraditionalPairwiseHScorer(emat, rcs);
+			return this;
+		}
+		
+		public Builder setMPLP() {
+			return setMPLP(new NodeUpdater(), 1, 0.0001);
+		}
+		
+		public Builder setMPLP(MPLPUpdater updater, int numIterations, double convergenceThreshold) {
+			order = new StaticScoreHMeanAStarOrder();
+			gscorer = new PairwiseGScorer(emat);
+			hscorer = new MPLPPairwiseHScorer(updater, emat, numIterations, convergenceThreshold);
+			return this;
+		}
+		
+		public ConfSearch build() {
+			return new ConfAStarTree(
+				order,
+				gscorer,
+				hscorer,
+				rcs
+			);
+		}
+	}
+
+	public static Builder builder(EnergyMatrix emat, SimpleConfSpace confSpace) {
+		return builder(emat, new RCs(confSpace));
+	}
 	
+	public static Builder builder(EnergyMatrix emat, PruningMatrix pmat) {
+		return builder(emat, new RCs(pmat));
+	}
+	
+	public static Builder builder(EnergyMatrix emat, RCs rcs) {
+		return new Builder(emat, rcs);
+	}
+
 	private AStarOrder order;
 	private AStarScorer gscorer;
 	private AStarScorer hscorer;

@@ -8,7 +8,7 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.control.Defaults;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
-import edu.duke.cs.osprey.energy.ForcefieldInteractionsGenerator;
+import edu.duke.cs.osprey.energy.FFInterGen;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MoleculeObjectiveFunction;
@@ -100,7 +100,6 @@ public class SimplerEnergyMatrixCalculator {
 	private SimpleConfSpace confSpace;
 	private int numThreads;
 	private Factory<Minimizer,ObjectiveFunction> minimizerFactory;
-	private ForcefieldInteractionsGenerator intergen;
 	private EnergyFunctionGenerator efuncgen;
 
 	private SimplerEnergyMatrixCalculator(SimpleConfSpace confSpace, ForcefieldParams ffparams, int numThreads, Factory<Minimizer,ObjectiveFunction> minimizerFactory) {
@@ -108,7 +107,6 @@ public class SimplerEnergyMatrixCalculator {
 		this.numThreads = numThreads;
 		this.minimizerFactory = minimizerFactory;
 		
-		intergen = new ForcefieldInteractionsGenerator();
 		efuncgen = new EnergyFunctionGenerator(ffparams);
 	}
 	
@@ -125,26 +123,9 @@ public class SimplerEnergyMatrixCalculator {
 			cacheFile,
 			EnergyMatrix.class,
 			"energy matrix",
-			(emat) -> doesEmatMatch(emat),
+			(emat) -> emat.matches(confSpace),
 			(context) -> calcEnergyMatrix()
 		);
-	}
-	
-	private boolean doesEmatMatch(EnergyMatrix emat) {
-		
-		// check number of design positions
-		if (emat.getNumPos() != confSpace.positions.size()) {
-			return false;
-		}
-	
-		// check number of residue confs at each position
-		for (SimpleConfSpace.Position pos : confSpace.positions) {
-			if (pos.resConfs.size() != emat.getNumConfAtPos(pos.index)) {
-				return false;
-			}
-		}
-		
-		return true;
 	}
 	
 	public EnergyMatrix calcEnergyMatrix() {
@@ -158,12 +139,12 @@ public class SimplerEnergyMatrixCalculator {
 		
 		// init task listeners
 		Progress progress = new Progress(confSpace.getNumResConfs() + confSpace.getNumResConfPairs());
-		TaskListener singleListener = (taskBase) -> {
+		TaskListener<SingleTask> singleListener = (taskBase) -> {
 			SingleTask task = (SingleTask)taskBase;
 			emat.setOneBody(task.pos1, task.rc1, task.result.energy);
 			progress.incrementProgress();
 		};
-		TaskListener pairListener = (taskBase) -> {
+		TaskListener<PairTask> pairListener = (taskBase) -> {
 			PairTask task = (PairTask)taskBase;
 			for (int rc2=0; rc2<task.numrc2; rc2++) {
 				emat.setPairwise(task.pos1, task.rc1, task.pos2, rc2, task.results[rc2].energy);
@@ -209,14 +190,14 @@ public class SimplerEnergyMatrixCalculator {
 	public Minimizer.Result calcSingle(int pos1, int rc1) {
 		RCTuple conf = new RCTuple(pos1, rc1);
 		ParametricMolecule pmol = confSpace.makeMolecule(conf);
-		EnergyFunction efunc = efuncgen.interactionEnergy(intergen.makeIntraAndShell(confSpace, pos1, pmol.mol));
+		EnergyFunction efunc = efuncgen.interactionEnergy(FFInterGen.makeIntraAndShell(confSpace, pos1, pmol.mol));
 		return calcEnergy(pmol, conf, efunc);
 	}
 	
 	public Minimizer.Result calcPair(int pos1, int rc1, int pos2, int rc2) {
 		RCTuple conf = new RCTuple(pos1, rc1, pos2, rc2);
 		ParametricMolecule pmol = confSpace.makeMolecule(conf);
-		EnergyFunction efunc = efuncgen.interactionEnergy(intergen.makeResPair(confSpace, pos1, pos2, pmol.mol));
+		EnergyFunction efunc = efuncgen.interactionEnergy(FFInterGen.makeResPair(confSpace, pos1, pos2, pmol.mol));
 		return calcEnergy(pmol, conf, efunc);
 	}
 	

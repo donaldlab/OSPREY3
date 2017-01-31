@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.control;
+package edu.duke.cs.osprey.gmec;
 
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;

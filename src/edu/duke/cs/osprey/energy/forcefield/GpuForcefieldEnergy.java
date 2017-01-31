@@ -72,6 +72,19 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 				kernel = null;
 			}
 		}
+		
+		@Override
+		protected void finalize()
+		throws Throwable {
+			try {
+				if (kernel != null) {
+					System.err.println("WARNING: " + getClass().getName() + " was garbage collected, but not cleaned up. Attempting cleanup now");
+					cleanup();
+				}
+			} finally {
+				super.finalize();
+			}
+		}
 	}
 	
 	private BigForcefieldEnergy ffenergy;
@@ -160,6 +173,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	public void cleanup() {
 		
 		kernelBuilder.cleanup();
+		kernelBuilder = null;
 		
 		if (openclQueuePool != null) {
 			openclQueuePool.release(openclQueue);
@@ -174,6 +188,19 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 				efunc.cleanup();
 			}
 			efuncCache.clear();
+		}
+	}
+	
+	@Override
+	protected void finalize()
+	throws Throwable {
+		try {
+			if (kernelBuilder != null) {
+				System.err.println("WARNING: " + getClass().getName() + " was garbage collected, but not cleaned up. Attempting cleanup now");
+				cleanup();
+			}
+		} finally {
+			super.finalize();
 		}
 	}
 

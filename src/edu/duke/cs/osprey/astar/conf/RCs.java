@@ -2,6 +2,9 @@ package edu.duke.cs.osprey.astar.conf;
 
 import java.util.List;
 
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace.Position;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace.ResidueConf;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 public class RCs {
@@ -9,6 +12,30 @@ public class RCs {
 	private PruningMatrix pruneMat;
 	private int[][] unprunedRCsAtPos;
 	private boolean hasConfs;
+	
+	public RCs(SimpleConfSpace confSpace) {
+		
+		this.pruneMat = null;
+		
+		int n = confSpace.positions.size();
+		this.hasConfs = n > 0;
+		
+		// pack the rcs into an efficient lookup structure
+		unprunedRCsAtPos = new int[n][];
+		for (Position pos : confSpace.positions) {
+			
+			// no options at this pos? can't have any confs then
+			if (pos.resConfs.isEmpty()) {
+				hasConfs = false;
+			}
+			
+			int[] rcs = new int[pos.resConfs.size()];
+			for (ResidueConf resConf : pos.resConfs) {
+				rcs[resConf.index] = resConf.index;
+			}
+			unprunedRCsAtPos[pos.index] = rcs;
+		}
+	}
 	
 	public RCs(List<List<Integer>> rcsAtPos) {
 		
@@ -18,21 +45,21 @@ public class RCs {
 		this.hasConfs = n > 0;
 		
 		// pack the rcs into an efficient lookup structure
-        unprunedRCsAtPos = new int[n][];
-        for (int pos=0; pos<n; pos++) {
-        	List<Integer> srcRCs = rcsAtPos.get(pos);
-        	
-        	// no options at this pos? can't have any confs then
-        	if (srcRCs.size() <= 0) {
-        		hasConfs = false;
-        	}
-        	
-        	int[] destRCs = new int[srcRCs.size()];
-        	for (int i=0; i<srcRCs.size(); i++) {
-        		destRCs[i] = srcRCs.get(i);
-        	}
-        	unprunedRCsAtPos[pos] = destRCs;
-        }
+		unprunedRCsAtPos = new int[n][];
+		for (int pos=0; pos<n; pos++) {
+			List<Integer> srcRCs = rcsAtPos.get(pos);
+			
+			// no options at this pos? can't have any confs then
+			if (srcRCs.size() <= 0) {
+				hasConfs = false;
+			}
+			
+			int[] destRCs = new int[srcRCs.size()];
+			for (int i=0; i<srcRCs.size(); i++) {
+				destRCs[i] = srcRCs.get(i);
+			}
+			unprunedRCsAtPos[pos] = destRCs;
+		}
 	}
 	
 	public RCs(PruningMatrix pruneMat) {
@@ -43,21 +70,21 @@ public class RCs {
 		this.hasConfs = n > 0;
 		
 		// pack unpruned rotamers into an efficient lookup structure
-        unprunedRCsAtPos = new int[n][];
-        for (int pos=0; pos<n; pos++) {
-        	List<Integer> srcRCs = pruneMat.unprunedRCsAtPos(pos);
-        	
-        	// no options at this pos? can't have any confs then
-        	if (srcRCs.size() <= 0) {
-        		hasConfs = false;
-        	}
-        	
-        	int[] destRCs = new int[srcRCs.size()];
-        	for (int i=0; i<srcRCs.size(); i++) {
-        		destRCs[i] = srcRCs.get(i);
-        	}
-        	unprunedRCsAtPos[pos] = destRCs;
-        }
+		unprunedRCsAtPos = new int[n][];
+		for (int pos=0; pos<n; pos++) {
+			List<Integer> srcRCs = pruneMat.unprunedRCsAtPos(pos);
+			
+			// no options at this pos? can't have any confs then
+			if (srcRCs.size() <= 0) {
+				hasConfs = false;
+			}
+			
+			int[] destRCs = new int[srcRCs.size()];
+			for (int i=0; i<srcRCs.size(); i++) {
+				destRCs[i] = srcRCs.get(i);
+			}
+			unprunedRCsAtPos[pos] = destRCs;
+		}
 	}
 	
 	public PruningMatrix getPruneMat() {

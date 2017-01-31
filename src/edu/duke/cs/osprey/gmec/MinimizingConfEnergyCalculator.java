@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.control;
+package edu.duke.cs.osprey.gmec;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -8,7 +8,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.ReferenceEnergies;
-import edu.duke.cs.osprey.energy.ForcefieldInteractionsGenerator;
+import edu.duke.cs.osprey.energy.FFInterGen;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.minimization.ConfMinimizer;
@@ -18,17 +18,17 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Factory;
 
-public class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async {
+@Deprecated
+public class MinimizingConfEnergyCalculator implements ConfEnergyCalculator.Async {
 	
-	public static MinimizingEnergyCalculator make(ForcefieldParams ffparams, SearchProblem search) {
+	public static MinimizingConfEnergyCalculator make(ForcefieldParams ffparams, SearchProblem search) {
 		return make(ffparams, search, Parallelism.makeDefault(), false);
 	}
 	
-	public static MinimizingEnergyCalculator make(ForcefieldParams ffparams, SearchProblem search, Parallelism parallelism, boolean areConfsStreaming) {
+	public static MinimizingConfEnergyCalculator make(ForcefieldParams ffparams, SearchProblem search, Parallelism parallelism, boolean areConfsStreaming) {
 		
 		// make the forcefield interactions factory
-		ForcefieldInteractionsGenerator intergen = new ForcefieldInteractionsGenerator();
-		Factory<ForcefieldInteractions,Molecule> ffinteractions = (mol) -> intergen.makeFullConf(search.confSpace, search.shellResidues, mol);
+		Factory<ForcefieldInteractions,Molecule> ffinteractions = (mol) -> FFInterGen.makeFullConf(search.confSpace, search.shellResidues, mol);
 		
 		// TODO: simplify this with a unified builder that uses the new Parallelism class
 		// make the minimizer
@@ -50,7 +50,7 @@ public class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async {
 				throw new Error("unrecognized type: " + parallelism.type);
 		}
 		
-		MinimizingEnergyCalculator ecalc = new MinimizingEnergyCalculator(minimizer);
+		MinimizingConfEnergyCalculator ecalc = new MinimizingConfEnergyCalculator(minimizer);
 		
 		// add post pocessing steps
 		if (search.useERef) {
@@ -82,7 +82,7 @@ public class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async {
 	private ConfMinimizer minimizer;
 	private List<ConfPostProcessor> postProcessors;
 	
-	public MinimizingEnergyCalculator(ConfMinimizer minimizer) {
+	public MinimizingConfEnergyCalculator(ConfMinimizer minimizer) {
 		this.minimizer = minimizer;
 		this.postProcessors = new ArrayList<>();
 	}

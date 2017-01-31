@@ -9,57 +9,60 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 
-public class ForcefieldInteractionsGenerator {
+/**
+ * forcefield interactions generator
+ */
+public class FFInterGen {
 	
-	public ForcefieldInteractions makeSingleRes(ConfSpace confSpace, int pos, Molecule mol) {
+	public static ForcefieldInteractions makeSingleRes(ConfSpace confSpace, int pos, Molecule mol) {
 		return makeSingleRes(matchResidue(confSpace.posFlex.get(pos).res, mol));
 	}
 
-	public ForcefieldInteractions makeSingleRes(SimpleConfSpace confSpace, int pos, Molecule mol) {
+	public static ForcefieldInteractions makeSingleRes(SimpleConfSpace confSpace, int pos, Molecule mol) {
 		return makeSingleRes(mol.getResByPDBResNumber(confSpace.positions.get(pos).resNum));
 	}
 		
-	public ForcefieldInteractions makeSingleRes(Residue res) {
+	public static ForcefieldInteractions makeSingleRes(Residue res) {
 		ForcefieldInteractions interactions = new ForcefieldInteractions();
 		interactions.addResidue(res);
 		return interactions;
 	}
 	
-	public ForcefieldInteractions makeResPair(ConfSpace confSpace, int pos1, int pos2, Molecule mol) {
+	public static ForcefieldInteractions makeResPair(ConfSpace confSpace, int pos1, int pos2, Molecule mol) {
 		return makeResPair(
 			matchResidue(confSpace.posFlex.get(pos1).res, mol),
 			matchResidue(confSpace.posFlex.get(pos2).res, mol)
 		);
 	}
 	
-	public ForcefieldInteractions makeResPair(SimpleConfSpace confSpace, int pos1, int pos2, Molecule mol) {
+	public static ForcefieldInteractions makeResPair(SimpleConfSpace confSpace, int pos1, int pos2, Molecule mol) {
 		return makeResPair(
 			mol.getResByPDBResNumber(confSpace.positions.get(pos1).resNum),
 			mol.getResByPDBResNumber(confSpace.positions.get(pos2).resNum)
 		);
 	}
 
-	public ForcefieldInteractions makeResPair(Residue res1, Residue res2) {
+	public static ForcefieldInteractions makeResPair(Residue res1, Residue res2) {
 		ForcefieldInteractions interactions = new ForcefieldInteractions();
 		interactions.addResiduePair(res1, res2);
 		return interactions;
 	}
 	
-	public ForcefieldInteractions makeIntraAndShell(ConfSpace confSpace, int pos, List<Residue> shellResidues, Molecule mol) {
+	public static ForcefieldInteractions makeIntraAndShell(ConfSpace confSpace, int pos, List<Residue> shellResidues, Molecule mol) {
 		return makeIntraAndShell(
 			matchResidue(confSpace.posFlex.get(pos).res, mol),
 			matchResidues(shellResidues, mol)
 		);
 	}
 	
-	public ForcefieldInteractions makeIntraAndShell(SimpleConfSpace confSpace, int pos, Molecule mol) {
+	public static ForcefieldInteractions makeIntraAndShell(SimpleConfSpace confSpace, int pos, Molecule mol) {
 		return makeIntraAndShell(
 			mol.getResByPDBResNumber(confSpace.positions.get(pos).resNum),
 			mol.getResiduesByPDBResNumbers(confSpace.shellResNumbers)
 		);
 	}
 	
-	public ForcefieldInteractions makeIntraAndShell(Residue res, List<Residue> shellResidues) {
+	public static ForcefieldInteractions makeIntraAndShell(Residue res, List<Residue> shellResidues) {
 		ForcefieldInteractions interactions = new ForcefieldInteractions();
 		interactions.addResidue(res);
 		for (Residue shellRes : shellResidues) {
@@ -68,11 +71,11 @@ public class ForcefieldInteractionsGenerator {
 		return interactions;
 	}
 	
-	public ForcefieldInteractions makeFullConf(ConfSpace confSpace, List<Residue> shellResidues) {
+	public static ForcefieldInteractions makeFullConf(ConfSpace confSpace, List<Residue> shellResidues) {
 		return makeFullConf(confSpace, shellResidues, null);
 	}
 	
-	public ForcefieldInteractions makeFullConf(ConfSpace confSpace, List<Residue> shellResidues, Molecule mol) {
+	public static ForcefieldInteractions makeFullConf(ConfSpace confSpace, List<Residue> shellResidues, Molecule mol) {
 		
 		ForcefieldInteractions interactions = new ForcefieldInteractions();
 		
@@ -100,7 +103,7 @@ public class ForcefieldInteractionsGenerator {
 		return interactions;
 	}
 	
-	public ForcefieldInteractions makeFullConf(SimpleConfSpace confSpace, Molecule mol) {
+	public static ForcefieldInteractions makeFullConf(SimpleConfSpace confSpace, Molecule mol) {
 		
 		ForcefieldInteractions interactions = new ForcefieldInteractions();
 		
@@ -126,7 +129,7 @@ public class ForcefieldInteractionsGenerator {
 		return interactions;
 	}
 	
-	public ForcefieldInteractions makeFullMol(Molecule mol) {
+	public static ForcefieldInteractions makeFullMol(Molecule mol) {
 		
 		ForcefieldInteractions interactions = new ForcefieldInteractions();
 		
@@ -146,14 +149,14 @@ public class ForcefieldInteractionsGenerator {
 		return interactions;
 	}
 	
-	private Residue matchResidue(Residue res, Molecule mol) {
+	private static Residue matchResidue(Residue res, Molecule mol) {
 		if (mol == null) {
 			return res;
 		}
 		return mol.residues.get(res.indexInMolecule);
 	}
 	
-	private List<Residue> matchResidues(List<Residue> residues, Molecule mol) {
+	private static List<Residue> matchResidues(List<Residue> residues, Molecule mol) {
 		if (mol == null) {
 			return residues;
 		}

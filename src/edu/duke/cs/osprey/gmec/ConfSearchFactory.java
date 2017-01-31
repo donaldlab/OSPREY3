@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.control;
+package edu.duke.cs.osprey.gmec;
 
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
@@ -13,6 +13,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 

@@ -244,11 +244,32 @@ public class ForcefieldKernelOpenCL extends Kernel implements ForcefieldKernel {
 	
 	@Override
 	public void cleanup() {
-		coords.release();
-		atomFlags.release();
-		precomputed.release();
-		subsetTable.release();
-		args.release();
-		energies.release();
+		
+		if (coords != null) {
+			
+			coords.release();
+			atomFlags.release();
+			precomputed.release();
+			subsetTable.release();
+			args.release();
+			energies.release();
+			
+			coords = null;
+		}
+		
+		super.cleanup();
+	}
+	
+	@Override
+	protected void finalize()
+	throws Throwable {
+		try {
+			if (coords != null) {
+				System.err.println("WARNING: " + getClass().getName() + " was garbage collected, but not cleaned up. Attempting cleanup now");
+				cleanup();
+			}
+		} finally {
+			super.finalize();
+		}
 	}
 }

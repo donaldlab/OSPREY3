@@ -13,6 +13,8 @@ import java.util.StringJoiner;
 
 import edu.duke.cs.osprey.energy.LigandResEnergies;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
+import edu.duke.cs.osprey.gmec.GMECFinder;
+import edu.duke.cs.osprey.gmec.SeqGMECFinder;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;

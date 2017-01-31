@@ -25,7 +25,7 @@ import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
-import edu.duke.cs.osprey.energy.ForcefieldInteractionsGenerator;
+import edu.duke.cs.osprey.energy.FFInterGen;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -37,7 +37,6 @@ public class TestMinimizationStability extends TestBase {
 	private static SearchProblem search;
 	private static List<ScoredConf> confs;
 	private static ForcefieldParams ffparams;
-	private static ForcefieldInteractionsGenerator intergen;
 	
 	@BeforeClass
 	public static void before() {
@@ -68,7 +67,6 @@ public class TestMinimizationStability extends TestBase {
 		);
 		
 		ffparams = makeDefaultFFParams();
-		intergen = new ForcefieldInteractionsGenerator();
 		
 		// calc the energy matrix
 		File ematFile = new File("/tmp/testMinimizationStability.emat.dat");
@@ -141,7 +139,7 @@ public class TestMinimizationStability extends TestBase {
 	private double minimize(ScoredConf conf, ParameterizedMoleculeCopy pmol) {
 		CpuConfMinimizer minimizer = new CpuConfMinimizer.Builder(
 			ffparams,
-			(mol) -> intergen.makeFullConf(search.confSpace, search.shellResidues, mol),
+			(mol) -> FFInterGen.makeFullConf(search.confSpace, search.shellResidues, mol),
 			search.confSpace
 		).build();
 		double energy = minimizer.minimize(conf).getEnergy();

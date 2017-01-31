@@ -26,11 +26,10 @@ import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
-import edu.duke.cs.osprey.energy.ForcefieldInteractionsGenerator;
+import edu.duke.cs.osprey.energy.FFInterGen;
 import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
@@ -38,16 +37,12 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
 import edu.duke.cs.osprey.gpu.BufferTools;
 import edu.duke.cs.osprey.gpu.cuda.kernels.CCDKernelCuda;
-import edu.duke.cs.osprey.minimization.LineSearcher;
 import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction;
 import edu.duke.cs.osprey.minimization.SimpleCCDMinimizer;
-import edu.duke.cs.osprey.minimization.SurfingLineSearcher;
-import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.parallelism.TimingThread;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
@@ -295,8 +290,7 @@ public class CudaPlayground extends TestBase {
 		// make the kernel directly
 		GpuStreamPool cudaPool = new GpuStreamPool(1);
 		GpuStream stream = cudaPool.checkout();
-		ForcefieldInteractionsGenerator intergen = new ForcefieldInteractionsGenerator();
-		ForcefieldInteractions interactions = intergen.makeFullConf(search.confSpace, search.shellResidues, cudaMol.getCopiedMolecule());
+		ForcefieldInteractions interactions = FFInterGen.makeFullConf(search.confSpace, search.shellResidues, cudaMol.getCopiedMolecule());
 		BigForcefieldEnergy bigff = new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct);
 		MoleculeModifierAndScorer bigMof = new MoleculeModifierAndScorer(bigff, search.confSpace, tuple, cudaMol);
 		CCDKernelCuda kernel = new CCDKernelCuda(stream);
@@ -351,8 +345,7 @@ public class CudaPlayground extends TestBase {
 				protected void init()
 				throws Exception {
 					stream = streams.checkout();
-					ForcefieldInteractionsGenerator intergen = new ForcefieldInteractionsGenerator();
-					ForcefieldInteractions interactions = intergen.makeFullConf(search.confSpace, search.shellResidues, cudaMol.getCopiedMolecule());
+					ForcefieldInteractions interactions = FFInterGen.makeFullConf(search.confSpace, search.shellResidues, cudaMol.getCopiedMolecule());
 					BigForcefieldEnergy bigff = new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct);
 					MoleculeModifierAndScorer bigMof = new MoleculeModifierAndScorer(bigff, search.confSpace, tuple, cudaMol);
 					ffkernel = new CCDKernelCuda(stream);

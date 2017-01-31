@@ -12,6 +12,10 @@ public abstract class StrandFlex {
 	public abstract List<DegreeOfFreedom> makeDofs(Strand strand);
 	public abstract DofBounds makeBounds(Strand strand);
 	
+	public boolean isGpuCcdSupported() {
+		return false;
+	}
+	
 	public static class None extends StrandFlex {
 		
 		@Override

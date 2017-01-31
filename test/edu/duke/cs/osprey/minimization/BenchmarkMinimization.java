@@ -16,30 +16,21 @@ import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
-import edu.duke.cs.osprey.confspace.ParameterizedMoleculeCopy;
-import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
-import edu.duke.cs.osprey.energy.ForcefieldInteractionsGenerator;
+import edu.duke.cs.osprey.energy.FFInterGen;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
-import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
-import edu.duke.cs.osprey.gpu.BufferTools;
-import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
-import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tools.ObjectIO;
-import edu.duke.cs.osprey.tools.Progress;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
@@ -123,8 +114,7 @@ public class BenchmarkMinimization extends TestBase {
 	private static void benchmarkSerial(SearchProblem search, List<ScoredConf> confs)
 	throws Exception {
 
-		ForcefieldInteractionsGenerator ffintergen = new ForcefieldInteractionsGenerator();
-		Factory<ForcefieldInteractions,Molecule> interactionsFactory = (mol) -> ffintergen.makeFullConf(search.confSpace, search.shellResidues, mol);
+		Factory<ForcefieldInteractions,Molecule> interactionsFactory = (mol) -> FFInterGen.makeFullConf(search.confSpace, search.shellResidues, mol);
 		ForcefieldParams ffparams = makeDefaultFFParams();
 		
 		System.out.println("\nbenchmarking CPU original...");
@@ -156,8 +146,7 @@ public class BenchmarkMinimization extends TestBase {
 		final int[] numThreadsList = { 1, 2 };//, 4, 8 };
 		final int[] numStreamsList = { 1, 2, 4, 8, 16 };//, 32, 64, 128, 256 };
 		
-		ForcefieldInteractionsGenerator ffintergen = new ForcefieldInteractionsGenerator();
-		Factory<ForcefieldInteractions,Molecule> interactionsFactory = (mol) -> ffintergen.makeFullConf(search.confSpace, search.shellResidues, mol);
+		Factory<ForcefieldInteractions,Molecule> interactionsFactory = (mol) -> FFInterGen.makeFullConf(search.confSpace, search.shellResidues, mol);
 		ForcefieldParams ffparams = makeDefaultFFParams();
 		
 		// benchmark cpu
@@ -233,8 +222,7 @@ public class BenchmarkMinimization extends TestBase {
 		
 		ScoredConf conf = confs.get(125);
 		
-		ForcefieldInteractionsGenerator ffintergen = new ForcefieldInteractionsGenerator();
-		Factory<ForcefieldInteractions,Molecule> ffinteractions = (mol) -> ffintergen.makeFullConf(search.confSpace, search.shellResidues, mol);
+		Factory<ForcefieldInteractions,Molecule> ffinteractions = (mol) -> FFInterGen.makeFullConf(search.confSpace, search.shellResidues, mol);
 		ForcefieldParams ffparams = makeDefaultFFParams();
 		
 		double originalEnergy = new CpuConfMinimizer.Builder(ffparams, ffinteractions, search.confSpace)

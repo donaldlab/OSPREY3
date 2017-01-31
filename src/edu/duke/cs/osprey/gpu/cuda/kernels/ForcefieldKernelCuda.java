@@ -167,12 +167,28 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 	@Override
 	public void cleanup() {
 		if (coords != null) {
+			
 			coords.cleanup();
 			atomFlags.cleanup();
 			precomputed.cleanup();
 			subsetTable.cleanup();
 			args.cleanup();
 			energies.cleanup();
+			
+			coords = null;
+		}
+	}
+	
+	@Override
+	protected void finalize()
+	throws Throwable {
+		try {
+			if (coords != null) {
+				System.err.println("WARNING: " + getClass().getName() + " was garbage collected, but not cleaned up. Attempting cleanup now");
+				cleanup();
+			}
+		} finally {
+			super.finalize();
 		}
 	}
 	

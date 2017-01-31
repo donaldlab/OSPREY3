@@ -2,7 +2,7 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package edu.duke.cs.osprey.control;
+package edu.duke.cs.osprey.gmec;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -16,8 +16,12 @@ import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
+import edu.duke.cs.osprey.control.ConfPrinter;
+import edu.duke.cs.osprey.control.ConfigFileParser;
+import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.gmec.ConfSearchFactory.Tools;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.partcr.PartCRConfPruner;
 import edu.duke.cs.osprey.pruning.Pruner;
@@ -64,12 +68,12 @@ public class GMECFinder {
     private boolean outputGMECStruct;//write the GMEC structure to a PDB file
     
     boolean useEPIC = false;
-    boolean useTupExp = false;
+    public boolean useTupExp = false;
     
     private boolean checkApproxE = true;//Use the actual energy function to evaluate
     //each enumerated conformation rather than just relying on the EPIC or tup-exp approximation
     
-    boolean EFullConfOnly = false;//energy function only can be evaluated for full conf
+    public boolean EFullConfOnly = false;//energy function only can be evaluated for full conf
     
     private String confFileName;//file to which we write conformations
     
@@ -229,7 +233,7 @@ public class GMECFinder {
 					// for "regular" conf minimization, use the spiffy new ConfMinimizer!
 					ForcefieldParams ffparams = EnvironmentVars.curEFcnGenerator.ffParams;
 					Parallelism parallelism = Parallelism.makeFromConfig(cfp);
-					ecalc = MinimizingEnergyCalculator.make(ffparams, search, parallelism, false);
+					ecalc = MinimizingConfEnergyCalculator.make(ffparams, search, parallelism, false);
 				}
 			}
 			
@@ -546,7 +550,7 @@ public class GMECFinder {
     }
     
     
-    void precomputeMatrices(double pruningInterval){
+    public void precomputeMatrices(double pruningInterval){
         //Precalculate TupleMatrices needed for GMEC computation.  Some of these may already be computed.  
         //All of these matrices except the basic pairwise energy matrix are pruning-dependent:
         //we can prune conformations whose energies are within pruningInterval
@@ -666,7 +670,7 @@ public class GMECFinder {
         searchSpace.loadTupExpEMatrix();
     }
     
-    double lowestPairwiseBound(SearchProblem prob){
+    public double lowestPairwiseBound(SearchProblem prob){
         //In an EPIC calculation, our enumeration will probably include much less conformations,
         //but for iMinDEE purposes we still need to know what our lowest bound would have been
         //if we enumerated w/o EPIC (i.e., what is the minimum energy calculated using the lower-bound energy matrix)

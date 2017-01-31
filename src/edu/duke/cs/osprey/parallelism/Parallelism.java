@@ -71,4 +71,20 @@ public class Parallelism {
 	public int getParallelism() {
 		return type.getParallelism(this);
 	}
+	
+	public TaskExecutor makeTaskExecutor(boolean isStreaming) {
+		if (getParallelism() > 1) {
+			ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
+			tasks.start(getParallelism(), isStreaming ? 0 : 1);
+			return tasks;
+		} else {
+			return new TaskExecutor();
+		}
+	}
+	
+	public void cleanupTaskExecutor(TaskExecutor tasks) {
+		if (tasks instanceof ThreadPoolTaskExecutor) {
+			((ThreadPoolTaskExecutor)tasks).cleanup();
+		}
+	}
 }

@@ -27,6 +27,27 @@ public class MoleculeObjectiveFunction implements ObjectiveFunction {
 			efuncsByDof = null;
 		}
 	}
+	
+	/**
+	 * transition adapter, only here temporarily
+	 */
+	@Deprecated
+	public MoleculeObjectiveFunction(MoleculeModifierAndScorer mof) {
+		pmol = new ParametricMolecule(mof.getMolec(), mof.getDOFs());
+		bounds = new DofBounds(mof.getConstraints());
+		efunc = mof.getEfunc();
+		efuncsByDof = new ArrayList<>();
+		for (int d=0; d<pmol.dofs.size(); d++) {
+			efuncsByDof.add(mof.getEfunc(d));
+		}
+	}
+
+	public EnergyFunction getEfunc(int d) {
+		if (efuncsByDof != null) {
+			return efuncsByDof.get(d);
+		}
+		return efunc;
+	}
 
 	@Override
 	public int getNumDOFs() {
@@ -45,14 +66,8 @@ public class MoleculeObjectiveFunction implements ObjectiveFunction {
 
 	@Override
 	public double getValForDOF(int d, double val) {
-		
 		setDOF(d, val);
-		
-		if (efuncsByDof != null) {
-			return efuncsByDof.get(d).getEnergy();
-		}
-		
-		return efunc.getEnergy();
+		return getEfunc(d).getEnergy();
 	}
 	
 	@Override

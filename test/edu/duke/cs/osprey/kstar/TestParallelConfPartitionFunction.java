@@ -19,10 +19,10 @@ import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.control.ConfEnergyCalculator;
-import edu.duke.cs.osprey.control.ConfSearchFactory;
-import edu.duke.cs.osprey.control.MinimizingEnergyCalculator;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.gmec.ConfEnergyCalculator;
+import edu.duke.cs.osprey.gmec.ConfSearchFactory;
+import edu.duke.cs.osprey.gmec.MinimizingConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.kstar.pfunc.ParallelConfPartitionFunction;
@@ -71,7 +71,7 @@ public class TestParallelConfPartitionFunction extends TestBase {
 		};
 		
 		// make the conf energy calculator
-		ConfEnergyCalculator.Async ecalc = MinimizingEnergyCalculator.make(makeDefaultFFParams(), search, parallelism, true);
+		ConfEnergyCalculator.Async ecalc = MinimizingConfEnergyCalculator.make(makeDefaultFFParams(), search, parallelism, true);
 		
 		return new Pfunc(ecalc, search, confSearchFactory);
 	}

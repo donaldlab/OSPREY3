@@ -104,13 +104,29 @@ public class GpuStreamPool {
 	}
 
 	public void cleanup() {
-		for (GpuStream stream : streams) {
-			stream.cleanup();
+		if (streams != null) {
+			
+			for (GpuStream stream : streams) {
+				stream.cleanup();
+			}
+			streams = null;
+			for (Context context : contexts) {
+				context.cleanup();
+			}
+			contexts = null;
 		}
-		streams.clear();
-		for (Context context : contexts) {
-			context.cleanup();
+	}
+	
+	@Override
+	protected void finalize()
+	throws Throwable {
+		try {
+			if (streams != null) {
+				System.err.println("WARNING: " + getClass().getName() + " was garbage collected, but not cleaned up. Attempting cleanup now");
+				cleanup();
+			}
+		} finally {
+			super.finalize();
 		}
-		contexts.clear();
 	}
 }

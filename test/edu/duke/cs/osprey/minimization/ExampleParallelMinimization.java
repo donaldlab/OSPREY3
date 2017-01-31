@@ -5,7 +5,7 @@ import java.util.List;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.ConfSpace;
-import edu.duke.cs.osprey.energy.ForcefieldInteractionsGenerator;
+import edu.duke.cs.osprey.energy.FFInterGen;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -18,14 +18,13 @@ public class ExampleParallelMinimization {
 	private static List<EnergiedConf> minimize(ForcefieldParams ffparams, ConfSpace confSpace, List<Residue> shellResidues, List<ScoredConf> confs) {
 		
 		// get forcefield interactions
-		ForcefieldInteractionsGenerator intergen = new ForcefieldInteractionsGenerator();
 		Factory<ForcefieldInteractions,Molecule> ffinteractions;
 		
 		// use full conf interactions
-		ffinteractions = (mol) -> intergen.makeFullConf(confSpace, shellResidues, mol);
+		ffinteractions = (mol) -> FFInterGen.makeFullConf(confSpace, shellResidues, mol);
 		
 		// or full molecule interactions
-		ffinteractions = (mol) -> intergen.makeFullMol(mol);
+		ffinteractions = (mol) -> FFInterGen.makeFullMol(mol);
 		
 		// build the minimizer
 		ConfMinimizer minimizer;

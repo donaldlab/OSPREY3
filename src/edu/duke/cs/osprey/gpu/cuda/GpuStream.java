@@ -111,7 +111,22 @@ public class GpuStream {
 	}
 	
 	public void cleanup() {
-		JCudaDriver.cuStreamDestroy(stream);
-		stream = null;
+		if (stream != null) {
+			JCudaDriver.cuStreamDestroy(stream);
+			stream = null;
+		}
+	}
+	
+	@Override
+	protected void finalize()
+	throws Throwable {
+		try {
+			if (stream != null) {
+				System.err.println("WARNING: " + getClass().getName() + " was garbage collected, but not cleaned up. Attempting cleanup now");
+				cleanup();
+			}
+		} finally {
+			super.finalize();
+		}
 	}
 }

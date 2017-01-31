@@ -17,6 +17,7 @@ import edu.duke.cs.osprey.gpu.cuda.GpuStream;
 import edu.duke.cs.osprey.gpu.cuda.Kernel;
 import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
+import edu.duke.cs.osprey.minimization.MoleculeObjectiveFunction;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction;
 import edu.duke.cs.osprey.structure.Residue;
 import jcuda.Pointer;
@@ -70,15 +71,20 @@ public class CCDKernelCuda extends Kernel {
 		ffargs = stream.makeByteBuffer(48);
 	}
 	
+	@Deprecated
 	public void init(MoleculeModifierAndScorer mof) {
+		init(new MoleculeObjectiveFunction(mof));
+	}
+	
+	public void init(MoleculeObjectiveFunction mof) {
 		
 		GpuStream stream = getStream();
 		
 		// get the energy function
-		if (mof.getEfunc() instanceof BigForcefieldEnergy) {
-			this.ffenergy = (BigForcefieldEnergy)mof.getEfunc();
+		if (mof.efunc instanceof BigForcefieldEnergy) {
+			this.ffenergy = (BigForcefieldEnergy)mof.efunc;
 		} else {
-			throw new Error("CCD kernel needs a " + BigForcefieldEnergy.class.getSimpleName() + ", not a " + mof.getEfunc().getClass().getSimpleName() + ". this is a bug.");
+			throw new Error("CCD kernel needs a " + BigForcefieldEnergy.class.getSimpleName() + ", not a " + mof.efunc.getClass().getSimpleName() + ". this is a bug.");
 		}
 		
 		// handle any chemical changes
@@ -115,9 +121,9 @@ public class CCDKernelCuda extends Kernel {
 		for (int d=0; d<mof.getNumDOFs(); d++) {
 			
 			// make sure the DoF is a FreeDihedral. that's all we support on the gpu at the moment
-			DegreeOfFreedom dofBase = mof.getDOFs().get(d);
+			DegreeOfFreedom dofBase = mof.pmol.dofs.get(d);
 			if (!(dofBase instanceof FreeDihedral)) {
-				throw new Error("degree-of-freedom type " + dofBase.getClass().getSimpleName() + " not yet supported by CCD kerne."
+				throw new Error("degree-of-freedom type " + dofBase.getClass().getSimpleName() + " not yet supported by CCD kernel."
 					+ " Use CPU minimizer with GPU energy function instead");
 			}
 			
@@ -287,15 +293,34 @@ public class CCDKernelCuda extends Kernel {
 	}
 	
 	public void cleanup() {
-		coords.cleanup();
-		atomFlags.cleanup();
-		precomputed.cleanup();
-		ffargs.cleanup();
-		dofargs.cleanup();
-		subsetTables.cleanup();
-		dihedralIndices.cleanup();
-		rotatedIndices.cleanup();
-		xAndBounds.cleanup();
-		ccdOut.cleanup();
+		if (coords != null) {
+			
+			coords.cleanup();
+			atomFlags.cleanup();
+			precomputed.cleanup();
+			ffargs.cleanup();
+			dofargs.cleanup();
+			subsetTables.cleanup();
+			dihedralIndices.cleanup();
+			rotatedIndices.cleanup();
+			xAndBounds.cleanup();
+			ccdOut.cleanup();
+		
+			coords = null;
+		}
 	}
+	
+	@Override
+	protected void finalize()
+	throws Throwable {
+		try {
+			if (coords != null) {
+				System.err.println("WARNING: " + getClass().getName() + " was garbage collected, but not cleaned up. Attempting cleanup now");
+				cleanup();
+			}
+		} finally {
+			super.finalize();
+		}
+	}
+		
 }

@@ -22,17 +22,17 @@ import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.control.ConfEnergyCalculator;
-import edu.duke.cs.osprey.control.ConfSearchFactory;
 import edu.duke.cs.osprey.control.EnvironmentVars;
-import edu.duke.cs.osprey.control.GMECFinder;
-import edu.duke.cs.osprey.control.MinimizingEnergyCalculator;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.gmec.ConfEnergyCalculator;
+import edu.duke.cs.osprey.gmec.ConfSearchFactory;
+import edu.duke.cs.osprey.gmec.GMECFinder;
+import edu.duke.cs.osprey.gmec.MinimizingConfEnergyCalculator;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
@@ -141,7 +141,7 @@ public class TestPartCR extends TestBase {
 		
 		// configure what energies to use
 		ForcefieldParams ffparams = EnvironmentVars.curEFcnGenerator.ffParams;
-		ConfEnergyCalculator.Async ecalc = MinimizingEnergyCalculator.make(ffparams, search);
+		ConfEnergyCalculator.Async ecalc = MinimizingConfEnergyCalculator.make(ffparams, search);
 		
 		// configure the GMEC finder
 		// NOTE: PartCR doesn't help as much with energy window designs

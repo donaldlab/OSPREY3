@@ -5,11 +5,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
-import edu.duke.cs.osprey.control.ConfEnergyCalculator;
-import edu.duke.cs.osprey.control.ConfSearchFactory;
 import edu.duke.cs.osprey.control.EnvironmentVars;
-import edu.duke.cs.osprey.control.MinimizingEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.gmec.ConfEnergyCalculator;
+import edu.duke.cs.osprey.gmec.ConfSearchFactory;
+import edu.duke.cs.osprey.gmec.MinimizingConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.kstar.KSSearchProblem;
 import edu.duke.cs.osprey.kstar.pfunc.impl.PFAdapter;
@@ -127,7 +127,7 @@ public class PFFactory {
 		public StrandInfo(KSConfigFileParser cfp, KSSearchProblem multiSeqSearch) {
 			Parallelism parallelism = Parallelism.makeFromConfig(cfp);
 			ForcefieldParams ffparams = EnvironmentVars.curEFcnGenerator.ffParams;
-			ecalc = MinimizingEnergyCalculator.make(ffparams, multiSeqSearch, parallelism, true);
+			ecalc = MinimizingConfEnergyCalculator.make(ffparams, multiSeqSearch, parallelism, true);
 		}
 		
 		public void cleanup() {

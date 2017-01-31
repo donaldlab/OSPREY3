@@ -2,8 +2,8 @@ package edu.duke.cs.osprey.parallelism;
 
 public class TaskExecutor {
 	
-	public static interface TaskListener {
-		void onFinished(Runnable task);
+	public static interface TaskListener<T extends Runnable> {
+		void onFinished(T task);
 	}
 	
 	public int getParallelism() {
@@ -14,9 +14,11 @@ public class TaskExecutor {
 		task.run();
 	}
 	
-	public void submit(Runnable task, TaskListener listener) {
+	public <T extends Runnable> void submit(T task, TaskListener<T> listener) {
 		task.run();
-		listener.onFinished(task);
+		if (listener != null) {
+			listener.onFinished(task);
+		}
 	}
 	
 	public void waitForSpace() {
