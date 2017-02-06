@@ -25,8 +25,24 @@ public class InvertedPruningMatrix extends ReducedPruningMatrix {
 		String rcAAType = sp.confSpace.posFlex.get(pos).RCs.get(index).AAType;
 
 		// if in specified aa list, invert
-		if(sp.reducedAllowedAAs.get(res).contains(rcAAType))
-			return !upm.getOneBody(pos,index);
+		if(sp.reducedAllowedAAs.get(res).contains(rcAAType)) {
+
+			int numPrunedForAAType = 0;
+			for(int index2 : upm.prunedRCsAtPos(pos)) {
+				String rcAAType2 = sp.confSpace.posFlex.get(pos).RCs.get(index2).AAType;
+				if(!rcAAType2.equalsIgnoreCase(rcAAType)) continue;
+				else {
+					numPrunedForAAType++;
+					break;
+				}
+			}
+
+			if(numPrunedForAAType == 0)
+				return upm.getOneBody(pos,index);
+
+			else
+				return !upm.getOneBody(pos,index);
+		}
 
 		// not in sequence(s) of interest. must be already pruned in upm.
 		// return true because we are always interested in unpruned confs at pos

@@ -80,6 +80,9 @@ public class CCDKernelCuda extends Kernel {
 		
 		GpuStream stream = getStream();
 		
+		// make sure this thread can use the cuda context
+		stream.getContext().attachCurrentThread();
+		
 		// get the energy function
 		if (mof.efunc instanceof BigForcefieldEnergy) {
 			this.ffenergy = (BigForcefieldEnergy)mof.efunc;
