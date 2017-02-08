@@ -120,6 +120,8 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 		//Set up the DEEPerSettings object, including the PertSet (describes the perturbations)
 		//String runName = params.getValue("runName");
 
+		ArrayList<String> flexRes = strand == KSTermini.COMPLEX ? getFlexRes() : getFlexResByStrand(strand);
+		
 		DEEPerSettings dset = new DEEPerSettings(
 				params.getBool("doPerturbations"),
 				"STR"+strand+"."+params.getRunSpecificFileName("perturbationFile", ".pert"),
@@ -129,17 +131,13 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 				params.getDouble("maxShearParam"),
 				params.getDouble("maxBackrubParam"),
 				params.getBool("selectLCAs"),
-				getFlexResByStrand(strand),
+				flexRes,
 				params.getValue("PDBNAME"),
 				params.getBool("DORAMACHECK")
 				);
 
 		// remove residues not in this strand
 		KSTermini limits = getStrandLimits(strand);
-
-		// perturbation file is by strand
-		ObjectIO.delete(params.getRunSpecificFileName("perturbationFile", ".pert"));
-
 		dset.loadPertFile(limits);//load the PertSet from its file
 		return dset;
 	}
@@ -326,7 +324,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 			int numMutations = params.getInt("NUMMUTATIONS", 1);
                         boolean allowLessMut = params.getBool("ALLOWLESSMUTATIONS",false);
 
-			complexSeqs = new KSAllowedSeqs(strand, limits, setupDEEPer(), 
+			complexSeqs = new KSAllowedSeqs(strand, limits, setupDEEPer(strand), 
 					freeBBZoneTermini(limits), moveableStrandTermini(limits), flexRes, 
 					allowedAAs, getWTSequence(), getParams().getBool("addWT"), 
                                         numMutations, allowLessMut);

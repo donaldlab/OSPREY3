@@ -51,6 +51,7 @@ public class SearchProblem implements Serializable {
     public EPICMatrix epicMat = null;//EPIC matrix, to be used if appropriate
     public EPICSettings epicSettings = null;
     public LUTESettings luteSettings = null;
+    public DEEPerSettings deeperSettings = null;
     
     public EnergyMatrix tupExpEMat;//Defines full energy in the continuous, tuple-expander case
     
@@ -86,6 +87,7 @@ public class SearchProblem implements Serializable {
         epicMat = sp1.epicMat;
         epicSettings = sp1.epicSettings;
         luteSettings = sp1.luteSettings;
+        deeperSettings = sp1.deeperSettings;
         tupExpEMat = sp1.tupExpEMat;
         
     	fullConfE = sp1.fullConfE;
@@ -120,6 +122,7 @@ public class SearchProblem implements Serializable {
         this.useEPIC = useEPIC;
         this.epicSettings = epicSettings;
         this.luteSettings = luteSettings;
+        this.deeperSettings = dset;
         
         this.useERef = useERef;
         this.addResEntropy = addResEntropy;
@@ -281,18 +284,13 @@ public class SearchProblem implements Serializable {
         // TODO: the search problem shouldn't concern itself with energy matrices and how to compute them
         
         if(type == MatrixType.EMAT){
-        	
-            boolean avoidCopyingMolecules = false;
             //MH: All the current conformational perturbations as of 9/12/16 should support copying
             //to new molecules, but I'll leave this option in case new DOFs or something cause an issue
-        	
-            if(avoidCopyingMolecules)
-                System.out.println("\n\nWARNING: concurrent minimizations disabled\n");
-
-            
+        	            
             // if we're using MPI or DEEPer, use the old energy matrix calculator
-            if (EnvironmentVars.useMPI || avoidCopyingMolecules) {
-                                
+            if (EnvironmentVars.useMPI || (deeperSettings != null && deeperSettings.doPerturbations())) {
+            	System.out.println("\n\nWARNING: concurrent minimizations disabled\n"); 
+            	
                 // see if the user tried to use threads too for some reason and try to be helpful
                 if (EnvironmentVars.useMPI && numEmatThreads > 1) {
                     System.out.println("\n\nWARNING: multiple threads and MPI both configured for emat calculation."

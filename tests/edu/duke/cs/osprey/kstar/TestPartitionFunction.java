@@ -70,7 +70,7 @@ public class TestPartitionFunction extends TestBase {
 		if (firstResNumber != null && lastResNumber != null) {
 			termini = new KSTermini(strand, resFlex.size(), new ArrayList<>(Arrays.asList(firstResNumber, lastResNumber)));
 		}
-		KSSearchProblem search = new KSSearchProblem(
+		KSSearchProblem search = new KSSearchProblem( null,
 			"test", "test/2RL0.kstar/2RL0.min.reduce.pdb", 
 			resFlex.flexResList, resFlex.allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
 			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, termini, false
