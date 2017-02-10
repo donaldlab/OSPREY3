@@ -3,20 +3,15 @@ import osprey
 
 osprey.start()
 
-# load a molecule
-mol = osprey.loadPdb('1CC8.ss.pdb')
+# define a strand
+strand = osprey.makeStrand('1CC8.ss.pdb')
+
+strand.flexibility[2].setLibraryRotamers('ALA', 'GLY');
+strand.flexibility[3].setLibraryRotamers(osprey.WildType, 'VAL');
+strand.flexibility[4].setLibraryRotamers();
 
 # TODO: make the rest of this actually work
-
-# define the strands
-strand = osprey.FlexibleStrand(mol, 2, 73)
-strand.flexibility={
-	2: ['ALA', 'GLY'],
-	3: [],
-	4: [],
-	5: []
-}
-strand.addWTAminoAcids()
+exit()
 
 # make the conformation space
 confSpace = osprey.ConfSpace([strand])

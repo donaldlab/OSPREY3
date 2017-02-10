@@ -61,3 +61,10 @@ def shutdown():
 def attachThread():
 	jpype.attachThreadToJVM()
 
+
+def toArrayList(items):
+	jlist = c.java.util.ArrayList()
+	for item in items:
+		jlist.add(item)
+	return jlist
+
