@@ -8,6 +8,7 @@ import java.io.Serializable;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 
 import cern.colt.matrix.DoubleFactory1D;
@@ -391,6 +392,30 @@ public class ConfSpace implements Serializable {
             PDBFileWriter.writePDBFile(m, outputPDBFile, minE);
         
         return minE;
+    }
+    
+    
+    public double getEnergy(int[] conf, double[] dihedralVals, EnergyFunction efunc, 
+    		boolean single, boolean pairWise) {
+    	
+    	RCTuple RCs = new RCTuple(conf);
+        MoleculeModifierAndScorer energy = new MoleculeModifierAndScorer(efunc,this,RCs);
+        
+        HashSet<Residue> residues = new HashSet<>();
+    	for(DegreeOfFreedom dof : energy.getDOFs()) {
+    		residues.add(dof.getResidue());
+    	}
+        
+    	// set dofvals
+    	energy.getValue(DoubleFactory1D.dense.make(dihedralVals));
+    	
+    	// restrict energy terms to single residues
+    	MultiTermEnergyFunction singleResMef = (MultiTermEnergyFunction) 
+    			((MultiTermEnergyFunction) energy.getEfunc()).
+    				makeResiduesEfunc(residues, single, pairWise);
+    	
+    	double E = singleResMef.getEnergy();
+    	return E;
     }
     
     
