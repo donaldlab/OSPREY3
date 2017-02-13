@@ -12,21 +12,30 @@ import java.util.Comparator;
 @SuppressWarnings({ "serial", "rawtypes" })
 public class KSConf implements Comparable, Serializable {
 
-	private ArrayList<Integer> conf = null; 
-	private double energyBound = Double.POSITIVE_INFINITY;
-	private double energy = Double.POSITIVE_INFINITY;
+	private ArrayList<Integer> conf; 
+	private double energyBound;
+	private double energy;
 
 
 	public KSConf( int[] conf, double energyLB ) {
-
-		this.conf = array2List(conf);
-		this.energyBound = energyLB;
+		this(array2List(conf), energyLB, Double.POSITIVE_INFINITY);
+	}
+	
+	
+	public KSConf(int[] conf, double energyBound, double energy) {
+		this(array2List(conf), energyBound, energy);
 	}
 	
 	
 	public KSConf( ArrayList<Integer> conf, double energyBound ) {
+		this(conf, energyBound, Double.POSITIVE_INFINITY);
+	}
+	
+	
+	public KSConf(ArrayList<Integer> conf, double energyBound, double energy) {
 		this.conf = conf;
 		this.energyBound = energyBound;
+		this.energy = energy;
 	}
 
 

@@ -82,6 +82,10 @@ public class Pruner {
         else//use lower bounds
             emat = searchSpace.emat;
         
+        if (emat == null) {
+        	throw new Error("Pruner found no EnergyMatrix in SearchSpace. This is a bug");
+        }
+        
         if(useTupExp && useEPIC)//Doesn't make sense to use EPIC and tup-exp together, since
             //EPIC is meant to be added to pairwise lower-bound energy
             throw new RuntimeException("ERROR: Can't prune with both EPIC and tup-exp at the same time");
