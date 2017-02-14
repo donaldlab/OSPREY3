@@ -11,7 +11,7 @@ import java.io.Writer;
 
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
-import edu.duke.cs.osprey.gmec.EnergyWindow;
+import edu.duke.cs.osprey.gmec.EnergyRange;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 
 /**
@@ -84,7 +84,7 @@ public class ConfPrinter {
         return getConfReport(conf, null);
     }
     
-    public String getConfReport(EnergiedConf conf, EnergyWindow window) {
+    public String getConfReport(EnergiedConf conf, EnergyRange window) {
         StringBuilder buf = new StringBuilder();
         
         buf.append(getConfReport(conf.getAssignments()));
@@ -114,7 +114,7 @@ public class ConfPrinter {
     	return getConfReport(conf, null);
     }
     
-    public String getConfReport(ScoredConf conf, EnergyWindow window) {
+    public String getConfReport(ScoredConf conf, EnergyRange window) {
         StringBuilder buf = new StringBuilder();
         buf.append(getConfReport(conf.getAssignments()));
         

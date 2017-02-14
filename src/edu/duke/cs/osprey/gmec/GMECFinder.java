@@ -312,7 +312,7 @@ public class GMECFinder {
         
 		// estimate the top of our energy window
 		// this is an upper bound for now, we'll refine it as we evaluate more structures
-        final EnergyWindow window = new EnergyWindow(eMinScoreConf.getEnergy(), Ew);
+        final EnergyRange window = new EnergyRange(eMinScoreConf.getEnergy(), Ew);
 		
         // enumerate all confs in order of the scores, up to the estimate of the top of the energy window
         System.out.println("Enumerating other low-scoring conformations...");
@@ -352,7 +352,7 @@ public class GMECFinder {
                                 progress.incrementProgress();
 
                                 // refine the estimate of the top of the energy window
-                                boolean changed = window.update(econf.getEnergy());
+                                boolean changed = window.updateMin(econf.getEnergy());
                                 if (changed) {
 
                                         // prune conformations with the new window
@@ -497,7 +497,7 @@ public class GMECFinder {
         
         // estimate the top of our energy window
         // this is an upper bound for now, we'll refine it as we evaluate more structures
-        final EnergyWindow window = new EnergyWindow(eMinScoreConf.getEnergy(), Ew);
+        final EnergyRange window = new EnergyRange(eMinScoreConf.getEnergy(), Ew);
         
         // enumerate all confs in order of the scores, up to the estimate of the top of the energy window
         System.out.println("Enumerating other low-scoring conformations...");

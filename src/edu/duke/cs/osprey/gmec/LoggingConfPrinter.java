@@ -33,12 +33,7 @@ public class LoggingConfPrinter implements ConfPrinter {
 	}
 	
 	@Override
-	public void cleanup() {
-		IOUtils.closeQuietly(fout);
-	}
-
-	@Override
-	public void print(SimpleConfSpace confSpace, EnergiedConf conf, EnergyWindow window) {
+	public void print(EnergiedConf conf, SimpleConfSpace confSpace, EnergyRange range) {
 		
 		// track min energies
 		minEnergy = Math.min(minEnergy, conf.getEnergy());
@@ -54,20 +49,23 @@ public class LoggingConfPrinter implements ConfPrinter {
 				fout.write(Integer.toString(rc));
 			}
 			
-			// write the residue types
-			fout.write(" RESTYPES:");
-			for (Position pos : confSpace.positions) {
-				ResidueConf resConf = pos.resConfs.get(conf.getAssignments()[pos.index]);
-				fout.write(" ");
-				fout.write(resConf.template.name);
-			}
+			if (confSpace != null) {
 			
-			// write the rotamers
-			fout.write(" ROTS:");
-			for (Position pos : confSpace.positions) {
-				ResidueConf resConf = pos.resConfs.get(conf.getAssignments()[pos.index]);
-				fout.write(" ");
-				fout.write(resConf.getRotamerCode());
+				// write the residue types
+				fout.write(" RESTYPES:");
+				for (Position pos : confSpace.positions) {
+					ResidueConf resConf = pos.resConfs.get(conf.getAssignments()[pos.index]);
+					fout.write(" ");
+					fout.write(resConf.template.name);
+				}
+				
+				// write the rotamers
+				fout.write(" ROTS:");
+				for (Position pos : confSpace.positions) {
+					ResidueConf resConf = pos.resConfs.get(conf.getAssignments()[pos.index]);
+					fout.write(" ");
+					fout.write(resConf.getRotamerCode());
+				}
 			}
 			
 			// write the energies
@@ -88,5 +86,10 @@ public class LoggingConfPrinter implements ConfPrinter {
 		}
 		
 		numConfs++;
+	}
+	
+	@Override
+	public void cleanup() {
+		IOUtils.closeQuietly(fout);
 	}
 }

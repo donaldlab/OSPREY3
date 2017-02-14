@@ -169,7 +169,7 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 					break;
 				}
 				
-				conf = energyConfs.next();
+				conf = energyConfs.nextConf();
 				if (conf == null) {
 					status = Status.NotEnoughConformations;
 					return;
@@ -229,7 +229,7 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 		while (true) {
 			
 			// read a conf from the tree
-			ScoredConf conf = scoreConfs.next();
+			ScoredConf conf = scoreConfs.nextConf();
 			if (conf == null) {
 				break;
 			}

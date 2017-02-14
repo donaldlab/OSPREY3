@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package edu.duke.cs.osprey;
+package edu.duke.cs.osprey.gmec;
 
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
@@ -13,6 +13,7 @@ import java.util.Arrays;
 
 import org.junit.Test;
 
+import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.gmec.GMECFinder;

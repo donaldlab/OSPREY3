@@ -117,13 +117,6 @@ public class COMETSTree extends AStarTree<FullAStarNode> {
     
     
     @Override
-    public BigInteger getNumConformations() {
-    	throw new UnsupportedOperationException();
-    }
-    
-    
-    
-    @Override
     public ArrayList<FullAStarNode> getChildren(FullAStarNode curNode) {
         COMETSNode seqNode = (COMETSNode)curNode;
         ArrayList<FullAStarNode> ans = new ArrayList<>();

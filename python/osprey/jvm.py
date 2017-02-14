@@ -68,3 +68,7 @@ def toArrayList(items):
 		jlist.add(item)
 	return jlist
 
+
+def toFile(path):
+	return c.java.io.File(path)
+

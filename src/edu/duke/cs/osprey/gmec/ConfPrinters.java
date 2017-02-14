@@ -15,9 +15,9 @@ public class ConfPrinters implements ConfPrinter {
 	}
 
 	@Override
-	public void print(SimpleConfSpace confSpace, EnergiedConf conf, EnergyWindow window) {
+	public void print(EnergiedConf conf, SimpleConfSpace confSpace, EnergyRange window) {
 		for (ConfPrinter printer : printers) {
-			printer.print(confSpace, conf, window);
+			printer.print(conf, confSpace, window);
 		}
 	}
 }

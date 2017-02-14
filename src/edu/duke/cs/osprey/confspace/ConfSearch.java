@@ -10,6 +10,8 @@ import java.util.List;
 
 import org.apache.commons.collections4.queue.CircularFifoQueue;
 
+import edu.duke.cs.osprey.gmec.ConsoleConfPrinter;
+
 //This is a general interface for things that search conformational space
 //like an A* trees, a BWM* search, or a WCSP solver
 //For each of these, we instantiate the ConfSearch, 
@@ -21,9 +23,29 @@ import org.apache.commons.collections4.queue.CircularFifoQueue;
  */
 public interface ConfSearch {
     
-    BigInteger getNumConformations();
     ScoredConf nextConf();
-    List<ScoredConf> nextConfs(double maxEnergy);
+    
+    default BigInteger getNumConformations() {
+    	throw new UnsupportedOperationException();
+    }
+    
+    default List<ScoredConf> nextConfs(double maxEnergy) {
+		List<ScoredConf> nodes = new ArrayList<>();
+		while (true) {
+			
+			ScoredConf conf = nextConf();
+			if (conf == null) {
+				break;
+			}
+			
+			nodes.add(conf);
+			
+			if (conf.getScore() >= maxEnergy) {
+				break;
+			}
+		}
+		return nodes;
+    }
     
     public static class ScoredConf {
         
@@ -78,12 +100,21 @@ public interface ConfSearch {
         public void offsetEnergy(double val) {
         	energy += val;
         }
+        
+        @Override
+        public String toString() {
+        	return toString(null);
+        }
+        
+        public String toString(SimpleConfSpace confSpace) {
+        	return ConsoleConfPrinter.makeReport(this, confSpace, null);
+        }
     }
     
 	// lets multiple consumers read confs from the stream regardless of order of reads
 	public static class Splitter {
 		
-		public class Stream {
+		public class Stream implements ConfSearch {
 			
 			private int index;
 			
@@ -91,7 +122,8 @@ public interface ConfSearch {
 				index = 0;
 			}
 			
-			public ScoredConf next() {
+			@Override
+			public ScoredConf nextConf() {
 			
 				// where in the buffer should we read?
 				int pos = index - firstIndex;
@@ -156,6 +188,11 @@ public interface ConfSearch {
 					}
 				}
 				return true;
+			}
+
+			@Override
+			public BigInteger getNumConformations() {
+				return confs.getNumConformations();
 			}
 		}
 		

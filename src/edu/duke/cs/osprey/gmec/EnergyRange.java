@@ -1,16 +1,16 @@
 package edu.duke.cs.osprey.gmec;
 
-public class EnergyWindow {
+public class EnergyRange {
 	
 	private double min;
 	private double size;
 	
-	public EnergyWindow(double energy, double size) {
+	public EnergyRange(double energy, double size) {
 		min = energy;
 		this.size = size;
 	}
 	
-	public boolean update(double energy) {
+	public boolean updateMin(double energy) {
 		if (energy >= min) {
 			return false;
 		}

@@ -5,20 +5,24 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 
 public interface ConfPrinter {
 	
-	void print(SimpleConfSpace confSpace, EnergiedConf conf, EnergyWindow window);
+	void print(EnergiedConf conf, SimpleConfSpace confSpace, EnergyRange range);
+	
+	default void print(EnergiedConf conf, SimpleConfSpace confSpace) {
+		print(conf, confSpace, null);
+	}
+	
+	default void print(EnergiedConf conf) {
+		print(conf, null, null);
+	}
 	
 	default void cleanup() {
 		// nothing to do
 	}
 	
-	default void print(SimpleConfSpace confSpace, EnergiedConf conf) {
-		print(confSpace, conf, null);
-	}
-	
 	public static class Nop implements ConfPrinter {
 
 		@Override
-		public void print(SimpleConfSpace confSpace, EnergiedConf conf, EnergyWindow window) {
+		public void print(EnergiedConf conf, SimpleConfSpace confSpace, EnergyRange range) {
 			// do nothing, ie, a no-op
 		}
 	}

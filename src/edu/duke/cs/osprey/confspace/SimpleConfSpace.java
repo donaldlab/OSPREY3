@@ -36,7 +36,12 @@ public class SimpleConfSpace {
 		}
 		
 		public Builder addStrand(Strand strand, StrandFlex ... flexType) {
-			confSpace.addStrand(strand, flexType);
+			addStrand(strand, Arrays.asList(flexType));
+			return this;
+		}
+		
+		public Builder addStrand(Strand strand, List<StrandFlex> flexTypes) {
+			confSpace.addStrand(strand, flexTypes);
 			return this;
 		}
 		
@@ -182,11 +187,11 @@ public class SimpleConfSpace {
 		numResConfsByPos = null;
 	}
 	
-	private void addStrand(Strand strand, StrandFlex ... flexType) {
+	private void addStrand(Strand strand, List<StrandFlex> flexTypes) {
 		
 		// add the strand
 		strands.add(strand);
-		strandFlex.put(strand, Arrays.asList(flexType));
+		strandFlex.put(strand, flexTypes);
 		
 		// make the positions
 		for (String resNum : strand.flexibility.getFlexibleResidueNumbers()) {

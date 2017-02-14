@@ -50,7 +50,7 @@ public class TestConfSearchSplitter extends TestBase {
 		
 		for (int i=0; i<numConfs; i++) {
 			ScoredConf expectedConf = expectedTree.nextConf();
-			ScoredConf observedConf = stream.next();
+			ScoredConf observedConf = stream.nextConf();
 			if (observedConf == null) {
 				assertThat(observedConf, is(nullValue()));
 			} else {
