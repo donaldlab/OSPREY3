@@ -203,12 +203,12 @@ public class ObjectIO {
                 	return thing;
                 }
                 
-                System.out.println("WARNING: " + name + " from file is invalid, will created new one");
+                System.out.println("WARNING: " + name + " from file is invalid, will create new one");
             }
             
         } catch (BadFileException ex) {
             ex.printStackTrace(System.out);
-            System.out.println("WARNING: can't read " + name + ", will created new one");
+            System.out.println("WARNING: can't read " + name + ", will create new one");
         }
         
         // make the thing
