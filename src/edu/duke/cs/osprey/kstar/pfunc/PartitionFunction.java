@@ -3,6 +3,8 @@ package edu.duke.cs.osprey.kstar.pfunc;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
+import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
+
 public interface PartitionFunction {
 	
 	public static enum Status {
@@ -70,7 +72,12 @@ public interface PartitionFunction {
 		}
 	}
 	
+	public static interface ConfListener {
+		void onConf(EnergiedConf econf);
+	}
+	
 	void setReportProgress(boolean val);
+	void setConfListener(ConfListener val);
 	
 	void init(double targetEpsilon);
 	

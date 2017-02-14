@@ -35,6 +35,7 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 	private BigDecimal qprimeUnscored;
 	private Stopwatch stopwatch;
 	private boolean isReportingProgress;
+	private ConfListener confListener;
 	
 	public ParallelConfPartitionFunction(EnergyMatrix emat, PruningMatrix pmat, ConfSearchFactory confSearchFactory, ConfEnergyCalculator.Async ecalc) {
 		this.emat = emat;
@@ -55,11 +56,17 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 		
 		stopwatch = null;
 		isReportingProgress = true;
+		confListener = null;
 	}
 	
 	@Override
 	public void setReportProgress(boolean val) {
 		isReportingProgress = val;
+	}
+	
+	@Override
+	public void setConfListener(ConfListener val) {
+		confListener = val;
 	}
 	
 	@Override
@@ -177,42 +184,44 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 			}
 			
 			// do the energy calculation asynchronously
-			ecalc.calcEnergyAsync(conf, new ConfEnergyCalculator.Async.Listener() {
-				@Override
-				public void onEnergy(EnergiedConf econf) {
+			ecalc.calcEnergyAsync(conf, (EnergiedConf econf) -> {
 					
-					// energy calculation done
+				// energy calculation done
+				
+				// this is (potentially) running on a task executor listener thread
+				// so lock to keep from racing the main thread
+				synchronized (ParallelConfPartitionFunction.this) {
+				
+					// get the boltzmann weight
+					BigDecimal energyWeight = boltzmann.calc(econf.getEnergy());
+					if (energyWeight.compareTo(BigDecimal.ZERO) == 0) {
+						status = Status.NotEnoughFiniteEnergies;
+						return;
+					}
 					
-					// this is (potentially) running on a task executor listener thread
-					// so lock to keep from racing the main thread
-					synchronized (ParallelConfPartitionFunction.this) {
+					// update pfunc state
+					numConfsEvaluated++;
+					values.qstar = values.qstar.add(energyWeight);
+					values.qprime = updateQprime(econf);
 					
-						// get the boltzmann weight
-						BigDecimal energyWeight = boltzmann.calc(econf.getEnergy());
-						if (energyWeight.compareTo(BigDecimal.ZERO) == 0) {
-							status = Status.NotEnoughFiniteEnergies;
-							return;
-						}
-						
-						// update pfunc state
-						numConfsEvaluated++;
-						values.qstar = values.qstar.add(energyWeight);
-						values.qprime = updateQprime(econf);
-						
-						// report progress if needed
-						if (isReportingProgress) {
-							MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-							System.out.println(String.format("conf: %4d, energy: %.6f, q*: %12e, q': %12e, epsilon: %.6f, time: %10s, heapMem: %.0f%%",
-								numConfsEvaluated, econf.getEnergy(), values.qstar, values.qprime, values.getEffectiveEpsilon(),
-								stopwatch.getTime(2),
-								100f*heapMem.getUsed()/heapMem.getMax()
-							));
-						}
-						
-						// update status if needed
-						if (values.getEffectiveEpsilon() <= targetEpsilon) {
-							status = Status.Estimated;
-						}
+					// report progress if needed
+					if (isReportingProgress) {
+						MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
+						System.out.println(String.format("conf: %4d, energy: %.6f, q*: %12e, q': %12e, epsilon: %.6f, time: %10s, heapMem: %.0f%%",
+							numConfsEvaluated, econf.getEnergy(), values.qstar, values.qprime, values.getEffectiveEpsilon(),
+							stopwatch.getTime(2),
+							100f*heapMem.getUsed()/heapMem.getMax()
+						));
+					}
+					
+					// report confs if needed
+					if (confListener != null) {
+						confListener.onConf(econf);
+					}
+					
+					// update status if needed
+					if (values.getEffectiveEpsilon() <= targetEpsilon) {
+						status = Status.Estimated;
 					}
 				}
 			});

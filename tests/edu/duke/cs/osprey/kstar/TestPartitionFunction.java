@@ -184,11 +184,11 @@ public class TestPartitionFunction extends TestBase {
 		PFAbstract pfunc = makeAndComputeProteinPfunc(pfImpl, "649 650 651 654", targetEpsilon);
 	
 		// is this the right partition function?
-		assertThat(pfunc.getNumUnPruned().intValueExact(), is(5130));
-		assertThat(pfunc.getNumPruned().intValueExact(), is(0));
+		assertThat(pfunc.getNumUnPruned().intValueExact(), is(80));
+		assertThat(pfunc.getNumPruned().intValueExact(), is(144));
 
 		// check the answer
-		assertPfunc(pfunc, EApproxReached.TRUE, targetEpsilon, "4.3704590631e+04" /* e=0.05 */);
+		assertPfunc(pfunc, EApproxReached.TRUE, targetEpsilon, "4.3704590631e+04"); // e=0.05
 	}
 	
 	private void testLigandWildType(String pfImpl, double targetEpsilon) {
@@ -196,11 +196,11 @@ public class TestPartitionFunction extends TestBase {
 		PFAbstract pfunc = makeAndComputeLigandPfunc(pfImpl, "156 172 192 193", targetEpsilon);
 		
 		// is this the right partition function?
-		assertThat(pfunc.getNumUnPruned().intValueExact(), is(21280));
-		assertThat(pfunc.getNumPruned().intValueExact(), is(0));
+		assertThat(pfunc.getNumUnPruned().intValueExact(), is(896));
+		assertThat(pfunc.getNumPruned().intValueExact(), is(924));
 		
 		// check the answer
-		assertPfunc(pfunc, EApproxReached.TRUE, targetEpsilon, "4.4699772362e+30" /* e=0.05 */);
+		assertPfunc(pfunc, EApproxReached.TRUE, targetEpsilon, "4.4699772362e+30"); // e=0.05
 	}
 	
 	private void testComplexWildType(String pfImpl, double targetEpsilon) {
@@ -208,11 +208,11 @@ public class TestPartitionFunction extends TestBase {
 		PFAbstract pfunc = makeAndComputeComplexPfunc(pfImpl, "649 650 651 654 156 172 192 193", targetEpsilon);
 		
 		// is this the right partition function?
-		assertThat(pfunc.getNumUnPruned().intValueExact(), is(109166400));
-		assertThat(pfunc.getNumPruned().intValueExact(), is(0));
+		assertThat(pfunc.getNumUnPruned().intValueExact(), is(8064));
+		assertThat(pfunc.getNumPruned().intValueExact(), is(2286144));
 		
 		// check the answer
-		assertPfunc(pfunc, EApproxReached.TRUE, targetEpsilon, "3.5213742379e+54" /* e=0.05 */);
+		assertPfunc(pfunc, EApproxReached.TRUE, targetEpsilon, "3.5213742379e+54"); // e=0.05
 	}
 	
 	public static void assertPfunc(PFAbstract pfunc, EApproxReached epsilonStatus, double targetEpsilon, String approxQstar) {
@@ -225,7 +225,6 @@ public class TestPartitionFunction extends TestBase {
 	public static void assertPfunc(PFAbstract pfunc, EApproxReached epsilonStatus) {
 		assertThat(pfunc.getEpsilonStatus(), is(epsilonStatus));
 	}
-	
 	
 	// wild type tests
 	
@@ -292,6 +291,10 @@ public class TestPartitionFunction extends TestBase {
 	
 	@Test
 	public void testLigandNotPossibleParallelConf() {
+		/* Jeff: this test fails because PFAbstract.rePruneReducedSP() can't read
+		 * an energy matrix that was written to disk. I have no idea who's supposed to
+		 * write that matrix, so I have no idea how to fix this failing test. =(
+		 */
 		PFAbstract pfunc = makeAndComputeLigandPfunc("parallelConf", "PHE-156 LYS-172 LEU-192 THR-193", 0.95);
 		assertPfunc(pfunc, EApproxReached.NOT_POSSIBLE);
 	}
@@ -299,24 +302,24 @@ public class TestPartitionFunction extends TestBase {
 	@Test
 	public void testComplexMutant1Parallel0() {
 		PFAbstract pfunc = makeAndComputeComplexPfunc("parallel0", "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 ILE-192 THR-193", 0.95);
-		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.5213742379e+54" /* e=0.05 */);
+		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.5213742379e+54"); // e=0.05
 	}
 	
 	@Test
 	public void testComplexMutant1ParallelConf() {
 		PFAbstract pfunc = makeAndComputeComplexPfunc("parallelConf", "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 ILE-192 THR-193", 0.95);
-		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.5213742379e+54" /* e=0.05 */);
+		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.5213742379e+54"); // e=0.05
 	}
 	
 	@Test
 	public void testComplexMutant2Parallel0() {
 		PFAbstract pfunc = makeAndComputeComplexPfunc("parallel0", "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 LEU-192 THR-193", 0.95);
-		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.2878232508e+12" /* e=0.05 */);
+		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.2878232508e+12"); // e=0.05
 	}
 	
 	@Test
 	public void testComplexMutant2ParallelConf() {
 		PFAbstract pfunc = makeAndComputeComplexPfunc("parallelConf", "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 LEU-192 THR-193", 0.95);
-		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.2878232508e+12" /* e=0.05 */);
+		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.2878232508e+12"); // e=0.05
 	}
 }
