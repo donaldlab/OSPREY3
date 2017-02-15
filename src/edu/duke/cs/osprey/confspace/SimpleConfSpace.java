@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.ProlinePucker;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
@@ -319,6 +320,10 @@ public class SimpleConfSpace {
 			}
 		}
 		return count;
+	}
+	
+	public ParametricMolecule makeMolecule(ScoredConf conf) {
+		return makeMolecule(conf.getAssignments());
 	}
 	
 	public ParametricMolecule makeMolecule(int[] conf) {

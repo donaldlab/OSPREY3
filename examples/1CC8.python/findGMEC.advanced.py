@@ -3,96 +3,73 @@ import osprey
 
 osprey.start()
 
-# TODO: make all of this actually work
-
 # what kind of hardware do we have?
-parallelism = osprey.Parallelism(cpuCores=2, gpus=1, streamsPerGpu=8)
+#parallelism = osprey.Parallelism(cpuCores=2, gpus=1, streamsPerGpu=1)
+parallelism = osprey.Parallelism(cpuCores=2)
+
+# choose a forcefield
+ff = osprey.Forcefield.AMBER
+
+# choose a template library
+templateLib = osprey.TemplateLibrary(
+	forcefield=ff,
+	rotamers=osprey.LovellRotamers
+	# or
+	#templateCoords='path/to/coords/file'
+)
 
 # load a molecule
-mol = osprey.loadPdb('1CC8.ss.pdb')
+mol = osprey.readPdb('1CC8.ss.pdb')
 
-# define the strands
-strand = osprey.FlexibleStrand(mol, 2, 73)
-strand.flexibility={
-	2: ['ALA', 'GLY'],
-	3: [],
-	4: [],
-	5: []
-}
-strand.addWTAminoAcids()
+# define the protein strand
+protein = osprey.Strand(mol, residues=[2, 30])
 
-# load a rotamer library
-rotlib = osprey.loadLovellRotamerLibrary()
-# or maybe:
-#rotlib = osprey.loadRotamerLibrary('/path/to/rots')
+protein.flexibility[2].setLibraryRotamers('ALA', 'GLY');
+protein.flexibility[3].setLibraryRotamers(osprey.WILD_TYPE, 'VAL', 'ARG').setContinuous(10);
+protein.flexibility[4].setLibraryRotamers().addWildTypeRotamers();
 
-# make the conformation space
-confSpace = osprey.ConfSpace(
-	strands=[strand],
-	rotlib=rotlib
+# make the conf space
+confSpace = osprey.ConfSpace(protein)
+
+# pick forcefield params
+ffparams = osprey.ForcefieldParams()
+ffparams.solvationForcefield = None # turn off solvation enery
+# or
+#ffparams.solvationForcefield = osprey.SolvationForcefield.EEF1
+
+# calculate the energy matrix
+emat = osprey.EnergyMatrix(
+	confSpace,
+	ffparams=ffparams,
+	parallelism=parallelism,
+	cacheFile='/tmp/emat.dat'
 )
-confSpace.addWTRotamers()
 
-# pick a forcefield
-forcefield = osprey.makeForcefield()
-
-# define "energy" for a conformation
-ecalc = osprey.RigidConfEnergyCalc(
-	forcefield=forcefield,
-	confSpace=confSpace
+# define the conformation search
+astar = osprey.AStarMPLP(
+	emat,
+	confSpace,
+	numIterations=1
 )
 # or
-ecalc = osprey.MinimizingConfEnergyCalc(
-	forcefield=forcefield,
-	confSpace=confSpace
-)
+#astar = osprey.AStarTraditional(emat, confSpace)
 
-# load/compute the energy matrix
-emat = osprey.calcEmat(
-	confSpace=confSpace,
-	ecalc=ecalc,
-	parallelism=paralleism
-	cachePath='emat.dat'
-)
+energyWindow = 0.1 # kcal/mol
+confs = osprey.GMECFinder(
+	confSpace,
+	astar=astar,
+	energyCalculator=osprey.MinimizingEnergyCalculator(
+		confSpace,
+		ffparams=ffparams,
+		parallelism=parallelism
+	),
+	printIntermediateConfs=True,
+	confLog='confs.txt'
+).find(energyWindow)
 
-# load/compute the pruning matrix
-pmat = osprey.calcPmat(
-	confSpace=confSpace,
-	emat=emat,
-	parallelism=parallelism,
-	cachePath='pmat.dat'
-)
-
-# how to rank the conformations?
-confSearcher = osprey.AstarConfSearcher(
-	emat=emat,
-	pmat=pmat,
-	scorer=osprey.TraditionalAstarScorer(emat)
-)
-# or
-confSearcher = osprey.AstarConfSeacher(
-	emat=emat,
-	pmat=pmat,
-	scorer=osprey.MPLPAstarScorer(emat, numIters=1)
-)
-
-# find the gmec
-conf = osprey.GMECFinder.findGMEC(
-	confSearcher=confSearcher,
-	ecalc=ecalc,
-	parallelism=parallelism,
-	printIntermediateConfs=True
-)
-print(conf)
-
-# or find the GMEC and an energy window
-confs = osprey.GMECFinder.findGMECAndWindow(
-	confSearcher=confSearcher,
-	ecalc=ecalc,
-	energyWindow=3, # kcal/mol
-	parallelism=parallelism,
-	printIntermediateConfs=True
-)
-for conf in confs:
-	print(conf)
+# get some info about the confs
+print('\nyup, we found %d confs in the energy window' % len(confs))
+gmec = confs.get(0)
+gmecMol = confSpace.makeMolecule(gmec)
+osprey.writePdb(gmecMol, 'gmec.pdb')
 

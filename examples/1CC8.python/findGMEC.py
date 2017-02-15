@@ -16,5 +16,5 @@ confSpace = osprey.ConfSpace(strand)
 emat = osprey.EnergyMatrix(confSpace, cacheFile='/tmp/emat.dat')
 
 # find the best sequence and rotamers
-gmec = osprey.GMECFinder(confSpace, emat, printIntermediateConfs=True).find(1);
+gmec = osprey.GMECFinder(confSpace, emat).find()
 

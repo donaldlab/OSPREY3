@@ -244,11 +244,11 @@ public class SimpleGMECFinder {
 			econfs.add(econf);
 
 			// immediately output the conf, in case the run aborts and we want to resume later
-			System.out.println();
 			logPrinter.print(econf, space);
 
 			// log the conf to console too if desired
 			if (printIntermediateConfsToConsole) {
+				System.out.println();
 				consolePrinter.print(econf, space, erange);
 			}
 
@@ -258,12 +258,16 @@ public class SimpleGMECFinder {
 			boolean changed = erange.updateMin(econf.getEnergy());
 			if (changed) {
 
+				int numLowEnergyConfsBefore = lowEnergyConfs.size();
+				
 				// prune conformations with the new window
 				pruneConfsOutsideRange(lowEnergyConfs, erange);
 
 				// update progress
 				System.out.println(String.format("\nNew lowest energy: %.6f", erange.getMin()));
-				System.out.println(String.format("\tReduced to %d low-energy conformations", lowEnergyConfs.size()));
+				if (lowEnergyConfs.size() < numLowEnergyConfsBefore) {
+					System.out.println(String.format("\tReduced to %d low-energy conformations", lowEnergyConfs.size()));
+				}
 				progress.setTotalWork(lowEnergyConfs.size());
 			}
 		};

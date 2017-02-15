@@ -54,8 +54,18 @@ def augmentResidueFlex():
 
 	# augment setLibraryRotamers() to accept varargs
 	def newSetLibraryRotamers(self, old, *mutations):
-		old(self, jvm.toArrayList(mutations))
+		return old(self, jvm.toArrayList(mutations))
 	wrapMethod(jtype, 'setLibraryRotamers', newSetLibraryRotamers)
+
+	# autocast setContinuous() to float
+	def newSetContinuous(self, old, angle):
+		return old(self, float(angle))
+	wrapMethod(jtype, 'setContinuous', newSetContinuous)
+
+	# autocast setContinuousEllipses() to float
+	def newSetContinuousEllipses(self, old, angle):
+		return old(self, float(angle))
+	wrapMethod(jtype, 'setContinuousEllipses', newSetContinuousEllipses)
 	
 	# NOTE: property wrapping example
 	#def newGetter(self, oldGetter):
@@ -66,9 +76,12 @@ def augmentResidueFlex():
 def augmentGMECFinder():
 	jtype = getJavaClass('gmec.SimpleGMECFinder')
 
-	def newFind(self, old, windowSize):
+	def newFind(self, old, windowSize=None):
 		# autocast the find() energy to a float
 		# otherwise, jpype will complain if windowSize is really an int
-		old(self, float(windowSize))
+		if windowSize is not None:
+			return old(self, float(windowSize))
+		else:
+			return old(self)
 	wrapMethod(jtype, 'find', newFind)
 

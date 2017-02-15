@@ -13,7 +13,6 @@ import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
@@ -48,13 +47,19 @@ public class ConfAStarTree implements ConfSearch {
 		}
 		
 		public Builder setMPLP() {
-			return setMPLP(new NodeUpdater(), 1, 0.0001);
+			setMPLP(new MPLPBuilder());
+			return this;
 		}
 		
-		public Builder setMPLP(MPLPUpdater updater, int numIterations, double convergenceThreshold) {
+		public Builder setMPLP(MPLPBuilder builder) {
 			order = new StaticScoreHMeanAStarOrder();
 			gscorer = new PairwiseGScorer(emat);
-			hscorer = new MPLPPairwiseHScorer(updater, emat, numIterations, convergenceThreshold);
+			hscorer = new MPLPPairwiseHScorer(
+				builder.updater,
+				emat,
+				builder.numIterations,
+				builder.convergenceThreshold
+			);
 			return this;
 		}
 		
@@ -67,7 +72,7 @@ public class ConfAStarTree implements ConfSearch {
 			);
 		}
 	}
-
+	
 	public static Builder builder(EnergyMatrix emat, SimpleConfSpace confSpace) {
 		return builder(emat, new RCs(confSpace));
 	}
@@ -79,6 +84,39 @@ public class ConfAStarTree implements ConfSearch {
 	public static Builder builder(EnergyMatrix emat, RCs rcs) {
 		return new Builder(emat, rcs);
 	}
+	
+	public static class MPLPBuilder {
+		
+		private NodeUpdater updater;
+		private int numIterations;
+		private double convergenceThreshold;
+		
+		public MPLPBuilder() {
+			updater = new NodeUpdater();
+			numIterations = 1;
+			convergenceThreshold = 0.0001;
+		}
+		
+		public MPLPBuilder setUpdater(NodeUpdater val) {
+			updater = val;
+			return this;
+		}
+		
+		public MPLPBuilder setNumIterations(int val) {
+			numIterations = val;
+			return this;
+		}
+		
+		public MPLPBuilder setConvergenceThreshold(double val) {
+			convergenceThreshold = val;
+			return this;
+		}
+	}
+
+	public static MPLPBuilder MPLPBuilder() {
+		return new MPLPBuilder();
+	}
+		
 
 	private AStarOrder order;
 	private AStarScorer gscorer;

@@ -1,6 +1,8 @@
 
-import sys, jpype
+import sys, os, jpype
 import jvm, augmentation
+
+getJavaClass = augmentation.getJavaClass
 
 
 # NOTE: this var gets set by the build system during packaging
@@ -11,6 +13,9 @@ _ospreyPaths = ['../../build/output/*.jar', '../../bin']
 c = None
 
 WILD_TYPE = None
+Forcefield = None
+SolvationForcefield = None
+LovellRotamers = 0 # arbitrary value, doesn't matter
 
 def _javaAwareExcepthook(exctype, value, traceback):
 
@@ -43,19 +48,89 @@ def start(heapSizeMB=1024, enableAssertions=False):
 	# init other globals
 	global WILD_TYPE
 	WILD_TYPE = c.confspace.Strand.WildType
+	global Forcefield
+	Forcefield = getJavaClass('energy.forcefield.ForcefieldParams$Forcefield')
+	global SolvationForcefield
+	SolvationForcefield = getJavaClass('energy.forcefield.ForcefieldParams$SolvationForcefield')
 
 	# print the preamble
 	print("OSPREY %s" % c.control.Main.Version)
 
 
-def loadPdb(path):
-	return c.structure.PDBIO.readFile(path)
+def readTextFile(path):
+	return c.tools.FileTools.readFile(path)
 
 
-def Strand(path):
-	mol = loadPdb(path)
-	# TODO: expose builder args
-	return c.confspace.Strand.builder(mol).build()
+def _ensureText(textOrPath):
+	if os.path.exists(textOrPath):
+		# it's a path, read the file
+		return readTextFile(textOrPath)
+	else:
+		# it's text, just return it
+		return textOrPath
+
+
+def Parallelism(cpuCores=None, gpus=None, streamsPerGpu=None):
+	if gpus is not None:
+		return c.parallelism.Parallelism.makeGpu(gpus, streamsPerGpu)
+	elif cpuCores is not None:
+		return c.parallelism.Parallelism.makeCpu(cpuCores)
+	else:
+		return c.parallelism.Parallelism.makeDefault()
+
+
+def TemplateLibrary(forcefield=None, templateCoords=None, rotamers=None, backboneDependentRotamers=None):
+	builder = c.restypes.GenericResidueTemplateLibrary.builder()
+
+	if forcefield is not None:
+		builder.setForcefield(forcefield)
+
+	if templateCoords is not None:
+		builder.setTemplateCoords(_ensureText(templateCoords))
+
+	if rotamers is not None:
+		if rotamers == LovellRotamers:
+			builder.setLovellRotamers()
+		else:
+			builder.setRotamers(_ensureText(rotamers))
+
+	if backboneDependentRotamers is not None:
+		builder.setBackboneDependentRotamers(_ensureText(backboneDependentRotamers))
+
+	return builder.build()
+	
+
+def readPdb(path):
+	mol = c.structure.PDBIO.readFile(path)
+	print('read PDB file from file: %s' % path)
+	return mol
+
+
+def writePdb(mol, path):
+
+	# unbox the mol if we need to
+	if isinstance(mol, c.confspace.ParametricMolecule):
+		mol = mol.mol
+
+	c.structure.PDBIO.writeFile(mol, path)
+
+	print('write PDB file to file: %s' % path)
+
+
+def Strand(pathOrMol, residues=None):
+
+	# did we get a path or a molecule?
+	if isinstance(pathOrMol, c.structure.Molecule):
+		mol = pathOrMol
+	else:
+		mol = readPdb(pathOrMol)
+
+	builder = c.confspace.Strand.builder(mol)
+
+	if residues is not None:
+		builder.setResidues(residues[0], residues[1])
+	
+	return builder.build()
 
 
 def ConfSpace(strands, shellDist=None):
@@ -96,20 +171,73 @@ def StrandFlex():
 	pass
 
 
-def EnergyMatrix(confSpace, cacheFile=None):
+def ForcefieldParams():
+	return c.energy.forcefield.ForcefieldParams()
+
+def EnergyMatrix(confSpace, ffparams=None, parallelism=None, cacheFile=None):
 	
 	# TODO: expose builder options
-	builder = c.ematrix.SimplerEnergyMatrixCalculator.builder(confSpace).build()
+	builder = c.ematrix.SimplerEnergyMatrixCalculator.builder(confSpace)
+
+	if ffparams is not None:
+		builder.setForcefieldParams(ffparams)
+
+	if parallelism is not None:
+		builder.setParallelism(parallelism)
+
+	ematcalc = builder.build()
 
 	if cacheFile is not None:
-		return builder.calcEnergyMatrix(jvm.toFile(cacheFile))
+		return ematcalc.calcEnergyMatrix(jvm.toFile(cacheFile))
 	else:
-		return builder.calcEnergyMatrix()
+		return ematcalc.calcEnergyMatrix()
 
 
-def GMECFinder(confSpace, emat, confLog=None, printIntermediateConfs=None):
+def AStarTraditional(emat, confSpace):
+	builder = c.astar.conf.ConfAStarTree.builder(emat, confSpace)
+	builder.setTraditional()
+	return builder.build()
+
+
+def AStarMPLP(emat, confSpace, numIterations=None, convergenceThreshold=None):
+	mplpBuilder = c.astar.conf.ConfAStarTree.MPLPBuilder()
+
+	if numIterations is not None:
+		mplpBuilder.setNumIterations(numIterations)
+
+	if convergenceThreshold is not None:
+		mplpBuilder.setConvergenceThreshold(convergenceThreshold)
+
+	builder = c.astar.conf.ConfAStarTree.builder(emat, confSpace)
+	builder.setMPLP(mplpBuilder)
+	return builder.build()
+
+
+def MinimizingEnergyCalculator(confSpace, ffparams=None, parallelism=None, streaming=None):
+	builder = c.minimization.SimpleConfMinimizer.builder(confSpace)
+
+	if ffparams is not None:
+		builder.setForcefieldParams(ffparams)
+
+	if parallelism is not None:
+		builder.setParallelism(parallelism)
+
+	if streaming is not None:
+		builder.setStreaming(streaming)
+
+	return builder.build()
+
+def GMECFinder(confSpace, emat=None, astar=None, energyCalculator=None, confLog=None, printIntermediateConfs=None):
 	
-	builder = c.gmec.SimpleGMECFinder.builder(confSpace, emat)
+	if emat is not None:
+		builder = c.gmec.SimpleGMECFinder.builder(confSpace, emat)
+	elif astar is not None:
+		builder = c.gmec.SimpleGMECFinder.builder(confSpace, astar)
+	else:
+		raise TypeError('either emat or astar must be specified')
+
+	if energyCalculator is not None:
+		builder.setEnergyCalculator(energyCalculator)
 
 	if confLog is not None:
 		logFile = jvm.toFile(confLog)

@@ -25,7 +25,7 @@ public class ScriptPlayground {
 	public static void main(String[] args)
 	throws Exception {
 		minimalGMEC();
-		advancedGMEC();
+		//advancedGMEC();
 	}
 	
 	private static void minimalGMEC()
@@ -46,7 +46,7 @@ public class ScriptPlayground {
 		EnergyMatrix emat = SimplerEnergyMatrixCalculator.build(confSpace).calcEnergyMatrix(new File("/tmp/emat.dat"));
 		
 		// find the GMEC!
-		SimpleGMECFinder.builder(confSpace, emat).build().find();
+		SimpleGMECFinder.builder(confSpace, emat).build().find(5);
 	}
 	
 	private static void advancedGMEC()
@@ -109,7 +109,7 @@ public class ScriptPlayground {
 		
 		// make the conf search
 		ConfSearch search = ConfAStarTree.builder(emat, confSpace)
-			.setMPLP(new NodeUpdater(), 4, 0.0001)
+			.setMPLP(ConfAStarTree.MPLPBuilder().setNumIterations(4))
 			.build();
 		
 		// find the GMEC!
