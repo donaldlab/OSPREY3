@@ -1,8 +1,8 @@
 
 import sys, os, jpype
-import jvm, augmentation
+import jvm, wraps
 
-getJavaClass = augmentation.getJavaClass
+getJavaClass = wraps.getJavaClass
 
 
 # NOTE: this var gets set by the build system during packaging
@@ -43,7 +43,7 @@ def start(heapSizeMB=1024, enableAssertions=False):
 	global c
 	c = jpype.JPackage('edu.duke.cs.osprey')
 
-	augmentation.init()
+	wraps.init()
 
 	# init other globals
 	global WILD_TYPE

@@ -5,7 +5,7 @@ import jvm
 def wrapMethod(obj, name, newMethod):
 	oldMethod = getattr(obj, name)
 	def curried(self, *args):
-		return newMethod(self, oldMethod, *args)
+		return newMethod(oldMethod, self, *args)
 	setattr(obj, name, curried)
 
 
@@ -14,9 +14,9 @@ def wrapProperty(obj, name, getter, setter=None):
 	oldProp = getattr(obj, name)
 
 	def tempGetter(self):
-		return getter(self, oldProp.__get__)
+		return getter(oldProp.__get__, self)
 	def tempSetter(self, oldProp, val):
-		setter(self, oldProp.__set__, val)
+		setter(oldProp.__set__, self, val)
 
 	newProp = None
 	if setter is None:
@@ -35,12 +35,12 @@ def getJavaClass(classname):
 	
 
 def init():
-	augmentStrandFlex()
-	augmentResidueFlex()
-	augmentGMECFinder()
+	wrapStrandFlex()
+	wrapResidueFlex()
+	wrapGMECFinder()
 
 
-def augmentStrandFlex():
+def wrapStrandFlex():
 	jtype = getJavaClass('confspace.Strand$Flexibility')
 
 	# use array access to call get()
@@ -49,34 +49,34 @@ def augmentStrandFlex():
 	jtype.__getitem__ = getItem
 
 
-def augmentResidueFlex():
+def wrapResidueFlex():
 	jtype = getJavaClass('confspace.Strand$ResidueFlex')
 
-	# augment setLibraryRotamers() to accept varargs
-	def newSetLibraryRotamers(self, old, *mutations):
+	# wrap setLibraryRotamers() to accept varargs
+	def newSetLibraryRotamers(old, self, *mutations):
 		return old(self, jvm.toArrayList(mutations))
 	wrapMethod(jtype, 'setLibraryRotamers', newSetLibraryRotamers)
 
 	# autocast setContinuous() to float
-	def newSetContinuous(self, old, angle):
+	def newSetContinuous(old, self, angle):
 		return old(self, float(angle))
 	wrapMethod(jtype, 'setContinuous', newSetContinuous)
 
 	# autocast setContinuousEllipses() to float
-	def newSetContinuousEllipses(self, old, angle):
+	def newSetContinuousEllipses(old, self, angle):
 		return old(self, float(angle))
 	wrapMethod(jtype, 'setContinuousEllipses', newSetContinuousEllipses)
 	
 	# NOTE: property wrapping example
-	#def newGetter(self, oldGetter):
+	#def newGetter(oldGetter, self):
 	#	return oldGetter(self)
 	#wrapProperty(strand, 'flexibility', newGetter)
 
 
-def augmentGMECFinder():
+def wrapGMECFinder():
 	jtype = getJavaClass('gmec.SimpleGMECFinder')
 
-	def newFind(self, old, windowSize=None):
+	def newFind(old, self, windowSize=None):
 		# autocast the find() energy to a float
 		# otherwise, jpype will complain if windowSize is really an int
 		if windowSize is not None:
