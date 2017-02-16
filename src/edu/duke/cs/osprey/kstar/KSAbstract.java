@@ -469,7 +469,7 @@ public abstract class KSAbstract implements KSInterface {
 		// create searchproblem
 		KSSearchProblem panSeqSP;
                 if(contSCFlex){
-                    panSeqSP = new KSSearchProblem( 
+                    panSeqSP = new KSSearchProblem( cfp.getParams(),
                                     getSearchProblemName(contSCFlex, strand), 
                                     pdbName, 
                                     flexibleRes, 
@@ -491,7 +491,7 @@ public abstract class KSAbstract implements KSInterface {
                                     useVoxelG);
                 }
                 else {
-                    panSeqSP = new KSSearchProblem( 
+                    panSeqSP = new KSSearchProblem( cfp.getParams(),
                                     getSearchProblemName(contSCFlex, strand), 
                                     pdbName, 
                                     flexibleRes, 
