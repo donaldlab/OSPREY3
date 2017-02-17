@@ -8,3 +8,5 @@ bin
 .classpath
 python/osprey.egg-info
 **/*.pyc
+python/doc/_build
+

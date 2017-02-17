@@ -30,6 +30,17 @@ def _javaAwareExcepthook(exctype, value, traceback):
 
 
 def start(heapSizeMB=1024, enableAssertions=False):
+	'''
+	Starts the Java Virtual Machine (JVM) that runs Osprey's computation libraries.
+
+	Call :meth:`start` before using any of Osprey's other functions.
+
+	:param heapSizeMB: Size of the JVM heap in megabytes. This is essentially the amount of memory
+		Osprey will have to do computations. 1024 MB is 1 GB, but for larger designs,
+		you may want to use 2048 MB (2 GB), 4096 MB (4 GB), or even more memory.
+	
+	:param enableAssertions: pass ``True`` to enable JVM assertions. Only useful for debugging.
+	'''
 
 	# setup a global exception handler to show java exception info
 	sys.excepthook = _javaAwareExcepthook
