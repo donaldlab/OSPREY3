@@ -194,6 +194,7 @@ public class KSSearchProblem extends SearchProblem {
 			oldNumUpdates = numUpdates;
 			dee.prune("GOLDSTEIN");
 			dee.prune("GOLDSTEIN PAIRS FULL");
+			if(numConfs(ans).compareTo(BigInteger.valueOf(400000)) > 0) dee.prune("GOLDSTEIN TRIPLES");
 			numUpdates = ans.countUpdates();
 		} while (numUpdates > oldNumUpdates && numConfs(ans).compareTo(BigInteger.valueOf(50000)) > 0);
 

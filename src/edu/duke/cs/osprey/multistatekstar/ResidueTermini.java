@@ -10,11 +10,11 @@ public class ResidueTermini implements Serializable {
 	public int lBound;
 	public int uBound;
 	
-	public ResidueTermini(int state, int begin, int end) {
-		if(begin > end) throw new RuntimeException("ERROR: begin: "+begin+" must be <= end: "+end);
+	public ResidueTermini(int state, int lBound, int uBound) {
+		if(lBound > uBound) throw new RuntimeException("ERROR: lBound: "+lBound+" must be <= uBound: "+uBound);
 		this.state = state;
-		this.lBound = begin;
-		this.uBound = end;
+		this.lBound = lBound;
+		this.uBound = uBound;
 	}
 	
 	public boolean contains(Residue res) {
