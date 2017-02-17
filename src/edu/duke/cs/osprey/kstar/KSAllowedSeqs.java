@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
+import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
 import edu.duke.cs.osprey.tools.ObjectIO;
 
 public class KSAllowedSeqs {
@@ -21,13 +22,13 @@ public class KSAllowedSeqs {
 	private int dist;
         private boolean allowLessMut;
 	private int strand;
-	private KSTermini limits;
+	private ResidueTermini limits;
 	private int maxSequences = (int)Math.pow(2, 28);
 	private ArrayList<ArrayList<String>> allowedSeqs = null;
 	private LinkedHashMap<ArrayList<String>, Integer> allowedSeq2Index = null;
 	ArrayList<HashSet<ArrayList<String>>> allowedSubSeqs = null;
 
-	public KSAllowedSeqs( int strand, KSTermini limits, DEEPerSettings dset, 
+	public KSAllowedSeqs( int strand, ResidueTermini limits, DEEPerSettings dset, 
 			ArrayList<String[]> freeBBZoneTermini,
 			ArrayList<String[]> moveableStrandTermini,
 			ArrayList<String> flexRes, 
@@ -49,7 +50,7 @@ public class KSAllowedSeqs {
 	}
 
 
-	public KSAllowedSeqs( int strand, KSTermini limits, DEEPerSettings dset, 
+	public KSAllowedSeqs( int strand, ResidueTermini limits, DEEPerSettings dset, 
 			ArrayList<String[]> freeBBZoneTermini,
 			ArrayList<String[]> moveableStrandTermini,
 			ArrayList<String> flexRes, KSAllowedSeqs in, 
@@ -74,7 +75,7 @@ public class KSAllowedSeqs {
 	}
 	
 	
-	public KSTermini getStrandLimits() {
+	public ResidueTermini getStrandLimits() {
 		return limits;
 	}
 	
@@ -287,7 +288,7 @@ public class KSAllowedSeqs {
 	public ArrayList<HashSet<ArrayList<String>>> getStrandSubSeqList2( 
 			KSAllowedSeqs p, KSAllowedSeqs l ) {
 
-		if( strand != KSTermini.COMPLEX )
+		if( strand != 2 )
 			throw new RuntimeException("ERROR: this version of the method "
 					+ "should only be called for the COMPLEX strand");
 
@@ -337,7 +338,7 @@ public class KSAllowedSeqs {
 
 	public HashSet<ArrayList<String>> getStrandSubSeqsAtDepth( int depth, KSAllowedSeqs p, KSAllowedSeqs l ) {
 
-		if( strand != KSTermini.COMPLEX )
+		if( strand != 2 )
 			throw new RuntimeException("ERROR: this version of the method "
 					+ "should only be called for the COMPLEX strand");
 
@@ -356,7 +357,7 @@ public class KSAllowedSeqs {
 		
 		if( allowedSubSeqs == null ) {
 			
-			if(strand == KSTermini.COMPLEX) 
+			if(strand == 2) 
 				throw new RuntimeException("ERROR: sub-sequences of the COMPLEX "
 						+ "strand cannot be initialized using this method");
 			

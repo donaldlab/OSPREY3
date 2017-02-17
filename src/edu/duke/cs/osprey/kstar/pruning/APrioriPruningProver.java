@@ -11,7 +11,6 @@ import edu.duke.cs.osprey.control.GMECFinder;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KSAllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
-import edu.duke.cs.osprey.kstar.KSTermini;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import java.util.HashMap;
 
@@ -64,7 +63,7 @@ public class APrioriPruningProver {
         System.out.println("Determining I0 to get provable K*");
         //OK to be provable I0 has to be the biggest among all strand
         
-        for( int strand : new int[] {KSTermini.PROTEIN, KSTermini.LIGAND, KSTermini.COMPLEX} ){
+        for( int strand : new int[] {0, 1, 2} ){
             SearchProblem strandSP = ks.createPanSeqSP( contSCFlex, strand );//cfp.getSearchProblem(strand, strand2AllowedSeqs.get(strand));
             GMECFinder strandGF = new GMECFinder();
             strandGF.init(cfp, strandSP);
@@ -96,7 +95,7 @@ public class APrioriPruningProver {
         //to get an upper bound on the total number of conformations in a sequence,
         //take product_i max_a num_RCs(i,a), where i is residue positions & a is amino-acid types
         //the complex will have the most possible conformations
-        SearchProblem complexSP = ks.createPanSeqSP(contSCFlex, KSTermini.COMPLEX);//cfp.getSearchProblem(KSTermini.COMPLEX, strand2AllowedSeqs.get(KSTermini.COMPLEX));
+        SearchProblem complexSP = ks.createPanSeqSP(contSCFlex, 2);//cfp.getSearchProblem(KS2, strand2AllowedSeqs.get(KS2));
         for(int pos=0; pos<complexSP.confSpace.numPos; pos++){
             PositionConfSpace pcs = complexSP.confSpace.posFlex.get(pos);
             Ew += PFAbstract.RT * Math.log(pcs.maxNumRCsPerResType());

@@ -17,7 +17,7 @@ import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
-import edu.duke.cs.osprey.kstar.KSTermini;
+import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -110,7 +110,7 @@ public class SearchProblem implements Serializable {
     public SearchProblem(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
             boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, LUTESettings luteSettings, DEEPerSettings dset, 
             ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef,
-            boolean addResEntropy, boolean addWTRots, KSTermini termini, boolean useVoxelG, ArrayList<String> wtRotOnlyRes){
+            boolean addResEntropy, boolean addWTRots, ResidueTermini termini, boolean useVoxelG, ArrayList<String> wtRotOnlyRes){
         
         confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, wtRotOnlyRes,
                 contSCFlex, dset, moveableStrands, freeBBZones, useEllipses, addWTRots, termini);

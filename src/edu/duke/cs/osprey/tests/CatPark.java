@@ -5,29 +5,19 @@
  */
 package edu.duke.cs.osprey.tests;
 
-import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.bbfree.BBFreeDOF;
 import edu.duke.cs.osprey.confspace.RC;
-import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
-import edu.duke.cs.osprey.dof.DihedralRotation;
 import edu.duke.cs.osprey.dof.deeper.RamachandranChecker;
-import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
-import edu.duke.cs.osprey.minimization.CCDMinimizer;
-import edu.duke.cs.osprey.minimization.IdealSeparableReference;
-import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
-import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.PDBFileWriter;
 import edu.duke.cs.osprey.structure.Residue;
-import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.VectorAlgebra;
-import edu.duke.cs.osprey.voxq.VoxelsDeltaG;
 import java.io.File;
 import java.util.ArrayList;
 

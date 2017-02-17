@@ -6,10 +6,7 @@ package edu.duke.cs.osprey.tupexp;
 
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.TupleEnumerator;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.pruning.Pruner;
 import java.util.ArrayList;
-import java.util.PriorityQueue;
 
 /**
  *

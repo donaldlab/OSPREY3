@@ -44,6 +44,24 @@ public class ConfigFileParser {
         params.addDefaultParams();//We'll look for this in DataDir
     }
     
+    public ConfigFileParser(String[] args, boolean isVerbose){
+        //AAO: as much as i hate to duplicate code, verbosity is a problem with params
+    	//parse all config files into params
+        params.setVerbosity(isVerbose);
+        
+        //check format of args
+        if(!args[0].equalsIgnoreCase("-c"))
+            throw new RuntimeException("ERROR: bad arguments (should start with -c)");
+        
+        params.addParamsFromFile(args[1]);//KStar.cfg file
+        EnvironmentVars.setDataDir(params.getValue("DataDir"));
+        
+        for(int argNum=3; argNum<args.length; argNum++)//System.cfg, etc.
+            params.addParamsFromFile(args[argNum]);
+        
+        params.addDefaultParams();//We'll look for this in DataDir
+    }
+    
     public ConfigFileParser() {
     	// HACKHACK: transitional constructor so we can make CFP instances without reading input files
     	// that way we can define config in code and give it to things that expect to read CFP instances
@@ -191,7 +209,7 @@ public class ConfigFileParser {
     }
     
     
-    ArrayList<String> getWtRotOnlyRes(){
+    protected ArrayList<String> getWtRotOnlyRes(){
         //List of residues for which we'll only include the wild-type rotamer
         ArrayList<String> wtRotOnlyRes = new ArrayList<>();
         String val = params.getValue("WTRotOnlyRes");
