@@ -6,19 +6,8 @@ Osprey
 
 .. toctree::
 	:maxdepth: 2
-	:caption: Contents:
 
 	installing
 	tutorial
-	apiref
-
-
-Search the docs
-===============
-
-..
-	* :ref:`genindex`
-	* :ref:`modindex`
-
-* :ref:`search`
+	api.osprey
 

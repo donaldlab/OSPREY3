@@ -44,9 +44,15 @@ public class Parallelism {
 		);
 	}
 	
+	/** the number of CPU threads to use */
 	public final int numThreads;
+	
+	/** the number of GPUs to use */
 	public final int numGpus;
+	
+	/** the number of parallel tasks to send to each GPU */
 	public final int numStreamsPerGpu;
+	
 	public final Type type;
 	
 	public Parallelism(int numThreads, int numGpus, int numStreamsPerGpu) {
@@ -68,6 +74,7 @@ public class Parallelism {
 		}
 	}
 	
+	/** get the maximum number of tasks to be be executed in parallel */
 	public int getParallelism() {
 		return type.getParallelism(this);
 	}

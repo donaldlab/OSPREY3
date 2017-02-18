@@ -35,11 +35,11 @@ def start(heapSizeMB=1024, enableAssertions=False):
 
 	Call :meth:`start` before using any of Osprey's other functions.
 
-	:param heapSizeMB: Size of the JVM heap in megabytes. This is essentially the amount of memory
+	:param int heapSizeMB: Size of the JVM heap in megabytes. This is essentially the amount of memory
 		Osprey will have to do computations. 1024 MB is 1 GB, but for larger designs,
 		you may want to use 2048 MB (2 GB), 4096 MB (4 GB), or even more memory.
 	
-	:param enableAssertions: pass ``True`` to enable JVM assertions. Only useful for debugging.
+	:param bool enableAssertions: pass ``True`` to enable JVM assertions. Only useful for debugging.
 	'''
 
 	# setup a global exception handler to show java exception info
@@ -69,6 +69,14 @@ def start(heapSizeMB=1024, enableAssertions=False):
 
 
 def readTextFile(path):
+	'''
+	Reads the text file at ``path`` and return a string containing the text of that file.
+
+	Useful for passing config files to function arguments.
+
+	:returns: the text of the file at ``path``
+	:rtype: str
+	'''
 	return c.tools.FileTools.readFile(path)
 
 
@@ -82,6 +90,14 @@ def _ensureText(textOrPath):
 
 
 def Parallelism(cpuCores=None, gpus=None, streamsPerGpu=None):
+	'''
+	Creates a :java:class:`.parallelism.Parallelism` object that describes how Osprey should use available hardware.
+
+	:param int cpuCores: :java:fielddoc:`.parallelism.Parallelism.numThreads`
+	:param int gpus: :java:fielddoc:`.parallelism.Parallelism.numGpus`
+	:param int streamsPerGpu: :java:fielddoc:`.parallelism.Parallelism.numStreamsPerGpu`
+	:rtype: :java:class:`.parallelism.Parallelism`
+	'''
 	if gpus is not None:
 		return c.parallelism.Parallelism.makeGpu(gpus, streamsPerGpu)
 	elif cpuCores is not None:
