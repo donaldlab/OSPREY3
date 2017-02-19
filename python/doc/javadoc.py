@@ -6,6 +6,7 @@ import re
 
 
 ast_cache = {}
+doctags = {}
 
 
 # Sphinx application API
@@ -21,13 +22,34 @@ def setup(app):
 
 	app.add_role('java:fielddoc', FielddocRole())
 	app.add_role('java:methoddoc', MethoddocRole())
-	app.add_role('java:default', DefaultRole())
 
 	app.connect('autodoc-process-signature', autodoc_signature_handler)
 	app.connect('autodoc-process-docstring', autodoc_docstring_handler)
 
+	doctags[DefaultDoctag.name] = DefaultDoctag()
+
 	return { 'version': '0.1' }
 
+
+# make sure warnings have the correct source info in autodoc events
+class AutodocHandlerWarn():
+	
+	def __init__(self, app, func):
+		self.app = app
+		self.func = func
+
+	
+	def __call__(self, msg, lineno=None, cause=None):
+		modname = self.func.__module__
+		srcpath = sphinx.pycode.ModuleAnalyzer.for_module(modname).srcname
+		loc = '%s:docstring of %s.%s' % (srcpath, modname, self.func.__name__)
+		if lineno is not None:
+			loc = '%s:%d' % (loc, lineno)
+		if cause is not None:
+			msg += '\nCause: ' + str(cause)
+		self.app.warn(msg, location=loc)
+		
+		
 
 def autodoc_signature_handler(app, what, name, obj, options, signature, return_annotation):
 
@@ -38,98 +60,170 @@ def autodoc_signature_handler(app, what, name, obj, options, signature, return_a
 		# not a function, don't mess with the signature
 		return
 
-	# see if there are any defaults to override
-	if argspec.defaults is None:
-		return
-
-	# convenience method for warnings
-	def warn(msg, line=None, cause=None):
-		modname = obj.__module__
-		srcpath = sphinx.pycode.ModuleAnalyzer.for_module(modname).srcname
-		loc = '%s:docstring of %s.%s' % (srcpath, modname, obj.__name__)
-		if line is not None:
-			loc += ':%d' % line
-		if cause is not None:
-			msg += '\nCause: ' + str(cause)
-		app.warn(msg, location=loc)
-
-	# convert to a mutable format (argspecs are not editable by default)
+	# convert argspec to a mutable format (argspecs are not editable by default)
 	argspec = argspec._asdict()
-	names = argspec['args']
-	defaults = list(argspec['defaults'])
-	argspec['defaults'] = defaults
+	if argspec['defaults'] is not None:
+		argspec['defaults'] = list(argspec['defaults'])
 
-	# write defaults without quoting strings
-	class Literal():
-		def __init__(self, val):
-			self.val = val
-		def __repr__(self):
-			return self.val
+	warn = AutodocHandlerWarn(app, obj)
 
-	def set_default(name, val):
-		offset = len(names) - len(defaults)
-		for i in range(len(defaults)):
-			if names[offset + i] == name:
-				defaults[i] = Literal(val)
-				return
-		raise KeyError
-
-	def parse_default(text, line=None):
-
-		# is this a java default?
-		key = ':java:default:'
-		if not text.startswith(key):
-			return text
-
-		# yup, parse the reference
-		try:
-			ref = text[len(key) + 1:-1]
-			ref = JavaRef(expand_classname(ref, app.config))
-			ast = get_class_ast(ref, app.config)
-			field = ast.find_field(ref.membername)
-
-			# get the default value from the field declaration
-			if not isinstance(field.declarator.initializer, javalang.tree.Literal):
-				raise ValueError("field not initialized with a literal, can't use value")
-
-			# got the default value!
-			return str(field.declarator.initializer.value)
-
-		except (KeyError, ValueError, FileNotFoundError) as e:
-			warn("can't resolve java ref: %s" % text, line=line, cause=e)
-			return ''
-
-	# look for default value commands in the docstring, like:
+	# look for tags in the docstring, like:
 	# :default argname: default value
 	doclines = obj.__doc__.split('\n')
 	for i in range(len(doclines)):
 
-		line = doclines[i].strip()
+		try:
+			name, args, text = Doctag.parse_lines(doclines, i)
+			tag = doctags[name]
+		except (KeyError, ValueError):
+			# not a doctag we recognize, just keep going
+			continue
 
-		if line.startswith(':default'):
-			line_parts = line.split(':')
-			if len(line_parts) >= 3:
-				name_parts = line_parts[1].split(' ')
-				if len(name_parts) >= 2:
+		# curry the warn function for this line
+		def curried_warn(msg, cause=None):
+			warn(msg, lineno=i, cause=cause)
 
-					name = name_parts[1].strip()
-					value = ':'.join(line_parts[2:]).strip()
-
-					# found one, set the new default!
-					try:
-						set_default(name, parse_default(value, line=i))
-					except KeyError:
-						warn("no arg with name '%s'" % name, line=i)
-
+		tag.handle_signature(app, args, text, obj, argspec, curried_warn)
+				
 	# build the new signature from the modified argspec
 	return (sphinx.ext.autodoc.formatargspec(obj, *argspec.values()), None)
 
 
-def autodoc_docstring_handler(app, what, name, obj, options, lines):
+def autodoc_docstring_handler(app, what, name, obj, options, doclines):
 
-	# strip out default values in the docstring
-	# (make sure we change the original list object)
-	lines[:] = [line for line in lines if not line.strip().startswith(':default')]
+	warn = AutodocHandlerWarn(app, obj)
+
+	lines_to_delete = []
+
+	# look for tags in the docstring, like:
+	# :default argname: default value
+	for i in range(len(doclines)):
+
+		try:
+			name, args, text = Doctag.parse_lines(doclines, i)
+			tag = doctags[name]
+		except (KeyError, ValueError):
+			# not a doctag we recognize, just keep going
+			continue
+
+		# curry the warn function for this line
+		def curried_warn(msg, cause=None):
+			warn(msg, lineno=i, cause=cause)
+
+		# what does the tag want to do with this line?
+		newtext = tag.handle_docstring(app, args, text, curried_warn)
+		if newtext is None:
+			lines_to_delete.append(i)
+		else:
+			doclines[i] = newtext
+
+	# remove deleted lines
+	doclines[:] = [doclines[i] for i in range(len(doclines)) if i not in lines_to_delete]
+
+
+class Doctag():
+
+	name = 'default'
+
+	@staticmethod
+	def parse_lines(doclines, lineno):
+
+		# look for name, args, and text on the first line
+		line = doclines[lineno]
+
+		# the line should start with a :
+		if not line.strip().startswith(':'):
+			raise ValueError
+
+		line_parts = line.strip().split(':')
+		if len(line_parts) < 3:
+			raise ValueError
+
+		name_and_args = line_parts[1].strip().split(' ')
+		name = name_and_args[0]
+		args = name_and_args[1:]
+		text = ':'.join(line_parts[2:]).strip()
+
+		return name, args, text
+
+
+	def handle_signature(self, app, args, text, func, argspec, warn):
+		# override me if you want
+		pass
+
+	
+	def handle_docstring(self, app, args, text, warn):
+		# override me if you want
+		return None
+
+
+
+class DefaultDoctag(Doctag):
+
+	def resolve(self, target, config):
+		ref = JavaRef(expand_classname(target, config))
+		ast = get_class_ast(ref, config)
+		field = ast.find_field(ref.membername)
+
+		# get the default value from the field declaration
+		if not isinstance(field.declarator.initializer, javalang.tree.Literal):
+			raise ValueError("field not initialized with a literal, can't use value")
+
+		# got the default value!
+		return str(field.declarator.initializer.value)
+
+
+	def set_default(self, argspec, name, val):
+
+		# write defaults without quoting strings
+		class Literal():
+			def __init__(self, val):
+				self.val = val
+			def __repr__(self):
+				return self.val
+
+		names = argspec['args']
+		defaults = argspec['defaults']
+
+		offset = len(names) - len(defaults)
+
+		for i in range(len(defaults)):
+			if names[offset + i] == name:
+				defaults[i] = Literal(val)
+				return
+
+		raise KeyError
+	
+
+	def handle_signature(self, app, args, text, func, argspec, warn):
+
+		defaults = argspec['defaults']
+		if defaults is None:
+			return
+
+		# resolve any references in the first line of the text
+		ref_regex = re.compile(r':java:default:`([^`]+)`')
+		def ref_resolver(match):
+			try:
+				target = match.group(1)
+				return self.resolve(target, app.config)
+			except (KeyError, ValueError, FileNotFoundError) as e:
+				warn("can't resolve java ref: %s" % target, cause=e)
+				return match.group(0)
+		text = ref_regex.sub(ref_resolver, text)
+
+		# apply default value to the signature
+		try:
+			self.set_default(argspec, args[0], text)
+		except KeyError:
+			warn("can't find argument '%s'" % args[0])
+			return
+
+
+	def handle_docstring(self, app, args, text, warn):
+
+		# remove this line from the docstring
+		return None
 
 
 def expand_classname(classname, config):
@@ -549,13 +643,6 @@ class MethoddocRole(JavaRole):
 			return Javadoc(method.documentation, ast.imports).description
 		except (KeyError, ValueError) as e:
 			return self.warn("can't parse javadoc for method: %s" % ref, cause=e)
-
-
-class DefaultRole(JavaRole):
-
-	def make_rst(self, text):
-
-		return 'HELLO WORLD'
 
 
 class RefRole(sphinx.roles.XRefRole):
