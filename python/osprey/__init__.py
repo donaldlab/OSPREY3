@@ -70,9 +70,7 @@ def start(heapSizeMB=1024, enableAssertions=False):
 
 def readTextFile(path):
 	'''
-	Reads the text file at ``path`` and return a string containing the text of that file.
-
-	Useful for passing config files to function arguments.
+	Useful for passing file contents to functions that expect strings rather than file paths
 
 	:returns: the text of the file at ``path``
 	:rtype: str
@@ -91,12 +89,12 @@ def _ensureText(textOrPath):
 
 def Parallelism(cpuCores=None, gpus=None, streamsPerGpu=None):
 	'''
-	Creates a :java:class:`.parallelism.Parallelism` object that describes how Osprey should use available hardware.
+	Specifies how Osprey should use available hardware
 
-	:param int cpuCores: :java:fielddoc:`.parallelism.Parallelism.numThreads`
-	:param int gpus: :java:fielddoc:`.parallelism.Parallelism.numGpus`
-	:param int streamsPerGpu: :java:fielddoc:`.parallelism.Parallelism.numStreamsPerGpu`
-	:rtype: :java:class:`.parallelism.Parallelism`
+	:param int cpuCores: :java:fielddoc:`.parallelism.Parallelism#numThreads`
+	:param int gpus: :java:fielddoc:`.parallelism.Parallelism#numGpus`
+	:param int streamsPerGpu: :java:fielddoc:`.parallelism.Parallelism#numStreamsPerGpu`
+	:rtype: :java:ref:`.parallelism.Parallelism`
 	'''
 	if gpus is not None:
 		return c.parallelism.Parallelism.makeGpu(gpus, streamsPerGpu)
@@ -107,6 +105,27 @@ def Parallelism(cpuCores=None, gpus=None, streamsPerGpu=None):
 
 
 def TemplateLibrary(forcefield=None, templateCoords=None, rotamers=None, backboneDependentRotamers=None):
+	'''
+	Creates a template library of rotamers for molecule residues.
+
+	:param forcefield: :java:methoddoc:`.restypes.GenericResidueTemplateLibrary$Builder#setForcefield`
+	:type forcefield: :java:ref:`.energy.forcefield.ForcefieldParams$Forcefield`
+	:default forcefield: osprey.AMBER
+
+	:param templateCoords: :java:methoddoc:`.restypes.GenericResidueTemplateLibrary$Builder#setTemplateCoords`
+	:type templateCoords: coords str or file path
+	:default templateCoords: <default template library>
+
+	:param rotamers: :java:methoddoc:`.restypes.GenericResidueTemplateLibrary$Builder#setRotamers`
+	:type rotamers: coords str or file path
+	:default rotamers: <Lovell rotamer library>
+
+	:param backboneDependentRotamers: :java:methoddoc:`.restypes.GenericResidueTemplateLibrary$Builder#setBackboneDependentRotamers`
+	:type backboneDependentRotamers: coords str or file path
+
+	:rtype: :java:ref:`.restypes.GenericResidueTemplateLibrary`
+	'''
+
 	builder = c.restypes.GenericResidueTemplateLibrary.builder()
 
 	if forcefield is not None:

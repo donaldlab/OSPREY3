@@ -2,7 +2,7 @@
 Osprey
 ======
 
-*Open Source Protein Redesign Software for You*
+*Open Source Protein REdesign for You*
 
 .. toctree::
 	:maxdepth: 2

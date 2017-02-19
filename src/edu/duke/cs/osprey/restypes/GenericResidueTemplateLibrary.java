@@ -51,16 +51,19 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary implem
 			makeDAminoAcidTemplates = true;
 		}
 		
+		/** used to match molecule residues to templates, defaults to {@link Forcefield#AMBER} */
 		public Builder setForcefield(Forcefield val) {
 			forcefield = val;
 			return this;
 		}
 		
+		/** text of file with template coordinates */
 		public Builder setTemplateCoords(String text) {
 			templateCoordsText = text;
 			return this;
 		}
 		
+		/** text of file with rotamer dihedral angles */
 		public Builder setRotamers(String text) {
 			rotamersText = text;
 			return this;
@@ -70,6 +73,7 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary implem
 			return setRotamers(FileTools.readResource(LovellRotamersPath));
 		}
 		
+		/** text of file with backbone dependent rotamer dihedral angles */
 		public Builder setBackboneDependentRotamers(String text) {
 			backboneDependentRotamersText = text;
 			return this;
