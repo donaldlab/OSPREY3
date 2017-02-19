@@ -87,6 +87,45 @@ def _ensureText(textOrPath):
 		return textOrPath
 
 
+def readPdb(path):
+	'''
+	loads a PDB file into a molecule object
+
+	.. note:: Raw molecules cannot be used directly in designs.
+		Create a :py:meth:`Strand` with the molecule to use it in a design.
+
+	:param str path: path to PDB file
+	:rtype: :java:ref:`.structure.Molecule`
+	'''
+	mol = c.structure.PDBIO.readFile(path)
+	print('read PDB file from file: %s' % path)
+	return mol
+
+
+def writePdb(mol, path):
+	'''
+	save a molecule to a PDB file
+
+	:param molecule: the molecule to save
+	:type molecule: :java:ref:`.structure.Molecule`
+
+	:param str path: path of the PDB file
+	'''
+
+	# unbox the mol if we need to
+	if isinstance(mol, c.confspace.ParametricMolecule):
+		mol = mol.mol
+
+	c.structure.PDBIO.writeFile(mol, path)
+
+	print('write PDB file to file: %s' % path)
+
+
+
+#------------------------------------
+# pythonic wrappers for Java builders
+#------------------------------------
+
 def Parallelism(cpuCores=None, gpus=None, streamsPerGpu=None):
 	'''
 	Specifies how Osprey should use available hardware
@@ -155,40 +194,6 @@ def TemplateLibrary(forcefield=None, templateCoords=None, rotamers=None, backbon
 	return builder.build()
 	
 
-def readPdb(path):
-	'''
-	loads a PDB file into a molecule object
-
-	.. note:: Raw molecules cannot be used directly in designs.
-		Create a :py:meth:`Strand` with the molecule to use it in a design.
-
-	:param str path: path to PDB file
-	:rtype: :java:ref:`.structure.Molecule`
-	'''
-	mol = c.structure.PDBIO.readFile(path)
-	print('read PDB file from file: %s' % path)
-	return mol
-
-
-def writePdb(mol, path):
-	'''
-	save a molecule to a PDB file
-
-	:param molecule: the molecule to save
-	:type molecule: :java:ref:`.structure.Molecule`
-
-	:param str path: path of the PDB file
-	'''
-
-	# unbox the mol if we need to
-	if isinstance(mol, c.confspace.ParametricMolecule):
-		mol = mol.mol
-
-	c.structure.PDBIO.writeFile(mol, path)
-
-	print('write PDB file to file: %s' % path)
-
-
 def Strand(pathOrMol, residues=None):
 	'''
 	A molecule with associated flexibilty information
@@ -217,6 +222,18 @@ def Strand(pathOrMol, residues=None):
 
 
 def ConfSpace(strands, shellDist=None):
+	'''
+	Make a configuration space of strands
+
+	:param strands: the strands to use
+	:type strands: :java:ref:`.confspace.Strand` or list of Strands
+
+	:param float shellDist: A residue is included in the steric shell if any
+		of its atoms lies within ``shellDist`` angstroms of any atom in any flexible residue.
+	:default shellDist: float('inf')
+
+	:rtype: :java:ref:`.confspace.SimpleConfSpace`
+	'''
 
 	builder = c.confspace.SimpleConfSpace.builder()
 
@@ -255,11 +272,47 @@ def StrandFlex():
 
 
 def ForcefieldParams():
+	'''
+	Options for configuring forcefields for energy calculation.
+
+	:rtype: :java:ref:`.energy.forcefield.ForcefieldParams`
+	'''
 	return c.energy.forcefield.ForcefieldParams()
 
+
 def EnergyMatrix(confSpace, ffparams=None, parallelism=None, cacheFile=None):
+	'''
+	Compute a matrix of energies between pairs of residue conformations to be used by A* search.
+
+	:param confSpace: The conformation space containing the strands to be designed.
+
+		If the strands are configured with continuous flexibility, the energy matrix will
+		minimize residue conformation pairs before computing energies.
+
+	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+
+	:param ffparams: The forcefield parameters for energy calculation.
+	:type ffparams: :java:ref:`.energy.forcefield.ForefieldParams`
+	:default ffparams: osprey.ForcefieldParams()
+
+	:param parallelism: Available hardware for high-performance computation.
+	:type parallelism: :java:ref:`.parallelism.Parallelism`
+	:default parallelism: ospesy.Parallelism()
+
+	:param str cacheFile: Path to file where energy matrix should be saved between computations.
+
+		.. note:: Energy matrix computation can take a long time, but often the results
+			can be reused between computations. Use a cache file to skip energy matrix
+			computation on the next Osprey run if the energy matrix has already been
+			computed once before.
+			
+		.. warning:: If design settings are changed between runs, Osprey will make
+			some effort to detect that the energy matrix cache is out-of-date and compute a
+			new energy matrix instead of usng the cached, incorrect one. Osprey might not detect
+			all design changes though, and incorrectly reuse a cached energy matrix, so it
+			is best to manually delete the entry matrix cache file after changing design settings.
+	'''
 	
-	# TODO: expose builder options
 	builder = c.ematrix.SimplerEnergyMatrixCalculator.builder(confSpace)
 
 	if ffparams is not None:
@@ -277,12 +330,38 @@ def EnergyMatrix(confSpace, ffparams=None, parallelism=None, cacheFile=None):
 
 
 def AStarTraditional(emat, confSpace):
+	'''
+	Creates an A* search using the traditional estimation function.
+
+	:param emat: The energy matrix to use for pairwise residue conformation energies.
+	:type emat: :java:ref:`.ematrix.EnergyMatrix`
+
+	:param confSpace: The conformation space containing the residue conformations to search.
+	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+
+	:rtype: :java:ref:`.astar.conf.ConfAStarTree`
+	'''
 	builder = c.astar.conf.ConfAStarTree.builder(emat, confSpace)
 	builder.setTraditional()
 	return builder.build()
 
 
 def AStarMPLP(emat, confSpace, numIterations=None, convergenceThreshold=None):
+	'''
+	Creates an A* search using the newer estimation function based on Max Product Linear Programming (MPLP)
+
+	:param emat: The energy matrix to use for pairwise residue conformation energies.
+	:type emat: :java:ref:`.ematrix.EnergyMatrix`
+
+	:param confSpace: The conformation space containing the residue conformations to search.
+	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+
+	:param int numIterations: The number of MPLP iterations to execute on each A* node.
+	:default numIterations: :java:default:`.astar.conf.ConfAStarTree$MPLPBuilder#numIterations`
+
+	:param float convergenceThreshold: TODO: write javadoc
+	:default convergenceThreshold: :java:default:`.astar.conf.ConfAStarTree$MPLPBuilder#convergenceThreshold`
+	'''
 	mplpBuilder = c.astar.conf.ConfAStarTree.MPLPBuilder()
 
 	if numIterations is not None:

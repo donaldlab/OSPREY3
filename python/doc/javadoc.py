@@ -21,6 +21,7 @@ def setup(app):
 
 	app.add_role('java:fielddoc', FielddocRole())
 	app.add_role('java:methoddoc', MethoddocRole())
+	app.add_role('java:default', DefaultRole())
 
 	app.connect('autodoc-process-signature', autodoc_signature_handler)
 	app.connect('autodoc-process-docstring', autodoc_docstring_handler)
@@ -42,12 +43,14 @@ def autodoc_signature_handler(app, what, name, obj, options, signature, return_a
 		return
 
 	# convenience method for warnings
-	def warn(msg, line=None):
+	def warn(msg, line=None, cause=None):
 		modname = obj.__module__
 		srcpath = sphinx.pycode.ModuleAnalyzer.for_module(modname).srcname
 		loc = '%s:docstring of %s.%s' % (srcpath, modname, obj.__name__)
 		if line is not None:
 			loc += ':%d' % line
+		if cause is not None:
+			msg += '\nCause: ' + str(cause)
 		app.warn(msg, location=loc)
 
 	# convert to a mutable format (argspecs are not editable by default)
@@ -71,9 +74,30 @@ def autodoc_signature_handler(app, what, name, obj, options, signature, return_a
 				return
 		raise KeyError
 
-	def parse_default(text):
-		# TODO: resolve references
-		return text
+	def parse_default(text, line=None):
+
+		# is this a java default?
+		key = ':java:default:'
+		if not text.startswith(key):
+			return text
+
+		# yup, parse the reference
+		try:
+			ref = text[len(key) + 1:-1]
+			ref = JavaRef(expand_classname(ref, app.config))
+			ast = get_class_ast(ref, app.config)
+			field = ast.find_field(ref.membername)
+
+			# get the default value from the field declaration
+			if not isinstance(field.declarator.initializer, javalang.tree.Literal):
+				raise ValueError("field not initialized with a literal, can't use value")
+
+			# got the default value!
+			return str(field.declarator.initializer.value)
+
+		except (KeyError, ValueError, FileNotFoundError) as e:
+			warn("can't resolve java ref: %s" % text, line=line, cause=e)
+			return ''
 
 	# look for default value commands in the docstring, like:
 	# :default argname: default value
@@ -89,11 +113,11 @@ def autodoc_signature_handler(app, what, name, obj, options, signature, return_a
 				if len(name_parts) >= 2:
 
 					name = name_parts[1].strip()
-					value = line_parts[2].strip()
+					value = ':'.join(line_parts[2:]).strip()
 
 					# found one, set the new default!
 					try:
-						set_default(name, parse_default(value))
+						set_default(name, parse_default(value, line=i))
 					except KeyError:
 						warn("no arg with name '%s'" % name, line=i)
 
@@ -262,6 +286,10 @@ def get_class_ast(ref, config):
 		for field in ast.fields:
 			for declarator in field.declarators:
 				if declarator.name == name:
+
+					# attach the matched declarator to the field
+					field.declarator = declarator
+
 					return field
 		raise KeyError("can't find field: %s" % name)
 	ast.find_field = find_field
@@ -521,6 +549,13 @@ class MethoddocRole(JavaRole):
 			return Javadoc(method.documentation, ast.imports).description
 		except (KeyError, ValueError) as e:
 			return self.warn("can't parse javadoc for method: %s" % ref, cause=e)
+
+
+class DefaultRole(JavaRole):
+
+	def make_rst(self, text):
+
+		return 'HELLO WORLD'
 
 
 class RefRole(sphinx.roles.XRefRole):

@@ -87,15 +87,9 @@ public class ConfAStarTree implements ConfSearch {
 	
 	public static class MPLPBuilder {
 		
-		private NodeUpdater updater;
-		private int numIterations;
-		private double convergenceThreshold;
-		
-		public MPLPBuilder() {
-			updater = new NodeUpdater();
-			numIterations = 1;
-			convergenceThreshold = 0.0001;
-		}
+		private NodeUpdater updater = new NodeUpdater();
+		private int numIterations = 1;
+		private double convergenceThreshold = 0.0001;
 		
 		public MPLPBuilder setUpdater(NodeUpdater val) {
 			updater = val;
