@@ -377,6 +377,8 @@ class JavaClassDirective(ParsingDirective):
 
 		rst.append('')
 
+		showedSomething = False
+
 		# show fields
 		fields = [field for field in ast.fields if should_show(field)]
 		if len(fields) > 0:
@@ -385,6 +387,7 @@ class JavaClassDirective(ParsingDirective):
 			rst.append('Properties')
 			rst.append('----------')
 			rst.append('')
+			showedSomething = True
 
 			for field in fields:
 
@@ -403,6 +406,7 @@ class JavaClassDirective(ParsingDirective):
 			rst.append('Methods')
 			rst.append('-------')
 			rst.append('')
+			showedSomething = True
 
 			for method in methods:
 
@@ -419,6 +423,7 @@ class JavaClassDirective(ParsingDirective):
 			rst.append('Constants')
 			rst.append('-----------')
 			rst.append('')
+			showedSomething = True
 
 			for value in ast.body.constants:
 				
@@ -428,6 +433,10 @@ class JavaClassDirective(ParsingDirective):
 				if value.documentation is not None:
 					rst.append('\t' + Javadoc(value.documentation, ast.imports).description)
 					rst.append('')
+
+		if not showedSomething:
+
+			rst.append('*(This topic does not yet have documentation)*')
 
 		return self.parse(rst)
 

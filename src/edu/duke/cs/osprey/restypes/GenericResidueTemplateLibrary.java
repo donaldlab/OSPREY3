@@ -51,7 +51,7 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary implem
 			makeDAminoAcidTemplates = true;
 		}
 		
-		/** used to match molecule residues to templates, defaults to {@link Forcefield#AMBER} */
+		/** used to match molecule residues to templates */
 		public Builder setForcefield(Forcefield val) {
 			forcefield = val;
 			return this;

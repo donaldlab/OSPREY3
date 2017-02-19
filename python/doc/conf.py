@@ -37,6 +37,8 @@ sys.path = [
 # ones.
 extensions = [
 	'sphinx.ext.autodoc',
+	'sphinx.ext.todo',
+	'todoFix',
 	'javadoc'
 ]
 
@@ -116,4 +118,9 @@ html_static_path = ['_static']
 # ospreydoc settings
 javadoc_sources_dir = '../../src'
 javadoc_package_prefix = 'edu.duke.cs.osprey'
+
+
+# show TODO s
+todo_include_todos = True
+
 

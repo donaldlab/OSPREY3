@@ -110,17 +110,26 @@ def TemplateLibrary(forcefield=None, templateCoords=None, rotamers=None, backbon
 
 	:param forcefield: :java:methoddoc:`.restypes.GenericResidueTemplateLibrary$Builder#setForcefield`
 	:type forcefield: :java:ref:`.energy.forcefield.ForcefieldParams$Forcefield`
-	:default forcefield: osprey.AMBER
+	:default forcefield: osprey.Forcefield.AMBER
 
 	:param templateCoords: :java:methoddoc:`.restypes.GenericResidueTemplateLibrary$Builder#setTemplateCoords`
+
+		.. todo:: explain template file format?
+
 	:type templateCoords: coords str or file path
-	:default templateCoords: <default template library>
+	:default templateCoords: <natural amino acids>
 
 	:param rotamers: :java:methoddoc:`.restypes.GenericResidueTemplateLibrary$Builder#setRotamers`
+
+		.. todo:: explain rotamer file format?
+
 	:type rotamers: coords str or file path
 	:default rotamers: <Lovell rotamer library>
 
 	:param backboneDependentRotamers: :java:methoddoc:`.restypes.GenericResidueTemplateLibrary$Builder#setBackboneDependentRotamers`
+
+		.. todo:: explain backbone-dependent rotamer file format?
+
 	:type backboneDependentRotamers: coords str or file path
 
 	:rtype: :java:ref:`.restypes.GenericResidueTemplateLibrary`
@@ -147,12 +156,29 @@ def TemplateLibrary(forcefield=None, templateCoords=None, rotamers=None, backbon
 	
 
 def readPdb(path):
+	'''
+	loads a PDB file into a molecule object
+
+	.. note:: Raw molecules cannot be used directly in designs.
+		Create a :py:meth:`Strand` with the molecule to use it in a design.
+
+	:param str path: path to PDB file
+	:rtype: :java:ref:`.structure.Molecule`
+	'''
 	mol = c.structure.PDBIO.readFile(path)
 	print('read PDB file from file: %s' % path)
 	return mol
 
 
 def writePdb(mol, path):
+	'''
+	save a molecule to a PDB file
+
+	:param molecule: the molecule to save
+	:type molecule: :java:ref:`.structure.Molecule`
+
+	:param str path: path of the PDB file
+	'''
 
 	# unbox the mol if we need to
 	if isinstance(mol, c.confspace.ParametricMolecule):
@@ -164,6 +190,17 @@ def writePdb(mol, path):
 
 
 def Strand(pathOrMol, residues=None):
+	'''
+	A molecule with associated flexibilty information
+
+	:param pathOrMol: path to a PDB file, or a molecule instance
+	:type pathOrMol: str or :java:ref:`.structure.Molecule`
+
+	:param residues: range of residue numbers, inclusive. `None` to include all residues.
+	:type residues: [int, int]
+
+	:return type: :java:ref:`.confspace.Strand`
+	'''
 
 	# did we get a path or a molecule?
 	if isinstance(pathOrMol, c.structure.Molecule):
