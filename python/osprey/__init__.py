@@ -122,9 +122,9 @@ def writePdb(mol, path):
 
 
 
-#------------------------------------
-# pythonic wrappers for Java builders
-#------------------------------------
+#-------------------------------------#
+# pythonic wrappers for Java builders #
+#-------------------------------------#
 
 def Parallelism(cpuCores=None, gpus=None, streamsPerGpu=None):
 	'''
@@ -151,23 +151,12 @@ def TemplateLibrary(forcefield=None, templateCoords=None, rotamers=None, backbon
 	:default forcefield: osprey.Forcefield.AMBER
 
 	:builder_option templateCoords .restypes.GenericResidueTemplateLibrary$Builder#templateCoordsText:
-
-		.. todo:: explain template file format?
-
 	:type templateCoords: coords str or file path
-	:default templateCoords: <natural amino acids>
 
 	:builder_option rotamers .restypes.GenericResidueTemplateLibrary$Builder#rotamersText:
-
-		.. todo:: explain rotamer file format?
-
 	:type rotamers: coords str or file path
-	:default rotamers: <Lovell rotamer library>
 
 	:builder_option backboneDependentRotamers .restypes.GenericResidueTemplateLibrary$Builder#backboneDependentRotamersText:
-
-		.. todo:: explain backbone-dependent rotamer file format?
-
 	:type backboneDependentRotamers: coords str or file path
 
 	:builder_return .restypes.GenericResidueTemplateLibrary$Builder:
@@ -284,20 +273,7 @@ def EnergyMatrix(confSpace, ffparams=None, parallelism=None, cacheFile=None):
 	:builder_option confSpace .ematrix.SimplerEnergyMatrixCalculator$Builder#confSpace:
 	:builder_option ffparams .ematrix.SimplerEnergyMatrixCalculator$Builder#ffparams:
 	:builder_option parallelism .ematrix.SimplerEnergyMatrixCalculator$Builder#parallelism:
-	:default parallelism: osprey.Parallelism()
-
-	:param str cacheFile: Path to file where energy matrix should be saved between computations.
-
-		.. note:: Energy matrix computation can take a long time, but often the results
-			can be reused between computations. Use a cache file to skip energy matrix
-			computation on the next Osprey run if the energy matrix has already been
-			computed once before.
-			
-		.. warning:: If design settings are changed between runs, Osprey will make
-			some effort to detect that the energy matrix cache is out-of-date and compute a
-			new energy matrix instead of usng the cached, incorrect one. Osprey might not detect
-			all design changes though, and incorrectly reuse a cached energy matrix, so it
-			is best to manually delete the entry matrix cache file after changing design settings.
+	:builder_option cacheFile .ematrix.SimplerEnergyMatrixCalculator$Builder#cacheFile:
 	'''
 	
 	builder = c.ematrix.SimplerEnergyMatrixCalculator.builder(confSpace)
@@ -362,9 +338,6 @@ def MinimizingEnergyCalculator(confSpace, ffparams=None, parallelism=None, strea
 	:builder_option ffparams .minimization.SimpleConfMinimizer$Builder#ffparams:
 	:builder_option parallelism .minimization.SimpleConfMinimizer$Builder#parallelism:
 	:builder_option streaming .minimization.SimpleConfMinimizer$Builder#isStreaming:
-
-		.. todo:: describe streaming, vs fixed-length minimization, and buffering
-
 	:builder_return .minimization.SimpleConfMinimizer$Builder:
 	'''
 	builder = c.minimization.SimpleConfMinimizer.builder(confSpace)
@@ -394,6 +367,7 @@ def GMECFinder(confSpace, emat=None, astar=None, energyCalculator=None, confLog=
 	:builder_option energyCalculator .gmec.SimpleGMECFinder$Builder#ecalc:
 	:param str confLog: Path to file where conformations found during conformation space search should be logged.
 	:builder_option printIntermediateConfs .gmec.SimpleGMECFinder$Builder#printIntermediateConfsToConsole:
+	:builder_return .gmec.SimpleGMECFinder$Builder:
 	'''
 
 	if emat is not None:

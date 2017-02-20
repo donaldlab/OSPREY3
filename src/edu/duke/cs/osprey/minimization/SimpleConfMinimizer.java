@@ -39,7 +39,11 @@ public class SimpleConfMinimizer implements ConfEnergyCalculator.Async {
 		private Parallelism parallelism;
 		private Type type;
 		
-		/** Is the number of conformations to be minimized unknown in advance? */
+		/**
+		 * Is the number of conformations to be minimized unknown in advance?
+		 * 
+		 * @todo describe conf streaming and ThreadPoolTaskExecutor buffers. or just get rid of the buffering entirely.
+		 */
 		private boolean isStreaming = false;
 		private ForcefieldParams ffparams = Defaults.forcefieldParams;
 		

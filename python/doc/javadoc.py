@@ -399,11 +399,10 @@ class BuilderOptionDoctag(Doctag):
 
 			# use the javadoc as the param desc, if available
 			if field.documentation is None:
-				javadoc_desc = ''
+				desc = ''
 			else:
-				javadoc = Javadoc(field.documentation, ast.package, ast.imports, app.config)
-				javadoc_desc = javadoc.description
-			rst.append('%s:param %s: %s' % (indent, argname, javadoc_desc))
+				desc = ':java:fielddoc:`%s`' % ref
+			rst.append('%s:param %s: %s' % (indent, argname, desc))
 
 			# add sublines after the :param: tag
 			rst.extend(sublines)
@@ -651,18 +650,36 @@ class Javadoc():
 
 	@property
 	def description(self):
-		return self._translate(self.parsed.description)
 
+		# start with the main javadoc text
+		desc = []
+		desc.append(self._translate(self.parsed.description))
+
+		# add any notes, warnings, etc
+		for tagname in ['note', 'warning', 'todo']:
+			try:
+				for text in self.parsed.tags[tagname]:
+					text = text.replace('\n', ' ')
+					desc.append('')
+					desc.append('.. %s:: %s' % (tagname, self._translate(text)))
+			except KeyError:
+				pass
+
+		return '\n'.join(desc)
+
+	
+	def _resolve_all(self, text, tagname, resolver):
+		regex = re.compile(r'\{@%s ([^\}]+)\}' % tagname)
+		def resolver_helper(match):
+			return resolver(match.group(1))
+		return regex.sub(resolver_helper, text)
+		
 
 	def _translate(self, text):
 
 		# translate links from javadoc to sphinx
-		link_regex = re.compile(r'\{@link ([^\}]+)\}')
-		def link_resolver(match):
+		def link_resolver(target):
 			
-			# what's being linked to?
-			target = match.group(1)
-
 			# resolve against imports to get a full ref
 			ref = self.import_resolver.resolve(target)
 
@@ -670,8 +687,30 @@ class Javadoc():
 			rst = []
 			rst.append(':java:ref:`%s`' % str(ref))
 			return '\n'.join(rst)
+		text = self._resolve_all(text, 'link', link_resolver)
 
-		return link_regex.sub(link_resolver, text)
+		# translate citations to rst
+		citations = {}
+		def cite_resolver(key_and_citation):
+
+			# parse the citation
+			parts = key_and_citation.split(' ')
+			key = parts[0]
+			citation = ' '.join(parts[1:]).replace('\n', ' ')
+
+			# save the citaiton for later, so we can append it
+			citations[key] = citation
+
+			# put just the key inline
+			return '[%s]_' % key
+
+		text = self._resolve_all(text, 'cite', cite_resolver)
+
+		# append the citations to the end
+		for key, citation in citations.items():
+			text += '\n\n.. [%s] %s' % (key, citation)
+	
+		return text
 
 
 def is_public(thing):
@@ -693,7 +732,7 @@ def parse_rst(rst, settings):
 		rst = '\n'.join(rst)
 
 	# parse the rst and return the nodes
-	docSource = 'I come from the water'
+	docSource = 'dynamicaly-generated-rst'
 	doc = docutils.utils.new_document(docSource, settings)
 	docutils.parsers.rst.Parser().parse(rst, doc)
 

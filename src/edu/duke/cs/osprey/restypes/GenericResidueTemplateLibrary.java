@@ -38,13 +38,30 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary implem
 		/** used to match molecule residues to templates */
 		private Forcefield forcefield;
 		
-		/** text of file with template coordinates */
+		/**
+		 * Text of file with template coordinates. If no coordinates are specified,
+		 * the default template library (of natural amino acids) is used.
+		 * 
+		 * @todo explain template coord file format
+		 */
 		private String templateCoordsText;
 		
-		/** text of file with rotamer dihedral angles */
+		/**
+		 * Text of file with rotamer dihedral angles. If no rotamers are specified,
+		 * the default rotamer library
+		 * {@cite Lovell2000 Lovell, Word, Richardson, and Richardson. "The Penultimate Rotamer Library."
+		 * PROTEINS: Structure, Function, and Genetics, 40:389-408 (2000).}
+		 * is used.
+		 * 
+		 * @todo explain rotamers file format
+		 */
 		private String rotamersText;
 		
-		/** text of file with backbone dependent rotamer dihedral angles */
+		/**
+		 * Text of file with backbone dependent rotamer dihedral angles.
+		 * 
+		 * @todo explain backbone-dependent rotamers file format
+		 */
 		private String backboneDependentRotamersText;
 		private String entropyText;
 		private boolean makeDAminoAcidTemplates;

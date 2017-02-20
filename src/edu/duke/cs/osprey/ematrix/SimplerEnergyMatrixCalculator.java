@@ -46,6 +46,22 @@ public class SimplerEnergyMatrixCalculator {
 		private Parallelism parallelism;
 		private Factory<Minimizer,ObjectiveFunction> minimizerFactory;
 		
+		/**
+		 * Path to file where energy matrix should be saved between computations.
+		 * 
+		 * @note Energy matrix computation can take a long time, but often the results
+		 * can be reused between computations. Use a cache file to skip energy matrix
+		 * computation on the next Osprey run if the energy matrix has already been
+		 * computed once before.
+		 * 
+		 * @warning If design settings are changed between runs, Osprey will make
+		 * some effort to detect that the energy matrix cache is out-of-date and compute a
+		 * new energy matrix instead of usng the cached, incorrect one. Osprey might not detect
+		 * all design changes though, and incorrectly reuse a cached energy matrix, so it
+		 * is best to manually delete the entry matrix cache file after changing design settings.
+		 */
+		private File cacheFile = null;
+		
 		public Builder(SimpleConfSpace confSpace) {
 			this.confSpace = confSpace;
 			this.ffparams = Defaults.forcefieldParams;
@@ -69,7 +85,7 @@ public class SimplerEnergyMatrixCalculator {
 		}
 		
 		public SimplerEnergyMatrixCalculator build() {
-			return new SimplerEnergyMatrixCalculator(confSpace, ffparams, parallelism.numThreads, minimizerFactory);
+			return new SimplerEnergyMatrixCalculator(confSpace, ffparams, parallelism.numThreads, minimizerFactory, cacheFile);
 		}
 	}
 	
@@ -110,38 +126,37 @@ public class SimplerEnergyMatrixCalculator {
 		}
 	}
 	
-	private SimpleConfSpace confSpace;
-	private int numThreads;
-	private Factory<Minimizer,ObjectiveFunction> minimizerFactory;
-	private EnergyFunctionGenerator efuncgen;
+	private final SimpleConfSpace confSpace;
+	private final int numThreads;
+	private final Factory<Minimizer,ObjectiveFunction> minimizerFactory;
+	private final File cacheFile;
+	private final EnergyFunctionGenerator efuncgen;
 
-	private SimplerEnergyMatrixCalculator(SimpleConfSpace confSpace, ForcefieldParams ffparams, int numThreads, Factory<Minimizer,ObjectiveFunction> minimizerFactory) {
+	private SimplerEnergyMatrixCalculator(SimpleConfSpace confSpace, ForcefieldParams ffparams, int numThreads, Factory<Minimizer,ObjectiveFunction> minimizerFactory, File cacheFile) {
 		this.confSpace = confSpace;
 		this.numThreads = numThreads;
 		this.minimizerFactory = minimizerFactory;
+		this.cacheFile = cacheFile;
 		
 		efuncgen = new EnergyFunctionGenerator(ffparams);
 	}
 	
-	public void setNumThreads(int val) {
-		numThreads = val;
-	}
-	
-	public void setMinimizerFactory(Factory<Minimizer,ObjectiveFunction> val) {
-		minimizerFactory = val;
-	}
-	
-	public EnergyMatrix calcEnergyMatrix(File cacheFile) {
-		return ObjectIO.readOrMake(
-			cacheFile,
-			EnergyMatrix.class,
-			"energy matrix",
-			(emat) -> emat.matches(confSpace),
-			(context) -> calcEnergyMatrix()
-		);
-	}
-	
 	public EnergyMatrix calcEnergyMatrix() {
+		
+		if (cacheFile != null) {
+			return ObjectIO.readOrMake(
+				cacheFile,
+				EnergyMatrix.class,
+				"energy matrix",
+				(emat) -> emat.matches(confSpace),
+				(context) -> calcEnergyMatrix()
+			);
+		} else {
+			return reallyCalcEnergyMatrix();
+		}
+	}
+	
+	private EnergyMatrix reallyCalcEnergyMatrix() {
 		
 		// start the task executor
 		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
