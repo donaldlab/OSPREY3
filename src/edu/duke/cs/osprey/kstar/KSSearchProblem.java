@@ -15,6 +15,7 @@ import edu.duke.cs.osprey.kstar.emat.ReducedEnergyMatrix;
 import edu.duke.cs.osprey.kstar.pruning.InvertedPruningMatrix;
 import edu.duke.cs.osprey.kstar.pruning.ReducedPruningMatrix;
 import edu.duke.cs.osprey.kstar.pruning.UnprunedPruningMatrix;
+import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
@@ -37,7 +38,7 @@ public class KSSearchProblem extends SearchProblem {
 			EPICSettings epicSettings, boolean useTupExp, LUTESettings luteSettings,
 			DEEPerSettings dset, ArrayList<String[]> moveableStrands,
 			ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef, boolean addResEntropy,
-			boolean addWTRots, KSTermini termini, boolean useVoxelG) {
+			boolean addWTRots, ResidueTermini termini, boolean useVoxelG) {
 
 		super(name, PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, useEPIC, epicSettings, useTupExp, luteSettings,
 				dset, moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWTRots, termini, useVoxelG, new ArrayList<>());

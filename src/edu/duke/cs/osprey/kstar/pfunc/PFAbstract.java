@@ -951,7 +951,7 @@ public abstract class PFAbstract implements Serializable {
 	
 	public void rePruneReducedSP(double pruningInterval) {	
 		panSP = (KSSearchProblem) ObjectIO.deepCopy(panSP);
-		panSP.emat = (EnergyMatrix) ObjectIO.readObject(panSP.getMatrixFileName(panSP.getMatrixType()), true);
+		if(panSP.emat == null) panSP.emat = (EnergyMatrix) ObjectIO.readObject(panSP.getMatrixFileName(panSP.getMatrixType()), false);
 		cfp.setupPruning(panSP, pruningInterval, panSP.useEPIC, panSP.useTupExpForSearch).prune();
 		reducedSP = createReducedSP(panSP.contSCFlex, strand, sequence, absolutePos);
 	}

@@ -16,9 +16,9 @@ public class MultiStateKStarTree extends AStarTree<FullAStarNode> {
 
 	int numTreeLevels;//number of residues with sequence changes
 
-	LMKSS objFcn;//we are minimizing objFcn...
-	LMKSS[] kssConstraints;
-	LMPF[][] pfConstraints;
+	LMV objFcn;//we are minimizing objFcn...
+	LMV[] kssConstraints;
+	LMV[][] pfConstraints;
 
 	ArrayList<ArrayList<String>> AATypeOptions;
 	// MultiStateKStarTreeNode.assignments Assigns each level an index in 
@@ -53,14 +53,14 @@ public class MultiStateKStarTree extends AStarTree<FullAStarNode> {
 
 	public MultiStateKStarTree(
 			int numTreeLevels, 
-			LMKSS objFcn, 
-			LMKSS[] constraints,
+			LMV objFcn, 
+			LMV[] constraints,
 			ArrayList<ArrayList<String>> AATypeOptions, 
 			int numMaxMut, 
 			String[] wtSeq, 
 			int numStates,
 			SearchProblem[] stateSP, 
-			ArrayList<ArrayList<Integer>> mutable2StatePosNums, 
+			ArrayList<ArrayList<ArrayList<Integer>>> mutable2StatePosNums, 
 			int numTopConfs) {
 
 	}
@@ -87,6 +87,10 @@ public class MultiStateKStarTree extends AStarTree<FullAStarNode> {
 	public boolean isFullyAssigned(FullAStarNode node) {
 		// TODO Auto-generated method stub
 		return false;
+	}
+	
+	public String seqAsString(int[] seqNodeAssignments) {
+		return null;
 	}
 
 }

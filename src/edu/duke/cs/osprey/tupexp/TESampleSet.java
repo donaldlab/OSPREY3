@@ -8,8 +8,6 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
-import java.util.PriorityQueue;
 import java.util.Random;
 
 /**

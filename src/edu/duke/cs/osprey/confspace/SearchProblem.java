@@ -17,7 +17,7 @@ import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
-import edu.duke.cs.osprey.kstar.KSTermini;
+import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -69,7 +69,8 @@ public class SearchProblem implements Serializable {
     public PruningMatrix competitorPruneMat;//a pruning matrix performed at pruning interval 0,
     //to decide which RC tuples are valid competitors for pruning
     
-        
+    public ArrayList<String> flexRes; 
+    public ArrayList<ArrayList<String>> allowedAAs;
     
     public boolean useEPIC = false;
     public boolean useTupExpForSearch = false;//use a tuple expansion to approximate the energy as we search
@@ -81,28 +82,35 @@ public class SearchProblem implements Serializable {
     public int numEmatThreads = 1;
     
     
-    public SearchProblem(SearchProblem sp1){//shallow copy
-    	confSpace = sp1.confSpace;
-    	emat = sp1.emat;
-        epicMat = sp1.epicMat;
-        epicSettings = sp1.epicSettings;
-        luteSettings = sp1.luteSettings;
-        deeperSettings = sp1.deeperSettings;
-        tupExpEMat = sp1.tupExpEMat;
+    public SearchProblem(SearchProblem other){//shallow copy
+    	confSpace = other.confSpace;
+    	emat = other.emat;
+        epicMat = other.epicMat;
+        epicSettings = other.epicSettings;
+        luteSettings = other.luteSettings;
+        deeperSettings = other.deeperSettings;
+        tupExpEMat = other.tupExpEMat;
         
-    	fullConfE = sp1.fullConfE;
-    	shellResidues = sp1.shellResidues;
-    	name = sp1.name + System.currentTimeMillis();//probably will want to change this to something more meaningful
+    	fullConfE = other.fullConfE;
+    	shellResidues = other.shellResidues;
+    	name = other.name + System.currentTimeMillis();//probably will want to change this to something more meaningful
         
-    	pruneMat = sp1.pruneMat;
-    	competitorPruneMat = sp1.competitorPruneMat;
+    	pruneMat = other.pruneMat;
+    	competitorPruneMat = other.competitorPruneMat;
         
-    	contSCFlex = sp1.contSCFlex;
-    	useEPIC = sp1.useEPIC;
-    	useTupExpForSearch = sp1.useTupExpForSearch;
+    	contSCFlex = other.contSCFlex;
+    	flexRes = other.flexRes;
+        allowedAAs = other.allowedAAs;
+    	
+    	useVoxelG = other.useVoxelG;
+        gCalc = other.gCalc;
+    	
+    	useEPIC = other.useEPIC;
+    	useTupExpForSearch = other.useTupExpForSearch;
         
-        useERef = sp1.useERef;
-        addResEntropy = sp1.addResEntropy;
+        useERef = other.useERef;
+        addResEntropy = other.addResEntropy;
+        numEmatThreads = other.numEmatThreads;
     }
     
     
@@ -110,12 +118,13 @@ public class SearchProblem implements Serializable {
     public SearchProblem(String name, String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, boolean addWT,
             boolean contSCFlex, boolean useEPIC, EPICSettings epicSettings, boolean useTupExp, LUTESettings luteSettings, DEEPerSettings dset, 
             ArrayList<String[]> moveableStrands, ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef,
-            boolean addResEntropy, boolean addWTRots, KSTermini termini, boolean useVoxelG, ArrayList<String> wtRotOnlyRes){
+            boolean addResEntropy, boolean addWTRots, ResidueTermini termini, boolean useVoxelG, ArrayList<String> wtRotOnlyRes){
         
         confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, wtRotOnlyRes,
                 contSCFlex, dset, moveableStrands, freeBBZones, useEllipses, addWTRots, termini);
         this.name = name;
-        
+        this.flexRes = flexibleRes;
+        this.allowedAAs = allowedAAs;
         
         this.contSCFlex = contSCFlex;
         this.useTupExpForSearch = useTupExp;
