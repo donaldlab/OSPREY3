@@ -18,6 +18,9 @@ import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 
+/**
+ * A molecule with associated residue flexibility information.
+ */
 public class Strand {
 	
 	public static final String WildType = "__WT__";

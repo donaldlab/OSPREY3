@@ -17,17 +17,37 @@ import edu.duke.cs.osprey.minimization.SimpleConfMinimizer;
 import edu.duke.cs.osprey.tools.Progress;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
+/**
+ * Searches a conformation space for the single conformation that minimizes the
+ * desired energy function, ie the Global Minimum Energy Conformation, or GMEC.
+ * 
+ * The search is performed by ordering all conformations in the conformation space
+ * using A* search, and evaluating the energy of each conformation in order.
+ * 
+ * The search terminates returns the lowest-energy conformation found so far
+ * when it can be proven that all remaining conformations in the conformation
+ * space must have higher energy.
+ */
 public class SimpleGMECFinder {
 	
 	public static class Builder {
 		
 		private SimpleConfSpace space;
+		
+		/** A* implementation to sort conformations in the conformation space. */
 		private ConfSearch search;
+		
+		/**
+		 * Calculates the energy for a conformation.
+		 * If not specified, a default {@link SimpleConfMinimizer} will be used.
+		 */
 		private ConfEnergyCalculator.Async ecalc;
 		private ConfPruner pruner;
 		private ConfPrinter logPrinter;
 		private ConfPrinter consolePrinter;
-		private boolean printIntermediateConfsToConsole;
+		
+		/** True to print all conformations found during A* search to the console */ 
+		private boolean printIntermediateConfsToConsole = false;
 		
 		public Builder(SimpleConfSpace space, ConfSearch search) {
 			this.space = space;
@@ -36,7 +56,6 @@ public class SimpleGMECFinder {
 			this.pruner = null;
 			this.logPrinter = new ConfPrinter.Nop();
 			this.consolePrinter = new ConsoleConfPrinter();
-			this.printIntermediateConfsToConsole = false;
 		}
 		
 		public Builder setEnergyCalculator(ConfEnergyCalculator val) {

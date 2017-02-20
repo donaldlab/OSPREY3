@@ -21,6 +21,9 @@ import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Progress;
 
+/**
+ * Computes a matrix of energies between pairs of residue conformations to be used by A* search.
+ */
 public class SimplerEnergyMatrixCalculator {
 	
 	// NOTE: don't use GPUs on energy matrices, it's too slow
@@ -28,8 +31,18 @@ public class SimplerEnergyMatrixCalculator {
 	
 	public static class Builder {
 		
+		/**
+		 * The conformation space containing the strands to be designed.
+		 * 
+		 * If the strands are configured with continuous flexibility, the energy matrix will
+		 * minimize residue conformation pairs before computing energies.
+		 */
 		private SimpleConfSpace confSpace;
+		
+		/** The forcefield parameters for energy calculation. */
 		private ForcefieldParams ffparams;
+		
+		/** Available hardware for high-performance computation. */
 		private Parallelism parallelism;
 		private Factory<Minimizer,ObjectiveFunction> minimizerFactory;
 		

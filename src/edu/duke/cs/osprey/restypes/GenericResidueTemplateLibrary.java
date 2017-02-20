@@ -18,13 +18,13 @@ import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.StringParsing;
 
 /**
+ * This library of residue templates defines what types of residues Osprey can model
+ * and what flexibility and energy parameters come with each type.
  *
  * @author mhall44
  */
 public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary implements Serializable {
 	
-    //This library of residue templates defines what types of residues we can model
-    //and what flexibility and energy parameters come with each type
     //NAMING: We assume each distinct residue (AA or otherwise) has its own name
     //however, many residues will have multiple slightly different forms (N-terminal, etc.) 
     //and these will share a name and a rotamer library entry
@@ -35,9 +35,16 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary implem
 		
 		private static final String LovellRotamersPath = "/config/LovellRotamer.dat";
 		
+		/** used to match molecule residues to templates */
 		private Forcefield forcefield;
+		
+		/** text of file with template coordinates */
 		private String templateCoordsText;
+		
+		/** text of file with rotamer dihedral angles */
 		private String rotamersText;
+		
+		/** text of file with backbone dependent rotamer dihedral angles */
 		private String backboneDependentRotamersText;
 		private String entropyText;
 		private boolean makeDAminoAcidTemplates;
@@ -51,19 +58,16 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary implem
 			makeDAminoAcidTemplates = true;
 		}
 		
-		/** used to match molecule residues to templates */
 		public Builder setForcefield(Forcefield val) {
 			forcefield = val;
 			return this;
 		}
 		
-		/** text of file with template coordinates */
 		public Builder setTemplateCoords(String text) {
 			templateCoordsText = text;
 			return this;
 		}
 		
-		/** text of file with rotamer dihedral angles */
 		public Builder setRotamers(String text) {
 			rotamersText = text;
 			return this;
@@ -73,7 +77,6 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary implem
 			return setRotamers(FileTools.readResource(LovellRotamersPath));
 		}
 		
-		/** text of file with backbone dependent rotamer dihedral angles */
 		public Builder setBackboneDependentRotamers(String text) {
 			backboneDependentRotamersText = text;
 			return this;

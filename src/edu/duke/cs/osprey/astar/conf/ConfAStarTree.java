@@ -23,7 +23,9 @@ public class ConfAStarTree implements ConfSearch {
 
 	public static class Builder {
 		
+		/** The energy matrix to use for pairwise residue conformation energies. */
 		private EnergyMatrix emat;
+		
 		private RCs rcs;
 		private AStarOrder order;
 		private AStarScorer gscorer;
@@ -93,7 +95,11 @@ public class ConfAStarTree implements ConfSearch {
 	public static class MPLPBuilder {
 		
 		private NodeUpdater updater = new NodeUpdater();
+		
+		/** The number of MPLP iterations to execute on each A* node. */
 		private int numIterations = 1;
+		
+		/** If the change in energy after an iteration is below this threshold, MPLP will stop iterating */
 		private double convergenceThreshold = 0.0001;
 		
 		public MPLPBuilder setUpdater(NodeUpdater val) {
@@ -101,13 +107,11 @@ public class ConfAStarTree implements ConfSearch {
 			return this;
 		}
 		
-		/** The number of MPLP iterations to execute on each A* node. */
 		public MPLPBuilder setNumIterations(int val) {
 			numIterations = val;
 			return this;
 		}
 		
-		/** If the change in energy after an iteration is below this threshold, MPLP will stop iterating */
 		public MPLPBuilder setConvergenceThreshold(double val) {
 			convergenceThreshold = val;
 			return this;

@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.parallelism;
 
 import edu.duke.cs.osprey.control.ConfigFileParser;
 
+/** Specified how Osprey should use available hardware. */
 public class Parallelism {
 	
 	public static enum Type {

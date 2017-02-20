@@ -26,6 +26,11 @@ import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tools.Progress;
 
+/**
+ * Computes the energy of a conformation using the desired forcefield.
+ * 
+ * If a conformation has continuous degrees of freedom, minimization will be performed before forcefield evaluation.
+ */
 public class SimpleConfMinimizer implements ConfEnergyCalculator.Async {
 	
 	public static class Builder {
@@ -33,15 +38,15 @@ public class SimpleConfMinimizer implements ConfEnergyCalculator.Async {
 		private SimpleConfSpace confSpace;
 		private Parallelism parallelism;
 		private Type type;
-		private boolean isStreaming;
-		private ForcefieldParams ffparams;
+		
+		/** Is the number of conformations to be minimized unknown in advance? */
+		private boolean isStreaming = false;
+		private ForcefieldParams ffparams = Defaults.forcefieldParams;
 		
 		public Builder(SimpleConfSpace confSpace) {
 			this.confSpace = confSpace;
 			this.parallelism = Parallelism.makeDefault();
 			this.type = null;
-			this.isStreaming = false;
-			this.ffparams = Defaults.forcefieldParams;
 		}
 		
 		public Builder setParallelism(Parallelism val) {

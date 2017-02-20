@@ -8,6 +8,28 @@ import re
 ast_cache = {}
 doctags = []
 
+# java->python type translations, see:
+# http://jpype.readthedocs.io/en/latest/userguide.html#type-conversion
+java_to_python_types = {
+	'byte': 'int',
+	'short': 'int',
+	'int': 'int',
+	'long': 'long',
+	'float': 'float',
+	'double': 'float',
+	'char': 'str',
+	'String': 'str',
+	'boolean': 'bool'
+}
+
+java_to_python_constants = {
+	'true': 'True',
+	'false': 'False',
+	'null': 'None',
+	'Double.POSITIVE_INFINITY': "float('inf')",
+	'Double.NEGATIVE_INFINITY': "-float('inf')"
+}
+
 
 # Sphinx application API
 # www.sphinx-doc.org/en/1.5.1/extdev/appapi.html
@@ -20,15 +42,17 @@ def setup(app):
 
 	app.add_domain(JavadocDomain)
 
+	app.add_role('java:classdoc', ClassdocRole())
 	app.add_role('java:fielddoc', FielddocRole())
 	app.add_role('java:methoddoc', MethoddocRole())
 
 	app.connect('autodoc-process-signature', autodoc_signature_handler)
 	app.connect('autodoc-process-docstring', autodoc_docstring_handler)
 
-	# builder options should come before default!
-	# (because builder options emit default doctags)
+	# builder doctags should come before default!
+	# (because builder doctags emit default doctags)
 	doctags.append(BuilderOptionDoctag())
+	doctags.append(BuilderReturnDoctag())
 	doctags.append(DefaultDoctag())
 
 	return { 'version': '0.1' }
@@ -83,13 +107,11 @@ def autodoc_signature_handler(app, what, name, obj, options, signature, return_a
 			line = doclines[i]
 
 			try:
-				name, args, text, indent = Doctag.parse_line(line)
+				name, args, text, indent, sublines = Doctag.parse_lines(doclines, i)
+				if name != tag.name:
+					raise ValueError
 			except (KeyError, ValueError):
 				# not a doctag, just keep going
-				continue
-
-			if name != tag.name:
-				# not our doctag, keep going
 				continue
 
 			# curry the warn function for this line
@@ -110,21 +132,25 @@ def autodoc_docstring_handler(app, what, name, obj, options, doclines, for_signa
 	for tag in doctags:
 
 		newlines = []
+		skip_lines = 0
 
 		# look for tags in the docstring, like:
 		# :default argname: default value
 		for i in range(len(doclines)):
+
+			# skip lines if needed
+			if skip_lines > 0:
+				skip_lines -= 1
+				continue
+
 			line = doclines[i]
 
 			try:
-				name, args, text, indent = Doctag.parse_line(line)
+				name, args, text, indent, sublines = Doctag.parse_lines(doclines, i)
+				if name != tag.name:
+					raise ValueError
 			except (KeyError, ValueError):
-				# not a doctag, just keep going
-				newlines.append(line)
-				continue
-
-			if name != tag.name:
-				# not our doctag, keep going
+				# not our doctag, just keep going
 				newlines.append(line)
 				continue
 
@@ -133,32 +159,60 @@ def autodoc_docstring_handler(app, what, name, obj, options, doclines, for_signa
 				warn(msg, lineno=i, cause=cause)
 
 			# what does the tag want to do with this line?
-			result = tag.handle_docstring(app, args, text, indent, line, curried_warn, for_signature)
+			result = tag.handle_docstring(app, args, text, indent, line, sublines, curried_warn, for_signature)
 			if result is not None:
+
+				# add the result from the doctag
 				if isinstance(result, str):
 					newlines.append(result)
 				else:
 					newlines.extend(result)
 
+				# skip the sublines
+				skip_lines = len(sublines)
+
+
 		# replace the existing lines
 		doclines[:] = newlines
+
+	# DEBUG: for docstring transformations
+	#if for_signature is False and obj.__name__ == 'TemplateLibrary':
+	#	print('DOCSTRING')
+	#	for line in doclines:
+	#		print(line)
+
+
+def resolve_typename(typename, package, imports, config):
+
+	# is this a primitive type?
+	try:
+		return java_to_python_types[typename]
+	except KeyError:
+		# not a primitive
+		pass
+	
+	# try a java class
+	ref = ImportResolver(package, imports, config).resolve(typename)
+	return ':java:ref:`%s`' % ref.full_classname
 
 
 class Doctag():
 
 	@staticmethod
-	def parse_line(line):
+	def parse_lines(lines, lineno):
 
-		# get the indent
-		try:
-			indent = re.findall(r'^\s+', line)[0]
-		except IndexError:
-			indent = ''
+		# analyze the first line for doctag params
+		line = lines[lineno]
 
-		# look for name, args, and text
+		def get_indent(line):
+			try:
+				return re.findall(r'^\s+', line)[0]
+			except IndexError:
+				return ''
+
+		indent = get_indent(line)
 		line = line.strip()
 
-		# the line should start with a :
 		if not line.startswith(':'):
 			raise ValueError
 
@@ -171,7 +225,28 @@ class Doctag():
 		args = name_and_args[1:]
 		text = ':'.join(line_parts[2:]).strip()
 
-		return name, args, text, indent
+		# get sublines (have greater indent)
+		last_sublineno = lineno
+		for i in range(lineno + 1, len(lines)):
+			nextline = lines[i]
+			last_sublineno = i
+			if len(nextline.strip()) == 0:
+				continue
+			# did we hit a line with same or lesser indent?
+			# NOTE: this won't work with mixed tabs and spaces,
+			# but let's just hope that never happens
+			if len(get_indent(nextline)) <= len(indent):
+				last_sublineno = i
+				break
+
+		sublines = lines[lineno + 1:last_sublineno]
+
+		# if all sublines are empty, remove them
+		nonempty_sublines = [l for l in sublines if len(l.strip()) > 0]
+		if len(nonempty_sublines) == 0:
+			sublines = []
+
+		return name, args, text, indent, sublines
 
 
 	def handle_signature(self, app, args, text, func, argspec, warn):
@@ -179,7 +254,7 @@ class Doctag():
 		pass
 
 	
-	def handle_docstring(self, app, args, text, indent, line, warn, for_signature=False):
+	def handle_docstring(self, app, args, text, indent, line, sublines, warn, for_signature=False):
 		# do nothing to remove this line from the docstring
 		# or override me if you want
 		pass
@@ -189,17 +264,41 @@ class DefaultDoctag(Doctag):
 
 	name = 'default'
 
+	def map_constants(self, val):
+		
+		# apply common java->python transformations for well-known constants
+		if val in java_to_python_constants:
+			val = java_to_python_constants[val]
+
+		return val
+	
+
 	def resolve(self, target, config):
+
+		# get the java field
 		ref = JavaRef(expand_classname(target, config))
 		ast = get_class_ast(ref, config)
 		field = ast.find_field(ref.membername)
 
-		# get the default value from the field declaration
-		if not isinstance(field.declarator.initializer, javalang.tree.Literal):
-			raise ValueError("field not initialized with a literal, can't use value")
+		# get the default value from the field declaration/initialization
+		init = field.declarator.initializer
+		if isinstance(init, javalang.tree.Literal):
 
-		# got the default value!
-		return str(field.declarator.initializer.value)
+			# initialized to literal value, use directly
+			return self.map_constants(init.value)
+
+		elif isinstance(init, javalang.tree.MemberReference):
+
+			# initialized to some expression like foo or foo.bar
+			if init.qualifier is '':
+				val = init.member
+			else:
+				val = '%s.%s' % (init.qualifier, init.member)
+
+			return self.map_constants(val)
+
+		else:
+			raise ValueError("field initialized with a %s, don't know what to do" % init)
 
 
 	def set_default(self, argspec, name, val):
@@ -249,11 +348,11 @@ class DefaultDoctag(Doctag):
 			return
 
 
-	def handle_docstring(self, app, args, text, indent, line, warn, for_signature=False):
+	def handle_docstring(self, app, args, text, indent, line, sublines, warn, for_signature=False):
 
 		# for signatures, leave our line in, so the signature doctags can find them
 		if for_signature:
-			return line
+			return [line] + sublines
 
 		# otherwise, remove them
 		else:
@@ -264,55 +363,87 @@ class BuilderOptionDoctag(Doctag):
 
 	name = 'builder_option'
 
-	def handle_docstring(self, app, args, text, indent, line, warn, for_signature=False):
+	def handle_docstring(self, app, args, text, indent, line, sublines, warn, for_signature=False):
 
-		if len(args) < 3:
-			warn('Not enough args for builder option. Need at least python arg name, builder class ref, and builder setter method name (and optionally builder field name)')
+		if len(args) < 2:
+			warn('Not enough args for builder option. Need python arg name, builder field ref')
 			return None
 
 		# parse the args
 		argname = args[0]
 		ref = JavaRef(expand_classname(args[1], app.config))
-		methodname = args[2]
-		if len(args) >= 4:
-			fieldname = args[3]
-		else:
-			fieldname = None
+
+		# look up the builder class
+		try:
+			ast = get_class_ast(ref, app.config)
+		except (KeyError, ValueError, FileNotFoundError) as e:
+			warn("can't find builder class: %s" % ref.full_classname, cause=e)
+			return
+
+		# lookup the builder field
+		try:
+			field = ast.find_field(ref.membername)
+		except KeyError:
+			warn("can't find field %s" % ref)
+			return
 
 		rst = []
 
 		if for_signature:
 
-			# just emit the default doctag if needed
-			if fieldname is not None:
-				rst.append('%s:default %s: :java:default:`%s#%s`' % (indent, argname, ref, fieldname))
+			# if the field has an assignment, grab the value for the arg default
+			if field.declarator.initializer is not None:
+				rst.append('%s:default %s: :java:default:`%s`' % (indent, argname, ref))
 
 		else:
 
-			# look up the builder class
+			# use the javadoc as the param desc, if available
+			if field.documentation is None:
+				javadoc_desc = ''
+			else:
+				javadoc = Javadoc(field.documentation, ast.package, ast.imports, app.config)
+				javadoc_desc = javadoc.description
+			rst.append('%s:param %s: %s' % (indent, argname, javadoc_desc))
+
+			# add sublines after the :param: tag
+			rst.extend(sublines)
+
+			# use the field type as the argument type
 			try:
-				ast = get_class_ast(ref, app.config)
-			except (KeyError, ValueError, FileNotFoundError) as e:
-				warn("can't find builder class: %s" % ref, cause=e)
+				typename = field.type.name
+				typename = resolve_typename(typename, ast.package, ast.imports, app.config)
+				rst.append('%s:type %s: %s' % (indent, argname, typename))
+			except ValueError as e:
+				warn("can't resolve java type '%s' referenced in class '%s'" % (typename, ref), cause=e)
 				return
-
-			# lookup the builder setter method
-			try:
-				method = ast.find_method(methodname)
-			except KeyError:
-				warn("can't find builder setter method: %s in class %s" % (methodname, ref))
-				return
-
-			# use the setter javadoc as the param desc
-			if method.documentation is None:
-				warn("method %s in class %s has no javadoc" % (methodname, ref))
-				return
-			javadoc = Javadoc(method.documentation, ast.imports)
-			rst.append('%s:param %s: %s' % (indent, argname, javadoc.description))
-
-			# TODO: type doctag
 
 		return rst
+
+
+class BuilderReturnDoctag(Doctag):
+
+	name = 'builder_return'
+
+	def handle_docstring(self, app, args, text, indent, line, sublines, warn, for_signature=False):
+
+		# look up the builder class
+		ref = JavaRef(expand_classname(args[0], app.config))
+		try:
+			ast = get_class_ast(ref, app.config)
+		except (KeyError, ValueError, FileNotFoundError) as e:
+			warn("can't find builder class: %s" % ref, cause=e)
+			return
+
+		# get the build method
+		try:
+			buildmethod = ast.find_method('build')
+			typename = buildmethod.return_type.name
+			typename = resolve_typename(typename, ast.package, ast.imports, app.config)
+			return '%s:rtype: %s' % (indent, typename)
+		except KeyError:
+			warn("can't find build method on builder class: %s" % ref)
+		except ValueError as e:
+			warn("can't resolve java type '%s' referenced in class '%s'" % (typename, ref), cause=e)
 
 
 def expand_classname(classname, config):
@@ -404,21 +535,32 @@ class JavaRef():
 
 class ImportResolver():
 
-	def __init__(self, imports):
+	def __init__(self, package, imports, config):
+		self.package = package
 		self.imports = imports
+		self.config = config
+
+
+	def has_source(self, ref):
+		path = os.path.join(self.config.javadoc_sources_dir, ref.source_file())
+		return os.path.exists(path)
 
 	
 	def resolve(self, target):
 
 		ref = JavaRef(target)
 
+		# find an import that resolves the target
 		for imp in self.imports:
-
-			# does this import resolve the target?
 			if imp.path.endswith('.%s' % ref.simple_classname):
 				return JavaRef(imp.path, membername=ref.membername)
 
-		raise ValueError("can't resolve java reference against imports: '%s'" % target)
+		# no matching import, check package
+		ref = JavaRef('%s.%s' % (self.package.name, ref.classname), membername=ref.membername)
+		if self.has_source(ref):
+			return ref
+		else:
+			raise ValueError("can't resolve java class against package or imports: %s" % target)
 
 
 def read_file(path):
@@ -438,7 +580,8 @@ def get_class_ast(ref, config):
 		ast = javalang.parse.parse(read_file(path))
 		ast_cache[path] = ast
 
-	# save imports for later
+	# save package and imports for later
+	package = ast.package
 	imports = ast.imports
 
 	def find_type(name, classtypes):
@@ -461,7 +604,8 @@ def get_class_ast(ref, config):
 		except KeyError:
 			raise KeyError("can't find inner class %s in outer class %s in source file %s" % (name, ast.name, ref.source_file()))
 	
-	# reference the imports in the returned type
+	# reference the package and imports in the returned type
+	ast.package = package
 	ast.imports = imports
 
 	# add some helper methods
@@ -478,10 +622,16 @@ def get_class_ast(ref, config):
 	ast.find_field = find_field
 
 	def find_method(name):
+		found_methods = []
 		for method in ast.methods:
 			if method.name == name:
-				return method
-		raise KeyError("can't find method: %s" % name)
+				found_methods.append(method)
+		if len(found_methods) == 0:
+			raise KeyError("can't find method: %s" % name)
+		elif len(found_methods) > 1:
+			raise KeyError("multiple method overloads found for: %s, can't resolve" % name)
+		else:
+			return found_methods[0]
 	ast.find_method = find_method
 
 	return ast
@@ -489,13 +639,13 @@ def get_class_ast(ref, config):
 
 class Javadoc():
 
-	def __init__(self, text, imports):
+	def __init__(self, text, package, imports, config):
 
 		if text is None:
 			raise ValueError('javadoc cannot be None')
 
 		self.text = text
-		self.import_resolver = ImportResolver(imports)
+		self.import_resolver = ImportResolver(package, imports, config)
 		self.parsed = javalang.javadoc.parse(text)
 
 
@@ -607,7 +757,8 @@ class JavaClassDirective(ParsingDirective):
 					rst.append('.. py:attribute:: %s' % decl.name)
 					rst.append('')
 					if field.documentation is not None:
-						rst.append('\t' + Javadoc(field.documentation, ast.imports).description)
+						javadoc = Javadoc(field.documentation, ast.package, ast.imports, self.config)
+						rst.append('\t' + javadoc.description)
 						rst.append('')
 
 		# show methods
@@ -625,7 +776,8 @@ class JavaClassDirective(ParsingDirective):
 				rst.append('.. py:method:: %s' % make_method_signature(method))
 				rst.append('')
 				if method.documentation is not None:
-					rst.append('\t' + Javadoc(method.documentation, ast.imports).description)
+					javadoc = Javadoc(method.documentation, ast.package, ast.imports, self.config)
+					rst.append('\t' + javadoc.description)
 					rst.append('')
 
 		# show enum constants
@@ -642,7 +794,8 @@ class JavaClassDirective(ParsingDirective):
 				rst.append('.. py:attribute:: %s' % value.name)
 				rst.append('')
 				if value.documentation is not None:
-					rst.append('\t' + Javadoc(value.documentation, ast.imports).description)
+					javadoc = Javadoc(value.documentation, ast.package, ast.imports, self.config)
+					rst.append('\t' + javadoc.description)
 					rst.append('')
 
 		if not showedSomething:
@@ -688,6 +841,28 @@ class JavaRole():
 		raise Exception('implement me for %s' % self.__class__.__name__)
 
 
+class ClassdocRole(JavaRole):
+
+	def make_rst(self, text):
+
+		# find the class
+		try:
+			ref = JavaRef(expand_classname(text, self.config))
+			ast = get_class_ast(ref, self.config)
+		except (KeyError, ValueError, FileNotFoundError) as e:
+			return self.warn("can't find java class: %s" % text, cause=e)
+		
+		# look for the javadoc
+		if ast.documentation is None:
+			return self.warn("class %s has no javadoc" % ref)
+
+		# parse the javadoc
+		try:
+			return Javadoc(ast.documentation, ast.package, ast.imports, self.config).description
+		except (KeyError, ValueError) as e:
+			return self.warn("can't parse javadoc for class: %s" % ref, cause=e)
+
+
 class FielddocRole(JavaRole):
 
 	def make_rst(self, text):
@@ -706,7 +881,7 @@ class FielddocRole(JavaRole):
 
 		# parse the javadoc
 		try:
-			return Javadoc(field.documentation, ast.imports).description
+			return Javadoc(field.documentation, ast.package, ast.imports, self.config).description
 		except (KeyError, ValueError) as e:
 			return self.warn("can't parse javadoc for field: %s" % ref, cause=e)
 
@@ -729,7 +904,7 @@ class MethoddocRole(JavaRole):
 
 		# parse the javadoc
 		try:
-			return Javadoc(method.documentation, ast.imports).description
+			return Javadoc(method.documentation, ast.package, ast.imports, self.config).description
 		except (KeyError, ValueError) as e:
 			return self.warn("can't parse javadoc for method: %s" % ref, cause=e)
 

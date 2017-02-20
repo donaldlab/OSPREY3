@@ -17,7 +17,7 @@ import edu.duke.cs.osprey.tools.ObjectIO.BadFileException;
 import edu.duke.cs.osprey.tools.ObjectIO.CantWriteException;
 
 /**
- *
+ * Matrix of energies between pairs of residue conformations.
  * @author mhall44
  */
 public class EnergyMatrix extends TupleMatrixDouble {

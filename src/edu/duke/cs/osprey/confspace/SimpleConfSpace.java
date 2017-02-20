@@ -20,20 +20,24 @@ import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 
 /**
- * maintains the design positions and residue conformations for a list of strands
+ * Maintains the design positions and residue conformations for a list of strands.
  * 
- * also creates molecules in conformations on-demand
+ * Also creates molecules in conformations on-demand.
  */
 public class SimpleConfSpace {
 	
 	public static class Builder {
 		
 		private SimpleConfSpace confSpace;
-		private double shellDist;
+		
+		/**
+		 * A residue is included in the steric shell if any of its atoms lies within
+		 * shellDist angstroms of any atom in any flexible residue.
+		 */
+		private double shellDist = Double.POSITIVE_INFINITY;
 		
 		public Builder() {
 			confSpace = new SimpleConfSpace();
-			shellDist = Double.POSITIVE_INFINITY;
 		}
 		
 		public Builder addStrand(Strand strand, StrandFlex ... flexType) {

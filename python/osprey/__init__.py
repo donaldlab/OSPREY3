@@ -128,11 +128,11 @@ def writePdb(mol, path):
 
 def Parallelism(cpuCores=None, gpus=None, streamsPerGpu=None):
 	'''
-	Specifies how Osprey should use available hardware
+	:java:classdoc:`.parallelism.Parallelism`
 
-	:param int cpuCores: :java:fielddoc:`.parallelism.Parallelism#numThreads`
-	:param int gpus: :java:fielddoc:`.parallelism.Parallelism#numGpus`
-	:param int streamsPerGpu: :java:fielddoc:`.parallelism.Parallelism#numStreamsPerGpu`
+	:builder_option cpuCores .parallelism.Parallelism#numThreads:
+	:builder_option gpus .parallelism.Parallelism#numGpus:
+	:builder_option streamsPerGpu .parallelism.Parallelism#numStreamsPerGpu:
 	:rtype: :java:ref:`.parallelism.Parallelism`
 	'''
 	if gpus is not None:
@@ -145,33 +145,32 @@ def Parallelism(cpuCores=None, gpus=None, streamsPerGpu=None):
 
 def TemplateLibrary(forcefield=None, templateCoords=None, rotamers=None, backboneDependentRotamers=None):
 	'''
-	Creates a template library of rotamers for molecule residues.
+	:java:classdoc:`.restypes.GenericResidueTemplateLibrary`
 
-	:param forcefield: :java:methoddoc:`.restypes.GenericResidueTemplateLibrary$Builder#setForcefield`
-	:type forcefield: :java:ref:`.energy.forcefield.ForcefieldParams$Forcefield`
+	:builder_option forcefield .restypes.GenericResidueTemplateLibrary$Builder#forcefield:
 	:default forcefield: osprey.Forcefield.AMBER
 
-	:param templateCoords: :java:methoddoc:`.restypes.GenericResidueTemplateLibrary$Builder#setTemplateCoords`
+	:builder_option templateCoords .restypes.GenericResidueTemplateLibrary$Builder#templateCoordsText:
 
 		.. todo:: explain template file format?
 
 	:type templateCoords: coords str or file path
 	:default templateCoords: <natural amino acids>
 
-	:param rotamers: :java:methoddoc:`.restypes.GenericResidueTemplateLibrary$Builder#setRotamers`
+	:builder_option rotamers .restypes.GenericResidueTemplateLibrary$Builder#rotamersText:
 
 		.. todo:: explain rotamer file format?
 
 	:type rotamers: coords str or file path
 	:default rotamers: <Lovell rotamer library>
 
-	:param backboneDependentRotamers: :java:methoddoc:`.restypes.GenericResidueTemplateLibrary$Builder#setBackboneDependentRotamers`
+	:builder_option backboneDependentRotamers .restypes.GenericResidueTemplateLibrary$Builder#backboneDependentRotamersText:
 
 		.. todo:: explain backbone-dependent rotamer file format?
 
 	:type backboneDependentRotamers: coords str or file path
 
-	:rtype: :java:ref:`.restypes.GenericResidueTemplateLibrary`
+	:builder_return .restypes.GenericResidueTemplateLibrary$Builder:
 	'''
 
 	builder = c.restypes.GenericResidueTemplateLibrary.builder()
@@ -196,7 +195,7 @@ def TemplateLibrary(forcefield=None, templateCoords=None, rotamers=None, backbon
 
 def Strand(pathOrMol, residues=None):
 	'''
-	A molecule with associated flexibilty information
+	:java:classdoc:`.confspace.Strand`
 
 	:param pathOrMol: path to a PDB file, or a molecule instance
 	:type pathOrMol: str or :java:ref:`.structure.Molecule`
@@ -223,16 +222,12 @@ def Strand(pathOrMol, residues=None):
 
 def ConfSpace(strands, shellDist=None):
 	'''
-	Make a configuration space of strands
+	:java:classdoc:`.confspace.SimpleConfSpace`
 
 	:param strands: the strands to use
 	:type strands: :java:ref:`.confspace.Strand` or list of Strands
-
-	:param float shellDist: A residue is included in the steric shell if any
-		of its atoms lies within ``shellDist`` angstroms of any atom in any flexible residue.
-	:default shellDist: float('inf')
-
-	:rtype: :java:ref:`.confspace.SimpleConfSpace`
+	:builder_option shellDist .confspace.SimpleConfSpace$Builder#shellDist:
+	:builder_return .confspace.SimpleConfSpace$Builder:
 	'''
 
 	builder = c.confspace.SimpleConfSpace.builder()
@@ -273,7 +268,9 @@ def StrandFlex():
 
 def ForcefieldParams():
 	'''
-	Options for configuring forcefields for energy calculation.
+	:java:classdoc:`.energy.forcefield.ForcefieldParams`
+	
+	Configure the forcefield parameters by setting the properties of the :java:ref:`.energy.forcefield.ForcefieldParams` object.
 
 	:rtype: :java:ref:`.energy.forcefield.ForcefieldParams`
 	'''
@@ -282,22 +279,12 @@ def ForcefieldParams():
 
 def EnergyMatrix(confSpace, ffparams=None, parallelism=None, cacheFile=None):
 	'''
-	Compute a matrix of energies between pairs of residue conformations to be used by A* search.
+	:java:classdoc:`.ematrix.SimplerEnergyMatrixCalculator`
 
-	:param confSpace: The conformation space containing the strands to be designed.
-
-		If the strands are configured with continuous flexibility, the energy matrix will
-		minimize residue conformation pairs before computing energies.
-
-	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
-
-	:param ffparams: The forcefield parameters for energy calculation.
-	:type ffparams: :java:ref:`.energy.forcefield.ForefieldParams`
-	:default ffparams: osprey.ForcefieldParams()
-
-	:param parallelism: Available hardware for high-performance computation.
-	:type parallelism: :java:ref:`.parallelism.Parallelism`
-	:default parallelism: ospesy.Parallelism()
+	:builder_option confSpace .ematrix.SimplerEnergyMatrixCalculator$Builder#confSpace:
+	:builder_option ffparams .ematrix.SimplerEnergyMatrixCalculator$Builder#ffparams:
+	:builder_option parallelism .ematrix.SimplerEnergyMatrixCalculator$Builder#parallelism:
+	:default parallelism: osprey.Parallelism()
 
 	:param str cacheFile: Path to file where energy matrix should be saved between computations.
 
@@ -333,13 +320,10 @@ def AStarTraditional(emat, confSpace):
 	'''
 	Creates an A* search using the traditional estimation function.
 
-	:param emat: The energy matrix to use for pairwise residue conformation energies.
-	:type emat: :java:ref:`.ematrix.EnergyMatrix`
-
+	:builder_option emat .astar.conf.ConfAStarTree$Builder#emat:
 	:param confSpace: The conformation space containing the residue conformations to search.
 	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
-
-	:rtype: :java:ref:`.astar.conf.ConfAStarTree`
+	:builder_return .astar.conf.ConfAStarTree$Builder:
 	'''
 	builder = c.astar.conf.ConfAStarTree.builder(emat, confSpace)
 	builder.setTraditional()
@@ -350,14 +334,12 @@ def AStarMPLP(emat, confSpace, numIterations=None, convergenceThreshold=None):
 	'''
 	Creates an A* search using the newer estimation function based on Max Product Linear Programming (MPLP)
 
-	:param emat: The energy matrix to use for pairwise residue conformation energies.
-	:type emat: :java:ref:`.ematrix.EnergyMatrix`
-
+	:builder_option emat .astar.conf.ConfAStarTree$Builder#emat:
 	:param confSpace: The conformation space containing the residue conformations to search.
 	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
-
-	:builder_option numIterations .astar.conf.ConfAStarTree$MPLPBuilder setNumIterations numIterations:
-	:builder_option convergenceThreshold .astar.conf.ConfAStarTree$MPLPBuilder setConvergenceThreshold convergenceThreshold:
+	:builder_option numIterations .astar.conf.ConfAStarTree$MPLPBuilder#numIterations:
+	:builder_option convergenceThreshold .astar.conf.ConfAStarTree$MPLPBuilder#convergenceThreshold:
+	:builder_return .astar.conf.ConfAStarTree$Builder:
 	'''
 	mplpBuilder = c.astar.conf.ConfAStarTree.MPLPBuilder()
 
@@ -373,6 +355,18 @@ def AStarMPLP(emat, confSpace, numIterations=None, convergenceThreshold=None):
 
 
 def MinimizingEnergyCalculator(confSpace, ffparams=None, parallelism=None, streaming=None):
+	'''
+	:java:classdoc:`.minimization.SimpleConfMinimizer`
+
+	:builder_option confSpace .minimization.SimpleConfMinimizer$Builder#confSpace:
+	:builder_option ffparams .minimization.SimpleConfMinimizer$Builder#ffparams:
+	:builder_option parallelism .minimization.SimpleConfMinimizer$Builder#parallelism:
+	:builder_option streaming .minimization.SimpleConfMinimizer$Builder#isStreaming:
+
+		.. todo:: describe streaming, vs fixed-length minimization, and buffering
+
+	:builder_return .minimization.SimpleConfMinimizer$Builder:
+	'''
 	builder = c.minimization.SimpleConfMinimizer.builder(confSpace)
 
 	if ffparams is not None:
@@ -386,14 +380,28 @@ def MinimizingEnergyCalculator(confSpace, ffparams=None, parallelism=None, strea
 
 	return builder.build()
 
+
 def GMECFinder(confSpace, emat=None, astar=None, energyCalculator=None, confLog=None, printIntermediateConfs=None):
-	
+	'''
+	:java:classdoc:`.gmec.SimpleGMECFinder`
+
+	Exactly one of ``emat`` or ``astar`` should be specified.
+	If ``emat`` is specified, a default A* implementation will be used and ``astar`` will be ingored.
+
+	:builder_option confSpace .gmec.SimpleGMECFinder$Builder#space:
+	:builder_option emat .astar.conf.ConfAStarTree$Builder#emat:
+	:builder_option astar .gmec.SimpleGMECFinder$Builder#search:
+	:builder_option energyCalculator .gmec.SimpleGMECFinder$Builder#ecalc:
+	:param str confLog: Path to file where conformations found during conformation space search should be logged.
+	:builder_option printIntermediateConfs .gmec.SimpleGMECFinder$Builder#printIntermediateConfsToConsole:
+	'''
+
 	if emat is not None:
 		builder = c.gmec.SimpleGMECFinder.builder(confSpace, emat)
 	elif astar is not None:
 		builder = c.gmec.SimpleGMECFinder.builder(confSpace, astar)
 	else:
-		raise TypeError('either emat or astar must be specified')
+		raise ValueError('either emat or astar must be specified')
 
 	if energyCalculator is not None:
 		builder.setEnergyCalculator(energyCalculator)
