@@ -69,7 +69,8 @@ public class SearchProblem implements Serializable {
     public PruningMatrix competitorPruneMat;//a pruning matrix performed at pruning interval 0,
     //to decide which RC tuples are valid competitors for pruning
     
-        
+    public ArrayList<String> flexRes; 
+    public ArrayList<ArrayList<String>> allowedAAs;
     
     public boolean useEPIC = false;
     public boolean useTupExpForSearch = false;//use a tuple expansion to approximate the energy as we search
@@ -81,28 +82,35 @@ public class SearchProblem implements Serializable {
     public int numEmatThreads = 1;
     
     
-    public SearchProblem(SearchProblem sp1){//shallow copy
-    	confSpace = sp1.confSpace;
-    	emat = sp1.emat;
-        epicMat = sp1.epicMat;
-        epicSettings = sp1.epicSettings;
-        luteSettings = sp1.luteSettings;
-        deeperSettings = sp1.deeperSettings;
-        tupExpEMat = sp1.tupExpEMat;
+    public SearchProblem(SearchProblem other){//shallow copy
+    	confSpace = other.confSpace;
+    	emat = other.emat;
+        epicMat = other.epicMat;
+        epicSettings = other.epicSettings;
+        luteSettings = other.luteSettings;
+        deeperSettings = other.deeperSettings;
+        tupExpEMat = other.tupExpEMat;
         
-    	fullConfE = sp1.fullConfE;
-    	shellResidues = sp1.shellResidues;
-    	name = sp1.name + System.currentTimeMillis();//probably will want to change this to something more meaningful
+    	fullConfE = other.fullConfE;
+    	shellResidues = other.shellResidues;
+    	name = other.name + System.currentTimeMillis();//probably will want to change this to something more meaningful
         
-    	pruneMat = sp1.pruneMat;
-    	competitorPruneMat = sp1.competitorPruneMat;
+    	pruneMat = other.pruneMat;
+    	competitorPruneMat = other.competitorPruneMat;
         
-    	contSCFlex = sp1.contSCFlex;
-    	useEPIC = sp1.useEPIC;
-    	useTupExpForSearch = sp1.useTupExpForSearch;
+    	contSCFlex = other.contSCFlex;
+    	flexRes = other.flexRes;
+        allowedAAs = other.allowedAAs;
+    	
+    	useVoxelG = other.useVoxelG;
+        gCalc = other.gCalc;
+    	
+    	useEPIC = other.useEPIC;
+    	useTupExpForSearch = other.useTupExpForSearch;
         
-        useERef = sp1.useERef;
-        addResEntropy = sp1.addResEntropy;
+        useERef = other.useERef;
+        addResEntropy = other.addResEntropy;
+        numEmatThreads = other.numEmatThreads;
     }
     
     
@@ -115,7 +123,8 @@ public class SearchProblem implements Serializable {
         confSpace = new ConfSpace(PDBFile, flexibleRes, allowedAAs, addWT, wtRotOnlyRes,
                 contSCFlex, dset, moveableStrands, freeBBZones, useEllipses, addWTRots, termini);
         this.name = name;
-        
+        this.flexRes = flexibleRes;
+        this.allowedAAs = allowedAAs;
         
         this.contSCFlex = contSCFlex;
         this.useTupExpForSearch = useTupExp;
