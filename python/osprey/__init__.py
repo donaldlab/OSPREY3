@@ -356,11 +356,8 @@ def AStarMPLP(emat, confSpace, numIterations=None, convergenceThreshold=None):
 	:param confSpace: The conformation space containing the residue conformations to search.
 	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
 
-	:param int numIterations: The number of MPLP iterations to execute on each A* node.
-	:default numIterations: :java:default:`.astar.conf.ConfAStarTree$MPLPBuilder#numIterations`
-
-	:param float convergenceThreshold: TODO: write javadoc
-	:default convergenceThreshold: :java:default:`.astar.conf.ConfAStarTree$MPLPBuilder#convergenceThreshold`
+	:builder_option numIterations .astar.conf.ConfAStarTree$MPLPBuilder setNumIterations numIterations:
+	:builder_option convergenceThreshold .astar.conf.ConfAStarTree$MPLPBuilder setConvergenceThreshold convergenceThreshold:
 	'''
 	mplpBuilder = c.astar.conf.ConfAStarTree.MPLPBuilder()
 

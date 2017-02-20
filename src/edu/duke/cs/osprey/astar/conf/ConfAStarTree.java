@@ -73,6 +73,11 @@ public class ConfAStarTree implements ConfSearch {
 		}
 	}
 	
+	/**
+	 * 
+	 * @param emat The energy matrix to use for pairwise residue conformation energies.
+	 * @param confSpace The conformation space containing the residue conformations to search.
+	 */
 	public static Builder builder(EnergyMatrix emat, SimpleConfSpace confSpace) {
 		return builder(emat, new RCs(confSpace));
 	}
@@ -96,11 +101,13 @@ public class ConfAStarTree implements ConfSearch {
 			return this;
 		}
 		
+		/** The number of MPLP iterations to execute on each A* node. */
 		public MPLPBuilder setNumIterations(int val) {
 			numIterations = val;
 			return this;
 		}
 		
+		/** If the change in energy after an iteration is below this threshold, MPLP will stop iterating */
 		public MPLPBuilder setConvergenceThreshold(double val) {
 			convergenceThreshold = val;
 			return this;

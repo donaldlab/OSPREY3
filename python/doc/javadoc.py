@@ -6,7 +6,7 @@ import re
 
 
 ast_cache = {}
-doctags = {}
+doctags = []
 
 
 # Sphinx application API
@@ -26,7 +26,10 @@ def setup(app):
 	app.connect('autodoc-process-signature', autodoc_signature_handler)
 	app.connect('autodoc-process-docstring', autodoc_docstring_handler)
 
-	doctags[DefaultDoctag.name] = DefaultDoctag()
+	# builder options should come before default!
+	# (because builder options emit default doctags)
+	doctags.append(BuilderOptionDoctag())
+	doctags.append(DefaultDoctag())
 
 	return { 'version': '0.1' }
 
@@ -67,75 +70,99 @@ def autodoc_signature_handler(app, what, name, obj, options, signature, return_a
 
 	warn = AutodocHandlerWarn(app, obj)
 
-	# look for tags in the docstring, like:
-	# :default argname: default value
+	# run the docstring handlers to expand doctags before modifying the signature
 	doclines = obj.__doc__.split('\n')
-	for i in range(len(doclines)):
+	autodoc_docstring_handler(app, what, name, obj, options, doclines, for_signature=True)
 
-		try:
-			name, args, text = Doctag.parse_lines(doclines, i)
-			tag = doctags[name]
-		except (KeyError, ValueError):
-			# not a doctag we recognize, just keep going
-			continue
+	# process each doctag in order
+	for tag in doctags:
 
-		# curry the warn function for this line
-		def curried_warn(msg, cause=None):
-			warn(msg, lineno=i, cause=cause)
+		# look for tags in the docstring, like:
+		# :default argname: default value
+		for i in range(len(doclines)):
+			line = doclines[i]
 
-		tag.handle_signature(app, args, text, obj, argspec, curried_warn)
+			try:
+				name, args, text, indent = Doctag.parse_line(line)
+			except (KeyError, ValueError):
+				# not a doctag, just keep going
+				continue
+
+			if name != tag.name:
+				# not our doctag, keep going
+				continue
+
+			# curry the warn function for this line
+			def curried_warn(msg, cause=None):
+				warn(msg, lineno=i, cause=cause)
+
+			tag.handle_signature(app, args, text, obj, argspec, curried_warn)
 				
 	# build the new signature from the modified argspec
 	return (sphinx.ext.autodoc.formatargspec(obj, *argspec.values()), None)
 
 
-def autodoc_docstring_handler(app, what, name, obj, options, doclines):
+def autodoc_docstring_handler(app, what, name, obj, options, doclines, for_signature=False):
 
 	warn = AutodocHandlerWarn(app, obj)
 
-	lines_to_delete = []
+	# process each doctag in order
+	for tag in doctags:
 
-	# look for tags in the docstring, like:
-	# :default argname: default value
-	for i in range(len(doclines)):
+		newlines = []
 
-		try:
-			name, args, text = Doctag.parse_lines(doclines, i)
-			tag = doctags[name]
-		except (KeyError, ValueError):
-			# not a doctag we recognize, just keep going
-			continue
+		# look for tags in the docstring, like:
+		# :default argname: default value
+		for i in range(len(doclines)):
+			line = doclines[i]
 
-		# curry the warn function for this line
-		def curried_warn(msg, cause=None):
-			warn(msg, lineno=i, cause=cause)
+			try:
+				name, args, text, indent = Doctag.parse_line(line)
+			except (KeyError, ValueError):
+				# not a doctag, just keep going
+				newlines.append(line)
+				continue
 
-		# what does the tag want to do with this line?
-		newtext = tag.handle_docstring(app, args, text, curried_warn)
-		if newtext is None:
-			lines_to_delete.append(i)
-		else:
-			doclines[i] = newtext
+			if name != tag.name:
+				# not our doctag, keep going
+				newlines.append(line)
+				continue
 
-	# remove deleted lines
-	doclines[:] = [doclines[i] for i in range(len(doclines)) if i not in lines_to_delete]
+			# curry the warn function for this line
+			def curried_warn(msg, cause=None):
+				warn(msg, lineno=i, cause=cause)
+
+			# what does the tag want to do with this line?
+			result = tag.handle_docstring(app, args, text, indent, line, curried_warn, for_signature)
+			if result is not None:
+				if isinstance(result, str):
+					newlines.append(result)
+				else:
+					newlines.extend(result)
+
+		# replace the existing lines
+		doclines[:] = newlines
 
 
 class Doctag():
 
-	name = 'default'
-
 	@staticmethod
-	def parse_lines(doclines, lineno):
+	def parse_line(line):
 
-		# look for name, args, and text on the first line
-		line = doclines[lineno]
+		# get the indent
+		try:
+			indent = re.findall(r'^\s+', line)[0]
+		except IndexError:
+			indent = ''
+
+		# look for name, args, and text
+		line = line.strip()
 
 		# the line should start with a :
-		if not line.strip().startswith(':'):
+		if not line.startswith(':'):
 			raise ValueError
 
-		line_parts = line.strip().split(':')
+		line_parts = line.split(':')
 		if len(line_parts) < 3:
 			raise ValueError
 
@@ -144,7 +171,7 @@ class Doctag():
 		args = name_and_args[1:]
 		text = ':'.join(line_parts[2:]).strip()
 
-		return name, args, text
+		return name, args, text, indent
 
 
 	def handle_signature(self, app, args, text, func, argspec, warn):
@@ -152,13 +179,15 @@ class Doctag():
 		pass
 
 	
-	def handle_docstring(self, app, args, text, warn):
-		# override me if you want
-		return None
-
+	def handle_docstring(self, app, args, text, indent, line, warn, for_signature=False):
+		# do nothing to remove this line from the docstring
+		# or override me if you want
+		pass
 
 
 class DefaultDoctag(Doctag):
+
+	name = 'default'
 
 	def resolve(self, target, config):
 		ref = JavaRef(expand_classname(target, config))
@@ -220,10 +249,70 @@ class DefaultDoctag(Doctag):
 			return
 
 
-	def handle_docstring(self, app, args, text, warn):
+	def handle_docstring(self, app, args, text, indent, line, warn, for_signature=False):
 
-		# remove this line from the docstring
-		return None
+		# for signatures, leave our line in, so the signature doctags can find them
+		if for_signature:
+			return line
+
+		# otherwise, remove them
+		else:
+			return None
+
+
+class BuilderOptionDoctag(Doctag):
+
+	name = 'builder_option'
+
+	def handle_docstring(self, app, args, text, indent, line, warn, for_signature=False):
+
+		if len(args) < 3:
+			warn('Not enough args for builder option. Need at least python arg name, builder class ref, and builder setter method name (and optionally builder field name)')
+			return None
+
+		# parse the args
+		argname = args[0]
+		ref = JavaRef(expand_classname(args[1], app.config))
+		methodname = args[2]
+		if len(args) >= 4:
+			fieldname = args[3]
+		else:
+			fieldname = None
+
+		rst = []
+
+		if for_signature:
+
+			# just emit the default doctag if needed
+			if fieldname is not None:
+				rst.append('%s:default %s: :java:default:`%s#%s`' % (indent, argname, ref, fieldname))
+
+		else:
+
+			# look up the builder class
+			try:
+				ast = get_class_ast(ref, app.config)
+			except (KeyError, ValueError, FileNotFoundError) as e:
+				warn("can't find builder class: %s" % ref, cause=e)
+				return
+
+			# lookup the builder setter method
+			try:
+				method = ast.find_method(methodname)
+			except KeyError:
+				warn("can't find builder setter method: %s in class %s" % (methodname, ref))
+				return
+
+			# use the setter javadoc as the param desc
+			if method.documentation is None:
+				warn("method %s in class %s has no javadoc" % (methodname, ref))
+				return
+			javadoc = Javadoc(method.documentation, ast.imports)
+			rst.append('%s:param %s: %s' % (indent, argname, javadoc.description))
+
+			# TODO: type doctag
+
+		return rst
 
 
 def expand_classname(classname, config):
