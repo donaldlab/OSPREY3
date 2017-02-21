@@ -406,6 +406,9 @@ class BuilderOptionDoctag(Doctag):
 		except (KeyError, ValueError, FileNotFoundError) as e:
 			warn("can't find builder class: %s" % ref.full_classname, cause=e)
 			return
+		except javalang.parser.JavaSyntaxError as e:
+			warn("can't parse java source: %s" % ref, cause=e)
+			return
 
 		# lookup the builder field
 		try:
@@ -458,6 +461,9 @@ class BuilderReturnDoctag(Doctag):
 			ast = get_class_ast(ref, app.config)
 		except (KeyError, ValueError, FileNotFoundError) as e:
 			warn("can't find builder class: %s" % ref, cause=e)
+			return
+		except javalang.parser.JavaSyntaxError as e:
+			warn("can't parse java source: %s" % ref, cause=e)
 			return
 
 		# get the build method
@@ -787,8 +793,11 @@ def parse_rst(rst, settings):
 	if not isinstance(rst, str):
 		rst = '\n'.join(rst)
 
+	# DEBUG: for investigating warnings in dynamically-generated RST
+	#print('DYNAMIC RST:\n"%s"\n' % rst)
+
 	# parse the rst and return the nodes
-	docSource = 'dynamicaly-generated-rst'
+	docSource = 'dynamically-generated-rst'
 	doc = docutils.utils.new_document(docSource, settings)
 	docutils.parsers.rst.Parser().parse(rst, doc)
 
@@ -816,14 +825,26 @@ class ParsingDirective(docutils.parsers.rst.Directive):
 		return parse_rst(rst, self.state.document.settings)
 
 
+	def warn(self, msg, cause=None):
+		if cause is not None:
+			msg = '%s\nCause: %s' % (msg, str(cause))
+		self.state.memo.reporter.warning(msg)
+		return self.parse(msg)
+
+
 class JavaClassDirective(ParsingDirective):
 	
 	has_content = True
 
 	def run(self):
 
-		ref = JavaRef(expand_classname(self.content[0], self.config))
-		ast = get_class_ast(ref, self.config)
+		try:
+			ref = JavaRef(expand_classname(self.content[0], self.config))
+			ast = get_class_ast(ref, self.config)
+		except (KeyError, ValueError, FileNotFoundError) as e:
+			return self.warn("can't find builder class: %s" % ref, cause=e)
+		except javalang.parser.JavaSyntaxError as e:
+			return self.warn("can't parse java source: %s" % ref, cause=e)
 
 		rst = []
 
@@ -853,7 +874,7 @@ class JavaClassDirective(ParsingDirective):
 					rst.append('')
 					if field.documentation is not None:
 						javadoc = Javadoc(field.documentation, ast, self.config)
-						rst.append('\t' + javadoc.description)
+						rst.append('\t' + javadoc.description.replace('\n', '\n\t'))
 						rst.append('')
 
 		# show methods
@@ -872,7 +893,7 @@ class JavaClassDirective(ParsingDirective):
 				rst.append('')
 				if method.documentation is not None:
 					javadoc = Javadoc(method.documentation, ast, self.config)
-					rst.append('\t' + javadoc.description)
+					rst.append('\t' + javadoc.description.replace('\n', '\n\t'))
 					rst.append('')
 
 		# show enum constants
@@ -890,12 +911,13 @@ class JavaClassDirective(ParsingDirective):
 				rst.append('')
 				if value.documentation is not None:
 					javadoc = Javadoc(value.documentation, ast, self.config)
-					rst.append('\t' + javadoc.description)
+					rst.append('\t' + javadoc.description.replace('\n', '\n\t'))
 					rst.append('')
 
 		if not showedSomething:
 
 			rst.append('*(This topic does not yet have documentation)*')
+			rst.append('')
 
 		return self.parse(rst)
 
@@ -946,6 +968,8 @@ class ClassdocRole(JavaRole):
 			ast = get_class_ast(ref, self.config)
 		except (KeyError, ValueError, FileNotFoundError) as e:
 			return self.warn("can't find java class: %s" % text, cause=e)
+		except javalang.parser.JavaSyntaxError as e:
+			return self.warn("can't parse java source: %s" % ref, cause=e)
 		
 		# look for the javadoc
 		if ast.documentation is None:
@@ -969,6 +993,8 @@ class FielddocRole(JavaRole):
 			field = ast.find_field(ref.membername)
 		except (KeyError, ValueError, FileNotFoundError) as e:
 			return self.warn("can't find field: %s" % text, cause=e)
+		except javalang.parser.JavaSyntaxError as e:
+			return self.warn("can't parse java source: %s" % ref, cause=e)
 		
 		# look for the javadoc
 		if field.documentation is None:
@@ -992,6 +1018,8 @@ class MethoddocRole(JavaRole):
 			method = ast.find_method_with_javadoc(ref.membername)
 		except (KeyError, ValueError, FileNotFoundError) as e:
 			return self.warn("can't find method: %s" % text, cause=e)
+		except javalang.parser.JavaSyntaxError as e:
+			return self.warn("can't parse java source: %s" % ref, cause=e)
 
 		# look for the javadoc
 		if method.documentation is None:
@@ -1024,20 +1052,26 @@ class RefRole(sphinx.roles.XRefRole):
 
 		# resolve the target
 		ref = JavaRef(expand_classname(target, env.config))
+
 		resolved = ResolvedXref()
-		resolved.docpath = 'api.' + ref.unprefixed_full_classname(env.config.javadoc_package_prefix)
-		resolved.docpath = resolved.docpath.replace('$', '.')
+
+		# is this one of our classes?
+		if ref.package.startswith(env.config.javadoc_package_prefix):
+
+			# resolve the link
+			resolved.docpath = 'api.' + ref.unprefixed_full_classname(env.config.javadoc_package_prefix)
+			resolved.docpath = resolved.docpath.replace('$', '.')
+
+			# see if the docpath exists, just in case
+			path = env.doc2path(resolved.docpath)
+			if not os.path.exists(path):
+				self.warn('cross-reference does not exist: %s' % path)
 
 		if ref.membername is not None:
 			resolved.text = ref.membername
 			resolved.anchor = ref.membername
 		else:
 			resolved.text = ref.simple_classname
-
-		# see if the docpath exists
-		path = env.doc2path(resolved.docpath)
-		if not os.path.exists(path):
-			self.warn('cross-reference does not exist: %s' % path)
 
 		# attach the resolution to the node so we can find it again in Domain.resolve_xref()
 		refnode.resolved = resolved
@@ -1082,7 +1116,13 @@ class JavadocDomain(sphinx.domains.Domain):
 			docutils.nodes.Text(resolved.text)
 		)
 
-		# return the ref node
+		# if no resolution, just make a literal node
+		if resolved.docpath is None:
+			node = docutils.nodes.literal('', '', internal=True)
+			node.append(contnode)
+			return node
+
+		# return a ref node
 		return sphinx.util.nodes.make_refnode(
 			builder,
 			fromdocname,
@@ -1092,3 +1132,59 @@ class JavadocDomain(sphinx.domains.Domain):
 			resolved.title
 		)
  
+
+# HACKHACK: add a convenience method to JavaSyntaxErrors so we can render them correctly
+def java_syntax_error_str(self):
+	return '%s at %s' % (self.description, self.at)
+javalang.parser.JavaSyntaxError.__str__ = java_syntax_error_str
+
+
+# HACKHACK: work around a missing feature in javalang:
+# parsing of default interface methods
+
+# see: https://github.com/c2nes/javalang/blob/master/javalang/parser.py
+
+def javalang_parse_interface_method_declarator_rest(self):
+
+	parameters = self.parse_formal_parameters()
+	array_dimension = self.parse_array_dimension()
+	throws = None
+
+	if self.try_accept('throws'):
+		throws = self.parse_qualified_identifier_list()
+
+	body = None
+	if self.would_accept('{'):
+		body = self.parse_block()
+	else:
+		self.accept(';')
+
+	return javalang.tree.MethodDeclaration(
+		parameters=parameters,
+		throws=throws,
+		body=body,
+		return_type=javalang.tree.Type(dimensions=array_dimension)
+	)
+javalang.parser.Parser.parse_interface_method_declarator_rest = javalang_parse_interface_method_declarator_rest
+
+def javalang_parse_void_interface_method_declarator_rest(self):
+
+	parameters = self.parse_formal_parameters()
+	throws = None
+
+	if self.try_accept('throws'):
+		throws = self.parse_qualified_identifier_list()
+
+	body = None
+	if self.would_accept('{'):
+		body = self.parse_block()
+	else:
+		self.accept(';')
+
+	return javalang.tree.MethodDeclaration(
+		parameters=parameters,
+		throws=throws,
+		body=body
+	)
+javalang.parser.Parser.parse_void_interface_method_declarator_rest = javalang_parse_void_interface_method_declarator_rest
+
