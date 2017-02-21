@@ -8,7 +8,7 @@ package edu.duke.cs.osprey.dof.deeper;
 import edu.duke.cs.osprey.dof.deeper.perts.PartialStructureSwitch;
 import edu.duke.cs.osprey.dof.deeper.perts.LoopClosureAdjustment;
 import edu.duke.cs.osprey.dof.deeper.perts.Shear;
-import edu.duke.cs.osprey.kstar.KSTermini;
+import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
 import edu.duke.cs.osprey.dof.deeper.perts.Backrub;
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.dof.deeper.perts.PerturbationBlock;
@@ -21,8 +21,8 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.StringTokenizer;
 
 /**
@@ -32,7 +32,7 @@ import java.util.StringTokenizer;
  * 
  * @author mhall44
  */
-public class PertSet {
+public class PertSet implements Serializable {
     
     ArrayList<String> pertTypes = new ArrayList<>();//List of types ("BACKRUB", etc.) for the perturbations
     ArrayList<ArrayList<String>> resNums = new ArrayList<>();//corresponding perturbations'
@@ -54,7 +54,7 @@ public class PertSet {
     ArrayList<ArrayList<String>> additionalInfo = new ArrayList<>();
     
     
-    public boolean loadPertFile(String pertFileName, boolean loadStates, KSTermini termini){
+    public boolean loadPertFile(String pertFileName, boolean loadStates, ResidueTermini termini){
         //load perturbations from the pert file
         //Return whether we found the file or not
         //Load perturbations and their intervals; if loadStates then residue pert states too
@@ -171,7 +171,7 @@ public class PertSet {
     }
     
     
-    public void readPerts(BufferedReader br, KSTermini termini) throws Exception {
+    public void readPerts(BufferedReader br, ResidueTermini termini) throws Exception {
         //read the actual perturbations, including the residues they affect
         //and the parameter intervals we're using for them
 

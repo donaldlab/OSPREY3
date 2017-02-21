@@ -9,7 +9,6 @@ import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.kstar.KAStarNode;
 import edu.duke.cs.osprey.kstar.KAStarTree;
-import edu.duke.cs.osprey.kstar.KSTermini;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 
 public class KSImplKAStar extends KSAbstract {
@@ -75,7 +74,7 @@ public class KSImplKAStar extends KSAbstract {
 
 		System.out.println("\nseqsCompleted: " + KAStarNode.getNumLeavesCompleted() 
 		+ " seqsCreated: " + KAStarNode.getNumLeavesCreated()
-		+ " seqsPossible: " + strand2AllowedSeqs.get(KSTermini.COMPLEX).getNumSeqs()
+		+ " seqsPossible: " + strand2AllowedSeqs.get(2).getNumSeqs()
 		+ " seqsInOutput: " + numOutput);
 
 		System.out.println("K* leaf conformations processed: " + countProcessedConfs());
@@ -93,7 +92,7 @@ public class KSImplKAStar extends KSAbstract {
 		wtKSCalc = computeWTCalc();
 		//setBestCalc(wtKSCalc);
 
-		if( strand2AllowedSeqs.get(KSTermini.COMPLEX).getNumSeqs() <= 1 )
+		if( strand2AllowedSeqs.get(2).getNumSeqs() <= 1 )
 			return completed; // wt is sequence[0]
 
 		// initialize KUStar tree
@@ -136,7 +135,7 @@ public class KSImplKAStar extends KSAbstract {
 		// compute wt sequence for reference
 		wtKSCalc = computeWTCalc();
 
-		if( strand2AllowedSeqs.get(KSTermini.COMPLEX).getNumSeqs() <= 1 )
+		if( strand2AllowedSeqs.get(2).getNumSeqs() <= 1 )
 			return completed; // wt is sequence[0]
 
 		// initialize KUStar tree

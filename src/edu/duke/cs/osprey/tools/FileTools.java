@@ -8,6 +8,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.Serializable;
 import java.io.StringReader;
 import java.net.URL;
 import java.nio.charset.Charset;
@@ -18,7 +19,9 @@ import org.apache.commons.io.IOUtils;
 
 public class FileTools {
 	
-	public static abstract class PathRoot {
+	public static abstract class PathRoot implements Serializable {
+		
+		private static final long serialVersionUID = 2265693476401349502L;
 		
 		protected String type;
 		
@@ -36,6 +39,8 @@ public class FileTools {
 	}
 	
 	public static class FilePathRoot extends PathRoot {
+		
+		private static final long serialVersionUID = 882642923777325590L;
 		
 		private File rootFile;
 		
@@ -125,6 +130,8 @@ public class FileTools {
 	}
 	
 	public static class ResourcePathRoot extends PathRoot {
+		
+		private static final long serialVersionUID = 6035021994505586535L;
 		
 		public static ResourcePathRoot parentOf(String path) {
 			

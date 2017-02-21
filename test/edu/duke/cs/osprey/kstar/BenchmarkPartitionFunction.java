@@ -43,10 +43,10 @@ public class BenchmarkPartitionFunction extends TestBase {
 		KSConfigFileParser cfp = new KSConfigFileParser();
 		cfp.params.setValue("MinimizationThreads", Integer.toString(NumThreads));
 		
-		System.out.println("\n\nBenchmarking " + KSTermini.getTerminiString(strand) + "...\n");
+		System.out.println("\n\nBenchmarking " + "Strand"+strand + "...\n");
 		
 		// test parallel implementation
-		PFAbstract pfunc = TestPartitionFunction.makePfunc(search, "parallel0", KSTermini.PROTEIN, flexibility, cfp);
+		PFAbstract pfunc = TestPartitionFunction.makePfunc(search, "parallel0", 0, flexibility, cfp);
 		PFAbstract.suppressOutput = !reportProgress;
 		PFAbstract.targetEpsilon = targetEpsilon;
 		
@@ -90,7 +90,7 @@ public class BenchmarkPartitionFunction extends TestBase {
 		pcpfuncgpuMulti.cleanup();
 		
 		// test adapted parallel conf implementation
-		PFAbstract pfuncAdapted = TestPartitionFunction.makePfunc(search, "parallelConf", KSTermini.PROTEIN, flexibility, cfp);
+		PFAbstract pfuncAdapted = TestPartitionFunction.makePfunc(search, "parallelConf", 0, flexibility, cfp);
 		
 		System.out.println("computing pfunc " + pfuncAdapted.getClass().getSimpleName() + " ...");
 		Stopwatch stopwatchAdapted = new Stopwatch().start();
@@ -124,7 +124,7 @@ public class BenchmarkPartitionFunction extends TestBase {
 		
 		final double targetEpsilon = 0.01;
 		final String qstar = "4.3704590631e+04";
-		int strand = KSTermini.PROTEIN;
+		int strand = 0;
 		String flexibility = "649 650 651 654";
 		
 		KSSearchProblem search = TestPartitionFunction.makeSearch(strand, "648", "654", flexibility);
@@ -136,7 +136,7 @@ public class BenchmarkPartitionFunction extends TestBase {
 		
 		final double targetEpsilon = 0.01;
 		final String qstar = "4.4699772362e+30";
-		int strand = KSTermini.LIGAND;
+		int strand = 1;
 		String flexibility = "156 172 192 193";
 		
 		KSSearchProblem search = TestPartitionFunction.makeSearch(strand, "155", "194", flexibility);
@@ -148,7 +148,7 @@ public class BenchmarkPartitionFunction extends TestBase {
 		
 		final double targetEpsilon = 0.1;
 		final String qstar = "3.5178662402e+54"; 
-		int strand = KSTermini.COMPLEX;
+		int strand = 2;
 		String flexibility = "649 650 651 654 156 172 192 193";
 		
 		KSSearchProblem search = TestPartitionFunction.makeSearch(strand, null, null, flexibility);

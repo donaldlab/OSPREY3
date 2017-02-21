@@ -11,17 +11,12 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.ematrix.epic.EPICEnergyFunction;
-import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
-import edu.duke.cs.osprey.ematrix.epic.EPoly;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
-import edu.duke.cs.osprey.minimization.IdealSeparableReference;
 import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.tools.ObjectIO;
-import edu.duke.cs.osprey.voxq.VoxelsDeltaG;
 import java.util.ArrayList;
 
 /**

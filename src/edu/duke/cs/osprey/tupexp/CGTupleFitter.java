@@ -9,7 +9,6 @@ package edu.duke.cs.osprey.tupexp;
  * @author mhall44
  */
 
-import cern.colt.matrix.DoubleMatrix1D;
 import java.util.ArrayList;
 import org.apache.commons.math3.exception.DimensionMismatchException;
 import org.apache.commons.math3.linear.ArrayRealVector;

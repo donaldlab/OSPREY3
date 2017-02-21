@@ -5,6 +5,7 @@ import java.util.ArrayList;
 
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.control.ParamSet;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.EnergyMatrixCalculator;
@@ -14,6 +15,7 @@ import edu.duke.cs.osprey.kstar.emat.ReducedEnergyMatrix;
 import edu.duke.cs.osprey.kstar.pruning.InvertedPruningMatrix;
 import edu.duke.cs.osprey.kstar.pruning.ReducedPruningMatrix;
 import edu.duke.cs.osprey.kstar.pruning.UnprunedPruningMatrix;
+import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
@@ -28,18 +30,21 @@ public class KSSearchProblem extends SearchProblem {
 	public ArrayList<ArrayList<String>> allowedAAs = null;
 	public ArrayList<ArrayList<String>> reducedAllowedAAs = null;
 	public ArrayList<Integer> posNums = null;
+	public ParamSet params = null;
 
 
-	public KSSearchProblem(String name, String PDBFile, ArrayList<String> flexibleRes,
+	public KSSearchProblem(ParamSet params, String name, String PDBFile, ArrayList<String> flexibleRes,
 			ArrayList<ArrayList<String>> allowedAAs, boolean addWT, boolean contSCFlex, boolean useEPIC,
 			EPICSettings epicSettings, boolean useTupExp, LUTESettings luteSettings,
 			DEEPerSettings dset, ArrayList<String[]> moveableStrands,
 			ArrayList<String[]> freeBBZones, boolean useEllipses, boolean useERef, boolean addResEntropy,
-			boolean addWTRots, KSTermini termini, boolean useVoxelG) {
+			boolean addWTRots, ResidueTermini termini, boolean useVoxelG) {
 
 		super(name, PDBFile, flexibleRes, allowedAAs, addWT, contSCFlex, useEPIC, epicSettings, useTupExp, luteSettings,
 				dset, moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWTRots, termini, useVoxelG, new ArrayList<>());
 
+		this.params = params;
+		
 		this.allowedAAs = allowedAAs;
 		this.reducedAllowedAAs = allowedAAs;
 		this.posNums = getMaxPosNums();
@@ -181,7 +186,8 @@ public class KSSearchProblem extends SearchProblem {
 		int numUpdates = ans.countUpdates();
 		int oldNumUpdates;
 
-		Pruner dee = new Pruner(sp, ans.getUpdatedPruningMatrix(), true, 100.0, ans.getPruningInterval(), sp.useEPIC, sp.useTupExpForSearch);
+		double stericThresh = params == null ? 100.0 : params.getDouble("StericThresh");
+		Pruner dee = new Pruner(sp, ans.getUpdatedPruningMatrix(), true, stericThresh, ans.getPruningInterval(), sp.useEPIC, sp.useTupExpForSearch);
 		dee.setVerbose(false);
 
 		do {//repeat as long as we're pruning things

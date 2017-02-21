@@ -13,7 +13,6 @@ import edu.duke.cs.osprey.confspace.PositionConfSpace;
 import edu.duke.cs.osprey.kstar.KSAbstract;
 import edu.duke.cs.osprey.kstar.KSAllowedSeqs;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
-import edu.duke.cs.osprey.kstar.KSTermini;
 import edu.duke.cs.osprey.kstar.impl.KSImplKAStar;
 import edu.duke.cs.osprey.kstar.impl.KSImplLinear;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
@@ -123,7 +122,7 @@ public class KStarCalculator {
 
 		if(ans.size() > 0) {
 			// check for correct length
-			KSAllowedSeqs pl = strand2AllowedSeqs.get(KSTermini.COMPLEX);
+			KSAllowedSeqs pl = strand2AllowedSeqs.get(2);
 
 			for(ArrayList<String> seq : ans) {
 				if(seq.size() != pl.getSequenceLength())
@@ -156,9 +155,9 @@ public class KStarCalculator {
 		if(mutations == null) 
 			return null;
 
-		KSAllowedSeqs pl = strand2AllowedSeqs.get(KSTermini.COMPLEX);
-		KSAllowedSeqs p = strand2AllowedSeqs.get(KSTermini.PROTEIN);
-		KSAllowedSeqs l = strand2AllowedSeqs.get(KSTermini.LIGAND);
+		KSAllowedSeqs pl = strand2AllowedSeqs.get(2);
+		KSAllowedSeqs p = strand2AllowedSeqs.get(0);
+		KSAllowedSeqs l = strand2AllowedSeqs.get(1);
 
 		int plLen = pl.getSequenceLength(), pLen = p.getSequenceLength();
 
@@ -198,10 +197,10 @@ public class KStarCalculator {
 
 	private void generateAllowedSequences() {
 
-		KSAllowedSeqs complexSeqs = cfp.getAllowedSequences(KSTermini.COMPLEX, null);
-		strand2AllowedSeqs.put(KSTermini.COMPLEX, complexSeqs);
-		strand2AllowedSeqs.put(KSTermini.PROTEIN, cfp.getAllowedSequences(KSTermini.PROTEIN, complexSeqs));
-		strand2AllowedSeqs.put(KSTermini.LIGAND, cfp.getAllowedSequences(KSTermini.LIGAND, complexSeqs));
+		KSAllowedSeqs complexSeqs = cfp.getAllowedSequences(2, null);
+		strand2AllowedSeqs.put(2, complexSeqs);
+		strand2AllowedSeqs.put(0, cfp.getAllowedSequences(0, complexSeqs));
+		strand2AllowedSeqs.put(1, cfp.getAllowedSequences(1, complexSeqs));
 	}
 
 	private KSAbstract makeKStar() {

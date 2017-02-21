@@ -78,7 +78,7 @@ public class TestParallelConfPartitionFunction extends TestBase {
 	
 	private void testProtein(Parallelism parallelism) {
 		
-		KSSearchProblem search = TestPartitionFunction.makeSearch(KSTermini.PROTEIN, "648", "654", "649 650 651 654"); 
+		KSSearchProblem search = TestPartitionFunction.makeSearch(0, "648", "654", "649 650 651 654"); 
 		Pfunc pfunc = makePfunc(search, parallelism);
 
 		// compute it
@@ -119,7 +119,7 @@ public class TestParallelConfPartitionFunction extends TestBase {
 	
 	public void testLigand(Parallelism parallelism) {
 		
-		KSSearchProblem search = TestPartitionFunction.makeSearch(KSTermini.LIGAND, "155", "194", "156 172 192 193");
+		KSSearchProblem search = TestPartitionFunction.makeSearch(1, "155", "194", "156 172 192 193");
 		Pfunc pfunc = makePfunc(search, parallelism);
 
 		// compute it
@@ -153,7 +153,7 @@ public class TestParallelConfPartitionFunction extends TestBase {
 	
 	public void testComplex(Parallelism parallelism) {
 		
-		KSSearchProblem search = TestPartitionFunction.makeSearch(KSTermini.COMPLEX, null, null, "649 650 651 654 156 172 192 193");
+		KSSearchProblem search = TestPartitionFunction.makeSearch(2, null, null, "649 650 651 654 156 172 192 193");
 		Pfunc pfunc = makePfunc(search, parallelism);
 
 		// compute it

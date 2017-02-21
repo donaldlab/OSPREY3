@@ -5,8 +5,6 @@ import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Arrays;
-
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -18,10 +16,10 @@ import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
+import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
 import edu.duke.cs.osprey.kstar.pfunc.PFFactory;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 public class TestPartitionFunction extends TestBase {
@@ -67,12 +65,12 @@ public class TestPartitionFunction extends TestBase {
 		boolean addWtRots = true;
 		ArrayList<String[]> moveableStrands = new ArrayList<String[]>();
 		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
-		KSTermini termini = null;
+		ResidueTermini termini = null;
 		if (firstResNumber != null && lastResNumber != null) {
-			termini = new KSTermini(strand, resFlex.size(), new ArrayList<>(Arrays.asList(firstResNumber, lastResNumber)));
+			termini = new ResidueTermini(strand, Integer.valueOf(firstResNumber), Integer.valueOf(lastResNumber));
 		}
 		KSSearchProblem search = new KSSearchProblem(
-			"test", "examples/2RL0.kstar/2RL0.min.reduce.pdb", 
+			null, "test", "examples/2RL0.kstar/2RL0.min.reduce.pdb", 
 			resFlex.flexResList, resFlex.allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
 			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, termini, false
 		);
@@ -169,15 +167,15 @@ public class TestPartitionFunction extends TestBase {
 	}
 	
 	private PFAbstract makeAndComputeProteinPfunc(String pfImpl, String flexibility, double targetEpsilon) {
-		return makeAndComputePfunc(pfImpl, KSTermini.PROTEIN, "648", "654", flexibility, targetEpsilon);
+		return makeAndComputePfunc(pfImpl, 0, "648", "654", flexibility, targetEpsilon);
 	}
 	
 	private PFAbstract makeAndComputeLigandPfunc(String pfImpl, String flexibility, double targetEpsilon) {
-		return makeAndComputePfunc(pfImpl, KSTermini.LIGAND, "155", "194", flexibility, targetEpsilon);
+		return makeAndComputePfunc(pfImpl, 1, "155", "194", flexibility, targetEpsilon);
 	}
 	
 	private PFAbstract makeAndComputeComplexPfunc(String pfImpl, String flexibility, double targetEpsilon) {
-		return makeAndComputePfunc(pfImpl, KSTermini.COMPLEX, null, null, flexibility, targetEpsilon);
+		return makeAndComputePfunc(pfImpl, 2, null, null, flexibility, targetEpsilon);
 	}
 	
 	private void testProteinWildType(String pfImpl, double targetEpsilon) {
@@ -185,11 +183,11 @@ public class TestPartitionFunction extends TestBase {
 		PFAbstract pfunc = makeAndComputeProteinPfunc(pfImpl, "649 650 651 654", targetEpsilon);
 	
 		// is this the right partition function?
-		assertThat(pfunc.getNumUnPruned().intValueExact(), is(5130));
-		assertThat(pfunc.getNumPruned().intValueExact(), is(0));
+		assertThat(pfunc.getNumUnPruned().intValueExact(), is(80));
+		assertThat(pfunc.getNumPruned().intValueExact(), is(144));
 
 		// check the answer
-		assertPfunc(pfunc, EApproxReached.TRUE, targetEpsilon, "4.3704590631e+04" /* e=0.05 */);
+		assertPfunc(pfunc, EApproxReached.TRUE, targetEpsilon, "4.3704590631e+04"); // e=0.05
 	}
 	
 	private void testLigandWildType(String pfImpl, double targetEpsilon) {
@@ -197,11 +195,11 @@ public class TestPartitionFunction extends TestBase {
 		PFAbstract pfunc = makeAndComputeLigandPfunc(pfImpl, "156 172 192 193", targetEpsilon);
 		
 		// is this the right partition function?
-		assertThat(pfunc.getNumUnPruned().intValueExact(), is(21280));
-		assertThat(pfunc.getNumPruned().intValueExact(), is(0));
+		assertThat(pfunc.getNumUnPruned().intValueExact(), is(896));
+		assertThat(pfunc.getNumPruned().intValueExact(), is(924));
 		
 		// check the answer
-		assertPfunc(pfunc, EApproxReached.TRUE, targetEpsilon, "4.4699772362e+30" /* e=0.05 */);
+		assertPfunc(pfunc, EApproxReached.TRUE, targetEpsilon, "4.4699772362e+30"); // e=0.05
 	}
 	
 	private void testComplexWildType(String pfImpl, double targetEpsilon) {
@@ -209,11 +207,11 @@ public class TestPartitionFunction extends TestBase {
 		PFAbstract pfunc = makeAndComputeComplexPfunc(pfImpl, "649 650 651 654 156 172 192 193", targetEpsilon);
 		
 		// is this the right partition function?
-		assertThat(pfunc.getNumUnPruned().intValueExact(), is(109166400));
-		assertThat(pfunc.getNumPruned().intValueExact(), is(0));
+		assertThat(pfunc.getNumUnPruned().intValueExact(), is(8064));
+		assertThat(pfunc.getNumPruned().intValueExact(), is(2286144));
 		
 		// check the answer
-		assertPfunc(pfunc, EApproxReached.TRUE, targetEpsilon, "3.5213742379e+54" /* e=0.05 */);
+		assertPfunc(pfunc, EApproxReached.TRUE, targetEpsilon, "3.5213742379e+54"); // e=0.05
 	}
 	
 	public static void assertPfunc(PFAbstract pfunc, EApproxReached epsilonStatus, double targetEpsilon, String approxQstar) {
@@ -226,7 +224,6 @@ public class TestPartitionFunction extends TestBase {
 	public static void assertPfunc(PFAbstract pfunc, EApproxReached epsilonStatus) {
 		assertThat(pfunc.getEpsilonStatus(), is(epsilonStatus));
 	}
-	
 	
 	// wild type tests
 	
@@ -300,24 +297,24 @@ public class TestPartitionFunction extends TestBase {
 	@Test
 	public void testComplexMutant1Parallel0() {
 		PFAbstract pfunc = makeAndComputeComplexPfunc("parallel0", "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 ILE-192 THR-193", 0.95);
-		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.5213742379e+54" /* e=0.05 */);
+		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.5213742379e+54"); // e=0.05
 	}
 	
 	@Test
 	public void testComplexMutant1ParallelConf() {
 		PFAbstract pfunc = makeAndComputeComplexPfunc("parallelConf", "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 ILE-192 THR-193", 0.95);
-		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.5213742379e+54" /* e=0.05 */);
+		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.5213742379e+54"); // e=0.05
 	}
 	
 	@Test
 	public void testComplexMutant2Parallel0() {
 		PFAbstract pfunc = makeAndComputeComplexPfunc("parallel0", "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 LEU-192 THR-193", 0.95);
-		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.2878232508e+12" /* e=0.05 */);
+		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.2878232508e+12"); // e=0.05
 	}
 	
 	@Test
 	public void testComplexMutant2ParallelConf() {
 		PFAbstract pfunc = makeAndComputeComplexPfunc("parallelConf", "PHE-649 ASP-650 GLU-651 THR-654 PHE-156 LYS-172 LEU-192 THR-193", 0.95);
-		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.2878232508e+12" /* e=0.05 */);
+		assertPfunc(pfunc, EApproxReached.TRUE, 0.95, "3.2878232508e+12"); // e=0.05
 	}
 }

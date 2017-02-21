@@ -62,6 +62,7 @@ import cern.colt.matrix.DoubleMatrix1D;
 import java.io.Serializable;
 
 
+@SuppressWarnings("serial")
 public class GenCoord implements Serializable {
     //This class represents a generalized coordinate
     //it facilitates calculation of the value of a generalized coordinate from a set of "regular" coordinates like dihedrals

@@ -30,7 +30,9 @@ public class ParamSet implements Serializable {
 	
 	private static final long serialVersionUID = 4364963601242324780L;
 	
-	private static class Entry {
+	private static class Entry implements Serializable {
+		
+		private static final long serialVersionUID = 521766449139228629L;
 		
 		public final String value;
 		public final PathRoot root;
@@ -49,12 +51,15 @@ public class ParamSet implements Serializable {
 	private Map<String,Entry> wildcardDefaults;
 	//Handles default params of the form "BLABLA* 1" (would map BLABLA -> 1)
 	//then for example if we needed a default for parameter BLABLABLA, it would return 1
+
+	private boolean isVerbose;
 	
 	public ParamSet() {
 		
 		params = new HashMap<>();
 		defaultParams = new HashMap<>();
 		wildcardDefaults = new HashMap<>();
+		isVerbose = true;
 		
 		// load the defaults
 		ResourcePathRoot configRoot = new ResourcePathRoot("/config");
@@ -74,6 +79,15 @@ public class ParamSet implements Serializable {
 		defaultParams = new HashMap<>(other.defaultParams);
 		wildcardDefaults = new HashMap<>(other.wildcardDefaults);
 	}
+
+	public void setVerbosity(boolean val) {
+		isVerbose = val;
+	}
+	
+	public boolean isVerbose() {
+		return isVerbose;
+	}
+
 	
 	public void addParamsFromFile(String path) {
 		addParamsFromFile(new File(path));
@@ -166,10 +180,15 @@ public class ParamSet implements Serializable {
                 if(entry==null)//still null
                     throw new RuntimeException("ERROR: Parameter "+paramName+" not found");
 
-                MPIMaster.printIfMaster("Parameter "+paramName+" not set. Using default value "+entry.value);
+                if (isVerbose) {
+                    MPIMaster.printIfMaster("Parameter "+paramName+" not set. Using default value "+entry.value);
+                }
             }
-            else
-                MPIMaster.printIfMaster("Parameter "+paramName+" set to "+entry.value);
+            else {
+                if (isVerbose) {
+                    MPIMaster.printIfMaster("Parameter "+paramName+" set to "+entry.value);
+                }
+            }
             
             return entry.value.trim();
     }
@@ -281,11 +300,16 @@ public class ParamSet implements Serializable {
                     throw new RuntimeException("ERROR: Parameter "+paramName+" not found");
                 
                 val = defaultVal;
-                MPIMaster.printIfMaster("Parameter "+paramName+" not set. Using default value "+defaultVal);
+                if(isVerbose) {
+                    MPIMaster.printIfMaster("Parameter "+paramName+" not set. Using default value "+val);
+                }
             }
-            else
+            else {
                 val = entry.value;
-                MPIMaster.printIfMaster("Parameter "+paramName+" set to "+val);
+                if(isVerbose) {
+                    MPIMaster.printIfMaster("Parameter "+paramName+" set to "+val);
+                }
+            }
             
             return val.trim();
 	}

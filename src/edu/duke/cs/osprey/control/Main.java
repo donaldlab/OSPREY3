@@ -87,6 +87,16 @@ public class Main {
 				args.cleanupConfig(cfp);
 			}
 		},
+
+		MultiStateKStar {
+			@Override
+			public void run(CommandArgs args) {
+				ConfigFileParser cfp = args.loadConfig();
+				MultiStateKStarDoer msksd = new MultiStateKStarDoer(cfp);
+				msksd.calcBestSequences();
+				args.cleanupConfig(cfp);
+			}
+		},
 		
 		CalcLigResE {
 			@Override

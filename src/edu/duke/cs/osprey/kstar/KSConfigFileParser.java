@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
+import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
@@ -40,14 +41,14 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 
 		switch(strand) {
 
-		case KSTermini.COMPLEX:
+		case 2:
 			return ans;
 
-		case KSTermini.LIGAND:
-			return filterHOTListByStrand(getStrandLimits(KSTermini.LIGAND), ans);
+		case 1:
+			return filterHOTListByStrand(getStrandLimits(1), ans);
 
-		case KSTermini.PROTEIN:
-			return filterHOTListByStrand(getStrandLimits(KSTermini.PROTEIN), ans);
+		case 0:
+			return filterHOTListByStrand(getStrandLimits(0), ans);
 
 		default:
 			throw new RuntimeException("ERROR: invalid strand");
@@ -94,7 +95,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 	}
 
 
-	protected ArrayList<ArrayList<String>> filterHOTListByStrand( KSTermini strand, ArrayList<ArrayList<String>> list ) {
+	protected ArrayList<ArrayList<String>> filterHOTListByStrand( ResidueTermini strand, ArrayList<ArrayList<String>> list ) {
 		@SuppressWarnings("unchecked")
 		ArrayList<ArrayList<String>> ans = (ArrayList<ArrayList<String>>) ObjectIO.deepCopy(list);
 
@@ -121,6 +122,8 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 		//Set up the DEEPerSettings object, including the PertSet (describes the perturbations)
 		//String runName = params.getValue("runName");
 
+		ArrayList<String> flexRes = strand == 2 ? getFlexRes() : getFlexResByStrand(strand);
+		
 		DEEPerSettings dset = new DEEPerSettings(
 				params.getBool("doPerturbations"),
 				"STR"+strand+"."+params.getRunSpecificFileName("perturbationFile", ".pert"),
@@ -130,23 +133,19 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 				params.getDouble("maxShearParam"),
 				params.getDouble("maxBackrubParam"),
 				params.getBool("selectLCAs"),
-				getFlexResByStrand(strand),
+				flexRes,
 				params.getValue("PDBNAME"),
 				params.getBool("DORAMACHECK")
 				);
 
 		// remove residues not in this strand
-		KSTermini limits = getStrandLimits(strand);
-
-		// perturbation file is by strand
-		ObjectIO.delete(params.getRunSpecificFileName("perturbationFile", ".pert"));
-
+		ResidueTermini limits = getStrandLimits(strand);
 		dset.loadPertFile(limits);//load the PertSet from its file
 		return dset;
 	}
 
 
-	private ArrayList<String[]> freeBBZoneTermini(KSTermini limits){
+	private ArrayList<String[]> freeBBZoneTermini(ResidueTermini limits){
 		//Read the termini of the BBFreeBlocks, if any
 		ArrayList<String[]> ans = new ArrayList<>();
 
@@ -170,7 +169,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 	}
 
 
-	private ArrayList<String[]> moveableStrandTermini(KSTermini limits){
+	private ArrayList<String[]> moveableStrandTermini(ResidueTermini limits){
 		//Read the strands that are going to translate and rotate
 		//Let's say they can do this regardless of what doMinimize says (that's for sidechains)
 		ArrayList<String[]> ans = new ArrayList<>();
@@ -198,16 +197,15 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 	}
 
 
-	protected KSTermini getStrandLimits( int strand ) {
+	protected ResidueTermini getStrandLimits( int strand ) {
 
-		if( strand == KSTermini.COMPLEX ) return null;
+		if( strand == 2 ) return null;
 
 		String strandLimits = params.getValue( "STRAND"+strand );
 
 		StringTokenizer tokenizer = 
 				new StringTokenizer(params.getValue( "STRANDMUTNUMS" ));
 		for( int it = 0; it < strand; ++it ) tokenizer.nextToken(); 
-		int numFlexRes = Integer.parseInt( tokenizer.nextToken() );
 
 		tokenizer = new StringTokenizer( strandLimits );
 
@@ -216,7 +214,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 			strLimits.add( tokenizer.nextToken() );
 		}
 
-		return new KSTermini( strand, numFlexRes, strLimits );
+		return new ResidueTermini( strand, Integer.valueOf(strLimits.get(0)), Integer.valueOf(strLimits.get(1)) );
 
 	}
 
@@ -248,7 +246,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 		ObjectIO.makeDir(ematDir, params.getBool("kStarDeleteEmatDir", false));
 		String name = ematDir + File.separator + params.getValue("RUNNAME");
 
-		String suffix = KSTermini.getTerminiString(strand);
+		String suffix = "Strand"+strand;
 
 		ArrayList<String[]> moveableStrands = strandSeqs.getMoveableStrandTermini();
 		ArrayList<String[]> freeBBZones = strandSeqs.getFreeBBZoneTermini();
@@ -260,8 +258,8 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 				strandSeqs.getFlexRes(), 
 				strandSeqs.getAllowedAAs(),
 				params.getBool("AddWT"), 
-				params.getBool("AddWT", true), 
-				params.getBool("doMinimize", false),
+				params.getBool("doMinimize", false), 
+				params.getBool("useEpic"),
 				new EPICSettings(params),
 				params.getBool("UseTupExp", false),
 				new LUTESettings(params),
@@ -279,7 +277,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 
 	ArrayList<String> getFlexResByStrand( int strand ) {
 
-		if( strand != KSTermini.COMPLEX && strand != KSTermini.PROTEIN && strand != KSTermini.LIGAND )
+		if( strand != 2 && strand != 0 && strand != 1 )
 			throw new RuntimeException("ERROR: specified strand " + strand + " is invalid");
 
 		ArrayList<String> flexResList = new ArrayList<>();
@@ -297,21 +295,21 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 
 	public void verifyStrandsMutuallyExclusive() {
 		// make sure that strands are mutually exclusive. assuming only two strands for now...
-		KSTermini s0 = getStrandLimits(0);
-		KSTermini s1 = getStrandLimits(1);
+		ResidueTermini s0 = getStrandLimits(0);
+		ResidueTermini s1 = getStrandLimits(1);
 
 		// there is a C common to both integer sets
 		// x1 <= C <= x2
 		// y1 <= C <= y2
 		// x1 <= y2 && y1 <= x2
-		if(s0.getTerminusBegin() <= s1.getTerminusEnd() && s1.getTerminusBegin() <= s0.getTerminusEnd())
+		if(s0.lBound <= s1.uBound && s1.lBound <= s0.uBound)
 			throw new RuntimeException("ERROR: strand0 overlaps with strand1. Please fix strand termini.");
 	}
 
 
 	public KSAllowedSeqs getAllowedSequences(int strand, KSAllowedSeqs complexSeqs) {
 
-		KSTermini limits = getStrandLimits(strand);
+		ResidueTermini limits = getStrandLimits(strand);
 
 		if( complexSeqs == null ) {
 			// this is only true when we have not calculated the sequences for the complex
@@ -327,7 +325,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 			int numMutations = params.getInt("NUMMUTATIONS", 1);
                         boolean allowLessMut = params.getBool("ALLOWLESSMUTATIONS",false);
 
-			complexSeqs = new KSAllowedSeqs(strand, limits, setupDEEPer(), 
+			complexSeqs = new KSAllowedSeqs(strand, limits, setupDEEPer(strand), 
 					freeBBZoneTermini(limits), moveableStrandTermini(limits), flexRes, 
 					allowedAAs, getWTSequence(), params.getBool("addWT"), 
                                         numMutations, allowLessMut);
@@ -344,7 +342,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 						+ "Change the value of NUMMUTATIONS parameter.");
 		}
 
-		if(strand == KSTermini.COMPLEX)
+		if(strand == 2)
 			return complexSeqs;
 
 		// get index values of strand limits in flexRes
@@ -353,9 +351,9 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 		@SuppressWarnings("unchecked")
 		ArrayList<ArrayList<String>> allowedAAs = (ArrayList<ArrayList<String>>)ObjectIO.deepCopy(complexSeqs.getAllowedAAs());
 		int lb = -1, ub = -1;
-		KSTermini compressedLimits = getCompressedStrandLimits(strand, complexSeqs.getFlexRes());
-		lb = flexRes.indexOf( String.valueOf(compressedLimits.getTerminusBegin()) );
-		ub = flexRes.indexOf( String.valueOf(compressedLimits.getTerminusEnd()) ) + 1;
+		ResidueTermini compressedLimits = getCompressedStrandLimits(strand, complexSeqs.getFlexRes());
+		lb = flexRes.indexOf( String.valueOf(compressedLimits.lBound) );
+		ub = flexRes.indexOf( String.valueOf(compressedLimits.uBound) ) + 1;
 
 		// filter allowedSeqs for protein and ligand strands
 		filterResiduesByStrand( strand, flexRes, allowedAAs );
@@ -367,9 +365,9 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 	}
 
 
-	KSTermini getCompressedStrandLimits( int strand, ArrayList<String> flexRes ) {
+	ResidueTermini getCompressedStrandLimits( int strand, ArrayList<String> flexRes ) {
 
-		KSTermini strandLimits = getStrandLimits(strand);
+		ResidueTermini strandLimits = getStrandLimits(strand);
 		ArrayList<String> strandResNums = getFlexResByStrand(strand);
 
 		@SuppressWarnings("unchecked")
@@ -390,7 +388,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 		ArrayList<String> limits = new ArrayList<>();
 		limits.add(flexRes2.get(0));
 		limits.add(flexRes2.get(flexRes2.size()-1));
-		KSTermini ans = new KSTermini(strand, flexRes2.size(), limits);
+		ResidueTermini ans = new ResidueTermini(strand, Integer.valueOf(limits.get(0)), Integer.valueOf(limits.get(1)));
 
 		return ans;
 	}
@@ -399,7 +397,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 	void filterResiduesByStrand( int strand, ArrayList<String> flexRes, 
 			ArrayList<ArrayList<String>> allowedAAs ) {
 
-		KSTermini strandLimits = getStrandLimits(strand);
+		ResidueTermini strandLimits = getStrandLimits(strand);
 		ArrayList<String> strandResNums = getFlexResByStrand(strand);
 
 		for( int it = 0; it < flexRes.size(); ) {

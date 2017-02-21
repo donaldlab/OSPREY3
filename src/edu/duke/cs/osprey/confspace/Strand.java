@@ -10,7 +10,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.Forcefield;
-import edu.duke.cs.osprey.kstar.KSTermini;
+import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
 import edu.duke.cs.osprey.restypes.DAminoAcidHandler;
 import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
@@ -51,12 +51,12 @@ public class Strand {
 		}
 		
 		/**
-		 * temporary glue code to support old KSTermini, but KSTermini will eventually be removed in favor of this Strand class
+		 * temporary glue code to support old ResidueTermini, but ResidueTermini will eventually be removed in favor of this Strand class
 		 */
 		@Deprecated
-		public Builder setResidues(KSTermini termini) {
+		public Builder setResidues(ResidueTermini termini) {
 			if (termini != null) {
-				return setResidues(termini.getTerminusBegin(), termini.getTerminusEnd());
+				return setResidues(termini.lBound, termini.uBound);
 			}
 			return this;
 		}

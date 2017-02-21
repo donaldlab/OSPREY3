@@ -61,7 +61,6 @@ public class ConfigFileParser {
         params = new ParamSet(other.params);
     }
     
-    
     protected DEEPerSettings setupDEEPer(){
         //Set up the DEEPerSettings object, including the PertSet (describes the perturbations)
         DEEPerSettings dset = new DEEPerSettings(
@@ -198,7 +197,7 @@ public class ConfigFileParser {
     }
     
     
-    ArrayList<String> getWtRotOnlyRes(){
+    protected ArrayList<String> getWtRotOnlyRes(){
         //List of residues for which we'll only include the wild-type rotamer
         ArrayList<String> wtRotOnlyRes = new ArrayList<>();
         String val = params.getValue("WTRotOnlyRes");
