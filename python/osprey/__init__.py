@@ -149,7 +149,7 @@ def Parallelism(cpuCores=None, gpus=None, streamsPerGpu=None):
 	if gpus is not None:
 		builder.setNumGpus(gpus)
 	if streamsPerGpu is not None:
-		builder.setStreamsPerGpu(streamsPerGpu)
+		builder.setNumStreamsPerGpu(streamsPerGpu)
 
 	return builder.build()
 

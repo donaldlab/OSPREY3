@@ -25,8 +25,8 @@ public class ScriptPlayground {
 	
 	public static void main(String[] args)
 	throws Exception {
-		minimalGMEC();
-		//advancedGMEC();
+		//minimalGMEC();
+		advancedGMEC();
 	}
 	
 	private static void minimalGMEC()
@@ -71,12 +71,13 @@ public class ScriptPlayground {
 		Molecule mol = PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb");
 		
 		// choose a forcefield
-		Forcefield ff = Forcefield.AMBER;
+		ForcefieldParams ffparams = new ForcefieldParams(Forcefield.AMBER);
+		ffparams.solvationForcefield = null; // turn off solvation energy
 		
 		// choose a template library
 		GenericResidueTemplateLibrary templateLib = new GenericResidueTemplateLibrary.Builder()
 			.setLovellRotamers()
-			.setForcefield(ff)
+			.setForcefield(ffparams.forcefld)
 			.build();
 		
 		// make the protein
@@ -109,10 +110,6 @@ public class ScriptPlayground {
 			// TEMP
 			//.addStrand(ligand, new StrandFlex.TranslateRotate(10, 10))
 			.build();
-		
-		// choose the forcefield params
-		ForcefieldParams ffparams = new ForcefieldParams(ff);
-		ffparams.solvationForcefield = null; // turn off solvation energy
 		
 		// get an energy matrix
 		EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, ffparams)

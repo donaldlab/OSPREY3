@@ -6,6 +6,7 @@ import java.nio.DoubleBuffer;
 import java.nio.IntBuffer;
 
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
 import edu.duke.cs.osprey.gpu.ForcefieldKernel;
 import edu.duke.cs.osprey.gpu.cuda.CUBuffer;
 import edu.duke.cs.osprey.gpu.cuda.GpuStream;
@@ -32,6 +33,11 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 		super(stream, "forcefield");
 		
 		this.ffenergy = ffenergy;
+		
+		// check for unsupported forcefield options
+		if (ffenergy.getParams().params.solvationForcefield != SolvationForcefield.EEF1) {
+			throw new UnsupportedOperationException("Configurable solvation forcefields not yet supported on GPUs");
+		}
 		
 		func = makeFunction("calc");
 		func.blockThreads = 512; // NOTE: optimizing this doesn't make much difference

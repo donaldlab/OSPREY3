@@ -4,14 +4,15 @@ import osprey
 osprey.start()
 
 # what kind of hardware do we have?
-#parallelism = osprey.Parallelism(cpuCores=2, gpus=1, streamsPerGpu=1)
 parallelism = osprey.Parallelism(cpuCores=2)
+# or use GPUs
+#parallelism = osprey.Parallelism(cpuCores=2, gpus=1, streamsPerGpu=1)
 
 # choose a forcefield
 ffparams = osprey.ForcefieldParams(osprey.Forcefield.AMBER)
-ffparams.solvationForcefield = None # turn off solvation enery
-# or
-#ffparams.solvationForcefield = osprey.SolvationForcefield.EEF1
+ffparams.solvationForcefield = osprey.SolvationForcefield.EEF1 # this is the default
+# or turn off solvation energy
+#ffparams.solvationForcefield = None
 
 # choose a template library
 templateLib = osprey.TemplateLibrary(

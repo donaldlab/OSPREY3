@@ -10,6 +10,7 @@ import com.jogamp.opencl.CLContext;
 import com.jogamp.opencl.CLMemory;
 
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
 import edu.duke.cs.osprey.gpu.ForcefieldKernel;
 import edu.duke.cs.osprey.gpu.opencl.GpuQueue;
 import edu.duke.cs.osprey.gpu.opencl.Kernel;
@@ -39,6 +40,11 @@ public class ForcefieldKernelOpenCL extends Kernel implements ForcefieldKernel {
 	public ForcefieldKernelOpenCL(GpuQueue queue, BigForcefieldEnergy ffenergy)
 	throws IOException {
 		super(queue, "forcefield.cl", "calc");
+		
+		// check for unsupported forcefield options
+		if (ffenergy.getParams().params.solvationForcefield != SolvationForcefield.EEF1) {
+			throw new UnsupportedOperationException("Configurable solvation forcefields not yet supported on GPUs");
+		}
 		
 		/* OPTIMIZATION: this kernel uses lots and lots of registers, so maxing out the work group size is sub-optimal
 			using a smaller group size works noticeably better!
