@@ -182,7 +182,7 @@ def autodoc_docstring_handler(app, what, name, obj, options, doclines, for_signa
 	#		print(line)
 
 
-def resolve_typename(typename, package, imports, config):
+def resolve_typename(typename, ast, config):
 
 	# is this a primitive type?
 	try:
@@ -192,7 +192,7 @@ def resolve_typename(typename, package, imports, config):
 		pass
 	
 	# try a java class
-	ref = ImportResolver(package, imports, config).resolve(typename)
+	ref = ImportResolver(ast, config).resolve(typename)
 	return ':java:ref:`%s`' % ref.full_classname
 
 
@@ -271,6 +271,41 @@ class DefaultDoctag(Doctag):
 			val = java_to_python_constants[val]
 
 		return val
+
+
+	def render_ast_expression(self, ast):
+		
+		if isinstance(ast, javalang.tree.Literal):
+
+			# expr is literal value
+			return ast.value
+
+		elif isinstance(ast, javalang.tree.MemberReference):
+
+			# expr is foo or foo.bar
+			val = ast.member
+			if len(ast.qualifier) > 0:
+				val = '%s.%s' % (ast.qualifier, val)
+			return val
+
+		elif isinstance(ast, javalang.tree.ClassCreator):
+			
+			# expr is new Foo()
+			return '%s()' % ast.type.name
+
+		elif isinstance(ast, javalang.tree.MethodInvocation):
+
+			# expr is foo() or foo.bar() or foo.bar(arg1, arg2)
+			args = []
+			for arg in ast.arguments:
+				args.append(self.render_ast_expression(arg))
+			val = '%s(%s)' % (ast.member, ', '.join(args))
+			if len(ast.qualifier) > 0:
+				val = '%s.%s' % (ast.qualifier, val)
+			return val
+
+		else:
+			raise ValueError("java expression is a %s, don't know how to render" % ast)
 	
 
 	def resolve(self, target, config):
@@ -280,25 +315,8 @@ class DefaultDoctag(Doctag):
 		ast = get_class_ast(ref, config)
 		field = ast.find_field(ref.membername)
 
-		# get the default value from the field declaration/initialization
-		init = field.declarator.initializer
-		if isinstance(init, javalang.tree.Literal):
-
-			# initialized to literal value, use directly
-			return self.map_constants(init.value)
-
-		elif isinstance(init, javalang.tree.MemberReference):
-
-			# initialized to some expression like foo or foo.bar
-			if init.qualifier is '':
-				val = init.member
-			else:
-				val = '%s.%s' % (init.qualifier, init.member)
-
-			return self.map_constants(val)
-
-		else:
-			raise ValueError("field initialized with a %s, don't know what to do" % init)
+		# render the initializer expression
+		return self.map_constants(self.render_ast_expression(field.declarator.initializer))
 
 
 	def set_default(self, argspec, name, val):
@@ -313,10 +331,19 @@ class DefaultDoctag(Doctag):
 		names = argspec['args']
 		defaults = argspec['defaults']
 
-		offset = len(names) - len(defaults)
+		num_args = len(names) - len(defaults)
+		num_kwargs = len(defaults)
 
-		for i in range(len(defaults)):
-			if names[offset + i] == name:
+		# is this an arg?
+		for i in range(num_args):
+			if names[i] == name:
+				# do nothing, can't set defaults for regular args
+				return
+
+		# is this a keyword arg?
+		for i in range(num_kwargs):
+			if names[num_args + i] == name:
+				# get a kwarg, set the default
 				defaults[i] = Literal(val)
 				return
 
@@ -410,7 +437,7 @@ class BuilderOptionDoctag(Doctag):
 			# use the field type as the argument type
 			try:
 				typename = field.type.name
-				typename = resolve_typename(typename, ast.package, ast.imports, app.config)
+				typename = resolve_typename(typename, ast, app.config)
 				rst.append('%s:type %s: %s' % (indent, argname, typename))
 			except ValueError as e:
 				warn("can't resolve java type '%s' referenced in class '%s'" % (typename, ref), cause=e)
@@ -437,7 +464,7 @@ class BuilderReturnDoctag(Doctag):
 		try:
 			buildmethod = ast.find_method('build')
 			typename = buildmethod.return_type.name
-			typename = resolve_typename(typename, ast.package, ast.imports, app.config)
+			typename = resolve_typename(typename, ast, app.config)
 			return '%s:rtype: %s' % (indent, typename)
 		except KeyError:
 			warn("can't find build method on builder class: %s" % ref)
@@ -534,9 +561,8 @@ class JavaRef():
 
 class ImportResolver():
 
-	def __init__(self, package, imports, config):
-		self.package = package
-		self.imports = imports
+	def __init__(self, ast, config):
+		self.ast = ast
 		self.config = config
 
 
@@ -549,13 +575,23 @@ class ImportResolver():
 
 		ref = JavaRef(target)
 
+		# first, check types in the given ast
+		if self.ast.name == ref.simple_classname:
+			return ref
+		try:
+			inner_class = self.ast.find_inner_class(ref.simple_classname)
+			return JavaRef('%s.%s$%s' % (self.ast.package.name, self.ast.name, inner_class.name))
+		except KeyError:
+			# nope, not found
+			pass
+
 		# find an import that resolves the target
-		for imp in self.imports:
+		for imp in self.ast.imports:
 			if imp.path.endswith('.%s' % ref.simple_classname):
 				return JavaRef(imp.path, membername=ref.membername)
 
 		# no matching import, check package
-		ref = JavaRef('%s.%s' % (self.package.name, ref.classname), membername=ref.membername)
+		ref = JavaRef('%s.%s' % (self.ast.package.name, ref.classname), membername=ref.membername)
 		if self.has_source(ref):
 			return ref
 		else:
@@ -594,12 +630,15 @@ def get_class_ast(ref, config):
 		ast = find_type(ref.outer_classname, ast.types)
 	except KeyError:
 		raise KeyError("can't find outer class %s in source file %s" % (ref.outer_classname, ref.source_file()))
+
+	def find_subtype(ast, name):
+		subtypes = [member for member in ast.body if isinstance(member, javalang.tree.TypeDeclaration)]
+		return find_type(name, subtypes)
 	
 	# get nested types if needed
 	for name in ref.simple_inner_classnames:
-		subtypes = [member for member in ast.body if isinstance(member, javalang.tree.TypeDeclaration)]
 		try:
-			ast = find_type(name, subtypes)
+			ast = find_subtype(ast, name)
 		except KeyError:
 			raise KeyError("can't find inner class %s in outer class %s in source file %s" % (name, ast.name, ref.source_file()))
 	
@@ -607,7 +646,11 @@ def get_class_ast(ref, config):
 	ast.package = package
 	ast.imports = imports
 
-	# add some helper methods
+	# add some helper methods to ast classes
+	def find_inner_class(name):
+		return find_subtype(ast, name)
+	ast.find_inner_class = find_inner_class
+
 	def find_field(name):
 		for field in ast.fields:
 			for declarator in field.declarators:
@@ -633,18 +676,31 @@ def get_class_ast(ref, config):
 			return found_methods[0]
 	ast.find_method = find_method
 
+	def find_method_with_javadoc(name):
+		found_methods = []
+		for method in ast.methods:
+			if method.name == name and method.documentation is not None:
+				found_methods.append(method)
+		if len(found_methods) == 0:
+			raise KeyError("can't find method: %s" % name)
+		elif len(found_methods) > 1:
+			raise KeyError("multiple javadoc'd method overloads found for: %s, can't resolve" % name)
+		else:
+			return found_methods[0]
+	ast.find_method_with_javadoc = find_method_with_javadoc
+
 	return ast
 
 
 class Javadoc():
 
-	def __init__(self, text, package, imports, config):
+	def __init__(self, text, ast, config):
 
 		if text is None:
 			raise ValueError('javadoc cannot be None')
 
 		self.text = text
-		self.import_resolver = ImportResolver(package, imports, config)
+		self.import_resolver = ImportResolver(ast, config)
 		self.parsed = javalang.javadoc.parse(text)
 
 
@@ -796,7 +852,7 @@ class JavaClassDirective(ParsingDirective):
 					rst.append('.. py:attribute:: %s' % decl.name)
 					rst.append('')
 					if field.documentation is not None:
-						javadoc = Javadoc(field.documentation, ast.package, ast.imports, self.config)
+						javadoc = Javadoc(field.documentation, ast, self.config)
 						rst.append('\t' + javadoc.description)
 						rst.append('')
 
@@ -815,7 +871,7 @@ class JavaClassDirective(ParsingDirective):
 				rst.append('.. py:method:: %s' % make_method_signature(method))
 				rst.append('')
 				if method.documentation is not None:
-					javadoc = Javadoc(method.documentation, ast.package, ast.imports, self.config)
+					javadoc = Javadoc(method.documentation, ast, self.config)
 					rst.append('\t' + javadoc.description)
 					rst.append('')
 
@@ -833,7 +889,7 @@ class JavaClassDirective(ParsingDirective):
 				rst.append('.. py:attribute:: %s' % value.name)
 				rst.append('')
 				if value.documentation is not None:
-					javadoc = Javadoc(value.documentation, ast.package, ast.imports, self.config)
+					javadoc = Javadoc(value.documentation, ast, self.config)
 					rst.append('\t' + javadoc.description)
 					rst.append('')
 
@@ -897,7 +953,7 @@ class ClassdocRole(JavaRole):
 
 		# parse the javadoc
 		try:
-			return Javadoc(ast.documentation, ast.package, ast.imports, self.config).description
+			return Javadoc(ast.documentation, ast, self.config).description
 		except (KeyError, ValueError) as e:
 			return self.warn("can't parse javadoc for class: %s" % ref, cause=e)
 
@@ -920,7 +976,7 @@ class FielddocRole(JavaRole):
 
 		# parse the javadoc
 		try:
-			return Javadoc(field.documentation, ast.package, ast.imports, self.config).description
+			return Javadoc(field.documentation, ast, self.config).description
 		except (KeyError, ValueError) as e:
 			return self.warn("can't parse javadoc for field: %s" % ref, cause=e)
 
@@ -933,7 +989,7 @@ class MethoddocRole(JavaRole):
 		try:
 			ref = JavaRef(expand_classname(text, self.config))
 			ast = get_class_ast(ref, self.config)
-			method = ast.find_method(ref.membername)
+			method = ast.find_method_with_javadoc(ref.membername)
 		except (KeyError, ValueError, FileNotFoundError) as e:
 			return self.warn("can't find method: %s" % text, cause=e)
 
@@ -943,7 +999,7 @@ class MethoddocRole(JavaRole):
 
 		# parse the javadoc
 		try:
-			return Javadoc(method.documentation, ast.package, ast.imports, self.config).description
+			return Javadoc(method.documentation, ast, self.config).description
 		except (KeyError, ValueError) as e:
 			return self.warn("can't parse javadoc for method: %s" % ref, cause=e)
 

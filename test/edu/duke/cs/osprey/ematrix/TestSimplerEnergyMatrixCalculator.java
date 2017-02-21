@@ -15,6 +15,7 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -789,7 +790,7 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 	private SimpleConfSpace makeConfSpace(boolean doMinimize, int firstResNum, String ... aminoAcids) {
 		
 		Molecule mol = PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb");
-		Strand strand = Strand.builder(mol)
+		Strand strand = new Strand.Builder(mol)
 			.setLovellTemplateLibrary() // explicitly choose Lovell rotamers
 			.build();
 		
@@ -802,11 +803,11 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 			resNum++;
 		}
 		
-		return SimpleConfSpace.build(strand);
+		return new SimpleConfSpace.Builder().addStrand(strand).build();
 	}
 	
 	private SimplerEnergyMatrixCalculator makeEmatCalc(SimpleConfSpace confSpace) {
-		return SimplerEnergyMatrixCalculator.builder(confSpace)
+		return new SimplerEnergyMatrixCalculator.Builder(confSpace, new ForcefieldParams())
 			.setMinimizerFactory((f) -> new CCDMinimizer(f, false))
 			.build();
 	}

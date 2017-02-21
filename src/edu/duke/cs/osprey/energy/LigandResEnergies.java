@@ -27,7 +27,7 @@ public class LigandResEnergies {
     
     
     public LigandResEnergies(ParamSet params){
-        Molecule mol = Strand.builder(PDBIO.readFile(params.getFile("pdbName"))).build().mol;
+        Molecule mol = new Strand.Builder(PDBIO.readFile(params.getFile("pdbName"))).build().mol;
         String ligandTermini[] = new String[] {params.getValue("ligandStart"),params.getValue("ligandEnd")};
         String targetTermini[] = new String[] {params.getValue("targetStart"),params.getValue("targetEnd")};
         ligandRes = mol.resListFromTermini(ligandTermini, null);

@@ -8,7 +8,6 @@ import java.io.Serializable;
 import java.util.Iterator;
 import java.util.StringTokenizer;
 
-import edu.duke.cs.osprey.control.Defaults;
 import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.StringParsing;
 
@@ -76,7 +75,7 @@ public class ForcefieldParams implements Serializable {
     public boolean hElect = true;
     public boolean hVDW = true;
     public double shellDistCutoff = Double.POSITIVE_INFINITY; //distance cutoff for interactions (angstroms)
-    public SolvationForcefield solvationForcefield = Defaults.solvationForcefield;
+    public SolvationForcefield solvationForcefield = SolvationForcefield.EEF1;
     
     public enum Forcefield {
         
@@ -158,17 +157,20 @@ public class ForcefieldParams implements Serializable {
     }
     
     public ForcefieldParams() {
-        this(Defaults.forcefield);
+        init();
     }
     
     public ForcefieldParams(String frcefld) {
-        this(Forcefield.valueOf(frcefld.toUpperCase()));
+        this.forcefld = Forcefield.valueOf(frcefld.toUpperCase());
+        init();
     }
     
     public ForcefieldParams(Forcefield frcefld) {
-         
         this.forcefld = frcefld;
-        
+        init();
+    }
+    
+    private void init() {
         // Read in AMBER forcefield parameters
         // parm96a.dat
         try {

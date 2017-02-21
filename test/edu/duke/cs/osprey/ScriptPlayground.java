@@ -3,7 +3,6 @@ package edu.duke.cs.osprey;
 import java.io.File;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
@@ -12,6 +11,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.Forcefield;
+import edu.duke.cs.osprey.gmec.ConfEnergyCalculator;
 import edu.duke.cs.osprey.gmec.LoggingConfPrinter;
 import edu.duke.cs.osprey.gmec.SimpleGMECFinder;
 import edu.duke.cs.osprey.minimization.SimpleConfMinimizer;
@@ -20,6 +20,7 @@ import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 
+@SuppressWarnings("unused")
 public class ScriptPlayground {
 	
 	public static void main(String[] args)
@@ -32,7 +33,7 @@ public class ScriptPlayground {
 	throws Exception {
 		
 		// read a protein
-		Strand strand = Strand.builder(PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb")).build();
+		Strand strand = new Strand.Builder(PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb")).build();
 		
 		// configure flexibility
 		strand.flexibility.get(2).setLibraryRotamers("ALA", "GLY");
@@ -40,13 +41,27 @@ public class ScriptPlayground {
 		strand.flexibility.get(4).setLibraryRotamers();
 		
 		// make the conf space
-		SimpleConfSpace confSpace = SimpleConfSpace.build(strand);
+		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
+		
+		// choose the default forcefield
+		ForcefieldParams ffparams = new ForcefieldParams();
 		
 		// get an energy matrix
-		EnergyMatrix emat = SimplerEnergyMatrixCalculator.build(confSpace).calcEnergyMatrix(new File("/tmp/emat.dat"));
+		EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, ffparams)
+			.setCacheFile(new File("/tmp/emat.dat"))
+			.build()
+			.calcEnergyMatrix();
+		
+		// how should confs be ordered?
+		ConfSearch confSearch = new ConfAStarTree.Builder(emat, confSpace).build();
+		
+		// what's the energy of a conformation?
+		ConfEnergyCalculator ecalc = new SimpleConfMinimizer.Builder(confSpace, ffparams).build();
 		
 		// find the GMEC!
-		SimpleGMECFinder.builder(confSpace, emat).build().find(5);
+		new SimpleGMECFinder.Builder(confSpace, confSearch, ecalc)
+			.build()
+			.find(5);
 	}
 	
 	private static void advancedGMEC()
@@ -59,13 +74,13 @@ public class ScriptPlayground {
 		Forcefield ff = Forcefield.AMBER;
 		
 		// choose a template library
-		GenericResidueTemplateLibrary templateLib = GenericResidueTemplateLibrary.builder()
+		GenericResidueTemplateLibrary templateLib = new GenericResidueTemplateLibrary.Builder()
 			.setLovellRotamers()
 			.setForcefield(ff)
 			.build();
 		
 		// make the protein
-		Strand protein = Strand.builder(mol)
+		Strand protein = new Strand.Builder(mol)
 			.setResidues(2, 30)
 			.setTemplateLibrary(templateLib)
 			.build();
@@ -78,7 +93,7 @@ public class ScriptPlayground {
 		
 		/* TODO: make this work
 		// make the ligand
-		Strand ligand = Strand.builder(mol)
+		Strand ligand = new Strand.Builder(mol)
 			.setResidues(45, 50)
 			.setTemplateLibrary(templateLib)
 			.build();
@@ -89,7 +104,7 @@ public class ScriptPlayground {
 		*/
 		
 		// make the conf space
-		SimpleConfSpace confSpace = SimpleConfSpace.builder()
+		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
 			.addStrand(protein)
 			// TEMP
 			//.addStrand(ligand, new StrandFlex.TranslateRotate(10, 10))
@@ -100,24 +115,25 @@ public class ScriptPlayground {
 		ffparams.solvationForcefield = null; // turn off solvation energy
 		
 		// get an energy matrix
-		SimplerEnergyMatrixCalculator ematcalc = SimplerEnergyMatrixCalculator.builder(confSpace)
-			.setForcefieldParams(ffparams)
-			.build();
-		EnergyMatrix emat = ematcalc.calcEnergyMatrix(new File("/tmp/emat.dat"));
+		EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, ffparams)
+			.setCacheFile(new File("/tmp/emat.dat"))
+			.build()
+			.calcEnergyMatrix();
 		
 		// TODO: optional pruning? or iMinDEE?
 		
-		// make the conf search
-		ConfSearch search = ConfAStarTree.builder(emat, confSpace)
+		// how should confs be ordered?
+		ConfSearch search = new ConfAStarTree.Builder(emat, confSpace)
 			.setMPLP(ConfAStarTree.MPLPBuilder().setNumIterations(4))
 			.build();
 		
+		// what's the energy of a conformation?
+		ConfEnergyCalculator ecalc = new SimpleConfMinimizer.Builder(confSpace, ffparams)
+			.setParallelism(Parallelism.makeCpu(2))
+			.build();
+		
 		// find the GMEC!
-		SimpleGMECFinder gmecFinder = SimpleGMECFinder.builder(confSpace, search)
-			.setEnergyCalculator(SimpleConfMinimizer.builder(confSpace)
-				.setForcefieldParams(ffparams)
-				.setParallelism(Parallelism.makeCpu(2))
-				.build())
+		SimpleGMECFinder gmecFinder = new SimpleGMECFinder.Builder(confSpace, search, ecalc)
 			.setLogPrinter(new LoggingConfPrinter(new File("confs.txt")))
 			.build();
 		EnergiedConf gmec = gmecFinder.find();

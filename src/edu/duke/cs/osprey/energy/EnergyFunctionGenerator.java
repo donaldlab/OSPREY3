@@ -9,12 +9,11 @@ import java.util.List;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.PositionConfSpace;
-import edu.duke.cs.osprey.control.Defaults;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
 import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
-import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 
@@ -27,10 +26,6 @@ public class EnergyFunctionGenerator {
     //it specifies settings for how this energy should be estimated
     
     public ForcefieldParams ffParams;
-    
-    public EnergyFunctionGenerator() {
-    	this(Defaults.forcefieldParams);
-    }
     
     public EnergyFunctionGenerator(ForcefieldParams fParams) {
         ffParams = fParams;

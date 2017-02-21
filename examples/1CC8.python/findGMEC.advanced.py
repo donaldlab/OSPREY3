@@ -8,11 +8,14 @@ osprey.start()
 parallelism = osprey.Parallelism(cpuCores=2)
 
 # choose a forcefield
-ff = osprey.Forcefield.AMBER
+ffparams = osprey.ForcefieldParams(osprey.Forcefield.AMBER)
+ffparams.solvationForcefield = None # turn off solvation enery
+# or
+#ffparams.solvationForcefield = osprey.SolvationForcefield.EEF1
 
 # choose a template library
 templateLib = osprey.TemplateLibrary(
-	forcefield=ff,
+	forcefield=ffparams.forcefld,
 	rotamers=osprey.LovellRotamers
 	# or
 	#templateCoords='path/to/coords/file'
@@ -31,16 +34,10 @@ protein.flexibility[4].setLibraryRotamers().addWildTypeRotamers();
 # make the conf space
 confSpace = osprey.ConfSpace(protein)
 
-# pick forcefield params
-ffparams = osprey.ForcefieldParams()
-ffparams.solvationForcefield = None # turn off solvation enery
-# or
-#ffparams.solvationForcefield = osprey.SolvationForcefield.EEF1
-
 # calculate the energy matrix
 emat = osprey.EnergyMatrix(
 	confSpace,
-	ffparams=ffparams,
+	ffparams,
 	parallelism=parallelism,
 	cacheFile='/tmp/emat.dat'
 )
@@ -57,10 +54,10 @@ astar = osprey.AStarMPLP(
 energyWindow = 0.1 # kcal/mol
 confs = osprey.GMECFinder(
 	confSpace,
-	astar=astar,
-	energyCalculator=osprey.MinimizingEnergyCalculator(
+	astar,
+	osprey.ConfEnergyCalculator(
 		confSpace,
-		ffparams=ffparams,
+		ffparams,
 		parallelism=parallelism
 	),
 	printIntermediateConfs=True,

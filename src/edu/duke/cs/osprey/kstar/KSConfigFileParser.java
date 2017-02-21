@@ -223,7 +223,7 @@ public class KSConfigFileParser extends ConfigFileParser implements Serializable
 
 	public ArrayList<String> getWTSequence() {
 
-		Molecule m = Strand.builder(PDBIO.readFile(params.getFile("PDBNAME"))).build().mol;
+		Molecule m = new Strand.Builder(PDBIO.readFile(params.getFile("PDBNAME"))).build().mol;
 		ArrayList<String> flexibleRes = getFlexRes();
 		int numPos = flexibleRes.size();
 		ArrayList<String> wt = new ArrayList<>(); for( int pos = 0; pos < numPos; ++pos ) wt.add(null);

@@ -57,7 +57,7 @@ public class TestForceFieldKernel extends TestBase {
 			val36, leu39, trp47, leu48, ile53, arg55, val56, leu57, ile59, val62, leu64, val65, met66;
 		
 		public Residues() {
-			strand = Strand.builder(PDBIO.readFile("examples/DAGK/2KDC.P.forOsprey.pdb"))
+			strand = new Strand.Builder(PDBIO.readFile("examples/DAGK/2KDC.P.forOsprey.pdb"))
 				.setErrorOnNonTemplateResidues(true)
 				.build();
 			Molecule mol = strand.mol;

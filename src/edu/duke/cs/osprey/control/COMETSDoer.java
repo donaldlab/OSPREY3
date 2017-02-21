@@ -166,7 +166,7 @@ public class COMETSDoer {
         
         ArrayList<ArrayList<String>> stateAAOptions = cfgP.getAllowedAAs();
         
-        Molecule wtMolec = Strand.builder(PDBIO.readFile(cfgP.params.getFile("PDBName"))).build().mol;
+        Molecule wtMolec = new Strand.Builder(PDBIO.readFile(cfgP.params.getFile("PDBName"))).build().mol;
         ArrayList<String> flexRes = cfgP.getFlexRes();
         
         

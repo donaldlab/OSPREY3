@@ -12,9 +12,16 @@ strand.flexibility[4].setLibraryRotamers();
 # make the conf space
 confSpace = osprey.ConfSpace(strand)
 
-# get an energy matrix
-emat = osprey.EnergyMatrix(confSpace, cacheFile='/tmp/emat.dat')
+# choose a forcefield
+ffparams = osprey.ForcefieldParams()
+
+# how should confs be ordered and searched?
+emat = osprey.EnergyMatrix(confSpace, ffparams, cacheFile='/tmp/emat.dat')
+astar = osprey.AStarMPLP(emat, confSpace)
+
+# how to compute the energy of a conformation?
+ecalc = osprey.ConfEnergyCalculator(confSpace, ffparams)
 
 # find the best sequence and rotamers
-gmec = osprey.GMECFinder(confSpace, emat).find()
+gmec = osprey.GMECFinder(confSpace, astar, ecalc).find()
 

@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import edu.duke.cs.osprey.control.Defaults;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.Forcefield;
 import edu.duke.cs.osprey.kstar.KSTermini;
 import edu.duke.cs.osprey.restypes.DAminoAcidHandler;
@@ -37,7 +36,7 @@ public class Strand {
 			this.mol = mol;
 			this.firstResNum = mol.residues.get(0).getPDBResNumber();
 			this.lastResNum = mol.residues.get(mol.residues.size() - 1).getPDBResNumber();
-			this.templateLib = Defaults.genericTemplateLibrary;
+			this.templateLib = new GenericResidueTemplateLibrary.Builder().build();
 			this.errorOnNonTemplateResidues = false;
 		}
 		
@@ -68,19 +67,19 @@ public class Strand {
 		}
 		
 		public Builder setDefaultTemplateLibrary(Forcefield forcefield) {
-			return setTemplateLibrary(GenericResidueTemplateLibrary.builder()
+			return setTemplateLibrary(new GenericResidueTemplateLibrary.Builder()
 				.setForcefield(forcefield)
 				.build());
 		}
 		
 		public Builder setLovellTemplateLibrary() {
-			return setTemplateLibrary(GenericResidueTemplateLibrary.builder()
+			return setTemplateLibrary(new GenericResidueTemplateLibrary.Builder()
 				.setLovellRotamers()
 				.build());
 		}
 		
 		public Builder setLovellTemplateLibrary(Forcefield forcefield) {
-			return setTemplateLibrary(GenericResidueTemplateLibrary.builder()
+			return setTemplateLibrary(new GenericResidueTemplateLibrary.Builder()
 				.setForcefield(forcefield)
 				.setLovellRotamers()
 				.build());
@@ -94,10 +93,6 @@ public class Strand {
 		public Strand build() {
 			return new Strand(mol, firstResNum, lastResNum, templateLib, errorOnNonTemplateResidues);
 		}
-	}
-	
-	public static Builder builder(Molecule mol) {
-		return new Builder(mol);
 	}
 	
 	/**

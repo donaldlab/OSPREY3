@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 
-import edu.duke.cs.osprey.control.Defaults;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.Forcefield;
 import edu.duke.cs.osprey.structure.Atom;
@@ -36,38 +35,37 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary implem
 		private static final String LovellRotamersPath = "/config/LovellRotamer.dat";
 		
 		/** used to match molecule residues to templates */
-		private Forcefield forcefield;
+		private Forcefield forcefield = Forcefield.AMBER;
 		
 		/**
 		 * Text of file with template coordinates. If no coordinates are specified,
 		 * the default template library (of natural amino acids) is used.
 		 * 
-		 * @todo explain template coord file format
+		 * @todo explain template coord file format. anyone know about this?
 		 */
 		private String templateCoordsText;
 		
 		/**
 		 * Text of file with rotamer dihedral angles. If no rotamers are specified,
 		 * the default rotamer library
-		 * {@cite Lovell2000 Lovell, Word, Richardson, and Richardson. "The Penultimate Rotamer Library."
-		 * PROTEINS: Structure, Function, and Genetics, 40:389-408 (2000).}
+		 * {@cite Lovell2000 Lovell, Lovell, S.C., Word, J.M., Richardson, J.S. and Richardson, D.C., 2000.
+		 * The penultimate rotamer library. Proteins: Structure, Function, and Bioinformatics, 40(3), pp.389-408.}
 		 * is used.
 		 * 
-		 * @todo explain rotamers file format
+		 * @todo explain rotamers file format. anyone know about this?
 		 */
 		private String rotamersText;
 		
 		/**
 		 * Text of file with backbone dependent rotamer dihedral angles.
 		 * 
-		 * @todo explain backbone-dependent rotamers file format
+		 * @todo explain backbone-dependent rotamers file format. anyone know about this?
 		 */
 		private String backboneDependentRotamersText;
 		private String entropyText;
 		private boolean makeDAminoAcidTemplates;
 		
 		public Builder() {
-			forcefield = Defaults.forcefield;
 			templateCoordsText = FileTools.readResource("/config/all_amino_coords.in");
 			rotamersText = FileTools.readResource(LovellRotamersPath);
 			backboneDependentRotamersText = null;
@@ -128,10 +126,6 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary implem
 		}
 	}
 	
-	public static Builder builder() {
-		return new Builder();
-	}
-    
     public int totalNumRotamers = 0;//total number of rotamers read in from rotamer library file(s)
     //starts at 0
     

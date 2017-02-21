@@ -104,7 +104,7 @@ public class ConfSpace implements Serializable {
         numPos = flexibleRes.size();
         
         //read the structure and assign templates, deleting unassignable res...
-        m = Strand.builder(PDBIO.readFile(PDBFile)).setResidues(termini).build().mol;
+        m = new Strand.Builder(PDBIO.readFile(PDBFile)).setResidues(termini).build().mol;
         
         // before making any structure changes, capture the wt rots if needed
         List<ResidueTemplate> wtRots = new ArrayList<>(Collections.nCopies(numPos, null));

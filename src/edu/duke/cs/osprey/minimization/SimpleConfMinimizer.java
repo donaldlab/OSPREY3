@@ -8,7 +8,6 @@ import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.control.Defaults;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.FFInterGen;
@@ -36,8 +35,9 @@ public class SimpleConfMinimizer implements ConfEnergyCalculator.Async {
 	public static class Builder {
 		
 		private SimpleConfSpace confSpace;
-		private Parallelism parallelism;
-		private Type type;
+		private ForcefieldParams ffparams;
+		private Parallelism parallelism = Parallelism.makeCpu(1);
+		private Type type = null;
 		
 		/**
 		 * Is the number of conformations to be minimized unknown in advance?
@@ -45,12 +45,10 @@ public class SimpleConfMinimizer implements ConfEnergyCalculator.Async {
 		 * @todo describe conf streaming and ThreadPoolTaskExecutor buffers. or just get rid of the buffering entirely.
 		 */
 		private boolean isStreaming = false;
-		private ForcefieldParams ffparams = Defaults.forcefieldParams;
 		
-		public Builder(SimpleConfSpace confSpace) {
+		public Builder(SimpleConfSpace confSpace, ForcefieldParams ffparams) {
 			this.confSpace = confSpace;
-			this.parallelism = Parallelism.makeDefault();
-			this.type = null;
+			this.ffparams = ffparams;
 		}
 		
 		public Builder setParallelism(Parallelism val) {
@@ -65,11 +63,6 @@ public class SimpleConfMinimizer implements ConfEnergyCalculator.Async {
 		
 		public Builder setStreaming(boolean val) {
 			isStreaming = val;
-			return this;
-		}
-		
-		public Builder setForcefieldParams(ForcefieldParams val) {
-			ffparams = val;
 			return this;
 		}
 		
@@ -92,10 +85,6 @@ public class SimpleConfMinimizer implements ConfEnergyCalculator.Async {
 				ffparams
 			);
 		}
-	}
-	
-	public static Builder builder(SimpleConfSpace confSpace) {
-		return new Builder(confSpace);
 	}
 	
 	public static enum Type {

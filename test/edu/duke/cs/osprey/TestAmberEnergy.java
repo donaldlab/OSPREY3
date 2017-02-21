@@ -36,7 +36,7 @@ public class TestAmberEnergy extends TestBase {
 	private void test(String pdbPath, SolvationForcefield solvff, double energy) {
 		
 		//compute the full energy for 1CC8 using the default AMBER forcefield, and compare it to OSPREY 2 values
-		Strand strand = Strand.builder(PDBIO.readFile(pdbPath)).build();
+		Strand strand = new Strand.Builder(PDBIO.readFile(pdbPath)).build();
 		
 		ForcefieldParams ffparams = new ForcefieldParams();
 		ffparams.solvationForcefield = solvff;

@@ -10,14 +10,15 @@ import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.control.Defaults;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.EnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
+import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.tools.HashCalculator;
 import edu.duke.cs.osprey.tools.Protractor;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
@@ -314,10 +315,10 @@ public class TestBase {
 	protected static void initDefaultEnvironment() {
 		
 		// make energy function
-		EnvironmentVars.curEFcnGenerator = Defaults.efuncGenerator;
+		EnvironmentVars.curEFcnGenerator = new EnergyFunctionGenerator(new ForcefieldParams());
 		
 		// make residue templates
-		EnvironmentVars.resTemplates = Defaults.genericTemplateLibrary;
+		EnvironmentVars.resTemplates = new GenericResidueTemplateLibrary.Builder().build();
 	}
 	
 	protected static SearchProblem makeSearchProblem(EnergyMatrixConfig emConfig) {

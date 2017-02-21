@@ -25,7 +25,7 @@ public class TestFreeDihedral extends TestBase {
 	public static void beforeClass() {
 		initDefaultEnvironment();
 		
-		mol = Strand.builder(PDBIO.readFile("examples/1CC8/1CC8.ss.pdb")).build().mol;
+		mol = new Strand.Builder(PDBIO.readFile("examples/1CC8/1CC8.ss.pdb")).build().mol;
 	}
 	
 	private Residue makePhe() {

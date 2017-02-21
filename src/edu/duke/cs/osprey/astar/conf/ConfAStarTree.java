@@ -31,6 +31,14 @@ public class ConfAStarTree implements ConfSearch {
 		private AStarScorer gscorer;
 		private AStarScorer hscorer;
 		
+		public Builder(EnergyMatrix emat, SimpleConfSpace confSpace) {
+			this(emat, new RCs(confSpace));
+		}
+		
+		public Builder(EnergyMatrix emat, PruningMatrix pmat) {
+			this(emat, new RCs(pmat));
+		}
+		
 		public Builder(EnergyMatrix emat, RCs rcs) {
 			this.emat = emat;
 			this.rcs = rcs;
@@ -41,6 +49,12 @@ public class ConfAStarTree implements ConfSearch {
 			setMPLP();
 		}
 		
+		/**
+		 * Uses the traditional estimation function to guide the tree search.
+		 * {@cite Leach1998 Leach, A.R. and Lemon, A.P., 1998. Exploring the conformational
+		 * space of protein side chains using dead-end elimination and the A* algorithm.
+		 * Proteins Structure Function and Genetics, 33(2), pp.227-239.}
+		 */
 		public Builder setTraditional() {
 			this.order = new DynamicHMeanAStarOrder();
 			this.gscorer = new PairwiseGScorer(emat);
@@ -48,6 +62,15 @@ public class ConfAStarTree implements ConfSearch {
 			return this;
 		}
 		
+		/**
+		 * Creates an A* search using a newer estimation function based on Max Product Linear
+		 * Programming (MPLP).
+		 * {@cite Globerson2008 Globerson, A. and Jaakkola, T.S., 2008. Fixing max-product: Convergent message passing
+		 * algorithms for MAP LP-relaxations. In Advances in neural information processing systems (pp. 553-560).}
+		 * 
+		 * For large designs, this A* implementation can be dramatically faster than the traditional
+		 * one, and often require much less memory too.
+		 */
 		public Builder setMPLP() {
 			setMPLP(new MPLPBuilder());
 			return this;
@@ -75,31 +98,40 @@ public class ConfAStarTree implements ConfSearch {
 		}
 	}
 	
-	/**
-	 * 
-	 * @param emat The energy matrix to use for pairwise residue conformation energies.
-	 * @param confSpace The conformation space containing the residue conformations to search.
-	 */
-	public static Builder builder(EnergyMatrix emat, SimpleConfSpace confSpace) {
-		return builder(emat, new RCs(confSpace));
-	}
-	
-	public static Builder builder(EnergyMatrix emat, PruningMatrix pmat) {
-		return builder(emat, new RCs(pmat));
-	}
-	
-	public static Builder builder(EnergyMatrix emat, RCs rcs) {
-		return new Builder(emat, rcs);
-	}
-	
 	public static class MPLPBuilder {
 		
 		private NodeUpdater updater = new NodeUpdater();
 		
-		/** The number of MPLP iterations to execute on each A* node. */
+		/**
+		 * The number of MPLP iterations to execute on each A* node.
+		 * 
+		 * This value doesn't affect the accuracy of the conformation search, only the speed.
+		 * 
+		 * The more iterations, the more accurate the A* estimation function will be,
+		 * and fewer nodes will need to be explored to reach a leaf node. The tradeoff though is
+		 * increased compute time per node explored.
+		 * 
+		 * Generally, it's safe to start with one iteration, then experimentally try more
+		 * iterations to see if it reduces the total A* search time.
+		 */
 		private int numIterations = 1;
 		
-		/** If the change in energy after an iteration is below this threshold, MPLP will stop iterating */
+		/**
+		 * If the change in energy after an iteration of the estimation function is below this
+		 * threshold, MPLP will stop iterating.
+		 * 
+		 * This value doesn't affect the accuracy of the conformation search, only the speed.
+		 * 
+		 * It also has no effect if the number of iterations is 1.
+		 * 
+		 * For a larger number of iterations, increasing this value may reduce the time spent
+		 * at each node, at the cost of exploring more total nodes. Decreasing this value may
+		 * increase time spent at each node, but not necessarily reduce the total number of
+		 * nodes explored.
+		 * 
+		 * Generally, this value won't need to be adjusted for most designs. For designs with
+		 * large numbers of MPLP iterations, optimizing this value may increase performance though.
+		 */
 		private double convergenceThreshold = 0.0001;
 		
 		public MPLPBuilder setUpdater(NodeUpdater val) {

@@ -22,7 +22,7 @@ import edu.duke.cs.osprey.tools.Factory;
 public class MinimizingConfEnergyCalculator implements ConfEnergyCalculator.Async {
 	
 	public static MinimizingConfEnergyCalculator make(ForcefieldParams ffparams, SearchProblem search) {
-		return make(ffparams, search, Parallelism.makeDefault(), false);
+		return make(ffparams, search, Parallelism.makeCpu(1), false);
 	}
 	
 	public static MinimizingConfEnergyCalculator make(ForcefieldParams ffparams, SearchProblem search, Parallelism parallelism, boolean areConfsStreaming) {

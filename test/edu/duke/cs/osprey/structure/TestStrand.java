@@ -21,7 +21,7 @@ public class TestStrand {
 	@Test
 	public void fullResidues() {
 		
-		Strand strand = Strand.builder(mol)
+		Strand strand = new Strand.Builder(mol)
 			.setErrorOnNonTemplateResidues(true)
 			.build();
 		
@@ -32,7 +32,7 @@ public class TestStrand {
 	@Test
 	public void subsequenceResidues() {
 		
-		Strand strand = Strand.builder(mol)
+		Strand strand = new Strand.Builder(mol)
 			.setResidues(5, 70)
 			.build();
 		
@@ -43,7 +43,7 @@ public class TestStrand {
 	@Test
 	public void structureReferences() {
 		
-		Strand strand = Strand.builder(mol).build();
+		Strand strand = new Strand.Builder(mol).build();
 		
 		// make sure various structure the references are all set correctly
 		for (int i=0; i<strand.mol.residues.size(); i++) {
@@ -78,7 +78,7 @@ public class TestStrand {
 	@Test
 	public void defaultFlexibilty() {
 		
-		Strand strand = Strand.builder(mol)
+		Strand strand = new Strand.Builder(mol)
 			.setResidues(2, 5)
 			.build();
 		
@@ -94,7 +94,7 @@ public class TestStrand {
 	@Test
 	public void flexibleResidueNumbers() {
 		
-		Strand strand = Strand.builder(mol)
+		Strand strand = new Strand.Builder(mol)
 			.setResidues(2, 5)
 			.build();
 		
@@ -107,7 +107,7 @@ public class TestStrand {
 	@Test
 	public void staticResidueNumbers() {
 		
-		Strand strand = Strand.builder(mol)
+		Strand strand = new Strand.Builder(mol)
 			.setResidues(2, 5)
 			.build();
 		

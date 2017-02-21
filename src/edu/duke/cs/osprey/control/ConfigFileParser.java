@@ -358,7 +358,7 @@ public class ConfigFileParser {
         EnvironmentVars.curEFcnGenerator = new EnergyFunctionGenerator(ffparams);
         
         // make the template library
-        EnvironmentVars.resTemplates = GenericResidueTemplateLibrary.builder()
+        EnvironmentVars.resTemplates = new GenericResidueTemplateLibrary.Builder()
             .setForcefield(ff)
             .setRotamers(params.readPath("ROTFILE"))
             .setBackboneDependentRotamers(params.getBool("UseDunbrackRotamers") ? params.readPath("DUNBRACKROTFILE") : null)

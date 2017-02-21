@@ -9,11 +9,13 @@ import java.util.List;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.minimization.SimpleConfMinimizer;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -22,39 +24,53 @@ public class TestSimpleGMECFinder {
 	
 	private static final double EnergyEpsilon = 1e-6;
 	
-	private static SimpleConfSpace confSpaceDiscrete;
-	private static EnergyMatrix ematDiscrete;
+	private static class Problem {
+		
+		public final SimpleConfSpace confSpace;
+		public final ForcefieldParams ffparams;
+		public final EnergyMatrix emat;
+		
+		public Problem(Strand strand) {
+			confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
+			ffparams = new ForcefieldParams();
+			emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, ffparams)
+				.build()
+				.calcEnergyMatrix();
+		}
+		
+		public SimpleGMECFinder makeGMECFinder() {
+			return new SimpleGMECFinder.Builder(
+				confSpace,
+				new ConfAStarTree.Builder(emat, confSpace).build(),
+				new SimpleConfMinimizer.Builder(confSpace, ffparams).build()
+			).build();
+		}
+	}
 	
-	private static SimpleConfSpace confSpaceContinuous;
-	private static EnergyMatrix ematContinuous;
-	private static ConfEnergyCalculator confMinimizer;
+	private static Problem problemDiscrete;
+	private static Problem problemContinuous;
 	
 	@BeforeClass
 	public static void beforeClass() {
 		
 		Molecule mol = PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb");
 		
-		Strand strand = Strand.builder(mol).build();
+		Strand strand = new Strand.Builder(mol).build();
 		strand.flexibility.get(2).setLibraryRotamers("ALA", "GLY");
 		strand.flexibility.get(3).setLibraryRotamers(Strand.WildType, "VAL");
 		strand.flexibility.get(4).setLibraryRotamers();
+		problemDiscrete = new Problem(strand);
 		
-		confSpaceDiscrete = SimpleConfSpace.build(strand);
-		ematDiscrete = SimplerEnergyMatrixCalculator.build(confSpaceDiscrete).calcEnergyMatrix();
-		
-		strand = Strand.builder(mol).setResidues(2, 30).build();
+		strand = new Strand.Builder(mol).setResidues(2, 30).build();
 		strand.flexibility.get(2).setLibraryRotamers("ALA", "GLY");
 		strand.flexibility.get(3).setLibraryRotamers(Strand.WildType, "VAL", "ARG").setContinuous(10);
 		strand.flexibility.get(4).addWildTypeRotamers();
-		
-		confSpaceContinuous = SimpleConfSpace.build(strand);
-		ematContinuous = SimplerEnergyMatrixCalculator.build(confSpaceContinuous).calcEnergyMatrix();
-		confMinimizer = SimpleConfMinimizer.builder(confSpaceContinuous).build();
+		problemContinuous = new Problem(strand);
 	}
 
 	@Test
 	public void findDiscrete() {
-		EnergiedConf conf = SimpleGMECFinder.builder(confSpaceDiscrete, ematDiscrete).build().find();
+		EnergiedConf conf = problemDiscrete.makeGMECFinder().find();
 		assertThat(conf.getAssignments(), is(new int[] { 1, 3, 4 }));
 		assertThat(conf.getEnergy(), isAbsolutely(-30.705504, EnergyEpsilon));
 		assertThat(conf.getScore(), isAbsolutely(-30.705504, EnergyEpsilon));
@@ -62,7 +78,7 @@ public class TestSimpleGMECFinder {
 	
 	@Test
 	public void findDiscreteWindowZero() {
-		List<EnergiedConf> confs = SimpleGMECFinder.builder(confSpaceDiscrete, ematDiscrete).build().find(0);
+		List<EnergiedConf> confs = problemDiscrete.makeGMECFinder().find(0);
 		assertThat(confs.size(), is(1));
 		
 		EnergiedConf conf = confs.get(0);
@@ -73,7 +89,7 @@ public class TestSimpleGMECFinder {
 	
 	@Test
 	public void findDiscreteWindowOne() {
-		List<EnergiedConf> confs = SimpleGMECFinder.builder(confSpaceDiscrete, ematDiscrete).build().find(1);
+		List<EnergiedConf> confs = problemDiscrete.makeGMECFinder().find(1);
 		assertThat(confs.size(), is(4));
 		
 		EnergiedConf conf = confs.get(0);
@@ -99,10 +115,7 @@ public class TestSimpleGMECFinder {
 	
 	@Test
 	public void findContinuous() {
-		EnergiedConf conf = SimpleGMECFinder.builder(confSpaceContinuous, ematContinuous)
-			.setEnergyCalculator(confMinimizer)
-			.build()
-			.find();
+		EnergiedConf conf = problemContinuous.makeGMECFinder().find();
 		assertThat(conf.getAssignments(), is(new int[] { 1, 26, 0 }));
 		assertThat(conf.getEnergy(), isAbsolutely(-38.465807, EnergyEpsilon));
 		assertThat(conf.getScore(), isAbsolutely(-38.566297, EnergyEpsilon));
@@ -110,10 +123,7 @@ public class TestSimpleGMECFinder {
 	
 	@Test
 	public void findContinuousWindow() {
-		List<EnergiedConf> confs = SimpleGMECFinder.builder(confSpaceContinuous, ematContinuous)
-			.setEnergyCalculator(confMinimizer)
-			.build()
-			.find(0.1);
+		List<EnergiedConf> confs = problemContinuous.makeGMECFinder().find(0.1);
 		assertThat(confs.size(), is(3));
 		
 		EnergiedConf conf = confs.get(0);

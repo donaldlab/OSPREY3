@@ -68,14 +68,6 @@ public class SimpleConfSpace {
 		}
 	}
 	
-	public static Builder builder() {
-		return new Builder();
-	}
-	
-	public static SimpleConfSpace build(Strand strand) {
-		return builder().addStrand(strand).build();
-	}
-	
 	public static class Position {
 		
 		public final int index;

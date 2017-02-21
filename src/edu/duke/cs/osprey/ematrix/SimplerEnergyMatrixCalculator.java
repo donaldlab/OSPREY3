@@ -5,7 +5,6 @@ import java.io.File;
 import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.control.Defaults;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.FFInterGen;
@@ -43,8 +42,8 @@ public class SimplerEnergyMatrixCalculator {
 		private ForcefieldParams ffparams;
 		
 		/** Available hardware for high-performance computation. */
-		private Parallelism parallelism;
-		private Factory<Minimizer,ObjectiveFunction> minimizerFactory;
+		private Parallelism parallelism = Parallelism.makeCpu(1);
+		private Factory<Minimizer,ObjectiveFunction> minimizerFactory = (f) -> new SimpleCCDMinimizer(f);
 		
 		/**
 		 * Path to file where energy matrix should be saved between computations.
@@ -62,11 +61,9 @@ public class SimplerEnergyMatrixCalculator {
 		 */
 		private File cacheFile = null;
 		
-		public Builder(SimpleConfSpace confSpace) {
+		public Builder(SimpleConfSpace confSpace, ForcefieldParams ffparams) {
 			this.confSpace = confSpace;
-			this.ffparams = Defaults.forcefieldParams;
-			this.parallelism = Defaults.parallelism;
-			this.minimizerFactory = (f) -> new SimpleCCDMinimizer(f);
+			this.ffparams = ffparams;
 		}
 		
 		public Builder setForcefieldParams(ForcefieldParams val) {
@@ -84,17 +81,14 @@ public class SimplerEnergyMatrixCalculator {
 			return this;
 		}
 		
+		public Builder setCacheFile(File val) {
+			cacheFile = val;
+			return this;
+		}
+		
 		public SimplerEnergyMatrixCalculator build() {
 			return new SimplerEnergyMatrixCalculator(confSpace, ffparams, parallelism.numThreads, minimizerFactory, cacheFile);
 		}
-	}
-	
-	public static Builder builder(SimpleConfSpace confSpace) {
-		return new Builder(confSpace);
-	}
-	
-	public static SimplerEnergyMatrixCalculator build(SimpleConfSpace confSpace) {
-		return builder(confSpace).build();
 	}
 	
 	private class SingleTask implements Runnable {
@@ -149,7 +143,7 @@ public class SimplerEnergyMatrixCalculator {
 				EnergyMatrix.class,
 				"energy matrix",
 				(emat) -> emat.matches(confSpace),
-				(context) -> calcEnergyMatrix()
+				(context) -> reallyCalcEnergyMatrix()
 			);
 		} else {
 			return reallyCalcEnergyMatrix();

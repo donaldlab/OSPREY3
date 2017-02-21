@@ -127,8 +127,8 @@ public class CatPark {
     public static double[] segmentRMSD(String struct1, String struct2){
         //Compares two structures with backbones differing in a segment, e.g. CATS and rigid bb 
         //Returns {backbone RMSD, max residue backbone RMSD} for the flexible backbone segment
-        Molecule m1 = Strand.builder(PDBIO.readFile(struct1)).setTemplateLibrary(EnvironmentVars.resTemplates).build().mol;
-        Molecule m2 = Strand.builder(PDBIO.readFile(struct2)).setTemplateLibrary(EnvironmentVars.resTemplates).build().mol;
+        Molecule m1 = new Strand.Builder(PDBIO.readFile(struct1)).setTemplateLibrary(EnvironmentVars.resTemplates).build().mol;
+        Molecule m2 = new Strand.Builder(PDBIO.readFile(struct2)).setTemplateLibrary(EnvironmentVars.resTemplates).build().mol;
         
         int numRes = m1.residues.size();
         if(numRes != m2.residues.size())

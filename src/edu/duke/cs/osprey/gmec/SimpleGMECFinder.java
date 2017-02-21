@@ -6,14 +6,11 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.gmec.GMECFinder.ConfPruner;
-import edu.duke.cs.osprey.minimization.SimpleConfMinimizer;
 import edu.duke.cs.osprey.tools.Progress;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
@@ -37,10 +34,7 @@ public class SimpleGMECFinder {
 		/** A* implementation to sort conformations in the conformation space. */
 		private ConfSearch search;
 		
-		/**
-		 * Calculates the energy for a conformation.
-		 * If not specified, a default {@link SimpleConfMinimizer} will be used.
-		 */
+		/** Calculates the energy for a conformation. */
 		private ConfEnergyCalculator.Async ecalc;
 		private ConfPruner pruner;
 		private ConfPrinter logPrinter;
@@ -49,22 +43,17 @@ public class SimpleGMECFinder {
 		/** True to print all conformations found during A* search to the console */ 
 		private boolean printIntermediateConfsToConsole = false;
 		
-		public Builder(SimpleConfSpace space, ConfSearch search) {
+		public Builder(SimpleConfSpace space, ConfSearch search, ConfEnergyCalculator ecalc) {
+			this(space, search, new ConfEnergyCalculator.Async.Adapter(ecalc));
+		}
+		
+		public Builder(SimpleConfSpace space, ConfSearch search, ConfEnergyCalculator.Async ecalc) {
 			this.space = space;
 			this.search = search;
-			this.ecalc = SimpleConfMinimizer.builder(space).build();
+			this.ecalc = ecalc;
 			this.pruner = null;
 			this.logPrinter = new ConfPrinter.Nop();
 			this.consolePrinter = new ConsoleConfPrinter();
-		}
-		
-		public Builder setEnergyCalculator(ConfEnergyCalculator val) {
-			return setEnergyCalculator(new ConfEnergyCalculator.Async.Adapter(val));
-		}
-		
-		public Builder setEnergyCalculator(ConfEnergyCalculator.Async val) {
-			ecalc = val;
-			return this;
 		}
 		
 		public Builder setConfPruner(ConfPruner val) {
@@ -98,14 +87,6 @@ public class SimpleGMECFinder {
 				printIntermediateConfsToConsole
 			);
 		}
-	}
-	
-	public static Builder builder(SimpleConfSpace confSpace, EnergyMatrix emat) {
-		return new Builder(confSpace, ConfAStarTree.builder(emat, confSpace).build());
-	}
-
-	public static Builder builder(SimpleConfSpace confSpace, ConfSearch confSearch) {
-		return new Builder(confSpace, confSearch);
 	}
 	
 	public final SimpleConfSpace space;

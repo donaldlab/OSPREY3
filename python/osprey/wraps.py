@@ -27,21 +27,14 @@ def wrapProperty(obj, name, getter, setter=None):
 	setattr(obj, name, newProp)
 
 
-def getJavaClass(classname):
-	classname = 'edu.duke.cs.osprey.' + classname
-	jclass = jvm.c.java.lang.Class
-	classloader = jvm.c.java.lang.ClassLoader.getSystemClassLoader()
-	return jclass.forName(classname, True, classloader)
-	
-
-def init():
-	wrapStrandFlex()
-	wrapResidueFlex()
-	wrapGMECFinder()
+def init(c):
+	wrapStrandFlex(c)
+	wrapResidueFlex(c)
+	wrapGMECFinder(c)
 
 
-def wrapStrandFlex():
-	jtype = getJavaClass('confspace.Strand$Flexibility')
+def wrapStrandFlex(c):
+	jtype = jvm.getInnerClass(c.confspace.Strand, 'Flexibility')
 
 	# use array access to call get()
 	def getItem(self, key):
@@ -49,8 +42,8 @@ def wrapStrandFlex():
 	jtype.__getitem__ = getItem
 
 
-def wrapResidueFlex():
-	jtype = getJavaClass('confspace.Strand$ResidueFlex')
+def wrapResidueFlex(c):
+	jtype = jvm.getInnerClass(c.confspace.Strand, 'ResidueFlex')
 
 	# wrap setLibraryRotamers() to accept varargs
 	def newSetLibraryRotamers(old, self, *mutations):
@@ -73,8 +66,8 @@ def wrapResidueFlex():
 	#wrapProperty(strand, 'flexibility', newGetter)
 
 
-def wrapGMECFinder():
-	jtype = getJavaClass('gmec.SimpleGMECFinder')
+def wrapGMECFinder(c):
+	jtype = c.gmec.SimpleGMECFinder
 
 	def newFind(old, self, windowSize=None):
 		# autocast the find() energy to a float

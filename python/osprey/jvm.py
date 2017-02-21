@@ -72,3 +72,13 @@ def toArrayList(items):
 def toFile(path):
 	return c.java.io.File(path)
 
+
+def getJavaClass(classname):
+	jclass = c.java.lang.Class
+	classloader = c.java.lang.ClassLoader.getSystemClassLoader()
+	return jclass.forName(classname, True, classloader)
+	
+
+def getInnerClass(jclass, inner_class_name):
+	return getJavaClass('%s$%s' % (jclass.__javaclass__.getName(), inner_class_name))
+

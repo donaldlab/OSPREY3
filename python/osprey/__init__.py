@@ -2,8 +2,6 @@
 import sys, os, jpype
 import jvm, wraps
 
-getJavaClass = wraps.getJavaClass
-
 
 # NOTE: this var gets set by the build system during packaging
 # so the release version of this script will point to the final jar file for osprey
@@ -17,16 +15,22 @@ Forcefield = None
 SolvationForcefield = None
 LovellRotamers = 0 # arbitrary value, doesn't matter
 
-def _javaAwareExcepthook(exctype, value, traceback):
+
+def _get_builder(jclass, builder_name='Builder'):
+	return jvm.getInnerClass(jclass, builder_name)
+
+
+def _java_aware_excepthook(exctype, value, traceback):
 
 	# show original python exception info
 	sys.__excepthook__(exctype, value, traceback)
 
-	# if this is a java exception, show java info too
-	if value.message is not None and 'stacktrace' in value and value.stacktrace is not None:
-		if value.message() is not None:
-			print(value.message())
-		print(value.stacktrace())
+	# try to print java exception info
+	try:
+		print('\n%s' % value.stacktrace())
+	except (AttributeError, TypeError):
+		# must not be a java exception
+		pass
 
 
 def start(heapSizeMB=1024, enableAssertions=False):
@@ -43,7 +47,7 @@ def start(heapSizeMB=1024, enableAssertions=False):
 	'''
 
 	# setup a global exception handler to show java exception info
-	sys.excepthook = _javaAwareExcepthook
+	sys.excepthook = _java_aware_excepthook
 	
 	# start the jvm
 	for path in _ospreyPaths:
@@ -54,15 +58,19 @@ def start(heapSizeMB=1024, enableAssertions=False):
 	global c
 	c = jpype.JPackage('edu.duke.cs.osprey')
 
-	wraps.init()
+	wraps.init(c)
 
 	# init other globals
 	global WILD_TYPE
 	WILD_TYPE = c.confspace.Strand.WildType
 	global Forcefield
-	Forcefield = getJavaClass('energy.forcefield.ForcefieldParams$Forcefield')
+	Forcefield = jvm.getInnerClass(c.energy.forcefield.ForcefieldParams, 'Forcefield')
 	global SolvationForcefield
-	SolvationForcefield = getJavaClass('energy.forcefield.ForcefieldParams$SolvationForcefield')
+	SolvationForcefield = jvm.getInnerClass(c.energy.forcefield.ForcefieldParams, 'SolvationForcefield')
+
+	# expose static builder methods too
+	Parallelism.makeCpu = c.parallelism.Parallelism.makeCpu
+	Parallelism.makeGpu = c.parallelism.Parallelism.makeGpu
 
 	# print the preamble
 	print("OSPREY %s" % c.control.Main.Version)
@@ -130,17 +138,20 @@ def Parallelism(cpuCores=None, gpus=None, streamsPerGpu=None):
 	'''
 	:java:classdoc:`.parallelism.Parallelism`
 
-	:builder_option cpuCores .parallelism.Parallelism#numThreads:
-	:builder_option gpus .parallelism.Parallelism#numGpus:
-	:builder_option streamsPerGpu .parallelism.Parallelism#numStreamsPerGpu:
-	:rtype: :java:ref:`.parallelism.Parallelism`
+	:builder_option cpuCores .parallelism.Parallelism$Builder#numCpus:
+	:builder_option gpus .parallelism.Parallelism$Builder#numGpus:
+	:builder_option streamsPerGpu .parallelism.Parallelism$Builder#numStreamsPerGpu:
+	:builder_return .parallelism.Parallelism$Builder:
 	'''
+	builder = _get_builder(c.parallelism.Parallelism)()
+	if cpuCores is not None:
+		builder.setNumCpus(cpuCores)
 	if gpus is not None:
-		return c.parallelism.Parallelism.makeGpu(gpus, streamsPerGpu)
-	elif cpuCores is not None:
-		return c.parallelism.Parallelism.makeCpu(cpuCores)
-	else:
-		return c.parallelism.Parallelism.makeDefault()
+		builder.setNumGpus(gpus)
+	if streamsPerGpu is not None:
+		builder.setStreamsPerGpu(streamsPerGpu)
+
+	return builder.build()
 
 
 def TemplateLibrary(forcefield=None, templateCoords=None, rotamers=None, backboneDependentRotamers=None):
@@ -148,7 +159,6 @@ def TemplateLibrary(forcefield=None, templateCoords=None, rotamers=None, backbon
 	:java:classdoc:`.restypes.GenericResidueTemplateLibrary`
 
 	:builder_option forcefield .restypes.GenericResidueTemplateLibrary$Builder#forcefield:
-	:default forcefield: osprey.Forcefield.AMBER
 
 	:builder_option templateCoords .restypes.GenericResidueTemplateLibrary$Builder#templateCoordsText:
 	:type templateCoords: coords str or file path
@@ -162,7 +172,7 @@ def TemplateLibrary(forcefield=None, templateCoords=None, rotamers=None, backbon
 	:builder_return .restypes.GenericResidueTemplateLibrary$Builder:
 	'''
 
-	builder = c.restypes.GenericResidueTemplateLibrary.builder()
+	builder = _get_builder(c.restypes.GenericResidueTemplateLibrary)()
 
 	if forcefield is not None:
 		builder.setForcefield(forcefield)
@@ -201,7 +211,7 @@ def Strand(pathOrMol, residues=None):
 	else:
 		mol = readPdb(pathOrMol)
 
-	builder = c.confspace.Strand.builder(mol)
+	builder = _get_builder(c.confspace.Strand)(mol)
 
 	if residues is not None:
 		builder.setResidues(residues[0], residues[1])
@@ -219,7 +229,7 @@ def ConfSpace(strands, shellDist=None):
 	:builder_return .confspace.SimpleConfSpace$Builder:
 	'''
 
-	builder = c.confspace.SimpleConfSpace.builder()
+	builder = _get_builder(c.confspace.SimpleConfSpace)()
 
 	# get a list of strands, even if we were passed just one strand
 	try:
@@ -255,18 +265,19 @@ def StrandFlex():
 	pass
 
 
-def ForcefieldParams():
+def ForcefieldParams(forcefield=None):
 	'''
 	:java:classdoc:`.energy.forcefield.ForcefieldParams`
 	
 	Configure the forcefield parameters by setting the properties of the :java:ref:`.energy.forcefield.ForcefieldParams` object.
 
+	:builder_option forcefield .energy.forcefield.ForcefieldParams#forcefld:
 	:rtype: :java:ref:`.energy.forcefield.ForcefieldParams`
 	'''
 	return c.energy.forcefield.ForcefieldParams()
 
 
-def EnergyMatrix(confSpace, ffparams=None, parallelism=None, cacheFile=None):
+def EnergyMatrix(confSpace, ffparams, parallelism=None, cacheFile=None):
 	'''
 	:java:classdoc:`.ematrix.SimplerEnergyMatrixCalculator`
 
@@ -276,39 +287,34 @@ def EnergyMatrix(confSpace, ffparams=None, parallelism=None, cacheFile=None):
 	:builder_option cacheFile .ematrix.SimplerEnergyMatrixCalculator$Builder#cacheFile:
 	'''
 	
-	builder = c.ematrix.SimplerEnergyMatrixCalculator.builder(confSpace)
-
-	if ffparams is not None:
-		builder.setForcefieldParams(ffparams)
+	builder = _get_builder(c.ematrix.SimplerEnergyMatrixCalculator)(confSpace, ffparams)
 
 	if parallelism is not None:
 		builder.setParallelism(parallelism)
 
-	ematcalc = builder.build()
-
 	if cacheFile is not None:
-		return ematcalc.calcEnergyMatrix(jvm.toFile(cacheFile))
-	else:
-		return ematcalc.calcEnergyMatrix()
+		builder.setCacheFile(jvm.toFile(cacheFile))
+
+	return builder.build().calcEnergyMatrix()
 
 
 def AStarTraditional(emat, confSpace):
 	'''
-	Creates an A* search using the traditional estimation function.
+	:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#setTraditional`
 
 	:builder_option emat .astar.conf.ConfAStarTree$Builder#emat:
 	:param confSpace: The conformation space containing the residue conformations to search.
 	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
 	:builder_return .astar.conf.ConfAStarTree$Builder:
 	'''
-	builder = c.astar.conf.ConfAStarTree.builder(emat, confSpace)
+	builder = _get_builder(c.astar.conf.ConfAStarTree)(emat, confSpace)
 	builder.setTraditional()
 	return builder.build()
 
 
 def AStarMPLP(emat, confSpace, numIterations=None, convergenceThreshold=None):
 	'''
-	Creates an A* search using the newer estimation function based on Max Product Linear Programming (MPLP)
+	:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#setMPLP`
 
 	:builder_option emat .astar.conf.ConfAStarTree$Builder#emat:
 	:param confSpace: The conformation space containing the residue conformations to search.
@@ -317,7 +323,7 @@ def AStarMPLP(emat, confSpace, numIterations=None, convergenceThreshold=None):
 	:builder_option convergenceThreshold .astar.conf.ConfAStarTree$MPLPBuilder#convergenceThreshold:
 	:builder_return .astar.conf.ConfAStarTree$Builder:
 	'''
-	mplpBuilder = c.astar.conf.ConfAStarTree.MPLPBuilder()
+	mplpBuilder = _get_builder(c.astar.conf.ConfAStarTree, 'MPLPBuilder')()
 
 	if numIterations is not None:
 		mplpBuilder.setNumIterations(numIterations)
@@ -325,12 +331,12 @@ def AStarMPLP(emat, confSpace, numIterations=None, convergenceThreshold=None):
 	if convergenceThreshold is not None:
 		mplpBuilder.setConvergenceThreshold(convergenceThreshold)
 
-	builder = c.astar.conf.ConfAStarTree.builder(emat, confSpace)
+	builder = _get_builder(c.astar.conf.ConfAStarTree)(emat, confSpace)
 	builder.setMPLP(mplpBuilder)
 	return builder.build()
 
 
-def MinimizingEnergyCalculator(confSpace, ffparams=None, parallelism=None, streaming=None):
+def ConfEnergyCalculator(confSpace, ffparams, parallelism=None, streaming=None):
 	'''
 	:java:classdoc:`.minimization.SimpleConfMinimizer`
 
@@ -340,10 +346,7 @@ def MinimizingEnergyCalculator(confSpace, ffparams=None, parallelism=None, strea
 	:builder_option streaming .minimization.SimpleConfMinimizer$Builder#isStreaming:
 	:builder_return .minimization.SimpleConfMinimizer$Builder:
 	'''
-	builder = c.minimization.SimpleConfMinimizer.builder(confSpace)
-
-	if ffparams is not None:
-		builder.setForcefieldParams(ffparams)
+	builder = _get_builder(c.minimization.SimpleConfMinimizer)(confSpace, ffparams)
 
 	if parallelism is not None:
 		builder.setParallelism(parallelism)
@@ -354,31 +357,25 @@ def MinimizingEnergyCalculator(confSpace, ffparams=None, parallelism=None, strea
 	return builder.build()
 
 
-def GMECFinder(confSpace, emat=None, astar=None, energyCalculator=None, confLog=None, printIntermediateConfs=None):
+def GMECFinder(confSpace, astar, ecalc, confLog=None, printIntermediateConfs=None):
 	'''
 	:java:classdoc:`.gmec.SimpleGMECFinder`
 
-	Exactly one of ``emat`` or ``astar`` should be specified.
-	If ``emat`` is specified, a default A* implementation will be used and ``astar`` will be ingored.
-
 	:builder_option confSpace .gmec.SimpleGMECFinder$Builder#space:
-	:builder_option emat .astar.conf.ConfAStarTree$Builder#emat:
 	:builder_option astar .gmec.SimpleGMECFinder$Builder#search:
-	:builder_option energyCalculator .gmec.SimpleGMECFinder$Builder#ecalc:
+
+		Use one of :py:func:`AStarTraditional` or :py:func:`AStarMPLP` to get an A* implementation.
+
+	:builder_option ecalc .gmec.SimpleGMECFinder$Builder#ecalc:
+
+		Use :py:func:`ConfEnergyCalculator` to get an energy calculator.
+
 	:param str confLog: Path to file where conformations found during conformation space search should be logged.
 	:builder_option printIntermediateConfs .gmec.SimpleGMECFinder$Builder#printIntermediateConfsToConsole:
 	:builder_return .gmec.SimpleGMECFinder$Builder:
 	'''
 
-	if emat is not None:
-		builder = c.gmec.SimpleGMECFinder.builder(confSpace, emat)
-	elif astar is not None:
-		builder = c.gmec.SimpleGMECFinder.builder(confSpace, astar)
-	else:
-		raise ValueError('either emat or astar must be specified')
-
-	if energyCalculator is not None:
-		builder.setEnergyCalculator(energyCalculator)
+	builder = _get_builder(c.gmec.SimpleGMECFinder)(confSpace, astar, ecalc)
 
 	if confLog is not None:
 		logFile = jvm.toFile(confLog)

@@ -5,6 +5,37 @@ import edu.duke.cs.osprey.control.ConfigFileParser;
 /** Specified how Osprey should use available hardware. */
 public class Parallelism {
 	
+	public static class Builder {
+		
+		/** The number of CPUs cores to use. */
+		private int numCpus = 1;
+		
+		/** The number of GPUs to use. */
+		private int numGpus = 0;
+		
+		/** The number of simultaneous tasks that should be given to each GPU */
+		private int numStreamsPerGpu = 1;
+		
+		public Builder setNumCpus(int val) {
+			numCpus = val;
+			return this;
+		}
+		
+		public Builder setNumGpus(int val) {
+			numGpus = val;
+			return this;
+		}
+		
+		public Builder setNumStreamsPerGpu(int val) {
+			numStreamsPerGpu = val;
+			return this;
+		}
+		
+		public Parallelism build() {
+			return new Parallelism(numCpus, numGpus, numStreamsPerGpu);
+		}
+	}
+	
 	public static enum Type {
 		
 		Cpu {
@@ -21,10 +52,6 @@ public class Parallelism {
 		};
 		
 		public abstract int getParallelism(Parallelism parallelism);
-	}
-	
-	public static Parallelism makeDefault() {
-		return makeCpu(1);
 	}
 	
 	public static Parallelism makeCpu(int numThreads) {
@@ -45,13 +72,8 @@ public class Parallelism {
 		);
 	}
 	
-	/** the number of CPU threads to use */
 	public final int numThreads;
-	
-	/** the number of GPUs to use */
 	public final int numGpus;
-	
-	/** the number of parallel tasks to send to each GPU */
 	public final int numStreamsPerGpu;
 	
 	public final Type type;
