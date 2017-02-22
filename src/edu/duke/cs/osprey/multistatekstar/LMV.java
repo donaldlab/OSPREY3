@@ -20,7 +20,7 @@ public class LMV {
 	public LMV(String s, int numStates) {
 		StringTokenizer st = new StringTokenizer(s);
 		if(st.countTokens()!=numStates+1){
-			throw new RuntimeException("ERROR: SeqTree has "+numStates+" states but GMECLinFunc "
+			throw new RuntimeException("ERROR: there are "+numStates+" states but LinFunc "
 					+ "specified with "+st.countTokens()+" coefficients: "+s);
 		}
 

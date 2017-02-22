@@ -7,17 +7,18 @@ public class MultiStateSearchProblem extends SearchProblem {
 
 	SearchProblemSettings spSet;
 	
-	public MultiStateSearchProblem(SearchProblem other) {
+	public MultiStateSearchProblem(SearchProblem other, 
+			SearchProblemSettings spSet) {
 		super(other);
+		this.spSet = spSet;
+		this.pruneMat = getReducedPruningMatrix();
 	}
 
 	public boolean isFullyDefined() {
-		return spSet==null || spSet.redFlexRes.size()==flexRes.size();
+		return spSet==null || spSet.mutRes.size()==flexRes.size();
 	}
 	
-	public MultiStateSearchProblem reduce(SearchProblemSettings spSet) {
-		MultiStateSearchProblem other = new MultiStateSearchProblem(this);
-		other.spSet = spSet;
-		return other;
+	private QPruningMatrix getReducedPruningMatrix() {
+		return new QPruningMatrix(this, spSet.mutRes, spSet.AATypeOptions);
 	}
 }

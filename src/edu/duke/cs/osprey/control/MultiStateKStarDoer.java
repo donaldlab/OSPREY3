@@ -1,19 +1,34 @@
 package edu.duke.cs.osprey.control;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.StringTokenizer;
 
+import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
+import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
+import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.kstar.pfunc.ParallelConfPartitionFunction;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.multistatekstar.InputValidation;
+import edu.duke.cs.osprey.multistatekstar.KStarSettings;
 import edu.duke.cs.osprey.multistatekstar.LMV;
 import edu.duke.cs.osprey.multistatekstar.MultiStateConfigFileParser;
 import edu.duke.cs.osprey.multistatekstar.MultiStateKStarTree;
+import edu.duke.cs.osprey.multistatekstar.MultiStateSearchProblem;
+import edu.duke.cs.osprey.multistatekstar.SearchProblemSettings;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningControl;
-import edu.duke.cs.osprey.restypes.DAminoAcidHandler;
-import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.structure.PDBFileReader;
-import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tools.StringParsing;
 
 public class MultiStateKStarDoer {
@@ -34,9 +49,14 @@ public class MultiStateKStarDoer {
 
 	ArrayList<ArrayList<ArrayList<Integer>>> mutable2StateResNums;
 	//For each state, a list of which flexible positions are mutable
-	//these will be listed directly in Multistate.cfg under "STATEMUTRES0" etc.
+	//these will be listed directly in system cfg files
 
 	String stateArgs[][];//search arguments for each state
+
+	MultiStateConfigFileParser[] cfps;//config file parsers for each state
+
+	SearchProblem[][] sPsDiscrete;//continuous search problems
+	SearchProblem[][] sPsContinuous;//discrete search problems
 
 	public MultiStateKStarDoer(String args[]) {
 		//fill in all the settings
@@ -70,28 +90,30 @@ public class MultiStateKStarDoer {
 			constraints[constr] = new LMV(sParams.getValue("STATECONSTR"+constr), numStates);
 		// might need to adjust these with wt later
 
-		MultiStateConfigFileParser[] cfps = new MultiStateConfigFileParser[numStates];
+		cfps = new MultiStateConfigFileParser[numStates];
 
-		SearchProblem[][] spsDisc = new SearchProblem[numStates][];
-		SearchProblem[][] spsCont = new SearchProblem[numStates][];
+		sPsDiscrete = new SearchProblem[numStates][];
+		sPsContinuous = new SearchProblem[numStates][];
 
 		System.out.println();
 		System.out.println("Checking multistate K* parameters for consistency");
 		System.out.println();
 
 		mutable2StateResNums = new ArrayList<>();
+		AATypeOptions = new ArrayList<>();
 		wtSeqs = new ArrayList<>();
+		InputValidation inputValidation = new InputValidation(AATypeOptions, mutable2StateResNums);
 		for(int state=0; state<numStates; state++) {
 
 			System.out.println();
 			System.out.println("Checking state "+state+" parameters");
 
 			cfps[state] = makeStateCfp(state, sParams);
-			checkParamConsistency(state, cfps[state].getParams(), sParams);
+			inputValidation.handleStateParams(state, cfps[state].getParams(), sParams);
 			mutable2StateResNums.add(stateMutableRes(state, cfps[state], numTreeLevels));
 
 			for(int subState=0; subState<mutable2StateResNums.get(state).size(); ++subState){
-				handleAATypeOptions(state, subState, cfps[state]);
+				inputValidation.handleAATypeOptions(state, subState, cfps[state]);
 				//get bound substate wt sequence
 				if(subState==mutable2StateResNums.get(state).size()-1)
 					wtSeqs.add(cfps[state].getWtSeq(mutable2StateResNums.get(state).get(subState)));
@@ -107,70 +129,140 @@ public class MultiStateKStarDoer {
 
 		for(int state=0; state<numStates; state++) {
 
-			spsCont[state] = makeStateSearchProblems(state, true, cfps[state]);//continuous flex
-			spsDisc[state] = makeStateSearchProblems(state, false, cfps[state]);//discrete flex
+			sPsContinuous[state] = makeStateSearchProblems(state, true, cfps[state]);//continuous flex
+			sPsDiscrete[state] = makeStateSearchProblems(state, false, cfps[state]);//discrete flex
 
 			System.out.println();
 			System.out.println("State "+state+" matrices ready");
 			System.out.println();
 		}
-
-		printAllSeqs();
 	}
 
-	private void handleAATypeOptions(int state, int subState, MultiStateConfigFileParser stateCfp) {
-		//Given the config file parser for a state, make sure AATypeOptions
-		//matches the allowed AA types for this state
+	/**
+	 * Verify algorithm results by doing exhaustive search
+	 */
+	void exhaustiveMultistateSearch(){
 
-		Molecule wtMolec = PDBFileReader.readPDBFile( stateCfp.params.getValue("PDBName"), null );
+		System.out.println();
+		System.out.println("Checking MultiStateKStar by exhaustive search");
+		System.out.println();
 
-		ArrayList<Integer> mutRes = mutable2StateResNums.get(state).get(subState);
-		ArrayList<ArrayList<String>> subStateAAOptions = stateCfp.getAllowedAAs(mutRes);
+		ArrayList<ArrayList<String[]>> seqList = listAllSeqs();
+		int numSeqs = seqList.get(0).size();
+		BigDecimal[][] stateKSRs = new BigDecimal[numStates][numSeqs];
 
-		if(AATypeOptions==null) 
-			AATypeOptions = new ArrayList<>();
-
-		for(int mutPos=0; mutPos<mutRes.size(); mutPos++) {
-			ArrayList<String> subStateResOptions = subStateAAOptions.get(mutPos);
-			if(stateCfp.params.getBool("AddWT")) {
-				Residue res = wtMolec.getResByPDBResNumber(String.valueOf(mutRes.get(mutPos)));
-				//always add wt in pos 0
-				if(StringParsing.containsIgnoreCase(subStateResOptions, res.template.name))
-					subStateResOptions.remove(res.template.name);
-				subStateResOptions.add(0, res.template.name);
-			}
-
-			if(AATypeOptions.size()<=state)//add storage for state
-				AATypeOptions.add(new ArrayList<>());
-
-			if(AATypeOptions.get(state).size()<=subState)//add storage for substate
-				AATypeOptions.get(state).add(new ArrayList<>());
-
-			if(AATypeOptions.get(state).get(subState).size()<=mutPos)//need to fill in based on this substate
-				AATypeOptions.get(state).get(subState).add(subStateResOptions);
-
-			//check for correspondence in AAs among states
-			ArrayList<String> defaultSubStateResOptions = AATypeOptions.get(0).get(subState).get(mutPos);
-
-			if(defaultSubStateResOptions.size()!=subStateResOptions.size()){
-				throw new RuntimeException("ERROR: Current state has "+
-						subStateResOptions.size()+" AA types allowed for position "+mutPos
-						+" compared to "+defaultSubStateResOptions.size()+" for previous states");
-			}
-
-			for(int a=0;a<defaultSubStateResOptions.size();++a){
-				String aa1 = defaultSubStateResOptions.get(a);
-				String aa2 = subStateResOptions.get(a);
-
-				//only amino acids must correspond between states
-				if(!DAminoAcidHandler.isStandardLAminoAcid(aa1) || 
-						!DAminoAcidHandler.isStandardLAminoAcid(aa2)) continue;
-
-				if(!aa1.equalsIgnoreCase(aa2))
-					throw new RuntimeException("ERROR: Current state has AA type "+
-							aa2+" where previous states have AA type "+aa1+", at position "+mutPos);
+		for(int state=0; state<numStates; state++){
+			for(int seqNum=0; seqNum<numSeqs; seqNum++){
+				stateKSRs[state][seqNum] = calcStateKSRatio(state, seqList.get(state).get(seqNum));
 			}
 		}
+
+		Stopwatch stopwatch = new Stopwatch().start();
+
+		System.out.println();
+		System.out.println("Finished checking MultiStateKStar by exhaustive search in "+stopwatch.getTime(2));
+		System.out.println();
+	}
+
+	private BigDecimal calcStateKSRatio(int state, String[] boundStateAATypes) {
+
+		//get arraylist formatted sequence for each substate
+		ArrayList<ArrayList<ArrayList<String>>> subStateAATypes = new ArrayList<>();
+		for(int subState=0;subState<mutable2StateResNums.get(state).size();++subState){
+			//mutable2StateResNums.get(state).get(subState)) contains substate flexible residues
+			//last substate is the bound state
+			subStateAATypes.add(new ArrayList<>());
+			ArrayList<Integer> subStateResNums = mutable2StateResNums.get(state).get(subState);
+			ArrayList<Integer> boundStateResNums = mutable2StateResNums.get(state).get(mutable2StateResNums.get(state).size()-1);
+			for(int resNum : subStateResNums){
+				int index = boundStateResNums.indexOf(resNum);
+				ArrayList<String> aa = new ArrayList<>(); aa.add(boundStateAATypes[index]);
+				subStateAATypes.get(subState).add(aa);
+			}
+		}
+
+		ParamSet sParams = cfps[state].getParams();
+
+		//make k* settings
+		KStarSettings ksSet = new KStarSettings();
+		ksSet.pruningWindow = sParams.getDouble("IVAL") + sParams.getDouble("EW");
+		ksSet.targetEpsilon = sParams.getDouble("EPSILON");
+		ksSet.stericThreshold = sParams.getDouble("STERICTHRESH");
+
+		//make LMVs
+		int numUbConstr = sParams.getInt("NUMUBCONSTR");
+		int numPartFuncs = sParams.getInt("NUMUBSTATES")+1;
+		LMV[] sConstraints = new LMV[numUbConstr];
+		for(int constr=0;constr<numUbConstr;constr++)
+			sConstraints[constr] = new LMV(sParams.getValue("UBCONSTR"+constr), numPartFuncs);
+
+		//make partition functions
+		MultiStateSearchProblem[] pfSPs = new MultiStateSearchProblem[numPartFuncs];
+		PartitionFunction[] pfs = new PartitionFunction[numPartFuncs];
+		ConfEnergyCalculator.Async[] ecalcs = new ConfEnergyCalculator.Async[numPartFuncs];
+		
+		for(int subState=0;subState<numPartFuncs;++subState){
+
+			SearchProblemSettings spSet = new SearchProblemSettings();
+			spSet.AATypeOptions = subStateAATypes.get(subState);
+			ArrayList<String> mutRes = new ArrayList<>();
+			for(int i:mutable2StateResNums.get(state).get(subState)) mutRes.add(String.valueOf(i));
+			spSet.mutRes = mutRes;
+
+			pfSPs[subState] = sParams.getBool("DOMINIMIZE") ? new MultiStateSearchProblem(sPsContinuous[state][subState], spSet)
+					: new MultiStateSearchProblem(sPsDiscrete[state][subState], spSet);
+			ecalcs[subState] = makeEnergyCalculator(cfps[state], pfSPs[subState]);
+			pfs[subState] = makePartitionFunction(cfps[state], pfSPs[subState], ecalcs[subState]);
+			
+			//testing
+			ecalcs[subState].cleanup();
+		}
+
+		return null;
+	}
+
+	public static ConfEnergyCalculator.Async makeEnergyCalculator(MultiStateConfigFileParser stateCfp,
+			SearchProblem search) {
+		// make the conf energy calculator
+		ConfEnergyCalculator.Async ecalc = MinimizingEnergyCalculator.make(makeDefaultFFParams(stateCfp.getParams()),
+				search, Parallelism.makeFromConfig(stateCfp), true);
+		return ecalc;
+	}
+
+	public static PartitionFunction makePartitionFunction(MultiStateConfigFileParser stateCfp,
+			SearchProblem search, ConfEnergyCalculator.Async ecalc) {
+
+		// make the A* tree factory
+		ConfSearchFactory confSearchFactory = new ConfSearchFactory() {
+			@Override
+			public ConfSearch make(EnergyMatrix emat, PruningMatrix pmat) {
+
+				AStarScorer gscorer = new PairwiseGScorer(emat);
+				AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), emat, 1, 0.0001);
+				AStarOrder order = new StaticScoreHMeanAStarOrder();
+				RCs rcs = new RCs(pmat);
+
+				return new ConfAStarTree(order, gscorer, hscorer, rcs);
+			}
+		};
+
+		return new ParallelConfPartitionFunction(search.emat, search.pruneMat, confSearchFactory, ecalc);
+	}
+
+	protected static ForcefieldParams makeDefaultFFParams(ParamSet sParams) {
+		// values from default config file
+		String forceField = sParams.getValue("forcefield");
+		boolean distDepDielect = sParams.getBool("distDepDielect");
+		double dielectConst = sParams.getDouble("dielectConst");
+		double vdwMult = sParams.getDouble("vdwMult");
+		boolean doSolv = sParams.getBool("DoSolvationE");
+		double solvScale = sParams.getDouble("SolvScale");
+		boolean useHForElectrostatics = sParams.getBool("HElect");
+		boolean useHForVdw = sParams.getBool("HVDW");
+		return new ForcefieldParams(
+				forceField, distDepDielect, dielectConst, vdwMult,
+				doSolv, solvScale, useHForElectrostatics, useHForVdw
+				);
 	}
 
 	/**
@@ -264,97 +356,7 @@ public class MultiStateKStarDoer {
 		return stateCfp;
 	}
 
-	/**
-	 * performs a sanity check on config files
-	 * @param state
-	 * @param sParams
-	 * @param msParams
-	 */
-	private void checkParamConsistency(int state, ParamSet sParams, ParamSet msParams) {
-		//parameter sanity check
-		//check number of constraints
-		int numUbConstr = sParams.getInt("NUMUBCONSTR");
-		ArrayList<String> ubConstr = sParams.searchParams("UBCONSTR");
-		ubConstr.remove("NUMUBCONSTR");
-		if(numUbConstr != ubConstr.size())
-			throw new RuntimeException("ERROR: NUMUBCONSTR != number of listed constraints");
-
-		int numUbStates = sParams.getInt("NUMUBSTATES");
-		if(numUbStates<2) throw new RuntimeException("ERROR: NUMUBSTATES must be >=2");
-
-		String ubStateMutNums = sParams.getValue("UBSTATEMUTNUMS");
-		StringTokenizer st = new StringTokenizer(ubStateMutNums);
-		if(st.countTokens() != numUbStates) throw new RuntimeException("ERROR: "
-				+ "the number of tokens in UBSTATEMUTNUMS should be the same as "
-				+ "NUMUBSTATES");
-
-		if(numUbStates!=sParams.searchParams("UBSTATELIMITS").size())
-			throw new RuntimeException("ERROR: need an UBSTATELIMITS line for each NUMUBSTATES");
-
-		int numMutsRes = 0;
-		while(st.hasMoreTokens()) numMutsRes += Integer.valueOf(st.nextToken());
-		if(numMutsRes != msParams.getInt("NUMMUTRES")) throw new RuntimeException("ERROR: "
-				+"UBSTATEMUTNUMS does not sum up to NUMMUTRES");
-
-		ArrayList<Integer> globalMutList = new ArrayList<>();
-		for(int ubState=0;ubState<numUbStates;++ubState) {
-			//num unbound state residues must match number of listed residues
-			int numUbMutRes = Integer.valueOf(StringParsing.getToken(ubStateMutNums, ubState+1));
-			String ubMutRes = sParams.getValue("UBSTATEMUT"+ubState);
-			st = new StringTokenizer(ubMutRes);
-			ArrayList<Integer> ubStateMutList = new ArrayList<>();
-			while(st.hasMoreTokens()) ubStateMutList.add(Integer.valueOf(st.nextToken()));
-			ubStateMutList = new ArrayList<>(new HashSet<>(ubStateMutList));
-			if(ubStateMutList.size()!=numUbMutRes) throw new RuntimeException("ERROR: the "
-					+"number of distinct mutable residues in UBSTATEMUT"+ubState+
-					" is not equal to the value specified in UBSTATEMUTNUMS");
-
-			globalMutList.addAll(ubStateMutList);
-
-			//listed unbound state residues must be within limits
-			ArrayList<Integer> ubStateLims = new ArrayList<>();
-			st = new StringTokenizer(sParams.getValue("UBSTATELIMITS"+state));
-			if(st.countTokens()!=2) throw new RuntimeException("ERROR: UBSTATELIMITS"+state
-					+" must have 2 tokens");
-			while(st.hasMoreTokens()) ubStateLims.add(Integer.valueOf(st.nextToken()));
-			Collections.sort(ubStateLims);
-			for(int res : ubStateMutList){
-				if(res<ubStateLims.get(0) && res>ubStateLims.get(1)) throw new RuntimeException("ERROR: "
-						+"mutable residue "+res+" exceeds the boundaries of UBSTATELIMITS"+state);
-			}
-
-			//ResAllowed must exist for each mutable residue
-			for(int res: ubStateMutList) {
-				if(sParams.getValue("RESALLOWED"+res, "").length()==0)
-					throw new RuntimeException("ERROR: RESALLOWED"+res+" must be delcared");
-			}
-		}
-
-		//check that all RESALLOWED is in list of mutable residues
-		ArrayList<String> raKeys = sParams.searchParams("RESALLOWED");
-		if(raKeys.size() > numMutsRes) {
-			for(String raVal : raKeys) {
-				raVal = raVal.replaceAll("RESALLOWED", "").trim();
-				if(!globalMutList.contains(Integer.valueOf(raVal)))
-					throw new RuntimeException("ERROR: RESALLOWED"+raVal+" is not in the list of UBSTATEMUT");
-			}
-		}
-
-		//check that ubState limits are mutually exclusive 
-		ArrayList<ArrayList<Integer>> ubStateLimits = new ArrayList<>();
-		for(int ubState=0;ubState<numUbStates;++ubState) {
-			st = new StringTokenizer(sParams.getValue("UBSTATELIMITS"+ubState));
-			ArrayList<Integer> tmp = new ArrayList<Integer>();
-			while(st.hasMoreTokens()) tmp.add(Integer.valueOf(st.nextToken()));
-			Collections.sort(tmp);
-			ubStateLimits.add(tmp);
-		}
-		if(ubStateLimits.get(0).get(0) <= ubStateLimits.get(1).get(1) && 
-				ubStateLimits.get(1).get(0) <= ubStateLimits.get(0).get(1))
-			throw new RuntimeException("ERROR: UBSTATELIMITS are not disjoint");
-	}
-
-	private void printAllSeqs(){
+	protected void printAllSeqs(){
 		ArrayList<ArrayList<String[]>> stateSeqLists = listAllSeqs();
 		for(int state=0;state<stateSeqLists.size();++state){
 
