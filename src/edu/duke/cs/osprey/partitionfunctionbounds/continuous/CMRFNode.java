@@ -28,6 +28,8 @@ public class CMRFNode {
      */
     public CMRFNode(CMRFNodeDomain[] doms) { 
 	domains = doms;
+        marginals = new HashMap<>();
+        outMessages = new HashMap<>();
     }
     
     /**

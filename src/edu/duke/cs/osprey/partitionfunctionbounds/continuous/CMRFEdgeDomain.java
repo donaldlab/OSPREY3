@@ -5,6 +5,7 @@
  */
 package edu.duke.cs.osprey.partitionfunctionbounds.continuous;
 
+import Jama.Matrix;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import java.util.function.ToDoubleFunction;
 
@@ -81,12 +82,20 @@ public class CMRFEdgeDomain {
 		CMRFEdgeDomain.concatArrays(resOneUB, resTwoUB),
 		eFunc);
 	double totalEnergy = eFuncRKHS.computeIntegral();
-	this.pFunc = (point)->(Math.exp((-1*eFunc.applyAsDouble(point))/constRT)/totalEnergy);
+        
+        
+	this.pFunc = (point)->(Math.exp(-eFunc.applyAsDouble(point)/constRT)/totalEnergy);
         this.pFuncRKHS = new RKHSFunction(
                 resAllK,
                 CMRFEdgeDomain.concatArrays(resOneLB, resTwoLB),
                 CMRFEdgeDomain.concatArrays(resOneUB, resTwoUB),
                 pFunc);
+        double edgeZ = pFuncRKHS.computeIntegral();
+        pFuncRKHS = new RKHSFunction(
+                resAllK,
+                CMRFEdgeDomain.concatArrays(resOneLB, resTwoLB),
+                CMRFEdgeDomain.concatArrays(resOneUB, resTwoUB),
+                (point)->Math.max(pFuncRKHS.eval(point)/edgeZ, 0));
     }
     
     /**

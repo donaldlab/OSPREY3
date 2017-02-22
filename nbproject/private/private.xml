@@ -5,6 +5,10 @@
         <group>
             <file>file:/usr/project/dlab/Users/am439/OSPREY_refactor/src/edu/duke/cs/osprey/partitionfunctionbounds/continuous/CMRF.java</file>
             <file>file:/usr/project/dlab/Users/am439/OSPREY_refactor/src/edu/duke/cs/osprey/partitionfunctionbounds/continuous/CMRFNode.java</file>
+            <file>file:/usr/project/dlab/Users/am439/OSPREY_refactor/build.xml</file>
+            <file>file:/usr/project/dlab/Users/am439/OSPREY_refactor/src/edu/duke/cs/osprey/partitionfunctionbounds/continuous/CMRFNodeDomain.java</file>
+            <file>file:/usr/project/dlab/Users/am439/OSPREY_refactor/src/edu/duke/cs/osprey/partitionfunctionbounds/continuous/KernelGaussian.java</file>
+            <file>file:/usr/project/dlab/Users/am439/OSPREY_refactor/src/edu/duke/cs/osprey/partitionfunctionbounds/continuous/RKHSFunction.java</file>
         </group>
     </open-files>
 </project-private>

@@ -58,8 +58,11 @@ public class CMRFNodeDomain {
 	this.energyFunction = eFunc;
 	this.energyRKHS = new RKHSFunction(k, lBound, uBound, eFunc);
 	double energyInt = energyRKHS.computeIntegral();
-	this.pdf = (x)->(Math.exp(-energyFunction.applyAsDouble(x)/constRT)/energyInt);
+	this.pdf = (x)->(Math.exp(-energyFunction.applyAsDouble(x)/constRT));
         this.probabilityRKHS = new RKHSFunction(k, lBound, uBound, this.pdf);
+        double partFn = this.probabilityRKHS.computeIntegral();
+        this.probabilityRKHS = new RKHSFunction(k, lBound, uBound, (point)->(this.probabilityRKHS.eval(point)/partFn));
+        
     }
 
     /**

@@ -29,7 +29,10 @@ public class RKHSFunction {
     
     // number of samples per dimension -- we can change the later, and in any case we probably want to use a
     // hard cap to avoid having ridiculously long LCs
-    public int numSamplesPerDimension = 10; // we can change this as the function changes
+    public static int numSamplesPerDimension = 10; // we can change this as the function changes
+    
+    // max number of samples we want to allow
+    public static int maxSamples = 100;
     
     /**
      * Constructor - takes as parameters feature maps and linear coefficients
@@ -81,7 +84,7 @@ public class RKHSFunction {
         //   computer from kind of blowing up
         int numDims = domainLB.length;
         this.numSamplesPerDimension =
-                (int) Math.round(Math.floor(Math.log(1000)/Math.log(numDims)));
+                (int) Math.round(Math.ceil(Math.exp(Math.log(maxSamples)/numDims)));
         
         this.domainLB = domainLB;
         this.domainUB = domainUB;
@@ -152,10 +155,10 @@ public class RKHSFunction {
             double[] domainLB,
             double[] domainUB,
             boolean fixSampleNumber) {
-        System.out.println("Beginning fit:");
-        System.out.println("  lower bounds: "+Arrays.toString(domainLB));
-        System.out.println("  upper bounds: "+Arrays.toString(domainUB));
-        System.out.println("  samples/dim: "+this.numSamplesPerDimension);
+//        System.out.println("    Fitting function:");
+//        System.out.println("      lower bounds: "+Arrays.toString(domainLB));
+//        System.out.println("      upper bounds: "+Arrays.toString(domainUB));
+//        System.out.println("      samples/dim: "+this.numSamplesPerDimension);
         
         
         int numSamples = this.numSamplesPerDimension; // samples per dimension
@@ -175,18 +178,8 @@ public class RKHSFunction {
                 fMaps[i] = new FeatureMap(k, samples[i]);
             }
             fitCoeffs = this.fitCoeffs(fMaps, f, k);
-            
-            rmsd = computeFitRMSDRatio(fMaps, fitCoeffs, domainLB, domainUB, f);
-            
-            if (Double.isNaN(rmsd)) {
-                throw new RuntimeException("RMSD is NaN.");
-            }
-            
-            System.out.println("With " + fMaps.length + " functions RMSD is: " + rmsd);
         }
-        
-        System.out.println("Used " + fMaps.length + " functions, total RMSD: " + rmsd + ".");
-        
+                
         this.featureMaps = fMaps;
         this.coeffs = fitCoeffs;
         this.domainLB = domainLB;
@@ -428,16 +421,13 @@ newFeatureMaps[fMapIndex] = new FeatureMap(this.k, cdfPoint);
      * @return totalIntegral
      */
     public double computeIntegral() {
-        System.out.println("Computing integral...");
         RKHSFunction measure = this.getLebesgueMeasure(this.domainLB, this.domainUB);
         double domainVolume = 1.0;
         
         for (int i=0; i<domainLB.length; i++) {
             domainVolume = domainVolume * (domainUB[i] - domainLB[i]);
         }
-        
-        System.out.println("  domain volume: "+domainVolume);
-        
+                
         double totalIntegral = domainVolume * this.innerProduct(measure);
         
         return totalIntegral;
@@ -518,5 +508,18 @@ newFeatureMaps[fMapIndex] = new FeatureMap(this.k, cdfPoint);
         double[] point1 = points.get(0);
         double[] point2 = points.get(1);
         return func1.eval(point1)*func2.eval(point2);
+    }
+    
+    public Matrix dumpPoints() { 
+        double[][] gridS = this.gridSample(numSamplesPerDimension, domainLB, domainUB);
+        Matrix m = new Matrix(gridS.length, gridS[0].length+1);
+        for (int sample = 0; sample<gridS.length; sample++) { 
+            for (int coord=0; coord<gridS[sample].length; coord++) { 
+                m.set(sample, coord, gridS[sample][coord]);
+            }
+            m.set(sample, gridS[sample].length, this.eval(gridS[sample]));
+        }
+        
+        return m;        
     }
 }
