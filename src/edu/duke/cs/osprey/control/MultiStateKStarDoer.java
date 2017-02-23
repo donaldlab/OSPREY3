@@ -4,30 +4,16 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.StringTokenizer;
 
-import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
-import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
-import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
-import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.kstar.pfunc.ParallelConfPartitionFunction;
-import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.multistatekstar.InputValidation;
-import edu.duke.cs.osprey.multistatekstar.KStarSettings;
+import edu.duke.cs.osprey.multistatekstar.KStarRatio;
+import edu.duke.cs.osprey.multistatekstar.MultiStateKStarSettings;
 import edu.duke.cs.osprey.multistatekstar.LMV;
 import edu.duke.cs.osprey.multistatekstar.MultiStateConfigFileParser;
 import edu.duke.cs.osprey.multistatekstar.MultiStateKStarTree;
 import edu.duke.cs.osprey.multistatekstar.MultiStateSearchProblem;
 import edu.duke.cs.osprey.multistatekstar.SearchProblemSettings;
-import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningControl;
-import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tools.StringParsing;
 
@@ -147,6 +133,8 @@ public class MultiStateKStarDoer {
 		System.out.println("Checking MultiStateKStar by exhaustive search");
 		System.out.println();
 
+		Stopwatch stopwatch = new Stopwatch().start();
+		
 		ArrayList<ArrayList<String[]>> seqList = listAllSeqs();
 		int numSeqs = seqList.get(0).size();
 		BigDecimal[][] stateKSRs = new BigDecimal[numStates][numSeqs];
@@ -156,8 +144,6 @@ public class MultiStateKStarDoer {
 				stateKSRs[state][seqNum] = calcStateKSRatio(state, seqList.get(state).get(seqNum));
 			}
 		}
-
-		Stopwatch stopwatch = new Stopwatch().start();
 
 		System.out.println();
 		System.out.println("Finished checking MultiStateKStar by exhaustive search in "+stopwatch.getTime(2));
@@ -183,12 +169,6 @@ public class MultiStateKStarDoer {
 
 		ParamSet sParams = cfps[state].getParams();
 
-		//make k* settings
-		KStarSettings ksSet = new KStarSettings();
-		ksSet.pruningWindow = sParams.getDouble("IVAL") + sParams.getDouble("EW");
-		ksSet.targetEpsilon = sParams.getDouble("EPSILON");
-		ksSet.stericThreshold = sParams.getDouble("STERICTHRESH");
-
 		//make LMVs
 		int numUbConstr = sParams.getInt("NUMUBCONSTR");
 		int numPartFuncs = sParams.getInt("NUMUBSTATES")+1;
@@ -196,11 +176,8 @@ public class MultiStateKStarDoer {
 		for(int constr=0;constr<numUbConstr;constr++)
 			sConstraints[constr] = new LMV(sParams.getValue("UBCONSTR"+constr), numPartFuncs);
 
-		//make partition functions
-		MultiStateSearchProblem[] pfSPs = new MultiStateSearchProblem[numPartFuncs];
-		PartitionFunction[] pfs = new PartitionFunction[numPartFuncs];
-		ConfEnergyCalculator.Async[] ecalcs = new ConfEnergyCalculator.Async[numPartFuncs];
-		
+		//populate search problems
+		MultiStateSearchProblem[] sps = new MultiStateSearchProblem[numPartFuncs];
 		for(int subState=0;subState<numPartFuncs;++subState){
 
 			SearchProblemSettings spSet = new SearchProblemSettings();
@@ -209,60 +186,23 @@ public class MultiStateKStarDoer {
 			for(int i:mutable2StateResNums.get(state).get(subState)) mutRes.add(String.valueOf(i));
 			spSet.mutRes = mutRes;
 
-			pfSPs[subState] = sParams.getBool("DOMINIMIZE") ? new MultiStateSearchProblem(sPsContinuous[state][subState], spSet)
+			sps[subState] = sParams.getBool("DOMINIMIZE") ? new MultiStateSearchProblem(sPsContinuous[state][subState], spSet)
 					: new MultiStateSearchProblem(sPsDiscrete[state][subState], spSet);
-			ecalcs[subState] = makeEnergyCalculator(cfps[state], pfSPs[subState]);
-			pfs[subState] = makePartitionFunction(cfps[state], pfSPs[subState], ecalcs[subState]);
-			
-			//testing
-			ecalcs[subState].cleanup();
 		}
 
+		//make k* settings
+		MultiStateKStarSettings ksSettings = new MultiStateKStarSettings();
+		ksSettings.pruningWindow = sParams.getDouble("IVAL") + sParams.getDouble("EW");
+		ksSettings.targetEpsilon = sParams.getDouble("EPSILON");
+		ksSettings.stericThreshold = sParams.getDouble("STERICTHRESH");
+		ksSettings.cfp = cfps[state];
+		ksSettings.sps = sps;
+		ksSettings.constraints = sConstraints;
+
+		KStarRatio ksRatio = new KStarRatio(ksSettings);
+		ksRatio.compute(Integer.MAX_VALUE);
+		
 		return null;
-	}
-
-	public static ConfEnergyCalculator.Async makeEnergyCalculator(MultiStateConfigFileParser stateCfp,
-			SearchProblem search) {
-		// make the conf energy calculator
-		ConfEnergyCalculator.Async ecalc = MinimizingEnergyCalculator.make(makeDefaultFFParams(stateCfp.getParams()),
-				search, Parallelism.makeFromConfig(stateCfp), true);
-		return ecalc;
-	}
-
-	public static PartitionFunction makePartitionFunction(MultiStateConfigFileParser stateCfp,
-			SearchProblem search, ConfEnergyCalculator.Async ecalc) {
-
-		// make the A* tree factory
-		ConfSearchFactory confSearchFactory = new ConfSearchFactory() {
-			@Override
-			public ConfSearch make(EnergyMatrix emat, PruningMatrix pmat) {
-
-				AStarScorer gscorer = new PairwiseGScorer(emat);
-				AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), emat, 1, 0.0001);
-				AStarOrder order = new StaticScoreHMeanAStarOrder();
-				RCs rcs = new RCs(pmat);
-
-				return new ConfAStarTree(order, gscorer, hscorer, rcs);
-			}
-		};
-
-		return new ParallelConfPartitionFunction(search.emat, search.pruneMat, confSearchFactory, ecalc);
-	}
-
-	protected static ForcefieldParams makeDefaultFFParams(ParamSet sParams) {
-		// values from default config file
-		String forceField = sParams.getValue("forcefield");
-		boolean distDepDielect = sParams.getBool("distDepDielect");
-		double dielectConst = sParams.getDouble("dielectConst");
-		double vdwMult = sParams.getDouble("vdwMult");
-		boolean doSolv = sParams.getBool("DoSolvationE");
-		double solvScale = sParams.getDouble("SolvScale");
-		boolean useHForElectrostatics = sParams.getBool("HElect");
-		boolean useHForVdw = sParams.getBool("HVDW");
-		return new ForcefieldParams(
-				forceField, distDepDielect, dielectConst, vdwMult,
-				doSolv, solvScale, useHForElectrostatics, useHForVdw
-				);
 	}
 
 	/**
