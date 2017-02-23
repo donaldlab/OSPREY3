@@ -4,11 +4,8 @@
  */
 package edu.duke.cs.osprey.tupexp;
 
-import cern.colt.matrix.DoubleFactory1D;
-import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.tools.ObjectIO;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;

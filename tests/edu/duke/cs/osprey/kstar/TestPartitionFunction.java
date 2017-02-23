@@ -5,8 +5,6 @@ import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Arrays;
-
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -18,6 +16,7 @@ import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
+import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
 import edu.duke.cs.osprey.kstar.pfunc.PFFactory;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -66,11 +65,11 @@ public class TestPartitionFunction extends TestBase {
 		boolean addWtRots = true;
 		ArrayList<String[]> moveableStrands = new ArrayList<String[]>();
 		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
-		KSTermini termini = null;
+		ResidueTermini termini = null;
 		if (firstResNumber != null && lastResNumber != null) {
-			termini = new KSTermini(strand, resFlex.size(), new ArrayList<>(Arrays.asList(firstResNumber, lastResNumber)));
+			termini = new ResidueTermini(strand, Integer.valueOf(firstResNumber), Integer.valueOf(lastResNumber));
 		}
-		KSSearchProblem search = new KSSearchProblem(
+		KSSearchProblem search = new KSSearchProblem( null,
 			"test", "test/2RL0.kstar/2RL0.min.reduce.pdb", 
 			resFlex.flexResList, resFlex.allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
 			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, termini, false
@@ -168,15 +167,15 @@ public class TestPartitionFunction extends TestBase {
 	}
 	
 	private PFAbstract makeAndComputeProteinPfunc(String pfImpl, String flexibility, double targetEpsilon) {
-		return makeAndComputePfunc(pfImpl, KSTermini.PROTEIN, "648", "654", flexibility, targetEpsilon);
+		return makeAndComputePfunc(pfImpl, 0, "648", "654", flexibility, targetEpsilon);
 	}
 	
 	private PFAbstract makeAndComputeLigandPfunc(String pfImpl, String flexibility, double targetEpsilon) {
-		return makeAndComputePfunc(pfImpl, KSTermini.LIGAND, "155", "194", flexibility, targetEpsilon);
+		return makeAndComputePfunc(pfImpl, 1, "155", "194", flexibility, targetEpsilon);
 	}
 	
 	private PFAbstract makeAndComputeComplexPfunc(String pfImpl, String flexibility, double targetEpsilon) {
-		return makeAndComputePfunc(pfImpl, KSTermini.COMPLEX, null, null, flexibility, targetEpsilon);
+		return makeAndComputePfunc(pfImpl, 2, null, null, flexibility, targetEpsilon);
 	}
 	
 	private void testProteinWildType(String pfImpl, double targetEpsilon) {
@@ -291,10 +290,6 @@ public class TestPartitionFunction extends TestBase {
 	
 	@Test
 	public void testLigandNotPossibleParallelConf() {
-		/* Jeff: this test fails because PFAbstract.rePruneReducedSP() can't read
-		 * an energy matrix that was written to disk. I have no idea who's supposed to
-		 * write that matrix, so I have no idea how to fix this failing test. =(
-		 */
 		PFAbstract pfunc = makeAndComputeLigandPfunc("parallelConf", "PHE-156 LYS-172 LEU-192 THR-193", 0.95);
 		assertPfunc(pfunc, EApproxReached.NOT_POSSIBLE);
 	}

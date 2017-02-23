@@ -5,10 +5,7 @@
 package edu.duke.cs.osprey.control;
 
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
-import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
-
-import java.math.BigInteger;
 
 
 public class EnvironmentVars {

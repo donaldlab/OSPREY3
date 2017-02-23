@@ -7,7 +7,6 @@ package edu.duke.cs.osprey.voxq;
 
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
-import cern.colt.matrix.linalg.Algebra;
 import cern.jet.math.Functions;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import java.util.ArrayList;

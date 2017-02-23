@@ -26,10 +26,10 @@ import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
-import edu.duke.cs.osprey.kstar.KSTermini;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
+import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -99,7 +99,7 @@ public class ConfSpace implements Serializable {
      */
     public ConfSpace(String PDBFile, ArrayList<String> flexibleRes, ArrayList<ArrayList<String>> allowedAAs, 
             boolean addWT, ArrayList<String> wtRotOnlyRes, boolean contSCFlex, DEEPerSettings dset, ArrayList<String[]> moveableStrands, 
-            ArrayList<String[]> freeBBZones, boolean ellipses, boolean addWTRots, KSTermini termini){
+            ArrayList<String[]> freeBBZones, boolean ellipses, boolean addWTRots, ResidueTermini termini){
     
     	useEllipses = ellipses;  	
     	this.flexibleRes = flexibleRes;
