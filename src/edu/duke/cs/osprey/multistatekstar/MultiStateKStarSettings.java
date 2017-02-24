@@ -16,7 +16,6 @@ import edu.duke.cs.osprey.control.MinimizingEnergyCalculator;
 import edu.duke.cs.osprey.control.ParamSet;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.kstar.pfunc.ParallelConfPartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -41,7 +40,7 @@ public class MultiStateKStarSettings {
 	}
 
 	public static PartitionFunction makePartitionFunction(MultiStateConfigFileParser stateCfp,
-			SearchProblem search, ConfEnergyCalculator.Async ecalc) {
+			EnergyMatrix emat, PruningMatrix pruneMat, ConfEnergyCalculator.Async ecalc) {
 
 		// make the A* tree factory
 		ConfSearchFactory confSearchFactory = new ConfSearchFactory() {
@@ -57,7 +56,7 @@ public class MultiStateKStarSettings {
 			}
 		};
 
-		return new ParallelConfPartitionFunction(search.emat, search.pruneMat, confSearchFactory, ecalc);
+		return new ParallelConfPartitionFunction2(emat, pruneMat, confSearchFactory, ecalc);
 	}
 
 	public static ForcefieldParams makeDefaultFFParams(ParamSet sParams) {
