@@ -80,5 +80,19 @@ def getJavaClass(classname):
 	
 
 def getInnerClass(jclass, inner_class_name):
-	return getJavaClass('%s$%s' % (jclass.__javaclass__.getName(), inner_class_name))
+	'''
+	Gets the inner class from the Java outer class.
+	
+	:param jclass: The Java class, provided by a JPype JPackage object.
+	:param str inner_class_name: The simple name of the inner class.
+	'''
+
+	# get the class name, if this is even a class
+	try:
+		classname = jclass.__javaclass__.getName()
+	except TypeError:
+		raise ValueError('%s is not a recognized Java class' % jclass)
+
+	# get the inner class
+	return getJavaClass('%s$%s' % (classname, inner_class_name))
 

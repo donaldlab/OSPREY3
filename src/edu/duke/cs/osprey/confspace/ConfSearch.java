@@ -18,17 +18,33 @@ import edu.duke.cs.osprey.gmec.ConsoleConfPrinter;
 //call nextConf to get the GMEC for the model being searched,
 //and then successive calls to nextConf() return the next conformation in the gap-free list
 /**
- *
+ * A generic interface for A* searches over a conformatio space.
+ * 
+ * Each search defines an order for all conformations in the conformation space,
+ * and enumerates those conformations order of increasing score.
+ * 
  * @author mhall44
  */
 public interface ConfSearch {
     
+    /**
+     * Get the conformation in the conformation space with the next lowest score.
+     */
     ScoredConf nextConf();
     
+    /**
+     * Get the total number of conformations in the conformation space.
+     * This can be an astronomically large number.
+     */
     default BigInteger getNumConformations() {
     	throw new UnsupportedOperationException();
     }
     
+    /**
+     * Get the next conformations in the conformation space with scores up to maxEnergy.
+     * @param foo cows are tasty
+     * @param bar cheese is too
+     */
     default List<ScoredConf> nextConfs(double maxEnergy) {
 		List<ScoredConf> nodes = new ArrayList<>();
 		while (true) {
@@ -47,36 +63,58 @@ public interface ConfSearch {
 		return nodes;
     }
     
+    /**
+     * A conformation from a conformation space with an associated score.
+     */
     public static class ScoredConf {
         
         private int[] assignments;
         private double score;
         
+        /** Make a new scored conformation */
         public ScoredConf(int[] assignments, double score) {
             this.assignments = assignments;
             this.score = score;
         }
         
+        /** Make a copy of an existing scored conformation */
         public ScoredConf(ScoredConf other) {
         	this.assignments = other.assignments.clone();
         	this.score = other.score;
         }
         
+        /**
+         * Get the design position assignments of the conformation.
+         * 
+         * Design positions are listed in order of increasing residue number.
+         * Each integer in the array describes the index of the assigned residue
+         * conformation at that design position.
+         * */
         public int[] getAssignments() {
             return assignments;
         }
         
+        /** Get the score for the conformation */
         public double getScore() {
             return score;
         }
+        
+        /** Sets the score for this conformation */
         public void setScore(double val) {
         	score = val;
         }
+        
+        /** Adds val to the score for this conformation */
         public void offsetScore(double val) {
         	score += val;
         }
     }
     
+    /**
+     * A conformation from a conformation space with an associated score,
+     * and an associated energy. The definition of "energy" in this context
+     * depends on the {@link ConfEnergyCalculator} used in the design.
+     */
     public static class EnergiedConf extends ScoredConf {
         
         private double energy;
@@ -91,12 +129,17 @@ public interface ConfSearch {
         	this.energy = energy;
         }
         
+        /** Get the energy for this conformation */
         public double getEnergy() {
             return energy;
         }
+        
+        /** Set the energy for this conformation */
         public void setEnergy(double val) {
         	energy = val;
         }
+        
+        /** Adds val to the energy for this conformation */
         public void offsetEnergy(double val) {
         	energy += val;
         }
@@ -106,12 +149,27 @@ public interface ConfSearch {
         	return toString(null);
         }
         
+        /**
+         * Generates a nicely formatted description of this conformation
+         * with its score and energy.
+         * 
+         * For example:
+         * <pre>
+         * Residue Conf Ids       1  20  27
+         * Residue types        GLY ARG LYS
+         * Rotamer numbers        L  L9  W0
+         * Energy               -21.788082
+         * Score                -22.675928 (gap: 0.887846)
+         * </pre>
+         */
         public String toString(SimpleConfSpace confSpace) {
         	return ConsoleConfPrinter.makeReport(this, confSpace, null);
         }
     }
     
-	// lets multiple consumers read confs from the stream regardless of order of reads
+	/**
+	 * Lets multiple consumers read confs from the stream regardless of order of reads.
+	 */
 	public static class Splitter {
 		
 		public class Stream implements ConfSearch {
@@ -173,11 +231,6 @@ public interface ConfSearch {
 					firstIndex++;
 				}
 				
-				// TEMP
-				for (Stream other : streams) {
-					assert (other.index >= firstIndex);
-				}
-				
 				return conf;
 			}
 				
@@ -201,6 +254,9 @@ public interface ConfSearch {
 		private int firstIndex;
 		private List<Stream> streams;
 		
+		/**
+		 * Create a splitter for a conformation search
+		 */
 		public Splitter(ConfSearch confs) {
 			
 			this.confs = confs;
@@ -210,6 +266,10 @@ public interface ConfSearch {
 			streams = new ArrayList<>();
 		}
 		
+		/**
+		 * Make a new stream for this conf search that
+		 * starts at the current position of the search.
+		 */
 		public Stream makeStream() {
 			
 			// don't start a new stream if we've already started reading
