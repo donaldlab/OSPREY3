@@ -6,7 +6,8 @@ import jvm, wraps
 # NOTE: this var gets set by the build system during packaging
 # so the release version of this script will point to the final jar file for osprey
 # instead of the development classes folder
-_ospreyPaths = ['../../build/output/*.jar', '../../bin']
+_ospreyDir = os.path.dirname(__file__)
+_ospreyPaths = [os.path.join(_ospreyDir, '../../build/output/*.jar'), os.path.join(_ospreyDir, '../../bin')]
 
 c = None
 
