@@ -22,6 +22,7 @@ import edu.duke.cs.osprey.structure.Residue;
  */
 public class Strand {
 	
+	/** Magic value that represents the wild-type residue type. Used by {@link ResidueFlex#setLibraryRotamers} */
 	public static final String WildType = "__WT__";
 	
 	public static class Builder {
@@ -241,15 +242,19 @@ public class Strand {
 		}
 	}
 	
+	/** The molecule this strand represents */
 	public final Molecule mol;
+	
+	/** The template library used to pick templates for this strand */
 	public final GenericResidueTemplateLibrary templateLib;
+	
+	/** Names of residues that couldn't be matched to templates */
 	public final Set<String> nonTemplateResNames;
+	
+	/** Flexibility parameters for this strand */
 	public final Flexibility flexibility;
 	
-	/**
-	 * it's probably easier to use the {@link Builder} rather than call this constructor directly.
-	 */
-	public Strand(Molecule mol, String firstResNumber, String lastResNumber, GenericResidueTemplateLibrary templateLib, boolean errorOnNonTemplateResidues) {
+	private Strand(Molecule mol, String firstResNumber, String lastResNumber, GenericResidueTemplateLibrary templateLib, boolean errorOnNonTemplateResidues) {
 		
 		// build our molecule copy from the residue subset
 		this.mol = new Molecule();

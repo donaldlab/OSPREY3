@@ -182,26 +182,30 @@ def autodoc_docstring_handler(app, what, name, obj, options, doclines, for_signa
 	#		print(line)
 
 
-def resolve_type(typeast, ast, config):
+def resolve_type(typeast, rootast, config):
 
 	name = typeast.name
 
 	# is this a primitive type?
-	if isinstance(typeast, javalang.tree.BasicType):
-		try:
-			name = java_to_python_types[typeast.name]
-		except KeyError:
-			# don't have a mapping, keep the raw type name
-			pass
+	try:
+		name = java_to_python_types[typeast.name]
+	except KeyError:
+		# don't have a mapping, keep the raw type name
+		pass
 	
 	# is it a class?
-	elif isinstance(typeast, javalang.tree.ReferenceType):
+	if isinstance(typeast, javalang.tree.ReferenceType):
 		try:
-			ref = ImportResolver(ast, config).resolve(typeast.name)
+			ref = ImportResolver(rootast, config).resolve(typeast.name)
 			name = ':java:ref:`%s`' % ref.full_classname
 		except ValueError:
 			# can't resolve name just keep raw type
 			name = '``%s``' % name
+
+		# handle type params
+		if typeast.arguments is not None:
+			type_args = [resolve_type(arg.type, rootast, config) for arg in typeast.arguments]
+			name = '%s < %s >' % (name, ' , '.join(type_args))
 
 	# handle arrays
 	for i in range(len(typeast.dimensions)):
@@ -515,6 +519,8 @@ class JavaRef():
 		# Class
 		# Inner
 
+		# method arguments and generic types are not handled though
+
 		# split off the package
 		parts = target.split('.')
 		if len(parts) > 1:
@@ -533,6 +539,10 @@ class JavaRef():
 				target = parts[0]
 			else:
 				self.membername = None
+
+		# remove any method args from the member name
+		if self.membername is not None:
+			self.membername = self.membername.split('(')[0]
 
 		self.classname = target
 
@@ -605,11 +615,12 @@ class ImportResolver():
 
 		# first, check the main type in the ast
 		if self.ast.name == ref.simple_classname:
-			return self.ast.ref
+			return JavaRef(self.ast.ref.full_classname, membername=ref.membername)
 
 		# then, check ast sub-types
 		try:
-			return self.find_subtype(self.ast, ref.simple_classname).ref
+			subref = self.find_subtype(self.ast, ref.simple_classname).ref
+			return JavaRef(subref.full_classname, membername=ref.membername)
 		except KeyError:
 			# can't find it
 			pass
@@ -734,16 +745,23 @@ class Javadoc():
 		self.text = text
 		self.import_resolver = ImportResolver(ast, config)
 		self.parsed = javalang.javadoc.parse(text)
-
-
-	@property
-	def description(self):
+		self.indexed = True
 
 		# start with the main javadoc text
-		desc = []
-		desc.append(self._translate(self.parsed.description))
+		desc = [self._translate(self.parsed.description)]
 
-		# add any notes, warnings, etc
+		# handle see tags
+		try:
+			for text in self.parsed.tags['see']:
+				desc.append('See %s' % self._resolve_link(text))
+
+				# assume this is an overload and remove it from the index
+				self.indexed = False
+
+		except KeyError:
+			pass
+
+		# translate any notes, warnings, etc into rst
 		for tagname in ['note', 'warning', 'todo']:
 			try:
 				for text in self.parsed.tags[tagname]:
@@ -753,7 +771,7 @@ class Javadoc():
 			except KeyError:
 				pass
 
-		return '\n'.join(desc)
+		self.description = '\n'.join(desc)
 
 	
 	def arg(self, name):
@@ -762,6 +780,20 @@ class Javadoc():
 				return argdesc
 		raise KeyError
 
+
+	def _resolve_link(self, target):
+
+		# add enclosing class info if needed
+		if target.startswith('#'):
+			ref = JavaRef(self.import_resolver.ast.ref.full_outer_classname, membername=target[1:])
+		
+		# otherwise, resolve against imports to get a full ref
+		else:
+			ref = self.import_resolver.resolve(target)
+
+		# build the rst
+		return ':java:ref:`%s`' % str(ref)
+		
 	
 	def _resolve_all(self, text, tagname, resolver):
 		regex = re.compile(r'\{@%s ([^\}]+)\}' % tagname)
@@ -773,16 +805,7 @@ class Javadoc():
 	def _translate(self, text):
 
 		# translate links from javadoc to sphinx
-		def link_resolver(target):
-			
-			# resolve against imports to get a full ref
-			ref = self.import_resolver.resolve(target)
-
-			# build the rst
-			rst = []
-			rst.append(':java:ref:`%s`' % str(ref))
-			return '\n'.join(rst)
-		text = self._resolve_all(text, 'link', link_resolver)
+		text = self._resolve_all(text, 'link', self._resolve_link)
 
 		# translate citations to rst
 		citations = {}
@@ -816,7 +839,11 @@ def is_public(thing, ast):
 
 
 def should_show(thing, ast):
-	return thing.documentation is not None and is_public(thing, ast)
+	return is_public(thing, ast) # and thing.documentation is not None
+
+
+def is_constant(thing, ast):
+	return 'static' in thing.modifiers and 'final' in thing.modifiers
 
 
 def parse_rst(rst, settings):
@@ -889,6 +916,11 @@ class JavaClassDirective(ParsingDirective):
 		rst.append('Java class: ``%s``' % ref)
 		rst.append('')
 
+		# add nested content
+		if len(self.content) > 1:
+			rst.extend(self.content[1:])
+			rst.append('')
+
 		rstlen = len(rst)
 
 		# show constructors
@@ -906,8 +938,15 @@ class JavaClassDirective(ParsingDirective):
 			for constructor in constructors:
 				self.show_method(rst, ref, constructor, ast)
 
+		# show constants
+		constants = [field for field in ast.fields if should_show(field, ast) and is_constant(field, ast)]
+		if len(constants) > 0:
+			self.show_header(rst, 'Constants')
+			for constant in constants:
+				self.show_field(rst, ref, constant, ast)
+
 		# show fields
-		fields = [field for field in ast.fields if should_show(field, ast)]
+		fields = [field for field in ast.fields if should_show(field, ast) and not is_constant(field, ast)]
 		if len(fields) > 0:
 			self.show_header(rst, 'Properties')
 			for field in fields:
@@ -933,7 +972,7 @@ class JavaClassDirective(ParsingDirective):
 			rst.append('')
 
 		# DEBUG
-		#if ref.classname.startswith('ConfSearch'):
+		#if ref.classname.startswith('SimpleConfSpace'):
 		#	print('CLASSDOC')
 		#	for line in rst:
 		#		print(line)
@@ -971,31 +1010,50 @@ class JavaClassDirective(ParsingDirective):
 	
 	def show_field(self, rst, ref, field, ast):
 
+		# get the javadoc, if any
+		javadoc = None
+		if field.documentation is not None:
+			try:
+				javadoc = Javadoc(field.documentation, ast, self.config)
+			except ValueError as e:
+				self.warn("Can't parse javadoc for field %s#%s" % (ref, field.name), cause=e)
+
 		# show the field name and javadoc
 		for decl in field.declarators:
 			rst.append('.. py:attribute:: %s' % decl.name)
 			rst.append('')
-			if field.documentation is not None:
-				javadoc = Javadoc(field.documentation, ast, self.config)
+			if javadoc is not None:
 				rst.append(self.indent(self.format(javadoc.description)))
 				rst.append('')
 
+			rst.append('\t:type: %s' % resolve_type(field.type, ast, self.config))
+			rst.append('')
+
 
 	def show_method(self, rst, ref, method, ast):
+
+		# get the javadoc, if any
+		javadoc = None
+		if method.documentation is not None:
+			try:
+				javadoc = Javadoc(method.documentation, ast, self.config)
+			except ValueError as e:
+				self.warn("Can't parse javadoc for method %s#%s" % (ref, method.name), cause=e)
 
 		# show the method signature
 		args = [arg.name for arg in method.parameters]
 		sig = '%s(%s)' % (method.name, ', '.join(args))
 		rst.append('.. py:method:: %s' % sig)
+		if javadoc is not None and not javadoc.indexed:
+			rst.append('\t:noindex:')
+			rst.append('')
 		rst.append('')
 
-		# show the javadoc, if any
-		javadoc = None
-		if method.documentation is not None:
-			javadoc = Javadoc(method.documentation, ast, self.config)
+		# show the javadoc desc, if any
+		if javadoc is not None:
 			rst.append(self.indent(self.format(javadoc.description)))
 			rst.append('')
-		
+
 		# method arg descriptions, types
 		for arg in method.parameters:
 			try:
@@ -1016,11 +1074,18 @@ class JavaClassDirective(ParsingDirective):
 
 	def show_constant(self, rst, ref, value, ast):
 		
+		# get the javadoc, if any
+		javadoc = None
+		if value.documentation is not None:
+			try:
+				javadoc = Javadoc(value.documentation, ast, self.config)
+			except ValueError as e:
+				self.warn("Can't parse javadoc for enum value %s.%s" % (ref, value.name), cause=e)
+
 		# show the value name and javadoc
 		rst.append('.. py:attribute:: %s' % value.name)
 		rst.append('')
-		if value.documentation is not None:
-			javadoc = Javadoc(value.documentation, ast, self.config)
+		if javadoc is not None:
 			rst.append(self.indent(self.format(javadoc.description)))
 			rst.append('')
 
@@ -1175,6 +1240,8 @@ class RefRole(sphinx.roles.XRefRole):
 			resolved.anchor = ref.membername
 		else:
 			resolved.text = ref.simple_classname
+
+		resolved.title = str(ref)
 
 		# attach the resolution to the node so we can find it again in Domain.resolve_xref()
 		refnode.resolved = resolved

@@ -166,9 +166,16 @@ public class SimpleConfSpace {
 		}
 	}
 	
+	/** The strands */
 	public final List<Strand> strands;
+	
+	/** The design positions */
 	public final List<Position> positions;
+	
+	/** The residue numbers of the shell residues */
 	public final Set<String> shellResNumbers;
+	
+	/** The flexibility of each strand */
 	public final Map<Strand,List<StrandFlex>> strandFlex; // yeah, map on instance, not identity
 	
 	private Map<Strand,Set<String>> shellResNumbersByStrand;
@@ -290,14 +297,17 @@ public class SimpleConfSpace {
 		}
 	}
 	
+	/** Gets the number of residue confs per position */
 	public int[] getNumResConfsByPos() {
 		return numResConfsByPos;
 	}
 	
+	/** Gets the number of residue confs for a position */
 	public int getNumResConfs(int pos) {
 		return positions.get(pos).resConfs.size();
 	}
 	
+	/** Gets the total number of residue confs for all positions */
 	public int getNumResConfs() {
 		int count = 0;
 		for (int pos=0; pos<positions.size(); pos++) {
@@ -306,6 +316,7 @@ public class SimpleConfSpace {
 		return count;
 	}
 	
+	/** Gets the total number of residue conf pairs for all positions */
 	public int getNumResConfPairs() {
 		int count = 0;
 		for (int pos1=0; pos1<positions.size(); pos1++) {
@@ -318,17 +329,19 @@ public class SimpleConfSpace {
 		return count;
 	}
 	
+	/** @see #makeMolecule(RCTuple) */
 	public ParametricMolecule makeMolecule(ScoredConf conf) {
 		return makeMolecule(conf.getAssignments());
 	}
 	
+	/** @see #makeMolecule(RCTuple) */
 	public ParametricMolecule makeMolecule(int[] conf) {
 		return makeMolecule(new RCTuple(conf));
 	}
 	
 	/**
 	 * create a new {@link ParametricMolecule} in the specified conformation
-	 * for analysis (e.g., minimization)
+	 * for analysis (e.g., energy calculation, minimization)
 	 * 
 	 * To increase stability of analysis, each analysis should be conducted
 	 * with a new molecule instance. this completely prevents roundoff error
@@ -391,18 +404,22 @@ public class SimpleConfSpace {
 		return new ParametricMolecule(mol, dofs);
 	}
 	
+	/** @see #isContinuouslyFlexible(RCTuple) */
 	public boolean isContinuouslyFlexible(int[] conf) {
 		return isContinuouslyFlexible(new RCTuple(conf));
 	}
 	
+	/** Return true if the conformation has continuous degrees of freedom, false otherwise. */
 	public boolean isContinuouslyFlexible(RCTuple conf) {
 		return makeBounds(conf).size() > 0;
 	}
 	
+	/** @see #makeBounds(RCTuple) */
 	public DofBounds makeBounds(int[] conf) {
 		return makeBounds(new RCTuple(conf));
 	}
 	
+	/** Calculate the bounds on all the degrees of freedom. */
 	public DofBounds makeBounds(RCTuple conf) {
 		
 		// gather all the DOF bounds
@@ -438,6 +455,7 @@ public class SimpleConfSpace {
 		return confStrands;
 	}
 
+	/** Returns True if the GPU minimizer supports the degrees of freedom in this conformation space. */
 	public boolean isGpuCcdSupported() {
 		
 		// check strand flex

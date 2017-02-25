@@ -3,5 +3,5 @@
 
 .. java:class:: .confspace.Strand
 
-.. todo:: docme!
+	To make a new Strand, use the builder function :py:func:`osprey.Strand`
 
