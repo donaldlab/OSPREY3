@@ -41,8 +41,10 @@ public class MultiStateKStarDoer {
 
 	MultiStateConfigFileParser[] cfps;//config file parsers for each state
 
-	SearchProblem[][] sPsDiscrete;//continuous search problems
-	SearchProblem[][] sPsContinuous;//discrete search problems
+	SearchProblem[][] searchDisc;//continuous search problems
+	SearchProblem[][] searchCont;//discrete search problems
+	
+	public ConfEnergyCalculator.Async[][] ecalcs;//global energy calculator objects
 
 	public MultiStateKStarDoer(String args[]) {
 		//fill in all the settings
@@ -78,8 +80,8 @@ public class MultiStateKStarDoer {
 
 		cfps = new MultiStateConfigFileParser[numStates];
 
-		sPsDiscrete = new SearchProblem[numStates][];
-		sPsContinuous = new SearchProblem[numStates][];
+		searchDisc = new SearchProblem[numStates][];
+		searchCont = new SearchProblem[numStates][];
 
 		System.out.println();
 		System.out.println("Checking multistate K* parameters for consistency");
@@ -115,13 +117,59 @@ public class MultiStateKStarDoer {
 
 		for(int state=0; state<numStates; state++) {
 
-			sPsContinuous[state] = makeStateSearchProblems(state, true, cfps[state]);//continuous flex
-			sPsDiscrete[state] = makeStateSearchProblems(state, false, cfps[state]);//discrete flex
+			searchCont[state] = makeStateSearchProblems(state, true, cfps[state]);//continuous flex
+			searchDisc[state] = makeStateSearchProblems(state, false, cfps[state]);//discrete flex
 
 			System.out.println();
 			System.out.println("State "+state+" matrices ready");
 			System.out.println();
 		}
+		
+		System.out.println();
+		System.out.println("Preparing energy calculators for multistate K*");
+		System.out.println();
+		
+		ecalcs = makeEnergyCalculators(true);
+		
+		System.out.println();
+		System.out.println("Finished preparing energy calculators for multistate K*");
+		System.out.println();
+	}
+	
+	private ConfEnergyCalculator.Async[][] makeEnergyCalculators(boolean continuous) {
+		SearchProblem[][] sps = continuous ? searchCont : searchDisc;
+		ConfEnergyCalculator.Async[][] ans = new ConfEnergyCalculator.Async[sps.length][];
+		
+		for(int state=0;state<sps.length;++state) {
+			SearchProblem[] statesps = sps[state];
+			ans[state] = new ConfEnergyCalculator.Async[statesps.length];
+			
+			for(int substate=0;substate<ans[state].length;++substate) {
+				ans[state][substate] = MultiStateKStarSettings.makeEnergyCalculator(cfps[state], sps[state][substate]);
+			}
+		}
+		
+		return ans;
+	}
+	
+	private void cleanupEnergyCalculators() {
+		if(ecalcs == null) return;
+		
+		for(int state=0;state<ecalcs.length;++state) {
+			for(int substate=0;substate<ecalcs[state].length;++substate) {
+				ConfEnergyCalculator.Async ecalc = ecalcs[state][substate];
+				if(ecalc != null) {
+					ecalcs[state][substate].cleanup();
+					ecalcs[state][substate] = null;
+				}
+			}
+		}
+		
+		ecalcs = null;
+	}
+	
+	public void cleanup() {
+		cleanupEnergyCalculators();
 	}
 
 	/**
@@ -186,8 +234,8 @@ public class MultiStateKStarDoer {
 			for(int i:mutable2StateResNums.get(state).get(subState)) mutRes.add(String.valueOf(i));
 			spSet.mutRes = mutRes;
 
-			sps[subState] = sParams.getBool("DOMINIMIZE") ? new MultiStateSearchProblem(sPsContinuous[state][subState], spSet)
-					: new MultiStateSearchProblem(sPsDiscrete[state][subState], spSet);
+			sps[subState] = sParams.getBool("DOMINIMIZE") ? new MultiStateSearchProblem(searchCont[state][subState], spSet)
+					: new MultiStateSearchProblem(searchDisc[state][subState], spSet);
 		}
 
 		//make k* settings
@@ -196,8 +244,11 @@ public class MultiStateKStarDoer {
 		ksSettings.targetEpsilon = sParams.getDouble("EPSILON");
 		ksSettings.stericThreshold = sParams.getDouble("STERICTHRESH");
 		ksSettings.cfp = cfps[state];
-		ksSettings.sps = sps;
+		ksSettings.search = sps;
 		ksSettings.constraints = sConstraints;
+		ksSettings.ecalcs = ecalcs[state];
+		ksSettings.sequence = boundStateAATypes;
+		ksSettings.isReportingProgress = true;
 
 		KStarRatio ksRatio = new KStarRatio(ksSettings);
 		ksRatio.compute(Integer.MAX_VALUE);

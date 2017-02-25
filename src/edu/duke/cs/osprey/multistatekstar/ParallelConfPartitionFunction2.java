@@ -183,7 +183,7 @@ public class ParallelConfPartitionFunction2 implements PartitionFunction {
 				conf = energyConfs.next();
 				if (conf == null) {
 					status = Status.NotEnoughConformations;
-					return;
+					break;
 				}
 			}
 
@@ -198,7 +198,8 @@ public class ParallelConfPartitionFunction2 implements PartitionFunction {
 
 					// get the boltzmann weight
 					BigDecimal energyWeight = boltzmann.calc(econf.getEnergy());
-					if (energyWeight.compareTo(BigDecimal.ZERO) == 0) {
+					BigDecimal scoreWeight = boltzmann.calc(econf.getScore());
+					if (scoreWeight.compareTo(BigDecimal.ZERO) == 0) {
 						status = Status.NotEnoughFiniteEnergies;
 						return;
 					}
@@ -222,7 +223,7 @@ public class ParallelConfPartitionFunction2 implements PartitionFunction {
 					if (confListener != null) {
 						confListener.onConf(econf);
 					}
-
+					
 					// update status if needed
 					if (values.getEffectiveEpsilon() <= targetEpsilon) {
 						status = Status.Estimated;
@@ -235,7 +236,7 @@ public class ParallelConfPartitionFunction2 implements PartitionFunction {
 		ecalc.waitForFinish();
 	}
 
-	public void compute(BigDecimal targetScoreWeights) {
+	public void compute(BigDecimal target) {
 
 		if (!status.canContinue()) {
 			throw new IllegalStateException("can't continue from status " + status);
@@ -252,14 +253,14 @@ public class ParallelConfPartitionFunction2 implements PartitionFunction {
 			synchronized (this) {
 
 				// should we keep going?
-				if (!status.canContinue() || qstarScoreWeights.compareTo(targetScoreWeights) >= 0) {
+				if (!status.canContinue() || qstarScoreWeights.compareTo(target) >= 0) {
 					break;
 				}
 
 				conf = energyConfs.next();
 				if (conf == null) {
 					status = Status.NotEnoughConformations;
-					return;
+					break;
 				}
 			}
 
@@ -273,23 +274,26 @@ public class ParallelConfPartitionFunction2 implements PartitionFunction {
 				synchronized (ParallelConfPartitionFunction2.this) {
 
 					// get the boltzmann weight
-					qstarScoreWeights = qstarScoreWeights.add(boltzmann.calc(econf.getEnergy()));
 					BigDecimal energyWeight = boltzmann.calc(econf.getEnergy());
-					if (energyWeight.compareTo(BigDecimal.ZERO) == 0) {
+					BigDecimal scoreWeight = boltzmann.calc(econf.getScore());
+					if (scoreWeight.compareTo(BigDecimal.ZERO) == 0) {
 						status = Status.NotEnoughFiniteEnergies;
 						return;
 					}
+					
+					qstarScoreWeights = qstarScoreWeights.add(scoreWeight);
 
 					// update pfunc state
 					numConfsEvaluated++;
 					values.qstar = values.qstar.add(energyWeight);
 					values.qprime = updateQprime(econf);
+					BigDecimal pdiff = target.subtract(qstarScoreWeights);
 
 					// report progress if needed
 					if (isReportingProgress) {
 						MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-						System.out.println(String.format("conf: %4d, energy: %.6f, q*: %12e, q': %12e, p*: %12e, epsilon: %.6f, time: %10s, heapMem: %.0f%%",
-								numConfsEvaluated, econf.getEnergy(), values.qstar, values.qprime, values.pstar, values.getEffectiveEpsilon(),
+						System.out.println(String.format("conf: %4d, energy: %.6f, q*: %12e, q': %12e, p*-p1*: %12e, time: %10s, heapMem: %.0f%%",
+								numConfsEvaluated, econf.getEnergy(), values.qstar, values.qprime, pdiff,
 								stopwatch.getTime(2),
 								100f*heapMem.getUsed()/heapMem.getMax()
 								));

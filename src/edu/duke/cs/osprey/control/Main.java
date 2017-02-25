@@ -134,6 +134,7 @@ public class Main {
 			public void run() {
 				MultiStateKStarDoer msksd = new MultiStateKStarDoer(args);
 				msksd.exhaustiveMultistateSearch();
+				msksd.cleanup();
 			}
 		});
 

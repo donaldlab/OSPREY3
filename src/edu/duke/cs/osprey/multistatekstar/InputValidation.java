@@ -80,6 +80,10 @@ public class InputValidation {
 	
 	public void handleStateParams(int state, ParamSet sParams, ParamSet msParams) {
 		//parameter sanity check
+		double epsilon = sParams.getDouble("EPSILON");
+		if(epsilon >= 1 || epsilon < 0) 
+			throw new RuntimeException("ERROR: EPSILON must be >= 0 and < 1"); 
+		
 		//check number of constraints
 		int numUbConstr = sParams.getInt("NUMUBCONSTR");
 		ArrayList<String> ubConstr = sParams.searchParams("UBCONSTR");

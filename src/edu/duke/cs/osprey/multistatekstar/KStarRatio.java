@@ -4,34 +4,20 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 
-import edu.duke.cs.osprey.control.ConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction.Status;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 public class KStarRatio {
 
 	public MultiStateKStarSettings settings;
 	public PartitionFunction[] partitionFunctions;
-	public ConfEnergyCalculator.Async[] ecalcs;
 	public int numStates;
 
 	public KStarRatio(MultiStateKStarSettings settings) {
 		this.settings = settings;
-		numStates = settings.sps.length;
-		ecalcs = new ConfEnergyCalculator.Async[numStates];
+		numStates = settings.search.length;
 		partitionFunctions = new PartitionFunction[numStates];
-		
-		for(int state=0;state<numStates;++state) {
-			//prune matrices
-			settings.sps[state].prunePmat(settings.sps[state], settings.pruningWindow, settings.stericThreshold);
-			//create ecalcs
-			ecalcs[state] = MultiStateKStarSettings.makeEnergyCalculator(settings.cfp, 
-					settings.sps[state]);
-			//create partition functions
-			partitionFunctions[state] = MultiStateKStarSettings.makePartitionFunction(settings.cfp, 
-					settings.sps[state].emat, settings.sps[state].pruneMat, ecalcs[state]);
-			partitionFunctions[state].init(settings.targetEpsilon);
-		}
 	}
 
 	public BigDecimal getKStarRatio() {
@@ -47,11 +33,21 @@ public class KStarRatio {
 	 * @param maxNumConfs
 	 */
 	public void compute(int maxNumConfs) {
-		for(int state=0;state<partitionFunctions.length;++state){
+
+		for(int state=0;state<numStates;++state){	
+			//prune matrices
+			settings.search[state].prunePmat(settings.search[state], settings.pruningWindow, settings.stericThreshold);
+			//create partition functions
+			partitionFunctions[state] = MultiStateKStarSettings.makePartitionFunction(settings.cfp, 
+					settings.search[state].emat, settings.search[state].pruneMat, settings.ecalcs[state]);
+			partitionFunctions[state].setReportProgress(settings.isReportingProgress);
+			//init partition function
+			partitionFunctions[state].init(settings.targetEpsilon);
+
 			compute(state, maxNumConfs);
 		}
 	}
-	
+
 	/**
 	 * compute until a conf score boltzmann weight of minbound has been processed.
 	 * this is used in the second phase to process confs from p*
@@ -64,37 +60,44 @@ public class KStarRatio {
 		// the pairwise lower bound probability mass 
 		// of p* - p1* to q*.
 		// this is accomplished by enumerating confs in p*
-		// until BoltzmannE(sum_scoreWeights) >= p*-p1*
-		
+		// until BoltzmannE(sum_scoreWeights) >= p* - p1*
+
 		PartitionFunction pf = partitionFunctions[state];
+		BigDecimal targetScoreWeights;
+		double epsilon = pf.getValues().getEffectiveEpsilon();
+		double targetEpsilon = settings.targetEpsilon;
 		BigDecimal qstar = pf.getValues().qstar;
+		BigDecimal qprime = pf.getValues().qprime;
 		BigDecimal pstar = pf.getValues().pstar;
-		BigDecimal targetScoreWeights = pstar.subtract(BigDecimal.valueOf(settings.targetEpsilon).multiply(qstar));
 		
-		ConfEnergyCalculator.Async ecalc = MultiStateKStarSettings.makeEnergyCalculator(settings.cfp, 
-				settings.sps[state]);
+		if(epsilon==1.0) {
+			targetScoreWeights = pf.getValues().pstar;
+		}
 		
-		PruningMatrix inVMat = ((QPruningMatrix)settings.sps[state].pruneMat).invert();
+		else {
+			targetScoreWeights = BigDecimal.valueOf(targetEpsilon/(1.0-targetEpsilon));
+			targetScoreWeights = targetScoreWeights.multiply(qstar);
+			targetScoreWeights = (pstar.add(qprime)).subtract(targetScoreWeights);
+		}
+
+		//System.out.println("eps: "+epsilon+" targetEps: "+settings.targetEpsilon+" q': "+qprime);
+
+		PruningMatrix inVMat = ((QPruningMatrix)settings.search[state].pruneMat).invert();
 		PartitionFunction phase2PF = MultiStateKStarSettings.makePartitionFunction(settings.cfp, 
-				settings.sps[state].emat, inVMat, ecalc);
+				settings.search[state].emat, inVMat, settings.ecalcs[state]);
 		phase2PF.init(0.0);
 		((ParallelConfPartitionFunction2)phase2PF).compute(targetScoreWeights);
-		
-		ecalc.cleanup();
-		
-		return phase2PF.getValues().qstar;
+		BigDecimal ans = phase2PF.getValues().qstar;
+		return ans;
 	}
 
 	private void compute(int state, int maxNumConfs) {
+		if(settings.isReportingProgress) System.out.println("state"+state+": "+settings.getFormattedSequence());
 		PartitionFunction pf = partitionFunctions[state];
-		pf.compute(maxNumConfs);
-		
-		ecalcs[state].cleanup();
-		ecalcs[state] = null;
-		
+		pf.compute(maxNumConfs);	
+
 		//no more q conformations, and we have not reached epsilon
-		if(pf.getValues().qprime.compareTo(BigDecimal.ZERO)==0 && 
-				pf.getValues().getEffectiveEpsilon() > settings.targetEpsilon) {
+		if(pf.getStatus()==Status.NotEnoughConformations && pf.getValues().getEffectiveEpsilon() > settings.targetEpsilon) {	
 			BigDecimal phase2Qstar = phase2(state, pf.getValues().pstar);
 			pf.getValues().qstar = pf.getValues().qstar.add(phase2Qstar);
 		}

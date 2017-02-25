@@ -22,24 +22,34 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 public class MultiStateKStarSettings {
 	
+	public boolean isReportingProgress;
 	public double targetEpsilon;
 	public double pruningWindow;
 	public double stericThreshold;
 	public MultiStateConfigFileParser cfp;
-	public MultiStateSearchProblem[] sps;
+	public MultiStateSearchProblem[] search;
 	public LMV[] constraints;
+	public ConfEnergyCalculator.Async[] ecalcs;
+	public String[] sequence;
 	
 	public MultiStateKStarSettings() {}
 	
-	public static ConfEnergyCalculator.Async makeEnergyCalculator(MultiStateConfigFileParser stateCfp,
+	public String getFormattedSequence() {
+		if(sequence==null) return null;
+		StringBuilder sb = new StringBuilder();
+		for(String aa : sequence) sb.append(aa+" ");
+		return sb.toString().trim();
+	}
+	
+	public static ConfEnergyCalculator.Async makeEnergyCalculator(MultiStateConfigFileParser cfp,
 			SearchProblem search) {
 		// make the conf energy calculator
-		ConfEnergyCalculator.Async ecalc = MinimizingEnergyCalculator.make(makeDefaultFFParams(stateCfp.getParams()),
-				search, Parallelism.makeFromConfig(stateCfp), true);
+		ConfEnergyCalculator.Async ecalc = MinimizingEnergyCalculator.make(makeDefaultFFParams(cfp.getParams()),
+				search, Parallelism.makeFromConfig(cfp), true);
 		return ecalc;
 	}
 
-	public static PartitionFunction makePartitionFunction(MultiStateConfigFileParser stateCfp,
+	public static PartitionFunction makePartitionFunction(MultiStateConfigFileParser cfp,
 			EnergyMatrix emat, PruningMatrix pruneMat, ConfEnergyCalculator.Async ecalc) {
 
 		// make the A* tree factory
