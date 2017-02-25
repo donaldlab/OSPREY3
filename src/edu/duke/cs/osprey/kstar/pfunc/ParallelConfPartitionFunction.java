@@ -18,24 +18,24 @@ import edu.duke.cs.osprey.tools.Stopwatch;
 
 public class ParallelConfPartitionFunction implements PartitionFunction {
 	
-    private EnergyMatrix emat;
-    private PruningMatrix pmat;
-    private ConfSearchFactory confSearchFactory;
-    private ConfEnergyCalculator.Async ecalc;
+    protected EnergyMatrix emat;
+    protected PruningMatrix pmat;
+    protected ConfSearchFactory confSearchFactory;
+    protected ConfEnergyCalculator.Async ecalc;
     
-	private double targetEpsilon;
-	private Status status;
-	private Values values;
-	private BoltzmannCalculator boltzmann;
-	private ConfSearch.Splitter.Stream scoreConfs;
-	private ConfSearch.Splitter.Stream energyConfs;
-	private int numConfsEvaluated;
-	private BigInteger numConfsToScore;
-	private BigDecimal qprimeUnevaluated;
-	private BigDecimal qprimeUnscored;
-	private Stopwatch stopwatch;
-	private boolean isReportingProgress;
-	private ConfListener confListener;
+	protected double targetEpsilon;
+	protected Status status;
+	protected Values values;
+	protected BoltzmannCalculator boltzmann;
+	protected ConfSearch.Splitter.Stream scoreConfs;
+	protected ConfSearch.Splitter.Stream energyConfs;
+	protected int numConfsEvaluated;
+	protected BigInteger numConfsToScore;
+	protected BigDecimal qprimeUnevaluated;
+	protected BigDecimal qprimeUnscored;
+	protected Stopwatch stopwatch;
+	protected boolean isReportingProgress;
+	protected ConfListener confListener;
 	
 	public ParallelConfPartitionFunction(EnergyMatrix emat, PruningMatrix pmat, ConfSearchFactory confSearchFactory, ConfEnergyCalculator.Async ecalc) {
 		this.emat = emat;
@@ -107,7 +107,7 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 		stopwatch = new Stopwatch().start();
 	}
 
-	private BigDecimal calcWeightSumUpperBound(ConfSearch tree) {
+	protected BigDecimal calcWeightSumUpperBound(ConfSearch tree) {
 		
 		BigDecimal sum = BigDecimal.ZERO;
 		BigDecimal boundOnAll = BigDecimal.ZERO;
@@ -194,7 +194,8 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 				
 					// get the boltzmann weight
 					BigDecimal energyWeight = boltzmann.calc(econf.getEnergy());
-					if (energyWeight.compareTo(BigDecimal.ZERO) == 0) {
+					BigDecimal scoreWeight = boltzmann.calc(econf.getScore());
+					if (scoreWeight.compareTo(BigDecimal.ZERO) == 0) {
 						status = Status.NotEnoughFiniteEnergies;
 						return;
 					}

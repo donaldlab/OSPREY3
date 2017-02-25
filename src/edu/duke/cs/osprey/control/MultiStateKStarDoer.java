@@ -252,8 +252,7 @@ public class MultiStateKStarDoer {
 
 		KStarRatio ksRatio = new KStarRatio(ksSettings);
 		ksRatio.compute(Integer.MAX_VALUE);
-		
-		return null;
+		return ksRatio.getKStarRatio();
 	}
 
 	/**

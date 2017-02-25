@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 
+import edu.duke.cs.osprey.kstar.pfunc.ParallelPartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction.Status;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -21,10 +22,16 @@ public class KStarRatio {
 	}
 
 	public BigDecimal getKStarRatio() {
+		PartitionFunction pf;
 		BigDecimal ans = BigDecimal.ONE; int state;
-		for(state=0;state<partitionFunctions.length-1;++state)
-			ans = ans.multiply(partitionFunctions[state].getValues().qstar);
-		ans = partitionFunctions[state].getValues().qstar.divide(ans, RoundingMode.HALF_UP);
+		for(state=0;state<partitionFunctions.length-1;++state) {
+			pf = partitionFunctions[state];
+			if(pf.getValues().getEffectiveEpsilon()==Double.NaN)
+				return BigDecimal.ZERO;
+			ans = ans.multiply(pf.getValues().qstar);
+		}
+		pf = partitionFunctions[state];
+		ans = pf.getValues().qstar.divide(ans, RoundingMode.HALF_UP);
 		return ans;
 	}
 
@@ -86,7 +93,7 @@ public class KStarRatio {
 		PartitionFunction phase2PF = MultiStateKStarSettings.makePartitionFunction(settings.cfp, 
 				settings.search[state].emat, inVMat, settings.ecalcs[state]);
 		phase2PF.init(0.0);
-		((ParallelConfPartitionFunction2)phase2PF).compute(targetScoreWeights);
+		((ParallelPartitionFunction)phase2PF).compute(targetScoreWeights);
 		BigDecimal ans = phase2PF.getValues().qstar;
 		return ans;
 	}
