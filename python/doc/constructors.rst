@@ -11,8 +11,9 @@ and its rich development tools. This Python API was created to make Osprey's sop
 computational libraries available with the ease and flexibilty of Python scripting.
 
 Most users of Osprey will not have to call constructors on Java classes directly.
-The :mod:`osprey` module provides many convenient functions for creating Osprey objects
-(with appropriately Pythonic conventions) and are sufficient for completing most designs.
+The ``osprey`` module (see the :ref:`api_reference`) provides many convenient
+functions for creating Osprey objects (with appropriately Pythonic conventions)
+and are sufficient for completing most designs.
 
 However, more advanced users may wish to invoke some of Osprey's more 'behind-the-scenes' code
 from a Python script, even though that code has not been explicitly designed for Python access.
