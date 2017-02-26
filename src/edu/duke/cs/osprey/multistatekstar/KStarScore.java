@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 
-import edu.duke.cs.osprey.kstar.pfunc.ParallelPartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 

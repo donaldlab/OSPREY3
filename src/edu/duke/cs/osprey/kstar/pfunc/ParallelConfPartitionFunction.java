@@ -194,8 +194,7 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 				
 					// get the boltzmann weight
 					BigDecimal energyWeight = boltzmann.calc(econf.getEnergy());
-					BigDecimal scoreWeight = boltzmann.calc(econf.getScore());
-					if (scoreWeight.compareTo(BigDecimal.ZERO) == 0) {
+					if (energyWeight.compareTo(BigDecimal.ZERO) == 0) {
 						status = Status.NotEnoughFiniteEnergies;
 						return;
 					}

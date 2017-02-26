@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.kstar.pfunc;
+package edu.duke.cs.osprey.multistatekstar;
 
 import edu.duke.cs.osprey.control.ConfEnergyCalculator.Async;
 
@@ -11,7 +11,10 @@ import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.control.ConfSearchFactory;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.multistatekstar.QPruningMatrix;
+import edu.duke.cs.osprey.kstar.pfunc.ParallelConfPartitionFunction;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction.Status;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction.Values;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
@@ -165,7 +168,6 @@ public class ParallelPartitionFunction extends ParallelConfPartitionFunction {
 				synchronized (ParallelPartitionFunction.this) {
 
 					// get the boltzmann weight
-					BigDecimal energyWeight = boltzmann.calc(econf.getEnergy());
 					BigDecimal scoreWeight = boltzmann.calc(econf.getScore());
 					if (scoreWeight.compareTo(BigDecimal.ZERO) == 0) {
 						status = Status.NotEnoughFiniteEnergies;
@@ -173,7 +175,8 @@ public class ParallelPartitionFunction extends ParallelConfPartitionFunction {
 					}
 					
 					qstarScoreWeights = qstarScoreWeights.add(scoreWeight);
-
+					BigDecimal energyWeight = boltzmann.calc(econf.getEnergy());
+					
 					// update pfunc state
 					numConfsEvaluated++;
 					values.qstar = values.qstar.add(energyWeight);
