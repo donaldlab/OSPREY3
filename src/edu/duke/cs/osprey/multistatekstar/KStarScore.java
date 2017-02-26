@@ -19,18 +19,17 @@ public class KStarScore {
 		partitionFunctions = new PartitionFunction[numStates];
 	}
 
-	public BigDecimal getKStarScore() {
+	public double getKStarScore() {
 		PartitionFunction pf;
 		BigDecimal ans = BigDecimal.ONE; int state;
 		for(state=0;state<partitionFunctions.length-1;++state) {
 			pf = partitionFunctions[state];
 			if(pf.getValues().qstar.compareTo(BigDecimal.ZERO)==0)
-				return BigDecimal.ZERO;
+				return 0.0;
 			ans = ans.multiply(pf.getValues().qstar);
 		}
 		pf = partitionFunctions[state];
-		ans = pf.getValues().qstar.divide(ans, RoundingMode.HALF_UP);
-		return ans;
+		return pf.getValues().qstar.divide(ans, RoundingMode.HALF_UP).doubleValue();
 	}
 	
 	public String toString() {
@@ -67,7 +66,7 @@ public class KStarScore {
 	 * compute until a conf score boltzmann weight of minbound has been processed.
 	 * this is used in the second phase to process confs from p*
 	 */
-	private BigDecimal phase2(int state, BigDecimal pStar) {
+	private BigDecimal phase2(int state) {
 		// we have p* / q* = epsilon1 > target epsilon
 		// we want p1* / q* <= target epsilon
 		// therefore, p1* <= q* x target epsilon
@@ -113,7 +112,7 @@ public class KStarScore {
 
 		//no more q conformations, and we have not reached epsilon
 		if(pf.getValues().getEffectiveEpsilon() > settings.targetEpsilon) {	
-			BigDecimal phase2Qstar = phase2(state, pf.getValues().pstar);
+			BigDecimal phase2Qstar = phase2(state);
 			pf.getValues().qstar = pf.getValues().qstar.add(phase2Qstar);
 		}
 	}
