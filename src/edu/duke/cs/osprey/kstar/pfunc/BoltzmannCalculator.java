@@ -7,9 +7,10 @@ import edu.duke.cs.osprey.tools.ExpFunction;
 
 public class BoltzmannCalculator {
 	
+	private double constRT = PoissonBoltzmannEnergy.constRT;
 	private ExpFunction e = new ExpFunction();
 	
 	public BigDecimal calc(double energy) {
-		return e.exp(-energy/PoissonBoltzmannEnergy.constRT);
+		return e.exp(-energy/constRT);
 	}
 }

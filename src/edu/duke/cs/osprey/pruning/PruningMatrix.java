@@ -182,7 +182,7 @@ public class PruningMatrix extends TupleMatrixBoolean {
     }
     
     
-    boolean isPrunedHigherOrder(RCTuple tup, int curIndex, HigherTupleFinder<Boolean> htf){
+    public boolean isPrunedHigherOrder(RCTuple tup, int curIndex, HigherTupleFinder<Boolean> htf){
         //Checks if tup is pruned based on interactions in htf (corresponds to some sub-tuple of tup)
         //with RCs whose indices in tup are < curIndex
         ArrayList<Integer> interactingPos = htf.getInteractingPos();

@@ -106,16 +106,18 @@ public class MultiStateConfigFileParser extends ConfigFileParser {
 	}
 
 	ResidueTermini subState2Termini(int subState) {
+		String key = params.searchParams("UbStateLimits").size() > 0 ? "UbStateLimits" : "Strand";
 		ArrayList<Integer> alTmni = new ArrayList<>();
-		if(params.getValue("UbStateLimits"+subState, "").length()==0) {
+		if(params.getValue(key+subState, "").length()==0) {
 			//complex
-			for(String key : params.searchParams("UbStateLimits")) {
-				StringTokenizer st = new StringTokenizer(params.getValue(key));
+			for(int unbound=0;unbound<subState;++unbound) {
+				StringTokenizer st = new StringTokenizer(params.getValue(key+unbound));
 				while(st.hasMoreTokens()) alTmni.add(Integer.valueOf(st.nextToken()));
 			}
 		}
 		else {
-			StringTokenizer st = new StringTokenizer(params.getValue("UbStateLimits"+subState));
+			//unbound state
+			StringTokenizer st = new StringTokenizer(params.getValue(key+subState));
 			while(st.hasMoreTokens()) alTmni.add(Integer.valueOf(st.nextToken()));
 		}
 		Collections.sort(alTmni);
@@ -171,13 +173,13 @@ public class MultiStateConfigFileParser extends ConfigFileParser {
 	protected ArrayList<String[]> moveableUbStateTermini(int subState) {
 		//Read the strands that are going to translate and rotate
 		//Let's say they can do this regardless of what doMinimize says (that's for sidechains)
+		String key = params.searchParams("UBSTATEROTTRANS").size() > 0 ? "UBSTATEROTTRANS" : "STRANDROTTRANS";
 		ArrayList<String[]> ans = new ArrayList<>();
-
-		for(String rt : params.searchParams("UBSTATEROTTRANS")){
+		for(String rt : params.searchParams(key)){
 			if(params.getBool(rt)){
 				//So rt = UBSTATEROTTRANS0 here means strand 0 should translate & rotate
 				//OK to go through these params in lexical ordering
-				String ubState = rt.replaceAll("UBSTATEROTTRANS", "").trim();
+				String ubState = rt.replaceAll(key, "").trim();
 				if(!String.valueOf(subState).equals(ubState)) continue;
 				ResidueTermini tmni = subState2Termini(subState);
 				ans.add(tmni.toStringArray());
