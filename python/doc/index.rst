@@ -7,7 +7,6 @@ Osprey
 .. toctree::
 	:maxdepth: 2
 
-	installing
 	tutorial
 	api.osprey
 

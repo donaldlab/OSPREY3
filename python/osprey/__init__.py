@@ -3,11 +3,7 @@ import sys, os, jpype
 import jvm, wraps
 
 
-# NOTE: this var gets set by the build system during packaging
-# so the release version of this script will point to the final jar file for osprey
-# instead of the development classes folder
-_ospreyDir = os.path.dirname(__file__)
-_ospreyPaths = [os.path.join(_ospreyDir, '../../build/output/*.jar'), os.path.join(_ospreyDir, '../../bin')]
+_IS_DEV = True
 
 c = None
 
@@ -51,8 +47,20 @@ def start(heapSizeMB=1024, enableAssertions=False):
 	sys.excepthook = _java_aware_excepthook
 	
 	# start the jvm
-	for path in _ospreyPaths:
-		jvm.addClasspath(path)
+	osprey_dir = os.path.dirname(__file__)
+
+	if _IS_DEV:
+
+		# development environment: use the library jars and compiled classes directly
+		jvm.addClasspath(os.path.join(osprey_dir, '../../lib/*.jar'))
+		jvm.addClasspath(os.path.join(osprey_dir, '../../bin'))
+
+	else:
+
+		# release environment: use natives folder and fat jar
+		jvm.addClasspath(os.path.join(osprey_dir, 'osprey-*.jar'))
+		jvm.setNativesDir(os.path.join(osprey_dir, 'natives'))
+
 	jvm.start(heapSizeMB, enableAssertions)
 
 	# set up class factories
@@ -129,6 +137,16 @@ def writePdb(mol, path):
 
 	print('write PDB file to file: %s' % path)
 
+
+def printGpuInfo():
+	'''
+	Prints information about GPU hardware present in the system
+	and which GPUs are usable by Osprey.
+
+	Both Cuda and OpenCL APIs are queried.
+	'''
+	c.gpu.cuda.Diagnostics.main(None)
+	c.gpu.opencl.Diagnostics.main(None)
 
 
 #-------------------------------------#

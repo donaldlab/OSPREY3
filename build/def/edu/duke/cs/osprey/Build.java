@@ -1,20 +1,26 @@
 package edu.duke.cs.osprey;
 
 import java.io.File;
-import java.util.regex.Pattern;
 
 import org.jerkar.api.depmanagement.JkDependencies;
+import org.jerkar.api.depmanagement.JkDependency;
+import org.jerkar.api.depmanagement.JkDependency.JkFileDependency;
 import org.jerkar.api.depmanagement.JkModuleId;
+import org.jerkar.api.depmanagement.JkScope;
 import org.jerkar.api.depmanagement.JkVersion;
 import org.jerkar.api.file.JkFileTree;
 import org.jerkar.api.file.JkFileTreeSet;
 import org.jerkar.api.file.JkPathFilter;
 import org.jerkar.api.java.JkJavaCompiler;
+import org.jerkar.api.system.JkProcess;
 import org.jerkar.api.utils.JkUtilsFile;
+import org.jerkar.api.utils.JkUtilsZip;
 import org.jerkar.tool.builtins.javabuild.JkJavaBuild;
 import org.jerkar.tool.builtins.javabuild.JkJavaPacker;
 
 public class Build extends JkJavaBuild {
+	
+	private static final JkScope NATIVES = JkScope.of("natives");
 	
 	public Build() {
 		
@@ -58,16 +64,16 @@ public class Build extends JkJavaBuild {
 			
 			// for dependencies with natives, use local jars in lib/
 			.on(new File("lib/jocl-2.3.2.jar"))
-			.on(new File("lib/jocl-2.3.2-natives-linux-amd64.jar"))
-			.on(new File("lib/jocl-2.3.2-natives-macosx-universal.jar"))
-			.on(new File("lib/jocl-2.3.2-natives-windows-amd64.jar"))
+			.on(new File("lib/jocl-2.3.2-natives-linux-amd64.jar")).scope(NATIVES)
+			.on(new File("lib/jocl-2.3.2-natives-macosx-universal.jar")).scope(NATIVES)
+			.on(new File("lib/jocl-2.3.2-natives-windows-amd64.jar")).scope(NATIVES)
 			.on(new File("lib/gluegen-rt-2.3.2.jar"))
-			.on(new File("lib/gluegen-rt-2.3.2-natives-linux-amd64.jar"))
-			.on(new File("lib/gluegen-rt-2.3.2-natives-macosx-universal.jar"))
-			.on(new File("lib/gluegen-rt-2.3.2-natives-windows-amd64.jar"))
+			.on(new File("lib/gluegen-rt-2.3.2-natives-linux-amd64.jar")).scope(NATIVES)
+			.on(new File("lib/gluegen-rt-2.3.2-natives-macosx-universal.jar")).scope(NATIVES)
+			.on(new File("lib/gluegen-rt-2.3.2-natives-windows-amd64.jar")).scope(NATIVES)
 			.on(new File("lib/jcuda-0.8.0RC.jar"))
-			.on(new File("lib/jcuda-natives-0.8.0RC-linux-x86_64.jar"))
-			.on(new File("lib/jcuda-natives-0.8.0RC-windows-x86_64.jar"))
+			.on(new File("lib/jcuda-natives-0.8.0RC-linux-x86_64.jar")).scope(NATIVES)
+			.on(new File("lib/jcuda-natives-0.8.0RC-windows-x86_64.jar")).scope(NATIVES)
 			// no jcuda binaries released for mac =(
 			// but we could try compiling from source if we wanted
 			
@@ -119,28 +125,67 @@ public class Build extends JkJavaBuild {
 		dirDist.mkdirs();
 		JkUtilsFile.deleteDirContent(dirDist);
 		
+		File dirOsprey = new File(dirDist, "osprey");
+		
 		// copy the python package
-		JkFileTree.of(baseDir().file("python"))
+		JkFileTree.of(baseDir().file("python/osprey"))
 			.exclude("**/*.pyc")
-			.copyTo(dirDist);
+			.copyTo(dirOsprey);
+		
+		// copy install script
+		JkUtilsFile.copyFileToDir(baseDir().file("python/setup.py"), dirDist);
 		
 		// can't exclude whole folders for some reason, so just delete it post-hoc
-		JkUtilsFile.deleteDir(new File(dirDist, "osprey.egg-info"));
+		JkUtilsFile.tryDeleteDir(new File(dirOsprey, "__pycache__"));
 		
 		// copy the osprey jar
-		File dirOsprey = new File(dirDist, "osprey");
-		File jarFile = packer().fatJarFile();
-		JkUtilsFile.copyFileToDir(jarFile, dirOsprey);
+		JkUtilsFile.copyFileToDir(packer().fatJarFile(), dirOsprey);
 		
-		// update the osprey jar path
+		// copy the docs
+		File dirDoc = baseDir().file("python/doc");
+		JkProcess.of("make", "clean")
+			.withWorkingDir(dirDoc)
+			.runSync();
+		JkProcess.of("make", "html")
+			.withWorkingDir(dirDoc)
+			.runSync();
+		JkUtilsFile.copyDirContent(
+			baseDir().file("python/doc/_build/html"),
+			ouputDir("dist/doc"),
+			false
+		);
+		
+		// extract the natives to a temp folder
+		File dirTemp = ouputDir("temp");
+		for (JkDependency dep : dependencies().dependenciesDeclaredWith(NATIVES)) {
+			JkFileDependency fileDep = (JkFileDependency)dep;
+			File depFile = fileDep.files().iterator().next();
+			JkUtilsZip.unzip(depFile, dirTemp);
+		}
+		
+		// copy the files we want to the dist/natives folder
+		File dirNatives = new File(dirOsprey, "natives");
+		JkFileTree.of(dirTemp)
+			.include("**/*.dll", "**/*.so", "**/*.*lib")
+			.forEach((file) -> {
+				JkUtilsFile.copyFileToDir(file, dirNatives);
+			});
+		
+		// cleanup the temp folder
+		JkUtilsFile.deleteDir(dirTemp);
+		
+		// update the osprey dev flag
 		File initFile = new File(dirOsprey, "__init__.py");
 		String initFileContent = JkUtilsFile.read(initFile);
-		initFileContent = initFileContent.replaceFirst("_ospreyPaths = .*\\n", "_ospreyPaths = ['" + jarFile.getName() + "']\n");
+		initFileContent = initFileContent.replaceFirst("_IS_DEV = True\\n", "_IS_DEV = False");
 		JkUtilsFile.writeString(initFile, initFileContent, false);
 		
 		// copy text files
 		JkUtilsFile.copyFileToDir(baseDir().file("LICENSE.txt"), dirDist);
-		JkUtilsFile.copyFileToDir(baseDir().file("README.md"), dirDist);
+		JkUtilsFile.copyFileToDir(baseDir().file("README.rst"), dirDist);
 		// TODO: do we need a different README (in RST format) for python packages?
+		
+		// create the distribution zip
+		JkFileTree.of(dirDist).zip().to(ouputDir(packer().fatJarFile().getName().replaceAll(".jar", ".zip")));
 	}
 }

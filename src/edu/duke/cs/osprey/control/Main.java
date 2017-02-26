@@ -130,7 +130,8 @@ public class Main {
 		GpuInfo {
 			@Override
 			public void run(CommandArgs args) {
-				// TODO: call gpu diagnostics
+				edu.duke.cs.osprey.gpu.cuda.Diagnostics.main(null);
+				edu.duke.cs.osprey.gpu.opencl.Diagnostics.main(null);
 			}
 		},
 

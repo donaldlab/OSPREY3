@@ -1,3 +1,6 @@
 
-TODO: copy the license from 
+Osprey is released under a permissive GPL-style license.
+
+Read the full license at:
+
 http://www.cs.duke.edu/donaldlab/software/osprey/osprey.2.2/license.pdf

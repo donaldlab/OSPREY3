@@ -5,6 +5,7 @@ import jpype
 
 c = None
 _classpath = []
+_nativesDir = None
 
 
 class Packages(object):
@@ -31,6 +32,11 @@ def makeClasspath():
 	return separator.join(_classpath)
 
 
+def setNativesDir(path):
+	global _nativesDir
+	_nativesDir = path
+
+
 def start(heapSizeMB=1024, enableAssertions=False):
 
 	# build JVM launch args
@@ -41,6 +47,8 @@ def start(heapSizeMB=1024, enableAssertions=False):
 	]
 	if enableAssertions:
 		args.append("-ea")
+	if _nativesDir is not None:
+		args.append('-Djava.library.path=%s' % _nativesDir)
 
 	# start the JVM
 	jpype.startJVM(*args)
