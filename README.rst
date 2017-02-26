@@ -46,11 +46,10 @@ To run Osprey from a Python script:
 	# run osprey commands, e.g.
 	osprey.printGpuInfo()
 	
-For more information about Python scripting with Osprey, see the `Python documentation`_.
+For more information about Python scripting with Osprey, see the tutorial at ``doc/tutorial.html``
+in the distribution zip or the Python documentation at ``doc/api.osprey.html``.
 
-.. _Python documentation: TODO
-
-.. note:: TODO: make the docs link work
+.. note:: TODO: add links to online docs?
 
 
 using the command-line interface

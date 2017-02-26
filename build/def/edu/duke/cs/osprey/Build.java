@@ -180,6 +180,9 @@ public class Build extends JkJavaBuild {
 		initFileContent = initFileContent.replaceFirst("_IS_DEV = True\\n", "_IS_DEV = False");
 		JkUtilsFile.writeString(initFile, initFileContent, false);
 		
+		// copy the examples
+		JkUtilsFile.copyDirContent(baseDir().file("examples"), ouputDir("dist/examples"), true);
+		
 		// copy text files
 		JkUtilsFile.copyFileToDir(baseDir().file("LICENSE.txt"), dirDist);
 		JkUtilsFile.copyFileToDir(baseDir().file("README.rst"), dirDist);
