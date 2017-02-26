@@ -6,7 +6,7 @@ import java.util.StringTokenizer;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.multistatekstar.InputValidation;
-import edu.duke.cs.osprey.multistatekstar.KStarRatio;
+import edu.duke.cs.osprey.multistatekstar.KStarScore;
 import edu.duke.cs.osprey.multistatekstar.MultiStateKStarSettings;
 import edu.duke.cs.osprey.multistatekstar.LMV;
 import edu.duke.cs.osprey.multistatekstar.MultiStateConfigFileParser;
@@ -39,11 +39,12 @@ public class MultiStateKStarDoer {
 
 	String stateArgs[][];//search arguments for each state
 
+	ParamSet msParams;//multistate spec params
 	MultiStateConfigFileParser[] cfps;//config file parsers for each state
 
 	SearchProblem[][] searchDisc;//continuous search problems
 	SearchProblem[][] searchCont;//discrete search problems
-	
+
 	public ConfEnergyCalculator.Async[][] ecalcs;//global energy calculator objects
 
 	public MultiStateKStarDoer(String args[]) {
@@ -59,23 +60,23 @@ public class MultiStateKStarDoer {
 			throw new RuntimeException("ERROR: bad arguments (should start with -c)");
 
 		// multistate spec parameters
-		ParamSet sParams = new ParamSet();
-		sParams.setVerbosity(false);
-		sParams.addParamsFromFile(args[4]);//read multistate parameters
-		sParams.addDefaultParams();
+		msParams = new ParamSet();
+		msParams.setVerbosity(false);
+		msParams.addParamsFromFile(args[4]);//read multistate parameters
+		msParams.addDefaultParams();
 
-		numStates = sParams.getInt("NUMSTATES");
-		numTreeLevels = sParams.getInt("NUMMUTRES");
-		numMaxMut = sParams.getInt("NUMMAXMUT");
-		int numConstr = sParams.getInt("NUMSTATECONSTR");
+		numStates = msParams.getInt("NUMSTATES");
+		numTreeLevels = msParams.getInt("NUMMUTRES");
+		numMaxMut = msParams.getInt("NUMMAXMUT");
+		int numConstr = msParams.getInt("NUMSTATECONSTR");
 
 		stateArgs = new String[numStates][];
 
-		objFcn = new LMV(sParams.getValue("OBJFCN"), numStates);
+		objFcn = new LMV(msParams.getValue("OBJFCN"), numStates);
 
 		constraints = new LMV[numConstr];
 		for(int constr=0; constr<numConstr; constr++)
-			constraints[constr] = new LMV(sParams.getValue("STATECONSTR"+constr), numStates);
+			constraints[constr] = new LMV(msParams.getValue("STATECONSTR"+constr), numStates);
 		// might need to adjust these with wt later
 
 		cfps = new MultiStateConfigFileParser[numStates];
@@ -96,8 +97,8 @@ public class MultiStateKStarDoer {
 			System.out.println();
 			System.out.println("Checking state "+state+" parameters");
 
-			cfps[state] = makeStateCfp(state, sParams);
-			inputValidation.handleStateParams(state, cfps[state].getParams(), sParams);
+			cfps[state] = makeStateCfp(state);
+			inputValidation.handleStateParams(state, cfps[state].getParams(), msParams);
 			mutable2StateResNums.add(stateMutableRes(state, cfps[state], numTreeLevels));
 
 			for(int subState=0; subState<mutable2StateResNums.get(state).size(); ++subState){
@@ -124,81 +125,56 @@ public class MultiStateKStarDoer {
 			System.out.println("State "+state+" matrices ready");
 			System.out.println();
 		}
-		
-		System.out.println();
-		System.out.println("Preparing energy calculators for multistate K*");
-		System.out.println();
-		
-		ecalcs = makeEnergyCalculators(true);
-		
-		System.out.println();
-		System.out.println("Finished preparing energy calculators for multistate K*");
-		System.out.println();
 	}
-	
+
 	private ConfEnergyCalculator.Async[][] makeEnergyCalculators(boolean continuous) {
 		SearchProblem[][] sps = continuous ? searchCont : searchDisc;
 		ConfEnergyCalculator.Async[][] ans = new ConfEnergyCalculator.Async[sps.length][];
-		
+
 		for(int state=0;state<sps.length;++state) {
 			SearchProblem[] statesps = sps[state];
 			ans[state] = new ConfEnergyCalculator.Async[statesps.length];
-			
+
 			for(int substate=0;substate<ans[state].length;++substate) {
 				ans[state][substate] = MultiStateKStarSettings.makeEnergyCalculator(cfps[state], sps[state][substate]);
 			}
 		}
-		
+
 		return ans;
 	}
-	
-	private void cleanupEnergyCalculators() {
-		if(ecalcs == null) return;
-		
-		for(int state=0;state<ecalcs.length;++state) {
-			for(int substate=0;substate<ecalcs[state].length;++substate) {
-				ConfEnergyCalculator.Async ecalc = ecalcs[state][substate];
-				if(ecalc != null) {
-					ecalcs[state][substate].cleanup();
-					ecalcs[state][substate] = null;
-				}
+
+	private ConfEnergyCalculator.Async[] makeEnergyCalculators(int state, boolean continuous) {
+		SearchProblem[] search = continuous ? searchCont[state] : searchDisc[state];
+		ConfEnergyCalculator.Async[] ans = new ConfEnergyCalculator.Async[search.length];
+		for(int substate=0;substate<search.length;++substate) {
+			ans[substate] = MultiStateKStarSettings.makeEnergyCalculator(cfps[state], search[substate]);
+		}
+		return ans;
+	}
+
+	private void cleanupEnergyCalculators(int state) {
+		if(ecalcs[state]==null) return;
+		for(int substate=0;substate<ecalcs[state].length;++substate) {
+			ConfEnergyCalculator.Async ecalc = ecalcs[state][substate];
+			if(ecalc != null) {
+				ecalcs[state][substate].cleanup();
+				ecalcs[state][substate] = null;
 			}
 		}
-		
+		ecalcs[state] = null;
+	}
+
+	private void cleanupEnergyCalculators() {
+		if(ecalcs == null) return;
+		for(int state=0;state<ecalcs.length;++state) cleanupEnergyCalculators(state);
 		ecalcs = null;
 	}
-	
-	public void cleanup() {
+
+	private void cleanup() {
 		cleanupEnergyCalculators();
 	}
 
-	/**
-	 * Verify algorithm results by doing exhaustive search
-	 */
-	void exhaustiveMultistateSearch(){
-
-		System.out.println();
-		System.out.println("Checking MultiStateKStar by exhaustive search");
-		System.out.println();
-
-		Stopwatch stopwatch = new Stopwatch().start();
-		
-		ArrayList<ArrayList<String[]>> seqList = listAllSeqs();
-		int numSeqs = seqList.get(0).size();
-		BigDecimal[][] stateKSRs = new BigDecimal[numStates][numSeqs];
-
-		for(int state=0; state<numStates; state++){
-			for(int seqNum=0; seqNum<numSeqs; seqNum++){
-				stateKSRs[state][seqNum] = calcStateKSRatio(state, seqList.get(state).get(seqNum));
-			}
-		}
-
-		System.out.println();
-		System.out.println("Finished checking MultiStateKStar by exhaustive search in "+stopwatch.getTime(2));
-		System.out.println();
-	}
-
-	private BigDecimal calcStateKSRatio(int state, String[] boundStateAATypes) {
+	private String calcStateKSScore(int state, String[] boundStateAATypes) {
 
 		//get arraylist formatted sequence for each substate
 		ArrayList<ArrayList<ArrayList<String>>> subStateAATypes = new ArrayList<>();
@@ -250,9 +226,9 @@ public class MultiStateKStarDoer {
 		ksSettings.sequence = boundStateAATypes;
 		ksSettings.isReportingProgress = true;
 
-		KStarRatio ksRatio = new KStarRatio(ksSettings);
-		ksRatio.compute(Integer.MAX_VALUE);
-		return ksRatio.getKStarRatio();
+		KStarScore ksScore = new KStarScore(ksSettings);
+		ksScore.compute(Integer.MAX_VALUE);
+		return ksScore.toString();
 	}
 
 	/**
@@ -327,12 +303,11 @@ public class MultiStateKStarDoer {
 	/**
 	 * makes a config file parser for each state
 	 * @param state
-	 * @param sParams
 	 * @return
 	 */
-	private MultiStateConfigFileParser makeStateCfp(int state, ParamSet sParams) {
+	private MultiStateConfigFileParser makeStateCfp(int state) {
 		//We expect input of the form KStar0.cfg System0.cfg DEE0.cfg
-		String stateConfigFiles = sParams.getValue("STATECFGFILES"+state);
+		String stateConfigFiles = msParams.getValue("STATECFGFILES"+state);
 		String stateKStFile = StringParsing.getToken(stateConfigFiles, 1);
 		String stateSysFile = StringParsing.getToken(stateConfigFiles, 2);
 		String stateDEEFile = StringParsing.getToken(stateConfigFiles, 3);
@@ -405,7 +380,14 @@ public class MultiStateKStarDoer {
 		}
 	}
 
-	public ArrayList<String> calcBestSequences() {
+	public void calcBestSequences() {
+		if(msParams.getValue("MultStateAlgOption").equalsIgnoreCase("exhaustive"))
+			exhaustiveMultistateSearch();
+		else
+			treeBasedMultiStateSearch();
+	}
+	
+	public ArrayList<String> treeBasedMultiStateSearch() {
 
 		System.out.println();
 		System.out.println("Performing multistate K*");
@@ -413,7 +395,7 @@ public class MultiStateKStarDoer {
 
 		//how many sequences to enumerate
 
-		long startKStarTime = System.currentTimeMillis();
+		Stopwatch stopwatch = new Stopwatch().start();
 
 		ArrayList<String> bestSequences = new ArrayList<>();
 
@@ -425,10 +407,56 @@ public class MultiStateKStarDoer {
 				bestSequences.add(tree.seqAsString(seq));
 		}
 
-		long stopTime = System.currentTimeMillis();
-		System.out.println("Sequence enumeration time: "+((stopTime-startKStarTime)/(60.0*1000.0)));
+		System.out.println("Sequence enumeration time: "+stopwatch.getTime(2));
 
-		//exhaustiveMultistateSearch();
 		return bestSequences;
+	}
+	
+	/**
+	 * Verify algorithm results by doing exhaustive search
+	 */
+	private void exhaustiveMultistateSearch() {
+
+		System.out.println();
+		System.out.println("Checking MultiStateKStar by exhaustive search");
+		System.out.println();
+
+		Stopwatch stopwatch = new Stopwatch().start();
+
+		ArrayList<ArrayList<String[]>> seqList = listAllSeqs();
+		int numSeqs = seqList.get(0).size();
+		String[][] stateKSS = new String[numStates][numSeqs];
+		ecalcs = new ConfEnergyCalculator.Async[numStates][];
+		
+		for(int state=0; state<numStates; state++){
+			
+			//make energy calculators for this state
+			ecalcs[state] = makeEnergyCalculators(state, cfps[state].getParams().getBool("DOMINIMIZE"));
+			
+			for(int seqNum=0; seqNum<numSeqs; seqNum++){
+				stateKSS[state][seqNum] = calcStateKSScore(state, seqList.get(state).get(seqNum));
+			}
+			
+			cleanupEnergyCalculators(state);
+		}
+
+		cleanup();
+		printAllKStarScores(stateKSS);
+		
+		System.out.println();
+		System.out.println("Finished checking MultiStateKStar by exhaustive search in "+stopwatch.getTime(2));
+		System.out.println();
+	}
+	
+	private void printAllKStarScores(String[][] stateKSS){
+		for(int state=0;state<numStates;++state){
+			System.out.println();
+			System.out.println("State"+state+": ");
+			System.out.println();
+			String[] kss = stateKSS[state];
+			for(int subState=0;subState<kss.length;++subState){
+				System.out.println(kss[subState]);
+			}
+		}
 	}
 }

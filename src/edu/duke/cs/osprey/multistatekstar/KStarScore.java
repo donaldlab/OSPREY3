@@ -6,33 +6,42 @@ import java.util.ArrayList;
 
 import edu.duke.cs.osprey.kstar.pfunc.ParallelPartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction.Status;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
-public class KStarRatio {
+public class KStarScore {
 
 	public MultiStateKStarSettings settings;
 	public PartitionFunction[] partitionFunctions;
 	public int numStates;
 
-	public KStarRatio(MultiStateKStarSettings settings) {
+	public KStarScore(MultiStateKStarSettings settings) {
 		this.settings = settings;
 		numStates = settings.search.length;
 		partitionFunctions = new PartitionFunction[numStates];
 	}
 
-	public BigDecimal getKStarRatio() {
+	public BigDecimal getKStarScore() {
 		PartitionFunction pf;
 		BigDecimal ans = BigDecimal.ONE; int state;
 		for(state=0;state<partitionFunctions.length-1;++state) {
 			pf = partitionFunctions[state];
-			if(pf.getValues().getEffectiveEpsilon()==Double.NaN)
+			if(pf.getValues().qstar.compareTo(BigDecimal.ZERO)==0)
 				return BigDecimal.ZERO;
 			ans = ans.multiply(pf.getValues().qstar);
 		}
 		pf = partitionFunctions[state];
 		ans = pf.getValues().qstar.divide(ans, RoundingMode.HALF_UP);
 		return ans;
+	}
+	
+	public String toString() {
+		StringBuilder sb = new StringBuilder();
+		sb.append("Seq: "+settings.getFormattedSequence()+", ");
+		sb.append(String.format("score: %12e, ", getKStarScore()));
+		for(int state=0;state<numStates;++state)
+			sb.append(String.format("pf: %2d, q*: %12e, ", state, partitionFunctions[state].getValues().qstar));
+		String ans = sb.toString().trim();
+		return ans.substring(0,ans.length()-1);
 	}
 
 	/**
@@ -104,7 +113,7 @@ public class KStarRatio {
 		pf.compute(maxNumConfs);	
 
 		//no more q conformations, and we have not reached epsilon
-		if(pf.getStatus()==Status.NotEnoughConformations && pf.getValues().getEffectiveEpsilon() > settings.targetEpsilon) {	
+		if(pf.getValues().getEffectiveEpsilon() > settings.targetEpsilon) {	
 			BigDecimal phase2Qstar = phase2(state, pf.getValues().pstar);
 			pf.getValues().qstar = pf.getValues().qstar.add(phase2Qstar);
 		}
