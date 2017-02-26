@@ -5,9 +5,24 @@ import jvm, wraps
 
 _IS_DEV = True
 
+# NOTE: These classes exists only to talk to the docstring processors.
+# Variables that get assigned instances of these classes will
+# be re-assigned with other values once the JVM is started
+class DocstringVal:
+	def __init__(self, val):
+		self.val = val
+	def __repr__(self):
+		return self.val
+
+class DocstringJavaDefault(DocstringVal):
+	def __init__(self, val):
+		DocstringVal.__init__(self, val)
+
 c = None
 
-WILD_TYPE = None
+WILD_TYPE = DocstringJavaDefault('.confspace.Strand#WildType')
+'''Magic constant that refers to the wild-type template of the residue'''
+
 Forcefield = None
 SolvationForcefield = None
 LovellRotamers = 0 # arbitrary value, doesn't matter

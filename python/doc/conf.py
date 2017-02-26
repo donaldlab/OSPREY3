@@ -123,4 +123,5 @@ javadoc_package_prefix = 'edu.duke.cs.osprey'
 # show TODO s
 todo_include_todos = True
 
+autodoc_member_order = 'bysource'
 

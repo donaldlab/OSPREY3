@@ -76,11 +76,16 @@ class AutodocHandlerWarn():
 			msg += '\nCause: ' + str(cause)
 		self.app.warn(msg, location=loc)
 		
-		
 
 def autodoc_signature_handler(app, what, name, obj, options, signature, return_annotation):
 
-	# get the function arg info
+	# for module variables, look for special DocstringXXX instances
+	if what == 'data':
+		if obj.__class__.__name__ == 'DocstringJavaDefault':
+			options['annotation'] = ' = %s' % DefaultDoctag().resolve(repr(obj), app.config)
+			return
+
+	# otherwise, get the function arg info
 	try:
 		argspec = sphinx.util.inspect.getargspec(obj)
 	except TypeError:
