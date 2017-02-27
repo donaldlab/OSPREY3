@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.control;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.StringTokenizer;
 
