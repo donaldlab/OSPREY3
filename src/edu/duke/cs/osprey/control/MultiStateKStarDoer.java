@@ -208,6 +208,8 @@ public class MultiStateKStarDoer {
 			ArrayList<String> mutRes = new ArrayList<>();
 			for(int i:mutable2StateResNums.get(state).get(subState)) mutRes.add(String.valueOf(i));
 			spSet.mutRes = mutRes;
+			spSet.stericThreshold = sParams.getDouble("STERICTHRESH");
+			spSet.pruningWindow = sParams.getDouble("IVAL") + sParams.getDouble("EW");
 
 			singleSeqSearch[subState] = sParams.getBool("DOMINIMIZE") ? 
 					new MultiStateSearchProblem(searchCont[state][subState], spSet)
@@ -216,11 +218,9 @@ public class MultiStateKStarDoer {
 
 		//make k* settings
 		KStarSettings ksSettings = new KStarSettings();
-		ksSettings.pruningWindow = sParams.getDouble("IVAL") + sParams.getDouble("EW");
 		ksSettings.targetEpsilon = sParams.getDouble("EPSILON");
-		ksSettings.stericThreshold = sParams.getDouble("STERICTHRESH");
 		ksSettings.state = state;
-		ksSettings.numTopConfsToSave = sParams.getBool("SaveTopConfsAsPDB") ? sParams.getInt("NumTopConfsToSave") : 0;
+		ksSettings.numTopConfsToSave = sParams.getInt("NumTopConfsToSave");
 		ksSettings.cfp = cfps[state];
 		ksSettings.search = singleSeqSearch;
 		ksSettings.constraints = sConstraints;

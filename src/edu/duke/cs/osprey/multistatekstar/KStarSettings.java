@@ -15,8 +15,6 @@ public class KStarSettings {
 
 	public boolean isReportingProgress;
 	public double targetEpsilon;
-	public double pruningWindow;
-	public double stericThreshold;
 	public int state;
 	public int numTopConfsToSave;
 	public MultiStateConfigFileParser cfp;

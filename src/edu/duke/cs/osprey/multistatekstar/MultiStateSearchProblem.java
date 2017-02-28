@@ -10,23 +10,25 @@ public class MultiStateSearchProblem extends SearchProblem {
 	SearchSettings settings;
 
 	public MultiStateSearchProblem(SearchProblem other, 
-			SearchSettings spSet) {
+			SearchSettings settings) {
 		super(other);
-		this.settings = spSet;
+		if(settings==null) throw new RuntimeException("ERROR: search settings cannot be null");
+		this.settings = settings;
 		this.pruneMat = getReducedPruningMatrix();
-		this.allowedAAs = spSet.AATypeOptions;
-		this.flexRes = spSet.mutRes;
+		//this.allowedAAs = settings.AATypeOptions;
+		//this.flexRes = settings.mutRes;
+		prunePmat(this, settings.stericThreshold, settings.stericThreshold);
 	}
 	
 	public boolean isFullyDefined() {
-		return settings==null || settings.mutRes.size()==confSpace.numPos;
+		return settings.mutRes.size()==confSpace.numPos;
 	}
 
 	private QPruningMatrix getReducedPruningMatrix() {
 		return new QPruningMatrix(this, settings.mutRes, settings.AATypeOptions);
 	}
 
-	public void prunePmat(SearchProblem search, double pruningWindow, double stericThresh) {
+	private void prunePmat(SearchProblem search, double pruningWindow, double stericThresh) {
 
 		BigInteger numDesiredConfs = BigInteger.valueOf(65536);
 		

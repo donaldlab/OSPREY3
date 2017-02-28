@@ -6,6 +6,8 @@ public class SearchSettings {
 	
 	public ArrayList<String> mutRes;//reduced flex res
 	public ArrayList<ArrayList<String>> AATypeOptions;//reduced allowed AAs
+	public double pruningWindow;
+	public double stericThreshold;
 	
 	public SearchSettings(){}
 	

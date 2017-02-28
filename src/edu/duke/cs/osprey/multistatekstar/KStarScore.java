@@ -52,8 +52,6 @@ public class KStarScore {
 	public void compute(int maxNumConfs) {
 
 		for(int state=0;state<numStates;++state){	
-			//prune matrix
-			settings.search[state].prunePmat(settings.search[state], settings.pruningWindow, settings.stericThreshold);
 
 			//make conf search factory (i.e. A* tree)
 			ConfSearchFactory confSearchFactory = KStarSettings.makeConfSearchFactory(settings.search[state], settings.cfp);
