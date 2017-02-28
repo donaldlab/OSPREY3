@@ -7,26 +7,28 @@ import edu.duke.cs.osprey.pruning.Pruner;
 @SuppressWarnings("serial")
 public class MultiStateSearchProblem extends SearchProblem {
 
-	SearchProblemSettings spSet;
+	SearchSettings settings;
 
 	public MultiStateSearchProblem(SearchProblem other, 
-			SearchProblemSettings spSet) {
+			SearchSettings settings) {
 		super(other);
-		this.spSet = spSet;
-		this.allowedAAs = spSet.AATypeOptions;
-		this.flexRes = spSet.mutRes;
+		if(settings==null) throw new RuntimeException("ERROR: search settings cannot be null");
+		this.settings = settings;
 		this.pruneMat = getReducedPruningMatrix();
+		//this.allowedAAs = settings.AATypeOptions;
+		//this.flexRes = settings.mutRes;
+		prunePmat(this, settings.stericThreshold, settings.stericThreshold);
 	}
-
+	
 	public boolean isFullyDefined() {
-		return spSet==null || spSet.mutRes.size()==confSpace.numPos;
+		return settings.mutRes.size()==confSpace.numPos;
 	}
 
 	private QPruningMatrix getReducedPruningMatrix() {
-		return new QPruningMatrix(this, spSet.mutRes, spSet.AATypeOptions);
+		return new QPruningMatrix(this, settings.mutRes, settings.AATypeOptions);
 	}
 
-	public void prunePmat(SearchProblem search, double pruningWindow, double stericThresh) {
+	private void prunePmat(SearchProblem search, double pruningWindow, double stericThresh) {
 
 		BigInteger numDesiredConfs = BigInteger.valueOf(65536);
 		

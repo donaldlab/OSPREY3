@@ -11,26 +11,18 @@ import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
-public class MultiStateKStarSettings {
+public class KStarSettings {
 
 	public boolean isReportingProgress;
 	public double targetEpsilon;
-	public double pruningWindow;
-	public double stericThreshold;
+	public int state;
+	public int numTopConfsToSave;
 	public MultiStateConfigFileParser cfp;
 	public MultiStateSearchProblem[] search;
 	public LMV[] constraints;
 	public ConfEnergyCalculator.Async[] ecalcs;
-	public String[] sequence;
 
-	public MultiStateKStarSettings() {}
-
-	public String getFormattedSequence() {
-		if(sequence==null) return null;
-		StringBuilder sb = new StringBuilder();
-		for(String aa : sequence) sb.append(aa+" ");
-		return sb.toString().trim();
-	}
+	public KStarSettings() {}
 
 	public static ConfEnergyCalculator.Async makeEnergyCalculator(
 			MultiStateConfigFileParser cfp,
