@@ -36,7 +36,7 @@ public class MultiStateConfigFileParser extends ConfigFileParser {
 		ArrayList<String> mutResS = new ArrayList<>();
 		for(int res : mutRes) mutResS.add(String.valueOf(res));
 		
-		DEEPerSettings deeperSettings = setupDEEPer(state, subState, mutRes);
+		DEEPerSettings deeperSettings = setupDEEPer(state, subState, mutRes, cont);
 		ArrayList<String[]> moveableUbStates = moveableUbStateTermini(subState);
 		ArrayList<String[]> freeBBZones = freeBBZoneTermini(subState);
 
@@ -124,14 +124,15 @@ public class MultiStateConfigFileParser extends ConfigFileParser {
 		return new ResidueTermini(subState, alTmni.get(0), alTmni.get(alTmni.size()-1));
 	}
 
-	protected DEEPerSettings setupDEEPer(int state, int subState, ArrayList<Integer> mutRes) {
+	protected DEEPerSettings setupDEEPer(int state, int subState, ArrayList<Integer> mutRes, boolean cont) {
 
 		ArrayList<String> sMutRes = new ArrayList<>();
 		for(int res : mutRes) sMutRes.add(String.valueOf(res));
+		String flexibility = cont ? "cont" : "disc";
 
 		DEEPerSettings dset = new DEEPerSettings(
 				params.getBool("doPerturbations"),
-				"State."+state+"."+subState+"."+params.getRunSpecificFileName("perturbationFile", ".pert"),
+				"State."+state+"."+subState+"."+flexibility+"."+params.getRunSpecificFileName("perturbationFile", ".pert"),
 				params.getBool("selectPerturbations"),
 				params.getValue("startingPerturbationFile"),
 				params.getBool("onlyStartingPerturbations"),

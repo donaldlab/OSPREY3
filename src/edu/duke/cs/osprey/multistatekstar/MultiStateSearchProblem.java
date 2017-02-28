@@ -13,11 +13,13 @@ public class MultiStateSearchProblem extends SearchProblem {
 			SearchProblemSettings spSet) {
 		super(other);
 		this.spSet = spSet;
+		this.allowedAAs = spSet.AATypeOptions;
+		this.flexRes = spSet.mutRes;
 		this.pruneMat = getReducedPruningMatrix();
 	}
 
 	public boolean isFullyDefined() {
-		return spSet==null || spSet.mutRes.size()==flexRes.size();
+		return spSet==null || spSet.mutRes.size()==confSpace.numPos;
 	}
 
 	private QPruningMatrix getReducedPruningMatrix() {
