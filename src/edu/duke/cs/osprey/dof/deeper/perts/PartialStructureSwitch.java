@@ -10,6 +10,8 @@ import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.tools.ObjectIO;
+
 import java.util.ArrayList;
 
 /**
@@ -48,7 +50,7 @@ public class PartialStructureSwitch extends Perturbation {
     
     
     //for copying
-    public PartialStructureSwitch(ArrayList<Residue> resDirectlyAffected, double curParamVal,
+	public PartialStructureSwitch(ArrayList<Residue> resDirectlyAffected, double curParamVal,
             int indexInBlock, PerturbationBlock block, ArrayList<ArrayList<ResBBState>> oldAltResConfs){
         super(resDirectlyAffected);
         this.curParamVal = curParamVal;
@@ -57,8 +59,11 @@ public class PartialStructureSwitch extends Perturbation {
         
         for(ArrayList<ResBBState> arcOld : oldAltResConfs){
             ArrayList<ResBBState> arc = new ArrayList<>();
-            for(ResBBState rbs : arcOld)
-                arc.add(new ResBBState(rbs));
+            if(arcOld == null) arc = null;
+            else {
+            	for(ResBBState rbs : arcOld)
+            		arc.add(new ResBBState(rbs));
+            }
             altResConfs.add(arc);
         }
     }

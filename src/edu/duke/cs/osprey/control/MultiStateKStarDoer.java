@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.control;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.StringTokenizer;
 
@@ -143,8 +142,8 @@ public class MultiStateKStarDoer {
 		return ans;
 	}
 
-	private ConfEnergyCalculator.Async[] makeEnergyCalculators(int state, boolean continuous) {
-		SearchProblem[] search = continuous ? searchCont[state] : searchDisc[state];
+	private ConfEnergyCalculator.Async[] makeEnergyCalculators(int state, boolean cont) {
+		SearchProblem[] search = cont ? searchCont[state] : searchDisc[state];
 		ConfEnergyCalculator.Async[] ans = new ConfEnergyCalculator.Async[search.length];
 		for(int substate=0;substate<search.length;++substate) {
 			ans[substate] = MultiStateKStarSettings.makeEnergyCalculator(cfps[state], search[substate]);
@@ -201,7 +200,7 @@ public class MultiStateKStarDoer {
 			sConstraints[constr] = new LMV(sParams.getValue("UBCONSTR"+constr), numPartFuncs);
 
 		//populate search problems
-		MultiStateSearchProblem[] sps = new MultiStateSearchProblem[numPartFuncs];
+		MultiStateSearchProblem[] singleSeqSearch = new MultiStateSearchProblem[numPartFuncs];
 		for(int subState=0;subState<numPartFuncs;++subState){
 
 			SearchProblemSettings spSet = new SearchProblemSettings();
@@ -210,7 +209,8 @@ public class MultiStateKStarDoer {
 			for(int i:mutable2StateResNums.get(state).get(subState)) mutRes.add(String.valueOf(i));
 			spSet.mutRes = mutRes;
 
-			sps[subState] = sParams.getBool("DOMINIMIZE") ? new MultiStateSearchProblem(searchCont[state][subState], spSet)
+			singleSeqSearch[subState] = sParams.getBool("DOMINIMIZE") ? 
+					new MultiStateSearchProblem(searchCont[state][subState], spSet)
 					: new MultiStateSearchProblem(searchDisc[state][subState], spSet);
 		}
 
@@ -220,7 +220,7 @@ public class MultiStateKStarDoer {
 		ksSettings.targetEpsilon = sParams.getDouble("EPSILON");
 		ksSettings.stericThreshold = sParams.getDouble("STERICTHRESH");
 		ksSettings.cfp = cfps[state];
-		ksSettings.search = sps;
+		ksSettings.search = singleSeqSearch;
 		ksSettings.constraints = sConstraints;
 		ksSettings.ecalcs = ecalcs[state];
 		ksSettings.sequence = boundStateAATypes;
@@ -338,6 +338,11 @@ public class MultiStateKStarDoer {
 		}
 	}
 
+	/**
+	 * Get a list of all possible sequences that are maxNumMut mutations away
+	 * from the wilt type sequence.
+	 * @return
+	 */
 	private ArrayList<ArrayList<String[]>> listAllSeqs(){
 		//for all bound states, list all possible sequences for the mutable residues,
 		//based on AATypeOptions
@@ -448,6 +453,10 @@ public class MultiStateKStarDoer {
 		System.out.println();
 	}
 	
+	/**
+	 * Prints all K* scores for all sequences in all states
+	 * @param stateKSS
+	 */
 	private void printAllKStarScores(String[][] stateKSS){
 		for(int state=0;state<numStates;++state){
 			System.out.println();
