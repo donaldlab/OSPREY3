@@ -32,10 +32,10 @@ public interface ConfSearchFactory {
 						throw new Error("energy matrix doesn't match pruning matrix, this is a bug");
 					}
 					
-					if (search.searchNeedsHigherOrderTerms() || search.useEPIC) {
+					if (search.searchNeedsHigherOrderTerms() || search.useEPIC || cfp.hasGMECMutFile()) {
 				
 						// if we need higher-order or EPIC terms, use the old A* code
-						return ConfTree.makeFull(search, pmat);
+						return ConfTree.makeFull(search, pmat, cfp.parseGMECMutFile(search.confSpace));
 					}
 					
 					// when we don't need higher order terms, we can do fast pairwise-only things

@@ -38,6 +38,10 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
 	public static ConfTree<FullAStarNode> makeFull(SearchProblem search, PruningMatrix pmat) {
 		return new ConfTree<FullAStarNode>(new FullAStarNode.Factory(search.confSpace.numPos), search, pmat);
 	}
+        
+        public static ConfTree<FullAStarNode> makeFull(SearchProblem search, PruningMatrix pmat, GMECMutSpace gms) {
+		return new ConfTree<FullAStarNode>(new FullAStarNode.Factory(search.confSpace.numPos), search, pmat, search.useEPIC, gms);
+	}
 	
 	private AStarNode.Factory<T> nodeFactory;
 
@@ -74,16 +78,19 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
     protected int[] undefinedPos;
     protected int[] childConf;
     
+    private GMECMutSpace mutSpace;
+    
     
     public ConfTree(AStarNode.Factory<T> nodeFactory, SearchProblem sp){
-        this(nodeFactory, sp, sp.pruneMat, sp.useEPIC);
+        this(nodeFactory, sp, sp.pruneMat, sp.useEPIC, null);
     }
     
     public ConfTree(AStarNode.Factory<T> nodeFactory, SearchProblem sp, PruningMatrix pruneMat){
-        this(nodeFactory, sp, pruneMat, sp.useEPIC);
+        this(nodeFactory, sp, pruneMat, sp.useEPIC, null);
     }
     
-    public ConfTree(AStarNode.Factory<T> nodeFactory, SearchProblem sp, PruningMatrix pruneMat, boolean useEPIC){
+    public ConfTree(AStarNode.Factory<T> nodeFactory, SearchProblem sp, PruningMatrix pruneMat, 
+            boolean useEPIC, GMECMutSpace gms){
     	
 		// NOTE: might want to implement this as subclass or compose with other object
 		// instead of adding a big switch here
@@ -134,6 +141,10 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
                 minPartialConfs = sp.epicSettings.minPartialConfs;
             }
         }
+        
+        this.mutSpace = gms;
+        if(gms!=null)//GMECMutSpace requires static ordering
+            useDynamicAStar = false;
     }
     
     
@@ -163,6 +174,12 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
         splitPositions(curNode);
         
         for (int rc : unprunedRCsAtPos[nextLevel]) {
+            if(mutSpace!=null){
+                if(!mutSpace.isNewRCAllowed(curNode.getNodeAssignments(),curNode.getLevel(),rc)){
+                    continue;
+                }
+            }
+            
             T childNode = nodeFactory.make(curNode, nextLevel, rc);
             childNode.setScoreNeedsRefinement(useRefinement);
             scoreNodeDifferential(curNode, childNode, nextLevel, rc);
