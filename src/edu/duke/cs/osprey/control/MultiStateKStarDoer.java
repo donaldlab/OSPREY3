@@ -6,12 +6,12 @@ import java.util.StringTokenizer;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.multistatekstar.InputValidation;
 import edu.duke.cs.osprey.multistatekstar.KStarScore;
-import edu.duke.cs.osprey.multistatekstar.MultiStateKStarSettings;
+import edu.duke.cs.osprey.multistatekstar.KStarSettings;
 import edu.duke.cs.osprey.multistatekstar.LMV;
 import edu.duke.cs.osprey.multistatekstar.MultiStateConfigFileParser;
 import edu.duke.cs.osprey.multistatekstar.MultiStateKStarTree;
 import edu.duke.cs.osprey.multistatekstar.MultiStateSearchProblem;
-import edu.duke.cs.osprey.multistatekstar.SearchProblemSettings;
+import edu.duke.cs.osprey.multistatekstar.SearchSettings;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tools.StringParsing;
@@ -135,7 +135,7 @@ public class MultiStateKStarDoer {
 			ans[state] = new ConfEnergyCalculator.Async[statesps.length];
 
 			for(int substate=0;substate<ans[state].length;++substate) {
-				ans[state][substate] = MultiStateKStarSettings.makeEnergyCalculator(cfps[state], sps[state][substate]);
+				ans[state][substate] = KStarSettings.makeEnergyCalculator(cfps[state], sps[state][substate]);
 			}
 		}
 
@@ -146,7 +146,7 @@ public class MultiStateKStarDoer {
 		SearchProblem[] search = cont ? searchCont[state] : searchDisc[state];
 		ConfEnergyCalculator.Async[] ans = new ConfEnergyCalculator.Async[search.length];
 		for(int substate=0;substate<search.length;++substate) {
-			ans[substate] = MultiStateKStarSettings.makeEnergyCalculator(cfps[state], search[substate]);
+			ans[substate] = KStarSettings.makeEnergyCalculator(cfps[state], search[substate]);
 		}
 		return ans;
 	}
@@ -203,7 +203,7 @@ public class MultiStateKStarDoer {
 		MultiStateSearchProblem[] singleSeqSearch = new MultiStateSearchProblem[numPartFuncs];
 		for(int subState=0;subState<numPartFuncs;++subState){
 
-			SearchProblemSettings spSet = new SearchProblemSettings();
+			SearchSettings spSet = new SearchSettings();
 			spSet.AATypeOptions = subStateAATypes.get(subState);
 			ArrayList<String> mutRes = new ArrayList<>();
 			for(int i:mutable2StateResNums.get(state).get(subState)) mutRes.add(String.valueOf(i));
@@ -215,16 +215,17 @@ public class MultiStateKStarDoer {
 		}
 
 		//make k* settings
-		MultiStateKStarSettings ksSettings = new MultiStateKStarSettings();
+		KStarSettings ksSettings = new KStarSettings();
 		ksSettings.pruningWindow = sParams.getDouble("IVAL") + sParams.getDouble("EW");
 		ksSettings.targetEpsilon = sParams.getDouble("EPSILON");
 		ksSettings.stericThreshold = sParams.getDouble("STERICTHRESH");
+		ksSettings.state = state;
+		ksSettings.numTopConfsToSave = sParams.getBool("SaveTopConfsAsPDB") ? sParams.getInt("NumTopConfsToSave") : 0;
 		ksSettings.cfp = cfps[state];
 		ksSettings.search = singleSeqSearch;
 		ksSettings.constraints = sConstraints;
 		ksSettings.ecalcs = ecalcs[state];
-		ksSettings.sequence = boundStateAATypes;
-		ksSettings.isReportingProgress = true;
+		ksSettings.isReportingProgress = msParams.getBool("ISREPORTINGPROGRESS");
 
 		KStarScore ksScore = new KStarScore(ksSettings);
 		ksScore.compute(Integer.MAX_VALUE);

@@ -3,21 +3,23 @@ package edu.duke.cs.osprey.multistatekstar;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.PriorityQueue;
 
+import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.control.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 public class KStarScore {
 
-	public MultiStateKStarSettings settings;
-	public PartitionFunction[] partitionFunctions;
+	public KStarSettings settings;
+	public ParallelPartitionFunction[] partitionFunctions;
 	public int numStates;
 
-	public KStarScore(MultiStateKStarSettings settings) {
+	public KStarScore(KStarSettings settings) {
 		this.settings = settings;
 		numStates = settings.search.length;
-		partitionFunctions = new PartitionFunction[numStates];
+		partitionFunctions = new ParallelPartitionFunction[numStates];
 	}
 
 	public double getKStarScore() {
@@ -35,7 +37,7 @@ public class KStarScore {
 
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
-		sb.append("Seq: "+settings.getFormattedSequence()+", ");
+		sb.append("Seq: "+settings.search[numStates-1].settings.getFormattedSequence()+", ");
 		sb.append(String.format("score: %12e, ", getKStarScore()));
 		for(int state=0;state<numStates;++state)
 			sb.append(String.format("pf: %2d, q*: %12e, ", state, partitionFunctions[state].getValues().qstar));
@@ -54,10 +56,10 @@ public class KStarScore {
 			settings.search[state].prunePmat(settings.search[state], settings.pruningWindow, settings.stericThreshold);
 
 			//make conf search factory (i.e. A* tree)
-			ConfSearchFactory confSearchFactory = MultiStateKStarSettings.makeConfSearchFactory(settings.search[state], settings.cfp);
+			ConfSearchFactory confSearchFactory = KStarSettings.makeConfSearchFactory(settings.search[state], settings.cfp);
 
 			//create partition function
-			partitionFunctions[state] = MultiStateKStarSettings.makePartitionFunction( 
+			partitionFunctions[state] = (ParallelPartitionFunction) KStarSettings.makePartitionFunction( 
 					settings.search[state].emat, 
 					settings.search[state].pruneMat,
 					confSearchFactory,
@@ -69,6 +71,23 @@ public class KStarScore {
 			//init partition function
 			partitionFunctions[state].init(settings.targetEpsilon);
 
+			//create priority queue for top confs if requested
+			if(settings.search[state].isFullyDefined() && settings.numTopConfsToSave > 0) {
+
+				partitionFunctions[state].econfs = new PriorityQueue<EnergiedConf>(
+						settings.numTopConfsToSave, 
+						new EnergiedConfComparator()
+						);
+
+				partitionFunctions[state].maxNumTopConfs = settings.numTopConfsToSave;
+
+				final int pfState = state;
+				partitionFunctions[state].setConfListener((EnergiedConf econf) -> {
+					partitionFunctions[pfState].saveEConf(econf);
+				});
+				
+			}
+
 			compute(state, maxNumConfs);
 		}
 	}
@@ -77,7 +96,7 @@ public class KStarScore {
 	 * compute until a conf score boltzmann weight of minbound has been processed.
 	 * this is used in the second phase to process confs from p*
 	 */
-	private BigDecimal phase2(int state) {
+	private PartitionFunction phase2(int state) {
 		// we have p* / q* = epsilon1 > target epsilon
 		// we want p1* / q* <= target epsilon
 		// therefore, p1* <= q* x target epsilon
@@ -110,32 +129,37 @@ public class KStarScore {
 		PruningMatrix invMat = ((QPruningMatrix)settings.search[state].pruneMat).invert();
 		settings.search[state].pruneMat = invMat;
 
-		ConfSearchFactory confSearchFactory = MultiStateKStarSettings.makeConfSearchFactory(settings.search[state], settings.cfp);
+		ConfSearchFactory confSearchFactory = KStarSettings.makeConfSearchFactory(settings.search[state], settings.cfp);
 
-		PartitionFunction phase2PF = MultiStateKStarSettings.makePartitionFunction( 
+		ParallelPartitionFunction p2pf = (ParallelPartitionFunction) KStarSettings.makePartitionFunction( 
 				settings.search[state].emat, 
 				settings.search[state].pruneMat, 
 				confSearchFactory,
 				settings.ecalcs[state]
 				);
 
-		phase2PF.init(0.0);
-
-		((ParallelPartitionFunction)phase2PF).compute(targetScoreWeights);
-		BigDecimal ans = phase2PF.getValues().qstar;
-		return ans;
+		p2pf.init(0.03);
+		p2pf.compute(targetScoreWeights);
+		return p2pf;
 	}
 
 	private void compute(int state, int maxNumConfs) {
-		if(settings.isReportingProgress) System.out.println("state"+state+": "+settings.getFormattedSequence());
-		PartitionFunction pf = partitionFunctions[state];
+		if(settings.isReportingProgress) 
+			System.out.println("state"+state+": "+settings.search[state].settings.getFormattedSequence());
+		ParallelPartitionFunction pf = partitionFunctions[state];
 		pf.compute(maxNumConfs);	
 
 		//no more q conformations, and we have not reached epsilon
-		if(pf.getValues().getEffectiveEpsilon() > settings.targetEpsilon) {	
-			BigDecimal phase2Qstar = phase2(state);
-			pf.getValues().qstar = pf.getValues().qstar.add(phase2Qstar);
+		if(pf.getValues().getEffectiveEpsilon() > settings.targetEpsilon) {
+			ParallelPartitionFunction p2pf = (ParallelPartitionFunction) phase2(state);
+			pf.getValues().qstar = pf.getValues().qstar.add(p2pf.getValues().qstar);
+			if(settings.search[state].isFullyDefined() && settings.numTopConfsToSave > 0)
+				pf.saveEConfs(p2pf.econfs);
 		}
+
+		//print top confs
+		if(settings.search[state].isFullyDefined() && settings.numTopConfsToSave > 0)
+			pf.writeTopConfs(settings.state, settings.search[state]);
 	}
 
 	private ArrayList<LMV> getLMVsForStateOnly(int state) {

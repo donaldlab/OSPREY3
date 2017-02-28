@@ -7,23 +7,23 @@ import edu.duke.cs.osprey.pruning.Pruner;
 @SuppressWarnings("serial")
 public class MultiStateSearchProblem extends SearchProblem {
 
-	SearchProblemSettings spSet;
+	SearchSettings settings;
 
 	public MultiStateSearchProblem(SearchProblem other, 
-			SearchProblemSettings spSet) {
+			SearchSettings spSet) {
 		super(other);
-		this.spSet = spSet;
+		this.settings = spSet;
+		this.pruneMat = getReducedPruningMatrix();
 		this.allowedAAs = spSet.AATypeOptions;
 		this.flexRes = spSet.mutRes;
-		this.pruneMat = getReducedPruningMatrix();
 	}
-
+	
 	public boolean isFullyDefined() {
-		return spSet==null || spSet.mutRes.size()==confSpace.numPos;
+		return settings==null || settings.mutRes.size()==confSpace.numPos;
 	}
 
 	private QPruningMatrix getReducedPruningMatrix() {
-		return new QPruningMatrix(this, spSet.mutRes, spSet.AATypeOptions);
+		return new QPruningMatrix(this, settings.mutRes, settings.AATypeOptions);
 	}
 
 	public void prunePmat(SearchProblem search, double pruningWindow, double stericThresh) {
