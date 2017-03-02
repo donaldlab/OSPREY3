@@ -136,6 +136,13 @@ public class Main {
 				msksd.calcBestSequences();
 			}
 		});
+		
+		commands.put("doCMRF", new Runnable() {
+			@Override
+			public void run() {
+				ContinuousMRFDoer cmrfDoer = new ContinuousMRFDoer(args);
+			}
+		});
 
 		commands.put("calcLigResE", new Runnable() {
 			@Override

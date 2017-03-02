@@ -173,6 +173,19 @@ public class SearchProblem implements Serializable {
         }
     }
     
+    public double getEnergy(int[] conf, double[] dihedralVals, 
+    		boolean single, boolean pairWise) {
+    	
+    	double E = confSpace.getEnergy(conf, dihedralVals, fullConfE, single, pairWise);
+    	
+    	if(useERef)
+            E -= emat.geteRefMat().confERef(conf);
+        
+        if(addResEntropy)
+            E += confSpace.getConfResEntropy(conf);            
+        
+        return E;
+    }
     
     public double minimizedEnergy(int[] conf){
         //Minimized energy of the conformation

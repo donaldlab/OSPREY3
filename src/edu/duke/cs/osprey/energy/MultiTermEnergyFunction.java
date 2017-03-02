@@ -5,6 +5,7 @@
 package edu.duke.cs.osprey.energy;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
@@ -62,11 +63,11 @@ public class MultiTermEnergyFunction implements EnergyFunction.DecomposableByDof
 
 		else if(NUM_THREADS > Runtime.getRuntime().availableProcessors()) 
 			NUM_THREADS = Runtime.getRuntime().availableProcessors();
-		
+
 		if (NUM_THREADS > 1) {
 			// TODO: make user-friendly error message
 			System.out.println("\n\nWARNING (for Osprey programmers): energy function-level parallelism probably isn't the fastest tool anymore."
-				+ " Try the new parallel SimpleEnergyMatrixCalculator and parallel/gpu-friendly ConfMinimizer classes instead.\n");
+					+ " Try the new parallel SimpleEnergyMatrixCalculator and parallel/gpu-friendly ConfMinimizer classes instead.\n");
 		}
 	}
 
@@ -152,6 +153,30 @@ public class MultiTermEnergyFunction implements EnergyFunction.DecomposableByDof
 				resEfunc.addTerm(term);
 				//throw new Error("Unsupported energy function term: " + term.getClass().getName());
 			}
+		}
+		return resEfunc;
+	}
+
+	public EnergyFunction makeResiduesEfunc(HashSet<Residue> residues, 
+			boolean single, boolean pairWise) {
+
+		MultiTermEnergyFunction resEfunc = new MultiTermEnergyFunction();
+		for (EnergyFunction term : terms) {
+
+			if(single && term instanceof SingleResEnergy) {
+				SingleResEnergy singleResTerm = (SingleResEnergy)term;
+				if (residues.contains(singleResTerm.getRes())) {
+					resEfunc.addTerm(singleResTerm);
+				}
+			}
+			
+			else if(pairWise && term instanceof ResPairEnergy) {
+				ResPairEnergy resPairTerm = (ResPairEnergy)term;
+				if (residues.contains(resPairTerm.getRes1()) || residues.contains(resPairTerm.getRes2())) {
+					resEfunc.addTerm(resPairTerm);
+				}
+			}
+			
 		}
 		return resEfunc;
 	}

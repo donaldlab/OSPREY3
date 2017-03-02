@@ -116,7 +116,6 @@ public class MultiStateConfigFileParser extends ConfigFileParser {
 			}
 		}
 		else {
-			//unbound state
 			StringTokenizer st = new StringTokenizer(params.getValue(key+subState));
 			while(st.hasMoreTokens()) alTmni.add(Integer.valueOf(st.nextToken()));
 		}
