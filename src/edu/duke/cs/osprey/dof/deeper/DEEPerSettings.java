@@ -6,8 +6,10 @@
 package edu.duke.cs.osprey.dof.deeper;
 
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
-import edu.duke.cs.osprey.kstar.KSTermini;
+import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
 import edu.duke.cs.osprey.structure.Molecule;
+
+import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
@@ -16,9 +18,11 @@ import java.util.ArrayList;
  * 
  * @author mhall44
  */
-public class DEEPerSettings {
+public class DEEPerSettings implements Serializable {
     
-    PertSet perts = null;//Describes the actual perturbations
+	private static final long serialVersionUID = 1L;
+
+	PertSet perts = null;//Describes the actual perturbations
     
     //various settings from ConfigFileParser
     boolean doPerturbations;//We're using DEEPer
@@ -62,8 +66,11 @@ public class DEEPerSettings {
         this.doRamaCheck = doRamaCheck;
     }
     
+    public boolean doPerturbations() {
+    	return doPerturbations;
+    }
     
-    public void loadPertFile(KSTermini termini){
+    public void loadPertFile(ResidueTermini termini){
         //load the perturbation file; select perturbations if there is none
         
         if(!doPerturbations)//No perturbations: leave perts null

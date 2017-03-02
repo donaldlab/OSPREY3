@@ -8,7 +8,6 @@ package edu.duke.cs.osprey;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import static edu.duke.cs.osprey.TestBase.initDefaultEnvironment;
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.RCTuple;
@@ -21,7 +20,6 @@ import edu.duke.cs.osprey.tools.InfiniteIterator;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 import java.util.ArrayList;
 import java.util.Random;
-import org.junit.BeforeClass;
 
 /**
  *

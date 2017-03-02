@@ -4,17 +4,10 @@
  */
 package edu.duke.cs.osprey.tupexp;
 
-import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.ematrix.epic.EPICEnergyFunction;
-import edu.duke.cs.osprey.minimization.CCDMinimizer;
-import edu.duke.cs.osprey.minimization.Minimizer;
-import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
-import edu.duke.cs.osprey.tools.ObjectIO;
 import java.util.ArrayList;
-import java.util.Collections;
 
 /**
  * Implementation of a tuple expander that expands conformational energies--

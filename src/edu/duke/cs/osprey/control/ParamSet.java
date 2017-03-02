@@ -38,9 +38,19 @@ public class ParamSet implements Serializable {
         //Handles default params of the form "BLABLA* 1" (would map BLABLA -> 1)
         //then for example if we needed a default for parameter BLABLABLA, it would return 1
         
+        private boolean isVerbose;
+        
 	//constructor
 	ParamSet(){
-            
+       isVerbose = true;     
+	}
+	
+	public void setVerbosity(boolean val) {
+		isVerbose = val;
+	}
+	
+	public boolean isVerbose() {
+		return isVerbose;
 	}
 	
 	//Reads in all parameter pairs from the file fName and updates the params
@@ -138,11 +148,14 @@ public class ParamSet implements Serializable {
                 
                 if(val==null)//still null
                     throw new RuntimeException("ERROR: Parameter "+paramName+" not found");
-
-                MPIMaster.printIfMaster("Parameter "+paramName+" not set. Using default value "+val);
+                
+                if(isVerbose)
+                	MPIMaster.printIfMaster("Parameter "+paramName+" not set. Using default value "+val);
             }
-            else
-                MPIMaster.printIfMaster("Parameter "+paramName+" set to "+val);
+            else {
+            	if(isVerbose)
+            		MPIMaster.printIfMaster("Parameter "+paramName+" set to "+val);
+            }
             
             return val.trim();
 	}
@@ -226,10 +239,13 @@ public class ParamSet implements Serializable {
                     throw new RuntimeException("ERROR: Parameter "+paramName+" not found");
                 
                 val = defaultVal;
-                MPIMaster.printIfMaster("Parameter "+paramName+" not set. Using default value "+defaultVal);
+                if(isVerbose) 
+                	MPIMaster.printIfMaster("Parameter "+paramName+" not set. Using default value "+defaultVal);
             }
-            else
-                MPIMaster.printIfMaster("Parameter "+paramName+" set to "+val);
+            else {
+            	if(isVerbose)
+            		MPIMaster.printIfMaster("Parameter "+paramName+" set to "+val);
+            }
             
             return val.trim();
 	}

@@ -7,9 +7,7 @@ package edu.duke.cs.osprey.tests;
 
 import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
-import edu.duke.cs.osprey.control.GMECFinder;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.IdealSeparableReference;

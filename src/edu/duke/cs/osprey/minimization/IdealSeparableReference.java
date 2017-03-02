@@ -23,6 +23,7 @@ import edu.duke.cs.osprey.voxq.IntraVoxelSampler;
  * 
  * @author mhall44
  */
+@SuppressWarnings("serial")
 public class IdealSeparableReference extends MoleculeModifierAndScorer {
     //OK so the MoleculeModifierAndScorer will keep its DOF vals and actual DOFs at center
     //but we'll keep the DOF values for this IdealSeparableReference at fullCurDOFVals

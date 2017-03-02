@@ -6,7 +6,6 @@
 package edu.duke.cs.osprey.tupexp;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 
 /**
  *

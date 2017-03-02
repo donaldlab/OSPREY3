@@ -128,6 +128,21 @@ public class Main {
 				cd.calcBestSequences();
 			}
 		});
+		
+		commands.put("doMultiStateKStar", new Runnable() {
+			@Override
+			public void run() {
+				MultiStateKStarDoer msksd = new MultiStateKStarDoer(args);
+				msksd.exhaustiveMultistateSearch();
+			}
+		});
+		
+		commands.put("doCMRF", new Runnable() {
+			@Override
+			public void run() {
+				ContinuousMRFDoer cmrfDoer = new ContinuousMRFDoer(args);
+			}
+		});
 
 		commands.put("calcLigResE", new Runnable() {
 			@Override
