@@ -1,8 +1,10 @@
 package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigInteger;
+
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.pruning.Pruner;
+import edu.duke.cs.osprey.pruning.PruningMethod;
 
 @SuppressWarnings("serial")
 public class MSSearchProblem extends SearchProblem {
@@ -28,33 +30,32 @@ public class MSSearchProblem extends SearchProblem {
 		return new QPruningMatrix(this, settings.mutRes, settings.AATypeOptions);
 	}
 
-	private void prunePmat(SearchProblem search, double pruningWindow, double stericThresh) {
+	private QPruningMatrix prunePmat(SearchProblem search, double pruningWindow, double stericThresh) {
 
+		QPruningMatrix qpm = (QPruningMatrix) pruneMat;
+		//don't want to overprune
 		BigInteger numDesiredConfs = BigInteger.valueOf(65536);
 		
 		//single sequence type dependent pruning for better efficiency
 		//now do any consequent singles & pairs pruning
-		int numUpdates = ((QPruningMatrix)pruneMat).countUpdates();
+		int numUpdates = qpm.countUpdates();
 		int oldNumUpdates;
 
-		Pruner dee = new Pruner(search, pruneMat, true, stericThresh, pruningWindow, 
+		Pruner dee = new Pruner(search, qpm, true, stericThresh, pruningWindow, 
 				search.useEPIC, search.useTupExpForSearch);
 		dee.setVerbose(false);
-		
-		//limit amount of time (in minutes) spent pruning
-		double start = System.currentTimeMillis(), duration, timeout = 60;
 
 		do {//repeat as long as we're pruning things
 			oldNumUpdates = numUpdates;
 			dee.prune("GOLDSTEIN");
-			dee.prune("GOLDSTEIN PAIRS FULL");
-			numUpdates = ((QPruningMatrix)pruneMat).countUpdates();
-			
-			duration = (System.currentTimeMillis()-start)/(60*1000.0);
+			//pairs pruning can be time consuming for larger systems
+			if(dee.enumerateCandidates(PruningMethod.getMethod("GOLDSTEIN PAIRS FULL")).size() < 32768)
+				dee.prune("GOLDSTEIN PAIRS FULL");
+			numUpdates = qpm.countUpdates();
 			
 		} while (numUpdates > oldNumUpdates && 
-				((QPruningMatrix)pruneMat).getNumReducedUnprunedConfs().compareTo(numDesiredConfs) > 0 &&
-				duration < timeout);
+				qpm.getNumReducedUnprunedConfs().compareTo(numDesiredConfs) > 0);
 		
+		return qpm;
 	}
 }

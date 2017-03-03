@@ -162,32 +162,35 @@ public class ParallelPartitionFunction extends ParallelConfPartitionFunction {
 				// so lock to keep from racing the main thread
 				synchronized (ParallelPartitionFunction.this) {
 
-					// get the boltzmann weight
-					BigDecimal energyWeight = boltzmann.calc(econf.getEnergy());
+					if(status == Status.Estimating) {
 
-					// update pfunc state
-					numConfsEvaluated++;
-					values.qstar = values.qstar.add(energyWeight);
-					values.qprime = updateQprime(econf);
+						// get the boltzmann weight
+						BigDecimal energyWeight = boltzmann.calc(econf.getEnergy());
 
-					// report progress if needed
-					if (isReportingProgress) {
-						MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-						System.out.println(String.format("conf: %4d, energy: %.6f, q*: %12e, q': %12e, p*: %12e, epsilon: %.6f, time: %10s, heapMem: %.0f%%",
-								numConfsEvaluated, econf.getEnergy(), values.qstar, values.qprime, values.pstar, values.getEffectiveEpsilon(),
-								stopwatch.getTime(2),
-								100f*heapMem.getUsed()/heapMem.getMax()
-								));
-					}
+						// update pfunc state
+						numConfsEvaluated++;
+						values.qstar = values.qstar.add(energyWeight);
+						values.qprime = updateQprime(econf);
 
-					// report confs if needed
-					if (confListener != null) {
-						confListener.onConf(econf);
-					}
+						// report progress if needed
+						if (isReportingProgress) {
+							MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
+							System.out.println(String.format("conf: %4d, energy: %.6f, q*: %12e, q': %12e, p*: %12e, epsilon: %.6f, time: %10s, heapMem: %.0f%%",
+									numConfsEvaluated, econf.getEnergy(), values.qstar, values.qprime, values.pstar, values.getEffectiveEpsilon(),
+									stopwatch.getTime(2),
+									100f*heapMem.getUsed()/heapMem.getMax()
+									));
+						}
 
-					// update status if needed
-					if (values.getEffectiveEpsilon() <= targetEpsilon) {
-						status = Status.Estimated;
+						// report confs if needed
+						if (confListener != null) {
+							confListener.onConf(econf);
+						}
+
+						// update status if needed
+						if (values.getEffectiveEpsilon() <= targetEpsilon) {
+							status = Status.Estimated;
+						}
 					}
 
 					--numActiveThreads;
@@ -250,35 +253,38 @@ public class ParallelPartitionFunction extends ParallelConfPartitionFunction {
 				// so lock to keep from racing the main thread
 				synchronized (ParallelPartitionFunction.this) {
 
-					// get the boltzmann weight
-					BigDecimal scoreWeight = boltzmann.calc(econf.getScore());
-					qstarScoreWeights = qstarScoreWeights.add(scoreWeight);	
-					BigDecimal energyWeight = boltzmann.calc(econf.getEnergy());
+					if(status == Status.Estimating) {
 
-					// update pfunc state
-					numConfsEvaluated++;
-					values.qstar = values.qstar.add(energyWeight);
-					values.qprime = updateQprime(econf);
-					BigDecimal pdiff = targetScoreWeights.subtract(qstarScoreWeights);
+						// get the boltzmann weight
+						BigDecimal scoreWeight = boltzmann.calc(econf.getScore());
+						qstarScoreWeights = qstarScoreWeights.add(scoreWeight);	
+						BigDecimal energyWeight = boltzmann.calc(econf.getEnergy());
 
-					// report progress if needed
-					if (isReportingProgress) {
-						MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-						System.out.println(String.format("conf: %4d, energy: %.6f, q*: %12e, q': %12e, score diff: %12e, epsilon: %.6f, time: %10s, heapMem: %.0f%%",
-								numConfsEvaluated, econf.getEnergy(), values.qstar, values.qprime, pdiff, values.getEffectiveEpsilon(),
-								stopwatch.getTime(2),
-								100f*heapMem.getUsed()/heapMem.getMax()
-								));
-					}
+						// update pfunc state
+						numConfsEvaluated++;
+						values.qstar = values.qstar.add(energyWeight);
+						values.qprime = updateQprime(econf);
+						BigDecimal pdiff = targetScoreWeights.subtract(qstarScoreWeights);
 
-					// report confs if needed
-					if (confListener != null) {
-						confListener.onConf(econf);
-					}
+						// report progress if needed
+						if (isReportingProgress) {
+							MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
+							System.out.println(String.format("conf: %4d, energy: %.6f, q*: %12e, q': %12e, score diff: %12e, epsilon: %.6f, time: %10s, heapMem: %.0f%%",
+									numConfsEvaluated, econf.getEnergy(), values.qstar, values.qprime, pdiff, values.getEffectiveEpsilon(),
+									stopwatch.getTime(2),
+									100f*heapMem.getUsed()/heapMem.getMax()
+									));
+						}
 
-					// update status if needed
-					if (values.getEffectiveEpsilon() <= targetEpsilon) {
-						status = Status.Estimated;
+						// report confs if needed
+						if (confListener != null) {
+							confListener.onConf(econf);
+						}
+
+						// update status if needed
+						if (values.getEffectiveEpsilon() <= targetEpsilon) {
+							status = Status.Estimated;
+						}
 					}
 
 					--numActiveThreads;
