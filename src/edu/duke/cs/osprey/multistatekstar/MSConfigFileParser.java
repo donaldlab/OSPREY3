@@ -16,17 +16,17 @@ import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.StringParsing;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
-public class MultiStateConfigFileParser extends ConfigFileParser {
+public class MSConfigFileParser extends ConfigFileParser {
 
-	public MultiStateConfigFileParser(String[] args, boolean isVerbose) {
+	public MSConfigFileParser(String[] args, boolean isVerbose) {
 		super(args, isVerbose);
 	}
 
-	public MultiStateConfigFileParser(String[] args) {
+	public MSConfigFileParser(String[] args) {
 		super(args);
 	}
 
-	public MultiStateConfigFileParser() {
+	public MSConfigFileParser() {
 		super();
 	}
 

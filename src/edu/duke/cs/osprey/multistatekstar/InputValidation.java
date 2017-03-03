@@ -23,7 +23,7 @@ public class InputValidation {
 		this.mutable2StateResNums = mutable2StateResNums;
 	}
 	
-	public void handleAATypeOptions(int state, int subState, MultiStateConfigFileParser stateCfp) {
+	public void handleAATypeOptions(int state, int subState, MSConfigFileParser stateCfp) {
 		//Given the config file parser for a state, make sure AATypeOptions
 		//matches the allowed AA types for this state
 

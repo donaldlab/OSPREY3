@@ -4,21 +4,23 @@ import java.util.ArrayList;
 import java.util.StringTokenizer;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.multistatekstar.InputValidation;
 import edu.duke.cs.osprey.multistatekstar.KStarScore;
 import edu.duke.cs.osprey.multistatekstar.KStarSettings;
 import edu.duke.cs.osprey.multistatekstar.LMV;
-import edu.duke.cs.osprey.multistatekstar.MultiStateConfigFileParser;
-import edu.duke.cs.osprey.multistatekstar.MultiStateKStarTree;
-import edu.duke.cs.osprey.multistatekstar.MultiStateSearchProblem;
+import edu.duke.cs.osprey.multistatekstar.MSConfigFileParser;
+import edu.duke.cs.osprey.multistatekstar.MSKStarTree;
+import edu.duke.cs.osprey.multistatekstar.MSSearchProblem;
 import edu.duke.cs.osprey.multistatekstar.SearchSettings;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tools.StringParsing;
 
-public class MultiStateKStarDoer {
+public class MSKStarDoer {
 
-	MultiStateKStarTree tree;//tree used for the MultiStateKStar search
+	MSKStarTree tree;//tree used for the MultiStateKStar search
 	int numSeqsWanted;//number of desired sequences
 	int numMaxMut;//max number of mutations from wt
 
@@ -39,14 +41,18 @@ public class MultiStateKStarDoer {
 	String stateArgs[][];//search arguments for each state
 
 	ParamSet msParams;//multistate spec params
-	MultiStateConfigFileParser[] cfps;//config file parsers for each state
+	MSConfigFileParser[] cfps;//config file parsers for each state
 
 	SearchProblem[][] searchDisc;//continuous search problems
 	SearchProblem[][] searchCont;//discrete search problems
 
 	public ConfEnergyCalculator.Async[][] ecalcs;//global energy calculator objects
 
-	public MultiStateKStarDoer(String args[]) {
+	public MSKStarDoer(String args[]) {
+		// silence warnings when using non-amino acids
+		BigForcefieldEnergy.ParamInfo.printWarnings = false;
+		ForcefieldParams.printWarnings = false;
+		
 		//fill in all the settings
 		//each state will have its own config file parser
 
@@ -78,7 +84,7 @@ public class MultiStateKStarDoer {
 			constraints[constr] = new LMV(msParams.getValue("STATECONSTR"+constr), numStates);
 		// might need to adjust these with wt later
 
-		cfps = new MultiStateConfigFileParser[numStates];
+		cfps = new MSConfigFileParser[numStates];
 
 		searchDisc = new SearchProblem[numStates][];
 		searchCont = new SearchProblem[numStates][];
@@ -95,6 +101,7 @@ public class MultiStateKStarDoer {
 
 			System.out.println();
 			System.out.println("Checking state "+state+" parameters");
+			System.out.println();
 
 			cfps[state] = makeStateCfp(state);
 			inputValidation.handleStateParams(state, cfps[state].getParams(), msParams);
@@ -107,6 +114,7 @@ public class MultiStateKStarDoer {
 					wtSeqs.add(cfps[state].getWtSeq(mutable2StateResNums.get(state).get(subState)));
 			}
 
+			System.out.println();
 			System.out.println("State "+state+" parameters checked");
 			System.out.println();
 		}
@@ -200,7 +208,7 @@ public class MultiStateKStarDoer {
 			sConstraints[constr] = new LMV(sParams.getValue("UBCONSTR"+constr), numPartFuncs);
 
 		//populate search problems
-		MultiStateSearchProblem[] singleSeqSearch = new MultiStateSearchProblem[numPartFuncs];
+		MSSearchProblem[] singleSeqSearch = new MSSearchProblem[numPartFuncs];
 		for(int subState=0;subState<numPartFuncs;++subState){
 
 			SearchSettings spSet = new SearchSettings();
@@ -212,8 +220,8 @@ public class MultiStateKStarDoer {
 			spSet.pruningWindow = sParams.getDouble("IVAL") + sParams.getDouble("EW");
 
 			singleSeqSearch[subState] = sParams.getBool("DOMINIMIZE") ? 
-					new MultiStateSearchProblem(searchCont[state][subState], spSet)
-					: new MultiStateSearchProblem(searchDisc[state][subState], spSet);
+					new MSSearchProblem(searchCont[state][subState], spSet)
+					: new MSSearchProblem(searchDisc[state][subState], spSet);
 		}
 
 		//make k* settings
@@ -240,10 +248,11 @@ public class MultiStateKStarDoer {
 	 * @return
 	 */
 	private SearchProblem[] makeStateSearchProblems(int state, boolean cont, 
-			MultiStateConfigFileParser stateCfp) {
+			MSConfigFileParser stateCfp) {
 
 		ParamSet sParams = stateCfp.getParams();
-		int numUbStates = sParams.getInt("NUMUBSTATES");		
+		int numUbStates = sParams.getInt("NUMUBSTATES");
+		String flexibility = cont ? "continuous" : "discrete";
 
 		SearchProblem[] subStateSps = new SearchProblem[numUbStates+1];
 
@@ -266,7 +275,7 @@ public class MultiStateKStarDoer {
 			}
 
 			System.out.println();
-			System.out.println("State "+state+"."+subState+" matrices ready");
+			System.out.println("State "+state+"."+subState+" "+flexibility+" matrix ready");
 			System.out.println();
 		}
 
@@ -280,7 +289,7 @@ public class MultiStateKStarDoer {
 	 * @param numTreeLevels
 	 * @return
 	 */
-	private ArrayList<ArrayList<Integer>> stateMutableRes(int state, MultiStateConfigFileParser stateCfp, int numTreeLevels){
+	private ArrayList<ArrayList<Integer>> stateMutableRes(int state, MSConfigFileParser stateCfp, int numTreeLevels){
 		ParamSet sParams = stateCfp.getParams();
 		int numUbStates = sParams.getInt("NUMUBSTATES");
 		ArrayList<ArrayList<Integer>> m2s = new ArrayList<>();
@@ -306,7 +315,7 @@ public class MultiStateKStarDoer {
 	 * @param state
 	 * @return
 	 */
-	private MultiStateConfigFileParser makeStateCfp(int state) {
+	private MSConfigFileParser makeStateCfp(int state) {
 		//We expect input of the form KStar0.cfg System0.cfg DEE0.cfg
 		String stateConfigFiles = msParams.getValue("STATECFGFILES"+state);
 		String stateKStFile = StringParsing.getToken(stateConfigFiles, 1);
@@ -315,7 +324,7 @@ public class MultiStateKStarDoer {
 
 		stateArgs[state] = new String[] {"-c", stateKStFile, "n/a", stateSysFile, stateDEEFile};
 
-		MultiStateConfigFileParser stateCfp = new MultiStateConfigFileParser(stateArgs[state], false);
+		MSConfigFileParser stateCfp = new MSConfigFileParser(stateArgs[state], false);
 		//verbosity is false by default; too many arguments clutter the display
 		stateCfp.loadData();
 

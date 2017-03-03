@@ -33,7 +33,7 @@ public class ParallelPartitionFunction extends ParallelConfPartitionFunction {
 		econfs = null;
 	}
 
-	protected void writeTopConfs(int state, MultiStateSearchProblem search) {
+	protected void writeTopConfs(int state, MSSearchProblem search) {
 		if(econfs==null || econfs.size()==0) return;
 		String seq = search.settings.getFormattedSequence();
 		if(isReportingProgress) {

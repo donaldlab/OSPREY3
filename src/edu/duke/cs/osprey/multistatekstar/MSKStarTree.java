@@ -12,15 +12,16 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
  * @author Adegoke Ojewole (ao68@duke.edu)
  *
  */
-public class MultiStateKStarTree extends AStarTree<FullAStarNode> {
+public class MSKStarTree extends AStarTree<FullAStarNode> {
 
-	int numTreeLevels;//number of residues with sequence changes
+	int numTreeLevels;//number of residues with sequence changes+1
+	//level if we are doing continuous minimization
 
-	LMV objFcn;//we are minimizing objFcn...
+	LMV objFcn;//we are minimizing objFcn
 	LMV[] kssConstraints;
 	LMV[][] pfConstraints;
 
-	ArrayList<ArrayList<String>> AATypeOptions;
+	ArrayList<ArrayList<ArrayList<ArrayList<String>>>> AATypeOptions;
 	// MultiStateKStarTreeNode.assignments Assigns each level an index in 
 	// AATypeOptions.get(level), and thus an AA type
 	//If -1, then no assignment yet
@@ -31,10 +32,10 @@ public class MultiStateKStarTree extends AStarTree<FullAStarNode> {
 	//information on states
 
 	int numStates;//how many states there are
-	//states have the same mutable residues & AA options,
-	//though the residues involved may be otherwise different
+	//states have the same mutable residues & options for AA residues,
+	//but not necessarily for non AA residues
 
-	SearchProblem stateSP[][];//SearchProblems describing them
+	SearchProblem search[][];//SearchProblems describing them
 	//each state has >= 3 SearchProblems
 
 	ArrayList<ArrayList<Integer>> mutable2StatePosNums;
@@ -51,7 +52,7 @@ public class MultiStateKStarTree extends AStarTree<FullAStarNode> {
 
 	private static final long serialVersionUID = 1L;
 
-	public MultiStateKStarTree(
+	public MSKStarTree(
 			int numTreeLevels, 
 			LMV objFcn, 
 			LMV[] constraints,
