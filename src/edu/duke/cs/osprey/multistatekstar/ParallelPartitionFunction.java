@@ -33,7 +33,7 @@ public class ParallelPartitionFunction extends ParallelConfPartitionFunction {
 		econfs = null;
 	}
 
-	protected void writeTopConfs(int state, MultiStateSearchProblem search) {
+	protected void writeTopConfs(int state, MSSearchProblem search) {
 		if(econfs==null || econfs.size()==0) return;
 		String seq = search.settings.getFormattedSequence();
 		if(isReportingProgress) {
@@ -264,7 +264,7 @@ public class ParallelPartitionFunction extends ParallelConfPartitionFunction {
 					// report progress if needed
 					if (isReportingProgress) {
 						MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-						System.out.println(String.format("conf: %4d, energy: %.6f, q*: %12e, q': %12e, p*-p1*: %12e, epsilon: %.6f, time: %10s, heapMem: %.0f%%",
+						System.out.println(String.format("conf: %4d, energy: %.6f, q*: %12e, q': %12e, score diff: %12e, epsilon: %.6f, time: %10s, heapMem: %.0f%%",
 								numConfsEvaluated, econf.getEnergy(), values.qstar, values.qprime, pdiff, values.getEffectiveEpsilon(),
 								stopwatch.getTime(2),
 								100f*heapMem.getUsed()/heapMem.getMax()

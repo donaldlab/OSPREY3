@@ -17,15 +17,15 @@ public class KStarSettings {
 	public double targetEpsilon;
 	public int state;
 	public int numTopConfsToSave;
-	public MultiStateConfigFileParser cfp;
-	public MultiStateSearchProblem[] search;
+	public MSConfigFileParser cfp;
+	public MSSearchProblem[] search;
 	public LMV[] constraints;
 	public ConfEnergyCalculator.Async[] ecalcs;
 
 	public KStarSettings() {}
 
 	public static ConfEnergyCalculator.Async makeEnergyCalculator(
-			MultiStateConfigFileParser cfp,
+			MSConfigFileParser cfp,
 			SearchProblem multiSeqSearch
 			) {
 		// make the conf energy calculator
@@ -39,8 +39,8 @@ public class KStarSettings {
 	}
 
 	public static ConfSearchFactory makeConfSearchFactory(
-			MultiStateSearchProblem singleSeqSearch, 
-			MultiStateConfigFileParser cfp
+			MSSearchProblem singleSeqSearch, 
+			MSConfigFileParser cfp
 			) {
 		ConfSearchFactory confSearchFactory = ConfSearchFactory.Tools.makeFromConfig(singleSeqSearch, cfp);
 		return confSearchFactory;

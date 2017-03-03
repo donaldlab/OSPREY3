@@ -20,7 +20,7 @@ import java.util.StringTokenizer;
  */
 public class ForcefieldParams implements Serializable {
     
-    
+    public static boolean printWarnings = true;
     final int atomTypeX = -2; //the atom type number for the X wildcard atom type
     private final int noMatchInt = 9999;
 
@@ -840,8 +840,10 @@ public class ForcefieldParams implements Serializable {
                 }
             }
             
-            System.out.println("Warning: No equilibrium bond length listed for atom types "
+            if(printWarnings) {
+            	System.out.println("Warning: No equilibrium bond length listed for atom types "
                     +atomType1+" and "+atomType2);
+            }
             //this is used to get an estimated bond distance matrix, in which case
             //we can estimate using other atom types for the same elements
             

@@ -3,6 +3,7 @@ package edu.duke.cs.osprey.multistatekstar;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.PriorityQueue;
 
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
@@ -15,11 +16,14 @@ public class KStarScore {
 	public KStarSettings settings;
 	public ParallelPartitionFunction[] partitionFunctions;
 	public int numStates;
+	public boolean constrSatisfied;
 
 	public KStarScore(KStarSettings settings) {
 		this.settings = settings;
 		numStates = settings.search.length;
 		partitionFunctions = new ParallelPartitionFunction[numStates];
+		Arrays.fill(partitionFunctions, null);
+		constrSatisfied = true;
 	}
 
 	public double getKStarScore() {
@@ -39,8 +43,11 @@ public class KStarScore {
 		StringBuilder sb = new StringBuilder();
 		sb.append("Seq: "+settings.search[numStates-1].settings.getFormattedSequence()+", ");
 		sb.append(String.format("score: %12e, ", getKStarScore()));
-		for(int state=0;state<numStates;++state)
-			sb.append(String.format("pf: %2d, q*: %12e, ", state, partitionFunctions[state].getValues().qstar));
+		for(int state=0;state<numStates;++state) {
+			BigDecimal qstar = partitionFunctions[state]==null ? BigDecimal.ZERO : 
+				partitionFunctions[state].getValues().qstar;
+			sb.append(String.format("pf: %2d, q*: %12e, ", state, qstar));
+		}
 		String ans = sb.toString().trim();
 		return ans.substring(0,ans.length()-1);
 	}
@@ -51,7 +58,10 @@ public class KStarScore {
 	 */
 	public void compute(int maxNumConfs) {
 
-		for(int state=0;state<numStates;++state){	
+		for(int state=0;state<numStates;++state){
+			
+			if(!constrSatisfied)
+				return;
 
 			//make conf search factory (i.e. A* tree)
 			ConfSearchFactory confSearchFactory = KStarSettings.makeConfSearchFactory(settings.search[state], settings.cfp);
@@ -88,6 +98,11 @@ public class KStarScore {
 
 			compute(state, maxNumConfs);
 		}
+		
+		//check all constraints now. technically, we should only check constraints
+		//that don't pertain to only one state, which we have already checked in compute(state)
+		if(constrSatisfied)
+			constrSatisfied = checkConstraints();
 	}
 
 	/**
@@ -113,7 +128,7 @@ public class KStarScore {
 		BigDecimal pstar = pf.getValues().pstar;
 
 		if(epsilon==1.0) {
-			targetScoreWeights = pf.getValues().pstar;
+			targetScoreWeights = pstar;
 		}
 
 		else {
@@ -122,10 +137,8 @@ public class KStarScore {
 			targetScoreWeights = (pstar.add(qprime)).subtract(targetScoreWeights);
 		}
 
-		//System.out.println("eps: "+epsilon+" targetEps: "+settings.targetEpsilon+" q': "+qprime);
-
-		PruningMatrix invMat = ((QPruningMatrix)settings.search[state].pruneMat).invert();
-		settings.search[state].pruneMat = invMat;
+		PruningMatrix invPmat = ((QPruningMatrix)settings.search[state].pruneMat).invert();
+		settings.search[state].pruneMat = invPmat;
 
 		ConfSearchFactory confSearchFactory = KStarSettings.makeConfSearchFactory(settings.search[state], settings.cfp);
 
@@ -154,25 +167,71 @@ public class KStarScore {
 			if(settings.search[state].isFullyDefined() && settings.numTopConfsToSave > 0)
 				pf.saveEConfs(p2pf.econfs);
 		}
-
+		
+		constrSatisfied = checkConstraints(state);
+		
 		//print top confs
 		if(settings.search[state].isFullyDefined() && settings.numTopConfsToSave > 0)
 			pf.writeTopConfs(settings.state, settings.search[state]);
 	}
 
-	private ArrayList<LMV> getLMVsForStateOnly(int state) {
-		if(settings.constraints==null) return null;
+	private ArrayList<LMV> getLMVsForState(int state) {
 		ArrayList<LMV> ans = new ArrayList<>();
+		if(settings.constraints==null) return ans;
 
 		for(int l=0;l<settings.constraints.length;++l){
 			BigDecimal[] coeffs = settings.constraints[l].coeffs;
 			if(coeffs[state].compareTo(BigDecimal.ZERO)==0) continue;
+			boolean addConstr = true;
 			for(int c=0;c<coeffs.length;++c){
-				if(coeffs[state].compareTo(BigDecimal.ZERO)!=0 && c!= state) break;
+				if(c!=state && coeffs[c].compareTo(BigDecimal.ZERO)!=0) {
+					addConstr = false;
+					break;
+				}
 			}
-			ans.add(settings.constraints[l]);
+			if(addConstr)
+				ans.add(settings.constraints[l]);
 		}
 
 		return ans;
+	}
+	
+	private boolean checkConstraints(int state) {
+		
+		//see if partition function satisfies constraints
+		for(LMV constr : getLMVsForState(state)){
+			
+			BigDecimal[] stateVals = new BigDecimal[numStates];
+			for(int s=0;s<numStates;++s){
+				ParallelPartitionFunction pf = partitionFunctions[s];
+				stateVals[s] = pf == null ? BigDecimal.ZERO : pf.getValues().qstar;
+			}
+			
+			//can short circuit computation of k* score if any of the unbound
+			//states does not satisfy constraints
+			if(constr.eval(stateVals).compareTo(BigDecimal.ZERO) > 0)
+				return false;
+		}
+		
+		return true;
+	}
+	
+	private boolean checkConstraints() {
+		if(!constrSatisfied) return constrSatisfied;
+		if(settings.constraints==null) return true;
+		
+		BigDecimal[] stateVals = new BigDecimal[numStates];
+		
+		for(int c=0;c<settings.constraints.length;++c){
+			LMV constr = settings.constraints[c];	
+			for(int s=0;s<numStates;++s){
+				ParallelPartitionFunction pf = partitionFunctions[s];
+				stateVals[s] = pf == null ? BigDecimal.ZERO : pf.getValues().qstar;
+			}
+
+			if(constr.eval(stateVals).compareTo(BigDecimal.ZERO) > 0)
+				return false;
+		}
+		return true;
 	}
 }

@@ -132,7 +132,7 @@ public class Main {
 		commands.put("doMultiStateKStar", new Runnable() {
 			@Override
 			public void run() {
-				MultiStateKStarDoer msksd = new MultiStateKStarDoer(args);
+				MSKStarDoer msksd = new MSKStarDoer(args);
 				msksd.calcBestSequences();
 			}
 		});
