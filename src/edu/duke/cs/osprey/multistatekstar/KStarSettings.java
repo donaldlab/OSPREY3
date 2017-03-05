@@ -12,7 +12,7 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 public class KStarSettings {
-
+	
 	public boolean isReportingProgress;
 	public double targetEpsilon;
 	public int state;
