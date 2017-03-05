@@ -63,9 +63,12 @@ public class KStarScore {
 			if(!constrSatisfied)
 				return;
 
+			//first prune the pruning matrix
+			settings.search[state].prunePmat();
+			
 			//make conf search factory (i.e. A* tree)
 			ConfSearchFactory confSearchFactory = KStarSettings.makeConfSearchFactory(settings.search[state], settings.cfp);
-
+			
 			//create partition function
 			partitionFunctions[state] = (ParallelPartitionFunction) KStarSettings.makePartitionFunction( 
 					settings.search[state].emat, 

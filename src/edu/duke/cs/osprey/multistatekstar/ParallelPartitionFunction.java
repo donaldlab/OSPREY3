@@ -10,9 +10,11 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.PriorityQueue;
 
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.control.ConfSearchFactory;
+import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.kstar.pfunc.ParallelConfPartitionFunction;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -66,7 +68,28 @@ public class ParallelPartitionFunction extends ParallelConfPartitionFunction {
 
 	@Override
 	public void init(double targetEpsilon) {
-		super.init(targetEpsilon);
+
+		this.targetEpsilon = targetEpsilon;
+
+		status = Status.Estimating;
+		values = new Values();
+
+		// compute p*: boltzmann-weight the scores for all pruned conformations
+		ConfSearch ptree = confSearchFactory.make(emat, ((QPruningMatrix)pmat).invert());
+		((ConfAStarTree)ptree).stopProgress();
+		values.pstar = calcWeightSumUpperBound(ptree);
+
+		// make the search tree for computing q*
+		ConfSearch tree = confSearchFactory.make(emat, pmat);
+		((ConfAStarTree)tree).stopProgress();
+		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(tree);
+		scoreConfs = confsSplitter.makeStream();
+		energyConfs = confsSplitter.makeStream();
+		numConfsEvaluated = 0;
+		numConfsToScore = tree.getNumConformations();
+		qprimeUnevaluated = BigDecimal.ZERO;
+		qprimeUnscored = BigDecimal.ZERO;
+
 		qstarScoreWeights = BigDecimal.ZERO;
 		numActiveThreads = 0;
 		maxNumTopConfs = 0;
@@ -173,13 +196,8 @@ public class ParallelPartitionFunction extends ParallelConfPartitionFunction {
 						values.qprime = updateQprime(econf);
 
 						// report progress if needed
-						if (isReportingProgress) {
-							MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-							System.out.println(String.format("conf: %4d, energy: %.6f, q*: %12e, q': %12e, p*: %12e, epsilon: %.6f, time: %10s, heapMem: %.0f%%",
-									numConfsEvaluated, econf.getEnergy(), values.qstar, values.qprime, values.pstar, values.getEffectiveEpsilon(),
-									stopwatch.getTime(2),
-									100f*heapMem.getUsed()/heapMem.getMax()
-									));
+						if (isReportingProgress && numConfsEvaluated % ecalc.getParallelism() == 0) {
+							phase1Output(econf);
 						}
 
 						// report confs if needed
@@ -190,6 +208,7 @@ public class ParallelPartitionFunction extends ParallelConfPartitionFunction {
 						// update status if needed
 						if (values.getEffectiveEpsilon() <= targetEpsilon) {
 							status = Status.Estimated;
+							phase1Output(econf);//just to let the user know we reached epsilon
 						}
 					}
 
@@ -201,6 +220,15 @@ public class ParallelPartitionFunction extends ParallelConfPartitionFunction {
 
 		// wait for any remaining async minimizations to finish
 		ecalc.waitForFinish();
+	}
+
+	void phase1Output(EnergiedConf econf) {
+		MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
+		System.out.println(String.format("conf: %4d, energy: %.6f, q*: %12e, q': %12e, p*: %12e, epsilon: %.6f, time: %10s, heapMem: %.0f%%",
+				numConfsEvaluated, econf.getEnergy(), values.qstar, values.qprime, values.pstar, values.getEffectiveEpsilon(),
+				stopwatch.getTime(2),
+				100f*heapMem.getUsed()/heapMem.getMax()
+				));
 	}
 
 	public void compute(BigDecimal targetScoreWeights) {
@@ -267,13 +295,8 @@ public class ParallelPartitionFunction extends ParallelConfPartitionFunction {
 						BigDecimal pdiff = targetScoreWeights.subtract(qstarScoreWeights);
 
 						// report progress if needed
-						if (isReportingProgress) {
-							MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-							System.out.println(String.format("conf: %4d, energy: %.6f, q*: %12e, q': %12e, score diff: %12e, epsilon: %.6f, time: %10s, heapMem: %.0f%%",
-									numConfsEvaluated, econf.getEnergy(), values.qstar, values.qprime, pdiff, values.getEffectiveEpsilon(),
-									stopwatch.getTime(2),
-									100f*heapMem.getUsed()/heapMem.getMax()
-									));
+						if (isReportingProgress && numConfsEvaluated % ecalc.getParallelism() == 0) {
+							phase2Output(econf, pdiff);
 						}
 
 						// report confs if needed
@@ -284,6 +307,7 @@ public class ParallelPartitionFunction extends ParallelConfPartitionFunction {
 						// update status if needed
 						if (values.getEffectiveEpsilon() <= targetEpsilon) {
 							status = Status.Estimated;
+							phase2Output(econf, pdiff);
 						}
 					}
 
@@ -295,6 +319,15 @@ public class ParallelPartitionFunction extends ParallelConfPartitionFunction {
 
 		// wait for any remaining async minimizations to finish
 		ecalc.waitForFinish();
+	}
+
+	void phase2Output(EnergiedConf econf, BigDecimal pdiff) {
+		MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
+		System.out.println(String.format("conf: %4d, energy: %.6f, q*: %12e, q': %12e, score diff: %12e, epsilon: %.6f, time: %10s, heapMem: %.0f%%",
+				numConfsEvaluated, econf.getEnergy(), values.qstar, values.qprime, pdiff, values.getEffectiveEpsilon(),
+				stopwatch.getTime(2),
+				100f*heapMem.getUsed()/heapMem.getMax()
+				));
 	}
 
 }

@@ -21,44 +21,37 @@ public class PPruningMatrix extends QPruningMatrix {
 	public PPruningMatrix(QPruningMatrix other){
 		super(other);
 		this.other = other;
-		if(!isValid(other.sp, other.redAATypeOptions))
-			throw new RuntimeException("ERROR: did not prune all RCs outside of reduced AA type options");
+		this.assignedAATypeOptions = other.assignedAATypeOptions;
+		this.assignedFlexRes = other.assignedFlexRes;
+		this.sp = other.sp;
+		
+		if(!isValid())
+			throw new RuntimeException("ERROR: did not prune all RCs outside of assigned AA type options");
 	}
 
 	@Override
 	public Boolean getOneBody(int res, int index) {
-		Integer absPos = other.red2AbsPos(res);
-		String rcAAType = other.sp.confSpace.posFlex.get(absPos).RCs.get(index).AAType;
+		String rcAAType = other.sp.confSpace.posFlex.get(res).RCs.get(index).AAType;
 
 		//if not in specified list, then already marked as pruned in reduced matrix
-		if(!other.redAATypeOptions.get(res).contains(rcAAType)) 
+		if(!other.assignedAATypeOptions.get(res).contains(rcAAType)) 
 			return true;
 
 		//if in specified aa list, invert.
 		//except...if no rcs are pruned for a specified aa in our list, there 
 		//will be no P confs.
 		else {
-			int numPrunedForAAType = 0;//count all pruned aas of type res-index
-			for(int index2 : other.prunedRCsAtPos(res)) {
-				String rcAAType2 = other.sp.confSpace.posFlex.get(absPos).RCs.get(index2).AAType;
-				if(!rcAAType2.equalsIgnoreCase(rcAAType)) continue;
-				else {
-					numPrunedForAAType++;
-					break;
-				}
-			}
+			if(somethingPrunedForAAType(res, rcAAType))
+				return !other.getOneBody(res, index);
 
-			if(numPrunedForAAType == 0)
-				return other.getOneBody(res, index);
-
-			return !other.getOneBody(res, index);
+			//nothing pruned, so we need to keep this rc
+			return false;
 		}
 	}
 
-	public boolean somethingPrunedForAAType(String rcAAType, int res) {
-		Integer absPos = other.red2AbsPos(res);
+	public boolean somethingPrunedForAAType(int res, String rcAAType) {
 		for(int index : other.prunedRCsAtPos(res)) {
-			String rcAAType2 = other.sp.confSpace.posFlex.get(absPos).RCs.get(index).AAType;
+			String rcAAType2 = other.sp.confSpace.posFlex.get(res).RCs.get(index).AAType;
 			if(!rcAAType2.equalsIgnoreCase(rcAAType)) continue;
 			else
 				return true;
@@ -68,12 +61,9 @@ public class PPruningMatrix extends QPruningMatrix {
 
 	@Override
 	public Boolean getPairwise(int res1, int index1, int res2, int index2) {
-		//AAO: this logic is very tricky...this call is always preceded by a call to
-		//either (un)prunedrcsatpos(res1) and (un)prunedrcsatpos(res2), which 
-		//does the inversion!, so the correct thing to do is to return getpairwise
-		//...also, the call to (un)prunedrcsatpos will have restricted the rcs to
-		//the AAs of interest.
-		return other.getPairwise(res1, index1, res2, index2);
+		if(other.contains(res1, index1, res2, index2))
+			return other.getPairwise(res1, index1, res2, index2);
+		return true;
 	}
 
 	@Override
@@ -86,19 +76,7 @@ public class PPruningMatrix extends QPruningMatrix {
 	}
 
 	public boolean isFullyDefined() {
-		return other.ignoredAbsPos.size()==0;
-	}
-
-	protected Integer red2AbsPos(int redPos) {
-		return other.red2AbsPos.get(redPos);//can be null
-	}
-
-	protected Integer abs2RedPos(int absPos) {
-		return other.abs2RedPos.get(absPos);//can be null
-	}
-
-	public ArrayList<Integer> getIgnoredAbsPos() {
-		return other.ignoredAbsPos;
+		return other.isFullyDefined();
 	}
 
 	public PruningMatrix getParent() {

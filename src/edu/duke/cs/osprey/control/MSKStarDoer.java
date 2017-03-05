@@ -1,5 +1,9 @@
 package edu.duke.cs.osprey.control;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.StringTokenizer;
 
@@ -15,6 +19,7 @@ import edu.duke.cs.osprey.multistatekstar.MSKStarTree;
 import edu.duke.cs.osprey.multistatekstar.MSSearchProblem;
 import edu.duke.cs.osprey.multistatekstar.SearchSettings;
 import edu.duke.cs.osprey.pruning.PruningControl;
+import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tools.StringParsing;
 
@@ -35,7 +40,7 @@ public class MSKStarDoer {
 	//each mutable position for each substate
 
 	ArrayList<ArrayList<ArrayList<Integer>>> mutable2StateResNums;
-	//For each state, a list of which flexible positions are mutable
+	//For each state, a list of flexible/mutable positions
 	//these will be listed directly in system cfg files
 
 	String stateArgs[][];//search arguments for each state
@@ -52,7 +57,7 @@ public class MSKStarDoer {
 		// silence warnings when using non-amino acids
 		BigForcefieldEnergy.ParamInfo.printWarnings = false;
 		ForcefieldParams.printWarnings = false;
-		
+
 		//fill in all the settings
 		//each state will have its own config file parser
 
@@ -70,6 +75,7 @@ public class MSKStarDoer {
 		msParams.addParamsFromFile(args[4]);//read multistate parameters
 		msParams.addDefaultParams();
 
+		numSeqsWanted = msParams.getInt("NUMSEQS");
 		numStates = msParams.getInt("NUMSTATES");
 		numTreeLevels = msParams.getInt("NUMMUTRES");
 		numMaxMut = msParams.getInt("NUMMAXMUT");
@@ -401,7 +407,7 @@ public class MSKStarDoer {
 		else
 			treeBasedMultiStateSearch();
 	}
-	
+
 	public ArrayList<String> treeBasedMultiStateSearch() {
 
 		System.out.println();
@@ -426,7 +432,7 @@ public class MSKStarDoer {
 
 		return bestSequences;
 	}
-	
+
 	/**
 	 * Verify algorithm results by doing exhaustive search
 	 */
@@ -442,27 +448,44 @@ public class MSKStarDoer {
 		int numSeqs = seqList.get(0).size();
 		String[][] stateKSS = new String[numStates][numSeqs];
 		ecalcs = new ConfEnergyCalculator.Async[numStates][];
-		
-		for(int state=0; state<numStates; state++){
+
+		try {
+			String fname = "sequences-exhaustive.txt";
+			ObjectIO.delete(fname);
+			PrintStream fout = new PrintStream(new FileOutputStream(new File(fname), true));
 			
-			//make energy calculators for this state
-			ecalcs[state] = makeEnergyCalculators(state, cfps[state].getParams().getBool("DOMINIMIZE"));
-			
-			for(int seqNum=0; seqNum<numSeqs; seqNum++){
-				stateKSS[state][seqNum] = calcStateKSScore(state, seqList.get(state).get(seqNum));
+			for(int state=0; state<numStates; state++){
+
+				fout.println();
+				fout.println("State"+state+": ");
+				fout.println();
+
+				//make energy calculators for this state
+				ecalcs[state] = makeEnergyCalculators(state, cfps[state].getParams().getBool("DOMINIMIZE"));
+
+				for(int seqNum=0; seqNum<numSeqs; seqNum++){
+					stateKSS[state][seqNum] = calcStateKSScore(state, seqList.get(state).get(seqNum));
+					
+					fout.println(stateKSS[state][seqNum]);
+				}
+
+				cleanupEnergyCalculators(state);
 			}
 			
-			cleanupEnergyCalculators(state);
+			fout.flush();
+			fout.close();
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
 		}
 
 		cleanup();
 		printAllKStarScores(stateKSS);
-		
+
 		System.out.println();
 		System.out.println("Finished checking MultiStateKStar by exhaustive search in "+stopwatch.getTime(2));
 		System.out.println();
 	}
-	
+
 	/**
 	 * Prints all K* scores for all sequences in all states
 	 * @param stateKSS
