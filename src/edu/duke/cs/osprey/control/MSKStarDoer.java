@@ -11,7 +11,7 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.multistatekstar.InputValidation;
-import edu.duke.cs.osprey.multistatekstar.KStarScore;
+import edu.duke.cs.osprey.multistatekstar.FullyProcessedKStarScore;
 import edu.duke.cs.osprey.multistatekstar.KStarSettings;
 import edu.duke.cs.osprey.multistatekstar.LMV;
 import edu.duke.cs.osprey.multistatekstar.MSConfigFileParser;
@@ -241,7 +241,7 @@ public class MSKStarDoer {
 		ksSettings.ecalcs = ecalcs[state];
 		ksSettings.isReportingProgress = msParams.getBool("ISREPORTINGPROGRESS");
 
-		KStarScore ksScore = new KStarScore(ksSettings);
+		FullyProcessedKStarScore ksScore = new FullyProcessedKStarScore(ksSettings);
 		ksScore.compute(Integer.MAX_VALUE);
 		return ksScore.toString();
 	}
