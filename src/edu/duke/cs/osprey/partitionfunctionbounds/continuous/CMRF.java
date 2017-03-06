@@ -30,8 +30,10 @@ public class CMRF {
     public double[][] edgeProbs;
     public CMRFEdge[][] edges;
     
-    double threshold = 0.1;
+    double threshold = 0.0001;
     double constRT = PoissonBoltzmannEnergy.constRT;
+    int maxIters = 1000000;
+    double lambda = 0.7;
     
     boolean nodesAdded = false;
     
@@ -49,21 +51,19 @@ public class CMRF {
         double[][] b1 = new double[1][2]; b1[0][0] = 0; b1[0][1] = 1;
         double[] lb1 = new double[1]; lb1[0] = 0; 
         double[] ub1 = new double[1]; ub1[0] = 1;
-        Kernel k1 = new KernelGaussian( b1 , 0.25 );
-        CMRFNodeDomain d1 = new CMRFNodeDomain(lb1, ub1, k1, (point)->(-10) );
-                
-        CMRFNodeDomain[] nd1 = new CMRFNodeDomain[1]; nd1[0] = d1;
-        HashMap<Integer, CMRFNodeDomain[]> doms = new HashMap<>();
-        doms.put(0, nd1); 
-        
-        HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>> map1 = new HashMap<>();
-        HashMap<CMRFNodeDomain, HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>> map2 = new HashMap<>();
-        HashMap<Integer, HashMap<CMRFNodeDomain, HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>>> map3 = new HashMap<>();
-        HashMap<Integer, HashMap<Integer, HashMap<CMRFNodeDomain, HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>>>> map4 = new HashMap<>();
-        
-        CMRF c = new CMRF(2);
-        c.addNodes(doms, map4);        
-        c.runSCMF();
+	Kernel k1 = new KernelGaussian( b1 , 0.25 );
+	RKHSFunction f = new RKHSFunction(k1, lb1, ub1, (point)->(1.0));
+	
+	CMRFNodeDomain nd = new CMRFNodeDomain(lb1, ub1, k1, (point)->(-100));
+	HashMap<Integer, CMRFNodeDomain[]> h = new HashMap<>();
+	h.put(0, new CMRFNodeDomain[]{nd});
+	
+	CMRF c = new CMRF(1);
+	c.addNodes(h, null);
+	
+	for (int i=0; i<10; i++) { System.out.println(f.computeIntegral()); }
+	
+	c.runSCMF();
     }
 
 
@@ -379,36 +379,37 @@ public class CMRF {
      * Runs a mean-field approximation to the partition function for a lower bound on the log partition function 
      * @return 
      */
-    public double runSCMF() { 
-        this.initializeMarginalsSCMF();
-        
-        double oldEnth = Double.NEGATIVE_INFINITY;
-        double oldEntr = Double.POSITIVE_INFINITY; 
-        double oldLogZ = Double.NEGATIVE_INFINITY; 
-        
-        while (true) { 
-            this.updateMarginalsSCMF();
-            double enth = this.computeEnthalpySCMF();
-            double entr = this.computeEntropySCMF();
-            
-            double freeEnergy = enth + entr;
-            double logZ = freeEnergy; // freeEnergy is a direct lower bound on logZ
-            
-            if (logZ > oldLogZ) { 
-                
-                System.out.println("enth: "+enth+", entr: "+entr+", logZLB: "+logZ);
-                
-                if (Math.abs(logZ-oldLogZ) <= this.threshold) {
-                    System.out.println("DONE: logZLB: "+logZ);
-                    return logZ;
-                }
-                
-                oldEnth = enth;
-                oldEntr = entr;
-                oldLogZ = logZ;
-            }
-        }
-        
+    public double runSCMF() {
+	this.initializeMarginalsSCMF();
+	int iter = 0;
+	
+	double oldEnth = Double.NEGATIVE_INFINITY;
+	double oldEntr = Double.POSITIVE_INFINITY;
+	double oldLogZ = Double.NEGATIVE_INFINITY;
+	
+	while (true) {
+	    this.updateMarginalsSCMF();
+	    double enth = this.computeEnthalpySCMF();
+	    double entr = this.computeEntropySCMF();
+	    
+	    double freeEnergy = enth + entr;
+	    double logZ = freeEnergy; // freeEnergy is a direct lower bound on logZ
+	    
+	    if (logZ > oldLogZ) {
+		System.out.println("enth: "+enth+", entr: "+entr+", logZLB: "+logZ);
+		
+		if ((Math.abs(logZ-oldLogZ) <= this.threshold) || (iter >= maxIters)) {
+		    System.out.println("DONE: logZLB: "+logZ);
+		    return logZ;
+		}
+		
+		oldEnth = enth;
+		oldEntr = entr;
+		oldLogZ = logZ;
+	    }
+	    iter++;
+	}
+	
     }
     
     /**
@@ -420,8 +421,8 @@ public class CMRF {
 	    throw new RuntimeException("Can't initialize SCMF marginals for the"
 		    + "continuous-label MRF unless nodes have already been added. ");
 	}
-        
-        System.out.print("Initializing marginals... ");
+	
+	System.out.print("Initializing marginals... ");
         
         for (CMRFNode node : nodes) { 
             for (CMRFNodeDomain domain : node.domains) { 
@@ -443,112 +444,121 @@ public class CMRF {
      * Updates SCMF marginals 
      */
     public void updateMarginalsSCMF() { 
-        
-	/**
-	 * 
-	 * oneBodyE
-	 * meanFieldE
-	 * logUnn = -(oneBodyE + meanFieldE) / RT
-	 * meanFieldE = sum(averageE)
-	 * 
-	 * partFn \sum{logUnn}
-	 * logNB = logUnn/partFn
-	 * newB = oldB*lambda + (1-lambda)*logNb
-	 */
-        
-        // System.out.println("Updating marginals... ");
-        
-        // first make a buffer to hold all the new beliefs 
-        HashMap<CMRFNode, HashMap<CMRFNodeDomain, RKHSFunction>> newBeliefs = new HashMap<>();
-        for (CMRFNode node : nodes) { 
-            System.out.print("    Starting node "+this.getIndexInArray(node, nodes)+": ");
-            HashMap<CMRFNodeDomain, RKHSFunction> marginals = new HashMap<>();
-            for (CMRFNodeDomain domain : node.domains) { 
-                System.out.print("d"+this.getIndexInArray(domain, node.domains)+"/");
-                HashMap<CMRFNode, RKHSFunction> neighborFuncs = new HashMap<>();
-                
-                for (CMRFNode neighbor : nodes) { 
-                    if (neighbor == node) { continue; }
-                    System.out.print("n"+this.getIndexInArray(neighbor, nodes)+"/");
-                    
-                    RKHSFunction[] domainFuncs = new RKHSFunction[neighbor.domains.length];
-                    for (CMRFNodeDomain neighborDomain : neighbor.domains) { 
-                        System.out.print("d"+this.getIndexInArray(neighborDomain, neighbor.domains)+"/");
-                        
-                        // expectation of the log energy 
-                        
-                        RKHSFunction domainFunc = new RKHSFunction(
-                                domain.k,
-                                domain.domainLB,
-                                domain.domainUB,
-                                (point)->
-                                        (this.getSCMFUpdateValue(
-                                                node, 
-                                                neighbor, 
-                                                neighborDomain, 
-                                                point)));
-                                                
-                        domainFuncs[this.getIndexInArray(neighborDomain, neighbor.domains)] = domainFunc;
-                    }
-                    
-                    // sum over domains
-                    RKHSFunction neighborFunc = new RKHSFunction(
-                            domain.k,
-                            domain.domainLB,
-                            domain.domainUB,
-                            (point) -> this.sumOverMessages(point, domainFuncs));
-                    
-                    neighborFuncs.put(neighbor, neighborFunc);
-                }
-                
-                // sum over neighbors
-                ArrayList<CMRFNode> neighbors = new ArrayList(neighborFuncs.keySet());
-                RKHSFunction[] neighborMessages = new RKHSFunction[neighbors.size()];
-                for (int i=0; i<neighborMessages.length; i++) { 
-                    neighborMessages[i] = neighborFuncs.get(neighbors.get(i));
-                }
-                RKHSFunction domainFunc = new RKHSFunction(
-                        domain.k,
-                        domain.domainLB,
-                        domain.domainUB,
-                        (point)->(Math.exp(this.sumOverMessages(point, neighborMessages))));
-                final RKHSFunction df = domainFunc;
-                
-                // normalize
-                final double norm = domainFunc.computeIntegral();
-                domainFunc = new RKHSFunction(
-                        domain.k,
-                        domain.domainLB,
-                        domain.domainUB,
-                        (point)->(df.eval(point)/norm));
-                
-                marginals.put(domain, domainFunc);
-                // System.out.println("~ ");
-            }
-            
-            double normalizingConstant = 0.0;
-            for (RKHSFunction f : marginals.values()) { 
-                normalizingConstant += f.computeIntegral();
-            }
-            final double Q = normalizingConstant;
-            
-            marginals.keySet().stream().forEach((domain) -> { 
-                marginals.put(
-                        domain, 
-                        new RKHSFunction(
-                                domain.k,
-                                domain.domainLB,
-                                domain.domainUB,
-                                (point)->(marginals.get(domain).eval(point)/Q)));
-            });
-                        
-            newBeliefs.put(node, marginals);
-        }
-        
-        // now we load the new beliefs into the nodes 
-        for (CMRFNode node : nodes) { 
-            node.marginals = newBeliefs.get(node);
-        }
+        HashMap<CMRFNode, RKHSFunction[]> newBeliefs = new HashMap<>();
+	for (CMRFNode node : nodes) { 
+	    
+	    double partFn = 0.0;
+	    RKHSFunction[] domainMarginals = new RKHSFunction[node.domains.length];
+	    
+	    for (CMRFNodeDomain domain : node.domains) { 
+		int domainIndex = Arrays.asList(node.domains).indexOf(domain);
+		RKHSFunction oneBodyEnergy = domain.energyRKHS;
+		
+		// get a list of average interaction energy functions
+		ArrayList<RKHSFunction> avgInteractionEnergies = new ArrayList<>();
+		for (CMRFNode neighbor : nodes) { if (neighbor==node) { continue; }
+		    for (CMRFNodeDomain nDomain : neighbor.domains) { 
+			avgInteractionEnergies.add(
+				new RKHSFunction(
+					domain.k,
+					domain.domainLB,
+					domain.domainUB,
+					(point)->(pairwiseExpectation(
+						point, 
+						node, 
+						domain, 
+						neighbor, 
+						nDomain))));
+		    }
+		}
+		
+		// mean field energy is the sum of these average interactions
+		RKHSFunction[] avgInteractionE = 
+			new RKHSFunction[avgInteractionEnergies.size()];
+		for (int i=0; i<avgInteractionE.length; i++) { 
+		    avgInteractionE[i] = avgInteractionEnergies.get(i); 
+		}
+		RKHSFunction meanFieldE = new RKHSFunction(
+			domain.k,
+			domain.domainLB,
+			domain.domainUB,
+			(point)->sumOverMessages(point, avgInteractionE));
+		
+		RKHSFunction logUnnormalizedBelief = new RKHSFunction(
+			domain.k,
+			domain.domainLB,
+			domain.domainUB,
+			(point) -> (-(oneBodyEnergy.eval(point) + meanFieldE.eval(point))/this.constRT));
+		
+		final double logBeliefNormalizer = logUnnormalizedBelief.computeIntegral();
+		RKHSFunction logNormalizedBelief = new RKHSFunction(
+			domain.k,
+			domain.domainLB,
+			domain.domainUB,
+			(point)->(logUnnormalizedBelief.eval(point)/logBeliefNormalizer));
+		
+		RKHSFunction marginalBelief = new RKHSFunction(
+			domain.k,
+			domain.domainLB,
+			domain.domainUB,
+			(point)->(Math.exp(logNormalizedBelief.eval(point))));
+		
+		domainMarginals[domainIndex] = marginalBelief;
+		partFn += marginalBelief.computeIntegral();
+	    }
+	    
+	    // normalize marginals to get beliefs
+	    for (int i=0; i<domainMarginals.length; i++) { 
+		final double pF = partFn;
+		final RKHSFunction[] dMs = domainMarginals;
+		final RKHSFunction marg = domainMarginals[i];
+		domainMarginals[i] = new RKHSFunction(
+			dMs[i].k,
+			dMs[i].domainLB,
+			dMs[i].domainUB,
+			(point)->(marg.eval(point)/pF));
+	    }
+	    newBeliefs.put(node, domainMarginals);
+	}
+	
+	// now we update our beliefs
+	for (CMRFNode node : nodes) { 
+	    RKHSFunction[] domainMarginals = newBeliefs.get(node);
+	    for (int i=0; i<node.domains.length; i++) { 
+		final CMRFNodeDomain domain = node.domains[i];
+		final RKHSFunction oldM = node.marginals.get(domain);
+		final RKHSFunction newM = domainMarginals[i];
+		final double alpha = lambda;
+		node.marginals.put(domain, new RKHSFunction(
+			domain.k,
+			domain.domainLB,
+			domain.domainUB,
+			(point)->(alpha*newM.eval(point) + (1-alpha)*oldM.eval(point))));
+	    }
+	}
+	
+	lambda = lambda * (1 - 1.0/maxIters);
+    }
+    
+    public double pairwiseExpectation(
+	    double[] point, 
+	    CMRFNode node,
+	    CMRFNodeDomain domain,
+	    CMRFNode neighbor,
+	    CMRFNodeDomain nDomain) { 
+	int nodeIndex = Arrays.asList(nodes).indexOf(node);
+	int neighborIndex = Arrays.asList(nodes).indexOf(node);
+	
+	CMRFEdge e = edges[nodeIndex][neighborIndex];
+	CMRFEdgeDomain ed = e.getEdgeDomain(domain, nDomain);
+	
+	RKHSFunction func = new RKHSFunction(
+		nDomain.k,
+		nDomain.domainLB,
+		nDomain.domainUB,
+		(nPoint)->(ed.eFunc.applyAsDouble(CMRFEdgeDomain.concatArrays(point, nPoint))));
+	
+	return func.computeExpectation();
     }
 
     /**
@@ -570,31 +580,13 @@ public class CMRF {
                         d.domainLB,
                         d.domainUB,
                         (point) -> (
-                                probabilityFunc.eval(point) * Math.log(-d.energyRKHS.eval(point))));
+                                probabilityFunc.eval(point) * Math.log(-d.energyFunction.applyAsDouble(point))));
                 double domEnth = enthalpyFunc.computeIntegral();
-                if (!Double.isNaN(domEnth)) { 
+                if (Double.isNaN(domEnth)) { 
+		    throw new RuntimeException("Enthalpy is NaN.");
+                } else {
                     nodeEnthalpy += domEnth;
-                }
-//                if (Double.isNaN(domEnth)) { 
-//                    
-//                    System.out.println("prob: ");
-//                    Matrix m = probabilityFunc.dumpPoints();
-//                    m.print(1, 3);
-//                    
-//                    System.out.println("energy: ");
-//                    m = d.energyRKHS.dumpPoints();
-//                    m.print(1,3);
-//
-//                    System.out.println("enthalpy: ");
-//                    m = enthalpyFunc.dumpPoints();
-//                    m.print(3, 3);
-//                    
-//                    
-//                    throw new RuntimeException(
-//                            "NaN Enthalpy: node "+recNodeIndex+" domain "+this.getIndexInArray(d, v.domains)); 
-//                }
-//                nodeEnthalpy += domEnth;
-                
+		}
             }
             totalEnthalpy += nodeEnthalpy;
         }
@@ -618,65 +610,15 @@ public class CMRF {
                         (point)->(-domainPDF.eval(point)*
                                 Math.log((domainPDF.eval(point)))));
                 double domainEntropy = domainEntropyFunc.computeIntegral();
-//                if (Double.isNaN(domainEntropy)) { 
-//                    
-//                    Matrix m = domainPDF.dumpPoints();
-//                    m.print(1, 7);
-//                    
-//                    m = domainEntropyFunc.dumpPoints();
-//                    m.print(1, 7);
-//                    
-//                    throw new RuntimeException("NaN Entropy");
-//                }
-                if (!Double.isNaN(domainEntropy)) { nodeEntropy += domainEntropy; }
+                if (!Double.isNaN(domainEntropy)) { 
+		    nodeEntropy += domainEntropy; 
+		}
             }
             totalEntropy += nodeEntropy;
         }
         return totalEntropy;
     }
-    
-    /**
-     * Returns the modified log function for the SCMF belief updates 
-     * @param node
-     * @param neighbor
-     * @param neighborDomain
-     * @param point
-     * @return 
-     */    
-    public double getSCMFUpdateValue(
-            CMRFNode node,
-            CMRFNode neighbor,
-            CMRFNodeDomain neighborDomain, // domain should be from the neighbor
-            double[] point) { 
-
-        CMRFNodeDomain pointDomain = node.getDomainForPoint(point);
         
-        RKHSFunction neighborMarginal = neighbor.marginals.get(neighborDomain);
-        RKHSFunction nodeMarginal = node.marginals.get(pointDomain);
-        
-        int nodeIndex = this.getIndexInArray(node, nodes);
-        int neighborIndex = this.getIndexInArray(neighbor, nodes);
-
-        RKHSFunction pairwiseEFunc = 
-                this.edges[nodeIndex][neighborIndex].getEdgeDomain(
-                        pointDomain,
-                        neighborDomain).eFuncRKHS;
-        RKHSFunction pairwisePFunc = 
-                this.edges[nodeIndex][neighborIndex].getEdgeDomain(
-                        pointDomain,
-                        neighborDomain).pFuncRKHS;
-        
-        // expectation w/r/t Q of ln(-E)
-        return new RKHSFunction(
-                neighborDomain.k,
-                neighborDomain.domainLB,
-                neighborDomain.domainUB,
-                (nPoint) -> 
-                        (Math.log(-1*(
-				pairwiseEFunc.eval(concatArrays(point, nPoint)))))).computeExpectation();
-    }
-
-    
         
     /**
      * Adds a list of nodes to the cMRF -- each node is given a set of domains and edges are set up
@@ -699,7 +641,7 @@ public class CMRF {
 	}
                
         for (int i=0; i<nodes.length; i++) { 
-            for (int j=i; j<nodes.length; j++) { 
+            for (int j=i; j<i; j++) { 
                 if (i==j) { continue; } // no self loops
                 edges[i][j] = new CMRFEdge(
                         nodes[i], 

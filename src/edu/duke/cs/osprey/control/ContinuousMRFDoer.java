@@ -4,12 +4,12 @@ import java.util.ArrayList;
 import java.util.StringTokenizer;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
-import edu.duke.cs.osprey.multistatekstar.MultiStateConfigFileParser;
+import edu.duke.cs.osprey.multistatekstar.MSConfigFileParser;
 import edu.duke.cs.osprey.pruning.PruningControl;
 
 public class ContinuousMRFDoer {
 
-	MultiStateConfigFileParser cfp;//config file parser
+	MSConfigFileParser cfp;//config file parser
 	SearchProblem[] search;//searchproblems by strand
 	ArrayList<ArrayList<Integer>> mutRes;//mutable residues by strand
 	int numStates;
@@ -21,7 +21,7 @@ public class ContinuousMRFDoer {
 			throw new RuntimeException("ERROR: bad arguments (should start with -c)");
 
 		//read params
-		cfp = new MultiStateConfigFileParser(args);
+		cfp = new MSConfigFileParser(args);
 		cfp.getParams().setVerbosity(false);
 		cfp.loadData();
 

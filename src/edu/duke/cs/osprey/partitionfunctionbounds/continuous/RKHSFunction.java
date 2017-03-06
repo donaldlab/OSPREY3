@@ -4,6 +4,7 @@ import java.util.function.ToDoubleFunction;
 import Jama.*;
 import cern.colt.Arrays;
 import java.util.ArrayList;
+import java.util.Random;
 
 /**
  * A reproducing kernel Hilbert space (RKHS) representation of a function that represents arbitrary
@@ -60,6 +61,16 @@ public class RKHSFunction {
         this.k = firstK;
         this.domainLB = new Matrix(firstK.bounds).transpose().getArray()[0];
         this.domainUB = new Matrix(firstK.bounds).transpose().getArray()[1];
+    }
+    
+    public RKHSFunction(Kernel k, double[] domainLB, double[] domainUB, ToDoubleFunction<double[]> f, int x) { 
+        int numDims = domainLB.length;
+        this.numSamplesPerDimension = x;
+        this.domainLB = domainLB;
+        this.domainUB = domainUB;
+        this.k = k;
+        this.referenceFunction = f;
+        this.gridSampleFit(k, f, domainLB, domainUB, true);
     }
     
     /**
@@ -421,15 +432,17 @@ newFeatureMaps[fMapIndex] = new FeatureMap(this.k, cdfPoint);
      * @return totalIntegral
      */
     public double computeIntegral() {
+	
         RKHSFunction measure = this.getLebesgueMeasure(this.domainLB, this.domainUB);
+	
         double domainVolume = 1.0;
-        
         for (int i=0; i<domainLB.length; i++) {
             domainVolume = domainVolume * (domainUB[i] - domainLB[i]);
         }
-                
+	final double vol = domainVolume;
+	
         double totalIntegral = domainVolume * this.innerProduct(measure);
-        
+	
         return totalIntegral;
     }
     
@@ -453,14 +466,14 @@ newFeatureMaps[fMapIndex] = new FeatureMap(this.k, cdfPoint);
      */
     public RKHSFunction getLebesgueMeasure(double[] lBounds, double[] uBounds) {
         int numDimensions= lBounds.length;
-        
-        int numUniformSamples = 100;
+	Random r = new Random(0);
+        int numUniformSamples = 10000;
         
         double measureCoeff = 1.0/numUniformSamples;
         double[][] uniformSamples = new double[numUniformSamples][numDimensions];
         for (double[] uniformSample : uniformSamples) {
             for (int dim = 0; dim < uniformSample.length; dim++) {
-                uniformSample[dim] = Math.random() * (uBounds[dim] - lBounds[dim]) + lBounds[dim];
+                uniformSample[dim] = r.nextDouble() * (uBounds[dim] - lBounds[dim]) + lBounds[dim];
             }
         }
         FeatureMap[] measureFMs = new FeatureMap[numUniformSamples];
