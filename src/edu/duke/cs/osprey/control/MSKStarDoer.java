@@ -7,6 +7,8 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.StringTokenizer;
@@ -58,6 +60,16 @@ public class MSKStarDoer {
 	public ConfEnergyCalculator.Async[][] ecalcs;//global energy calculator objects
 
 	public MSKStarDoer(String args[]) {
+		
+		BigDecimal p = new BigDecimal("6.333757e+67").setScale(32, RoundingMode.HALF_UP);
+		BigDecimal l = new BigDecimal("1.189795e+01").setScale(32, RoundingMode.HALF_UP);
+		BigDecimal pl = new BigDecimal("1.491220e+59").setScale(32, RoundingMode.HALF_UP);
+		BigDecimal denom = p.multiply(l);
+		BigDecimal ratio = pl.divide(denom, RoundingMode.HALF_UP);
+		System.out.println(String.format("%12e", ratio));
+		int a = 9;
+		if(a==9) System.exit(0);
+		
 		// silence warnings when using non-amino acids
 		BigForcefieldEnergy.ParamInfo.printWarnings = false;
 		ForcefieldParams.printWarnings = false;

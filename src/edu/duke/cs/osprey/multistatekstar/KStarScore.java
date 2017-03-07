@@ -1,10 +1,12 @@
 package edu.duke.cs.osprey.multistatekstar;
 
+import java.math.BigDecimal;
+
 public interface KStarScore {
 
-	public double getScore();
-	public double getLowerBoundScore();
-	public double getUpperBoundScore();
+	public BigDecimal getScore();
+	public BigDecimal getLowerBoundScore();
+	public BigDecimal getUpperBoundScore();
 	
 	public String toString();
 	public void compute(int maxNumConfs);

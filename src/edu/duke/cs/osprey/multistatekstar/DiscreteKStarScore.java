@@ -1,11 +1,13 @@
 package edu.duke.cs.osprey.multistatekstar;
 
+import java.math.BigDecimal;
+
 public class DiscreteKStarScore implements KStarScore {
 
 	@Override
-	public double getScore() {
+	public BigDecimal getScore() {
 		// TODO Auto-generated method stub
-		return 0;
+		return BigDecimal.ZERO;
 	}
 	
 	public String toString() {
@@ -31,12 +33,12 @@ public class DiscreteKStarScore implements KStarScore {
 	}
 
 	@Override
-	public double getLowerBoundScore() {
+	public BigDecimal getLowerBoundScore() {
 		return getScore();
 	}
 
 	@Override
-	public double getUpperBoundScore() {
+	public BigDecimal getUpperBoundScore() {
 		return getScore();
 	}
 

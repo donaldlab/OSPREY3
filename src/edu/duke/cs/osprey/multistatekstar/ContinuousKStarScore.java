@@ -30,29 +30,29 @@ public class ContinuousKStarScore implements KStarScore {
 		constrSatisfied = true;
 	}
 
-	public double getScore() {
+	public BigDecimal getScore() {
 		PartitionFunction pf;
-		BigDecimal ans = BigDecimal.ONE; int state;
+		BigDecimal ans = BigDecimal.ONE.setScale(64, RoundingMode.HALF_UP); int state;
 		for(state=0;state<partitionFunctions.length-1;++state) {
 			pf = partitionFunctions[state];
 			if(pf.getValues().qstar.compareTo(BigDecimal.ZERO)==0)
-				return 0.0;
+				return BigDecimal.ZERO;
 			ans = ans.multiply(pf.getValues().qstar);
 		}
 		pf = partitionFunctions[state];
-		return pf.getValues().qstar.divide(ans, RoundingMode.HALF_UP).doubleValue();
+		return pf.getValues().qstar.divide(ans, RoundingMode.HALF_UP);
 	}
 	
 	@Override
-	public double getLowerBoundScore() {
+	public BigDecimal getLowerBoundScore() {
 		// TODO Auto-generated method stub
-		return 0;
+		return BigDecimal.ZERO;
 	}
 
 	@Override
-	public double getUpperBoundScore() {
+	public BigDecimal getUpperBoundScore() {
 		// TODO Auto-generated method stub
-		return 0;
+		return BigDecimal.ZERO;
 	}
 
 	public String toString() {
