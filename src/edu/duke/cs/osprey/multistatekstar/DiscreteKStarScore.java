@@ -1,6 +1,6 @@
 package edu.duke.cs.osprey.multistatekstar;
 
-public class BoundedKStarScore implements KStarScore {
+public class DiscreteKStarScore implements KStarScore {
 
 	@Override
 	public double getScore() {
@@ -22,6 +22,22 @@ public class BoundedKStarScore implements KStarScore {
 	public boolean constrSatisfied() {
 		// TODO Auto-generated method stub
 		return false;
+	}
+
+	@Override
+	public boolean computed() {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public double getLowerBoundScore() {
+		return getScore();
+	}
+
+	@Override
+	public double getUpperBoundScore() {
+		return getScore();
 	}
 
 }

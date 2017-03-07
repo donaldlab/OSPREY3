@@ -1,17 +1,21 @@
 package edu.duke.cs.osprey.control;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.StringTokenizer;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.multistatekstar.InputValidation;
-import edu.duke.cs.osprey.multistatekstar.FullyProcessedKStarScore;
+import edu.duke.cs.osprey.multistatekstar.ContinuousKStarScore;
 import edu.duke.cs.osprey.multistatekstar.KStarSettings;
 import edu.duke.cs.osprey.multistatekstar.LMV;
 import edu.duke.cs.osprey.multistatekstar.MSConfigFileParser;
@@ -187,7 +191,7 @@ public class MSKStarDoer {
 		cleanupEnergyCalculators();
 	}
 
-	private String calcStateKSScore(int state, String[] boundStateAATypes) {
+	private String calcStateKSScore(int state, ArrayList<String> boundStateAATypes) {
 
 		//get arraylist formatted sequence for each substate
 		ArrayList<ArrayList<ArrayList<String>>> subStateAATypes = new ArrayList<>();
@@ -199,7 +203,7 @@ public class MSKStarDoer {
 			ArrayList<Integer> boundStateResNums = mutable2StateResNums.get(state).get(mutable2StateResNums.get(state).size()-1);
 			for(int resNum : subStateResNums){
 				int index = boundStateResNums.indexOf(resNum);
-				ArrayList<String> aa = new ArrayList<>(); aa.add(boundStateAATypes[index]);
+				ArrayList<String> aa = new ArrayList<>(); aa.add(boundStateAATypes.get(index));
 				subStateAATypes.get(subState).add(aa);
 			}
 		}
@@ -241,7 +245,7 @@ public class MSKStarDoer {
 		ksSettings.ecalcs = ecalcs[state];
 		ksSettings.isReportingProgress = msParams.getBool("ISREPORTINGPROGRESS");
 
-		FullyProcessedKStarScore ksScore = new FullyProcessedKStarScore(ksSettings);
+		ContinuousKStarScore ksScore = new ContinuousKStarScore(ksSettings);
 		ksScore.compute(Integer.MAX_VALUE);
 		return ksScore.toString();
 	}
@@ -338,7 +342,7 @@ public class MSKStarDoer {
 	}
 
 	protected void printAllSeqs(){
-		ArrayList<ArrayList<String[]>> stateSeqLists = listAllSeqs();
+		ArrayList<ArrayList<ArrayList<String>>> stateSeqLists = listAllSeqs();
 		for(int state=0;state<stateSeqLists.size();++state){
 
 			int numSeqs=stateSeqLists.get(state).size();
@@ -347,7 +351,7 @@ public class MSKStarDoer {
 			System.out.println("State"+state+": "+numSeqs+" sequences with <= "+numMaxMut+" mutation(s) from wild-type");
 			System.out.println();
 
-			for(String[] seq : stateSeqLists.get(state)){ 
+			for(ArrayList<String> seq : stateSeqLists.get(state)){ 
 				for(String aa : seq) System.out.print(aa+" ");
 				System.out.println();
 			}
@@ -359,10 +363,10 @@ public class MSKStarDoer {
 	 * from the wilt type sequence.
 	 * @return
 	 */
-	private ArrayList<ArrayList<String[]>> listAllSeqs(){
+	private ArrayList<ArrayList<ArrayList<String>>> listAllSeqs(){
 		//for all bound states, list all possible sequences for the mutable residues,
 		//based on AATypeOptions
-		ArrayList<ArrayList<String[]>> ans = new ArrayList<>();
+		ArrayList<ArrayList<ArrayList<String>>> ans = new ArrayList<>();
 
 		//pre-allocate buffer
 		String[] buf = new String[numTreeLevels];
@@ -370,7 +374,7 @@ public class MSKStarDoer {
 		for(int state=0;state<numStates;++state) {
 			int subState = AATypeOptions.get(state).size()-1;
 			ArrayList<ArrayList<String>> subStateAATypeOptions = AATypeOptions.get(state).get(subState);
-			ArrayList<String[]> stateOutput = new ArrayList<>();
+			ArrayList<ArrayList<String>> stateOutput = new ArrayList<>();
 
 			//get allowed sequences for this state's bound complex
 			listAllSeqsHelper(subStateAATypeOptions, stateOutput, wtSeqs.get(state), buf, 0, 0);
@@ -383,12 +387,14 @@ public class MSKStarDoer {
 	}
 
 	private void listAllSeqsHelper(ArrayList<ArrayList<String>> subStateAATypeOptions, 
-			ArrayList<String[]> stateOutput, String[] wt, String[] buf, int depth, int dist){
+			ArrayList<ArrayList<String>> stateOutput, String[] wt, String[] buf, int depth, int dist){
 		//List all sequences for the subset of mutable positions with max distance
 		//from wt starting at depth=0 and going to the last mutable position
 		if(depth==numTreeLevels){
-			String[] seq = new String[numTreeLevels];
-			System.arraycopy(buf, 0, seq, 0, numTreeLevels);
+			//String[] seq = new String[numTreeLevels];
+			//System.arraycopy(buf, 0, seq, 0, numTreeLevels);
+			ArrayList<String> seq = new ArrayList<String>(Arrays.asList(buf));
+			seq.trimToSize();
 			stateOutput.add(seq);
 			return;
 		}
@@ -444,34 +450,49 @@ public class MSKStarDoer {
 
 		Stopwatch stopwatch = new Stopwatch().start();
 
-		ArrayList<ArrayList<String[]>> seqList = listAllSeqs();
-		int numSeqs = seqList.get(0).size();
-		String[][] stateKSS = new String[numStates][numSeqs];
+		ArrayList<ArrayList<ArrayList<String>>> seqList = listAllSeqs();
+		String fname = "sequences-exhaustive.txt";
+		boolean resume = msParams.getBool("RESUME");
+		if(resume) {
+			ArrayList<ArrayList<ArrayList<String>>> completed = getCompletedSeqs(fname);
+			for(int state=0;state<numStates;++state){
+				for(ArrayList<String> seq : completed.get(state)){
+					if(seqList.get(state).contains(seq))
+						seqList.get(state).remove(seq);
+				}
+			}
+		}
+
+		String[][] stateKSS = new String[numStates][];
+		for(int state=0;state<numStates;++state) stateKSS[state] = new String[seqList.get(state).size()];
 		ecalcs = new ConfEnergyCalculator.Async[numStates][];
 
 		try {
-			String fname = "sequences-exhaustive.txt";
-			ObjectIO.delete(fname);
+			if(!resume) 
+				ObjectIO.delete(fname);
+
 			PrintStream fout = new PrintStream(new FileOutputStream(new File(fname), true));
-			
+
 			for(int state=0; state<numStates; state++){
 
-				fout.println();
-				fout.println("State"+state+": ");
-				fout.println();
+				if(stateKSS[state].length>0) {
+					fout.println();
+					fout.println("State"+state+": ");
+					fout.println();
+				}
 
 				//make energy calculators for this state
 				ecalcs[state] = makeEnergyCalculators(state, cfps[state].getParams().getBool("DOMINIMIZE"));
 
-				for(int seqNum=0; seqNum<numSeqs; seqNum++){
+				for(int seqNum=0; seqNum<stateKSS[state].length; seqNum++){
 					stateKSS[state][seqNum] = calcStateKSScore(state, seqList.get(state).get(seqNum));
-					
+
 					fout.println(stateKSS[state][seqNum]);
 				}
 
 				cleanupEnergyCalculators(state);
 			}
-			
+
 			fout.flush();
 			fout.close();
 		} catch (FileNotFoundException e) {
@@ -492,13 +513,67 @@ public class MSKStarDoer {
 	 */
 	private void printAllKStarScores(String[][] stateKSS){
 		for(int state=0;state<numStates;++state){
-			System.out.println();
-			System.out.println("State"+state+": ");
-			System.out.println();
+			if(stateKSS[state].length>0) {
+				System.out.println();
+				System.out.println("State"+state+": ");
+				System.out.println();
+			}
 			String[] kss = stateKSS[state];
 			for(int subState=0;subState<kss.length;++subState){
 				System.out.println(kss[subState]);
 			}
 		}
+	}
+
+	ArrayList<ArrayList<ArrayList<String>>> getCompletedSeqs(String fname) {
+		ArrayList<ArrayList<ArrayList<String>>> ans = new ArrayList<>();
+
+		if(!(new File(fname)).exists()) return ans;
+
+		for(int state=0;state<numStates;++state) ans.add(new ArrayList<>());
+
+		try (BufferedReader br = new BufferedReader(new FileReader(fname))) {
+			String line;
+			int state=0;
+			while ((line = br.readLine()) != null) {
+
+				if(line.length()==0) continue;
+
+				//first find state
+				else if(line.startsWith("State")) {
+					line = line.toLowerCase();
+					line = line.replace("state", "");
+					line = line.replace(":", "").trim();
+					state = Integer.valueOf(line);
+					continue;
+				}
+
+				//records for state
+				else if(line.startsWith("Seq")) {
+					StringTokenizer st = new StringTokenizer(line, ":");
+					while(st.hasMoreTokens()) {
+						String token = st.nextToken();
+						if(!token.contains("score")) continue;
+						token = token.replace("score", "");
+						token = token.replace(",", "");
+						token = token.trim();
+
+						StringTokenizer st1 = new StringTokenizer(token);
+						ArrayList<String> val1 = new ArrayList<>();
+						while(st1.hasMoreTokens()) val1.add(st1.nextToken().split("-")[0]);
+						//String[] val2 = new String[st1.countTokens()];
+						//val2 = val1.toArray(val2);
+						val1.trimToSize();
+						ans.get(state).add(val1);
+					}
+				}
+			}
+
+			br.close();
+
+		} catch (IOException e) { e.printStackTrace(); }
+
+
+		return ans;
 	}
 }

@@ -6,23 +6,27 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.PriorityQueue;
 
-import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
+import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.control.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction.Status;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
-public class FullyProcessedKStarScore implements KStarScore {
+public class ContinuousKStarScore implements KStarScore {
 
 	public KStarSettings settings;
 	public ParallelPartitionFunction[] partitionFunctions;
+	protected boolean[] initialized;
 	public int numStates;
 	private boolean constrSatisfied;
 
-	public FullyProcessedKStarScore(KStarSettings settings) {
+	public ContinuousKStarScore(KStarSettings settings) {
 		this.settings = settings;
 		numStates = settings.search.length;
 		partitionFunctions = new ParallelPartitionFunction[numStates];
+		initialized = new boolean[numStates];
 		Arrays.fill(partitionFunctions, null);
+		Arrays.fill(initialized, false);
 		constrSatisfied = true;
 	}
 
@@ -38,6 +42,18 @@ public class FullyProcessedKStarScore implements KStarScore {
 		pf = partitionFunctions[state];
 		return pf.getValues().qstar.divide(ans, RoundingMode.HALF_UP).doubleValue();
 	}
+	
+	@Override
+	public double getLowerBoundScore() {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+	@Override
+	public double getUpperBoundScore() {
+		// TODO Auto-generated method stub
+		return 0;
+	}
 
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
@@ -51,6 +67,44 @@ public class FullyProcessedKStarScore implements KStarScore {
 		String ans = sb.toString().trim();
 		return ans.substring(0,ans.length()-1);
 	}
+	
+	protected void init(int state) {
+		//first prune the pruning matrix
+		settings.search[state].prunePmat();
+		
+		//make conf search factory (i.e. A* tree)
+		ConfSearchFactory confSearchFactory = KStarSettings.makeConfSearchFactory(settings.search[state], settings.cfp);
+		
+		//create partition function
+		partitionFunctions[state] = (ParallelPartitionFunction) KStarSettings.makePartitionFunction( 
+				settings.search[state].emat, 
+				settings.search[state].pruneMat,
+				confSearchFactory,
+				settings.ecalcs[state]
+				);
+
+		partitionFunctions[state].setReportProgress(settings.isReportingProgress);
+
+		//init partition function
+		partitionFunctions[state].init(settings.targetEpsilon);
+
+		//create priority queue for top confs if requested
+		if(settings.search[state].isFullyDefined() && settings.numTopConfsToSave > 0) {
+
+			partitionFunctions[state].topConfs = new PriorityQueue<ScoredConf>(
+					settings.numTopConfsToSave, 
+					new ConfComparator()
+					);
+
+			partitionFunctions[state].maxNumTopConfs = settings.numTopConfsToSave;
+
+			final int pfState = state;
+			partitionFunctions[state].setConfListener((ScoredConf conf) -> {
+				partitionFunctions[pfState].saveConf(conf);
+			});
+			
+		}
+	}
 
 	/**
 	 * compute until maxNumConfs conformations have been processed
@@ -63,42 +117,9 @@ public class FullyProcessedKStarScore implements KStarScore {
 			if(!constrSatisfied)
 				return;
 
-			//first prune the pruning matrix
-			settings.search[state].prunePmat();
+			if(!initialized[state])
+				initialized[state] = true;
 			
-			//make conf search factory (i.e. A* tree)
-			ConfSearchFactory confSearchFactory = KStarSettings.makeConfSearchFactory(settings.search[state], settings.cfp);
-			
-			//create partition function
-			partitionFunctions[state] = (ParallelPartitionFunction) KStarSettings.makePartitionFunction( 
-					settings.search[state].emat, 
-					settings.search[state].pruneMat,
-					confSearchFactory,
-					settings.ecalcs[state]
-					);
-
-			partitionFunctions[state].setReportProgress(settings.isReportingProgress);
-
-			//init partition function
-			partitionFunctions[state].init(settings.targetEpsilon);
-
-			//create priority queue for top confs if requested
-			if(settings.search[state].isFullyDefined() && settings.numTopConfsToSave > 0) {
-
-				partitionFunctions[state].econfs = new PriorityQueue<EnergiedConf>(
-						settings.numTopConfsToSave, 
-						new EnergiedConfComparator()
-						);
-
-				partitionFunctions[state].maxNumTopConfs = settings.numTopConfsToSave;
-
-				final int pfState = state;
-				partitionFunctions[state].setConfListener((EnergiedConf econf) -> {
-					partitionFunctions[pfState].saveEConf(econf);
-				});
-				
-			}
-
 			compute(state, maxNumConfs);
 		}
 		
@@ -167,8 +188,9 @@ public class FullyProcessedKStarScore implements KStarScore {
 		if(pf.getValues().getEffectiveEpsilon() > settings.targetEpsilon) {
 			ParallelPartitionFunction p2pf = (ParallelPartitionFunction) phase2(state);
 			pf.getValues().qstar = pf.getValues().qstar.add(p2pf.getValues().qstar);
+			pf.setStatus(p2pf.getStatus());
 			if(settings.search[state].isFullyDefined() && settings.numTopConfsToSave > 0)
-				pf.saveEConfs(p2pf.econfs);
+				pf.saveEConfs(p2pf.topConfs);
 		}
 		
 		constrSatisfied = checkConstraints(state);
@@ -241,5 +263,14 @@ public class FullyProcessedKStarScore implements KStarScore {
 	@Override
 	public boolean constrSatisfied() {
 		return constrSatisfied;
+	}
+
+	@Override
+	public boolean computed() {
+		for(int state=0;state<numStates;++state) {
+			PartitionFunction pf = partitionFunctions[state];
+			if(pf.getStatus()==Status.Estimating) return false;
+		}
+		return true;
 	}
 }
