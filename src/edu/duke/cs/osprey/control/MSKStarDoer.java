@@ -530,6 +530,7 @@ public class MSKStarDoer {
 
 	ArrayList<ArrayList<ArrayList<String>>> getCompletedSeqs(String fname) {
 		ArrayList<ArrayList<ArrayList<String>>> ans = new ArrayList<>();
+		for(int state=0;state<numStates;++state) ans.add(new ArrayList<>());
 
 		if(!(new File(fname)).exists()) return ans;
 
