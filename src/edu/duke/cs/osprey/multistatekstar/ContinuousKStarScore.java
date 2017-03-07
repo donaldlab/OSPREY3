@@ -68,7 +68,7 @@ public class ContinuousKStarScore implements KStarScore {
 		return ans.substring(0,ans.length()-1);
 	}
 	
-	protected void init(int state) {
+	protected boolean init(int state) {
 		//first prune the pruning matrix
 		settings.search[state].prunePmat();
 		
@@ -104,6 +104,8 @@ public class ContinuousKStarScore implements KStarScore {
 			});
 			
 		}
+		
+		return true;
 	}
 
 	/**
@@ -118,7 +120,7 @@ public class ContinuousKStarScore implements KStarScore {
 				return;
 
 			if(!initialized[state])
-				initialized[state] = true;
+				initialized[state] = init(state);
 			
 			compute(state, maxNumConfs);
 		}
