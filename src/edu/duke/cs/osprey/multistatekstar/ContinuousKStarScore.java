@@ -32,7 +32,7 @@ public class ContinuousKStarScore implements KStarScore {
 
 	public BigDecimal getScore() {
 		PartitionFunction pf;
-		BigDecimal ans = BigDecimal.ONE.setScale(64, RoundingMode.HALF_UP); int state;
+		BigDecimal ans = BigDecimal.ONE.setScale(128, RoundingMode.HALF_UP); int state;
 		for(state=0;state<partitionFunctions.length-1;++state) {
 			pf = partitionFunctions[state];
 			if(pf.getValues().qstar.compareTo(BigDecimal.ZERO)==0)
