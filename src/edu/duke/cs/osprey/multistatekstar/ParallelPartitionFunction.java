@@ -23,7 +23,7 @@ import edu.duke.cs.osprey.tools.Stopwatch;
 
 public class ParallelPartitionFunction extends ParallelConfPartitionFunction {
 
-	protected PriorityQueue<EnergiedConf> econfs;
+	protected PriorityQueue<ScoredConf> topConfs;
 	protected int maxNumTopConfs;
 	protected BigDecimal qstarScoreWeights;
 	protected int numActiveThreads;
@@ -32,38 +32,46 @@ public class ParallelPartitionFunction extends ParallelConfPartitionFunction {
 			Async ecalc) {
 		super(emat, pmat, confSearchFactory, ecalc);
 		qstarScoreWeights = null;
-		econfs = null;
+		topConfs = null;
 	}
 
 	protected void writeTopConfs(int state, MSSearchProblem search) {
-		if(econfs==null || econfs.size()==0) return;
+		if(topConfs==null || topConfs.size()==0) return;
 		String seq = search.settings.getFormattedSequence();
 		if(isReportingProgress) {
-			System.out.println("Writing top "+ econfs.size()+" confs:");
+			System.out.println("Writing top "+ topConfs.size()+" confs:");
 		}
 		seq = seq.replace(" ", ".");
 		String dir = "topConfs"+File.separator+"State."+state+File.separator+seq;
 		ObjectIO.makeDir(dir, false);
-		for(int i=econfs.size()-1;i>-1;--i) {
-			if(isReportingProgress)
-				System.out.println(String.format("conf: %4d.pdf, energy: %.6f", i, econfs.peek().getEnergy()));
+		for(int i=topConfs.size()-1;i>-1;--i) {
+			if(isReportingProgress) {
+				ScoredConf head = topConfs.peek();
+				double energy = head instanceof EnergiedConf ? ((EnergiedConf)head).getEnergy() : head.getScore();
+				System.out.println(String.format("conf: %4d.pdf, energy: %.6f", i, energy));
+			}
 			String PDBFileName = dir+File.separator+i+".pdb";
-			search.outputMinimizedStruct(econfs.poll().getAssignments(), PDBFileName);
+			search.outputMinimizedStruct(topConfs.poll().getAssignments(), PDBFileName);
 		}
 	}
 
-	protected void saveEConf(EnergiedConf econf) {
-		if(econfs.size() >= maxNumTopConfs) {
-			if(econfs.peek().getEnergy() > econf.getEnergy()) econfs.poll();
+	protected void saveConf(ScoredConf conf) {
+		if(topConfs.size() >= maxNumTopConfs) {
+			
+			ScoredConf head = topConfs.peek();
+			double e1 = head instanceof EnergiedConf ? ((EnergiedConf)head).getEnergy() : head.getScore();
+			double e2 = conf instanceof EnergiedConf ? ((EnergiedConf)conf).getEnergy() : conf.getScore();
+			
+			if(e1 > e2) topConfs.poll();
 			else return;
 		}
-		econfs.add(econf);
+		topConfs.add(conf);
 	}
 
-	protected void saveEConfs(PriorityQueue<EnergiedConf> other) {
-		if(econfs==null || other==null) return;
+	protected void saveEConfs(PriorityQueue<ScoredConf> other) {
+		if(topConfs==null || other==null) return;
 		while(other.size()>0) 
-			saveEConf(other.poll());
+			saveConf(other.poll());
 	}
 
 	@Override
@@ -222,10 +230,11 @@ public class ParallelPartitionFunction extends ParallelConfPartitionFunction {
 		ecalc.waitForFinish();
 	}
 
-	void phase1Output(EnergiedConf econf) {
+	void phase1Output(ScoredConf conf) {
 		MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
+		double confVal = conf instanceof EnergiedConf ? ((EnergiedConf)conf).getEnergy() : conf.getScore();
 		System.out.println(String.format("conf: %4d, energy: %.6f, q*: %12e, q': %12e, p*: %12e, epsilon: %.6f, time: %10s, heapMem: %.0f%%",
-				numConfsEvaluated, econf.getEnergy(), values.qstar, values.qprime, values.pstar, values.getEffectiveEpsilon(),
+				numConfsEvaluated, confVal, values.qstar, values.qprime, values.pstar, values.getEffectiveEpsilon(),
 				stopwatch.getTime(2),
 				100f*heapMem.getUsed()/heapMem.getMax()
 				));
@@ -321,13 +330,18 @@ public class ParallelPartitionFunction extends ParallelConfPartitionFunction {
 		ecalc.waitForFinish();
 	}
 
-	void phase2Output(EnergiedConf econf, BigDecimal pdiff) {
+	void phase2Output(ScoredConf conf, BigDecimal pdiff) {
 		MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
+		double confVal = conf instanceof EnergiedConf ? ((EnergiedConf)conf).getEnergy() : conf.getScore();
 		System.out.println(String.format("conf: %4d, energy: %.6f, q*: %12e, q': %12e, score diff: %12e, epsilon: %.6f, time: %10s, heapMem: %.0f%%",
-				numConfsEvaluated, econf.getEnergy(), values.qstar, values.qprime, pdiff, values.getEffectiveEpsilon(),
+				numConfsEvaluated, confVal, values.qstar, values.qprime, pdiff, values.getEffectiveEpsilon(),
 				stopwatch.getTime(2),
 				100f*heapMem.getUsed()/heapMem.getMax()
 				));
+	}
+	
+	public void setStatus(Status val) {
+		status = val;
 	}
 
 }
