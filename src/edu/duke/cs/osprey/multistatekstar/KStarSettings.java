@@ -13,17 +13,25 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 public class KStarSettings {
 	
+	public enum ScoreType {
+	    Continuous,
+	    Discrete,
+	    DiscreteLowerBound,
+	    DiscreteUpperBound;
+	}
+	
 	public boolean isReportingProgress;
 	public double targetEpsilon;
 	public int state;
 	public int numTopConfsToSave;
 	public MSConfigFileParser cfp;
 	public MSSearchProblem[] search;
+	public ScoreType scoreType;
 	public LMV[] constraints;
 	public ConfEnergyCalculator.Async[] ecalcs;
 
 	public KStarSettings() {}
-
+	
 	public static ConfEnergyCalculator.Async makeEnergyCalculator(
 			MSConfigFileParser cfp,
 			SearchProblem multiSeqSearch
@@ -50,8 +58,10 @@ public class KStarSettings {
 			EnergyMatrix emat,
 			PruningMatrix pruneMat, 
 			ConfSearchFactory confSearchFactory,
-			ConfEnergyCalculator.Async ecalc
+			ConfEnergyCalculator.Async ecalc,
+			boolean cont
 			) {
+		if(!cont) return new SerialPartitionFunction(emat, pruneMat, confSearchFactory, ecalc);
 		return new ParallelPartitionFunction(emat, pruneMat, confSearchFactory, ecalc);
 	}
 

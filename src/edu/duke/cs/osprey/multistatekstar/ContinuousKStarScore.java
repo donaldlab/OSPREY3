@@ -30,7 +30,7 @@ public class ContinuousKStarScore implements KStarScore {
 		constrSatisfied = true;
 	}
 
-	public BigDecimal getScore() {
+	private BigDecimal getDenom() {
 		PartitionFunction pf;
 		BigDecimal ans = BigDecimal.ONE.setScale(128, RoundingMode.HALF_UP); int state;
 		for(state=0;state<partitionFunctions.length-1;++state) {
@@ -39,20 +39,28 @@ public class ContinuousKStarScore implements KStarScore {
 				return BigDecimal.ZERO;
 			ans = ans.multiply(pf.getValues().qstar);
 		}
-		pf = partitionFunctions[state];
-		return pf.getValues().qstar.divide(ans, RoundingMode.HALF_UP);
+		return ans;
+	}
+	
+	public BigDecimal getScore() {
+		BigDecimal den = getDenom();
+		if(den.compareTo(BigDecimal.ZERO) == 0) return BigDecimal.ZERO;
+		PartitionFunction pf = partitionFunctions[numStates-1];
+		return pf.getValues().qstar.divide(den, RoundingMode.HALF_UP);
 	}
 	
 	@Override
 	public BigDecimal getLowerBoundScore() {
-		// TODO Auto-generated method stub
-		return BigDecimal.ZERO;
+		return getScore();
 	}
 
 	@Override
 	public BigDecimal getUpperBoundScore() {
-		// TODO Auto-generated method stub
-		return BigDecimal.ZERO;
+		BigDecimal den = getDenom();
+		if(den.compareTo(BigDecimal.ZERO) == 0) return BigDecimal.ZERO;
+		PartitionFunction pf = partitionFunctions[numStates-1];
+		BigDecimal num = pf.getValues().qstar.add(pf.getValues().qprime).add(pf.getValues().pstar);
+		return num.divide(den, RoundingMode.HALF_UP);
 	}
 
 	public String toString() {
@@ -80,7 +88,8 @@ public class ContinuousKStarScore implements KStarScore {
 				settings.search[state].emat, 
 				settings.search[state].pruneMat,
 				confSearchFactory,
-				settings.ecalcs[state]
+				settings.ecalcs[state],
+				settings.search[state].contSCFlex
 				);
 
 		partitionFunctions[state].setReportProgress(settings.isReportingProgress);
@@ -172,7 +181,8 @@ public class ContinuousKStarScore implements KStarScore {
 				settings.search[state].emat, 
 				settings.search[state].pruneMat, 
 				confSearchFactory,
-				settings.ecalcs[state]
+				settings.ecalcs[state],
+				settings.search[state].contSCFlex
 				);
 
 		p2pf.init(0.03);

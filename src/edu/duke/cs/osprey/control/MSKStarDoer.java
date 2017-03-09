@@ -7,8 +7,6 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.StringTokenizer;
@@ -17,8 +15,11 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.multistatekstar.InputValidation;
+import edu.duke.cs.osprey.multistatekstar.KStarScore;
 import edu.duke.cs.osprey.multistatekstar.ContinuousKStarScore;
+import edu.duke.cs.osprey.multistatekstar.DiscreteKStarScore;
 import edu.duke.cs.osprey.multistatekstar.KStarSettings;
+import edu.duke.cs.osprey.multistatekstar.KStarSettings.ScoreType;
 import edu.duke.cs.osprey.multistatekstar.LMV;
 import edu.duke.cs.osprey.multistatekstar.MSConfigFileParser;
 import edu.duke.cs.osprey.multistatekstar.MSKStarTree;
@@ -60,7 +61,7 @@ public class MSKStarDoer {
 	public ConfEnergyCalculator.Async[][] ecalcs;//global energy calculator objects
 
 	public MSKStarDoer(String args[]) {
-		
+
 		// silence warnings when using non-amino acids
 		BigForcefieldEnergy.ParamInfo.printWarnings = false;
 		ForcefieldParams.printWarnings = false;
@@ -238,17 +239,19 @@ public class MSKStarDoer {
 		}
 
 		//make k* settings
-		KStarSettings ksSettings = new KStarSettings();
-		ksSettings.targetEpsilon = sParams.getDouble("EPSILON");
-		ksSettings.state = state;
-		ksSettings.numTopConfsToSave = sParams.getInt("NumTopConfsToSave");
-		ksSettings.cfp = cfps[state];
-		ksSettings.search = singleSeqSearch;
-		ksSettings.constraints = sConstraints;
-		ksSettings.ecalcs = ecalcs[state];
-		ksSettings.isReportingProgress = msParams.getBool("ISREPORTINGPROGRESS");
+		KStarSettings ksset = new KStarSettings();
+		ksset.targetEpsilon = sParams.getDouble("EPSILON");
+		ksset.state = state;
+		ksset.numTopConfsToSave = sParams.getInt("NumTopConfsToSave");
+		ksset.cfp = cfps[state];
+		ksset.search = singleSeqSearch;
+		ksset.constraints = sConstraints;
+		ksset.ecalcs = ecalcs[state];
+		ksset.isReportingProgress = msParams.getBool("ISREPORTINGPROGRESS");
+		ksset.scoreType = sParams.getBool("DOMINIMIZE") ? ScoreType.Continuous : ScoreType.Discrete;
 
-		ContinuousKStarScore ksScore = new ContinuousKStarScore(ksSettings);
+		KStarScore ksScore = sParams.getBool("DOMINIMIZE") ? new ContinuousKStarScore(ksset) : 
+			new DiscreteKStarScore(ksset);
 		ksScore.compute(Integer.MAX_VALUE);
 		return ksScore.toString();
 	}
@@ -489,7 +492,6 @@ public class MSKStarDoer {
 
 				for(int seqNum=0; seqNum<stateKSS[state].length; seqNum++){
 					stateKSS[state][seqNum] = calcStateKSScore(state, seqList.get(state).get(seqNum));
-
 					fout.println(stateKSS[state][seqNum]);
 				}
 
