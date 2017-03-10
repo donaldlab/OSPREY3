@@ -3,6 +3,7 @@ package edu.duke.cs.osprey.kstar.pfunc.impl;
 import java.util.ArrayList;
 
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
+import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.kstar.KSConf;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.kstar.KSSearchProblem;
@@ -42,11 +43,12 @@ public class PFAdapter extends PFAbstract {
 		
 		// report top confs if needed
 		if (isFullyDefined() && saveTopConfsAsPDB) {
-			pfunc.setConfListener((EnergiedConf econf) -> {
+			pfunc.setConfListener((ScoredConf sconf) -> {	
+				double energy = sconf instanceof EnergiedConf ? ((EnergiedConf)sconf).getEnergy() : sconf.getScore();
 				saveTopConf(new KSConf(
-					econf.getAssignments(),
-					econf.getScore(),
-					econf.getEnergy()
+					((EnergiedConf)sconf).getAssignments(),
+					((EnergiedConf)sconf).getScore(),
+					energy
 				));
 			});
 		}

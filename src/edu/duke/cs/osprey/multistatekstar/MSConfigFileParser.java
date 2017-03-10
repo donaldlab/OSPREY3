@@ -61,7 +61,7 @@ public class MSConfigFileParser extends ConfigFileParser {
 				params.getValue("PDBNAME"), 
 				mutResS, getAllowedAAs(mutRes),
 				params.getBool("AddWT"), 
-				params.getBool("doMinimize"),
+				cont,
 				params.getBool("UseEPIC"),
 				epicSettings,
 				params.getBool("UseTupExp"),
