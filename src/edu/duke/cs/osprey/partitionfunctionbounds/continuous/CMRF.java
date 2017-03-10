@@ -74,6 +74,8 @@ public class CMRF {
         CMRF c = new CMRF(2);
         c.addNodes(h, map4);
 	c.runSCMF();
+        
+        c.runTRBP();
     }
 
 
@@ -130,6 +132,58 @@ public class CMRF {
 		}
 	    }
 	}	
+    }
+    
+    public void calculateSingletonPseudomarginalsTRBP() { 
+        // calculate singleton pseudomarginals
+        for (CMRFNode node : nodes) { 
+            int nodeIndex = getIndexInArray(node, nodes);
+
+            HashMap<CMRFNodeDomain, RKHSFunction> pseudomarginals = new HashMap<>();
+            double partFn = 0.0;
+            
+            // calculate unnormalized psueodmarginals
+            for (CMRFNodeDomain domain : node.domains) { 
+                RKHSFunction pFunc = domain.probabilityRKHS; 
+
+                ArrayList<Double> powers = new ArrayList<>();
+                ArrayList<RKHSFunction> neighborFuncs = new ArrayList<>();         
+                
+                for (int i=0; i < nodes.length; i++) { 
+                    if (nodes[i] == node) { continue; }
+                    CMRFNode neighbor = nodes[i];
+                    powers.add(edgeProbs[nodeIndex][i]);
+                    neighborFuncs.add(neighbor.outMessages.get(node).get(domain));
+                }
+                
+                double[] edgePowers = new double[powers.size()];
+                for (int i=0; i<powers.size(); i++) { edgePowers[i] = powers.get(i); }
+                
+                RKHSFunction[] neighborFunctions = new RKHSFunction[neighborFuncs.size()];
+                for (int i=0; i<neighborFuncs.size(); i++) { neighborFunctions[i] = neighborFuncs.get(i); }
+                
+                pseudomarginals.put(
+                        domain,
+                        new RKHSFunction(
+                                domain.k,
+                                domain.domainLB,
+                                domain.domainUB,
+                                (point)->(getProdOfFuncPowers(neighborFunctions, edgePowers, point))));
+                partFn += pseudomarginals.get(domain).computeIntegral();
+            }
+            
+            // normalize
+            final double Z = partFn;
+            for (CMRFNodeDomain domain : node.domains) { 
+                node.pseudomarginals.put(
+                        domain,
+                        new RKHSFunction(
+                                domain.k,
+                                domain.domainLB,
+                                domain.domainUB,
+                                (point)->(pseudomarginals.get(domain).eval(point)/Z)));
+            }
+        }
     }
     
     /**

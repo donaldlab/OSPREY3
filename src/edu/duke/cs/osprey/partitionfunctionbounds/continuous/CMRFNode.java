@@ -20,6 +20,7 @@ public class CMRFNode {
     // each node can have multiple domains (i.e. multiple disjoint domains of continuous flexibility) 
     public CMRFNodeDomain[] domains;
     public HashMap<CMRFNode, HashMap<CMRFNodeDomain, RKHSFunction>> outMessages; // messages for TRBP 
+    public HashMap<CMRFNodeDomain, RKHSFunction> pseudomarginals; // pseudomarginals for TRBP
     public HashMap<CMRFNodeDomain, RKHSFunction> marginals; // marginals for SCMF 
     
     /**
