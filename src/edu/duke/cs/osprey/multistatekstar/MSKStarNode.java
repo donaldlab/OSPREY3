@@ -8,14 +8,22 @@ package edu.duke.cs.osprey.multistatekstar;
  */
 public class MSKStarNode {
 
-	MSSearchProblem[] lbSearch;//lower bound search problem for each state
-	MSSearchProblem[] ubSearch;//upper bound search problem for each state
-	KStarScore[] lbScores;//lower bound k* scores for each state
-	KStarScore[] ubScores;//upper bound k* scores for each state
+	MSSearchProblem[] discSearch;//lower bound search problem for state
+	MSSearchProblem[] contSearch;//upper bound search problem for state
+	KStarScore[] lbScores;//lower bound k* scores for state
+	KStarScore[] ubScores;//upper bound k* scores for state
 	
-	public MSKStarNode(MSSearchProblem[] lbSearch, MSSearchProblem[] ubSearch) {
-		this.lbSearch = lbSearch;
-		this.ubSearch = ubSearch;
+	public MSKStarNode(MSSearchProblem[] discSearch, MSSearchProblem[] contSearch) {
+		this.discSearch = discSearch;
+		this.contSearch = contSearch;
+	}
+	
+	/**
+	 * compute upper and lower bound K* scores.
+	 * compute node score.
+	 */
+	public void getScore() {
+		
 	}
 }
 

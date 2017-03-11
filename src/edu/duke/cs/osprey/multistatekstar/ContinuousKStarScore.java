@@ -15,7 +15,7 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 public class ContinuousKStarScore implements KStarScore {
 
 	public KStarSettings settings;
-	public ParallelPartitionFunction[] partitionFunctions;
+	public ContinuousPartitionFunction[] partitionFunctions;
 	protected boolean[] initialized;
 	public int numStates;
 	private boolean constrSatisfied;
@@ -23,7 +23,7 @@ public class ContinuousKStarScore implements KStarScore {
 	public ContinuousKStarScore(KStarSettings settings) {
 		this.settings = settings;
 		numStates = settings.search.length;
-		partitionFunctions = new ParallelPartitionFunction[numStates];
+		partitionFunctions = new ContinuousPartitionFunction[numStates];
 		initialized = new boolean[numStates];
 		Arrays.fill(partitionFunctions, null);
 		Arrays.fill(initialized, false);
@@ -81,15 +81,15 @@ public class ContinuousKStarScore implements KStarScore {
 		settings.search[state].prunePmat();
 		
 		//make conf search factory (i.e. A* tree)
-		ConfSearchFactory confSearchFactory = KStarSettings.makeConfSearchFactory(settings.search[state], settings.cfp);
+		ConfSearchFactory confSearchFactory = KStarFactory.makeConfSearchFactory(settings.search[state], settings.cfp);
 		
 		//create partition function
-		partitionFunctions[state] = (ParallelPartitionFunction) KStarSettings.makePartitionFunction( 
+		partitionFunctions[state] = (ContinuousPartitionFunction) KStarFactory.makePartitionFunction( 
+				settings.pfTypes[state],
 				settings.search[state].emat, 
 				settings.search[state].pruneMat,
 				confSearchFactory,
-				settings.ecalcs[state],
-				settings.search[state].contSCFlex
+				settings.ecalcs[state]
 				);
 
 		partitionFunctions[state].setReportProgress(settings.isReportingProgress);
@@ -175,14 +175,14 @@ public class ContinuousKStarScore implements KStarScore {
 		PruningMatrix invPmat = ((QPruningMatrix)settings.search[state].pruneMat).invert();
 		settings.search[state].pruneMat = invPmat;
 
-		ConfSearchFactory confSearchFactory = KStarSettings.makeConfSearchFactory(settings.search[state], settings.cfp);
+		ConfSearchFactory confSearchFactory = KStarFactory.makeConfSearchFactory(settings.search[state], settings.cfp);
 
-		ParallelPartitionFunction p2pf = (ParallelPartitionFunction) KStarSettings.makePartitionFunction( 
+		ContinuousPartitionFunction p2pf = (ContinuousPartitionFunction) KStarFactory.makePartitionFunction( 
+				settings.pfTypes[state],
 				settings.search[state].emat, 
 				settings.search[state].pruneMat, 
 				confSearchFactory,
-				settings.ecalcs[state],
-				settings.search[state].contSCFlex
+				settings.ecalcs[state]
 				);
 
 		p2pf.init(0.03);
@@ -193,12 +193,12 @@ public class ContinuousKStarScore implements KStarScore {
 	private void compute(int state, int maxNumConfs) {
 		if(settings.isReportingProgress) 
 			System.out.println("state"+state+": "+settings.search[state].settings.getFormattedSequence());
-		ParallelPartitionFunction pf = partitionFunctions[state];
+		ContinuousPartitionFunction pf = partitionFunctions[state];
 		pf.compute(maxNumConfs);	
 
 		//no more q conformations, and we have not reached epsilon
 		if(pf.getValues().getEffectiveEpsilon() > settings.targetEpsilon) {
-			ParallelPartitionFunction p2pf = (ParallelPartitionFunction) phase2(state);
+			ContinuousPartitionFunction p2pf = (ContinuousPartitionFunction) phase2(state);
 			pf.getValues().qstar = pf.getValues().qstar.add(p2pf.getValues().qstar);
 			pf.setStatus(p2pf.getStatus());
 			if(settings.search[state].isFullyDefined() && settings.numTopConfsToSave > 0)
@@ -240,7 +240,7 @@ public class ContinuousKStarScore implements KStarScore {
 			
 			BigDecimal[] stateVals = new BigDecimal[numStates];
 			for(int s=0;s<numStates;++s){
-				ParallelPartitionFunction pf = partitionFunctions[s];
+				ContinuousPartitionFunction pf = partitionFunctions[s];
 				stateVals[s] = pf == null ? BigDecimal.ZERO : pf.getValues().qstar;
 			}
 			
@@ -262,7 +262,7 @@ public class ContinuousKStarScore implements KStarScore {
 		for(int c=0;c<settings.constraints.length;++c){
 			LMV constr = settings.constraints[c];	
 			for(int s=0;s<numStates;++s){
-				ParallelPartitionFunction pf = partitionFunctions[s];
+				ContinuousPartitionFunction pf = partitionFunctions[s];
 				stateVals[s] = pf == null ? BigDecimal.ZERO : pf.getValues().qstar;
 			}
 
