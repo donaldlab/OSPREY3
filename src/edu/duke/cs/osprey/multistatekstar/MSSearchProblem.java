@@ -52,7 +52,8 @@ public class MSSearchProblem extends SearchProblem {
 			oldNumUpdates = numUpdates;
 			dee.prune("GOLDSTEIN");
 			//pairs pruning can take a LONG time
-			if(contSCFlex && dee.enumerateCandidates(PruningMethod.getMethod("GOLDSTEIN PAIRS FULL")).size() < 32768)
+			if(!contSCFlex || 
+					(contSCFlex && dee.enumerateCandidates(PruningMethod.getMethod("GOLDSTEIN PAIRS FULL")).size() < 32768))
 				dee.prune("GOLDSTEIN PAIRS FULL");
 			numUpdates = qpm.countUpdates();
 			

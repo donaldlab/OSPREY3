@@ -15,16 +15,15 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.multistatekstar.InputValidation;
+import edu.duke.cs.osprey.multistatekstar.KStarFactory;
 import edu.duke.cs.osprey.multistatekstar.KStarScore;
-import edu.duke.cs.osprey.multistatekstar.ContinuousKStarScore;
-import edu.duke.cs.osprey.multistatekstar.DiscreteKStarScore;
-import edu.duke.cs.osprey.multistatekstar.KStarSettings;
-import edu.duke.cs.osprey.multistatekstar.KStarSettings.ScoreType;
+import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
 import edu.duke.cs.osprey.multistatekstar.LMV;
 import edu.duke.cs.osprey.multistatekstar.MSConfigFileParser;
 import edu.duke.cs.osprey.multistatekstar.MSKStarTree;
 import edu.duke.cs.osprey.multistatekstar.MSSearchProblem;
 import edu.duke.cs.osprey.multistatekstar.SearchSettings;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Stopwatch;
@@ -58,7 +57,8 @@ public class MSKStarDoer {
 	SearchProblem[][] searchDisc;//continuous search problems
 	SearchProblem[][] searchCont;//discrete search problems
 
-	public ConfEnergyCalculator.Async[][] ecalcs;//global energy calculator objects
+	ConfEnergyCalculator.Async[][] ecalcsCont;//global continuous energy calculator objects
+	ConfEnergyCalculator.Async[][] ecalcsDisc;//global discrete energy calculator objects
 
 	public MSKStarDoer(String args[]) {
 
@@ -148,32 +148,25 @@ public class MSKStarDoer {
 		}
 	}
 
-	private ConfEnergyCalculator.Async[][] makeEnergyCalculators(boolean continuous) {
-		SearchProblem[][] sps = continuous ? searchCont : searchDisc;
-		ConfEnergyCalculator.Async[][] ans = new ConfEnergyCalculator.Async[sps.length][];
-
-		for(int state=0;state<sps.length;++state) {
-			SearchProblem[] statesps = sps[state];
-			ans[state] = new ConfEnergyCalculator.Async[statesps.length];
-
-			for(int substate=0;substate<ans[state].length;++substate) {
-				ans[state][substate] = KStarSettings.makeEnergyCalculator(cfps[state], sps[state][substate]);
-			}
+	private ConfEnergyCalculator.Async[][] makeEnergyCalculators(boolean cont) {
+		ConfEnergyCalculator.Async[][] ans = new ConfEnergyCalculator.Async[numStates][];
+		for(int state=0;state<numStates;++state) {
+			ans[state] = makeEnergyCalculators(state, cont);
 		}
-
 		return ans;
 	}
 
 	private ConfEnergyCalculator.Async[] makeEnergyCalculators(int state, boolean cont) {
 		SearchProblem[] search = cont ? searchCont[state] : searchDisc[state];
+		Parallelism parallelism = cont ? Parallelism.makeFromConfig(cfps[state]) : Parallelism.makeDefault();
 		ConfEnergyCalculator.Async[] ans = new ConfEnergyCalculator.Async[search.length];
 		for(int substate=0;substate<search.length;++substate) {
-			ans[substate] = KStarSettings.makeEnergyCalculator(cfps[state], search[substate]);
+			ans[substate] = KStarFactory.makeEnergyCalculator(cfps[state], search[substate], parallelism);
 		}
 		return ans;
 	}
 
-	private void cleanupEnergyCalculators(int state) {
+	private void cleanupEnergyCalculators(ConfEnergyCalculator.Async[][] ecalcs, int state) {
 		if(ecalcs[state]==null) return;
 		for(int substate=0;substate<ecalcs[state].length;++substate) {
 			ConfEnergyCalculator.Async ecalc = ecalcs[state][substate];
@@ -185,14 +178,15 @@ public class MSKStarDoer {
 		ecalcs[state] = null;
 	}
 
-	private void cleanupEnergyCalculators() {
+	private void cleanupEnergyCalculators(ConfEnergyCalculator.Async[][] ecalcs) {
 		if(ecalcs == null) return;
-		for(int state=0;state<ecalcs.length;++state) cleanupEnergyCalculators(state);
+		for(int state=0;state<ecalcs.length;++state) cleanupEnergyCalculators(ecalcs, state);
 		ecalcs = null;
 	}
 
 	private void cleanup() {
-		cleanupEnergyCalculators();
+		cleanupEnergyCalculators(ecalcsCont);
+		cleanupEnergyCalculators(ecalcsDisc);
 	}
 
 	private String calcStateKSScore(int state, ArrayList<String> boundStateAATypes) {
@@ -213,16 +207,11 @@ public class MSKStarDoer {
 		}
 
 		ParamSet sParams = cfps[state].getParams();
-
-		//make LMVs
-		int numUbConstr = sParams.getInt("NUMUBCONSTR");
 		int numPartFuncs = sParams.getInt("NUMUBSTATES")+1;
-		LMV[] sConstraints = new LMV[numUbConstr];
-		for(int constr=0;constr<numUbConstr;constr++)
-			sConstraints[constr] = new LMV(sParams.getValue("UBCONSTR"+constr), numPartFuncs);
-
+		
 		//populate search problems
-		MSSearchProblem[] singleSeqSearch = new MSSearchProblem[numPartFuncs];
+		MSSearchProblem[] singleSeqSearchCont = new MSSearchProblem[numPartFuncs];
+		MSSearchProblem[] singleSeqSearchDisc = new MSSearchProblem[numPartFuncs];
 		for(int subState=0;subState<numPartFuncs;++subState){
 
 			SearchSettings spSet = new SearchSettings();
@@ -233,27 +222,18 @@ public class MSKStarDoer {
 			spSet.stericThreshold = sParams.getDouble("STERICTHRESH");
 			spSet.pruningWindow = sParams.getDouble("IVAL") + sParams.getDouble("EW");
 
-			singleSeqSearch[subState] = sParams.getBool("DOMINIMIZE") ? 
-					new MSSearchProblem(searchCont[state][subState], spSet)
-					: new MSSearchProblem(searchDisc[state][subState], spSet);
+			singleSeqSearchCont[subState] = new MSSearchProblem(searchCont[state][subState], spSet);
+			singleSeqSearchDisc[subState] = new MSSearchProblem(searchDisc[state][subState], spSet);
 		}
-
-		//make k* settings
-		KStarSettings ksset = new KStarSettings();
-		ksset.targetEpsilon = sParams.getDouble("EPSILON");
-		ksset.state = state;
-		ksset.numTopConfsToSave = sParams.getInt("NumTopConfsToSave");
-		ksset.cfp = cfps[state];
-		ksset.search = singleSeqSearch;
-		ksset.constraints = sConstraints;
-		ksset.ecalcs = ecalcs[state];
-		ksset.isReportingProgress = msParams.getBool("ISREPORTINGPROGRESS");
-		ksset.scoreType = sParams.getBool("DOMINIMIZE") ? ScoreType.Continuous : ScoreType.Discrete;
-
-		KStarScore ksScore = sParams.getBool("DOMINIMIZE") ? new ContinuousKStarScore(ksset) : 
-			new DiscreteKStarScore(ksset);
-		ksScore.compute(Integer.MAX_VALUE);
-		return ksScore.toString();
+		
+		KStarScoreType scoreType = sParams.getBool("DOMINIMIZE") ? KStarScoreType.Continuous : KStarScoreType.Discrete;
+		KStarScore score = KStarFactory.makeStarScore(
+				msParams, state, cfps[state],
+				singleSeqSearchCont, singleSeqSearchDisc,
+				ecalcsCont[state], ecalcsDisc[state], scoreType
+				);
+		score.compute(Integer.MAX_VALUE);
+		return score.toString();
 	}
 
 	/**
@@ -471,7 +451,8 @@ public class MSKStarDoer {
 
 		String[][] stateKSS = new String[numStates][];
 		for(int state=0;state<numStates;++state) stateKSS[state] = new String[seqList.get(state).size()];
-		ecalcs = new ConfEnergyCalculator.Async[numStates][];
+		ecalcsCont = new ConfEnergyCalculator.Async[numStates][];
+		ecalcsDisc = new ConfEnergyCalculator.Async[numStates][];
 
 		try {
 			if(!resume) 
@@ -488,14 +469,16 @@ public class MSKStarDoer {
 				}
 
 				//make energy calculators for this state
-				ecalcs[state] = makeEnergyCalculators(state, cfps[state].getParams().getBool("DOMINIMIZE"));
+				ecalcsCont[state] = makeEnergyCalculators(state, true);
+				ecalcsDisc[state] = makeEnergyCalculators(state, false);
 
 				for(int seqNum=0; seqNum<stateKSS[state].length; seqNum++){
 					stateKSS[state][seqNum] = calcStateKSScore(state, seqList.get(state).get(seqNum));
 					fout.println(stateKSS[state][seqNum]);
 				}
 
-				cleanupEnergyCalculators(state);
+				cleanupEnergyCalculators(ecalcsCont, state);
+				cleanupEnergyCalculators(ecalcsDisc, state);
 			}
 
 			fout.flush();
@@ -530,7 +513,7 @@ public class MSKStarDoer {
 		}
 	}
 
-	ArrayList<ArrayList<ArrayList<String>>> getCompletedSeqs(String fname) {
+	private ArrayList<ArrayList<ArrayList<String>>> getCompletedSeqs(String fname) {
 		ArrayList<ArrayList<ArrayList<String>>> ans = new ArrayList<>();
 		for(int state=0;state<numStates;++state) ans.add(new ArrayList<>());
 

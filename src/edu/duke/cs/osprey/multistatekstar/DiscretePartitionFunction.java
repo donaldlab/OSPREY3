@@ -10,9 +10,14 @@ import edu.duke.cs.osprey.control.ConfSearchFactory;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
-public class SerialPartitionFunction extends ParallelPartitionFunction {
+/**
+ * 
+ * @author Adegoke Ojewole (ao68@duke.edu)
+ *
+ */
+public class DiscretePartitionFunction extends ContinuousPartitionFunction {
 
-	public SerialPartitionFunction(EnergyMatrix emat, PruningMatrix pmat, ConfSearchFactory confSearchFactory,
+	public DiscretePartitionFunction(EnergyMatrix emat, PruningMatrix pmat, ConfSearchFactory confSearchFactory,
 			Async ecalc) {
 		super(emat, pmat, confSearchFactory, ecalc);
 	}
@@ -73,7 +78,7 @@ public class SerialPartitionFunction extends ParallelPartitionFunction {
 				}
 
 				// update status if needed
-				if (values.getEffectiveEpsilon() <= targetEpsilon) {
+				if (getEffectiveEpsilon() <= targetEpsilon) {
 					status = Status.Estimated;
 					phase1Output(conf);//just to let the user know we reached epsilon
 				}
@@ -131,7 +136,7 @@ public class SerialPartitionFunction extends ParallelPartitionFunction {
 				}
 
 				// update status if needed
-				if (values.getEffectiveEpsilon() <= targetEpsilon) {
+				if (getEffectiveEpsilon() <= targetEpsilon) {
 					status = Status.Estimated;
 					phase2Output(conf, pdiff);
 				}
@@ -141,5 +146,9 @@ public class SerialPartitionFunction extends ParallelPartitionFunction {
 
 	protected BigDecimal updateQprime(BigDecimal val) {
 		return val.multiply(new BigDecimal(numConfsToScore.toString()));
+	}
+	
+	protected double getEffectiveEpsilon() {
+		return values.getEffectiveEpsilon();
 	}
 }
