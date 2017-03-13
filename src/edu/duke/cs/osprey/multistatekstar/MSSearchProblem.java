@@ -6,19 +6,24 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningMethod;
 
+/**
+ * 
+ * @author Adegoke Ojewole (ao68@duke.edu)
+ * 
+ */
 @SuppressWarnings("serial")
 public class MSSearchProblem extends SearchProblem {
 
-	SearchSettings settings;
+	MSSearchSettings settings;
 
 	public MSSearchProblem(SearchProblem other, 
-			SearchSettings settings) {
+			MSSearchSettings settings) {
 		super(other);
 		if(settings==null) throw new RuntimeException("ERROR: search settings cannot be null");
 		this.settings = settings;
 		this.pruneMat = getReducedPruningMatrix();
 		this.allowedAAs = settings.AATypeOptions;
-		this.flexRes = settings.mutRes;
+		this.flexRes = settings.mutRes;//-1 for unassigned positions
 	}
 	
 	public boolean isFullyDefined() {

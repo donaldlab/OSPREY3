@@ -101,7 +101,7 @@ public class QPruningMatrix extends UpdatedPruningMatrix{
 	}
 
 	public boolean isFullyDefined() {
-		return numPos==numDefinedPos;
+		return getNumPos()==numDefinedPos;
 	}
 	
 	public boolean contains(int res, int index) {

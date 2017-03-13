@@ -22,7 +22,7 @@ import edu.duke.cs.osprey.multistatekstar.LMV;
 import edu.duke.cs.osprey.multistatekstar.MSConfigFileParser;
 import edu.duke.cs.osprey.multistatekstar.MSKStarTree;
 import edu.duke.cs.osprey.multistatekstar.MSSearchProblem;
-import edu.duke.cs.osprey.multistatekstar.SearchSettings;
+import edu.duke.cs.osprey.multistatekstar.MSSearchSettings;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -214,7 +214,7 @@ public class MSKStarDoer {
 		MSSearchProblem[] singleSeqSearchDisc = new MSSearchProblem[numPartFuncs];
 		for(int subState=0;subState<numPartFuncs;++subState){
 
-			SearchSettings spSet = new SearchSettings();
+			MSSearchSettings spSet = new MSSearchSettings();
 			spSet.AATypeOptions = subStateAATypes.get(subState);
 			ArrayList<String> mutRes = new ArrayList<>();
 			for(int i:mutable2StateResNums.get(state).get(subState)) mutRes.add(String.valueOf(i));
@@ -227,7 +227,7 @@ public class MSKStarDoer {
 		}
 		
 		KStarScoreType scoreType = sParams.getBool("DOMINIMIZE") ? KStarScoreType.Continuous : KStarScoreType.Discrete;
-		KStarScore score = KStarFactory.makeStarScore(
+		KStarScore score = KStarFactory.makeKStarScore(
 				msParams, state, cfps[state],
 				singleSeqSearchCont, singleSeqSearchDisc,
 				ecalcsCont[state], ecalcsDisc[state], scoreType

@@ -12,6 +12,11 @@ import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction.Status;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
+/**
+ * @author Adegoke Ojewole (ao68@duke.edu)
+ * 
+ */
+
 public class ContinuousKStarScore implements KStarScore {
 
 	public KStarSettings settings;

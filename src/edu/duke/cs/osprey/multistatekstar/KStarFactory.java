@@ -13,9 +13,14 @@ import edu.duke.cs.osprey.multistatekstar.KStarScore.PartitionFunctionType;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
+/**
+ * 
+ * @author Adegoke Ojewole (ao68@duke.edu)
+ * 
+ */
 public class KStarFactory {
 
-	public static KStarScore makeStarScore(
+	public static KStarScore makeKStarScore(
 			ParamSet msParams,
 			int state,
 			MSConfigFileParser cfp,
