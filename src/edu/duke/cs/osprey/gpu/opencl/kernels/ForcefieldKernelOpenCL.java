@@ -77,7 +77,7 @@ public class ForcefieldKernelOpenCL extends Kernel implements ForcefieldKernel {
 		uploadBufferAsync(precomputed);
 		
 		// make the args buffer
-		args = context.createByteBuffer(36, CLMemory.Mem.READ_ONLY);
+		args = context.createByteBuffer(40, CLMemory.Mem.READ_ONLY);
 		ByteBuffer argsBuf = args.getBuffer();
 		argsBuf.rewind();
 		argsBuf.putInt(0); // set by setSubsetInternal()
@@ -89,6 +89,7 @@ public class ForcefieldKernelOpenCL extends Kernel implements ForcefieldKernel {
 		argsBuf.put((byte)(ffenergy.getParams().useHElectrostatics ? 1 : 0));
 		argsBuf.put((byte)(ffenergy.getParams().useHVdw ? 1 : 0));
 		argsBuf.put((byte)0); // set by setSubsetInternal()
+		argsBuf.put((byte)(ffenergy.getParams().useEEF1 ? 1 : 0));
 		argsBuf.flip();
 		
 		// set the subset

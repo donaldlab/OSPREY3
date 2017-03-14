@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.gpu.opencl;
+package edu.duke.cs.osprey.gpu;
 
 import static org.junit.Assert.*;
 
@@ -17,8 +17,9 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
+import edu.duke.cs.osprey.gpu.TestForceFieldKernel.Residues;
 import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
-import edu.duke.cs.osprey.gpu.opencl.TestForceFieldKernel.Residues;
+import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
 import edu.duke.cs.osprey.structure.Residue;
 
 public class TestForcefieldKernelSubset extends TestBase {

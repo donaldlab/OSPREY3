@@ -54,7 +54,7 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 		precomputed.uploadAsync();
 		
 		// make the args buffer
-		args = getStream().makeByteBuffer(36);
+		args = getStream().makeByteBuffer(40);
 		ByteBuffer argsBuf = args.getHostBuffer();
 		argsBuf.rewind();
 		argsBuf.putInt(0); // set by setSubsetInternal()
@@ -66,6 +66,7 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 		argsBuf.put((byte)(ffenergy.getParams().useHElectrostatics ? 1 : 0));
 		argsBuf.put((byte)(ffenergy.getParams().useHVdw ? 1 : 0));
 		argsBuf.put((byte)0); // set by setSubsetInternal()
+		argsBuf.put((byte)(ffenergy.getParams().useEEF1 ? 1 : 0));
 		argsBuf.flip();
 		
 		// set the subset
