@@ -9,6 +9,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.StringTokenizer;
 
+import edu.duke.cs.osprey.astar.GMECMutSpace;
+import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.dof.deeper.RamachandranChecker;
@@ -381,5 +383,18 @@ public class ConfigFileParser {
         
         // TODO: pass this to the conf space somehow
         EnvironmentVars.alwaysIdealizeSidechainsAfterMutation = params.getBool("ALWAYSIDEALIZESIDECHAINSAFTERMUTATION");
+    }
+
+    //GMEC mut files
+    public boolean hasGMECMutFile(){
+        return ! params.getValue("GMECMutFile", "None").equalsIgnoreCase("None");
+    }
+    
+    public GMECMutSpace parseGMECMutFile(ConfSpace confSpace){
+        String mutFileName = params.getValue("GMECMutFile", "None");
+        if(mutFileName.equalsIgnoreCase("None"))
+            return null;
+        else
+            return new GMECMutSpace(mutFileName, confSpace);
     }
 }

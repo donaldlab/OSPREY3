@@ -3,8 +3,6 @@ package edu.duke.cs.osprey.multistatekstar;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
-
 import edu.duke.cs.osprey.astar.comets.UpdatedPruningMatrix;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
@@ -18,99 +16,106 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
  *
  */
 @SuppressWarnings("serial")
-public class QPruningMatrix extends UpdatedPruningMatrix {
+public class QPruningMatrix extends UpdatedPruningMatrix{
 
-	protected int numPos;
-	protected ArrayList<Integer> ignoredAbsPos;
-	protected HashMap<Integer, Integer> red2AbsPos = new HashMap<>();
-	protected HashMap<Integer, Integer> abs2RedPos = new HashMap<>();
+	public SearchProblem sp;
+	public ArrayList<String> assignedFlexRes;
+	public ArrayList<ArrayList<String>> assignedAATypeOptions;
+
+	private int numPos;
+	private int numDefinedPos;
 
 	/**
-	 * assuming parent is the original, all-seq matrix
-	 * @param parentSp
-	 * @param redFlexRes
-	 * @param redAATypeOptions
+	 * Create an update to the original pruning matrix to reflect the fact that
+	 * only redflexres have assigned amino acid type(s). Unassigned residues in
+	 * redflexres have a value of "-1". Corresponding values in redAAOptions are
+	 * also "-1".
+	 * @param sp
+	 * @param flexRes
+	 * @param AATypeOptions
 	 */
-	public QPruningMatrix(SearchProblem parentSp, 
-			ArrayList<String> redFlexRes,
-			ArrayList<ArrayList<String>> redAATypeOptions) {
+	public QPruningMatrix(SearchProblem sp, 
+			ArrayList<String> flexRes,
+			ArrayList<ArrayList<String>> AATypeOptions) {
 
-		super(parentSp.pruneMat);
-		numPos = redFlexRes.size();
+		super(sp.pruneMat);
+		this.sp = sp;
+		this.assignedFlexRes = flexRes;
+		this.assignedAATypeOptions = AATypeOptions;
+		numPos = flexRes.size();
+		numDefinedPos = numPos-Collections.frequency(flexRes, "-1");
 
-		//create positions map
-		int redPos = -1, absPos;//reduced pos, absolute pos
-		for(String res : redFlexRes) {
-			redPos++;
-			absPos = parentSp.flexRes.indexOf(res);
-			red2AbsPos.put(redPos, absPos);
-			abs2RedPos.put(absPos, redPos);
-		}
+		markNonAATypeOptionsAsPruned();
+	}
 
-		ignoredAbsPos = new ArrayList<>();
-		for(absPos=0;absPos<parent.getNumPos();++absPos) {
-			if(!abs2RedPos.containsKey(absPos))
-				ignoredAbsPos.add(absPos);
-		}
-		ignoredAbsPos.trimToSize();
-		
-		markNonAATypeOptionsAsUnPruned(parentSp, redAATypeOptions);
+	public QPruningMatrix(QPruningMatrix other) {
+		super(other.sp.pruneMat);
 	}
 
 	/**
 	 * mark as pruned those rcs not corresponding to the reduced aa options
-	 * @param parentSp
-	 * @param redAATypeOptions
 	 * @return
 	 */
-	private void markNonAATypeOptionsAsUnPruned(SearchProblem parentSp, 
-			ArrayList<ArrayList<String>> redAATypeOptions) {
+	private void markNonAATypeOptionsAsPruned() {
 		//assuming parent is the original pruning matrix!
-		Integer redPos;//reducedpos
-		for(int absPos=0;absPos<parent.getNumPos();++absPos) {
-			for(int rc : parent.unprunedRCsAtPos(absPos)) {
-				String rcAAType = parentSp.confSpace.posFlex.get(absPos).RCs.get(rc).AAType;
+		for(int pos=0;pos<parent.getNumPos();++pos) {
+			for(int rc : parent.unprunedRCsAtPos(pos)) {
+				String rcAAType = sp.confSpace.posFlex.get(pos).RCs.get(rc).AAType;
 				//not in reduced position, not a desired AA type
-				if((redPos = abs2RedPos(absPos))==null || !redAATypeOptions.get(redPos).contains(rcAAType))
-					super.markAsPruned(new RCTuple(absPos, rc));
+				if(assignedFlexRes.get(pos).equals("-1") || !assignedAATypeOptions.get(pos).contains(rcAAType))
+					super.markAsPruned(new RCTuple(pos, rc));
 			}
 		}
 
-		if(!isValid(parentSp, redAATypeOptions))
-			throw new RuntimeException("ERROR: did not prune all RCs outside of reduced AA type options");
+		if(!isValid())
+			throw new RuntimeException("ERROR: did not prune all RCs outside of assigned AA type options");
 	}
 
-	private boolean isValid(SearchProblem parentSp, 
-			ArrayList<ArrayList<String>> redAATypeOptions) {
+	protected boolean isValid() {
 		//iterate through all redPos to get unpruned AAs
 		ArrayList<ArrayList<String>> aaTypeOptions = new ArrayList<>();
-		for(int redPos=0;redPos<numPos;++redPos) {
+		for(int pos=0;pos<getNumPos();++pos) {
 			aaTypeOptions.add(new ArrayList<>());
-			for(int rc : unprunedRCsAtPos(redPos)) {
-				String rcAAType = parentSp.confSpace.posFlex.get(red2AbsPos(redPos)).RCs.get(rc).AAType;
-				if(!aaTypeOptions.get(redPos).contains(rcAAType))
-					aaTypeOptions.get(redPos).add(rcAAType);
+			if(assignedFlexRes.get(pos).equals("-1")){
+				aaTypeOptions.get(pos).addAll(assignedAATypeOptions.get(pos));
+				continue;
+			}
+			for(int rc : unprunedRCsAtPos(pos)) {
+				String rcAAType = sp.confSpace.posFlex.get(pos).RCs.get(rc).AAType;
+				if(!aaTypeOptions.get(pos).contains(rcAAType))
+					aaTypeOptions.get(pos).add(rcAAType);
 			}
 		}
 
-		for(int redPos=0;redPos<numPos;++redPos) {
-			ArrayList<String> aasAtRedPos = new ArrayList<>(redAATypeOptions.get(redPos));
-			Collections.sort(aasAtRedPos);
-			Collections.sort(aaTypeOptions.get(redPos));
-
-			if(!aasAtRedPos.equals(aaTypeOptions.get(redPos)))
-				return false;
+		//sometimes, all rotamers at an aa are pruned (i.e. steric pruning)
+		//therefore, the condition we test for is that all aas from reduced 
+		//rotamer list (if any) must be in desired aa list
+		for(int pos=0;pos<getNumPos();++pos) {
+			ArrayList<String> aas = aaTypeOptions.get(pos);
+			for(String aa : aas) {
+				if(!assignedAATypeOptions.get(pos).contains(aa)) return false;
+			}
 		}
 
 		return true;
 	}
-	
-	public boolean isFullyDefined() {
-		return ignoredAbsPos.size()==0;
-	}
 
-	public ArrayList<Integer> getIgnoredAbsPos() {
-		return ignoredAbsPos;
+	public boolean isFullyDefined() {
+		return numPos==numDefinedPos;
+	}
+	
+	public boolean contains(int res, int index) {
+		String rcAAType = sp.confSpace.posFlex.get(res).RCs.get(index).AAType;
+		boolean c = assignedAATypeOptions.get(res).contains(rcAAType);
+		return c;
+	}
+	
+	public boolean contains(int res1, int index1, int res2, int index2) {
+		String rcAAType1 = sp.confSpace.posFlex.get(res1).RCs.get(index1).AAType;
+		String rcAAType2 = sp.confSpace.posFlex.get(res2).RCs.get(index2).AAType;
+		boolean c1 = assignedAATypeOptions.get(res1).contains(rcAAType1);
+		boolean c2 = assignedAATypeOptions.get(res2).contains(rcAAType2);
+		return c1 && c2;
 	}
 
 	public PruningMatrix getParent() {
@@ -121,65 +126,53 @@ public class QPruningMatrix extends UpdatedPruningMatrix {
 	public int getNumPos() {
 		return numPos;
 	}
-
-	protected Integer red2AbsPos(int redPos) {
-		return red2AbsPos.get(redPos);//can be null
-		//Integer ans = red2AbsPos.get(redPos);
-		//if(ans==null) throw new RuntimeException("ERROR: there is no position mapping for "+redPos);
-		//return ans;
-	}
-
-	protected Integer abs2RedPos(int absPos) {
-		return abs2RedPos.get(absPos);//can be null
+	
+	public int getNumDefinedPos() {
+		return numDefinedPos;
 	}
 
 	@Override
 	public Boolean getOneBody(int res, int index) {
-		return super.getOneBody(red2AbsPos(res), index);
+		if(contains(res, index))
+			return super.getOneBody(res, index);
+		return true;
 	}
-
+	
 	@Override
 	public Boolean getPairwise(int res1, int index1, int res2, int index2) {
-		return super.getPairwise(red2AbsPos(res1), index1, red2AbsPos(res2), index2);
+		if(contains(res1, index1, res2, index2))
+			return super.getPairwise(res1, index1, res2, index2);
+		return true;
 	}
 
 	@Override
 	public HigherTupleFinder<Boolean> getHigherOrderTerms(int res1, int index1, int res2, int index2) {
-		return super.getHigherOrderTerms(red2AbsPos(res1), index1, red2AbsPos(res2), index2);
+		if(contains(res1, index1, res2, index2))
+			return super.getHigherOrderTerms(res1, index1, res2, index2);
+		return null;
 	}
 
 	@Override
 	public int getNumConfAtPos(int pos) {
-		return super.getNumConfAtPos(red2AbsPos(pos));
+		return super.getNumConfAtPos(pos);
 	}
 
-	public BigInteger getNumReducedUnprunedConfs() {
+	public BigInteger getNumUnprunedConfs() {
 		BigInteger ans = BigInteger.ONE;
-		for(int redPos=0;redPos<numPos;++redPos) {
-			ans = ans.multiply(BigInteger.valueOf(unprunedRCsAtPos(redPos).size()));
+		for(int pos=0;pos<getNumPos();++pos) {
+			ans = ans.multiply(BigInteger.valueOf(unprunedRCsAtPos(pos).size()));
 			if(ans.compareTo(BigInteger.ZERO)==0) 
 				return ans;
 		}
 		return ans;
 	}
 	
-	/**
-	 * returns unpruned rcs at all positions: reduced rcs at relevant positions
-	 * and parent unpruned rcs at other positions
-	 * @return
-	 */
-	public ArrayList<ArrayList<Integer>> getAllUnprunedRCsByAbsPos() {
-		ArrayList<ArrayList<Integer>> ans = new ArrayList<>();
-		for(int absPos=0;absPos<parent.getNumPos();++absPos) {
-			ans.add(new ArrayList<>());
-			Integer redPos;
-			if((redPos=abs2RedPos.get(absPos))==null)
-				//this position is not in the reduced set, so get parent RCs
-				ans.get(absPos).addAll(parent.unprunedRCsAtPos(absPos));
-			else
-				//get reduced rcs
-				ans.get(absPos).addAll(super.unprunedRCsAtPos(redPos));
-		}
-		return ans;
+	public int countUpdates() {
+		return super.countUpdates();
 	}
+
+	public PruningMatrix invert() {
+		return new PPruningMatrix(this);
+	}
+	
 }

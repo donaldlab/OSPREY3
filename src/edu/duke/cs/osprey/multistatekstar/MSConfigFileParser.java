@@ -17,20 +17,20 @@ import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.StringParsing;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
-public class MultiStateConfigFileParser extends ConfigFileParser {
+public class MSConfigFileParser extends ConfigFileParser {
 
-	public MultiStateConfigFileParser() {
+	public MSConfigFileParser() {
 		super();
 	}
 
-	public MultiStateConfigFileParser(String[] confPaths) {
+	public MSConfigFileParser(String[] confPaths) {
 		super();
 		for (String path : confPaths) {
 			params.addParamsFromFile(path);
 		}
 	}
 
-	public MultiStateConfigFileParser(String[] confPaths, boolean isVerbose) {
+	public MSConfigFileParser(String[] confPaths, boolean isVerbose) {
 		super();
 		for (String path : confPaths) {
 			params.addParamsFromFile(path);
@@ -44,7 +44,7 @@ public class MultiStateConfigFileParser extends ConfigFileParser {
 		ArrayList<String> mutResS = new ArrayList<>();
 		for(int res : mutRes) mutResS.add(String.valueOf(res));
 		
-		DEEPerSettings deeperSettings = setupDEEPer(state, subState, mutRes);
+		DEEPerSettings deeperSettings = setupDEEPer(state, subState, mutRes, cont);
 		ArrayList<String[]> moveableUbStates = moveableUbStateTermini(subState);
 		ArrayList<String[]> freeBBZones = freeBBZoneTermini(subState);
 
@@ -69,7 +69,7 @@ public class MultiStateConfigFileParser extends ConfigFileParser {
 				params.getValue("PDBNAME"), 
 				mutResS, getAllowedAAs(mutRes),
 				params.getBool("AddWT"), 
-				params.getBool("doMinimize"),
+				cont,
 				params.getBool("UseEPIC"),
 				epicSettings,
 				params.getBool("UseTupExp"),
@@ -114,30 +114,33 @@ public class MultiStateConfigFileParser extends ConfigFileParser {
 	}
 
 	ResidueTermini subState2Termini(int subState) {
+		String key = params.searchParams("UbStateLimits").size() > 0 ? "UbStateLimits" : "Strand";
 		ArrayList<Integer> alTmni = new ArrayList<>();
-		if(params.getValue("UbStateLimits"+subState, "").length()==0) {
+		if(params.getValue(key+subState, "").length()==0) {
 			//complex
-			for(String key : params.searchParams("UbStateLimits")) {
-				StringTokenizer st = new StringTokenizer(params.getValue(key));
+			for(int unbound=0;unbound<subState;++unbound) {
+				StringTokenizer st = new StringTokenizer(params.getValue(key+unbound));
 				while(st.hasMoreTokens()) alTmni.add(Integer.valueOf(st.nextToken()));
 			}
 		}
 		else {
-			StringTokenizer st = new StringTokenizer(params.getValue("UbStateLimits"+subState));
+			//unbound state
+			StringTokenizer st = new StringTokenizer(params.getValue(key+subState));
 			while(st.hasMoreTokens()) alTmni.add(Integer.valueOf(st.nextToken()));
 		}
 		Collections.sort(alTmni);
 		return new ResidueTermini(subState, alTmni.get(0), alTmni.get(alTmni.size()-1));
 	}
 
-	protected DEEPerSettings setupDEEPer(int state, int subState, ArrayList<Integer> mutRes) {
+	protected DEEPerSettings setupDEEPer(int state, int subState, ArrayList<Integer> mutRes, boolean cont) {
 
 		ArrayList<String> sMutRes = new ArrayList<>();
 		for(int res : mutRes) sMutRes.add(String.valueOf(res));
+		String flexibility = cont ? "cont" : "disc";
 
 		DEEPerSettings dset = new DEEPerSettings(
 				params.getBool("doPerturbations"),
-				"State."+state+"."+subState+"."+params.getRunSpecificFileName("perturbationFile", ".pert"),
+				"State."+state+"."+subState+"."+flexibility+"."+params.getRunSpecificFileName("perturbationFile", ".pert"),
 				params.getBool("selectPerturbations"),
 				params.getValue("startingPerturbationFile"),
 				params.getBool("onlyStartingPerturbations"),
@@ -179,13 +182,13 @@ public class MultiStateConfigFileParser extends ConfigFileParser {
 	protected ArrayList<String[]> moveableUbStateTermini(int subState) {
 		//Read the strands that are going to translate and rotate
 		//Let's say they can do this regardless of what doMinimize says (that's for sidechains)
+		String key = params.searchParams("UBSTATEROTTRANS").size() > 0 ? "UBSTATEROTTRANS" : "STRANDROTTRANS";
 		ArrayList<String[]> ans = new ArrayList<>();
-
-		for(String rt : params.searchParams("UBSTATEROTTRANS")){
+		for(String rt : params.searchParams(key)){
 			if(params.getBool(rt)){
 				//So rt = UBSTATEROTTRANS0 here means strand 0 should translate & rotate
 				//OK to go through these params in lexical ordering
-				String ubState = rt.replaceAll("UBSTATEROTTRANS", "").trim();
+				String ubState = rt.replaceAll(key, "").trim();
 				if(!String.valueOf(subState).equals(ubState)) continue;
 				ResidueTermini tmni = subState2Termini(subState);
 				ans.add(tmni.toStringArray());

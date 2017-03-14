@@ -124,10 +124,9 @@ public class Pruner {
             prunedSomethingThisCycle = false;
             
             ArrayList<RCTuple> candidates = enumerateCandidates(method);
-
+            
             for (RCTuple cand : candidates) {
-                
-                double contELB = 0;
+            	double contELB = 0;
                 if(useEPIC && cand.pos.size()>1)//EPIC gives us nothing for 1-pos pruning
                     contELB = epicMat.minContE(cand);
                 

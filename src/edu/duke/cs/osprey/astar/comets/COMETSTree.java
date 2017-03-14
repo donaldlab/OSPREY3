@@ -228,7 +228,7 @@ public class COMETSTree extends AStarTree<FullAStarNode> {
                 	new FullAStarNode.Factory(stateNumPos[state]),
                 	stateSP[state],
                 	node.pruneMat[state],
-                	false
+                	false, null
                 );
                 
                 FullAStarNode rootNode = node.stateTrees[state].rootNode();

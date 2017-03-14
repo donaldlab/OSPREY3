@@ -18,7 +18,9 @@ import edu.duke.cs.osprey.tools.StringParsing;
 public class ForcefieldParams implements Serializable {
     
     private static final long serialVersionUID = 3124964506851762586L;
-    
+
+    public static boolean printWarnings = true;
+
     final int atomTypeX = -2; //the atom type number for the X wildcard atom type
     private final int noMatchInt = 9999;
 
@@ -785,8 +787,10 @@ public class ForcefieldParams implements Serializable {
                 }
             }
             
+            if(printWarnings) {
             System.out.println("Warning: No equilibrium bond length listed for atom types "
                     +atomType1+" and "+atomType2);
+            }
             //this is used to get an estimated bond distance matrix, in which case
             //we can estimate using other atom types for the same elements
             

@@ -87,7 +87,7 @@ public class InvertedPruningMatrix extends PruningMatrix {
 	}
 	
 	@Override
-	boolean isPrunedHigherOrder(RCTuple tup, int curIndex, HigherTupleFinder<Boolean> htf) {
+	public boolean isPrunedHigherOrder(RCTuple tup, int curIndex, HigherTupleFinder<Boolean> htf) {
 		return pmat.isPrunedHigherOrder(tup, curIndex, htf);
 	}
 	

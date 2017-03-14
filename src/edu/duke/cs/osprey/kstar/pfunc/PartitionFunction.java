@@ -3,7 +3,7 @@ package edu.duke.cs.osprey.kstar.pfunc;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
-import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
+import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 
 public interface PartitionFunction {
 	
@@ -32,7 +32,7 @@ public interface PartitionFunction {
 		public BigDecimal pstar; // pfunc value of all pruned confs
 		
 		public Values() {
-			qstar = BigDecimal.ZERO;
+			qstar = BigDecimal.ZERO.setScale(128, RoundingMode.HALF_UP);
 			qprime = BigDecimal.ZERO;
 			pstar = BigDecimal.ZERO;
 		}
@@ -73,7 +73,7 @@ public interface PartitionFunction {
 	}
 	
 	public static interface ConfListener {
-		void onConf(EnergiedConf econf);
+		void onConf(ScoredConf conf);
 	}
 	
 	void setReportProgress(boolean val);

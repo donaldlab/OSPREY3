@@ -28,6 +28,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	public static class ParamInfo {
 		
 		// physical constants and constant params
+		public static boolean printWarnings = true;
 		private static final double coulombConstant = 332.0;
 		private static final double solvCutoff = 9.0;
 		
@@ -655,7 +656,9 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		if (!success) {
 			
 			// if there's no params, don't crash, use defaults instead
-			System.err.println("WARNING: couldn't find solvation parameters for atom type: " + atom.forceFieldType + ", using default values");
+			if(ParamInfo.printWarnings) {
+				System.err.println("WARNING: couldn't find solvation parameters for atom type: " + atom.forceFieldType + ", using default values");
+			}
 			solvparams.dGref = 0;
 			solvparams.dGfree = 0;
 			solvparams.volume = 0;

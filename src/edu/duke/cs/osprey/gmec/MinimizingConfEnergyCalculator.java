@@ -18,6 +18,7 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Factory;
 
+/** Use SimpleConfMinimizer instead. Of course, that means you need to switch to the new SimpleConfSpace too. */
 @Deprecated
 public class MinimizingConfEnergyCalculator implements ConfEnergyCalculator.Async {
 	
