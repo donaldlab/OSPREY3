@@ -67,7 +67,7 @@ P. Gainza, K.E. Roberts, and B.R. Donald. Protein Design using Continuous Rotame
 Computational Biology, (1): e1002335. doi:10.1371/journal.pcbi.1002335, 2012.
 • Protein:Protein Interactions:
 K.E. Roberts, P.R. Kushing, P. Boisguerin, DR Madden, and B.R. Donald. Design of protein-protein interactions with a novel ensemble-based scoring algorithm. Research in Computational
-Molecular Biology., volume 6577 of Lecture Notes in Computer Science. Heidelberg: Springer
+Molecular Biology (RECOMB), volume 6577 of Lecture Notes in Computer Science. Heidelberg: Springer
 Berlin. pp. 361376. 2011
 K.E. Roberts, P.R. Kushing, P. Boisguerin, DR Madden, and B.R. Donald. Computational Design
 of a PDZ Domain Peptide Inhibitor that Rescues CFTR Activity. PLoS Computational Biology, 8(4):e1002477, 2012. 
@@ -90,4 +90,6 @@ M. A. Hallen, P. Gainza, and B. R. Donald. A compact representation of continuou
 • Dynamic A*:
 K. E. Roberts, P. Gainza, M. A. Hallen, and B. R. Donald. Fast gap-free enumeration of conformations and sequences for protein design. Proteins, 83(10):1859–1877, 2015.
 • LUTE:
-M. A. Hallen, J. D. Jou, and B. R. Donald. LUTE (Local Unpruned Tuple Expansion): Accurate continuously flexible protein design with general energy functions and rigid-rotamer-like efficiency. In International Conference on Research in Computational Molecular Biology, pages 122–136. Springer, 2016.
+M. A. Hallen, J. D. Jou, and B. R. Donald. LUTE (Local Unpruned Tuple Expansion): Accurate continuously flexible protein design with general energy functions and rigid-rotamer-like efficiency. In International Conference on Research in Computational Molecular Biology (RECOMB), pages 122–136. Springer, 2016.
+• CATS:
+M. A. Hallen and B. R. Donald. CATS (Coordinates of Atoms by Taylor Series): Protein design with backbone flexibility in all locally feasible directions. In Intelligent Systems for Molecular Biology (ISMB), in press, 2017.  
