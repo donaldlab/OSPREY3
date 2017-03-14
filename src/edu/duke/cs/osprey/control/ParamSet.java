@@ -94,7 +94,7 @@ public class ParamSet implements Serializable {
 	}
 	
 	public void addParamsFromFile(File file) {
-		FilePathRoot root = new FilePathRoot(file.getParentFile());
+		FilePathRoot root = new FilePathRoot(file.getAbsoluteFile().getParentFile());
 		file = root.makeRelative(file);
 		addParams(root, file.getPath());
 	}

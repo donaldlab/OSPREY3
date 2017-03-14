@@ -23,7 +23,11 @@ public class FileTools {
 		
 		private static final long serialVersionUID = 2265693476401349502L;
 		
-		protected String type;
+		private final String type;
+		
+		protected PathRoot(String type) {
+			this.type = type;
+		}
 		
 		public abstract String resolve(String path);
 		public abstract String makeRelative(String path);
@@ -45,7 +49,7 @@ public class FileTools {
 		private File rootFile;
 		
 		public FilePathRoot() {
-			rootFile = null;
+			this((File)null);
 		}
 		
 		public FilePathRoot(String rootPath) {
@@ -53,8 +57,8 @@ public class FileTools {
 		}
 		
 		public FilePathRoot(File rootFile) {
+			super("file");
 			this.rootFile = rootFile;
-			this.type = "file";
 		}
 		
 		@Override
@@ -144,13 +148,13 @@ public class FileTools {
 		private String rootPath;
 		
 		public ResourcePathRoot() {
-			this.type = "resource";
-			this.rootPath = null;
+			this((String)null);
 		}
 		
 		public ResourcePathRoot(String rootPath) {
+			super("resource");
 			
-			if (!rootPath.startsWith("/")) {
+			if (rootPath != null && !rootPath.startsWith("/")) {
 				throw new IllegalArgumentException("resource root path is not absolute: " + rootPath);
 			}
 			
