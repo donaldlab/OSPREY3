@@ -20,6 +20,7 @@ public class CMRFEdge {
     CMRFNode node2;
     
     CMRFEdgeDomain[] domainLinks;
+    HashMap<CMRFEdgeDomain, RKHSFunction> pseudomarginals;
     
     /**
      * Constructs an edge given two nodes and a map of pairwise energy functions 
@@ -64,6 +65,8 @@ public class CMRFEdge {
 	for (int i=0; i<domainLinks.length; i++) { 
 	    domainLinks[i] = doms.get(i);
 	}
+	
+	pseudomarginals = new HashMap<>();
     }
     
     /**

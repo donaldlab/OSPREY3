@@ -16,11 +16,18 @@ import java.util.function.ToDoubleFunction;
  */
 public class CMRFEdgeDomain {
     
+    // domains for the two residues
+    CMRFNodeDomain resOneDomain;
+    CMRFNodeDomain resTwoDomain;
+    
     // bounds for the two residues 
     double[] resOneLB;
     double[] resOneUB;
     double[] resTwoLB;
     double[] resTwoUB;
+    
+    double[] domainLB;
+    double[] domainUB;
     
     // volme for both residues and total volume 
     double resOneVolume;
@@ -63,6 +70,9 @@ public class CMRFEdgeDomain {
 	this.resOneUB = rOneUB;
 	this.resTwoLB = rTwoLB;
 	this.resTwoUB = rTwoUB;
+	
+	this.domainLB = concatArrays(resOneLB, resTwoLB);
+	this.domainUB = concatArrays(resOneUB, resTwoUB);
 	
         // we also store individual/collective volumes 
 	this.resOneVolume = CMRFEdgeDomain.getVolume(rOneLB, rOneUB);

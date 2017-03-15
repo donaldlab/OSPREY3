@@ -73,7 +73,7 @@ public class CMRF {
         
         CMRF c = new CMRF(2);
         c.addNodes(h, map4);
-	c.runSCMF();
+//	c.runSCMF();
         
         c.runTRBP();
     }
@@ -134,7 +134,7 @@ public class CMRF {
 	}	
     }
     
-    public void calculateSingletonPseudomarginalsTRBP() { 
+    public void computeSingletonPseudomarginalsTRBP() { 
         // calculate singleton pseudomarginals
         for (CMRFNode node : nodes) { 
             int nodeIndex = getIndexInArray(node, nodes);
@@ -184,6 +184,92 @@ public class CMRF {
                                 (point)->(pseudomarginals.get(domain).eval(point)/Z)));
             }
         }
+    }
+    
+    public void computePairwiseMarginalsTRBP() { 
+	for (int i=0; i<edges.length; i++) { 
+	    for (int j=0; j<i; j++) { 
+		CMRFEdge edge = edges[i][j];
+		CMRFNode sender = nodes[i];
+		CMRFNode receiver = nodes[j];
+		
+		HashMap<CMRFEdgeDomain, RKHSFunction> newPairwiseMarginals = new HashMap<>();
+		
+		for (CMRFEdgeDomain domain : edge.domainLinks) { 
+		    CMRFNodeDomain domainOne = domain.resOneDomain;
+		    CMRFNodeDomain domainTwo = domain.resTwoDomain;
+		    
+		    // get the modified probability function
+		    RKHSFunction pairwiseEFunc = domain.eFuncRKHS;
+		    RKHSFunction oneEFunc = domain.resOneDomain.energyRKHS;
+		    RKHSFunction twoEFunc = domain.resTwoDomain.energyRKHS;
+		    final double edgeProb = edgeProbs[i][j];				    
+
+		    RKHSFunction phiFunc = new RKHSFunction(
+			    pairwiseEFunc.k,
+			    pairwiseEFunc.domainLB,
+			    pairwiseEFunc.domainUB,
+			    (point) -> (Math.exp(-1*pairwiseEFunc.eval(point)/edgeProb 
+				                    - oneEFunc.eval(point) 
+				                    - twoEFunc.eval(point))));
+		    
+		    // get neighbors of sender
+		    RKHSFunction[] senderFuncs = new RKHSFunction[nodes.length-1];
+		    double[] senderPows = new double[nodes.length-1];
+		    int snIndex = 0;
+		    for (CMRFNode node : nodes) { 
+			if (node == receiver) { continue; }
+			senderPows[snIndex] = edgeProbs[i][getIndexInArray(node, nodes)];
+			senderFuncs[snIndex] = node.outMessages.get(sender).get(domainOne);
+			snIndex++;
+		    }
+		    RKHSFunction senderDenom = new RKHSFunction(
+			    domainOne.k,
+			    domainOne.domainLB,
+			    domainOne.domainUB,
+			    (point)->(Math.pow(receiver.outMessages.get(sender).get(domainOne).eval(point), 1-edgeProb)));
+		    RKHSFunction senderFunction = new RKHSFunction(
+			    domainOne.k,
+			    domainOne.domainLB,
+			    domainOne.domainUB,
+			    (point)->(getProdOfFuncPowers(senderFuncs, senderPows, point)/senderDenom.eval(point)));
+		    
+		    // get neighbors of receiver
+		    RKHSFunction[] receiverFuncs = new RKHSFunction[nodes.length-1];
+		    double[] receiverPows = new double[nodes.length-1];
+		    int rnIndex = 0;
+		    for (CMRFNode node : nodes) { 
+			if (node == sender) { continue; }
+			receiverPows[snIndex] = edgeProbs[getIndexInArray(node, nodes)][j];
+			receiverFuncs[snIndex] = node.outMessages.get(receiver).get(domainTwo);
+			rnIndex++;
+		    }
+		    RKHSFunction receiverDenom = new RKHSFunction(
+			    domainTwo.k,
+			    domainTwo.domainLB,
+			    domainTwo.domainUB,
+			    (point)->(Math.pow(sender.outMessages.get(receiver).get(domainTwo).eval(point), 1-edgeProb)));
+		    RKHSFunction receiverFunction = new RKHSFunction(
+			    domainTwo.k,
+			    domainTwo.domainLB,
+			    domainTwo.domainUB,
+			    (point)->(getProdOfFuncPowers(receiverFuncs, receiverPows, point)/receiverDenom.eval(point)));
+
+		    newPairwiseMarginals.put(
+			    domain, 
+			    new RKHSFunction(
+				    domain.resAllK,
+				    domain.domainLB,
+				    domain.domainUB,
+				    (point)->(phiFunc.eval(point) + 
+					    senderFunction.eval(splitArray(point, domain.resOneLB.length).get(0)) + 
+					    receiverFunction.eval(splitArray(point, domain.resOneLB.length).get(1)))));
+
+		}
+		
+		edge.pseudomarginals = newPairwiseMarginals;
+	    }
+	}
     }
     
     /**
@@ -256,12 +342,12 @@ public class CMRF {
 		    for (CMRFNodeDomain d : sender.domains) {
 			// denominator of quotient
 			RKHSFunction denomFunc = new RKHSFunction(
-				d.k,
-				d.domainLB,
-				d.domainUB,
+				recDom.k,
+				recDom.domainLB,
+				recDom.domainUB,
 				(point) ->
 					(Math.pow(
-						sender.outMessages.get(receiver).get(d).eval(point),
+						sender.outMessages.get(receiver).get(recDom).eval(point),
 						1-edgeProb)));
 			
 			// numerator of quotient
@@ -351,7 +437,8 @@ public class CMRF {
     }
     
     /**
-     * Computes the enthalpy of the cMRF in its current state 
+     * Computes the enthalpy of the cMRF in its current state using pseudomarginals
+     * NOTE: pseudomarginals must have been initialized (or be extant in some form)
      * @return 
      */
     public double computeEnthalpyTRBP() { 
@@ -363,7 +450,7 @@ public class CMRF {
             
             for (CMRFNodeDomain d : v.domains) { 
                 // compute single-node domain enthalpy 
-                RKHSFunction probabilityFunc = this.getPDF(v, d);
+                RKHSFunction probabilityFunc = v.pseudomarginals.get(d);
                 RKHSFunction enthalpyFunc = new RKHSFunction(
                         d.k,
                         d.domainLB,
@@ -377,8 +464,9 @@ public class CMRF {
                     for (CMRFNodeDomain nd : neighbor.domains) { 
                         // get the pdf for the neighbor's domain 
                         int nRecNodeInd = this.getIndexInArray(neighbor, nodes);
-                        CMRFEdgeDomain edgeDomain = this.edges[nRecNodeInd][recNodeIndex].getEdgeDomain(d, nd);
-                        RKHSFunction pairwiseProbFunc = edgeDomain.pFuncRKHS;
+			CMRFEdge edge = this.edges[nRecNodeInd][recNodeIndex];
+                        CMRFEdgeDomain edgeDomain = edge.getEdgeDomain(d, nd);
+                        RKHSFunction pairwiseProbFunc = edge.pseudomarginals.get(edgeDomain);
                         RKHSFunction pairwiseEnergyFunc = edgeDomain.eFuncRKHS;
                         
                         // compute enthalpy, add it to single node enthalpy 
@@ -712,12 +800,19 @@ public class CMRF {
 	}
                
         for (int i=0; i<nodes.length; i++) { 
-            for (int j=i; j<i; j++) { 
-                if (i==j) { continue; } // no self loops
-                edges[i][j] = new CMRFEdge(
-                        nodes[i], 
-                        nodes[j], 
-                        eFuncMap.get(i).get(j));
+            for (int j=0; j<nodes.length; j++) { 
+		if (i==j) { continue; } // no self loops
+		if (i < j) {
+		    edges[i][j] = new CMRFEdge(
+			    nodes[i],
+			    nodes[j],
+			    eFuncMap.get(i).get(j));
+		} else {
+		    edges[i][j] = new CMRFEdge(
+			    nodes[i],
+			    nodes[j],
+			    eFuncMap.get(j).get(i));
+		}
                 edges[j][i] = edges[i][j];
             }
         }
@@ -740,7 +835,10 @@ public class CMRF {
 		domain.k,
 		domain.domainLB,
 		domain.domainUB,
-		(Xt) -> (Math.exp(edge.getEnergyAtPoint(CMRFEdgeDomain.concatArrays(point, Xt))/edgeProbs[i][j] +
+		(Xt) -> (Math.exp(
+			edge.getEnergyAtPoint(
+				CMRFEdgeDomain.concatArrays(point, Xt))
+				/edgeProbs[i][j] +
 			sender.getDomainForPoint(Xt).getEnergyAtPoint(Xt))));
     }
        
