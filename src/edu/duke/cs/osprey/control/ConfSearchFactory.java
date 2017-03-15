@@ -14,6 +14,8 @@ import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.multistatekstar.MSSearchProblem;
+import edu.duke.cs.osprey.multistatekstar.MultiSequenceConfTree;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 public interface ConfSearchFactory {
@@ -32,10 +34,15 @@ public interface ConfSearchFactory {
 						throw new Error("energy matrix doesn't match pruning matrix, this is a bug");
 					}
 					
-					if (search.searchNeedsHigherOrderTerms() || search.useEPIC || cfp.hasGMECMutFile()) {
+					else if (search.searchNeedsHigherOrderTerms() || search.useEPIC || cfp.hasGMECMutFile()) {
 				
 						// if we need higher-order or EPIC terms, use the old A* code
 						return ConfTree.makeFull(search, pmat, cfp.parseGMECMutFile(search.confSpace));
+					}
+					
+					else if (search instanceof MSSearchProblem && !((MSSearchProblem)search).isFullyDefined()) {
+						// we need a multi-sequence conf space
+						return new MultiSequenceConfTree((MSSearchProblem)search, emat, pmat);
 					}
 					
 					// when we don't need higher order terms, we can do fast pairwise-only things
