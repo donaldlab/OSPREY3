@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 
 public class DiscreteKStarScore extends ContinuousKStarScore {
 
-	public DiscreteKStarScore(KStarSettings settings) {
+	public DiscreteKStarScore(MSKStarSettings settings) {
 		super(settings);
 	}
 

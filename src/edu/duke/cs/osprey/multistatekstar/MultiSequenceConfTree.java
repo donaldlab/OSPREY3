@@ -38,7 +38,7 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 
 	protected Integer[] getPosNums(boolean allowed) {
 		ArrayList<Integer> ans = new ArrayList<>();
-		for(int i=0;i<pruneMat.getNumPos();++i) {
+		for(int i=0;i<search.confSpace.numPos;++i) {
 			if(allowed) {
 				if(!search.flexRes.get(i).equals("-1")) ans.add(i);
 			}
@@ -60,7 +60,7 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 		// see which RCs are unpruned and thus available for consideration
 		// pack them into an efficient int matrix
 		unprunedRCsAtPos = new int[search.confSpace.numPos][];
-		for (int pos=0;pos<search.confSpace.numPos;++pos) {//store all assigned and unassigned
+		for (int pos=0;pos<unprunedRCsAtPos.length;++pos) {//store all assigned and unassigned
 			ArrayList<Integer> srcRCs = pruneMat.unprunedRCsAtPos(pos);
 			int[] destRCs = new int[srcRCs.size()];
 			for (int i=0; i<srcRCs.size(); i++) {

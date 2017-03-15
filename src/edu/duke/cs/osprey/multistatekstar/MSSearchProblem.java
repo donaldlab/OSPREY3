@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigInteger;
+import java.util.Collections;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.pruning.Pruner;
@@ -15,6 +16,7 @@ import edu.duke.cs.osprey.pruning.PruningMethod;
 public class MSSearchProblem extends SearchProblem {
 
 	MSSearchSettings settings;
+	private int numDefinedPos;
 
 	public MSSearchProblem(SearchProblem other, 
 			MSSearchSettings settings) {
@@ -24,10 +26,15 @@ public class MSSearchProblem extends SearchProblem {
 		this.pruneMat = getReducedPruningMatrix();
 		this.allowedAAs = settings.AATypeOptions;
 		this.flexRes = settings.mutRes;//-1 for unassigned positions
+		this.numDefinedPos = other.confSpace.numPos-Collections.frequency(flexRes, "-1");
+	}
+	
+	public int getNumDefinedPos() {
+		return numDefinedPos;
 	}
 	
 	public boolean isFullyDefined() {
-		return settings.mutRes.size()==confSpace.numPos;
+		return numDefinedPos==confSpace.numPos;
 	}
 
 	public QPruningMatrix prunePmat() {
