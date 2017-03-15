@@ -6,9 +6,12 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-public class ThreadPoolTaskExecutor extends TaskExecutor implements TaskExecutor.NeedsCleanup {
+import edu.duke.cs.osprey.tools.Cleaner;
+import edu.duke.cs.osprey.tools.Cleaner.GarbageDetectable;
+
+public class ThreadPoolTaskExecutor extends TaskExecutor implements TaskExecutor.NeedsCleanup, GarbageDetectable {
 	
-	private class FailedTask implements Runnable {
+	private static class FailedTask implements Runnable {
 		
 		private Throwable error;
 		
@@ -22,7 +25,7 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements TaskExecutor
 		}
 	}
 	
-	private class FinishState extends Signal {
+	private static class FinishState extends Signal {
 		
 		private boolean submissionsOpen;
 		private int numSubmitted;
@@ -92,10 +95,17 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements TaskExecutor
 		}
 	}
 	
-	private class TaskThread extends WorkQueueThread<Runnable> {
+	private static class TaskThread extends WorkQueueThread<Runnable> {
 		
-		private TaskThread(int index, BlockingQueue<Runnable> queue) {
+		private int queueFactor;
+		private CounterSignal idleThreadsSignal;
+		private BlockingQueue<Runnable> outgoingQueue;
+		
+		private TaskThread(int index, BlockingQueue<Runnable> queue, BlockingQueue<Runnable> outgoingQueue, int queueFactor, CounterSignal idleThreadsSignal) {
 			super("TaskThread-" + index, queue);
+			this.queueFactor = queueFactor;
+			this.idleThreadsSignal = idleThreadsSignal;
+			this.outgoingQueue = outgoingQueue;
 		}
 		
 		@Override
@@ -127,10 +137,13 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements TaskExecutor
 		}
 	}
 	
-	private class ListenerThread extends WorkQueueThread<Runnable> {
+	private static class ListenerThread extends WorkQueueThread<Runnable> {
 		
-		public ListenerThread(BlockingQueue<Runnable> queue) {
+		private FinishState finishState;
+		
+		public ListenerThread(BlockingQueue<Runnable> queue, FinishState finishState) {
 			super("TaskThread-listener", queue);
+			this.finishState = finishState;
 		}
 	
 		@Override
@@ -225,23 +238,18 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements TaskExecutor
 		// start all the threads
 		threads = new ArrayList<>(numThreads);
 		for (int i=0; i<numThreads; i++) {
-			threads.add(new TaskThread(i, incomingQueue));
+			threads.add(Cleaner.addCleaner(this, new TaskThread(i, incomingQueue, outgoingQueue, queueFactor, idleThreadsSignal)));
 		}
 		for (TaskThread thread : threads) {
 			thread.start();
 		}
 		
 		// start the listener thread
-		listenerThread = new ListenerThread(outgoingQueue);
+		listenerThread = Cleaner.addCleaner(this, new ListenerThread(outgoingQueue, finishState));
 		listenerThread.start();
 		
 		// init waitForSpace() signals
-		idleThreadsSignal = new CounterSignal(numThreads, new CounterSignal.SignalCondition() {
-			@Override
-			public boolean shouldSignal(int numIdleThreads) {
-				return numIdleThreads > 0;
-			}
-		});
+		idleThreadsSignal = new CounterSignal(numThreads, (int numIdleThreads) -> numIdleThreads > 0);
 	}
 	
 	@Override
@@ -325,14 +333,5 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements TaskExecutor
 	private void clearThreads() {
 		threads.clear();
 		listenerThread = null;
-	}
-	
-	@Override
-	protected void finalize()
-	throws Throwable {
-		if (!threads.isEmpty() || listenerThread != null) {
-			System.err.println("thread pool not cleaned up, could lead to failures starting new threads");
-		}
-		super.finalize();
 	}
 }
