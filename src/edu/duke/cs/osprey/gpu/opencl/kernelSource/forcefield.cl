@@ -26,8 +26,9 @@ typedef struct __attribute__((aligned(8))) {
 	bool useHEs; // @ 33
 	bool useHVdw; // @ 34
 	bool useSubset; // @ 35
+	bool useEEF1; // @ 36
 } ForcefieldArgs;
-// sizeof = 36
+// sizeof = 40
 
 kernel void calc(
 	global const double *coords, global const int *atomFlags, global const double *precomputed, global const int *subsetTable, global double *out,
@@ -125,7 +126,7 @@ kernel void calc(
 		}
 		
 		// calculate solvation
-		if (bothHeavy && r2 < args->solvCutoff2) {
+		if (args->useEEF1 && bothHeavy && r2 < args->solvCutoff2) {
 				
 			double r = sqrt(r2);
 			{
