@@ -15,14 +15,14 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.multistatekstar.InputValidation;
-import edu.duke.cs.osprey.multistatekstar.KStarFactory;
-import edu.duke.cs.osprey.multistatekstar.KStarScore;
-import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
+import edu.duke.cs.osprey.multistatekstar.MSKStarFactory;
+import edu.duke.cs.osprey.multistatekstar.MSKStarScore;
+import edu.duke.cs.osprey.multistatekstar.MSKStarScore.KStarScoreType;
 import edu.duke.cs.osprey.multistatekstar.LMV;
 import edu.duke.cs.osprey.multistatekstar.MSConfigFileParser;
 import edu.duke.cs.osprey.multistatekstar.MSKStarTree;
 import edu.duke.cs.osprey.multistatekstar.MSSearchProblem;
-import edu.duke.cs.osprey.multistatekstar.SearchSettings;
+import edu.duke.cs.osprey.multistatekstar.MSSearchSettings;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -161,7 +161,7 @@ public class MSKStarDoer {
 		Parallelism parallelism = cont ? Parallelism.makeFromConfig(cfps[state]) : Parallelism.makeDefault();
 		ConfEnergyCalculator.Async[] ans = new ConfEnergyCalculator.Async[search.length];
 		for(int substate=0;substate<search.length;++substate) {
-			ans[substate] = KStarFactory.makeEnergyCalculator(cfps[state], search[substate], parallelism);
+			ans[substate] = MSKStarFactory.makeEnergyCalculator(cfps[state], search[substate], parallelism);
 		}
 		return ans;
 	}
@@ -214,7 +214,7 @@ public class MSKStarDoer {
 		MSSearchProblem[] singleSeqSearchDisc = new MSSearchProblem[numPartFuncs];
 		for(int subState=0;subState<numPartFuncs;++subState){
 
-			SearchSettings spSet = new SearchSettings();
+			MSSearchSettings spSet = new MSSearchSettings();
 			spSet.AATypeOptions = subStateAATypes.get(subState);
 			ArrayList<String> mutRes = new ArrayList<>();
 			for(int i:mutable2StateResNums.get(state).get(subState)) mutRes.add(String.valueOf(i));
@@ -227,7 +227,7 @@ public class MSKStarDoer {
 		}
 		
 		KStarScoreType scoreType = sParams.getBool("DOMINIMIZE") ? KStarScoreType.Continuous : KStarScoreType.Discrete;
-		KStarScore score = KStarFactory.makeStarScore(
+		MSKStarScore score = MSKStarFactory.makeKStarScore(
 				msParams, state, cfps[state],
 				singleSeqSearchCont, singleSeqSearchDisc,
 				ecalcsCont[state], ecalcsDisc[state], scoreType

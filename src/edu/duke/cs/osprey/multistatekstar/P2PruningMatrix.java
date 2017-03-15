@@ -50,7 +50,7 @@ public class P2PruningMatrix extends PruningMatrix {
 	
 	@Override
 	public int getNumConfAtPos(int pos) {
-		return other.getNumConfAtPos(pos);
+		return 0;
 	}
 	
 	@Override
@@ -134,12 +134,12 @@ public class P2PruningMatrix extends PruningMatrix {
 	
 	@Override
 	public boolean isPruned(RCTuple tup) {
-		return other.isPruned(tup);
+		return true;
 	}
 	
 	@Override
 	public boolean isPrunedHigherOrder(RCTuple tup, int curIndex, HigherTupleFinder<Boolean> htf) {
-		return other.isPrunedHigherOrder(tup, curIndex, htf);
+		return true;
 	}
 	
 	@Override

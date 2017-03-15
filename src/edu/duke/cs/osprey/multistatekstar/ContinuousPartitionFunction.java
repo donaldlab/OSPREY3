@@ -21,6 +21,11 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
+/**
+ * @author Adegoke Ojewole (ao68@duke.edu)
+ * 
+ */
+
 public class ContinuousPartitionFunction extends ParallelConfPartitionFunction {
 
 	protected PriorityQueue<ScoredConf> topConfs;

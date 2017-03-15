@@ -2,7 +2,12 @@ package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigDecimal;
 
-public interface KStarScore {
+/**
+ * 
+ * @author Adegoke Ojewole (ao68@duke.edu)
+ * 
+ */
+public interface MSKStarScore {
 
 	public enum KStarScoreType {
 	    Continuous,//i.e. minimization

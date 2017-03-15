@@ -2,7 +2,6 @@ package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Collections;
 import edu.duke.cs.osprey.astar.comets.UpdatedPruningMatrix;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
@@ -23,7 +22,6 @@ public class QPruningMatrix extends UpdatedPruningMatrix{
 	public ArrayList<ArrayList<String>> assignedAATypeOptions;
 
 	private int numPos;
-	private int numDefinedPos;
 
 	/**
 	 * Create an update to the original pruning matrix to reflect the fact that
@@ -43,7 +41,6 @@ public class QPruningMatrix extends UpdatedPruningMatrix{
 		this.assignedFlexRes = flexRes;
 		this.assignedAATypeOptions = AATypeOptions;
 		numPos = flexRes.size();
-		numDefinedPos = numPos-Collections.frequency(flexRes, "-1");
 
 		markNonAATypeOptionsAsPruned();
 	}
@@ -99,10 +96,6 @@ public class QPruningMatrix extends UpdatedPruningMatrix{
 
 		return true;
 	}
-
-	public boolean isFullyDefined() {
-		return numPos==numDefinedPos;
-	}
 	
 	public boolean contains(int res, int index) {
 		String rcAAType = sp.confSpace.posFlex.get(res).RCs.get(index).AAType;
@@ -125,10 +118,6 @@ public class QPruningMatrix extends UpdatedPruningMatrix{
 	@Override
 	public int getNumPos() {
 		return numPos;
-	}
-	
-	public int getNumDefinedPos() {
-		return numDefinedPos;
 	}
 
 	@Override

@@ -8,14 +8,19 @@ import edu.duke.cs.osprey.control.ParamSet;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
-import edu.duke.cs.osprey.multistatekstar.KStarScore.PartitionFunctionType;
+import edu.duke.cs.osprey.multistatekstar.MSKStarScore.KStarScoreType;
+import edu.duke.cs.osprey.multistatekstar.MSKStarScore.PartitionFunctionType;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
-public class KStarFactory {
+/**
+ * 
+ * @author Adegoke Ojewole (ao68@duke.edu)
+ * 
+ */
+public class MSKStarFactory {
 
-	public static KStarScore makeStarScore(
+	public static MSKStarScore makeKStarScore(
 			ParamSet msParams,
 			int state,
 			MSConfigFileParser cfp,
@@ -27,7 +32,7 @@ public class KStarFactory {
 			) {
 
 		ParamSet sParams = cfp.getParams();
-		KStarSettings settings = new KStarSettings();
+		MSKStarSettings settings = new MSKStarSettings();
 		settings.state = state;
 		settings.cfp = cfp;
 		settings.targetEpsilon = sParams.getDouble("EPSILON");
@@ -54,6 +59,7 @@ public class KStarFactory {
 				settings.search[subState] = searchCont[subState];
 				settings.ecalcs[subState] = ecalcsCont[subState];
 			}
+			settings.isFinal = true;
 			return new ContinuousKStarScore(settings);
 			
 		case Discrete:
@@ -62,6 +68,7 @@ public class KStarFactory {
 				settings.search[subState] = searchDisc[subState];
 				settings.ecalcs[subState] = ecalcsDisc[subState];
 			}
+			settings.isFinal = true;
 			return new DiscreteKStarScore(settings);
 			
 		case DiscretePairWise:
@@ -70,6 +77,7 @@ public class KStarFactory {
 				settings.search[subState] = searchCont[subState];
 				settings.ecalcs[subState] = ecalcsCont[subState];
 			}
+			settings.isFinal = true;
 			settings.numTopConfsToSave = 0;
 			return new DiscreteKStarScore(settings);
 			
@@ -82,6 +90,7 @@ public class KStarFactory {
 			settings.pfTypes[numPartFuncs-1] = PartitionFunctionType.DiscreteUpperBound;
 			settings.search[numPartFuncs-1] = searchCont[numPartFuncs-1];
 			settings.ecalcs[numPartFuncs-1] = ecalcsCont[numPartFuncs-1];
+			settings.isFinal = false;
 			settings.numTopConfsToSave = 0;
 			return new DiscreteKStarScore(settings);
 			
@@ -94,6 +103,7 @@ public class KStarFactory {
 			settings.pfTypes[numPartFuncs-1] = PartitionFunctionType.Discrete;
 			settings.search[numPartFuncs-1] = searchDisc[numPartFuncs-1];
 			settings.ecalcs[numPartFuncs-1] = ecalcsDisc[numPartFuncs-1];
+			settings.isFinal = false;
 			settings.numTopConfsToSave = 0;
 			return new DiscreteKStarScore(settings);
 			
