@@ -177,15 +177,16 @@ public class ContinuousKStarScore implements MSKStarScore {
 			targetScoreWeights = (pstar.add(qprime)).subtract(targetScoreWeights);
 		}
 
-		PruningMatrix invPmat = ((QPruningMatrix)settings.search[state].pruneMat).invert();
-		settings.search[state].pruneMat = invPmat;
-
 		ConfSearchFactory confSearchFactory = MSKStarFactory.makeConfSearchFactory(settings.search[state], settings.cfp);
 
+		PruningMatrix invPmat = ((QPruningMatrix)settings.search[state].pruneMat).invert();
+		//settings.search[state].pruneMat = invPmat;
+		
 		ContinuousPartitionFunction p2pf = (ContinuousPartitionFunction) MSKStarFactory.makePartitionFunction( 
 				settings.pfTypes[state],
 				settings.search[state].emat, 
-				settings.search[state].pruneMat, 
+				invPmat,
+				//settings.search[state].pruneMat, 
 				confSearchFactory,
 				settings.ecalcs[state]
 				);
