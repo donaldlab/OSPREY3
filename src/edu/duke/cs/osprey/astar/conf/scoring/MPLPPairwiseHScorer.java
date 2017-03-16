@@ -40,13 +40,4 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 		}
 		return energy;
 	}
-
-	@Override
-	public double calcDifferential(ConfIndex confIndex, RCs rcs, int nextPos, int nextRc) {
-		
-		// TODO: implement me
-		
-		// TEMP: punt to calc()
-		return calc(new ConfIndex(confIndex, nextPos, nextRc), rcs);
-	}
 }

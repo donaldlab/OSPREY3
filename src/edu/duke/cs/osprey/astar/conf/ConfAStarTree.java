@@ -13,11 +13,12 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 public class ConfAStarTree implements ConfSearch {
 	
-	private AStarOrder order;
-	private AStarScorer gscorer;
-	private AStarScorer hscorer;
+	public final AStarOrder order;
+	public final AStarScorer gscorer;
+	public final AStarScorer hscorer;
+	public final RCs rcs;
+	
 	private PriorityQueue<ConfAStarNode> queue;
-	private RCs rcs;
 	private ConfAStarNode rootNode;
 	private ConfIndex confIndex;
 	private AStarProgress progress;
@@ -26,8 +27,8 @@ public class ConfAStarTree implements ConfSearch {
 		this.order = order;
 		this.gscorer = gscorer;
 		this.hscorer = hscorer;
-		this.queue = new PriorityQueue<>();
 		this.rcs = rcs;
+		this.queue = new PriorityQueue<>();
 		this.rootNode = null;
 		this.confIndex = new ConfIndex(this.rcs.getNumPos());
 		this.progress = null;

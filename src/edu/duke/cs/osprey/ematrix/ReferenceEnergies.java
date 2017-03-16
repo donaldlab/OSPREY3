@@ -106,4 +106,8 @@ public class ReferenceEnergies implements Serializable {
         
         return totERef;
     }
+    
+    public double posERef(int pos, int rc) {
+        return eRefMatrix.get(pos).get(cSpace.posFlex.get(pos).RCs.get(rc).AAType);
+    }
 }
