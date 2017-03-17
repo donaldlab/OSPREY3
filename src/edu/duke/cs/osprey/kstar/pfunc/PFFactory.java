@@ -127,7 +127,7 @@ public class PFFactory {
 		public StrandInfo(KSConfigFileParser cfp, KSSearchProblem multiSeqSearch) {
 			Parallelism parallelism = Parallelism.makeFromConfig(cfp);
 			ForcefieldParams ffparams = EnvironmentVars.curEFcnGenerator.ffParams;
-			ecalc = MinimizingEnergyCalculator.make(ffparams, multiSeqSearch, parallelism, true);
+			ecalc = MinimizingEnergyCalculator.make(ffparams, multiSeqSearch, parallelism);
 		}
 		
 		public void cleanup() {

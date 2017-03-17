@@ -229,7 +229,7 @@ public class GMECFinder {
 					// for "regular" conf minimization, use the spiffy new ConfMinimizer!
 					ForcefieldParams ffparams = EnvironmentVars.curEFcnGenerator.ffParams;
 					Parallelism parallelism = Parallelism.makeFromConfig(cfp);
-					ecalc = MinimizingEnergyCalculator.make(ffparams, search, parallelism, false);
+					ecalc = MinimizingEnergyCalculator.make(ffparams, search, parallelism);
 				}
 			}
 			

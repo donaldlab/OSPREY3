@@ -75,19 +75,16 @@ public class BenchmarkTaskExecutor {
 				System.out.print(String.format("Benchmarking %2d threads...  ", numThreads));
 				tasks.start(numThreads);
 				
-				// TEMP
-				System.out.println();
-				
 				// do the warmup
 				for (int j=0; j<numThreads; j++) {
-					tasks.submit(factory.makeTask());
+					tasks.submit(factory.makeTask(), (task) -> {});
 				}
 				tasks.waitForFinish();
 				
 				// time the tasks
 				Stopwatch stopwatch = new Stopwatch().start();
 				for (int j=0; j<numThreads; j++) {
-					tasks.submit(factory.makeTask());
+					tasks.submit(factory.makeTask(), (task) -> {});
 				}
 				tasks.waitForFinish();
 				stopwatch.stop();
@@ -104,11 +101,7 @@ public class BenchmarkTaskExecutor {
 				}
 				
 				// cleanup
-				try {
-					tasks.stopAndWait(10000);
-				} catch (InterruptedException ex) {
-					throw new Error(ex);
-				}
+				tasks.stopAndWait(10000);
 			}
 		}
 	}

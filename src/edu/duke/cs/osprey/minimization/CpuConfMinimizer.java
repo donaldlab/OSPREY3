@@ -17,7 +17,6 @@ public class CpuConfMinimizer extends ConfMinimizer {
 		public final ConfSpace confSpace;
 		
 		public int numThreads;
-		public boolean areConfsStreaming;
 		Factory<Minimizer,MoleculeModifierAndScorer> minimizers;
 		
 		public Builder(ForcefieldParams ffparams, Factory<ForcefieldInteractions,Molecule> interactions, ConfSpace confSpace) {
@@ -27,17 +26,11 @@ public class CpuConfMinimizer extends ConfMinimizer {
 			this.confSpace = confSpace;
 			
 			numThreads = 1;
-			areConfsStreaming = false;
 			minimizers = (mof) -> new SimpleCCDMinimizer(mof);
 		}
 		
 		public Builder setNumThreads(int val) {
 			numThreads = val;
-			return this;
-		}
-		
-		public Builder setAreConfsStreaming(boolean val) {
-			areConfsStreaming = val;
 			return this;
 		}
 		
@@ -47,11 +40,11 @@ public class CpuConfMinimizer extends ConfMinimizer {
 		}
 		
 		public CpuConfMinimizer build() {
-			return new CpuConfMinimizer(numThreads, areConfsStreaming, ffparams, interactions, confSpace, minimizers);
+			return new CpuConfMinimizer(numThreads, ffparams, interactions, confSpace, minimizers);
 		}
 	}
 	
-	public CpuConfMinimizer(int numThreads, boolean areConfsStreaming, ForcefieldParams ffparams, Factory<ForcefieldInteractions,Molecule> interactions, ConfSpace confSpace, Factory<? extends Minimizer,MoleculeModifierAndScorer> minimizers) {
+	public CpuConfMinimizer(int numThreads, ForcefieldParams ffparams, Factory<ForcefieldInteractions,Molecule> interactions, ConfSpace confSpace, Factory<? extends Minimizer,MoleculeModifierAndScorer> minimizers) {
 		
 		// make the energy function factory
 		EnergyFunctionGenerator egen = new EnergyFunctionGenerator(ffparams, Double.POSITIVE_INFINITY, false);
@@ -62,6 +55,6 @@ public class CpuConfMinimizer extends ConfMinimizer {
 			}
 		};
 		
-		init(numThreads, areConfsStreaming, efuncs, minimizers, confSpace);
+		init(numThreads, efuncs, minimizers, confSpace);
 	}
 }
