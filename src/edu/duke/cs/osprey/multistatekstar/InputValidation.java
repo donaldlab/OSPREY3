@@ -12,6 +12,10 @@ import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.StringParsing;
 
+/**
+ * @author Adegoke Ojewole (ao68@duke.edu)
+ * 
+ */
 public class InputValidation {
 
 	ArrayList<ArrayList<ArrayList<ArrayList<String>>>> AATypeOptions;
@@ -80,6 +84,11 @@ public class InputValidation {
 	
 	public void handleStateParams(int state, ParamSet sParams, ParamSet msParams) {
 		//parameter sanity check
+		boolean imindee = sParams.getBool("IMINDEE");
+		boolean doMinimize = sParams.getBool("DOMINIMIZE");
+		if(imindee != doMinimize)
+			throw new RuntimeException("ERROR: IMINDEE must have the same value as DOMINIMIZE");
+		
 		double epsilon = sParams.getDouble("EPSILON");
 		if(epsilon >= 1 || epsilon < 0) 
 			throw new RuntimeException("ERROR: EPSILON must be >= 0 and < 1"); 

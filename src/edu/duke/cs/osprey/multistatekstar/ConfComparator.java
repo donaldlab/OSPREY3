@@ -5,6 +5,11 @@ import java.util.Comparator;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 
+/**
+ * @author Adegoke Ojewole (ao68@duke.edu)
+ * 
+ */
+
 public class ConfComparator implements Comparator<ScoredConf> {
 
 	@Override

@@ -105,6 +105,7 @@ public class CCDKernelCuda extends Kernel {
 		argsBuf.put((byte)(ffenergy.getParams().useDistDependentDielectric ? 1 : 0));
 		argsBuf.put((byte)(ffenergy.getParams().useHElectrostatics ? 1 : 0));
 		argsBuf.put((byte)(ffenergy.getParams().useHVdw ? 1 : 0));
+		argsBuf.put((byte)(ffenergy.getParams().useEEF1 ? 1 : 0));
 		
 		// upload static forcefield info
 		atomFlags.uploadAsync();

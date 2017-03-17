@@ -1,28 +1,40 @@
 package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigInteger;
+import java.util.Collections;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningMethod;
 
+/**
+ * 
+ * @author Adegoke Ojewole (ao68@duke.edu)
+ * 
+ */
 @SuppressWarnings("serial")
 public class MSSearchProblem extends SearchProblem {
 
-	SearchSettings settings;
+	MSSearchSettings settings;
+	private int numDefinedPos;
 
 	public MSSearchProblem(SearchProblem other, 
-			SearchSettings settings) {
+			MSSearchSettings settings) {
 		super(other);
 		if(settings==null) throw new RuntimeException("ERROR: search settings cannot be null");
 		this.settings = settings;
 		this.pruneMat = getReducedPruningMatrix();
 		this.allowedAAs = settings.AATypeOptions;
-		this.flexRes = settings.mutRes;
+		this.flexRes = settings.mutRes;//-1 for unassigned positions
+		this.numDefinedPos = other.confSpace.numPos-Collections.frequency(flexRes, "-1");
+	}
+	
+	public int getNumDefinedPos() {
+		return numDefinedPos;
 	}
 	
 	public boolean isFullyDefined() {
-		return settings.mutRes.size()==confSpace.numPos;
+		return numDefinedPos==confSpace.numPos;
 	}
 
 	public QPruningMatrix prunePmat() {
@@ -52,7 +64,8 @@ public class MSSearchProblem extends SearchProblem {
 			oldNumUpdates = numUpdates;
 			dee.prune("GOLDSTEIN");
 			//pairs pruning can take a LONG time
-			if(contSCFlex && dee.enumerateCandidates(PruningMethod.getMethod("GOLDSTEIN PAIRS FULL")).size() < 32768)
+			if(!contSCFlex || 
+					(contSCFlex && dee.enumerateCandidates(PruningMethod.getMethod("GOLDSTEIN PAIRS FULL")).size() < 32768))
 				dee.prune("GOLDSTEIN PAIRS FULL");
 			numUpdates = qpm.countUpdates();
 			

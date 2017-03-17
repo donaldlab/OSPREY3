@@ -135,7 +135,9 @@ public class NodeUpdater implements MPLPUpdater {
 						double theta = emat.getPairwise(pos1, rc1, pos2, rc2);
 						double gamma1 = gammas.getEnergy(posi1, rci1);
 						double gamma2 = gammas.get(posi2, posi1, rci1);
-						minVal = Math.min(minVal, theta + 2*gamma1/confIndex.getNumUndefined() - gamma2);
+						if (Double.isFinite(theta) && Double.isFinite(gamma1) && Double.isFinite(gamma2)) {
+							minVal = Math.min(minVal, theta + 2*gamma1/confIndex.getNumUndefined() - gamma2);
+						}
 					}
 					
 					double energyWithout = lambdas.getEnergyWithout(posi2, rci2, posi1);
