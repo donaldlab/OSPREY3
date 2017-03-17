@@ -1,6 +1,8 @@
 package edu.duke.cs.osprey.parallelism;
 
-public abstract class WorkThread extends Thread {
+import edu.duke.cs.osprey.tools.Cleaner.Cleanable;
+
+public abstract class WorkThread extends Thread implements Cleanable {
 	
 	// this flag is hit from multiple threads concurrently, so make it volatile
 	private volatile boolean isRunning;
@@ -42,4 +44,9 @@ public abstract class WorkThread extends Thread {
 	}
 	
 	protected abstract void doWork() throws InterruptedException;
+	
+	@Override
+	public void clean() {
+		askToStop();
+	}
 }
