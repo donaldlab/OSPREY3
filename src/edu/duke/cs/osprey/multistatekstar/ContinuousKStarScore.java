@@ -191,7 +191,8 @@ public class ContinuousKStarScore implements MSKStarScore {
 				settings.ecalcs[state]
 				);
 
-		p2pf.init(0.03);
+		p2pf.init(targetEpsilon);//enumerating over pstar, energies can be high
+		p2pf.getValues().qstar = qstar;//keep old qstar
 		p2pf.compute(targetScoreWeights);
 		return p2pf;
 	}
@@ -205,7 +206,7 @@ public class ContinuousKStarScore implements MSKStarScore {
 		//no more q conformations, and we have not reached epsilon
 		if(pf.getValues().getEffectiveEpsilon() > settings.targetEpsilon) {
 			ContinuousPartitionFunction p2pf = (ContinuousPartitionFunction) phase2(state);
-			pf.getValues().qstar = pf.getValues().qstar.add(p2pf.getValues().qstar);
+			pf.getValues().qstar = p2pf.getValues().qstar;
 			pf.setStatus(Status.Estimated);
 			if(settings.search[state].isFullyDefined() && settings.numTopConfsToSave > 0)
 				pf.saveEConfs(p2pf.topConfs);
