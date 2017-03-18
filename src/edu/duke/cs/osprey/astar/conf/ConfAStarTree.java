@@ -73,7 +73,7 @@ public class ConfAStarTree implements ConfSearch {
 		}
 		
 		parallelism = val;
-		tasks = parallelism.makeTaskExecutor(1000);
+		tasks = parallelism.makeTaskExecutor();
 		contexts.allocate(parallelism.getParallelism());
 	}
 	

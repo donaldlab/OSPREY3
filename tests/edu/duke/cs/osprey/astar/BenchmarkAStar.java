@@ -18,7 +18,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
+import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.SearchProblem;
@@ -100,7 +100,8 @@ public class BenchmarkAStar extends TestBase {
 		AStarOrder order;
 		AStarScorer hscorer;
 		if (useMPLP) {
-			hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001);
+			//hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001);
+			hscorer = new MPLPPairwiseHScorer(new EdgeUpdater(), search.emat, 5, 0.0001);
 			order = new StaticScoreHMeanAStarOrder();
 		} else {
 			hscorer = new TraditionalPairwiseHScorer(search.emat, rcs);
@@ -129,8 +130,16 @@ public class BenchmarkAStar extends TestBase {
 		*/
 		
 		// TREE SIZE
-		// Traditional:   expanded: 69k   queued: 9.4m
-		// MPLP:          expanded: ~4.8k   queued: ~0.5m
+		// Traditional:        expanded: 69k     queued:  9.4m
+		// MPLP 1 node iter:   expanded: ~4.8k   queued: ~0.5m
+		// MPLP 1 edge iter:   expanded: ~1.9k   queued: ~0.2m
+		// MPLP 2 edge iters:  expanded:   130   queued:  ~11k
+		// MPLP 3 edge iters:  expanded:    60   queued:   ~5k
+		// MPLP 4 edge iters:  expanded:    42   queued:   ~4k
+		// MPLP 5 edge iters:  expanded:    30   queued:   ~3k
+		// MPLP 6 edge iters:  expanded:    21   queued:   ~2k
+		// MPLP 7 edge iters:  expanded:    19   queued: ~1.8k
+		// MPLP 8 edge iters:  expanded:    16   queued: ~1.6k
 		
 		// BENCHMARKING (on laptop)
 		// traditional:     ~1.2 min    100k-160k scores/sec
@@ -138,17 +147,30 @@ public class BenchmarkAStar extends TestBase {
 		// MPLP 3 threads:  ~12.1 min   1.0k-1.5k scores/sec
 		
 		// BENCHMARKING (on desktop)
-		// traditional, 1 thread:     ~1.1 min     100k-160k scores/sec
-		// traditional, 2 threads:    ~1.7 min      60k-125k scores/sec
+		// traditional, 1 thread:          ~1.1 min     100k-160k scores/sec
+		// traditional, 2 threads:         ~1.7 min      60k-125k scores/sec
 		
 		// (desktop, with youtube playing)
-		// traditional, 1 thread:     ~1.2 min      120k-170k scores/sec
-		// traditional, 2 threads:    ~1.9 min       70k-110k scores/sec
-		// traditional, 4 threads:    ~2.2 min        70k-90k scores/sec
+		// traditional, 1 thread:          ~1.2 min      120k-170k scores/sec
+		// traditional, 2 threads:         ~1.9 min       70k-110k scores/sec
+		// traditional, 4 threads:         ~2.2 min        70k-90k scores/sec
 		
-		// MPLP 1 iter, 1 thread:      ??? min       500-700 scores/sec (for first 1k expansions)
-		// MPLP 1 iter, 2 threads:     ??? min      700-1000 scores/sec (for first 1k expansions)
-		// MPLP 1 iter, 4 threads:    ~5.4 min      900-1200 scores/sec (for first 1k expansions)
+		// with 1k queue
+		// MPLP 1 node iter, 1 thread:      ??? min       500-700 scores/sec (for first 1k expansions)
+		// MPLP 1 node iter, 2 threads:     ??? min      700-1000 scores/sec (for first 1k expansions)
+		// MPLP 1 node iter, 4 threads:    ~6.4 min      900-1200 scores/sec (for first 1k expansions)
+		
+		// with no queue
+		// MPLP 1 node iter, 4 threads:    ~5.3 min      1300-1700 scores/sec (for first 1k expansions)
+		// MPLP 1 edge iter, 4 threads:    ~1.1 min      2600-3000 scores/sec (for first 1k expansions)
+		// MPLP 2 edge iters, 4 threads:	 33 sec            ??? scores/sec
+		// MPLP 3 edge iters, 4 threads:	  8 sec            ??? scores/sec
+		// MPLP 4 edge iters, 4 threads:	  5 sec            ??? scores/sec
+		// MPLP 5 edge iters, 1 thread: 	9.5 sec            ??? scores/sec
+		// MPLP 5 edge iters, 4 threads:	  4 sec            ??? scores/sec
+		// MPLP 6 edge iters, 4 threads:	2.5 sec            ??? scores/sec
+		// MPLP 7 edge iters, 4 threads:	2.3 sec            ??? scores/sec
+		// MPLP 8 edge iters, 4 threads:	2.3 sec            ??? scores/sec
 		
 		assertThat(conf.getAssignments(), is(new int[] { 165, 17, 26, 0, 0, 4, 122 }));
 		assertThat(conf.getScore(), isAbsolutely(-50.792885, 1e-6));

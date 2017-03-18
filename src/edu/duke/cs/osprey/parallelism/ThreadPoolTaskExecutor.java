@@ -72,12 +72,10 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 	 * Controls task queue size.
 	 * Set this to 0 to cause main thread to block until task thread is ready.
 	 * Set this to >0 to "buffer" tasks so task threads don't have to wait on the main thread to start a task.
-	 * >0 is generally faster than 0, but only works if you know how many tasks you have in advance.
-	 * (eg, 0 is good for minimizing confs in K*, >0 is good for everything else)
+	 * >0 can sometimes be faster than 0, but only works if you know how many tasks you have in advance.
+	 * otherwise, you can end up execting more tasks than you need.
 	 * The best queue size to use is determined by the amount of work it takes to create a task vs execute it.
-	 * Tasks that are expensive to create benefit less from using the queue. Tasks that are easy to create
-	 * benefit a lot from the queue. If all tasks can be quickly added to the queue, then the thread pool doesn't
-	 * have to share a CPU core with the main thread while executing tasks.
+	 * Experiment to find the best values for your problem.
 	 */
 	public int queueSize = 0;
 	
