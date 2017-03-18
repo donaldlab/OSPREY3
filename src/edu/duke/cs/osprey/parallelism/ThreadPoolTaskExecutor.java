@@ -1,114 +1,154 @@
 package edu.duke.cs.osprey.parallelism;
 
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import edu.duke.cs.osprey.tools.Cleaner;
+import edu.duke.cs.osprey.tools.Cleaner.Cleanable;
 import edu.duke.cs.osprey.tools.Cleaner.GarbageDetectable;
 
 public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetectable {
 	
-	// TODO: use cleaner to call shutdown()
-	// the JRE won't do it automatically when the threads are still running
+	private static final ThreadFactory DaemonThreadFactory = new ThreadFactory() {
+		// here there be daemons!
+		
+		private ThreadFactory threadFactory = Executors.defaultThreadFactory();
+
+		@Override
+		public Thread newThread(Runnable runnable) {
+			Thread thread = threadFactory.newThread(runnable);
+			thread.setDaemon(true);
+			return thread;
+		}
+	};
 	
-	private ThreadPoolExecutor pool;
-	private ThreadPoolExecutor listenerThread;
+	private static class Threads implements Cleanable {
+		
+		ThreadPoolExecutor pool;
+		ThreadPoolExecutor listener;
+		BlockingQueue<Runnable> queue;
+		
+		public Threads(int numThreads, int queueSize) {
+			
+			if (queueSize <= 0) {
+				queue = new SynchronousQueue<>();
+			} else {
+				queue = new ArrayBlockingQueue<>(queueSize);
+			}
+			pool = new ThreadPoolExecutor(numThreads, numThreads, 0, TimeUnit.DAYS, queue, DaemonThreadFactory);
+			pool.prestartAllCoreThreads();
+			
+			// use an unbounded queue for the listener thread
+			// let task results pile up until the listener thread can process them
+			listener = new ThreadPoolExecutor(1, 1, 0, TimeUnit.DAYS, new LinkedBlockingQueue<>(), DaemonThreadFactory);
+			listener.prestartAllCoreThreads();
+		}
+		
+		@Override
+		public void clean() {
+			pool.shutdown();
+			listener.shutdown();
+		}
+		
+		public void cleanAndWait(int timeoutMs) {
+			clean();
+			try {
+				pool.awaitTermination(timeoutMs, TimeUnit.MILLISECONDS);
+				listener.awaitTermination(timeoutMs, TimeUnit.MILLISECONDS);
+			} catch (InterruptedException ex) {
+				throw new Error(ex);
+			}
+		}
+	}
 	
+	/**
+	 * Controls task queue size.
+	 * Set this to 0 to cause main thread to block until task thread is ready.
+	 * Set this to >0 to "buffer" tasks so task threads don't have to wait on the main thread to start a task.
+	 * >0 is generally faster than 0, but only works if you know how many tasks you have in advance.
+	 * (eg, 0 is good for minimizing confs in K*, >0 is good for everything else)
+	 * The best queue size to use is determined by the amount of work it takes to create a task vs execute it.
+	 * Tasks that are expensive to create benefit less from using the queue. Tasks that are easy to create
+	 * benefit a lot from the queue. If all tasks can be quickly added to the queue, then the thread pool doesn't
+	 * have to share a CPU core with the main thread while executing tasks.
+	 */
+	public int queueSize = 0;
+	
+	private Threads threads;
 	private AtomicLong numTasksStarted;
 	private AtomicLong numTasksFinished;
+	private Signal taskSignal;
 	
 	public ThreadPoolTaskExecutor() {
-		pool = null;
+		threads = null;
+		numTasksStarted = new AtomicLong(0);
+		numTasksFinished = new AtomicLong(0);
+		taskSignal = new Signal();
 	}
 	
 	public void start(int numThreads) {
-		
-		// don't use queues for the main thread pool
-		// handoff a task when a thread is ready
-		pool = new ThreadPoolExecutor(numThreads, numThreads, 0, TimeUnit.DAYS, new SynchronousQueue<>());
-		pool.prestartAllCoreThreads();
-		
-		// use an unbounded queue for the listener thread
-		// let task results pile up until the listener thread can process them
-		listenerThread = new ThreadPoolExecutor(1, 1, 0, TimeUnit.DAYS, new LinkedBlockingQueue<>());
-		listenerThread.prestartAllCoreThreads();
-	
-		Cleaner.addCleaner(this, () -> {
-			if (pool != null) {
-				pool.shutdown();
-			}
-			if (listenerThread != null) {
-				listenerThread.shutdown();
-			}
-		});
-		
-		numTasksStarted = new AtomicLong(0);
-		numTasksFinished = new AtomicLong(0);
+		threads = new Threads(numThreads, queueSize);
+		Cleaner.addCleaner(this, threads);
 	}
 	
 	public void stop() {
-		pool.shutdown();
+		if (threads != null) {
+			threads.clean();
+			threads = null;
+		}
 	}
 	
 	public void stopAndWait(int timeoutMs) {
-		stop();
-		try {
-			pool.awaitTermination(timeoutMs, TimeUnit.MILLISECONDS);
-		} catch (InterruptedException ex) {
-			throw new Error(ex);
+		if (threads != null) {
+			threads.cleanAndWait(timeoutMs);
+			threads = null;
 		}
 	}
 	
 	@Override
 	public int getParallelism() {
-		return pool.getCorePoolSize();
+		return threads.pool.getCorePoolSize();
 	}
 	
 	@Override
 	public void submit(Runnable task, TaskListener listener) {
-		
-		while (true) {
-			try {
+		try {
+			
+			boolean wasAdded = false;
+			while (!wasAdded) {
 				
-				pool.submit(() -> {
+				// NOTE: don't use ThreadPoolExecutor.submit() to send tasks, because it won't let us block.
+				// access the work queue directly instead, so we can block if the thread pool isn't ready yet.
+				wasAdded = threads.queue.offer(() -> {
 					
 					// run the task
 					task.run();
 					
 					// send the result to the listener thread
-					listenerThread.submit(() -> {
+					threads.listener.submit(() -> {
 						
 						// run the listener
 						listener.onFinished(task);
 						
 						// tell anyone waiting that we finished a task
 						numTasksFinished.incrementAndGet();
-						synchronized (numTasksFinished) {
-							numTasksFinished.notifyAll();
-						}
-						
+						taskSignal.sendSignal();
 					});
-				});
-				
-				numTasksStarted.incrementAndGet();
-				
-				// task submitted, we're done here
-				break;
-				
-			} catch (RejectedExecutionException ex) {
-				// keep trying to submit
+					
+				}, 1, TimeUnit.SECONDS);
 			}
 			
-			// wait a bit before trying again
-			try {
-				Thread.sleep(20);
-			} catch (InterruptedException ex) {
-				throw new Error(ex);
-			}
+			numTasksStarted.incrementAndGet();
+			
+		} catch (InterruptedException ex) {
+			throw new Error(ex);
 		}
 	}
 	
@@ -119,14 +159,8 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 		
 		while (numTasksFinished.get() < numTasks) {
 			
-			// wait for a task to finish before checking again
-			try {
-				synchronized (numTasksFinished) {
-					numTasksFinished.wait(20);
-				}
-			} catch (InterruptedException ex) {
-				throw new Error(ex);
-			}
+			// wait a bit before checking again, unless a task finishes
+			taskSignal.waitForSignal(100);
 		}
 	}
 }
