@@ -62,6 +62,10 @@ public class ConfAStarTree implements ConfSearch {
 		progress = new AStarProgress(rcs.getNumPos());
 	}
 	
+	public AStarProgress getProgress() {
+		return progress;
+	}
+	
 	public void stopProgress() {
 		progress = null;
 	}
@@ -73,7 +77,7 @@ public class ConfAStarTree implements ConfSearch {
 		}
 		
 		parallelism = val;
-		tasks = parallelism.makeTaskExecutor();
+		tasks = parallelism.makeTaskExecutor(1000);
 		contexts.allocate(parallelism.getParallelism());
 	}
 	

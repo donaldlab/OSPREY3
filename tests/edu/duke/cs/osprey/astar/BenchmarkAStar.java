@@ -5,6 +5,7 @@ import static org.junit.Assert.*;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
@@ -24,6 +25,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.SearchProblem.MatrixType;
 import edu.duke.cs.osprey.control.ConfEnergyCalculator;
+import edu.duke.cs.osprey.control.EnergyWindow;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.control.MinimizingEnergyCalculator;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
@@ -71,7 +73,7 @@ public class BenchmarkAStar extends TestBase {
 		
 		boolean useMPLP = true;
 		int astarThreads = 4;
-		double eW = 1;
+		double Ew = 1;
 		
 		// make the search problem
 		SearchProblem search = new SearchProblem(
@@ -176,9 +178,44 @@ public class BenchmarkAStar extends TestBase {
 		assertThat(conf.getScore(), isAbsolutely(-50.792885, 1e-6));
 		
 		// enumerate energy window if needed
-		if (eW > 0) {
+		if (Ew > 0) {
 			Stopwatch stopwatch = new Stopwatch().start();
-			tree.nextConfs(econf.getEnergy() + eW);
+			
+			// simple way
+			//tree.nextConfs(econf.getEnergy() + eW);
+			
+			final EnergyWindow window = new EnergyWindow(econf.getEnergy(), Ew);
+			tree.getProgress().setGoalScore(window.getMax());
+			
+			// enumerate all confs in order of the scores, up to the estimate of the top of the energy window
+			System.out.println("Enumerating energy window...");
+			List<ScoredConf> scoredConfs = new ArrayList<>();
+			scoredConfs.add(conf);
+			Stopwatch minStopwatch = new Stopwatch().start();
+			int indexToMinimizeNext = 1;
+			while (true) {
+				
+				ScoredConf nextConf = tree.nextConf();
+				scoredConfs.add(nextConf);
+				if (nextConf.getScore() >= window.getMax()) {
+					break;
+				}
+				
+				// if we've been enumerating confs for a while, try a minimization to see if we get a smaller window
+				if (minStopwatch.getTimeS() >= 2) {
+					minStopwatch.stop();
+					minStopwatch.start();
+					
+					EnergiedConf nextEconf = ecalc.calcEnergy(scoredConfs.get(indexToMinimizeNext++));
+					
+					boolean changed = window.update(nextEconf.getEnergy());
+					if (changed) {
+						System.out.println(String.format("Updated energy window! remaining: %14.8f", window.getMax() - nextConf.getScore()));
+						tree.getProgress().setGoalScore(window.getMax());
+					}
+				}
+			}
+			
 			System.out.println("Enumerated energy window in " + stopwatch.stop().getTime(2));
 		}
 	}
