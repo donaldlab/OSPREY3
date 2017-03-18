@@ -9,9 +9,18 @@ import edu.duke.cs.osprey.astar.AStarProgress;
 import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
 import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.confspace.ConfSearch;
+import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.tools.ObjectPool;
 
 public class ConfAStarTree implements ConfSearch {
+	
+	private static class ScoreContext {
+		public ConfIndex index;
+		public AStarScorer gscorer;
+		public AStarScorer hscorer;
+	}
 	
 	public final AStarOrder order;
 	public final AStarScorer gscorer;
@@ -22,6 +31,9 @@ public class ConfAStarTree implements ConfSearch {
 	private ConfAStarNode rootNode;
 	private ConfIndex confIndex;
 	private AStarProgress progress;
+	private Parallelism parallelism;
+	private TaskExecutor tasks;
+	private ObjectPool<ScoreContext> contexts;
 	
 	public ConfAStarTree(AStarOrder order, AStarScorer gscorer, AStarScorer hscorer, RCs rcs) {
 		this.order = order;
@@ -34,6 +46,16 @@ public class ConfAStarTree implements ConfSearch {
 		this.progress = null;
 		
 		this.order.setScorers(this.gscorer, this.hscorer);
+		
+		this.contexts = new ObjectPool<>((ingored) -> {
+			ScoreContext context = new ScoreContext();
+			context.index = new ConfIndex(rcs.getNumPos());
+			context.gscorer = gscorer.make();
+			context.hscorer = hscorer.make();
+			return context;
+		});
+		
+		setParallelism(null);
 	}
 	
 	public void initProgress() {
@@ -42,6 +64,17 @@ public class ConfAStarTree implements ConfSearch {
 	
 	public void stopProgress() {
 		progress = null;
+	}
+	
+	public void setParallelism(Parallelism val) {
+		
+		if (val == null) {
+			val = Parallelism.makeCpu(1);
+		}
+		
+		parallelism = val;
+		tasks = parallelism.makeTaskExecutor(1000);
+		contexts.allocate(parallelism.getParallelism());
 	}
 	
 	@Override
@@ -97,7 +130,9 @@ public class ConfAStarTree implements ConfSearch {
 			assert (node.getLevel() == rcs.getNumTrivialPos());
 			
 			// score and add the tail node of the chain we just created
-			scoreNode(node);
+			confIndex.index(node);
+			node.setGScore(gscorer.calc(confIndex, rcs));
+			node.setHScore(hscorer.calc(confIndex, rcs));
 			queue.add(node);
 		}
 		
@@ -115,7 +150,7 @@ public class ConfAStarTree implements ConfSearch {
 			if (node.getLevel() == rcs.getNumPos()) {
 				
 				if (progress != null) {
-					progress.reportLeafNode(node.getGScore());
+					progress.reportLeafNode(node.getGScore(), queue.size());
 				}
 			
 				return node;
@@ -128,6 +163,8 @@ public class ConfAStarTree implements ConfSearch {
 			assert (!confIndex.isDefined(nextPos));
 			assert (confIndex.isUndefined(nextPos));
 			
+			// score child nodes with tasks (possibly in parallel)
+			List<ConfAStarNode> children = new ArrayList<>();
 			for (int nextRc : rcs.get(nextPos)) {
 				
 				if (hasPrunedPair(confIndex, nextPos, nextRc)) {
@@ -135,16 +172,29 @@ public class ConfAStarTree implements ConfSearch {
 				}
 				
 				ConfAStarNode child = new ConfAStarNode(node, nextPos, nextRc);
-				scoreNodeDifferential(node, child, nextPos, nextRc);
 				
-				// impossible node? skip it
-				if (child.getScore() == Double.POSITIVE_INFINITY) {
-					continue;
-				}
-				
-				queue.add(child);
-				numChildren++;
+				tasks.submit(() -> {
+					
+					try (ObjectPool<ScoreContext>.Checkout checkout = contexts.autoCheckout()) {
+						ScoreContext context = checkout.get();
+						
+						// score the child node differentially against the parent node
+						context.index.index(node);
+						child.setGScore(context.gscorer.calcDifferential(context.index, rcs, nextPos, nextRc));
+						child.setHScore(context.hscorer.calcDifferential(context.index, rcs, nextPos, nextRc));
+					}
+					
+				}, (Runnable task) -> {
+					
+					// collect the possible children
+					if (child.getScore() < Double.POSITIVE_INFINITY) {
+						children.add(child);
+					}
+				});
 			}
+			tasks.waitForFinish();
+			numChildren += children.size();
+			queue.addAll(children);
 			
             if (progress != null) {
             	progress.reportInternalNode(node.getLevel(), node.getGScore(), node.getHScore(), queue.size(), numChildren);
@@ -204,17 +254,5 @@ public class ConfAStarTree implements ConfSearch {
 			}
 		}
 		return false;
-	}
-
-	private void scoreNode(ConfAStarNode node) {
-		confIndex.index(node);
-		node.setGScore(gscorer.calc(confIndex, rcs));
-		node.setHScore(hscorer.calc(confIndex, rcs));
-	}
-	
-	private void scoreNodeDifferential(ConfAStarNode parent, ConfAStarNode child, int nextPos, int nextRc) {
-		confIndex.index(parent);
-		child.setGScore(gscorer.calcDifferential(confIndex, rcs, nextPos, nextRc));
-		child.setHScore(hscorer.calcDifferential(confIndex, rcs, nextPos, nextRc));
 	}
 }

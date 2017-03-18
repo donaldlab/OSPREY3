@@ -1,5 +1,8 @@
 package edu.duke.cs.osprey.astar;
 
+import static org.hamcrest.Matchers.*;
+import static org.junit.Assert.*;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -21,17 +24,14 @@ import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.SearchProblem.MatrixType;
 import edu.duke.cs.osprey.control.ConfEnergyCalculator;
-import edu.duke.cs.osprey.control.ConfSearchFactory;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.control.MinimizingEnergyCalculator;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
-import edu.duke.cs.osprey.ematrix.TermECalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.parallelism.Parallelism;
-import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Stopwatch;
@@ -62,90 +62,56 @@ public class BenchmarkAStar extends TestBase {
 		boolean useEllipses = false;
 		boolean addResEntropy = true;
 		boolean addWtRots = true;
-		boolean typeDep = true;
-		double boundsThresh = 100;
-		int algOption = 1;
-		boolean useFlags = true;
-		boolean useTriples = false;
-		boolean preDacs = false;
-		boolean useTupExp = false;
-		double stericThresh = 10;
-		double eW = 1;
-		boolean doIMinDEE = true;
-		double I0 = 0;
-		double pruningInterval = 0 + eW;
-		boolean checkApproxE = true;
-		boolean outputGMECStruct = false;
-		boolean eFullConfOnly = false;
-		String confFileName = "confs.txt";
+		boolean useVoxelG = false;
+		ArrayList<String[]> moveableStrands = new ArrayList<String[]>();
+		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
 		
 		// turning this on apparently hurts the A* heuristic
 		boolean useERef = true;
 		
+		boolean useMPLP = true;
+		int astarThreads = 4;
+		double eW = 1;
+		
 		// make the search problem
-		ArrayList<String[]> moveableStrands = new ArrayList<String[]>();
-		ArrayList<String[]> freeBBZones = new ArrayList<String[]>();
 		SearchProblem search = new SearchProblem(
 			"test", "/home/jeff/donaldlab/osprey test cases/anna-memory/1gua_1.pdb", 
 			resFlex.flexResList, resFlex.allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
-			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null, false, new ArrayList<>()
+			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, null, useVoxelG, new ArrayList<>()
 		);
-		search.numEmatThreads = 3;
-		
-		PruningControl pruner = new PruningControl(
-			search, pruningInterval, typeDep, boundsThresh, algOption,
-			useFlags, useTriples, preDacs, useEpic, useTupExp, stericThresh
-		);
-		
-		ConfSearchFactory confSearchFactory = (EnergyMatrix emat, PruningMatrix pmat) -> {
-			boolean useMPLP = false;
-			RCs rcs = new RCs(pmat);
-			AStarOrder order;
-			AStarScorer hscorer;
-			if (useMPLP) {
-				hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), emat, 1, 0.0001);
-				order = new StaticScoreHMeanAStarOrder();
-			} else {
-				hscorer = new TraditionalPairwiseHScorer(emat, rcs);
-				order = new DynamicHMeanAStarOrder();
-			}
-			ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(emat), hscorer, rcs);
-			tree.initProgress();
-			return tree;
-		};
 		
 		ForcefieldParams ffparams = EnvironmentVars.curEFcnGenerator.ffParams;
-		ConfEnergyCalculator.Async ecalc = MinimizingEnergyCalculator.make(ffparams, search, Parallelism.makeCpu(1), false);
+		ConfEnergyCalculator.Async ecalc = MinimizingEnergyCalculator.make(ffparams, search, Parallelism.makeCpu(1));
 		
-		/* TEMP
-		// use GMEC finder
-		GMECFinder finder = new GMECFinder();
-		finder.init(
-			search, pruner, confSearchFactory, ecalc, eW, doIMinDEE, I0, doMinimize, useTupExp, useEpic,
-			checkApproxE, outputGMECStruct, eFullConfOnly, confFileName, stericThresh
-		);
-		finder.calcGMEC();
-		*/
-	
 		// compute the energy matrix
 		String ematPath = String.format("/tmp/BenchmarkAStar.emat.%s.dat", useERef ? "eref" : "base");
 		search.emat = (EnergyMatrix)ObjectIO.readObject(ematPath, true);
 		if (search.emat == null) {
+			search.numEmatThreads = 3;
 			search.emat = (EnergyMatrix)search.calcMatrix(MatrixType.EMAT);
 			ObjectIO.writeObject(search.emat, ematPath);
 		}
 		
 		// make an identity pruning matrix
 		search.pruneMat = new PruningMatrix(search.confSpace, 0);
-		//pruner.prune();
 			
 		// build A* tree
-		ConfAStarTree tree = (ConfAStarTree)confSearchFactory.make(search.emat, search.pruneMat);
+		RCs rcs = new RCs(search.pruneMat);
+		AStarOrder order;
+		AStarScorer hscorer;
+		if (useMPLP) {
+			hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001);
+			order = new StaticScoreHMeanAStarOrder();
+		} else {
+			hscorer = new TraditionalPairwiseHScorer(search.emat, rcs);
+			order = new DynamicHMeanAStarOrder();
+		}
+		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		tree.initProgress();
+		tree.setParallelism(Parallelism.makeCpu(astarThreads));
 		
 		System.out.println(String.format("searching A* tree (" + tree.getNumConformations().floatValue() + " confs)..."));
-		Stopwatch stopwatch = new Stopwatch().start();
 		ConfAStarNode node = tree.nextLeafNode();
-		System.out.println("first leaf node: " + stopwatch.stop().getTime(2));
 		
 		ScoredConf conf = new ScoredConf(node.makeConf(tree.rcs.getNumPos()), node.getScore());
 		EnergiedConf econf = ecalc.calcEnergy(conf);
@@ -155,23 +121,47 @@ public class BenchmarkAStar extends TestBase {
 		System.out.println(String.format("\tEnergy   %.6f", econf.getEnergy()));
 		System.out.println(String.format("\tScore    %.6f (gap: %.6f)", econf.getScore(), econf.getEnergy() - econf.getScore()));
 		
+		/* DEBUG: heuristic analysis
 		//ScoredConf aconf = new ScoredConf(new int[] { 103, 108, 13, 113, 0, 111, 122 }, 0);
 		ScoredConf aconf = conf;
 		System.out.println("\nANALYZE CONF: " + Arrays.toString(aconf.getAssignments()));
 		analyzeAstar(search, tree, aconf);
-		
-		/* enumerate energy window
-		stopwatch.reset().start();
-		List<ScoredConf> confs = tree.nextConfs(econf.getEnergy() + 1);
-		System.out.println(String.format("energy window (%d confs) %s", confs.size(), stopwatch.stop().getTime(2)));
 		*/
 		
-		/* TODO: check the result
-		assertThat(conf.getAssignments(), is(new int[] { 0, 0, 3, 0, 22, 4, 1 }));
-		assertThat(conf.getScore(), isAbsolutely(-93.1587662665223));
-		*/
+		// TREE SIZE
+		// Traditional:   expanded: 69k   queued: 9.4m
+		// MPLP:          expanded: ~4.8k   queued: ~0.5m
+		
+		// BENCHMARKING (on laptop)
+		// traditional:     ~1.2 min    100k-160k scores/sec
+		// MPLP 1 thread:   ~12.1 min   0.4k-0.9k scores/sec
+		// MPLP 3 threads:  ~12.1 min   1.0k-1.5k scores/sec
+		
+		// BENCHMARKING (on desktop)
+		// traditional, 1 thread:     ~1.1 min     100k-160k scores/sec
+		// traditional, 2 threads:    ~1.7 min      60k-125k scores/sec
+		
+		// (desktop, with youtube playing)
+		// traditional, 1 thread:     ~1.2 min      120k-170k scores/sec
+		// traditional, 2 threads:    ~1.9 min       70k-110k scores/sec
+		// traditional, 4 threads:    ~2.2 min        70k-90k scores/sec
+		
+		// MPLP 1 iter, 1 thread:      ??? min       500-700 scores/sec (for first 1k expansions)
+		// MPLP 1 iter, 2 threads:     ??? min      700-1000 scores/sec (for first 1k expansions)
+		// MPLP 1 iter, 4 threads:    ~5.4 min      900-1200 scores/sec (for first 1k expansions)
+		
+		assertThat(conf.getAssignments(), is(new int[] { 165, 17, 26, 0, 0, 4, 122 }));
+		assertThat(conf.getScore(), isAbsolutely(-50.792885, 1e-6));
+		
+		// enumerate energy window if needed
+		if (eW > 0) {
+			Stopwatch stopwatch = new Stopwatch().start();
+			tree.nextConfs(econf.getEnergy() + eW);
+			System.out.println("Enumerated energy window in " + stopwatch.stop().getTime(2));
+		}
 	}
 	
+	@SuppressWarnings("unused")
 	private static void analyzeAstar(SearchProblem search, ConfAStarTree tree, ScoredConf conf) {
 		
 		int[] a = conf.getAssignments();

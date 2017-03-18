@@ -13,6 +13,11 @@ public class NaiveTraditionalPairwiseHScorer implements AStarScorer {
 	}
 	
 	@Override
+	public NaiveTraditionalPairwiseHScorer make() {
+		return new NaiveTraditionalPairwiseHScorer(emat);
+	}
+	
+	@Override
 	public double calc(ConfIndex index, RCs rcs) {
 		
 		double hscore = 0;

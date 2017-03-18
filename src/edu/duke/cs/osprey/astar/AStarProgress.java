@@ -90,7 +90,20 @@ public class AStarProgress implements Serializable {
 		goalScore = val;
 	}
 	
-	public void reportLeafNode(double gscore) {
+	public void reportLeafNode(double gscore, int numNodesInQueue) {
+		
+		this.numNodesInQueue = numNodesInQueue;
+		
+		// if this is the first leaf node, print one last progress report
+		if (this.numLeafNodes == 0) {
+			
+			this.level = numLevels - 1;
+			this.deepestLevel = numLevels - 1;
+			this.gscore = gscore;
+			this.hscore = 0;
+			
+			printProgressReport();
+		}
 		
 		this.gscore = gscore;
 		this.numLeafNodes++;

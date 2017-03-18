@@ -19,6 +19,11 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 		this.maxNumIterations = maxNumIterations;
 		this.epsilon = epsilon;
 	}
+	
+	@Override
+	public MPLPPairwiseHScorer make() {
+		return new MPLPPairwiseHScorer(updater, emat, maxNumIterations, epsilon);
+	}
 
 	@Override
 	public double calc(ConfIndex confIndex, RCs rcs) {
