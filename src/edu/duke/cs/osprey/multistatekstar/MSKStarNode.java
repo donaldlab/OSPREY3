@@ -10,8 +10,8 @@ public class MSKStarNode {
 
 	MSSearchProblem[] discSearch;//lower bound search problem for state
 	MSSearchProblem[] contSearch;//upper bound search problem for state
-	KStarScore[] lbScores;//lower bound k* scores for state
-	KStarScore[] ubScores;//upper bound k* scores for state
+	MSKStarScore[] lbScores;//lower bound k* scores for state
+	MSKStarScore[] ubScores;//upper bound k* scores for state
 	
 	public MSKStarNode(MSSearchProblem[] discSearch, MSSearchProblem[] contSearch) {
 		this.discSearch = discSearch;

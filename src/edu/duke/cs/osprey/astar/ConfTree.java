@@ -63,9 +63,9 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
     protected boolean useDynamicAStar = true;
 
     
-    EPICMatrix epicMat = null;//to use in refinement
+    protected EPICMatrix epicMat = null;//to use in refinement
     protected ConfSpace confSpace = null;//conf space to use with epicMat if we're doing EPIC minimization w/ SAPE
-    boolean minPartialConfs = false;//whether to minimize partially defined confs with EPIC, or just fully defined
+    protected boolean minPartialConfs = false;//whether to minimize partially defined confs with EPIC, or just fully defined
     
     // temp storage
     // NOTE: this temp storage makes this class not thread-safe!
