@@ -321,6 +321,9 @@ public class GMECFinder {
         while (true) {
             
             ScoredConf conf = confSearch.nextConf();
+            if (conf == null) {
+                break;
+            }
             lowEnergyConfs.add(conf);
             if (conf.getScore() >= window.getMax()) {
                 break;
