@@ -45,11 +45,6 @@ public class ExampleParallelMinimization {
 		// or explicitly pick the super duper fast Cuda CCD minimizer and give it lots of streams
 		minimizer = new GpuConfMinimizer.Builder(ffparams, ffinteractions, confSpace).setGpuInfo(GpuConfMinimizer.Type.CudaCCD, 8, 16).build();
 		
-		// if you're minimizing until some condition is met (rather than using a finite list of confs), then set the streaming flag
-		// this manages sync buffer sizes so you don't minimize too many extra confs after the condition is met
-		minimizer = new CpuConfMinimizer.Builder(ffparams, ffinteractions, confSpace).setAreConfsStreaming(true).build();
-		minimizer = new GpuConfMinimizer.Builder(ffparams, ffinteractions, confSpace).setAreConfsStreaming(true).build();
-		
 		// do the minimization (in parallel, if supported)
 		List<EnergiedConf> minimizedConfs = minimizer.minimize(confs);
 		

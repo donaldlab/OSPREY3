@@ -21,10 +21,10 @@ import edu.duke.cs.osprey.tools.Factory;
 public class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async {
 	
 	public static MinimizingEnergyCalculator make(ForcefieldParams ffparams, SearchProblem search) {
-		return make(ffparams, search, Parallelism.makeDefault(), false);
+		return make(ffparams, search, Parallelism.makeDefault());
 	}
 	
-	public static MinimizingEnergyCalculator make(ForcefieldParams ffparams, SearchProblem search, Parallelism parallelism, boolean areConfsStreaming) {
+	public static MinimizingEnergyCalculator make(ForcefieldParams ffparams, SearchProblem search, Parallelism parallelism) {
 		
 		// make the forcefield interactions factory
 		ForcefieldInteractionsGenerator intergen = new ForcefieldInteractionsGenerator();
@@ -36,14 +36,12 @@ public class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async {
 		switch (parallelism.type) {
 			case Cpu:
 				minimizer = new CpuConfMinimizer.Builder(ffparams, ffinteractions, search.confSpace)
-					.setAreConfsStreaming(areConfsStreaming)
 					.setNumThreads(parallelism.numThreads)
 					.build();
 			break;
 			case Gpu:
 				minimizer = new GpuConfMinimizer.Builder(ffparams, ffinteractions, search.confSpace)
 					.setGpuInfo(null, parallelism.numGpus, parallelism.numStreamsPerGpu)
-					.setAreConfsStreaming(areConfsStreaming)
 					.build();
 			break;
 			default:
@@ -116,11 +114,6 @@ public class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async {
 				listener.onEnergy(postProcessConf(econf));
 			}
 		});
-	}
-	
-	@Override
-	public void waitForSpace() {
-		minimizer.getAsync().waitForSpace();
 	}
 	
 	@Override

@@ -1,337 +1,164 @@
 package edu.duke.cs.osprey.parallelism;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import edu.duke.cs.osprey.tools.Cleaner;
+import edu.duke.cs.osprey.tools.Cleaner.Cleanable;
 import edu.duke.cs.osprey.tools.Cleaner.GarbageDetectable;
 
-public class ThreadPoolTaskExecutor extends TaskExecutor implements TaskExecutor.NeedsCleanup, GarbageDetectable {
+public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetectable {
 	
-	private static class FailedTask implements Runnable {
+	private static final ThreadFactory DaemonThreadFactory = new ThreadFactory() {
+		// here there be daemons!
 		
-		private Throwable error;
-		
-		public FailedTask(Throwable error) {
-			this.error = error;
-		}
-		
+		private ThreadFactory threadFactory = Executors.defaultThreadFactory();
+
 		@Override
-		public void run() {
-			// don't need to do anything
+		public Thread newThread(Runnable runnable) {
+			Thread thread = threadFactory.newThread(runnable);
+			thread.setDaemon(true);
+			return thread;
 		}
-	}
+	};
 	
-	private static class FinishState extends Signal {
+	private static class Threads implements Cleanable {
 		
-		private boolean submissionsOpen;
-		private int numSubmitted;
-		private int numWin;
-		private int numFail;
-		private Throwable error;
+		ThreadPoolExecutor pool;
+		ThreadPoolExecutor listener;
+		BlockingQueue<Runnable> queue;
 		
-		public FinishState() {
-			reset();
-		}
-		
-		@Override
-		public synchronized void reset() {
-			super.reset();
-			submissionsOpen = true;
-			numSubmitted = 0;
-			numWin = 0;
-			numFail = 0;
-			error = null;
-		}
-		
-		public synchronized void recordSubmission() {
-			if (!submissionsOpen) {
-				reset();
-			}
-			numSubmitted++;
-		}
-		
-		@Override
-		public synchronized void waitForSignal() {
-			submissionsOpen = false;
+		public Threads(int numThreads, int queueSize) {
 			
-			// is there anything to wait for?
-			if (numWin + numFail < numSubmitted) {
-				super.waitForSignal();
-			}
-		}
-	
-		public synchronized void recordResult(Throwable error) {
-			
-			// record the result
-			if (error != null) {
-				numFail++;
-				
-				// forward the error to the main thread
-				this.error = error;
-				
+			if (queueSize <= 0) {
+				queue = new SynchronousQueue<>();
 			} else {
-				numWin++;
+				queue = new ArrayBlockingQueue<>(queueSize);
 			}
+			pool = new ThreadPoolExecutor(numThreads, numThreads, 0, TimeUnit.DAYS, queue, DaemonThreadFactory);
+			pool.prestartAllCoreThreads();
 			
-			// if this the last task, send the signal
-			boolean isLastTask = numWin + numFail == numSubmitted;
-			if (isLastTask) {
-				sendSignal();
-			}
-		}
-		
-		public synchronized boolean hasError() {
-			return error != null;
-		}
-		
-		public synchronized void throwError() {
-			if (error != null) {
-				throw new RuntimeException("error while processing task", error);
-			}
-		}
-	}
-	
-	private static class TaskThread extends WorkQueueThread<Runnable> {
-		
-		private int queueFactor;
-		private CounterSignal idleThreadsSignal;
-		private BlockingQueue<Runnable> outgoingQueue;
-		
-		private TaskThread(int index, BlockingQueue<Runnable> queue, BlockingQueue<Runnable> outgoingQueue, int queueFactor, CounterSignal idleThreadsSignal) {
-			super("TaskThread-" + index, queue);
-			this.queueFactor = queueFactor;
-			this.idleThreadsSignal = idleThreadsSignal;
-			this.outgoingQueue = outgoingQueue;
+			// use an unbounded queue for the listener thread
+			// let task results pile up until the listener thread can process them
+			listener = new ThreadPoolExecutor(1, 1, 0, TimeUnit.DAYS, new LinkedBlockingQueue<>(), DaemonThreadFactory);
+			listener.prestartAllCoreThreads();
 		}
 		
 		@Override
-		public void doWork(Runnable task)
-		throws InterruptedException {
-			
-			// update signals for waitForSpace()
-			if (queueFactor == 0) {
-				idleThreadsSignal.offset(-1);
-			}
-			
-			// run the task
+		public void clean() {
+			pool.shutdown();
+			listener.shutdown();
+		}
+		
+		public void cleanAndWait(int timeoutMs) {
+			clean();
 			try {
-				task.run();
-			} catch (Throwable t) {
-				task = new FailedTask(t);
-			}
-			
-			// signal task finished
-			boolean wasAdded = false;
-			while (!wasAdded) {
-				wasAdded = outgoingQueue.offer(task, 1, TimeUnit.SECONDS);
-			}
-			
-			// update signals for waitForSpace()
-			if (queueFactor == 0) {
-				idleThreadsSignal.offset(1);
+				pool.awaitTermination(timeoutMs, TimeUnit.MILLISECONDS);
+				listener.awaitTermination(timeoutMs, TimeUnit.MILLISECONDS);
+			} catch (InterruptedException ex) {
+				throw new Error(ex);
 			}
 		}
 	}
 	
-	private static class ListenerThread extends WorkQueueThread<Runnable> {
-		
-		private FinishState finishState;
-		
-		public ListenerThread(BlockingQueue<Runnable> queue, FinishState finishState) {
-			super("TaskThread-listener", queue);
-			this.finishState = finishState;
-		}
+	/**
+	 * Controls task queue size.
+	 * Set this to 0 to cause main thread to block until task thread is ready.
+	 * Set this to >0 to "buffer" tasks so task threads don't have to wait on the main thread to start a task.
+	 * >0 can sometimes be faster than 0, but only works if you know how many tasks you have in advance.
+	 * otherwise, you can end up execting more tasks than you need.
+	 * The best queue size to use is determined by the amount of work it takes to create a task vs execute it.
+	 * Experiment to find the best values for your problem.
+	 */
+	public int queueSize = 0;
 	
-		@Override
-		public void doWork(Runnable task)
-		throws InterruptedException {
-			
-			// was there a failure on a previous task?
-			if (finishState.hasError()) {
-				return;
-			}
-			
-			// was there a failure on this task?
-			Throwable error = null;
-			if (task instanceof FailedTask) {
-				error = ((FailedTask)task).error;
-			}
-			
-			// should we call a listener?
-			if (task instanceof ListeningTask) {
-				try {
-					
-					ListeningTask listeningTask = (ListeningTask)task;
-					listeningTask.listener.onFinished(listeningTask.task);
-					
-				} catch (Throwable t) {
-					
-					// the listener failed, report the error
-					error = t;
-				}
-			}
-			
-			// record the result
-			finishState.recordResult(error);
-		}
-	}
-	
-	private static class ListeningTask implements Runnable {
-		
-		public Runnable task;
-		public TaskExecutor.TaskListener listener;
-		
-		public ListeningTask(Runnable task, TaskExecutor.TaskListener listener) {
-			this.task = task;
-			this.listener = listener;
-		}
-		
-		@Override
-		public void run() {
-			task.run();
-		}
-	}
-	
-	private int queueFactor;
-	private BlockingQueue<Runnable> incomingQueue;
-	private BlockingQueue<Runnable> outgoingQueue;
-	private List<TaskThread> threads;
-	private ListenerThread listenerThread;
-	private FinishState finishState;
-	private CounterSignal idleThreadsSignal;
+	private Threads threads;
+	private AtomicLong numTasksStarted;
+	private AtomicLong numTasksFinished;
+	private Signal taskSignal;
 	
 	public ThreadPoolTaskExecutor() {
-		incomingQueue = null;
-		outgoingQueue = null;
 		threads = null;
-		listenerThread = null;
-		finishState = new FinishState();
-		idleThreadsSignal = null;
+		numTasksStarted = new AtomicLong(0);
+		numTasksFinished = new AtomicLong(0);
+		taskSignal = new Signal();
 	}
 	
 	public void start(int numThreads) {
-		
-		// by default, make the incoming queue equal to the number of threads,
-		// so the worker threads probably never have to block waiting for the next task
-		// the main thread will probably fill up the incoming queue with tasks while the task threads are running
-		start(numThreads, 1);
-		
-		// NOTE: this works well for finite workloads (ie for loops)
-		// for infinite workloads (ie in while loops), you'd probably want a queue factor of 0
-		// to prevent waiting for extra tasks after the loop exits
+		threads = new Threads(numThreads, queueSize);
+		Cleaner.addCleaner(this, threads);
 	}
 	
-	public void start(int numThreads, int queueFactor) {
-		
-		// allocate queues
-		this.queueFactor = queueFactor;
-		incomingQueue = new ArrayBlockingQueue<>(Math.max(1, numThreads*queueFactor));
-		outgoingQueue = new ArrayBlockingQueue<>(numThreads);
-		
-		// init state
-		finishState.reset();
-		
-		// start all the threads
-		threads = new ArrayList<>(numThreads);
-		for (int i=0; i<numThreads; i++) {
-			threads.add(Cleaner.addCleaner(this, new TaskThread(i, incomingQueue, outgoingQueue, queueFactor, idleThreadsSignal)));
+	public void stop() {
+		if (threads != null) {
+			threads.clean();
+			threads = null;
 		}
-		for (TaskThread thread : threads) {
-			thread.start();
+	}
+	
+	public void stopAndWait(int timeoutMs) {
+		if (threads != null) {
+			threads.cleanAndWait(timeoutMs);
+			threads = null;
 		}
-		
-		// start the listener thread
-		listenerThread = Cleaner.addCleaner(this, new ListenerThread(outgoingQueue, finishState));
-		listenerThread.start();
-		
-		// init waitForSpace() signals
-		idleThreadsSignal = new CounterSignal(numThreads, (int numIdleThreads) -> numIdleThreads > 0);
 	}
 	
 	@Override
 	public int getParallelism() {
-		return threads.size();
-	}
-	
-	@Override
-	public void submit(Runnable task) {
-		
-		if (incomingQueue == null) {
-			throw new IllegalStateException("thread pool is not started, can't submit tasks");
-		}
-		
-		// send the task, and wait for space in the queue if needed
-		try {
-			finishState.recordSubmission(); // sync
-			boolean wasAdded = false;
-			while (!wasAdded) {
-				wasAdded = incomingQueue.offer(task, 1, TimeUnit.SECONDS); // sync
-				
-				finishState.throwError();
-			}
-		} catch (InterruptedException ex) {
-			throw new RuntimeException(ex);
-		}
+		return threads.pool.getCorePoolSize();
 	}
 	
 	@Override
 	public void submit(Runnable task, TaskListener listener) {
-		submit(new ListeningTask(task, listener));
-	}
-	
-	@Override
-	public void waitForSpace() {
-		if (queueFactor == 0) {
+		try {
 			
-			// wait for a task thread to become idle
-			idleThreadsSignal.waitForSignal();
+			boolean wasAdded = false;
+			while (!wasAdded) {
+				
+				// NOTE: don't use ThreadPoolExecutor.submit() to send tasks, because it won't let us block.
+				// access the work queue directly instead, so we can block if the thread pool isn't ready yet.
+				wasAdded = threads.queue.offer(() -> {
+					
+					// run the task
+					task.run();
+					
+					// send the result to the listener thread
+					threads.listener.submit(() -> {
+						
+						// run the listener
+						listener.onFinished(task);
+						
+						// tell anyone waiting that we finished a task
+						numTasksFinished.incrementAndGet();
+						taskSignal.sendSignal();
+					});
+					
+				}, 1, TimeUnit.SECONDS);
+			}
 			
-			finishState.throwError();
+			numTasksStarted.incrementAndGet();
 			
-		} else {
-			throw new Error("if you need to wait for space, you should set the queue factor to 0 in init()");
+		} catch (InterruptedException ex) {
+			throw new Error(ex);
 		}
 	}
 	
 	@Override
 	public void waitForFinish() {
-		finishState.waitForSignal();
-		finishState.throwError();
-	}
-	
-	@Override
-	public void cleanup() {
-		stop();
-	}
-	
-	public void stop() {
-		askThreadsToStop();
-		clearThreads();
-	}
-	
-	public void stopAndWait(int timeoutMs)
-	throws InterruptedException {
-		askThreadsToStop();
-		for (TaskThread thread : threads) {
-			thread.join(timeoutMs);
+		
+		long numTasks = numTasksStarted.get();
+		
+		while (numTasksFinished.get() < numTasks) {
+			
+			// wait a bit before checking again, unless a task finishes
+			taskSignal.waitForSignal(100);
 		}
-		listenerThread.join(timeoutMs);
-		clearThreads();
-	}
-	
-	private void askThreadsToStop() {
-		for (TaskThread thread : threads) {
-			thread.askToStop();
-		}
-		listenerThread.askToStop();
-	}
-	
-	private void clearThreads() {
-		threads.clear();
-		listenerThread = null;
 	}
 }

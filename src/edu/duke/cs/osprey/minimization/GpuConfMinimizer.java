@@ -201,7 +201,6 @@ public class GpuConfMinimizer extends ConfMinimizer {
 		public Type type;
 		public int numGpus;
 		public int numStreamsPerGpu;
-		public boolean areConfsStreaming;
 		
 		public Builder(ForcefieldParams ffparams, Factory<ForcefieldInteractions,Molecule> interactions, ConfSpace confSpace) {
 			
@@ -212,7 +211,6 @@ public class GpuConfMinimizer extends ConfMinimizer {
 			type = null;
 			numGpus = 1;
 			numStreamsPerGpu = 1;
-			areConfsStreaming = false;
 		}
 		
 		public Builder setGpuInfo(Type type, int numGpus, int numStreamsPerGpu) {
@@ -222,19 +220,14 @@ public class GpuConfMinimizer extends ConfMinimizer {
 			return this;
 		}
 		
-		public Builder setAreConfsStreaming(boolean val) {
-			areConfsStreaming = val;
-			return this;
-		}
-		
 		public GpuConfMinimizer build() {
-			return new GpuConfMinimizer(type, numGpus, numStreamsPerGpu, areConfsStreaming, ffparams, interactions, confSpace);
+			return new GpuConfMinimizer(type, numGpus, numStreamsPerGpu, ffparams, interactions, confSpace);
 		}
 	}
 	
 	private Type.Context context;
 	
-	public GpuConfMinimizer(Type type, int numGpus, int streamsPerGpu, boolean areConfsStreaming, ForcefieldParams ffparams, Factory<ForcefieldInteractions,Molecule> interactions, ConfSpace confSpace) {
+	public GpuConfMinimizer(Type type, int numGpus, int streamsPerGpu, ForcefieldParams ffparams, Factory<ForcefieldInteractions,Molecule> interactions, ConfSpace confSpace) {
 		
 		if (type == null) {
 			type = Type.pickBestOrThrow(confSpace);
@@ -250,7 +243,7 @@ public class GpuConfMinimizer extends ConfMinimizer {
 				return context.makeEfunc(ffparams, interactions.make(mol));
 			}
 		};
-		init(context.getNumStreams(), areConfsStreaming, efuncs, context.minimizers, confSpace);
+		init(context.getNumStreams(), efuncs, context.minimizers, confSpace);
 	}
 	
 	@Override

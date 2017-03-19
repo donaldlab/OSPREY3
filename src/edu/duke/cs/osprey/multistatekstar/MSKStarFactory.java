@@ -121,8 +121,7 @@ public class MSKStarFactory {
 		ConfEnergyCalculator.Async ecalc = MinimizingEnergyCalculator.make(
 				makeDefaultFFParams(cfp.getParams()),
 				multiSeqSearch, 
-				parallelism, 
-				multiSeqSearch.contSCFlex
+				parallelism 
 				);
 		return ecalc;
 	}

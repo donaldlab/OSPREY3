@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.tools;
 
+import java.io.Closeable;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
@@ -53,5 +54,31 @@ public class ObjectPool<T> implements Iterable<T> {
 	@Override
 	public Iterator<T> iterator() {
 		return objects.iterator();
+	}
+	
+	public class Checkout implements Closeable {
+		
+		private final T thing;
+		
+		private Checkout() {
+			synchronized(ObjectPool.this) {
+				this.thing = checkout();
+			}
+		}
+
+		@Override
+		public void close() {
+			synchronized(ObjectPool.this) {
+				release(thing);
+			}
+		}
+		
+		public T get() {
+			return thing;
+		}
+	}
+	
+	public Checkout autoCheckout() {
+		return new Checkout();
 	}
 }

@@ -19,6 +19,11 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 		this.maxNumIterations = maxNumIterations;
 		this.epsilon = epsilon;
 	}
+	
+	@Override
+	public MPLPPairwiseHScorer make() {
+		return new MPLPPairwiseHScorer(updater, emat, maxNumIterations, epsilon);
+	}
 
 	@Override
 	public double calc(ConfIndex confIndex, RCs rcs) {
@@ -39,14 +44,5 @@ public class MPLPPairwiseHScorer implements AStarScorer {
 			energy = newEnergy;
 		}
 		return energy;
-	}
-
-	@Override
-	public double calcDifferential(ConfIndex confIndex, RCs rcs, int nextPos, int nextRc) {
-		
-		// TODO: implement me
-		
-		// TEMP: punt to calc()
-		return calc(new ConfIndex(confIndex, nextPos, nextRc), rcs);
 	}
 }

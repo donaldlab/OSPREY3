@@ -5,6 +5,12 @@ import edu.duke.cs.osprey.astar.conf.RCs;
 
 public interface AStarScorer {
 
+	AStarScorer make();
 	double calc(ConfIndex confIndex, RCs rcs);
-	double calcDifferential(ConfIndex confIndex, RCs rcs, int nextPos, int nextRc);
+	
+	default double calcDifferential(ConfIndex confIndex, RCs rcs, int nextPos, int nextRc) {
+		
+		// just punt to calc() by default
+		return calc(new ConfIndex(confIndex, nextPos, nextRc), rcs);
+	}
 }

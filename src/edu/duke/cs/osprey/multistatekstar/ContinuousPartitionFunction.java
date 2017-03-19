@@ -157,9 +157,6 @@ public class ContinuousPartitionFunction extends ParallelConfPartitionFunction {
 		int stopAtConf = numConfsEvaluated + maxNumConfs;
 		while (true) {
 
-			// wait for space to open up Before getting a new conf to minimize
-			ecalc.waitForSpace();
-
 			// get a conf from the tree
 			// lock though to keep from racing the listener thread on the conf tree
 			ScoredConf conf;
@@ -253,9 +250,6 @@ public class ContinuousPartitionFunction extends ParallelConfPartitionFunction {
 		}
 
 		while (true) {
-
-			// wait for space to open up Before getting a new conf to minimize
-			ecalc.waitForSpace();
 
 			// get a conf from the tree
 			// lock though to keep from racing the listener thread on the conf tree
