@@ -1,20 +1,27 @@
 package edu.duke.cs.osprey.control;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.StringTokenizer;
+import java.util.function.ToDoubleFunction;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.multistatekstar.MSConfigFileParser;
+import edu.duke.cs.osprey.partitionfunctionbounds.continuous.CMRF;
+import edu.duke.cs.osprey.partitionfunctionbounds.continuous.CMRFNodeDomain;
+import edu.duke.cs.osprey.partitionfunctionbounds.continuous.EnergyFunctionMap;
+import edu.duke.cs.osprey.partitionfunctionbounds.continuous.Kernel;
+import edu.duke.cs.osprey.partitionfunctionbounds.continuous.KernelGaussian;
 import edu.duke.cs.osprey.pruning.PruningControl;
 
-public class ContinuousMRFDoer {
+public class CMRFDoer {
 
 	MSConfigFileParser cfp;//config file parser
 	SearchProblem[] search;//searchproblems by strand
 	ArrayList<ArrayList<Integer>> mutRes;//mutable residues by strand
 	int numStates;
 
-	public ContinuousMRFDoer(String args[]) {
+	public CMRFDoer(String args[]) {
 
 		//check format of args
 		if(!args[0].equalsIgnoreCase("-c"))
@@ -34,13 +41,13 @@ public class ContinuousMRFDoer {
 
 		//create searchproblem for each (un)bound state
 		mutRes = getMutableRes();
-		
+
 		System.out.println();
 		System.out.println("Preparing search problems and energy matrices");
 		System.out.println();
-		
+
 		search = makeStateSearchProblems();
-		
+
 		System.out.println();
 		System.out.println("Finished preparing search problems and energy matrices");
 		System.out.println();
@@ -50,7 +57,7 @@ public class ContinuousMRFDoer {
 	private ArrayList<ArrayList<Integer>> getMutableRes() {
 		int state;
 		ArrayList<ArrayList<Integer>> ans = new ArrayList<>();
-		
+
 		//unbound states
 		for(state=0;state<numStates-1;++state) {
 			ArrayList<Integer> mutRes = new ArrayList<>();
@@ -59,7 +66,7 @@ public class ContinuousMRFDoer {
 			mutRes.trimToSize();
 			ans.add(mutRes);
 		}
-		
+
 		//bound state
 		ans.add(new ArrayList<>());
 		for(int unbound=0;unbound<numStates-1;++unbound) 
@@ -85,12 +92,70 @@ public class ContinuousMRFDoer {
 				pc.setReportMode(null);
 				pc.prune();
 			}
-			
+
 			System.out.println();
 			System.out.println("State "+state+" matrices ready");
 			System.out.println();
 		}
 		return ans;
+	}
+
+	public void compute() {
+		int numNodes = search[2].flexRes.size();
+		CMRF cmrf = new CMRF(numNodes);
+		EnergyFunctionMap efm = new EnergyFunctionMap(search[2], null);
+		efm.populateOneBodyRCData();
+		//efm.populateOneBody2Energy();
+		//efm.populatePairWise2Energy();
+		double[][] kDB0 = efm.getKernelDomainBounds(0);
+		double[][] kDB1 = efm.getKernelDomainBounds(1);
+
+		//test
+		//unary rc
+		Kernel k0 = new KernelGaussian(kDB0, 0.25);
+		CMRFNodeDomain nd0 = new CMRFNodeDomain(
+				efm.getNode(0).getDOFMin(),
+				efm.getNode(0).getDOFMax(),
+				k0,
+				(point)->(efm.getNode(0).getEnergy())
+				);
+
+		//unary rc
+		Kernel k1 = new KernelGaussian(kDB1, 0.25);
+		CMRFNodeDomain nd1 = new CMRFNodeDomain(
+				efm.getNode(1).getDOFMin(),
+				efm.getNode(1).getDOFMax(),
+				k1,
+				(point)->(efm.getNode(1).getEnergy())
+				);
+
+		//pairwise rc
+		HashMap<Integer, CMRFNodeDomain[]> h = new HashMap<>();
+		h.put(0, new CMRFNodeDomain[]{nd0});
+		h.put(1, new CMRFNodeDomain[]{nd1});
+		
+		//pairwise energy
+		ToDoubleFunction<double[]>f = (point)->(efm.getPairWiseEnergy(efm.getNode(0), efm.getNode(1)));
+		
+		HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>> map1 = new HashMap<>();
+		map1.put(nd1, f);
+		HashMap<CMRFNodeDomain, HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>> map2 = new HashMap<>();
+		map2.put(nd0, map1);
+		HashMap<Integer, HashMap<CMRFNodeDomain, HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>>> map3 = new HashMap<>();
+		map3.put(1, map2);
+		HashMap<Integer, HashMap<Integer, HashMap<CMRFNodeDomain, HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>>>> map4 = new HashMap<>();
+		map4.put(0, map3);
+
+		cmrf.addNodes(h, map4);
+		System.out.println();
+		System.out.println("Running SCMF");
+		cmrf.runSCMF();
+		System.out.println("Finished!");
+		
+		System.out.println();
+		System.out.println("Running TRBP");
+		cmrf.runTRBP();
+		System.out.println("Finished!");
 	}
 
 }

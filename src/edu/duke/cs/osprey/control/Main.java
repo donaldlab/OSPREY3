@@ -140,7 +140,8 @@ public class Main {
 		commands.put("doCMRF", new Runnable() {
 			@Override
 			public void run() {
-				ContinuousMRFDoer cmrfDoer = new ContinuousMRFDoer(args);
+				CMRFDoer cmrf = new CMRFDoer(args);
+				cmrf.compute();
 			}
 		});
 

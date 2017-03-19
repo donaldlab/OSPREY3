@@ -858,49 +858,49 @@ public class CMRF {
      * @param eFuncMap
      */
     public void addNodes(
-	    HashMap<Integer, CMRFNodeDomain[]> domains,
-            // mapping is node 1 --> node 2 --> domain 1 --> domain 2 --> eFunc
-            HashMap<Integer, 
-                    HashMap<Integer, 
-                    HashMap<CMRFNodeDomain,
-                    HashMap<CMRFNodeDomain,
-                    ToDoubleFunction<double[]>>>>> eFuncMap) { 
-	
-	// make the nodes
-	for (int i=0; i<numNodes; i++) { 
-	    nodes[i] = new CMRFNode(domains.get(i));
-	}
-	
-	// initialize outmessage maps
-	for (int i=0; i<numNodes; i++) { 
-	    CMRFNode node = nodes[i];
-	    node.outMessages = new HashMap<>();
-	    for (int j=0; j<numNodes; j++) { 
-		if (i==j) { continue; }
-		node.outMessages.put(nodes[j], new HashMap<>());	
-	    }
-	}
-               
-        for (int i=0; i<nodes.length; i++) { 
-            for (int j=0; j<nodes.length; j++) { 
-		if (i==j) { continue; } // no self loops
-		if (i < j) {
-		    edges[i][j] = new CMRFEdge(
-			    nodes[i],
-			    nodes[j],
-			    eFuncMap.get(i).get(j));
-		} else {
-		    edges[i][j] = new CMRFEdge(
-			    nodes[i],
-			    nodes[j],
-			    eFuncMap.get(j).get(i));
-		}
-                edges[j][i] = edges[i][j];
+    	    HashMap<Integer, CMRFNodeDomain[]> domains,
+                // mapping is node 1 --> node 2 --> domain 1 --> domain 2 --> eFunc
+                HashMap<Integer, 
+                        HashMap<Integer, 
+                        HashMap<CMRFNodeDomain,
+                        HashMap<CMRFNodeDomain,
+                        ToDoubleFunction<double[]>>>>> eFuncMap) { 
+    	
+    	// make the nodes
+    	for (int i=0; i<numNodes; i++) { 
+    	    nodes[i] = new CMRFNode(domains.get(i));
+    	}
+    	
+    	// initialize outmessage maps
+    	for (int i=0; i<numNodes; i++) { 
+    	    CMRFNode node = nodes[i];
+    	    node.outMessages = new HashMap<>();
+    	    for (int j=0; j<numNodes; j++) { 
+    		if (i==j) { continue; }
+    		node.outMessages.put(nodes[j], new HashMap<>());	
+    	    }
+    	}
+                   
+            for (int i=0; i<nodes.length; i++) { 
+                for (int j=0; j<nodes.length; j++) { 
+    		if (i==j) { continue; } // no self loops
+    		if (i < j) {
+    		    edges[i][j] = new CMRFEdge(
+    			    nodes[i],
+    			    nodes[j],
+    			    eFuncMap.get(i).get(j));
+    		} else {
+    		    edges[i][j] = new CMRFEdge(
+    			    nodes[i],
+    			    nodes[j],
+    			    eFuncMap.get(j).get(i));
+    		}
+                    edges[j][i] = edges[i][j];
+                }
             }
+    	
+    	nodesAdded = true;
         }
-	
-	nodesAdded = true;
-    }
     
     // returns the exponential function at a specific point for the TRBP message update
     // this is basically currying, but awkward as all hell because Java

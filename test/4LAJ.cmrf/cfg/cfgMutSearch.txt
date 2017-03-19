@@ -1,0 +1,22 @@
+runName cmrf
+numMutations 0
+
+iMinDEE true
+typedep true
+ival 0.01
+ew 0
+
+stericthresh 25
+
+useERef true
+addResEntropy true
+ematDir emat.lovell
+ematThreads 2
+
+epsilon 0.68
+doMinimize true
+addWT true
+addWTRots true
+
+resAllowed419 ARG
+resAllowed702 THR
