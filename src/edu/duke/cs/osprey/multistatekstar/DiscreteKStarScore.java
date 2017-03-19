@@ -2,9 +2,14 @@ package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigDecimal;
 
+/**
+ * @author Adegoke Ojewole (ao68@duke.edu)
+ * 
+ */
+
 public class DiscreteKStarScore extends ContinuousKStarScore {
 
-	public DiscreteKStarScore(KStarSettings settings) {
+	public DiscreteKStarScore(MSKStarSettings settings) {
 		super(settings);
 	}
 

@@ -3,6 +3,12 @@ package edu.duke.cs.osprey.multistatekstar;
 import java.io.Serializable;
 import edu.duke.cs.osprey.structure.Residue;
 
+/**
+ * 
+ * @author Adegoke Ojewole (ao68@duke.edu)
+ * 
+ */
+
 @SuppressWarnings("serial")
 public class ResidueTermini implements Serializable {
 

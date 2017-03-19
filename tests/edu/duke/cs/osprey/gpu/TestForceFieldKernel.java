@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.gpu.opencl;
+package edu.duke.cs.osprey.gpu;
 
 import static org.junit.Assert.*;
 
@@ -18,15 +18,14 @@ import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
 import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
+import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.Residue;
 
 public class TestForceFieldKernel extends TestBase {
 	
-	// TODO: test ff options, like solvation, hydrogen inclusions, etc...
-	
-	private static class Forcefields {
+	public static class Forcefields {
 		
 		public MultiTermEnergyFunction efunc;
 		public BigForcefieldEnergy bigff;
@@ -43,7 +42,7 @@ public class TestForceFieldKernel extends TestBase {
 		}
 	}
 	
-	private static enum EnergyFunctionType {
+	public static enum EnergyFunctionType {
 		AllPairs,
 		SingleAndShell;
 	}
@@ -87,7 +86,7 @@ public class TestForceFieldKernel extends TestBase {
 		initDefaultEnvironment();
 	}
 	
-	private static void makeAllPairsEfunc(Residue[] residues, ForcefieldParams ffparams, MultiTermEnergyFunction efunc, ForcefieldInteractions interactions) {
+	public static void makeAllPairsEfunc(Residue[] residues, ForcefieldParams ffparams, MultiTermEnergyFunction efunc, ForcefieldInteractions interactions) {
 		
 		for (int pos1=0; pos1<residues.length; pos1++) {
 			
@@ -102,7 +101,7 @@ public class TestForceFieldKernel extends TestBase {
 		}
 	}
 	
-	private static void makeSingleAndShellEfunc(Residue[] residues, ForcefieldParams ffparams, MultiTermEnergyFunction efunc, ForcefieldInteractions interactions) {
+	public static void makeSingleAndShellEfunc(Residue[] residues, ForcefieldParams ffparams, MultiTermEnergyFunction efunc, ForcefieldInteractions interactions) {
 		
 		efunc.addTerm(new SingleResEnergy(residues[0], ffparams));
 		interactions.addResidue(residues[0]);
@@ -114,10 +113,14 @@ public class TestForceFieldKernel extends TestBase {
 		}
 	}
 	
-	private Forcefields makeForcefields(Residue[] residues, EnergyFunctionType efuncType)
+	public static Forcefields makeForcefields(Residue[] residues, EnergyFunctionType efuncType)
+	throws IOException {
+		return makeForcefields(residues, efuncType, EnvironmentVars.curEFcnGenerator.ffParams);
+	}
+	
+	public static Forcefields makeForcefields(Residue[] residues, EnergyFunctionType efuncType, ForcefieldParams ffparams)
 	throws IOException {
 		
-		ForcefieldParams ffparams = EnvironmentVars.curEFcnGenerator.ffParams;
 		ForcefieldInteractions interactions = new ForcefieldInteractions();
 		
 		Forcefields ff = new Forcefields();
@@ -256,8 +259,6 @@ public class TestForceFieldKernel extends TestBase {
 
 		assertThat(ff.efunc.getEnergy(), isRelatively(expectedMutantEnergy));
 		assertThat(ff.bigff.getEnergy(), isRelatively(expectedMutantEnergy));
-		// TEMP
-		System.out.println("gpu");
 		assertThat(ff.gpuffopencl.getEnergy(), isRelatively(expectedMutantEnergy));
 		assertThat(ff.gpuffcuda.getEnergy(), isRelatively(expectedMutantEnergy));
 		

@@ -28,8 +28,10 @@ typedef struct __align__(8) {
 	bool useHEs; // @ 33
 	bool useHVdw; // @ 34
 	bool useSubset; // @ 35
+	bool useEEF1; // @ 36
+	// 3 bytes pad
 } ForcefieldArgs;
-// sizeof = 36
+// sizeof = 40
 
 
 __device__ int getAtomIndex(int flags) {
@@ -131,7 +133,7 @@ extern "C" __global__ void calc(
 		}
 		
 		// calculate solvation
-		if (bothHeavy && r2 < args->solvCutoff2) {
+		if (args->useEEF1 && bothHeavy && r2 < args->solvCutoff2) {
 				
 			double r = sqrt(r2);
 			{

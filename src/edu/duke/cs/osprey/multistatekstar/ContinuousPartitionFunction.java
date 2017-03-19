@@ -21,14 +21,19 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
-public class ParallelPartitionFunction extends ParallelConfPartitionFunction {
+/**
+ * @author Adegoke Ojewole (ao68@duke.edu)
+ * 
+ */
+
+public class ContinuousPartitionFunction extends ParallelConfPartitionFunction {
 
 	protected PriorityQueue<ScoredConf> topConfs;
 	protected int maxNumTopConfs;
 	protected BigDecimal qstarScoreWeights;
 	protected int numActiveThreads;
 
-	public ParallelPartitionFunction(EnergyMatrix emat, PruningMatrix pmat, ConfSearchFactory confSearchFactory,
+	public ContinuousPartitionFunction(EnergyMatrix emat, PruningMatrix pmat, ConfSearchFactory confSearchFactory,
 			Async ecalc) {
 		super(emat, pmat, confSearchFactory, ecalc);
 		qstarScoreWeights = null;
@@ -191,7 +196,7 @@ public class ParallelPartitionFunction extends ParallelConfPartitionFunction {
 
 				// this is (potentially) running on a task executor listener thread
 				// so lock to keep from racing the main thread
-				synchronized (ParallelPartitionFunction.this) {
+				synchronized (ContinuousPartitionFunction.this) {
 
 					if(status == Status.Estimating) {
 
@@ -288,7 +293,7 @@ public class ParallelPartitionFunction extends ParallelConfPartitionFunction {
 
 				// this is (potentially) running on a task executor listener thread
 				// so lock to keep from racing the main thread
-				synchronized (ParallelPartitionFunction.this) {
+				synchronized (ContinuousPartitionFunction.this) {
 
 					if(status == Status.Estimating) {
 

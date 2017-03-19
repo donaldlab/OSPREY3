@@ -24,7 +24,7 @@ public class PPruningMatrix extends QPruningMatrix {
 		this.assignedAATypeOptions = other.assignedAATypeOptions;
 		this.assignedFlexRes = other.assignedFlexRes;
 		this.sp = other.sp;
-		
+
 		if(!isValid())
 			throw new RuntimeException("ERROR: did not prune all RCs outside of assigned AA type options");
 	}
@@ -73,10 +73,6 @@ public class PPruningMatrix extends QPruningMatrix {
 
 	public PruningMatrix invert() {
 		return new P2PruningMatrix(this);
-	}
-
-	public boolean isFullyDefined() {
-		return other.isFullyDefined();
 	}
 
 	public PruningMatrix getParent() {
