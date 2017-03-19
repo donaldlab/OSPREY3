@@ -31,6 +31,7 @@ public class CMRFNode {
 	domains = doms;
         marginals = new HashMap<>();
         outMessages = new HashMap<>();
+	pseudomarginals = new HashMap<>();
     }
     
     /**

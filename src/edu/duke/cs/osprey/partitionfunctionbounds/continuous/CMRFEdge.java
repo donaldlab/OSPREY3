@@ -53,11 +53,19 @@ public class CMRFEdge {
 		diff = diff/lBounds.length;
 		KernelGaussian prodK = new KernelGaussian(bounds, diff);
 		
+		ToDoubleFunction<double[]>domEFunc;
+		if (eFuncs.containsKey(d1)) { 
+		    domEFunc = eFuncs.get(d1).get(d2);
+		} else {
+		    domEFunc = eFuncs.get(d2).get(d1);
+		}
+		
 		doms.add(new CMRFEdgeDomain(
 			d1.domainLB, d1.domainUB,
 			d2.domainLB, d2.domainUB,
 			d1.k, d2.k, prodK,
-			eFuncs.get(d1).get(d2)));
+			d1, d2,
+			domEFunc));
 	    }
 	}
 	

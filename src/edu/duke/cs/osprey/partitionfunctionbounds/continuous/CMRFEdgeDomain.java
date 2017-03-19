@@ -63,6 +63,7 @@ public class CMRFEdgeDomain {
 	    double[] rOneLB, double[] rOneUB,
 	    double[] rTwoLB, double[] rTwoUB,
 	    Kernel rOneK, Kernel rTwoK, Kernel prodK,
+	    CMRFNodeDomain dOne, CMRFNodeDomain dTwo,
 	    ToDoubleFunction<double[]> energyFunc) { 
 	
         // we store the upper and lower bounds for both domains involved in the edge
@@ -83,6 +84,10 @@ public class CMRFEdgeDomain {
 	this.resOneK = rOneK;
 	this.resTwoK = rTwoK;
 	this.resAllK = prodK;
+	
+	// screw it let's just store the bloody domains
+	this.resOneDomain = dOne;
+	this.resTwoDomain = dTwo;
 	
         // energy function, pdf, and associated RKHS representations 
 	this.eFunc = energyFunc;
