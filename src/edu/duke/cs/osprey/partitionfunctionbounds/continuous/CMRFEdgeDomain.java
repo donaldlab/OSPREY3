@@ -159,19 +159,7 @@ public class CMRFEdgeDomain {
      * @return 
      */
     public boolean isValidPoint(double[] point1, double[] point2) { 
-	for (int i=0; i<point1.length; i++) { 
-	    if ((resOneLB[i] > point1[i]) || (resOneUB[i] < point1[i])) { 
-		return false;
-	    }
-	}
-	
-	for (int i=0; i<point2.length; i++) { 
-	    if ((resTwoLB[i] > point2[i]) || (resTwoUB[i] < point2[i])) { 
-		return false;
-	    }
-	}
-	
-	return true;
+	return resOneDomain.isPointInDomain(point1) && resTwoDomain.isPointInDomain(point2);
     }
     
 }

@@ -6,6 +6,7 @@
 package edu.duke.cs.osprey.partitionfunctionbounds.continuous;
 
 import Jama.Matrix;
+import edu.duke.cs.osprey.control.Main;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,6 +37,7 @@ public class CMRF {
     double lambda = 0.7;
     
     boolean nodesAdded = false;
+    boolean ranSCMF = false;
     
     /**
      * Sets up an empty cMRF -- population is done later 
@@ -48,6 +50,11 @@ public class CMRF {
     }
     
     public static void main (String[] args) { 
+        
+        Main.main(args);
+        
+        System.out.println("CMRF main");
+        
         double size = 1;
         double[][] b1 = new double[1][2]; b1[0][0] = 0; b1[0][1] = size;
         double[] lb1 = new double[1]; lb1[0] = 0; 
@@ -96,6 +103,8 @@ public class CMRF {
         double oldLogZ = Double.POSITIVE_INFINITY; 
         
 	int iter = 0; 
+        boolean unNaNed = false;
+        
         while (true) { 
             this.updateMessagesTRBP();
 	    
@@ -109,10 +118,15 @@ public class CMRF {
             double enth = this.computeEnthalpyTRBP();
             double entr = this.computeEntropyTRBP();
             
-	    // CURRENT PROBLEM: FREE ENERGY IS V. POSITIVE AND LARGE -- GETTING NAN LOG Z'S
-	    
             double enrg = enth - this.constRT*entr;
             double logZ = Math.log(-enrg/this.constRT);
+                        
+            if (Double.isNaN(logZ) && !unNaNed) { 
+                System.out.println("logZUB is NaN, restarting...");
+                this.runTRBP();
+            } else { 
+               unNaNed = true; 
+            }
 
 
             // break if the bound gets worse, i.e. we step over a local maximum
@@ -392,7 +406,8 @@ public class CMRF {
 		    for (CMRFNodeDomain d : sender.domains) {
 			// denominator of quotient
 			ToDoubleFunction<double[]> denomFunc = 
-				(point)->(Math.pow(sender.outMessages.get(receiver).get(recDom).eval(point), 1-edgeProb));
+				(point)->Math.pow(receiver.outMessages.get(sender).get(d).eval(point), 1-edgeProb);
+				
 			
 			// numerator of quotient
                         // note we're looking at nodes who send to the sender here 
@@ -422,7 +437,8 @@ public class CMRF {
 					d.domainUB,
 					(Xt)->(
 						this.getModifiedExponentialFunction(sender, receiver, d, point).eval(Xt) 
-							*  numFunc.applyAsDouble(Xt)/denomFunc.applyAsDouble(Xt))).computeIntegral()));
+							*  numFunc.applyAsDouble(Xt)/denomFunc.applyAsDouble(Xt)
+						)).computeIntegral()));
                         // goddamn that is beautiful 
                         // we get a function for each sender domain, and sum over
 			senderFuncs[this.getIndexInArray(d, sender.domains)] = updateFunc;
@@ -619,6 +635,7 @@ public class CMRF {
             
             // break if the bound gets worse, i.e. we step over a local maximum
             if (logZ < oldLogZ) { 
+                ranSCMF = true;
                 System.out.println("DONE: logZLB: "+oldLogZ);
                 return oldLogZ;
             }
@@ -627,6 +644,7 @@ public class CMRF {
 
             // break if the other termination condition is reached
             if ((Math.abs(logZ-oldLogZ) <= this.threshold) || (iter >= maxIters)) { 
+                ranSCMF = true;
                 System.out.println("DONE: logZLB: "+logZ);
                 return logZ;                
             }

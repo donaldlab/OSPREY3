@@ -95,21 +95,15 @@ public class CMRFEdge {
     }
     
     /**
-     * Gets the edge domain corresponding two the two CMRFNodeDomains
+     * Gets the edge domain corresponding to the two CMRFNodeDomains
      * @param d1
      * @param d2
      * @return 
      */
     public CMRFEdgeDomain getEdgeDomain(CMRFNodeDomain d1, CMRFNodeDomain d2) { 
         for (CMRFEdgeDomain edgeDomain : domainLinks) { 
-            if (((Arrays.equals(d1.domainLB, edgeDomain.resOneLB)) &&
-                    (Arrays.equals(d1.domainUB, edgeDomain.resOneUB)) &&
-                    (Arrays.equals(d2.domainLB, edgeDomain.resTwoLB)) && 
-                    (Arrays.equals(d2.domainUB, edgeDomain.resTwoUB))) ||                     
-                ((Arrays.equals(d1.domainLB, edgeDomain.resTwoLB)) &&
-                    (Arrays.equals(d1.domainUB, edgeDomain.resTwoUB)) &&
-                    (Arrays.equals(d2.domainLB, edgeDomain.resOneLB)) && 
-                    (Arrays.equals(d2.domainUB, edgeDomain.resOneUB)))) { 
+            if ((edgeDomain.resOneDomain.equals(d1) && edgeDomain.resTwoDomain.equals(d2))  ||
+		(edgeDomain.resTwoDomain.equals(d1) && edgeDomain.resTwoDomain.equals(d1)))  {
                 return edgeDomain;
             }
         }

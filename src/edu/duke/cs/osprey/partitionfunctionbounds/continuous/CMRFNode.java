@@ -5,11 +5,7 @@
  */
 package edu.duke.cs.osprey.partitionfunctionbounds.continuous;
 
-import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Map;
-import java.util.function.ToDoubleFunction;
 
 /**
  * Represents a cMRF Node

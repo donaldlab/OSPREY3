@@ -28,9 +28,12 @@ public class KernelGaussian extends Kernel {
      */
     public double eval(double[] x, double[] y) {
         if (! super.validInput(x, y)) {
-            throw new RuntimeException("Input to Gaussian kernel not valid: "
-                    + "input was "+Arrays.toString(x)+" and "+Arrays.toString(y)+", but "
-                    + "bounds were "+printBounds());
+            throw new RuntimeException("Input to Gaussian kernel not valid: " +
+                    "input was:\n\t"+
+		    Arrays.toString(x)+  
+		    "\n\t"+Arrays.toString(y)+
+		    "\nbut bounds were\n"+
+		    printBounds());
         }
         return Math.exp(-1 * (Math.pow(this.distance(x, y),2)/ (2 * Math.pow(this.sigma,2))));
     }
@@ -55,9 +58,10 @@ public class KernelGaussian extends Kernel {
      */
     String printBounds() {
         StringBuilder s = new StringBuilder();
-        for (double[] bound : bounds) {
-            s.append(Arrays.toString(bound));
-        }
+	for (int i=0; i<bounds.length; i++) { 
+	    double[] bound = bounds[i];
+	    s.append("\tdim " + i + ": "+Arrays.toString(bound) + "\n");
+	}
         return s.toString();
     }
     

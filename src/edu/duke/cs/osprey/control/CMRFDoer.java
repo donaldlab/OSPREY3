@@ -149,7 +149,7 @@ public class CMRFDoer {
 		cmrf.addNodes(h, map4);
 		System.out.println();
 		System.out.println("Running SCMF");
-		cmrf.runSCMF();
+		//cmrf.runSCMF();
 		System.out.println("Finished!");
 		
 		System.out.println();

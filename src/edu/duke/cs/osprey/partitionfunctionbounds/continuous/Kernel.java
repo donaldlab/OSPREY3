@@ -29,29 +29,29 @@ public abstract class Kernel {
 	}
 	
         /**
-         * You want to be able to evaluate the kernel at particular points 
-         * @param x
-         * @param y
-         * @return 
-         */
+	 * You want to be able to evaluate the kernel at particular points
+	 * @param x
+	 * @param y
+	 * @return
+	 */
 	public abstract double eval(double[] x, double[] y);
 	
-        /**
-         * Determines whether or not the input is valid (within the domain bounds) 
-         * @param x
-         * @param y
-         * @return 
-         */
+	/**
+	 * Determines whether or not the input is valid (within the domain bounds)
+	 * @param x
+	 * @param y
+	 * @return
+	 */
 	public boolean validInput(double[] x, double[] y) {
-		boolean isValid = true;
-		if (x.length != y.length) { isValid = false; }
-		for (int i=1; i<x.length; i++) {
-			boolean xLB = (x[i] >= bounds[i][0]); 
-			boolean xUB = (x[i] <= bounds[i][1]);
-			boolean yLB = (y[i] >= bounds[i][0]);
-			boolean yUB = (y[i] <= bounds[i][1]);
-			isValid = isValid && xLB && xUB && yLB && yUB;
-		}
-		return isValid;
+	    boolean isValid = true;
+	    if (x.length != y.length) { isValid = false; }
+	    for (int i=1; i<x.length; i++) {
+		boolean xLB = (x[i] >= bounds[i][0]);
+		boolean xUB = (x[i] <= bounds[i][1]);
+		boolean yLB = (y[i] >= bounds[i][0]);
+		boolean yUB = (y[i] <= bounds[i][1]);
+		isValid = isValid && xLB && xUB && yLB && yUB;
+	    }
+	    return isValid;
 	}
 }
