@@ -189,7 +189,7 @@ public class MSKStarDoer {
 		cleanupEnergyCalculators(ecalcsDisc);
 	}
 
-	private String calcStateKSScore(int state, ArrayList<String> boundStateAATypes) {
+	private String calcStateKStarScore(int state, ArrayList<String> boundStateAATypes) {
 
 		//get arraylist formatted sequence for each substate
 		ArrayList<ArrayList<ArrayList<String>>> subStateAATypes = new ArrayList<>();
@@ -227,6 +227,7 @@ public class MSKStarDoer {
 		}
 		
 		KStarScoreType scoreType = sParams.getBool("DOMINIMIZE") ? KStarScoreType.Continuous : KStarScoreType.Discrete;
+		//KStarScoreType scoreType = KStarScoreType.DiscretePairWiseMinimized;
 		MSKStarScore score = MSKStarFactory.makeKStarScore(
 				msParams, state, cfps[state],
 				singleSeqSearchCont, singleSeqSearchDisc,
@@ -473,7 +474,7 @@ public class MSKStarDoer {
 				ecalcsDisc[state] = makeEnergyCalculators(state, false);
 
 				for(int seqNum=0; seqNum<stateKSS[state].length; seqNum++){
-					stateKSS[state][seqNum] = calcStateKSScore(state, seqList.get(state).get(seqNum));
+					stateKSS[state][seqNum] = calcStateKStarScore(state, seqList.get(state).get(seqNum));
 					fout.println(stateKSS[state][seqNum]);
 				}
 
@@ -550,8 +551,6 @@ public class MSKStarDoer {
 						StringTokenizer st1 = new StringTokenizer(token);
 						ArrayList<String> val1 = new ArrayList<>();
 						while(st1.hasMoreTokens()) val1.add(st1.nextToken().split("-")[0]);
-						//String[] val2 = new String[st1.countTokens()];
-						//val2 = val1.toArray(val2);
 						val1.trimToSize();
 						ans.get(state).add(val1);
 					}
