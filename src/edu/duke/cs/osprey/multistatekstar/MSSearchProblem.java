@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.Collections;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
@@ -29,12 +30,28 @@ public class MSSearchProblem extends SearchProblem {
 		this.numDefinedPos = other.confSpace.numPos-Collections.frequency(flexRes, "-1");
 	}
 	
+	ArrayList<Integer> getUndefinedPos() {
+		ArrayList<Integer> ans = new ArrayList<>();
+		for(int i=0;i<flexRes.size();++i) if(flexRes.get(i).equals("-1")) ans.add(i);
+		return ans;
+	}
+	
 	public int getNumDefinedPos() {
 		return numDefinedPos;
 	}
 	
 	public boolean isFullyDefined() {
 		return numDefinedPos==confSpace.numPos;
+	}
+	
+	public ArrayList<Integer> unprunedAtPos(QPruningMatrix pruneMat, int pos, String AAType) {
+		ArrayList<Integer> ans = new ArrayList<>();
+		for(int rc : pruneMat.unprunedRCsAtPos(pos)) {
+			String type = confSpace.posFlex.get(pos).RCs.get(rc).AAType;
+			if(!AAType.equalsIgnoreCase(type)) continue;
+			ans.add(rc);
+		}
+		return ans;
 	}
 
 	public QPruningMatrix prunePmat() {

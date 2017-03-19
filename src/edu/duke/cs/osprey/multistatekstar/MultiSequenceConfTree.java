@@ -6,7 +6,7 @@ import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.astar.FullAStarNode;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 /**
@@ -23,15 +23,15 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 
 	public boolean computeLBs;//compute either energy lower bound or upper bound
 	MSSearchProblem search;//search problem
-	PruningMatrix pruneMat;//pruning matrix
+	PruningMatrix pmat;//pruning matrix
 	Integer[] allowedPos;//largest set of positions allowed by the (partial) sequence
 
-	public MultiSequenceConfTree(SearchProblem search) {
-		super(new FullAStarNode.Factory(search.pruneMat.getNumPos()), search);
+	public MultiSequenceConfTree(MSSearchProblem search, EnergyMatrix emat, PruningMatrix pmat) {
+		super(new FullAStarNode.Factory(search.getNumDefinedPos()), search, pmat);
 		this.computeLBs = search.contSCFlex ? true : false;
-		this.search = (MSSearchProblem) search;
-		emat = search.emat;
-		pruneMat = search.pruneMat;
+		this.search = search;
+		this.emat = emat;
+		this.pmat = pmat;
 		allowedPos = getPosNums(true);
 		init();
 	}
@@ -61,7 +61,7 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 		// pack them into an efficient int matrix
 		unprunedRCsAtPos = new int[search.confSpace.numPos][];
 		for (int pos=0;pos<unprunedRCsAtPos.length;++pos) {//store all assigned and unassigned
-			ArrayList<Integer> srcRCs = pruneMat.unprunedRCsAtPos(pos);
+			ArrayList<Integer> srcRCs = pmat.unprunedRCsAtPos(pos);
 			int[] destRCs = new int[srcRCs.size()];
 			for (int i=0; i<srcRCs.size(); i++) {
 				destRCs[i] = srcRCs.get(i);

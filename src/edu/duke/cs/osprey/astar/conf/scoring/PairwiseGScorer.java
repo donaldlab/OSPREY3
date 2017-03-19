@@ -11,6 +11,11 @@ public class PairwiseGScorer implements AStarScorer {
 	public PairwiseGScorer(EnergyMatrix emat) {
 		this.emat = emat;
 	}
+	
+	@Override
+	public PairwiseGScorer make() {
+		return new PairwiseGScorer(emat);
+	}
 
 	@Override
 	public double calc(ConfIndex confIndex, RCs rcs) {

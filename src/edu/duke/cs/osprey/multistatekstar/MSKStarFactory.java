@@ -71,7 +71,7 @@ public class MSKStarFactory {
 			settings.isFinal = true;
 			return new DiscreteKStarScore(settings);
 			
-		case DiscretePairWise:
+		case DiscretePairWiseMinimized:
 			for(int subState=0;subState<numPartFuncs;++subState){
 				settings.pfTypes[subState] = PartitionFunctionType.Discrete;
 				settings.search[subState] = searchCont[subState];
@@ -121,8 +121,7 @@ public class MSKStarFactory {
 		ConfEnergyCalculator.Async ecalc = MinimizingEnergyCalculator.make(
 				makeDefaultFFParams(cfp.getParams()),
 				multiSeqSearch, 
-				parallelism, 
-				multiSeqSearch.contSCFlex
+				parallelism 
 				);
 		return ecalc;
 	}

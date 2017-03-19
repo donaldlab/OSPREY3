@@ -8,6 +8,7 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 public class TraditionalPairwiseHScorer implements AStarScorer {
 	
 	private EnergyMatrix emat;
+	private RCs rcs;
 	
 	private double[][][] undefinedEnergies; // indexed by (pos1,pos2), rc at pos1
 	private ConfAStarNode cachedNode;
@@ -15,6 +16,7 @@ public class TraditionalPairwiseHScorer implements AStarScorer {
 	
 	public TraditionalPairwiseHScorer(EnergyMatrix emat, RCs rcs) {
 		this.emat = emat;
+		this.rcs = rcs;
 		
 		int numPos = emat.getNumPos();
 		
@@ -49,6 +51,10 @@ public class TraditionalPairwiseHScorer implements AStarScorer {
 		for (int pos=0; pos<numPos; pos++) {
 			cachedEnergies[pos] = new double[rcs.get(pos).length];
 		}
+	}
+	
+	public TraditionalPairwiseHScorer make() {
+		return new TraditionalPairwiseHScorer(emat, rcs);
 	}
 
 	@Override

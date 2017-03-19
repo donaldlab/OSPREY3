@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Set;
 
 import edu.duke.cs.osprey.astar.ConfTree;
+import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
@@ -229,7 +230,7 @@ public class GMECFinder {
 					// for "regular" conf minimization, use the spiffy new ConfMinimizer!
 					ForcefieldParams ffparams = EnvironmentVars.curEFcnGenerator.ffParams;
 					Parallelism parallelism = Parallelism.makeFromConfig(cfp);
-					ecalc = MinimizingEnergyCalculator.make(ffparams, search, parallelism, false);
+					ecalc = MinimizingEnergyCalculator.make(ffparams, search, parallelism);
 				}
 			}
 			
@@ -306,16 +307,49 @@ public class GMECFinder {
         List<EnergiedConf> econfs = new ArrayList<>();
         econfs.add(eMinScoreConf);
         
-		// estimate the top of our energy window
-		// this is an upper bound for now, we'll refine it as we evaluate more structures
+        // estimate the top of our energy window
+        // this is an upper bound for now, we'll refine it as we evaluate more structures
         final EnergyWindow window = new EnergyWindow(eMinScoreConf.getEnergy(), Ew);
-		
+        setWindowProgress(confSearch, window);
+        
         // enumerate all confs in order of the scores, up to the estimate of the top of the energy window
         System.out.println("Enumerating other low-scoring conformations...");
         List<ScoredConf> lowEnergyConfs = new ArrayList<>();
+        Stopwatch stopwatch = new Stopwatch().start();
         lowEnergyConfs.add(minScoreConf);
-        lowEnergyConfs.addAll(confSearch.nextConfs(window.getMax()));
+        int indexToMinimizeNext = 1;
+        while (true) {
+            
+            ScoredConf conf = confSearch.nextConf();
+            if (conf == null) {
+                break;
+            }
+            lowEnergyConfs.add(conf);
+            if (conf.getScore() >= window.getMax()) {
+                break;
+            }
+            
+            // if we've been enumerating confs for a while, try a minimization to see if we get a smaller window
+            if (stopwatch.getTimeS() >= 10) {
+                stopwatch.stop();
+                
+                // save the conf and the energy for later
+                EnergiedConf econf = ecalc.calcEnergy(lowEnergyConfs.get(indexToMinimizeNext++));
+                handleEnergiedConf(econfs, confPrinter, window, econf);
+                
+                boolean changed = window.update(econf.getEnergy());
+                if (changed) {
+                    System.out.println(String.format("Lower conformation energy updated energy window! remaining: %14.8f", window.getMax() - conf.getScore()));
+                    setWindowProgress(confSearch, window);
+                }
+                
+                stopwatch.start();
+            }
+        }
         System.out.println(String.format("\tFound %d more", lowEnergyConfs.size() - 1));
+        
+        // we're done with A*, release the tree so we can get the memory back
+        confSearch = null;
 
         if (!lowEnergyConfs.isEmpty()) {
 
@@ -327,24 +361,14 @@ public class GMECFinder {
                 // calculate energy for each conf
                 // this will probably take a while, so track progress
                 final Progress progress = new Progress(lowEnergyConfs.size());
+                progress.setProgress(indexToMinimizeNext);
 
                 // what to do when we get a conf energy?
                 ConfEnergyCalculator.Async.Listener ecalcListener = new ConfEnergyCalculator.Async.Listener() {
                         @Override
                         public void onEnergy(EnergiedConf econf) {
 
-                                // save the conf and the energy for later
-                                econfs.add(econf);
-
-                                // immediately output the conf, in case the run aborts and we want to resume later
-                                confPrinter.printConf(econf);
-
-                                // log the conf to console if desired
-                                if (logConfsToConsole) {
-                                        System.out.println("\nENUMERATING CONFORMATION");
-                                        System.out.print(confPrinter.getConfReport(econf, window));
-                                }
-
+                                handleEnergiedConf(econfs, confPrinter, window, econf);
                                 progress.incrementProgress();
 
                                 // refine the estimate of the top of the energy window
@@ -370,8 +394,8 @@ public class GMECFinder {
 
                 // calc the conf energy asynchronously
                 System.out.println(String.format("\nComputing energies for %d conformations...", lowEnergyConfs.size()));
-                for (int i=0; i<lowEnergyConfs.size(); i++) {
-                        ecalc.calcEnergyAsync(lowEnergyConfs.get(i), ecalcListener);
+                for (; indexToMinimizeNext<lowEnergyConfs.size(); indexToMinimizeNext++) {
+                        ecalc.calcEnergyAsync(lowEnergyConfs.get(indexToMinimizeNext), ecalcListener);
                 }
                 ecalc.waitForFinish();
         }
@@ -443,12 +467,37 @@ public class GMECFinder {
         return econfs;
     }
     
+    private void handleEnergiedConf(List<EnergiedConf> econfs, ConfPrinter confPrinter, EnergyWindow window, EnergiedConf econf) {
+        
+        econfs.add(econf);
+        
+        // immediately output the conf, in case the run aborts and we want to resume later
+        confPrinter.printConf(econf);
+
+        // log the conf to console if desired
+        if (logConfsToConsole) {
+            System.out.println("\nENUMERATING CONFORMATION");
+            System.out.print(confPrinter.getConfReport(econf, window));
+        }
+    }
+
+    private void setWindowProgress(ConfSearch confSearch, EnergyWindow window) {
+        
+        // HACKHACK: set progress goal
+        if (confSearch instanceof ConfAStarTree) {
+            ConfAStarTree tree = (ConfAStarTree)confSearch;
+            if (tree.getProgress() != null) {
+                tree.getProgress().setGoalScore(window.getMax());
+            }
+        }
+    }
+
     public List<ScoredConf> calcSequences() {
-    	return calcSequences(I0);
+        return calcSequences(I0);
     }
     
     public List<ScoredConf> calcSequences(double interval) {
-    	
+        
         System.out.println("Finding sequences with interval " + interval + " and energy window " + Ew + " ...");
         
         boolean printEPICEnergy = checkApproxE && useEPIC && useTupExp;

@@ -71,4 +71,26 @@ public class Parallelism {
 	public int getParallelism() {
 		return type.getParallelism(this);
 	}
+	
+	public TaskExecutor makeTaskExecutor() {
+		return makeTaskExecutor(null);
+	}
+	
+	/**
+	 * Makes a TaskExecutor to process tasks, possibly in parallel
+	 * @param useQueue true to buffer tasks in a queue before processing (can be faster),
+	 *                 false to only submit a task when a thread is ready (prevents extra tasks)
+	 */
+	public TaskExecutor makeTaskExecutor(Integer queueSize) {
+		if (getParallelism() > 1) {
+			ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
+			if (queueSize != null) {
+				tasks.queueSize = queueSize;
+			}
+			tasks.start(getParallelism());
+			return tasks;
+		} else {
+			return new TaskExecutor();
+		}
+	}
 }

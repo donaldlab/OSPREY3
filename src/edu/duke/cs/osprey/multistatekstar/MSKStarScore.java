@@ -12,7 +12,7 @@ public interface MSKStarScore {
 	public enum KStarScoreType {
 	    Continuous,//i.e. minimization
 	    Discrete,//discrete
-	    DiscretePairWise,//pw min numerator and denominator
+	    DiscretePairWiseMinimized,//pw min numerator and denominator
 	    DiscreteLowerBound,//discrete numerator, pw min denominator
 	    DiscreteUpperBound;//pw min numerator, discrete denominator
 	}
