@@ -136,6 +136,7 @@ public class CMRFDoer {
 		
 		//pairwise energy
 		ToDoubleFunction<double[]>f = (point)->(efm.getPairWiseEnergy(efm.getNode(0), efm.getNode(1)));
+		ToDoubleFunction<double[]>f1 = (point)->(efm.getPairWiseEnergy(efm.getNode(1), efm.getNode(0)));
 		
 		HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>> map1 = new HashMap<>();
 		map1.put(nd1, f);
@@ -145,11 +146,21 @@ public class CMRFDoer {
 		map3.put(1, map2);
 		HashMap<Integer, HashMap<Integer, HashMap<CMRFNodeDomain, HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>>>> map4 = new HashMap<>();
 		map4.put(0, map3);
+		
+		HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>> map5 = new HashMap<>();
+		map5.put(nd0, f1);
+		HashMap<CMRFNodeDomain, HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>> map6 = new HashMap<>();
+		map6.put(nd1, map5);
+		HashMap<Integer, HashMap<CMRFNodeDomain, HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>>> map7 = new HashMap<>();
+		map7.put(0, map6);
+		map4.put(1, map7);
+
+		
 
 		cmrf.addNodes(h, map4);
 		System.out.println();
 		System.out.println("Running SCMF");
-		//cmrf.runSCMF();
+		cmrf.runSCMF();
 		System.out.println("Finished!");
 		
 		System.out.println();
