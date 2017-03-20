@@ -17,7 +17,7 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
  * 
  */
 
-public class ContinuousKStarScore implements MSKStarScore {
+public class ContinuousKStarScore implements KStarScore {
 
 	public MSKStarSettings settings;
 	public ContinuousPartitionFunction[] partitionFunctions;

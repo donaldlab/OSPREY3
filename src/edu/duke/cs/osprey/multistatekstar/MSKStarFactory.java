@@ -8,8 +8,8 @@ import edu.duke.cs.osprey.control.ParamSet;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
-import edu.duke.cs.osprey.multistatekstar.MSKStarScore.KStarScoreType;
-import edu.duke.cs.osprey.multistatekstar.MSKStarScore.PartitionFunctionType;
+import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
+import edu.duke.cs.osprey.multistatekstar.KStarScore.PartitionFunctionType;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
@@ -20,7 +20,7 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
  */
 public class MSKStarFactory {
 
-	public static MSKStarScore makeKStarScore(
+	public static KStarScore makeKStarScore(
 			ParamSet msParams,
 			int state,
 			MSConfigFileParser cfp,

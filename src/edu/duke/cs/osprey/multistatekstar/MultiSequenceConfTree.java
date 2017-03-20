@@ -28,7 +28,7 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 
 	public MultiSequenceConfTree(MSSearchProblem search, EnergyMatrix emat, PruningMatrix pmat) {
 		super(new FullAStarNode.Factory(search.getNumDefinedPos()), search, pmat);
-		this.computeLBs = search.contSCFlex ? true : false;
+		this.computeLBs = search.settings.useForLB;
 		this.search = search;
 		this.emat = emat;
 		this.pmat = pmat;

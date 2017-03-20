@@ -25,7 +25,7 @@ public class Diagnostics {
 			Gpu gpu = new Gpu(device);
 			
 			System.out.println("\n\t" + gpu.getName());
-			System.out.println(String.format("\t\t%-30s %d MiB", "memory:", gpu.getMemory()/1024/1024));
+			System.out.println(String.format("\t\t%-30s %d MiB", "memory:", gpu.getTotalMemory()/1024/1024));
 			System.out.println(String.format("\t\t%-30s %d.%d", "compute version:", gpu.getComputeVersion()[0], gpu.getComputeVersion()[1]));
 			
 			// get some device attributes
