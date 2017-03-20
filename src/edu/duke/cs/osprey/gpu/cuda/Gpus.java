@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.gpu.cuda;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 import jcuda.driver.CUdevice;
@@ -58,6 +59,18 @@ public class Gpus {
 	}
 	
 	public List<Gpu> getGpus() {
+		
+		// AAO 2017: first sort gpus by decreasing order of free memory as a
+		// crude load-balancing strategy. otherwise, gpus are always hit in
+		// numerical device order for multiple osprey instances, leading to 
+		// unnecessary resource contention.
+		Collections.sort(gpus, new Comparator<Gpu>() {
+			@Override
+			public int compare(Gpu o1, Gpu o2) {
+				return o1.getFreeMemory() > o2.getFreeMemory() ? -1 : 1;
+			}
+		});
+		
 		return Collections.unmodifiableList(gpus);
 	}
 }

@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.gpu.cuda;
 
+import jcuda.driver.CUcontext;
 import jcuda.driver.CUdevice;
 import jcuda.driver.CUdevice_attribute;
 import jcuda.driver.JCudaDriver;
@@ -11,7 +12,8 @@ public class Gpu {
 	private int[] computeVersion;
 	private int warpThreads;
 	private int maxBlockThreads;
-	private long memory;
+	private long totalMemory;
+	private long freeMemory;
 
 	public Gpu(CUdevice device) {
 		
@@ -22,10 +24,14 @@ public class Gpu {
 		JCudaDriver.cuDeviceGetName(bytes, bytes.length, device);
 		name = new String(bytes);
 		
-		// get memory
-		long[] longs = new long[1];
-		JCudaDriver.cuDeviceTotalMem(longs, device);
-		memory = longs[0];
+		// get total and free memory
+		CUcontext cuCtx = new CUcontext();
+		JCudaDriver.cuCtxCreate(cuCtx, 0, device);
+		long[][] longs = new long[2][1];
+		JCudaDriver.cuMemGetInfo(longs[0], longs[1]);
+		freeMemory = longs[0][0];
+		totalMemory = longs[1][0];
+		JCudaDriver.cuCtxDestroy(cuCtx);
 		
 		// get attributes
 		computeVersion = new int[] {
@@ -50,8 +56,12 @@ public class Gpu {
 		return name;
 	}
 	
-	public long getMemory() {
-		return memory;
+	public long getFreeMemory() {
+		return freeMemory;
+	}
+	
+	public long getTotalMemory() {
+		return totalMemory;
 	}
 	
 	public int[] getComputeVersion() {
