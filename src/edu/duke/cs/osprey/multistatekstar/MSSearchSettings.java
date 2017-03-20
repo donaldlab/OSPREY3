@@ -14,8 +14,11 @@ public class MSSearchSettings {
 	public ArrayList<ArrayList<String>> AATypeOptions;//reduced allowed AAs
 	public double pruningWindow;
 	public double stericThreshold;
+	public boolean useForLB;//use to compute either lower or upper bounds
 	
-	public MSSearchSettings(){}
+	public MSSearchSettings() {
+		useForLB = true;
+	}
 	
 	public String getFormattedSequence() {
 		if(AATypeOptions.size()!=mutRes.size())

@@ -30,9 +30,13 @@ public class MSSearchProblem extends SearchProblem {
 		this.numDefinedPos = other.confSpace.numPos-Collections.frequency(flexRes, "-1");
 	}
 	
-	ArrayList<Integer> getUndefinedPos() {
+	public ArrayList<Integer> getPos(boolean defined) {
 		ArrayList<Integer> ans = new ArrayList<>();
-		for(int i=0;i<flexRes.size();++i) if(flexRes.get(i).equals("-1")) ans.add(i);
+		for(int i=0;i<flexRes.size();++i) {
+			if(!defined && flexRes.get(i).equals("-1")) ans.add(i);//get undefined pos
+			else if(defined && !flexRes.get(i).equals("-1")) ans.add(i);//get defined pos
+		}
+		ans.trimToSize();
 		return ans;
 	}
 	

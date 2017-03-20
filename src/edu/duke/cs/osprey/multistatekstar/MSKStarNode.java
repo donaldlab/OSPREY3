@@ -1,7 +1,5 @@
 package edu.duke.cs.osprey.multistatekstar;
 
-import edu.duke.cs.osprey.control.ConfEnergyCalculator;
-
 /**
  * 
  * @author Adegoke Ojewole (ao68@duke.edu)
@@ -12,29 +10,26 @@ public class MSKStarNode {
 
 	MSSearchProblem[][] searchCont;//upper bound search problem for states
 	MSSearchProblem[][] searchDisc;//lower bound search problem for state
-	ConfEnergyCalculator.Async[][] ecalcsCont;//continuous energy calculators
-	ConfEnergyCalculator.Async[][] ecalcsDisc;//continuous energy calculators
+	final MSKStarTree tree;//has all required objects
+	double score;
 	
 	public MSKStarNode(
+			MSKStarTree tree,
 			MSSearchProblem[][] searchCont, 
-			MSSearchProblem[][] searchDisc,
-			ConfEnergyCalculator.Async[][] ecalcsCont,
-			ConfEnergyCalculator.Async[][] ecalcsDisc,
-			LMV objFcn,
-			LMV[] constraints
+			MSSearchProblem[][] searchDisc
 			) {
 		this.searchCont = searchCont;
 		this.searchDisc = searchDisc;
-		this.ecalcsCont = ecalcsCont;
-		this.ecalcsDisc = ecalcsDisc;
+		this.tree = tree;
+		score = 0;
 	}
 	
-	/**
-	 * compute upper and lower bound K* scores.
-	 * compute node score.
-	 */
 	public void getScore() {
 		
+	}
+	
+	public void setScore(double val) {
+		score = val;
 	}
 }
 

@@ -45,7 +45,7 @@ public class DiscreteKStarScore extends ContinuousKStarScore {
 		boolean min = search.contSCFlex ? false : true;
 		QPruningMatrix pmat = (QPruningMatrix)search.pruneMat;
 		
-		for(int pos : search.getUndefinedPos()) {
+		for(int pos : search.getPos(false)) {
 			
 			long unPrunedConfs = min ? Long.MAX_VALUE : Long.MIN_VALUE;
 			long prunedConfs = min ? Long.MAX_VALUE : Long.MIN_VALUE;
