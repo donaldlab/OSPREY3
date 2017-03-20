@@ -7,7 +7,7 @@ import java.math.BigDecimal;
  * @author Adegoke Ojewole (ao68@duke.edu)
  * 
  */
-public interface MSKStarScore {
+public interface KStarScore {
 
 	public enum KStarScoreType {
 	    Continuous,//i.e. minimization
