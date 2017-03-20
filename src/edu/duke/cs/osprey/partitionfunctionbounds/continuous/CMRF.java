@@ -53,6 +53,8 @@ public class CMRF {
         
         Main.main(args);
         
+	System.exit(0);
+	
         System.out.println("CMRF main");
         
         double size = 1;
@@ -62,7 +64,13 @@ public class CMRF {
 	Kernel k1 = new KernelGaussian( b1 , 0.25*size );
 	CMRFNodeDomain nd1 = new CMRFNodeDomain(lb1, ub1, k1, (point)->(-10));
 
-        CMRFNodeDomain nd2 = new CMRFNodeDomain(lb1, ub1, k1, (point)->(-20));
+	double[][] b2 = new double[2][2];
+	b2[0][0] = 0; b2[0][1] = size;
+	b2[1][0] = 0; b2[1][1] = size;
+	double[] lb2 = {0, 0};
+	double[] ub2 = {size, size};
+	Kernel k2 = new KernelGaussian( b2, 0.25*size);
+        CMRFNodeDomain nd2 = new CMRFNodeDomain(lb2, ub2, k2, (point)->(-20));
         
         HashMap<Integer, CMRFNodeDomain[]> h = new HashMap<>();
 	h.put(0, new CMRFNodeDomain[]{nd1});
@@ -103,7 +111,7 @@ public class CMRF {
         double oldLogZ = Double.POSITIVE_INFINITY; 
         
 	int iter = 0; 
-        boolean unNaNed = false;
+        boolean haveValidLogZ = false;
         
         while (true) { 
             this.updateMessagesTRBP();
@@ -121,11 +129,11 @@ public class CMRF {
             double enrg = enth - this.constRT*entr;
             double logZ = Math.log(-enrg/this.constRT);
                         
-            if (Double.isNaN(logZ) && !unNaNed) { 
+            if (Double.isNaN(logZ) && !haveValidLogZ) { 
                 System.out.println("logZUB is NaN, restarting...");
-                this.runTRBP();
+                return this.runTRBP();
             } else { 
-               unNaNed = true; 
+               haveValidLogZ = true; 
             }
 
 
@@ -231,7 +239,9 @@ public class CMRF {
     
     public void computePairwiseMarginalsTRBP() { 
 	for (int i=0; i<edges.length; i++) { 
-	    for (int j=0; j<i; j++) { 
+	    for (int j=0; j<edges.length; j++) { 
+		if (j==i) { continue; }
+		
 		CMRFEdge edge = edges[i][j];
 		CMRFNode sender = nodes[i];
 		CMRFNode receiver = nodes[j];
@@ -304,20 +314,20 @@ public class CMRF {
 			    domainTwo.domainUB,
 			    (point)->(Math.pow(sender.outMessages.get(receiver).get(domainTwo).eval(point), 1-edgeProb)));
 		    RKHSFunction receiverFunction;
-		    if (nodes.length > 2) { 
-		    receiverFunction = new RKHSFunction(
-			    domainTwo.k,
-			    domainTwo.domainLB,
-			    domainTwo.domainUB,
-			    (point)->(getProdOfFuncPowers(receiverFuncs, receiverPows, point)/receiverDenom.eval(point)));
-		    } else { 
+		    if (nodes.length > 2) {
+			receiverFunction = new RKHSFunction(
+				domainTwo.k,
+				domainTwo.domainLB,
+				domainTwo.domainUB,
+				(point)->(getProdOfFuncPowers(receiverFuncs, receiverPows, point)/receiverDenom.eval(point)));
+		    } else {
 			receiverFunction = new RKHSFunction(
 				domainTwo.k,
 				domainTwo.domainLB,
 				domainTwo.domainUB,
 				(point)->(1.0/receiverDenom.eval(point)));
 		    }
-
+		    
 		    newPairwiseMarginals.put(
 			    domain, 
 			    new RKHSFunction(
@@ -327,9 +337,9 @@ public class CMRF {
 				    (point)->(phiFunc.eval(point) + 
 					    senderFunction.eval(splitArray(point, domain.resOneLB.length).get(0)) + 
 					    receiverFunction.eval(splitArray(point, domain.resOneLB.length).get(1)))));
-
+		    domain.pseudomarginal = newPairwiseMarginals.get(domain);
 		}
-		
+				
 		edge.pseudomarginals = newPairwiseMarginals;
 	    }
 	}
@@ -392,6 +402,7 @@ public class CMRF {
 	
 	for (int i=0; i<numNodes; i++) {  // i is the sender
 	    for (int j=0; j<numNodes; j++) { // j is the receiver
+		System.out.print(i+"-"+j+" ");
 		if (i==j) { continue; }
 		CMRFNode sender = nodes[i];
 		CMRFNode receiver = nodes[j];
@@ -403,25 +414,27 @@ public class CMRF {
 		
 		for (CMRFNodeDomain recDom : receiver.domains) {
 		    RKHSFunction[] senderFuncs = new RKHSFunction[sender.domains.length];
-		    for (CMRFNodeDomain d : sender.domains) {
+		    
+		    // Xt --> sender domain (senDom)
+		    // xs --> receiver domain (recDom)
+		    
+		    for (CMRFNodeDomain senDom : sender.domains) {
 			// denominator of quotient
 			ToDoubleFunction<double[]> denomFunc = 
-				(point)->Math.pow(receiver.outMessages.get(sender).get(d).eval(point), 1-edgeProb);
+				(Xt)->Math.pow(receiver.outMessages.get(sender).get(senDom).eval(Xt), 1-edgeProb);
 				
 			
 			// numerator of quotient
                         // note we're looking at nodes who send to the sender here 
 			ArrayList<CMRFNode> parents = new ArrayList<>();
-			for (CMRFNode n : nodes) {
-			    if (!n.equals(sender) && !n.equals(receiver)) {
-				parents.add(n);
-			    }
-			}
+			for (CMRFNode n : nodes) { if (!n.equals(sender) && !n.equals(receiver)) { parents.add(n); } }
+			
 			double[] parentProbs = new double[parents.size()];
 			RKHSFunction[] parentMsgs = new RKHSFunction[parents.size()];
+			
 			for (int k=0; k<parentMsgs.length; k++) {
 			    CMRFNode parent = parents.get(k);
-			    parentMsgs[k] = parent.outMessages.get(sender).get(d);
+			    parentMsgs[k] = parent.outMessages.get(sender).get(senDom);
 			    parentProbs[k] = edgeProbs[i][this.getIndexInArray(parent, nodes)];
 			}
 			ToDoubleFunction<double[]> numFunc = (point) -> (getProdOfFuncPowers(parentMsgs, parentProbs, point));
@@ -431,18 +444,19 @@ public class CMRF {
 				recDom.k,
 				recDom.domainLB,
 				recDom.domainUB,
-				(point) -> (new RKHSFunction(
-					d.k,
-					d.domainLB,
-					d.domainUB,
+				(xs) -> (new RKHSFunction(
+					senDom.k,
+					senDom.domainLB,
+					senDom.domainUB,
 					(Xt)->(
-						this.getModifiedExponentialFunction(sender, receiver, d, point).eval(Xt) 
+						this.getModifiedExponentialFunction(sender, receiver, senDom, recDom, xs).eval(Xt) 
 							*  numFunc.applyAsDouble(Xt)/denomFunc.applyAsDouble(Xt)
 						)).computeIntegral()));
                         // goddamn that is beautiful 
                         // we get a function for each sender domain, and sum over
-			senderFuncs[this.getIndexInArray(d, sender.domains)] = updateFunc;
+			senderFuncs[this.getIndexInArray(senDom, sender.domains)] = updateFunc;
 		    }
+		    
 		    receiverDomainFuncs[this.getIndexInArray(recDom, receiver.domains)] = 
 			    new RKHSFunction(
 				    recDom.k,
@@ -524,9 +538,10 @@ public class CMRF {
                         int nRecNodeInd = this.getIndexInArray(neighbor, nodes);
 			CMRFEdge edge = this.edges[nRecNodeInd][recNodeIndex];
                         CMRFEdgeDomain edgeDomain = edge.getEdgeDomain(d, nd);
+			
                         RKHSFunction pairwiseProbFunc = edge.pseudomarginals.get(edgeDomain);
                         RKHSFunction pairwiseEnergyFunc = edgeDomain.eFuncRKHS;
-                        
+			
                         // compute enthalpy, add it to single node enthalpy 
                         RKHSFunction pairwiseEnthalpyFunc = new RKHSFunction(
                                 pairwiseProbFunc.k,
@@ -869,75 +884,75 @@ public class CMRF {
         
     /**
      * Adds a list of nodes to the cMRF -- each node is given a set of domains and edges are set up
-     * The eFuncMap is a map that gives you the pairwise energy functions. If N is the set of nodes and D_i is the set 
+     * The eFuncMap is a map that gives you the pairwise energy functions. If N is the set of nodes and D_i is the set
      * of domains for node i, then eFuncMap is a function from N x N -> D_i x D_j -> function
-     * 
+     *
      * @param domains
      * @param eFuncMap
      */
     public void addNodes(
-    	    HashMap<Integer, CMRFNodeDomain[]> domains,
-                // mapping is node 1 --> node 2 --> domain 1 --> domain 2 --> eFunc
-                HashMap<Integer, 
-                        HashMap<Integer, 
-                        HashMap<CMRFNodeDomain,
-                        HashMap<CMRFNodeDomain,
-                        ToDoubleFunction<double[]>>>>> eFuncMap) { 
-    	
-    	// make the nodes
-    	for (int i=0; i<numNodes; i++) { 
-    	    nodes[i] = new CMRFNode(domains.get(i));
-    	}
-    	
-    	// initialize outmessage maps
-    	for (int i=0; i<numNodes; i++) { 
-    	    CMRFNode node = nodes[i];
-    	    node.outMessages = new HashMap<>();
-    	    for (int j=0; j<numNodes; j++) { 
-    		if (i==j) { continue; }
-    		node.outMessages.put(nodes[j], new HashMap<>());	
-    	    }
-    	}
-                   
-            for (int i=0; i<nodes.length; i++) { 
-                for (int j=0; j<nodes.length; j++) { 
-    		if (i==j) { continue; } // no self loops
-    		if (i < j) {
-    		    edges[i][j] = new CMRFEdge(
-    			    nodes[i],
-    			    nodes[j],
-    			    eFuncMap.get(i).get(j));
-    		} else {
-    		    edges[i][j] = new CMRFEdge(
-    			    nodes[i],
-    			    nodes[j],
-    			    eFuncMap.get(j).get(i));
-    		}
-                    edges[j][i] = edges[i][j];
-                }
-            }
-    	
-    	nodesAdded = true;
-        }
+	    HashMap<Integer, CMRFNodeDomain[]> domains,
+	    // mapping is node 1 --> node 2 --> domain 1 --> domain 2 --> eFunc
+	    HashMap<Integer,
+		    HashMap<Integer,
+		    HashMap<CMRFNodeDomain,
+		    HashMap<CMRFNodeDomain,
+		    ToDoubleFunction<double[]>>>>> eFuncMap) {
+	
+	System.out.println("Adding nodes...");
+	
+	// make the nodes
+	for (int i=0; i<numNodes; i++) {
+	    nodes[i] = new CMRFNode(domains.get(i));
+	}
+	
+	// initialize outmessage maps
+	for (int i=0; i<numNodes; i++) {
+	    System.out.print(i+"/"+numNodes+" ");
+	    CMRFNode node = nodes[i];
+	    node.outMessages = new HashMap<>();
+	    for (int j=0; j<numNodes; j++) {
+		if (i==j) { continue; }
+		node.outMessages.put(nodes[j], new HashMap<>());
+	    }
+	    System.out.println();
+	}
+	
+	System.out.println("Adding edges...");
+	for (int i=0; i<nodes.length; i++) {
+	    for (int j=0; j<nodes.length; j++) {
+		if (i==j) { continue; }
+		System.out.print(i+"-"+j+" ");
+		edges[i][j] = new CMRFEdge(
+			nodes[i],
+			nodes[j],
+			eFuncMap.get(i).get(j));
+	    }
+	    System.out.println();
+	}
+	
+	nodesAdded = true;
+    }
     
     // returns the exponential function at a specific point for the TRBP message update
     // this is basically currying, but awkward as all hell because Java
     private RKHSFunction getModifiedExponentialFunction(
 	    CMRFNode sender, 
 	    CMRFNode receiver, 
-	    CMRFNodeDomain domain,
-	    double[] point) {
+	    CMRFNodeDomain senDomain,
+	    CMRFNodeDomain recDomain,
+	    double[] xs) {
 	int i = this.getIndexInArray(sender, nodes); 
 	int j = this.getIndexInArray(receiver, nodes); 
 	CMRFEdge edge = this.edges[i][j];
         // god i wish i could write all this crap in python
 	return new RKHSFunction(
-		domain.k,
-		domain.domainLB,
-		domain.domainUB,
+		senDomain.k,
+		senDomain.domainLB,
+		senDomain.domainUB,
 		(Xt) -> (Math.exp(
 			edge.getEnergyAtPoint(
-				CMRFEdgeDomain.concatArrays(point, Xt))
+				CMRFEdgeDomain.concatArrays(Xt, xs))
 				/edgeProbs[i][j] +
 			sender.getDomainForPoint(Xt).getEnergyAtPoint(Xt))));
     }
@@ -955,6 +970,12 @@ public class CMRF {
 	}
 	return res;
     }
+    public double sumOverMessages(double[] point, ArrayList<ToDoubleFunction<double[]>> funcs) { 
+	double res = 0.0;
+	res = funcs.stream().map((func) -> func.applyAsDouble(point)).reduce(res, (accumulator, _item) -> accumulator + _item);
+	return res;
+    }
+    
     // and introduce a variant that lets us evaluate LCs of RKHS functions
     public double sumOverMessages(double[] point, RKHSFunction[] funcs, double[] coeffs) { 
         if (funcs.length != coeffs.length) { 

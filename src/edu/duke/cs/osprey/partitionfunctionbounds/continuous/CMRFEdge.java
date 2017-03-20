@@ -89,9 +89,11 @@ public class CMRFEdge {
 	for (CMRFEdgeDomain d : domainLinks) { 
 	    if (d.isValidPoint(coord1, coord2)) { 
 		return d.getEnergyAtPoint(point);
-	    }
+	    } 
 	}
-	throw new RuntimeException("Point is not valid input to pairwise energy function.");
+	
+	throw new RuntimeException("No valid domain in edge for points " + Arrays.toString(coord1)
+		+" and " + Arrays.toString(coord2));
     }
     
     /**

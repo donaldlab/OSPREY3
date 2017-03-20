@@ -6,6 +6,7 @@
 package edu.duke.cs.osprey.partitionfunctionbounds.continuous;
 
 import Jama.Matrix;
+import cern.colt.Arrays;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
 import java.util.function.ToDoubleFunction;
 
@@ -45,6 +46,8 @@ public class CMRFEdgeDomain {
     ToDoubleFunction<double[]> pFunc;
     RKHSFunction eFuncRKHS;
     RKHSFunction pFuncRKHS;
+    
+    RKHSFunction pseudomarginal;
     
     double constRT = PoissonBoltzmannEnergy.constRT;
     
@@ -159,7 +162,13 @@ public class CMRFEdgeDomain {
      * @return 
      */
     public boolean isValidPoint(double[] point1, double[] point2) { 
-	return resOneDomain.isPointInDomain(point1) && resTwoDomain.isPointInDomain(point2);
+	boolean valid =  resOneDomain.isPointInDomain(point1) && resTwoDomain.isPointInDomain(point2);
+	if (!valid) { System.out.println("\ninvalid point: \n" +
+		"\tpoints:  " + Arrays.toString(point1) + ", " + Arrays.toString(point2) + "\n" + 
+		"\tlbounds: " + Arrays.toString(this.resOneLB) + Arrays.toString(this.resTwoLB) + "\n" + 
+		"\tubounds: " + Arrays.toString(this.resOneUB) + Arrays.toString(this.resTwoUB) + "\n"); } 
+	return valid;
     }
+    
     
 }
