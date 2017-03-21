@@ -16,8 +16,8 @@ import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.multistatekstar.InputValidation;
 import edu.duke.cs.osprey.multistatekstar.MSKStarFactory;
-import edu.duke.cs.osprey.multistatekstar.MSKStarScore;
-import edu.duke.cs.osprey.multistatekstar.MSKStarScore.KStarScoreType;
+import edu.duke.cs.osprey.multistatekstar.KStarScore;
+import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
 import edu.duke.cs.osprey.multistatekstar.LMV;
 import edu.duke.cs.osprey.multistatekstar.MSConfigFileParser;
 import edu.duke.cs.osprey.multistatekstar.MSKStarTree;
@@ -38,7 +38,7 @@ public class MSKStarDoer {
 	LMV objFcn;//objective function for MultiStateKStar search, i.e. the f-score
 	LMV[] constraints;//constraints for search. (partial)sequences that violate constraints are pruned
 	int numStates;//number of states considered
-	int numTreeLevels;//number of mutable positions
+	int numMutRes;//number of mutable positions
 
 	ArrayList<String[]> wtSeqs;//bound state wild type sequences for each state
 
@@ -85,7 +85,7 @@ public class MSKStarDoer {
 
 		numSeqsWanted = msParams.getInt("NUMSEQS");
 		numStates = msParams.getInt("NUMSTATES");
-		numTreeLevels = msParams.getInt("NUMMUTRES");
+		numMutRes = msParams.getInt("NUMMUTRES");
 		numMaxMut = msParams.getInt("NUMMAXMUT");
 		int numConstr = msParams.getInt("NUMSTATECONSTR");
 
@@ -119,7 +119,7 @@ public class MSKStarDoer {
 
 			cfps[state] = makeStateCfp(state);
 			inputValidation.handleStateParams(state, cfps[state].getParams(), msParams);
-			mutable2StateResNums.add(stateMutableRes(state, cfps[state], numTreeLevels));
+			mutable2StateResNums.add(stateMutableRes(state, cfps[state], numMutRes));
 
 			for(int subState=0; subState<mutable2StateResNums.get(state).size(); ++subState){
 				inputValidation.handleAATypeOptions(state, subState, cfps[state]);
@@ -132,6 +132,9 @@ public class MSKStarDoer {
 			System.out.println("State "+state+" parameters checked");
 			System.out.println();
 		}
+
+		mutable2StateResNums.trimToSize();
+		wtSeqs.trimToSize();
 
 		System.out.println();
 		System.out.println("Preparing search problems and matrices for multistate K*");
@@ -208,7 +211,7 @@ public class MSKStarDoer {
 
 		ParamSet sParams = cfps[state].getParams();
 		int numPartFuncs = sParams.getInt("NUMUBSTATES")+1;
-		
+
 		//populate search problems
 		MSSearchProblem[] singleSeqSearchCont = new MSSearchProblem[numPartFuncs];
 		MSSearchProblem[] singleSeqSearchDisc = new MSSearchProblem[numPartFuncs];
@@ -225,10 +228,10 @@ public class MSKStarDoer {
 			singleSeqSearchCont[subState] = new MSSearchProblem(searchCont[state][subState], spSet);
 			singleSeqSearchDisc[subState] = new MSSearchProblem(searchDisc[state][subState], spSet);
 		}
-		
+
 		KStarScoreType scoreType = sParams.getBool("DOMINIMIZE") ? KStarScoreType.Continuous : KStarScoreType.Discrete;
 		//KStarScoreType scoreType = KStarScoreType.DiscretePairWiseMinimized;
-		MSKStarScore score = MSKStarFactory.makeKStarScore(
+		KStarScore score = MSKStarFactory.makeKStarScore(
 				msParams, state, cfps[state],
 				singleSeqSearchCont, singleSeqSearchDisc,
 				ecalcsCont[state], ecalcsDisc[state], scoreType
@@ -297,6 +300,7 @@ public class MSKStarDoer {
 			while(st.hasMoreTokens()) m2s.get(ubState).add(Integer.valueOf(st.nextToken()));
 			//append to complex residues
 			m2s.get(numUbStates).addAll(m2s.get(ubState));
+			m2s.get(numUbStates).trimToSize();
 		}
 
 		if(m2s.get(numUbStates).size()!=numTreeLevels){
@@ -304,6 +308,7 @@ public class MSKStarDoer {
 					+" but "+m2s.size()+" are listed for state "+state);
 		}
 
+		m2s.trimToSize();
 		return m2s;
 	}
 
@@ -356,7 +361,7 @@ public class MSKStarDoer {
 		ArrayList<ArrayList<ArrayList<String>>> ans = new ArrayList<>();
 
 		//pre-allocate buffer
-		String[] buf = new String[numTreeLevels];
+		String[] buf = new String[numMutRes];
 
 		for(int state=0;state<numStates;++state) {
 			int subState = AATypeOptions.get(state).size()-1;
@@ -377,7 +382,7 @@ public class MSKStarDoer {
 			ArrayList<ArrayList<String>> stateOutput, String[] wt, String[] buf, int depth, int dist){
 		//List all sequences for the subset of mutable positions with max distance
 		//from wt starting at depth=0 and going to the last mutable position
-		if(depth==numTreeLevels){
+		if(depth==numMutRes){
 			//String[] seq = new String[numTreeLevels];
 			//System.arraycopy(buf, 0, seq, 0, numTreeLevels);
 			ArrayList<String> seq = new ArrayList<String>(Arrays.asList(buf));
@@ -395,33 +400,42 @@ public class MSKStarDoer {
 	}
 
 	public void calcBestSequences() {
-		if(msParams.getValue("MultStateAlgOption").equalsIgnoreCase("exhaustive"))
+		final String algOption = msParams.getValue("MultStateAlgOption");
+		switch(algOption.toLowerCase()) {
+		case "exhaustive":
 			exhaustiveMultistateSearch();
-		else
-			treeBasedMultiStateSearch();
+			break;
+		case "sublinear":
+			subLinearMultiStateSearch();
+			break;
+		default:
+			throw new UnsupportedOperationException("ERROR: "+algOption+" is not supported for MULTISTATEALGOPTION");
+		}
 	}
 
-	public ArrayList<String> treeBasedMultiStateSearch() {
+	public ArrayList<String[]> subLinearMultiStateSearch() {
 
 		System.out.println();
-		System.out.println("Performing multistate K*");
+		System.out.println("Performing sublinear multistate K*");
 		System.out.println();
 
 		//how many sequences to enumerate
 
 		Stopwatch stopwatch = new Stopwatch().start();
 
-		ArrayList<String> bestSequences = new ArrayList<>();
+		ArrayList<String[]> bestSequences = new ArrayList<>();
 
 		for(int seqNum=0; seqNum<numSeqsWanted; seqNum++){
-			int seq[] = tree.nextConf().getAssignments();//this will find the best sequence and print it
+			String[] seq = tree.nextSeq();//this will find the best sequence and print it
 			if(seq == null)//empty sequence...indicates no more sequence possibilities
 				break;
 			else
-				bestSequences.add(tree.seqAsString(seq));
+				bestSequences.add(seq);
 		}
 
-		System.out.println("Sequence enumeration time: "+stopwatch.getTime(2));
+		System.out.println();
+		System.out.println("Finished sublinear MultiStateKStar in "+stopwatch.getTime(2));
+		System.out.println();
 
 		return bestSequences;
 	}
