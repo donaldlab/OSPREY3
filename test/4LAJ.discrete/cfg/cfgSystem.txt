@@ -1,0 +1,13 @@
+Pdbname ../pdb/shell.pdb
+NumUbStates 2
+UbStateLimits0 119 438
+UbStateLimits1 626 713
+UbStateMutNums 1 1
+UbStateMut0 421
+UbStateMut1 645
+UbStateAA0 true
+UbStateAA1 true
+UbStateRotTrans0 false
+UbStateRotTrans1 false
+
+NumUbConstr 0

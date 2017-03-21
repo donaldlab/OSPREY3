@@ -1,0 +1,13 @@
+MultStateAlgOption exhaustive
+NumMutRes 2
+NumMaxMut 0
+NumSeqs 5
+
+NumStates 1
+NumStateConstr 0
+ObjFcn 0 0
+
+StateCFGFiles0 cfgKStar.txt cfgSystem.txt cfgMutSearch.txt
+
+IsReportingProgress true
+Resume true
