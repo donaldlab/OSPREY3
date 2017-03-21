@@ -8,6 +8,9 @@ package edu.duke.cs.osprey.partitionfunctionbounds.continuous;
 import Jama.Matrix;
 import edu.duke.cs.osprey.control.Main;
 import edu.duke.cs.osprey.energy.PoissonBoltzmannEnergy;
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -140,6 +143,7 @@ public class CMRF {
             // break if the bound gets worse, i.e. we step over a local maximum
             if ((enrg > oldEnrg || logZ > oldLogZ) && !Double.isNaN(oldLogZ)) { 
                 System.out.println("DONE: logZUB: "+oldLogZ);
+		printMarginalsTRBP();
                 return oldLogZ;
             }
 
@@ -148,6 +152,7 @@ public class CMRF {
             // break if the other termination condition is reached
             if ((Math.abs(logZ-oldLogZ) <= this.threshold) || (iter >= maxIters)) { 
                 System.out.println("DONE: logZUB: "+logZ);
+		printMarginalsTRBP();
                 return logZ;                
             }
 	    
@@ -652,6 +657,7 @@ public class CMRF {
             if (logZ < oldLogZ) { 
                 ranSCMF = true;
                 System.out.println("DONE: logZLB: "+oldLogZ);
+		printMarginalsSCMF();
                 return oldLogZ;
             }
 
@@ -661,6 +667,7 @@ public class CMRF {
             if ((Math.abs(logZ-oldLogZ) <= this.threshold) || (iter >= maxIters)) { 
                 ranSCMF = true;
                 System.out.println("DONE: logZLB: "+logZ);
+		printMarginalsSCMF();
                 return logZ;                
             }
 
@@ -932,6 +939,8 @@ public class CMRF {
 	}
 	
 	nodesAdded = true;
+	
+	printNaivePDFs();
     }
     
     // returns the exponential function at a specific point for the TRBP message update
@@ -1091,4 +1100,121 @@ public class CMRF {
         Kernel prodK = this.edges[sendNodeInd][recNodeInd].getEdgeDomain(d1, d2).resAllK;
         return RKHSFunction.getCartesianProductFunction(pdf1, pdf2, prodK);
     }
+    
+    public void printMarginalsSCMF() { 
+	System.out.print("Printing SCMF marginals... ");
+	if (!nodesAdded) { return; } // do nothing if we don't have an MRF 
+	for (int i=0; i<nodes.length; i++) { 
+	    CMRFNode node = nodes[i];
+	    for (int j=0; j<node.domains.length; j++) { 
+		 CMRFNodeDomain domain = node.domains[j];
+		 String filename = "scmf_"+i+"-"+j+".dat";
+		 try { 
+		     PrintWriter writer = new PrintWriter(filename, "UTF-8");
+		     Matrix m = node.marginals.get(domain).dumpPoints();
+		     m.print(writer, 3, 5);
+		     writer.flush();
+		 } catch(FileNotFoundException | UnsupportedEncodingException e) { 
+		     throw new RuntimeException("PrintWriting failed for "+ 
+			     "node " + i +", domain " + j +".\n" +e.getMessage());
+		 }
+	    }
+	}
+	System.out.println("done.");
+    }
+    
+    public void printMarginalsTRBP() {
+	System.out.print("Printing TRBP pseudomarginals... ");
+	if (!nodesAdded) { return; } // do nothing if we don't have an MRF
+	
+	for (int i=0; i<nodes.length; i++) {
+	    CMRFNode node = nodes[i];
+	    for (int j=0; j<node.domains.length; j++) {
+		
+		// print unitary pseudomarginals
+		CMRFNodeDomain domain = node.domains[j];
+		try {
+		    String filename = "trbp_u_"+i+"-"+j+".dat";
+		    PrintWriter writer = new PrintWriter(filename, "UTF-8");
+		    Matrix m = node.pseudomarginals.get(domain).dumpPoints();
+		    m.print(writer, 3, 5);
+		    writer.flush();
+		} catch(FileNotFoundException | UnsupportedEncodingException e) {
+		    throw new RuntimeException("PrintWriting failed for "+
+			    "node " + i +", domain " + j +".\n" +e.getMessage());
+		}
+		
+		// print pairwise pseudomarginals
+		for (int k=0; k<nodes.length; k++) {
+		    CMRFEdge edge = edges[i][k];
+		    for (int l=0; l<edge.domainLinks.length; k++) {
+			CMRFEdgeDomain edgeDomain = edge.domainLinks[l];
+			int x1 = getIndexInArray(edgeDomain.resOneDomain, node.domains);
+			int x2 = getIndexInArray(edgeDomain.resTwoDomain, nodes[k].domains);
+			
+			try {
+			    String filename = "trbp_p_"+i+k+"_"+x1+x2+".dat";
+			    PrintWriter writer = new PrintWriter(filename, "UTF-8");
+			    Matrix m = edge.pseudomarginals.get(edgeDomain).dumpPoints();
+			    m.print(writer, 3, 5);
+			    writer.flush();
+			} catch (FileNotFoundException | UnsupportedEncodingException e) {
+			    throw new RuntimeException("PrintWriting failed for "+
+				    "edge " + i+"-"+k +", domain " + x1+"-"+x2 +".\n" +e.getMessage());
+			}
+		    }
+		}
+	    }
+	}	
+	System.out.println("done.");
+    }
+    
+    public void printNaivePDFs() { 
+	System.out.print("Printing naive pdfs... ");
+	if (!nodesAdded) { return; } // do nothing if we don't have an MRF
+	
+	for (int i=0; i<nodes.length; i++) {
+	    CMRFNode node = nodes[i];
+	    for (int j=0; j<node.domains.length; j++) {
+		
+		// print unitary pdfs
+		CMRFNodeDomain domain = node.domains[j];
+		try {
+		    String filename = "cmrf_u_"+i+"-"+j+".dat";
+		    PrintWriter writer = new PrintWriter(filename, "UTF-8");
+		    Matrix m = domain.probabilityRKHS.dumpPoints();
+		    m.print(writer, 3, 5);
+		    writer.flush();
+		} catch(FileNotFoundException | UnsupportedEncodingException e) {
+		    throw new RuntimeException("PrintWriting failed for "+
+			    "node " + i +", domain " + j +".\n" +e.getMessage());
+		}
+		
+		// print pairwise pdfs
+		for (int k=0; k<nodes.length; k++) {
+		    CMRFEdge edge = edges[i][k];
+		    for (int l=0; l<edge.domainLinks.length; k++) {
+			CMRFEdgeDomain edgeDomain = edge.domainLinks[l];
+			int x1 = getIndexInArray(edgeDomain.resOneDomain, node.domains);
+			int x2 = getIndexInArray(edgeDomain.resTwoDomain, nodes[k].domains);
+			
+			try {
+			    String filename = "cmrf_p_"+i+k+"_"+x1+x2+".dat";
+			    PrintWriter writer = new PrintWriter(filename, "UTF-8");
+			    Matrix m = edgeDomain.pFuncRKHS.dumpPoints();
+			    m.print(writer, 3, 5);
+			    writer.flush();
+			} catch (FileNotFoundException | UnsupportedEncodingException e) {
+			    throw new RuntimeException("PrintWriting failed for "+
+				    "edge " + i+"-"+k +", domain " + x1+"-"+x2 +".\n" +e.getMessage());
+			}
+		    }
+		}
+	    }
+	}	
+	System.out.println("done.");
+    }
+    
+    
+    
 }

@@ -533,7 +533,7 @@ newFeatureMaps[fMapIndex] = new FeatureMap(this.k, cdfPoint);
     }
     
     public Matrix dumpPoints() { 
-        double[][] gridS = this.gridSample(numSamplesPerDimension, domainLB, domainUB);
+        double[][] gridS = this.gridSample(/*samples per dimension*/20, domainLB, domainUB);
         Matrix m = new Matrix(gridS.length, gridS[0].length+1);
         for (int sample = 0; sample<gridS.length; sample++) { 
             for (int coord=0; coord<gridS[sample].length; coord++) { 
