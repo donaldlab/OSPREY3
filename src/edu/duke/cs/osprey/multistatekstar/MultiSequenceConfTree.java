@@ -21,14 +21,14 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 @SuppressWarnings("serial")
 public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 
-	public boolean computeLBs;//compute either energy lower bound or upper bound
+	public boolean energyLBs;//compute either energy lower bound or upper bound
 	MSSearchProblem search;//search problem
 	PruningMatrix pmat;//pruning matrix
 	Integer[] allowedPos;//largest set of positions allowed by the (partial) sequence
 
 	public MultiSequenceConfTree(MSSearchProblem search, EnergyMatrix emat, PruningMatrix pmat) {
 		super(new FullAStarNode.Factory(search.getNumDefinedPos()), search, pmat);
-		this.computeLBs = search.settings.useForLB;
+		this.energyLBs = search.settings.energyLBs;
 		this.search = search;
 		this.emat = emat;
 		this.pmat = pmat;
@@ -36,16 +36,8 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 		init();
 	}
 
-	protected Integer[] getPosNums(boolean allowed) {
-		ArrayList<Integer> ans = new ArrayList<>();
-		for(int i=0;i<search.confSpace.numPos;++i) {
-			if(allowed) {
-				if(!search.flexRes.get(i).equals("-1")) ans.add(i);
-			}
-			else {
-				if(search.flexRes.get(i).equals("-1")) ans.add(i);
-			}
-		}
+	protected Integer[] getPosNums(boolean defined) {
+		ArrayList<Integer> ans = search.getPosNums(defined);
 		return ans.toArray(new Integer[ans.size()]);
 	}
 
@@ -131,11 +123,11 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 			for(int pos=0; pos<search.confSpace.numPos;++pos) {
 				if(rcTuple.pos.contains(pos)) continue;//skip positions assigned in rc tuple
 
-				double bestE = computeLBs ? Double.POSITIVE_INFINITY : Double.NEGATIVE_INFINITY;
+				double bestE = energyLBs ? Double.POSITIVE_INFINITY : Double.NEGATIVE_INFINITY;
 
 				for(int rc : unprunedRCsAtPos[pos]) {
 					double rcContrib = RCContribution(pos, rc, rcTuple);
-					bestE = computeLBs ? Math.min(bestE, rcContrib) : Math.max(bestE, rcContrib);
+					bestE = energyLBs ? Math.min(bestE, rcContrib) : Math.max(bestE, rcContrib);
 				}
 				score += bestE;
 			}
@@ -164,7 +156,7 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 
 			if(definedTuple.pos.contains(pos2) || pos2 < pos1) {//defined or lower numbered residues
 
-				double posBestE = computeLBs ? Double.POSITIVE_INFINITY : Double.NEGATIVE_INFINITY;//best pairwise energy
+				double posBestE = energyLBs ? Double.POSITIVE_INFINITY : Double.NEGATIVE_INFINITY;//best pairwise energy
 
 				for(int rc2 : unprunedRCsAtPos[pos2]) {
 
@@ -172,7 +164,7 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 					double higherOrderE = higherOrderContrib(pos1, rc1, pos2, rc2, definedTuple);
 					interactionE += higherOrderE;
 
-					posBestE = computeLBs ? Math.min(posBestE, interactionE) : Math.max(posBestE, interactionE);
+					posBestE = energyLBs ? Math.min(posBestE, interactionE) : Math.max(posBestE, interactionE);
 				}
 
 				rcContrib += posBestE;
@@ -213,7 +205,7 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 			if(posComesBefore(iPos,startingLevel,definedTuple)) {//interaction in right order
 				//(want to avoid double-counting)
 
-				double posBestE = computeLBs ? Double.POSITIVE_INFINITY : 
+				double posBestE = energyLBs ? Double.POSITIVE_INFINITY : 
 					Double.NEGATIVE_INFINITY;//best value of contribution from tup-iPos interaction
 
 				for(int rc : unprunedRCsAtPos[iPos]) {
@@ -229,7 +221,7 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 						interactionE += higherOrderContrib(htf2, augTuple, definedTuple);
 					}
 
-					posBestE = computeLBs ? Math.min(posBestE, interactionE) : Math.max(posBestE, interactionE);
+					posBestE = energyLBs ? Math.min(posBestE, interactionE) : Math.max(posBestE, interactionE);
 				}
 
 				contrib += posBestE;//add up contributions from different interacting positions iPos
@@ -249,30 +241,30 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 		else//pos1 comes before pos2 if it's defined, or if pos1<pos2
 			return (pos1<pos2 || definedTuple.pos.contains(pos1));
 	}
-	
-    protected double scoreConfDifferential(FullAStarNode parentNode, int childPos, int childRc) {
-    	assertSplitPositions();
-    	
+
+	protected double scoreConfDifferential(FullAStarNode parentNode, int childPos, int childRc) {
+		assertSplitPositions();
+
 		// OPTIMIZATION: this function gets hit a LOT!
 		// so even really pedantic optimizations can make an impact
-		
-    	// get the full conf, start with the parent first
-    	int[] conf = parentNode.getNodeAssignments();
-    	
-    	// but if this is actually a child node, switch to the child conf
-    	if (childPos >= 0) {
-    		
-    		// parent shouldn't be assigned here
-    		assert (conf[childPos] < 0);
-    		
-    		// make the child conf
-    		System.arraycopy(conf, 0, childConf, 0, numPos);
-    		childConf[childPos] = childRc;
-    		conf = childConf;
-    	}
-		
-    	double ans = scoreNode(conf);
+
+		// get the full conf, start with the parent first
+		int[] conf = parentNode.getNodeAssignments();
+
+		// but if this is actually a child node, switch to the child conf
+		if (childPos >= 0) {
+
+			// parent shouldn't be assigned here
+			assert (conf[childPos] < 0);
+
+			// make the child conf
+			System.arraycopy(conf, 0, childConf, 0, numPos);
+			childConf[childPos] = childRc;
+			conf = childConf;
+		}
+
+		double ans = scoreNode(conf);
 		return ans;
-    }
+	}
 
 }

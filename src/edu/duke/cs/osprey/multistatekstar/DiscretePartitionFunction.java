@@ -15,7 +15,7 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
  * @author Adegoke Ojewole (ao68@duke.edu)
  *
  */
-public class DiscretePartitionFunction extends ContinuousPartitionFunction {
+public class DiscretePartitionFunction extends MinimizedPartitionFunction {
 
 	public DiscretePartitionFunction(EnergyMatrix emat, PruningMatrix pmat, ConfSearchFactory confSearchFactory,
 			Async ecalc) {

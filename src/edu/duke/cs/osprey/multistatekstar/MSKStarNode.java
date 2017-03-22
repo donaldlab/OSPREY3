@@ -1,5 +1,7 @@
 package edu.duke.cs.osprey.multistatekstar;
 
+import java.math.BigDecimal;
+
 /**
  * 
  * @author Adegoke Ojewole (ao68@duke.edu)
@@ -8,27 +10,29 @@ package edu.duke.cs.osprey.multistatekstar;
  */
 public class MSKStarNode {
 
-	MSSearchProblem[][] searchCont;//upper bound search problem for states
-	MSSearchProblem[][] searchDisc;//lower bound search problem for state
-	final MSKStarTree tree;//has all required objects
-	double score;
+	public static final BigDecimal NEGATIVE_INFINITY = new BigDecimal("-1e1024");
+	
+	private KStarScore[] kssLB;
+	private KStarScore[] kssUB;
+	private final MSKStarTree tree;//has all required state
+	private BigDecimal score;
 	
 	public MSKStarNode(
 			MSKStarTree tree,
-			MSSearchProblem[][] searchCont, 
-			MSSearchProblem[][] searchDisc
+			KStarScore[] kssLB, 
+			KStarScore[] kssUB
 			) {
-		this.searchCont = searchCont;
-		this.searchDisc = searchDisc;
+		this.kssUB = kssLB;
+		this.kssLB = kssUB;
 		this.tree = tree;
-		score = 0;
+		score = NEGATIVE_INFINITY;
 	}
 	
-	public void getScore() {
-		
+	public BigDecimal getScore() {
+		return score;
 	}
 	
-	public void setScore(double val) {
+	public void setScore(BigDecimal val) {
 		score = val;
 	}
 }

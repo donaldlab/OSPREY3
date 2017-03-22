@@ -17,18 +17,18 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
  * 
  */
 
-public class ContinuousKStarScore implements KStarScore {
+public class MinimizedKStarScore implements KStarScore {
 
 	public MSKStarSettings settings;
-	public ContinuousPartitionFunction[] partitionFunctions;
+	public MinimizedPartitionFunction[] partitionFunctions;
 	protected boolean[] initialized;
 	public int numStates;
 	protected boolean constrSatisfied;
 
-	public ContinuousKStarScore(MSKStarSettings settings) {
+	public MinimizedKStarScore(MSKStarSettings settings) {
 		this.settings = settings;
 		numStates = settings.search.length;
-		partitionFunctions = new ContinuousPartitionFunction[numStates];
+		partitionFunctions = new MinimizedPartitionFunction[numStates];
 		initialized = new boolean[numStates];
 		Arrays.fill(partitionFunctions, null);
 		Arrays.fill(initialized, false);
@@ -37,8 +37,8 @@ public class ContinuousKStarScore implements KStarScore {
 
 	private BigDecimal getDenom() {
 		PartitionFunction pf;
-		BigDecimal ans = BigDecimal.ONE.setScale(128, RoundingMode.HALF_UP); int state;
-		for(state=0;state<partitionFunctions.length-1;++state) {
+		BigDecimal ans = BigDecimal.ONE.setScale(128, RoundingMode.HALF_UP);
+		for(int state=0;state<partitionFunctions.length-1;++state) {
 			pf = partitionFunctions[state];
 			if(pf.getValues().qstar.compareTo(BigDecimal.ZERO)==0)
 				return BigDecimal.ZERO;
@@ -89,7 +89,7 @@ public class ContinuousKStarScore implements KStarScore {
 		ConfSearchFactory confSearchFactory = MSKStarFactory.makeConfSearchFactory(settings.search[state], settings.cfp);
 
 		//create partition function
-		partitionFunctions[state] = (ContinuousPartitionFunction) MSKStarFactory.makePartitionFunction( 
+		partitionFunctions[state] = (MinimizedPartitionFunction) MSKStarFactory.makePartitionFunction( 
 				settings.pfTypes[state],
 				settings.search[state].emat, 
 				settings.search[state].pruneMat,
@@ -182,7 +182,7 @@ public class ContinuousKStarScore implements KStarScore {
 		PruningMatrix invPmat = ((QPruningMatrix)settings.search[state].pruneMat).invert();
 		//settings.search[state].pruneMat = invPmat;
 		
-		ContinuousPartitionFunction p2pf = (ContinuousPartitionFunction) MSKStarFactory.makePartitionFunction( 
+		MinimizedPartitionFunction p2pf = (MinimizedPartitionFunction) MSKStarFactory.makePartitionFunction( 
 				settings.pfTypes[state],
 				settings.search[state].emat, 
 				invPmat,
@@ -200,12 +200,12 @@ public class ContinuousKStarScore implements KStarScore {
 	protected void compute(int state, int maxNumConfs) {
 		if(settings.isReportingProgress) 
 			System.out.println("state"+state+": "+settings.search[state].settings.getFormattedSequence());
-		ContinuousPartitionFunction pf = partitionFunctions[state];
+		MinimizedPartitionFunction pf = partitionFunctions[state];
 		pf.compute(maxNumConfs);	
 
 		//no more q conformations, and we have not reached epsilon
 		if(pf.getValues().getEffectiveEpsilon() > settings.targetEpsilon) {
-			ContinuousPartitionFunction p2pf = (ContinuousPartitionFunction) phase2(state);
+			MinimizedPartitionFunction p2pf = (MinimizedPartitionFunction) phase2(state);
 			pf.getValues().qstar = p2pf.getValues().qstar;
 			pf.setStatus(Status.Estimated);
 			if(settings.search[state].isFullyDefined() && settings.numTopConfsToSave > 0)
@@ -218,8 +218,8 @@ public class ContinuousKStarScore implements KStarScore {
 		}
 	}
 
-	private ArrayList<LMV> getLMVsForState(int state) {
-		ArrayList<LMV> ans = new ArrayList<>();
+	private ArrayList<LMB> getLMBsForState(int state) {
+		ArrayList<LMB> ans = new ArrayList<>();
 		if(settings.constraints==null) return ans;
 
 		for(int l=0;l<settings.constraints.length;++l){
@@ -242,11 +242,11 @@ public class ContinuousKStarScore implements KStarScore {
 	private boolean checkConstraints(int state) {
 
 		//see if partition function satisfies constraints
-		for(LMV constr : getLMVsForState(state)){
+		for(LMB constr : getLMBsForState(state)){
 
 			BigDecimal[] stateVals = new BigDecimal[numStates];
 			for(int s=0;s<numStates;++s){
-				ContinuousPartitionFunction pf = partitionFunctions[s];
+				MinimizedPartitionFunction pf = partitionFunctions[s];
 				stateVals[s] = pf == null ? BigDecimal.ZERO : pf.getValues().qstar;
 			}
 
@@ -266,9 +266,9 @@ public class ContinuousKStarScore implements KStarScore {
 		BigDecimal[] stateVals = new BigDecimal[numStates];
 
 		for(int c=0;c<settings.constraints.length;++c){
-			LMV constr = settings.constraints[c];	
+			LMB constr = settings.constraints[c];	
 			for(int s=0;s<numStates;++s){
-				ContinuousPartitionFunction pf = partitionFunctions[s];
+				MinimizedPartitionFunction pf = partitionFunctions[s];
 				stateVals[s] = pf == null ? BigDecimal.ZERO : pf.getValues().qstar;
 			}
 

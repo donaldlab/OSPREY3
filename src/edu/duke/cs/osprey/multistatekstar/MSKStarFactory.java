@@ -40,12 +40,12 @@ public class MSKStarFactory {
 		settings.isReportingProgress = msParams.getBool("ISREPORTINGPROGRESS");
 		settings.scoreType = scoreType;
 
-		//make LMVs
+		//make LMBs
 		int numUbConstr = sParams.getInt("NUMUBCONSTR");
 		int numPartFuncs = sParams.getInt("NUMUBSTATES")+1;
-		settings.constraints = new LMV[numUbConstr];
+		settings.constraints = new LMB[numUbConstr];
 		for(int constr=0;constr<numUbConstr;constr++)
-			settings.constraints[constr] = new LMV(sParams.getValue("UBCONSTR"+constr), numPartFuncs);
+			settings.constraints[constr] = new LMB(sParams.getValue("UBCONSTR"+constr), numPartFuncs);
 
 		settings.pfTypes = new PartitionFunctionType[numPartFuncs];
 		settings.ecalcs = new ConfEnergyCalculator.Async[numPartFuncs];
@@ -53,14 +53,54 @@ public class MSKStarFactory {
 
 		switch(settings.scoreType) {
 
-		case Continuous:
+		case Minimized:
 			for(int subState=0;subState<numPartFuncs;++subState){
-				settings.pfTypes[subState] = PartitionFunctionType.Continuous;
+				settings.pfTypes[subState] = PartitionFunctionType.Minimized;
 				settings.search[subState] = searchCont[subState];
 				settings.ecalcs[subState] = ecalcsCont[subState];
 			}
 			settings.isFinal = true;
-			return new ContinuousKStarScore(settings);
+			return new MinimizedKStarScore(settings);
+			
+		case PairWiseMinimized:
+			for(int subState=0;subState<numPartFuncs;++subState){
+				settings.pfTypes[subState] = PartitionFunctionType.Discrete;
+				settings.search[subState] = searchCont[subState];
+				settings.ecalcs[subState] = ecalcsCont[subState];
+			}
+			settings.isFinal = true;
+			settings.numTopConfsToSave = 0;
+			return new DiscreteKStarScore(settings);
+			
+		case MinimizedUpperBound:
+			for(int subState=0;subState<numPartFuncs-1;++subState){
+				settings.pfTypes[subState] = PartitionFunctionType.Discrete;
+				settings.search[subState] = searchDisc[subState];
+				settings.search[subState].settings.energyLBs = true;
+				settings.ecalcs[subState] = ecalcsDisc[subState];
+			}
+			settings.pfTypes[numPartFuncs-1] = PartitionFunctionType.UpperBound;
+			settings.search[numPartFuncs-1] = searchCont[numPartFuncs-1];
+			settings.search[numPartFuncs-1].settings.energyLBs = false;
+			settings.ecalcs[numPartFuncs-1] = ecalcsCont[numPartFuncs-1];
+			settings.isFinal = false;
+			settings.numTopConfsToSave = 0;
+			return new DiscreteKStarScore(settings);
+			
+		case MinimizedLowerBound:
+			for(int subState=0;subState<numPartFuncs-1;++subState){
+				settings.pfTypes[subState] = PartitionFunctionType.UpperBound;
+				settings.search[subState] = searchCont[subState];
+				settings.search[subState].settings.energyLBs = false;
+				settings.ecalcs[subState] = ecalcsCont[subState];
+			}
+			settings.pfTypes[numPartFuncs-1] = PartitionFunctionType.Discrete;
+			settings.search[numPartFuncs-1] = searchDisc[numPartFuncs-1];
+			settings.search[numPartFuncs-1].settings.energyLBs = true;
+			settings.ecalcs[numPartFuncs-1] = ecalcsDisc[numPartFuncs-1];
+			settings.isFinal = false;
+			settings.numTopConfsToSave = 0;
+			return new DiscreteKStarScore(settings);
 			
 		case Discrete:
 			for(int subState=0;subState<numPartFuncs;++subState){
@@ -71,37 +111,31 @@ public class MSKStarFactory {
 			settings.isFinal = true;
 			return new DiscreteKStarScore(settings);
 			
-		case DiscretePairWiseMinimized:
-			for(int subState=0;subState<numPartFuncs;++subState){
-				settings.pfTypes[subState] = PartitionFunctionType.Discrete;
-				settings.search[subState] = searchCont[subState];
-				settings.ecalcs[subState] = ecalcsCont[subState];
-			}
-			settings.isFinal = true;
-			settings.numTopConfsToSave = 0;
-			return new DiscreteKStarScore(settings);
-			
 		case DiscreteUpperBound:
 			for(int subState=0;subState<numPartFuncs-1;++subState){
 				settings.pfTypes[subState] = PartitionFunctionType.Discrete;
 				settings.search[subState] = searchDisc[subState];
+				settings.search[subState].settings.energyLBs = true;
 				settings.ecalcs[subState] = ecalcsDisc[subState];
 			}
-			settings.pfTypes[numPartFuncs-1] = PartitionFunctionType.DiscreteUpperBound;
-			settings.search[numPartFuncs-1] = searchCont[numPartFuncs-1];
-			settings.ecalcs[numPartFuncs-1] = ecalcsCont[numPartFuncs-1];
+			settings.pfTypes[numPartFuncs-1] = PartitionFunctionType.UpperBound;
+			settings.search[numPartFuncs-1] = searchDisc[numPartFuncs-1];
+			settings.search[numPartFuncs-1].settings.energyLBs = false;
+			settings.ecalcs[numPartFuncs-1] = ecalcsDisc[numPartFuncs-1];
 			settings.isFinal = false;
 			settings.numTopConfsToSave = 0;
 			return new DiscreteKStarScore(settings);
 			
 		case DiscreteLowerBound:
 			for(int subState=0;subState<numPartFuncs-1;++subState){
-				settings.pfTypes[subState] = PartitionFunctionType.DiscreteUpperBound;
-				settings.search[subState] = searchCont[subState];
-				settings.ecalcs[subState] = ecalcsCont[subState];
+				settings.pfTypes[subState] = PartitionFunctionType.UpperBound;
+				settings.search[subState] = searchDisc[subState];
+				settings.search[subState].settings.energyLBs = false;
+				settings.ecalcs[subState] = ecalcsDisc[subState];
 			}
 			settings.pfTypes[numPartFuncs-1] = PartitionFunctionType.Discrete;
 			settings.search[numPartFuncs-1] = searchDisc[numPartFuncs-1];
+			settings.search[numPartFuncs-1].settings.energyLBs = true;
 			settings.ecalcs[numPartFuncs-1] = ecalcsDisc[numPartFuncs-1];
 			settings.isFinal = false;
 			settings.numTopConfsToSave = 0;
@@ -134,12 +168,12 @@ public class MSKStarFactory {
 			ConfEnergyCalculator.Async ecalc
 			) {
 		switch(type) {
-		case Continuous:
-			return new ContinuousPartitionFunction(emat, pruneMat, confSearchFactory, ecalc);
+		case Minimized:
+			return new MinimizedPartitionFunction(emat, pruneMat, confSearchFactory, ecalc);
 		case Discrete:
 			return new DiscretePartitionFunction(emat, pruneMat, confSearchFactory, ecalc);
-		case DiscreteUpperBound:
-			return new DiscreteUpperBoundPartitionFunction(emat, pruneMat, confSearchFactory, ecalc);
+		case UpperBound:
+			return new UpperBoundPartitionFunction(emat, pruneMat, confSearchFactory, ecalc);
 		default:
 			throw new UnsupportedOperationException("ERROR: unsupported partition function type "+type);
 		}

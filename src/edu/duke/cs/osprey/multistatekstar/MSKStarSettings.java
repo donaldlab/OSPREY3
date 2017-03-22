@@ -18,7 +18,7 @@ public class MSKStarSettings {
 	public KStarScoreType scoreType;
 	public MSSearchProblem[] search;
 	public boolean isFinal;
-	public LMV[] constraints;
+	public LMB[] constraints;
 	public PartitionFunctionType[] pfTypes;
 	public ConfEnergyCalculator.Async[] ecalcs;
 

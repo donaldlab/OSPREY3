@@ -1,11 +1,15 @@
 package edu.duke.cs.osprey.multistatekstar;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.PriorityQueue;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfEnergyCalculator;
 import edu.duke.cs.osprey.control.ParamSet;
+import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
 import edu.duke.cs.osprey.multistatekstar.ResidueOrder.ResidueOrderType;
+import edu.duke.cs.osprey.tools.ObjectIO;
 
 /**
  * 
@@ -17,9 +21,9 @@ public class MSKStarTree {
 	int numTreeLevels;//number of residues with sequence
 	//changes+1 level if we are doing continuous minimization
 
-	LMV objFcn;//we are minimizing objFcn
-	LMV[] constraints;
-	LMV[][] stateConstraints;
+	LMB objFcn;//we are minimizing objFcn
+	LMB[] constraints;
+	LMB[][] stateConstraints;
 
 	ArrayList<ArrayList<ArrayList<Integer>>> mutable2StateResNums;
 	//mutable2StateResNum.get(state) maps levels in this tree to flexible positions for state
@@ -47,14 +51,21 @@ public class MSKStarTree {
 
 	ResidueOrderType residueOrder;
 
+	PriorityQueue<MSKStarNode> pq;
+
+	int numSeqsWanted;
 	int numSeqsReturned;
+	
+	int numExpanded;
+	int numPruned;
 
 	public MSKStarTree(
 			int numTreeLevels,
 			int numStates,
 			int numMaxMut,
-			LMV objFcn,
-			LMV[] constraints,
+			int numSeqsWanted,
+			LMB objFcn,
+			LMB[] constraints,
 			ArrayList<ArrayList<ArrayList<Integer>>> mutable2StateResNums,
 			ArrayList<ArrayList<ArrayList<ArrayList<String>>>> AATypeOptions,  
 			ArrayList<String[]> wtSeqs, 
@@ -71,6 +82,7 @@ public class MSKStarTree {
 		this.constraints = constraints;
 		this.AATypeOptions = AATypeOptions;
 		this.numMaxMut = numMaxMut;
+		this.numSeqsWanted = numSeqsWanted;
 		this.wtSeqs = wtSeqs;
 		this.numStates = numStates;
 		this.searchCont = searchCont;
@@ -82,7 +94,11 @@ public class MSKStarTree {
 		this.cfps = cfps;
 		this.msParams = msParams;
 		residueOrder = getResidueOrder();
+		
+		numExpanded = 0;
+		numPruned = 0;
 		numSeqsReturned = 0;
+		pq = null;
 	}
 
 	private ResidueOrderType getResidueOrder() {
@@ -101,7 +117,18 @@ public class MSKStarTree {
 		}
 	}
 
-	public ArrayList<MSKStarNode> getChildren(MSKStarNode curNode) {
+	private void initQueue(MSKStarNode node) {
+		pq = new PriorityQueue<MSKStarNode>(1024, new Comparator<MSKStarNode>() {
+			@Override
+			public int compare(MSKStarNode m1, MSKStarNode m2) {
+				return m1.getScore().compareTo(m2.getScore()) < 0 ? -1 : 1;
+			}
+		});
+		
+		pq.add(node);
+	}
+	
+	private ArrayList<MSKStarNode> getChildren(MSKStarNode curNode) {
 		//for each state and substate, pick next position to expand
 
 		//create search problems
@@ -112,19 +139,86 @@ public class MSKStarTree {
 		return ans;
 	}
 
-	public MSKStarNode rootNode() {
-		// TODO Auto-generated method stub
-		return null;
+	private MSKStarNode rootNode() {
+		KStarScore[] kssLB = new KStarScore[numStates];
+		KStarScore[] kssUB = new KStarScore[numStates];
+		KStarScoreType[] types = null;
+
+		for(int state=0;state<numStates;++state) {
+			boolean doMinimize = cfps[state].getParams().getBool("DOMINIMIZE");
+			if(doMinimize)
+				types = new KStarScoreType[]{KStarScoreType.MinimizedLowerBound, KStarScoreType.MinimizedUpperBound};
+			else
+				types = new KStarScoreType[]{KStarScoreType.DiscreteLowerBound, KStarScoreType.DiscreteUpperBound};
+
+			KStarScore[] scores = getRootKStarScores(state, types);
+			kssLB[state] = scores[0];
+			kssUB[state] = scores[1];
+		}
+
+		MSKStarNode ans = new MSKStarNode(this, kssLB, kssUB);
+		ans.setScore(MSKStarNode.NEGATIVE_INFINITY);
+		return ans;
 	}
 
-	public boolean isLeafNode(MSKStarNode node) {
+	private KStarScore[] getRootKStarScores(int state, KStarScoreType[] types) {
+		boolean doMinimize = cfps[state].getParams().getBool("DOMINIMIZE");
+		KStarScore[] ans = new KStarScore[types.length];
+
+		ParamSet sParams = cfps[state].getParams();
+		int numPartFuncs = sParams.getInt("NUMUBSTATES")+1;
+
+		for(int i=0;i<types.length;++i) {
+
+			KStarScoreType type = types[i];
+
+			MSSearchProblem[] seqSearchCont = doMinimize ? new MSSearchProblem[numPartFuncs] : null;
+			MSSearchProblem[] seqSearchDisc = new MSSearchProblem[numPartFuncs];
+
+			for(int subState=0;subState<numPartFuncs;++subState) {
+
+				MSSearchSettings spSet = new MSSearchSettings();
+				spSet.AATypeOptions = AATypeOptions.get(state).get(subState);
+				ArrayList<String> mutRes = new ArrayList<>();
+				for(int j=0;j<mutable2StateResNums.get(state).get(subState).size();++j) mutRes.add("-1");
+				mutRes.trimToSize();
+				spSet.mutRes = mutRes;
+				spSet.stericThreshold = sParams.getDouble("STERICTHRESH");
+				spSet.pruningWindow = sParams.getDouble("IVAL") + sParams.getDouble("EW");
+
+				if(doMinimize) seqSearchCont[subState] = new MSSearchProblem(searchCont[state][subState], spSet);
+				seqSearchDisc[subState] = new MSSearchProblem(searchDisc[state][subState], (MSSearchSettings) ObjectIO.deepCopy(spSet));
+			}
+
+			ans[i] = MSKStarFactory.makeKStarScore(
+					msParams, state, cfps[state],
+					seqSearchCont, seqSearchDisc,
+					ecalcsCont[state], ecalcsDisc[state], type
+					);
+		}
+
+		return ans;
+	}
+
+	private boolean isLeafNode(MSKStarNode node) {
 		// TODO Auto-generated method stub
 		return false;
 	}
 
 	public String[] nextSeq() {
-		//a sequence spans multiple states
-		return null;
+		
+		if(pq==null)
+			initQueue(rootNode());
+	
+		MSKStarNode curNode;
+		while(true) {
+			curNode = pq.poll();
+			
+			if(curNode==null) {
+				System.out.println("Multi-State K* tree empty...returning empty signal");
+				return null;
+			}
+		}
 	}
 
 }

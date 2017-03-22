@@ -16,7 +16,7 @@ import edu.duke.cs.osprey.pruning.PruningMethod;
 @SuppressWarnings("serial")
 public class MSSearchProblem extends SearchProblem {
 
-	MSSearchSettings settings;
+	public MSSearchSettings settings;
 	private int numDefinedPos;
 
 	public MSSearchProblem(SearchProblem other, 
@@ -24,13 +24,12 @@ public class MSSearchProblem extends SearchProblem {
 		super(other);
 		if(settings==null) throw new RuntimeException("ERROR: search settings cannot be null");
 		this.settings = settings;
-		this.pruneMat = getReducedPruningMatrix();
 		this.allowedAAs = settings.AATypeOptions;
 		this.flexRes = settings.mutRes;//-1 for unassigned positions
 		this.numDefinedPos = other.confSpace.numPos-Collections.frequency(flexRes, "-1");
 	}
 	
-	public ArrayList<Integer> getPos(boolean defined) {
+	public ArrayList<Integer> getPosNums(boolean defined) {
 		ArrayList<Integer> ans = new ArrayList<>();
 		for(int i=0;i<flexRes.size();++i) {
 			if(!defined && flexRes.get(i).equals("-1")) ans.add(i);//get undefined pos
@@ -59,6 +58,7 @@ public class MSSearchProblem extends SearchProblem {
 	}
 
 	public QPruningMatrix prunePmat() {
+		this.pruneMat = getReducedPruningMatrix();
 		return prunePmat(this, settings.stericThreshold, settings.stericThreshold);
 	}
 	

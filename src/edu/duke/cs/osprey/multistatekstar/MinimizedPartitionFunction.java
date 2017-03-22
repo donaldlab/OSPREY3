@@ -26,14 +26,14 @@ import edu.duke.cs.osprey.tools.Stopwatch;
  * 
  */
 
-public class ContinuousPartitionFunction extends ParallelConfPartitionFunction {
+public class MinimizedPartitionFunction extends ParallelConfPartitionFunction {
 
 	protected PriorityQueue<ScoredConf> topConfs;
 	protected int maxNumTopConfs;
 	protected BigDecimal qstarScoreWeights;
 	protected int numActiveThreads;
 
-	public ContinuousPartitionFunction(EnergyMatrix emat, PruningMatrix pmat, ConfSearchFactory confSearchFactory,
+	public MinimizedPartitionFunction(EnergyMatrix emat, PruningMatrix pmat, ConfSearchFactory confSearchFactory,
 			Async ecalc) {
 		super(emat, pmat, confSearchFactory, ecalc);
 		qstarScoreWeights = null;
@@ -193,7 +193,7 @@ public class ContinuousPartitionFunction extends ParallelConfPartitionFunction {
 
 				// this is (potentially) running on a task executor listener thread
 				// so lock to keep from racing the main thread
-				synchronized (ContinuousPartitionFunction.this) {
+				synchronized (MinimizedPartitionFunction.this) {
 
 					if(status == Status.Estimating) {
 
@@ -287,7 +287,7 @@ public class ContinuousPartitionFunction extends ParallelConfPartitionFunction {
 
 				// this is (potentially) running on a task executor listener thread
 				// so lock to keep from racing the main thread
-				synchronized (ContinuousPartitionFunction.this) {
+				synchronized (MinimizedPartitionFunction.this) {
 
 					if(status == Status.Estimating) {
 

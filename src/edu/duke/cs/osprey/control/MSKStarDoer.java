@@ -18,7 +18,7 @@ import edu.duke.cs.osprey.multistatekstar.InputValidation;
 import edu.duke.cs.osprey.multistatekstar.MSKStarFactory;
 import edu.duke.cs.osprey.multistatekstar.KStarScore;
 import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
-import edu.duke.cs.osprey.multistatekstar.LMV;
+import edu.duke.cs.osprey.multistatekstar.LMB;
 import edu.duke.cs.osprey.multistatekstar.MSConfigFileParser;
 import edu.duke.cs.osprey.multistatekstar.MSKStarTree;
 import edu.duke.cs.osprey.multistatekstar.MSSearchProblem;
@@ -35,8 +35,8 @@ public class MSKStarDoer {
 	int numSeqsWanted;//number of desired sequences
 	int numMaxMut;//max number of mutations from wt
 
-	LMV objFcn;//objective function for MultiStateKStar search, i.e. the f-score
-	LMV[] constraints;//constraints for search. (partial)sequences that violate constraints are pruned
+	LMB objFcn;//objective function for MultiStateKStar search, i.e. the f-score
+	LMB[] constraints;//constraints for search. (partial)sequences that violate constraints are pruned
 	int numStates;//number of states considered
 	int numMutRes;//number of mutable positions
 
@@ -91,17 +91,20 @@ public class MSKStarDoer {
 
 		stateArgs = new String[numStates][];
 
-		objFcn = new LMV(msParams.getValue("OBJFCN"), numStates);
+		objFcn = new LMB(msParams.getValue("OBJFCN"), numStates);
 
-		constraints = new LMV[numConstr];
+		constraints = new LMB[numConstr];
 		for(int constr=0; constr<numConstr; constr++)
-			constraints[constr] = new LMV(msParams.getValue("STATECONSTR"+constr), numStates);
+			constraints[constr] = new LMB(msParams.getValue("STATECONSTR"+constr), numStates);
 		// might need to adjust these with wt later
 
 		cfps = new MSConfigFileParser[numStates];
 
-		searchDisc = new SearchProblem[numStates][];
 		searchCont = new SearchProblem[numStates][];
+		searchDisc = new SearchProblem[numStates][];
+		
+		ecalcsCont = new ConfEnergyCalculator.Async[numStates][];
+		ecalcsDisc = new ConfEnergyCalculator.Async[numStates][];
 
 		System.out.println();
 		System.out.println("Checking multistate K* parameters for consistency");
@@ -192,7 +195,7 @@ public class MSKStarDoer {
 		cleanupEnergyCalculators(ecalcsDisc);
 	}
 
-	private String calcStateKStarScore(int state, ArrayList<String> boundStateAATypes) {
+	private String getStateKStarScore(int state, ArrayList<String> boundStateAATypes) {
 
 		//get arraylist formatted sequence for each substate
 		ArrayList<ArrayList<ArrayList<String>>> subStateAATypes = new ArrayList<>();
@@ -211,10 +214,11 @@ public class MSKStarDoer {
 
 		ParamSet sParams = cfps[state].getParams();
 		int numPartFuncs = sParams.getInt("NUMUBSTATES")+1;
+		boolean doMinimize = sParams.getBool("DOMINIMIZE");
 
 		//populate search problems
-		MSSearchProblem[] singleSeqSearchCont = new MSSearchProblem[numPartFuncs];
-		MSSearchProblem[] singleSeqSearchDisc = new MSSearchProblem[numPartFuncs];
+		MSSearchProblem[] singleSeqSearchCont = doMinimize ? new MSSearchProblem[numPartFuncs] : null;
+		MSSearchProblem[] singleSeqSearchDisc = !doMinimize ? new MSSearchProblem[numPartFuncs] : null;
 		for(int subState=0;subState<numPartFuncs;++subState){
 
 			MSSearchSettings spSet = new MSSearchSettings();
@@ -225,12 +229,12 @@ public class MSKStarDoer {
 			spSet.stericThreshold = sParams.getDouble("STERICTHRESH");
 			spSet.pruningWindow = sParams.getDouble("IVAL") + sParams.getDouble("EW");
 
-			singleSeqSearchCont[subState] = new MSSearchProblem(searchCont[state][subState], spSet);
-			singleSeqSearchDisc[subState] = new MSSearchProblem(searchDisc[state][subState], spSet);
+			if(doMinimize) singleSeqSearchCont[subState] = new MSSearchProblem(searchCont[state][subState], spSet);
+			else singleSeqSearchDisc[subState] = new MSSearchProblem(searchDisc[state][subState], spSet);
 		}
 
-		KStarScoreType scoreType = sParams.getBool("DOMINIMIZE") ? KStarScoreType.Continuous : KStarScoreType.Discrete;
-		//KStarScoreType scoreType = KStarScoreType.DiscretePairWiseMinimized;
+		KStarScoreType scoreType = doMinimize ? KStarScoreType.Minimized : KStarScoreType.Discrete;
+		//KStarScoreType scoreType = KStarScoreType.PairWiseMinimized;
 		KStarScore score = MSKStarFactory.makeKStarScore(
 				msParams, state, cfps[state],
 				singleSeqSearchCont, singleSeqSearchDisc,
@@ -413,31 +417,39 @@ public class MSKStarDoer {
 		}
 	}
 
-	public ArrayList<String[]> subLinearMultiStateSearch() {
+	public void subLinearMultiStateSearch() {
 
 		System.out.println();
-		System.out.println("Performing sublinear multistate K*");
+		System.out.println("Performing sub-linear multistate K*");
 		System.out.println();
 
-		//how many sequences to enumerate
-
+		//create energy calculators
+		for(int state=0;state<numStates;++state) {
+			boolean doMinimize = cfps[state].getParams().getBool("DOMINIMIZE");
+			if(doMinimize) ecalcsCont[state] = makeEnergyCalculators(state, true);
+			ecalcsDisc[state] = makeEnergyCalculators(state, false);
+		}
+		
+		tree = new MSKStarTree(numMutRes, numStates, numMaxMut, numSeqsWanted, objFcn, 
+				constraints, mutable2StateResNums, AATypeOptions, wtSeqs, 
+				searchCont, searchDisc, ecalcsCont, ecalcsDisc, msParams, cfps);
+		
 		Stopwatch stopwatch = new Stopwatch().start();
-
 		ArrayList<String[]> bestSequences = new ArrayList<>();
 
 		for(int seqNum=0; seqNum<numSeqsWanted; seqNum++){
-			String[] seq = tree.nextSeq();//this will find the best sequence and print it
+			String[] seq = tree.nextSeq();//this will find the best sequence
 			if(seq == null)//empty sequence...indicates no more sequence possibilities
 				break;
 			else
 				bestSequences.add(seq);
 		}
+		
+		cleanup();//free energy calculators
 
 		System.out.println();
-		System.out.println("Finished sublinear MultiStateKStar in "+stopwatch.getTime(2));
+		System.out.println("Finished sub-linear multistate K* in "+stopwatch.getTime(2));
 		System.out.println();
-
-		return bestSequences;
 	}
 
 	/**
@@ -466,8 +478,6 @@ public class MSKStarDoer {
 
 		String[][] stateKSS = new String[numStates][];
 		for(int state=0;state<numStates;++state) stateKSS[state] = new String[seqList.get(state).size()];
-		ecalcsCont = new ConfEnergyCalculator.Async[numStates][];
-		ecalcsDisc = new ConfEnergyCalculator.Async[numStates][];
 
 		try {
 			if(!resume) 
@@ -476,7 +486,8 @@ public class MSKStarDoer {
 			PrintStream fout = new PrintStream(new FileOutputStream(new File(fname), true));
 
 			for(int state=0; state<numStates; state++){
-
+				boolean doMinimize = cfps[state].getParams().getBool("DOMINIMIZE");
+				
 				if(stateKSS[state].length>0) {
 					fout.println();
 					fout.println("State"+state+": ");
@@ -484,14 +495,16 @@ public class MSKStarDoer {
 				}
 
 				//make energy calculators for this state
-				ecalcsCont[state] = makeEnergyCalculators(state, true);
-				ecalcsDisc[state] = makeEnergyCalculators(state, false);
+				if(doMinimize) ecalcsCont[state] = makeEnergyCalculators(state, true);
+				else ecalcsDisc[state] = makeEnergyCalculators(state, false);
 
 				for(int seqNum=0; seqNum<stateKSS[state].length; seqNum++){
-					stateKSS[state][seqNum] = calcStateKStarScore(state, seqList.get(state).get(seqNum));
+					stateKSS[state][seqNum] = getStateKStarScore(state, seqList.get(state).get(seqNum));
 					fout.println(stateKSS[state][seqNum]);
 				}
 
+				searchCont[state] = null;
+				searchDisc[state] = null;
 				cleanupEnergyCalculators(ecalcsCont, state);
 				cleanupEnergyCalculators(ecalcsDisc, state);
 			}

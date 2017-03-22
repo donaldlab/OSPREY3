@@ -7,7 +7,7 @@ import java.math.BigDecimal;
  * 
  */
 
-public class DiscreteKStarScore extends ContinuousKStarScore {
+public class DiscreteKStarScore extends MinimizedKStarScore {
 
 	public DiscreteKStarScore(MSKStarSettings settings) {
 		super(settings);
@@ -42,24 +42,24 @@ public class DiscreteKStarScore extends ContinuousKStarScore {
 		BigDecimal ans = BigDecimal.ONE;
 		
 		MSSearchProblem search = settings.search[state];
-		boolean min = search.contSCFlex ? false : true;
+		boolean minConfs = search.settings.energyLBs ? false : true;
 		QPruningMatrix pmat = (QPruningMatrix)search.pruneMat;
 		
-		for(int pos : search.getPos(false)) {
+		for(int pos : search.getPosNums(false)) {
 			
-			long unPrunedConfs = min ? Long.MAX_VALUE : Long.MIN_VALUE;
-			long prunedConfs = min ? Long.MAX_VALUE : Long.MIN_VALUE;
+			long unPrunedConfs = minConfs ? Long.MAX_VALUE : Long.MIN_VALUE;
+			long prunedConfs = minConfs ? Long.MAX_VALUE : Long.MIN_VALUE;
 			
 			for(String AAType : search.allowedAAs.get(pos)) {
 				long numAARCs = search.unprunedAtPos(pmat, pos, AAType).size();
-				unPrunedConfs = min ? Math.min(unPrunedConfs, numAARCs) : Math.max(unPrunedConfs, numAARCs);
-				if(!min) {
+				unPrunedConfs = minConfs ? Math.min(unPrunedConfs, numAARCs) : Math.max(unPrunedConfs, numAARCs);
+				if(!minConfs) {
 					numAARCs = search.unprunedAtPos((QPruningMatrix)pmat.invert(), pos, AAType).size();
 					prunedConfs = Math.max(prunedConfs, numAARCs);
 				}
 			}
 			
-			if(min) prunedConfs = 0;
+			if(minConfs) prunedConfs = 0;
 			ans = ans.multiply(BigDecimal.valueOf(unPrunedConfs+prunedConfs));
 			
 		}

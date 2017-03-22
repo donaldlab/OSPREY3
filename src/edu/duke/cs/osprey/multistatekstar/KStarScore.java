@@ -10,17 +10,19 @@ import java.math.BigDecimal;
 public interface KStarScore {
 
 	public enum KStarScoreType {
-	    Continuous,//i.e. minimization
+	    Minimized,//i.e. minimization
+	    PairWiseMinimized,//pw min numerator and denominator
+	    MinimizedLowerBound,//discrete numerator, pw min denominator
+	    MinimizedUpperBound,//pw min numerator, discrete denominator
 	    Discrete,//discrete
-	    DiscretePairWiseMinimized,//pw min numerator and denominator
-	    DiscreteLowerBound,//discrete numerator, pw min denominator
-	    DiscreteUpperBound;//pw min numerator, discrete denominator
+	    DiscreteLowerBound,//discrete numerator and denominator
+	    DiscreteUpperBound;//discrete numerator and denominator
 	}
 	
 	public enum PartitionFunctionType {
-		Continuous,//i.e. minimization
+		Minimized,//i.e. minimization
 		Discrete,//no min; either discrete or pw min
-		DiscreteUpperBound;//1+epsilon on pw min
+		UpperBound;//1+epsilon on pw min
 	}
 	
 	public BigDecimal getScore();

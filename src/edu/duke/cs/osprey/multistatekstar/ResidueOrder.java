@@ -84,9 +84,10 @@ public class ResidueOrder {
 			for(int subState=0;subState<scoreQueues.get(state).size();++subState) {
 				ArrayList<ArrayList<String>> AATypeOptions = tmp[state][subState].settings.AATypeOptions;
 				for(int residuePos=0;residuePos<AATypeOptions.size();++residuePos) {
+					score++;//in this case, each AA at residue has the same score
 					ArrayList<String> AATypes = AATypeOptions.get(residuePos);
 					for(int AATypePos=0;AATypePos<AATypes.size();++AATypePos) {
-						scoreQueues.get(state).get(subState).add(new ResidueScore(residuePos, AATypePos, ++score));
+						scoreQueues.get(state).get(subState).add(new ResidueScore(residuePos, AATypePos, score));
 					}
 				}
 			}
