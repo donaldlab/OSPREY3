@@ -204,13 +204,15 @@ public class MinimizedKStarScore implements KStarScore {
 		pf.compute(maxNumConfs);	
 
 		//no more q conformations, and we have not reached epsilon
-		if(pf.getValues().getEffectiveEpsilon() > settings.targetEpsilon) {
+		double effectiveEpsilon = pf.getValues().getEffectiveEpsilon();
+		if(!Double.isNaN(effectiveEpsilon) && effectiveEpsilon > settings.targetEpsilon) {
 			MinimizedPartitionFunction p2pf = (MinimizedPartitionFunction) phase2(state);
 			pf.getValues().qstar = p2pf.getValues().qstar;
-			pf.setStatus(Status.Estimated);
 			if(settings.search[state].isFullyDefined() && settings.numTopConfsToSave > 0)
 				pf.saveEConfs(p2pf.topConfs);
 		}
+		
+		pf.setStatus(Status.Estimated);
 
 		if(settings.isFinal) {//final is a superset of fully defined
 			if(constrSatisfied) constrSatisfied = checkConstraints(state);
@@ -290,5 +292,12 @@ public class MinimizedKStarScore implements KStarScore {
 			if(pf.getStatus()==Status.Estimating) return false;
 		}
 		return true;
+	}
+
+	@Override
+	public boolean isFullyProcessed() {
+		for(MinimizedPartitionFunction pf : partitionFunctions)
+			if(pf != null && pf.getStatus() != Status.Estimated) return false;
+		return settings.isFinal;
 	}
 }

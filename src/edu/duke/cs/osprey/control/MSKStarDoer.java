@@ -36,7 +36,8 @@ public class MSKStarDoer {
 	int numMaxMut;//max number of mutations from wt
 
 	LMB objFcn;//objective function for MultiStateKStar search, i.e. the f-score
-	LMB[] constraints;//constraints for search. (partial)sequences that violate constraints are pruned
+	LMB[] msConstr;//global constraints for search. (partial)sequences that violate constraints are pruned
+	LMB[][] sConstr;//state-specific constraints
 	int numStates;//number of states considered
 	int numMutRes;//number of mutable positions
 
@@ -93,10 +94,12 @@ public class MSKStarDoer {
 
 		objFcn = new LMB(msParams.getValue("OBJFCN"), numStates);
 
-		constraints = new LMB[numConstr];
-		for(int constr=0; constr<numConstr; constr++)
-			constraints[constr] = new LMB(msParams.getValue("STATECONSTR"+constr), numStates);
 		// might need to adjust these with wt later
+		msConstr = new LMB[numConstr];
+		for(int constr=0; constr<numConstr; constr++)
+			msConstr[constr] = new LMB(msParams.getValue("STATECONSTR"+constr), numStates);
+		
+		sConstr = new LMB[numStates][];
 
 		cfps = new MSConfigFileParser[numStates];
 
@@ -113,7 +116,11 @@ public class MSKStarDoer {
 		mutable2StateResNums = new ArrayList<>();
 		AATypeOptions = new ArrayList<>();
 		wtSeqs = new ArrayList<>();
+		
 		InputValidation inputValidation = new InputValidation(AATypeOptions, mutable2StateResNums);
+		inputValidation.handleObjFcn(msParams, objFcn);
+		inputValidation.handleConstraints(msParams, msConstr);
+		
 		for(int state=0; state<numStates; state++) {
 
 			System.out.println();
@@ -121,7 +128,8 @@ public class MSKStarDoer {
 			System.out.println();
 
 			cfps[state] = makeStateCfp(state);
-			inputValidation.handleStateParams(state, cfps[state].getParams(), msParams);
+			ParamSet sParams = cfps[state].getParams();
+			inputValidation.handleStateParams(state, sParams, msParams);
 			mutable2StateResNums.add(stateMutableRes(state, cfps[state], numMutRes));
 
 			for(int subState=0; subState<mutable2StateResNums.get(state).size(); ++subState){
@@ -130,6 +138,13 @@ public class MSKStarDoer {
 				if(subState==mutable2StateResNums.get(state).size()-1)
 					wtSeqs.add(cfps[state].getWtSeq(mutable2StateResNums.get(state).get(subState)));
 			}
+			
+			//populate state-specific constraints
+			int numUbConstr = sParams.getInt("NUMUBCONSTR");
+			int numPartFuncs = sParams.getInt("NUMUBSTATES")+1;
+			sConstr[state] = new LMB[numUbConstr];
+			for(int constr=0;constr<numUbConstr;constr++)
+				sConstr[state][constr] = new LMB(sParams.getValue("UBCONSTR"+constr), numPartFuncs);
 
 			System.out.println();
 			System.out.println("State "+state+" parameters checked");
@@ -236,7 +251,7 @@ public class MSKStarDoer {
 		KStarScoreType scoreType = doMinimize ? KStarScoreType.Minimized : KStarScoreType.Discrete;
 		//KStarScoreType scoreType = KStarScoreType.PairWiseMinimized;
 		KStarScore score = MSKStarFactory.makeKStarScore(
-				msParams, state, cfps[state],
+				msParams, state, cfps[state], sConstr[state],
 				singleSeqSearchCont, singleSeqSearchDisc,
 				ecalcsCont[state], ecalcsDisc[state], scoreType
 				);
@@ -431,7 +446,7 @@ public class MSKStarDoer {
 		}
 		
 		tree = new MSKStarTree(numMutRes, numStates, numMaxMut, numSeqsWanted, objFcn, 
-				constraints, mutable2StateResNums, AATypeOptions, wtSeqs, 
+				msConstr, sConstr, mutable2StateResNums, AATypeOptions, wtSeqs, 
 				searchCont, searchDisc, ecalcsCont, ecalcsDisc, msParams, cfps);
 		
 		Stopwatch stopwatch = new Stopwatch().start();

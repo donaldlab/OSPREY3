@@ -14,9 +14,9 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
  * 
  * Computes a 1+epsilon approximation to the partition function
  */
-public class UpperBoundPartitionFunction extends DiscretePartitionFunction {
+public class DiscreteUpperBoundPartitionFunction extends DiscretePartitionFunction {
 
-	public UpperBoundPartitionFunction(EnergyMatrix emat, PruningMatrix pmat,
+	public DiscreteUpperBoundPartitionFunction(EnergyMatrix emat, PruningMatrix pmat,
 			ConfSearchFactory confSearchFactory, Async ecalc) {
 		super(emat, pmat, confSearchFactory, ecalc);
 	}

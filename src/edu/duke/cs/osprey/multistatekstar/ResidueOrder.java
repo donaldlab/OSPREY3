@@ -103,9 +103,9 @@ public class ResidueOrder {
 	public ResidueScore getNextAssignment(int state, int subState) {
 		ResidueScore ans = scoreQueues.get(state).get(subState).poll();
 		//make sure position is not already assigned
-		if(searchCont!=null && searchCont[state][subState].flexRes.get(ans.residuePos).equals("-1"))
+		if(searchCont[state]!=null && searchCont[state][subState].flexRes.get(ans.residuePos).equals("-1"))
 			throw new RuntimeException("ERROR: residue position "+ans.residuePos+" is already assigned");
-		if(searchDisc!=null && searchDisc[state][subState].flexRes.get(ans.residuePos).equals("-1"))
+		if(searchDisc[state]!=null && searchDisc[state][subState].flexRes.get(ans.residuePos).equals("-1"))
 			throw new RuntimeException("ERROR: residue position "+ans.residuePos+" is already assigned");
 		return ans;
 	}

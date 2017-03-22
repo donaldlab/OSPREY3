@@ -24,6 +24,7 @@ public class MSKStarFactory {
 			ParamSet msParams,
 			int state,
 			MSConfigFileParser cfp,
+			LMB[] sConstr,
 			MSSearchProblem[] searchCont,
 			MSSearchProblem[] searchDisc,
 			ConfEnergyCalculator.Async[] ecalcsCont,
@@ -39,14 +40,8 @@ public class MSKStarFactory {
 		settings.numTopConfsToSave = sParams.getInt("NumTopConfsToSave");
 		settings.isReportingProgress = msParams.getBool("ISREPORTINGPROGRESS");
 		settings.scoreType = scoreType;
-
-		//make LMBs
-		int numUbConstr = sParams.getInt("NUMUBCONSTR");
+		settings.constraints = sConstr;
 		int numPartFuncs = sParams.getInt("NUMUBSTATES")+1;
-		settings.constraints = new LMB[numUbConstr];
-		for(int constr=0;constr<numUbConstr;constr++)
-			settings.constraints[constr] = new LMB(sParams.getValue("UBCONSTR"+constr), numPartFuncs);
-
 		settings.pfTypes = new PartitionFunctionType[numPartFuncs];
 		settings.ecalcs = new ConfEnergyCalculator.Async[numPartFuncs];
 		settings.search = new MSSearchProblem[numPartFuncs];
@@ -173,7 +168,7 @@ public class MSKStarFactory {
 		case Discrete:
 			return new DiscretePartitionFunction(emat, pruneMat, confSearchFactory, ecalc);
 		case UpperBound:
-			return new UpperBoundPartitionFunction(emat, pruneMat, confSearchFactory, ecalc);
+			return new DiscreteUpperBoundPartitionFunction(emat, pruneMat, confSearchFactory, ecalc);
 		default:
 			throw new UnsupportedOperationException("ERROR: unsupported partition function type "+type);
 		}
