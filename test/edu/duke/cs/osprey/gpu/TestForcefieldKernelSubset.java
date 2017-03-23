@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.gpu.opencl;
+package edu.duke.cs.osprey.gpu;
 
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
@@ -8,7 +8,6 @@ import java.io.IOException;
 import org.junit.Test;
 
 import edu.duke.cs.osprey.TestBase;
-import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.dof.ProlinePucker;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
@@ -19,14 +18,12 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.Forcefield;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
+import edu.duke.cs.osprey.gpu.TestForceFieldKernel.Residues;
 import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
-import edu.duke.cs.osprey.structure.Molecule;
-import edu.duke.cs.osprey.structure.PDBIO;
+import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
 import edu.duke.cs.osprey.structure.Residue;
 
-public class TestForceFieldKernel extends TestBase {
-	
-	// TODO: test ff options, like solvation, hydrogen inclusions, etc...
+public class TestForcefieldKernelSubset extends TestBase {
 	
 	private static class Forcefields {
 		
@@ -34,103 +31,40 @@ public class TestForceFieldKernel extends TestBase {
 		public BigForcefieldEnergy bigff;
 		public GpuQueuePool openclQueuePool;
 		public GpuForcefieldEnergy gpuffopencl;
+		public MultiTermEnergyFunction efuncSub;
+		public BigForcefieldEnergy.Subset bigffSub;
+		public GpuForcefieldEnergy gpuffSubopencl;
 		public GpuStreamPool cudaContextPool;
 		public GpuForcefieldEnergy gpuffcuda;
+		public GpuForcefieldEnergy gpuffSubcuda;
 		
 		public void cleanup() {
 			gpuffopencl.cleanup();
 			openclQueuePool.cleanup();
 			gpuffcuda.cleanup();
-			cudaContextPool.cleanup();
 		}
 	}
 	
-	private static enum EnergyFunctionType {
-		AllPairs,
-		SingleAndShell;
-	}
-	
-	public static class Residues {
+	private Forcefields makeForcefields(Residue[] residues)
+	throws IOException {
 		
-		public final Strand strand;
-		public final Residue gly06, gly15, ser17, trp18, trp25, arg22, ala24, ile26, phe31, arg32, glu34,
-			val36, leu39, trp47, leu48, ile53, arg55, val56, leu57, ile59, val62, leu64, val65, met66;
+		ForcefieldParams ffparams = new ForcefieldParams(Forcefield.AMBER);
 		
-		public Residues() {
-			strand = new Strand.Builder(PDBIO.readFile("examples/DAGK/2KDC.P.forOsprey.pdb"))
-				.setErrorOnNonTemplateResidues(true)
-				.build();
-			Molecule mol = strand.mol;
-			gly06 = mol.getResByPDBResNumber("6");
-			gly15 = mol.getResByPDBResNumber("15");
-			ser17 = mol.getResByPDBResNumber("17");
-			trp18 = mol.getResByPDBResNumber("18");
-			trp25 = mol.getResByPDBResNumber("25");
-			arg22 = mol.getResByPDBResNumber("22");
-			ala24 = mol.getResByPDBResNumber("24");
-			ile26 = mol.getResByPDBResNumber("26");
-			phe31 = mol.getResByPDBResNumber("31");
-			arg32 = mol.getResByPDBResNumber("32");
-			glu34 = mol.getResByPDBResNumber("34");
-			val36 = mol.getResByPDBResNumber("36");
-			leu39 = mol.getResByPDBResNumber("39");
-			trp47 = mol.getResByPDBResNumber("47");
-			leu48 = mol.getResByPDBResNumber("48");
-			ile53 = mol.getResByPDBResNumber("53");
-			arg55 = mol.getResByPDBResNumber("55");
-			val56 = mol.getResByPDBResNumber("56");
-			leu57 = mol.getResByPDBResNumber("57");
-			ile59 = mol.getResByPDBResNumber("59");
-			val62 = mol.getResByPDBResNumber("62");
-			leu64 = mol.getResByPDBResNumber("64");
-			val65 = mol.getResByPDBResNumber("65");
-			met66 = mol.getResByPDBResNumber("66");
-		}
-	}
-	
-	private static void makeAllPairsEfunc(Residue[] residues, ForcefieldParams ffparams, MultiTermEnergyFunction efunc, ForcefieldInteractions interactions) {
+		Forcefields ff = new Forcefields();
 		
+		// make the all pairs energy functions
+		ff.efunc = new MultiTermEnergyFunction();
+		ForcefieldInteractions interactions = new ForcefieldInteractions();
 		for (int pos1=0; pos1<residues.length; pos1++) {
 			
-			efunc.addTerm(new SingleResEnergy(residues[pos1], ffparams));
+			ff.efunc.addTerm(new SingleResEnergy(residues[pos1], ffparams));
 			interactions.addResidue(residues[pos1]);
 			
 			for (int pos2=0; pos2<pos1; pos2++) {
 				
-				efunc.addTerm(new ResPairEnergy(residues[pos1], residues[pos2], ffparams));
+				ff.efunc.addTerm(new ResPairEnergy(residues[pos1], residues[pos2], ffparams));
 				interactions.addResiduePair(residues[pos1], residues[pos2]);
 			}
-		}
-	}
-	
-	private static void makeSingleAndShellEfunc(Residue[] residues, ForcefieldParams ffparams, MultiTermEnergyFunction efunc, ForcefieldInteractions interactions) {
-		
-		efunc.addTerm(new SingleResEnergy(residues[0], ffparams));
-		interactions.addResidue(residues[0]);
-		
-		for (int pos1=1; pos1<residues.length; pos1++) {
-			
-			efunc.addTerm(new ResPairEnergy(residues[0], residues[pos1], ffparams));
-			interactions.addResiduePair(residues[0], residues[pos1]);
-		}
-	}
-	
-	private Forcefields makeForcefields(Residue[] residues, EnergyFunctionType efuncType)
-	throws IOException {
-		
-		ForcefieldParams ffparams = new ForcefieldParams(Forcefield.AMBER);
-		ForcefieldInteractions interactions = new ForcefieldInteractions();
-		
-		Forcefields ff = new Forcefields();
-		ff.efunc = new MultiTermEnergyFunction();
-		
-		switch (efuncType) {
-			case AllPairs:
-				makeAllPairsEfunc(residues, ffparams, ff.efunc, interactions);
-			break;
-			case SingleAndShell:
-				makeSingleAndShellEfunc(residues, ffparams, ff.efunc, interactions);
-			break;
 		}
 		
 		ff.bigff = new BigForcefieldEnergy(ffparams, interactions);
@@ -138,27 +72,42 @@ public class TestForceFieldKernel extends TestBase {
 		ff.gpuffopencl = new GpuForcefieldEnergy(ffparams, interactions, ff.openclQueuePool);
 		ff.cudaContextPool = new GpuStreamPool(1);
 		ff.gpuffcuda = new GpuForcefieldEnergy(ffparams, interactions, ff.cudaContextPool);
+		
+		// make the subset energy functions (first residue against the rest)
+		ff.efuncSub = new MultiTermEnergyFunction();
+		ff.efuncSub.addTerm(new SingleResEnergy(residues[0], ffparams));
+		for (int pos1=1; pos1<residues.length; pos1++) {
+			ff.efuncSub.addTerm(new ResPairEnergy(residues[0], residues[pos1], ffparams));
+		}
+		
+		ForcefieldInteractions subsetInteractions = interactions.makeSubsetByResidue(residues[0]);
+		ff.bigffSub = ff.bigff.new Subset(subsetInteractions);
+		ff.gpuffSubopencl = new GpuForcefieldEnergy(ff.gpuffopencl, subsetInteractions);
+		ff.gpuffSubcuda = new GpuForcefieldEnergy(ff.gpuffcuda, subsetInteractions);
+		
 		return ff;
 	}
 	
-	private void checkEnergies(Residue[] residues, double allPairsEnergy, double singleAndShellEnergy)
+	private void checkEnergies(Residue[] residues, double allPairsEnergy, double subsetEnergy)
 	throws IOException {
 		
-		Forcefields ff = makeForcefields(residues, EnergyFunctionType.AllPairs);
+		Forcefields ff = makeForcefields(residues);
+		
+		// check the all pairs energy functions
 		assertThat(ff.efunc.getEnergy(), isRelatively(allPairsEnergy));
 		assertThat(ff.bigff.getEnergy(), isRelatively(allPairsEnergy));
 		assertThat(ff.gpuffopencl.getEnergy(), isRelatively(allPairsEnergy));
 		assertThat(ff.gpuffcuda.getEnergy(), isRelatively(allPairsEnergy));
-		ff.cleanup();
 		
-		ff = makeForcefields(residues, EnergyFunctionType.SingleAndShell);
-		assertThat(ff.efunc.getEnergy(), isRelatively(singleAndShellEnergy));
-		assertThat(ff.bigff.getEnergy(), isRelatively(singleAndShellEnergy));
-		assertThat(ff.gpuffopencl.getEnergy(), isRelatively(singleAndShellEnergy));
-		assertThat(ff.gpuffcuda.getEnergy(), isRelatively(singleAndShellEnergy));
+		// check the subset energy functions
+		assertThat(ff.efuncSub.getEnergy(), isRelatively(subsetEnergy));
+		assertThat(ff.bigffSub.getEnergy(), isRelatively(subsetEnergy));
+		assertThat(ff.gpuffSubopencl.getEnergy(), isRelatively(subsetEnergy));
+		assertThat(ff.gpuffSubcuda.getEnergy(), isRelatively(subsetEnergy));
+		
 		ff.cleanup();
 	}
-	
+
 	@Test
 	public void testSingleGly()
 	throws Exception {
@@ -241,23 +190,24 @@ public class TestForceFieldKernel extends TestBase {
 		Residues r = new Residues();
 		Residue[] residues = { r.gly15, r.ser17, r.trp18, r.trp25, r.arg22, r.ala24 };
 		
-		double expectedWtEnergy = -52.316176530733166;
-		double expectedMutantEnergy = -49.98910298199585;
+		double expectedWtEnergy = -2.7906943839799343;
+		double expectedMutantEnergy = -0.4636208352426065;
 		
-		Forcefields ff = makeForcefields(residues, EnergyFunctionType.AllPairs);
+		Forcefields ff = makeForcefields(residues);
 		
-		assertThat(ff.efunc.getEnergy(), isRelatively(expectedWtEnergy));
-		assertThat(ff.bigff.getEnergy(), isRelatively(expectedWtEnergy));
-		assertThat(ff.gpuffopencl.getEnergy(), isRelatively(expectedWtEnergy));
-		assertThat(ff.gpuffcuda.getEnergy(), isRelatively(expectedWtEnergy));
+		// check the subset energy functions
+		assertThat(ff.efuncSub.getEnergy(), isRelatively(expectedWtEnergy));
+		assertThat(ff.bigffSub.getEnergy(), isRelatively(expectedWtEnergy));
+		assertThat(ff.gpuffSubopencl.getEnergy(), isRelatively(expectedWtEnergy));
+		assertThat(ff.gpuffSubcuda.getEnergy(), isRelatively(expectedWtEnergy));
 		
 		// mutate a residue
 		ResidueTypeDOF.switchToTemplate(r.strand.templateLib, r.gly15, "VAL");
 
-		assertThat(ff.efunc.getEnergy(), isRelatively(expectedMutantEnergy));
-		assertThat(ff.bigff.getEnergy(), isRelatively(expectedMutantEnergy));
-		assertThat(ff.gpuffopencl.getEnergy(), isRelatively(expectedMutantEnergy));
-		assertThat(ff.gpuffcuda.getEnergy(), isRelatively(expectedMutantEnergy));
+		assertThat(ff.efuncSub.getEnergy(), isRelatively(expectedMutantEnergy));
+		assertThat(ff.bigffSub.getEnergy(), isRelatively(expectedMutantEnergy));
+		assertThat(ff.gpuffSubopencl.getEnergy(), isRelatively(expectedMutantEnergy));
+		assertThat(ff.gpuffSubcuda.getEnergy(), isRelatively(expectedMutantEnergy));
 		
 		ff.cleanup();
 	}
@@ -274,7 +224,7 @@ public class TestForceFieldKernel extends TestBase {
 		res.pucker = new ProlinePucker(r.strand.templateLib, res);
 		ResidueTypeDOF.switchToTemplate(r.strand.templateLib, res, "PRO");
 		
-		Forcefields ff = makeForcefields(residues, EnergyFunctionType.SingleAndShell);
+		Forcefields ff = makeForcefields(residues);
 		
 		assertThat(res.confProblems.size(), is(1));
 
