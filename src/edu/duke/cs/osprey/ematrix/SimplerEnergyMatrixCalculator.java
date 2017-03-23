@@ -161,12 +161,12 @@ public class SimplerEnergyMatrixCalculator {
 		
 		// init task listeners
 		Progress progress = new Progress(confSpace.getNumResConfs() + confSpace.getNumResConfPairs());
-		TaskListener<SingleTask> singleListener = (taskBase) -> {
+		TaskListener singleListener = (taskBase) -> {
 			SingleTask task = (SingleTask)taskBase;
 			emat.setOneBody(task.pos1, task.rc1, task.result.energy);
 			progress.incrementProgress();
 		};
-		TaskListener<PairTask> pairListener = (taskBase) -> {
+		TaskListener pairListener = (taskBase) -> {
 			PairTask task = (PairTask)taskBase;
 			for (int rc2=0; rc2<task.numrc2; rc2++) {
 				emat.setPairwise(task.pos1, task.rc1, task.pos2, rc2, task.results[rc2].energy);
@@ -202,9 +202,6 @@ public class SimplerEnergyMatrixCalculator {
 		}
 		
 		tasks.waitForFinish();
-		
-		// cleanup
-		tasks.cleanup();
 		
 		return emat;
 	}

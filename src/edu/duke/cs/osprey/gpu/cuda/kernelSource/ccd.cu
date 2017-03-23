@@ -36,6 +36,7 @@ typedef struct __align__(8) {
 	bool useDistDepDielec;
 	bool useHEs;
 	bool useHVdw;
+	bool useEEF1;
 } ForcefieldArgs;
 // sizeof = 48
 
@@ -294,7 +295,7 @@ __device__ double calcPairEnergy(
 	}
 	
 	// calculate solvation
-	if (bothHeavy && r2 < args->solvCutoff2) {
+	if (args->useEEF1 && bothHeavy && r2 < args->solvCutoff2) {
 			
 		double r = sqrt(r2);
 		{
@@ -353,8 +354,13 @@ __device__ double calcFullEnergy(const double *coords, const int *atomFlags, con
 		);
 	}
 	blockSum(energy, threadEnergies);
+	energy = threadEnergies[0];
 	
-	return threadEnergies[0] + ffargs->internalSolvationEnergy;
+	if (ffargs->useEEF1) {
+		energy += ffargs->internalSolvationEnergy;
+	}
+	
+	return energy;
 }
 
 __device__ void pose(const DofPoseAndEnergyArgs &args, double dihedralRadians) {

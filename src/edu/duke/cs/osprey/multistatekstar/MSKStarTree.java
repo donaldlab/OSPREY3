@@ -1,19 +1,18 @@
 package edu.duke.cs.osprey.multistatekstar;
 
-import java.math.BigInteger;
 import java.util.ArrayList;
 
-import edu.duke.cs.osprey.astar.AStarTree;
-import edu.duke.cs.osprey.astar.FullAStarNode;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.control.ParamSet;
+import edu.duke.cs.osprey.gmec.ConfEnergyCalculator;
+import edu.duke.cs.osprey.multistatekstar.ResidueOrder.ResidueOrderType;
 
 /**
  * 
  * @author Adegoke Ojewole (ao68@duke.edu)
  *
  */
-@SuppressWarnings("serial")
-public class MSKStarTree extends AStarTree<FullAStarNode> {
+public class MSKStarTree {
 
 	int numTreeLevels;//number of residues with sequence
 	//changes+1 level if we are doing continuous minimization
@@ -21,6 +20,9 @@ public class MSKStarTree extends AStarTree<FullAStarNode> {
 	LMV objFcn;//we are minimizing objFcn
 	LMV[] constraints;
 	LMV[][] stateConstraints;
+
+	ArrayList<ArrayList<ArrayList<Integer>>> mutable2StateResNums;
+	//mutable2StateResNum.get(state) maps levels in this tree to flexible positions for state
 
 	ArrayList<ArrayList<ArrayList<ArrayList<String>>>> AATypeOptions;
 	// MultiStateKStarTreeNode.assignments Assigns each level an index in 
@@ -34,26 +36,35 @@ public class MSKStarTree extends AStarTree<FullAStarNode> {
 	//states have the same mutable residues & options for AA residues,
 	//but not necessarily for non AA residues
 
-	SearchProblem search[][];//SearchProblems describing them
-	//each state has >= 3 SearchProblems
+	SearchProblem searchCont[][];//SearchProblems describing them; each state has >= 3 SearchProblems
+	SearchProblem searchDisc[][];
 
-	ArrayList<ArrayList<ArrayList<Integer>>> mutable2StateResNums;
-	//mutable2StatePosNum.get(state) maps levels in this tree to flexible 
-	//positions for state (not necessarily an onto mapping)
+	ConfEnergyCalculator.Async[][] ecalcsCont;//energy calculators for continuous emats
+	ConfEnergyCalculator.Async[][] ecalcsDisc;//energy calculators for discrete emats
+
+	ParamSet msParams;//multistate spec params
+	MSConfigFileParser[] cfps;//config file parsers for each state
+
+	ResidueOrderType residueOrder;
 
 	int numSeqsReturned;
 
 	public MSKStarTree(
-			int numTreeLevels, 
-			LMV objFcn, 
-			LMV[] constraints,
-			ArrayList<ArrayList<ArrayList<ArrayList<String>>>> AATypeOptions, 
-			int numMaxMut, 
-			ArrayList<String[]> wtSeqs, 
+			int numTreeLevels,
 			int numStates,
-			SearchProblem[][] search, 
-			ArrayList<ArrayList<ArrayList<Integer>>> mutable2StateResNums, 
-			int numTopConfs) {
+			int numMaxMut,
+			LMV objFcn,
+			LMV[] constraints,
+			ArrayList<ArrayList<ArrayList<Integer>>> mutable2StateResNums,
+			ArrayList<ArrayList<ArrayList<ArrayList<String>>>> AATypeOptions,  
+			ArrayList<String[]> wtSeqs, 
+			SearchProblem[][] searchCont,
+			SearchProblem[][] searchDisc,
+			ConfEnergyCalculator.Async[][] ecalcsCont,
+			ConfEnergyCalculator.Async[][] ecalcsDisc,
+			ParamSet msParams,
+			MSConfigFileParser[] cfps
+			) {
 
 		this.numTreeLevels = numTreeLevels;
 		this.objFcn = objFcn;
@@ -62,36 +73,57 @@ public class MSKStarTree extends AStarTree<FullAStarNode> {
 		this.numMaxMut = numMaxMut;
 		this.wtSeqs = wtSeqs;
 		this.numStates = numStates;
-		this.search = search;
+		this.searchCont = searchCont;
+		this.searchDisc = searchDisc;
+		this.ecalcsCont = ecalcsCont;
+		this.ecalcsDisc = ecalcsDisc;
 		this.mutable2StateResNums = mutable2StateResNums;
-		
+
+		this.cfps = cfps;
+		this.msParams = msParams;
+		residueOrder = getResidueOrder();
 		numSeqsReturned = 0;
 	}
 
-	@Override
-	public BigInteger getNumConformations() {
-		throw new UnsupportedOperationException();
+	private ResidueOrderType getResidueOrder() {
+		String val = msParams.getValue("RESIDUEORDER");
+		switch(val.toLowerCase()) {
+		case "staticsequential":
+			return ResidueOrderType.StaticSequential;
+		case "staticmindom":
+			return ResidueOrderType.StaticMinDom;
+		case "staticobjFunchmean":
+			return ResidueOrderType.StaticObjFuncHMean;
+		case "dynamicbbjfunchmean":
+			return ResidueOrderType.DynamicObjFuncHMean;
+		default:
+			throw new UnsupportedOperationException("ERROR: unsupported residue order type: "+val);
+		}
 	}
 
-	@Override
-	public ArrayList<FullAStarNode> getChildren(FullAStarNode curNode) {
+	public ArrayList<MSKStarNode> getChildren(MSKStarNode curNode) {
+		//for each state and substate, pick next position to expand
+
+		//create search problems
+
+		//compute and score children
+		ArrayList<MSKStarNode> ans = new ArrayList<>();
+		ans.trimToSize();
+		return ans;
+	}
+
+	public MSKStarNode rootNode() {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
-	@Override
-	public FullAStarNode rootNode() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public boolean isFullyAssigned(FullAStarNode node) {
+	public boolean isLeafNode(MSKStarNode node) {
 		// TODO Auto-generated method stub
 		return false;
 	}
-	
-	public String seqAsString(int[] seqNodeAssignments) {
+
+	public String[] nextSeq() {
+		//a sequence spans multiple states
 		return null;
 	}
 

@@ -130,10 +130,6 @@ public abstract class ConfMinimizer {
 			});
 		}
 		
-		public void waitForSpace() {
-			tasks.waitForSpace();
-		}
-		
 		public void waitForFinish() {
 			tasks.waitForFinish();
 		}
@@ -189,7 +185,7 @@ public abstract class ConfMinimizer {
 		reportProgress = false;
 	}
 	
-	protected void init(int numThreads, boolean areConfsStreaming, Factory<? extends EnergyFunction,Molecule> efuncs, Factory<? extends Minimizer,MoleculeModifierAndScorer> minimizers, ConfSpace confSpace) {
+	protected void init(int numThreads, Factory<? extends EnergyFunction,Molecule> efuncs, Factory<? extends Minimizer,MoleculeModifierAndScorer> minimizers, ConfSpace confSpace) {
 		
 		if (numThreads <= 0) {
 			throw new IllegalArgumentException("numThreads must be > 0");
@@ -197,7 +193,7 @@ public abstract class ConfMinimizer {
 		
 		// start the thread pool
 		tasks = new ThreadPoolTaskExecutor();
-		tasks.start(numThreads, areConfsStreaming ? 0 : 1);
+		tasks.start(numThreads);
 		
 		// make the minimizer
 		asyncMinimizer = new Async(efuncs, confSpace, tasks, minimizers);

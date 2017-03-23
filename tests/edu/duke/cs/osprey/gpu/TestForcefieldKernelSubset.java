@@ -1,25 +1,25 @@
-package edu.duke.cs.osprey.gpu.opencl;
+package edu.duke.cs.osprey.gpu;
 
-import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import java.io.IOException;
 
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import edu.duke.cs.osprey.TestBase;
-import edu.duke.cs.osprey.dof.ProlinePucker;
+import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.Forcefield;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
+import edu.duke.cs.osprey.gpu.TestForceFieldKernel.Residues;
 import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
-import edu.duke.cs.osprey.gpu.opencl.TestForceFieldKernel.Residues;
+import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
 import edu.duke.cs.osprey.structure.Residue;
 
 public class TestForcefieldKernelSubset extends TestBase {
@@ -44,10 +44,15 @@ public class TestForcefieldKernelSubset extends TestBase {
 		}
 	}
 	
+	@BeforeClass
+	public static void before() {
+		initDefaultEnvironment();
+	}
+	
 	private Forcefields makeForcefields(Residue[] residues)
 	throws IOException {
 		
-		ForcefieldParams ffparams = new ForcefieldParams(Forcefield.AMBER);
+		ForcefieldParams ffparams = EnvironmentVars.curEFcnGenerator.ffParams;
 		
 		Forcefields ff = new Forcefields();
 		
@@ -201,36 +206,13 @@ public class TestForcefieldKernelSubset extends TestBase {
 		assertThat(ff.gpuffSubcuda.getEnergy(), isRelatively(expectedWtEnergy));
 		
 		// mutate a residue
-		ResidueTypeDOF.switchToTemplate(r.strand.templateLib, r.gly15, "VAL");
+		ResidueTypeDOF mutator = new ResidueTypeDOF(r.gly15);
+		mutator.mutateTo("VAL");
 
 		assertThat(ff.efuncSub.getEnergy(), isRelatively(expectedMutantEnergy));
 		assertThat(ff.bigffSub.getEnergy(), isRelatively(expectedMutantEnergy));
 		assertThat(ff.gpuffSubopencl.getEnergy(), isRelatively(expectedMutantEnergy));
 		assertThat(ff.gpuffSubcuda.getEnergy(), isRelatively(expectedMutantEnergy));
-		
-		ff.cleanup();
-	}
-	
-	@Test
-	public void testBrokenProline()
-	throws Exception {
-		
-		Residues r = new Residues();
-		Residue[] residues = { r.gly15 };
-		
-		// mutate to a proline, which will be broken at this pos
-		Residue res = r.gly15;
-		res.pucker = new ProlinePucker(r.strand.templateLib, res);
-		ResidueTypeDOF.switchToTemplate(r.strand.templateLib, res, "PRO");
-		
-		Forcefields ff = makeForcefields(residues);
-		
-		assertThat(res.confProblems.size(), is(1));
-
-		assertThat(ff.efunc.getEnergy(), is(Double.POSITIVE_INFINITY));
-		assertThat(ff.bigff.getEnergy(), is(Double.POSITIVE_INFINITY));
-		assertThat(ff.gpuffopencl.getEnergy(), is(Double.POSITIVE_INFINITY));
-		assertThat(ff.gpuffcuda.getEnergy(), is(Double.POSITIVE_INFINITY));
 		
 		ff.cleanup();
 	}

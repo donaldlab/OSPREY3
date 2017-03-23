@@ -10,11 +10,16 @@ import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
+import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.multistatekstar.MSSearchProblem;
+import edu.duke.cs.osprey.multistatekstar.MultiSequenceConfTree;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 public interface ConfSearchFactory {
@@ -37,6 +42,10 @@ public interface ConfSearchFactory {
 				
 						// if we need higher-order or EPIC terms, use the old A* code
 						return ConfTree.makeFull(search, pmat, cfp.parseGMECMutFile(search.confSpace));
+
+					} else if (search instanceof MSSearchProblem && !((MSSearchProblem)search).isFullyDefined()) {
+						// we need a multi-sequence conf space
+						return new MultiSequenceConfTree((MSSearchProblem)search, emat, pmat);
 					}
 					
 					// when we don't need higher order terms, we can do fast pairwise-only things
@@ -57,17 +66,26 @@ public interface ConfSearchFactory {
 						
 					} else {
 						
-						// simple (but not exhaustive) testing showed node-based MPLP is basically
-						// always faster than edge-based MPLP, so just use node-based MPLP all the time.
+						// when reference energies are used (and they are by default), edge-based MPLP is waaay
+						// faster than node-based, so use edge-based by default too.
+						MPLPUpdater updater;
+						if (cfp.params.getValue("MPLPAlg").equalsIgnoreCase("node")) {
+							updater = new NodeUpdater();
+						} else {
+							updater = new EdgeUpdater();
+						}
+						
+						double convergenceThreshold = cfp.params.getDouble("MPLPConvergenceThreshold");
+						hscorer = new MPLPPairwiseHScorer(updater, emat, numMPLPIters, convergenceThreshold);
+						
 						// also, always use a static order with MPLP
 						// MPLP isn't optimized to do differential node scoring quickly so DynamicHMean is super slow!
-						double convergenceThreshold = cfp.params.getDouble("MPLPConvergenceThreshold");
-						hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), emat, numMPLPIters, convergenceThreshold);
 						order = new StaticScoreHMeanAStarOrder();
 					}
 					
 					// init the A* tree
 					ConfAStarTree tree = new ConfAStarTree(order, gscorer, hscorer, rcs);
+					tree.setParallelism(Parallelism.makeCpu(cfp.params.getInt("AStarThreads")));
 					tree.initProgress();
 					return tree;
 				}

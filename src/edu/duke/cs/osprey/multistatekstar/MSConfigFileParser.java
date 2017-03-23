@@ -40,7 +40,7 @@ public class MSConfigFileParser extends ConfigFileParser {
 
 	public SearchProblem getSearchProblem(int state, int subState, ArrayList<Integer> mutRes, boolean cont) {
 
-		String flexibility = "cont";
+		String flexibility = cont ? "cont" : "disc";
 		ArrayList<String> mutResS = new ArrayList<>();
 		for(int res : mutRes) mutResS.add(String.valueOf(res));
 		
@@ -52,7 +52,6 @@ public class MSConfigFileParser extends ConfigFileParser {
 		LUTESettings luteSettings = new LUTESettings(params);
 
 		if(!cont) {
-			flexibility = "disc";
 			deeperSettings = deeperSettings.makeDiscreteVersion();
 			freeBBZones = new ArrayList<>();
 			moveableUbStates = new ArrayList<>();

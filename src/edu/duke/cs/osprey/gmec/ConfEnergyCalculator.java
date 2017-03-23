@@ -12,7 +12,6 @@ public interface ConfEnergyCalculator {
 
 		void calcEnergyAsync(ScoredConf conf, Listener listener);
 		int getParallelism();
-		void waitForSpace();
 		void waitForFinish();
 		void cleanup();
 
@@ -43,11 +42,6 @@ public interface ConfEnergyCalculator {
 				listener.onEnergy(calc.calcEnergy(conf));
 			}
 			
-			@Override
-			public void waitForSpace() {
-				// nothing to do
-			}
-
 			@Override
 			public void waitForFinish() {
 				// nothing to do

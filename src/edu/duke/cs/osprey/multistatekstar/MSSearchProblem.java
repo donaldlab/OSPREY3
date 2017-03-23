@@ -1,28 +1,61 @@
 package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Collections;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningMethod;
 
+/**
+ * 
+ * @author Adegoke Ojewole (ao68@duke.edu)
+ * 
+ */
 @SuppressWarnings("serial")
 public class MSSearchProblem extends SearchProblem {
 
-	SearchSettings settings;
+	MSSearchSettings settings;
+	private int numDefinedPos;
 
 	public MSSearchProblem(SearchProblem other, 
-			SearchSettings settings) {
+			MSSearchSettings settings) {
 		super(other);
 		if(settings==null) throw new RuntimeException("ERROR: search settings cannot be null");
 		this.settings = settings;
 		this.pruneMat = getReducedPruningMatrix();
 		this.allowedAAs = settings.AATypeOptions;
-		this.flexRes = settings.mutRes;
+		this.flexRes = settings.mutRes;//-1 for unassigned positions
+		this.numDefinedPos = other.confSpace.numPos-Collections.frequency(flexRes, "-1");
+	}
+	
+	public ArrayList<Integer> getPos(boolean defined) {
+		ArrayList<Integer> ans = new ArrayList<>();
+		for(int i=0;i<flexRes.size();++i) {
+			if(!defined && flexRes.get(i).equals("-1")) ans.add(i);//get undefined pos
+			else if(defined && !flexRes.get(i).equals("-1")) ans.add(i);//get defined pos
+		}
+		ans.trimToSize();
+		return ans;
+	}
+	
+	public int getNumDefinedPos() {
+		return numDefinedPos;
 	}
 	
 	public boolean isFullyDefined() {
-		return settings.mutRes.size()==confSpace.numPos;
+		return numDefinedPos==confSpace.numPos;
+	}
+	
+	public ArrayList<Integer> unprunedAtPos(QPruningMatrix pruneMat, int pos, String AAType) {
+		ArrayList<Integer> ans = new ArrayList<>();
+		for(int rc : pruneMat.unprunedRCsAtPos(pos)) {
+			String type = confSpace.posFlex.get(pos).RCs.get(rc).AAType;
+			if(!AAType.equalsIgnoreCase(type)) continue;
+			ans.add(rc);
+		}
+		return ans;
 	}
 
 	public QPruningMatrix prunePmat() {

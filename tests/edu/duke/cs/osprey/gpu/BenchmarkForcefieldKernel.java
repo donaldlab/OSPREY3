@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.gpu.opencl;
+package edu.duke.cs.osprey.gpu;
 
 import static org.junit.Assert.*;
 

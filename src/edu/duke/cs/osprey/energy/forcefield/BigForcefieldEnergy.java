@@ -14,6 +14,7 @@ import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.EEF1.SolvParams;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions.AtomGroup;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.NBParams;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
 import edu.duke.cs.osprey.gpu.BufferTools;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.AtomNeighbors;
@@ -42,6 +43,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		public final boolean useDistDependentDielectric;
 		public final boolean useHElectrostatics;
 		public final boolean useHVdw;
+		public final boolean useEEF1;
 		
 		public ParamInfo(ForcefieldParams params) {
 			
@@ -64,6 +66,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 			this.useDistDependentDielectric = params.distDepDielect;
 			this.useHElectrostatics = params.hElect;
 			this.useHVdw = params.hVDW;
+			this.useEEF1 = params.solvationForcefield == SolvationForcefield.EEF1;
 		}
 	}
 	
@@ -164,20 +167,23 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 				entries.put(type, build(pinfo, type));
 			}
 			
-			// calc the internal solv energy
-			// ie, add up all the dGref terms for all atoms in internal groups
-			SolvParams solvparams = new SolvParams();
 			internalSolvEnergy = 0;
+			if (pinfo.useEEF1) {
 				
-			if (group1 == group2) {
-				for (Atom atom : group1.getAtoms()) {
-					if (!atom.isHydrogen()) {
-						getSolvParams(pinfo, atom, solvparams);
-						internalSolvEnergy += solvparams.dGref;
+				// calc the internal solv energy
+				// ie, add up all the dGref terms for all atoms in internal groups
+				SolvParams solvparams = new SolvParams();
+					
+				if (group1 == group2) {
+					for (Atom atom : group1.getAtoms()) {
+						if (!atom.isHydrogen()) {
+							getSolvParams(pinfo, atom, solvparams);
+							internalSolvEnergy += solvparams.dGref;
+						}
 					}
 				}
+				internalSolvEnergy *= pinfo.params.solvScale;
 			}
-			internalSolvEnergy *= pinfo.params.solvScale;
 			
 			sequenceNumber1 = group1.getSequenceNumber();
 			sequenceNumber2 = group2.getSequenceNumber();
@@ -898,7 +904,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 					vdwEnergy += Aij/r12 - Bij/r6;
 				}
 				
-				if (bothHeavy && inRangeForSolv) {
+				if (pinfo.useEEF1 && bothHeavy && inRangeForSolv) {
 						
 					// read precomputed params
 					double lambda1 = precomputed.get(i9 + 3);

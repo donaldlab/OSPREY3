@@ -13,6 +13,10 @@ import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.StringParsing;
 
+/**
+ * @author Adegoke Ojewole (ao68@duke.edu)
+ * 
+ */
 public class InputValidation {
 
 	ArrayList<ArrayList<ArrayList<ArrayList<String>>>> AATypeOptions;

@@ -2,12 +2,17 @@ package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigDecimal;
 
+/**
+ * 
+ * @author Adegoke Ojewole (ao68@duke.edu)
+ * 
+ */
 public interface KStarScore {
 
 	public enum KStarScoreType {
 	    Continuous,//i.e. minimization
 	    Discrete,//discrete
-	    DiscretePairWise,//pw min numerator and denominator
+	    DiscretePairWiseMinimized,//pw min numerator and denominator
 	    DiscreteLowerBound,//discrete numerator, pw min denominator
 	    DiscreteUpperBound;//pw min numerator, discrete denominator
 	}

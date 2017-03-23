@@ -62,7 +62,7 @@ public class TestPartCR extends TestBase {
 		assertThat(minGMEC.getAssignments(), is(new int[] { 23, 23, 3, 5 }));
 		assertThat(minGMEC.getScore(), isRelatively(-66.883873, 1e-6));
 		assertThat(minGMEC.getEnergy(), isRelatively(-64.270196, 1e-6));
-		assertThat(expectedConfs.size(), is(16));
+		assertThat(expectedConfs.size(), is(15));
 		
 		// then make sure PartCR did the right thing
 		// the two conf lists should be identical, PartCR is only an optimization

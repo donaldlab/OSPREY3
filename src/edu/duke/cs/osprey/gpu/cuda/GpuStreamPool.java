@@ -2,6 +2,8 @@ package edu.duke.cs.osprey.gpu.cuda;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 public class GpuStreamPool {
@@ -29,7 +31,19 @@ public class GpuStreamPool {
 		this.numStreamsPerGpu = numStreamsPerGpu;
 		
 		// make sure we don't try to use too many gpus
-		List<Gpu> gpus = Gpus.get().getGpus();
+		List<Gpu> gpus = new ArrayList<Gpu>(Gpus.get().getGpus());
+
+		// AAO 2017: first sort gpus by decreasing order of free memory as a
+		// crude load-balancing strategy. otherwise, gpus are always hit in
+		// numerical device order for multiple osprey instances, leading to 
+		// unnecessary resource contention.
+		Collections.sort(gpus, new Comparator<Gpu>() {
+			@Override
+			public int compare(Gpu o1, Gpu o2) {
+				return o1.getFreeMemory() > o2.getFreeMemory() ? -1 : 1;
+			}
+		});
+
 		numGpus = Math.min(numGpus, gpus.size());
 		
 		// make contexts for all the gpus

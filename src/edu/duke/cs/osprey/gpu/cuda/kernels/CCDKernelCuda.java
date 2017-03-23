@@ -12,7 +12,6 @@ import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
-import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
 import edu.duke.cs.osprey.gpu.cuda.CUBuffer;
 import edu.duke.cs.osprey.gpu.cuda.GpuStream;
 import edu.duke.cs.osprey.gpu.cuda.Kernel;
@@ -91,11 +90,6 @@ public class CCDKernelCuda extends Kernel {
 			throw new Error("CCD kernel needs a " + BigForcefieldEnergy.class.getSimpleName() + ", not a " + mof.efunc.getClass().getSimpleName() + ". this is a bug.");
 		}
 		
-		// check for unsupported forcefield options
-		if (ffenergy.getParams().params.solvationForcefield != SolvationForcefield.EEF1) {
-			throw new UnsupportedOperationException("Configurable solvation forcefields not yet supported on GPUs");
-		}
-		
 		// handle any chemical changes
 		ffSequenceNumber = ffenergy.getFullSubset().handleChemicalChanges();
 		ffenergy.updateCoords();
@@ -117,6 +111,7 @@ public class CCDKernelCuda extends Kernel {
 		argsBuf.put((byte)(ffenergy.getParams().useDistDependentDielectric ? 1 : 0));
 		argsBuf.put((byte)(ffenergy.getParams().useHElectrostatics ? 1 : 0));
 		argsBuf.put((byte)(ffenergy.getParams().useHVdw ? 1 : 0));
+		argsBuf.put((byte)(ffenergy.getParams().useEEF1 ? 1 : 0));
 		
 		// upload static forcefield info
 		atomFlags.uploadAsync();

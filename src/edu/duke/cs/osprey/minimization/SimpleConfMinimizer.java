@@ -39,13 +39,6 @@ public class SimpleConfMinimizer implements ConfEnergyCalculator.Async {
 		private Parallelism parallelism = Parallelism.makeCpu(1);
 		private Type type = null;
 		
-		/**
-		 * Is the number of conformations to be minimized unknown in advance?
-		 * 
-		 * @todo describe conf streaming and ThreadPoolTaskExecutor buffers. or just get rid of the buffering entirely.
-		 */
-		private boolean isStreaming = false;
-		
 		public Builder(SimpleConfSpace confSpace, ForcefieldParams ffparams) {
 			this.confSpace = confSpace;
 			this.ffparams = ffparams;
@@ -58,11 +51,6 @@ public class SimpleConfMinimizer implements ConfEnergyCalculator.Async {
 		
 		public Builder setType(Type val) {
 			type = val;
-			return this;
-		}
-		
-		public Builder setStreaming(boolean val) {
-			isStreaming = val;
 			return this;
 		}
 		
@@ -80,7 +68,6 @@ public class SimpleConfMinimizer implements ConfEnergyCalculator.Async {
 			return new SimpleConfMinimizer(
 				confSpace,
 				parallelism,
-				isStreaming,
 				type,
 				ffparams
 			);
@@ -260,19 +247,17 @@ public class SimpleConfMinimizer implements ConfEnergyCalculator.Async {
 	
 	public final SimpleConfSpace confSpace;
 	public final Parallelism parallelism;
-	public final boolean isStreaming;
 	public final TaskExecutor tasks;
 	public final Type type;
 	public final ForcefieldParams ffparams;
 	
 	private Type.Context context;
 	
-	private SimpleConfMinimizer(SimpleConfSpace confSpace, Parallelism parallelism, boolean isStreaming, Type type, ForcefieldParams ffparams) {
+	private SimpleConfMinimizer(SimpleConfSpace confSpace, Parallelism parallelism, Type type, ForcefieldParams ffparams) {
 		
 		this.confSpace = confSpace;
 		this.parallelism = parallelism;
-		this.isStreaming = isStreaming;
-		this.tasks = parallelism.makeTaskExecutor(isStreaming);
+		this.tasks = parallelism.makeTaskExecutor();
 		this.type = type;
 		this.ffparams = ffparams;
 		
@@ -280,7 +265,6 @@ public class SimpleConfMinimizer implements ConfEnergyCalculator.Async {
 	}
 	
 	public void cleanup() {
-		parallelism.cleanupTaskExecutor(tasks);
 		context.cleanup();
 	}
 	
@@ -338,25 +322,12 @@ public class SimpleConfMinimizer implements ConfEnergyCalculator.Async {
 	}
 	
 	public void minimizeAsync(ScoredConf conf, Listener<EnergiedConf> listener) {
-		
-		class Task implements Runnable {
-			
-			public EnergiedConf econf;
-			
-			@Override
-			public void run() {
-				econf = minimizeSync(conf);
-			}
-		}
-		
-		// submit the minimization task and chain the listener if needed
-		if (listener == null) {
-			tasks.submit(new Task());
-		} else {
-			tasks.submit(new Task(), (task) -> {
-				listener.onMinimized(task.econf);
-			});
-		}
+		EnergiedConf[] econfs = { null };
+		tasks.submit(() -> {
+			econfs[0] = minimizeSync(conf);
+		}, (task) -> {
+			listener.onMinimized(econfs[0]);
+		});
 	}
 	
 	public void minimizeAsync(int[] conf) {
@@ -372,35 +343,17 @@ public class SimpleConfMinimizer implements ConfEnergyCalculator.Async {
 	}
 	
 	public void minimizeAsync(RCTuple conf, Listener<Minimizer.Result> listener) {
-		
-		class Task implements Runnable {
-			
-			public Minimizer.Result result;
-			
-			@Override
-			public void run() {
-				result = minimizeSync(conf);
-			}
-		}
-		
-		// submit the minimization task and chain the listener if needed
-		if (listener == null) {
-			tasks.submit(new Task());
-		} else {
-			tasks.submit(new Task(), (task) -> {
-				listener.onMinimized(task.result);
-			});
-		}
+		Minimizer.Result[] results = { null };
+		tasks.submit(() -> {
+			results[0] = minimizeSync(conf);
+		}, (task) -> {
+			listener.onMinimized(results[0]);
+		});
 	}
 	
 	@Override
 	public int getParallelism() {
 		return parallelism.getParallelism();
-	}
-	
-	@Override
-	public void waitForSpace() {
-		tasks.waitForSpace();
 	}
 	
 	@Override

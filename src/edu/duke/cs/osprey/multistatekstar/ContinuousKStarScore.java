@@ -12,15 +12,20 @@ import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction.Status;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
+/**
+ * @author Adegoke Ojewole (ao68@duke.edu)
+ * 
+ */
+
 public class ContinuousKStarScore implements KStarScore {
 
-	public KStarSettings settings;
+	public MSKStarSettings settings;
 	public ContinuousPartitionFunction[] partitionFunctions;
 	protected boolean[] initialized;
 	public int numStates;
-	private boolean constrSatisfied;
+	protected boolean constrSatisfied;
 
-	public ContinuousKStarScore(KStarSettings settings) {
+	public ContinuousKStarScore(MSKStarSettings settings) {
 		this.settings = settings;
 		numStates = settings.search.length;
 		partitionFunctions = new ContinuousPartitionFunction[numStates];
@@ -41,14 +46,14 @@ public class ContinuousKStarScore implements KStarScore {
 		}
 		return ans;
 	}
-	
+
 	public BigDecimal getScore() {
 		BigDecimal den = getDenom();
 		if(den.compareTo(BigDecimal.ZERO) == 0) return BigDecimal.ZERO;
 		PartitionFunction pf = partitionFunctions[numStates-1];
 		return pf.getValues().qstar.divide(den, RoundingMode.HALF_UP);
 	}
-	
+
 	@Override
 	public BigDecimal getLowerBoundScore() {
 		return getScore();
@@ -75,16 +80,16 @@ public class ContinuousKStarScore implements KStarScore {
 		String ans = sb.toString().trim();
 		return ans.substring(0,ans.length()-1);
 	}
-	
+
 	protected boolean init(int state) {
 		//first prune the pruning matrix
 		settings.search[state].prunePmat();
-		
+
 		//make conf search factory (i.e. A* tree)
-		ConfSearchFactory confSearchFactory = KStarFactory.makeConfSearchFactory(settings.search[state], settings.cfp);
-		
+		ConfSearchFactory confSearchFactory = MSKStarFactory.makeConfSearchFactory(settings.search[state], settings.cfp);
+
 		//create partition function
-		partitionFunctions[state] = (ContinuousPartitionFunction) KStarFactory.makePartitionFunction( 
+		partitionFunctions[state] = (ContinuousPartitionFunction) MSKStarFactory.makePartitionFunction( 
 				settings.pfTypes[state],
 				settings.search[state].emat, 
 				settings.search[state].pruneMat,
@@ -111,9 +116,9 @@ public class ContinuousKStarScore implements KStarScore {
 			partitionFunctions[state].setConfListener((ScoredConf conf) -> {
 				partitionFunctions[pfState].saveConf(conf);
 			});
-			
+
 		}
-		
+
 		return true;
 	}
 
@@ -124,19 +129,19 @@ public class ContinuousKStarScore implements KStarScore {
 	public void compute(int maxNumConfs) {
 
 		for(int state=0;state<numStates;++state){
-			
+
 			if(!constrSatisfied)
 				return;
 
 			if(!initialized[state])
 				initialized[state] = init(state);
-			
+
 			compute(state, maxNumConfs);
 		}
-		
+
 		//check all constraints now. technically, we should only check constraints
 		//that don't pertain to only one state, which we have already checked in compute(state)
-		if(constrSatisfied)
+		if(settings.isFinal && constrSatisfied) 
 			constrSatisfied = checkConstraints();
 	}
 
@@ -172,25 +177,27 @@ public class ContinuousKStarScore implements KStarScore {
 			targetScoreWeights = (pstar.add(qprime)).subtract(targetScoreWeights);
 		}
 
+		ConfSearchFactory confSearchFactory = MSKStarFactory.makeConfSearchFactory(settings.search[state], settings.cfp);
+
 		PruningMatrix invPmat = ((QPruningMatrix)settings.search[state].pruneMat).invert();
-		settings.search[state].pruneMat = invPmat;
-
-		ConfSearchFactory confSearchFactory = KStarFactory.makeConfSearchFactory(settings.search[state], settings.cfp);
-
-		ContinuousPartitionFunction p2pf = (ContinuousPartitionFunction) KStarFactory.makePartitionFunction( 
+		//settings.search[state].pruneMat = invPmat;
+		
+		ContinuousPartitionFunction p2pf = (ContinuousPartitionFunction) MSKStarFactory.makePartitionFunction( 
 				settings.pfTypes[state],
 				settings.search[state].emat, 
-				settings.search[state].pruneMat, 
+				invPmat,
+				//settings.search[state].pruneMat, 
 				confSearchFactory,
 				settings.ecalcs[state]
 				);
 
-		p2pf.init(0.03);
+		p2pf.init(targetEpsilon);//enumerating over pstar, energies can be high
+		p2pf.getValues().qstar = qstar;//keep old qstar
 		p2pf.compute(targetScoreWeights);
 		return p2pf;
 	}
 
-	private void compute(int state, int maxNumConfs) {
+	protected void compute(int state, int maxNumConfs) {
 		if(settings.isReportingProgress) 
 			System.out.println("state"+state+": "+settings.search[state].settings.getFormattedSequence());
 		ContinuousPartitionFunction pf = partitionFunctions[state];
@@ -199,17 +206,16 @@ public class ContinuousKStarScore implements KStarScore {
 		//no more q conformations, and we have not reached epsilon
 		if(pf.getValues().getEffectiveEpsilon() > settings.targetEpsilon) {
 			ContinuousPartitionFunction p2pf = (ContinuousPartitionFunction) phase2(state);
-			pf.getValues().qstar = pf.getValues().qstar.add(p2pf.getValues().qstar);
-			pf.setStatus(p2pf.getStatus());
+			pf.getValues().qstar = p2pf.getValues().qstar;
+			pf.setStatus(Status.Estimated);
 			if(settings.search[state].isFullyDefined() && settings.numTopConfsToSave > 0)
 				pf.saveEConfs(p2pf.topConfs);
 		}
-		
-		constrSatisfied = checkConstraints(state);
-		
-		//print top confs
-		if(settings.search[state].isFullyDefined() && settings.numTopConfsToSave > 0)
-			pf.writeTopConfs(settings.state, settings.search[state]);
+
+		if(settings.isFinal) {//final is a superset of fully defined
+			if(constrSatisfied) constrSatisfied = checkConstraints(state);
+			if(settings.numTopConfsToSave > 0) pf.writeTopConfs(settings.state, settings.search[state]);
+		}
 	}
 
 	private ArrayList<LMV> getLMVsForState(int state) {
@@ -232,33 +238,33 @@ public class ContinuousKStarScore implements KStarScore {
 
 		return ans;
 	}
-	
+
 	private boolean checkConstraints(int state) {
-		
+
 		//see if partition function satisfies constraints
 		for(LMV constr : getLMVsForState(state)){
-			
+
 			BigDecimal[] stateVals = new BigDecimal[numStates];
 			for(int s=0;s<numStates;++s){
 				ContinuousPartitionFunction pf = partitionFunctions[s];
 				stateVals[s] = pf == null ? BigDecimal.ZERO : pf.getValues().qstar;
 			}
-			
+
 			//can short circuit computation of k* score if any of the unbound
 			//states does not satisfy constraints
 			if(constr.eval(stateVals).compareTo(BigDecimal.ZERO) > 0)
 				return false;
 		}
-		
+
 		return true;
 	}
-	
+
 	private boolean checkConstraints() {
 		if(!constrSatisfied) return constrSatisfied;
 		if(settings.constraints==null) return true;
-		
+
 		BigDecimal[] stateVals = new BigDecimal[numStates];
-		
+
 		for(int c=0;c<settings.constraints.length;++c){
 			LMV constr = settings.constraints[c];	
 			for(int s=0;s<numStates;++s){

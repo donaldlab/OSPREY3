@@ -6,7 +6,6 @@ import java.nio.DoubleBuffer;
 import java.nio.IntBuffer;
 
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
-import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
 import edu.duke.cs.osprey.gpu.ForcefieldKernel;
 import edu.duke.cs.osprey.gpu.cuda.CUBuffer;
 import edu.duke.cs.osprey.gpu.cuda.GpuStream;
@@ -34,11 +33,6 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 		
 		this.ffenergy = ffenergy;
 		
-		// check for unsupported forcefield options
-		if (ffenergy.getParams().params.solvationForcefield != SolvationForcefield.EEF1) {
-			throw new UnsupportedOperationException("Configurable solvation forcefields not yet supported on GPUs");
-		}
-		
 		func = makeFunction("calc");
 		func.blockThreads = 512; // NOTE: optimizing this doesn't make much difference
 		func.sharedMemCalc = new Kernel.SharedMemCalculator() {
@@ -60,7 +54,7 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 		precomputed.uploadAsync();
 		
 		// make the args buffer
-		args = getStream().makeByteBuffer(36);
+		args = getStream().makeByteBuffer(40);
 		ByteBuffer argsBuf = args.getHostBuffer();
 		argsBuf.rewind();
 		argsBuf.putInt(0); // set by setSubsetInternal()
@@ -72,6 +66,7 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 		argsBuf.put((byte)(ffenergy.getParams().useHElectrostatics ? 1 : 0));
 		argsBuf.put((byte)(ffenergy.getParams().useHVdw ? 1 : 0));
 		argsBuf.put((byte)0); // set by setSubsetInternal()
+		argsBuf.put((byte)(ffenergy.getParams().useEEF1 ? 1 : 0));
 		argsBuf.flip();
 		
 		// set the subset

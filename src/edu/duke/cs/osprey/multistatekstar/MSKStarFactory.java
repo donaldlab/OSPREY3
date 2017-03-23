@@ -14,9 +14,14 @@ import edu.duke.cs.osprey.multistatekstar.KStarScore.PartitionFunctionType;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
-public class KStarFactory {
+/**
+ * 
+ * @author Adegoke Ojewole (ao68@duke.edu)
+ * 
+ */
+public class MSKStarFactory {
 
-	public static KStarScore makeStarScore(
+	public static KStarScore makeKStarScore(
 			ParamSet msParams,
 			int state,
 			MSConfigFileParser cfp,
@@ -28,7 +33,7 @@ public class KStarFactory {
 			) {
 
 		ParamSet sParams = cfp.params;
-		KStarSettings settings = new KStarSettings();
+		MSKStarSettings settings = new MSKStarSettings();
 		settings.state = state;
 		settings.cfp = cfp;
 		settings.targetEpsilon = sParams.getDouble("EPSILON");
@@ -55,6 +60,7 @@ public class KStarFactory {
 				settings.search[subState] = searchCont[subState];
 				settings.ecalcs[subState] = ecalcsCont[subState];
 			}
+			settings.isFinal = true;
 			return new ContinuousKStarScore(settings);
 			
 		case Discrete:
@@ -63,14 +69,16 @@ public class KStarFactory {
 				settings.search[subState] = searchDisc[subState];
 				settings.ecalcs[subState] = ecalcsDisc[subState];
 			}
+			settings.isFinal = true;
 			return new DiscreteKStarScore(settings);
 			
-		case DiscretePairWise:
+		case DiscretePairWiseMinimized:
 			for(int subState=0;subState<numPartFuncs;++subState){
 				settings.pfTypes[subState] = PartitionFunctionType.Discrete;
 				settings.search[subState] = searchCont[subState];
 				settings.ecalcs[subState] = ecalcsCont[subState];
 			}
+			settings.isFinal = true;
 			settings.numTopConfsToSave = 0;
 			return new DiscreteKStarScore(settings);
 			
@@ -83,6 +91,7 @@ public class KStarFactory {
 			settings.pfTypes[numPartFuncs-1] = PartitionFunctionType.DiscreteUpperBound;
 			settings.search[numPartFuncs-1] = searchCont[numPartFuncs-1];
 			settings.ecalcs[numPartFuncs-1] = ecalcsCont[numPartFuncs-1];
+			settings.isFinal = false;
 			settings.numTopConfsToSave = 0;
 			return new DiscreteKStarScore(settings);
 			
@@ -95,6 +104,7 @@ public class KStarFactory {
 			settings.pfTypes[numPartFuncs-1] = PartitionFunctionType.Discrete;
 			settings.search[numPartFuncs-1] = searchDisc[numPartFuncs-1];
 			settings.ecalcs[numPartFuncs-1] = ecalcsDisc[numPartFuncs-1];
+			settings.isFinal = false;
 			settings.numTopConfsToSave = 0;
 			return new DiscreteKStarScore(settings);
 			
@@ -112,8 +122,7 @@ public class KStarFactory {
 		ConfEnergyCalculator.Async ecalc = MinimizingConfEnergyCalculator.make(
 				makeDefaultFFParams(cfp.params),
 				multiSeqSearch, 
-				parallelism, 
-				multiSeqSearch.contSCFlex
+				parallelism 
 				);
 		return ecalc;
 	}
