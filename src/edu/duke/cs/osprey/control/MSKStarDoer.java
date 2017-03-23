@@ -244,8 +244,14 @@ public class MSKStarDoer {
 			spSet.stericThreshold = sParams.getDouble("STERICTHRESH");
 			spSet.pruningWindow = sParams.getDouble("IVAL") + sParams.getDouble("EW");
 
-			if(doMinimize) singleSeqSearchCont[subState] = new MSSearchProblem(searchCont[state][subState], spSet);
-			else singleSeqSearchDisc[subState] = new MSSearchProblem(searchDisc[state][subState], spSet);
+			if(doMinimize) {
+				singleSeqSearchCont[subState] = new MSSearchProblem(searchCont[state][subState], spSet);
+				singleSeqSearchCont[subState].setPruningMatrix();
+			}
+			else {
+				singleSeqSearchDisc[subState] = new MSSearchProblem(searchDisc[state][subState], spSet);
+				singleSeqSearchDisc[subState].setPruningMatrix();
+			}
 		}
 
 		KStarScoreType scoreType = doMinimize ? KStarScoreType.Minimized : KStarScoreType.Discrete;

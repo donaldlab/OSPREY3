@@ -7,39 +7,42 @@ import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
-/**
- * 
- * @author Adegoke Ojewole (ao68@duke.edu)
- * Used for p* in full and partial sequences
- *
- */
-
 @SuppressWarnings("serial")
-public class PPruningMatrix extends QPruningMatrix {
-	protected QPruningMatrix other;
+public class PruningMatrixInverted extends PruningMatrix {
 
-	public PPruningMatrix(QPruningMatrix other){
-		super(other);
+	private PruningMatrix other;
+	private MSSearchProblem search;
+
+	public PruningMatrixInverted(
+			MSSearchProblem search,
+			PruningMatrix other
+			) {
+		super();
 		this.other = other;
-		this.assignedAATypeOptions = other.assignedAATypeOptions;
-		this.assignedFlexRes = other.assignedFlexRes;
-		this.sp = other.sp;
+		this.search = search;
+	}
 
-		if(!isValid())
-			throw new RuntimeException("ERROR: did not prune all RCs outside of assigned AA type options");
+	private boolean somethingPrunedForAAType(int res, String rcAAType) {
+		for(int index : other.prunedRCsAtPos(res)) {
+			String rcAAType2 = search.confSpace.posFlex.get(res).RCs.get(index).AAType;
+			if(!rcAAType2.equalsIgnoreCase(rcAAType)) continue;
+			else
+				return true;
+		}
+		return false;
 	}
 
 	@Override
 	public Boolean getOneBody(int res, int index) {
-		String rcAAType = other.sp.confSpace.posFlex.get(res).RCs.get(index).AAType;
+		String rcAAType = search.confSpace.posFlex.get(res).RCs.get(index).AAType;
 
 		//if not in specified list, then already marked as pruned in reduced matrix
-		if(!other.assignedAATypeOptions.get(res).contains(rcAAType)) 
+		if(!search.allowedAAs.get(res).contains(rcAAType)) 
 			return true;
 
 		//if in specified aa list, invert.
 		//except...if no rcs are pruned for a specified aa in our list, there 
-		//will be no P confs.
+		//will be no confs.
 		else {
 			if(somethingPrunedForAAType(res, rcAAType))
 				return !other.getOneBody(res, index);
@@ -49,39 +52,21 @@ public class PPruningMatrix extends QPruningMatrix {
 		}
 	}
 
-	public boolean somethingPrunedForAAType(int res, String rcAAType) {
-		for(int index : other.prunedRCsAtPos(res)) {
-			String rcAAType2 = other.sp.confSpace.posFlex.get(res).RCs.get(index).AAType;
-			if(!rcAAType2.equalsIgnoreCase(rcAAType)) continue;
-			else
-				return true;
-		}
-		return false;
+	private boolean contains(int res1, int index1, int res2, int index2) {
+		String rcAAType1 = search.confSpace.posFlex.get(res1).RCs.get(index1).AAType;
+		String rcAAType2 = search.confSpace.posFlex.get(res2).RCs.get(index2).AAType;
+		boolean c1 = search.allowedAAs.get(res1).contains(rcAAType1);
+		boolean c2 = search.allowedAAs.get(res2).contains(rcAAType2);
+		return c1 && c2;
 	}
 
 	@Override
 	public Boolean getPairwise(int res1, int index1, int res2, int index2) {
-		if(other.contains(res1, index1, res2, index2))
-			return other.getPairwise(res1, index1, res2, index2);
+		if(contains(res1, index1, res2, index2)) {
+			if(!getOneBody(res1, index1) && !getOneBody(res2, index2))
+				return false;
+		}
 		return true;
-	}
-
-	@Override
-	public HigherTupleFinder<Boolean> getHigherOrderTerms(int res1, int index1, int res2, int index2) {
-		throw new UnsupportedOperationException("ERROR: higher order terms are not supported in P pruning matrix");
-	}
-
-	public PruningMatrix invert() {
-		return new P2PruningMatrix(this);
-	}
-
-	public PruningMatrix getParent() {
-		return other.parent;
-	}
-
-	@Override
-	public int getNumPos() {
-		return other.getNumPos();
 	}
 
 	@Override
@@ -130,11 +115,27 @@ public class PPruningMatrix extends QPruningMatrix {
 	}
 
 	@Override
+	public HigherTupleFinder<Boolean> getHigherOrderTerms(int res1, int conf1, int res2, int conf2) {
+		throw new UnsupportedOperationException("higher order terms not yet supported with value inversion");
+	}
+
+	@Override
 	public void setHigherOrderTerms(int res1, int conf1, int res2, int conf2, HigherTupleFinder<Boolean> val) {
 		dontwrite();
 	}
 
-	private void dontwrite() {
-		throw new UnsupportedOperationException("ERROR: P pruning matrix is read-only");
+	@Override
+	public int getNumPos() {
+		return other.getNumPos();
 	}
+
+	@Override
+	public int getNumConfAtPos(int pos) {
+		return other.getNumConfAtPos(pos);
+	}
+
+	private void dontwrite() {
+		throw new UnsupportedOperationException("this inverted pruning matrix is read-only");
+	}
+
 }

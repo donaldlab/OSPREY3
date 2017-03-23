@@ -26,16 +26,23 @@ import edu.duke.cs.osprey.tools.Stopwatch;
  * 
  */
 
-public class MinimizedPartitionFunction extends ParallelConfPartitionFunction {
+public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 	protected PriorityQueue<ScoredConf> topConfs;
 	protected int maxNumTopConfs;
 	protected BigDecimal qstarScoreWeights;
 	protected int numActiveThreads;
+	protected PruningMatrix invmat;
 
-	public MinimizedPartitionFunction(EnergyMatrix emat, PruningMatrix pmat, ConfSearchFactory confSearchFactory,
-			Async ecalc) {
+	public PartitionFunctionMinimized(
+			EnergyMatrix emat, 
+			PruningMatrix pmat, 
+			PruningMatrix invmat, 
+			ConfSearchFactory confSearchFactory,
+			Async ecalc
+			) {
 		super(emat, pmat, confSearchFactory, ecalc);
+		this.invmat = invmat;
 		qstarScoreWeights = null;
 		topConfs = null;
 	}
@@ -88,7 +95,7 @@ public class MinimizedPartitionFunction extends ParallelConfPartitionFunction {
 		values = new Values();
 
 		// compute p*: boltzmann-weight the scores for all pruned conformations
-		ConfSearch ptree = confSearchFactory.make(emat, ((QPruningMatrix)pmat).invert());
+		ConfSearch ptree = confSearchFactory.make(emat, invmat);
 		((ConfAStarTree)ptree).stopProgress();
 		values.pstar = calcWeightSumUpperBound(ptree);
 
@@ -193,7 +200,7 @@ public class MinimizedPartitionFunction extends ParallelConfPartitionFunction {
 
 				// this is (potentially) running on a task executor listener thread
 				// so lock to keep from racing the main thread
-				synchronized (MinimizedPartitionFunction.this) {
+				synchronized (PartitionFunctionMinimized.this) {
 
 					if(status == Status.Estimating) {
 
@@ -287,7 +294,7 @@ public class MinimizedPartitionFunction extends ParallelConfPartitionFunction {
 
 				// this is (potentially) running on a task executor listener thread
 				// so lock to keep from racing the main thread
-				synchronized (MinimizedPartitionFunction.this) {
+				synchronized (PartitionFunctionMinimized.this) {
 
 					if(status == Status.Estimating) {
 

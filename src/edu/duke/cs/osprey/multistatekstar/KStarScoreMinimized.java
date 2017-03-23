@@ -17,18 +17,18 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
  * 
  */
 
-public class MinimizedKStarScore implements KStarScore {
+public class KStarScoreMinimized implements KStarScore {
 
 	public MSKStarSettings settings;
-	public MinimizedPartitionFunction[] partitionFunctions;
+	public PartitionFunctionMinimized[] partitionFunctions;
 	protected boolean[] initialized;
 	public int numStates;
 	protected boolean constrSatisfied;
 
-	public MinimizedKStarScore(MSKStarSettings settings) {
+	public KStarScoreMinimized(MSKStarSettings settings) {
 		this.settings = settings;
 		numStates = settings.search.length;
-		partitionFunctions = new MinimizedPartitionFunction[numStates];
+		partitionFunctions = new PartitionFunctionMinimized[numStates];
 		initialized = new boolean[numStates];
 		Arrays.fill(partitionFunctions, null);
 		Arrays.fill(initialized, false);
@@ -89,10 +89,11 @@ public class MinimizedKStarScore implements KStarScore {
 		ConfSearchFactory confSearchFactory = MSKStarFactory.makeConfSearchFactory(settings.search[state], settings.cfp);
 
 		//create partition function
-		partitionFunctions[state] = (MinimizedPartitionFunction) MSKStarFactory.makePartitionFunction( 
+		partitionFunctions[state] = (PartitionFunctionMinimized) MSKStarFactory.makePartitionFunction( 
 				settings.pfTypes[state],
 				settings.search[state].emat, 
 				settings.search[state].pruneMat,
+				new PruningMatrixInverted(settings.search[state], settings.search[state].pruneMat),
 				confSearchFactory,
 				settings.ecalcs[state]
 				);
@@ -179,14 +180,13 @@ public class MinimizedKStarScore implements KStarScore {
 
 		ConfSearchFactory confSearchFactory = MSKStarFactory.makeConfSearchFactory(settings.search[state], settings.cfp);
 
-		PruningMatrix invPmat = ((QPruningMatrix)settings.search[state].pruneMat).invert();
-		//settings.search[state].pruneMat = invPmat;
+		PruningMatrix invmat = ((PartitionFunctionMinimized)pf).invmat;
 		
-		MinimizedPartitionFunction p2pf = (MinimizedPartitionFunction) MSKStarFactory.makePartitionFunction( 
+		PartitionFunctionMinimized p2pf = (PartitionFunctionMinimized) MSKStarFactory.makePartitionFunction( 
 				settings.pfTypes[state],
 				settings.search[state].emat, 
-				invPmat,
-				//settings.search[state].pruneMat, 
+				invmat,
+				new PruningMatrixNull(invmat), 
 				confSearchFactory,
 				settings.ecalcs[state]
 				);
@@ -200,13 +200,13 @@ public class MinimizedKStarScore implements KStarScore {
 	protected void compute(int state, int maxNumConfs) {
 		if(settings.isReportingProgress) 
 			System.out.println("state"+state+": "+settings.search[state].settings.getFormattedSequence());
-		MinimizedPartitionFunction pf = partitionFunctions[state];
+		PartitionFunctionMinimized pf = partitionFunctions[state];
 		pf.compute(maxNumConfs);	
 
 		//no more q conformations, and we have not reached epsilon
 		double effectiveEpsilon = pf.getValues().getEffectiveEpsilon();
 		if(!Double.isNaN(effectiveEpsilon) && effectiveEpsilon > settings.targetEpsilon) {
-			MinimizedPartitionFunction p2pf = (MinimizedPartitionFunction) phase2(state);
+			PartitionFunctionMinimized p2pf = (PartitionFunctionMinimized) phase2(state);
 			pf.getValues().qstar = p2pf.getValues().qstar;
 			if(settings.search[state].isFullyDefined() && settings.numTopConfsToSave > 0)
 				pf.saveEConfs(p2pf.topConfs);
@@ -248,7 +248,7 @@ public class MinimizedKStarScore implements KStarScore {
 
 			BigDecimal[] stateVals = new BigDecimal[numStates];
 			for(int s=0;s<numStates;++s){
-				MinimizedPartitionFunction pf = partitionFunctions[s];
+				PartitionFunctionMinimized pf = partitionFunctions[s];
 				stateVals[s] = pf == null ? BigDecimal.ZERO : pf.getValues().qstar;
 			}
 
@@ -270,7 +270,7 @@ public class MinimizedKStarScore implements KStarScore {
 		for(int c=0;c<settings.constraints.length;++c){
 			LMB constr = settings.constraints[c];	
 			for(int s=0;s<numStates;++s){
-				MinimizedPartitionFunction pf = partitionFunctions[s];
+				PartitionFunctionMinimized pf = partitionFunctions[s];
 				stateVals[s] = pf == null ? BigDecimal.ZERO : pf.getValues().qstar;
 			}
 
@@ -296,7 +296,7 @@ public class MinimizedKStarScore implements KStarScore {
 
 	@Override
 	public boolean isFullyProcessed() {
-		for(MinimizedPartitionFunction pf : partitionFunctions)
+		for(PartitionFunctionMinimized pf : partitionFunctions)
 			if(pf != null && pf.getStatus() != Status.Estimated) return false;
 		return settings.isFinal;
 	}

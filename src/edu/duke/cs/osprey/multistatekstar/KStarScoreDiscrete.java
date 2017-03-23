@@ -2,14 +2,16 @@ package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigDecimal;
 
+import edu.duke.cs.osprey.pruning.PruningMatrix;
+
 /**
  * @author Adegoke Ojewole (ao68@duke.edu)
  * 
  */
 
-public class DiscreteKStarScore extends MinimizedKStarScore {
+public class KStarScoreDiscrete extends KStarScoreMinimized {
 
-	public DiscreteKStarScore(MSKStarSettings settings) {
+	public KStarScoreDiscrete(MSKStarSettings settings) {
 		super(settings);
 	}
 
@@ -29,7 +31,7 @@ public class DiscreteKStarScore extends MinimizedKStarScore {
 		
 		//multiply q* by number of undefined confs
 		if(!settings.search[state].isFullyDefined()) {
-			DiscretePartitionFunction pf = (DiscretePartitionFunction) partitionFunctions[state];
+			PartitionFunctionDiscrete pf = (PartitionFunctionDiscrete) partitionFunctions[state];
 			pf.getValues().qstar = pf.getValues().qstar.multiply(numUndefinedConfs(state));
 		}
 	}
@@ -43,7 +45,7 @@ public class DiscreteKStarScore extends MinimizedKStarScore {
 		
 		MSSearchProblem search = settings.search[state];
 		boolean minConfs = search.settings.energyLBs ? false : true;
-		QPruningMatrix pmat = (QPruningMatrix)search.pruneMat;
+		PruningMatrix pmat = search.pruneMat;
 		
 		for(int pos : search.getPosNums(false)) {
 			
@@ -54,7 +56,7 @@ public class DiscreteKStarScore extends MinimizedKStarScore {
 				long numAARCs = search.unprunedAtPos(pmat, pos, AAType).size();
 				unPrunedConfs = minConfs ? Math.min(unPrunedConfs, numAARCs) : Math.max(unPrunedConfs, numAARCs);
 				if(!minConfs) {
-					numAARCs = search.unprunedAtPos((QPruningMatrix)pmat.invert(), pos, AAType).size();
+					numAARCs = search.unprunedAtPos(partitionFunctions[state].invmat, pos, AAType).size();
 					prunedConfs = Math.max(prunedConfs, numAARCs);
 				}
 			}

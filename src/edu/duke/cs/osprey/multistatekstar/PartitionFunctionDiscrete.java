@@ -15,11 +15,16 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
  * @author Adegoke Ojewole (ao68@duke.edu)
  *
  */
-public class DiscretePartitionFunction extends MinimizedPartitionFunction {
+public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 
-	public DiscretePartitionFunction(EnergyMatrix emat, PruningMatrix pmat, ConfSearchFactory confSearchFactory,
-			Async ecalc) {
-		super(emat, pmat, confSearchFactory, ecalc);
+	public PartitionFunctionDiscrete(
+			EnergyMatrix emat, 
+			PruningMatrix pmat, 
+			PruningMatrix invmat, 
+			ConfSearchFactory confSearchFactory,
+			Async ecalc
+			) {
+		super(emat, pmat, invmat, confSearchFactory, ecalc);
 	}
 
 	@Override

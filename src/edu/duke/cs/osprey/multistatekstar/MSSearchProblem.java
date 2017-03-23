@@ -4,9 +4,11 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 
+import edu.duke.cs.osprey.astar.comets.UpdatedPruningMatrix;
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.pruning.Pruner;
-import edu.duke.cs.osprey.pruning.PruningMethod;
+import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 /**
  * 
@@ -28,7 +30,7 @@ public class MSSearchProblem extends SearchProblem {
 		this.flexRes = settings.mutRes;//-1 for unassigned positions
 		this.numDefinedPos = other.confSpace.numPos-Collections.frequency(flexRes, "-1");
 	}
-	
+
 	public ArrayList<Integer> getPosNums(boolean defined) {
 		ArrayList<Integer> ans = new ArrayList<>();
 		for(int i=0;i<flexRes.size();++i) {
@@ -38,16 +40,16 @@ public class MSSearchProblem extends SearchProblem {
 		ans.trimToSize();
 		return ans;
 	}
-	
+
 	public int getNumDefinedPos() {
 		return numDefinedPos;
 	}
-	
+
 	public boolean isFullyDefined() {
 		return numDefinedPos==confSpace.numPos;
 	}
-	
-	public ArrayList<Integer> unprunedAtPos(QPruningMatrix pruneMat, int pos, String AAType) {
+
+	public ArrayList<Integer> unprunedAtPos(PruningMatrix pruneMat, int pos, String AAType) {
 		ArrayList<Integer> ans = new ArrayList<>();
 		for(int rc : pruneMat.unprunedRCsAtPos(pos)) {
 			String type = confSpace.posFlex.get(pos).RCs.get(rc).AAType;
@@ -57,42 +59,77 @@ public class MSSearchProblem extends SearchProblem {
 		return ans;
 	}
 
-	public QPruningMatrix prunePmat() {
-		this.pruneMat = getReducedPruningMatrix();
-		return prunePmat(this, settings.stericThreshold, settings.stericThreshold);
+	public void setPruningMatrix() {
+		this.pruneMat = updatePruningMatrix(getPosNums(true), allowedAAs);
 	}
-	
-	private QPruningMatrix getReducedPruningMatrix() {
-		return new QPruningMatrix(this, settings.mutRes, settings.AATypeOptions);
-	}
-	
-	private QPruningMatrix prunePmat(SearchProblem search, double pruningWindow, double stericThresh) {
 
-		QPruningMatrix qpm = (QPruningMatrix) pruneMat;
+	public void setPruningMatrix(PruningMatrix pmat) {
+		this.pruneMat = pmat;
+	}
+
+	private BigInteger getNumConfs(PruningMatrix pmat) {
+		BigInteger ans = BigInteger.ONE;
+		for(int pos=0;pos<pmat.getNumPos();++pos) {
+			ans = ans.multiply(BigInteger.valueOf(pmat.unprunedRCsAtPos(pos).size()));
+			if(ans.compareTo(BigInteger.ZERO)==0) 
+				return ans;
+		}
+		return ans;
+	}
+
+	public PruningMatrix updatePruningMatrix(
+			ArrayList<Integer> splitPosNums, 
+			ArrayList<ArrayList<String>> splitAAs
+			) {
+		UpdatedPruningMatrix ans = new UpdatedPruningMatrix(pruneMat);
+		for(int pos : splitPosNums) {
+			for(int rc : pruneMat.unprunedRCsAtPos(pos)) {
+				String rcAAType = confSpace.posFlex.get(pos).RCs.get(rc).AAType;
+				//not in reduced position, not a desired AA type
+				if(!splitAAs.get(pos).contains(rcAAType))
+					ans.markAsPruned(new RCTuple(pos, rc));
+			}
+		}
+		return ans;
+	}
+
+	public PruningMatrix updatePruningMatrix(int splitPos, String splitAA) {
+		UpdatedPruningMatrix ans = new UpdatedPruningMatrix(pruneMat);
+		for(int rc : pruneMat.unprunedRCsAtPos(splitPos)) {
+			String rcAAType = confSpace.posFlex.get(splitPos).RCs.get(rc).AAType;
+			//not in reduced position, not a desired AA type
+			if(!splitAA.equals(rcAAType))
+				ans.markAsPruned(new RCTuple(splitPos, rc));
+		}
+		return ans;
+	}
+
+	private void prunePmat(SearchProblem search, double pruningWindow, double stericThresh) {
+
+		UpdatedPruningMatrix upmat = (UpdatedPruningMatrix) this.pruneMat;
+
 		//don't want to overprune
-		BigInteger minUnprunedConfs = BigInteger.valueOf(65536);
-		
+		BigInteger minConfs = BigInteger.valueOf(65536);
+
 		//single sequence type dependent pruning for better efficiency
 		//now do any consequent singles & pairs pruning
-		int numUpdates = qpm.countUpdates();
+		int numUpdates = upmat.countUpdates();
 		int oldNumUpdates;
 
-		Pruner dee = new Pruner(search, qpm, true, stericThresh, pruningWindow, 
+		Pruner dee = new Pruner(search, upmat, true, stericThresh, pruningWindow, 
 				search.useEPIC, search.useTupExpForSearch);
 		dee.setVerbose(false);
 
 		do {//repeat as long as we're pruning things
 			oldNumUpdates = numUpdates;
 			dee.prune("GOLDSTEIN");
-			//pairs pruning can take a LONG time
-			if(!contSCFlex || 
-					(contSCFlex && dee.enumerateCandidates(PruningMethod.getMethod("GOLDSTEIN PAIRS FULL")).size() < 32768))
-				dee.prune("GOLDSTEIN PAIRS FULL");
-			numUpdates = qpm.countUpdates();
-			
-		} while (numUpdates > oldNumUpdates && 
-				qpm.getNumUnprunedConfs().compareTo(minUnprunedConfs) > 0);
-		
-		return qpm;
+			dee.prune("GOLDSTEIN PAIRS FULL");
+			numUpdates = upmat.countUpdates();
+
+		} while (numUpdates > oldNumUpdates && getNumConfs(upmat).compareTo(minConfs) > 0);
+	}
+
+	public void prunePmat() {
+		prunePmat(this, settings.pruningWindow, settings.stericThreshold);
 	}
 }

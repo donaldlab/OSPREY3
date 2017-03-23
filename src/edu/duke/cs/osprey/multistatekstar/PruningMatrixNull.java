@@ -7,19 +7,19 @@ import edu.duke.cs.osprey.confspace.HigherTupleFinder;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
-@SuppressWarnings("serial")
 /**
  * 
  * @author Adegoke Ojewole (ao68@duke.edu)
- * Used as the pruned matrix in the second phase of K*.
- * Reports everything as pruned.
+ * returns everything as pruned
  *
  */
-public class P2PruningMatrix extends PruningMatrix {
 
-	PruningMatrix other;
+@SuppressWarnings("serial")
+public class PruningMatrixNull extends PruningMatrix {
+
+	private PruningMatrix other;
 	
-	public P2PruningMatrix(PPruningMatrix other) {
+	public PruningMatrixNull(PruningMatrix other) {
 		super();
 		this.other = other;
 	}
@@ -37,10 +37,6 @@ public class P2PruningMatrix extends PruningMatrix {
 	@Override
 	public HigherTupleFinder<Boolean> getHigherOrderTerms(int res1, int index1, int res2, int index2) {
 		throw new UnsupportedOperationException("ERROR: higher order terms are not supported in P2 pruning matrix");
-	}
-	
-	public PruningMatrix invert() {
-		throw new UnsupportedOperationException("ERROR: inversion is not supported in P2 pruning matrix");
 	}
 	
 	@Override
@@ -109,27 +105,27 @@ public class P2PruningMatrix extends PruningMatrix {
 	
 	@Override
 	public void unprunedRCsAtPos(ArrayList<Integer> out, int pos) {
-		other.unprunedRCsAtPos(out, pos);
+		return;
 	}
 	
 	@Override
 	public ArrayList<Integer> unprunedRCsAtPos(int pos) {
-		return other.unprunedRCsAtPos(pos);
+		return new ArrayList<Integer>();
 	}
 	
 	@Override
 	public void prunedRCsAtPos(ArrayList<Integer> out, int pos) {
-		other.prunedRCsAtPos(out, pos);
+		return;
 	}
 	
 	@Override
 	public ArrayList<Integer> prunedRCsAtPos(int pos) {
-		return other.prunedRCsAtPos(pos);
+		return new ArrayList<Integer>();
 	}
 	
 	@Override
 	public ArrayList<RCTuple> unprunedRCTuplesAtPos(ArrayList<Integer> pos) {
-		return other.unprunedRCTuplesAtPos(pos);
+		return new ArrayList<RCTuple>();
 	}
 	
 	@Override
@@ -144,12 +140,11 @@ public class P2PruningMatrix extends PruningMatrix {
 	
 	@Override
 	public int countPrunedRCs() {
-		return other.countPrunedRCs();
+		return 0;
 	}
 	
 	@Override
 	public int countPrunedPairs() {
-		return other.countPrunedPairs();
+		return 0;
 	}
-
 }

@@ -55,7 +55,7 @@ public class MSKStarFactory {
 				settings.ecalcs[subState] = ecalcsCont[subState];
 			}
 			settings.isFinal = true;
-			return new MinimizedKStarScore(settings);
+			return new KStarScoreMinimized(settings);
 			
 		case PairWiseMinimized:
 			for(int subState=0;subState<numPartFuncs;++subState){
@@ -65,7 +65,7 @@ public class MSKStarFactory {
 			}
 			settings.isFinal = true;
 			settings.numTopConfsToSave = 0;
-			return new DiscreteKStarScore(settings);
+			return new KStarScoreDiscrete(settings);
 			
 		case MinimizedUpperBound:
 			for(int subState=0;subState<numPartFuncs-1;++subState){
@@ -80,7 +80,7 @@ public class MSKStarFactory {
 			settings.ecalcs[numPartFuncs-1] = ecalcsCont[numPartFuncs-1];
 			settings.isFinal = false;
 			settings.numTopConfsToSave = 0;
-			return new DiscreteKStarScore(settings);
+			return new KStarScoreDiscrete(settings);
 			
 		case MinimizedLowerBound:
 			for(int subState=0;subState<numPartFuncs-1;++subState){
@@ -95,7 +95,7 @@ public class MSKStarFactory {
 			settings.ecalcs[numPartFuncs-1] = ecalcsDisc[numPartFuncs-1];
 			settings.isFinal = false;
 			settings.numTopConfsToSave = 0;
-			return new DiscreteKStarScore(settings);
+			return new KStarScoreDiscrete(settings);
 			
 		case Discrete:
 			for(int subState=0;subState<numPartFuncs;++subState){
@@ -104,7 +104,7 @@ public class MSKStarFactory {
 				settings.ecalcs[subState] = ecalcsDisc[subState];
 			}
 			settings.isFinal = true;
-			return new DiscreteKStarScore(settings);
+			return new KStarScoreDiscrete(settings);
 			
 		case DiscreteUpperBound:
 			for(int subState=0;subState<numPartFuncs-1;++subState){
@@ -119,7 +119,7 @@ public class MSKStarFactory {
 			settings.ecalcs[numPartFuncs-1] = ecalcsDisc[numPartFuncs-1];
 			settings.isFinal = false;
 			settings.numTopConfsToSave = 0;
-			return new DiscreteKStarScore(settings);
+			return new KStarScoreDiscrete(settings);
 			
 		case DiscreteLowerBound:
 			for(int subState=0;subState<numPartFuncs-1;++subState){
@@ -134,7 +134,7 @@ public class MSKStarFactory {
 			settings.ecalcs[numPartFuncs-1] = ecalcsDisc[numPartFuncs-1];
 			settings.isFinal = false;
 			settings.numTopConfsToSave = 0;
-			return new DiscreteKStarScore(settings);
+			return new KStarScoreDiscrete(settings);
 			
 		default:
 			throw new UnsupportedOperationException("ERROR: unsupported K* score type"+settings.scoreType);
@@ -158,17 +158,18 @@ public class MSKStarFactory {
 	public static PartitionFunction makePartitionFunction(
 			PartitionFunctionType type, 
 			EnergyMatrix emat,
-			PruningMatrix pruneMat,
+			PruningMatrix pmat,
+			PruningMatrix invmat,
 			ConfSearchFactory confSearchFactory,
 			ConfEnergyCalculator.Async ecalc
 			) {
 		switch(type) {
 		case Minimized:
-			return new MinimizedPartitionFunction(emat, pruneMat, confSearchFactory, ecalc);
+			return new PartitionFunctionMinimized(emat, pmat, invmat, confSearchFactory, ecalc);
 		case Discrete:
-			return new DiscretePartitionFunction(emat, pruneMat, confSearchFactory, ecalc);
+			return new PartitionFunctionDiscrete(emat, pmat, invmat, confSearchFactory, ecalc);
 		case UpperBound:
-			return new DiscreteUpperBoundPartitionFunction(emat, pruneMat, confSearchFactory, ecalc);
+			return new PartitionFunctionDiscreteUppperBound(emat, pmat, invmat, confSearchFactory, ecalc);
 		default:
 			throw new UnsupportedOperationException("ERROR: unsupported partition function type "+type);
 		}
