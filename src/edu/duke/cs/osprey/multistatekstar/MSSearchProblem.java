@@ -104,7 +104,7 @@ public class MSSearchProblem extends SearchProblem {
 		return ans;
 	}
 
-	private void prunePmat(SearchProblem search, double pruningWindow, double stericThresh) {
+	private void prunePmat(SearchProblem search) {
 
 		UpdatedPruningMatrix upmat = (UpdatedPruningMatrix) this.pruneMat;
 
@@ -116,8 +116,8 @@ public class MSSearchProblem extends SearchProblem {
 		int numUpdates = upmat.countUpdates();
 		int oldNumUpdates;
 
-		Pruner dee = new Pruner(search, upmat, true, stericThresh, pruningWindow, 
-				search.useEPIC, search.useTupExpForSearch);
+		Pruner dee = new Pruner(search, upmat, true, settings.stericThreshold, 
+				settings.pruningWindow, search.useEPIC, search.useTupExpForSearch);
 		dee.setVerbose(false);
 
 		do {//repeat as long as we're pruning things
@@ -125,11 +125,10 @@ public class MSSearchProblem extends SearchProblem {
 			dee.prune("GOLDSTEIN");
 			dee.prune("GOLDSTEIN PAIRS FULL");
 			numUpdates = upmat.countUpdates();
-
 		} while (numUpdates > oldNumUpdates && getNumConfs(upmat).compareTo(minConfs) > 0);
 	}
 
 	public void prunePmat() {
-		prunePmat(this, settings.pruningWindow, settings.stericThreshold);
+		prunePmat(this);
 	}
 }
