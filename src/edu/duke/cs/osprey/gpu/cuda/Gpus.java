@@ -27,33 +27,35 @@ public class Gpus {
 	private Gpus() {
 		
 		System.out.print("Discovering CUDA GPUs...");
-		
-		// according to docs, init flags must always be zero
-		JCudaDriver.setExceptionsEnabled(true);
-		JCudaDriver.cuInit(0);
-		
-		// how many gpus are there?
-		int[] ints = new int[1];
-		JCudaDriver.cuDeviceGetCount(ints);
-		int count = ints[0];
-		
-		// get the ones that have double support
 		gpus = new ArrayList<>();
-		for (int i=0; i<count; i++) {
+
+		try {
+			// according to docs, init flags must always be zero
+			JCudaDriver.setExceptionsEnabled(true);
+			JCudaDriver.cuInit(0);
 			
-			CUdevice device = new CUdevice();
-			JCudaDriver.cuDeviceGet(device, i);
-			Gpu gpu = new Gpu(device);
+			// how many gpus are there?
+			int[] ints = new int[1];
+			JCudaDriver.cuDeviceGetCount(ints);
+			int count = ints[0];
 			
-			if (gpu.supportsDoubles()) {
-				gpus.add(gpu);
+			// get the ones that have double support
+			for (int i=0; i<count; i++) {
+				
+				CUdevice device = new CUdevice();
+				JCudaDriver.cuDeviceGet(device, i);
+				Gpu gpu = new Gpu(device);
+				
+				if (gpu.supportsDoubles()) {
+					gpus.add(gpu);
+				}
 			}
-		}
-		
-		if (gpus.isEmpty()) {
-			System.out.println(" none found");
-		} else {
-			System.out.println(" found " + gpus.size());
+		} finally {
+			if (gpus.isEmpty()) {
+				System.out.println(" none found");
+			} else {
+				System.out.println(" found " + gpus.size());
+			}
 		}
 	}
 	
