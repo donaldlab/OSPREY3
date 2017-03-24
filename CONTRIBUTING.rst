@@ -30,7 +30,8 @@ Osprey from within Eclipse for debugging.
 
 .. _Jerkar: http://project.jerkar.org
 
-.. note:: Jerkar supports other IDEs too (eg, Netbeans, IntelliJ), but I don't know
+\
+    **TODO:** Jerkar supports other IDEs too (eg, Netbeans, IntelliJ), but I don't know
     how to use those IDEs. Anyone want to help write docs for those IDEs?
 
 
@@ -43,7 +44,8 @@ To build an Osprey distribution zip file, simply run in the Osprey project folde
 
 The distribution zip file will be saved to ``build/output``.
 
-.. note:: To build the documentation, you'll need to install `Sphinx`_. If you want to skip building the documentation, try this command instead::
+To build the documentation, you'll need to install `Sphinx`_.
+If you want to skip building the documentation, try this command instead::
 
     $ ./jerkar doDist -makeDocs=false
 
@@ -78,17 +80,19 @@ To build the documentation for Osprey, run the Sphinx tool from the ``doc`` fold
 	$ cd python/doc
 	$ make html
 
-.. note:: For quick edit-compile-test cycles when editing documentation, it's helpful
-	to run ``make clean`` before ``make html`` which makes sure all documentation is refreshed
-	regardless of which RST documents have been recently edited. e.g.::
-	
-		$ make clean && make html
-		
-.. warning:: Sphinx can detect problems with the documentation during building. When this happens,
-	these problems will be reported to the console, usually in red text.
-	These warning messages usually indicate something is missing or incorrect
-	in the documentation, and that the underlying problems should be fixed before
-	the documentation is released.
+For quick edit-compile-test cycles when editing documentation, it's helpful
+to run ``make clean`` before ``make html`` which makes sure all documentation
+is refreshed regardless of which RST documents have been recently edited. e.g.::
+
+    $ make clean && make html
+
+\
+    **WARNING:** Sphinx can detect problems with the documentation during building.
+    When this happens,
+    these problems will be reported to the console, usually in red text.
+    These warning messages usually indicate something is missing or incorrect
+    in the documentation, and that the underlying problems should be fixed before
+    the documentation is released.
 
 Then open the ``python/doc/_build/html/index.html`` file in your browser to view the documentation.
 
@@ -100,59 +104,60 @@ Sphinx Directives
 ~~~~~~~~~~~~~~~~~
 
 **.. javaclass:: java_class_reference**
+    
+    where ``java_class_reference`` is the fully-qualified name of a Java class, e.g.::
+    
+    	package.Class
+    	package.OuterClass$InnerClass
+    
+    This directive will automatically scan the source code for the specified class
+    and show all the public constructors, methods, and fields for the class. Javadoc
+    comments will be shown with the constructors, methods, arguments, fields, etc,
+    and Java type information will be shown in the documentation where possible.
+    
+        **NOTE:** When the java reference is prefixed with a ``.``, the package
+        ``edu.duke.cs.osprey`` is automatically inferred. Therefore, references
+        to Osprey java classes can be shortened from, .e.g.::
+        	
+        	edu.duke.cs.osprey.subpackage.Class
+        	
+        to::
+        
+        	.subpackage.Class
 
-	where ``java_class_reference`` is the fully-qualified name of a Java class, e.g.::
-	
-		package.Class
-		package.OuterClass$InnerClass
-		
-	This directive will automatically scan the source code for the specified class and show
-	all the public constructors, methods, and fields for the class. Javadoc comments will be
-	shown with the constructors, methods, arguments, fields, etc, and Java type information
-	will be shown in the documentation where possible.
-	
-	.. note:: When the java reference is prefixed with a ``.``, the package ``edu.duke.cs.osprey``
-		is automatically inferred. Therefore, references to Osprey java classes can be shortened
-		from, .e.g.::
-			
-			edu.duke.cs.osprey.subpackage.Class
-			
-		to::
-		
-			.subpackage.Class
-	
 
 Sphinx Roles
 ~~~~~~~~~~~~
 
 **:java:ref:`java_reference`**
+    
+    where ``java_reference`` is the fully-qualified name to a Java class, method, or field, e.g.::
+    
+    	package.Class
+    	package.OuterClass$InnerClass
+    	package.Class#method
+    	package.Class#field
+    	package.OuterClass$InnerClass$ReallyInnerClass#field
+    
+    This role will create a clickable link to the RST documentation for the referenced Java class,
+    method, field, etc.
+    
+        **NOTE:** the ````` characters are not single quotes ``'``, but rather grave
+        characters, or backticks.
+    
 
-	where ``java_reference`` is the fully-qualified name to a Java class, method, or field, e.g.::
-	
-		package.Class
-		package.OuterClass$InnerClass
-		package.Class#method
-		package.Class#field
-		package.OuterClass$InnerClass$ReallyInnerClass#field
-		
-	This role will create a clickable link to the RST documentation for the referenced Java class,
-	method, field, etc.
-	
-	.. note:: the ````` characters are not single quotes ``'``, but rather grave characters, or backticks.
-		
-		
 **:java:classdoc:`** ``java_class_reference`` **`**
 
 **:java:methoddoc:`** ``java_method_reference`` **`**
 
 **:java:fielddoc:`** ``java_field_reference`` **`**
-
-	where ``java_class_reference`` is any reference allowed by **.. javaclass::**, and
-	``java_method_reference`` and ``java_field_reference`` refer to a Java class method or
-	field respectively using the ``#`` notation described by **:java:ref:``**
-
-	This role will copy the javadoc comment for the referenced class, method, or field
-	into the RST documentation.
+    
+    where ``java_class_reference`` is any reference allowed by **.. javaclass::**, and
+    ``java_method_reference`` and ``java_field_reference`` refer to a Java class method or
+    field respectively using the ``#`` notation described by **:java:ref:``**
+    
+    This role will copy the javadoc comment for the referenced class, method, or field
+    into the RST documentation.
 	
 	
 Python Docstring field extensions
@@ -201,16 +206,16 @@ define a few new javadoc tags that invoke RST features that wouldn't otherwise b
 in javadoc-based documentation.
 
 **@note** ``message``
-
-	This javadoc tag causes ``message`` to appear inside an RST ``note`` directive, like so:
-	
-	.. note:: ``message``
+    
+    This javadoc tag causes ``message`` to appear inside an RST ``note`` directive, like so:
+    
+        **NOTE:** ``message``
 	
 **@warn** ``message``
-
-	This javadoc tag causes ``message`` to appear inside an RST ``warning`` directive, like so:
-	
-	.. warning:: ``message``
+    
+    This javadoc tag causes ``message`` to appear inside an RST ``warning`` directive, like so:
+    
+        **WARNING:** ``message``
 	
 **@cite** ``KEY`` ``citation``
 

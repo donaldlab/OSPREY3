@@ -26,7 +26,9 @@ then run the ``setup.py`` install script with the ``install`` command::
 
     $ python setup.py install
 
-.. note:: You may need super-user privileges to install Python packages. In linux, try the ``sudo`` command.
+\
+    **NOTE:** You may need super-user privileges to install Python packages.
+    In linux, try the ``sudo`` command.
 
 
 Running Osprey
@@ -49,7 +51,8 @@ To run Osprey from a Python script:
 For more information about Python scripting with Osprey, see the tutorial at ``doc/tutorial.html``
 in the distribution zip or the Python documentation at ``doc/api.osprey.html``.
 
-.. note:: TODO: add links to online docs (eg tutorials, references)
+\
+    **TODO:** add links to online docs (eg tutorials, references)
 
 
 using the command-line interface
@@ -79,21 +82,24 @@ To run a GMEC-based protein design, try::
     $ java -jar osprey.jar FindGMEC /path/to/config1 /path/to/config2 ...
     
 
-.. note:: To use GPU acceleration, you'll need to need to tell Java where to find the operating
-	system-specific GPU libraries. The Python interface does this automatically, but on the command line,
-	you'll need to supply the additional JVM argument::
+with GPU acceleration
+.....................
+To use GPU acceleration in the command-line interface, you'll need to need to tell
+Java where to find the operating system-specific GPU libraries. The Python interface
+does this automatically, but on the command line, you'll need to supply the additional
+JVM argument::
 	
-		-Djava.library.path=osprey/natives
-		
-	For example, to run the ``GpuInfo`` command::
+	-Djava.library.path=osprey/natives
+
+If the `java.library.path` is not correctly set, Osprey will think the
+native GPU libraries (e.g. CUDA, OpenCL) are not installed.
 	
-		$ java -Djava.library.path=osprey/natives -jar osprey/osprey-3.0.jar GpuInfo
-		
-	The ``GpuInfo`` command prints info about available GPUs in the system, and which
-	ones Osprey can use.
+For example, to run the ``GpuInfo`` command::
+
+	$ java -Djava.library.path=osprey/natives -jar osprey/osprey-3.0.jar GpuInfo
 	
-	If the `java.library.path` is not correctly set, Osprey will think the
-	native GPU libraries (e.g. CUDA, OpenCL) are not installed.
+The ``GpuInfo`` command prints info about available GPUs in the system, and which
+ones Osprey can use.
 
 
 Contributing
