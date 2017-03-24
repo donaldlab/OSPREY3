@@ -80,7 +80,7 @@ public class MSKStarFactory {
 			settings.ecalcs[numPartFuncs-1] = ecalcsCont[numPartFuncs-1];
 			settings.isFinal = false;
 			settings.numTopConfsToSave = 0;
-			return new KStarScoreDiscrete(settings);
+			return new KStarScoreUpperBound(settings);
 			
 		case MinimizedLowerBound:
 			for(int subState=0;subState<numPartFuncs-1;++subState){
@@ -95,7 +95,7 @@ public class MSKStarFactory {
 			settings.ecalcs[numPartFuncs-1] = ecalcsDisc[numPartFuncs-1];
 			settings.isFinal = false;
 			settings.numTopConfsToSave = 0;
-			return new KStarScoreDiscrete(settings);
+			return new KStarScoreLowerBound(settings);
 			
 		case Discrete:
 			for(int subState=0;subState<numPartFuncs;++subState){
@@ -119,7 +119,7 @@ public class MSKStarFactory {
 			settings.ecalcs[numPartFuncs-1] = ecalcsDisc[numPartFuncs-1];
 			settings.isFinal = false;
 			settings.numTopConfsToSave = 0;
-			return new KStarScoreDiscrete(settings);
+			return new KStarScoreUpperBound(settings);
 			
 		case DiscreteLowerBound:
 			for(int subState=0;subState<numPartFuncs-1;++subState){
@@ -134,7 +134,7 @@ public class MSKStarFactory {
 			settings.ecalcs[numPartFuncs-1] = ecalcsDisc[numPartFuncs-1];
 			settings.isFinal = false;
 			settings.numTopConfsToSave = 0;
-			return new KStarScoreDiscrete(settings);
+			return new KStarScoreLowerBound(settings);
 			
 		default:
 			throw new UnsupportedOperationException("ERROR: unsupported K* score type"+settings.scoreType);

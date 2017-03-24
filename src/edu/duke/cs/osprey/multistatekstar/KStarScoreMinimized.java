@@ -5,7 +5,6 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.PriorityQueue;
-
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.control.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
@@ -37,10 +36,10 @@ public class KStarScoreMinimized implements KStarScore {
 
 	private BigDecimal getDenom() {
 		PartitionFunction pf;
-		BigDecimal ans = BigDecimal.ONE.setScale(128, RoundingMode.HALF_UP);
+		BigDecimal ans = BigDecimal.ONE.setScale(64, RoundingMode.HALF_UP);
 		for(int state=0;state<partitionFunctions.length-1;++state) {
 			pf = partitionFunctions[state];
-			if(pf.getValues().qstar.compareTo(BigDecimal.ZERO)==0)
+			if(pf==null || pf.getValues().qstar.compareTo(BigDecimal.ZERO)==0)
 				return BigDecimal.ZERO;
 			ans = ans.multiply(pf.getValues().qstar);
 		}
@@ -181,7 +180,7 @@ public class KStarScoreMinimized implements KStarScore {
 		ConfSearchFactory confSearchFactory = MSKStarFactory.makeConfSearchFactory(settings.search[state], settings.cfp);
 
 		PruningMatrix invmat = ((PartitionFunctionMinimized)pf).invmat;
-		
+
 		PartitionFunctionMinimized p2pf = (PartitionFunctionMinimized) MSKStarFactory.makePartitionFunction( 
 				settings.pfTypes[state],
 				settings.search[state].emat, 
@@ -211,7 +210,7 @@ public class KStarScoreMinimized implements KStarScore {
 			if(settings.search[state].isFullyDefined() && settings.numTopConfsToSave > 0)
 				pf.saveEConfs(p2pf.topConfs);
 		}
-		
+
 		pf.setStatus(Status.Estimated);
 
 		if(settings.isFinal) {//final is a superset of fully defined
@@ -220,7 +219,17 @@ public class KStarScoreMinimized implements KStarScore {
 		}
 	}
 
-	private ArrayList<LMB> getLMBsForState(int state) {
+	protected ArrayList<LMB> getLMBsForState(int state, boolean lbConstr) {
+		ArrayList<LMB> ans = new ArrayList<>();
+		for(LMB constr : getLMBsForState(state)) {
+			if(lbConstr && constr.getCoeffs()[state].compareTo(BigDecimal.ZERO)<0) ans.add(constr);
+			else if(!lbConstr && constr.getCoeffs()[state].compareTo(BigDecimal.ZERO)>0) ans.add(constr);
+		}
+		ans.trimToSize();
+		return ans;
+	}
+
+	protected ArrayList<LMB> getLMBsForState(int state) {
 		ArrayList<LMB> ans = new ArrayList<>();
 		if(settings.constraints==null) return ans;
 
@@ -237,15 +246,12 @@ public class KStarScoreMinimized implements KStarScore {
 			if(addConstr)
 				ans.add(settings.constraints[l]);
 		}
-
+		ans.trimToSize();
 		return ans;
 	}
 
-	private boolean checkConstraints(int state) {
-
-		//see if partition function satisfies constraints
-		for(LMB constr : getLMBsForState(state)){
-
+	private boolean checkConstraints(ArrayList<LMB> constraints) {
+		for(LMB constr : constraints) {
 			BigDecimal[] stateVals = new BigDecimal[numStates];
 			for(int s=0;s<numStates;++s){
 				PartitionFunctionMinimized pf = partitionFunctions[s];
@@ -257,8 +263,27 @@ public class KStarScoreMinimized implements KStarScore {
 			if(constr.eval(stateVals).compareTo(BigDecimal.ZERO) > 0)
 				return false;
 		}
-
 		return true;
+	}
+
+	/**
+	 * see if partition function satisfies either lower or upper bound 
+	 * constraints involving this state only
+	 * @param state
+	 * @param lbConstr: true=lb, false=ub
+	 * @return
+	 */
+	protected boolean checkConstraints(int state, boolean lbConstr) {
+		return checkConstraints(getLMBsForState(state, lbConstr));
+	}
+
+	/**
+	 * see if partition function satisfies constraints involving this state only
+	 * @param state
+	 * @return
+	 */
+	protected boolean checkConstraints(int state) {
+		return checkConstraints(getLMBsForState(state));
 	}
 
 	private boolean checkConstraints() {
@@ -286,18 +311,17 @@ public class KStarScoreMinimized implements KStarScore {
 	}
 
 	@Override
-	public boolean computed() {
-		for(int state=0;state<numStates;++state) {
-			PartitionFunction pf = partitionFunctions[state];
-			if(pf.getStatus()==Status.Estimating) return false;
-		}
-		return true;
-	}
-
-	@Override
 	public boolean isFullyProcessed() {
-		for(PartitionFunctionMinimized pf : partitionFunctions)
-			if(pf != null && pf.getStatus() != Status.Estimated) return false;
-		return settings.isFinal;
+		if(!settings.isFinal) return false;
+		int nulls = 0;
+		for(PartitionFunctionMinimized pf : partitionFunctions) {
+			if(pf==null) nulls++;
+			else if(pf.getStatus() != Status.Estimated) return false;
+		}
+		//all non-null pfs are estimated; the reason why we skipped a pf must
+		//be that a constraint is not satified
+		if(nulls>0 && !constrSatisfied) return true;
+		//otherwise, we erroneously skipped a partition function
+		throw new RuntimeException("ERROR: illegally skipped a partition function");
 	}
 }
