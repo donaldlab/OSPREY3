@@ -1,6 +1,8 @@
 package edu.duke.cs.osprey;
 
 import java.io.File;
+import java.net.MalformedURLException;
+import java.net.URL;
 
 import org.jerkar.api.depmanagement.JkDependencies;
 import org.jerkar.api.depmanagement.JkDependency;
@@ -12,8 +14,10 @@ import org.jerkar.api.file.JkFileTree;
 import org.jerkar.api.file.JkFileTreeSet;
 import org.jerkar.api.file.JkPathFilter;
 import org.jerkar.api.java.JkJavaCompiler;
+import org.jerkar.api.system.JkLog;
 import org.jerkar.api.system.JkProcess;
 import org.jerkar.api.utils.JkUtilsFile;
+import org.jerkar.api.utils.JkUtilsIO;
 import org.jerkar.api.utils.JkUtilsZip;
 import org.jerkar.tool.builtins.javabuild.JkJavaBuild;
 import org.jerkar.tool.builtins.javabuild.JkJavaPacker;
@@ -61,23 +65,51 @@ public class Build extends JkJavaBuild {
 			.on("commons-io:commons-io:2.5")
 			.on("com.joptimizer:joptimizer:3.5.1")
 			.on("org.ojalgo:ojalgo:41.0.0")
+			.on("org.jogamp.gluegen:gluegen-rt:2.3.2")
+			.on("org.jogamp.gluegen:gluegen-rt:2.3.2:natives-linux-amd64").scope(NATIVES)
+			.on("org.jogamp.gluegen:gluegen-rt:2.3.2:natives-macosx-universal").scope(NATIVES)
+			.on("org.jogamp.gluegen:gluegen-rt:2.3.2:natives-windows-amd64").scope(NATIVES)
+			.on("org.jogamp.jocl:jocl:2.3.2")
+			.on("org.jogamp.jocl:jocl:2.3.2:natives-linux-amd64").scope(NATIVES)
+			.on("org.jogamp.jocl:jocl:2.3.2:natives-macosx-universal").scope(NATIVES)
+			.on("org.jogamp.jocl:jocl:2.3.2:natives-windows-amd64").scope(NATIVES)
 			
-			// for dependencies with natives, use local jars in lib/
-			.on(new File("lib/jocl-2.3.2.jar"))
-			.on(new File("lib/jocl-2.3.2-natives-linux-amd64.jar")).scope(NATIVES)
-			.on(new File("lib/jocl-2.3.2-natives-macosx-universal.jar")).scope(NATIVES)
-			.on(new File("lib/jocl-2.3.2-natives-windows-amd64.jar")).scope(NATIVES)
-			.on(new File("lib/gluegen-rt-2.3.2.jar"))
-			.on(new File("lib/gluegen-rt-2.3.2-natives-linux-amd64.jar")).scope(NATIVES)
-			.on(new File("lib/gluegen-rt-2.3.2-natives-macosx-universal.jar")).scope(NATIVES)
-			.on(new File("lib/gluegen-rt-2.3.2-natives-windows-amd64.jar")).scope(NATIVES)
-			.on(new File("lib/jcuda-0.8.0RC.jar"))
-			.on(new File("lib/jcuda-natives-0.8.0RC-linux-x86_64.jar")).scope(NATIVES)
-			.on(new File("lib/jcuda-natives-0.8.0RC-windows-x86_64.jar")).scope(NATIVES)
-			// no jcuda binaries released for mac =(
-			// but we could try compiling from source if we wanted
+			// apparently the JCuda repo is broken? this doesn't work:
+			//.on("org.jcuda:jcuda:0.8.0")
+			// just download the jar directly
+			.on(url("https://search.maven.org/remotecontent?filepath=org/jcuda/jcuda/0.8.0/jcuda-0.8.0.jar"))
+			.on("org.jcuda:jcuda-natives:0.8.0:linux-x86_64").scope(NATIVES)
+			.on("org.jcuda:jcuda-natives:0.8.0:apple-x86_64").scope(NATIVES)
+			.on("org.jcuda:jcuda-natives:0.8.0:windows-x86_64").scope(NATIVES)
 			
 			.build();
+	}
+	
+	private File url(String url) {
+		
+		// get the filename
+		String[] parts = url.split("/");
+		String filename = parts[parts.length - 1];
+		
+		// pick the local file
+		File libsDir = baseDir().file("build/libs");
+		if (!libsDir.exists()) {
+			libsDir.mkdirs();
+		}
+		File file = new File(libsDir, filename);
+		
+		// download it if needed
+		if (!file.exists()) {
+			try {
+				JkLog.info("downloading " + url + " ...");
+				JkUtilsIO.copyUrlToFile(new URL(url), file);
+				JkLog.info("\t[SUCCESSFUL ]");
+			} catch (MalformedURLException ex) {
+				throw new RuntimeException(ex);
+			}
+		}
+		
+		return file;
 	}
 	
 	@Override
@@ -186,7 +218,6 @@ public class Build extends JkJavaBuild {
 		// copy text files
 		JkUtilsFile.copyFileToDir(baseDir().file("LICENSE.txt"), dirDist);
 		JkUtilsFile.copyFileToDir(baseDir().file("README.rst"), dirDist);
-		// TODO: do we need a different README (in RST format) for python packages?
 		
 		// create the distribution zip
 		JkFileTree.of(dirDist).zip().to(ouputDir(packer().fatJarFile().getName().replaceAll(".jar", ".zip")));
