@@ -229,15 +229,20 @@ public class KStarScoreMinimized implements KStarScore {
 		return ans;
 	}
 
+	/**
+	 * returns constraints that ONLY involve the spacified state
+	 * @param state
+	 * @return
+	 */
 	protected ArrayList<LMB> getLMBsForState(int state) {
 		ArrayList<LMB> ans = new ArrayList<>();
 		if(settings.constraints==null) return ans;
 
-		for(int l=0;l<settings.constraints.length;++l){
+		for(int l=0;l<settings.constraints.length;++l) {
 			BigDecimal[] coeffs = settings.constraints[l].coeffs;
 			if(coeffs[state].compareTo(BigDecimal.ZERO)==0) continue;
 			boolean addConstr = true;
-			for(int c=0;c<coeffs.length;++c){
+			for(int c=0;c<coeffs.length;++c) {
 				if(c!=state && coeffs[c].compareTo(BigDecimal.ZERO)!=0) {
 					addConstr = false;
 					break;

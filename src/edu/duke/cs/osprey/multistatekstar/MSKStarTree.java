@@ -160,19 +160,40 @@ public class MSKStarTree {
 		//the required objective function and constraints
 		boolean[] makeLB = new boolean[numStates]; Arrays.fill(makeLB, false);
 		boolean[] makeUB = new boolean[numStates]; Arrays.fill(makeUB, false);
-		for(int i=0;i<numStates;++i) {
+		for(int state=0;state<numStates;++state) {
 			//decide whether to create ub or lb according to objFcn
 			//need lb, so make lb
-			if(objFcn.getCoeffs()[i].compareTo(BigDecimal.ZERO) < 0) makeLB[i] = true;
+			if(objFcn.getCoeffs()[state].compareTo(BigDecimal.ZERO) < 0) makeLB[state] = true;
 			//need ub so make ub
-			else if(objFcn.getCoeffs()[i].compareTo(BigDecimal.ZERO) > 0) makeUB[i] = true;
+			else if(objFcn.getCoeffs()[state].compareTo(BigDecimal.ZERO) > 0) makeUB[state] = true;
 			
-			//decide whether to make ub or lb based on constraints
+			//decide whether to make ub or lb based on global constraints
 			for(LMB constr : msConstr) {
 				//want to eliminate by lb, so make ub
-				if(constr.getCoeffs()[i].compareTo(BigDecimal.ZERO) < 0) makeUB[i] = true;
+				if(constr.getCoeffs()[state].compareTo(BigDecimal.ZERO) < 0) makeUB[state] = true;
 				//want to eliminate by ub, so make lb
-				else if(constr.getCoeffs()[i].compareTo(BigDecimal.ZERO) > 0) makeLB[i] = true;
+				else if(constr.getCoeffs()[state].compareTo(BigDecimal.ZERO) > 0) makeLB[state] = true;
+			}
+			
+			//decide whether to make ub or lb based on state-specific constraints
+			for(LMB constr : sConstr[state]) {
+				int numSubStates = sConstr[state].length;
+				for(int subState=0; subState<numSubStates; ++subState) {
+					
+					if(subState <= numSubStates-2) {
+						//want to eliminate unbound states by lb, so make lb score, which has upper bound unbound state pfs
+						if(constr.getCoeffs()[subState].compareTo(BigDecimal.ZERO) < 0) makeLB[state] = true;
+						//want to eliminate unbound states by ub, so make ub score, which has lower bound unbound state pfs
+						if(constr.getCoeffs()[subState].compareTo(BigDecimal.ZERO) > 0) makeUB[state] = true;
+					}
+					
+					else if(subState == numSubStates-1) {//bound state partition function
+						//want to eliminate bound state by lb, so make ub score, which has upper bound bound state pf
+						if(constr.getCoeffs()[subState].compareTo(BigDecimal.ZERO) < 0) makeUB[state] = true;
+						//want to eliminate bound state by ub, so make lb score, which has lower bound bound state pf
+						else if(constr.getCoeffs()[subState].compareTo(BigDecimal.ZERO) > 0) makeLB[state] = true;
+					}
+				}
 			}
 		}
 
