@@ -3,11 +3,15 @@ package edu.duke.cs.osprey;
 import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.jerkar.api.depmanagement.JkDependencies;
 import org.jerkar.api.depmanagement.JkDependency;
 import org.jerkar.api.depmanagement.JkDependency.JkFileDependency;
+import org.jerkar.api.depmanagement.JkModuleDependency;
 import org.jerkar.api.depmanagement.JkModuleId;
+import org.jerkar.api.depmanagement.JkResolveResult;
 import org.jerkar.api.depmanagement.JkScope;
 import org.jerkar.api.depmanagement.JkVersion;
 import org.jerkar.api.file.JkFileTree;
@@ -19,12 +23,16 @@ import org.jerkar.api.system.JkProcess;
 import org.jerkar.api.utils.JkUtilsFile;
 import org.jerkar.api.utils.JkUtilsIO;
 import org.jerkar.api.utils.JkUtilsZip;
+import org.jerkar.tool.JkDoc;
 import org.jerkar.tool.builtins.javabuild.JkJavaBuild;
 import org.jerkar.tool.builtins.javabuild.JkJavaPacker;
 
 public class Build extends JkJavaBuild {
 	
 	private static final JkScope NATIVES = JkScope.of("natives");
+	
+	@JkDoc("True (default) to make the docs, false to skip it")
+	private boolean makeDocs = true;
 	
 	public Build() {
 		
@@ -173,26 +181,40 @@ public class Build extends JkJavaBuild {
 		// copy the osprey jar
 		JkUtilsFile.copyFileToDir(packer().fatJarFile(), dirOsprey);
 		
-		// copy the docs
-		File dirDoc = baseDir().file("python/doc");
-		JkProcess.of("make", "clean")
-			.withWorkingDir(dirDoc)
-			.runSync();
-		JkProcess.of("make", "html")
-			.withWorkingDir(dirDoc)
-			.runSync();
-		JkUtilsFile.copyDirContent(
-			baseDir().file("python/doc/_build/html"),
-			ouputDir("dist/doc"),
-			false
-		);
+		if (makeDocs) {
+			
+			// make and copy the docs
+			File dirDoc = baseDir().file("python/doc");
+			JkProcess.of("make", "clean")
+				.withWorkingDir(dirDoc)
+				.failOnError(true)
+				.runSync();
+			JkProcess.of("make", "html")
+				.withWorkingDir(dirDoc)
+				.failOnError(true)
+				.runSync();
+			JkUtilsFile.copyDirContent(
+				baseDir().file("python/doc/_build/html"),
+				ouputDir("dist/doc"),
+				false
+			);
+		}
 		
 		// extract the natives to a temp folder
-		File dirTemp = ouputDir("temp");
+		List<File> nativesArchives = new ArrayList<>();
+		JkResolveResult resolvedNatives = this.dependencyResolver().resolve(NATIVES);
 		for (JkDependency dep : dependencies().dependenciesDeclaredWith(NATIVES)) {
-			JkFileDependency fileDep = (JkFileDependency)dep;
-			File depFile = fileDep.files().iterator().next();
-			JkUtilsZip.unzip(depFile, dirTemp);
+			if (dep instanceof JkFileDependency) {
+				JkFileDependency fileDep = (JkFileDependency)dep;
+				nativesArchives.add(fileDep.files().iterator().next());
+			} else if (dep instanceof JkModuleDependency) {
+				JkModuleDependency modDep = (JkModuleDependency)dep;
+				nativesArchives.addAll(resolvedNatives.filesOf(modDep.moduleId()));
+			}
+		}
+		File dirTemp = ouputDir("temp");
+		for (File file : nativesArchives) {
+			JkUtilsZip.unzip(file, dirTemp);
 		}
 		
 		// copy the files we want to the dist/natives folder
@@ -218,6 +240,7 @@ public class Build extends JkJavaBuild {
 		// copy text files
 		JkUtilsFile.copyFileToDir(baseDir().file("LICENSE.txt"), dirDist);
 		JkUtilsFile.copyFileToDir(baseDir().file("README.rst"), dirDist);
+		JkUtilsFile.copyFileToDir(baseDir().file("CONTRIBUTING.rst"), dirDist);
 		
 		// create the distribution zip
 		JkFileTree.of(dirDist).zip().to(ouputDir(packer().fatJarFile().getName().replaceAll(".jar", ".zip")));
