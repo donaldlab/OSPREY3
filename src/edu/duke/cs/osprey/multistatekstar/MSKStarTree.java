@@ -160,6 +160,7 @@ public class MSKStarTree {
 		//the required objective function and constraints
 		boolean[] makeLB = new boolean[numStates]; Arrays.fill(makeLB, false);
 		boolean[] makeUB = new boolean[numStates]; Arrays.fill(makeUB, false);
+		
 		for(int state=0;state<numStates;++state) {
 			//decide whether to create ub or lb according to objFcn
 			//need lb, so make lb

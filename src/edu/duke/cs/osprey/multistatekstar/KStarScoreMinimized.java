@@ -329,4 +329,9 @@ public class KStarScoreMinimized implements KStarScore {
 		//otherwise, we erroneously skipped a partition function
 		throw new RuntimeException("ERROR: illegally skipped a partition function");
 	}
+
+	@Override
+	public boolean isFinal() {
+		return settings.isFinal;
+	}
 }

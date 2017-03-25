@@ -32,6 +32,7 @@ public interface KStarScore {
 	public String toString();
 	public void compute(int maxNumConfs);
 	public boolean constrSatisfied();
+	public boolean isFinal();
 	public boolean isFullyProcessed();
 	
 }
