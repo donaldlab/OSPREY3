@@ -2,7 +2,6 @@ package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.PriorityQueue;
 
@@ -58,7 +57,7 @@ public class MSKStarTree {
 
 	int numSeqsWanted;
 	int numSeqsReturned;
-	
+
 	int numExpanded;
 	int numPruned;
 
@@ -99,7 +98,7 @@ public class MSKStarTree {
 		this.cfps = cfps;
 		this.msParams = msParams;
 		residueOrder = getResidueOrder();
-		
+
 		numExpanded = 0;
 		numPruned = 0;
 		numSeqsReturned = 0;
@@ -129,21 +128,18 @@ public class MSKStarTree {
 				return m1.getScore().compareTo(m2.getScore()) < 0 ? -1 : 1;
 			}
 		});
-		
+
 		pq.add(node);
 	}
-	
+
 	private boolean canPrune(MSKStarNode curNode) {
-		if(curNode.isLeafNode()) {
-			//state-specific constraints already checked
-		} else {
-			//check state-specific constraints
+		for(LMB lmb : msConstr) {
+			if(lmb.eval(curNode.getStateKStarScores(lmb)).compareTo(BigDecimal.ZERO) > 0)
+				return true;
 		}
-		
-		//check global constraints
 		return false;
 	}
-	
+
 	private ArrayList<MSKStarNode> getChildren(MSKStarNode curNode) {
 		//for each state and substate, pick next position to expand
 
@@ -155,53 +151,11 @@ public class MSKStarTree {
 		return ans;
 	}
 
-	private MSKStarNode rootNode() {
-		//decide whether to make upper or lower bound parition functions based on
-		//the required objective function and constraints
-		boolean[] makeLB = new boolean[numStates]; Arrays.fill(makeLB, false);
-		boolean[] makeUB = new boolean[numStates]; Arrays.fill(makeUB, false);
-		
-		for(int state=0;state<numStates;++state) {
-			//decide whether to create ub or lb according to objFcn
-			//need lb, so make lb
-			if(objFcn.getCoeffs()[state].compareTo(BigDecimal.ZERO) < 0) makeLB[state] = true;
-			//need ub so make ub
-			else if(objFcn.getCoeffs()[state].compareTo(BigDecimal.ZERO) > 0) makeUB[state] = true;
-			
-			//decide whether to make ub or lb based on global constraints
-			for(LMB constr : msConstr) {
-				//want to eliminate by lb, so make ub
-				if(constr.getCoeffs()[state].compareTo(BigDecimal.ZERO) < 0) makeUB[state] = true;
-				//want to eliminate by ub, so make lb
-				else if(constr.getCoeffs()[state].compareTo(BigDecimal.ZERO) > 0) makeLB[state] = true;
-			}
-			
-			//decide whether to make ub or lb based on state-specific constraints
-			for(LMB constr : sConstr[state]) {
-				int numSubStates = sConstr[state].length;
-				for(int subState=0; subState<numSubStates; ++subState) {
-					
-					if(subState <= numSubStates-2) {
-						//want to eliminate unbound states by lb, so make lb score, which has upper bound unbound state pfs
-						if(constr.getCoeffs()[subState].compareTo(BigDecimal.ZERO) < 0) makeLB[state] = true;
-						//want to eliminate unbound states by ub, so make ub score, which has lower bound unbound state pfs
-						if(constr.getCoeffs()[subState].compareTo(BigDecimal.ZERO) > 0) makeUB[state] = true;
-					}
-					
-					else if(subState == numSubStates-1) {//bound state partition function
-						//want to eliminate bound state by lb, so make ub score, which has upper bound bound state pf
-						if(constr.getCoeffs()[subState].compareTo(BigDecimal.ZERO) < 0) makeUB[state] = true;
-						//want to eliminate bound state by ub, so make lb score, which has lower bound bound state pf
-						else if(constr.getCoeffs()[subState].compareTo(BigDecimal.ZERO) > 0) makeLB[state] = true;
-					}
-				}
-			}
-		}
-
-		KStarScore[] kssLB = new KStarScore[numStates]; Arrays.fill(kssLB, null);
-		KStarScore[] kssUB = new KStarScore[numStates]; Arrays.fill(kssUB, null);
+	private MSKStarNode getRootNode() {
+		KStarScore[] kssLB = new KStarScore[numStates];
+		KStarScore[] kssUB = new KStarScore[numStates];
 		KStarScoreType[] types = null;
-		
+
 		for(int state=0;state<numStates;++state) {
 			boolean doMinimize = cfps[state].getParams().getBool("DOMINIMIZE");
 			if(doMinimize)
@@ -209,24 +163,20 @@ public class MSKStarTree {
 			else
 				types = new KStarScoreType[]{KStarScoreType.DiscreteLowerBound, KStarScoreType.DiscreteUpperBound};
 
-			//adjust types by the kinds of partition functions that we want to create
-			if(!makeLB[state]) types[0] = null;
-			if(!makeUB[state]) types[1] = null;
-			
 			KStarScore[] scores = getRootKStarScores(state, types);
 			kssLB[state] = scores[0];
 			kssUB[state] = scores[1];
 		}
 
 		MSKStarNode ans = new MSKStarNode(this, kssLB, kssUB);
-		ans.setScore(MSKStarNode.NEGATIVE_INFINITY);
+		ans.setScore(objFcn);//set score per the objective function
 		return ans;
 	}
 
 	private KStarScore[] getRootKStarScores(int state, KStarScoreType[] types) {
 		boolean doMinimize = cfps[state].getParams().getBool("DOMINIMIZE");
 		//[0] is lb, [1] is ub
-		KStarScore[] ans = new KStarScore[types.length]; Arrays.fill(ans, null);
+		KStarScore[] ans = new KStarScore[types.length];
 
 		ParamSet sParams = cfps[state].getParams();
 		int numPartFuncs = sParams.getInt("NUMUBSTATES")+1;
@@ -264,18 +214,34 @@ public class MSKStarTree {
 		return ans;
 	}
 
-	public String[] nextSeq() {
-		
-		if(pq==null)
-			initQueue(rootNode());
-	
+	public String nextSeq() {
+
+		if(pq==null) {
+			initQueue(getRootNode());
+		}
+
 		MSKStarNode curNode;
 		while(true) {
 			curNode = pq.poll();
-			
+
 			if(curNode==null) {
 				System.out.println("Multi-State K* tree empty...returning empty signal");
 				return null;
+			}
+
+			else if(canPrune(curNode)) {
+				numPruned++;
+				continue;
+			}
+
+			else {
+				if(curNode.isLeafNode()) return curNode.toString();
+
+				//expand
+				ArrayList<MSKStarNode> children = getChildren(curNode);
+				numExpanded++;
+
+				for(MSKStarNode child : children) pq.add(child);
 			}
 		}
 	}

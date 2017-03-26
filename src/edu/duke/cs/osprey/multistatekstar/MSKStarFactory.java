@@ -79,6 +79,7 @@ public class MSKStarFactory {
 			settings.search[numPartFuncs-1].settings.energyLBs = false;
 			settings.ecalcs[numPartFuncs-1] = ecalcsCont[numPartFuncs-1];
 			settings.isFinal = false;
+			settings.isReportingProgress = false;
 			settings.numTopConfsToSave = 0;
 			return new KStarScoreUpperBound(settings);
 			
@@ -94,6 +95,7 @@ public class MSKStarFactory {
 			settings.search[numPartFuncs-1].settings.energyLBs = true;
 			settings.ecalcs[numPartFuncs-1] = ecalcsDisc[numPartFuncs-1];
 			settings.isFinal = false;
+			settings.isReportingProgress = false;
 			settings.numTopConfsToSave = 0;
 			return new KStarScoreLowerBound(settings);
 			
@@ -118,6 +120,7 @@ public class MSKStarFactory {
 			settings.search[numPartFuncs-1].settings.energyLBs = false;
 			settings.ecalcs[numPartFuncs-1] = ecalcsDisc[numPartFuncs-1];
 			settings.isFinal = false;
+			settings.isReportingProgress = false;
 			settings.numTopConfsToSave = 0;
 			return new KStarScoreUpperBound(settings);
 			
@@ -133,6 +136,7 @@ public class MSKStarFactory {
 			settings.search[numPartFuncs-1].settings.energyLBs = true;
 			settings.ecalcs[numPartFuncs-1] = ecalcsDisc[numPartFuncs-1];
 			settings.isFinal = false;
+			settings.isReportingProgress = false;
 			settings.numTopConfsToSave = 0;
 			return new KStarScoreLowerBound(settings);
 			

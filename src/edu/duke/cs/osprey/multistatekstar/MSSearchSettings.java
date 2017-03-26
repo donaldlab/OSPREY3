@@ -26,6 +26,7 @@ public class MSSearchSettings implements Serializable {
 		
 		StringBuilder sb = new StringBuilder();
 		for(int i=0;i<mutRes.size();++i) {
+			if(mutRes.get(i).equals("-1")) continue;
 			StringBuilder sb0 = new StringBuilder();
 			for(String aa : AATypeOptions.get(i)) sb0.append(aa+",");
 			String aas = sb0.toString();

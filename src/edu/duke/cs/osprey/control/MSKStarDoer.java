@@ -429,10 +429,10 @@ public class MSKStarDoer {
 		switch(algOption.toLowerCase()) {
 		case "exhaustive":
 			exhaustiveMultistateSearch();
-			break;
+			return;
 		case "sublinear":
 			subLinearMultiStateSearch();
-			break;
+			return;
 		default:
 			throw new UnsupportedOperationException("ERROR: "+algOption+" is not supported for MULTISTATEALGOPTION");
 		}
@@ -456,10 +456,10 @@ public class MSKStarDoer {
 				searchCont, searchDisc, ecalcsCont, ecalcsDisc, msParams, cfps);
 		
 		Stopwatch stopwatch = new Stopwatch().start();
-		ArrayList<String[]> bestSequences = new ArrayList<>();
+		ArrayList<String> bestSequences = new ArrayList<>();
 
 		for(int seqNum=0; seqNum<numSeqsWanted; seqNum++){
-			String[] seq = tree.nextSeq();//this will find the best sequence
+			String seq = tree.nextSeq();//this will find the best sequence
 			if(seq == null)//empty sequence...indicates no more sequence possibilities
 				break;
 			else

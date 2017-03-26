@@ -50,7 +50,7 @@ public class KStarScoreMinimized implements KStarScore {
 		BigDecimal den = getDenom();
 		if(den.compareTo(BigDecimal.ZERO) == 0) return BigDecimal.ZERO;
 		PartitionFunction pf = partitionFunctions[numStates-1];
-		return pf.getValues().qstar.divide(den, RoundingMode.HALF_UP);
+		return pf==null ? BigDecimal.ZERO : pf.getValues().qstar.divide(den, RoundingMode.HALF_UP);
 	}
 
 	@Override
@@ -63,7 +63,9 @@ public class KStarScoreMinimized implements KStarScore {
 		BigDecimal den = getDenom();
 		if(den.compareTo(BigDecimal.ZERO) == 0) return BigDecimal.ZERO;
 		PartitionFunction pf = partitionFunctions[numStates-1];
-		BigDecimal num = pf.getValues().qstar.add(pf.getValues().qprime).add(pf.getValues().pstar);
+		if(pf==null) return BigDecimal.ZERO;
+		BigDecimal num = pf.getValues().qstar;
+		if(pf.getStatus()!=Status.Estimated) num = num.add(pf.getValues().qprime).add(pf.getValues().pstar);
 		return num.divide(den, RoundingMode.HALF_UP);
 	}
 
@@ -327,7 +329,7 @@ public class KStarScoreMinimized implements KStarScore {
 		//be that a constraint is not satified
 		if(nulls>0 && !constrSatisfied) return true;
 		//otherwise, we erroneously skipped a partition function
-		throw new RuntimeException("ERROR: illegally skipped a partition function");
+		throw new RuntimeException("ERROR: illegally skipped a partition function computation");
 	}
 
 	@Override
