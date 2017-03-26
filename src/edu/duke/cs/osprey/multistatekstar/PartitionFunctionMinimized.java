@@ -28,6 +28,9 @@ import edu.duke.cs.osprey.tools.Stopwatch;
 
 public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
+	public static final BigDecimal MAX_VALUE = new BigDecimal("2e65536");
+	public static final BigDecimal MIN_VALUE = BigDecimal.ZERO;
+
 	protected PriorityQueue<ScoredConf> topConfs;
 	protected int maxNumTopConfs;
 	protected BigDecimal qstarScoreWeights;
@@ -69,11 +72,11 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 	protected void saveConf(ScoredConf conf) {
 		if(topConfs.size() >= maxNumTopConfs) {
-			
+
 			ScoredConf head = topConfs.peek();
 			double e1 = head instanceof EnergiedConf ? ((EnergiedConf)head).getEnergy() : head.getScore();
 			double e2 = conf instanceof EnergiedConf ? ((EnergiedConf)conf).getEnergy() : conf.getScore();
-			
+
 			if(e1 > e2) topConfs.poll();
 			else return;
 		}
@@ -345,9 +348,13 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 				100f*heapMem.getUsed()/heapMem.getMax()
 				));
 	}
-	
+
 	public void setStatus(Status val) {
 		status = val;
 	}
 
+	public void cleanup() {
+		scoreConfs = null;
+		energyConfs = null;
+	}
 }

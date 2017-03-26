@@ -10,12 +10,12 @@ import java.math.BigDecimal;
  */
 public class MSKStarNode {
 
-	public static final BigDecimal NEGATIVE_INFINITY = new BigDecimal("-1e1024");
+	public static LMB OBJFCN;//global objective function that we are optimizing for
 
 	private KStarScore[] ksLB;//lower bound k* objects
 	private KStarScore[] ksUB;//upper bound k* objects
+	private KStarScore[] ksObjFunc;//k* objects that minimize objective function
 	private BigDecimal[] kss;//kstar score values
-	private final MSKStarTree tree;//has all required state
 	private BigDecimal score;//objective function value; smaller is better
 
 	public MSKStarNode(
@@ -25,8 +25,8 @@ public class MSKStarNode {
 			) {
 		this.ksLB = ksLB;
 		this.ksUB = ksUB;
+		this.ksObjFunc = new KStarScore[ksLB.length];
 		this.kss = new BigDecimal[ksLB.length];
-		this.tree = tree;
 		score = null;
 	}
 
@@ -45,16 +45,38 @@ public class MSKStarNode {
 			if(coeffs[i].compareTo(BigDecimal.ZERO) < 0) kss[i] = ksUB[i].getUpperBoundScore();
 			else if(coeffs[i].compareTo(BigDecimal.ZERO) > 0) kss[i] = ksLB[i].getLowerBoundScore();
 			else {//coeffs[i]==0
-				if(lmb.equals(tree.objFcn)) throw new RuntimeException("ERROR: objective function coefficient cannot be 0");
+				if(lmb.equals(OBJFCN)) throw new RuntimeException("ERROR: objective function coefficient cannot be 0");
 				else kss[i] = BigDecimal.ZERO;
 			}
 		}
 		return kss;
 	}
+	
+	public KStarScore[] getStateKStarObjects(LMB lmb) {
+		BigDecimal[] coeffs = lmb.getCoeffs();
+		//always want a lower bound on the lmb value
+		for(int i=0;i<coeffs.length;++i) {
+			if(coeffs[i].compareTo(BigDecimal.ZERO) < 0) ksObjFunc[i] = ksUB[i];
+			else if(coeffs[i].compareTo(BigDecimal.ZERO) > 0) ksObjFunc[i] = ksLB[i];
+			else {//coeffs[i]==0
+				if(lmb.equals(OBJFCN)) throw new RuntimeException("ERROR: objective function coefficient cannot be 0");
+				else ksObjFunc = null;
+			}
+		}
+		return ksObjFunc;
+	}
 
 	public boolean isLeafNode() {
 		//kssLB is never null for fully defined sequences, minimized or not
 		for(int i=0;i<ksLB.length;++i) if(!ksLB[i].isFullyProcessed()) return false;
+		return true;
+	}
+	
+	public boolean constrSatisfied() {
+		for(KStarScore score : getStateKStarObjects(OBJFCN)) {
+			if(score==null) continue;
+			if(!score.constrSatisfied()) return false;
+		}
 		return true;
 	}
 	

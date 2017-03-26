@@ -103,6 +103,8 @@ public class MSKStarTree {
 		numPruned = 0;
 		numSeqsReturned = 0;
 		pq = null;
+		
+		MSKStarNode.OBJFCN = objFcn;
 	}
 
 	private ResidueOrderType getResidueOrder() {
@@ -133,6 +135,9 @@ public class MSKStarTree {
 	}
 
 	private boolean canPrune(MSKStarNode curNode) {
+		//first check whether state specific constraints are satisfied
+		if(!curNode.constrSatisfied()) return true;
+		//now check global constraints
 		for(LMB lmb : msConstr) {
 			if(lmb.eval(curNode.getStateKStarScores(lmb)).compareTo(BigDecimal.ZERO) > 0)
 				return true;

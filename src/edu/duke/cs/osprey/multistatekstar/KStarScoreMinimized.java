@@ -34,10 +34,10 @@ public class KStarScoreMinimized implements KStarScore {
 		constrSatisfied = true;
 	}
 
-	private BigDecimal getDenom() {
+	protected BigDecimal getDenom() {
 		PartitionFunction pf;
 		BigDecimal ans = BigDecimal.ONE.setScale(64, RoundingMode.HALF_UP);
-		for(int state=0;state<partitionFunctions.length-1;++state) {
+		for(int state=0;state<numStates-1;++state) {
 			pf = partitionFunctions[state];
 			if(pf==null || pf.getValues().qstar.compareTo(BigDecimal.ZERO)==0)
 				return BigDecimal.ZERO;
@@ -145,6 +145,15 @@ public class KStarScoreMinimized implements KStarScore {
 		//that don't pertain to only one state, which we have already checked in compute(state)
 		if(settings.isFinal && constrSatisfied) 
 			constrSatisfied = checkConstraints();
+
+		cleanup();
+	}
+
+	private void cleanup() {
+		for(PartitionFunctionMinimized pf : partitionFunctions) {
+			if(pf==null) continue;
+			pf.cleanup();
+		}
 	}
 
 	/**
@@ -221,11 +230,11 @@ public class KStarScoreMinimized implements KStarScore {
 		}
 	}
 
-	protected ArrayList<LMB> getLMBsForState(int state, boolean lbConstr) {
+	protected ArrayList<LMB> getLMBsForState(int state, boolean negCoeff) {
 		ArrayList<LMB> ans = new ArrayList<>();
 		for(LMB constr : getLMBsForState(state)) {
-			if(lbConstr && constr.getCoeffs()[state].compareTo(BigDecimal.ZERO)<0) ans.add(constr);
-			else if(!lbConstr && constr.getCoeffs()[state].compareTo(BigDecimal.ZERO)>0) ans.add(constr);
+			if(negCoeff && constr.getCoeffs()[state].compareTo(BigDecimal.ZERO)<0) ans.add(constr);
+			else if(!negCoeff && constr.getCoeffs()[state].compareTo(BigDecimal.ZERO)>0) ans.add(constr);
 		}
 		ans.trimToSize();
 		return ans;
@@ -280,8 +289,8 @@ public class KStarScoreMinimized implements KStarScore {
 	 * @param lbConstr: true=lb, false=ub
 	 * @return
 	 */
-	protected boolean checkConstraints(int state, boolean lbConstr) {
-		return checkConstraints(getLMBsForState(state, lbConstr));
+	protected boolean checkConstraints(int state, boolean negCoeff) {
+		return checkConstraints(getLMBsForState(state, negCoeff));
 	}
 
 	/**
