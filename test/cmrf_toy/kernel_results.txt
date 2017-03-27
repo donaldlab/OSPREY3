@@ -1,0 +1,9 @@
+two node graph
+efunc1: (x)->(-(x-5)^2)
+efunc2: (y, z)->(-y1)
+efuncP: (x, y, z)->(-15)
+logZ = 171.526
+
+size = 18
+mult logZLB logZUB
+

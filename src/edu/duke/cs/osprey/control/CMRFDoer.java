@@ -165,7 +165,7 @@ public class CMRFDoer {
 		
 		System.out.println();
 		System.out.println("Running TRBP");
-		cmrf.runTRBP();
+		cmrf.runTRBP(0);
 		System.out.println("Finished!");
 	}
 

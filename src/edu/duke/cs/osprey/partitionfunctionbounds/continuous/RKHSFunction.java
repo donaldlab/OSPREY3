@@ -19,7 +19,7 @@ public class RKHSFunction {
     // kernel and domain bounds
     public Kernel k;
     public double[] domainLB;
-    public double[] domainUB;
+    public double[] domainUB;  
     
     // list of feature maps and coefficients
     public FeatureMap[] featureMaps;
@@ -33,7 +33,7 @@ public class RKHSFunction {
     public static int numSamplesPerDimension = 10; // we can change this as the function changes
     
     // max number of samples we want to allow
-    public static int maxSamples = 10;
+    public static int maxSamples = 50;
     
     /**
      * Constructor - takes as parameters feature maps and linear coefficients
@@ -533,7 +533,7 @@ newFeatureMaps[fMapIndex] = new FeatureMap(this.k, cdfPoint);
     }
     
     public Matrix dumpPoints() { 
-        double[][] gridS = this.gridSample(/*samples per dimension*/20, domainLB, domainUB);
+        double[][] gridS = this.gridSample(numSamplesPerDimension, domainLB, domainUB);
         Matrix m = new Matrix(gridS.length, gridS[0].length+1);
         for (int sample = 0; sample<gridS.length; sample++) { 
             for (int coord=0; coord<gridS[sample].length; coord++) { 
