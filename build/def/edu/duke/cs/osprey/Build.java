@@ -35,8 +35,6 @@ import org.jerkar.tool.builtins.javabuild.JkJavaPacker;
 
 public class Build extends JkJavaBuild {
 	
-	private static final JkScope NATIVES = JkScope.of("natives");
-	
 	@JkDoc("True (default) to make the docs, false to skip it")
 	private boolean makeDocs = true;
 	
@@ -85,22 +83,33 @@ public class Build extends JkJavaBuild {
 			.on("com.joptimizer:joptimizer:3.5.1")
 			.on("org.ojalgo:ojalgo:41.0.0")
 			.on("org.jogamp.gluegen:gluegen-rt:2.3.2")
-			.on("org.jogamp.gluegen:gluegen-rt:2.3.2:natives-linux-amd64").scope(NATIVES)
-			.on("org.jogamp.gluegen:gluegen-rt:2.3.2:natives-macosx-universal").scope(NATIVES)
-			.on("org.jogamp.gluegen:gluegen-rt:2.3.2:natives-windows-amd64").scope(NATIVES)
 			.on("org.jogamp.jocl:jocl:2.3.2")
-			.on("org.jogamp.jocl:jocl:2.3.2:natives-linux-amd64").scope(NATIVES)
-			.on("org.jogamp.jocl:jocl:2.3.2:natives-macosx-universal").scope(NATIVES)
-			.on("org.jogamp.jocl:jocl:2.3.2:natives-windows-amd64").scope(NATIVES)
 			
 			// apparently the JCuda repo is broken? this doesn't work:
 			//.on("org.jcuda:jcuda:0.8.0")
 			// just download the jar directly
 			.on(url("https://search.maven.org/remotecontent?filepath=org/jcuda/jcuda/0.8.0/jcuda-0.8.0.jar"))
-			.on("org.jcuda:jcuda-natives:0.8.0:linux-x86_64").scope(NATIVES)
-			.on("org.jcuda:jcuda-natives:0.8.0:apple-x86_64").scope(NATIVES)
-			.on("org.jcuda:jcuda-natives:0.8.0:windows-x86_64").scope(NATIVES)
 			
+			.build()
+	
+			// and the natives
+			.and(nativeDependencies());
+	}
+	
+	private JkDependencies nativeDependencies() {
+		return JkDependencies.builder()
+				
+			.on("org.jogamp.gluegen:gluegen-rt:2.3.2:natives-linux-amd64").scope(RUNTIME)
+			.on("org.jogamp.gluegen:gluegen-rt:2.3.2:natives-macosx-universal").scope(RUNTIME)
+			.on("org.jogamp.gluegen:gluegen-rt:2.3.2:natives-windows-amd64").scope(RUNTIME)
+			
+			.on("org.jogamp.jocl:jocl:2.3.2:natives-linux-amd64").scope(RUNTIME)
+			.on("org.jogamp.jocl:jocl:2.3.2:natives-macosx-universal").scope(RUNTIME)
+			.on("org.jogamp.jocl:jocl:2.3.2:natives-windows-amd64").scope(RUNTIME)
+			
+			.on("org.jcuda:jcuda-natives:0.8.0:linux-x86_64").scope(RUNTIME)
+			.on("org.jcuda:jcuda-natives:0.8.0:apple-x86_64").scope(RUNTIME)
+			.on("org.jcuda:jcuda-natives:0.8.0:windows-x86_64").scope(RUNTIME)
 			.build();
 	}
 	
@@ -213,14 +222,15 @@ public class Build extends JkJavaBuild {
 		
 		// extract the natives to a temp folder
 		List<File> nativesArchives = new ArrayList<>();
-		JkResolveResult resolvedNatives = this.dependencyResolver().resolve(NATIVES);
-		for (JkDependency dep : dependencies().dependenciesDeclaredWith(NATIVES)) {
+		JkResolveResult resolved = dependencyResolver().resolve(RUNTIME);
+		for (JkScopedDependency sdep : nativeDependencies()) {
+			JkDependency dep = sdep.dependency();
 			if (dep instanceof JkFileDependency) {
 				JkFileDependency fileDep = (JkFileDependency)dep;
 				nativesArchives.add(fileDep.files().iterator().next());
 			} else if (dep instanceof JkModuleDependency) {
 				JkModuleDependency modDep = (JkModuleDependency)dep;
-				nativesArchives.addAll(resolvedNatives.filesOf(modDep.moduleId()));
+				nativesArchives.addAll(resolved.filesOf(modDep.moduleId()));
 			}
 		}
 		File dirTemp = ouputDir("temp");
