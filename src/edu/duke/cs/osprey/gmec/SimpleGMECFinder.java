@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
@@ -190,9 +191,41 @@ public class SimpleGMECFinder {
 	
 	private void checkMoreConfs(ConfSearch search, EnergyRange erange, List<EnergiedConf> econfs) {
 		
+		setErangeProgress(search, erange);
+		
 		// enumerate all confs in order of the scores, up to the estimate of the top of the energy window
 		System.out.println("Enumerating other low-scoring conformations...");
-		List<ScoredConf> otherLowEnergyConfs = new ArrayList<>(search.nextConfs(erange.getMax()));
+        List<ScoredConf> otherLowEnergyConfs = new ArrayList<>();
+        Stopwatch stopwatch = new Stopwatch().start();
+        while (true) {
+            
+            ScoredConf conf = search.nextConf();
+            if (conf == null) {
+                break;
+            }
+            otherLowEnergyConfs.add(conf);
+            if (conf.getScore() >= erange.getMax()) {
+                break;
+            }
+            
+            // if we've been enumerating confs for a while, try a minimization to see if we get a smaller window
+            if (stopwatch.getTimeS() >= 10) {
+                stopwatch.stop();
+                
+                // save the conf and the energy for later
+                // TODO: this remove() is linear time and could be slow. replace with Deque if this becomes a performance problem
+                EnergiedConf econf = ecalc.calcEnergy(otherLowEnergyConfs.remove(0));
+                handleEnergiedConf(econf, econfs, erange);
+                
+				boolean changed = erange.updateMin(econf.getEnergy());
+				if (changed) {
+                    System.out.println(String.format("Lower conformation energy updated energy window! remaining: %14.8f", erange.getMax() - conf.getScore()));
+                    setErangeProgress(search, erange);
+                }
+                
+                stopwatch.start();
+            }
+        }
 		
 		// ConfSearch implementations can give one extra conf that's technically above the bound we gave to nextConfs()
 		// that's because all ConfSearch implementations aren't smart enough (yet) to peek ahead
@@ -232,26 +265,7 @@ public class SimpleGMECFinder {
 		// what to do when we get a conf energy?
 		ConfEnergyCalculator.Async.Listener ecalcListener = (econf) -> {
 			
-			// make sure the score was actually a lower bound
-			if (econf.getScore() > econf.getEnergy() + 0.1) {
-				throw new Error(String.format("Conformation score (%f) is not a lower bound on the energy (%f)! This is a serious bug.",
-					econf.getScore(),
-					econf.getEnergy()
-				));
-			}
-
-			// save the conf and the energy for later
-			econfs.add(econf);
-
-			// immediately output the conf, in case the run aborts and we want to resume later
-			logPrinter.print(econf, space);
-
-			// log the conf to console too if desired
-			if (printIntermediateConfsToConsole) {
-				System.out.println();
-				consolePrinter.print(econf, space, erange);
-			}
-
+			handleEnergiedConf(econf, econfs, erange);
 			progress.incrementProgress();
 
 			// refine the estimate of the top of the energy window
@@ -278,6 +292,40 @@ public class SimpleGMECFinder {
 			ecalc.calcEnergyAsync(lowEnergyConfs.get(i), ecalcListener);
 		}
 		ecalc.waitForFinish();
+	}
+	
+    private void setErangeProgress(ConfSearch confSearch, EnergyRange window) {
+        
+        // HACKHACK: set progress goal
+        if (confSearch instanceof ConfAStarTree) {
+            ConfAStarTree tree = (ConfAStarTree)confSearch;
+            if (tree.getProgress() != null) {
+                tree.getProgress().setGoalScore(window.getMax());
+            }
+        }
+    }
+	
+	private void handleEnergiedConf(EnergiedConf econf, List<EnergiedConf> econfs, EnergyRange erange) {
+		
+		// make sure the score was actually a lower bound
+		if (econf.getScore() > econf.getEnergy() + 0.1) {
+			throw new Error(String.format("Conformation score (%f) is not a lower bound on the energy (%f)! This is a serious bug.",
+				econf.getScore(),
+				econf.getEnergy()
+			));
+		}
+
+		// save the conf and the energy for later
+		econfs.add(econf);
+
+		// immediately output the conf, in case the run aborts and we want to resume later
+		logPrinter.print(econf, space);
+
+		// log the conf to console too if desired
+		if (printIntermediateConfsToConsole) {
+			System.out.println();
+			consolePrinter.print(econf, space, erange);
+		}
 	}
 	
 	private void pruneConfsOutsideRange(List<? extends ScoredConf> confs, EnergyRange erange) {
