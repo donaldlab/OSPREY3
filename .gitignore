@@ -1,7 +1,6 @@
 build/output
 build/classes
 build/libs
-build/boot
 lib/nblibraries.properties
 nbproject
 build.xml
