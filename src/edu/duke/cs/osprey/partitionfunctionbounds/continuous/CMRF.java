@@ -104,12 +104,12 @@ public class CMRF {
 		CMRF c = new CMRF(2);
 		c.constRT = 1.0;
 		c.addNodes(h, map4);
-		
+
 		SCMF s = new SCMF(c);
-		TRBP t = new TRBP(c);
-		
 		double logZLB = s.runSCMF();
-		double logZUB = t.runTRBP(0); // no iterations of LBP
+		
+		TRBP t = new TRBP(c);
+		double logZUB = t.runTRBP(10); // no iterations of LBP
 		
 		double[] ret = new double[2];
 		ret[0] = logZLB; ret[1] = logZUB;

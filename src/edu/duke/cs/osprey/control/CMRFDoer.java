@@ -101,6 +101,11 @@ public class CMRFDoer {
 	}
 
 	public void compute() {
+		
+		CMRF toy = new CMRF(2);
+		toy.runToyCMRF(18, 0.3, 10);
+		System.exit(0);
+		
 		int numNodes = search[2].flexRes.size();
 		CMRF cmrf = new CMRF(numNodes);
 		EnergyFunctionMap efm = new EnergyFunctionMap(search[2], null);
@@ -157,16 +162,16 @@ public class CMRFDoer {
 
 		
 
-		cmrf.addNodes(h, map4);
-		System.out.println();
-		System.out.println("Running SCMF");
-		cmrf.runSCMF();
-		System.out.println("Finished!");
-		
-		System.out.println();
-		System.out.println("Running TRBP");
-		cmrf.runTRBP(0);
-		System.out.println("Finished!");
+//		cmrf.addNodes(h, map4);
+//		System.out.println();
+//		System.out.println("Running SCMF");
+//		cmrf.runSCMF();
+//		System.out.println("Finished!");
+//		
+//		System.out.println();
+//		System.out.println("Running TRBP");
+//		cmrf.runTRBP(0);
+//		System.out.println("Finished!");
 	}
 
 }
