@@ -6,3 +6,4 @@ nbbuild.xml
 /dist/
 bin
 
+/build/
