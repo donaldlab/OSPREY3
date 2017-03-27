@@ -46,7 +46,7 @@ public class MSKStarDoer {
 	ArrayList<ArrayList<ArrayList<ArrayList<String>>>> AATypeOptions;//AA types allowed at 
 	//each mutable position for each substate
 
-	ArrayList<ArrayList<ArrayList<Integer>>> mutable2StateResNums;
+	ArrayList<ArrayList<ArrayList<Integer>>> state2MutableResNums;
 	//For each state, a list of flexible/mutable positions
 	//these will be listed directly in system cfg files
 
@@ -113,11 +113,11 @@ public class MSKStarDoer {
 		System.out.println("Checking multistate K* parameters for consistency");
 		System.out.println();
 
-		mutable2StateResNums = new ArrayList<>();
+		state2MutableResNums = new ArrayList<>();
 		AATypeOptions = new ArrayList<>();
 		wtSeqs = new ArrayList<>();
 		
-		InputValidation inputValidation = new InputValidation(AATypeOptions, mutable2StateResNums);
+		InputValidation inputValidation = new InputValidation(AATypeOptions, state2MutableResNums);
 		inputValidation.handleObjFcn(msParams, objFcn);
 		inputValidation.handleConstraints(msParams, msConstr);
 		
@@ -130,13 +130,13 @@ public class MSKStarDoer {
 			cfps[state] = makeStateCfp(state);
 			ParamSet sParams = cfps[state].getParams();
 			inputValidation.handleStateParams(state, sParams, msParams);
-			mutable2StateResNums.add(stateMutableRes(state, cfps[state], numMutRes));
+			state2MutableResNums.add(stateMutableRes(state, cfps[state], numMutRes));
 
-			for(int subState=0; subState<mutable2StateResNums.get(state).size(); ++subState){
+			for(int subState=0; subState<state2MutableResNums.get(state).size(); ++subState){
 				inputValidation.handleAATypeOptions(state, subState, cfps[state]);
 				//get bound substate wt sequence
-				if(subState==mutable2StateResNums.get(state).size()-1)
-					wtSeqs.add(cfps[state].getWtSeq(mutable2StateResNums.get(state).get(subState)));
+				if(subState==state2MutableResNums.get(state).size()-1)
+					wtSeqs.add(cfps[state].getWtSeq(state2MutableResNums.get(state).get(subState)));
 			}
 			
 			//populate state-specific constraints
@@ -151,7 +151,7 @@ public class MSKStarDoer {
 			System.out.println();
 		}
 
-		mutable2StateResNums.trimToSize();
+		state2MutableResNums.trimToSize();
 		wtSeqs.trimToSize();
 
 		System.out.println();
@@ -214,12 +214,12 @@ public class MSKStarDoer {
 
 		//get arraylist formatted sequence for each substate
 		ArrayList<ArrayList<ArrayList<String>>> subStateAATypes = new ArrayList<>();
-		for(int subState=0;subState<mutable2StateResNums.get(state).size();++subState){
-			//mutable2StateResNums.get(state).get(subState)) contains substate flexible residues
+		for(int subState=0;subState<state2MutableResNums.get(state).size();++subState){
+			//state2MutableResNums.get(state).get(subState)) contains substate flexible residues
 			//last substate is the bound state
 			subStateAATypes.add(new ArrayList<>());
-			ArrayList<Integer> subStateResNums = mutable2StateResNums.get(state).get(subState);
-			ArrayList<Integer> boundStateResNums = mutable2StateResNums.get(state).get(mutable2StateResNums.get(state).size()-1);
+			ArrayList<Integer> subStateResNums = state2MutableResNums.get(state).get(subState);
+			ArrayList<Integer> boundStateResNums = state2MutableResNums.get(state).get(state2MutableResNums.get(state).size()-1);
 			for(int resNum : subStateResNums){
 				int index = boundStateResNums.indexOf(resNum);
 				ArrayList<String> aa = new ArrayList<>(); aa.add(boundStateAATypes.get(index));
@@ -239,7 +239,7 @@ public class MSKStarDoer {
 			MSSearchSettings spSet = new MSSearchSettings();
 			spSet.AATypeOptions = subStateAATypes.get(subState);
 			ArrayList<String> mutRes = new ArrayList<>();
-			for(int i:mutable2StateResNums.get(state).get(subState)) mutRes.add(String.valueOf(i));
+			for(int i:state2MutableResNums.get(state).get(subState)) mutRes.add(String.valueOf(i));
 			spSet.mutRes = mutRes;
 			spSet.stericThreshold = sParams.getDouble("STERICTHRESH");
 			spSet.pruningWindow = sParams.getDouble("IVAL") + sParams.getDouble("EW");
@@ -283,7 +283,7 @@ public class MSKStarDoer {
 
 		for(int subState=0;subState<subStateSps.length;++subState) {
 			subStateSps[subState] = stateCfp.getSearchProblem(state, subState, 
-					mutable2StateResNums.get(state).get(subState), cont);
+					state2MutableResNums.get(state).get(subState), cont);
 
 			//make emats
 			subStateSps[subState].loadEnergyMatrix();
@@ -452,7 +452,7 @@ public class MSKStarDoer {
 		}
 		
 		tree = new MSKStarTree(numMutRes, numStates, numMaxMut, numSeqsWanted, objFcn, 
-				msConstr, sConstr, mutable2StateResNums, AATypeOptions, wtSeqs, 
+				msConstr, sConstr, state2MutableResNums, AATypeOptions, wtSeqs, 
 				searchCont, searchDisc, ecalcsCont, ecalcsDisc, msParams, cfps);
 		
 		Stopwatch stopwatch = new Stopwatch().start();

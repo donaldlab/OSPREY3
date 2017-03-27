@@ -9,7 +9,6 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfEnergyCalculator;
 import edu.duke.cs.osprey.control.ParamSet;
 import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
-import edu.duke.cs.osprey.multistatekstar.ResidueOrder.ResidueOrderType;
 import edu.duke.cs.osprey.tools.ObjectIO;
 
 /**
@@ -50,8 +49,6 @@ public class MSKStarTree {
 
 	ParamSet msParams;//multistate spec params
 	MSConfigFileParser[] cfps;//config file parsers for each state
-
-	ResidueOrderType residueOrder;
 
 	PriorityQueue<MSKStarNode> pq;
 
@@ -97,30 +94,11 @@ public class MSKStarTree {
 
 		this.cfps = cfps;
 		this.msParams = msParams;
-		residueOrder = getResidueOrder();
 
 		numExpanded = 0;
 		numPruned = 0;
 		numSeqsReturned = 0;
 		pq = null;
-		
-		MSKStarNode.OBJFCN = objFcn;
-	}
-
-	private ResidueOrderType getResidueOrder() {
-		String val = msParams.getValue("RESIDUEORDER");
-		switch(val.toLowerCase()) {
-		case "staticsequential":
-			return ResidueOrderType.StaticSequential;
-		case "staticmindom":
-			return ResidueOrderType.StaticMinDom;
-		case "staticobjFunchmean":
-			return ResidueOrderType.StaticObjFuncHMean;
-		case "dynamicbbjfunchmean":
-			return ResidueOrderType.DynamicObjFuncHMean;
-		default:
-			throw new UnsupportedOperationException("ERROR: unsupported residue order type: "+val);
-		}
 	}
 
 	private void initQueue(MSKStarNode node) {
@@ -157,6 +135,11 @@ public class MSKStarTree {
 	}
 
 	private MSKStarNode getRootNode() {
+		
+		//initialize MSKStarNode
+		MSKStarNode.OBJ_FUNC = this.objFcn;
+		MSKStarNode.WT_SEQS = this.wtSeqs;
+		
 		KStarScore[] kssLB = new KStarScore[numStates];
 		KStarScore[] kssUB = new KStarScore[numStates];
 		KStarScoreType[] types = null;
@@ -246,7 +229,7 @@ public class MSKStarTree {
 				ArrayList<MSKStarNode> children = getChildren(curNode);
 				numExpanded++;
 
-				for(MSKStarNode child : children) pq.add(child);
+				pq.addAll(children);
 			}
 		}
 	}

@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 
 /**
  * 
@@ -10,7 +11,8 @@ import java.math.BigDecimal;
  */
 public class MSKStarNode {
 
-	public static LMB OBJFCN;//global objective function that we are optimizing for
+	public static LMB OBJ_FUNC;//global objective function that we are optimizing for
+	public static ArrayList<String[]> WT_SEQS;
 
 	private KStarScore[] ksLB;//lower bound k* objects
 	private KStarScore[] ksUB;//upper bound k* objects
@@ -45,7 +47,7 @@ public class MSKStarNode {
 			if(coeffs[i].compareTo(BigDecimal.ZERO) < 0) kss[i] = ksUB[i].getUpperBoundScore();
 			else if(coeffs[i].compareTo(BigDecimal.ZERO) > 0) kss[i] = ksLB[i].getLowerBoundScore();
 			else {//coeffs[i]==0
-				if(lmb.equals(OBJFCN)) throw new RuntimeException("ERROR: objective function coefficient cannot be 0");
+				if(lmb.equals(OBJ_FUNC)) throw new RuntimeException("ERROR: objective function coefficient cannot be 0");
 				else kss[i] = BigDecimal.ZERO;
 			}
 		}
@@ -59,7 +61,7 @@ public class MSKStarNode {
 			if(coeffs[i].compareTo(BigDecimal.ZERO) < 0) ksObjFunc[i] = ksUB[i];
 			else if(coeffs[i].compareTo(BigDecimal.ZERO) > 0) ksObjFunc[i] = ksLB[i];
 			else {//coeffs[i]==0
-				if(lmb.equals(OBJFCN)) throw new RuntimeException("ERROR: objective function coefficient cannot be 0");
+				if(lmb.equals(OBJ_FUNC)) throw new RuntimeException("ERROR: objective function coefficient cannot be 0");
 				else ksObjFunc = null;
 			}
 		}
@@ -73,7 +75,7 @@ public class MSKStarNode {
 	}
 	
 	public boolean constrSatisfied() {
-		for(KStarScore score : getStateKStarObjects(OBJFCN)) {
+		for(KStarScore score : getStateKStarObjects(OBJ_FUNC)) {
 			if(score==null) continue;
 			if(!score.constrSatisfied()) return false;
 		}

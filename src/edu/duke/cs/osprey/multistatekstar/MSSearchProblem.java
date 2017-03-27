@@ -31,16 +31,29 @@ public class MSSearchProblem extends SearchProblem {
 		this.numDefinedPos = other.confSpace.numPos-Collections.frequency(flexRes, "-1");
 	}
 
-	public ArrayList<Integer> getPosNums(boolean defined) {
+	public ArrayList<Integer> getPosNums(boolean assigned) {
 		ArrayList<Integer> ans = new ArrayList<>();
 		for(int i=0;i<flexRes.size();++i) {
-			if(!defined && flexRes.get(i).equals("-1")) ans.add(i);//get undefined pos
-			else if(defined && !flexRes.get(i).equals("-1")) ans.add(i);//get defined pos
+			if(!assigned && flexRes.get(i).equals("-1")) ans.add(i);//get undefined pos
+			else if(assigned && !flexRes.get(i).equals("-1")) ans.add(i);//get defined pos
+		}
+		ans.trimToSize();
+		return ans;
+	}
+	
+	public ArrayList<String> getAssignedAAs() {
+		ArrayList<String> ans = new ArrayList<>();
+		for(int i : getPosNums(true)) {
+			ans.add(settings.AATypeOptions.get(i).get(0));
 		}
 		ans.trimToSize();
 		return ans;
 	}
 
+	public int getNumUndefinedPos() {
+		return confSpace.numPos-numDefinedPos;
+	}
+	
 	public int getNumDefinedPos() {
 		return numDefinedPos;
 	}

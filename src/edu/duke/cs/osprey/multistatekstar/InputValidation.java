@@ -20,12 +20,12 @@ import edu.duke.cs.osprey.tools.StringParsing;
 public class InputValidation {
 
 	ArrayList<ArrayList<ArrayList<ArrayList<String>>>> AATypeOptions;
-	ArrayList<ArrayList<ArrayList<Integer>>> mutable2StateResNums;
+	ArrayList<ArrayList<ArrayList<Integer>>> state2MutableResNums;
 	
 	public InputValidation(ArrayList<ArrayList<ArrayList<ArrayList<String>>>> AATypeOptions,
-			ArrayList<ArrayList<ArrayList<Integer>>> mutable2StateResNums) {
+			ArrayList<ArrayList<ArrayList<Integer>>> state2MutableResNums) {
 		this.AATypeOptions = AATypeOptions;
-		this.mutable2StateResNums = mutable2StateResNums;
+		this.state2MutableResNums = state2MutableResNums;
 	}
 	
 	public void handleObjFcn(ParamSet msParams, LMB objFcn) {
@@ -49,7 +49,7 @@ public class InputValidation {
 
 		Molecule wtMolec = PDBFileReader.readPDBFile( stateCfp.getParams().getValue("PDBName"), null );
 
-		ArrayList<Integer> mutRes = mutable2StateResNums.get(state).get(subState);
+		ArrayList<Integer> mutRes = state2MutableResNums.get(state).get(subState);
 		ArrayList<ArrayList<String>> subStateAAOptions = stateCfp.getAllowedAAs(mutRes);
 
 		if(AATypeOptions==null) 
