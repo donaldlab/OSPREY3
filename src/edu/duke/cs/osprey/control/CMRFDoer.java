@@ -103,9 +103,9 @@ public class CMRFDoer {
 	public void compute() {
 		
 		CMRF toy = new CMRF(2);
-		toy.runToyCMRF(18, 0.15, 0);
-		toy.runToyCMRF(18, 0.15, 50);
-		toy.runToyCMRF(18, 0.15, 10000);
+		toy.runToyCMRF(18, 0.15, 10);
+//		toy.runToyCMRF(18, 0.15, 50);
+//		toy.runToyCMRF(18, 0.15, 10000);
 		System.exit(0);
 		
 		int numNodes = search[2].flexRes.size();

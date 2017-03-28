@@ -124,7 +124,7 @@ public class TRBP {
 	public void calculateLBPMessagesTRBP(int iter) { 
 		System.out.println();
 		for (int it=0; it<iter; it++) { 
-			System.out.print("Running LBP, iter " + (it+1) + "... ");
+			System.out.print("Running LBP, iter " + (it+1) + " of " + iter + "... ");
 			for (int i=0; i<cmrf.numNodes; i++) {
 				System.out.print(i+"{");
 				CMRFNode sender = cmrf.nodes[i];
@@ -595,10 +595,10 @@ public class TRBP {
 						domainPDF.k,
 						domainPDF.domainLB,
 						domainPDF.domainUB,
-						(point)->(this.entropyMult * 
+						(point)->( 
 								this.functionFloor(
 										-1*domainPDF.eval(point)*Math.log(domainPDF.eval(point)))));
-				double domainEntropy = domainEntropyFunc.computeAreaUnderCurve() / this.entropyMult;
+				double domainEntropy = domainEntropyFunc.computeAreaUnderCurve();
 				if (Double.isNaN(domainEntropy)) { 
 					Matrix m = domainPDF.dumpPoints();
 					m.print(3, 5);

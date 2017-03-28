@@ -32,7 +32,7 @@ public class CMRF {
 	public double[][] edgeProbs;
 	public CMRFEdge[][] edges;
 
-	double threshold = 0.001;
+	double threshold = 0.5;
 	double constRT = PoissonBoltzmannEnergy.constRT;
 	int maxIters = 1000000;
 	double lambda = 0.7;
@@ -52,6 +52,7 @@ public class CMRF {
 	
 	/**
 	 * Runs a quick toy example using both SCMF and TRBP
+	 * Actual logZ = 9.00637
 	 * @param size
 	 * @param kernelMult
 	 * @param iter
