@@ -33,7 +33,7 @@ public class RKHSFunction {
     public int numSamplesPerDimension = 10; // we can change this as the function changes
     
     // max number of samples we want to allow
-    public int maxSamples = 100;
+    public int maxSamples = 10;
     
     /**
      * Constructor - takes as parameters feature maps and linear coefficients
@@ -432,20 +432,40 @@ newFeatureMaps[fMapIndex] = new FeatureMap(this.k, cdfPoint);
      * @return totalIntegral
      */
     public double computeIntegral() {
-	
-        RKHSFunction measure = this.getLebesgueMeasure(this.domainLB, this.domainUB);
-	
-        double domainVolume = 1.0;
-        for (int i=0; i<domainLB.length; i++) {
-            domainVolume = domainVolume * (domainUB[i] - domainLB[i]);
-        }
-	final double vol = domainVolume;
-	
-        double totalIntegral = domainVolume * this.innerProduct(measure);
-	
-        return totalIntegral;
+
+    	RKHSFunction measure = this.getLebesgueMeasure(this.domainLB, this.domainUB);
+
+    	double domainVolume = 1.0;
+    	for (int i=0; i<domainLB.length; i++) {
+    		domainVolume = domainVolume * (domainUB[i] - domainLB[i]);
+    	}
+    	final double vol = domainVolume;
+
+    	double totalIntegral = domainVolume * this.innerProduct(measure);
+
+    	return totalIntegral;
     }
     
+    public double computeAreaUnderCurve() { 
+    	RKHSFunction measure = this.getLebesgueMeasure(this.domainLB, this.domainUB);
+
+    	double domainVolume = 1.0;
+    	for (int i=0; i<domainLB.length; i++) {
+    		domainVolume = domainVolume * (domainUB[i] - domainLB[i]);
+    	}
+    	final double vol = domainVolume;
+    	
+    	double result = 0.0;
+    	for (int i=0; i<featureMaps.length; i++) { 
+    		for (int j=0; j<measure.featureMaps.length; j++) {
+    			double val = this.coeffs[i] * measure.coeffs[j] * this.k.eval(featureMaps[i].loc, measure.featureMaps[j].loc); 
+    			if (val > 0) { result += val; }
+    		}
+    	}
+    	    	
+    	return result;    	
+    }
+
     /**
      * Computes the average of this function over its domain
      * @return expectation
@@ -465,26 +485,26 @@ newFeatureMaps[fMapIndex] = new FeatureMap(this.k, cdfPoint);
      * @return
      */
     public RKHSFunction getLebesgueMeasure(double[] lBounds, double[] uBounds) {
-        int numDimensions= lBounds.length;
-	Random r = new Random(0);
-        int numUniformSamples = 10000;
-        
-        double measureCoeff = 1.0/numUniformSamples;
-        double[][] uniformSamples = new double[numUniformSamples][numDimensions];
-        for (double[] uniformSample : uniformSamples) {
-            for (int dim = 0; dim < uniformSample.length; dim++) {
-                uniformSample[dim] = r.nextDouble() * (uBounds[dim] - lBounds[dim]) + lBounds[dim];
-            }
-        }
-        FeatureMap[] measureFMs = new FeatureMap[numUniformSamples];
-        for (int fm = 0; fm < measureFMs.length; fm++) {
-            measureFMs[fm] = new FeatureMap(this.k, uniformSamples[fm]);
-        }
-        double[] measureCoeffs = new double[numUniformSamples];
-        for (int coeff = 0; coeff < measureCoeffs.length; coeff++) {
-            measureCoeffs[coeff] = measureCoeff;
-        }
-        
+    	int numDimensions= lBounds.length;
+    	Random r = new Random(0);
+    	int numUniformSamples = 10000;
+
+    	double measureCoeff = 1.0/numUniformSamples;
+    	double[][] uniformSamples = new double[numUniformSamples][numDimensions];
+    	for (double[] uniformSample : uniformSamples) {
+    		for (int dim = 0; dim < uniformSample.length; dim++) {
+    			uniformSample[dim] = r.nextDouble() * (uBounds[dim] - lBounds[dim]) + lBounds[dim];
+    		}
+    	}
+    	FeatureMap[] measureFMs = new FeatureMap[numUniformSamples];
+    	for (int fm = 0; fm < measureFMs.length; fm++) {
+    		measureFMs[fm] = new FeatureMap(this.k, uniformSamples[fm]);
+    	}
+    	double[] measureCoeffs = new double[numUniformSamples];
+    	for (int coeff = 0; coeff < measureCoeffs.length; coeff++) {
+    		measureCoeffs[coeff] = measureCoeff;
+    	}
+
         RKHSFunction lebesgueMeasure = new RKHSFunction(measureFMs, measureCoeffs);
         return lebesgueMeasure;
     }

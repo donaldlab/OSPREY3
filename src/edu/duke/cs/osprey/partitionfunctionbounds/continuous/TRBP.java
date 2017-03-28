@@ -12,6 +12,7 @@ public class TRBP {
 
 	CMRF cmrf;
 	double logThreshold = 0.000001;
+	double entropyMult = 10E5; 
 	
 	public TRBP(CMRF cmrf) {
 		this.cmrf = cmrf;
@@ -61,8 +62,8 @@ public class TRBP {
 
 			// break if things are dying
 			boolean energyWorse = (Math.abs(enrg) - Math.abs(oldEnrg) > 0);
-			if (/*(energyWorse || logZ > oldLogZ) &&*/ Double.isNaN(oldLogZ)) {
-//				if (energyWorse) { System.out.println("energy got worse"); }
+			if ((energyWorse || logZ > oldLogZ) && Double.isNaN(oldLogZ)) {
+				if (energyWorse) { System.out.println("energy got worse"); }
 				if (Double.isNaN(logZ)) { System.out.println("Ended on a NaN"); }
 				System.out.println("DONE: logZUB: "+oldLogZ);
 				System.out.println("Fenth: "+enth+", Fentr: "+entr+", Fenrg: " + enrg + ", FlogZUB: "+logZ);
@@ -594,17 +595,19 @@ public class TRBP {
 						domainPDF.k,
 						domainPDF.domainLB,
 						domainPDF.domainUB,
-						(point)->(
-								this.chooseSmallLog(
-									-1*domainPDF.eval(point)*Math.log(domainPDF.eval(point)),
-									logThreshold)));
-				double domainEntropy = domainEntropyFunc.computeIntegral();
+						(point)->(this.entropyMult * 
+								this.functionFloor(
+										-1*domainPDF.eval(point)*Math.log(domainPDF.eval(point)))));
+				double domainEntropy = domainEntropyFunc.computeAreaUnderCurve() / this.entropyMult;
 				if (Double.isNaN(domainEntropy)) { 
 					Matrix m = domainPDF.dumpPoints();
 					m.print(3, 5);
 					m = domainEntropyFunc.dumpPoints();
 					m.print(3, 5);
-					throw new RuntimeException("NaN entropy"); 
+					throw new RuntimeException("NaN entropy"); 	
+				}
+				if (domainEntropy < 0) { 
+					throw new RuntimeException("Negative entropy");
 				}
 				nodeEntropy += domainEntropy;
 
@@ -631,7 +634,7 @@ public class TRBP {
 														neighborPDF.eval(cmrf.splitArray(point, domainPDF.domainLB.length).get(1))),
 												Double.MIN_VALUE))));
 
-						double pairEntropy = cmrf.edgeProbs[nodeInd][neighborInd]*pairwiseEntropy.computeIntegral();
+						double pairEntropy = cmrf.edgeProbs[nodeInd][neighborInd]*pairwiseEntropy.computeAreaUnderCurve();
 						if (Double.isNaN(pairEntropy)) {
 							Matrix m = pairwiseEntropy.dumpPoints();
 							m.print(3, 5);
@@ -657,8 +660,8 @@ public class TRBP {
 	 * @param y
 	 * @return
 	 */
-	public double chooseSmallLog(double x, double y) { 
-		return (Double.isNaN(x) || x<logThreshold) ? y : x; 
+	public double functionFloor(double x) { 
+		return (Double.isNaN(x) || x<logThreshold) ? logThreshold : x; 
 	}
 
 	/** returns the exponential function at a specific point for the TRBP message update 
