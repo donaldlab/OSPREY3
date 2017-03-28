@@ -25,6 +25,7 @@ public class TRBP {
 	public double runTRBP(int it) { 
 		System.out.print("Initializing TRBP...");
 		this.initializeEdgeProbsTRBP();
+		this.initializeEdgeWeightsTRBP();
 		this.initializeMessagesTRBP(it);
 		System.out.println("Done.");
 
@@ -36,14 +37,14 @@ public class TRBP {
 		int iter = 0; 
 		boolean haveValidLogZ = false;
 
-		while (true) { 
+		while (true) {
+			this.updateEdgeProbsTRBP(iter);
 			this.updateMessagesTRBP();
 
 			System.out.print("Updating pseudomarginals...");
 			this.computeSingletonPseudomarginalsTRBP();
 			this.computePairwiseMarginalsTRBP();
 			System.out.println("done.");
-
 
 
 			double enth = this.computeEnthalpyTRBP();
@@ -390,6 +391,52 @@ public class TRBP {
 		}
 	}
 
+	public void initializeEdgeWeightsTRBP() { 
+		cmrf.edgeWeights = new double[cmrf.numNodes][cmrf.numNodes];
+		for (int i=0; i<cmrf.edgeWeights.length; i++) { 
+			for (int j=0; j<i; j++) { 
+				CMRFEdge edge = cmrf.edges[i][j];
+				double mutInf = 0.0;
+				for (CMRFEdgeDomain edgeDomain : edge.domainLinks) { 
+					RKHSFunction pairwisePDF = edgeDomain.pFuncRKHS;
+					RKHSFunction domainPDF = edgeDomain.resOneDomain.probabilityRKHS;
+					RKHSFunction neighborPDF = edgeDomain.resTwoDomain.probabilityRKHS;
+					RKHSFunction pairwiseEntropy = new RKHSFunction(
+							edgeDomain.resAllK,
+							edgeDomain.domainLB,
+							edgeDomain.domainUB,
+							(point) -> (pairwisePDF.eval(point) *
+									Math.log(Math.max(
+											pairwisePDF.eval(point)/
+											(domainPDF.eval(CMRF.splitArray(point, domainPDF.domainLB.length).get(0)) *
+													neighborPDF.eval(CMRF.splitArray(point, domainPDF.domainLB.length).get(1))),
+											Double.MIN_VALUE))));
+					mutInf += pairwiseEntropy.computeAreaUnderCurve();
+				}
+				cmrf.edgeWeights[i][j] = mutInf;
+				cmrf.edgeWeights[j][i] = mutInf;
+			}
+		}
+	}
+	
+	public void updateEdgeProbsTRBP(int iterCount) { 
+		
+		System.out.print("Updating edge probabilities...");
+		TRBPMinSpanningTree mst = new TRBPMinSpanningTree();
+		
+		double[][] vec = mst.getMinSpanningTree(cmrf.edgeWeights);
+		
+		double stepSize = 2.0/(iterCount + 2.0); // from Hunter
+		for (int i=0; i<cmrf.numNodes; i++) { 
+			for (int j=0; j<cmrf.numNodes; j++) { 
+				if (i==j) { continue; }
+				cmrf.edgeProbs[i][j] = stepSize * vec[i][j] + (1-stepSize) * cmrf.edgeProbs[i][j];
+			}
+		}
+		
+		System.out.println("done.");
+	}
+
 	/**
 	 * TRBP message update procedure 
 	 */
@@ -641,6 +688,8 @@ public class TRBP {
 							throw new RuntimeException("NaN entropy");
 						}
 
+						cmrf.edgeWeights[nodeInd][neighborInd] = pairEntropy;
+						
 						edgeEntropy += pairEntropy;
 					}
 				}
@@ -744,6 +793,5 @@ public class TRBP {
 		}	
 		System.out.println("done.");
 	}
-
 
 }

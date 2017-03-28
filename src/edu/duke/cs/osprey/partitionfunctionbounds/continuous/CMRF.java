@@ -29,7 +29,8 @@ public class CMRF {
 	public int[][] adjacencyMatrix;
 	public double[] nodeWeights;
 
-	public double[][] edgeProbs;
+	public double[][] edgeProbs; // holds edge probabilities for TRBP
+	public double[][] edgeWeights; // holds mutual information terms for TRBP 
 	public CMRFEdge[][] edges;
 
 	double threshold = 0.5;
