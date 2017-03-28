@@ -38,17 +38,19 @@ public class SCMF {
 			double logZ = freeEnergy; // freeEnergy is a direct lower bound on logZ
 
 			// break if the bound gets worse, i.e. we step over a local maximum
-			if (logZ < oldLogZ) { 
-				cmrf.ranSCMF = true;
-				System.out.println("DONE: logZLB: "+oldLogZ);
-				printMarginalsSCMF();
-				return oldLogZ;
-			}
+//			if (logZ < oldLogZ) { 
+//				cmrf.ranSCMF = true;
+//				System.out.println("Ran over a local maximum.");
+//				System.out.println("DONE: logZLB: "+oldLogZ);
+//				printMarginalsSCMF();
+//				return oldLogZ;
+//			}
 
 			System.out.println("enth: "+enth+", entr: "+entr+", logZLB: "+logZ);
 
 			// break if the other termination condition is reached
-			if ((Math.abs(logZ-oldLogZ) <= cmrf.threshold) || (iter >= cmrf.maxIters)) { 
+			if ((Math.abs(logZ-oldLogZ) <= cmrf.threshold) || (iter >= cmrf.maxIters)) {
+				System.out.println("Converged.");
 				cmrf.ranSCMF = true;
 				System.out.println("DONE: logZLB: "+logZ);
 				printMarginalsSCMF();

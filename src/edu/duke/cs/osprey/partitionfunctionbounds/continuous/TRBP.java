@@ -11,6 +11,7 @@ import Jama.Matrix;
 public class TRBP {
 
 	CMRF cmrf;
+	double logThreshold = 0.000001;
 	
 	public TRBP(CMRF cmrf) {
 		this.cmrf = cmrf;
@@ -60,8 +61,8 @@ public class TRBP {
 
 			// break if things are dying
 			boolean energyWorse = (Math.abs(enrg) - Math.abs(oldEnrg) > 0);
-			if ((energyWorse || logZ > oldLogZ) && !Double.isNaN(oldLogZ)) {
-				if (energyWorse) { System.out.println("energy got worse"); }
+			if (/*(energyWorse || logZ > oldLogZ) &&*/ Double.isNaN(oldLogZ)) {
+//				if (energyWorse) { System.out.println("energy got worse"); }
 				if (Double.isNaN(logZ)) { System.out.println("Ended on a NaN"); }
 				System.out.println("DONE: logZUB: "+oldLogZ);
 				System.out.println("Fenth: "+enth+", Fentr: "+entr+", Fenrg: " + enrg + ", FlogZUB: "+logZ);
@@ -593,7 +594,10 @@ public class TRBP {
 						domainPDF.k,
 						domainPDF.domainLB,
 						domainPDF.domainUB,
-						(point)->(-1*domainPDF.eval(point)*Math.log(Math.max(domainPDF.eval(point), Double.MIN_VALUE))));
+						(point)->(
+								this.chooseSmallLog(
+									-1*domainPDF.eval(point)*Math.log(domainPDF.eval(point)),
+									logThreshold)));
 				double domainEntropy = domainEntropyFunc.computeIntegral();
 				if (Double.isNaN(domainEntropy)) { 
 					Matrix m = domainPDF.dumpPoints();
@@ -645,6 +649,16 @@ public class TRBP {
 		}
 
 		return totalEntropy;
+	}
+	
+	/**
+	 * Picks the first double of the two that isn't a NaN
+	 * @param x
+	 * @param y
+	 * @return
+	 */
+	public double chooseSmallLog(double x, double y) { 
+		return (Double.isNaN(x) || x<logThreshold) ? y : x; 
 	}
 
 	/** returns the exponential function at a specific point for the TRBP message update 

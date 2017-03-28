@@ -32,7 +32,7 @@ public class CMRF {
 	public double[][] edgeProbs;
 	public CMRFEdge[][] edges;
 
-	double threshold = 0.0001;
+	double threshold = 0.001;
 	double constRT = PoissonBoltzmannEnergy.constRT;
 	int maxIters = 1000000;
 	double lambda = 0.7;
@@ -52,7 +52,6 @@ public class CMRF {
 	
 	/**
 	 * Runs a quick toy example using both SCMF and TRBP
-	 * Actual logZ value for this example is roughly 171.526 
 	 * @param size
 	 * @param kernelMult
 	 * @param iter
@@ -68,7 +67,7 @@ public class CMRF {
 		double[] lb1 = new double[1]; lb1[0] = 0; 
 		double[] ub1 = new double[1]; ub1[0] = size;
 		Kernel k1 = new KernelGaussian( b1 , kernelMult*size );
-		CMRFNodeDomain nd1 = new CMRFNodeDomain(lb1, ub1, k1, (point)->(-Math.pow(point[0]-5,2)));
+		CMRFNodeDomain nd1 = new CMRFNodeDomain(lb1, ub1, k1, (point)->(-1));
 
 		double[][] b2 = new double[2][2];
 		b2[0][0] = 0; b2[0][1] = size;
@@ -76,13 +75,13 @@ public class CMRF {
 		double[] lb2 = {0, 0};
 		double[] ub2 = {size, size};
 		Kernel k2 = new KernelGaussian( b2, kernelMult*size);
-		CMRFNodeDomain nd2 = new CMRFNodeDomain(lb2, ub2, k2, (point)->(-1*point[0]));
+		CMRFNodeDomain nd2 = new CMRFNodeDomain(lb2, ub2, k2, (point)->(-1));
 
 		HashMap<Integer, CMRFNodeDomain[]> h = new HashMap<>();
 		h.put(0, new CMRFNodeDomain[]{nd1});
 		h.put(1, new CMRFNodeDomain[]{nd2});
 
-		ToDoubleFunction<double[]>f = (point)->(-1*point[2]);
+		ToDoubleFunction<double[]>f = (point)->(-1);
 		HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>> map1 = new HashMap<>();
 		map1.put(nd2, f);
 		HashMap<CMRFNodeDomain, HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>> map2 = new HashMap<>();
@@ -109,7 +108,7 @@ public class CMRF {
 		double logZLB = s.runSCMF();
 		
 		TRBP t = new TRBP(c);
-		double logZUB = t.runTRBP(10); // no iterations of LBP
+		double logZUB = t.runTRBP(iter); // no iterations of LBP
 		
 		double[] ret = new double[2];
 		ret[0] = logZLB; ret[1] = logZUB;
