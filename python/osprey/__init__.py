@@ -69,10 +69,7 @@ def start(heapSizeMB=1024, enableAssertions=False):
 		# development environment: use the library jars and compiled classes directly
 		jvm.addClasspath(os.path.join(osprey_dir, '../../bin'))
 		for path in open('../../build/output/classpath.txt', 'r').readlines():
-			path = path.strip()
-			# TEMP
-			print('classpath', path)
-			jvm.addClasspath(path)
+			jvm.addClasspath(path.strip())
 
 	else:
 
