@@ -16,17 +16,25 @@ To develop Osprey, first clone the git repository to a folder of your choosing::
 .. _Github: https://github.com/donaldlab/OSPREY_refactor
 
 
-Setup Eclipse build path
-~~~~~~~~~~~~~~~~~~~~~~~~
+Setup development environment
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Osprey uses the `Jerkar`_ build system. You don't need to install Jerkar, since it's
-included in the Osprey repo. Just run this in a shell at the project root::
+Osprey uses the `Jerkar`_ build system to automate certain development tasks like:
 
-    $ ./jerkar eclipse#generateFiles
+* Download Java libraries (e.g. jar files)
+* Maintain the Java classpath needed to compile or run Osprey
+* Compile code and build the Osprey jar file
+* Build the Osprey distribution zip file
+* Configure Java IDEs
 
-This will download the Java libraries needed by Osprey and generate the ``.classpath``
+You don't need to install Jerkar, since it's already included in the Osprey repo.
+Just run this in a shell at the project root to set up your develoment environment::
+
+    $ ./jerkar setupDevEnv
+
+This script will download the Java libraries needed by Osprey and generate the ``.classpath``
 file for Eclipse. Then Eclipse can build the project and you’ll be able to launch
-Osprey from within Eclipse for debugging.
+Osprey from within Eclipse for development and debugging.
 
 .. _Jerkar: http://project.jerkar.org
 
@@ -34,6 +42,13 @@ Osprey from within Eclipse for debugging.
     **TODO:** Jerkar supports other IDEs too (eg, Netbeans, IntelliJ), but I don't know
     how to use those IDEs. Anyone want to help write docs for those IDEs?
 
+This script also generates the ``build/output/classpath.txt`` file used by the development
+mode of the Osprey Python package.
+
+\
+    **NOTE:** If you need to get the classpath to run Osprey in some other development
+    environment (e.g. a shell script), ``classpath.txt`` lists all the runtime dependencies
+    in a very simple format.
 
 Build Osprey distribution
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -44,7 +59,8 @@ To build an Osprey distribution zip file, simply run in the Osprey project folde
 
 The distribution zip file will be saved to ``build/output``.
 
-To build the documentation, you'll need to install `Sphinx`_.
+By default, ``doDist`` will try to build the documentation for Osprey too, which
+has some additional prerequisites that may not be installed.
 If you want to skip building the documentation, try this command instead::
 
     $ ./jerkar doDist -makeDocs=false
@@ -74,6 +90,31 @@ documentation much like the `autodoc extension to Sphinx`_.
 
 .. _ReStructured Text (RST): https://en.wikipedia.org/wiki/ReStructuredText
 .. _autodoc extension to Sphinx: http://www.sphinx-doc.org/en/stable/ext/autodoc.html
+
+Prerequisites
+-------------
+
+Before we can build the documentation for Osprey, we'll have to satisfy some prerequisites.
+If you have Python package manager `pip`_ installed, it will make these steps significantly easier.
+
+1. Install `Sphinx`_, the python documentation tool::
+
+    $ pip install sphinx
+    
+2. Install the `Guzzle`_ theme for Sphinx::
+
+    $ pip install guzzle_sphinx_theme
+    
+3. Install the `javalang`_ Python package::
+
+    $ pip install javalang
+
+.. _pip: https://pip.pypa.io/en/stable/
+.. _Guzzle: https://github.com/guzzle/guzzle_sphinx_theme
+.. _javalang: https://github.com/c2nes/javalang
+
+Building
+--------
 
 To build the documentation for Osprey, run the Sphinx tool from the ``doc`` folder::
 

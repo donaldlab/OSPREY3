@@ -260,8 +260,11 @@ public class Build extends JkJavaBuild {
 	public void doClasspath()
 	throws IOException {
 		
-		// collect all the dependency files in order
+		// start with the bin dir
 		LinkedHashSet<File> files = new LinkedHashSet<>();
+		files.add(baseDir().file("bin"));
+		
+		// collect all the dependency files in order
 		JkResolveResult result = dependencyResolver().resolve(RUNTIME, NATIVES);
 		for (JkScopedDependency sdep : dependencies()) {
 			JkDependency dep = sdep.dependency();
