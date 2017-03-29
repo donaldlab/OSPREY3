@@ -11,7 +11,6 @@ import Jama.Matrix;
 public class TRBP {
 
 	CMRF cmrf;
-	double logThreshold = 0.000001;
 	double entropyMult = 10E5; 
 	
 	public TRBP(CMRF cmrf) {
@@ -200,8 +199,8 @@ public class TRBP {
 										Wt.domainUB,
 										(point)->(senderMessages.get(Wt).eval(point)/Q)));
 					}
-					System.out.print("}");
 				}
+				System.out.print("}");
 			}
 			System.out.println("done.");
 		}
@@ -284,13 +283,13 @@ public class TRBP {
 							pairwiseEFunc.k,
 							pairwiseEFunc.domainLB,
 							pairwiseEFunc.domainUB,
-							(point) -> (Math.exp(-1*pairwiseEFunc.eval(point)/edgeProb 
+							(point) -> (Math.exp(-1*pairwiseEFunc.eval(point)/edgeProb
 									- oneEFunc.eval(CMRF.splitArray(point, domainOne.domainLB.length).get(0))
 									- twoEFunc.eval(CMRF.splitArray(point, domainOne.domainLB.length).get(1)))));
 
 					// get neighbors of sender
-					RKHSFunction[] senderFuncs = new RKHSFunction[cmrf.nodes.length-1];
-					double[] senderPows = new double[cmrf.nodes.length-1];
+					RKHSFunction[] senderFuncs = new RKHSFunction[cmrf.nodes.length-2];
+					double[] senderPows = new double[cmrf.nodes.length-2];
 					int snIndex = 0;
 					for (CMRFNode node : cmrf.nodes) { 
 						if (node == receiver || node == sender) { 
@@ -321,13 +320,13 @@ public class TRBP {
 					}
 
 					// get neighbors of receiver
-					RKHSFunction[] receiverFuncs = new RKHSFunction[cmrf.nodes.length-1];
-					double[] receiverPows = new double[cmrf.nodes.length-1];
+					RKHSFunction[] receiverFuncs = new RKHSFunction[cmrf.nodes.length-2];
+					double[] receiverPows = new double[cmrf.nodes.length-2];
 					int rnIndex = 0;
 					for (CMRFNode node : cmrf.nodes) { 
 						if (node == receiver || node==sender) { continue; }
-						receiverPows[snIndex] = cmrf.edgeProbs[cmrf.getIndexInArray(node, cmrf.nodes)][j];
-						receiverFuncs[snIndex] = node.outMessages.get(receiver).get(domainTwo);
+						receiverPows[rnIndex] = cmrf.edgeProbs[cmrf.getIndexInArray(node, cmrf.nodes)][j];
+						receiverFuncs[rnIndex] = node.outMessages.get(receiver).get(domainTwo);
 						rnIndex++;
 					}
 					RKHSFunction receiverDenom = new RKHSFunction(
@@ -357,8 +356,8 @@ public class TRBP {
 									domain.domainLB,
 									domain.domainUB,
 									(point)->(phiFunc.eval(point) + 
-											senderFunction.eval(cmrf.splitArray(point, domain.resOneLB.length).get(0)) + 
-											receiverFunction.eval(cmrf.splitArray(point, domain.resOneLB.length).get(1)))));
+											senderFunction.eval(CMRF.splitArray(point, domain.resOneLB.length).get(0)) + 
+											receiverFunction.eval(CMRF.splitArray(point, domain.resOneLB.length).get(1)))));
 					domain.pseudomarginal = newPairwiseMarginals.get(domain);
 				}
 
@@ -376,7 +375,19 @@ public class TRBP {
 					+ "continuous-label MRF unless nodes have already been added. ");
 		}
 
-		Matrix adj = new Matrix(cmrf.numNodes, cmrf.numNodes, 1.0);
+
+		double[][] adjacency = new double[cmrf.numNodes][cmrf.numNodes];
+		for (int i=0; i<cmrf.numNodes; i++) { 
+			for (int j=0; j<cmrf.numNodes; j++) { 
+				if (i==j) { 
+					adjacency[i][j] = 0; 
+				} else { 
+					adjacency[i][j] = 1;
+				} 
+			}
+		}
+		Matrix adj = Jama.Matrix.constructWithCopy(adjacency);
+		
 		Matrix deg = Jama.Matrix.identity(cmrf.numNodes, cmrf.numNodes).times(cmrf.numNodes);
 		Matrix laplacian = deg.minus(adj);
 		Matrix lapMinOne = laplacian.minus(new Matrix(cmrf.numNodes, cmrf.numNodes, 1.0));
@@ -389,6 +400,7 @@ public class TRBP {
 						adj.get(i, j) * (invLap.get(i, i) + invLap.get(j, j) - 2*invLap.get(i, j));
 			}
 		}
+		
 	}
 
 	public void initializeEdgeWeightsTRBP() { 
@@ -425,8 +437,8 @@ public class TRBP {
 		TRBPMinSpanningTree mst = new TRBPMinSpanningTree();
 		
 		double[][] vec = mst.getMinSpanningTree(cmrf.edgeWeights);
+		double stepSize = 1.0/(iterCount+3);
 		
-		double stepSize = 2.0/(iterCount + 2.0); // from Hunter
 		for (int i=0; i<cmrf.numNodes; i++) { 
 			for (int j=0; j<cmrf.numNodes; j++) { 
 				if (i==j) { continue; }
@@ -435,6 +447,7 @@ public class TRBP {
 		}
 		
 		System.out.println("done.");
+		
 	}
 
 	/**
@@ -491,7 +504,6 @@ public class TRBP {
 						ToDoubleFunction<double[]> denomFunc = 
 								(Xt)->Math.pow(receiver.outMessages.get(sender).get(senDom).eval(Xt), 1-edgeProb);
 
-
 								// numerator of quotient
 								// note we're looking at nodes who send to the sender here 
 								ArrayList<CMRFNode> parents = new ArrayList<>();
@@ -539,7 +551,7 @@ public class TRBP {
 					normalizingConstant += func.computeIntegral();
 				}
 				final double Q = normalizingConstant;
-				for (int k=0; k< receiverDomainFuncs.length; k++) { 
+				for (int k=0; k< receiverDomainFuncs.length; k++) {
 					RKHSFunction oldFunc = receiverDomainFuncs[k];
 					receiverDomainFuncs[k] = new RKHSFunction(
 							oldFunc.k,
@@ -552,7 +564,7 @@ public class TRBP {
 				HashMap<CMRFNodeDomain, RKHSFunction> funcMap = sender.outMessages.get(receiver);
 				for (CMRFNodeDomain rD : receiver.domains) { 
 					RKHSFunction rDFunc = receiverDomainFuncs[cmrf.getIndexInArray(rD, receiver.domains)];
-					funcMap.put(rD, rDFunc);
+					funcMap.put(rD, rDFunc);	
 				}
 				messageMaps.get(sender).put(receiver, funcMap);
 			}
@@ -634,37 +646,42 @@ public class TRBP {
 	 */
 	public double computeEntropyTRBP() { 
 		double totalEntropy = 0.0;
-		for (CMRFNode node : cmrf.nodes) { 
+		
+		for (CMRFNode node: cmrf.nodes) { 
 			double nodeEntropy = 0.0;
-			for (CMRFNodeDomain domain : node.domains) { 
-				RKHSFunction domainPDF = node.pseudomarginals.get(domain);
-				RKHSFunction domainEntropyFunc = new RKHSFunction(
-						domainPDF.k,
-						domainPDF.domainLB,
-						domainPDF.domainUB,
-						(point)->( 
-								this.functionFloor(
-										-1*domainPDF.eval(point)*Math.log(domainPDF.eval(point)))));
-				double domainEntropy = domainEntropyFunc.computeAreaUnderCurve();
-				if (Double.isNaN(domainEntropy)) { 
-					Matrix m = domainPDF.dumpPoints();
-					m.print(3, 5);
-					m = domainEntropyFunc.dumpPoints();
-					m.print(3, 5);
-					throw new RuntimeException("NaN entropy"); 	
-				}
-				if (domainEntropy < 0) { 
-					throw new RuntimeException("Negative entropy");
-				}
-				nodeEntropy += domainEntropy;
+			
+			for (CMRFNode neighbor : cmrf.nodes) {
+				double edgeEntropy = 0.0;				
+				if (node.equals(neighbor)) { continue; }
+				int nodeInd = cmrf.getIndexInArray(node, cmrf.nodes);
+				int neighborInd = cmrf.getIndexInArray(neighbor, cmrf.nodes);
+				CMRFEdge edge = cmrf.edges[nodeInd][neighborInd];
 
-				double edgeEntropy = 0.0;
-				for (CMRFNode neighbor : cmrf.nodes) {
-					if (node.equals(neighbor)) { continue; }
-					int nodeInd = cmrf.getIndexInArray(node, cmrf.nodes);
-					int neighborInd = cmrf.getIndexInArray(neighbor, cmrf.nodes);
-					CMRFEdge edge = cmrf.edges[nodeInd][neighborInd];
-
+				
+				for (CMRFNodeDomain domain : node.domains) { 
+					// compute intra-node domain entropy
+					RKHSFunction domainPDF = node.pseudomarginals.get(domain);
+					RKHSFunction domainEntropyFunc = new RKHSFunction(
+							domainPDF.k,
+							domainPDF.domainLB,
+							domainPDF.domainUB,
+							(point)->( 
+									cmrf.functionFloor(
+											-1*domainPDF.eval(point)*Math.log(domainPDF.eval(point)))));
+					double domainEntropy = domainEntropyFunc.computeAreaUnderCurve();
+					if (Double.isNaN(domainEntropy)) { 
+						Matrix m = domainPDF.dumpPoints();
+						m.print(3, 5);
+						m = domainEntropyFunc.dumpPoints();
+						m.print(3, 5);
+						throw new RuntimeException("NaN entropy"); 	
+					}
+					if (domainEntropy < 0) { 
+						throw new RuntimeException("Negative entropy");
+					}
+					nodeEntropy += domainEntropy;
+					
+					// compute pairwise entropy
 					for (CMRFNodeDomain neighborDomain : neighbor.domains) { 
 						RKHSFunction neighborPDF = neighbor.pseudomarginals.get(neighborDomain);
 						CMRFEdgeDomain edgeDomain = edge.getEdgeDomain(domain, neighborDomain);
@@ -687,32 +704,26 @@ public class TRBP {
 							m.print(3, 5);
 							throw new RuntimeException("NaN entropy");
 						}
-
-						cmrf.edgeWeights[nodeInd][neighborInd] = pairEntropy;
 						
 						edgeEntropy += pairEntropy;
 					}
+					if (Double.isNaN(edgeEntropy)) { throw new RuntimeException("NaN entropy"); }
+					
+					cmrf.edgeWeights[nodeInd][neighborInd] = edgeEntropy;
+					cmrf.edgeWeights[neighborInd][nodeInd] = edgeEntropy;
+					
+					nodeEntropy += edgeEntropy;
 				}
-				if (Double.isNaN(edgeEntropy)) { throw new RuntimeException("NaN entropy"); }
-				nodeEntropy += edgeEntropy;
 			}
 			if (Double.isNaN(nodeEntropy)) { throw new RuntimeException("NaN entropy"); }
+			
 			totalEntropy += nodeEntropy;
+
 		}
 
 		return totalEntropy;
 	}
 	
-	/**
-	 * Picks the first double of the two that isn't a NaN
-	 * @param x
-	 * @param y
-	 * @return
-	 */
-	public double functionFloor(double x) { 
-		return (Double.isNaN(x) || x<logThreshold) ? logThreshold : x; 
-	}
-
 	/** returns the exponential function at a specific point for the TRBP message update 
 	 * this is basically currying, but awkward as all hell because Java
 	 * 

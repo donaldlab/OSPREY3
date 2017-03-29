@@ -29,10 +29,10 @@ public class CMRFNodeDomain {
     RKHSFunction energyRKHS;
     ToDoubleFunction<double[]> pdf;
     RKHSFunction probabilityRKHS;
-    
+
     // thermodynamic constants
     double constRT = PoissonBoltzmannEnergy.constRT;
-    
+
     /**
      * Constructor accepts a set of lower bounds, a set of upper bounds, a kernel, and the energy function in the form
      * of a ToDoubleFunction<double[]> that takes a point within the bounded region and returns a double corresponding
@@ -43,26 +43,25 @@ public class CMRFNodeDomain {
      * @param eFunc 
      */
     public CMRFNodeDomain(
-	    double[] lBound, 
-	    double[] uBound, 
-	    Kernel k, 
-	    ToDoubleFunction<double[]> eFunc) { 
-	this.domainLB = lBound;
-	this.domainUB = uBound;
-	
-	double v = 1.0;
-	for (int i=0; i<lBound.length; i++) { v *= uBound[i] - lBound[i]; }
-	volume = v;
-	
-	this.k = k;
-	this.energyFunction = eFunc;
-	this.energyRKHS = new RKHSFunction(k, lBound, uBound, eFunc);
-	double energyInt = energyRKHS.computeIntegral();
-	this.pdf = (x)->(Math.exp(-energyFunction.applyAsDouble(x)/constRT));
-        this.probabilityRKHS = new RKHSFunction(k, lBound, uBound, this.pdf);
-        double partFn = this.probabilityRKHS.computeIntegral();
-        this.probabilityRKHS = new RKHSFunction(k, lBound, uBound, (point)->(this.probabilityRKHS.eval(point)/partFn));
-        
+    		double[] lBound, 
+    		double[] uBound, 
+    		Kernel k, 
+    		ToDoubleFunction<double[]> eFunc) { 
+    	this.domainLB = lBound;
+    	this.domainUB = uBound;
+
+    	double v = 1.0;
+    	for (int i=0; i<lBound.length; i++) { v *= uBound[i] - lBound[i]; }
+    	volume = v;
+
+    	this.k = k;
+    	this.energyFunction = eFunc;
+    	this.energyRKHS = new RKHSFunction(k, lBound, uBound, eFunc);
+    	this.pdf = (x)->(Math.exp(-energyFunction.applyAsDouble(x)/constRT));
+    	this.probabilityRKHS = new RKHSFunction(k, lBound, uBound, this.pdf);
+    	double partFn = this.probabilityRKHS.computeIntegral();
+    	this.probabilityRKHS = new RKHSFunction(k, lBound, uBound, (point)->(this.probabilityRKHS.eval(point)/partFn));
+
     }
 
     /**

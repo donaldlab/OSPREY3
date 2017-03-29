@@ -262,8 +262,9 @@ public class SCMF {
 						domainPDF.k,
 						domainPDF.domainLB,
 						domainPDF.domainUB,
-						(point)->(-domainPDF.eval(point)*
-								Math.log((domainPDF.eval(point)))));
+						(point)->(
+								cmrf.functionFloor(
+										-domainPDF.eval(point)*Math.log((domainPDF.eval(point))))));
 				double domainEntropy = domainEntropyFunc.computeIntegral();
 				if (!Double.isNaN(domainEntropy)) { 
 					nodeEntropy += domainEntropy; 

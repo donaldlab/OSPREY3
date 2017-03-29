@@ -37,6 +37,7 @@ public class CMRF {
 	double constRT = PoissonBoltzmannEnergy.constRT;
 	int maxIters = 1000000;
 	double lambda = 0.7;
+	double logThreshold = 0.000001;
 
 	boolean nodesAdded = false;
 	boolean ranSCMF = false;
@@ -65,46 +66,47 @@ public class CMRF {
 
 		System.out.println("CMRF main");
 				
-		double[][] b1 = new double[1][2]; b1[0][0] = 0; b1[0][1] = size;
-		double[] lb1 = new double[1]; lb1[0] = 0; 
-		double[] ub1 = new double[1]; ub1[0] = size;
-		Kernel k1 = new KernelGaussian( b1 , kernelMult*size );
-		CMRFNodeDomain nd1 = new CMRFNodeDomain(lb1, ub1, k1, (point)->(-1));
-
-		double[][] b2 = new double[2][2];
-		b2[0][0] = 0; b2[0][1] = size;
-		b2[1][0] = 0; b2[1][1] = size;
-		double[] lb2 = {0, 0};
-		double[] ub2 = {size, size};
-		Kernel k2 = new KernelGaussian( b2, kernelMult*size);
-		CMRFNodeDomain nd2 = new CMRFNodeDomain(lb2, ub2, k2, (point)->(-1));
-
-		HashMap<Integer, CMRFNodeDomain[]> h = new HashMap<>();
-		h.put(0, new CMRFNodeDomain[]{nd1});
-		h.put(1, new CMRFNodeDomain[]{nd2});
-
-		ToDoubleFunction<double[]>f = (point)->(-1);
-		HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>> map1 = new HashMap<>();
-		map1.put(nd2, f);
-		HashMap<CMRFNodeDomain, HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>> map2 = new HashMap<>();
-		map2.put(nd1, map1);
-		HashMap<Integer, HashMap<CMRFNodeDomain, HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>>> map3 = new HashMap<>();
-		map3.put(1, map2);
-		HashMap<Integer, HashMap<Integer, HashMap<CMRFNodeDomain, HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>>>> map4 = new HashMap<>();
-		map4.put(0, map3);
+		int problemSize = 3;
+		HashMap<Integer, CMRFNodeDomain[]> ndMap = new HashMap<>();
+		for (int i=0; i<problemSize; i++) { 
+			double[][] b = 
+				{{0, size}, 
+				 {0, size}};
+			double[] lb = {0, 0}; 
+			double[] ub = {size, size};
+			Kernel k = new KernelGaussian(b, kernelMult * size); 
+			CMRFNodeDomain nd = new CMRFNodeDomain(lb, ub, k, (point)->(-Math.pow(point[0], 1) - 3));
+			ndMap.put(i, new CMRFNodeDomain[]{nd});
+		}
 		
-		HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>> map5 = new HashMap<>();
-		map5.put(nd1, f);
-		HashMap<CMRFNodeDomain, HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>> map6 = new HashMap<>();
-		map6.put(nd2, map5);
-		HashMap<Integer, HashMap<CMRFNodeDomain, HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>>> map7 = new HashMap<>();
-		map7.put(0, map6);
-		map4.put(1, map7);
+		HashMap<Integer, 
+			HashMap<Integer, 
+				HashMap<CMRFNodeDomain, 
+					HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>>>> edgeMap = 
+					new HashMap<>();
 
+		for (int i=0; i<problemSize; i++) {
+			HashMap<Integer, HashMap<CMRFNodeDomain, HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>>> map1 = 
+					new HashMap<>();
+			for (int j=0; j<problemSize; j++) {
+				if (i==j) { continue; } 
+				HashMap<CMRFNodeDomain, HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>> map2 = new HashMap<>();
+				for (CMRFNodeDomain d1 : ndMap.get(i)) {
+					HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>> map3 = new HashMap<>();
+					for (CMRFNodeDomain d2 : ndMap.get(j)) { 
+						map3.put(d2, (point)->(-Math.pow(point[1] - point[0], 1) - 1));
+					}
+					map2.put(d1, map3);
+				}
+				map1.put(j,  map2);
+			}
+			edgeMap.put(i, map1);
+		}
 
-		CMRF c = new CMRF(2);
+		
+		CMRF c = new CMRF(problemSize);
 		c.constRT = 1.0;
-		c.addNodes(h, map4);
+		c.addNodes(ndMap, edgeMap);
 
 		SCMF s = new SCMF(c);
 		double logZLB = s.runSCMF();
@@ -144,7 +146,7 @@ public class CMRF {
 
 		// initialize outmessage maps
 		for (int i=0; i<numNodes; i++) {
-			System.out.print(i+"/"+numNodes+" ");
+			System.out.print(i+"/"+(numNodes-1)+" ");
 			CMRFNode node = nodes[i];
 			node.outMessages = new HashMap<>();
 			for (int j=0; j<numNodes; j++) {
@@ -239,7 +241,11 @@ public class CMRF {
 	public double getProdOfFuncPowers(RKHSFunction[] funcs, double[] powers, double[] point) { 
 		double result = 1.0;
 		for (int i=0; i<funcs.length; i++) { 
-			result *= Math.pow(funcs[i].eval(point), powers[i]);
+			double factor = Math.pow(funcs[i].eval(point), powers[i]);
+			if (Double.isNaN(factor)) { 
+				throw new RuntimeException("NaN power of function.");
+			}
+			result *= factor;
 		}
 		return result;
 	}
@@ -353,6 +359,16 @@ public class CMRF {
 			}
 		}	
 		System.out.println("done.");
+	}
+
+	/**
+	 * Picks the first double of the two that isn't a NaN
+	 * @param x
+	 * @param y
+	 * @return
+	 */
+	public double functionFloor(double x) { 
+		return (Double.isNaN(x) || x<logThreshold) ? logThreshold : x; 
 	}
 
 

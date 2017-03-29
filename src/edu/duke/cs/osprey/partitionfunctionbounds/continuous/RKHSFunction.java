@@ -33,7 +33,7 @@ public class RKHSFunction {
     public int numSamplesPerDimension = 10; // we can change this as the function changes
     
     // max number of samples we want to allow
-    public int maxSamples = 20;
+    public int maxSamples = 5;
     
     /**
      * Constructor - takes as parameters feature maps and linear coefficients
@@ -128,12 +128,21 @@ public class RKHSFunction {
         }
         Matrix fVals = new Matrix(fV, fMaps.length);
         Matrix ans;
+        double[] res;
         try {
             ans = gramMatrix.solve(fVals);
+            res = ans.transpose().getArray()[0];
+            for (double d : res) { 
+            	if (Double.isNaN(d)) { 
+            		throw new RuntimeException("\nCoefficient fit created NaN(s).");
+            	}
+            }
         } catch(Exception e) {
+        	System.out.println(e.getMessage());
             throw new RuntimeException("Coefficient fit failed.");
         }
-        return  ans.transpose().getArray()[0];
+        
+        return res;
     }
     
     /**
@@ -190,7 +199,7 @@ public class RKHSFunction {
             }
             fitCoeffs = this.fitCoeffs(fMaps, f, k);
         }
-                
+                        
         this.featureMaps = fMaps;
         this.coeffs = fitCoeffs;
         this.domainLB = domainLB;

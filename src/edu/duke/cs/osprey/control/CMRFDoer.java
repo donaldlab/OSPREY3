@@ -12,6 +12,8 @@ import edu.duke.cs.osprey.partitionfunctionbounds.continuous.CMRFNodeDomain;
 import edu.duke.cs.osprey.partitionfunctionbounds.continuous.EnergyFunctionMap;
 import edu.duke.cs.osprey.partitionfunctionbounds.continuous.Kernel;
 import edu.duke.cs.osprey.partitionfunctionbounds.continuous.KernelGaussian;
+import edu.duke.cs.osprey.partitionfunctionbounds.continuous.SCMF;
+import edu.duke.cs.osprey.partitionfunctionbounds.continuous.TRBP;
 import edu.duke.cs.osprey.pruning.PruningControl;
 
 public class CMRFDoer {
@@ -102,8 +104,7 @@ public class CMRFDoer {
 
 	public void compute() {
 		
-		CMRF toy = new CMRF(2);
-		toy.runToyCMRF(18, 0.15, 10);
+		CMRF.runToyCMRF(18, 0.15, 1);
 //		toy.runToyCMRF(18, 0.15, 50);
 //		toy.runToyCMRF(18, 0.15, 10000);
 		System.exit(0);
@@ -164,16 +165,18 @@ public class CMRFDoer {
 
 		
 
-//		cmrf.addNodes(h, map4);
-//		System.out.println();
-//		System.out.println("Running SCMF");
-//		cmrf.runSCMF();
-//		System.out.println("Finished!");
-//		
-//		System.out.println();
-//		System.out.println("Running TRBP");
-//		cmrf.runTRBP(0);
-//		System.out.println("Finished!");
+		cmrf.addNodes(h, map4);
+		System.out.println();
+		System.out.println("Running SCMF");
+		SCMF scmf = new SCMF(cmrf);
+		scmf.runSCMF();
+		System.out.println("Finished!");
+		
+		System.out.println();
+		System.out.println("Running TRBP");
+		TRBP trbp = new TRBP(cmrf);
+		trbp.runTRBP(0);
+		System.out.println("Finished!");
 	}
 
 }

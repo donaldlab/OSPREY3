@@ -28,9 +28,13 @@ public class TRBPMinSpanningTree {
 			elems.union(n1, n2);
 			minSpanningTree.add(e);
 		}
-		
+
 		double[][] mstVector = new double[numNodes][numNodes];
-		for (double[] r : mstVector) { for (double d : r) { d = 0; } } 
+		for (double[] r : mstVector) { 
+			for (int i = 0; i < r.length; i++) {
+				r[i] = 0;
+			} 
+		} 
 		for (Edge e : minSpanningTree) { 
 			mstVector[e.node1][e.node2] = 1;
 			mstVector[e.node2][e.node1] = 1;
