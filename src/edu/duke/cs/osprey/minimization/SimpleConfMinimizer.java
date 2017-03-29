@@ -322,12 +322,14 @@ public class SimpleConfMinimizer implements ConfEnergyCalculator.Async {
 	}
 	
 	public void minimizeAsync(ScoredConf conf, Listener<EnergiedConf> listener) {
-		EnergiedConf[] econfs = { null };
-		tasks.submit(() -> {
-			econfs[0] = minimizeSync(conf);
-		}, (task) -> {
-			listener.onMinimized(econfs[0]);
-		});
+		tasks.submit(
+			() -> {
+				return minimizeSync(conf);
+			},
+			(EnergiedConf econf) -> {
+				listener.onMinimized(econf);
+			}
+		);
 	}
 	
 	public void minimizeAsync(int[] conf) {
@@ -343,12 +345,13 @@ public class SimpleConfMinimizer implements ConfEnergyCalculator.Async {
 	}
 	
 	public void minimizeAsync(RCTuple conf, Listener<Minimizer.Result> listener) {
-		Minimizer.Result[] results = { null };
-		tasks.submit(() -> {
-			results[0] = minimizeSync(conf);
-		}, (task) -> {
-			listener.onMinimized(results[0]);
-		});
+		tasks.submit(
+			() -> {
+				return  minimizeSync(conf);
+			},
+			(Minimizer.Result result) -> {
+				listener.onMinimized(result);
+			}
 	}
 	
 	@Override

@@ -116,7 +116,7 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 	}
 	
 	@Override
-	public void submit(Runnable task, TaskListener listener) {
+	public <T> void submit(Task<T> task, TaskListener<T> listener) {
 		try {
 			
 			boolean wasAdded = false;
@@ -127,13 +127,13 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 				wasAdded = threads.queue.offer(() -> {
 					
 					// run the task
-					task.run();
+					T result = task.run();
 					
 					// send the result to the listener thread
 					threads.listener.submit(() -> {
 						
 						// run the listener
-						listener.onFinished(task);
+						listener.onFinished(result);
 						
 						// tell anyone waiting that we finished a task
 						numTasksFinished.incrementAndGet();

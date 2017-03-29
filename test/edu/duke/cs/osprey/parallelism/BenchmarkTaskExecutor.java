@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.parallelism;
 
+import edu.duke.cs.osprey.parallelism.TaskExecutor.Task;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tools.TimeFormatter;
 
@@ -14,7 +15,7 @@ public class BenchmarkTaskExecutor {
 			this.numRuns = numRuns;
 		}
 		
-		public abstract Runnable makeTask();
+		public abstract Task<Void> makeTask();
 	}
 	
 	public static void main(String[] args) {
@@ -29,10 +30,11 @@ public class BenchmarkTaskExecutor {
 	private static void benchmarkBigCpu() {
 		benchmark(new TaskFactory(1) {
 			@Override
-			public Runnable makeTask() {
+			public Task<Void> makeTask() {
 				return () -> {
 					// spin a lot
 					for (int i=0; i<1e8; i++);
+					return null;
 				};
 			}
 		});
@@ -41,10 +43,11 @@ public class BenchmarkTaskExecutor {
 	private static void benchmarkManySmallCpu() {
 		benchmark(new TaskFactory(10000) {
 			@Override
-			public Runnable makeTask() {
+			public Task<Void> makeTask() {
 				return () -> {
 					// spin a little
 					for (int i=0; i<1e4; i++);
+					return null;
 				};
 			}
 		});

@@ -15,6 +15,7 @@ import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tools.ObjectPool;
+import edu.duke.cs.osprey.tools.ObjectPool.Checkout;
 import edu.duke.cs.osprey.tools.Progress;
 
 public abstract class ConfMinimizer {
@@ -25,17 +26,6 @@ public abstract class ConfMinimizer {
 			public ParameterizedMoleculeCopy pmol;
 			public EnergyFunction efunc;
 			public Minimizer.Reusable minimizer;
-		}
-		
-		private class Task implements Runnable {
-			
-			public ScoredConf conf;
-			public EnergiedConf minimizedConf;
-			
-			@Override
-			public void run() {
-				minimizedConf = minimizeSync(conf);
-			}
 		}
 		
 		public static interface Listener {
@@ -73,11 +63,8 @@ public abstract class ConfMinimizer {
 		
 		public EnergiedConf minimizeSync(ScoredConf conf) {
 			
-			TaskStuff stuff;
-			synchronized (taskStuffPool) {
-				stuff = taskStuffPool.checkout();
-			}
-			try {
+			try (Checkout<TaskStuff> checkout = taskStuffPool.autoCheckout()) {
+				TaskStuff stuff = checkout.get();
 				
 				// set the molecule to the conf
 				RCTuple tuple = new RCTuple(conf.getAssignments());
@@ -103,11 +90,6 @@ public abstract class ConfMinimizer {
 				}
 				
 				return new EnergiedConf(conf, result.energy);
-			
-			} finally {
-				synchronized (taskStuffPool) {
-					taskStuffPool.release(stuff);
-				}
 			}
 		}
 		
@@ -117,17 +99,15 @@ public abstract class ConfMinimizer {
 				throw new IllegalArgumentException("listener can't be null");
 			}
 			
-			// make the task to handle the minimization
-			Task task = new Task();
-			task.conf = conf;
-			
 			// submit the task with a chaining task listener
-			tasks.submit(task, new TaskExecutor.TaskListener() {
-				@Override
-				public void onFinished(Runnable taskBase) {
-					listener.onMinimized(task.minimizedConf);
+			tasks.submit(
+				() -> {
+					return minimizeSync(conf);
+				},
+				(EnergiedConf minimizedConf) -> {
+					listener.onMinimized(minimizedConf);
 				}
-			});
+			);
 		}
 		
 		public void waitForFinish() {

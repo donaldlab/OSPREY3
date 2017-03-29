@@ -56,20 +56,22 @@ public class ObjectPool<T> implements Iterable<T> {
 		return objects.iterator();
 	}
 	
-	public class Checkout implements Closeable {
-		
+	public static class Checkout<T> implements Closeable {
+
+		private ObjectPool<T> pool;
 		private final T thing;
 		
-		private Checkout() {
-			synchronized(ObjectPool.this) {
-				this.thing = checkout();
+		private Checkout(ObjectPool<T> pool) {
+			this.pool = pool;
+			synchronized(pool) {
+				this.thing = pool.checkout();
 			}
 		}
 
 		@Override
 		public void close() {
-			synchronized(ObjectPool.this) {
-				release(thing);
+			synchronized(pool) {
+				pool.release(thing);
 			}
 		}
 		
@@ -78,7 +80,7 @@ public class ObjectPool<T> implements Iterable<T> {
 		}
 	}
 	
-	public Checkout autoCheckout() {
-		return new Checkout();
+	public Checkout<T> autoCheckout() {
+		return new Checkout<>(this);
 	}
 }

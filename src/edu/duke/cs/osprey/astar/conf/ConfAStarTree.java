@@ -21,6 +21,7 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ObjectPool;
+import edu.duke.cs.osprey.tools.ObjectPool.Checkout;
 
 public class ConfAStarTree implements ConfSearch {
 
@@ -316,20 +317,20 @@ public class ConfAStarTree implements ConfSearch {
 					continue;
 				}
 				
-				ConfAStarNode child = new ConfAStarNode(node, nextPos, nextRc);
-				
 				tasks.submit(() -> {
 					
-					try (ObjectPool<ScoreContext>.Checkout checkout = contexts.autoCheckout()) {
+					try (Checkout<ScoreContext> checkout = contexts.autoCheckout()) {
 						ScoreContext context = checkout.get();
 						
 						// score the child node differentially against the parent node
 						context.index.index(node);
+						ConfAStarNode child = new ConfAStarNode(node, nextPos, nextRc);
 						child.setGScore(context.gscorer.calcDifferential(context.index, rcs, nextPos, nextRc));
 						child.setHScore(context.hscorer.calcDifferential(context.index, rcs, nextPos, nextRc));
+						return child;
 					}
 					
-				}, (Runnable task) -> {
+				}, (ConfAStarNode child) -> {
 					
 					// collect the possible children
 					if (child.getScore() < Double.POSITIVE_INFINITY) {
