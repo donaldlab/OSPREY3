@@ -3,6 +3,7 @@ import os
 import docutils, sphinx
 import javalang
 import re
+import six
 
 
 ast_cache = {}
@@ -168,7 +169,7 @@ def autodoc_docstring_handler(app, what, name, obj, options, doclines, for_signa
 			if result is not None:
 
 				# add the result from the doctag
-				if isinstance(result, str):
+				if isinstance(result, six.string_types):
 					newlines.append(result)
 				else:
 					newlines.extend(result)
@@ -854,7 +855,7 @@ def is_constant(thing, ast):
 def parse_rst(rst, settings):
 	
 	# if rst is a list of strings, join it
-	if not isinstance(rst, str):
+	if not isinstance(rst, six.string_types):
 		rst = '\n'.join(rst)
 
 	# DEBUG: for investigating warnings in dynamically-generated RST
@@ -995,7 +996,7 @@ class JavaClassDirective(ParsingDirective):
 
 		prefix = '\t'*num
 
-		if isinstance(rst, str):
+		if isinstance(rst, six.string_types):
 			return prefix + rst.replace('\n', '\n' + prefix)
 		else:
 			return [prefix + line for line in rst]
