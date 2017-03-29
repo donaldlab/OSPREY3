@@ -1,18 +1,23 @@
 package edu.duke.cs.osprey;
 
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 import org.jerkar.api.depmanagement.JkDependencies;
 import org.jerkar.api.depmanagement.JkDependency;
 import org.jerkar.api.depmanagement.JkDependency.JkFileDependency;
+import org.jerkar.api.depmanagement.JkModuleDepFile;
 import org.jerkar.api.depmanagement.JkModuleDependency;
 import org.jerkar.api.depmanagement.JkModuleId;
 import org.jerkar.api.depmanagement.JkResolveResult;
 import org.jerkar.api.depmanagement.JkScope;
+import org.jerkar.api.depmanagement.JkScopedDependency;
 import org.jerkar.api.depmanagement.JkVersion;
 import org.jerkar.api.file.JkFileTree;
 import org.jerkar.api.file.JkFileTreeSet;
@@ -24,6 +29,7 @@ import org.jerkar.api.utils.JkUtilsFile;
 import org.jerkar.api.utils.JkUtilsIO;
 import org.jerkar.api.utils.JkUtilsZip;
 import org.jerkar.tool.JkDoc;
+import org.jerkar.tool.builtins.eclipse.JkBuildPluginEclipse;
 import org.jerkar.tool.builtins.javabuild.JkJavaBuild;
 import org.jerkar.tool.builtins.javabuild.JkJavaPacker;
 
@@ -41,6 +47,11 @@ public class Build extends JkJavaBuild {
 		tests.skip = true;
 		
 		manifest.mainClass = "edu.duke.cs.osprey.control.Main";
+		
+		// tell the eclipse plugin to stop using classpath vars
+		JkBuildPluginEclipse eclipse = new JkBuildPluginEclipse();
+		eclipse.useAbsolutePathsInClasspath = true;
+		plugins.configure(eclipse);
 	}
 
 	@Override
@@ -244,5 +255,42 @@ public class Build extends JkJavaBuild {
 		
 		// create the distribution zip
 		JkFileTree.of(dirDist).zip().to(ouputDir(packer().fatJarFile().getName().replaceAll(".jar", ".zip")));
+	}
+	
+	public void doClasspath()
+	throws IOException {
+		
+		// collect all the dependency files in order
+		LinkedHashSet<File> files = new LinkedHashSet<>();
+		JkResolveResult result = dependencyResolver().resolve(RUNTIME, NATIVES);
+		for (JkScopedDependency sdep : dependencies()) {
+			JkDependency dep = sdep.dependency();
+			if (dep instanceof JkFileDependency) {
+				files.addAll(((JkFileDependency)dep).files());
+			} else if (dep instanceof JkModuleDependency) {
+				for (JkModuleDepFile depfile : result.moduleFiles()) {
+					files.add(depfile.localFile());
+				}
+			}
+		}
+		
+		// write out the runtime classpath for the python scripts dev mode
+		try (FileWriter out = new FileWriter(ouputDir().file("classpath.txt"))) {
+			for (File file : files) {
+				out.write(file.getAbsolutePath());
+				out.write("\n");
+			}
+		}
+	}
+	
+	public void setupDevEnv()
+	throws IOException {
+		
+		// build eclipse classpath
+		JkBuildPluginEclipse eclipse = plugins.findInstanceOf(JkBuildPluginEclipse.class);
+		eclipse.generateFiles();
+		
+		// build python classpath
+		doClasspath();
 	}
 }
