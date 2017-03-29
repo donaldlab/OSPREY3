@@ -10,80 +10,45 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 /**
  * 
  * @author Adegoke Ojewole (ao68@duke.edu)
- * Used for p* in full and partial sequences
+ * returns everything as pruned
  *
  */
 
 @SuppressWarnings("serial")
-public class PPruningMatrix extends QPruningMatrix {
-	protected QPruningMatrix other;
+public class PruningMatrixNull extends PruningMatrix {
 
-	public PPruningMatrix(QPruningMatrix other){
-		super(other);
+	private PruningMatrix other;
+	
+	public PruningMatrixNull(PruningMatrix other) {
+		super();
 		this.other = other;
-		this.assignedAATypeOptions = other.assignedAATypeOptions;
-		this.assignedFlexRes = other.assignedFlexRes;
-		this.sp = other.sp;
-
-		if(!isValid())
-			throw new RuntimeException("ERROR: did not prune all RCs outside of assigned AA type options");
 	}
-
+	
 	@Override
 	public Boolean getOneBody(int res, int index) {
-		String rcAAType = other.sp.confSpace.posFlex.get(res).RCs.get(index).AAType;
-
-		//if not in specified list, then already marked as pruned in reduced matrix
-		if(!other.assignedAATypeOptions.get(res).contains(rcAAType)) 
-			return true;
-
-		//if in specified aa list, invert.
-		//except...if no rcs are pruned for a specified aa in our list, there 
-		//will be no P confs.
-		else {
-			if(somethingPrunedForAAType(res, rcAAType))
-				return !other.getOneBody(res, index);
-
-			//nothing pruned, so we need to keep this rc
-			return false;
-		}
-	}
-
-	public boolean somethingPrunedForAAType(int res, String rcAAType) {
-		for(int index : other.prunedRCsAtPos(res)) {
-			String rcAAType2 = other.sp.confSpace.posFlex.get(res).RCs.get(index).AAType;
-			if(!rcAAType2.equalsIgnoreCase(rcAAType)) continue;
-			else
-				return true;
-		}
-		return false;
-	}
-
-	@Override
-	public Boolean getPairwise(int res1, int index1, int res2, int index2) {
-		if(other.contains(res1, index1, res2, index2))
-			return other.getPairwise(res1, index1, res2, index2);
 		return true;
 	}
-
+	
+	@Override
+	public Boolean getPairwise(int res1, int index1, int res2, int index2) {
+		return true;
+	}
+	
 	@Override
 	public HigherTupleFinder<Boolean> getHigherOrderTerms(int res1, int index1, int res2, int index2) {
-		throw new UnsupportedOperationException("ERROR: higher order terms are not supported in P pruning matrix");
+		throw new UnsupportedOperationException("ERROR: higher order terms are not supported in P2 pruning matrix");
 	}
-
-	public PruningMatrix invert() {
-		return new P2PruningMatrix(this);
-	}
-
-	public PruningMatrix getParent() {
-		return other.parent;
-	}
-
+	
 	@Override
 	public int getNumPos() {
 		return other.getNumPos();
 	}
-
+	
+	@Override
+	public int getNumConfAtPos(int pos) {
+		return 0;
+	}
+	
 	@Override
 	public void setOneBody(int res, int conf, Boolean val) {
 		dontwrite();
@@ -136,5 +101,50 @@ public class PPruningMatrix extends QPruningMatrix {
 
 	private void dontwrite() {
 		throw new UnsupportedOperationException("ERROR: P pruning matrix is read-only");
+	}
+	
+	@Override
+	public void unprunedRCsAtPos(ArrayList<Integer> out, int pos) {
+		return;
+	}
+	
+	@Override
+	public ArrayList<Integer> unprunedRCsAtPos(int pos) {
+		return new ArrayList<Integer>();
+	}
+	
+	@Override
+	public void prunedRCsAtPos(ArrayList<Integer> out, int pos) {
+		return;
+	}
+	
+	@Override
+	public ArrayList<Integer> prunedRCsAtPos(int pos) {
+		return new ArrayList<Integer>();
+	}
+	
+	@Override
+	public ArrayList<RCTuple> unprunedRCTuplesAtPos(ArrayList<Integer> pos) {
+		return new ArrayList<RCTuple>();
+	}
+	
+	@Override
+	public boolean isPruned(RCTuple tup) {
+		return true;
+	}
+	
+	@Override
+	public boolean isPrunedHigherOrder(RCTuple tup, int curIndex, HigherTupleFinder<Boolean> htf) {
+		return true;
+	}
+	
+	@Override
+	public int countPrunedRCs() {
+		return 0;
+	}
+	
+	@Override
+	public int countPrunedPairs() {
+		return 0;
 	}
 }

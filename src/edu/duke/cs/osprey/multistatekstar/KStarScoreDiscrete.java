@@ -2,14 +2,16 @@ package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigDecimal;
 
+import edu.duke.cs.osprey.pruning.PruningMatrix;
+
 /**
  * @author Adegoke Ojewole (ao68@duke.edu)
  * 
  */
 
-public class DiscreteKStarScore extends ContinuousKStarScore {
+public class KStarScoreDiscrete extends KStarScoreMinimized {
 
-	public DiscreteKStarScore(MSKStarSettings settings) {
+	public KStarScoreDiscrete(MSKStarSettings settings) {
 		super(settings);
 	}
 
@@ -28,8 +30,8 @@ public class DiscreteKStarScore extends ContinuousKStarScore {
 		super.compute(state, maxNumConfs);
 		
 		//multiply q* by number of undefined confs
-		if(!settings.search[state].isFullyDefined()) {
-			DiscretePartitionFunction pf = (DiscretePartitionFunction) partitionFunctions[state];
+		if(!settings.search[state].isFullyAssigned()) {
+			PartitionFunctionDiscrete pf = (PartitionFunctionDiscrete) partitionFunctions[state];
 			pf.getValues().qstar = pf.getValues().qstar.multiply(numUndefinedConfs(state));
 		}
 	}
@@ -42,24 +44,24 @@ public class DiscreteKStarScore extends ContinuousKStarScore {
 		BigDecimal ans = BigDecimal.ONE;
 		
 		MSSearchProblem search = settings.search[state];
-		boolean min = search.contSCFlex ? false : true;
-		QPruningMatrix pmat = (QPruningMatrix)search.pruneMat;
+		boolean minConfs = search.settings.energyLBs ? false : true;
+		PruningMatrix pmat = search.pruneMat;
 		
-		for(int pos : search.getPos(false)) {
+		for(int pos : search.getPosNums(false)) {
 			
-			long unPrunedConfs = min ? Long.MAX_VALUE : Long.MIN_VALUE;
-			long prunedConfs = min ? Long.MAX_VALUE : Long.MIN_VALUE;
+			long unPrunedConfs = minConfs ? Long.MAX_VALUE : Long.MIN_VALUE;
+			long prunedConfs = minConfs ? Long.MAX_VALUE : Long.MIN_VALUE;
 			
-			for(String AAType : search.allowedAAs.get(pos)) {
+			for(String AAType : search.settings.AATypeOptions.get(pos)) {
 				long numAARCs = search.unprunedAtPos(pmat, pos, AAType).size();
-				unPrunedConfs = min ? Math.min(unPrunedConfs, numAARCs) : Math.max(unPrunedConfs, numAARCs);
-				if(!min) {
-					numAARCs = search.unprunedAtPos((QPruningMatrix)pmat.invert(), pos, AAType).size();
+				unPrunedConfs = minConfs ? Math.min(unPrunedConfs, numAARCs) : Math.max(unPrunedConfs, numAARCs);
+				if(!minConfs) {
+					numAARCs = search.unprunedAtPos(partitionFunctions[state].invmat, pos, AAType).size();
 					prunedConfs = Math.max(prunedConfs, numAARCs);
 				}
 			}
 			
-			if(min) prunedConfs = 0;
+			if(minConfs) prunedConfs = 0;
 			ans = ans.multiply(BigDecimal.valueOf(unPrunedConfs+prunedConfs));
 			
 		}

@@ -1,8 +1,8 @@
 package edu.duke.cs.osprey.multistatekstar;
 
 import edu.duke.cs.osprey.control.ConfEnergyCalculator;
-import edu.duke.cs.osprey.multistatekstar.KStarScore.PartitionFunctionType;
 import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
+import edu.duke.cs.osprey.multistatekstar.KStarScore.PartitionFunctionType;
 /**
  * 
  * @author Adegoke Ojewole (ao68@duke.edu)
@@ -18,7 +18,7 @@ public class MSKStarSettings {
 	public KStarScoreType scoreType;
 	public MSSearchProblem[] search;
 	public boolean isFinal;
-	public LMV[] constraints;
+	public LMB[] constraints;
 	public PartitionFunctionType[] pfTypes;
 	public ConfEnergyCalculator.Async[] ecalcs;
 
