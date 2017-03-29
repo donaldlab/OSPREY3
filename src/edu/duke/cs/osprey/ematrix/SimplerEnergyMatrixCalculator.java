@@ -180,6 +180,46 @@ public class SimplerEnergyMatrixCalculator {
 		return emat;
 	}
 	
+	public SimpleReferenceEnergies calcReferenceEnergies() {
+		
+		// start the task executor
+		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
+		tasks.start(numThreads);
+		
+		SimpleReferenceEnergies eref = new SimpleReferenceEnergies();
+		
+		// send all the tasks
+		Progress progress = new Progress(confSpace.getNumResConfs());
+		System.out.println("Calculating reference energies for " + progress.getTotalWork() + " residue confs...");
+		for (SimpleConfSpace.Position pos : confSpace.positions) {
+			for (SimpleConfSpace.ResidueConf rc : pos.resConfs) {
+			
+				int posi = pos.index;
+				int rci = rc.index;
+				String resType = rc.template.name;
+				
+				tasks.submit(
+					() -> {
+						return calcIntra(posi, rci);
+					},
+					(Minimizer.Result result) -> {
+						
+						// keep the min energy for each pos,resType
+						Double e = eref.get(posi, resType);
+						if (e == null || result.energy < e) {
+							e = result.energy;
+						}
+						eref.set(posi, resType, e);
+					}
+				);
+			}
+		}
+		
+		tasks.waitForFinish();
+		
+		return eref;
+	}
+	
 	public Minimizer.Result calcSingle(int pos1, int rc1) {
 		RCTuple conf = new RCTuple(pos1, rc1);
 		ParametricMolecule pmol = confSpace.makeMolecule(conf);
@@ -191,6 +231,13 @@ public class SimplerEnergyMatrixCalculator {
 		RCTuple conf = new RCTuple(pos1, rc1, pos2, rc2);
 		ParametricMolecule pmol = confSpace.makeMolecule(conf);
 		EnergyFunction efunc = efuncgen.interactionEnergy(FFInterGen.makeResPair(confSpace, pos1, pos2, pmol.mol));
+		return calcEnergy(pmol, conf, efunc);
+	}
+	
+	public Minimizer.Result calcIntra(int pos1, int rc1) {
+		RCTuple conf = new RCTuple(pos1, rc1);
+		ParametricMolecule pmol = confSpace.makeMolecule(conf);
+		EnergyFunction efunc = efuncgen.interactionEnergy(FFInterGen.makeSingleRes(confSpace, pos1, pmol.mol));
 		return calcEnergy(pmol, conf, efunc);
 	}
 	

@@ -311,7 +311,7 @@ def ForcefieldParams(forcefield=None):
 	return c.energy.forcefield.ForcefieldParams()
 
 
-def EnergyMatrix(confSpace, ffparams, parallelism=None, cacheFile=None):
+def EnergyMatrix(confSpace, ffparams, parallelism=None, cacheFile=None, referenceEnergies=None):
 	'''
 	:java:classdoc:`.ematrix.SimplerEnergyMatrixCalculator`
 
@@ -319,6 +319,8 @@ def EnergyMatrix(confSpace, ffparams, parallelism=None, cacheFile=None):
 	:builder_option ffparams .ematrix.SimplerEnergyMatrixCalculator$Builder#ffparams:
 	:builder_option parallelism .ematrix.SimplerEnergyMatrixCalculator$Builder#parallelism:
 	:builder_option cacheFile .ematrix.SimplerEnergyMatrixCalculator$Builder#cacheFile:
+	:param referenceEnergies: Adjust energy matrix entries with reference energies.
+	:type referenceEnergies: :java:ref:`.ematrix.SimplerReferenceEnergies`
 	'''
 	
 	builder = _get_builder(c.ematrix.SimplerEnergyMatrixCalculator)(confSpace, ffparams)
@@ -329,7 +331,29 @@ def EnergyMatrix(confSpace, ffparams, parallelism=None, cacheFile=None):
 	if cacheFile is not None:
 		builder.setCacheFile(jvm.toFile(cacheFile))
 
-	return builder.build().calcEnergyMatrix()
+	emat = builder.build().calcEnergyMatrix()
+
+	if referenceEnergies is not None:
+		referenceEnergies.updateEnergyMatrix(confSpace, emat)
+
+	return emat
+
+
+def ReferenceEnergies(confSpace, ffparams, parallelism=None):
+	'''
+	:java:classdoc:`.ematrix.SimplerEnergyMatrixCalculator`
+
+	:builder_option: confSpace .ematrixSimplerEnergyMatrixCalculator$Builder#confSpace:
+	:builder_option ffparams .ematrix.SimplerEnergyMatrixCalculator$Builder#ffparams:
+	:builder_option parallelism .ematrix.SimplerEnergyMatrixCalculator$Builder#parallelism:
+	'''
+
+	builder = _get_builder(c.ematrix.SimplerEnergyMatrixCalculator)(confSpace, ffparams)
+
+	if parallelism is not None:
+		builder.setParallelism(parallelism)
+
+	return builder.build().calcReferenceEnergies()
 
 
 def AStarTraditional(emat, confSpace):
@@ -370,7 +394,7 @@ def AStarMPLP(emat, confSpace, numIterations=None, convergenceThreshold=None):
 	return builder.build()
 
 
-def ConfEnergyCalculator(confSpace, ffparams, parallelism=None, streaming=None):
+def ConfEnergyCalculator(confSpace, ffparams, parallelism=None, streaming=None, referenceEnergies=None):
 	'''
 	:java:classdoc:`.minimization.SimpleConfMinimizer`
 
@@ -387,6 +411,9 @@ def ConfEnergyCalculator(confSpace, ffparams, parallelism=None, streaming=None):
 
 	if streaming is not None:
 		builder.setStreaming(streaming)
+
+	if referenceEnergies is not None:
+		builder.setReferenceEnergies(referenceEnergies)
 
 	return builder.build()
 

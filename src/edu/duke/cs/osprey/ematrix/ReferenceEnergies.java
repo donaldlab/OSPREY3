@@ -95,13 +95,7 @@ public class ReferenceEnergies implements Serializable {
         double totERef = 0;
         
         for(int pos=0; pos<cSpace.numPos; pos++){
-            
-            ArrayList<RC> RCList = cSpace.posFlex.get(pos).RCs;
-            String AAType = RCList.get(conf[pos]).AAType;
-            
-            double eRef = eRefMatrix.get(pos).get(AAType);
-                
-            totERef += eRef;
+        	totERef += posERef(pos, conf[pos]);
         }
         
         return totERef;

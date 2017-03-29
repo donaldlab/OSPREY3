@@ -8,6 +8,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.FFInterGen;
@@ -38,6 +39,7 @@ public class SimpleConfMinimizer implements ConfEnergyCalculator.Async {
 		private ForcefieldParams ffparams;
 		private Parallelism parallelism = Parallelism.makeCpu(1);
 		private Type type = null;
+		private SimpleReferenceEnergies eref = null;
 		
 		public Builder(SimpleConfSpace confSpace, ForcefieldParams ffparams) {
 			this.confSpace = confSpace;
@@ -51,6 +53,11 @@ public class SimpleConfMinimizer implements ConfEnergyCalculator.Async {
 		
 		public Builder setType(Type val) {
 			type = val;
+			return this;
+		}
+		
+		public Builder setReferenceEnergies(SimpleReferenceEnergies val) {
+			eref = val;
 			return this;
 		}
 		
@@ -69,7 +76,8 @@ public class SimpleConfMinimizer implements ConfEnergyCalculator.Async {
 				confSpace,
 				parallelism,
 				type,
-				ffparams
+				ffparams,
+				eref
 			);
 		}
 	}
@@ -250,16 +258,18 @@ public class SimpleConfMinimizer implements ConfEnergyCalculator.Async {
 	public final TaskExecutor tasks;
 	public final Type type;
 	public final ForcefieldParams ffparams;
+	public final SimpleReferenceEnergies eref;
 	
 	private Type.Context context;
 	
-	private SimpleConfMinimizer(SimpleConfSpace confSpace, Parallelism parallelism, Type type, ForcefieldParams ffparams) {
+	private SimpleConfMinimizer(SimpleConfSpace confSpace, Parallelism parallelism, Type type, ForcefieldParams ffparams, SimpleReferenceEnergies eref) {
 		
 		this.confSpace = confSpace;
 		this.parallelism = parallelism;
 		this.tasks = parallelism.makeTaskExecutor();
 		this.type = type;
 		this.ffparams = ffparams;
+		this.eref = eref;
 		
 		context = type.makeContext(parallelism, ffparams);
 	}
@@ -352,6 +362,7 @@ public class SimpleConfMinimizer implements ConfEnergyCalculator.Async {
 			(Minimizer.Result result) -> {
 				listener.onMinimized(result);
 			}
+		);
 	}
 	
 	@Override
@@ -366,14 +377,26 @@ public class SimpleConfMinimizer implements ConfEnergyCalculator.Async {
 	
 	@Override
 	public EnergiedConf calcEnergy(ScoredConf conf) {
-		return minimizeSync(conf);
+		return applyEnergyMods(minimizeSync(conf));
 	}
 
 	@Override
 	public void calcEnergyAsync(ScoredConf conf, ConfEnergyCalculator.Async.Listener listener) {
 		minimizeAsync(conf, (econf) -> {
-			listener.onEnergy(econf);
+			listener.onEnergy(applyEnergyMods(econf));
 		});
+	}
+	
+	private EnergiedConf applyEnergyMods(EnergiedConf econf) {
+		
+		// apply reference energies if needed
+		if (eref != null) {
+			econf.offsetEnergy(-eref.getConfEnergy(confSpace, econf.getAssignments()));
+		}
+		
+		// TODO: residue entropies
+		
+		return econf;
 	}
 	
 	public List<EnergiedConf> minimizeSync(List<ScoredConf> confs) {
