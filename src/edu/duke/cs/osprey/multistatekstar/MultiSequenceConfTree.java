@@ -27,7 +27,7 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 	Integer[] allowedPos;//largest set of positions allowed by the (partial) sequence
 
 	public MultiSequenceConfTree(MSSearchProblem search, EnergyMatrix emat, PruningMatrix pmat) {
-		super(new FullAStarNode.Factory(search.getNumDefinedPos()), search, pmat);
+		super(new FullAStarNode.Factory(search.getNumAssignedPos()), search, pmat);
 		this.energyLBs = search.settings.energyLBs;
 		this.search = search;
 		this.emat = emat;

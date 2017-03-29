@@ -34,6 +34,11 @@ public class KStarScoreMinimized implements KStarScore {
 		constrSatisfied = true;
 	}
 
+	@Override
+	public MSKStarSettings getSettings() {
+		return settings;
+	}
+	
 	protected BigDecimal getDenom() {
 		PartitionFunction pf;
 		BigDecimal ans = BigDecimal.ONE.setScale(64, RoundingMode.HALF_UP);
@@ -105,7 +110,7 @@ public class KStarScoreMinimized implements KStarScore {
 		partitionFunctions[state].init(settings.targetEpsilon);
 
 		//create priority queue for top confs if requested
-		if(settings.search[state].isFullyDefined() && settings.numTopConfsToSave > 0) {
+		if(settings.search[state].isFullyAssigned() && settings.numTopConfsToSave > 0) {
 
 			partitionFunctions[state].topConfs = new PriorityQueue<ScoredConf>(
 					settings.numTopConfsToSave, 
@@ -218,7 +223,7 @@ public class KStarScoreMinimized implements KStarScore {
 		if(!Double.isNaN(effectiveEpsilon) && effectiveEpsilon > settings.targetEpsilon) {
 			PartitionFunctionMinimized p2pf = (PartitionFunctionMinimized) phase2(state);
 			pf.getValues().qstar = p2pf.getValues().qstar;
-			if(settings.search[state].isFullyDefined() && settings.numTopConfsToSave > 0)
+			if(settings.search[state].isFullyAssigned() && settings.numTopConfsToSave > 0)
 				pf.saveEConfs(p2pf.topConfs);
 		}
 
@@ -344,5 +349,10 @@ public class KStarScoreMinimized implements KStarScore {
 	@Override
 	public boolean isFinal() {
 		return settings.isFinal;
+	}
+
+	@Override
+	public boolean isFullyAssigned() {
+		return settings.search[numStates-1].isFullyAssigned();
 	}
 }

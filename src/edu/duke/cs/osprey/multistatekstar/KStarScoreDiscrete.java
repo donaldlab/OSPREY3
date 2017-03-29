@@ -30,7 +30,7 @@ public class KStarScoreDiscrete extends KStarScoreMinimized {
 		super.compute(state, maxNumConfs);
 		
 		//multiply q* by number of undefined confs
-		if(!settings.search[state].isFullyDefined()) {
+		if(!settings.search[state].isFullyAssigned()) {
 			PartitionFunctionDiscrete pf = (PartitionFunctionDiscrete) partitionFunctions[state];
 			pf.getValues().qstar = pf.getValues().qstar.multiply(numUndefinedConfs(state));
 		}
@@ -52,7 +52,7 @@ public class KStarScoreDiscrete extends KStarScoreMinimized {
 			long unPrunedConfs = minConfs ? Long.MAX_VALUE : Long.MIN_VALUE;
 			long prunedConfs = minConfs ? Long.MAX_VALUE : Long.MIN_VALUE;
 			
-			for(String AAType : search.allowedAAs.get(pos)) {
+			for(String AAType : search.settings.AATypeOptions.get(pos)) {
 				long numAARCs = search.unprunedAtPos(pmat, pos, AAType).size();
 				unPrunedConfs = minConfs ? Math.min(unPrunedConfs, numAARCs) : Math.max(unPrunedConfs, numAARCs);
 				if(!minConfs) {

@@ -124,12 +124,19 @@ public class MSKStarTree {
 	}
 
 	private ArrayList<MSKStarNode> getChildren(MSKStarNode curNode) {
-		//for each state and substate, pick next position to expand
-
-		//create search problems
-
-		//compute and score children
 		ArrayList<MSKStarNode> ans = new ArrayList<>();
+		
+		//pick next position to expand
+		if(!curNode.isFullyAssigned())
+			ans.addAll(curNode.split(msParams));
+		
+		else {
+			
+		}
+		
+		//create search problems and score children
+		//sequential...short circuit if one state fails
+		//parallel...might do more work than necessary
 		ans.trimToSize();
 		return ans;
 	}
@@ -139,6 +146,7 @@ public class MSKStarTree {
 		//initialize MSKStarNode
 		MSKStarNode.OBJ_FUNC = this.objFcn;
 		MSKStarNode.WT_SEQS = this.wtSeqs;
+		MSKStarNode.NUM_MAX_MUT = this.numMaxMut;
 		
 		KStarScore[] kssLB = new KStarScore[numStates];
 		KStarScore[] kssUB = new KStarScore[numStates];
@@ -156,7 +164,7 @@ public class MSKStarTree {
 			kssUB[state] = scores[1];
 		}
 
-		MSKStarNode ans = new MSKStarNode(this, kssLB, kssUB);
+		MSKStarNode ans = new MSKStarNode(kssLB, kssUB);
 		ans.setScore(objFcn);//set score per the objective function
 		return ans;
 	}

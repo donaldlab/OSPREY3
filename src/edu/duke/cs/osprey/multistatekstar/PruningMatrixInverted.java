@@ -37,7 +37,7 @@ public class PruningMatrixInverted extends PruningMatrix {
 		String rcAAType = search.confSpace.posFlex.get(res).RCs.get(index).AAType;
 
 		//if not in specified list, then already marked as pruned in reduced matrix
-		if(!search.allowedAAs.get(res).contains(rcAAType)) 
+		if(!search.settings.AATypeOptions.get(res).contains(rcAAType)) 
 			return true;
 
 		//if in specified aa list, invert.
@@ -55,8 +55,8 @@ public class PruningMatrixInverted extends PruningMatrix {
 	private boolean contains(int res1, int index1, int res2, int index2) {
 		String rcAAType1 = search.confSpace.posFlex.get(res1).RCs.get(index1).AAType;
 		String rcAAType2 = search.confSpace.posFlex.get(res2).RCs.get(index2).AAType;
-		boolean c1 = search.allowedAAs.get(res1).contains(rcAAType1);
-		boolean c2 = search.allowedAAs.get(res2).contains(rcAAType2);
+		boolean c1 = search.settings.AATypeOptions.get(res1).contains(rcAAType1);
+		boolean c2 = search.settings.AATypeOptions.get(res2).contains(rcAAType2);
 		return c1 && c2;
 	}
 

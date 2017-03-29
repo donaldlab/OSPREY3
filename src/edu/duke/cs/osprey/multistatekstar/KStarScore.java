@@ -25,6 +25,7 @@ public interface KStarScore {
 		UpperBound;//1+epsilon on pw min
 	}
 	
+	public MSKStarSettings getSettings();
 	public BigDecimal getScore();
 	public BigDecimal getLowerBoundScore();
 	public BigDecimal getUpperBoundScore();
@@ -32,6 +33,7 @@ public interface KStarScore {
 	public String toString();
 	public void compute(int maxNumConfs);
 	public boolean constrSatisfied();
+	public boolean isFullyAssigned();
 	public boolean isFinal();
 	public boolean isFullyProcessed();
 	

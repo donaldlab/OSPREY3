@@ -3,6 +3,8 @@ package edu.duke.cs.osprey.multistatekstar;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 
+import edu.duke.cs.osprey.control.ParamSet;
+
 /**
  * 
  * @author Adegoke Ojewole (ao68@duke.edu)
@@ -12,7 +14,8 @@ import java.util.ArrayList;
 public class MSKStarNode {
 
 	public static LMB OBJ_FUNC;//global objective function that we are optimizing for
-	public static ArrayList<String[]> WT_SEQS;
+	public static ArrayList<String[]> WT_SEQS;//wild-type bound state sequences for all states
+	public static int NUM_MAX_MUT;//maximum number of allowed mutations
 
 	private KStarScore[] ksLB;//lower bound k* objects
 	private KStarScore[] ksUB;//upper bound k* objects
@@ -21,7 +24,6 @@ public class MSKStarNode {
 	private BigDecimal score;//objective function value; smaller is better
 
 	public MSKStarNode(
-			MSKStarTree tree,
 			KStarScore[] ksLB, 
 			KStarScore[] ksUB
 			) {
@@ -30,6 +32,34 @@ public class MSKStarNode {
 		this.ksObjFunc = new KStarScore[ksLB.length];
 		this.kss = new BigDecimal[ksLB.length];
 		score = null;
+	}
+	
+	public boolean isFullyAssigned() {
+		return ksLB[0].isFullyAssigned();
+	}
+	
+	public ArrayList<MSKStarNode> split(ParamSet msParams) {
+		ksObjFunc = getStateKStarObjects(OBJ_FUNC);
+		MSSearchProblem[][] objFcnSearch = new MSSearchProblem[ksObjFunc.length][];
+		for(int state=0;state<objFcnSearch.length;++state) objFcnSearch[state] = ksObjFunc[state].getSettings().search;
+			
+		ResidueOrder order = ResidueOrderFactory.getResidueOrder(msParams, objFcnSearch);
+		order.getNextAssignments(objFcnSearch, NUM_MAX_MUT-getNumMutations(0));
+		return null;
+	}
+	
+	private int getNumMutations(int state) {
+		KStarScore score = ksLB[state];
+		int boundState = score.getSettings().search.length-1;
+		ArrayList<ArrayList<String>> AATypeOptions = score.getSettings().search[boundState].settings.AATypeOptions;
+		
+		int ans = 0;
+		for(int pos : score.getSettings().search[boundState].getPosNums(true)) {
+			if(AATypeOptions.get(pos).size()>0) ans++;
+			else if(!AATypeOptions.get(pos).get(0).equalsIgnoreCase(WT_SEQS.get(state)[pos]))
+				ans++;
+		}
+		return ans;
 	}
 
 	public BigDecimal getScore() {

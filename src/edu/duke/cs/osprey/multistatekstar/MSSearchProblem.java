@@ -19,23 +19,23 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 public class MSSearchProblem extends SearchProblem {
 
 	public MSSearchSettings settings;
-	private int numDefinedPos;
+	private int numAssignedPos;
 
 	public MSSearchProblem(SearchProblem other, 
 			MSSearchSettings settings) {
 		super(other);
 		if(settings==null) throw new RuntimeException("ERROR: search settings cannot be null");
 		this.settings = settings;
-		this.allowedAAs = settings.AATypeOptions;
-		this.flexRes = settings.mutRes;//-1 for unassigned positions
-		this.numDefinedPos = other.confSpace.numPos-Collections.frequency(flexRes, "-1");
+		//this.allowedAAs = settings.AATypeOptions;
+		//this.flexRes = settings.mutRes;//-1 for unassigned positions
+		this.numAssignedPos = other.confSpace.numPos-Collections.frequency(settings.mutRes, "-1");
 	}
 
 	public ArrayList<Integer> getPosNums(boolean assigned) {
 		ArrayList<Integer> ans = new ArrayList<>();
-		for(int i=0;i<flexRes.size();++i) {
-			if(!assigned && flexRes.get(i).equals("-1")) ans.add(i);//get undefined pos
-			else if(assigned && !flexRes.get(i).equals("-1")) ans.add(i);//get defined pos
+		for(int i=0;i<settings.mutRes.size();++i) {
+			if(!assigned && settings.mutRes.get(i).equals("-1")) ans.add(i);//get undefined pos
+			else if(assigned && !settings.mutRes.get(i).equals("-1")) ans.add(i);//get defined pos
 		}
 		ans.trimToSize();
 		return ans;
@@ -50,16 +50,16 @@ public class MSSearchProblem extends SearchProblem {
 		return ans;
 	}
 
-	public int getNumUndefinedPos() {
-		return confSpace.numPos-numDefinedPos;
+	public int getNumUnAssignedPos() {
+		return confSpace.numPos-numAssignedPos;
 	}
 	
-	public int getNumDefinedPos() {
-		return numDefinedPos;
+	public int getNumAssignedPos() {
+		return numAssignedPos;
 	}
 
-	public boolean isFullyDefined() {
-		return numDefinedPos==confSpace.numPos;
+	public boolean isFullyAssigned() {
+		return numAssignedPos==confSpace.numPos;
 	}
 
 	public ArrayList<Integer> unprunedAtPos(PruningMatrix pruneMat, int pos, String AAType) {
@@ -73,7 +73,7 @@ public class MSSearchProblem extends SearchProblem {
 	}
 
 	public void setPruningMatrix() {
-		this.pruneMat = updatePruningMatrix(getPosNums(true), allowedAAs);
+		this.pruneMat = updatePruningMatrix(getPosNums(true), settings.AATypeOptions);
 	}
 
 	public void setPruningMatrix(PruningMatrix pmat) {

@@ -1,5 +1,7 @@
 package edu.duke.cs.osprey.multistatekstar;
 
+import java.util.ArrayList;
+
 public interface ResidueOrder {
 
 	public class AAScore {
@@ -14,6 +16,6 @@ public interface ResidueOrder {
 		}
 	}
 	
-	public AAScore[][] getNextAssignment(MSSearchProblem[][] objFcnSearch);
+	public ArrayList<ArrayList<ArrayList<AAScore>>> getNextAssignments(MSSearchProblem[][] objFcnSearch, int numMaxMut);
 	
 }
