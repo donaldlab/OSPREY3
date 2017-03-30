@@ -12,10 +12,21 @@ at `Duke University`_.
 .. _Department of Computer Science: http://www.cs.duke.edu
 .. _Duke University: https://www.duke.edu/
 
+
+Development Version
+-------------------
+
+This is the development version of Osprey. For stable versions, please visit:
+http://www.cs.duke.edu/donaldlab/osprey.php
+
+
+License
+-------
+
 Osprey is released under a permissive GPL-style license. See the
 `full Osprey license`_ for more information. 
 
-.. _full Osprey license: http://www.cs.duke.edu/donaldlab/software/osprey/osprey.2.2/license.pdf
+.. _full Osprey license: LICENSE.txt
 
 
 Installation
