@@ -56,27 +56,33 @@ public class ResidueOrderStaticSequential implements ResidueOrder {
 	@Override
 	public ArrayList<ArrayList<ArrayList<AAScore>>> getNextAssignments(MSSearchProblem[][] objFcnSearch, int numMaxMut) {
 		ArrayList<ArrayList<ArrayList<AAScore>>> ans = new ArrayList<>();
-		
+
 		int state = 0;
 		int numSubStates = objFcnSearch[state].length;
 		//bound state is the sequence
 		MSSearchProblem bound = objFcnSearch[state][numSubStates-1];
 
+		if(bound.isFullyAssigned())//no positions to split
+			throw new RuntimeException("ERROR: there are no positions to split");
+
+		ArrayList<ArrayList<AAScore>> boundAssignments = null;
 		if(bound.getNumAssignedPos()==0) {//root node; add all allowed single mutations from unbound states
-			ArrayList<ArrayList<AAScore>> boundAssignments = getBoundStateAssignments(state, objFcnSearch[state], 0, numMaxMut);
-			for(int subState=0;subState<numSubStates-1;++subState) {
-				MSSearchProblem unbound = objFcnSearch[state][subState];
-				ans.add(getUnboundStateAssignments(bound, boundAssignments, unbound));
-			}
-			ans.add(boundAssignments);
+			boundAssignments = getBoundStateAssignments(state, objFcnSearch[state], 0, true, numMaxMut);
 		}
 
 		else {//add all allowed mutations at the next numerical splitPos
-			ArrayList<Integer> splitPos = bound.getPosNums(false);
-			if(splitPos.size()==0)
-				throw new RuntimeException("ERROR: there are no positions to split");
+			ArrayList<Integer> splitPos = bound.getPosNums(false);//sequential = first unassigned pos
+			boundAssignments = getBoundStateAssignments(state, objFcnSearch[state], splitPos.get(0), false, numMaxMut);
 		}
 		
+		//adding splitting a bound state position means splitting the corresponding
+		//unbound state position(s)
+		for(int subState=0;subState<numSubStates-1;++subState) {
+			MSSearchProblem unbound = objFcnSearch[state][subState];
+			ans.add(getUnboundStateAssignments(bound, boundAssignments, unbound));
+		}
+		ans.add(boundAssignments);
+
 		ans.trimToSize();
 		return ans;
 	}
@@ -103,11 +109,21 @@ public class ResidueOrderStaticSequential implements ResidueOrder {
 		return ans;
 	}
 
-	private ArrayList<ArrayList<AAScore>> getBoundStateAssignments(int state, MSSearchProblem[] search, int splitPos, int numMaxMut) {
+	private ArrayList<ArrayList<AAScore>> getBoundStateAssignments(int state, MSSearchProblem[] search, 
+			int splitPos, boolean getPosFromUnbound, int numMaxMut) {
+
 		ArrayList<Integer> complexPos = new ArrayList<>();
 		MSSearchProblem complex = search[search.length-1];
-		for(int subState=0;subState<search.length-1;++subState)
-			complexPos.add(complex.flexRes.indexOf(search[subState].flexRes.get(splitPos)));
+
+		//root node, so the unbound states give us bound state splitpos
+		if(getPosFromUnbound) {
+			for(int subState=0;subState<search.length-1;++subState)
+				complexPos.add(complex.flexRes.indexOf(search[subState].flexRes.get(splitPos)));
+		}
+		
+		//not root node, so adding a single pos in the bound state
+		else complexPos.add(splitPos);
+		
 		complexPos.trimToSize();
 
 		ArrayList<ArrayList<AAScore>> ans = new ArrayList<>();

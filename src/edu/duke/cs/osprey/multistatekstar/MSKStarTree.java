@@ -114,7 +114,7 @@ public class MSKStarTree {
 
 	private boolean canPrune(MSKStarNode curNode) {
 		//first check whether state specific constraints are satisfied
-		if(!curNode.constrSatisfied()) return true;
+		if(!curNode.constrSatisfiedGlobal()) return true;
 		//now check global constraints
 		for(LMB lmb : msConstr) {
 			if(lmb.eval(curNode.getStateKStarScores(lmb)).compareTo(BigDecimal.ZERO) > 0)
@@ -131,13 +131,11 @@ public class MSKStarTree {
 			ans.addAll(curNode.split(msParams));
 		
 		else {
-			
+		
 		}
 		
-		//create search problems and score children
-		//sequential...short circuit if one state fails
-		//parallel...might do more work than necessary
 		ans.trimToSize();
+		
 		return ans;
 	}
 

@@ -1,11 +1,17 @@
 package edu.duke.cs.osprey.multistatekstar;
 
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+
 public class KStarScoreLowerBound extends KStarScoreDiscrete {
 
 	public KStarScoreLowerBound(MSKStarSettings settings) {
 		super(settings);
 	}
 	
+	public KStarScoreLowerBound(MSKStarSettings settings, PartitionFunction[] pfs) {
+		super(settings, pfs);
+	}
+
 	@Override
 	protected void compute(int state, int maxNumConfs) {
 		super.compute(state, maxNumConfs);

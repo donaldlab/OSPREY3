@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigDecimal;
 
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 /**
@@ -13,6 +14,10 @@ public class KStarScoreDiscrete extends KStarScoreMinimized {
 
 	public KStarScoreDiscrete(MSKStarSettings settings) {
 		super(settings);
+	}
+
+	public KStarScoreDiscrete(MSKStarSettings settings, PartitionFunction[] pfs) {
+		super(settings, pfs);
 	}
 
 	@Override

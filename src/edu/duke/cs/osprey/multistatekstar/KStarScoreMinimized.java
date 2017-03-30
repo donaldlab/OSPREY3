@@ -33,10 +33,23 @@ public class KStarScoreMinimized implements KStarScore {
 		Arrays.fill(initialized, false);
 		constrSatisfied = true;
 	}
+	
+	public KStarScoreMinimized(MSKStarSettings settings, PartitionFunction[] other) {
+		this(settings);
+		partitionFunctions = (PartitionFunctionMinimized[]) other;
+		for(int state=0;state<numStates;++state) {
+			if(other != null) initialized[state] = true;
+		}
+	}
 
 	@Override
 	public MSKStarSettings getSettings() {
 		return settings;
+	}
+	
+	@Override
+	public PartitionFunction getPartitionFunction(int state) {
+		return partitionFunctions[state];
 	}
 	
 	protected BigDecimal getDenom() {
@@ -55,7 +68,7 @@ public class KStarScoreMinimized implements KStarScore {
 		BigDecimal den = getDenom();
 		if(den.compareTo(BigDecimal.ZERO) == 0) return BigDecimal.ZERO;
 		PartitionFunction pf = partitionFunctions[numStates-1];
-		return pf==null ? BigDecimal.ZERO : pf.getValues().qstar.divide(den, RoundingMode.HALF_UP);
+		return pf==null ? BigDecimal.ZERO : pf.getValues().qstar.setScale(64, RoundingMode.HALF_UP).divide(den, RoundingMode.HALF_UP);
 	}
 
 	@Override
@@ -69,7 +82,7 @@ public class KStarScoreMinimized implements KStarScore {
 		if(den.compareTo(BigDecimal.ZERO) == 0) return BigDecimal.ZERO;
 		PartitionFunction pf = partitionFunctions[numStates-1];
 		if(pf==null) return BigDecimal.ZERO;
-		BigDecimal num = pf.getValues().qstar;
+		BigDecimal num = pf.getValues().qstar.setScale(64, RoundingMode.HALF_UP);
 		if(pf.getStatus()!=Status.Estimated) num = num.add(pf.getValues().qprime).add(pf.getValues().pstar);
 		return num.divide(den, RoundingMode.HALF_UP);
 	}
@@ -137,7 +150,7 @@ public class KStarScoreMinimized implements KStarScore {
 
 		for(int state=0;state<numStates;++state){
 
-			if(!constrSatisfied)
+			if(!constrSatisfied)//state-specific constraints
 				return;
 
 			if(!initialized[state])
@@ -151,6 +164,29 @@ public class KStarScoreMinimized implements KStarScore {
 		if(settings.isFinal && constrSatisfied) 
 			constrSatisfied = checkConstraints();
 
+		cleanup();
+	}
+	
+	/**
+	 * compute only unbound states
+	 * @param maxNumConfs
+	 */
+	@Override
+	public void computeUnboundStates(int maxNumConfs) {
+		for(int state=0;state<numStates-1;++state){
+
+			if(!constrSatisfied)//state-specific constraints
+				return;
+
+			if(!initialized[state])
+				initialized[state] = init(state);
+
+			compute(state, maxNumConfs);
+		}
+
+		//don't check global constraints, because we are not computing 
+		//the bound state partition function
+		
 		cleanup();
 	}
 
@@ -213,9 +249,11 @@ public class KStarScoreMinimized implements KStarScore {
 	}
 
 	protected void compute(int state, int maxNumConfs) {
+		PartitionFunctionMinimized pf = partitionFunctions[state];
+		if(pf.getStatus()==Status.Estimated) return;
+		
 		if(settings.isReportingProgress) 
 			System.out.println("state"+state+": "+settings.search[state].settings.getFormattedSequence());
-		PartitionFunctionMinimized pf = partitionFunctions[state];
 		pf.compute(maxNumConfs);	
 
 		//no more q conformations, and we have not reached epsilon

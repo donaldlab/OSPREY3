@@ -19,7 +19,28 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
  * 
  */
 public class MSKStarFactory {
-
+	
+	public static KStarScore makeKStarScore(MSKStarSettings settings, PartitionFunction[] pfs) {
+		switch(settings.scoreType) {
+		case Minimized:
+			return new KStarScoreMinimized(settings, pfs);
+		case PairWiseMinimized:
+			return new KStarScoreDiscrete(settings, pfs);
+		case MinimizedUpperBound:
+			return new KStarScoreUpperBound(settings, pfs);
+		case MinimizedLowerBound:
+			return new KStarScoreLowerBound(settings, pfs);
+		case Discrete:
+			return new KStarScoreDiscrete(settings, pfs);
+		case DiscreteUpperBound:
+			return new KStarScoreUpperBound(settings, pfs);
+		case DiscreteLowerBound:
+			return new KStarScoreLowerBound(settings, pfs);
+		default:
+			throw new UnsupportedOperationException("ERROR: unsupported K* score type"+settings.scoreType);
+		}
+	}
+	
 	public static KStarScore makeKStarScore(
 			ParamSet msParams,
 			int state,

@@ -23,4 +23,18 @@ public class MSKStarSettings {
 	public ConfEnergyCalculator.Async[] ecalcs;
 
 	public MSKStarSettings() {}
+	
+	public MSKStarSettings(MSKStarSettings other) {
+		this.isReportingProgress = other.isReportingProgress;
+		this.targetEpsilon = other.targetEpsilon;
+		this.state = other.state;
+		this.numTopConfsToSave = other.numTopConfsToSave;
+		this.cfp = other.cfp;
+		this.scoreType = other.scoreType;
+		this.search = other.search;
+		this.isFinal = other.isFinal;
+		this.constraints = other.constraints;
+		this.pfTypes = other.pfTypes;
+		this.ecalcs = other.ecalcs;
+	}
 }

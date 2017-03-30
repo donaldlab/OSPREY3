@@ -2,10 +2,16 @@ package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigDecimal;
 
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+
 public class KStarScoreUpperBound extends KStarScoreLowerBound {
 
 	public KStarScoreUpperBound(MSKStarSettings settings) {
 		super(settings);
+	}
+
+	public KStarScoreUpperBound(MSKStarSettings settings, PartitionFunction[] pfs) {
+		super(settings, pfs);
 	}
 
 	@Override
