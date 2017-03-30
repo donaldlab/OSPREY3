@@ -19,9 +19,6 @@ import edu.duke.cs.osprey.tools.ObjectIO;
  */
 public class MSKStarTree {
 
-	int numTreeLevels;//number of residues with sequence
-	//changes+1 level if we are doing continuous minimization
-
 	LMB objFcn;//we are minimizing objFcn
 	LMB[] msConstr;
 	LMB[][] sConstr;
@@ -59,7 +56,6 @@ public class MSKStarTree {
 	int numPruned;
 
 	public MSKStarTree(
-			int numTreeLevels,
 			int numStates,
 			int numMaxMut,
 			int numSeqsWanted,
@@ -77,7 +73,6 @@ public class MSKStarTree {
 			MSConfigFileParser[] cfps
 			) {
 
-		this.numTreeLevels = numTreeLevels;
 		this.objFcn = objFcn;
 		this.msConstr = msConstr;
 		this.sConstr = sConstr;
@@ -113,8 +108,9 @@ public class MSKStarTree {
 	}
 
 	private boolean canPrune(MSKStarNode curNode) {
-		//first check whether state specific constraints are satisfied
-		if(!curNode.constrSatisfiedGlobal()) return true;
+		//first check whether local constraints are satisfied
+		//if(!curNode.constrSatisfiedLocalObjFunc()) return true;
+
 		//now check global constraints
 		for(LMB lmb : msConstr) {
 			if(lmb.eval(curNode.getStateKStarScores(lmb)).compareTo(BigDecimal.ZERO) > 0)
@@ -125,27 +121,34 @@ public class MSKStarTree {
 
 	private ArrayList<MSKStarNode> getChildren(MSKStarNode curNode) {
 		ArrayList<MSKStarNode> ans = new ArrayList<>();
-		
+
 		//pick next position to expand
 		if(!curNode.isFullyAssigned())
-			ans.addAll(curNode.split(msParams));
-		
-		else {
-		
-		}
-		
+			ans.addAll(curNode.splitUnassigned());
+
+		else
+			ans.addAll(curNode.splitFullyAssigned());
+
 		ans.trimToSize();
-		
 		return ans;
 	}
 
-	private MSKStarNode getRootNode() {
-		
+	private void initNodeStaticVars() {
 		//initialize MSKStarNode
 		MSKStarNode.OBJ_FUNC = this.objFcn;
 		MSKStarNode.WT_SEQS = this.wtSeqs;
 		MSKStarNode.NUM_MAX_MUT = this.numMaxMut;
-		
+		MSKStarNode.MS_PARAMS = this.msParams;
+		MSKStarNode.SEARCH_CONT = this.searchCont;
+		MSKStarNode.SEARCH_DISC = this.searchDisc;
+		MSKStarNode.ECALCS_CONT = this.ecalcsCont;
+		MSKStarNode.ECALCS_DISC = this.ecalcsDisc;
+	}
+
+	private MSKStarNode getRootNode() {
+
+		initNodeStaticVars();
+
 		KStarScore[] kssLB = new KStarScore[numStates];
 		KStarScore[] kssUB = new KStarScore[numStates];
 		KStarScoreType[] types = null;
@@ -157,7 +160,7 @@ public class MSKStarTree {
 			else
 				types = new KStarScoreType[]{KStarScoreType.DiscreteLowerBound, KStarScoreType.DiscreteUpperBound};
 
-			KStarScore[] scores = getRootKStarScores(state, types);
+			KStarScore[] scores = getRootKStarBounds(state, types);
 			kssLB[state] = scores[0];
 			kssUB[state] = scores[1];
 		}
@@ -167,7 +170,7 @@ public class MSKStarTree {
 		return ans;
 	}
 
-	private KStarScore[] getRootKStarScores(int state, KStarScoreType[] types) {
+	private KStarScore[] getRootKStarBounds(int state, KStarScoreType[] types) {
 		boolean doMinimize = cfps[state].getParams().getBool("DOMINIMIZE");
 		//[0] is lb, [1] is ub
 		KStarScore[] ans = new KStarScore[types.length];
@@ -210,9 +213,8 @@ public class MSKStarTree {
 
 	public String nextSeq() {
 
-		if(pq==null) {
+		if(pq==null)
 			initQueue(getRootNode());
-		}
 
 		MSKStarNode curNode;
 		while(true) {
@@ -229,7 +231,8 @@ public class MSKStarTree {
 			}
 
 			else {
-				if(curNode.isLeafNode()) return curNode.toString();
+				if(curNode.isLeafNode()) 
+					return curNode.toString();
 
 				//expand
 				ArrayList<MSKStarNode> children = getChildren(curNode);

@@ -128,6 +128,8 @@ public class MSKStarDoer {
 			System.out.println();
 
 			cfps[state] = makeStateCfp(state);
+			inputValidation.handleDoMinimize(cfps);
+			
 			ParamSet sParams = cfps[state].getParams();
 			inputValidation.handleStateParams(state, sParams, msParams);
 			state2MutableResNums.add(stateMutableRes(state, cfps[state], numMutRes));
@@ -447,7 +449,7 @@ public class MSKStarDoer {
 			ecalcsDisc[state] = makeEnergyCalculators(state, false);
 		}
 		
-		tree = new MSKStarTree(numMutRes, numStates, numMaxMut, numSeqsWanted, objFcn, 
+		tree = new MSKStarTree(numStates, numMaxMut, numSeqsWanted, objFcn, 
 				msConstr, sConstr, state2MutableResNums, AATypeOptions, wtSeqs, 
 				searchCont, searchDisc, ecalcsCont, ecalcsDisc, msParams, cfps);
 		

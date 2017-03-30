@@ -33,7 +33,7 @@ public class KStarScoreMinimized implements KStarScore {
 		Arrays.fill(initialized, false);
 		constrSatisfied = true;
 	}
-	
+
 	public KStarScoreMinimized(MSKStarSettings settings, PartitionFunction[] other) {
 		this(settings);
 		partitionFunctions = (PartitionFunctionMinimized[]) other;
@@ -46,12 +46,12 @@ public class KStarScoreMinimized implements KStarScore {
 	public MSKStarSettings getSettings() {
 		return settings;
 	}
-	
+
 	@Override
 	public PartitionFunction getPartitionFunction(int state) {
 		return partitionFunctions[state];
 	}
-	
+
 	protected BigDecimal getDenom() {
 		PartitionFunction pf;
 		BigDecimal ans = BigDecimal.ONE.setScale(64, RoundingMode.HALF_UP);
@@ -164,9 +164,10 @@ public class KStarScoreMinimized implements KStarScore {
 		if(settings.isFinal && constrSatisfied) 
 			constrSatisfied = checkConstraints();
 
-		cleanup();
+		if(isComputed())
+			cleanup();
 	}
-	
+
 	/**
 	 * compute only unbound states
 	 * @param maxNumConfs
@@ -184,10 +185,31 @@ public class KStarScoreMinimized implements KStarScore {
 			compute(state, maxNumConfs);
 		}
 
-		//don't check global constraints, because we are not computing 
+		//don't check all constraints, because we are not computing 
 		//the bound state partition function
-		
-		cleanup();
+
+		if(isComputed())
+			cleanup();
+	}
+
+	public void computeBoundState(int maxNumConfs) {
+		if(!constrSatisfied)
+			return;
+
+		int state = numStates-1;
+		if(!initialized[state])
+			initialized[state] = init(state);
+
+		compute(state, maxNumConfs);
+
+		PartitionFunction pf = partitionFunctions[state];
+		if(pf.getStatus()==Status.Estimated) {//assumption: unbound states are complete
+			if(settings.isFinal && constrSatisfied) 
+				constrSatisfied = checkConstraints();
+		}
+
+		if(isComputed())
+			cleanup();
 	}
 
 	private void cleanup() {
@@ -250,15 +272,19 @@ public class KStarScoreMinimized implements KStarScore {
 
 	protected void compute(int state, int maxNumConfs) {
 		PartitionFunctionMinimized pf = partitionFunctions[state];
-		if(pf.getStatus()==Status.Estimated) return;
-		
+		if(pf.getStatus()==Status.Estimated) 
+			throw new RuntimeException("ERROR: trying to re-computed a computed partition function");
+
 		if(settings.isReportingProgress) 
 			System.out.println("state"+state+": "+settings.search[state].settings.getFormattedSequence());
 		pf.compute(maxNumConfs);	
 
+		//we are not trying to compute the partition function to completion
+		if(pf.getStatus() == Status.Estimating)
+			return;
+
 		//no more q conformations, and we have not reached epsilon
-		double effectiveEpsilon = pf.getValues().getEffectiveEpsilon();
-		if(!Double.isNaN(effectiveEpsilon) && effectiveEpsilon > settings.targetEpsilon) {
+		else if(pf.getStatus() == Status.NotEnoughConformations) {
 			PartitionFunctionMinimized p2pf = (PartitionFunctionMinimized) phase2(state);
 			pf.getValues().qstar = p2pf.getValues().qstar;
 			if(settings.search[state].isFullyAssigned() && settings.numTopConfsToSave > 0)
@@ -372,6 +398,11 @@ public class KStarScoreMinimized implements KStarScore {
 	@Override
 	public boolean isFullyProcessed() {
 		if(!settings.isFinal) return false;
+		return isComputed();
+	}
+
+	@Override
+	public boolean isComputed() {
 		int nulls = 0;
 		for(PartitionFunctionMinimized pf : partitionFunctions) {
 			if(pf==null) nulls++;
@@ -379,9 +410,12 @@ public class KStarScoreMinimized implements KStarScore {
 		}
 		//all non-null pfs are estimated; the reason why we skipped a pf must
 		//be that a constraint is not satified
-		if(nulls>0 && !constrSatisfied) return true;
-		//otherwise, we erroneously skipped a partition function
-		throw new RuntimeException("ERROR: illegally skipped a partition function computation");
+		if(nulls>0) {
+			if(!constrSatisfied) return true;
+			//otherwise, we erroneously skipped a partition function
+			else throw new RuntimeException("ERROR: illegally skipped a partition function computation");
+		}
+		return true;
 	}
 
 	@Override

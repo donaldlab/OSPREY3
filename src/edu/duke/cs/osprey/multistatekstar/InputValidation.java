@@ -98,13 +98,29 @@ public class InputValidation {
 		}
 	}
 	
+	/**
+	 * must use the same value of DOMINIMIZE for all states
+	 * @param cfps
+	 */
+	public void handleDoMinimize(MSConfigFileParser[] cfps) {
+		boolean doMinimize = cfps[0].getParams().getBool("DOMINIMIZE");
+		for(int state=0;state<cfps.length;++state) {
+			MSConfigFileParser sCfp = cfps[state];
+			if(sCfp==null) continue;
+			ParamSet sParams = sCfp.getParams();
+			
+			boolean imindee = sParams.getBool("IMINDEE");
+			boolean sDoMinimize = sParams.getBool("DOMINIMIZE");
+			if(imindee != sDoMinimize)
+				throw new RuntimeException("ERROR: IMINDEE must have the same value as DOMINIMIZE");
+			
+			if(doMinimize!=sDoMinimize)
+				throw new RuntimeException("ERROR: DOMINIMIZE must have the same value in all states");
+		}
+	}
+	
 	public void handleStateParams(int state, ParamSet sParams, ParamSet msParams) {
 		//parameter sanity check
-		boolean imindee = sParams.getBool("IMINDEE");
-		boolean doMinimize = sParams.getBool("DOMINIMIZE");
-		if(imindee != doMinimize)
-			throw new RuntimeException("ERROR: IMINDEE must have the same value as DOMINIMIZE");
-		
 		double epsilon = sParams.getDouble("EPSILON");
 		if(epsilon >= 1 || epsilon < 0) 
 			throw new RuntimeException("ERROR: EPSILON must be >= 0 and < 1"); 

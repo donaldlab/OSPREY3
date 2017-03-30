@@ -83,7 +83,11 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 				}
 
 				// update status if needed
-				if (getEffectiveEpsilon() <= targetEpsilon) {
+				double effectiveEpsilon = getEffectiveEpsilon();
+				if(Double.isNaN(effectiveEpsilon)) {
+					status = Status.NotEnoughFiniteEnergies;
+				}
+				else if (effectiveEpsilon <= targetEpsilon) {
 					status = Status.Estimated;
 					phase1Output(conf);//just to let the user know we reached epsilon
 				}
@@ -141,7 +145,11 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 				}
 
 				// update status if needed
-				if (getEffectiveEpsilon() <= targetEpsilon) {
+				double effectiveEpsilon = getEffectiveEpsilon();
+				if(Double.isNaN(effectiveEpsilon)) {
+					status = Status.NotEnoughFiniteEnergies;
+				}
+				else if (effectiveEpsilon <= targetEpsilon) {
 					status = Status.Estimated;
 					phase2Output(conf, pdiff);
 				}

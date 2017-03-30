@@ -88,7 +88,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		while(other.size()>0) 
 			saveConf(other.poll());
 	}
-
+	
 	@Override
 	public void init(double targetEpsilon) {
 
@@ -116,6 +116,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		qstarScoreWeights = BigDecimal.ZERO;
 		numActiveThreads = 0;
 		maxNumTopConfs = 0;
+		
 		stopwatch = new Stopwatch().start();
 	}
 
@@ -203,7 +204,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 				// this is (potentially) running on a task executor listener thread
 				// so lock to keep from racing the main thread
-				synchronized (PartitionFunctionMinimized.this) {
+				synchronized (this) {
 
 					if(status == Status.Estimating) {
 
@@ -226,7 +227,11 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 						}
 
 						// update status if needed
-						if (values.getEffectiveEpsilon() <= targetEpsilon) {
+						double effectiveEpsilon = values.getEffectiveEpsilon();
+						if(Double.isNaN(effectiveEpsilon)) {
+							status = Status.NotEnoughFiniteEnergies;
+						}
+						else if (effectiveEpsilon <= targetEpsilon) {
 							status = Status.Estimated;
 							phase1Output(econf);//just to let the user know we reached epsilon
 						}
@@ -297,7 +302,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 				// this is (potentially) running on a task executor listener thread
 				// so lock to keep from racing the main thread
-				synchronized (PartitionFunctionMinimized.this) {
+				synchronized (this) {
 
 					if(status == Status.Estimating) {
 
@@ -323,7 +328,11 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 						}
 
 						// update status if needed
-						if (values.getEffectiveEpsilon() <= targetEpsilon) {
+						double effectiveEpsilon = values.getEffectiveEpsilon();
+						if(Double.isNaN(effectiveEpsilon)) {
+							status = Status.NotEnoughFiniteEnergies;
+						}
+						else if (effectiveEpsilon <= targetEpsilon) {
 							status = Status.Estimated;
 							phase2Output(econf, pdiff);
 						}

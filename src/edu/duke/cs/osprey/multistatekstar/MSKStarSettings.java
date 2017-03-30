@@ -31,10 +31,18 @@ public class MSKStarSettings {
 		this.numTopConfsToSave = other.numTopConfsToSave;
 		this.cfp = other.cfp;
 		this.scoreType = other.scoreType;
-		this.search = other.search;
+		
+		//must deep copy, since these values can change
+		this.search = new MSSearchProblem[other.search.length];
+		System.arraycopy(other.search, 0, this.search, 0, other.search.length);
+		
 		this.isFinal = other.isFinal;
 		this.constraints = other.constraints;
-		this.pfTypes = other.pfTypes;
-		this.ecalcs = other.ecalcs;
+		
+		this.pfTypes = new PartitionFunctionType[other.pfTypes.length];
+		System.arraycopy(other.pfTypes, 0, this.pfTypes, 0, other.pfTypes.length);		
+		
+		this.ecalcs = new ConfEnergyCalculator.Async[other.ecalcs.length];
+		System.arraycopy(other.ecalcs, 0, this.ecalcs, 0, other.ecalcs.length);
 	}
 }
