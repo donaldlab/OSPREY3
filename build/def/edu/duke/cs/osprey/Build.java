@@ -16,7 +16,6 @@ import org.jerkar.api.depmanagement.JkModuleDepFile;
 import org.jerkar.api.depmanagement.JkModuleDependency;
 import org.jerkar.api.depmanagement.JkModuleId;
 import org.jerkar.api.depmanagement.JkResolveResult;
-import org.jerkar.api.depmanagement.JkScope;
 import org.jerkar.api.depmanagement.JkScopedDependency;
 import org.jerkar.api.depmanagement.JkVersion;
 import org.jerkar.api.file.JkFileTree;
@@ -275,7 +274,7 @@ public class Build extends JkJavaBuild {
 		files.add(baseDir().file("bin"));
 		
 		// collect all the dependency files in order
-		JkResolveResult result = dependencyResolver().resolve(RUNTIME, NATIVES);
+		JkResolveResult result = dependencyResolver().resolve(RUNTIME);
 		for (JkScopedDependency sdep : dependencies()) {
 			JkDependency dep = sdep.dependency();
 			if (dep instanceof JkFileDependency) {
