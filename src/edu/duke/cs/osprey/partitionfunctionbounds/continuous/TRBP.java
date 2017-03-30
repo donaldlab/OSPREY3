@@ -37,14 +37,14 @@ public class TRBP {
 		boolean haveValidLogZ = false;
 
 		while (true) {
-			this.updateEdgeProbsTRBP(iter);
 			this.updateMessagesTRBP();
 
 			System.out.print("Updating pseudomarginals...");
 			this.computeSingletonPseudomarginalsTRBP();
 			this.computePairwiseMarginalsTRBP();
 			System.out.println("done.");
-
+			
+			this.updateEdgeProbsTRBP(iter);
 
 			double enth = this.computeEnthalpyTRBP();
 			double entr = this.computeEntropyTRBP();
@@ -65,10 +65,10 @@ public class TRBP {
 			if ((energyWorse || logZ > oldLogZ) && Double.isNaN(oldLogZ)) {
 				if (energyWorse) { System.out.println("energy got worse"); }
 				if (Double.isNaN(logZ)) { System.out.println("Ended on a NaN"); }
+				printMarginalsTRBP();
 				System.out.println("DONE: logZUB: "+oldLogZ);
 				System.out.println("Fenth: "+enth+", Fentr: "+entr+", Fenrg: " + enrg + ", FlogZUB: "+logZ);
 
-				printMarginalsTRBP();
 				return oldLogZ;
 			}
 
@@ -76,9 +76,9 @@ public class TRBP {
 
 			// break if the other termination condition is reached
 			if ((Math.abs(logZ-oldLogZ) <= cmrf.threshold) || (iter >= cmrf.maxIters)) { 
-				System.out.println("DONE: logZUB: "+logZ);
 				printMarginalsTRBP();
-				return logZ;                
+				System.out.println("DONE: logZUB: "+Math.min(logZ, oldLogZ));
+				return Math.min(logZ, oldLogZ);                
 			}
 
 			oldEnth = enth;
@@ -355,8 +355,8 @@ public class TRBP {
 									domain.resAllK,
 									domain.domainLB,
 									domain.domainUB,
-									(point)->(phiFunc.eval(point) + 
-											senderFunction.eval(CMRF.splitArray(point, domain.resOneLB.length).get(0)) + 
+									(point)->(phiFunc.eval(point) * 
+											senderFunction.eval(CMRF.splitArray(point, domain.resOneLB.length).get(0)) * 
 											receiverFunction.eval(CMRF.splitArray(point, domain.resOneLB.length).get(1)))));
 					domain.pseudomarginal = newPairwiseMarginals.get(domain);
 				}
@@ -375,6 +375,9 @@ public class TRBP {
 					+ "continuous-label MRF unless nodes have already been added. ");
 		}
 
+		if (cmrf.numNodes==1) { 
+			return;
+		}
 
 		double[][] adjacency = new double[cmrf.numNodes][cmrf.numNodes];
 		for (int i=0; i<cmrf.numNodes; i++) { 
@@ -437,7 +440,7 @@ public class TRBP {
 		TRBPMinSpanningTree mst = new TRBPMinSpanningTree();
 		
 		double[][] vec = mst.getMinSpanningTree(cmrf.edgeWeights);
-		double stepSize = 1.0/(iterCount+3);
+		double stepSize = 2.0/(iterCount+2); // from Hunter
 		
 		for (int i=0; i<cmrf.numNodes; i++) { 
 			for (int j=0; j<cmrf.numNodes; j++) { 
@@ -483,7 +486,7 @@ public class TRBP {
 
 		for (int i=0; i<cmrf.numNodes; i++) {  // i is the sender
 			for (int j=0; j<cmrf.numNodes; j++) { // j is the receiver
-				System.out.print(i+"-"+j+" ");
+//				System.out.print(i+"-"+j+" ");
 				if (i==j) { continue; }
 				CMRFNode sender = cmrf.nodes[i];
 				CMRFNode receiver = cmrf.nodes[j];

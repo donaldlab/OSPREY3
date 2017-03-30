@@ -66,7 +66,7 @@ public class CMRF {
 
 		System.out.println("CMRF main");
 				
-		int problemSize = 3;
+		int problemSize = 2;
 		HashMap<Integer, CMRFNodeDomain[]> ndMap = new HashMap<>();
 		for (int i=0; i<problemSize; i++) { 
 			double[][] b = 
@@ -75,7 +75,7 @@ public class CMRF {
 			double[] lb = {0, 0}; 
 			double[] ub = {size, size};
 			Kernel k = new KernelGaussian(b, kernelMult * size); 
-			CMRFNodeDomain nd = new CMRFNodeDomain(lb, ub, k, (point)->(-Math.pow(point[0], 1) - 3));
+			CMRFNodeDomain nd = new CMRFNodeDomain(lb, ub, k, (point)->(-1));
 			ndMap.put(i, new CMRFNodeDomain[]{nd});
 		}
 		
@@ -94,7 +94,7 @@ public class CMRF {
 				for (CMRFNodeDomain d1 : ndMap.get(i)) {
 					HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>> map3 = new HashMap<>();
 					for (CMRFNodeDomain d2 : ndMap.get(j)) { 
-						map3.put(d2, (point)->(-Math.pow(point[1] - point[0], 1) - 1));
+						map3.put(d2, (point)->(- 1));
 					}
 					map2.put(d1, map3);
 				}
