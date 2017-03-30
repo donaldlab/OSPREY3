@@ -9,15 +9,15 @@ import java.util.StringTokenizer;
  * generates a linear combination of partition function values over all states
  * constTerm + sum_s ( coeff_s * partition_function_value_for_state_s)
  * coeffs: >0 is upper bound, <0 is lower bound
- * interpretation: constraint LMVs are accepted iff eval() is <=0
+ * interpretation: constraint LMBs are accepted iff eval() is <=0
  */
-public class LMV {
+public class LMB {
 
 	BigDecimal[] coeffs;
 	BigDecimal constTerm;
 	boolean correctConstTerm;
 
-	public LMV(String s, int numStates) {
+	public LMB(String s, int numStates) {
 		StringTokenizer st = new StringTokenizer(s);
 		if(st.countTokens()!=numStates+1){
 			throw new RuntimeException("ERROR: there are "+numStates+" states but LinFunc "

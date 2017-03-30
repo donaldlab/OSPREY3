@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.multistatekstar;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -20,12 +21,27 @@ import edu.duke.cs.osprey.tools.StringParsing;
 public class InputValidation {
 
 	ArrayList<ArrayList<ArrayList<ArrayList<String>>>> AATypeOptions;
-	ArrayList<ArrayList<ArrayList<Integer>>> mutable2StateResNums;
+	ArrayList<ArrayList<ArrayList<Integer>>> state2MutableResNums;
 	
 	public InputValidation(ArrayList<ArrayList<ArrayList<ArrayList<String>>>> AATypeOptions,
-			ArrayList<ArrayList<ArrayList<Integer>>> mutable2StateResNums) {
+			ArrayList<ArrayList<ArrayList<Integer>>> state2MutableResNums) {
 		this.AATypeOptions = AATypeOptions;
-		this.mutable2StateResNums = mutable2StateResNums;
+		this.state2MutableResNums = state2MutableResNums;
+	}
+	
+	public void handleObjFcn(ParamSet msParams, LMB objFcn) {
+		if(objFcn.getCoeffs().length != msParams.getInt("NUMSTATES"))
+			throw new RuntimeException("ERROR: the number of OBJFCN coefficients must equal NUMSTATES");
+		for(BigDecimal coeff : objFcn.getCoeffs())
+			if(coeff.compareTo(BigDecimal.ZERO)==0)
+				throw new RuntimeException("ERROR: objective function coefficient cannot be 0");
+	}
+	
+	public void handleConstraints(ParamSet msParams, LMB[] constraints) {
+		for(LMB constr : constraints) {
+			if(constr.getCoeffs().length != msParams.getInt("NUMSTATES"))
+				throw new RuntimeException("ERROR: the number of constraint coefficients must equal NUMSTATES");
+		}
 	}
 	
 	public void handleAATypeOptions(int state, int subState, MSConfigFileParser stateCfp) {
@@ -34,7 +50,7 @@ public class InputValidation {
 
 		Molecule wtMolec = new Strand.Builder(PDBIO.readFile(stateCfp.params.getValue("PDBName"))).build().mol;
 
-		ArrayList<Integer> mutRes = mutable2StateResNums.get(state).get(subState);
+		ArrayList<Integer> mutRes = state2MutableResNums.get(state).get(subState);
 		ArrayList<ArrayList<String>> subStateAAOptions = stateCfp.getAllowedAAs(mutRes);
 
 		if(AATypeOptions==null) 

@@ -25,16 +25,26 @@ import edu.duke.cs.osprey.tools.Stopwatch;
  * 
  */
 
-public class ContinuousPartitionFunction extends ParallelConfPartitionFunction {
+public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
+
+	public static final BigDecimal MAX_VALUE = new BigDecimal("2e65536");
+	public static final BigDecimal MIN_VALUE = BigDecimal.ZERO;
 
 	protected PriorityQueue<ScoredConf> topConfs;
 	protected int maxNumTopConfs;
 	protected BigDecimal qstarScoreWeights;
 	protected int numActiveThreads;
+	protected PruningMatrix invmat;
 
-	public ContinuousPartitionFunction(EnergyMatrix emat, PruningMatrix pmat, ConfSearchFactory confSearchFactory,
-			Async ecalc) {
+	public PartitionFunctionMinimized(
+			EnergyMatrix emat, 
+			PruningMatrix pmat, 
+			PruningMatrix invmat, 
+			ConfSearchFactory confSearchFactory,
+			Async ecalc
+			) {
 		super(emat, pmat, confSearchFactory, ecalc);
+		this.invmat = invmat;
 		qstarScoreWeights = null;
 		topConfs = null;
 	}
@@ -61,11 +71,11 @@ public class ContinuousPartitionFunction extends ParallelConfPartitionFunction {
 
 	protected void saveConf(ScoredConf conf) {
 		if(topConfs.size() >= maxNumTopConfs) {
-			
+
 			ScoredConf head = topConfs.peek();
 			double e1 = head instanceof EnergiedConf ? ((EnergiedConf)head).getEnergy() : head.getScore();
 			double e2 = conf instanceof EnergiedConf ? ((EnergiedConf)conf).getEnergy() : conf.getScore();
-			
+
 			if(e1 > e2) topConfs.poll();
 			else return;
 		}
@@ -87,7 +97,7 @@ public class ContinuousPartitionFunction extends ParallelConfPartitionFunction {
 		values = new Values();
 
 		// compute p*: boltzmann-weight the scores for all pruned conformations
-		ConfSearch ptree = confSearchFactory.make(emat, ((QPruningMatrix)pmat).invert());
+		ConfSearch ptree = confSearchFactory.make(emat, invmat);
 		((ConfAStarTree)ptree).stopProgress();
 		values.pstar = calcWeightSumUpperBound(ptree);
 
@@ -192,7 +202,7 @@ public class ContinuousPartitionFunction extends ParallelConfPartitionFunction {
 
 				// this is (potentially) running on a task executor listener thread
 				// so lock to keep from racing the main thread
-				synchronized (ContinuousPartitionFunction.this) {
+				synchronized (PartitionFunctionMinimized.this) {
 
 					if(status == Status.Estimating) {
 
@@ -286,7 +296,7 @@ public class ContinuousPartitionFunction extends ParallelConfPartitionFunction {
 
 				// this is (potentially) running on a task executor listener thread
 				// so lock to keep from racing the main thread
-				synchronized (ContinuousPartitionFunction.this) {
+				synchronized (PartitionFunctionMinimized.this) {
 
 					if(status == Status.Estimating) {
 
@@ -337,9 +347,13 @@ public class ContinuousPartitionFunction extends ParallelConfPartitionFunction {
 				100f*heapMem.getUsed()/heapMem.getMax()
 				));
 	}
-	
+
 	public void setStatus(Status val) {
 		status = val;
 	}
 
+	public void cleanup() {
+		scoreConfs = null;
+		energyConfs = null;
+	}
 }
