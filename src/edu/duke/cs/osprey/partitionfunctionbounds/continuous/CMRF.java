@@ -54,7 +54,7 @@ public class CMRF {
 	
 	/**
 	 * Runs a quick toy example using both SCMF and TRBP
-	 * Actual logZ = 9.00637
+	 * Actual logZ = n + n(n-1)/2, where n is the problm size
 	 * @param size
 	 * @param kernelMult
 	 * @param iter
@@ -66,7 +66,7 @@ public class CMRF {
 
 		System.out.println("CMRF main");
 				
-		int problemSize = 2;
+		int problemSize = 5;
 		HashMap<Integer, CMRFNodeDomain[]> ndMap = new HashMap<>();
 		for (int i=0; i<problemSize; i++) { 
 			double[][] b = 
@@ -94,7 +94,7 @@ public class CMRF {
 				for (CMRFNodeDomain d1 : ndMap.get(i)) {
 					HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>> map3 = new HashMap<>();
 					for (CMRFNodeDomain d2 : ndMap.get(j)) { 
-						map3.put(d2, (point)->(- 1));
+						map3.put(d2, (point)->(-1));
 					}
 					map2.put(d1, map3);
 				}
@@ -146,7 +146,7 @@ public class CMRF {
 
 		// initialize outmessage maps
 		for (int i=0; i<numNodes; i++) {
-			System.out.print(i+"/"+(numNodes-1)+" ");
+			System.out.print((i+1)+"/"+(numNodes)+" ");
 			CMRFNode node = nodes[i];
 			node.outMessages = new HashMap<>();
 			for (int j=0; j<numNodes; j++) {

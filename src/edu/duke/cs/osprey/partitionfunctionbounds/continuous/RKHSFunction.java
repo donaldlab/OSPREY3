@@ -420,19 +420,22 @@ newFeatureMaps[fMapIndex] = new FeatureMap(this.k, cdfPoint);
      * @return
      */
     public double innerProduct(RKHSFunction f) {
-        // check if both kernels are the same
-        if (!this.k.equals(f.k)) {
-            throw new RuntimeException("Inner product between RKHS functions with different kernels.");
-        }
-        
-        double innerProduct = 0;
-        
-        for (int i = 0; i < f.featureMaps.length; i++) {
-            for (int j = 0; j < this.featureMaps.length; j++) {
-                innerProduct
-                        += f.coeffs[i] * this.coeffs[j] * this.k.eval(f.featureMaps[i].loc, this.featureMaps[j].loc);
-            }
-        }
+    	// check if both kernels are the same
+    	if (!this.k.equals(f.k)) {
+    		throw new RuntimeException("Inner product between RKHS functions with different kernels.");
+    	}
+
+    	double innerProduct = 0;
+
+    	for (int i = 0; i < f.featureMaps.length; i++) {
+    		for (int j = 0; j < this.featureMaps.length; j++) {
+    			double val = f.coeffs[i] * this.coeffs[j] * this.k.eval(f.featureMaps[i].loc, this.featureMaps[j].loc);
+    			if (Double.isFinite(val)) {
+    				innerProduct += val;
+    			}
+
+    		}
+    	}
         return innerProduct;
     }
     
@@ -453,6 +456,14 @@ newFeatureMaps[fMapIndex] = new FeatureMap(this.k, cdfPoint);
     	double totalIntegral = domainVolume * this.innerProduct(measure);
 
     	return totalIntegral;
+    }
+    
+    public double computeDomainVolume() { 
+    	double domainVolume = 1.0;
+    	for (int i=0; i<domainLB.length; i++) {
+    		domainVolume = domainVolume * (domainUB[i] - domainLB[i]);
+    	}
+    	return domainVolume;
     }
     
     public double computeAreaUnderCurve() { 

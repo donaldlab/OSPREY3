@@ -440,7 +440,7 @@ public class TRBP {
 		TRBPMinSpanningTree mst = new TRBPMinSpanningTree();
 		
 		double[][] vec = mst.getMinSpanningTree(cmrf.edgeWeights);
-		double stepSize = 2.0/(iterCount+2); // from Hunter
+		double stepSize = 2.0/(iterCount+20); // from Hunter
 		
 		for (int i=0; i<cmrf.numNodes; i++) { 
 			for (int j=0; j<cmrf.numNodes; j++) { 
@@ -486,7 +486,7 @@ public class TRBP {
 
 		for (int i=0; i<cmrf.numNodes; i++) {  // i is the sender
 			for (int j=0; j<cmrf.numNodes; j++) { // j is the receiver
-//				System.out.print(i+"-"+j+" ");
+				System.out.print(i+"-"+j+" ");
 				if (i==j) { continue; }
 				CMRFNode sender = cmrf.nodes[i];
 				CMRFNode receiver = cmrf.nodes[j];
@@ -555,12 +555,21 @@ public class TRBP {
 				}
 				final double Q = normalizingConstant;
 				for (int k=0; k< receiverDomainFuncs.length; k++) {
-					RKHSFunction oldFunc = receiverDomainFuncs[k];
-					receiverDomainFuncs[k] = new RKHSFunction(
-							oldFunc.k,
-							oldFunc.domainLB,
-							oldFunc.domainUB,
-							(point) -> (oldFunc.eval(point)/Q));
+					if (Q != 0) { 
+						RKHSFunction oldFunc = receiverDomainFuncs[k];
+						receiverDomainFuncs[k] = new RKHSFunction(
+								oldFunc.k,
+								oldFunc.domainLB,
+								oldFunc.domainUB,
+								(point) -> (oldFunc.eval(point)/Q));
+					} else {  // integral is zero, so 
+						RKHSFunction oldFunc = receiverDomainFuncs[k];
+						receiverDomainFuncs[k] = new RKHSFunction(
+								oldFunc.k,
+								oldFunc.domainLB,
+								oldFunc.domainUB,
+								(point) -> (1.0/oldFunc.computeDomainVolume()));
+					}
 				}
 
 				// dump it all to the buffer hashmap
@@ -654,7 +663,8 @@ public class TRBP {
 			double nodeEntropy = 0.0;
 			
 			for (CMRFNode neighbor : cmrf.nodes) {
-				double edgeEntropy = 0.0;				
+				double edgeEntropy = 0.0;
+				double mutualInf = 0.0;
 				if (node.equals(neighbor)) { continue; }
 				int nodeInd = cmrf.getIndexInArray(node, cmrf.nodes);
 				int neighborInd = cmrf.getIndexInArray(neighbor, cmrf.nodes);
@@ -708,12 +718,13 @@ public class TRBP {
 							throw new RuntimeException("NaN entropy");
 						}
 						
-						edgeEntropy += pairEntropy;
+						edgeEntropy += pairEntropy * cmrf.edgeProbs[nodeInd][neighborInd];
+						mutualInf += pairEntropy;
 					}
 					if (Double.isNaN(edgeEntropy)) { throw new RuntimeException("NaN entropy"); }
 					
-					cmrf.edgeWeights[nodeInd][neighborInd] = edgeEntropy;
-					cmrf.edgeWeights[neighborInd][nodeInd] = edgeEntropy;
+					cmrf.edgeWeights[nodeInd][neighborInd] = mutualInf;
+					cmrf.edgeWeights[neighborInd][nodeInd] = mutualInf;
 					
 					nodeEntropy += edgeEntropy;
 				}

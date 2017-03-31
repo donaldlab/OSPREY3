@@ -104,7 +104,7 @@ public class CMRFDoer {
 
 	public void compute() {
 		
-		CMRF.runToyCMRF(1, 0.15, 15);
+		CMRF.runToyCMRF(1, 0.15, 1);
 //		toy.runToyCMRF(18, 0.15, 50);
 //		toy.runToyCMRF(18, 0.15, 10000);
 		System.exit(0);
