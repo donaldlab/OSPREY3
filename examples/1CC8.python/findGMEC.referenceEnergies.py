@@ -15,12 +15,16 @@ confSpace = osprey.ConfSpace(strand)
 # choose a forcefield
 ffparams = osprey.ForcefieldParams()
 
-# how should confs be ordered and searched?
+# compute the reference energies
 eref = osprey.ReferenceEnergies(confSpace, ffparams)
-emat = osprey.EnergyMatrix(confSpace, ffparams, referenceEnergies=eref)
-astar = osprey.AStarMPLP(emat, confSpace)
 
-# how to compute the energy of a conformation?
+# use the reference energies for energy matrix computation
+emat = osprey.EnergyMatrix(confSpace, ffparams, referenceEnergies=eref)
+
+# Optional: using edge MPLP when using reference energies can make A* faster
+astar = osprey.AStarMPLP(emat, confSpace, updater=osprey.EdgeUpdater())
+
+# add the reference energies to the conf energy calculation too
 ecalc = osprey.ConfEnergyCalculator(confSpace, ffparams, referenceEnergies=eref)
 
 # find the best sequence and rotamers

@@ -313,7 +313,7 @@ def ForcefieldParams(forcefield=None):
 
 def EnergyMatrix(confSpace, ffparams, parallelism=None, cacheFile=None, referenceEnergies=None):
 	'''
-	:java:classdoc:`.ematrix.SimplerEnergyMatrixCalculator`
+	:java:methoddoc:`.ematrix.SimplerEnergyMatrixCalculator#calcEnergyMatrix`
 
 	:builder_option confSpace .ematrix.SimplerEnergyMatrixCalculator$Builder#confSpace:
 	:builder_option ffparams .ematrix.SimplerEnergyMatrixCalculator$Builder#ffparams:
@@ -341,7 +341,7 @@ def EnergyMatrix(confSpace, ffparams, parallelism=None, cacheFile=None, referenc
 
 def ReferenceEnergies(confSpace, ffparams, parallelism=None):
 	'''
-	:java:classdoc:`.ematrix.SimplerEnergyMatrixCalculator`
+	:java:methoddoc:`.ematrix.SimplerEnergyMatrixCalculator#calcReferenceEnergies`
 
 	:builder_option: confSpace .ematrixSimplerEnergyMatrixCalculator$Builder#confSpace:
 	:builder_option ffparams .ematrix.SimplerEnergyMatrixCalculator$Builder#ffparams:
@@ -370,18 +370,28 @@ def AStarTraditional(emat, confSpace):
 	return builder.build()
 
 
-def AStarMPLP(emat, confSpace, numIterations=None, convergenceThreshold=None):
+def EdgeUpdater():
+	return c.astar.conf.scoring.mplp.EdgeUpdater()
+
+def NodeUpdater():
+	return c.astar.conf.scoring.mplp.NodeUpdater()
+
+def AStarMPLP(emat, confSpace, updater=None, numIterations=None, convergenceThreshold=None):
 	'''
 	:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#setMPLP`
 
 	:builder_option emat .astar.conf.ConfAStarTree$Builder#emat:
 	:param confSpace: The conformation space containing the residue conformations to search.
 	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+	:builder_option updater .astar.conf.ConfAStarTree$MPLPBuilder#updater:
 	:builder_option numIterations .astar.conf.ConfAStarTree$MPLPBuilder#numIterations:
 	:builder_option convergenceThreshold .astar.conf.ConfAStarTree$MPLPBuilder#convergenceThreshold:
 	:builder_return .astar.conf.ConfAStarTree$Builder:
 	'''
 	mplpBuilder = _get_builder(c.astar.conf.ConfAStarTree, 'MPLPBuilder')()
+
+	if updater is not None:
+		mplpBuilder.setUpdater(updater)
 
 	if numIterations is not None:
 		mplpBuilder.setNumIterations(numIterations)

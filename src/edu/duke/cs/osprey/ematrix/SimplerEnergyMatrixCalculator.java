@@ -19,9 +19,6 @@ import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Progress;
 
-/**
- * Computes a matrix of energies between pairs of residue conformations to be used by A* search.
- */
 public class SimplerEnergyMatrixCalculator {
 	
 	// NOTE: don't use GPUs on energy matrices, it's too slow
@@ -105,6 +102,9 @@ public class SimplerEnergyMatrixCalculator {
 		efuncgen = new EnergyFunctionGenerator(ffparams);
 	}
 	
+	/**
+	 * Computes a matrix of energies between pairs of residue conformations to be used by A* search.
+	 */
 	public EnergyMatrix calcEnergyMatrix() {
 		
 		if (cacheFile != null) {
@@ -180,6 +180,11 @@ public class SimplerEnergyMatrixCalculator {
 		return emat;
 	}
 	
+	/**
+	 * Calculates a reference energy for each residue position and residue type
+	 * based on the minimum energy of all residue conformations at that position
+	 * and residue type.
+	 */
 	public SimpleReferenceEnergies calcReferenceEnergies() {
 		
 		// start the task executor

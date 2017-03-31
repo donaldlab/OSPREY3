@@ -13,6 +13,8 @@ import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
+import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
+import edu.duke.cs.osprey.astar.conf.scoring.mplp.MPLPUpdater;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
@@ -104,7 +106,15 @@ public class ConfAStarTree implements ConfSearch {
 
 	public static class MPLPBuilder {
 		
-		private NodeUpdater updater = new NodeUpdater();
+		/**
+		 * The type of MPLP update step to use for each iteration.
+		 * 
+		 * There are two options: {@link EdgeUpdater} and {@link NodeUpdater}.
+		 * In practice, the EdgeUpdater seems to work best when reference energies
+		 * are used. When reference energies are not used, the NodeUpdater seems
+		 * to work best.
+		 */
+		private MPLPUpdater updater = new NodeUpdater();
 		
 		/**
 		 * The number of MPLP iterations to execute on each A* node.
@@ -138,7 +148,7 @@ public class ConfAStarTree implements ConfSearch {
 		 */
 		private double convergenceThreshold = 0.0001;
 		
-		public MPLPBuilder setUpdater(NodeUpdater val) {
+		public MPLPBuilder setUpdater(MPLPUpdater val) {
 			updater = val;
 			return this;
 		}
