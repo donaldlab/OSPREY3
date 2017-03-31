@@ -9,7 +9,6 @@ import edu.duke.cs.osprey.control.ConfEnergyCalculator;
 import edu.duke.cs.osprey.control.ParamSet;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
-import edu.duke.cs.osprey.multistatekstar.KStarScore.PartitionFunctionType;
 import edu.duke.cs.osprey.multistatekstar.ResidueOrder.AAScore;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -31,6 +30,8 @@ public class MSKStarNode {
 	public static SearchProblem SEARCH_DISC[][];//discrete search problems
 	public static ConfEnergyCalculator.Async[][] ECALCS_CONT;//energy calculators for continuous emats
 	public static ConfEnergyCalculator.Async[][] ECALCS_DISC;//energy calculators for discrete emats
+
+	private static int PARALLELISM_MULTIPLIER = 16;
 
 	private KStarScore[] ksLB;//lower bound k* objects
 	private KStarScore[] ksUB;//upper bound k* objects
@@ -85,7 +86,6 @@ public class MSKStarNode {
 			KStarScore score;
 			for(MSKStarNode node : nodes) {
 				for(int state=0;state<ksLB.length;++state) {
-
 					score = node.ksLB[state];
 					if(score!=null) {
 						score.compute(Integer.MAX_VALUE);
@@ -181,6 +181,7 @@ public class MSKStarNode {
 				kSet.search[subState] = splitSearch(subState, kSet.search[subState], assignments);
 			else {
 				if(subState==numSubStates-1) throw new RuntimeException("ERROR: there must always be a split for the bound state");
+				//no split for substate, so re-use partition function
 				pfs[subState] = parent.getPartitionFunction(subState);
 			}
 		}
@@ -188,15 +189,19 @@ public class MSKStarNode {
 		//special case: if discrete and parent is not fully assigned but child is, 
 		//then create a non-bounding type of k* object
 		ParamSet sParams = kSet.cfp.getParams();
-		if(!sParams.getBool("DOMINIMIZE")) {
-			if(kSet.search[numSubStates-1].isFullyAssigned()) {
-				kSet.isReportingProgress = MS_PARAMS.getBool("ISREPORTINGPROGRESS");
-				kSet.numTopConfsToSave = MS_PARAMS.getInt("NUMTOPCONFSTOSAVE");
-				kSet.scoreType = KStarScoreType.Discrete;
-				kSet.isFinal = true;
-				Arrays.fill(kSet.pfTypes, PartitionFunctionType.Discrete);
-				System.arraycopy(ECALCS_DISC[kSet.state], 0, kSet.ecalcs, 0, ECALCS_DISC[kSet.state].length);
+		if(!sParams.getBool("DOMINIMIZE") && kSet.search[numSubStates-1].isFullyAssigned()) {
+			//new search problems, keeping newly created search problem settings
+			MSSearchProblem[] search = new MSSearchProblem[numSubStates];
+			for(int subState=0;subState<numSubStates;++subState) {
+				MSSearchSettings sSet = kSet.search[subState].settings;
+				search[subState] = new MSSearchProblem(SEARCH_DISC[kSet.state][subState], sSet);
 			}
+			
+			return MSKStarFactory.makeKStarScore(
+					MS_PARAMS, kSet.state, kSet.cfp, kSet.constraints,
+					null, search,
+					null, ECALCS_DISC[kSet.state], KStarScoreType.Discrete
+					);
 		}
 
 		return MSKStarFactory.makeKStarScore(kSet, pfs);
@@ -223,7 +228,7 @@ public class MSKStarNode {
 		//applies only to minimized confs
 		if(!ksLB[0].getSettings().cfp.getParams().getBool("DOMINIMIZE"))
 			throw new RuntimeException("ERROR: can only split a fully assigned node when continuous minimization is enabled");
-		
+
 		MSKStarNode child = null;
 		ArrayList<MSKStarNode> ans = new ArrayList<>();
 		if(!isFinal()) {
@@ -231,7 +236,7 @@ public class MSKStarNode {
 			int numStates = ksLB.length;
 			KStarScore[] newKsLB = new KStarScore[numStates];
 			KStarScore[] newKsUB = new KStarScore[numStates];
-			
+
 			boolean addNode = true;
 			for(int state=0;state<numStates;++state) {
 				//make lb
@@ -242,36 +247,41 @@ public class MSKStarNode {
 					break;//unbound state partition function upper bound(s) are 0
 				}
 				//compute a tiny bit of the bound state
-				//default to 16*getparallelism
+				//default to 16 * getparallelism
 				int parallelism = Parallelism.makeFromConfig(lb.getSettings().cfp).getParallelism();
-				lb.computeBoundState(16 * parallelism);
+				lb.computeBoundState(PARALLELISM_MULTIPLIER * parallelism);
 				newKsLB[state] = lb;
-				
+
 				//ub = lb
 				newKsUB[state] = lb;
 			}
-			
+
 			if(!addNode) return ans;
 			child = new MSKStarNode(newKsLB, newKsUB);
 		}
-		
+
 		else {
 			child = this;
 			for(KStarScore lb : child.ksLB) {
 				if(lb.isComputed()) continue;
 				int parallelism = Parallelism.makeFromConfig(lb.getSettings().cfp).getParallelism();
-				lb.computeBoundState(16 * parallelism);
+				lb.computeBoundState(PARALLELISM_MULTIPLIER * parallelism);
 			}
 		}
-		
+
 		if(child.constrSatisfiedLocal()) {
 			child.setScore(OBJ_FUNC);
 			ans.add(child);
 		}
-		
+
 		return ans;
 	}
 
+	/**
+	 * fully assigned parent creates a fully assigned child
+	 * @param parent
+	 * @return
+	 */
 	private KStarScore splitToMinimized(KStarScore parent) {
 		int state = parent.getSettings().state;
 		int numSubStates = parent.getSettings().search.length;
@@ -281,16 +291,16 @@ public class MSKStarNode {
 			MSSearchSettings sSet = parent.getSettings().search[subState].settings;
 			search[subState] = new MSSearchProblem(SEARCH_CONT[state][subState], sSet);
 		}
-		
+
 		KStarScore ans = MSKStarFactory.makeKStarScore(
 				MS_PARAMS, state, parent.getSettings().cfp, parent.getSettings().constraints,
 				search, null,
 				ECALCS_CONT[state], null, KStarScoreType.Minimized
 				);
-		
+
 		return ans;
 	}
-	
+
 	private int getNumMutations(int state) {
 		KStarScore score = ksLB[state];
 		int boundState = score.getSettings().search.length-1;
