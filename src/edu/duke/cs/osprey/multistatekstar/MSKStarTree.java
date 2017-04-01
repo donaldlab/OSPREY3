@@ -260,14 +260,15 @@ public class MSKStarTree {
 
 				pq.addAll(children);
 				
-				if(numExpanded % 8==0) reportProgress(curNode);
+				if(numExpanded % 8==0) 
+					reportProgress(curNode);
 			}
 		}
 	}
 	
 	private void reportProgress(MSKStarNode curNode) {
 		MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-		System.out.println(String.format("level: %2d / %2d, seqs: %2d / %2d, time: %6s, heapMem: %.0f%%",
+		System.out.println(String.format("level: %d/%d, seqs: %d/%d, time: %6s, heapMem: %.0f%%",
 				curNode.getNumAssignedResidues(), numTreeLevels,
 				numSeqsReturned, numSeqsWanted, stopwatch.getTime(2), 100f*heapMem.getUsed()/heapMem.getMax()));
 	}

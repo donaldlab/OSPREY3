@@ -266,6 +266,8 @@ public class KStarScoreMinimized implements KStarScore {
 				confSearchFactory,
 				settings.ecalcs[state]
 				);
+		
+		p2pf.setReportProgress(settings.isReportingProgress);
 
 		p2pf.init(targetEpsilon);//enumerating over pstar, energies can be high
 		p2pf.getValues().qstar = qstar;//keep old qstar

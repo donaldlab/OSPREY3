@@ -119,7 +119,8 @@ public class MSKStarNode {
 	}
 
 	public ArrayList<MSKStarNode> splitUnassigned() {
-		if(isFullyAssigned()) throw new RuntimeException("ERROR: there are no splittable positions");
+		if(isFullyAssigned()) throw new RuntimeException("ERROR: cannot split a "
+				+ "fully assigned node unless continuous minimization is enabled");
 
 		ArrayList<MSKStarNode> ans = new ArrayList<>();
 
@@ -167,8 +168,8 @@ public class MSKStarNode {
 	private KStarScore split(KStarScore parent, ArrayList<ArrayList<ArrayList<AAScore>>> splits, int index) {
 		//substate / split index / assignments for split
 		MSKStarSettings kSet = new MSKStarSettings(parent.getSettings());
+		
 		int numSubStates=kSet.search.length;
-
 		PartitionFunction[] pfs = new PartitionFunction[numSubStates];
 		Arrays.fill(pfs, null);
 
