@@ -33,7 +33,6 @@ public class KStarScoreDiscrete extends KStarScoreMinimized {
 	@Override
 	protected void compute(int state, int maxNumConfs) {
 		super.compute(state, maxNumConfs);
-		
 		//multiply q* by number of undefined confs
 		if(!settings.search[state].isFullyAssigned()) {
 			PartitionFunctionDiscrete pf = (PartitionFunctionDiscrete) partitionFunctions[state];

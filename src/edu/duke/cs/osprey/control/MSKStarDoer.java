@@ -11,6 +11,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.StringTokenizer;
 
+import com.sun.org.apache.xalan.internal.xsltc.DOM;
+
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
@@ -443,13 +445,15 @@ public class MSKStarDoer {
 		System.out.println();
 
 		//create energy calculators
+		boolean doMinimize = false;
 		for(int state=0;state<numStates;++state) {
-			boolean doMinimize = cfps[state].getParams().getBool("DOMINIMIZE");
+			doMinimize = cfps[state].getParams().getBool("DOMINIMIZE");
 			if(doMinimize) ecalcsCont[state] = makeEnergyCalculators(state, true);
 			ecalcsDisc[state] = makeEnergyCalculators(state, false);
 		}
 		
-		tree = new MSKStarTree(numStates, numMaxMut, numSeqsWanted, objFcn, 
+		int numTreeLevels = doMinimize ? numMutRes+1 : numMutRes;
+		tree = new MSKStarTree(numTreeLevels, numStates, numMaxMut, numSeqsWanted, objFcn, 
 				msConstr, sConstr, state2MutableResNums, AATypeOptions, wtSeqs, 
 				searchCont, searchDisc, ecalcsCont, ecalcsDisc, msParams, cfps);
 		

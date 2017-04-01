@@ -36,9 +36,9 @@ public class KStarScoreMinimized implements KStarScore {
 
 	public KStarScoreMinimized(MSKStarSettings settings, PartitionFunction[] other) {
 		this(settings);
-		partitionFunctions = (PartitionFunctionMinimized[]) other;
 		for(int state=0;state<numStates;++state) {
-			if(other != null) initialized[state] = true;
+			partitionFunctions[state] = (PartitionFunctionMinimized) other[state];
+			if(other[state] != null) initialized[state] = true;
 		}
 	}
 
@@ -101,6 +101,9 @@ public class KStarScoreMinimized implements KStarScore {
 	}
 
 	protected boolean init(int state) {
+		if(settings.isReportingProgress) 
+			System.out.println("state"+state+": "+settings.search[state].settings.getFormattedSequence()+" "+settings.pfTypes[state]);
+
 		//first prune the pruning matrix
 		settings.search[state].prunePmat();
 
@@ -156,7 +159,8 @@ public class KStarScoreMinimized implements KStarScore {
 			if(!initialized[state])
 				initialized[state] = init(state);
 
-			compute(state, maxNumConfs);
+			if(partitionFunctions[state].getStatus() != Status.Estimated)
+				compute(state, maxNumConfs);
 		}
 
 		//check all constraints now. technically, we should only check constraints
@@ -182,14 +186,13 @@ public class KStarScoreMinimized implements KStarScore {
 			if(!initialized[state])
 				initialized[state] = init(state);
 
-			compute(state, maxNumConfs);
+			if(partitionFunctions[state].getStatus() != Status.Estimated)
+				compute(state, maxNumConfs);
 		}
 
 		//don't check all constraints, because we are not computing 
 		//the bound state partition function
-
-		if(isComputed())
-			cleanup();
+		for(int state=0;state<numStates-1;++state) partitionFunctions[state].cleanup();
 	}
 
 	public void computeBoundState(int maxNumConfs) {
@@ -200,10 +203,10 @@ public class KStarScoreMinimized implements KStarScore {
 		if(!initialized[state])
 			initialized[state] = init(state);
 
-		compute(state, maxNumConfs);
+		if(partitionFunctions[state].getStatus() != Status.Estimated)
+			compute(state, maxNumConfs);
 
-		PartitionFunction pf = partitionFunctions[state];
-		if(pf.getStatus()==Status.Estimated) {//assumption: unbound states are complete
+		if(partitionFunctions[state].getStatus()==Status.Estimated) {//assumption: unbound states are complete
 			if(settings.isFinal && constrSatisfied) 
 				constrSatisfied = checkConstraints();
 		}
@@ -270,14 +273,9 @@ public class KStarScoreMinimized implements KStarScore {
 		return p2pf;
 	}
 
-	protected void compute(int state, int maxNumConfs) {
+	protected void compute(int state, int maxNumConfs) {		
 		PartitionFunctionMinimized pf = partitionFunctions[state];
-		if(pf.getStatus()==Status.Estimated) 
-			throw new RuntimeException("ERROR: trying to re-computed a computed partition function");
-
-		if(settings.isReportingProgress) 
-			System.out.println("state"+state+": "+settings.search[state].settings.getFormattedSequence());
-		pf.compute(maxNumConfs);	
+		pf.compute(maxNumConfs);
 
 		//we are not trying to compute the partition function to completion
 		if(pf.getStatus() == Status.Estimating)

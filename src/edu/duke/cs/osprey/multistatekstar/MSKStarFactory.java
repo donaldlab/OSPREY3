@@ -92,12 +92,12 @@ public class MSKStarFactory {
 			for(int subState=0;subState<numPartFuncs-1;++subState){
 				settings.pfTypes[subState] = PartitionFunctionType.Discrete;
 				settings.search[subState] = searchDisc[subState];
-				settings.search[subState].settings.energyLBs = true;
+				settings.search[subState].settings.energyLBs = false;
 				settings.ecalcs[subState] = ecalcsDisc[subState];
 			}
 			settings.pfTypes[numPartFuncs-1] = PartitionFunctionType.UpperBound;
 			settings.search[numPartFuncs-1] = searchCont[numPartFuncs-1];
-			settings.search[numPartFuncs-1].settings.energyLBs = false;
+			settings.search[numPartFuncs-1].settings.energyLBs = true;
 			settings.ecalcs[numPartFuncs-1] = ecalcsCont[numPartFuncs-1];
 			settings.isFinal = false;
 			settings.isReportingProgress = false;
@@ -108,12 +108,12 @@ public class MSKStarFactory {
 			for(int subState=0;subState<numPartFuncs-1;++subState){
 				settings.pfTypes[subState] = PartitionFunctionType.UpperBound;
 				settings.search[subState] = searchCont[subState];
-				settings.search[subState].settings.energyLBs = false;
+				settings.search[subState].settings.energyLBs = true;
 				settings.ecalcs[subState] = ecalcsCont[subState];
 			}
 			settings.pfTypes[numPartFuncs-1] = PartitionFunctionType.Discrete;
 			settings.search[numPartFuncs-1] = searchDisc[numPartFuncs-1];
-			settings.search[numPartFuncs-1].settings.energyLBs = true;
+			settings.search[numPartFuncs-1].settings.energyLBs = false;
 			settings.ecalcs[numPartFuncs-1] = ecalcsDisc[numPartFuncs-1];
 			settings.isFinal = false;
 			settings.isReportingProgress = false;
@@ -133,12 +133,12 @@ public class MSKStarFactory {
 			for(int subState=0;subState<numPartFuncs-1;++subState){
 				settings.pfTypes[subState] = PartitionFunctionType.Discrete;
 				settings.search[subState] = searchDisc[subState];
-				settings.search[subState].settings.energyLBs = true;
+				settings.search[subState].settings.energyLBs = false;
 				settings.ecalcs[subState] = ecalcsDisc[subState];
 			}
 			settings.pfTypes[numPartFuncs-1] = PartitionFunctionType.UpperBound;
 			settings.search[numPartFuncs-1] = searchDisc[numPartFuncs-1];
-			settings.search[numPartFuncs-1].settings.energyLBs = false;
+			settings.search[numPartFuncs-1].settings.energyLBs = true;
 			settings.ecalcs[numPartFuncs-1] = ecalcsDisc[numPartFuncs-1];
 			settings.isFinal = false;
 			settings.isReportingProgress = false;
@@ -149,12 +149,12 @@ public class MSKStarFactory {
 			for(int subState=0;subState<numPartFuncs-1;++subState){
 				settings.pfTypes[subState] = PartitionFunctionType.UpperBound;
 				settings.search[subState] = searchDisc[subState];
-				settings.search[subState].settings.energyLBs = false;
+				settings.search[subState].settings.energyLBs = true;
 				settings.ecalcs[subState] = ecalcsDisc[subState];
 			}
 			settings.pfTypes[numPartFuncs-1] = PartitionFunctionType.Discrete;
 			settings.search[numPartFuncs-1] = searchDisc[numPartFuncs-1];
-			settings.search[numPartFuncs-1].settings.energyLBs = true;
+			settings.search[numPartFuncs-1].settings.energyLBs = false;
 			settings.ecalcs[numPartFuncs-1] = ecalcsDisc[numPartFuncs-1];
 			settings.isFinal = false;
 			settings.isReportingProgress = false;

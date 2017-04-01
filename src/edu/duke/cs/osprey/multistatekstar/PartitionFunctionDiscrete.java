@@ -89,7 +89,7 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 				}
 				else if (effectiveEpsilon <= targetEpsilon) {
 					status = Status.Estimated;
-					phase1Output(conf);//just to let the user know we reached epsilon
+					if (isReportingProgress) phase1Output(conf);//just to let the user know we reached epsilon
 				}
 			}
 		}
@@ -151,7 +151,7 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 				}
 				else if (effectiveEpsilon <= targetEpsilon) {
 					status = Status.Estimated;
-					phase2Output(conf, pdiff);
+					if (isReportingProgress) phase2Output(conf, pdiff);
 				}
 			}
 		}

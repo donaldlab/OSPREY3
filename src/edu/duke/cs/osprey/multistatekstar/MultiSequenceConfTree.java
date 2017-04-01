@@ -34,6 +34,7 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 		this.pmat = pmat;
 		allowedPos = getPosNums(true);
 		init();
+		setVerbose(false);
 	}
 
 	protected Integer[] getPosNums(boolean defined) {
@@ -85,6 +86,7 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 		return num;
 	}
 
+	/*
 	protected void splitPositions(FullAStarNode node) {
 
 		// make sure we're not split already
@@ -109,7 +111,8 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 
 		assert (numDefined + numUndefined == numPos);
 	}
-
+	*/
+	
 	protected double scoreNode(int[] partialConf) {
 		if(traditionalScore) {
 			rcTuple.set(partialConf);

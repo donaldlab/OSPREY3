@@ -1,5 +1,7 @@
 package edu.duke.cs.osprey.multistatekstar;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryUsage;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -10,6 +12,7 @@ import edu.duke.cs.osprey.control.ConfEnergyCalculator;
 import edu.duke.cs.osprey.control.ParamSet;
 import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
 import edu.duke.cs.osprey.tools.ObjectIO;
+import edu.duke.cs.osprey.tools.Stopwatch;
 
 /**
  * 
@@ -31,6 +34,9 @@ public class MSKStarTree {
 	// AATypeOptions.get(level), and thus an AA type
 	//If -1, then no assignment yet
 
+	int numTreeLevels;//maximum number of mutable/flexible residues.
+	//+1 if minimization is allowed
+	
 	int numMaxMut;//number of mutations allowed away from wtSeq (-1 means no cap)
 	ArrayList<String[]> wtSeqs;//bound state wild type sequences for each state
 
@@ -53,9 +59,13 @@ public class MSKStarTree {
 	int numSeqsReturned;
 
 	int numExpanded;
+	int numSelfExpanded;
 	int numPruned;
+	
+	Stopwatch stopwatch;
 
 	public MSKStarTree(
+			int numTreeLevels,
 			int numStates,
 			int numMaxMut,
 			int numSeqsWanted,
@@ -80,6 +90,7 @@ public class MSKStarTree {
 		this.numMaxMut = numMaxMut;
 		this.numSeqsWanted = numSeqsWanted;
 		this.wtSeqs = wtSeqs;
+		this.numTreeLevels = numTreeLevels;
 		this.numStates = numStates;
 		this.searchCont = searchCont;
 		this.searchDisc = searchDisc;
@@ -90,10 +101,13 @@ public class MSKStarTree {
 		this.cfps = cfps;
 		this.msParams = msParams;
 
-		numExpanded = 0;
-		numPruned = 0;
-		numSeqsReturned = 0;
-		pq = null;
+		this.numExpanded = 0;
+		this.numSelfExpanded = 0;
+		this.numPruned = 0;
+		this.numSeqsReturned = 0;
+		this.pq = null;
+		
+		this.stopwatch = new Stopwatch().start();
 	}
 
 	private void initQueue(MSKStarNode node) {
@@ -143,6 +157,7 @@ public class MSKStarTree {
 		MSKStarNode.SEARCH_DISC = this.searchDisc;
 		MSKStarNode.ECALCS_CONT = this.ecalcsCont;
 		MSKStarNode.ECALCS_DISC = this.ecalcsDisc;
+		MSKStarNode.RESIDUE_ORDER = null;
 	}
 
 	private MSKStarNode getRootNode() {
@@ -230,17 +245,31 @@ public class MSKStarTree {
 				continue;
 			}
 
-			else {
-				if(curNode.isLeafNode()) 
+			else {		
+				if(curNode.isLeafNode()) {
+					numSeqsReturned++;
 					return curNode.toString();
-
+				}
+				
 				//expand
 				ArrayList<MSKStarNode> children = getChildren(curNode);
+				//expansion is either a refinement of the same node or creation
+				//of completely new nodes
+				if(children.size()==0 && curNode.equals(children.get(0))) numSelfExpanded++;
 				numExpanded++;
 
 				pq.addAll(children);
+				
+				if(numExpanded % 8==0) reportProgress(curNode);
 			}
 		}
+	}
+	
+	private void reportProgress(MSKStarNode curNode) {
+		MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
+		System.out.println(String.format("level: %2d / %2d, seqs: %2d / %2d, time: %6s, heapMem: %.0f%%",
+				curNode.getNumAssignedResidues(), numTreeLevels,
+				numSeqsReturned, numSeqsWanted, stopwatch.getTime(2), 100f*heapMem.getUsed()/heapMem.getMax()));
 	}
 
 }

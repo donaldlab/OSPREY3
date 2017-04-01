@@ -10,7 +10,6 @@ import edu.duke.cs.osprey.control.ParamSet;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
 import edu.duke.cs.osprey.multistatekstar.ResidueOrder.AAScore;
-import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.tools.ObjectIO;
 
 /**
@@ -31,6 +30,7 @@ public class MSKStarNode {
 	public static ConfEnergyCalculator.Async[][] ECALCS_CONT;//energy calculators for continuous emats
 	public static ConfEnergyCalculator.Async[][] ECALCS_DISC;//energy calculators for discrete emats
 
+	public static ResidueOrder RESIDUE_ORDER = null;
 	private static int PARALLELISM_MULTIPLIER = 16;
 
 	private KStarScore[] ksLB;//lower bound k* objects
@@ -50,6 +50,11 @@ public class MSKStarNode {
 		score = null;
 	}
 
+	public int getNumAssignedResidues() {
+		MSSearchProblem[] search = ksLB[0].getSettings().search;
+		return search[search.length-1].getNumAssignedPos();
+	}
+	
 	public boolean isFullyAssigned() {
 		return ksLB[0].isFullyAssigned();
 	}
@@ -63,7 +68,6 @@ public class MSKStarNode {
 		for(int i=0;i<ksLB.length;++i) if(!ksLB[i].isFullyProcessed()) return false;
 		return true;
 	}
-
 
 	private boolean constrSatisfiedLocal() {
 		for(int state=0;state<ksLB.length;++state) {
@@ -87,16 +91,9 @@ public class MSKStarNode {
 			for(MSKStarNode node : nodes) {
 				for(int state=0;state<ksLB.length;++state) {
 					score = node.ksLB[state];
-					if(score!=null) {
-						score.compute(Integer.MAX_VALUE);
-						if(!score.constrSatisfied()) break;//local constraints
-					}
-
+					if(score!=null) score.compute(Integer.MAX_VALUE);
 					score = node.ksUB[state];
-					if(score!=null) {
-						score.compute(Integer.MAX_VALUE);
-						if(!score.constrSatisfied()) break;//local constraints
-					}
+					if(score!=null) score.compute(Integer.MAX_VALUE);
 				}
 			}	
 		} 
@@ -132,8 +129,8 @@ public class MSKStarNode {
 		for(int state=0;state<numStates;++state) objFcnSearch[state] = ksObjFunc[state].getSettings().search;	
 
 		//residue ordering is determined by the objective function search problems, rather than just upper bound or lower bounds
-		ResidueOrder order = ResidueOrderFactory.getResidueOrder(MS_PARAMS, objFcnSearch);
-		ArrayList<ArrayList<ArrayList<AAScore>>> splits = order.getNextAssignments(objFcnSearch, NUM_MAX_MUT-getNumMutations(0));
+		RESIDUE_ORDER = RESIDUE_ORDER == null ? ResidueOrderFactory.getResidueOrder(MS_PARAMS, objFcnSearch) : RESIDUE_ORDER;
+		ArrayList<ArrayList<ArrayList<AAScore>>> splits = RESIDUE_ORDER.getNextAssignments(objFcnSearch, NUM_MAX_MUT-getNumMutations(0));
 
 		//each split is applied to every state ub and lb
 		int numSplits = splits.get(0).size();
@@ -163,7 +160,7 @@ public class MSKStarNode {
 			ans.add(child);
 		}
 
-		setNodeScores(ans, false);
+		setNodeScores(ans, true);
 		return ans;
 	}
 
@@ -248,8 +245,7 @@ public class MSKStarNode {
 				}
 				//compute a tiny bit of the bound state
 				//default to 16 * getparallelism
-				int parallelism = Parallelism.makeFromConfig(lb.getSettings().cfp).getParallelism();
-				lb.computeBoundState(PARALLELISM_MULTIPLIER * parallelism);
+				lb.computeBoundState(PARALLELISM_MULTIPLIER * lb.getSettings().ecalcs[0].getParallelism());
 				newKsLB[state] = lb;
 
 				//ub = lb
@@ -264,8 +260,7 @@ public class MSKStarNode {
 			child = this;
 			for(KStarScore lb : child.ksLB) {
 				if(lb.isComputed()) continue;
-				int parallelism = Parallelism.makeFromConfig(lb.getSettings().cfp).getParallelism();
-				lb.computeBoundState(PARALLELISM_MULTIPLIER * parallelism);
+				lb.computeBoundState(PARALLELISM_MULTIPLIER * lb.getSettings().ecalcs[0].getParallelism());
 			}
 		}
 
@@ -308,7 +303,7 @@ public class MSKStarNode {
 
 		int ans = 0;
 		for(int pos : score.getSettings().search[boundState].getPosNums(true)) {
-			if(AATypeOptions.get(pos).size()>0) ans++;
+			if(AATypeOptions.get(pos).size() != 1) throw new RuntimeException("ERROR: assigned positions must have 1 AA");
 			else if(!AATypeOptions.get(pos).get(0).equalsIgnoreCase(WT_SEQS.get(state)[pos]))
 				ans++;
 		}

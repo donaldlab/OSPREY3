@@ -60,18 +60,18 @@ public class ResidueOrderStaticSequential implements ResidueOrder {
 		int state = 0;
 		int numSubStates = objFcnSearch[state].length;
 		//bound state is the sequence
-		MSSearchProblem bound = objFcnSearch[state][numSubStates-1];
+		MSSearchProblem boundState = objFcnSearch[state][numSubStates-1];
 
-		if(bound.isFullyAssigned())//no positions to split
+		if(boundState.isFullyAssigned())//no positions to split
 			throw new RuntimeException("ERROR: there are no positions to split");
 
 		ArrayList<ArrayList<AAScore>> boundAssignments = null;
-		if(bound.getNumAssignedPos()==0) {//root node; add all allowed single mutations from unbound states
+		if(boundState.getNumAssignedPos()==0) {//root node; add all allowed single mutations from unbound states
 			boundAssignments = getBoundStateAssignments(state, objFcnSearch[state], 0, true, numMaxMut);
 		}
 
 		else {//add all allowed mutations at the next numerical splitPos
-			ArrayList<Integer> splitPos = bound.getPosNums(false);//sequential = first unassigned pos
+			ArrayList<Integer> splitPos = boundState.getPosNums(false);//sequential = first unassigned pos
 			boundAssignments = getBoundStateAssignments(state, objFcnSearch[state], splitPos.get(0), false, numMaxMut);
 		}
 		
@@ -79,7 +79,7 @@ public class ResidueOrderStaticSequential implements ResidueOrder {
 		//unbound state position(s)
 		for(int subState=0;subState<numSubStates-1;++subState) {
 			MSSearchProblem unbound = objFcnSearch[state][subState];
-			ans.add(getUnboundStateAssignments(bound, boundAssignments, unbound));
+			ans.add(getUnboundStateAssignments(boundState, boundAssignments, unbound));
 		}
 		ans.add(boundAssignments);
 
