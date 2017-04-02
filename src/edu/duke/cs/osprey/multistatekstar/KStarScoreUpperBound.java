@@ -38,7 +38,10 @@ public class KStarScoreUpperBound extends KStarScoreLowerBound {
 		else {
 			if(getDenom().compareTo(BigDecimal.ZERO)>0) return score;
 			else {
-				if(initialized[numStates-1]) return score; //upper bound partition function is also 0
+				PartitionFunction bound = partitionFunctions[numStates-1];
+				//upper bound partition function is also 0. bound state is
+				//null only for root node
+				if(bound != null && bound.getValues().qstar.compareTo(BigDecimal.ZERO)==0) return score;
 				else return PartitionFunctionMinimized.MAX_VALUE;
 			}
 		}

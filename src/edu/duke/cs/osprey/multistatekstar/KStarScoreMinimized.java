@@ -101,7 +101,7 @@ public class KStarScoreMinimized implements KStarScore {
 	}
 
 	protected boolean init(int state) {
-		if(settings.isReportingProgress) 
+		if(settings.isReportingProgress)
 			System.out.println("state"+state+": "+settings.search[state].settings.getFormattedSequence()+" "+settings.pfTypes[state]);
 
 		//first prune the pruning matrix
@@ -168,8 +168,7 @@ public class KStarScoreMinimized implements KStarScore {
 		if(settings.isFinal && constrSatisfied) 
 			constrSatisfied = checkConstraints();
 
-		if(isComputed())
-			cleanup();
+		if(isComputed()) cleanup();
 	}
 
 	/**
@@ -211,8 +210,7 @@ public class KStarScoreMinimized implements KStarScore {
 				constrSatisfied = checkConstraints();
 		}
 
-		if(isComputed())
-			cleanup();
+		if(isComputed()) cleanup();
 	}
 
 	private void cleanup() {

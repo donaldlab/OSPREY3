@@ -240,7 +240,10 @@ public class MSKStarTree {
 				return null;
 			}
 
-			else if(canPrune(curNode)) {
+			//count number pruned by local constraints
+			numPruned += curNode.getNumPruned();
+			
+			if(canPrune(curNode)) {
 				numPruned++;
 				continue;
 			}
@@ -248,6 +251,7 @@ public class MSKStarTree {
 			else {		
 				if(curNode.isLeafNode()) {
 					numSeqsReturned++;
+					reportProgress(curNode);
 					return curNode.toString();
 				}
 				
@@ -260,7 +264,7 @@ public class MSKStarTree {
 
 				pq.addAll(children);
 				
-				if(numExpanded % 8==0) 
+				//if(numExpanded % 8==0) 
 					reportProgress(curNode);
 			}
 		}
@@ -268,8 +272,8 @@ public class MSKStarTree {
 	
 	private void reportProgress(MSKStarNode curNode) {
 		MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-		System.out.println(String.format("level: %d/%d, seqs: %d/%d, time: %6s, heapMem: %.0f%%",
-				curNode.getNumAssignedResidues(), numTreeLevels,
+		System.out.println(String.format("level: %d/%d, score: %12e, expanded: %5d, pruned: %5d, seqs: %d/%d, time: %6s, heapMem: %.0f%%",
+				curNode.getNumAssignedResidues(), numTreeLevels, curNode.getScore(), numExpanded, numPruned,
 				numSeqsReturned, numSeqsWanted, stopwatch.getTime(2), 100f*heapMem.getUsed()/heapMem.getMax()));
 	}
 

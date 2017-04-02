@@ -100,14 +100,14 @@ public class MSKStarDoer {
 		msConstr = new LMB[numConstr];
 		for(int constr=0; constr<numConstr; constr++)
 			msConstr[constr] = new LMB(msParams.getValue("STATECONSTR"+constr), numStates);
-		
+
 		sConstr = new LMB[numStates][];
 
 		cfps = new MSConfigFileParser[numStates];
 
 		searchCont = new SearchProblem[numStates][];
 		searchDisc = new SearchProblem[numStates][];
-		
+
 		ecalcsCont = new ConfEnergyCalculator.Async[numStates][];
 		ecalcsDisc = new ConfEnergyCalculator.Async[numStates][];
 
@@ -118,11 +118,11 @@ public class MSKStarDoer {
 		state2MutableResNums = new ArrayList<>();
 		AATypeOptions = new ArrayList<>();
 		wtSeqs = new ArrayList<>();
-		
+
 		InputValidation inputValidation = new InputValidation(AATypeOptions, state2MutableResNums);
 		inputValidation.handleObjFcn(msParams, objFcn);
 		inputValidation.handleConstraints(msParams, msConstr);
-		
+
 		for(int state=0; state<numStates; state++) {
 
 			System.out.println();
@@ -131,7 +131,7 @@ public class MSKStarDoer {
 
 			cfps[state] = makeStateCfp(state);
 			inputValidation.handleDoMinimize(cfps);
-			
+
 			ParamSet sParams = cfps[state].getParams();
 			inputValidation.handleStateParams(state, sParams, msParams);
 			state2MutableResNums.add(stateMutableRes(state, cfps[state], numMutRes));
@@ -142,7 +142,7 @@ public class MSKStarDoer {
 				if(subState==state2MutableResNums.get(state).size()-1)
 					wtSeqs.add(cfps[state].getWtSeq(state2MutableResNums.get(state).get(subState)));
 			}
-			
+
 			//populate state-specific constraints
 			int numUbConstr = sParams.getInt("NUMUBCONSTR");
 			int numPartFuncs = sParams.getInt("NUMUBSTATES")+1;
@@ -451,24 +451,36 @@ public class MSKStarDoer {
 			if(doMinimize) ecalcsCont[state] = makeEnergyCalculators(state, true);
 			ecalcsDisc[state] = makeEnergyCalculators(state, false);
 		}
-		
-		int numTreeLevels = doMinimize ? numMutRes+1 : numMutRes;
-		tree = new MSKStarTree(numTreeLevels, numStates, numMaxMut, numSeqsWanted, objFcn, 
+
+		tree = new MSKStarTree(numMutRes, numStates, numMaxMut, numSeqsWanted, objFcn, 
 				msConstr, sConstr, state2MutableResNums, AATypeOptions, wtSeqs, 
 				searchCont, searchDisc, ecalcsCont, ecalcsDisc, msParams, cfps);
-		
-		Stopwatch stopwatch = new Stopwatch().start();
-		ArrayList<String> bestSequences = new ArrayList<>();
 
-		for(int seqNum=0; seqNum<numSeqsWanted; seqNum++){
-			String seq = tree.nextSeq();//this will find the best sequence
-			if(seq == null)//empty sequence...indicates no more sequence possibilities
-				break;
-			else
-				bestSequences.add(seq);
-		}
+		ArrayList<String> bestSequences = new ArrayList<>();
+		String fname = "sequences-sublinear.txt";
+		ObjectIO.delete(fname);
+		PrintStream fout = null;
+		Stopwatch stopwatch = new Stopwatch().start();
 		
-		cleanup();//free energy calculators
+		try {
+			fout = new PrintStream(new FileOutputStream(new File(fname), true));
+			
+			for(int seqNum=0; seqNum<numSeqsWanted; seqNum++){
+				String seq = tree.nextSeq();//this will find the best sequence
+				if(seq == null)//empty sequence...indicates no more sequence possibilities
+					break;
+				else {
+					bestSequences.add(seq);
+					fout.println(seq); fout.flush();
+				}
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			if(fout != null) {fout.flush();fout.close();}
+			cleanup();//free energy calculators
+		}
 
 		System.out.println();
 		System.out.println("Finished sub-linear multistate K* in "+stopwatch.getTime(2));
@@ -501,16 +513,16 @@ public class MSKStarDoer {
 
 		String[][] stateKSS = new String[numStates][];
 		for(int state=0;state<numStates;++state) stateKSS[state] = new String[seqList.get(state).size()];
-
+		PrintStream fout = null;
 		try {
 			if(!resume) 
 				ObjectIO.delete(fname);
 
-			PrintStream fout = new PrintStream(new FileOutputStream(new File(fname), true));
+			fout = new PrintStream(new FileOutputStream(new File(fname), true));
 
 			for(int state=0; state<numStates; state++){
 				boolean doMinimize = cfps[state].getParams().getBool("DOMINIMIZE");
-				
+
 				if(stateKSS[state].length>0) {
 					fout.println();
 					fout.println("State"+state+": ");
@@ -523,7 +535,7 @@ public class MSKStarDoer {
 
 				for(int seqNum=0; seqNum<stateKSS[state].length; seqNum++){
 					stateKSS[state][seqNum] = getStateKStarScore(state, seqList.get(state).get(seqNum));
-					fout.println(stateKSS[state][seqNum]);
+					fout.println(stateKSS[state][seqNum]); fout.flush();
 				}
 
 				searchCont[state] = null;
@@ -532,13 +544,13 @@ public class MSKStarDoer {
 				cleanupEnergyCalculators(ecalcsDisc, state);
 			}
 
-			fout.flush();
-			fout.close();
-		} catch (FileNotFoundException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
+		} finally {
+			if(fout!=null){fout.flush(); fout.close();}
+			cleanup();
 		}
 
-		cleanup();
 		printAllKStarScores(stateKSS);
 
 		System.out.println();

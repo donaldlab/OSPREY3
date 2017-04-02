@@ -129,7 +129,7 @@ public class ResidueOrderStaticSequential implements ResidueOrder {
 		ArrayList<ArrayList<AAScore>> ans = new ArrayList<>();
 		String[] wt = MSKStarNode.WT_SEQS.get(state);
 		String[] buf = new String[wt.length];
-		getBoundStateAssignmentsHelper(complex.allowedAAs, ans, complexPos, wt, buf, 0, 0, numMaxMut);
+		getBoundStateAssignmentsHelper(complex.settings.AATypeOptions, ans, complexPos, wt, buf, 0, 0, numMaxMut);
 
 		ans.trimToSize();
 		return ans;

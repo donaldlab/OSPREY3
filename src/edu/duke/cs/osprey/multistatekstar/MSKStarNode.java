@@ -38,6 +38,7 @@ public class MSKStarNode {
 	private KStarScore[] ksObjFunc;//k* objects that minimize objective function
 	private BigDecimal[] kss;//kstar score values
 	private BigDecimal score;//objective function value; smaller is better
+	private int numPruned;
 
 	public MSKStarNode(
 			KStarScore[] ksLB, 
@@ -47,9 +48,14 @@ public class MSKStarNode {
 		this.ksUB = ksUB;
 		this.ksObjFunc = new KStarScore[ksLB.length];
 		this.kss = new BigDecimal[ksLB.length];
-		score = null;
+		this.score = null;
+		this.numPruned = 0;
 	}
 
+	public int getNumPruned() {
+		return numPruned;
+	}
+	
 	public int getNumAssignedResidues() {
 		MSSearchProblem[] search = ksLB[0].getSettings().search;
 		return search[search.length-1].getNumAssignedPos();
@@ -115,6 +121,7 @@ public class MSKStarNode {
 			if(!node.constrSatisfiedLocal()) remove.add(node);
 			else node.setScore(OBJ_FUNC);
 		}
+		numPruned += remove.size();
 		nodes.removeAll(remove);
 	}
 
@@ -348,6 +355,12 @@ public class MSKStarNode {
 	}
 
 	public String toString() {
-		return "";
+		KStarScore[] scores = getStateKStarObjects(OBJ_FUNC);
+		StringBuilder sb = new StringBuilder();
+		for(int state=0;state<scores.length;++state) {
+			KStarScore score = scores[state];
+			sb.append("State"+state+": "+score.toString()+"\n");
+		}
+		return sb.toString();
 	}
 }
