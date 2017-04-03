@@ -11,6 +11,7 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfEnergyCalculator;
 import edu.duke.cs.osprey.control.ParamSet;
 import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
+import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
@@ -170,6 +171,7 @@ public class MSKStarTree {
 		MSKStarNode.ECALCS_CONT = this.ecalcsCont;
 		MSKStarNode.ECALCS_DISC = this.ecalcsDisc;
 		MSKStarNode.RESIDUE_ORDER = null;
+		ThreadParallelism.setNumThreads(msParams.getInt("ASTARTHREADS"));
 	}
 
 	private MSKStarNode getRootNode() {
