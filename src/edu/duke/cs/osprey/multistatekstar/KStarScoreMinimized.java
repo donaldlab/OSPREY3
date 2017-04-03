@@ -343,7 +343,7 @@ public class KStarScoreMinimized implements KStarScore {
 
 			//can short circuit computation of k* score if any of the unbound
 			//states does not satisfy constraints
-			if(constr.eval(stateVals).compareTo(BigDecimal.ZERO) > 0)
+			if(constr.eval(stateVals).compareTo(BigDecimal.ZERO) >= 0)
 				return false;
 		}
 		return true;
@@ -382,7 +382,7 @@ public class KStarScoreMinimized implements KStarScore {
 				stateVals[s] = pf == null ? BigDecimal.ZERO : pf.getValues().qstar;
 			}
 
-			if(constr.eval(stateVals).compareTo(BigDecimal.ZERO) > 0)
+			if(constr.eval(stateVals).compareTo(BigDecimal.ZERO) >= 0)
 				return false;
 		}
 		return true;

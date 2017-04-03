@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 
-public class KStarScoreUpperBound extends KStarScoreLowerBound {
+public class KStarScoreUpperBound extends KStarScoreDiscrete {
 
 	public KStarScoreUpperBound(MSKStarSettings settings) {
 		super(settings);

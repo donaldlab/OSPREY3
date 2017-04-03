@@ -483,7 +483,7 @@ public class MSKStarDoer {
 		}
 
 		System.out.println();
-		System.out.println("Finished sub-linear multistate K* in "+stopwatch.getTime(2));
+		System.out.println("Finished sub-linear multi-state K* in "+stopwatch.getTime(2));
 		System.out.println();
 	}
 
@@ -493,7 +493,7 @@ public class MSKStarDoer {
 	private void exhaustiveMultistateSearch() {
 
 		System.out.println();
-		System.out.println("Checking MultiStateKStar by exhaustive search");
+		System.out.println("Checking multi-state K* by exhaustive search");
 		System.out.println();
 
 		Stopwatch stopwatch = new Stopwatch().start();
@@ -554,7 +554,7 @@ public class MSKStarDoer {
 		printAllKStarScores(stateKSS);
 
 		System.out.println();
-		System.out.println("Finished checking MultiStateKStar by exhaustive search in "+stopwatch.getTime(2));
+		System.out.println("Finished checking multi-state K* by exhaustive search in "+stopwatch.getTime(2));
 		System.out.println();
 	}
 

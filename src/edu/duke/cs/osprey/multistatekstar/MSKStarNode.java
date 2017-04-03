@@ -31,7 +31,7 @@ public class MSKStarNode {
 	public static ConfEnergyCalculator.Async[][] ECALCS_DISC;//energy calculators for discrete emats
 
 	public static ResidueOrder RESIDUE_ORDER = null;
-	private static int PARALLELISM_MULTIPLIER = 16;
+	private static int PARALLELISM_MULTIPLIER = 1;
 
 	private KStarScore[] ksLB;//lower bound k* objects
 	private KStarScore[] ksUB;//upper bound k* objects
@@ -154,6 +154,7 @@ public class MSKStarNode {
 				lb.computeUnboundStates(Integer.MAX_VALUE);
 				if(!lb.constrSatisfied()) {
 					addNode = false;
+					numPruned++;
 					break;//unbound state partition function upper bound(s) are 0
 				}
 				newKsLB[state] = lb;

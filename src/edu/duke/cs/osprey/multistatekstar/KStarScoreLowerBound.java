@@ -17,7 +17,7 @@ public class KStarScoreLowerBound extends KStarScoreDiscrete {
 		super.compute(state, maxNumConfs);
 		//all unbound states are partition function upper bounds, so check 
 		//against state-specific constraints that are lower bounds
-		if(state <= numStates-2) {
+		if(state <= numStates-2) {			
 			if(constrSatisfied)
 				constrSatisfied = checkConstraints(state, true);
 		}

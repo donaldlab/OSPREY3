@@ -22,47 +22,49 @@ import edu.duke.cs.osprey.tools.Stopwatch;
  */
 public class MSKStarTree {
 
-	LMB objFcn;//we are minimizing objFcn
-	LMB[] msConstr;
-	LMB[][] sConstr;
+	protected LMB objFcn;//we are minimizing objFcn
+	protected LMB[] msConstr;
+	protected LMB[][] sConstr;
 
-	ArrayList<ArrayList<ArrayList<Integer>>> mutable2StateResNums;
+	protected ArrayList<ArrayList<ArrayList<Integer>>> mutable2StateResNums;
 	//mutable2StateResNum.get(state) maps levels in this tree to flexible positions for state
 
-	ArrayList<ArrayList<ArrayList<ArrayList<String>>>> AATypeOptions;
+	protected ArrayList<ArrayList<ArrayList<ArrayList<String>>>> AATypeOptions;
 	// MultiStateKStarTreeNode.assignments Assigns each level an index in 
 	// AATypeOptions.get(level), and thus an AA type
 	//If -1, then no assignment yet
 
-	int numTreeLevels;//maximum number of mutable/flexible residues.
+	protected int numTreeLevels;//maximum number of mutable/flexible residues.
 	//+1 if minimization is allowed
 	
-	int numMaxMut;//number of mutations allowed away from wtSeq (-1 means no cap)
-	ArrayList<String[]> wtSeqs;//bound state wild type sequences for each state
+	protected int numMaxMut;//number of mutations allowed away from wtSeq (-1 means no cap)
+	protected ArrayList<String[]> wtSeqs;//bound state wild type sequences for each state
 
-	int numStates;//how many states there are
+	protected int numStates;//how many states there are
 	//states have the same mutable residues & options for AA residues,
 	//but not necessarily for non AA residues
 
-	SearchProblem searchCont[][];//SearchProblems describing them; each state has >= 3 SearchProblems
-	SearchProblem searchDisc[][];
+	protected SearchProblem searchCont[][];//SearchProblems describing them; each state has >= 3 SearchProblems
+	protected SearchProblem searchDisc[][];
 
-	ConfEnergyCalculator.Async[][] ecalcsCont;//energy calculators for continuous emats
-	ConfEnergyCalculator.Async[][] ecalcsDisc;//energy calculators for discrete emats
+	protected ConfEnergyCalculator.Async[][] ecalcsCont;//energy calculators for continuous emats
+	protected ConfEnergyCalculator.Async[][] ecalcsDisc;//energy calculators for discrete emats
 
-	ParamSet msParams;//multistate spec params
-	MSConfigFileParser[] cfps;//config file parsers for each state
+	protected ParamSet msParams;//multistate spec params
+	protected MSConfigFileParser[] cfps;//config file parsers for each state
 
-	PriorityQueue<MSKStarNode> pq;
+	protected PriorityQueue<MSKStarNode> pq;
 
-	int numSeqsWanted;
-	int numSeqsReturned;
+	protected int numSeqsWanted;
+	protected int numSeqsReturned;
 
-	int numExpanded;
-	int numSelfExpanded;
-	int numPruned;
+	protected int numExpanded;
+	protected int numSelfExpanded;
+	protected int numFullyDefined;
+	protected int numPruned;
+	protected BigDecimal minScore;
 	
-	Stopwatch stopwatch;
+	protected Stopwatch stopwatch;
 
 	public MSKStarTree(
 			int numTreeLevels,
@@ -103,10 +105,12 @@ public class MSKStarTree {
 
 		this.numExpanded = 0;
 		this.numSelfExpanded = 0;
+		this.numFullyDefined = 0;
 		this.numPruned = 0;
 		this.numSeqsReturned = 0;
 		this.pq = null;
 		
+		this.minScore = PartitionFunctionMinimized.MAX_VALUE.multiply(BigDecimal.valueOf(-1));
 		this.stopwatch = new Stopwatch().start();
 	}
 
@@ -127,7 +131,7 @@ public class MSKStarTree {
 
 		//now check global constraints
 		for(LMB lmb : msConstr) {
-			if(lmb.eval(curNode.getStateKStarScores(lmb)).compareTo(BigDecimal.ZERO) > 0)
+			if(lmb.eval(curNode.getStateKStarScores(lmb)).compareTo(BigDecimal.ZERO) >= 0)
 				return true;
 		}
 		return false;
@@ -137,11 +141,19 @@ public class MSKStarTree {
 		ArrayList<MSKStarNode> ans = new ArrayList<>();
 
 		//pick next position to expand
-		if(!curNode.isFullyAssigned())
+		if(!curNode.isFullyAssigned()) {
 			ans.addAll(curNode.splitUnassigned());
+			for(MSKStarNode child : ans) {
+				if(child.isFinal()) numFullyDefined++;
+			}
+		}
 
-		else
+		else {
 			ans.addAll(curNode.splitFullyAssigned());
+			for(MSKStarNode child : ans) {
+				if(!curNode.isFinal() && child.isFinal()) numFullyDefined++;
+			}
+		}
 
 		ans.trimToSize();
 		return ans;
@@ -240,15 +252,19 @@ public class MSKStarTree {
 				return null;
 			}
 
-			//count number pruned by local constraints
-			numPruned += curNode.getNumPruned();
+			if(curNode.getScore().compareTo(minScore)<0)
+				throw new RuntimeException("ERROR: scores must be non-decreasing");
+			minScore = curNode.getScore();
+			
+			//if(numExpanded % 8==0) 
+				reportProgress(curNode);
 			
 			if(canPrune(curNode)) {
 				numPruned++;
 				continue;
 			}
 
-			else {		
+			else {
 				if(curNode.isLeafNode()) {
 					numSeqsReturned++;
 					reportProgress(curNode);
@@ -257,23 +273,22 @@ public class MSKStarTree {
 				
 				//expand
 				ArrayList<MSKStarNode> children = getChildren(curNode);
+				//count number pruned by local constraints
+				numPruned += curNode.getNumPruned();
 				//expansion is either a refinement of the same node or creation
 				//of completely new nodes
-				if(children.size()==0 && curNode.equals(children.get(0))) numSelfExpanded++;
+				if(children.size()>0 && curNode.equals(children.get(0))) numSelfExpanded++;
 				numExpanded++;
 
 				pq.addAll(children);
-				
-				//if(numExpanded % 8==0) 
-					reportProgress(curNode);
 			}
 		}
 	}
 	
 	private void reportProgress(MSKStarNode curNode) {
 		MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-		System.out.println(String.format("level: %d/%d, score: %12e, expanded: %5d, pruned: %5d, seqs: %d/%d, time: %6s, heapMem: %.0f%%",
-				curNode.getNumAssignedResidues(), numTreeLevels, curNode.getScore(), numExpanded, numPruned,
+		System.out.println(String.format("level: %d/%d, score: %12e, size: %d, expanded: %d, pruned: %d, defined: %d, seqs: %d/%d, time: %6s, heapMem: %.0f%%",
+				curNode.getNumAssignedResidues(), numTreeLevels, curNode.getScore(), pq.size(), numExpanded, numPruned, numFullyDefined,
 				numSeqsReturned, numSeqsWanted, stopwatch.getTime(2), 100f*heapMem.getUsed()/heapMem.getMax()));
 	}
 
