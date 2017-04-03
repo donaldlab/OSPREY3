@@ -357,8 +357,9 @@ public class MSKStarNode {
 	}
 
 	public String toString() {
-		KStarScore[] scores = getStateKStarObjects(OBJ_FUNC);
 		StringBuilder sb = new StringBuilder();
+		sb.append("Score: "+String.format("%12e", getScore())+"\n");
+		KStarScore[] scores = getStateKStarObjects(OBJ_FUNC);
 		for(int state=0;state<scores.length;++state) {
 			KStarScore score = scores[state];
 			sb.append("State"+state+": "+score.toString()+"\n");

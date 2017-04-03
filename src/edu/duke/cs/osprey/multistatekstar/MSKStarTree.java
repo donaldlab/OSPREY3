@@ -289,7 +289,7 @@ public class MSKStarTree {
 	
 	private void reportProgress(MSKStarNode curNode) {
 		MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-		System.out.println(String.format("level: %d/%d, score: %12e, size: %d, expanded: %d, pruned: %d, defined: %d, seqs: %d/%d, time: %6s, heapMem: %.0f%%",
+		System.out.println(String.format("level: %d/%d, score: %12e, size: %d, expanded: %d, pruned: %d, defined: %d, completed: %d/%d, time: %6s, heapMem: %.0f%%",
 				curNode.getNumAssignedResidues(), numTreeLevels, curNode.getScore(), pq.size(), numExpanded, numPruned, numFullyDefined,
 				numSeqsReturned, numSeqsWanted, stopwatch.getTime(2), 100f*heapMem.getUsed()/heapMem.getMax()));
 	}

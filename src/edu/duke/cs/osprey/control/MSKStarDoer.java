@@ -2,7 +2,6 @@ package edu.duke.cs.osprey.control;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
@@ -10,8 +9,6 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.StringTokenizer;
-
-import com.sun.org.apache.xalan.internal.xsltc.DOM;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
@@ -381,6 +378,10 @@ public class MSKStarDoer {
 	 * @return
 	 */
 	private ArrayList<ArrayList<ArrayList<String>>> listAllSeqs(){
+		
+		System.out.println();
+		System.out.print("Counting number of sequences...");
+		
 		//for all bound states, list all possible sequences for the mutable residues,
 		//based on AATypeOptions
 		ArrayList<ArrayList<ArrayList<String>>> ans = new ArrayList<>();
@@ -399,6 +400,10 @@ public class MSKStarDoer {
 			ans.add(stateOutput);
 		}
 
+		System.out.println("done");
+		System.out.println("Number of sequences: "+ans.get(0).size());
+		System.out.println();
+		
 		ans.trimToSize();
 		return ans;
 	}
@@ -497,8 +502,8 @@ public class MSKStarDoer {
 		System.out.println();
 
 		Stopwatch stopwatch = new Stopwatch().start();
-
 		ArrayList<ArrayList<ArrayList<String>>> seqList = listAllSeqs();
+		
 		String fname = "sequences-exhaustive.txt";
 		boolean resume = msParams.getBool("RESUME");
 		if(resume) {
@@ -510,7 +515,7 @@ public class MSKStarDoer {
 				}
 			}
 		}
-
+		
 		String[][] stateKSS = new String[numStates][];
 		for(int state=0;state<numStates;++state) stateKSS[state] = new String[seqList.get(state).size()];
 		PrintStream fout = null;
