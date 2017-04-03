@@ -250,6 +250,7 @@ public class MSKStarNode {
 				lb.computeUnboundStates(Integer.MAX_VALUE);
 				if(!lb.constrSatisfied()) {
 					addNode = false;
+					numPruned++;
 					break;//unbound state partition function upper bound(s) are 0
 				}
 				//compute a tiny bit of the bound state

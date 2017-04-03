@@ -187,11 +187,14 @@ public class KStarScoreMinimized implements KStarScore {
 
 			if(partitionFunctions[state].getStatus() != Status.Estimated)
 				compute(state, maxNumConfs);
+			
+			//don't check all constraints, because we are not computing 
+			//the bound state partition function
+			if(settings.isFinal && constrSatisfied) 
+				constrSatisfied = checkConstraints(state);
+			
+			partitionFunctions[state].cleanup();
 		}
-
-		//don't check all constraints, because we are not computing 
-		//the bound state partition function
-		for(int state=0;state<numStates-1;++state) partitionFunctions[state].cleanup();
 	}
 
 	public void computeBoundState(int maxNumConfs) {
