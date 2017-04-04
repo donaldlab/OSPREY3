@@ -31,7 +31,7 @@ public class MSKStarNode {
 	public static ConfEnergyCalculator.Async[][] ECALCS_DISC;//energy calculators for discrete emats
 
 	public static ResidueOrder RESIDUE_ORDER = null;
-	private static int PARALLELISM_MULTIPLIER = 1;
+	private static int PARALLELISM_MULTIPLIER = 4;
 
 	private KStarScore[] ksLB;//lower bound k* objects
 	private KStarScore[] ksUB;//upper bound k* objects

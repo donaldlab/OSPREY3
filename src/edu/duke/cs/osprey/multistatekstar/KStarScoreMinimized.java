@@ -78,6 +78,8 @@ public class KStarScoreMinimized implements KStarScore {
 
 	@Override
 	public BigDecimal getUpperBoundScore() {
+		if(isComputed()) return getScore();
+		
 		BigDecimal den = getDenom();
 		if(den.compareTo(BigDecimal.ZERO) == 0) return BigDecimal.ZERO;
 		PartitionFunction pf = partitionFunctions[numStates-1];
