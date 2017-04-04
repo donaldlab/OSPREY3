@@ -74,6 +74,10 @@ public class EnergyFunctionMap {
 		for(int i=0; i < search.confSpace.numPos; ++i) AATypeOptions.add(new ArrayList<>());
 		rcData = new RCDatum[AATypeOptions.size()][];
 	}
+	
+	public int getNumResidues() {
+		return rcData.length;
+	}
 
 	/**
 	 * Populate unary data

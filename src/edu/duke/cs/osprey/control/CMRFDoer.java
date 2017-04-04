@@ -103,80 +103,75 @@ public class CMRFDoer {
 	}
 
 	public void compute() {
-		
-		CMRF.runToyCMRF(1, 0.15, 1);
-//		toy.runToyCMRF(18, 0.15, 50);
-//		toy.runToyCMRF(18, 0.15, 10000);
-		System.exit(0);
-		
-		int numNodes = search[2].flexRes.size();
-		CMRF cmrf = new CMRF(numNodes);
+
+		//		CMRF.runToyCMRF(1, 0.15, 1);
+		//		toy.runToyCMRF(18, 0.15, 50);
+		//		toy.runToyCMRF(18, 0.15, 10000);
+		//		System.exit(0);
+
 		EnergyFunctionMap efm = new EnergyFunctionMap(search[2], null);
 		efm.populateOneBodyRCData();
 		//efm.populateOneBody2Energy();
 		//efm.populatePairWise2Energy();
-		double[][] kDB0 = efm.getKernelDomainBounds(0);
-		double[][] kDB1 = efm.getKernelDomainBounds(1);
 
-		//test
-		//unary rc
-		Kernel k0 = new KernelGaussian(kDB0, 0.25);
-		CMRFNodeDomain nd0 = new CMRFNodeDomain(
-				efm.getNode(0).getDOFMin(),
-				efm.getNode(0).getDOFMax(),
-				k0,
-				(point)->(efm.getNode(0).getEnergy())
-				);
+		//kernel domain bounds
+		double[][][] kdb = new double[efm.getNumResidues()][][];
+		//kernels
+		Kernel[] k = new Kernel[kdb.length];
+		//cmrf node domains
+		CMRFNodeDomain[] nd = new CMRFNodeDomain[k.length];
+		//node domain hashmap
+		HashMap<Integer, CMRFNodeDomain[]> ndMap = new HashMap<>();
 
-		//unary rc
-		Kernel k1 = new KernelGaussian(kDB1, 0.25);
-		CMRFNodeDomain nd1 = new CMRFNodeDomain(
-				efm.getNode(1).getDOFMin(),
-				efm.getNode(1).getDOFMax(),
-				k1,
-				(point)->(efm.getNode(1).getEnergy())
-				);
+		for(int residue=0; residue<kdb.length; ++residue) {
 
-		//pairwise rc
-		HashMap<Integer, CMRFNodeDomain[]> h = new HashMap<>();
-		h.put(0, new CMRFNodeDomain[]{nd0});
-		h.put(1, new CMRFNodeDomain[]{nd1});
-		
-		//pairwise energy
-		ToDoubleFunction<double[]>f = (point)->(efm.getPairWiseEnergy(efm.getNode(0), efm.getNode(1)));
-		ToDoubleFunction<double[]>f1 = (point)->(efm.getPairWiseEnergy(efm.getNode(1), efm.getNode(0)));
-		
-		HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>> map1 = new HashMap<>();
-		map1.put(nd1, f);
-		HashMap<CMRFNodeDomain, HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>> map2 = new HashMap<>();
-		map2.put(nd0, map1);
-		HashMap<Integer, HashMap<CMRFNodeDomain, HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>>> map3 = new HashMap<>();
-		map3.put(1, map2);
-		HashMap<Integer, HashMap<Integer, HashMap<CMRFNodeDomain, HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>>>> map4 = new HashMap<>();
-		map4.put(0, map3);
-		
-		HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>> map5 = new HashMap<>();
-		map5.put(nd0, f1);
-		HashMap<CMRFNodeDomain, HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>> map6 = new HashMap<>();
-		map6.put(nd1, map5);
-		HashMap<Integer, HashMap<CMRFNodeDomain, HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>>> map7 = new HashMap<>();
-		map7.put(0, map6);
-		map4.put(1, map7);
+			kdb[residue] = efm.getKernelDomainBounds(residue);
 
-		
+			k[residue] = new KernelGaussian(kdb[residue], 10);
 
-		cmrf.addNodes(h, map4);
-		System.out.println();
-		System.out.println("Running SCMF");
-		SCMF scmf = new SCMF(cmrf);
-		scmf.runSCMF();
-		System.out.println("Finished!");
+			final int fresidue = residue;
+			nd[residue] = new CMRFNodeDomain(efm.getNode(residue).getDOFMin(), efm.getNode(residue).getDOFMax(), 
+					k[residue], (point)->(efm.getNode(fresidue).getEnergy()));
+
+			ndMap.put(residue, new CMRFNodeDomain[]{nd[residue]});
+		}
+
+		HashMap<Integer, 
+		HashMap<Integer, 
+		HashMap<CMRFNodeDomain, 
+		HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>>>> edgeMap = 
+		new HashMap<>();
+
+		for (int i=0; i<nd.length; i++) {
+			HashMap<Integer, HashMap<CMRFNodeDomain, HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>>> map1 = 
+					new HashMap<>();
+			for (int j=0; j<nd.length; j++) {
+				if (i==j) { continue; } 
+				HashMap<CMRFNodeDomain, HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>>> map2 = new HashMap<>();
+				for (CMRFNodeDomain d1 : ndMap.get(i)) {
+					HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>> map3 = new HashMap<>();
+					for (CMRFNodeDomain d2 : ndMap.get(j)) {
+						final int fi = i, fj = j;
+						map3.put(d2, (point)->(efm.getPairWiseEnergy(efm.getNode(fi), efm.getNode(fj))));
+					}
+					map2.put(d1, map3);
+				}
+				map1.put(j,  map2);
+			}
+			edgeMap.put(i, map1);
+		}
 		
-		System.out.println();
-		System.out.println("Running TRBP");
-		TRBP trbp = new TRBP(cmrf);
-		trbp.runTRBP(0);
-		System.out.println("Finished!");
+		CMRF c = new CMRF(nd.length);
+		c.addNodes(ndMap, edgeMap);
+
+		SCMF s = new SCMF(c);
+		double logZLB = s.runSCMF();
+		
+		TRBP t = new TRBP(c);
+		double logZUB = t.runTRBP(2); // no iterations of LBP
+		
+		double[] ret = new double[2];
+		ret[0] = logZLB; ret[1] = logZUB;
 	}
 
 }
