@@ -19,4 +19,10 @@ addWT true
 addWTRots true
 
 resAllowed421 LYS
+resallowed434 MET
+resallowed632 TYR
 resAllowed645 ARG
+resAllowed702 THR
+resAllowed707 LEU
+resAllowed710 VAL
+resallowed712 ASP

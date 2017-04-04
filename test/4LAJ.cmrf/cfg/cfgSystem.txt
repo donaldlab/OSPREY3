@@ -2,9 +2,9 @@ pdbname ../pdb/shell.pdb
 numOfStrands 2
 strand0 119 438
 strand1 626 713
-strandMutNums 1 1
-strandmut0 421
-strandmut1 645
+strandMutNums 2 6
+strandmut0 421 434
+strandmut1 632 645 702 707 710 712
 strandAA0 true
 strandAA1 true
 strandrottrans0 false
