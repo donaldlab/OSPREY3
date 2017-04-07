@@ -3,6 +3,8 @@ package edu.duke.cs.osprey.partitionfunctionbounds.continuous;
 import java.util.function.ToDoubleFunction;
 import Jama.*;
 import cern.colt.Arrays;
+
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Random;
 
@@ -346,7 +348,7 @@ public class RKHSFunction {
             domainVolume = domainVolume * (domainUB[i] - domainLB[i]);
         }
         RKHSFunction lebesgueMeasure = getLebesgueMeasure(domainLB, domainUB);
-        double functionIntegral = domainVolume * this.innerProduct(lebesgueMeasure);
+        double functionIntegral = domainVolume * this.innerProduct(lebesgueMeasure).doubleValue();
         
         // set up array of new feature maps for the mean map
         FeatureMap[] newFeatureMaps = new FeatureMap[numFeatureMaps];
@@ -397,8 +399,12 @@ newFeatureMaps[fMapIndex] = new FeatureMap(this.k, cdfPoint);
         for (int i=0; i<numDimensions; i++) {
             subspaceVolume = subspaceVolume * (point[i] - domainLB[i]);
         }
-        double pointCDF = this.innerProduct(subspaceMeasure) * subspaceVolume / totalIntegral;
+        BigDecimal pCDF = this.innerProduct(subspaceMeasure)
+        							.multiply(new BigDecimal(subspaceVolume))
+        							.divide(new BigDecimal(totalIntegral));
         double cdfVal = 1.0; for (double c : cdfPoint) { cdfVal = cdfVal * c; }
+        
+        double pointCDF = pCDF.doubleValue();
         
         if (Math.abs((pointCDF - cdfVal)/cdfVal) <= epsilon) { // if the point is close enough
             return point;
@@ -419,19 +425,20 @@ newFeatureMaps[fMapIndex] = new FeatureMap(this.k, cdfPoint);
      * @param f
      * @return
      */
-    public double innerProduct(RKHSFunction f) {
+    public BigDecimal innerProduct(RKHSFunction f) {
     	// check if both kernels are the same
     	if (!this.k.equals(f.k)) {
     		throw new RuntimeException("Inner product between RKHS functions with different kernels.");
     	}
 
-    	double innerProduct = 0;
+    	BigDecimal innerProduct = new BigDecimal(0.0);
 
     	for (int i = 0; i < f.featureMaps.length; i++) {
     		for (int j = 0; j < this.featureMaps.length; j++) {
     			double val = f.coeffs[i] * this.coeffs[j] * this.k.eval(f.featureMaps[i].loc, this.featureMaps[j].loc);
     			if (Double.isFinite(val)) {
-    				innerProduct += val;
+    				BigDecimal newVal = new BigDecimal(val);
+    				innerProduct = innerProduct.add(newVal);
     			}
 
     		}
@@ -443,7 +450,7 @@ newFeatureMaps[fMapIndex] = new FeatureMap(this.k, cdfPoint);
      * Computes integral of this function over its domain
      * @return totalIntegral
      */
-    public double computeIntegral() {
+    public BigDecimal computeIntegralBigInt() {
 
     	RKHSFunction measure = this.getLebesgueMeasure(this.domainLB, this.domainUB);
 
@@ -452,10 +459,14 @@ newFeatureMaps[fMapIndex] = new FeatureMap(this.k, cdfPoint);
     		domainVolume = domainVolume * (domainUB[i] - domainLB[i]);
     	}
     	final double vol = domainVolume;
+    	
+    	BigDecimal integral = this.innerProduct(measure).multiply(new BigDecimal(domainVolume));
 
-    	double totalIntegral = domainVolume * this.innerProduct(measure);
-
-    	return totalIntegral;
+    	return integral;
+    }
+    
+    public double computeIntegral() { 
+    	return this.computeIntegralBigInt().doubleValue();
     }
     
     public double computeDomainVolume() { 
@@ -490,9 +501,9 @@ newFeatureMaps[fMapIndex] = new FeatureMap(this.k, cdfPoint);
      * Computes the average of this function over its domain
      * @return expectation
      */
-    public double computeExpectation() { 
-        RKHSFunction measure = this.getLebesgueMeasure(this.domainLB, this.domainUB);
-	return this.innerProduct(measure);
+    public BigDecimal computeExpectation() { 
+    	RKHSFunction measure = this.getLebesgueMeasure(this.domainLB, this.domainUB);
+    	return this.innerProduct(measure);
     }
     
     /**

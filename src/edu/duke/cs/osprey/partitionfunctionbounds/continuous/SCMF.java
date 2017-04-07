@@ -215,7 +215,7 @@ public class SCMF {
 				nDomain.domainUB,
 				(nPoint)->(ed.eFunc.applyAsDouble(CMRFEdgeDomain.concatArrays(point, nPoint))));
 
-		return func.computeExpectation();
+		return func.computeExpectation().doubleValue();
 	}
 
 	/**

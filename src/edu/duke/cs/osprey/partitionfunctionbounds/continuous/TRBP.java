@@ -2,9 +2,12 @@ package edu.duke.cs.osprey.partitionfunctionbounds.continuous;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.function.ToDoubleFunction;
+
+import org.nevec.rjm.BigDecimalMath;
 
 import Jama.Matrix;
 
@@ -28,10 +31,10 @@ public class TRBP {
 		this.initializeMessagesTRBP(it);
 		System.out.println("Done.");
 
-		double oldEnth = Double.POSITIVE_INFINITY;
-		double oldEntr = Double.NEGATIVE_INFINITY; 
-		double oldEnrg = Double.POSITIVE_INFINITY;
-		double oldLogZ = Double.POSITIVE_INFINITY; 
+		BigDecimal oldEnth = new BigDecimal(Double.POSITIVE_INFINITY);
+		BigDecimal oldEntr = new BigDecimal(Double.NEGATIVE_INFINITY); 
+		BigDecimal oldEnrg = new BigDecimal(Double.POSITIVE_INFINITY);
+		BigDecimal oldLogZ = new BigDecimal(Double.POSITIVE_INFINITY); 
 
 		int iter = 0; 
 		boolean haveValidLogZ = false;
@@ -46,13 +49,15 @@ public class TRBP {
 			
 			this.updateEdgeProbsTRBP(iter);
 
-			double enth = this.computeEnthalpyTRBP();
-			double entr = this.computeEntropyTRBP();
+			BigDecimal enth = this.computeEnthalpyTRBP();
+			BigDecimal entr = this.computeEntropyTRBP();
 
-			double enrg = enth - cmrf.constRT*entr;
-			double logZ = Math.log(-enrg/cmrf.constRT);
+			BigDecimal enrg = enth.subtract(entr.multiply(new BigDecimal(cmrf.constRT)));
+			
+			
+			BigDecimal logZ = BigDecimalMath.log(enrg.multiply(new BigDecimal(-1)).divide(new BigDecimal(cmrf.constRT))); 
 
-			if (Double.isNaN(logZ) && !haveValidLogZ) { 
+			if (Double.isNaN(logZ.doubleValue()) && !haveValidLogZ) { 
 				System.out.println("logZUB is NaN, restarting...");
 				return this.runTRBP(it);
 			} else { 
@@ -60,25 +65,13 @@ public class TRBP {
 			}
 
 
-			// break if things are dying
-			boolean energyWorse = (Math.abs(enrg) - Math.abs(oldEnrg) > 0);
-			if ((energyWorse || logZ > oldLogZ) && Double.isNaN(oldLogZ)) {
-				if (energyWorse) { System.out.println("energy got worse"); }
-				if (Double.isNaN(logZ)) { System.out.println("Ended on a NaN"); }
-				printMarginalsTRBP();
-				System.out.println("DONE: logZUB: "+oldLogZ);
-				System.out.println("Fenth: "+enth+", Fentr: "+entr+", Fenrg: " + enrg + ", FlogZUB: "+logZ);
-
-				return oldLogZ;
-			}
-
 			System.out.println("enth: "+enth+", entr: "+entr+", enrg: " + enrg + ", logZUB: "+logZ);
 
 			// break if the other termination condition is reached
-			if ((Math.abs(logZ-oldLogZ) <= cmrf.threshold) || (iter >= cmrf.maxIters)) { 
+			if ((Math.abs(logZ.subtract(oldLogZ).doubleValue()) <= cmrf.threshold) || (iter >= cmrf.maxIters)) { 
 				printMarginalsTRBP();
-				System.out.println("DONE: logZUB: "+Math.min(logZ, oldLogZ));
-				return Math.min(logZ, oldLogZ);                
+				System.out.println("DONE: logZUB: "+logZ.min(oldLogZ));
+				return logZ.min(oldLogZ).doubleValue();
 			}
 
 			oldEnth = enth;
@@ -603,12 +596,12 @@ public class TRBP {
 	 * NOTE: pseudomarginals must have been initialized (or be extant in some form)
 	 * @return 
 	 */
-	public double computeEnthalpyTRBP() { 
-		double totalEnthalpy = 0.0;
+	public BigDecimal computeEnthalpyTRBP() { 
+		BigDecimal totalEnthalpy = new BigDecimal(0.0);
 		// sum over nodes of p*E plus pariwise p*E
 		for (CMRFNode v : cmrf.nodes) { 
 			int recNodeIndex = cmrf.getIndexInArray(v, cmrf.nodes);
-			double nodeEnthalpy = 0.0; 
+			BigDecimal nodeEnthalpy = new BigDecimal(0.0); 
 
 			for (CMRFNodeDomain d : v.domains) { 
 				// compute single-node domain enthalpy 
@@ -619,9 +612,9 @@ public class TRBP {
 						d.domainUB,
 						(point) -> (
 								probabilityFunc.eval(point) * d.energyFunction.applyAsDouble(point)));
-				double domainEnthalpy = enthalpyFunc.computeIntegral();
-				if (Double.isNaN(domainEnthalpy)) { throw new RuntimeException("NaN enthalpy"); }
-				nodeEnthalpy += domainEnthalpy;
+				BigDecimal domainEnthalpy = enthalpyFunc.computeIntegralBigInt();
+				if (Double.isNaN(domainEnthalpy.doubleValue())) { throw new RuntimeException("NaN enthalpy"); }
+				nodeEnthalpy.add(domainEnthalpy);
 
 				for (CMRFNode neighbor : cmrf.nodes) { 
 					if (neighbor.equals(v)) { continue; }
@@ -640,14 +633,14 @@ public class TRBP {
 								pairwiseProbFunc.domainLB,
 								pairwiseProbFunc.domainUB,
 								(point) -> (pairwiseProbFunc.eval(point) * pairwiseEnergyFunc.eval(point)));
-						double pairwiseEnthalpy = pairwiseEnthalpyFunc.computeIntegral();
-						if (Double.isNaN(pairwiseEnthalpy)) { throw new RuntimeException("NaN enthalpy"); }
-						nodeEnthalpy += pairwiseEnthalpy;
+						BigDecimal pairwiseEnthalpy = pairwiseEnthalpyFunc.computeIntegralBigInt();
+						if (Double.isNaN(pairwiseEnthalpy.doubleValue())) { throw new RuntimeException("NaN enthalpy"); }
+						nodeEnthalpy.add(pairwiseEnthalpy);
 					}
 				}
 			}
-			if (Double.isNaN(nodeEnthalpy)) { throw new RuntimeException("NaN enthalpy"); }
-			totalEnthalpy += nodeEnthalpy;
+			if (Double.isNaN(nodeEnthalpy.doubleValue())) { throw new RuntimeException("NaN enthalpy"); }
+			totalEnthalpy.add(nodeEnthalpy);
 		}
 		return totalEnthalpy;
 	}
@@ -656,14 +649,14 @@ public class TRBP {
 	 * Computes the entropy of the cMRF in its current state 
 	 * @return 
 	 */
-	public double computeEntropyTRBP() { 
-		double totalEntropy = 0.0;
+	public BigDecimal computeEntropyTRBP() { 
+		BigDecimal totalEntropy = new BigDecimal(0.0);
 		
 		for (CMRFNode node: cmrf.nodes) { 
-			double nodeEntropy = 0.0;
+			BigDecimal nodeEntropy = new BigDecimal(0.0);
 			
 			for (CMRFNode neighbor : cmrf.nodes) {
-				double edgeEntropy = 0.0;
+				BigDecimal edgeEntropy = new BigDecimal(0.0);
 				double mutualInf = 0.0;
 				if (node.equals(neighbor)) { continue; }
 				int nodeInd = cmrf.getIndexInArray(node, cmrf.nodes);
@@ -681,18 +674,21 @@ public class TRBP {
 							(point)->( 
 									cmrf.functionFloor(
 											-1*domainPDF.eval(point)*Math.log(domainPDF.eval(point)))));
-					double domainEntropy = domainEntropyFunc.computeAreaUnderCurve();
-					if (Double.isNaN(domainEntropy)) { 
+					BigDecimal domainEntropy = new BigDecimal(domainEntropyFunc.computeAreaUnderCurve());
+
+					if (Double.isNaN(domainEntropy.doubleValue())) { 
 						Matrix m = domainPDF.dumpPoints();
 						m.print(3, 5);
 						m = domainEntropyFunc.dumpPoints();
 						m.print(3, 5);
 						throw new RuntimeException("NaN entropy"); 	
 					}
-					if (domainEntropy < 0) { 
+					
+					if (domainEntropy.doubleValue() < 0) { 
 						throw new RuntimeException("Negative entropy");
 					}
-					nodeEntropy += domainEntropy;
+					
+					nodeEntropy.add(domainEntropy);
 					
 					// compute pairwise entropy
 					for (CMRFNodeDomain neighborDomain : neighbor.domains) { 
@@ -712,26 +708,27 @@ public class TRBP {
 												Double.MIN_VALUE))));
 
 						double pairEntropy = cmrf.edgeProbs[nodeInd][neighborInd]*pairwiseEntropy.computeAreaUnderCurve();
+						
 						if (Double.isNaN(pairEntropy)) {
 							Matrix m = pairwiseEntropy.dumpPoints();
 							m.print(3, 5);
 							throw new RuntimeException("NaN entropy");
 						}
 						
-						edgeEntropy += pairEntropy * cmrf.edgeProbs[nodeInd][neighborInd];
+						edgeEntropy.add(new BigDecimal(pairEntropy).multiply(new BigDecimal(cmrf.edgeProbs[nodeInd][neighborInd])));
 						mutualInf += pairEntropy;
 					}
-					if (Double.isNaN(edgeEntropy)) { throw new RuntimeException("NaN entropy"); }
+					if (Double.isNaN(edgeEntropy.doubleValue())) { throw new RuntimeException("NaN entropy"); }
 					
 					cmrf.edgeWeights[nodeInd][neighborInd] = mutualInf;
 					cmrf.edgeWeights[neighborInd][nodeInd] = mutualInf;
 					
-					nodeEntropy += edgeEntropy;
+					nodeEntropy.add(edgeEntropy);
 				}
 			}
-			if (Double.isNaN(nodeEntropy)) { throw new RuntimeException("NaN entropy"); }
+			if (Double.isNaN(nodeEntropy.doubleValue())) { throw new RuntimeException("NaN entropy"); }
 			
-			totalEntropy += nodeEntropy;
+			totalEntropy.add(nodeEntropy);
 
 		}
 
