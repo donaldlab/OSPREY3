@@ -311,47 +311,52 @@ def ForcefieldParams(forcefield=None):
 	return c.energy.forcefield.ForcefieldParams()
 
 
-def EnergyMatrix(confSpace, ffparams, parallelism=None, cacheFile=None, referenceEnergies=None):
+def EnergyCalculator(confSpace, ffparams, parallelism=None, referenceEnergies=None):
+	'''
+	:java:classdoc:`.energy.MinimizingEnergyCalculator`
+
+	:builder_option confSpace .energy.MinimizingEnergyCalculator$Builder#confSpace:
+	:builder_option ffparams .energy.MinimizingEnergyCalculator$Builder#ffparams:
+	:builder_option parallelism .energy.MinimizingEnergyCalculator$Builder#parallelism:
+	:builder_return .energy.MinimizingEnergyCalculator$Builder:
+	'''
+	builder = _get_builder(c.energy.MinimizingEnergyCalculator)(confSpace, ffparams)
+
+	if parallelism is not None:
+		builder.setParallelism(parallelism)
+
+	if referenceEnergies is not None:
+		builder.setReferenceEnergies(referenceEnergies)
+
+	return builder.build()
+
+
+def EnergyMatrix(confSpace, ecalc, cacheFile=None):
 	'''
 	:java:methoddoc:`.ematrix.SimplerEnergyMatrixCalculator#calcEnergyMatrix`
 
 	:builder_option confSpace .ematrix.SimplerEnergyMatrixCalculator$Builder#confSpace:
-	:builder_option ffparams .ematrix.SimplerEnergyMatrixCalculator$Builder#ffparams:
-	:builder_option parallelism .ematrix.SimplerEnergyMatrixCalculator$Builder#parallelism:
+	:builder_option ecalc .ematrix.SimplerEnergyMatrixCalculator$Builder#ecalc:
 	:builder_option cacheFile .ematrix.SimplerEnergyMatrixCalculator$Builder#cacheFile:
-	:param referenceEnergies: Adjust energy matrix entries with reference energies.
-	:type referenceEnergies: :java:ref:`.ematrix.SimplerReferenceEnergies`
 	'''
 	
-	builder = _get_builder(c.ematrix.SimplerEnergyMatrixCalculator)(confSpace, ffparams)
-
-	if parallelism is not None:
-		builder.setParallelism(parallelism)
+	builder = _get_builder(c.ematrix.SimplerEnergyMatrixCalculator)(confSpace, ecalc)
 
 	if cacheFile is not None:
 		builder.setCacheFile(jvm.toFile(cacheFile))
 
-	emat = builder.build().calcEnergyMatrix()
-
-	if referenceEnergies is not None:
-		referenceEnergies.updateEnergyMatrix(confSpace, emat)
-
-	return emat
+	return builder.build().calcEnergyMatrix()
 
 
-def ReferenceEnergies(confSpace, ffparams, parallelism=None):
+def ReferenceEnergies(confSpace, ecalc):
 	'''
 	:java:methoddoc:`.ematrix.SimplerEnergyMatrixCalculator#calcReferenceEnergies`
 
 	:builder_option: confSpace .ematrixSimplerEnergyMatrixCalculator$Builder#confSpace:
-	:builder_option ffparams .ematrix.SimplerEnergyMatrixCalculator$Builder#ffparams:
-	:builder_option parallelism .ematrix.SimplerEnergyMatrixCalculator$Builder#parallelism:
+	:builder_option ecalc .ematrix.SimplerEnergyMatrixCalculator$Builder#ecalc:
 	'''
 
-	builder = _get_builder(c.ematrix.SimplerEnergyMatrixCalculator)(confSpace, ffparams)
-
-	if parallelism is not None:
-		builder.setParallelism(parallelism)
+	builder = _get_builder(c.ematrix.SimplerEnergyMatrixCalculator)(confSpace, ecalc)
 
 	return builder.build().calcReferenceEnergies()
 
@@ -401,30 +406,6 @@ def AStarMPLP(emat, confSpace, updater=None, numIterations=None, convergenceThre
 
 	builder = _get_builder(c.astar.conf.ConfAStarTree)(emat, confSpace)
 	builder.setMPLP(mplpBuilder)
-	return builder.build()
-
-
-def ConfEnergyCalculator(confSpace, ffparams, parallelism=None, streaming=None, referenceEnergies=None):
-	'''
-	:java:classdoc:`.minimization.SimpleConfMinimizer`
-
-	:builder_option confSpace .minimization.SimpleConfMinimizer$Builder#confSpace:
-	:builder_option ffparams .minimization.SimpleConfMinimizer$Builder#ffparams:
-	:builder_option parallelism .minimization.SimpleConfMinimizer$Builder#parallelism:
-	:builder_option streaming .minimization.SimpleConfMinimizer$Builder#isStreaming:
-	:builder_return .minimization.SimpleConfMinimizer$Builder:
-	'''
-	builder = _get_builder(c.minimization.SimpleConfMinimizer)(confSpace, ffparams)
-
-	if parallelism is not None:
-		builder.setParallelism(parallelism)
-
-	if streaming is not None:
-		builder.setStreaming(streaming)
-
-	if referenceEnergies is not None:
-		builder.setReferenceEnergies(referenceEnergies)
-
 	return builder.build()
 
 

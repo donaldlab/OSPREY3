@@ -110,12 +110,8 @@ public abstract class ConfMinimizer {
 			);
 		}
 		
-		public void waitForFinish() {
-			tasks.waitForFinish();
-		}
-		
-		public int getParallelism() {
-			return tasks.getParallelism();
+		public TaskExecutor getTasks() {
+			return tasks;
 		}
 		
 		public void cleanup() {
@@ -224,7 +220,7 @@ public abstract class ConfMinimizer {
 				}
 			});
 		}
-		asyncMinimizer.waitForFinish();
+		asyncMinimizer.tasks.waitForFinish();
 		
 		return econfs;
 	}

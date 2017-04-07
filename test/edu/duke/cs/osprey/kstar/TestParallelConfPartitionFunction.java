@@ -20,7 +20,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.gmec.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.gmec.ConfSearchFactory;
 import edu.duke.cs.osprey.gmec.MinimizingConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;

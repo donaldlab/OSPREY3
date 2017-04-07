@@ -15,12 +15,12 @@ confSpace = osprey.ConfSpace(strand)
 # choose a forcefield
 ffparams = osprey.ForcefieldParams()
 
-# how should confs be ordered and searched?
-emat = osprey.EnergyMatrix(confSpace, ffparams)
-astar = osprey.AStarMPLP(emat, confSpace)
-
 # how to compute the energy of a conformation?
-ecalc = osprey.ConfEnergyCalculator(confSpace, ffparams)
+ecalc = osprey.EnergyCalculator(confSpace, ffparams)
+
+# how should confs be ordered and searched?
+emat = osprey.EnergyMatrix(confSpace, ecalc)
+astar = osprey.AStarMPLP(emat, confSpace)
 
 # find the best sequence and rotamers
 gmec = osprey.GMECFinder(confSpace, astar, ecalc).find()

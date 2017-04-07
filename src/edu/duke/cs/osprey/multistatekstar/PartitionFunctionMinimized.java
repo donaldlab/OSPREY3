@@ -13,7 +13,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.gmec.ConfEnergyCalculator.Async;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator.Async;
 import edu.duke.cs.osprey.gmec.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.pfunc.ParallelConfPartitionFunction;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -215,7 +215,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 						values.qprime = updateQprime(econf);
 
 						// report progress if needed
-						if (isReportingProgress && numConfsEvaluated % ecalc.getParallelism() == 0) {
+						if (isReportingProgress && numConfsEvaluated % ecalc.getTasks().getParallelism() == 0) {
 							phase1Output(econf);
 						}
 
@@ -238,7 +238,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		}
 
 		// wait for any remaining async minimizations to finish
-		ecalc.waitForFinish();
+		ecalc.getTasks().waitForFinish();
 	}
 
 	void phase1Output(ScoredConf conf) {
@@ -312,7 +312,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 						BigDecimal pdiff = targetScoreWeights.subtract(qstarScoreWeights);
 
 						// report progress if needed
-						if (isReportingProgress && numConfsEvaluated % ecalc.getParallelism() == 0) {
+						if (isReportingProgress && numConfsEvaluated % ecalc.getTasks().getParallelism() == 0) {
 							phase2Output(econf, pdiff);
 						}
 
@@ -335,7 +335,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		}
 
 		// wait for any remaining async minimizations to finish
-		ecalc.waitForFinish();
+		ecalc.getTasks().waitForFinish();
 	}
 
 	void phase2Output(ScoredConf conf, BigDecimal pdiff) {

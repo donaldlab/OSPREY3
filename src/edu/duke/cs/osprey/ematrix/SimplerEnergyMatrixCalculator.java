@@ -1,21 +1,15 @@
 package edu.duke.cs.osprey.ematrix;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
-import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.energy.EnergyFunction;
-import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.FFInterGen;
-import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.minimization.Minimizer;
-import edu.duke.cs.osprey.minimization.MoleculeObjectiveFunction;
-import edu.duke.cs.osprey.minimization.ObjectiveFunction;
-import edu.duke.cs.osprey.minimization.SimpleCCDMinimizer;
-import edu.duke.cs.osprey.parallelism.Parallelism;
-import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
-import edu.duke.cs.osprey.tools.Factory;
+import edu.duke.cs.osprey.energy.FragmentEnergyCalculator;
+import edu.duke.cs.osprey.energy.FragmentEnergyCalculator.InteractionsFactory;
+import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Progress;
 
@@ -34,12 +28,10 @@ public class SimplerEnergyMatrixCalculator {
 		 */
 		private SimpleConfSpace confSpace;
 		
-		/** The forcefield parameters for energy calculation. */
-		private ForcefieldParams ffparams;
-		
-		/** Available hardware for high-performance computation. */
-		private Parallelism parallelism = Parallelism.makeCpu(1);
-		private Factory<Minimizer,ObjectiveFunction> minimizerFactory = (f) -> new SimpleCCDMinimizer(f);
+		/**
+		 * How conformation energies should be calculated.
+		 */
+		private FragmentEnergyCalculator.Async ecalc;
 		
 		/**
 		 * Path to file where energy matrix should be saved between computations.
@@ -57,24 +49,9 @@ public class SimplerEnergyMatrixCalculator {
 		 */
 		private File cacheFile = null;
 		
-		public Builder(SimpleConfSpace confSpace, ForcefieldParams ffparams) {
+		public Builder(SimpleConfSpace confSpace, FragmentEnergyCalculator.Async ecalc) {
 			this.confSpace = confSpace;
-			this.ffparams = ffparams;
-		}
-		
-		public Builder setForcefieldParams(ForcefieldParams val) {
-			ffparams = val;
-			return this;
-		}
-		
-		public Builder setParallelism(Parallelism val) {
-			parallelism = val;
-			return this;
-		}
-		
-		public Builder setMinimizerFactory(Factory<Minimizer,ObjectiveFunction> val) {
-			minimizerFactory = val;
-			return this;
+			this.ecalc = ecalc;
 		}
 		
 		public Builder setCacheFile(File val) {
@@ -83,23 +60,18 @@ public class SimplerEnergyMatrixCalculator {
 		}
 		
 		public SimplerEnergyMatrixCalculator build() {
-			return new SimplerEnergyMatrixCalculator(confSpace, ffparams, parallelism.numThreads, minimizerFactory, cacheFile);
+			return new SimplerEnergyMatrixCalculator(confSpace, ecalc, cacheFile);
 		}
 	}
 	
 	private final SimpleConfSpace confSpace;
-	private final int numThreads;
-	private final Factory<Minimizer,ObjectiveFunction> minimizerFactory;
+	private final FragmentEnergyCalculator.Async ecalc;
 	private final File cacheFile;
-	private final EnergyFunctionGenerator efuncgen;
 
-	private SimplerEnergyMatrixCalculator(SimpleConfSpace confSpace, ForcefieldParams ffparams, int numThreads, Factory<Minimizer,ObjectiveFunction> minimizerFactory, File cacheFile) {
+	private SimplerEnergyMatrixCalculator(SimpleConfSpace confSpace, FragmentEnergyCalculator.Async ecalc, File cacheFile) {
 		this.confSpace = confSpace;
-		this.numThreads = numThreads;
-		this.minimizerFactory = minimizerFactory;
+		this.ecalc = ecalc;
 		this.cacheFile = cacheFile;
-		
-		efuncgen = new EnergyFunctionGenerator(ffparams);
 	}
 	
 	/**
@@ -122,62 +94,130 @@ public class SimplerEnergyMatrixCalculator {
 	
 	private EnergyMatrix reallyCalcEnergyMatrix() {
 		
-		// start the task executor
-		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
-		tasks.start(numThreads);
-		
 		// allocate the new matrix
 		EnergyMatrix emat = new EnergyMatrix(confSpace);
 		
-		// send all the tasks
-		Progress progress = new Progress(confSpace.getNumResConfs() + confSpace.getNumResConfPairs());
+		// count how much work there is to do (roughly based on number of residue pairs)
+		final int singleCost = confSpace.shellResNumbers.size() + 1;
+		final int pairCost = 1;
+		Progress progress = new Progress(confSpace.getNumResConfs()*singleCost + confSpace.getNumResConfPairs()*pairCost);
+		
+		// some fragments can be big and some can be small
+		// try minimize thread sync overhead by not sending a bunch of small fragments in all separate tasks
+		// ie, try to batch fragments together
+		class Batch {
+			
+			List<RCTuple> fragments = new ArrayList<>();
+			int cost = 0;
+			
+			void addSingle(int pos, int rc) {
+				fragments.add(new RCTuple(pos, rc));
+				cost += singleCost;
+			}
+			
+			void addPair(int pos1, int rc1, int pos2, int rc2) {
+				fragments.add(new RCTuple(pos1, rc1, pos2, rc2));
+				cost += pairCost;
+			}
+			
+			void submitTask() {
+				ecalc.getTasks().submit(
+					() -> {
+						
+						// calculate all the fragment energies
+						List<Double> energies = new ArrayList<>();
+						for (RCTuple frag : fragments) {
+							
+							// TODO: different energy partitions
+							InteractionsFactory intersFactory;
+							if (frag.size() == 1) {
+								intersFactory = (Molecule mol) -> FFInterGen.makeIntraAndShell(confSpace, frag.pos.get(0), mol);
+							} else {
+								intersFactory = (Molecule mol) -> FFInterGen.makeResPair(confSpace, frag.pos.get(0), frag.pos.get(1), mol);
+							}
+							
+							energies.add(ecalc.calcEnergy(frag, intersFactory));
+						}
+						
+						return energies;
+					},
+					(List<Double> energies) -> {
+						
+						// update the energy matrix
+						for (int i=0; i<fragments.size(); i++) {
+							RCTuple frag = fragments.get(i);
+							if (frag.size() == 1) {
+								emat.setOneBody(frag.pos.get(0), frag.RCs.get(0), energies.get(i));
+							} else {
+								emat.setPairwise(frag.pos.get(0), frag.RCs.get(0), frag.pos.get(1), frag.RCs.get(1), energies.get(i));
+							}
+						}
+						
+						progress.incrementProgress(cost);
+					}
+				);
+			}
+		}
+		
+		final int CostThreshold = 100;
+		
+		class Batcher {
+			
+			Batch batch = null;
+			
+			Batch getBatch() {
+				if (batch == null) {
+					batch = new Batch();
+				}
+				return batch;
+			}
+			
+			void submitIfFull() {
+				if (batch != null && batch.cost >= CostThreshold) {
+					submit();
+				}
+			}
+			
+			void submit() {
+				if (batch != null) {
+					batch.submitTask();
+					batch = null;
+				}
+			}
+		}
+		Batcher batcher = new Batcher();
+		
+		// batch all the singles and pairs
 		System.out.println("Calculating energy matrix with " + progress.getTotalWork() + " entries...");
 		for (int pos1=0; pos1<emat.getNumPos(); pos1++) {
 			for (int rc1=0; rc1<emat.getNumConfAtPos(pos1); rc1++) {
-			
-				// NOTE: single terms tend to be much larger than pair terms,
-				// so split up single terms into more different tasks than pair terms
 				
 				// singles
-				final int fpos1 = pos1;
-				final int frc1 = rc1;
-				tasks.submit(
-					() -> {
-						return calcSingle(fpos1, frc1);
-					},
-					(Minimizer.Result result) -> {
-						emat.setOneBody(fpos1, frc1, result.energy);
-						progress.incrementProgress();
-					}
-				);
+				batcher.getBatch().addSingle(pos1, rc1);
+				batcher.submitIfFull();
 				
 				// pairs
 				for (int pos2=0; pos2<pos1; pos2++) {
-					
-					final int fpos2 = pos2;
-					final int numrc2 = emat.getNumConfAtPos(pos2);
-					tasks.submit(
-						() -> {
-							Minimizer.Result[] results = new Minimizer.Result[numrc2];
-							for (int rc2=0; rc2<numrc2; rc2++) {
-								results[rc2] = calcPair(fpos1, frc1, fpos2, rc2);
-							}
-							return results;
-						},
-						(Minimizer.Result[] results) -> {
-							for (int rc2=0; rc2<numrc2; rc2++) {
-								emat.setPairwise(fpos1, frc1, fpos2, rc2, results[rc2].energy);
-							}
-							progress.incrementProgress(numrc2);
-						}
-					);
+					for (int rc2=0; rc2<emat.getNumConfAtPos(pos2); rc2++) {
+						batcher.getBatch().addPair(pos1, rc1, pos2, rc2);
+						batcher.submitIfFull();
+					}
 				}
 			}
 		}
 		
-		tasks.waitForFinish();
+		batcher.submit();
+		ecalc.getTasks().waitForFinish();
 		
 		return emat;
+	}
+	
+	public double calcSingle(int pos, int rc) {
+		RCTuple singleFrag = new RCTuple(pos, rc);
+		return ecalc.calcEnergy(
+			singleFrag,
+			(Molecule mol) -> FFInterGen.makeIntraAndShell(confSpace, singleFrag.pos.get(0), mol)
+		);
 	}
 	
 	/**
@@ -187,10 +227,6 @@ public class SimplerEnergyMatrixCalculator {
 	 */
 	public SimpleReferenceEnergies calcReferenceEnergies() {
 		
-		// start the task executor
-		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
-		tasks.start(numThreads);
-		
 		SimpleReferenceEnergies eref = new SimpleReferenceEnergies();
 		
 		// send all the tasks
@@ -199,65 +235,27 @@ public class SimplerEnergyMatrixCalculator {
 		for (SimpleConfSpace.Position pos : confSpace.positions) {
 			for (SimpleConfSpace.ResidueConf rc : pos.resConfs) {
 			
-				int posi = pos.index;
-				int rci = rc.index;
 				String resType = rc.template.name;
-				
-				tasks.submit(
-					() -> {
-						return calcIntra(posi, rci);
-					},
-					(Minimizer.Result result) -> {
+				RCTuple frag = new RCTuple(pos.index, rc.index);
+				ecalc.calcEnergyAsync(
+					frag,
+					(Molecule mol) -> FFInterGen.makeSingleRes(confSpace, frag.pos.get(0), mol),
+					(Double energy) -> {
 						
 						// keep the min energy for each pos,resType
-						Double e = eref.get(posi, resType);
-						if (e == null || result.energy < e) {
-							e = result.energy;
+						Double e = eref.get(frag.pos.get(0), resType);
+						if (e == null || energy < e) {
+							e = energy;
 						}
-						eref.set(posi, resType, e);
+						eref.set(frag.pos.get(0), resType, e);
+						progress.incrementProgress();
 					}
 				);
 			}
 		}
 		
-		tasks.waitForFinish();
+		ecalc.getTasks().waitForFinish();
 		
 		return eref;
-	}
-	
-	public Minimizer.Result calcSingle(int pos1, int rc1) {
-		RCTuple conf = new RCTuple(pos1, rc1);
-		ParametricMolecule pmol = confSpace.makeMolecule(conf);
-		EnergyFunction efunc = efuncgen.interactionEnergy(FFInterGen.makeIntraAndShell(confSpace, pos1, pmol.mol));
-		return calcEnergy(pmol, conf, efunc);
-	}
-	
-	public Minimizer.Result calcPair(int pos1, int rc1, int pos2, int rc2) {
-		RCTuple conf = new RCTuple(pos1, rc1, pos2, rc2);
-		ParametricMolecule pmol = confSpace.makeMolecule(conf);
-		EnergyFunction efunc = efuncgen.interactionEnergy(FFInterGen.makeResPair(confSpace, pos1, pos2, pmol.mol));
-		return calcEnergy(pmol, conf, efunc);
-	}
-	
-	public Minimizer.Result calcIntra(int pos1, int rc1) {
-		RCTuple conf = new RCTuple(pos1, rc1);
-		ParametricMolecule pmol = confSpace.makeMolecule(conf);
-		EnergyFunction efunc = efuncgen.interactionEnergy(FFInterGen.makeSingleRes(confSpace, pos1, pmol.mol));
-		return calcEnergy(pmol, conf, efunc);
-	}
-	
-	private Minimizer.Result calcEnergy(ParametricMolecule pmol, RCTuple conf, EnergyFunction efunc) {
-		
-		// no continuous DOFs? just evaluate the energy function
-		if (pmol.dofs.isEmpty()) {
-			return new Minimizer.Result(null, efunc.getEnergy());
-		}
-		
-		// otherwise, minimize over the DOFs
-		return minimizerFactory.make(new MoleculeObjectiveFunction(
-			pmol,
-			confSpace.makeBounds(conf),
-			efunc
-		)).minimize();
 	}
 }

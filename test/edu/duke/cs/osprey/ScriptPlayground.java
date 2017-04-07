@@ -9,12 +9,12 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.MinimizingEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.Forcefield;
-import edu.duke.cs.osprey.gmec.ConfEnergyCalculator;
 import edu.duke.cs.osprey.gmec.LoggingConfPrinter;
 import edu.duke.cs.osprey.gmec.SimpleGMECFinder;
-import edu.duke.cs.osprey.minimization.SimpleConfMinimizer;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -46,17 +46,17 @@ public class ScriptPlayground {
 		// choose the default forcefield
 		ForcefieldParams ffparams = new ForcefieldParams();
 		
+		// what's the energy of a conformation?
+		MinimizingEnergyCalculator ecalc = new MinimizingEnergyCalculator.Builder(confSpace, ffparams).build();
+		
 		// get an energy matrix
-		EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, ffparams)
+		EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
 			.setCacheFile(new File("/tmp/emat.dat"))
 			.build()
 			.calcEnergyMatrix();
 		
 		// how should confs be ordered?
 		ConfSearch confSearch = new ConfAStarTree.Builder(emat, confSpace).build();
-		
-		// what's the energy of a conformation?
-		ConfEnergyCalculator ecalc = new SimpleConfMinimizer.Builder(confSpace, ffparams).build();
 		
 		// find the GMEC!
 		new SimpleGMECFinder.Builder(confSpace, confSearch, ecalc)
@@ -111,8 +111,13 @@ public class ScriptPlayground {
 			//.addStrand(ligand, new StrandFlex.TranslateRotate(10, 10))
 			.build();
 		
+		// what's the energy of a conformation?
+		MinimizingEnergyCalculator ecalc = new MinimizingEnergyCalculator.Builder(confSpace, ffparams)
+			.setParallelism(Parallelism.makeCpu(2))
+			.build();
+		
 		// get an energy matrix
-		EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, ffparams)
+		EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
 			.setCacheFile(new File("/tmp/emat.dat"))
 			.build()
 			.calcEnergyMatrix();
@@ -122,11 +127,6 @@ public class ScriptPlayground {
 		// how should confs be ordered?
 		ConfSearch search = new ConfAStarTree.Builder(emat, confSpace)
 			.setMPLP(ConfAStarTree.MPLPBuilder().setNumIterations(4))
-			.build();
-		
-		// what's the energy of a conformation?
-		ConfEnergyCalculator ecalc = new SimpleConfMinimizer.Builder(confSpace, ffparams)
-			.setParallelism(Parallelism.makeCpu(2))
 			.build();
 		
 		// find the GMEC!

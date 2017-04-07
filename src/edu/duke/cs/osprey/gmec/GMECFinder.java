@@ -21,6 +21,7 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfPrinter;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.control.EnvironmentVars;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.partcr.PartCRConfPruner;
@@ -369,7 +370,7 @@ public class GMECFinder {
                 // what to do when we get a conf energy?
                 ConfEnergyCalculator.Async.Listener ecalcListener = new ConfEnergyCalculator.Async.Listener() {
                         @Override
-                        public void onEnergy(EnergiedConf econf) {
+                        public void onFinished(EnergiedConf econf) {
 
                                 handleEnergiedConf(econfs, confPrinter, window, econf);
                                 progress.incrementProgress();
@@ -400,7 +401,7 @@ public class GMECFinder {
                 for (; indexToMinimizeNext<lowEnergyConfs.size(); indexToMinimizeNext++) {
                         ecalc.calcEnergyAsync(lowEnergyConfs.get(indexToMinimizeNext), ecalcListener);
                 }
-                ecalc.waitForFinish();
+                ecalc.getTasks().waitForFinish();
         }
 		
         // sort all the confs by energy

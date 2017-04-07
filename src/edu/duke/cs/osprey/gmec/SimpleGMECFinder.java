@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.gmec.GMECFinder.ConfPruner;
 import edu.duke.cs.osprey.tools.Progress;
@@ -291,7 +292,7 @@ public class SimpleGMECFinder {
 		for (int i=0; i<lowEnergyConfs.size(); i++) {
 			ecalc.calcEnergyAsync(lowEnergyConfs.get(i), ecalcListener);
 		}
-		ecalc.waitForFinish();
+		ecalc.getTasks().waitForFinish();
 	}
 	
     private void setErangeProgress(ConfSearch confSearch, EnergyRange window) {

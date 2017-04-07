@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.gmec.ConfEnergyCalculator.Async;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator.Async;
 import edu.duke.cs.osprey.gmec.ConfSearchFactory;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
