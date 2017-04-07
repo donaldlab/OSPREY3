@@ -10,7 +10,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.gmec.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.gmec.ConfSearchFactory;
 import edu.duke.cs.osprey.pruning.InvertedPruningMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -81,7 +81,7 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 	
 	@Override
 	public int getParallelism() {
-		return ecalc.getParallelism();
+		return ecalc.getTasks().getParallelism();
 	}
 
 	@Override
@@ -195,7 +195,7 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 				// we hit a failure condition and need to stop
 				// but wait for current async minimizations to finish in case that pushes over the epsilon target
 				// NOTE: don't wait for finish inside the sync, since that will definitely deadlock
-				ecalc.waitForFinish();
+				ecalc.getTasks().waitForFinish();
 				continue;
 			}
 			
@@ -237,7 +237,7 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 		}
 		
 		// wait for any remaining async minimizations to finish
-		ecalc.waitForFinish();
+		ecalc.getTasks().waitForFinish();
 	}
 
 	protected BigDecimal updateQprime(EnergiedConf econf) {

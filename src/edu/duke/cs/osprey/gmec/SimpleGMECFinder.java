@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.gmec.GMECFinder.ConfPruner;
 import edu.duke.cs.osprey.tools.Progress;
@@ -158,7 +159,7 @@ public class SimpleGMECFinder {
 		} else if (peekedConf.getScore() > eMinScoreConf.getEnergy() && energyWindowSize <= 0) {
 			
 			// nope, no confs have lower energy and we're not doing an energy window
-			System.out.println("Found GMEC!");
+			System.out.println("Found GMEC! (it's actually the min score conformation too!)");
 			consolePrinter.print(eMinScoreConf, space);
 			return Arrays.asList(eMinScoreConf);
 		
@@ -196,7 +197,8 @@ public class SimpleGMECFinder {
 		// enumerate all confs in order of the scores, up to the estimate of the top of the energy window
 		System.out.println("Enumerating other low-scoring conformations...");
         List<ScoredConf> otherLowEnergyConfs = new ArrayList<>();
-        Stopwatch stopwatch = new Stopwatch().start();
+        Stopwatch timingStopwatch = new Stopwatch().start();
+        Stopwatch speculativeMinimizationStopwatch = new Stopwatch().start();
         while (true) {
             
             ScoredConf conf = search.nextConf();
@@ -209,8 +211,8 @@ public class SimpleGMECFinder {
             }
             
             // if we've been enumerating confs for a while, try a minimization to see if we get a smaller window
-            if (stopwatch.getTimeS() >= 10) {
-                stopwatch.stop();
+            if (speculativeMinimizationStopwatch.getTimeS() >= 10) {
+                speculativeMinimizationStopwatch.stop();
                 
                 // save the conf and the energy for later
                 // TODO: this remove() is linear time and could be slow. replace with Deque if this becomes a performance problem
@@ -223,7 +225,7 @@ public class SimpleGMECFinder {
                     setErangeProgress(search, erange);
                 }
                 
-                stopwatch.start();
+                speculativeMinimizationStopwatch.start();
             }
         }
 		
@@ -232,7 +234,7 @@ public class SimpleGMECFinder {
 		// so prune the conf now because we definitely don't care about it, or any other higher confs
 		pruneConfsOutsideRange(otherLowEnergyConfs, erange);
 		
-		System.out.println(String.format("\tFound %d more", otherLowEnergyConfs.size()));
+		System.out.println(String.format("\tFound %d more in %s", otherLowEnergyConfs.size(), timingStopwatch.getTime(1)));
 		
 		if (!otherLowEnergyConfs.isEmpty()) {
 			
@@ -291,7 +293,7 @@ public class SimpleGMECFinder {
 		for (int i=0; i<lowEnergyConfs.size(); i++) {
 			ecalc.calcEnergyAsync(lowEnergyConfs.get(i), ecalcListener);
 		}
-		ecalc.waitForFinish();
+		ecalc.getTasks().waitForFinish();
 	}
 	
     private void setErangeProgress(ConfSearch confSearch, EnergyRange window) {

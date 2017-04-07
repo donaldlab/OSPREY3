@@ -1,7 +1,9 @@
-package edu.duke.cs.osprey.gmec;
+package edu.duke.cs.osprey.energy;
 
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
+import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
 
 public interface ConfEnergyCalculator {
 	
@@ -11,27 +13,23 @@ public interface ConfEnergyCalculator {
 	public static interface Async extends ConfEnergyCalculator {
 
 		void calcEnergyAsync(ScoredConf conf, Listener listener);
-		int getParallelism();
-		void waitForFinish();
+		TaskExecutor getTasks();
 		void cleanup();
 
-		public static interface Listener {
-			void onEnergy(EnergiedConf conf);
+		public static interface Listener extends TaskListener<EnergiedConf> {
+			// nothing else to do
 		}
 
 		public static class Adapter implements Async {
 
 			private ConfEnergyCalculator calc;
+			private TaskExecutor tasks;
 
 			public Adapter(ConfEnergyCalculator calc) {
 				this.calc = calc;
+				this.tasks = new TaskExecutor();
 			}
 
-			@Override
-			public int getParallelism() {
-				return 1;
-			}
-			
 			@Override
 			public EnergiedConf calcEnergy(ScoredConf conf) {
 				return calc.calcEnergy(conf);
@@ -39,12 +37,12 @@ public interface ConfEnergyCalculator {
 
 			@Override
 			public void calcEnergyAsync(ScoredConf conf, Listener listener) {
-				listener.onEnergy(calc.calcEnergy(conf));
+				listener.onFinished(calc.calcEnergy(conf));
 			}
 			
 			@Override
-			public void waitForFinish() {
-				// nothing to do
+			public TaskExecutor getTasks() {
+				return tasks;
 			}
 
 			@Override

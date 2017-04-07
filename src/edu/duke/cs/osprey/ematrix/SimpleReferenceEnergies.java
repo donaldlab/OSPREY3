@@ -8,6 +8,7 @@ package edu.duke.cs.osprey.ematrix;
 import java.util.HashMap;
 import java.util.Map;
 
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace.Position;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace.ResidueConf;
@@ -36,33 +37,39 @@ public class SimpleReferenceEnergies {
 		return "" + pos + "-" + resType;
 	}
 	
-	public void updateEnergyMatrix(SimpleConfSpace confSpace, EnergyMatrix emat) {
-		for (Position pos : confSpace.positions) {
-			for (ResidueConf rc : pos.resConfs) {
-				String resType = rc.template.name;
-				double eref = get(pos.index, resType);
+	private double getOffset(int pos, String resType) {
+		
+		double energy = get(pos, resType);
+		
+		if (Double.isFinite(energy)) {
 			
-				if (eref == Double.POSITIVE_INFINITY) {
-					// if all RCs for a residue type have infinite one-body energy
-					// (i.e., are impossible),
-					// then they stay at infinity after eRef correction
-					eref = 0;
-				}
-				
-				// update the emat
-				double e = emat.getOneBody(pos.index, rc.index);
-				e -= eref;
-				emat.setOneBody(pos.index, rc.index, e);
-			}
+			// NOTE: negate reference energies here, so they can be added later like normal energy offsets
+			return -energy;
+			
+		} else {
+			// if all RCs for a residue type have infinite one-body energy
+			// (i.e., are impossible),
+			// then they stay at infinity after eRef correction
+			return Double.POSITIVE_INFINITY;
 		}
 	}
 	
 	public double getConfEnergy(SimpleConfSpace confSpace, int[] conf) {
-		double totERef = 0;
+		double energy = 0;
 		for (Position pos : confSpace.positions) {
-			String resType = pos.resConfs.get(conf[pos.index]).template.name;
-			totERef += get(pos.index, resType);
+			ResidueConf rc = pos.resConfs.get(conf[pos.index]);
+			energy += getOffset(pos.index, rc.template.name);
 		}
-		return totERef;
+		return energy;
+	}
+	
+	public double getFragmentEnergy(SimpleConfSpace confSpace, RCTuple frag) {
+		double energy = 0;
+		for (int i=0; i<frag.size(); i++) {
+			Position pos = confSpace.positions.get(frag.pos.get(i));
+			ResidueConf rc = pos.resConfs.get(frag.RCs.get(i));
+			energy += getOffset(pos.index, rc.template.name);
+		}
+		return energy;
 	}
 }

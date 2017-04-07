@@ -7,7 +7,7 @@ import java.util.PriorityQueue;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ParamSet;
-import edu.duke.cs.osprey.gmec.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
 import edu.duke.cs.osprey.tools.ObjectIO;
 

@@ -33,9 +33,10 @@ public class ConfAStarTree implements ConfSearch {
 		private EnergyMatrix emat;
 		
 		private RCs rcs;
-		private AStarOrder order;
-		private AStarScorer gscorer;
-		private AStarScorer hscorer;
+		private AStarOrder order = null;
+		private AStarScorer gscorer = null;
+		private AStarScorer hscorer = null;
+		private boolean showProgress = false;
 		
 		public Builder(EnergyMatrix emat, SimpleConfSpace confSpace) {
 			this(emat, new RCs(confSpace));
@@ -53,6 +54,13 @@ public class ConfAStarTree implements ConfSearch {
 			// and for small searches, who cares how fast A* is,
 			// so I think it makes a good default for all cases
 			setMPLP();
+		}
+		
+		public Builder setCustom(AStarOrder order, AStarScorer gscorer, AStarScorer hscorer) {
+			this.order = order;
+			this.gscorer = gscorer;
+			this.hscorer = hscorer;
+			return this;
 		}
 		
 		/**
@@ -94,13 +102,22 @@ public class ConfAStarTree implements ConfSearch {
 			return this;
 		}
 		
+		public Builder setShowProgress(boolean val) {
+			showProgress = val;
+			return this;
+		}
+		
 		public ConfSearch build() {
-			return new ConfAStarTree(
+			ConfAStarTree tree = new ConfAStarTree(
 				order,
 				gscorer,
 				hscorer,
 				rcs
 			);
+			if (showProgress) {
+				tree.initProgress();
+			}
+			return tree;
 		}
 	}
 

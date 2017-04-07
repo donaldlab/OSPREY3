@@ -1,13 +1,25 @@
 package edu.duke.cs.osprey.ematrix;
 
+import static org.hamcrest.Matchers.*;
+import static org.junit.Assert.*;
+
 import java.util.ArrayList;
 
 import edu.duke.cs.osprey.TestBase;
+import edu.duke.cs.osprey.confspace.PositionConfSpace;
+import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace.Position;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace.ResidueConf;
+import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
+import edu.duke.cs.osprey.energy.MinimizingEnergyCalculator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
@@ -27,6 +39,7 @@ public class BenchmarkEmat extends TestBase {
 		ResidueFlexibility resFlex = new ResidueFlexibility();
 		resFlex.addMutable("39 43", "ALA VAL LEU ILE");
 		resFlex.addFlexible("40 41 42 44 45");
+		resFlex.sortPositions();
 		boolean doMinimize = true;
 		boolean addWt = true;
 		boolean useEpic = false;
@@ -44,6 +57,37 @@ public class BenchmarkEmat extends TestBase {
 			false, new ArrayList<>()
 		);
 		
+		// prep new-style emat calculation
+		Strand strand = new Strand.Builder(PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb")).build();
+		strand.flexibility.get(39).setLibraryRotamers("ALA", "VAL", "LEU", "ILE", Strand.WildType).setContinuous();
+		strand.flexibility.get(43).setLibraryRotamers("ALA", "VAL", "LEU", "ILE", Strand.WildType).setContinuous();
+		strand.flexibility.get(40).setLibraryRotamers().setContinuous();
+		strand.flexibility.get(41).setLibraryRotamers().setContinuous();
+		strand.flexibility.get(42).setLibraryRotamers().setContinuous();
+		strand.flexibility.get(44).setLibraryRotamers().setContinuous();
+		strand.flexibility.get(45).setLibraryRotamers().setContinuous();
+		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
+		ForcefieldParams ffparams = new ForcefieldParams();
+		
+		// make sure the conf spaces match
+		assertThat(confSpace.positions.size(), is(search.confSpace.numPos));
+		for (int pos=0; pos<search.confSpace.numPos; pos++) {
+			PositionConfSpace oldpos = search.confSpace.posFlex.get(pos);
+			Position newpos = confSpace.positions.get(pos);
+			assertThat(newpos.resConfs.size(), is(oldpos.RCs.size()));
+			for (int rc=0; rc<oldpos.RCs.size(); rc++) {
+				RC oldrc = oldpos.RCs.get(rc);
+				ResidueConf newrc = newpos.resConfs.get(rc);
+				assertThat(newrc.template.name, is(oldrc.AAType));
+				if (oldrc.rotNum == -1) {
+					assertThat(newrc.rotamerIndex, is(nullValue()));
+				} else {
+					assertThat(newrc.rotamerIndex, is(oldrc.rotNum));
+				}
+			}
+		}
+		
+		// calculate old emat
 		System.out.println("\nCalculating reference emat...");
 		Stopwatch baseStopwatch = new Stopwatch().start();
 		EnergyMatrixCalculator emcalc = new EnergyMatrixCalculator(search.confSpace, search.shellResidues, useERef, addResEntropy);
@@ -52,17 +96,19 @@ public class BenchmarkEmat extends TestBase {
 		baseStopwatch.stop();
 		System.out.println("finished in " + baseStopwatch.getTime());
 		
-		ForcefieldParams ffparams = makeDefaultFFParams();
-		
 		// benchmark cpu
 		int[] numThreadsList = { 1, 2, 4 };
 		for (int numThreads : numThreadsList) {
 			
 			System.out.println("\nBenchmarking Emat calculation, " + numThreads + " CPU thread(s)...");
-			SimpleEnergyMatrixCalculator ecalc = new SimpleEnergyMatrixCalculator.Cpu(numThreads, ffparams, search.confSpace, search.shellResidues);
+			
+			MinimizingEnergyCalculator ecalc = new MinimizingEnergyCalculator.Builder(confSpace, ffparams)
+				.setParallelism(Parallelism.makeCpu(numThreads))
+				.build();
+			SimplerEnergyMatrixCalculator ematcalc = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc).build();
 			
 			Stopwatch taskStopwatch = new Stopwatch().start();
-			EnergyMatrix emat = ecalc.calcEnergyMatrix();
+			EnergyMatrix emat = ematcalc.calcEnergyMatrix();
 			taskStopwatch.stop();
 			ecalc.cleanup();
 			System.out.println(String.format("Speedup: %.2fx", (float)baseStopwatch.getTimeNs()/taskStopwatch.getTimeNs()));
@@ -70,16 +116,18 @@ public class BenchmarkEmat extends TestBase {
 		}
 		
 		// benchmark gpu
-		int[] numStreamsList = { 1, 2, 4, 8, 16 };
+		int[] numStreamsList = { 1, 2, 4, 8, 16, 32 };
 		for (int numStreams : numStreamsList) {
 			
 			System.out.println("\nBenchmarking Emat calculation, " + numStreams + " GPU stream(s)...");
 			
-			@SuppressWarnings("deprecation")
-			SimpleEnergyMatrixCalculator ecalc = new SimpleEnergyMatrixCalculator.Cuda(1, numStreams, ffparams, search.confSpace, search.shellResidues);
+			MinimizingEnergyCalculator ecalc = new MinimizingEnergyCalculator.Builder(confSpace, ffparams)
+				.setParallelism(Parallelism.makeGpu(1, numStreams))
+				.build();
+			SimplerEnergyMatrixCalculator ematcalc = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc).build();
 			
 			Stopwatch taskStopwatch = new Stopwatch().start();
-			EnergyMatrix emat = ecalc.calcEnergyMatrix();
+			EnergyMatrix emat = ematcalc.calcEnergyMatrix();
 			taskStopwatch.stop();
 			ecalc.cleanup();
 			System.out.println(String.format("Speedup: %.2fx", (float)baseStopwatch.getTimeNs()/taskStopwatch.getTimeNs()));

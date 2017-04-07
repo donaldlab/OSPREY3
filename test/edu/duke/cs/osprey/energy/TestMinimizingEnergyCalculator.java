@@ -1,4 +1,4 @@
-package edu.duke.cs.osprey.minimization;
+package edu.duke.cs.osprey.energy;
 
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
@@ -19,13 +19,14 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
-import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
-import edu.duke.cs.osprey.energy.FFInterGen;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.minimization.CCDMinimizer;
+import edu.duke.cs.osprey.minimization.Minimizer;
+import edu.duke.cs.osprey.minimization.MoleculeObjectiveFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.PDBIO;
 
-public class TestSimpleConfMinimizer extends TestBase {
+public class TestMinimizingEnergyCalculator extends TestBase {
 	
 	private static double[] ExpectedEnergies = {
 		-89.40966798362470,     -89.10800825146424,     -89.80970644639089,     -88.64018070810017,
@@ -55,8 +56,10 @@ public class TestSimpleConfMinimizer extends TestBase {
 		ffparams = new ForcefieldParams();
 		
 		// get an energy matrix
-		EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, ffparams)
+		MinimizingEnergyCalculator ecalc = new MinimizingEnergyCalculator.Builder(confSpace, ffparams)
 			.setParallelism(Parallelism.makeCpu(2))
+			.build();
+		EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
 			.build()
 			.calcEnergyMatrix();
 		
@@ -71,69 +74,69 @@ public class TestSimpleConfMinimizer extends TestBase {
 	
 	@Test
 	public void defaults() {
-		assertEnergies(new SimpleConfMinimizer.Builder(confSpace, ffparams));
+		assertEnergies(new MinimizingEnergyCalculator.Builder(confSpace, ffparams));
 	}
 	
 	@Test
 	public void cpuOneThread() {
-		assertEnergies(new SimpleConfMinimizer.Builder(confSpace, ffparams)
-			.setType(SimpleConfMinimizer.Type.Cpu)
+		assertEnergies(new MinimizingEnergyCalculator.Builder(confSpace, ffparams)
+			.setType(MinimizingEnergyCalculator.Type.Cpu)
 			.setParallelism(Parallelism.makeCpu(1)));
 	}
 	
 	@Test
 	public void cpuTwoThreads() {
-		assertEnergies(new SimpleConfMinimizer.Builder(confSpace, ffparams)
-			.setType(SimpleConfMinimizer.Type.Cpu)
+		assertEnergies(new MinimizingEnergyCalculator.Builder(confSpace, ffparams)
+			.setType(MinimizingEnergyCalculator.Type.Cpu)
 			.setParallelism(Parallelism.makeCpu(2)));
 	}
 	
 	@Test
 	public void openclOneStream() {
-		assertEnergies(new SimpleConfMinimizer.Builder(confSpace, ffparams)
-			.setType(SimpleConfMinimizer.Type.OpenCL)
+		assertEnergies(new MinimizingEnergyCalculator.Builder(confSpace, ffparams)
+			.setType(MinimizingEnergyCalculator.Type.OpenCL)
 			.setParallelism(Parallelism.makeGpu(1, 1)));
 	}
 	
 	@Test
 	public void openclTwoStreams() {
-		assertEnergies(new SimpleConfMinimizer.Builder(confSpace, ffparams)
-			.setType(SimpleConfMinimizer.Type.OpenCL)
+		assertEnergies(new MinimizingEnergyCalculator.Builder(confSpace, ffparams)
+			.setType(MinimizingEnergyCalculator.Type.OpenCL)
 			.setParallelism(Parallelism.makeGpu(1, 2)));
 	}
 	
 	@Test
 	public void cudaOneStream() {
-		assertEnergies(new SimpleConfMinimizer.Builder(confSpace, ffparams)
-			.setType(SimpleConfMinimizer.Type.Cuda)
+		assertEnergies(new MinimizingEnergyCalculator.Builder(confSpace, ffparams)
+			.setType(MinimizingEnergyCalculator.Type.Cuda)
 			.setParallelism(Parallelism.makeGpu(1, 1)));
 	}
 	
 	@Test
 	public void cudaTwoStreams() {
-		assertEnergies(new SimpleConfMinimizer.Builder(confSpace, ffparams)
-			.setType(SimpleConfMinimizer.Type.Cuda)
+		assertEnergies(new MinimizingEnergyCalculator.Builder(confSpace, ffparams)
+			.setType(MinimizingEnergyCalculator.Type.Cuda)
 			.setParallelism(Parallelism.makeGpu(1, 2)));
 	}
 	
 	@Test
 	public void cudaCcdOneStream() {
-		assertEnergies(new SimpleConfMinimizer.Builder(confSpace, ffparams)
-			.setType(SimpleConfMinimizer.Type.CudaCCD)
+		assertEnergies(new MinimizingEnergyCalculator.Builder(confSpace, ffparams)
+			.setType(MinimizingEnergyCalculator.Type.CudaCCD)
 			.setParallelism(Parallelism.makeGpu(1, 1)));
 	}
 	
 	@Test
 	public void cudaCcdTwoStreams() {
-		assertEnergies(new SimpleConfMinimizer.Builder(confSpace, ffparams)
-			.setType(SimpleConfMinimizer.Type.CudaCCD)
+		assertEnergies(new MinimizingEnergyCalculator.Builder(confSpace, ffparams)
+			.setType(MinimizingEnergyCalculator.Type.CudaCCD)
 			.setParallelism(Parallelism.makeGpu(1, 2)));
 	}
 	
-	private void assertEnergies(SimpleConfMinimizer.Builder builder) {
+	private void assertEnergies(MinimizingEnergyCalculator.Builder builder) {
 		
-		SimpleConfMinimizer minimizer = builder.build();
-		List<EnergiedConf> econfs = minimizer.minimizeSync(confs);
+		MinimizingEnergyCalculator minimizer = builder.build();
+		List<EnergiedConf> econfs = minimizer.calcAllEnergies(confs);
 		minimizer.cleanup();
 		
 		assertThat(econfs.size(), is(ExpectedEnergies.length));
@@ -185,33 +188,34 @@ public class TestSimpleConfMinimizer extends TestBase {
 	
 	//@Test
 	public void openclMemoryStress() {
-		stressMemory(new SimpleConfMinimizer.Builder(confSpace, ffparams)
-			.setType(SimpleConfMinimizer.Type.OpenCL)
+		stressMemory(new MinimizingEnergyCalculator.Builder(confSpace, ffparams)
+			.setType(MinimizingEnergyCalculator.Type.OpenCL)
 			.setParallelism(Parallelism.makeGpu(1, 4)));
 	}
 	
 	//@Test
 	public void cudaMemoryStress() {
-		stressMemory(new SimpleConfMinimizer.Builder(confSpace, ffparams)
-			.setType(SimpleConfMinimizer.Type.Cuda)
+		stressMemory(new MinimizingEnergyCalculator.Builder(confSpace, ffparams)
+			.setType(MinimizingEnergyCalculator.Type.Cuda)
 			.setParallelism(Parallelism.makeGpu(1, 4)));
 	}
 	
 	//@Test
 	public void cudaCCDMemoryStress() {
-		stressMemory(new SimpleConfMinimizer.Builder(confSpace, ffparams)
-			.setType(SimpleConfMinimizer.Type.CudaCCD)
+		stressMemory(new MinimizingEnergyCalculator.Builder(confSpace, ffparams)
+			.setType(MinimizingEnergyCalculator.Type.CudaCCD)
 			.setParallelism(Parallelism.makeGpu(1, 4)));
 	}
 
-	private void stressMemory(SimpleConfMinimizer.Builder builder) {
+	private void stressMemory(MinimizingEnergyCalculator.Builder builder) {
 		for (int i=0; i<100; i++) {
-			SimpleConfMinimizer minimizer = builder.build();
-			minimizer.minimizeAsync(confs.get(0));
-			minimizer.minimizeAsync(confs.get(1));
-			minimizer.minimizeAsync(confs.get(2));
-			minimizer.minimizeAsync(confs.get(3));
-			minimizer.waitForFinish();
+			MinimizingEnergyCalculator minimizer = builder.build();
+			ConfEnergyCalculator.Async.Listener listener = (EnergiedConf econf) -> {};
+			minimizer.calcEnergyAsync(confs.get(0), listener);
+			minimizer.calcEnergyAsync(confs.get(1), listener);
+			minimizer.calcEnergyAsync(confs.get(2), listener);
+			minimizer.calcEnergyAsync(confs.get(3), listener);
+			minimizer.getTasks().waitForFinish();
 			minimizer.cleanup();
 		}
 	}

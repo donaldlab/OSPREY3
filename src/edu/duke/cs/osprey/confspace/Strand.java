@@ -1,8 +1,8 @@
 package edu.duke.cs.osprey.confspace;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -201,7 +201,7 @@ public class Strand {
 		private Map<String,ResidueFlex> residues;
 		
 		public Flexibility(List<Residue> residues) {
-			this.residues = new HashMap<>();
+			this.residues = new LinkedHashMap<>();
 			for (Residue res : residues) {
 				this.residues.put(res.getPDBResNumber(), new ResidueFlex(res.template.name));
 			}

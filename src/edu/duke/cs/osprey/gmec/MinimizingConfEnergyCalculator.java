@@ -8,6 +8,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.ReferenceEnergies;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.FFInterGen;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
@@ -15,10 +16,11 @@ import edu.duke.cs.osprey.minimization.ConfMinimizer;
 import edu.duke.cs.osprey.minimization.CpuConfMinimizer;
 import edu.duke.cs.osprey.minimization.GpuConfMinimizer;
 import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Factory;
 
-/** Use SimpleConfMinimizer instead. Of course, that means you need to switch to the new SimpleConfSpace too. */
+/** Use the new MinimizingEnergyCalculator instead. Of course, that means you need to switch to the new SimpleConfSpace too. */
 @Deprecated
 public class MinimizingConfEnergyCalculator implements ConfEnergyCalculator.Async {
 	
@@ -91,8 +93,8 @@ public class MinimizingConfEnergyCalculator implements ConfEnergyCalculator.Asyn
 	}
 	
 	@Override
-	public int getParallelism() {
-		return minimizer.getAsync().getParallelism();
+	public TaskExecutor getTasks() {
+		return minimizer.getAsync().getTasks();
 	}
 	
 	private EnergiedConf postProcessConf(EnergiedConf econf) {
@@ -112,16 +114,11 @@ public class MinimizingConfEnergyCalculator implements ConfEnergyCalculator.Asyn
 		minimizer.getAsync().minimizeAsync(conf, new ConfMinimizer.Async.Listener() {
 			@Override
 			public void onMinimized(EnergiedConf econf) {
-				listener.onEnergy(postProcessConf(econf));
+				listener.onFinished(postProcessConf(econf));
 			}
 		});
 	}
 	
-	@Override
-	public void waitForFinish() {
-		minimizer.getAsync().waitForFinish();
-	}
-
 	@Override
 	public void cleanup() {
 		minimizer.cleanup();

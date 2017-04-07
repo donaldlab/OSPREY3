@@ -6,8 +6,8 @@ import java.util.Map;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.control.EnvironmentVars;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.gmec.ConfEnergyCalculator;
 import edu.duke.cs.osprey.gmec.ConfSearchFactory;
 import edu.duke.cs.osprey.gmec.MinimizingConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;

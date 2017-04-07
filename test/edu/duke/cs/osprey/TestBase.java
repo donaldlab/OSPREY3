@@ -2,7 +2,9 @@ package edu.duke.cs.osprey;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.hamcrest.BaseMatcher;
@@ -104,6 +106,34 @@ public class TestBase {
 		
 		public int size() {
 			return flexResList.size();
+		}
+
+		public void sortPositions() {
+			
+			class Pair {
+				
+				String res;
+				ArrayList<String> aas;
+				
+				Pair(String res, ArrayList<String> aas) {
+					this.res = res;
+					this.aas = aas;
+				}
+			}
+			
+			List<Pair> pairs = new ArrayList<>(flexResList.size());
+			for (int i=0; i<flexResList.size(); i++) {
+				pairs.add(new Pair(flexResList.get(i), allowedAAs.get(i)));
+			}
+			Collections.sort(pairs, (Pair a, Pair b) -> {
+				return Integer.parseInt(a.res) - Integer.parseInt(b.res);
+			});
+			
+			for (int i=0; i<pairs.size(); i++) {
+				Pair pair = pairs.get(i);
+				flexResList.set(i, pair.res);
+				allowedAAs.set(i, pair.aas);
+			}	
 		}
 	}
 	

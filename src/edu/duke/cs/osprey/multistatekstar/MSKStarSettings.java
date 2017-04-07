@@ -1,6 +1,6 @@
 package edu.duke.cs.osprey.multistatekstar;
 
-import edu.duke.cs.osprey.gmec.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
 import edu.duke.cs.osprey.multistatekstar.KStarScore.PartitionFunctionType;
 /**
