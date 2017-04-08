@@ -37,7 +37,7 @@ public class MSKStarTree {
 
 	protected int numTreeLevels;//maximum number of mutable/flexible residues.
 	//+1 if minimization is allowed
-	
+
 	protected int numMaxMut;//number of mutations allowed away from wtSeq (-1 means no cap)
 	protected ArrayList<String[]> wtSeqs;//bound state wild type sequences for each state
 
@@ -64,7 +64,7 @@ public class MSKStarTree {
 	protected int numFullyDefined;
 	protected int numPruned;
 	protected BigDecimal minScore;
-	
+
 	protected Stopwatch stopwatch;
 
 	public MSKStarTree(
@@ -110,7 +110,7 @@ public class MSKStarTree {
 		this.numPruned = 0;
 		this.numSeqsReturned = 0;
 		this.pq = null;
-		
+
 		this.minScore = PartitionFunctionMinimized.MAX_VALUE.multiply(BigDecimal.valueOf(-1));
 		this.stopwatch = new Stopwatch().start();
 	}
@@ -127,8 +127,9 @@ public class MSKStarTree {
 	}
 
 	private boolean canPrune(MSKStarNode curNode) {
-		//first check whether local constraints are satisfied
-		//if(!curNode.constrSatisfiedLocalObjFunc()) return true;
+		//TODO:revisit this assumption
+		//to be careful, only apply global constraints to the final calculation
+		if(!curNode.isLeafNode()) return false;
 
 		//now check global constraints
 		for(LMB lmb : msConstr) {
@@ -257,10 +258,10 @@ public class MSKStarTree {
 			if(curNode.getScore().compareTo(minScore)<0)
 				throw new RuntimeException("ERROR: scores must be non-decreasing");
 			minScore = curNode.getScore();
-			
+
 			//if(numExpanded % 8==0) 
-				reportProgress(curNode);
-			
+			reportProgress(curNode);
+
 			if(canPrune(curNode)) {
 				numPruned++;
 				continue;
@@ -272,7 +273,7 @@ public class MSKStarTree {
 					reportProgress(curNode);
 					return curNode.toString();
 				}
-				
+
 				//expand
 				ArrayList<MSKStarNode> children = getChildren(curNode);
 				//count number pruned by local constraints
@@ -286,7 +287,7 @@ public class MSKStarTree {
 			}
 		}
 	}
-	
+
 	private void reportProgress(MSKStarNode curNode) {
 		MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
 		System.out.println(String.format("level: %d/%d, score: %12e, size: %d, expanded: %d, pruned: %d, defined: %d, completed: %d/%d, time: %6s, heapMem: %.0f%%",

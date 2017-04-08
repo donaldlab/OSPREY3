@@ -231,6 +231,7 @@ public class MSKStarDoer {
 		ParamSet sParams = cfps[state].getParams();
 		int numPartFuncs = sParams.getInt("NUMUBSTATES")+1;
 		boolean doMinimize = sParams.getBool("DOMINIMIZE");
+		KStarScoreType scoreType = MSKStarFactory.getKStarScoreType(sParams);
 
 		//populate search problems
 		MSSearchProblem[] singleSeqSearchCont = doMinimize ? new MSSearchProblem[numPartFuncs] : null;
@@ -251,8 +252,6 @@ public class MSKStarDoer {
 				singleSeqSearchDisc[subState] = new MSSearchProblem(searchDisc[state][subState], spSet);
 		}
 
-		KStarScoreType scoreType = doMinimize ? KStarScoreType.Minimized : KStarScoreType.Discrete;
-		//KStarScoreType scoreType = KStarScoreType.PairWiseMinimized;
 		KStarScore score = MSKStarFactory.makeKStarScore(
 				msParams, state, cfps[state], sConstr[state],
 				singleSeqSearchCont, singleSeqSearchDisc,
