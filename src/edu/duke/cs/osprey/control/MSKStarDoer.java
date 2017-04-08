@@ -170,7 +170,7 @@ public class MSKStarDoer {
 		}
 	}
 
-	private ConfEnergyCalculator.Async[][] makeEnergyCalculators(boolean cont) {
+	protected ConfEnergyCalculator.Async[][] makeEnergyCalculators(boolean cont) {
 		ConfEnergyCalculator.Async[][] ans = new ConfEnergyCalculator.Async[numStates][];
 		for(int state=0;state<numStates;++state) {
 			ans[state] = makeEnergyCalculators(state, cont);
@@ -465,6 +465,7 @@ public class MSKStarDoer {
 		String fname = "sequences-sublinear.txt";
 		ObjectIO.delete(fname);
 		PrintStream fout = null;
+		String elapsed = null;
 		Stopwatch stopwatch = new Stopwatch().start();
 		
 		try {
@@ -480,6 +481,8 @@ public class MSKStarDoer {
 				}
 			}
 			
+			elapsed = stopwatch.getTime(2);
+			
 		} catch (Exception e) {
 			e.printStackTrace();
 		} finally {
@@ -488,7 +491,7 @@ public class MSKStarDoer {
 		}
 
 		System.out.println();
-		System.out.println("Finished sub-linear multi-state K* in "+stopwatch.getTime(2));
+		System.out.println("Finished sub-linear multi-state K* in "+elapsed);
 		System.out.println();
 	}
 
@@ -627,7 +630,6 @@ public class MSKStarDoer {
 			br.close();
 
 		} catch (IOException e) { e.printStackTrace(); }
-
 
 		return ans;
 	}

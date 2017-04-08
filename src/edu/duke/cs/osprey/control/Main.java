@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 import edu.duke.cs.osprey.tests.UnitTestSuite;
+import edu.duke.cs.osprey.tools.Stopwatch;
 
 /**
  *
@@ -44,7 +45,7 @@ public class Main {
 
 
 
-		long startTime = System.currentTimeMillis();
+		Stopwatch stopwatch = new Stopwatch().start();
 
 		ConfigFileParser cfp = new ConfigFileParser(args);//args 1, 3+ are configuration files
 
@@ -65,8 +66,7 @@ public class Main {
                 
                 EnvironmentVars.closeSpecialWarningLogs();
                 
-		long endTime = System.currentTimeMillis();
-		System.out.println("Total OSPREY execution time: " + ((endTime-startTime)/60000) + " minutes.");
+		System.out.println("Total OSPREY execution time: " + stopwatch.getTime(2));
 		System.out.println("OSPREY finished");
 	}
 
@@ -129,7 +129,7 @@ public class Main {
 			}
 		});
 		
-		commands.put("doMultiStateKStar", new Runnable() {
+		commands.put("doMSKStar", new Runnable() {
 			@Override
 			public void run() {
 				MSKStarDoer msksd = new MSKStarDoer(args);
