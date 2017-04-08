@@ -15,7 +15,8 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
-import edu.duke.cs.osprey.energy.MinimizingEnergyCalculator;
+import edu.duke.cs.osprey.energy.MinimizingConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.MinimizingFragmentEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -28,13 +29,13 @@ public class TestSimpleGMECFinder {
 		
 		public final SimpleConfSpace confSpace;
 		public final ForcefieldParams ffparams;
-		public final MinimizingEnergyCalculator ecalc;
+		public final MinimizingFragmentEnergyCalculator ecalc;
 		public final EnergyMatrix emat;
 		
 		public Problem(Strand strand) {
 			confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 			ffparams = new ForcefieldParams();
-			ecalc = new MinimizingEnergyCalculator.Builder(confSpace, ffparams).build();
+			ecalc = new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams).build();
 			emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
 				.build()
 				.calcEnergyMatrix();
@@ -44,7 +45,7 @@ public class TestSimpleGMECFinder {
 			return new SimpleGMECFinder.Builder(
 				confSpace,
 				new ConfAStarTree.Builder(emat, confSpace).build(),
-				ecalc
+				new MinimizingConfEnergyCalculator.Builder(ecalc).build()
 			).build();
 		}
 	}

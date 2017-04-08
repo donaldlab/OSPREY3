@@ -1,14 +1,8 @@
 package edu.duke.cs.osprey.energy;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
-import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
@@ -25,16 +19,14 @@ import edu.duke.cs.osprey.minimization.ObjectiveFunction.DofBounds;
 import edu.duke.cs.osprey.minimization.SimpleCCDMinimizer;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
-import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Factory;
-import edu.duke.cs.osprey.tools.Progress;
 
 /**
- * Computes the energy of a conformation using the desired forcefield.
+ * Computes the energy of a molecule fragment using the desired forcefield.
  * 
- * If a conformation has continuous degrees of freedom, minimization will be performed before forcefield evaluation.
+ * If a fragment has continuous degrees of freedom, minimization will be performed before forcefield evaluation.
  */
-public class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async, FragmentEnergyCalculator.Async {
+public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalculator.Async {
 	
 	public static class Builder {
 		
@@ -42,7 +34,6 @@ public class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async, F
 		private ForcefieldParams ffparams;
 		private Parallelism parallelism = Parallelism.makeCpu(1);
 		private Type type = null;
-		private SimpleReferenceEnergies eref = null;
 		
 		public Builder(SimpleConfSpace confSpace, ForcefieldParams ffparams) {
 			this.confSpace = confSpace;
@@ -59,12 +50,7 @@ public class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async, F
 			return this;
 		}
 		
-		public Builder setReferenceEnergies(SimpleReferenceEnergies val) {
-			eref = val;
-			return this;
-		}
-		
-		public MinimizingEnergyCalculator build() {
+		public MinimizingFragmentEnergyCalculator build() {
 			
 			// if no explict type was picked, pick the best one now
 			if (type == null) {
@@ -75,12 +61,11 @@ public class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async, F
 				}
 			}
 			
-			return new MinimizingEnergyCalculator(
+			return new MinimizingFragmentEnergyCalculator(
 				confSpace,
 				parallelism,
 				type,
-				ffparams,
-				eref
+				ffparams
 			);
 		}
 	}
@@ -275,20 +260,23 @@ public class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async, F
 	public final TaskExecutor tasks;
 	public final Type type;
 	public final ForcefieldParams ffparams;
-	public final SimpleReferenceEnergies eref;
 	
 	private Type.Context context;
 	
-	private MinimizingEnergyCalculator(SimpleConfSpace confSpace, Parallelism parallelism, Type type, ForcefieldParams ffparams, SimpleReferenceEnergies eref) {
+	private MinimizingFragmentEnergyCalculator(SimpleConfSpace confSpace, Parallelism parallelism, Type type, ForcefieldParams ffparams) {
 		
 		this.confSpace = confSpace;
 		this.parallelism = parallelism;
 		this.tasks = parallelism.makeTaskExecutor();
 		this.type = type;
 		this.ffparams = ffparams;
-		this.eref = eref;
 		
 		context = type.makeContext(parallelism, ffparams);
+	}
+	
+	@Override
+	public SimpleConfSpace getConfSpace() {
+		return confSpace;
 	}
 	
 	public void cleanup() {
@@ -296,7 +284,7 @@ public class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async, F
 	}
 	
 	@Override
-	public double calcEnergy(RCTuple frag, InteractionsFactory intersFactory) {
+	public double calcEnergy(RCTuple frag, ResidueInteractions inters) {
 		
 		// make the mol in the conf
 		ParametricMolecule pmol = confSpace.makeMolecule(frag);
@@ -307,7 +295,7 @@ public class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async, F
 		try {
 			
 			// get the energy function
-			efunc = context.efuncs.make(intersFactory.make(pmol.mol));
+			efunc = context.efuncs.make(new ForcefieldInteractions(inters, pmol.mol));
 			
 			// get the energy
 			double energy;
@@ -324,13 +312,6 @@ public class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async, F
 				energy = efunc.getEnergy();
 			}
 			
-			// apply reference energies if needed
-			if (eref != null) {
-				energy += eref.getFragmentEnergy(confSpace, frag);
-			}
-			
-			// TODO: entropies
-			
 			return energy;
 			
 		// make sure we always cleanup the energy function and minimizer
@@ -345,66 +326,12 @@ public class MinimizingEnergyCalculator implements ConfEnergyCalculator.Async, F
 	}
 	
 	@Override
-	public void calcEnergyAsync(RCTuple frag, InteractionsFactory intersFactory, FragmentEnergyCalculator.Async.Listener listener) {
-		tasks.submit(() -> calcEnergy(frag, intersFactory), listener);
-	}
-	
-	@Override
-	public EnergiedConf calcEnergy(ScoredConf conf) {
-		RCTuple tup = new RCTuple(conf.getAssignments());
-		double energy = calcEnergy(tup, (Molecule mol) -> FFInterGen.makeFullConf(confSpace, mol));
-		return new EnergiedConf(conf, energy);
-	}
-
-	@Override
-	public void calcEnergyAsync(ScoredConf conf, ConfEnergyCalculator.Async.Listener listener) {
-		tasks.submit(() -> calcEnergy(conf), listener);
+	public void calcEnergyAsync(RCTuple frag, ResidueInteractions inters, FragmentEnergyCalculator.Async.Listener listener) {
+		tasks.submit(() -> calcEnergy(frag, inters), listener);
 	}
 	
 	@Override
 	public TaskExecutor getTasks() {
 		return tasks;
-	}
-	
-	public List<EnergiedConf> calcAllEnergies(List<ScoredConf> confs) {
-		return calcAllEnergies(confs, false);
-	}
-	
-	public List<EnergiedConf> calcAllEnergies(List<ScoredConf> confs, boolean reportProgress) {
-		
-		// allocate space to hold the minimized values
-		List<EnergiedConf> econfs = new ArrayList<>(confs.size());
-		for (int i=0; i<confs.size(); i++) {
-			econfs.add(null);
-		}
-		
-		// track progress if desired
-		final Progress progress;
-		if (reportProgress) {
-			progress = new Progress(confs.size());
-		} else {
-			progress = null;
-		}
-		
-		// minimize them all
-		for (int i=0; i<confs.size(); i++) {
-			
-			// capture i for the closure below
-			final int fi = i;
-			
-			calcEnergyAsync(confs.get(i), (econf) -> {
-				
-				// save the minimized energy
-				econfs.set(fi, econf);
-				
-				// update progress if needed
-				if (progress != null) {
-					progress.incrementProgress();
-				}
-			});
-		}
-		tasks.waitForFinish();
-		
-		return econfs;
 	}
 }

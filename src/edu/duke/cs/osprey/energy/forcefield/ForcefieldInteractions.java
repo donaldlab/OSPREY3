@@ -5,9 +5,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions.AtomGroup;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.structure.Atom;
+import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 
 public class ForcefieldInteractions extends ArrayList<AtomGroup[]> {
@@ -80,6 +82,32 @@ public class ForcefieldInteractions extends ArrayList<AtomGroup[]> {
 	
 	public ForcefieldInteractions() {
 		groupsById = new HashMap<>();
+	}
+	
+	public ForcefieldInteractions(ResidueInteractions inters, Molecule mol) {
+		this();
+		
+		for (ResidueInteractions.Pair pair : inters) {
+			
+			if (pair.weight != 1) {
+				throw new UnsupportedOperationException("weights not supported by ForcefieldInteractions");
+			}
+			
+			// make the first atom group
+			AtomGroup group1 = makeResidueAtomGroup(mol.getResByPDBResNumber(pair.resNum1));
+			groupsById.put(group1.getId(), group1);
+			
+			// make the second atom group if it's different
+			AtomGroup group2;
+			if (pair.resNum1.equals(pair.resNum2)) {
+				group2 = group1;
+			} else {
+				group2 = makeResidueAtomGroup(mol.getResByPDBResNumber(pair.resNum2));
+				groupsById.put(group2.getId(), group2);
+			}
+			
+			add(new AtomGroup[] { group1, group2 });
+		}
 	}
 	
 	private ResidueAtomGroup makeResidueAtomGroup(Residue res) {
