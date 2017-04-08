@@ -58,6 +58,7 @@ public class MSKStarTree {
 
 	protected int numSeqsWanted;
 	protected int numSeqsReturned;
+	protected int numCompleted;
 
 	protected int numExpanded;
 	protected int numSelfExpanded;
@@ -109,6 +110,7 @@ public class MSKStarTree {
 		this.numFullyDefined = 0;
 		this.numPruned = 0;
 		this.numSeqsReturned = 0;
+		this.numCompleted = 0;
 		this.pq = null;
 
 		this.minScore = PartitionFunctionMinimized.MAX_VALUE.multiply(BigDecimal.valueOf(-1));
@@ -127,15 +129,13 @@ public class MSKStarTree {
 	}
 
 	private boolean canPrune(MSKStarNode curNode) {
-		//TODO:revisit this assumption
-		//to be careful, only apply global constraints to the final calculation
-		if(!curNode.isLeafNode()) return false;
-
-		//now check global constraints
-		for(LMB lmb : msConstr) {
+		//after some deliberation, i think this is correct. getkstarscores always
+		//correctly maps to the lower bound, since the formulation of LMBs always
+		//transforms the expression to an upper bound. this is the desired behavior
+		//check all global constraints
+		for(LMB lmb : msConstr)
 			if(lmb.eval(curNode.getStateKStarScores(lmb)).compareTo(BigDecimal.ZERO) >= 0)
-				return true;
-		}
+				return true;		
 		return false;
 	}
 
@@ -283,6 +283,10 @@ public class MSKStarTree {
 				if(children.size()>0 && curNode.equals(children.get(0))) numSelfExpanded++;
 				numExpanded++;
 
+				for(MSKStarNode child : children) {
+					if(child.isLeafNode()) numCompleted++;
+				}
+
 				pq.addAll(children);
 			}
 		}
@@ -290,8 +294,8 @@ public class MSKStarTree {
 
 	private void reportProgress(MSKStarNode curNode) {
 		MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-		System.out.println(String.format("level: %d/%d, score: %12e, size: %d, expanded: %d, pruned: %d, defined: %d, completed: %d/%d, time: %6s, heapMem: %.0f%%",
-				curNode.getNumAssignedResidues(), numTreeLevels, curNode.getScore(), pq.size(), numExpanded, numPruned, numFullyDefined,
+		System.out.println(String.format("level: %d/%d, score: %12e, size: %d, expanded: %d, pruned: %d, defined: %d, completed: %d, returned: %d/%d, time: %6s, heapMem: %.0f%%",
+				curNode.getNumAssignedResidues(), numTreeLevels, curNode.getScore(), pq.size(), numExpanded, numPruned, numFullyDefined, numCompleted,
 				numSeqsReturned, numSeqsWanted, stopwatch.getTime(2), 100f*heapMem.getUsed()/heapMem.getMax()));
 	}
 
