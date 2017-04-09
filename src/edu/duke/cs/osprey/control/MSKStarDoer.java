@@ -534,15 +534,21 @@ public class MSKStarDoer {
 					fout.println();
 					fout.println("State"+state+": ");
 					fout.println();
+					
+					System.out.println();
+					System.out.println("State"+state+": ");
+					System.out.println();
 				}
 
 				//make energy calculators for this state
 				if(doMinimize) ecalcsCont[state] = makeEnergyCalculators(state, true);
 				else ecalcsDisc[state] = makeEnergyCalculators(state, false);
-
+				
 				for(int seqNum=0; seqNum<stateKSS[state].length; seqNum++){
+					System.out.print("Computing sequence "+(seqNum+1)+"/"+stateKSS[state].length+"...");
 					stateKSS[state][seqNum] = getStateKStarScore(state, seqList.get(state).get(seqNum));
 					fout.println(stateKSS[state][seqNum]); fout.flush();
+					System.out.println("done, elapsed: "+stopwatch.getTime(2));
 				}
 
 				searchCont[state] = null;
