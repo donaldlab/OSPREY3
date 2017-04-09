@@ -6,6 +6,7 @@ import java.util.List;
 
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.energy.EnergyPartition;
 import edu.duke.cs.osprey.energy.FragmentEnergyCalculator;
 import edu.duke.cs.osprey.energy.ResInterGen;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -227,7 +228,7 @@ public class SimplerEnergyMatrixCalculator {
 	}
 	
 	public double calcSingle(RCTuple frag) {
-		return ecalc.calcEnergy(frag, epart.makeSingleInters(confSpace, eref, frag.pos.get(0), frag.RCs.get(0)));
+		return ecalc.calcEnergy(frag, epart.makeSingle(confSpace, eref, frag.pos.get(0), frag.RCs.get(0)));
 	}
 	
 	public double calcPair(int pos1, int rc1, int pos2, int rc2) {
@@ -235,7 +236,7 @@ public class SimplerEnergyMatrixCalculator {
 	}
 	
 	public double calcPair(RCTuple frag) {
-		return ecalc.calcEnergy(frag, epart.makePairInters(confSpace, eref, frag.pos.get(0), frag.RCs.get(0), frag.pos.get(1), frag.RCs.get(1)));
+		return ecalc.calcEnergy(frag, epart.makePair(confSpace, eref, frag.pos.get(0), frag.RCs.get(0), frag.pos.get(1), frag.RCs.get(1)));
 	}
 	
 	/**

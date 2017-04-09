@@ -11,12 +11,14 @@ public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
 	public static class Pair {
 		
 		public static final double IdentityWeight = 1;
+		public static final double IdentityOffset = 0;
 		
 		public final String resNum1;
 		public final String resNum2;
 		public final double weight;
+		public final double offset;
 		
-		public Pair(String resNum1, String resNum2, double weight) {
+		public Pair(String resNum1, String resNum2, double weight, double offset) {
 			
 			// sort res numbers so we always have a stable order
 			if (resNum1.compareTo(resNum2) > 0) {
@@ -28,6 +30,7 @@ public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
 			this.resNum1 = resNum1;
 			this.resNum2 = resNum2;
 			this.weight = weight;
+			this.offset = offset;
 		}
 		
 		@Override
@@ -53,35 +56,25 @@ public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
 	}
 	
 	private Set<Pair> pairs;
-	private double offset;
 	
 	public ResidueInteractions() {
 		pairs = new HashSet<>();
-		offset = 0;
 	}
 	
 	public void addSingle(String resNum) {
-		addSingle(resNum, Pair.IdentityWeight);
+		addSingle(resNum, Pair.IdentityWeight, Pair.IdentityOffset);
 	}
 	
-	public void addSingle(String resNum, double weight) {
-		pairs.add(new Pair(resNum, resNum, weight));
+	public void addSingle(String resNum, double weight, double offset) {
+		pairs.add(new Pair(resNum, resNum, weight, offset));
 	}
 	
 	public void addPair(String resNum1, String resNum2) {
-		addPair(resNum1, resNum2, Pair.IdentityWeight);
+		addPair(resNum1, resNum2, Pair.IdentityWeight, Pair.IdentityOffset);
 	}
 	
-	public void addPair(String resNum1, String resNum2, double weight) {
-		pairs.add(new Pair(resNum1, resNum2, weight));
-	}
-	
-	public double getOffset() {
-		return offset;
-	}
-	
-	public void addOffset(double val) {
-		offset += val;
+	public void addPair(String resNum1, String resNum2, double weight, double offset) {
+		pairs.add(new Pair(resNum1, resNum2, weight, offset));
 	}
 	
 	@Override

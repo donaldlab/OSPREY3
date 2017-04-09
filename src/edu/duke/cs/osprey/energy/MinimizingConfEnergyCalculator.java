@@ -15,49 +15,50 @@ public class MinimizingConfEnergyCalculator implements ConfEnergyCalculator.Asyn
 	public static class Builder {
 		
 		private FragmentEnergyCalculator.Async ecalc;
+		
+		/**
+		 * How energies should be paritioned among single and pair fragments.
+		 */
+		private EnergyPartition epart = EnergyPartition.Traditional;
+		
 		private SimpleReferenceEnergies eref = null;
 		
 		public Builder(FragmentEnergyCalculator.Async ecalc) {
 			this.ecalc = ecalc;
 		}
 		
+		public Builder setEnergyPartition(EnergyPartition val) {
+			epart = val;
+			return this;
+		}
+		
 		public Builder setReferenceEnegries(SimpleReferenceEnergies val) {
-			this.eref = val;
+			eref = val;
 			return this;
 		}
 		
 		public MinimizingConfEnergyCalculator build() {
-			return new MinimizingConfEnergyCalculator(ecalc, eref);
+			return new MinimizingConfEnergyCalculator(ecalc, epart, eref);
 		}
 	}
 	
 	// TODO: entropy energies
 	
 	public final FragmentEnergyCalculator.Async ecalc;
+	public final EnergyPartition epart;
 	public final SimpleReferenceEnergies eref;
 	
-	private MinimizingConfEnergyCalculator(FragmentEnergyCalculator.Async ecalc, SimpleReferenceEnergies eref) {
+	private MinimizingConfEnergyCalculator(FragmentEnergyCalculator.Async ecalc, EnergyPartition epart, SimpleReferenceEnergies eref) {
 		this.ecalc = ecalc;
+		this.epart = epart;
 		this.eref = eref;
 	}
 	
 	@Override
 	public EnergiedConf calcEnergy(ScoredConf conf) {
-		
 		RCTuple frag = new RCTuple(conf.getAssignments());
-		
-		ResInterGen gen = ResInterGen.of(ecalc.getConfSpace())
-			.addIntras(frag)
-			.addInters(frag)
-			.addShell(frag);
-		
-		// add reference energies if needed
-		if (eref != null) {
-			gen.add(eref.getFragmentEnergy(ecalc.getConfSpace(), frag));
-		}
-		
-		double energy = ecalc.calcEnergy(frag, gen.make());
-		
+		ResidueInteractions inters = epart.makeFragment(ecalc.getConfSpace(), eref, frag);
+		double energy = ecalc.calcEnergy(frag, inters);
 		return new EnergiedConf(conf, energy);
 	}
 

@@ -12,6 +12,10 @@ import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 
+/**
+ * Use ResidueInteractions and ResidueForcefieldEnergy instead
+ */
+@Deprecated
 public class ForcefieldInteractions extends ArrayList<AtomGroup[]> {
 	
 	private static final long serialVersionUID = -2052346528544825763L;
