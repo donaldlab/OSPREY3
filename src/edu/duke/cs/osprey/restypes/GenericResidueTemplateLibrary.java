@@ -24,6 +24,8 @@ import edu.duke.cs.osprey.tools.StringParsing;
  */
 public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary implements Serializable {
 	
+	// TODO: apparently two of every template gets loaded?
+	
     //NAMING: We assume each distinct residue (AA or otherwise) has its own name
     //however, many residues will have multiple slightly different forms (N-terminal, etc.) 
     //and these will share a name and a rotamer library entry
