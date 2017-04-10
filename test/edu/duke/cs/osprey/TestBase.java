@@ -138,6 +138,13 @@ public class TestBase {
 	}
 	
 	public static double getAbsoluteError(double expected, double observed) {
+		if (expected == Double.POSITIVE_INFINITY && observed == Double.POSITIVE_INFINITY) {
+			return 0;
+		} else if (expected == Double.NEGATIVE_INFINITY && observed == Double.NEGATIVE_INFINITY) {
+			return 0;
+		} else if (Double.isInfinite(expected) || Double.isInfinite(observed)) {
+			return Double.POSITIVE_INFINITY;
+		}
 		return Math.abs(expected - observed);
 	}
 
