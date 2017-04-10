@@ -13,7 +13,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.NBParams;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.AtomNeighbors;
-import edu.duke.cs.osprey.structure.AtomNeighbors.NEIGHBORTYPE;
+import edu.duke.cs.osprey.structure.AtomNeighbors.Type;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 
@@ -98,7 +98,7 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 			
 			double pairEnergy = 0;
 		
-			for (NEIGHBORTYPE atomPairType : Arrays.asList(NEIGHBORTYPE.BONDED14, NEIGHBORTYPE.NONBONDED)) {
+			for (Type atomPairType : Arrays.asList(AtomNeighbors.Type.BONDED14, AtomNeighbors.Type.NONBONDED)) {
 				
 				// for each atom pair...
 				for (int[] atomIndices : AtomNeighbors.getPairIndicesByType(res1.atoms, res2.atoms, res1 == res2, atomPairType)) {
@@ -125,7 +125,7 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 					// electrostatics
 					if (isHeavyPair || params.hElect) {
 						
-						double coulomb = atomPairType == NEIGHBORTYPE.BONDED14 ? scaledCoulombFactor : coulombFactor;
+						double coulomb = atomPairType == Type.BONDED14 ? scaledCoulombFactor : coulombFactor;
 						double effectiveR = params.distDepDielect ? r2 : r;
 						
 						pairEnergy += coulomb*atom1.charge*atom2.charge/effectiveR;
@@ -208,7 +208,7 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		}
 	}
 	
-	private void calcVdw(NBParams nbparams1, NBParams nbparams2, VdwParams vdwparams, NEIGHBORTYPE atomPairType) {
+	private void calcVdw(NBParams nbparams1, NBParams nbparams2, VdwParams vdwparams, Type atomPairType) {
 	
 		// Aij = (ri+rj)^12 * sqrt(ei*ej)
 		// Bij = (ri+rj)^6 * sqrt(ei*ej)
@@ -222,10 +222,10 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		vdwparams.Bij *= epsilon*Bmult;
 		
 		// vdW scaling for 1-4 interactions
-		if (atomPairType == NEIGHBORTYPE.BONDED14) {
+		if (atomPairType == Type.BONDED14) {
 			vdwparams.Aij *= params.forcefld.Aij14Factor;
 			vdwparams.Bij *= params.forcefld.Bij14Factor;
-		} else if (atomPairType == NEIGHBORTYPE.NONBONDED) {
+		} else if (atomPairType == Type.NONBONDED) {
 			vdwparams.Bij *= 2;
 		}
 	}

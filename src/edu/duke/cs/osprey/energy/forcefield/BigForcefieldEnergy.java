@@ -18,7 +18,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield
 import edu.duke.cs.osprey.gpu.BufferTools;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.AtomNeighbors;
-import edu.duke.cs.osprey.structure.AtomNeighbors.NEIGHBORTYPE;
+import edu.duke.cs.osprey.structure.AtomNeighbors.Type;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 
@@ -122,17 +122,17 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		private AtomGroup group2;
 		private int sequenceNumber1;
 		private int sequenceNumber2;
-		private Map<NEIGHBORTYPE,Entry> entries;
+		private Map<Type,Entry> entries;
 		private double internalSolvEnergy;
 		
 		public GroupPair(ParamInfo pinfo, AtomGroup group1, AtomGroup group2) {
 			this.group1 = group1;
 			this.group2 = group2;
-			this.entries = new EnumMap<>(NEIGHBORTYPE.class);
+			this.entries = new EnumMap<>(Type.class);
 			build(pinfo);
 		}
 		
-		public Entry get(NEIGHBORTYPE type) {
+		public Entry get(Type type) {
 			return entries.get(type);
 		}
 		
@@ -163,7 +163,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 			
 			// build the bond type entries
 			entries.clear();
-			for (NEIGHBORTYPE type : Arrays.asList(NEIGHBORTYPE.BONDED14, NEIGHBORTYPE.NONBONDED)) {
+			for (Type type : Arrays.asList(Type.BONDED14, Type.NONBONDED)) {
 				entries.put(type, build(pinfo, type));
 			}
 			
@@ -189,7 +189,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 			sequenceNumber2 = group2.getSequenceNumber();
 		}
 		
-		private Entry build(ParamInfo pinfo, NEIGHBORTYPE type) {
+		private Entry build(ParamInfo pinfo, Type type) {
 			
 			List<int[]> atomPairs = AtomNeighbors.getPairIndicesByType(
 				group1.getAtoms(),
@@ -220,10 +220,10 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 				calcVdw(nbparams1, nbparams2, pinfo.Amult, pinfo.Bmult, vdwparams);
 				
 				// vdW scaling for 1-4 interactions
-				if (type == NEIGHBORTYPE.BONDED14) {
+				if (type == Type.BONDED14) {
 					vdwparams.Aij *= pinfo.params.forcefld.Aij14Factor;
 					vdwparams.Bij *= pinfo.params.forcefld.Bij14Factor;
-				} else if (type == NEIGHBORTYPE.NONBONDED) {
+				} else if (type == Type.NONBONDED) {
 					vdwparams.Bij *= 2;
 				}
 				
@@ -466,7 +466,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		precomputed = makeOrResizeBuffer(precomputed, numAtomPairs*GroupPair.Entry.NumPrecomputedPerPair);
 		
 		int atomPairOffset = 0;
-		for (NEIGHBORTYPE type : Arrays.asList(NEIGHBORTYPE.BONDED14, NEIGHBORTYPE.NONBONDED)) {
+		for (Type type : Arrays.asList(Type.BONDED14, Type.NONBONDED)) {
 			
 			// concatenate all the atom flags and precomputed values
 			for (int groupPairIndex=0; groupPairIndex<interactions.size(); groupPairIndex++) {
@@ -742,7 +742,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 			internalSolvEnergy = 0;
 			for (GroupPair pair : groupPairs) {
 				numPairs += pair.getNumAtomPairs();
-				num14Pairs += pair.get(NEIGHBORTYPE.BONDED14).atomPairs.size();
+				num14Pairs += pair.get(Type.BONDED14).atomPairs.size();
 				internalSolvEnergy += pair.getInternalSolvationEnergy();
 			}
 			
@@ -750,7 +750,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 				
 				// make the subset table
 				subsetTable = makeOrResizeBuffer(subsetTable, numPairs);
-				for (NEIGHBORTYPE type : Arrays.asList(NEIGHBORTYPE.BONDED14, NEIGHBORTYPE.NONBONDED)) {
+				for (Type type : Arrays.asList(Type.BONDED14, Type.NONBONDED)) {
 					for (GroupPair pair : groupPairs) {
 						GroupPair.Entry entry = pair.get(type);
 						for (int i=0; i<entry.atomPairs.size(); i++) {
