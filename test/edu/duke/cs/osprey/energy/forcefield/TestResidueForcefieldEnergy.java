@@ -14,6 +14,8 @@ import edu.duke.cs.osprey.dof.ProlinePucker;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.energy.forcefield.TestForcefieldEnergy.Residues;
+import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.structure.AtomConnectivity;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 
@@ -23,7 +25,7 @@ public class TestResidueForcefieldEnergy extends TestBase {
 		
 		AllPairs {
 			@Override
-			public ResidueForcefieldEnergy makeff(Molecule mol, Residue[] residues, ForcefieldParams ffparams) {
+			public ResidueForcefieldEnergy makeff(Molecule mol, Residue[] residues, ForcefieldParams ffparams, AtomConnectivity connectivity) {
 				ResidueInteractions inters = new ResidueInteractions();
 				for (int pos1=0; pos1<residues.length; pos1++) {
 					inters.addSingle(residues[pos1].getPDBResNumber());
@@ -31,22 +33,22 @@ public class TestResidueForcefieldEnergy extends TestBase {
 						inters.addPair(residues[pos1].getPDBResNumber(), residues[pos2].getPDBResNumber());
 					}
 				}
-				return new ResidueForcefieldEnergy(ffparams, inters, mol);
+				return new ResidueForcefieldEnergy(ffparams, inters, mol, connectivity);
 			}
 		},
 		SingleAndShell {
 			@Override
-			public ResidueForcefieldEnergy makeff(Molecule mol, Residue[] residues, ForcefieldParams ffparams) {
+			public ResidueForcefieldEnergy makeff(Molecule mol, Residue[] residues, ForcefieldParams ffparams, AtomConnectivity connectivity) {
 				ResidueInteractions inters = new ResidueInteractions();
 				inters.addSingle(residues[0].getPDBResNumber());
 				for (int pos1=1; pos1<residues.length; pos1++) {
 					inters.addPair(residues[0].getPDBResNumber(), residues[pos1].getPDBResNumber());
 				}
-				return new ResidueForcefieldEnergy(ffparams, inters, mol);
+				return new ResidueForcefieldEnergy(ffparams, inters, mol, connectivity);
 			}
 		};
 		
-		public abstract ResidueForcefieldEnergy makeff(Molecule mol, Residue[] residues, ForcefieldParams ffparams);
+		public abstract ResidueForcefieldEnergy makeff(Molecule mol, Residue[] residues, ForcefieldParams ffparams, AtomConnectivity connectivity);
 	}
 	
 	private void checkEnergies(Residues r, Residue[] residues, double allPairsEnergy, double singleAndShellEnergy)
@@ -62,9 +64,13 @@ public class TestResidueForcefieldEnergy extends TestBase {
 	private void checkEnergies(Residues r, Residue[] residues, Map<EfuncType,Double> expectedEnergies) {
 		
 		ForcefieldParams ffparams = new ForcefieldParams();
+		AtomConnectivity connectivity = new AtomConnectivity.Builder()
+			.setMolecule(r.strand.mol)
+			.setParallelism(Parallelism.makeCpu(4))
+			.build();
 		
 		for (EfuncType type : EfuncType.values()) {
-			ResidueForcefieldEnergy efunc = type.makeff(r.strand.mol, residues, ffparams);
+			ResidueForcefieldEnergy efunc = type.makeff(r.strand.mol, residues, ffparams, connectivity);
 			assertThat(type.toString(), efunc.getEnergy(), isAbsolutely(expectedEnergies.get(type), 1e-10));
 		}
 	}

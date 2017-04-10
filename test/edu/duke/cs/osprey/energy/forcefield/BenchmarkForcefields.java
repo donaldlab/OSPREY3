@@ -12,6 +12,8 @@ import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.ResInterGen;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
+import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.structure.AtomConnectivity;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
@@ -42,6 +44,12 @@ public class BenchmarkForcefields extends TestBase {
 		}
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		
+		// pre-compute atom connectivities
+		AtomConnectivity connectivity = new AtomConnectivity.Builder()
+			.setConfSpace(confSpace)
+			.setParallelism(Parallelism.makeCpu(4))
+			.build();
+		
 		// get a molecule
 		Molecule mol = confSpace.makeMolecule(new int[] { 0, 0, 0, 0, 0 }).mol;
 		
@@ -66,7 +74,7 @@ public class BenchmarkForcefields extends TestBase {
 				.addIntras(frag)
 				.addInters(frag)
 				.make();
-			return new ResidueForcefieldEnergy(ffparams, inters, mol);
+			return new ResidueForcefieldEnergy(ffparams, inters, mol, connectivity);
 		});
 		
 		// big forcefield

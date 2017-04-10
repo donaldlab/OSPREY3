@@ -1,5 +1,7 @@
 package edu.duke.cs.osprey.energy.forcefield;
 
+import java.nio.ByteBuffer;
+import java.nio.DoubleBuffer;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -10,8 +12,11 @@ import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.energy.forcefield.EEF1.SolvParams;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.NBParams;
-import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
+import edu.duke.cs.osprey.gpu.BufferTools;
 import edu.duke.cs.osprey.structure.Atom;
+import edu.duke.cs.osprey.structure.AtomConnectivity;
+import edu.duke.cs.osprey.structure.AtomConnectivity.AtomPair;
+import edu.duke.cs.osprey.structure.AtomConnectivity.AtomPairList;
 import edu.duke.cs.osprey.structure.AtomNeighbors;
 import edu.duke.cs.osprey.structure.AtomNeighbors.Type;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -24,29 +29,61 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 	private static final double coulombConstant = 332.0;
 	private static final double solvCutoff = 9.0;
 	private static final double solvCutoff2 = solvCutoff*solvCutoff;
+	private static final double solvTrig = 2.0/(4.0*Math.PI*Math.sqrt(Math.PI));
 	
-	private static class VdwParams {
-		public double Aij;
-		public double Bij;
-	}
-	
-	private ForcefieldParams params;
-	private ResidueInteractions inters;
-	private Molecule mol;
+	public final ForcefieldParams params;
+	public final ResidueInteractions inters;
+	public final Molecule mol;
+	public final AtomConnectivity connectivity;
 	
 	private boolean isBroken;
 	
-	private double Bmult;
-	private double Amult;
-	private double solvCoeff;
+	// TODO: do we need these here?
 	private double coulombFactor;
 	private double scaledCoulombFactor;
 	
-	public ResidueForcefieldEnergy(ForcefieldParams params, ResidueInteractions inters, Molecule mol) {
+	private double[] internalSolvEnergies;
+	
+	private ByteBuffer coords;
+	
+	/* buffer layout:
+	 * 
+	 * for each residue pair:
+	 *    long numAtomPairs
+	 *    double weight
+	 *    double offset
+	 *    
+	 *    for each atom pair:
+	 *       bool isHeavyPair
+	 *       bool is14Bonded
+	 *       6 bytes space
+	 *       int atomsIndex1
+	 *       int atomsIndex2
+	 *       double charge
+	 *       double Aij
+	 *       double Bij
+	 *       double radius1
+	 *       double lambda1
+	 *       double alpha1
+	 *       double radius2
+	 *       double lambda2
+	 *       double alpha2
+	 */
+	private ByteBuffer precomputed;
+	
+	private static final int ResPairBytes = Long.BYTES + Double.BYTES*2;
+	private static final int AtomPairBytes = Long.BYTES + Integer.BYTES*2 + Double.BYTES*9;
+	
+	public ResidueForcefieldEnergy(ForcefieldParams params, ResidueInteractions inters, Molecule mol, AtomConnectivity connectivity) {
+		this(params, inters, mol, connectivity, BufferTools.Type.Normal);
+	}
+	
+	public ResidueForcefieldEnergy(ForcefieldParams params, ResidueInteractions inters, Molecule mol, AtomConnectivity connectivity, BufferTools.Type bufferType) {
 		
 		this.params = params;
 		this.inters = inters;
 		this.mol = mol;
+		this.connectivity = connectivity;
 		
 		// is this a broken conformation?
 		isBroken = false;
@@ -61,129 +98,201 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 			}
 		}
 		
-		// pre-pre-compute some constants
-		double vdw2 = params.vdwMultiplier*params.vdwMultiplier;
-		Bmult = vdw2*vdw2*vdw2;
-		Amult = Bmult*Bmult;
-		// TODO: make this a constant
-		solvCoeff = 2.0/(4.0*Math.PI*Math.sqrt(Math.PI)) * params.solvScale;
+		// pre-compute some constants needed by getEnergy()
 		coulombFactor = coulombConstant/params.dielectric;
 		scaledCoulombFactor = coulombFactor*params.forcefld.coulombScaling;
-	}
-	
-	private Residue getRes(Molecule mol, String resNum) {
-		return mol.getResByPDBResNumber(resNum);
-	}
-
-	@Override
-	public double getEnergy() {
 		
-		// check broken-ness first. easy peasy
-		if (isBroken) {
-			return Double.POSITIVE_INFINITY;
+		// pre-compute internal solvation energies if needed
+		switch (params.solvationForcefield) {
+			
+			case EEF1:
+				internalSolvEnergies = new double[mol.residues.size()];
+				Arrays.fill(internalSolvEnergies, Double.NaN);
+				SolvParams solvparams = new SolvParams();
+				for (String resNum : inters.getResidueNumbers()) {
+					Residue res = mol.getResByPDBResNumber(resNum);
+					
+					// add up all the dGref terms for all the atoms
+					double energy = 0;
+					for (Atom atom : res.atoms) {
+						if (!atom.isHydrogen()) {
+							getSolvParams(atom, solvparams);
+							energy += solvparams.dGref;
+						}
+					}
+					energy *= params.solvScale;
+					
+					internalSolvEnergies[res.indexInMolecule] = energy;
+				}
+			break;
+			
+			default:
+				internalSolvEnergies = null;
 		}
 		
-		NBParams nbparams1 = new NBParams();
-		NBParams nbparams2 = new NBParams();
-		VdwParams vdwparams = new VdwParams();
-		SolvParams solvparams1 = new SolvParams();
-		SolvParams solvparams2 = new SolvParams();
+		// count atoms and offsets for each residue
+		int[] atomOffsetsByResIndex = new int[mol.residues.size()];
+		Arrays.fill(atomOffsetsByResIndex, -1);
+		int atomOffset = 0;
+		int numAtoms = 0;
+		for (String resNum : inters.getResidueNumbers()) {
+			Residue res = getRes(mol, resNum);
+			atomOffsetsByResIndex[res.indexInMolecule] = atomOffset;
+			atomOffset += 3*Double.BYTES*res.atoms.size();
+			numAtoms += res.atoms.size();
+		}
 		
-		double energy = 0;
+		// make the coords buffer
+		coords = bufferType.make(numAtoms*3*Double.BYTES);
 		
-		// for each residue pair...
+		// pass 1: count the atom pairs
+		long[] numAtomPairs = new long[inters.size()];
+		int index = 0;
+		int bufferBytes = 0;
 		for (ResidueInteractions.Pair resPair : inters) {
 			Residue res1 = getRes(mol, resPair.resNum1);
 			Residue res2 = getRes(mol, resPair.resNum2);
 			
-			double pairEnergy = 0;
-		
-			for (Type atomPairType : Arrays.asList(AtomNeighbors.Type.BONDED14, AtomNeighbors.Type.NONBONDED)) {
-				
-				// for each atom pair...
-				for (int[] atomIndices : AtomNeighbors.getPairIndicesByType(res1.atoms, res2.atoms, res1 == res2, atomPairType)) {
-					Atom atom1 = res1.atoms.get(atomIndices[0]);
-					Atom atom2 = res2.atoms.get(atomIndices[1]);
-					
-					boolean isHeavyPair = !atom1.isHydrogen() && !atom2.isHydrogen();
-	
-					// get the squared radius
-					double r2 = 0;
-					{
-						int atom1Index3 = atomIndices[0]*3;
-						int atom2Index3 = atomIndices[1]*3;
-						double d = res1.coords[atom1Index3] - res2.coords[atom2Index3];
-						r2 = d*d;
-						d = res1.coords[atom1Index3 + 1] - res2.coords[atom2Index3 + 1];
-						r2 += d*d;
-						d = res1.coords[atom1Index3 + 2] - res2.coords[atom2Index3 + 2];
-						r2 += d*d;
-					}
-					
-					double r = Math.sqrt(r2);
-					
-					// electrostatics
-					if (isHeavyPair || params.hElect) {
-						
-						double coulomb = atomPairType == Type.BONDED14 ? scaledCoulombFactor : coulombFactor;
-						double effectiveR = params.distDepDielect ? r2 : r;
-						
-						pairEnergy += coulomb*atom1.charge*atom2.charge/effectiveR;
-					}
-					
-					// van der Waals
-					if (isHeavyPair || params.hVDW) {
-						
-						getNonBondedParams(atom1, nbparams1);
-						getNonBondedParams(atom2, nbparams2);
-						calcVdw(nbparams1, nbparams2, vdwparams, atomPairType);
-						
-						// compute vdw
-						double r6 = r2*r2*r2;
-						double r12 = r6*r6;
-						pairEnergy += vdwparams.Aij/r12 - vdwparams.Bij/r6;
-					}
-
-					// solvation (EEF1)
-					if (isHeavyPair && params.solvationForcefield == SolvationForcefield.EEF1 && r2 < solvCutoff2) {
-						
-						// save the solvation params
-						getSolvParams(atom1, solvparams1);
-						getSolvParams(atom2, solvparams2);
-						
-						double alpha1 = solvCoeff*solvparams1.dGfree*solvparams2.volume/solvparams1.lambda;
-						double alpha2 = solvCoeff*solvparams2.dGfree*solvparams1.volume/solvparams2.lambda;
-				
-						// compute solvation energy
-						double Xij = (r - solvparams1.radius)/solvparams1.lambda;
-						double Xji = (r - solvparams2.radius)/solvparams2.lambda;
-						pairEnergy -= (alpha1*Math.exp(-Xij*Xij) + alpha2*Math.exp(-Xji*Xji))/r2;
-					}
+			bufferBytes += ResPairBytes;
+			
+			// count the 1-4 bonded and non-bonded pairs
+			long count = 0;
+			for (AtomPair pair : connectivity.getAtomPairs(mol, res1, res2).pairs) {
+				if (pair.type == AtomNeighbors.Type.BONDED14 || pair.type == AtomNeighbors.Type.NONBONDED) {
+					count++;
+					bufferBytes += AtomPairBytes;
 				}
 			}
 			
-			// add the internal solvation energy if needed
-			if (res1 == res2 && params.solvationForcefield == SolvationForcefield.EEF1) {
-
-				double internalSolvEnergy = 0;
-				
-				// add up all the dGref terms for all the atoms
-				for (Atom atom : res1.atoms) {
-					if (!atom.isHydrogen()) {
-						getSolvParams(atom, solvparams1);
-						internalSolvEnergy += solvparams1.dGref;
-					}
-				}
-				
-				pairEnergy += internalSolvEnergy*params.solvScale;
-			}
-			
-			// apply weights and offsets
-			energy += pairEnergy*resPair.weight;
-			energy += resPair.offset;
+			numAtomPairs[index++] = count;
 		}
 		
-		return energy;
+		NBParams nbparams1 = new NBParams();
+		NBParams nbparams2 = new NBParams();
+		SolvParams solvparams1 = new SolvParams();
+		SolvParams solvparams2 = new SolvParams();
+		
+		double vdw2 = params.vdwMultiplier*params.vdwMultiplier;
+		double Bmult = vdw2*vdw2*vdw2;
+		double Amult = Bmult*Bmult;
+		double solvCoeff = solvTrig*params.solvScale;
+		
+		// pass 2: precompute everything
+		precomputed = bufferType.make(bufferBytes);
+		index = 0;
+		for (ResidueInteractions.Pair resPair : inters) {
+			Residue res1 = getRes(mol, resPair.resNum1);
+			Residue res2 = getRes(mol, resPair.resNum2);
+			
+			// compute the residue pair offset
+			double offset = resPair.offset;
+			if (res1 == res2) {
+				switch (params.solvationForcefield) {
+					
+					case EEF1:
+						offset += internalSolvEnergies[res1.indexInMolecule];
+					break;
+					
+					default:
+						// do nothing
+				}
+			}
+			
+			// just in case
+			assert (Double.isFinite(resPair.weight));
+			assert (Double.isFinite(offset));
+			
+			// collect the residue pair precomputed values
+			precomputed.putLong(numAtomPairs[index++]);
+			precomputed.putDouble(resPair.weight);
+			precomputed.putDouble(offset);
+			
+			AtomPairList atomPairs = connectivity.getAtomPairs(mol, res1, res2);
+			for (int i=0; i<atomPairs.size(); i++) {
+		
+				// we only care about 1-4 bonded and non-bonded pairs
+				AtomNeighbors.Type atomPairType = atomPairs.getType(i);
+				if (atomPairType != AtomNeighbors.Type.BONDED14 && atomPairType != AtomNeighbors.Type.NONBONDED) {
+					continue;
+				}
+				
+				int atomIndex1 = atomPairs.getIndex1(res1, res2, i);
+				int atomIndex2 = atomPairs.getIndex2(res1, res2, i);
+				Atom atom1 = res1.atoms.get(atomIndex1);
+				Atom atom2 = res2.atoms.get(atomIndex2);
+				
+				// compute flags
+				boolean isHeavyPair = !atom1.isHydrogen() && !atom2.isHydrogen();
+				boolean is14Bonded = atomPairType == AtomNeighbors.Type.BONDED14;
+				long flags = 0
+					| (isHeavyPair ? 0x1 : 0)
+					| (is14Bonded ? 0x2 : 0);
+				
+				precomputed.putLong(flags);
+				
+				// get atoms indices
+				precomputed.putInt(atomOffsetsByResIndex[res1.indexInMolecule] + atomIndex1*3*Double.BYTES);
+				precomputed.putInt(atomOffsetsByResIndex[res2.indexInMolecule] + atomIndex2*3*Double.BYTES);
+				
+				// compute physical values
+				getNonBondedParams(atom1, nbparams1);
+				getNonBondedParams(atom2, nbparams2);
+				
+				// calc vdW params
+				// Aij = (ri+rj)^12 * sqrt(ei*ej)
+				// Bij = (ri+rj)^6 * sqrt(ei*ej)
+				
+				double epsilon = Math.sqrt(nbparams1.epsilon*nbparams2.epsilon);
+				double radiusSum = nbparams1.r + nbparams2.r;
+				double Bij = radiusSum*radiusSum;
+				Bij = Bij*Bij*Bij;
+				double Aij = Bij*Bij;
+				Aij *= epsilon*Amult;
+				Bij *= epsilon*Bmult;
+				
+				// vdW scaling by connectivity
+				if (atomPairType == Type.BONDED14) {
+					Aij *= params.forcefld.Aij14Factor;
+					Bij *= params.forcefld.Bij14Factor;
+				} else if (atomPairType == Type.NONBONDED) {
+					Bij *= 2;
+				}
+				
+				precomputed.putDouble(atom1.charge*atom2.charge);
+				precomputed.putDouble(Aij);
+				precomputed.putDouble(Bij);
+				
+				// compute solvation if needed
+				if (isHeavyPair) {
+					
+					getSolvParams(atom1, solvparams1);
+					getSolvParams(atom2, solvparams2);
+					double alpha1 = solvCoeff*solvparams1.dGfree*solvparams2.volume/solvparams1.lambda;
+					double alpha2 = solvCoeff*solvparams2.dGfree*solvparams1.volume/solvparams2.lambda;
+					
+					precomputed.putDouble(solvparams1.radius);
+					precomputed.putDouble(solvparams1.lambda);
+					precomputed.putDouble(alpha1);
+					precomputed.putDouble(solvparams2.radius);
+					precomputed.putDouble(solvparams2.lambda);
+					precomputed.putDouble(alpha2);
+					
+				} else {
+					
+					precomputed.putDouble(0);
+					precomputed.putDouble(0);
+					precomputed.putDouble(0);
+					precomputed.putDouble(0);
+					precomputed.putDouble(0);
+					precomputed.putDouble(0);
+				}
+			}
+		}
+		precomputed.flip();
+	}
+	
+	private Residue getRes(Molecule mol, String resNum) {
+		return mol.getResByPDBResNumber(resNum);
 	}
 	
 	private void getNonBondedParams(Atom atom, NBParams nbparams) {
@@ -208,28 +317,6 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		}
 	}
 	
-	private void calcVdw(NBParams nbparams1, NBParams nbparams2, VdwParams vdwparams, Type atomPairType) {
-	
-		// Aij = (ri+rj)^12 * sqrt(ei*ej)
-		// Bij = (ri+rj)^6 * sqrt(ei*ej)
-		
-		double epsilon = Math.sqrt(nbparams1.epsilon*nbparams2.epsilon);
-		double radiusSum = nbparams1.r + nbparams2.r;
-		vdwparams.Bij = radiusSum*radiusSum;
-		vdwparams.Bij = vdwparams.Bij*vdwparams.Bij*vdwparams.Bij;
-		vdwparams.Aij = vdwparams.Bij*vdwparams.Bij;
-		vdwparams.Aij *= epsilon*Amult;
-		vdwparams.Bij *= epsilon*Bmult;
-		
-		// vdW scaling for 1-4 interactions
-		if (atomPairType == Type.BONDED14) {
-			vdwparams.Aij *= params.forcefld.Aij14Factor;
-			vdwparams.Bij *= params.forcefld.Bij14Factor;
-		} else if (atomPairType == Type.NONBONDED) {
-			vdwparams.Bij *= 2;
-		}
-	}
-	
 	private static Set<String> warnedAtomTypes = new HashSet<>();
 	
 	private void getSolvParams(Atom atom, SolvParams solvparams) {
@@ -248,7 +335,131 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 			solvparams.radius = 0;
 		}
 	}
+	
+	public void copyCoords() {
+		coords.clear();
+		DoubleBuffer doubleCoords = coords.asDoubleBuffer();
+		for (String resNum : inters.getResidueNumbers()) {
+			doubleCoords.put(getRes(mol, resNum).coords);
+		}
+		coords.clear();
+	}
 
+	@Override
+	public double getEnergy() {
+		
+		// check broken-ness first. easy peasy
+		if (isBroken) {
+			return Double.POSITIVE_INFINITY;
+		}
+		
+		copyCoords();
+		
+		double energy = 0;
+		
+		precomputed.rewind();
+		for (int i=0; i<inters.size(); i++) {
+			
+			// read the res pair info
+			long numAtomPairs = precomputed.getLong();
+			double weight = precomputed.getDouble();
+			double offset = precomputed.getDouble();
+			
+			double resPairEnergy = 0;
+			
+			for (int j=0; j<numAtomPairs; j++) {
+				
+				// read the flags
+				long flags = precomputed.getLong();
+				boolean isHeavyPair = (flags & 0x1) == 0x1;
+				boolean is14Bonded = (flags & 0x2) == 0x2;
+				
+				// read atoms offsets
+				int atomsOffset1 = precomputed.getInt();
+				int atomsOffset2 = precomputed.getInt();
+				
+				// read the physical values
+				double charge = precomputed.getDouble();
+				double Aij = precomputed.getDouble();
+				double Bij = precomputed.getDouble();
+				double radius1 = precomputed.getDouble();
+				double lambda1 = precomputed.getDouble();
+				double alpha1 = precomputed.getDouble();
+				double radius2 = precomputed.getDouble();
+				double lambda2 = precomputed.getDouble();
+				double alpha2 = precomputed.getDouble();
+			
+				// get the squared radius
+				double r2;
+				{
+					coords.position(atomsOffset1);
+					double x1 = coords.getDouble();
+					double y1 = coords.getDouble();
+					double z1 = coords.getDouble();
+					
+					coords.position(atomsOffset2);
+					double x2 = coords.getDouble();
+					double y2 = coords.getDouble();
+					double z2 = coords.getDouble();
+					
+					double d;
+					
+					d = x1 - x2;
+					r2 = d*d;
+					d = y1 - y2;
+					r2 += d*d;
+					d = z1 - z2;
+					r2 += d*d;
+				}
+				
+				double r = Math.sqrt(r2);
+				
+				// electrostatics
+				if (isHeavyPair || params.hElect) {
+					
+					double coulomb = is14Bonded ? scaledCoulombFactor : coulombFactor;
+					double effectiveR = params.distDepDielect ? r2 : r;
+					
+					resPairEnergy += coulomb*charge/effectiveR;
+				}
+				
+				// van der Waals
+				if (isHeavyPair || params.hVDW) {
+					
+					// compute vdw
+					double r6 = r2*r2*r2;
+					double r12 = r6*r6;
+					resPairEnergy += Aij/r12 - Bij/r6;
+				}
+
+				// solvation
+				if (isHeavyPair && r2 < solvCutoff2) {
+					
+					switch (params.solvationForcefield) {
+						
+						case EEF1:
+							
+							// compute solvation energy
+							double Xij = (r - radius1)/lambda1;
+							double Xji = (r - radius2)/lambda2;
+							resPairEnergy -= (alpha1*Math.exp(-Xij*Xij) + alpha2*Math.exp(-Xji*Xji))/r2;
+							
+						break;
+						
+						default:
+							// do nothing
+					}
+				}
+			}
+			
+			// apply weights and offsets
+			energy += resPairEnergy*weight;
+			energy += offset;
+		}
+		
+		return energy;
+	}
+	
 	@Override
 	public List<EnergyFunction> decomposeByDof(Molecule mol, List<DegreeOfFreedom> dofs) {
 		// TODO Auto-generated method stub

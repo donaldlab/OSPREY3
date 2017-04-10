@@ -5,7 +5,6 @@ import static org.junit.Assert.*;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -33,7 +32,10 @@ public class TestAtomConnectivity {
 		}
 		confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		
-		connectivity = new AtomConnectivity(confSpace, Parallelism.makeCpu(4));
+		connectivity = new AtomConnectivity.Builder()
+			.setConfSpace(confSpace)
+			.setParallelism(Parallelism.makeCpu(4))
+			.build();
 	}
 	
 	@Test
@@ -94,7 +96,7 @@ public class TestAtomConnectivity {
 		
 		for (int i=0; i<strand.mol.residues.size(); i++) {
 			Residue res1 = strand.mol.residues.get(i);
-			assertResiduePair(res1, res1, SortType.Template);
+			assertResiduePair(res1, res1);
 		}
 	}
 	
@@ -106,10 +108,10 @@ public class TestAtomConnectivity {
 			
 			if (i > 0) {
 				Residue res2 = strand.mol.residues.get(i - 1);
-				assertResiduePair(res2, res1, SortType.NtoC);
+				assertResiduePair(res2, res1);
 			} else if (i < strand.mol.residues.size() - 1) {
 				Residue res2 = strand.mol.residues.get(i + 1);
-				assertResiduePair(res1, res2, SortType.NtoC);
+				assertResiduePair(res1, res2);
 			}
 		}
 	}
@@ -122,10 +124,10 @@ public class TestAtomConnectivity {
 			
 			if (i > 0) {
 				Residue res2 = strand.mol.residues.get(i - 1);
-				assertResiduePair(res1, res2, SortType.NtoC);
+				assertResiduePair(res1, res2);
 			} else if (i < strand.mol.residues.size() - 1) {
 				Residue res2 = strand.mol.residues.get(i + 1);
-				assertResiduePair(res2, res1, SortType.NtoC);
+				assertResiduePair(res2, res1);
 			}
 		}
 	}
@@ -145,7 +147,7 @@ public class TestAtomConnectivity {
 				
 				Residue res2 = strand.mol.residues.get(j);
 				
-				assertResiduePair(res1, res2, SortType.Template);
+				assertResiduePair(res1, res2);
 			}
 		}
 	}
@@ -166,19 +168,12 @@ public class TestAtomConnectivity {
 				
 				Residue res2 = strand.mol.residues.get(j);
 				
-				assertResiduePair(res1, res2, SortType.Template);
+				assertResiduePair(res1, res2);
 			}
 		}
 	}
 	
-	private static enum SortType {
-		NtoC,
-		Template
-	}
-	
-	private void assertResiduePair(Residue res1, Residue res2, SortType sortType) {
-		
-		boolean isIntra = res1 == res2;
+	private void assertResiduePair(Residue res1, Residue res2) {
 		
 		AtomPairList pairs = connectivity.getAtomPairs(strand.mol, res1, res2);
 		
@@ -186,26 +181,9 @@ public class TestAtomConnectivity {
 			fail("no pairs for residue types: " + res1.template.name + ", " + res2.template.name);
 		}
 		
-		// sort the residues in template order, then N-to-C order (so the atom pair orders match)
-		Residue resa = res1;
-		Residue resb = res2;
-		boolean shouldSwap = false;
-		switch (sortType) {
-			case NtoC:
-				shouldSwap = resa.indexInMolecule > resb.indexInMolecule;
-			break;
-			case Template:
-				shouldSwap = resa.template == pairs.templb;
-			break;
-		}
-		if (shouldSwap) {
-			resa = res2;
-			resb = res1;
-		}
-		
 		for (AtomNeighbors.Type neighborType : AtomNeighbors.Type.values()) {
 			
-			List<int[]> typedPairs = AtomNeighbors.getPairIndicesByType(resa.atoms, resb.atoms, isIntra, neighborType);
+			List<int[]> typedPairs = AtomNeighbors.getPairIndicesByType(res1.atoms, res2.atoms, res1 == res2, neighborType);
 			
 			String desc = String.format("%d:%-14s - %d:%-14s - %s --> %s - %s",
 				res1.indexInMolecule, res1.template,
@@ -215,47 +193,34 @@ public class TestAtomConnectivity {
 			);
 			
 			// check that the pairs from the connectivity lookup match the brute force search
-			assertAtomPairs(desc, neighborType, pairs, typedPairs, isIntra);
+			assertAtomPairs(desc, res1, res2, neighborType, pairs, typedPairs);
 		}
 	}
 
-	private void assertAtomPairs(String desc, AtomNeighbors.Type neighborType, AtomPairList pairs, List<int[]> typedPairs, boolean isIntra) {
+	private void assertAtomPairs(String desc, Residue res1, Residue res2, AtomNeighbors.Type neighborType, AtomPairList pairs, List<int[]> typedPairs) {
 		
-		// filter the pairs of this type
-		List<AtomPair> filteredPairs = pairs.pairs.stream()
+		// count the pairs of this type
+		long numPairsOfType = pairs.pairs.stream()
 			.filter((AtomPair pair) -> pair.type == neighborType)
-			.collect(Collectors.toList());
+			.count();
 		
 		// try to match each typed pair
-		int matched = 0;
+		long matched = 0;
 		for (int[] typedPair : typedPairs) {
 			assertThat(
-				desc + "\natom pair not found: " + Arrays.toString(typedPair) + "\nin: " + filteredPairs,
-				findAtomPair(filteredPairs, typedPair, isIntra), is(true)
+				desc + "\natom pair not found: " + Arrays.toString(typedPair) + "\nin: " + pairs.pairs,
+				findAtomPair(res1, res2, pairs, typedPair), is(true)
 			);
 			matched++;
 		}
 		
-		assertThat(desc, matched, is(filteredPairs.size()));
+		assertThat(desc, matched, is(numPairsOfType));
 	}
 
-	private boolean findAtomPair(List<AtomPair> pairs, int[] typedPair, boolean isIntra) {
-		for (AtomPair pair : pairs) {
-			if (isIntra) {
-				
-				// allow both directions
-				if (pair.index1 == typedPair[0] && pair.index2 == typedPair[1]) {
-					return true;
-				} else if (pair.index1 == typedPair[1] && pair.index2 == typedPair[0]) {
-					return true;
-				}
-				
-			} else {
-				
-				// only allow original direction
-				if (pair.index1 == typedPair[0] && pair.index2 == typedPair[1]) {
-					return true;
-				}
+	private boolean findAtomPair(Residue res1, Residue res2, AtomPairList pairs, int[] typedPair) {
+		for (int i=0; i<pairs.size(); i++) {
+			if (pairs.getIndex1(res1, res2, i) == typedPair[0] && pairs.getIndex2(res1, res2, i) == typedPair[1]) {
+				return true;
 			}
 		}
 		return false;

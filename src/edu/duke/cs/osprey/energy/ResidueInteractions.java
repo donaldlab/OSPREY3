@@ -55,9 +55,11 @@ public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
 		}
 	}
 	
+	private Set<String> resNums;
 	private Set<Pair> pairs;
 	
 	public ResidueInteractions() {
+		resNums = new HashSet<>();
 		pairs = new HashSet<>();
 	}
 	
@@ -66,6 +68,7 @@ public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
 	}
 	
 	public void addSingle(String resNum, double weight, double offset) {
+		resNums.add(resNum);
 		pairs.add(new Pair(resNum, resNum, weight, offset));
 	}
 	
@@ -74,11 +77,21 @@ public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
 	}
 	
 	public void addPair(String resNum1, String resNum2, double weight, double offset) {
+		resNums.add(resNum1);
+		resNums.add(resNum2);
 		pairs.add(new Pair(resNum1, resNum2, weight, offset));
+	}
+	
+	public Iterable<String> getResidueNumbers() {
+		return resNums;
 	}
 	
 	@Override
 	public Iterator<Pair> iterator() {
 		return pairs.iterator();
+	}
+	
+	public int size() {
+		return pairs.size();
 	}
 }

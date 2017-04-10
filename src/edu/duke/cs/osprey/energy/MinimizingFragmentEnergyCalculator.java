@@ -20,6 +20,7 @@ import edu.duke.cs.osprey.minimization.ObjectiveFunction.DofBounds;
 import edu.duke.cs.osprey.minimization.SimpleCCDMinimizer;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
+import edu.duke.cs.osprey.structure.AtomConnectivity;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Factory;
 
@@ -82,7 +83,7 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 			}
 			
 			@Override
-			public Context makeContext(Parallelism parallelism, ForcefieldParams ffparams) {
+			public Context makeContext(Parallelism parallelism, ForcefieldParams ffparams, AtomConnectivity connectivity) {
 				
 				return new Context() {{
 					EnergyFunctionGenerator egen = new EnergyFunctionGenerator(ffparams);
@@ -101,11 +102,11 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 			}
 			
 			@Override
-			public Context makeContext(Parallelism parallelism, ForcefieldParams ffparams) {
+			public Context makeContext(Parallelism parallelism, ForcefieldParams ffparams, AtomConnectivity connectivity) {
 				
 				return new Context() {{
 					numStreams = parallelism.numThreads;
-					efuncs = (interactions, mol) -> new ResidueForcefieldEnergy(ffparams, interactions, mol);
+					efuncs = (interactions, mol) -> new ResidueForcefieldEnergy(ffparams, interactions, mol, connectivity);
 					minimizers = (f) -> new SimpleCCDMinimizer(f);
 				}};
 			}
@@ -118,7 +119,7 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 			}
 			
 			@Override
-			public Context makeContext(Parallelism parallelism, ForcefieldParams ffparams) {
+			public Context makeContext(Parallelism parallelism, ForcefieldParams ffparams, AtomConnectivity connectivity) {
 				
 				// use the Cuda GPU energy function, but do CCD on the CPU
 				// (the GPU CCD implementation can't handle non-dihedral dofs yet)
@@ -150,7 +151,7 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 			}
 			
 			@Override
-			public Context makeContext(Parallelism parallelism, ForcefieldParams ffparams) {
+			public Context makeContext(Parallelism parallelism, ForcefieldParams ffparams, AtomConnectivity connectivity) {
 				
 				// use a CPU energy function, but send it to the Cuda CCD minimizer
 				// (which has a built-in GPU energy function)
@@ -182,7 +183,7 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 			}
 
 			@Override
-			public Context makeContext(Parallelism parallelism, ForcefieldParams ffparams) {
+			public Context makeContext(Parallelism parallelism, ForcefieldParams ffparams, AtomConnectivity connectivity) {
 				
 				// use the CPU CCD minimizer, with an OpenCL energy function
 				return new Context() {
@@ -237,7 +238,7 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 		}
 		
 		public abstract boolean isSupported();
-		public abstract Context makeContext(Parallelism parallelism, ForcefieldParams ffparams);
+		public abstract Context makeContext(Parallelism parallelism, ForcefieldParams ffparams, AtomConnectivity connectivity);
 		
 		public static Type pickBest(SimpleConfSpace confSpace) {
 			
@@ -276,7 +277,12 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 		this.type = type;
 		this.ffparams = ffparams;
 		
-		context = type.makeContext(parallelism, ffparams);
+		AtomConnectivity connectivity = new AtomConnectivity.Builder()
+			.setConfSpace(confSpace)
+			.setParallelism(parallelism)
+			.build();
+		
+		context = type.makeContext(parallelism, ffparams, connectivity);
 	}
 	
 	@Override

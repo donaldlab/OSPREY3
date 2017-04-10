@@ -19,6 +19,32 @@ import edu.duke.cs.osprey.tools.HashCalculator;
  */
 public class AtomConnectivity {
 	
+	public static class Builder {
+		
+		private SimpleConfSpace confSpace = null;
+		private Molecule mol = null;
+		private Parallelism parallelism = Parallelism.makeCpu(1);
+	
+		public Builder setConfSpace(SimpleConfSpace val) {
+			confSpace = val;
+			return this;
+		}
+		
+		public Builder setMolecule(Molecule val) {
+			mol = val;
+			return this;
+		}
+		
+		public Builder setParallelism(Parallelism val) {
+			parallelism = val;
+			return this;
+		}
+		
+		public AtomConnectivity build() {
+			return new AtomConnectivity(confSpace, mol, parallelism);
+		}
+	}
+	
 	public static class AtomPair {
 		
 		public final int index1;
@@ -53,6 +79,41 @@ public class AtomConnectivity {
 			this.templa = templa;
 			this.templb = templb;
 			this.pairs = new ArrayList<>();
+		}
+		
+		public int size() {
+			return pairs.size();
+		}
+		
+		// residues in the cache might be in a different order and than the query
+		// so these are little helper methods to swap the residue order when needed
+		
+		public int getIndex1(Residue res1, Residue res2, int i) {
+			if (res1.template == templa && res2.template == templb) {
+				return pairs.get(i).index1;
+			} else if (res1.template == templb && res2.template == templa) {
+				return pairs.get(i).index2;
+			} else {
+				throw new IllegalArgumentException(String.format("Residue templates %s, %d don't match atom pair templates: %s, %s",
+					res1.template, res2.template, templa, templb
+				));
+			}
+		}
+		
+		public int getIndex2(Residue res1, Residue res2, int i) {
+			if (res1.template == templa && res2.template == templb) {
+				return pairs.get(i).index2;
+			} else if (res1.template == templb && res2.template == templa) {
+				return pairs.get(i).index1;
+			} else {
+				throw new IllegalArgumentException(String.format("Residue templates %s, %d don't match atom pair templates: %s, %s",
+					res1.template, res2.template, templa, templb
+				));
+			}
+		}
+		
+		public AtomNeighbors.Type getType(int i) {
+			return pairs.get(i).type;
 		}
 	}
 	
@@ -134,19 +195,26 @@ public class AtomConnectivity {
 	private Map<Key2,AtomPairList> atomPairs2;
 	private Map<KeySeparate,AtomPairList> atomPairsSeparate;
 	
-	public AtomConnectivity(SimpleConfSpace confSpace, Parallelism parallelism) {
+	private AtomConnectivity(SimpleConfSpace confSpace, Molecule mol, Parallelism parallelism) {
 		
 		tasks = parallelism.makeTaskExecutor();
 		
 		// collect all the templates
 		Set<ResidueTemplate> templatesSet = new HashSet<>();
-		for (SimpleConfSpace.Position pos : confSpace.positions) {
-			for (SimpleConfSpace.ResidueConf rc : pos.resConfs) {
-				templatesSet.add(rc.template);
+		if (confSpace != null) {
+			for (SimpleConfSpace.Position pos : confSpace.positions) {
+				for (SimpleConfSpace.ResidueConf rc : pos.resConfs) {
+					templatesSet.add(rc.template);
+				}
+			}
+			for (Strand strand : confSpace.strands) {
+				for (Residue res : strand.mol.residues) {
+					templatesSet.add(res.template);
+				}
 			}
 		}
-		for (Strand strand : confSpace.strands) {
-			for (Residue res : strand.mol.residues) {
+		if (mol != null) {
+			for (Residue res : mol.residues) {
 				templatesSet.add(res.template);
 			}
 		}
