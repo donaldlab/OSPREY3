@@ -85,6 +85,7 @@ public enum EnergyPartition {
 			double weight = calcWeight(confSpace);
 			
 			return ResInterGen.of(confSpace)
+				.addIntras(frag)
 				.addInters(frag, 1, (int pos1, int rc1, int pos2, int rc2) -> {
 					double offset = 0;
 					if (eref != null) {

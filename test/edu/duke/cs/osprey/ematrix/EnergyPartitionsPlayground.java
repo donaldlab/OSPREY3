@@ -5,6 +5,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
+import edu.duke.cs.osprey.energy.EnergyPartition;
 import edu.duke.cs.osprey.energy.MinimizingConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.MinimizingFragmentEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
@@ -21,22 +22,19 @@ public class EnergyPartitionsPlayground {
 		
 		// configure flexibility
 		
-		//
-		strand.flexibility.get(2).setLibraryRotamers("LEU", "ILE").setContinuous();
-		strand.flexibility.get(3).setLibraryRotamers("LEU", "ILE").setContinuous();
-		strand.flexibility.get(4).setLibraryRotamers("LEU", "ILE").setContinuous();
-		strand.flexibility.get(5).setLibraryRotamers("LEU", "ILE").setContinuous();
-		strand.flexibility.get(6).setLibraryRotamers("LEU", "ILE").setContinuous();
-		/*
-		strand.flexibility.get(2).setLibraryRotamers("GLY", "ALA", "VAL", "LEU", "ILE", "SER", "THR", "CYS", "ASN", "GLN", "ASP", "GLU", "PHE", "TRP", "TYR", "HIE", "HID", "LYS", "ARG", "MET").setContinuous();
-		strand.flexibility.get(3).setLibraryRotamers("GLY", "ALA", "VAL", "LEU", "ILE", "SER", "THR", "CYS", "ASN", "GLN", "ASP", "GLU", "PHE", "TRP", "TYR", "HIE", "HID", "LYS", "ARG", "MET").setContinuous();
-		*/
+		for (int i=2; i<=6; i++) {
+			strand.flexibility.get(i).setLibraryRotamers("LEU", "ILE").setContinuous();
+		}
+		for (int i=2; i<=3; i++) {
+			//strand.flexibility.get(i).setLibraryRotamers("GLY", "ALA", "VAL", "LEU", "ILE", "SER", "THR", "CYS", "ASN", "GLN", "ASP", "GLU", "PHE", "TRP", "TYR", "HIE", "HID", "LYS", "ARG", "MET").setContinuous();
+		}
 		
 		// make the conf space
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand)
 			//.setShellDistance(9)
 			.build();
 		
+		System.out.println("Residues: " + strand.mol.residues.size());
 		System.out.println("Shell residues: " + confSpace.shellResNumbers.size());
 		System.out.println("positions: " + confSpace.positions.size());
 		System.out.println("RCs per pos: " + confSpace.positions.get(0).resConfs.size());
@@ -56,6 +54,8 @@ public class EnergyPartitionsPlayground {
 		// compute the energy matrix
 		EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, fragEcalc)
 			.setReferenceEnergies(eref)
+			//.setEnergyPartition(EnergyPartition.Traditional)
+			.setEnergyPartition(EnergyPartition.AllOnPairs)
 			.build()
 			.calcEnergyMatrix();
 		
@@ -71,6 +71,13 @@ public class EnergyPartitionsPlayground {
 			*/
 			.setShowProgress(true)
 			.build();
+	
+		/* switch to GPU-computed fragments
+		fragEcalc.cleanup();
+		fragEcalc = new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
+			.setParallelism(Parallelism.makeGpu(1, 8))
+			.build();
+		*/
 		
 		// what's the energy of a conformation?
 		MinimizingConfEnergyCalculator confEcalc = new MinimizingConfEnergyCalculator.Builder(fragEcalc)

@@ -93,8 +93,8 @@ public class ForcefieldInteractions extends ArrayList<AtomGroup[]> {
 		
 		for (ResidueInteractions.Pair pair : inters) {
 			
-			if (pair.weight != 1) {
-				throw new UnsupportedOperationException("weights not supported by ForcefieldInteractions");
+			if (pair.weight != ResidueInteractions.Pair.IdentityWeight || pair.offset != ResidueInteractions.Pair.IdentityOffset) {
+				throw new UnsupportedOperationException("weights and offsets not supported by ForcefieldInteractions");
 			}
 			
 			// make the first atom group

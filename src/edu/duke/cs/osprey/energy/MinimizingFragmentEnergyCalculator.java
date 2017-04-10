@@ -7,6 +7,7 @@ import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
+import edu.duke.cs.osprey.energy.forcefield.ResidueForcefieldEnergy;
 import edu.duke.cs.osprey.gpu.BufferTools;
 import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
 import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
@@ -19,6 +20,7 @@ import edu.duke.cs.osprey.minimization.ObjectiveFunction.DofBounds;
 import edu.duke.cs.osprey.minimization.SimpleCCDMinimizer;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
+import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Factory;
 
 /**
@@ -85,7 +87,7 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 				return new Context() {{
 					EnergyFunctionGenerator egen = new EnergyFunctionGenerator(ffparams);
 					numStreams = parallelism.numThreads;
-					efuncs = (interactions) -> egen.interactionEnergy(interactions);
+					efuncs = (interactions, mol) -> egen.interactionEnergy(new ForcefieldInteractions(interactions, mol));
 					minimizers = (f) -> new CCDMinimizer(f, false);
 				}};
 			}
@@ -102,9 +104,8 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 			public Context makeContext(Parallelism parallelism, ForcefieldParams ffparams) {
 				
 				return new Context() {{
-					EnergyFunctionGenerator egen = new EnergyFunctionGenerator(ffparams);
 					numStreams = parallelism.numThreads;
-					efuncs = (interactions) -> egen.interactionEnergy(interactions);
+					efuncs = (interactions, mol) -> new ResidueForcefieldEnergy(ffparams, interactions, mol);
 					minimizers = (f) -> new SimpleCCDMinimizer(f);
 				}};
 			}
@@ -128,7 +129,7 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 					{
 						pool = new GpuStreamPool(parallelism.numGpus, parallelism.numStreamsPerGpu);
 						numStreams = pool.getNumStreams();
-						efuncs = (interactions) -> new GpuForcefieldEnergy(ffparams, interactions, pool);
+						efuncs = (interactions, mol) -> new GpuForcefieldEnergy(ffparams, new ForcefieldInteractions(interactions, mol), pool);
 						minimizers = (f) -> new SimpleCCDMinimizer(f);
 						needsCleanup = true;
 					}
@@ -160,7 +161,7 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 					{
 						pool = new GpuStreamPool(parallelism.numGpus, parallelism.numStreamsPerGpu);
 						numStreams = pool.getNumStreams();
-						efuncs = (interactions) -> new BigForcefieldEnergy(ffparams, interactions, BufferTools.Type.Direct);
+						efuncs = (interactions, mol) -> new BigForcefieldEnergy(ffparams, new ForcefieldInteractions(interactions, mol), BufferTools.Type.Direct);
 						minimizers = (mof) -> new CudaCCDMinimizer(pool, mof);
 						needsCleanup = true;
 					}
@@ -191,7 +192,7 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 					{
 						pool = new GpuQueuePool(parallelism.numGpus, parallelism.numStreamsPerGpu);
 						numStreams = pool.getNumQueues();
-						efuncs = (interactions) -> new GpuForcefieldEnergy(ffparams, interactions, pool);
+						efuncs = (interactions, mol) -> new GpuForcefieldEnergy(ffparams, new ForcefieldInteractions(interactions, mol), pool);
 						minimizers = (mof) -> new SimpleCCDMinimizer(mof);
 						needsCleanup = true;
 					}
@@ -205,10 +206,14 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 			}
 		};
 		
+		private static interface EfuncFactory {
+			EnergyFunction make(ResidueInteractions inters, Molecule mol);
+		}
+		
 		private static abstract class Context {
 			
 			public int numStreams;
-			public Factory<EnergyFunction,ForcefieldInteractions> efuncs;
+			public EfuncFactory efuncs;
 			public Factory<Minimizer,ObjectiveFunction> minimizers;
 			
 			protected boolean needsCleanup = false;
@@ -295,7 +300,7 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 		try {
 			
 			// get the energy function
-			efunc = context.efuncs.make(new ForcefieldInteractions(inters, pmol.mol));
+			efunc = context.efuncs.make(inters, pmol.mol);
 			
 			// get the energy
 			double energy;

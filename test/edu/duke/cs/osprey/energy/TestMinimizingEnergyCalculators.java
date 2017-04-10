@@ -135,9 +135,19 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 	
 	private void assertEnergies(MinimizingFragmentEnergyCalculator.Builder builder) {
 		
-		MinimizingConfEnergyCalculator ecalc = new MinimizingConfEnergyCalculator.Builder(builder.build()).build();
+		for (EnergyPartition epart : EnergyPartition.values()) {
+		
+			MinimizingConfEnergyCalculator ecalc = new MinimizingConfEnergyCalculator.Builder(builder.build())
+				.setEnergyPartition(epart)
+				.build();
+			assertEnergies(ecalc);
+			ecalc.cleanup();
+		}
+	}
+	
+	private void assertEnergies(MinimizingConfEnergyCalculator ecalc) {
+		
 		List<EnergiedConf> econfs = ecalc.calcAllEnergies(confs);
-		ecalc.cleanup();
 		
 		assertThat(econfs.size(), is(ExpectedEnergies.length));
 		

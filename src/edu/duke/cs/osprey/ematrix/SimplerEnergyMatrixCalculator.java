@@ -60,13 +60,18 @@ public class SimplerEnergyMatrixCalculator {
 			this.ecalc = ecalc;
 		}
 		
-		public Builder setCacheFile(File val) {
-			cacheFile = val;
+		public Builder setReferenceEnergies(SimpleReferenceEnergies val) {
+			eref = val;
 			return this;
 		}
 		
-		public Builder setReferenceEnergies(SimpleReferenceEnergies val) {
-			eref = val;
+		public Builder setEnergyPartition(EnergyPartition val) {
+			epart = val;
+			return this;
+		}
+		
+		public Builder setCacheFile(File val) {
+			cacheFile = val;
 			return this;
 		}
 		
