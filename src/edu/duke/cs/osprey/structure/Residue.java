@@ -95,7 +95,7 @@ public class Residue implements Serializable {
     	// NOTE: we don't copy inter-res atom bonds, so the molecule will have to re-bond everything
     }
     
-    private static ArrayList<Atom> copyAtoms(ArrayList<Atom> atoms) {
+    public static ArrayList<Atom> copyAtoms(ArrayList<Atom> atoms) {
     	ArrayList<Atom> out = new ArrayList<>();
     	for (Atom atom : atoms) {
     		out.add(atom.copy());
