@@ -180,6 +180,10 @@ public interface ConfSearch {
 				index = 0;
 			}
 			
+			public ConfSearch getSource() {
+				return confs;
+			}
+			
 			@Override
 			public ScoredConf nextConf() {
 			

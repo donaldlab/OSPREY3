@@ -304,6 +304,8 @@ public class SimpleGMECFinder {
             if (tree.getProgress() != null) {
                 tree.getProgress().setGoalScore(window.getMax());
             }
+        } else if (confSearch instanceof ConfSearch.Splitter.Stream) {
+        	setErangeProgress(((ConfSearch.Splitter.Stream)confSearch).getSource(), window);
         }
     }
 	
