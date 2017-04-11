@@ -118,9 +118,8 @@ public class SimplerEnergyMatrixCalculator {
 		EnergyMatrix emat = new EnergyMatrix(confSpace);
 		
 		// count how much work there is to do (roughly based on number of residue pairs)
-		// TODO: base cost on energy partition
-		final int singleCost = confSpace.shellResNumbers.size() + 1;
-		final int pairCost = 1;
+		final int singleCost = epart.makeSingle(confSpace, eref, 0, 0).size();
+		final int pairCost = epart.makePair(confSpace, eref, 0, 0, 0, 0).size();
 		Progress progress = new Progress(confSpace.getNumResConfs()*singleCost + confSpace.getNumResConfPairs()*pairCost);
 		
 		// some fragments can be big and some can be small
@@ -204,7 +203,7 @@ public class SimplerEnergyMatrixCalculator {
 		Batcher batcher = new Batcher();
 		
 		// batch all the singles and pairs
-		System.out.println("Calculating energy matrix with " + progress.getTotalWork() + " entries...");
+		System.out.println("Calculating energy matrix with " + (confSpace.getNumResConfs() + confSpace.getNumResConfPairs()) + " entries...");
 		for (int pos1=0; pos1<emat.getNumPos(); pos1++) {
 			for (int rc1=0; rc1<emat.getNumConfAtPos(pos1); rc1++) {
 				
