@@ -73,12 +73,15 @@ public class AtomConnectivity {
 		public final ResidueTemplate templb;
 		public final List<AtomPair> pairs;
 		
+		private int[] numAtomPairsByConnectivity;
+		
 		public AtomPairList(ResidueTemplate templa, ResidueTemplate templb) {
 			assert (templa != null);
 			assert (templb != null);
 			this.templa = templa;
 			this.templb = templb;
 			this.pairs = new ArrayList<>();
+			numAtomPairsByConnectivity = null;
 		}
 		
 		public int size() {
@@ -114,6 +117,19 @@ public class AtomConnectivity {
 		
 		public AtomNeighbors.Type getType(int i) {
 			return pairs.get(i).type;
+		}
+		
+		private void updateCounts() {
+			numAtomPairsByConnectivity = new int[pairs.size()];
+			for (AtomNeighbors.Type type : AtomNeighbors.Type.values()) {
+				numAtomPairsByConnectivity[type.ordinal()] = (int)pairs.stream()
+					.filter((AtomPair pair) -> pair.type == type)
+					.count();
+			}
+		}
+		
+		public int getNumPairs(AtomNeighbors.Type type) {
+			return numAtomPairsByConnectivity[type.ordinal()];
 		}
 	}
 	
@@ -393,6 +409,8 @@ public class AtomConnectivity {
 		} else {
 			assert (pairs.pairs.size() == res1.atoms.size()*res2.atoms.size());
 		}
+		
+		pairs.updateCounts();
 		
 		return pairs;
 	}

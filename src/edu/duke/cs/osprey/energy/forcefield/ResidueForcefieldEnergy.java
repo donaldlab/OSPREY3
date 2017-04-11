@@ -1,7 +1,5 @@
 package edu.duke.cs.osprey.energy.forcefield;
 
-import java.nio.ByteBuffer;
-import java.nio.DoubleBuffer;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -12,10 +10,9 @@ import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.energy.forcefield.EEF1.SolvParams;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.NBParams;
-import edu.duke.cs.osprey.gpu.BufferTools;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.AtomConnectivity;
-import edu.duke.cs.osprey.structure.AtomConnectivity.AtomPair;
 import edu.duke.cs.osprey.structure.AtomConnectivity.AtomPairList;
 import edu.duke.cs.osprey.structure.AtomNeighbors;
 import edu.duke.cs.osprey.structure.AtomNeighbors.Type;
@@ -31,34 +28,57 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 	private static final double solvCutoff2 = solvCutoff*solvCutoff;
 	private static final double solvTrig = 2.0/(4.0*Math.PI*Math.sqrt(Math.PI));
 	
+	public static class ResPair {
+		
+		public final Residue res1;
+		public final Residue res2;
+		
+		public double weight = 0;
+		public double offset = 0;
+		public int numAtomPairs = 0;
+		
+		// layout per atom pair: atom1Offset, atom2Offset, flags (is14Bonded, isHeavyPair)
+		public byte[] flags = null;
+		
+		// layout per atom pair: charge, Aij, Bij, radius1, lambda1, alpha1, radius2, lambda2, alpha2
+		public double[] precomputed = null;
+		
+		public ResPair(Molecule mol, ResidueInteractions.Pair pair) {
+			
+			this.res1 = mol.getResByPDBResNumber(pair.resNum1);
+			this.res2 = mol.getResByPDBResNumber(pair.resNum2);
+			
+			this.weight = pair.weight;
+			this.offset = pair.offset;
+		}
+	}
+	
 	public final ForcefieldParams params;
 	public final ResidueInteractions inters;
 	public final Molecule mol;
 	public final AtomConnectivity connectivity;
 	
+	private Residue[] residues;
+	private ResPair[] resPairs;
+	
 	private boolean isBroken;
 	
-	// TODO: do we need these here?
 	private double coulombFactor;
 	private double scaledCoulombFactor;
 	
-	private double[] internalSolvEnergies;
-	
+	/* TODO: move to gpu area
 	private ByteBuffer coords;
 	
-	/* buffer layout:
+	 * buffer layout:
+	 * NOTE: try to use 8-byte alignments to be happy on 64-bit machines
 	 * 
 	 * for each residue pair:
 	 *    long numAtomPairs
-	 *    double weight
-	 *    double offset
 	 *    
 	 *    for each atom pair:
-	 *       bool isHeavyPair
-	 *       bool is14Bonded
-	 *       6 bytes space
-	 *       int atomsIndex1
-	 *       int atomsIndex2
+	 *       short atomIndex1
+	 *       short atomIndex2
+	 *       int flags  (isHeavyPair, is14Bonded)
 	 *       double charge
 	 *       double Aij
 	 *       double Bij
@@ -68,29 +88,40 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 	 *       double radius2
 	 *       double lambda2
 	 *       double alpha2
-	 */
+	 *       
+	 *    double weight
+	 *    double offset
 	private ByteBuffer precomputed;
 	
 	private static final int ResPairBytes = Long.BYTES + Double.BYTES*2;
-	private static final int AtomPairBytes = Long.BYTES + Integer.BYTES*2 + Double.BYTES*9;
+	private static final int AtomPairBytes = Integer.BYTES + Short.BYTES*2 + Double.BYTES*9;
+	*/
 	
 	public ResidueForcefieldEnergy(ForcefieldParams params, ResidueInteractions inters, Molecule mol, AtomConnectivity connectivity) {
-		this(params, inters, mol, connectivity, BufferTools.Type.Normal);
-	}
-	
-	public ResidueForcefieldEnergy(ForcefieldParams params, ResidueInteractions inters, Molecule mol, AtomConnectivity connectivity, BufferTools.Type bufferType) {
 		
 		this.params = params;
 		this.inters = inters;
 		this.mol = mol;
 		this.connectivity = connectivity;
 		
+		int index;
+		
+		// map the residues and pairs to the molecule
+		residues = new Residue[inters.getResidueNumbers().size()];
+		index = 0;
+		for (String resNum : inters.getResidueNumbers()) {
+			residues[index++] = mol.getResByPDBResNumber(resNum);
+		}
+		resPairs = new ResPair[inters.size()];
+		index = 0;
+		for (ResidueInteractions.Pair pair : inters) {
+			resPairs[index++] = new ResPair(mol, pair);
+		}
+		
 		// is this a broken conformation?
 		isBroken = false;
-		for (ResidueInteractions.Pair pair : inters) {
-			int numConfProblems = getRes(mol, pair.resNum1).confProblems.size()
-				+ getRes(mol, pair.resNum2).confProblems.size();
-			if (numConfProblems > 0) {
+		for (ResPair pair : resPairs) {
+			if (pair.res1.confProblems.size() + pair.res2.confProblems.size() > 0) {
 				isBroken = true;
 				
 				// we're done here, no need to analyze broken conformations
@@ -102,15 +133,16 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		coulombFactor = coulombConstant/params.dielectric;
 		scaledCoulombFactor = coulombFactor*params.forcefld.coulombScaling;
 		
+		// TODO: can make lookup table by template for this
 		// pre-compute internal solvation energies if needed
+		double[] internalSolvEnergies;
 		switch (params.solvationForcefield) {
 			
 			case EEF1:
 				internalSolvEnergies = new double[mol.residues.size()];
 				Arrays.fill(internalSolvEnergies, Double.NaN);
 				SolvParams solvparams = new SolvParams();
-				for (String resNum : inters.getResidueNumbers()) {
-					Residue res = mol.getResByPDBResNumber(resNum);
+				for (Residue res : residues) {
 					
 					// add up all the dGref terms for all the atoms
 					double energy = 0;
@@ -130,13 +162,14 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 				internalSolvEnergies = null;
 		}
 		
+		/* TODO: move into GPU area
 		// count atoms and offsets for each residue
 		int[] atomOffsetsByResIndex = new int[mol.residues.size()];
 		Arrays.fill(atomOffsetsByResIndex, -1);
 		int atomOffset = 0;
 		int numAtoms = 0;
 		for (String resNum : inters.getResidueNumbers()) {
-			Residue res = getRes(mol, resNum);
+			Residue res = residuesByNum.get(resNum);
 			atomOffsetsByResIndex[res.indexInMolecule] = atomOffset;
 			atomOffset += 3*Double.BYTES*res.atoms.size();
 			numAtoms += res.atoms.size();
@@ -144,28 +177,7 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		
 		// make the coords buffer
 		coords = bufferType.make(numAtoms*3*Double.BYTES);
-		
-		// pass 1: count the atom pairs
-		long[] numAtomPairs = new long[inters.size()];
-		int index = 0;
-		int bufferBytes = 0;
-		for (ResidueInteractions.Pair resPair : inters) {
-			Residue res1 = getRes(mol, resPair.resNum1);
-			Residue res2 = getRes(mol, resPair.resNum2);
-			
-			bufferBytes += ResPairBytes;
-			
-			// count the 1-4 bonded and non-bonded pairs
-			long count = 0;
-			for (AtomPair pair : connectivity.getAtomPairs(mol, res1, res2).pairs) {
-				if (pair.type == AtomNeighbors.Type.BONDED14 || pair.type == AtomNeighbors.Type.NONBONDED) {
-					count++;
-					bufferBytes += AtomPairBytes;
-				}
-			}
-			
-			numAtomPairs[index++] = count;
-		}
+		*/
 		
 		NBParams nbparams1 = new NBParams();
 		NBParams nbparams2 = new NBParams();
@@ -177,37 +189,18 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		double Amult = Bmult*Bmult;
 		double solvCoeff = solvTrig*params.solvScale;
 		
-		// pass 2: precompute everything
-		precomputed = bufferType.make(bufferBytes);
-		index = 0;
-		for (ResidueInteractions.Pair resPair : inters) {
-			Residue res1 = getRes(mol, resPair.resNum1);
-			Residue res2 = getRes(mol, resPair.resNum2);
+		// build the atom pairs
+		for (ResPair pair : resPairs) {
 			
-			// compute the residue pair offset
-			double offset = resPair.offset;
-			if (res1 == res2) {
-				switch (params.solvationForcefield) {
-					
-					case EEF1:
-						offset += internalSolvEnergies[res1.indexInMolecule];
-					break;
-					
-					default:
-						// do nothing
-				}
-			}
+			// count the number of atom pairs
+			AtomPairList atomPairs = connectivity.getAtomPairs(mol, pair.res1, pair.res2);
+			pair.numAtomPairs = atomPairs.getNumPairs(AtomNeighbors.Type.BONDED14) + atomPairs.getNumPairs(AtomNeighbors.Type.NONBONDED);
+			pair.flags = new byte[pair.numAtomPairs*3];
+			pair.precomputed = new double[pair.numAtomPairs*9];
 			
-			// just in case
-			assert (Double.isFinite(resPair.weight));
-			assert (Double.isFinite(offset));
+			int flagsIndex = 0;
+			int precomputedIndex = 0;
 			
-			// collect the residue pair precomputed values
-			precomputed.putLong(numAtomPairs[index++]);
-			precomputed.putDouble(resPair.weight);
-			precomputed.putDouble(offset);
-			
-			AtomPairList atomPairs = connectivity.getAtomPairs(mol, res1, res2);
 			for (int i=0; i<atomPairs.size(); i++) {
 		
 				// we only care about 1-4 bonded and non-bonded pairs
@@ -216,32 +209,33 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 					continue;
 				}
 				
-				int atomIndex1 = atomPairs.getIndex1(res1, res2, i);
-				int atomIndex2 = atomPairs.getIndex2(res1, res2, i);
-				Atom atom1 = res1.atoms.get(atomIndex1);
-				Atom atom2 = res2.atoms.get(atomIndex2);
+				// set atoms indices
+				// residues shouldn't have more than 127 atoms, right?
+				int atomIndex1 = atomPairs.getIndex1(pair.res1, pair.res2, i);
+				int atomIndex2 = atomPairs.getIndex2(pair.res1, pair.res2, i);
+				pair.flags[flagsIndex++] = (byte)atomIndex1;
+				pair.flags[flagsIndex++] = (byte)atomIndex2;
 				
-				// compute flags
+				Atom atom1 = pair.res1.atoms.get(atomIndex1);
+				Atom atom2 = pair.res2.atoms.get(atomIndex2);
+				
+				// set the flags
 				boolean isHeavyPair = !atom1.isHydrogen() && !atom2.isHydrogen();
 				boolean is14Bonded = atomPairType == AtomNeighbors.Type.BONDED14;
-				long flags = 0
+				int flags = 0
 					| (isHeavyPair ? 0x1 : 0)
 					| (is14Bonded ? 0x2 : 0);
+				pair.flags[flagsIndex++] = (byte)flags;
 				
-				precomputed.putLong(flags);
-				
-				// get atoms indices
-				precomputed.putInt(atomOffsetsByResIndex[res1.indexInMolecule] + atomIndex1*3*Double.BYTES);
-				precomputed.putInt(atomOffsetsByResIndex[res2.indexInMolecule] + atomIndex2*3*Double.BYTES);
-				
-				// compute physical values
-				getNonBondedParams(atom1, nbparams1);
-				getNonBondedParams(atom2, nbparams2);
+				// calc electrostatics params
+				pair.precomputed[precomputedIndex++] = atom1.charge*atom2.charge;
 				
 				// calc vdW params
 				// Aij = (ri+rj)^12 * sqrt(ei*ej)
 				// Bij = (ri+rj)^6 * sqrt(ei*ej)
 				
+				getNonBondedParams(atom1, nbparams1);
+				getNonBondedParams(atom2, nbparams2);
 				double epsilon = Math.sqrt(nbparams1.epsilon*nbparams2.epsilon);
 				double radiusSum = nbparams1.r + nbparams2.r;
 				double Bij = radiusSum*radiusSum;
@@ -258,9 +252,8 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 					Bij *= 2;
 				}
 				
-				precomputed.putDouble(atom1.charge*atom2.charge);
-				precomputed.putDouble(Aij);
-				precomputed.putDouble(Bij);
+				pair.precomputed[precomputedIndex++] = Aij;
+				pair.precomputed[precomputedIndex++] = Bij;
 				
 				// compute solvation if needed
 				if (isHeavyPair) {
@@ -270,29 +263,32 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 					double alpha1 = solvCoeff*solvparams1.dGfree*solvparams2.volume/solvparams1.lambda;
 					double alpha2 = solvCoeff*solvparams2.dGfree*solvparams1.volume/solvparams2.lambda;
 					
-					precomputed.putDouble(solvparams1.radius);
-					precomputed.putDouble(solvparams1.lambda);
-					precomputed.putDouble(alpha1);
-					precomputed.putDouble(solvparams2.radius);
-					precomputed.putDouble(solvparams2.lambda);
-					precomputed.putDouble(alpha2);
+					pair.precomputed[precomputedIndex++] = solvparams1.radius;
+					pair.precomputed[precomputedIndex++] = solvparams1.lambda;
+					pair.precomputed[precomputedIndex++] = alpha1;
+					pair.precomputed[precomputedIndex++] = solvparams2.radius;
+					pair.precomputed[precomputedIndex++] = solvparams2.lambda;
+					pair.precomputed[precomputedIndex++] = alpha2;
 					
 				} else {
 					
-					precomputed.putDouble(0);
-					precomputed.putDouble(0);
-					precomputed.putDouble(0);
-					precomputed.putDouble(0);
-					precomputed.putDouble(0);
-					precomputed.putDouble(0);
+					precomputedIndex += 6;
+				}
+			}
+			
+			// update the pair offset with internal solvation energy if needed
+			if (pair.res1 == pair.res2) {
+				switch (params.solvationForcefield) {
+					
+					case EEF1:
+						pair.offset += internalSolvEnergies[pair.res1.indexInMolecule];
+					break;
+					
+					default:
+						// do nothing
 				}
 			}
 		}
-		precomputed.flip();
-	}
-	
-	private Residue getRes(Molecule mol, String resNum) {
-		return mol.getResByPDBResNumber(resNum);
 	}
 	
 	private void getNonBondedParams(Atom atom, NBParams nbparams) {
@@ -300,6 +296,7 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		// HACKHACK: overrides for C atoms
 		if (atom.isCarbon() && params.forcefld.reduceCRadii) {
 			
+			// TODO: move this into Forcefield, and do the same for other forcefield energy classes too
 			// Jeff: shouldn't these settings be in a config file somewhere?
 			nbparams.epsilon = 0.1;
 			nbparams.r = 1.9;
@@ -336,14 +333,16 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		}
 	}
 	
+	/* TODO: move to GPU area
 	public void copyCoords() {
 		coords.clear();
 		DoubleBuffer doubleCoords = coords.asDoubleBuffer();
 		for (String resNum : inters.getResidueNumbers()) {
-			doubleCoords.put(getRes(mol, resNum).coords);
+			doubleCoords.put(residuesByNum.get(resNum).coords);
 		}
 		coords.clear();
 	}
+	*/
 
 	@Override
 	public double getEnergy() {
@@ -353,54 +352,48 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 			return Double.POSITIVE_INFINITY;
 		}
 		
-		copyCoords();
+		// copy stuff to the stack/registers, to improve CPU cache performance
+		boolean useHEs = params.hElect;
+		boolean useHvdW = params.hVDW;
+		double coulombFactor = this.coulombFactor;
+		double scaledCoulombFactor = this.scaledCoulombFactor;
+		boolean distDepDielect = params.distDepDielect;
+		boolean useEEF1 = params.solvationForcefield == SolvationForcefield.EEF1;
 		
 		double energy = 0;
 		
-		precomputed.rewind();
-		for (int i=0; i<inters.size(); i++) {
+		for (int i=0; i<resPairs.length; i++) {
+			ResPair pair = resPairs[i];
 			
-			// read the res pair info
-			long numAtomPairs = precomputed.getLong();
-			double weight = precomputed.getDouble();
-			double offset = precomputed.getDouble();
+			// copy pair values/references to the stack/registers
+			// so we don't have to touch the pair object inside the atom pair loop
+			double[] coords1 = pair.res1.coords;
+			double[] coords2 = pair.res2.coords;
+			int numAtomPairs = pair.numAtomPairs;
+			byte[] flags = pair.flags;
+			double[] precomputed = pair.precomputed;
+			
+			int flagsIndex = 0;
+			int precomputedIndex = 0;
 			
 			double resPairEnergy = 0;
 			
+			// for each atom pair...
 			for (int j=0; j<numAtomPairs; j++) {
 				
-				// read the flags
-				long flags = precomputed.getLong();
-				boolean isHeavyPair = (flags & 0x1) == 0x1;
-				boolean is14Bonded = (flags & 0x2) == 0x2;
-				
-				// read atoms offsets
-				int atomsOffset1 = precomputed.getInt();
-				int atomsOffset2 = precomputed.getInt();
-				
-				// read the physical values
-				double charge = precomputed.getDouble();
-				double Aij = precomputed.getDouble();
-				double Bij = precomputed.getDouble();
-				double radius1 = precomputed.getDouble();
-				double lambda1 = precomputed.getDouble();
-				double alpha1 = precomputed.getDouble();
-				double radius2 = precomputed.getDouble();
-				double lambda2 = precomputed.getDouble();
-				double alpha2 = precomputed.getDouble();
-			
-				// get the squared radius
+				// get the radius
 				double r2;
+				double r;
 				{
-					coords.position(atomsOffset1);
-					double x1 = coords.getDouble();
-					double y1 = coords.getDouble();
-					double z1 = coords.getDouble();
-					
-					coords.position(atomsOffset2);
-					double x2 = coords.getDouble();
-					double y2 = coords.getDouble();
-					double z2 = coords.getDouble();
+					// read atom coords
+					int atomOffset1 = flags[flagsIndex++]*3;
+					double x1 = coords1[atomOffset1];
+					double y1 = coords1[atomOffset1 + 1];
+					double z1 = coords1[atomOffset1 + 2];
+					int atomOffset2 = flags[flagsIndex++]*3;
+					double x2 = coords2[atomOffset2];
+					double y2 = coords2[atomOffset2 + 1];
+					double z2 = coords2[atomOffset2 + 2];
 					
 					double d;
 					
@@ -410,51 +403,79 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 					r2 += d*d;
 					d = z1 - z2;
 					r2 += d*d;
+					r = Math.sqrt(r2);
 				}
 				
-				double r = Math.sqrt(r2);
+				// read the atom pair flags
+				byte atomPairFlags = flags[flagsIndex++];
+				boolean isHeavyPair = (atomPairFlags & 0x1) == 0x1;
+				boolean is14Bonded = (atomPairFlags & 0x2) == 0x2;
+				
+				boolean doSolv = useEEF1 && isHeavyPair && r2 < solvCutoff2;
+				boolean doEs = isHeavyPair || useHEs;
 				
 				// electrostatics
-				if (isHeavyPair || params.hElect) {
-					
-					double coulomb = is14Bonded ? scaledCoulombFactor : coulombFactor;
-					double effectiveR = params.distDepDielect ? r2 : r;
-					
-					resPairEnergy += coulomb*charge/effectiveR;
+				if (doEs) {
+					double charge = precomputed[precomputedIndex++];
+					if (is14Bonded) {
+						if (distDepDielect) {
+							resPairEnergy += scaledCoulombFactor*charge/r2;
+						} else {
+							resPairEnergy += scaledCoulombFactor*charge/r;
+						}
+					} else {
+						if (distDepDielect) {
+							resPairEnergy += coulombFactor*charge/r2;
+						} else {
+							resPairEnergy += coulombFactor*charge/r;
+						}
+					}
+				} else {
+					precomputedIndex++;
 				}
 				
 				// van der Waals
-				if (isHeavyPair || params.hVDW) {
+				if (isHeavyPair || useHvdW) {
+					
+					double Aij = precomputed[precomputedIndex++];
+					double Bij = precomputed[precomputedIndex++];
 					
 					// compute vdw
 					double r6 = r2*r2*r2;
 					double r12 = r6*r6;
 					resPairEnergy += Aij/r12 - Bij/r6;
-				}
-
-				// solvation
-				if (isHeavyPair && r2 < solvCutoff2) {
 					
-					switch (params.solvationForcefield) {
-						
-						case EEF1:
+				} else {
+					precomputedIndex += 2;
+				}
+				
+				// solvation
+				if (doSolv) {
 							
-							// compute solvation energy
-							double Xij = (r - radius1)/lambda1;
-							double Xji = (r - radius2)/lambda2;
-							resPairEnergy -= (alpha1*Math.exp(-Xij*Xij) + alpha2*Math.exp(-Xji*Xji))/r2;
-							
-						break;
-						
-						default:
-							// do nothing
-					}
+					double radius1 = precomputed[precomputedIndex++];
+					double lambda1 = precomputed[precomputedIndex++];
+					double alpha1 = precomputed[precomputedIndex++];
+					double radius2 = precomputed[precomputedIndex++];
+					double lambda2 = precomputed[precomputedIndex++];
+					double alpha2 = precomputed[precomputedIndex++];
+					
+					// compute solvation energy
+					double Xij = (r - radius1)/lambda1;
+					double Xji = (r - radius2)/lambda2;
+					resPairEnergy -= (alpha1*Math.exp(-Xij*Xij) + alpha2*Math.exp(-Xji*Xji))/r2;
+					
+				} else {
+					precomputedIndex += 6;
 				}
 			}
 			
 			// apply weights and offsets
-			energy += resPairEnergy*weight;
-			energy += offset;
+			energy += resPairEnergy*pair.weight;
+			energy += pair.offset;
+			
+			// just in case...
+			assert (flagsIndex == pair.flags.length);
+			assert (precomputedIndex == pair.precomputed.length);
 		}
 		
 		return energy;
@@ -462,7 +483,7 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 	
 	@Override
 	public List<EnergyFunction> decomposeByDof(Molecule mol, List<DegreeOfFreedom> dofs) {
-		// TODO Auto-generated method stub
+		// TODO: just pick a subset of the ResPair list
 		return null;
 	}
 }

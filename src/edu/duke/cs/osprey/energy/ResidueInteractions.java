@@ -1,7 +1,7 @@
 package edu.duke.cs.osprey.energy;
 
-import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 import edu.duke.cs.osprey.tools.HashCalculator;
@@ -59,8 +59,8 @@ public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
 	private Set<Pair> pairs;
 	
 	public ResidueInteractions() {
-		resNums = new HashSet<>();
-		pairs = new HashSet<>();
+		resNums = new LinkedHashSet<>();
+		pairs = new LinkedHashSet<>();
 	}
 	
 	public void addSingle(String resNum) {
@@ -82,7 +82,7 @@ public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
 		pairs.add(new Pair(resNum1, resNum2, weight, offset));
 	}
 	
-	public Iterable<String> getResidueNumbers() {
+	public Set<String> getResidueNumbers() {
 		return resNums;
 	}
 	

@@ -26,10 +26,12 @@ public class BenchmarkForcefields extends TestBase {
 		
 		double ms1;
 		double ms2;
+		double ms3;
 		
-		public Result(double ms1, double ms2) {
+		public Result(double ms1, double ms2, double ms3) {
 			this.ms1 = ms1;
 			this.ms2 = ms2;
+			this.ms3 = ms3;
 		}
 	}
 	
@@ -96,19 +98,30 @@ public class BenchmarkForcefields extends TestBase {
 		
 		System.out.println(name);
 		
-		Result result = new Result(0, 0);
+		Result result = new Result(0, 0, 0);
 		
-		// first benchmark, create-run-cleanup cycles
-		result.ms1 = benchmark("create-run-cleanup", 100, 1000, 3, base == null ? null : base.ms1, () -> {
-			makeAndRunForcefield(efuncs);
+		// create-cleanup cycles
+		result.ms1 = benchmark("create-cleanup", 100, 1000, 3, base == null ? null : base.ms1, () -> {
+			EnergyFunction efunc = efuncs.get();
+			cleanup(efunc);
 		});
 		
 		// second benchmark, run cycles
-		EnergyFunction efunc = efuncs.get();
-		result.ms2 = benchmark("run", 100, 6000, 3, base == null ? null : base.ms2, () -> {
+		{
+			EnergyFunction efunc = efuncs.get();
+			result.ms2 = benchmark("run", 100, 6000, 3, base == null ? null : base.ms2, () -> {
+				efunc.getEnergy();
+			});
+			cleanup(efunc);
+		}
+		
+		// first benchmark, create-run-cleanup cycles
+		result.ms3 = benchmark("create-run-cleanup", 100, 1000, 3, base == null ? null : base.ms3, () -> {
+			EnergyFunction efunc = efuncs.get();
 			efunc.getEnergy();
+			cleanup(efunc);
 		});
-		cleanup(efunc);
+		
 		
 		return result;
 	}
@@ -162,12 +175,6 @@ public class BenchmarkForcefields extends TestBase {
 		System.out.println();
 		
 		return bestMs;
-	}
-	
-	private static void makeAndRunForcefield(Supplier<EnergyFunction> efuncs) {
-		EnergyFunction efunc = efuncs.get();
-		efunc.getEnergy();
-		cleanup(efunc);
 	}
 	
 	private static void cleanup(EnergyFunction efunc) {
