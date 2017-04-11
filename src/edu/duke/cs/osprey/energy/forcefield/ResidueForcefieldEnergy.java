@@ -1,8 +1,11 @@
 package edu.duke.cs.osprey.energy.forcefield;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
@@ -301,10 +304,6 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 			
 			boolean success = params.getNonBondedParameters(atom.type, nbparams);
 			if (!success) {
-				// TODO: what's the right error-handling behavior here?
-				// skip any atom pairs without params and keep computing?
-				// use default values for nbparams?
-				// or crash and tell the user to fix the problem?
 				throw new Error("couldn't find non-bonded parameters for atom type: " + atom.forceFieldType);
 			}
 		}
@@ -342,6 +341,10 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 
 	@Override
 	public double getEnergy() {
+		return getEnergy(resPairs);
+	}
+	
+	private double getEnergy(ResPair[] resPairs) {
 		
 		// check broken-ness first. easy peasy
 		if (isBroken) {
@@ -474,9 +477,66 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		return energy;
 	}
 	
+	private ResPair[] makeResPairsSubset(Residue res) {
+	
+		// pass 1: count
+		int num = 0;
+		for (ResPair resPair : resPairs) {
+			if (resPair.res1 == res || resPair.res2 == res) {
+				num++;
+			}
+		}
+		
+		// pass 2: collect
+		ResPair[] pairs = new ResPair[num];
+		num = 0;
+		for (ResPair resPair : resPairs) {
+			if (resPair.res1 == res || resPair.res2 == res) {
+				pairs[num++] = resPair;
+			}
+		}
+		return pairs;
+	}
+	
 	@Override
 	public List<EnergyFunction> decomposeByDof(Molecule mol, List<DegreeOfFreedom> dofs) {
-		// TODO: just pick a subset of the ResPair list
-		return null;
+		
+		class Subset implements EnergyFunction {
+			
+			private static final long serialVersionUID = 4664215035458391734L;
+			
+			private ResPair[] resPairs;
+			
+			@Override
+			public double getEnergy() {
+				return ResidueForcefieldEnergy.this.getEnergy(resPairs);
+			}
+		}
+		
+		Map<Residue,Subset> cache = new HashMap<>();
+		
+		List<EnergyFunction> efuncs = new ArrayList<>();
+		for (DegreeOfFreedom dof : dofs) {
+			Residue res = dof.getResidue();
+			
+			if (res == null) {
+				
+				// no res, just use the whole efunc
+				efuncs.add(this);
+				
+			} else {
+				
+				// make a subset energy function
+				Subset subset = cache.get(res);
+				if (subset == null) {
+					subset = new Subset();
+					subset.resPairs = makeResPairsSubset(res);
+					cache.put(res, subset);
+				}
+				efuncs.add(subset);
+			}
+		}
+		
+		return efuncs;
 	}
 }
