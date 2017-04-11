@@ -12,8 +12,7 @@ import org.junit.Test;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.parallelism.Parallelism;
-import edu.duke.cs.osprey.structure.AtomConnectivity.AtomPair;
-import edu.duke.cs.osprey.structure.AtomConnectivity.AtomPairList;
+import edu.duke.cs.osprey.structure.AtomConnectivity.AtomPairs;
 
 
 public class TestAtomConnectivity {
@@ -34,61 +33,8 @@ public class TestAtomConnectivity {
 		
 		connectivity = new AtomConnectivity.Builder()
 			.setConfSpace(confSpace)
-			.setParallelism(Parallelism.makeCpu(4))
+			.setParallelism(Parallelism.makeCpu(1))
 			.build();
-	}
-	
-	@Test
-	public void pairDirectionsSame() {
-		
-		// the same adjacent residues in different orders should get the same atom pairs
-		
-		// VAL->LEU pair
-		Residue val25 = strand.mol.getResByPDBResNumber("25");
-		assertThat(val25.template.name, is("VAL"));
-		Residue leu26 = strand.mol.getResByPDBResNumber("26");
-		assertThat(leu26.template.name, is("LEU"));
-		AtomPairList pairs1 = connectivity.getAtomPairs(strand.mol, val25, leu26);
-		AtomPairList pairs2 = connectivity.getAtomPairs(strand.mol, leu26, val25);
-		assertThat(pairs1 == pairs2, is(true));
-	}
-	
-	@Test
-	public void pairDirectionsDifferent() {
-		
-		// different adjacent residues should get different atom pairs
-		
-		// VAL->LEU pair
-		Residue val25 = strand.mol.getResByPDBResNumber("25");
-		assertThat(val25.template.name, is("VAL"));
-		Residue leu26 = strand.mol.getResByPDBResNumber("26");
-		assertThat(leu26.template.name, is("LEU"));
-		AtomPairList pairs1 = connectivity.getAtomPairs(strand.mol, val25, leu26);
-		
-		// LEU->VAL pair
-		Residue leu44 = strand.mol.getResByPDBResNumber("44");
-		assertThat(leu44.template.name, is("LEU"));
-		Residue val45 = strand.mol.getResByPDBResNumber("45");
-		assertThat(val45.template.name, is("VAL"));
-		AtomPairList pairs2 = connectivity.getAtomPairs(strand.mol, leu44, val45);
-		
-		assertThat(pairs1 == pairs2, is(false));
-	}
-	
-	@Test
-	public void separateDirections() {
-		
-		// non-adjacent residues in different orders should get the same atom pairs
-		
-		// VAL->LEU pair
-		Residue val25 = strand.mol.getResByPDBResNumber("25");
-		assertThat(val25.template.name, is("VAL"));
-		Residue gln43 = strand.mol.getResByPDBResNumber("43");
-		assertThat(gln43.template.name, is("GLN"));
-		AtomPairList pairs1 = connectivity.getAtomPairs(strand.mol, val25, gln43);
-		AtomPairList pairs2 = connectivity.getAtomPairs(strand.mol, gln43, val25);
-		
-		assertThat(pairs1 == pairs2, is(true));
 	}
 	
 	@Test
@@ -134,6 +80,7 @@ public class TestAtomConnectivity {
 	
 	// this test takes a really long time (~10 minutes)
 	// you probably only want to run it if you're tracking a specific bug
+	// NOPE: it takes about 30 seconds now after the latest optimizations, but meh
 	//@Test
 	public void allSeparatePairs() {
 		
@@ -175,7 +122,7 @@ public class TestAtomConnectivity {
 	
 	private void assertResiduePair(Residue res1, Residue res2) {
 		
-		AtomPairList pairs = connectivity.getAtomPairs(strand.mol, res1, res2);
+		AtomPairs pairs = connectivity.getAtomPairs(strand.mol, res1, res2);
 		
 		if (pairs == null) {
 			fail("no pairs for residue types: " + res1.template.name + ", " + res2.template.name);
@@ -185,11 +132,10 @@ public class TestAtomConnectivity {
 			
 			List<int[]> typedPairs = AtomNeighbors.getPairIndicesByType(res1.atoms, res2.atoms, res1 == res2, neighborType);
 			
-			String desc = String.format("%d:%-14s - %d:%-14s - %s --> %s - %s",
+			String desc = String.format("%d:%-14s - %d:%-14s - %s",
 				res1.indexInMolecule, res1.template,
 				res2.indexInMolecule, res2.template,
-				neighborType,
-				pairs.templa, pairs.templb
+				neighborType
 			);
 			
 			// check that the pairs from the connectivity lookup match the brute force search
@@ -197,29 +143,25 @@ public class TestAtomConnectivity {
 		}
 	}
 
-	private void assertAtomPairs(String desc, Residue res1, Residue res2, AtomNeighbors.Type neighborType, AtomPairList pairs, List<int[]> typedPairs) {
-		
-		// count the pairs of this type
-		long numPairsOfType = pairs.pairs.stream()
-			.filter((AtomPair pair) -> pair.type == neighborType)
-			.count();
+	private void assertAtomPairs(String desc, Residue res1, Residue res2, AtomNeighbors.Type neighborType, AtomPairs pairs, List<int[]> typedPairs) {
 		
 		// try to match each typed pair
-		long matched = 0;
+		int matched = 0;
 		for (int[] typedPair : typedPairs) {
 			assertThat(
-				desc + "\natom pair not found: " + Arrays.toString(typedPair) + "\nin: " + pairs.pairs,
-				findAtomPair(res1, res2, pairs, typedPair), is(true)
+				desc + "\natom pair not found: " + Arrays.toString(typedPair) + "\nin: " + pairs.dumpPairs(neighborType),
+				findAtomPair(res1, res2, pairs, neighborType, typedPair),
+				is(true)
 			);
 			matched++;
 		}
 		
-		assertThat(desc, matched, is(numPairsOfType));
+		assertThat(desc, matched, is(pairs.getNumPairs(neighborType)));
 	}
 
-	private boolean findAtomPair(Residue res1, Residue res2, AtomPairList pairs, int[] typedPair) {
-		for (int i=0; i<pairs.size(); i++) {
-			if (pairs.getIndex1(res1, res2, i) == typedPair[0] && pairs.getIndex2(res1, res2, i) == typedPair[1]) {
+	private boolean findAtomPair(Residue res1, Residue res2, AtomPairs pairs, AtomNeighbors.Type neighborType, int[] typedPair) {
+		for (int[] pair : pairs.getPairs(neighborType)) {
+			if (pair[0] == typedPair[0] && pair[1] == typedPair[1]) {
 				return true;
 			}
 		}

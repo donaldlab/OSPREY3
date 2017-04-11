@@ -1,6 +1,8 @@
 package edu.duke.cs.osprey.structure;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -45,91 +47,29 @@ public class AtomConnectivity {
 		}
 	}
 	
-	public static class AtomPair {
+	public static class AtomPairs {
 		
-		public final int index1;
-		public final int index2;
-		public final AtomNeighbors.Type type;
+		private int[][][] pairsByType = new int[AtomNeighbors.Type.values().length][][];
 		
-		public AtomPair(int index1, int index2, AtomNeighbors.Type type) {
-			this.index1 = index1;
-			this.index2 = index2;
-			this.type = type;
-		}
-		
-		@Override
-		public String toString() {
-			return String.format("%d - %d - %s", index1, index2, type);
-		}
-		
-		public String toString(List<Atom> atoms1, List<Atom> atoms2) {
-			return String.format("%d:%s - %d:%s - %s", index1, atoms1.get(index1).name, index2, atoms2.get(index2).name, type);
-		}
-	}
-	
-	public static class AtomPairList {
-		
-		public final ResidueTemplate templa;
-		public final ResidueTemplate templb;
-		public final List<AtomPair> pairs;
-		
-		private int[] numAtomPairsByConnectivity;
-		
-		public AtomPairList(ResidueTemplate templa, ResidueTemplate templb) {
-			assert (templa != null);
-			assert (templb != null);
-			this.templa = templa;
-			this.templb = templb;
-			this.pairs = new ArrayList<>();
-			numAtomPairsByConnectivity = null;
-		}
-		
-		public int size() {
-			return pairs.size();
-		}
-		
-		// residues in the cache might be in a different order and than the query
-		// so these are little helper methods to swap the residue order when needed
-		
-		public int getIndex1(Residue res1, Residue res2, int i) {
-			if (res1.template == templa && res2.template == templb) {
-				return pairs.get(i).index1;
-			} else if (res1.template == templb && res2.template == templa) {
-				return pairs.get(i).index2;
-			} else {
-				throw new IllegalArgumentException(String.format("Residue templates %s, %d don't match atom pair templates: %s, %s",
-					res1.template, res2.template, templa, templb
-				));
-			}
-		}
-		
-		public int getIndex2(Residue res1, Residue res2, int i) {
-			if (res1.template == templa && res2.template == templb) {
-				return pairs.get(i).index2;
-			} else if (res1.template == templb && res2.template == templa) {
-				return pairs.get(i).index1;
-			} else {
-				throw new IllegalArgumentException(String.format("Residue templates %s, %d don't match atom pair templates: %s, %s",
-					res1.template, res2.template, templa, templb
-				));
-			}
-		}
-		
-		public AtomNeighbors.Type getType(int i) {
-			return pairs.get(i).type;
-		}
-		
-		private void updateCounts() {
-			numAtomPairsByConnectivity = new int[pairs.size()];
-			for (AtomNeighbors.Type type : AtomNeighbors.Type.values()) {
-				numAtomPairsByConnectivity[type.ordinal()] = (int)pairs.stream()
-					.filter((AtomPair pair) -> pair.type == type)
-					.count();
-			}
+		public int[][] getPairs(AtomNeighbors.Type type) {
+			return pairsByType[type.ordinal()];
 		}
 		
 		public int getNumPairs(AtomNeighbors.Type type) {
-			return numAtomPairsByConnectivity[type.ordinal()];
+			return getPairs(type).length;
+		}
+		
+		public String dumpPairs(AtomNeighbors.Type type) {
+			StringBuilder buf = new StringBuilder();
+			buf.append("[");
+			for (int i=0; i<getNumPairs(type); i++) {
+				if (buf.length() > 1) {
+					buf.append(", ");
+				}
+				buf.append(Arrays.toString(getPairs(type)[i]));
+			}
+			buf.append("]");
+			return buf.toString();
 		}
 	}
 	
@@ -157,17 +97,20 @@ public class AtomConnectivity {
 		
 		private ResidueTemplate templ1;
 		private ResidueTemplate templ2;
+		private boolean isForward;
 		
-		public Key2(ResidueTemplate templ1, ResidueTemplate templ2) {
+		public Key2(ResidueTemplate templ1, ResidueTemplate templ2, boolean isForward) {
 			this.templ1 = templ1;
 			this.templ2 = templ2;
+			this.isForward = isForward;
 		}
 		
 		@Override
 		public int hashCode() {
 			return HashCalculator.combineHashes(
 				System.identityHashCode(templ1),
-				System.identityHashCode(templ2)
+				System.identityHashCode(templ2),
+				Boolean.hashCode(isForward)
 			);
 		}
 		
@@ -175,7 +118,8 @@ public class AtomConnectivity {
 		public boolean equals(Object obj) {
 			Key2 other = (Key2)obj;
 			return this.templ1 == other.templ1
-				&& this.templ2 == other.templ2;
+				&& this.templ2 == other.templ2
+				&& this.isForward == other.isForward;
 		}
 	}
 	
@@ -191,7 +135,7 @@ public class AtomConnectivity {
 		
 		@Override
 		public int hashCode() {
-			return HashCalculator.combineHashesCommutative(
+			return HashCalculator.combineHashes(
 				System.identityHashCode(templ1),
 				System.identityHashCode(templ2)
 			);
@@ -200,16 +144,14 @@ public class AtomConnectivity {
 		@Override
 		public boolean equals(Object obj) {
 			KeySeparate other = (KeySeparate)obj;
-			return
-				(this.templ1 == other.templ1 && this.templ2 == other.templ2)
-				|| (this.templ1 == other.templ2 && this.templ2 == other.templ1);
+			return this.templ1 == other.templ1 && this.templ2 == other.templ2;
 		}
 	}
 	
 	private TaskExecutor tasks;
-	private Map<Key1,AtomPairList> atomPairs1;
-	private Map<Key2,AtomPairList> atomPairs2;
-	private Map<KeySeparate,AtomPairList> atomPairsSeparate;
+	private Map<Key1,AtomPairs> atomPairs1;
+	private Map<Key2,AtomPairs> atomPairs2;
+	private Map<KeySeparate,AtomPairs> atomPairsSeparate;
 	
 	private AtomConnectivity(SimpleConfSpace confSpace, Molecule mol, Parallelism parallelism) {
 		
@@ -253,7 +195,7 @@ public class AtomConnectivity {
 			ResidueTemplate templ1  = templates.get(i);
 			tasks.submit(
 				() -> makeSingle(templ1),
-				(AtomPairList pairs) -> {
+				(AtomPairs pairs) -> {
 					boolean wasAdded = atomPairs1.put(new Key1(templ1), pairs) == null;
 					assert (wasAdded);
 				}
@@ -267,11 +209,22 @@ public class AtomConnectivity {
 			ResidueTemplate templ1  = templates.get(i);
 			for (int j=0; j<templates.size(); j++) {
 				ResidueTemplate templ2  = templates.get(j);
+				
+				// make the forward order
 				tasks.submit(
 					() -> makeDouble(templ1, templ2),
-					(AtomPairList pairs) -> {
-						boolean wasAdded = atomPairs2.put(new Key2(templ1, templ2), pairs) == null;
+					(AtomPairs pairs) -> {
+						boolean wasAdded = atomPairs2.put(new Key2(templ1, templ2, true), pairs) == null;
 						assert (wasAdded);
+						
+						// make the reverse order
+						tasks.submit(
+							() -> makeSwappedPairs(pairs),
+							(AtomPairs swappedPairs) -> {
+								boolean wasSwappedAdded = atomPairs2.put(new Key2(templ1, templ2, false), swappedPairs) == null;
+								assert (wasSwappedAdded);
+							}
+						);
 					}
 				);
 			}
@@ -284,11 +237,24 @@ public class AtomConnectivity {
 			ResidueTemplate templ1  = templates.get(i);
 			for (int j=0; j<=i; j++) {
 				ResidueTemplate templ2  = templates.get(j);
+				
+				// make the forward order
 				tasks.submit(
 					() -> makeSeparate(templ1, templ2),
-					(AtomPairList pairs) -> {
+					(AtomPairs pairs) -> {
 						boolean wasAdded = atomPairsSeparate.put(new KeySeparate(templ1, templ2), pairs) == null;
 						assert (wasAdded);
+						
+						// make the reverse order if needed
+						if (templ1 != templ2) {
+							tasks.submit(
+								() -> makeSwappedPairs(pairs),
+								(AtomPairs swappedPairs) -> {
+									boolean wasSwappedAdded = atomPairsSeparate.put(new KeySeparate(templ2, templ1), swappedPairs) == null;
+									assert (wasSwappedAdded);
+								}
+							);
+						}
 					}
 				);
 			}
@@ -296,7 +262,7 @@ public class AtomConnectivity {
 		tasks.waitForFinish();
 	}
 	
-	public AtomPairList getAtomPairs(Molecule mol, Residue res1, Residue res2) {
+	public AtomPairs getAtomPairs(Molecule mol, Residue res1, Residue res2) {
 		
 		// do we want intra pairs?
 		if (res1 == res2) {
@@ -305,22 +271,22 @@ public class AtomConnectivity {
 	
 		// are they bonded together?
 		if (isDipeptide(res1, res2)) {
-			// res1 first, then res2 adjacent
-			return atomPairs2.get(new Key2(res1.template, res2.template));
+			// yup, in forward order
+			return atomPairs2.get(new Key2(res1.template, res2.template, true));
 		} else if (isDipeptide(res2, res1)) {
-			// res2 first, then res1 adjacent
-			return atomPairs2.get(new Key2(res2.template, res1.template));
+			// yup, in reverse order
+			return atomPairs2.get(new Key2(res2.template, res1.template, false));
 		} else {
-			// res1 and res2 are separated by at least one residue, or not bonded
+			// res1 and res2 are not bonded
 			return atomPairsSeparate.get(new KeySeparate(res1.template, res2.template));
 		}
 	}
 	
-	private AtomPairList makeSingle(ResidueTemplate templ) {
+	private AtomPairs makeSingle(ResidueTemplate templ) {
 		return makeAtomPairs(templ, templ.templateRes, templ, templ.templateRes);
 	}
 	
-	private AtomPairList makeDouble(ResidueTemplate templ1, ResidueTemplate templ2) {
+	private AtomPairs makeDouble(ResidueTemplate templ1, ResidueTemplate templ2) {
 		
 		Residue res1 = makeResidue(templ1);
 		Residue res2 = makeResidue(templ2);
@@ -331,7 +297,7 @@ public class AtomConnectivity {
 		return makeAtomPairs(templ1, res1, templ2, res2);
 	}
 	
-	private AtomPairList makeSeparate(ResidueTemplate templ1, ResidueTemplate templ2) {
+	private AtomPairs makeSeparate(ResidueTemplate templ1, ResidueTemplate templ2) {
 		
 		Residue res1 = makeResidue(templ1);
 		Residue res2 = makeResidue(templ2);
@@ -377,14 +343,18 @@ public class AtomConnectivity {
 		return C.bonds.contains(N);
 	}
 	
-	private AtomPairList makeAtomPairs(ResidueTemplate templ1, Residue res1, ResidueTemplate templ2, Residue res2) {
-		
-		AtomPairList pairs = new AtomPairList(templ1, templ2);
+	private AtomPairs makeAtomPairs(ResidueTemplate templ1, Residue res1, ResidueTemplate templ2, Residue res2) {
 		
 		// just in case...
 		assert (templ1.templateRes.atoms.size() == res1.atoms.size());
 		assert (templ2.templateRes.atoms.size() == res2.atoms.size());
 		
+		Map<AtomNeighbors.Type,List<int[]>> pairsByType = new EnumMap<>(AtomNeighbors.Type.class);
+		for (AtomNeighbors.Type type : AtomNeighbors.Type.values()) {
+			pairsByType.put(type, new ArrayList<>());
+		}
+		
+		// collect all the atom pairs by type
 		for (int i=0; i<res1.atoms.size(); i++) {
 			Atom atom1 = res1.atoms.get(i);
 			
@@ -399,19 +369,42 @@ public class AtomConnectivity {
 			for (int j=0; j<n; j++) {
 				Atom atom2 = res2.atoms.get(j);
 				
-				pairs.pairs.add(new AtomPair(i, j, neighbors.classifyAtom(atom2)));
+				AtomNeighbors.Type type = neighbors.classifyAtom(atom2);
+				pairsByType.get(type).add(new int[] { i, j });
 			}
 		}
-		
-		// just in case...
-		if (res1 == res2) {
-			assert (pairs.pairs.size() == res1.atoms.size()*(res1.atoms.size() - 1)/2);
-		} else {
-			assert (pairs.pairs.size() == res1.atoms.size()*res2.atoms.size());
+
+		// make the atom pairs
+		AtomPairs pairs = new AtomPairs();
+		for (Map.Entry<AtomNeighbors.Type,List<int[]>> entry : pairsByType.entrySet()) {
+			AtomNeighbors.Type type = entry.getKey();
+			List<int[]> atomPairs = entry.getValue();
+			pairs.pairsByType[type.ordinal()] = new int[atomPairs.size()][2];
+			atomPairs.toArray(pairs.pairsByType[type.ordinal()]);
 		}
 		
-		pairs.updateCounts();
-		
 		return pairs;
+	}
+	
+	private AtomPairs makeSwappedPairs(AtomPairs pairs) {
+		
+		AtomPairs swapped = new AtomPairs();
+		
+		for (AtomNeighbors.Type type : AtomNeighbors.Type.values()) {
+			
+			int n = pairs.getNumPairs(type);
+			
+			int[][] swappedTypedPairs = new int[n][2];
+			int[][] typedPairs = pairs.getPairs(type);
+			
+			for (int i=0; i<n; i++) {
+				swappedTypedPairs[i][0] = typedPairs[i][1];
+				swappedTypedPairs[i][1] = typedPairs[i][0];
+			}
+			
+			swapped.pairsByType[type.ordinal()] = swappedTypedPairs;
+		}
+		
+		return swapped;
 	}
 }
