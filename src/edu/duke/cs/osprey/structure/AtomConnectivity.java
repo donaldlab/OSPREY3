@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.structure;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -24,7 +25,7 @@ public class AtomConnectivity {
 	public static class Builder {
 		
 		private SimpleConfSpace confSpace = null;
-		private Molecule mol = null;
+		private Collection<Residue> residues = null;
 		private Parallelism parallelism = Parallelism.makeCpu(1);
 	
 		public Builder setConfSpace(SimpleConfSpace val) {
@@ -32,8 +33,8 @@ public class AtomConnectivity {
 			return this;
 		}
 		
-		public Builder setMolecule(Molecule val) {
-			mol = val;
+		public Builder setResidues(Collection<Residue> val) {
+			residues = val;
 			return this;
 		}
 		
@@ -43,7 +44,7 @@ public class AtomConnectivity {
 		}
 		
 		public AtomConnectivity build() {
-			return new AtomConnectivity(confSpace, mol, parallelism);
+			return new AtomConnectivity(confSpace, residues, parallelism);
 		}
 	}
 	
@@ -153,7 +154,7 @@ public class AtomConnectivity {
 	private Map<Key2,AtomPairs> atomPairs2;
 	private Map<KeySeparate,AtomPairs> atomPairsSeparate;
 	
-	private AtomConnectivity(SimpleConfSpace confSpace, Molecule mol, Parallelism parallelism) {
+	private AtomConnectivity(SimpleConfSpace confSpace, Collection<Residue> residues, Parallelism parallelism) {
 		
 		tasks = parallelism.makeTaskExecutor();
 		
@@ -171,8 +172,8 @@ public class AtomConnectivity {
 				}
 			}
 		}
-		if (mol != null) {
-			for (Residue res : mol.residues) {
+		if (residues != null) {
+			for (Residue res : residues) {
 				templatesSet.add(res.template);
 			}
 		}
@@ -262,7 +263,7 @@ public class AtomConnectivity {
 		tasks.waitForFinish();
 	}
 	
-	public AtomPairs getAtomPairs(Molecule mol, Residue res1, Residue res2) {
+	public AtomPairs getAtomPairs(Residue res1, Residue res2) {
 		
 		// do we want intra pairs?
 		if (res1 == res2) {

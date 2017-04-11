@@ -4,6 +4,7 @@ import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.junit.BeforeClass;
@@ -135,7 +136,7 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 	
 	private void assertEnergies(MinimizingFragmentEnergyCalculator.Builder builder) {
 		
-		for (EnergyPartition epart : EnergyPartition.values()) {
+		for (EnergyPartition epart : Arrays.asList(new EnergyPartition.Traditional(), new EnergyPartition.AllOnPairs())) {
 		
 			MinimizingConfEnergyCalculator ecalc = new MinimizingConfEnergyCalculator.Builder(builder.build())
 				.setEnergyPartition(epart)

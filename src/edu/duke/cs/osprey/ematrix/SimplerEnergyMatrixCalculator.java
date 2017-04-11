@@ -35,7 +35,7 @@ public class SimplerEnergyMatrixCalculator {
 		/**
 		 * How energies should be paritioned among single and pair fragments.
 		 */
-		private EnergyPartition epart = EnergyPartition.Traditional;
+		private EnergyPartition epart = new EnergyPartition.Traditional();
 		
 		private SimpleReferenceEnergies eref = null;
 		

@@ -122,7 +122,7 @@ public class TestAtomConnectivity {
 	
 	private void assertResiduePair(Residue res1, Residue res2) {
 		
-		AtomPairs pairs = connectivity.getAtomPairs(strand.mol, res1, res2);
+		AtomPairs pairs = connectivity.getAtomPairs(res1, res2);
 		
 		if (pairs == null) {
 			fail("no pairs for residue types: " + res1.template.name + ", " + res2.template.name);

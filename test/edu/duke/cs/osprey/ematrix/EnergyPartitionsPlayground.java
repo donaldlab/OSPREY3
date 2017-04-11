@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.ematrix;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.scoring.mplp.EdgeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
@@ -22,7 +23,7 @@ public class EnergyPartitionsPlayground {
 		
 		// configure flexibility
 		
-		for (int i=2; i<=6; i++) {
+		for (int i=2; i<=13; i++) {
 			strand.flexibility.get(i).setLibraryRotamers("LEU", "ILE").setContinuous();
 		}
 		for (int i=2; i<=3; i++) {
@@ -54,21 +55,19 @@ public class EnergyPartitionsPlayground {
 		// compute the energy matrix
 		EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, fragEcalc)
 			.setReferenceEnergies(eref)
-			//.setEnergyPartition(EnergyPartition.Traditional)
-			.setEnergyPartition(EnergyPartition.AllOnPairs)
+			.setEnergyPartition(new EnergyPartition.Traditional())
+			//.setEnergyPartition(new EnergyPartition.AllOnPairs())
 			.build()
 			.calcEnergyMatrix();
 		
 		// how should confs be ordered?
 		ConfSearch confSearch = new ConfAStarTree.Builder(emat, confSpace)
-			.setTraditional()
-			/*
+			//.setTraditional()
 			.setMPLP(
 				new ConfAStarTree.MPLPBuilder()
 					.setUpdater(new EdgeUpdater())
-					.setNumIterations(1)
+					.setNumIterations(5)
 			)
-			*/
 			.setShowProgress(true)
 			.build();
 	

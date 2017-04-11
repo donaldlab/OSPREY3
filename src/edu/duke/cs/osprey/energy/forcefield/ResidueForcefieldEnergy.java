@@ -2,10 +2,12 @@ package edu.duke.cs.osprey.energy.forcefield;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
@@ -46,22 +48,29 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		// layout per atom pair: charge, Aij, Bij, radius1, lambda1, alpha1, radius2, lambda2, alpha2
 		public double[] precomputed = null;
 		
-		public ResPair(Molecule mol, ResidueInteractions.Pair pair) {
+		public ResPair(Collection<Residue> residues, ResidueInteractions.Pair pair) {
 			
-			this.res1 = mol.getResByPDBResNumber(pair.resNum1);
-			this.res2 = mol.getResByPDBResNumber(pair.resNum2);
+			this.res1 = findRes(residues, pair.resNum1);
+			this.res2 = findRes(residues, pair.resNum2);
 			
 			this.weight = pair.weight;
 			this.offset = pair.offset;
 		}
 	}
 	
+	private static Residue findRes(Collection<Residue> residues, String resNum) {
+		for (Residue res : residues) {
+			if (res.getPDBResNumber().equals(resNum)) {
+				return res;
+			}
+		}
+		throw new NoSuchElementException("no residue " + resNum + " found in " + residues);
+	}
+	
 	public final ForcefieldParams params;
 	public final ResidueInteractions inters;
-	public final Molecule mol;
 	public final AtomConnectivity connectivity;
 	
-	private Residue[] residues;
 	private ResPair[] resPairs;
 	
 	private boolean isBroken;
@@ -101,24 +110,20 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 	*/
 	
 	public ResidueForcefieldEnergy(ForcefieldParams params, ResidueInteractions inters, Molecule mol, AtomConnectivity connectivity) {
+		this(params, inters, mol.residues, connectivity);
+	}
+	
+	public ResidueForcefieldEnergy(ForcefieldParams params, ResidueInteractions inters, Collection<Residue> residues, AtomConnectivity connectivity) {
 		
 		this.params = params;
 		this.inters = inters;
-		this.mol = mol;
 		this.connectivity = connectivity;
 		
-		int index;
-		
-		// map the residues and pairs to the molecule
-		residues = new Residue[inters.getResidueNumbers().size()];
-		index = 0;
-		for (String resNum : inters.getResidueNumbers()) {
-			residues[index++] = mol.getResByPDBResNumber(resNum);
-		}
+		// map the residue numbers to residues
 		resPairs = new ResPair[inters.size()];
-		index = 0;
+		int index = 0;
 		for (ResidueInteractions.Pair pair : inters) {
-			resPairs[index++] = new ResPair(mol, pair);
+			resPairs[index++] = new ResPair(residues, pair);
 		}
 		
 		// is this a broken conformation?
@@ -138,12 +143,11 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		
 		// TODO: can make lookup table by template for this
 		// pre-compute internal solvation energies if needed
-		double[] internalSolvEnergies;
+		Map<Residue,Double> internalSolvEnergies;
 		switch (params.solvationForcefield) {
 			
 			case EEF1:
-				internalSolvEnergies = new double[mol.residues.size()];
-				Arrays.fill(internalSolvEnergies, Double.NaN);
+				internalSolvEnergies = new HashMap<>();
 				SolvParams solvparams = new SolvParams();
 				for (Residue res : residues) {
 					
@@ -157,7 +161,7 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 					}
 					energy *= params.solvScale;
 					
-					internalSolvEnergies[res.indexInMolecule] = energy;
+					internalSolvEnergies.put(res, energy);
 				}
 			break;
 			
@@ -195,7 +199,7 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		// build the atom pairs
 		for (ResPair pair : resPairs) {
 			
-			AtomPairs atomPairs = connectivity.getAtomPairs(mol, pair.res1, pair.res2);
+			AtomPairs atomPairs = connectivity.getAtomPairs(pair.res1, pair.res2);
 			
 			// count the number of atom pairs and allocate space 
 			pair.numAtomPairs = atomPairs.getNumPairs(AtomNeighbors.Type.BONDED14) + atomPairs.getNumPairs(AtomNeighbors.Type.NONBONDED);
@@ -280,7 +284,7 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 				switch (params.solvationForcefield) {
 					
 					case EEF1:
-						pair.offset += internalSolvEnergies[pair.res1.indexInMolecule];
+						pair.offset += internalSolvEnergies.get(pair.res1)*pair.weight;
 					break;
 					
 					default:
