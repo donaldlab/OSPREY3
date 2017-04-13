@@ -12,6 +12,8 @@ import edu.duke.cs.osprey.partitionfunctionbounds.continuous.CMRFNodeDomain;
 import edu.duke.cs.osprey.partitionfunctionbounds.continuous.EnergyFunctionMap;
 import edu.duke.cs.osprey.partitionfunctionbounds.continuous.Kernel;
 import edu.duke.cs.osprey.partitionfunctionbounds.continuous.KernelGaussian;
+import edu.duke.cs.osprey.partitionfunctionbounds.continuous.RCData;
+import edu.duke.cs.osprey.partitionfunctionbounds.continuous.RCDatum;
 import edu.duke.cs.osprey.partitionfunctionbounds.continuous.SCMF;
 import edu.duke.cs.osprey.partitionfunctionbounds.continuous.TRBP;
 import edu.duke.cs.osprey.pruning.PruningControl;
@@ -35,10 +37,11 @@ public class CMRFDoer {
 		cfp.loadData();
 
 		//make sure weare doing continuous minimization
+		/*
 		if(!cfp.getParams().getBool("DOMINIMIZE")||!cfp.getParams().getBool("IMINDEE"))
 			throw new RuntimeException("ERROR: CMRF requires continuous minimization. "+
 					"Set IMINDEE and DOMINIMIZE to true");
-
+	    */
 		numStates = cfp.getParams().getInt("NUMOFSTRANDS")+1;
 
 		//create searchproblem for each (un)bound state
@@ -110,6 +113,8 @@ public class CMRFDoer {
 		//		System.exit(0);
 
 		EnergyFunctionMap efm = new EnergyFunctionMap(search[2], null);
+		RCDatum.EFM = efm;
+		RCData.EFM = efm;
 		efm.populateOneBodyRCData();
 		//efm.populateOneBody2Energy();
 		//efm.populatePairWise2Energy();
@@ -126,12 +131,14 @@ public class CMRFDoer {
 		for(int residue=0; residue<kdb.length; ++residue) {
 
 			kdb[residue] = efm.getKernelDomainBounds(residue);
-
-			k[residue] = new KernelGaussian(kdb[residue], 10);
+			
+			k[residue] = new KernelGaussian(kdb[residue], 1.0);
 
 			final int fresidue = residue;
-			nd[residue] = new CMRFNodeDomain(efm.getNode(residue).getDOFMin(), efm.getNode(residue).getDOFMax(), 
-					k[residue], (point)->(efm.getNode(fresidue).getEnergy()));
+			nd[residue] = new CMRFNodeDomain(efm.getNode(residue).getDOFMin(), 
+					efm.getNode(residue).getDOFMax(), 
+					k[residue],
+					(point)->(efm.getNode(fresidue).getEnergy(point)));
 
 			ndMap.put(residue, new CMRFNodeDomain[]{nd[residue]});
 		}
@@ -152,7 +159,7 @@ public class CMRFDoer {
 					HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>> map3 = new HashMap<>();
 					for (CMRFNodeDomain d2 : ndMap.get(j)) {
 						final int fi = i, fj = j;
-						map3.put(d2, (point)->(efm.getPairWiseEnergy(efm.getNode(fi), efm.getNode(fj))));
+						map3.put(d2, (point)->efm.addPairWise(efm.getNode(fi), efm.getNode(fj)).getEnergy(point));
 					}
 					map2.put(d1, map3);
 				}
