@@ -33,11 +33,11 @@ public class CMRF {
 	public double[][] edgeWeights; // holds mutual information terms for TRBP 
 	public CMRFEdge[][] edges;
 
-	double threshold = 5E-5;
+	double threshold = 0.5; // threshold for convergence
 	double constRT = PoissonBoltzmannEnergy.constRT;
 	int maxIters = 1000000;
 	double lambda = 0.7;
-	double logThreshold = 1E-10;
+	static double logThreshold = 1E-75; // terrible name, but this is the "floor" for all function values
 
 	boolean nodesAdded = false;
 	boolean ranSCMF = false;
@@ -243,14 +243,17 @@ public class CMRF {
 
 		for (int i=0; i<funcs.length; i++) { 
 			double factor = Math.pow(funcs[i].eval(point), powers[i]);
-
-			boolean allSmallCoeffs = true;
-			for (double coeff : funcs[i].coeffs) { 
-				allSmallCoeffs = allSmallCoeffs & (coeff < 0.00001);
+			
+			boolean underflow = true;
+			for (double d : funcs[i].coeffs) { 
+				if (Double.isNaN(d)) { underflow = false; } 
+			}
+			for (double pow : powers) { 
+				if (Double.isNaN(pow)) { underflow = false; }
 			}
 			
 			if (Double.isNaN(factor)) { 
-				if (allSmallCoeffs) { factor = 0.0; }
+				if (underflow) { factor = 0.0; }
 				else { throw new RuntimeException("NaN power of function."); }
 			}
 			result *= factor;
@@ -375,7 +378,7 @@ public class CMRF {
 	 * @param y
 	 * @return
 	 */
-	public double functionFloor(double x) { 
+	public static double functionFloor(double x) { 
 		return (Double.isNaN(x) || x<logThreshold) ? logThreshold : x; 
 	}
 

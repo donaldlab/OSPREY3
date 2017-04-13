@@ -102,7 +102,7 @@ public class CMRFEdgeDomain {
 	double totalEnergy = eFuncRKHS.computeIntegral();
 
 
-	this.pFunc = (point)->(Math.exp(-eFunc.applyAsDouble(point)/constRT)/totalEnergy);
+	this.pFunc = (point)->(CMRF.functionFloor(Math.exp(-eFunc.applyAsDouble(point)/constRT)/totalEnergy));
 	this.pFuncRKHS = new RKHSFunction(
 			resAllK,
 			CMRFEdgeDomain.concatArrays(resOneLB, resTwoLB),
@@ -113,7 +113,7 @@ public class CMRFEdgeDomain {
 			resAllK,
 			CMRFEdgeDomain.concatArrays(resOneLB, resTwoLB),
 			CMRFEdgeDomain.concatArrays(resOneUB, resTwoUB),
-			(point)->Math.max(pFuncRKHS.eval(point)/edgeZ, 0));
+			(point)->(CMRF.functionFloor(pFuncRKHS.eval(point)/edgeZ)));
     }
 
     /**

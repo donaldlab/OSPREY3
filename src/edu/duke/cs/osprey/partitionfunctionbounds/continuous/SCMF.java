@@ -34,8 +34,8 @@ public class SCMF {
 			double enth = this.computeEnthalpySCMF();
 			double entr = this.computeEntropySCMF();
 
-			double freeEnergy = enth + entr;
-			double logZ = freeEnergy; // freeEnergy is a direct lower bound on logZ
+			double freeEnergy = enth - cmrf.constRT*entr;
+			double logZ =  - freeEnergy/cmrf.constRT; // freeEnergy is a direct lower bound on logZ
 
 			// break if the bound gets worse, i.e. we step over a local maximum
 //			if (logZ < oldLogZ) { 
@@ -238,8 +238,9 @@ public class SCMF {
 						d.domainUB,
 						(point) -> (
 								cmrf.functionFloor(
-										probabilityFunc.eval(point) * Math.log(-d.energyRKHS.eval(point)))));
+										probabilityFunc.eval(point) * d.energyRKHS.eval(point))));
 				double domEnth = enthalpyFunc.computeIntegral();
+				//System.out.println("SCMF domEnth: " + domEnth);
 				if (!Double.isNaN(domEnth)) { 
 					nodeEnthalpy += domEnth;
 				}

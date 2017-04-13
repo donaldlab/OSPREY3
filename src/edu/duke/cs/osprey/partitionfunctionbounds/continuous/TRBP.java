@@ -44,13 +44,13 @@ public class TRBP {
 			this.computePairwiseMarginalsTRBP();
 			System.out.println("done.");
 			
-			//this.updateEdgeProbsTRBP(iter);
+			this.updateEdgeProbsTRBP(iter);
 
 			double enth = this.computeEnthalpyTRBP();
 			double entr = this.computeEntropyTRBP();
 
 			double enrg = enth - cmrf.constRT*entr;
-			double logZ = Math.log(-enrg/cmrf.constRT);
+			double logZ = -enrg/cmrf.constRT;
 
 			System.out.println("enth: "+enth+", entr: "+entr+", enrg: " + enrg + ", logZUB: "+logZ);			
 			
@@ -644,10 +644,12 @@ public class TRBP {
 								pairwiseProbFunc.k,
 								pairwiseProbFunc.domainLB,
 								pairwiseProbFunc.domainUB,
-								(point) -> (pairwiseProbFunc.eval(point) * pairwiseEnergyFunc.eval(point)));
+								(point) -> (
+										cmrf.functionFloor(
+												pairwiseProbFunc.eval(point) * pairwiseEnergyFunc.eval(point))));
 						double pairwiseEnthalpy = pairwiseEnthalpyFunc.computeIntegral();
 						if (Double.isNaN(pairwiseEnthalpy)) { throw new RuntimeException("NaN enthalpy"); }
-						nodeEnthalpy += pairwiseEnthalpy;
+						nodeEnthalpy += 0.5 * cmrf.edgeProbs[recNodeIndex][nRecNodeInd] * pairwiseEnthalpy;
 					}
 				}
 			}
@@ -733,7 +735,7 @@ public class TRBP {
 					cmrf.edgeWeights[nodeInd][neighborInd] = mutualInf;
 					cmrf.edgeWeights[neighborInd][nodeInd] = mutualInf;
 
-					nodeEntropy += edgeEntropy/2.00;
+					nodeEntropy += 0.5 * edgeEntropy;
 				}
 			}
 			if (Double.isNaN(nodeEntropy)) { throw new RuntimeException("NaN entropy"); }
