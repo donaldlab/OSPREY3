@@ -14,6 +14,8 @@ public class RCData {
 		this.rcTuple = new RCTuple();
 		this.rcTuple.pos.addAll(one.getRCTuple().pos);
 		this.rcTuple.RCs.addAll(one.getRCTuple().RCs);
+		this.rcTuple.pos.addAll(two.getRCTuple().pos);
+		this.rcTuple.RCs.addAll(two.getRCTuple().RCs);
 		this.one = one;
 		this.two = two;
 		this.energy = EFM.getPairWiseEnergy(one, two);
@@ -24,7 +26,7 @@ public class RCData {
 		double[] dofMinTwo = two.getDOFMin(); double[] dofMaxTwo = two.getDOFMax();
 		double[] x = new double[dofMinOne.length+dofMinTwo.length];
 		double sumE = 0;
-		int numSamples = 25;
+		int numSamples = EnergyFunctionMap.numSamples;
 		
 		for(int i=0; i<numSamples; ++i) {
 			for(int dof = 0; dof < dofMinOne.length; ++dof) {
@@ -59,7 +61,7 @@ public class RCData {
 			}
 		}
 		
-		return sumE/(double)numSamples;
+		return (sumE+energy)/(double)(numSamples+1);
 	}
 	
 	public RCTuple getRCTuple() {

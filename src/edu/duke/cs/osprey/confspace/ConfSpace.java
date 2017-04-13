@@ -351,6 +351,7 @@ public class ConfSpace implements Serializable {
     }
     
     
+    
     public double minimizeEnergy(int[] conf, EnergyFunction efunc, String outputPDBFile){
         //minimize the energy of a conformation, within the DOF bounds indicated by conf (a list of RCs)
         //return the minimized energy
@@ -395,26 +396,9 @@ public class ConfSpace implements Serializable {
     }
     
     
-    public double getEnergy(int[] conf, double[] dihedralVals, EnergyFunction efunc, 
-    		boolean single, boolean pairWise) {
-    	
-    	RCTuple RCs = new RCTuple(conf);
+    public double getEnergy(RCTuple RCs, double[] dihedrals, EnergyFunction efunc) {
         MoleculeModifierAndScorer energy = new MoleculeModifierAndScorer(efunc,this,RCs);
-        
-        HashSet<Residue> residues = new HashSet<>();
-    	for(DegreeOfFreedom dof : energy.getDOFs()) {
-    		residues.add(dof.getResidue());
-    	}
-        
-    	// set dofvals
-    	energy.getValue(DoubleFactory1D.dense.make(dihedralVals));
-    	
-    	// restrict energy terms to single residues
-    	MultiTermEnergyFunction singleResMef = (MultiTermEnergyFunction) 
-    			((MultiTermEnergyFunction) energy.getEfunc()).
-    				makeResiduesEfunc(residues, single, pairWise);
-    	
-    	double E = singleResMef.getEnergy();
+    	double E = energy.getValue(DoubleFactory1D.dense.make(dihedrals));
     	return E;
     }
     

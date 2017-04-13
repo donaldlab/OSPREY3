@@ -95,27 +95,27 @@ public class CMRFEdgeDomain {
         // energy function, pdf, and associated RKHS representations 
 	this.eFunc = energyFunc;
 	this.eFuncRKHS = new RKHSFunction(
-		resAllK, 
-		CMRFEdgeDomain.concatArrays(resOneLB, resTwoLB),
-		CMRFEdgeDomain.concatArrays(resOneUB, resTwoUB),
-		eFunc);
+			resAllK, 
+			CMRFEdgeDomain.concatArrays(resOneLB, resTwoLB),
+			CMRFEdgeDomain.concatArrays(resOneUB, resTwoUB),
+			eFunc);
 	double totalEnergy = eFuncRKHS.computeIntegral();
-        
-        
+
+
 	this.pFunc = (point)->(Math.exp(-eFunc.applyAsDouble(point)/constRT)/totalEnergy);
-        this.pFuncRKHS = new RKHSFunction(
-                resAllK,
-                CMRFEdgeDomain.concatArrays(resOneLB, resTwoLB),
-                CMRFEdgeDomain.concatArrays(resOneUB, resTwoUB),
-                pFunc);
-        double edgeZ = pFuncRKHS.computeIntegral();
-        pFuncRKHS = new RKHSFunction(
-                resAllK,
-                CMRFEdgeDomain.concatArrays(resOneLB, resTwoLB),
-                CMRFEdgeDomain.concatArrays(resOneUB, resTwoUB),
-                (point)->Math.max(pFuncRKHS.eval(point)/edgeZ, 0));
+	this.pFuncRKHS = new RKHSFunction(
+			resAllK,
+			CMRFEdgeDomain.concatArrays(resOneLB, resTwoLB),
+			CMRFEdgeDomain.concatArrays(resOneUB, resTwoUB),
+			pFunc);
+	double edgeZ = pFuncRKHS.computeIntegral();
+	pFuncRKHS = new RKHSFunction(
+			resAllK,
+			CMRFEdgeDomain.concatArrays(resOneLB, resTwoLB),
+			CMRFEdgeDomain.concatArrays(resOneUB, resTwoUB),
+			(point)->Math.max(pFuncRKHS.eval(point)/edgeZ, 0));
     }
-    
+
     /**
      * Concatenates two arrays
      * @param arrOne
@@ -152,7 +152,7 @@ public class CMRFEdgeDomain {
      * @return 
      */
     public double getEnergyAtPoint(double[] point) { 
-	return this.eFunc.applyAsDouble(point);
+	return this.eFuncRKHS.eval(point);
     }
     
     /**

@@ -44,7 +44,7 @@ public class TRBP {
 			this.computePairwiseMarginalsTRBP();
 			System.out.println("done.");
 			
-			this.updateEdgeProbsTRBP(iter);
+			//this.updateEdgeProbsTRBP(iter);
 
 			double enth = this.computeEnthalpyTRBP();
 			double entr = this.computeEntropyTRBP();
@@ -52,6 +52,8 @@ public class TRBP {
 			double enrg = enth - cmrf.constRT*entr;
 			double logZ = Math.log(-enrg/cmrf.constRT);
 
+			System.out.println("enth: "+enth+", entr: "+entr+", enrg: " + enrg + ", logZUB: "+logZ);			
+			
 			if (Double.isNaN(logZ) && !haveValidLogZ) { 
 				System.out.println("logZUB is NaN, restarting...");
 				return this.runTRBP(it);
@@ -72,7 +74,6 @@ public class TRBP {
 				return oldLogZ;
 			}
 
-			System.out.println("enth: "+enth+", entr: "+entr+", enrg: " + enrg + ", logZUB: "+logZ);
 
 			// break if the other termination condition is reached
 			if ((Math.abs(logZ-oldLogZ) <= cmrf.threshold) || (iter >= cmrf.maxIters)) { 
@@ -401,6 +402,9 @@ public class TRBP {
 			for (int j=0; j<cmrf.edgeProbs[i].length; j++) { 
 				cmrf.edgeProbs[i][j] = 
 						adj.get(i, j) * (invLap.get(i, i) + invLap.get(j, j) - 2*invLap.get(i, j));
+				if (Double.isNaN(cmrf.edgeProbs[i][j])) { 
+					throw new RuntimeException("Edge probability is NaN... how did you do this?");
+				}
 			}
 		}
 		
@@ -618,7 +622,8 @@ public class TRBP {
 						d.domainLB,
 						d.domainUB,
 						(point) -> (
-								probabilityFunc.eval(point) * d.energyFunction.applyAsDouble(point)));
+								cmrf.functionFloor(
+										probabilityFunc.eval(point) * d.energyRKHS.eval(point))));
 				double domainEnthalpy = enthalpyFunc.computeIntegral();
 				if (Double.isNaN(domainEnthalpy)) { throw new RuntimeException("NaN enthalpy"); }
 				nodeEnthalpy += domainEnthalpy;
@@ -658,10 +663,10 @@ public class TRBP {
 	 */
 	public double computeEntropyTRBP() { 
 		double totalEntropy = 0.0;
-		
+
 		for (CMRFNode node: cmrf.nodes) { 
 			double nodeEntropy = 0.0;
-			
+
 			for (CMRFNode neighbor : cmrf.nodes) {
 				double edgeEntropy = 0.0;
 				double mutualInf = 0.0;
@@ -670,7 +675,7 @@ public class TRBP {
 				int neighborInd = cmrf.getIndexInArray(neighbor, cmrf.nodes);
 				CMRFEdge edge = cmrf.edges[nodeInd][neighborInd];
 
-				
+
 				for (CMRFNodeDomain domain : node.domains) { 
 					// compute intra-node domain entropy
 					RKHSFunction domainPDF = node.pseudomarginals.get(domain);
@@ -678,8 +683,8 @@ public class TRBP {
 							domainPDF.k,
 							domainPDF.domainLB,
 							domainPDF.domainUB,
-							(point)->( 
-									cmrf.functionFloor(
+							(point)->(
+									this.cmrf.functionFloor(
 											-1*domainPDF.eval(point)*Math.log(domainPDF.eval(point)))));
 					double domainEntropy = domainEntropyFunc.computeAreaUnderCurve();
 					if (Double.isNaN(domainEntropy)) { 
@@ -693,7 +698,7 @@ public class TRBP {
 						throw new RuntimeException("Negative entropy");
 					}
 					nodeEntropy += domainEntropy;
-					
+
 					// compute pairwise entropy
 					for (CMRFNodeDomain neighborDomain : neighbor.domains) { 
 						RKHSFunction neighborPDF = neighbor.pseudomarginals.get(neighborDomain);
@@ -704,33 +709,35 @@ public class TRBP {
 								edgeDomain.resAllK,
 								edgeDomain.domainLB,
 								edgeDomain.domainUB,
-								(point) -> (pairwisePDF.eval(point) *
+								(point) -> (
+										cmrf.functionFloor(
+										pairwisePDF.eval(point) *
 										Math.log(Math.max(
 												pairwisePDF.eval(point)/
-												(domainPDF.eval(cmrf.splitArray(point, domainPDF.domainLB.length).get(0)) *
-														neighborPDF.eval(cmrf.splitArray(point, domainPDF.domainLB.length).get(1))),
-												Double.MIN_VALUE))));
+												(cmrf.functionFloor(domainPDF.eval(cmrf.splitArray(point, domainPDF.domainLB.length).get(0)) *
+														neighborPDF.eval(cmrf.splitArray(point, domainPDF.domainLB.length).get(1)))),
+												Double.MIN_VALUE)))));
 
-						double pairEntropy = cmrf.edgeProbs[nodeInd][neighborInd]*pairwiseEntropy.computeAreaUnderCurve();
+						double pairEntropy = pairwiseEntropy.computeIntegral();
 						if (Double.isNaN(pairEntropy)) {
 							Matrix m = pairwiseEntropy.dumpPoints();
 							m.print(3, 5);
 							throw new RuntimeException("NaN entropy");
 						}
-						
+
 						edgeEntropy += pairEntropy * cmrf.edgeProbs[nodeInd][neighborInd];
 						mutualInf += pairEntropy;
 					}
 					if (Double.isNaN(edgeEntropy)) { throw new RuntimeException("NaN entropy"); }
-					
+
 					cmrf.edgeWeights[nodeInd][neighborInd] = mutualInf;
 					cmrf.edgeWeights[neighborInd][nodeInd] = mutualInf;
-					
-					nodeEntropy += edgeEntropy;
+
+					nodeEntropy += edgeEntropy/2.00;
 				}
 			}
 			if (Double.isNaN(nodeEntropy)) { throw new RuntimeException("NaN entropy"); }
-			
+
 			totalEntropy += nodeEntropy;
 
 		}
@@ -786,7 +793,7 @@ public class TRBP {
 					String filename = "trbp_u_"+i+"-"+j+".dat";
 					PrintWriter writer = new PrintWriter(filename, "UTF-8");
 					Matrix m = node.pseudomarginals.get(domain).dumpPoints();
-					m.print(writer, 3, 5);
+					m.print(writer, 10, 10);
 					writer.flush();
 				} catch(FileNotFoundException | UnsupportedEncodingException e) {
 					throw new RuntimeException("PrintWriting failed for "+
@@ -806,7 +813,7 @@ public class TRBP {
 							String filename = "trbp_p_"+i+k+"_"+x1+x2+".dat";
 							PrintWriter writer = new PrintWriter(filename, "UTF-8");
 							Matrix m = edge.pseudomarginals.get(edgeDomain).dumpPoints();
-							m.print(writer, 3, 5);
+							m.print(writer, 10, 10);
 							writer.flush();
 						} catch (FileNotFoundException | UnsupportedEncodingException e) {
 							throw new RuntimeException("PrintWriting failed for "+

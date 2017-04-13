@@ -213,7 +213,7 @@ public class SCMF {
 				nDomain.k,
 				nDomain.domainLB,
 				nDomain.domainUB,
-				(nPoint)->(ed.eFunc.applyAsDouble(CMRFEdgeDomain.concatArrays(point, nPoint))));
+				(nPoint)->(ed.eFuncRKHS.eval(CMRFEdgeDomain.concatArrays(point, nPoint))));
 
 		return func.computeExpectation();
 	}
@@ -237,7 +237,8 @@ public class SCMF {
 						d.domainLB,
 						d.domainUB,
 						(point) -> (
-								probabilityFunc.eval(point) * Math.log(-d.energyFunction.applyAsDouble(point))));
+								cmrf.functionFloor(
+										probabilityFunc.eval(point) * Math.log(-d.energyRKHS.eval(point)))));
 				double domEnth = enthalpyFunc.computeIntegral();
 				if (!Double.isNaN(domEnth)) { 
 					nodeEnthalpy += domEnth;
@@ -289,7 +290,7 @@ public class SCMF {
 				try { 
 					PrintWriter writer = new PrintWriter(filename, "UTF-8");
 					Matrix m = node.marginals.get(domain).dumpPoints();
-					m.print(writer, 3, 5);
+					m.print(writer, 10, 10);
 					writer.flush();
 				} catch(FileNotFoundException | UnsupportedEncodingException e) { 
 					throw new RuntimeException("PrintWriting failed for "+ 

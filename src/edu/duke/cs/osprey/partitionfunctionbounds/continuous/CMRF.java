@@ -33,11 +33,11 @@ public class CMRF {
 	public double[][] edgeWeights; // holds mutual information terms for TRBP 
 	public CMRFEdge[][] edges;
 
-	double threshold = 0.5;
+	double threshold = 5E-5;
 	double constRT = PoissonBoltzmannEnergy.constRT;
 	int maxIters = 1000000;
 	double lambda = 0.7;
-	double logThreshold = 0.000001;
+	double logThreshold = 1E-10;
 
 	boolean nodesAdded = false;
 	boolean ranSCMF = false;
@@ -240,10 +240,18 @@ public class CMRF {
 	 */
 	public double getProdOfFuncPowers(RKHSFunction[] funcs, double[] powers, double[] point) { 
 		double result = 1.0;
+
 		for (int i=0; i<funcs.length; i++) { 
 			double factor = Math.pow(funcs[i].eval(point), powers[i]);
+
+			boolean allSmallCoeffs = true;
+			for (double coeff : funcs[i].coeffs) { 
+				allSmallCoeffs = allSmallCoeffs & (coeff < 0.00001);
+			}
+			
 			if (Double.isNaN(factor)) { 
-				throw new RuntimeException("NaN power of function.");
+				if (allSmallCoeffs) { factor = 0.0; }
+				else { throw new RuntimeException("NaN power of function."); }
 			}
 			result *= factor;
 		}
@@ -328,7 +336,7 @@ public class CMRF {
 					String filename = "cmrf_u_"+i+"-"+j+".dat";
 					PrintWriter writer = new PrintWriter(filename, "UTF-8");
 					Matrix m = domain.probabilityRKHS.dumpPoints();
-					m.print(writer, 3, 5);
+					m.print(writer, 10, 10);
 					writer.flush();
 				} catch(FileNotFoundException | UnsupportedEncodingException e) {
 					throw new RuntimeException("PrintWriting failed for "+
@@ -348,7 +356,7 @@ public class CMRF {
 							String filename = "cmrf_p_"+i+k+"_"+x1+x2+".dat";
 							PrintWriter writer = new PrintWriter(filename, "UTF-8");
 							Matrix m = edgeDomain.pFuncRKHS.dumpPoints();
-							m.print(writer, 3, 5);
+							m.print(writer, 10, 10);
 							writer.flush();
 						} catch (FileNotFoundException | UnsupportedEncodingException e) {
 							throw new RuntimeException("PrintWriting failed for "+

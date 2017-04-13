@@ -94,8 +94,7 @@ public class RKHSFunction {
         //   take the floor to err on the side of fewer samples to prevent the
         //   computer from kind of blowing up
         int numDims = domainLB.length;
-        this.numSamplesPerDimension =
-                (int) Math.round(Math.ceil(Math.exp(Math.log(maxSamples)/numDims)));
+        this.numSamplesPerDimension = (int) Math.round(Math.floor(Math.exp(Math.log(maxSamples)/numDims)));
         
         this.domainLB = domainLB;
         this.domainUB = domainUB;
@@ -132,6 +131,11 @@ public class RKHSFunction {
         try {
             ans = gramMatrix.solve(fVals);
             res = ans.transpose().getArray()[0];
+            for (int i=0; i<res.length; i++) { 
+            	if (Double.isNaN(res[i]) || res[i] < 1E-20) { 
+            		res[i] = 0;
+            	}
+            }
             for (double d : res) { 
             	if (Double.isNaN(d)) { 
             		throw new RuntimeException("\nCoefficient fit created NaN(s).");

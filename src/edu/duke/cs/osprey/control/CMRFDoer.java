@@ -132,7 +132,7 @@ public class CMRFDoer {
 
 			kdb[residue] = efm.getKernelDomainBounds(residue);
 			
-			k[residue] = new KernelGaussian(kdb[residue], 1.0);
+			k[residue] = new KernelGaussian(kdb[residue], 3.0);
 
 			final int fresidue = residue;
 			nd[residue] = new CMRFNodeDomain(efm.getNode(residue).getDOFMin(), 
@@ -159,7 +159,8 @@ public class CMRFDoer {
 					HashMap<CMRFNodeDomain, ToDoubleFunction<double[]>> map3 = new HashMap<>();
 					for (CMRFNodeDomain d2 : ndMap.get(j)) {
 						final int fi = i, fj = j;
-						map3.put(d2, (point)->efm.addPairWise(efm.getNode(fi), efm.getNode(fj)).getEnergy(point));
+						map3.put(d2, (point)->this.pairwiseEnergyFunction(efm, fi, fj, point));
+						//map3.put(d2, (point)->efm.addPairWise(efm.getNode(fi), efm.getNode(fj)).getEnergy());
 					}
 					map2.put(d1, map3);
 				}
@@ -179,6 +180,12 @@ public class CMRFDoer {
 		
 		double[] ret = new double[2];
 		ret[0] = logZLB; ret[1] = logZUB;
+	}
+	
+	public double pairwiseEnergyFunction(EnergyFunctionMap efm, int i, int j, double[] point) { 
+		final int fi = i; // pick smaller
+		final int fj = j; // pick bigger
+		return efm.addPairWise(efm.getNode(fi), efm.getNode(fj)).getEnergy(point);
 	}
 
 }

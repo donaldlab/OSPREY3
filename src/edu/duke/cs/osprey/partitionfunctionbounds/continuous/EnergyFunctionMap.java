@@ -25,6 +25,9 @@ public class EnergyFunctionMap {
 	ArrayList<ArrayList<String>> AATypeOptions;//AA type options by position
 	RCDatum[][] rcUnary;//2d array of unary RCTuples. each row corresponds to rotamers of a residue
 	ArrayList<RCData> rcPairWise;
+	
+	static int numSamples = 3;
+
 
 	public EnergyFunctionMap(SearchProblem search, 
 			LinkedHashMap<double[], int[]> point2Conf) {
@@ -84,7 +87,7 @@ public class EnergyFunctionMap {
 	}
 
 	double getEnergy(RCTuple tup, double[] point) {
-		return search.getEnergy(tup, point);
+		return Math.min(1, search.getEnergy(tup, point));
 	}
 
 	/**

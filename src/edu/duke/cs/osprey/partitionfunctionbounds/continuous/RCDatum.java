@@ -43,7 +43,7 @@ public class RCDatum {
 		double[] dofMax = getDOFMax();
 		double[] x = new double[dofMin.length];
 		double sumE = 0;
-		int numSamples = 25;
+		int numSamples = EnergyFunctionMap.numSamples;
 
 		for(int i=0; i<numSamples; ++i) {
 			for(int dof = 0; dof < dofMin.length; ++dof) {
@@ -62,7 +62,7 @@ public class RCDatum {
 			}
 		}
 		
-		return sumE/(double)numSamples;
+		return (sumE+energy)/(double)(numSamples+1);
 	}
 
 	public RCTuple getRCTuple() {

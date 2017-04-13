@@ -6,6 +6,7 @@ package edu.duke.cs.osprey.confspace;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
@@ -173,10 +174,13 @@ public class SearchProblem implements Serializable {
         }
     }
     
-    public double getEnergy(int[] conf, double[] dihedralVals, 
-    		boolean single, boolean pairWise) {
+    public double getEnergy(RCTuple RCs, double[] dihedralVals) {
     	
-    	double E = confSpace.getEnergy(conf, dihedralVals, fullConfE, single, pairWise);
+    	double E = confSpace.getEnergy(RCs, dihedralVals, fullConfE);
+    	int[] conf = new int[confSpace.numPos]; Arrays.fill(conf, 0);
+    	for(int pos : RCs.pos) {
+    		conf[pos] = RCs.RCs.get(RCs.pos.indexOf(pos));
+    	}
     	
     	if(useERef)
             E -= emat.geteRefMat().confERef(conf);
