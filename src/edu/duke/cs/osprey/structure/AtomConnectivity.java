@@ -219,13 +219,9 @@ public class AtomConnectivity {
 						assert (wasAdded);
 						
 						// make the reverse order
-						tasks.submit(
-							() -> makeSwappedPairs(pairs),
-							(AtomPairs swappedPairs) -> {
-								boolean wasSwappedAdded = atomPairs2.put(new Key2(templ1, templ2, false), swappedPairs) == null;
-								assert (wasSwappedAdded);
-							}
-						);
+						AtomPairs swappedPairs = makeSwappedPairs(pairs);
+						boolean wasSwappedAdded = atomPairs2.put(new Key2(templ1, templ2, false), swappedPairs) == null;
+						assert (wasSwappedAdded);
 					}
 				);
 			}
@@ -248,13 +244,9 @@ public class AtomConnectivity {
 						
 						// make the reverse order if needed
 						if (templ1 != templ2) {
-							tasks.submit(
-								() -> makeSwappedPairs(pairs),
-								(AtomPairs swappedPairs) -> {
-									boolean wasSwappedAdded = atomPairsSeparate.put(new KeySeparate(templ2, templ1), swappedPairs) == null;
-									assert (wasSwappedAdded);
-								}
-							);
+							AtomPairs swappedPairs = makeSwappedPairs(pairs);
+							boolean wasSwappedAdded = atomPairsSeparate.put(new KeySeparate(templ2, templ1), swappedPairs) == null;
+							assert (wasSwappedAdded);
 						}
 					}
 				);
