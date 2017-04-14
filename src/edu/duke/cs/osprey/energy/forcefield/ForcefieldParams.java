@@ -8,6 +8,8 @@ import java.io.Serializable;
 import java.util.Iterator;
 import java.util.StringTokenizer;
 
+import edu.duke.cs.osprey.structure.Atom;
+import edu.duke.cs.osprey.structure.AtomNeighbors;
 import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.StringParsing;
 
@@ -18,6 +20,11 @@ import edu.duke.cs.osprey.tools.StringParsing;
 public class ForcefieldParams implements Serializable {
     
     private static final long serialVersionUID = 3124964506851762586L;
+    
+    public static final double coulombConstant = 332.0;
+    public static final double solvCutoff = 9.0;
+    public static final double solvCutoff2 = solvCutoff*solvCutoff;
+    public static final double solvTrig = 2.0/(4.0*Math.PI*Math.sqrt(Math.PI));
 
     public static boolean printWarnings = true;
 
@@ -67,7 +74,7 @@ public class ForcefieldParams implements Serializable {
     public Forcefield forcefld = Forcefield.AMBER;
     
     //The solvation parameters object
-    EEF1 eef1parms = null;
+    public EEF1 eef1parms = null;
     
     // default values copied from resources/config/defalts.cfg
     public double vdwMultiplier = 0.95;
@@ -87,7 +94,6 @@ public class ForcefieldParams implements Serializable {
             "/config/all_aminont94.in",
             "/config/all_aminoct94.in",
             "/config/all_nuc94_and_gr.in",
-            false,
             0.5,
             1.0,
             1.0/1.2
@@ -98,7 +104,6 @@ public class ForcefieldParams implements Serializable {
             "/config/all_amino_charmm22_nt.txt",
             "/config/all_amino_charmm22_ct.txt",
             "/config/all_nuc_and_gr_charmm.in",
-            false,
             Double.NaN,
             Double.NaN,
             Double.NaN
@@ -109,40 +114,50 @@ public class ForcefieldParams implements Serializable {
             "/config/all_amino_charmm19_neutral_nt.in",
             "/config/all_amino_charmm19_neutral_ct.in",
             "/config/all_nuc_and_gr_charmm.in",
-            true,
             1.0,
             2.0,
             0.4
-        ),
+        ) {
+        	@Override
+        	public void modifyNBParams(Atom atom, AtomNeighbors.Type neighborType, NBParams nbparams) {
+        		CHARMM19.modifyNBParams(atom, neighborType, nbparams);
+        	}
+        },
         CHARMM19(
             "/config/parmcharm19.dat",
             "/config/all_amino_charmm19.in",
             "/config/all_amino_charmm19_nt.in",
             "/config/all_amino_charmm19_ct.in",
             "/config/all_nuc_and_gr_charmm.in",
-            true,
             1.0,
             2.0,
             0.4
-        );
+        ) {
+        	@Override
+        	public void modifyNBParams(Atom atom, AtomNeighbors.Type neighborType, NBParams nbparams) {
+        		
+        		if (atom.isCarbon() && neighborType == AtomNeighbors.Type.BONDED14) {
+					nbparams.epsilon = 0.1;
+					nbparams.r = 1.9;
+        		}
+        	}
+        };
         
         public final String paramsPath;
         public final String aaPath;
         public final String aaNTPath;
         public final String aaCTPath;
         public final String grPath;
-        public final boolean reduceCRadii;
         public final double Aij14Factor;
         public final double Bij14Factor;
         public final double coulombScaling;
         
-        private Forcefield(String paramsPath, String aaPath, String aaNTPath, String aaCTPath, String grPath, boolean reduceCRadii, double Aij14Factor, double Bij14Factor, double coulombScaling) {
+        private Forcefield(String paramsPath, String aaPath, String aaNTPath, String aaCTPath, String grPath, double Aij14Factor, double Bij14Factor, double coulombScaling) {
             this.paramsPath = paramsPath;
             this.aaPath = aaPath;
             this.aaNTPath = aaNTPath;
             this.aaCTPath = aaCTPath;
             this.grPath = grPath;
-            this.reduceCRadii = reduceCRadii;
             this.Aij14Factor = Aij14Factor;
             this.Bij14Factor = Bij14Factor;
             this.coulombScaling = coulombScaling;
@@ -150,6 +165,10 @@ public class ForcefieldParams implements Serializable {
         
         public static Forcefield get(String name) {
         	return valueOf(name.toUpperCase());
+        }
+        
+        public void modifyNBParams(Atom atom, AtomNeighbors.Type neighborType, NBParams nbparams) {
+        	// by default, don't modify anything
         }
     }
     
@@ -773,6 +792,22 @@ public class ForcefieldParams implements Serializable {
 		}
 		
 		return(false);
+	}
+	
+	public boolean getNonBondedParameters(Atom atom, AtomNeighbors.Type neighborType, NBParams out) {
+		boolean success = getNonBondedParameters(atom.type, out);
+		if (!success) {
+			return false;
+		}
+		forcefld.modifyNBParams(atom, neighborType, out);
+		return true;
+	}
+	
+	public void getNonBondedParametersOrThrow(Atom atom, AtomNeighbors.Type neighborType, NBParams out) {
+		boolean success = getNonBondedParameters(atom, neighborType, out);
+		if (!success) {
+			throw new Error("couldn't find non-bonded parameters for atom type: " + atom.forceFieldType);
+		}
 	}
         
         

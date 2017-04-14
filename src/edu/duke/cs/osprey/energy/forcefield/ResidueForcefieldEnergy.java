@@ -4,11 +4,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Set;
 
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.energy.EnergyFunction;
@@ -26,11 +24,6 @@ import edu.duke.cs.osprey.structure.Residue;
 public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof {
 	
 	private static final long serialVersionUID = -4768384219061898745L;
-	
-	private static final double coulombConstant = 332.0;
-	private static final double solvCutoff = 9.0;
-	private static final double solvCutoff2 = solvCutoff*solvCutoff;
-	private static final double solvTrig = 2.0/(4.0*Math.PI*Math.sqrt(Math.PI));
 	
 	public static class ResPair {
 		
@@ -138,7 +131,7 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		}
 		
 		// pre-compute some constants needed by getEnergy()
-		coulombFactor = coulombConstant/params.dielectric;
+		coulombFactor = ForcefieldParams.coulombConstant/params.dielectric;
 		scaledCoulombFactor = coulombFactor*params.forcefld.coulombScaling;
 		
 		// TODO: can make lookup table by template for this
@@ -155,7 +148,7 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 					double energy = 0;
 					for (Atom atom : res.atoms) {
 						if (!atom.isHydrogen()) {
-							getSolvParams(atom, solvparams);
+							params.eef1parms.getSolvationParametersOrDefaults(atom, solvparams);
 							energy += solvparams.dGref;
 						}
 					}
@@ -194,7 +187,7 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		double vdw2 = params.vdwMultiplier*params.vdwMultiplier;
 		double Bmult = vdw2*vdw2*vdw2;
 		double Amult = Bmult*Bmult;
-		double solvCoeff = solvTrig*params.solvScale;
+		double solvCoeff = ForcefieldParams.solvTrig*params.solvScale;
 		
 		// build the atom pairs
 		for (ResPair pair : resPairs) {
@@ -236,8 +229,9 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 					// Aij = (ri+rj)^12 * sqrt(ei*ej)
 					// Bij = (ri+rj)^6 * sqrt(ei*ej)
 					
-					getNonBondedParams(atom1, nbparams1);
-					getNonBondedParams(atom2, nbparams2);
+					
+					params.getNonBondedParametersOrThrow(atom1, type, nbparams1);
+					params.getNonBondedParametersOrThrow(atom2, type, nbparams2);
 					double epsilon = Math.sqrt(nbparams1.epsilon*nbparams2.epsilon);
 					double radiusSum = nbparams1.r + nbparams2.r;
 					double Bij = radiusSum*radiusSum;
@@ -259,19 +253,27 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 					
 					// compute solvation params if needed
 					if (isHeavyPair) {
-						
-						getSolvParams(atom1, solvparams1);
-						getSolvParams(atom2, solvparams2);
-						double alpha1 = solvCoeff*solvparams1.dGfree*solvparams2.volume/solvparams1.lambda;
-						double alpha2 = solvCoeff*solvparams2.dGfree*solvparams1.volume/solvparams2.lambda;
-						
-						pair.precomputed[precomputedIndex++] = solvparams1.radius;
-						pair.precomputed[precomputedIndex++] = solvparams1.lambda;
-						pair.precomputed[precomputedIndex++] = alpha1;
-						pair.precomputed[precomputedIndex++] = solvparams2.radius;
-						pair.precomputed[precomputedIndex++] = solvparams2.lambda;
-						pair.precomputed[precomputedIndex++] = alpha2;
-						
+						switch (params.solvationForcefield) {
+							
+							case EEF1:
+							
+								params.eef1parms.getSolvationParametersOrDefaults(atom1, solvparams1);
+								params.eef1parms.getSolvationParametersOrDefaults(atom2, solvparams2);
+								double alpha1 = solvCoeff*solvparams1.dGfree*solvparams2.volume/solvparams1.lambda;
+								double alpha2 = solvCoeff*solvparams2.dGfree*solvparams1.volume/solvparams2.lambda;
+								
+								pair.precomputed[precomputedIndex++] = solvparams1.radius;
+								pair.precomputed[precomputedIndex++] = solvparams1.lambda;
+								pair.precomputed[precomputedIndex++] = alpha1;
+								pair.precomputed[precomputedIndex++] = solvparams2.radius;
+								pair.precomputed[precomputedIndex++] = solvparams2.lambda;
+								pair.precomputed[precomputedIndex++] = alpha2;
+							break;
+							
+							default:
+								precomputedIndex += 6;
+						}
+							
 					} else {
 						
 						precomputedIndex += 6;
@@ -291,44 +293,6 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 						// do nothing
 				}
 			}
-		}
-	}
-	
-	private void getNonBondedParams(Atom atom, NBParams nbparams) {
-		
-		// HACKHACK: overrides for C atoms
-		if (atom.isCarbon() && params.forcefld.reduceCRadii) {
-			
-			// TODO: move this into Forcefield, and do the same for other forcefield energy classes too
-			// Jeff: shouldn't these settings be in a config file somewhere?
-			nbparams.epsilon = 0.1;
-			nbparams.r = 1.9;
-			
-		} else {
-			
-			boolean success = params.getNonBondedParameters(atom.type, nbparams);
-			if (!success) {
-				throw new Error("couldn't find non-bonded parameters for atom type: " + atom.forceFieldType);
-			}
-		}
-	}
-	
-	private static Set<String> warnedAtomTypes = new HashSet<>();
-	
-	private void getSolvParams(Atom atom, SolvParams solvparams) {
-		boolean success = params.eef1parms.getSolvationParameters(atom, solvparams);
-		if (!success) {
-			
-			// if there's no params, don't crash, use defaults instead
-			if (warnedAtomTypes.add(atom.forceFieldType)) {
-				System.err.println("WARNING: couldn't find solvation parameters for atom type: " + atom.forceFieldType + ", using default values");
-			}
-			
-			solvparams.dGref = 0;
-			solvparams.dGfree = 0;
-			solvparams.volume = 0;
-			solvparams.lambda = 1;
-			solvparams.radius = 0;
 		}
 	}
 	
@@ -454,7 +418,7 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 				}
 				
 				// solvation
-				if (useEEF1 && isHeavyPair && r2 < solvCutoff2) {
+				if (useEEF1 && isHeavyPair && r2 < ForcefieldParams.solvCutoff2) {
 							
 					double radius1 = precomputed[j9++];
 					double lambda1 = precomputed[j9++];

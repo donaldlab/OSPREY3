@@ -177,7 +177,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 				if (group1 == group2) {
 					for (Atom atom : group1.getAtoms()) {
 						if (!atom.isHydrogen()) {
-							getSolvParams(pinfo, atom, solvparams);
+							pinfo.params.eef1parms.getSolvationParametersOrDefaults(atom, solvparams);
 							internalSolvEnergy += solvparams.dGref;
 						}
 					}
@@ -215,8 +215,8 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 				entry.addFlags(i, atom1.isHydrogen(), atom2.isHydrogen());
 				
 				// save the vdw params
-				getNonBondedParams(pinfo, atom1, nbparams1);
-				getNonBondedParams(pinfo, atom2, nbparams2);
+				pinfo.params.getNonBondedParametersOrThrow(atom1, type, nbparams1);
+				pinfo.params.getNonBondedParametersOrThrow(atom2, type, nbparams2);
 				calcVdw(nbparams1, nbparams2, pinfo.Amult, pinfo.Bmult, vdwparams);
 				
 				// vdW scaling for 1-4 interactions
@@ -231,8 +231,8 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 				if (!atom1.isHydrogen() && !atom2.isHydrogen()) {
 					
 					// save the solvation params
-					getSolvParams(pinfo, atom1, solvparams1);
-					getSolvParams(pinfo, atom2, solvparams2);
+					pinfo.params.eef1parms.getSolvationParametersOrDefaults(atom1, solvparams1);
+					pinfo.params.eef1parms.getSolvationParametersOrDefaults(atom2, solvparams2);
 					
 					double alpha1 = pinfo.solvCoeff*solvparams1.dGfree*solvparams2.volume/solvparams1.lambda;
 					double alpha2 = pinfo.solvCoeff*solvparams2.dGfree*solvparams1.volume/solvparams2.lambda;
@@ -635,44 +635,6 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		vdwparams.Bij *= epsilon*Bmult;
 	}
 	
-	private static void getNonBondedParams(ParamInfo pinfo, Atom atom, NBParams nbparams) {
-		
-		// HACKHACK: overrides for C atoms
-		if (atom.isCarbon() && pinfo.params.forcefld.reduceCRadii) {
-			
-			// Jeff: shouldn't these settings be in a config file somewhere?
-			nbparams.epsilon = 0.1;
-			nbparams.r = 1.9;
-			
-		} else {
-			
-			boolean success = pinfo.params.getNonBondedParameters(atom.type, nbparams);
-			if (!success) {
-				// TODO: what's the right error-handling behavior here?
-				// skip any atom pairs without params and keep computing?
-				// use default values for nbparams?
-				// or crash and tell the user to fix the problem?
-				throw new Error("couldn't find non-bonded parameters for atom type: " + atom.forceFieldType);
-			}
-		}
-	}
-	
-	private static void getSolvParams(ParamInfo pinfo, Atom atom, SolvParams solvparams) {
-		boolean success = pinfo.params.eef1parms.getSolvationParameters(atom, solvparams);
-		if (!success) {
-			
-			// if there's no params, don't crash, use defaults instead
-			if(ParamInfo.printWarnings) {
-				System.err.println("WARNING: couldn't find solvation parameters for atom type: " + atom.forceFieldType + ", using default values");
-			}
-			solvparams.dGref = 0;
-			solvparams.dGfree = 0;
-			solvparams.volume = 0;
-			solvparams.lambda = 1;
-			solvparams.radius = 0;
-		}
-	}
-		
 	private int getGlobalAtomIndex(int groupIndex, int atomIndexInGroup) {
 		return atomOffsets[groupIndex] + atomIndexInGroup;
 	}
