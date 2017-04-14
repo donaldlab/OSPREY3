@@ -76,7 +76,7 @@ public class TRBP {
 
 
 			// break if the other termination condition is reached
-			if ((Math.abs(logZ-oldLogZ) <= cmrf.threshold) || (iter >= cmrf.maxIters)) { 
+			if ((Math.abs(logZ-oldLogZ) <= cmrf.threshold) || (iter >= 50)) { 
 				printMarginalsTRBP();
 				System.out.println("DONE: logZUB: "+Math.min(logZ, oldLogZ));
 				return Math.min(logZ, oldLogZ);                
