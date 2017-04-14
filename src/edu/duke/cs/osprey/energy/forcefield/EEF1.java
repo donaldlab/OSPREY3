@@ -7,11 +7,13 @@ package edu.duke.cs.osprey.energy.forcefield;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 
 import edu.duke.cs.osprey.restypes.DAminoAcidHandler;
 import edu.duke.cs.osprey.structure.Atom;
+import edu.duke.cs.osprey.tools.HashCalculator;
 import edu.duke.cs.osprey.tools.StringParsing;
 
 /**
@@ -146,32 +148,88 @@ public class EEF1 implements Serializable {
 		}
 	}
 	
+	private class SolvGroupKey {
+		
+		public final String atomName;
+		public final String elementType;
+		public final String AAname;
+		public final int numBoundH;
+		public final boolean isCarboxylO;
+		
+		private final int hashCode;
+		
+		public SolvGroupKey(Atom atom) {
+			
+			atomName = atom.name;
+			elementType = atom.elementType;
+			AAname = atom.res.template.name;
+			numBoundH = getNumBoundH(atom);
+			isCarboxylO = isCarboxylO(atom);
+			
+			hashCode = HashCalculator.combineHashes(
+				atomName.hashCode(),
+				elementType.hashCode(),
+				AAname.hashCode(),
+				numBoundH,
+				isCarboxylO ? 2 : 1
+			);
+		}
+		
+		@Override
+		public int hashCode() {
+			return hashCode;
+		}
+		
+		@Override
+		public boolean equals(Object obj) {
+			SolvGroupKey other = (SolvGroupKey)obj;
+			return this.isCarboxylO == other.isCarboxylO
+				&& this.numBoundH == other.numBoundH
+				&& this.AAname.equals(other.AAname)
+				&& this.elementType.equals(other.elementType)
+				&& this.atomName.equals(other.atomName);
+		}
+	}
+	
+	private static HashMap<SolvGroupKey,Integer> solvGroupIndices = new HashMap<>();
+	
 	//Determines the solvation group index for the given atom;
 	//This function assumes that the predfefined groups are as given in eef1parm.dat;
 	//		Modifcations to this functions will be required if different group types are used
-	private int getSolvGroupIndex(Atom at1){
+	private int getSolvGroupIndex(Atom atom) {
+		SolvGroupKey key = new SolvGroupKey(atom);
+		Integer index = solvGroupIndices.get(key);
+		if (index == null) {
+			index = getSolvGroupIndex(key);
+			solvGroupIndices.put(key, index);
+		}
+		return index;
+		//return getSolvGroupIndex(atom.name, atom.elementType, atom.res.template.name, getNumBoundH(atom), isCarboxylO(atom));
+	}
+	
+	private int getSolvGroupIndex(SolvGroupKey key) {
+		return getSolvGroupIndex(key.atomName, key.elementType, key.AAname, key.numBoundH, key.isCarboxylO);
+	}
+	
+	private int getSolvGroupIndex(String atomName, String elementType, String AAname, int numBoundH, boolean isCarboxylO) {
 		
-		String elementType = at1.elementType;
-		String AAname = at1.res.template.name; //the AA name to which this atom belongs
+		if(DAminoAcidHandler.isDAminoAcidName(AAname))
+			AAname = DAminoAcidHandler.getLEquivalent(AAname);//look up parameters by L-amino acid name (has same energetics)
 		
-                if(DAminoAcidHandler.isDAminoAcidName(AAname))
-                    AAname = DAminoAcidHandler.getLEquivalent(AAname);//look up parameters by L-amino acid name (has same energetics)
-                
-                boolean aromatic = isAromatic(at1);
-		int numBoundH = getNumBoundH(at1);
+		boolean aromatic = isAromatic(atomName, elementType, AAname);
 		
 		if (elementType.equalsIgnoreCase("C")) {
 			
-			if ( at1.name.equalsIgnoreCase("CG") && 
+			if ( atomName.equalsIgnoreCase("CG") && 
 					( AAname.equalsIgnoreCase("TYR") || AAname.equalsIgnoreCase("PHE") || AAname.equalsIgnoreCase("HIS") 
 							|| AAname.equalsIgnoreCase("HIP") || AAname.equalsIgnoreCase("HID") || AAname.equalsIgnoreCase("HIE")) )
 				return findSolvGroup("CR"); //CG of (TYR or PHE or HIS)
 			
-			else if ( ( at1.name.equalsIgnoreCase("CG") || at1.name.equalsIgnoreCase("CD2") || at1.name.equalsIgnoreCase("CE2") )
+			else if ( ( atomName.equalsIgnoreCase("CG") || atomName.equalsIgnoreCase("CD2") || atomName.equalsIgnoreCase("CE2") )
 					&& AAname.equalsIgnoreCase("TRP") )
 				return findSolvGroup("CR"); // (CG or CD2 or CE2) of TRP
 			
-			else if ( at1.name.equalsIgnoreCase("CZ") && AAname.equalsIgnoreCase("ARG") )
+			else if ( atomName.equalsIgnoreCase("CZ") && AAname.equalsIgnoreCase("ARG") )
 				return findSolvGroup("CR"); //CZ of PHE
 			
 			else if ( (aromatic) && (numBoundH==1) ) // extended aromatic C with 1 H, so CR1E group
@@ -217,7 +275,7 @@ public class EEF1 implements Serializable {
 			if (numBoundH==1) // hydroxyl oxygen, so OH1 group
 				return findSolvGroup("OH1");
 			
-			else if (isCarboxylO(at1)) // carboxyl oxygen, so OC group
+			else if (isCarboxylO) // carboxyl oxygen, so OC group
 				return findSolvGroup("OC");
 			
 			else //all other oxygens (carbonyl oxygen)
@@ -291,14 +349,12 @@ public class EEF1 implements Serializable {
 	}
 	
 	//Determines if the given heavy atom is aromatic
-	private boolean isAromatic(Atom at1){
+	private boolean isAromatic(String atomName, String elementType, String AAname) {
 		
-		String AAname = at1.res.template.name; //the AA name of the residue to which this atom belongs
+		if (DAminoAcidHandler.isDAminoAcidName(AAname)) {
+			AAname = DAminoAcidHandler.getLEquivalent(AAname);//look up parameters by L-amino acid name (has same energetics)
+		}
 		
-                if(DAminoAcidHandler.isDAminoAcidName(AAname))
-                    AAname = DAminoAcidHandler.getLEquivalent(AAname);//look up parameters by L-amino acid name (has same energetics)
-
-                
 		boolean isHis = (AAname.equalsIgnoreCase("HIS") || AAname.equalsIgnoreCase("HIP") || AAname.equalsIgnoreCase("HID") || AAname.equalsIgnoreCase("HIE"));
 		
 		if ( !(AAname.equalsIgnoreCase("PHE") || AAname.equalsIgnoreCase("TYR") 
@@ -306,15 +362,14 @@ public class EEF1 implements Serializable {
 				return false;
 		else {//PHE or TYR or TRP or HIS, so check if aromatic atom
 			
-			if (!at1.elementType.equalsIgnoreCase("C")){ //not a carbon
-				if ( at1.elementType.equalsIgnoreCase("N") && 
-						( !at1.name.equalsIgnoreCase("N") && (AAname.equalsIgnoreCase("TRP") || isHis) ) ) //N in the ring of TRP or HIS
+			if (!elementType.equalsIgnoreCase("C")){ //not a carbon
+				if ( elementType.equalsIgnoreCase("N") && 
+						( !atomName.equalsIgnoreCase("N") && (AAname.equalsIgnoreCase("TRP") || isHis) ) ) //N in the ring of TRP or HIS
 					return true;
 				else
 					return false;
 			}
 			else {//a carbon, so check if CA or CB or C
-				String atomName = at1.name;
 				if (atomName.equalsIgnoreCase("CA") || atomName.equalsIgnoreCase("CB") 
 						|| atomName.equalsIgnoreCase("C")) //CA or CB or C, so cannot be aromatic
 					return false;
