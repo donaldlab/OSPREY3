@@ -33,7 +33,7 @@ public class RKHSFunction {
     public int numSamplesPerDimension = 5; // we can change this as the function changes
     
     // max number of samples we want to allow
-    public int maxSamples = 5;
+    public int maxSamples = 10;
     
     /**
      * Constructor - takes as parameters feature maps and linear coefficients
