@@ -685,9 +685,8 @@ public class TRBP {
 							domainPDF.k,
 							domainPDF.domainLB,
 							domainPDF.domainUB,
-							(point)->(
-									this.cmrf.functionFloor(
-											-1*domainPDF.eval(point)*Math.log(domainPDF.eval(point)))));
+							(point)->(this.safeEntropyCalcSingleton(domainPDF, point)));
+									
 					double domainEntropy = domainEntropyFunc.computeAreaUnderCurve();
 					if (Double.isNaN(domainEntropy)) { 
 						Matrix m = domainPDF.dumpPoints();
@@ -711,16 +710,14 @@ public class TRBP {
 								edgeDomain.resAllK,
 								edgeDomain.domainLB,
 								edgeDomain.domainUB,
-								(point) -> (
-										cmrf.functionFloor(
-										pairwisePDF.eval(point) *
-										Math.log(Math.max(
-												pairwisePDF.eval(point)/
-												(cmrf.functionFloor(domainPDF.eval(cmrf.splitArray(point, domainPDF.domainLB.length).get(0)) *
-														neighborPDF.eval(cmrf.splitArray(point, domainPDF.domainLB.length).get(1)))),
-												Double.MIN_VALUE)))));
+								(point) -> (this.safeEntropyCalcPairwise(
+												pairwisePDF, 
+												domainPDF, 
+												neighborPDF, 
+												point)));
 
-						double pairEntropy = pairwiseEntropy.computeIntegral();
+						double pairEntropy = pairwiseEntropy.computeAreaUnderCurve();
+						
 						if (Double.isNaN(pairEntropy)) {
 							Matrix m = pairwiseEntropy.dumpPoints();
 							m.print(3, 5);
@@ -826,6 +823,59 @@ public class TRBP {
 			}
 		}	
 		System.out.println("done.");
+	}
+	
+	/**
+	 * Wraps entropy calculations in a "safe" way
+	 * @param pdf
+	 * @param point
+	 * @return
+	 */
+	public double safeEntropyCalcSingleton(RKHSFunction pdf, double[] point) { 
+		double prob = pdf.eval(point);
+		if (prob < CMRF.logThreshold) { 
+			return -1 * prob * (prob-1);
+		} else { 
+			return -1* prob * Math.log(prob);
+		}
+	}
+	
+	/**
+	 * Wraps the pairwise TRBP entropy calculation in a "safe" way
+	 * @param pairPDF
+	 * @param nodePDF
+	 * @param neighborPDF
+	 * @param point
+	 * @return
+	 */
+	public double safeEntropyCalcPairwise(
+			RKHSFunction pairPDF,
+			RKHSFunction nodePDF,
+			RKHSFunction neighborPDF,
+			double[] point) {
+		ArrayList<double[]> indivPts = CMRF.splitArray(point, nodePDF.domainLB.length);
+		
+		double pairVal = pairPDF.eval(point);
+		double nodeInt = new RKHSFunction(
+				nodePDF.k,
+				nodePDF.domainLB,
+				nodePDF.domainUB,
+				(nodePoint) -> (pairPDF.eval(CMRF.concatArrays(nodePoint, indivPts.get(1)))))
+				.computeAreaUnderCurve();
+		double neighborInt = new RKHSFunction(
+				neighborPDF.k,
+				neighborPDF.domainLB,
+				neighborPDF.domainUB,
+				(neighborPoint) -> (pairPDF.eval(CMRF.concatArrays(indivPts.get(0), neighborPoint))))
+				.computeAreaUnderCurve();		
+		double quotient = pairVal/(nodeInt * neighborInt);
+		
+		// approximate log(quotient) as quotient-1 for small quotient
+		if (quotient < CMRF.logThreshold) { 
+			return pairVal * (quotient - 1); 
+		} else { 
+			return pairVal * Math.log(quotient);
+		}		
 	}
 
 }

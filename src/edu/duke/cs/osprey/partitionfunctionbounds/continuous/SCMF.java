@@ -265,8 +265,7 @@ public class SCMF {
 						domainPDF.domainLB,
 						domainPDF.domainUB,
 						(point)->(
-								cmrf.functionFloor(
-										-domainPDF.eval(point)*Math.log((domainPDF.eval(point))))));
+								this.safeEntropyCalcSingleton(domainPDF, point)));
 				double domainEntropy = domainEntropyFunc.computeIntegral();
 				if (!Double.isNaN(domainEntropy)) { 
 					nodeEntropy += domainEntropy; 
@@ -277,6 +276,22 @@ public class SCMF {
 		return totalEntropy;
 	}
 
+	/**
+	 * Wraps entropy calculations in a "safe" way
+	 * @param pdf
+	 * @param point
+	 * @return
+	 */
+	public double safeEntropyCalcSingleton(RKHSFunction pdf, double[] point) { 
+		double prob = pdf.eval(point);
+		if (prob < CMRF.logThreshold) { 
+			return -1 * prob;
+		} else { 
+			return -1* prob * Math.log(prob);
+		}
+	}
+	
+	
 	/**
 	 * Prints out SCMF marginals to .dat files
 	 */

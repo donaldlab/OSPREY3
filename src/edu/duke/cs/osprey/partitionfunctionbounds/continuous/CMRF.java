@@ -37,7 +37,7 @@ public class CMRF {
 	double constRT = PoissonBoltzmannEnergy.constRT;
 	int maxIters = 1000000;
 	double lambda = 0.7;
-	static double logThreshold = 1E-75; // terrible name, but this is the "floor" for all function values
+	static double logThreshold = 1E-50; // terrible name, but this is the "floor" for all function values
 
 	boolean nodesAdded = false;
 	boolean ranSCMF = false;
