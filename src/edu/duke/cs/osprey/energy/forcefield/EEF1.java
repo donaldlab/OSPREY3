@@ -9,10 +9,14 @@ import java.io.InputStreamReader;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.Map;
 import java.util.Set;
 
 import edu.duke.cs.osprey.restypes.DAminoAcidHandler;
+import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.structure.Atom;
+import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.HashCalculator;
 import edu.duke.cs.osprey.tools.StringParsing;
 
@@ -31,6 +35,8 @@ import edu.duke.cs.osprey.tools.StringParsing;
 public class EEF1 implements Serializable {
 	
 	private static final long serialVersionUID = -4783417295676415124L;
+	
+	public static final double trigConst = 2.0/(4.0*Math.PI*Math.sqrt(Math.PI));
 	
 	//Variables to store the EEF1 solvation paramaters;
 	//These values are specific to eef1parm.dat, and may have to be modified for different
@@ -130,15 +136,18 @@ public class EEF1 implements Serializable {
 	}
 	
 	private static Set<String> warnedAtomTypes = new HashSet<>();
+	private static void warnAtomType(String type) {
+		if (warnedAtomTypes.add(type)) {
+			System.err.println("WARNING: couldn't find solvation parameters for atom type: " + type + ", using default values");
+		}
+	}
 	
 	public void getSolvationParametersOrDefaults(Atom atom, SolvParams solvparams) {
 		boolean success = getSolvationParameters(atom, solvparams);
 		if (!success) {
 			
 			// if there's no params, don't crash, use defaults instead
-			if (warnedAtomTypes.add(atom.forceFieldType)) {
-				System.err.println("WARNING: couldn't find solvation parameters for atom type: " + atom.forceFieldType + ", using default values");
-			}
+			warnAtomType(atom.forceFieldType);
 			
 			solvparams.dGref = 0;
 			solvparams.dGfree = 0;
@@ -146,6 +155,56 @@ public class EEF1 implements Serializable {
 			solvparams.lambda = 1;
 			solvparams.radius = 0;
 		}
+	}
+	
+	public static class SolvPairParams {
+		public double radius1;
+		public double lambda1;
+		public double alpha1;
+		public double radius2;
+		public double lambda2;
+		public double alpha2;
+	}
+	
+	public void getSolvationPairParams(Atom atom1, Atom atom2, double scale, SolvPairParams out) {
+		
+		// start with defaults
+		double dGfree1 = 0;
+		double volume1 = 0;
+		out.lambda1 = 1;
+		out.radius1 = 0;
+		
+		double dGfree2 = 0;
+		double volume2 = 0;
+		out.lambda2 = 1;
+		out.radius2 = 0;
+		
+		// lookup atom 1
+		int i1 = getSolvGroupIndex(atom1);
+		if (i1 == -1) {
+			warnAtomType(atom1.forceFieldType);
+		} else {
+			dGfree1 = dGiFree[i1];
+			volume1 = atEEF1Vol[i1];
+			out.lambda1 = lambdai[i1];
+			out.radius1 = vdWri[i1];
+		}
+		
+		// lookup atom 2
+		int i2 = getSolvGroupIndex(atom2);
+		if (i2 == -1) {
+			warnAtomType(atom2.forceFieldType);
+		} else {
+			dGfree2 = dGiFree[i2];
+			volume2 = atEEF1Vol[i2];
+			out.lambda2 = lambdai[i2];
+			out.radius2 = vdWri[i2];
+		}
+		
+		// calc mixed params
+		scale *= trigConst;
+		out.alpha1 = scale*dGfree1*volume2/out.lambda1;
+		out.alpha2 = scale*dGfree2*volume1/out.lambda2;
 	}
 	
 	private class SolvGroupKey {
@@ -391,5 +450,31 @@ public class EEF1 implements Serializable {
 		return numBoundH;
 	}
 	
-
+	private Map<ResidueTemplate,Double> internalSolvEnergies = new IdentityHashMap<>();
+	
+	public double getInternalEnergy(Residue res) {
+		
+		// check the cache first
+		Double energy = internalSolvEnergies.get(res.template);
+		if (energy != null) {
+			return energy;
+		}
+		
+		// add up all the dGref terms for all the atoms
+		energy = 0.0;
+		for (Atom atom : res.atoms) {
+			if (!atom.isHydrogen()) {
+				int index = getSolvGroupIndex(atom);
+				if (index == -1) {
+					warnAtomType(atom.forceFieldType);
+				} else {
+					energy += dGiRef[index];
+				}
+			}
+		}
+			
+		internalSolvEnergies.put(res.template, energy);
+		
+		return energy;
+	}
 }

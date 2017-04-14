@@ -11,9 +11,9 @@ import java.util.NoSuchElementException;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
-import edu.duke.cs.osprey.energy.forcefield.EEF1.SolvParams;
-import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.NBParams;
+import edu.duke.cs.osprey.energy.forcefield.EEF1.SolvPairParams;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.VdwParams;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.AtomConnectivity;
 import edu.duke.cs.osprey.structure.AtomConnectivity.AtomPairs;
@@ -134,34 +134,6 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		coulombFactor = ForcefieldParams.coulombConstant/params.dielectric;
 		scaledCoulombFactor = coulombFactor*params.forcefld.coulombScaling;
 		
-		// TODO: can make lookup table by template for this
-		// pre-compute internal solvation energies if needed
-		Map<Residue,Double> internalSolvEnergies;
-		switch (params.solvationForcefield) {
-			
-			case EEF1:
-				internalSolvEnergies = new HashMap<>();
-				SolvParams solvparams = new SolvParams();
-				for (Residue res : residues) {
-					
-					// add up all the dGref terms for all the atoms
-					double energy = 0;
-					for (Atom atom : res.atoms) {
-						if (!atom.isHydrogen()) {
-							params.eef1parms.getSolvationParametersOrDefaults(atom, solvparams);
-							energy += solvparams.dGref;
-						}
-					}
-					energy *= params.solvScale;
-					
-					internalSolvEnergies.put(res, energy);
-				}
-			break;
-			
-			default:
-				internalSolvEnergies = null;
-		}
-		
 		/* TODO: move into GPU area
 		// count atoms and offsets for each residue
 		int[] atomOffsetsByResIndex = new int[mol.residues.size()];
@@ -179,15 +151,8 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		coords = bufferType.make(numAtoms*3*Double.BYTES);
 		*/
 		
-		NBParams nbparams1 = new NBParams();
-		NBParams nbparams2 = new NBParams();
-		SolvParams solvparams1 = new SolvParams();
-		SolvParams solvparams2 = new SolvParams();
-		
-		double vdw2 = params.vdwMultiplier*params.vdwMultiplier;
-		double Bmult = vdw2*vdw2*vdw2;
-		double Amult = Bmult*Bmult;
-		double solvCoeff = ForcefieldParams.solvTrig*params.solvScale;
+		VdwParams vdwparams = new VdwParams();
+		SolvPairParams solvparams = new SolvPairParams();
 		
 		// build the atom pairs
 		for (ResPair pair : resPairs) {
@@ -225,49 +190,23 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 					// calc electrostatics params
 					pair.precomputed[precomputedIndex++] = atom1.charge*atom2.charge;
 					
-					// calc vdW params
-					// Aij = (ri+rj)^12 * sqrt(ei*ej)
-					// Bij = (ri+rj)^6 * sqrt(ei*ej)
-					
-					
-					params.getNonBondedParametersOrThrow(atom1, type, nbparams1);
-					params.getNonBondedParametersOrThrow(atom2, type, nbparams2);
-					double epsilon = Math.sqrt(nbparams1.epsilon*nbparams2.epsilon);
-					double radiusSum = nbparams1.r + nbparams2.r;
-					double Bij = radiusSum*radiusSum;
-					Bij = Bij*Bij*Bij;
-					double Aij = Bij*Bij;
-					Aij *= epsilon*Amult;
-					Bij *= epsilon*Bmult;
-					
-					// vdW scaling by connectivity
-					if (is14Bonded) {
-						Aij *= params.forcefld.Aij14Factor;
-						Bij *= params.forcefld.Bij14Factor;
-					} else {
-						Bij *= 2;
-					}
-					
-					pair.precomputed[precomputedIndex++] = Aij;
-					pair.precomputed[precomputedIndex++] = Bij;
+					// calc vdw params
+					params.getVdwParams(atom1, atom2, type, vdwparams);
+					pair.precomputed[precomputedIndex++] = vdwparams.Aij;
+					pair.precomputed[precomputedIndex++] = vdwparams.Bij;
 					
 					// compute solvation params if needed
 					if (isHeavyPair) {
 						switch (params.solvationForcefield) {
 							
 							case EEF1:
-							
-								params.eef1parms.getSolvationParametersOrDefaults(atom1, solvparams1);
-								params.eef1parms.getSolvationParametersOrDefaults(atom2, solvparams2);
-								double alpha1 = solvCoeff*solvparams1.dGfree*solvparams2.volume/solvparams1.lambda;
-								double alpha2 = solvCoeff*solvparams2.dGfree*solvparams1.volume/solvparams2.lambda;
-								
-								pair.precomputed[precomputedIndex++] = solvparams1.radius;
-								pair.precomputed[precomputedIndex++] = solvparams1.lambda;
-								pair.precomputed[precomputedIndex++] = alpha1;
-								pair.precomputed[precomputedIndex++] = solvparams2.radius;
-								pair.precomputed[precomputedIndex++] = solvparams2.lambda;
-								pair.precomputed[precomputedIndex++] = alpha2;
+								params.eef1parms.getSolvationPairParams(atom1, atom2, params.solvScale, solvparams);
+								pair.precomputed[precomputedIndex++] = solvparams.radius1;
+								pair.precomputed[precomputedIndex++] = solvparams.lambda1;
+								pair.precomputed[precomputedIndex++] = solvparams.alpha1;
+								pair.precomputed[precomputedIndex++] = solvparams.radius2;
+								pair.precomputed[precomputedIndex++] = solvparams.lambda2;
+								pair.precomputed[precomputedIndex++] = solvparams.alpha2;
 							break;
 							
 							default:
@@ -286,7 +225,7 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 				switch (params.solvationForcefield) {
 					
 					case EEF1:
-						pair.offset += internalSolvEnergies.get(pair.res1)*pair.weight;
+						pair.offset += params.eef1parms.getInternalEnergy(pair.res1)*params.solvScale*pair.weight;
 					break;
 					
 					default:

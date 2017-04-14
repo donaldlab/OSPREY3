@@ -24,7 +24,6 @@ public class ForcefieldParams implements Serializable {
     public static final double coulombConstant = 332.0;
     public static final double solvCutoff = 9.0;
     public static final double solvCutoff2 = solvCutoff*solvCutoff;
-    public static final double solvTrig = 2.0/(4.0*Math.PI*Math.sqrt(Math.PI));
 
     public static boolean printWarnings = true;
 
@@ -808,6 +807,49 @@ public class ForcefieldParams implements Serializable {
 		if (!success) {
 			throw new Error("couldn't find non-bonded parameters for atom type: " + atom.forceFieldType);
 		}
+	}
+	
+	
+	public static class VdwParams {
+		public double Aij = 0.0;
+		public double Bij = 0.0;
+	}
+	
+	public void getVdwParams(Atom atom1, Atom atom2, AtomNeighbors.Type neighborType, VdwParams out) {
+		
+		// calc vdW params
+		// Aij = (ri+rj)^12 * sqrt(ei*ej)
+		// Bij = (ri+rj)^6 * sqrt(ei*ej)
+		
+		// TODO: optimize out this allocation? or will escape analysis during JIT use stack allocation?
+		NBParams nbparams1 = new NBParams();
+		NBParams nbparams2 = new NBParams();
+		getNonBondedParametersOrThrow(atom1, neighborType, nbparams1);
+		getNonBondedParametersOrThrow(atom2, neighborType, nbparams2);
+		double epsilon = Math.sqrt(nbparams1.epsilon*nbparams2.epsilon);
+		double radiusSum = nbparams1.r + nbparams2.r;
+		double Bij = radiusSum*radiusSum*vdwMultiplier*vdwMultiplier;
+		Bij = Bij*Bij*Bij;
+		double Aij = Bij*Bij;
+		
+		Aij *= epsilon;
+		Bij *= epsilon;
+		
+		// vdW scaling by connectivity
+		switch (neighborType) {
+			case BONDED14:
+				Aij *= forcefld.Aij14Factor;
+				Bij *= forcefld.Bij14Factor;
+			break;
+			case NONBONDED:
+				Bij *= 2;
+			break;
+			default:
+				throw new IllegalArgumentException("no van der Waals params for closely bonded atoms");
+		}
+		
+		out.Aij = Aij;
+		out.Bij = Bij;
 	}
         
         
