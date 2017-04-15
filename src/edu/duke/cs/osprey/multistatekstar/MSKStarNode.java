@@ -9,7 +9,7 @@ import edu.duke.cs.osprey.control.ConfEnergyCalculator;
 import edu.duke.cs.osprey.control.ParamSet;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
-import edu.duke.cs.osprey.multistatekstar.ResidueOrder.AAScore;
+import edu.duke.cs.osprey.multistatekstar.ResidueOrder.AAAssignment;
 import edu.duke.cs.osprey.tools.ObjectIO;
 
 /**
@@ -31,7 +31,7 @@ public class MSKStarNode {
 	public static ConfEnergyCalculator.Async[][] ECALCS_DISC;//energy calculators for discrete emats
 
 	public static ResidueOrder RESIDUE_ORDER = null;
-	private static int PARALLELISM_MULTIPLIER = 2;
+	private static int PARALLELISM_MULTIPLIER = 4;
 
 	private KStarScore[] ksLB;//lower bound k* objects
 	private KStarScore[] ksUB;//upper bound k* objects
@@ -133,17 +133,14 @@ public class MSKStarNode {
 		if(isFullyAssigned()) throw new RuntimeException("ERROR: cannot split a "
 				+ "fully assigned node unless continuous minimization is enabled");
 
-		ArrayList<MSKStarNode> ans = new ArrayList<>();
+		ArrayList<ArrayList<ArrayList<AAAssignment>>> splits = RESIDUE_ORDER.getNextResidueAssignment(
+				OBJ_FUNC, 
+				getStateKStarSearch(OBJ_FUNC), 
+				NUM_MAX_MUT-getNumMutations(0)
+				);
 
-		ksObjFunc = getStateKStarObjects(OBJ_FUNC);
-		int numStates = ksObjFunc.length;
-		MSSearchProblem[][] objFcnSearch = new MSSearchProblem[numStates][];
-		for(int state=0;state<numStates;++state) objFcnSearch[state] = ksObjFunc[state].getSettings().search;	
-
-		//residue ordering is determined by the objective function search problems, rather than just upper bound or lower bounds
-		RESIDUE_ORDER = RESIDUE_ORDER == null ? ResidueOrderFactory.getResidueOrder(MS_PARAMS, objFcnSearch) : RESIDUE_ORDER;
-		ArrayList<ArrayList<ArrayList<AAScore>>> splits = RESIDUE_ORDER.getNextAssignments(objFcnSearch, NUM_MAX_MUT-getNumMutations(0));
-
+		ArrayList<MSKStarNode> ans = new ArrayList<>();	
+		int numStates = getNumStates();
 		//each split is applied to every state ub and lb
 		int numSplits = splits.get(0).size();
 		for(int splitIndex=0;splitIndex<numSplits;++splitIndex) {
@@ -177,7 +174,7 @@ public class MSKStarNode {
 		return ans;
 	}
 
-	private KStarScore split(KStarScore parent, ArrayList<ArrayList<ArrayList<AAScore>>> splits, int index) {
+	private KStarScore split(KStarScore parent, ArrayList<ArrayList<ArrayList<AAAssignment>>> splits, int index) {
 		//substate / split index / assignments for split
 		MSKStarSettings kSet = new MSKStarSettings(parent.getSettings());
 		
@@ -186,7 +183,7 @@ public class MSKStarNode {
 		Arrays.fill(pfs, null);
 
 		for(int subState=0;subState<numSubStates;++subState) {
-			ArrayList<AAScore> assignments = splits.get(subState).get(index);
+			ArrayList<AAAssignment> assignments = splits.get(subState).get(index);
 			if(assignments.size()>0)//update search problem,otherwise we keep parent search problem
 				kSet.search[subState] = splitSearch(subState, kSet.search[subState], assignments);
 			else {
@@ -217,10 +214,10 @@ public class MSKStarNode {
 		return MSKStarFactory.makeKStarScore(kSet, pfs);
 	}
 
-	private MSSearchProblem splitSearch(int subState, MSSearchProblem parent, ArrayList<AAScore> splits) {
+	private MSSearchProblem splitSearch(int subState, MSSearchProblem parent, ArrayList<AAAssignment> splits) {
 		//make new search settings
 		MSSearchSettings sSet = (MSSearchSettings) ObjectIO.deepCopy(parent.settings);
-		for(AAScore aa : splits) {
+		for(AAAssignment aa : splits) {
 			//update mutres
 			sSet.mutRes.set(aa.residuePos, parent.flexRes.get(aa.residuePos));
 			//restrict allowed AAs
@@ -358,6 +355,14 @@ public class MSKStarNode {
 			}
 		}
 		return ksObjFunc;
+	}
+	
+	public MSSearchProblem[][] getStateKStarSearch(LMB lmb) {
+		KStarScore[] scores = getStateKStarObjects(lmb);
+		int numStates = scores.length;
+		MSSearchProblem[][] search = new MSSearchProblem[numStates][];
+		for(int state=0;state<numStates;++state) search[state] = scores[state].getSettings().search;
+		return search;
 	}
 
 	public String toString() {

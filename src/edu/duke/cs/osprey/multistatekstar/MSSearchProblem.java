@@ -30,6 +30,10 @@ public class MSSearchProblem extends SearchProblem {
 		//this.flexRes = settings.mutRes;//-1 for unassigned positions
 		this.numAssignedPos = other.confSpace.numPos-Collections.frequency(settings.mutRes, "-1");
 	}
+	
+	public int getNumPos() {
+		return confSpace.numPos;
+	}
 
 	public ArrayList<Integer> getPosNums(boolean assigned) {
 		ArrayList<Integer> ans = new ArrayList<>();
@@ -41,6 +45,16 @@ public class MSSearchProblem extends SearchProblem {
 		return ans;
 	}
 
+	public ArrayList<String> getResidues(boolean assigned) {
+		ArrayList<String> ans = new ArrayList<>();
+		for(int i=0;i<settings.mutRes.size();++i) {
+			if(!assigned && settings.mutRes.get(i).equals("-1")) ans.add(flexRes.get(i));//get undefined res
+			else if(assigned && !settings.mutRes.get(i).equals("-1")) ans.add(flexRes.get(i));//get defined res
+		}
+		ans.trimToSize();
+		return ans;
+	}
+	
 	public ArrayList<String> getAssignedAAs() {
 		ArrayList<String> ans = new ArrayList<>();
 		for(int i : getPosNums(true)) {

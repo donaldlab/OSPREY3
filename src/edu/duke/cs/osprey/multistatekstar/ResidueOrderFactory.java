@@ -8,10 +8,9 @@ public class ResidueOrderFactory {
 		String val = msParams.getValue("RESIDUEORDER");
 		switch(val.toLowerCase()) {
 		case "staticsequential":
-			return new ResidueOrderStaticSequential(objFcnSearch);
-		case "staticmindom":
-		case "staticobjFunchmean":
-		case "dynamicobjfunchmean":
+			return new ResidueOrderStaticSequential();
+		case "dynamicfscore":
+			return new ResidueOrderDynamicScore(objFcnSearch);
 		default:
 			throw new UnsupportedOperationException("ERROR: unsupported residue order type: "+val);
 		}

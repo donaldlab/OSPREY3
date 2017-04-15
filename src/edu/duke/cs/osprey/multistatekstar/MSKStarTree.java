@@ -161,7 +161,7 @@ public class MSKStarTree {
 		return ans;
 	}
 
-	private void initNodeStaticVars() {
+	private void initNodeStaticVars(MSKStarNode root) {
 		//initialize MSKStarNode
 		MSKStarNode.OBJ_FUNC = this.objFcn;
 		MSKStarNode.WT_SEQS = this.wtSeqs;
@@ -171,13 +171,11 @@ public class MSKStarTree {
 		MSKStarNode.SEARCH_DISC = this.searchDisc;
 		MSKStarNode.ECALCS_CONT = this.ecalcsCont;
 		MSKStarNode.ECALCS_DISC = this.ecalcsDisc;
-		MSKStarNode.RESIDUE_ORDER = null;
+		MSKStarNode.RESIDUE_ORDER = ResidueOrderFactory.getResidueOrder(this.msParams, root.getStateKStarSearch(this.objFcn));
 		ThreadParallelism.setNumThreads(msParams.getInt("ASTARTHREADS"));
 	}
 
 	private MSKStarNode getRootNode() {
-
-		initNodeStaticVars();
 
 		KStarScore[] kssLB = new KStarScore[numStates];
 		KStarScore[] kssUB = new KStarScore[numStates];
@@ -197,6 +195,9 @@ public class MSKStarTree {
 
 		MSKStarNode ans = new MSKStarNode(kssLB, kssUB);
 		ans.setScore(objFcn);//set score per the objective function
+		
+		initNodeStaticVars(ans);
+		
 		return ans;
 	}
 
