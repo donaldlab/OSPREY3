@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.energy.forcefield;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
@@ -12,6 +13,9 @@ import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.ResInterGen;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
+import edu.duke.cs.osprey.gpu.cuda.GpuStream;
+import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
+import edu.duke.cs.osprey.gpu.cuda.kernels.ResidueForcefieldEnergyCuda;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.AtomConnectivity;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -78,6 +82,23 @@ public class BenchmarkForcefields extends TestBase {
 				.make();
 			return new ResidueForcefieldEnergy(ffparams, inters, mol, connectivity);
 		});
+		
+		// residue forcefield cuda
+		GpuStreamPool streams = new GpuStreamPool(1, 1);
+		GpuStream stream = streams.checkout();
+		benchmark(ResidueForcefieldEnergy.class.getSimpleName(), base, () -> {
+			ResidueInteractions inters = ResInterGen.of(confSpace)
+				.addIntras(frag)
+				.addInters(frag)
+				.make();
+			try {
+				return new ResidueForcefieldEnergyCuda(stream, ffparams, inters, mol, connectivity);
+			} catch (IOException ex) {
+				throw new Error(ex);
+			}
+		});
+		streams.release(stream);
+		streams.cleanup();
 		
 		// big forcefield
 		benchmark(BigForcefieldEnergy.class.getSimpleName(), base, () -> {

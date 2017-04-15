@@ -11,34 +11,53 @@ public class BufferTools {
 	public static enum Type {
 		
 		Normal {
+			
 			@Override
-			public ByteBuffer make(int size) {
+			public ByteBuffer makeByte(int size) {
 				return ByteBuffer.allocate(size);
+			}
+			
+			@Override
+			public DoubleBuffer makeDouble(int size) {
+				return DoubleBuffer.allocate(size);
+			}
+			
+			@Override
+			public IntBuffer makeInt(int size) {
+				return IntBuffer.allocate(size);
+			}
+			
+			@Override
+			public LongBuffer makeLong(int size) {
+				return LongBuffer.allocate(size);
 			}
 		},
 		Direct {
+			
 			@Override
-			public ByteBuffer make(int size) {
+			public ByteBuffer makeByte(int size) {
 				return ByteBuffer.allocateDirect(size).order(ByteOrder.nativeOrder());
+			}
+			
+			@Override
+			public DoubleBuffer makeDouble(int size) {
+				return makeByte(size*Double.BYTES).asDoubleBuffer();
+			}
+			
+			@Override
+			public IntBuffer makeInt(int size) {
+				return makeByte(size*Integer.BYTES).asIntBuffer();
+			}
+			
+			@Override
+			public LongBuffer makeLong(int size) {
+				return makeByte(size*Long.BYTES).asLongBuffer();
 			}
 		};
 		
-		public abstract ByteBuffer make(int size);
-	}
-	
-	public static ByteBuffer makeByte(int size, Type type) {
-		return type.make(size);
-	}
-	
-	public static DoubleBuffer makeDouble(int size, Type type) {
-		return makeByte(size*Double.BYTES, type).asDoubleBuffer();
-	}
-	
-	public static IntBuffer makeInt(int size, Type type) {
-		return makeByte(size*Integer.BYTES, type).asIntBuffer();
-	}
-	
-	public static LongBuffer makeLong(int size, Type type) {
-		return makeByte(size*Long.BYTES, type).asLongBuffer();
+		public abstract ByteBuffer makeByte(int size);
+		public abstract DoubleBuffer makeDouble(int size);
+		public abstract IntBuffer makeInt(int size);
+		public abstract LongBuffer makeLong(int size);
 	}
 }

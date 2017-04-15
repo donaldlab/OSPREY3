@@ -35,19 +35,19 @@ public class GpuStream {
 	}
 	
 	public CUBuffer<ByteBuffer> makeByteBuffer(int size) {
-		return new CUBuffer<>(this, BufferTools.makeByte(size, BufferTools.Type.Direct));
+		return new CUBuffer<>(this, BufferTools.Type.Direct.makeByte(size));
 	}
 	
 	public CUBuffer<IntBuffer> makeIntBuffer(int size) {
-		return new CUBuffer<>(this, BufferTools.makeInt(size, BufferTools.Type.Direct));
+		return new CUBuffer<>(this, BufferTools.Type.Direct.makeInt(size));
 	}
 	
 	public CUBuffer<DoubleBuffer> makeDoubleBuffer(int size) {
-		return new CUBuffer<>(this, BufferTools.makeDouble(size, BufferTools.Type.Direct));
+		return new CUBuffer<>(this, BufferTools.Type.Direct.makeDouble(size));
 	}
 	
 	public CUBuffer<LongBuffer> makeLongBuffer(int size) {
-		return new CUBuffer<>(this, BufferTools.makeLong(size, BufferTools.Type.Direct));
+		return new CUBuffer<>(this, BufferTools.Type.Direct.makeLong(size));
 	}
 	
 	public CUBuffer<ByteBuffer> makeOrExpandByteBuffer(CUBuffer<ByteBuffer> buf, int size) {

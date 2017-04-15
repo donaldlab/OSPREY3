@@ -503,7 +503,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	
 	private DoubleBuffer makeOrResizeBuffer(DoubleBuffer buf, int size) {
 		if (buf == null || buf.capacity() < size) {
-			buf = BufferTools.makeDouble(size, bufferType);
+			buf = bufferType.makeDouble(size);
 		} else {
 			buf.clear();
 		}
@@ -513,7 +513,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	
 	private IntBuffer makeOrResizeBuffer(IntBuffer buf, int size) {
 		if (buf == null || buf.capacity() < size) {
-			buf = BufferTools.makeInt(size, bufferType);
+			buf = bufferType.makeInt(size);
 		} else {
 			buf.clear();
 		}

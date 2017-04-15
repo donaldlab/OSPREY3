@@ -71,37 +71,6 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 	private double coulombFactor;
 	private double scaledCoulombFactor;
 	
-	/* TODO: move to gpu area
-	private ByteBuffer coords;
-	
-	 * buffer layout:
-	 * NOTE: try to use 8-byte alignments to be happy on 64-bit machines
-	 * 
-	 * for each residue pair:
-	 *    long numAtomPairs
-	 *    
-	 *    for each atom pair:
-	 *       short atomIndex1
-	 *       short atomIndex2
-	 *       int flags  (isHeavyPair, is14Bonded)
-	 *       double charge
-	 *       double Aij
-	 *       double Bij
-	 *       double radius1
-	 *       double lambda1
-	 *       double alpha1
-	 *       double radius2
-	 *       double lambda2
-	 *       double alpha2
-	 *       
-	 *    double weight
-	 *    double offset
-	private ByteBuffer precomputed;
-	
-	private static final int ResPairBytes = Long.BYTES + Double.BYTES*2;
-	private static final int AtomPairBytes = Integer.BYTES + Short.BYTES*2 + Double.BYTES*9;
-	*/
-	
 	public ResidueForcefieldEnergy(ForcefieldParams params, ResidueInteractions inters, Molecule mol, AtomConnectivity connectivity) {
 		this(params, inters, mol.residues, connectivity);
 	}
@@ -133,23 +102,6 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		// pre-compute some constants needed by getEnergy()
 		coulombFactor = ForcefieldParams.coulombConstant/params.dielectric;
 		scaledCoulombFactor = coulombFactor*params.forcefld.coulombScaling;
-		
-		/* TODO: move into GPU area
-		// count atoms and offsets for each residue
-		int[] atomOffsetsByResIndex = new int[mol.residues.size()];
-		Arrays.fill(atomOffsetsByResIndex, -1);
-		int atomOffset = 0;
-		int numAtoms = 0;
-		for (String resNum : inters.getResidueNumbers()) {
-			Residue res = residuesByNum.get(resNum);
-			atomOffsetsByResIndex[res.indexInMolecule] = atomOffset;
-			atomOffset += 3*Double.BYTES*res.atoms.size();
-			numAtoms += res.atoms.size();
-		}
-		
-		// make the coords buffer
-		coords = bufferType.make(numAtoms*3*Double.BYTES);
-		*/
 		
 		VdwParams vdwparams = new VdwParams();
 		SolvPairParams solvparams = new SolvPairParams();
@@ -235,17 +187,6 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		}
 	}
 	
-	/* TODO: move to GPU area
-	public void copyCoords() {
-		coords.clear();
-		DoubleBuffer doubleCoords = coords.asDoubleBuffer();
-		for (String resNum : inters.getResidueNumbers()) {
-			doubleCoords.put(residuesByNum.get(resNum).coords);
-		}
-		coords.clear();
-	}
-	*/
-
 	@Override
 	public double getEnergy() {
 		return getEnergy(resPairs);
