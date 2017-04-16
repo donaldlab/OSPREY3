@@ -17,6 +17,8 @@ import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -24,11 +26,15 @@ import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.FFInterGen;
+import edu.duke.cs.osprey.energy.MinimizingConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.MinimizingFragmentEnergyCalculator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Stopwatch;
@@ -54,6 +60,7 @@ public class BenchmarkMinimization extends TestBase {
 		ResidueFlexibility resFlex = new ResidueFlexibility();
 		resFlex.addMutable("39 43", "ALA");
 		resFlex.addFlexible("40 41 42 44 45");
+		resFlex.sortPositions();
 		boolean doMinimize = true;
 		boolean addWt = false;
 		boolean useEpic = false;
@@ -80,8 +87,20 @@ public class BenchmarkMinimization extends TestBase {
 			ObjectIO.writeObject(search.emat, ematFile.getAbsolutePath());
 		}
 		
+		// also make a simple conf space
+		Strand strand = new Strand.Builder(PDBIO.readFile("examples/1CC8/1CC8.ss.pdb")).build();
+		strand.flexibility.get(39).setLibraryRotamers("ALA").setContinuous();
+		strand.flexibility.get(43).setLibraryRotamers("ALA").setContinuous();
+		strand.flexibility.get(40).setLibraryRotamers().setContinuous();
+		strand.flexibility.get(41).setLibraryRotamers().setContinuous();
+		strand.flexibility.get(42).setLibraryRotamers().setContinuous();
+		strand.flexibility.get(44).setLibraryRotamers().setContinuous();
+		strand.flexibility.get(45).setLibraryRotamers().setContinuous();
+		SimpleConfSpace simpleConfSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
+		assertConfSpacesMatch(search.confSpace, simpleConfSpace);
+		
 		// settings
-		final int numConfs = 1024;
+		final int numConfs = 64;//512;//1024;
 		
 		// get a few arbitrary conformations
 		System.out.println("getting confs...");
@@ -106,12 +125,12 @@ public class BenchmarkMinimization extends TestBase {
 		
 		System.out.println("benchmarking...");
 		
-		benchmarkSerial(search, confs);
-		//benchmarkParallel(search, confs);
+		//benchmarkSerial(search, simpleConfSpace, confs);
+		benchmarkParallel(search, simpleConfSpace, confs);
 		//compareOneConf(search, confs);
 	}
 
-	private static void benchmarkSerial(SearchProblem search, List<ScoredConf> confs)
+	private static void benchmarkSerial(SearchProblem search, SimpleConfSpace simpleConfSpace, List<ScoredConf> confs)
 	throws Exception {
 
 		Factory<ForcefieldInteractions,Molecule> interactionsFactory = (mol) -> FFInterGen.makeFullConf(search.confSpace, search.shellResidues, mol);
@@ -135,16 +154,26 @@ public class BenchmarkMinimization extends TestBase {
 		System.out.println("\nbenchmarking OpenCL simple...");
 		benchmark(new GpuConfMinimizer.Builder(ffparams, interactionsFactory, search.confSpace).setGpuInfo(GpuConfMinimizer.Type.OpenCL, 1, 1).build(), confs, cpuSimpleStopwatch);
 		
-		System.out.println("\nbenchmarking Cuda CCD...");
+		System.out.println("\nbenchmarking Cuda...");
 		benchmark(new GpuConfMinimizer.Builder(ffparams, interactionsFactory, search.confSpace).setGpuInfo(GpuConfMinimizer.Type.Cuda, 1, 1).build(), confs, cpuSimpleStopwatch);
+		
+		System.out.println("\nbenchmarking Cuda CCD...");
+		benchmark(new GpuConfMinimizer.Builder(ffparams, interactionsFactory, search.confSpace).setGpuInfo(GpuConfMinimizer.Type.CudaCCD, 1, 1).build(), confs, cpuSimpleStopwatch);
+		
+		System.out.println("\nbenchmarking Residue Cuda...");
+		MinimizingFragmentEnergyCalculator fragecalc = new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
+			.setType(MinimizingFragmentEnergyCalculator.Type.Cuda)
+			.setParallelism(Parallelism.makeGpu(1, 1))
+			.build();
+		benchmark(new MinimizingConfEnergyCalculator.Builder(fragecalc).build(), confs, cpuSimpleStopwatch);
 	}
 	
-	private static void benchmarkParallel(SearchProblem search, List<ScoredConf> confs)
+	private static void benchmarkParallel(SearchProblem search, SimpleConfSpace simpleConfSpace, List<ScoredConf> confs)
 	throws Exception {
 		
 		// settings
-		final int[] numThreadsList = { 1, 2 };//, 4, 8 };
-		final int[] numStreamsList = { 1, 2, 4, 8, 16 };//, 32, 64, 128, 256 };
+		final int[] numThreadsList = { 1, 2, 4 };//, 8 };
+		final int[] numStreamsList = { 1, 2, 4, 8, 16, 32, 64 };//, 128, 256 };
 		
 		Factory<ForcefieldInteractions,Molecule> interactionsFactory = (mol) -> FFInterGen.makeFullConf(search.confSpace, search.shellResidues, mol);
 		ForcefieldParams ffparams = makeDefaultFFParams();
@@ -153,7 +182,7 @@ public class BenchmarkMinimization extends TestBase {
 		Stopwatch oneCpuStopwatch = null;
 		for (int numThreads : numThreadsList) {
 			
-			System.out.println("\nBenchmarking " + numThreads + " thread(s) with CPU efuncs...");
+			System.out.println(String.format("\nBenchmarking %2d thread(s) with %30s...", numThreads, "CPU efuncs"));
 			ConfMinimizer minimizer = new CpuConfMinimizer.Builder(ffparams, interactionsFactory, search.confSpace)
 				.setNumThreads(numThreads)
 				.build();
@@ -163,9 +192,23 @@ public class BenchmarkMinimization extends TestBase {
 			}
 		}
 		
+		/* TEMP
+		// benchmark cpu residue efuncs
+		for (int numThreads : numThreadsList) {
+			
+			System.out.println(String.format("\nBenchmarking %2d thread(s) with %30s...", numThreads, "CPU residue efuncs"));
+			MinimizingFragmentEnergyCalculator ecalc = new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
+				.setType(MinimizingFragmentEnergyCalculator.Type.Cpu)
+				.setParallelism(Parallelism.makeCpu(numThreads))
+				.build();
+			MinimizingConfEnergyCalculator minimizer = new MinimizingConfEnergyCalculator.Builder(ecalc).build();
+			benchmark(minimizer, confs, oneCpuStopwatch);
+			ecalc.cleanup();
+		}
+		
 		// benchmark opencl
 		for (int numStreams : numStreamsList) {
-			System.out.println("\nBenchmarking " + numStreams + " stream(s) with OpenCL efuncs...");
+			System.out.println(String.format("\nBenchmarking %2d stream(s) with %30s...", numStreams, "OpenCL efuncs"));
 			ConfMinimizer minimizer = new GpuConfMinimizer.Builder(ffparams, interactionsFactory, search.confSpace)
 				.setGpuInfo(GpuConfMinimizer.Type.OpenCL, 1, numStreams)
 				.build();
@@ -174,7 +217,7 @@ public class BenchmarkMinimization extends TestBase {
 		
 		// benchmark cuda
 		for (int numStreams : numStreamsList) {
-			System.out.println("\nBenchmarking " + numStreams + " stream(s) with Cuda efuncs...");
+			System.out.println(String.format("\nBenchmarking %2d stream(s) with %30s...", numStreams, "Cuda efuncs"));
 			ConfMinimizer minimizer = new GpuConfMinimizer.Builder(ffparams, interactionsFactory, search.confSpace)
 				.setGpuInfo(GpuConfMinimizer.Type.Cuda, 1, numStreams)
 				.build();
@@ -183,11 +226,24 @@ public class BenchmarkMinimization extends TestBase {
 		
 		// benchmark cuda ccd
 		for (int numStreams : numStreamsList) {
-			System.out.println("\nBenchmarking " + numStreams + " stream(s) with Cuda CCD minimizer...");
+			System.out.println(String.format("\nBenchmarking %2d stream(s) with %30s...", numStreams, "Cuda CCD minimizer"));
 			ConfMinimizer minimizer = new GpuConfMinimizer.Builder(ffparams, interactionsFactory, search.confSpace)
 				.setGpuInfo(GpuConfMinimizer.Type.CudaCCD, 1, numStreams)
 				.build();
 			benchmark(minimizer, confs, oneCpuStopwatch);
+		}
+		*/
+		
+		// benchmark residue cuda
+		for (int numStreams : numStreamsList) {
+			System.out.println(String.format("\nBenchmarking %2d stream(s) with %30s...", numStreams, "Cuda residue efuncs"));
+			MinimizingFragmentEnergyCalculator ecalc = new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
+				.setType(MinimizingFragmentEnergyCalculator.Type.Cuda)
+				.setParallelism(Parallelism.makeGpu(1, numStreams))
+				.build();
+			MinimizingConfEnergyCalculator minimizer = new MinimizingConfEnergyCalculator.Builder(ecalc).build();
+			benchmark(minimizer, confs, oneCpuStopwatch);
+			minimizer.cleanup();
 		}
 	}
 	
@@ -200,10 +256,10 @@ public class BenchmarkMinimization extends TestBase {
 		List<EnergiedConf> minimizedConfs = minimizer.minimize(confs);
 		stopwatch.stop();
 		
-		System.out.print(String.format("precise timing: %s, ops: %.1f", stopwatch.getTime(TimeUnit.MILLISECONDS), confs.size()/stopwatch.getTimeS()));
+		System.out.print(String.format("precise timing: %9s, ops: %5.1f", stopwatch.getTime(TimeUnit.MILLISECONDS), confs.size()/stopwatch.getTimeS()));
 		
 		if (referenceStopwatch != null) {
-			System.out.println(String.format(", speedup: %.2fx",
+			System.out.println(String.format(", speedup: %6.2fx",
 				(double)referenceStopwatch.getTimeNs()/stopwatch.getTimeNs()
 			));
 		} else {
@@ -211,6 +267,30 @@ public class BenchmarkMinimization extends TestBase {
 		}
 		
 		minimizer.cleanup();
+		
+		checkEnergies(minimizedConfs);
+		
+		return stopwatch;
+	}
+	
+	private static Stopwatch benchmark(MinimizingConfEnergyCalculator ecalc, List<ScoredConf> confs, Stopwatch referenceStopwatch)
+	throws Exception {
+		
+		Stopwatch stopwatch = new Stopwatch().start();
+		List<EnergiedConf> minimizedConfs = ecalc.calcAllEnergies(confs, true);
+		stopwatch.stop();
+		
+		System.out.print(String.format("precise timing: %9s, ops: %5.1f", stopwatch.getTime(TimeUnit.MILLISECONDS), confs.size()/stopwatch.getTimeS()));
+		
+		if (referenceStopwatch != null) {
+			System.out.println(String.format(", speedup: %6.2fx",
+				(double)referenceStopwatch.getTimeNs()/stopwatch.getTimeNs()
+			));
+		} else {
+			System.out.println();
+		}
+		
+		ecalc.cleanup();
 		
 		checkEnergies(minimizedConfs);
 		

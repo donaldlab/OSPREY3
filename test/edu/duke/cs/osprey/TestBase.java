@@ -1,5 +1,8 @@
 package edu.duke.cs.osprey;
 
+import static org.junit.Assert.*;
+import static org.hamcrest.Matchers.*;
+
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -11,7 +14,13 @@ import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 
+import edu.duke.cs.osprey.confspace.ConfSpace;
+import edu.duke.cs.osprey.confspace.PositionConfSpace;
+import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace.Position;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace.ResidueConf;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
@@ -134,6 +143,25 @@ public class TestBase {
 				flexResList.set(i, pair.res);
 				allowedAAs.set(i, pair.aas);
 			}	
+		}
+	}
+	
+	public static void assertConfSpacesMatch(ConfSpace confSpace, SimpleConfSpace simpleConfSpace) {
+		assertThat(simpleConfSpace.positions.size(), is(confSpace.numPos));
+		for (int pos=0; pos<confSpace.numPos; pos++) {
+			PositionConfSpace oldpos = confSpace.posFlex.get(pos);
+			Position newpos = simpleConfSpace.positions.get(pos);
+			assertThat(newpos.resConfs.size(), is(oldpos.RCs.size()));
+			for (int rc=0; rc<oldpos.RCs.size(); rc++) {
+				RC oldrc = oldpos.RCs.get(rc);
+				ResidueConf newrc = newpos.resConfs.get(rc);
+				assertThat(newrc.template.name, is(oldrc.AAType));
+				if (oldrc.rotNum == -1) {
+					assertThat(newrc.rotamerIndex, is(nullValue()));
+				} else {
+					assertThat(newrc.rotamerIndex, is(oldrc.rotNum));
+				}
+			}
 		}
 	}
 	

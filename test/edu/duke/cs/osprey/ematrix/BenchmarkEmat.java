@@ -1,17 +1,10 @@
 package edu.duke.cs.osprey.ematrix;
 
-import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.*;
-
 import java.util.ArrayList;
 
 import edu.duke.cs.osprey.TestBase;
-import edu.duke.cs.osprey.confspace.PositionConfSpace;
-import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace.Position;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace.ResidueConf;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
@@ -68,24 +61,7 @@ public class BenchmarkEmat extends TestBase {
 		strand.flexibility.get(45).setLibraryRotamers().setContinuous();
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		ForcefieldParams ffparams = new ForcefieldParams();
-		
-		// make sure the conf spaces match
-		assertThat(confSpace.positions.size(), is(search.confSpace.numPos));
-		for (int pos=0; pos<search.confSpace.numPos; pos++) {
-			PositionConfSpace oldpos = search.confSpace.posFlex.get(pos);
-			Position newpos = confSpace.positions.get(pos);
-			assertThat(newpos.resConfs.size(), is(oldpos.RCs.size()));
-			for (int rc=0; rc<oldpos.RCs.size(); rc++) {
-				RC oldrc = oldpos.RCs.get(rc);
-				ResidueConf newrc = newpos.resConfs.get(rc);
-				assertThat(newrc.template.name, is(oldrc.AAType));
-				if (oldrc.rotNum == -1) {
-					assertThat(newrc.rotamerIndex, is(nullValue()));
-				} else {
-					assertThat(newrc.rotamerIndex, is(oldrc.rotNum));
-				}
-			}
-		}
+		assertConfSpacesMatch(search.confSpace, confSpace);
 		
 		// calculate old emat
 		System.out.println("\nCalculating reference emat...");
