@@ -1,5 +1,7 @@
 package edu.duke.cs.osprey.energy;
 
+import java.io.IOException;
+
 import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
@@ -10,6 +12,7 @@ import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ResidueForcefieldEnergy;
 import edu.duke.cs.osprey.gpu.BufferTools;
 import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
+import edu.duke.cs.osprey.gpu.cuda.kernels.ResidueForcefieldEnergyCuda;
 import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.CudaCCDMinimizer;
@@ -130,7 +133,13 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 					{
 						pool = new GpuStreamPool(parallelism.numGpus, parallelism.numStreamsPerGpu);
 						numStreams = pool.getNumStreams();
-						efuncs = (interactions, mol) -> new GpuForcefieldEnergy(ffparams, new ForcefieldInteractions(interactions, mol), pool);
+						efuncs = (interactions, mol) -> {
+							try {
+								return new ResidueForcefieldEnergyCuda(pool, ffparams, interactions, mol, connectivity);
+							} catch (IOException ex) {
+								throw new Error(ex);
+							}
+						};
 						minimizers = (f) -> new SimpleCCDMinimizer(f);
 						needsCleanup = true;
 					}

@@ -221,18 +221,18 @@ public class CCDKernelCuda extends Kernel {
 			}
 		};
 		func.setArgs(Pointer.to(
-			coords.makeDevicePointer(),
-			atomFlags.makeDevicePointer(),
-			precomputed.makeDevicePointer(),
-			ffargs.makeDevicePointer(),
-			subsetTables.makeDevicePointer(),
-			dihedralIndices.makeDevicePointer(),
-			rotatedIndices.makeDevicePointer(),
-			dofargs.makeDevicePointer(),
+			coords.getDevicePointer(),
+			atomFlags.getDevicePointer(),
+			precomputed.getDevicePointer(),
+			ffargs.getDevicePointer(),
+			subsetTables.getDevicePointer(),
+			dihedralIndices.getDevicePointer(),
+			rotatedIndices.getDevicePointer(),
+			dofargs.getDevicePointer(),
 			Pointer.to(new int[] { maxNumCoords }),
-			xAndBounds.makeDevicePointer(),
+			xAndBounds.getDevicePointer(),
 			Pointer.to(new int[] { dofInfos.size() }),
-			ccdOut.makeDevicePointer()
+			ccdOut.getDevicePointer()
 		));
 		
 		// calc the number of block threads

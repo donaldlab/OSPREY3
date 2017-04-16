@@ -59,6 +59,12 @@ public class BenchmarkForcefields extends TestBase {
 		// get a molecule
 		Molecule mol = confSpace.makeMolecule(new int[] { 0, 0, 0, 0, 0 }).mol;
 		
+		benchmarkComparison(mol, confSpace, ffparams, connectivity);
+		//benchmarkGpu(mol, confSpace, ffparams, connectivity);
+	}
+	
+	private static void benchmarkComparison(Molecule mol, SimpleConfSpace confSpace, ForcefieldParams ffparams, AtomConnectivity connectivity) {
+		
 		// multi term energy function
 		Result base = benchmark(MultiTermEnergyFunction.class.getSimpleName(), null, () -> {
 			MultiTermEnergyFunction efunc = new MultiTermEnergyFunction();
@@ -73,31 +79,26 @@ public class BenchmarkForcefields extends TestBase {
 			return efunc;
 		});
 		
-		// residue forcefield
 		RCTuple frag = new RCTuple(new int[] { 0, 0, 0, 0, 0 });
+		ResidueInteractions inters = ResInterGen.of(confSpace)
+			.addIntras(frag)
+			.addInters(frag)
+			.make();
+		
+		// residue forcefield
 		benchmark(ResidueForcefieldEnergy.class.getSimpleName(), base, () -> {
-			ResidueInteractions inters = ResInterGen.of(confSpace)
-				.addIntras(frag)
-				.addInters(frag)
-				.make();
 			return new ResidueForcefieldEnergy(ffparams, inters, mol, connectivity);
 		});
 		
 		// residue forcefield cuda
 		GpuStreamPool streams = new GpuStreamPool(1, 1);
-		GpuStream stream = streams.checkout();
-		benchmark(ResidueForcefieldEnergy.class.getSimpleName(), base, () -> {
-			ResidueInteractions inters = ResInterGen.of(confSpace)
-				.addIntras(frag)
-				.addInters(frag)
-				.make();
+		benchmark(ResidueForcefieldEnergyCuda.class.getSimpleName(), base, () -> {
 			try {
-				return new ResidueForcefieldEnergyCuda(stream, ffparams, inters, mol, connectivity);
+				return new ResidueForcefieldEnergyCuda(streams, ffparams, inters, mol, connectivity);
 			} catch (IOException ex) {
 				throw new Error(ex);
 			}
 		});
-		streams.release(stream);
 		streams.cleanup();
 		
 		// big forcefield
@@ -202,5 +203,42 @@ public class BenchmarkForcefields extends TestBase {
 		if (efunc instanceof EnergyFunction.NeedsCleanup) {
 			((EnergyFunction.NeedsCleanup)efunc).cleanup();
 		}
+	}
+	
+	private static void benchmarkGpu(Molecule mol, SimpleConfSpace confSpace, ForcefieldParams ffparams, AtomConnectivity connectivity) {
+		
+		RCTuple frag = new RCTuple(new int[] { 0, 0, 0, 0, 0 });
+		ResidueInteractions inters = ResInterGen.of(confSpace)
+			.addIntras(frag)
+			.addInters(frag)
+			.make();
+		
+		GpuStreamPool streams = new GpuStreamPool(1, 1);
+		
+		benchmark("create-cleanup", 100, 1000, 5, null, () -> {
+			try {
+				ResidueForcefieldEnergyCuda efunc = new ResidueForcefieldEnergyCuda(streams, ffparams, inters, mol, connectivity);
+				efunc.getEnergy();
+				efunc.cleanup();
+			} catch (IOException ex) {
+				throw new Error(ex);
+			}
+		});
+			
+		/*
+		try {
+			ResidueForcefieldEnergyCuda efunc = new ResidueForcefieldEnergyCuda(streams, ffparams, inters, mol, connectivity);
+			benchmark("run", 1000, 20000, 5, null, () -> {
+				efunc.getEnergy();
+			});
+			efunc.cleanup();
+		} catch (IOException ex) {
+			throw new Error(ex);
+		}
+		*/
+			
+		streams.cleanup();
+		
+		// best so far for run: 7131.8 ops
 	}
 }

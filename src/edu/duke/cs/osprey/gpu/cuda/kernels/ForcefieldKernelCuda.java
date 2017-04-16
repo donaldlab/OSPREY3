@@ -75,12 +75,12 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 		setSubsetInternal(ffenergy.getFullSubset());
 		
 		func.setArgs(Pointer.to(
-			coords.makeDevicePointer(),
-			atomFlags.makeDevicePointer(),
-			precomputed.makeDevicePointer(),
-			subsetTable.makeDevicePointer(),
-			args.makeDevicePointer(),
-			energies.makeDevicePointer()
+			coords.getDevicePointer(),
+			atomFlags.getDevicePointer(),
+			precomputed.getDevicePointer(),
+			subsetTable.getDevicePointer(),
+			args.getDevicePointer(),
+			energies.getDevicePointer()
 		));
 	}
 	

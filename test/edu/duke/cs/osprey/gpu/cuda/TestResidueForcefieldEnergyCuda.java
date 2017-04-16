@@ -72,13 +72,12 @@ public class TestResidueForcefieldEnergyCuda extends TestBase {
 			.build();
 		
 		GpuStreamPool streams = new GpuStreamPool(1, 1);
-		GpuStream stream = streams.checkout();
 		
 		try {
 			for (EfuncType type : EfuncType.values()) {
 				
 				ResidueInteractions inters = type.makeInters(residues);
-				ResidueForcefieldEnergyCuda efunc = new ResidueForcefieldEnergyCuda(stream, ffparams, inters, residues, connectivity);
+				ResidueForcefieldEnergyCuda efunc = new ResidueForcefieldEnergyCuda(streams, ffparams, inters, residues, connectivity);
 				double energy = efunc.getEnergy();
 				efunc.cleanup();
 				
@@ -88,8 +87,11 @@ public class TestResidueForcefieldEnergyCuda extends TestBase {
 		} catch (IOException ex) {
 			throw new Error(ex);
 		} finally {
-			streams.release(stream);
-			streams.cleanup();
+			try {
+				streams.cleanup();
+			} catch (Throwable t) {
+				t.printStackTrace(System.err);
+			}
 		}
 	}
 	
@@ -181,21 +183,23 @@ public class TestResidueForcefieldEnergyCuda extends TestBase {
 			.build();
 		
 		GpuStreamPool streams = new GpuStreamPool(1, 1);
-		GpuStream stream = streams.checkout();
 		ResidueForcefieldEnergyCuda efunc = null;
 		try {
 			
-			efunc = new ResidueForcefieldEnergyCuda(stream, new ForcefieldParams(), inters, residues, connectivity);
+			efunc = new ResidueForcefieldEnergyCuda(streams, new ForcefieldParams(), inters, residues, connectivity);
 			return efunc.getEnergy();
 			
 		} catch (IOException ex) {
 			throw new Error(ex);
 		} finally {
-			if (efunc != null) {
-				efunc.cleanup();
+			try {
+				if (efunc != null) {
+					efunc.cleanup();
+				}
+				streams.cleanup();
+			} catch (Throwable t) {
+				t.printStackTrace(System.err);
 			}
-			streams.release(stream);
-			streams.cleanup();
 		}
 	}
 	

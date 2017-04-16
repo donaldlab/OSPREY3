@@ -43,8 +43,12 @@ public class CUBuffer<T extends Buffer> {
 		return buf;
 	}
 	
-	public Pointer makeDevicePointer() {
+	public Pointer getDevicePointer() {
 		return Pointer.to(pdBuf);
+	}
+	
+	public int size() {
+		return buf.capacity();
 	}
 	
 	public long getNumBytes() {

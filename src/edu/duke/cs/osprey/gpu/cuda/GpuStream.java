@@ -12,6 +12,11 @@ import jcuda.driver.JCudaDriver;
 
 public class GpuStream {
 	
+	public final BufferPool<ByteBuffer> byteBuffers;
+	public final BufferPool<IntBuffer> intBuffers;
+	public final BufferPool<LongBuffer> longBuffers;
+	public final BufferPool<DoubleBuffer> doubleBuffers;
+	
 	private Context context;
 	private CUstream stream;
 	
@@ -20,6 +25,23 @@ public class GpuStream {
 		
 		stream = new CUstream();
 		JCudaDriver.cuStreamCreate(stream, 0);
+		
+		byteBuffers = new BufferPool<ByteBuffer>(
+			(Integer size) -> makeByteBuffer(size),
+			(CUBuffer<ByteBuffer> buf, int size) -> makeOrExpandByteBuffer(buf, size)
+		);
+		intBuffers = new BufferPool<IntBuffer>(
+			(Integer size) -> makeIntBuffer(size),
+			(CUBuffer<IntBuffer> buf, int size) -> makeOrExpandIntBuffer(buf, size)
+		);
+		longBuffers = new BufferPool<LongBuffer>(
+			(Integer size) -> makeLongBuffer(size),
+			(CUBuffer<LongBuffer> buf, int size) -> makeOrExpandLongBuffer(buf, size)
+		);
+		doubleBuffers = new BufferPool<DoubleBuffer>(
+			(Integer size) -> makeDoubleBuffer(size),
+			(CUBuffer<DoubleBuffer> buf, int size) -> makeOrExpandDoubleBuffer(buf, size)
+		);
 	}
 	
 	public Context getContext() {
@@ -89,7 +111,7 @@ public class GpuStream {
 		}
 		
 		// if the old buffer is big enough, use that
-		if (buf.getHostBuffer().capacity() >= size) {
+		if (buf.size() >= size) {
 			return buf;
 		}
 		
@@ -112,6 +134,10 @@ public class GpuStream {
 	
 	public void cleanup() {
 		if (stream != null) {
+			byteBuffers.cleanup();
+			intBuffers.cleanup();
+			longBuffers.cleanup();
+			doubleBuffers.cleanup();
 			JCudaDriver.cuStreamDestroy(stream);
 			stream = null;
 		}
