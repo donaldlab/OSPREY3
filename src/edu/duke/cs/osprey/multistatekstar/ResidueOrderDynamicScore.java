@@ -97,8 +97,8 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 				pos1Value += pos2Value;
 			}
 
-			//maybe don't boltzmann weight here?
-			residueValues.get(state).get(subState).set(pos1, boltzmann.calc(pos1Value).setScale(64, RoundingMode.HALF_UP));
+			if(Double.isNaN(pos1Value)) pos1Value = 0;
+			residueValues.get(state).get(subState).set(pos1, (boltzmann.calc(pos1Value)).setScale(64, RoundingMode.HALF_UP));
 		}
 	}
 
@@ -179,7 +179,7 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 		for(int subState=0;subState<assignment.length()-1;++subState) {
 			ArrayList<Integer> unboundPos = assignment.get(subState);
 			if(unboundPos.size()==0) continue;
-			if(unboundPos.size()>0) throw new RuntimeException("ERROR: unbound state was split into more than one position");
+			if(unboundPos.size()>1) throw new RuntimeException("ERROR: unbound state was split into more than one position");
 			int pos = unboundPos.get(0);//contains at most one value
 			ans = ans.divide(residueValues.get(state).get(subState).get(pos), RoundingMode.HALF_UP);
 		}
@@ -198,7 +198,7 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 
 	private BigDecimal getScore(ResidueAssignment assignment, int[] coeffSign) {
 		int numStates = coeffSign.length;
-		BigDecimal ans = BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
+		BigDecimal ans = BigDecimal.ZERO.setScale(16, RoundingMode.HALF_UP);
 		// get assignment score
 		for(int state=0;state<numStates;++state) {
 			//sign of 0 does not contribute to score
@@ -256,7 +256,7 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 		Collections.sort(order, new Comparator<ResidueAssignmentScore>() {
 			@Override
 			public int compare(ResidueAssignmentScore a1, ResidueAssignmentScore a2) {
-				return a1.score.compareTo(a2.score)>=0 ? -1 : 1;
+				return a1.score.compareTo(a2.score)>=0 ? 1 : -1;
 			}
 		});
 
@@ -328,10 +328,10 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 
 		if(unassignedPos.size() > 1) {
 			//"g-score": value assigned residues
-			setResidueValues(objFcnSearch, true, false);
+			setResidueValues(objFcnSearch, true, MSKStarNode.PARALLEL_EXPANSION);
 
 			//"h-score": value unassigned residues
-			setResidueValues(objFcnSearch, false, false);
+			setResidueValues(objFcnSearch, false, MSKStarNode.PARALLEL_EXPANSION);
 		}
 
 		//score unassigned residues by objfcn

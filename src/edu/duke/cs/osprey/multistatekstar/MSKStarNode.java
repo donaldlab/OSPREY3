@@ -30,8 +30,11 @@ public class MSKStarNode {
 	public static ConfEnergyCalculator.Async[][] ECALCS_CONT;//energy calculators for continuous emats
 	public static ConfEnergyCalculator.Async[][] ECALCS_DISC;//energy calculators for discrete emats
 
-	public static ResidueOrder RESIDUE_ORDER = null;
-	private static int PARALLELISM_MULTIPLIER = 4;
+	public static ResidueOrder RESIDUE_ORDER;
+	public static boolean PARALLEL_EXPANSION;
+	public static int PARALLELISM_MULTIPLIER = 1;
+
+	public static boolean DEBUG = true;
 
 	private KStarScore[] ksLB;//lower bound k* objects
 	private KStarScore[] ksUB;//upper bound k* objects
@@ -51,20 +54,25 @@ public class MSKStarNode {
 		this.score = null;
 		this.numPruned = 0;
 	}
-	
+
+	public String getSequence(int state) {
+		int numSubStates = ksLB[0].getSettings().search.length;
+		return ksLB[0].getSettings().search[numSubStates-1].settings.getFormattedSequence();
+	}
+
 	public int getNumStates() {
 		return ksLB.length;
 	}
-	
+
 	public int getNumPruned() {
 		return numPruned;
 	}
-	
+
 	public int getNumAssignedResidues() {
 		MSSearchProblem[] search = ksLB[0].getSettings().search;
 		return search[search.length-1].getNumAssignedPos();
 	}
-	
+
 	public boolean isFullyAssigned() {
 		return ksLB[0].isFullyAssigned();
 	}
@@ -95,17 +103,24 @@ public class MSKStarNode {
 		return true;
 	}
 
-	private void setNodeScores(ArrayList<MSKStarNode> nodes, boolean parallel) {
+	private void setChildScores(ArrayList<MSKStarNode> nodes, boolean parallel) {
 		if(!parallel) {
 			KStarScore score;
-			for(MSKStarNode node : nodes) {
+			for(MSKStarNode node : nodes) {					
 				for(int state=0;state<ksLB.length;++state) {
+					/*
+					if(state == 1 && 
+							this.getSequence(0).equalsIgnoreCase("PHE-649 ASP-650 GLU-651 ARG-191 GLY-192 THR-193") &&
+							node.getSequence(0).equalsIgnoreCase("PHE-649 ASP-650 GLU-651 TYR-156 ARG-191 GLY-192 THR-193")) {
+						System.out.println("here");
+					}
+					 */
 					score = node.ksLB[state];
 					if(score!=null) score.compute(Integer.MAX_VALUE);
 					score = node.ksUB[state];
 					if(score!=null) score.compute(Integer.MAX_VALUE);
 				}
-			}	
+			}		
 		} 
 
 		else {
@@ -125,8 +140,23 @@ public class MSKStarNode {
 			if(!node.constrSatisfiedLocal()) remove.add(node);
 			else node.setScore(OBJ_FUNC);
 		}
+
 		numPruned += remove.size();
 		nodes.removeAll(remove);
+
+		if(DEBUG) {
+			for(MSKStarNode child : nodes) {
+				BigDecimal scoreDiff = child.getScore().subtract(this.getScore());
+				if(scoreDiff.compareTo(BigDecimal.ZERO)<0) {
+					System.out.println();
+					System.out.println("parent node: "+this.toString());
+					System.out.println("child node: "+child.toString());
+					System.out.println(String.format("diff: %12e", scoreDiff));
+					child.setScore(this.getScore());
+					//throw new RuntimeException(String.format("ERROR: scores decreased! diff: %12e", scoreDiff));
+				}
+			}
+		}
 	}
 
 	public ArrayList<MSKStarNode> splitUnassigned() {
@@ -170,14 +200,14 @@ public class MSKStarNode {
 			ans.add(child);
 		}
 
-		setNodeScores(ans, true);
+		setChildScores(ans, PARALLEL_EXPANSION);
 		return ans;
 	}
 
 	private KStarScore split(KStarScore parent, ArrayList<ArrayList<ArrayList<AAAssignment>>> splits, int index) {
 		//substate / split index / assignments for split
 		MSKStarSettings kSet = new MSKStarSettings(parent.getSettings());
-		
+
 		int numSubStates=kSet.search.length;
 		PartitionFunction[] pfs = new PartitionFunction[numSubStates];
 		Arrays.fill(pfs, null);
@@ -203,7 +233,7 @@ public class MSKStarNode {
 				MSSearchSettings sSet = kSet.search[subState].settings;
 				search[subState] = new MSSearchProblem(SEARCH_DISC[kSet.state][subState], sSet);
 			}
-			
+
 			return MSKStarFactory.makeKStarScore(
 					MS_PARAMS, kSet.state, kSet.cfp, kSet.constraints,
 					null, search,
@@ -329,6 +359,10 @@ public class MSKStarNode {
 		score = lmb.eval(getStateKStarScores(lmb));
 	}
 
+	public void setScore(BigDecimal val) {
+		score = val;
+	}
+
 	public BigDecimal[] getStateKStarScores(LMB lmb) {
 		BigDecimal[] coeffs = lmb.getCoeffs();
 		//always want a lower bound on the lmb value
@@ -356,7 +390,7 @@ public class MSKStarNode {
 		}
 		return ksObjFunc;
 	}
-	
+
 	public MSSearchProblem[][] getStateKStarSearch(LMB lmb) {
 		KStarScore[] scores = getStateKStarObjects(lmb);
 		int numStates = scores.length;

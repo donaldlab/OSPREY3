@@ -151,8 +151,8 @@ public class MSSearchProblem extends SearchProblem {
 		this.pruneMat = updatePruningMatrix(getPosNums(true), settings.AATypeOptions);
 	}
 
-	public void prunePmat() {
+	public void prunePmat(boolean doPruning) {
 		setPruningMatrix();
-		prunePmat(this);
+		if(doPruning) prunePmat(this);
 	}
 }

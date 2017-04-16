@@ -31,6 +31,11 @@ public class KStarScoreDiscrete extends KStarScoreMinimized {
 	}
 	
 	@Override
+	public void compute(int maxNumConfs) {
+		super.compute(maxNumConfs);
+	}
+	
+	@Override
 	protected void compute(int state, int maxNumConfs) {
 		super.compute(state, maxNumConfs);
 		//multiply q* by number of undefined confs
@@ -66,8 +71,9 @@ public class KStarScoreDiscrete extends KStarScoreMinimized {
 			}
 			
 			if(minConfs) prunedConfs = 0;
+			//corner case where all confs are pruned due to mutation's intrinsic steric clash
+			if(!minConfs && (unPrunedConfs+prunedConfs)==0) continue;
 			ans = ans.multiply(BigDecimal.valueOf(unPrunedConfs+prunedConfs));
-			
 		}
 		
 		return ans;

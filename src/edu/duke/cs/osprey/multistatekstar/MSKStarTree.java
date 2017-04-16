@@ -64,7 +64,7 @@ public class MSKStarTree {
 	protected int numSelfExpanded;
 	protected int numFullyDefined;
 	protected int numPruned;
-	protected BigDecimal minScore;
+	protected BigDecimal lastScore;
 
 	protected Stopwatch stopwatch;
 
@@ -113,7 +113,7 @@ public class MSKStarTree {
 		this.numCompleted = 0;
 		this.pq = null;
 
-		this.minScore = PartitionFunctionMinimized.MAX_VALUE.multiply(BigDecimal.valueOf(-1));
+		this.lastScore = PartitionFunctionMinimized.MAX_VALUE.multiply(BigDecimal.valueOf(-1));
 		this.stopwatch = new Stopwatch().start();
 	}
 
@@ -172,7 +172,11 @@ public class MSKStarTree {
 		MSKStarNode.ECALCS_CONT = this.ecalcsCont;
 		MSKStarNode.ECALCS_DISC = this.ecalcsDisc;
 		MSKStarNode.RESIDUE_ORDER = ResidueOrderFactory.getResidueOrder(this.msParams, root.getStateKStarSearch(this.objFcn));
-		ThreadParallelism.setNumThreads(msParams.getInt("ASTARTHREADS"));
+		
+		int astarThreads = this.msParams.getInt("ASTARTHREADS");
+		ThreadParallelism.setNumThreads(astarThreads);
+		MSKStarNode.PARALLEL_EXPANSION = astarThreads > 1 ? true : false;
+		//MSKStarNode.PARALLELISM_MULTIPLIER = astarThreads;
 	}
 
 	private MSKStarNode getRootNode() {
@@ -243,12 +247,12 @@ public class MSKStarTree {
 	}
 
 	public String nextSeq() {
-
 		if(pq==null)
 			initQueue(getRootNode());
 
-		MSKStarNode curNode;
+		MSKStarNode lastNode = null, curNode = null;
 		while(true) {
+			lastNode = curNode;
 			curNode = pq.poll();
 
 			if(curNode==null) {
@@ -256,9 +260,14 @@ public class MSKStarTree {
 				return null;
 			}
 
-			if(curNode.getScore().compareTo(minScore)<0)
-				throw new RuntimeException("ERROR: scores must be non-decreasing");
-			minScore = curNode.getScore();
+			BigDecimal scoreDiff = curNode.getScore().subtract(lastScore);
+			if(scoreDiff.compareTo(BigDecimal.ZERO)<0) {
+				System.out.println();
+				System.out.println("last node: "+lastNode.toString());
+				System.out.println("cur node: "+curNode.toString());
+				throw new RuntimeException(String.format("ERROR: scores decreased! diff: %12e", scoreDiff));
+			}
+			lastScore = curNode.getScore();
 
 			//if(numExpanded % 8==0) 
 			reportProgress(curNode);
