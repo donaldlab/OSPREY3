@@ -64,6 +64,10 @@ public class MSKStarNode {
 		return ksLB.length;
 	}
 
+	public int getNumSubStates() {
+		return ksLB[0].getSettings().search.length;
+	}
+
 	public int getNumPruned() {
 		return numPruned;
 	}
@@ -103,6 +107,95 @@ public class MSKStarNode {
 		return true;
 	}
 
+	private boolean scoreNeedsRefinement(MSKStarNode child) {
+		if(child.getScore().compareTo(this.getScore())<0) return true;
+		return false;
+	}
+
+	private void refineScore(MSKStarNode node) {
+		BigDecimal oldScoreDiff = node.getScore().subtract(this.getScore());
+		
+		KStarScore[] parentScore = getStateKStarObjects(OBJ_FUNC);
+		KStarScore[] childScore = node.getStateKStarObjects(OBJ_FUNC);
+
+		for(int state=0;state<getNumStates();++state) {
+
+			KStarScore parent = parentScore[state];
+			KStarScore child = childScore[state];
+
+			int numSubStates = getNumSubStates();
+			int subState=0;
+			if(child instanceof KStarScoreLowerBound) {
+				//unbound state (upper bounds) must be lower in child
+				for(subState=0;subState<numSubStates-1;++subState) {
+
+					BigDecimal ppf = parent.getPartitionFunction(subState).getValues().qstar;
+					BigDecimal cpf = child.getPartitionFunction(subState).getValues().qstar;
+
+					if(cpf.compareTo(ppf)>0) {
+						//redo at epsilon of 0.0
+						((KStarScoreLowerBound) child).initialized[subState] = false;
+						child.getSettings().targetEpsilon = 0.0;
+					}
+				}
+
+				//bound state (lower bound) must be higher in child
+				BigDecimal ppf = parent.getPartitionFunction(numSubStates-1).getValues().qstar;
+				BigDecimal cpf = child.getPartitionFunction(numSubStates-1).getValues().qstar;
+
+				if(cpf.compareTo(ppf)<0) {
+					//redo at epsilon of 0.0
+					((KStarScoreLowerBound) child).initialized[numSubStates-1] = false;
+					child.getSettings().targetEpsilon = 0.0;
+				}
+
+				//re-run child
+				child.compute(Integer.MAX_VALUE);
+			}
+
+			else if(child instanceof KStarScoreUpperBound) {
+				//unbound state (lower bounds) must be higher in child
+				for(subState=0;subState<numSubStates-1;++subState) {
+
+					BigDecimal ppf = parent.getPartitionFunction(subState).getValues().qstar;
+					BigDecimal cpf = child.getPartitionFunction(subState).getValues().qstar;
+
+					if(cpf.compareTo(ppf)<0) {
+						//redo at epsilon of 0.0
+						((KStarScoreUpperBound) child).initialized[subState] = false;
+						child.getSettings().targetEpsilon = 0.0;
+					}
+				}
+
+				//bound state (upper bound) must be lower in child
+				BigDecimal ppf = parent.getPartitionFunction(numSubStates-1).getValues().qstar;
+				BigDecimal cpf = child.getPartitionFunction(numSubStates-1).getValues().qstar;
+
+				if(cpf.compareTo(ppf)>0) {
+					//redo at epsilon of 0.0
+					((KStarScoreUpperBound) child).initialized[numSubStates-1] = false;
+					child.getSettings().targetEpsilon = 0.0;
+				}
+
+				//re-run child
+				child.compute(Integer.MAX_VALUE);
+			}
+			
+			//restore epsilons
+			child.getSettings().targetEpsilon = parent.getSettings().targetEpsilon;
+		}
+		
+		//see if new score no longer violates acceptance criterion
+		node.setScore(OBJ_FUNC);
+		BigDecimal newScoreDiff = node.getScore().subtract(this.getScore());
+		if(newScoreDiff.compareTo(BigDecimal.ZERO)<0)
+			throw new RuntimeException(String.format("ERROR: refinement did not "
+					+ "work! old score diff: %12e, new score diff: %12e", oldScoreDiff, newScoreDiff));
+		
+		//set score as parent score
+		node.setScore(this.getScore());
+	}
+
 	private void setChildScores(ArrayList<MSKStarNode> nodes, boolean parallel) {
 		if(!parallel) {
 			KStarScore score;
@@ -137,13 +230,20 @@ public class MSKStarNode {
 		//remove nodes that violate local constraints
 		ArrayList<MSKStarNode> remove = new ArrayList<>();
 		for(MSKStarNode node : nodes) {
+			//set scores
+			node.setScore(OBJ_FUNC);
+			
+			//refine scores if necessary
+			if(scoreNeedsRefinement(node))
+				refineScore(node);
+			
 			if(!node.constrSatisfiedLocal()) remove.add(node);
-			else node.setScore(OBJ_FUNC);
 		}
 
 		numPruned += remove.size();
 		nodes.removeAll(remove);
 
+		/*
 		if(DEBUG) {
 			for(MSKStarNode child : nodes) {
 				BigDecimal scoreDiff = child.getScore().subtract(this.getScore());
@@ -157,6 +257,7 @@ public class MSKStarNode {
 				}
 			}
 		}
+		*/
 	}
 
 	public ArrayList<MSKStarNode> splitUnassigned() {
@@ -208,7 +309,7 @@ public class MSKStarNode {
 		//substate / split index / assignments for split
 		MSKStarSettings kSet = new MSKStarSettings(parent.getSettings());
 
-		int numSubStates=kSet.search.length;
+		int numSubStates = kSet.search.length;
 		PartitionFunction[] pfs = new PartitionFunction[numSubStates];
 		Arrays.fill(pfs, null);
 
@@ -241,7 +342,8 @@ public class MSKStarNode {
 					);
 		}
 
-		return MSKStarFactory.makeKStarScore(kSet, pfs);
+		else
+			return MSKStarFactory.makeKStarScore(kSet, pfs);
 	}
 
 	private MSSearchProblem splitSearch(int subState, MSSearchProblem parent, ArrayList<AAAssignment> splits) {

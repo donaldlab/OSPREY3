@@ -20,7 +20,7 @@ public class KStarScoreMinimized implements KStarScore {
 
 	public MSKStarSettings settings;
 	public PartitionFunctionMinimized[] partitionFunctions;
-	protected boolean[] initialized;
+	public boolean[] initialized;
 	public int numStates;
 	protected boolean constrSatisfied;
 
