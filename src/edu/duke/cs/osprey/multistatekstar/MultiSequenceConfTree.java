@@ -1,7 +1,8 @@
 package edu.duke.cs.osprey.multistatekstar;
 
-import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.HashMap;
+
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.astar.FullAStarNode;
 import edu.duke.cs.osprey.confspace.HigherTupleFinder;
@@ -22,9 +23,12 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 
 	public boolean energyLBs;//compute either energy lower bound or upper bound
-	MSSearchProblem search;//search problem
-	PruningMatrix pmat;//pruning matrix
-	Integer[] allowedPos;//largest set of positions allowed by the (partial) sequence
+	private MSSearchProblem search;//search problem
+	private PruningMatrix pmat;//pruning matrix
+	private HashMap<Integer, Integer> index2AbsolutePos;//maps from index to absolute position space
+	//map from index to absolutePos. a* only sees index space. map back 
+	//to absolute pos only when accessing the energy matrix or pruning matrix
+	private RCTuple absoluteTuple;//tuple with positions converted to abs pos
 
 	public MultiSequenceConfTree(MSSearchProblem search, EnergyMatrix emat, PruningMatrix pmat) {
 		super(new FullAStarNode.Factory(search.getNumAssignedPos()), search, pmat);
@@ -32,7 +36,8 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 		this.search = search;
 		this.emat = emat;
 		this.pmat = pmat;
-		allowedPos = getPosNums(true);
+		this.index2AbsolutePos = new HashMap<Integer, Integer>();
+		this.absoluteTuple = new RCTuple();
 		init();
 		setVerbose(false);
 	}
@@ -43,7 +48,15 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 	}
 
 	protected void init() {
+		Integer[] allowedPos = getPosNums(true);
 		numPos = allowedPos.length;
+
+		//map from index to absolutePos. a* only sees index space. map back 
+		//to absolute pos only when accessing the energy matrix or pruning matrix
+		for(int i=0;i<numPos;++i) index2AbsolutePos.put(i, allowedPos[i]);
+		Integer[] notAllowed = getPosNums(false);
+		for(int i=0;i<notAllowed.length;++i) index2AbsolutePos.put(i+numPos, notAllowed[i]);
+		assert(index2AbsolutePos.size()==search.confSpace.numPos);
 
 		definedPos = new int[numPos];
 		definedRCs = new int[numPos];
@@ -54,7 +67,7 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 		// pack them into an efficient int matrix
 		unprunedRCsAtPos = new int[search.confSpace.numPos][];
 		for (int pos=0;pos<unprunedRCsAtPos.length;++pos) {//store all assigned and unassigned
-			ArrayList<Integer> srcRCs = pmat.unprunedRCsAtPos(pos);
+			ArrayList<Integer> srcRCs = pmat.unprunedRCsAtPos(index2AbsolutePos.get(pos));
 			int[] destRCs = new int[srcRCs.size()];
 			for (int i=0; i<srcRCs.size(); i++) {
 				destRCs[i] = srcRCs.get(i);
@@ -77,47 +90,22 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 		}
 	}
 
-	@Override
-	public BigInteger getNumConformations() {
-		BigInteger num = BigInteger.valueOf(1);
-		for (int pos : allowedPos) {
-			num = num.multiply(BigInteger.valueOf(unprunedRCsAtPos[pos].length));
+	//convert to absolute positions
+	private RCTuple setAbsolutePos(RCTuple other) {
+		absoluteTuple.set(other);
+		for(int i=0;i<absoluteTuple.size();++i) {
+			absoluteTuple.pos.set(i, index2AbsolutePos.get(absoluteTuple.pos.get(i)));
 		}
-		return num;
+		return absoluteTuple;
 	}
 
-	/*
-	protected void splitPositions(FullAStarNode node) {
-
-		// make sure we're not split already
-		assert (numDefined == 0 && numUndefined == 0);
-
-		int[] conf = node.getNodeAssignments();
-
-		// split conformation into defined and undefined residues
-		numDefined = 0;
-		numUndefined = 0;
-		for (int pos : allowedPos) {
-			int rc = conf[pos];
-			if (rc >= 0) {
-				definedPos[numDefined] = pos;
-				definedRCs[numDefined] = rc;
-				numDefined++;
-			} else {
-				undefinedPos[numUndefined] = pos;
-				numUndefined++;
-			}
-		}
-
-		assert (numDefined + numUndefined == numPos);
-	}
-	*/
-	
 	protected double scoreNode(int[] partialConf) {
 		if(traditionalScore) {
 			rcTuple.set(partialConf);
+			absoluteTuple = setAbsolutePos(rcTuple);
+
 			//"g-score"
-			double score = emat.getConstTerm() + emat.getInternalEnergy(rcTuple);//intra+pairwise
+			double score = emat.getConstTerm() + emat.getInternalEnergy(absoluteTuple);//intra+pairwise
 
 			//"h-score"
 			//score works by breaking up the full energy into the energy of the defined set of residues ("g-score"),
@@ -125,12 +113,10 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 
 			for(int pos=0; pos<search.confSpace.numPos;++pos) {
 				if(rcTuple.pos.contains(pos)) continue;//skip positions assigned in rc tuple
-
 				double bestE = energyLBs ? Double.POSITIVE_INFINITY : Double.NEGATIVE_INFINITY;
-
 				for(int rc : unprunedRCsAtPos[pos]) {
-					double rcContrib = RCContribution(pos, rc, rcTuple);
-					bestE = energyLBs ? Math.min(bestE, rcContrib) : Math.max(bestE, rcContrib);
+					double undefE = getUndefinedRCEnergy(pos, rc, rcTuple);
+					bestE = energyLBs ? Math.min(bestE, undefE) : Math.max(bestE, undefE);
 				}
 				score += bestE;
 			}
@@ -145,11 +131,11 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 		}
 	}
 
-	protected double RCContribution(int pos1, int rc1, RCTuple definedTuple) {
+	protected double getUndefinedRCEnergy(int pos1, int rc1, RCTuple definedTuple) {
 		//Provide a lower bound on what the given rc at the given level can contribute to the energy
 		//assume partialConf and definedTuple
 
-		double rcContrib = emat.getOneBody(pos1, rc1);
+		double rcContrib = emat.getOneBody(index2AbsolutePos.get(pos1), rc1);
 
 		//for this kind of lower bound, we need to split up the energy into the defined-tuple energy
 		//plus "contributions" for each undefined residue
@@ -163,7 +149,7 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 
 				for(int rc2 : unprunedRCsAtPos[pos2]) {
 
-					double interactionE = emat.getPairwise(pos1, rc1, pos2, rc2);
+					double interactionE = emat.getPairwise(index2AbsolutePos.get(pos1), rc1, index2AbsolutePos.get(pos2), rc2);
 					double higherOrderE = higherOrderContrib(pos1, rc1, pos2, rc2, definedTuple);
 					interactionE += higherOrderE;
 
@@ -180,13 +166,14 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 	protected double higherOrderContrib(int pos1, int rc1, int pos2, int rc2, RCTuple definedTuple) {
 		//higher-order contribution for a given RC pair, when scoring a partial conf
 
-		HigherTupleFinder<Double> htf = emat.getHigherOrderTerms(pos1, rc1, pos2, rc2);
+		HigherTupleFinder<Double> htf = emat.getHigherOrderTerms(index2AbsolutePos.get(pos1), rc1, index2AbsolutePos.get(pos2), rc2);
 
 		if(htf==null)
 			return 0;//no higher-order interactions
 		else {
-			RCTuple curPair = new RCTuple(pos1, rc1, pos2, rc2);
-			return higherOrderContrib(htf, curPair, definedTuple);
+			RCTuple curPair = new RCTuple(index2AbsolutePos.get(pos1), rc1, index2AbsolutePos.get(pos2), rc2);
+			absoluteTuple = setAbsolutePos(definedTuple);
+			return higherOrderContrib(htf, curPair, absoluteTuple);
 		}
 	}
 

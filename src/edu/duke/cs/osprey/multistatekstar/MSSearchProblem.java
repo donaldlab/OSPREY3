@@ -139,7 +139,7 @@ public class MSSearchProblem extends SearchProblem {
 		for(int pos : splitPosNums) {
 			for(int rc : pruneMat.unprunedRCsAtPos(pos)) {
 				String rcAAType = confSpace.posFlex.get(pos).RCs.get(rc).AAType;
-				//not in reduced position, not a desired AA type
+				//is in reduced position, but not a desired AA type
 				if(!splitAAs.get(pos).contains(rcAAType))
 					ans.markAsPruned(new RCTuple(pos, rc));
 			}

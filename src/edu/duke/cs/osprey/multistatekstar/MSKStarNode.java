@@ -114,7 +114,7 @@ public class MSKStarNode {
 
 	private void refineScore(MSKStarNode node) {
 		BigDecimal oldScoreDiff = node.getScore().subtract(this.getScore());
-		
+
 		KStarScore[] parentScore = getStateKStarObjects(OBJ_FUNC);
 		KStarScore[] childScore = node.getStateKStarObjects(OBJ_FUNC);
 
@@ -180,18 +180,18 @@ public class MSKStarNode {
 				//re-run child
 				child.compute(Integer.MAX_VALUE);
 			}
-			
+
 			//restore epsilons
 			child.getSettings().targetEpsilon = parent.getSettings().targetEpsilon;
 		}
-		
+
 		//see if new score no longer violates acceptance criterion
 		node.setScore(OBJ_FUNC);
 		BigDecimal newScoreDiff = node.getScore().subtract(this.getScore());
 		if(newScoreDiff.compareTo(BigDecimal.ZERO)<0)
 			throw new RuntimeException(String.format("ERROR: refinement did not "
 					+ "work! old score diff: %12e, new score diff: %12e", oldScoreDiff, newScoreDiff));
-		
+
 		//set score as parent score
 		node.setScore(this.getScore());
 	}
@@ -201,13 +201,6 @@ public class MSKStarNode {
 			KStarScore score;
 			for(MSKStarNode node : nodes) {					
 				for(int state=0;state<ksLB.length;++state) {
-					/*
-					if(state == 1 && 
-							this.getSequence(0).equalsIgnoreCase("PHE-649 ASP-650 GLU-651 ARG-191 GLY-192 THR-193") &&
-							node.getSequence(0).equalsIgnoreCase("PHE-649 ASP-650 GLU-651 TYR-156 ARG-191 GLY-192 THR-193")) {
-						System.out.println("here");
-					}
-					 */
 					score = node.ksLB[state];
 					if(score!=null) score.compute(Integer.MAX_VALUE);
 					score = node.ksUB[state];
@@ -232,32 +225,21 @@ public class MSKStarNode {
 		for(MSKStarNode node : nodes) {
 			//set scores
 			node.setScore(OBJ_FUNC);
-			
-			//refine scores if necessary
-			if(scoreNeedsRefinement(node))
-				refineScore(node);
-			
+
+			if(DEBUG) {
+				//refine scores if necessary
+				if(scoreNeedsRefinement(node)) {
+					System.out.print("WARNING: refining node score...");
+					refineScore(node);
+					System.out.println("done");
+				}
+			}
+
 			if(!node.constrSatisfiedLocal()) remove.add(node);
 		}
 
 		numPruned += remove.size();
 		nodes.removeAll(remove);
-
-		/*
-		if(DEBUG) {
-			for(MSKStarNode child : nodes) {
-				BigDecimal scoreDiff = child.getScore().subtract(this.getScore());
-				if(scoreDiff.compareTo(BigDecimal.ZERO)<0) {
-					System.out.println();
-					System.out.println("parent node: "+this.toString());
-					System.out.println("child node: "+child.toString());
-					System.out.println(String.format("diff: %12e", scoreDiff));
-					child.setScore(this.getScore());
-					//throw new RuntimeException(String.format("ERROR: scores decreased! diff: %12e", scoreDiff));
-				}
-			}
-		}
-		*/
 	}
 
 	public ArrayList<MSKStarNode> splitUnassigned() {

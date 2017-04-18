@@ -256,7 +256,7 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 		Collections.sort(order, new Comparator<ResidueAssignmentScore>() {
 			@Override
 			public int compare(ResidueAssignmentScore a1, ResidueAssignmentScore a2) {
-				return a1.score.compareTo(a2.score)>=0 ? 1 : -1;
+				return a1.score.compareTo(a2.score)>=0 ? -1 : 1;
 			}
 		});
 
