@@ -250,9 +250,8 @@ public class MSKStarTree {
 		if(pq==null)
 			initQueue(getRootNode());
 
-		MSKStarNode lastNode = null, curNode = null;
+		MSKStarNode curNode = null;
 		while(true) {
-			lastNode = curNode;
 			curNode = pq.poll();
 
 			if(curNode==null) {
@@ -260,13 +259,7 @@ public class MSKStarTree {
 				return null;
 			}
 
-			BigDecimal scoreDiff = curNode.getScore().subtract(lastScore);
-			if(scoreDiff.compareTo(BigDecimal.ZERO)<0) {
-				System.out.println();
-				System.out.println("last node: "+lastNode.toString());
-				System.out.println("cur node: "+curNode.toString());
-				throw new RuntimeException(String.format("ERROR: scores decreased! diff: %12e", scoreDiff));
-			}
+			//assert(lastScore.compareTo(curNode.getScore())<=0);
 			lastScore = curNode.getScore();
 
 			//if(numExpanded % 8==0) 

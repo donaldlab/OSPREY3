@@ -223,19 +223,20 @@ public class MSKStarNode {
 		//remove nodes that violate local constraints
 		ArrayList<MSKStarNode> remove = new ArrayList<>();
 		for(MSKStarNode node : nodes) {
+			if(!node.constrSatisfiedLocal()) {
+				remove.add(node);
+				continue;
+			}
+			
 			//set scores
 			node.setScore(OBJ_FUNC);
 
-			if(DEBUG) {
-				//refine scores if necessary
-				if(scoreNeedsRefinement(node)) {
-					System.out.print("WARNING: refining node score...");
-					refineScore(node);
-					System.out.println("done");
-				}
+			//refine scores if necessary
+			if(scoreNeedsRefinement(node)) {
+				System.out.print("WARNING: refining node score...");
+				refineScore(node);
+				System.out.println("done");
 			}
-
-			if(!node.constrSatisfiedLocal()) remove.add(node);
 		}
 
 		numPruned += remove.size();
