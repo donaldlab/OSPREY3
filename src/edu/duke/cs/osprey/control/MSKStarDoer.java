@@ -379,7 +379,7 @@ public class MSKStarDoer {
 	private ArrayList<ArrayList<ArrayList<String>>> listAllSeqs(){
 		
 		System.out.println();
-		System.out.print("Counting number of sequences...");
+		System.out.print("Counting number of possible sequences...");
 		
 		//for all bound states, list all possible sequences for the mutable residues,
 		//based on AATypeOptions
@@ -400,7 +400,7 @@ public class MSKStarDoer {
 		}
 
 		System.out.println("done");
-		System.out.println("Number of sequences: "+ans.get(0).size());
+		System.out.println("Number of possible sequences: "+ans.get(0).size());
 		System.out.println();
 		
 		ans.trimToSize();
@@ -461,7 +461,7 @@ public class MSKStarDoer {
 				searchCont, searchDisc, ecalcsCont, ecalcsDisc, msParams, cfps);
 
 		ArrayList<String> bestSequences = new ArrayList<>();
-		String fname = "sequences-sublinear.txt";
+		String fname = "sequences-sublinear."+msParams.getValue("RUNNAME")+".txt";
 		ObjectIO.delete(fname);
 		PrintStream fout = null;
 		String elapsed = null;
@@ -492,6 +492,9 @@ public class MSKStarDoer {
 		System.out.println();
 		System.out.println("Finished sub-linear multi-state K* in "+elapsed);
 		System.out.println();
+		
+		//this prints out the total number of sequences
+		listAllSeqs();
 	}
 
 	/**
@@ -506,7 +509,7 @@ public class MSKStarDoer {
 		Stopwatch stopwatch = new Stopwatch().start();
 		ArrayList<ArrayList<ArrayList<String>>> seqList = listAllSeqs();
 		
-		String fname = "sequences-exhaustive.txt";
+		String fname = "sequences-exhaustive."+msParams.getValue("RUNNAME")+".txt";
 		boolean resume = msParams.getBool("RESUME");
 		if(resume) {
 			ArrayList<ArrayList<ArrayList<String>>> completed = getCompletedSeqs(fname);
