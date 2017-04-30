@@ -26,6 +26,7 @@ public abstract class AStarTree<T extends AStarNode> implements ConfSearch, Seri
 
         
     private PriorityQueue<T> pq = null;
+    private boolean verbose = true;
         
     //AStarNode can be lightweight: just int[], score, and flag for if score needs refinement
     //the meanings are assigned by subclasses of this class, which define things like scoring
@@ -57,7 +58,9 @@ public abstract class AStarTree<T extends AStarNode> implements ConfSearch, Seri
             curNode = pq.poll();
             
             if(curNode==null){
-                System.out.println("A* tree empty...returning empty signal");
+                if(verbose){
+                	System.out.println("A* tree empty...returning empty signal");
+                }
                 return null;//signal for empty tree
             }
             
@@ -73,7 +76,9 @@ public abstract class AStarTree<T extends AStarNode> implements ConfSearch, Seri
                     
                     curNode = pq.poll();
                     if(curNode==null){
-                        System.out.println("A* tree empty...returning empty signal");
+                    	if(verbose){
+                    		System.out.println("A* tree empty...returning empty signal");
+                    	}
                         return null;//signal for empty tree
                     }
                 }
@@ -142,8 +147,9 @@ public abstract class AStarTree<T extends AStarNode> implements ConfSearch, Seri
     	
         //by default, the output of the A* tree will be simply the node assignments for the optimal node
         //but we may sometimes want to process it in some way
-    	// AAO 2016: commenting out messages for now
-    	//System.out.println("A* returning conf.  "+pq.size()+" nodes in A* tree.  Score: "+node.getScore());
+    	if(verbose) {
+    		System.out.println("A* returning conf.  "+pq.size()+" nodes in A* tree.  Score: "+node.getScore());
+    	}
         return new ScoredConf(node.getNodeAssignments(), node.getScore());
     }
     
@@ -179,6 +185,8 @@ public abstract class AStarTree<T extends AStarNode> implements ConfSearch, Seri
     }
     
     
-    
+    public void setVerbose(boolean val) {
+    	verbose = val;
+    }
         
 }

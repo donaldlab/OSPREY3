@@ -2,10 +2,16 @@ package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigDecimal;
 
-public class KStarScoreUpperBound extends KStarScoreLowerBound {
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+
+public class KStarScoreUpperBound extends KStarScoreDiscrete {
 
 	public KStarScoreUpperBound(MSKStarSettings settings) {
 		super(settings);
+	}
+
+	public KStarScoreUpperBound(MSKStarSettings settings, PartitionFunction[] pfs) {
+		super(settings, pfs);
 	}
 
 	@Override
@@ -32,7 +38,10 @@ public class KStarScoreUpperBound extends KStarScoreLowerBound {
 		else {
 			if(getDenom().compareTo(BigDecimal.ZERO)>0) return score;
 			else {
-				if(initialized[numStates-1]) return score; //upper bound partition function is also 0
+				PartitionFunction bound = partitionFunctions[numStates-1];
+				//upper bound partition function is also 0. bound state is
+				//null only for root node
+				if(bound != null && bound.getValues().qstar.compareTo(BigDecimal.ZERO)==0) return score;
 				else return PartitionFunctionMinimized.MAX_VALUE;
 			}
 		}

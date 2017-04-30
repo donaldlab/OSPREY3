@@ -88,7 +88,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		while(other.size()>0) 
 			saveConf(other.poll());
 	}
-
+	
 	@Override
 	public void init(double targetEpsilon) {
 
@@ -99,12 +99,12 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 		// compute p*: boltzmann-weight the scores for all pruned conformations
 		ConfSearch ptree = confSearchFactory.make(emat, invmat);
-		((ConfAStarTree)ptree).stopProgress();
+		if(ptree instanceof ConfAStarTree) ((ConfAStarTree)ptree).stopProgress();
 		values.pstar = calcWeightSumUpperBound(ptree);
 
 		// make the search tree for computing q*
 		ConfSearch tree = confSearchFactory.make(emat, pmat);
-		((ConfAStarTree)tree).stopProgress();
+		if(tree instanceof ConfAStarTree) ((ConfAStarTree)tree).stopProgress();
 		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(tree);
 		scoreConfs = confsSplitter.makeStream();
 		energyConfs = confsSplitter.makeStream();
@@ -116,6 +116,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		qstarScoreWeights = BigDecimal.ZERO;
 		numActiveThreads = 0;
 		maxNumTopConfs = 0;
+		
 		stopwatch = new Stopwatch().start();
 	}
 
@@ -203,7 +204,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 				// this is (potentially) running on a task executor listener thread
 				// so lock to keep from racing the main thread
-				synchronized (PartitionFunctionMinimized.this) {
+				synchronized (this) {
 
 					if(status == Status.Estimating) {
 
@@ -226,9 +227,13 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 						}
 
 						// update status if needed
-						if (values.getEffectiveEpsilon() <= targetEpsilon) {
+						double effectiveEpsilon = values.getEffectiveEpsilon();
+						if(Double.isNaN(effectiveEpsilon)) {
+							status = Status.NotEnoughFiniteEnergies;
+						}
+						else if (effectiveEpsilon <= targetEpsilon) {
 							status = Status.Estimated;
-							phase1Output(econf);//just to let the user know we reached epsilon
+							if (isReportingProgress) phase1Output(econf);//just to let the user know we reached epsilon
 						}
 					}
 
@@ -297,7 +302,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 				// this is (potentially) running on a task executor listener thread
 				// so lock to keep from racing the main thread
-				synchronized (PartitionFunctionMinimized.this) {
+				synchronized (this) {
 
 					if(status == Status.Estimating) {
 
@@ -323,9 +328,13 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 						}
 
 						// update status if needed
-						if (values.getEffectiveEpsilon() <= targetEpsilon) {
+						double effectiveEpsilon = values.getEffectiveEpsilon();
+						if(Double.isNaN(effectiveEpsilon)) {
+							status = Status.NotEnoughFiniteEnergies;
+						}
+						else if (effectiveEpsilon <= targetEpsilon) {
 							status = Status.Estimated;
-							phase2Output(econf, pdiff);
+							if (isReportingProgress) phase2Output(econf, pdiff);
 						}
 					}
 
@@ -339,11 +348,11 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		ecalc.waitForFinish();
 	}
 
-	void phase2Output(ScoredConf conf, BigDecimal pdiff) {
+	protected void phase2Output(ScoredConf conf, BigDecimal pdiff) {
 		MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-		double confVal = conf instanceof EnergiedConf ? ((EnergiedConf)conf).getEnergy() : conf.getScore();
+		double val = conf instanceof EnergiedConf ? ((EnergiedConf)conf).getEnergy() : conf.getScore();
 		System.out.println(String.format("conf: %4d, energy: %.6f, q*: %12e, q': %12e, score diff: %12e, epsilon: %.6f, time: %10s, heapMem: %.0f%%",
-				numConfsEvaluated, confVal, values.qstar, values.qprime, pdiff, values.getEffectiveEpsilon(),
+				numConfsEvaluated, val, values.qstar, values.qprime, pdiff, values.getEffectiveEpsilon(),
 				stopwatch.getTime(2),
 				100f*heapMem.getUsed()/heapMem.getMax()
 				));

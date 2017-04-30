@@ -48,6 +48,8 @@ public class KSSearchProblem extends SearchProblem {
 		this.allowedAAs = allowedAAs;
 		this.reducedAllowedAAs = allowedAAs;
 		this.posNums = getMaxPosNums();
+		
+		this.numEmatThreads = params.getInt("EMATTHREADS");
 	}
 
 
@@ -80,6 +82,7 @@ public class KSSearchProblem extends SearchProblem {
 		this.pruneMat = other.pruneMat;
 		this.competitorPruneMat = other.competitorPruneMat;
 		this.confSpace = other.confSpace;
+		this.numEmatThreads = other.numEmatThreads;
 	}
 
 	public enum MatrixType {

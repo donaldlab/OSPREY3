@@ -30,14 +30,16 @@ public class PartitionFunctionDiscreteUppperBound extends PartitionFunctionDiscr
 	public void compute(int maxNumConfs) {
 		super.compute(maxNumConfs);
 		if(status == Status.Estimated) {
-			values.qstar = values.qstar.multiply(new BigDecimal(1.0+getEffectiveEpsilon()));
+			double effectiveEpsilon = getEffectiveEpsilon();
+			if(!Double.isNaN(effectiveEpsilon)) values.qstar = values.qstar.multiply(new BigDecimal(1.0+effectiveEpsilon));
 		}
 	}
 
 	@Override
 	public void compute(BigDecimal targetScoreWeights) {
 		super.compute(targetScoreWeights);
-		values.qstar = values.qstar.multiply(new BigDecimal(1.0+getEffectiveEpsilon()));
+		double effectiveEpsilon = getEffectiveEpsilon();
+		if(!Double.isNaN(effectiveEpsilon)) values.qstar = values.qstar.multiply(new BigDecimal(1.0+effectiveEpsilon));
 	}
 
 	@Override

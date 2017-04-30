@@ -14,6 +14,8 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
+import edu.duke.cs.osprey.multistatekstar.MSSearchProblem;
+import edu.duke.cs.osprey.multistatekstar.MultiSequenceConfTree;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 /**
@@ -42,6 +44,10 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
         public static ConfTree<FullAStarNode> makeFull(SearchProblem search, PruningMatrix pmat, GMECMutSpace gms) {
 		return new ConfTree<FullAStarNode>(new FullAStarNode.Factory(search.confSpace.numPos), search, pmat, search.useEPIC, gms);
 	}
+        
+    public static ConfTree<FullAStarNode> makeFullMultiSequence(SearchProblem search, EnergyMatrix emat, PruningMatrix pmat) {
+    	return (ConfTree<FullAStarNode>) new MultiSequenceConfTree((MSSearchProblem) search, emat, pmat);
+    }
 	
 	private AStarNode.Factory<T> nodeFactory;
 

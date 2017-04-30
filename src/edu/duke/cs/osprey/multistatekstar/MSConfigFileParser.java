@@ -105,7 +105,7 @@ public class MSConfigFileParser extends ConfigFileParser {
 	}
 
 	ResidueTermini subState2Termini(int subState) {
-		String key = params.searchParams("UbStateLimits").size() > 0 ? "UbStateLimits" : "Strand";
+		String key = "STRAND";
 		ArrayList<Integer> alTmni = new ArrayList<>();
 		if(params.getValue(key+subState, "").length()==0) {
 			//complex
@@ -173,11 +173,11 @@ public class MSConfigFileParser extends ConfigFileParser {
 	protected ArrayList<String[]> moveableUbStateTermini(int subState) {
 		//Read the strands that are going to translate and rotate
 		//Let's say they can do this regardless of what doMinimize says (that's for sidechains)
-		String key = params.searchParams("UBSTATEROTTRANS").size() > 0 ? "UBSTATEROTTRANS" : "STRANDROTTRANS";
+		String key = "STRANDROTTRANS";
 		ArrayList<String[]> ans = new ArrayList<>();
 		for(String rt : params.searchParams(key)){
 			if(params.getBool(rt)){
-				//So rt = UBSTATEROTTRANS0 here means strand 0 should translate & rotate
+				//So rt = STRANDROTTRANS0 here means strand 0 should translate & rotate
 				//OK to go through these params in lexical ordering
 				String ubState = rt.replaceAll(key, "").trim();
 				if(!String.valueOf(subState).equals(ubState)) continue;

@@ -30,12 +30,26 @@ public class MSSearchProblem extends SearchProblem {
 		//this.flexRes = settings.mutRes;//-1 for unassigned positions
 		this.numAssignedPos = other.confSpace.numPos-Collections.frequency(settings.mutRes, "-1");
 	}
+	
+	public int getNumPos() {
+		return confSpace.numPos;
+	}
 
 	public ArrayList<Integer> getPosNums(boolean assigned) {
 		ArrayList<Integer> ans = new ArrayList<>();
 		for(int i=0;i<settings.mutRes.size();++i) {
 			if(!assigned && settings.mutRes.get(i).equals("-1")) ans.add(i);//get undefined pos
 			else if(assigned && !settings.mutRes.get(i).equals("-1")) ans.add(i);//get defined pos
+		}
+		ans.trimToSize();
+		return ans;
+	}
+
+	public ArrayList<String> getResidues(boolean assigned) {
+		ArrayList<String> ans = new ArrayList<>();
+		for(int i=0;i<settings.mutRes.size();++i) {
+			if(!assigned && settings.mutRes.get(i).equals("-1")) ans.add(flexRes.get(i));//get undefined res
+			else if(assigned && !settings.mutRes.get(i).equals("-1")) ans.add(flexRes.get(i));//get defined res
 		}
 		ans.trimToSize();
 		return ans;
@@ -53,7 +67,7 @@ public class MSSearchProblem extends SearchProblem {
 	public int getNumUnAssignedPos() {
 		return confSpace.numPos-numAssignedPos;
 	}
-	
+
 	public int getNumAssignedPos() {
 		return numAssignedPos;
 	}
@@ -72,36 +86,12 @@ public class MSSearchProblem extends SearchProblem {
 		return ans;
 	}
 
-	public void setPruningMatrix() {
-		this.pruneMat = updatePruningMatrix(getPosNums(true), settings.AATypeOptions);
-	}
-
-	public void setPruningMatrix(PruningMatrix pmat) {
-		this.pruneMat = pmat;
-	}
-
 	private BigInteger getNumConfs(PruningMatrix pmat) {
 		BigInteger ans = BigInteger.ONE;
 		for(int pos=0;pos<pmat.getNumPos();++pos) {
 			ans = ans.multiply(BigInteger.valueOf(pmat.unprunedRCsAtPos(pos).size()));
 			if(ans.compareTo(BigInteger.ZERO)==0) 
 				return ans;
-		}
-		return ans;
-	}
-
-	public PruningMatrix updatePruningMatrix(
-			ArrayList<Integer> splitPosNums, 
-			ArrayList<ArrayList<String>> splitAAs
-			) {
-		UpdatedPruningMatrix ans = new UpdatedPruningMatrix(pruneMat);
-		for(int pos : splitPosNums) {
-			for(int rc : pruneMat.unprunedRCsAtPos(pos)) {
-				String rcAAType = confSpace.posFlex.get(pos).RCs.get(rc).AAType;
-				//not in reduced position, not a desired AA type
-				if(!splitAAs.get(pos).contains(rcAAType))
-					ans.markAsPruned(new RCTuple(pos, rc));
-			}
 		}
 		return ans;
 	}
@@ -141,7 +131,28 @@ public class MSSearchProblem extends SearchProblem {
 		} while (numUpdates > oldNumUpdates && getNumConfs(upmat).compareTo(minConfs) > 0);
 	}
 
-	public void prunePmat() {
-		prunePmat(this);
+	public PruningMatrix updatePruningMatrix(
+			ArrayList<Integer> splitPosNums, 
+			ArrayList<ArrayList<String>> splitAAs
+			) {
+		UpdatedPruningMatrix ans = new UpdatedPruningMatrix(pruneMat);
+		for(int pos : splitPosNums) {
+			for(int rc : pruneMat.unprunedRCsAtPos(pos)) {
+				String rcAAType = confSpace.posFlex.get(pos).RCs.get(rc).AAType;
+				//is in reduced position, but not a desired AA type
+				if(!splitAAs.get(pos).contains(rcAAType))
+					ans.markAsPruned(new RCTuple(pos, rc));
+			}
+		}
+		return ans;
+	}
+
+	private void setPruningMatrix() {
+		this.pruneMat = updatePruningMatrix(getPosNums(true), settings.AATypeOptions);
+	}
+
+	public void prunePmat(boolean doPruning) {
+		setPruningMatrix();
+		if(doPruning) prunePmat(this);
 	}
 }

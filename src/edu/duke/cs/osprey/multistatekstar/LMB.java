@@ -9,7 +9,7 @@ import java.util.StringTokenizer;
  * generates a linear combination of partition function values over all states
  * constTerm + sum_s ( coeff_s * partition_function_value_for_state_s)
  * coeffs: >0 is upper bound, <0 is lower bound
- * interpretation: constraint LMBs are accepted iff eval() is <=0
+ * interpretation: constraint LMBs are accepted iff eval() is <0
  */
 public class LMB {
 
@@ -69,5 +69,4 @@ public class LMB {
 		ans = ans.add(constTerm);
 		return ans;
 	}
-
 }

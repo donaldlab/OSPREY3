@@ -2,6 +2,7 @@ package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigDecimal;
 
+import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 /**
@@ -15,6 +16,10 @@ public class KStarScoreDiscrete extends KStarScoreMinimized {
 		super(settings);
 	}
 
+	public KStarScoreDiscrete(MSKStarSettings settings, PartitionFunction[] pfs) {
+		super(settings, pfs);
+	}
+
 	@Override
 	public BigDecimal getLowerBoundScore() {
 		return getScore();
@@ -26,9 +31,13 @@ public class KStarScoreDiscrete extends KStarScoreMinimized {
 	}
 	
 	@Override
+	public void compute(int maxNumConfs) {
+		super.compute(maxNumConfs);
+	}
+	
+	@Override
 	protected void compute(int state, int maxNumConfs) {
 		super.compute(state, maxNumConfs);
-		
 		//multiply q* by number of undefined confs
 		if(!settings.search[state].isFullyAssigned()) {
 			PartitionFunctionDiscrete pf = (PartitionFunctionDiscrete) partitionFunctions[state];
@@ -62,8 +71,9 @@ public class KStarScoreDiscrete extends KStarScoreMinimized {
 			}
 			
 			if(minConfs) prunedConfs = 0;
+			//corner case where all confs are pruned due to mutation's intrinsic steric clash
+			if(!minConfs && (unPrunedConfs+prunedConfs)==0) continue;
 			ans = ans.multiply(BigDecimal.valueOf(unPrunedConfs+prunedConfs));
-			
 		}
 		
 		return ans;

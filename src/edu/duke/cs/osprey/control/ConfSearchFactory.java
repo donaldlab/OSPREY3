@@ -17,7 +17,6 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.multistatekstar.MSSearchProblem;
-import edu.duke.cs.osprey.multistatekstar.MultiSequenceConfTree;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
@@ -45,7 +44,8 @@ public interface ConfSearchFactory {
 					
 					else if (search instanceof MSSearchProblem && !((MSSearchProblem)search).isFullyAssigned()) {
 						// we need a multi-sequence conf space
-						return new MultiSequenceConfTree((MSSearchProblem)search, emat, pmat);
+						//return new MultiSequenceConfTree((MSSearchProblem)search, emat, pmat);
+						return ConfTree.makeFullMultiSequence(search, emat, pmat);
 					}
 					
 					// when we don't need higher order terms, we can do fast pairwise-only things

@@ -8,10 +8,13 @@ import edu.duke.cs.osprey.energy.LigandResEnergies;
 import java.util.HashMap;
 import java.util.Map;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
+import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 import edu.duke.cs.osprey.tests.UnitTestSuite;
+import edu.duke.cs.osprey.tools.Stopwatch;
 
 /**
  *
@@ -44,7 +47,7 @@ public class Main {
 
 
 
-		long startTime = System.currentTimeMillis();
+		Stopwatch stopwatch = new Stopwatch().start();
 
 		ConfigFileParser cfp = new ConfigFileParser(args);//args 1, 3+ are configuration files
 
@@ -65,8 +68,7 @@ public class Main {
                 
                 EnvironmentVars.closeSpecialWarningLogs();
                 
-		long endTime = System.currentTimeMillis();
-		System.out.println("Total OSPREY execution time: " + ((endTime-startTime)/60000) + " minutes.");
+		System.out.println("Total OSPREY execution time: " + stopwatch.getTime(2));
 		System.out.println("OSPREY finished");
 	}
 
@@ -101,6 +103,19 @@ public class Main {
 				gf.calcSequences();
 			}
 		});
+		
+		commands.put("scoreLowestConfs", new Runnable() {
+			@Override
+			public void run() {
+				BigForcefieldEnergy.ParamInfo.printWarnings = false;
+				ForcefieldParams.printWarnings = false;
+				
+				GMECFinder gf = new GMECFinder();
+				gf.init(cfp);
+				gf.setLogConfsToConsole(false);
+				gf.scoreLowestConfs();
+			}
+		});
 
 		commands.put("calcKStar", new Runnable() {
 			@Override
@@ -129,7 +144,7 @@ public class Main {
 			}
 		});
 		
-		commands.put("doMultiStateKStar", new Runnable() {
+		commands.put("doMSKStar", new Runnable() {
 			@Override
 			public void run() {
 				MSKStarDoer msksd = new MSKStarDoer(args);

@@ -32,7 +32,7 @@ public interface PartitionFunction {
 		public BigDecimal pstar; // pfunc value of all pruned confs
 		
 		public Values() {
-			qstar = BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
+			qstar = BigDecimal.ZERO;
 			qprime = BigDecimal.ZERO;
 			pstar = BigDecimal.ZERO;
 		}

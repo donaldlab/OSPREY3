@@ -18,6 +18,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.partcr.PartCRConfPruner;
@@ -54,7 +55,7 @@ public class GMECFinder {
     private double Ew;//energy window for enumerating conformations: 0 for just GMEC
     private double I0=0;//initial value of iMinDEE pruning interval
     private boolean doIMinDEE;//do iMinDEE
-    
+    private int numConfsToScore;//if we are only interested in minimizing the lowest scoring confs
     
     private boolean useContFlex;
     //boolean enumByPairwiseLowerBound;//are we using a search method that 
@@ -165,6 +166,8 @@ public class GMECFinder {
         EFullConfOnly = cfp.params.getBool("UsePoissonBoltzmann");
         
         confFileName = cfp.params.getRunSpecificFileName("CONFFILENAME", ".confs.txt");
+        
+        numConfsToScore = cfp.params.getInt("NumConfsToScore");
         
         // NOTE: we'll change some of these params before actually running pruning
         stericThresh = cfp.params.getDouble("StericThresh");
@@ -495,6 +498,152 @@ public class GMECFinder {
     public List<ScoredConf> calcSequences() {
         return calcSequences(I0);
     }
+    
+    public void scoreLowestConfs() {
+    	scoreLowestConfs(I0, numConfsToScore);
+    }
+    
+	private void scoreLowestConfs(double interval, int numConfsToScore) {
+		try {			
+			System.out.println("Calculating GMEC with interval = " + interval);
+
+			boolean printEPICEnergy = checkApproxE && useEPIC && useTupExp;
+			ConfPrinter confPrinter = new ConfPrinter(searchSpace, confFileName, printEPICEnergy);
+
+			if (useEPIC) {
+				checkEPICThresh2(interval);//Make sure EPIC thresh 2 matches current interval
+			}
+
+			//precompute the energy, pruning, and maybe EPIC or tup-exp matrices
+			//must be done separately for each round of iMinDEE
+			precomputeMatrices(Ew + interval);
+
+			// start searching for the min score conf
+			System.out.println("Searching for min score conformation...");
+			Stopwatch minScoreStopwatch = new Stopwatch().start();
+			ConfSearch confSearch = confSearchFactory.make(searchSpace.emat, searchSpace.pruneMat);
+			try {
+				System.out.println("\t(among " + confSearch.getNumConformations().floatValue() + " possibilities)");
+			} catch (UnsupportedOperationException ex) {
+				// conf tree doesn't support it, no big deal
+			}
+			ScoredConf minScoreConf = confSearch.nextConf();
+			if (minScoreConf == null) {
+
+				// no confs in the search space, can't recover, just bail
+				System.out.println("All conformations pruned. Try choosing a larger pruning interval or steric threshold.");
+			}
+			System.out.println("Found min score conformation in " + minScoreStopwatch.getTime(1));
+
+			// evaluate the min score conf
+			System.out.println("Computing energy...");
+			EnergiedConf eMinScoreConf = ecalc.calcEnergy(minScoreConf);
+			confPrinter.printConf(eMinScoreConf);
+			System.out.println("\nMIN SCORE CONFORMATION");
+			System.out.print(confPrinter.getConfReport(eMinScoreConf));
+			List<EnergiedConf> econfs = new ArrayList<>();
+			econfs.add(eMinScoreConf);
+
+			// estimate the top of our energy window
+			// this is an upper bound for now, we'll refine it as we evaluate more structures
+			final EnergyWindow window = new EnergyWindow(eMinScoreConf.getEnergy(), Ew);
+			setWindowProgress(confSearch, window);
+
+			// enumerate all confs in order of the scores, up to the estimate of the top of the energy window
+			System.out.println("Enumerating other low-scoring conformations...");
+			List<ScoredConf> lowEnergyConfs = new ArrayList<>();
+			lowEnergyConfs.add(minScoreConf);
+			int indexToMinimizeNext = 1;
+			Stopwatch stopwatch = new Stopwatch().start();
+			while (lowEnergyConfs.size() < numConfsToScore) {
+	            
+	            ScoredConf conf = confSearch.nextConf();
+	            if (conf == null) {
+	                break;
+	            }
+	            lowEnergyConfs.add(conf);
+	            if (conf.getScore() >= window.getMax()) {
+	                break;
+	            }
+	            
+	            // if we've been enumerating confs for a while, try a minimization to see if we get a smaller window
+	            if (stopwatch.getTimeS() >= 10) {
+	            	
+	            	System.out.println("Low scoring confs enumerated: "+lowEnergyConfs.size()+"/"+numConfsToScore);
+	            	
+	            	stopwatch.stop();
+	                
+	                // save the conf and the energy for later
+	                EnergiedConf econf = ecalc.calcEnergy(lowEnergyConfs.get(indexToMinimizeNext++));
+	                handleEnergiedConf(econfs, confPrinter, window, econf);
+	                
+	                boolean changed = window.update(econf.getEnergy());
+	                if (changed) {
+	                    System.out.println(String.format("Lower conformation energy updated energy window! remaining: %14.8f", window.getMax() - conf.getScore()));
+	                    setWindowProgress(confSearch, window);
+	                }
+	                
+	                stopwatch.start();
+	            }
+	        }
+			System.out.println(String.format("\tFound %d more", lowEnergyConfs.size() - 1));
+
+			// we're done with A*, release the tree so we can get the memory back
+			confSearch = null;
+
+			if (!lowEnergyConfs.isEmpty()) {
+
+				// calculate energy for each conf
+				// this will probably take a while, so track progress
+				final Progress progress = new Progress(lowEnergyConfs.size());
+				progress.setProgress(indexToMinimizeNext);
+
+				// what to do when we get a conf energy?
+                ConfEnergyCalculator.Async.Listener ecalcListener = new ConfEnergyCalculator.Async.Listener() {
+                        @Override
+                        public void onEnergy(EnergiedConf econf) {
+
+                                handleEnergiedConf(econfs, confPrinter, window, econf);
+                                progress.incrementProgress();
+
+                                /*
+                                // refine the estimate of the top of the energy window
+                                boolean changed = window.update(econf.getEnergy());
+                                if (changed) {
+
+                                        // prune conformations with the new window
+                                        for (int i=lowEnergyConfs.size()-1; i>=0; i--) {
+                                                if (lowEnergyConfs.get(i).getScore() > window.getMax()) {
+                                                        lowEnergyConfs.remove(i);
+                                                } else {
+                                                        break;
+                                                }
+                                        }
+
+                                        // update progress
+                                        System.out.println(String.format("\nNew lowest energy: %.6f", window.getMin()));
+                                        System.out.println(String.format("\tReduced to %d low-energy conformations", lowEnergyConfs.size()));
+                                        progress.setTotalWork(lowEnergyConfs.size());
+                                }
+                                */
+                        }
+                };
+
+				// calc the conf energy asynchronously
+				System.out.println(String.format("\nComputing energies for %d conformations...", lowEnergyConfs.size()));
+				for (; indexToMinimizeNext<lowEnergyConfs.size(); indexToMinimizeNext++) {
+					ecalc.calcEnergyAsync(lowEnergyConfs.get(indexToMinimizeNext), ecalcListener);
+				}
+				ecalc.waitForFinish();
+			}
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			if(ecalc != null) ecalc.cleanup();
+			ecalc = null;
+		}
+	}
     
     public List<ScoredConf> calcSequences(double interval) {
         
