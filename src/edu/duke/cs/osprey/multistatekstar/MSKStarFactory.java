@@ -69,7 +69,7 @@ public class MSKStarFactory {
 		settings.isReportingProgress = msParams.getBool("ISREPORTINGPROGRESS");
 		settings.scoreType = scoreType;
 		settings.constraints = sConstr;
-		int numPartFuncs = sParams.getInt("NUMUBSTATES")+1;
+		int numPartFuncs = sParams.getInt("NUMOFSTRANDS")+1;
 		settings.pfTypes = new PartitionFunctionType[numPartFuncs];
 		settings.ecalcs = new ConfEnergyCalculator.Async[numPartFuncs];
 		settings.search = new MSSearchProblem[numPartFuncs];

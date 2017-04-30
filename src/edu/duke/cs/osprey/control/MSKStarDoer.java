@@ -141,11 +141,11 @@ public class MSKStarDoer {
 			}
 
 			//populate state-specific constraints
-			int numUbConstr = sParams.getInt("NUMUBCONSTR");
-			int numPartFuncs = sParams.getInt("NUMUBSTATES")+1;
+			int numUbConstr = sParams.getInt("NUMSTRANDCONSTR");
+			int numPartFuncs = sParams.getInt("NUMOFSTRANDS")+1;
 			sConstr[state] = new LMB[numUbConstr];
 			for(int constr=0;constr<numUbConstr;constr++)
-				sConstr[state][constr] = new LMB(sParams.getValue("UBCONSTR"+constr), numPartFuncs);
+				sConstr[state][constr] = new LMB(sParams.getValue("STRANDCONSTR"+constr), numPartFuncs);
 
 			System.out.println();
 			System.out.println("State "+state+" parameters checked");
@@ -229,7 +229,7 @@ public class MSKStarDoer {
 		}
 
 		ParamSet sParams = cfps[state].getParams();
-		int numPartFuncs = sParams.getInt("NUMUBSTATES")+1;
+		int numPartFuncs = sParams.getInt("NUMOFSTRANDS")+1;
 		boolean doMinimize = sParams.getBool("DOMINIMIZE");
 		KStarScoreType scoreType = MSKStarFactory.getKStarScoreType(sParams);
 
@@ -272,7 +272,7 @@ public class MSKStarDoer {
 			MSConfigFileParser stateCfp) {
 
 		ParamSet sParams = stateCfp.getParams();
-		int numUbStates = sParams.getInt("NUMUBSTATES");
+		int numUbStates = sParams.getInt("NUMOFSTRANDS");
 		String flexibility = cont ? "continuous" : "discrete";
 
 		SearchProblem[] subStateSps = new SearchProblem[numUbStates+1];
@@ -312,12 +312,12 @@ public class MSKStarDoer {
 	 */
 	private ArrayList<ArrayList<Integer>> stateMutableRes(int state, MSConfigFileParser stateCfp, int numTreeLevels){
 		ParamSet sParams = stateCfp.getParams();
-		int numUbStates = sParams.getInt("NUMUBSTATES");
+		int numUbStates = sParams.getInt("NUMOFSTRANDS");
 		ArrayList<ArrayList<Integer>> m2s = new ArrayList<>();
 		for(int ubState=0;ubState<=numUbStates;++ubState) m2s.add(new ArrayList<>());
 
 		for(int ubState=0;ubState<numUbStates;++ubState) {
-			StringTokenizer st = new StringTokenizer(sParams.getValue("UBSTATEMUT"+ubState));
+			StringTokenizer st = new StringTokenizer(sParams.getValue("STRANDMUT"+ubState));
 			while(st.hasMoreTokens()) m2s.get(ubState).add(Integer.valueOf(st.nextToken()));
 			//append to complex residues
 			m2s.get(numUbStates).addAll(m2s.get(ubState));
@@ -548,10 +548,12 @@ public class MSKStarDoer {
 				else ecalcsDisc[state] = makeEnergyCalculators(state, false);
 				
 				for(int seqNum=0; seqNum<stateKSS[state].length; seqNum++){
+					System.out.println();
 					System.out.print("Computing sequence "+(seqNum+1)+"/"+stateKSS[state].length+"...");
 					stateKSS[state][seqNum] = getStateKStarScore(state, seqList.get(state).get(seqNum));
 					fout.println(stateKSS[state][seqNum]); fout.flush();
 					System.out.println("done, elapsed: "+stopwatch.getTime(2));
+					System.out.println();
 				}
 
 				searchCont[state] = null;

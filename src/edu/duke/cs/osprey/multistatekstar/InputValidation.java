@@ -126,54 +126,66 @@ public class InputValidation {
 			throw new RuntimeException("ERROR: EPSILON must be >= 0 and < 1"); 
 		
 		//check number of constraints
-		int numUbConstr = sParams.getInt("NUMUBCONSTR");
-		ArrayList<String> ubConstr = sParams.searchParams("UBCONSTR");
-		ubConstr.remove("NUMUBCONSTR");
+		int numUbConstr = sParams.getInt("NUMSTRANDCONSTR");
+		ArrayList<String> ubConstr = sParams.searchParams("STRANDCONSTR");
+		ubConstr.remove("NUMSTRANDCONSTR");
 		if(numUbConstr != ubConstr.size())
-			throw new RuntimeException("ERROR: NUMUBCONSTR != number of listed constraints");
+			throw new RuntimeException("ERROR: NUMSTRANDCONSTR != number of listed constraints");
 
-		int numUbStates = sParams.getInt("NUMUBSTATES");
-		if(numUbStates<2) throw new RuntimeException("ERROR: NUMUBSTATES must be >=2");
+		int numUbStates = sParams.getInt("NUMOFSTRANDS");
+		if(numUbStates<2) throw new RuntimeException("ERROR: NUMOFSTRANDS must be >=2");
 
-		String ubStateMutNums = sParams.getValue("UBSTATEMUTNUMS");
+		String ubStateMutNums = sParams.getValue("STRANDMUTNUMS");
 		StringTokenizer st = new StringTokenizer(ubStateMutNums);
 		if(st.countTokens() != numUbStates) throw new RuntimeException("ERROR: "
-				+ "the number of tokens in UBSTATEMUTNUMS should be the same as "
-				+ "NUMUBSTATES");
+				+ "the number of tokens in STRANDMUTNUMS should be the same as "
+				+ "NUMOFSTRANDS");
 
-		if(numUbStates!=sParams.searchParams("UBSTATELIMITS").size())
-			throw new RuntimeException("ERROR: need an UBSTATELIMITS line for each NUMUBSTATES");
+		ArrayList<String> strandInfo = sParams.searchParams("STRAND");
+		ArrayList<String> remove = new ArrayList<>();
+		for(String str : strandInfo) {
+			Integer val = -1;
+			try {
+				val = Integer.valueOf(str.replace("STRAND", ""));
+			} catch (Exception e) {
+			} finally {
+				if(val == -1) remove.add(str);
+			}
+		}
+		strandInfo.removeAll(remove);
+		if(numUbStates!=strandInfo.size())
+			throw new RuntimeException("ERROR: need a STRAND line for each NUMOFSTRANDS");
 
 		int numMutsRes = 0;
 		while(st.hasMoreTokens()) numMutsRes += Integer.valueOf(st.nextToken());
 		if(numMutsRes != msParams.getInt("NUMMUTRES")) throw new RuntimeException("ERROR: "
-				+"UBSTATEMUTNUMS does not sum up to NUMMUTRES");
+				+"STRANDMUTNUMS does not sum up to NUMMUTRES");
 
 		ArrayList<Integer> globalMutList = new ArrayList<>();
 		for(int ubState=0;ubState<numUbStates;++ubState) {
 			//num unbound state residues must match number of listed residues
 			int numUbMutRes = Integer.valueOf(StringParsing.getToken(ubStateMutNums, ubState+1));
-			String ubMutRes = sParams.getValue("UBSTATEMUT"+ubState);
+			String ubMutRes = sParams.getValue("STRANDMUT"+ubState);
 			st = new StringTokenizer(ubMutRes);
 			ArrayList<Integer> ubStateMutList = new ArrayList<>();
 			while(st.hasMoreTokens()) ubStateMutList.add(Integer.valueOf(st.nextToken()));
 			ubStateMutList = new ArrayList<>(new HashSet<>(ubStateMutList));
 			if(ubStateMutList.size()!=numUbMutRes) throw new RuntimeException("ERROR: the "
-					+"number of distinct mutable residues in UBSTATEMUT"+ubState+
-					" is not equal to the value specified in UBSTATEMUTNUMS");
+					+"number of distinct mutable residues in STRANDMUT"+ubState+
+					" is not equal to the value specified in STRANDMUTNUMS");
 
 			globalMutList.addAll(ubStateMutList);
 
 			//listed unbound state residues must be within limits
 			ArrayList<Integer> ubStateLims = new ArrayList<>();
-			st = new StringTokenizer(sParams.getValue("UBSTATELIMITS"+state));
-			if(st.countTokens()!=2) throw new RuntimeException("ERROR: UBSTATELIMITS"+state
+			st = new StringTokenizer(sParams.getValue("STRAND"+state));
+			if(st.countTokens()!=2) throw new RuntimeException("ERROR: STRAND"+state
 					+" must have 2 tokens");
 			while(st.hasMoreTokens()) ubStateLims.add(Integer.valueOf(st.nextToken()));
 			Collections.sort(ubStateLims);
 			for(int res : ubStateMutList){
 				if(res<ubStateLims.get(0) && res>ubStateLims.get(1)) throw new RuntimeException("ERROR: "
-						+"mutable residue "+res+" exceeds the boundaries of UBSTATELIMITS"+state);
+						+"mutable residue "+res+" exceeds the boundaries of STRAND"+state);
 			}
 
 			//ResAllowed must exist for each mutable residue
@@ -189,14 +201,14 @@ public class InputValidation {
 			for(String raVal : raKeys) {
 				raVal = raVal.replaceAll("RESALLOWED", "").trim();
 				if(!globalMutList.contains(Integer.valueOf(raVal)))
-					throw new RuntimeException("ERROR: RESALLOWED"+raVal+" is not in the list of UBSTATEMUT");
+					throw new RuntimeException("ERROR: RESALLOWED"+raVal+" is not in the list of STRANDMUT");
 			}
 		}
 
 		//check that ubState limits are mutually exclusive 
 		ArrayList<ArrayList<Integer>> ubStateLimits = new ArrayList<>();
 		for(int ubState=0;ubState<numUbStates;++ubState) {
-			st = new StringTokenizer(sParams.getValue("UBSTATELIMITS"+ubState));
+			st = new StringTokenizer(sParams.getValue("STRAND"+ubState));
 			ArrayList<Integer> tmp = new ArrayList<Integer>();
 			while(st.hasMoreTokens()) tmp.add(Integer.valueOf(st.nextToken()));
 			Collections.sort(tmp);
@@ -204,7 +216,7 @@ public class InputValidation {
 		}
 		if(ubStateLimits.get(0).get(0) <= ubStateLimits.get(1).get(1) && 
 				ubStateLimits.get(1).get(0) <= ubStateLimits.get(0).get(1))
-			throw new RuntimeException("ERROR: UBSTATELIMITS are not disjoint");
+			throw new RuntimeException("ERROR: STRAND are not disjoint");
 	}
 	
 }

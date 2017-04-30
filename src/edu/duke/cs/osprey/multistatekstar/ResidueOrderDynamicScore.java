@@ -3,7 +3,6 @@ package edu.duke.cs.osprey.multistatekstar;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
@@ -196,14 +195,14 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 		return ans;
 	}
 
-	private BigDecimal getScore(ResidueAssignment assignment, int[] coeffSign) {
-		int numStates = coeffSign.length;
-		BigDecimal ans = BigDecimal.ZERO.setScale(16, RoundingMode.HALF_UP);
+	private BigDecimal getFScore(ResidueAssignment assignment, BigDecimal[] coeffs) {
+		int numStates = coeffs.length;
+		BigDecimal ans = BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
 		// get assignment score
 		for(int state=0;state<numStates;++state) {
 			//sign of 0 does not contribute to score
-			if(coeffSign[state]==0) continue;
-			ans = ans.add(getStateScore(state, assignment));
+			if(coeffs[state].compareTo(BigDecimal.ZERO)==0) continue;
+			ans = ans.add(coeffs[state].multiply(getStateScore(state, assignment)));
 		}
 
 		return ans;
@@ -234,16 +233,10 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 
 		//if coeff[state]<0: want ub ratio, so smallest unbound state, largest bound state
 		//if coeff[state]>0: want lb ratio, so largest unbound state, smallest bound state
-		int[] coeffSign = new int[objFcn.getCoeffs().length];
-		Arrays.fill(coeffSign, 0);
-		for(int i=0;i<coeffSign.length;++i) {
-			if(objFcn.getCoeffs()[i].compareTo(BigDecimal.ZERO)==0) continue;
-			coeffSign[i] = objFcn.getCoeffs()[i].compareTo(BigDecimal.ZERO) < 0 ? -1 : 1;
-		}
-
+		BigDecimal[] coeffs = objFcn.getCoeffs();
 		ArrayList<ResidueAssignmentScore> assignmentScores = new ArrayList<>();
 		for(ResidueAssignment assignment : assignments) {
-			BigDecimal score = getScore(assignment, coeffSign);
+			BigDecimal score = getFScore(assignment, coeffs);
 			assignmentScores.add(new ResidueAssignmentScore(assignment, score));
 		}
 

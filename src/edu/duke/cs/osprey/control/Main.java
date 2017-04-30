@@ -8,6 +8,8 @@ import edu.duke.cs.osprey.energy.LigandResEnergies;
 import java.util.HashMap;
 import java.util.Map;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
+import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.kstar.KSConfigFileParser;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
@@ -99,6 +101,19 @@ public class Main {
 				GMECFinder gf = new GMECFinder();
 				gf.init(cfp);
 				gf.calcSequences();
+			}
+		});
+		
+		commands.put("scoreLowestConfs", new Runnable() {
+			@Override
+			public void run() {
+				BigForcefieldEnergy.ParamInfo.printWarnings = false;
+				ForcefieldParams.printWarnings = false;
+				
+				GMECFinder gf = new GMECFinder();
+				gf.init(cfp);
+				gf.setLogConfsToConsole(false);
+				gf.scoreLowestConfs();
 			}
 		});
 

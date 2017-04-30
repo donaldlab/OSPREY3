@@ -211,7 +211,7 @@ public class MSKStarTree {
 		KStarScore[] ans = new KStarScore[types.length];
 
 		ParamSet sParams = cfps[state].getParams();
-		int numPartFuncs = sParams.getInt("NUMUBSTATES")+1;
+		int numPartFuncs = sParams.getInt("NUMOFSTRANDS")+1;
 
 		for(int i=0;i<types.length;++i) {
 
@@ -259,7 +259,7 @@ public class MSKStarTree {
 				return null;
 			}
 
-			//assert(lastScore.compareTo(curNode.getScore())<=0);
+			assert(lastScore.compareTo(curNode.getScore())<=0);
 			lastScore = curNode.getScore();
 
 			//if(numExpanded % 8==0) 
