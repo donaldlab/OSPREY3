@@ -25,6 +25,8 @@ import edu.duke.cs.osprey.structure.Residue;
 
 public class TestResidueForcefieldEnergyCuda extends TestBase {
 	
+	// TODO: merge with TestForcefieldKernel?
+	
 	private static enum EfuncType {
 		
 		AllPairs {

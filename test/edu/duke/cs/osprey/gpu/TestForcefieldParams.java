@@ -4,7 +4,6 @@ import static org.junit.Assert.*;
 
 import java.io.IOException;
 
-import org.junit.BeforeClass;
 import org.junit.Test;
 
 import edu.duke.cs.osprey.TestBase;
@@ -16,20 +15,17 @@ import edu.duke.cs.osprey.structure.Residue;
 
 public class TestForcefieldParams extends TestBase {
 	
-	private static final double Epsilon = 1e-12;
+	// TODO: merge with TestForcefieldKernel?
 	
-	@BeforeClass
-	public static void before() {
-		initDefaultEnvironment();
-	}
+	private static final double Epsilon = 1e-12;
 	
 	private void checkEnergies(Residue[] residues, double noSolvEnergy, double eef1Energy)
 	throws IOException {
 		
-		ForcefieldParams ffparams = makeDefaultFFParams();
+		ForcefieldParams ffparams = new ForcefieldParams();
 		
 		// no solv
-		ffparams.doSolvationE = false;
+		ffparams.solvationForcefield = null;
 		Forcefields ff = TestForceFieldKernel.makeForcefields(residues, EnergyFunctionType.AllPairs, ffparams);
 		assertThat(ff.efunc.getEnergy(), isAbsolutely(noSolvEnergy, Epsilon));
 		assertThat(ff.bigff.getEnergy(), isAbsolutely(noSolvEnergy, Epsilon));
@@ -38,7 +34,7 @@ public class TestForcefieldParams extends TestBase {
 		ff.cleanup();
 		
 		// EEF1 solv
-		ffparams.doSolvationE = true;
+		ffparams.solvationForcefield = ForcefieldParams.SolvationForcefield.EEF1;
 		ff = TestForceFieldKernel.makeForcefields(residues, EnergyFunctionType.AllPairs, ffparams);
 		assertThat(ff.efunc.getEnergy(), isAbsolutely(eef1Energy, Epsilon));
 		assertThat(ff.bigff.getEnergy(), isAbsolutely(eef1Energy, Epsilon));

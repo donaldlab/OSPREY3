@@ -27,9 +27,7 @@ import edu.duke.cs.osprey.structure.Residue;
 
 public class TestForceFieldKernel extends TestBase {
 	
-	// TODO: test ff options, like solvation, hydrogen inclusions, etc...
-	
-	private static class Forcefields {
+	public static class Forcefields {
 		
 		public MultiTermEnergyFunction efunc;
 		public BigForcefieldEnergy bigff;
@@ -37,6 +35,8 @@ public class TestForceFieldKernel extends TestBase {
 		public GpuForcefieldEnergy gpuffopencl;
 		public GpuStreamPool cudaContextPool;
 		public GpuForcefieldEnergy gpuffcuda;
+		
+		// TODO: add residue forcefields?
 		
 		public void cleanup() {
 			gpuffopencl.cleanup();
@@ -46,7 +46,7 @@ public class TestForceFieldKernel extends TestBase {
 		}
 	}
 	
-	private static enum EnergyFunctionType {
+	public static enum EnergyFunctionType {
 		AllPairs,
 		SingleAndShell;
 	}
@@ -116,10 +116,14 @@ public class TestForceFieldKernel extends TestBase {
 		}
 	}
 	
-	private Forcefields makeForcefields(Residue[] residues, EnergyFunctionType efuncType)
+	private static Forcefields makeForcefields(Residue[] residues, EnergyFunctionType efuncType)
+	throws IOException {
+		return makeForcefields(residues, efuncType, new ForcefieldParams(Forcefield.AMBER));
+	}
+	
+	public static Forcefields makeForcefields(Residue[] residues, EnergyFunctionType efuncType, ForcefieldParams ffparams)
 	throws IOException {
 		
-		ForcefieldParams ffparams = new ForcefieldParams(Forcefield.AMBER);
 		ForcefieldInteractions interactions = new ForcefieldInteractions();
 		
 		Forcefields ff = new Forcefields();
