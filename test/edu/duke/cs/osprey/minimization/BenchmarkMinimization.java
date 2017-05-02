@@ -173,7 +173,7 @@ public class BenchmarkMinimization extends TestBase {
 		
 		// settings
 		final int[] numThreadsList = { 1, 2, 4 };//, 8 };
-		final int[] numStreamsList = { 1, 2, 4, 8, 16, 32, 64 };//, 128, 256 };
+		final int[] numStreamsList = { 1, 2, 4, 8, 16 };//, 32, 64 };//, 128, 256 };
 		
 		Factory<ForcefieldInteractions,Molecule> interactionsFactory = (mol) -> FFInterGen.makeFullConf(search.confSpace, search.shellResidues, mol);
 		ForcefieldParams ffparams = makeDefaultFFParams();
@@ -192,7 +192,6 @@ public class BenchmarkMinimization extends TestBase {
 			}
 		}
 		
-		/* TEMP
 		// benchmark cpu residue efuncs
 		for (int numThreads : numThreadsList) {
 			
@@ -232,13 +231,12 @@ public class BenchmarkMinimization extends TestBase {
 				.build();
 			benchmark(minimizer, confs, oneCpuStopwatch);
 		}
-		*/
 		
 		// benchmark residue cuda
 		for (int numStreams : numStreamsList) {
 			System.out.println(String.format("\nBenchmarking %2d stream(s) with %30s...", numStreams, "Cuda residue efuncs"));
 			MinimizingFragmentEnergyCalculator ecalc = new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
-				.setType(MinimizingFragmentEnergyCalculator.Type.Cuda)
+				.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCuda)
 				.setParallelism(Parallelism.makeGpu(1, numStreams))
 				.build();
 			MinimizingConfEnergyCalculator minimizer = new MinimizingConfEnergyCalculator.Builder(ecalc).build();

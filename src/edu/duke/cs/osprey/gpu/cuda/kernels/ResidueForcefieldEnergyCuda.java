@@ -6,27 +6,21 @@ import java.nio.DoubleBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
-import edu.duke.cs.osprey.energy.forcefield.EEF1.SolvPairParams;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
-import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.VdwParams;
+import edu.duke.cs.osprey.energy.forcefield.ResPairCache;
+import edu.duke.cs.osprey.energy.forcefield.ResPairCache.ResPair;
 import edu.duke.cs.osprey.gpu.cuda.CUBuffer;
 import edu.duke.cs.osprey.gpu.cuda.GpuStream;
 import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
 import edu.duke.cs.osprey.gpu.cuda.Kernel;
-import edu.duke.cs.osprey.structure.Atom;
-import edu.duke.cs.osprey.structure.AtomConnectivity;
-import edu.duke.cs.osprey.structure.AtomConnectivity.AtomPairs;
-import edu.duke.cs.osprey.structure.AtomNeighbors;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import jcuda.Pointer;
@@ -35,52 +29,9 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 	
 	private static final long serialVersionUID = 4015880661919715967L;
 	
-	public static class ResPair {
-		
-		public final int resIndex1;
-		public final Residue res1;
-		public final int resIndex2;
-		public final Residue res2;
-		public final ResidueInteractions.Pair pair;
-		public final AtomPairs atomPairs;
-		public final int numAtomPairs;
-		
-		public ResPair(Residue[] ress, ResidueInteractions.Pair pair, AtomConnectivity connectivity) {
-			
-			resIndex1 = findIndex(ress, pair.resNum1);
-			res1 = ress[resIndex1];
-			resIndex2 = findIndex(ress, pair.resNum2);
-			res2 = ress[resIndex2];
-			this.pair = pair;
-			
-			atomPairs = connectivity.getAtomPairs(res1, res2);
-			numAtomPairs = atomPairs.getNumPairs(AtomNeighbors.Type.BONDED14)
-				+ atomPairs.getNumPairs(AtomNeighbors.Type.NONBONDED);
-		}
-	}
-	
-	private static Residue findRes(Collection<Residue> residues, String resNum) {
-		for (Residue res : residues) {
-			if (res.getPDBResNumber().equals(resNum)) {
-				return res;
-			}
-		}
-		throw new NoSuchElementException("no residue " + resNum + " found in " + residues);
-	}
-	
-	private static int findIndex(Residue[] ress, String resNum) {
-		for (int i=0; i<ress.length; i++) {
-			if (ress[i].getPDBResNumber().equals(resNum)) {
-				return i;
-			}
-		}
-		throw new NoSuchElementException("no residue " + resNum + " found in " + Arrays.toString(ress));
-	}
-	
 	public final GpuStreamPool streams;
-	public final ForcefieldParams params;
+	public final ForcefieldParams ffparams;
 	public final ResidueInteractions inters;
-	public final AtomConnectivity connectivity;
 	
 	private boolean isBroken;
 	
@@ -102,9 +53,7 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 	 *    double offset
 	 *    
 	 *    for each atom pair:
-	 *       short atomOffset1
-	 *       short atomOffset2
-	 *       int flags  (isHeavyPair, is14Bonded)
+	 *       long flags  (bit isHeavyPair, bit is14Bonded, 6 bits space, 3 byte space, short atomOffset1, short atomOffset2)
 	 *       double charge
 	 *       double Aij
 	 *       double Bij
@@ -130,30 +79,37 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 	
 	private Kernel.Function func;
 	
-	public ResidueForcefieldEnergyCuda(GpuStreamPool streams, ForcefieldParams params, ResidueInteractions inters, Molecule mol, AtomConnectivity connectivity)
+	public ResidueForcefieldEnergyCuda(GpuStreamPool streams, ResPairCache resPairCache, ResidueInteractions inters, Molecule mol)
 	throws IOException {
-		this(streams, params, inters, mol.residues, connectivity);
+		this(streams, resPairCache, inters, mol.residues);
 	}
 	
-	public ResidueForcefieldEnergyCuda(GpuStreamPool streams, ForcefieldParams params, ResidueInteractions inters, Collection<Residue> residues, AtomConnectivity connectivity)
+	public ResidueForcefieldEnergyCuda(GpuStreamPool streams, ResPairCache resPairCache, ResidueInteractions inters, List<Residue> residues)
 	throws IOException {
 		super(streams.checkout(), "residueForcefield");
 		
 		this.streams = streams;
-		this.params = params;
+		this.ffparams = resPairCache.ffparams;
 		this.inters = inters;
-		this.connectivity = connectivity;
+		
+		// compute solvation info if needed
+		SolvationForcefield.ResiduesInfo solvInfo = null;
+		if (ffparams.solvationForcefield != null) {
+			solvInfo = ffparams.solvationForcefield.makeInfo(ffparams, residues);
+		}
+		
+		// TODO: test with no solvation!
 		
 		// map the residue numbers to residues
 		ress = new Residue[inters.getResidueNumbers().size()];
 		int index = 0;
 		for (String resNum : inters.getResidueNumbers()) {
-			ress[index++] = findRes(residues, resNum);
+			ress[index++] = residues.get(resPairCache.findIndex(residues, resNum));
 		}
 		resPairs = new ResPair[inters.size()];
 		index = 0;
 		for (ResidueInteractions.Pair pair : inters) {
-			resPairs[index++] = new ResPair(ress, pair, connectivity);
+			resPairs[index++] = resPairCache.get(ress, pair, solvInfo);
 		}
 		
 		subsets = null;
@@ -189,22 +145,22 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 		// allocate the data
 		int totalNumAtomPairs = 0;
 		for (int i=0; i<resPairs.length; i++) {
-			totalNumAtomPairs += resPairs[i].numAtomPairs;
+			totalNumAtomPairs += resPairs[i].info.numAtomPairs;
 		}
 		data = stream.byteBuffers.checkout(HeaderBytes + (Long.BYTES + ResPairBytes)*resPairs.length + AtomPairBytes*totalNumAtomPairs);
 		ByteBuffer databuf = data.getHostBuffer();
 		
 		// put the data header
-		long flags = params.hElect ? 1 : 0;
+		long flags = ffparams.hElect ? 1 : 0;
 		flags <<= 1;
-		flags |= params.hVDW ? 1 : 0;
+		flags |= ffparams.hVDW ? 1 : 0;
 		flags <<= 1;
-		flags |= params.distDepDielect ? 1 : 0;
+		flags |= ffparams.distDepDielect ? 1 : 0;
 		flags <<= 1;
-		flags |= params.solvationForcefield == SolvationForcefield.EEF1 ? 1 : 0;
+		flags |= ffparams.solvationForcefield == SolvationForcefield.EEF1 ? 1 : 0;
 		databuf.putLong(flags);
-		double coulombFactor = ForcefieldParams.coulombConstant/params.dielectric;
-		double scaledCoulombFactor = coulombFactor*params.forcefld.coulombScaling;
+		double coulombFactor = ForcefieldParams.coulombConstant/ffparams.dielectric;
+		double scaledCoulombFactor = coulombFactor*ffparams.forcefld.coulombScaling;
 		databuf.putDouble(coulombFactor);
 		databuf.putDouble(scaledCoulombFactor);
 		
@@ -212,84 +168,25 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 		long offset = HeaderBytes + Long.BYTES*resPairs.length;
 		for (int i=0; i<resPairs.length; i++) {
 			databuf.putLong(offset);
-			offset += ResPairBytes + AtomPairBytes*resPairs[i].numAtomPairs;
+			offset += ResPairBytes + AtomPairBytes*resPairs[i].info.numAtomPairs;
 		}
-		
-		VdwParams vdwparams = new VdwParams();
-		SolvPairParams solvparams = new SolvPairParams();
 		
 		// put the res pairs and atom pairs
 		for (int i=0; i<resPairs.length; i++) {
 			ResPair resPair = resPairs[i];
 			
 			// put the res pair
-			databuf.putLong(resPair.numAtomPairs);
+			databuf.putLong(resPair.info.numAtomPairs);
 			databuf.putLong(atomOffsetsByResIndex[resPair.resIndex1]);
 			databuf.putLong(atomOffsetsByResIndex[resPair.resIndex2]);
-			databuf.putDouble(resPair.pair.weight);
-			double resPairOffset = resPair.pair.offset;
-			if (resPair.res1 == resPair.res2) {
-				// update the pair offset with internal solvation energy
-				switch (params.solvationForcefield) {
-					
-					case EEF1:
-						resPairOffset += params.eef1parms.getInternalEnergy(resPair.res1)*params.solvScale*resPair.pair.weight;
-					break;
-					
-					default:
-						// do nothing
-				}
-			}
-			databuf.putDouble(resPairOffset);
+			databuf.putDouble(resPair.weight);
+			databuf.putDouble(resPair.offset);
 			
-			for (AtomNeighbors.Type type : Arrays.asList(AtomNeighbors.Type.BONDED14, AtomNeighbors.Type.NONBONDED)) {
-				for (int[] atomPair : resPair.atomPairs.getPairs(type)) {
-			
-					// put the atom offsets
-					databuf.putShort((short)(atomPair[0]*3));
-					databuf.putShort((short)(atomPair[1]*3));
-					
-					Atom atom1 = resPair.res1.atoms.get(atomPair[0]);
-					Atom atom2 = resPair.res2.atoms.get(atomPair[1]);
-					
-					// pack the flags
-					boolean isHeavyPair = !atom1.isHydrogen() && !atom2.isHydrogen();
-					boolean is14Bonded = type == AtomNeighbors.Type.BONDED14;
-					int atomFlags = is14Bonded ? 1 : 0;
-					atomFlags <<= 1;
-					atomFlags |= isHeavyPair ? 1 : 0;
-					databuf.putInt(atomFlags);
-					
-					// calc electrostatics params
-					databuf.putDouble(atom1.charge*atom2.charge);
-					
-					// calc vdw params
-					params.getVdwParams(atom1, atom2, type, vdwparams);
-					databuf.putDouble(vdwparams.Aij);
-					databuf.putDouble(vdwparams.Bij);
-					
-					// compute solvation params if needed
-					if (isHeavyPair) {
-						switch (params.solvationForcefield) {
-							
-							case EEF1:
-								params.eef1parms.getSolvationPairParams(atom1, atom2, params.solvScale, solvparams);
-								databuf.putDouble(solvparams.radius1);
-								databuf.putDouble(solvparams.lambda1);
-								databuf.putDouble(solvparams.alpha1);
-								databuf.putDouble(solvparams.radius2);
-								databuf.putDouble(solvparams.lambda2);
-								databuf.putDouble(solvparams.alpha2);
-							break;
-							
-							default:
-								databuf.position(databuf.position() + Double.BYTES*6);
-						}
-							
-					} else {
-						
-						databuf.position(databuf.position() + Double.BYTES*6);
-					}
+			// put the atom pairs
+			for (int j=0; j<resPair.info.numAtomPairs; j++) {
+				databuf.putLong(resPair.info.flags[j]);
+				for (int k=0; k<resPair.info.numPrecomputedPerAtomPair; k++) {
+					databuf.putDouble(resPair.info.precomputed[j*resPair.info.numPrecomputedPerAtomPair + k]);
 				}
 			}
 		}

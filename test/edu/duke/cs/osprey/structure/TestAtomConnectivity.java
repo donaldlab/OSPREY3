@@ -128,6 +128,9 @@ public class TestAtomConnectivity {
 			fail("no pairs for residue types: " + res1.template.name + ", " + res2.template.name);
 		}
 		
+		assertThat(pairs.res1.template, is(res1.template));
+		assertThat(pairs.res2.template, is(res2.template));
+		
 		for (AtomNeighbors.Type neighborType : AtomNeighbors.Type.values()) {
 			
 			List<int[]> typedPairs = AtomNeighbors.getPairIndicesByType(res1.atoms, res2.atoms, res1 == res2, neighborType);

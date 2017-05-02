@@ -7,14 +7,15 @@ package edu.duke.cs.osprey.energy.forcefield;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.Serializable;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
 
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
 import edu.duke.cs.osprey.restypes.DAminoAcidHandler;
-import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.HashCalculator;
@@ -155,56 +156,6 @@ public class EEF1 implements Serializable {
 			solvparams.lambda = 1;
 			solvparams.radius = 0;
 		}
-	}
-	
-	public static class SolvPairParams {
-		public double radius1;
-		public double lambda1;
-		public double alpha1;
-		public double radius2;
-		public double lambda2;
-		public double alpha2;
-	}
-	
-	public void getSolvationPairParams(Atom atom1, Atom atom2, double scale, SolvPairParams out) {
-		
-		// start with defaults
-		double dGfree1 = 0;
-		double volume1 = 0;
-		out.lambda1 = 1;
-		out.radius1 = 0;
-		
-		double dGfree2 = 0;
-		double volume2 = 0;
-		out.lambda2 = 1;
-		out.radius2 = 0;
-		
-		// lookup atom 1
-		int i1 = getSolvGroupIndex(atom1);
-		if (i1 == -1) {
-			warnAtomType(atom1.forceFieldType);
-		} else {
-			dGfree1 = dGiFree[i1];
-			volume1 = atEEF1Vol[i1];
-			out.lambda1 = lambdai[i1];
-			out.radius1 = vdWri[i1];
-		}
-		
-		// lookup atom 2
-		int i2 = getSolvGroupIndex(atom2);
-		if (i2 == -1) {
-			warnAtomType(atom2.forceFieldType);
-		} else {
-			dGfree2 = dGiFree[i2];
-			volume2 = atEEF1Vol[i2];
-			out.lambda2 = lambdai[i2];
-			out.radius2 = vdWri[i2];
-		}
-		
-		// calc mixed params
-		scale *= trigConst;
-		out.alpha1 = scale*dGfree1*volume2/out.lambda1;
-		out.alpha2 = scale*dGfree2*volume1/out.lambda2;
 	}
 	
 	private class SolvGroupKey {
@@ -450,31 +401,120 @@ public class EEF1 implements Serializable {
 		return numBoundH;
 	}
 	
-	private Map<ResidueTemplate,Double> internalSolvEnergies = new IdentityHashMap<>();
-	
-	public double getInternalEnergy(Residue res) {
+	public class ResiduesInfo implements SolvationForcefield.ResiduesInfo {
 		
-		// check the cache first
-		Double energy = internalSolvEnergies.get(res.template);
-		if (energy != null) {
-			return energy;
+		private class ResInfo {
+			public int[] indices;
+			public double internalEnergy;
 		}
 		
-		// add up all the dGref terms for all the atoms
-		energy = 0.0;
-		for (Atom atom : res.atoms) {
-			if (!atom.isHydrogen()) {
-				int index = getSolvGroupIndex(atom);
-				if (index == -1) {
-					warnAtomType(atom.forceFieldType);
-				} else {
-					energy += dGiRef[index];
+		public final Collection<Residue> residues;
+		
+		private final Map<Residue,ResInfo> infos;
+		
+		public ResiduesInfo(Collection<Residue> residues) {
+			
+			this.residues = residues;
+			
+			infos = new IdentityHashMap<>();
+			for (Residue res : residues) {
+				
+				ResInfo info = new ResInfo();
+				infos.put(res, info);
+				
+				// calculate the group indices
+				info.indices = new int[res.atoms.size()];
+				for (int i=0; i<res.atoms.size(); i++) {
+					Atom atom = res.atoms.get(i);
+					if (atom.isHydrogen()) {
+						info.indices[i] = -1;
+					} else {
+						int index = getSolvGroupIndex(atom);
+						if (index == -1) {
+							warnAtomType(atom.forceFieldType);
+						}
+						info.indices[i] = index;
+					}
+				}
+				
+				// calculate the internal energy
+				// add up all the dGref terms for all the atoms
+				info.internalEnergy = 0.0;
+				for (int index : info.indices) {
+					if (index != -1) {
+						info.internalEnergy += dGiRef[index];
+					}
 				}
 			}
 		}
+
+		@Override
+		public int getNumPrecomputedPerAtomPair() {
+			return 6;
+		}
+
+		@Override
+		public double getResPairEnergy(Residue res1, Residue res2) {
 			
-		internalSolvEnergies.put(res.template, energy);
+			if (res1 == res2) {
+				return infos.get(res1).internalEnergy;
+			}
+			
+			return 0.0;
+		}
+
+		@Override
+		public void putPrecomputed(double[] out, int i, Residue res1, int atomIndex1, Residue res2, int atomIndex2, double scale) {
+			
+			// skip pairs with hydrogens
+			ResInfo info1 = infos.get(res1);
+			Atom atom1 = res1.atoms.get(atomIndex1);
+			ResInfo info2 = infos.get(res2);
+			Atom atom2 = res2.atoms.get(atomIndex2);
+			if (atom1.isHydrogen() || atom2.isHydrogen()) {
+				return;
+			}
+			
+			// start with defaults
+			double dGfree1 = 0;
+			double volume1 = 0;
+			double lambda1 = 1;
+			double radius1 = 0;
+			
+			double dGfree2 = 0;
+			double volume2 = 0;
+			double lambda2 = 1;
+			double radius2 = 0;
+			
+			// set atom 1 params
+			int index1 = info1.indices[atomIndex1];
+			if (index1 != -1) {
+				dGfree1 = dGiFree[index1];
+				volume1 = atEEF1Vol[index1];
+				lambda1 = lambdai[index1];
+				radius1 = vdWri[index1];
+			}
+			
+			// set atom 2 params
+			int index2 = info2.indices[atomIndex2];
+			if (index2 != -1) {
+				dGfree2 = dGiFree[index2];
+				volume2 = atEEF1Vol[index2];
+				lambda2 = lambdai[index2];
+				radius2 = vdWri[index2];
+			}
 		
-		return energy;
+			// calc mixed params
+			scale *= trigConst;
+			double alpha1 = scale*dGfree1*volume2/lambda1;
+			double alpha2 = scale*dGfree2*volume1/lambda2;
+
+			out[i++] = radius1;
+			out[i++] = lambda1;
+			out[i++] = alpha1;
+			out[i++] = radius2;
+			out[i++] = lambda2;
+			out[i++] = alpha2;
+		}
 	}
 }

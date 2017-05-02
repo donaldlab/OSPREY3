@@ -25,7 +25,7 @@ public class TestResidueForcefieldEnergy extends TestBase {
 		
 		AllPairs {
 			@Override
-			public ResidueForcefieldEnergy makeff(List<Residue> residues, ForcefieldParams ffparams, AtomConnectivity connectivity) {
+			public ResidueForcefieldEnergy makeff(ResPairCache resPairCache, List<Residue> residues) {
 				ResidueInteractions inters = new ResidueInteractions();
 				for (int pos1=0; pos1<residues.size(); pos1++) {
 					inters.addSingle(residues.get(pos1).getPDBResNumber());
@@ -33,22 +33,22 @@ public class TestResidueForcefieldEnergy extends TestBase {
 						inters.addPair(residues.get(pos1).getPDBResNumber(), residues.get(pos2).getPDBResNumber());
 					}
 				}
-				return new ResidueForcefieldEnergy(ffparams, inters, residues, connectivity);
+				return new ResidueForcefieldEnergy(resPairCache, inters, residues);
 			}
 		},
 		SingleAndShell {
 			@Override
-			public ResidueForcefieldEnergy makeff(List<Residue> residues, ForcefieldParams ffparams, AtomConnectivity connectivity) {
+			public ResidueForcefieldEnergy makeff(ResPairCache resPairCache, List<Residue> residues) {
 				ResidueInteractions inters = new ResidueInteractions();
 				inters.addSingle(residues.get(0).getPDBResNumber());
 				for (int pos1=1; pos1<residues.size(); pos1++) {
 					inters.addPair(residues.get(0).getPDBResNumber(), residues.get(pos1).getPDBResNumber());
 				}
-				return new ResidueForcefieldEnergy(ffparams, inters, residues, connectivity);
+				return new ResidueForcefieldEnergy(resPairCache, inters, residues);
 			}
 		};
 		
-		public abstract ResidueForcefieldEnergy makeff(List<Residue> residues, ForcefieldParams ffparams, AtomConnectivity connectivity);
+		public abstract ResidueForcefieldEnergy makeff(ResPairCache resPairCache, List<Residue> residues);
 	}
 	
 	private void checkEnergies(Residues r, List<Residue> residues, double allPairsEnergy, double singleAndShellEnergy) {
@@ -67,9 +67,10 @@ public class TestResidueForcefieldEnergy extends TestBase {
 			.setResidues(residues)
 			.setParallelism(Parallelism.makeCpu(4))
 			.build();
+		ResPairCache resPairCache = new ResPairCache(ffparams, connectivity);
 		
 		for (EfuncType type : EfuncType.values()) {
-			ResidueForcefieldEnergy efunc = type.makeff(residues, ffparams, connectivity);
+			ResidueForcefieldEnergy efunc = type.makeff(resPairCache, residues);
 			assertThat(type.toString(), efunc.getEnergy(), isAbsolutely(expectedEnergies.get(type), 1e-10));
 		}
 	}
@@ -157,11 +158,13 @@ public class TestResidueForcefieldEnergy extends TestBase {
 	
 	private double calcEnergy(List<Residue> residues, ResidueInteractions inters) {
 		
+		ForcefieldParams ffparams = new ForcefieldParams();
 		AtomConnectivity connectivity = new AtomConnectivity.Builder()
 			.setResidues(residues)
 			.build();
+		ResPairCache resPairCache = new ResPairCache(ffparams, connectivity);
 		
-		return new ResidueForcefieldEnergy(new ForcefieldParams(), inters, residues, connectivity).getEnergy();
+		return new ResidueForcefieldEnergy(resPairCache, inters, residues).getEnergy();
 	}
 	
 	@Test

@@ -9,6 +9,7 @@ import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
+import edu.duke.cs.osprey.energy.forcefield.ResPairCache;
 import edu.duke.cs.osprey.energy.forcefield.ResidueForcefieldEnergy;
 import edu.duke.cs.osprey.gpu.BufferTools;
 import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
@@ -86,17 +87,16 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 			}
 			
 			@Override
-			public Context makeContext(Parallelism parallelism, ForcefieldParams ffparams, AtomConnectivity connectivity) {
+			public Context makeContext(Parallelism parallelism, ResPairCache resPairCache) {
 				
 				return new Context() {{
-					EnergyFunctionGenerator egen = new EnergyFunctionGenerator(ffparams);
+					EnergyFunctionGenerator egen = new EnergyFunctionGenerator(resPairCache.ffparams);
 					numStreams = parallelism.numThreads;
 					efuncs = (interactions, mol) -> egen.interactionEnergy(new ForcefieldInteractions(interactions, mol));
 					minimizers = (f) -> new CCDMinimizer(f, false);
 				}};
 			}
 		},
-		
 		Cpu {
 			
 			@Override
@@ -105,11 +105,11 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 			}
 			
 			@Override
-			public Context makeContext(Parallelism parallelism, ForcefieldParams ffparams, AtomConnectivity connectivity) {
+			public Context makeContext(Parallelism parallelism, ResPairCache resPairCache) {
 				
 				return new Context() {{
 					numStreams = parallelism.numThreads;
-					efuncs = (interactions, mol) -> new ResidueForcefieldEnergy(ffparams, interactions, mol, connectivity);
+					efuncs = (interactions, mol) -> new ResidueForcefieldEnergy(resPairCache, interactions, mol);
 					minimizers = (f) -> new SimpleCCDMinimizer(f);
 				}};
 			}
@@ -122,7 +122,39 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 			}
 			
 			@Override
-			public Context makeContext(Parallelism parallelism, ForcefieldParams ffparams, AtomConnectivity connectivity) {
+			public Context makeContext(Parallelism parallelism, ResPairCache resPairCache) {
+				
+				// use the Cuda GPU energy function, but do CCD on the CPU
+				// (the GPU CCD implementation can't handle non-dihedral dofs yet)
+				return new Context() {
+					
+					private GpuStreamPool pool;
+					
+					{
+						pool = new GpuStreamPool(parallelism.numGpus, parallelism.numStreamsPerGpu);
+						numStreams = pool.getNumStreams();
+						efuncs = (interactions, mol) -> new GpuForcefieldEnergy(resPairCache.ffparams, new ForcefieldInteractions(interactions, mol), pool);
+						minimizers = (f) -> new SimpleCCDMinimizer(f);
+						needsCleanup = true;
+					}
+					
+					@Override
+					public void cleanup() {
+						pool.cleanup();
+						needsCleanup = false;
+					}
+				};
+			}
+		},
+		ResidueCuda {
+			
+			@Override
+			public boolean isSupported() {
+				return !edu.duke.cs.osprey.gpu.cuda.Gpus.get().getGpus().isEmpty();
+			}
+			
+			@Override
+			public Context makeContext(Parallelism parallelism, ResPairCache resPairCache) {
 				
 				// use the Cuda GPU energy function, but do CCD on the CPU
 				// (the GPU CCD implementation can't handle non-dihedral dofs yet)
@@ -135,7 +167,7 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 						numStreams = pool.getNumStreams();
 						efuncs = (interactions, mol) -> {
 							try {
-								return new ResidueForcefieldEnergyCuda(pool, ffparams, interactions, mol, connectivity);
+								return new ResidueForcefieldEnergyCuda(pool, resPairCache, interactions, mol);
 							} catch (IOException ex) {
 								throw new Error(ex);
 							}
@@ -160,7 +192,7 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 			}
 			
 			@Override
-			public Context makeContext(Parallelism parallelism, ForcefieldParams ffparams, AtomConnectivity connectivity) {
+			public Context makeContext(Parallelism parallelism, ResPairCache resPairCache) {
 				
 				// use a CPU energy function, but send it to the Cuda CCD minimizer
 				// (which has a built-in GPU energy function)
@@ -171,7 +203,7 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 					{
 						pool = new GpuStreamPool(parallelism.numGpus, parallelism.numStreamsPerGpu);
 						numStreams = pool.getNumStreams();
-						efuncs = (interactions, mol) -> new BigForcefieldEnergy(ffparams, new ForcefieldInteractions(interactions, mol), BufferTools.Type.Direct);
+						efuncs = (interactions, mol) -> new BigForcefieldEnergy(resPairCache.ffparams, new ForcefieldInteractions(interactions, mol), BufferTools.Type.Direct);
 						minimizers = (mof) -> new CudaCCDMinimizer(pool, mof);
 						needsCleanup = true;
 					}
@@ -184,6 +216,7 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 				};
 			}
 		},
+		// TODO: residue cuda CCD
 		OpenCL {
 			
 			@Override
@@ -192,7 +225,7 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 			}
 
 			@Override
-			public Context makeContext(Parallelism parallelism, ForcefieldParams ffparams, AtomConnectivity connectivity) {
+			public Context makeContext(Parallelism parallelism, ResPairCache resPairCache) {
 				
 				// use the CPU CCD minimizer, with an OpenCL energy function
 				return new Context() {
@@ -202,7 +235,7 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 					{
 						pool = new GpuQueuePool(parallelism.numGpus, parallelism.numStreamsPerGpu);
 						numStreams = pool.getNumQueues();
-						efuncs = (interactions, mol) -> new GpuForcefieldEnergy(ffparams, new ForcefieldInteractions(interactions, mol), pool);
+						efuncs = (interactions, mol) -> new GpuForcefieldEnergy(resPairCache.ffparams, new ForcefieldInteractions(interactions, mol), pool);
 						minimizers = (mof) -> new SimpleCCDMinimizer(mof);
 						needsCleanup = true;
 					}
@@ -247,7 +280,7 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 		}
 		
 		public abstract boolean isSupported();
-		public abstract Context makeContext(Parallelism parallelism, ForcefieldParams ffparams, AtomConnectivity connectivity);
+		public abstract Context makeContext(Parallelism parallelism, ResPairCache resPairCache);
 		
 		public static Type pickBest(SimpleConfSpace confSpace) {
 			
@@ -274,7 +307,6 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 	public final Parallelism parallelism;
 	public final TaskExecutor tasks;
 	public final Type type;
-	public final ForcefieldParams ffparams;
 	
 	private Type.Context context;
 	
@@ -284,14 +316,14 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 		this.parallelism = parallelism;
 		this.tasks = parallelism.makeTaskExecutor();
 		this.type = type;
-		this.ffparams = ffparams;
 		
 		AtomConnectivity connectivity = new AtomConnectivity.Builder()
 			.setConfSpace(confSpace)
 			.setParallelism(parallelism)
 			.build();
+		ResPairCache resPairCache = new ResPairCache(ffparams, connectivity);
 		
-		context = type.makeContext(parallelism, ffparams, connectivity);
+		context = type.makeContext(parallelism, resPairCache);
 	}
 	
 	@Override
@@ -336,6 +368,7 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 			
 		// make sure we always cleanup the energy function and minimizer
 		} finally {
+			
 			if (efunc != null && efunc instanceof EnergyFunction.NeedsCleanup) {
 				((EnergyFunction.NeedsCleanup)efunc).cleanup();
 			}

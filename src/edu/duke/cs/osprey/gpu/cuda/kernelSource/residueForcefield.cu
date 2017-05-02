@@ -19,24 +19,22 @@ nvcc -fatbin -O2
 
 
 typedef struct __align__(8) {
-	long flags; // useHEs, useHvdW, distDepDielect, useEEF1
+	unsigned long flags; // useHEs, useHvdW, distDepDielect, useEEF1
 	double coulombFactor;
 	double scaledCoulombFactor;
-	long offsets[];
+	unsigned long offsets[];
 } Header;
 
 typedef struct __align__(8) {
-	long numAtomPairs;
-	long offset1;
-	long offset2;
+	unsigned long numAtomPairs;
+	unsigned long offset1;
+	unsigned long offset2;
 	double weight;
 	double offset;
 } ResPair;
 
 typedef struct __align__(8) {
-	short offset1;
-	short offset2;
-	int flags; // isHeavyPair, is14Bonded
+	unsigned long flags; // bit isHeavyPair, bit is14Bonded, 6 bits space, 3 bytes space, short offset1, short offset2
 	double charge;
 	double Aij;
 	double Bij;
@@ -64,8 +62,6 @@ extern "C" __global__ void calc(
 	double *out
 ) {
 
-	extern __shared__ double scratch[];
-	
 	const Header &header = *(Header *)&data[0];
 	
 	// unpack the flags
@@ -118,13 +114,25 @@ extern "C" __global__ void calc(
 			break;
 		}
 		
+		// unpack the flags
+		bool isHeavyPair, is14Bonded;
+		unsigned long offset1, offset2;
+		{
+			unsigned long flags = atomPair->flags;
+			offset2 = (flags & 0xffff) + resPair->offset2;
+			flags >>= 16;
+			offset1 = (flags & 0xffff) + resPair->offset1;
+			flags >>= 46;
+			isHeavyPair = (flags & 0x1) == 0x1;
+			flags >>= 1;
+			is14Bonded = (flags & 0x1) == 0x1;
+		}
+		
 		double resPairEnergy = 0;
 		
 		// get the radius
 		double r2, r;
 		{
-			int offset1 = resPair->offset1 + atomPair->offset1;
-			int offset2 = resPair->offset2 + atomPair->offset2;
 			double d = coords[offset1] - coords[offset2];
 			r2 = d*d;
 			d = coords[offset1 + 1] - coords[offset2 + 1];
@@ -132,15 +140,6 @@ extern "C" __global__ void calc(
 			d = coords[offset1 + 2] - coords[offset2 + 2];
 			r2 += d*d;
 			r = sqrt(r2);
-		}
-		
-		// unpack the flags
-		bool isHeavyPair, is14Bonded;
-		{
-			int flags = atomPair->flags;
-			isHeavyPair = (flags & 0x1) == 0x1;
-			flags >>= 1;
-			is14Bonded = (flags & 0x1) == 0x1;
 		}
 		
 		// electrostatics
@@ -185,6 +184,7 @@ extern "C" __global__ void calc(
 	// see url for a tutorial on GPU reductions:
 	// http://developer.amd.com/resources/articles-whitepapers/opencl-optimization-case-study-simple-reductions/
 
+	extern __shared__ double scratch[];
 	scratch[threadIdx.x] = energy;
 	
 	__syncthreads();

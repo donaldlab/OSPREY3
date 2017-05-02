@@ -16,6 +16,7 @@ import edu.duke.cs.osprey.dof.ProlinePucker;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.energy.forcefield.ResPairCache;
 import edu.duke.cs.osprey.energy.forcefield.TestForcefieldEnergy.Residues;
 import edu.duke.cs.osprey.gpu.cuda.kernels.ResidueForcefieldEnergyCuda;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -70,6 +71,7 @@ public class TestResidueForcefieldEnergyCuda extends TestBase {
 			.setResidues(residues)
 			.setParallelism(Parallelism.makeCpu(4))
 			.build();
+		ResPairCache resPairCache = new ResPairCache(ffparams, connectivity);
 		
 		GpuStreamPool streams = new GpuStreamPool(1, 1);
 		
@@ -77,7 +79,7 @@ public class TestResidueForcefieldEnergyCuda extends TestBase {
 			for (EfuncType type : EfuncType.values()) {
 				
 				ResidueInteractions inters = type.makeInters(residues);
-				ResidueForcefieldEnergyCuda efunc = new ResidueForcefieldEnergyCuda(streams, ffparams, inters, residues, connectivity);
+				ResidueForcefieldEnergyCuda efunc = new ResidueForcefieldEnergyCuda(streams, resPairCache, inters, residues);
 				double energy = efunc.getEnergy();
 				efunc.cleanup();
 				
@@ -178,15 +180,18 @@ public class TestResidueForcefieldEnergyCuda extends TestBase {
 	
 	private double calcEnergy(List<Residue> residues, ResidueInteractions inters) {
 		
+		ForcefieldParams ffparams = new ForcefieldParams();
 		AtomConnectivity connectivity = new AtomConnectivity.Builder()
 			.setResidues(residues)
 			.build();
+		ResPairCache resPairCache = new ResPairCache(ffparams, connectivity);
+		
 		
 		GpuStreamPool streams = new GpuStreamPool(1, 1);
 		ResidueForcefieldEnergyCuda efunc = null;
 		try {
 			
-			efunc = new ResidueForcefieldEnergyCuda(streams, new ForcefieldParams(), inters, residues, connectivity);
+			efunc = new ResidueForcefieldEnergyCuda(streams, resPairCache, inters, residues);
 			return efunc.getEnergy();
 			
 		} catch (IOException ex) {

@@ -50,6 +50,14 @@ public class AtomConnectivity {
 	
 	public static class AtomPairs {
 		
+		public final Residue res1;
+		public final Residue res2;
+		
+		public AtomPairs(Residue res1, Residue res2) {
+			this.res1 = res1;
+			this.res2 = res2;
+		}
+		
 		private int[][][] pairsByType = new int[AtomNeighbors.Type.values().length][][];
 		
 		public int[][] getPairs(AtomNeighbors.Type type) {
@@ -276,7 +284,8 @@ public class AtomConnectivity {
 	}
 	
 	private AtomPairs makeSingle(ResidueTemplate templ) {
-		return makeAtomPairs(templ, templ.templateRes, templ, templ.templateRes);
+		Residue res = makeResidue(templ);
+		return makeAtomPairs(res, res);
 	}
 	
 	private AtomPairs makeDouble(ResidueTemplate templ1, ResidueTemplate templ2) {
@@ -287,20 +296,19 @@ public class AtomConnectivity {
 			return null;
 		}
 		
-		return makeAtomPairs(templ1, res1, templ2, res2);
+		return makeAtomPairs(res1, res2);
 	}
 	
 	private AtomPairs makeSeparate(ResidueTemplate templ1, ResidueTemplate templ2) {
-		
 		Residue res1 = makeResidue(templ1);
 		Residue res2 = makeResidue(templ2);
-		
-		return makeAtomPairs(templ1, res1, templ2, res2);
+		return makeAtomPairs(res1, res2);
 	}
 	
 	private Residue makeResidue(ResidueTemplate templ) {
 		Residue res = new Residue(Residue.copyAtoms(templ.templateRes.atoms), (double[])null, null, null);
 		res.copyIntraBondsFrom(templ.templateRes);
+		res.template = templ;
 		return res;
 	}
 	
@@ -336,11 +344,7 @@ public class AtomConnectivity {
 		return C.bonds.contains(N);
 	}
 	
-	private AtomPairs makeAtomPairs(ResidueTemplate templ1, Residue res1, ResidueTemplate templ2, Residue res2) {
-		
-		// just in case...
-		assert (templ1.templateRes.atoms.size() == res1.atoms.size());
-		assert (templ2.templateRes.atoms.size() == res2.atoms.size());
+	private AtomPairs makeAtomPairs(Residue res1, Residue res2) {
 		
 		Map<AtomNeighbors.Type,List<int[]>> pairsByType = new EnumMap<>(AtomNeighbors.Type.class);
 		for (AtomNeighbors.Type type : AtomNeighbors.Type.values()) {
@@ -368,7 +372,7 @@ public class AtomConnectivity {
 		}
 
 		// make the atom pairs
-		AtomPairs pairs = new AtomPairs();
+		AtomPairs pairs = new AtomPairs(res1, res2);
 		for (Map.Entry<AtomNeighbors.Type,List<int[]>> entry : pairsByType.entrySet()) {
 			AtomNeighbors.Type type = entry.getKey();
 			List<int[]> atomPairs = entry.getValue();
@@ -381,7 +385,7 @@ public class AtomConnectivity {
 	
 	private AtomPairs makeSwappedPairs(AtomPairs pairs) {
 		
-		AtomPairs swapped = new AtomPairs();
+		AtomPairs swapped = new AtomPairs(pairs.res2, pairs.res1);
 		
 		for (AtomNeighbors.Type type : AtomNeighbors.Type.values()) {
 			

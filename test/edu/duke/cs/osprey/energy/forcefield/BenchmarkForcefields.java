@@ -13,7 +13,6 @@ import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.ResInterGen;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
-import edu.duke.cs.osprey.gpu.cuda.GpuStream;
 import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
 import edu.duke.cs.osprey.gpu.cuda.kernels.ResidueForcefieldEnergyCuda;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -55,15 +54,16 @@ public class BenchmarkForcefields extends TestBase {
 			.setConfSpace(confSpace)
 			.setParallelism(Parallelism.makeCpu(4))
 			.build();
+		ResPairCache resPairCache = new ResPairCache(ffparams, connectivity);
 		
 		// get a molecule
 		Molecule mol = confSpace.makeMolecule(new int[] { 0, 0, 0, 0, 0 }).mol;
 		
-		benchmarkComparison(mol, confSpace, ffparams, connectivity);
-		//benchmarkGpu(mol, confSpace, ffparams, connectivity);
+		benchmarkComparison(mol, confSpace, ffparams, resPairCache);
+		//benchmarkGpu(mol, confSpace, ffparams, resPairCache);
 	}
 	
-	private static void benchmarkComparison(Molecule mol, SimpleConfSpace confSpace, ForcefieldParams ffparams, AtomConnectivity connectivity) {
+	private static void benchmarkComparison(Molecule mol, SimpleConfSpace confSpace, ForcefieldParams ffparams, ResPairCache resPairCache) {
 		
 		// multi term energy function
 		Result base = benchmark(MultiTermEnergyFunction.class.getSimpleName(), null, () -> {
@@ -87,14 +87,14 @@ public class BenchmarkForcefields extends TestBase {
 		
 		// residue forcefield
 		benchmark(ResidueForcefieldEnergy.class.getSimpleName(), base, () -> {
-			return new ResidueForcefieldEnergy(ffparams, inters, mol, connectivity);
+			return new ResidueForcefieldEnergy(resPairCache, inters, mol);
 		});
 		
 		// residue forcefield cuda
 		GpuStreamPool streams = new GpuStreamPool(1, 1);
 		benchmark(ResidueForcefieldEnergyCuda.class.getSimpleName(), base, () -> {
 			try {
-				return new ResidueForcefieldEnergyCuda(streams, ffparams, inters, mol, connectivity);
+				return new ResidueForcefieldEnergyCuda(streams, resPairCache, inters, mol);
 			} catch (IOException ex) {
 				throw new Error(ex);
 			}
@@ -123,7 +123,7 @@ public class BenchmarkForcefields extends TestBase {
 		Result result = new Result(0, 0, 0);
 		
 		// create-cleanup cycles
-		result.ms1 = benchmark("create-cleanup", 100, 1000, 3, base == null ? null : base.ms1, () -> {
+		result.ms1 = benchmark("create-cleanup", 100, 2000, 3, base == null ? null : base.ms1, () -> {
 			EnergyFunction efunc = efuncs.get();
 			cleanup(efunc);
 		});
@@ -205,7 +205,7 @@ public class BenchmarkForcefields extends TestBase {
 		}
 	}
 	
-	private static void benchmarkGpu(Molecule mol, SimpleConfSpace confSpace, ForcefieldParams ffparams, AtomConnectivity connectivity) {
+	private static void benchmarkGpu(Molecule mol, SimpleConfSpace confSpace, ResPairCache resPairCache) {
 		
 		RCTuple frag = new RCTuple(new int[] { 0, 0, 0, 0, 0 });
 		ResidueInteractions inters = ResInterGen.of(confSpace)
@@ -217,7 +217,7 @@ public class BenchmarkForcefields extends TestBase {
 		
 		benchmark("create-cleanup", 100, 1000, 5, null, () -> {
 			try {
-				ResidueForcefieldEnergyCuda efunc = new ResidueForcefieldEnergyCuda(streams, ffparams, inters, mol, connectivity);
+				ResidueForcefieldEnergyCuda efunc = new ResidueForcefieldEnergyCuda(streams, resPairCache, inters, mol);
 				efunc.getEnergy();
 				efunc.cleanup();
 			} catch (IOException ex) {
@@ -227,7 +227,7 @@ public class BenchmarkForcefields extends TestBase {
 			
 		/*
 		try {
-			ResidueForcefieldEnergyCuda efunc = new ResidueForcefieldEnergyCuda(streams, ffparams, inters, mol, connectivity);
+			ResidueForcefieldEnergyCuda efunc = new ResidueForcefieldEnergyCuda(streams, resPairCache, inters, mol);
 			benchmark("run", 1000, 20000, 5, null, () -> {
 				efunc.getEnergy();
 			});
