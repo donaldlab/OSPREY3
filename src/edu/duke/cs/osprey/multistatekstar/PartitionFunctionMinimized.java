@@ -8,6 +8,7 @@ import java.lang.management.MemoryUsage;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.PriorityQueue;
 
 import edu.duke.cs.osprey.confspace.ConfSearch;
@@ -36,6 +37,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	protected BigDecimal qstarScoreWeights;
 	protected int numActiveThreads;
 	protected PruningMatrix invmat;
+	protected ArrayList<EnergiedConf> energiedConfs;
 
 	public PartitionFunctionMinimized(
 			EnergyMatrix emat, 
@@ -48,6 +50,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		this.invmat = invmat;
 		qstarScoreWeights = null;
 		topConfs = null;
+		energiedConfs = null;
 	}
 
 	protected void writeTopConfs(int state, MSSearchProblem search) {
@@ -117,6 +120,8 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		numActiveThreads = 0;
 		maxNumTopConfs = 0;
 		
+		energiedConfs = new ArrayList<>(ecalc.getParallelism());
+		
 		stopwatch = new Stopwatch().start();
 	}
 
@@ -155,6 +160,10 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 		qprimeUnevaluated = qprimeUnevaluated.subtract(boltzmann.calc(econf.getScore()));
 		return qprimeUnevaluated.add(qprimeUnscored);
+	}
+	
+	protected void fillConfList() {
+		
 	}
 
 	@Override

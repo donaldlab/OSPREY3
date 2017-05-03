@@ -332,6 +332,8 @@ public class MSKStarNode {
 	private MSSearchProblem splitSearch(int subState, MSSearchProblem parent, ArrayList<AAAssignment> splits) {
 		//make new search settings
 		MSSearchSettings sSet = (MSSearchSettings) ObjectIO.deepCopy(parent.settings);
+		sSet.splitPos2aa.clear();
+		
 		for(AAAssignment aa : splits) {
 			//update mutres
 			sSet.mutRes.set(aa.residuePos, parent.flexRes.get(aa.residuePos));
@@ -340,6 +342,8 @@ public class MSKStarNode {
 			sSet.AATypeOptions.get(aa.residuePos).clear();
 			sSet.AATypeOptions.get(aa.residuePos).add(AAType);
 			sSet.AATypeOptions.get(aa.residuePos).trimToSize();
+			
+			sSet.splitPos2aa.put(aa.residuePos, AAType);
 		}
 
 		MSSearchProblem ans = new MSSearchProblem(parent, sSet);

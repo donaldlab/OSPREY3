@@ -131,7 +131,7 @@ public class MSKStarTree {
 	private boolean canPrune(MSKStarNode curNode) {
 		//after some deliberation, i think this is correct. getkstarscores always
 		//correctly maps to the lower bound, since the formulation of LMBs always
-		//transforms the expression to an upper bound. this is the desired behavior
+		//transforms the expression to something bounded above by 0, which is the desired behavior
 		//check all global constraints
 		for(LMB lmb : msConstr)
 			if(lmb.eval(curNode.getStateKStarScores(lmb)).compareTo(BigDecimal.ZERO) >= 0)

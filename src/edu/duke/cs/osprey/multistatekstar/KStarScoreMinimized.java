@@ -107,7 +107,8 @@ public class KStarScoreMinimized implements KStarScore {
 			System.out.println("state"+state+": "+settings.search[state].settings.getFormattedSequence()+" "+settings.pfTypes[state]);
 
 		//first prune the pruning matrix
-		settings.search[state].prunePmat(isFinal());
+		settings.search[state].prunePmat(isFinal(), settings.cfp.getParams().getInt("ALGOPTION")>=3);
+		//settings.search[state].prunePmat(true, settings.cfp.getParams().getInt("ALGOPTION")>=3);
 
 		//make conf search factory (i.e. A* tree)
 		ConfSearchFactory confSearchFactory = MSKStarFactory.makeConfSearchFactory(settings.search[state], settings.cfp);
@@ -313,7 +314,7 @@ public class KStarScoreMinimized implements KStarScore {
 	}
 
 	/**
-	 * returns constraints that ONLY involve the spacified state
+	 * returns constraints that ONLY involve the specified state
 	 * @param state
 	 * @return
 	 */
