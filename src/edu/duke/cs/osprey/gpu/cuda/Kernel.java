@@ -116,8 +116,4 @@ public class Kernel {
 	public void waitForGpu() {
 		getStream().waitForGpu();
 	}
-	
-	protected static int divUp(int num, int denom) {
-		return (num + denom - 1)/denom;
-	}
 }

@@ -7,6 +7,8 @@ package edu.duke.cs.osprey.structure;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+import java.util.NoSuchElementException;
 
 import edu.duke.cs.osprey.dof.ProlinePucker;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
@@ -79,47 +81,47 @@ public class Residue implements Serializable {
     
     
     public Residue(Residue other) {
-    	this(copyAtoms(other.atoms), Arrays.copyOf(other.coords, other.coords.length), other.fullName, other.molec);
-    	
-    	this.indexInMolecule = other.indexInMolecule;
-    	this.template = other.template;
-    	this.confProblems = other.confProblems;
-    	this.pucker = other.pucker;
-    	this.secondaryStruct = other.secondaryStruct;
-    	
-    	// init intra-res atom bonds
-    	if (this.template != null) {
-    		markIntraResBondsByTemplate();
-    	}
-    	
-    	// NOTE: we don't copy inter-res atom bonds, so the molecule will have to re-bond everything
+        this(copyAtoms(other.atoms), Arrays.copyOf(other.coords, other.coords.length), other.fullName, other.molec);
+        
+        this.indexInMolecule = other.indexInMolecule;
+        this.template = other.template;
+        this.confProblems = other.confProblems;
+        this.pucker = other.pucker;
+        this.secondaryStruct = other.secondaryStruct;
+        
+        // init intra-res atom bonds
+        if (this.template != null) {
+            markIntraResBondsByTemplate();
+        }
+        
+        // NOTE: we don't copy inter-res atom bonds, so the molecule will have to re-bond everything
     }
     
     public static ArrayList<Atom> copyAtoms(ArrayList<Atom> atoms) {
-    	ArrayList<Atom> out = new ArrayList<>();
-    	for (Atom atom : atoms) {
-    		out.add(atom.copy());
-    	}
-    	return out;
+        ArrayList<Atom> out = new ArrayList<>();
+        for (Atom atom : atoms) {
+            out.add(atom.copy());
+        }
+        return out;
     }
     
     public Residue(ArrayList<Atom> atoms, ArrayList<double[]> coords, String fullName, Molecule molec) {
-    	this(atoms, convertCoords(coords), fullName, molec);
+        this(atoms, convertCoords(coords), fullName, molec);
     }
     
     private static double[] convertCoords(ArrayList<double[]> coords) {
-    	
+        
         //record coordinates, unless coordList is null (then leave coords null too)
         if (coords == null) {
             return null;
-    	}
+        }
         
         int numAtoms = coords.size();
-		double[] out = new double[3*numAtoms];
-		for (int i=0; i<numAtoms; i++) {
-			System.arraycopy(coords.get(i), 0, out, 3*i, 3);
-		}
-		return out;
+        double[] out = new double[3*numAtoms];
+        for (int i=0; i<numAtoms; i++) {
+            System.arraycopy(coords.get(i), 0, out, 3*i, 3);
+        }
+        return out;
     }
     
     public Residue(ArrayList<Atom> atoms, double[] coords, String fullName, Molecule molec) {
@@ -129,13 +131,13 @@ public class Residue implements Serializable {
         this.fullName = fullName;
         this.molec = molec;
         
-		int numAtoms = atoms.size();
+        int numAtoms = atoms.size();
         this.coords = coords;
         if (coords != null) {
-			if(numAtoms*3 != coords.length){
-				throw new RuntimeException("ERROR: Trying to instantiate residue with "+numAtoms+
-						" atoms but "+coords.length+"/3 atom coordinates");
-			}
+            if(numAtoms*3 != coords.length){
+                throw new RuntimeException("ERROR: Trying to instantiate residue with "+numAtoms+
+                        " atoms but "+coords.length+"/3 atom coordinates");
+            }
         }
         for(int a=0; a<numAtoms; a++){
             atoms.get(a).res = this;
@@ -237,18 +239,18 @@ public class Residue implements Serializable {
     }
     
     public void copyIntraBondsFrom(Residue other) {
-    	
-    	boolean[][] isBonded = other.getIntraResBondMatrix();
-    	int numAtoms = atoms.size();
-    	
-    	// double check the residues match atoms
-    	for (int i=0; i<numAtoms; i++) {
-    		if (!atoms.get(i).name.equalsIgnoreCase(other.atoms.get(i).name)) {
-    			throw new Error("ERROR: Atom names don't match aross residues, can't copy bonds");
-    		}
-    	}
+        
+        boolean[][] isBonded = other.getIntraResBondMatrix();
+        int numAtoms = atoms.size();
+        
+        // double check the residues match atoms
+        for (int i=0; i<numAtoms; i++) {
+            if (!atoms.get(i).name.equalsIgnoreCase(other.atoms.get(i).name)) {
+                throw new Error("ERROR: Atom names don't match aross residues, can't copy bonds");
+            }
+        }
 
-    	// copy the bonds
+        // copy the bonds
         for(int i=0; i<numAtoms; i++){
             Atom atomi = atoms.get(i);
             for(int j=0; j<numAtoms; j++){
@@ -452,4 +454,57 @@ public class Residue implements Serializable {
         return ans;
     }
     
+    public int findIn(List<Residue> residues) {
+        return residues.indexOf(this);
+    }
+    
+    public int findIn(Residue[] residues) {
+        for (int i=0; i<residues.length; i++) {
+            if (residues[i] == this) {
+                return i;
+            }
+        }
+        return -1;
+    }
+    
+    public static int findIn(List<Residue> residues, String resNum) {
+        for (int i=0; i<residues.size(); i++) {
+            if (residues.get(i).getPDBResNumber().equals(resNum)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+    
+    public static int findIn(Residue[] residues, String resNum) {
+        for (int i=0; i<residues.length; i++) {
+            if (residues[i].getPDBResNumber().equals(resNum)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+    
+    public int findInOrThrow(List<Residue> residues) {
+        return checkIndex(findIn(residues));
+    }
+    
+    public int findInOrThrow(Residue[] residues) {
+        return checkIndex(findIn(residues));
+    }
+    
+    public static int findInOrThrow(List<Residue> residues, String resNum) {
+        return checkIndex(findIn(residues, resNum));
+    }
+    
+    public static int findInOrThrow(Residue[] residues, String resNum) {
+        return checkIndex(findIn(residues, resNum));
+    }
+    
+    private static int checkIndex(int index) {
+        if (index < 0) {
+            throw new NoSuchElementException();
+        }
+        return index;
+    }
 }

@@ -17,10 +17,11 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 	
 	private static final long serialVersionUID = -4768384219061898745L;
 	
-	public final ForcefieldParams ffparams;
+	public final ResPairCache resPairCache;
 	public final ResidueInteractions inters;
+	public final List<Residue> residues;
 	
-	private ResPair[] resPairs;
+	public final ResPair[] resPairs;
 	
 	private boolean isBroken;
 	
@@ -33,13 +34,14 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 	
 	public ResidueForcefieldEnergy(ResPairCache resPairCache, ResidueInteractions inters, List<Residue> residues) {
 		
-		this.ffparams = resPairCache.ffparams;
+		this.resPairCache = resPairCache;
 		this.inters = inters;
+		this.residues = residues;
 		
 		// compute solvation info if needed
 		SolvationForcefield.ResiduesInfo solvInfo = null;
-		if (ffparams.solvationForcefield != null) {
-			solvInfo = ffparams.solvationForcefield.makeInfo(ffparams, residues);
+		if (resPairCache.ffparams.solvationForcefield != null) {
+			solvInfo = resPairCache.ffparams.solvationForcefield.makeInfo(resPairCache.ffparams, residues);
 		}
 		
 		// map the residue numbers to residues
@@ -61,8 +63,8 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		}
 		
 		// pre-compute some constants needed by getEnergy()
-		coulombFactor = ForcefieldParams.coulombConstant/ffparams.dielectric;
-		scaledCoulombFactor = coulombFactor*ffparams.forcefld.coulombScaling;
+		coulombFactor = ForcefieldParams.coulombConstant/resPairCache.ffparams.dielectric;
+		scaledCoulombFactor = coulombFactor*resPairCache.ffparams.forcefld.coulombScaling;
 	}
 	
 	@Override
@@ -78,12 +80,12 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		}
 		
 		// copy stuff to the stack/registers, to improve CPU cache performance
-		boolean useHEs = ffparams.hElect;
-		boolean useHvdW = ffparams.hVDW;
+		boolean useHEs = resPairCache.ffparams.hElect;
+		boolean useHvdW = resPairCache.ffparams.hVDW;
 		double coulombFactor = this.coulombFactor;
 		double scaledCoulombFactor = this.scaledCoulombFactor;
-		boolean distDepDielect = ffparams.distDepDielect;
-		boolean useEEF1 = ffparams.solvationForcefield == SolvationForcefield.EEF1;
+		boolean distDepDielect = resPairCache.ffparams.distDepDielect;
+		boolean useEEF1 = resPairCache.ffparams.solvationForcefield == SolvationForcefield.EEF1;
 		
 		double energy = 0;
 		
@@ -205,7 +207,7 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		return energy;
 	}
 	
-	private ResPair[] makeResPairsSubset(Residue res) {
+	public ResPair[] makeResPairsSubset(Residue res) {
 	
 		// pass 1: count
 		int num = 0;
@@ -224,6 +226,27 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 			}
 		}
 		return pairs;
+	}
+	
+	public int[] makeResPairIndicesSubset(Residue res) {
+		
+		// pass 1: count
+		int num = 0;
+		for (ResPair resPair : resPairs) {
+			if (resPair.res1 == res || resPair.res2 == res) {
+				num++;
+			}
+		}
+		
+		// pass 2: collect
+		int[] indices = new int[num];
+		num = 0;
+		for (int i=0; i<resPairs.length; i++) {
+			if (resPairs[i].res1 == res || resPairs[i].res2 == res) {
+				indices[num++] = i;
+			}
+		}
+		return indices;
 	}
 	
 	@Override

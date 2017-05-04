@@ -13,6 +13,7 @@ import edu.duke.cs.osprey.energy.forcefield.ResPairCache;
 import edu.duke.cs.osprey.energy.forcefield.ResidueForcefieldEnergy;
 import edu.duke.cs.osprey.gpu.BufferTools;
 import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
+import edu.duke.cs.osprey.gpu.cuda.kernels.ResidueCudaCCDMinimizer;
 import edu.duke.cs.osprey.gpu.cuda.kernels.ResidueForcefieldEnergyCuda;
 import edu.duke.cs.osprey.gpu.opencl.GpuQueuePool;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
@@ -146,7 +147,7 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 				};
 			}
 		},
-		ResidueCuda {
+		ResidueCuda { // TODO: eventually replace cuda?
 			
 			@Override
 			public boolean isSupported() {
@@ -216,7 +217,44 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 				};
 			}
 		},
-		// TODO: residue cuda CCD
+		ResidueCudaCCD { // TODO: eventually replace CudaCCD?
+			
+			@Override
+			public boolean isSupported() {
+				return Cuda.isSupported();
+			}
+			
+			@Override
+			public Context makeContext(Parallelism parallelism, ResPairCache resPairCache) {
+				
+				// use a CPU energy function, but send it to the Cuda CCD minimizer
+				// (which has a built-in GPU energy function)
+				return new Context() {
+					
+					private GpuStreamPool pool;
+					
+					{
+						pool = new GpuStreamPool(parallelism.numGpus, parallelism.numStreamsPerGpu);
+						numStreams = pool.getNumStreams();
+						efuncs = (interactions, mol) -> new ResidueForcefieldEnergy(resPairCache, interactions, mol);
+						minimizers = (mof) -> {
+							try {
+								return new ResidueCudaCCDMinimizer(pool, mof);
+							} catch (IOException ex) {
+								throw new Error(ex);
+							}
+						};
+						needsCleanup = true;
+					}
+					
+					@Override
+					public void cleanup() {
+						pool.cleanup();
+						needsCleanup = false;
+					}
+				};
+			}
+		},
 		OpenCL {
 			
 			@Override

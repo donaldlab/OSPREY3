@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.gpu.ForcefieldKernel;
 import edu.duke.cs.osprey.gpu.cuda.CUBuffer;
 import edu.duke.cs.osprey.gpu.cuda.GpuStream;
 import edu.duke.cs.osprey.gpu.cuda.Kernel;
+import edu.duke.cs.osprey.tools.MathTools;
 import jcuda.Pointer;
 
 public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
@@ -133,7 +134,7 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 		this.subset = subset;
 		boolean useSubset = subset.getSubsetTable() != null;
 		
-		func.numBlocks = divUp(subset.getNumAtomPairs(), func.blockThreads);
+		func.numBlocks = MathTools.divUp(subset.getNumAtomPairs(), func.blockThreads);
 		
 		// make sure this thread can use the cuda context
 		getStream().getContext().attachCurrentThread();
@@ -169,7 +170,7 @@ public class ForcefieldKernelCuda extends Kernel implements ForcefieldKernel {
 	}
 	
 	private static int getEnergySize(BigForcefieldEnergy.Subset subset, int blockThreads) {
-		return divUp(subset.getNumAtomPairs(), blockThreads);
+		return MathTools.divUp(subset.getNumAtomPairs(), blockThreads);
 	}
 	
 	@Override

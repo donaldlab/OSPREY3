@@ -4,7 +4,6 @@ import java.util.Arrays;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 
 import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
@@ -130,8 +129,8 @@ public class ResPairCache {
 	public ResPair get(List<Residue> residues, ResidueInteractions.Pair pair, SolvationForcefield.ResiduesInfo solvInfo) {
 		
 		// lookup the residues
-		int index1 = findIndex(residues, pair.resNum1);
-		int index2 = findIndex(residues, pair.resNum2);
+		int index1 = Residue.findInOrThrow(residues, pair.resNum1);
+		int index2 = Residue.findInOrThrow(residues, pair.resNum2);
 		Residue res1 = residues.get(index1);
 		Residue res2 = residues.get(index2);
 		
@@ -141,8 +140,8 @@ public class ResPairCache {
 	public ResPair get(Residue[] residues, ResidueInteractions.Pair pair, SolvationForcefield.ResiduesInfo solvInfo) {
 		
 		// lookup the residues
-		int index1 = findIndex(residues, pair.resNum1);
-		int index2 = findIndex(residues, pair.resNum2);
+		int index1 = Residue.findInOrThrow(residues, pair.resNum1);
+		int index2 = Residue.findInOrThrow(residues, pair.resNum2);
 		Residue res1 = residues[index1];
 		Residue res2 = residues[index2];
 		
@@ -176,23 +175,5 @@ public class ResPairCache {
 			solvInfo,
 			ffparams.solvScale
 		);
-	}
-	
-	public int findIndex(List<Residue> residues, String resNum) {
-		for (int i=0; i<residues.size(); i++) {
-			if (residues.get(i).getPDBResNumber().equals(resNum)) {
-				return i;
-			}
-		}
-		throw new NoSuchElementException("no residue " + resNum + " found in " + residues);
-	}
-	
-	public int findIndex(Residue[] residues, String resNum) {
-		for (int i=0; i<residues.length; i++) {
-			if (residues[i].getPDBResNumber().equals(resNum)) {
-				return i;
-			}
-		}
-		throw new NoSuchElementException("no residue " + resNum + " found in " + Arrays.toString(residues));
 	}
 }

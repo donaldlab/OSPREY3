@@ -100,7 +100,7 @@ public class BenchmarkMinimization extends TestBase {
 		assertConfSpacesMatch(search.confSpace, simpleConfSpace);
 		
 		// settings
-		final int numConfs = 64;//512;//1024;
+		final int numConfs = 16;//64;//512;//1024;
 		
 		// get a few arbitrary conformations
 		System.out.println("getting confs...");
@@ -125,8 +125,8 @@ public class BenchmarkMinimization extends TestBase {
 		
 		System.out.println("benchmarking...");
 		
-		//benchmarkSerial(search, simpleConfSpace, confs);
-		benchmarkParallel(search, simpleConfSpace, confs);
+		benchmarkSerial(search, simpleConfSpace, confs);
+		//benchmarkParallel(search, simpleConfSpace, confs);
 		//compareOneConf(search, confs);
 	}
 
@@ -135,6 +135,7 @@ public class BenchmarkMinimization extends TestBase {
 
 		Factory<ForcefieldInteractions,Molecule> interactionsFactory = (mol) -> FFInterGen.makeFullConf(search.confSpace, search.shellResidues, mol);
 		ForcefieldParams ffparams = makeDefaultFFParams();
+		MinimizingFragmentEnergyCalculator fragecalc;
 		
 		System.out.println("\nbenchmarking CPU original...");
 		Stopwatch cpuOriginalStopwatch = new Stopwatch();
@@ -150,6 +151,12 @@ public class BenchmarkMinimization extends TestBase {
 		
 		System.out.println("\nbenchmarking CPU conf minimizer...");
 		Stopwatch cpuSimpleStopwatch = benchmark(new CpuConfMinimizer.Builder(ffparams, interactionsFactory, search.confSpace).build(), confs, cpuOriginalStopwatch);
+		System.out.println("\nbenchmarking Residue Cuda...");
+		fragecalc = new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
+			.setType(MinimizingFragmentEnergyCalculator.Type.Cpu)
+			.setParallelism(Parallelism.makeCpu(1))
+			.build();
+		benchmark(new MinimizingConfEnergyCalculator.Builder(fragecalc).build(), confs, cpuSimpleStopwatch);
 		
 		System.out.println("\nbenchmarking OpenCL simple...");
 		benchmark(new GpuConfMinimizer.Builder(ffparams, interactionsFactory, search.confSpace).setGpuInfo(GpuConfMinimizer.Type.OpenCL, 1, 1).build(), confs, cpuSimpleStopwatch);
@@ -161,8 +168,15 @@ public class BenchmarkMinimization extends TestBase {
 		benchmark(new GpuConfMinimizer.Builder(ffparams, interactionsFactory, search.confSpace).setGpuInfo(GpuConfMinimizer.Type.CudaCCD, 1, 1).build(), confs, cpuSimpleStopwatch);
 		
 		System.out.println("\nbenchmarking Residue Cuda...");
-		MinimizingFragmentEnergyCalculator fragecalc = new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
-			.setType(MinimizingFragmentEnergyCalculator.Type.Cuda)
+		fragecalc = new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
+			.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCuda)
+			.setParallelism(Parallelism.makeGpu(1, 1))
+			.build();
+		benchmark(new MinimizingConfEnergyCalculator.Builder(fragecalc).build(), confs, cpuSimpleStopwatch);
+		
+		System.out.println("\nbenchmarking Residue Cuda CCD...");
+		fragecalc = new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
+			.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCudaCCD)
 			.setParallelism(Parallelism.makeGpu(1, 1))
 			.build();
 		benchmark(new MinimizingConfEnergyCalculator.Builder(fragecalc).build(), confs, cpuSimpleStopwatch);

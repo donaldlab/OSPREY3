@@ -104,7 +104,7 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 		ress = new Residue[inters.getResidueNumbers().size()];
 		int index = 0;
 		for (String resNum : inters.getResidueNumbers()) {
-			ress[index++] = residues.get(resPairCache.findIndex(residues, resNum));
+			ress[index++] = residues.get(Residue.findInOrThrow(residues, resNum));
 		}
 		resPairs = new ResPair[inters.size()];
 		index = 0;
@@ -208,7 +208,7 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 		
 		// make the kernel function
 		func = makeFunction("calc");
-		func.blockThreads = 1024; // TODO: make configurable
+		func.blockThreads = 1024; // TODO: use func calculator
 		func.sharedMemCalc = (int blockThreads) -> blockThreads*Double.BYTES;
 	}
 	
