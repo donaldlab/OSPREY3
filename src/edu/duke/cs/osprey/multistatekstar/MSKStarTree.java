@@ -22,6 +22,8 @@ import edu.duke.cs.osprey.tools.Stopwatch;
  *
  */
 public class MSKStarTree {
+	
+	public static boolean DEBUG = false;
 
 	protected LMB objFcn;//we are minimizing objFcn
 	protected LMB[] msConstr;
@@ -177,6 +179,8 @@ public class MSKStarTree {
 		ThreadParallelism.setNumThreads(astarThreads);
 		MSKStarNode.PARALLEL_EXPANSION = astarThreads > 1 ? true : false;
 		//MSKStarNode.PARALLELISM_MULTIPLIER = astarThreads;
+		
+		PartitionFunctionMinimized.SYNCHRONIZED_MINIMIZATION = this.msParams.getBool("SYNCHRONIZEDMINIMIZATION");
 	}
 
 	private MSKStarNode getRootNode() {

@@ -18,7 +18,8 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
  */
 @SuppressWarnings("serial")
 public class MSSearchProblem extends SearchProblem {
-
+	public static boolean DEBUG = false;
+	
 	public MSSearchSettings settings;
 	private int numAssignedPos;
 
@@ -84,8 +85,8 @@ public class MSSearchProblem extends SearchProblem {
 		}
 		return ans;
 	}
-
-	protected BigInteger getNumConfs(PruningMatrix pmat) {
+	
+	public BigInteger getNumConfs(PruningMatrix pmat) {
 		BigInteger ans = BigInteger.ONE;
 		for(int pos=0;pos<pmat.getNumPos();++pos) {
 			ans = ans.multiply(BigInteger.valueOf(pmat.unprunedRCsAtPos(pos).size()));
@@ -118,7 +119,26 @@ public class MSSearchProblem extends SearchProblem {
 			numUpdates = upmat.countUpdates();
 		} while (numUpdates > oldNumUpdates /*&& getNumConfs(upmat).compareTo(minConfs) > 0*/);
 	}
-
+	
+	protected void checkPruningMatrix(PruningMatrix pmat) {
+		ArrayList<Integer> assignedPosNums = getPosNums(true);
+		HashMap<Integer, ArrayList<String>> pos2AAs = new HashMap<>();
+		for(int pos : assignedPosNums) {
+			pos2AAs.put(pos, new ArrayList<>());
+			for(int rc : pmat.unprunedRCsAtPos(pos)) {
+				String rcAAType = confSpace.posFlex.get(pos).RCs.get(rc).AAType;
+				if(!pos2AAs.get(pos).contains(rcAAType)) pos2AAs.get(pos).add(rcAAType);
+			}
+			pos2AAs.get(pos).trimToSize();
+			if(pos2AAs.get(pos).size()>1) {
+				String aas = "";
+				for(String str : pos2AAs.get(pos)) aas += str + " ";
+				aas = aas.trim();
+				throw new RuntimeException("ERROR: assigned pos " + pos + " contains multiple AAs: " + aas);
+			}
+		}
+	}
+	
 	public PruningMatrix updatePruningMatrix(
 			ArrayList<Integer> splitPosNums, 
 			ArrayList<ArrayList<String>> splitAAs
@@ -140,7 +160,7 @@ public class MSSearchProblem extends SearchProblem {
 		for(int rc : pruneMat.unprunedRCsAtPos(splitPosNum)) {
 			String rcAAType = confSpace.posFlex.get(splitPosNum).RCs.get(rc).AAType;
 			//in split position, but not a desired AA type
-			if(!splitAA.equals(rcAAType))
+			if(!splitAA.equalsIgnoreCase(rcAAType))
 				upmat.markAsPruned(new RCTuple(splitPosNum, rc));
 		}
 	}
@@ -153,16 +173,12 @@ public class MSSearchProblem extends SearchProblem {
 	}
 
 	private void setPruningMatrix() {
-		if(settings.splitPos2aa.size()>0) {
-			this.pruneMat = updatePruningMatrix(settings.splitPos2aa);
-			settings.splitPos2aa.clear();
-		}
-		else
-			this.pruneMat = updatePruningMatrix(getPosNums(true), settings.AATypeOptions);
+		this.pruneMat = updatePruningMatrix(getPosNums(true), settings.AATypeOptions);
 	}
 
 	public void prunePmat(boolean doPruning, boolean prunePairs) {
 		setPruningMatrix();
+		if(DEBUG) checkPruningMatrix(this.pruneMat);
 		if(doPruning) prunePmat(this, prunePairs);
 	}
 }

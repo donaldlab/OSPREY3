@@ -30,7 +30,7 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 	@Override
 	public void init(double targetEpsilon) {
 		super.init(targetEpsilon);
-		energyConfs = null;
+		scoreConfs = null;
 	}
 
 	@Override
@@ -51,7 +51,7 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 				break;
 			}
 
-			if ((conf = scoreConfs.next()) == null) {
+			if ((conf = energyConfs.next()) == null) {
 				if(status != Status.Estimated) status = Status.NotEnoughConformations;
 				break;
 			}
@@ -111,7 +111,7 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 				break;
 			}
 
-			if ((conf = scoreConfs.next()) == null) {
+			if ((conf = energyConfs.next()) == null) {
 				if(status != Status.Estimated) status = Status.NotEnoughConformations;
 				break;
 			}

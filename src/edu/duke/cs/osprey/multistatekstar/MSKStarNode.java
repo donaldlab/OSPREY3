@@ -33,8 +33,7 @@ public class MSKStarNode {
 	public static ResidueOrder RESIDUE_ORDER;
 	public static boolean PARALLEL_EXPANSION;
 	public static int PARALLELISM_MULTIPLIER = 1;
-
-	public static boolean DEBUG = true;
+	public static boolean DEBUG = false;
 
 	private KStarScore[] ksLB;//lower bound k* objects
 	private KStarScore[] ksUB;//upper bound k* objects
@@ -54,7 +53,7 @@ public class MSKStarNode {
 		this.score = null;
 		this.numPruned = 0;
 	}
-
+	
 	public String getSequence(int state) {
 		int numSubStates = ksLB[0].getSettings().search.length;
 		return ksLB[0].getSettings().search[numSubStates-1].settings.getFormattedSequence();
@@ -214,7 +213,10 @@ public class MSKStarNode {
 			for(MSKStarNode node : nodes) {
 				for(int state=0;state<ksLB.length;++state) {
 					if(node.ksLB[state]!=null) scores.add(node.ksLB[state]);
-					if(node.ksUB[state]!=null) scores.add(node.ksUB[state]);
+					// for leaves, upper and lower bounds are the same, so don't 
+					// try to compute both
+					if(node.ksUB[state]!=null && !node.ksUB[state].equals(node.ksLB[state])) 
+						scores.add(node.ksUB[state]);
 				}
 			}
 			scores.parallelStream().forEach(score -> score.compute(Integer.MAX_VALUE));
@@ -275,7 +277,7 @@ public class MSKStarNode {
 				newKsLB[state] = lb;
 
 				//make ub
-				//special case: if discrete and child is final, ub = lb
+				//special case: if child is final, then ub = lb
 				newKsUB[state] = lb.getSettings().isFinal ? lb : split(ksUB[state], splits, splitIndex);
 			}
 			if(!addNode) continue;
@@ -332,7 +334,6 @@ public class MSKStarNode {
 	private MSSearchProblem splitSearch(int subState, MSSearchProblem parent, ArrayList<AAAssignment> splits) {
 		//make new search settings
 		MSSearchSettings sSet = (MSSearchSettings) ObjectIO.deepCopy(parent.settings);
-		sSet.splitPos2aa.clear();
 		
 		for(AAAssignment aa : splits) {
 			//update mutres
@@ -342,8 +343,6 @@ public class MSKStarNode {
 			sSet.AATypeOptions.get(aa.residuePos).clear();
 			sSet.AATypeOptions.get(aa.residuePos).add(AAType);
 			sSet.AATypeOptions.get(aa.residuePos).trimToSize();
-			
-			sSet.splitPos2aa.put(aa.residuePos, AAType);
 		}
 
 		MSSearchProblem ans = new MSSearchProblem(parent, sSet);
@@ -374,7 +373,7 @@ public class MSKStarNode {
 					break;//unbound state partition function upper bound(s) are 0
 				}
 				//compute a tiny bit of the bound state
-				//default to 16 * getparallelism
+				//default to 1 * getparallelism
 				lb.computeBoundState(PARALLELISM_MULTIPLIER * lb.getSettings().ecalcs[0].getParallelism());
 				newKsLB[state] = lb;
 

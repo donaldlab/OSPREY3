@@ -109,6 +109,7 @@ public class KStarScoreMinimized implements KStarScore {
 		//first prune the pruning matrix
 		settings.search[state].prunePmat(isFinal(), settings.cfp.getParams().getInt("ALGOPTION")>=3);
 		//settings.search[state].prunePmat(true, settings.cfp.getParams().getInt("ALGOPTION")>=3);
+		//settings.search[state].prunePmat(false, settings.cfp.getParams().getInt("ALGOPTION")>=3);
 
 		//make conf search factory (i.e. A* tree)
 		ConfSearchFactory confSearchFactory = MSKStarFactory.makeConfSearchFactory(settings.search[state], settings.cfp);
