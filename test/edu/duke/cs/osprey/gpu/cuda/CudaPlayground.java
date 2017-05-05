@@ -19,7 +19,6 @@ import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.ParameterizedMoleculeCopy;
-import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
@@ -37,26 +36,20 @@ import edu.duke.cs.osprey.energy.FFInterGen;
 import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.MinimizingFragmentEnergyCalculator;
 import edu.duke.cs.osprey.energy.MinimizingFragmentEnergyCalculator.Type;
-import edu.duke.cs.osprey.energy.ResInterGen;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.GpuForcefieldEnergy;
-import edu.duke.cs.osprey.energy.forcefield.ResPairCache;
-import edu.duke.cs.osprey.energy.forcefield.ResidueForcefieldEnergy;
 import edu.duke.cs.osprey.gpu.BufferTools;
 import edu.duke.cs.osprey.gpu.cuda.kernels.CCDKernelCuda;
-import edu.duke.cs.osprey.gpu.cuda.kernels.ResidueForcefieldEnergyCuda;
 import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
-import edu.duke.cs.osprey.minimization.MoleculeObjectiveFunction;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction;
 import edu.duke.cs.osprey.minimization.SimpleCCDMinimizer;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TimingThread;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.structure.AtomConnectivity;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -435,10 +428,10 @@ public class CudaPlayground extends TestBase {
 		// also make a simple conf space
 		Strand strand = new Strand.Builder(PDBIO.readFile("examples/1CC8/1CC8.ss.pdb")).build();
 		strand.flexibility.get(39).setLibraryRotamers("ALA").setContinuous();
-		strand.flexibility.get(43).setLibraryRotamers("ALA").setContinuous();
 		strand.flexibility.get(40).setLibraryRotamers().setContinuous();
 		strand.flexibility.get(41).setLibraryRotamers().setContinuous();
 		strand.flexibility.get(42).setLibraryRotamers().setContinuous();
+		strand.flexibility.get(43).setLibraryRotamers("ALA").setContinuous();
 		strand.flexibility.get(44).setLibraryRotamers().setContinuous();
 		strand.flexibility.get(45).setLibraryRotamers().setContinuous();
 		SimpleConfSpace simpleConfSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
@@ -467,98 +460,7 @@ public class CudaPlayground extends TestBase {
 			.build();
 		ResidueInteractions inters = new EnergyPartition.Traditional().makeFragment(simpleConfSpace, null, tuple);
 		double gpuEnergy = gpuFragEcalc.calcEnergy(tuple, inters);
-		
-		// TEMP: try some simpler minimizations
-		AtomConnectivity connectivity = new AtomConnectivity.Builder()
-			.setConfSpace(simpleConfSpace)
-			.setParallelism(Parallelism.makeCpu(4))
-			.build();
-		ResPairCache resPairCache = new ResPairCache(ffparams, connectivity);
-		GpuStreamPool streams = new GpuStreamPool(1, 1);
-		
-		System.out.println();
-		tuple = new RCTuple(2, 0, 3, 0);
-		inters = ResInterGen.of(simpleConfSpace)
-			.addIntra(2)
-			.make();
-		runCpuEfunc(simpleConfSpace, resPairCache, tuple, inters);
-		runGpuEfunc(simpleConfSpace, resPairCache, tuple, inters, streams);
-		gpuFragEcalc.calcEnergy(tuple, inters);
-		
-		System.out.println();
-		tuple = new RCTuple(2, 0, 3, 0);
-		inters = ResInterGen.of(simpleConfSpace)
-			.addIntra(3)
-			.make();
-		runCpuEfunc(simpleConfSpace, resPairCache, tuple, inters);
-		runGpuEfunc(simpleConfSpace, resPairCache, tuple, inters, streams);
-		gpuFragEcalc.calcEnergy(tuple, inters);
-		
-		System.out.println();
-		tuple = new RCTuple(2, 0, 3, 0);
-		inters = ResInterGen.of(simpleConfSpace)
-			.addIntra(2)
-			.addInter(2, 3)
-			.make();
-		runCpuEfunc(simpleConfSpace, resPairCache, tuple, inters);
-		runGpuEfunc(simpleConfSpace, resPairCache, tuple, inters, streams);
-		gpuFragEcalc.calcEnergy(tuple, inters);
-		
-		System.out.println();
-		tuple = new RCTuple(2, 0, 3, 0);
-		inters = ResInterGen.of(simpleConfSpace)
-			.addIntra(3)
-			.addInter(2, 3)
-			.make();
-		runCpuEfunc(simpleConfSpace, resPairCache, tuple, inters);
-		runGpuEfunc(simpleConfSpace, resPairCache, tuple, inters, streams);
-		gpuFragEcalc.calcEnergy(tuple, inters);
-		
-		System.out.println();
-		tuple = new RCTuple(2, 0, 3, 0);
-		inters = ResInterGen.of(simpleConfSpace)
-			.addInter(2, 3)
-			.make();
-		runCpuEfunc(simpleConfSpace, resPairCache, tuple, inters);
-		runGpuEfunc(simpleConfSpace, resPairCache, tuple, inters, streams);
-		gpuFragEcalc.calcEnergy(tuple, inters);
-		
-		System.out.println();
-		tuple = new RCTuple(2, 0, 3, 0);
-		inters = ResInterGen.of(simpleConfSpace)
-			.addIntra(2)
-			.addIntra(3)
-			.addInter(2, 3)
-			.make();
-		runCpuEfunc(simpleConfSpace, resPairCache, tuple, inters);
-		runGpuEfunc(simpleConfSpace, resPairCache, tuple, inters, streams);
-		gpuFragEcalc.calcEnergy(tuple, inters);
-		
-		streams.cleanup();
-	}
-	
-	private static void runCpuEfunc(SimpleConfSpace confSpace, ResPairCache resPairCache, RCTuple frag, ResidueInteractions inters) {
-		ParametricMolecule pmol = confSpace.makeMolecule(frag);
-		ObjectiveFunction.DofBounds bounds = confSpace.makeBounds(frag);
-		ResidueForcefieldEnergy efunc = new ResidueForcefieldEnergy(resPairCache, inters, pmol.mol);
-		MoleculeObjectiveFunction mof = new MoleculeObjectiveFunction(pmol, bounds, efunc);
-		DoubleMatrix1D x = DoubleFactory1D.dense.make(bounds.size());
-		bounds.getCenter(x);
-		mof.setDOFs(x);
-		System.out.println(String.format("CPU e:   %12.6f", efunc.getEnergy()));
-	}
-	
-	private static void runGpuEfunc(SimpleConfSpace confSpace, ResPairCache resPairCache, RCTuple frag, ResidueInteractions inters, GpuStreamPool streams)
-	throws IOException {
-		ParametricMolecule pmol = confSpace.makeMolecule(frag);
-		ObjectiveFunction.DofBounds bounds = confSpace.makeBounds(frag);
-		ResidueForcefieldEnergyCuda efunc = new ResidueForcefieldEnergyCuda(streams, resPairCache, inters, pmol.mol);
-		MoleculeObjectiveFunction mof = new MoleculeObjectiveFunction(pmol, bounds, efunc);
-		DoubleMatrix1D x = DoubleFactory1D.dense.make(bounds.size());
-		bounds.getCenter(x);
-		mof.setDOFs(x);
-		System.out.println(String.format("GPU e:   %12.6f", efunc.getEnergy()));
-		efunc.cleanup();
+		System.out.println(String.format("GPU energy: %12.6f", gpuEnergy));
 	}
 	
 	private static double maxxddist(DoubleMatrix1D a, DoubleMatrix1D b) {

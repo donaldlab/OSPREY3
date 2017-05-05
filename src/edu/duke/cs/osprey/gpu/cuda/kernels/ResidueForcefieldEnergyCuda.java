@@ -299,6 +299,11 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 				}
 			}
 			
+			// no interactions for this residue
+			if (num <= 0) {
+				return;
+			}
+			
 			// pass 2: collect
 			indices = getStream().intBuffers.checkout(num);
 			IntBuffer indicesbuf = indices.getHostBuffer();
@@ -314,6 +319,9 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 		
 		@Override
 		public double getEnergy() {
+			if (indices == null) {
+				return Double.NaN;
+			}
 			return ResidueForcefieldEnergyCuda.this.getEnergy(indices);
 		}
 	}

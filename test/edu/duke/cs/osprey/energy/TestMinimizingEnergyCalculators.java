@@ -134,6 +134,34 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 			.setParallelism(Parallelism.makeGpu(1, 2)));
 	}
 	
+	@Test
+	public void residueCudaOneStream() {
+		assertEnergies(new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
+			.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCuda)
+			.setParallelism(Parallelism.makeGpu(1, 1)));
+	}
+	
+	@Test
+	public void residueCudaTwoStreams() {
+		assertEnergies(new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
+			.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCuda)
+			.setParallelism(Parallelism.makeGpu(1, 2)));
+	}
+	
+	@Test
+	public void residueCudaCcdOneStream() {
+		assertEnergies(new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
+			.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCudaCCD)
+			.setParallelism(Parallelism.makeGpu(1, 1)));
+	}
+	
+	@Test
+	public void residueCudaCcdTwoStreams() {
+		assertEnergies(new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
+			.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCudaCCD)
+			.setParallelism(Parallelism.makeGpu(1, 2)));
+	}
+	
 	private void assertEnergies(MinimizingFragmentEnergyCalculator.Builder builder) {
 		
 		for (EnergyPartition epart : Arrays.asList(new EnergyPartition.Traditional(), new EnergyPartition.AllOnPairs())) {

@@ -3,6 +3,7 @@ package edu.duke.cs.osprey.gpu.cuda.kernels;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.DoubleBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -31,6 +32,7 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 	
 	private class Dihedral {
 		
+		public final int d;
 		public final Residue res;
 		public final int[] dihedralIndices;
 		public final int[] rotatedIndices;
@@ -41,7 +43,8 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 		public double xdmin;
 		public double xdmax;
 		
-		public Dihedral(FreeDihedral diehedral) {
+		public Dihedral(int d, FreeDihedral diehedral) {
+			this.d = d;
 			this.res = diehedral.getResidue();
 			this.dihedralIndices = res.template.getDihedralDefiningAtoms(diehedral.getDihedralNumber());
 			this.rotatedIndices = toArray(res.template.getDihedralRotatedAtoms(diehedral.getDihedralNumber()));
@@ -65,7 +68,7 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 	private ResidueForcefieldEnergy efunc;
 	
 	private Residue[] ress;
-	private Dihedral[] dihedrals;
+	private List<Dihedral> dihedrals;
 	
 	/* buffer layout:
 	 * NOTE: try to use 8-byte alignments to be happy on 64-bit machines
@@ -86,7 +89,8 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 	 * for each dihedral:
 	 *    int resIndex
 	 *    int numAtoms;
-	 *    int[4] angleAtomOffsets // in index space of residue
+	 *    long atomsOffset;
+	 *    short[4] angleAtomOffsets // in index space of residue
 	 *    int numRotatedAtoms
 	 *    int numResPairs
 	 *    double xd
@@ -123,7 +127,7 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 	private CUBuffer<DoubleBuffer> out;
 	
 	private static final int HeaderBytes = Integer.BYTES*4 + Double.BYTES*2;
-	private static final int DihedralBytes = Integer.BYTES*8 + Double.BYTES*3;
+	private static final int DihedralBytes = Long.BYTES + Integer.BYTES*4 + Short.BYTES*4 + Double.BYTES*3;
 	private static final int ResPairBytes = Long.BYTES*3 + Double.BYTES*2;
 	private static final int AtomPairBytes = Short.BYTES*2 + Integer.BYTES + Double.BYTES*9;
 	
@@ -160,7 +164,7 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 		}
 		
 		// count atoms and offsets for each residue
-		int[] atomOffsetsByResIndex = new int[ress.length];
+		int[] atomOffsetsByResIndex = new int[ress.length]; // TODO: change to indices
 		Arrays.fill(atomOffsetsByResIndex, -1);
 		int atomOffset = 0;
 		int numAtoms = 0;
@@ -175,7 +179,7 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 		coords = stream.doubleBuffers.checkout(numAtoms*3);
 		
 		// collect the dihedral angles
-		dihedrals = new Dihedral[mof.getNumDOFs()];
+		dihedrals = new ArrayList<>();
 		ObjectiveFunction.DofBounds dofBounds = new ObjectiveFunction.DofBounds(mof.getConstraints());
 		Map<Residue,int[]> cache = new IdentityHashMap<>();
 		int maxNumAtoms = 0;
@@ -189,8 +193,13 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 			}
 			
 			// make the dihedral
-			Dihedral dihedral = new Dihedral((FreeDihedral)dof);
-			dihedrals[d] = dihedral;
+			Dihedral dihedral = new Dihedral(d, (FreeDihedral)dof);
+			
+			// find the residue, if any
+			dihedral.resIndex = dihedral.res.findIn(ress);
+			if (dihedral.resIndex < 0) {
+				continue;
+			}
 			
 			// get the residue pairs
 			dihedral.resPairIndices = cache.get(dihedral.res);
@@ -199,12 +208,13 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 				cache.put(dihedral.res, dihedral.resPairIndices);
 			}
 			
-			dihedral.resIndex = dihedral.res.findInOrThrow(ress);
 			dihedral.xd = dofBounds.getCenter(d);
 			dihedral.xdmin = dofBounds.getMin(d);
 			dihedral.xdmax = dofBounds.getMax(d);
 			
 			maxNumAtoms = Math.max(maxNumAtoms, dihedral.res.atoms.size());
+			
+			dihedrals.add(dihedral);
 		}
 		
 		// allocate the data buffer
@@ -220,9 +230,9 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 		}
 		data = stream.byteBuffers.checkout(
 			HeaderBytes
-			+ Long.BYTES*dihedrals.length
+			+ Long.BYTES*dihedrals.size()
 			+ Long.BYTES*efunc.resPairs.length
-			+ DihedralBytes*dihedrals.length
+			+ DihedralBytes*dihedrals.size()
 				+ Short.BYTES*numRotatedAtoms
 				+ Integer.BYTES*numResPairs
 			+ ResPairBytes*efunc.resPairs.length
@@ -241,7 +251,7 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 		flags <<= 1;
 		flags |= ffparams.solvationForcefield == SolvationForcefield.EEF1 ? 1 : 0;
 		databuf.putInt(flags);
-		databuf.putInt(dihedrals.length);
+		databuf.putInt(dihedrals.size());
 		databuf.putInt(efunc.resPairs.length);
 		databuf.putInt(maxNumAtoms);
 		double coulombFactor = ForcefieldParams.coulombConstant/ffparams.dielectric;
@@ -251,37 +261,41 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 		
 		// put space for the dihedral offsets
 		int dihedralOffsetsPos = databuf.position();
-		for (int i=0; i<dihedrals.length; i++) {
+		for (int d=0; d<dihedrals.size(); d++) {
 			databuf.putLong(0);
 		}
 		
 		// put space for the res pair offsets
 		int resPairsOffsetsPos = databuf.position();
-		for (int i=0; i<efunc.resPairs.length; i++) {
+		for (int d=0; d<efunc.resPairs.length; d++) {
 			databuf.putLong(0);
 		}
 		
 		// put the dihedrals
-		for (int i=0; i<dihedrals.length; i++) {
-			Dihedral dihedral = dihedrals[i];
+		for (int d=0; d<dihedrals.size(); d++) {
+			Dihedral dihedral = dihedrals.get(d);
 			
 			// update the offset
-			databuf.putLong(dihedralOffsetsPos + i*Long.BYTES, databuf.position());
+			databuf.putLong(dihedralOffsetsPos + d*Long.BYTES, databuf.position());
 			
 			// put the dihedral header
 			databuf.putInt(dihedral.resIndex);
 			databuf.putInt(dihedral.res.atoms.size());
+			databuf.putLong(atomOffsetsByResIndex[dihedral.res.findInOrThrow(ress)]);
 			for (int j=0; j<dihedral.dihedralIndices.length; j++) {
-				databuf.putInt(dihedral.dihedralIndices[j]*3);
+				databuf.putShort((short)(dihedral.dihedralIndices[j]*3)); // TODO: change to index
 			}
 			databuf.putInt(dihedral.rotatedIndices.length);
 			databuf.putInt(dihedral.resPairIndices.length);
+			databuf.putDouble(Math.toRadians(dihedral.xd)); // TODO: make the GPU convert?
+			databuf.putDouble(Math.toRadians(dihedral.xdmin));
+			databuf.putDouble(Math.toRadians(dihedral.xdmax));
 			
 			// put the rotated offsets (pad up to word boundary)
 			int n = MathTools.roundUpToMultiple(dihedral.rotatedIndices.length, Long.BYTES/Short.BYTES);
-			for (int j=0; j<n; j++) {
-				if (j < dihedral.rotatedIndices.length) {
-					databuf.putShort((short)(dihedral.rotatedIndices[j]*3));
+			for (int i=0; i<n; i++) {
+				if (i < dihedral.rotatedIndices.length) {
+					databuf.putShort((short)(dihedral.rotatedIndices[i]*3)); // TODO: change to index
 				} else {
 					databuf.putShort((short)0);
 				}
@@ -289,9 +303,9 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 			
 			// put the res pairs (pad up to word boundary)
 			n = MathTools.roundUpToMultiple(dihedral.resPairIndices.length, Long.BYTES/Integer.BYTES);
-			for (int j=0; j<n; j++) {
-				if (j < dihedral.resPairIndices.length) {
-					databuf.putInt(dihedral.resPairIndices[j]);
+			for (int i=0; i<n; i++) {
+				if (i < dihedral.resPairIndices.length) {
+					databuf.putInt(dihedral.resPairIndices[i]);
 				} else {
 					databuf.putInt(0);
 				}
@@ -325,7 +339,7 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 		data.uploadAsync();
 		
 		// allocate the output
-		out = stream.doubleBuffers.checkout(dihedrals.length + 1);
+		out = stream.doubleBuffers.checkout(dihedrals.size() + 1);
 		
 		func = makeFunction("ccd");
 		func.numBlocks = 1;
@@ -333,9 +347,9 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 		func.sharedMemCalc = (int blockThreads) -> {
 			return blockThreads*Double.BYTES // energy reduction
 				+ fMaxNumAtoms*3*Double.BYTES // coords copy
-				+ dihedrals.length*Double.BYTES // nextx
-				+ dihedrals.length*Double.BYTES // firstSteps
-				+ dihedrals.length*Double.BYTES; // lastSteps
+				+ dihedrals.size()*Double.BYTES // nextx
+				+ dihedrals.size()*Double.BYTES // firstSteps
+				+ dihedrals.size()*Double.BYTES; // lastSteps
 		};
 		func.setArgs(Pointer.to(
 			data.getDevicePointer(),
@@ -348,9 +362,9 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 		if (blockThreads == null) {
 			blockThreads = func.calcMaxBlockThreads();
 		}
-		*/
-		blockThreads = 1024;
 		func.blockThreads = blockThreads;
+		*/
+		func.blockThreads = 32;//512;
 	}
 	
 	@Override
@@ -358,9 +372,10 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 		
 		// put the molecule in the staring state
 		// TODO: do initial pose on the GPU?
-		DoubleMatrix1D x = DoubleFactory1D.dense.make(dihedrals.length);
-		new ObjectiveFunction.DofBounds(mof.getConstraints()).getCenter(x);
-		mof.setDOFs(x);
+		for (Dihedral dihedral : dihedrals) {
+			double xd = (dihedral.xdmin + dihedral.xdmax)/2;
+			mof.setDOF(dihedral.d, xd);
+		}
 		
 		// pack and upload the coords
 		DoubleBuffer coordsbuf = coords.getHostBuffer();
@@ -377,8 +392,9 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 		
 		// read the result
 		outbuf.rewind();
-		for (int d=0; d<dihedrals.length; d++) {
-			x.set(d, outbuf.get());
+		DoubleMatrix1D x = DoubleFactory1D.dense.make(mof.getNumDOFs());
+		for (Dihedral dihedral : dihedrals) {
+			x.set(dihedral.d, outbuf.get());
 		}
 		Minimizer.Result result = new Minimizer.Result(x, outbuf.get());
 		
