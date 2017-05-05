@@ -53,7 +53,7 @@ public class MSKStarNode {
 		this.score = null;
 		this.numPruned = 0;
 	}
-	
+
 	public String getSequence(int state) {
 		int numSubStates = ksLB[0].getSettings().search.length;
 		return ksLB[0].getSettings().search[numSubStates-1].settings.getFormattedSequence();
@@ -200,10 +200,24 @@ public class MSKStarNode {
 			KStarScore score;
 			for(MSKStarNode node : nodes) {					
 				for(int state=0;state<ksLB.length;++state) {
+
 					score = node.ksLB[state];
-					if(score!=null) score.compute(Integer.MAX_VALUE);
+					if(score!=null) {
+						if(!score.isFinal()) score.compute(Integer.MAX_VALUE);
+						else {
+							score.computeUnboundStates(Integer.MAX_VALUE);
+							score.computeBoundState(PARALLELISM_MULTIPLIER * score.getSettings().ecalcs[0].getParallelism());
+						}
+					}
+
 					score = node.ksUB[state];
-					if(score!=null) score.compute(Integer.MAX_VALUE);
+					if(score!=null && !node.ksLB[state].equals(node.ksUB[state])) {
+						if(!score.isFinal()) score.compute(Integer.MAX_VALUE);
+						else {
+							score.computeUnboundStates(Integer.MAX_VALUE);
+							score.computeBoundState(PARALLELISM_MULTIPLIER * score.getSettings().ecalcs[0].getParallelism());
+						}
+					}
 				}
 			}		
 		} 
@@ -219,7 +233,13 @@ public class MSKStarNode {
 						scores.add(node.ksUB[state]);
 				}
 			}
-			scores.parallelStream().forEach(score -> score.compute(Integer.MAX_VALUE));
+			scores.parallelStream().forEach(score -> {	
+				if(!score.isFinal()) score.compute(Integer.MAX_VALUE);
+				else{
+					score.computeUnboundStates(Integer.MAX_VALUE);
+					score.computeBoundState(PARALLELISM_MULTIPLIER * score.getSettings().ecalcs[0].getParallelism());
+				}
+			});
 		}
 
 		//remove nodes that violate local constraints
@@ -229,7 +249,7 @@ public class MSKStarNode {
 				remove.add(node);
 				continue;
 			}
-			
+
 			//set scores
 			node.setScore(OBJ_FUNC);
 
@@ -334,7 +354,7 @@ public class MSKStarNode {
 	private MSSearchProblem splitSearch(int subState, MSSearchProblem parent, ArrayList<AAAssignment> splits) {
 		//make new search settings
 		MSSearchSettings sSet = (MSSearchSettings) ObjectIO.deepCopy(parent.settings);
-		
+
 		for(AAAssignment aa : splits) {
 			//update mutres
 			sSet.mutRes.set(aa.residuePos, parent.flexRes.get(aa.residuePos));
@@ -350,9 +370,6 @@ public class MSKStarNode {
 	}
 
 	public ArrayList<MSKStarNode> splitFullyAssigned() {
-		//applies only to minimized confs
-		if(!ksLB[0].getSettings().cfp.getParams().getBool("DOMINIMIZE"))
-			throw new RuntimeException("ERROR: can only split a fully assigned node when continuous minimization is enabled");
 
 		MSKStarNode child = null;
 		ArrayList<MSKStarNode> ans = new ArrayList<>();
@@ -386,6 +403,7 @@ public class MSKStarNode {
 		}
 
 		else {
+			// this applies to discrete AND continuous cases
 			child = this;
 			for(KStarScore lb : child.ksLB) {
 				if(lb.isComputed()) continue;
