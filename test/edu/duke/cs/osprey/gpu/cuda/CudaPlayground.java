@@ -36,6 +36,7 @@ import edu.duke.cs.osprey.energy.FFInterGen;
 import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.MinimizingFragmentEnergyCalculator;
 import edu.duke.cs.osprey.energy.MinimizingFragmentEnergyCalculator.Type;
+import edu.duke.cs.osprey.energy.ResInterGen;
 import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
@@ -459,8 +460,20 @@ public class CudaPlayground extends TestBase {
 			.setParallelism(Parallelism.makeGpu(1, 1))
 			.build();
 		ResidueInteractions inters = new EnergyPartition.Traditional().makeFragment(simpleConfSpace, null, tuple);
+		/*
+		ResidueInteractions inters = ResInterGen.of(simpleConfSpace)
+			.addInter(0, 4)
+			.make();
+		*/
 		double gpuEnergy = gpuFragEcalc.calcEnergy(tuple, inters);
 		System.out.println(String.format("GPU energy: %12.6f", gpuEnergy));
+		gpuFragEcalc.cleanup();
+		
+		// TEMP: do same inters on CPU
+		MinimizingFragmentEnergyCalculator cpuFragEcalc = new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
+			.setType(Type.Cpu)
+			.build();
+		System.out.println(String.format("GPU energy: %12.6f", cpuFragEcalc.calcEnergy(tuple, inters)));
 	}
 	
 	private static double maxxddist(DoubleMatrix1D a, DoubleMatrix1D b) {

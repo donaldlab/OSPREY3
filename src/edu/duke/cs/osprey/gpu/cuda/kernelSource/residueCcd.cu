@@ -11,6 +11,7 @@ nvcc -fatbin -O2
 	-gencode=arch=compute_61,code=sm_61
 	-gencode=arch=compute_62,code=sm_62
 	-gencode=arch=compute_62,code=compute_62
+	-maxrregcount 64
 	"kernelSource/ccd.cu" -o "kernelBinaries/ccd.bin"
 	
 	See Maxwell compatibility guide for more info:
@@ -60,6 +61,7 @@ typedef struct __align__(8) {
 	double offset;
 } ResPair;
 
+/* res pairs also have atom pairs after them in struct-of-arrays layout:
 typedef struct __align__(8) {
 	unsigned long flags; // bit isHeavyPair, bit is14Bonded, 6 bits space, 3 bytes space, short offset1, short offset2
 	double charge;
@@ -72,6 +74,7 @@ typedef struct __align__(8) {
 	double lambda2;
 	double alpha2;
 } AtomPair;
+*/
 
 __device__ unsigned int roundUpToMultiple(unsigned int val, unsigned int base) {
 	int mod = val % base;
@@ -103,9 +106,53 @@ public:
 		return *(ResPair *)&m_data[m_resPairOffsets[i]];
 	}
 	
+	/*
 	__device__ const AtomPair & getAtomPair(const ResPair & resPair, const unsigned int i) const {
 		const byte * const p = (byte *)&resPair;
 		return *(AtomPair *)&p[sizeof(ResPair) + sizeof(AtomPair)*i];
+	}
+	*/
+	
+	__device__ unsigned long getAtomPairFlags(const ResPair & resPair, const unsigned int i) const {
+		const byte * const p = (byte *)&resPair;
+		const unsigned long * const a = (unsigned long *)&p[sizeof(ResPair)];
+		return a[i];
+	}
+	
+	__device__ double getAtomPairCharge(const ResPair & resPair, const unsigned int i) const {
+		return getAtomPairDouble(resPair, i, 0);
+	}
+	
+	__device__ double getAtomPairAij(const ResPair & resPair, const unsigned int i) const {
+		return getAtomPairDouble(resPair, i, 1);
+	}
+	
+	__device__ double getAtomPairBij(const ResPair & resPair, const unsigned int i) const {
+		return getAtomPairDouble(resPair, i, 2);
+	}
+	
+	__device__ double getAtomPairRadius1(const ResPair & resPair, const unsigned int i) const {
+		return getAtomPairDouble(resPair, i, 3);
+	}
+	
+	__device__ double getAtomPairLambda1(const ResPair & resPair, const unsigned int i) const {
+		return getAtomPairDouble(resPair, i, 4);
+	}
+	
+	__device__ double getAtomPairAlpha1(const ResPair & resPair, const unsigned int i) const {
+		return getAtomPairDouble(resPair, i, 5);
+	}
+	
+	__device__ double getAtomPairRadius2(const ResPair & resPair, const unsigned int i) const {
+		return getAtomPairDouble(resPair, i, 6);
+	}
+	
+	__device__ double getAtomPairLambda2(const ResPair & resPair, const unsigned int i) const {
+		return getAtomPairDouble(resPair, i, 7);
+	}
+	
+	__device__ double getAtomPairAlpha2(const ResPair & resPair, const unsigned int i) const {
+		return getAtomPairDouble(resPair, i, 8);
 	}
 	
 	__device__ unsigned short getRotatedAtomOffset(const Dihedral & dihedral, const unsigned int i) const {
@@ -124,6 +171,12 @@ private:
 	const byte * const m_data;
 	const unsigned long * const m_dihedralOffsets;
 	const unsigned long * const m_resPairOffsets;
+	
+	__device__ double getAtomPairDouble(const ResPair & resPair, const unsigned int i, const unsigned int pos) const {
+		const byte * const p = (byte *)&resPair;
+		const double * const a = (double *)&p[sizeof(ResPair) + sizeof(long)*resPair.numAtomPairs + sizeof(double)*pos*resPair.numAtomPairs];
+		return a[i];
+	}
 };
 
 typedef struct {
@@ -187,47 +240,34 @@ __device__ double calcEnergy(const double * const coords, const Data & data, con
 		
 	unsigned int resPairIndex = 0;
 	unsigned int numAtomPairs = 0;
-	for (int n=0; true; n++) {
-	
-		int atomPairIndex = blockDim.x*n + threadIdx.x;
+	for (int n = threadIdx.x; true; n += blockDim.x) {
 	
 		// find our res pair and atom pair
-		const ResPair *resPair = NULL;
-		const AtomPair *atomPair = NULL;
+		const ResPair *resPair;
+		int atomPairIndex;
 		
-		int atomPairIndexInResPair;
 		for (; resPairIndex<numResPairs; resPairIndex++) {
 		
 			if (dihedral == NULL) {
 				resPair = &data.getResPair(resPairIndex);
 			} else {
 				resPair = &data.getResPair(*dihedral, resPairIndex);
-				
-				// HACKHACK: this condition is *always* false
-				// the enclose scope *never* executes, so has no effect whatsoever on the outputs of this kernel
-				// however, if this code isn't here, the compiler emits instructions
-				// that result in a segfault when executed... I have no idea why
-				// this is the only workaround I've found so far,
-				// and I don't want to spend any more time debugging this madness
-				if (resPair == NULL) {
-					__syncthreads();
-				}
 			}
 			
 			// is our atom pair in this res pair?
-			atomPairIndexInResPair = atomPairIndex - numAtomPairs;
-			if (atomPairIndexInResPair < resPair->numAtomPairs) {
+			atomPairIndex = n - numAtomPairs;
+			if (atomPairIndex < resPair->numAtomPairs) {
 			
 				// yup, found it!
-				atomPair = &data.getAtomPair(*resPair, atomPairIndexInResPair);
 				break;	
 			}
 			
 			numAtomPairs += resPair->numAtomPairs;
+			atomPairIndex = -1;
 		}
 		
 		// stop if we ran out of atom pairs
-		if (atomPair == NULL) {
+		if (atomPairIndex < 0) {
 			break;
 		}
 		
@@ -235,7 +275,7 @@ __device__ double calcEnergy(const double * const coords, const Data & data, con
 		bool isHeavyPair, is14Bonded;
 		unsigned long offset1, offset2;
 		{
-			unsigned long flags = atomPair->flags;
+			unsigned long flags = data.getAtomPairFlags(*resPair, atomPairIndex);
 			offset2 = (flags & 0xffff) + resPair->atomsOffset2;
 			flags >>= 16;
 			offset1 = (flags & 0xffff) + resPair->atomsOffset1;
@@ -261,38 +301,53 @@ __device__ double calcEnergy(const double * const coords, const Data & data, con
 		
 		// electrostatics
 		if (isHeavyPair || useHEs) {
+		
+			double charge = data.getAtomPairCharge(*resPair, atomPairIndex);
+			
 			if (is14Bonded) {
 				if (distDepDielect) {
-					resPairEnergy += data.header.scaledCoulombFactor*atomPair->charge/r2;
+					resPairEnergy += data.header.scaledCoulombFactor*charge/r2;
 				} else {
-					resPairEnergy += data.header.scaledCoulombFactor*atomPair->charge/r;
+					resPairEnergy += data.header.scaledCoulombFactor*charge/r;
 				}
 			} else {
 				if (distDepDielect) {
-					resPairEnergy += data.header.coulombFactor*atomPair->charge/r2;
+					resPairEnergy += data.header.coulombFactor*charge/r2;
 				} else {
-					resPairEnergy += data.header.coulombFactor*atomPair->charge/r;
+					resPairEnergy += data.header.coulombFactor*charge/r;
 				}
 			}
 		}
 		
 		// van der Waals
 		if (isHeavyPair || useHvdW) {
+		
+			double Aij = data.getAtomPairAij(*resPair, atomPairIndex);
+			double Bij = data.getAtomPairBij(*resPair, atomPairIndex);
+			
 			double r6 = r2*r2*r2;
 			double r12 = r6*r6;
-			resPairEnergy += atomPair->Aij/r12 - atomPair->Bij/r6;
+			resPairEnergy += Aij/r12 - Bij/r6;
 		}
 		
 		// solvation
 		if (useEEF1 && isHeavyPair && r2 < SolvCutoff2) {
-			double Xij = (r - atomPair->radius1)/atomPair->lambda1;
-			double Xji = (r - atomPair->radius2)/atomPair->lambda2;
-			resPairEnergy -= (atomPair->alpha1*exp(-Xij*Xij) + atomPair->alpha2*exp(-Xji*Xji))/r2;
+		
+			double radius1 = data.getAtomPairRadius1(*resPair, atomPairIndex);
+			double lambda1 = data.getAtomPairLambda1(*resPair, atomPairIndex);
+			double alpha1 = data.getAtomPairAlpha1(*resPair, atomPairIndex);
+			double radius2 = data.getAtomPairRadius2(*resPair, atomPairIndex);
+			double lambda2 = data.getAtomPairLambda2(*resPair, atomPairIndex);
+			double alpha2 = data.getAtomPairAlpha2(*resPair, atomPairIndex);
+			
+			double Xij = (r - radius1)/lambda1;
+			double Xji = (r - radius2)/lambda2;
+			resPairEnergy -= (alpha1*exp(-Xij*Xij) + alpha2*exp(-Xji*Xji))/r2;
 		}
 		
 		// apply weight and offset
 		energy += resPairEnergy*resPair->weight;
-		if (atomPairIndexInResPair == 0) {
+		if (atomPairIndex == 0) {
 			energy += resPair->offset;
 		}
 	}
@@ -721,8 +776,7 @@ extern "C" __global__ void ccd(
 	// partition shared memory
 	extern __shared__ byte shared[];
 	double * const threadEnergies = (double *)shared;
-	double * const resCoords = threadEnergies + blockDim.x; // TODO: do we need this?
-	double * const nextx = resCoords + data.header.maxNumAtoms*3;
+	double * const nextx = threadEnergies + blockDim.x;
 	double * const firstSteps = nextx + data.header.numDihedrals;
 	double * const lastSteps = firstSteps + data.header.numDihedrals;
 	

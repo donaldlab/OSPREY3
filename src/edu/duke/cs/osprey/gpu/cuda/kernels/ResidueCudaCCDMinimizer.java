@@ -110,16 +110,26 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 	 *    double weight
 	 *    double offset
 	 *    
+	 *    // NOTE: use struct-of-arrays here so GPU memory accesses are coalesced
 	 *    for each atom pair:
 	 *       long flags  (bit isHeavyPair, bit is14Bonded, 6 bits space, 3 byte space, short atomOffset1, short atomOffset2)
+	 *    for each atom pair:
 	 *       double charge
+	 *    for each atom pair:
 	 *       double Aij
+	 *    for each atom pair:
 	 *       double Bij
+	 *    for each atom pair:
 	 *       double radius1
+	 *    for each atom pair:
 	 *       double lambda1
+	 *    for each atom pair:
 	 *       double alpha1
+	 *    for each atom pair:
 	 *       double radius2
+	 *    for each atom pair:
 	 *       double lambda2
+	 *    for each atom pair:
 	 *       double alpha2
 	 */
 	private CUBuffer<ByteBuffer> data;
@@ -327,9 +337,13 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 			databuf.putDouble(resPair.offset);
 			
 			// put the atom pairs
+			// NOTE: use struct-of-arrays here, not array-of-structs
+			// so the GPU can coalesce memory accesses
 			for (int j=0; j<resPair.info.numAtomPairs; j++) {
 				databuf.putLong(resPair.info.flags[j]);
-				for (int k=0; k<resPair.info.numPrecomputedPerAtomPair; k++) {
+			}
+			for (int k=0; k<resPair.info.numPrecomputedPerAtomPair; k++) {
+				for (int j=0; j<resPair.info.numAtomPairs; j++) {
 					databuf.putDouble(resPair.info.precomputed[j*resPair.info.numPrecomputedPerAtomPair + k]);
 				}
 			}
@@ -343,10 +357,8 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 		
 		func = makeFunction("ccd");
 		func.numBlocks = 1;
-		final int fMaxNumAtoms = maxNumAtoms;
 		func.sharedMemCalc = (int blockThreads) -> {
 			return blockThreads*Double.BYTES // energy reduction
-				+ fMaxNumAtoms*3*Double.BYTES // coords copy
 				+ dihedrals.size()*Double.BYTES // nextx
 				+ dihedrals.size()*Double.BYTES // firstSteps
 				+ dihedrals.size()*Double.BYTES; // lastSteps
@@ -364,7 +376,7 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 		}
 		func.blockThreads = blockThreads;
 		*/
-		func.blockThreads = 32;//512;
+		func.blockThreads = 1024;
 	}
 	
 	@Override
