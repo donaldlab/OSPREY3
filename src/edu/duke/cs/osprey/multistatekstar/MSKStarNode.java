@@ -106,6 +106,13 @@ public class MSKStarNode {
 		return true;
 	}
 
+	private void printMetaData(KStarScore parent, KStarScore child) {
+		System.out.println();
+		System.out.println(child.getClass().getSimpleName());
+		System.out.println(parent.toString()+" complex # confs: "+parent.getSettings().search[getNumSubStates()-1].getNumConfs(true));
+		System.out.println(child.toString()+" complex # confs: "+child.getSettings().search[getNumSubStates()-1].getNumConfs(true));
+	}
+
 	private boolean scoreNeedsRefinement(MSKStarNode child) {
 		if(child.getScore().compareTo(this.getScore())<0) return true;
 		return false;
@@ -118,13 +125,14 @@ public class MSKStarNode {
 		KStarScore[] childScore = node.getStateKStarObjects(OBJ_FUNC);
 
 		for(int state=0;state<getNumStates();++state) {
-
+			boolean scoreUpdate = false;
 			KStarScore parent = parentScore[state];
 			KStarScore child = childScore[state];
 
 			int numSubStates = getNumSubStates();
 			int subState=0;
 			if(child instanceof KStarScoreLowerBound) {
+
 				//unbound state (upper bounds) must be lower in child
 				for(subState=0;subState<numSubStates-1;++subState) {
 
@@ -132,6 +140,7 @@ public class MSKStarNode {
 					BigDecimal cpf = child.getPartitionFunction(subState).getValues().qstar;
 
 					if(cpf.compareTo(ppf)>0) {
+						scoreUpdate = true;
 						//redo at epsilon of 0.0
 						((KStarScoreLowerBound) child).initialized[subState] = false;
 						child.getSettings().targetEpsilon = 0.0;
@@ -142,17 +151,23 @@ public class MSKStarNode {
 				BigDecimal ppf = parent.getPartitionFunction(numSubStates-1).getValues().qstar;
 				BigDecimal cpf = child.getPartitionFunction(numSubStates-1).getValues().qstar;
 
-				if(cpf.compareTo(ppf)<0) {
+				if(cpf.compareTo(ppf)<0) {	
+					scoreUpdate = true;
 					//redo at epsilon of 0.0
 					((KStarScoreLowerBound) child).initialized[numSubStates-1] = false;
 					child.getSettings().targetEpsilon = 0.0;
 				}
 
-				//re-run child
-				child.compute(Integer.MAX_VALUE);
+				if(scoreUpdate) {
+					//re-run child
+					if(DEBUG) printMetaData(parent, child);
+					child.compute(Integer.MAX_VALUE);
+					if(DEBUG) printMetaData(parent, child);
+				}
 			}
 
 			else if(child instanceof KStarScoreUpperBound) {
+
 				//unbound state (lower bounds) must be higher in child
 				for(subState=0;subState<numSubStates-1;++subState) {
 
@@ -160,6 +175,7 @@ public class MSKStarNode {
 					BigDecimal cpf = child.getPartitionFunction(subState).getValues().qstar;
 
 					if(cpf.compareTo(ppf)<0) {
+						scoreUpdate = true;
 						//redo at epsilon of 0.0
 						((KStarScoreUpperBound) child).initialized[subState] = false;
 						child.getSettings().targetEpsilon = 0.0;
@@ -171,13 +187,18 @@ public class MSKStarNode {
 				BigDecimal cpf = child.getPartitionFunction(numSubStates-1).getValues().qstar;
 
 				if(cpf.compareTo(ppf)>0) {
+					scoreUpdate = true;
 					//redo at epsilon of 0.0
 					((KStarScoreUpperBound) child).initialized[numSubStates-1] = false;
 					child.getSettings().targetEpsilon = 0.0;
 				}
 
-				//re-run child
-				child.compute(Integer.MAX_VALUE);
+				if(scoreUpdate) {
+					//re-run child
+					if(DEBUG) printMetaData(parent, child);
+					child.compute(Integer.MAX_VALUE);
+					if(DEBUG) printMetaData(parent, child);
+				}
 			}
 
 			//restore epsilons
@@ -186,10 +207,13 @@ public class MSKStarNode {
 
 		//see if new score no longer violates acceptance criterion
 		node.setScore(OBJ_FUNC);
+		childScore = node.getStateKStarObjects(OBJ_FUNC);
+
 		BigDecimal newScoreDiff = node.getScore().subtract(this.getScore());
-		if(newScoreDiff.compareTo(BigDecimal.ZERO)<0)
+		if(newScoreDiff.compareTo(BigDecimal.ZERO)<0) {
 			throw new RuntimeException(String.format("ERROR: refinement did not "
 					+ "work! old score diff: %12e, new score diff: %12e", oldScoreDiff, newScoreDiff));
+		}
 
 		//set score as parent score
 		node.setScore(this.getScore());
@@ -201,6 +225,9 @@ public class MSKStarNode {
 			for(MSKStarNode node : nodes) {					
 				for(int state=0;state<ksLB.length;++state) {
 
+					if(OBJ_FUNC.getCoeffs()[state].compareTo(BigDecimal.ZERO)==0)
+						continue;
+					
 					score = node.ksLB[state];
 					if(score!=null) {
 						if(!score.isFinal()) score.compute(Integer.MAX_VALUE);
@@ -226,6 +253,10 @@ public class MSKStarNode {
 			ArrayList<KStarScore> scores = new ArrayList<>();
 			for(MSKStarNode node : nodes) {
 				for(int state=0;state<ksLB.length;++state) {
+					
+					if(OBJ_FUNC.getCoeffs()[state].compareTo(BigDecimal.ZERO)==0)
+						continue;
+					
 					if(node.ksLB[state]!=null) scores.add(node.ksLB[state]);
 					// for leaves, upper and lower bounds are the same, so don't 
 					// try to compute both
@@ -255,9 +286,9 @@ public class MSKStarNode {
 
 			//refine scores if necessary
 			if(scoreNeedsRefinement(node)) {
-				System.out.print("WARNING: refining node score...");
+				System.out.println("WARNING: refining node score...");
 				refineScore(node);
-				System.out.println("done");
+				System.out.println("...refinement finished");
 			}
 		}
 
@@ -271,7 +302,8 @@ public class MSKStarNode {
 
 		ArrayList<ArrayList<ArrayList<AAAssignment>>> splits = RESIDUE_ORDER.getNextResidueAssignment(
 				OBJ_FUNC, 
-				getStateKStarSearch(OBJ_FUNC), 
+				getStateKStarSearch(OBJ_FUNC),
+				getStateKStarObjects(OBJ_FUNC),
 				NUM_MAX_MUT-getNumMutations(0)
 				);
 

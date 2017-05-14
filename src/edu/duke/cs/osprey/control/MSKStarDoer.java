@@ -21,6 +21,7 @@ import edu.duke.cs.osprey.multistatekstar.MSKStarFactory;
 import edu.duke.cs.osprey.multistatekstar.MSKStarTree;
 import edu.duke.cs.osprey.multistatekstar.MSSearchProblem;
 import edu.duke.cs.osprey.multistatekstar.MSSearchSettings;
+import edu.duke.cs.osprey.multistatekstar.PartitionFunctionMinimized;
 import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningControl;
@@ -127,6 +128,7 @@ public class MSKStarDoer {
 			System.out.println();
 
 			cfps[state] = makeStateCfp(state);
+			cfps[state].getParams().setValue("PRUNEPARTIALCONFS", msParams.getValue("PRUNEPARTIALCONFS"));
 			inputValidation.handleDoMinimize(cfps);
 
 			ParamSet sParams = cfps[state].getParams();
@@ -429,6 +431,7 @@ public class MSKStarDoer {
 	}
 
 	public void calcBestSequences() {
+		PartitionFunctionMinimized.SYNCHRONIZED_MINIMIZATION = this.msParams.getBool("SYNCHRONIZEDMINIMIZATION");
 		final String algOption = msParams.getValue("MultStateAlgOption");
 		switch(algOption.toLowerCase()) {
 		case "exhaustive":

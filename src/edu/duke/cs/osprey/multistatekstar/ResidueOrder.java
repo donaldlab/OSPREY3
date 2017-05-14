@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.multistatekstar;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 
@@ -8,9 +9,10 @@ import java.util.ArrayList;
  * @author Adegoke Ojewole (ao68@duke.edu)
  *
  */
-public abstract class ResidueOrder {
+@SuppressWarnings("serial")
+public abstract class ResidueOrder implements Serializable {
 
-	public class AAAssignment {
+	public class AAAssignment implements Serializable {
 		public int residuePos;
 		public int AATypePos;
 
@@ -20,7 +22,7 @@ public abstract class ResidueOrder {
 		}
 	}
 	
-	public class ResidueAssignment {
+	public class ResidueAssignment implements Serializable {
 		public ArrayList<ArrayList<Integer>> assignments;
 		
 		public ResidueAssignment(ArrayList<ArrayList<Integer>> assignments) {
@@ -36,7 +38,7 @@ public abstract class ResidueOrder {
 		}
 	}
 	
-	public class ResidueAssignmentScore {
+	public class ResidueAssignmentScore implements Serializable {
 		ResidueAssignment assignment;
 		BigDecimal score;
 		
@@ -62,7 +64,8 @@ public abstract class ResidueOrder {
 	
 	public abstract ArrayList<ArrayList<ArrayList<AAAssignment>>> getNextResidueAssignment(
 			LMB objFcn, 
-			MSSearchProblem[][] objFcnSearch, 
+			MSSearchProblem[][] objFcnSearch,
+			KStarScore[] objFcnScores,
 			int numMaxMut
 			);
 	

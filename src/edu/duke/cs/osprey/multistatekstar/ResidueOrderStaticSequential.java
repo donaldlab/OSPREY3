@@ -7,6 +7,7 @@ import java.util.ArrayList;
  * @author Adegoke Ojewole (ao68@duke.edu)
  *
  */
+@SuppressWarnings("serial")
 public class ResidueOrderStaticSequential extends ResidueOrder {
 
 	public ResidueOrderStaticSequential() {
@@ -41,10 +42,14 @@ public class ResidueOrderStaticSequential extends ResidueOrder {
 		ans.trimToSize();
 		return ans;
 	}
-
+	
 	@Override
-	public ArrayList<ArrayList<ArrayList<AAAssignment>>> getNextResidueAssignment(LMB objFcn,
-			MSSearchProblem[][] objFcnSearch, int numMaxMut) {
+	public ArrayList<ArrayList<ArrayList<AAAssignment>>> getNextResidueAssignment(
+			LMB objFcn,
+			MSSearchProblem[][] objFcnSearch, 
+			KStarScore[] objFcnScores,
+			int numMaxMut
+			) {
 
 		int state = 0;
 		int numSubStates = objFcnSearch[state].length;
@@ -75,4 +80,5 @@ public class ResidueOrderStaticSequential extends ResidueOrder {
 		ans.trimToSize();
 		return ans;
 	}
+	
 }

@@ -58,7 +58,7 @@ public class KStarScoreMinimized implements KStarScore {
 		for(int state=0;state<numStates-1;++state) {
 			pf = partitionFunctions[state];
 			if(pf==null || pf.getValues().qstar.compareTo(BigDecimal.ZERO)==0)
-				return BigDecimal.ZERO;
+				return BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
 			ans = ans.multiply(pf.getValues().qstar);
 		}
 		return ans;
@@ -66,7 +66,7 @@ public class KStarScoreMinimized implements KStarScore {
 
 	public BigDecimal getScore() {
 		BigDecimal den = getDenom();
-		if(den.compareTo(BigDecimal.ZERO) == 0) return BigDecimal.ZERO;
+		if(den.compareTo(BigDecimal.ZERO) == 0) return den;
 		PartitionFunction pf = partitionFunctions[numStates-1];
 		return pf==null ? BigDecimal.ZERO : pf.getValues().qstar.setScale(64, RoundingMode.HALF_UP).divide(den, RoundingMode.HALF_UP);
 	}
@@ -81,9 +81,9 @@ public class KStarScoreMinimized implements KStarScore {
 		if(isComputed()) return getScore();
 		
 		BigDecimal den = getDenom();
-		if(den.compareTo(BigDecimal.ZERO) == 0) return BigDecimal.ZERO;
+		if(den.compareTo(BigDecimal.ZERO) == 0) return den;
 		PartitionFunction pf = partitionFunctions[numStates-1];
-		if(pf==null) return BigDecimal.ZERO;
+		if(pf==null) return BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
 		BigDecimal num = pf.getValues().qstar.setScale(64, RoundingMode.HALF_UP);
 		if(pf.getStatus()!=Status.Estimated) num = num.add(pf.getValues().qprime).add(pf.getValues().pstar);
 		return num.divide(den, RoundingMode.HALF_UP);
@@ -102,14 +102,13 @@ public class KStarScoreMinimized implements KStarScore {
 		return ans.substring(0,ans.length()-1);
 	}
 
-	protected boolean init(int state) {
+	protected boolean init(int state) {		
 		if(settings.isReportingProgress)
 			System.out.println("state"+state+": "+settings.search[state].settings.getFormattedSequence()+" "+settings.pfTypes[state]);
-
+		
 		//first prune the pruning matrix
-		settings.search[state].prunePmat(isFinal(), settings.cfp.getParams().getInt("ALGOPTION")>=3);
-		//settings.search[state].prunePmat(true, settings.cfp.getParams().getInt("ALGOPTION")>=3);
-		//settings.search[state].prunePmat(false, settings.cfp.getParams().getInt("ALGOPTION")>=3);
+		boolean doPruning = isFinal() || settings.cfp.getParams().getBool("PRUNEPARTIALCONFS");
+		settings.search[state].prunePmat(doPruning, settings.cfp.getParams().getInt("ALGOPTION")>=3);
 
 		//make conf search factory (i.e. A* tree)
 		ConfSearchFactory confSearchFactory = MSKStarFactory.makeConfSearchFactory(settings.search[state], settings.cfp);
@@ -123,7 +122,7 @@ public class KStarScoreMinimized implements KStarScore {
 				confSearchFactory,
 				settings.ecalcs[state]
 				);
-
+		
 		partitionFunctions[state].setReportProgress(settings.isReportingProgress);
 
 		//init partition function
@@ -160,11 +159,13 @@ public class KStarScoreMinimized implements KStarScore {
 			if(!constrSatisfied)//state-specific constraints
 				return;
 
-			if(!initialized[state])
+			if(!initialized[state]) {
 				initialized[state] = init(state);
-
-			if(partitionFunctions[state].getStatus() != Status.Estimated)
+			}
+			
+			if(partitionFunctions[state].getStatus() != Status.Estimated) {
 				compute(state, maxNumConfs);
+			}
 		}
 
 		//check all constraints now. technically, we should only check constraints
@@ -275,8 +276,9 @@ public class KStarScoreMinimized implements KStarScore {
 		p2pf.setReportProgress(settings.isReportingProgress);
 
 		p2pf.init(targetEpsilon);//enumerating over pstar, energies can be high
-		p2pf.getValues().qstar = qstar;//keep old qstar
+		p2pf.getValues().qstar = qstar;//initialize to old qstar
 		p2pf.compute(targetScoreWeights);
+		
 		return p2pf;
 	}
 
@@ -291,7 +293,10 @@ public class KStarScoreMinimized implements KStarScore {
 		//no more q conformations, and we have not reached epsilon
 		else if(pf.getStatus() == Status.NotEnoughConformations) {
 			PartitionFunctionMinimized p2pf = (PartitionFunctionMinimized) phase2(state);
+			
 			pf.getValues().qstar = p2pf.getValues().qstar;
+			pf.setNumConfsEvaluated(pf.getNumConfsEvaluated() + p2pf.getNumConfsEvaluated());
+			
 			if(settings.search[state].isFullyAssigned() && settings.numTopConfsToSave > 0)
 				pf.saveEConfs(p2pf.topConfs);
 		}

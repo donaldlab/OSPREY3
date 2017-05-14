@@ -95,6 +95,16 @@ public class MSSearchProblem extends SearchProblem {
 		}
 		return ans;
 	}
+	
+	public BigInteger getNumConfs(boolean assigned) {
+		BigInteger ans = BigInteger.ONE;
+		for(int pos : getPosNums(assigned)) {
+			ans = ans.multiply(BigInteger.valueOf(this.pruneMat.unprunedRCsAtPos(pos).size()));
+			if(ans.compareTo(BigInteger.ZERO)==0) 
+				return ans;
+		}
+		return ans;
+	}
 
 	protected void prunePmat(SearchProblem search, boolean prunePairs) {
 

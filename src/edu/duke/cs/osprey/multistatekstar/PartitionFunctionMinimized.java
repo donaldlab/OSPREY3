@@ -35,7 +35,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	public static final BigDecimal MIN_VALUE = BigDecimal.ZERO;
 
 	public static boolean SYNCHRONIZED_MINIMIZATION = false;
-
+	
 	protected PriorityQueue<ScoredConf> topConfs;
 	protected int maxNumTopConfs;
 	protected BigDecimal qstarScoreWeights;
@@ -53,10 +53,10 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 			) {
 		super(emat, pmat, confSearchFactory, ecalc);
 		this.invmat = invmat;
-		qstarScoreWeights = null;
-		topConfs = null;
-		scoredConfs = null;
-		energiedConfs = null;
+		this.qstarScoreWeights = null;
+		this.topConfs = null;
+		this.scoredConfs = null;
+		this.energiedConfs = null;
 	}
 
 	protected void writeTopConfs(int state, MSSearchProblem search) {
@@ -482,5 +482,13 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 		scoredConfs = null;
 		energiedConfs = null;
+	}
+	
+	public void setNumConfsEvaluated(int val) {
+		numConfsEvaluated = val;
+	}
+	
+	public int getNumConfsEvaluated() {
+		return numConfsEvaluated;
 	}
 }
