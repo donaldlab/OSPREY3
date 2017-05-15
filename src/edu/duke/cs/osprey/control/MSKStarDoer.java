@@ -21,6 +21,7 @@ import edu.duke.cs.osprey.multistatekstar.MSKStarFactory;
 import edu.duke.cs.osprey.multistatekstar.MSKStarTree;
 import edu.duke.cs.osprey.multistatekstar.MSSearchProblem;
 import edu.duke.cs.osprey.multistatekstar.MSSearchSettings;
+import edu.duke.cs.osprey.multistatekstar.PartitionFunctionMinimized;
 import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningControl;
@@ -127,6 +128,7 @@ public class MSKStarDoer {
 			System.out.println();
 
 			cfps[state] = makeStateCfp(state);
+			cfps[state].getParams().setValue("PRUNEPARTIALCONFS", msParams.getValue("PRUNEPARTIALCONFS"));
 			inputValidation.handleDoMinimize(cfps);
 
 			ParamSet sParams = cfps[state].getParams();
@@ -377,10 +379,10 @@ public class MSKStarDoer {
 	 * @return
 	 */
 	private ArrayList<ArrayList<ArrayList<String>>> listAllSeqs(){
-		
+
 		System.out.println();
 		System.out.print("Counting number of possible sequences...");
-		
+
 		//for all bound states, list all possible sequences for the mutable residues,
 		//based on AATypeOptions
 		ArrayList<ArrayList<ArrayList<String>>> ans = new ArrayList<>();
@@ -402,7 +404,7 @@ public class MSKStarDoer {
 		System.out.println("done");
 		System.out.println("Number of possible sequences: "+ans.get(0).size());
 		System.out.println();
-		
+
 		ans.trimToSize();
 		return ans;
 	}
@@ -429,6 +431,7 @@ public class MSKStarDoer {
 	}
 
 	public void calcBestSequences() {
+		PartitionFunctionMinimized.SYNCHRONIZED_MINIMIZATION = this.msParams.getBool("SYNCHRONIZEDMINIMIZATION");
 		final String algOption = msParams.getValue("MultStateAlgOption");
 		switch(algOption.toLowerCase()) {
 		case "exhaustive":
@@ -466,10 +469,10 @@ public class MSKStarDoer {
 		PrintStream fout = null;
 		String elapsed = null;
 		Stopwatch stopwatch = new Stopwatch().start();
-		
+
 		try {
 			fout = new PrintStream(new FileOutputStream(new File(fname), true));
-			
+
 			for(int seqNum=0; seqNum<numSeqsWanted; seqNum++){
 				String seq = tree.nextSeq();//this will find the best sequence
 				if(seq == null)//empty sequence...indicates no more sequence possibilities
@@ -479,9 +482,9 @@ public class MSKStarDoer {
 					fout.println(seq); fout.flush();
 				}
 			}
-			
+
 			elapsed = stopwatch.getTime(2);
-			
+
 		} catch (Exception e) {
 			e.printStackTrace();
 		} finally {
@@ -492,7 +495,7 @@ public class MSKStarDoer {
 		System.out.println();
 		System.out.println("Finished sub-linear multi-state K* in "+elapsed);
 		System.out.println();
-		
+
 		//this prints out the total number of sequences
 		listAllSeqs();
 	}
@@ -508,19 +511,43 @@ public class MSKStarDoer {
 
 		Stopwatch stopwatch = new Stopwatch().start();
 		ArrayList<ArrayList<ArrayList<String>>> seqList = listAllSeqs();
-		
+
+		//process selected mutants
+		String mutFname = msParams.getValue("MUTFILE", "");
+		if(mutFname.length()>0) {
+			//extract mutations from file
+			ArrayList<ArrayList<String>> mutSeqs = readMutFile(mutFname);
+			//make sure they exist in seqList; print warnings for/remove those that don't
+			ArrayList<ArrayList<String>> keep = new ArrayList<>();
+			for(ArrayList<String> seq : mutSeqs){
+				if(seqList.get(0).contains(seq)) keep.add(seq);
+			}
+			keep.trimToSize();
+			mutSeqs.removeAll(keep);
+			if(mutSeqs.size()>0){
+				System.out.println();
+				System.out.println("WARNING: the following "+ mutSeqs.size() +" sequence(s) in MUTFILE "
+						+ "were not in the original sequence space and will be ignored");
+				for(ArrayList<String> seq : mutSeqs){
+					for(String str : seq) System.out.print(str + " ");
+					System.out.println();
+				}
+				System.out.println();
+			}
+			//set seqlist to the mutants of interest
+			for(int state=0;state<numStates;++state) seqList.set(state, keep);
+		}
+
+		//resume
 		String fname = "sequences-exhaustive."+msParams.getValue("RUNNAME")+".txt";
 		boolean resume = msParams.getBool("RESUME");
 		if(resume) {
 			ArrayList<ArrayList<ArrayList<String>>> completed = getCompletedSeqs(fname);
 			for(int state=0;state<numStates;++state){
-				for(ArrayList<String> seq : completed.get(state)){
-					if(seqList.get(state).contains(seq))
-						seqList.get(state).remove(seq);
-				}
+				seqList.get(state).removeAll(completed.get(state));
 			}
 		}
-		
+
 		String[][] stateKSS = new String[numStates][];
 		for(int state=0;state<numStates;++state) stateKSS[state] = new String[seqList.get(state).size()];
 		PrintStream fout = null;
@@ -537,7 +564,7 @@ public class MSKStarDoer {
 					fout.println();
 					fout.println("State"+state+": ");
 					fout.println();
-					
+
 					System.out.println();
 					System.out.println("State"+state+": ");
 					System.out.println();
@@ -546,7 +573,7 @@ public class MSKStarDoer {
 				//make energy calculators for this state
 				if(doMinimize) ecalcsCont[state] = makeEnergyCalculators(state, true);
 				else ecalcsDisc[state] = makeEnergyCalculators(state, false);
-				
+
 				for(int seqNum=0; seqNum<stateKSS[state].length; seqNum++){
 					System.out.println();
 					System.out.print("Computing sequence "+(seqNum+1)+"/"+stateKSS[state].length+"...");
@@ -592,6 +619,29 @@ public class MSKStarDoer {
 				System.out.println(kss[subState]);
 			}
 		}
+	}
+
+	private ArrayList<ArrayList<String>> readMutFile(String fname) {
+		ArrayList<ArrayList<String>> ans = new ArrayList<>();
+
+		if(!(new File(fname)).exists()) return ans;
+
+		try (BufferedReader br = new BufferedReader(new FileReader(fname))) {
+			String line;
+			while ((line = br.readLine()) != null) {
+				line = line.trim();
+				if(line.length()==0) continue;
+
+				ArrayList<String> seq = new ArrayList<>();
+				StringTokenizer st = new StringTokenizer(line);
+				while(st.hasMoreTokens()) seq.add(st.nextToken());
+				seq.trimToSize();
+				ans.add(seq);
+			}
+		} catch (IOException e) { e.printStackTrace(); }
+
+		ans.trimToSize();
+		return ans;
 	}
 
 	private ArrayList<ArrayList<ArrayList<String>>> getCompletedSeqs(String fname) {

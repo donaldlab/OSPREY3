@@ -33,6 +33,7 @@ public class MSSearchSettings implements Serializable {
 			aas = aas.substring(0, aas.length()-1);
 			sb.append(aas+"-"+mutRes.get(i)+" ");
 		}
+		
 		return sb.toString().trim();
 	}
 }

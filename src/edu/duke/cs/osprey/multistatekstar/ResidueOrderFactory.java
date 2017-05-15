@@ -9,8 +9,16 @@ public class ResidueOrderFactory {
 		switch(val.toLowerCase()) {
 		case "staticsequential":
 			return new ResidueOrderStaticSequential();
-		case "dynamicfscore":
-			return new ResidueOrderDynamicScore(objFcnSearch);
+		case "staticmindomp":
+			return new ResidueOrderStaticMinDomain(objFcnSearch, true);
+		case "staticmindoms":
+			return new ResidueOrderStaticMinDomain(objFcnSearch, false);
+		case "dynamicscoref":
+			return new ResidueOrderDynamicScore(objFcnSearch, true);
+		case "dynamicscoreh":
+			return new ResidueOrderDynamicScore(objFcnSearch, false);
+		case "dynamicscoremindom":
+			return new ResidueOrderDynamicScoreMinDom(objFcnSearch);
 		default:
 			throw new UnsupportedOperationException("ERROR: unsupported residue order type: "+val);
 		}

@@ -22,6 +22,8 @@ import edu.duke.cs.osprey.tools.Stopwatch;
  *
  */
 public class MSKStarTree {
+	
+	public static boolean DEBUG = false;
 
 	protected LMB objFcn;//we are minimizing objFcn
 	protected LMB[] msConstr;
@@ -131,7 +133,7 @@ public class MSKStarTree {
 	private boolean canPrune(MSKStarNode curNode) {
 		//after some deliberation, i think this is correct. getkstarscores always
 		//correctly maps to the lower bound, since the formulation of LMBs always
-		//transforms the expression to an upper bound. this is the desired behavior
+		//transforms the expression to something bounded above by 0, which is the desired behavior
 		//check all global constraints
 		for(LMB lmb : msConstr)
 			if(lmb.eval(curNode.getStateKStarScores(lmb)).compareTo(BigDecimal.ZERO) >= 0)
@@ -177,6 +179,12 @@ public class MSKStarTree {
 		ThreadParallelism.setNumThreads(astarThreads);
 		MSKStarNode.PARALLEL_EXPANSION = astarThreads > 1 ? true : false;
 		//MSKStarNode.PARALLELISM_MULTIPLIER = astarThreads;
+		
+		MSKStarTree.DEBUG = false;
+		MSKStarNode.DEBUG = true;
+		MSSearchProblem.DEBUG = false;
+		PartitionFunctionDiscrete.DEBUG = true;
+		ResidueOrderDynamicScoreMinDom.DEBUG = false;
 	}
 
 	private MSKStarNode getRootNode() {
@@ -283,7 +291,7 @@ public class MSKStarTree {
 				numPruned += curNode.getNumPruned();
 				//expansion is either a refinement of the same node or creation
 				//of completely new nodes
-				if(children.size()>0 && curNode.equals(children.get(0))) numSelfExpanded++;
+				if(children.size()==1 && curNode.equals(children.get(0))) numSelfExpanded++;
 				numExpanded++;
 
 				for(MSKStarNode child : children) {
@@ -297,8 +305,8 @@ public class MSKStarTree {
 
 	private void reportProgress(MSKStarNode curNode) {
 		MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-		System.out.println(String.format("level: %d/%d, score: %12e, size: %d, expanded: %d, pruned: %d, defined: %d, completed: %d, returned: %d/%d, time: %6s, heapMem: %.0f%%",
-				curNode.getNumAssignedResidues(), numTreeLevels, curNode.getScore(), pq.size(), numExpanded, numPruned, numFullyDefined, numCompleted,
+		System.out.println(String.format("level: %d/%d, score: %12e, size: %d, expanded: %d, self-expanded: %d, pruned: %d, defined: %d, completed: %d, returned: %d/%d, time: %6s, heapMem: %.0f%%",
+				curNode.getNumAssignedResidues(), numTreeLevels, curNode.getScore(), pq.size(), numExpanded, numSelfExpanded, numPruned, numFullyDefined, numCompleted,
 				numSeqsReturned, numSeqsWanted, stopwatch.getTime(2), 100f*heapMem.getUsed()/heapMem.getMax()));
 	}
 

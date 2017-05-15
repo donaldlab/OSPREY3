@@ -8,6 +8,9 @@ import java.lang.management.MemoryUsage;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.PriorityQueue;
 
 import edu.duke.cs.osprey.confspace.ConfSearch;
@@ -31,11 +34,15 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	public static final BigDecimal MAX_VALUE = new BigDecimal("2e65536");
 	public static final BigDecimal MIN_VALUE = BigDecimal.ZERO;
 
+	public static boolean SYNCHRONIZED_MINIMIZATION = false;
+	
 	protected PriorityQueue<ScoredConf> topConfs;
 	protected int maxNumTopConfs;
 	protected BigDecimal qstarScoreWeights;
 	protected int numActiveThreads;
 	protected PruningMatrix invmat;
+	protected ArrayList<ScoredConf> scoredConfs;
+	protected ArrayList<EnergiedConf> energiedConfs;
 
 	public PartitionFunctionMinimized(
 			EnergyMatrix emat, 
@@ -46,8 +53,10 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 			) {
 		super(emat, pmat, confSearchFactory, ecalc);
 		this.invmat = invmat;
-		qstarScoreWeights = null;
-		topConfs = null;
+		this.qstarScoreWeights = null;
+		this.topConfs = null;
+		this.scoredConfs = null;
+		this.energiedConfs = null;
 	}
 
 	protected void writeTopConfs(int state, MSSearchProblem search) {
@@ -88,7 +97,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		while(other.size()>0) 
 			saveConf(other.poll());
 	}
-	
+
 	@Override
 	public void init(double targetEpsilon) {
 
@@ -109,14 +118,14 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		scoreConfs = confsSplitter.makeStream();
 		energyConfs = confsSplitter.makeStream();
 		numConfsEvaluated = 0;
-		numConfsToScore = tree.getNumConformations();
+		numConfsToScore = tree.getNumConformations();		
 		qprimeUnevaluated = BigDecimal.ZERO;
 		qprimeUnscored = BigDecimal.ZERO;
 
 		qstarScoreWeights = BigDecimal.ZERO;
 		numActiveThreads = 0;
 		maxNumTopConfs = 0;
-		
+
 		stopwatch = new Stopwatch().start();
 	}
 
@@ -157,6 +166,140 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		return qprimeUnevaluated.add(qprimeUnscored);
 	}
 
+	protected void waitForAllThreads() {
+		while(numActiveThreads > 0) {
+			try { this.wait(); } catch (InterruptedException e) { e.printStackTrace(); }
+		}
+	}
+
+	protected ScoredConf getScoredConf(int numScored) {
+		ScoredConf conf;
+
+		if ((conf = energyConfs.next()) == null) {
+			if (SYNCHRONIZED_MINIMIZATION) {
+				if(status != Status.Estimated && numScored == 0) 
+					status = Status.NotEnoughConformations;
+			}
+			else {
+				waitForAllThreads();
+				if(status != Status.Estimated) 
+					status = Status.NotEnoughConformations;
+			}
+			return null;
+		}
+
+		if (boltzmann.calc(conf.getScore()).compareTo(BigDecimal.ZERO) == 0) {
+			if (SYNCHRONIZED_MINIMIZATION) {
+				if(status != Status.Estimated && numScored == 0) 
+					status = Status.NotEnoughFiniteEnergies;
+			}
+			else {
+				waitForAllThreads();
+				if(status != Status.Estimated) 
+					status = Status.NotEnoughFiniteEnergies;
+			}
+			return null;
+		}
+
+		++numActiveThreads;
+		return conf;
+	}
+
+	protected ArrayList<ScoredConf> getScoredConfs(int numRequested) {
+		ScoredConf conf;
+		if(scoredConfs == null) scoredConfs = new ArrayList<>(Collections.nCopies(numRequested, null));
+		if(energiedConfs == null) energiedConfs = new ArrayList<>();
+		int numScored = 0;
+
+		while(numScored < numRequested) {
+			conf = getScoredConf(numScored);
+			if(conf==null) break;
+			scoredConfs.set(numScored++, conf);
+		}
+
+		//trim if numScored < numRequested
+		if(numScored < numRequested) {
+			scoredConfs.subList(numScored, scoredConfs.size()).clear();
+		}
+
+		return numScored > 0 ? scoredConfs : null;
+	}
+
+	protected void handlePhase1Conf(EnergiedConf econf) {
+		if(status == Status.Estimating) {
+
+			// get the boltzmann weight
+			BigDecimal energyWeight = boltzmann.calc(econf.getEnergy());
+
+			// update pfunc state
+			numConfsEvaluated++;
+			values.qstar = values.qstar.add(energyWeight);
+			values.qprime = updateQprime(econf);
+
+			// report progress if needed
+			if (isReportingProgress && numConfsEvaluated % ecalc.getParallelism() == 0) {
+				phase1Output(econf);
+			}
+
+			// report confs if needed
+			if (confListener != null) {
+				confListener.onConf(econf);
+			}
+
+			// update status if needed
+			double effectiveEpsilon = values.getEffectiveEpsilon();
+			if(Double.isNaN(effectiveEpsilon)) {
+				status = Status.NotEnoughFiniteEnergies;
+			}
+			else if (effectiveEpsilon <= targetEpsilon) {
+				status = Status.Estimated;
+				if (isReportingProgress) phase1Output(econf);//just to let the user know we reached epsilon
+			}
+		}
+
+		--numActiveThreads;
+		this.notify();
+	}
+
+	protected void handlePhase2Conf(EnergiedConf econf, BigDecimal targetScoreWeights) {
+		if(status == Status.Estimating) {
+
+			// get the boltzmann weight
+			BigDecimal scoreWeight = boltzmann.calc(econf.getScore());
+			qstarScoreWeights = qstarScoreWeights.add(scoreWeight);	
+			BigDecimal energyWeight = boltzmann.calc(econf.getEnergy());
+
+			// update pfunc state
+			numConfsEvaluated++;
+			values.qstar = values.qstar.add(energyWeight);
+			values.qprime = updateQprime(econf);
+			BigDecimal pdiff = targetScoreWeights.subtract(qstarScoreWeights);
+
+			// report progress if needed
+			if (isReportingProgress && numConfsEvaluated % ecalc.getParallelism() == 0) {
+				phase2Output(econf, pdiff);
+			}
+
+			// report confs if needed
+			if (confListener != null) {
+				confListener.onConf(econf);
+			}
+
+			// update status if needed
+			double effectiveEpsilon = values.getEffectiveEpsilon();
+			if(Double.isNaN(effectiveEpsilon)) {
+				status = Status.NotEnoughFiniteEnergies;
+			}
+			else if (effectiveEpsilon <= targetEpsilon) {
+				status = Status.Estimated;
+				if (isReportingProgress) phase2Output(econf, pdiff);
+			}
+		}
+
+		--numActiveThreads;
+		this.notify();
+	}
+
 	@Override
 	public void compute(int maxNumConfs) {
 		numActiveThreads = 0;
@@ -170,7 +313,9 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 			// get a conf from the tree
 			// lock though to keep from racing the listener thread on the conf tree
-			ScoredConf conf;
+			ScoredConf conf = null;
+			ArrayList<ScoredConf> scoredConfs = null;
+
 			synchronized (this) {
 
 				// should we keep going?
@@ -178,69 +323,55 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 					break;
 				}
 
-				if ((conf = energyConfs.next()) == null) {
-					while(numActiveThreads > 0) {
-						try { this.wait(); } catch (InterruptedException e) { e.printStackTrace(); }
-					}
-					if(status != Status.Estimated) status = Status.NotEnoughConformations;
-					break;
+				// get a list of scored confs
+				if (SYNCHRONIZED_MINIMIZATION) {
+					if((scoredConfs = getScoredConfs(ecalc.getParallelism())) == null)
+						break;
 				}
 
-				if (boltzmann.calc(conf.getScore()).compareTo(BigDecimal.ZERO) == 0) {
-					while(numActiveThreads > 0) {
-						try { this.wait(); } catch (InterruptedException e) { e.printStackTrace(); }
-					}
-					if(status != Status.Estimated) status = Status.NotEnoughFiniteEnergies;
-					break;
+				// or a single scored conf
+				else {
+					if ((conf = getScoredConf(-1)) == null) 
+						break;
 				}
-
-				++numActiveThreads;
 			}
 
-			// do the energy calculation asynchronously
-			ecalc.calcEnergyAsync(conf, (EnergiedConf econf) -> {
-
-				// energy calculation done
-
-				// this is (potentially) running on a task executor listener thread
-				// so lock to keep from racing the main thread
-				synchronized (this) {
-
-					if(status == Status.Estimating) {
-
-						// get the boltzmann weight
-						BigDecimal energyWeight = boltzmann.calc(econf.getEnergy());
-
-						// update pfunc state
-						numConfsEvaluated++;
-						values.qstar = values.qstar.add(energyWeight);
-						values.qprime = updateQprime(econf);
-
-						// report progress if needed
-						if (isReportingProgress && numConfsEvaluated % ecalc.getParallelism() == 0) {
-							phase1Output(econf);
-						}
-
-						// report confs if needed
-						if (confListener != null) {
-							confListener.onConf(econf);
-						}
-
-						// update status if needed
-						double effectiveEpsilon = values.getEffectiveEpsilon();
-						if(Double.isNaN(effectiveEpsilon)) {
-							status = Status.NotEnoughFiniteEnergies;
-						}
-						else if (effectiveEpsilon <= targetEpsilon) {
-							status = Status.Estimated;
-							if (isReportingProgress) phase1Output(econf);//just to let the user know we reached epsilon
-						}
+			// now handle scored confs
+			// wait for all confs to finish minimizing, then process confs in order of score
+			if (SYNCHRONIZED_MINIMIZATION) {
+				for (ScoredConf sconf : scoredConfs) ecalc.calcEnergyAsync(sconf, (EnergiedConf econf) -> {
+					synchronized(this) {
+						energiedConfs.add(econf);
 					}
+				});
+				ecalc.waitForFinish();
 
-					--numActiveThreads;
-					this.notify();
+				// sort energied confs by score
+				Collections.sort(energiedConfs, new Comparator<EnergiedConf>() {
+					@Override
+					public int compare(EnergiedConf o1, EnergiedConf o2) {
+						return o1.getScore() <= o2.getScore() ? -1 : 1;
+					}
+				});
+
+				synchronized (this) {
+					for (EnergiedConf econf : energiedConfs) 
+						handlePhase1Conf(econf);
 				}
-			});
+				energiedConfs.clear();
+			}
+
+			// or do the energy calculation asynchronously
+			else {
+				ecalc.calcEnergyAsync(conf, (EnergiedConf econf) -> {
+					// energy calculation done
+					// this is (potentially) running on a task executor listener thread
+					// so lock to keep from racing the main thread
+					synchronized (this) {
+						handlePhase1Conf(econf);
+					}
+				});
+			}
 		}
 
 		// wait for any remaining async minimizations to finish
@@ -268,7 +399,8 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 			// get a conf from the tree
 			// lock though to keep from racing the listener thread on the conf tree
-			ScoredConf conf;
+			ScoredConf conf = null;
+			ArrayList<ScoredConf> scoredConfs = null;
 			synchronized (this) {
 
 				// should we keep going?
@@ -276,72 +408,54 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 					break;
 				}
 
-				if ((conf = energyConfs.next()) == null) {
-					while(numActiveThreads > 0) {
-						try { this.wait(); } catch (InterruptedException e) { e.printStackTrace(); }
-					}
-					if(status != Status.Estimated) status = Status.NotEnoughConformations;
-					break;
+				// get a list of scored confs
+				if (SYNCHRONIZED_MINIMIZATION) {
+					if((scoredConfs = getScoredConfs(ecalc.getParallelism())) == null)
+						break;
 				}
 
-				if (boltzmann.calc(conf.getScore()).compareTo(BigDecimal.ZERO) == 0) {
-					while(numActiveThreads > 0) {
-						try { this.wait(); } catch (InterruptedException e) { e.printStackTrace(); }
-					}
-					if(status != Status.Estimated) status = Status.NotEnoughFiniteEnergies;
-					break;
+				// or a single scored conf
+				else {
+					if ((conf = getScoredConf(-1)) == null) 
+						break;
 				}
-
-				++numActiveThreads;
 			}
 
-			// do the energy calculation asynchronously
-			ecalc.calcEnergyAsync(conf, (EnergiedConf econf) -> {
-
-				// energy calculation done
-
-				// this is (potentially) running on a task executor listener thread
-				// so lock to keep from racing the main thread
-				synchronized (this) {
-
-					if(status == Status.Estimating) {
-
-						// get the boltzmann weight
-						BigDecimal scoreWeight = boltzmann.calc(econf.getScore());
-						qstarScoreWeights = qstarScoreWeights.add(scoreWeight);	
-						BigDecimal energyWeight = boltzmann.calc(econf.getEnergy());
-
-						// update pfunc state
-						numConfsEvaluated++;
-						values.qstar = values.qstar.add(energyWeight);
-						values.qprime = updateQprime(econf);
-						BigDecimal pdiff = targetScoreWeights.subtract(qstarScoreWeights);
-
-						// report progress if needed
-						if (isReportingProgress && numConfsEvaluated % ecalc.getParallelism() == 0) {
-							phase2Output(econf, pdiff);
-						}
-
-						// report confs if needed
-						if (confListener != null) {
-							confListener.onConf(econf);
-						}
-
-						// update status if needed
-						double effectiveEpsilon = values.getEffectiveEpsilon();
-						if(Double.isNaN(effectiveEpsilon)) {
-							status = Status.NotEnoughFiniteEnergies;
-						}
-						else if (effectiveEpsilon <= targetEpsilon) {
-							status = Status.Estimated;
-							if (isReportingProgress) phase2Output(econf, pdiff);
-						}
+			// wait for all confs to finish minimizing, then process confs in order of score
+			if (SYNCHRONIZED_MINIMIZATION) {
+				for (ScoredConf sconf : scoredConfs) ecalc.calcEnergyAsync(sconf, (EnergiedConf econf) -> {
+					synchronized(this) {
+						energiedConfs.add(econf);
 					}
+				});
+				ecalc.waitForFinish();
 
-					--numActiveThreads;
-					this.notify();
+				// sort energied confs by score
+				Collections.sort(energiedConfs, new Comparator<EnergiedConf>() {
+					@Override
+					public int compare(EnergiedConf o1, EnergiedConf o2) {
+						return o1.getScore() <= o2.getScore() ? -1 : 1;
+					}
+				});
+
+				synchronized (this) {
+					for (EnergiedConf econf : energiedConfs) 
+						handlePhase2Conf(econf, targetScoreWeights);
 				}
-			});
+				energiedConfs.clear();
+			}
+
+			// or just handle the conf asynchronously
+			else {
+				ecalc.calcEnergyAsync(conf, (EnergiedConf econf) -> {
+					// energy calculation done
+					// this is (potentially) running on a task executor listener thread
+					// so lock to keep from racing the main thread
+					synchronized (this) {
+						handlePhase2Conf(econf, targetScoreWeights);
+					}
+				});
+			}
 		}
 
 		// wait for any remaining async minimizations to finish
@@ -365,5 +479,16 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	public void cleanup() {
 		scoreConfs = null;
 		energyConfs = null;
+
+		scoredConfs = null;
+		energiedConfs = null;
+	}
+	
+	public void setNumConfsEvaluated(int val) {
+		numConfsEvaluated = val;
+	}
+	
+	public int getNumConfsEvaluated() {
+		return numConfsEvaluated;
 	}
 }
