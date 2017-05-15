@@ -128,7 +128,7 @@ public class MSKStarDoer {
 			System.out.println();
 
 			cfps[state] = makeStateCfp(state);
-			cfps[state].getParams().setValue("PRUNEPARTIALCONFS", msParams.getValue("PRUNEPARTIALCONFS"));
+			cfps[state].getParams().setValue("PRUNEPARTIALSEQCONFS", msParams.getValue("PRUNEPARTIALSEQCONFS"));
 			inputValidation.handleDoMinimize(cfps);
 
 			ParamSet sParams = cfps[state].getParams();

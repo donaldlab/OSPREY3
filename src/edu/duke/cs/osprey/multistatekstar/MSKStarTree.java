@@ -267,7 +267,9 @@ public class MSKStarTree {
 				return null;
 			}
 
-			assert(lastScore.compareTo(curNode.getScore())<=0);
+			if(lastScore.compareTo(curNode.getScore())>0)
+				throw new RuntimeException(String.format("ERROR: A* scores must "
+						+ "be non-decreasing. last: %12e, current: %12e", lastScore, curNode.getScore()));
 			lastScore = curNode.getScore();
 
 			//if(numExpanded % 8==0) 
