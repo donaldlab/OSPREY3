@@ -11,7 +11,7 @@ public class ResidueOrderFactory {
 			return new ResidueOrderStaticSequential();
 		case "staticmindomp":
 			return new ResidueOrderStaticMinDomain(objFcnSearch, true);
-		case "staticmindomf":
+		case "staticmindoms":
 			return new ResidueOrderStaticMinDomain(objFcnSearch, false);
 		case "dynamicscoref":
 			return new ResidueOrderDynamicScore(objFcnSearch, true);
