@@ -34,7 +34,7 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 	private Integer[] notAllowedPos;//unallowed positions
 	private int[] totUndefinedPos;//undefined+notallowed
 	private int totNumUndefined;
-	private final int invalid = -2;
+	private final int defined = -2;
 
 	public MultiSequenceConfTree(MSSearchProblem search, EnergyMatrix emat, PruningMatrix pmat) {
 		super(new FullAStarNode.Factory(search.getNumAssignedPos()), search, pmat);
@@ -80,9 +80,7 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 		for (int pos=0;pos<unprunedRCsAtPos.length;++pos) {//store all assigned and unassigned
 			ArrayList<Integer> srcRCs = pmat.unprunedRCsAtPos(index2AbsolutePos.get(pos));
 			int[] destRCs = new int[srcRCs.size()];
-			for (int i=0; i<srcRCs.size(); i++) {
-				destRCs[i] = srcRCs.get(i);
-			}
+			for (int i=0; i<srcRCs.size(); i++) destRCs[i] = srcRCs.get(i);
 			unprunedRCsAtPos[pos] = destRCs;
 		}
 
@@ -109,15 +107,7 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 		}
 		return absoluteTuple;
 	}
-
-	boolean isFullyAssigned(int[] conf) {
-		int len = conf.length;
-		for(int i=0;i<len;++i) {
-			if(conf[i]==-1) return false;
-		}
-		return true;
-	}
-
+	
 	protected double scoreNode(int childPos, int childRc, int[] conf) {		
 		if(traditionalScore) {
 			rcTuple.set(conf);
@@ -128,21 +118,26 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 			absoluteTuple = setAbsolutePos(rcTuple);
 			double gScore = emat.getConstTerm() + emat.getInternalEnergy(absoluteTuple);//intra+pairwise
 			
-			boolean fullyAssigned = isFullyAssigned(conf);
+			boolean fullyAssigned = true;
+			int len = numPos;
+			for(int i=0;i<len;++i) {
+				if(conf[i]==-1) fullyAssigned = false;
+			}
 			
 			//h-score
 			//first fill in totUndefined
 			int k, l; totNumUndefined = 0;
 			for (k=0; k<numUndefined; k++) totUndefinedPos[k] = undefinedPos[k];
 			for (l=0; l<notAllowedPos.length; ++l) totUndefinedPos[k+l] = absolutePos2Index.get(notAllowedPos[l]);
-			Arrays.fill(totUndefinedPos, k+l, totUndefinedPos.length, invalid);
+			Arrays.fill(totUndefinedPos, k+l, totUndefinedPos.length, defined);
 			totNumUndefined = k+l;
 			
 			double hScore = 0;
 			for (int pos1 : totUndefinedPos) {
-				if(pos1 == invalid) continue;
+				//skip if defined in parent
+				if(pos1 == defined) continue;
 
-				// skip if defined in child
+				//skip if defined in child
 				if (pos1 == childPos) continue;
 
 				//bound on contribution of this residue
@@ -264,7 +259,12 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 			//defined to definåed energies
 
 			//"h-score"
-			boolean fullyAssigned = isFullyAssigned(conf);
+			boolean fullyAssigned = true;
+			int len = numPos;
+			for(int i=0;i<len;++i) {
+				if(conf[i]==-1) fullyAssigned = false;
+			}
+			
 			double hScore = 0;
 			for(int pos=0; pos<search.confSpace.numPos;++pos) {
 				if(rcTuple.pos.contains(pos)) continue;//already computed internal energy for defined pos

@@ -27,7 +27,7 @@ public class KStarScoreDiscrete extends KStarScoreMinimized {
 
 	@Override
 	public BigDecimal getUpperBoundScore() {
-		return getScore();
+		return super.getUpperBoundScore();
 	}
 	
 	@Override

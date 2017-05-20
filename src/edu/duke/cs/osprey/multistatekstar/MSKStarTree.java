@@ -66,7 +66,8 @@ public class MSKStarTree {
 	protected int numSelfExpanded;
 	protected int numFullyDefined;
 	protected int numPruned;
-	protected BigDecimal lastScore;
+	protected BigDecimal prevScore;
+	protected String prevSeq;
 
 	protected Stopwatch stopwatch;
 
@@ -115,7 +116,7 @@ public class MSKStarTree {
 		this.numCompleted = 0;
 		this.pq = null;
 
-		this.lastScore = PartitionFunctionMinimized.MAX_VALUE.multiply(BigDecimal.valueOf(-1));
+		this.prevScore = PartitionFunctionMinimized.MAX_VALUE.multiply(BigDecimal.valueOf(-1));
 		this.stopwatch = new Stopwatch().start();
 	}
 
@@ -147,7 +148,7 @@ public class MSKStarTree {
 		//pick next position to expand
 		if(!curNode.isFullyAssigned()) {
 			ans.addAll(curNode.splitUnassigned());
-			for(MSKStarNode child : ans) {
+			for(MSKStarNode child : ans) {		
 				if(child.isFinal()) numFullyDefined++;
 			}
 		}
@@ -266,11 +267,22 @@ public class MSKStarTree {
 				System.out.println("Multi-State K* tree empty...returning empty signal");
 				return null;
 			}
-
-			if(lastScore.compareTo(curNode.getScore())>0)
+			
+			if(curNode.getSequence(0).equals("PHE-649 ASP-650 GLU-651 THR-654 PHE-156 GLN-191 ILE-192 THR-193"))
+				System.out.print("");
+			
+			if(prevScore.compareTo(curNode.getScore())>0) {				
 				throw new RuntimeException(String.format("ERROR: A* scores must "
-						+ "be non-decreasing. last: %12e, current: %12e", lastScore, curNode.getScore()));
-			lastScore = curNode.getScore();
+						+ "be non-decreasing.\nlastScore: %12e, lastSeq: %s\n"
+						+ "curScore: %12e, curSeq: %s\n"
+						+ "last-cur: %12e", 
+						prevScore, prevSeq, 
+						curNode.getScore(), curNode.getSequence(0),
+						prevScore.subtract(curNode.getScore())));
+			}
+			
+			prevScore = curNode.getScore();
+			prevSeq = curNode.getSequence(0);
 
 			//if(numExpanded % 8==0) 
 			reportProgress(curNode);
