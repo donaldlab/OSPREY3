@@ -128,7 +128,7 @@ public class MSKStarDoer {
 			System.out.println();
 
 			cfps[state] = makeStateCfp(state);
-			cfps[state].getParams().setValue("PRUNEPARTIALCONFS", msParams.getValue("PRUNEPARTIALCONFS"));
+			cfps[state].getParams().setValue("PRUNEPARTIALSEQCONFS", msParams.getValue("PRUNEPARTIALSEQCONFS"));
 			inputValidation.handleDoMinimize(cfps);
 
 			ParamSet sParams = cfps[state].getParams();
@@ -166,6 +166,9 @@ public class MSKStarDoer {
 			searchCont[state] = makeStateSearchProblems(state, true, cfps[state]);//continuous flex
 			searchDisc[state] = makeStateSearchProblems(state, false, cfps[state]);//discrete flex
 
+			//set verbosity to false now
+			cfps[state].getParams().setVerbosity(false);
+			
 			System.out.println();
 			System.out.println("State "+state+" matrices ready");
 			System.out.println();
@@ -349,7 +352,7 @@ public class MSKStarDoer {
 
 		stateArgs[state] = new String[] {"-c", stateKStFile, "n/a", stateSysFile, stateDEEFile};
 
-		MSConfigFileParser stateCfp = new MSConfigFileParser(stateArgs[state], false);
+		MSConfigFileParser stateCfp = new MSConfigFileParser(stateArgs[state]);
 		//verbosity is false by default; too many arguments clutter the display
 		stateCfp.loadData();
 

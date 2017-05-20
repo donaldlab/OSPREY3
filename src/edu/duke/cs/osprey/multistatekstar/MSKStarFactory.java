@@ -201,7 +201,8 @@ public class MSKStarFactory {
 		case Discrete:
 			return new PartitionFunctionDiscrete(emat, pmat, invmat, confSearchFactory, ecalc);
 		case UpperBound:
-			return new PartitionFunctionDiscreteUppperBound(emat, pmat, invmat, confSearchFactory, ecalc);
+			//return new PartitionFunctionDiscreteUppperBound(emat, pmat, invmat, confSearchFactory, ecalc);
+			return new PartitionFunctionGMECUpperBound(emat, pmat, invmat, confSearchFactory, ecalc);
 		default:
 			throw new UnsupportedOperationException("ERROR: unsupported partition function type "+type);
 		}

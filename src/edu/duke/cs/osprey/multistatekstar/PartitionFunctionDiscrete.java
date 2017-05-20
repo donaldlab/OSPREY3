@@ -46,7 +46,7 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 		
 		int stopAtConf = numConfsEvaluated + maxNumConfs;
 
-		double lastScore =  Double.NEGATIVE_INFINITY;
+		double lastScore = Double.NEGATIVE_INFINITY;
 
 		while (true) {
 

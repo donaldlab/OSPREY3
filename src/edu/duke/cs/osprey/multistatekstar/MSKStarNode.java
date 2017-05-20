@@ -55,8 +55,8 @@ public class MSKStarNode {
 	}
 
 	public String getSequence(int state) {
-		int numSubStates = ksLB[0].getSettings().search.length;
-		return ksLB[0].getSettings().search[numSubStates-1].settings.getFormattedSequence();
+		int numSubStates = ksLB[state].getSettings().search.length;
+		return ksLB[state].getSettings().search[numSubStates-1].settings.getFormattedSequence();
 	}
 
 	public int getNumStates() {
@@ -437,7 +437,7 @@ public class MSKStarNode {
 		else {
 			// this applies to discrete AND continuous cases
 			child = this;
-			for(KStarScore lb : child.ksLB) {
+			for(KStarScore lb : child.ksLB) {//when final, lb objects are the same as ub objects
 				if(lb.isComputed()) continue;
 				lb.computeBoundState(PARALLELISM_MULTIPLIER * lb.getSettings().ecalcs[0].getParallelism());
 			}

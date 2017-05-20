@@ -23,6 +23,12 @@ public class ResidueTermini implements Serializable {
 		this.uBound = uBound;
 	}
 	
+	public boolean contains(ResidueTermini other) {
+		if(this.lBound <= other.lBound && this.uBound >= other.uBound)
+			return true;
+		return false;
+	}
+	
 	public boolean contains(Residue res) {
 		int pdbResNum = Integer.parseInt(res.getPDBResNumber());
 		return contains(pdbResNum);

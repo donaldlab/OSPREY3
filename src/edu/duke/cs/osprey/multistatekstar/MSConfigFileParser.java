@@ -37,7 +37,7 @@ public class MSConfigFileParser extends ConfigFileParser {
 		for(int res : mutRes) mutResS.add(String.valueOf(res));
 		
 		DEEPerSettings deeperSettings = setupDEEPer(state, subState, mutRes, cont);
-		ArrayList<String[]> moveableUbStates = moveableUbStateTermini(subState);
+		ArrayList<String[]> moveableStrandTermini = moveableStrandTermini(subState);
 		ArrayList<String[]> freeBBZones = freeBBZoneTermini(subState);
 
 		EPICSettings epicSettings = new EPICSettings(params);
@@ -45,8 +45,8 @@ public class MSConfigFileParser extends ConfigFileParser {
 
 		if(!cont) {
 			deeperSettings = deeperSettings.makeDiscreteVersion();
-			freeBBZones = new ArrayList<>();
-			moveableUbStates = new ArrayList<>();
+			//freeBBZones = new ArrayList<>();
+			//moveableStrandTermini = new ArrayList<>();
 
 			epicSettings = new EPICSettings();
 			luteSettings = new LUTESettings();
@@ -65,7 +65,7 @@ public class MSConfigFileParser extends ConfigFileParser {
 				epicSettings,
 				params.getBool("UseTupExp"),
 				luteSettings,
-				deeperSettings, moveableUbStates, freeBBZones,
+				deeperSettings, moveableStrandTermini, freeBBZones,
 				params.getBool("useEllipses"),
 				params.getBool("useERef"),
 				params.getBool("AddResEntropy"),
@@ -169,20 +169,25 @@ public class MSConfigFileParser extends ConfigFileParser {
 		}
 		return ans;
 	}
-
-	protected ArrayList<String[]> moveableUbStateTermini(int subState) {
+	
+	protected ArrayList<String[]> moveableStrandTermini(int subState) {
 		//Read the strands that are going to translate and rotate
 		//Let's say they can do this regardless of what doMinimize says (that's for sidechains)
 		String key = "STRANDROTTRANS";
 		ArrayList<String[]> ans = new ArrayList<>();
+		
 		for(String rt : params.searchParams(key)){
 			if(params.getBool(rt)){
 				//So rt = STRANDROTTRANS0 here means strand 0 should translate & rotate
 				//OK to go through these params in lexical ordering
-				String ubState = rt.replaceAll(key, "").trim();
-				if(!String.valueOf(subState).equals(ubState)) continue;
-				ResidueTermini tmni = subState2Termini(subState);
-				ans.add(tmni.toStringArray());
+				String strand = rt.replaceAll(key, "").trim();
+				
+				ResidueTermini strandTmni = subState2Termini(Integer.valueOf(strand));
+				ResidueTermini subStateTmni = subState2Termini(subState);
+				
+				if(!subStateTmni.contains(strandTmni)) continue;
+				
+				ans.add(strandTmni.toStringArray());
 			}
 		}
 		return ans;

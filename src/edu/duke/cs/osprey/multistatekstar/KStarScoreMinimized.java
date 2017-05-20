@@ -107,7 +107,7 @@ public class KStarScoreMinimized implements KStarScore {
 			System.out.println("state"+state+": "+settings.search[state].settings.getFormattedSequence()+" "+settings.pfTypes[state]);
 		
 		//first prune the pruning matrix
-		boolean doPruning = isFinal() || settings.cfp.getParams().getBool("PRUNEPARTIALCONFS");
+		boolean doPruning = isFinal() || settings.cfp.getParams().getBool("PRUNEPARTIALSEQCONFS");
 		settings.search[state].prunePmat(doPruning, settings.cfp.getParams().getInt("ALGOPTION")>=3);
 
 		//make conf search factory (i.e. A* tree)
