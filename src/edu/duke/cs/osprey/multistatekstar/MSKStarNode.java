@@ -32,6 +32,7 @@ public class MSKStarNode {
 
 	public static ResidueOrder RESIDUE_ORDER;
 	public static boolean PARALLEL_EXPANSION;
+	public static ArrayList<KStarScore> SCORES;
 	public static int PARALLELISM_MULTIPLIER = 1;
 	public static boolean DEBUG = false;
 
@@ -250,27 +251,27 @@ public class MSKStarNode {
 		} 
 
 		else {
-			ArrayList<KStarScore> scores = new ArrayList<>();
 			for(MSKStarNode node : nodes) {
 				for(int state=0;state<ksLB.length;++state) {
 					
 					if(OBJ_FUNC.getCoeffs()[state].compareTo(BigDecimal.ZERO)==0)
 						continue;
 					
-					if(node.ksLB[state]!=null) scores.add(node.ksLB[state]);
+					if(node.ksLB[state]!=null) SCORES.add(node.ksLB[state]);
 					// for leaves, upper and lower bounds are the same, so don't 
 					// try to compute both
 					if(node.ksUB[state]!=null && !node.ksUB[state].equals(node.ksLB[state])) 
-						scores.add(node.ksUB[state]);
+						SCORES.add(node.ksUB[state]);
 				}
 			}
-			scores.parallelStream().forEach(score -> {	
+			SCORES.parallelStream().forEach(score -> {	
 				if(!score.isFinal()) score.compute(Integer.MAX_VALUE);
 				else{
 					score.computeUnboundStates(Integer.MAX_VALUE);
 					score.computeBoundState(PARALLELISM_MULTIPLIER * score.getSettings().ecalcs[0].getParallelism());
 				}
 			});
+			SCORES.clear();
 		}
 
 		//remove nodes that violate local constraints

@@ -23,7 +23,8 @@ public interface KStarScore {
 	public enum PartitionFunctionType {
 		Minimized,//i.e. minimization
 		Discrete,//no min; either discrete or pw min
-		UpperBound;//1+epsilon on pw min
+		UpperBound,//1+epsilon on pw min or GMEC-based
+		LowerBound;//GMEC-based
 	}
 	
 	public MSKStarSettings getSettings();

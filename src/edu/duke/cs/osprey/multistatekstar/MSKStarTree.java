@@ -179,6 +179,9 @@ public class MSKStarTree {
 		int astarThreads = this.msParams.getInt("ASTARTHREADS");
 		ThreadParallelism.setNumThreads(astarThreads);
 		MSKStarNode.PARALLEL_EXPANSION = astarThreads > 1 ? true : false;
+		if(MSKStarNode.PARALLEL_EXPANSION) {
+			MSKStarNode.SCORES = new ArrayList<>(512);
+		}
 		//MSKStarNode.PARALLELISM_MULTIPLIER = astarThreads;
 		
 		MSKStarTree.DEBUG = false;
@@ -267,9 +270,6 @@ public class MSKStarTree {
 				System.out.println("Multi-State K* tree empty...returning empty signal");
 				return null;
 			}
-			
-			if(curNode.getSequence(0).equals("PHE-649 ASP-650 GLU-651 THR-654 PHE-156 GLN-191 ILE-192 THR-193"))
-				System.out.print("");
 			
 			if(prevScore.compareTo(curNode.getScore())>0) {				
 				throw new RuntimeException(String.format("ERROR: A* scores must "

@@ -29,38 +29,48 @@ public class KStarScoreDiscrete extends KStarScoreMinimized {
 	public BigDecimal getUpperBoundScore() {
 		return super.getUpperBoundScore();
 	}
-	
+
 	@Override
 	public void compute(int maxNumConfs) {
 		super.compute(maxNumConfs);
 	}
-	
+
 	@Override
 	protected void compute(int state, int maxNumConfs) {
 		super.compute(state, maxNumConfs);
-		//multiply q* by number of undefined confs
-		if(!settings.search[state].isFullyAssigned()) {
-			PartitionFunctionDiscrete pf = (PartitionFunctionDiscrete) partitionFunctions[state];
-			pf.getValues().qstar = pf.getValues().qstar.multiply(numUndefinedConfs(state));
+	
+		PartitionFunctionDiscrete pf = (PartitionFunctionDiscrete) partitionFunctions[state];
+		
+		//multiply by assigned*unassigned confs
+		if(settings.pfTypes[state] == PartitionFunctionType.UpperBound) {
+			BigDecimal unassignedConfs = numConfs(state, false);
+			BigDecimal assignedConfs = numConfs(state, true);
+			pf.getValues().qstar = pf.getValues().qstar.multiply(assignedConfs.multiply(unassignedConfs));
+		}
+		
+		//only multiply by unassigned confs
+		else if(!settings.search[state].isFullyAssigned()) {	
+			BigDecimal unassignedConfs = numConfs(state, false);
+			pf.getValues().qstar = pf.getValues().qstar.multiply(unassignedConfs);
 		}
 	}
-	
+
 	/**
 	 * Compute either the minimum or maximum number of conformations of any
 	 * possible undefined sub-sequence 
 	 */
-	private BigDecimal numUndefinedConfs(int state) {
+	private BigDecimal numConfs(int state, boolean assigned) {
 		BigDecimal ans = BigDecimal.ONE;
-		
+
 		MSSearchProblem search = settings.search[state];
 		boolean minConfs = search.settings.energyLBs ? false : true;
 		PruningMatrix pmat = search.pruneMat;
-		
-		for(int pos : search.getPosNums(false)) {
-			
+
+		for(int pos : search.getPosNums(assigned)) {
+
 			long unPrunedConfs = minConfs ? Long.MAX_VALUE : Long.MIN_VALUE;
 			long prunedConfs = minConfs ? Long.MAX_VALUE : Long.MIN_VALUE;
-			
+
 			for(String AAType : search.settings.AATypeOptions.get(pos)) {
 				long numAARCs = search.unprunedAtPos(pmat, pos, AAType).size();
 				unPrunedConfs = minConfs ? Math.min(unPrunedConfs, numAARCs) : Math.max(unPrunedConfs, numAARCs);
@@ -69,13 +79,13 @@ public class KStarScoreDiscrete extends KStarScoreMinimized {
 					prunedConfs = Math.max(prunedConfs, numAARCs);
 				}
 			}
-			
+
 			if(minConfs) prunedConfs = 0;
 			//corner case where all confs are pruned due to mutation's intrinsic steric clash
 			if(!minConfs && (unPrunedConfs+prunedConfs)==0) continue;
 			ans = ans.multiply(BigDecimal.valueOf(unPrunedConfs+prunedConfs));
 		}
-		
+
 		return ans;
 	}
 
