@@ -23,6 +23,7 @@ import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
 import edu.duke.cs.osprey.gpu.cuda.Kernel;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.structure.Residues;
 import jcuda.Pointer;
 
 public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunction.DecomposableByDof, EnergyFunction.NeedsCleanup {
@@ -32,6 +33,7 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 	public final GpuStreamPool streams;
 	public final ForcefieldParams ffparams;
 	public final ResidueInteractions inters;
+	public final Residues residues;
 	
 	private boolean isBroken;
 	
@@ -73,7 +75,6 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 	private static final int ResPairBytes = Long.BYTES*3 + Double.BYTES*2;
 	private static final int AtomPairBytes = Short.BYTES*2 + Integer.BYTES + Double.BYTES*9;
 	
-	private Residue[] ress;
 	private ResPair[] resPairs;
 	private Map<Residue,Subset> subsets;
 	
@@ -84,13 +85,14 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 		this(streams, resPairCache, inters, mol.residues);
 	}
 	
-	public ResidueForcefieldEnergyCuda(GpuStreamPool streams, ResPairCache resPairCache, ResidueInteractions inters, List<Residue> residues)
+	public ResidueForcefieldEnergyCuda(GpuStreamPool streams, ResPairCache resPairCache, ResidueInteractions inters, Residues residues)
 	throws IOException {
 		super(streams.checkout(), "residueForcefield");
 		
 		this.streams = streams;
 		this.ffparams = resPairCache.ffparams;
 		this.inters = inters;
+		this.residues = residues;
 		
 		// compute solvation info if needed
 		SolvationForcefield.ResiduesInfo solvInfo = null;
@@ -101,15 +103,10 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 		// TODO: test with no solvation!
 		
 		// map the residue numbers to residues
-		ress = new Residue[inters.getResidueNumbers().size()];
-		int index = 0;
-		for (String resNum : inters.getResidueNumbers()) {
-			ress[index++] = residues.get(Residue.findInOrThrow(residues, resNum));
-		}
 		resPairs = new ResPair[inters.size()];
-		index = 0;
+		int index = 0;
 		for (ResidueInteractions.Pair pair : inters) {
-			resPairs[index++] = resPairCache.get(ress, pair, solvInfo);
+			resPairs[index++] = resPairCache.get(residues, pair, solvInfo);
 		}
 		
 		subsets = null;
@@ -126,12 +123,12 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 		}
 		
 		// count atoms and offsets for each residue
-		int[] atomOffsetsByResIndex = new int[ress.length];
+		int[] atomOffsetsByResIndex = new int[residues.size()];
 		Arrays.fill(atomOffsetsByResIndex, -1);
 		int atomOffset = 0;
 		int numAtoms = 0;
-		for (int i=0; i<ress.length; i++) {
-			Residue res = ress[i];
+		for (int i=0; i<residues.size(); i++) {
+			Residue res = residues.get(i);
 			atomOffsetsByResIndex[i] = atomOffset;
 			atomOffset += 3*res.atoms.size();
 			numAtoms += res.atoms.size();
@@ -260,7 +257,7 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 		// capture the current molecule state
 		DoubleBuffer coordsbuf = coords.getHostBuffer();
 		coordsbuf.clear();
-		for (Residue res : ress) {
+		for (Residue res : residues) {
 			coordsbuf.put(res.coords);
 		}
 		coordsbuf.clear();

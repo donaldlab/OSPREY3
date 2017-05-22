@@ -5,13 +5,13 @@
 package edu.duke.cs.osprey.energy.forcefield;
 
 import java.io.Serializable;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.StringTokenizer;
 
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.AtomNeighbors;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.structure.Residues;
 import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.StringParsing;
 
@@ -177,13 +177,13 @@ public class ForcefieldParams implements Serializable {
     	
         EEF1 {
         	@Override
-        	public ResiduesInfo makeInfo(ForcefieldParams ffparams, Collection<Residue> residues) {
+        	public ResiduesInfo makeInfo(ForcefieldParams ffparams, Residues residues) {
         		return ffparams.eef1parms.new ResiduesInfo(residues);
         	}
         },
         PoissonBoltzmann {
         	@Override
-        	public ResiduesInfo makeInfo(ForcefieldParams ffparams, Collection<Residue> residues) {
+        	public ResiduesInfo makeInfo(ForcefieldParams ffparams, Residues residues) {
         		// TODO: implmement PB solvation
         		return null;
         	}
@@ -195,7 +195,7 @@ public class ForcefieldParams implements Serializable {
 			void putPrecomputed(double[] out, int i, Residue res1, int atomIndex1, Residue res2, int atomIndex2, double scale);
     	}
     	
-    	public abstract ResiduesInfo makeInfo(ForcefieldParams ffparams, Collection<Residue> residues);
+    	public abstract ResiduesInfo makeInfo(ForcefieldParams ffparams, Residues residues);
     }
     
     public ForcefieldParams() {

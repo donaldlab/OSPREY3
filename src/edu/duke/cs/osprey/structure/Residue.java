@@ -7,8 +7,6 @@ package edu.duke.cs.osprey.structure;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
-import java.util.NoSuchElementException;
 
 import edu.duke.cs.osprey.dof.ProlinePucker;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
@@ -145,10 +143,22 @@ public class Residue implements Serializable {
         }
     }
     
+    // cache res numbers for performance
+    // they're used a LOT and profiling shows this is actually a performance bottleneck!
+    private String resNum = null;
+    
     public String getPDBResNumber() {
-            if (fullName.length() > 5)
-                    return( (StringParsing.getToken(fullName.substring(5),1)) );
-            return Integer.toString(indexInMolecule+1);
+        
+        // populate the cache if needed
+        if (resNum == null) {
+            if (fullName.length() > 5) {
+                resNum = StringParsing.getToken(fullName.substring(5),1);
+            } else {
+                resNum = Integer.toString(indexInMolecule+1);
+            }
+        }
+        
+        return resNum;
     }
     
     public char getChainId() {
@@ -452,59 +462,5 @@ public class Residue implements Serializable {
         for(Residue res : resList)
             ans.add(res.equivalentInMolec(mol));
         return ans;
-    }
-    
-    public int findIn(List<Residue> residues) {
-        return residues.indexOf(this);
-    }
-    
-    public int findIn(Residue[] residues) {
-        for (int i=0; i<residues.length; i++) {
-            if (residues[i] == this) {
-                return i;
-            }
-        }
-        return -1;
-    }
-    
-    public static int findIn(List<Residue> residues, String resNum) {
-        for (int i=0; i<residues.size(); i++) {
-            if (residues.get(i).getPDBResNumber().equals(resNum)) {
-                return i;
-            }
-        }
-        return -1;
-    }
-    
-    public static int findIn(Residue[] residues, String resNum) {
-        for (int i=0; i<residues.length; i++) {
-            if (residues[i].getPDBResNumber().equals(resNum)) {
-                return i;
-            }
-        }
-        return -1;
-    }
-    
-    public int findInOrThrow(List<Residue> residues) {
-        return checkIndex(findIn(residues));
-    }
-    
-    public int findInOrThrow(Residue[] residues) {
-        return checkIndex(findIn(residues));
-    }
-    
-    public static int findInOrThrow(List<Residue> residues, String resNum) {
-        return checkIndex(findIn(residues, resNum));
-    }
-    
-    public static int findInOrThrow(Residue[] residues, String resNum) {
-        return checkIndex(findIn(residues, resNum));
-    }
-    
-    private static int checkIndex(int index) {
-        if (index < 0) {
-            throw new NoSuchElementException();
-        }
-        return index;
     }
 }

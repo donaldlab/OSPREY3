@@ -43,10 +43,14 @@ public class BenchmarkForcefields extends TestBase {
 		ForcefieldParams ffparams = new ForcefieldParams();
 		
 		// get a conf space
-		Strand strand = new Strand.Builder(PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb")).build();
-		for (int i=2; i<=6; i++) {
-			strand.flexibility.get(i).setLibraryRotamers();
-		}
+		Strand strand = new Strand.Builder(PDBIO.readFile("examples/1CC8/1CC8.ss.pdb")).build();
+		strand.flexibility.get(39).setLibraryRotamers("ALA").setContinuous();
+		strand.flexibility.get(43).setLibraryRotamers("ALA").setContinuous();
+		strand.flexibility.get(40).setLibraryRotamers().setContinuous();
+		strand.flexibility.get(41).setLibraryRotamers().setContinuous();
+		strand.flexibility.get(42).setLibraryRotamers().setContinuous();
+		strand.flexibility.get(44).setLibraryRotamers().setContinuous();
+		strand.flexibility.get(45).setLibraryRotamers().setContinuous();
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		
 		// pre-compute atom connectivities
@@ -75,6 +79,10 @@ public class BenchmarkForcefields extends TestBase {
 					Residue res2 = mol.getResByPDBResNumber(confSpace.positions.get(pos2).resNum);
 					efunc.addTerm(new ResPairEnergy(res1, res2, ffparams));
 				}
+				for (String shellResNum : confSpace.shellResNumbers) {
+					Residue shellRes = mol.getResByPDBResNumber(shellResNum);
+					efunc.addTerm(new ResPairEnergy(res1, shellRes, ffparams));
+				}
 			}
 			return efunc;
 		});
@@ -83,10 +91,12 @@ public class BenchmarkForcefields extends TestBase {
 		ResidueInteractions inters = ResInterGen.of(confSpace)
 			.addIntras(frag)
 			.addInters(frag)
+			.addShell(frag)
 			.make();
 		
 		// residue forcefield
 		benchmark(ResidueForcefieldEnergy.class.getSimpleName(), base, () -> {
+			// new ResidueForcefieldEnergy(resPairCache, interactions, mol);
 			return new ResidueForcefieldEnergy(resPairCache, inters, mol);
 		});
 		
@@ -111,6 +121,10 @@ public class BenchmarkForcefields extends TestBase {
 					Residue res2 = mol.getResByPDBResNumber(confSpace.positions.get(pos2).resNum);
 					ffinters.addResiduePair(res1, res2);
 				}
+				for (String shellResNum : confSpace.shellResNumbers) {
+					Residue shellRes = mol.getResByPDBResNumber(shellResNum);
+					ffinters.addResiduePair(res1, shellRes);
+				}
 			}
 			return new BigForcefieldEnergy(ffparams, ffinters);
 		});
@@ -123,7 +137,7 @@ public class BenchmarkForcefields extends TestBase {
 		Result result = new Result(0, 0, 0);
 		
 		// create-cleanup cycles
-		result.ms1 = benchmark("create-cleanup", 100, 2000, 3, base == null ? null : base.ms1, () -> {
+		result.ms1 = benchmark("create-cleanup", 10, 200, 3, base == null ? null : base.ms1, () -> {
 			EnergyFunction efunc = efuncs.get();
 			cleanup(efunc);
 		});
@@ -131,14 +145,14 @@ public class BenchmarkForcefields extends TestBase {
 		// second benchmark, run cycles
 		{
 			EnergyFunction efunc = efuncs.get();
-			result.ms2 = benchmark("run", 100, 6000, 3, base == null ? null : base.ms2, () -> {
+			result.ms2 = benchmark("run", 10, 600, 3, base == null ? null : base.ms2, () -> {
 				efunc.getEnergy();
 			});
 			cleanup(efunc);
 		}
 		
 		// first benchmark, create-run-cleanup cycles
-		result.ms3 = benchmark("create-run-cleanup", 100, 1000, 3, base == null ? null : base.ms3, () -> {
+		result.ms3 = benchmark("create-run-cleanup", 10, 100, 3, base == null ? null : base.ms3, () -> {
 			EnergyFunction efunc = efuncs.get();
 			efunc.getEnergy();
 			cleanup(efunc);

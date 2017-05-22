@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield
 import edu.duke.cs.osprey.energy.forcefield.ResPairCache.ResPair;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.structure.Residues;
 
 public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof {
 	
@@ -19,7 +20,7 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 	
 	public final ResPairCache resPairCache;
 	public final ResidueInteractions inters;
-	public final List<Residue> residues;
+	public final Residues residues;
 	
 	public final ResPair[] resPairs;
 	
@@ -32,7 +33,7 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 		this(resPairCache, inters, mol.residues);
 	}
 	
-	public ResidueForcefieldEnergy(ResPairCache resPairCache, ResidueInteractions inters, List<Residue> residues) {
+	public ResidueForcefieldEnergy(ResPairCache resPairCache, ResidueInteractions inters, Residues residues) {
 		
 		this.resPairCache = resPairCache;
 		this.inters = inters;

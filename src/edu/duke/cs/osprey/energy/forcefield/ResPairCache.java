@@ -2,7 +2,6 @@ package edu.duke.cs.osprey.energy.forcefield;
 
 import java.util.Arrays;
 import java.util.IdentityHashMap;
-import java.util.List;
 import java.util.Map;
 
 import edu.duke.cs.osprey.energy.ResidueInteractions;
@@ -13,6 +12,7 @@ import edu.duke.cs.osprey.structure.AtomConnectivity;
 import edu.duke.cs.osprey.structure.AtomConnectivity.AtomPairs;
 import edu.duke.cs.osprey.structure.AtomNeighbors;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.structure.Residues;
 
 public class ResPairCache {
 	
@@ -126,29 +126,13 @@ public class ResPairCache {
 		this.infos = new IdentityHashMap<>();
 	}
 	
-	public ResPair get(List<Residue> residues, ResidueInteractions.Pair pair, SolvationForcefield.ResiduesInfo solvInfo) {
+	public ResPair get(Residues residues, ResidueInteractions.Pair pair, SolvationForcefield.ResiduesInfo solvInfo) {
 		
 		// lookup the residues
-		int index1 = Residue.findInOrThrow(residues, pair.resNum1);
-		int index2 = Residue.findInOrThrow(residues, pair.resNum2);
-		Residue res1 = residues.get(index1);
+		int indxe1 = residues.findIndex(pair.resNum1);
+		int index2 = residues.findIndex(pair.resNum2);
+		Residue res1 = residues.get(indxe1);
 		Residue res2 = residues.get(index2);
-		
-		return get(index1, index2, res1, res2, pair.weight, pair.offset, solvInfo);
-	}
-	
-	public ResPair get(Residue[] residues, ResidueInteractions.Pair pair, SolvationForcefield.ResiduesInfo solvInfo) {
-		
-		// lookup the residues
-		int index1 = Residue.findInOrThrow(residues, pair.resNum1);
-		int index2 = Residue.findInOrThrow(residues, pair.resNum2);
-		Residue res1 = residues[index1];
-		Residue res2 = residues[index2];
-		
-		return get(index1, index2, res1, res2, pair.weight, pair.offset, solvInfo);
-	}
-	
-	private ResPair get(int index1, int index2, Residue res1, Residue res2, double weight, double offset, SolvationForcefield.ResiduesInfo solvInfo) {
 		
 		AtomPairs atomPairs = connectivity.getAtomPairs(res1, res2);
 		
@@ -168,9 +152,9 @@ public class ResPairCache {
 		}
 	
 		return new ResPair(
-			index1, index2,
+			indxe1, index2,
 			res1, res2,
-			weight, offset,
+			pair.weight, pair.offset,
 			info,
 			solvInfo,
 			ffparams.solvScale

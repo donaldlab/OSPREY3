@@ -7,7 +7,6 @@ package edu.duke.cs.osprey.energy.forcefield;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.Serializable;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
@@ -18,6 +17,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield
 import edu.duke.cs.osprey.restypes.DAminoAcidHandler;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.structure.Residues;
 import edu.duke.cs.osprey.tools.HashCalculator;
 import edu.duke.cs.osprey.tools.StringParsing;
 
@@ -408,11 +408,11 @@ public class EEF1 implements Serializable {
 			public double internalEnergy;
 		}
 		
-		public final Collection<Residue> residues;
+		public final Residues residues;
 		
 		private final Map<Residue,ResInfo> infos;
 		
-		public ResiduesInfo(Collection<Residue> residues) {
+		public ResiduesInfo(Residues residues) {
 			
 			this.residues = residues;
 			
