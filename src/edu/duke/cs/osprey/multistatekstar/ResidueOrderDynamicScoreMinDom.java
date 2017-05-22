@@ -27,7 +27,7 @@ public class ResidueOrderDynamicScoreMinDom extends ResidueOrder {
 		this.dCoeff = dCoeff;
 		this.mCoeff = mCoeff;
 		
-		dynamic = new ResidueOrderDynamicScore(objFcnSearch, true);
+		dynamic = new ResidueOrderDynamicScore(objFcnSearch, "discrepancy");
 		mindom = new ResidueOrderStaticMinDomain(objFcnSearch, true);
 		
 		d2A2Rank = new HashMap<>();

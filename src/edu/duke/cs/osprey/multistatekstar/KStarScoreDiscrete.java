@@ -47,12 +47,6 @@ public class KStarScoreDiscrete extends KStarScoreMinimized {
 			BigDecimal assignedConfs = numConfs(state, true);
 			pf.getValues().qstar = pf.getValues().qstar.multiply(assignedConfs.multiply(unassignedConfs));
 		}
-		
-		//only multiply by unassigned confs
-		else if(!settings.search[state].isFullyAssigned()) {	
-			BigDecimal unassignedConfs = numConfs(state, false);
-			pf.getValues().qstar = pf.getValues().qstar.multiply(unassignedConfs);
-		}
 	}
 
 	/**

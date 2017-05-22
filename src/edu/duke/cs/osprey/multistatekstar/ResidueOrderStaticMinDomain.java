@@ -19,7 +19,7 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 	private boolean computeProduct;
 
 	public ResidueOrderStaticMinDomain(MSSearchProblem[][] objFcnSearch, boolean computeProduct) {
-		super(objFcnSearch, true);
+		super(objFcnSearch, "fscore");
 		this.residueValues = computeResidueValues(objFcnSearch);
 		this.computeProduct = computeProduct;
 	}
@@ -34,6 +34,7 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 			int sumRCs = 0;
 			for(int state=0;state<objFcnSearch.length;++state) {
 				sumRCs += objFcnSearch[state][complex].pruneMat.unprunedRCsAtPos(pos).size();
+				//sumRCs += objFcnSearch[state][complex].pruneMat.prunedRCsAtPos(pos).size();
 			}
 			ans.put(pos, sumRCs);
 		}

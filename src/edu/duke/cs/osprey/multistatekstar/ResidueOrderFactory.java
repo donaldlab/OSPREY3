@@ -21,9 +21,11 @@ public class ResidueOrderFactory {
 		case "staticmindoms":
 			return new ResidueOrderStaticMinDomain(objFcnSearch, false);
 		case "dynamicscoref":
-			return new ResidueOrderDynamicScore(objFcnSearch, true);
+			return new ResidueOrderDynamicScore(objFcnSearch, "fscore");
 		case "dynamicscoreh":
-			return new ResidueOrderDynamicScore(objFcnSearch, false);
+			return new ResidueOrderDynamicScore(objFcnSearch, "hscore");
+		case "dynamicscored":
+			return new ResidueOrderDynamicScore(objFcnSearch, "discrepancy");
 		case "dynamicscoremindom":
 			if(numTokens != 3) throw new RuntimeException("ERROR: "
 					+ "DynamicScoreMinDom needs coefficients for dynamic and mindom");

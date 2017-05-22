@@ -15,15 +15,34 @@ import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 @SuppressWarnings("serial")
 public class ResidueOrderDynamicScore extends ResidueOrder {
 
+	private enum ScoreType {
+		FSCORE,
+		HSCORE,
+		DISCREPANCY;
+	}
+
 	private ArrayList<ArrayList<ArrayList<BigDecimal>>> residueValues;
 	private BoltzmannCalculator boltzmann;
-	private boolean computeFScore;
+	private ScoreType scoreType;
 
-	public ResidueOrderDynamicScore(MSSearchProblem[][] objFcnSearch, boolean computeFScore) {
+	public ResidueOrderDynamicScore(MSSearchProblem[][] objFcnSearch, String scoreType) {
 		super();
 		this.boltzmann = new BoltzmannCalculator();
 		this.residueValues = allocate(objFcnSearch);
-		this.computeFScore = computeFScore;
+
+		switch(scoreType.toLowerCase()) {
+		case "fscore":
+			this.scoreType = ScoreType.FSCORE;
+			break;
+		case "hscore":
+			this.scoreType = ScoreType.HSCORE;
+			break;
+		case "discrepancy":
+			this.scoreType = ScoreType.DISCREPANCY;
+			break;
+		default:
+			throw new UnsupportedOperationException("ERROR: unsuported score type: "+scoreType);
+		}
 	}
 
 	private ArrayList<ArrayList<ArrayList<BigDecimal>>> allocate(MSSearchProblem[][] objFcnSearch) {
@@ -176,7 +195,7 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 		return ans;
 	}
 
-	private BigDecimal getStateScore(int state, ResidueAssignment assignment) {
+	private BigDecimal getStateScoreH(int state, ResidueAssignment assignment) {
 		BigDecimal ans = BigDecimal.ONE.setScale(64, RoundingMode.HALF_UP);
 		//unbound states
 		for(int subState=0;subState<assignment.length()-1;++subState) {
@@ -199,7 +218,7 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 		return ans;
 	}
 
-	private BigDecimal getStateScore(int state, ResidueAssignment assignment,
+	private BigDecimal getStateScoreF(int state, ResidueAssignment assignment,
 			KStarScore gScore) {
 		ArrayList<BigDecimal> stateFScores = new ArrayList<>();
 
@@ -236,16 +255,28 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 			KStarScore[] gScores) {
 		int numStates = coeffs.length;
 		BigDecimal ans = BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
+		
+		BigDecimal gScore = null;
+		if(scoreType == ScoreType.DISCREPANCY)
+			gScore = BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
+		
 		// get assignment score
 		for(int state=0;state<numStates;++state) {
 			//sign of 0 does not contribute to score
 			if(coeffs[state].compareTo(BigDecimal.ZERO)==0) continue;
-			if(computeFScore) 
-				ans = ans.add(coeffs[state].multiply(getStateScore(state, assignment, gScores[state])));
-			else
-				ans = ans.add(coeffs[state].multiply(getStateScore(state, assignment)));
+			if(scoreType == ScoreType.FSCORE || scoreType == ScoreType.DISCREPANCY) {
+				ans = ans.add(coeffs[state].multiply(getStateScoreF(state, assignment, gScores[state])));
+				
+				if(scoreType == ScoreType.DISCREPANCY)
+					gScore = gScore.add(coeffs[state].multiply(gScores[state].getScore()));
+			}
+			else if(scoreType == ScoreType.HSCORE)
+				ans = ans.add(coeffs[state].multiply(getStateScoreH(state, assignment)));
 		}
-
+		
+		if(scoreType == ScoreType.DISCREPANCY)
+			ans = ans.subtract(gScore).abs();
+		
 		return ans;
 	}
 
@@ -274,12 +305,11 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 
 		//assignments.trimToSize();
 
-		//if coeff[state]<0: want ub ratio, so smallest unbound state, largest bound state
-		//if coeff[state]>0: want lb ratio, so largest unbound state, smallest bound state
-		BigDecimal[] coeffs = objFcn.getCoeffs();
 		ArrayList<ResidueAssignmentScore> assignmentScores = new ArrayList<>();
 		for(ResidueAssignment assignment : assignments) {
-			BigDecimal score = getFScore(assignment, coeffs, objFcnScores);
+			//if coeff[state]<0: want ub ratio, so smallest unbound state, largest bound state
+			//if coeff[state]>0: want lb ratio, so largest unbound state, smallest bound state
+			BigDecimal score = getFScore(assignment, objFcn.getCoeffs(), objFcnScores);
 			assignmentScores.add(new ResidueAssignmentScore(assignment, score));
 		}
 

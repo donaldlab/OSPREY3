@@ -179,9 +179,6 @@ public class MSKStarTree {
 		int astarThreads = this.msParams.getInt("ASTARTHREADS");
 		ThreadParallelism.setNumThreads(astarThreads);
 		MSKStarNode.PARALLEL_EXPANSION = astarThreads > 1 ? true : false;
-		if(MSKStarNode.PARALLEL_EXPANSION) {
-			MSKStarNode.SCORES = new ArrayList<>(512);
-		}
 		//MSKStarNode.PARALLELISM_MULTIPLIER = astarThreads;
 		
 		MSKStarTree.DEBUG = false;
