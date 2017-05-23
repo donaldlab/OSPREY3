@@ -19,7 +19,7 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 	private boolean computeProduct;
 
 	public ResidueOrderStaticMinDomain(MSSearchProblem[][] objFcnSearch, boolean computeProduct) {
-		super(objFcnSearch, "fscore");
+		super(objFcnSearch, "discrepancy");
 		this.residueValues = computeResidueValues(objFcnSearch);
 		this.computeProduct = computeProduct;
 	}

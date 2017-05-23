@@ -586,7 +586,8 @@ public class MSKStarDoer {
 					System.out.println();
 					
 					if(timeoutHrs > 0 && stopwatch.getTimeH() >= timeoutHrs) {
-						System.out.println("WARNING: running time has exceeded "+timeoutHrs+" hours. Stopping execution.");
+						System.out.println("WARNING: running time has exceeded "
+								+ "the allotted "+timeoutHrs+" hours. Stopping execution.");
 						break;
 					}
 				}
