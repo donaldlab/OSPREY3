@@ -19,12 +19,10 @@ import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
-import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
-import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.FFInterGen;
 import edu.duke.cs.osprey.energy.MinimizingConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.MinimizingFragmentEnergyCalculator;
@@ -100,7 +98,7 @@ public class BenchmarkMinimization extends TestBase {
 		assertConfSpacesMatch(search.confSpace, simpleConfSpace);
 		
 		// settings
-		final int numConfs = 256;//512;//1024;
+		final int numConfs = 512;//32;//256;//512;//1024;
 		
 		// get a few arbitrary conformations
 		System.out.println("getting confs...");
@@ -192,7 +190,7 @@ public class BenchmarkMinimization extends TestBase {
 	throws Exception {
 		
 		// settings
-		final int[] numThreadsList = { 1 };//{ 1, 2 };//, 4 };//, 8 };
+		final int[] numThreadsList = { 1, 2, 4, 8 };
 		final int[] numStreamsList = { 1, 2, 4, 8, 16, 32 };//, 64, 128, 256 };
 		
 		Factory<ForcefieldInteractions,Molecule> interactionsFactory = (mol) -> FFInterGen.makeFullConf(search.confSpace, search.shellResidues, mol);
@@ -212,7 +210,6 @@ public class BenchmarkMinimization extends TestBase {
 			}
 		}
 		
-		/*
 		// benchmark cpu residue efuncs
 		for (int numThreads : numThreadsList) {
 			
@@ -226,6 +223,7 @@ public class BenchmarkMinimization extends TestBase {
 			ecalc.cleanup();
 		}
 		
+		/*
 		// benchmark opencl
 		for (int numStreams : numStreamsList) {
 			System.out.println(String.format("\nBenchmarking %2d stream(s) with %30s...", numStreams, "OpenCL efuncs"));
@@ -234,6 +232,7 @@ public class BenchmarkMinimization extends TestBase {
 				.build();
 			benchmark(minimizer, confs, oneCpuStopwatch);
 		}
+		*/
 		
 		// benchmark cuda
 		for (int numStreams : numStreamsList) {
@@ -243,7 +242,6 @@ public class BenchmarkMinimization extends TestBase {
 				.build();
 			benchmark(minimizer, confs, oneCpuStopwatch);
 		}
-		*/
 		
 		// benchmark cuda ccd
 		for (int numStreams : numStreamsList) {
@@ -254,7 +252,6 @@ public class BenchmarkMinimization extends TestBase {
 			benchmark(minimizer, confs, oneCpuStopwatch);
 		}
 		
-		/*
 		// benchmark residue cuda
 		for (int numStreams : numStreamsList) {
 			System.out.println(String.format("\nBenchmarking %2d stream(s) with %30s...", numStreams, "Cuda residue efuncs"));
@@ -266,7 +263,6 @@ public class BenchmarkMinimization extends TestBase {
 			benchmark(minimizer, confs, oneCpuStopwatch);
 			minimizer.cleanup();
 		}
-		*/
 		
 		// benchmark residue cuda ccd
 		for (int numStreams : numStreamsList) {

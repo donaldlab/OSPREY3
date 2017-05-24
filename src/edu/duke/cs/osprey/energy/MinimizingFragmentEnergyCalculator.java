@@ -1,7 +1,6 @@
 package edu.duke.cs.osprey.energy;
 
 import java.io.IOException;
-import java.util.concurrent.TimeUnit;
 
 import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.RCTuple;
@@ -29,7 +28,6 @@ import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.structure.AtomConnectivity;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Factory;
-import edu.duke.cs.osprey.tools.Profiler;
 
 /**
  * Computes the energy of a molecule fragment using the desired forcefield.
@@ -378,10 +376,6 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 	@Override
 	public double calcEnergy(RCTuple frag, ResidueInteractions inters) {
 		
-		// TEMP
-		Profiler p = new Profiler();
-		p.start("mol");
-		
 		// make the mol in the conf
 		ParametricMolecule pmol = confSpace.makeMolecule(frag);
 		
@@ -390,35 +384,16 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 		
 		try {
 			
-			// TEMP
-			p.start("efunc");
-			
 			// get the energy function
 			efunc = context.efuncs.make(inters, pmol.mol);
 			
-			// TEMP
-			p.start("bounds");
-				
 			// get the energy
 			double energy;
 			DofBounds bounds = confSpace.makeBounds(frag);
 			if (bounds.size() > 0) {
 				
-				// TEMP
-				p.start("mof");
-				
-				MoleculeObjectiveFunction mof = new MoleculeObjectiveFunction(pmol, bounds, efunc);
-				
 				// minimize it
-				//minimizer = context.minimizers.make(new MoleculeObjectiveFunction(pmol, bounds, efunc));
-				
-				// TEMP
-				p.start("make");
-				minimizer = context.minimizers.make(mof);
-				
-				// TEMP
-				p.start("min");
-				
+				minimizer = context.minimizers.make(new MoleculeObjectiveFunction(pmol, bounds, efunc));
 				energy = minimizer.minimize().energy;
 				
 			} else {
@@ -427,16 +402,10 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 				energy = efunc.getEnergy();
 			}
 			
-			// TEMP
-			p.stop();
-			
 			return energy;
 			
 		// make sure we always cleanup the energy function and minimizer
 		} finally {
-			
-			// TEMP
-			p.start("cleanup");
 			
 			if (efunc != null && efunc instanceof EnergyFunction.NeedsCleanup) {
 				((EnergyFunction.NeedsCleanup)efunc).cleanup();
@@ -444,10 +413,6 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 			if (minimizer != null && minimizer instanceof Minimizer.NeedsCleanup) {
 				((Minimizer.NeedsCleanup)minimizer).cleanup();
 			}
-			
-			// TEMP
-			p.stop();
-			//System.out.println(p.makeReport(TimeUnit.MILLISECONDS));
 		}
 	}
 	

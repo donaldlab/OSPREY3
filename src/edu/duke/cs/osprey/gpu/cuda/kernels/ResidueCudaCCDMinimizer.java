@@ -166,14 +166,14 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 		stream.getContext().attachCurrentThread();
 		
 		// count atoms and offsets for each residue
-		int[] atomOffsetsByResIndex = new int[efunc.residues.size()]; // TODO: change to indices
+		int[] atomOffsetsByResIndex = new int[efunc.residues.size()];
 		Arrays.fill(atomOffsetsByResIndex, -1);
 		int atomOffset = 0;
 		int numAtoms = 0;
 		for (int i=0; i<efunc.residues.size(); i++) {
 			Residue res = efunc.residues.get(i);
 			atomOffsetsByResIndex[i] = atomOffset;
-			atomOffset += 3*res.atoms.size();
+			atomOffset += 3*res.atoms.size(); // TODO: change to index, make gpu do mult?
 			numAtoms += res.atoms.size();
 		}
 		
@@ -285,7 +285,7 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 			databuf.putInt(dihedral.res.atoms.size());
 			databuf.putLong(atomOffsetsByResIndex[dihedral.resIndex]);
 			for (int j=0; j<dihedral.dihedralIndices.length; j++) {
-				databuf.putShort((short)(dihedral.dihedralIndices[j]*3)); // TODO: change to index
+				databuf.putShort((short)(dihedral.dihedralIndices[j]*3)); // TODO: change to index, make gpu do mult?
 			}
 			databuf.putInt(dihedral.rotatedIndices.length);
 			databuf.putInt(dihedral.resPairIndices.length);
@@ -297,7 +297,7 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 			int n = MathTools.roundUpToMultiple(dihedral.rotatedIndices.length, Long.BYTES/Short.BYTES);
 			for (int i=0; i<n; i++) {
 				if (i < dihedral.rotatedIndices.length) {
-					databuf.putShort((short)(dihedral.rotatedIndices[i]*3)); // TODO: change to index
+					databuf.putShort((short)(dihedral.rotatedIndices[i]*3)); // TODO: change to index, make gpu do mult? 
 				} else {
 					databuf.putShort((short)0);
 				}
@@ -361,14 +361,11 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 			out.getDevicePointer()
 		));
 		
-		/* TODO
 		// calc the number of block threads
 		if (blockThreads == null) {
 			blockThreads = func.calcMaxBlockThreads();
 		}
 		func.blockThreads = blockThreads;
-		*/
-		func.blockThreads = 1024;
 	}
 	
 	@Override
