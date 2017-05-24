@@ -300,7 +300,7 @@ public class MSKStarNode {
 		if(isFullyAssigned()) throw new RuntimeException("ERROR: cannot split a "
 				+ "fully assigned node unless continuous minimization is enabled");
 
-		ArrayList<ArrayList<ArrayList<AAAssignment>>> splits = RESIDUE_ORDER.getNextResidueAssignment(
+		ArrayList<ArrayList<ArrayList<AAAssignment>>> splits = RESIDUE_ORDER.getNextAssignments(
 				OBJ_FUNC, 
 				getStateKStarSearch(OBJ_FUNC),
 				getStateKStarObjects(OBJ_FUNC),

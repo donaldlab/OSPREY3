@@ -62,7 +62,7 @@ public abstract class ResidueOrder implements Serializable {
 	
 	public ResidueOrder() {}
 	
-	public abstract ArrayList<ArrayList<ArrayList<AAAssignment>>> getNextResidueAssignment(
+	public abstract ArrayList<ArrayList<ArrayList<AAAssignment>>> getNextAssignments(
 			LMB objFcn, 
 			MSSearchProblem[][] objFcnSearch,
 			KStarScore[] objFcnScores,

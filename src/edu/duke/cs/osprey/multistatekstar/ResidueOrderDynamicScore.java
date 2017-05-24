@@ -24,11 +24,13 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 	private ArrayList<ArrayList<ArrayList<BigDecimal>>> residueValues;
 	private BoltzmannCalculator boltzmann;
 	private ScoreType scoreType;
+	private int[][][][] RCs;//state,substate,pos,rc
 
 	public ResidueOrderDynamicScore(MSSearchProblem[][] objFcnSearch, String scoreType) {
 		super();
 		this.boltzmann = new BoltzmannCalculator();
-		this.residueValues = allocate(objFcnSearch);
+		this.residueValues = allocateResidueValues(objFcnSearch);
+		this.RCs = allocateRCArray(objFcnSearch);
 
 		switch(scoreType.toLowerCase()) {
 		case "fscore":
@@ -44,8 +46,22 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 			throw new UnsupportedOperationException("ERROR: unsuported score type: "+scoreType);
 		}
 	}
+	
+	private int[][][][] allocateRCArray(MSSearchProblem[][] objFcnSearch) {
+		int[][][][] ans = new int[objFcnSearch.length][][][];
+		for(int state=0;state<ans.length;++state) {
+			ans[state] = new int[objFcnSearch[state].length][][];
+			for(int substate=0;substate<ans[state].length;++substate) {
+				ans[state][substate] = new int[objFcnSearch[state][substate].pruneMat.getNumPos()][];
+				for(int pos=0;pos<ans[state][substate].length;++pos) {
+					ans[state][substate][pos] = new int[objFcnSearch[state][substate].pruneMat.unprunedRCsAtPos(pos).size()];
+				}
+			}
+		}
+		return ans;
+	}
 
-	private ArrayList<ArrayList<ArrayList<BigDecimal>>> allocate(MSSearchProblem[][] objFcnSearch) {
+	private ArrayList<ArrayList<ArrayList<BigDecimal>>> allocateResidueValues(MSSearchProblem[][] objFcnSearch) {
 		//create a priority queue for each state and substate
 		ArrayList<ArrayList<ArrayList<BigDecimal>>> residueValues = new ArrayList<>();
 		for(int state=0;state<objFcnSearch.length;++state) {
@@ -255,28 +271,28 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 			KStarScore[] gScores) {
 		int numStates = coeffs.length;
 		BigDecimal ans = BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
-		
+
 		BigDecimal gScore = null;
 		if(scoreType == ScoreType.DISCREPANCY)
 			gScore = BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
-		
+
 		// get assignment score
 		for(int state=0;state<numStates;++state) {
 			//sign of 0 does not contribute to score
 			if(coeffs[state].compareTo(BigDecimal.ZERO)==0) continue;
 			if(scoreType == ScoreType.FSCORE || scoreType == ScoreType.DISCREPANCY) {
 				ans = ans.add(coeffs[state].multiply(getStateScoreF(state, assignment, gScores[state])));
-				
+
 				if(scoreType == ScoreType.DISCREPANCY)
 					gScore = gScore.add(coeffs[state].multiply(gScores[state].getScore()));
 			}
 			else if(scoreType == ScoreType.HSCORE)
 				ans = ans.add(coeffs[state].multiply(getStateScoreH(state, assignment)));
 		}
-		
+
 		if(scoreType == ScoreType.DISCREPANCY)
 			ans = ans.subtract(gScore).abs();
-		
+
 		return ans;
 	}
 
@@ -288,29 +304,29 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 		int numSubStates = objFcnSearch[0].length;
 		MSSearchProblem complex = objFcnSearch[0][numSubStates-1];
 
-		ArrayList<ResidueAssignment> assignments = new ArrayList<>();
+		ArrayList<ResidueAssignment> residueAssignments = new ArrayList<>();
 
 		//get assignments
 		for(int splitPos : unassignedPos) {
 
 			if(complex.getNumAssignedPos()==0) {//root, split >=2 pos
-				assignments = getUnboundResidueAssignments(objFcnSearch[0]);
+				residueAssignments = getUnboundResidueAssignments(objFcnSearch[0]);
 				break;
 			}
 
 			else {//can directly score bound state
-				assignments.add(getBoundResidueAssignments(objFcnSearch[0], splitPos));
+				residueAssignments.add(getBoundResidueAssignments(objFcnSearch[0], splitPos));
 			}
 		}
 
 		//assignments.trimToSize();
 
 		ArrayList<ResidueAssignmentScore> assignmentScores = new ArrayList<>();
-		for(ResidueAssignment assignment : assignments) {
+		for(ResidueAssignment residueAssignment : residueAssignments) {
 			//if coeff[state]<0: want ub ratio, so smallest unbound state, largest bound state
 			//if coeff[state]>0: want lb ratio, so largest unbound state, smallest bound state
-			BigDecimal score = getFScore(assignment, objFcn.getCoeffs(), objFcnScores);
-			assignmentScores.add(new ResidueAssignmentScore(assignment, score));
+			BigDecimal score = getFScore(residueAssignment, objFcn.getCoeffs(), objFcnScores);
+			assignmentScores.add(new ResidueAssignmentScore(residueAssignment, score));
 		}
 
 		assignmentScores.trimToSize();
@@ -354,7 +370,7 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 		return ans;
 	}
 
-	protected ArrayList<ArrayList<ArrayList<AAAssignment>>> getBestAAAssignments(
+	protected ArrayList<ArrayList<ArrayList<AAAssignment>>> getAllowedAAAsignments(
 			MSSearchProblem[][] objFcnSearch,
 			ResidueAssignment residueAssignment, 
 			int numMaxMut
@@ -378,7 +394,7 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 		return ans;
 	}
 
-	public ArrayList<ResidueAssignmentScore> getAllPossibleAssignments(
+	public ArrayList<ResidueAssignmentScore> getAllResidueAssignments(
 			LMB objFcn, 
 			MSSearchProblem[][] objFcnSearch,
 			KStarScore[] objFcnScores, 
@@ -391,14 +407,14 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 		if(unassignedPos.size()==0)
 			throw new RuntimeException("ERROR: there are no unassigned positions");
 
-		if(unassignedPos.size() > 1) {
+		else if(unassignedPos.size()>0) {
 			//"g-score": value assigned residues
 			setResidueValues(objFcnSearch, true, MSKStarNode.PARALLEL_EXPANSION);
 
 			//"h-score": value unassigned residues
 			setResidueValues(objFcnSearch, false, MSKStarNode.PARALLEL_EXPANSION);
 		}
-
+		
 		//score unassigned residues by objfcn
 		ArrayList<ResidueAssignmentScore> scores = scoreUnassignedPos(objFcn, objFcnSearch, objFcnScores, unassignedPos);
 
@@ -406,19 +422,19 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 	}
 
 	@Override
-	public ArrayList<ArrayList<ArrayList<AAAssignment>>> getNextResidueAssignment(
+	public ArrayList<ArrayList<ArrayList<AAAssignment>>> getNextAssignments(
 			LMB objFcn,
 			MSSearchProblem[][] objFcnSearch,
 			KStarScore[] objFcnScores,
 			int numMaxMut
 			) {
-		ArrayList<ResidueAssignmentScore> scores = getAllPossibleAssignments(objFcn, objFcnSearch, objFcnScores, numMaxMut);
+		ArrayList<ResidueAssignmentScore> scores = getAllResidueAssignments(objFcn, objFcnSearch, objFcnScores, numMaxMut);
 
 		//order unassigned residues by score and return best residue
 		ResidueAssignment best = getBestResidueAssignment(scores);
 
 		//convert to aas that don't violate the allowed number of mutations
-		return getBestAAAssignments(objFcnSearch, best, numMaxMut);
+		return getAllowedAAAsignments(objFcnSearch, best, numMaxMut);
 	}
 
 }

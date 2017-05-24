@@ -17,9 +17,9 @@ public class ResidueOrderFactory {
 		case "staticsequential":
 			return new ResidueOrderStaticSequential();
 		case "staticmindomp":
-			return new ResidueOrderStaticMinDomain(objFcnSearch, true);
+			return new ResidueOrderStaticMinDomain(objFcnSearch, "product");
 		case "staticmindoms":
-			return new ResidueOrderStaticMinDomain(objFcnSearch, false);
+			return new ResidueOrderStaticMinDomain(objFcnSearch, "sum");
 		case "dynamicscoref":
 			return new ResidueOrderDynamicScore(objFcnSearch, "fscore");
 		case "dynamicscoreh":

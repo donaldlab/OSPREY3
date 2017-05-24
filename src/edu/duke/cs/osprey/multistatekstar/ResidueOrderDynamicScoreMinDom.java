@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.multistatekstar;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -28,14 +27,16 @@ public class ResidueOrderDynamicScoreMinDom extends ResidueOrder {
 		this.mCoeff = mCoeff;
 		
 		dynamic = new ResidueOrderDynamicScore(objFcnSearch, "discrepancy");
-		mindom = new ResidueOrderStaticMinDomain(objFcnSearch, true);
+		mindom = new ResidueOrderStaticMinDomain(objFcnSearch, "product");
 		
 		d2A2Rank = new HashMap<>();
 		m2A2Rank = new HashMap<>();
 	}
 	
 	private ResidueAssignment getBestResidueAssignment(
-			ArrayList<ResidueAssignmentScore> d) {	
+			ArrayList<ResidueAssignmentScore> d,
+			MSSearchProblem[][] objFcnSearch,
+			int numMaxMut) {	
 		ArrayList<ResidueAssignmentScore> d2 = new ArrayList<>(d);
 		Collections.sort(d2, new Comparator<ResidueAssignmentScore>() {
 			@Override
@@ -48,10 +49,7 @@ public class ResidueOrderDynamicScoreMinDom extends ResidueOrder {
 		ArrayList<ResidueAssignmentScore> m = (ArrayList<ResidueAssignmentScore>) ObjectIO.deepCopy(d);
 		//set scores to domain sizes
 		for(ResidueAssignmentScore ras : m) {
-			int complex = ras.assignment.length()-1;
-			long score = 1;
-			for(int pos : ras.assignment.get(complex)) score *= mindom.residue2Domain(pos);
-			ras.score = BigDecimal.valueOf(score);
+			ras.score = mindom.getResidueAssignmentScore(ras.assignment, objFcnSearch, numMaxMut);
 		}
 		
 		ArrayList<ResidueAssignmentScore> m2 = new ArrayList<>(m);
@@ -90,20 +88,20 @@ public class ResidueOrderDynamicScoreMinDom extends ResidueOrder {
 	}
 	
 	@Override
-	public ArrayList<ArrayList<ArrayList<AAAssignment>>> getNextResidueAssignment(
+	public ArrayList<ArrayList<ArrayList<AAAssignment>>> getNextAssignments(
 			LMB objFcn,
 			MSSearchProblem[][] objFcnSearch, 
 			KStarScore[] objFcnScores, 
 			int numMaxMut
 			) {
-		ArrayList<ResidueAssignmentScore> dynScores = dynamic.getAllPossibleAssignments(objFcn, objFcnSearch, objFcnScores, numMaxMut);	
+		ArrayList<ResidueAssignmentScore> dynScores = dynamic.getAllResidueAssignments(objFcn, objFcnSearch, objFcnScores, numMaxMut);	
 		
 		//order unassigned residues by score and return best residue
-		ResidueAssignment best = getBestResidueAssignment(dynScores);
+		ResidueAssignment best = getBestResidueAssignment(dynScores, objFcnSearch, numMaxMut);
 		
 		//convert to aas that don't violate the allowed number of mutations
 		//could also call mindom.getBestAAAssignments
-		return dynamic.getBestAAAssignments(objFcnSearch, best, numMaxMut);
+		return dynamic.getAllowedAAAsignments(objFcnSearch, best, numMaxMut);
 	}
 
 }

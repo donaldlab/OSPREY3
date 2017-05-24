@@ -66,10 +66,10 @@ public class KStarScoreDiscrete extends KStarScoreMinimized {
 			long prunedConfs = minConfs ? Long.MAX_VALUE : Long.MIN_VALUE;
 
 			for(String AAType : search.settings.AATypeOptions.get(pos)) {
-				long numAARCs = search.unprunedAtPos(pmat, pos, AAType).size();
+				long numAARCs = search.rcsAtPosForAA(pmat, pos, AAType, false).size();
 				unPrunedConfs = minConfs ? Math.min(unPrunedConfs, numAARCs) : Math.max(unPrunedConfs, numAARCs);
 				if(!minConfs) {
-					numAARCs = search.unprunedAtPos(partitionFunctions[state].invmat, pos, AAType).size();
+					numAARCs = search.rcsAtPosForAA(partitionFunctions[state].invmat, pos, AAType, false).size();
 					prunedConfs = Math.max(prunedConfs, numAARCs);
 				}
 			}
