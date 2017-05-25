@@ -37,7 +37,12 @@ public class SimpleReferenceEnergies {
 		return "" + pos + "-" + resType;
 	}
 	
-	private double getOffset(int pos, String resType) {
+	public double getOffset(SimpleConfSpace confSpace, int pos, int rc) {
+		String resType = confSpace.positions.get(pos).resConfs.get(rc).template.name;
+		return getOffset(pos, resType);
+	}
+	
+	public double getOffset(int pos, String resType) {
 		
 		double energy = get(pos, resType);
 		
@@ -52,15 +57,6 @@ public class SimpleReferenceEnergies {
 			// then they stay at infinity after eRef correction
 			return Double.POSITIVE_INFINITY;
 		}
-	}
-	
-	public double getConfEnergy(SimpleConfSpace confSpace, int[] conf) {
-		double energy = 0;
-		for (Position pos : confSpace.positions) {
-			ResidueConf rc = pos.resConfs.get(conf[pos.index]);
-			energy += getOffset(pos.index, rc.template.name);
-		}
-		return energy;
 	}
 	
 	public double getFragmentEnergy(SimpleConfSpace confSpace, RCTuple frag) {

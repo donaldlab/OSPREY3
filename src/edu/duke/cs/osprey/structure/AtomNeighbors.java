@@ -20,7 +20,7 @@ public class AtomNeighbors {
     LinkedHashSet<Atom> neighbors12, neighbors13, neighbors14;
     
     
-    public enum NEIGHBORTYPE {
+    public static enum Type {
             SELF, BONDED12, BONDED13, BONDED14, NONBONDED
     }//nonbonded here means not bonded 1,4 or closer
     
@@ -59,18 +59,18 @@ public class AtomNeighbors {
     }
     
     
-    public NEIGHBORTYPE classifyAtom(Atom atom){
+    public Type classifyAtom(Atom atom){
         //what kind of neighbor to mainAtom (if any) is atom?
         if(neighbors14.contains(atom))
-            return NEIGHBORTYPE.BONDED14;
+            return Type.BONDED14;
         else if(neighbors13.contains(atom))
-            return NEIGHBORTYPE.BONDED13;
+            return Type.BONDED13;
         else if(neighbors12.contains(atom))
-            return NEIGHBORTYPE.BONDED12;
+            return Type.BONDED12;
         else if(atom==mainAtom)
-            return NEIGHBORTYPE.SELF;
+            return Type.SELF;
         else
-            return NEIGHBORTYPE.NONBONDED;
+            return Type.NONBONDED;
     }
     
     
@@ -84,15 +84,15 @@ public class AtomNeighbors {
     //of their residue (or part of a residue).  In this case we need to avoid double-counting.
     //Otherwise they're assumed to be different and interacting with each other
     public static List<Atom[]> getPairs14( List<Atom> atoms1, List<Atom> atoms2, boolean internalE ){
-        return getPairsByType(atoms1,atoms2,internalE,NEIGHBORTYPE.BONDED14);
+        return getPairsByType(atoms1,atoms2,internalE,Type.BONDED14);
     }
         
     public static List<Atom[]> getPairsNonBonded( List<Atom> atoms1, List<Atom> atoms2, boolean internalE ){
-        return getPairsByType(atoms1,atoms2,internalE,NEIGHBORTYPE.NONBONDED);
+        return getPairsByType(atoms1,atoms2,internalE,Type.NONBONDED);
     }
     
     public static List<Atom[]> getPairsByType( List<Atom> atoms1, 
-            List<Atom> atoms2, boolean internalE, NEIGHBORTYPE type ){
+            List<Atom> atoms2, boolean internalE, Type type ){
         
         List<Atom[]> ans = new ArrayList<>();
         
@@ -125,7 +125,7 @@ public class AtomNeighbors {
         return ans;
     }
     
-    public static List<int[]> getPairIndicesByType(List<Atom> atoms1, List<Atom> atoms2, boolean internalE, NEIGHBORTYPE type) {
+    public static List<int[]> getPairIndicesByType(List<Atom> atoms1, List<Atom> atoms2, boolean internalE, Type type) {
         
         List<int[]> indexPairs = new ArrayList<>();
         
@@ -153,7 +153,7 @@ public class AtomNeighbors {
     
     
     //sometimes we have a list of selected atom pairs, and we want to separate out the ones that have a certain neighbory type
-    public static List<Atom[]> getPairsByType( List<Atom[]> atomPairs, NEIGHBORTYPE type ){
+    public static List<Atom[]> getPairsByType( List<Atom[]> atomPairs, Type type ){
         
         List<Atom[]> ans = new ArrayList<>();
         
@@ -170,11 +170,11 @@ public class AtomNeighbors {
     
     //special versions
      public static List<Atom[]> getPairs14( List<Atom[]> atomPairs ){
-        return getPairsByType(atomPairs, NEIGHBORTYPE.BONDED14);
+        return getPairsByType(atomPairs, Type.BONDED14);
     }
         
     public static List<Atom[]> getPairsNonBonded( List<Atom[]> atomPairs ){
-        return getPairsByType(atomPairs, NEIGHBORTYPE.NONBONDED);
+        return getPairsByType(atomPairs, Type.NONBONDED);
     }
         
       

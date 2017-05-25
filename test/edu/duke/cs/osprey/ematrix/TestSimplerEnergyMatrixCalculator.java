@@ -15,8 +15,7 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
-import edu.duke.cs.osprey.energy.MinimizingEnergyCalculator;
-import edu.duke.cs.osprey.energy.MinimizingEnergyCalculator.Type;
+import edu.duke.cs.osprey.energy.MinimizingFragmentEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -808,8 +807,8 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 	}
 	
 	private SimplerEnergyMatrixCalculator makeEmatCalc(SimpleConfSpace confSpace) {
-		MinimizingEnergyCalculator ecalc = new MinimizingEnergyCalculator.Builder(confSpace, new ForcefieldParams())
-			.setType(Type.CpuOriginalCCD) // use original CCD implementation to match old code energies
+		MinimizingFragmentEnergyCalculator ecalc = new MinimizingFragmentEnergyCalculator.Builder(confSpace, new ForcefieldParams())
+			.setType(MinimizingFragmentEnergyCalculator.Type.CpuOriginalCCD) // use original CCD implementation to match old code energies
 			.build();
 		return new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
 			.build();
@@ -903,7 +902,7 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 				
 			// otherwise, use a tight absolute check
 			} else {
-				assertThat(description, obs, isAbsolutely(exp, 1e-6));
+				assertThat(description, obs, isAbsolutely(exp, 1e-5));
 			}
 		}
 	}

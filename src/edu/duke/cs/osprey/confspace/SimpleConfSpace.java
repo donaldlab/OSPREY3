@@ -229,12 +229,13 @@ public class SimpleConfSpace {
 		
 		if (template.name.equalsIgnoreCase("PRO")) {
 			
-			// HACKHACK: add one cone for each proline pucker
+			// HACKHACK: add one conf for each proline pucker
 			for (ProlinePucker.Direction dir : ProlinePucker.Direction.values()) {
 				ResidueConf resConf = new ResidueConf(
 					pos.resConfs.size(),
 					template,
-					type
+					type,
+					dir.ordinal()
 				);
 				resConf.postTemplateModifier = (res) -> res.pucker.apply(dir);
 				pos.resConfs.add(resConf);

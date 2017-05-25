@@ -11,7 +11,10 @@ import edu.duke.cs.osprey.structure.Residue;
 
 /**
  * forcefield interactions generator
+ * 
+ * Use ResInterGen and ForcefieldInteractions(ResidueInteractions,Molecule) instead
  */
+@Deprecated
 public class FFInterGen {
 	
 	public static ForcefieldInteractions makeSingleRes(ConfSpace confSpace, int pos, Molecule mol) {

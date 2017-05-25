@@ -311,5 +311,9 @@ public class ResidueTemplate implements Serializable {
         setRotamericDihedrals(newRotamericDihedrals,0,0);
      }
 
-
+    @Override
+    public String toString() {
+        // there are tons of templates with the same name, so add the hash id too
+        return name + ":" + System.identityHashCode(this);
+    }
 }

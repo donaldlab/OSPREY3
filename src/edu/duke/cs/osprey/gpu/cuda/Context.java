@@ -27,9 +27,9 @@ public class Context {
 		
 		// create the cuda context
 		context = new CUcontext();
-		int flags = CUctx_flags.CU_CTX_SCHED_YIELD;
+		//int flags = CUctx_flags.CU_CTX_SCHED_YIELD;
 		//int flags = CUctx_flags.CU_CTX_SCHED_SPIN;
-		//int flags = CUctx_flags.CU_CTX_SCHED_BLOCKING_SYNC;
+		int flags = CUctx_flags.CU_CTX_SCHED_BLOCKING_SYNC;
 		JCudaDriver.cuCtxCreate(context, flags, gpu.getDevice());
 		
 		kernels = new HashMap<>();
@@ -105,12 +105,15 @@ public class Context {
 	}
 	
 	public synchronized void cleanup() {
-		
-		for (CUmodule kernel : kernels.values()) {
-			JCudaDriver.cuModuleUnload(kernel);
+		try {
+			for (CUmodule kernel : kernels.values()) {
+				JCudaDriver.cuModuleUnload(kernel);
+			}
+			kernels.clear();
+			
+			JCudaDriver.cuCtxDestroy(context);
+		} catch (Throwable t) {
+			t.printStackTrace(System.err);
 		}
-		kernels.clear();
-		
-		JCudaDriver.cuCtxDestroy(context);
 	}
 }

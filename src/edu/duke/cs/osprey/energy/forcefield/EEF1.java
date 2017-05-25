@@ -4,82 +4,22 @@
  */
 package edu.duke.cs.osprey.energy.forcefield;
 
-import edu.duke.cs.osprey.control.EnvironmentVars;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.Serializable;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.Map;
+import java.util.Set;
+
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
 import edu.duke.cs.osprey.restypes.DAminoAcidHandler;
 import edu.duke.cs.osprey.structure.Atom;
+import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.structure.Residues;
+import edu.duke.cs.osprey.tools.HashCalculator;
 import edu.duke.cs.osprey.tools.StringParsing;
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.InputStreamReader;
-import java.io.Serializable;
-import java.util.StringTokenizer;
-
-    /*
-	This file is part of OSPREY.
-
-	OSPREY Protein Redesign Software Version 2.1 beta
-	Copyright (C) 2001-2012 Bruce Donald Lab, Duke University
-	
-	OSPREY is free software: you can redistribute it and/or modify
-	it under the terms of the GNU Lesser General Public License as 
-	published by the Free Software Foundation, either version 3 of 
-	the License, or (at your option) any later version.
-	
-	OSPREY is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-	GNU Lesser General Public License for more details.
-	
-	You should have received a copy of the GNU Lesser General Public
-	License along with this library; if not, see:
-	      <http://www.gnu.org/licenses/>.
-		
-	There are additional restrictions imposed on the use and distribution
-	of this open-source code, including: (A) this header must be included
-	in any modification or extension of the code; (B) you are required to
-	cite our papers in any publications that use this code. The citation
-	for the various different modules of our software, together with a
-	complete list of requirements and restrictions are found in the
-	document license.pdf enclosed with this distribution.
-	
-	Contact Info:
-			Bruce Donald
-			Duke University
-			Department of Computer Science
-			Levine Science Research Center (LSRC)
-			Durham
-			NC 27708-0129 
-			USA
-			e-mail:   www.cs.duke.edu/brd/
-	
-	<signature of Bruce Donald>, Mar 1, 2012
-	Bruce Donald, Professor of Computer Science
-*/
-
-///////////////////////////////////////////////////////////////////////////////////////////////
-//	EEF1.java
-//
-//	Version:           2.1 beta
-//
-//
-//	  authors:
-// 	  initials    name                 organization                email
-//	 ---------   -----------------    ------------------------    ----------------------------
-//	  ISG		 Ivelin Georgiev	  Duke University			  ivelin.georgiev@duke.edu
-//     KER        Kyle E. Roberts       Duke University         ker17@duke.edu
-//     PGC        Pablo Gainza C.       Duke University         pablo.gainza@duke.edu
-///////////////////////////////////////////////////////////////////////////////////////////////
-
-/**
-* Written by Ivelin Georgiev (2004-2009)
-* 
-*/
-
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.InputStreamReader;
-import java.io.Serializable;
-import java.util.StringTokenizer;
 
 /**
  * Manages the EEF1 solvation parameters;
@@ -94,7 +34,11 @@ import java.util.StringTokenizer;
 
 
 public class EEF1 implements Serializable {
-		
+	
+	private static final long serialVersionUID = -4783417295676415124L;
+	
+	public static final double trigConst = 2.0/(4.0*Math.PI*Math.sqrt(Math.PI));
+	
 	//Variables to store the EEF1 solvation paramaters;
 	//These values are specific to eef1parm.dat, and may have to be modified for different
 	//		versions of the parameter file
@@ -192,32 +136,110 @@ public class EEF1 implements Serializable {
 		}		
 	}
 	
+	private static Set<String> warnedAtomTypes = new HashSet<>();
+	private static void warnAtomType(String type) {
+		if (warnedAtomTypes.add(type)) {
+			System.err.println("WARNING: couldn't find solvation parameters for atom type: " + type + ", using default values");
+		}
+	}
+	
+	public void getSolvationParametersOrDefaults(Atom atom, SolvParams solvparams) {
+		boolean success = getSolvationParameters(atom, solvparams);
+		if (!success) {
+			
+			// if there's no params, don't crash, use defaults instead
+			warnAtomType(atom.forceFieldType);
+			
+			solvparams.dGref = 0;
+			solvparams.dGfree = 0;
+			solvparams.volume = 0;
+			solvparams.lambda = 1;
+			solvparams.radius = 0;
+		}
+	}
+	
+	private class SolvGroupKey {
+		
+		public final String atomName;
+		public final String elementType;
+		public final String AAname;
+		public final int numBoundH;
+		public final boolean isCarboxylO;
+		
+		private final int hashCode;
+		
+		public SolvGroupKey(Atom atom) {
+			
+			atomName = atom.name;
+			elementType = atom.elementType;
+			AAname = atom.res.template.name;
+			numBoundH = getNumBoundH(atom);
+			isCarboxylO = isCarboxylO(atom);
+			
+			hashCode = HashCalculator.combineHashes(
+				atomName.hashCode(),
+				elementType.hashCode(),
+				AAname.hashCode(),
+				numBoundH,
+				isCarboxylO ? 2 : 1
+			);
+		}
+		
+		@Override
+		public int hashCode() {
+			return hashCode;
+		}
+		
+		@Override
+		public boolean equals(Object obj) {
+			SolvGroupKey other = (SolvGroupKey)obj;
+			return this.isCarboxylO == other.isCarboxylO
+				&& this.numBoundH == other.numBoundH
+				&& this.AAname.equals(other.AAname)
+				&& this.elementType.equals(other.elementType)
+				&& this.atomName.equals(other.atomName);
+		}
+	}
+	
+	private static HashMap<SolvGroupKey,Integer> solvGroupIndices = new HashMap<>();
+	
 	//Determines the solvation group index for the given atom;
 	//This function assumes that the predfefined groups are as given in eef1parm.dat;
 	//		Modifcations to this functions will be required if different group types are used
-	private int getSolvGroupIndex(Atom at1){
+	private int getSolvGroupIndex(Atom atom) {
+		SolvGroupKey key = new SolvGroupKey(atom);
+		Integer index = solvGroupIndices.get(key);
+		if (index == null) {
+			index = getSolvGroupIndex(key);
+			solvGroupIndices.put(key, index);
+		}
+		return index;
+		//return getSolvGroupIndex(atom.name, atom.elementType, atom.res.template.name, getNumBoundH(atom), isCarboxylO(atom));
+	}
+	
+	private int getSolvGroupIndex(SolvGroupKey key) {
+		return getSolvGroupIndex(key.atomName, key.elementType, key.AAname, key.numBoundH, key.isCarboxylO);
+	}
+	
+	private int getSolvGroupIndex(String atomName, String elementType, String AAname, int numBoundH, boolean isCarboxylO) {
 		
-		String elementType = at1.elementType;
-		String AAname = at1.res.template.name; //the AA name to which this atom belongs
+		if(DAminoAcidHandler.isDAminoAcidName(AAname))
+			AAname = DAminoAcidHandler.getLEquivalent(AAname);//look up parameters by L-amino acid name (has same energetics)
 		
-                if(DAminoAcidHandler.isDAminoAcidName(AAname))
-                    AAname = DAminoAcidHandler.getLEquivalent(AAname);//look up parameters by L-amino acid name (has same energetics)
-                
-                boolean aromatic = isAromatic(at1);
-		int numBoundH = getNumBoundH(at1);
+		boolean aromatic = isAromatic(atomName, elementType, AAname);
 		
 		if (elementType.equalsIgnoreCase("C")) {
 			
-			if ( at1.name.equalsIgnoreCase("CG") && 
+			if ( atomName.equalsIgnoreCase("CG") && 
 					( AAname.equalsIgnoreCase("TYR") || AAname.equalsIgnoreCase("PHE") || AAname.equalsIgnoreCase("HIS") 
 							|| AAname.equalsIgnoreCase("HIP") || AAname.equalsIgnoreCase("HID") || AAname.equalsIgnoreCase("HIE")) )
 				return findSolvGroup("CR"); //CG of (TYR or PHE or HIS)
 			
-			else if ( ( at1.name.equalsIgnoreCase("CG") || at1.name.equalsIgnoreCase("CD2") || at1.name.equalsIgnoreCase("CE2") )
+			else if ( ( atomName.equalsIgnoreCase("CG") || atomName.equalsIgnoreCase("CD2") || atomName.equalsIgnoreCase("CE2") )
 					&& AAname.equalsIgnoreCase("TRP") )
 				return findSolvGroup("CR"); // (CG or CD2 or CE2) of TRP
 			
-			else if ( at1.name.equalsIgnoreCase("CZ") && AAname.equalsIgnoreCase("ARG") )
+			else if ( atomName.equalsIgnoreCase("CZ") && AAname.equalsIgnoreCase("ARG") )
 				return findSolvGroup("CR"); //CZ of PHE
 			
 			else if ( (aromatic) && (numBoundH==1) ) // extended aromatic C with 1 H, so CR1E group
@@ -263,7 +285,7 @@ public class EEF1 implements Serializable {
 			if (numBoundH==1) // hydroxyl oxygen, so OH1 group
 				return findSolvGroup("OH1");
 			
-			else if (isCarboxylO(at1)) // carboxyl oxygen, so OC group
+			else if (isCarboxylO) // carboxyl oxygen, so OC group
 				return findSolvGroup("OC");
 			
 			else //all other oxygens (carbonyl oxygen)
@@ -337,14 +359,12 @@ public class EEF1 implements Serializable {
 	}
 	
 	//Determines if the given heavy atom is aromatic
-	private boolean isAromatic(Atom at1){
+	private boolean isAromatic(String atomName, String elementType, String AAname) {
 		
-		String AAname = at1.res.template.name; //the AA name of the residue to which this atom belongs
+		if (DAminoAcidHandler.isDAminoAcidName(AAname)) {
+			AAname = DAminoAcidHandler.getLEquivalent(AAname);//look up parameters by L-amino acid name (has same energetics)
+		}
 		
-                if(DAminoAcidHandler.isDAminoAcidName(AAname))
-                    AAname = DAminoAcidHandler.getLEquivalent(AAname);//look up parameters by L-amino acid name (has same energetics)
-
-                
 		boolean isHis = (AAname.equalsIgnoreCase("HIS") || AAname.equalsIgnoreCase("HIP") || AAname.equalsIgnoreCase("HID") || AAname.equalsIgnoreCase("HIE"));
 		
 		if ( !(AAname.equalsIgnoreCase("PHE") || AAname.equalsIgnoreCase("TYR") 
@@ -352,15 +372,14 @@ public class EEF1 implements Serializable {
 				return false;
 		else {//PHE or TYR or TRP or HIS, so check if aromatic atom
 			
-			if (!at1.elementType.equalsIgnoreCase("C")){ //not a carbon
-				if ( at1.elementType.equalsIgnoreCase("N") && 
-						( !at1.name.equalsIgnoreCase("N") && (AAname.equalsIgnoreCase("TRP") || isHis) ) ) //N in the ring of TRP or HIS
+			if (!elementType.equalsIgnoreCase("C")){ //not a carbon
+				if ( elementType.equalsIgnoreCase("N") && 
+						( !atomName.equalsIgnoreCase("N") && (AAname.equalsIgnoreCase("TRP") || isHis) ) ) //N in the ring of TRP or HIS
 					return true;
 				else
 					return false;
 			}
 			else {//a carbon, so check if CA or CB or C
-				String atomName = at1.name;
 				if (atomName.equalsIgnoreCase("CA") || atomName.equalsIgnoreCase("CB") 
 						|| atomName.equalsIgnoreCase("C")) //CA or CB or C, so cannot be aromatic
 					return false;
@@ -382,5 +401,120 @@ public class EEF1 implements Serializable {
 		return numBoundH;
 	}
 	
+	public class ResiduesInfo implements SolvationForcefield.ResiduesInfo {
+		
+		private class ResInfo {
+			public int[] indices;
+			public double internalEnergy;
+		}
+		
+		public final Residues residues;
+		
+		private final Map<Residue,ResInfo> infos;
+		
+		public ResiduesInfo(Residues residues) {
+			
+			this.residues = residues;
+			
+			infos = new IdentityHashMap<>();
+			for (Residue res : residues) {
+				
+				ResInfo info = new ResInfo();
+				infos.put(res, info);
+				
+				// calculate the group indices
+				info.indices = new int[res.atoms.size()];
+				for (int i=0; i<res.atoms.size(); i++) {
+					Atom atom = res.atoms.get(i);
+					if (atom.isHydrogen()) {
+						info.indices[i] = -1;
+					} else {
+						int index = getSolvGroupIndex(atom);
+						if (index == -1) {
+							warnAtomType(atom.forceFieldType);
+						}
+						info.indices[i] = index;
+					}
+				}
+				
+				// calculate the internal energy
+				// add up all the dGref terms for all the atoms
+				info.internalEnergy = 0.0;
+				for (int index : info.indices) {
+					if (index != -1) {
+						info.internalEnergy += dGiRef[index];
+					}
+				}
+			}
+		}
 
+		@Override
+		public int getNumPrecomputedPerAtomPair() {
+			return 6;
+		}
+
+		@Override
+		public double getResPairEnergy(Residue res1, Residue res2) {
+			
+			if (res1 == res2) {
+				return infos.get(res1).internalEnergy;
+			}
+			
+			return 0.0;
+		}
+
+		@Override
+		public void putPrecomputed(double[] out, int i, Residue res1, int atomIndex1, Residue res2, int atomIndex2, double scale) {
+			
+			// skip pairs with hydrogens
+			ResInfo info1 = infos.get(res1);
+			Atom atom1 = res1.atoms.get(atomIndex1);
+			ResInfo info2 = infos.get(res2);
+			Atom atom2 = res2.atoms.get(atomIndex2);
+			if (atom1.isHydrogen() || atom2.isHydrogen()) {
+				return;
+			}
+			
+			// start with defaults
+			double dGfree1 = 0;
+			double volume1 = 0;
+			double lambda1 = 1;
+			double radius1 = 0;
+			
+			double dGfree2 = 0;
+			double volume2 = 0;
+			double lambda2 = 1;
+			double radius2 = 0;
+			
+			// set atom 1 params
+			int index1 = info1.indices[atomIndex1];
+			if (index1 != -1) {
+				dGfree1 = dGiFree[index1];
+				volume1 = atEEF1Vol[index1];
+				lambda1 = lambdai[index1];
+				radius1 = vdWri[index1];
+			}
+			
+			// set atom 2 params
+			int index2 = info2.indices[atomIndex2];
+			if (index2 != -1) {
+				dGfree2 = dGiFree[index2];
+				volume2 = atEEF1Vol[index2];
+				lambda2 = lambdai[index2];
+				radius2 = vdWri[index2];
+			}
+		
+			// calc mixed params
+			scale *= trigConst;
+			double alpha1 = scale*dGfree1*volume2/lambda1;
+			double alpha2 = scale*dGfree2*volume1/lambda2;
+
+			out[i++] = radius1;
+			out[i++] = lambda1;
+			out[i++] = alpha1;
+			out[i++] = radius2;
+			out[i++] = lambda2;
+			out[i++] = alpha2;
+		}
+	}
 }

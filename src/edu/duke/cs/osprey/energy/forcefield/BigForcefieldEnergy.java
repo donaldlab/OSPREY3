@@ -18,7 +18,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield
 import edu.duke.cs.osprey.gpu.BufferTools;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.AtomNeighbors;
-import edu.duke.cs.osprey.structure.AtomNeighbors.NEIGHBORTYPE;
+import edu.duke.cs.osprey.structure.AtomNeighbors.Type;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 
@@ -122,17 +122,17 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		private AtomGroup group2;
 		private int sequenceNumber1;
 		private int sequenceNumber2;
-		private Map<NEIGHBORTYPE,Entry> entries;
+		private Map<Type,Entry> entries;
 		private double internalSolvEnergy;
 		
 		public GroupPair(ParamInfo pinfo, AtomGroup group1, AtomGroup group2) {
 			this.group1 = group1;
 			this.group2 = group2;
-			this.entries = new EnumMap<>(NEIGHBORTYPE.class);
+			this.entries = new EnumMap<>(Type.class);
 			build(pinfo);
 		}
 		
-		public Entry get(NEIGHBORTYPE type) {
+		public Entry get(Type type) {
 			return entries.get(type);
 		}
 		
@@ -163,7 +163,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 			
 			// build the bond type entries
 			entries.clear();
-			for (NEIGHBORTYPE type : Arrays.asList(NEIGHBORTYPE.BONDED14, NEIGHBORTYPE.NONBONDED)) {
+			for (Type type : Arrays.asList(Type.BONDED14, Type.NONBONDED)) {
 				entries.put(type, build(pinfo, type));
 			}
 			
@@ -177,7 +177,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 				if (group1 == group2) {
 					for (Atom atom : group1.getAtoms()) {
 						if (!atom.isHydrogen()) {
-							getSolvParams(pinfo, atom, solvparams);
+							pinfo.params.eef1parms.getSolvationParametersOrDefaults(atom, solvparams);
 							internalSolvEnergy += solvparams.dGref;
 						}
 					}
@@ -189,7 +189,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 			sequenceNumber2 = group2.getSequenceNumber();
 		}
 		
-		private Entry build(ParamInfo pinfo, NEIGHBORTYPE type) {
+		private Entry build(ParamInfo pinfo, Type type) {
 			
 			List<int[]> atomPairs = AtomNeighbors.getPairIndicesByType(
 				group1.getAtoms(),
@@ -215,15 +215,15 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 				entry.addFlags(i, atom1.isHydrogen(), atom2.isHydrogen());
 				
 				// save the vdw params
-				getNonBondedParams(pinfo, atom1, nbparams1);
-				getNonBondedParams(pinfo, atom2, nbparams2);
+				pinfo.params.getNonBondedParametersOrThrow(atom1, type, nbparams1);
+				pinfo.params.getNonBondedParametersOrThrow(atom2, type, nbparams2);
 				calcVdw(nbparams1, nbparams2, pinfo.Amult, pinfo.Bmult, vdwparams);
 				
 				// vdW scaling for 1-4 interactions
-				if (type == NEIGHBORTYPE.BONDED14) {
+				if (type == Type.BONDED14) {
 					vdwparams.Aij *= pinfo.params.forcefld.Aij14Factor;
 					vdwparams.Bij *= pinfo.params.forcefld.Bij14Factor;
-				} else if (type == NEIGHBORTYPE.NONBONDED) {
+				} else if (type == Type.NONBONDED) {
 					vdwparams.Bij *= 2;
 				}
 				
@@ -231,8 +231,8 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 				if (!atom1.isHydrogen() && !atom2.isHydrogen()) {
 					
 					// save the solvation params
-					getSolvParams(pinfo, atom1, solvparams1);
-					getSolvParams(pinfo, atom2, solvparams2);
+					pinfo.params.eef1parms.getSolvationParametersOrDefaults(atom1, solvparams1);
+					pinfo.params.eef1parms.getSolvationParametersOrDefaults(atom2, solvparams2);
 					
 					double alpha1 = pinfo.solvCoeff*solvparams1.dGfree*solvparams2.volume/solvparams1.lambda;
 					double alpha2 = pinfo.solvCoeff*solvparams2.dGfree*solvparams1.volume/solvparams2.lambda;
@@ -466,7 +466,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		precomputed = makeOrResizeBuffer(precomputed, numAtomPairs*GroupPair.Entry.NumPrecomputedPerPair);
 		
 		int atomPairOffset = 0;
-		for (NEIGHBORTYPE type : Arrays.asList(NEIGHBORTYPE.BONDED14, NEIGHBORTYPE.NONBONDED)) {
+		for (Type type : Arrays.asList(Type.BONDED14, Type.NONBONDED)) {
 			
 			// concatenate all the atom flags and precomputed values
 			for (int groupPairIndex=0; groupPairIndex<interactions.size(); groupPairIndex++) {
@@ -503,7 +503,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	
 	private DoubleBuffer makeOrResizeBuffer(DoubleBuffer buf, int size) {
 		if (buf == null || buf.capacity() < size) {
-			buf = BufferTools.makeDouble(size, bufferType);
+			buf = bufferType.makeDouble(size);
 		} else {
 			buf.clear();
 		}
@@ -513,7 +513,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	
 	private IntBuffer makeOrResizeBuffer(IntBuffer buf, int size) {
 		if (buf == null || buf.capacity() < size) {
-			buf = BufferTools.makeInt(size, bufferType);
+			buf = bufferType.makeInt(size);
 		} else {
 			buf.clear();
 		}
@@ -635,44 +635,6 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		vdwparams.Bij *= epsilon*Bmult;
 	}
 	
-	private static void getNonBondedParams(ParamInfo pinfo, Atom atom, NBParams nbparams) {
-		
-		// HACKHACK: overrides for C atoms
-		if (atom.isCarbon() && pinfo.params.forcefld.reduceCRadii) {
-			
-			// Jeff: shouldn't these settings be in a config file somewhere?
-			nbparams.epsilon = 0.1;
-			nbparams.r = 1.9;
-			
-		} else {
-			
-			boolean success = pinfo.params.getNonBondedParameters(atom.type, nbparams);
-			if (!success) {
-				// TODO: what's the right error-handling behavior here?
-				// skip any atom pairs without params and keep computing?
-				// use default values for nbparams?
-				// or crash and tell the user to fix the problem?
-				throw new Error("couldn't find non-bonded parameters for atom type: " + atom.forceFieldType);
-			}
-		}
-	}
-	
-	private static void getSolvParams(ParamInfo pinfo, Atom atom, SolvParams solvparams) {
-		boolean success = pinfo.params.eef1parms.getSolvationParameters(atom, solvparams);
-		if (!success) {
-			
-			// if there's no params, don't crash, use defaults instead
-			if(ParamInfo.printWarnings) {
-				System.err.println("WARNING: couldn't find solvation parameters for atom type: " + atom.forceFieldType + ", using default values");
-			}
-			solvparams.dGref = 0;
-			solvparams.dGfree = 0;
-			solvparams.volume = 0;
-			solvparams.lambda = 1;
-			solvparams.radius = 0;
-		}
-	}
-		
 	private int getGlobalAtomIndex(int groupIndex, int atomIndexInGroup) {
 		return atomOffsets[groupIndex] + atomIndexInGroup;
 	}
@@ -742,7 +704,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 			internalSolvEnergy = 0;
 			for (GroupPair pair : groupPairs) {
 				numPairs += pair.getNumAtomPairs();
-				num14Pairs += pair.get(NEIGHBORTYPE.BONDED14).atomPairs.size();
+				num14Pairs += pair.get(Type.BONDED14).atomPairs.size();
 				internalSolvEnergy += pair.getInternalSolvationEnergy();
 			}
 			
@@ -750,7 +712,7 @@ public class BigForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 				
 				// make the subset table
 				subsetTable = makeOrResizeBuffer(subsetTable, numPairs);
-				for (NEIGHBORTYPE type : Arrays.asList(NEIGHBORTYPE.BONDED14, NEIGHBORTYPE.NONBONDED)) {
+				for (Type type : Arrays.asList(Type.BONDED14, Type.NONBONDED)) {
 					for (GroupPair pair : groupPairs) {
 						GroupPair.Entry entry = pair.get(type);
 						for (int i=0; i<entry.atomPairs.size(); i++) {

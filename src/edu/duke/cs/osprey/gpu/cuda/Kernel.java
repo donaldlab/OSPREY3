@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.gpu.cuda;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import jcuda.CudaException;
 import jcuda.Pointer;
@@ -64,6 +65,15 @@ public class Kernel {
 			throw new Error("can't determine thread count for kernel launch, all thread counts failed");
 		}
 		
+		public int getBestBlockThreads(AtomicInteger blockThreads) {
+			return blockThreads.updateAndGet((int val) -> {
+				if (val == -1) {
+					val = calcMaxBlockThreads();
+				}
+				return val;
+			});
+		}
+		
 		private boolean canLaunch(int blockThreads) {
 			try {
 				
@@ -86,8 +96,7 @@ public class Kernel {
 	private GpuStream stream;
 	private CUmodule module;
 	
-	public Kernel(GpuStream stream, String filename)
-	throws IOException {
+	public Kernel(GpuStream stream, String filename) {
 		
 		if (stream == null) {
 			throw new IllegalArgumentException("stream can't be null");
@@ -98,7 +107,11 @@ public class Kernel {
 		// make sure this thread is attached to this context
 		stream.getContext().attachCurrentThread();
 		
-		module = getContext().getKernel(filename);
+		try {
+			module = getContext().getKernel(filename);
+		} catch (IOException ex) {
+			throw new Error("can't load Cuda kernel: " + filename, ex);
+		}
 	}
 	
 	public GpuStream getStream() {
@@ -115,9 +128,5 @@ public class Kernel {
 	
 	public void waitForGpu() {
 		getStream().waitForGpu();
-	}
-	
-	protected static int divUp(int num, int denom) {
-		return (num + denom - 1)/denom;
 	}
 }

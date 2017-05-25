@@ -21,6 +21,8 @@ import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.ParameterizedMoleculeCopy;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.FreeDihedral;
@@ -29,8 +31,13 @@ import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
+import edu.duke.cs.osprey.energy.EnergyPartition;
 import edu.duke.cs.osprey.energy.FFInterGen;
 import edu.duke.cs.osprey.energy.GpuEnergyFunctionGenerator;
+import edu.duke.cs.osprey.energy.MinimizingFragmentEnergyCalculator;
+import edu.duke.cs.osprey.energy.MinimizingFragmentEnergyCalculator.Type;
+import edu.duke.cs.osprey.energy.ResInterGen;
+import edu.duke.cs.osprey.energy.ResidueInteractions;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
@@ -41,8 +48,11 @@ import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction;
 import edu.duke.cs.osprey.minimization.SimpleCCDMinimizer;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TimingThread;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.structure.PDBIO;
+import edu.duke.cs.osprey.tools.MathTools;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Stopwatch;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
@@ -64,7 +74,8 @@ public class CudaPlayground extends TestBase {
 		// http://docs.nvidia.com/cuda/cuda-c-programming-guide/#cuda-dynamic-parallelism
 		
 		//forcefield();
-		ccd();
+		//ccd();
+		residueCcd();
 	}
 	
 	private static SearchProblem makeSearch()
@@ -76,8 +87,9 @@ public class CudaPlayground extends TestBase {
 		ResidueFlexibility resFlex = new ResidueFlexibility();
 		resFlex.addMutable("39 43", "ALA");
 		resFlex.addFlexible("40 41 42 44 45");
+		resFlex.sortPositions();
 		boolean doMinimize = true;
-		boolean addWt = true;
+		boolean addWt = false;
 		boolean useEpic = false;
 		boolean useTupleExpansion = false;
 		boolean useEllipses = false;
@@ -387,7 +399,7 @@ public class CudaPlayground extends TestBase {
 			for (int numStreams : numStreamsList) {
 				
 				int numGpus = 1;
-				cudaPool = new GpuStreamPool(numGpus, divUp(numStreams, numGpus));
+				cudaPool = new GpuStreamPool(numGpus, MathTools.divUp(numStreams, numGpus));
 				
 				List<TimingThread> threads = new ArrayList<>();
 				for (int i=0; i<numStreams; i++) {
@@ -407,6 +419,63 @@ public class CudaPlayground extends TestBase {
 		}
 	}
 	
+	private static void residueCcd()
+	throws IOException {
+		
+		SearchProblem search = makeSearch();
+		RCTuple tuple = getConf(search, 0);
+		ForcefieldParams ffparams = new ForcefieldParams();
+		
+		// also make a simple conf space
+		Strand strand = new Strand.Builder(PDBIO.readFile("examples/1CC8/1CC8.ss.pdb")).build();
+		strand.flexibility.get(39).setLibraryRotamers("ALA").setContinuous();
+		strand.flexibility.get(40).setLibraryRotamers().setContinuous();
+		strand.flexibility.get(41).setLibraryRotamers().setContinuous();
+		strand.flexibility.get(42).setLibraryRotamers().setContinuous();
+		strand.flexibility.get(43).setLibraryRotamers("ALA").setContinuous();
+		strand.flexibility.get(44).setLibraryRotamers().setContinuous();
+		strand.flexibility.get(45).setLibraryRotamers().setContinuous();
+		SimpleConfSpace simpleConfSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
+		assertConfSpacesMatch(search.confSpace, simpleConfSpace);
+		
+		// minimize on CPU side
+		ParameterizedMoleculeCopy cpuMol = new ParameterizedMoleculeCopy(search.confSpace);
+		EnergyFunction cpuEfunc = EnvironmentVars.curEFcnGenerator.fullConfEnergy(search.confSpace, search.shellResidues, cpuMol.getCopiedMolecule());
+		MoleculeModifierAndScorer cpuMof = new MoleculeModifierAndScorer(cpuEfunc, search.confSpace, tuple, cpuMol);
+		DoubleMatrix1D x = DoubleFactory1D.dense.make(cpuMof.getNumDOFs());
+		ObjectiveFunction.DofBounds dofBounds = new ObjectiveFunction.DofBounds(cpuMof.getConstraints());
+		dofBounds.getCenter(x);
+		SimpleCCDMinimizer cpuMinimizer = new SimpleCCDMinimizer();
+		cpuMinimizer.init(cpuMof);
+		
+		// restore coords
+		cpuMof.setDOFs(x);
+		
+		Minimizer.Result cpuResult = cpuMinimizer.minimize();
+		System.out.println(String.format("CPU energy: %12.6f", cpuResult.energy));
+		
+		// minimize with residue Cuda CCD
+		MinimizingFragmentEnergyCalculator gpuFragEcalc = new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
+			.setType(Type.ResidueCudaCCD)
+			.setParallelism(Parallelism.makeGpu(1, 1))
+			.build();
+		ResidueInteractions inters = new EnergyPartition.Traditional().makeFragment(simpleConfSpace, null, tuple);
+		/*
+		ResidueInteractions inters = ResInterGen.of(simpleConfSpace)
+			.addInter(0, 4)
+			.make();
+		*/
+		double gpuEnergy = gpuFragEcalc.calcEnergy(tuple, inters);
+		System.out.println(String.format("GPU energy: %12.6f", gpuEnergy));
+		gpuFragEcalc.cleanup();
+		
+		// TEMP: do same inters on CPU
+		MinimizingFragmentEnergyCalculator cpuFragEcalc = new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
+			.setType(Type.Cpu)
+			.build();
+		System.out.println(String.format("GPU energy: %12.6f", cpuFragEcalc.calcEnergy(tuple, inters)));
+	}
+	
 	private static double maxxddist(DoubleMatrix1D a, DoubleMatrix1D b) {
 		double maxDist = 0;
 		assert (a.size() == b.size());
@@ -419,9 +488,5 @@ public class CudaPlayground extends TestBase {
 
 	private static void checkEnergy(double cpuEnergy, double gpuEnergy) {
 		System.out.println(String.format("cpu: %12.6f   gpu: %12.6f   err: %.12f", cpuEnergy, gpuEnergy, Math.abs(cpuEnergy - gpuEnergy)));
-	}
-	
-	private static int divUp(int a, int b) {
-		return (a + b - 1)/b;
 	}
 }

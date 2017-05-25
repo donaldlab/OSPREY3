@@ -43,8 +43,12 @@ public class CUBuffer<T extends Buffer> {
 		return buf;
 	}
 	
-	public Pointer makeDevicePointer() {
+	public Pointer getDevicePointer() {
 		return Pointer.to(pdBuf);
+	}
+	
+	public int size() {
+		return buf.capacity();
 	}
 	
 	public long getNumBytes() {
@@ -90,11 +94,15 @@ public class CUBuffer<T extends Buffer> {
 	}
 	
 	public void cleanup() {
-		stream.getContext().attachCurrentThread();
-		stream.getContext().unpinBuffer(phBuf);
-		stream.getContext().free(pdBuf);
-		phBuf = null;
-		pdBuf = null;
+		try {
+			stream.getContext().attachCurrentThread();
+			stream.getContext().unpinBuffer(phBuf);
+			stream.getContext().free(pdBuf);
+			phBuf = null;
+			pdBuf = null;
+		} catch (Throwable t) {
+			t.printStackTrace(System.err);
+		}
 	}
 	
 	@Override

@@ -24,15 +24,15 @@ import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.SearchProblem.MatrixType;
-import edu.duke.cs.osprey.control.ConfEnergyCalculator;
-import edu.duke.cs.osprey.control.EnergyWindow;
 import edu.duke.cs.osprey.control.EnvironmentVars;
-import edu.duke.cs.osprey.control.MinimizingEnergyCalculator;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.gmec.EnergyRange;
+import edu.duke.cs.osprey.gmec.MinimizingConfEnergyCalculator;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -83,7 +83,7 @@ public class BenchmarkAStar extends TestBase {
 		);
 		
 		ForcefieldParams ffparams = EnvironmentVars.curEFcnGenerator.ffParams;
-		ConfEnergyCalculator.Async ecalc = MinimizingEnergyCalculator.make(ffparams, search, Parallelism.makeCpu(1));
+		ConfEnergyCalculator.Async ecalc = MinimizingConfEnergyCalculator.make(ffparams, search, Parallelism.makeCpu(1));
 		
 		// compute the energy matrix
 		String ematPath = String.format("/tmp/BenchmarkAStar.emat.%s.dat", useERef ? "eref" : "base");
@@ -184,7 +184,7 @@ public class BenchmarkAStar extends TestBase {
 			// simple way
 			//tree.nextConfs(econf.getEnergy() + eW);
 			
-			final EnergyWindow window = new EnergyWindow(econf.getEnergy(), Ew);
+			final EnergyRange window = new EnergyRange(econf.getEnergy(), Ew);
 			tree.getProgress().setGoalScore(window.getMax());
 			
 			// enumerate all confs in order of the scores, up to the estimate of the top of the energy window
@@ -208,7 +208,7 @@ public class BenchmarkAStar extends TestBase {
 					
 					EnergiedConf nextEconf = ecalc.calcEnergy(scoredConfs.get(indexToMinimizeNext++));
 					
-					boolean changed = window.update(nextEconf.getEnergy());
+					boolean changed = window.updateMin(nextEconf.getEnergy());
 					if (changed) {
 						System.out.println(String.format("Updated energy window! remaining: %14.8f", window.getMax() - nextConf.getScore()));
 						tree.getProgress().setGoalScore(window.getMax());

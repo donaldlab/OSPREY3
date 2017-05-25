@@ -27,6 +27,8 @@ import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.ParameterizedMoleculeCopy;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
@@ -34,12 +36,16 @@ import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.FFInterGen;
+import edu.duke.cs.osprey.energy.MinimizingConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.MinimizingFragmentEnergyCalculator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
+import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
@@ -55,6 +61,7 @@ public class TestMinimization extends TestBase {
 		public SearchProblem search;
 		public EnergyFunctionGenerator efuncgen;
 		public Factory<ForcefieldInteractions,Molecule> intergen;
+		public SimpleConfSpace simpleConfSpace;
 		public List<ScoredConf> confs;
 		public double[] expectedEnergies;
 		
@@ -71,6 +78,7 @@ public class TestMinimization extends TestBase {
 			ResidueFlexibility resFlex = new ResidueFlexibility();
 			resFlex.addMutable("39 43", "ALA");
 			resFlex.addFlexible("40 41 42 44 45");
+			resFlex.sortPositions();
 			boolean doMinimize = true;
 			boolean addWt = false;
 			boolean useEpic = false;
@@ -96,6 +104,18 @@ public class TestMinimization extends TestBase {
 			search.emat = new SimpleEnergyMatrixCalculator.Cpu(2, ffparams, search.confSpace, search.shellResidues).calcEnergyMatrix();
 			search.pruneMat = new PruningMatrix(search.confSpace, 1000);
 			
+			// prep new-style emat calculation
+			Strand strand = new Strand.Builder(PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb")).build();
+			strand.flexibility.get(39).setLibraryRotamers("ALA").setContinuous();
+			strand.flexibility.get(43).setLibraryRotamers("ALA").setContinuous();
+			strand.flexibility.get(40).setLibraryRotamers().setContinuous();
+			strand.flexibility.get(41).setLibraryRotamers().setContinuous();
+			strand.flexibility.get(42).setLibraryRotamers().setContinuous();
+			strand.flexibility.get(44).setLibraryRotamers().setContinuous();
+			strand.flexibility.get(45).setLibraryRotamers().setContinuous();
+			simpleConfSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
+			assertConfSpacesMatch(search.confSpace, simpleConfSpace);
+		
 			// build A* tree
 			RCs rcs = new RCs(search.pruneMat);
 			AStarOrder order = new StaticScoreHMeanAStarOrder();
@@ -220,6 +240,69 @@ public class TestMinimization extends TestBase {
 		check((ffparams, intergen, confSpace) -> new GpuConfMinimizer.Builder(ffparams, intergen, confSpace).setGpuInfo(GpuConfMinimizer.Type.OpenCL, 1, 2).build());
 	}
 	
+	@Test
+	public void testCpuOriginalCCD1Thread() {
+		check(MinimizingFragmentEnergyCalculator.Type.CpuOriginalCCD, Parallelism.makeCpu(1));
+	}
+	@Test
+	public void testCpuOriginalCCD2Threads() {
+		check(MinimizingFragmentEnergyCalculator.Type.CpuOriginalCCD, Parallelism.makeCpu(2));
+	}
+	
+	@Test
+	public void testCpu1Thread() {
+		check(MinimizingFragmentEnergyCalculator.Type.Cpu, Parallelism.makeCpu(1));
+	}
+	@Test
+	public void testCpu2Threads() {
+		check(MinimizingFragmentEnergyCalculator.Type.Cpu, Parallelism.makeCpu(2));
+	}
+	
+	@Test
+	public void testOpenCL1Stream() {
+		check(MinimizingFragmentEnergyCalculator.Type.OpenCL, Parallelism.makeGpu(1, 1));
+	}
+	@Test
+	public void testOpenCL2Streams() {
+		check(MinimizingFragmentEnergyCalculator.Type.OpenCL, Parallelism.makeGpu(1, 2));
+	}
+	
+	@Test
+	public void testCuda1Stream() {
+		check(MinimizingFragmentEnergyCalculator.Type.Cuda, Parallelism.makeGpu(1, 1));
+	}
+	@Test
+	public void testCuda2Streams() {
+		check(MinimizingFragmentEnergyCalculator.Type.Cuda, Parallelism.makeGpu(1, 2));
+	}
+	
+	@Test
+	public void testCudaCCD1Stream() {
+		check(MinimizingFragmentEnergyCalculator.Type.CudaCCD, Parallelism.makeGpu(1, 1));
+	}
+	@Test
+	public void testCudaCCD2Streams() {
+		check(MinimizingFragmentEnergyCalculator.Type.CudaCCD, Parallelism.makeGpu(1, 2));
+	}
+	
+	@Test
+	public void testResidueCuda1Stream() {
+		check(MinimizingFragmentEnergyCalculator.Type.ResidueCuda, Parallelism.makeGpu(1, 1));
+	}
+	@Test
+	public void testResidueCuda2Streams() {
+		check(MinimizingFragmentEnergyCalculator.Type.ResidueCuda, Parallelism.makeGpu(1, 2));
+	}
+	
+	@Test
+	public void testResidueCudaCCD1Stream() {
+		check(MinimizingFragmentEnergyCalculator.Type.ResidueCudaCCD, Parallelism.makeGpu(1, 1));
+	}
+	@Test
+	public void testResidueCudaCCD2Streams() {
+		check(MinimizingFragmentEnergyCalculator.Type.ResidueCudaCCD, Parallelism.makeGpu(1, 2));
+	}
+	
 	private static interface MinimizerFactory {
 		ConfMinimizer make(ForcefieldParams ffparams, Factory<ForcefieldInteractions,Molecule> intergen, ConfSpace confSpace);
 	}
@@ -233,20 +316,44 @@ public class TestMinimization extends TestBase {
 			List<EnergiedConf> econfs = minimizer.minimize(info.confs);
 			minimizer.cleanup();
 			
-			assertThat(econfs.size(), is(info.confs.size()));
+			checkConfs(info, econfs);
+		}
+	}
+	
+	private void check(MinimizingFragmentEnergyCalculator.Type type, Parallelism parallelism) {
+		
+		for (boolean doSolv : Arrays.asList(true, false)) {
 			
-			for (int i=0; i<info.confs.size(); i++) {
-				
-				ScoredConf conf = info.confs.get(i);
-				EnergiedConf econf = econfs.get(i);
-				
-				assertThat(econf.getAssignments(), is(conf.getAssignments()));
-				assertThat(econf.getScore(), is(conf.getScore()));
-				
-				// penalize large errors, but not lower energies
-				double absErr = econf.getEnergy() - info.expectedEnergies[i];
-				assertThat(absErr, lessThanOrEqualTo(Epsilon));
-			}
+			Info info = Infos.get(doSolv);
+			MinimizingFragmentEnergyCalculator ecalc = new MinimizingFragmentEnergyCalculator.Builder(info.simpleConfSpace, info.ffparams)
+				.setType(type)
+				.setParallelism(parallelism)
+				.build();
+			MinimizingConfEnergyCalculator minimizer = new MinimizingConfEnergyCalculator.Builder(ecalc)
+				.build();
+			List<EnergiedConf> econfs = minimizer.calcAllEnergies(info.confs);
+			minimizer.cleanup();
+			ecalc.cleanup();
+			
+			checkConfs(info, econfs);
+		}
+	}
+	
+	private void checkConfs(Info info, List<EnergiedConf> econfs) {
+		
+		assertThat(econfs.size(), is(info.confs.size()));
+		
+		for (int i=0; i<info.confs.size(); i++) {
+			
+			ScoredConf conf = info.confs.get(i);
+			EnergiedConf econf = econfs.get(i);
+			
+			assertThat(econf.getAssignments(), is(conf.getAssignments()));
+			assertThat(econf.getScore(), is(conf.getScore()));
+			
+			// penalize large errors, but not lower energies
+			double absErr = econf.getEnergy() - info.expectedEnergies[i];
+			assertThat(absErr, lessThanOrEqualTo(Epsilon));
 		}
 	}
 }

@@ -16,6 +16,7 @@ import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.structure.Residues;
 
 /**
  *
@@ -208,6 +209,46 @@ public class EnergyFunctionGenerator {
             } else {
                 efunc.addTerm(resPairEnergy(group0.getResidue(), group1.getResidue()));
             }
+        }
+        return efunc;
+    }
+    
+    public EnergyFunction residueInteractionEnergy(Residues residues, ResidueInteractions interactions) {
+    	
+        MultiTermEnergyFunction efunc = new MultiTermEnergyFunction();
+        
+        for (ResidueInteractions.Pair pair : interactions) {
+            Residue res1 = residues.getOrThrow(pair.resNum1);
+            Residue res2 = residues.getOrThrow(pair.resNum2);
+            
+            EnergyFunction term;
+            if (res1 == res2) {
+                term = singleResEnergy(res1);
+            } else {
+                term = resPairEnergy(res1, res2);
+            }
+            
+            // apply weight
+            if (pair.weight != 1.0) {
+            	term = new ScaledEnergyFunction(term, pair.weight);
+            }
+            
+            // apply offset
+            if (pair.offset != 0.0) {
+            	final EnergyFunction fterm = term;
+            	final double foffset = pair.offset;
+            	term = new EnergyFunction() {
+
+					private static final long serialVersionUID = 8343782653796072786L;
+
+					@Override
+					public double getEnergy() {
+						return fterm.getEnergy() + foffset;
+					}
+            	};
+            }
+            
+            efunc.addTerm(term);
         }
         return efunc;
     }

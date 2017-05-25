@@ -8,6 +8,10 @@ import java.io.Serializable;
 import java.util.Iterator;
 import java.util.StringTokenizer;
 
+import edu.duke.cs.osprey.structure.Atom;
+import edu.duke.cs.osprey.structure.AtomNeighbors;
+import edu.duke.cs.osprey.structure.Residue;
+import edu.duke.cs.osprey.structure.Residues;
 import edu.duke.cs.osprey.tools.FileTools;
 import edu.duke.cs.osprey.tools.StringParsing;
 
@@ -18,6 +22,10 @@ import edu.duke.cs.osprey.tools.StringParsing;
 public class ForcefieldParams implements Serializable {
     
     private static final long serialVersionUID = 3124964506851762586L;
+    
+    public static final double coulombConstant = 332.0;
+    public static final double solvCutoff = 9.0;
+    public static final double solvCutoff2 = solvCutoff*solvCutoff;
 
     public static boolean printWarnings = true;
 
@@ -67,7 +75,7 @@ public class ForcefieldParams implements Serializable {
     public Forcefield forcefld = Forcefield.AMBER;
     
     //The solvation parameters object
-    EEF1 eef1parms = null;
+    public EEF1 eef1parms = null;
     
     // default values copied from resources/config/defalts.cfg
     public double vdwMultiplier = 0.95;
@@ -87,7 +95,6 @@ public class ForcefieldParams implements Serializable {
             "/config/all_aminont94.in",
             "/config/all_aminoct94.in",
             "/config/all_nuc94_and_gr.in",
-            false,
             0.5,
             1.0,
             1.0/1.2
@@ -98,7 +105,6 @@ public class ForcefieldParams implements Serializable {
             "/config/all_amino_charmm22_nt.txt",
             "/config/all_amino_charmm22_ct.txt",
             "/config/all_nuc_and_gr_charmm.in",
-            false,
             Double.NaN,
             Double.NaN,
             Double.NaN
@@ -109,40 +115,50 @@ public class ForcefieldParams implements Serializable {
             "/config/all_amino_charmm19_neutral_nt.in",
             "/config/all_amino_charmm19_neutral_ct.in",
             "/config/all_nuc_and_gr_charmm.in",
-            true,
             1.0,
             2.0,
             0.4
-        ),
+        ) {
+        	@Override
+        	public void modifyNBParams(Atom atom, AtomNeighbors.Type neighborType, NBParams nbparams) {
+        		CHARMM19.modifyNBParams(atom, neighborType, nbparams);
+        	}
+        },
         CHARMM19(
             "/config/parmcharm19.dat",
             "/config/all_amino_charmm19.in",
             "/config/all_amino_charmm19_nt.in",
             "/config/all_amino_charmm19_ct.in",
             "/config/all_nuc_and_gr_charmm.in",
-            true,
             1.0,
             2.0,
             0.4
-        );
+        ) {
+        	@Override
+        	public void modifyNBParams(Atom atom, AtomNeighbors.Type neighborType, NBParams nbparams) {
+        		
+        		if (atom.isCarbon() && neighborType == AtomNeighbors.Type.BONDED14) {
+					nbparams.epsilon = 0.1;
+					nbparams.r = 1.9;
+        		}
+        	}
+        };
         
         public final String paramsPath;
         public final String aaPath;
         public final String aaNTPath;
         public final String aaCTPath;
         public final String grPath;
-        public final boolean reduceCRadii;
         public final double Aij14Factor;
         public final double Bij14Factor;
         public final double coulombScaling;
         
-        private Forcefield(String paramsPath, String aaPath, String aaNTPath, String aaCTPath, String grPath, boolean reduceCRadii, double Aij14Factor, double Bij14Factor, double coulombScaling) {
+        private Forcefield(String paramsPath, String aaPath, String aaNTPath, String aaCTPath, String grPath, double Aij14Factor, double Bij14Factor, double coulombScaling) {
             this.paramsPath = paramsPath;
             this.aaPath = aaPath;
             this.aaNTPath = aaNTPath;
             this.aaCTPath = aaCTPath;
             this.grPath = grPath;
-            this.reduceCRadii = reduceCRadii;
             this.Aij14Factor = Aij14Factor;
             this.Bij14Factor = Bij14Factor;
             this.coulombScaling = coulombScaling;
@@ -151,11 +167,35 @@ public class ForcefieldParams implements Serializable {
         public static Forcefield get(String name) {
         	return valueOf(name.toUpperCase());
         }
+        
+        public void modifyNBParams(Atom atom, AtomNeighbors.Type neighborType, NBParams nbparams) {
+        	// by default, don't modify anything
+        }
     }
     
     public static enum SolvationForcefield {
-        EEF1,
-        PoissonBoltzmann;
+    	
+        EEF1 {
+        	@Override
+        	public ResiduesInfo makeInfo(ForcefieldParams ffparams, Residues residues) {
+        		return ffparams.eef1parms.new ResiduesInfo(residues);
+        	}
+        },
+        PoissonBoltzmann {
+        	@Override
+        	public ResiduesInfo makeInfo(ForcefieldParams ffparams, Residues residues) {
+        		// TODO: implmement PB solvation
+        		return null;
+        	}
+        };
+    	
+    	public interface ResiduesInfo {
+			int getNumPrecomputedPerAtomPair();
+			double getResPairEnergy(Residue res1, Residue res2);
+			void putPrecomputed(double[] out, int i, Residue res1, int atomIndex1, Residue res2, int atomIndex2, double scale);
+    	}
+    	
+    	public abstract ResiduesInfo makeInfo(ForcefieldParams ffparams, Residues residues);
     }
     
     public ForcefieldParams() {
@@ -773,6 +813,65 @@ public class ForcefieldParams implements Serializable {
 		}
 		
 		return(false);
+	}
+	
+	public boolean getNonBondedParameters(Atom atom, AtomNeighbors.Type neighborType, NBParams out) {
+		boolean success = getNonBondedParameters(atom.type, out);
+		if (!success) {
+			return false;
+		}
+		forcefld.modifyNBParams(atom, neighborType, out);
+		return true;
+	}
+	
+	public void getNonBondedParametersOrThrow(Atom atom, AtomNeighbors.Type neighborType, NBParams out) {
+		boolean success = getNonBondedParameters(atom, neighborType, out);
+		if (!success) {
+			throw new Error("couldn't find non-bonded parameters for atom type: " + atom.forceFieldType);
+		}
+	}
+	
+	
+	public static class VdwParams {
+		public double Aij = 0.0;
+		public double Bij = 0.0;
+	}
+	
+	public void getVdwParams(Atom atom1, Atom atom2, AtomNeighbors.Type neighborType, VdwParams out) {
+		
+		// calc vdW params
+		// Aij = (ri+rj)^12 * sqrt(ei*ej)
+		// Bij = (ri+rj)^6 * sqrt(ei*ej)
+		
+		// TODO: optimize out this allocation? or will escape analysis during JIT use stack allocation?
+		NBParams nbparams1 = new NBParams();
+		NBParams nbparams2 = new NBParams();
+		getNonBondedParametersOrThrow(atom1, neighborType, nbparams1);
+		getNonBondedParametersOrThrow(atom2, neighborType, nbparams2);
+		double epsilon = Math.sqrt(nbparams1.epsilon*nbparams2.epsilon);
+		double radiusSum = nbparams1.r + nbparams2.r;
+		double Bij = radiusSum*radiusSum*vdwMultiplier*vdwMultiplier;
+		Bij = Bij*Bij*Bij;
+		double Aij = Bij*Bij;
+		
+		Aij *= epsilon;
+		Bij *= epsilon;
+		
+		// vdW scaling by connectivity
+		switch (neighborType) {
+			case BONDED14:
+				Aij *= forcefld.Aij14Factor;
+				Bij *= forcefld.Bij14Factor;
+			break;
+			case NONBONDED:
+				Bij *= 2;
+			break;
+			default:
+				throw new IllegalArgumentException("no van der Waals params for closely bonded atoms");
+		}
+		
+		out.Aij = Aij;
+		out.Bij = Bij;
 	}
         
         

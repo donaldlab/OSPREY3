@@ -4,6 +4,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import cern.jet.math.Constants;
+
 public class Profiler {
 	
 	private Map<String,Stopwatch> stopwatches;
@@ -59,6 +61,7 @@ public class Profiler {
 			totalNs += entry.getValue().getTimeNs();
 		}
 		buf.append(String.format("   %s: %8s", "total", TimeFormatter.format(totalNs, timeUnit)));
+		buf.append(String.format(" %10.2f ops", (float)TimeFormatter.NSpS/totalNs));
 		return buf.toString();
 	}
 }

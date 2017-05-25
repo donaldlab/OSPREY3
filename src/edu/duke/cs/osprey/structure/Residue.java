@@ -79,47 +79,47 @@ public class Residue implements Serializable {
     
     
     public Residue(Residue other) {
-    	this(copyAtoms(other.atoms), Arrays.copyOf(other.coords, other.coords.length), other.fullName, other.molec);
-    	
-    	this.indexInMolecule = other.indexInMolecule;
-    	this.template = other.template;
-    	this.confProblems = other.confProblems;
-    	this.pucker = other.pucker;
-    	this.secondaryStruct = other.secondaryStruct;
-    	
-    	// init intra-res atom bonds
-    	if (this.template != null) {
-    		markIntraResBondsByTemplate();
-    	}
-    	
-    	// NOTE: we don't copy inter-res atom bonds, so the molecule will have to re-bond everything
+        this(copyAtoms(other.atoms), Arrays.copyOf(other.coords, other.coords.length), other.fullName, other.molec);
+        
+        this.indexInMolecule = other.indexInMolecule;
+        this.template = other.template;
+        this.confProblems = other.confProblems;
+        this.pucker = other.pucker;
+        this.secondaryStruct = other.secondaryStruct;
+        
+        // init intra-res atom bonds
+        if (this.template != null) {
+            markIntraResBondsByTemplate();
+        }
+        
+        // NOTE: we don't copy inter-res atom bonds, so the molecule will have to re-bond everything
     }
     
-    private static ArrayList<Atom> copyAtoms(ArrayList<Atom> atoms) {
-    	ArrayList<Atom> out = new ArrayList<>();
-    	for (Atom atom : atoms) {
-    		out.add(atom.copy());
-    	}
-    	return out;
+    public static ArrayList<Atom> copyAtoms(ArrayList<Atom> atoms) {
+        ArrayList<Atom> out = new ArrayList<>();
+        for (Atom atom : atoms) {
+            out.add(atom.copy());
+        }
+        return out;
     }
     
     public Residue(ArrayList<Atom> atoms, ArrayList<double[]> coords, String fullName, Molecule molec) {
-    	this(atoms, convertCoords(coords), fullName, molec);
+        this(atoms, convertCoords(coords), fullName, molec);
     }
     
     private static double[] convertCoords(ArrayList<double[]> coords) {
-    	
+        
         //record coordinates, unless coordList is null (then leave coords null too)
         if (coords == null) {
             return null;
-    	}
+        }
         
         int numAtoms = coords.size();
-		double[] out = new double[3*numAtoms];
-		for (int i=0; i<numAtoms; i++) {
-			System.arraycopy(coords.get(i), 0, out, 3*i, 3);
-		}
-		return out;
+        double[] out = new double[3*numAtoms];
+        for (int i=0; i<numAtoms; i++) {
+            System.arraycopy(coords.get(i), 0, out, 3*i, 3);
+        }
+        return out;
     }
     
     public Residue(ArrayList<Atom> atoms, double[] coords, String fullName, Molecule molec) {
@@ -129,13 +129,13 @@ public class Residue implements Serializable {
         this.fullName = fullName;
         this.molec = molec;
         
-		int numAtoms = atoms.size();
+        int numAtoms = atoms.size();
         this.coords = coords;
         if (coords != null) {
-			if(numAtoms*3 != coords.length){
-				throw new RuntimeException("ERROR: Trying to instantiate residue with "+numAtoms+
-						" atoms but "+coords.length+"/3 atom coordinates");
-			}
+            if(numAtoms*3 != coords.length){
+                throw new RuntimeException("ERROR: Trying to instantiate residue with "+numAtoms+
+                        " atoms but "+coords.length+"/3 atom coordinates");
+            }
         }
         for(int a=0; a<numAtoms; a++){
             atoms.get(a).res = this;
@@ -143,10 +143,22 @@ public class Residue implements Serializable {
         }
     }
     
+    // cache res numbers for performance
+    // they're used a LOT and profiling shows this is actually a performance bottleneck!
+    private String resNum = null;
+    
     public String getPDBResNumber() {
-            if (fullName.length() > 5)
-                    return( (StringParsing.getToken(fullName.substring(5),1)) );
-            return Integer.toString(indexInMolecule+1);
+        
+        // populate the cache if needed
+        if (resNum == null) {
+            if (fullName.length() > 5) {
+                resNum = StringParsing.getToken(fullName.substring(5),1);
+            } else {
+                resNum = Integer.toString(indexInMolecule+1);
+            }
+        }
+        
+        return resNum;
     }
     
     public char getChainId() {
@@ -237,18 +249,18 @@ public class Residue implements Serializable {
     }
     
     public void copyIntraBondsFrom(Residue other) {
-    	
-    	boolean[][] isBonded = other.getIntraResBondMatrix();
-    	int numAtoms = atoms.size();
-    	
-    	// double check the residues match atoms
-    	for (int i=0; i<numAtoms; i++) {
-    		if (!atoms.get(i).name.equalsIgnoreCase(other.atoms.get(i).name)) {
-    			throw new Error("ERROR: Atom names don't match aross residues, can't copy bonds");
-    		}
-    	}
+        
+        boolean[][] isBonded = other.getIntraResBondMatrix();
+        int numAtoms = atoms.size();
+        
+        // double check the residues match atoms
+        for (int i=0; i<numAtoms; i++) {
+            if (!atoms.get(i).name.equalsIgnoreCase(other.atoms.get(i).name)) {
+                throw new Error("ERROR: Atom names don't match aross residues, can't copy bonds");
+            }
+        }
 
-    	// copy the bonds
+        // copy the bonds
         for(int i=0; i<numAtoms; i++){
             Atom atomi = atoms.get(i);
             for(int j=0; j<numAtoms; j++){
@@ -451,5 +463,4 @@ public class Residue implements Serializable {
             ans.add(res.equivalentInMolec(mol));
         return ans;
     }
-    
 }
