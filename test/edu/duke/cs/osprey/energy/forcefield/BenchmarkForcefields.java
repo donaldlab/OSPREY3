@@ -103,11 +103,7 @@ public class BenchmarkForcefields extends TestBase {
 		// residue forcefield cuda
 		GpuStreamPool streams = new GpuStreamPool(1, 1);
 		benchmark(ResidueForcefieldEnergyCuda.class.getSimpleName(), base, () -> {
-			try {
-				return new ResidueForcefieldEnergyCuda(streams, resPairCache, inters, mol);
-			} catch (IOException ex) {
-				throw new Error(ex);
-			}
+			return new ResidueForcefieldEnergyCuda(streams, resPairCache, inters, mol);
 		});
 		streams.cleanup();
 		
@@ -230,13 +226,9 @@ public class BenchmarkForcefields extends TestBase {
 		GpuStreamPool streams = new GpuStreamPool(1, 1);
 		
 		benchmark("create-cleanup", 100, 1000, 5, null, () -> {
-			try {
-				ResidueForcefieldEnergyCuda efunc = new ResidueForcefieldEnergyCuda(streams, resPairCache, inters, mol);
-				efunc.getEnergy();
-				efunc.cleanup();
-			} catch (IOException ex) {
-				throw new Error(ex);
-			}
+			ResidueForcefieldEnergyCuda efunc = new ResidueForcefieldEnergyCuda(streams, resPairCache, inters, mol);
+			efunc.getEnergy();
+			efunc.cleanup();
 		});
 			
 		/*

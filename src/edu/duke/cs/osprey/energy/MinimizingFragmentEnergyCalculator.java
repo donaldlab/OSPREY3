@@ -166,13 +166,7 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 					{
 						pool = new GpuStreamPool(parallelism.numGpus, parallelism.numStreamsPerGpu);
 						numStreams = pool.getNumStreams();
-						efuncs = (interactions, mol) -> {
-							try {
-								return new ResidueForcefieldEnergyCuda(pool, resPairCache, interactions, mol);
-							} catch (IOException ex) {
-								throw new Error(ex);
-							}
-						};
+						efuncs = (interactions, mol) -> new ResidueForcefieldEnergyCuda(pool, resPairCache, interactions, mol);
 						minimizers = (f) -> new SimpleCCDMinimizer(f);
 						needsCleanup = true;
 					}

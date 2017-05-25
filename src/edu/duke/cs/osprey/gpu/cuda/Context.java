@@ -105,12 +105,15 @@ public class Context {
 	}
 	
 	public synchronized void cleanup() {
-		
-		for (CUmodule kernel : kernels.values()) {
-			JCudaDriver.cuModuleUnload(kernel);
+		try {
+			for (CUmodule kernel : kernels.values()) {
+				JCudaDriver.cuModuleUnload(kernel);
+			}
+			kernels.clear();
+			
+			JCudaDriver.cuCtxDestroy(context);
+		} catch (Throwable t) {
+			t.printStackTrace(System.err);
 		}
-		kernels.clear();
-		
-		JCudaDriver.cuCtxDestroy(context);
 	}
 }

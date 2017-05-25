@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.gpu.cuda.kernels;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.DoubleBuffer;
 import java.nio.IntBuffer;
@@ -9,6 +8,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.energy.EnergyFunction;
@@ -54,16 +54,28 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 	 *    double weight
 	 *    double offset
 	 *    
+	 *    // NOTE: use struct-of-arrays here so GPU memory accesses are coalesced
 	 *    for each atom pair:
 	 *       long flags  (bit isHeavyPair, bit is14Bonded, 6 bits space, 3 byte space, short atomOffset1, short atomOffset2)
+	 *    for each atom pair:
 	 *       double charge
+	 *    for each atom pair:
 	 *       double Aij
+	 *    for each atom pair:
 	 *       double Bij
+	 *       
+	 *    // if EEF1 is used
+	 *    for each atom pair:
 	 *       double radius1
+	 *    for each atom pair:
 	 *       double lambda1
+	 *    for each atom pair:
 	 *       double alpha1
+	 *    for each atom pair:
 	 *       double radius2
+	 *    for each atom pair:
 	 *       double lambda2
+	 *    for each atom pair:
 	 *       double alpha2
 	 */
 	private CUBuffer<ByteBuffer> data;
@@ -73,48 +85,31 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 	
 	private static final int HeaderBytes = Long.BYTES + Double.BYTES*2;
 	private static final int ResPairBytes = Long.BYTES*3 + Double.BYTES*2;
-	private static final int AtomPairBytes = Short.BYTES*2 + Integer.BYTES + Double.BYTES*9;
+	private static final int AtomPairBytes = Long.BYTES + Double.BYTES*3;
+	private static final int EEF1Bytes = Double.BYTES*6;
 	
 	private ResPair[] resPairs;
 	private Map<Residue,Subset> subsets;
 	
 	private Kernel.Function func;
+	private static AtomicInteger blockThreads = new AtomicInteger(-1);
 	
-	public ResidueForcefieldEnergyCuda(GpuStreamPool streams, ResPairCache resPairCache, ResidueInteractions inters, Molecule mol)
-	throws IOException {
+	public ResidueForcefieldEnergyCuda(GpuStreamPool streams, ResPairCache resPairCache, ResidueInteractions inters, Molecule mol) {
 		this(streams, resPairCache, inters, mol.residues);
 	}
 	
-	public ResidueForcefieldEnergyCuda(GpuStreamPool streams, ResPairCache resPairCache, ResidueInteractions inters, Residues residues)
-	throws IOException {
+	public ResidueForcefieldEnergyCuda(GpuStreamPool streams, ResPairCache resPairCache, ResidueInteractions inters, Residues residues) {
 		super(streams.checkout(), "residueForcefield");
 		
 		this.streams = streams;
 		this.ffparams = resPairCache.ffparams;
 		this.inters = inters;
-		this.residues = residues;
-		
-		// compute solvation info if needed
-		SolvationForcefield.ResiduesInfo solvInfo = null;
-		if (ffparams.solvationForcefield != null) {
-			solvInfo = ffparams.solvationForcefield.makeInfo(ffparams, residues);
-		}
-		
-		// TODO: test with no solvation!
-		
-		// map the residue numbers to residues
-		resPairs = new ResPair[inters.size()];
-		int index = 0;
-		for (ResidueInteractions.Pair pair : inters) {
-			resPairs[index++] = resPairCache.get(residues, pair, solvInfo);
-		}
-		
-		subsets = null;
+		this.residues = inters.filter(residues);
 		
 		// is this a broken conformation?
 		isBroken = false;
-		for (ResPair pair : resPairs) {
-			if (pair.res1.confProblems.size() + pair.res2.confProblems.size() > 0) {
+		for (Residue res : this.residues) {
+			if (!res.confProblems.isEmpty()) {
 				isBroken = true;
 				
 				// we're done here, no need to analyze broken conformations
@@ -122,13 +117,28 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 			}
 		}
 		
+		// compute solvation info if needed
+		SolvationForcefield.ResiduesInfo solvInfo = null;
+		if (ffparams.solvationForcefield != null) {
+			solvInfo = ffparams.solvationForcefield.makeInfo(ffparams, this.residues);
+		}
+		
+		// map the residue numbers to residues
+		resPairs = new ResPair[inters.size()];
+		int index = 0;
+		for (ResidueInteractions.Pair pair : inters) {
+			resPairs[index++] = resPairCache.get(this.residues, pair, solvInfo);
+		}
+		
+		subsets = null;
+		
 		// count atoms and offsets for each residue
-		int[] atomOffsetsByResIndex = new int[residues.size()];
+		int[] atomOffsetsByResIndex = new int[this.residues.size()];
 		Arrays.fill(atomOffsetsByResIndex, -1);
 		int atomOffset = 0;
 		int numAtoms = 0;
-		for (int i=0; i<residues.size(); i++) {
-			Residue res = residues.get(i);
+		for (int i=0; i<this.residues.size(); i++) {
+			Residue res = this.residues.get(i);
 			atomOffsetsByResIndex[i] = atomOffset;
 			atomOffset += 3*res.atoms.size();
 			numAtoms += res.atoms.size();
@@ -144,7 +154,8 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 		for (int i=0; i<resPairs.length; i++) {
 			totalNumAtomPairs += resPairs[i].info.numAtomPairs;
 		}
-		data = stream.byteBuffers.checkout(HeaderBytes + (Long.BYTES + ResPairBytes)*resPairs.length + AtomPairBytes*totalNumAtomPairs);
+		int atomPairBytes = AtomPairBytes + (ffparams.solvationForcefield == SolvationForcefield.EEF1 ? EEF1Bytes : 0);
+		data = stream.byteBuffers.checkout(HeaderBytes + (Long.BYTES + ResPairBytes)*resPairs.length + atomPairBytes*totalNumAtomPairs);
 		ByteBuffer databuf = data.getHostBuffer();
 		
 		// put the data header
@@ -165,7 +176,7 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 		long offset = HeaderBytes + Long.BYTES*resPairs.length;
 		for (int i=0; i<resPairs.length; i++) {
 			databuf.putLong(offset);
-			offset += ResPairBytes + AtomPairBytes*resPairs[i].info.numAtomPairs;
+			offset += ResPairBytes + atomPairBytes*resPairs[i].info.numAtomPairs;
 		}
 		
 		// put the res pairs and atom pairs
@@ -180,9 +191,13 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 			databuf.putDouble(resPair.offset);
 			
 			// put the atom pairs
+			// NOTE: use struct-of-arrays here, not array-of-structs
+			// so the GPU can coalesce memory accesses
 			for (int j=0; j<resPair.info.numAtomPairs; j++) {
 				databuf.putLong(resPair.info.flags[j]);
-				for (int k=0; k<resPair.info.numPrecomputedPerAtomPair; k++) {
+			}
+			for (int k=0; k<resPair.info.numPrecomputedPerAtomPair; k++) {
+				for (int j=0; j<resPair.info.numAtomPairs; j++) {
 					databuf.putDouble(resPair.info.precomputed[j*resPair.info.numPrecomputedPerAtomPair + k]);
 				}
 			}
@@ -205,8 +220,16 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 		
 		// make the kernel function
 		func = makeFunction("calc");
-		func.blockThreads = 1024; // TODO: use func calculator
+		func.numBlocks = 1;
 		func.sharedMemCalc = (int blockThreads) -> blockThreads*Double.BYTES;
+		func.setArgs(Pointer.to(
+			coords.getDevicePointer(),
+			data.getDevicePointer(),
+			Pointer.to(new int[] { 0 }), // NOTE: dummy args here
+			Pointer.to(new int[] { 0 }),    // since we're just checking launch resources for now
+			energy.getDevicePointer()
+		));
+		func.blockThreads = func.getBestBlockThreads(blockThreads);
 	}
 	
 	@Override

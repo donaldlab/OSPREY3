@@ -22,7 +22,6 @@ typedef struct __align__(8) {
 	unsigned long flags; // useHEs, useHvdW, distDepDielect, useEEF1
 	double coulombFactor;
 	double scaledCoulombFactor;
-	unsigned long offsets[];
 } Header;
 
 typedef struct __align__(8) {
@@ -33,41 +32,118 @@ typedef struct __align__(8) {
 	double offset;
 } ResPair;
 
+/* res pairs also have atom pairs after them in struct-of-arrays layout:
 typedef struct __align__(8) {
+
 	unsigned long flags; // bit isHeavyPair, bit is14Bonded, 6 bits space, 3 bytes space, short offset1, short offset2
 	double charge;
 	double Aij;
 	double Bij;
+	
+	// if EEF1 == true
 	double radius1;
 	double lambda1;
 	double alpha1;
 	double radius2;
 	double lambda2;
 	double alpha2;
+	
 } AtomPair;
-
-
-const double SolvCutoff = 9.0;
-const double SolvCutoff2 = SolvCutoff*SolvCutoff;
+*/
 
 
 typedef unsigned char byte;
 
 
+class Data {
+public:
+
+	const Header & header;
+	
+	__device__ Data(const byte * const data) :
+		m_data(data),
+		header(*(Header *)&m_data[0]),
+		m_resPairOffsets((unsigned long *)&m_data[sizeof(Header)])
+	{
+		// nothing else to do
+	}
+	
+	__device__ const ResPair & getResPair(const unsigned int i) const {
+		return *(ResPair *)&m_data[m_resPairOffsets[i]];
+	}
+	
+	__device__ unsigned long getAtomPairFlags(const ResPair & resPair, const unsigned int i) const {
+		const byte * const p = (byte *)&resPair;
+		const unsigned long * const a = (unsigned long *)&p[sizeof(ResPair)];
+		return a[i];
+	}
+	
+	__device__ double getAtomPairCharge(const ResPair & resPair, const unsigned int i) const {
+		return getAtomPairDouble(resPair, i, 0);
+	}
+	
+	__device__ double getAtomPairAij(const ResPair & resPair, const unsigned int i) const {
+		return getAtomPairDouble(resPair, i, 1);
+	}
+	
+	__device__ double getAtomPairBij(const ResPair & resPair, const unsigned int i) const {
+		return getAtomPairDouble(resPair, i, 2);
+	}
+	
+	__device__ double getAtomPairRadius1(const ResPair & resPair, const unsigned int i) const {
+		return getAtomPairDouble(resPair, i, 3);
+	}
+	
+	__device__ double getAtomPairLambda1(const ResPair & resPair, const unsigned int i) const {
+		return getAtomPairDouble(resPair, i, 4);
+	}
+	
+	__device__ double getAtomPairAlpha1(const ResPair & resPair, const unsigned int i) const {
+		return getAtomPairDouble(resPair, i, 5);
+	}
+	
+	__device__ double getAtomPairRadius2(const ResPair & resPair, const unsigned int i) const {
+		return getAtomPairDouble(resPair, i, 6);
+	}
+	
+	__device__ double getAtomPairLambda2(const ResPair & resPair, const unsigned int i) const {
+		return getAtomPairDouble(resPair, i, 7);
+	}
+	
+	__device__ double getAtomPairAlpha2(const ResPair & resPair, const unsigned int i) const {
+		return getAtomPairDouble(resPair, i, 8);
+	}
+	
+private:
+	const byte * const m_data;
+	const unsigned long * const m_resPairOffsets;
+	
+	__device__ double getAtomPairDouble(const ResPair & resPair, const unsigned int i, const unsigned int pos) const {
+		const byte * const p = (byte *)&resPair;
+		const double * const a = (double *)&p[sizeof(ResPair) + sizeof(long)*resPair.numAtomPairs + sizeof(double)*pos*resPair.numAtomPairs];
+		return a[i];
+	}
+};
+
+const double SolvCutoff = 9.0;
+const double SolvCutoff2 = SolvCutoff*SolvCutoff;
+
+
 extern "C" __global__ void calc(
 	const double *coords,
-	const byte *data,
+	const byte *rawdata,
 	const int numIndices,
 	const int *indices,
 	double *out
 ) {
 
-	const Header &header = *(Header *)&data[0];
+	// parse data
+	const Data data(rawdata);
 	
 	// unpack the flags
 	bool useEEF1, distDepDielect, useHvdW, useHEs;
 	{
-		long flags = header.flags;
+		long flags = data.header.flags;
 		useEEF1 = (flags & 0x1) == 0x1;
 		flags >>= 1;
 		distDepDielect = (flags & 0x1) == 0x1;
@@ -80,37 +156,33 @@ extern "C" __global__ void calc(
 	// start with 0 energy
 	double energy = 0;
 	
-	int indexi = 0;
-	int numAtomPairs = 0;
-	for (int n=0; true; n++) {
-	
-		int atomPairIndex = blockDim.x*n + threadIdx.x;
+	unsigned int indexi = 0;
+	unsigned int numAtomPairs = 0;
+	for (int n = threadIdx.x; true; n += blockDim.x) {
 	
 		// find our res pair and atom pair
-		ResPair *resPair = NULL;
-		AtomPair *atomPair = NULL;
-		int atomPairIndexInResPair;
+		const ResPair *resPair;
+		int atomPairIndex = -1;
+		
 		for (; indexi<numIndices; indexi++) {
 		
-			// seek to the res pair
-			int offset = header.offsets[indices[indexi]];
-			resPair = (ResPair *)&data[offset];
-			offset += sizeof(ResPair);
+			unsigned int resPairIndex = indices[indexi];
+			resPair = &data.getResPair(resPairIndex);
 			
 			// is our atom pair in this res pair?
-			atomPairIndexInResPair = atomPairIndex - numAtomPairs;
-			if (atomPairIndexInResPair < resPair->numAtomPairs) {
+			atomPairIndex = n - numAtomPairs;
+			if (atomPairIndex < resPair->numAtomPairs) {
 			
 				// yup, found it!
-				atomPair = (AtomPair *)&data[offset + atomPairIndexInResPair*sizeof(AtomPair)];
 				break;	
 			}
 			
 			numAtomPairs += resPair->numAtomPairs;
+			atomPairIndex = -1;
 		}
 		
 		// stop if we ran out of atom pairs
-		if (atomPair == NULL) {
+		if (atomPairIndex < 0) {
 			break;
 		}
 		
@@ -118,7 +190,7 @@ extern "C" __global__ void calc(
 		bool isHeavyPair, is14Bonded;
 		unsigned long offset1, offset2;
 		{
-			unsigned long flags = atomPair->flags;
+			unsigned long flags = data.getAtomPairFlags(*resPair, atomPairIndex);
 			offset2 = (flags & 0xffff) + resPair->offset2;
 			flags >>= 16;
 			offset1 = (flags & 0xffff) + resPair->offset1;
@@ -144,38 +216,53 @@ extern "C" __global__ void calc(
 		
 		// electrostatics
 		if (isHeavyPair || useHEs) {
+		
+			double charge = data.getAtomPairCharge(*resPair, atomPairIndex);
+			
 			if (is14Bonded) {
 				if (distDepDielect) {
-					resPairEnergy += header.scaledCoulombFactor*atomPair->charge/r2;
+					resPairEnergy += data.header.scaledCoulombFactor*charge/r2;
 				} else {
-					resPairEnergy += header.scaledCoulombFactor*atomPair->charge/r;
+					resPairEnergy += data.header.scaledCoulombFactor*charge/r;
 				}
 			} else {
 				if (distDepDielect) {
-					resPairEnergy += header.coulombFactor*atomPair->charge/r2;
+					resPairEnergy += data.header.coulombFactor*charge/r2;
 				} else {
-					resPairEnergy += header.coulombFactor*atomPair->charge/r;
+					resPairEnergy += data.header.coulombFactor*charge/r;
 				}
 			}
 		}
 		
 		// van der Waals
 		if (isHeavyPair || useHvdW) {
+		
+			double Aij = data.getAtomPairAij(*resPair, atomPairIndex);
+			double Bij = data.getAtomPairBij(*resPair, atomPairIndex);
+			
 			double r6 = r2*r2*r2;
 			double r12 = r6*r6;
-			resPairEnergy += atomPair->Aij/r12 - atomPair->Bij/r6;
+			resPairEnergy += Aij/r12 - Bij/r6;
 		}
 		
 		// solvation
 		if (useEEF1 && isHeavyPair && r2 < SolvCutoff2) {
-			double Xij = (r - atomPair->radius1)/atomPair->lambda1;
-			double Xji = (r - atomPair->radius2)/atomPair->lambda2;
-			resPairEnergy -= (atomPair->alpha1*exp(-Xij*Xij) + atomPair->alpha2*exp(-Xji*Xji))/r2;
+		
+			double radius1 = data.getAtomPairRadius1(*resPair, atomPairIndex);
+			double lambda1 = data.getAtomPairLambda1(*resPair, atomPairIndex);
+			double alpha1 = data.getAtomPairAlpha1(*resPair, atomPairIndex);
+			double radius2 = data.getAtomPairRadius2(*resPair, atomPairIndex);
+			double lambda2 = data.getAtomPairLambda2(*resPair, atomPairIndex);
+			double alpha2 = data.getAtomPairAlpha2(*resPair, atomPairIndex);
+			
+			double Xij = (r - radius1)/lambda1;
+			double Xji = (r - radius2)/lambda2;
+			resPairEnergy -= (alpha1*exp(-Xij*Xij) + alpha2*exp(-Xji*Xji))/r2;
 		}
 		
 		// apply weight and offset
 		energy += resPairEnergy*resPair->weight;
-		if (atomPairIndexInResPair == 0) {
+		if (atomPairIndex == 0) {
 			energy += resPair->offset;
 		}
 	}

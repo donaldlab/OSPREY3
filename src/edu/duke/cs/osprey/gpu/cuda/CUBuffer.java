@@ -94,11 +94,15 @@ public class CUBuffer<T extends Buffer> {
 	}
 	
 	public void cleanup() {
-		stream.getContext().attachCurrentThread();
-		stream.getContext().unpinBuffer(phBuf);
-		stream.getContext().free(pdBuf);
-		phBuf = null;
-		pdBuf = null;
+		try {
+			stream.getContext().attachCurrentThread();
+			stream.getContext().unpinBuffer(phBuf);
+			stream.getContext().free(pdBuf);
+			phBuf = null;
+			pdBuf = null;
+		} catch (Throwable t) {
+			t.printStackTrace(System.err);
+		}
 	}
 	
 	@Override

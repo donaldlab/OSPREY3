@@ -138,7 +138,11 @@ public class GpuStream {
 			intBuffers.cleanup();
 			longBuffers.cleanup();
 			doubleBuffers.cleanup();
-			JCudaDriver.cuStreamDestroy(stream);
+			try {
+				JCudaDriver.cuStreamDestroy(stream);
+			} catch (Throwable t) {
+				t.printStackTrace(System.err);
+			}
 			stream = null;
 		}
 	}

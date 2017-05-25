@@ -23,12 +23,14 @@ public class EnergyPartitionsPlayground {
 		
 		// configure flexibility
 		
-		for (int i=2; i<=13; i++) {
+		for (int i=2; i<=12; i++) {
 			strand.flexibility.get(i).setLibraryRotamers("LEU", "ILE").setContinuous();
 		}
+		/*
 		for (int i=2; i<=3; i++) {
-			//strand.flexibility.get(i).setLibraryRotamers("GLY", "ALA", "VAL", "LEU", "ILE", "SER", "THR", "CYS", "ASN", "GLN", "ASP", "GLU", "PHE", "TRP", "TYR", "HIE", "HID", "LYS", "ARG", "MET").setContinuous();
+			strand.flexibility.get(i).setLibraryRotamers("GLY", "ALA", "VAL", "LEU", "ILE", "SER", "THR", "CYS", "ASN", "GLN", "ASP", "GLU", "PHE", "TRP", "TYR", "HIE", "HID", "LYS", "ARG", "MET").setContinuous();
 		}
+		*/
 		
 		// make the conf space
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand)
@@ -44,7 +46,8 @@ public class EnergyPartitionsPlayground {
 		ForcefieldParams ffparams = new ForcefieldParams();
 		
 		MinimizingFragmentEnergyCalculator fragEcalc = new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
-			.setParallelism(Parallelism.makeCpu(4))
+			.setParallelism(Parallelism.makeGpu(1, 16))
+			.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCudaCCD)
 			.build();
 		
 		// get reference energies
@@ -55,29 +58,24 @@ public class EnergyPartitionsPlayground {
 		// compute the energy matrix
 		EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, fragEcalc)
 			.setReferenceEnergies(eref)
-			.setEnergyPartition(new EnergyPartition.Traditional())
-			//.setEnergyPartition(new EnergyPartition.AllOnPairs())
+			//.setEnergyPartition(new EnergyPartition.Traditional())
+			.setEnergyPartition(new EnergyPartition.AllOnPairs())
 			.build()
 			.calcEnergyMatrix();
 		
 		// how should confs be ordered?
 		ConfSearch confSearch = new ConfAStarTree.Builder(emat, confSpace)
-			//.setTraditional()
+			.setTraditional()
+			/*
 			.setMPLP(
 				new ConfAStarTree.MPLPBuilder()
 					.setUpdater(new EdgeUpdater())
 					.setNumIterations(5)
 			)
+			*/
 			.setShowProgress(true)
 			.build();
 	
-		/* switch to GPU-computed fragments
-		fragEcalc.cleanup();
-		fragEcalc = new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
-			.setParallelism(Parallelism.makeGpu(1, 8))
-			.build();
-		*/
-		
 		// what's the energy of a conformation?
 		MinimizingConfEnergyCalculator confEcalc = new MinimizingConfEnergyCalculator.Builder(fragEcalc)
 			.setReferenceEnegries(eref)

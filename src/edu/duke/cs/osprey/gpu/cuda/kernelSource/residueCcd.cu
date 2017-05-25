@@ -63,16 +63,20 @@ typedef struct __align__(8) {
 
 /* res pairs also have atom pairs after them in struct-of-arrays layout:
 typedef struct __align__(8) {
+
 	unsigned long flags; // bit isHeavyPair, bit is14Bonded, 6 bits space, 3 bytes space, short offset1, short offset2
 	double charge;
 	double Aij;
 	double Bij;
+	
+	// if EEF1 == true
 	double radius1;
 	double lambda1;
 	double alpha1;
 	double radius2;
 	double lambda2;
 	double alpha2;
+	
 } AtomPair;
 */
 
@@ -105,13 +109,6 @@ public:
 	__device__ const ResPair & getResPair(const unsigned int i) const {
 		return *(ResPair *)&m_data[m_resPairOffsets[i]];
 	}
-	
-	/*
-	__device__ const AtomPair & getAtomPair(const ResPair & resPair, const unsigned int i) const {
-		const byte * const p = (byte *)&resPair;
-		return *(AtomPair *)&p[sizeof(ResPair) + sizeof(AtomPair)*i];
-	}
-	*/
 	
 	__device__ unsigned long getAtomPairFlags(const ResPair & resPair, const unsigned int i) const {
 		const byte * const p = (byte *)&resPair;
@@ -213,6 +210,7 @@ __device__ double blockSum(double threadEnergy, double * const threadEnergies) {
 	return threadEnergies[0];
 }
 
+
 __device__ double calcEnergy(const double * const coords, const Data & data, const Dihedral * const dihedral, double * const threadEnergies) {
 
 	// unpack the flags
@@ -237,14 +235,14 @@ __device__ double calcEnergy(const double * const coords, const Data & data, con
 	} else {
 		numResPairs = dihedral->numResPairs;
 	}
-		
+	
 	unsigned int resPairIndex = 0;
 	unsigned int numAtomPairs = 0;
 	for (int n = threadIdx.x; true; n += blockDim.x) {
 	
 		// find our res pair and atom pair
 		const ResPair *resPair;
-		int atomPairIndex;
+		int atomPairIndex = -1;
 		
 		for (; resPairIndex<numResPairs; resPairIndex++) {
 		

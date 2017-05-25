@@ -4,6 +4,7 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
+import edu.duke.cs.osprey.structure.Residues;
 import edu.duke.cs.osprey.tools.HashCalculator;
 
 public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
@@ -93,5 +94,13 @@ public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
 	
 	public int size() {
 		return pairs.size();
+	}
+	
+	public Residues filter(Residues residues) {
+		Residues filtered = new Residues();
+		for (String resNum : resNums) {
+			filtered.add(residues.getOrThrow(resNum));
+		}
+		return filtered;
 	}
 }

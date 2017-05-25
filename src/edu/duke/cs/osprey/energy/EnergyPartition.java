@@ -57,7 +57,17 @@ public interface EnergyPartition {
 		
 		@Override
 		public ResidueInteractions makeSingle(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, int pos, int rc) {
-			// no energies on singles
+			
+			// only energies on singles if there's exactly one position in the conf space
+			// (meaning, there's no pairs to put all the energies onto)
+			if (confSpace.positions.size() == 1) {
+				return ResInterGen.of(confSpace)
+					.addIntra(pos)
+					.addShell(pos)
+					.make();
+			}
+			
+			// otherwise, no energies on singles
 			return ResInterGen.of(confSpace)
 				.make();
 		}

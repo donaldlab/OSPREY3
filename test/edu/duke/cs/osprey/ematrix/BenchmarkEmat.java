@@ -9,6 +9,7 @@ import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.MinimizingFragmentEnergyCalculator;
+import edu.duke.cs.osprey.energy.MinimizingFragmentEnergyCalculator.Type;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -80,6 +81,7 @@ public class BenchmarkEmat extends TestBase {
 			
 			MinimizingFragmentEnergyCalculator ecalc = new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
 				.setParallelism(Parallelism.makeCpu(numThreads))
+				.setType(MinimizingFragmentEnergyCalculator.Type.Cpu)
 				.build();
 			SimplerEnergyMatrixCalculator ematcalc = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc).build();
 			
@@ -99,6 +101,7 @@ public class BenchmarkEmat extends TestBase {
 			
 			MinimizingFragmentEnergyCalculator ecalc = new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
 				.setParallelism(Parallelism.makeGpu(1, numStreams))
+				.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCudaCCD)
 				.build();
 			SimplerEnergyMatrixCalculator ematcalc = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc).build();
 			

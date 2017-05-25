@@ -8,6 +8,7 @@ import java.util.Arrays;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import cern.colt.matrix.DoubleFactory1D;
 import cern.colt.matrix.DoubleMatrix1D;
@@ -62,7 +63,7 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 	public final GpuStreamPool streams;
 	
 	private Kernel.Function func;
-	private static Integer blockThreads = null;
+	private static AtomicInteger blockThreads = new AtomicInteger(-1);
 	
 	private MoleculeObjectiveFunction mof;
 	private ResidueForcefieldEnergy efunc;
@@ -173,7 +174,7 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 		for (int i=0; i<efunc.residues.size(); i++) {
 			Residue res = efunc.residues.get(i);
 			atomOffsetsByResIndex[i] = atomOffset;
-			atomOffset += 3*res.atoms.size(); // TODO: change to index, make gpu do mult?
+			atomOffset += 3*res.atoms.size();
 			numAtoms += res.atoms.size();
 		}
 		
@@ -285,11 +286,11 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 			databuf.putInt(dihedral.res.atoms.size());
 			databuf.putLong(atomOffsetsByResIndex[dihedral.resIndex]);
 			for (int j=0; j<dihedral.dihedralIndices.length; j++) {
-				databuf.putShort((short)(dihedral.dihedralIndices[j]*3)); // TODO: change to index, make gpu do mult?
+				databuf.putShort((short)(dihedral.dihedralIndices[j]*3));
 			}
 			databuf.putInt(dihedral.rotatedIndices.length);
 			databuf.putInt(dihedral.resPairIndices.length);
-			databuf.putDouble(Math.toRadians(dihedral.xd)); // TODO: make the GPU convert?
+			databuf.putDouble(Math.toRadians(dihedral.xd));
 			databuf.putDouble(Math.toRadians(dihedral.xdmin));
 			databuf.putDouble(Math.toRadians(dihedral.xdmax));
 			
@@ -297,7 +298,7 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 			int n = MathTools.roundUpToMultiple(dihedral.rotatedIndices.length, Long.BYTES/Short.BYTES);
 			for (int i=0; i<n; i++) {
 				if (i < dihedral.rotatedIndices.length) {
-					databuf.putShort((short)(dihedral.rotatedIndices[i]*3)); // TODO: change to index, make gpu do mult? 
+					databuf.putShort((short)(dihedral.rotatedIndices[i]*3)); 
 				} else {
 					databuf.putShort((short)0);
 				}
@@ -361,11 +362,8 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 			out.getDevicePointer()
 		));
 		
-		// calc the number of block threads
-		if (blockThreads == null) {
-			blockThreads = func.calcMaxBlockThreads();
-		}
-		func.blockThreads = blockThreads;
+		// calc the best number of block threads for this machine
+		func.blockThreads = func.getBestBlockThreads(blockThreads);
 	}
 	
 	@Override
