@@ -16,7 +16,7 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 
 	private HashMap<Integer, ArrayList<Integer>> residueValues;//residue values for bound state
 	//in each unassigned pos
-	private boolean computeProduct;
+	private boolean computeProduct;//for now, compute either product or sum
 
 	public ResidueOrderStaticMinDomain(MSSearchProblem[][] objFcnSearch, String method) {
 		super(objFcnSearch, "discrepancy");
@@ -113,6 +113,7 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 		//assignments.trimToSize();
 
 		//now score each assignment
+		clearAAAssignments();//first clear previous entries
 		ArrayList<ResidueAssignmentScore> residueAssignmentScores = new ArrayList<>();
 		for(ResidueAssignment residueAssignment : residueAssignments) {
 			BigDecimal score = getResidueAssignmentScore(residueAssignment, objFcnSearch, numMaxMut);
@@ -129,6 +130,9 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 		//each residue assignment corresponds to one or more allowed AA assignments.
 		//score is based on allowed AA assignments only
 		ArrayList<ArrayList<ArrayList<AAAssignment>>> aaAssignments = getAllowedAAAsignments(objFcnSearch, residueAssignment, numMaxMut);
+		
+		//store here, so we can retreive best from here later without recomputation
+		storeAAAssignments(residueAssignment, aaAssignments);
 		
 		if(computeProduct)
 			return getBoundStateDomainProduct(residueAssignment, aaAssignments);
@@ -149,7 +153,7 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 		return best;
 	}
 
-	public ArrayList<ResidueAssignmentScore> getAllResidueAssignments(
+	public ArrayList<ResidueAssignmentScore> scoreAllResidueAssignments(
 			LMB objFcn, 
 			MSSearchProblem[][] objFcnSearch,
 			KStarScore[] objFcnScores, 
@@ -175,13 +179,13 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 			KStarScore[] objFcnScores,
 			int numMaxMut
 			) {
-		ArrayList<ResidueAssignmentScore> scores = getAllResidueAssignments(objFcn, objFcnSearch, objFcnScores, numMaxMut);		
+		ArrayList<ResidueAssignmentScore> scores = scoreAllResidueAssignments(objFcn, objFcnSearch, objFcnScores, numMaxMut);		
 
 		//order unassigned residues by score and return best residue
 		ResidueAssignment best = getBestResidueAssignment(scores);
 
-		//convert to aas that don't violate the allowed number of mutations
-		return getAllowedAAAsignments(objFcnSearch, best, numMaxMut);
+		//get allowed AA assignments corresponding to best residue assignment
+		return getAAAssignments(best);
 	}
 
 }

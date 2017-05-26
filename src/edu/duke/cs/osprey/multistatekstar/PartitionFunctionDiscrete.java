@@ -69,6 +69,7 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 			}
 
 			scoreWeight = boltzmann.calc(conf.getScore());
+			numConfsToScore = numConfsToScore.subtract(BigInteger.ONE);
 
 			if (scoreWeight.compareTo(BigDecimal.ZERO) == 0) {
 				values.qprime = updateQprime(scoreWeight);
@@ -79,8 +80,6 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 			}
 
 			if(status == Status.Estimating) {
-
-				numConfsToScore = numConfsToScore.subtract(BigInteger.ONE);
 
 				values.qstar = values.qstar.add(scoreWeight);
 				values.qprime = updateQprime(scoreWeight);
@@ -132,6 +131,7 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 			numConfsEvaluated++;
 
 			scoreWeight = boltzmann.calc(conf.getScore());
+			numConfsToScore = numConfsToScore.subtract(BigInteger.ONE);
 
 			if (scoreWeight.compareTo(BigDecimal.ZERO) == 0) {
 				values.qprime = updateQprime(scoreWeight);

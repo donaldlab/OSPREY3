@@ -85,7 +85,7 @@ public class KStarScoreMinimized implements KStarScore {
 		PartitionFunction pf = partitionFunctions[numStates-1];
 		if(pf==null) return BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
 		BigDecimal num = pf.getValues().qstar.setScale(64, RoundingMode.HALF_UP);
-		if(pf.getStatus()!=Status.Estimated) num = num.add(pf.getValues().qprime).add(pf.getValues().pstar);
+		num = (num.add(pf.getValues().qprime)).add(pf.getValues().pstar);
 		return num.divide(den, RoundingMode.HALF_UP);
 	}
 

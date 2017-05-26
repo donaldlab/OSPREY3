@@ -31,9 +31,6 @@ import edu.duke.cs.osprey.tools.Stopwatch;
 
 public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
-	public static final BigDecimal MAX_VALUE = new BigDecimal("2e65536");
-	public static final BigDecimal MIN_VALUE = BigDecimal.ZERO;
-
 	public static boolean SYNCHRONIZED_MINIMIZATION = false;
 	
 	protected PriorityQueue<ScoredConf> topConfs;

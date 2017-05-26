@@ -10,6 +10,8 @@ import edu.duke.cs.osprey.tools.ObjectIO;
 @SuppressWarnings("serial")
 public class ResidueOrderDynamicScoreMinDom extends ResidueOrder {
 
+	public static boolean DEBUG = false;
+	
 	private ResidueOrderDynamicScore dynamic;
 	private ResidueOrderStaticMinDomain mindom;
 	
@@ -18,7 +20,6 @@ public class ResidueOrderDynamicScoreMinDom extends ResidueOrder {
 	
 	private HashMap<ResidueAssignment, Integer> d2A2Rank;
 	private HashMap<ResidueAssignment, Integer> m2A2Rank;
-	public static boolean DEBUG = false;
 	
 	public ResidueOrderDynamicScoreMinDom(MSSearchProblem[][] objFcnSearch, double dCoeff, double mCoeff) {
 		super();
@@ -94,7 +95,7 @@ public class ResidueOrderDynamicScoreMinDom extends ResidueOrder {
 			KStarScore[] objFcnScores, 
 			int numMaxMut
 			) {
-		ArrayList<ResidueAssignmentScore> dynScores = dynamic.getAllResidueAssignments(objFcn, objFcnSearch, objFcnScores, numMaxMut);	
+		ArrayList<ResidueAssignmentScore> dynScores = dynamic.scoreAllResidueAssignments(objFcn, objFcnSearch, objFcnScores, numMaxMut);	
 		
 		//order unassigned residues by score and return best residue
 		ResidueAssignment best = getBestResidueAssignment(dynScores, objFcnSearch, numMaxMut);

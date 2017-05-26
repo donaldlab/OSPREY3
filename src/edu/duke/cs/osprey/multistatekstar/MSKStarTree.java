@@ -66,6 +66,7 @@ public class MSKStarTree {
 	protected int numSelfExpanded;
 	protected int numFullyDefined;
 	protected int numPruned;
+	
 	protected BigDecimal prevScore;
 	protected String prevSeq;
 
@@ -116,7 +117,9 @@ public class MSKStarTree {
 		this.numCompleted = 0;
 		this.pq = null;
 
-		this.prevScore = PartitionFunctionMinimized.MAX_VALUE.multiply(BigDecimal.valueOf(-1));
+		this.prevScore = MSKStarNode.MIN_SCORE;
+		this.prevSeq = "";
+		
 		this.stopwatch = new Stopwatch().start();
 	}
 
@@ -182,10 +185,12 @@ public class MSKStarTree {
 		//MSKStarNode.PARALLELISM_MULTIPLIER = astarThreads;
 		
 		MSKStarTree.DEBUG = false;
-		MSKStarNode.DEBUG = true;
 		MSSearchProblem.DEBUG = false;
-		PartitionFunctionDiscrete.DEBUG = true;
 		ResidueOrderDynamicScoreMinDom.DEBUG = false;
+		ResidueOrderDynamicScore.DEBUG = false;
+		
+		MSKStarNode.DEBUG = true;
+		PartitionFunctionDiscrete.DEBUG = true;
 	}
 
 	private MSKStarNode getRootNode() {
@@ -207,7 +212,8 @@ public class MSKStarTree {
 		}
 
 		MSKStarNode ans = new MSKStarNode(kssLB, kssUB);
-		ans.setScore(objFcn);//set score per the objective function
+		//ans.setScore(objFcn);//set score per the objective function
+		ans.setScore(MSKStarNode.MIN_SCORE);
 		
 		initNodeStaticVars(ans);
 		
