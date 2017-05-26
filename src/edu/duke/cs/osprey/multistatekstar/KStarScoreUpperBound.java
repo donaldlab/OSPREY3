@@ -1,8 +1,6 @@
 package edu.duke.cs.osprey.multistatekstar;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
-
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 
 public class KStarScoreUpperBound extends KStarScoreDiscrete {
@@ -50,7 +48,7 @@ public class KStarScoreUpperBound extends KStarScoreDiscrete {
 
 	public BigDecimal getScore() {
 		PartitionFunction complex = partitionFunctions[numStates-1];
-		if(complex == null) return BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
+		if(complex == null) return MSKStarNode.MAX_SCORE;
 
 		BigDecimal score = super.getScore();
 

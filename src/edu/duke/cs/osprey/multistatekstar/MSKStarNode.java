@@ -20,6 +20,7 @@ import edu.duke.cs.osprey.tools.ObjectIO;
  */
 public class MSKStarNode {
 	public static BigDecimal MIN_SCORE = new BigDecimal("-2e1048576");
+	public static BigDecimal MAX_SCORE = new BigDecimal("2e1048576");
 
 	//static parameters are set by the tree object
 	public static LMB OBJ_FUNC;//global objective function that we are optimizing for

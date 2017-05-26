@@ -212,8 +212,7 @@ public class MSKStarTree {
 		}
 
 		MSKStarNode ans = new MSKStarNode(kssLB, kssUB);
-		//ans.setScore(objFcn);//set score per the objective function
-		ans.setScore(MSKStarNode.MIN_SCORE);
+		ans.setScore(objFcn);//set score per the objective function
 		
 		initNodeStaticVars(ans);
 		
