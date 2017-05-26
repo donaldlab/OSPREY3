@@ -52,11 +52,13 @@ public abstract class ResidueOrder implements Serializable {
 		public int state;
 		public int subState;
 		public MSSearchProblem search;
+		boolean isUnbound;
 		
-		public ResisueOrderWorker(MSSearchProblem search, int state, int subState) {
+		public ResisueOrderWorker(MSSearchProblem search, int state, int subState, boolean isUnbound) {
 			this.search = search;
 			this.state = state;
 			this.subState = subState;
+			this.isUnbound = isUnbound;
 		}
 	}
 	

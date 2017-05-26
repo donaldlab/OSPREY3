@@ -102,20 +102,24 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 		//set all workers
 		for(int state=0;state<objFcnSearch.length;++state) {
 			for(int subState=0;subState<objFcnSearch[state].length;++subState) {
-				workers.add(new ResisueOrderWorker(objFcnSearch[state][subState], state, subState));
+				boolean isUnbound = subState != objFcnSearch[state].length-1;
+				workers.add(new ResisueOrderWorker(objFcnSearch[state][subState], state, subState, isUnbound));
 			}
 		}
 
 		if(!parallel) {
-			for(ResisueOrderWorker w : workers) setResidueValues(w.search, w.state, w.subState, w.search.getPosNums(assigned));
+			for(ResisueOrderWorker w : workers) setResidueValues(w.search, w.state, 
+					w.subState, w.isUnbound, w.search.getPosNums(assigned));
 		}
 		//execute in parallel
 		else {
-			workers.parallelStream().forEach(w -> setResidueValues(w.search, w.state, w.subState, w.search.getPosNums(assigned)));
+			workers.parallelStream().forEach(w -> setResidueValues(w.search, w.state, 
+					w.subState, w.isUnbound, w.search.getPosNums(assigned)));
 		}
 	}
 
-	protected void setResidueValues(MSSearchProblem search, int state, int subState, ArrayList<Integer> positions) {
+	protected void setResidueValues(MSSearchProblem search, int state, int subState, 
+			boolean isUnbound, ArrayList<Integer> positions) {
 
 		int numPos = search.getNumPos();
 
@@ -170,7 +174,12 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 			}
 
 			if(Double.isNaN(pos1Value)) pos1Value = 0;
-			residueValues.get(state).get(subState).set(pos1, (boltzmann.calc(pos1Value)).setScale(64, RoundingMode.HALF_UP));
+			BigDecimal val = boltzmann.calc(pos1Value).setScale(64, RoundingMode.HALF_UP);
+			//val can be 0 for bound state but not for unbound states
+			if(isUnbound) {
+				val = val.compareTo(BigDecimal.ZERO)==0 ? BigDecimal.ONE.setScale(64, RoundingMode.HALF_UP) : val;
+			}
+			residueValues.get(state).get(subState).set(pos1, val);
 		}
 	}
 
@@ -252,7 +261,7 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 			ArrayList<Integer> unboundPos = assignment.get(subState);
 			if(unboundPos.size()==0) continue;
 			if(unboundPos.size()>1) throw new RuntimeException("ERROR: unbound state was split into more than one position");
-			int pos = unboundPos.get(0);//contains at most one value
+			int pos = unboundPos.get(0);//contains at most one value		
 			ans = ans.divide(residueValues.get(state).get(subState).get(pos), RoundingMode.HALF_UP);
 		}
 

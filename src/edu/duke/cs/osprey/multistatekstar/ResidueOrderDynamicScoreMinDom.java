@@ -21,14 +21,16 @@ public class ResidueOrderDynamicScoreMinDom extends ResidueOrder {
 	private HashMap<ResidueAssignment, Integer> d2A2Rank;
 	private HashMap<ResidueAssignment, Integer> m2A2Rank;
 	
-	public ResidueOrderDynamicScoreMinDom(MSSearchProblem[][] objFcnSearch, double dCoeff, double mCoeff) {
+	public ResidueOrderDynamicScoreMinDom(MSSearchProblem[][] objFcnSearch, 
+			ResidueOrderDynamicScore dynamic, double dCoeff, 
+			ResidueOrderStaticMinDomain mindom, double mCoeff) {
 		super();
 		
 		this.dCoeff = dCoeff;
 		this.mCoeff = mCoeff;
 		
-		dynamic = new ResidueOrderDynamicScore(objFcnSearch, "discrepancy");
-		mindom = new ResidueOrderStaticMinDomain(objFcnSearch, "product");
+		this.dynamic = dynamic;
+		this.mindom = mindom;
 		
 		d2A2Rank = new HashMap<>();
 		m2A2Rank = new HashMap<>();
