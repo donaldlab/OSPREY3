@@ -4,7 +4,7 @@ import static edu.duke.cs.osprey.TestBase.*;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
-import java.util.List;
+import java.util.Deque;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -81,10 +81,10 @@ public class TestSimpleGMECFinder {
 	
 	@Test
 	public void findDiscreteWindowZero() {
-		List<EnergiedConf> confs = problemDiscrete.makeGMECFinder().find(0);
+		Deque<EnergiedConf> confs = problemDiscrete.makeGMECFinder().find(0);
 		assertThat(confs.size(), is(1));
 		
-		EnergiedConf conf = confs.get(0);
+		EnergiedConf conf = confs.remove();
 		assertThat(conf.getAssignments(), is(new int[] { 1, 3, 4 }));
 		assertThat(conf.getEnergy(), isAbsolutely(-30.705504, EnergyEpsilon));
 		assertThat(conf.getScore(), isAbsolutely(-30.705504, EnergyEpsilon));
@@ -92,25 +92,25 @@ public class TestSimpleGMECFinder {
 	
 	@Test
 	public void findDiscreteWindowOne() {
-		List<EnergiedConf> confs = problemDiscrete.makeGMECFinder().find(1);
+		Deque<EnergiedConf> confs = problemDiscrete.makeGMECFinder().find(1);
 		assertThat(confs.size(), is(4));
 		
-		EnergiedConf conf = confs.get(0);
+		EnergiedConf conf = confs.remove();
 		assertThat(conf.getAssignments(), is(new int[] { 1, 3, 4 }));
 		assertThat(conf.getEnergy(), isAbsolutely(-30.705504, EnergyEpsilon));
 		assertThat(conf.getScore(), isAbsolutely(-30.705504, EnergyEpsilon));
 		
-		conf = confs.get(1);
+		conf = confs.remove();
 		assertThat(conf.getAssignments(), is(new int[] { 1, 3, 5 }));
 		assertThat(conf.getEnergy(), isAbsolutely(-30.241032, EnergyEpsilon));
 		assertThat(conf.getScore(), isAbsolutely(-30.241032, EnergyEpsilon));
 		
-		conf = confs.get(2);
+		conf = confs.remove();
 		assertThat(conf.getAssignments(), is(new int[] { 1, 6, 4 }));
 		assertThat(conf.getEnergy(), isAbsolutely(-29.981955, EnergyEpsilon));
 		assertThat(conf.getScore(), isAbsolutely(-29.981955, EnergyEpsilon));
 		
-		conf = confs.get(3);
+		conf = confs.remove();
 		assertThat(conf.getAssignments(), is(new int[] { 1, 7, 4 }));
 		assertThat(conf.getEnergy(), isAbsolutely(-29.748971, EnergyEpsilon));
 		assertThat(conf.getScore(), isAbsolutely(-29.748971, EnergyEpsilon));
@@ -126,22 +126,22 @@ public class TestSimpleGMECFinder {
 	
 	@Test
 	public void findContinuousWindow() {
-		List<EnergiedConf> confs = problemContinuous.makeGMECFinder().find(0.1);
+		Deque<EnergiedConf> confs = problemContinuous.makeGMECFinder().find(0.3);
 		assertThat(confs.size(), is(3));
 		
-		EnergiedConf conf = confs.get(0);
+		EnergiedConf conf = confs.remove();
 		assertThat(conf.getAssignments(), is(new int[] { 1, 26, 0 }));
 		assertThat(conf.getEnergy(), isAbsolutely(-38.465807, EnergyEpsilon));
 		assertThat(conf.getScore(), isAbsolutely(-38.566297, EnergyEpsilon));
 		
-		conf = confs.get(1);
+		conf = confs.remove();
 		assertThat(conf.getAssignments(), is(new int[] { 1, 25, 0 }));
 		assertThat(conf.getEnergy(), isAbsolutely(-38.243730, EnergyEpsilon));
 		assertThat(conf.getScore(), isAbsolutely(-38.391590, EnergyEpsilon));
 		
-		conf = confs.get(2);
-		assertThat(conf.getAssignments(), is(new int[] { 1, 21, 0 }));
-		assertThat(conf.getEnergy(), isAbsolutely(-37.755997, EnergyEpsilon));
-		assertThat(conf.getScore(), isAbsolutely(-38.695671, EnergyEpsilon));
+		conf = confs.remove();
+		assertThat(conf.getAssignments(), is(new int[] { 1, 29, 0 }));
+		assertThat(conf.getEnergy(), isAbsolutely(-38.166219, EnergyEpsilon));
+		assertThat(conf.getScore(), isAbsolutely(-38.254643, EnergyEpsilon));
 	}
 }
