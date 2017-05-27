@@ -63,6 +63,7 @@ public class MSKStarTree {
 	protected int numCompleted;
 
 	protected int numExpanded;
+	protected int numExtracted;
 	protected int numSelfExpanded;
 	protected int numFullyDefined;
 	protected int numPruned;
@@ -109,6 +110,7 @@ public class MSKStarTree {
 		this.cfps = cfps;
 		this.msParams = msParams;
 
+		this.numExtracted = 0;
 		this.numExpanded = 0;
 		this.numSelfExpanded = 0;
 		this.numFullyDefined = 0;
@@ -273,6 +275,8 @@ public class MSKStarTree {
 				return null;
 			}
 			
+			numExtracted++;
+			
 			if(prevScore.compareTo(curNode.getScore())>0) {				
 				throw new RuntimeException(String.format("ERROR: A* scores must "
 						+ "be non-decreasing.\nlastScore: %12e, lastSeq: %s\n"
@@ -321,8 +325,8 @@ public class MSKStarTree {
 
 	private void reportProgress(MSKStarNode curNode) {
 		MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-		System.out.println(String.format("level: %d/%d, score: %12e, size: %d, expanded: %d, self-expanded: %d, pruned: %d, defined: %d, completed: %d, returned: %d/%d, time: %6s, heapMem: %.0f%%",
-				curNode.getNumAssignedResidues(), numTreeLevels, curNode.getScore(), pq.size(), numExpanded, numSelfExpanded, numPruned, numFullyDefined, numCompleted,
+		System.out.println(String.format("level: %d/%d, score: %12e, size: %d, extracted: %d, expanded: %d, self-expanded: %d, pruned: %d, defined: %d, completed: %d, returned: %d/%d, time: %6s, heapMem: %.0f%%",
+				curNode.getNumAssignedResidues(), numTreeLevels, curNode.getScore(), pq.size(), numExtracted, numExpanded, numSelfExpanded, numPruned, numFullyDefined, numCompleted,
 				numSeqsReturned, numSeqsWanted, stopwatch.getTime(2), 100f*heapMem.getUsed()/heapMem.getMax()));
 	}
 

@@ -175,10 +175,25 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 
 			if(Double.isNaN(pos1Value)) pos1Value = 0;
 			BigDecimal val = boltzmann.calc(pos1Value).setScale(64, RoundingMode.HALF_UP);
+			
 			//val can be 0 for bound state but not for unbound states
 			if(isUnbound) {
 				val = val.compareTo(BigDecimal.ZERO)==0 ? BigDecimal.ONE.setScale(64, RoundingMode.HALF_UP) : val;
+			} 
+			
+			// for bound state, multiply by the mean number of allowed RCs
+			/*
+			else if(val.compareTo(BigDecimal.ZERO)!=0) {
+				double meanNumRCs = 0;
+				for(String AAType : residueAAs.get(state).get(subState).get(pos1)) {
+					int unPruned = search.rcsAtPosForAA(search.pruneMat, pos1, AAType, false).size();
+					int pruned = search.rcsAtPosForAA(search.pruneMat, pos1, AAType, true).size();
+					meanNumRCs += (unPruned+pruned);
+				}
+				meanNumRCs /= residueAAs.get(state).get(subState).get(pos1).size();
+				val = val.multiply(BigDecimal.valueOf(meanNumRCs));
 			}
+			*/
 			residueValues.get(state).get(subState).set(pos1, val);
 		}
 	}
