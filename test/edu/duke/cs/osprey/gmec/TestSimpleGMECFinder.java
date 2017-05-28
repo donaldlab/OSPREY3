@@ -4,8 +4,6 @@ import static edu.duke.cs.osprey.TestBase.*;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
-import java.util.Deque;
-
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -18,6 +16,8 @@ import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.MinimizingConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.MinimizingFragmentEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.externalMemory.ExternalMemory;
+import edu.duke.cs.osprey.externalMemory.Queue;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 
@@ -41,12 +41,12 @@ public class TestSimpleGMECFinder {
 				.calcEnergyMatrix();
 		}
 		
-		public SimpleGMECFinder makeGMECFinder() {
+		public SimpleGMECFinder.Builder makeBuilder() {
 			return new SimpleGMECFinder.Builder(
 				confSpace,
 				new ConfAStarTree.Builder(emat, confSpace).build(),
 				new MinimizingConfEnergyCalculator.Builder(ecalc).build()
-			).build();
+			);
 		}
 	}
 	
@@ -73,7 +73,7 @@ public class TestSimpleGMECFinder {
 
 	@Test
 	public void findDiscrete() {
-		EnergiedConf conf = problemDiscrete.makeGMECFinder().find();
+		EnergiedConf conf = problemDiscrete.makeBuilder().build().find();
 		assertThat(conf.getAssignments(), is(new int[] { 1, 3, 4 }));
 		assertThat(conf.getEnergy(), isAbsolutely(-30.705504, EnergyEpsilon));
 		assertThat(conf.getScore(), isAbsolutely(-30.705504, EnergyEpsilon));
@@ -81,10 +81,10 @@ public class TestSimpleGMECFinder {
 	
 	@Test
 	public void findDiscreteWindowZero() {
-		Deque<EnergiedConf> confs = problemDiscrete.makeGMECFinder().find(0);
-		assertThat(confs.size(), is(1));
+		Queue<EnergiedConf> confs = problemDiscrete.makeBuilder().build().find(0);
+		assertThat(confs.size(), is(1L));
 		
-		EnergiedConf conf = confs.remove();
+		EnergiedConf conf = confs.poll();
 		assertThat(conf.getAssignments(), is(new int[] { 1, 3, 4 }));
 		assertThat(conf.getEnergy(), isAbsolutely(-30.705504, EnergyEpsilon));
 		assertThat(conf.getScore(), isAbsolutely(-30.705504, EnergyEpsilon));
@@ -92,25 +92,25 @@ public class TestSimpleGMECFinder {
 	
 	@Test
 	public void findDiscreteWindowOne() {
-		Deque<EnergiedConf> confs = problemDiscrete.makeGMECFinder().find(1);
-		assertThat(confs.size(), is(4));
+		Queue<EnergiedConf> confs = problemDiscrete.makeBuilder().build().find(1);
+		assertThat(confs.size(), is(4L));
 		
-		EnergiedConf conf = confs.remove();
+		EnergiedConf conf = confs.poll();
 		assertThat(conf.getAssignments(), is(new int[] { 1, 3, 4 }));
 		assertThat(conf.getEnergy(), isAbsolutely(-30.705504, EnergyEpsilon));
 		assertThat(conf.getScore(), isAbsolutely(-30.705504, EnergyEpsilon));
 		
-		conf = confs.remove();
+		conf = confs.poll();
 		assertThat(conf.getAssignments(), is(new int[] { 1, 3, 5 }));
 		assertThat(conf.getEnergy(), isAbsolutely(-30.241032, EnergyEpsilon));
 		assertThat(conf.getScore(), isAbsolutely(-30.241032, EnergyEpsilon));
 		
-		conf = confs.remove();
+		conf = confs.poll();
 		assertThat(conf.getAssignments(), is(new int[] { 1, 6, 4 }));
 		assertThat(conf.getEnergy(), isAbsolutely(-29.981955, EnergyEpsilon));
 		assertThat(conf.getScore(), isAbsolutely(-29.981955, EnergyEpsilon));
 		
-		conf = confs.remove();
+		conf = confs.poll();
 		assertThat(conf.getAssignments(), is(new int[] { 1, 7, 4 }));
 		assertThat(conf.getEnergy(), isAbsolutely(-29.748971, EnergyEpsilon));
 		assertThat(conf.getScore(), isAbsolutely(-29.748971, EnergyEpsilon));
@@ -118,7 +118,7 @@ public class TestSimpleGMECFinder {
 	
 	@Test
 	public void findContinuous() {
-		EnergiedConf conf = problemContinuous.makeGMECFinder().find();
+		EnergiedConf conf = problemContinuous.makeBuilder().build().find();
 		assertThat(conf.getAssignments(), is(new int[] { 1, 26, 0 }));
 		assertThat(conf.getEnergy(), isAbsolutely(-38.465807, EnergyEpsilon));
 		assertThat(conf.getScore(), isAbsolutely(-38.566297, EnergyEpsilon));
@@ -126,20 +126,44 @@ public class TestSimpleGMECFinder {
 	
 	@Test
 	public void findContinuousWindow() {
-		Deque<EnergiedConf> confs = problemContinuous.makeGMECFinder().find(0.3);
-		assertThat(confs.size(), is(3));
+		Queue<EnergiedConf> confs = problemContinuous.makeBuilder().build().find(0.3);
+		assertThat(confs.size(), is(3L));
 		
-		EnergiedConf conf = confs.remove();
+		EnergiedConf conf = confs.poll();
 		assertThat(conf.getAssignments(), is(new int[] { 1, 26, 0 }));
 		assertThat(conf.getEnergy(), isAbsolutely(-38.465807, EnergyEpsilon));
 		assertThat(conf.getScore(), isAbsolutely(-38.566297, EnergyEpsilon));
 		
-		conf = confs.remove();
+		conf = confs.poll();
 		assertThat(conf.getAssignments(), is(new int[] { 1, 25, 0 }));
 		assertThat(conf.getEnergy(), isAbsolutely(-38.243730, EnergyEpsilon));
 		assertThat(conf.getScore(), isAbsolutely(-38.391590, EnergyEpsilon));
 		
-		conf = confs.remove();
+		conf = confs.poll();
+		assertThat(conf.getAssignments(), is(new int[] { 1, 29, 0 }));
+		assertThat(conf.getEnergy(), isAbsolutely(-38.166219, EnergyEpsilon));
+		assertThat(conf.getScore(), isAbsolutely(-38.254643, EnergyEpsilon));
+	}
+	
+	@Test
+	public void findContinuousWindowExternal() {
+		ExternalMemory.setInternalLimit(64);
+		Queue<EnergiedConf> confs = problemContinuous.makeBuilder()
+			.setUseExternalMemory(true)
+			.build().find(0.3);
+		assertThat(confs.size(), is(3L));
+		
+		EnergiedConf conf = confs.poll();
+		assertThat(conf.getAssignments(), is(new int[] { 1, 26, 0 }));
+		assertThat(conf.getEnergy(), isAbsolutely(-38.465807, EnergyEpsilon));
+		assertThat(conf.getScore(), isAbsolutely(-38.566297, EnergyEpsilon));
+		
+		conf = confs.poll();
+		assertThat(conf.getAssignments(), is(new int[] { 1, 25, 0 }));
+		assertThat(conf.getEnergy(), isAbsolutely(-38.243730, EnergyEpsilon));
+		assertThat(conf.getScore(), isAbsolutely(-38.391590, EnergyEpsilon));
+		
+		conf = confs.poll();
 		assertThat(conf.getAssignments(), is(new int[] { 1, 29, 0 }));
 		assertThat(conf.getEnergy(), isAbsolutely(-38.166219, EnergyEpsilon));
 		assertThat(conf.getScore(), isAbsolutely(-38.254643, EnergyEpsilon));
