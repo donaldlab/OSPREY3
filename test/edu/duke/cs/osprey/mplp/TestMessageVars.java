@@ -7,9 +7,9 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import edu.duke.cs.osprey.TestBase;
-import edu.duke.cs.osprey.astar.conf.ConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.ConfIndex;
 import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.astar.conf.linked.LinkedConfAStarNode;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.mplp.MessageVars;
 import edu.duke.cs.osprey.confspace.SearchProblem;
@@ -44,9 +44,7 @@ public class TestMessageVars extends TestBase {
 		// get the RCs and a conf index
 		SearchProblem search = makeSearchProblemDagkRigid();
 		RCs rcs = new RCs(search.pruneMat);
-		ConfAStarNode rootNode = new ConfAStarNode();
 		ConfIndex confIndex = new ConfIndex(rcs.getNumPos());
-		confIndex.index(rootNode);
 		
 		// initialize message vars with traditional A* heuristic
 		MessageVars vars = new MessageVars(rcs, confIndex, true);
@@ -61,9 +59,7 @@ public class TestMessageVars extends TestBase {
 		// get the RCs and a conf index
 		SearchProblem search = makeSearchProblemDagkRigid();
 		RCs rcs = new RCs(search.pruneMat);
-		ConfAStarNode rootNode = new ConfAStarNode();
 		ConfIndex confIndex = new ConfIndex(rcs.getNumPos());
-		confIndex.index(rootNode);
 		
 		// initialize message vars with traditional A* heuristic
 		MessageVars vars = new MessageVars(rcs, confIndex, false);
@@ -78,12 +74,12 @@ public class TestMessageVars extends TestBase {
 		// get the RCs and a conf index
 		SearchProblem search = makeSearchProblemDagkRigid();
 		RCs rcs = new RCs(search.pruneMat);
-		ConfAStarNode node = new ConfAStarNode();
-		node = new ConfAStarNode(node, 0, 0);
-		node = new ConfAStarNode(node, 0, 0);
-		node = new ConfAStarNode(node, 0, 0);
 		ConfIndex confIndex = new ConfIndex(rcs.getNumPos());
-		confIndex.index(node);
+		new LinkedConfAStarNode()
+			.assign(0, 0)
+			.assign(0, 0)
+			.assign(0, 0)
+		.index(confIndex);
 		
 		// initialize message vars with traditional A* heuristic
 		MessageVars vars = new MessageVars(rcs, confIndex, true);
@@ -98,12 +94,12 @@ public class TestMessageVars extends TestBase {
 		// get the RCs and a conf index
 		SearchProblem search = makeSearchProblemDagkRigid();
 		RCs rcs = new RCs(search.pruneMat);
-		ConfAStarNode node = new ConfAStarNode();
-		node = new ConfAStarNode(node, 0, 0);
-		node = new ConfAStarNode(node, 0, 0);
-		node = new ConfAStarNode(node, 0, 0);
 		ConfIndex confIndex = new ConfIndex(rcs.getNumPos());
-		confIndex.index(node);
+		new LinkedConfAStarNode()
+			.assign(0, 0)
+			.assign(0, 0)
+			.assign(0, 0)
+		.index(confIndex);
 		
 		// initialize message vars with traditional A* heuristic
 		MessageVars vars = new MessageVars(rcs, confIndex, false);
@@ -118,12 +114,12 @@ public class TestMessageVars extends TestBase {
 		// get the RCs and a conf index
 		SearchProblem search = makeSearchProblemDagkRigid();
 		RCs rcs = new RCs(search.pruneMat);
-		ConfAStarNode node = new ConfAStarNode();
-		node = new ConfAStarNode(node, 0, 0);
-		node = new ConfAStarNode(node, 0, 0);
-		node = new ConfAStarNode(node, 0, 0);
 		ConfIndex confIndex = new ConfIndex(rcs.getNumPos());
-		confIndex.index(node);
+		new LinkedConfAStarNode()
+			.assign(0, 0)
+			.assign(0, 0)
+			.assign(0, 0)
+		.index(confIndex);
 		
 		// make some zero messages
 		MessageVars vars = new MessageVars(rcs, confIndex);

@@ -8,12 +8,6 @@ import org.junit.Test;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
-import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
-import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 
 public class TestConfSearchSplitter extends TestBase {
@@ -36,10 +30,7 @@ public class TestConfSearchSplitter extends TestBase {
 	private ConfSearch makeTree() {
 		
 		// make any search tree, doesn't matter
-		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new DynamicHMeanAStarOrder();
-		AStarScorer hscorer = new TraditionalPairwiseHScorer(search.emat, rcs);
-		return new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		return new ConfAStarTree.Builder(search.emat, search.pruneMat).build();
 	}
 	
 	private void assertConfs(ConfSearch.Splitter.Stream stream, int numConfs) {

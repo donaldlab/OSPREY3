@@ -32,7 +32,7 @@ public class StaticScoreHMeanAStarOrder implements AStarOrder {
 		if (posOrder == null) {
 			posOrder = calcPosOrder(confIndex, rcs);
 		}
-		return posOrder.get(confIndex.getNode().getLevel());
+		return posOrder.get(confIndex.node.getLevel());
 	}
 	
 	private List<Integer> calcPosOrder(ConfIndex confIndex, RCs rcs) {
@@ -40,8 +40,8 @@ public class StaticScoreHMeanAStarOrder implements AStarOrder {
 		// init permutation array with only undefined positions and score them
 		List<Integer> undefinedOrder = new ArrayList<Integer>();
 		Map<Integer,Double> scores = new TreeMap<>();
-		for (int posi=0; posi<confIndex.getNumUndefined(); posi++) {
-			int pos = confIndex.getUndefinedPos()[posi];
+		for (int posi=0; posi<confIndex.numUndefined; posi++) {
+			int pos = confIndex.undefinedPos[posi];
 			undefinedOrder.add(pos);
 			scores.put(pos, scorePos(confIndex, rcs, pos));
 		}
@@ -60,8 +60,8 @@ public class StaticScoreHMeanAStarOrder implements AStarOrder {
 		
 		// prepend the defined positions to build the full order
 		List<Integer> order = new ArrayList<>();
-		for (int posi=0; posi<confIndex.getNumDefined(); posi++) {
-			int pos = confIndex.getDefinedPos()[posi];
+		for (int posi=0; posi<confIndex.numDefined; posi++) {
+			int pos = confIndex.definedPos[posi];
 			order.add(pos);
 		}
 		order.addAll(undefinedOrder);
@@ -72,7 +72,7 @@ public class StaticScoreHMeanAStarOrder implements AStarOrder {
 	double scorePos(ConfIndex confIndex, RCs rcs, int pos) {
 		
 		// check all the RCs at this pos and aggregate the energies
-		double parentScore = confIndex.getNode().getScore();
+		double parentScore = confIndex.node.getScore();
 		double reciprocalSum = 0;
 		for (int rc : rcs.get(pos)) {
 			double childScore = gscorer.calcDifferential(confIndex, rcs, pos, rc)

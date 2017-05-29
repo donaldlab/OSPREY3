@@ -36,7 +36,7 @@ public class StaticEnergyHMeanAStarOrder implements AStarOrder {
 		if (posOrder == null) {
 			posOrder = calcPosOrder(confIndex, rcs);
 		}
-		return posOrder.get(confIndex.getNode().getLevel());
+		return posOrder.get(confIndex.node.getLevel());
 	}
 
 	private List<Integer> calcPosOrder(ConfIndex confIndex, RCs rcs) {

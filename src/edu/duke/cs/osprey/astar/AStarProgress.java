@@ -38,7 +38,7 @@ public class AStarProgress implements Serializable {
 		numLeafNodes = 0;
 	}
 	
-	public void reportInternalNode(int level, double gscore, double hscore, int numNodesInQueue, int numAddedToQueue) {
+	public void reportInternalNode(int level, double gscore, double hscore, long numNodesInQueue, int numAddedToQueue) {
 		
 		this.numNodesExpanded++;
 		this.numNodesInQueue = numNodesInQueue;
@@ -90,7 +90,7 @@ public class AStarProgress implements Serializable {
 		goalScore = val;
 	}
 	
-	public void reportLeafNode(double gscore, int numNodesInQueue) {
+	public void reportLeafNode(double gscore, long numNodesInQueue) {
 		
 		this.numNodesInQueue = numNodesInQueue;
 		

@@ -84,7 +84,9 @@ public interface ConfSearchFactory {
 					}
 					
 					// init the A* tree
-					ConfAStarTree tree = new ConfAStarTree(order, gscorer, hscorer, rcs);
+					ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, rcs)
+						.setCustom(order, gscorer, hscorer)
+						.build();
 					tree.setParallelism(Parallelism.makeCpu(cfp.params.getInt("AStarThreads")));
 					tree.initProgress();
 					return tree;

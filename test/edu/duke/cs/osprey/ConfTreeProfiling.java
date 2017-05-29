@@ -9,12 +9,6 @@ import java.util.concurrent.TimeUnit;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
-import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
-import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfigFileParser;
@@ -97,7 +91,6 @@ public class ConfTreeProfiling {
 		
 		// don't bother with pruning, set all to unpruned
 		search.pruneMat = new PruningMatrix(search.confSpace, search.emat.getPruningInterval());
-		RCs rcs = new RCs(search.pruneMat);
 		
 		/* TEMP: set some positions to just one residue, to test A* order
 		rcs.set(0, new int[] { 0 });
@@ -109,18 +102,11 @@ public class ConfTreeProfiling {
 		*/
 		
 		// init the conformation search
-		//AStarOrder order = new StaticEnergyHMeanAStarOrder(search.emat);
-		//AStarOrder order = new DynamicHMeanAStarOrder();
-		AStarOrder order = new StaticScoreHMeanAStarOrder();
-		//AStarScorer hscorer = new TraditionalPairwiseHScorer(search.emat, rcs);
-		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 5, 0.0001);
-		ConfAStarTree tree = new ConfAStarTree(
-			order,
-			new PairwiseGScorer(search.emat),
-			hscorer,
-			rcs
-		);
-		tree.initProgress();
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+			.setMPLP(new ConfAStarTree.MPLPBuilder()
+				.setNumIterations(5)
+			).setShowProgress(true)
+			.build();
 		
 		// notation below (trialN values in milliseconds):
 		// numFlexPos: [trial1, trial2, trial2]

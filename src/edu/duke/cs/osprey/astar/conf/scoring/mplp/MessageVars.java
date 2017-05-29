@@ -26,12 +26,12 @@ public class MessageVars {
 		this.rcs = rcs;
 		this.confIndex = confIndex;
 		
-		int n = confIndex.getNumUndefined();
+		int n = confIndex.numUndefined;
 		
 		// allocate space for the sums
 		sums = new double[n][];
 		for (int posi1=0; posi1<n; posi1++) {
-			int pos1 = confIndex.getUndefinedPos()[posi1];
+			int pos1 = confIndex.undefinedPos[posi1];
 			sums[posi1] = new double[rcs.getNum(pos1)];
 			if (usePrecomputedSums) {
 				Arrays.fill(sums[posi1], 0);
@@ -44,7 +44,7 @@ public class MessageVars {
 		vars = new double[n*n][];
 		for (int posi1=0; posi1<n; posi1++) {
 			for (int posi2=0; posi2<n; posi2++) {
-				int pos2 = confIndex.getUndefinedPos()[posi2];
+				int pos2 = confIndex.undefinedPos[posi2];
 				int index = getNodePairIndex(posi1, posi2);
 				vars[index] = new double[rcs.getNum(pos2)];
 				Arrays.fill(vars[index], 0);
@@ -54,24 +54,24 @@ public class MessageVars {
 	
 	public void initTraditionalAStar(EnergyMatrix emat) {
 		
-		for (int posi1=0; posi1<confIndex.getNumUndefined(); posi1++) {
-			int pos1 = confIndex.getUndefinedPos()[posi1];
+		for (int posi1=0; posi1<confIndex.numUndefined; posi1++) {
+			int pos1 = confIndex.undefinedPos[posi1];
 			
 			for (int rci1=0; rci1<rcs.getNum(pos1); rci1++) {
 				int rc1 = rcs.get(pos1, rci1);
 				
 				// init i,i messages with single and defined-undefined energies
 				double sum = emat.getOneBody(pos1, rc1);
-				for (int posi2=0; posi2<confIndex.getNumDefined(); posi2++) {
-					int pos2 = confIndex.getDefinedPos()[posi2];
-					int rc2 = confIndex.getDefinedRCs()[posi2];
+				for (int posi2=0; posi2<confIndex.numDefined; posi2++) {
+					int pos2 = confIndex.definedPos[posi2];
+					int rc2 = confIndex.definedRCs[posi2];
 					sum += emat.getPairwise(pos1, rc1, pos2, rc2);
 				}
 				set(posi1, posi1, rci1, sum);
 				
 				// init i,j messages with undefined-undefined energies
-				for (int posi2=0; posi2<confIndex.getNumUndefined(); posi2++) {
-					int pos2 = confIndex.getUndefinedPos()[posi2];
+				for (int posi2=0; posi2<confIndex.numUndefined; posi2++) {
+					int pos2 = confIndex.undefinedPos[posi2];
 					
 					if (pos2 < pos1) {
 					
@@ -91,7 +91,7 @@ public class MessageVars {
 				if (canUsePrecomputedSums(posi1, rci1)) {
 					
 					sum = 0;
-					for (int posi2=0; posi2<confIndex.getNumUndefined(); posi2++) {
+					for (int posi2=0; posi2<confIndex.numUndefined; posi2++) {
 						sum += get(posi2, posi1, rci1);
 					}
 					sums[posi1][rci1] = sum;
@@ -151,7 +151,7 @@ public class MessageVars {
 		} else {
 			
 			double sum = 0;
-			for (int posi2=0; posi2<confIndex.getNumUndefined(); posi2++) {
+			for (int posi2=0; posi2<confIndex.numUndefined; posi2++) {
 				sum += vars[getNodePairIndex(posi2, posi1)][rci1];
 			}
 			return sum;
@@ -166,7 +166,7 @@ public class MessageVars {
 		} else {
 			
 			double sum = 0;
-			for (int posi2=0; posi2<confIndex.getNumUndefined(); posi2++) {
+			for (int posi2=0; posi2<confIndex.numUndefined; posi2++) {
 				if (posi2 != posi2Out) {
 					sum += vars[getNodePairIndex(posi2, posi1)][rci1];
 				}
@@ -177,8 +177,8 @@ public class MessageVars {
 	
 	public double getTotalEnergy() {
 		double energy = 0;
-		for (int posi1=0; posi1<confIndex.getNumUndefined(); posi1++) {
-			int pos1 = confIndex.getUndefinedPos()[posi1];
+		for (int posi1=0; posi1<confIndex.numUndefined; posi1++) {
+			int pos1 = confIndex.undefinedPos[posi1];
 			
 			double minPosEnergy = Double.POSITIVE_INFINITY;
 			
@@ -192,6 +192,6 @@ public class MessageVars {
 	}
 
 	private int getNodePairIndex(int posi1, int posi2) {
-		return posi1*confIndex.getNumUndefined() + posi2;
+		return posi1*confIndex.numUndefined + posi2;
 	}
 }

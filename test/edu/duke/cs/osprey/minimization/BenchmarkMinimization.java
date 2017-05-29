@@ -7,13 +7,6 @@ import java.util.concurrent.TimeUnit;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
-import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
-import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.SearchProblem;
@@ -98,15 +91,15 @@ public class BenchmarkMinimization extends TestBase {
 		assertConfSpacesMatch(search.confSpace, simpleConfSpace);
 		
 		// settings
-		final int numConfs = 512;//32;//256;//512;//1024;
+		final int numConfs = 1024*4;//32;//256;//512;//1024;
 		
 		// get a few arbitrary conformations
 		System.out.println("getting confs...");
 		search.pruneMat = new PruningMatrix(search.confSpace, 1000);
-		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new StaticScoreHMeanAStarOrder();
-		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 4, 0.0001);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+			.setMPLP(new ConfAStarTree.MPLPBuilder()
+				.setNumIterations(4)
+			).build();
 		List<ScoredConf> confs = new ArrayList<>();
 		for (int i=0; i<numConfs; i++) {
 			confs.add(tree.nextConf());
@@ -190,8 +183,9 @@ public class BenchmarkMinimization extends TestBase {
 	throws Exception {
 		
 		// settings
-		final int[] numThreadsList = { 1, 2, 4, 8 };
-		final int[] numStreamsList = { 1, 2, 4, 8, 16, 32 };//, 64, 128, 256 };
+		final int[] numThreadsList = { 1 };//, 2, 4, 8 };
+		final int numGpus = 8;
+		final int[] numStreamsPerGpuList = { 1, 2, 4, 8, 16, 32 };//, 64, 128 };//, 256 };
 		
 		Factory<ForcefieldInteractions,Molecule> interactionsFactory = (mol) -> FFInterGen.makeFullConf(search.confSpace, search.shellResidues, mol);
 		ForcefieldParams ffparams = makeDefaultFFParams();
@@ -213,7 +207,7 @@ public class BenchmarkMinimization extends TestBase {
 		// benchmark cpu residue efuncs
 		for (int numThreads : numThreadsList) {
 			
-			System.out.println(String.format("\nBenchmarking %2d thread(s) with %30s...", numThreads, "CPU residue efuncs"));
+			System.out.println(String.format("\nBenchmarking %3d thread(s) with %30s...", numThreads, "CPU residue efuncs"));
 			MinimizingFragmentEnergyCalculator ecalc = new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
 				.setType(MinimizingFragmentEnergyCalculator.Type.Cpu)
 				.setParallelism(Parallelism.makeCpu(numThreads))
@@ -226,7 +220,7 @@ public class BenchmarkMinimization extends TestBase {
 		/*
 		// benchmark opencl
 		for (int numStreams : numStreamsList) {
-			System.out.println(String.format("\nBenchmarking %2d stream(s) with %30s...", numStreams, "OpenCL efuncs"));
+			System.out.println(String.format("\nBenchmarking %3d stream(s) with %30s...", numStreams, "OpenCL efuncs"));
 			ConfMinimizer minimizer = new GpuConfMinimizer.Builder(ffparams, interactionsFactory, search.confSpace)
 				.setGpuInfo(GpuConfMinimizer.Type.OpenCL, 1, numStreams)
 				.build();
@@ -235,29 +229,29 @@ public class BenchmarkMinimization extends TestBase {
 		*/
 		
 		// benchmark cuda
-		for (int numStreams : numStreamsList) {
-			System.out.println(String.format("\nBenchmarking %2d stream(s) with %30s...", numStreams, "Cuda efuncs"));
+		for (int numStreams : numStreamsPerGpuList) {
+			System.out.println(String.format("\nBenchmarking %3d stream(s) with %30s...", numStreams, "Cuda efuncs"));
 			ConfMinimizer minimizer = new GpuConfMinimizer.Builder(ffparams, interactionsFactory, search.confSpace)
-				.setGpuInfo(GpuConfMinimizer.Type.Cuda, 1, numStreams)
+				.setGpuInfo(GpuConfMinimizer.Type.Cuda, numGpus, numStreams)
 				.build();
 			benchmark(minimizer, confs, oneCpuStopwatch);
 		}
 		
 		// benchmark cuda ccd
-		for (int numStreams : numStreamsList) {
-			System.out.println(String.format("\nBenchmarking %2d stream(s) with %30s...", numStreams, "Cuda CCD minimizer"));
+		for (int numStreams : numStreamsPerGpuList) {
+			System.out.println(String.format("\nBenchmarking %3d stream(s) with %30s...", numStreams, "Cuda CCD minimizer"));
 			ConfMinimizer minimizer = new GpuConfMinimizer.Builder(ffparams, interactionsFactory, search.confSpace)
-				.setGpuInfo(GpuConfMinimizer.Type.CudaCCD, 1, numStreams)
+				.setGpuInfo(GpuConfMinimizer.Type.CudaCCD, numGpus, numStreams)
 				.build();
 			benchmark(minimizer, confs, oneCpuStopwatch);
 		}
 		
 		// benchmark residue cuda
-		for (int numStreams : numStreamsList) {
-			System.out.println(String.format("\nBenchmarking %2d stream(s) with %30s...", numStreams, "Cuda residue efuncs"));
+		for (int numStreams : numStreamsPerGpuList) {
+			System.out.println(String.format("\nBenchmarking %3d stream(s) with %30s...", numStreams, "Cuda residue efuncs"));
 			MinimizingFragmentEnergyCalculator ecalc = new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
 				.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCuda)
-				.setParallelism(Parallelism.makeGpu(1, numStreams))
+				.setParallelism(Parallelism.makeGpu(numGpus, numStreams))
 				.build();
 			MinimizingConfEnergyCalculator minimizer = new MinimizingConfEnergyCalculator.Builder(ecalc).build();
 			benchmark(minimizer, confs, oneCpuStopwatch);
@@ -265,11 +259,11 @@ public class BenchmarkMinimization extends TestBase {
 		}
 		
 		// benchmark residue cuda ccd
-		for (int numStreams : numStreamsList) {
-			System.out.println(String.format("\nBenchmarking %2d stream(s) with %30s...", numStreams, "Cuda residue CCD minimizer"));
+		for (int numStreams : numStreamsPerGpuList) {
+			System.out.println(String.format("\nBenchmarking %3d stream(s) with %30s...", numStreams, "Cuda residue CCD minimizer"));
 			MinimizingFragmentEnergyCalculator ecalc = new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
 				.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCudaCCD)
-				.setParallelism(Parallelism.makeGpu(1, numStreams))
+				.setParallelism(Parallelism.makeGpu(numGpus, numStreams))
 				.build();
 			MinimizingConfEnergyCalculator minimizer = new MinimizingConfEnergyCalculator.Builder(ecalc).build();
 			benchmark(minimizer, confs, oneCpuStopwatch);
@@ -310,7 +304,7 @@ public class BenchmarkMinimization extends TestBase {
 		List<EnergiedConf> minimizedConfs = ecalc.calcAllEnergies(confs, true);
 		stopwatch.stop();
 		
-		System.out.print(String.format("precise timing: %9s, ops: %5.2f", stopwatch.getTime(TimeUnit.MILLISECONDS), confs.size()/stopwatch.getTimeS()));
+		System.out.print(String.format("precise timing: %9s, ops: %6.2f", stopwatch.getTime(TimeUnit.MILLISECONDS), confs.size()/stopwatch.getTimeS()));
 		
 		if (referenceStopwatch != null) {
 			System.out.println(String.format(", speedup: %6.2fx",

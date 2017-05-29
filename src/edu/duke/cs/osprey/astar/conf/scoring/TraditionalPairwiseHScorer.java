@@ -66,8 +66,8 @@ public class TraditionalPairwiseHScorer implements AStarScorer {
     	calcCachedEnergies(confIndex, rcs);
     	
 		// for each undefined pos...
-		for (int i=0; i<confIndex.getNumUndefined(); i++) {
-			int pos = confIndex.getUndefinedPos()[i];
+		for (int i=0; i<confIndex.numUndefined; i++) {
+			int pos = confIndex.undefinedPos[i];
 			
 			// find the lowest-energy rc at this pos
 			double minRCEnergy = Double.POSITIVE_INFINITY;
@@ -88,15 +88,15 @@ public class TraditionalPairwiseHScorer implements AStarScorer {
 		// so even really pedantic optimizations can make an impact
 		
 		// if the intermediate energies aren't cached, calculate them now
-		if (cachedNode != confIndex.getNode()) {
+		if (cachedNode != confIndex.node) {
 			calcCachedEnergies(confIndex, rcs);
-			cachedNode = confIndex.getNode();
+			cachedNode = confIndex.node;
 		}
 		
     	// compute the h-score
     	double hscore = 0;
-    	for (int i=0; i<confIndex.getNumUndefined(); i++) {
-    		int pos = confIndex.getUndefinedPos()[i];
+    	for (int i=0; i<confIndex.numUndefined; i++) {
+    		int pos = confIndex.undefinedPos[i];
     		
     		// don't score at nextPos, it's defined now
     		if (pos == nextPos) {
@@ -137,8 +137,8 @@ public class TraditionalPairwiseHScorer implements AStarScorer {
 	private void calcCachedEnergies(ConfIndex confIndex, RCs rcs) {
 		
 		// for each undefined pos...
-		for (int i=0; i<confIndex.getNumUndefined(); i++) {
-			int pos1 = confIndex.getUndefinedPos()[i];
+		for (int i=0; i<confIndex.numUndefined; i++) {
+			int pos1 = confIndex.undefinedPos[i];
 			
 			// for each rc...
 			int[] rcs1 = rcs.get(pos1);
@@ -150,17 +150,17 @@ public class TraditionalPairwiseHScorer implements AStarScorer {
 				double energy = emat.getOneBody(pos1, rc1);
 				
 				// add defined energies
-				for (int k=0; k<confIndex.getNumDefined(); k++) {
-					int pos2 = confIndex.getDefinedPos()[k];
-					int rc2 = confIndex.getDefinedRCs()[k];
+				for (int k=0; k<confIndex.numDefined; k++) {
+					int pos2 = confIndex.definedPos[k];
+					int rc2 = confIndex.definedRCs[k];
 					
 					energy += emat.getPairwise(pos1, rc1, pos2, rc2);
 				}
 				
 				// add undefined energies
 				double[] energies = undefinedEnergies[pos1][j];
-				for (int k=0; k<confIndex.getNumUndefined(); k++) {
-					int pos2 = confIndex.getUndefinedPos()[k];
+				for (int k=0; k<confIndex.numUndefined; k++) {
+					int pos2 = confIndex.undefinedPos[k];
 					if (pos2 < pos1) {
 						energy += energies[pos2];
 					}

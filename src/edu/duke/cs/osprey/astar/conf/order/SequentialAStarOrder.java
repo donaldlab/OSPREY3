@@ -19,6 +19,6 @@ public class SequentialAStarOrder implements AStarOrder {
 		
 		// easy peasy
 		// eg, the root node has level 0, so expand pos 0 next
-		return confIndex.getNode().getLevel();
+		return confIndex.node.getLevel();
 	}
 }

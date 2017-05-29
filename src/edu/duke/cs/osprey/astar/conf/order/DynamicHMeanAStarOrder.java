@@ -21,9 +21,9 @@ public class DynamicHMeanAStarOrder implements AStarOrder {
 		int bestPos = -1;
 		double bestScore = Double.NEGATIVE_INFINITY;
 		
-		for (int i=0; i<confIndex.getNumUndefined(); i++) {
+		for (int i=0; i<confIndex.numUndefined; i++) {
 			
-			int pos = confIndex.getUndefinedPos()[i];
+			int pos = confIndex.undefinedPos[i];
 			double score = scorePos(confIndex, rcs, pos);
 			
 			if (score > bestScore) {
@@ -42,7 +42,7 @@ public class DynamicHMeanAStarOrder implements AStarOrder {
 	double scorePos(ConfIndex confIndex, RCs rcs, int pos) {
 		
 		// check all the RCs at this pos and aggregate the energies
-		double parentScore = confIndex.getNode().getScore();
+		double parentScore = confIndex.node.getScore();
 		double reciprocalSum = 0;
 		for (int rc : rcs.get(pos)) {
 			double childScore = gscorer.calcDifferential(confIndex, rcs, pos, rc)
