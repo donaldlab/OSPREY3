@@ -4,6 +4,7 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 
 import edu.duke.cs.osprey.astar.comets.UpdatedPruningMatrix;
 import edu.duke.cs.osprey.confspace.RCTuple;
@@ -76,6 +77,16 @@ public class MSSearchProblem extends SearchProblem {
 		return numAssignedPos==confSpace.numPos;
 	}
 
+	public ArrayList<Integer> rcsAtPosForAAs(PruningMatrix pruneMat, int pos, HashSet<String> AATypes, boolean pruned) {
+		ArrayList<Integer> ans = new ArrayList<>();
+		
+		for(String AAType : AATypes) {
+			ans.addAll(rcsAtPosForAA(pruneMat, pos, AAType, pruned));
+		}
+		
+		return ans;
+	}
+	
 	public ArrayList<Integer> rcsAtPosForAA(PruningMatrix pruneMat, int pos, String AAType, boolean pruned) {
 		ArrayList<Integer> ans = new ArrayList<>();
 		ArrayList<Integer> rcs = pruned ? pruneMat.prunedRCsAtPos(pos) : pruneMat.unprunedRCsAtPos(pos);

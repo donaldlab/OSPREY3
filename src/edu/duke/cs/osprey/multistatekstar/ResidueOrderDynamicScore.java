@@ -127,12 +127,14 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 			double pos1Value = 0;
 			//also used pruned rcs at pos?
 			ArrayList<Integer> pos1RCs = search.pruneMat.unprunedRCsAtPos(pos1);
-
+			//ArrayList<Integer> pos1RCs = search.rcsAtPosForAAs(search.pruneMat, pos1, residueAAs.get(state).get(subState).get(pos1), false);
+			
 			for(int pos2=0;pos2<numPos;++pos2) {
 				if(pos1==pos2) continue;
 
 				ArrayList<Integer> pos2RCs = search.pruneMat.unprunedRCsAtPos(pos2);
-
+				//ArrayList<Integer> pos2RCs = search.rcsAtPosForAAs(search.pruneMat, pos2, residueAAs.get(state).get(subState).get(pos2), false);
+				
 				// first, find the min pairwise energy over all rc pairs
 				double minPairwise = Double.POSITIVE_INFINITY;				
 				for(int rc1 : pos1RCs) {
