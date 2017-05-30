@@ -19,6 +19,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 
 public class TestAStar extends TestBase {
 	
@@ -474,6 +475,22 @@ public class TestAStar extends TestBase {
 				new PairwiseGScorer(search.emat),
 				new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001)
 			).build();
+		
+		checkDagkContinuous(tree, search);
+	}
+	
+	
+	// EXTERNAL MEMORY TESTS
+	
+	@Test
+	public void testExternalMemory() {
+		SearchProblem search = makeSearchProblemDagkContinuous();
+		
+		ExternalMemory.setInternalLimit(16);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+			.setTraditional()
+			.setUseExternalMemory()
+			.build();
 		
 		checkDagkContinuous(tree, search);
 	}

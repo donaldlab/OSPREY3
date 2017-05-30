@@ -4,6 +4,6 @@ import edu.duke.cs.osprey.externalMemory.Queue;
 
 public interface ConfAStarFactory {
 	
-	Queue<ConfAStarNode> makeQueue();
+	Queue<ConfAStarNode> makeQueue(RCs rcs);
 	ConfAStarNode makeRootNode(int numPos);
 }

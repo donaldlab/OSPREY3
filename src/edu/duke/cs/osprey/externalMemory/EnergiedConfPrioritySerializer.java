@@ -2,14 +2,14 @@ package edu.duke.cs.osprey.externalMemory;
 
 import java.nio.ByteBuffer;
 
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.tpie.serialization.SerializingDoublePriorityQueue;
 
 public class EnergiedConfPrioritySerializer extends AssignmentsSerializer implements SerializingDoublePriorityQueue.Serializer<EnergiedConf> {
 	
-	public EnergiedConfPrioritySerializer(SimpleConfSpace space) {
-		super(space, Double.BYTES);
+	public EnergiedConfPrioritySerializer(RCs rcs) {
+		super(rcs, Double.BYTES);
 	}
 	
 	@Override

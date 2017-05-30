@@ -19,6 +19,8 @@ import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.externalMemory.EMConfAStarFactory;
+import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.externalMemory.Queue;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
@@ -101,6 +103,17 @@ public class ConfAStarTree implements ConfSearch {
 				builder.numIterations,
 				builder.convergenceThreshold
 			);
+			return this;
+		}
+		
+		/** Call to use external memory (eg, disk, SSD, NAS) for when large A* searches
+		 * cannot fit in internal memory (eg, RAM).
+		 * 
+		 * Use {@link ExternalMemory#setInternalLimit} to set the amount of fixed internal memory.
+		 */
+		public Builder setUseExternalMemory() {
+			ExternalMemory.checkInternalLimitSet();
+			factory = new EMConfAStarFactory();
 			return this;
 		}
 		
@@ -216,7 +229,7 @@ public class ConfAStarTree implements ConfSearch {
 		this.rcs = rcs;
 		this.factory = factory;
 		
-		this.queue = factory.makeQueue();
+		this.queue = factory.makeQueue(rcs);
 		this.confIndex = new ConfIndex(this.rcs.getNumPos());
 		
 		this.rootNode = null;

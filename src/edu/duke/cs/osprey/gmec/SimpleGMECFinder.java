@@ -1,6 +1,7 @@
 package edu.duke.cs.osprey.gmec;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
@@ -130,9 +131,10 @@ public class SimpleGMECFinder {
 		this.printIntermediateConfsToConsole = printIntermediateConfsToConsole;
 		
 		if (useExternalMemory) {
-			scoredFifoFactory = new Queue.ExternalFIFOFactory<>(new ScoredConfFIFOSerializer(space));
-			energiedFifoFactory = new Queue.ExternalFIFOFactory<>(new EnergiedConfFIFOSerializer(space));
-			energiedPriorityFactory = new Queue.ExternalPriorityFactory<>(new EnergiedConfPrioritySerializer(space));
+			RCs rcs = new RCs(space);
+			scoredFifoFactory = new Queue.ExternalFIFOFactory<>(new ScoredConfFIFOSerializer(rcs));
+			energiedFifoFactory = new Queue.ExternalFIFOFactory<>(new EnergiedConfFIFOSerializer(rcs));
+			energiedPriorityFactory = new Queue.ExternalPriorityFactory<>(new EnergiedConfPrioritySerializer(rcs));
 		} else {
 			scoredFifoFactory = new Queue.FIFOFactory<>();
 			energiedFifoFactory = new Queue.FIFOFactory<>();
@@ -194,14 +196,19 @@ public class SimpleGMECFinder {
 			consolePrinter.print(eMinScoreConf, space);
 			
 			// estimate the top of our energy range
-			// this is an upper bound for now, we'll refine it as we evaluate more structures
+			/* NOTE:
+				The "Energy Window" is the range of energies [GMEC energy,GMEC energy + window size].
+				This range is merely an estimate of the true Energy Window based on the lowest energy we have so far.
+				We'll refine this estimate as we evaluate more structures.
+			*/
 			final EnergyRange erange = new EnergyRange(eMinScoreConf.getEnergy(), energyWindowSize);
 		
-			// start the list of energied confs
+			// start the queue of energied confs
 			Queue<EnergiedConf> econfs = energiedPriorityFactory.make();
 			econfs.push(eMinScoreConf);
 		
 			checkMoreConfs(unpeekedConfs, erange, econfs);
+			System.out.println(String.format("checked %d conformations", econfs.size()));
 			
 			// econfs are in a priority queue, so the first one is the GMEC
 			EnergiedConf gmec = econfs.peek();
@@ -292,44 +299,61 @@ public class SimpleGMECFinder {
 		ConfEnergyCalculator.Async.Listener ecalcListener = (econf) -> {
 			
 			handleEnergiedConf(econf, econfs, erange);
-			progress.incrementProgress();
 
 			// refine the estimate of the top of the energy window
 			boolean changed = erange.updateMin(econf.getEnergy());
 			if (changed) {
-
-				long numLowEnergyConfsBefore = lowEnergyConfs.size();
 				
-				// prune conformations (in-place, since this is a FIFO queue) with the new window
-				lowEnergyConfs.filter((conf) -> erange.containsOrBelow(conf.getScore()));
-
-				// update progress
 				System.out.println(String.format("\nNew lowest energy: %.6f", erange.getMin()));
-				if (lowEnergyConfs.size() < numLowEnergyConfsBefore) {
-					System.out.println(String.format("\tReduced to %d low-energy conformations", lowEnergyConfs.size()));
+
+				// remove confs from the queue whose energies are above the new lower window
+				// but don't race the main thread which is poll()ing the queue
+				synchronized (lowEnergyConfs) {
+					
+					long numLowEnergyConfsBefore = lowEnergyConfs.size();
+					
+					// prune conformations with the new window
+					// (in-place, since this is a FIFO queue)
+					lowEnergyConfs.filter((conf) -> erange.containsOrBelow(conf.getScore()));
+
+					if (lowEnergyConfs.size() < numLowEnergyConfsBefore) {
+						System.out.println(String.format("\tReduced to %d low-energy conformations", lowEnergyConfs.size()));
+					}
+					progress.setTotalWork(lowEnergyConfs.size());
 				}
-				progress.setTotalWork(lowEnergyConfs.size());
 			}
+			
+			progress.incrementProgress();
 		};
 
 		// calc the conf energy asynchronously
 		System.out.println(String.format("\nComputing energies for %d conformations...", lowEnergyConfs.size()));
-		while (!lowEnergyConfs.isEmpty()) {
-			ecalc.calcEnergyAsync(lowEnergyConfs.poll(), ecalcListener);
+		while (true) {
+			
+			// don't race the listener thread, which can sometimes filter the queue
+			synchronized (lowEnergyConfs) {
+				
+				if (lowEnergyConfs.isEmpty()) {
+					break;
+				}
+				
+				ecalc.calcEnergyAsync(lowEnergyConfs.poll(), ecalcListener);
+			}
 		}
+		
 		ecalc.getTasks().waitForFinish();
 	}
 	
-	private void setErangeProgress(ConfSearch confSearch, EnergyRange window) {
+	private void setErangeProgress(ConfSearch confSearch, EnergyRange erange) {
 		
 		// HACKHACK: set progress goal
 		if (confSearch instanceof ConfAStarTree) {
 			ConfAStarTree tree = (ConfAStarTree)confSearch;
 			if (tree.getProgress() != null) {
-				tree.getProgress().setGoalScore(window.getMax());
+				tree.getProgress().setGoalScore(erange.getMax());
 			}
 		} else if (confSearch instanceof ConfSearch.Splitter.Stream) {
-			setErangeProgress(((ConfSearch.Splitter.Stream)confSearch).getSource(), window);
+			setErangeProgress(((ConfSearch.Splitter.Stream)confSearch).getSource(), erange);
 		}
 	}
 	

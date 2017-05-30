@@ -2,14 +2,14 @@ package edu.duke.cs.osprey.externalMemory;
 
 import java.nio.ByteBuffer;
 
+import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.tpie.serialization.SerializingFIFOQueue;
 
 public class EnergiedConfFIFOSerializer extends AssignmentsSerializer implements SerializingFIFOQueue.Serializer<EnergiedConf> {
 	
-	public EnergiedConfFIFOSerializer(SimpleConfSpace space) {
-		super(space, Double.BYTES*2);
+	public EnergiedConfFIFOSerializer(RCs rcs) {
+		super(rcs, Double.BYTES*2);
 	}
 	
 	@Override

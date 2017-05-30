@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.energy.EnergyPartition;
 import edu.duke.cs.osprey.energy.MinimizingConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.MinimizingFragmentEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.gmec.SimpleGMECFinder;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -23,7 +24,7 @@ public class EnergyPartitionsPlayground {
 		
 		// configure flexibility
 		
-		for (int i=2; i<=12; i++) {
+		for (int i=2; i<=13; i++) {
 			strand.flexibility.get(i).setLibraryRotamers("LEU", "ILE").setContinuous();
 		}
 		/*
@@ -58,21 +59,17 @@ public class EnergyPartitionsPlayground {
 		// compute the energy matrix
 		EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, fragEcalc)
 			.setReferenceEnergies(eref)
-			//.setEnergyPartition(new EnergyPartition.Traditional())
-			.setEnergyPartition(new EnergyPartition.AllOnPairs())
+			.setEnergyPartition(new EnergyPartition.Traditional())
+			//.setEnergyPartition(new EnergyPartition.AllOnPairs())
 			.build()
 			.calcEnergyMatrix();
 		
 		// how should confs be ordered?
+		ExternalMemory.setInternalLimit(128);
 		ConfSearch confSearch = new ConfAStarTree.Builder(emat, confSpace)
 			.setTraditional()
-			/*
-			.setMPLP(
-				new ConfAStarTree.MPLPBuilder()
-					.setUpdater(new EdgeUpdater())
-					.setNumIterations(5)
-			)
-			*/
+			//.setMPLP(new ConfAStarTree.MPLPBuilder().setUpdater(new EdgeUpdater()).setNumIterations(5))
+			.setUseExternalMemory()
 			.setShowProgress(true)
 			.build();
 	
@@ -84,6 +81,7 @@ public class EnergyPartitionsPlayground {
 		// find the GMEC!
 		System.out.println("Finding GMEC...");
 		EnergiedConf gmec = new SimpleGMECFinder.Builder(confSpace, confSearch, confEcalc)
+			.setPrintIntermediateConfsToConsole(false)
 			.build()
 			.find();
 		

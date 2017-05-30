@@ -170,18 +170,20 @@ public class LinkedConfAStarNode implements ConfAStarNode {
 			
 		} else {
 			
-			int definedPos = 0;
+			int i = 0;
 			for (int pos=0; pos<numPos; pos++) {
 				
 				// does this pos match the next defined pos?
-				if (pos == dpos[definedPos]) {
-					definedPos++;
+				if (i < numDefined && pos == dpos[i]) {
+					i++;
 				} else {
 					upos[numUndefined] = pos;
 					numUndefined++;
 				}
 			}
 		}
+		
+		assert (numDefined + numUndefined == numPos);
 		
 		// copy vars back to the index
 		index.numDefined = numDefined;

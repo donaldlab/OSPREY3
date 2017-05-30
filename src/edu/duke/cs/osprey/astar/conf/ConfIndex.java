@@ -6,10 +6,10 @@ public class ConfIndex {
 	
 	public ConfAStarNode node;
 	public int numDefined;
-	public int[] definedPos;
-	public int[] definedRCs;
+	public final int[] definedPos;
+	public final int[] definedRCs;
 	public int numUndefined;
-	public int[] undefinedPos;
+	public final int[] undefinedPos;
 	
 	public ConfIndex(int numPos) {
 		this.numPos = numPos;
