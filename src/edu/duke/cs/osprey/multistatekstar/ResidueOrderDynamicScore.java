@@ -175,7 +175,7 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 					pos1Value += pos2Value;
 			}
 
-			if(Double.isNaN(pos1Value)) pos1Value = 0;
+			if(Double.isNaN(pos1Value) || (pos1Value<0 && Double.isInfinite(pos1Value))) pos1Value = 0;
 			BigDecimal val = boltzmann.calc(pos1Value).setScale(64, RoundingMode.HALF_UP);
 			
 			//val can be 0 for bound state but not for unbound states
