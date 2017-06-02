@@ -14,7 +14,7 @@ import java.util.HashMap;
 @SuppressWarnings("serial")
 public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 
-	private HashMap<Integer, ArrayList<Integer>> residueValues;//residue values for bound state
+	private HashMap<Integer, ArrayList<ArrayList<Integer>>> residueValues;//residue values for bound state
 	//in each unassigned pos
 	private boolean computeProduct;//for now, compute either product or sum
 
@@ -24,22 +24,27 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 		this.computeProduct = method.equalsIgnoreCase("product") ? true : false;
 	}
 
-	private HashMap<Integer, ArrayList<Integer>> computeResidueValues(MSSearchProblem[][] objFcnSearch) {
+	private HashMap<Integer, ArrayList<ArrayList<Integer>>> computeResidueValues(MSSearchProblem[][] objFcnSearch) {
 		int complex = objFcnSearch[0].length-1;
 		ArrayList<Integer> unassignedPos = objFcnSearch[0][complex].getPosNums(false);
 
-		HashMap<Integer, ArrayList<Integer>> ans = new HashMap<>();
+		HashMap<Integer, ArrayList<ArrayList<Integer>>> ans = new HashMap<>();
 		
 		for(int pos : unassignedPos) {
-			ArrayList<Integer> numRCsAtPos = new ArrayList<>();
+			ArrayList<ArrayList<Integer>> numRCsAtPos = new ArrayList<>();
 			
 			for(int state=0;state<objFcnSearch.length;++state) {
+				ArrayList<Integer> stateNumRCsAtPos = new ArrayList<>();
+				
 				MSSearchProblem complexSearch = objFcnSearch[state][complex];
 				for(String AAType : complexSearch.settings.AATypeOptions.get(pos)) {
 					int numRCs = complexSearch.rcsAtPosForAA(complexSearch.pruneMat, pos, AAType, false).size();
 					//numRCs += complexSearch.rcsAtPosForAA(complexSearch.pruneMat, pos, AAType, true).size();
-					numRCsAtPos.add(numRCs);
+					stateNumRCsAtPos.add(numRCs);
 				}
+				
+				stateNumRCsAtPos.trimToSize();
+				numRCsAtPos.add(stateNumRCsAtPos);
 			}
 			
 			numRCsAtPos.trimToSize();
@@ -61,7 +66,10 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 		for(int split=0;split<numSplits;++split) {
 			ArrayList<AAAssignment> assignments = aaAssignments.get(complex).get(split);
 			for(AAAssignment aaa : assignments) {
-				prodRCs *= residueValues.get(aaa.residuePos).get(aaa.AATypePos);
+				
+				for(ArrayList<Integer> numRCsAtPos : residueValues.get(aaa.residuePos))
+					prodRCs *= numRCsAtPos.get(aaa.AATypePos);
+				
 			}
 		}
 
@@ -80,7 +88,10 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 		for(int split=0;split<numSplits;++split) {
 			ArrayList<AAAssignment> assignments = aaAssignments.get(complex).get(split);
 			for(AAAssignment aaa : assignments) {
-				sumRCs += residueValues.get(aaa.residuePos).get(aaa.AATypePos);
+				
+				for(ArrayList<Integer> numRCsAtPos : residueValues.get(aaa.residuePos))
+					sumRCs += numRCsAtPos.get(aaa.AATypePos);
+				
 			}
 		}
 
