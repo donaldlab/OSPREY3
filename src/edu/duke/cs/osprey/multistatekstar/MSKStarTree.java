@@ -119,7 +119,7 @@ public class MSKStarTree {
 		this.numCompleted = 0;
 		this.pq = null;
 
-		this.prevScore = MSKStarNode.MIN_SCORE;
+		this.prevScore = null;//only the root is allowed a null score 
 		this.prevSeq = "";
 		
 		this.stopwatch = new Stopwatch().start();
@@ -214,7 +214,9 @@ public class MSKStarTree {
 		}
 
 		MSKStarNode ans = new MSKStarNode(kssLB, kssUB);
-		ans.setScore(objFcn);//set score per the objective function
+		//ans.setScore(objFcn);//set score per the objective function
+		BigDecimal rootScore = null;
+		ans.setScore(rootScore);
 		
 		initNodeStaticVars(ans);
 		
@@ -277,7 +279,7 @@ public class MSKStarTree {
 			
 			numExtracted++;
 			
-			if(prevScore.compareTo(curNode.getScore())>0) {				
+			if(prevScore != null && prevScore.compareTo(curNode.getScore())>0) {				
 				throw new RuntimeException(String.format("ERROR: A* scores must "
 						+ "be non-decreasing.\nlastScore: %12e, lastSeq: %s\n"
 						+ "curScore: %12e, curSeq: %s\n"

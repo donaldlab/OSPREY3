@@ -48,7 +48,7 @@ public class KStarScoreUpperBound extends KStarScoreDiscrete {
 
 	public BigDecimal getScore() {
 		PartitionFunction complex = partitionFunctions[numStates-1];
-		if(complex == null) return MSKStarNode.MAX_SCORE;
+		if(complex == null) return KStarScore.MAX_VALUE;
 
 		BigDecimal score = super.getScore();
 

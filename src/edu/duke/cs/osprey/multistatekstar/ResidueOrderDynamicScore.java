@@ -20,7 +20,7 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 
 	public static boolean DEBUG = false;
 
-	private enum ScoreType {
+	public enum ScoreType {
 		FSCORE,
 		HSCORE,
 		DISCREPANCY;
@@ -127,13 +127,13 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 			double pos1Value = 0;
 			//also used pruned rcs at pos?
 			ArrayList<Integer> pos1RCs = search.pruneMat.unprunedRCsAtPos(pos1);
-			//ArrayList<Integer> pos1RCs = search.rcsAtPosForAAs(search.pruneMat, pos1, residueAAs.get(state).get(subState).get(pos1), false);
+			int pos1Size = search.countRcsAtPosForAAs(search.pruneMat, pos1, residueAAs.get(state).get(subState).get(pos1), false);
 			
 			for(int pos2=0;pos2<numPos;++pos2) {
 				if(pos1==pos2) continue;
 
 				ArrayList<Integer> pos2RCs = search.pruneMat.unprunedRCsAtPos(pos2);
-				//ArrayList<Integer> pos2RCs = search.rcsAtPosForAAs(search.pruneMat, pos2, residueAAs.get(state).get(subState).get(pos2), false);
+				int pos2Size = search.countRcsAtPosForAAs(search.pruneMat, pos2, residueAAs.get(state).get(subState).get(pos2), false);
 				
 				// first, find the min pairwise energy over all rc pairs
 				double minPairwise = Double.POSITIVE_INFINITY;				
@@ -170,13 +170,14 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 					}
 				}
 
-				pos2Value = (pos1RCs.size()*pos2RCs.size() - 1)/pos2Value;
-				if(!Double.isNaN(pos2Value))
-					pos1Value += pos2Value;
+				pos2Value = (pos1Size*pos2Size - 1)/pos2Value;
+				
+				if(Double.isNaN(pos2Value) || Double.isInfinite(pos2Value)) continue;
+				
+				pos1Value += pos2Value;
 			}
 
 			if(Double.isNaN(pos1Value)) pos1Value = 0;
-			else if(pos1Value<0 && Double.isInfinite(pos1Value)) pos1Value = -100;
 			BigDecimal val = boltzmann.calc(pos1Value).setScale(64, RoundingMode.HALF_UP);
 			
 			//val can be 0 for bound state but not for unbound states
@@ -280,8 +281,9 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 			if(unboundPos.size()==0) continue;
 			if(unboundPos.size()>1) throw new RuntimeException("ERROR: unbound state was split into more than one position");
 			int pos = unboundPos.get(0);//contains at most one value		
-			ans = ans.divide(residueValues.get(state).get(subState).get(pos), RoundingMode.HALF_UP);
+			ans = ans.multiply(residueValues.get(state).get(subState).get(pos));
 		}
+		if(ans.compareTo(BigDecimal.ZERO)==0) ans = new BigDecimal("1e-64").setScale(64, RoundingMode.HALF_UP);
 
 		//bound state
 		int subState = assignment.length()-1;
@@ -318,7 +320,7 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 		//then do final division
 		BigDecimal denom = BigDecimal.ONE.setScale(64, RoundingMode.HALF_UP);
 		for(int subState=0;subState<stateFScores.size()-1;++subState) denom = denom.multiply(stateFScores.get(subState));
-		if(denom.compareTo(BigDecimal.ZERO)==0) denom = new BigDecimal("1e-64");
+		if(denom.compareTo(BigDecimal.ZERO)==0) denom = new BigDecimal("1e-64").setScale(64, RoundingMode.HALF_UP);
 
 		int complex = stateFScores.size()-1;
 		BigDecimal numer = stateFScores.get(complex).setScale(64, RoundingMode.HALF_UP);
@@ -329,30 +331,30 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 
 	//includes k* scores from current node
 	private BigDecimal getFScore(ResidueAssignment assignment, BigDecimal[] coeffs,
-			KStarScore[] gScores) {
+			KStarScore[] fScores) {
 		int numStates = coeffs.length;
 		BigDecimal ans = BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
 
-		BigDecimal gScore = null;
+		BigDecimal fScore = null;
 		if(scoreType == ScoreType.DISCREPANCY)
-			gScore = BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
+			fScore = BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
 
-		// get assignment score
+		//get assignment score
 		for(int state=0;state<numStates;++state) {
 			//sign of 0 does not contribute to score
 			if(coeffs[state].compareTo(BigDecimal.ZERO)==0) continue;
 			if(scoreType == ScoreType.FSCORE || scoreType == ScoreType.DISCREPANCY) {
-				ans = ans.add(coeffs[state].multiply(getStateScoreF(state, assignment, gScores[state])));
+				ans = ans.add(coeffs[state].multiply(getStateScoreF(state, assignment, fScores[state])));
 
 				if(scoreType == ScoreType.DISCREPANCY)
-					gScore = gScore.add(coeffs[state].multiply(gScores[state].getScore()));
+					fScore = fScore.add(coeffs[state].multiply(fScores[state].getScore()));
 			}
 			else if(scoreType == ScoreType.HSCORE)
 				ans = ans.add(coeffs[state].multiply(getStateScoreH(state, assignment)));
 		}
 
 		if(scoreType == ScoreType.DISCREPANCY)
-			ans = ans.subtract(gScore).abs();
+			ans = ans.subtract(fScore).abs();
 
 		return ans;
 	}

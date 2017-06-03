@@ -19,8 +19,6 @@ import edu.duke.cs.osprey.tools.ObjectIO;
  *
  */
 public class MSKStarNode {
-	public static BigDecimal MIN_SCORE = new BigDecimal("-2e1048576");
-	public static BigDecimal MAX_SCORE = new BigDecimal("2e1048576");
 
 	//static parameters are set by the tree object
 	public static LMB OBJ_FUNC;//global objective function that we are optimizing for
@@ -109,6 +107,9 @@ public class MSKStarNode {
 	}
 
 	private boolean scoreNeedsRefinement(MSKStarNode node) {
+		//root node can have a null score, since all its children are valid
+		if(this.getScore()==null) return false;
+		
 		if(node.getScore().compareTo(this.getScore())<0) {
 
 			System.out.println(String.format("child-parent: %12e", node.getScore().subtract(this.getScore())));

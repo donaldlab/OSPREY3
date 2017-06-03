@@ -77,6 +77,16 @@ public class MSSearchProblem extends SearchProblem {
 		return numAssignedPos==confSpace.numPos;
 	}
 
+	public int countRcsAtPosForAAs(PruningMatrix pruneMat, int pos, HashSet<String> AATypes, boolean pruned) {
+		int ans = 0;
+		ArrayList<Integer> rcs = pruned ? pruneMat.prunedRCsAtPos(pos) : pruneMat.unprunedRCsAtPos(pos);
+		for(int rc : rcs) {
+			String AAType = confSpace.posFlex.get(pos).RCs.get(rc).AAType;
+			if(AATypes.contains(AAType)) ans++;
+		}
+		return ans;
+	}
+	
 	public ArrayList<Integer> rcsAtPosForAAs(PruningMatrix pruneMat, int pos, HashSet<String> AATypes, boolean pruned) {
 		ArrayList<Integer> ans = new ArrayList<>();
 		
