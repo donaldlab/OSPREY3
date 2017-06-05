@@ -124,7 +124,7 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 		//assignments.trimToSize();
 
 		//now score each assignment
-		clearAAAssignments();//first clear previous entries
+		clearResidue2AAAssignments();//first clear previous entries
 		ArrayList<ResidueAssignmentScore> residueAssignmentScores = new ArrayList<>();
 		for(ResidueAssignment residueAssignment : residueAssignments) {
 			BigDecimal score = getResidueAssignmentScore(residueAssignment, objFcnSearch, numMaxMut);
@@ -143,7 +143,7 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 		ArrayList<ArrayList<ArrayList<AAAssignment>>> aaAssignments = getAllowedAAAsignments(objFcnSearch, residueAssignment, numMaxMut);
 		
 		//store here, so we can retreive best from here later without recomputation
-		storeAAAssignments(residueAssignment, aaAssignments);
+		storeResidue2AAAssignments(residueAssignment, aaAssignments);
 		
 		if(computeProduct)
 			return getBoundStateDomainProduct(residueAssignment, aaAssignments);

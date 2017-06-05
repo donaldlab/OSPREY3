@@ -18,6 +18,9 @@ public class ResidueOrderFactory {
 		if(val.equals("staticsequential"))
 			return new ResidueOrderStaticSequential();
 		
+		else if(val.equals("staticwtdist"))
+			return new ResidueOrderWTDistance(objFcnSearch);
+		
 		else if(val.equals("staticmindomp"))
 			return new ResidueOrderStaticMinDomain(objFcnSearch, "product");
 		

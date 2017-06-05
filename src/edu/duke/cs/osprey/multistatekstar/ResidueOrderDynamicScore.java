@@ -183,7 +183,12 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 			//val can be 0 for bound state but not for unbound states
 			if(isUnbound) {
 				val = val.compareTo(BigDecimal.ZERO)==0 ? BigDecimal.ONE.setScale(64, RoundingMode.HALF_UP) : val;
-			} 
+			}
+			
+			else {
+				//for bound state, multiply by the number of rotamers at pos
+				val = val.multiply(BigDecimal.valueOf(pos1Size));
+			}
 			
 			// for bound state, multiply by the mean number of allowed RCs
 			/*
@@ -450,7 +455,7 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 		if(unassignedPos.size()==0)
 			throw new RuntimeException("ERROR: there are no unassigned positions");
 
-		clearAAAssignments();
+		clearResidue2AAAssignments();
 		clearResidueAAs();
 		computeAllowedAAsAtPos(objFcnSearch, unassignedPos, numMaxMut);//add unassigned
 
@@ -504,7 +509,7 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 		//now, set allowed AAs from residue assignments
 		for(ResidueAssignment residueAssignment : residueAssignments) {
 			ArrayList<ArrayList<ArrayList<AAAssignment>>> aaAssignments = getAllowedAAAsignments(objFcnSearch, residueAssignment, numMaxMut);
-			storeAAAssignments(residueAssignment, aaAssignments);
+			storeResidue2AAAssignments(residueAssignment, aaAssignments);
 
 			int numSplits = aaAssignments.get(0).size();
 
@@ -554,7 +559,7 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 		}
 	}
 
-	protected void storeAAAssignments(ResidueAssignment residueAssignment, 
+	protected void storeResidue2AAAssignments(ResidueAssignment residueAssignment, 
 			ArrayList<ArrayList<ArrayList<AAAssignment>>> aaAssignments) {
 		ra2AAa.put(residueAssignment, aaAssignments);
 	}
@@ -564,7 +569,7 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 		return ans;
 	}
 
-	protected void clearAAAssignments() {
+	protected void clearResidue2AAAssignments() {
 		ra2AAa.clear();
 	}
 
