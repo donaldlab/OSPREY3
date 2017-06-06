@@ -438,7 +438,7 @@ public class MSKStarDoer {
 		final String algOption = msParams.getValue("MultStateAlgOption");
 		switch(algOption.toLowerCase()) {
 		case "exhaustive":
-			exhaustiveMultistateSearch();
+			exhaustiveMultistateSearch(msParams.getDouble("TIMEOUT"));
 			return;
 		case "sublinear":
 			subLinearMultiStateSearch();
@@ -506,7 +506,7 @@ public class MSKStarDoer {
 	/**
 	 * Verify algorithm results by doing exhaustive search
 	 */
-	private void exhaustiveMultistateSearch() {
+	private void exhaustiveMultistateSearch(double timeoutHrs) {
 
 		System.out.println();
 		System.out.println("Checking multi-state K* by exhaustive search");
@@ -584,6 +584,12 @@ public class MSKStarDoer {
 					fout.println(stateKSS[state][seqNum]); fout.flush();
 					System.out.println("done, elapsed: "+stopwatch.getTime(2));
 					System.out.println();
+					
+					if(timeoutHrs > 0 && stopwatch.getTimeH() >= timeoutHrs) {
+						System.out.println("WARNING: running time has exceeded "
+								+ "the allotted "+timeoutHrs+" hours. Stopping execution.");
+						break;
+					}
 				}
 
 				searchCont[state] = null;

@@ -138,7 +138,7 @@ public class MSKStarFactory {
 			
 		case DiscreteUpperBound:
 			for(int subState=0;subState<numPartFuncs-1;++subState){
-				settings.pfTypes[subState] = PartitionFunctionType.Discrete;
+				settings.pfTypes[subState] = PartitionFunctionType.LowerBound;
 				settings.search[subState] = searchDisc[subState];
 				settings.search[subState].settings.energyLBs = false;
 				settings.ecalcs[subState] = ecalcsDisc[subState];
@@ -159,7 +159,7 @@ public class MSKStarFactory {
 				settings.search[subState].settings.energyLBs = true;
 				settings.ecalcs[subState] = ecalcsDisc[subState];
 			}
-			settings.pfTypes[numPartFuncs-1] = PartitionFunctionType.Discrete;
+			settings.pfTypes[numPartFuncs-1] = PartitionFunctionType.LowerBound;
 			settings.search[numPartFuncs-1] = searchDisc[numPartFuncs-1];
 			settings.search[numPartFuncs-1].settings.energyLBs = false;
 			settings.ecalcs[numPartFuncs-1] = ecalcsDisc[numPartFuncs-1];
@@ -203,6 +203,8 @@ public class MSKStarFactory {
 		case UpperBound:
 			//return new PartitionFunctionDiscreteUppperBound(emat, pmat, invmat, confSearchFactory, ecalc);
 			return new PartitionFunctionGMECUpperBound(emat, pmat, invmat, confSearchFactory, ecalc);
+		case LowerBound:
+			return new PartitionFunctionGMECLowerBound(emat, pmat, invmat, confSearchFactory, ecalc);
 		default:
 			throw new UnsupportedOperationException("ERROR: unsupported partition function type "+type);
 		}

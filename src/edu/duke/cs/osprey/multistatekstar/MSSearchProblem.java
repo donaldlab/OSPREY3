@@ -4,6 +4,7 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 
 import edu.duke.cs.osprey.astar.comets.UpdatedPruningMatrix;
 import edu.duke.cs.osprey.confspace.RCTuple;
@@ -19,7 +20,7 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 @SuppressWarnings("serial")
 public class MSSearchProblem extends SearchProblem {
 	public static boolean DEBUG = false;
-	
+
 	public MSSearchSettings settings;
 	private int numAssignedPos;
 
@@ -76,16 +77,37 @@ public class MSSearchProblem extends SearchProblem {
 		return numAssignedPos==confSpace.numPos;
 	}
 
-	public ArrayList<Integer> unprunedAtPos(PruningMatrix pruneMat, int pos, String AAType) {
+	public int countRcsAtPosForAAs(PruningMatrix pruneMat, int pos, HashSet<String> AATypes, boolean pruned) {
+		int ans = 0;
+		ArrayList<Integer> rcs = pruned ? pruneMat.prunedRCsAtPos(pos) : pruneMat.unprunedRCsAtPos(pos);
+		for(int rc : rcs) {
+			String AAType = confSpace.posFlex.get(pos).RCs.get(rc).AAType;
+			if(AATypes.contains(AAType)) ans++;
+		}
+		return ans;
+	}
+	
+	public ArrayList<Integer> rcsAtPosForAAs(PruningMatrix pruneMat, int pos, HashSet<String> AATypes, boolean pruned) {
 		ArrayList<Integer> ans = new ArrayList<>();
-		for(int rc : pruneMat.unprunedRCsAtPos(pos)) {
+		
+		for(String AAType : AATypes) {
+			ans.addAll(rcsAtPosForAA(pruneMat, pos, AAType, pruned));
+		}
+		
+		return ans;
+	}
+	
+	public ArrayList<Integer> rcsAtPosForAA(PruningMatrix pruneMat, int pos, String AAType, boolean pruned) {
+		ArrayList<Integer> ans = new ArrayList<>();
+		ArrayList<Integer> rcs = pruned ? pruneMat.prunedRCsAtPos(pos) : pruneMat.unprunedRCsAtPos(pos);
+		for(int rc : rcs) {
 			String type = confSpace.posFlex.get(pos).RCs.get(rc).AAType;
 			if(!AAType.equalsIgnoreCase(type)) continue;
 			ans.add(rc);
 		}
 		return ans;
 	}
-	
+
 	public BigInteger getNumConfs(PruningMatrix pmat) {
 		BigInteger ans = BigInteger.ONE;
 		for(int pos=0;pos<pmat.getNumPos();++pos) {
@@ -95,7 +117,7 @@ public class MSSearchProblem extends SearchProblem {
 		}
 		return ans;
 	}
-	
+
 	public BigInteger getNumConfs(boolean assigned) {
 		BigInteger ans = BigInteger.ONE;
 		for(int pos : getPosNums(assigned)) {
@@ -129,7 +151,7 @@ public class MSSearchProblem extends SearchProblem {
 			numUpdates = upmat.countUpdates();
 		} while (numUpdates > oldNumUpdates /*&& getNumConfs(upmat).compareTo(minConfs) > 0*/);
 	}
-	
+
 	protected void checkPruningMatrix(PruningMatrix pmat) {
 		ArrayList<Integer> assignedPosNums = getPosNums(true);
 		HashMap<Integer, ArrayList<String>> pos2AAs = new HashMap<>();
@@ -148,7 +170,7 @@ public class MSSearchProblem extends SearchProblem {
 			}
 		}
 	}
-	
+
 	public PruningMatrix updatePruningMatrix(
 			ArrayList<Integer> splitPosNums, 
 			ArrayList<ArrayList<String>> splitAAs
@@ -164,7 +186,7 @@ public class MSSearchProblem extends SearchProblem {
 		}
 		return ans;
 	}
-	
+
 	protected void updatePruningMatrix(UpdatedPruningMatrix upmat, 
 			int splitPosNum, String splitAA) {
 		for(int rc : pruneMat.unprunedRCsAtPos(splitPosNum)) {
@@ -174,7 +196,7 @@ public class MSSearchProblem extends SearchProblem {
 				upmat.markAsPruned(new RCTuple(splitPosNum, rc));
 		}
 	}
-	
+
 	public PruningMatrix updatePruningMatrix(HashMap<Integer, String> splitPos2aa) {
 		UpdatedPruningMatrix ans = new UpdatedPruningMatrix(pruneMat);
 		for(int splitPosNum : splitPos2aa.keySet())

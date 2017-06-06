@@ -7,7 +7,6 @@ import java.util.HashSet;
 import java.util.StringTokenizer;
 
 import edu.duke.cs.osprey.control.ParamSet;
-import edu.duke.cs.osprey.restypes.DAminoAcidHandler;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBFileReader;
 import edu.duke.cs.osprey.structure.Residue;
@@ -77,12 +76,15 @@ public class InputValidation {
 			//check for correspondence in AAs among states
 			ArrayList<String> defaultSubStateResOptions = AATypeOptions.get(0).get(subState).get(mutPos);
 
+			//corresponding pos must have same number of AAs across states
 			if(defaultSubStateResOptions.size()!=subStateResOptions.size()){
 				throw new RuntimeException("ERROR: Current state has "+
 						subStateResOptions.size()+" AA types allowed for position "+mutPos
 						+" compared to "+defaultSubStateResOptions.size()+" for previous states");
 			}
 
+			/*
+			//enforce correspondence in AAs among states
 			for(int a=0;a<defaultSubStateResOptions.size();++a){
 				String aa1 = defaultSubStateResOptions.get(a);
 				String aa2 = subStateResOptions.get(a);
@@ -95,6 +97,8 @@ public class InputValidation {
 					throw new RuntimeException("ERROR: Current state has AA type "+
 							aa2+" where previous states have AA type "+aa1+", at position "+mutPos);
 			}
+			*/
+			
 		}
 	}
 	

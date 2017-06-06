@@ -44,7 +44,7 @@ public class ResidueOrderStaticSequential extends ResidueOrder {
 	}
 	
 	@Override
-	public ArrayList<ArrayList<ArrayList<AAAssignment>>> getNextResidueAssignment(
+	public ArrayList<ArrayList<ArrayList<AAAssignment>>> getNextAssignments(
 			LMB objFcn,
 			MSSearchProblem[][] objFcnSearch, 
 			KStarScore[] objFcnScores,
