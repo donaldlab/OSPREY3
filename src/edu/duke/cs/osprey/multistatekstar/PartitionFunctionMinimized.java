@@ -385,13 +385,14 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 				));
 	}
 
-	public void compute(BigDecimal targetScoreWeights) {
+	public void compute(BigDecimal targetScoreWeights, int maxNumConfs) {
 		numActiveThreads = 0;
 
 		if (!status.canContinue()) {
 			throw new IllegalStateException("can't continue from status " + status);
 		}
 
+		int stopAtConf = numConfsEvaluated + maxNumConfs;
 		while (true) {
 
 			// get a conf from the tree
@@ -401,7 +402,9 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 			synchronized (this) {
 
 				// should we keep going?
-				if (!status.canContinue() || qstarScoreWeights.compareTo(targetScoreWeights) >= 0) {
+				if (!status.canContinue() 
+						|| qstarScoreWeights.compareTo(targetScoreWeights) >= 0 
+						|| numConfsEvaluated >= stopAtConf) {
 					break;
 				}
 

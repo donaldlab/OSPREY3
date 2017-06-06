@@ -79,7 +79,7 @@ public class KStarScoreMinimized implements KStarScore {
 	@Override
 	public BigDecimal getUpperBoundScore() {
 		if(isComputed()) return getScore();
-		
+
 		BigDecimal den = getDenom();
 		if(den.compareTo(BigDecimal.ZERO) == 0) return den;
 		PartitionFunction pf = partitionFunctions[numStates-1];
@@ -105,7 +105,7 @@ public class KStarScoreMinimized implements KStarScore {
 	protected boolean init(int state) {		
 		if(settings.isReportingProgress)
 			System.out.println("state"+state+": "+settings.search[state].settings.getFormattedSequence()+" "+settings.pfTypes[state]);
-		
+
 		//first prune the pruning matrix
 		boolean doPruning = isFinal() || settings.cfp.getParams().getBool("PRUNEPARTIALSEQCONFS");
 		settings.search[state].prunePmat(doPruning, settings.cfp.getParams().getInt("ALGOPTION")>=3);
@@ -122,7 +122,7 @@ public class KStarScoreMinimized implements KStarScore {
 				confSearchFactory,
 				settings.ecalcs[state]
 				);
-		
+
 		partitionFunctions[state].setReportProgress(settings.isReportingProgress);
 
 		//init partition function
@@ -153,7 +153,7 @@ public class KStarScoreMinimized implements KStarScore {
 	 * @param maxNumConfs
 	 */
 	public void compute(int maxNumConfs) {
-		
+
 		for(int state=0;state<numStates;++state){
 
 			if(!constrSatisfied)//state-specific constraints
@@ -162,7 +162,7 @@ public class KStarScoreMinimized implements KStarScore {
 			if(!initialized[state]) {
 				initialized[state] = init(state);
 			}
-			
+
 			if(partitionFunctions[state].getStatus() != Status.Estimated) {
 				compute(state, maxNumConfs);
 			}
@@ -192,12 +192,12 @@ public class KStarScoreMinimized implements KStarScore {
 
 			if(partitionFunctions[state].getStatus() != Status.Estimated)
 				compute(state, maxNumConfs);
-			
+
 			//don't check all constraints, because we are not computing 
 			//the bound state partition function
 			if(settings.isFinal && constrSatisfied) 
 				constrSatisfied = checkConstraints(state);
-			
+
 			partitionFunctions[state].cleanup();
 		}
 	}
@@ -232,7 +232,7 @@ public class KStarScoreMinimized implements KStarScore {
 	 * compute until a conf score boltzmann weight of minbound has been processed.
 	 * this is used in the second phase to process confs from p*
 	 */
-	private PartitionFunction phase2(int state) {
+	private PartitionFunction phase2(int state, int maxNumConfs) {
 		// we have p* / q* = epsilon1 > target epsilon
 		// we want p1* / q* <= target epsilon
 		// therefore, p1* <= q* x target epsilon
@@ -272,38 +272,50 @@ public class KStarScoreMinimized implements KStarScore {
 				confSearchFactory,
 				settings.ecalcs[state]
 				);
-		
+
 		p2pf.setReportProgress(settings.isReportingProgress);
 
 		p2pf.init(targetEpsilon);//enumerating over pstar, energies can be high
 		p2pf.getValues().qstar = qstar;//initialize to old qstar
-		p2pf.compute(targetScoreWeights);
-		
+		p2pf.compute(targetScoreWeights, maxNumConfs);
+
 		return p2pf;
 	}
 
-	protected void compute(int state, int maxNumConfs) {		
+	//in the bound state, can override maxNumConfs with value from config
+	private boolean overrideMaxNumConfs(int state, int maxNumConfs) {
+		return isFinal() && state==numStates-1 && maxNumConfs==Integer.MAX_VALUE;
+	}
+
+	protected void compute(int state, int maxNumConfs) {			
 		PartitionFunctionMinimized pf = partitionFunctions[state];
+
+		//in the bound state, can override maxNumConfs with value from config
+		boolean overrideMaxNumConfs = overrideMaxNumConfs(state, maxNumConfs);
+		if(overrideMaxNumConfs) maxNumConfs = settings.cfp.getParams().getInt("MAXNUMCONFS");
+
 		pf.compute(maxNumConfs);
 
+		if(overrideMaxNumConfs && pf.getNumConfsEvaluated()>=maxNumConfs) pf.setStatus(Status.Estimated);
+		
 		//we are not trying to compute the partition function to completion
 		if(pf.getStatus() == Status.Estimating)
 			return;
 
 		//no more q conformations, and we have not reached epsilon
 		else if(pf.getStatus() == Status.NotEnoughConformations) {
-			PartitionFunctionMinimized p2pf = (PartitionFunctionMinimized) phase2(state);
-			
+			PartitionFunctionMinimized p2pf = (PartitionFunctionMinimized) phase2(state, maxNumConfs-pf.getNumConfsEvaluated());
+
 			pf.getValues().qstar = p2pf.getValues().qstar;
 			pf.setNumConfsEvaluated(pf.getNumConfsEvaluated() + p2pf.getNumConfsEvaluated());
-			
+
 			if(settings.search[state].isFullyAssigned() && settings.numTopConfsToSave > 0)
 				pf.saveEConfs(p2pf.topConfs);
 		}
 
 		pf.setStatus(Status.Estimated);
 
-		if(settings.isFinal) {//final is a superset of fully defined
+		if(isFinal()) {//final is a superset of fully defined
 			if(constrSatisfied) constrSatisfied = checkConstraints(state);
 			if(settings.numTopConfsToSave > 0) pf.writeTopConfs(settings.state, settings.search[state]);
 		}
