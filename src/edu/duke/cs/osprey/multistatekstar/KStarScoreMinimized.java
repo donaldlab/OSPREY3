@@ -304,7 +304,9 @@ public class KStarScoreMinimized implements KStarScore {
 
 		//no more q conformations, and we have not reached epsilon
 		else if(pf.getStatus() == Status.NotEnoughConformations) {
-			PartitionFunctionMinimized p2pf = (PartitionFunctionMinimized) phase2(state, maxNumConfs-pf.getNumConfsEvaluated());
+			maxNumConfs = overrideMaxNumConfs ? maxNumConfs-pf.getNumConfsEvaluated() : Integer.MAX_VALUE;
+				
+			PartitionFunctionMinimized p2pf = (PartitionFunctionMinimized) phase2(state, maxNumConfs);
 
 			pf.getValues().qstar = p2pf.getValues().qstar;
 			pf.setNumConfsEvaluated(pf.getNumConfsEvaluated() + p2pf.getNumConfsEvaluated());

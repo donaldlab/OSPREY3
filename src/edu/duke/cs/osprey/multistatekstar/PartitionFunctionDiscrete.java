@@ -107,7 +107,8 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 		}
 	}
 
-	public void compute(BigDecimal targetScoreWeights) {
+	@Override
+	public void compute(BigDecimal targetScoreWeights, int maxNumConfs) {
 
 		if (!status.canContinue()) {
 			throw new IllegalStateException("can't continue from status " + status);
@@ -116,10 +117,13 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 		ScoredConf conf;
 		BigDecimal scoreWeight;
 
+		int stopAtConf = numConfsEvaluated + maxNumConfs;
 		while (true) {
 
 			// should we keep going?
-			if (!status.canContinue() || qstarScoreWeights.compareTo(targetScoreWeights) >= 0) {
+			if (!status.canContinue() 
+					|| qstarScoreWeights.compareTo(targetScoreWeights) >= 0
+					|| numConfsEvaluated >= stopAtConf) {
 				break;
 			}
 
