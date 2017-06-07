@@ -169,32 +169,18 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		}
 	}
 
-	protected ScoredConf getScoredConf(int numScored) {
+	protected ScoredConf getScoredConf() {
 		ScoredConf conf;
 
 		if ((conf = energyConfs.next()) == null) {
-			if (SYNCHRONIZED_MINIMIZATION) {
-				if(status != Status.Estimated && numScored == 0) 
-					status = Status.NotEnoughConformations;
-			}
-			else {
-				waitForAllThreads();
-				if(status != Status.Estimated) 
-					status = Status.NotEnoughConformations;
-			}
+			if(!SYNCHRONIZED_MINIMIZATION) waitForAllThreads();
+			if(status != Status.Estimated) status = Status.NotEnoughConformations;
 			return null;
 		}
 
 		if (boltzmann.calc(conf.getScore()).compareTo(BigDecimal.ZERO) == 0) {
-			if (SYNCHRONIZED_MINIMIZATION) {
-				if(status != Status.Estimated && numScored == 0) 
-					status = Status.NotEnoughFiniteEnergies;
-			}
-			else {
-				waitForAllThreads();
-				if(status != Status.Estimated) 
-					status = Status.NotEnoughFiniteEnergies;
-			}
+			if(!SYNCHRONIZED_MINIMIZATION) waitForAllThreads();
+			if(status != Status.Estimated) status = Status.NotEnoughFiniteEnergies;
 			return null;
 		}
 
@@ -209,8 +195,8 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		int numScored = 0;
 
 		while(numScored < numRequested) {
-			conf = getScoredConf(numScored);
-			if(conf==null) break;
+			if((conf = getScoredConf()) == null)
+				break;
 			scoredConfs.set(numScored++, conf);
 		}
 
@@ -328,7 +314,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 				// or a single scored conf
 				else {
-					if ((conf = getScoredConf(-1)) == null) 
+					if ((conf = getScoredConf()) == null) 
 						break;
 				}
 			}
@@ -416,7 +402,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 				// or a single scored conf
 				else {
-					if ((conf = getScoredConf(-1)) == null) 
+					if ((conf = getScoredConf()) == null) 
 						break;
 				}
 			}

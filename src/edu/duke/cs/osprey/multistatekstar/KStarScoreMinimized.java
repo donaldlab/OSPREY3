@@ -103,9 +103,11 @@ public class KStarScoreMinimized implements KStarScore {
 	}
 
 	protected boolean init(int state) {		
-		if(settings.isReportingProgress)
+		if(settings.isReportingProgress) {
+			System.out.println();
 			System.out.println("state"+state+": "+settings.search[state].settings.getFormattedSequence()+" "+settings.pfTypes[state]);
-
+		}
+		
 		//first prune the pruning matrix
 		boolean doPruning = isFinal() || settings.cfp.getParams().getBool("PRUNEPARTIALSEQCONFS");
 		settings.search[state].prunePmat(doPruning, settings.cfp.getParams().getInt("ALGOPTION")>=3);
