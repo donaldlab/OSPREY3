@@ -152,6 +152,10 @@ public class MSSearchProblem extends SearchProblem {
 		} while (numUpdates > oldNumUpdates /*&& getNumConfs(upmat).compareTo(minConfs) > 0*/);
 	}
 
+	public void checkPruningMatrix() {
+		checkPruningMatrix(this.pruneMat);
+	}
+	
 	protected void checkPruningMatrix(PruningMatrix pmat) {
 		ArrayList<Integer> assignedPosNums = getPosNums(true);
 		HashMap<Integer, ArrayList<String>> pos2AAs = new HashMap<>();
@@ -204,8 +208,12 @@ public class MSSearchProblem extends SearchProblem {
 		return ans;
 	}
 
+	public PruningMatrix getUpdatedPruningMatrix() {
+		return updatePruningMatrix(getPosNums(true), settings.AATypeOptions);
+	}
+	
 	private void setPruningMatrix() {
-		this.pruneMat = updatePruningMatrix(getPosNums(true), settings.AATypeOptions);
+		this.pruneMat = getUpdatedPruningMatrix();
 	}
 
 	public void prunePmat(boolean doPruning, boolean prunePairs) {

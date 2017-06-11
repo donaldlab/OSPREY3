@@ -405,7 +405,7 @@ public class MSKStarDoer {
 		}
 
 		System.out.println("done");
-		System.out.println("Number of possible sequences: "+ans.get(0).size());
+		System.out.println("Number of possible sequences: "+ans.get(0).size()*numStates);
 		System.out.println();
 
 		ans.trimToSize();

@@ -303,8 +303,12 @@ public class MSKStarNode {
 					);
 		}
 
-		else
+		//else, make a bounding type of k* object
+		//in the minimized case, a fully assigned k* object is also a bounding
+		//type of object
+		else {
 			return MSKStarFactory.makeKStarScore(kSet, pfs);
+		}
 	}
 
 	private MSSearchProblem splitSearch(int subState, MSSearchProblem parent, ArrayList<AAAssignment> splits) {
@@ -405,6 +409,8 @@ public class MSKStarNode {
 				ECALCS_CONT[state], null, KStarScoreType.Minimized
 				);
 
+		ans.getSettings().computeMinGMEC = true;
+		
 		return ans;
 	}
 

@@ -19,6 +19,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.control.ConfSearchFactory;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.ParallelConfPartitionFunction;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -461,6 +462,10 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	public void setStatus(Status val) {
 		status = val;
 	}
+	
+	public void setValues(Values val) {
+		this.values = val;
+	}
 
 	public void cleanup() {
 		scoreConfs = null;
@@ -476,5 +481,9 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	
 	public int getNumConfsEvaluated() {
 		return numConfsEvaluated;
+	}
+	
+	public BoltzmannCalculator getBoltzmannCalculator() {
+		return boltzmann;
 	}
 }

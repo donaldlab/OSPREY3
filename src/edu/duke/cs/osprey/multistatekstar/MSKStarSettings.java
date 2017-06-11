@@ -18,6 +18,7 @@ public class MSKStarSettings {
 	public KStarScoreType scoreType;
 	public MSSearchProblem[] search;
 	public boolean isFinal;
+	public boolean computeMinGMEC;
 	public LMB[] constraints;
 	public PartitionFunctionType[] pfTypes;
 	public ConfEnergyCalculator.Async[] ecalcs;
@@ -31,6 +32,7 @@ public class MSKStarSettings {
 		this.numTopConfsToSave = other.numTopConfsToSave;
 		this.cfp = other.cfp;
 		this.scoreType = other.scoreType;
+		this.computeMinGMEC = other.computeMinGMEC;
 		
 		//must deep copy, since these values can change
 		this.search = new MSSearchProblem[other.search.length];
