@@ -170,7 +170,7 @@ public class GMECFinder {
         
         confFileName = cfp.params.getRunSpecificFileName("CONFFILENAME", ".confs.txt");
         
-        numConfsToScore = cfp.params.getInt("MAXNUMCONFS");
+        numConfsToScore = cfp.params.getInt("MAXNUMGMECCONFS");
         
         // NOTE: we'll change some of these params before actually running pruning
         stericThresh = cfp.params.getDouble("StericThresh");

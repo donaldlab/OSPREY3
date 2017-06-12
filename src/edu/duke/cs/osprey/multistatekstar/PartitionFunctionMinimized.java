@@ -41,6 +41,10 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	protected PruningMatrix invmat;
 	protected ArrayList<ScoredConf> scoredConfs;
 	protected ArrayList<EnergiedConf> energiedConfs;
+	
+	protected EnergiedConf minGMEC;
+	protected boolean energiedMinGMECEnumerated;
+	protected boolean scoredMinGMECEnumerated;
 
 	public PartitionFunctionMinimized(
 			EnergyMatrix emat, 
@@ -55,6 +59,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		this.topConfs = null;
 		this.scoredConfs = null;
 		this.energiedConfs = null;
+		this.minGMEC = null;
 	}
 
 	protected void writeTopConfs(int state, MSSearchProblem search) {
@@ -123,6 +128,19 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		qstarScoreWeights = BigDecimal.ZERO;
 		numActiveThreads = 0;
 		maxNumTopConfs = 0;
+		
+		// treat the partition function state as if we have already processed 
+		// the minGMEC
+		if(minGMEC != null) {
+			values.qstar = values.qstar.add(boltzmann.calc(minGMEC.getEnergy()));
+			numConfsEvaluated++;
+			
+			qprimeUnevaluated = qprimeUnevaluated.subtract(boltzmann.calc(minGMEC.getScore()));
+			numConfsToScore = numConfsToScore.subtract(BigInteger.ONE);
+		}
+		
+		energiedMinGMECEnumerated = false;
+		scoredMinGMECEnumerated = false;
 
 		stopwatch = new Stopwatch().start();
 	}
@@ -136,9 +154,16 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 			// read a conf from the tree
 			ScoredConf conf = scoreConfs.next();
+			
 			if (conf == null) {
 				qprimeUnscored = BigDecimal.ZERO;
 				break;
+			}
+			
+			if(minGMEC != null && equals(minGMEC.getAssignments(), conf.getAssignments())) {
+				scoredMinGMECEnumerated = true;
+				if(energiedMinGMECEnumerated && scoredMinGMECEnumerated) minGMEC = null;
+				continue;
 			}
 
 			// get the boltzmann weight
@@ -170,19 +195,42 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		}
 	}
 
+	boolean equals(int[] lhs, int[] rhs) {
+		int len = lhs.length;
+		if(len != rhs.length) return false;
+		for(int i=0; i<len; ++i) {
+			if(lhs[i] != rhs[i]) return false;
+		}
+		return true;
+	}
+	
 	protected ScoredConf getScoredConf() {
 		ScoredConf conf;
 
-		if ((conf = energyConfs.next()) == null) {
-			if(!SYNCHRONIZED_MINIMIZATION) waitForAllThreads();
-			if(status != Status.Estimated) status = Status.NotEnoughConformations;
-			return null;
-		}
+		//don't double count the mingmec
+		while (true) {
+		
+			conf = energyConfs.next();
+			
+			if (conf == null) {
+				if(!SYNCHRONIZED_MINIMIZATION) waitForAllThreads();
+				if(status != Status.Estimated) status = Status.NotEnoughConformations;
+				return null;
+			}
+			
+			if(minGMEC != null && equals(minGMEC.getAssignments(), conf.getAssignments())) {
+				energiedMinGMECEnumerated = true;
+				if(energiedMinGMECEnumerated && scoredMinGMECEnumerated) minGMEC = null;
+				continue;
+			}
 
-		if (boltzmann.calc(conf.getScore()).compareTo(BigDecimal.ZERO) == 0) {
-			if(!SYNCHRONIZED_MINIMIZATION) waitForAllThreads();
-			if(status != Status.Estimated) status = Status.NotEnoughFiniteEnergies;
-			return null;
+			if (boltzmann.calc(conf.getScore()).compareTo(BigDecimal.ZERO) == 0) {
+				if(!SYNCHRONIZED_MINIMIZATION) waitForAllThreads();
+				if(status != Status.Estimated) status = Status.NotEnoughFiniteEnergies;
+				return null;
+			}
+			
+			break;
 		}
 
 		++numActiveThreads;
@@ -481,6 +529,14 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	
 	public int getNumConfsEvaluated() {
 		return numConfsEvaluated;
+	}
+	
+	public ConfListener getConfListener() {
+		return confListener;
+	}
+	
+	public void setMinGMEC(EnergiedConf val) {
+		this.minGMEC = val;
 	}
 	
 	public BoltzmannCalculator getBoltzmannCalculator() {

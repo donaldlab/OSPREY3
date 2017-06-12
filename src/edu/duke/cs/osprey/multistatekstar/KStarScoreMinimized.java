@@ -139,7 +139,9 @@ public class KStarScoreMinimized implements KStarScore {
 		}
 		
 		//find the gmec if we are asked to do so
-		EnergiedConf gmecConf = computeMinGMEC() ? findGMEC(state) : null;
+		//it's important find gmec here, before the prunepmat step, since gmec finding
+		//sets the ival to a level required to find the gmec
+		EnergiedConf minGMEC = computeMinGMEC() ? findGMEC(state) : null;
 		
 		//first prune the pruning matrix
 		boolean doPruning = isFinal() || settings.cfp.getParams().getBool("PRUNEPARTIALSEQCONFS");
@@ -158,44 +160,45 @@ public class KStarScoreMinimized implements KStarScore {
 				settings.ecalcs[state]
 				);
 
-		partitionFunctions[state].setReportProgress(settings.isReportingProgress);
+		PartitionFunctionMinimized pf = partitionFunctions[state];
 		
-		//init partition function
-		//skip if we are only interested in the gmec ratio approximation of the k* score
-		if(!computeMinGMECRatio()) {
-			partitionFunctions[state].init(settings.targetEpsilon);
+		pf.setReportProgress(settings.isReportingProgress);
+		
+		pf.setMinGMEC(minGMEC);
+
+		//skip initialization if we are only interested in the gmec ratio approximation of the k* score
+		if(computeMinGMECRatio()) {
+			pf.setValues(new Values());
+			if(minGMEC != null) pf.getValues().qstar = pf.getBoltzmannCalculator().calc(minGMEC.getEnergy());
+			pf.setStatus(Status.Estimated);
 		}
 		
-		else if(computeMinGMEC()) {
-			double gmecEnergy = gmecConf == null ? Double.POSITIVE_INFINITY : gmecConf.getEnergy();
-			PartitionFunctionMinimized pf = partitionFunctions[state];
-			BigDecimal gmecWeight = pf.getBoltzmannCalculator().calc(gmecEnergy);
-
-			if(computeMinGMECRatio()) {
-				pf.setValues(new Values());
-				pf.setStatus(Status.Estimated);
-			}
-
-			pf.getValues().qstar = gmecWeight;
-
-			if(computeMinGMECRatio()) return true;
+		//init partition function
+		else {
+			pf.init(settings.targetEpsilon);
 		}
 		
 		//create priority queue for top confs if requested
 		if(settings.search[state].isFullyAssigned() && settings.numTopConfsToSave > 0) {
 
-			partitionFunctions[state].topConfs = new PriorityQueue<ScoredConf>(
+			pf.topConfs = new PriorityQueue<ScoredConf>(
 					settings.numTopConfsToSave, 
 					new ConfComparator()
 					);
 
-			partitionFunctions[state].maxNumTopConfs = settings.numTopConfsToSave;
+			pf.maxNumTopConfs = settings.numTopConfsToSave;
 
-			final int pfState = state;
-			partitionFunctions[state].setConfListener((ScoredConf conf) -> {
-				partitionFunctions[pfState].saveConf(conf);
+			pf.setConfListener((ScoredConf conf) -> {
+				pf.saveConf(conf);
 			});
 
+		}
+		
+		//save gmec conf
+		if(minGMEC != null && pf.getConfListener() != null) {
+			pf.getConfListener().onConf(minGMEC);
+			if(computeMinGMECRatio())
+				pf.writeTopConfs(settings.state, settings.search[state]);
 		}
 
 		return true;
