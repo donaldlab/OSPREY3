@@ -351,11 +351,13 @@ public class KStarScoreMinimized implements KStarScore {
 
 		//in the bound state, can override maxNumConfs with value from config
 		boolean overrideMaxNumConfs = overrideMaxNumConfs(state, maxNumConfs);
-		if(overrideMaxNumConfs) maxNumConfs = settings.cfp.getParams().getInt("MAXNUMCONFS");
+		if(overrideMaxNumConfs) 
+			maxNumConfs = settings.cfp.getParams().getInt("MAXNUMCONFS");
 
 		pf.compute(maxNumConfs);
 
-		if(overrideMaxNumConfs && pf.getNumConfsEvaluated()>=maxNumConfs) pf.setStatus(Status.Estimated);
+		if(overrideMaxNumConfs && pf.getStatus() == Status.Estimating) 
+			pf.setStatus(Status.Estimated);
 		
 		//we are not trying to compute the partition function to completion
 		if(pf.getStatus() == Status.Estimating)
