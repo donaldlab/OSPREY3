@@ -28,10 +28,26 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 		super(emat, pmat, invmat, confSearchFactory, ecalc);
 	}
 	
+	private ScoredConf findRigidGMEC() {
+		return energyConfs.next();
+	}
+	
 	@Override
 	public void init(double targetEpsilon) {
 		super.init(targetEpsilon);
 		scoreConfs = null;
+		
+		//only applies to the final object
+		if(computeGMECRatio) {
+			ScoredConf conf = findRigidGMEC();
+			double gmecEnergy = conf == null ? Double.POSITIVE_INFINITY : conf.getScore();
+			values.qstar = boltzmann.calc(gmecEnergy);
+			numConfsEvaluated++;
+			if (confListener != null) {
+				confListener.onConf(conf);
+			}
+			status = Status.Estimated;
+		}
 	}
 
 	@Override

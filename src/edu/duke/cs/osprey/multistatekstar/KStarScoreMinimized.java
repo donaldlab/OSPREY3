@@ -108,18 +108,18 @@ public class KStarScoreMinimized implements KStarScore {
 	}
 
 	protected boolean computeMinGMEC() {
-		return isFinal() && 
+		return settings.isFinal && 
 			settings.cfp.getParams().getBool("DOMINIMIZE") && 
-			(computeMinGMECRatio() || settings.computeMinGMEC);
+			(computeMinGMECRatio() || settings.computeGMEC);
 	}
 	
 	protected boolean computeMinGMECRatio() {
-		return isFinal() &&
+		return settings.isFinal &&
 			settings.cfp.getParams().getBool("DOMINIMIZE") && 
-			settings.cfp.getParams().getBool("COMPUTEMINGMECRATIO");
+			settings.cfp.getParams().getBool("COMPUTEGMECRATIO");
 	}
 	
-	protected EnergiedConf findGMEC(int state) {
+	protected EnergiedConf findMinGMEC(int state) {
 		GMECFinder gmecFinder = new GMECFinder();
 		gmecFinder.setLogConfsToConsole(settings.isReportingProgress);
 		gmecFinder.isReportingProgress(settings.isReportingProgress);
@@ -141,7 +141,7 @@ public class KStarScoreMinimized implements KStarScore {
 		//find the gmec if we are asked to do so
 		//it's important find gmec here, before the prunepmat step, since gmec finding
 		//sets the ival to a level required to find the gmec
-		EnergiedConf minGMEC = computeMinGMEC() ? findGMEC(state) : null;
+		EnergiedConf minGMEC = computeMinGMEC() ? findMinGMEC(state) : null;
 		
 		//first prune the pruning matrix
 		boolean doPruning = isFinal() || settings.cfp.getParams().getBool("PRUNEPARTIALSEQCONFS");
@@ -163,8 +163,6 @@ public class KStarScoreMinimized implements KStarScore {
 		PartitionFunctionMinimized pf = partitionFunctions[state];
 		
 		pf.setReportProgress(settings.isReportingProgress);
-		
-		pf.setMinGMEC(minGMEC);
 
 		//skip initialization if we are only interested in the gmec ratio approximation of the k* score
 		if(computeMinGMECRatio()) {
@@ -175,6 +173,11 @@ public class KStarScoreMinimized implements KStarScore {
 		
 		//init partition function
 		else {
+			if(settings.isFinal) {
+				pf.setComputeGMECRatio(settings.computeGMECRatio);
+				if(minGMEC != null) pf.setMinGMEC(minGMEC);
+			}
+			
 			pf.init(settings.targetEpsilon);
 		}
 		
@@ -194,7 +197,7 @@ public class KStarScoreMinimized implements KStarScore {
 
 		}
 		
-		//save gmec conf
+		//save mingmec conf immediately
 		if(minGMEC != null && pf.getConfListener() != null) {
 			pf.getConfListener().onConf(minGMEC);
 			if(computeMinGMECRatio())

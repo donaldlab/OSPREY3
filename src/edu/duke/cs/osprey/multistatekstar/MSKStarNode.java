@@ -409,7 +409,7 @@ public class MSKStarNode {
 				ECALCS_CONT[state], null, KStarScoreType.Minimized
 				);
 
-		ans.getSettings().computeMinGMEC = true;
+		ans.getSettings().computeGMEC = true;
 		
 		return ans;
 	}

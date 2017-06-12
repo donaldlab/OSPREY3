@@ -43,8 +43,9 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	protected ArrayList<EnergiedConf> energiedConfs;
 	
 	protected EnergiedConf minGMEC;
-	protected boolean energiedMinGMECEnumerated;
-	protected boolean scoredMinGMECEnumerated;
+	protected boolean computeGMECRatio;
+	protected boolean energiedGMECEnumerated;
+	protected boolean scoredGMECEnumerated;
 
 	public PartitionFunctionMinimized(
 			EnergyMatrix emat, 
@@ -60,6 +61,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		this.scoredConfs = null;
 		this.energiedConfs = null;
 		this.minGMEC = null;
+		this.computeGMECRatio = false;
 	}
 
 	protected void writeTopConfs(int state, MSSearchProblem search) {
@@ -132,15 +134,19 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		// treat the partition function state as if we have already processed 
 		// the minGMEC
 		if(minGMEC != null) {
-			values.qstar = values.qstar.add(boltzmann.calc(minGMEC.getEnergy()));
+			values.qstar = boltzmann.calc(minGMEC.getEnergy());
 			numConfsEvaluated++;
 			
 			qprimeUnevaluated = qprimeUnevaluated.subtract(boltzmann.calc(minGMEC.getScore()));
 			numConfsToScore = numConfsToScore.subtract(BigInteger.ONE);
+			
+			if (confListener != null) {
+				confListener.onConf(minGMEC);
+			}
 		}
 		
-		energiedMinGMECEnumerated = false;
-		scoredMinGMECEnumerated = false;
+		energiedGMECEnumerated = false;
+		scoredGMECEnumerated = false;
 
 		stopwatch = new Stopwatch().start();
 	}
@@ -161,8 +167,8 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 			}
 			
 			if(minGMEC != null && equals(minGMEC.getAssignments(), conf.getAssignments())) {
-				scoredMinGMECEnumerated = true;
-				if(energiedMinGMECEnumerated && scoredMinGMECEnumerated) minGMEC = null;
+				scoredGMECEnumerated = true;
+				if(energiedGMECEnumerated && scoredGMECEnumerated) minGMEC = null;
 				continue;
 			}
 
@@ -219,8 +225,8 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 			}
 			
 			if(minGMEC != null && equals(minGMEC.getAssignments(), conf.getAssignments())) {
-				energiedMinGMECEnumerated = true;
-				if(energiedMinGMECEnumerated && scoredMinGMECEnumerated) minGMEC = null;
+				energiedGMECEnumerated = true;
+				if(energiedGMECEnumerated && scoredGMECEnumerated) minGMEC = null;
 				continue;
 			}
 
@@ -524,15 +530,19 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	}
 	
 	public void setNumConfsEvaluated(int val) {
-		numConfsEvaluated = val;
+		this.numConfsEvaluated = val;
 	}
 	
 	public int getNumConfsEvaluated() {
-		return numConfsEvaluated;
+		return this.numConfsEvaluated;
+	}
+	
+	public void setComputeGMECRatio(boolean val) {
+		this.computeGMECRatio = val;
 	}
 	
 	public ConfListener getConfListener() {
-		return confListener;
+		return this.confListener;
 	}
 	
 	public void setMinGMEC(EnergiedConf val) {
@@ -540,6 +550,6 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	}
 	
 	public BoltzmannCalculator getBoltzmannCalculator() {
-		return boltzmann;
+		return this.boltzmann;
 	}
 }

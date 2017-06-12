@@ -64,7 +64,8 @@ public class MSKStarFactory {
 		MSKStarSettings settings = new MSKStarSettings();
 		settings.state = state;
 		settings.cfp = cfp;
-		settings.computeMinGMEC = false;
+		settings.computeGMEC = false;
+		settings.computeGMECRatio = sParams.getBool("ComputeGMECRatio");
 		settings.targetEpsilon = sParams.getDouble("EPSILON");
 		settings.numTopConfsToSave = sParams.getInt("NumTopConfsToSave");
 		settings.isReportingProgress = msParams.getBool("ISREPORTINGPROGRESS");
