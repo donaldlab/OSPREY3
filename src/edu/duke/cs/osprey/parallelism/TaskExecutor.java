@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.parallelism;
 
+
 public class TaskExecutor {
 	
 	public static interface Task<T> {
@@ -21,5 +22,19 @@ public class TaskExecutor {
 	
 	public void waitForFinish() {
 		// nothing to do
+	}
+	
+	public static class TaskException extends RuntimeException {
+		
+		private static final long serialVersionUID = 8523925290195831558L;
+		
+		public final Task<?> task;
+		public final TaskListener<?> listener;
+		
+		public TaskException(Task<?> task, TaskListener<?> listener, Throwable cause) {
+			super("A task failed, no new tasks can be submitted", cause);
+			this.task = task;
+			this.listener = listener;
+		}
 	}
 }

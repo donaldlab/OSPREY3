@@ -9,6 +9,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import edu.duke.cs.osprey.tools.Cleaner;
 import edu.duke.cs.osprey.tools.Cleaner.Cleanable;
@@ -82,12 +83,14 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 	private Threads threads;
 	private AtomicLong numTasksStarted;
 	private AtomicLong numTasksFinished;
+	private AtomicReference<Throwable> exception;
 	private Signal taskSignal;
 	
 	public ThreadPoolTaskExecutor() {
 		threads = null;
 		numTasksStarted = new AtomicLong(0);
 		numTasksFinished = new AtomicLong(0);
+		exception = new AtomicReference<>(null);
 		taskSignal = new Signal();
 	}
 	
@@ -126,21 +129,39 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 				// access the work queue directly instead, so we can block if the thread pool isn't ready yet.
 				wasAdded = threads.queue.offer(() -> {
 					
-					// run the task
-					T result = task.run();
+					try {
 					
-					// send the result to the listener thread
-					threads.listener.submit(() -> {
+						// run the task
+						T result = task.run();
 						
-						// run the listener
-						listener.onFinished(result);
+						// send the result to the listener thread
+						threads.listener.submit(() -> {
+							
+							try {
+								
+								// run the listener
+								listener.onFinished(result);
+								
+							} catch (Throwable t) {
+								recordException(t);
+							}
+							
+							// tell anyone waiting that we finished a task
+							numTasksFinished.incrementAndGet();
+							taskSignal.sendSignal();
+						});
 						
-						// tell anyone waiting that we finished a task
-						numTasksFinished.incrementAndGet();
-						taskSignal.sendSignal();
-					});
+					} catch (Throwable t) {
+						recordException(t);
+					}
 					
-				}, 1, TimeUnit.SECONDS);
+				}, 400, TimeUnit.MILLISECONDS);
+				
+				// check for exceptions
+				Throwable t = exception.get();
+				if (t != null) {
+					throw new TaskException(task, listener, t);
+				}
 			}
 			
 			numTasksStarted.incrementAndGet();
@@ -160,5 +181,12 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 			// wait a bit before checking again, unless a task finishes
 			taskSignal.waitForSignal(100);
 		}
+	}
+	
+	private void recordException(Throwable t) {
+		
+		// record the exception, but don't overwrite any existing exceptions
+		// TODO: keep a list of all exceptions?
+		exception.compareAndSet(null, t);
 	}
 }
