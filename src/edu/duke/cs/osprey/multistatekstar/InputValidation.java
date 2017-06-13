@@ -27,6 +27,14 @@ public class InputValidation {
 		this.state2MutableResNums = state2MutableResNums;
 	}
 	
+	public void handleStaticMembers(ParamSet msParams) {
+		if(msParams.getDouble("TIMEOUTHRS")<=0)
+			throw new RuntimeException("ERROR: the value of TIMEOUTHRS must be > 0");
+		
+		if(msParams.getDouble("PRUNINGTIMEOUTHRS")<=0)
+			throw new RuntimeException("ERROR: the value of PRUNINGTIMEOUTHRS must be > 0");
+	}
+	
 	public void handleObjFcn(ParamSet msParams, LMB objFcn) {
 		if(objFcn.getCoeffs().length != msParams.getInt("NUMSTATES"))
 			throw new RuntimeException("ERROR: the number of OBJFCN coefficients must equal NUMSTATES");

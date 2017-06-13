@@ -139,8 +139,8 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 			boundOnAll = sum.add(boundOnRemaining);
 			
 			// stop if the bound is tight enough
-			double effectiveEpsilon = boundOnRemaining.divide(boundOnAll, RoundingMode.HALF_UP).doubleValue();
-			if (effectiveEpsilon <= 0.01) {
+			double tightness = boundOnRemaining.divide(boundOnAll, RoundingMode.HALF_UP).doubleValue();
+			if (tightness <= 0.01) {
 				break;
 			}
 		}

@@ -33,6 +33,7 @@ import edu.duke.cs.osprey.tools.Stopwatch;
 public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 	public static boolean SYNCHRONIZED_MINIMIZATION = false;
+	public static double QPRIME_TIMEOUT_HRS = 0.001;
 	
 	protected PriorityQueue<ScoredConf> topConfs;
 	protected int maxNumTopConfs;
@@ -46,6 +47,8 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	protected boolean computeGMECRatio;
 	protected boolean energiedGMECEnumerated;
 	protected boolean scoredGMECEnumerated;
+	
+	protected boolean computeMaxNumConfs;
 
 	public PartitionFunctionMinimized(
 			EnergyMatrix emat, 
@@ -62,6 +65,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		this.energiedConfs = null;
 		this.minGMEC = null;
 		this.computeGMECRatio = false;
+		this.computeMaxNumConfs = false;
 	}
 
 	protected void writeTopConfs(int state, MSSearchProblem search) {
@@ -154,6 +158,8 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	@Override
 	protected BigDecimal updateQprime(EnergiedConf econf) {
 
+		Stopwatch stopwatch = computeMaxNumConfs ? new Stopwatch().start() : null;
+		
 		// look through the conf tree to get conf scores
 		// (which should be lower bounds on the conf energy)
 		while (true) {
@@ -183,12 +189,17 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 			numConfsToScore = numConfsToScore.subtract(BigInteger.ONE);
 			qprimeUnevaluated = qprimeUnevaluated.add(scoreWeight);
 			qprimeUnscored = scoreWeight.multiply(new BigDecimal(numConfsToScore));
-
+			
 			// stop if the bound on q' is tight enough
-			double effectiveEpsilon = qprimeUnscored.divide(qprimeUnevaluated.add(qprimeUnscored), RoundingMode.HALF_UP).doubleValue();
-			if (effectiveEpsilon <= 0.01) {
+			double tightness = qprimeUnscored.divide(qprimeUnevaluated.add(qprimeUnscored), RoundingMode.HALF_UP).doubleValue();
+			if (tightness <= 0.01) {
 				break;
 			}
+			
+			//reaching desired tightness can take a really long time
+			//in a design, so ignore tightness if we are only interested
+			//in computing the partition function to MaxNumConfs
+			if(stopwatch != null && stopwatch.getTimeH() > QPRIME_TIMEOUT_HRS) break;
 		}
 
 		qprimeUnevaluated = qprimeUnevaluated.subtract(boltzmann.calc(econf.getScore()));
@@ -400,7 +411,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 			}
 
 			// or do the energy calculation asynchronously
-			else {
+			else {			
 				ecalc.calcEnergyAsync(conf, (EnergiedConf econf) -> {
 					// energy calculation done
 					// this is (potentially) running on a task executor listener thread
@@ -551,5 +562,9 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	
 	public BoltzmannCalculator getBoltzmannCalculator() {
 		return this.boltzmann;
+	}
+	
+	public void setComputeMaxNumConfs(boolean val) {
+		this.computeMaxNumConfs = val;
 	}
 }

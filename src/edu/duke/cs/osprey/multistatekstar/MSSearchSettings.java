@@ -12,6 +12,8 @@ import java.util.ArrayList;
 @SuppressWarnings("serial")
 public class MSSearchSettings implements Serializable {
 	
+	public static double PRUNING_TIMEOUT_HRS = Double.MAX_VALUE;
+	
 	public ArrayList<String> mutRes;//reduced flex res
 	public ArrayList<ArrayList<String>> AATypeOptions;//reduced allowed AAs
 	public double pruningWindow;

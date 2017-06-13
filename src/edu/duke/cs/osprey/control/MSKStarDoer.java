@@ -18,6 +18,7 @@ import edu.duke.cs.osprey.multistatekstar.KStarScore;
 import edu.duke.cs.osprey.multistatekstar.LMB;
 import edu.duke.cs.osprey.multistatekstar.MSConfigFileParser;
 import edu.duke.cs.osprey.multistatekstar.MSKStarFactory;
+import edu.duke.cs.osprey.multistatekstar.MSKStarSettings;
 import edu.duke.cs.osprey.multistatekstar.MSKStarTree;
 import edu.duke.cs.osprey.multistatekstar.MSSearchProblem;
 import edu.duke.cs.osprey.multistatekstar.MSSearchSettings;
@@ -120,6 +121,7 @@ public class MSKStarDoer {
 		InputValidation inputValidation = new InputValidation(AATypeOptions, state2MutableResNums);
 		inputValidation.handleObjFcn(msParams, objFcn);
 		inputValidation.handleConstraints(msParams, msConstr);
+		inputValidation.handleStaticMembers(msParams);
 
 		for(int state=0; state<numStates; state++) {
 
@@ -432,13 +434,20 @@ public class MSKStarDoer {
 			listAllSeqsHelper(subStateAATypeOptions, stateOutput, wt, buf, depth+1, nDist);
 		}
 	}
+	
+	private void setStaticMembers() {
+		PartitionFunctionMinimized.SYNCHRONIZED_MINIMIZATION = this.msParams.getBool("SYNCHRONIZEDMINIMIZATION");
+		MSKStarSettings.TIMEOUT_HRS = this.msParams.getDouble("TIMEOUTHRS");
+		MSSearchSettings.PRUNING_TIMEOUT_HRS = this.msParams.getDouble("PRUNINGTIMEOUTHRS");
+	}
 
 	public void calcBestSequences() {
-		PartitionFunctionMinimized.SYNCHRONIZED_MINIMIZATION = this.msParams.getBool("SYNCHRONIZEDMINIMIZATION");
+		setStaticMembers();
+		
 		final String algOption = msParams.getValue("MultStateAlgOption");
 		switch(algOption.toLowerCase()) {
 		case "exhaustive":
-			exhaustiveMultistateSearch(msParams.getDouble("TIMEOUT"));
+			exhaustiveMultistateSearch();
 			return;
 		case "sublinear":
 			subLinearMultiStateSearch();
@@ -506,7 +515,7 @@ public class MSKStarDoer {
 	/**
 	 * Verify algorithm results by doing exhaustive search
 	 */
-	private void exhaustiveMultistateSearch(double timeoutHrs) {
+	private void exhaustiveMultistateSearch() {
 
 		System.out.println();
 		System.out.println("Checking multi-state K* by exhaustive search");
@@ -584,12 +593,6 @@ public class MSKStarDoer {
 					fout.println(stateKSS[state][seqNum]); fout.flush();
 					System.out.println("done, elapsed: "+stopwatch.getTime(2));
 					System.out.println();
-					
-					if(timeoutHrs > 0 && stopwatch.getTimeH() >= timeoutHrs) {
-						System.out.println("WARNING: running time has exceeded "
-								+ "the allotted "+timeoutHrs+" hours. Stopping execution.");
-						break;
-					}
 				}
 
 				searchCont[state] = null;

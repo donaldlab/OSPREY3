@@ -184,7 +184,7 @@ public class MSKStarTree {
 		int astarThreads = this.msParams.getInt("ASTARTHREADS");
 		ThreadParallelism.setNumThreads(astarThreads);
 		MSKStarNode.PARALLEL_EXPANSION = astarThreads > 1 ? true : false;
-		//MSKStarNode.PARALLELISM_MULTIPLIER = astarThreads;
+		MSKStarNode.SUBLINEAR_AT_LEAF_NODES = this.msParams.getBool("SUBLINEARATLEAFNODES");
 		
 		MSKStarTree.DEBUG = false;
 		MSSearchProblem.DEBUG = false;

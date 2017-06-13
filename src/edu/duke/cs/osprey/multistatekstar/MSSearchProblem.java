@@ -11,6 +11,7 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.tools.Stopwatch;
 
 /**
  * 
@@ -128,12 +129,9 @@ public class MSSearchProblem extends SearchProblem {
 		return ans;
 	}
 
-	protected void prunePmat(SearchProblem search, boolean prunePairs) {
+	protected void prunePmat(SearchProblem search, boolean prunePairs, boolean reportProgress) {
 
 		UpdatedPruningMatrix upmat = (UpdatedPruningMatrix) this.pruneMat;
-
-		//don't want to overprune
-		//BigInteger minConfs = BigInteger.valueOf(65536);
 
 		//single sequence type dependent pruning for better efficiency
 		//now do any consequent singles & pairs pruning
@@ -144,12 +142,23 @@ public class MSSearchProblem extends SearchProblem {
 				settings.pruningWindow, search.useEPIC, search.useTupExpForSearch);
 		dee.setVerbose(false);
 
+		Stopwatch stopwatch = new Stopwatch().start();
+		
 		do {//repeat as long as we're pruning things
 			oldNumUpdates = numUpdates;
 			dee.prune("GOLDSTEIN");
 			if(prunePairs) dee.prune("GOLDSTEIN PAIRS FULL");
 			numUpdates = upmat.countUpdates();
-		} while (numUpdates > oldNumUpdates /*&& getNumConfs(upmat).compareTo(minConfs) > 0*/);
+			
+			if(reportProgress) {
+				System.out.println("elapsed: "+stopwatch.getTime(2));
+			}
+			
+			if(stopwatch.getTimeH() > MSSearchSettings.PRUNING_TIMEOUT_HRS) {
+				break;
+			}
+			
+		} while (numUpdates > oldNumUpdates);
 	}
 
 	public void checkPruningMatrix() {
@@ -216,9 +225,9 @@ public class MSSearchProblem extends SearchProblem {
 		this.pruneMat = getUpdatedPruningMatrix();
 	}
 
-	public void prunePmat(boolean doPruning, boolean prunePairs) {
+	public void prunePmat(boolean doPruning, boolean prunePairs, boolean reportProgress) {
 		setPruningMatrix();
 		if(DEBUG) checkPruningMatrix(this.pruneMat);
-		if(doPruning) prunePmat(this, prunePairs);
+		if(doPruning) prunePmat(this, prunePairs, reportProgress);
 	}
 }

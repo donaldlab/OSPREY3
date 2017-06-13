@@ -497,7 +497,7 @@ public class GMECFinder {
         }
 
         msSearch.settings.pruningWindow = interval;
-        msSearch.prunePmat(true, false);
+        msSearch.prunePmat(true, false, isReportingProgress);
         
         // start searching for the min score conf
         if(isReportingProgress) System.out.println("Searching for min score conformation...");
