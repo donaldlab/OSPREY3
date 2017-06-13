@@ -174,7 +174,7 @@ public interface ConfSearch {
 		
 		public class Stream implements ConfSearch {
 			
-			private int index;
+			private long index;
 			
 			private Stream() {
 				index = 0;
@@ -188,7 +188,7 @@ public interface ConfSearch {
 			public ScoredConf nextConf() {
 			
 				// where in the buffer should we read?
-				int pos = index - firstIndex;
+				long pos = index - firstIndex;
 				
 				// just in case
 				assert (pos >= 0);
@@ -220,7 +220,10 @@ public interface ConfSearch {
 				} else {
 	
 					// read the conf from the buffer
-					conf = buf.get(pos);
+					if (pos > Integer.MAX_VALUE) {
+						throw new Error("Integer overflow! Conf buffer grew too large: " + pos);
+					}
+					conf = buf.get((int)pos);
 				}
 				
 				if (conf != null) {
@@ -251,11 +254,30 @@ public interface ConfSearch {
 			public BigInteger getNumConformations() {
 				return confs.getNumConformations();
 			}
+			
+			public void close() {
+				
+				// remove our stream from the splitter
+				streams.remove(this);
+				
+				// what's the earliest remaining stream index?
+				long minIndex = Long.MAX_VALUE;
+				for (Stream stream : streams) {
+					minIndex = Math.min(minIndex, stream.index);
+				}
+				
+				// prune the buffer
+				while (index < minIndex) {
+					buf.remove();
+					index++;
+					firstIndex++;
+				}
+			}
 		}
 		
 		private ConfSearch confs;
 		private CircularFifoQueue<ScoredConf> buf;
-		private int firstIndex;
+		private long firstIndex;
 		private List<Stream> streams;
 		
 		/**

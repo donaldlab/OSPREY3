@@ -24,7 +24,7 @@ public class EnergyPartitionsPlayground {
 		
 		// configure flexibility
 		
-		for (int i=2; i<=13; i++) {
+		for (int i=2; i<=15; i++) {
 			strand.flexibility.get(i).setLibraryRotamers("LEU", "ILE").setContinuous();
 		}
 		/*
@@ -64,11 +64,14 @@ public class EnergyPartitionsPlayground {
 			.build()
 			.calcEnergyMatrix();
 		
-		// how should confs be ordered?
+		// config TPIE
 		ExternalMemory.setInternalLimit(128);
+		ExternalMemory.setTempDir(System.getProperty("user.home"), "tpie-epart");
+		
+		// how should confs be ordered?
 		ConfSearch confSearch = new ConfAStarTree.Builder(emat, confSpace)
-			.setTraditional()
-			//.setMPLP(new ConfAStarTree.MPLPBuilder().setUpdater(new EdgeUpdater()).setNumIterations(5))
+			//.setTraditional()
+			.setMPLP(new ConfAStarTree.MPLPBuilder().setUpdater(new EdgeUpdater()).setNumIterations(5))
 			.setUseExternalMemory()
 			.setShowProgress(true)
 			.build();
@@ -82,6 +85,7 @@ public class EnergyPartitionsPlayground {
 		System.out.println("Finding GMEC...");
 		EnergiedConf gmec = new SimpleGMECFinder.Builder(confSpace, confSearch, confEcalc)
 			.setPrintIntermediateConfsToConsole(false)
+			.setUseExternalMemory()
 			.build()
 			.find();
 		

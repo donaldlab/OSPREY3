@@ -87,11 +87,9 @@ public class SimpleGMECFinder {
 			return this;
 		}
 		
-		public Builder setUseExternalMemory(boolean val) {
-			if (val) {
-				ExternalMemory.checkInternalLimitSet();
-			}
-			useExternalMemory = val;
+		public Builder setUseExternalMemory() {
+			ExternalMemory.checkInternalLimitSet();
+			useExternalMemory = true;
 			return this;
 		}
 		
@@ -171,8 +169,10 @@ public class SimpleGMECFinder {
 		
 		// peek ahead to the next conf
 		ConfSearch.Splitter splitter = new ConfSearch.Splitter(search);
-		ConfSearch unpeekedConfs = splitter.makeStream();
-		ScoredConf peekedConf = splitter.makeStream().nextConf();
+		ConfSearch.Splitter.Stream unpeekedConfs = splitter.makeStream();
+		ConfSearch.Splitter.Stream peekedConfs = splitter.makeStream();
+		ScoredConf peekedConf = peekedConfs.nextConf();
+		peekedConfs.close();
 		
 		// do we need to check more confs?
 		if (peekedConf == null) {

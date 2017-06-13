@@ -4,6 +4,7 @@ import java.io.Serializable;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
 
+import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
 public class AStarProgress implements Serializable {
@@ -76,13 +77,14 @@ public class AStarProgress implements Serializable {
 	public String makeProgressReport() {
 		double diffMs = stopwatch.getTimeMs() - this.msRunning;
 		MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-		return String.format("A* g:%10.4f, h:%10.4f, f:%10.4f, level:%4d/%4d/%4d, expanded:%10d, queued:%10d, scored/sec:%5d, time:%s, heapMem:%.0f%%",
+		return String.format("A* g:%10.4f, h:%10.4f, f:%10.4f, level:%4d/%4d/%4d, expanded:%10d, queued:%10d, scored/sec:%5d, time:%s, heapMem:%.0f%%, eMem:%d MiB",
 			gscore, hscore, gscore + hscore,
 			level, deepestLevel, numLevels - 1,
 			numNodesExpanded, numNodesInQueue,
 			(int)(numNodesQueuedThisReport*1000/diffMs),
 			stopwatch.getTime(2),
-			100f*heapMem.getUsed()/heapMem.getMax()
+			100f*heapMem.getUsed()/heapMem.getMax(),
+			ExternalMemory.getExternalBytes()/1024/1024
 		);
 	}
 	
@@ -125,13 +127,14 @@ public class AStarProgress implements Serializable {
 	private String makeLeafProgressReport() {
 		double diffMs = stopwatch.getTimeMs() - this.msRunning;
 		MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-		return String.format("A* leaf nodes:%10d, score:%14.8f, remaining:%14.8f, expanded:%10d, queued:%10d, scored/sec:%5d, time:%s, heapMem:%.0f%%",
+		return String.format("A* leaf nodes:%10d, score:%14.8f, remaining:%14.8f, expanded:%10d, queued:%10d, scored/sec:%5d, time:%s, heapMem:%.0f%%, eMem:%d MiB",
 			numLeafNodes,
 			gscore, goalScore - gscore,
 			numNodesExpanded, numNodesInQueue,
 			(int)(numNodesQueuedThisReport*1000/diffMs),
 			stopwatch.getTime(2),
-			100f*heapMem.getUsed()/heapMem.getMax()
+			100f*heapMem.getUsed()/heapMem.getMax(),
+			ExternalMemory.getExternalBytes()/1024/1024
 		);
 	}
 }

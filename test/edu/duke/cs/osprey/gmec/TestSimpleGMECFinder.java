@@ -149,7 +149,7 @@ public class TestSimpleGMECFinder {
 	public void findContinuousWindowExternal() {
 		ExternalMemory.setInternalLimit(64);
 		Queue<EnergiedConf> confs = problemContinuous.makeBuilder()
-			.setUseExternalMemory(true)
+			.setUseExternalMemory()
 			.build().find(0.3);
 		assertThat(confs.size(), is(3L));
 		
