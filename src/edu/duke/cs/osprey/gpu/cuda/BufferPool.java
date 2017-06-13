@@ -5,9 +5,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeMap;
 
-import edu.duke.cs.osprey.tools.Cleaner;
-import edu.duke.cs.osprey.tools.Cleaner.GarbageDetectable;
 import edu.duke.cs.osprey.tools.Factory;
+import edu.duke.cs.tpie.Cleaner;
+import edu.duke.cs.tpie.Cleaner.GarbageDetectable;
 
 public class BufferPool<T extends Buffer> implements GarbageDetectable {
 	

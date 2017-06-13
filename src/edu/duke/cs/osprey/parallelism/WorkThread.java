@@ -1,6 +1,6 @@
 package edu.duke.cs.osprey.parallelism;
 
-import edu.duke.cs.osprey.tools.Cleaner.Cleanable;
+import edu.duke.cs.tpie.Cleaner.Cleanable;
 
 public abstract class WorkThread extends Thread implements Cleanable {
 	

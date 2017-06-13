@@ -11,9 +11,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import edu.duke.cs.osprey.tools.Cleaner;
-import edu.duke.cs.osprey.tools.Cleaner.Cleanable;
-import edu.duke.cs.osprey.tools.Cleaner.GarbageDetectable;
+import edu.duke.cs.tpie.Cleaner;
+import edu.duke.cs.tpie.Cleaner.Cleanable;
+import edu.duke.cs.tpie.Cleaner.GarbageDetectable;
+
 
 public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetectable {
 	
