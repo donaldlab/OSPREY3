@@ -33,7 +33,7 @@ import edu.duke.cs.osprey.tools.Stopwatch;
 public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 
 	public static boolean SYNCHRONIZED_MINIMIZATION = false;
-	public static double QPRIME_TIMEOUT_HRS = 0.001;
+	public static double QPRIME_TIMEOUT_HRS = 0.0;
 	
 	protected PriorityQueue<ScoredConf> topConfs;
 	protected int maxNumTopConfs;
@@ -116,9 +116,11 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		values = new Values();
 
 		// compute p*: boltzmann-weight the scores for all pruned conformations
-		ConfSearch ptree = confSearchFactory.make(emat, invmat);
-		if(ptree instanceof ConfAStarTree) ((ConfAStarTree)ptree).stopProgress();
-		values.pstar = calcWeightSumUpperBound(ptree);
+		if(!(computeMaxNumConfs || computeGMECRatio)) {
+			ConfSearch ptree = confSearchFactory.make(emat, invmat);
+			if(ptree instanceof ConfAStarTree) ((ConfAStarTree)ptree).stopProgress();
+			values.pstar = calcWeightSumUpperBound(ptree);
+		}
 
 		// make the search tree for computing q*
 		ConfSearch tree = confSearchFactory.make(emat, pmat);
@@ -199,7 +201,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 			//reaching desired tightness can take a really long time
 			//in a design, so ignore tightness if we are only interested
 			//in computing the partition function to MaxNumConfs
-			if(stopwatch != null && stopwatch.getTimeH() > QPRIME_TIMEOUT_HRS) break;
+			if(stopwatch != null && stopwatch.getTimeH() >= QPRIME_TIMEOUT_HRS) break;
 		}
 
 		qprimeUnevaluated = qprimeUnevaluated.subtract(boltzmann.calc(econf.getScore()));

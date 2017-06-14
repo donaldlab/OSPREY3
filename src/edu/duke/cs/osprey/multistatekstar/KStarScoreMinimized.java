@@ -108,14 +108,21 @@ public class KStarScoreMinimized implements KStarScore {
 	}
 
 	protected boolean computeMinGMEC() {
-		return settings.isFinal && 
-			settings.cfp.getParams().getBool("DOMINIMIZE") && 
-			(computeMinGMECRatio() || settings.computeGMEC);
+		return settings.cfp.getParams().getBool("DOMINIMIZE") && 
+			(computeMinGMECRatio() || computeGMEC());
 	}
 	
 	protected boolean computeMinGMECRatio() {
+		return computeGMECRatio() && 
+			settings.cfp.getParams().getBool("DOMINIMIZE");
+	}
+	
+	protected boolean computeGMEC() {
+		return settings.isFinal && settings.computeGMEC;
+	}
+	
+	protected boolean computeGMECRatio() {
 		return settings.isFinal &&
-			settings.cfp.getParams().getBool("DOMINIMIZE") && 
 			settings.cfp.getParams().getBool("ComputeGMECRatio");
 	}
 	
@@ -195,10 +202,8 @@ public class KStarScoreMinimized implements KStarScore {
 		
 		//init partition function
 		else {
-			if(settings.isFinal) {
-				pf.setComputeGMECRatio(settings.cfp.getParams().getBool("ComputeGMECRatio"));
-				if(minGMEC != null) pf.setMinGMEC(minGMEC);
-			}
+			pf.setComputeGMECRatio(computeGMECRatio());
+			if(minGMEC != null) pf.setMinGMEC(minGMEC);
 			
 			if(settings.isReportingProgress) {
 				System.out.println();
@@ -231,8 +236,11 @@ public class KStarScoreMinimized implements KStarScore {
 		//save mingmec conf immediately
 		if(minGMEC != null && pf.getConfListener() != null) {
 			pf.getConfListener().onConf(minGMEC);
-			if(computeMinGMECRatio())
+			if(computeMinGMECRatio()) {
+				//we are done computing the partition function, so we should
+				//write conf now
 				pf.writeTopConfs(settings.state, settings.search[state]);
+			}
 		}
 
 		return true;
