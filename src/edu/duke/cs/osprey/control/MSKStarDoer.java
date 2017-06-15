@@ -187,7 +187,7 @@ public class MSKStarDoer {
 		for(int substate=0;substate<ecalcs[state].length;++substate) {
 			ConfEnergyCalculator.Async ecalc = ecalcs[state][substate];
 			if(ecalc != null) {
-				ecalcs[state][substate].cleanup();
+				ecalcs[state][substate].clean();
 				ecalcs[state][substate] = null;
 			}
 		}

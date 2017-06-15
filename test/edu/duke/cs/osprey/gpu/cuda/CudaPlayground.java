@@ -200,7 +200,7 @@ public class CudaPlayground extends TestBase {
 		}
 		
 		// cleanup
-		cudaEfunc.cleanup();
+		cudaEfunc.clean();
 		cudaEgen.cleanup();
 	}
 
@@ -282,7 +282,7 @@ public class CudaPlayground extends TestBase {
 		}
 		
 		// cleanup
-		cudaEfunc.cleanup();
+		cudaEfunc.clean();
 		cudaEgen.cleanup();
 		
 		// collects the dofs
@@ -459,7 +459,7 @@ public class CudaPlayground extends TestBase {
 		*/
 		double gpuEnergy = gpuFragEcalc.calcEnergy(tuple, inters);
 		System.out.println(String.format("GPU energy: %12.6f", gpuEnergy));
-		gpuFragEcalc.cleanup();
+		gpuFragEcalc.clean();
 		
 		// TEMP: do same inters on CPU
 		MinimizingFragmentEnergyCalculator cpuFragEcalc = new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)

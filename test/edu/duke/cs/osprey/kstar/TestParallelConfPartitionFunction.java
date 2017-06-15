@@ -34,7 +34,7 @@ public class TestParallelConfPartitionFunction extends TestBase {
 		}
 		
 		public void cleanup() {
-			this.ecalc.cleanup();
+			this.ecalc.clean();
 		}
 	}
 	

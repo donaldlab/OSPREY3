@@ -1,7 +1,8 @@
 package edu.duke.cs.osprey.parallelism;
 
+import edu.duke.cs.osprey.tools.AutoCleanable;
 
-public class TaskExecutor {
+public class TaskExecutor implements AutoCleanable {
 	
 	public static interface Task<T> {
 		T run();
@@ -36,5 +37,10 @@ public class TaskExecutor {
 			this.task = task;
 			this.listener = listener;
 		}
+	}
+
+	@Override
+	public void clean() {
+		// do nothing by default
 	}
 }

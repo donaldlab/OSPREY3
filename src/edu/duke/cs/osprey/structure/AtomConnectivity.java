@@ -157,110 +157,110 @@ public class AtomConnectivity {
 		}
 	}
 	
-	private TaskExecutor tasks;
 	private Map<Key1,AtomPairs> atomPairs1;
 	private Map<Key2,AtomPairs> atomPairs2;
 	private Map<KeySeparate,AtomPairs> atomPairsSeparate;
 	
 	private AtomConnectivity(SimpleConfSpace confSpace, Collection<Residue> residues, Parallelism parallelism) {
 		
-		tasks = parallelism.makeTaskExecutor();
+		try (TaskExecutor tasks = parallelism.makeTaskExecutor()) {
 		
-		// collect all the templates
-		Set<ResidueTemplate> templatesSet = new HashSet<>();
-		if (confSpace != null) {
-			for (SimpleConfSpace.Position pos : confSpace.positions) {
-				for (SimpleConfSpace.ResidueConf rc : pos.resConfs) {
-					templatesSet.add(rc.template);
+			// collect all the templates
+			Set<ResidueTemplate> templatesSet = new HashSet<>();
+			if (confSpace != null) {
+				for (SimpleConfSpace.Position pos : confSpace.positions) {
+					for (SimpleConfSpace.ResidueConf rc : pos.resConfs) {
+						templatesSet.add(rc.template);
+					}
+				}
+				for (Strand strand : confSpace.strands) {
+					for (Residue res : strand.mol.residues) {
+						templatesSet.add(res.template);
+					}
 				}
 			}
-			for (Strand strand : confSpace.strands) {
-				for (Residue res : strand.mol.residues) {
+			if (residues != null) {
+				for (Residue res : residues) {
 					templatesSet.add(res.template);
 				}
 			}
-		}
-		if (residues != null) {
-			for (Residue res : residues) {
-				templatesSet.add(res.template);
-			}
-		}
-		List<ResidueTemplate> templates = new ArrayList<>(templatesSet);
-		
-		/* DEBUG: show template info
-		for (ResidueTemplate template : templates) {
-			if (template.name.equals("ALA") || template.name.equals("GLU")) {
-				System.out.println(template);
-				for (int i=0; i<template.templateRes.atoms.size(); i++) {
-					System.out.println("\t" + template.templateRes.atoms.get(i).name);
+			List<ResidueTemplate> templates = new ArrayList<>(templatesSet);
+			
+			/* DEBUG: show template info
+			for (ResidueTemplate template : templates) {
+				if (template.name.equals("ALA") || template.name.equals("GLU")) {
+					System.out.println(template);
+					for (int i=0; i<template.templateRes.atoms.size(); i++) {
+						System.out.println("\t" + template.templateRes.atoms.get(i).name);
+					}
 				}
 			}
-		}
-		*/
-		
-		// do singles
-		atomPairs1 = new HashMap<>();
-		for (int i=0; i<templates.size(); i++) {
-			ResidueTemplate templ1  = templates.get(i);
-			tasks.submit(
-				() -> makeSingle(templ1),
-				(AtomPairs pairs) -> {
-					boolean wasAdded = atomPairs1.put(new Key1(templ1), pairs) == null;
-					assert (wasAdded);
-				}
-			);
-		}
-		tasks.waitForFinish();
-		
-		// do doubles
-		atomPairs2 = new HashMap<>();
-		for (int i=0; i<templates.size(); i++) {
-			ResidueTemplate templ1  = templates.get(i);
-			for (int j=0; j<templates.size(); j++) {
-				ResidueTemplate templ2  = templates.get(j);
-				
-				// make the forward order
+			*/
+			
+			// do singles
+			atomPairs1 = new HashMap<>();
+			for (int i=0; i<templates.size(); i++) {
+				ResidueTemplate templ1  = templates.get(i);
 				tasks.submit(
-					() -> makeDouble(templ1, templ2),
+					() -> makeSingle(templ1),
 					(AtomPairs pairs) -> {
-						boolean wasAdded = atomPairs2.put(new Key2(templ1, templ2, true), pairs) == null;
+						boolean wasAdded = atomPairs1.put(new Key1(templ1), pairs) == null;
 						assert (wasAdded);
-						
-						// make the reverse order
-						AtomPairs swappedPairs = makeSwappedPairs(pairs);
-						boolean wasSwappedAdded = atomPairs2.put(new Key2(templ1, templ2, false), swappedPairs) == null;
-						assert (wasSwappedAdded);
 					}
 				);
 			}
-		}
-		tasks.waitForFinish();
-		
-		// do separates
-		atomPairsSeparate = new HashMap<>();
-		for (int i=0; i<templates.size(); i++) {
-			ResidueTemplate templ1  = templates.get(i);
-			for (int j=0; j<=i; j++) {
-				ResidueTemplate templ2  = templates.get(j);
-				
-				// make the forward order
-				tasks.submit(
-					() -> makeSeparate(templ1, templ2),
-					(AtomPairs pairs) -> {
-						boolean wasAdded = atomPairsSeparate.put(new KeySeparate(templ1, templ2), pairs) == null;
-						assert (wasAdded);
-						
-						// make the reverse order if needed
-						if (templ1 != templ2) {
+			tasks.waitForFinish();
+			
+			// do doubles
+			atomPairs2 = new HashMap<>();
+			for (int i=0; i<templates.size(); i++) {
+				ResidueTemplate templ1  = templates.get(i);
+				for (int j=0; j<templates.size(); j++) {
+					ResidueTemplate templ2  = templates.get(j);
+					
+					// make the forward order
+					tasks.submit(
+						() -> makeDouble(templ1, templ2),
+						(AtomPairs pairs) -> {
+							boolean wasAdded = atomPairs2.put(new Key2(templ1, templ2, true), pairs) == null;
+							assert (wasAdded);
+							
+							// make the reverse order
 							AtomPairs swappedPairs = makeSwappedPairs(pairs);
-							boolean wasSwappedAdded = atomPairsSeparate.put(new KeySeparate(templ2, templ1), swappedPairs) == null;
+							boolean wasSwappedAdded = atomPairs2.put(new Key2(templ1, templ2, false), swappedPairs) == null;
 							assert (wasSwappedAdded);
 						}
-					}
-				);
+					);
+				}
 			}
+			tasks.waitForFinish();
+			
+			// do separates
+			atomPairsSeparate = new HashMap<>();
+			for (int i=0; i<templates.size(); i++) {
+				ResidueTemplate templ1  = templates.get(i);
+				for (int j=0; j<=i; j++) {
+					ResidueTemplate templ2  = templates.get(j);
+					
+					// make the forward order
+					tasks.submit(
+						() -> makeSeparate(templ1, templ2),
+						(AtomPairs pairs) -> {
+							boolean wasAdded = atomPairsSeparate.put(new KeySeparate(templ1, templ2), pairs) == null;
+							assert (wasAdded);
+							
+							// make the reverse order if needed
+							if (templ1 != templ2) {
+								AtomPairs swappedPairs = makeSwappedPairs(pairs);
+								boolean wasSwappedAdded = atomPairsSeparate.put(new KeySeparate(templ2, templ1), swappedPairs) == null;
+								assert (wasSwappedAdded);
+							}
+						}
+					);
+				}
+			}
+			tasks.waitForFinish();
 		}
-		tasks.waitForFinish();
 	}
 	
 	public AtomPairs getAtomPairs(Residue res1, Residue res2) {

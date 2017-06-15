@@ -9,15 +9,16 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.Progress;
+import edu.duke.cs.osprey.tools.UseableBuilder;
 
 public class MinimizingConfEnergyCalculator implements ConfEnergyCalculator.Async {
 	
-	public static class Builder {
+	public static class Builder implements UseableBuilder<MinimizingConfEnergyCalculator> {
 		
 		private FragmentEnergyCalculator.Async ecalc;
 		
 		/**
-		 * How energies should be paritioned among single and pair fragments.
+		 * How energies should be partitioned among single and pair fragments.
 		 */
 		private EnergyPartition epart = new EnergyPartition.Traditional();
 		
@@ -73,8 +74,8 @@ public class MinimizingConfEnergyCalculator implements ConfEnergyCalculator.Asyn
 	}
 
 	@Override
-	public void cleanup() {
-		ecalc.cleanup();
+	public void clean() {
+		ecalc.clean();
 	}
 	
 	public List<EnergiedConf> calcAllEnergies(List<ScoredConf> confs) {

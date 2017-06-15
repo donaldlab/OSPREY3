@@ -85,6 +85,12 @@ public class GpuQueuePool {
 	
 	public synchronized void release(GpuQueue queue) {
 		
+		// if we're already cleaned up, cleanup the queue now
+		if (queues == null) {
+			queue.cleanup();
+			return;
+		}
+		
 		for (int i=0; i<queues.size(); i++) {
 			if (queues.get(i) == queue) {
 				checkedOut[i] = false;

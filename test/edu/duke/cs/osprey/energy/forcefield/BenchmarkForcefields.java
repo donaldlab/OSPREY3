@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.energy.forcefield;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
@@ -134,24 +133,29 @@ public class BenchmarkForcefields extends TestBase {
 		
 		// create-cleanup cycles
 		result.ms1 = benchmark("create-cleanup", 10, 200, 3, base == null ? null : base.ms1, () -> {
-			EnergyFunction efunc = efuncs.get();
-			cleanup(efunc);
+			EnergyFunction.Tools.cleanIfNeeded(efuncs.get());
 		});
 		
 		// second benchmark, run cycles
 		{
 			EnergyFunction efunc = efuncs.get();
-			result.ms2 = benchmark("run", 10, 600, 3, base == null ? null : base.ms2, () -> {
-				efunc.getEnergy();
-			});
-			cleanup(efunc);
+			try {
+				result.ms2 = benchmark("run", 10, 600, 3, base == null ? null : base.ms2, () -> {
+					efunc.getEnergy();
+				});
+			} finally {
+				EnergyFunction.Tools.cleanIfNeeded(efunc);
+			}
 		}
 		
 		// first benchmark, create-run-cleanup cycles
 		result.ms3 = benchmark("create-run-cleanup", 10, 100, 3, base == null ? null : base.ms3, () -> {
 			EnergyFunction efunc = efuncs.get();
-			efunc.getEnergy();
-			cleanup(efunc);
+			try {
+				efunc.getEnergy();
+			} finally {
+				EnergyFunction.Tools.cleanIfNeeded(efunc);
+			}
 		});
 		
 		
@@ -209,12 +213,6 @@ public class BenchmarkForcefields extends TestBase {
 		return bestMs;
 	}
 	
-	private static void cleanup(EnergyFunction efunc) {
-		if (efunc instanceof EnergyFunction.NeedsCleanup) {
-			((EnergyFunction.NeedsCleanup)efunc).cleanup();
-		}
-	}
-	
 	private static void benchmarkGpu(Molecule mol, SimpleConfSpace confSpace, ResPairCache resPairCache) {
 		
 		RCTuple frag = new RCTuple(new int[] { 0, 0, 0, 0, 0 });
@@ -228,7 +226,7 @@ public class BenchmarkForcefields extends TestBase {
 		benchmark("create-cleanup", 100, 1000, 5, null, () -> {
 			ResidueForcefieldEnergyCuda efunc = new ResidueForcefieldEnergyCuda(streams, resPairCache, inters, mol);
 			efunc.getEnergy();
-			efunc.cleanup();
+			efunc.clean();
 		});
 			
 		/*

@@ -318,17 +318,17 @@ public class TestMinimization extends TestBase {
 		for (boolean doSolv : Arrays.asList(true, false)) {
 			
 			Info info = Infos.get(doSolv);
-			MinimizingFragmentEnergyCalculator ecalc = new MinimizingFragmentEnergyCalculator.Builder(info.simpleConfSpace, info.ffparams)
+			new MinimizingFragmentEnergyCalculator.Builder(info.simpleConfSpace, info.ffparams)
 				.setType(type)
 				.setParallelism(parallelism)
-				.build();
-			MinimizingConfEnergyCalculator minimizer = new MinimizingConfEnergyCalculator.Builder(ecalc)
-				.build();
-			List<EnergiedConf> econfs = minimizer.calcAllEnergies(info.confs);
-			minimizer.cleanup();
-			ecalc.cleanup();
-			
-			checkConfs(info, econfs);
+				.use((ecalc) -> {
+					
+					new MinimizingConfEnergyCalculator.Builder(ecalc)
+						.use((minimizer) -> {
+							
+							checkConfs(info, minimizer.calcAllEnergies(info.confs));
+						});
+				});
 		}
 	}
 	

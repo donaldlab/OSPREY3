@@ -233,7 +233,7 @@ public class ResidueForcefieldEnergyCuda extends Kernel implements EnergyFunctio
 	}
 	
 	@Override
-	public void cleanup() {
+	public void clean() {
 		GpuStream stream = getStream();
 		if (coords != null) {
 			stream.doubleBuffers.release(coords);

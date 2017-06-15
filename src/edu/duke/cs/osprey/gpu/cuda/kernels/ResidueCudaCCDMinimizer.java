@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.gpu.cuda.kernels;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.DoubleBuffer;
 import java.util.ArrayList;
@@ -142,8 +141,7 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 	private static final int AtomPairBytes = Short.BYTES*2 + Integer.BYTES + Double.BYTES*9;
 	
 	
-	public ResidueCudaCCDMinimizer(GpuStreamPool streams, ObjectiveFunction f)
-	throws IOException {
+	public ResidueCudaCCDMinimizer(GpuStreamPool streams, ObjectiveFunction f) {
 		super(streams.checkout(), "residueCcd");
 		
 		this.streams = streams;
@@ -405,7 +403,7 @@ public class ResidueCudaCCDMinimizer extends Kernel implements Minimizer.NeedsCl
 	}
 
 	@Override
-	public void cleanup() {
+	public void clean() {
 		GpuStream stream = getStream();
 		if (data != null) {
 			stream.byteBuffers.release(data);

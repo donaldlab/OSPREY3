@@ -62,48 +62,72 @@ public class TestThreadPoolTaskExecutor {
 		}
 	}
 	
-	@Test(expected = TaskException.class)
+	@Test
 	public void handleTaskExceptionsGracefully() {
 		
 		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
-		tasks.start(1);
+		tasks.start(2);
 		
-		for (int i=0; i<10; i++) {
-
-			tasks.submit(
-				() -> {
-					// crash in the task
-					throw new Error("Oh No! a Bad Thing has happened");
-				},
-				(Void ignore) -> {
-					fail("task should not finish");
+		for (int r=0; r<100; r++) {
+		
+			try {
+				for (int i=0; i<10; i++) {
+					tasks.submit(
+						() -> {
+							// crash in the task
+							throw new Error("Oh No! a Bad Thing has happened");
+						},
+						(Void ignore) -> {
+							fail("task should not finish");
+						}
+					);
 				}
-			);
+				tasks.waitForFinish();
+				
+				fail("should have thrown Error");
+				
+			} catch (TaskException ex) {
+				
+				assertThat(tasks.getNumRunningTasks(), is(0L));
+				
+				// all is well
+				continue;
+			}
 		}
-		
-		tasks.waitForFinish();
 	}
 	
-	@Test(expected = TaskException.class)
+	@Test
 	public void handleListenerExceptionsGracefully() {
 		
 		ThreadPoolTaskExecutor tasks = new ThreadPoolTaskExecutor();
-		tasks.start(1);
+		tasks.start(2);
 		
-		for (int i=0; i<10; i++) {
-
-			tasks.submit(
-				() -> {
-					// we can do it!
-					return null;
-				},
-				(Void ignore) -> {
-					// crash in the listener
-					throw new Error("Oh No! a Bad Thing has happened");
+		for (int r=0; r<100; r++) {
+		
+			try {
+				for (int i=0; i<10; i++) {
+					tasks.submit(
+						() -> {
+							// easiest task ever!
+							return null;
+						},
+						(Void ignore) -> {
+							// crash in the listener
+							throw new Error("Oh No! a Bad Thing has happened");
+						}
+					);
 				}
-			);
+				tasks.waitForFinish();
+				
+				fail("should have thrown error");
+				
+			} catch (TaskException ex) {
+				
+				assertThat(tasks.getNumRunningTasks(), is(0L));
+				
+				// all is well
+				continue;
+			}
 		}
-		
-		tasks.waitForFinish();
 	}
 }

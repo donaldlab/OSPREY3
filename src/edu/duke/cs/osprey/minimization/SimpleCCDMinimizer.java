@@ -120,7 +120,7 @@ public class SimpleCCDMinimizer implements Minimizer.NeedsCleanup, Minimizer.Reu
 	}
 	
 	@Override
-	public void cleanup() {
+	public void clean() {
 		for (LineSearcher lineSearcher : lineSearchers) {
 			if (lineSearcher instanceof LineSearcher.NeedsCleanup) {
 				((LineSearcher.NeedsCleanup)lineSearcher).cleanup();

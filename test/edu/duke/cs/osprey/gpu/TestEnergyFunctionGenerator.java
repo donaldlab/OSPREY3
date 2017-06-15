@@ -76,7 +76,7 @@ public class TestEnergyFunctionGenerator extends TestBase {
 	
 	private double getGpuEnergy(GpuForcefieldEnergy efunc) {
 		double energy = efunc.getEnergy();
-		efunc.cleanup();
+		efunc.clean();
 		return energy;
 	}
 

@@ -281,17 +281,11 @@ public class TestForcefieldEnergy extends TestBase {
 				try {
 					assertThat(p.toString(), efunc.getEnergy(), isAbsolutely(p.expectedEnergy, EnergyEpsilon));
 				} finally {
-					cleanupEfunc(efunc);
+					EnergyFunction.Tools.cleanIfNeeded(efunc);
 				}
 			}
 		} finally {
 			efuncs.cleanup();
-		}
-	}
-	
-	private void cleanupEfunc(EnergyFunction efunc) {
-		if (efunc instanceof EnergyFunction.NeedsCleanup) {
-			((EnergyFunction.NeedsCleanup)efunc).cleanup();
 		}
 	}
 	
@@ -518,7 +512,7 @@ public class TestForcefieldEnergy extends TestBase {
 		try {
 			return efunc.getEnergy();
 		} finally {
-			cleanupEfunc(efunc);
+			EnergyFunction.Tools.cleanIfNeeded(efunc);
 		}
 	}
 	

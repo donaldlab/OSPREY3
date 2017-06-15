@@ -4,17 +4,17 @@ import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
+import edu.duke.cs.osprey.tools.AutoCleanable;
 
 public interface ConfEnergyCalculator {
 	
 	EnergiedConf calcEnergy(ScoredConf conf);
 
 	// use asynchronous techniques so we can parallelize conformation evaluation
-	public static interface Async extends ConfEnergyCalculator {
+	public static interface Async extends ConfEnergyCalculator, AutoCleanable {
 
 		void calcEnergyAsync(ScoredConf conf, Listener listener);
 		TaskExecutor getTasks();
-		void cleanup();
 
 		public static interface Listener extends TaskListener<EnergiedConf> {
 			// nothing else to do
@@ -46,7 +46,7 @@ public interface ConfEnergyCalculator {
 			}
 
 			@Override
-			public void cleanup() {
+			public void clean() {
 				// nothing to do
 			}
 		}

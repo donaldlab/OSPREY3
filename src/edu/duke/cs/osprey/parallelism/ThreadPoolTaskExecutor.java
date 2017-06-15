@@ -5,9 +5,9 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -18,24 +18,14 @@ import edu.duke.cs.tpie.Cleaner.GarbageDetectable;
 
 public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetectable {
 	
-	private static final ThreadFactory DaemonThreadFactory = new ThreadFactory() {
-		// here there be daemons!
-		
-		private ThreadFactory threadFactory = Executors.defaultThreadFactory();
-
-		@Override
-		public Thread newThread(Runnable runnable) {
-			Thread thread = threadFactory.newThread(runnable);
-			thread.setDaemon(true);
-			return thread;
-		}
-	};
-	
 	private static class Threads implements Cleanable {
 		
-		ThreadPoolExecutor pool;
-		ThreadPoolExecutor listener;
-		BlockingQueue<Runnable> queue;
+		private static int nextId = 0;
+		
+		final int poolId = nextId++;
+		final ThreadPoolExecutor pool;
+		final ThreadPoolExecutor listener;
+		final BlockingQueue<Runnable> queue;
 		
 		public Threads(int numThreads, int queueSize) {
 			
@@ -44,12 +34,23 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 			} else {
 				queue = new ArrayBlockingQueue<>(queueSize);
 			}
-			pool = new ThreadPoolExecutor(numThreads, numThreads, 0, TimeUnit.DAYS, queue, DaemonThreadFactory);
+			AtomicInteger threadId = new AtomicInteger(0);
+			pool = new ThreadPoolExecutor(numThreads, numThreads, 0, TimeUnit.DAYS, queue, (runnable) -> {
+				Thread thread = Executors.defaultThreadFactory().newThread(runnable);
+				thread.setDaemon(true);
+				thread.setName(String.format("pool-%d-%d", poolId, threadId.getAndIncrement()));
+				return thread;
+			});
 			pool.prestartAllCoreThreads();
 			
 			// use an unbounded queue for the listener thread
 			// let task results pile up until the listener thread can process them
-			listener = new ThreadPoolExecutor(1, 1, 0, TimeUnit.DAYS, new LinkedBlockingQueue<>(), DaemonThreadFactory);
+			listener = new ThreadPoolExecutor(1, 1, 0, TimeUnit.DAYS, new LinkedBlockingQueue<>(), (runnable) -> {
+				Thread thread = Executors.defaultThreadFactory().newThread(runnable);
+				thread.setDaemon(true);
+				thread.setName(String.format("pool-%d-listener", poolId));
+				return thread;
+			});
 			listener.prestartAllCoreThreads();
 		}
 		
@@ -75,7 +76,7 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 	 * Set this to 0 to cause main thread to block until task thread is ready.
 	 * Set this to >0 to "buffer" tasks so task threads don't have to wait on the main thread to start a task.
 	 * >0 can sometimes be faster than 0, but only works if you know how many tasks you have in advance.
-	 * otherwise, you can end up execting more tasks than you need.
+	 * otherwise, you can end up executing more tasks than you need.
 	 * The best queue size to use is determined by the amount of work it takes to create a task vs execute it.
 	 * Experiment to find the best values for your problem.
 	 */
@@ -84,7 +85,7 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 	private Threads threads;
 	private AtomicLong numTasksStarted;
 	private AtomicLong numTasksFinished;
-	private AtomicReference<Throwable> exception;
+	private AtomicReference<TaskException> exception;
 	private Signal taskSignal;
 	
 	public ThreadPoolTaskExecutor() {
@@ -115,6 +116,11 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 	}
 	
 	@Override
+	public void clean() {
+		stop();
+	}
+	
+	@Override
 	public int getParallelism() {
 		return threads.pool.getCorePoolSize();
 	}
@@ -125,6 +131,12 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 			
 			boolean wasAdded = false;
 			while (!wasAdded) {
+				
+				// check for exceptions
+				// NOTE: waitForFinish will throw the exception
+				if (exception.get() != null) {
+					waitForFinish();
+				}
 				
 				// NOTE: don't use ThreadPoolExecutor.submit() to send tasks, because it won't let us block.
 				// access the work queue directly instead, so we can block if the thread pool isn't ready yet.
@@ -144,27 +156,24 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 								listener.onFinished(result);
 								
 							} catch (Throwable t) {
-								recordException(t);
+								recordException(task, listener, t);
 							}
 							
 							// tell anyone waiting that we finished a task
-							numTasksFinished.incrementAndGet();
-							taskSignal.sendSignal();
+							finishedTask();
 						});
 						
 					} catch (Throwable t) {
-						recordException(t);
+						recordException(task, listener, t);
+	
+						// the task failed, but still report finish
+						finishedTask();
 					}
 					
 				}, 400, TimeUnit.MILLISECONDS);
-				
-				// check for exceptions
-				Throwable t = exception.get();
-				if (t != null) {
-					throw new TaskException(task, listener, t);
-				}
 			}
 			
+			// the task was started successfully, hooray!
 			numTasksStarted.incrementAndGet();
 			
 		} catch (InterruptedException ex) {
@@ -182,12 +191,27 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 			// wait a bit before checking again, unless a task finishes
 			taskSignal.waitForSignal(100);
 		}
+		
+		// check for exceptions
+		TaskException t = exception.get();
+		if (t != null) {
+			throw t;
+		}
 	}
 	
-	private void recordException(Throwable t) {
+	public long getNumRunningTasks() {
+		return numTasksStarted.get() - numTasksFinished.get();
+	}
+	
+	private void recordException(Task<?> task, TaskListener<?> listener, Throwable t) {
 		
 		// record the exception, but don't overwrite any existing exceptions
 		// TODO: keep a list of all exceptions?
-		exception.compareAndSet(null, t);
+		exception.compareAndSet(null, new TaskException(task, listener, t));
+	}
+	
+	private void finishedTask() {
+		numTasksFinished.incrementAndGet();
+		taskSignal.sendSignal();
 	}
 }

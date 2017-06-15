@@ -273,7 +273,7 @@ public class BenchmarkForcefieldKernel extends TestBase {
 							checkEnergy(expectedEnergy, energy);
 						
 						} finally {
-							gpuefunc.cleanup();
+							gpuefunc.clean();
 						}
 					}
 				});
@@ -323,7 +323,7 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		
 		checkEnergy(expectedEnergy, energy);
 		
-		gpuefunc.cleanup();
+		gpuefunc.clean();
 	}
 	
 	protected static void checkEnergy(double exp, double obs) {
@@ -377,7 +377,7 @@ public class BenchmarkForcefieldKernel extends TestBase {
 			energy += minimize(gpuefunc, search.confSpace, conf);
 		}
 		gpuStopwatch.stop();
-		gpuefunc.cleanup();
+		gpuefunc.clean();
 		System.out.println("\tfinished in " + gpuStopwatch.getTime(2));
 		System.out.println("\tenergy sum: " + energy);
 		

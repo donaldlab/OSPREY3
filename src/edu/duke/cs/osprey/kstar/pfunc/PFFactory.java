@@ -131,7 +131,7 @@ public class PFFactory {
 		}
 		
 		public void cleanup() {
-			ecalc.cleanup();
+			ecalc.clean();
 		}
 	}
 	
