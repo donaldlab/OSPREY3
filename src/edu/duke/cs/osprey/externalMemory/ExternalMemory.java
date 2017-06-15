@@ -16,7 +16,8 @@ public class ExternalMemory {
 	 */
 	public static void setInternalLimit(int mib) {
 		if (limitSet) {
-			throw new Error("internal memory limit already set");
+			System.err.println("WARNING: Internal memory limit already set, ignoring additional request.");
+			return;
 		}
 		TPIE.start(mib);
 		limitSet = true;
