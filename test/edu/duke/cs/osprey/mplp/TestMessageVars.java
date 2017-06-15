@@ -77,8 +77,8 @@ public class TestMessageVars extends TestBase {
 		ConfIndex confIndex = new ConfIndex(rcs.getNumPos());
 		new LinkedConfAStarNode()
 			.assign(0, 0)
-			.assign(0, 0)
-			.assign(0, 0)
+			.assign(1, 0)
+			.assign(2, 0)
 		.index(confIndex);
 		
 		// initialize message vars with traditional A* heuristic
@@ -97,8 +97,8 @@ public class TestMessageVars extends TestBase {
 		ConfIndex confIndex = new ConfIndex(rcs.getNumPos());
 		new LinkedConfAStarNode()
 			.assign(0, 0)
-			.assign(0, 0)
-			.assign(0, 0)
+			.assign(1, 0)
+			.assign(2, 0)
 		.index(confIndex);
 		
 		// initialize message vars with traditional A* heuristic
@@ -117,8 +117,8 @@ public class TestMessageVars extends TestBase {
 		ConfIndex confIndex = new ConfIndex(rcs.getNumPos());
 		new LinkedConfAStarNode()
 			.assign(0, 0)
-			.assign(0, 0)
-			.assign(0, 0)
+			.assign(1, 0)
+			.assign(2, 0)
 		.index(confIndex);
 		
 		// make some zero messages

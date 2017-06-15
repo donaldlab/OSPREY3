@@ -53,7 +53,7 @@ public class TestParallelConfPartitionFunction extends TestBase {
 		ConfSearchFactory confSearchFactory = new ConfSearchFactory() {
 			@Override
 			public ConfSearch make(EnergyMatrix emat, PruningMatrix pmat) {
-				return new ConfAStarTree.Builder(search.emat, search.pruneMat)
+				return new ConfAStarTree.Builder(emat, pmat)
 					.setMPLP(new ConfAStarTree.MPLPBuilder()
 						.setNumIterations(1)
 					).build();
