@@ -97,7 +97,7 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 		return ans;
 	}
 
-	protected void setResidueValues(MSSearchProblem[][] objFcnSearch, boolean assigned, boolean parallel) {
+	protected void setResidueValues(LMB objFcn, MSSearchProblem[][] objFcnSearch, boolean assigned, boolean parallel) {
 		ArrayList<ResisueOrderWorker> workers = new ArrayList<>();
 		//set all workers
 		for(int state=0;state<objFcnSearch.length;++state) {
@@ -108,35 +108,45 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 		}
 
 		if(!parallel) {
-			for(ResisueOrderWorker w : workers) setResidueValues(w.search, w.state, 
+			for(ResisueOrderWorker w : workers) setResidueValues(objFcn.getCoeffs()[w.state], w.search, w.state, 
 					w.subState, w.isUnbound, w.search.getPosNums(assigned));
 		}
 		//execute in parallel
 		else {
-			workers.parallelStream().forEach(w -> setResidueValues(w.search, w.state, 
+			workers.parallelStream().forEach(w -> setResidueValues(objFcn.getCoeffs()[w.state], w.search, w.state, 
 					w.subState, w.isUnbound, w.search.getPosNums(assigned)));
 		}
 	}
+	
+	protected boolean isUpperBoundPFProxy(BigDecimal objFcnCoeff, boolean isUnbound) {
+		if(objFcnCoeff.compareTo(BigDecimal.ZERO)<0 && !isUnbound ||
+				objFcnCoeff.compareTo(BigDecimal.ZERO)>0 && isUnbound)
+			return true;
+		return false;
+	}
 
-	protected void setResidueValues(MSSearchProblem search, int state, int subState, 
+	protected void setResidueValues(BigDecimal objFcnCoeff, MSSearchProblem search, int state, int subState, 
 			boolean isUnbound, ArrayList<Integer> positions) {
 
+		boolean isUpperBoundPFProxy = isUpperBoundPFProxy(objFcnCoeff, isUnbound);
 		int numPos = search.getNumPos();
 
 		for(int pos1 : positions) {
 			double pos1Value = 0;
 			//also used pruned rcs at pos?
 			ArrayList<Integer> pos1RCs = search.pruneMat.unprunedRCsAtPos(pos1);
-			int pos1Size = search.countRcsAtPosForAAs(search.pruneMat, pos1, residueAAs.get(state).get(subState).get(pos1), false);
-			
+
 			for(int pos2=0;pos2<numPos;++pos2) {
 				if(pos1==pos2) continue;
-
-				ArrayList<Integer> pos2RCs = search.pruneMat.unprunedRCsAtPos(pos2);
-				int pos2Size = search.countRcsAtPosForAAs(search.pruneMat, pos2, residueAAs.get(state).get(subState).get(pos2), false);
 				
+				if(pos1Value == Double.POSITIVE_INFINITY) continue;
+				
+				ArrayList<Integer> pos2RCs = search.pruneMat.unprunedRCsAtPos(pos2);
+
 				// first, find the min pairwise energy over all rc pairs
-				double minPairwise = Double.POSITIVE_INFINITY;				
+				double minPairwise = Double.POSITIVE_INFINITY;
+				double maxPairwise = Double.NEGATIVE_INFINITY;
+				
 				for(int rc1 : pos1RCs) {
 
 					String rc1AAType = search.confSpace.posFlex.get(pos1).RCs.get(rc1).AAType;
@@ -147,50 +157,83 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 						String rc2AAType = search.confSpace.posFlex.get(pos2).RCs.get(rc2).AAType;
 						if(!residueAAs.get(state).get(subState).get(pos2).contains(rc2AAType)) continue;
 
-						minPairwise = Math.min(minPairwise, search.emat.getPairwise(pos1, rc1, pos2, rc2));
-					}
-				}
-
-				//compute the harmonic average of normalized pairwise energies
-				double pos2Value = 0;
-				for(int rc1 : pos1RCs) {
-
-					String rc1AAType = search.confSpace.posFlex.get(pos1).RCs.get(rc1).AAType;
-					if(!residueAAs.get(state).get(subState).get(pos1).contains(rc1AAType)) continue;
-
-					for(int rc2 : pos2RCs) {
-
-						String rc2AAType = search.confSpace.posFlex.get(pos2).RCs.get(rc2).AAType;
-						if(!residueAAs.get(state).get(subState).get(pos2).contains(rc2AAType)) continue;
-
-						double normalizedPairwise = search.emat.getPairwise(pos1, rc1, pos2, rc2) - minPairwise;
-						if (normalizedPairwise != 0) {
-							pos2Value += 1.0/normalizedPairwise;
+						double pairwise = search.emat.getPairwise(pos1, rc1, pos2, rc2);
+						if(Double.isNaN(pairwise)) continue;
+						
+						//can count infinities here; positive infinity is allowed
+						if(isUpperBoundPFProxy) {
+							if(pairwise == Double.NEGATIVE_INFINITY) continue;
+							minPairwise = Math.min(minPairwise, pairwise);
+						}
+						
+						//skip infinities here
+						else {
+							if(Double.isInfinite(pairwise)) continue;
+							maxPairwise = Math.max(maxPairwise, pairwise);
 						}
 					}
 				}
+				
+				//computing upper bound partition function proxy
+				if(isUpperBoundPFProxy) {
+					pos1Value += minPairwise;
+				}
+				
+				else {
+					maxPairwise = maxPairwise==Double.NEGATIVE_INFINITY ? search.settings.stericThreshold : maxPairwise;
+					pos1Value += maxPairwise;
+				}
 
-				pos2Value = (pos1Size*pos2Size - 1)/pos2Value;
-				
-				if(Double.isNaN(pos2Value) || Double.isInfinite(pos2Value)) continue;
-				
-				pos1Value += pos2Value;
+				/*
+				//computing lower bound partition function proxy
+				//compute the harmonic average of normalized pairwise energies
+				else {
+					double pos2Value = 0;
+					for(int rc1 : pos1RCs) {
+
+						String rc1AAType = search.confSpace.posFlex.get(pos1).RCs.get(rc1).AAType;
+						if(!residueAAs.get(state).get(subState).get(pos1).contains(rc1AAType)) continue;
+
+						for(int rc2 : pos2RCs) {
+
+							String rc2AAType = search.confSpace.posFlex.get(pos2).RCs.get(rc2).AAType;
+							if(!residueAAs.get(state).get(subState).get(pos2).contains(rc2AAType)) continue;
+
+							double normalizedPairwise = search.emat.getPairwise(pos1, rc1, pos2, rc2) - minPairwise;
+							if (normalizedPairwise != 0) {
+								pos2Value += 1.0/normalizedPairwise;
+							}
+						}
+					}
+
+					int pos2Size = search.countRcsAtPosForAAs(search.pruneMat, pos2, residueAAs.get(state).get(subState).get(pos2), false);
+					pos2Value = (pos1Size*pos2Size - 1)/pos2Value;
+					if(Double.isNaN(pos2Value) || Double.isInfinite(pos2Value)) continue;
+					pos1Value += pos2Value;
+				}
+				*/
 			}
 
 			if(Double.isNaN(pos1Value)) pos1Value = 0;
 			BigDecimal val = boltzmann.calc(pos1Value).setScale(64, RoundingMode.HALF_UP);
-			
+
 			//val can be 0 for bound state but not for unbound states
 			if(isUnbound) {
 				val = val.compareTo(BigDecimal.ZERO)==0 ? BigDecimal.ONE.setScale(64, RoundingMode.HALF_UP) : val;
 			}
+
 			
-			else if(val.compareTo(BigDecimal.ZERO)!=0) {
-				//for bound state, multiply by the mean number of rotamers at pos
+			//multiply by number of rotamers for the upper bound partition function proxy
+			if(isUpperBoundPFProxy) {
+				//multiply by the number of rotamers at pos
+				//val = val.multiply(BigDecimal.valueOf(pos1Size));
 				int numAAsAtPos = residueAAs.get(state).get(subState).get(pos1).size();
-				val = val.multiply(BigDecimal.valueOf( (double)pos1Size/(double)numAAsAtPos ));
+				int pos1Size = search.countRcsAtPosForAAs(search.pruneMat, pos1, residueAAs.get(state).get(subState).get(pos1), false);
+				
+				val = val.multiply(BigDecimal.valueOf((double)pos1Size/(double)numAAsAtPos));
 			}
 			
+
 			residueValues.get(state).get(subState).set(pos1, val);
 		}
 	}
@@ -448,10 +491,10 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 		computeAllowedAAsAtPos(objFcnSearch, unassignedPos, numMaxMut);//add unassigned
 
 		//"g-score": value assigned residues
-		setResidueValues(objFcnSearch, true, MSKStarNode.PARALLEL_EXPANSION);
+		setResidueValues(objFcn, objFcnSearch, true, MSKStarNode.PARALLEL_EXPANSION);
 
 		//"h-score": value unassigned residues
-		setResidueValues(objFcnSearch, false, MSKStarNode.PARALLEL_EXPANSION);
+		setResidueValues(objFcn, objFcnSearch, false, MSKStarNode.PARALLEL_EXPANSION);
 
 		//score unassigned residues by objfcn
 		ArrayList<ResidueAssignmentScore> scores = scoreUnassignedPos(objFcn, objFcnSearch, objFcnScores);

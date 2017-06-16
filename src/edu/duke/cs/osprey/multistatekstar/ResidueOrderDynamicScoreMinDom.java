@@ -16,8 +16,8 @@ public class ResidueOrderDynamicScoreMinDom extends ResidueOrder {
 	private ResidueOrderStaticMinDomain mindom;
 	//private ResidueOrderWTDistance wtdist;
 	
-	private double dCoeff = 1.0;
-	private double mCoeff = 2.0;
+	private double dCoeff = 4.0;
+	private double mCoeff = 1.0;
 	//private double wCoeff = 1.0;//coeff for dist from wt
 	
 	private HashMap<ResidueAssignment, Integer> d2A2Rank;
