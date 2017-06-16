@@ -78,7 +78,7 @@ public class EnergyPartitionsPlayground {
 	
 		// what's the energy of a conformation?
 		MinimizingConfEnergyCalculator confEcalc = new MinimizingConfEnergyCalculator.Builder(fragEcalc)
-			.setReferenceEnegries(eref)
+			.setReferenceEnergies(eref)
 			.build();
 		
 		// find the GMEC!

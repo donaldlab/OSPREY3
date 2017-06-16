@@ -311,33 +311,53 @@ def ForcefieldParams(forcefield=None):
 	return c.energy.forcefield.ForcefieldParams()
 
 
-def EnergyCalculator(confSpace, ffparams, parallelism=None, referenceEnergies=None):
+def FragmentEnergyCalculator(confSpace, ffparams, parallelism=None):
 	'''
-	:java:classdoc:`.energy.MinimizingEnergyCalculator`
+	:java:classdoc:`.energy.MinimizingFragmentEnergyCalculator`
 
-	:builder_option confSpace .energy.MinimizingEnergyCalculator$Builder#confSpace:
-	:builder_option ffparams .energy.MinimizingEnergyCalculator$Builder#ffparams:
-	:builder_option parallelism .energy.MinimizingEnergyCalculator$Builder#parallelism:
-	:builder_return .energy.MinimizingEnergyCalculator$Builder:
+	:builder_option confSpace .energy.MinimizingFragmentEnergyCalculator$Builder#confSpace:
+	:builder_option ffparams .energy.MinimizingFragmentEnergyCalculator$Builder#ffparams:
+	:builder_option parallelism .energy.MinimizingFragmentEnergyCalculator$Builder#parallelism:
+	:builder_return .energy.MinimizingFragmentEnergyCalculator$Builder:
 	'''
-	builder = _get_builder(c.energy.MinimizingEnergyCalculator)(confSpace, ffparams)
+	builder = _get_builder(c.energy.MinimizingFragmentEnergyCalculator)(confSpace, ffparams)
 
 	if parallelism is not None:
 		builder.setParallelism(parallelism)
 
+	return builder.build()
+
+
+def ConfEnergyCalculator(fragEcalc, referenceEnergies=None, energyPartition=None):
+	'''
+	:java:classdoc:`.energy.MinimizingConfEnergyCalculator`
+
+	:builder_option fragEcalc .energy.MinimizingConfEnergyCalculator$Builder#ecalc:
+	:builder_option ffparams .energy.MinimizingConfEnergyCalculator$Builder#ffparams:
+	:builder_option parallelism .energy.MinimizingConfEnergyCalculator$Builder#parallelism:
+	:builder_option energyPartition .energy.MinimizingConfEnergyCalculator$Builder#energyPartition:
+	:builder_return .energy.MinimizingConfEnergyCalculator$Builder:
+	'''
+	builder = _get_builder(c.energy.MinimizingConfEnergyCalculator)(fragEcalc)
+
 	if referenceEnergies is not None:
 		builder.setReferenceEnergies(referenceEnergies)
+
+	if energyPartition is not None:
+		builder.setEnergyPartition(energyPartition)
 
 	return builder.build()
 
 
-def EnergyMatrix(confSpace, ecalc, cacheFile=None):
+def EnergyMatrix(confSpace, ecalc, cacheFile=None, referenceEnergies=None, energyPartition=None):
 	'''
 	:java:methoddoc:`.ematrix.SimplerEnergyMatrixCalculator#calcEnergyMatrix`
 
 	:builder_option confSpace .ematrix.SimplerEnergyMatrixCalculator$Builder#confSpace:
 	:builder_option ecalc .ematrix.SimplerEnergyMatrixCalculator$Builder#ecalc:
 	:builder_option cacheFile .ematrix.SimplerEnergyMatrixCalculator$Builder#cacheFile:
+	:builder_option referenceEnergies .ematrix.SimplerEnergyMatrixCalculator$Builder#eref:
+	:builder_option energyPartition .ematrix.SimplerEnergyMatrixCalculator$Builder#epart:
 	'''
 	
 	builder = _get_builder(c.ematrix.SimplerEnergyMatrixCalculator)(confSpace, ecalc)

@@ -32,7 +32,7 @@ public class MinimizingConfEnergyCalculator implements ConfEnergyCalculator.Asyn
 			return this;
 		}
 		
-		public Builder setReferenceEnegries(SimpleReferenceEnergies val) {
+		public Builder setReferenceEnergies(SimpleReferenceEnergies val) {
 			eref = val;
 			return this;
 		}
