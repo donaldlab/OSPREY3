@@ -467,7 +467,9 @@ public class GMECFinder {
             System.out.println(String.format("Also found %d more conformations in energy window", econfs.size() - 1));
         }
         
-        ecalc.clean();//Clean up once both rounds of iMinDEE (if applicable) are done
+        if (ecalc instanceof MinimizingConfEnergyCalculator) {
+        	((MinimizingConfEnergyCalculator)ecalc).clean();//Clean up once both rounds of iMinDEE (if applicable) are done
+        }
         return econfs;
     }
     

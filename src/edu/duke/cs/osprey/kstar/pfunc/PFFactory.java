@@ -122,7 +122,7 @@ public class PFFactory {
 	
 	private static class StrandInfo {
 		
-		public final ConfEnergyCalculator.Async ecalc;
+		public final MinimizingConfEnergyCalculator ecalc;
 		
 		public StrandInfo(KSConfigFileParser cfp, KSSearchProblem multiSeqSearch) {
 			Parallelism parallelism = Parallelism.makeFromConfig(cfp);

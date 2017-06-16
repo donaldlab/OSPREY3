@@ -321,13 +321,10 @@ public class TestMinimization extends TestBase {
 			new MinimizingFragmentEnergyCalculator.Builder(info.simpleConfSpace, info.ffparams)
 				.setType(type)
 				.setParallelism(parallelism)
-				.use((ecalc) -> {
+				.use((fragEcalc) -> {
 					
-					new MinimizingConfEnergyCalculator.Builder(ecalc)
-						.use((minimizer) -> {
-							
-							checkConfs(info, minimizer.calcAllEnergies(info.confs));
-						});
+					MinimizingConfEnergyCalculator confEcalc = new MinimizingConfEnergyCalculator.Builder(fragEcalc).build();
+					checkConfs(info, confEcalc.calcAllEnergies(info.confs));
 				});
 		}
 	}

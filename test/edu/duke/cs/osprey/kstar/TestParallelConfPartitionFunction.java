@@ -13,7 +13,6 @@ import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.gmec.ConfSearchFactory;
 import edu.duke.cs.osprey.gmec.MinimizingConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.ParallelConfPartitionFunction;
@@ -25,10 +24,10 @@ public class TestParallelConfPartitionFunction extends TestBase {
 	
 	public static class Pfunc {
 		
-		public ConfEnergyCalculator.Async ecalc;
+		public MinimizingConfEnergyCalculator ecalc;
 		public ParallelConfPartitionFunction pfunc;
 		
-		public Pfunc(ConfEnergyCalculator.Async ecalc, SearchProblem search, ConfSearchFactory confSearchFactory) {
+		public Pfunc(MinimizingConfEnergyCalculator ecalc, SearchProblem search, ConfSearchFactory confSearchFactory) {
 			this.ecalc = ecalc;
 			this.pfunc = new ParallelConfPartitionFunction(search.emat, search.pruneMat, confSearchFactory, ecalc);
 		}
@@ -61,7 +60,7 @@ public class TestParallelConfPartitionFunction extends TestBase {
 		};
 		
 		// make the conf energy calculator
-		ConfEnergyCalculator.Async ecalc = MinimizingConfEnergyCalculator.make(makeDefaultFFParams(), search, parallelism);
+		MinimizingConfEnergyCalculator ecalc = MinimizingConfEnergyCalculator.make(makeDefaultFFParams(), search, parallelism);
 		
 		return new Pfunc(ecalc, search, confSearchFactory);
 	}

@@ -119,7 +119,6 @@ public class MinimizingConfEnergyCalculator implements ConfEnergyCalculator.Asyn
 		});
 	}
 	
-	@Override
 	public void clean() {
 		minimizer.cleanup();
 	}

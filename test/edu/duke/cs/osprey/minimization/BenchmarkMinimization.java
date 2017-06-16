@@ -213,10 +213,9 @@ public class BenchmarkMinimization extends TestBase {
 			new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
 				.setType(MinimizingFragmentEnergyCalculator.Type.Cpu)
 				.setParallelism(Parallelism.makeCpu(numThreads))
-				.use((ecalc) -> {
-					new MinimizingConfEnergyCalculator.Builder(ecalc).use((minimizer) -> {
-						benchmark(minimizer, confs, oneCpuStopwatch);
-					});
+				.use((fragEcalc) -> {
+					MinimizingConfEnergyCalculator confEcalc = new MinimizingConfEnergyCalculator.Builder(fragEcalc).build();
+					benchmark(confEcalc, confs, oneCpuStopwatch);
 				});
 		}
 		
@@ -255,10 +254,9 @@ public class BenchmarkMinimization extends TestBase {
 			new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
 				.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCuda)
 				.setParallelism(Parallelism.makeGpu(numGpus, numStreams))
-				.use((ecalc) -> {
-					new MinimizingConfEnergyCalculator.Builder(ecalc).use((minimizer) -> {
-						benchmark(minimizer, confs, oneCpuStopwatch);
-					});
+				.use((fragEcalc) -> {
+					MinimizingConfEnergyCalculator confEcalc = new MinimizingConfEnergyCalculator.Builder(fragEcalc).build();
+					benchmark(confEcalc, confs, oneCpuStopwatch);
 				});
 		}
 		
@@ -268,10 +266,9 @@ public class BenchmarkMinimization extends TestBase {
 			new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
 				.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCudaCCD)
 				.setParallelism(Parallelism.makeGpu(numGpus, numStreams))
-				.use((ecalc) -> {
-					new MinimizingConfEnergyCalculator.Builder(ecalc).use((minimizer) -> {
-						benchmark(minimizer, confs, oneCpuStopwatch);
-					});
+				.use((fragEcalc) -> {
+					MinimizingConfEnergyCalculator confEcalc = new MinimizingConfEnergyCalculator.Builder(fragEcalc).build();
+					benchmark(confEcalc, confs, oneCpuStopwatch);
 				});
 		}
 	}

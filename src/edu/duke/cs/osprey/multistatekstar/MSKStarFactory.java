@@ -146,18 +146,17 @@ public class MSKStarFactory {
 		}
 	}
 
-	public static ConfEnergyCalculator.Async makeEnergyCalculator(
+	public static MinimizingConfEnergyCalculator makeEnergyCalculator(
 			MSConfigFileParser cfp,
 			SearchProblem multiSeqSearch,
 			Parallelism parallelism
 			) {
 		// make the conf energy calculator
-		ConfEnergyCalculator.Async ecalc = MinimizingConfEnergyCalculator.make(
+		return MinimizingConfEnergyCalculator.make(
 				makeDefaultFFParams(cfp.params),
 				multiSeqSearch, 
 				parallelism 
 				);
-		return ecalc;
 	}
 
 	public static PartitionFunction makePartitionFunction(

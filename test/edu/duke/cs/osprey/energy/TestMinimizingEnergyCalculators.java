@@ -171,11 +171,10 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 		for (EnergyPartition epart : Arrays.asList(new EnergyPartition.Traditional(), new EnergyPartition.AllOnPairs())) {
 		
 			try (MinimizingFragmentEnergyCalculator fragecalc = builder.build()) {
-				new MinimizingConfEnergyCalculator.Builder(fragecalc)
+				MinimizingConfEnergyCalculator ecalc = new MinimizingConfEnergyCalculator.Builder(fragecalc)
 					.setEnergyPartition(epart)
-					.use((ecalc) -> {
-						assertEnergies(ecalc);
-					});
+					.build();
+				assertEnergies(ecalc);
 			}
 		}
 	}
@@ -261,7 +260,6 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 			ecalc.calcEnergyAsync(confs.get(2), listener);
 			ecalc.calcEnergyAsync(confs.get(3), listener);
 			ecalc.getTasks().waitForFinish();
-			ecalc.clean();
 		}
 	}
 	
