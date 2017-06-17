@@ -19,7 +19,7 @@ public class MinimizingConfEnergyCalculator implements ConfEnergyCalculator.Asyn
 		/**
 		 * How energies should be partitioned among single and pair fragments.
 		 */
-		private EnergyPartition epart = new EnergyPartition.Traditional();
+		private EnergyPartition epart = EnergyPartition.Traditional;
 		
 		private SimpleReferenceEnergies eref = null;
 		

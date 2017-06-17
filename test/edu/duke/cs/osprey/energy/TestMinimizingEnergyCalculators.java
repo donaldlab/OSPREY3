@@ -168,7 +168,7 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 	
 	private void assertEnergies(MinimizingFragmentEnergyCalculator.Builder builder) {
 		
-		for (EnergyPartition epart : Arrays.asList(new EnergyPartition.Traditional(), new EnergyPartition.AllOnPairs())) {
+		for (EnergyPartition epart : Arrays.asList(EnergyPartition.Traditional, EnergyPartition.AllOnPairs)) {
 		
 			try (MinimizingFragmentEnergyCalculator fragecalc = builder.build()) {
 				MinimizingConfEnergyCalculator ecalc = new MinimizingConfEnergyCalculator.Builder(fragecalc)

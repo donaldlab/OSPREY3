@@ -23,15 +23,14 @@ public class EnergyPartitionsPlayground {
 		Strand strand = new Strand.Builder(PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb")).build();
 		
 		// configure flexibility
-		
+		/*
 		for (int i=2; i<=15; i++) {
 			strand.flexibility.get(i).setLibraryRotamers("LEU", "ILE").setContinuous();
 		}
-		/*
-		for (int i=2; i<=3; i++) {
+		*/
+		for (int i=2; i<=8; i++) {
 			strand.flexibility.get(i).setLibraryRotamers("GLY", "ALA", "VAL", "LEU", "ILE", "SER", "THR", "CYS", "ASN", "GLN", "ASP", "GLU", "PHE", "TRP", "TYR", "HIE", "HID", "LYS", "ARG", "MET").setContinuous();
 		}
-		*/
 		
 		// make the conf space
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand)
@@ -59,8 +58,8 @@ public class EnergyPartitionsPlayground {
 		// compute the energy matrix
 		EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, fragEcalc)
 			.setReferenceEnergies(eref)
-			.setEnergyPartition(new EnergyPartition.Traditional())
-			//.setEnergyPartition(new EnergyPartition.AllOnPairs())
+			//.setEnergyPartition(EnergyPartition.Traditional)
+			.setEnergyPartition(EnergyPartition.AllOnPairs)
 			.build()
 			.calcEnergyMatrix();
 		

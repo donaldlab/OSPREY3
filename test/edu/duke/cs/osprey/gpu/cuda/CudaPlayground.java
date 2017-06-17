@@ -451,7 +451,7 @@ public class CudaPlayground extends TestBase {
 			.setType(Type.ResidueCudaCCD)
 			.setParallelism(Parallelism.makeGpu(1, 1))
 			.build();
-		ResidueInteractions inters = new EnergyPartition.Traditional().makeFragment(simpleConfSpace, null, tuple);
+		ResidueInteractions inters = EnergyPartition.Traditional.makeFragment(simpleConfSpace, null, tuple);
 		/*
 		ResidueInteractions inters = ResInterGen.of(simpleConfSpace)
 			.addInter(0, 4)

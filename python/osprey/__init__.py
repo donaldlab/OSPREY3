@@ -26,6 +26,7 @@ WILD_TYPE = DocstringJavaDefault('.confspace.Strand#WildType')
 Forcefield = None
 SolvationForcefield = None
 LovellRotamers = 0 # arbitrary value, doesn't matter
+EnergyPartition = None
 
 
 def _get_builder(jclass, builder_name='Builder'):
@@ -91,6 +92,8 @@ def start(heapSizeMB=1024, enableAssertions=False):
 	Forcefield = jvm.getInnerClass(c.energy.forcefield.ForcefieldParams, 'Forcefield')
 	global SolvationForcefield
 	SolvationForcefield = jvm.getInnerClass(c.energy.forcefield.ForcefieldParams, 'SolvationForcefield')
+	global EnergyPartition
+	EnergyPartition = c.energy.EnergyPartition
 
 	# expose static builder methods too
 	Parallelism.makeCpu = c.parallelism.Parallelism.makeCpu
@@ -364,6 +367,9 @@ def EnergyMatrix(confSpace, ecalc, cacheFile=None, referenceEnergies=None, energ
 
 	if cacheFile is not None:
 		builder.setCacheFile(jvm.toFile(cacheFile))
+
+	if energyPartition is not None:
+		builder.setEnergyPartition(energyPartition)
 
 	return builder.build().calcEnergyMatrix()
 
