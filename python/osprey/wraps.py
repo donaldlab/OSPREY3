@@ -51,8 +51,11 @@ def wrapResidueFlex(c):
 	wrapMethod(jtype, 'setLibraryRotamers', newSetLibraryRotamers)
 
 	# autocast setContinuous() to float
-	def newSetContinuous(old, self, angle):
-		return old(self, float(angle))
+	def newSetContinuous(old, self, angle=None):
+		if angle is None:
+			return old(self)
+		else:
+			return old(self, float(angle))
 	wrapMethod(jtype, 'setContinuous', newSetContinuous)
 
 	# autocast setContinuousEllipses() to float
