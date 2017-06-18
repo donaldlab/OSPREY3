@@ -190,6 +190,10 @@ def autodoc_docstring_handler(app, what, name, obj, options, doclines, for_signa
 
 def resolve_type(typeast, rootast, config):
 
+	# java wildcards in generics can cause a null type here
+	if typeast is None:
+		return "?"
+
 	name = typeast.name
 
 	# is this a primitive type?
@@ -215,7 +219,8 @@ def resolve_type(typeast, rootast, config):
 
 	# handle arrays
 	for i in range(len(typeast.dimensions)):
-		name = name + '[]'
+		# NOTE: need a space before the [] to prevent RST parser errors
+		name = name + ' []'
 
 	return name
 
@@ -599,15 +604,15 @@ class ImportResolver():
 		return os.path.exists(path)
 
 	
-	def find_subtype(self, ast, simple_name):
+	def find_inner_type(self, ast, simple_name):
 
 		try:
 			return ast.find_inner_class(simple_name)
 		except KeyError:
 			# nope, not there, check recursively
-			for subtype in ast.subtypes:
+			for inner_type in ast.inner_types:
 				try:
-					return self.find_subtype(subtype, simple_name)
+					return self.find_inner_type(inner_type, simple_name)
 				except KeyError:
 					continue
 
@@ -623,18 +628,47 @@ class ImportResolver():
 		if self.ast.name == ref.simple_classname:
 			return JavaRef(self.ast.ref.full_classname, membername=ref.membername)
 
-		# then, check ast sub-types
+		# then, check ast inner-types
 		try:
-			subref = self.find_subtype(self.ast, ref.simple_classname).ref
-			return JavaRef(subref.full_classname, membername=ref.membername)
+			innerref = self.find_inner_type(self.ast, ref.simple_classname).ref
+			return JavaRef(innerref.full_classname, membername=ref.membername)
 		except KeyError:
 			# can't find it
+			pass
+
+		# then, check ast outer-types
+		try:
+			t = self.ast.outer_type
+			try:
+				outerref = self.find_inner_type(t, ref.simple_classname).ref
+			except KeyError:
+				# not there, try another outer
+				t = t.outer_type
+				pass
+
+		except AttributeError:
+			# no more outer types
 			pass
 
 		# find an import that resolves the target
 		for imp in self.ast.imports:
 			if imp.path.endswith('.%s' % ref.simple_classname):
-				return JavaRef(imp.path, membername=ref.membername)
+
+				# java import statements don't separate inner classes from packages,
+				# so try to detect them here
+				check_ref = JavaRef(imp.path, membername=ref.membername)
+				while not self.has_source(check_ref):
+
+					# is there a . to replace with a $?
+					if '.' not in check_ref.package:
+						# nope, can't resolve this import
+						break
+
+					# assume one more class is an inner class and try again
+					new_classname = '%s$%s' % (check_ref.package, check_ref.classname)
+					check_ref = JavaRef(new_classname, membername=ref.membername)
+
+				return check_ref
 
 		# no matching import, check package
 		ref = JavaRef('%s.%s' % (self.ast.package.name, ref.classname), membername=ref.membername)
@@ -659,13 +693,13 @@ def _ast_find_type(name, classtypes):
 
 
 @property
-def _ast_subtypes(self):
+def _ast_inner_types(self):
 	return [member for member in self.body if isinstance(member, javalang.tree.TypeDeclaration)]
-javalang.tree.TypeDeclaration.subtypes = _ast_subtypes
+javalang.tree.TypeDeclaration.inner_types = _ast_inner_types
 
 
 def _ast_find_inner_class(self, name):
-	inner_class = _ast_find_type(name, self.subtypes)
+	inner_class = _ast_find_type(name, self.inner_types)
 
 	# copy over metadata
 	inner_class.package = self.package
@@ -733,7 +767,9 @@ def get_class_ast(ref, config):
 	# get nested types if needed
 	for name in ref.simple_inner_classnames:
 		try:
-			typeast = typeast.find_inner_class(name)
+			inner_typeast = typeast.find_inner_class(name)
+			inner_typeast.outer_type = typeast
+			typeast = inner_typeast
 		except KeyError:
 			raise KeyError("can't find inner class %s in outer class %s in source file %s" % (name, typeast.name, ref.source_file()))
 	
@@ -751,7 +787,6 @@ class Javadoc():
 		self.text = text
 		self.import_resolver = ImportResolver(ast, config)
 		self.parsed = javalang.javadoc.parse(text)
-		self.indexed = True
 
 		# start with the main javadoc text
 		desc = [self._translate(self.parsed.description)]
@@ -760,9 +795,6 @@ class Javadoc():
 		try:
 			for text in self.parsed.tags['see']:
 				desc.append('See %s' % self._resolve_link(text))
-
-				# assume this is an overload and remove it from the index
-				self.indexed = False
 
 		except KeyError:
 			pass
@@ -852,17 +884,21 @@ def is_constant(thing, ast):
 	return 'static' in thing.modifiers and 'final' in thing.modifiers
 
 
-def parse_rst(rst, settings):
+def parse_rst(rst, rst_source, settings):
 	
 	# if rst is a list of strings, join it
 	if not isinstance(rst, six.string_types):
 		rst = '\n'.join(rst)
 
 	# DEBUG: for investigating warnings in dynamically-generated RST
-	#print('DYNAMIC RST:\n"%s"\n' % rst)
+	#print('DYNAMIC RST: %s' % rst_source)
+	#lineno = 1
+	#for line in rst.split('\n'):
+	#	print('%3d  %s' % (lineno, line))
+	#	lineno += 1
 
 	# parse the rst and return the nodes
-	docSource = 'dynamically-generated-rst'
+	docSource = 'dynamically-generated-rst-' + rst_source
 	doc = docutils.utils.new_document(docSource, settings)
 	docutils.parsers.rst.Parser().parse(rst, doc)
 
@@ -886,15 +922,15 @@ class ParsingDirective(docutils.parsers.rst.Directive):
 		return self.env.config
 
 
-	def parse(self, rst):
-		return parse_rst(rst, self.state.document.settings)
+	def parse(self, rst, rst_source):
+		return parse_rst(rst, rst_source, self.state.document.settings)
 
 
 	def warn(self, msg, cause=None):
 		if cause is not None:
 			msg = '%s\nCause: %s' % (msg, str(cause))
 		self.state.memo.reporter.warning(msg)
-		return self.parse(msg)
+		return self.parse(msg, 'warn')
 
 
 class JavaClassDirective(ParsingDirective):
@@ -907,7 +943,7 @@ class JavaClassDirective(ParsingDirective):
 			ref = JavaRef(expand_classname(self.content[0], self.config))
 			ast = get_class_ast(ref, self.config)
 		except (KeyError, ValueError, FileNotFoundError) as e:
-			return self.warn("can't find builder class: %s" % ref, cause=e)
+			return self.warn("can't find class: %s" % ref, cause=e)
 		except javalang.parser.JavaSyntaxError as e:
 			return self.warn("can't parse java source: %s" % ref, cause=e)
 
@@ -921,6 +957,16 @@ class JavaClassDirective(ParsingDirective):
 		# show the full classname
 		rst.append('Java class: ``%s``' % ref)
 		rst.append('')
+
+		# show the class javadoc, if any
+		if ast.documentation is not None:
+			try:
+				javadoc = Javadoc(ast.documentation, ast, self.config)
+				if javadoc is not None:
+					rst.append(self.indent(self.format(javadoc.description)))
+					rst.append('')
+			except ValueError as e:
+				self.warn("Can't parse javadoc for class %s" % ref, cause=e)
 
 		# add nested content
 		if len(self.content) > 1:
@@ -983,7 +1029,7 @@ class JavaClassDirective(ParsingDirective):
 		#	for line in rst:
 		#		print(line)
 
-		return self.parse(rst)
+		return self.parse(rst, 'class-%s' % ref)
 	
 		
 	def show_header(self, rst, title):
@@ -1026,7 +1072,7 @@ class JavaClassDirective(ParsingDirective):
 
 		# show the field name and javadoc
 		for decl in field.declarators:
-			rst.append('.. py:attribute:: %s' % decl.name)
+			rst.append('.. py:attribute:: %s.%s' % (ref.classname, decl.name))
 			rst.append('')
 			if javadoc is not None:
 				rst.append(self.indent(self.format(javadoc.description)))
@@ -1048,11 +1094,8 @@ class JavaClassDirective(ParsingDirective):
 
 		# show the method signature
 		args = [arg.name for arg in method.parameters]
-		sig = '%s(%s)' % (method.name, ', '.join(args))
+		sig = '%s.%s(%s)' % (ref.classname, method.name, ', '.join(args))
 		rst.append('.. py:method:: %s' % sig)
-		if javadoc is not None and not javadoc.indexed:
-			rst.append('\t:noindex:')
-			rst.append('')
 		rst.append('')
 
 		# show the javadoc desc, if any
@@ -1089,7 +1132,7 @@ class JavaClassDirective(ParsingDirective):
 				self.warn("Can't parse javadoc for enum value %s.%s" % (ref, value.name), cause=e)
 
 		# show the value name and javadoc
-		rst.append('.. py:attribute:: %s' % value.name)
+		rst.append('.. py:attribute:: %s.%s' % (ref.classname, value.name))
 		rst.append('')
 		if javadoc is not None:
 			rst.append(self.indent(self.format(javadoc.description)))
@@ -1125,7 +1168,7 @@ class JavaRole():
 		self.warn = warn
 
 		# parse the rst and return docutils nodes
-		return parse_rst(self.make_rst(text), settings), []
+		return parse_rst(self.make_rst(text), 'JavaRole-' + name, settings), []
 
 
 	def make_rst(self, text):
@@ -1233,17 +1276,23 @@ class RefRole(sphinx.roles.XRefRole):
 		if ref.package is not None and ref.package.startswith(env.config.javadoc_package_prefix):
 
 			# resolve the link
-			resolved.docpath = 'api.' + ref.unprefixed_full_classname(env.config.javadoc_package_prefix)
-			resolved.docpath = resolved.docpath.replace('$', '.')
+			name = ref.unprefixed_full_classname(env.config.javadoc_package_prefix)
+			filename = ('api.' + name).replace('$', '.')
+			resolved.docpath = filename
 
-			# see if the docpath exists, just in case
-			path = env.doc2path(resolved.docpath)
-			if not os.path.exists(path):
-				self.warn('cross-reference does not exist: %s' % path)
+			# see if the docpath exists, and create it if not
+			filepath = env.doc2path(filename)
+			if not os.path.exists(filepath):
+
+				f = open(filepath, 'w')
+				f.write("\n:orphan:\n\n.. java:class:: .%s\n\n" % name)
+				f.close()
+
+				self.warn('created RST file for class %s at %s\nrun `make html` again to generate HTML for this RST.' % (name, filepath))
 
 		if ref.membername is not None:
 			resolved.text = ref.membername
-			resolved.anchor = ref.membername
+			resolved.anchor = '%s.%s' % (ref.simple_classname, ref.membername)
 		else:
 			resolved.text = ref.simple_classname
 

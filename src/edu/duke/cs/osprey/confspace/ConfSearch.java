@@ -113,7 +113,7 @@ public interface ConfSearch {
     /**
      * A conformation from a conformation space with an associated score,
      * and an associated energy. The definition of "energy" in this context
-     * depends on the {@link ConfEnergyCalculator} used in the design.
+     * depends on the conformation energy calculator used in the design.
      */
     public static class EnergiedConf extends ScoredConf {
         

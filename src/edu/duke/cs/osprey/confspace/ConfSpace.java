@@ -82,7 +82,7 @@ public class ConfSpace implements Serializable {
     public boolean useEllipses = false;
     
     /** initialize a new conformational space, defining all its flexibility
-    /*   we use one residue per position here
+     *   we use one residue per position here
      * 
      * @param PDBFile the structure to read from
      * @param flexibleRes list of residue numbers to be made flexible (as in PDB file)
