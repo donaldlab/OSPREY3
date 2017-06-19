@@ -489,7 +489,7 @@ public class TestAStar extends TestBase {
 		ExternalMemory.setInternalLimit(16);
 		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
 			.setTraditional()
-			.setUseExternalMemory()
+			.useExternalMemory()
 			.build();
 		
 		checkDagkContinuous(tree, search);

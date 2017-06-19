@@ -27,6 +27,7 @@ Forcefield = None
 SolvationForcefield = None
 LovellRotamers = 0 # arbitrary value, doesn't matter
 EnergyPartition = None
+ExternalMemory = None
 
 
 def _get_builder(jclass, builder_name='Builder'):
@@ -94,6 +95,8 @@ def start(heapSizeMB=1024, enableAssertions=False):
 	SolvationForcefield = jvm.getInnerClass(c.energy.forcefield.ForcefieldParams, 'SolvationForcefield')
 	global EnergyPartition
 	EnergyPartition = c.energy.EnergyPartition
+	global ExternalMemory
+	ExternalMemory = c.externalMemory.ExternalMemory
 
 	# expose static builder methods too
 	Parallelism.makeCpu = c.parallelism.Parallelism.makeCpu
@@ -336,9 +339,8 @@ def ConfEnergyCalculator(fragEcalc, referenceEnergies=None, energyPartition=None
 	:java:classdoc:`.energy.MinimizingConfEnergyCalculator`
 
 	:builder_option fragEcalc .energy.MinimizingConfEnergyCalculator$Builder#ecalc:
-	:builder_option ffparams .energy.MinimizingConfEnergyCalculator$Builder#ffparams:
-	:builder_option parallelism .energy.MinimizingConfEnergyCalculator$Builder#parallelism:
-	:builder_option energyPartition .energy.MinimizingConfEnergyCalculator$Builder#energyPartition:
+	:builder_option referenceEnergies .energy.MinimizingConfEnergyCalculator$Builder#eref:
+	:builder_option energyPartition .energy.MinimizingConfEnergyCalculator$Builder#epart:
 	:builder_return .energy.MinimizingConfEnergyCalculator$Builder:
 	'''
 	builder = _get_builder(c.energy.MinimizingConfEnergyCalculator)(fragEcalc)
@@ -378,7 +380,7 @@ def ReferenceEnergies(confSpace, ecalc):
 	'''
 	:java:methoddoc:`.ematrix.SimplerEnergyMatrixCalculator#calcReferenceEnergies`
 
-	:builder_option: confSpace .ematrixSimplerEnergyMatrixCalculator$Builder#confSpace:
+	:builder_option confSpace .ematrix.SimplerEnergyMatrixCalculator$Builder#confSpace:
 	:builder_option ecalc .ematrix.SimplerEnergyMatrixCalculator$Builder#ecalc:
 	'''
 
@@ -387,17 +389,26 @@ def ReferenceEnergies(confSpace, ecalc):
 	return builder.build().calcReferenceEnergies()
 
 
-def AStarTraditional(emat, confSpace):
+def AStarTraditional(emat, confSpace, useExternalMemory=False):
 	'''
 	:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#setTraditional`
 
 	:builder_option emat .astar.conf.ConfAStarTree$Builder#emat:
 	:param confSpace: The conformation space containing the residue conformations to search.
 	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+	:param useExternalMemory: set to True to use external memory.
+
+		:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#useExternalMemory`
+
+	:type useExternalMemory: boolean
 	:builder_return .astar.conf.ConfAStarTree$Builder:
 	'''
 	builder = _get_builder(c.astar.conf.ConfAStarTree)(emat, confSpace)
 	builder.setTraditional()
+
+	if useExternalMemory == True:
+		builder.useExternalMemory()
+
 	return builder.build()
 
 
@@ -407,7 +418,7 @@ def EdgeUpdater():
 def NodeUpdater():
 	return c.astar.conf.scoring.mplp.NodeUpdater()
 
-def AStarMPLP(emat, confSpace, updater=None, numIterations=None, convergenceThreshold=None):
+def AStarMPLP(emat, confSpace, updater=None, numIterations=None, convergenceThreshold=None, useExternalMemory=False):
 	'''
 	:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#setMPLP`
 
@@ -417,6 +428,11 @@ def AStarMPLP(emat, confSpace, updater=None, numIterations=None, convergenceThre
 	:builder_option updater .astar.conf.ConfAStarTree$MPLPBuilder#updater:
 	:builder_option numIterations .astar.conf.ConfAStarTree$MPLPBuilder#numIterations:
 	:builder_option convergenceThreshold .astar.conf.ConfAStarTree$MPLPBuilder#convergenceThreshold:
+	:param useExternalMemory: set to True to use external memory.
+
+		:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#useExternalMemory`
+
+	:type useExternalMemory: boolean
 	:builder_return .astar.conf.ConfAStarTree$Builder:
 	'''
 	mplpBuilder = _get_builder(c.astar.conf.ConfAStarTree, 'MPLPBuilder')()
@@ -432,10 +448,14 @@ def AStarMPLP(emat, confSpace, updater=None, numIterations=None, convergenceThre
 
 	builder = _get_builder(c.astar.conf.ConfAStarTree)(emat, confSpace)
 	builder.setMPLP(mplpBuilder)
+
+	if useExternalMemory == True:
+		builder.useExternalMemory()
+
 	return builder.build()
 
 
-def GMECFinder(confSpace, astar, ecalc, confLog=None, printIntermediateConfs=None):
+def GMECFinder(confSpace, astar, ecalc, confLog=None, printIntermediateConfs=None, useExternalMemory=None):
 	'''
 	:java:classdoc:`.gmec.SimpleGMECFinder`
 
@@ -450,6 +470,7 @@ def GMECFinder(confSpace, astar, ecalc, confLog=None, printIntermediateConfs=Non
 
 	:param str confLog: Path to file where conformations found during conformation space search should be logged.
 	:builder_option printIntermediateConfs .gmec.SimpleGMECFinder$Builder#printIntermediateConfsToConsole:
+	:builder_option useExternalMemory .gmec.SimpleGMECFinder$Builder#useExternalMemory:
 	:builder_return .gmec.SimpleGMECFinder$Builder:
 	'''
 
@@ -461,6 +482,9 @@ def GMECFinder(confSpace, astar, ecalc, confLog=None, printIntermediateConfs=Non
 
 	if printIntermediateConfs is not None:
 		builder.setPrintIntermediateConfsToConsole(printIntermediateConfs)
+
+	if useExternalMemory == True:
+		builder.useExternalMemory()
 
 	return builder.build()
 

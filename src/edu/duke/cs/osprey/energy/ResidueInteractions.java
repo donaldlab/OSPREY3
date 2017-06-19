@@ -7,6 +7,15 @@ import java.util.Set;
 import edu.duke.cs.osprey.structure.Residues;
 import edu.duke.cs.osprey.tools.HashCalculator;
 
+/**
+ * Represents interactions between residues (or within single residues) based on residue
+ * numbers.
+ * 
+ * Does not rely on specific molecules, so residue interactions are portable
+ * between different molecules, or molecule copies.
+ * 
+ * The {@link ResInterGen} helper class can assist with creating residue interactions.
+ */
 public class ResidueInteractions implements Iterable<ResidueInteractions.Pair> {
 	
 	public static class Pair {

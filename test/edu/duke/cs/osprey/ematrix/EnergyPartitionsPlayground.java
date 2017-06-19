@@ -20,7 +20,7 @@ public class EnergyPartitionsPlayground {
 	public static void main(String[] args) {
 		
 		// read a protein
-		Strand strand = new Strand.Builder(PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb")).build();
+		//Strand strand = new Strand.Builder(PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb")).build();
 		
 		// configure flexibility
 		/*
@@ -34,6 +34,7 @@ public class EnergyPartitionsPlayground {
 		
 		// make the conf space
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand)
+			.setShellDistance(4)
 			//.setShellDistance(9)
 			.build();
 		
@@ -58,8 +59,8 @@ public class EnergyPartitionsPlayground {
 		// compute the energy matrix
 		EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, fragEcalc)
 			.setReferenceEnergies(eref)
-			//.setEnergyPartition(EnergyPartition.Traditional)
-			.setEnergyPartition(EnergyPartition.AllOnPairs)
+			.setEnergyPartition(EnergyPartition.Traditional)
+			//.setEnergyPartition(EnergyPartition.AllOnPairs)
 			.build()
 			.calcEnergyMatrix();
 		
@@ -71,7 +72,7 @@ public class EnergyPartitionsPlayground {
 		ConfSearch confSearch = new ConfAStarTree.Builder(emat, confSpace)
 			//.setTraditional()
 			.setMPLP(new ConfAStarTree.MPLPBuilder().setUpdater(new EdgeUpdater()).setNumIterations(5))
-			.setUseExternalMemory()
+			.useExternalMemory()
 			.setShowProgress(true)
 			.build();
 	
@@ -84,7 +85,7 @@ public class EnergyPartitionsPlayground {
 		System.out.println("Finding GMEC...");
 		EnergiedConf gmec = new SimpleGMECFinder.Builder(confSpace, confSearch, confEcalc)
 			.setPrintIntermediateConfsToConsole(false)
-			.setUseExternalMemory()
+			.useExternalMemory()
 			.build()
 			.find();
 		

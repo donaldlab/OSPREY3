@@ -842,6 +842,9 @@ class Javadoc():
 
 	def _translate(self, text):
 
+		# escape * characters
+		text = text.replace(r'*', r'\*')
+
 		# translate links from javadoc to sphinx
 		text = self._resolve_all(text, 'link', self._resolve_link)
 

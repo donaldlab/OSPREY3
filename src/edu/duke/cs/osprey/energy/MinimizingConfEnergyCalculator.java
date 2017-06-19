@@ -10,6 +10,13 @@ import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.Progress;
 
+/**
+ * Calculates full conformation energy of {@link ScoredConf} instances using the desired
+ * residue interactions.
+ * 
+ * Residue interactions for full conformations are specified using {@link EnergyPartition} values.
+ * Optional energy modifications like reference energies or residue entropies can also be applied.
+ */
 public class MinimizingConfEnergyCalculator implements ConfEnergyCalculator.Async {
 	
 	public static class Builder {

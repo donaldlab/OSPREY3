@@ -106,12 +106,14 @@ public class ConfAStarTree implements ConfSearch {
 			return this;
 		}
 		
-		/** Call to use external memory (eg, disk, SSD, NAS) for when large A* searches
+		/**
+		 * Use external memory (eg, disk, SSD, NAS) when large A* searches
 		 * cannot fit in internal memory (eg, RAM).
 		 * 
-		 * Use {@link ExternalMemory#setInternalLimit} to set the amount of fixed internal memory.
+		 * Use {@link ExternalMemory#setInternalLimit} to set the amount of fixed internal memory
+		 * and {@link ExternalMemory#setTempDir} to set the file path for external memory.
 		 */
-		public Builder setUseExternalMemory() {
+		public Builder useExternalMemory() {
 			ExternalMemory.checkInternalLimitSet();
 			factory = new EMConfAStarFactory();
 			return this;

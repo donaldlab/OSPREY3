@@ -45,10 +45,12 @@ public class SimpleGMECFinder {
 		/** True to print all conformations found during A* search to the console */ 
 		private boolean printIntermediateConfsToConsole = false;
 		
-		/** True to use external memory (eg, disk, SSD, NAS) for when large data
+		/**
+		 * True to use external memory (eg, disk, SSD, NAS) for when large data
 		 * structures cannot fit in internal memory (eg, RAM).
 		 * 
-		 * Use {@link ExternalMemory#setInternalLimit} to set the amount of fixed internal memory.
+		 * Use {@link ExternalMemory#setInternalLimit} to set the amount of fixed internal memory
+		 * and {@link ExternalMemory#setTempDir} to set the file path for external memory.
 		 */
 		private boolean useExternalMemory = false;
 		
@@ -87,7 +89,7 @@ public class SimpleGMECFinder {
 			return this;
 		}
 		
-		public Builder setUseExternalMemory() {
+		public Builder useExternalMemory() {
 			ExternalMemory.checkInternalLimitSet();
 			useExternalMemory = true;
 			return this;

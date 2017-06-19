@@ -30,7 +30,11 @@ import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tools.UseableBuilder;
 
 /**
- * Computes the energy of a molecule fragment using the desired forcefield.
+ * Computes the energy of a molecule fragment using the desired forcefield parameters and residue interactions.
+ * 
+ * Residue interactions are specified via {@link ResidueInteractions} instances.
+ * Forcefield implementations are chosen via the type argument. If no type is specified, the best forcefield
+ * available implementation is automatically chosen based on the parallelism argument.
  * 
  * If a fragment has continuous degrees of freedom, minimization will be performed before forcefield evaluation.
  */
