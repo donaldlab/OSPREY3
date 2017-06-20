@@ -147,25 +147,26 @@ public class TestSimpleGMECFinder {
 	
 	@Test
 	public void findContinuousWindowExternal() {
-		ExternalMemory.setInternalLimit(64);
-		Queue<EnergiedConf> confs = problemContinuous.makeBuilder()
-			.useExternalMemory()
-			.build().find(0.3);
-		assertThat(confs.size(), is(3L));
-		
-		EnergiedConf conf = confs.poll();
-		assertThat(conf.getAssignments(), is(new int[] { 1, 26, 0 }));
-		assertThat(conf.getEnergy(), isAbsolutely(-38.465807, EnergyEpsilon));
-		assertThat(conf.getScore(), isAbsolutely(-38.566297, EnergyEpsilon));
-		
-		conf = confs.poll();
-		assertThat(conf.getAssignments(), is(new int[] { 1, 25, 0 }));
-		assertThat(conf.getEnergy(), isAbsolutely(-38.243730, EnergyEpsilon));
-		assertThat(conf.getScore(), isAbsolutely(-38.391590, EnergyEpsilon));
-		
-		conf = confs.poll();
-		assertThat(conf.getAssignments(), is(new int[] { 1, 29, 0 }));
-		assertThat(conf.getEnergy(), isAbsolutely(-38.166219, EnergyEpsilon));
-		assertThat(conf.getScore(), isAbsolutely(-38.254643, EnergyEpsilon));
+		ExternalMemory.use(64, () -> {
+			Queue<EnergiedConf> confs = problemContinuous.makeBuilder()
+				.useExternalMemory()
+				.build().find(0.3);
+			assertThat(confs.size(), is(3L));
+			
+			EnergiedConf conf = confs.poll();
+			assertThat(conf.getAssignments(), is(new int[] { 1, 26, 0 }));
+			assertThat(conf.getEnergy(), isAbsolutely(-38.465807, EnergyEpsilon));
+			assertThat(conf.getScore(), isAbsolutely(-38.566297, EnergyEpsilon));
+			
+			conf = confs.poll();
+			assertThat(conf.getAssignments(), is(new int[] { 1, 25, 0 }));
+			assertThat(conf.getEnergy(), isAbsolutely(-38.243730, EnergyEpsilon));
+			assertThat(conf.getScore(), isAbsolutely(-38.391590, EnergyEpsilon));
+			
+			conf = confs.poll();
+			assertThat(conf.getAssignments(), is(new int[] { 1, 29, 0 }));
+			assertThat(conf.getEnergy(), isAbsolutely(-38.166219, EnergyEpsilon));
+			assertThat(conf.getScore(), isAbsolutely(-38.254643, EnergyEpsilon));
+		});
 	}
 }

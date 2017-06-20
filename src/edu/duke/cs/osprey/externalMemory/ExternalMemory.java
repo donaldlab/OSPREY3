@@ -81,4 +81,31 @@ public class ExternalMemory {
 		}
 		return TPIE.getExternalBytes();
 	}
+	
+	/**
+	 * Clean up resources used by the external memory system.
+	 * 
+	 * Under normal circumstances, this will be called automatically when the JVM exits,
+	 * and you won't have to call it manually.
+	 */
+	public static void cleanup() {
+		TPIE.stop();
+		limitSet = false;
+	}
+	
+	/**
+	 * Convenience method to initialize the external memory system, run a block of code,
+	 * and then make sure the external memory gets cleaned up before returning.
+	 * 
+	 * @param internalMiB maximum amount of internal memory to use, in MiB 
+	 * @param block A block of code to run using external memory.
+	 */
+	public static void use(int internalMiB, TPIE.Block block) {
+		limitSet = true;
+		try {
+			TPIE.use(internalMiB, block);
+		} finally {
+			limitSet = false;
+		}
+	}
 }

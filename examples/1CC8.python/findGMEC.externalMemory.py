@@ -29,3 +29,7 @@ astar = osprey.AStarMPLP(emat, confSpace, useExternalMemory=True)
 # find the best sequence and rotamers
 gmec = osprey.GMECFinder(confSpace, astar, confEcalc, useExternalMemory=True).find()
 
+# explicitly cleanup the external memory
+# skipping this step will cause a nasty segfault
+osprey.ExternalMemory.cleanup()
+

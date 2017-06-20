@@ -486,12 +486,13 @@ public class TestAStar extends TestBase {
 	public void testExternalMemory() {
 		SearchProblem search = makeSearchProblemDagkContinuous();
 		
-		ExternalMemory.setInternalLimit(16);
-		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
-			.setTraditional()
-			.useExternalMemory()
-			.build();
-		
-		checkDagkContinuous(tree, search);
+		ExternalMemory.use(16, () -> {
+			ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+				.setTraditional()
+				.useExternalMemory()
+				.build();
+			
+			checkDagkContinuous(tree, search);
+		});
 	}
 }

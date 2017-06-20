@@ -20,7 +20,7 @@ public class EnergyPartitionsPlayground {
 	public static void main(String[] args) {
 		
 		// read a protein
-		//Strand strand = new Strand.Builder(PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb")).build();
+		Strand strand = new Strand.Builder(PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb")).build();
 		
 		// configure flexibility
 		/*

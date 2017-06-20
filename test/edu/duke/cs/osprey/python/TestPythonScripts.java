@@ -38,4 +38,9 @@ public class TestPythonScripts {
 	public void findGMECReferenceEnergies() {
 		run("examples/1CC8.python", "findGMEC.referenceEnergies.py");
 	}
+	
+	@Test
+	public void findGMECExternalMemory() {
+		run("examples/1CC8.python", "findGMEC.externalMemory.py");
+	}
 }
