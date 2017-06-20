@@ -323,7 +323,7 @@ public class SimpleConfSpace {
 		for (int pos1=0; pos1<positions.size(); pos1++) {
 			for (int pos2=0; pos2<pos1; pos2++) {
 				for (int rc1=0; rc1<numResConfsByPos[pos2]; rc1++) {
-					count += numResConfsByPos[pos2];
+					count += numResConfsByPos[pos1];
 				}
 			}
 		}
