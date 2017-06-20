@@ -4,7 +4,11 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.energy.ResidueInteractions.Pair;
 
-/** Residue interactions generator */
+/**
+ * Helper class to create residue interactions.
+ * 
+ * First call ResInterGen.of(yourConfSpace), then .addXXX() for each interactions you wish to add.
+ */
 public class ResInterGen {
 	
 	public static interface IntraOffsetter {

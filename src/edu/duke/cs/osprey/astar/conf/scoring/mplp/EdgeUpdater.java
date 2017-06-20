@@ -33,11 +33,11 @@ public class EdgeUpdater implements MPLPUpdater {
 		
 		ConfIndex confIndex = lambdas.getConfIndex();
 		
-		for (int posi1=0; posi1<confIndex.getNumUndefined(); posi1++) {
-			int pos1 = confIndex.getUndefinedPos()[posi1];
+		for (int posi1=0; posi1<confIndex.numUndefined; posi1++) {
+			int pos1 = confIndex.undefinedPos[posi1];
 			
-			for (int posi2=0; posi2<confIndex.getNumUndefined(); posi2++) {
-				int pos2 = confIndex.getUndefinedPos()[posi2];
+			for (int posi2=0; posi2<confIndex.numUndefined; posi2++) {
+				int pos2 = confIndex.undefinedPos[posi2];
 				
 				if (pos2 >= pos1) {
 					continue;
@@ -54,8 +54,8 @@ public class EdgeUpdater implements MPLPUpdater {
 		RCs rcs = lambdas.getRCs();
 		ConfIndex confIndex = lambdas.getConfIndex();
 		
-		int pos1 = confIndex.getUndefinedPos()[posi1];
-		int pos2 = confIndex.getUndefinedPos()[posi2];
+		int pos1 = confIndex.undefinedPos[posi1];
+		int pos2 = confIndex.undefinedPos[posi2];
 
 		for (int rci1=0; rci1<rcs.getNum(pos1); rci1++) {
 			int rc1 = rcs.get(pos1, rci1);

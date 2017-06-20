@@ -5,12 +5,6 @@ import java.util.List;
 
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
-import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
-import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.PositionConfSpace;
@@ -161,9 +155,10 @@ public class SplitWorld {
 		
 		// do A* search to find the improved bound
 		RCs subRcs = splits.makeRCs(conf.getAssignments());
-		AStarOrder order = new StaticScoreHMeanAStarOrder();
-		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, subRcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, subRcs)
+			.setMPLP(new ConfAStarTree.MPLPBuilder()
+				.setNumIterations(1)
+			).build();
 		return tree.nextConf();
 	}
 }

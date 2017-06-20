@@ -14,7 +14,6 @@ public interface ConfEnergyCalculator {
 
 		void calcEnergyAsync(ScoredConf conf, Listener listener);
 		TaskExecutor getTasks();
-		void cleanup();
 
 		public static interface Listener extends TaskListener<EnergiedConf> {
 			// nothing else to do
@@ -43,11 +42,6 @@ public interface ConfEnergyCalculator {
 			@Override
 			public TaskExecutor getTasks() {
 				return tasks;
-			}
-
-			@Override
-			public void cleanup() {
-				// nothing to do
 			}
 		}
 	}

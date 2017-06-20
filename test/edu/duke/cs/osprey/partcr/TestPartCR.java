@@ -12,13 +12,6 @@ import org.junit.Test;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
-import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
-import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.SearchProblem;
@@ -130,12 +123,11 @@ public class TestPartCR extends TestBase {
 		ConfSearchFactory astarFactory = new ConfSearchFactory() {
 			@Override
 			public ConfSearch make(EnergyMatrix emat, PruningMatrix pmat) {
-				RCs rcs = new RCs(pmat);
-				AStarOrder order = new StaticScoreHMeanAStarOrder();
-				AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), emat, 1, 0.0001);
-				ConfAStarTree astarTree = new ConfAStarTree(order, new PairwiseGScorer(emat), hscorer, rcs);
-				astarTree.initProgress();
-				return astarTree;
+				return new ConfAStarTree.Builder(search.emat, search.pruneMat)
+					.setMPLP(new ConfAStarTree.MPLPBuilder()
+						.setNumIterations(1)
+					).setShowProgress(true)
+					.build();
 			}
 		};
 		

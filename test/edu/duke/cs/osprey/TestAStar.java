@@ -9,10 +9,8 @@ import org.junit.Test;
 import edu.duke.cs.osprey.astar.ConfTree;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
 import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
 import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
-import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
 import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
@@ -21,6 +19,7 @@ import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 
 public class TestAStar extends TestBase {
 	
@@ -61,9 +60,12 @@ public class TestAStar extends TestBase {
 		SearchProblem search = makeSearchProblemDagkRigid();
 		
 		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new DynamicHMeanAStarOrder();
-		AStarScorer hscorer = new TraditionalPairwiseHScorer(search.emat, rcs);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, rcs)
+			.setCustom(
+				new DynamicHMeanAStarOrder(),
+				new PairwiseGScorer(search.emat),
+				new TraditionalPairwiseHScorer(search.emat, rcs)
+			).build();
 		
 		checkDagkRigid(tree, search);
 	}
@@ -73,9 +75,12 @@ public class TestAStar extends TestBase {
 		SearchProblem search = makeSearchProblemDagkRigid();
 		
 		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new StaticScoreHMeanAStarOrder();
-		AStarScorer hscorer = new TraditionalPairwiseHScorer(search.emat, rcs);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, rcs)
+			.setCustom(
+				new StaticScoreHMeanAStarOrder(),
+				new PairwiseGScorer(search.emat),
+				new TraditionalPairwiseHScorer(search.emat, rcs)
+			).build();
 		
 		checkDagkRigid(tree, search);
 	}
@@ -84,10 +89,12 @@ public class TestAStar extends TestBase {
 	public void testDagkRigidDynamicOrderMPLP0Iter() {
 		SearchProblem search = makeSearchProblemDagkRigid();
 		
-		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new DynamicHMeanAStarOrder();
-		AStarScorer hscorer = new MPLPPairwiseHScorer(null, search.emat, 0, 0.0001);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+			.setCustom(
+				new DynamicHMeanAStarOrder(),
+				new PairwiseGScorer(search.emat),
+				new MPLPPairwiseHScorer(null, search.emat, 0, 0.0001)
+			).build();
 		
 		checkDagkRigid(tree, search);
 	}
@@ -96,10 +103,12 @@ public class TestAStar extends TestBase {
 	public void testDagkRigidStaticScoreOrderMPLP0Iter() {
 		SearchProblem search = makeSearchProblemDagkRigid();
 		
-		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new StaticScoreHMeanAStarOrder();
-		AStarScorer hscorer = new MPLPPairwiseHScorer(null, search.emat, 0, 0.0001);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+			.setCustom(
+				new StaticScoreHMeanAStarOrder(),
+				new PairwiseGScorer(search.emat),
+				new MPLPPairwiseHScorer(null, search.emat, 0, 0.0001)
+			).build();
 		
 		checkDagkRigid(tree, search);
 	}
@@ -108,10 +117,12 @@ public class TestAStar extends TestBase {
 	public void testDagkRigidStaticScoreOrderMPLPNode1Iter() {
 		SearchProblem search = makeSearchProblemDagkRigid();
 		
-		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new StaticScoreHMeanAStarOrder();
-		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+			.setCustom(
+				new StaticScoreHMeanAStarOrder(),
+				new PairwiseGScorer(search.emat),
+				new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001)
+			).build();
 		
 		checkDagkRigid(tree, search);
 	}
@@ -120,10 +131,12 @@ public class TestAStar extends TestBase {
 	public void testDagkRigidStaticScoreOrderMPLPNode5Iter() {
 		SearchProblem search = makeSearchProblemDagkRigid();
 		
-		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new StaticScoreHMeanAStarOrder();
-		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 5, 0.0001);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+			.setCustom(
+				new StaticScoreHMeanAStarOrder(),
+				new PairwiseGScorer(search.emat),
+				new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 5, 0.0001)
+			).build();
 		
 		checkDagkRigid(tree, search);
 	}
@@ -132,10 +145,12 @@ public class TestAStar extends TestBase {
 	public void testDagkRigidStaticScoreOrderMPLPEdge1Iter() {
 		SearchProblem search = makeSearchProblemDagkRigid();
 		
-		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new StaticScoreHMeanAStarOrder();
-		AStarScorer hscorer = new MPLPPairwiseHScorer(new EdgeUpdater(), search.emat, 1, 0.0001);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+			.setCustom(
+				new StaticScoreHMeanAStarOrder(),
+				new PairwiseGScorer(search.emat),
+				new MPLPPairwiseHScorer(new EdgeUpdater(), search.emat, 1, 0.0001)
+			).build();
 		
 		checkDagkRigid(tree, search);
 	}
@@ -144,10 +159,12 @@ public class TestAStar extends TestBase {
 	public void testDagkRigidStaticScoreOrderMPLPEdge20Iter() {
 		SearchProblem search = makeSearchProblemDagkRigid();
 		
-		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new StaticScoreHMeanAStarOrder();
-		AStarScorer hscorer = new MPLPPairwiseHScorer(new EdgeUpdater(), search.emat, 20, 0.0001);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+			.setCustom(
+				new StaticScoreHMeanAStarOrder(),
+				new PairwiseGScorer(search.emat),
+				new MPLPPairwiseHScorer(new EdgeUpdater(), search.emat, 20, 0.0001)
+			).build();
 		
 		checkDagkRigid(tree, search);
 	}
@@ -156,10 +173,12 @@ public class TestAStar extends TestBase {
 	public void testDagkRigidDynamicOrderMPLPNode1Iter() {
 		SearchProblem search = makeSearchProblemDagkRigid();
 		
-		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new DynamicHMeanAStarOrder();
-		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+			.setCustom(
+				new DynamicHMeanAStarOrder(),
+				new PairwiseGScorer(search.emat),
+				new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001)
+			).build();
 		
 		checkDagkRigid(tree, search);
 	}
@@ -206,10 +225,12 @@ public class TestAStar extends TestBase {
 	public void testDagkRigidStaticScoreOrderMPLPNode1IterPruned() {
 		SearchProblem search = makePrunedSearchProblemDagkRigid();
 		
-		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new StaticScoreHMeanAStarOrder();
-		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+			.setCustom(
+				new StaticScoreHMeanAStarOrder(),
+				new PairwiseGScorer(search.emat),
+				new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001)
+			).build();
 		
 		checkDagkRigid(tree, search);
 	}
@@ -251,9 +272,12 @@ public class TestAStar extends TestBase {
 		SearchProblem search = makeSearchProblemDagkRigidInf();
 		
 		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new DynamicHMeanAStarOrder();
-		AStarScorer hscorer = new TraditionalPairwiseHScorer(search.emat, rcs);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, rcs)
+			.setCustom(
+				new DynamicHMeanAStarOrder(),
+				new PairwiseGScorer(search.emat),
+				new TraditionalPairwiseHScorer(search.emat, rcs)
+			).build();
 		
 		checkDagkRigidInf(tree, search);
 	}
@@ -262,10 +286,12 @@ public class TestAStar extends TestBase {
 	public void testDagkRigidInfStaticScoreOrderMPLP0Iter() {
 		SearchProblem search = makeSearchProblemDagkRigidInf();
 		
-		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new StaticScoreHMeanAStarOrder();
-		AStarScorer hscorer = new MPLPPairwiseHScorer(null, search.emat, 0, 0.0001);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+			.setCustom(
+				new StaticScoreHMeanAStarOrder(),
+				new PairwiseGScorer(search.emat),
+				new MPLPPairwiseHScorer(null, search.emat, 0, 0.0001)
+			).build();
 		
 		checkDagkRigidInf(tree, search);
 	}
@@ -274,10 +300,12 @@ public class TestAStar extends TestBase {
 	public void testDagkRigidInfStaticScoreOrderMPLPNode1Iter() {
 		SearchProblem search = makeSearchProblemDagkRigidInf();
 		
-		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new StaticScoreHMeanAStarOrder();
-		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+			.setCustom(
+				new StaticScoreHMeanAStarOrder(),
+				new PairwiseGScorer(search.emat),
+				new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001)
+			).build();
 		
 		checkDagkRigidInf(tree, search);
 	}
@@ -286,10 +314,12 @@ public class TestAStar extends TestBase {
 	public void testDagkRigidInfStaticScoreOrderMPLPEdge1Iter() {
 		SearchProblem search = makeSearchProblemDagkRigidInf();
 		
-		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new StaticScoreHMeanAStarOrder();
-		AStarScorer hscorer = new MPLPPairwiseHScorer(new EdgeUpdater(), search.emat, 1, 0.0001);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+			.setCustom(
+				new StaticScoreHMeanAStarOrder(),
+				new PairwiseGScorer(search.emat),
+				new MPLPPairwiseHScorer(new EdgeUpdater(), search.emat, 1, 0.0001)
+			).build();
 		
 		checkDagkRigidInf(tree, search);
 	}
@@ -326,9 +356,12 @@ public class TestAStar extends TestBase {
 		SearchProblem search = makeSearchProblemDagkContinuous();
 		
 		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new DynamicHMeanAStarOrder();
-		AStarScorer hscorer = new TraditionalPairwiseHScorer(search.emat, rcs);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, rcs)
+			.setCustom(
+				new DynamicHMeanAStarOrder(),
+				new PairwiseGScorer(search.emat),
+				new TraditionalPairwiseHScorer(search.emat, rcs)
+			).build();
 		
 		checkDagkContinuous(tree, search);
 	}
@@ -338,9 +371,12 @@ public class TestAStar extends TestBase {
 		SearchProblem search = makeSearchProblemDagkContinuous();
 		
 		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new StaticScoreHMeanAStarOrder();
-		AStarScorer hscorer = new TraditionalPairwiseHScorer(search.emat, rcs);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, rcs)
+			.setCustom(
+				new StaticScoreHMeanAStarOrder(),
+				new PairwiseGScorer(search.emat),
+				new TraditionalPairwiseHScorer(search.emat, rcs)
+			).build();
 		
 		checkDagkContinuous(tree, search);
 	}
@@ -349,10 +385,12 @@ public class TestAStar extends TestBase {
 	public void testDagkContinuousDynamicOrderMPLP0Iter() {
 		SearchProblem search = makeSearchProblemDagkContinuous();
 		
-		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new DynamicHMeanAStarOrder();
-		AStarScorer hscorer = new MPLPPairwiseHScorer(null, search.emat, 0, 0.0001);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+			.setCustom(
+				new DynamicHMeanAStarOrder(),
+				new PairwiseGScorer(search.emat),
+				new MPLPPairwiseHScorer(null, search.emat, 0, 0.0001)
+			).build();
 		
 		checkDagkContinuous(tree, search);
 	}
@@ -361,10 +399,12 @@ public class TestAStar extends TestBase {
 	public void testDagkContinuousStaticScoreOrderMPLP0Iter() {
 		SearchProblem search = makeSearchProblemDagkContinuous();
 		
-		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new StaticScoreHMeanAStarOrder();
-		AStarScorer hscorer = new MPLPPairwiseHScorer(null, search.emat, 0, 0.0001);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+			.setCustom(
+				new StaticScoreHMeanAStarOrder(),
+				new PairwiseGScorer(search.emat),
+				new MPLPPairwiseHScorer(null, search.emat, 0, 0.0001)
+			).build();
 		
 		checkDagkContinuous(tree, search);
 	}
@@ -373,10 +413,12 @@ public class TestAStar extends TestBase {
 	public void testDagkContinuousStaticScoreOrderMPLPNode1Iter() {
 		SearchProblem search = makeSearchProblemDagkContinuous();
 		
-		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new StaticScoreHMeanAStarOrder();
-		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+			.setCustom(
+				new StaticScoreHMeanAStarOrder(),
+				new PairwiseGScorer(search.emat),
+				new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001)
+			).build();
 		
 		checkDagkContinuous(tree, search);
 	}
@@ -385,10 +427,12 @@ public class TestAStar extends TestBase {
 	public void testDagkContinuousStaticScoreOrderMPLPNode5Iter() {
 		SearchProblem search = makeSearchProblemDagkContinuous();
 		
-		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new StaticScoreHMeanAStarOrder();
-		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 5, 0.0001);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+			.setCustom(
+				new StaticScoreHMeanAStarOrder(),
+				new PairwiseGScorer(search.emat),
+				new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 5, 0.0001)
+			).build();
 		
 		checkDagkContinuous(tree, search);
 	}
@@ -397,10 +441,12 @@ public class TestAStar extends TestBase {
 	public void testDagkContinuousStaticScoreOrderMPLPEdge1Iter() {
 		SearchProblem search = makeSearchProblemDagkContinuous();
 		
-		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new StaticScoreHMeanAStarOrder();
-		AStarScorer hscorer = new MPLPPairwiseHScorer(new EdgeUpdater(), search.emat, 1, 0.0001);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+			.setCustom(
+				new StaticScoreHMeanAStarOrder(),
+				new PairwiseGScorer(search.emat),
+				new MPLPPairwiseHScorer(new EdgeUpdater(), search.emat, 1, 0.0001)
+			).build();
 		
 		checkDagkContinuous(tree, search);
 	}
@@ -409,10 +455,12 @@ public class TestAStar extends TestBase {
 	public void testDagkContinuousStaticScoreOrderMPLPEdge20Iter() {
 		SearchProblem search = makeSearchProblemDagkContinuous();
 		
-		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new StaticScoreHMeanAStarOrder();
-		AStarScorer hscorer = new MPLPPairwiseHScorer(new EdgeUpdater(), search.emat, 20, 0.0001);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+			.setCustom(
+				new StaticScoreHMeanAStarOrder(),
+				new PairwiseGScorer(search.emat),
+				new MPLPPairwiseHScorer(new EdgeUpdater(), search.emat, 20, 0.0001)
+			).build();
 		
 		checkDagkContinuous(tree, search);
 	}
@@ -421,11 +469,30 @@ public class TestAStar extends TestBase {
 	public void testDagkContinuousDynamicOrderMPLPNode1Iter() {
 		SearchProblem search = makeSearchProblemDagkContinuous();
 		
-		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new DynamicHMeanAStarOrder();
-		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+			.setCustom(
+				new DynamicHMeanAStarOrder(),
+				new PairwiseGScorer(search.emat),
+				new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001)
+			).build();
 		
 		checkDagkContinuous(tree, search);
+	}
+	
+	
+	// EXTERNAL MEMORY TESTS
+	
+	@Test
+	public void testExternalMemory() {
+		SearchProblem search = makeSearchProblemDagkContinuous();
+		
+		ExternalMemory.use(16, () -> {
+			ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+				.setTraditional()
+				.useExternalMemory()
+				.build();
+			
+			checkDagkContinuous(tree, search);
+		});
 	}
 }

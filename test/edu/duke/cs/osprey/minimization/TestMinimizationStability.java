@@ -11,13 +11,6 @@ import org.junit.Test;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
-import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
-import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.ParameterizedMoleculeCopy;
 import edu.duke.cs.osprey.confspace.SearchProblem;
@@ -81,10 +74,10 @@ public class TestMinimizationStability extends TestBase {
 		search.pruneMat = new PruningMatrix(search.confSpace, 1000);
 		
 		// build A* tree
-		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new StaticScoreHMeanAStarOrder();
-		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+			.setMPLP(new ConfAStarTree.MPLPBuilder()
+				.setNumIterations(1)
+			).build();
 		
 		// get the confs
 		final int NumConfs = 10;

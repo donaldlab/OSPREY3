@@ -15,15 +15,16 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.gmec.MinimizingConfEnergyCalculator;
 import edu.duke.cs.osprey.multistatekstar.InputValidation;
 import edu.duke.cs.osprey.multistatekstar.KStarScore;
+import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
 import edu.duke.cs.osprey.multistatekstar.LMB;
 import edu.duke.cs.osprey.multistatekstar.MSConfigFileParser;
 import edu.duke.cs.osprey.multistatekstar.MSKStarFactory;
 import edu.duke.cs.osprey.multistatekstar.MSKStarTree;
 import edu.duke.cs.osprey.multistatekstar.MSSearchProblem;
 import edu.duke.cs.osprey.multistatekstar.MSSearchSettings;
-import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -59,8 +60,8 @@ public class MSKStarDoer {
 	SearchProblem[][] searchDisc;//continuous search problems
 	SearchProblem[][] searchCont;//discrete search problems
 
-	ConfEnergyCalculator.Async[][] ecalcsCont;//global continuous energy calculator objects
-	ConfEnergyCalculator.Async[][] ecalcsDisc;//global discrete energy calculator objects
+	MinimizingConfEnergyCalculator[][] ecalcsCont;//global continuous energy calculator objects
+	MinimizingConfEnergyCalculator[][] ecalcsDisc;//global discrete energy calculator objects
 
 	public MSKStarDoer(ConfigFileParser cfp) {
 
@@ -101,8 +102,8 @@ public class MSKStarDoer {
 		searchCont = new SearchProblem[numStates][];
 		searchDisc = new SearchProblem[numStates][];
 		
-		ecalcsCont = new ConfEnergyCalculator.Async[numStates][];
-		ecalcsDisc = new ConfEnergyCalculator.Async[numStates][];
+		ecalcsCont = new MinimizingConfEnergyCalculator[numStates][];
+		ecalcsDisc = new MinimizingConfEnergyCalculator[numStates][];
 
 		System.out.println();
 		System.out.println("Checking multistate K* parameters for consistency");
@@ -164,37 +165,37 @@ public class MSKStarDoer {
 		}
 	}
 
-	private ConfEnergyCalculator.Async[][] makeEnergyCalculators(boolean cont) {
-		ConfEnergyCalculator.Async[][] ans = new ConfEnergyCalculator.Async[numStates][];
+	private MinimizingConfEnergyCalculator[][] makeEnergyCalculators(boolean cont) {
+		MinimizingConfEnergyCalculator[][] ans = new MinimizingConfEnergyCalculator[numStates][];
 		for(int state=0;state<numStates;++state) {
 			ans[state] = makeEnergyCalculators(state, cont);
 		}
 		return ans;
 	}
 
-	private ConfEnergyCalculator.Async[] makeEnergyCalculators(int state, boolean cont) {
+	private MinimizingConfEnergyCalculator[] makeEnergyCalculators(int state, boolean cont) {
 		SearchProblem[] search = cont ? searchCont[state] : searchDisc[state];
 		Parallelism parallelism = cont ? Parallelism.makeFromConfig(cfps[state]) : Parallelism.makeCpu(1);
-		ConfEnergyCalculator.Async[] ans = new ConfEnergyCalculator.Async[search.length];
+		MinimizingConfEnergyCalculator[] ans = new MinimizingConfEnergyCalculator[search.length];
 		for(int substate=0;substate<search.length;++substate) {
 			ans[substate] = MSKStarFactory.makeEnergyCalculator(cfps[state], search[substate], parallelism);
 		}
 		return ans;
 	}
 
-	private void cleanupEnergyCalculators(ConfEnergyCalculator.Async[][] ecalcs, int state) {
+	private void cleanupEnergyCalculators(MinimizingConfEnergyCalculator[][] ecalcs, int state) {
 		if(ecalcs[state]==null) return;
 		for(int substate=0;substate<ecalcs[state].length;++substate) {
-			ConfEnergyCalculator.Async ecalc = ecalcs[state][substate];
+			MinimizingConfEnergyCalculator ecalc = ecalcs[state][substate];
 			if(ecalc != null) {
-				ecalcs[state][substate].cleanup();
+				ecalcs[state][substate].clean();
 				ecalcs[state][substate] = null;
 			}
 		}
 		ecalcs[state] = null;
 	}
 
-	private void cleanupEnergyCalculators(ConfEnergyCalculator.Async[][] ecalcs) {
+	private void cleanupEnergyCalculators(MinimizingConfEnergyCalculator[][] ecalcs) {
 		if(ecalcs == null) return;
 		for(int state=0;state<ecalcs.length;++state) cleanupEnergyCalculators(ecalcs, state);
 		ecalcs = null;

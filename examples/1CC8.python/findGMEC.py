@@ -16,12 +16,13 @@ confSpace = osprey.ConfSpace(strand)
 ffparams = osprey.ForcefieldParams()
 
 # how to compute the energy of a conformation?
-ecalc = osprey.EnergyCalculator(confSpace, ffparams)
+fragEcalc = osprey.FragmentEnergyCalculator(confSpace, ffparams)
+confEcalc = osprey.ConfEnergyCalculator(fragEcalc)
 
 # how should confs be ordered and searched?
-emat = osprey.EnergyMatrix(confSpace, ecalc)
+emat = osprey.EnergyMatrix(confSpace, fragEcalc)
 astar = osprey.AStarMPLP(emat, confSpace)
 
 # find the best sequence and rotamers
-gmec = osprey.GMECFinder(confSpace, astar, ecalc).find()
+gmec = osprey.GMECFinder(confSpace, astar, confEcalc).find()
 

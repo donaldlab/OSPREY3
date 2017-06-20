@@ -170,7 +170,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 	}
 	
 	@Override
-	public void cleanup() {
+	public void clean() {
 		
 		kernelBuilder.cleanup();
 		kernelBuilder = null;
@@ -185,7 +185,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		
 		if (efuncCache != null) {
 			for (GpuForcefieldEnergy efunc : efuncCache.values()) {
-				efunc.cleanup();
+				efunc.clean();
 			}
 			efuncCache.clear();
 		}
@@ -197,7 +197,7 @@ public class GpuForcefieldEnergy implements EnergyFunction.DecomposableByDof, En
 		try {
 			if (kernelBuilder != null) {
 				System.err.println("WARNING: " + getClass().getName() + " was garbage collected, but not cleaned up. Attempting cleanup now");
-				cleanup();
+				clean();
 			}
 		} finally {
 			super.finalize();

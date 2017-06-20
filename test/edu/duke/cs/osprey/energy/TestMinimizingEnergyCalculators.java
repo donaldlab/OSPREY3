@@ -3,6 +3,7 @@ package edu.duke.cs.osprey.energy;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -16,15 +17,18 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.ParametricMolecule;
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
 import edu.duke.cs.osprey.minimization.CCDMinimizer;
 import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MoleculeObjectiveFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
+import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskException;
 import edu.duke.cs.osprey.structure.PDBIO;
 
 public class TestMinimizingEnergyCalculators extends TestBase {
@@ -164,13 +168,14 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 	
 	private void assertEnergies(MinimizingFragmentEnergyCalculator.Builder builder) {
 		
-		for (EnergyPartition epart : Arrays.asList(new EnergyPartition.Traditional(), new EnergyPartition.AllOnPairs())) {
+		for (EnergyPartition epart : Arrays.asList(EnergyPartition.Traditional, EnergyPartition.AllOnPairs)) {
 		
-			MinimizingConfEnergyCalculator ecalc = new MinimizingConfEnergyCalculator.Builder(builder.build())
-				.setEnergyPartition(epart)
-				.build();
-			assertEnergies(ecalc);
-			ecalc.cleanup();
+			try (MinimizingFragmentEnergyCalculator fragecalc = builder.build()) {
+				MinimizingConfEnergyCalculator ecalc = new MinimizingConfEnergyCalculator.Builder(fragecalc)
+					.setEnergyPartition(epart)
+					.build();
+				assertEnergies(ecalc);
+			}
 		}
 	}
 	
@@ -255,7 +260,125 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 			ecalc.calcEnergyAsync(confs.get(2), listener);
 			ecalc.calcEnergyAsync(confs.get(3), listener);
 			ecalc.getTasks().waitForFinish();
-			ecalc.cleanup();
+		}
+	}
+	
+	@Test
+	public void cleanup() {
+		
+		new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
+			.setType(MinimizingFragmentEnergyCalculator.Type.Cuda)
+			.setParallelism(Parallelism.makeGpu(1, 2))
+			.use((ecalc) -> {
+				
+				RCTuple frag = new RCTuple(0, 0);
+				ResidueInteractions inters = ResInterGen.of(confSpace)
+					.addIntra(0)
+					.make();
+				
+				for (int r=0; r<100; r++) {
+				
+					// calculate energies for a few fragments
+					for (int i=0; i<10; i++) {
+						ecalc.calcEnergyAsync(frag, inters, (econf) -> {
+							// all is well
+						});
+					}
+					ecalc.tasks.waitForFinish();
+					
+					// all the streams should have been returned
+					GpuStreamPool pool = getPool(ecalc);
+					assertThat(pool.getNumStreamsAvailable(), is(pool.getNumStreams()));
+				}
+			});
+	}
+	
+	@Test
+	public void cleanupWithExceptions() {
+		
+		new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
+			.setType(MinimizingFragmentEnergyCalculator.Type.Cuda)
+			.setParallelism(Parallelism.makeGpu(1, 2))
+			.use((ecalc) -> {
+				
+				for (int r=0; r<100; r++) {
+					
+					try {
+						
+						// calculate energies for a few fragments
+						for (int i=0; i<10; i++) {
+							ecalc.calcEnergyAsync(null, null, (econf) -> {
+								fail("we shouldn't make it to the listener");
+							});
+						}
+						ecalc.tasks.waitForFinish();
+						
+					} catch (TaskException ex) {
+						
+						// all the streams should have been returned
+						GpuStreamPool pool = getPool(ecalc);
+						assertThat(pool.getNumStreamsAvailable(), is(pool.getNumStreams()));
+						continue;
+					}
+					
+					fail("should have had a TaskException");
+				}
+			});
+	}
+	
+	@Test
+	public void cleanupWithExceptionsInListener() {
+		
+		new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
+			.setType(MinimizingFragmentEnergyCalculator.Type.Cuda)
+			.setParallelism(Parallelism.makeGpu(1, 2))
+			.use((ecalc) -> {
+				
+				RCTuple frag = new RCTuple(0, 0);
+				ResidueInteractions inters = ResInterGen.of(confSpace)
+					.addIntra(0)
+					.make();
+		
+				for (int r=0; r<100; r++) {
+					
+					try {
+						
+						// calculate energies for a few fragments
+						for (int i=0; i<10; i++) {
+							ecalc.calcEnergyAsync(frag, inters, (econf) -> {
+								
+								// throw an exception in the listener
+								throw new Error("oops, a Bad Thing happened");
+							});
+						}
+						ecalc.tasks.waitForFinish();
+						
+					} catch (TaskException ex) {
+						
+						// all the streams should have been returned
+						GpuStreamPool pool = getPool(ecalc);
+						assertThat(pool.getNumStreamsAvailable(), is(pool.getNumStreams()));
+						continue;
+					}
+					
+					fail("should have had a TaskException");
+				}
+			});
+	}
+	
+	private GpuStreamPool getPool(MinimizingFragmentEnergyCalculator ecalc) {
+		try {
+			
+			// HACKHACK: get the GpuStreamPool from the ecalc via reflection
+			Field fieldContext = ecalc.getClass().getDeclaredField("context");
+			fieldContext.setAccessible(true);
+			Object context = fieldContext.get(ecalc);
+			Field fieldPool = context.getClass().getDeclaredField("pool");
+			fieldPool.setAccessible(true);
+			return (GpuStreamPool)fieldPool.get(context);
+			
+		} catch (Exception ex) {
+			throw new Error(ex);
 		}
 	}
 }

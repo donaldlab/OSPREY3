@@ -89,6 +89,9 @@ public class Build extends JkJavaBuild {
 			// just download the jar directly
 			.on(url("https://search.maven.org/remotecontent?filepath=org/jcuda/jcuda/0.8.0/jcuda-0.8.0.jar"))
 			
+			// download TPIE-Java directly from github
+			.on(url("https://github.com/donaldlab/TPIE-Java/releases/download/v1.1/edu.duke.cs.tpie-1.1.jar"))
+			
 			.build()
 	
 			// and the natives

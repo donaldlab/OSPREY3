@@ -11,6 +11,6 @@ public interface AStarScorer {
 	default double calcDifferential(ConfIndex confIndex, RCs rcs, int nextPos, int nextRc) {
 		
 		// just punt to calc() by default
-		return calc(new ConfIndex(confIndex, nextPos, nextRc), rcs);
+		return calc(confIndex.assign(nextPos, nextRc), rcs);
 	}
 }

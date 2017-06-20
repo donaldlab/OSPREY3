@@ -10,38 +10,30 @@ import org.junit.Test;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
-import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
-import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.gmec.ConfSearchFactory;
 import edu.duke.cs.osprey.gmec.MinimizingConfEnergyCalculator;
+import edu.duke.cs.osprey.kstar.pfunc.ParallelConfPartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
-import edu.duke.cs.osprey.kstar.pfunc.ParallelConfPartitionFunction;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 public class TestParallelConfPartitionFunction extends TestBase {
 	
 	public static class Pfunc {
 		
-		public ConfEnergyCalculator.Async ecalc;
+		public MinimizingConfEnergyCalculator ecalc;
 		public ParallelConfPartitionFunction pfunc;
 		
-		public Pfunc(ConfEnergyCalculator.Async ecalc, SearchProblem search, ConfSearchFactory confSearchFactory) {
+		public Pfunc(MinimizingConfEnergyCalculator ecalc, SearchProblem search, ConfSearchFactory confSearchFactory) {
 			this.ecalc = ecalc;
 			this.pfunc = new ParallelConfPartitionFunction(search.emat, search.pruneMat, confSearchFactory, ecalc);
 		}
 		
 		public void cleanup() {
-			this.ecalc.cleanup();
+			this.ecalc.clean();
 		}
 	}
 	
@@ -60,18 +52,15 @@ public class TestParallelConfPartitionFunction extends TestBase {
 		ConfSearchFactory confSearchFactory = new ConfSearchFactory() {
 			@Override
 			public ConfSearch make(EnergyMatrix emat, PruningMatrix pmat) {
-				
-                AStarScorer gscorer = new PairwiseGScorer(emat);
-				AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), emat, 1, 0.0001);
-				AStarOrder order = new StaticScoreHMeanAStarOrder();
-                RCs rcs = new RCs(pmat);
-                
-                return new ConfAStarTree(order, gscorer, hscorer, rcs);
+				return new ConfAStarTree.Builder(emat, pmat)
+					.setMPLP(new ConfAStarTree.MPLPBuilder()
+						.setNumIterations(1)
+					).build();
 			}
 		};
 		
 		// make the conf energy calculator
-		ConfEnergyCalculator.Async ecalc = MinimizingConfEnergyCalculator.make(makeDefaultFFParams(), search, parallelism);
+		MinimizingConfEnergyCalculator ecalc = MinimizingConfEnergyCalculator.make(makeDefaultFFParams(), search, parallelism);
 		
 		return new Pfunc(ecalc, search, confSearchFactory);
 	}

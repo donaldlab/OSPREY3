@@ -3,9 +3,9 @@ package edu.duke.cs.osprey.astar.conf;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.PriorityQueue;
 
 import edu.duke.cs.osprey.astar.AStarProgress;
+import edu.duke.cs.osprey.astar.conf.linked.LinkedConfAStarFactory;
 import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
 import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
 import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
@@ -19,6 +19,9 @@ import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.externalMemory.EMConfAStarFactory;
+import edu.duke.cs.osprey.externalMemory.ExternalMemory;
+import edu.duke.cs.osprey.externalMemory.Queue;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -37,6 +40,7 @@ public class ConfAStarTree implements ConfSearch {
 		private AStarScorer gscorer = null;
 		private AStarScorer hscorer = null;
 		private boolean showProgress = false;
+		private ConfAStarFactory factory = new LinkedConfAStarFactory();
 		
 		public Builder(EnergyMatrix emat, SimpleConfSpace confSpace) {
 			this(emat, new RCs(confSpace));
@@ -102,17 +106,31 @@ public class ConfAStarTree implements ConfSearch {
 			return this;
 		}
 		
+		/**
+		 * Use external memory (eg, disk, SSD, NAS) when large A* searches
+		 * cannot fit in internal memory (eg, RAM).
+		 * 
+		 * Use {@link ExternalMemory#setInternalLimit} to set the amount of fixed internal memory
+		 * and {@link ExternalMemory#setTempDir} to set the file path for external memory.
+		 */
+		public Builder useExternalMemory() {
+			ExternalMemory.checkInternalLimitSet();
+			factory = new EMConfAStarFactory();
+			return this;
+		}
+		
 		public Builder setShowProgress(boolean val) {
 			showProgress = val;
 			return this;
 		}
 		
-		public ConfSearch build() {
+		public ConfAStarTree build() {
 			ConfAStarTree tree = new ConfAStarTree(
 				order,
 				gscorer,
 				hscorer,
-				rcs
+				rcs,
+				factory
 			);
 			if (showProgress) {
 				tree.initProgress();
@@ -195,23 +213,28 @@ public class ConfAStarTree implements ConfSearch {
 	public final AStarScorer gscorer;
 	public final AStarScorer hscorer;
 	public final RCs rcs;
+	public final ConfAStarFactory factory;
 	
-	private PriorityQueue<ConfAStarNode> queue;
+	private final Queue<ConfAStarNode> queue;
+	private final ConfIndex confIndex;
+	
 	private ConfAStarNode rootNode;
-	private ConfIndex confIndex;
 	private AStarProgress progress;
 	private Parallelism parallelism;
 	private TaskExecutor tasks;
 	private ObjectPool<ScoreContext> contexts;
 	
-	public ConfAStarTree(AStarOrder order, AStarScorer gscorer, AStarScorer hscorer, RCs rcs) {
+	private ConfAStarTree(AStarOrder order, AStarScorer gscorer, AStarScorer hscorer, RCs rcs, ConfAStarFactory factory) {
 		this.order = order;
 		this.gscorer = gscorer;
 		this.hscorer = hscorer;
 		this.rcs = rcs;
-		this.queue = new PriorityQueue<>();
-		this.rootNode = null;
+		this.factory = factory;
+		
+		this.queue = factory.makeQueue(rcs);
 		this.confIndex = new ConfIndex(this.rcs.getNumPos());
+		
+		this.rootNode = null;
 		this.progress = null;
 		
 		this.order.setScorers(this.gscorer, this.hscorer);
@@ -289,7 +312,7 @@ public class ConfAStarTree implements ConfSearch {
 				return null;
 			}
 			
-			rootNode = new ConfAStarNode();
+			rootNode = factory.makeRootNode(rcs.getNumPos());
 			
 			// pick all the single-rotamer positions now, regardless of order chosen
 			// if we do them first, we basically get them for free
@@ -297,16 +320,16 @@ public class ConfAStarTree implements ConfSearch {
 			ConfAStarNode node = rootNode;
 			for (int pos=0; pos<rcs.getNumPos(); pos++) {
 				if (rcs.getNum(pos) == 1) {
-					node = new ConfAStarNode(node, pos, rcs.get(pos)[0]);
+					node = node.assign(pos, rcs.get(pos)[0]);
 				}
 			}
 			assert (node.getLevel() == rcs.getNumTrivialPos());
 			
 			// score and add the tail node of the chain we just created
-			confIndex.index(node);
+			node.index(confIndex);
 			node.setGScore(gscorer.calc(confIndex, rcs));
 			node.setHScore(hscorer.calc(confIndex, rcs));
-			queue.add(node);
+			queue.push(node);
 		}
 		
 		while (true) {
@@ -331,7 +354,7 @@ public class ConfAStarTree implements ConfSearch {
 			
 			// which pos to expand next?
 			int numChildren = 0;
-			confIndex.index(node);
+			node.index(confIndex);
 			int nextPos = order.getNextPos(confIndex, rcs);
 			assert (!confIndex.isDefined(nextPos));
 			assert (confIndex.isUndefined(nextPos));
@@ -350,8 +373,8 @@ public class ConfAStarTree implements ConfSearch {
 						ScoreContext context = checkout.get();
 						
 						// score the child node differentially against the parent node
-						context.index.index(node);
-						ConfAStarNode child = new ConfAStarNode(node, nextPos, nextRc);
+						node.index(context.index);
+						ConfAStarNode child = node.assign(nextPos, nextRc);
 						child.setGScore(context.gscorer.calcDifferential(context.index, rcs, nextPos, nextRc));
 						child.setHScore(context.hscorer.calcDifferential(context.index, rcs, nextPos, nextRc));
 						return child;
@@ -367,7 +390,7 @@ public class ConfAStarTree implements ConfSearch {
 			}
 			tasks.waitForFinish();
 			numChildren += children.size();
-			queue.addAll(children);
+			queue.pushAll(children);
 			
             if (progress != null) {
             	progress.reportInternalNode(node.getLevel(), node.getGScore(), node.getHScore(), queue.size(), numChildren);
@@ -418,9 +441,9 @@ public class ConfAStarTree implements ConfSearch {
 			return false;
 		}
 		
-		for (int i=0; i<confIndex.getNumDefined(); i++) {
-			int pos = confIndex.getDefinedPos()[i];
-			int rc = confIndex.getDefinedRCs()[i];
+		for (int i=0; i<confIndex.numDefined; i++) {
+			int pos = confIndex.definedPos[i];
+			int rc = confIndex.definedRCs[i];
 			assert (pos != nextPos || rc != nextRc);
 			if (pmat.getPairwise(pos, rc, nextPos, nextRc)) {
 				return true;

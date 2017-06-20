@@ -36,16 +36,17 @@ protein.flexibility[4].setLibraryRotamers().addWildTypeRotamers();
 confSpace = osprey.ConfSpace(protein)
 
 # how should conformation energies be calculated?
-ecalc = osprey.EnergyCalculator(
+fragEcalc = osprey.FragmentEnergyCalculator(
 	confSpace,
 	ffparams,
 	parallelism=parallelism
 )
+confEcalc = osprey.ConfEnergyCalculator(fragEcalc)
 
 # calculate the energy matrix
 emat = osprey.EnergyMatrix(
 	confSpace,
-	ecalc,
+	fragEcalc,
 	cacheFile='/tmp/emat.dat'
 )
 
@@ -62,14 +63,14 @@ energyWindow = 0.1 # kcal/mol
 confs = osprey.GMECFinder(
 	confSpace,
 	astar,
-	ecalc,
+	confEcalc,
 	printIntermediateConfs=True,
 	confLog='confs.txt'
 ).find(energyWindow)
 
 # get some info about the confs
-print('\nyup, we found %d confs in the energy window' % len(confs))
-gmec = confs.get(0)
+print('\nyup, we found %d confs in the energy window' % confs.size())
+gmec = confs.peek()
 gmecMol = confSpace.makeMolecule(gmec)
 osprey.writePdb(gmecMol, 'gmec.pdb')
 

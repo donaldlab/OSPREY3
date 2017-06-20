@@ -29,4 +29,8 @@ public class EnergyRange {
 	public boolean contains(double energy) {
 		return energy >= min && energy <= getMax();
 	}
+	
+	public boolean containsOrBelow(double energy) {
+		return energy <= getMax();
+	}
 }

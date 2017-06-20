@@ -64,14 +64,14 @@ public class NodeUpdater implements MPLPUpdater {
 		RCs rcs = lambdas.getRCs();
 		ConfIndex confIndex = lambdas.getConfIndex();
 		
-		for (int posi1=0; posi1<confIndex.getNumUndefined(); posi1++) {
-			int pos1 = confIndex.getUndefinedPos()[posi1];
+		for (int posi1=0; posi1<confIndex.numUndefined; posi1++) {
+			int pos1 = confIndex.undefinedPos[posi1];
 			
 			// calculate the gammas
 			// NOTE: as far as I know, this precalculation can't be moved outside of the loop =(
 			MessageVars gammas = new MessageVars(rcs, confIndex);
-			for (int posi2=0; posi2<confIndex.getNumUndefined(); posi2++) {
-				int pos2 = confIndex.getUndefinedPos()[posi2];
+			for (int posi2=0; posi2<confIndex.numUndefined; posi2++) {
+				int pos2 = confIndex.undefinedPos[posi2];
 				
 				if (pos2 == pos1) {
 					continue;
@@ -95,8 +95,8 @@ public class NodeUpdater implements MPLPUpdater {
 			}
 		
 			// update the lambdas
-			for (int posi2=0; posi2<confIndex.getNumUndefined(); posi2++) {
-				int pos2 = confIndex.getUndefinedPos()[posi2];
+			for (int posi2=0; posi2<confIndex.numUndefined; posi2++) {
+				int pos2 = confIndex.undefinedPos[posi2];
 				
 				if (pos2 == pos1) {
 					continue;
@@ -106,7 +106,7 @@ public class NodeUpdater implements MPLPUpdater {
 				for (int rci1=0; rci1<rcs.getNum(pos1); rci1++) {
 					
 					double gamma = gammas.get(posi2, posi1, rci1);
-					double gammaEnergy = gammas.getEnergy(posi1, rci1)/confIndex.getNumUndefined();
+					double gammaEnergy = gammas.getEnergy(posi1, rci1)/confIndex.numUndefined;
 					
 					double lambda;
 					if (Double.isFinite(gammaEnergy)) {
@@ -136,7 +136,7 @@ public class NodeUpdater implements MPLPUpdater {
 						double gamma1 = gammas.getEnergy(posi1, rci1);
 						double gamma2 = gammas.get(posi2, posi1, rci1);
 						if (Double.isFinite(theta) && Double.isFinite(gamma1) && Double.isFinite(gamma2)) {
-							minVal = Math.min(minVal, theta + 2*gamma1/confIndex.getNumUndefined() - gamma2);
+							minVal = Math.min(minVal, theta + 2*gamma1/confIndex.numUndefined - gamma2);
 						}
 					}
 					

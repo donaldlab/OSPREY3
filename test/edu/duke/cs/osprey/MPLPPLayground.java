@@ -90,10 +90,10 @@ public class MPLPPLayground {
 		
 		// define a partial conformation (set all flexible residues undefined for now)
 		ConfIndex confIndex = new ConfIndex(NumFlexible);
-		confIndex.setNumDefined(0);
-		confIndex.setNumUndefined(NumFlexible);
+		confIndex.numDefined = 0;
+		confIndex.numUndefined = NumFlexible;
 		for (int i=0; i<NumFlexible; i++) {
-			confIndex.getUndefinedPos()[i] = i;
+			confIndex.undefinedPos[i] = i;
 		}
 		
 		/* TEMP
@@ -119,22 +119,22 @@ public class MPLPPLayground {
 		System.out.println(String.format("MPLP H Score: %16.12f", mplpHScore));
 		
 		// get the real min bound conf using a trusted A* implementation
-		ConfAStarTree tree = new ConfAStarTree(
-			new DynamicHMeanAStarOrder(),
-			new PairwiseGScorer(search.emat),
-			new TraditionalPairwiseHScorer(search.emat, rcs),
-			rcs
-		);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, rcs)
+			.setCustom(
+				new DynamicHMeanAStarOrder(),
+				new PairwiseGScorer(search.emat),
+				new TraditionalPairwiseHScorer(search.emat, rcs)
+			).build();
 		ConfAStarNode minBoundNode = tree.nextLeafNode();
 		System.out.println(String.format("min bound e (trad):  %16.12f", minBoundNode.getScore()));
 		
 		// get the min bound conf using MPLP
-		tree = new ConfAStarTree(
-			new StaticScoreHMeanAStarOrder(),
-			new PairwiseGScorer(search.emat),
-			mplpHScorer,
-			rcs
-		);
+		tree = new ConfAStarTree.Builder(search.emat, rcs)
+			.setCustom(
+				new StaticScoreHMeanAStarOrder(),
+				new PairwiseGScorer(search.emat),
+				mplpHScorer
+			).build();
 		ConfAStarNode minBoundNodeMplp = tree.nextLeafNode();
 		System.out.println(String.format("min bound e (MPLP):  %16.12f", minBoundNodeMplp.getScore()));
 		

@@ -138,7 +138,7 @@ public class Strand {
 		
 		/**
 		 * Set the mutatable residue types (e.g., amino acids) for this residue.
-		 * Use {@link WildType} to represent the wild type residue type.
+		 * Use {@link #WildType} to represent the wild type residue type.
 		 * If no residue types are passed, the wild type will be used. 
 		 */
 		public ResidueFlex setLibraryRotamers(String ... resTypes) {

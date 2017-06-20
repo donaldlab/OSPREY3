@@ -1,7 +1,5 @@
 package edu.duke.cs.osprey.gpu;
 
-import static org.junit.Assert.*;
-
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -11,21 +9,12 @@ import java.util.concurrent.TimeUnit;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
-import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
-import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunction;
@@ -284,7 +273,7 @@ public class BenchmarkForcefieldKernel extends TestBase {
 							checkEnergy(expectedEnergy, energy);
 						
 						} finally {
-							gpuefunc.cleanup();
+							gpuefunc.clean();
 						}
 					}
 				});
@@ -334,7 +323,7 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		
 		checkEnergy(expectedEnergy, energy);
 		
-		gpuefunc.cleanup();
+		gpuefunc.clean();
 	}
 	
 	protected static void checkEnergy(double exp, double obs) {
@@ -356,10 +345,10 @@ public class BenchmarkForcefieldKernel extends TestBase {
 		// get a few arbitrary conformations
 		search.emat = new SimpleEnergyMatrixCalculator.Cpu(2, egen.ffParams, search.confSpace, search.shellResidues).calcEnergyMatrix();
 		search.pruneMat = new PruningMatrix(search.confSpace, 1000);
-		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new StaticScoreHMeanAStarOrder();
-		AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 4, 0.0001);
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+			.setMPLP(new ConfAStarTree.MPLPBuilder()
+				.setNumIterations(4)
+			).build();
 		List<ScoredConf> confs = new ArrayList<>();
 		for (int i=0; i<numConfs; i++) {
 			confs.add(tree.nextConf());
@@ -388,7 +377,7 @@ public class BenchmarkForcefieldKernel extends TestBase {
 			energy += minimize(gpuefunc, search.confSpace, conf);
 		}
 		gpuStopwatch.stop();
-		gpuefunc.cleanup();
+		gpuefunc.clean();
 		System.out.println("\tfinished in " + gpuStopwatch.getTime(2));
 		System.out.println("\tenergy sum: " + energy);
 		

@@ -10,6 +10,13 @@ import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.tools.Progress;
 
+/**
+ * Calculates full conformation energy of {@link ScoredConf} instances using the desired
+ * residue interactions.
+ * 
+ * Residue interactions for full conformations are specified using {@link EnergyPartition} values.
+ * Optional energy modifications like reference energies or residue entropies can also be applied.
+ */
 public class MinimizingConfEnergyCalculator implements ConfEnergyCalculator.Async {
 	
 	public static class Builder {
@@ -17,9 +24,9 @@ public class MinimizingConfEnergyCalculator implements ConfEnergyCalculator.Asyn
 		private FragmentEnergyCalculator.Async ecalc;
 		
 		/**
-		 * How energies should be paritioned among single and pair fragments.
+		 * How energies should be partitioned among single and pair fragments.
 		 */
-		private EnergyPartition epart = new EnergyPartition.Traditional();
+		private EnergyPartition epart = EnergyPartition.Traditional;
 		
 		private SimpleReferenceEnergies eref = null;
 		
@@ -32,7 +39,7 @@ public class MinimizingConfEnergyCalculator implements ConfEnergyCalculator.Asyn
 			return this;
 		}
 		
-		public Builder setReferenceEnegries(SimpleReferenceEnergies val) {
+		public Builder setReferenceEnergies(SimpleReferenceEnergies val) {
 			eref = val;
 			return this;
 		}
@@ -72,11 +79,6 @@ public class MinimizingConfEnergyCalculator implements ConfEnergyCalculator.Asyn
 		return ecalc.getTasks();
 	}
 
-	@Override
-	public void cleanup() {
-		ecalc.cleanup();
-	}
-	
 	public List<EnergiedConf> calcAllEnergies(List<ScoredConf> confs) {
 		return calcAllEnergies(confs, false);
 	}

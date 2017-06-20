@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.energy.EnergyPartition;
 import edu.duke.cs.osprey.energy.MinimizingConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.MinimizingFragmentEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.gmec.SimpleGMECFinder;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -22,18 +23,18 @@ public class EnergyPartitionsPlayground {
 		Strand strand = new Strand.Builder(PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb")).build();
 		
 		// configure flexibility
-		
-		for (int i=2; i<=12; i++) {
+		/*
+		for (int i=2; i<=15; i++) {
 			strand.flexibility.get(i).setLibraryRotamers("LEU", "ILE").setContinuous();
 		}
-		/*
-		for (int i=2; i<=3; i++) {
+		*/
+		for (int i=2; i<=8; i++) {
 			strand.flexibility.get(i).setLibraryRotamers("GLY", "ALA", "VAL", "LEU", "ILE", "SER", "THR", "CYS", "ASN", "GLN", "ASP", "GLU", "PHE", "TRP", "TYR", "HIE", "HID", "LYS", "ARG", "MET").setContinuous();
 		}
-		*/
 		
 		// make the conf space
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand)
+			.setShellDistance(4)
 			//.setShellDistance(9)
 			.build();
 		
@@ -58,32 +59,33 @@ public class EnergyPartitionsPlayground {
 		// compute the energy matrix
 		EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, fragEcalc)
 			.setReferenceEnergies(eref)
-			//.setEnergyPartition(new EnergyPartition.Traditional())
-			.setEnergyPartition(new EnergyPartition.AllOnPairs())
+			.setEnergyPartition(EnergyPartition.Traditional)
+			//.setEnergyPartition(EnergyPartition.AllOnPairs)
 			.build()
 			.calcEnergyMatrix();
 		
+		// config TPIE
+		ExternalMemory.setInternalLimit(128);
+		ExternalMemory.setTempDir(System.getProperty("user.home"), "tpie-epart");
+		
 		// how should confs be ordered?
 		ConfSearch confSearch = new ConfAStarTree.Builder(emat, confSpace)
-			.setTraditional()
-			/*
-			.setMPLP(
-				new ConfAStarTree.MPLPBuilder()
-					.setUpdater(new EdgeUpdater())
-					.setNumIterations(5)
-			)
-			*/
+			//.setTraditional()
+			.setMPLP(new ConfAStarTree.MPLPBuilder().setUpdater(new EdgeUpdater()).setNumIterations(5))
+			.useExternalMemory()
 			.setShowProgress(true)
 			.build();
 	
 		// what's the energy of a conformation?
 		MinimizingConfEnergyCalculator confEcalc = new MinimizingConfEnergyCalculator.Builder(fragEcalc)
-			.setReferenceEnegries(eref)
+			.setReferenceEnergies(eref)
 			.build();
 		
 		// find the GMEC!
 		System.out.println("Finding GMEC...");
 		EnergiedConf gmec = new SimpleGMECFinder.Builder(confSpace, confSearch, confEcalc)
+			.setPrintIntermediateConfsToConsole(false)
+			.useExternalMemory()
 			.build()
 			.find();
 		

@@ -24,21 +24,21 @@ public class PairwiseGScorer implements AStarScorer {
     	double gscore = emat.getConstTerm();
     	
     	// one body energies
-		for (int i=0; i<confIndex.getNumDefined(); i++) {
-			int pos1 = confIndex.getDefinedPos()[i];
-			int rc1 = confIndex.getDefinedRCs()[i];
+		for (int i=0; i<confIndex.numDefined; i++) {
+			int pos1 = confIndex.definedPos[i];
+			int rc1 = confIndex.definedRCs[i];
 			
 			gscore += emat.getOneBody(pos1, rc1);
 		}
 		
 		// pairwise energies
-		for (int i=0; i<confIndex.getNumDefined(); i++) {
-			int pos1 = confIndex.getDefinedPos()[i];
-			int rc1 = confIndex.getDefinedRCs()[i];
+		for (int i=0; i<confIndex.numDefined; i++) {
+			int pos1 = confIndex.definedPos[i];
+			int rc1 = confIndex.definedRCs[i];
 		
 			for (int j=0; j<i; j++) {
-				int pos2 = confIndex.getDefinedPos()[j];
-				int rc2 = confIndex.getDefinedRCs()[j];
+				int pos2 = confIndex.definedPos[j];
+				int rc2 = confIndex.definedRCs[j];
 				
 				gscore += emat.getPairwise(pos1, rc1, pos2, rc2);
 			}
@@ -51,15 +51,15 @@ public class PairwiseGScorer implements AStarScorer {
 	public double calcDifferential(ConfIndex confIndex, RCs rcs, int nextPos, int nextRc) {
 		
     	// modify the parent node's g-score
-    	double gscore = confIndex.getNode().getGScore();
+    	double gscore = confIndex.node.getGScore();
     	
     	// add the new one-body energy
     	gscore += emat.getOneBody(nextPos, nextRc);
     	
     	// add the new pairwise energies
-    	for (int i=0; i<confIndex.getNumDefined(); i++) {
-    		int pos = confIndex.getDefinedPos()[i];
-    		int rc = confIndex.getDefinedRCs()[i];
+    	for (int i=0; i<confIndex.numDefined; i++) {
+    		int pos = confIndex.definedPos[i];
+    		int rc = confIndex.definedRCs[i];
     		gscore += emat.getPairwise(pos, rc, nextPos, nextRc);
     	}
     	

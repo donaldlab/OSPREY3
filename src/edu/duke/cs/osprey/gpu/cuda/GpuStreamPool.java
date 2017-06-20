@@ -93,6 +93,16 @@ public class GpuStreamPool {
 		return streams.size();
 	}
 	
+	public int getNumStreamsAvailable() {
+		int num = 0;
+		for (int i=0; i<streams.size(); i++) {
+			if (!checkedOut[i]) {
+				num++;
+			}
+		}
+		return num;
+	}
+	
 	public synchronized GpuStream checkout() {
 		
 		// find an available queue
@@ -109,6 +119,12 @@ public class GpuStreamPool {
 	}
 	
 	public synchronized void release(GpuStream stream) {
+		
+		// if we've already cleaned up, no need to release, just cleanup now
+		if (streams == null) {
+			stream.cleanup();
+			return;
+		}
 		
 		for (int i=0; i<streams.size(); i++) {
 			if (streams.get(i) == stream) {

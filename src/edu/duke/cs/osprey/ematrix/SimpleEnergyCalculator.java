@@ -194,11 +194,8 @@ public abstract class SimpleEnergyCalculator {
 			
 			// optimize the degrees of freedom, if needed
 			if (mof.getNumDOFs() > 0) {
-				CudaCCDMinimizer minimizer = new CudaCCDMinimizer(pool, mof);
-				try {
+				try (CudaCCDMinimizer minimizer = new CudaCCDMinimizer(pool, mof)) {
 					return minimizer.minimize();
-				} finally {
-					minimizer.cleanup();
 				}
 			}
 

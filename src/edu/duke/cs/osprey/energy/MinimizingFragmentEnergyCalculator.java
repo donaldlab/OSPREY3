@@ -1,7 +1,5 @@
 package edu.duke.cs.osprey.energy;
 
-import java.io.IOException;
-
 import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
@@ -27,16 +25,22 @@ import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.structure.AtomConnectivity;
 import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.tools.AutoCleanable;
 import edu.duke.cs.osprey.tools.Factory;
+import edu.duke.cs.osprey.tools.UseableBuilder;
 
 /**
- * Computes the energy of a molecule fragment using the desired forcefield.
+ * Computes the energy of a molecule fragment using the desired forcefield parameters and residue interactions.
+ * 
+ * Residue interactions are specified via {@link ResidueInteractions} instances.
+ * Forcefield implementations are chosen via the type argument. If no type is specified, the best forcefield
+ * available implementation is automatically chosen based on the parallelism argument.
  * 
  * If a fragment has continuous degrees of freedom, minimization will be performed before forcefield evaluation.
  */
-public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalculator.Async {
+public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalculator.Async, AutoCleanable {
 	
-	public static class Builder {
+	public static class Builder implements UseableBuilder<MinimizingFragmentEnergyCalculator> {
 		
 		private SimpleConfSpace confSpace;
 		private ForcefieldParams ffparams;
@@ -231,13 +235,7 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 						pool = new GpuStreamPool(parallelism.numGpus, parallelism.numStreamsPerGpu);
 						numStreams = pool.getNumStreams();
 						efuncs = (interactions, mol) -> new ResidueForcefieldEnergy(resPairCache, interactions, mol);
-						minimizers = (mof) -> {
-							try {
-								return new ResidueCudaCCDMinimizer(pool, mof);
-							} catch (IOException ex) {
-								throw new Error(ex);
-							}
-						};
+						minimizers = (mof) -> new ResidueCudaCCDMinimizer(pool, mof);
 						needsCleanup = true;
 					}
 					
@@ -363,8 +361,10 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 		return confSpace;
 	}
 	
-	public void cleanup() {
+	@Override
+	public void clean() {
 		context.cleanup();
+		tasks.clean();
 	}
 	
 	@Override
@@ -373,13 +373,9 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 		// make the mol in the conf
 		ParametricMolecule pmol = confSpace.makeMolecule(frag);
 		
-		EnergyFunction efunc = null;
-		Minimizer minimizer = null;
-		
+		// get the energy function
+		EnergyFunction efunc = context.efuncs.make(inters, pmol.mol);
 		try {
-			
-			// get the energy function
-			efunc = context.efuncs.make(inters, pmol.mol);
 			
 			// get the energy
 			double energy;
@@ -387,8 +383,12 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 			if (bounds.size() > 0) {
 				
 				// minimize it
-				minimizer = context.minimizers.make(new MoleculeObjectiveFunction(pmol, bounds, efunc));
-				energy = minimizer.minimize().energy;
+				Minimizer minimizer = context.minimizers.make(new MoleculeObjectiveFunction(pmol, bounds, efunc));
+				try {
+					energy = minimizer.minimize().energy;
+				} finally {
+					Minimizer.Tools.cleanIfNeeded(minimizer);
+				}
 				
 			} else {
 				
@@ -398,15 +398,8 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 			
 			return energy;
 			
-		// make sure we always cleanup the energy function and minimizer
 		} finally {
-			
-			if (efunc != null && efunc instanceof EnergyFunction.NeedsCleanup) {
-				((EnergyFunction.NeedsCleanup)efunc).cleanup();
-			}
-			if (minimizer != null && minimizer instanceof Minimizer.NeedsCleanup) {
-				((Minimizer.NeedsCleanup)minimizer).cleanup();
-			}
+			EnergyFunction.Tools.cleanIfNeeded(efunc);
 		}
 	}
 	

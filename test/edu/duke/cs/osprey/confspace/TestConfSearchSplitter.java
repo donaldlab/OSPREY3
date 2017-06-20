@@ -8,12 +8,6 @@ import org.junit.Test;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
-import edu.duke.cs.osprey.astar.conf.order.DynamicHMeanAStarOrder;
-import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.TraditionalPairwiseHScorer;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 
 public class TestConfSearchSplitter extends TestBase {
@@ -36,14 +30,7 @@ public class TestConfSearchSplitter extends TestBase {
 	private ConfSearch makeTree() {
 		
 		// make any search tree, doesn't matter
-		RCs rcs = new RCs(search.pruneMat);
-		AStarOrder order = new DynamicHMeanAStarOrder();
-		AStarScorer hscorer = new TraditionalPairwiseHScorer(search.emat, rcs);
-		return new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
-	}
-	
-	private void assertConfs(ConfSearch.Splitter.Stream stream, int numConfs) {
-		assertConfs(stream, makeTree(), numConfs);
+		return new ConfAStarTree.Builder(search.emat, search.pruneMat).build();
 	}
 	
 	private void assertConfs(ConfSearch.Splitter.Stream stream, ConfSearch expectedTree, int numConfs) {
@@ -65,9 +52,10 @@ public class TestConfSearchSplitter extends TestBase {
 		ConfSearch tree = makeTree();
 		ConfSearch.Splitter splitter = new ConfSearch.Splitter(tree);
 		ConfSearch.Splitter.Stream stream = splitter.makeStream();
-		
+		ConfSearch check1 = makeTree();
+
 		assertThat(splitter.getBufferSize(), is(0));
-		assertConfs(stream, 16);
+		assertConfs(stream, check1, 16);
 		assertThat(splitter.getBufferSize(), is(0));
 	}
 	
@@ -78,11 +66,13 @@ public class TestConfSearchSplitter extends TestBase {
 		ConfSearch.Splitter splitter = new ConfSearch.Splitter(tree);
 		ConfSearch.Splitter.Stream stream1 = splitter.makeStream();
 		ConfSearch.Splitter.Stream stream2 = splitter.makeStream();
-		
+		ConfSearch check1 = makeTree();
+		ConfSearch check2 = makeTree();
+
 		assertThat(splitter.getBufferSize(), is(0));
-		assertConfs(stream1, 16);
+		assertConfs(stream1, check1, 16);
 		assertThat(splitter.getBufferSize(), is(16));
-		assertConfs(stream2, 16);
+		assertConfs(stream2, check2, 16);
 		assertThat(splitter.getBufferSize(), is(0));
 	}
 	
@@ -92,9 +82,10 @@ public class TestConfSearchSplitter extends TestBase {
 		ConfSearch tree = makeTree();
 		ConfSearch.Splitter splitter = new ConfSearch.Splitter(tree);
 		ConfSearch.Splitter.Stream stream = splitter.makeStream();
-		
+		ConfSearch check1 = makeTree();
+
 		assertThat(splitter.getBufferSize(), is(0));
-		assertConfs(stream, 17);
+		assertConfs(stream, check1, 17);
 		assertThat(splitter.getBufferSize(), is(0));
 	}
 	
@@ -105,11 +96,13 @@ public class TestConfSearchSplitter extends TestBase {
 		ConfSearch.Splitter splitter = new ConfSearch.Splitter(tree);
 		ConfSearch.Splitter.Stream stream1 = splitter.makeStream();
 		ConfSearch.Splitter.Stream stream2 = splitter.makeStream();
-		
+		ConfSearch check1 = makeTree();
+		ConfSearch check2 = makeTree();
+
 		assertThat(splitter.getBufferSize(), is(0));
-		assertConfs(stream1, 30);
+		assertConfs(stream1, check1, 30);
 		assertThat(splitter.getBufferSize(), is(16));
-		assertConfs(stream2, 30);
+		assertConfs(stream2, check2, 30);
 		assertThat(splitter.getBufferSize(), is(0));
 	}
 	
@@ -185,5 +178,25 @@ public class TestConfSearchSplitter extends TestBase {
 		assertThat(splitter.getBufferSize(), is(4));
 		assertConfs(stream2, check2, 20);
 		assertThat(splitter.getBufferSize(), is(12));
+	}
+	
+	@Test
+	public void testTwoRemoveOne() {
+		
+		ConfSearch tree = makeTree();
+		ConfSearch.Splitter splitter = new ConfSearch.Splitter(tree);
+		ConfSearch.Splitter.Stream stream1 = splitter.makeStream();
+		ConfSearch.Splitter.Stream stream2 = splitter.makeStream();
+		ConfSearch check1 = makeTree();
+		ConfSearch check2 = makeTree();
+	
+		assertThat(splitter.getBufferSize(), is(0));
+		assertConfs(stream1, check1, 8);
+		assertThat(splitter.getBufferSize(), is(8));
+		assertConfs(stream2, check2, 4);
+		stream2.close();
+		assertThat(splitter.getBufferSize(), is(0));
+		assertConfs(stream1, check1, 8);
+		assertThat(splitter.getBufferSize(), is(0));
 	}
 }

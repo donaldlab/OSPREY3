@@ -14,13 +14,6 @@ import org.junit.Test;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.astar.conf.RCs;
-import edu.duke.cs.osprey.astar.conf.order.AStarOrder;
-import edu.duke.cs.osprey.astar.conf.order.StaticScoreHMeanAStarOrder;
-import edu.duke.cs.osprey.astar.conf.scoring.AStarScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.MPLPPairwiseHScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.PairwiseGScorer;
-import edu.duke.cs.osprey.astar.conf.scoring.mplp.NodeUpdater;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.ConfSpace;
@@ -117,10 +110,10 @@ public class TestMinimization extends TestBase {
 			assertConfSpacesMatch(search.confSpace, simpleConfSpace);
 		
 			// build A* tree
-			RCs rcs = new RCs(search.pruneMat);
-			AStarOrder order = new StaticScoreHMeanAStarOrder();
-			AStarScorer hscorer = new MPLPPairwiseHScorer(new NodeUpdater(), search.emat, 1, 0.0001);
-			ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+			ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, search.pruneMat)
+				.setMPLP(new ConfAStarTree.MPLPBuilder()
+					.setNumIterations(1)
+				).build();
 			
 			// get the confs
 			final int numConfs = 16;
@@ -325,17 +318,14 @@ public class TestMinimization extends TestBase {
 		for (boolean doSolv : Arrays.asList(true, false)) {
 			
 			Info info = Infos.get(doSolv);
-			MinimizingFragmentEnergyCalculator ecalc = new MinimizingFragmentEnergyCalculator.Builder(info.simpleConfSpace, info.ffparams)
+			new MinimizingFragmentEnergyCalculator.Builder(info.simpleConfSpace, info.ffparams)
 				.setType(type)
 				.setParallelism(parallelism)
-				.build();
-			MinimizingConfEnergyCalculator minimizer = new MinimizingConfEnergyCalculator.Builder(ecalc)
-				.build();
-			List<EnergiedConf> econfs = minimizer.calcAllEnergies(info.confs);
-			minimizer.cleanup();
-			ecalc.cleanup();
-			
-			checkConfs(info, econfs);
+				.use((fragEcalc) -> {
+					
+					MinimizingConfEnergyCalculator confEcalc = new MinimizingConfEnergyCalculator.Builder(fragEcalc).build();
+					checkConfs(info, confEcalc.calcAllEnergies(info.confs));
+				});
 		}
 	}
 	

@@ -88,7 +88,7 @@ public class BenchmarkEmat extends TestBase {
 			Stopwatch taskStopwatch = new Stopwatch().start();
 			EnergyMatrix emat = ematcalc.calcEnergyMatrix();
 			taskStopwatch.stop();
-			ecalc.cleanup();
+			ecalc.clean();
 			System.out.println(String.format("Speedup: %.2fx", (float)baseStopwatch.getTimeNs()/taskStopwatch.getTimeNs()));
 			checkEmat(search.emat, emat);
 		}
@@ -108,7 +108,7 @@ public class BenchmarkEmat extends TestBase {
 			Stopwatch taskStopwatch = new Stopwatch().start();
 			EnergyMatrix emat = ematcalc.calcEnergyMatrix();
 			taskStopwatch.stop();
-			ecalc.cleanup();
+			ecalc.clean();
 			System.out.println(String.format("Speedup: %.2fx", (float)baseStopwatch.getTimeNs()/taskStopwatch.getTimeNs()));
 			checkEmat(search.emat, emat);
 		}

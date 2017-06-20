@@ -23,8 +23,8 @@ public class NaiveTraditionalPairwiseHScorer implements AStarScorer {
 		double hscore = 0;
 		
 		// get the score for each undefined position
-		for (int i=0; i<index.getNumUndefined(); i++) {
-			int pos1 = index.getUndefinedPos()[i];
+		for (int i=0; i<index.numUndefined; i++) {
+			int pos1 = index.undefinedPos[i];
 			
 			// min over possible assignments to pos1
 			double pos1Score = Double.POSITIVE_INFINITY;
@@ -33,15 +33,15 @@ public class NaiveTraditionalPairwiseHScorer implements AStarScorer {
 				double rcContrib = emat.getOneBody(pos1, rc1);
 
 				// interactions with defined residues
-				for (int j=0; j<index.getNumDefined(); j++) {
-					int pos2 = index.getDefinedPos()[j];
-					int rc2 = index.getDefinedRCs()[j];
+				for (int j=0; j<index.numDefined; j++) {
+					int pos2 = index.definedPos[j];
+					int rc2 = index.definedRCs[j];
 					rcContrib += emat.getPairwise(pos1, rc1, pos2, rc2);
 				}
 
 				// interactions with undefined residues
-				for (int j=0; j<index.getNumUndefined(); j++) {
-					int pos2 = index.getUndefinedPos()[j];
+				for (int j=0; j<index.numUndefined; j++) {
+					int pos2 = index.undefinedPos[j];
 					if (pos2 >= pos1) {
 						break;
 					}

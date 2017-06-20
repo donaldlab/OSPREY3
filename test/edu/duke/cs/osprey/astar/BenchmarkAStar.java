@@ -109,7 +109,9 @@ public class BenchmarkAStar extends TestBase {
 			hscorer = new TraditionalPairwiseHScorer(search.emat, rcs);
 			order = new DynamicHMeanAStarOrder();
 		}
-		ConfAStarTree tree = new ConfAStarTree(order, new PairwiseGScorer(search.emat), hscorer, rcs);
+		ConfAStarTree tree = new ConfAStarTree.Builder(search.emat, rcs)
+			.setCustom(order, new PairwiseGScorer(search.emat), hscorer)
+			.build();
 		tree.initProgress();
 		tree.setParallelism(Parallelism.makeCpu(astarThreads));
 		
@@ -284,14 +286,14 @@ public class BenchmarkAStar extends TestBase {
 	
 	private static ConfIndex makeConfIndex(ScoredConf conf, int ... definedRCs) {
 		ConfIndex index = new ConfIndex(conf.getAssignments().length);
-		index.setNumDefined(definedRCs.length);
-		for (int i=0; i<index.getNumDefined(); i++) {
-			index.getDefinedPos()[i] = i;
-			index.getDefinedRCs()[i] = definedRCs[i];
+		index.numDefined = definedRCs.length;
+		for (int i=0; i<index.numDefined; i++) {
+			index.definedPos[i] = i;
+			index.definedRCs[i] = definedRCs[i];
 		}
-		index.setNumUndefined(conf.getAssignments().length - definedRCs.length);
-		for (int i=0; i<index.getNumUndefined(); i++) {
-			index.getUndefinedPos()[i] = definedRCs.length + i;
+		index.numUndefined = conf.getAssignments().length - definedRCs.length;
+		for (int i=0; i<index.numUndefined; i++) {
+			index.undefinedPos[i] = definedRCs.length + i;
 		}
 		return index;
 	}
@@ -321,23 +323,23 @@ public class BenchmarkAStar extends TestBase {
 		double hscore = 0;
 		
 		// get the score for each undefined position
-		for (int i=0; i<index.getNumUndefined(); i++) {
-			int pos1 = index.getUndefinedPos()[i];
+		for (int i=0; i<index.numUndefined; i++) {
+			int pos1 = index.undefinedPos[i];
 			int rc1 = conf.getAssignments()[pos1];
 			
 			// assignment to pos1
 			hscore += emat.getOneBody(pos1, rc1);
 
 			// interactions with defined residues
-			for (int j=0; j<index.getNumDefined(); j++) {
-				int pos2 = index.getDefinedPos()[j];
-				int rc2 = index.getDefinedRCs()[j];
+			for (int j=0; j<index.numDefined; j++) {
+				int pos2 = index.definedPos[j];
+				int rc2 = index.definedRCs[j];
 				hscore += emat.getPairwise(pos1, rc1, pos2, rc2);
 			}
 
 			// interactions with undefined residues
-			for (int j=0; j<index.getNumUndefined(); j++) {
-				int pos2 = index.getUndefinedPos()[j];
+			for (int j=0; j<index.numUndefined; j++) {
+				int pos2 = index.undefinedPos[j];
 				if (pos2 >= pos1) {
 					break;
 				}
@@ -432,16 +434,16 @@ public class BenchmarkAStar extends TestBase {
 			rcPicks.energies[pos1] = search.emat.getOneBody(pos1, rc1);
 
 			// interactions with defined residues
-			for (int j=0; j<index.getNumDefined(); j++) {
-				int pos2 = index.getDefinedPos()[j];
-				int rc2 = index.getDefinedRCs()[j];
+			for (int j=0; j<index.numDefined; j++) {
+				int pos2 = index.definedPos[j];
+				int rc2 = index.definedRCs[j];
 				rcPicks.rcs[pos2] = rc2;
 				rcPicks.energies[pos2] = search.emat.getPairwise(pos1, rc1, pos2, rc2);
 			}
 
 			// interactions with undefined residues
-			for (int j=0; j<index.getNumUndefined(); j++) {
-				int pos2 = index.getUndefinedPos()[j];
+			for (int j=0; j<index.numUndefined; j++) {
+				int pos2 = index.undefinedPos[j];
 				if (pos2 >= pos1) {
 					break;
 				}

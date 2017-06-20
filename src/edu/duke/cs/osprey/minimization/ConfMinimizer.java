@@ -3,7 +3,6 @@ package edu.duke.cs.osprey.minimization;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
@@ -16,7 +15,6 @@ import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tools.ObjectPool;
-import edu.duke.cs.osprey.tools.Profiler;
 import edu.duke.cs.osprey.tools.ObjectPool.Checkout;
 import edu.duke.cs.osprey.tools.Progress;
 
@@ -65,22 +63,12 @@ public abstract class ConfMinimizer {
 		
 		public EnergiedConf minimizeSync(ScoredConf conf) {
 			
-			// TEMP
-			Profiler p = new Profiler();
-			p.start("checkout");
-			
 			try (Checkout<TaskStuff> checkout = taskStuffPool.autoCheckout()) {
 				TaskStuff stuff = checkout.get();
-				
-				// TEMP
-				p.start("mof");
 				
 				// set the molecule to the conf
 				RCTuple tuple = new RCTuple(conf.getAssignments());
 				MoleculeModifierAndScorer mof = new MoleculeModifierAndScorer(stuff.efunc, confSpace, tuple, stuff.pmol);
-				
-				// TEMP
-				p.start("make");
 				
 				// get (or reuse) the minimizer
 				Minimizer minimizer;
@@ -91,25 +79,15 @@ public abstract class ConfMinimizer {
 					minimizer = stuff.minimizer;
 				}
 				
-				// TEMP
-				p.start("min");
-				
 				// minimize the conf
 				Minimizer.Result result = minimizer.minimize();
-				
-				// TEMP
-				p.start("cleanup");
 				
 				// cleanup
 				if (minimizer instanceof Minimizer.Reusable) {
 					stuff.minimizer = (Minimizer.Reusable)minimizer;
 				} else if (minimizer instanceof Minimizer.NeedsCleanup) {
-					((Minimizer.NeedsCleanup)minimizer).cleanup();
+					((Minimizer.NeedsCleanup)minimizer).cleanWithoutCrashing();
 				}
-				
-				// TEMP
-				p.stop();
-				//System.out.println(p.makeReport(TimeUnit.MILLISECONDS));
 				
 				return new EnergiedConf(conf, result.energy);
 			}
@@ -160,12 +138,11 @@ public abstract class ConfMinimizer {
 				
 				// cleanup the task stuff if needed
 				for (TaskStuff stuff : taskStuffPool) {
-					
 					if (stuff.efunc instanceof EnergyFunction.NeedsCleanup) {
-						((EnergyFunction.NeedsCleanup)stuff.efunc).cleanup();
+						((EnergyFunction.NeedsCleanup)stuff.efunc).cleanWithoutCrashing();
 					}
 					if (stuff.minimizer instanceof Minimizer.NeedsCleanup) {
-						((Minimizer.NeedsCleanup)stuff.minimizer).cleanup();
+						((Minimizer.NeedsCleanup)stuff.minimizer).cleanWithoutCrashing();
 					}
 				}
 				taskStuffPool.clear();

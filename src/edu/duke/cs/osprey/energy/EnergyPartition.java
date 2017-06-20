@@ -4,16 +4,10 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 
-public interface EnergyPartition {
-	
-	ResidueInteractions makeSingle(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, int pos, int rc);
-	ResidueInteractions makePair(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, int pos1, int rc1, int pos2, int rc2);
-	ResidueInteractions makeFragment(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, RCTuple frag);
-	
-	// TODO: entropy energies
+public enum EnergyPartition {
 	
 	/** intras and shell on singles, inters on pairs */
-	public static class Traditional implements EnergyPartition {
+	Traditional {
 		
 		@Override
 		public ResidueInteractions makeSingle(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, int pos, int rc) {
@@ -50,10 +44,10 @@ public interface EnergyPartition {
 				.addShell(frag)
 				.make();
 		}
-	}
+	},
 	
 	/** inters on pairs, intras and shell distributed evenly among pairs */
-	public static class AllOnPairs implements EnergyPartition {
+	AllOnPairs {
 		
 		@Override
 		public ResidueInteractions makeSingle(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, int pos, int rc) {
@@ -116,4 +110,9 @@ public interface EnergyPartition {
 			return 1.0/(confSpace.positions.size() - 1);
 		}
 	};
+	
+	public abstract ResidueInteractions makeSingle(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, int pos, int rc);
+	public abstract ResidueInteractions makePair(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, int pos1, int rc1, int pos2, int rc2);
+	public abstract ResidueInteractions makeFragment(SimpleConfSpace confSpace, SimpleReferenceEnergies eref, RCTuple frag);
+	// TODO: entropy energies
 }
