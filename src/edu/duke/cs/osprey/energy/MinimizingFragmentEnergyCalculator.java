@@ -215,11 +215,11 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 				};
 			}
 		},
-		ResidueCudaCCD { // TODO: eventually replace CudaCCD?
+		ResidueCudaCCD {
 			
 			@Override
 			public boolean isSupported() {
-				return Cuda.isSupported();
+				return ResidueCuda.isSupported();
 			}
 			
 			@Override
@@ -316,11 +316,11 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 			
 			// prefer cuda over opencl, when both are available
 			// only because our cuda code is much better than the opencl code right now
-			if (Cuda.isSupported()) {
+			if (ResidueCuda.isSupported()) {
 				if (confSpace.isGpuCcdSupported()) {
-					return CudaCCD;
+					return ResidueCudaCCD;
 				} else {
-					return Cuda;
+					return ResidueCuda;
 				}
 			}
 			
