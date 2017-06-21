@@ -641,6 +641,7 @@ class ImportResolver():
 			t = self.ast.outer_type
 			try:
 				outerref = self.find_inner_type(t, ref.simple_classname).ref
+				return JavaRef(outerref.full_classname, membername=ref.membername)
 			except KeyError:
 				# not there, try another outer
 				t = t.outer_type
