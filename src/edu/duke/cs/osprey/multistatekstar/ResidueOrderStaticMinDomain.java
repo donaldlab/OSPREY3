@@ -14,14 +14,34 @@ import java.util.HashMap;
 @SuppressWarnings("serial")
 public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 
+	private enum ScoreType {
+		NUMSPLITS,
+		PRODUCT,
+		SUM;
+	}
+
 	private HashMap<Integer, ArrayList<ArrayList<Integer>>> residueValues;//residue values for bound state
 	//in each unassigned pos
-	private boolean computeProduct;//for now, compute either product or sum
+
+	private ScoreType scoreType;
 
 	public ResidueOrderStaticMinDomain(MSSearchProblem[][] objFcnSearch, String method) {
 		super(objFcnSearch, "discrepancy");
 		this.residueValues = computeResidueValues(objFcnSearch);
-		this.computeProduct = method.equalsIgnoreCase("product") ? true : false;
+
+		switch(method.toLowerCase()) {
+		case "product":
+			scoreType = ScoreType.PRODUCT;
+			break;
+		case "sum":
+			scoreType = ScoreType.SUM;
+			break;
+		case "numsplits":
+			scoreType = ScoreType.NUMSPLITS;
+			break;
+		default:
+			throw new UnsupportedOperationException("ERROR: method must be in the set {numsplits, product, sum}");
+		}
 	}
 
 	private HashMap<Integer, ArrayList<ArrayList<Integer>>> computeResidueValues(MSSearchProblem[][] objFcnSearch) {
@@ -29,47 +49,47 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 		ArrayList<Integer> unassignedPos = objFcnSearch[0][complex].getPosNums(false);
 
 		HashMap<Integer, ArrayList<ArrayList<Integer>>> ans = new HashMap<>();
-		
+
 		for(int pos : unassignedPos) {
 			ArrayList<ArrayList<Integer>> numRCsAtPos = new ArrayList<>();
-			
+
 			for(int state=0;state<objFcnSearch.length;++state) {
 				ArrayList<Integer> stateNumRCsAtPos = new ArrayList<>();
-				
+
 				MSSearchProblem complexSearch = objFcnSearch[state][complex];
 				for(String AAType : complexSearch.settings.AATypeOptions.get(pos)) {
 					int numRCs = complexSearch.rcsAtPosForAA(complexSearch.pruneMat, pos, AAType, false).size();
 					//numRCs += complexSearch.rcsAtPosForAA(complexSearch.pruneMat, pos, AAType, true).size();
 					stateNumRCsAtPos.add(numRCs);
 				}
-				
+
 				stateNumRCsAtPos.trimToSize();
 				numRCsAtPos.add(stateNumRCsAtPos);
 			}
-			
+
 			numRCsAtPos.trimToSize();
 			ans.put(pos, numRCsAtPos);
 		}
 
 		return ans;
 	}
-	
+
 	//score is product of domain sizes of bound states
 	protected BigDecimal getBoundStateDomainProduct(ResidueAssignment residueAssignment, 
 			ArrayList<ArrayList<ArrayList<AAAssignment>>> aaAssignments) {
 		//we only want bound state aa assignments
 		int complex = residueAssignment.length()-1;
 		int numSplits = aaAssignments.get(0).size();
-		
+
 		long prodRCs = 1;
-		
+
 		for(int split=0;split<numSplits;++split) {
 			ArrayList<AAAssignment> assignments = aaAssignments.get(complex).get(split);
 			for(AAAssignment aaa : assignments) {
-				
+
 				for(ArrayList<Integer> numRCsAtPos : residueValues.get(aaa.residuePos))
 					prodRCs *= numRCsAtPos.get(aaa.AATypePos);
-				
+
 			}
 		}
 
@@ -82,20 +102,26 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 		//we only want bound state aa assignments
 		int complex = residueAssignment.length()-1;
 		int numSplits = aaAssignments.get(0).size();
-		
+
 		long sumRCs = 0;
-		
+
 		for(int split=0;split<numSplits;++split) {
 			ArrayList<AAAssignment> assignments = aaAssignments.get(complex).get(split);
 			for(AAAssignment aaa : assignments) {
-				
+
 				for(ArrayList<Integer> numRCsAtPos : residueValues.get(aaa.residuePos))
 					sumRCs += numRCsAtPos.get(aaa.AATypePos);
-				
+
 			}
 		}
 
 		return BigDecimal.valueOf(sumRCs);
+	}
+	
+	protected BigDecimal getNumberOfSplits(ResidueAssignment residueAssignment, 
+			ArrayList<ArrayList<ArrayList<AAAssignment>>> aaAssignments) {
+		int numSplits = aaAssignments.get(0).size();
+		return BigDecimal.valueOf(numSplits);
 	}
 
 	protected ArrayList<ResidueAssignmentScore> scoreUnassignedPos(LMB objFcn, 
@@ -125,6 +151,7 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 
 		//now score each assignment
 		clearResidue2AAAssignments();//first clear previous entries
+
 		ArrayList<ResidueAssignmentScore> residueAssignmentScores = new ArrayList<>();
 		for(ResidueAssignment residueAssignment : residueAssignments) {
 			BigDecimal score = getResidueAssignmentScore(residueAssignment, objFcnSearch, numMaxMut);
@@ -134,21 +161,27 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 		//assignmentScores.trimToSize();
 		return residueAssignmentScores;
 	}
-	
+
 	public BigDecimal getResidueAssignmentScore(ResidueAssignment residueAssignment,
 			MSSearchProblem[][] objFcnSearch, 
 			int numMaxMut) {
 		//each residue assignment corresponds to one or more allowed AA assignments.
 		//score is based on allowed AA assignments only
 		ArrayList<ArrayList<ArrayList<AAAssignment>>> aaAssignments = getAllowedAAAsignments(objFcnSearch, residueAssignment, numMaxMut);
-		
-		//store here, so we can retreive best from here later without recomputation
+
+		//store here, so we can retrieve best from here later without recomputation
 		storeResidue2AAAssignments(residueAssignment, aaAssignments);
-		
-		if(computeProduct)
+
+		switch(scoreType) {
+		case PRODUCT:
 			return getBoundStateDomainProduct(residueAssignment, aaAssignments);
-		
-		return getBoundStateDomainSum(residueAssignment, aaAssignments);
+		case SUM:
+			return getBoundStateDomainSum(residueAssignment, aaAssignments);
+		case NUMSPLITS:
+			return getNumberOfSplits(residueAssignment, aaAssignments);
+		default:
+			throw new UnsupportedOperationException("ERROR: scoretype must be in the set {numsplits, product, sum}");
+		}
 	}
 
 	protected ResidueAssignment getBestResidueAssignment(ArrayList<ResidueAssignmentScore> order) {
@@ -156,7 +189,18 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 		Collections.sort(order, new Comparator<ResidueAssignmentScore>() {
 			@Override
 			public int compare(ResidueAssignmentScore a1, ResidueAssignmentScore a2) {
-				return a1.score.compareTo(a2.score)<=0 ? -1 : 1;
+				if(a1.score.compareTo(a2.score)==0) {
+					ArrayList<Integer> a1Complex = a1.assignment.get(a1.assignment.length()-1);
+					ArrayList<Integer> a2Complex = a2.assignment.get(a2.assignment.length()-1);
+					
+					int a1Sum = 0, a2Sum = 0;
+					for(int pos : a1Complex) a1Sum += pos;
+					for(int pos : a2Complex) a2Sum += pos;
+					
+					return a1Sum <= a2Sum ? -1 : 1;
+				}
+				
+				return a1.score.compareTo(a2.score)<0 ? -1 : 1;
 			}
 		});
 

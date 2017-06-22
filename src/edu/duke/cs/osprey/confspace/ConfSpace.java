@@ -394,7 +394,7 @@ public class ConfSpace implements Serializable {
     }
     
     
-	public MultiTermEnergyFunction getDecomposedMinimizedEnergy(int[] conf, EnergyFunction efunc, String outputPDBFile){
+	public MultiTermEnergyFunction getDecomposedEnergy(int[] conf, EnergyFunction efunc, String outputPDBFile){
 		//minimize the energy of a conformation, within the DOF bounds indicated by conf (a list of RCs)
 		//return the minimized energy
 		//if outputPDBFile isn't null, then output the minimized conformation to that file

@@ -97,8 +97,10 @@ public class PDBFileReader {
 					if( (!fullResName.equalsIgnoreCase(curResFullName)) && !curResAtoms.isEmpty() ){
 						
 						Residue newRes = new Residue( curResAtoms, curResCoords, curResFullName, m );
-
-						if(termini != null && !termini.contains(newRes)) filter.add(m.residues.size());
+						
+						if(termini != null && !termini.contains(newRes)) {
+							filter.add(m.residues.size());
+						}
 						
 						m.appendResidue(newRes);
 						

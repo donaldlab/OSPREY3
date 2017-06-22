@@ -1,8 +1,6 @@
 package edu.duke.cs.osprey.multistatekstar;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 
 import edu.duke.cs.osprey.tools.ObjectIO;
@@ -16,7 +14,7 @@ public class ResidueOrderDynamicScoreMinDom extends ResidueOrder {
 	private ResidueOrderStaticMinDomain mindom;
 	//private ResidueOrderWTDistance wtdist;
 	
-	private double dCoeff = 4.0;
+	private double dCoeff = 1.0;
 	private double mCoeff = 1.0;
 	//private double wCoeff = 1.0;//coeff for dist from wt
 	
@@ -29,8 +27,11 @@ public class ResidueOrderDynamicScoreMinDom extends ResidueOrder {
 			ResidueOrderStaticMinDomain mindom, double mCoeff) {
 		super();
 		
-		this.dCoeff = dCoeff;
-		this.mCoeff = mCoeff;
+		//this is intentional! when you say dynamicmindom 4 1, we want the decision
+		//to weigh more with the dcoefficient, so we are reducing the magnitude
+		//of the mcoefficient.
+		this.dCoeff = 1.0/mCoeff;
+		this.mCoeff = 1.0/dCoeff;
 		
 		this.dynamic = dynamic;
 		this.mindom = mindom;
@@ -47,12 +48,7 @@ public class ResidueOrderDynamicScoreMinDom extends ResidueOrder {
 			int numMaxMut) {	
 		
 		ArrayList<ResidueAssignmentScore> d2 = new ArrayList<>(d);
-		Collections.sort(d2, new Comparator<ResidueAssignmentScore>() {
-			@Override
-			public int compare(ResidueAssignmentScore ra1, ResidueAssignmentScore ra2) {
-				return ra1.score.compareTo(ra2.score)>=0 ? -1 : 1;
-			}
-		});
+		dynamic.getBestResidueAssignment(d2);
 		
 		@SuppressWarnings("unchecked")
 		ArrayList<ResidueAssignmentScore> m = (ArrayList<ResidueAssignmentScore>) ObjectIO.deepCopy(d);
@@ -61,14 +57,8 @@ public class ResidueOrderDynamicScoreMinDom extends ResidueOrder {
 		for(ResidueAssignmentScore ras : m) {
 			ras.score = mindom.getResidueAssignmentScore(ras.assignment, objFcnSearch, numMaxMut);
 		}
-		
 		ArrayList<ResidueAssignmentScore> m2 = new ArrayList<>(m);
-		Collections.sort(m2, new Comparator<ResidueAssignmentScore>() {
-			@Override
-			public int compare(ResidueAssignmentScore ra1, ResidueAssignmentScore ra2) {
-				return ra1.score.compareTo(ra2.score)<=0 ? -1 : 1;
-			}
-		});
+		mindom.getBestResidueAssignment(m2);
 		
 		/*
 		@SuppressWarnings("unchecked")
@@ -95,21 +85,22 @@ public class ResidueOrderDynamicScoreMinDom extends ResidueOrder {
 			//w2A2Rank.put(w2.get(i).assignment, i);
 		}
 		
-		double maxScore = Double.NEGATIVE_INFINITY;
-		int maxPos = 0;
+		double bestMetaRank = Double.POSITIVE_INFINITY;
+		int bestPos = 0;
 		
+		//create new meta rank. lowest rank wins
 		for(int i=0;i<d.size();++i) {
-			double score = dCoeff * d2A2Rank.get(d.get(i).assignment) 
+			double metaRank = dCoeff * d2A2Rank.get(d.get(i).assignment) 
 					+ mCoeff * m2A2Rank.get(m.get(i).assignment);
 					//+ wCoeff * w2A2Rank.get(w.get(i).assignment);
 			
 			if(DEBUG) {
-				System.out.println("score: "+score+" dCoeff: "+dCoeff+" rank: "+d2A2Rank.get(d.get(i).assignment)+" mCoeff: "+mCoeff+" rank: "+m2A2Rank.get(m.get(i).assignment));
+				System.out.println("metaRank: "+metaRank+" dCoeff: "+dCoeff+" rank: "+d2A2Rank.get(d.get(i).assignment)+" mCoeff: "+mCoeff+" rank: "+m2A2Rank.get(m.get(i).assignment));
 			}
 			
-			if(score>maxScore) {
-				maxScore = score;
-				maxPos = i;
+			if(metaRank<bestMetaRank) {
+				bestMetaRank = metaRank;
+				bestPos = i;
 			}
 		}
 		
@@ -117,7 +108,7 @@ public class ResidueOrderDynamicScoreMinDom extends ResidueOrder {
 		m2A2Rank.clear();
 		//w2A2Rank.clear();
 		
-		return d.get(maxPos).assignment;
+		return d.get(bestPos).assignment;
 	}
 	
 	@Override

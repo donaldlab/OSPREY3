@@ -10,7 +10,7 @@ import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
  */
 public interface KStarScore {
 
-	public static final BigDecimal MAX_VALUE = new BigDecimal("2e8192");
+	public static final BigDecimal MAX_VALUE = new BigDecimal("2e1024");
 	
 	public enum KStarScoreType {
 	    Minimized,//i.e. minimization

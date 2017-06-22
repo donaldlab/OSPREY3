@@ -20,7 +20,7 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 
 	public static boolean DEBUG = false;
 
-	public enum ScoreType {
+	private enum ScoreType {
 		FSCORE,
 		HSCORE,
 		DISCREPANCY;
@@ -109,15 +109,15 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 
 		if(!parallel) {
 			for(ResisueOrderWorker w : workers) setResidueValues(objFcn.getCoeffs()[w.state], w.search, w.state, 
-					w.subState, w.isUnbound, w.search.getPosNums(assigned));
+					w.subState, w.isUnbound, assigned);
 		}
 		//execute in parallel
 		else {
 			workers.parallelStream().forEach(w -> setResidueValues(objFcn.getCoeffs()[w.state], w.search, w.state, 
-					w.subState, w.isUnbound, w.search.getPosNums(assigned)));
+					w.subState, w.isUnbound, assigned));
 		}
 	}
-	
+
 	protected boolean isUpperBoundPFProxy(BigDecimal objFcnCoeff, boolean isUnbound) {
 		if(objFcnCoeff.compareTo(BigDecimal.ZERO)<0 && !isUnbound ||
 				objFcnCoeff.compareTo(BigDecimal.ZERO)>0 && isUnbound)
@@ -126,27 +126,31 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 	}
 
 	protected void setResidueValues(BigDecimal objFcnCoeff, MSSearchProblem search, int state, int subState, 
-			boolean isUnbound, ArrayList<Integer> positions) {
+			boolean isUnbound, boolean assigned) {
 
+		final boolean useGMECProxy = false;
+		double maxVal = search.settings.stericThreshold;
 		boolean isUpperBoundPFProxy = isUpperBoundPFProxy(objFcnCoeff, isUnbound);
-		int numPos = search.getNumPos();
 
-		for(int pos1 : positions) {
+		ArrayList<Integer> pos1s = search.getNumAssignedPos() > 0 ? search.getPosNums(assigned) : search.getPosNums();
+		for(int pos1 : pos1s) {
 			double pos1Value = 0;
 			//also used pruned rcs at pos?
 			ArrayList<Integer> pos1RCs = search.pruneMat.unprunedRCsAtPos(pos1);
 
-			for(int pos2=0;pos2<numPos;++pos2) {
+			ArrayList<Integer> pos2s = assigned ? pos1s : search.getPosNums();
+			//ArrayList<Integer> pos2s = search.getPosNums();
+			for(int pos2 : pos2s) {
 				if(pos1==pos2) continue;
-				
+
 				if(pos1Value == Double.POSITIVE_INFINITY) continue;
-				
+
 				ArrayList<Integer> pos2RCs = search.pruneMat.unprunedRCsAtPos(pos2);
 
 				// first, find the min pairwise energy over all rc pairs
 				double minPairwise = Double.POSITIVE_INFINITY;
 				double maxPairwise = Double.NEGATIVE_INFINITY;
-				
+
 				for(int rc1 : pos1RCs) {
 
 					String rc1AAType = search.confSpace.posFlex.get(pos1).RCs.get(rc1).AAType;
@@ -157,37 +161,32 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 						String rc2AAType = search.confSpace.posFlex.get(pos2).RCs.get(rc2).AAType;
 						if(!residueAAs.get(state).get(subState).get(pos2).contains(rc2AAType)) continue;
 
-						double pairwise = search.emat.getPairwise(pos1, rc1, pos2, rc2);
-						if(Double.isNaN(pairwise)) continue;
-						
-						//can count infinities here; positive infinity is allowed
-						if(isUpperBoundPFProxy) {
-							if(pairwise == Double.NEGATIVE_INFINITY) continue;
-							minPairwise = Math.min(minPairwise, pairwise);
-						}
-						
-						//skip infinities here
-						else {
-							if(Double.isInfinite(pairwise)) continue;
-							maxPairwise = Math.max(maxPairwise, pairwise);
-						}
+						//cap energy at steric threshold
+						double pairwise = Math.min(search.emat.getPairwise(pos1, rc1, pos2, rc2), maxVal);
+
+						minPairwise = Math.min(minPairwise, pairwise);
+						maxPairwise = Math.max(maxPairwise, pairwise);
+
 					}
 				}
-				
-				//computing upper bound partition function proxy
-				if(isUpperBoundPFProxy) {
-					pos1Value += minPairwise;
-				}
-				
-				else {
-					maxPairwise = maxPairwise==Double.NEGATIVE_INFINITY ? search.settings.stericThreshold : maxPairwise;
-					pos1Value += maxPairwise;
+
+
+				//adjust minpairwise upwards for lowerbound case
+				if(!isUpperBoundPFProxy) {
+					if(minPairwise != maxVal && maxPairwise == maxVal)
+						minPairwise = (minPairwise + maxPairwise)/2.0;
+						maxPairwise = minPairwise;
 				}
 
-				/*
-				//computing lower bound partition function proxy
-				//compute the harmonic average of normalized pairwise energies
-				else {
+				if(useGMECProxy) {
+					//TRY MIN/MAX ENERGIES
+					if(isUpperBoundPFProxy) 
+						pos1Value += minPairwise;
+					else
+						pos1Value += maxPairwise;
+				} else {
+					//TRY HARMONIC MEANS
+					//computing lower bound partition function proxy
 					double pos2Value = 0;
 					for(int rc1 : pos1RCs) {
 
@@ -199,19 +198,34 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 							String rc2AAType = search.confSpace.posFlex.get(pos2).RCs.get(rc2).AAType;
 							if(!residueAAs.get(state).get(subState).get(pos2).contains(rc2AAType)) continue;
 
-							double normalizedPairwise = search.emat.getPairwise(pos1, rc1, pos2, rc2) - minPairwise;
+							//cap energy at steric threshold
+							double pairwise = Math.min(search.emat.getPairwise(pos1, rc1, pos2, rc2), maxVal);
+							double normalizedPairwise = 0;
+
+							if(isUpperBoundPFProxy) {
+								normalizedPairwise = pairwise - minPairwise;
+							}
+
+							else {
+								//adjust pairwise so that it's >= min pairwise
+								pairwise = Math.max(pairwise, minPairwise);
+								normalizedPairwise = pairwise - minPairwise;
+							}
+
 							if (normalizedPairwise != 0) {
 								pos2Value += 1.0/normalizedPairwise;
 							}
 						}
 					}
 
+					int pos1Size = search.countRcsAtPosForAAs(search.pruneMat, pos1, residueAAs.get(state).get(subState).get(pos1), false);
 					int pos2Size = search.countRcsAtPosForAAs(search.pruneMat, pos2, residueAAs.get(state).get(subState).get(pos2), false);
+
 					pos2Value = (pos1Size*pos2Size - 1)/pos2Value;
 					if(Double.isNaN(pos2Value) || Double.isInfinite(pos2Value)) continue;
 					pos1Value += pos2Value;
 				}
-				*/
+
 			}
 
 			if(Double.isNaN(pos1Value)) pos1Value = 0;
@@ -222,17 +236,16 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 				val = val.compareTo(BigDecimal.ZERO)==0 ? BigDecimal.ONE.setScale(64, RoundingMode.HALF_UP) : val;
 			}
 
-			
+			/*
 			//multiply by number of rotamers for the upper bound partition function proxy
 			if(isUpperBoundPFProxy) {
 				//multiply by the number of rotamers at pos
 				//val = val.multiply(BigDecimal.valueOf(pos1Size));
 				int numAAsAtPos = residueAAs.get(state).get(subState).get(pos1).size();
 				int pos1Size = search.countRcsAtPosForAAs(search.pruneMat, pos1, residueAAs.get(state).get(subState).get(pos1), false);
-				
 				val = val.multiply(BigDecimal.valueOf((double)pos1Size/(double)numAAsAtPos));
 			}
-			
+			*/
 
 			residueValues.get(state).get(subState).set(pos1, val);
 		}
@@ -309,7 +322,7 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 		return ans;
 	}
 
-	private BigDecimal getStateScoreH(int state, ResidueAssignment assignment) {
+	private BigDecimal getStateScoreHScore(int state, ResidueAssignment assignment) {		
 		BigDecimal ans = BigDecimal.ONE.setScale(64, RoundingMode.HALF_UP);
 		//unbound states
 		for(int subState=0;subState<assignment.length()-1;++subState) {
@@ -333,7 +346,8 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 		return ans;
 	}
 
-	private BigDecimal getStateScoreF(int state, ResidueAssignment assignment,
+	private BigDecimal getStateScoreFScore1(int state, 
+			ResidueAssignment assignment,
 			KStarScore gScore) {
 		ArrayList<BigDecimal> stateFScores = new ArrayList<>();
 
@@ -365,32 +379,131 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 		return ans;
 	}
 
+	private BigDecimal getStateScoreFScorePartial(int state, 
+			MSSearchProblem[][] objFcnSearch, 
+			ResidueAssignment assignment) {
+
+		ArrayList<BigDecimal> stateFScores = new ArrayList<>();
+
+		//iterate through substates
+		for(int subState=0;subState<assignment.length();++subState) {
+			//get g score from previous assignment (will be 0 if root)
+			BigDecimal g = BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
+			ArrayList<Integer> assignedPos = objFcnSearch[state][subState].getPosNums(true); 
+			for(int pos : assignedPos) g = g.add(residueValues.get(state).get(subState).get(pos));
+
+			//add h score to gscore
+			ArrayList<Integer> unboundPos = assignment.get(subState);
+			BigDecimal h = BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
+			for(int pos : unboundPos) h = h.add(residueValues.get(state).get(subState).get(pos));
+
+			//add up g and h scores for each substate
+			stateFScores.add(g.add(h));
+		}
+
+		//then do final division
+		BigDecimal denom = BigDecimal.ONE.setScale(64, RoundingMode.HALF_UP);
+		for(int subState=0;subState<stateFScores.size()-1;++subState) denom = denom.multiply(stateFScores.get(subState));
+		if(denom.compareTo(BigDecimal.ZERO)==0) denom = new BigDecimal("1e-64").setScale(64, RoundingMode.HALF_UP);
+
+		int complex = stateFScores.size()-1;
+		BigDecimal numer = stateFScores.get(complex).setScale(64, RoundingMode.HALF_UP);
+
+		BigDecimal ans = numer.divide(denom, RoundingMode.HALF_UP);
+		return ans;
+	}
+
+	private BigDecimal getStateScoreGScore(int state, 
+			MSSearchProblem[][] objFcnSearch, 
+			ResidueAssignment assignment) {
+
+		ArrayList<BigDecimal> stateFScores = new ArrayList<>();
+
+		//iterate through substates
+		for(int subState=0;subState<assignment.length();++subState) {
+			//get g score from previous assignment (will be 0 if root)
+			BigDecimal g = BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
+			ArrayList<Integer> assignedPos = objFcnSearch[state][subState].getPosNums(true);
+			for(int pos : assignedPos) g = g.add(residueValues.get(state).get(subState).get(pos));
+
+			//add up g and h scores for each substate
+			stateFScores.add(g);
+		}
+
+		//then do final division
+		BigDecimal denom = BigDecimal.ONE.setScale(64, RoundingMode.HALF_UP);
+		for(int subState=0;subState<stateFScores.size()-1;++subState) denom = denom.multiply(stateFScores.get(subState));
+		if(denom.compareTo(BigDecimal.ZERO)==0) denom = new BigDecimal("1e-64").setScale(64, RoundingMode.HALF_UP);
+
+		int complex = stateFScores.size()-1;
+		BigDecimal numer = stateFScores.get(complex).setScale(64, RoundingMode.HALF_UP);
+
+		BigDecimal ans = numer.divide(denom, RoundingMode.HALF_UP);
+		return ans;
+	}
+
+	private BigDecimal getStateScoreFScoreFull(int state, 
+			MSSearchProblem[][] objFcnSearch, 
+			ResidueAssignment assignment) {
+
+		ArrayList<BigDecimal> stateFScores = new ArrayList<>();
+
+		//iterate through substates
+		for(int subState=0;subState<assignment.length();++subState) {
+			//get g score from previous assignment (will be 0 if root)
+			BigDecimal g = BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
+			ArrayList<Integer> assignedPos = objFcnSearch[state][subState].getPosNums(true);
+			for(int pos : assignedPos) g = g.add(residueValues.get(state).get(subState).get(pos));
+
+			//add h score to gscore
+			BigDecimal h = BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
+			ArrayList<Integer> unassignedPos = objFcnSearch[state][subState].getPosNums(false);
+			for(int pos : unassignedPos) h = h.add(residueValues.get(state).get(subState).get(pos));
+
+			//add up g and h scores for each substate
+			stateFScores.add(g.add(h));
+		}
+
+		//then do final division
+		BigDecimal denom = BigDecimal.ONE.setScale(64, RoundingMode.HALF_UP);
+		for(int subState=0;subState<stateFScores.size()-1;++subState) denom = denom.multiply(stateFScores.get(subState));
+		if(denom.compareTo(BigDecimal.ZERO)==0) denom = new BigDecimal("1e-64").setScale(64, RoundingMode.HALF_UP);
+
+		int complex = stateFScores.size()-1;
+		BigDecimal numer = stateFScores.get(complex).setScale(64, RoundingMode.HALF_UP);
+
+		BigDecimal ans = numer.divide(denom, RoundingMode.HALF_UP);
+		return ans;
+	}
+
 	//includes k* scores from current node
-	private BigDecimal getFScore(ResidueAssignment assignment, BigDecimal[] coeffs,
-			KStarScore[] fScores) {
+	private BigDecimal getScore(ResidueAssignment assignment, 
+			MSSearchProblem[][] objFcnSearch,
+			BigDecimal[] coeffs,
+			BigDecimal fScore) {
+
 		int numStates = coeffs.length;
 		BigDecimal ans = BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
-
-		BigDecimal fScore = null;
-		if(scoreType == ScoreType.DISCREPANCY)
-			fScore = BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
 
 		//get assignment score
 		for(int state=0;state<numStates;++state) {
 			//sign of 0 does not contribute to score
 			if(coeffs[state].compareTo(BigDecimal.ZERO)==0) continue;
-			if(scoreType == ScoreType.FSCORE || scoreType == ScoreType.DISCREPANCY) {
-				ans = ans.add(coeffs[state].multiply(getStateScoreF(state, assignment, fScores[state])));
 
-				if(scoreType == ScoreType.DISCREPANCY)
-					fScore = fScore.add(coeffs[state].multiply(fScores[state].getScore()));
+			if(scoreType == ScoreType.DISCREPANCY) {
+				BigDecimal fScoreFull = getStateScoreFScoreFull(state, objFcnSearch, assignment);
+				BigDecimal fScorePartial = getStateScoreFScorePartial(state, objFcnSearch, assignment);
+				ans = ans.add(fScoreFull.subtract(fScorePartial).abs().multiply(BigDecimal.valueOf(-1)));
 			}
-			else if(scoreType == ScoreType.HSCORE)
-				ans = ans.add(coeffs[state].multiply(getStateScoreH(state, assignment)));
-		}
+			else if(scoreType == ScoreType.FSCORE)
+				ans = ans.add(coeffs[state].multiply(getStateScoreFScorePartial(state, objFcnSearch, assignment)));
 
-		if(scoreType == ScoreType.DISCREPANCY)
-			ans = ans.subtract(fScore).abs();
+			else if(scoreType == ScoreType.HSCORE)
+				ans = ans.add(coeffs[state].multiply(getStateScoreHScore(state, assignment)));
+
+			else
+				throw new UnsupportedOperationException("ERROR: scoreType must be one of {DISCREPANCY, FSCORE, HSCORE}");
+		}
 
 		return ans;
 	}
@@ -399,12 +512,16 @@ public class ResidueOrderDynamicScore extends ResidueOrder {
 			MSSearchProblem[][] objFcnSearch,
 			KStarScore[] objFcnScores) {
 
+		BigDecimal[] stateVals = new BigDecimal[objFcnScores.length];
+		for(int i=0;i<stateVals.length;++i) stateVals[i] = objFcnScores[i].getScore();
+		BigDecimal fScore = objFcn.eval(stateVals);
+
 		//now score each assignment
 		ArrayList<ResidueAssignmentScore> assignmentScores = new ArrayList<>();
 		for(ResidueAssignment residueAssignment : ra2AAa.keySet()) {
 			//if coeff[state]<0: want ub ratio, so smallest unbound state, largest bound state
 			//if coeff[state]>0: want lb ratio, so largest unbound state, smallest bound state
-			BigDecimal score = getFScore(residueAssignment, objFcn.getCoeffs(), objFcnScores);
+			BigDecimal score = getScore(residueAssignment, objFcnSearch, objFcn.getCoeffs(), fScore);
 			assignmentScores.add(new ResidueAssignmentScore(residueAssignment, score));
 		}
 

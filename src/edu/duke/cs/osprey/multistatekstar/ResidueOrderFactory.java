@@ -27,6 +27,9 @@ public class ResidueOrderFactory {
 		else if(val.equals("staticmindoms"))
 			return new ResidueOrderStaticMinDomain(objFcnSearch, "sum");
 		
+		else if(val.equals("staticmindomn"))
+			return new ResidueOrderStaticMinDomain(objFcnSearch, "numsplits");
+		
 		else if(val.equals("dynamicscoref"))
 			return new ResidueOrderDynamicScore(objFcnSearch, "fscore");
 		
@@ -38,7 +41,7 @@ public class ResidueOrderFactory {
 		
 		else if(val.contains("dynamicscore") && val.contains("mindom")) {
 			
-			String errMsg = "ERROR: parameter mut be of type DynamicScore{F/H/D}MinDom{S,P} X Y";
+			String errMsg = "ERROR: parameter mut be of type DynamicScore{F/H/D}MinDom{N/S/P} X Y";
 			
 			if(numTokens != 3) throw new RuntimeException(errMsg);
 			double dCoeff = Double.valueOf(st.nextToken());
@@ -54,6 +57,7 @@ public class ResidueOrderFactory {
 			
 			if(val.contains("mindoms")) mindom = new ResidueOrderStaticMinDomain(objFcnSearch, "sum");
 			else if(val.contains("mindomp")) mindom = new ResidueOrderStaticMinDomain(objFcnSearch, "product");
+			else if(val.contains("mindomn")) mindom = new ResidueOrderStaticMinDomain(objFcnSearch, "numsplits");
 			else throw new RuntimeException(errMsg);
 			
 			return new ResidueOrderDynamicScoreMinDom(objFcnSearch, dynamic, dCoeff, mindom, mCoeff);
