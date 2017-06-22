@@ -319,6 +319,14 @@ public class Residue implements Serializable {
         }
     }
     
+    public Atom getAtomByName(String name) {
+        int index = getAtomIndexByName(name);
+        if (index >= 0) {
+            return atoms.get(index);
+        }
+        return null;
+    }
+    
     public int getAtomIndexByName(String n){
         //index in atoms of atom with name n
         //-1 if there is no atom here by that name

@@ -32,8 +32,8 @@ public class TestSimpleGMECFinder {
 		public final MinimizingFragmentEnergyCalculator ecalc;
 		public final EnergyMatrix emat;
 		
-		public Problem(Strand strand) {
-			confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
+		public Problem(Strand ... strands) {
+			confSpace = new SimpleConfSpace.Builder().addStrands(strands).build();
 			ffparams = new ForcefieldParams();
 			ecalc = new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams).build();
 			emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
@@ -52,23 +52,34 @@ public class TestSimpleGMECFinder {
 	
 	private static Problem problemDiscrete;
 	private static Problem problemContinuous;
+	private static Problem problemMultipleStrands;
 	
 	@BeforeClass
 	public static void beforeClass() {
 		
 		Molecule mol = PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb");
 		
-		Strand strand = new Strand.Builder(mol).build();
-		strand.flexibility.get(2).setLibraryRotamers("ALA", "GLY");
-		strand.flexibility.get(3).setLibraryRotamers(Strand.WildType, "VAL");
-		strand.flexibility.get(4).setLibraryRotamers();
-		problemDiscrete = new Problem(strand);
+		Strand strand1 = new Strand.Builder(mol).build();
+		strand1.flexibility.get(2).setLibraryRotamers("ALA", "GLY");
+		strand1.flexibility.get(3).setLibraryRotamers(Strand.WildType, "VAL");
+		strand1.flexibility.get(4).setLibraryRotamers();
+		problemDiscrete = new Problem(strand1);
 		
-		strand = new Strand.Builder(mol).setResidues(2, 30).build();
-		strand.flexibility.get(2).setLibraryRotamers("ALA", "GLY");
-		strand.flexibility.get(3).setLibraryRotamers(Strand.WildType, "VAL", "ARG").setContinuous(10);
-		strand.flexibility.get(4).addWildTypeRotamers();
-		problemContinuous = new Problem(strand);
+		Strand strand2 = new Strand.Builder(mol).setResidues(2, 30).build();
+		strand2.flexibility.get(2).setLibraryRotamers("ALA", "GLY");
+		strand2.flexibility.get(3).setLibraryRotamers(Strand.WildType, "VAL", "ARG").setContinuous(10);
+		strand2.flexibility.get(4).addWildTypeRotamers();
+		problemContinuous = new Problem(strand2);
+		
+		Strand strand3 = new Strand.Builder(mol).setResidues(2, 30).build();
+		strand3.flexibility.get(2).addWildTypeRotamers();
+		strand3.flexibility.get(3).addWildTypeRotamers();
+		strand3.flexibility.get(4).addWildTypeRotamers();
+		Strand strand4 = new Strand.Builder(mol).setResidues(31, 60).build();
+		strand4.flexibility.get(31).addWildTypeRotamers();
+		strand4.flexibility.get(32).addWildTypeRotamers();
+		strand4.flexibility.get(33).addWildTypeRotamers();
+		problemMultipleStrands = new Problem(strand3, strand4);
 	}
 
 	@Test
@@ -168,5 +179,13 @@ public class TestSimpleGMECFinder {
 			assertThat(conf.getEnergy(), isAbsolutely(-38.166219, EnergyEpsilon));
 			assertThat(conf.getScore(), isAbsolutely(-38.254643, EnergyEpsilon));
 		});
+	}
+	
+	@Test
+	public void findMultipleStrands() {
+		EnergiedConf conf = problemMultipleStrands.makeBuilder().build().find();
+		assertThat(conf.getAssignments(), is(new int[] { 0, 0, 0, 0, 0, 0 }));
+		assertThat(conf.getEnergy(), isAbsolutely(-84.428153, EnergyEpsilon));
+		assertThat(conf.getScore(), isAbsolutely(-84.428153, EnergyEpsilon));
 	}
 }

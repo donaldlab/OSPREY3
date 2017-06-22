@@ -9,6 +9,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import edu.duke.cs.osprey.TestBase;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace.Position;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace.ResidueConf;
 import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction.DofBounds;
@@ -54,6 +55,11 @@ public class TestSimpleConfSpace extends TestBase {
 			assertThat(pres.template, is(not(nullValue())));
 			assertThat(pres.intraResBondsMarked, is(true));
 			assertThat(pres.interResBondsMarked, is(true));
+		}
+		
+		// and the indices should be set
+		for (int i=0; i<pmol.mol.residues.size(); i++) {
+			assertThat(pmol.mol.residues.get(i).indexInMolecule, is(i));
 		}
 	}
 	
@@ -434,5 +440,73 @@ public class TestSimpleConfSpace extends TestBase {
 		assertThat(pmol.mol.getResByPDBResNumber("2").template.name, is("ALA"));
 		assertThat(pmol.dofs.size(), is(0));
 		assertThat(confSpace.makeBounds(conf).size(), is(0));
+	}
+	
+	@Test
+	public void twoStrands() {
+		
+		Strand strand1 = new Strand.Builder(mol).setResidues(2, 3).build();
+		strand1.flexibility.get(2).setLibraryRotamers("GLY");
+		strand1.flexibility.get(3).setLibraryRotamers("GLY");
+		Strand strand2 = new Strand.Builder(mol).setResidues(10, 11).build();
+		strand2.flexibility.get(10).setLibraryRotamers("GLY");
+		strand2.flexibility.get(11).setLibraryRotamers("GLY");
+		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrands(strand1, strand2).build();
+		
+		assertThat(confSpace.positions.size(), is(4));
+		
+		Position pos = confSpace.positions.get(0);
+		assertThat(pos.index, is(0));
+		assertThat(pos.strand, is(strand1));
+		assertThat(pos.resNum, is("2"));
+		assertThat(pos.resConfs.size(), is(1));
+		assertThat(pos.resConfs.get(0).template, is(strand1.templateLib.getTemplate("GLY")));
+		
+		pos = confSpace.positions.get(1);
+		assertThat(pos.index, is(1));
+		assertThat(pos.strand, is(strand1));
+		assertThat(pos.resNum, is("3"));
+		assertThat(pos.resConfs.size(), is(1));
+		assertThat(pos.resConfs.get(0).template, is(strand1.templateLib.getTemplate("GLY")));
+		
+		pos = confSpace.positions.get(2);
+		assertThat(pos.index, is(2));
+		assertThat(pos.strand, is(strand2));
+		assertThat(pos.resNum, is("10"));
+		assertThat(pos.resConfs.size(), is(1));
+		assertThat(pos.resConfs.get(0).template, is(strand2.templateLib.getTemplate("GLY")));
+		
+		pos = confSpace.positions.get(3);
+		assertThat(pos.index, is(3));
+		assertThat(pos.strand, is(strand2));
+		assertThat(pos.resNum, is("11"));
+		assertThat(pos.resConfs.size(), is(1));
+		assertThat(pos.resConfs.get(0).template, is(strand2.templateLib.getTemplate("GLY")));
+	}
+	
+	@Test
+	public void twoStrandsMakeMolecule() {
+		
+		Strand strand1 = new Strand.Builder(mol).setResidues(2, 3).build();
+		strand1.flexibility.get(2).setLibraryRotamers("GLY");
+		strand1.flexibility.get(3).setLibraryRotamers("GLY");
+		Strand strand2 = new Strand.Builder(mol).setResidues(10, 11).build();
+		strand2.flexibility.get(10).setLibraryRotamers("GLY");
+		strand2.flexibility.get(11).setLibraryRotamers("GLY");
+		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrands(strand1, strand2).build();
+		
+		ParametricMolecule pmol = confSpace.makeMolecule(new int[] { 0, 0, 0, 0 });
+		
+		// all the residues should be there
+		assertThat(pmol.mol.residues.size(), is(4));
+		assertThat(pmol.mol.residues.get(0).getPDBResNumber(), is("2"));
+		assertThat(pmol.mol.residues.get(1).getPDBResNumber(), is("3"));
+		assertThat(pmol.mol.residues.get(2).getPDBResNumber(), is("10"));
+		assertThat(pmol.mol.residues.get(3).getPDBResNumber(), is("11"));
+		
+		// and the indices should be set
+		for (int i=0; i<pmol.mol.residues.size(); i++) {
+			assertThat(pmol.mol.residues.get(i).indexInMolecule, is(i));
+		}
 	}
 }

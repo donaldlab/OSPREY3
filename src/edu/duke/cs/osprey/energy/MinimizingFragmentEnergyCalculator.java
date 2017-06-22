@@ -279,11 +279,11 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 			}
 		};
 		
-		private static interface EfuncFactory {
+		public static interface EfuncFactory {
 			EnergyFunction make(ResidueInteractions inters, Molecule mol);
 		}
 		
-		private static abstract class Context {
+		public static abstract class Context {
 			
 			public int numStreams;
 			public EfuncFactory efuncs;
@@ -337,8 +337,7 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 	public final Parallelism parallelism;
 	public final TaskExecutor tasks;
 	public final Type type;
-	
-	private Type.Context context;
+	public final Type.Context context;
 	
 	private MinimizingFragmentEnergyCalculator(SimpleConfSpace confSpace, Parallelism parallelism, Type type, ForcefieldParams ffparams) {
 		

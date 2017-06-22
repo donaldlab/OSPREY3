@@ -314,17 +314,15 @@ public class AtomConnectivity {
 	
 	private boolean makePeptideBond(Residue res1, Residue res2) {
 		
-		int cIndex = res1.getAtomIndexByName("C");
-		int nIndex = res2.getAtomIndexByName("N");
+		Atom C = res1.getAtomByName("C");
+		Atom N = res2.getAtomByName("N");
 		
 		// no way to make a peptide bond? then we don't care about this sequence of templates
 		// TODO: what about non-protein chains?
-		if (cIndex < 0 || nIndex < 0) {
+		if (C == null || N == null) {
 			return false;
 		}
 		
-		Atom C = res1.atoms.get(cIndex);
-		Atom N = res2.atoms.get(nIndex);
 		C.addBond(N);
 		
 		return true;
@@ -332,15 +330,13 @@ public class AtomConnectivity {
 	
 	private boolean isDipeptide(Residue res1, Residue res2) {
 		
-		int cIndex = res1.getAtomIndexByName("C");
-		int nIndex = res2.getAtomIndexByName("N");
+		Atom C = res1.getAtomByName("C");
+		Atom N = res2.getAtomByName("N");
 		
-		if (cIndex < 0 || nIndex < 0) {
+		if (C == null || N == null) {
 			return false;
 		}
 		
-		Atom C = res1.atoms.get(cIndex);
-		Atom N = res2.atoms.get(nIndex);
 		return C.bonds.contains(N);
 	}
 	

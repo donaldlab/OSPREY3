@@ -50,6 +50,13 @@ public class SimpleConfSpace {
 			return this;
 		}
 		
+		public Builder addStrands(Strand ... strands) {
+			for (Strand strand : strands) {
+				addStrand(strand);
+			}
+			return this;
+		}
+		
 		public Builder setShellDistance(double val) {
 			shellDist = val;
 			return this;
@@ -356,6 +363,7 @@ public class SimpleConfSpace {
 			for (Residue res : strand.mol.residues) {
 				res = new Residue(res);
 				res.molec = mol;
+				res.indexInMolecule = mol.residues.size();
 				mol.residues.add(res);
 			}
 		}

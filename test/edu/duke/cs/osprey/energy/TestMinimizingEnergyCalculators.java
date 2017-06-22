@@ -370,12 +370,9 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 		try {
 			
 			// HACKHACK: get the GpuStreamPool from the ecalc via reflection
-			Field fieldContext = ecalc.getClass().getDeclaredField("context");
-			fieldContext.setAccessible(true);
-			Object context = fieldContext.get(ecalc);
-			Field fieldPool = context.getClass().getDeclaredField("pool");
+			Field fieldPool = ecalc.context.getClass().getDeclaredField("pool");
 			fieldPool.setAccessible(true);
-			return (GpuStreamPool)fieldPool.get(context);
+			return (GpuStreamPool)fieldPool.get(ecalc.context);
 			
 		} catch (Exception ex) {
 			throw new Error(ex);
