@@ -16,9 +16,9 @@ import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.FFInterGen;
-import edu.duke.cs.osprey.energy.MinimizingConfEnergyCalculator;
-import edu.duke.cs.osprey.energy.MinimizingFragmentEnergyCalculator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
@@ -143,7 +143,6 @@ public class BenchmarkMinimization extends TestBase {
 
 		Factory<ForcefieldInteractions,Molecule> interactionsFactory = (mol) -> FFInterGen.makeFullConf(search.confSpace, search.shellResidues, mol);
 		ForcefieldParams ffparams = makeDefaultFFParams();
-		MinimizingFragmentEnergyCalculator fragecalc;
 		
 		/*
 		System.out.println("\nbenchmarking CPU original...");
@@ -189,11 +188,13 @@ public class BenchmarkMinimization extends TestBase {
 		*/
 		
 		System.out.println("\nbenchmarking Residue Cuda CCD...");
-		fragecalc = new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
-			.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCudaCCD)
-			.setParallelism(Parallelism.makeGpu(1, 1))
-			.build();
-		benchmark(new MinimizingConfEnergyCalculator.Builder(fragecalc).build(), confs, cpuSimpleStopwatch);
+		new EnergyCalculator.Builder(simpleConfSpace, ffparams)
+			.setType(EnergyCalculator.Type.ResidueCudaCCD)
+			.setParallelism(Parallelism.make(4, 1, 1))
+			.use((ecalc) -> {
+				benchmark(simpleConfSpace, ecalc, confs, cpuSimpleStopwatch);
+			}
+		);
 	}
 	
 	private static void benchmarkParallel(SearchProblem search, SimpleConfSpace simpleConfSpace, List<ScoredConf> confs)
@@ -271,24 +272,22 @@ public class BenchmarkMinimization extends TestBase {
 		// benchmark residue cuda
 		for (int numStreams : numStreamsPerGpuList) {
 			System.out.println(String.format("\nBenchmarking %3d stream(s) with %30s...", numStreams, "Cuda residue efuncs"));
-			new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
-				.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCuda)
-				.setParallelism(Parallelism.makeGpu(numGpus, numStreams))
-				.use((fragEcalc) -> {
-					MinimizingConfEnergyCalculator confEcalc = new MinimizingConfEnergyCalculator.Builder(fragEcalc).build();
-					benchmark(confEcalc, confs, oneCpuStopwatch);
+			new EnergyCalculator.Builder(simpleConfSpace, ffparams)
+				.setType(EnergyCalculator.Type.ResidueCuda)
+				.setParallelism(Parallelism.make(4, numGpus, numStreams))
+				.use((ecalc) -> {
+					benchmark(simpleConfSpace, ecalc, confs, oneCpuStopwatch);
 				});
 		}
 		
 		// benchmark residue cuda ccd
 		for (int numStreams : numStreamsPerGpuList) {
 			System.out.println(String.format("\nBenchmarking %3d stream(s) with %30s...", numStreams, "Cuda residue CCD minimizer"));
-			new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
-				.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCudaCCD)
-				.setParallelism(Parallelism.makeGpu(numGpus, numStreams))
-				.use((fragEcalc) -> {
-					MinimizingConfEnergyCalculator confEcalc = new MinimizingConfEnergyCalculator.Builder(fragEcalc).build();
-					benchmark(confEcalc, confs, oneCpuStopwatch);
+			new EnergyCalculator.Builder(simpleConfSpace, ffparams)
+				.setType(EnergyCalculator.Type.ResidueCudaCCD)
+				.setParallelism(Parallelism.make(4, numGpus, numStreams))
+				.use((ecalc) -> {
+					benchmark(simpleConfSpace, ecalc, confs, oneCpuStopwatch);
 				});
 		}
 	}
@@ -319,11 +318,13 @@ public class BenchmarkMinimization extends TestBase {
 		return stopwatch;
 	}
 	
-	private static Stopwatch benchmark(MinimizingConfEnergyCalculator ecalc, List<ScoredConf> confs, Stopwatch referenceStopwatch)
+	private static Stopwatch benchmark(SimpleConfSpace confSpace, EnergyCalculator ecalc, List<ScoredConf> confs, Stopwatch referenceStopwatch)
 	throws Exception {
 		
+		ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc).build();
+		
 		Stopwatch stopwatch = new Stopwatch().start();
-		List<EnergiedConf> minimizedConfs = ecalc.calcAllEnergies(confs, true);
+		List<EnergiedConf> minimizedConfs = confEcalc.calcAllEnergies(confs, true);
 		stopwatch.stop();
 		
 		System.out.print(String.format("precise timing: %9s, ops: %6.2f", stopwatch.getTime(TimeUnit.MILLISECONDS), confs.size()/stopwatch.getTimeS()));
@@ -564,7 +565,7 @@ public class BenchmarkMinimization extends TestBase {
 		Factory<ForcefieldInteractions,Molecule> interactionsFactory = (mol) -> FFInterGen.makeFullConf(search.confSpace, search.shellResidues, mol);
 		ForcefieldParams ffparams = new ForcefieldParams();
 		AtomConnectivity connectivity = new AtomConnectivity.Builder()
-			.setConfSpace(simpleConfSpace)
+			.addTemplates(simpleConfSpace)
 			.setParallelism(Parallelism.makeCpu(4))
 			.build();
 		ResPairCache resPairCache = new ResPairCache(ffparams, connectivity);
@@ -579,12 +580,12 @@ public class BenchmarkMinimization extends TestBase {
 		
 		// benchmark cpu
 		for (int numThreads : numThreadsList) {
-			new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
-				.setType(MinimizingFragmentEnergyCalculator.Type.Cpu)
+			new EnergyCalculator.Builder(simpleConfSpace, ffparams)
+				.setType(EnergyCalculator.Type.Cpu)
 				.setParallelism(Parallelism.makeCpu(numThreads))
 				.setResPairCache(resPairCache)
 				.use((fragEcalc) -> {
-					benchmarkOps(fragEcalc, confs, "CPU Residue: " + numThreads);
+					benchmarkOps(simpleConfSpace, fragEcalc, confs, "CPU Residue: " + numThreads);
 				});
 		}
 		
@@ -612,37 +613,37 @@ public class BenchmarkMinimization extends TestBase {
 			
 			// benchmark residue cuda
 			for (int numStreams : numStreamsPerGpuList) {
-				new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
-					.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCuda)
-					.setParallelism(Parallelism.makeGpu(numGpus, numStreams))
+				new EnergyCalculator.Builder(simpleConfSpace, ffparams)
+					.setType(EnergyCalculator.Type.ResidueCuda)
+					.setParallelism(Parallelism.make(4, numGpus, numStreams))
 					.setResPairCache(resPairCache)
 					.use((fragEcalc) -> {
-						benchmarkOps(fragEcalc, confs, "Residue Cuda: " + fNumGpus + "x" + numStreams);
+						benchmarkOps(simpleConfSpace, fragEcalc, confs, "Residue Cuda: " + fNumGpus + "x" + numStreams);
 					});
 			}
 			
 			// benchmark residue cuda ccd
 			for (int numStreams : numStreamsPerGpuList) {
-				new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
-					.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCudaCCD)
-					.setParallelism(Parallelism.makeGpu(numGpus, numStreams))
+				new EnergyCalculator.Builder(simpleConfSpace, ffparams)
+					.setType(EnergyCalculator.Type.ResidueCudaCCD)
+					.setParallelism(Parallelism.make(4, numGpus, numStreams))
 					.setResPairCache(resPairCache)
 					.use((fragEcalc) -> {
-						benchmarkOps(fragEcalc, confs, "Residue Cuda CCD: " + fNumGpus + "x" + numStreams);
+						benchmarkOps(simpleConfSpace, fragEcalc, confs, "Residue Cuda CCD: " + fNumGpus + "x" + numStreams);
 					});
 			}
 		}
 	}
 
-	private static void benchmarkOps(MinimizingFragmentEnergyCalculator fragEcalc, List<ScoredConf> confs, String name) {
+	private static void benchmarkOps(SimpleConfSpace confSpace, EnergyCalculator ecalc, List<ScoredConf> confs, String name) {
 		
 		System.out.print(String.format("\nBenchmarking %30s ...", name));
 		
 		final long MaxTimeNs = 10*TimeFormatter.NSpS;
 		final int MaxNumConfs = confs.size();
 		
-		MinimizingConfEnergyCalculator confEcalc = new MinimizingConfEnergyCalculator.Builder(fragEcalc).build();
-		int p = confEcalc.getTasks().getParallelism();
+		int p = ecalc.tasks.getParallelism();
+		ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc).build();
 		
 		// warmup
 		for (int r=0; r<2; r++) {
@@ -661,7 +662,7 @@ public class BenchmarkMinimization extends TestBase {
 				}
 			}
 		}
-		confEcalc.getTasks().waitForFinish();
+		confEcalc.tasks.waitForFinish();
 		stopwatch.stop();
 		
 		System.out.print(String.format(" confs: %5d, precise timing: %9s, ops: %7.2f",

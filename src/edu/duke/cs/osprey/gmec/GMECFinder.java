@@ -21,7 +21,6 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ConfPrinter;
 import edu.duke.cs.osprey.control.ConfigFileParser;
 import edu.duke.cs.osprey.control.EnvironmentVars;
-import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.partcr.PartCRConfPruner;
@@ -38,7 +37,7 @@ import edu.duke.cs.osprey.tools.Stopwatch;
 public class GMECFinder {
 	
     public static interface ConfPruner {
-        void prune(List<ScoredConf> confs, ConfEnergyCalculator ecalc);
+        void prune(List<ScoredConf> confs, GMECConfEnergyCalculator ecalc);
     }
     
     //Many of the parameters that control the optimization process (like what DEE algs to use,
@@ -52,7 +51,7 @@ public class GMECFinder {
     private SearchProblem searchSpace;
     private PruningControl pruningControl;
     private ConfSearchFactory confSearchFactory;
-    private ConfEnergyCalculator.Async ecalc;
+    private GMECConfEnergyCalculator.Async ecalc;
     private ConfPruner confPruner;
     
     private double Ew;//energy window for enumerating conformations: 0 for just GMEC
@@ -103,7 +102,7 @@ public class GMECFinder {
         // in the method args in the method that actually needs them
     }
     
-    public void init(SearchProblem search, PruningControl pruningControl, ConfSearchFactory confSearchFactory, ConfEnergyCalculator.Async ecalc,
+    public void init(SearchProblem search, PruningControl pruningControl, ConfSearchFactory confSearchFactory, GMECConfEnergyCalculator.Async ecalc,
         double Ew, boolean doIMinDEE, double I0, boolean useContFlex, boolean useTupExp, boolean useEPIC, boolean checkApproxE,
         boolean outputGMECStruct, boolean eFullConfOnly, String confFileName, double stericThresh) {
         
@@ -204,7 +203,7 @@ public class GMECFinder {
 			if ( ((useEPIC||useTupExp) && (!checkApproxE)) || searchSpace.useVoxelG ) {
 				
 				// use the approx minimized energy for confs
-				ecalc = new ConfEnergyCalculator.Async.Adapter(new ConfEnergyCalculator() {
+				ecalc = new GMECConfEnergyCalculator.Async.Adapter(new GMECConfEnergyCalculator() {
 					@Override
 					public EnergiedConf calcEnergy(ScoredConf conf) {
 						double energy = searchSpace.approxMinimizedEnergy(conf.getAssignments());
@@ -221,7 +220,7 @@ public class GMECFinder {
 					System.out.println("\n\nWARNING: concurrent minimizations disabled\n");
 					
 					// fall back to the old SearchProblem.minimize() method
-					ecalc = new ConfEnergyCalculator.Async.Adapter(new ConfEnergyCalculator() {
+					ecalc = new GMECConfEnergyCalculator.Async.Adapter(new GMECConfEnergyCalculator() {
 						@Override
 						public EnergiedConf calcEnergy(ScoredConf conf) {
 							double energy = searchSpace.minimizedEnergy(conf.getAssignments());
@@ -241,7 +240,7 @@ public class GMECFinder {
 		} else {
 			
 			// for rigid calc w/ pairwise E-mtx, can just use the conf score as the energy
-			ecalc = new ConfEnergyCalculator.Async.Adapter(new ConfEnergyCalculator() {
+			ecalc = new GMECConfEnergyCalculator.Async.Adapter(new GMECConfEnergyCalculator() {
 				@Override
 				public EnergiedConf calcEnergy(ScoredConf conf) {
 					return new EnergiedConf(conf, conf.getScore());
@@ -368,7 +367,7 @@ public class GMECFinder {
                 progress.setProgress(indexToMinimizeNext);
 
                 // what to do when we get a conf energy?
-                ConfEnergyCalculator.Async.Listener ecalcListener = new ConfEnergyCalculator.Async.Listener() {
+                GMECConfEnergyCalculator.Async.Listener ecalcListener = new GMECConfEnergyCalculator.Async.Listener() {
                         @Override
                         public void onFinished(EnergiedConf econf) {
 

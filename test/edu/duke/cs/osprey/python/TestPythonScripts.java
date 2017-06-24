@@ -24,23 +24,32 @@ public class TestPythonScripts {
 		}
 	}
 	
+	private void run1CC8(String script) {
+		run("examples/1CC8.python", script);
+	}
+	
 	@Test
 	public void findGMEC() {
-		run("examples/1CC8.python", "findGMEC.py");
+		run1CC8("findGMEC.py");
 	}
 	
 	@Test
 	public void findGMECAdvanced() {
-		run("examples/1CC8.python", "findGMEC.advanced.py");
+		run1CC8("findGMEC.advanced.py");
 	}
 
 	@Test
 	public void findGMECReferenceEnergies() {
-		run("examples/1CC8.python", "findGMEC.referenceEnergies.py");
+		run1CC8("findGMEC.referenceEnergies.py");
 	}
 	
 	@Test
 	public void findGMECExternalMemory() {
-		run("examples/1CC8.python", "findGMEC.externalMemory.py");
+		run1CC8("findGMEC.externalMemory.py");
+	}
+	
+	@Test
+	public void findGMECMultipleStrands() {
+		run1CC8("findGMEC.multipleStrands.py");
 	}
 }

@@ -15,7 +15,7 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
-import edu.duke.cs.osprey.energy.MinimizingFragmentEnergyCalculator;
+import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -807,8 +807,8 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 	}
 	
 	private SimplerEnergyMatrixCalculator makeEmatCalc(SimpleConfSpace confSpace) {
-		MinimizingFragmentEnergyCalculator ecalc = new MinimizingFragmentEnergyCalculator.Builder(confSpace, new ForcefieldParams())
-			.setType(MinimizingFragmentEnergyCalculator.Type.CpuOriginalCCD) // use original CCD implementation to match old code energies
+		EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, new ForcefieldParams())
+			.setType(EnergyCalculator.Type.CpuOriginalCCD) // use original CCD implementation to match old code energies
 			.build();
 		return new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
 			.build();

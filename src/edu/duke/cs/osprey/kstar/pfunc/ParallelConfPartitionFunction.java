@@ -10,7 +10,7 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.gmec.GMECConfEnergyCalculator;
 import edu.duke.cs.osprey.gmec.ConfSearchFactory;
 import edu.duke.cs.osprey.pruning.InvertedPruningMatrix;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
@@ -21,7 +21,7 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
     protected EnergyMatrix emat;
     protected PruningMatrix pmat;
     protected ConfSearchFactory confSearchFactory;
-    protected ConfEnergyCalculator.Async ecalc;
+    protected GMECConfEnergyCalculator.Async ecalc;
     
 	protected double targetEpsilon;
 	protected Status status;
@@ -37,7 +37,7 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 	protected boolean isReportingProgress;
 	protected ConfListener confListener;
 	
-	public ParallelConfPartitionFunction(EnergyMatrix emat, PruningMatrix pmat, ConfSearchFactory confSearchFactory, ConfEnergyCalculator.Async ecalc) {
+	public ParallelConfPartitionFunction(EnergyMatrix emat, PruningMatrix pmat, ConfSearchFactory confSearchFactory, GMECConfEnergyCalculator.Async ecalc) {
 		this.emat = emat;
 		this.pmat = pmat;
 		this.confSearchFactory = confSearchFactory;

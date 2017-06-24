@@ -29,8 +29,8 @@ import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
-import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.gmec.GMECConfEnergyCalculator;
 import edu.duke.cs.osprey.gmec.EnergyRange;
 import edu.duke.cs.osprey.gmec.MinimizingConfEnergyCalculator;
 import edu.duke.cs.osprey.parallelism.Parallelism;
@@ -83,7 +83,7 @@ public class BenchmarkAStar extends TestBase {
 		);
 		
 		ForcefieldParams ffparams = EnvironmentVars.curEFcnGenerator.ffParams;
-		ConfEnergyCalculator.Async ecalc = MinimizingConfEnergyCalculator.make(ffparams, search, Parallelism.makeCpu(1));
+		GMECConfEnergyCalculator.Async ecalc = MinimizingConfEnergyCalculator.make(ffparams, search, Parallelism.makeCpu(1));
 		
 		// compute the energy matrix
 		String ematPath = String.format("/tmp/BenchmarkAStar.emat.%s.dat", useERef ? "eref" : "base");

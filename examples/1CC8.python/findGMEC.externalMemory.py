@@ -16,18 +16,18 @@ confSpace = osprey.ConfSpace(strand)
 ffparams = osprey.ForcefieldParams()
 
 # how to compute the energy of a conformation?
-fragEcalc = osprey.FragmentEnergyCalculator(confSpace, ffparams)
-confEcalc = osprey.ConfEnergyCalculator(fragEcalc)
+ecalc = osprey.EnergyCalculator(confSpace, ffparams)
+confEcalc = osprey.ConfEnergyCalculator(confSpace, ecalc)
 
 # configure external memory settings
 osprey.ExternalMemory.setInternalLimit(64)
 
 # how should confs be ordered and searched?
-emat = osprey.EnergyMatrix(confSpace, fragEcalc)
+emat = osprey.EnergyMatrix(confEcalc)
 astar = osprey.AStarMPLP(emat, confSpace, useExternalMemory=True)
 
 # find the best sequence and rotamers
-gmec = osprey.GMECFinder(confSpace, astar, confEcalc, useExternalMemory=True).find()
+gmec = osprey.GMECFinder(astar, confEcalc, useExternalMemory=True).find()
 
 # explicitly cleanup the external memory
 # skipping this step will cause a nasty segfault

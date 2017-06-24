@@ -32,7 +32,7 @@ public class TestAtomConnectivity {
 		confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		
 		connectivity = new AtomConnectivity.Builder()
-			.setConfSpace(confSpace)
+			.addTemplates(confSpace)
 			.setParallelism(Parallelism.makeCpu(1))
 			.build();
 	}

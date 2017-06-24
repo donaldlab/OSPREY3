@@ -8,7 +8,6 @@ import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.ReferenceEnergies;
-import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.FFInterGen;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
@@ -22,7 +21,7 @@ import edu.duke.cs.osprey.tools.Factory;
 
 /** Use the new MinimizingEnergyCalculator instead. Of course, that means you need to switch to the new SimpleConfSpace too. */
 @Deprecated
-public class MinimizingConfEnergyCalculator implements ConfEnergyCalculator.Async {
+public class MinimizingConfEnergyCalculator implements GMECConfEnergyCalculator.Async {
 	
 	public static MinimizingConfEnergyCalculator make(ForcefieldParams ffparams, SearchProblem search) {
 		return make(ffparams, search, Parallelism.makeCpu(1));

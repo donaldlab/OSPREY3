@@ -54,7 +54,7 @@ public class BenchmarkForcefields extends TestBase {
 		
 		// pre-compute atom connectivities
 		AtomConnectivity connectivity = new AtomConnectivity.Builder()
-			.setConfSpace(confSpace)
+			.addTemplates(confSpace)
 			.setParallelism(Parallelism.makeCpu(4))
 			.build();
 		ResPairCache resPairCache = new ResPairCache(ffparams, connectivity);

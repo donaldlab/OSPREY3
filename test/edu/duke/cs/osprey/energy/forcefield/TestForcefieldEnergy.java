@@ -258,7 +258,7 @@ public class TestForcefieldEnergy extends TestBase {
 	
 	private static ResPairCache makeResPairCache(Residues residues, ForcefieldParams ffparams) {
 		AtomConnectivity connectivity = new AtomConnectivity.Builder()
-			.setResidues(residues)
+			.addTemplates(residues)
 			.setParallelism(Parallelism.makeCpu(4))
 			.build();
 		return new ResPairCache(ffparams, connectivity);

@@ -6,9 +6,9 @@ import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyPartition;
-import edu.duke.cs.osprey.energy.MinimizingConfEnergyCalculator;
-import edu.duke.cs.osprey.energy.MinimizingFragmentEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.gmec.SimpleGMECFinder;
@@ -46,21 +46,23 @@ public class EnergyPartitionsPlayground {
 		// choose the default forcefield
 		ForcefieldParams ffparams = new ForcefieldParams();
 		
-		MinimizingFragmentEnergyCalculator fragEcalc = new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
-			.setParallelism(Parallelism.makeGpu(1, 16))
-			.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCudaCCD)
+		EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams)
+			.setParallelism(Parallelism.make(4, 1, 16))
+			.setType(EnergyCalculator.Type.ResidueCudaCCD)
 			.build();
 		
 		// get reference energies
-		SimpleReferenceEnergies eref = new SimplerEnergyMatrixCalculator.Builder(confSpace, fragEcalc)
-			.build()
-			.calcReferenceEnergies();
-
-		// compute the energy matrix
-		EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, fragEcalc)
-			.setReferenceEnergies(eref)
+		SimpleReferenceEnergies eref = SimpleReferenceEnergies.calc(confSpace, ecalc);
+		
+		// what's the energy of a conformation?
+		ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
 			.setEnergyPartition(EnergyPartition.Traditional)
 			//.setEnergyPartition(EnergyPartition.AllOnPairs)
+			.setReferenceEnergies(eref)
+			.build();
+
+		// compute the energy matrix
+		EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
 			.build()
 			.calcEnergyMatrix();
 		
@@ -76,14 +78,9 @@ public class EnergyPartitionsPlayground {
 			.setShowProgress(true)
 			.build();
 	
-		// what's the energy of a conformation?
-		MinimizingConfEnergyCalculator confEcalc = new MinimizingConfEnergyCalculator.Builder(fragEcalc)
-			.setReferenceEnergies(eref)
-			.build();
-		
 		// find the GMEC!
 		System.out.println("Finding GMEC...");
-		EnergiedConf gmec = new SimpleGMECFinder.Builder(confSpace, confSearch, confEcalc)
+		EnergiedConf gmec = new SimpleGMECFinder.Builder(confSearch, confEcalc)
 			.setPrintIntermediateConfsToConsole(false)
 			.useExternalMemory()
 			.build()

@@ -68,7 +68,7 @@ public class BenchmarkPartitionFunction extends TestBase {
 		pcpfunc.cleanup();
 		
 		// test parallel conf implementation on gpu
-		Pfunc pcpfuncgpu = TestParallelConfPartitionFunction.makePfunc(search, Parallelism.makeGpu(1, 1));
+		Pfunc pcpfuncgpu = TestParallelConfPartitionFunction.makePfunc(search, Parallelism.make(4, 1, 1));
 		pcpfuncgpu.pfunc.init(targetEpsilon);
 		pcpfuncgpu.pfunc.setReportProgress(reportProgress);
 		
@@ -79,7 +79,7 @@ public class BenchmarkPartitionFunction extends TestBase {
 		pcpfuncgpu.cleanup();
 		
 		// test parallel conf implementation on gpu
-		Pfunc pcpfuncgpuMulti = TestParallelConfPartitionFunction.makePfunc(search, Parallelism.makeGpu(1, 16));
+		Pfunc pcpfuncgpuMulti = TestParallelConfPartitionFunction.makePfunc(search, Parallelism.make(4, 1, 16));
 		pcpfuncgpuMulti.pfunc.init(targetEpsilon);
 		pcpfuncgpuMulti.pfunc.setReportProgress(reportProgress);
 		

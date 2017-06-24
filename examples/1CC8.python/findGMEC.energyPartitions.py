@@ -14,20 +14,19 @@ confSpace = osprey.ConfSpace(strand)
 
 # choose a forcefield
 ffparams = osprey.ForcefieldParams()
-
+ecalc = osprey.EnergyCalculator(confSpace, ffparams)
 
 def findGmec(epart):
 
 	print("\n\nFinding GMEC with energy partition: %s\n" % epart)
 
-	# compute the energy matrix with a specific energy partition
-	fragEcalc = osprey.FragmentEnergyCalculator(confSpace, ffparams)
-	emat = osprey.EnergyMatrix(confSpace, fragEcalc, energyPartition=epart)
+	# configure conformation energies with the desired energy partition
+	confEcalc = osprey.ConfEnergyCalculator(confSpace, ecalc, energyPartition=epart)
 
-	# find the best sequence and rotamers using the same energy partition
-	confEcalc = osprey.ConfEnergyCalculator(fragEcalc, energyPartition=epart)
+	# find the GMEC
+	emat = osprey.EnergyMatrix(confEcalc)
 	astar = osprey.AStarTraditional(emat, confSpace)
-	gmec = osprey.GMECFinder(confSpace, astar, confEcalc).find()
+	gmec = osprey.GMECFinder(astar, confEcalc).find()
 
 
 # find GMECs with different energy partitions

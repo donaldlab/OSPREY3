@@ -29,6 +29,7 @@ import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MoleculeObjectiveFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskException;
+import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
 import edu.duke.cs.osprey.structure.PDBIO;
 
 public class TestMinimizingEnergyCalculators extends TestBase {
@@ -61,7 +62,7 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 		ffparams = new ForcefieldParams();
 		
 		// get an energy matrix
-		MinimizingFragmentEnergyCalculator ecalc = new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
+		EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpace, ffparams)
 			.setParallelism(Parallelism.makeCpu(2))
 			.build();
 		EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
@@ -79,109 +80,108 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 	
 	@Test
 	public void defaults() {
-		assertEnergies(new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams));
+		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams));
 	}
 	
 	@Test
 	public void cpuOneThread() {
-		assertEnergies(new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
-			.setType(MinimizingFragmentEnergyCalculator.Type.Cpu)
+		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams)
+			.setType(EnergyCalculator.Type.Cpu)
 			.setParallelism(Parallelism.makeCpu(1)));
 	}
 	
 	@Test
 	public void cpuTwoThreads() {
-		assertEnergies(new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
-			.setType(MinimizingFragmentEnergyCalculator.Type.Cpu)
+		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams)
+			.setType(EnergyCalculator.Type.Cpu)
 			.setParallelism(Parallelism.makeCpu(2)));
 	}
 	
 	@Test
 	public void openclOneStream() {
-		assertEnergies(new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
-			.setType(MinimizingFragmentEnergyCalculator.Type.OpenCL)
-			.setParallelism(Parallelism.makeGpu(1, 1)));
+		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams)
+			.setType(EnergyCalculator.Type.OpenCL)
+			.setParallelism(Parallelism.make(4, 1, 1)));
 	}
 	
 	@Test
 	public void openclTwoStreams() {
-		assertEnergies(new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
-			.setType(MinimizingFragmentEnergyCalculator.Type.OpenCL)
-			.setParallelism(Parallelism.makeGpu(1, 2)));
+		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams)
+			.setType(EnergyCalculator.Type.OpenCL)
+			.setParallelism(Parallelism.make(4, 1, 2)));
 	}
 	
 	@Test
 	public void cudaOneStream() {
-		assertEnergies(new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
-			.setType(MinimizingFragmentEnergyCalculator.Type.Cuda)
-			.setParallelism(Parallelism.makeGpu(1, 1)));
+		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams)
+			.setType(EnergyCalculator.Type.Cuda)
+			.setParallelism(Parallelism.make(4, 1, 1)));
 	}
 	
 	@Test
 	public void cudaTwoStreams() {
-		assertEnergies(new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
-			.setType(MinimizingFragmentEnergyCalculator.Type.Cuda)
-			.setParallelism(Parallelism.makeGpu(1, 2)));
+		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams)
+			.setType(EnergyCalculator.Type.Cuda)
+			.setParallelism(Parallelism.make(5, 1, 2)));
 	}
 	
 	@Test
 	public void cudaCcdOneStream() {
-		assertEnergies(new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
-			.setType(MinimizingFragmentEnergyCalculator.Type.CudaCCD)
-			.setParallelism(Parallelism.makeGpu(1, 1)));
+		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams)
+			.setType(EnergyCalculator.Type.CudaCCD)
+			.setParallelism(Parallelism.make(4, 1, 1)));
 	}
 	
 	@Test
 	public void cudaCcdTwoStreams() {
-		assertEnergies(new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
-			.setType(MinimizingFragmentEnergyCalculator.Type.CudaCCD)
-			.setParallelism(Parallelism.makeGpu(1, 2)));
+		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams)
+			.setType(EnergyCalculator.Type.CudaCCD)
+			.setParallelism(Parallelism.make(4, 1, 2)));
 	}
 	
 	@Test
 	public void residueCudaOneStream() {
-		assertEnergies(new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
-			.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCuda)
-			.setParallelism(Parallelism.makeGpu(1, 1)));
+		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams)
+			.setType(EnergyCalculator.Type.ResidueCuda)
+			.setParallelism(Parallelism.make(4, 1, 1)));
 	}
 	
 	@Test
 	public void residueCudaTwoStreams() {
-		assertEnergies(new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
-			.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCuda)
-			.setParallelism(Parallelism.makeGpu(1, 2)));
+		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams)
+			.setType(EnergyCalculator.Type.ResidueCuda)
+			.setParallelism(Parallelism.make(4, 1, 2)));
 	}
 	
 	@Test
 	public void residueCudaCcdOneStream() {
-		assertEnergies(new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
-			.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCudaCCD)
-			.setParallelism(Parallelism.makeGpu(1, 1)));
+		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams)
+			.setType(EnergyCalculator.Type.ResidueCudaCCD)
+			.setParallelism(Parallelism.make(4, 1, 1)));
 	}
 	
 	@Test
 	public void residueCudaCcdTwoStreams() {
-		assertEnergies(new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
-			.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCudaCCD)
-			.setParallelism(Parallelism.makeGpu(1, 2)));
+		assertEnergies(new EnergyCalculator.Builder(confSpace, ffparams)
+			.setType(EnergyCalculator.Type.ResidueCudaCCD)
+			.setParallelism(Parallelism.make(4, 1, 2)));
 	}
 	
-	private void assertEnergies(MinimizingFragmentEnergyCalculator.Builder builder) {
+	private void assertEnergies(EnergyCalculator.Builder builder) {
 		
 		for (EnergyPartition epart : Arrays.asList(EnergyPartition.Traditional, EnergyPartition.AllOnPairs)) {
-		
-			try (MinimizingFragmentEnergyCalculator fragecalc = builder.build()) {
-				MinimizingConfEnergyCalculator ecalc = new MinimizingConfEnergyCalculator.Builder(fragecalc)
+			builder.use((ecalc) -> {
+				ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
 					.setEnergyPartition(epart)
 					.build();
-				assertEnergies(ecalc);
-			}
+				assertEnergies(confEcalc);
+			});
 		}
 	}
 	
-	private void assertEnergies(MinimizingConfEnergyCalculator ecalc) {
+	private void assertEnergies(ConfEnergyCalculator confEcalc) {
 		
-		List<EnergiedConf> econfs = ecalc.calcAllEnergies(confs);
+		List<EnergiedConf> econfs = confEcalc.calcAllEnergies(confs);
 		
 		assertThat(econfs.size(), is(ExpectedEnergies.length));
 		
@@ -232,45 +232,48 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 	
 	//@Test
 	public void openclMemoryStress() {
-		stressMemory(new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
-			.setType(MinimizingFragmentEnergyCalculator.Type.OpenCL)
-			.setParallelism(Parallelism.makeGpu(1, 4)));
+		stressMemory(new EnergyCalculator.Builder(confSpace, ffparams)
+			.setType(EnergyCalculator.Type.OpenCL)
+			.setParallelism(Parallelism.make(4, 1, 4)));
 	}
 	
 	//@Test
 	public void cudaMemoryStress() {
-		stressMemory(new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
-			.setType(MinimizingFragmentEnergyCalculator.Type.Cuda)
-			.setParallelism(Parallelism.makeGpu(1, 4)));
+		stressMemory(new EnergyCalculator.Builder(confSpace, ffparams)
+			.setType(EnergyCalculator.Type.Cuda)
+			.setParallelism(Parallelism.make(4, 1, 4)));
 	}
 	
 	//@Test
 	public void cudaCCDMemoryStress() {
-		stressMemory(new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
-			.setType(MinimizingFragmentEnergyCalculator.Type.CudaCCD)
-			.setParallelism(Parallelism.makeGpu(1, 4)));
+		stressMemory(new EnergyCalculator.Builder(confSpace, ffparams)
+			.setType(EnergyCalculator.Type.CudaCCD)
+			.setParallelism(Parallelism.make(4, 1, 4)));
 	}
 
-	private void stressMemory(MinimizingFragmentEnergyCalculator.Builder builder) {
+	private void stressMemory(EnergyCalculator.Builder builder) {
 		for (int i=0; i<100; i++) {
-			MinimizingConfEnergyCalculator ecalc = new MinimizingConfEnergyCalculator.Builder(builder.build()).build();
-			ConfEnergyCalculator.Async.Listener listener = (EnergiedConf econf) -> {};
-			ecalc.calcEnergyAsync(confs.get(0), listener);
-			ecalc.calcEnergyAsync(confs.get(1), listener);
-			ecalc.calcEnergyAsync(confs.get(2), listener);
-			ecalc.calcEnergyAsync(confs.get(3), listener);
-			ecalc.getTasks().waitForFinish();
+			builder.use((ecalc) -> {
+				ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, builder.build()).build();
+				TaskListener<EnergiedConf> listener = (econf) -> { /* don't care */ };
+				confEcalc.calcEnergyAsync(confs.get(0), listener);
+				confEcalc.calcEnergyAsync(confs.get(1), listener);
+				confEcalc.calcEnergyAsync(confs.get(2), listener);
+				confEcalc.calcEnergyAsync(confs.get(3), listener);
+				confEcalc.tasks.waitForFinish();
+			});
 		}
 	}
 	
 	@Test
 	public void cleanup() {
 		
-		new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
-			.setType(MinimizingFragmentEnergyCalculator.Type.Cuda)
-			.setParallelism(Parallelism.makeGpu(1, 2))
+		new EnergyCalculator.Builder(confSpace, ffparams)
+			.setType(EnergyCalculator.Type.Cuda)
+			.setParallelism(Parallelism.make(4, 1, 2))
 			.use((ecalc) -> {
 				
+				ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc).build();
 				RCTuple frag = new RCTuple(0, 0);
 				ResidueInteractions inters = ResInterGen.of(confSpace)
 					.addIntra(0)
@@ -280,11 +283,11 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 				
 					// calculate energies for a few fragments
 					for (int i=0; i<10; i++) {
-						ecalc.calcEnergyAsync(frag, inters, (econf) -> {
+						confEcalc.calcEnergyAsync(frag, inters, (econf) -> {
 							// all is well
 						});
 					}
-					ecalc.tasks.waitForFinish();
+					confEcalc.tasks.waitForFinish();
 					
 					// all the streams should have been returned
 					GpuStreamPool pool = getPool(ecalc);
@@ -296,10 +299,12 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 	@Test
 	public void cleanupWithExceptions() {
 		
-		new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
-			.setType(MinimizingFragmentEnergyCalculator.Type.Cuda)
-			.setParallelism(Parallelism.makeGpu(1, 2))
+		new EnergyCalculator.Builder(confSpace, ffparams)
+			.setType(EnergyCalculator.Type.Cuda)
+			.setParallelism(Parallelism.make(4, 1, 2))
 			.use((ecalc) -> {
+				
+				ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc).build();
 				
 				for (int r=0; r<100; r++) {
 					
@@ -307,11 +312,11 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 						
 						// calculate energies for a few fragments
 						for (int i=0; i<10; i++) {
-							ecalc.calcEnergyAsync(null, null, (econf) -> {
+							confEcalc.calcEnergyAsync(null, null, (econf) -> {
 								fail("we shouldn't make it to the listener");
 							});
 						}
-						ecalc.tasks.waitForFinish();
+						confEcalc.tasks.waitForFinish();
 						
 					} catch (TaskException ex) {
 						
@@ -329,11 +334,12 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 	@Test
 	public void cleanupWithExceptionsInListener() {
 		
-		new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
-			.setType(MinimizingFragmentEnergyCalculator.Type.Cuda)
-			.setParallelism(Parallelism.makeGpu(1, 2))
+		new EnergyCalculator.Builder(confSpace, ffparams)
+			.setType(EnergyCalculator.Type.Cuda)
+			.setParallelism(Parallelism.make(4, 1, 2))
 			.use((ecalc) -> {
 				
+				ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc).build();
 				RCTuple frag = new RCTuple(0, 0);
 				ResidueInteractions inters = ResInterGen.of(confSpace)
 					.addIntra(0)
@@ -345,13 +351,13 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 						
 						// calculate energies for a few fragments
 						for (int i=0; i<10; i++) {
-							ecalc.calcEnergyAsync(frag, inters, (econf) -> {
+							confEcalc.calcEnergyAsync(frag, inters, (econf) -> {
 								
 								// throw an exception in the listener
 								throw new Error("oops, a Bad Thing happened");
 							});
 						}
-						ecalc.tasks.waitForFinish();
+						confEcalc.tasks.waitForFinish();
 						
 					} catch (TaskException ex) {
 						
@@ -366,7 +372,7 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 			});
 	}
 	
-	private GpuStreamPool getPool(MinimizingFragmentEnergyCalculator ecalc) {
+	private GpuStreamPool getPool(EnergyCalculator ecalc) {
 		try {
 			
 			// HACKHACK: get the GpuStreamPool from the ecalc via reflection

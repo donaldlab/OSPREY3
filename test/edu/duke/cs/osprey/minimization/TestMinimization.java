@@ -26,11 +26,11 @@ import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.FFInterGen;
-import edu.duke.cs.osprey.energy.MinimizingConfEnergyCalculator;
-import edu.duke.cs.osprey.energy.MinimizingFragmentEnergyCalculator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
@@ -235,65 +235,65 @@ public class TestMinimization extends TestBase {
 	
 	@Test
 	public void testCpuOriginalCCD1Thread() {
-		check(MinimizingFragmentEnergyCalculator.Type.CpuOriginalCCD, Parallelism.makeCpu(1));
+		check(EnergyCalculator.Type.CpuOriginalCCD, Parallelism.makeCpu(1));
 	}
 	@Test
 	public void testCpuOriginalCCD2Threads() {
-		check(MinimizingFragmentEnergyCalculator.Type.CpuOriginalCCD, Parallelism.makeCpu(2));
+		check(EnergyCalculator.Type.CpuOriginalCCD, Parallelism.makeCpu(2));
 	}
 	
 	@Test
 	public void testCpu1Thread() {
-		check(MinimizingFragmentEnergyCalculator.Type.Cpu, Parallelism.makeCpu(1));
+		check(EnergyCalculator.Type.Cpu, Parallelism.makeCpu(1));
 	}
 	@Test
 	public void testCpu2Threads() {
-		check(MinimizingFragmentEnergyCalculator.Type.Cpu, Parallelism.makeCpu(2));
+		check(EnergyCalculator.Type.Cpu, Parallelism.makeCpu(2));
 	}
 	
 	@Test
 	public void testOpenCL1Stream() {
-		check(MinimizingFragmentEnergyCalculator.Type.OpenCL, Parallelism.makeGpu(1, 1));
+		check(EnergyCalculator.Type.OpenCL, Parallelism.make(4, 1, 1));
 	}
 	@Test
 	public void testOpenCL2Streams() {
-		check(MinimizingFragmentEnergyCalculator.Type.OpenCL, Parallelism.makeGpu(1, 2));
+		check(EnergyCalculator.Type.OpenCL, Parallelism.make(4, 1, 2));
 	}
 	
 	@Test
 	public void testCuda1Stream() {
-		check(MinimizingFragmentEnergyCalculator.Type.Cuda, Parallelism.makeGpu(1, 1));
+		check(EnergyCalculator.Type.Cuda, Parallelism.make(4, 1, 1));
 	}
 	@Test
 	public void testCuda2Streams() {
-		check(MinimizingFragmentEnergyCalculator.Type.Cuda, Parallelism.makeGpu(1, 2));
+		check(EnergyCalculator.Type.Cuda, Parallelism.make(4, 1, 2));
 	}
 	
 	@Test
 	public void testCudaCCD1Stream() {
-		check(MinimizingFragmentEnergyCalculator.Type.CudaCCD, Parallelism.makeGpu(1, 1));
+		check(EnergyCalculator.Type.CudaCCD, Parallelism.make(4, 1, 1));
 	}
 	@Test
 	public void testCudaCCD2Streams() {
-		check(MinimizingFragmentEnergyCalculator.Type.CudaCCD, Parallelism.makeGpu(1, 2));
+		check(EnergyCalculator.Type.CudaCCD, Parallelism.make(4, 1, 2));
 	}
 	
 	@Test
 	public void testResidueCuda1Stream() {
-		check(MinimizingFragmentEnergyCalculator.Type.ResidueCuda, Parallelism.makeGpu(1, 1));
+		check(EnergyCalculator.Type.ResidueCuda, Parallelism.make(4, 1, 1));
 	}
 	@Test
 	public void testResidueCuda2Streams() {
-		check(MinimizingFragmentEnergyCalculator.Type.ResidueCuda, Parallelism.makeGpu(1, 2));
+		check(EnergyCalculator.Type.ResidueCuda, Parallelism.make(4, 1, 2));
 	}
 	
 	@Test
 	public void testResidueCudaCCD1Stream() {
-		check(MinimizingFragmentEnergyCalculator.Type.ResidueCudaCCD, Parallelism.makeGpu(1, 1));
+		check(EnergyCalculator.Type.ResidueCudaCCD, Parallelism.make(4, 1, 1));
 	}
 	@Test
 	public void testResidueCudaCCD2Streams() {
-		check(MinimizingFragmentEnergyCalculator.Type.ResidueCudaCCD, Parallelism.makeGpu(1, 2));
+		check(EnergyCalculator.Type.ResidueCudaCCD, Parallelism.make(4, 1, 2));
 	}
 	
 	private static interface MinimizerFactory {
@@ -313,17 +313,17 @@ public class TestMinimization extends TestBase {
 		}
 	}
 	
-	private void check(MinimizingFragmentEnergyCalculator.Type type, Parallelism parallelism) {
+	private void check(EnergyCalculator.Type type, Parallelism parallelism) {
 		
 		for (boolean doSolv : Arrays.asList(true, false)) {
 			
 			Info info = Infos.get(doSolv);
-			new MinimizingFragmentEnergyCalculator.Builder(info.simpleConfSpace, info.ffparams)
+			new EnergyCalculator.Builder(info.simpleConfSpace, info.ffparams)
 				.setType(type)
 				.setParallelism(parallelism)
-				.use((fragEcalc) -> {
+				.use((ecalc) -> {
 					
-					MinimizingConfEnergyCalculator confEcalc = new MinimizingConfEnergyCalculator.Builder(fragEcalc).build();
+					ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(info.simpleConfSpace, ecalc).build();
 					checkConfs(info, confEcalc.calcAllEnergies(info.confs));
 				});
 		}

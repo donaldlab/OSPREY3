@@ -3,6 +3,7 @@ package edu.duke.cs.osprey.confspace;
 import java.util.ArrayList;
 import java.util.List;
 
+import edu.duke.cs.osprey.confspace.SimpleConfSpace.DofTypes;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.MoveableStrand;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction.DofBounds;
@@ -12,8 +13,8 @@ public abstract class StrandFlex {
 	public abstract List<DegreeOfFreedom> makeDofs(Strand strand);
 	public abstract DofBounds makeBounds(Strand strand);
 	
-	public boolean isGpuCcdSupported() {
-		return false;
+	public DofTypes getDofTypes() {
+		return DofTypes.Any;
 	}
 	
 	public static class None extends StrandFlex {

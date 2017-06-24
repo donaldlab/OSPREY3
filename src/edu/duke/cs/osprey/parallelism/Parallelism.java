@@ -62,8 +62,8 @@ public class Parallelism {
 		return Runtime.getRuntime().availableProcessors();
 	}
 	
-	public static Parallelism makeGpu(int numGpus, int numStreamsPerGpu) {
-		return new Parallelism(0, numGpus, numStreamsPerGpu);
+	public static Parallelism make(int numCpus, int numGpus, int numStreamsPerGpu) {
+		return new Parallelism(numCpus, numGpus, numStreamsPerGpu);
 	}
 	
 	// TODO: this should eventually go into a CFP-only area

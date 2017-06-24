@@ -12,12 +12,19 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace.Position;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace.ResidueConf;
+import edu.duke.cs.osprey.energy.EnergyCalculator;
 
 /**
  * This class stores a reference energy for each residue position & AA type
  * (which is the minimum intra-RC energy at that position & AA type)
  */
 public class SimpleReferenceEnergies {
+	
+	public static SimpleReferenceEnergies calc(SimpleConfSpace confSpace, EnergyCalculator ecalc) {
+		return new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
+			.build()
+			.calcReferenceEnergies();
+	}
 	
 	private Map<String,Double> energies;
 	

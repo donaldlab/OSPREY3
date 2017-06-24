@@ -5,7 +5,7 @@ import java.util.List;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.EnvironmentVars;
-import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.gmec.GMECConfEnergyCalculator;
 import edu.duke.cs.osprey.gmec.GMECFinder;
 import edu.duke.cs.osprey.partcr.pickers.ConfPicker;
 import edu.duke.cs.osprey.partcr.pickers.WalkingConfPicker;
@@ -25,7 +25,7 @@ public class PartCRConfPruner implements GMECFinder.ConfPruner {
 	}
 
 	@Override
-	public void prune(List<ScoredConf> confs, ConfEnergyCalculator confEcalc) {
+	public void prune(List<ScoredConf> confs, GMECConfEnergyCalculator confEcalc) {
 				
 		if (confs.isEmpty()) {
 			return;

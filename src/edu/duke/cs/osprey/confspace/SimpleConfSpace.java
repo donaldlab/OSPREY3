@@ -173,6 +173,37 @@ public class SimpleConfSpace {
 		}
 	}
 	
+	/**
+	 * What kind of degree of freedom?
+	 * 
+	 * Used mainly to decide if we can use GPU CCD implementations or not,
+	 * which only support dihedral angles for now.
+	 */
+	public static enum DofTypes {
+		
+		// NOTE: order is important for combine()
+		None,
+		OnlyDihedrals,
+		Any;
+		
+		public static DofTypes combine(DofTypes a, DofTypes b) {
+			if (a == b) {
+				return a;
+			} else if (a == null && b != null) {
+				return b;
+			} else if (a != null && b == null) {
+				return a;
+			} else {
+				if (a.ordinal() > b.ordinal()) {
+					return a;
+				} else {
+					return b;
+				}
+			}
+		}
+	}
+	
+	
 	/** The strands */
 	public final List<Strand> strands;
 	
@@ -464,25 +495,22 @@ public class SimpleConfSpace {
 		return confStrands;
 	}
 
-	/** Returns True if the GPU minimizer supports the degrees of freedom in this conformation space. */
-	public boolean isGpuCcdSupported() {
+	public DofTypes getDofTypes() {
+		
+		DofTypes dofTypes = null;
 		
 		// check strand flex
 		for (Strand strand : strands) {
 			for (StrandFlex flex : strandFlex.get(strand)) {
-				if (!flex.isGpuCcdSupported()) {
-					return false;
-				}
+				dofTypes = DofTypes.combine(dofTypes, flex.getDofTypes());
 			}
 		}
 		
 		// check residue flex
 		for (Position pos : positions) {
-			if (!pos.resFlex.voxelShape.isGpuCcdSupported()) {
-				return false;
-			}
+			dofTypes = DofTypes.combine(dofTypes, pos.resFlex.voxelShape.getDofTypes());
 		}
 		
-		return true;
+		return dofTypes;
 	}
 }

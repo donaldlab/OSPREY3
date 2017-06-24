@@ -6,8 +6,8 @@ import java.util.List;
 
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.energy.EnergyPartition;
-import edu.duke.cs.osprey.energy.FragmentEnergyCalculator;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.ResInterGen;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Progress;
@@ -20,24 +20,9 @@ public class SimplerEnergyMatrixCalculator {
 	public static class Builder {
 		
 		/**
-		 * The conformation space containing the strands to be designed.
-		 * 
-		 * If the strands are configured with continuous flexibility, the energy matrix will
-		 * minimize residue conformation pairs before computing energies.
-		 */
-		private SimpleConfSpace confSpace;
-		
-		/**
 		 * How conformation energies should be calculated.
 		 */
-		private FragmentEnergyCalculator.Async ecalc;
-		
-		/**
-		 * How energies should be paritioned among single and pair fragments.
-		 */
-		private EnergyPartition epart = EnergyPartition.Traditional;
-		
-		private SimpleReferenceEnergies eref = null;
+		private ConfEnergyCalculator confEcalc;
 		
 		/**
 		 * Path to file where energy matrix should be saved between computations.
@@ -55,19 +40,12 @@ public class SimplerEnergyMatrixCalculator {
 		 */
 		private File cacheFile = null;
 		
-		public Builder(SimpleConfSpace confSpace, FragmentEnergyCalculator.Async ecalc) {
-			this.confSpace = confSpace;
-			this.ecalc = ecalc;
+		public Builder(SimpleConfSpace confSpace, EnergyCalculator ecalc) {
+			this(new ConfEnergyCalculator.Builder(confSpace, ecalc).build());
 		}
 		
-		public Builder setReferenceEnergies(SimpleReferenceEnergies val) {
-			eref = val;
-			return this;
-		}
-		
-		public Builder setEnergyPartition(EnergyPartition val) {
-			epart = val;
-			return this;
+		public Builder(ConfEnergyCalculator confEcalc) {
+			this.confEcalc = confEcalc;
 		}
 		
 		public Builder setCacheFile(File val) {
@@ -76,21 +54,15 @@ public class SimplerEnergyMatrixCalculator {
 		}
 		
 		public SimplerEnergyMatrixCalculator build() {
-			return new SimplerEnergyMatrixCalculator(confSpace, ecalc, epart, eref, cacheFile);
+			return new SimplerEnergyMatrixCalculator(confEcalc, cacheFile);
 		}
 	}
 	
-	private final SimpleConfSpace confSpace;
-	private final FragmentEnergyCalculator.Async ecalc;
-	private final EnergyPartition epart;
-	private final SimpleReferenceEnergies eref;
+	private final ConfEnergyCalculator confEcalc;
 	private final File cacheFile;
 
-	private SimplerEnergyMatrixCalculator(SimpleConfSpace confSpace, FragmentEnergyCalculator.Async ecalc, EnergyPartition epart, SimpleReferenceEnergies eref, File cacheFile) {
-		this.confSpace = confSpace;
-		this.ecalc = ecalc;
-		this.epart = epart;
-		this.eref = eref;
+	private SimplerEnergyMatrixCalculator(ConfEnergyCalculator confEcalc, File cacheFile) {
+		this.confEcalc = confEcalc;
 		this.cacheFile = cacheFile;
 	}
 	
@@ -104,7 +76,7 @@ public class SimplerEnergyMatrixCalculator {
 				cacheFile,
 				EnergyMatrix.class,
 				"energy matrix",
-				(emat) -> emat.matches(confSpace),
+				(emat) -> emat.matches(confEcalc.confSpace),
 				(context) -> reallyCalcEnergyMatrix()
 			);
 		} else {
@@ -115,12 +87,12 @@ public class SimplerEnergyMatrixCalculator {
 	private EnergyMatrix reallyCalcEnergyMatrix() {
 		
 		// allocate the new matrix
-		EnergyMatrix emat = new EnergyMatrix(confSpace);
+		EnergyMatrix emat = new EnergyMatrix(confEcalc.confSpace);
 		
 		// count how much work there is to do (roughly based on number of residue pairs)
-		final int singleCost = epart.makeSingle(confSpace, eref, 0, 0).size();
-		final int pairCost = epart.makePair(confSpace, eref, 0, 0, 0, 0).size();
-		Progress progress = new Progress(confSpace.getNumResConfs()*singleCost + confSpace.getNumResConfPairs()*pairCost);
+		final int singleCost = confEcalc.epart.makeSingle(confEcalc.confSpace, confEcalc.eref, 0, 0).size();
+		final int pairCost = confEcalc.epart.makePair(confEcalc.confSpace, confEcalc.eref, 0, 0, 0, 0).size();
+		Progress progress = new Progress(confEcalc.confSpace.getNumResConfs()*singleCost + confEcalc.confSpace.getNumResConfPairs()*pairCost);
 		
 		// some fragments can be big and some can be small
 		// try minimize thread sync overhead by not sending a bunch of small fragments in all separate tasks
@@ -141,7 +113,7 @@ public class SimplerEnergyMatrixCalculator {
 			}
 			
 			void submitTask() {
-				ecalc.getTasks().submit(
+				confEcalc.tasks.submit(
 					() -> {
 						
 						// calculate all the fragment energies
@@ -203,7 +175,7 @@ public class SimplerEnergyMatrixCalculator {
 		Batcher batcher = new Batcher();
 		
 		// batch all the singles and pairs
-		System.out.println("Calculating energy matrix with " + (confSpace.getNumResConfs() + confSpace.getNumResConfPairs()) + " entries...");
+		System.out.println("Calculating energy matrix with " + (confEcalc.confSpace.getNumResConfs() + confEcalc.confSpace.getNumResConfPairs()) + " entries...");
 		for (int pos1=0; pos1<emat.getNumPos(); pos1++) {
 			for (int rc1=0; rc1<emat.getNumConfAtPos(pos1); rc1++) {
 				
@@ -222,7 +194,7 @@ public class SimplerEnergyMatrixCalculator {
 		}
 		
 		batcher.submit();
-		ecalc.getTasks().waitForFinish();
+		confEcalc.tasks.waitForFinish();
 		
 		return emat;
 	}
@@ -232,7 +204,7 @@ public class SimplerEnergyMatrixCalculator {
 	}
 	
 	public double calcSingle(RCTuple frag) {
-		return ecalc.calcEnergy(frag, epart.makeSingle(confSpace, eref, frag.pos.get(0), frag.RCs.get(0)));
+		return confEcalc.calcEnergy(frag, confEcalc.epart.makeSingle(confEcalc.confSpace, confEcalc.eref, frag.pos.get(0), frag.RCs.get(0)));
 	}
 	
 	public double calcPair(int pos1, int rc1, int pos2, int rc2) {
@@ -240,7 +212,7 @@ public class SimplerEnergyMatrixCalculator {
 	}
 	
 	public double calcPair(RCTuple frag) {
-		return ecalc.calcEnergy(frag, epart.makePair(confSpace, eref, frag.pos.get(0), frag.RCs.get(0), frag.pos.get(1), frag.RCs.get(1)));
+		return confEcalc.calcEnergy(frag, confEcalc.epart.makePair(confEcalc.confSpace, confEcalc.eref, frag.pos.get(0), frag.RCs.get(0), frag.pos.get(1), frag.RCs.get(1)));
 	}
 	
 	/**
@@ -253,16 +225,16 @@ public class SimplerEnergyMatrixCalculator {
 		SimpleReferenceEnergies eref = new SimpleReferenceEnergies();
 		
 		// send all the tasks
-		Progress progress = new Progress(confSpace.getNumResConfs());
+		Progress progress = new Progress(confEcalc.confSpace.getNumResConfs());
 		System.out.println("Calculating reference energies for " + progress.getTotalWork() + " residue confs...");
-		for (SimpleConfSpace.Position pos : confSpace.positions) {
+		for (SimpleConfSpace.Position pos : confEcalc.confSpace.positions) {
 			for (SimpleConfSpace.ResidueConf rc : pos.resConfs) {
 			
 				String resType = rc.template.name;
 				RCTuple frag = new RCTuple(pos.index, rc.index);
-				ecalc.calcEnergyAsync(
+				confEcalc.calcEnergyAsync(
 					frag,
-					ResInterGen.of(confSpace).addIntra(pos.index).make(),
+					ResInterGen.of(confEcalc.confSpace).addIntra(pos.index).make(),
 					(Double energy) -> {
 						
 						// keep the min energy for each pos,resType
@@ -277,7 +249,7 @@ public class SimplerEnergyMatrixCalculator {
 			}
 		}
 		
-		ecalc.getTasks().waitForFinish();
+		confEcalc.tasks.waitForFinish();
 		
 		return eref;
 	}

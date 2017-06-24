@@ -3,6 +3,7 @@ package edu.duke.cs.osprey.confspace;
 import java.util.ArrayList;
 import java.util.List;
 
+import edu.duke.cs.osprey.confspace.SimpleConfSpace.DofTypes;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction.DofBounds;
@@ -23,13 +24,7 @@ public abstract class VoxelShape {
 	 */
 	public abstract DofBounds makeDihedralBounds(ResidueTemplate template, int rotamerIndex);
 	
-	/**
-	 * can these degrees of freedom be minimized in the GPU CCD minimizer?
-	 * (currently only FreeDihedral DOFs are implemented)
-	 */
-	public boolean isGpuCcdSupported() {
-		return false;
-	}
+	public abstract DofTypes getDofTypes();
 
 	public static class Point extends VoxelShape {
 
@@ -48,10 +43,8 @@ public abstract class VoxelShape {
 		}
 
 		@Override
-		public boolean isGpuCcdSupported() {
-			
-			// no dofs, so don't stop the GPU CCD minimizer
-			return true;
+		public DofTypes getDofTypes() {
+			return DofTypes.None;
 		} 
 	}
 	
@@ -87,8 +80,8 @@ public abstract class VoxelShape {
 		}
 
 		@Override
-		public boolean isGpuCcdSupported() {
-			return true;
+		public DofTypes getDofTypes() {
+			return DofTypes.OnlyDihedrals;
 		}
 	}
 	
@@ -119,5 +112,11 @@ public abstract class VoxelShape {
 			// TODO: implement me
 			throw new UnsupportedOperationException("not implement yet");
 		}
+
+		@Override
+		public DofTypes getDofTypes() {
+			// TODO: implement me
+			throw new UnsupportedOperationException("not implement yet");
+		} 
 	}
 }

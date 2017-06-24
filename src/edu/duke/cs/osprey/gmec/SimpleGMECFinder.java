@@ -5,7 +5,6 @@ import edu.duke.cs.osprey.astar.conf.RCs;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.externalMemory.EnergiedConfFIFOSerializer;
 import edu.duke.cs.osprey.externalMemory.EnergiedConfPrioritySerializer;
@@ -13,6 +12,7 @@ import edu.duke.cs.osprey.externalMemory.ExternalMemory;
 import edu.duke.cs.osprey.externalMemory.Queue;
 import edu.duke.cs.osprey.externalMemory.ScoredConfFIFOSerializer;
 import edu.duke.cs.osprey.gmec.GMECFinder.ConfPruner;
+import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
 import edu.duke.cs.osprey.tools.Progress;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
@@ -31,13 +31,11 @@ public class SimpleGMECFinder {
 	
 	public static class Builder {
 		
-		private SimpleConfSpace space;
-		
 		/** A* implementation to sort conformations in the conformation space. */
 		private ConfSearch search;
 		
 		/** Calculates the energy for a conformation. */
-		private ConfEnergyCalculator.Async ecalc;
+		private ConfEnergyCalculator confEcalc;
 		private ConfPruner pruner;
 		private ConfPrinter logPrinter;
 		private ConfPrinter consolePrinter;
@@ -54,14 +52,9 @@ public class SimpleGMECFinder {
 		 */
 		private boolean useExternalMemory = false;
 		
-		public Builder(SimpleConfSpace space, ConfSearch search, ConfEnergyCalculator ecalc) {
-			this(space, search, new ConfEnergyCalculator.Async.Adapter(ecalc));
-		}
-		
-		public Builder(SimpleConfSpace space, ConfSearch search, ConfEnergyCalculator.Async ecalc) {
-			this.space = space;
+		public Builder(ConfSearch search, ConfEnergyCalculator confEcalc) {
 			this.search = search;
-			this.ecalc = ecalc;
+			this.confEcalc = confEcalc;
 			this.pruner = null;
 			this.logPrinter = new ConfPrinter.Nop();
 			this.consolePrinter = new ConsoleConfPrinter();
@@ -97,9 +90,8 @@ public class SimpleGMECFinder {
 		
 		public SimpleGMECFinder build() {
 			return new SimpleGMECFinder(
-				space,
 				search,
-				ecalc,
+				confEcalc,
 				pruner,
 				logPrinter,
 				consolePrinter,
@@ -109,9 +101,8 @@ public class SimpleGMECFinder {
 		}
 	}
 	
-	public final SimpleConfSpace space;
 	public final ConfSearch search;
-	public final ConfEnergyCalculator.Async ecalc;
+	public final ConfEnergyCalculator confEcalc;
 	public final ConfPruner pruner;
 	public final ConfPrinter logPrinter;
 	public final ConfPrinter consolePrinter;
@@ -121,17 +112,16 @@ public class SimpleGMECFinder {
 	private final Queue.Factory.FIFO<EnergiedConf> energiedFifoFactory;
 	private final Queue.Factory<EnergiedConf> energiedPriorityFactory;
 	
-	private SimpleGMECFinder(SimpleConfSpace space, ConfSearch search, ConfEnergyCalculator.Async ecalc, ConfPruner pruner, ConfPrinter logPrinter, ConfPrinter consolePrinter, boolean printIntermediateConfsToConsole, boolean useExternalMemory) {
-		this.space = space;
+	private SimpleGMECFinder(ConfSearch search, ConfEnergyCalculator confEcalc, ConfPruner pruner, ConfPrinter logPrinter, ConfPrinter consolePrinter, boolean printIntermediateConfsToConsole, boolean useExternalMemory) {
 		this.search = search;
-		this.ecalc = ecalc;
+		this.confEcalc = confEcalc;
 		this.pruner = pruner;
 		this.logPrinter = logPrinter;
 		this.consolePrinter = consolePrinter;
 		this.printIntermediateConfsToConsole = printIntermediateConfsToConsole;
 		
 		if (useExternalMemory) {
-			RCs rcs = new RCs(space);
+			RCs rcs = new RCs(confEcalc.confSpace);
 			scoredFifoFactory = new Queue.ExternalFIFOFactory<>(new ScoredConfFIFOSerializer(rcs));
 			energiedFifoFactory = new Queue.ExternalFIFOFactory<>(new EnergiedConfFIFOSerializer(rcs));
 			energiedPriorityFactory = new Queue.ExternalPriorityFactory<>(new EnergiedConfPrioritySerializer(rcs));
@@ -166,8 +156,8 @@ public class SimpleGMECFinder {
 		
 		// evaluate the min score conf
 		System.out.println("Computing energy of min score conf...");
-		EnergiedConf eMinScoreConf = ecalc.calcEnergy(minScoreConf);
-		logPrinter.print(eMinScoreConf, space);
+		EnergiedConf eMinScoreConf = confEcalc.calcEnergy(minScoreConf);
+		logPrinter.print(eMinScoreConf, confEcalc.confSpace);
 		
 		// peek ahead to the next conf
 		ConfSearch.Splitter splitter = new ConfSearch.Splitter(search);
@@ -181,21 +171,21 @@ public class SimpleGMECFinder {
 			
 			// nope, there's no more confs, so we already have the GMEC
 			System.out.println("Found GMEC! (it's actually the only conformation allowed by the conf space!)");
-			consolePrinter.print(eMinScoreConf, space);
+			consolePrinter.print(eMinScoreConf, confEcalc.confSpace);
 			return Queue.FIFOFactory.of(eMinScoreConf);
 			
 		} else if (peekedConf.getScore() > eMinScoreConf.getEnergy() && energyWindowSize <= 0) {
 			
 			// nope, no confs have lower energy and we're not doing an energy window
 			System.out.println("Found GMEC! (it's actually the min score conformation too!)");
-			consolePrinter.print(eMinScoreConf, space);
+			consolePrinter.print(eMinScoreConf, confEcalc.confSpace);
 			return Queue.FIFOFactory.of(eMinScoreConf);
 		
 		} else {
 			
 			// yup, need to keep searching for the GMEC, or to enumerate an energy window
 			// but drop the min score conf on the console before moving on
-			consolePrinter.print(eMinScoreConf, space);
+			consolePrinter.print(eMinScoreConf, confEcalc.confSpace);
 			
 			// estimate the top of our energy range
 			/* NOTE:
@@ -215,7 +205,7 @@ public class SimpleGMECFinder {
 			// econfs are in a priority queue, so the first one is the GMEC
 			EnergiedConf gmec = econfs.peek();
 			System.out.println("\nFound GMEC!");
-			consolePrinter.print(gmec, space);
+			consolePrinter.print(gmec, confEcalc.confSpace);
 			
 			// return just the confs in the energy window
 			Queue.FIFO<EnergiedConf> econfsInRange = econfs.filterTo(
@@ -264,7 +254,7 @@ public class SimpleGMECFinder {
 				speculativeMinimizationStopwatch.stop();
 				
 				// save the conf and the energy for later
-				EnergiedConf econf = ecalc.calcEnergy(otherLowEnergyConfs.poll());
+				EnergiedConf econf = confEcalc.calcEnergy(otherLowEnergyConfs.poll());
 				handleEnergiedConf(econf, econfs, erange);
 				
 				boolean changed = erange.updateMin(econf.getEnergy());
@@ -298,7 +288,7 @@ public class SimpleGMECFinder {
 		Progress progress = new Progress(lowEnergyConfs.size());
 
 		// what to do when we get a conf energy?
-		ConfEnergyCalculator.Async.Listener ecalcListener = (econf) -> {
+		TaskListener<EnergiedConf> ecalcListener = (econf) -> {
 			
 			handleEnergiedConf(econf, econfs, erange);
 
@@ -339,11 +329,11 @@ public class SimpleGMECFinder {
 					break;
 				}
 				
-				ecalc.calcEnergyAsync(lowEnergyConfs.poll(), ecalcListener);
+				confEcalc.calcEnergyAsync(lowEnergyConfs.poll(), ecalcListener);
 			}
 		}
 		
-		ecalc.getTasks().waitForFinish();
+		confEcalc.tasks.waitForFinish();
 	}
 	
 	private void setErangeProgress(ConfSearch confSearch, EnergyRange erange) {
@@ -373,12 +363,12 @@ public class SimpleGMECFinder {
 		econfs.push(econf);
 
 		// immediately output the conf, in case the run aborts and we want to resume later
-		logPrinter.print(econf, space);
+		logPrinter.print(econf, confEcalc.confSpace);
 
 		// log the conf to console too if desired
 		if (printIntermediateConfsToConsole) {
 			System.out.println();
-			consolePrinter.print(econf, space, erange);
+			consolePrinter.print(econf, confEcalc.confSpace, erange);
 		}
 	}
 }

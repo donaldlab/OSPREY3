@@ -20,9 +20,9 @@ import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
-import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.gmec.GMECConfEnergyCalculator;
 import edu.duke.cs.osprey.gmec.ConfSearchFactory;
 import edu.duke.cs.osprey.gmec.GMECFinder;
 import edu.duke.cs.osprey.gmec.MinimizingConfEnergyCalculator;
@@ -133,7 +133,7 @@ public class TestPartCR extends TestBase {
 		
 		// configure what energies to use
 		ForcefieldParams ffparams = EnvironmentVars.curEFcnGenerator.ffParams;
-		ConfEnergyCalculator.Async ecalc = MinimizingConfEnergyCalculator.make(ffparams, search);
+		GMECConfEnergyCalculator.Async ecalc = MinimizingConfEnergyCalculator.make(ffparams, search);
 		
 		// configure the GMEC finder
 		// NOTE: PartCR doesn't help as much with energy window designs

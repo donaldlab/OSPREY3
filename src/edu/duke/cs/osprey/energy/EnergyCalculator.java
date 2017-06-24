@@ -1,8 +1,10 @@
 package edu.duke.cs.osprey.energy;
 
+import java.util.function.Consumer;
+
 import edu.duke.cs.osprey.confspace.ParametricMolecule;
-import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace.DofTypes;
 import edu.duke.cs.osprey.energy.forcefield.BigForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
@@ -23,14 +25,17 @@ import edu.duke.cs.osprey.minimization.ObjectiveFunction.DofBounds;
 import edu.duke.cs.osprey.minimization.SimpleCCDMinimizer;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
+import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
 import edu.duke.cs.osprey.structure.AtomConnectivity;
 import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.structure.Residues;
 import edu.duke.cs.osprey.tools.AutoCleanable;
 import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tools.UseableBuilder;
 
 /**
- * Computes the energy of a molecule fragment using the desired forcefield parameters and residue interactions.
+ * Computes the energy of a molecule fragment from a conformation space using the desired forcefield parameters
+ * and residue interactions.
  * 
  * Residue interactions are specified via {@link ResidueInteractions} instances.
  * Forcefield implementations are chosen via the type argument. If no type is specified, the best forcefield
@@ -38,19 +43,45 @@ import edu.duke.cs.osprey.tools.UseableBuilder;
  * 
  * If a fragment has continuous degrees of freedom, minimization will be performed before forcefield evaluation.
  */
-public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalculator.Async, AutoCleanable {
+public class EnergyCalculator implements AutoCleanable {
 	
-	public static class Builder implements UseableBuilder<MinimizingFragmentEnergyCalculator> {
+	public static class Builder implements UseableBuilder<EnergyCalculator> {
 		
-		private SimpleConfSpace confSpace;
 		private ForcefieldParams ffparams;
+		
+		/**
+		 * The parallel hardware available for Osprey calculations.
+		 * CPU thread pools are available, as well as high-performance GPU kernels.
+		 * Just describe your available hardware, and Osprey will try to pick the best implementation.
+		 * If you need more control, try the setType() option directly.
+		 */
 		private Parallelism parallelism = Parallelism.makeCpu(1);
+		
+		/**
+		 * Directly choose the energy calculator implementation.
+		 * 
+		 * @warning Not all energy calculator implementations may be compatible with your design's
+		 * conformation space. Choosing an incompatible implementation can cause Osprey to crash.
+		 * 
+		 * If you're unsure which implementation to use, just use setParallelism() instead of setting
+		 * the type directly.
+		 */
 		private Type type = null;
+		
+		
+		private DofTypes dofTypes = DofTypes.Any;
+		private AtomConnectivity.Builder atomConnectivityBuilder = new AtomConnectivity.Builder();
 		private ResPairCache resPairCache;
 		
 		public Builder(SimpleConfSpace confSpace, ForcefieldParams ffparams) {
-			this.confSpace = confSpace;
 			this.ffparams = ffparams;
+			this.atomConnectivityBuilder.addTemplates(confSpace);
+			this.dofTypes = confSpace.getDofTypes();
+		}
+		
+		public Builder(Residues residues, ForcefieldParams ffparams) {
+			this.ffparams = ffparams;
+			this.atomConnectivityBuilder.addTemplates(residues);
 		}
 		
 		public Builder setParallelism(Parallelism val) {
@@ -63,17 +94,27 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 			return this;
 		}
 		
+		public Builder setDofTypes(DofTypes val) {
+			dofTypes = val;
+			return this;
+		}
+		
+		public Builder addTemplates(Consumer<AtomConnectivity.Builder> block) {
+			block.accept(atomConnectivityBuilder);
+			return this;
+		}
+		
 		public Builder setResPairCache(ResPairCache val) {
 			resPairCache = val;
 			return this;
 		}
 		
-		public MinimizingFragmentEnergyCalculator build() {
+		public EnergyCalculator build() {
 			
-			// if no explict type was picked, pick the best one now
+			// if no explicit type was picked, pick the best one now
 			if (type == null) {
 				if (parallelism.numGpus > 0) {
-					type = Type.pickBest(confSpace);
+					type = Type.pickBest(dofTypes);
 				} else {
 					type = Type.Cpu;
 				}
@@ -81,20 +122,13 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 			
 			// make a res pair cache if needed
 			if (resPairCache == null) {
-				AtomConnectivity connectivity = new AtomConnectivity.Builder()
-					.setConfSpace(confSpace)
-					.setParallelism(Parallelism.makeCpu(Math.min(parallelism.getParallelism(), Parallelism.getMaxNumCPUs())))
+				AtomConnectivity connectivity = atomConnectivityBuilder
+					.setParallelism(Parallelism.makeCpu(parallelism.numThreads))
 					.build();
 				resPairCache = new ResPairCache(ffparams, connectivity);
 			}
 			
-			return new MinimizingFragmentEnergyCalculator(
-				confSpace,
-				parallelism,
-				type,
-				ffparams,
-				resPairCache
-			);
+			return new EnergyCalculator(parallelism, type, resPairCache);
 		}
 	}
 	
@@ -328,46 +362,39 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 		public abstract boolean isSupported();
 		public abstract Context makeContext(Parallelism parallelism, ResPairCache resPairCache);
 		
-		public static Type pickBest(SimpleConfSpace confSpace) {
+		public static Type pickBest(DofTypes dofTypes) {
 			
-			// prefer cuda over opencl, when both are available
-			// only because our cuda code is much better than the opencl code right now
+			// only use residue functions automatically (instead of older ones),
+			// since they support residue pair weights and offsets and the older ones don't
 			if (ResidueCuda.isSupported()) {
-				if (confSpace.isGpuCcdSupported()) {
-					return ResidueCudaCCD;
-				} else {
-					return ResidueCuda;
+				switch (dofTypes) {
+					case None:
+					case OnlyDihedrals: return ResidueCudaCCD;
+					case Any: return ResidueCuda;
 				}
 			}
 			
-			if (OpenCL.isSupported()) {
-				return OpenCL;
-			}
+			// NOTE: OpenCL kernel doesn't support residue pair weights and offsets, so don't pick it automatically
 			
 			// fallback to CPU, it's always supported
 			return Cpu;
 		}
 	}
 	
-	public final SimpleConfSpace confSpace;
 	public final Parallelism parallelism;
 	public final TaskExecutor tasks;
 	public final Type type;
 	public final Type.Context context;
+	public final ResPairCache resPairCache;
 	
-	private MinimizingFragmentEnergyCalculator(SimpleConfSpace confSpace, Parallelism parallelism, Type type, ForcefieldParams ffparams, ResPairCache resPairCache) {
+	private EnergyCalculator(Parallelism parallelism, Type type, ResPairCache resPairCache) {
 		
-		this.confSpace = confSpace;
 		this.parallelism = parallelism;
 		this.tasks = parallelism.makeTaskExecutor();
 		this.type = type;
+		this.resPairCache = resPairCache;
 		
 		context = type.makeContext(parallelism, resPairCache);
-	}
-	
-	@Override
-	public SimpleConfSpace getConfSpace() {
-		return confSpace;
 	}
 	
 	@Override
@@ -376,11 +403,16 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 		tasks.clean();
 	}
 	
-	@Override
-	public double calcEnergy(RCTuple frag, ResidueInteractions inters) {
-		
-		// make the mol in the conf
-		ParametricMolecule pmol = confSpace.makeMolecule(frag);
+	/**
+	 * Calculate the energy of a molecule. If the molecule has continuous degrees of freedom,
+	 * they will be minimized within the specified bounds before calculating the energy.
+	 * 
+	 * @param pmol The molecule
+	 * @param bounds Bounds for continuous degrees of freedom for the minimization, if any
+	 * @param inters Residue interactions for the energy function
+	 * @return The calculated energy
+	 */
+	public double calcEnergy(ParametricMolecule pmol, DofBounds bounds, ResidueInteractions inters) {
 		
 		// get the energy function
 		EnergyFunction efunc = context.efuncs.make(inters, pmol.mol);
@@ -388,7 +420,6 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 			
 			// get the energy
 			double energy;
-			DofBounds bounds = confSpace.makeBounds(frag);
 			if (bounds.size() > 0) {
 				
 				// minimize it
@@ -412,13 +443,16 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 		}
 	}
 	
-	@Override
-	public void calcEnergyAsync(RCTuple frag, ResidueInteractions inters, FragmentEnergyCalculator.Async.Listener listener) {
-		tasks.submit(() -> calcEnergy(frag, inters), listener);
-	}
-	
-	@Override
-	public TaskExecutor getTasks() {
-		return tasks;
+	/**
+	 * Asynchronous version of {@link #calcEnergy(ParametricMolecule,DofBouds,ResidueInteractions)}.
+	 * 
+	 * @param pmol The molecule
+	 * @param bounds Bounds for continuous degrees of freedom for the minimization, if any
+	 * @param inters Residue interactions for the energy function
+	 * @param listener Callback function that will receive the energy. The callback is called on a
+	 *                 listener thread which is separate from the calling thread.
+	 */
+	public void calcEnergyAsync(ParametricMolecule pmol, DofBounds bounds, ResidueInteractions inters, TaskListener<Double> listener) {
+		tasks.submit(() -> calcEnergy(pmol, bounds, inters), listener);
 	}
 }

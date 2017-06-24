@@ -98,12 +98,12 @@ public class TestParallelConfPartitionFunction extends TestBase {
 	
 	@Test
 	public void testProteinGpu1() {
-		testProtein(Parallelism.makeGpu(1, 1));
+		testProtein(Parallelism.make(4, 1, 1));
 	}
 	
 	@Test
 	public void testProteinGpu2() {
-		testProtein(Parallelism.makeGpu(1, 2));
+		testProtein(Parallelism.make(4, 1, 2));
 	}
 	
 	public void testLigand(Parallelism parallelism) {
@@ -132,12 +132,12 @@ public class TestParallelConfPartitionFunction extends TestBase {
 	
 	@Test
 	public void testLigandGpu1() {
-		testLigand(Parallelism.makeGpu(1, 1));
+		testLigand(Parallelism.make(4, 1, 1));
 	}
 	
 	@Test
 	public void testLigandGpu2() {
-		testLigand(Parallelism.makeGpu(1, 2));
+		testLigand(Parallelism.make(4, 1, 2));
 	}
 	
 	public void testComplex(Parallelism parallelism) {
@@ -166,11 +166,11 @@ public class TestParallelConfPartitionFunction extends TestBase {
 	
 	@Test
 	public void testComplexGpu1() {
-		testComplex(Parallelism.makeGpu(1, 1));
+		testComplex(Parallelism.make(4, 1, 1));
 	}
 	
 	@Test
 	public void testComplexGpu2() {
-		testComplex(Parallelism.makeGpu(1, 2));
+		testComplex(Parallelism.make(4, 1, 2));
 	}
 }

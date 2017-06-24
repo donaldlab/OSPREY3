@@ -3,9 +3,9 @@ package edu.duke.cs.osprey.multistatekstar;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ParamSet;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
-import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
+import edu.duke.cs.osprey.gmec.GMECConfEnergyCalculator;
 import edu.duke.cs.osprey.gmec.ConfSearchFactory;
 import edu.duke.cs.osprey.gmec.MinimizingConfEnergyCalculator;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
@@ -28,8 +28,8 @@ public class MSKStarFactory {
 			LMB[] sConstr,
 			MSSearchProblem[] searchCont,
 			MSSearchProblem[] searchDisc,
-			ConfEnergyCalculator.Async[] ecalcsCont,
-			ConfEnergyCalculator.Async[] ecalcsDisc,
+			GMECConfEnergyCalculator.Async[] ecalcsCont,
+			GMECConfEnergyCalculator.Async[] ecalcsDisc,
 			KStarScoreType scoreType
 			) {
 
@@ -44,7 +44,7 @@ public class MSKStarFactory {
 		settings.constraints = sConstr;
 		int numPartFuncs = sParams.getInt("NUMUBSTATES")+1;
 		settings.pfTypes = new PartitionFunctionType[numPartFuncs];
-		settings.ecalcs = new ConfEnergyCalculator.Async[numPartFuncs];
+		settings.ecalcs = new GMECConfEnergyCalculator.Async[numPartFuncs];
 		settings.search = new MSSearchProblem[numPartFuncs];
 
 		switch(settings.scoreType) {
@@ -165,7 +165,7 @@ public class MSKStarFactory {
 			PruningMatrix pmat,
 			PruningMatrix invmat,
 			ConfSearchFactory confSearchFactory,
-			ConfEnergyCalculator.Async ecalc
+			GMECConfEnergyCalculator.Async ecalc
 			) {
 		switch(type) {
 		case Minimized:

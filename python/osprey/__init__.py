@@ -100,7 +100,7 @@ def start(heapSizeMB=1024, enableAssertions=False):
 
 	# expose static builder methods too
 	Parallelism.makeCpu = c.parallelism.Parallelism.makeCpu
-	Parallelism.makeGpu = c.parallelism.Parallelism.makeGpu
+	Parallelism.make = c.parallelism.Parallelism.make
 
 	# print the preamble
 	print("OSPREY %s" % c.control.Main.Version)
@@ -317,16 +317,18 @@ def ForcefieldParams(forcefield=None):
 	return c.energy.forcefield.ForcefieldParams()
 
 
-def FragmentEnergyCalculator(confSpace, ffparams, parallelism=None):
+def EnergyCalculator(confSpace, ffparams, parallelism=None, type=None):
 	'''
-	:java:classdoc:`.energy.MinimizingFragmentEnergyCalculator`
+	:java:classdoc:`.energy.EnergyCalculator`
 
-	:builder_option confSpace .energy.MinimizingFragmentEnergyCalculator$Builder#confSpace:
-	:builder_option ffparams .energy.MinimizingFragmentEnergyCalculator$Builder#ffparams:
-	:builder_option parallelism .energy.MinimizingFragmentEnergyCalculator$Builder#parallelism:
-	:builder_return .energy.MinimizingFragmentEnergyCalculator$Builder:
+	:param confSpace: The conformation space containing the residue templates to use for atom connectivities.
+	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+	:builder_option ffparams .energy.EnergyCalculator$Builder#ffparams:
+	:builder_option parallelism .energy.EnergyCalculator$Builder#parallelism:
+	:builder_option type .energy.EnergyCalculator$Builder#type:
+	:builder_return .energy.EnergyCalculator$Builder:
 	'''
-	builder = _get_builder(c.energy.MinimizingFragmentEnergyCalculator)(confSpace, ffparams)
+	builder = _get_builder(c.energy.EnergyCalculator)(confSpace, ffparams)
 
 	if parallelism is not None:
 		builder.setParallelism(parallelism)
@@ -334,16 +336,17 @@ def FragmentEnergyCalculator(confSpace, ffparams, parallelism=None):
 	return builder.build()
 
 
-def ConfEnergyCalculator(fragEcalc, referenceEnergies=None, energyPartition=None):
+def ConfEnergyCalculator(confSpace, ecalc, referenceEnergies=None, energyPartition=None):
 	'''
-	:java:classdoc:`.energy.MinimizingConfEnergyCalculator`
+	:java:classdoc:`.energy.ConfEnergyCalculator`
 
-	:builder_option fragEcalc .energy.MinimizingConfEnergyCalculator$Builder#ecalc:
-	:builder_option referenceEnergies .energy.MinimizingConfEnergyCalculator$Builder#eref:
-	:builder_option energyPartition .energy.MinimizingConfEnergyCalculator$Builder#epart:
-	:builder_return .energy.MinimizingConfEnergyCalculator$Builder:
+	:builder_option confSpace .energy.ConfEnergyCalculator$Builder#confSpace:
+	:builder_option ecalc .energy.ConfEnergyCalculator$Builder#ecalc:
+	:builder_option referenceEnergies .energy.ConfEnergyCalculator$Builder#eref:
+	:builder_option energyPartition .energy.ConfEnergyCalculator$Builder#epart:
+	:builder_return .energy.ConfEnergyCalculator$Builder:
 	'''
-	builder = _get_builder(c.energy.MinimizingConfEnergyCalculator)(fragEcalc)
+	builder = _get_builder(c.energy.ConfEnergyCalculator)(confSpace, ecalc)
 
 	if referenceEnergies is not None:
 		builder.setReferenceEnergies(referenceEnergies)
@@ -354,24 +357,18 @@ def ConfEnergyCalculator(fragEcalc, referenceEnergies=None, energyPartition=None
 	return builder.build()
 
 
-def EnergyMatrix(confSpace, ecalc, cacheFile=None, referenceEnergies=None, energyPartition=None):
+def EnergyMatrix(confEcalc, cacheFile=None):
 	'''
 	:java:methoddoc:`.ematrix.SimplerEnergyMatrixCalculator#calcEnergyMatrix`
 
-	:builder_option confSpace .ematrix.SimplerEnergyMatrixCalculator$Builder#confSpace:
-	:builder_option ecalc .ematrix.SimplerEnergyMatrixCalculator$Builder#ecalc:
+	:builder_option confEcalc .ematrix.SimplerEnergyMatrixCalculator$Builder#confEcalc:
 	:builder_option cacheFile .ematrix.SimplerEnergyMatrixCalculator$Builder#cacheFile:
-	:builder_option referenceEnergies .ematrix.SimplerEnergyMatrixCalculator$Builder#eref:
-	:builder_option energyPartition .ematrix.SimplerEnergyMatrixCalculator$Builder#epart:
 	'''
 	
-	builder = _get_builder(c.ematrix.SimplerEnergyMatrixCalculator)(confSpace, ecalc)
+	builder = _get_builder(c.ematrix.SimplerEnergyMatrixCalculator)(confEcalc)
 
 	if cacheFile is not None:
 		builder.setCacheFile(jvm.toFile(cacheFile))
-
-	if energyPartition is not None:
-		builder.setEnergyPartition(energyPartition)
 
 	return builder.build().calcEnergyMatrix()
 
@@ -380,13 +377,12 @@ def ReferenceEnergies(confSpace, ecalc):
 	'''
 	:java:methoddoc:`.ematrix.SimplerEnergyMatrixCalculator#calcReferenceEnergies`
 
-	:builder_option confSpace .ematrix.SimplerEnergyMatrixCalculator$Builder#confSpace:
-	:builder_option ecalc .ematrix.SimplerEnergyMatrixCalculator$Builder#ecalc:
+	:param confSpace: The conformation space containing the reference residues
+	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+	:builder_option ecalc .energy.ConfEnergyCalculator$Builder#ecalc:
 	'''
 
-	builder = _get_builder(c.ematrix.SimplerEnergyMatrixCalculator)(confSpace, ecalc)
-
-	return builder.build().calcReferenceEnergies()
+	return c.ematrix.SimpleReferenceEnergies.calc(confSpace, ecalc)
 
 
 def AStarTraditional(emat, confSpace, useExternalMemory=False):
@@ -455,18 +451,17 @@ def AStarMPLP(emat, confSpace, updater=None, numIterations=None, convergenceThre
 	return builder.build()
 
 
-def GMECFinder(confSpace, astar, ecalc, confLog=None, printIntermediateConfs=None, useExternalMemory=None):
+def GMECFinder(astar, confEcalc, confLog=None, printIntermediateConfs=None, useExternalMemory=None):
 	'''
 	:java:classdoc:`.gmec.SimpleGMECFinder`
 
-	:builder_option confSpace .gmec.SimpleGMECFinder$Builder#space:
 	:builder_option astar .gmec.SimpleGMECFinder$Builder#search:
 
 		Use one of :py:func:`AStarTraditional` or :py:func:`AStarMPLP` to get an A* implementation.
 
-	:builder_option ecalc .gmec.SimpleGMECFinder$Builder#ecalc:
+	:builder_option confEcalc .gmec.SimpleGMECFinder$Builder#confEcalc:
 
-		Use :py:func:`ConfEnergyCalculator` to get an energy calculator.
+		Use :py:func:`ConfEnergyCalculator` to get a conformation energy calculator.
 
 	:param str confLog: Path to file where conformations found during conformation space search should be logged.
 	:builder_option printIntermediateConfs .gmec.SimpleGMECFinder$Builder#printIntermediateConfsToConsole:
@@ -474,7 +469,7 @@ def GMECFinder(confSpace, astar, ecalc, confLog=None, printIntermediateConfs=Non
 	:builder_return .gmec.SimpleGMECFinder$Builder:
 	'''
 
-	builder = _get_builder(c.gmec.SimpleGMECFinder)(confSpace, astar, ecalc)
+	builder = _get_builder(c.gmec.SimpleGMECFinder)(astar, confEcalc)
 
 	if confLog is not None:
 		logFile = jvm.toFile(confLog)

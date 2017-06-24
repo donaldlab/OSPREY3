@@ -7,7 +7,7 @@ import java.util.PriorityQueue;
 
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.control.ParamSet;
-import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.gmec.GMECConfEnergyCalculator;
 import edu.duke.cs.osprey.multistatekstar.KStarScore.KStarScoreType;
 import edu.duke.cs.osprey.tools.ObjectIO;
 
@@ -44,8 +44,8 @@ public class MSKStarTree {
 	SearchProblem searchCont[][];//SearchProblems describing them; each state has >= 3 SearchProblems
 	SearchProblem searchDisc[][];
 
-	ConfEnergyCalculator.Async[][] ecalcsCont;//energy calculators for continuous emats
-	ConfEnergyCalculator.Async[][] ecalcsDisc;//energy calculators for discrete emats
+	GMECConfEnergyCalculator.Async[][] ecalcsCont;//energy calculators for continuous emats
+	GMECConfEnergyCalculator.Async[][] ecalcsDisc;//energy calculators for discrete emats
 
 	ParamSet msParams;//multistate spec params
 	MSConfigFileParser[] cfps;//config file parsers for each state
@@ -71,8 +71,8 @@ public class MSKStarTree {
 			ArrayList<String[]> wtSeqs, 
 			SearchProblem[][] searchCont,
 			SearchProblem[][] searchDisc,
-			ConfEnergyCalculator.Async[][] ecalcsCont,
-			ConfEnergyCalculator.Async[][] ecalcsDisc,
+			GMECConfEnergyCalculator.Async[][] ecalcsCont,
+			GMECConfEnergyCalculator.Async[][] ecalcsDisc,
 			ParamSet msParams,
 			MSConfigFileParser[] cfps
 			) {

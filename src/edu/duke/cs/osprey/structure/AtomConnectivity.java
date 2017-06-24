@@ -22,19 +22,46 @@ import edu.duke.cs.osprey.tools.HashCalculator;
  */
 public class AtomConnectivity {
 	
+	public static Set<ResidueTemplate> collectTemplates(SimpleConfSpace confSpace) {
+		Set<ResidueTemplate> templates = new HashSet<>();
+		for (SimpleConfSpace.Position pos : confSpace.positions) {
+			for (SimpleConfSpace.ResidueConf rc : pos.resConfs) {
+				templates.add(rc.template);
+			}
+		}
+		for (Strand strand : confSpace.strands) {
+			for (Residue res : strand.mol.residues) {
+				templates.add(res.template);
+			}
+		}
+		return templates;
+	}
+	
+	public static Set<ResidueTemplate> collectTemplates(Residues residues) {
+		Set<ResidueTemplate> templates = new HashSet<>();
+		for (Residue res : residues) {
+			templates.add(res.template);
+		}
+		return templates;
+	}
+	
 	public static class Builder {
 		
-		private SimpleConfSpace confSpace = null;
-		private Collection<Residue> residues = null;
+		private Set<ResidueTemplate> templates = new HashSet<>();
 		private Parallelism parallelism = Parallelism.makeCpu(1);
-	
-		public Builder setConfSpace(SimpleConfSpace val) {
-			confSpace = val;
+		
+		public Builder addTemplates(Collection<ResidueTemplate> val) {
+			templates.addAll(val);
 			return this;
 		}
 		
-		public Builder setResidues(Collection<Residue> val) {
-			residues = val;
+		public Builder addTemplates(SimpleConfSpace confSpace) {
+			addTemplates(collectTemplates(confSpace));
+			return this;
+		}
+		
+		public Builder addTemplates(Residues residues) {
+			addTemplates(collectTemplates(residues));
 			return this;
 		}
 		
@@ -44,7 +71,7 @@ public class AtomConnectivity {
 		}
 		
 		public AtomConnectivity build() {
-			return new AtomConnectivity(confSpace, residues, parallelism);
+			return new AtomConnectivity(new ArrayList<>(templates), parallelism);
 		}
 	}
 	
@@ -161,31 +188,15 @@ public class AtomConnectivity {
 	private Map<Key2,AtomPairs> atomPairs2;
 	private Map<KeySeparate,AtomPairs> atomPairsSeparate;
 	
-	private AtomConnectivity(SimpleConfSpace confSpace, Collection<Residue> residues, Parallelism parallelism) {
+	private AtomConnectivity(List<ResidueTemplate> templates, Parallelism parallelism) {
+		
+		// make sure we have residue templates
+		if (templates == null || templates.isEmpty()) {
+			throw new IllegalArgumentException("templates cannot be empty. Try adding templates from a molecule or a conf space");
+		}
 		
 		try (TaskExecutor tasks = parallelism.makeTaskExecutor()) {
 		
-			// collect all the templates
-			Set<ResidueTemplate> templatesSet = new HashSet<>();
-			if (confSpace != null) {
-				for (SimpleConfSpace.Position pos : confSpace.positions) {
-					for (SimpleConfSpace.ResidueConf rc : pos.resConfs) {
-						templatesSet.add(rc.template);
-					}
-				}
-				for (Strand strand : confSpace.strands) {
-					for (Residue res : strand.mol.residues) {
-						templatesSet.add(res.template);
-					}
-				}
-			}
-			if (residues != null) {
-				for (Residue res : residues) {
-					templatesSet.add(res.template);
-				}
-			}
-			List<ResidueTemplate> templates = new ArrayList<>(templatesSet);
-			
 			/* DEBUG: show template info
 			for (ResidueTemplate template : templates) {
 				if (template.name.equals("ALA") || template.name.equals("GLU")) {
