@@ -6,8 +6,9 @@ Hello there!
 
 If you're wondering how to write your first Python script to do protein redesign
 using Osprey, you've come to the right place. If you haven't installed Osprey yet,
-you'll have to do that first. Then come back here. So, without further ado, here's our
-first Python script.
+you'll have to do that first. Then come back here.
+
+So, without further ado, here's our first Python script.
 
 .. code-block:: python
 	:linenos:
@@ -28,17 +29,21 @@ first Python script.
 	# choose a forcefield
 	ffparams = osprey.ForcefieldParams()
 
+	# how should we compute energies of molecules?
+	ecalc = osprey.EnergyCalculator(confSpace, ffparams)
+
+	# how should we define energies of conformations?
+	confEcalc = osprey.ConfEnergyCalculator(confSpace, ecalc)
+
 	# how should confs be ordered and searched?
-	emat = osprey.EnergyMatrix(confSpace, ffparams)
+	emat = osprey.EnergyMatrix(confEcalc)
 	astar = osprey.AStarMPLP(emat, confSpace)
 
-	# how to compute the energy of a conformation?
-	ecalc = osprey.ConfEnergyCalculator(confSpace, ffparams)
-
 	# find the best sequence and rotamers
-	gmec = osprey.GMECFinder(confSpace, astar, ecalc).find()
+	gmec = osprey.GMECFinder(astar, confEcalc).find()
 
 This is an example script in the Osprey distribution.
+
 You can find it at ``examples/1CC8.python/findGMEC.py``
 It's a bit much to take in all at once though, so let's break it down line-by-line.
 
@@ -104,7 +109,7 @@ in the conformation specified by the PDB file throughout all of Osprey's analyse
 	# make the conf space
 	confSpace = osprey.ConfSpace(strand)
 
-Here is where we make our *Conformation Space* for the design. The :java:ref:`osprey.ConfSpace` is the
+Here is where we make our *Conformation Space* for the design. The :py:func:`osprey.ConfSpace` is the
 object where we collect all of the information about design flexibility. In more complicated designs,
 it can hold information about multiple strands, but for now, we have just the one strand.
 This information will remain essentially constant for the rest of the script. Other parts of
@@ -120,11 +125,36 @@ The *Forcefield* and its parameters tells Osprey how to calculate the energy for
 specific conformation. For now, we'll just use the default forcefield by calling
 :py:func:`osprey.ForcefieldParams` without any arguments.
 
+
 .. code-block:: python
 	:lineno-start: 17
+	
+	# how should we compute energies of molecules?
+	ecalc = osprey.EnergyCalculator(confSpace, ffparams)
 
+This line sets up the energy calculator for Osprey. The job of energy calculator is to calculate the
+physical energy of a molecule based on the forcefield parameters, and minimize over the continuous degrees
+of freedom of the molecule as needed. Much of Ospey's run time is spent inside the energy calculator, so
+lots of work has been done to keep it running as fast as possible. Osprey's energy calculator supports
+many different kinds of parallel hardware (including GPUs), but we'll just use the default single-threaded
+CPU calculator for this toy design. For larger designs, you'll definitely want to explore the options in
+the :py:func:`osprey.EnergyCalculator` to reduce the runtimes of your designs.
+
+.. code-block:: python
+	:lineno-start: 20
+	
+	# how should we define energies of conformations?
+	confEcalc = osprey.ConfEnergyCalculator(confSpace, ecalc)
+
+This line combines the energy calculator with information about your design's conformation space.
+The :py:func:`osprey.ConfEnergyCalculator` allows different options for how conformation energies
+are created from interactions between residues, but again, we'll just stick with the defaults this time.
+
+.. code-block:: python
+	:lineno-start: 23
+	
 	# how should confs be ordered and searched?
-	emat = osprey.EnergyMatrix(confSpace, ffparams)
+	emat = osprey.EnergyMatrix(confEcalc)
 	astar = osprey.AStarMPLP(emat, confSpace)
 
 In the most abstract and simplest sense, Osprey computes designs by executing two steps:
@@ -132,7 +162,7 @@ In the most abstract and simplest sense, Osprey computes designs by executing tw
 	1.	Define a sort order for all conformations in the conformation space,
 		and then start enumerating conformations in that order.
 
-	2.	Stop enumerating conformations when it can be proven that we've already
+	2.	Stop enumerating conformations when we can prove that we've already
 		enumerated the one with the lowest energy.
 
 Many of the sophisticated algorithms implemented in Osprey are variations on this simple theme.
@@ -153,35 +183,32 @@ on the conformation space.
 .. tip:: add the ``cacheFile='path'`` argument to :py:func:`osprey.EnergyMatrix` to reuse
 	the energy matrix between runs of your design. If the energy matrix takes a long time to
 	compute, this can save you a lot of time.
+	
+To perform step 2, Osprey uses the conformation energy calculator on each conformation returned
+by the A* search. Different algorithms in Osprey use the resulting energies with various criteria
+to choose when to stop enumerating conformations, but this simple discrete design will just stop
+after the first conformation is reached.
 
 .. code-block:: python
-	:lineno-start: 21
-
-	# how to compute the energy of a conformation?
-	ecalc = osprey.ConfEnergyCalculator(confSpace, ffparams)
-
-This line tells Osprey how to define the energy for a conformation so it can perform step 2.
-For this simple example, we'll just use the default conformation energy calculator by calling
-:py:func:`osprey.ConfEnergyCalculator`.
-
-.. code-block:: python
-	:lineno-start: 24
+	:lineno-start: 27
 
 	# find the best sequence and rotamers
 	gmec = osprey.GMECFinder(confSpace, astar, ecalc).find()
 
-Finally, this line of code runs the design and compute the best sequence in the conformation
+Finally, this line of code runs the design and computes the best sequence in the conformation
 space: the *Global Minimum Energy Conformation*, or GMEC. This is the part of Osprey that
 actually computes steps 1 and 2, whereas before we just defined how they should be computed.
 This function can take a long time to run, depending on how large the design is, so check the
 script's output to get progress information.
 
-For our simple example though, the whole script should take only a few seconds to compute.
-When it's done, you should be greeted by the following output::
+To configure parameters for the GMEC search, try the API function :py:func:`osprey.GMECFinder`.
+
+For our simple example though, the whole script should take only a few seconds to complete.
+When it's done, you should be greeted something very similar to the following output::
 
 	OSPREY 3.0
 	read PDB file from file: 1CC8.ss.pdb
-	Calculating energy matrix with 149 entries...
+	Calculating energy matrix with 133 entries...
 	Searching for min score conformation...
 		(among 154.0 possibilities)
 	Found min score conformation in 8.9 ms
