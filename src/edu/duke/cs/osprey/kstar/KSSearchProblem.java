@@ -310,10 +310,10 @@ public class KSSearchProblem extends SearchProblem {
 	}
 
 
-	public MultiTermEnergyFunction decompMinimizedEnergy(int[] conf){
+	public MultiTermEnergyFunction decomposedEnergy(int[] conf, boolean doMinimize){
 		//Minimized energy of the conformation
 		//whose RCs are listed for all flexible positions in conf
-		MultiTermEnergyFunction mef = confSpace.getDecomposedEnergy(conf, fullConfE, null);
+		MultiTermEnergyFunction mef = confSpace.getDecomposedEnergy(conf, doMinimize, fullConfE, null);
 
 		double E = mef.getPreCompE();
 

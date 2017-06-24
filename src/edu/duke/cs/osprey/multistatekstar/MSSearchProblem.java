@@ -9,6 +9,7 @@ import java.util.HashSet;
 import edu.duke.cs.osprey.astar.comets.UpdatedPruningMatrix;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.Stopwatch;
@@ -31,6 +32,23 @@ public class MSSearchProblem extends SearchProblem {
 		if(settings==null) throw new RuntimeException("ERROR: search settings cannot be null");
 		this.settings = settings;
 		this.numAssignedPos = other.confSpace.numPos-Collections.frequency(settings.mutRes, "-1");
+	}
+	
+	public MultiTermEnergyFunction getDecomposedEnergy(int[] conf, boolean doMinimize) {
+		//whose RCs are listed for all flexible positions in conf
+		MultiTermEnergyFunction mef = confSpace.getDecomposedEnergy(conf, doMinimize, fullConfE, null);
+		
+		/*
+		double E = mef.getPreCompE();
+		E += emat.getConstTerm();
+		if(useERef)
+			E -= emat.geteRefMat().confERef(conf);
+		if(addResEntropy)
+			E += confSpace.getConfResEntropy(conf);            
+		mef.setPreCompE(E);
+		*/
+		
+		return mef;
 	}
 
 	public int getNumPos() {
@@ -230,9 +248,13 @@ public class MSSearchProblem extends SearchProblem {
 			updatePruningMatrix(ans, splitPosNum, splitPos2aa.get(splitPosNum));
 		return ans;
 	}
-
-	public PruningMatrix getUpdatedPruningMatrix() {
-		return updatePruningMatrix(getPosNums(true), settings.AATypeOptions);
+	
+	public PruningMatrix getUpdatedPruningMatrix(ArrayList<Integer> posNums, ArrayList<ArrayList<String>> AATypeOptions) {
+		return updatePruningMatrix(posNums, AATypeOptions);
+	}
+	
+	private PruningMatrix getUpdatedPruningMatrix() {
+		return getUpdatedPruningMatrix(getPosNums(true), settings.AATypeOptions);
 	}
 	
 	private void setPruningMatrix() {

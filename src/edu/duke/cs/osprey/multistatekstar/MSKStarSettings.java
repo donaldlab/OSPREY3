@@ -36,7 +36,6 @@ public class MSKStarSettings {
 		this.scoreType = other.scoreType;
 		this.computeGMEC = other.computeGMEC;
 		
-		//must deep copy, since these values can change
 		this.search = new MSSearchProblem[other.search.length];
 		System.arraycopy(other.search, 0, this.search, 0, other.search.length);
 		

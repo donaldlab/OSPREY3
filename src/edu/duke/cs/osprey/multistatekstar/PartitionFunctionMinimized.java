@@ -38,7 +38,6 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	protected PriorityQueue<ScoredConf> topConfs;
 	protected int maxNumTopConfs;
 	protected BigDecimal qstarScoreWeights;
-	protected int numActiveThreads;
 	protected PruningMatrix invmat;
 	protected ArrayList<ScoredConf> scoredConfs;
 	protected ArrayList<EnergiedConf> energiedConfs;
@@ -134,7 +133,6 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		qprimeUnscored = BigDecimal.ZERO;
 
 		qstarScoreWeights = BigDecimal.ZERO;
-		numActiveThreads = 0;
 		maxNumTopConfs = 0;
 		
 		// treat the partition function state as if we have already processed 
@@ -208,12 +206,6 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 		return qprimeUnevaluated.add(qprimeUnscored);
 	}
 
-	protected void waitForAllThreads() {
-		while(numActiveThreads > 0) {
-			try { this.wait(); } catch (InterruptedException e) { e.printStackTrace(); }
-		}
-	}
-
 	boolean equals(int[] lhs, int[] rhs) {
 		int len = lhs.length;
 		if(len != rhs.length) return false;
@@ -232,7 +224,6 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 			conf = energyConfs.next();
 			
 			if (conf == null) {
-				if(!SYNCHRONIZED_MINIMIZATION) waitForAllThreads();
 				if(status != Status.Estimated) status = Status.NotEnoughConformations;
 				return null;
 			}
@@ -244,7 +235,6 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 			}
 
 			if (boltzmann.calc(conf.getScore()).compareTo(BigDecimal.ZERO) == 0) {
-				if(!SYNCHRONIZED_MINIMIZATION) waitForAllThreads();
 				if(status != Status.Estimated) status = Status.NotEnoughFiniteEnergies;
 				return null;
 			}
@@ -252,7 +242,6 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 			break;
 		}
 
-		++numActiveThreads;
 		return conf;
 	}
 
@@ -307,9 +296,6 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 				if (isReportingProgress) phase1Output(econf);//just to let the user know we reached epsilon
 			}
 		}
-
-		--numActiveThreads;
-		this.notify();
 	}
 
 	protected void handlePhase2Conf(EnergiedConf econf, BigDecimal targetScoreWeights) {
@@ -346,14 +332,10 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 				if (isReportingProgress) phase2Output(econf, pdiff);
 			}
 		}
-
-		--numActiveThreads;
-		this.notify();
 	}
 
 	@Override
 	public void compute(int maxNumConfs) {
-		numActiveThreads = 0;
 
 		if (!status.canContinue()) {
 			throw new IllegalStateException("can't continue from status " + status);
@@ -440,7 +422,6 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 	}
 
 	public void compute(BigDecimal targetScoreWeights, int maxNumConfs) {
-		numActiveThreads = 0;
 
 		if (!status.canContinue()) {
 			throw new IllegalStateException("can't continue from status " + status);

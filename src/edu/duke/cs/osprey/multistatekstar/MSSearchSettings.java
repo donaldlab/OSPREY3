@@ -19,8 +19,11 @@ public class MSSearchSettings implements Serializable {
 	public double pruningWindow;
 	public double stericThreshold;
 	public boolean energyLBs;//use to compute either lower or upper bounds
+	public boolean overrideMultiSequence;
 	
-	public MSSearchSettings() {}
+	public MSSearchSettings() {
+		overrideMultiSequence = false;
+	}
 	
 	public String getFormattedSequence() {
 		if(AATypeOptions.size()!=mutRes.size())

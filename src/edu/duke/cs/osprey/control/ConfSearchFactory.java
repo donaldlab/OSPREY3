@@ -42,7 +42,8 @@ public interface ConfSearchFactory {
 						return ConfTree.makeFull(search, pmat, cfp.parseGMECMutFile(search.confSpace));
 					}
 					
-					else if (search instanceof MSSearchProblem && !((MSSearchProblem)search).isFullyAssigned()) {
+					else if (search instanceof MSSearchProblem && !((MSSearchProblem)search).isFullyAssigned()
+							&& !((MSSearchProblem)search).settings.overrideMultiSequence) {
 						// we need a multi-sequence conf space
 						//return new MultiSequenceConfTree((MSSearchProblem)search, emat, pmat);
 						return ConfTree.makeFullMultiSequence(search, emat, pmat);

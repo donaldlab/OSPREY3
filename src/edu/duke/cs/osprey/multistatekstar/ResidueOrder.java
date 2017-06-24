@@ -21,56 +21,64 @@ public abstract class ResidueOrder implements Serializable {
 			this.AATypePos = AATypePos;
 		}
 	}
-	
+
 	public class ResidueAssignment implements Serializable {
 		public ArrayList<ArrayList<Integer>> assignments;
-		
+		private String string;
+
 		public ResidueAssignment(ArrayList<ArrayList<Integer>> assignments) {
 			this.assignments = assignments;
+			this.string = null;
 		}
-		
+
 		public int length() {
 			return assignments.size();
 		}
-		
+
 		public ArrayList<Integer> get(int subState) {
 			return assignments.get(subState);
 		}
+
+		public String toString() {
+			if(string!=null) return string;
+			
+			StringBuilder sb = new StringBuilder();
+			for(ArrayList<Integer> al : assignments) {
+				for(Integer i : al) sb.append(i + " ");
+				sb.append(", ");
+			}
+			
+			string = sb.toString();
+			return string;
+		}
 	}
-	
+
 	public class ResidueAssignmentScore implements Serializable {
 		ResidueAssignment assignment;
 		BigDecimal score;
-		
+
 		public ResidueAssignmentScore(ResidueAssignment assignment, BigDecimal score) {
 			this.assignment = assignment;
 			this.score = score;
 		}
 	}
-	
-	public class ResisueOrderWorker {
-		public int state;
-		public int subState;
-		public MSSearchProblem search;
-		boolean isUnbound;
-		
-		public ResisueOrderWorker(MSSearchProblem search, int state, int subState, boolean isUnbound) {
-			this.search = search;
-			this.state = state;
-			this.subState = subState;
-			this.isUnbound = isUnbound;
-		}
-	}
-	
+
 	public ResidueOrder() {}
-	
+
 	public abstract ArrayList<ArrayList<ArrayList<AAAssignment>>> getNextAssignments(
 			LMB objFcn, 
 			MSSearchProblem[][] objFcnSearch,
 			KStarScore[] objFcnScores,
 			int numMaxMut
 			);
-	
+
+	public abstract ArrayList<ResidueAssignmentScore> scoreResidueAssignments(
+			LMB objFcn, 
+			MSSearchProblem[][] objFcnSearch,
+			KStarScore[] objFcnScores, 
+			int numMaxMut
+			);
+
 	protected ArrayList<ArrayList<AAAssignment>> getUnboundAAAssignments(MSSearchProblem bound, 
 			ArrayList<ArrayList<AAAssignment>> assignments, MSSearchProblem unbound) {
 
@@ -88,7 +96,7 @@ public abstract class ResidueOrder implements Serializable {
 		ans.trimToSize();
 		return ans;
 	}
-	
+
 	protected void getBoundAAAssignmentsHelper(ArrayList<ArrayList<String>> AATypeOptions,
 			ArrayList<ArrayList<AAAssignment>> output, ArrayList<Integer> splitPos, 
 			String[] wt, String[] buf, int depth, int numMut, int numMaxMut) {

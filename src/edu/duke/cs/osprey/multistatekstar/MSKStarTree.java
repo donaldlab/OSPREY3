@@ -188,8 +188,8 @@ public class MSKStarTree {
 		
 		MSKStarTree.DEBUG = false;
 		MSSearchProblem.DEBUG = false;
-		ResidueOrderDynamicScoreMinDom.DEBUG = false;
-		ResidueOrderDynamicScore.DEBUG = false;
+		ResidueOrderMeta.DEBUG = false;
+		ResidueOrderGMECProxy.DEBUG = false;
 		
 		MSKStarNode.DEBUG = true;
 		PartitionFunctionDiscrete.DEBUG = true;

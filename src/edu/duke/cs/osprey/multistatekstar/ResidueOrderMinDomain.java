@@ -12,7 +12,7 @@ import java.util.HashMap;
  * Domain size determined by the number of rotamers in the bound state
  */
 @SuppressWarnings("serial")
-public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
+public class ResidueOrderMinDomain extends ResidueOrderGMEC {
 
 	private enum ScoreType {
 		NUMSPLITS,
@@ -20,31 +20,33 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 		SUM;
 	}
 
-	private HashMap<Integer, ArrayList<ArrayList<Integer>>> residueValues;//residue values for bound state
-	//in each unassigned pos
-
+	private HashMap<Integer, ArrayList<ArrayList<Integer>>> pos2DomainScore;//residue values for bound state in each unassigned pos
 	private ScoreType scoreType;
 
-	public ResidueOrderStaticMinDomain(MSSearchProblem[][] objFcnSearch, String method) {
-		super(objFcnSearch, "discrepancy");
-		this.residueValues = computeResidueValues(objFcnSearch);
-
+	public ResidueOrderMinDomain(MSSearchProblem[][] objFcnSearch, String method) {
+		super(objFcnSearch);
+		this.pos2DomainScore = computePos2DomainScore(objFcnSearch);
+		this.scoreType = setScoreType(method);
+	}
+	
+	private ScoreType setScoreType(String method) {
 		switch(method.toLowerCase()) {
 		case "product":
-			scoreType = ScoreType.PRODUCT;
-			break;
+			return ScoreType.PRODUCT;
 		case "sum":
-			scoreType = ScoreType.SUM;
-			break;
+			return ScoreType.SUM;
 		case "numsplits":
-			scoreType = ScoreType.NUMSPLITS;
-			break;
+			return ScoreType.NUMSPLITS;
 		default:
 			throw new UnsupportedOperationException("ERROR: method must be in the set {numsplits, product, sum}");
 		}
 	}
+	
+	protected void updatePos2DomainScore(MSSearchProblem[][] objFcnSearch) {
+		this.pos2DomainScore = computePos2DomainScore(objFcnSearch);
+	}
 
-	private HashMap<Integer, ArrayList<ArrayList<Integer>>> computeResidueValues(MSSearchProblem[][] objFcnSearch) {
+	private HashMap<Integer, ArrayList<ArrayList<Integer>>> computePos2DomainScore(MSSearchProblem[][] objFcnSearch) {
 		int complex = objFcnSearch[0].length-1;
 		ArrayList<Integer> unassignedPos = objFcnSearch[0][complex].getPosNums(false);
 
@@ -75,7 +77,7 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 	}
 
 	//score is product of domain sizes of bound states
-	protected BigDecimal getBoundStateDomainProduct(ResidueAssignment residueAssignment, 
+	private BigDecimal getBoundStateDomainProduct(ResidueAssignment residueAssignment, 
 			ArrayList<ArrayList<ArrayList<AAAssignment>>> aaAssignments) {
 		//we only want bound state aa assignments
 		int complex = residueAssignment.length()-1;
@@ -87,9 +89,8 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 			ArrayList<AAAssignment> assignments = aaAssignments.get(complex).get(split);
 			for(AAAssignment aaa : assignments) {
 
-				for(ArrayList<Integer> numRCsAtPos : residueValues.get(aaa.residuePos))
+				for(ArrayList<Integer> numRCsAtPos : pos2DomainScore.get(aaa.residuePos))
 					prodRCs *= numRCsAtPos.get(aaa.AATypePos);
-
 			}
 		}
 
@@ -97,7 +98,7 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 	}
 
 	//score is sum of domain sizes of bound states
-	protected BigDecimal getBoundStateDomainSum(ResidueAssignment residueAssignment, 
+	private BigDecimal getBoundStateDomainSum(ResidueAssignment residueAssignment, 
 			ArrayList<ArrayList<ArrayList<AAAssignment>>> aaAssignments) {
 		//we only want bound state aa assignments
 		int complex = residueAssignment.length()-1;
@@ -109,22 +110,21 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 			ArrayList<AAAssignment> assignments = aaAssignments.get(complex).get(split);
 			for(AAAssignment aaa : assignments) {
 
-				for(ArrayList<Integer> numRCsAtPos : residueValues.get(aaa.residuePos))
+				for(ArrayList<Integer> numRCsAtPos : pos2DomainScore.get(aaa.residuePos))
 					sumRCs += numRCsAtPos.get(aaa.AATypePos);
-
 			}
 		}
 
 		return BigDecimal.valueOf(sumRCs);
 	}
 	
-	protected BigDecimal getNumberOfSplits(ResidueAssignment residueAssignment, 
+	private BigDecimal getNumberOfSplits(ResidueAssignment residueAssignment, 
 			ArrayList<ArrayList<ArrayList<AAAssignment>>> aaAssignments) {
 		int numSplits = aaAssignments.get(0).size();
 		return BigDecimal.valueOf(numSplits);
 	}
 
-	protected ArrayList<ResidueAssignmentScore> scoreUnassignedPos(LMB objFcn, 
+	protected ArrayList<ResidueAssignmentScore> scoreResidueAssignments(LMB objFcn, 
 			MSSearchProblem[][] objFcnSearch, 
 			ArrayList<Integer> unassignedPos,
 			int numMaxMut) {
@@ -148,9 +148,6 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 		}
 
 		//assignments.trimToSize();
-
-		//now score each assignment
-		clearResidue2AAAssignments();//first clear previous entries
 
 		ArrayList<ResidueAssignmentScore> residueAssignmentScores = new ArrayList<>();
 		for(ResidueAssignment residueAssignment : residueAssignments) {
@@ -208,7 +205,8 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 		return best;
 	}
 
-	public ArrayList<ResidueAssignmentScore> scoreAllResidueAssignments(
+	@Override
+	public ArrayList<ResidueAssignmentScore> scoreResidueAssignments(
 			LMB objFcn, 
 			MSSearchProblem[][] objFcnSearch,
 			KStarScore[] objFcnScores, 
@@ -221,8 +219,12 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 		if(unassignedPos.size()==0)
 			throw new RuntimeException("ERROR: there are no unassigned positions");
 
+		clearStoredStructures();
+		
+		//if(scoreType != ScoreType.NUMSPLITS) updatePos2Score(objFcnSearch);
+		
 		//score unassigned residues by objfcn
-		ArrayList<ResidueAssignmentScore> scores = scoreUnassignedPos(objFcn, objFcnSearch, unassignedPos, numMaxMut);
+		ArrayList<ResidueAssignmentScore> scores = scoreResidueAssignments(objFcn, objFcnSearch, unassignedPos, numMaxMut);
 
 		return scores;
 	}
@@ -234,7 +236,7 @@ public class ResidueOrderStaticMinDomain extends ResidueOrderDynamicScore {
 			KStarScore[] objFcnScores,
 			int numMaxMut
 			) {
-		ArrayList<ResidueAssignmentScore> scores = scoreAllResidueAssignments(objFcn, objFcnSearch, objFcnScores, numMaxMut);		
+		ArrayList<ResidueAssignmentScore> scores = scoreResidueAssignments(objFcn, objFcnSearch, objFcnScores, numMaxMut);		
 
 		//order unassigned residues by score and return best residue
 		ResidueAssignment best = getBestResidueAssignment(scores);
