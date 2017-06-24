@@ -9,6 +9,8 @@ import jcuda.driver.JCudaDriver;
 
 public class Gpus {
 	
+	public static boolean printGpuInfo = true;
+	
 	private static Gpus instance;
 	
 	static {
@@ -26,7 +28,7 @@ public class Gpus {
 	
 	private Gpus() {
 		
-		System.out.print("Discovering CUDA GPUs...");
+		print("Discovering CUDA GPUs...");
 		gpus = new ArrayList<>();
 
 		try {
@@ -52,14 +54,20 @@ public class Gpus {
 			}
 		} finally {
 			if (gpus.isEmpty()) {
-				System.out.println(" none found");
+				print(" none found\n");
 			} else {
-				System.out.println(" found " + gpus.size());
+				print(" found " + gpus.size() + "\n");
 			}
 		}
 	}
 	
 	public List<Gpu> getGpus() {
 		return Collections.unmodifiableList(gpus);
+	}
+	
+	private void print(String msg) {
+		if (printGpuInfo) {
+			System.out.print(msg);
+		}
 	}
 }

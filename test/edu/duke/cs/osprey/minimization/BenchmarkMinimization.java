@@ -22,13 +22,18 @@ import edu.duke.cs.osprey.energy.MinimizingFragmentEnergyCalculator;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldInteractions;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.energy.forcefield.ResPairCache;
+import edu.duke.cs.osprey.gpu.cuda.GpuStreamPool;
+import edu.duke.cs.osprey.gpu.cuda.Gpus;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.structure.AtomConnectivity;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.Factory;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Stopwatch;
+import edu.duke.cs.osprey.tools.TimeFormatter;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
 @SuppressWarnings("unused")
@@ -91,7 +96,7 @@ public class BenchmarkMinimization extends TestBase {
 		assertConfSpacesMatch(search.confSpace, simpleConfSpace);
 		
 		// settings
-		final int numConfs = 1024*4;//32;//256;//512;//1024;
+		final int numConfs = 1024*2;//32;//256;//512;//1024;
 		
 		// get a few arbitrary conformations
 		System.out.println("getting confs...");
@@ -114,11 +119,23 @@ public class BenchmarkMinimization extends TestBase {
 		confs = newConfs;
 		*/
 		
+		// get all the confs
+		List<ScoredConf> allConfs = new ArrayList<>(confs);
+		while (true) {
+			ScoredConf conf = tree.nextConf();
+			if (conf == null) {
+				break;
+			}
+			allConfs.add(conf);
+		}
+		
 		System.out.println("benchmarking...");
 		
 		//benchmarkSerial(search, simpleConfSpace, confs);
-		benchmarkParallel(search, simpleConfSpace, confs);
+		//benchmarkParallel(search, simpleConfSpace, confs);
 		//compareOneConf(search, confs);
+		
+		benchmarkOps(search, simpleConfSpace, allConfs);
 	}
 
 	private static void benchmarkSerial(SearchProblem search, SimpleConfSpace simpleConfSpace, List<ScoredConf> confs)
@@ -184,7 +201,7 @@ public class BenchmarkMinimization extends TestBase {
 		
 		// settings
 		final int[] numThreadsList = { 1 };//, 2, 4, 8 };
-		final int numGpus = 8;
+		final int numGpus = 1;
 		final int[] numStreamsPerGpuList = { 1, 2, 4, 8, 16, 32 };//, 64, 128 };//, 256 };
 		
 		Factory<ForcefieldInteractions,Molecule> interactionsFactory = (mol) -> FFInterGen.makeFullConf(search.confSpace, search.shellResidues, mol);
@@ -192,6 +209,7 @@ public class BenchmarkMinimization extends TestBase {
 		
 		// benchmark cpu
 		Stopwatch stopwatch = null;
+		/*
 		for (int numThreads : numThreadsList) {
 			
 			System.out.println(String.format("\nBenchmarking %2d thread(s) with %30s...", numThreads, "CPU efuncs"));
@@ -204,9 +222,10 @@ public class BenchmarkMinimization extends TestBase {
 				benchmark(minimizer, confs, null);
 			}
 		}
+		*/
 		Stopwatch oneCpuStopwatch = stopwatch;
 		
-		// benchmark cpu residue efuncs
+		/* benchmark cpu residue efuncs
 		for (int numThreads : numThreadsList) {
 			
 			System.out.println(String.format("\nBenchmarking %3d thread(s) with %30s...", numThreads, "CPU residue efuncs"));
@@ -218,6 +237,7 @@ public class BenchmarkMinimization extends TestBase {
 					benchmark(confEcalc, confs, oneCpuStopwatch);
 				});
 		}
+		*/
 		
 		/*
 		// benchmark opencl
@@ -530,5 +550,163 @@ public class BenchmarkMinimization extends TestBase {
 				System.out.print(String.format("%22.14f", energy));
 			}
 		}
+	}
+	
+	private static void benchmarkOps(SearchProblem search, SimpleConfSpace simpleConfSpace, List<ScoredConf> confs) {
+		
+		// settings
+		final int[] numThreadsList = { 1, 2, 4, 8, 16 };//, 32, 64, 128 };
+		final int[] numStreamsPerGpuList = { 1, 2, 4, 8, 16, 32, 64 };//, 128 };
+		
+		GpuStreamPool.printPoolSize = false;
+		final int MaxNumGpus = Gpus.get().getGpus().size();
+		
+		Factory<ForcefieldInteractions,Molecule> interactionsFactory = (mol) -> FFInterGen.makeFullConf(search.confSpace, search.shellResidues, mol);
+		ForcefieldParams ffparams = new ForcefieldParams();
+		AtomConnectivity connectivity = new AtomConnectivity.Builder()
+			.setConfSpace(simpleConfSpace)
+			.setParallelism(Parallelism.makeCpu(4))
+			.build();
+		ResPairCache resPairCache = new ResPairCache(ffparams, connectivity);
+		
+		for (int numThreads : numThreadsList) {
+			ConfMinimizer minimizer = new CpuConfMinimizer.Builder(ffparams, interactionsFactory, search.confSpace)
+				.setNumThreads(numThreads)
+				.build();
+			benchmarkOps(minimizer, confs, "CPU: " + numThreads);
+			minimizer.cleanup();
+		}
+		
+		// benchmark cpu
+		for (int numThreads : numThreadsList) {
+			new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
+				.setType(MinimizingFragmentEnergyCalculator.Type.Cpu)
+				.setParallelism(Parallelism.makeCpu(numThreads))
+				.setResPairCache(resPairCache)
+				.use((fragEcalc) -> {
+					benchmarkOps(fragEcalc, confs, "CPU Residue: " + numThreads);
+				});
+		}
+		
+		// benchmark gpu
+		for (int numGpus = 1; numGpus <= MaxNumGpus; numGpus*=2) {
+			final int fNumGpus = numGpus;
+		
+			// benchmark cuda
+			for (int numStreams : numStreamsPerGpuList) {
+				ConfMinimizer minimizer = new GpuConfMinimizer.Builder(ffparams, interactionsFactory, search.confSpace)
+					.setGpuInfo(GpuConfMinimizer.Type.Cuda, numGpus, numStreams)
+					.build();
+				benchmarkOps(minimizer, confs, "Cuda: " + numGpus + "x" + numStreams);
+				minimizer.cleanup();
+			}
+			
+			// benchmark cuda ccd
+			for (int numStreams : numStreamsPerGpuList) {
+				ConfMinimizer minimizer = new GpuConfMinimizer.Builder(ffparams, interactionsFactory, search.confSpace)
+					.setGpuInfo(GpuConfMinimizer.Type.CudaCCD, numGpus, numStreams)
+					.build();
+				benchmarkOps(minimizer, confs, "Cuda CCD: " + numGpus + "x" + numStreams);
+				minimizer.cleanup();
+			}
+			
+			// benchmark residue cuda
+			for (int numStreams : numStreamsPerGpuList) {
+				new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
+					.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCuda)
+					.setParallelism(Parallelism.makeGpu(numGpus, numStreams))
+					.setResPairCache(resPairCache)
+					.use((fragEcalc) -> {
+						benchmarkOps(fragEcalc, confs, "Residue Cuda: " + fNumGpus + "x" + numStreams);
+					});
+			}
+			
+			// benchmark residue cuda ccd
+			for (int numStreams : numStreamsPerGpuList) {
+				new MinimizingFragmentEnergyCalculator.Builder(simpleConfSpace, ffparams)
+					.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCudaCCD)
+					.setParallelism(Parallelism.makeGpu(numGpus, numStreams))
+					.setResPairCache(resPairCache)
+					.use((fragEcalc) -> {
+						benchmarkOps(fragEcalc, confs, "Residue Cuda CCD: " + fNumGpus + "x" + numStreams);
+					});
+			}
+		}
+	}
+
+	private static void benchmarkOps(MinimizingFragmentEnergyCalculator fragEcalc, List<ScoredConf> confs, String name) {
+		
+		System.out.print(String.format("\nBenchmarking %30s ...", name));
+		
+		final long MaxTimeNs = 10*TimeFormatter.NSpS;
+		final int MaxNumConfs = confs.size();
+		
+		MinimizingConfEnergyCalculator confEcalc = new MinimizingConfEnergyCalculator.Builder(fragEcalc).build();
+		int p = confEcalc.getTasks().getParallelism();
+		
+		// warmup
+		for (int r=0; r<2; r++) {
+			for (int i=0; i<p; i++) {
+				confEcalc.calcEnergyAsync(confs.get(0), (energy) -> { /* don't care */ });
+			}
+		}
+		
+		// benchmark
+		int numConfs = 0;
+		Stopwatch stopwatch = new Stopwatch().start();
+		while (numConfs < MaxNumConfs && stopwatch.getTimeNs() < MaxTimeNs) {
+			for (int i=0; i<p; i++) {
+				if (numConfs < MaxNumConfs) {
+					confEcalc.calcEnergyAsync(confs.get(numConfs++), (energy) -> { /* don't care */ });
+				}
+			}
+		}
+		confEcalc.getTasks().waitForFinish();
+		stopwatch.stop();
+		
+		System.out.print(String.format(" confs: %5d, precise timing: %9s, ops: %7.2f",
+			numConfs,
+			stopwatch.getTime(TimeUnit.MILLISECONDS),
+			numConfs/stopwatch.getTimeS()
+		));
+	}
+	
+	private static void benchmarkOps(ConfMinimizer minimizer, List<ScoredConf> confs, String name) {
+		
+		System.out.print(String.format("\nBenchmarking %30s ...", name));
+		
+		minimizer.setReportProgress(false);
+		
+		final long MaxTimeNs = 10*TimeFormatter.NSpS;
+		final int MaxNumConfs = confs.size();
+		
+		ConfMinimizer.Async asyncMin = minimizer.getAsync();
+		int p = asyncMin.getTasks().getParallelism();
+		
+		// warmup
+		for (int r=0; r<2; r++) {
+			for (int i=0; i<p; i++) {
+				asyncMin.minimizeAsync(confs.get(0), (energy) -> { /* don't care */ });
+			}
+		}
+		
+		// benchmark
+		int numConfs = 0;
+		Stopwatch stopwatch = new Stopwatch().start();
+		while (numConfs < MaxNumConfs && stopwatch.getTimeNs() < MaxTimeNs) {
+			for (int i=0; i<p; i++) {
+				if (numConfs < MaxNumConfs) {
+					asyncMin.minimizeAsync(confs.get(numConfs++), (energy) -> { /* don't care */ });
+				}
+			}
+		}
+		asyncMin.getTasks().waitForFinish();
+		stopwatch.stop();
+		
+		System.out.print(String.format(" confs: %5d, precise timing: %9s, ops: %7.2f",
+			numConfs,
+			stopwatch.getTime(TimeUnit.MILLISECONDS),
+			numConfs/stopwatch.getTimeS()
+		));
 	}
 }

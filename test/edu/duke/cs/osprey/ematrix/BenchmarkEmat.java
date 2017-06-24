@@ -8,6 +8,7 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
+import edu.duke.cs.osprey.energy.EnergyPartition;
 import edu.duke.cs.osprey.energy.MinimizingFragmentEnergyCalculator;
 import edu.duke.cs.osprey.energy.MinimizingFragmentEnergyCalculator.Type;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
@@ -27,11 +28,17 @@ public class BenchmarkEmat extends TestBase {
 		// don't use energy function-level parallelism
 		MultiTermEnergyFunction.setNumThreads(1);
 		
+		//comparisonTest();
+		epartBenchmark();
+	}
+	
+	private static void comparisonTest() {
+		
 		// make a search problem
 		System.out.println("Building search problem...");
 		
 		ResidueFlexibility resFlex = new ResidueFlexibility();
-		resFlex.addMutable("39 43", "ALA VAL LEU ILE");
+		resFlex.addMutable("39 43", "ALA VAL LEU ILE ARG LYS");
 		resFlex.addFlexible("40 41 42 44 45");
 		resFlex.sortPositions();
 		boolean doMinimize = true;
@@ -53,8 +60,8 @@ public class BenchmarkEmat extends TestBase {
 		
 		// prep new-style emat calculation
 		Strand strand = new Strand.Builder(PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb")).build();
-		strand.flexibility.get(39).setLibraryRotamers("ALA", "VAL", "LEU", "ILE", Strand.WildType).setContinuous();
-		strand.flexibility.get(43).setLibraryRotamers("ALA", "VAL", "LEU", "ILE", Strand.WildType).setContinuous();
+		strand.flexibility.get(39).setLibraryRotamers("ALA", "VAL", "LEU", "ILE", "ARG", "LYS", Strand.WildType).setContinuous();
+		strand.flexibility.get(43).setLibraryRotamers("ALA", "VAL", "LEU", "ILE", "ARG", "LYS", Strand.WildType).setContinuous();
 		strand.flexibility.get(40).setLibraryRotamers().setContinuous();
 		strand.flexibility.get(41).setLibraryRotamers().setContinuous();
 		strand.flexibility.get(42).setLibraryRotamers().setContinuous();
@@ -74,7 +81,7 @@ public class BenchmarkEmat extends TestBase {
 		System.out.println("finished in " + baseStopwatch.getTime());
 		
 		// benchmark cpu
-		int[] numThreadsList = { 1, 2, 4 };
+		int[] numThreadsList = { 1, 2, 4 };//, 8, 16, 32 };
 		for (int numThreads : numThreadsList) {
 			
 			System.out.println("\nBenchmarking Emat calculation, " + numThreads + " CPU thread(s)...");
@@ -144,5 +151,66 @@ public class BenchmarkEmat extends TestBase {
 				exp, obs, absErr, relErr
 			));
 		}
+	}
+	
+	private static void epartBenchmark() {
+		
+		//EnergyPartition epart = EnergyPartition.Traditional;
+		EnergyPartition epart = EnergyPartition.AllOnPairs;
+		
+		// prep new-style emat calculation
+		Strand strand = new Strand.Builder(PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb")).build();
+		strand.flexibility.get(39).setLibraryRotamers("ALA", "VAL", "LEU", "ILE", "ARG").setContinuous();
+		strand.flexibility.get(43).setLibraryRotamers("ALA", "VAL", "LEU", "ILE", "ARG").setContinuous();
+		strand.flexibility.get(40).setLibraryRotamers("ALA", "VAL", "LEU", "ILE", "ARG").setContinuous();
+		strand.flexibility.get(41).setLibraryRotamers("ALA", "VAL", "LEU", "ILE", "ARG").setContinuous();
+		strand.flexibility.get(42).setLibraryRotamers("ALA", "VAL", "LEU", "ILE", "ARG").setContinuous();
+		strand.flexibility.get(44).setLibraryRotamers("ALA", "VAL", "LEU", "ILE", "ARG").setContinuous();
+		strand.flexibility.get(45).setLibraryRotamers("ALA", "VAL", "LEU", "ILE", "ARG").setContinuous();
+		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
+		ForcefieldParams ffparams = new ForcefieldParams();
+		
+		// benchmark cpu
+		//int[] numThreadsList = { 1, 2, 4, 8, 16, 32 };
+		int[] numThreadsList = { 16, 32, 64, 128, 256 };
+		for (int numThreads : numThreadsList) {
+			
+			System.out.println("\nBenchmarking Emat calculation, " + numThreads + " CPU thread(s)...");
+			
+			MinimizingFragmentEnergyCalculator ecalc = new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
+				.setParallelism(Parallelism.makeCpu(numThreads))
+				.setType(MinimizingFragmentEnergyCalculator.Type.Cpu)
+				.build();
+			SimplerEnergyMatrixCalculator ematcalc = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
+				.setEnergyPartition(epart)
+				.build();
+			
+			Stopwatch taskStopwatch = new Stopwatch().start();
+			ematcalc.calcEnergyMatrix();
+			System.out.println(String.format("Precise timing: %.1f ms", taskStopwatch.stop().getTimeMs()));
+			ecalc.clean();
+		}
+		
+		/*
+		// benchmark gpu
+		int[] numStreamsList = { 1, 2, 4, 8, 16, 32 };
+		for (int numStreams : numStreamsList) {
+			
+			System.out.println("\nBenchmarking Emat calculation, " + numStreams + " GPU stream(s)...");
+			
+			MinimizingFragmentEnergyCalculator ecalc = new MinimizingFragmentEnergyCalculator.Builder(confSpace, ffparams)
+				.setParallelism(Parallelism.makeGpu(8, numStreams))
+				.setType(MinimizingFragmentEnergyCalculator.Type.ResidueCudaCCD)
+				.build();
+			SimplerEnergyMatrixCalculator ematcalc = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
+				.setEnergyPartition(epart)
+				.build();
+			
+			Stopwatch taskStopwatch = new Stopwatch().start();
+			ematcalc.calcEnergyMatrix();
+			System.out.println(String.format("Precise timing: %.1f ms", taskStopwatch.stop().getTimeMs()));
+			ecalc.clean();
+		}
+		*/
 	}
 }

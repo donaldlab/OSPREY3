@@ -22,7 +22,9 @@ public class Gpu {
 		// get name
 		byte[] bytes = new byte[1024];
 		JCudaDriver.cuDeviceGetName(bytes, bytes.length, device);
-		name = new String(bytes);
+		int len = 0;
+		while (bytes[len++] != 0);
+		name = new String(bytes).substring(0, len - 1);
 		
 		// get total and free memory
 		CUcontext cuCtx = new CUcontext();

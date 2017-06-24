@@ -58,6 +58,10 @@ public class Parallelism {
 		return new Parallelism(numThreads, 0, 0);
 	}
 	
+	public static int getMaxNumCPUs() {
+		return Runtime.getRuntime().availableProcessors();
+	}
+	
 	public static Parallelism makeGpu(int numGpus, int numStreamsPerGpu) {
 		return new Parallelism(0, numGpus, numStreamsPerGpu);
 	}

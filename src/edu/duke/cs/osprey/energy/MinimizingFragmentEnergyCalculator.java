@@ -46,6 +46,7 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 		private ForcefieldParams ffparams;
 		private Parallelism parallelism = Parallelism.makeCpu(1);
 		private Type type = null;
+		private ResPairCache resPairCache;
 		
 		public Builder(SimpleConfSpace confSpace, ForcefieldParams ffparams) {
 			this.confSpace = confSpace;
@@ -62,6 +63,11 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 			return this;
 		}
 		
+		public Builder setResPairCache(ResPairCache val) {
+			resPairCache = val;
+			return this;
+		}
+		
 		public MinimizingFragmentEnergyCalculator build() {
 			
 			// if no explict type was picked, pick the best one now
@@ -73,11 +79,21 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 				}
 			}
 			
+			// make a res pair cache if needed
+			if (resPairCache == null) {
+				AtomConnectivity connectivity = new AtomConnectivity.Builder()
+					.setConfSpace(confSpace)
+					.setParallelism(Parallelism.makeCpu(Math.min(parallelism.getParallelism(), Parallelism.getMaxNumCPUs())))
+					.build();
+				resPairCache = new ResPairCache(ffparams, connectivity);
+			}
+			
 			return new MinimizingFragmentEnergyCalculator(
 				confSpace,
 				parallelism,
 				type,
-				ffparams
+				ffparams,
+				resPairCache
 			);
 		}
 	}
@@ -339,18 +355,12 @@ public class MinimizingFragmentEnergyCalculator implements FragmentEnergyCalcula
 	public final Type type;
 	public final Type.Context context;
 	
-	private MinimizingFragmentEnergyCalculator(SimpleConfSpace confSpace, Parallelism parallelism, Type type, ForcefieldParams ffparams) {
+	private MinimizingFragmentEnergyCalculator(SimpleConfSpace confSpace, Parallelism parallelism, Type type, ForcefieldParams ffparams, ResPairCache resPairCache) {
 		
 		this.confSpace = confSpace;
 		this.parallelism = parallelism;
 		this.tasks = parallelism.makeTaskExecutor();
 		this.type = type;
-		
-		AtomConnectivity connectivity = new AtomConnectivity.Builder()
-			.setConfSpace(confSpace)
-			.setParallelism(parallelism)
-			.build();
-		ResPairCache resPairCache = new ResPairCache(ffparams, connectivity);
 		
 		context = type.makeContext(parallelism, resPairCache);
 	}

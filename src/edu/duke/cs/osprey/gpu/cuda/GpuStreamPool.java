@@ -8,6 +8,8 @@ import java.util.List;
 
 public class GpuStreamPool {
 	
+	public static boolean printPoolSize = true;
+	
 	private int numStreamsPerGpu;
 	private List<Context> contexts;
 	private List<List<GpuStream>> streamsByGpu;
@@ -78,7 +80,9 @@ public class GpuStreamPool {
 		checkedOut = new boolean[streams.size()];
 		Arrays.fill(checkedOut, false);
 		
-		System.out.println(String.format("GpuStreamPool: using %d stream(s) across %d gpu(s)", streams.size(), numGpus));
+		if (printPoolSize) {
+			System.out.println(String.format("GpuStreamPool: using %d stream(s) across %d gpu(s)", streams.size(), numGpus));
+		}
 	}
 	
 	public int getNumGpus() {

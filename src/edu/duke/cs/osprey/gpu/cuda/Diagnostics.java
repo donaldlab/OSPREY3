@@ -40,18 +40,19 @@ public class Diagnostics {
 				System.out.println(String.format("\t\t%-30s %d", "registers per block (32-bit):", gpu.getAttribute(CUdevice_attribute.CU_DEVICE_ATTRIBUTE_MAX_REGISTERS_PER_BLOCK)));
 				System.out.println(String.format("\t\t%-30s %d KiB", "memory per block:", gpu.getAttribute(CUdevice_attribute.CU_DEVICE_ATTRIBUTE_MAX_SHARED_MEMORY_PER_BLOCK)/1024));
 				System.out.println(String.format("\t\t%-30s %d KiB", "constant memory:", gpu.getAttribute(CUdevice_attribute.CU_DEVICE_ATTRIBUTE_TOTAL_CONSTANT_MEMORY)/1024));
+				System.out.println(String.format("\t\t%-30s %d", "Async engine count:", gpu.getAttribute(CUdevice_attribute.CU_DEVICE_ATTRIBUTE_ASYNC_ENGINE_COUNT)));
 				
 				System.out.println();
 				
 				System.out.println(String.format("\t\t%-30s %b", "64-bit double support:", gpu.supportsDoubles()));
 				System.out.println(String.format("\t\t%-30s %b", "dynamic parallelism support:", gpu.supportsDynamicParallelism()));
+				System.out.println(String.format("\t\t%-30s %b", "concurrent kernels:", gpu.getAttribute(CUdevice_attribute.CU_DEVICE_ATTRIBUTE_CONCURRENT_KERNELS)));
 			}
-			
 			
 			// show the usable GPUs
 			System.out.println("\nCUDA GPUs usable by Osprey:");
 			for (Gpu gpu : gpus.getGpus()) {
-				System.out.println("\t" + gpu);
+				System.out.println(String.format("%30s:     memory free: %.1f%%", gpu, (100.0f*gpu.getFreeMemory()/gpu.getTotalMemory())));
 			}
 			
 		} catch (UnsatisfiedLinkError ex) {
