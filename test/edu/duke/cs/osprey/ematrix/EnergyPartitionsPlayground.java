@@ -52,7 +52,7 @@ public class EnergyPartitionsPlayground {
 			.build();
 		
 		// get reference energies
-		SimpleReferenceEnergies eref = SimpleReferenceEnergies.calc(confSpace, ecalc);
+		SimpleReferenceEnergies eref = new SimpleReferenceEnergies.Builder(confSpace, ecalc).build();
 		
 		// what's the energy of a conformation?
 		ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)

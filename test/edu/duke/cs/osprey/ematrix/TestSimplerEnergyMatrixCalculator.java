@@ -819,7 +819,7 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 			assertEnergy(
 				confSpace.makeBounds(new RCTuple(0, i)).size() > 0,
 				exp[i],
-				makeEmatCalc(confSpace).calcSingle(0, i),
+				makeEmatCalc(confSpace).confEcalc.calcSingleEnergy(0, i),
 				describe(confSpace, 0, i)
 			); 
 		}

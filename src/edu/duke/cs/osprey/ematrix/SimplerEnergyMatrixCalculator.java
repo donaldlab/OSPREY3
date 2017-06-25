@@ -58,8 +58,8 @@ public class SimplerEnergyMatrixCalculator {
 		}
 	}
 	
-	private final ConfEnergyCalculator confEcalc;
-	private final File cacheFile;
+	public final ConfEnergyCalculator confEcalc;
+	public final File cacheFile;
 
 	private SimplerEnergyMatrixCalculator(ConfEnergyCalculator confEcalc, File cacheFile) {
 		this.confEcalc = confEcalc;
@@ -90,8 +90,8 @@ public class SimplerEnergyMatrixCalculator {
 		EnergyMatrix emat = new EnergyMatrix(confEcalc.confSpace);
 		
 		// count how much work there is to do (roughly based on number of residue pairs)
-		final int singleCost = confEcalc.epart.makeSingle(confEcalc.confSpace, confEcalc.eref, 0, 0).size();
-		final int pairCost = confEcalc.epart.makePair(confEcalc.confSpace, confEcalc.eref, 0, 0, 0, 0).size();
+		final int singleCost = confEcalc.makeSingleInters(0, 0).size();
+		final int pairCost = confEcalc.makePairInters(0, 0, 0, 0).size();
 		Progress progress = new Progress(confEcalc.confSpace.getNumResConfs()*singleCost + confEcalc.confSpace.getNumResConfPairs()*pairCost);
 		
 		// some fragments can be big and some can be small
@@ -120,9 +120,9 @@ public class SimplerEnergyMatrixCalculator {
 						List<Double> energies = new ArrayList<>();
 						for (RCTuple frag : fragments) {
 							if (frag.size() == 1) {
-								energies.add(calcSingle(frag));
+								energies.add(confEcalc.calcSingleEnergy(frag));
 							} else {
-								energies.add(calcPair(frag));
+								energies.add(confEcalc.calcPairEnergy(frag));
 							}
 						}
 						
@@ -199,21 +199,6 @@ public class SimplerEnergyMatrixCalculator {
 		return emat;
 	}
 	
-	public double calcSingle(int pos, int rc) {
-		return calcSingle(new RCTuple(pos, rc));
-	}
-	
-	public double calcSingle(RCTuple frag) {
-		return confEcalc.calcEnergy(frag, confEcalc.epart.makeSingle(confEcalc.confSpace, confEcalc.eref, frag.pos.get(0), frag.RCs.get(0)));
-	}
-	
-	public double calcPair(int pos1, int rc1, int pos2, int rc2) {
-		return calcPair(new RCTuple(pos1, rc1, pos2, rc2));
-	}
-	
-	public double calcPair(RCTuple frag) {
-		return confEcalc.calcEnergy(frag, confEcalc.epart.makePair(confEcalc.confSpace, confEcalc.eref, frag.pos.get(0), frag.RCs.get(0), frag.pos.get(1), frag.RCs.get(1)));
-	}
 	
 	/**
 	 * Calculates a reference energy for each residue position and residue type

@@ -336,13 +336,14 @@ def EnergyCalculator(confSpace, ffparams, parallelism=None, type=None):
 	return builder.build()
 
 
-def ConfEnergyCalculator(confSpace, ecalc, referenceEnergies=None, energyPartition=None):
+def ConfEnergyCalculator(confSpace, ecalc, referenceEnergies=None, addResEntropy=None, energyPartition=None):
 	'''
 	:java:classdoc:`.energy.ConfEnergyCalculator`
 
 	:builder_option confSpace .energy.ConfEnergyCalculator$Builder#confSpace:
 	:builder_option ecalc .energy.ConfEnergyCalculator$Builder#ecalc:
 	:builder_option referenceEnergies .energy.ConfEnergyCalculator$Builder#eref:
+	:builder_option addResEntropy .energy.ConfEnergyCalculator$Builder#addResEntropy:
 	:builder_option energyPartition .energy.ConfEnergyCalculator$Builder#epart:
 	:builder_return .energy.ConfEnergyCalculator$Builder:
 	'''
@@ -373,16 +374,22 @@ def EnergyMatrix(confEcalc, cacheFile=None):
 	return builder.build().calcEnergyMatrix()
 
 
-def ReferenceEnergies(confSpace, ecalc):
+def ReferenceEnergies(confSpace, ecalc, addResEntropy=None):
 	'''
 	:java:methoddoc:`.ematrix.SimplerEnergyMatrixCalculator#calcReferenceEnergies`
 
-	:param confSpace: The conformation space containing the reference residues
-	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
-	:builder_option ecalc .energy.ConfEnergyCalculator$Builder#ecalc:
+	:builder_option confSpace .ematrix.SimpleReferenceEnergies$Builder#confSpace:
+	:builder_option ecalc .ematrix.SimpleReferenceEnergies$Builder#ecalc:
+	:builder_option addResEntropy .ematrix.SimpleReferenceEnergies$Builder#addResEntropy:
+	:builder_return .ematrix.SimpleReferenceEnergies$Builder:
 	'''
 
-	return c.ematrix.SimpleReferenceEnergies.calc(confSpace, ecalc)
+	builder = _get_builder(c.ematrix.SimpleReferenceEnergies)(confSpace, ecalc)
+
+	if addResEntropy is not None:
+		builder.addResEntropy(addResEntropy)
+
+	return builder.build()
 
 
 def AStarTraditional(emat, confSpace, useExternalMemory=False):

@@ -22,8 +22,6 @@ import edu.duke.cs.osprey.tools.Progress;
  */
 public class ConfEnergyCalculator {
 	
-	// TODO: residue entropies, integrate with epart
-	
 	public static class Builder {
 		
 		private SimpleConfSpace confSpace;
@@ -35,6 +33,7 @@ public class ConfEnergyCalculator {
 		private EnergyPartition epart = EnergyPartition.Traditional;
 		
 		private SimpleReferenceEnergies eref = null;
+		private boolean addResEntropy = false;
 		
 		public Builder(SimpleConfSpace confSpace, EnergyCalculator ecalc) {
 			this.confSpace  = confSpace;
@@ -51,8 +50,13 @@ public class ConfEnergyCalculator {
 			return this;
 		}
 		
+		public Builder addResEntropy(boolean val) {
+			this.addResEntropy = val;
+			return this;
+		}
+		
 		public ConfEnergyCalculator build() {
-			return new ConfEnergyCalculator(confSpace, ecalc, epart, eref);
+			return new ConfEnergyCalculator(confSpace, ecalc, epart, eref, addResEntropy);
 		}
 	}
 	
@@ -60,14 +64,44 @@ public class ConfEnergyCalculator {
 	public final EnergyCalculator ecalc;
 	public final EnergyPartition epart;
 	public final SimpleReferenceEnergies eref;
+	public final boolean addResEntropy;
 	public final TaskExecutor tasks;
 	
-	private ConfEnergyCalculator(SimpleConfSpace confSpace, EnergyCalculator ecalc, EnergyPartition epart, SimpleReferenceEnergies eref) {
+	private ConfEnergyCalculator(SimpleConfSpace confSpace, EnergyCalculator ecalc, EnergyPartition epart, SimpleReferenceEnergies eref, boolean addResEntropy) {
 		this.confSpace = confSpace;
 		this.ecalc = ecalc;
 		this.epart = epart;
 		this.eref = eref;
+		this.addResEntropy = addResEntropy;
 		this.tasks = ecalc.tasks;
+	}
+	
+	public ResidueInteractions makeFragInters(RCTuple frag) {
+		return EnergyPartition.makeFragment(confSpace, eref, addResEntropy, frag);
+	}
+	
+	public ResidueInteractions makeSingleInters(int pos, int rc) {
+		return epart.makeSingle(confSpace, eref, addResEntropy, pos, rc);
+	}
+
+	public ResidueInteractions makePairInters(int pos1, int rc1, int pos2, int rc2) {
+		return epart.makePair(confSpace, eref, addResEntropy, pos1, rc1, pos2, rc2);
+	}
+	
+	public double calcSingleEnergy(int pos, int rc) {
+		return calcSingleEnergy(new RCTuple(pos, rc));
+	}
+	
+	public double calcSingleEnergy(RCTuple frag) {
+		return calcEnergy(frag, epart.makeSingle(confSpace, eref, addResEntropy, frag.pos.get(0), frag.RCs.get(0)));
+	}
+	
+	public double calcPairEnergy(int pos1, int rc1, int pos2, int rc2) {
+		return calcPairEnergy(new RCTuple(pos1, rc1, pos2, rc2));
+	}
+	
+	public double calcPairEnergy(RCTuple frag) {
+		return calcEnergy(frag, epart.makePair(confSpace, eref, addResEntropy, frag.pos.get(0), frag.RCs.get(0), frag.pos.get(1), frag.RCs.get(1)));
 	}
 	
 	/**
@@ -77,7 +111,7 @@ public class ConfEnergyCalculator {
 	 * @return The energy of the resulting molecule fragment
 	 */
 	public double calcEnergy(RCTuple frag) {
-		return calcEnergy(frag, EnergyPartition.makeFragment(confSpace, eref, frag));
+		return calcEnergy(frag, makeFragInters(frag));
 	}
 	
 	/**

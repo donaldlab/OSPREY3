@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace.Position;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace.ResidueConf;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 
 /**
@@ -20,10 +21,31 @@ import edu.duke.cs.osprey.energy.EnergyCalculator;
  */
 public class SimpleReferenceEnergies {
 	
-	public static SimpleReferenceEnergies calc(SimpleConfSpace confSpace, EnergyCalculator ecalc) {
-		return new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
-			.build()
-			.calcReferenceEnergies();
+	// *sigh* this would be soooo much easier if Java supported optional function args...
+	public static class Builder {
+		
+		private SimpleConfSpace confSpace;
+		private EnergyCalculator ecalc;
+		private boolean addResEntropy = false;
+		
+		public Builder(SimpleConfSpace confSpace, EnergyCalculator ecalc) {
+			this.confSpace = confSpace;
+			this.ecalc = ecalc;
+		}
+		
+		public Builder addResEntropy(boolean val) {
+			addResEntropy = val;
+			return this;
+		}
+		
+		public SimpleReferenceEnergies build() {
+			ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
+				.addResEntropy(addResEntropy)
+				.build();
+			return new SimplerEnergyMatrixCalculator.Builder(confEcalc)
+				.build()
+				.calcReferenceEnergies();
+		}
 	}
 	
 	private Map<String,Double> energies;
