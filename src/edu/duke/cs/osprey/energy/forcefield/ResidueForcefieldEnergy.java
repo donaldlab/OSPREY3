@@ -201,8 +201,7 @@ public class ResidueForcefieldEnergy implements EnergyFunction.DecomposableByDof
 			}
 			
 			// apply weights and offsets
-			energy += resPairEnergy*pair.weight;
-			energy += pair.offset;
+			energy += (resPairEnergy + pair.offset)*pair.weight;
 		}
 		
 		return energy;

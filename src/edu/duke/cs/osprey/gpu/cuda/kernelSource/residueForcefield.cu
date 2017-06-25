@@ -261,10 +261,10 @@ extern "C" __global__ void calc(
 		}
 		
 		// apply weight and offset
-		energy += resPairEnergy*resPair->weight;
 		if (atomPairIndex == 0) {
-			energy += resPair->offset;
+			resPairEnergy += resPair->offset;
 		}
+		energy += resPairEnergy*resPair->weight;
 	}
 	
 	// compute the energy sum in SIMD-style

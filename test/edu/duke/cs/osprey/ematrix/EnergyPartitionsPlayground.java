@@ -23,18 +23,18 @@ public class EnergyPartitionsPlayground {
 		Strand strand = new Strand.Builder(PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb")).build();
 		
 		// configure flexibility
-		/*
-		for (int i=2; i<=15; i++) {
+		for (int i=2; i<=6; i++) {
 			strand.flexibility.get(i).setLibraryRotamers("LEU", "ILE").setContinuous();
 		}
-		*/
+		/*
 		for (int i=2; i<=8; i++) {
 			strand.flexibility.get(i).setLibraryRotamers("GLY", "ALA", "VAL", "LEU", "ILE", "SER", "THR", "CYS", "ASN", "GLN", "ASP", "GLU", "PHE", "TRP", "TYR", "HIE", "HID", "LYS", "ARG", "MET").setContinuous();
 		}
+		*/
 		
 		// make the conf space
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand)
-			.setShellDistance(4)
+			//.setShellDistance(4)
 			//.setShellDistance(9)
 			.build();
 		
@@ -56,8 +56,8 @@ public class EnergyPartitionsPlayground {
 		
 		// what's the energy of a conformation?
 		ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
-			.setEnergyPartition(EnergyPartition.Traditional)
-			//.setEnergyPartition(EnergyPartition.AllOnPairs)
+			//.setEnergyPartition(EnergyPartition.Traditional)
+			.setEnergyPartition(EnergyPartition.AllOnPairs)
 			.setReferenceEnergies(eref)
 			.build();
 

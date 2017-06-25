@@ -36,7 +36,7 @@ public class ResPairCache {
 			
 			// update the res pair offset with solvation energy if needed
 			if (solvInfo != null) {
-				offset += solvInfo.getResPairEnergy(res1, res2)*solvScale*weight;
+				offset += solvInfo.getResPairEnergy(res1, res2)*solvScale;
 			}
 			
 			this.weight = weight;

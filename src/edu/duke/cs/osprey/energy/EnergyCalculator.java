@@ -414,6 +414,11 @@ public class EnergyCalculator implements AutoCleanable {
 	 */
 	public double calcEnergy(ParametricMolecule pmol, DofBounds bounds, ResidueInteractions inters) {
 		
+		// short circuit: no inters, no energy!
+		if (inters.size() <= 0) {
+			return 0;
+		}
+		
 		// get the energy function
 		EnergyFunction efunc = context.efuncs.make(inters, pmol.mol);
 		try {

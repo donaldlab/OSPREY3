@@ -344,10 +344,10 @@ __device__ double calcEnergy(const double * const coords, const Data & data, con
 		}
 		
 		// apply weight and offset
-		energy += resPairEnergy*resPair->weight;
 		if (atomPairIndex == 0) {
-			energy += resPair->offset;
+			resPairEnergy += resPair->offset;
 		}
+		energy += resPairEnergy*resPair->weight;
 	}
 	
 	return blockSum(energy, threadEnergies);

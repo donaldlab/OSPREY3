@@ -77,7 +77,7 @@ public class ConfEnergyCalculator {
 	 * @return The energy of the resulting molecule fragment
 	 */
 	public double calcEnergy(RCTuple frag) {
-		return calcEnergy(frag, epart.makeFragment(confSpace, eref, frag));
+		return calcEnergy(frag, EnergyPartition.makeFragment(confSpace, eref, frag));
 	}
 	
 	/**

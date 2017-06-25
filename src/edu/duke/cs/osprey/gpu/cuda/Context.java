@@ -77,6 +77,9 @@ public class Context {
 	}
 	
 	public void pinBuffer(Pointer phBuf, long numBytes) {
+		if (numBytes <= 0) {
+			throw new IllegalArgumentException("bad buffer size: " + numBytes + " bytes");
+		}
 		JCudaDriver.cuMemHostRegister(phBuf, numBytes, 0);
 	}
 	
