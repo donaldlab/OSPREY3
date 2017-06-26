@@ -256,6 +256,10 @@ public class Strand {
 	
 	private Strand(Molecule mol, String firstResNumber, String lastResNumber, GenericResidueTemplateLibrary templateLib, boolean errorOnNonTemplateResidues) {
 		
+		// make sure the mol has these residues, otherwise the ranges won't work correctly
+		mol.residues.getOrThrow(firstResNumber);
+		mol.residues.getOrThrow(lastResNumber);
+		
 		// build our molecule copy from the residue subset
 		this.mol = new Molecule();
 		for (Residue res : mol.getResRangeByPDBResNumber(firstResNumber, lastResNumber)) {
