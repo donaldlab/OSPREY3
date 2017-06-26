@@ -335,6 +335,9 @@ public class Build extends JkJavaBuild {
 			JkUtilsFile.copyDirContent(dirDocHtml, new File(dirDist, "doc"), false);
 		}
 		
+		// copy the examples
+		copyExamples(pythonExamples, new File(dirDist, "examples"));
+		
 		// copy text files
 		JkUtilsFile.copyFileToDir(baseDir().file("LICENSE.txt"), dirDist);
 		JkUtilsFile.copyFileToDir(baseDir().file("README.rst"), dirDist);
