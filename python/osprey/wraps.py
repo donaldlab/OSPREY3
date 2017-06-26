@@ -1,5 +1,5 @@
 
-import jvm
+import osprey.jvm as jvm
 
 
 def wrapMethod(obj, name, newMethod):

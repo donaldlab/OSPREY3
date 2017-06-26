@@ -1,6 +1,6 @@
 
 import sys, os, jpype
-import jvm, wraps
+import osprey.jvm as jvm, osprey.wraps as wraps
 
 
 _IS_DEV = True
