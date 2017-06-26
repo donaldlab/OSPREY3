@@ -68,8 +68,12 @@ def start(heapSizeMB=1024, enableAssertions=False):
 
 	if _IS_DEV:
 
+		classpath_path = os.path.join(osprey_dir, '../../build/output/classpath.txt')
+		if not os.path.isfile(classpath_path):
+			raise Exception('dev classpath for python not generated yet. run ./jerkar doClasspath')
+
 		# development environment: use the library jars and compiled classes directly
-		for path in open('../../build/output/classpath.txt', 'r').readlines():
+		for path in open(classpath_path, 'r').readlines():
 			jvm.addClasspath(path.strip())
 
 	else:
