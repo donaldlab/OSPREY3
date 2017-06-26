@@ -32,14 +32,18 @@ Osprey is released under a permissive GPL-style license. See the
 Installation
 ------------
 
-Download an Osprey distribution zip, extract it to your favorite folder,
-then run the ``setup.py`` install script with the ``install`` command::
+Download the Osprey Python distribution zip, extract it to your favorite folder,
+then use `pip`_ to install::
 
-    $ python setup.py install
+    $ pip install osprey-<version>.whl
+    
+    
+where ``<version>`` is the version of Osprey you've downloaded.
 
-\
-    **NOTE:** You may need super-user privileges to install Python packages.
-    In linux, try the ``sudo`` command.
+.. _pip: https://pip.pypa.io/en/stable/
+
+**NOTE:** You may need super-user privileges to install Python packages.
+In linux, try the ``sudo`` command.
 
 
 Running Osprey
@@ -76,13 +80,15 @@ rather than the command-line interface.
 However, for backwards compatibility, the command-line interface is still provided, although
 it may not receive feature updates in the future.
 
-Run Osprey at the command line by navigating to the folder where you extracted the Osprey distribution. Then enter the following command into a shell::
+To access the command-line interface, download the Osprey Java distribution.
+Extract it to your favorite folder, then enter the following command into a shell::
 
-    $ java -jar osprey/osprey-<version>.jar [commands]
+    $ java -jar osprey-<version>.jar [commands]
     
 where ``<version>`` is the version of Osprey and ``[commands]`` are the Osprey commands
 you want to run. You can run Osprey without ``[commands]`` and Osprey will print a list
-of the available commands.
+of the available commands. For brevity, we'll omit the `<version>` for the remainder of
+these instructions.
     
 To show the version of your Osprey installation, try::
 
@@ -100,14 +106,14 @@ Java where to find the operating system-specific GPU libraries. The Python inter
 does this automatically, but on the command line, you'll need to supply the additional
 JVM argument::
 	
-	-Djava.library.path=osprey/natives
+	-Djava.library.path=natives
 
 If the `java.library.path` is not correctly set, Osprey will think the
 native GPU libraries (e.g. CUDA, OpenCL) are not installed.
 	
 For example, to run the ``GpuInfo`` command::
 
-	$ java -Djava.library.path=osprey/natives -jar osprey/osprey-3.0.jar GpuInfo
+	$ java -Djava.library.path=natives -jar osprey.jar GpuInfo
 	
 The ``GpuInfo`` command prints info about available GPUs in the system, and which
 ones Osprey can use.

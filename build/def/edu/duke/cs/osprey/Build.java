@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 
@@ -182,30 +183,12 @@ public class Build extends JkJavaBuild {
 		// make the osprey jar
 		doPack();
 	
-		// clean the dist dir
-		File dirDist = ouputDir("dist");
-		dirDist.mkdirs();
-		JkUtilsFile.deleteDirContent(dirDist);
+		File dirOut = ouputDir(".");
+		dirOut.mkdirs();
 		
-		File dirOsprey = new File(dirDist, "osprey");
-		
-		// copy the python package
-		JkFileTree.of(baseDir().file("python/osprey"))
-			.exclude("**/*.pyc")
-			.copyTo(dirOsprey);
-		
-		// copy install script
-		JkUtilsFile.copyFileToDir(baseDir().file("python/setup.py"), dirDist);
-		
-		// can't exclude whole folders for some reason, so just delete it post-hoc
-		JkUtilsFile.tryDeleteDir(new File(dirOsprey, "__pycache__"));
-		
-		// copy the osprey jar
-		JkUtilsFile.copyFileToDir(packer().fatJarFile(), dirOsprey);
-		
+		// make the docs if needed
+		File dirDocHtml = null;
 		if (makeDocs) {
-			
-			// make and copy the docs
 			File dirDoc = baseDir().file("python/doc");
 			JkProcess.of("make", "clean")
 				.withWorkingDir(dirDoc)
@@ -215,14 +198,10 @@ public class Build extends JkJavaBuild {
 				.withWorkingDir(dirDoc)
 				.failOnError(true)
 				.runSync();
-			JkUtilsFile.copyDirContent(
-				baseDir().file("python/doc/_build/html"),
-				ouputDir("dist/doc"),
-				false
-			);
+			dirDocHtml = new File(dirDoc, "_build/html");
 		}
 		
-		// extract the natives to a temp folder
+		// extract the natives
 		List<File> nativesArchives = new ArrayList<>();
 		JkResolveResult resolved = dependencyResolver().resolve(RUNTIME);
 		for (JkScopedDependency sdep : nativeDependencies()) {
@@ -240,25 +219,121 @@ public class Build extends JkJavaBuild {
 			JkUtilsZip.unzip(file, dirTemp);
 		}
 		
-		// copy the files we want to the dist/natives folder
-		File dirNatives = new File(dirOsprey, "natives");
+		// filter the natives dir to just the libs
+		File dirNatives = ouputDir("natives");
 		JkFileTree.of(dirTemp)
 			.include("**/*.dll", "**/*.so", "**/*.*lib")
 			.forEach((file) -> {
 				JkUtilsFile.copyFileToDir(file, dirNatives);
 			});
 		
-		// cleanup the temp folder
-		JkUtilsFile.deleteDir(dirTemp);
+		JkUtilsFile.tryDeleteDir(dirTemp);
+		
+		// create the release name
+		String name = "osprey-" + version();
+		
+		javaDist(name, dirOut, dirDocHtml, dirNatives);
+		pythonDist(name, dirOut, dirDocHtml, dirNatives);
+		
+		// cleanup temp files
+		JkUtilsFile.tryDeleteDir(dirNatives);
+	}
+	
+	private static List<String> javaExamples = Arrays.asList(
+		"1CC8", "1FSV", "2O9S_L2", "2RL0.kstar", "3K75.3LQC", "4HEM", "4NPD"
+	);
+	
+	private void javaDist(String name, File dirOut, File dirDocHtml, File dirNatives) {
+		
+		File dir = new File(dirOut, "java");
+		dir.mkdirs();
+	
+		// copy docs if needed
+		if (dirDocHtml != null) {
+			JkUtilsFile.copyDirContent(dirDocHtml, new File(dir, "doc"), false);
+		}
+		
+		// copy the osprey jar
+		JkUtilsFile.copyFileToDir(packer().fatJarFile(), dir);
+		
+		// copy the natives
+		JkUtilsFile.copyDirContent(dirNatives, new File(dir, "natives"), false);
+		
+		// copy the examples
+		copyExamples(javaExamples, new File(dir, "examples"));
+		
+		// copy text files
+		JkUtilsFile.copyFileToDir(baseDir().file("LICENSE.txt"), dir);
+		JkUtilsFile.copyFileToDir(baseDir().file("README.rst"), dir);
+		JkUtilsFile.copyFileToDir(baseDir().file("CONTRIBUTING.rst"), dir);
+		
+		// create the distribution zip
+		JkFileTree.of(dir).zip().to(new File(dirOut, name + ".java.zip"));
+		
+		// cleanup temp files
+		JkUtilsFile.tryDeleteDir(dir);
+	}
+	
+	private static List<String> pythonExamples = Arrays.asList(
+		"1CC8.python", "gpu"
+	);
+	
+	private void pythonDist(String name, File dirOut, File dirDocHtml, File dirNatives) {
+		
+		File dirPackage = new File(dirOut, "python-package");
+		dirPackage.mkdirs();
+		File dirDist = new File(dirOut, "python");
+		dirDist.mkdirs();
+		
+		// copy the python package
+		File dirOsprey = new File(dirPackage, "osprey");
+		JkFileTree.of(baseDir().file("python/osprey"))
+			.exclude("**/*.pyc")
+			.copyTo(dirOsprey);
+		
+		// copy install script
+		JkUtilsFile.copyFileToDir(baseDir().file("python/setup.py"), dirPackage);
+		
+		// can't exclude whole folders for some reason, so just delete it post-hoc
+		JkUtilsFile.tryDeleteDir(new File(dirOsprey, "__pycache__"));
 		
 		// update the osprey dev flag
 		File initFile = new File(dirOsprey, "__init__.py");
 		String initFileContent = JkUtilsFile.read(initFile);
-		initFileContent = initFileContent.replaceFirst("_IS_DEV = True\\n", "_IS_DEV = False");
+		initFileContent = initFileContent.replaceFirst("_IS_DEV = True\\n", "_IS_DEV = False\n");
 		JkUtilsFile.writeString(initFile, initFileContent, false);
 		
-		// copy the examples
-		JkUtilsFile.copyDirContent(baseDir().file("examples"), ouputDir("dist/examples"), true);
+		// update the setup.py rootDir
+		File setupFile = new File(dirPackage, "setup.py");
+		String setupFileContent = JkUtilsFile.read(setupFile);
+		setupFileContent = setupFileContent.replaceFirst("rootDir = '../'\\n", "rootDir = '../../../'\n");
+		JkUtilsFile.writeString(setupFile, setupFileContent, false);
+		
+		// copy the osprey jar
+		JkUtilsFile.copyFileToDir(packer().fatJarFile(), dirOsprey);
+		
+		// copy the natives
+		JkUtilsFile.copyDirContent(dirNatives, new File(dirOsprey, "natives"), false);
+		
+		// copy text files
+		JkUtilsFile.copyFileToDir(baseDir().file("LICENSE.txt"), dirOsprey);
+		JkUtilsFile.copyFileToDir(baseDir().file("README.rst"), dirOsprey);
+		JkUtilsFile.copyFileToDir(baseDir().file("CONTRIBUTING.rst"), dirOsprey);
+		
+		// build the python package
+		JkProcess.of("python", "setup.py", "bdist_wheel", "--universal")
+			.withWorkingDir(dirPackage)
+			.failOnError(true)
+			.runSync();
+		File pack = new File(dirPackage, "dist").listFiles()[0];
+		
+		// copy the package to the dist 
+		JkUtilsFile.copyFileToDir(pack, dirDist);
+		
+		// copy docs if needed
+		if (dirDocHtml != null) {
+			JkUtilsFile.copyDirContent(dirDocHtml, new File(dirDist, "doc"), false);
+		}
 		
 		// copy text files
 		JkUtilsFile.copyFileToDir(baseDir().file("LICENSE.txt"), dirDist);
@@ -266,7 +341,22 @@ public class Build extends JkJavaBuild {
 		JkUtilsFile.copyFileToDir(baseDir().file("CONTRIBUTING.rst"), dirDist);
 		
 		// create the distribution zip
-		JkFileTree.of(dirDist).zip().to(ouputDir(packer().fatJarFile().getName().replaceAll(".jar", ".zip")));
+		JkFileTree.of(dirDist).zip().to(new File(dirOut, name + ".python.zip"));
+		
+		// cleanup temp files
+		JkUtilsFile.tryDeleteDir(dirPackage);
+		JkUtilsFile.tryDeleteDir(dirDist);
+	}
+	
+	private void copyExamples(List<String> names, File dir) {
+		File srcDir = baseDir().file("examples");
+		for (String name : names) {
+			JkUtilsFile.copyDirContent(
+				new File(srcDir, name),
+				new File(dir, name),
+				false
+			);
+		}
 	}
 	
 	public void doClasspath()
