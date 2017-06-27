@@ -450,7 +450,11 @@ public class ConfSpace implements Serializable {
 	public BigInteger getNumConformations() {
 		BigInteger count = BigInteger.valueOf(1);
 		for (int pos=0; pos<numPos; pos++) {
-			count = count.multiply(BigInteger.valueOf(posFlex.get(pos).RCs.size()));
+			List<RC> RCList = posFlex.get(pos).RCs;
+			int unprunedRCs = 0;
+
+				
+			count = count.multiply(BigInteger.valueOf(RCList.size()));
 		}
 		return count;
 	}

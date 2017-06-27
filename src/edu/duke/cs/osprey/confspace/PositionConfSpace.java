@@ -6,6 +6,7 @@ package edu.duke.cs.osprey.confspace;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import cern.colt.matrix.DoubleFactory1D;
@@ -430,4 +431,18 @@ public class PositionConfSpace implements Serializable {
             
             return maxNumRCs;
         }
+
+    	public PositionConfSpace copy () 
+    	{
+    		PositionConfSpace output = new PositionConfSpace();
+    		output.designIndex = designIndex;
+    		output.res = res;
+    		Collections.copy(RCs, output.RCs);
+    		Collections.copy(wtRCs, output.wtRCs);
+    		return output;
+    	}
+    	
+    	private PositionConfSpace()
+    	{
+    	}
 }
