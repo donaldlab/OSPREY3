@@ -31,7 +31,6 @@ public class Subproblem {
 	public Subproblem (RCs superSpace, TreeEdge sparseTree, ResidueIndexMap resMap, RCTuple initialConf) {
 		localConfSpace = superSpace;
 		residueIndexMap = resMap;
-		generateSubproblems(sparseTree);
 		
 		TreeEdge curEdge = sparseTree;
 		lambdaSet = curEdge.getLambda();
@@ -42,6 +41,8 @@ public class Subproblem {
 		initSubSpaceRCMap();
 		if(initialConf != null)
 			localConfSpace = superSpace.returnSubspace(initialConf);
+
+		generateSubproblems(sparseTree);
 		
 	}
 
@@ -101,12 +102,10 @@ public class Subproblem {
 		if(curEdge.leftChild != null)
 		{
 			leftSubproblem = new Subproblem(localConfSpace, sparseTree.leftChild.getCofEdge(), residueIndexMap);
-			generateSubproblems(sparseTree.leftChild.getCofEdge());
 		}
 		if(curEdge.rightChild != null)
 		{	
 			rightSubproblem = new Subproblem(localConfSpace, sparseTree.rightChild.getCofEdge(), residueIndexMap);
-			generateSubproblems(sparseTree.rightChild.getCofEdge());
 		}
 	}
 
@@ -124,6 +123,25 @@ public class Subproblem {
 	public BigInteger getTotalConformations()
 	{
 		return localConfSpace.unprunedConfsFromRCs();
+	}
+	
+	public BigInteger getTotalLocalConformations()
+	{
+		BigInteger numConformations = BigInteger.ONE;
+		for(int PDBIndex : MULambdaSet)
+		{
+			int designIndex = residueIndexMap.PDBIndexToDesignIndex(PDBIndex);
+			numConformations = numConformations.multiply(BigInteger.valueOf(localConfSpace.get(designIndex).length));
+		}
+		return numConformations;
+	}
+	
+	public BigInteger getSubtreeTESS()
+	{
+		BigInteger numConformations = getTotalLocalConformations();
+		numConformations = numConformations.add(leftSubproblem.getSubtreeTESS());
+		numConformations = numConformations.add(rightSubproblem.getSubtreeTESS());
+		return numConformations;
 	}
 
 	public void preprocess () {

@@ -223,7 +223,7 @@ public class TestSparseAlgorithms  extends TestCase {
 		sparseProblem.addConformationProcessor(counter);
 		sparseProblem.preprocess();
 		BigInteger totalConfs = fullRCSpace.unprunedConfsFromRCs();
-		BigInteger subproblemConfs = sparseProblem.getTotalConformations();
+		BigInteger subproblemConfs = sparseProblem.getTotalLocalConformations();
 		if(!counter.numConfs.equals(subproblemConfs))
 		{
 			System.err.println("Conformations not processed in subproblem: processed "+counter.numConfs+", expected "+subproblemConfs);
@@ -246,7 +246,6 @@ public class TestSparseAlgorithms  extends TestCase {
 		String bdFile = "test/1CC8Sparse/"+runName+"_bd";
 
 		BranchTree tree = new BranchTree(bdFile, problem);
-		TreeNode root = tree.getRoot();
 		TreeEdge rootEdge = tree.getRootEdge();
 		rootEdge.compactTree();
 		rootEdge.printTreeMol("");
@@ -263,7 +262,7 @@ public class TestSparseAlgorithms  extends TestCase {
 		sparseProblem.addConformationProcessor(counter);
 		sparseProblem.preprocess();
 		BigInteger totalConfs = conformationSpace.getNumConformations();
-		BigInteger subproblemConfs = sparseProblem.getTotalConformations();
+		BigInteger subproblemConfs = sparseProblem.getTotalLocalConformations();
 		if(!counter.numConfs.equals(subproblemConfs))
 		{
 			System.err.println("Conformations not processed in subproblem: processed "+counter.numConfs+", expected "+subproblemConfs);

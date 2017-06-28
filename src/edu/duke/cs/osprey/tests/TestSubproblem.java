@@ -12,6 +12,7 @@ public class TestSubproblem extends Subproblem {
 		super(superSpace, sparseTree, resMap, initialConf);
 	}
 	
+	@Override
 	public void preprocess()
 	{
 		int[] currentConf = new int[localConfSpace.getNumPos()];
