@@ -449,5 +449,9 @@ public class Residue implements Serializable {
             ans.add(res.equivalentInMolec(mol));
         return ans;
     }
+
+	public Integer getPDBIndex () {
+		return Integer.valueOf(getPDBResNumber());
+	}
     
 }

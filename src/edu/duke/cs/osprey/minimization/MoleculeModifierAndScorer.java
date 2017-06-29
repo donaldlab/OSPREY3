@@ -443,6 +443,14 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
         }
         return fixableDOFs;
     }
+
+    public double getEnergyAndReset(DoubleMatrix1D x){
+    	DoubleMatrix1D originalDOFVals = curDOFVals.copy();
+    	setDOFs(x);
+    	double energy = efunc.getEnergy();
+    	setDOFs(originalDOFVals);
+    	return energy;
+    }
     
     
 }

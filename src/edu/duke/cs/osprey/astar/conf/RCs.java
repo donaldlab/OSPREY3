@@ -1,7 +1,8 @@
 package edu.duke.cs.osprey.astar.conf;
 
+import java.math.BigInteger;
 import java.util.List;
-
+import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 public class RCs {
@@ -9,6 +10,7 @@ public class RCs {
 	private PruningMatrix pruneMat;
 	private int[][] unprunedRCsAtPos;
 	private boolean hasConfs;
+	private BigInteger unprunedConfsFromRCs = BigInteger.ONE;
 	
 	public RCs(List<List<Integer>> rcsAtPos) {
 		
@@ -32,7 +34,19 @@ public class RCs {
         		destRCs[i] = srcRCs.get(i);
         	}
         	unprunedRCsAtPos[pos] = destRCs;
+        	unprunedConfsFromRCs = unprunedConfsFromRCs.multiply(BigInteger.valueOf(srcRCs.size()));
         }
+	}
+	
+	public void breakDownRCSpace()
+	{
+		String sizeBreakdownText = "Space of all possible RC combinations: ";
+		for(int i = 0; i < unprunedRCsAtPos.length-1; i++)
+		{
+			sizeBreakdownText+=unprunedRCsAtPos[i].length+"*";
+		}
+		sizeBreakdownText+=unprunedRCsAtPos[unprunedRCsAtPos.length-1].length+"="+unprunedConfsFromRCs;
+		System.out.println(sizeBreakdownText);
 	}
 	
 	public RCs(PruningMatrix pruneMat) {
@@ -57,6 +71,8 @@ public class RCs {
         		destRCs[i] = srcRCs.get(i);
         	}
         	unprunedRCsAtPos[pos] = destRCs;
+        	String unprunedConfsBeforeIndex = unprunedConfsFromRCs.toString();
+        	unprunedConfsFromRCs = unprunedConfsFromRCs.multiply(BigInteger.valueOf(srcRCs.size()));
         }
 	}
 	
@@ -95,5 +111,31 @@ public class RCs {
 	
 	public int get(int pos, int rci) {
 		return unprunedRCsAtPos[pos][rci];
+	}
+	
+	public RCs returnSubspace(RCTuple initialConf)
+	{
+		int[][] output = unprunedRCsAtPos.clone();
+		BigInteger newSize = unprunedConfsFromRCs;
+		for(int index = 0; index < initialConf.size(); index++)
+		{
+			int position = initialConf.pos.get(index);
+			newSize = newSize.divide(BigInteger.valueOf(output[position].length));
+			output[position] = new int[]{initialConf.RCs.get(index)};
+		}
+		return new RCs(hasConfs, pruneMat, output, newSize);
+	}
+	
+	private RCs(boolean notEmpty, PruningMatrix pMat, int[][] unprunedRCs, BigInteger size)
+	{
+		unprunedRCsAtPos = unprunedRCs;
+		pruneMat = pMat;
+		hasConfs = notEmpty;
+		unprunedConfsFromRCs = size;
+	}
+	
+	public BigInteger unprunedConfsFromRCs()
+	{
+		return unprunedConfsFromRCs;
 	}
 }
