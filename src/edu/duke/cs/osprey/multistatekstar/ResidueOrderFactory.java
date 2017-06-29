@@ -33,21 +33,38 @@ public class ResidueOrderFactory {
 
 		else if(val.startsWith("gmec") && !val.contains("mindom")) {
 			val = val.replace("gmec", "");
-			if(val.equalsIgnoreCase("p")) return new ResidueOrderGMECProxy(objFcnSearch);
-			else if(val.length()==0) return new ResidueOrderGMEC(objFcnSearch);
-			else throw new RuntimeException("ERROR: parameter must be of type GMEC{P}");
+			if(val.length()==0) 
+				return new ResidueOrderGMEC(objFcnSearch);
+			else {
+				String method = null;
+				if(val.equalsIgnoreCase("p")) method = "lowest";
+				else if(val.equalsIgnoreCase("ph")) method = "hmean";
+				else throw new RuntimeException("ERROR: parameter must be of type GMEC{P,PH}");
+
+				return new ResidueOrderGMECProxy(objFcnSearch, method);
+			}
 		}
 
 		else if(val.startsWith("gmec") && val.contains("mindom")) {
 			String errMsg = "ERROR: parameter must be of type GMEC{P}MinDom{N,P,S} X Y";
 			if(numTokens != 3) throw new RuntimeException(errMsg);
-			
+
 			double gCoeff = Double.valueOf(st.nextToken());
 			double mCoeff = Double.valueOf(st.nextToken());
 
-			ResidueOrderGMEC gmec = val.contains("gmecp") ? new ResidueOrderGMECProxy(objFcnSearch) : new ResidueOrderGMEC(objFcnSearch);
-			
 			String method = null;
+			ResidueOrderGMEC gmec = null;
+
+			if(!val.contains("gmecp")) {
+				gmec = new ResidueOrderGMEC(objFcnSearch);
+			}
+			else {
+				if(val.contains("gmecph")) method = "hmean";
+				else if(val.contains("gmecp")) method = "lowest";
+				else throw new RuntimeException("ERROR: parameter must be of type GMEC{P,PH}");
+				gmec = new ResidueOrderGMECProxy(objFcnSearch, method);
+			}
+			
 			if(val.contains("mindoms")) method = "sum";
 			else if(val.contains("mindomp")) method = "product";
 			else if(val.contains("mindomn")) method = "numsplits";

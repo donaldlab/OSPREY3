@@ -26,10 +26,10 @@ public class ResidueOrderMinDomain extends ResidueOrderGMEC {
 	public ResidueOrderMinDomain(MSSearchProblem[][] objFcnSearch, String method) {
 		super(objFcnSearch);
 		this.pos2DomainScore = computePos2DomainScore(objFcnSearch);
-		this.scoreType = setScoreType(method);
+		this.scoreType = getScoreType(method);
 	}
 	
-	private ScoreType setScoreType(String method) {
+	private ScoreType getScoreType(String method) {
 		switch(method.toLowerCase()) {
 		case "product":
 			return ScoreType.PRODUCT;

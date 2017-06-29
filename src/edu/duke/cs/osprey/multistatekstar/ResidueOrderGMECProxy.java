@@ -28,10 +28,28 @@ public class ResidueOrderGMECProxy extends ResidueOrderGMEC {
 		}
 	}
 	
+	private enum ScoreType {
+		HMEAN,
+		LOWEST;
+	}
+	
 	public static boolean DEBUG = false;
+	private ScoreType scoreType;
 
-	public ResidueOrderGMECProxy(MSSearchProblem[][] objFcnSearch) {
+	public ResidueOrderGMECProxy(MSSearchProblem[][] objFcnSearch, String method) {
 		super(objFcnSearch);
+		this.scoreType = getScoreType(method);
+	}
+	
+	private ScoreType getScoreType(String method) {
+		switch(method.toLowerCase()) {
+		case "hmean":
+			return ScoreType.HMEAN;
+		case "lowest":
+			return ScoreType.LOWEST;
+		default:
+			throw new UnsupportedOperationException("ERROR: method must be in the set {hmean, lowest}");
+		}
 	}
 
 	protected void computeStateScores(LMB objFcn, MSSearchProblem[][] objFcnSearch, boolean assigned, boolean parallel) {
@@ -65,7 +83,6 @@ public class ResidueOrderGMECProxy extends ResidueOrderGMEC {
 	protected void computeStateScores(BigDecimal objFcnCoeff, MSSearchProblem search, int state, int subState, 
 			boolean isUnbound, boolean assigned) {
 
-		final boolean useGMECProxy = true;
 		double maxVal = search.settings.stericThreshold;
 		boolean isUpperBoundPFProxy = isUpperBoundPFProxy(objFcnCoeff, isUnbound);
 
@@ -103,7 +120,6 @@ public class ResidueOrderGMECProxy extends ResidueOrderGMEC {
 
 						minPairwise = Math.min(minPairwise, pairwise);
 						maxPairwise = Math.max(maxPairwise, pairwise);
-
 					}
 				}
 
@@ -115,13 +131,13 @@ public class ResidueOrderGMECProxy extends ResidueOrderGMEC {
 					}
 				}
 				
-				if(useGMECProxy) {			
+				if(scoreType == ScoreType.LOWEST) {
 					//TRY MIN/MAX ENERGIES
 					if(isUpperBoundPFProxy) 
 						pos1Value += minPairwise;
 					else
 						pos1Value += maxPairwise;
-				} else {
+				} else if(scoreType == ScoreType.HMEAN) {
 					//TRY HARMONIC MEANS
 					//computing lower bound partition function proxy
 					double pos2Value = 0;
