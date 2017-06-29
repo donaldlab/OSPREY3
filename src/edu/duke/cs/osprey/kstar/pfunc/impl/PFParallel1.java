@@ -289,7 +289,7 @@ public class PFParallel1 extends PFTraditional implements Serializable {
 
 		if( isContinuous() && isFullyDefined() ) {
 			// we do not have a lock when minimizing
-			mef = reducedSP.decompMinimizedEnergy(conf.getConfArray());
+			mef = reducedSP.decomposedEnergy(conf.getConfArray(), reducedSP.contSCFlex);
 			energy = mef.getPreCompE();
 		}
 

@@ -394,7 +394,8 @@ public class ConfSpace implements Serializable {
     }
     
     
-	public MultiTermEnergyFunction getDecomposedMinimizedEnergy(int[] conf, EnergyFunction efunc, String outputPDBFile){
+	public MultiTermEnergyFunction getDecomposedEnergy(int[] conf, boolean doMinimize, 
+			EnergyFunction efunc, String outputPDBFile){
 		//minimize the energy of a conformation, within the DOF bounds indicated by conf (a list of RCs)
 		//return the minimized energy
 		//if outputPDBFile isn't null, then output the minimized conformation to that file
@@ -404,7 +405,7 @@ public class ConfSpace implements Serializable {
 
 		DoubleMatrix1D optDOFVals;
 
-		if(energy.getNumDOFs()>0){//there are continuously flexible DOFs to minimize
+		if(energy.getNumDOFs()>0 && doMinimize){//there are continuously flexible DOFs to minimize
 			Minimizer min = new CCDMinimizer(energy,false);
 			optDOFVals = min.minimize().dofValues;
 		}

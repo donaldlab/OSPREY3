@@ -28,10 +28,26 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 		super(emat, pmat, invmat, confSearchFactory, ecalc);
 	}
 	
+	private ScoredConf findRigidGMEC() {
+		return energyConfs.next();
+	}
+	
 	@Override
 	public void init(double targetEpsilon) {
 		super.init(targetEpsilon);
 		scoreConfs = null;
+		
+		//only applies to the final object
+		if(computeGMECRatio) {
+			ScoredConf conf = findRigidGMEC();
+			double gmecEnergy = conf == null ? Double.POSITIVE_INFINITY : conf.getScore();
+			values.qstar = boltzmann.calc(gmecEnergy);
+			numConfsEvaluated++;
+			if (confListener != null) {
+				confListener.onConf(conf);
+			}
+			status = Status.Estimated;
+		}
 	}
 
 	@Override
@@ -107,7 +123,8 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 		}
 	}
 
-	public void compute(BigDecimal targetScoreWeights) {
+	@Override
+	public void compute(BigDecimal targetScoreWeights, int maxNumConfs) {
 
 		if (!status.canContinue()) {
 			throw new IllegalStateException("can't continue from status " + status);
@@ -116,10 +133,13 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 		ScoredConf conf;
 		BigDecimal scoreWeight;
 
+		int stopAtConf = numConfsEvaluated + maxNumConfs;
 		while (true) {
 
 			// should we keep going?
-			if (!status.canContinue() || qstarScoreWeights.compareTo(targetScoreWeights) >= 0) {
+			if (!status.canContinue() 
+					|| qstarScoreWeights.compareTo(targetScoreWeights) >= 0
+					|| numConfsEvaluated >= stopAtConf) {
 				break;
 			}
 

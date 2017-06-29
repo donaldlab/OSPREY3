@@ -10,6 +10,8 @@ import edu.duke.cs.osprey.multistatekstar.KStarScore.PartitionFunctionType;
  */
 public class MSKStarSettings {
 	
+	public static double TIMEOUT_HRS = Double.MAX_VALUE;
+	
 	public boolean isReportingProgress;
 	public double targetEpsilon;
 	public int state;
@@ -18,6 +20,7 @@ public class MSKStarSettings {
 	public KStarScoreType scoreType;
 	public MSSearchProblem[] search;
 	public boolean isFinal;
+	public boolean computeGMEC;
 	public LMB[] constraints;
 	public PartitionFunctionType[] pfTypes;
 	public ConfEnergyCalculator.Async[] ecalcs;
@@ -31,8 +34,8 @@ public class MSKStarSettings {
 		this.numTopConfsToSave = other.numTopConfsToSave;
 		this.cfp = other.cfp;
 		this.scoreType = other.scoreType;
+		this.computeGMEC = other.computeGMEC;
 		
-		//must deep copy, since these values can change
 		this.search = new MSSearchProblem[other.search.length];
 		System.arraycopy(other.search, 0, this.search, 0, other.search.length);
 		

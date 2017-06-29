@@ -161,7 +161,7 @@ public class Residue implements Serializable {
         //but there are a few exceptions
         
         for(ResidueTemplate templ : templateLib.templates){
-            if(templ.name.equalsIgnoreCase(templateName))
+        	if(templ.name.equalsIgnoreCase(templateName))
                 templCandidates.add(templ);
         }
         

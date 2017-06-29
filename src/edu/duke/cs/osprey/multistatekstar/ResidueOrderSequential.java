@@ -8,9 +8,9 @@ import java.util.ArrayList;
  *
  */
 @SuppressWarnings("serial")
-public class ResidueOrderStaticSequential extends ResidueOrder {
+public class ResidueOrderSequential extends ResidueOrder {
 
-	public ResidueOrderStaticSequential() {
+	public ResidueOrderSequential() {
 		super();
 	}
 
@@ -79,6 +79,13 @@ public class ResidueOrderStaticSequential extends ResidueOrder {
 
 		ans.trimToSize();
 		return ans;
+	}
+
+	@Override
+	public ArrayList<ResidueAssignmentScore> scoreResidueAssignments(LMB objFcn, MSSearchProblem[][] objFcnSearch,
+			KStarScore[] objFcnScores, int numMaxMut) {
+		// TODO Auto-generated method stub
+		return null;
 	}
 	
 }

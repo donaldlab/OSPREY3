@@ -9,8 +9,10 @@ import java.util.HashSet;
 import edu.duke.cs.osprey.astar.comets.UpdatedPruningMatrix;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
+import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.tools.Stopwatch;
 
 /**
  * 
@@ -31,9 +33,33 @@ public class MSSearchProblem extends SearchProblem {
 		this.settings = settings;
 		this.numAssignedPos = other.confSpace.numPos-Collections.frequency(settings.mutRes, "-1");
 	}
+	
+	public MultiTermEnergyFunction getDecomposedEnergy(int[] conf, boolean doMinimize) {
+		//whose RCs are listed for all flexible positions in conf
+		MultiTermEnergyFunction mef = confSpace.getDecomposedEnergy(conf, doMinimize, fullConfE, null);
+		
+		/*
+		double E = mef.getPreCompE();
+		E += emat.getConstTerm();
+		if(useERef)
+			E -= emat.geteRefMat().confERef(conf);
+		if(addResEntropy)
+			E += confSpace.getConfResEntropy(conf);            
+		mef.setPreCompE(E);
+		*/
+		
+		return mef;
+	}
 
 	public int getNumPos() {
 		return confSpace.numPos;
+	}
+	
+	public ArrayList<Integer> getPosNums() {
+		ArrayList<Integer> ans = new ArrayList<>();
+		for(int i=0;i<confSpace.numPos;++i)ans.add(i);
+		ans.trimToSize();
+		return ans;
 	}
 
 	public ArrayList<Integer> getPosNums(boolean assigned) {
@@ -77,6 +103,13 @@ public class MSSearchProblem extends SearchProblem {
 		return numAssignedPos==confSpace.numPos;
 	}
 
+	public int countRcsAtPosForAAs(PruningMatrix pruneMat, int pos, HashSet<String> AATypes) {
+		int ans = 0;
+		ans += countRcsAtPosForAAs(pruneMat, pos, AATypes, true);
+		ans += countRcsAtPosForAAs(pruneMat, pos, AATypes, false);
+		return ans;
+	}
+	
 	public int countRcsAtPosForAAs(PruningMatrix pruneMat, int pos, HashSet<String> AATypes, boolean pruned) {
 		int ans = 0;
 		ArrayList<Integer> rcs = pruned ? pruneMat.prunedRCsAtPos(pos) : pruneMat.unprunedRCsAtPos(pos);
@@ -128,12 +161,9 @@ public class MSSearchProblem extends SearchProblem {
 		return ans;
 	}
 
-	protected void prunePmat(SearchProblem search, boolean prunePairs) {
+	protected void prunePmat(SearchProblem search, boolean prunePairs, boolean reportProgress) {
 
 		UpdatedPruningMatrix upmat = (UpdatedPruningMatrix) this.pruneMat;
-
-		//don't want to overprune
-		//BigInteger minConfs = BigInteger.valueOf(65536);
 
 		//single sequence type dependent pruning for better efficiency
 		//now do any consequent singles & pairs pruning
@@ -144,14 +174,29 @@ public class MSSearchProblem extends SearchProblem {
 				settings.pruningWindow, search.useEPIC, search.useTupExpForSearch);
 		dee.setVerbose(false);
 
+		Stopwatch stopwatch = new Stopwatch().start();
+		
 		do {//repeat as long as we're pruning things
 			oldNumUpdates = numUpdates;
 			dee.prune("GOLDSTEIN");
 			if(prunePairs) dee.prune("GOLDSTEIN PAIRS FULL");
 			numUpdates = upmat.countUpdates();
-		} while (numUpdates > oldNumUpdates /*&& getNumConfs(upmat).compareTo(minConfs) > 0*/);
+			
+			if(reportProgress) {
+				System.out.println("elapsed: "+stopwatch.getTime(2));
+			}
+			
+			if(stopwatch.getTimeH() > MSSearchSettings.PRUNING_TIMEOUT_HRS) {
+				break;
+			}
+			
+		} while (numUpdates > oldNumUpdates);
 	}
 
+	public void checkPruningMatrix() {
+		checkPruningMatrix(this.pruneMat);
+	}
+	
 	protected void checkPruningMatrix(PruningMatrix pmat) {
 		ArrayList<Integer> assignedPosNums = getPosNums(true);
 		HashMap<Integer, ArrayList<String>> pos2AAs = new HashMap<>();
@@ -203,14 +248,22 @@ public class MSSearchProblem extends SearchProblem {
 			updatePruningMatrix(ans, splitPosNum, splitPos2aa.get(splitPosNum));
 		return ans;
 	}
-
+	
+	public PruningMatrix getUpdatedPruningMatrix(ArrayList<Integer> posNums, ArrayList<ArrayList<String>> AATypeOptions) {
+		return updatePruningMatrix(posNums, AATypeOptions);
+	}
+	
+	private PruningMatrix getUpdatedPruningMatrix() {
+		return getUpdatedPruningMatrix(getPosNums(true), settings.AATypeOptions);
+	}
+	
 	private void setPruningMatrix() {
-		this.pruneMat = updatePruningMatrix(getPosNums(true), settings.AATypeOptions);
+		this.pruneMat = getUpdatedPruningMatrix();
 	}
 
-	public void prunePmat(boolean doPruning, boolean prunePairs) {
+	public void prunePmat(boolean doPruning, boolean prunePairs, boolean reportProgress) {
 		setPruningMatrix();
 		if(DEBUG) checkPruningMatrix(this.pruneMat);
-		if(doPruning) prunePmat(this, prunePairs);
+		if(doPruning) prunePmat(this, prunePairs, reportProgress);
 	}
 }

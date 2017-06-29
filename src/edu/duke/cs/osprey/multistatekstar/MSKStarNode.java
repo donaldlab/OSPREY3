@@ -32,7 +32,7 @@ public class MSKStarNode {
 
 	public static ResidueOrder RESIDUE_ORDER;
 	public static boolean PARALLEL_EXPANSION;
-	public static int PARALLELISM_MULTIPLIER = 1;
+	public static boolean SUBLINEAR_AT_LEAF_NODES;
 	public static boolean DEBUG = false;
 
 	private KStarScore[] ksLB;//lower bound k* objects
@@ -159,7 +159,7 @@ public class MSKStarNode {
 						if(!score.isFinal()) score.compute(Integer.MAX_VALUE);
 						else {
 							score.computeUnboundStates(Integer.MAX_VALUE);
-							score.computeBoundState(PARALLELISM_MULTIPLIER * score.getSettings().ecalcs[0].getParallelism());
+							score.computeBoundState(SUBLINEAR_AT_LEAF_NODES ? score.getSettings().ecalcs[0].getParallelism() : Integer.MAX_VALUE);
 						}
 					}
 
@@ -168,7 +168,7 @@ public class MSKStarNode {
 						if(!score.isFinal()) score.compute(Integer.MAX_VALUE);
 						else {
 							score.computeUnboundStates(Integer.MAX_VALUE);
-							score.computeBoundState(PARALLELISM_MULTIPLIER * score.getSettings().ecalcs[0].getParallelism());
+							score.computeBoundState(SUBLINEAR_AT_LEAF_NODES ? score.getSettings().ecalcs[0].getParallelism() : Integer.MAX_VALUE);
 						}
 					}
 				}
@@ -194,7 +194,7 @@ public class MSKStarNode {
 				if(!score.isFinal()) score.compute(Integer.MAX_VALUE);
 				else{
 					score.computeUnboundStates(Integer.MAX_VALUE);
-					score.computeBoundState(PARALLELISM_MULTIPLIER * score.getSettings().ecalcs[0].getParallelism());
+					score.computeBoundState(SUBLINEAR_AT_LEAF_NODES ? score.getSettings().ecalcs[0].getParallelism() : Integer.MAX_VALUE);
 				}
 			});
 		}
@@ -303,8 +303,12 @@ public class MSKStarNode {
 					);
 		}
 
-		else
+		//else, make a bounding type of k* object
+		//in the minimized case, a fully assigned k* object is also a bounding
+		//type of object
+		else {
 			return MSKStarFactory.makeKStarScore(kSet, pfs);
+		}
 	}
 
 	private MSSearchProblem splitSearch(int subState, MSSearchProblem parent, ArrayList<AAAssignment> splits) {
@@ -347,7 +351,7 @@ public class MSKStarNode {
 				}
 				//compute a tiny bit of the bound state
 				//default to 1 * getparallelism
-				lb.computeBoundState(PARALLELISM_MULTIPLIER * lb.getSettings().ecalcs[0].getParallelism());
+				lb.computeBoundState(SUBLINEAR_AT_LEAF_NODES ? lb.getSettings().ecalcs[0].getParallelism() : Integer.MAX_VALUE);
 				newKsLB[state] = lb;
 
 				//ub = lb
@@ -363,7 +367,7 @@ public class MSKStarNode {
 			child = this;
 			for(KStarScore lb : child.ksLB) {//when final, lb objects are the same as ub objects
 				if(lb.isComputed()) continue;
-				lb.computeBoundState(PARALLELISM_MULTIPLIER * lb.getSettings().ecalcs[0].getParallelism());
+				lb.computeBoundState(SUBLINEAR_AT_LEAF_NODES ? lb.getSettings().ecalcs[0].getParallelism() : Integer.MAX_VALUE);
 			}
 		}
 
@@ -405,6 +409,8 @@ public class MSKStarNode {
 				ECALCS_CONT[state], null, KStarScoreType.Minimized
 				);
 
+		ans.getSettings().computeGMEC = true;
+		
 		return ans;
 	}
 
