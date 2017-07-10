@@ -34,4 +34,15 @@ public class LUTESettings implements Serializable {
         useRelWt = params.getBool("LUTERELWT");
         useRelWt = params.getBool("LUTETHRESHWT");
     }
+    
+    
+    public static LUTESettings defaultLUTE(){
+        LUTESettings ans = new LUTESettings();
+        ans.useLUTE = true;
+        return ans;
+    }
+    
+    public boolean shouldWeUseLUTE(){
+        return useLUTE;
+    }
 }

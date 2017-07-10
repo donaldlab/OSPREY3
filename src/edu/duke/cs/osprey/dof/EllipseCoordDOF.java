@@ -86,5 +86,10 @@ public class EllipseCoordDOF extends DegreeOfFreedom {
         public DOFBlock getBlock(){
             return null;
         }
+
+    @Override
+    public String getName() {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
 	
 }

@@ -70,7 +70,7 @@ public class MultiSequenceConfTree extends ConfTree<FullAStarNode> {
 			if(search.useEPIC){//include EPIC in the search
 				useRefinement = true;
 				epicMat = search.epicMat;
-				confSpace = search.confSpace;
+				//confSpace = search.confSpace;
 				minPartialConfs = search.epicSettings.minPartialConfs;
 			}
 		}

@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.minimization;
 
+import cern.colt.matrix.DoubleFactory1D;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,11 +16,19 @@ public class MoleculeObjectiveFunction implements ObjectiveFunction {
 	public final DofBounds bounds;
 	public final EnergyFunction efunc;
 	public final List<EnergyFunction> efuncsByDof;
+        
+        public final DoubleMatrix1D curDOFVals;
 	
 	public MoleculeObjectiveFunction(ParametricMolecule pmol, DofBounds bounds, EnergyFunction efunc) {
 		this.pmol = pmol;
 		this.bounds = bounds;
 		this.efunc = efunc;
+                curDOFVals = DoubleFactory1D.dense.make(bounds.size());//will be set properly once we evaluate anything
+                
+                // init efunc if needed
+                if (efunc instanceof EnergyFunction.NeedsInit) {
+                    ((EnergyFunction.NeedsInit)efunc).init(pmol.mol, pmol.dofs, curDOFVals);
+                }
 		
 		if (efunc instanceof EnergyFunction.DecomposableByDof) {
 			efuncsByDof = ((EnergyFunction.DecomposableByDof)efunc).decomposeByDof(pmol.mol, pmol.dofs);
@@ -40,6 +49,7 @@ public class MoleculeObjectiveFunction implements ObjectiveFunction {
 		for (int d=0; d<pmol.dofs.size(); d++) {
 			efuncsByDof.add(mof.getEfunc(d));
 		}
+                curDOFVals = mof.curDOFVals.copy();
 	}
 
 	public EnergyFunction getEfunc(int d) {
@@ -74,6 +84,7 @@ public class MoleculeObjectiveFunction implements ObjectiveFunction {
 	public void setDOFs(DoubleMatrix1D x) {
 		for (int d=0; d<x.size(); d++) {
 			pmol.dofs.get(d).apply(x.get(d));
+                        //handleBlocksTogetherMaybe();//DEBUG!!!
 		}
 	}
 

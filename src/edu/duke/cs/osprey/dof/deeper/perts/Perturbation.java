@@ -173,4 +173,9 @@ public abstract class Perturbation extends DegreeOfFreedom {
     public DOFBlock getBlock(){
         return block;
     }
+    
+    @Override
+    public String getName() {
+        return "PERT"+block.allResidues.get(0).getPDBResNumber()+"."+indexInBlock;
+    }
 }

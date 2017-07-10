@@ -45,4 +45,9 @@ public class BBFreeDOF extends DegreeOfFreedom {
     public DOFBlock getBlock(){
         return block;
     }
+    
+    @Override
+    public String getName() {
+        return "CATS"+block.residues.get(0).getPDBResNumber()+"."+indexInBlock;
+    }
 }

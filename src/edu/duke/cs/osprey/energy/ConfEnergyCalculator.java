@@ -1,5 +1,6 @@
 package edu.duke.cs.osprey.energy;
 
+import edu.duke.cs.osprey.confspace.BoundedParametricMolecule;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -122,9 +123,8 @@ public class ConfEnergyCalculator {
 	 * @return The energy of the resulting molecule fragment
 	 */
 	public double calcEnergy(RCTuple frag, ResidueInteractions inters) {
-		ParametricMolecule pmol = confSpace.makeMolecule(frag);
-		DofBounds bounds = confSpace.makeBounds(frag);
-		return ecalc.calcEnergy(pmol, bounds, inters);
+                BoundedParametricMolecule bpmol = confSpace.makeBoundedParametricMolecule(frag);
+		return ecalc.calcEnergy(bpmol.pmol, bpmol.dofBounds, inters);
 	}
 	
 	/**

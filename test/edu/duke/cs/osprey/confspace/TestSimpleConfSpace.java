@@ -40,7 +40,7 @@ public class TestSimpleConfSpace extends TestBase {
 		strand.flexibility.get(2).setLibraryRotamers();
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
 		int[] conf = { 0 };
-		ParametricMolecule pmol = confSpace.makeMolecule(conf);
+		ParametricMolecule pmol = confSpace.makeBoundedParametricMolecule(conf).pmol;
 		
 		// all the residues should be there, but not the same instances
 		assertThat(pmol.mol.residues.size(), is(strand.mol.residues.size()));
@@ -157,10 +157,11 @@ public class TestSimpleConfSpace extends TestBase {
 		
 		// check sequence, DOFs, and bounds
 		int[] conf = { 0 };
-		ParametricMolecule pmol = confSpace.makeMolecule(conf);
+		BoundedParametricMolecule bpmol = confSpace.makeBoundedParametricMolecule(conf);
+                ParametricMolecule pmol = bpmol.pmol;
 		assertThat(pmol.mol.getResByPDBResNumber("2").template.name, is("ALA"));
 		assertThat(pmol.dofs.size(), is(0));
-		assertThat(confSpace.makeBounds(conf).size(), is(0));
+		assertThat(bpmol.dofBounds.size(), is(0));
 	}
 	
 	@Test
@@ -181,10 +182,11 @@ public class TestSimpleConfSpace extends TestBase {
 		
 		// check sequence, DOFs, and bounds
 		int[] conf = { 0 };
-		ParametricMolecule pmol = confSpace.makeMolecule(conf);
+		BoundedParametricMolecule bpmol = confSpace.makeBoundedParametricMolecule(conf);
+                ParametricMolecule pmol = bpmol.pmol;
 		assertThat(pmol.mol.getResByPDBResNumber("2").template.name, is("GLY"));
 		assertThat(pmol.dofs.size(), is(0));
-		assertThat(confSpace.makeBounds(conf).size(), is(0));
+		assertThat(bpmol.dofBounds.size(), is(0));
 	}
 	
 	@Test
@@ -212,16 +214,18 @@ public class TestSimpleConfSpace extends TestBase {
 		
 		// check sequence, DOFs, and bounds
 		int[] conf = { 0 };
-		ParametricMolecule pmol = confSpace.makeMolecule(conf);
+		BoundedParametricMolecule bpmol = confSpace.makeBoundedParametricMolecule(conf);
+                ParametricMolecule pmol = bpmol.pmol;
 		assertThat(pmol.mol.getResByPDBResNumber("2").template.name, is("ALA"));
 		assertThat(pmol.dofs.size(), is(0));
-		assertThat(confSpace.makeBounds(conf).size(), is(0));
+		assertThat(bpmol.dofBounds.size(), is(0));
 		
 		conf = new int[] { 1 };
-		pmol = confSpace.makeMolecule(conf);
+		bpmol = confSpace.makeBoundedParametricMolecule(conf);
+                pmol = bpmol.pmol;
 		assertThat(pmol.mol.getResByPDBResNumber("2").template.name, is("GLY"));
 		assertThat(pmol.dofs.size(), is(0));
-		assertThat(confSpace.makeBounds(conf).size(), is(0));
+		assertThat(bpmol.dofBounds.size(), is(0));
 	}
 	
 	@Test
@@ -257,30 +261,33 @@ public class TestSimpleConfSpace extends TestBase {
 		
 		// check sequence, DOFs, and bounds
 		int[] conf = { 0 };
-		ParametricMolecule pmol = confSpace.makeMolecule(conf);
+		BoundedParametricMolecule bpmol = confSpace.makeBoundedParametricMolecule(conf);
+                ParametricMolecule pmol = bpmol.pmol;
 		assertThat(pmol.mol.getResByPDBResNumber("2").template.name, is("VAL"));
 		assertThat(pmol.dofs.size(), is(0)); // valine has one chi angle, but this is discrete flex
-		assertThat(confSpace.makeBounds(conf).size(), is(0));
+		assertThat(bpmol.dofBounds.size(), is(0));
 		
 		double expChi1 = template.getRotamericDihedrals(0, 0);
 		double obsChi1 = new FreeDihedral(pmol.mol.getResByPDBResNumber("2"), 0).measureDihedralDegrees();
 		assertThat(obsChi1, isRelatively(expChi1));
 		
 		conf = new int[] { 1 };
-		pmol = confSpace.makeMolecule(conf);
+		bpmol = confSpace.makeBoundedParametricMolecule(conf);
+                pmol = bpmol.pmol;
 		assertThat(pmol.mol.getResByPDBResNumber("2").template.name, is("VAL"));
 		assertThat(pmol.dofs.size(), is(0));
-		assertThat(confSpace.makeBounds(conf).size(), is(0));
+		assertThat(bpmol.dofBounds.size(), is(0));
 		
 		expChi1 = template.getRotamericDihedrals(1, 0);
 		obsChi1 = new FreeDihedral(pmol.mol.getResByPDBResNumber("2"), 0).measureDihedralDegrees();
 		assertThat(obsChi1, isRelatively(expChi1));
 		
 		conf = new int[] { 2 };
-		pmol = confSpace.makeMolecule(conf);
+		bpmol = confSpace.makeBoundedParametricMolecule(conf);
+                pmol = bpmol.pmol;
 		assertThat(pmol.mol.getResByPDBResNumber("2").template.name, is("VAL"));
 		assertThat(pmol.dofs.size(), is(0));
-		assertThat(confSpace.makeBounds(conf).size(), is(0));
+		assertThat(bpmol.dofBounds.size(), is(0));
 		
 		expChi1 = template.getRotamericDihedrals(2, 0);
 		obsChi1 = new FreeDihedral(pmol.mol.getResByPDBResNumber("2"), 0).measureDihedralDegrees();
@@ -299,7 +306,8 @@ public class TestSimpleConfSpace extends TestBase {
 		
 		// check DOFs and bounds
 		int[] conf = { 0 };
-		ParametricMolecule pmol = confSpace.makeMolecule(conf);
+		BoundedParametricMolecule bpmol = confSpace.makeBoundedParametricMolecule(conf);
+                ParametricMolecule pmol = bpmol.pmol;
 		Residue res = pmol.mol.getResByPDBResNumber("2");
 		assertThat(res.template.name, is("VAL"));
 		
@@ -308,14 +316,15 @@ public class TestSimpleConfSpace extends TestBase {
 		assertThat(dof.getResidue(), is(res));
 		assertThat(dof.getDihedralNumber(), is(0));
 		
-		DofBounds bounds = confSpace.makeBounds(conf);
+		DofBounds bounds = bpmol.dofBounds;
 		assertThat(bounds.size(), is(1));
 		double chi1 = template.getRotamericDihedrals(0, 0);
 		assertThat(bounds.getMin(0), isRelatively(chi1 - 3));
 		assertThat(bounds.getMax(0), isRelatively(chi1 + 3));
 		
 		conf = new int[] { 1 };
-		pmol = confSpace.makeMolecule(conf);
+		bpmol = confSpace.makeBoundedParametricMolecule(conf);
+                pmol = bpmol.pmol;
 		res = pmol.mol.getResByPDBResNumber("2");
 		assertThat(res.template.name, is("VAL"));
 		
@@ -324,14 +333,15 @@ public class TestSimpleConfSpace extends TestBase {
 		assertThat(dof.getResidue(), is(res));
 		assertThat(dof.getDihedralNumber(), is(0));
 		
-		bounds = confSpace.makeBounds(conf);
+		bounds = bpmol.dofBounds;
 		assertThat(bounds.size(), is(1));
 		chi1 = template.getRotamericDihedrals(1, 0);
 		assertThat(bounds.getMin(0), isRelatively(chi1 - 3));
 		assertThat(bounds.getMax(0), isRelatively(chi1 + 3));
 		
 		conf = new int[] { 2 };
-		pmol = confSpace.makeMolecule(conf);
+		bpmol = confSpace.makeBoundedParametricMolecule(conf);
+                pmol = bpmol.pmol;
 		res = pmol.mol.getResByPDBResNumber("2");
 		assertThat(res.template.name, is("VAL"));
 		
@@ -340,7 +350,7 @@ public class TestSimpleConfSpace extends TestBase {
 		assertThat(dof.getResidue(), is(res));
 		assertThat(dof.getDihedralNumber(), is(0));
 		
-		bounds = confSpace.makeBounds(conf);
+		bounds = bpmol.dofBounds;
 		assertThat(bounds.size(), is(1));
 		chi1 = template.getRotamericDihedrals(2, 0);
 		assertThat(bounds.getMin(0), isRelatively(chi1 - 3));
@@ -368,10 +378,11 @@ public class TestSimpleConfSpace extends TestBase {
 		
 		// check sequence, DOFs, and bounds
 		int[] conf = { 0 };
-		ParametricMolecule pmol = confSpace.makeMolecule(conf);
+		BoundedParametricMolecule bpmol = confSpace.makeBoundedParametricMolecule(conf);
+                ParametricMolecule pmol = bpmol.pmol;
 		assertThat(pmol.mol.getResByPDBResNumber("2").template.name, is("ALA"));
 		assertThat(pmol.dofs.size(), is(0));
-		assertThat(confSpace.makeBounds(conf).size(), is(0));
+		assertThat(bpmol.dofBounds.size(), is(0));
 	}
 	
 	@Test
@@ -418,28 +429,32 @@ public class TestSimpleConfSpace extends TestBase {
 		
 		// check sequence, DOFs, and bounds
 		int[] conf = { 0 };
-		ParametricMolecule pmol = confSpace.makeMolecule(conf);
+		BoundedParametricMolecule bpmol = confSpace.makeBoundedParametricMolecule(conf);
+                ParametricMolecule pmol = bpmol.pmol;
 		assertThat(pmol.mol.getResByPDBResNumber("2").template.name, is("VAL"));
 		assertThat(pmol.dofs.size(), is(0));
-		assertThat(confSpace.makeBounds(conf).size(), is(0));
+		assertThat(bpmol.dofBounds.size(), is(0));
 		
 		conf = new int[] { 1 };
-		pmol = confSpace.makeMolecule(conf);
+		bpmol = confSpace.makeBoundedParametricMolecule(conf);
+                pmol = bpmol.pmol;
 		assertThat(pmol.mol.getResByPDBResNumber("2").template.name, is("VAL"));
 		assertThat(pmol.dofs.size(), is(0));
-		assertThat(confSpace.makeBounds(conf).size(), is(0));
+		assertThat(bpmol.dofBounds.size(), is(0));
 		
 		conf = new int[] { 2 };
-		pmol = confSpace.makeMolecule(conf);
+		bpmol = confSpace.makeBoundedParametricMolecule(conf);
+                pmol = bpmol.pmol;
 		assertThat(pmol.mol.getResByPDBResNumber("2").template.name, is("VAL"));
 		assertThat(pmol.dofs.size(), is(0));
-		assertThat(confSpace.makeBounds(conf).size(), is(0));
+		assertThat(bpmol.dofBounds.size(), is(0));
 		
 		conf = new int[] { 3 };
-		pmol = confSpace.makeMolecule(conf);
+		bpmol = confSpace.makeBoundedParametricMolecule(conf);
+                pmol = bpmol.pmol;
 		assertThat(pmol.mol.getResByPDBResNumber("2").template.name, is("ALA"));
 		assertThat(pmol.dofs.size(), is(0));
-		assertThat(confSpace.makeBounds(conf).size(), is(0));
+		assertThat(bpmol.dofBounds.size(), is(0));
 	}
 	
 	@Test
@@ -495,7 +510,7 @@ public class TestSimpleConfSpace extends TestBase {
 		strand2.flexibility.get(11).setLibraryRotamers("GLY");
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrands(strand1, strand2).build();
 		
-		ParametricMolecule pmol = confSpace.makeMolecule(new int[] { 0, 0, 0, 0 });
+		ParametricMolecule pmol = confSpace.makeBoundedParametricMolecule(new int[] { 0, 0, 0, 0 }).pmol;
 		
 		// all the residues should be there
 		assertThat(pmol.mol.residues.size(), is(4));

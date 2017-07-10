@@ -14,6 +14,8 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
+import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
+import edu.duke.cs.osprey.gmec.PrecomputedMatrices;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 /**
@@ -42,6 +44,13 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
         public static ConfTree<FullAStarNode> makeFull(SearchProblem search, PruningMatrix pmat, GMECMutSpace gms) {
 		return new ConfTree<FullAStarNode>(new FullAStarNode.Factory(search.confSpace.numPos), search, pmat, search.useEPIC, gms);
 	}
+        
+        public static ConfTree<FullAStarNode> makeFull(PrecomputedMatrices precompMat, GMECMutSpace gms,
+                boolean useTupExpForSearch, boolean useEPIC, EPICSettings epicSettings, int numPos){
+            return new ConfTree<FullAStarNode>(new FullAStarNode.Factory(numPos),
+                    useTupExpForSearch, precompMat.getEmat(), precompMat.getEpicMat(), precompMat.getLuteMat(),
+                    precompMat.getPruneMat(), useEPIC, epicSettings, gms);
+        }
 	
 	private AStarNode.Factory<T> nodeFactory;
 
@@ -64,7 +73,7 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
 
     
     protected EPICMatrix epicMat = null;//to use in refinement
-    protected ConfSpace confSpace = null;//conf space to use with epicMat if we're doing EPIC minimization w/ SAPE
+    //protected ConfSpace confSpace = null;//conf space to use with epicMat if we're doing EPIC minimization w/ SAPE
     protected boolean minPartialConfs = false;//whether to minimize partially defined confs with EPIC, or just fully defined
     
     // temp storage
@@ -91,6 +100,15 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
     
     public ConfTree(AStarNode.Factory<T> nodeFactory, SearchProblem sp, PruningMatrix pruneMat, 
             boolean useEPIC, GMECMutSpace gms){
+        this(nodeFactory, sp.useTupExpForSearch, sp.emat, sp.epicMat, 
+                sp.tupExpEMat, pruneMat, sp.useEPIC, sp.epicSettings, null);
+    }
+    
+    
+    //matrices/settings we won't use can be null
+    public ConfTree(AStarNode.Factory<T> nodeFactory, boolean useTupExpForSearch,
+            EnergyMatrix emat, EPICMatrix epicMat, EnergyMatrix tupExpEMat, PruningMatrix pruneMat, 
+            boolean useEPIC, EPICSettings epicSettings, GMECMutSpace gms){
     	
 		// NOTE: might want to implement this as subclass or compose with other object
 		// instead of adding a big switch here
@@ -129,16 +147,16 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
         }
         
         //get the appropriate energy matrix to use in this A* search
-        if(sp.useTupExpForSearch)
-            emat = sp.tupExpEMat;
+        if(useTupExpForSearch)
+            this.emat = tupExpEMat;
         else {
-            emat = sp.emat;
+            this.emat = emat;
             
             if(useEPIC){//include EPIC in the search
                 useRefinement = true;
-                epicMat = sp.epicMat;
-                confSpace = sp.confSpace;
-                minPartialConfs = sp.epicSettings.minPartialConfs;
+                this.epicMat = epicMat;
+                //confSpace = sp.confSpace;
+                minPartialConfs = epicSettings.minPartialConfs;
             }
         }
         

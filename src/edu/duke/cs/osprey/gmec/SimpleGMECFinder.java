@@ -32,16 +32,16 @@ public class SimpleGMECFinder {
 	public static class Builder {
 		
 		/** A* implementation to sort conformations in the conformation space. */
-		private ConfSearch search;
+		protected ConfSearch search;
 		
 		/** Calculates the energy for a conformation. */
-		private ConfEnergyCalculator confEcalc;
-		private ConfPruner pruner;
-		private ConfPrinter logPrinter;
-		private ConfPrinter consolePrinter;
+		protected ConfEnergyCalculator confEcalc;
+		protected ConfPruner pruner;
+		protected ConfPrinter logPrinter;
+		protected ConfPrinter consolePrinter;
 		
 		/** True to print all conformations found during A* search to the console */ 
-		private boolean printIntermediateConfsToConsole = false;
+		protected boolean printIntermediateConfsToConsole = false;
 		
 		/**
 		 * True to use external memory (eg, disk, SSD, NAS) for when large data
@@ -50,7 +50,7 @@ public class SimpleGMECFinder {
 		 * Use {@link ExternalMemory#setInternalLimit} to set the amount of fixed internal memory
 		 * and {@link ExternalMemory#setTempDir} to set the file path for external memory.
 		 */
-		private boolean useExternalMemory = false;
+		protected boolean useExternalMemory = false;
 		
 		public Builder(ConfSearch search, ConfEnergyCalculator confEcalc) {
 			this.search = search;
@@ -101,7 +101,7 @@ public class SimpleGMECFinder {
 		}
 	}
 	
-	public final ConfSearch search;
+	public ConfSearch search;
 	public final ConfEnergyCalculator confEcalc;
 	public final ConfPruner pruner;
 	public final ConfPrinter logPrinter;
@@ -112,7 +112,7 @@ public class SimpleGMECFinder {
 	private final Queue.Factory.FIFO<EnergiedConf> energiedFifoFactory;
 	private final Queue.Factory<EnergiedConf> energiedPriorityFactory;
 	
-	private SimpleGMECFinder(ConfSearch search, ConfEnergyCalculator confEcalc, ConfPruner pruner, ConfPrinter logPrinter, ConfPrinter consolePrinter, boolean printIntermediateConfsToConsole, boolean useExternalMemory) {
+	protected SimpleGMECFinder(ConfSearch search, ConfEnergyCalculator confEcalc, ConfPruner pruner, ConfPrinter logPrinter, ConfPrinter consolePrinter, boolean printIntermediateConfsToConsole, boolean useExternalMemory) {
 		this.search = search;
 		this.confEcalc = confEcalc;
 		this.pruner = pruner;
@@ -131,7 +131,7 @@ public class SimpleGMECFinder {
 			energiedPriorityFactory = new Queue.PriorityFactory<>((a, b) -> Double.compare(a.getEnergy(), b.getEnergy()));
 		}
 	}
-	
+        
 	public EnergiedConf find() {
 		return find(0).poll();
 	}

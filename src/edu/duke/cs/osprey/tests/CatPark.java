@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package edu.duke.cs.osprey;
+package edu.duke.cs.osprey.tests;
 
 import java.io.File;
 import java.util.ArrayList;

@@ -7,6 +7,8 @@ package edu.duke.cs.osprey.astar;
 
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.RC;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace.ResidueConf;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -14,6 +16,7 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.StringTokenizer;
 
 /**
@@ -34,6 +37,37 @@ public class GMECMutSpace {
     public GMECMutSpace(String mutFileName, ConfSpace confSpace){
         
         //First read the mut file, prepare acceptableNextResType
+        readFile(mutFileName);
+        
+        //Now record the aa types based on confSpace
+        for(int pos=0; pos<confSpace.numPos; pos++){
+            ArrayList<String> aaTypesAtPos = new ArrayList<>();
+            ArrayList<RC> RCs = confSpace.posFlex.get(pos).RCs;
+            for(int rc=0; rc<RCs.size(); rc++){
+                aaTypesAtPos.add( RCs.get(rc).AAType );
+            }
+            rcAATypes.add(aaTypesAtPos);
+        }
+    }
+    
+    
+    public GMECMutSpace(String mutFileName, SimpleConfSpace confSpace){
+        //First read the mut file, prepare acceptableNextResType
+        readFile(mutFileName);
+        
+        //Now record the aa types based on confSpace
+        for(int pos=0; pos<confSpace.getNumPos(); pos++){
+            ArrayList<String> aaTypesAtPos = new ArrayList<>();
+            List<ResidueConf> RCs = confSpace.positions.get(pos).resConfs;//posFlex.get(pos).RCs;
+            for(int rc=0; rc<RCs.size(); rc++){
+                aaTypesAtPos.add( RCs.get(rc).template.name );
+            }
+            rcAATypes.add(aaTypesAtPos);
+        }
+    }
+    
+    
+    private void readFile(String mutFileName){
         try{
             FileInputStream is = new FileInputStream(mutFileName);
             BufferedReader bufread = new BufferedReader(new InputStreamReader(is));
@@ -62,17 +96,6 @@ public class GMECMutSpace {
         catch(Exception e){
             e.printStackTrace();
             throw new RuntimeException(e.getMessage());
-        }
-        
-        
-        //Now record the aa types based on confSpace
-        for(int pos=0; pos<confSpace.numPos; pos++){
-            ArrayList<String> aaTypesAtPos = new ArrayList<>();
-            ArrayList<RC> RCs = confSpace.posFlex.get(pos).RCs;
-            for(int rc=0; rc<RCs.size(); rc++){
-                aaTypesAtPos.add( RCs.get(rc).AAType );
-            }
-            rcAATypes.add(aaTypesAtPos);
         }
     }
     

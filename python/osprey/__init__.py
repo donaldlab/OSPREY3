@@ -67,7 +67,7 @@ def start(heapSizeMB=1024, enableAssertions=False):
 	osprey_dir = os.path.dirname(__file__)
 
 	if _IS_DEV:
-
+                
 		classpath_path = os.path.join(osprey_dir, '../../build/output/classpath.txt')
 		if not os.path.isfile(classpath_path):
 			raise Exception('dev classpath for python not generated yet. run ./jerkar doClasspath')

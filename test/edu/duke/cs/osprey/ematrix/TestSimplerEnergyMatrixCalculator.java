@@ -817,7 +817,7 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 	private void assertSingles(SimpleConfSpace confSpace, double[] exp) {
 		for (int i=0; i<confSpace.positions.get(0).resConfs.size(); i++) {
 			assertEnergy(
-				confSpace.makeBounds(new RCTuple(0, i)).size() > 0,
+                                confSpace.isContinuouslyFlexible(new RCTuple(0, i)),
 				exp[i],
 				makeEmatCalc(confSpace).confEcalc.calcSingleEnergy(0, i),
 				describe(confSpace, 0, i)
@@ -866,7 +866,7 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 
 	private static void assertSingle(SimpleConfSpace confSpace, EnergyMatrix exp, EnergyMatrix obs, int pos1, int rc1) {
 		assertEnergy(
-			confSpace.makeBounds(new RCTuple(pos1, rc1)).size() > 0,
+                        confSpace.isContinuouslyFlexible(new RCTuple(pos1, rc1)),
 			exp.getOneBody(pos1, rc1),
 			obs.getOneBody(pos1, rc1),
 			describe(confSpace, pos1, rc1)
@@ -875,7 +875,7 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 	
 	private static void assertPair(SimpleConfSpace confSpace, EnergyMatrix exp, EnergyMatrix obs, int pos1, int rc1, int pos2, int rc2) {
 		assertEnergy(
-			confSpace.makeBounds(new RCTuple(pos1, rc1, pos2, rc2)).size() > 0,
+                        confSpace.isContinuouslyFlexible(new RCTuple(pos1, rc1, pos2, rc2)),
 			exp.getPairwise(pos1, rc1, pos2, rc2),
 			obs.getPairwise(pos1, rc1, pos2, rc2),
 			describe(confSpace, pos1, rc1, pos2, rc2)

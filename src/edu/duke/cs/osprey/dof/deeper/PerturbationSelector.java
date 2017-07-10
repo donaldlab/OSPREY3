@@ -13,6 +13,7 @@ import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
+import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -57,7 +58,8 @@ public class PerturbationSelector {
     
     public PerturbationSelector(String startingPertFile, boolean onlyStarting, 
             double maxShearParam, double maxBackrubParam, boolean selectLCAs, 
-            ArrayList<String> flexibleRes, String PDBFile, ResidueTermini termini, boolean doRamaCheck) {
+            ArrayList<String> flexibleRes, String PDBFile, ResidueTermini termini, 
+            boolean doRamaCheck, GenericResidueTemplateLibrary templateLib) {
         
         this.startingPertFile = startingPertFile;
         this.onlyStarting = onlyStarting;
@@ -67,7 +69,7 @@ public class PerturbationSelector {
         this.flexibleRes = flexibleRes;
         
         strand = new Strand.Builder(PDBIO.readFile(PDBFile))
-            .setTemplateLibrary(EnvironmentVars.resTemplates)
+            .setTemplateLibrary(templateLib)
             .setResidues(termini)
             .build();
     }

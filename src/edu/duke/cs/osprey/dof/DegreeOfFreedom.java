@@ -7,6 +7,8 @@ package edu.duke.cs.osprey.dof;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.List;
 
 /**
  *
@@ -48,4 +50,16 @@ public abstract class DegreeOfFreedom implements Serializable {
     
     public abstract DOFBlock getBlock();//return the DOF block for a DOF (return null if none)
 
+    
+    public abstract String getName();//make a name for this DOF
+    //should suffice to uniquely identify the DOF among DOFs that appear in a given system
+    //but should be the same for equivalent DOFs in different copies of a system
+    
+    public static HashMap<String,Integer> nameToIndexMap(List<DegreeOfFreedom> dofs){
+        //map names to indices in the list dofs
+        HashMap<String,Integer> ans = new HashMap<>();
+        for(int index=0; index<dofs.size(); index++)
+            ans.put(dofs.get(index).getName(), index);
+        return ans;
+    }
 }

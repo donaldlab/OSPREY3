@@ -134,4 +134,9 @@ public class FreeDihedral extends DegreeOfFreedom {
     public DOFBlock getBlock(){
         return null;
     }
+
+    @Override
+    public String getName() {
+        return "DIH"+res.getPDBResNumber()+"."+dihedralNum;
+    }
 }

@@ -24,6 +24,11 @@ public class ProlinePucker extends DegreeOfFreedom {
     
     private static final long serialVersionUID = -5326286110623671996L;
 
+    @Override
+    public String getName() {
+        return "PROPUCKER"+res.getPDBResNumber();
+    }
+
     public static enum Direction {
         
     	// NOTE: this enum value order is important

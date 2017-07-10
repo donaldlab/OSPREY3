@@ -64,7 +64,8 @@ public class EPICEnergyFunction implements EnergyFunction.NeedsInit, EnergyFunct
                 
                 int indexOfDOF = -1;//index of dof in DOFs and thus in curDOFVals
                 for(int DOFNum=0; DOFNum<DOFs.size(); DOFNum++){
-                    if(dof == DOFs.get(DOFNum)){
+                    //if(dof == DOFs.get(DOFNum)){
+                    if(dof.getName().equalsIgnoreCase(DOFs.get(DOFNum).getName())){
                         indexOfDOF = DOFNum;
                         break;
                     }

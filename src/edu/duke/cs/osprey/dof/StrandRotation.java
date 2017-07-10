@@ -54,4 +54,9 @@ public class StrandRotation extends DegreeOfFreedom {
     public DOFBlock getBlock(){
         return strand;
     }
+
+    @Override
+    public String getName() {
+        return "STRROT"+strand.res.get(0).getPDBResNumber()+"."+angleNum;
+    }
 }

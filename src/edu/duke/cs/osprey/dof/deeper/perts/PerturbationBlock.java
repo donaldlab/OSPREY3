@@ -233,5 +233,11 @@ public class PerturbationBlock implements Serializable, DOFBlock {
     
         return copiedBlock;
     }
+
+    public ArrayList<Perturbation> getPerts() {
+        return perts;
+    }
+    
+    
     
 }

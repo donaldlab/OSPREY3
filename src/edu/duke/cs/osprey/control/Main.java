@@ -238,7 +238,11 @@ public class Main {
 		// lookup the command
 		Command command = Command.get(commandName);
 		if (command == null) {
-			System.out.println("ERROR: OSPREY command unrecognized: " + commandName);
+                        if(commandName.equals("-c"))
+                            System.out.println("ERROR: OSPREY args are now like 'findGMEC KStar.cfg System.cfg DEE.cfg' "
+                                    + "instead of '-c KStar.cfg findGMEC System.cfg DEE.cfg'");
+                        else
+                            System.out.println("ERROR: OSPREY command unrecognized: " + commandName);
 			System.exit(1);
 			return;
 		}

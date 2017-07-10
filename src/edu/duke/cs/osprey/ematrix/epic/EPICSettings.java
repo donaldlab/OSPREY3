@@ -114,7 +114,9 @@ public class EPICSettings implements Serializable {
         }
     }
     
-    
+    public boolean shouldWeUseEPIC(){
+        return useEPIC;
+    }
     
     
 }

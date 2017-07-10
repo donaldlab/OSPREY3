@@ -5,8 +5,10 @@
  */
 package edu.duke.cs.osprey.dof.deeper;
 
+import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
+import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 
 import java.io.Serializable;
@@ -40,13 +42,14 @@ public class DEEPerSettings implements Serializable {
     //We will need the following basic information about the design system
     ArrayList<String> flexibleRes;
     String PDBFile;
+    
+    GenericResidueTemplateLibrary templateLib;
 
     
     public DEEPerSettings(){
         //Default: no DEEPer
         doPerturbations = false;
     }
-    
     
     public DEEPerSettings(boolean doPerturbations, String pertFileName, 
             boolean selectPerturbations, String startingPertFile, boolean onlyStarting, 
@@ -64,6 +67,27 @@ public class DEEPerSettings implements Serializable {
         this.flexibleRes = flexibleRes;
         this.PDBFile = PDBFile;
         this.doRamaCheck = doRamaCheck;
+        this.templateLib = EnvironmentVars.resTemplates;
+    }
+    
+    public DEEPerSettings(boolean doPerturbations, String pertFileName, 
+            boolean selectPerturbations, String startingPertFile, boolean onlyStarting, 
+            double maxShearParam, double maxBackrubParam, boolean selectLCAs, 
+            ArrayList<String> flexibleRes, String PDBFile, boolean doRamaCheck,
+            GenericResidueTemplateLibrary templateLib) {
+        
+        this.doPerturbations = doPerturbations;
+        this.pertFileName = pertFileName;
+        this.selectPerturbations = selectPerturbations;
+        this.startingPertFile = startingPertFile;
+        this.onlyStarting = onlyStarting;
+        this.maxShearParam = maxShearParam;
+        this.maxBackrubParam = maxBackrubParam;
+        this.selectLCAs = selectLCAs;
+        this.flexibleRes = flexibleRes;
+        this.PDBFile = PDBFile;
+        this.doRamaCheck = doRamaCheck;
+        this.templateLib = templateLib;
     }
     
     public boolean doPerturbations() {
@@ -85,7 +109,8 @@ public class DEEPerSettings implements Serializable {
                         + " but not supposed to select perturbations");
             
             PerturbationSelector sele = new PerturbationSelector(startingPertFile, onlyStarting, 
-                    maxShearParam, maxBackrubParam, selectLCAs, flexibleRes, PDBFile, termini, doRamaCheck);
+                    maxShearParam, maxBackrubParam, selectLCAs, flexibleRes, PDBFile, termini, 
+                    doRamaCheck, templateLib);
             
             PertSet ps = sele.selectPerturbations(termini);
             ps.writePertFile(pertFileName);
@@ -122,7 +147,7 @@ public class DEEPerSettings implements Serializable {
         //make a version of these settings with continuous intervals changed to discrete points
         DEEPerSettings discrSettings = new DEEPerSettings(doPerturbations, pertFileName+".DISCR", 
             selectPerturbations, startingPertFile, onlyStarting, 0, 0, 
-            selectLCAs, flexibleRes, PDBFile, doRamaCheck);
+            selectLCAs, flexibleRes, PDBFile, doRamaCheck, templateLib);
         
         if(perts==null)
             discrSettings.perts = null;
