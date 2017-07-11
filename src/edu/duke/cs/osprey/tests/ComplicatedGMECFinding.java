@@ -17,6 +17,7 @@ import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
+import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
@@ -44,9 +45,10 @@ import org.junit.Test;
 public class ComplicatedGMECFinding {
     
     static boolean useDEEGMECFinder = true;
-    static boolean useERef = true;
-    static boolean useLittleDEEPer = true;
+    static boolean useERef = false;
+    static boolean useLittleDEEPer = false;
     static boolean useLUTE = true;
+    static boolean useEPIC = false;
 		
         public static void main(String args[]){
             SimpleConfSpace confSpace = useLittleDEEPer ? littleDEEPerConfSpace() : prepareConfSpace();
@@ -71,6 +73,10 @@ public class ComplicatedGMECFinding {
             if(useDEEGMECFinder){
                 DEEGMECFinder gf = new DEEGMECFinder.Builder( emat, confSpace, ecalc, confEcalc, "1CC8.dee" ).build();
                 
+                if(useEPIC){
+                    gf.epicSettings = EPICSettings.defaultEPIC();
+                    gf.pruningSettings.algOption = 3;
+                }
                 if(useLUTE){
                     gf.luteSettings = LUTESettings.defaultLUTE();
                     gf.pruningSettings.algOption = 3;//nice to prune more if we're going to do LUTE
@@ -109,11 +115,11 @@ public class ComplicatedGMECFinding {
             /*StrandFlex bbFlex = new DEEPerStrandFlex( strand, new DEEPerSettings(true, "aa.pert", 
                 true, "none", false, 2.5, 2.5, false, new ArrayList(Arrays.asList(flexResNums)), 
                 "examples/1CC8.python/1CC8.ss.pdb", false, strand.templateLib) );*/
-            StrandFlex bbFlex = new CATSStrandFlex(strand, "38", "44");
+            //StrandFlex bbFlex = new CATSStrandFlex(strand, "38", "44");
             //just give it the flex res for that strand
             
             
-            SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand, bbFlex).build();
+            SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand/*, bbFlex*/).build();
             return confSpace;
         }
         

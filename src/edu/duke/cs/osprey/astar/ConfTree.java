@@ -15,6 +15,7 @@ import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
+import edu.duke.cs.osprey.ematrix.epic.NewEPICMatrix;
 import edu.duke.cs.osprey.gmec.PrecomputedMatrices;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
@@ -48,7 +49,7 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
         public static ConfTree<FullAStarNode> makeFull(PrecomputedMatrices precompMat, GMECMutSpace gms,
                 boolean useTupExpForSearch, boolean useEPIC, EPICSettings epicSettings, int numPos){
             return new ConfTree<FullAStarNode>(new FullAStarNode.Factory(numPos),
-                    useTupExpForSearch, precompMat.getEmat(), precompMat.getEpicMat(), precompMat.getLuteMat(),
+                    useTupExpForSearch, precompMat.getEmat(), null, precompMat.getEpicMat(), precompMat.getLuteMat(),
                     precompMat.getPruneMat(), useEPIC, epicSettings, gms);
         }
 	
@@ -71,8 +72,9 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
     
     protected boolean useDynamicAStar = true;
 
-    
+    //We can have at most one of these
     protected EPICMatrix epicMat = null;//to use in refinement
+    protected NewEPICMatrix newEPICMat = null;
     //protected ConfSpace confSpace = null;//conf space to use with epicMat if we're doing EPIC minimization w/ SAPE
     protected boolean minPartialConfs = false;//whether to minimize partially defined confs with EPIC, or just fully defined
     
@@ -100,14 +102,14 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
     
     public ConfTree(AStarNode.Factory<T> nodeFactory, SearchProblem sp, PruningMatrix pruneMat, 
             boolean useEPIC, GMECMutSpace gms){
-        this(nodeFactory, sp.useTupExpForSearch, sp.emat, sp.epicMat, 
+        this(nodeFactory, sp.useTupExpForSearch, sp.emat, sp.epicMat, null,  
                 sp.tupExpEMat, pruneMat, sp.useEPIC, sp.epicSettings, null);
     }
     
     
     //matrices/settings we won't use can be null
     public ConfTree(AStarNode.Factory<T> nodeFactory, boolean useTupExpForSearch,
-            EnergyMatrix emat, EPICMatrix epicMat, EnergyMatrix tupExpEMat, PruningMatrix pruneMat, 
+            EnergyMatrix emat, EPICMatrix epicMat, NewEPICMatrix newEPICMat, EnergyMatrix tupExpEMat, PruningMatrix pruneMat, 
             boolean useEPIC, EPICSettings epicSettings, GMECMutSpace gms){
     	
 		// NOTE: might want to implement this as subclass or compose with other object
@@ -155,6 +157,10 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
             if(useEPIC){//include EPIC in the search
                 useRefinement = true;
                 this.epicMat = epicMat;
+                this.newEPICMat = newEPICMat;
+                if((epicMat==null)==(newEPICMat==null)){
+                    throw new RuntimeException("ERROR: to use EPIC in A* need exactly one of old and new EPIC matrices");
+                }
                 //confSpace = sp.confSpace;
                 minPartialConfs = epicSettings.minPartialConfs;
             }
@@ -567,14 +573,15 @@ public class ConfTree<T extends AStarNode> extends AStarTree<T> {
      @Override
     void refineScore(T node){
         
-        if(epicMat==null)
-            throw new UnsupportedOperationException("ERROR: Trying to call refinement w/o EPIC matrix");
-            //later can do MPLP, etc. here
+            
+        if(minPartialConfs || isFullyAssigned(node)){
+            if(epicMat==null)
+                node.setScore(node.getScore() + newEPICMat.minContE(node.getNodeAssignments()));
+            else
+                node.setScore(node.getScore() + epicMat.minContE(node.getNodeAssignments()));
         
-        if(minPartialConfs || isFullyAssigned(node))
-            node.setScore(node.getScore() + epicMat.minContE(node.getNodeAssignments()));
-        
-        node.setScoreNeedsRefinement(false);
+            node.setScoreNeedsRefinement(false);
+        }
     }
      
      

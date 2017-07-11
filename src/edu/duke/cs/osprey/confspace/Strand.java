@@ -16,11 +16,12 @@ import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
+import java.io.Serializable;
 
 /**
  * A molecule with associated residue flexibility information.
  */
-public class Strand {
+public class Strand implements Serializable {
 	
 	/** Magic value that represents the wild-type residue type. Used by {@link ResidueFlex#setLibraryRotamers} */
 	public static final String WildType = "__WT__";
@@ -99,7 +100,7 @@ public class Strand {
 	/**
 	 * configured flexibility for one residue
 	 */
-	public static class ResidueFlex {
+	public static class ResidueFlex implements Serializable {
 		
 		public final String wildType;
 		
@@ -196,7 +197,7 @@ public class Strand {
 		}
 	}
 	
-	public class Flexibility {
+	public class Flexibility implements Serializable {
 		
 		private Map<String,ResidueFlex> residues;
 		

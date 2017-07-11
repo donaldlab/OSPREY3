@@ -73,8 +73,8 @@ public class EPoly implements Serializable {
     int numDOFs;
     //bounds on the degrees of freedom
     DoubleMatrix1D DOFmax, DOFmin;
-    ArrayList<DegreeOfFreedom> DOFs;//the actual degrees of freedom
-
+    //ArrayList<DegreeOfFreedom> DOFs;//the actual degrees of freedom
+    ArrayList<String> DOFNames;//When DOFs are not shared across tuples, much better memory-wise to store names
     
 
     double coeffs[];//coefficients for series (expanded in original, centered coordinates)
@@ -101,15 +101,31 @@ public class EPoly implements Serializable {
             DoubleMatrix1D center, double minE, double[] coeffs, int order ) {
         
         this.numDOFs = numDOFs;
-        this.DOFs = DOFs;
         this.DOFmax = DOFmax;
         this.DOFmin = DOFmin;
         this.center = center;
         this.minE = minE;
         this.coeffs = coeffs;
         this.order = order;
+        
+        DOFNames = new ArrayList<>();
+        for(DegreeOfFreedom dof : DOFs)
+            DOFNames.add(dof.getName());
     }
 
+    
+    public EPoly(int numDOFs, DoubleMatrix1D DOFmax, DoubleMatrix1D DOFmin, 
+            DoubleMatrix1D center, double minE, double[] coeffs, int order, ArrayList<String> DOFNames ) {
+        
+        this.numDOFs = numDOFs;
+        this.DOFmax = DOFmax;
+        this.DOFmin = DOFmin;
+        this.center = center;
+        this.minE = minE;
+        this.coeffs = coeffs;
+        this.order = order;
+        this.DOFNames = DOFNames;
+    }
     
     
     public double evaluate(DoubleMatrix1D x, boolean includeMinE, boolean useSharedMolec) {

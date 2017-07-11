@@ -447,6 +447,17 @@ public class EnergyCalculator implements AutoCleanable {
 			EnergyFunction.Tools.cleanIfNeeded(efunc);
 		}
 	}
+        
+        
+        public MoleculeObjectiveFunction makeEnergyObjFcn(ParametricMolecule pmol, DofBounds bounds, ResidueInteractions inters) {
+                //represent the energy indicated by inters as a function of the degrees of freedom in pmol,
+                //valid within the specified bounds
+                //calcEnergy gives the minimum of this function
+		EnergyFunction efunc = context.efuncs.make(inters, pmol.mol);
+		return new MoleculeObjectiveFunction(pmol, bounds, efunc);
+	}
+        
+        
 	
 	/**
 	 * Asynchronous version of {@link #calcEnergy(ParametricMolecule,DofBouds,ResidueInteractions)}.

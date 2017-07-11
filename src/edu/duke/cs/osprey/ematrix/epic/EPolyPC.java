@@ -86,8 +86,8 @@ public class EPolyPC extends EPoly {
         //coeffs will be added later
         //since we will be using this EPolyPC object when performing the fitting
         
-        super(template.numDOFs,template.DOFs,template.DOFmax,template.DOFmin,template.center,
-                template.minE,null,fullOrder);
+        super(template.numDOFs,template.DOFmax,template.DOFmin,template.center,
+                template.minE,null,fullOrder,template.DOFNames);
         
         //get the coordinate transformation into the eigenbasis of the template's Hessian
         //so we can use the high-eigenvalue directions as our principcal components

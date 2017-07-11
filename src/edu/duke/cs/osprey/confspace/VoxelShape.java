@@ -9,8 +9,9 @@ import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction.DofBounds;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.structure.Residue;
+import java.io.Serializable;
 
-public abstract class VoxelShape {
+public abstract class VoxelShape implements Serializable {
 	
 	public static final double DefaultWidthDegrees = 9;
 	

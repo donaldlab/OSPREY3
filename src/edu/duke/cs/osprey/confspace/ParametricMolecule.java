@@ -4,11 +4,12 @@ import java.util.List;
 
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
 import edu.duke.cs.osprey.structure.Molecule;
+import java.io.Serializable;
 
 /**
  * A {@see Molecule} instance with associated continuous degrees of freedom.
  */
-public class ParametricMolecule {
+public class ParametricMolecule implements Serializable {
 	
 	/** The molecule manipulated by the degrees of freedom. */
 	public final Molecule mol;

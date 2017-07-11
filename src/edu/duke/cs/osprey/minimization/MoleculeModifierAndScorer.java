@@ -14,6 +14,7 @@ import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.bbfree.BBFreeDOF;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.ParameterizedMoleculeCopy;
+import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.PositionConfSpace;
 import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.confspace.RCTuple;
@@ -61,6 +62,21 @@ public class MoleculeModifierAndScorer implements ObjectiveFunction {
     */
     
     List<EnergyFunction> partialEFuncs = null;//if not null, can use when searching along a single DOF
+    
+    /**
+	 * transition adapter, only here temporarily
+         * 
+	 */
+	@Deprecated
+	public MoleculeModifierAndScorer(MoleculeObjectiveFunction mof) {
+            molec = mof.pmol.mol;
+            DOFs = new ArrayList(mof.pmol.dofs);
+            constraints = mof.bounds.getBounds();
+            efunc = mof.efunc;
+            curDOFVals = mof.curDOFVals;
+            partialEFuncs = mof.efuncsByDof;
+	}
+    
     
     public static boolean hasMinimizableDofs(ConfSpace confSpace, RCTuple tuple) {
     

@@ -19,13 +19,14 @@ import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
+import java.io.Serializable;
 
 /**
  * Maintains the design positions and residue conformations for a list of strands.
  * 
  * Also creates molecules in conformations on-demand.
  */
-public class SimpleConfSpace {
+public class SimpleConfSpace implements Serializable {
 	
 	public static class Builder {
 		
@@ -76,7 +77,7 @@ public class SimpleConfSpace {
 		}
 	}
 	
-	public static class Position {
+	public static class Position implements Serializable {
 		
 		public final int index;
 		public final Strand strand;
@@ -93,7 +94,7 @@ public class SimpleConfSpace {
 		}
 	}
 	
-	public static class ResidueConf {
+	public static class ResidueConf implements Serializable {
 		
 		public static enum Type {
 			
@@ -116,7 +117,7 @@ public class SimpleConfSpace {
 			}
 		}
 		
-		public static interface PostTemplateModifier {
+		public static interface PostTemplateModifier extends Serializable {
 			void modify(Residue res);
 		}
 		
@@ -179,6 +180,30 @@ public class SimpleConfSpace {
 		public String toString() {
 			return template.name + " " + getRotamerCode();
 		}
+                
+                public boolean isParametricallyIncompatibleWith(ResidueConf rc2){
+                    //Two RCs are parametrically incompatible if and only if there is a DOF that they share
+                    //for which they have different intervals
+                    //Thus, a conformation has a well-defined voxel if and only if it contains no parametrically
+                    //incompatible pairs of RCs
+
+                    final double tol = 1e-8;
+                    for(String dofName1 : dofBounds.keySet()){
+                        for(String dofName2 : rc2.dofBounds.keySet()){
+                            if(dofName1.equalsIgnoreCase(dofName2)){
+                                double bounds1[] = dofBounds.get(dofName1);
+                                double bounds2[] = dofBounds.get(dofName2);
+                                for(int a=0; a<2; a++){//look for min or max not matching
+                                    if( Math.abs( bounds1[a]-bounds2[a] ) > tol )
+                                        return true;
+                                }
+                            }
+                        }
+                    }
+
+                    //no incompatibility found!
+                    return false;
+                }
 	}
 	
 	/**

@@ -49,7 +49,8 @@ public class MoleculeObjectiveFunction implements ObjectiveFunction {
 		for (int d=0; d<pmol.dofs.size(); d++) {
 			efuncsByDof.add(mof.getEfunc(d));
 		}
-                curDOFVals = mof.curDOFVals.copy();
+                curDOFVals = mof.curDOFVals;//since the molecules are not deep-copied,
+                //the DOF values shouldn't be either
 	}
 
 	public EnergyFunction getEfunc(int d) {
@@ -71,6 +72,7 @@ public class MoleculeObjectiveFunction implements ObjectiveFunction {
 
 	@Override
 	public void setDOF(int d, double val) {
+                curDOFVals.set(d, val);
 		pmol.dofs.get(d).apply(val);
 	}
 
@@ -82,6 +84,7 @@ public class MoleculeObjectiveFunction implements ObjectiveFunction {
 	
 	@Override
 	public void setDOFs(DoubleMatrix1D x) {
+                curDOFVals.assign(x);
 		for (int d=0; d<x.size(); d++) {
 			pmol.dofs.get(d).apply(x.get(d));
                         //handleBlocksTogetherMaybe();//DEBUG!!!

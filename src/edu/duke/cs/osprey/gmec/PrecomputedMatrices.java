@@ -11,11 +11,12 @@ import edu.duke.cs.osprey.confspace.TupleMatrix;
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.EnergyMatrixCalculator;
+import edu.duke.cs.osprey.ematrix.NewEPICMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.ReferenceEnergies;
 import edu.duke.cs.osprey.ematrix.SimpleEnergyMatrixCalculator;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
-import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
+import edu.duke.cs.osprey.ematrix.epic.NewEPICMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.pruning.NewPruner;
@@ -24,10 +25,12 @@ import edu.duke.cs.osprey.pruning.Pruner;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.ObjectIO;
+import edu.duke.cs.osprey.tupexp.BasicEPICTupleExpander;
 import edu.duke.cs.osprey.tupexp.ConfETupleExpander;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 import edu.duke.cs.osprey.tupexp.NewConfETupleExpander;
 import edu.duke.cs.osprey.tupexp.TupExpChooser;
+import edu.duke.cs.osprey.tupexp.TupleExpander;
 import edu.duke.cs.osprey.voxq.VoxelGCalculator;
 
 /**
@@ -45,7 +48,7 @@ public class PrecomputedMatrices {
     EnergyMatrix emat;//this may be handled separately?  For example it doesn't need to be updated
     PruningMatrix competitorPruneMat = null;
     PruningMatrix pruneMat = null;
-    EPICMatrix epicMat = null;
+    NewEPICMatrix epicMat = null;
     EnergyMatrix luteMat = null;
     
     SimpleConfSpace confSpace;
@@ -237,18 +240,24 @@ public class PrecomputedMatrices {
 				.calcEnergyMatrix();
         }
         else if(type == MatrixType.EPICMAT){
-            /*EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(confSpace,shellResidues,
-                    pruneMat,epicSettings);
+            NewEPICMatrixCalculator emCalc = new NewEPICMatrixCalculator(confSpace, confECalc, pruneMat, epicSettings);
             emCalc.calcPEM();
-            return emCalc.getEPICMatrix();*/
-            throw new RuntimeException("ERROR: Epic and python not merged yet");
+            return emCalc.getEPICMatrix();
+            //EnergyMatrixCalculator emCalc = new EnergyMatrixCalculator(confSpace,shellResidues,pruneMat,epicSettings);
         }
         else {
             //need to calculate a tuple-expansion matrix
             
             //make a tuple expander
-            NewConfETupleExpander expander = new NewConfETupleExpander(confSpace, pruningInterval, luteSettings,
-                confECalc, pruneMat);
+            TupleExpander expander;
+            if(epicSettings.shouldWeUseEPIC()){
+                expander = new BasicEPICTupleExpander(confSpace, pruningInterval, luteSettings,
+                    epicMat, pruneMat);
+            }
+            else {
+                expander = new NewConfETupleExpander(confSpace, pruningInterval, luteSettings,
+                    confECalc, pruneMat);
+            }
             
             TupleEnumerator tupEnum = new TupleEnumerator(pruneMat,emat,confSpace.getNumPos());
             TupExpChooser chooser = new TupExpChooser(expander, tupEnum);//make a chooser to choose what tuples will be in the expansion
@@ -284,7 +293,7 @@ public class PrecomputedMatrices {
         if(type == MatrixType.EMAT)
             emat = (EnergyMatrix) matrixFromFile;
         else if(type == MatrixType.EPICMAT)
-            epicMat = (EPICMatrix) matrixFromFile;
+            epicMat = (NewEPICMatrix) matrixFromFile;
         else //tup-exp
             luteMat = (EnergyMatrix) matrixFromFile;
         
@@ -317,7 +326,7 @@ public class PrecomputedMatrices {
         return pruneMat;
     }
 
-    public EPICMatrix getEpicMat() {
+    public NewEPICMatrix getEpicMat() {
         return epicMat;
     }
 

@@ -55,7 +55,7 @@ public interface ObjectiveFunction extends Serializable {
     //If we're going to initialize full minimization with minimization over a limited number of DOFs,
     //these are the indices of the DOFs that will be fixed
 
-    public static class OneDof {
+    public static class OneDof implements Serializable {
 		
 		private ObjectiveFunction f;
 		private int d;
@@ -94,7 +94,7 @@ public interface ObjectiveFunction extends Serializable {
 		}
 	}
 	
-	public static class DofBounds {
+	public static class DofBounds implements Serializable {
 		
 		private DoubleMatrix1D[] bounds;
 		

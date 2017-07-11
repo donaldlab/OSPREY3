@@ -10,6 +10,7 @@ import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
+import edu.duke.cs.osprey.minimization.MoleculeObjectiveFunction;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction.DofBounds;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
@@ -198,5 +199,19 @@ public class ConfEnergyCalculator {
 		ecalc.tasks.waitForFinish();
 		
 		return econfs;
+	}
+        
+        
+        //Making objective functions for EPIC fitting
+        public MoleculeObjectiveFunction makeIntraShellObjFcn(int pos, int rc) {
+                BoundedParametricMolecule bpmol = confSpace.makeBoundedParametricMolecule(new RCTuple(pos,rc));
+                ResidueInteractions inters = EnergyPartition.Traditional.makeSingle(confSpace, eref, addResEntropy, pos, rc);
+		return ecalc.makeEnergyObjFcn(bpmol.pmol, bpmol.dofBounds, inters);
+	}
+        
+        public MoleculeObjectiveFunction makePairwiseObjFcn(int pos1, int rc1, int pos2, int rc2) {
+                BoundedParametricMolecule bpmol = confSpace.makeBoundedParametricMolecule(new RCTuple(pos1,rc1,pos2,rc2));
+                ResidueInteractions inters = EnergyPartition.Traditional.makePair(confSpace, eref, addResEntropy, pos1, rc1, pos2, rc2);
+		return ecalc.makeEnergyObjFcn(bpmol.pmol, bpmol.dofBounds, inters);
 	}
 }

@@ -8,7 +8,9 @@ import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.energy.EnergyFunction;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.energy.forcefield.ResPairCache.ResPair;
 import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
+import edu.duke.cs.osprey.energy.forcefield.ResidueForcefieldEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SparseFFEnergy;
 import edu.duke.cs.osprey.minimization.MoleculeModifierAndScorer;
@@ -260,6 +262,12 @@ public class SAPE implements Serializable {
             interactingRes.add( new int[] {res1.indexInMolecule, res2.indexInMolecule} );
         }
         
+        else if(EFToApprox instanceof ResidueForcefieldEnergy){
+            for(ResPair rp : ((ResidueForcefieldEnergy)EFToApprox).resPairs){
+                interactingRes.add( new int[] {rp.resIndex1,rp.resIndex2} );
+            }
+        }
+        
         //other types of energies not approximated in SAPE.  
     }
     
@@ -269,6 +277,11 @@ public class SAPE implements Serializable {
         //we expect that EFToApprox has at least some terms containing force-field type parameters
         //we'll look recursively for a forcefield type energy as in addInteractingRes
         //we call this function when ffParams is null and needs to be filled in
+        
+        if(EFToApprox instanceof ResidueForcefieldEnergy){
+            ffParams = ((ResidueForcefieldEnergy)EFToApprox).resPairCache.ffparams;
+            return;
+        }
         
         if(EFToApprox instanceof MultiTermEnergyFunction){//need to recurse to terms
             for( EnergyFunction term : ((MultiTermEnergyFunction)EFToApprox).getTerms() ){

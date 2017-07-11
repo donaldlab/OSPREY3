@@ -10,10 +10,11 @@ import edu.duke.cs.osprey.dof.MoveableStrand;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction.DofBounds;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.HashMap;
 
-public abstract class StrandFlex {
+public abstract class StrandFlex implements Serializable {
 	
 	public abstract List<? extends DegreeOfFreedom> makeDofs(Strand strand, Molecule mol);//DOF will control the conformation of mol
 	public abstract DofBounds makeBounds(Strand strand);

@@ -63,7 +63,6 @@ public class DEEGMECFinder extends SimpleGMECFinder {
     public EnergyMatrix emat;
     public SimpleConfSpace confSpace;
     public EnergyCalculator ecalc;
-    public boolean checkApproxE;//may want args for some of these
     public double I0=5;
     public double Ew=0;
     public boolean doIMinDEE = true;//may infer from flexibility?
@@ -101,7 +100,7 @@ public class DEEGMECFinder extends SimpleGMECFinder {
         
         System.out.println("Calculating GMEC with interval = " + interval);
         
-        boolean printEPICEnergy = checkApproxE && epicSettings.shouldWeUseEPIC() && luteSettings.shouldWeUseLUTE();
+        boolean printEPICEnergy = epicSettings.shouldWeUseEPIC();
         
         // 11/11/2015 JJ: This logic belongs out here. A function that does nothing if a flag is false should 
         // have its flag promoted outside of the function, unless it's used multiple times. In that case
@@ -118,6 +117,9 @@ public class DEEGMECFinder extends SimpleGMECFinder {
         
         
         Queue.FIFO<ConfSearch.EnergiedConf> goodConfs = super.find(Ew);//assuming pruning and confSearch are right, find the GMEC
+        if(printEPICEnergy){
+            System.out.println("GMEC EPIC energy: "+precompMat.epicMat.minimizeEnergy(goodConfs.peek().getAssignments()));
+        }
         //and everything within Ew of it.  
         
         //things like minScoreConf can be made fields in SimpleGMECFinder
@@ -217,7 +219,9 @@ public class DEEGMECFinder extends SimpleGMECFinder {
     //deal with Poisson-Boltzmann
     //EPIC
     //COMETS
-    //make printEPICEnergy ASimpleGMECFinderField...false by default, DEEGMECFinder can turn it on, make sure everything is printed
+    //make printEPICEnergy a SimpleGMECFinderField...false by default, DEEGMECFinder can turn it on, make sure everything is printed
         //that was printed in the real GMECFinder
+    //Merge MoleculeModifierAndScorer with MoleculeObjectiveFunction
+    //Make base conf e tuple expander so can reuse pruning code
     
 }

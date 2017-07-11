@@ -6,6 +6,7 @@
 package edu.duke.cs.osprey.confspace;
 
 import edu.duke.cs.osprey.minimization.ObjectiveFunction.DofBounds;
+import java.io.Serializable;
 
 /**
  *
@@ -16,7 +17,7 @@ import edu.duke.cs.osprey.minimization.ObjectiveFunction.DofBounds;
  * 
  * @author mhall44
  */
-public class BoundedParametricMolecule {
+public class BoundedParametricMolecule implements Serializable {
     
     public final ParametricMolecule pmol;
     public final DofBounds dofBounds;

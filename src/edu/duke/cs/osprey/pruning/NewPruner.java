@@ -13,6 +13,7 @@ import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.TupleEnumerator;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.epic.EPICMatrix;
+import edu.duke.cs.osprey.ematrix.epic.NewEPICMatrix;
 import edu.duke.cs.osprey.gmec.PrecomputedMatrices;
 import java.util.ArrayList;
 import java.util.TreeSet;
@@ -36,7 +37,7 @@ public class NewPruner {
     PruningMatrix pruneMat;//pruning matrix to prune in
     PruningMatrix competitorPruneMat;//matrix defining what competitors are allowed.  (Can be same as pruneMat)
     EnergyMatrix emat;//energy matrix to prune based on
-    EPICMatrix epicMat;//EPIC matrix to go with emat, if applicable
+    NewEPICMatrix epicMat;//EPIC matrix to go with emat, if applicable
     SimpleConfSpace confSpace;//Conformation space over which these matrices are defined
     
     TupleEnumerator tupEnum;//use to enumerate candidate RC tuples, etc.
@@ -124,7 +125,7 @@ public class NewPruner {
             for (RCTuple cand : candidates) {
             	double contELB = 0;
                 if(useEPIC && cand.pos.size()>1)//EPIC gives us nothing for 1-pos pruning
-                    contELB = epicMat.minContE(cand);
+                    contELB = epicMat.minimizeEnergy(cand, false);
                 
                 // skip candidates we've already pruned
                 if (pruneMat.isPruned(cand)) {
