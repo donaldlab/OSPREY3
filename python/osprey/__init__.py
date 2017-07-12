@@ -494,3 +494,53 @@ def GMECFinder(astar, confEcalc, confLog=None, printIntermediateConfs=None, useE
 
 	return builder.build()
 
+
+def DEEGMECFinder(emat, confSpace, ecalc, confEcalc, name, use_epic, use_lute, confLog=None, printIntermediateConfs=None, useExternalMemor
+y=None):
+        '''
+        :java:classdoc:`.gmec.SimpleGMECFinder`
+
+        :builder_option astar .gmec.SimpleGMECFinder$Builder#search:
+
+                Use one of :py:func:`AStarTraditional` or :py:func:`AStarMPLP` to get an A* implementation.
+
+        :builder_option confEcalc .gmec.SimpleGMECFinder$Builder#confEcalc:
+
+                Use :py:func:`ConfEnergyCalculator` to get a conformation energy calculator.
+
+        :param str confLog: Path to file where conformations found during conformation space search should be logged.
+        :builder_option printIntermediateConfs .gmec.SimpleGMECFinder$Builder#printIntermediateConfsToConsole:
+        :builder_option useExternalMemory .gmec.SimpleGMECFinder$Builder#useExternalMemory:
+        :builder_return .gmec.SimpleGMECFinder$Builder:
+        '''
+
+        builder = _get_builder(c.gmec.DEEGMECFinder)(emat, confSpace, ecalc, confEcalc, name)
+
+        if confLog is not None:
+                logFile = jvm.toFile(confLog)
+                builder.setLogPrinter(c.gmec.LoggingConfPrinter(logFile))
+
+        if printIntermediateConfs is not None:
+                builder.setPrintIntermediateConfsToConsole(printIntermediateConfs)
+
+        if useExternalMemory == True:
+                builder.useExternalMemory()
+
+        gf = builder.build()
+        
+        if use_epic:
+          gf.epicSettings = c.ematrix.epic.EPICSettings.defaultEPIC()
+          gf.pruningSettings.algOption = 3
+        if use_lute:
+          gf.luteSettings = c.tupexp.LUTESettings.defaultLUTE()
+          gf.pruningSettings.algOption = 3
+          gf.pruningSettings.useTriples = True
+
+        return gf
+
+
+def DEEPerStrandFlex(strand, pert_file_name, flex_res_list, pdb_file):
+        deeper_settings = c.dof.deeper.DEEPerSettings(True, pert_file_name, True, 'None', False, 2.5, 2.5, False, jvm.toArrayList(flex_res_list), pdb_file, False, strand.templateLib)
+        bbflex = c.confspace.DEEPerStrandFlex(strand,deeper_settings)
+        return bbflex
+
