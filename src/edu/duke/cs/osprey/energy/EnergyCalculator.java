@@ -28,6 +28,7 @@ import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
 import edu.duke.cs.osprey.structure.AtomConnectivity;
 import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residues;
 import edu.duke.cs.osprey.tools.AutoCleanable;
 import edu.duke.cs.osprey.tools.Factory;
@@ -455,6 +456,39 @@ public class EnergyCalculator implements AutoCleanable {
                 //calcEnergy gives the minimum of this function
 		EnergyFunction efunc = context.efuncs.make(inters, pmol.mol);
 		return new MoleculeObjectiveFunction(pmol, bounds, efunc);
+	}
+        
+        
+        public void writeMinimizedStruct(ParametricMolecule pmol, DofBounds bounds, ResidueInteractions inters, String fileName) {
+		
+		// short circuit: no inters, no energy!
+		if (inters.size() <= 0) {
+			throw new RuntimeException("ERROR: Can't minimize struct with no energy");
+		}
+		
+		// get the energy function
+		EnergyFunction efunc = context.efuncs.make(inters, pmol.mol);
+		try {
+			
+			if (bounds.size() > 0) {
+				
+				// minimize it
+				Minimizer minimizer = context.minimizers.make(new MoleculeObjectiveFunction(pmol, bounds, efunc));
+				try {
+					double energy = minimizer.minimize().energy;
+                                        PDBIO.writeFile(pmol.mol, null, energy, fileName);
+				} finally {
+					Minimizer.Tools.cleanIfNeeded(minimizer);
+				}
+				
+			} else {
+                            //no need to minimize
+                            double energy = efunc.getEnergy();
+                            PDBIO.writeFile(pmol.mol, null, energy, fileName);
+			}
+		} finally {
+			EnergyFunction.Tools.cleanIfNeeded(efunc);
+		}
 	}
         
         

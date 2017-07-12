@@ -342,6 +342,9 @@ public class PrecomputedMatrices {
         return confSpace;
     }
     
+    public boolean shouldWeUseLUTE(){
+        return luteSettings.shouldWeUseLUTE();
+    }
     
     
     

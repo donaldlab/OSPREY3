@@ -1,0 +1,156 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package edu.duke.cs.osprey.tests;
+
+import edu.duke.cs.osprey.astar.comets.LME;
+import edu.duke.cs.osprey.astar.comets.NewCOMETSDoer;
+import edu.duke.cs.osprey.confspace.SimpleConfSpace;
+import edu.duke.cs.osprey.confspace.Strand;
+import edu.duke.cs.osprey.ematrix.EnergyMatrix;
+import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
+import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
+import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
+import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
+import edu.duke.cs.osprey.energy.EnergyCalculator;
+import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
+import edu.duke.cs.osprey.gmec.PrecomputedMatrices;
+import edu.duke.cs.osprey.gmec.PruningSettings;
+import edu.duke.cs.osprey.structure.Molecule;
+import edu.duke.cs.osprey.structure.PDBIO;
+import edu.duke.cs.osprey.tupexp.LUTESettings;
+import java.util.ArrayList;
+import java.util.Arrays;
+
+/**
+ *
+ * @author mhall44
+ */
+public class NewCOMETS {
+    
+    public static void main(String[] args){
+        int numStates = 4;
+        SimpleConfSpace[] confSpaces = new SimpleConfSpace[numStates];
+        PrecomputedMatrices[] precompMats = new PrecomputedMatrices[numStates];
+        LME objFcn = new LME("1 -1 0 0 0",4);
+        LME[] constraints = new LME[] {new LME("1 -1 0 0 20",4),new LME("0 0 -1 1 100",4),new LME("0 1 0 1 20",4)};
+        int boundMutPos[] = new int[] {3,4,5,6,7};
+        int unboundMutPos[] = new int[] {0,1,2,3,4};
+        ArrayList<ArrayList<Integer>> mutable2StatePosNums = toDoubleList(boundMutPos,unboundMutPos,boundMutPos,unboundMutPos);
+        
+        ArrayList<ArrayList<String>> AATypeOptions = toDoubleList(
+                new String[] {"ILE","LEU","MET","PHE","TRP","TYR","VAL"},
+                new String[] {"ASP","GLU"},
+                new String[] {"ILE","LEU","MET","PHE","TRP","TYR","VAL"},
+                new String[] {"ILE","LEU","MET","PHE","TRP","TYR","VAL"},
+                new String[] {"ASN","GLN","SER","THR"}
+        );
+
+        int numMaxMut = -1;
+        String wtSeq[] = null;
+        int numSeqsWanted = 5;
+        ConfEnergyCalculator[] confECalc = new ConfEnergyCalculator[numStates];        
+        String stateNames[] = new String[] {"3K75.b","3K75.ub","3LQC.b","3LQC.ub"};
+        
+        PruningSettings pruningSettings = new PruningSettings();
+        pruningSettings.typedep = true;
+        
+        boolean useERef = true;//this might seem irrelevant to COMETS
+        //but if does affect values of many LME's; the shift in LME value due to eref's
+        //is only constant wrt sequence if the LME coefficients sum to 1
+
+        
+        for(int state=0; state<numStates; state++){
+            confSpaces[state] = prepareConfSpace(state,AATypeOptions);
+	    ForcefieldParams ffparams = new ForcefieldParams();
+            ffparams.solvScale = 0.;
+	    EnergyCalculator ecalc = new EnergyCalculator.Builder(confSpaces[state], ffparams).build();
+            
+            ConfEnergyCalculator.Builder confEcalcBuilder = new ConfEnergyCalculator.Builder(confSpaces[state], ecalc);
+            if(useERef){
+                SimpleReferenceEnergies eref = new SimpleReferenceEnergies.Builder(confSpaces[state],ecalc).build();
+                confEcalcBuilder.setReferenceEnergies(eref);
+            }
+            confECalc[state] = confEcalcBuilder.build();
+            
+            EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confECalc[state])
+				.build()
+				.calcEnergyMatrix();
+            
+            double Ival = 0;
+            double Ew = 0;
+            precompMats[state] = new PrecomputedMatrices(Ival, Ew, stateNames[state], emat, 
+                    confSpaces[state], ecalc, confECalc[state], new EPICSettings(), new LUTESettings(),
+                    pruningSettings);//rigid design
+        }
+            
+        NewCOMETSDoer cd = new NewCOMETSDoer(confSpaces,precompMats,objFcn,constraints,
+            mutable2StatePosNums,AATypeOptions,numMaxMut,wtSeq,numSeqsWanted,true,confECalc);
+        ArrayList<String> bestSequences = cd.calcBestSequences();
+    }
+    
+    
+    private static SimpleConfSpace prepareConfSpace(int state, ArrayList<ArrayList<String>> AATypeOptions){
+
+        String pdbFile;
+        String[] mutResNums;
+        
+        switch(state){
+            case 0:
+                pdbFile = "examples/3K75.3LQC/3K75.b.shell.pdb";
+                mutResNums = new String[] {"391","409","411","422","424"};
+                break;
+            case 1:
+                pdbFile = "examples/3K75.3LQC/3K75.ub.shell.pdb";
+                mutResNums = new String[] {"291","309","311","322","324"};
+                break;
+            case 2:
+                pdbFile = "examples/3K75.3LQC/3LQC.b.shell.pdb";
+                mutResNums = new String[] {"591","609","611","622","624"};
+                break;
+            case 3:
+                pdbFile = "examples/3K75.3LQC/3LQC.ub.shell.pdb";
+                mutResNums = new String[] {"291","309","311","322","324"};
+                break;
+            default:
+                throw new RuntimeException("Unrecognized state");
+        }
+        
+        Molecule mol = PDBIO.readFile(pdbFile);
+
+        Strand strand = new Strand.Builder(mol).build();
+        for(int mutPos=0; mutPos<AATypeOptions.size(); mutPos++)
+            strand.flexibility.get(mutResNums[mutPos]).setLibraryRotamers(AATypeOptions.get(mutPos));
+        
+        if(state%2==0){//bound state, set flexibility for non-designed chain
+            strand.flexibility.get("67").setLibraryRotamers("Phe");
+            strand.flexibility.get("90").setLibraryRotamers("Thr");
+            strand.flexibility.get("136").setLibraryRotamers("Tyr");
+        }
+        
+        SimpleConfSpace confSpace = new SimpleConfSpace.Builder().addStrand(strand).build();
+        return confSpace;
+    }
+    
+    private static ArrayList<ArrayList<Integer>> toDoubleList(int[]... arr){
+        ArrayList<ArrayList<Integer>> ans = new ArrayList<>();
+        for(int[] a : arr){
+            ArrayList<Integer> subAns = new ArrayList<>();
+            for(int b : a)
+                subAns.add(b);
+            ans.add(subAns);
+        }
+        return ans;
+    }
+    
+    private static ArrayList<ArrayList<String>> toDoubleList(String[]... arr){
+        ArrayList<ArrayList<String>> ans = new ArrayList<>();
+        for(String[] a : arr){
+            ans.add( new ArrayList(Arrays.asList(a)) );
+        }
+        return ans;
+    }
+    
+}

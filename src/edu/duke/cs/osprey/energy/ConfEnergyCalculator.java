@@ -127,6 +127,17 @@ public class ConfEnergyCalculator {
                 BoundedParametricMolecule bpmol = confSpace.makeBoundedParametricMolecule(frag);
 		return ecalc.calcEnergy(bpmol.pmol, bpmol.dofBounds, inters);
 	}
+        
+        
+        
+        public void writeMinimizedStruct(RCTuple frag, ResidueInteractions inters, String fileName){
+            BoundedParametricMolecule bpmol = confSpace.makeBoundedParametricMolecule(frag);
+            ecalc.writeMinimizedStruct(bpmol.pmol, bpmol.dofBounds, inters, fileName);
+        }
+        
+        public void writeMinimizedStruct(RCTuple frag, String fileName){
+            writeMinimizedStruct(frag, makeFragInters(frag), fileName);
+        }
 	
 	/**
 	 * Asynchronous version of {@link #calcEnergy(RCTuple,ResidueInteractions)}.

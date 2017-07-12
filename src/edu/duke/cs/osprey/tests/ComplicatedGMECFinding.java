@@ -9,7 +9,6 @@ import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.confspace.CATSStrandFlex;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.DEEPerStrandFlex;
-import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.confspace.StrandFlex;
@@ -21,8 +20,6 @@ import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.externalMemory.ExternalMemory;
-import edu.duke.cs.osprey.externalMemory.Queue;
 import edu.duke.cs.osprey.gmec.DEEGMECFinder;
 import edu.duke.cs.osprey.gmec.SimpleGMECFinder;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -30,10 +27,6 @@ import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 import java.util.ArrayList;
 import java.util.Arrays;
-import static org.hamcrest.Matchers.is;
-import static org.junit.Assert.assertThat;
-import org.junit.BeforeClass;
-import org.junit.Test;
 
 /**
  *
