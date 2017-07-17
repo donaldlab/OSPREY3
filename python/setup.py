@@ -1,33 +1,28 @@
 
+import setuptools
+import os
+
 
 # relevant docs for making python packages:
 # https://packaging.python.org/tutorials/distributing-packages/
 # https://pip.pypa.io/en/stable/user_guide/#installing-packages
 
 
-# to run the osprey module in 'develop' mode (ie, where python points directly to the source files),
-# run this script directly:
-# $ python setup.py develop
-# to uninstall the development version, run:
-# $ python setup.py develop --uninstall
-
+# this script gets run in multiple folders by different gradle tasks,
+# so we need a configurable root
 rootDir = '../'
 
-# the jerkar build script also runs this setup.py to build the python distribution files
-# but it will change the rootDir variable so paths still resolve correctly
-# the jerkar build script copies files as needed to create the following dir structure for this script:
-# build/output/python/
+# when run in the current folder by the gradle task `pythonDevelop`, we keep this rootDir
+# the gradle task `pythonBdist` will re-write rootDir when it copies this script to the build dir
+
+# the build dir should look like this when setup.py is called:
+# build/python/bdist/
 #    osprey/
 #       *.py
-#       osprey-version.jar
-#       natives/
+#       lib/
 #    setup.py
 #    README.rst
 #    LICENSE.txt
-
-
-import setuptools
-import os
 
 
 # read the osprey version
@@ -41,17 +36,13 @@ setuptools.setup(
 	description='Open-Source Protein Redesign for You',
 	url='https://github.com/donaldlab/OSPREY_refactor',
 	packages=['osprey'],
-	install_requires=['JPype1'],
+	python_requires='>=2.7,<3',
+	install_requires=['JPype1>=0.5.7,<0.6'],
 	package_data={
-		'osprey': ['*.jar', 'natives/*', '*.rst']
+		'osprey': ['lib/*.jar', 'README.rst', 'LICENSE.txt']
 	},
 	classifiers=[
 		'Programming Language :: Python :: 2.7',
-		'Programming Language :: Python :: 3',
 		'Operating System :: OS Independent'
 	]
 )
-
-# TODO: get a pypi account and upload our python package when it's ready for release
-# then installs can be as easy as `pip install osprey`
-

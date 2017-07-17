@@ -52,7 +52,7 @@ public class Gpu {
 	public CLProgram compileProgram(String filename)
 	throws IOException {
 		
-		try (InputStream in = FileTools.openResource("kernelSource/" + filename, getClass())) {
+		try (InputStream in = FileTools.openResource("/gpuKernels/opencl/" + filename, getClass())) {
 			
 			CLProgram program;
 			if (DumpCompilerLog) {

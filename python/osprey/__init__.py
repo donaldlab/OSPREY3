@@ -1,9 +1,7 @@
 
 import sys, os, jpype
-import osprey.jvm as jvm, osprey.wraps as wraps
+import jvm, wraps
 
-
-_IS_DEV = True
 
 # NOTE: These classes exists only to talk to the docstring processors.
 # Variables that get assigned instances of these classes will
@@ -62,26 +60,30 @@ def start(heapSizeMB=1024, enableAssertions=False):
 
 	# setup a global exception handler to show java exception info
 	sys.excepthook = _java_aware_excepthook
-	
-	# start the jvm
-	osprey_dir = os.path.dirname(__file__)
 
-	if _IS_DEV:
-                
-		classpath_path = os.path.join(osprey_dir, '../../build/output/classpath.txt')
-		if not os.path.isfile(classpath_path):
-			raise Exception('dev classpath for python not generated yet. run ./jerkar doClasspath')
+	# is this the real life, or is this just fantasy?
+	lib_dir = os.path.join(os.path.dirname(__file__), 'lib')
+	no_escape_from_reality = os.path.exists(lib_dir)
 
-		# development environment: use the library jars and compiled classes directly
-		for path in open(classpath_path, 'r').readlines():
-			jvm.addClasspath(path.strip())
+	# build jvm classpath
+	if no_escape_from_reality:
+
+		# release environment: use jars in lib folder
+		for file in os.listdir(lib_dir):
+			jvm.addClasspath(os.path.join(lib_dir, file))
 
 	else:
 
-		# release environment: use natives folder and fat jar
-		jvm.addClasspath(os.path.join(osprey_dir, 'osprey-*.jar'))
-		jvm.setNativesDir(os.path.join(osprey_dir, 'natives'))
+		# development environment: use the gradle-defined classpath
+		osprey_dir = os.path.join(os.path.dirname(__file__), '../../')
+		classpath_path = os.path.join(osprey_dir, 'build/python/classpath.txt')
+		if not os.path.isfile(classpath_path):
+			raise Exception('dev classpath for python not generated yet. run ./gradlew pythonDevelop')
 
+		for path in open(classpath_path, 'r').readlines():
+			jvm.addClasspath(path.strip())
+
+	# start the jvm
 	jvm.start(heapSizeMB, enableAssertions)
 
 	# set up class factories
@@ -148,8 +150,8 @@ def writePdb(mol, path):
 	'''
 	save a molecule to a PDB file
 
-	:param molecule: the molecule to save
-	:type molecule: :java:ref:`.structure.Molecule`
+	:param mol: the molecule to save
+	:type mol: :java:ref:`.structure.Molecule`
 
 	:param str path: path of the PDB file
 	'''
@@ -495,52 +497,51 @@ def GMECFinder(astar, confEcalc, confLog=None, printIntermediateConfs=None, useE
 	return builder.build()
 
 
-def DEEGMECFinder(emat, confSpace, ecalc, confEcalc, name, use_epic, use_lute, confLog=None, printIntermediateConfs=None, useExternalMemor
-y=None):
-        '''
-        :java:classdoc:`.gmec.SimpleGMECFinder`
+def DEEGMECFinder(emat, confSpace, ecalc, confEcalc, name, use_epic, use_lute, confLog=None, printIntermediateConfs=None, useExternalMemory=None):
+	'''
+	:java:classdoc:`.gmec.SimpleGMECFinder`
 
-        :builder_option astar .gmec.SimpleGMECFinder$Builder#search:
+	:builder_option astar .gmec.SimpleGMECFinder$Builder#search:
 
-                Use one of :py:func:`AStarTraditional` or :py:func:`AStarMPLP` to get an A* implementation.
+			Use one of :py:func:`AStarTraditional` or :py:func:`AStarMPLP` to get an A* implementation.
 
-        :builder_option confEcalc .gmec.SimpleGMECFinder$Builder#confEcalc:
+	:builder_option confEcalc .gmec.SimpleGMECFinder$Builder#confEcalc:
 
-                Use :py:func:`ConfEnergyCalculator` to get a conformation energy calculator.
+			Use :py:func:`ConfEnergyCalculator` to get a conformation energy calculator.
 
-        :param str confLog: Path to file where conformations found during conformation space search should be logged.
-        :builder_option printIntermediateConfs .gmec.SimpleGMECFinder$Builder#printIntermediateConfsToConsole:
-        :builder_option useExternalMemory .gmec.SimpleGMECFinder$Builder#useExternalMemory:
-        :builder_return .gmec.SimpleGMECFinder$Builder:
-        '''
+	:param str confLog: Path to file where conformations found during conformation space search should be logged.
+	:builder_option printIntermediateConfs .gmec.SimpleGMECFinder$Builder#printIntermediateConfsToConsole:
+	:builder_option useExternalMemory .gmec.SimpleGMECFinder$Builder#useExternalMemory:
+	:builder_return .gmec.SimpleGMECFinder$Builder:
+	'''
 
-        builder = _get_builder(c.gmec.DEEGMECFinder)(emat, confSpace, ecalc, confEcalc, name)
+	builder = _get_builder(c.gmec.DEEGMECFinder)(emat, confSpace, ecalc, confEcalc, name)
 
-        if confLog is not None:
-                logFile = jvm.toFile(confLog)
-                builder.setLogPrinter(c.gmec.LoggingConfPrinter(logFile))
+	if confLog is not None:
+		logFile = jvm.toFile(confLog)
+		builder.setLogPrinter(c.gmec.LoggingConfPrinter(logFile))
 
-        if printIntermediateConfs is not None:
-                builder.setPrintIntermediateConfsToConsole(printIntermediateConfs)
+	if printIntermediateConfs is not None:
+		builder.setPrintIntermediateConfsToConsole(printIntermediateConfs)
 
-        if useExternalMemory == True:
-                builder.useExternalMemory()
+	if useExternalMemory == True:
+		builder.useExternalMemory()
 
-        gf = builder.build()
-        
-        if use_epic:
-          gf.epicSettings = c.ematrix.epic.EPICSettings.defaultEPIC()
-          gf.pruningSettings.algOption = 3
-        if use_lute:
-          gf.luteSettings = c.tupexp.LUTESettings.defaultLUTE()
-          gf.pruningSettings.algOption = 3
-          gf.pruningSettings.useTriples = True
+	gf = builder.build()
 
-        return gf
+	if use_epic:
+		gf.epicSettings = c.ematrix.epic.EPICSettings.defaultEPIC()
+		gf.pruningSettings.algOption = 3
+	if use_lute:
+		gf.luteSettings = c.tupexp.LUTESettings.defaultLUTE()
+		gf.pruningSettings.algOption = 3
+		gf.pruningSettings.useTriples = True
+
+	return gf
 
 
 def DEEPerStrandFlex(strand, pert_file_name, flex_res_list, pdb_file):
-        deeper_settings = c.dof.deeper.DEEPerSettings(True, pert_file_name, True, 'None', False, 2.5, 2.5, False, jvm.toArrayList(flex_res_list), pdb_file, False, strand.templateLib)
-        bbflex = c.confspace.DEEPerStrandFlex(strand,deeper_settings)
-        return bbflex
+	deeper_settings = c.dof.deeper.DEEPerSettings(True, pert_file_name, True, 'None', False, 2.5, 2.5, False, jvm.toArrayList(flex_res_list), pdb_file, False, strand.templateLib)
+	bbflex = c.confspace.DEEPerStrandFlex(strand,deeper_settings)
+	return bbflex
 

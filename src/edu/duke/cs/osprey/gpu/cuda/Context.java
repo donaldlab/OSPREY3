@@ -47,7 +47,7 @@ public class Context {
 		if (kernel == null) {
 			
 			// cache miss, load the kernel
-			File kernelFile = new ResourcePathRoot(getClass()).extractToTempFile(String.format("kernelBinaries/%s.bin", name));
+			File kernelFile = new ResourcePathRoot("/gpuKernels/cuda").extractToTempFile(String.format("%s.bin", name));
 			kernel = new CUmodule();
 			JCudaDriver.cuModuleLoad(kernel, kernelFile.getAbsolutePath());
 		
