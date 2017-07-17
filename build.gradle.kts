@@ -187,6 +187,11 @@ tasks {
 		workingDir = docSrcDir.toFile()
 		commandLine("sphinx-build", "-b", "html", "-j", "2", ".", "$docBuildDir")
 	}
+	val remakeDoc by creating {
+		group = "documentation"
+		description = "runs cleanDoc, then makeDoc to refresh all changes to documentation"
+		dependsOn(cleanDoc, makeDoc)
+	}
 
 	val pythonDevelop by creating(Exec::class) {
 		group = "develop"

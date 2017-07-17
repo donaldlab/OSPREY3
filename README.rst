@@ -29,21 +29,34 @@ Osprey is released under a permissive GPL-style license. See the
 .. _full Osprey license: LICENSE.txt
 
 
+Prerequisites
+-------------
+
+ * `Python 2.7`_ (not Python 3+)
+ * `pip`_
+
+.. _Python 2.7: https://www.python.org/download/releases/2.7/
+.. _pip: https://pip.pypa.io/en/stable/
+
+
 Installation
 ------------
 
 Download the Osprey Python distribution zip, extract it to your favorite folder,
-then use `pip`_ to install::
+then use the provided shell script to install::
 
-    $ pip install osprey-<version>.whl
-    
-    
-where ``<version>`` is the version of Osprey you've downloaded.
+    $ ./install.sh
 
-.. _pip: https://pip.pypa.io/en/stable/
+if using Linux/Mac, or::
 
-**NOTE:** You may need super-user privileges to install Python packages.
-In linux, try the ``sudo`` command.
+	$ install.bat
+
+if using Windows
+
+The install scripts use ``pip`` internally to install the Python package. If you want to customize
+the installation of the python package, you can ingore the install scripts and call ``pip`` directly::
+
+	$ pip2 install osprey --no-index --use-wheel --find-link=wheelhouse
 
 
 Running Osprey
@@ -78,43 +91,29 @@ older command-line interface, and new Osprey projects should consider using the 
 rather than the command-line interface.
 
 However, for backwards compatibility, the command-line interface is still provided, although
-it may not receive feature updates in the future.
+it may not receive feature updates in the future. Or it may be removed entirely.
 
 To access the command-line interface, download the Osprey Java distribution.
 Extract it to your favorite folder, then enter the following command into a shell::
 
-    $ java -jar osprey-<version>.jar [commands]
-    
-where ``<version>`` is the version of Osprey and ``[commands]`` are the Osprey commands
-you want to run. You can run Osprey without ``[commands]`` and Osprey will print a list
-of the available commands. For brevity, we'll omit the `<version>` for the remainder of
-these instructions.
-    
+    $ cd bin
+    $ ./osprey [commands]
+
+where ``[commands]`` are the Osprey commands you want to run. You can run Osprey without
+``[commands]`` and Osprey will print a list of the available commands.
+
 To show the version of your Osprey installation, try::
 
-    $ java -jar osprey.jar version
+    $ ./osprey version
 
 To run a GMEC-based protein design, try::
 
-    $ java -jar osprey.jar FindGMEC /path/to/config1 /path/to/config2 ...
-    
+    $ ./osprey FindGMEC /path/to/config1 /path/to/config2 ...
 
-with GPU acceleration
-.....................
-To use GPU acceleration in the command-line interface, you'll need to need to tell
-Java where to find the operating system-specific GPU libraries. The Python interface
-does this automatically, but on the command line, you'll need to supply the additional
-JVM argument::
-	
-	-Djava.library.path=natives
+To show GPU informatino, try::
 
-If the `java.library.path` is not correctly set, Osprey will think the
-native GPU libraries (e.g. CUDA, OpenCL) are not installed.
-	
-For example, to run the ``GpuInfo`` command::
+    $ ./osprey GPUInfo
 
-	$ java -Djava.library.path=natives -jar osprey.jar GpuInfo
-	
 The ``GpuInfo`` command prints info about available GPUs in the system, and which
 ones Osprey can use.
 

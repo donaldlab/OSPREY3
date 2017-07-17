@@ -2,6 +2,18 @@
 Osprey guide for contributors
 =============================
 
+Prerequisites
+~~~~~~~~~~~~~
+
+To devleop Osprey, you'll need to have the following software packages installed:
+
+ * `Python 2.7`_ (not Python 3+)
+ * `pip`_
+ * Sphinx (for building documentation. see `Documentation`_ section below)
+
+.. _Python 2.7: https://www.python.org/download/releases/2.7/
+.. _pip: https://pip.pypa.io/en/stable/
+
 
 Clone project from Github
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -19,53 +31,64 @@ To develop Osprey, first clone the git repository to a folder of your choosing::
 Setup development environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Osprey uses the `Jerkar`_ build system to automate certain development tasks like:
+Osprey uses the `Gradle`_ build system with the `Kotlin DSL`_ to automate certain development tasks like:
 
 * Download Java libraries (e.g. jar files)
 * Maintain the Java classpath needed to compile or run Osprey
 * Compile code and build the Osprey jar file
-* Build the Osprey distribution zip file
+* Compile Osprey documentation
+* Build the Osprey distribution zip files
 * Configure Java IDEs
+* Configure python development environment
 
-You don't need to install Jerkar, since it's already included in the Osprey repo.
-Just run this in a shell at the project root to set up your develoment environment::
+.. _Gradle: https://gradle.org/
+.. _Kotlin DSL: https://blog.gradle.org/kotlin-meets-gradle
 
-    $ ./jerkar setupDevEnv
+You don't need to install Gradle, since it's already included in the Osprey repo.
+To begin developing Osprey, just use your favorite Java IDE to import the Gradle project.
+Gradle has built-in or plugin support in many popular IDEs, including `Eclipse`_, `IntelliJ IDEA`_,
+and `Netbeans`_. The import process in your IDE should walk you through the steps needed
+to setup Osprey for compilation and testing.
 
-This script will download the Java libraries needed by Osprey and generate the ``.classpath``
-file for Eclipse. Then Eclipse can build the project and you’ll be able to launch
-Osprey from within Eclipse for development and debugging.
+.. _Eclipse: https://www.eclipse.org/
+.. _IntelliJ IDEA: https://www.jetbrains.com/idea/
+.. _Netbeans: https://netbeans.org/
 
-.. _Jerkar: http://project.jerkar.org
 
-\
-    **TODO:** Jerkar supports other IDEs too (eg, Netbeans, IntelliJ), but I don't know
-    how to use those IDEs. Anyone want to help write docs for those IDEs?
+Once your IDE is configured to your liking, setup the Python development environment with
+the Gradle task ``pythonDevelop``::
 
-This script also generates the ``build/output/classpath.txt`` file used by the development
-mode of the Osprey Python package.
+	$ ./gradlew pythonDevelop
 
-\
-    **NOTE:** If you need to get the classpath to run Osprey in some other development
-    environment (e.g. a shell script), ``classpath.txt`` lists all the runtime dependencies
-    in a very simple format.
+This task 'installs' the Osprey python package in editable mode, so your changes will
+be immediately visible to Python scripts. This task will also install the `JPype`_ dependency
+needed by Osprey.
+
+To undo development mode (ie, uninstall Osprey's python package), use the Gradle task
+``pythonUndevelop``::
+
+	$ ./gradlew pythonUndevelop
+
+This will remove the Osprey package from python. Removing the development verison of Osprey
+is necessary if you wish to install the Python package included in Osprey distribution.
+
 
 Build Osprey distribution
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To build an Osprey distribution zip file, simply run in the Osprey project folder::
+To build the Osprey distribution files, simply run the Gradle task ``assemble`` from your
+IDE's Gradle UI.
 
-	$ ./jerkar doDist
+Or, if you're not using an IDE, you can run Gradle from the command line:
 
-The distribution zip file will be saved to ``build/output``.
+	$ ./gradlew assemble
+	
+**WARNING:** Using the usual ``build`` task in Gradle will indeed build the distribution,
+but it will also run the entire suite of Osprey unit tests. The testing suite is rather
+extensive and can take up to an hour to run depending on available hardware. To build Osprey
+without running the test suite, use the ``assemble`` task instead.
 
-By default, ``doDist`` will try to build the documentation for Osprey too, which
-has some additional prerequisites that may not be installed.
-If you want to skip building the documentation, try this command instead::
-
-    $ ./jerkar doDist -makeDocs=false
-
-.. _Sphinx: http://www.sphinx-doc.org
+The distribution files will be saved to ``build/distributions``.
 
 
 Documentation
@@ -88,6 +111,7 @@ format and can be found in the ``python/doc`` folder. For the javadoc comments, 
 a custom Sphinx extension (at ``python/doc/javadoc.py``) that converts javadoc comments into RST
 documentation much like the `autodoc extension to Sphinx`_.
 
+.. _Sphinx: http://www.sphinx-doc.org
 .. _ReStructured Text (RST): https://en.wikipedia.org/wiki/ReStructuredText
 .. _autodoc extension to Sphinx: http://www.sphinx-doc.org/en/stable/ext/autodoc.html
 
@@ -95,7 +119,6 @@ Prerequisites
 -------------
 
 Before we can build the documentation for Osprey, we'll have to satisfy some prerequisites.
-If you have Python package manager `pip`_ installed, it will make these steps significantly easier.
 
 1. Install `Sphinx`_, the python documentation tool::
 
@@ -109,40 +132,45 @@ If you have Python package manager `pip`_ installed, it will make these steps si
 
     $ pip install javalang
 
-.. _pip: https://pip.pypa.io/en/stable/
 .. _Guzzle: https://github.com/guzzle/guzzle_sphinx_theme
 .. _javalang: https://github.com/c2nes/javalang
 
 Building
 --------
 
-To build the documentation for Osprey, run the Sphinx tool from the ``doc`` folder::
+To build the documentation for Osprey, run the Sphinx tool using the Gradle task ``makeDoc``::
 
-	$ cd python/doc
-	$ make html
+	$ ./gradlew makeDoc
 
 For quick edit-compile-test cycles when editing documentation, it's helpful
-to run ``make clean`` before ``make html`` which makes sure all documentation
-is refreshed regardless of which RST documents have been recently edited. e.g.::
+to run the ``cleanDoc`` task before ``makeDoc`` task. This makes sure all documentation
+is refreshed regardless of which RST documents have been recently edited. Sphinx won't know if
+you've updated Javadoc comments, for instance. The Gradle task ``remakeDoc`` chains the two
+commands automatically::
 
-    $ make clean && make html
+    $ ./gradlew remakeDoc
 
-\
-    **WARNING:** Sphinx can detect problems with the documentation during building.
-    When this happens,
-    these problems will be reported to the console, usually in red text.
-    These warning messages usually indicate something is missing or incorrect
-    in the documentation, and that the underlying problems should be fixed before
-    the documentation is released.
+**NOTE   :** Sphinx can detect problems with the documentation during building.
+When this happens,
+these problems will be reported to the console, usually in red text.
+These warning messages usually indicate something is missing or incorrect
+in the documentation, and that the underlying problems should be fixed before
+the documentation is released.
 
-Then open the ``python/doc/_build/html/index.html`` file in your browser to view the documentation.
+Documentation is built to the ``build/python/doc`` folder. Open in the ``index.html``
+file there in your Browser to view the documentation.
+
+
+Extensions to Sphinx to read Javadoc comments
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Osprey's javadoc extension to Sphinx provides a few directives and roles to allow referring to
 Java classes, fields, methods, and javadoc comments from the RST documentation:
 
 
 Sphinx Directives
-~~~~~~~~~~~~~~~~~
+-----------------
+
 
 **.. javaclass:: java_class_reference**
     
@@ -168,7 +196,7 @@ Sphinx Directives
 
 
 Sphinx Roles
-~~~~~~~~~~~~
+------------
 
 **:java:ref:`java_reference`**
     
@@ -202,7 +230,7 @@ Sphinx Roles
 	
 	
 Python Docstring field extensions
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------------
 
 `Builder`_ classes in Java are a graceful way to handle class constructors that have
 many optional arguments, even though the Java language offers no explicit support for
@@ -239,8 +267,8 @@ classes into the Python builder functions documentation.
 	the ``build()`` method of the Java Builder class referenced by ``java_class_ref``.
 	
 
-Javadoc extensions
-~~~~~~~~~~~~~~~~~~
+Extensions to Javadoc enabled by Sphinx
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Since Osprey's documentation toolchain renders javadoc comments into RST, we can easily
 define a few new javadoc tags that invoke RST features that wouldn't otherwise be present
