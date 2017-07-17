@@ -1,16 +1,24 @@
-build/output
-build/classes
-build/libs
-build/test
-lib/nblibraries.properties
+
+# temp folders
+build
+lib
+**/*.egg-info
+**/*.pyc
+
+# netbeans things
 nbproject
 build.xml
 nbbuild.xml
-dist
+
+# eclipse things
 bin
 .classpath
-python/osprey.egg-info
-**/*.pyc
-python/doc/_build
-python/build
+.project
+
+# IDEA things
+.idea
+*.iml
+
+# Gradle things
+.gradle
 
