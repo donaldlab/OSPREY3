@@ -1,5 +1,4 @@
 
-import java.util.stream.Collectors
 import java.net.URL
 import java.nio.file.attribute.PosixFilePermission
 import java.nio.file.StandardCopyOption
@@ -8,6 +7,7 @@ import java.nio.file.Files
 
 plugins {
 	application
+	idea
 }
 
 val projectDir = project.projectDir.toPath().toAbsolutePath()
@@ -38,6 +38,15 @@ java {
 		get("test").apply {
 			java.srcDir("test")
 		}
+	}
+}
+
+idea {
+	module {
+		// use the same output folders as gradle, so the pythonDevelop task works correctly
+		outputDir = java.sourceSets["main"].output.classesDirs.singleFile
+		testOutputDir = java.sourceSets["test"].output.classesDirs.singleFile
+		inheritOutputDirs = false
 	}
 }
 
