@@ -52,4 +52,19 @@ public class TestPythonScripts {
 	public void findGMECMultipleStrands() {
 		run1CC8("findGMEC.multipleStrands.py");
 	}
+
+	@Test
+	public void findGMECDEEPer() {
+		run1CC8("findGMEC.DEEPer.py");
+	}
+
+	@Test
+	public void findGMECLUTE() {
+		run1CC8("findGMEC.LUTE.py");
+	}
+
+	@Test
+	public void templateLibrary() {
+		run1CC8("templateLibrary.py");
+	}
 }

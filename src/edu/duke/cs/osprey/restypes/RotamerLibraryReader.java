@@ -39,6 +39,11 @@ public class RotamerLibraryReader implements Serializable {
 			if (line.startsWith("!")) {
 				continue;
 			}
+
+			// skip over blank lines
+			if (line.isEmpty()) {
+				continue;
+			}
 			
 			// skip over the first line (number of residues in library)
 			if (numLines++ == 0) {

@@ -31,6 +31,12 @@ public class Strand implements Serializable {
 		private Molecule mol;
 		private String firstResNum;
 		private String lastResNum;
+
+		/**
+		 * The template library to use for this strand.
+		 *
+		 * If no template library is specified, a default template library is created.
+		 **/
 		private GenericResidueTemplateLibrary templateLib;
 		private boolean errorOnNonTemplateResidues;
 		

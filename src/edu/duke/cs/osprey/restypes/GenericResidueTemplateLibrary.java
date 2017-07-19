@@ -290,7 +290,7 @@ public class GenericResidueTemplateLibrary extends ResidueTemplateLibrary implem
         String curLine = null;
 
             curLine = lines.next();
-            while ( curLine.startsWith("#") ){
+            while ( curLine.startsWith("#") || curLine.isEmpty() ){
                     curLine = lines.next();
             }
             boolean foundRes = false;

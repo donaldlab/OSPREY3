@@ -238,7 +238,7 @@ def TemplateLibrary(forcefield=None, templateCoords=None, rotamers=None, backbon
 	return builder.build()
 	
 
-def Strand(pathOrMol, residues=None):
+def Strand(pathOrMol, residues=None, templateLib=None):
 	'''
 	:java:classdoc:`.confspace.Strand`
 
@@ -248,7 +248,9 @@ def Strand(pathOrMol, residues=None):
 	:param residues: range of residue numbers, inclusive. `None` to include all residues.
 	:type residues: [int, int]
 
-	:return type: :java:ref:`.confspace.Strand`
+	:builder_option templateLib .confspace.Strand$Builder#templateLib:
+
+	:builder_return .confspace.Strand$Builder:
 	'''
 
 	# did we get a path or a molecule?
@@ -261,6 +263,9 @@ def Strand(pathOrMol, residues=None):
 
 	if residues is not None:
 		builder.setResidues(residues[0], residues[1])
+
+	if templateLib is not None:
+		builder.setTemplateLibrary(templateLib)
 	
 	return builder.build()
 
