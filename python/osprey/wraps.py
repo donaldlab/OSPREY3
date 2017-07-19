@@ -1,5 +1,5 @@
 
-import osprey.jvm as jvm
+import jvm
 
 
 def wrapMethod(obj, name, newMethod):
@@ -47,7 +47,7 @@ def wrapResidueFlex(c):
 
 	# wrap setLibraryRotamers() to accept varargs
 	def newSetLibraryRotamers(old, self, *mutations):
-		return old(self, jvm.toArrayList(mutations))
+		return old(self, mutations)
 	wrapMethod(jtype, 'setLibraryRotamers', newSetLibraryRotamers)
 
 	# autocast setContinuous() to float

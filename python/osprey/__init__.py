@@ -297,7 +297,7 @@ def ConfSpace(strands, shellDist=None):
 			strand = strandInfo
 			flex = []
 
-		builder.addStrand(strand, jvm.toArrayList(flex))
+		builder.addStrand(strand, flex)
 
 	# add the shell distance if needed
 	if shellDist is not None:
