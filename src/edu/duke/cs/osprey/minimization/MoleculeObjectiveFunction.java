@@ -13,23 +13,20 @@ public class MoleculeObjectiveFunction implements ObjectiveFunction {
 	private static final long serialVersionUID = -5301575611582359731L;
 	
 	public final ParametricMolecule pmol;
-	public final DofBounds bounds;
 	public final EnergyFunction efunc;
 	public final List<EnergyFunction> efuncsByDof;
-        
-        public final DoubleMatrix1D curDOFVals;
+	public final DoubleMatrix1D curDOFVals;
 	
-	public MoleculeObjectiveFunction(ParametricMolecule pmol, DofBounds bounds, EnergyFunction efunc) {
+	public MoleculeObjectiveFunction(ParametricMolecule pmol, EnergyFunction efunc) {
 		this.pmol = pmol;
-		this.bounds = bounds;
 		this.efunc = efunc;
-                curDOFVals = DoubleFactory1D.dense.make(bounds.size());//will be set properly once we evaluate anything
-                
-                // init efunc if needed
-                if (efunc instanceof EnergyFunction.NeedsInit) {
-                    ((EnergyFunction.NeedsInit)efunc).init(pmol.mol, pmol.dofs, curDOFVals);
-                }
-		
+		this.curDOFVals = DoubleFactory1D.dense.make(pmol.dofBounds.size());//will be set properly once we evaluate anything
+
+		// init efunc if needed
+		if (efunc instanceof EnergyFunction.NeedsInit) {
+			((EnergyFunction.NeedsInit)efunc).init(pmol.mol, pmol.dofs, curDOFVals);
+		}
+
 		if (efunc instanceof EnergyFunction.DecomposableByDof) {
 			efuncsByDof = ((EnergyFunction.DecomposableByDof)efunc).decomposeByDof(pmol.mol, pmol.dofs);
 		} else {
@@ -42,8 +39,7 @@ public class MoleculeObjectiveFunction implements ObjectiveFunction {
 	 */
 	@Deprecated
 	public MoleculeObjectiveFunction(MoleculeModifierAndScorer mof) {
-		pmol = new ParametricMolecule(mof.getMolec(), mof.getDOFs());
-		bounds = new DofBounds(mof.getConstraints());
+		pmol = new ParametricMolecule(mof.getMolec(), mof.getDOFs(), new DofBounds(mof.getConstraints()));
 		efunc = mof.getEfunc();
 		efuncsByDof = new ArrayList<>();
 		for (int d=0; d<pmol.dofs.size(); d++) {
@@ -67,7 +63,7 @@ public class MoleculeObjectiveFunction implements ObjectiveFunction {
 
 	@Override
 	public DoubleMatrix1D[] getConstraints() {
-		return bounds.getBounds();
+		return pmol.dofBounds.getBounds();
 	}
 
 	@Override

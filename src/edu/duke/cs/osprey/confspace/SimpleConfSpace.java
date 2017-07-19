@@ -410,20 +410,14 @@ public class SimpleConfSpace implements Serializable {
 	}
 	
 	/** @see #makeMolecule(RCTuple) */
-	/*public ParametricMolecule makeMolecule(ScoredConf conf) {
+	public ParametricMolecule makeMolecule(ScoredConf conf) {
 		return makeMolecule(conf.getAssignments());
-	}*/
-        public BoundedParametricMolecule makeBoundedParametricMolecule(ScoredConf conf) {
-		return makeBoundedParametricMolecule(conf.getAssignments());
 	}
         //With DEEPer and CATS it is much less messy if we can generate the ParametricMolecule and its bounds together
 	
 	/** @see #makeMolecule(RCTuple) */
-	/*public ParametricMolecule makeMolecule(int[] conf) {
+	public ParametricMolecule makeMolecule(int[] conf) {
 		return makeMolecule(new RCTuple(conf));
-	}*/
-        public BoundedParametricMolecule makeBoundedParametricMolecule(int[] conf) {
-		return makeBoundedParametricMolecule(new RCTuple(conf));
 	}
 	
 	/**
@@ -434,7 +428,7 @@ public class SimpleConfSpace implements Serializable {
 	 * with a new molecule instance. this completely prevents roundoff error
 	 * from accumulating across separate analyses. 
 	 */
-	public BoundedParametricMolecule makeBoundedParametricMolecule(RCTuple conf) {
+	public ParametricMolecule makeMolecule(RCTuple conf) {
 		
 		// make the molecule from the strands (ignore alternates)
 		Molecule mol = new Molecule();
@@ -449,7 +443,7 @@ public class SimpleConfSpace implements Serializable {
 		HardCodedResidueInfo.markInterResBonds(mol);
 		
 		// mutate to the conf templates, and figure out what conformational DOFs are specified by the conf
-                HashSet<String> confDOFNames = new HashSet<>();//names of DOFs specified by the conf
+		HashSet<String> confDOFNames = new HashSet<>();//names of DOFs specified by the conf
 		for (int i=0; i<conf.size(); i++) {
 			
 			Position pos = positions.get(conf.pos.get(i));
@@ -457,15 +451,12 @@ public class SimpleConfSpace implements Serializable {
 			Residue res = mol.getResByPDBResNumber(pos.resNum);
 			
 			resConf.updateResidue(pos.strand.templateLib, res);
-                        //since we always switch to a new template before starting each minimization,
-                        //no need to standardize mutatable res at the beginning of the design
-                        
-                        for(String dofName : resConf.dofBounds.keySet())
-                            confDOFNames.add(dofName);
+			// since we always switch to a new template before starting each minimization,
+			// no need to standardize mutatable res at the beginning of the design
+			confDOFNames.addAll(resConf.dofBounds.keySet());
 		}
-                
-                
-                //OK now apply all DOF vals including puckers
+
+		// OK now apply all DOF vals including puckers
 		
 		// make all the DOFs
 		List<DegreeOfFreedom> dofs = new ArrayList<>();
@@ -473,13 +464,12 @@ public class SimpleConfSpace implements Serializable {
 		// first, backbone flexibility: strand DOFs and DEEPer/CATS DOFs
 		for (Strand strand : getConfStrands(conf)) {
 			for (StrandFlex flex : strandFlex.get(strand)) {
-				//dofs.addAll(flex.makeDofs(strand));
-                                for(DegreeOfFreedom dof : flex.makeDofs(strand, mol)){
-                                    if(confDOFNames.contains(dof.getName())){
-                                        //DEEPer and CATS DOFS may not involve all positions in a strand
-                                        dofs.add(dof);
-                                    }
-                                }
+	 			for (DegreeOfFreedom dof : flex.makeDofs(strand, mol)) {
+					if (confDOFNames.contains(dof.getName())) {
+						//DEEPer and CATS DOFS may not involve all positions in a strand
+						dofs.add(dof);
+					}
+				}
 			}
 		}
 		
@@ -491,47 +481,46 @@ public class SimpleConfSpace implements Serializable {
 			
 			// make the residue DOFs
 			Strand.ResidueFlex resFlex = pos.strand.flexibility.get(pos.resNum);
-                        List<DegreeOfFreedom> contDihedralDOFs = resFlex.voxelShape.makeDihedralDOFs(res);
+			List<DegreeOfFreedom> contDihedralDOFs = resFlex.voxelShape.makeDihedralDOFs(res);
 			dofs.addAll(contDihedralDOFs);
-                        
-                        //makeDihedralDOFs will not generate DOFs for a rigid rotamer
-                        //so we apply them here instead
-                        if(contDihedralDOFs.isEmpty()){
-                            // pose the residue to match the rotamer
-                            List<DegreeOfFreedom> dihedralDofs = new VoxelShape.Rect().makeDihedralDOFs(res);
-                            for (int d=0; d<resConf.template.numDihedrals; d++)
-                                    dihedralDofs.get(d).apply(resConf.template.getRotamericDihedrals(resConf.rotamerIndex, d));
-                        }
-                }
-                
-                //Figure out the bounds and apply the DOF values in the middle of the voxel
-                DofBounds dofBounds = new DofBounds(dofs.size());//the bounds to use
-                HashMap<String,Integer> name2Index = DegreeOfFreedom.nameToIndexMap(dofs);//map DOF names to their indices in DOFs
-                HashSet<String> dofsAdded = new HashSet<>();
-                
-                for (int i=0; i<conf.size(); i++) {
-                        Position pos = positions.get(conf.pos.get(i));
-                        ResidueConf resConf = pos.resConfs.get(conf.RCs.get(i));
-                        HashMap<String,double[]> rcDOFBounds = resConf.dofBounds;
-                        for(String DOFName : rcDOFBounds.keySet()){
-                            int dofIndex = name2Index.get(DOFName);
-                            double curDOFBounds[] = rcDOFBounds.get(DOFName);
-                            if(dofsAdded.contains(DOFName)){//we have bounds on this DOF from another position...check consistency
-                                if( Math.abs(dofBounds.getMax(dofIndex)-curDOFBounds[1])>1e-10 
-                                        || Math.abs(dofBounds.getMin(dofIndex)-curDOFBounds[0])>1e-10 ){
-                                    throw new RuntimeException("ERROR: Conformation has inconsistent DOF bounds"
-                                            + " between different positions' RCs");
-                                }
-                            }
-                            else {//record the bounds and apply the middle value
-                                dofBounds.set(dofIndex, curDOFBounds[0], curDOFBounds[1]);
-                                dofs.get(dofIndex).apply(0.5*(curDOFBounds[0]+curDOFBounds[1]));
-                                dofsAdded.add(DOFName);
-                            }
-                        }
-                }
+
+			//so we apply them here instead
+			if (contDihedralDOFs.isEmpty()) {
+				// pose the residue to match the rotamer
+				List<DegreeOfFreedom> dihedralDofs = new VoxelShape.Rect().makeDihedralDOFs(res);
+				for (int d=0; d<resConf.template.numDihedrals; d++) {
+					dihedralDofs.get(d).apply(resConf.template.getRotamericDihedrals(resConf.rotamerIndex, d));
+				}
+			}
+		}
+
+		//Figure out the bounds and apply the DOF values in the middle of the voxel
+		DofBounds dofBounds = new DofBounds(dofs.size());//the bounds to use
+		HashMap<String,Integer> name2Index = DegreeOfFreedom.nameToIndexMap(dofs);//map DOF names to their indices in DOFs
+		HashSet<String> dofsAdded = new HashSet<>();
+
+		for (int i=0; i<conf.size(); i++) {
+			Position pos = positions.get(conf.pos.get(i));
+			ResidueConf resConf = pos.resConfs.get(conf.RCs.get(i));
+			HashMap<String,double[]> rcDOFBounds = resConf.dofBounds;
+			for(String DOFName : rcDOFBounds.keySet()) {
+				int dofIndex = name2Index.get(DOFName);
+				double curDOFBounds[] = rcDOFBounds.get(DOFName);
+				if (dofsAdded.contains(DOFName)) {//we have bounds on this DOF from another position...check consistency
+					if (Math.abs(dofBounds.getMax(dofIndex)-curDOFBounds[1])>1e-10
+							|| Math.abs(dofBounds.getMin(dofIndex)-curDOFBounds[0])>1e-10) {
+						throw new RuntimeException("ERROR: Conformation has inconsistent DOF bounds"
+								+ " between different positions' RCs");
+					}
+				} else { // record the bounds and apply the middle value
+					dofBounds.set(dofIndex, curDOFBounds[0], curDOFBounds[1]);
+					dofs.get(dofIndex).apply(0.5*(curDOFBounds[0]+curDOFBounds[1]));
+					dofsAdded.add(DOFName);
+				}
+			}
+		}
 		
-		return new BoundedParametricMolecule( new ParametricMolecule(mol, dofs), dofBounds );
+		return new ParametricMolecule(mol, dofs, dofBounds);
 	}
 	
 	/** @see #isContinuouslyFlexible(RCTuple) */
@@ -542,65 +531,17 @@ public class SimpleConfSpace implements Serializable {
 	/** Return true if the conformation has continuous degrees of freedom, false otherwise. */
 	public boolean isContinuouslyFlexible(RCTuple conf) {
 		for (int i=0; i<conf.size(); i++) {
-                    Position pos = positions.get(conf.pos.get(i));
-                    ResidueConf resConf = pos.resConfs.get(conf.RCs.get(i));
-                    for(double[] bounds : resConf.dofBounds.values()){
-                        if(bounds[1]>bounds[0])
-                            return true;
-                    }
-                }
-                return false;
-	}
-	
-	/** @see #makeBounds(RCTuple) */
-	/*public DofBounds makeBounds(int[] conf, List<DegreeOfFreedom> dofs) {
-		return makeBounds(new RCTuple(conf), dofs);
-	}*/
-	
-	/** Calculate the bounds on all the degrees of freedom. */
-        //MH: Since different tuples can have different CATS and DEEPer DOFs
-        //we need to specify what DOFs we want to bound
-	/*public DofBounds makeBounds(RCTuple conf, List<DegreeOfFreedom> dofs) {
-            DofBounds ans;
-            HashMap<String,Integer> name2Index = DegreeOfFreedom.nameToIndexMap(dofs);
-            for (int i=0; i<conf.size(); i++) {
-                    Position pos = positions.get(conf.pos.get(i));
-                    ResidueConf resConf = pos.resConfs.get(conf.RCs.get(i));
-                    HashMap<String,double[]> rcDOFBounds = resConf.DOFBoundsMap;
-                    for(String DOFName : rcDOFBounds){
-                        ans[name2Index(DOFName)] = rcDOFBounds[DOFName];
-                        //also check if there is already something in there by that name
-                    }
-            }
-            return ans;
-        }*/        
-        //DEBUG!!!
-        /*public DofBounds makeBounds(RCTuple conf) {
-		
-		// gather all the DOF bounds
-		List<DofBounds> bounds = new ArrayList<>();
-		
-		// first, strand bounds
-		for (Strand strand : getConfStrands(conf)) {
-			for (StrandFlex flex : strandFlex.get(strand)) {
-				bounds.add(flex.makeBounds(strand));
-			}
-		}
-		
-		// then, residue conf bounds
-		for (int i=0; i<conf.size(); i++) {
 			Position pos = positions.get(conf.pos.get(i));
 			ResidueConf resConf = pos.resConfs.get(conf.RCs.get(i));
-			if (resConf.rotamerIndex != null) {
-				bounds.add(pos.resFlex.voxelShape.makeDihedralBounds(resConf.template, resConf.rotamerIndex));
+			for (double[] bounds : resConf.dofBounds.values()) {
+				if (bounds[1]>bounds[0]) {
+					return true;
+				}
 			}
 		}
-		
-		// TODO: make DOF bounds for non-residue continuous motions (eg, blocks, DEEPer)
-		
-		return DofBounds.concatenate(bounds);
-	}*/
-	
+		return false;
+	}
+
 	private Set<Strand> getConfStrands(RCTuple conf) {
 		Set<Strand> confStrands = new HashSet<>();
 		for (int i=0; i<conf.size(); i++) {

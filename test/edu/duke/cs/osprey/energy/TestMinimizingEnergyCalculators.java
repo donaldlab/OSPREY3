@@ -13,7 +13,6 @@ import org.junit.Test;
 
 import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
-import edu.duke.cs.osprey.confspace.BoundedParametricMolecule;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
@@ -209,12 +208,10 @@ public class TestMinimizingEnergyCalculators extends TestBase {
 		// compute the expected energies
 		for (int i=0; i<confs.size(); i++) {
 			
-                        BoundedParametricMolecule bpmol = confSpace.makeBoundedParametricMolecule(confs.get(i).getAssignments());
-			ParametricMolecule pmol = bpmol.pmol;
+			ParametricMolecule pmol = confSpace.makeMolecule(confs.get(i).getAssignments());
 			Minimizer.Result result = new CCDMinimizer(new MoleculeObjectiveFunction(
 				pmol,
-				bpmol.dofBounds,
-				new EnergyFunctionGenerator(new ForcefieldParams()).interactionEnergy(FFInterGen.makeFullConf(confSpace, pmol.mol))	
+				new EnergyFunctionGenerator(new ForcefieldParams()).interactionEnergy(FFInterGen.makeFullConf(confSpace, pmol.mol))
 			), false).minimize();
 			
 			// print the expected energy

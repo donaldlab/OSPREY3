@@ -60,7 +60,7 @@ public class BenchmarkForcefields extends TestBase {
 		ResPairCache resPairCache = new ResPairCache(ffparams, connectivity);
 		
 		// get a molecule
-		Molecule mol = confSpace.makeBoundedParametricMolecule(new int[] { 0, 0, 0, 0, 0 }).pmol.mol;
+		Molecule mol = confSpace.makeMolecule(new int[] { 0, 0, 0, 0, 0 }).mol;
 		
 		benchmarkComparison(mol, confSpace, ffparams, resPairCache);
 		//benchmarkGpu(mol, confSpace, ffparams, resPairCache);

@@ -14,7 +14,6 @@ import cern.colt.matrix.DoubleMatrix1D;
 import edu.duke.cs.osprey.bbfree.BBFreeDOF;
 import edu.duke.cs.osprey.confspace.ConfSpace;
 import edu.duke.cs.osprey.confspace.ParameterizedMoleculeCopy;
-import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.PositionConfSpace;
 import edu.duke.cs.osprey.confspace.RC;
 import edu.duke.cs.osprey.confspace.RCTuple;
@@ -37,47 +36,43 @@ import edu.duke.cs.osprey.structure.Residue;
  * @author mhall44
  */
 public class MoleculeModifierAndScorer implements ObjectiveFunction {
-    //we apply the confDOFs to the molecule and then evaluate the energy function
-    //so this objective function maps DOF values to energy function values
-    //DOF values bounded by constraints: Motions are intended to be within a voxel
-    
-    //Warning: This class has the side effect of modifying the molecule passed to it!  
-    //It would be very expensive to copy the molecule for each minimization, so we
-    //apply the DOFs in place and then evaluate the energy
-    
-    private static final long serialVersionUID = 3898313221157632380L;
-    
-    EnergyFunction efunc;
-    Molecule molec;
-    ArrayList<DegreeOfFreedom> DOFs;
-    DoubleMatrix1D[] constraints;
-    
-    
-    DoubleMatrix1D curDOFVals;
-    /*
-    DOFDEPENDENCIES;
-    (see perturbations);
-    
-    maybe keep an unmoved molecule;
-    */
-    
-    List<EnergyFunction> partialEFuncs = null;//if not null, can use when searching along a single DOF
-    
-    /**
+	//we apply the confDOFs to the molecule and then evaluate the energy function
+	//so this objective function maps DOF values to energy function values
+	//DOF values bounded by constraints: Motions are intended to be within a voxel
+
+	//Warning: This class has the side effect of modifying the molecule passed to it!
+	//It would be very expensive to copy the molecule for each minimization, so we
+	//apply the DOFs in place and then evaluate the energy
+
+	private static final long serialVersionUID = 3898313221157632380L;
+
+	EnergyFunction efunc;
+	Molecule molec;
+	ArrayList<DegreeOfFreedom> DOFs;
+	DoubleMatrix1D[] constraints;
+	DoubleMatrix1D curDOFVals;
+	/*
+	DOFDEPENDENCIES;
+	(see perturbations);
+
+	maybe keep an unmoved molecule;
+	*/
+
+	List<EnergyFunction> partialEFuncs = null;//if not null, can use when searching along a single DOF
+
+	/**
 	 * transition adapter, only here temporarily
-         * 
 	 */
 	@Deprecated
 	public MoleculeModifierAndScorer(MoleculeObjectiveFunction mof) {
-            molec = mof.pmol.mol;
-            DOFs = new ArrayList(mof.pmol.dofs);
-            constraints = mof.bounds.getBounds();
-            efunc = mof.efunc;
-            curDOFVals = mof.curDOFVals;
-            partialEFuncs = mof.efuncsByDof;
+		molec = mof.pmol.mol;
+		DOFs = new ArrayList<>(mof.pmol.dofs);
+		constraints = mof.pmol.dofBounds.getBounds();
+		efunc = mof.efunc;
+		curDOFVals = mof.curDOFVals;
+		partialEFuncs = mof.efuncsByDof;
 	}
-    
-    
+
     public static boolean hasMinimizableDofs(ConfSpace confSpace, RCTuple tuple) {
     
         // for each pos...

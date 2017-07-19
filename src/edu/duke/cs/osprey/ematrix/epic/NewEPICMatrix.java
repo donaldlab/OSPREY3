@@ -6,7 +6,7 @@
 package edu.duke.cs.osprey.ematrix.epic;
 
 import cern.colt.matrix.DoubleMatrix1D;
-import edu.duke.cs.osprey.confspace.BoundedParametricMolecule;
+import edu.duke.cs.osprey.confspace.ParametricMolecule;
 import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.confspace.TupleMatrixGeneric;
@@ -58,8 +58,8 @@ public class NewEPICMatrix extends TupleMatrixGeneric<EPoly> {
         if(efunc==null)//pruned!
             return Double.POSITIVE_INFINITY;
         
-        BoundedParametricMolecule bpmol = confSpace.makeBoundedParametricMolecule(RCTup);
-        MoleculeObjectiveFunction objFcn = new MoleculeObjectiveFunction(bpmol.pmol, bpmol.dofBounds, efunc);
+        ParametricMolecule bpmol = confSpace.makeMolecule(RCTup);
+        MoleculeObjectiveFunction objFcn = new MoleculeObjectiveFunction(bpmol, efunc);
         
         Minimizer minim = new CCDMinimizer(objFcn,false);
         

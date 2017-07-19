@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.energy;
 
-import edu.duke.cs.osprey.confspace.BoundedParametricMolecule;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -11,7 +10,6 @@ import edu.duke.cs.osprey.confspace.RCTuple;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.SimpleReferenceEnergies;
 import edu.duke.cs.osprey.minimization.MoleculeObjectiveFunction;
-import edu.duke.cs.osprey.minimization.ObjectiveFunction.DofBounds;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
 import edu.duke.cs.osprey.parallelism.TaskExecutor.TaskListener;
 import edu.duke.cs.osprey.tools.Progress;
@@ -124,20 +122,17 @@ public class ConfEnergyCalculator {
 	 * @return The energy of the resulting molecule fragment
 	 */
 	public double calcEnergy(RCTuple frag, ResidueInteractions inters) {
-                BoundedParametricMolecule bpmol = confSpace.makeBoundedParametricMolecule(frag);
-		return ecalc.calcEnergy(bpmol.pmol, bpmol.dofBounds, inters);
+		ParametricMolecule bpmol = confSpace.makeMolecule(frag);
+		return ecalc.calcEnergy(bpmol, inters);
 	}
-        
-        
-        
-        public void writeMinimizedStruct(RCTuple frag, ResidueInteractions inters, String fileName){
-            BoundedParametricMolecule bpmol = confSpace.makeBoundedParametricMolecule(frag);
-            ecalc.writeMinimizedStruct(bpmol.pmol, bpmol.dofBounds, inters, fileName);
-        }
-        
-        public void writeMinimizedStruct(RCTuple frag, String fileName){
-            writeMinimizedStruct(frag, makeFragInters(frag), fileName);
-        }
+
+	public void writeMinimizedStruct(RCTuple frag, ResidueInteractions inters, String fileName) {
+		ecalc.writeMinimizedStruct(confSpace.makeMolecule(frag), inters, fileName);
+	}
+
+	public void writeMinimizedStruct(RCTuple frag, String fileName) {
+		writeMinimizedStruct(frag, makeFragInters(frag), fileName);
+	}
 	
 	/**
 	 * Asynchronous version of {@link #calcEnergy(RCTuple,ResidueInteractions)}.
@@ -211,18 +206,17 @@ public class ConfEnergyCalculator {
 		
 		return econfs;
 	}
-        
-        
-        //Making objective functions for EPIC fitting
-        public MoleculeObjectiveFunction makeIntraShellObjFcn(int pos, int rc) {
-                BoundedParametricMolecule bpmol = confSpace.makeBoundedParametricMolecule(new RCTuple(pos,rc));
-                ResidueInteractions inters = EnergyPartition.Traditional.makeSingle(confSpace, eref, addResEntropy, pos, rc);
-		return ecalc.makeEnergyObjFcn(bpmol.pmol, bpmol.dofBounds, inters);
+
+	//Making objective functions for EPIC fitting
+	public MoleculeObjectiveFunction makeIntraShellObjFcn(int pos, int rc) {
+		ParametricMolecule bpmol = confSpace.makeMolecule(new RCTuple(pos,rc));
+		ResidueInteractions inters = EnergyPartition.Traditional.makeSingle(confSpace, eref, addResEntropy, pos, rc);
+		return ecalc.makeEnergyObjFcn(bpmol, inters);
 	}
-        
-        public MoleculeObjectiveFunction makePairwiseObjFcn(int pos1, int rc1, int pos2, int rc2) {
-                BoundedParametricMolecule bpmol = confSpace.makeBoundedParametricMolecule(new RCTuple(pos1,rc1,pos2,rc2));
-                ResidueInteractions inters = EnergyPartition.Traditional.makePair(confSpace, eref, addResEntropy, pos1, rc1, pos2, rc2);
-		return ecalc.makeEnergyObjFcn(bpmol.pmol, bpmol.dofBounds, inters);
+
+	public MoleculeObjectiveFunction makePairwiseObjFcn(int pos1, int rc1, int pos2, int rc2) {
+		ParametricMolecule bpmol = confSpace.makeMolecule(new RCTuple(pos1,rc1,pos2,rc2));
+		ResidueInteractions inters = EnergyPartition.Traditional.makePair(confSpace, eref, addResEntropy, pos1, rc1, pos2, rc2);
+		return ecalc.makeEnergyObjFcn(bpmol, inters);
 	}
 }

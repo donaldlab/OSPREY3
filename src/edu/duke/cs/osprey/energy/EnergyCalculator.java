@@ -21,7 +21,6 @@ import edu.duke.cs.osprey.minimization.CudaCCDMinimizer;
 import edu.duke.cs.osprey.minimization.Minimizer;
 import edu.duke.cs.osprey.minimization.MoleculeObjectiveFunction;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction;
-import edu.duke.cs.osprey.minimization.ObjectiveFunction.DofBounds;
 import edu.duke.cs.osprey.minimization.SimpleCCDMinimizer;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import edu.duke.cs.osprey.parallelism.TaskExecutor;
@@ -409,11 +408,10 @@ public class EnergyCalculator implements AutoCleanable {
 	 * they will be minimized within the specified bounds before calculating the energy.
 	 * 
 	 * @param pmol The molecule
-	 * @param bounds Bounds for continuous degrees of freedom for the minimization, if any
 	 * @param inters Residue interactions for the energy function
 	 * @return The calculated energy
 	 */
-	public double calcEnergy(ParametricMolecule pmol, DofBounds bounds, ResidueInteractions inters) {
+	public double calcEnergy(ParametricMolecule pmol, ResidueInteractions inters) {
 		
 		// short circuit: no inters, no energy!
 		if (inters.size() <= 0) {
@@ -426,10 +424,10 @@ public class EnergyCalculator implements AutoCleanable {
 			
 			// get the energy
 			double energy;
-			if (bounds.size() > 0) {
+			if (pmol.dofBounds.size() > 0) {
 				
 				// minimize it
-				Minimizer minimizer = context.minimizers.make(new MoleculeObjectiveFunction(pmol, bounds, efunc));
+				Minimizer minimizer = context.minimizers.make(new MoleculeObjectiveFunction(pmol, efunc));
 				try {
 					energy = minimizer.minimize().energy;
 				} finally {
@@ -448,61 +446,29 @@ public class EnergyCalculator implements AutoCleanable {
 			EnergyFunction.Tools.cleanIfNeeded(efunc);
 		}
 	}
-        
-        
-        public MoleculeObjectiveFunction makeEnergyObjFcn(ParametricMolecule pmol, DofBounds bounds, ResidueInteractions inters) {
-                //represent the energy indicated by inters as a function of the degrees of freedom in pmol,
-                //valid within the specified bounds
-                //calcEnergy gives the minimum of this function
+
+	public MoleculeObjectiveFunction makeEnergyObjFcn(ParametricMolecule pmol, ResidueInteractions inters) {
+		//represent the energy indicated by inters as a function of the degrees of freedom in pmol,
+		//valid within the specified bounds
+		//calcEnergy gives the minimum of this function
 		EnergyFunction efunc = context.efuncs.make(inters, pmol.mol);
-		return new MoleculeObjectiveFunction(pmol, bounds, efunc);
+		return new MoleculeObjectiveFunction(pmol, efunc);
 	}
-        
-        
-        public void writeMinimizedStruct(ParametricMolecule pmol, DofBounds bounds, ResidueInteractions inters, String fileName) {
-		
-		// short circuit: no inters, no energy!
-		if (inters.size() <= 0) {
-			throw new RuntimeException("ERROR: Can't minimize struct with no energy");
-		}
-		
-		// get the energy function
-		EnergyFunction efunc = context.efuncs.make(inters, pmol.mol);
-		try {
-			
-			if (bounds.size() > 0) {
-				
-				// minimize it
-				Minimizer minimizer = context.minimizers.make(new MoleculeObjectiveFunction(pmol, bounds, efunc));
-				try {
-					double energy = minimizer.minimize().energy;
-                                        PDBIO.writeFile(pmol.mol, null, energy, fileName);
-				} finally {
-					Minimizer.Tools.cleanIfNeeded(minimizer);
-				}
-				
-			} else {
-                            //no need to minimize
-                            double energy = efunc.getEnergy();
-                            PDBIO.writeFile(pmol.mol, null, energy, fileName);
-			}
-		} finally {
-			EnergyFunction.Tools.cleanIfNeeded(efunc);
-		}
+
+	public void writeMinimizedStruct(ParametricMolecule pmol, ResidueInteractions inters, String fileName) {
+		double energy = calcEnergy(pmol, inters);
+		PDBIO.writeFile(pmol.mol, null, energy, fileName);
 	}
-        
-        
-	
+
 	/**
-	 * Asynchronous version of {@link #calcEnergy(ParametricMolecule,DofBouds,ResidueInteractions)}.
+	 * Asynchronous version of {@link #calcEnergy(ParametricMolecule,ResidueInteractions)}.
 	 * 
 	 * @param pmol The molecule
-	 * @param bounds Bounds for continuous degrees of freedom for the minimization, if any
 	 * @param inters Residue interactions for the energy function
 	 * @param listener Callback function that will receive the energy. The callback is called on a
 	 *                 listener thread which is separate from the calling thread.
 	 */
-	public void calcEnergyAsync(ParametricMolecule pmol, DofBounds bounds, ResidueInteractions inters, TaskListener<Double> listener) {
-		tasks.submit(() -> calcEnergy(pmol, bounds, inters), listener);
+	public void calcEnergyAsync(ParametricMolecule pmol, ResidueInteractions inters, TaskListener<Double> listener) {
+		tasks.submit(() -> calcEnergy(pmol, inters), listener);
 	}
 }
