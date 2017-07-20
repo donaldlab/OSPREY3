@@ -344,6 +344,9 @@ def EnergyCalculator(confSpace, ffparams, parallelism=None, type=None):
 	if parallelism is not None:
 		builder.setParallelism(parallelism)
 
+	if type is not None:
+		builder.setType(type)
+
 	return builder.build()
 
 
