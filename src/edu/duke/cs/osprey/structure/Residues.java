@@ -102,9 +102,13 @@ public class Residues extends ArrayList<Residue> {
 	
 	@Override
 	public boolean contains(Object obj) {
-		return contains((Residue)obj);
+		return super.contains((Residue)obj);
 	}
-	
+
+	public boolean contains(String resNum) {
+		return getOrNull(resNum) != null;
+	}
+
 	@Override
 	public int indexOf(Object obj) {
 		return indexOf((Residue)obj);

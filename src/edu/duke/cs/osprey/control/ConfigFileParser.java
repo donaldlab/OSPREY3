@@ -21,7 +21,7 @@ import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.Forcefield;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.SolvationForcefield;
 import edu.duke.cs.osprey.pruning.PruningControl;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
+import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.tools.StringParsing;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
 
@@ -76,7 +76,8 @@ public class ConfigFileParser {
                 params.getBool("selectLCAs"),
                 getFlexRes(), 
                 params.getValue("PDBNAME"),
-                params.getBool("DORAMACHECK")
+                params.getBool("DORAMACHECK"),
+				EnvironmentVars.resTemplates
         );
         
         dset.loadPertFile(null);//load the PertSet from its file
@@ -359,19 +360,21 @@ public class ConfigFileParser {
         EnvironmentVars.curEFcnGenerator = new EnergyFunctionGenerator(ffparams);
         
         // make the template library
-        EnvironmentVars.resTemplates = new GenericResidueTemplateLibrary.Builder()
-            .setForcefield(ff)
-            .setRotamers(params.readPath("ROTFILE"))
-            .setBackboneDependentRotamers(params.getBool("UseDunbrackRotamers") ? params.readPath("DUNBRACKROTFILE") : null)
-            .setEntropy(params.readPath("RESENTROPYFILE"))
-            .build();
-        
+        ResidueTemplateLibrary.Builder templateLibBuilder = new ResidueTemplateLibrary.Builder(ff)
+			.clearRotamers()
+            .addRotamers(params.readPath("ROTFILE"))
+			.addBackboneDependentRotamers(params.getBool("UseDunbrackRotamers") ? params.readPath("DUNBRACKROTFILE") : null)
+			.clearResidueEntropies()
+            .addResidueEntropies(params.readPath("RESENTROPYFILE"));
+
         // AAO 2016: load generic rotamer libraries
         for(String grotFile : params.searchParams("GROTFILE")) {
-            EnvironmentVars.resTemplates.loadRotamerLibrary(params.readPath(grotFile));
+        	templateLibBuilder.addRotamers(params.readPath(grotFile));
         }
-        
-        // load rama data
+
+		EnvironmentVars.resTemplates = templateLibBuilder.build();
+
+		// load rama data
         if (!params.getValue("RAMAGLYFILE").equalsIgnoreCase("none")) {
             RamachandranChecker.getInstance().readInputFiles(
                 params.readPath("RAMAGLYFILE"),

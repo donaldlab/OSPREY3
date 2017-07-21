@@ -7,8 +7,8 @@ package edu.duke.cs.osprey.dof.deeper;
 
 import edu.duke.cs.osprey.dof.DihedralRotation;
 import edu.duke.cs.osprey.dof.ProlinePucker;
-import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
+import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.Protractor;
 import edu.duke.cs.osprey.tools.RigidBodyMotion;
@@ -33,7 +33,7 @@ public class SidechainIdealizer {
     //a mutated residue would already be in an idealized conformation, and if the residue is not already
     //(e.g. because it's a wild-type rotamer) it probably shouldn't be
     //This function rotates the sidechain as a rigid body about CA
-    public static void idealizeSidechain(GenericResidueTemplateLibrary templateLib, Residue res){
+    public static void idealizeSidechain(ResidueTemplateLibrary templateLib, Residue res){
 
         //Coordinates of key atoms in the residue
         double NCoord[] = res.getCoordsByAtomName("N");
@@ -178,7 +178,7 @@ public class SidechainIdealizer {
     
     
     
-    public static boolean idealizeProRing(GenericResidueTemplateLibrary templateLib, Residue res){
+    public static boolean idealizeProRing(ResidueTemplateLibrary templateLib, Residue res){
         //Make an idealized ring for the given residue, given the current positions of the backbone atoms, CB, and CD
         //The pucker specified in res.pucker will be applied:
         //UP pucker means the smaller of the two possible solutions for chi1; DOWN pucker means the larger.

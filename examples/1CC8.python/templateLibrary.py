@@ -1,13 +1,12 @@
-
 import osprey
+
 osprey.start()
 
-# start with the default template library
-# with eg natural amino acids and the Lovell rotamer library
-templateLib = osprey.TemplateLibrary()
+# default template library contains templates, coords, entropies etc for natual amino acids
+defaultTemplateLib = osprey.TemplateLibrary()
 
-# add our custom templates
-templateLib.loadTemplates("""
+# define our custom templates
+customTemplates = """
 Ignored comment 1
 Ignored comment 2
 ALANINE
@@ -33,13 +32,10 @@ IMPROPER
  CA   +M   C    O                                               
                                                                 
 DONE                                                            
-""")
+"""
 
-# or read templates from files
-# templateLib.loadTemplates(osprey.readTextFile('path/to/templates/file'))
-
-
-templateLib.loadTemplateCoords("""
+# define our custom template coordinates
+customTemplateCoords = """
 ALA 10 
 N -0.677f -1.23f -0.491f -0.4157f N
 H -0.131f -2.162f -0.491f 0.2719f H
@@ -52,14 +48,10 @@ HB3 -0.179f 0.359f 1.636f 0.0603f HC
 C 1.499f -0.11f -0.491f 0.5973f C
 O 2.065f -0.922f 0.251f -0.5679f O
 ENDRES 
-""")
+"""
 
-# or read templates from files
-# templateLib.loadTemplateCoords(osprey.readTextFile('path/to/coords/file'))
-
-
-# add our custom rotamers
-templateLib.loadRotamerLibrary("""
+# define our custom rotamers
+customRotamers = """
 ! The first line is the number of AA types to be read
 ! The format for the rest of the file is
 ! AA_name num_dihedrals num_rotamers
@@ -71,22 +63,35 @@ N CA CB CG1
 64
 175
 -60
-""")
-# TODO: where did this file format come from?
-# maybe use something easier for humans to write?
-# maybe HJSON? https://github.com/hjson/hjson-java
+"""
 
-# or read rotamers from a file
-# templateLib.loadRotamerLibrary(osprey.readTextFile('path/to/rotamers/file'))
+# build the customized template library
+customizedTemplateLib = osprey.TemplateLibrary(
+	extraTemplates=[customTemplates],
+	extraTemplateCoords=[customTemplateCoords],
+	extraRotamers=[customRotamers]
+)
+
+# or read templates from files
+# customizedTemplateLibFromFiles = osprey.TemplateLibrary(
+# 	extraTemplates=['/path/to/templates/file']
+# 	etc...
+# )
+
+# or completely replace default templates
+# completelyCustomTemplateLib = osprey.TemplateLibrary(
+# 	defaultTemplates=False,
+# 	extraTemplates=['/path/to/all/templates'],
+# 	etc...
+# )
 
 # load the molecule and make the strand using our custom template library
-protein = osprey.Strand('1CC8.ss.pdb', templateLib=templateLib)
+protein = osprey.Strand('1CC8.ss.pdb', templateLib=customizedTemplateLib)
 
+# make the conf space
 protein.flexibility[2].setLibraryRotamers('ALA', 'GLY')
 protein.flexibility[3].setLibraryRotamers(osprey.WILD_TYPE, 'VAL', 'ARG').setContinuous(10)
 protein.flexibility[4].setLibraryRotamers().addWildTypeRotamers()
-
-# make the conf space
 confSpace = osprey.ConfSpace(protein)
 
 # continue design with confSpace

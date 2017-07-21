@@ -6,7 +6,7 @@
 package edu.duke.cs.osprey.dof;
 
 import edu.duke.cs.osprey.dof.deeper.SidechainIdealizer;
-import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
+import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.ConfProblem;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
@@ -51,14 +51,14 @@ public class ProlinePucker extends DegreeOfFreedom {
     
     Direction basePucker;//original pucker: param=0 describes this
     Direction curPucker;//pucker that we currently want
-    GenericResidueTemplateLibrary templateLib;
+	ResidueTemplateLibrary templateLib;
     Residue res;
     
     
     ConfProblem puckerProblem = null;//if not null, indicates failure to close ring
     
     
-    public ProlinePucker(GenericResidueTemplateLibrary templateLib, Residue res){
+    public ProlinePucker(ResidueTemplateLibrary templateLib, Residue res){
         this.templateLib = templateLib;
         this.res = res;
         

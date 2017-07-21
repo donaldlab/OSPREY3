@@ -200,40 +200,72 @@ def Parallelism(cpuCores=None, gpus=None, streamsPerGpu=None):
 	return builder.build()
 
 
-def TemplateLibrary(forcefield=None, templateCoords=None, rotamers=None, backboneDependentRotamers=None):
+def TemplateLibrary(
+		forcefield=None,
+		defaultTemplates=True, extraTemplates=[],
+		defaultTemplateCoords=True, extraTemplateCoords=[],
+		defaultRotamers=True, extraRotamers=[],
+		extraBackboneDependentRotamers=[],
+		defaultResidueEntropies=True, extraResidueEntropies=[],
+		makeDAminoAcids=None,
+		moleculesForWildTypeRotamers=[]
+	):
 	'''
-	:java:classdoc:`.restypes.GenericResidueTemplateLibrary`
+	:java:classdoc:`.restypes.ResidueTemplateLibrary`
 
-	:builder_option forcefield .restypes.GenericResidueTemplateLibrary$Builder#forcefield:
+	:builder_option forcefield .restypes.ResidueTemplateLibrary$Builder#forcefield:
 
-	:builder_option templateCoords .restypes.GenericResidueTemplateLibrary$Builder#templateCoordsText:
-	:type templateCoords: coords str or file path
+	:param bool defaultTemplates: :java:methoddoc:`.restypes.ResidueTemplateLibrary$Builder#clearTemplates`
+	:param extraTemplates: :java:methoddoc:`.restypes.ResidueTemplateLibrary$Builder#addTemplates`
+	:type extraTemplates: [template string or file path]
 
-	:builder_option rotamers .restypes.GenericResidueTemplateLibrary$Builder#rotamersText:
-	:type rotamers: coords str or file path
+	:param bool defaultTemplateCoords: :java:methoddoc:`.restypes.ResidueTemplateLibrary$Builder#clearTemplateCoords`
+	:param extraTemplateCoords: :java:methoddoc:`.restypes.ResidueTemplateLibrary$Builder#addTemplateCoords`
+	:type extraTemplateCoords: [coords string or file path]
 
-	:builder_option backboneDependentRotamers .restypes.GenericResidueTemplateLibrary$Builder#backboneDependentRotamersText:
-	:type backboneDependentRotamers: coords str or file path
+	:param bool defaultRotamers: :java:methoddoc:`.restypes.ResidueTemplateLibrary$Builder#clearRotamers`
+	:param extraRotamers: :java:methoddoc:`.restypes.ResidueTemplateLibrary$Builder#addRotamers`
+	:type extraRotamers: [rotamers string or file path]
 
-	:builder_return .restypes.GenericResidueTemplateLibrary$Builder:
+	:param extraBackboneDependentRotamers: :java:methoddoc:`.restypes.ResidueTemplateLibrary$Builder#addBackboneDependentRotamers`
+	:type extraBackboneDependentRotamers: [backbone-dependent rotamers string or file path]
+
+	:builder_option makeDAminoAcids .restypes.ResidueTemplateLibrary$Builder#makeDAminoAcidTemplates:
+
+	:param moleculesForWildTypeRotamers: :java:methoddoc:`.restypes.ResidueTemplateLibrary$Builder#addMoleculeForWildTypeRotamers`
+	:type moleculesForWildTypeRotamers: [:java:ref:`.structure.Molecule`]
+
+	:builder_return .restypes.ResidueTemplateLibrary$Builder:
 	'''
 
-	builder = _get_builder(c.restypes.GenericResidueTemplateLibrary)()
+	if forcefield is None:
+		builder = _get_builder(c.restypes.ResidueTemplateLibrary)()
+	else:
+		builder = _get_builder(c.restypes.ResidueTemplateLibrary)(forcefield)
 
-	if forcefield is not None:
-		builder.setForcefield(forcefield)
+	if not defaultTemplates:
+		builder.clearTemplates()
+	for text in [_ensureText(pathOrText) for pathOrText in extraTemplates]:
+		builder.addTemplates(text)
 
-	if templateCoords is not None:
-		builder.setTemplateCoords(_ensureText(templateCoords))
+	if not defaultTemplateCoords:
+		builder.clearTemplateCoords()
+	for text in [_ensureText(pathOrText) for pathOrText in extraTemplateCoords]:
+		builder.addTemplateCoords(text)
 
-	if rotamers is not None:
-		if rotamers == LovellRotamers:
-			builder.setLovellRotamers()
-		else:
-			builder.setRotamers(_ensureText(rotamers))
+	if not defaultRotamers:
+		builder.clearRotamers()
+	for text in [_ensureText(pathOrText) for pathOrText in extraRotamers]:
+		builder.addRotamers(text)
 
-	if backboneDependentRotamers is not None:
-		builder.setBackboneDependentRotamers(_ensureText(backboneDependentRotamers))
+	for text in [_ensureText(pathOrText) for pathOrText in extraBackboneDependentRotamers]:
+		builder.addBackboneDependentRotamers(text)
+
+	if makeDAminoAcids is not None:
+		builder.setMakeDAminoAcidTemplates(makeDAminoAcids)
+
+	for mol in moleculesForWildTypeRotamers:
+		builder.addMoleculeForWildTypeRotamers(mol)
 
 	return builder.build()
 	

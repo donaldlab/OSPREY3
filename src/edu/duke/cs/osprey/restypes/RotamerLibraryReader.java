@@ -24,13 +24,14 @@ public class RotamerLibraryReader implements Serializable {
 	
 	//Read in all of the rotamers for all amino acids from the rotFilename file
         //into the ResidueTemplateLibrary
-	public static void readRotLibrary(String text, GenericResidueTemplateLibrary templateLib) {
+	public static int readRotLibrary(String text, List<ResidueTemplate> templates) {
 		
 		//String volFilename = rotFile + ".vol";
-		
+
+		int numRotamersRead = 0;
+
 		// HANDLE THE NORMAL AAs
 		Iterator<String> lines = FileTools.parseLines(text).iterator();
-		
 		int numLines = 0;
 		while (lines.hasNext()) {
 			String line = lines.next();
@@ -51,8 +52,8 @@ public class RotamerLibraryReader implements Serializable {
 			}
 			
 			String aaName = StringParsing.getToken(line,1);
-			int numDihedrals = (new Integer(StringParsing.getToken(line,2))).intValue();
-			int numRotamers = (new Integer(StringParsing.getToken(line,3))).intValue();
+			int numDihedrals = Integer.parseInt(StringParsing.getToken(line,2));
+			int numRotamers = Integer.parseInt(StringParsing.getToken(line,3));
 			if (numRotamers<0) {
 				numRotamers = 0;
 			}
@@ -72,7 +73,7 @@ public class RotamerLibraryReader implements Serializable {
 			for(int q=0;q<numRotamers;q++) {
 				line = lines.next();
 				for(int w=0;w<numDihedrals;w++) {
-					rotamerValues[q][w] = (new Integer(StringParsing.getToken(line,(w+1)))).intValue();
+					rotamerValues[q][w] = Integer.parseInt(StringParsing.getToken(line,(w+1)));
 				}
 			}
 			
@@ -80,7 +81,7 @@ public class RotamerLibraryReader implements Serializable {
             //record it in all templates for aaName in the template library
             boolean foundTemplate = false;
             
-            for(ResidueTemplate template : templateLib.templates){
+            for(ResidueTemplate template : templates){
                 if(template.name.equalsIgnoreCase(aaName)){
                     
                     //record information in template
@@ -116,11 +117,10 @@ public class RotamerLibraryReader implements Serializable {
             }
             
 			//update total number of rotamers read into templateLib
-			templateLib.totalNumRotamers += numRotamers;
-			if (numRotamers<=0) { //ALA or GLY
-				templateLib.totalNumRotamers += 1;
-			}
+			numRotamersRead = Math.max(1, numRotamers);
 		}
+
+		return numRotamersRead;
 	}
 	/**
 	 * 
@@ -211,9 +211,8 @@ public class RotamerLibraryReader implements Serializable {
 	} 
 	/** PGC 2015:  Read all the rotamer entries for the dunbrack rotamer library and add the corresponding ones to the residue templates in 
 	 *    the template library templateLib. 
-	 *  @param templateLib The library of residue templates.
 	 */
-	public static void readDunbrackRotamerLibraryForResiduePosition(String text, GenericResidueTemplateLibrary templateLib){
+	public static void readDunbrackRotamerLibraryForResiduePosition(String text, List<ResidueTemplate> templates){
 
 		// Dunbrack has rotamers in increments of 10 for phi and psi.
 		double dunbrackResolution = 10;
@@ -221,7 +220,7 @@ public class RotamerLibraryReader implements Serializable {
 		int binsDunbrack = 37;
 		// Create a hash map to map every amino acid in the template library to its rotamers
 		HashMap<String, BBDepRotamersForType> allDunbrackRotamersMap = new HashMap<String, BBDepRotamersForType>();
-		for(ResidueTemplate template : templateLib.templates){
+		for(ResidueTemplate template : templates){
 			BBDepRotamersForType bbDepRotamerForTypeOfTemplate = new RotamerLibraryReader.BBDepRotamersForType(template.name, binsDunbrack, dunbrackResolution);
 			allDunbrackRotamersMap.put(template.name, bbDepRotamerForTypeOfTemplate);
 		
@@ -288,7 +287,7 @@ public class RotamerLibraryReader implements Serializable {
 		}
 	
 		// For each amino acid in the template				
-        for(ResidueTemplate myTemplate : templateLib.templates){
+        for(ResidueTemplate myTemplate : templates){
         	myTemplate.setRLphiPsiResolution(dunbrackResolution); 
         	myTemplate.setNumberOfPhiPsiBins(binsDunbrack);
         	myTemplate.initializeRotamerArrays();

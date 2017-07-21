@@ -14,9 +14,9 @@ import edu.duke.cs.osprey.dof.FreeDihedral;
 import edu.duke.cs.osprey.dof.ProlinePucker;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.minimization.ObjectiveFunction.DofBounds;
-import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
+import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import java.io.Serializable;
@@ -27,7 +27,7 @@ import java.io.Serializable;
  * Also creates molecules in conformations on-demand.
  */
 public class SimpleConfSpace implements Serializable {
-	
+
 	public static class Builder {
 		
 		private SimpleConfSpace confSpace;
@@ -153,7 +153,7 @@ public class SimpleConfSpace implements Serializable {
                         dofBounds.putAll(bbVoxel);
 		}
 
-		public void updateResidue(GenericResidueTemplateLibrary templateLib, Residue res) {
+		public void updateResidue(ResidueTemplateLibrary templateLib, Residue res) {
 			
 			// HACKHACK: make sure prolines have puckers
 			if (res.template.name.equalsIgnoreCase("PRO") || template.name.equalsIgnoreCase("PRO")) {
@@ -279,68 +279,63 @@ public class SimpleConfSpace implements Serializable {
 			
 			// make residue confs from library rotamers
 			for (String resType : resFlex.resTypes) {
-				makeResidueConfsFromTemplate(pos, strand.templateLib.getTemplate(resType), ResidueConf.Type.Library);
+				makeResidueConfsFromTemplate(pos, strand.templateLib.getTemplateOrThrow(resType, true), ResidueConf.Type.Library);
 			}
 			
 			// make residue confs from wild type rotamers
 			if (resFlex.addWildTypeRotamers) {
-				
-				List<Residue> residues = new ArrayList<>();
-				residues.add(res);
-				residues.addAll(strand.mol.getAlternates(res.indexInMolecule));
-				
-				makeResidueConfsFromTemplate(pos, ResidueTemplate.makeFromResidueConfs(residues), ResidueConf.Type.WildType);
+				makeResidueConfsFromTemplate(pos, strand.templateLib.getOrMakeWildTypeTemplate(res), ResidueConf.Type.WildType);
 			}
 		}
 	}
 	
 	private void makeResidueConfsFromTemplate(Position pos, ResidueTemplate template, ResidueConf.Type type) {
 		
-            //make one RC for each (backbone voxel, rotamer) pair
-            for(HashMap<String,double[]> bbState : listBackboneVoxels(pos)){ 
-            
-		if (template.name.equalsIgnoreCase("PRO")) {
-			
-			// HACKHACK: add one conf for each proline pucker
-			for (ProlinePucker.Direction dir : ProlinePucker.Direction.values()) {
-				ResidueConf resConf = new ResidueConf(
-                                        pos,
-					pos.resConfs.size(),
-					template,
-					type,
-					dir.ordinal(),
-                                        bbState
-				);
-				resConf.postTemplateModifier = (res) -> res.pucker.apply(dir);
-				pos.resConfs.add(resConf);
-			}
-			
-		} else if (template.getNumRotamers() <= 0) {
-			
-			// make one template for the library template
-			pos.resConfs.add(new ResidueConf(
-                                pos,
-				pos.resConfs.size(),
-				template,
-				type,
-                                bbState
-			));
-			
-		} else {
-			
-			// make a template for each rotamer
-			for (int rotamerIndex=0; rotamerIndex<template.getNumRotamers(); rotamerIndex++) {
+		//make one RC for each (backbone voxel, rotamer) pair
+		for (HashMap<String,double[]> bbState : listBackboneVoxels(pos)) {
+
+			if (template.name.equalsIgnoreCase("PRO")) {
+
+				// HACKHACK: add one conf for each proline pucker
+				for (ProlinePucker.Direction dir : ProlinePucker.Direction.values()) {
+					ResidueConf resConf = new ResidueConf(
+						pos,
+						pos.resConfs.size(),
+						template,
+						type,
+						dir.ordinal(),
+						bbState
+					);
+					resConf.postTemplateModifier = (res) -> res.pucker.apply(dir);
+					pos.resConfs.add(resConf);
+				}
+
+			} else if (template.getNumRotamers() <= 0) {
+
+				// make one template for the library template
 				pos.resConfs.add(new ResidueConf(
-                                        pos,
+					pos,
 					pos.resConfs.size(),
 					template,
 					type,
-					rotamerIndex,
-                                        bbState
+					bbState
 				));
+
+			} else {
+
+				// make a template for each rotamer
+				for (int rotamerIndex=0; rotamerIndex<template.getNumRotamers(); rotamerIndex++) {
+					pos.resConfs.add(new ResidueConf(
+						pos,
+						pos.resConfs.size(),
+						template,
+						type,
+						rotamerIndex,
+						bbState
+					));
+				}
 			}
 		}
-            }
 	}
 	
 	private void makeShell(double shellDist) {
@@ -408,7 +403,7 @@ public class SimpleConfSpace implements Serializable {
 		}
 		return count;
 	}
-	
+
 	/** @see #makeMolecule(RCTuple) */
 	public ParametricMolecule makeMolecule(ScoredConf conf) {
 		return makeMolecule(conf.getAssignments());

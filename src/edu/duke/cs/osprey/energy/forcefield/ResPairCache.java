@@ -135,6 +135,10 @@ public class ResPairCache {
 		Residue res2 = residues.get(index2);
 		
 		AtomPairs atomPairs = connectivity.getAtomPairs(res1, res2);
+		if (atomPairs == null) {
+			throw new RuntimeException("Atom connectivity was not correctly calculated."
+					+ " Can't find atom pairs for residues: " + res1.fullName + ", " + res2.fullName);
+		}
 		
 		// look in the cache
 		AtomPairInfo info = infos.get(atomPairs);

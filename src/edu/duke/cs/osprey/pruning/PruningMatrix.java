@@ -6,10 +6,7 @@ package edu.duke.cs.osprey.pruning;
 
 import java.util.ArrayList;
 
-import edu.duke.cs.osprey.confspace.ConfSpace;
-import edu.duke.cs.osprey.confspace.HigherTupleFinder;
-import edu.duke.cs.osprey.confspace.RCTuple;
-import edu.duke.cs.osprey.confspace.TupleMatrixBoolean;
+import edu.duke.cs.osprey.confspace.*;
 
 /**
  *
@@ -42,6 +39,10 @@ public class PruningMatrix extends TupleMatrixBoolean {
         //currently all entries in oneBody and pairwise are null
         fill(false);
     }
+
+    public PruningMatrix(SimpleConfSpace confSpace, double pruningInterval) {
+    	super(confSpace, pruningInterval, false);
+	}
     
     public PruningMatrix(int numPos, int[] numAllowedAtPos, double pruningInterval) {
     	super(numPos, numAllowedAtPos, pruningInterval, false);

@@ -10,9 +10,9 @@ import java.util.ArrayList;
 
 import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.SidechainIdealizer;
-import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
+import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
@@ -31,7 +31,7 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
     private static final long serialVersionUID = 4285811771185813789L;
     
     // TODO: this should be final and not transient, but we're stuck using weird serialization for now
-    public transient GenericResidueTemplateLibrary templateLib;
+    public transient ResidueTemplateLibrary templateLib;
     
     private Residue res;//what residue in the molecule we are talking about
     private boolean idealizeSidechainAfterMutation;
@@ -40,7 +40,7 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
      * this doesn't need to be a DOF anymore, just the static function switchToTemplate()
      */
     @Deprecated
-    public ResidueTypeDOF(GenericResidueTemplateLibrary templateLib, Residue res) {
+    public ResidueTypeDOF(ResidueTemplateLibrary templateLib, Residue res) {
         this(templateLib, res, false);
     }
     
@@ -48,7 +48,7 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
      * this doesn't need to be a DOF anymore, just the static function switchToTemplate()
      */
     @Deprecated
-    public ResidueTypeDOF(GenericResidueTemplateLibrary templateLib, Residue res, boolean idealizeSidechainAfterMutation) {
+    public ResidueTypeDOF(ResidueTemplateLibrary templateLib, Residue res, boolean idealizeSidechainAfterMutation) {
         this.templateLib = templateLib;
         this.res = res;
         this.idealizeSidechainAfterMutation = idealizeSidechainAfterMutation;
@@ -82,15 +82,15 @@ public class ResidueTypeDOF extends DegreeOfFreedom {
     	switchToTemplate(templateLib, res, newTemplate, idealizeSidechainAfterMutation);
     }
     
-    public static void switchToTemplate(GenericResidueTemplateLibrary templateLib, Residue res, String resType) {
+    public static void switchToTemplate(ResidueTemplateLibrary templateLib, Residue res, String resType) {
     	switchToTemplate(templateLib, res, templateLib.getTemplate(resType));
     }
     
-    public static void switchToTemplate(GenericResidueTemplateLibrary templateLib, Residue res, ResidueTemplate newTemplate) {
+    public static void switchToTemplate(ResidueTemplateLibrary templateLib, Residue res, ResidueTemplate newTemplate) {
     	switchToTemplate(templateLib, res, newTemplate, false);
     }
     
-    public static void switchToTemplate(GenericResidueTemplateLibrary templateLib, Residue res, ResidueTemplate newTemplate, boolean idealizeSidechainAfterMutation) {
+    public static void switchToTemplate(ResidueTemplateLibrary templateLib, Residue res, ResidueTemplate newTemplate, boolean idealizeSidechainAfterMutation) {
         ResidueTemplate oldTemplate = res.template;
         
         //the residue's going to change some, so break its inter-residue bonds

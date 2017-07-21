@@ -5,6 +5,7 @@ import static org.junit.Assert.*;
 
 import java.util.List;
 
+import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -12,7 +13,6 @@ import edu.duke.cs.osprey.TestBase;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace.Position;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace.ResidueConf;
 import edu.duke.cs.osprey.dof.FreeDihedral;
-import edu.duke.cs.osprey.minimization.ObjectiveFunction.DofBounds;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -29,7 +29,11 @@ public class TestSimpleConfSpace extends TestBase {
 	
 	public Strand makeStrand() {
 		return new Strand.Builder(mol)
-			.setLovellTemplateLibrary() // explicitly choose Lovell rotamers
+			// explicitly choose Lovell rotamers
+			.setTemplateLibrary(new ResidueTemplateLibrary.Builder()
+				.clearRotamers()
+				.addLovellRotamers()
+				.build())
 			.build();
 	}
 	

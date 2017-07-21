@@ -9,12 +9,11 @@ import java.util.ArrayList;
 import java.util.TreeSet;
 
 import edu.duke.cs.osprey.confspace.Strand;
-import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.ResidueTypeDOF;
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
-import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
+import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Atom;
 import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.structure.Residue;
@@ -59,7 +58,7 @@ public class PerturbationSelector {
     public PerturbationSelector(String startingPertFile, boolean onlyStarting, 
             double maxShearParam, double maxBackrubParam, boolean selectLCAs, 
             ArrayList<String> flexibleRes, String PDBFile, ResidueTermini termini, 
-            boolean doRamaCheck, GenericResidueTemplateLibrary templateLib) {
+            boolean doRamaCheck, ResidueTemplateLibrary templateLib) {
         
         this.startingPertFile = startingPertFile;
         this.onlyStarting = onlyStarting;

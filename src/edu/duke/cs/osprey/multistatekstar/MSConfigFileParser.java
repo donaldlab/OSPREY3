@@ -8,6 +8,7 @@ import java.util.StringTokenizer;
 import edu.duke.cs.osprey.confspace.SearchProblem;
 import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.control.ConfigFileParser;
+import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.DEEPerSettings;
 import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.structure.Molecule;
@@ -148,7 +149,8 @@ public class MSConfigFileParser extends ConfigFileParser {
 				params.getBool("selectLCAs"),
 				sMutRes,
 				params.getValue("PDBNAME"),
-				params.getBool("DORAMACHECK")
+				params.getBool("DORAMACHECK"),
+				EnvironmentVars.resTemplates
 				);
 
 		dset.loadPertFile(subState2Termini(subState));

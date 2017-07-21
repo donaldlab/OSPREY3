@@ -10,10 +10,10 @@ import java.util.Arrays;
 
 import edu.duke.cs.osprey.dof.ProlinePucker;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
 import edu.duke.cs.osprey.restypes.ResTemplateMatching;
 import edu.duke.cs.osprey.restypes.ResidueTemplate;
+import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.tools.Protractor;
 import edu.duke.cs.osprey.tools.StringParsing;
 import edu.duke.cs.osprey.tools.VectorAlgebra;
@@ -165,7 +165,7 @@ public class Residue implements Serializable {
         return fullName.charAt(4);
     }
     
-    public boolean assignTemplate(GenericResidueTemplateLibrary templateLib) {
+    public boolean assignTemplate(ResidueTemplateLibrary templateLib) {
         //assign a template to this residue if possible, using the ResidueTemplateLibrary
         //return if successful or not
         
@@ -190,7 +190,7 @@ public class Residue implements Serializable {
         double bestScore = Double.POSITIVE_INFINITY;
         
         for(ResidueTemplate templ : templCandidates){
-            ResTemplateMatching templMatching = new ResTemplateMatching(this, templ, templateLib.ffParams);
+            ResTemplateMatching templMatching = new ResTemplateMatching(this, templ, templateLib.ffparams);
             if(templMatching.score < bestScore){
                 bestScore = templMatching.score;
                 bestMatching = templMatching;

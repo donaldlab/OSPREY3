@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -29,7 +30,6 @@ import edu.duke.cs.osprey.ematrix.epic.EPICSettings;
 import edu.duke.cs.osprey.energy.EnergyFunctionGenerator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
-import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.tools.HashCalculator;
 import edu.duke.cs.osprey.tools.Protractor;
 import edu.duke.cs.osprey.tupexp.LUTESettings;
@@ -383,7 +383,7 @@ public class TestBase {
 		EnvironmentVars.curEFcnGenerator = new EnergyFunctionGenerator(new ForcefieldParams());
 		
 		// make residue templates
-		EnvironmentVars.resTemplates = new GenericResidueTemplateLibrary.Builder().build();
+		EnvironmentVars.resTemplates = new ResidueTemplateLibrary.Builder().build();
 	}
 	
 	protected static SearchProblem makeSearchProblem(EnergyMatrixConfig emConfig) {

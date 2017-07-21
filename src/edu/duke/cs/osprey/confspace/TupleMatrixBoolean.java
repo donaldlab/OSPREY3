@@ -30,6 +30,10 @@ public class TupleMatrixBoolean extends AbstractTupleMatrix<Boolean> {
     public TupleMatrixBoolean(ConfSpace cSpace, double pruningInterval, boolean defaultHigherInteraction) {
     	super(cSpace, pruningInterval, defaultHigherInteraction);
     }
+
+    public TupleMatrixBoolean(SimpleConfSpace confSpace, double pruningInterval, boolean defaultHigherInteraction) {
+		super(confSpace, pruningInterval, defaultHigherInteraction);
+	}
     
     public TupleMatrixBoolean(int numPos, int[] numAllowedAtPos, double pruningInterval, boolean defaultHigherInteraction) {
     	super(numPos, numAllowedAtPos, pruningInterval, defaultHigherInteraction);

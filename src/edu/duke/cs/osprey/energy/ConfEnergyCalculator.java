@@ -165,6 +165,29 @@ public class ConfEnergyCalculator {
 		ecalc.tasks.submit(() -> calcEnergy(conf), listener);
 	}
 
+	/**
+	 * Calculate energy of a scored conformation with specified residue interactions.
+	 *
+	 * @param conf The conformation to analyze
+	 * @param inters The residue interactions
+	 * @return The conformation with attached energy
+	 */
+	public EnergiedConf calcEnergy(ScoredConf conf, ResidueInteractions inters) {
+		return new EnergiedConf(conf, calcEnergy(new RCTuple(conf.getAssignments()), inters));
+	}
+
+	/**
+	 * Asynchronous version of {@link #calcEnergy(ScoredConf)}.
+	 *
+	 * @param conf The conformation to analyze
+	 * @param inters The residue interactions
+	 * @param listener Callback function that will receive the energy. Called on a listener thread which is separate from the calling thread.
+	 */
+	public void calcEnergyAsync(ScoredConf conf, ResidueInteractions inters, TaskListener<EnergiedConf> listener) {
+		ecalc.tasks.submit(() -> calcEnergy(conf), listener);
+	}
+
+
 	public List<EnergiedConf> calcAllEnergies(List<ScoredConf> confs) {
 		return calcAllEnergies(confs, false);
 	}

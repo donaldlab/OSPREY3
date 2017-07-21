@@ -6,6 +6,7 @@ import static org.junit.Assert.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 
+import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import org.junit.Test;
 
 import edu.duke.cs.osprey.TestBase;
@@ -791,7 +792,11 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 		
 		Molecule mol = PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb");
 		Strand strand = new Strand.Builder(mol)
-			.setLovellTemplateLibrary() // explicitly choose Lovell rotamers
+			// explicitly choose Lovell rotamers
+			.setTemplateLibrary(new ResidueTemplateLibrary.Builder()
+					.clearRotamers()
+					.addLovellRotamers()
+					.build())
 			.build();
 		
 		int resNum = firstResNum;

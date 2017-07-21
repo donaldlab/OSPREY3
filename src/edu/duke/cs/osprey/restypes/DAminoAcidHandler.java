@@ -8,7 +8,10 @@ package edu.duke.cs.osprey.restypes;
 import edu.duke.cs.osprey.structure.Residue;
 import edu.duke.cs.osprey.tools.ObjectIO;
 import edu.duke.cs.osprey.tools.Protractor;
+
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 
 /**
  *
@@ -76,6 +79,23 @@ public class DAminoAcidHandler {
             }
         }
     }
+
+	/**
+	 * Make a D-amino acid template for every standard L-amino acid template in the library
+	 * This lets us do D-amino acids without having to have separate templates
+	 * A D-amino acid is just an inverted L-amino acid (including Ile and Thr,
+	 * which have a second chiral center)
+	 */
+    public static List<ResidueTemplate> makeDTemplates(List<ResidueTemplate> templates) {
+		ArrayList<ResidueTemplate> dTemplates = new ArrayList<>();
+		for (ResidueTemplate template : templates) {
+			if (DAminoAcidHandler.isStandardLAminoAcid(template.name)) {
+				//template recognized as standard L-amino acid
+				dTemplates.add(makeDTemplate(template));
+			}
+		}
+		return dTemplates;
+	}
     
     
     public static ResidueTemplate makeDTemplate(ResidueTemplate LTemplate){

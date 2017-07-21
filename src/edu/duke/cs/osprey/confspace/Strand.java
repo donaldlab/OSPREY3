@@ -9,11 +9,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams.Forcefield;
 import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
 import edu.duke.cs.osprey.restypes.DAminoAcidHandler;
-import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
 import edu.duke.cs.osprey.restypes.HardCodedResidueInfo;
+import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.Residue;
 import java.io.Serializable;
@@ -37,14 +36,14 @@ public class Strand implements Serializable {
 		 *
 		 * If no template library is specified, a default template library is created.
 		 **/
-		private GenericResidueTemplateLibrary templateLib;
+		private ResidueTemplateLibrary templateLib;
 		private boolean errorOnNonTemplateResidues;
 		
 		public Builder(Molecule mol) {
 			this.mol = mol;
 			this.firstResNum = mol.residues.get(0).getPDBResNumber();
 			this.lastResNum = mol.residues.get(mol.residues.size() - 1).getPDBResNumber();
-			this.templateLib = new GenericResidueTemplateLibrary.Builder().build();
+			this.templateLib = new ResidueTemplateLibrary.Builder().build();
 			this.errorOnNonTemplateResidues = false;
 		}
 		
@@ -69,28 +68,9 @@ public class Strand implements Serializable {
 			return this;
 		}
 		
-		public Builder setTemplateLibrary(GenericResidueTemplateLibrary val) {
+		public Builder setTemplateLibrary(ResidueTemplateLibrary val) {
 			this.templateLib = val;
 			return this;
-		}
-		
-		public Builder setDefaultTemplateLibrary(Forcefield forcefield) {
-			return setTemplateLibrary(new GenericResidueTemplateLibrary.Builder()
-				.setForcefield(forcefield)
-				.build());
-		}
-		
-		public Builder setLovellTemplateLibrary() {
-			return setTemplateLibrary(new GenericResidueTemplateLibrary.Builder()
-				.setLovellRotamers()
-				.build());
-		}
-		
-		public Builder setLovellTemplateLibrary(Forcefield forcefield) {
-			return setTemplateLibrary(new GenericResidueTemplateLibrary.Builder()
-				.setForcefield(forcefield)
-				.setLovellRotamers()
-				.build());
 		}
 		
 		public Builder setErrorOnNonTemplateResidues(boolean val) {
@@ -253,7 +233,7 @@ public class Strand implements Serializable {
 	public final Molecule mol;
 	
 	/** The template library used to pick templates for this strand */
-	public final GenericResidueTemplateLibrary templateLib;
+	public final ResidueTemplateLibrary templateLib;
 	
 	/** Names of residues that couldn't be matched to templates */
 	public final Set<String> nonTemplateResNames;
@@ -261,7 +241,7 @@ public class Strand implements Serializable {
 	/** Flexibility parameters for this strand */
 	public final Flexibility flexibility;
 	
-	private Strand(Molecule mol, String firstResNumber, String lastResNumber, GenericResidueTemplateLibrary templateLib, boolean errorOnNonTemplateResidues) {
+	private Strand(Molecule mol, String firstResNumber, String lastResNumber, ResidueTemplateLibrary templateLib, boolean errorOnNonTemplateResidues) {
 		
 		// make sure the mol has these residues, otherwise the ranges won't work correctly
 		mol.residues.getOrThrow(firstResNumber);

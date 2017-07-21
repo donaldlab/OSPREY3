@@ -5,10 +5,9 @@
  */
 package edu.duke.cs.osprey.dof.deeper;
 
-import edu.duke.cs.osprey.control.EnvironmentVars;
 import edu.duke.cs.osprey.dof.deeper.perts.Perturbation;
 import edu.duke.cs.osprey.multistatekstar.ResidueTermini;
-import edu.duke.cs.osprey.restypes.GenericResidueTemplateLibrary;
+import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 
 import java.io.Serializable;
@@ -43,7 +42,7 @@ public class DEEPerSettings implements Serializable {
     ArrayList<String> flexibleRes;
     String PDBFile;
     
-    GenericResidueTemplateLibrary templateLib;
+    ResidueTemplateLibrary templateLib;
 
     
     public DEEPerSettings(){
@@ -51,30 +50,11 @@ public class DEEPerSettings implements Serializable {
         doPerturbations = false;
     }
     
-    public DEEPerSettings(boolean doPerturbations, String pertFileName, 
-            boolean selectPerturbations, String startingPertFile, boolean onlyStarting, 
-            double maxShearParam, double maxBackrubParam, boolean selectLCAs, 
-            ArrayList<String> flexibleRes, String PDBFile, boolean doRamaCheck) {
-        
-        this.doPerturbations = doPerturbations;
-        this.pertFileName = pertFileName;
-        this.selectPerturbations = selectPerturbations;
-        this.startingPertFile = startingPertFile;
-        this.onlyStarting = onlyStarting;
-        this.maxShearParam = maxShearParam;
-        this.maxBackrubParam = maxBackrubParam;
-        this.selectLCAs = selectLCAs;
-        this.flexibleRes = flexibleRes;
-        this.PDBFile = PDBFile;
-        this.doRamaCheck = doRamaCheck;
-        this.templateLib = EnvironmentVars.resTemplates;
-    }
-    
-    public DEEPerSettings(boolean doPerturbations, String pertFileName, 
+    public DEEPerSettings(boolean doPerturbations, String pertFileName,
             boolean selectPerturbations, String startingPertFile, boolean onlyStarting, 
             double maxShearParam, double maxBackrubParam, boolean selectLCAs, 
             ArrayList<String> flexibleRes, String PDBFile, boolean doRamaCheck,
-            GenericResidueTemplateLibrary templateLib) {
+						  ResidueTemplateLibrary templateLib) {
         
         this.doPerturbations = doPerturbations;
         this.pertFileName = pertFileName;
