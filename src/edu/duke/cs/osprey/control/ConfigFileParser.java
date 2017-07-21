@@ -363,9 +363,12 @@ public class ConfigFileParser {
         ResidueTemplateLibrary.Builder templateLibBuilder = new ResidueTemplateLibrary.Builder(ff)
 			.clearRotamers()
             .addRotamers(params.readPath("ROTFILE"))
-			.addBackboneDependentRotamers(params.getBool("UseDunbrackRotamers") ? params.readPath("DUNBRACKROTFILE") : null)
 			.clearResidueEntropies()
             .addResidueEntropies(params.readPath("RESENTROPYFILE"));
+
+        if (params.getBool("UseDunbrackRotamers")) {
+			templateLibBuilder.addBackboneDependentRotamers(params.readPath("DUNBRACKROTFILE"));
+		}
 
         // AAO 2016: load generic rotamer libraries
         for(String grotFile : params.searchParams("GROTFILE")) {

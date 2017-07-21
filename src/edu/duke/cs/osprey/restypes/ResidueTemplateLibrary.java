@@ -42,7 +42,7 @@ public class ResidueTemplateLibrary implements Serializable {
 		private final List<String> templatesTexts = listOf();
 		private final List<String> templateCoordsTexts = listOf();
 		private final List<String> rotamersTexts = listOf();
-		private final List<String> backboneDependentRotamersTexts = Arrays.asList();
+		private final List<String> backboneDependentRotamersTexts = listOf();
 		private final List<String> entropyTexts = listOf();
 
 		/**
