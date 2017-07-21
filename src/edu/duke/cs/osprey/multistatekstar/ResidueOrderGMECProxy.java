@@ -84,7 +84,7 @@ public class ResidueOrderGMECProxy extends ResidueOrderGMEC {
 			boolean isUnbound, boolean assigned) {
 
 		double maxVal = search.settings.stericThreshold;
-		boolean isUpperBoundPFProxy = isUpperBoundPFProxy(objFcnCoeff, isUnbound);
+		//boolean isUpperBoundPFProxy = isUpperBoundPFProxy(objFcnCoeff, isUnbound);
 
 		ArrayList<Integer> pos1s = search.getNumAssignedPos() > 0 ? search.getPosNums(assigned) : search.getPosNums();
 		for(int pos1 : pos1s) {
@@ -124,19 +124,24 @@ public class ResidueOrderGMECProxy extends ResidueOrderGMEC {
 				}
 
 				//adjust minpairwise upwards for lowerbound case
-				if(!isUpperBoundPFProxy) {
+				/*
+				if(isUpperBoundPFProxy) {
 					if(minPairwise != maxVal && maxPairwise == maxVal) {
 						maxPairwise = (minPairwise + maxPairwise)/2.0;
 						minPairwise = maxPairwise;
 					}
 				}
+				*/
 				
 				if(scoreType == ScoreType.LOWEST) {
+					/*
 					//TRY MIN/MAX ENERGIES
-					if(isUpperBoundPFProxy) 
-						pos1Value += minPairwise;
-					else
+					if(isUpperBoundPFProxy)
 						pos1Value += maxPairwise;
+					else
+						pos1Value += minPairwise;
+					*/
+					pos1Value += minPairwise;
 				} else if(scoreType == ScoreType.HMEAN) {
 					//TRY HARMONIC MEANS
 					//computing lower bound partition function proxy
@@ -153,7 +158,7 @@ public class ResidueOrderGMECProxy extends ResidueOrderGMEC {
 
 							//cap energy at steric threshold
 							double pairwise = Math.min(search.emat.getPairwise(pos1, rc1, pos2, rc2), maxVal);
-							if(!isUpperBoundPFProxy) pairwise = Math.max(pairwise, minPairwise);
+							//if(isUpperBoundPFProxy) pairwise = Math.max(pairwise, minPairwise);
 							
 							double normalizedPairwise = pairwise - minPairwise;
 

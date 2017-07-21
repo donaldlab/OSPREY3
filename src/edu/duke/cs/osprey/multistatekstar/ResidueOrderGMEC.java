@@ -15,6 +15,7 @@ import edu.duke.cs.osprey.control.ConfSearchFactory;
 import edu.duke.cs.osprey.energy.MultiTermEnergyFunction;
 import edu.duke.cs.osprey.energy.forcefield.ResPairEnergy;
 import edu.duke.cs.osprey.energy.forcefield.SingleResEnergy;
+import edu.duke.cs.osprey.kstar.pfunc.BoltzmannCalculator;
 import edu.duke.cs.osprey.structure.Residue;
 
 @SuppressWarnings("serial")
@@ -37,12 +38,16 @@ public class ResidueOrderGMEC extends ResidueOrder {
 	protected ArrayList<ArrayList<ArrayList<Double>>> pos2Score;
 	protected ArrayList<ArrayList<HashMap<Integer, HashSet<String>>>> pos2AAs;
 	protected HashMap<ResidueAssignment, ArrayList<ArrayList<ArrayList<AAAssignment>>>> ra2AAa;
+	
+	protected BoltzmannCalculator boltzmann;
 
 	public ResidueOrderGMEC(MSSearchProblem[][] objFcnSearch) {
 		super();
 		this.pos2Score = allocatePos2Score(objFcnSearch);
 		this.pos2AAs = allocatePos2AAs(objFcnSearch);
 		this.ra2AAa = new HashMap<>();
+		
+		this.boltzmann = new BoltzmannCalculator();
 	}
 
 	private ArrayList<ArrayList<ArrayList<Double>>> allocatePos2Score(MSSearchProblem[][] objFcnSearch) {
@@ -113,9 +118,62 @@ public class ResidueOrderGMEC extends ResidueOrder {
 		return false;
 	}
 
+	protected void setPos2EnergyContrib(MSSearchProblem search, int state, int subState, double offset) {
+
+		//double maxVal = search.settings.stericThreshold;
+		double maxVal = 0;
+
+		ArrayList<Integer> pos1s = search.getPosNums();
+		for(int pos1 : pos1s) {
+			double sumPairwise = 0;
+			long numPairwise = 0;
+			double pos1Val = 0;
+
+			//also used pruned rcs at pos?
+			ArrayList<Integer> pos1RCs = search.pruneMat.unprunedRCsAtPos(pos1);
+
+			ArrayList<Integer> pos2s = pos1s;
+			//ArrayList<Integer> pos2s = search.getPosNums();
+			for(int pos2 : pos2s) {
+				if(pos1==pos2) continue;
+
+				ArrayList<Integer> pos2RCs = search.pruneMat.unprunedRCsAtPos(pos2);
+
+				for(int rc1 : pos1RCs) {
+
+					String rc1AAType = search.confSpace.posFlex.get(pos1).RCs.get(rc1).AAType;
+					if(!pos2AAs.get(state).get(subState).get(pos1).contains(rc1AAType)) continue;
+
+					for(int rc2 : pos2RCs) {
+
+						String rc2AAType = search.confSpace.posFlex.get(pos2).RCs.get(rc2).AAType;
+						if(!pos2AAs.get(state).get(subState).get(pos2).contains(rc2AAType)) continue;
+
+						//cap energy at steric threshold
+						double pairwise = Math.min(search.emat.getPairwise(pos1, rc1, pos2, rc2), maxVal);
+						sumPairwise += pairwise;
+						numPairwise++;
+					}
+				}
+			}
+
+			pos1Val = sumPairwise/(double)numPairwise;
+			if(Double.isNaN(pos1Val)) pos1Val = 0;
+
+			pos2Score.get(state).get(subState).set(pos1, pos1Val);
+		}
+	}
+
 	private void setPos2EnergyContrib(MSSearchProblem search, int state, 
 			int subState, ScoredConf conf, MultiTermEnergyFunction mef, 
-			boolean isUpperBoundPFProxy) {
+			double offset, boolean isUpperBoundPFProxy) {
+
+		/*
+		if(isUpperBoundPFProxy) {
+			setPos2EnergyContrib(search, state, subState, offset);
+			return;
+		}
+		*/
 
 		ArrayList<Integer> unassignedPos = search.getPosNums(false);
 		int[] assignments = conf.getAssignments();
@@ -159,7 +217,8 @@ public class ResidueOrderGMEC extends ResidueOrder {
 				}
 			}
 
-			pos2Score.get(state).get(subState).set(pos, intraAtPos + pairwiseAtPos);
+			double val = intraAtPos + pairwiseAtPos;
+			pos2Score.get(state).get(subState).set(pos, val);
 		}
 	}
 
@@ -197,12 +256,15 @@ public class ResidueOrderGMEC extends ResidueOrder {
 		ScoredConf conf = scoreConfs.next();
 		if(conf == null) return;
 		MultiTermEnergyFunction mef = search.getDecomposedEnergy(conf.getAssignments(), false);
+
+		double offset = (mef.getPreCompE()-conf.getScore())/(double)search.getNumPos();
 		/*
-		if(Math.abs(mef.getPreCompE()-conf.getScore())>0.1)
+		if(Math.abs(offset)>0.1)
 			throw new RuntimeException("ERROR: conf score "+ conf.getScore() +" != MEF energy " + mef.getPreCompE());
 		 */
+
 		boolean isUpperBoundPFProxy = isUpperBoundPFProxy(objFcnCoeff, isUnbound);
-		setPos2EnergyContrib(search, state, subState, conf, mef, isUpperBoundPFProxy);
+		setPos2EnergyContrib(search, state, subState, conf, mef, offset, isUpperBoundPFProxy);
 	}
 
 	private void computeStateScores(LMB objFcn, MSSearchProblem[][] objFcnSearch, KStarScore[] objFcnScores, boolean parallel) {		
@@ -445,7 +507,7 @@ public class ResidueOrderGMEC extends ResidueOrder {
 		}
 	}
 
-	protected BigDecimal getStateScore(int state, ResidueAssignment assignment) {		
+	protected BigDecimal getStateScoreSum(int state, ResidueAssignment assignment) {		
 		double ans = 0;
 		//unbound states
 		for(int subState=0;subState<assignment.length()-1;++subState) {
@@ -466,6 +528,31 @@ public class ResidueOrderGMEC extends ResidueOrder {
 		return BigDecimal.valueOf(ans);
 	}
 
+	protected BigDecimal getStateScoreRatio(int state, ResidueAssignment assignment) {
+		BigDecimal ans = BigDecimal.ONE.setScale(64, RoundingMode.HALF_UP);
+		//unbound states
+		for(int subState=0;subState<assignment.length()-1;++subState) {
+			ArrayList<Integer> unboundPos = assignment.get(subState);
+			if(unboundPos.size()==0) continue;
+			if(unboundPos.size()>1) throw new RuntimeException("ERROR: unbound state was split into more than one position");
+			int pos = unboundPos.get(0);//contains at most one value		
+			ans = ans.multiply(boltzmann.calc(pos2Score.get(state).get(subState).get(pos)));
+		}
+		if(ans.compareTo(BigDecimal.ZERO)==0) ans = new BigDecimal("1e-63").setScale(64, RoundingMode.HALF_UP);
+
+		//bound state
+		int subState = assignment.length()-1;
+		ArrayList<Integer> boundPos = assignment.get(subState);
+		BigDecimal numerator = BigDecimal.ZERO.setScale(64, RoundingMode.HALF_UP);
+		for(int pos : boundPos) {
+			numerator = numerator.add(boltzmann.calc(pos2Score.get(state).get(subState).get(pos)));
+		}
+
+		ans = numerator.divide(ans, RoundingMode.HALF_UP);
+		return ans;
+	}
+
+
 	protected BigDecimal getScore(ResidueAssignment assignment, 
 			MSSearchProblem[][] objFcnSearch,
 			BigDecimal[] coeffs,
@@ -477,8 +564,9 @@ public class ResidueOrderGMEC extends ResidueOrder {
 		//get assignment score
 		for(int state=0;state<numStates;++state) {
 			//sign of 0 does not contribute to score
-			//if(coeffs[state].compareTo(BigDecimal.ZERO)==0) continue;
-			ans = ans.add(getStateScore(state, assignment));
+			if(coeffs[state].compareTo(BigDecimal.ZERO)==0) continue;
+			//ans = ans.add(coeffs[state].multiply(getStateScoreRatio(state, assignment)));
+			ans = ans.add(getStateScoreSum(state, assignment));
 		}
 
 		return ans;

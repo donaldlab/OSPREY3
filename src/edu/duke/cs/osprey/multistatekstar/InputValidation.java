@@ -190,14 +190,14 @@ public class InputValidation {
 
 			//listed unbound state residues must be within limits
 			ArrayList<Integer> ubStateLims = new ArrayList<>();
-			st = new StringTokenizer(sParams.getValue("STRAND"+state));
-			if(st.countTokens()!=2) throw new RuntimeException("ERROR: STRAND"+state
+			st = new StringTokenizer(sParams.getValue("STRAND"+ubState));
+			if(st.countTokens()!=2) throw new RuntimeException("ERROR: STRAND"+ubState
 					+" must have 2 tokens");
 			while(st.hasMoreTokens()) ubStateLims.add(Integer.valueOf(st.nextToken()));
 			Collections.sort(ubStateLims);
 			for(int res : ubStateMutList){
 				if(res<ubStateLims.get(0) && res>ubStateLims.get(1)) throw new RuntimeException("ERROR: "
-						+"mutable residue "+res+" exceeds the boundaries of STRAND"+state);
+						+"mutable residue "+res+" exceeds the boundaries of STRAND"+ubState);
 			}
 
 			//ResAllowed must exist for each mutable residue

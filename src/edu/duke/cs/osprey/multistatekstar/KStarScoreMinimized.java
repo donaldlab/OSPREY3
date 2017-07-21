@@ -15,6 +15,7 @@ import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction.Status;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction.Values;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.tools.ExpFunction;
 
 /**
  * @author Adegoke Ojewole (ao68@duke.edu)
@@ -68,7 +69,14 @@ public class KStarScoreMinimized implements KStarScore {
 		}
 		return ans;
 	}
-
+	
+	public BigDecimal toLog10(BigDecimal val) {
+		if(val.compareTo(BigDecimal.ZERO)==0)
+			return KStarScore.MIN_VALUE;
+		
+		return new ExpFunction().log10ToBigDecimal(val);
+	}
+	
 	public BigDecimal getScore() {
 		BigDecimal den = getDenom();
 		if(den.compareTo(BigDecimal.ZERO) == 0) return den;
