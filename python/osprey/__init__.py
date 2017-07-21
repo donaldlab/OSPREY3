@@ -23,7 +23,6 @@ WILD_TYPE = DocstringJavaDefault('.confspace.Strand#WildType')
 
 Forcefield = None
 SolvationForcefield = None
-LovellRotamers = 0 # arbitrary value, doesn't matter
 EnergyPartition = None
 ExternalMemory = None
 
@@ -45,7 +44,7 @@ def _java_aware_excepthook(exctype, value, traceback):
 		pass
 
 
-def start(heapSizeMB=1024, enableAssertions=False):
+def start(heapSizeMB=1024, enableAssertions=False, stackSizeMB=8):
 	'''
 	Starts the Java Virtual Machine (JVM) that runs Osprey's computation libraries.
 
@@ -56,6 +55,9 @@ def start(heapSizeMB=1024, enableAssertions=False):
 		you may want to use 2048 MB (2 GB), 4096 MB (4 GB), or even more memory.
 	
 	:param bool enableAssertions: pass ``True`` to enable JVM assertions. Only useful for debugging.
+
+	:param int stackSizeMB: Size of the JVM stack in megabytes. Generally leave this at the default value,
+		unless Osprey crashes because it's too small. Then try increasing it.
 	'''
 
 	# setup a global exception handler to show java exception info
@@ -84,7 +86,7 @@ def start(heapSizeMB=1024, enableAssertions=False):
 			jvm.addClasspath(path.strip())
 
 	# start the jvm
-	jvm.start(heapSizeMB, enableAssertions)
+	jvm.start(heapSizeMB, enableAssertions, stackSizeMB)
 
 	# set up class factories
 	global c

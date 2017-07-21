@@ -37,7 +37,7 @@ def setNativesDir(path):
 	_nativesDir = path
 
 
-def start(heapSizeMB=1024, enableAssertions=False):
+def start(heapSizeMB=1024, enableAssertions=False, stackSizeMB=None):
 
 	# build JVM launch args
 	args = [
@@ -47,6 +47,8 @@ def start(heapSizeMB=1024, enableAssertions=False):
 	]
 	if enableAssertions:
 		args.append("-ea")
+	if stackSizeMB is not None:
+		args.append('-Xss%sM' % stackSizeMB)
 	if _nativesDir is not None:
 		args.append('-Djava.library.path=%s' % _nativesDir)
 

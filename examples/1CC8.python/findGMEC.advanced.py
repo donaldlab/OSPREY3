@@ -6,7 +6,7 @@ osprey.start()
 # what kind of hardware do we have?
 parallelism = osprey.Parallelism(cpuCores=2)
 # or use GPUs
-#parallelism = osprey.Parallelism(cpuCores=2, gpus=1, streamsPerGpu=1)
+gpuPrallelism = osprey.Parallelism(cpuCores=2, gpus=1, streamsPerGpu=1)
 
 # choose a forcefield
 ffparams = osprey.ForcefieldParams(osprey.Forcefield.AMBER)
@@ -15,12 +15,8 @@ ffparams.solvationForcefield = osprey.SolvationForcefield.EEF1 # this is the def
 #ffparams.solvationForcefield = None
 
 # choose a template library
-templateLib = osprey.TemplateLibrary(
-	forcefield=ffparams.forcefld,
-	rotamers=osprey.LovellRotamers
-	# or
-	#templateCoords='path/to/coords/file'
-)
+# (see templateLibrary.py for more detailed examples of custom template libraries)
+templateLib = osprey.TemplateLibrary()
 
 # load a molecule
 mol = osprey.readPdb('1CC8.ss.pdb')
@@ -58,7 +54,7 @@ astar = osprey.AStarMPLP(
 	numIterations=1
 )
 # or
-#astar = osprey.AStarTraditional(emat, confSpace)
+traditionalAstar = osprey.AStarTraditional(emat, confSpace)
 
 energyWindow = 0.1 # kcal/mol
 confs = osprey.GMECFinder(
