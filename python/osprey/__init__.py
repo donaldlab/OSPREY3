@@ -60,6 +60,9 @@ def start(heapSizeMB=1024, enableAssertions=False, stackSizeMB=8):
 		unless Osprey crashes because it's too small. Then try increasing it.
 	'''
 
+	# disable buffered output on stdout, so python log messages line up with java log messages
+	sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
+
 	# setup a global exception handler to show java exception info
 	sys.excepthook = _java_aware_excepthook
 
@@ -440,13 +443,13 @@ def ReferenceEnergies(confSpace, ecalc, addResEntropy=None):
 	return builder.build()
 
 
-def AStarTraditional(emat, confSpace, useExternalMemory=False):
+def AStarTraditional(emat, confSpaceOrPmat, useExternalMemory=False):
 	'''
 	:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#setTraditional`
 
 	:builder_option emat .astar.conf.ConfAStarTree$Builder#emat:
-	:param confSpace: The conformation space containing the residue conformations to search.
-	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+	:param confSpaceOrPmat: The conformation space containing the residue conformations to search.
+	:type confSpaceOrPmat: :java:ref:`.confspace.SimpleConfSpace` or :java:ref:`.pruning.PruningMatrix`
 	:param useExternalMemory: set to True to use external memory.
 
 		:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#useExternalMemory`
@@ -454,7 +457,7 @@ def AStarTraditional(emat, confSpace, useExternalMemory=False):
 	:type useExternalMemory: boolean
 	:builder_return .astar.conf.ConfAStarTree$Builder:
 	'''
-	builder = _get_builder(c.astar.conf.ConfAStarTree)(emat, confSpace)
+	builder = _get_builder(c.astar.conf.ConfAStarTree)(emat, confSpaceOrPmat)
 	builder.setTraditional()
 
 	if useExternalMemory == True:
@@ -469,13 +472,13 @@ def EdgeUpdater():
 def NodeUpdater():
 	return c.astar.conf.scoring.mplp.NodeUpdater()
 
-def AStarMPLP(emat, confSpace, updater=None, numIterations=None, convergenceThreshold=None, useExternalMemory=False):
+def AStarMPLP(emat, confSpaceOrPmat, updater=None, numIterations=None, convergenceThreshold=None, useExternalMemory=False):
 	'''
 	:java:methoddoc:`.astar.conf.ConfAStarTree$Builder#setMPLP`
 
 	:builder_option emat .astar.conf.ConfAStarTree$Builder#emat:
-	:param confSpace: The conformation space containing the residue conformations to search.
-	:type confSpace: :java:ref:`.confspace.SimpleConfSpace`
+	:param confSpaceOrPmat: The conformation space containing the residue conformations to search.
+	:type confSpaceOrPmat: :java:ref:`.confspace.SimpleConfSpace` or :java:ref:`.pruning.PruningMatrix`
 	:builder_option updater .astar.conf.ConfAStarTree$MPLPBuilder#updater:
 	:builder_option numIterations .astar.conf.ConfAStarTree$MPLPBuilder#numIterations:
 	:builder_option convergenceThreshold .astar.conf.ConfAStarTree$MPLPBuilder#convergenceThreshold:
@@ -497,7 +500,7 @@ def AStarMPLP(emat, confSpace, updater=None, numIterations=None, convergenceThre
 	if convergenceThreshold is not None:
 		mplpBuilder.setConvergenceThreshold(convergenceThreshold)
 
-	builder = _get_builder(c.astar.conf.ConfAStarTree)(emat, confSpace)
+	builder = _get_builder(c.astar.conf.ConfAStarTree)(emat, confSpaceOrPmat)
 	builder.setMPLP(mplpBuilder)
 
 	if useExternalMemory == True:
@@ -587,3 +590,42 @@ def DEEPerStrandFlex(strand, pert_file_name, flex_res_list, pdb_file):
 	bbflex = c.confspace.DEEPerStrandFlex(strand,deeper_settings)
 	return bbflex
 
+
+def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalcFactory, confEcalcFactory, astarFactory, epsilon=0.683):
+
+	# TODO: pass in emat
+
+	# TEMP: just compute wild-type partition functions
+
+	# make the energy calculator
+	ecalc = ecalcFactory(complexConfSpace)
+
+	def computePfunc(confSpace):
+
+		# get the conformation energy calculator
+		confEcalc = confEcalcFactory(confSpace, ecalc)
+
+		# compute the energy matrix
+		# TODO: take emat subset from complexConfSpace instead of recomputing
+		emat = EnergyMatrix(confEcalc)
+
+		# don't really need pruning here (A* is plenty fast enough already), so use NOP pmat
+		pmat = c.pruning.PruningMatrix(confSpace, 0.0)
+
+		# convert function from python to java
+		confSearchFactory = jpype.JProxy(c.gmec.ConfSearchFactory, dict={ 'make': astarFactory })
+
+		# make the partition function
+		pfunc = c.kstar.pfunc.SimplePartitionFunction(emat, pmat, confSearchFactory, confEcalc)
+		pfunc.setReportProgress(True) # TODO: expose option to turn off
+
+		# compute pfunc for protein
+		pfunc.init(epsilon)
+		pfunc.compute()
+		print('partition function: %e' % pfunc.getValues().qstar.doubleValue())
+		print('effective epsilon: %f' % pfunc.getValues().getEffectiveEpsilon())
+
+	# compute all three partition functions
+	computePfunc(proteinConfSpace)
+	computePfunc(ligandConfSpace)
+	computePfunc(complexConfSpace)

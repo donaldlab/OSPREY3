@@ -36,4 +36,10 @@ public class TestPythonScripts {
 	@Test public void findGMECDEEPer() { runGMEC("findGMEC.DEEPer.py"); }
 	@Test public void findGMECLUTE() { runGMEC("findGMEC.LUTE.py"); }
 	@Test public void templateLibrary() { runGMEC("templateLibrary.py"); }
+
+	private void runKStar(String script) {
+		run("examples/python.KStar", script);
+	}
+
+	@Test public void kstarSingleSequence() { runKStar("kstar.singleSequence.py"); }
 }
