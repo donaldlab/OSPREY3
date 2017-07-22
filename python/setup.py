@@ -37,7 +37,7 @@ setuptools.setup(
 	url='https://github.com/donaldlab/OSPREY_refactor',
 	packages=['osprey'],
 	python_requires='>=2.7,<3',
-	install_requires=['JPype1>=0.5.7,<0.6'],
+	install_requires=['JPype-py2>=0.5.8'],
 	package_data={
 		'osprey': ['lib/*.jar', 'README.rst', 'LICENSE.txt']
 	},
