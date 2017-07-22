@@ -34,9 +34,17 @@ Prerequisites
 
  * `Python 2.7`_ (not Python 3+)
  * `pip`_
+ * `Java 8`_
 
 .. _Python 2.7: https://www.python.org/download/releases/2.7/
 .. _pip: https://pip.pypa.io/en/stable/
+.. _Java 8: http://www.oracle.com/technetwork/java/javase/downloads/jre8-downloads-2133155.html
+
+**WARNING:** Make sure you match the bitness between Python and Java versions.
+For example, if you installed the 64-bit version of Java, then make sure
+you install the 64-bit version of Python. Similarly, match the 32-bit versions
+of Java and Python if you live in 32-bit land. If you try to use Osprey with
+mismatched bitness, the Python process will crash with very cryptic error messages.
 
 
 Installation
