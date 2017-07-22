@@ -24,47 +24,16 @@ public class TestPythonScripts {
 		}
 	}
 	
-	private void run1CC8(String script) {
-		run("examples/1CC8.python", script);
+	private void runGMEC(String script) {
+		run("examples/python.GMEC", script);
 	}
 	
-	@Test
-	public void findGMEC() {
-		run1CC8("findGMEC.py");
-	}
-	
-	@Test
-	public void findGMECAdvanced() {
-		run1CC8("findGMEC.advanced.py");
-	}
-
-	@Test
-	public void findGMECReferenceEnergies() {
-		run1CC8("findGMEC.referenceEnergies.py");
-	}
-	
-	@Test
-	public void findGMECExternalMemory() {
-		run1CC8("findGMEC.externalMemory.py");
-	}
-	
-	@Test
-	public void findGMECMultipleStrands() {
-		run1CC8("findGMEC.multipleStrands.py");
-	}
-
-	@Test
-	public void findGMECDEEPer() {
-		run1CC8("findGMEC.DEEPer.py");
-	}
-
-	@Test
-	public void findGMECLUTE() {
-		run1CC8("findGMEC.LUTE.py");
-	}
-
-	@Test
-	public void templateLibrary() {
-		run1CC8("templateLibrary.py");
-	}
+	@Test public void findGMEC() { runGMEC("findGMEC.py"); }
+	@Test public void findGMECAdvanced() { runGMEC("findGMEC.advanced.py"); }
+	@Test public void findGMECReferenceEnergies() { runGMEC("findGMEC.referenceEnergies.py"); }
+	@Test public void findGMECExternalMemory() { runGMEC("findGMEC.externalMemory.py"); }
+	@Test public void findGMECMultipleStrands() { runGMEC("findGMEC.multipleStrands.py"); }
+	@Test public void findGMECDEEPer() { runGMEC("findGMEC.DEEPer.py"); }
+	@Test public void findGMECLUTE() { runGMEC("findGMEC.LUTE.py"); }
+	@Test public void templateLibrary() { runGMEC("templateLibrary.py"); }
 }

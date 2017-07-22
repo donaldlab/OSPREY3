@@ -87,7 +87,7 @@ public class ComplicatedGMECFinding {
         }
         
         private static SimpleConfSpace prepareConfSpace(){
-            Molecule mol = PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb");
+            Molecule mol = PDBIO.readFile("examples/python.GMEC/1CC8.ss.pdb");
             String allowedAAs[][] = new String[][] {
                 new String[] {"Ile","Ala","Gly"},
                 new String[] {"Ser","Ala","Gly"},
@@ -107,7 +107,7 @@ public class ComplicatedGMECFinding {
             
             /*StrandFlex bbFlex = new DEEPerStrandFlex( strand, new DEEPerSettings(true, "aa.pert", 
                 true, "none", false, 2.5, 2.5, false, new ArrayList(Arrays.asList(flexResNums)), 
-                "examples/1CC8.python/1CC8.ss.pdb", false, strand.templateLib) );*/
+                "examples/python.GMEC/1CC8.ss.pdb", false, strand.templateLib) );*/
             //StrandFlex bbFlex = new CATSStrandFlex(strand, "38", "44");
             //just give it the flex res for that strand
             
@@ -118,7 +118,7 @@ public class ComplicatedGMECFinding {
         
         
         private static SimpleConfSpace littleDEEPerConfSpace(){
-            Molecule mol = PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb");
+            Molecule mol = PDBIO.readFile("examples/python.GMEC/1CC8.ss.pdb");
             String allowedAAs[][] = new String[][] {
                 new String[] {"Ile","Ala","Gly"},
                 new String[] {"Ser","Ala","Gly"},
@@ -135,7 +135,7 @@ public class ComplicatedGMECFinding {
             
             StrandFlex bbFlex = new DEEPerStrandFlex( strand, new DEEPerSettings(true, "1CC8.d.pert", 
                 true, "none", false, 2.5, 2.5, false, new ArrayList(Arrays.asList(flexResNums)), 
-                "examples/1CC8.python/1CC8.ss.pdb", false, strand.templateLib) );
+                "examples/python.GMEC/1CC8.ss.pdb", false, strand.templateLib) );
             //just give it the flex res for that strand
             
             

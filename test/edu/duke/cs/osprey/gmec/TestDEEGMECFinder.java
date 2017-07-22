@@ -60,7 +60,7 @@ public class TestDEEGMECFinder {
 	@BeforeClass
 	public static void beforeClass() {
 		
-		Molecule mol = PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb");
+		Molecule mol = PDBIO.readFile("examples/python.GMEC/1CC8.ss.pdb");
 		
 		Strand strand1 = new Strand.Builder(mol).build();
 		strand1.flexibility.get(2).setLibraryRotamers("ALA", "GLY");

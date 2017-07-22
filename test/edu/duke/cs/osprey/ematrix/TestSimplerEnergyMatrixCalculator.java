@@ -790,7 +790,7 @@ public class TestSimplerEnergyMatrixCalculator extends TestBase {
 	
 	private SimpleConfSpace makeConfSpace(boolean doMinimize, int firstResNum, String ... aminoAcids) {
 		
-		Molecule mol = PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb");
+		Molecule mol = PDBIO.readFile("examples/python.GMEC/1CC8.ss.pdb");
 		Strand strand = new Strand.Builder(mol)
 			// explicitly choose Lovell rotamers
 			.setTemplateLibrary(new ResidueTemplateLibrary.Builder()

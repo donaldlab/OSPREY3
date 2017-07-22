@@ -44,7 +44,7 @@ So, without further ado, here's our first Python script.
 
 This is an example script in the Osprey distribution.
 
-You can find it at ``examples/1CC8.python/findGMEC.py``
+You can find it at ``examples/python.GMEC/findGMEC.py``
 It's a bit much to take in all at once though, so let's break it down line-by-line.
 
 .. code-block:: python

@@ -146,7 +146,7 @@ distributions {
 			into("doc") {
 				from(docBuildDir)
 			}
-			listOf("1CC8.python", "gpu").forEach {
+			listOf("python.GMEC", "python.KStar", "gpu").forEach {
 				into("examples/$it") {
 					from("examples/$it")
 				}

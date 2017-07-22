@@ -27,7 +27,7 @@ public class TestEnergyPartitions {
 	public static void beforeClass() {
 		
 		// read a protein
-		Strand strand = new Strand.Builder(PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb")).build();
+		Strand strand = new Strand.Builder(PDBIO.readFile("examples/python.GMEC/1CC8.ss.pdb")).build();
 		
 		// make a conf space that allows only the wild type conf
 		for (int i=2; i<=6; i++) {

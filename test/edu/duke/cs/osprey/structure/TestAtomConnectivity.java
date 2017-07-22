@@ -25,7 +25,7 @@ public class TestAtomConnectivity {
 	public static void beforeClass() {
 		
 		// get an arbitrary conf space
-		strand = new Strand.Builder(PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb")).build();
+		strand = new Strand.Builder(PDBIO.readFile("examples/python.GMEC/1CC8.ss.pdb")).build();
 		for (Residue res : strand.mol.residues) {
 			strand.flexibility.get(res.getPDBResNumber()).addWildTypeRotamers();
 		}

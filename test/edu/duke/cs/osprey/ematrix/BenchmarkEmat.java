@@ -59,7 +59,7 @@ public class BenchmarkEmat extends TestBase {
 		);
 		
 		// prep new-style emat calculation
-		Strand strand = new Strand.Builder(PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb")).build();
+		Strand strand = new Strand.Builder(PDBIO.readFile("examples/python.GMEC/1CC8.ss.pdb")).build();
 		strand.flexibility.get(39).setLibraryRotamers("ALA", "VAL", "LEU", "ILE", "ARG", "LYS", Strand.WildType).setContinuous();
 		strand.flexibility.get(43).setLibraryRotamers("ALA", "VAL", "LEU", "ILE", "ARG", "LYS", Strand.WildType).setContinuous();
 		strand.flexibility.get(40).setLibraryRotamers().setContinuous();
@@ -159,7 +159,7 @@ public class BenchmarkEmat extends TestBase {
 		EnergyPartition epart = EnergyPartition.AllOnPairs;
 		
 		// prep new-style emat calculation
-		Strand strand = new Strand.Builder(PDBIO.readFile("examples/1CC8.python/1CC8.ss.pdb")).build();
+		Strand strand = new Strand.Builder(PDBIO.readFile("examples/python.GMEC/1CC8.ss.pdb")).build();
 		strand.flexibility.get(39).setLibraryRotamers("ALA", "VAL", "LEU", "ILE", "ARG").setContinuous();
 		strand.flexibility.get(43).setLibraryRotamers("ALA", "VAL", "LEU", "ILE", "ARG").setContinuous();
 		strand.flexibility.get(40).setLibraryRotamers("ALA", "VAL", "LEU", "ILE", "ARG").setContinuous();
