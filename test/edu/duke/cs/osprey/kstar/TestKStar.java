@@ -20,54 +20,67 @@ import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
 import org.junit.Test;
 
+import java.io.File;
 import java.math.BigDecimal;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class TestKStar {
 
-	@Test
-	public void test() {
+	private static class Strands {
+		public Strand protein;
+		public Strand ligand;
+	}
 
-		// choose a forcefield
-		ForcefieldParams ffparams = new ForcefieldParams();
+	private static Strands make2RL0(ForcefieldParams ffparams) {
 
 		// choose a molecule
 		Molecule mol = PDBIO.readFile("examples/python.KStar/2RL0.min.reduce.pdb");
 
 		// make sure all strands share the same template library
 		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(ffparams.forcefld)
-			.addMoleculeForWildTypeRotamers(mol)
-			.build();
+				.addMoleculeForWildTypeRotamers(mol)
+				.build();
+
+		Strands strands = new Strands();
 
 		// define the protein strand
-		Strand protein = new Strand.Builder(mol)
-			.setTemplateLibrary(templateLib)
-			.setResidues(648, 654)
-			.build();
-		protein.flexibility.get(649).setLibraryRotamers("TYR", "ALA", "VAL", "ILE", "LEU").addWildTypeRotamers().setContinuous();
-		protein.flexibility.get(650).setLibraryRotamers("ASP", "GLU").addWildTypeRotamers().setContinuous();
-		protein.flexibility.get(651).setLibraryRotamers("GLU", "ASP").addWildTypeRotamers().setContinuous();
-		protein.flexibility.get(654).setLibraryRotamers("THR", "SER", "ASN", "GLN").addWildTypeRotamers().setContinuous();
+		strands.protein = new Strand.Builder(mol)
+				.setTemplateLibrary(templateLib)
+				.setResidues(648, 654)
+				.build();
+		strands.protein.flexibility.get(649).setLibraryRotamers("TYR", "ALA", "VAL", "ILE", "LEU").addWildTypeRotamers().setContinuous();
+		strands.protein.flexibility.get(650).setLibraryRotamers("ASP", "GLU").addWildTypeRotamers().setContinuous();
+		strands.protein.flexibility.get(651).setLibraryRotamers("GLU", "ASP").addWildTypeRotamers().setContinuous();
+		strands.protein.flexibility.get(654).setLibraryRotamers("THR", "SER", "ASN", "GLN").addWildTypeRotamers().setContinuous();
 
 		// define the ligand strand
-		Strand ligand = new Strand.Builder(mol)
-			.setTemplateLibrary(templateLib)
-			.setResidues(155, 194)
-			.build();
-		ligand.flexibility.get(156).setLibraryRotamers("PHE", "TYR", "ALA", "VAL", "ILE", "LEU").addWildTypeRotamers().setContinuous();
-		ligand.flexibility.get(172).setLibraryRotamers("LYS", "ASP", "GLU").addWildTypeRotamers().setContinuous();
-		ligand.flexibility.get(192).setLibraryRotamers("ILE", "ALA", "VAL", "LEU", "PHE", "TYR").addWildTypeRotamers().setContinuous();
-		ligand.flexibility.get(193).setLibraryRotamers("THR", "SER", "ASN").addWildTypeRotamers().setContinuous();
+		strands.ligand = new Strand.Builder(mol)
+				.setTemplateLibrary(templateLib)
+				.setResidues(155, 194)
+				.build();
+		strands.ligand.flexibility.get(156).setLibraryRotamers("PHE", "TYR", "ALA", "VAL", "ILE", "LEU").addWildTypeRotamers().setContinuous();
+		strands.ligand.flexibility.get(172).setLibraryRotamers("LYS", "ASP", "GLU").addWildTypeRotamers().setContinuous();
+		strands.ligand.flexibility.get(192).setLibraryRotamers("ILE", "ALA", "VAL", "LEU", "PHE", "TYR").addWildTypeRotamers().setContinuous();
+		strands.ligand.flexibility.get(193).setLibraryRotamers("THR", "SER", "ASN").addWildTypeRotamers().setContinuous();
+
+		return strands;
+	}
+
+	private static KStar runKStar(ForcefieldParams ffparams, Strands strands, double epsilon) {
+
+		AtomicReference<KStar> kstarRef = new AtomicReference<>(null);
 
 		// make the conf space
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
-			.addStrand(protein)
-			.addStrand(ligand)
+			.addStrand(strands.protein)
+			.addStrand(strands.ligand)
 			.build();
 
-		// how should we compute energies of molecules?
 		// TEMP
 		Parallelism parallelism = Parallelism.makeCpu(4);
 		//Parallelism parallelism = Parallelism.make(4, 1, 4);
+
+		// how should we compute energies of molecules?
 		new EnergyCalculator.Builder(confSpace, ffparams)
 			.setParallelism(parallelism)
 			.use((ecalc) -> {
@@ -90,18 +103,32 @@ public class TestKStar {
 				};
 
 				// run K*
-				double epsilon = 0.99;
 				KStar.Settings settings = new KStar.Settings.Builder()
 					.setEpsilon(epsilon)
-					.setWriteScoresToConsole(true)
+					.addScoreConsoleWriter()
+					.addScoreFileWriter(new File("kstar.scores.tsv"))
 					.build();
-				KStar kstar = new KStar(protein, ligand, confSpace, ecalc, confEcalcFactory, confSearchFactory, settings);
+				KStar kstar = new KStar(strands.protein, strands.ligand, confSpace, ecalc, confEcalcFactory, confSearchFactory, settings);
 				kstar.run();
 
-				// check the results (e = 0.683)
-				// TODO: get real numbers from the old K* code
-				assertSequence(kstar, 0, "PHE ASP GLU THR", "PHE LYS ILE THR", "PHE ASP GLU THR PHE LYS ILE THR", 2.748776e+04, 4.007259e+30, 4.138330e+50, 3.756975e+15, epsilon);
+				// pass back the ref
+				kstarRef.set(kstar);
 			});
+
+		return kstarRef.get();
+	}
+
+	@Test
+	public void test2RL0() {
+
+		ForcefieldParams ffparams = new ForcefieldParams();
+		Strands strands = make2RL0(ffparams);
+		double epsilon = 0.99;
+		KStar kstar = runKStar(ffparams, strands, epsilon);
+
+		// check the results (e = 0.683)
+		// TODO: get real numbers from the old K* code
+		assertSequence(kstar, 0, "PHE ASP GLU THR", "PHE LYS ILE THR", "PHE ASP GLU THR PHE LYS ILE THR", 2.748776e+04, 4.007259e+30, 4.138330e+50, 3.756975e+15, epsilon);
 	}
 
 	private void assertSequence(KStar kstar, int sequenceIndex, String proteinSequence, String ligandSequence, String complexSequence, double proteinQStar, double ligandQStar, double complexQStar, Double kstarScore, double epsilon) {

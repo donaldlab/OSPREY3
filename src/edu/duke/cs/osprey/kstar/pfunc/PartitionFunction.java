@@ -76,10 +76,12 @@ public interface PartitionFunction {
 
 		public final Status status;
 		public final Values values;
+		public final int numConfs;
 
-		public Result(Status status, Values values) {
+		public Result(Status status, Values values, int numConfs) {
 			this.status = status;
 			this.values = values;
+			this.numConfs = numConfs;
 		}
 
 		@Override
@@ -115,11 +117,12 @@ public interface PartitionFunction {
 	Status getStatus();
 	Values getValues();
 	int getParallelism();
+	int getNumConfsEvaluated();
 	
 	void compute();
 	void compute(int maxNumConfs);
 
 	public default Result makeResult() {
-		return new Result(getStatus(), getValues());
+		return new Result(getStatus(), getValues(), getNumConfsEvaluated());
 	}
 }

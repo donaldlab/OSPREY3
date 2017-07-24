@@ -80,6 +80,11 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 	}
 	
 	@Override
+	public int getNumConfsEvaluated() {
+		return numConfsEvaluated;
+	}
+	
+	@Override
 	public int getParallelism() {
 		return ecalc.getTasks().getParallelism();
 	}

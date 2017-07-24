@@ -12,6 +12,7 @@ import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.MathTools;
 
+import java.io.File;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -30,7 +31,7 @@ public class KStar {
 
 			private double epsilon = 0.683;
 			private int maxSimultaneousMutations = 1;
-			private boolean writeScoresToConsole = false;
+			private KStarScoreWriter.Writers scoreWriters = new KStarScoreWriter.Writers();
 
 			public Builder setEpsilon(double val) {
 				epsilon = val;
@@ -42,24 +43,40 @@ public class KStar {
 				return this;
 			}
 
-			public Builder setWriteScoresToConsole(boolean val) {
-				writeScoresToConsole = val;
+			public Builder addScoreWriter(KStarScoreWriter val) {
+				scoreWriters.add(val);
 				return this;
 			}
 
+			public Builder addScoreConsoleWriter(KStarScoreWriter.Formatter val) {
+				return addScoreWriter(new KStarScoreWriter.ToConsole(val));
+			}
+
+			public Builder addScoreConsoleWriter() {
+				return addScoreConsoleWriter(new KStarScoreWriter.Formatter.SequencePfuncsScore());
+			}
+
+			public Builder addScoreFileWriter(File file, KStarScoreWriter.Formatter val) {
+				return addScoreWriter(new KStarScoreWriter.ToFile(file, val));
+			}
+
+			public Builder addScoreFileWriter(File file) {
+				return addScoreFileWriter(file, new KStarScoreWriter.Formatter.Log());
+			}
+
 			public Settings build() {
-				return new Settings(epsilon, maxSimultaneousMutations, writeScoresToConsole);
+				return new Settings(epsilon, maxSimultaneousMutations, scoreWriters);
 			}
 		}
 
 		public final double epsilon;
 		public final int maxSimultaneousMutations;
-		public final boolean writeScoresToConsole;
+		public final KStarScoreWriter.Writers scoreWriters;
 
-		public Settings(double epsilon, int maxSimultaneousMutations, boolean writeScoresToConsole) {
+		public Settings(double epsilon, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters) {
 			this.epsilon = epsilon;
 			this.maxSimultaneousMutations = maxSimultaneousMutations;
-			this.writeScoresToConsole = writeScoresToConsole;
+			this.scoreWriters = scoreWriters;
 		}
 	}
 
@@ -79,14 +96,14 @@ public class KStar {
 
 		@Override
 		public String toString() {
-			StringBuilder buf = new StringBuilder();
-			for (String resType : this) {
-				if (buf.length() > 0) {
-					buf.append(" ");
-				}
-				buf.append(resType);
-			}
-			return buf.toString();
+			return String.join(" ", this);
+		}
+
+		public String toString(List<SimpleConfSpace.Position> positions) {
+			return String.join(" ", positions.stream()
+				.map((pos) -> this.get(pos.index) + "-" + pos.resNum)
+				.collect(Collectors.toList())
+			);
 		}
 	}
 
@@ -215,7 +232,9 @@ public class KStar {
 		complexInfo.sequences.add(complexInfo.makeWildTypeSequence());
 
 		// collect all the sequences explicitly
-		for (List<SimpleConfSpace.Position> mutablePositions : MathTools.powersetUpTo(complexInfo.confSpace.positions, settings.maxSimultaneousMutations)) {
+		List<List<SimpleConfSpace.Position>> powersetOfPositions = MathTools.powersetUpTo(complexInfo.confSpace.positions, settings.maxSimultaneousMutations);
+		Collections.reverse(powersetOfPositions); // NOTE: reverse to match order of old code
+		for (List<SimpleConfSpace.Position> mutablePositions : powersetOfPositions) {
 
 			// collect the mutations (res types except for wild type) for these positions into a simple list list
 			List<List<String>> resTypes = new ArrayList<>();
@@ -258,12 +277,11 @@ public class KStar {
 
 		// TODO: sequence filtering? do we need to reject some mutation combinations for some reason?
 
+		System.out.println("computing K* scores for " + complexInfo.sequences.size() + " sequences...");
+		settings.scoreWriters.writeHeader();
 		// TODO: progress bar?
 
 		// compute all the partition functions and K* scores
-		if (settings.writeScoresToConsole) {
-			System.out.println("computing K* scores for " + complexInfo.sequences.size() + " sequences...");
-		}
 		int n = complexInfo.sequences.size();
 		for (int i=0; i<n; i++) {
 
@@ -276,17 +294,15 @@ public class KStar {
 			BigDecimal kstarScore = PartitionFunction.Result.calcKStarScore(proteinResult, ligandResult, complexResult);
 			kstarScores.add(kstarScore);
 
-			if (settings.writeScoresToConsole) {
-				System.out.println(String.format("sequence %4d/%4d   %s   protein: %-18s   ligand: %-18s   complex: %-18s   K*: %s",
-					i + 1,
-					n,
-					complexInfo.sequences.get(i),
-					proteinResult.toString(),
-					ligandResult.toString(),
-					complexResult.toString(),
-					kstarScore == null ? "none" : String.format("%e", kstarScore.doubleValue())
-				));
-			}
+			// report scores
+			settings.scoreWriters.writeScore(new KStarScoreWriter.ScoreInfo(
+				i,
+				n,
+				complexInfo.sequences.get(i),
+				complexInfo.confSpace,
+				proteinResult, ligandResult, complexResult,
+				kstarScore
+			));
 		}
 	}
 }
