@@ -4,6 +4,11 @@ import static org.junit.Assert.*;
 
 import org.junit.Test;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+
 import static org.hamcrest.Matchers.*;
 
 public class TestMathTools {
@@ -66,5 +71,203 @@ public class TestMathTools {
 		assertThat(MathTools.roundUpToMultiple(7, 4), is(8));
 		assertThat(MathTools.roundUpToMultiple(8, 4), is(8));
 		assertThat(MathTools.roundUpToMultiple(9, 4), is(12));
+	}
+
+	@Test
+	public void powerset() {
+
+		// n = 1
+		assertThat(MathTools.powerset(Arrays.asList(1)), is(Arrays.asList(
+			Arrays.asList(),
+			Arrays.asList(1)
+		)));
+
+		// n = 2
+		assertThat(MathTools.powerset(Arrays.asList(1, 2)), is(Arrays.asList(
+			Arrays.asList(),
+			Arrays.asList(1),
+			Arrays.asList(2),
+			Arrays.asList(1, 2)
+		)));
+
+		// n = 3
+		assertThat(MathTools.powerset(Arrays.asList(1, 2, 3)), is(Arrays.asList(
+			Arrays.asList(),
+			Arrays.asList(1),
+			Arrays.asList(2),
+			Arrays.asList(1, 2),
+			Arrays.asList(3),
+			Arrays.asList(1, 3),
+			Arrays.asList(2, 3),
+			Arrays.asList(1, 2, 3)
+		)));
+
+		// n = 4
+		assertThat(MathTools.powerset(Arrays.asList(1, 2, 3, 4)), is(Arrays.asList(
+			Arrays.asList(),
+			Arrays.asList(1),
+			Arrays.asList(2),
+			Arrays.asList(1, 2),
+			Arrays.asList(3),
+			Arrays.asList(1, 3),
+			Arrays.asList(2, 3),
+			Arrays.asList(1, 2, 3),
+			Arrays.asList(4),
+			Arrays.asList(1, 4),
+			Arrays.asList(2, 4),
+			Arrays.asList(1, 2, 4),
+			Arrays.asList(3, 4),
+			Arrays.asList(1, 3, 4),
+			Arrays.asList(2, 3, 4),
+			Arrays.asList(1, 2, 3, 4)
+		)));
+	}
+
+	@Test
+	public void powersetUpTo() {
+
+		// n = 1, size = 0
+		assertThat(MathTools.powersetUpTo(Arrays.asList(1), 0), is(Arrays.asList(
+			Arrays.asList()
+		)));
+
+		// n = 1, size = 1
+		assertThat(MathTools.powersetUpTo(Arrays.asList(1), 1), is(MathTools.powerset(Arrays.asList(1))));
+
+		// n = 2, size = 0
+		assertThat(MathTools.powersetUpTo(Arrays.asList(1, 2), 0), is(Arrays.asList(
+			Arrays.asList()
+		)));
+
+		// n = 2, size = 1
+		assertThat(MathTools.powersetUpTo(Arrays.asList(1, 2), 1), is(Arrays.asList(
+			Arrays.asList(),
+			Arrays.asList(1),
+			Arrays.asList(2)
+		)));
+
+		// n = 2, size = 2
+		assertThat(MathTools.powersetUpTo(Arrays.asList(1, 2), 2), is(MathTools.powerset(Arrays.asList(1, 2))));
+
+		// n = 3, size = 0
+		assertThat(MathTools.powersetUpTo(Arrays.asList(1, 2, 3), 0), is(Arrays.asList(
+			Arrays.asList()
+		)));
+
+		// n = 3, size = 1
+		assertThat(MathTools.powersetUpTo(Arrays.asList(1, 2, 3), 1), is(Arrays.asList(
+			Arrays.asList(),
+			Arrays.asList(1),
+			Arrays.asList(2),
+			Arrays.asList(3)
+		)));
+
+		// n = 3, size = 2
+		assertThat(MathTools.powersetUpTo(Arrays.asList(1, 2, 3), 2), is(Arrays.asList(
+			Arrays.asList(),
+			Arrays.asList(1),
+			Arrays.asList(2),
+			Arrays.asList(1, 2),
+			Arrays.asList(3),
+			Arrays.asList(1, 3),
+			Arrays.asList(2, 3)
+		)));
+
+		// n = 3, size = 3
+		assertThat(MathTools.powersetUpTo(Arrays.asList(1, 2, 3), 3), is(MathTools.powerset(Arrays.asList(1, 2, 3))));
+
+		// n = 4, size = 0
+		assertThat(MathTools.powersetUpTo(Arrays.asList(1, 2, 3, 4), 0), is(Arrays.asList(
+			Arrays.asList()
+		)));
+
+		// n = 4, size = 1
+		assertThat(MathTools.powersetUpTo(Arrays.asList(1, 2, 3, 4), 1), is(Arrays.asList(
+			Arrays.asList(),
+			Arrays.asList(1),
+			Arrays.asList(2),
+			Arrays.asList(3),
+			Arrays.asList(4)
+		)));
+
+		// n = 4, size = 2
+		assertThat(MathTools.powersetUpTo(Arrays.asList(1, 2, 3, 4), 2), is(Arrays.asList(
+			Arrays.asList(),
+			Arrays.asList(1),
+			Arrays.asList(2),
+			Arrays.asList(1, 2),
+			Arrays.asList(3),
+			Arrays.asList(1, 3),
+			Arrays.asList(2, 3),
+			Arrays.asList(4),
+			Arrays.asList(1, 4),
+			Arrays.asList(2, 4),
+			Arrays.asList(3, 4)
+		)));
+
+		// n = 4, size = 3
+		assertThat(MathTools.powersetUpTo(Arrays.asList(1, 2, 3, 4), 3), is(Arrays.asList(
+			Arrays.asList(),
+			Arrays.asList(1),
+			Arrays.asList(2),
+			Arrays.asList(1, 2),
+			Arrays.asList(3),
+			Arrays.asList(1, 3),
+			Arrays.asList(2, 3),
+			Arrays.asList(1, 2, 3),
+			Arrays.asList(4),
+			Arrays.asList(1, 4),
+			Arrays.asList(2, 4),
+			Arrays.asList(1, 2, 4),
+			Arrays.asList(3, 4),
+			Arrays.asList(1, 3, 4),
+			Arrays.asList(2, 3, 4)
+		)));
+
+		// n = 4, size = 4
+		assertThat(MathTools.powersetUpTo(Arrays.asList(1, 2, 3, 4), 4), is(MathTools.powerset(Arrays.asList(1, 2, 3, 4))));
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	public void cartesianProduct() {
+
+		// empty
+		assertThat(MathTools.cartesianProduct(Arrays.asList()).iterator().hasNext(), is(false));
+
+		// 0
+		assertThat(MathTools.cartesianProduct(Arrays.asList(
+			Arrays.asList()
+		)).iterator().hasNext(), is(false));
+
+		// 2 x 0
+		assertThat(MathTools.cartesianProduct(Arrays.asList(
+			Arrays.asList("a", "b"),
+			Arrays.asList()
+		)).iterator().hasNext(), is(false));
+
+		// 2 x 2
+		assertThat(MathTools.cartesianProduct(Arrays.asList(
+			Arrays.asList("a", "b"),
+			Arrays.asList("c", "d")
+		)), contains(
+			Arrays.asList("a", "c"),
+			Arrays.asList("a", "d"),
+			Arrays.asList("b", "c"),
+			Arrays.asList("b", "d")
+		));
+
+		// 2 x 3
+		assertThat(MathTools.cartesianProduct(Arrays.asList(
+			Arrays.asList("a", "b", "c"),
+			Arrays.asList("d", "e")
+		)), contains(
+			Arrays.asList("a", "d"),
+			Arrays.asList("a", "e"),
+			Arrays.asList("b", "d"),
+			Arrays.asList("b", "e"),
+			Arrays.asList("c", "d"),
+			Arrays.asList("c", "e")
+		));
 	}
 }
