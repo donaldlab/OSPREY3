@@ -25,15 +25,12 @@ ligand.flexibility[172].setLibraryRotamers().addWildTypeRotamers().setContinuous
 ligand.flexibility[192].setLibraryRotamers().addWildTypeRotamers().setContinuous()
 ligand.flexibility[193].setLibraryRotamers().addWildTypeRotamers().setContinuous()
 
-# make the conf spaces
-proteinConfSpace = osprey.ConfSpace(protein)
-ligandConfSpace = osprey.ConfSpace(ligand)
-complexConfSpace = osprey.ConfSpace([protein, ligand])
+# make the conf space
+confSpace = osprey.ConfSpace([protein, ligand])
 
 # how should we compute energies of molecules?
 parallelism = osprey.Parallelism(cpuCores=4)
-def ecalcFactory(confSpace):
-	return osprey.EnergyCalculator(confSpace, ffparams)
+ecalc = osprey.EnergyCalculator(confSpace, ffparams, parallelism=parallelism)
 
 # how should we define energies of conformations?
 def confEcalcFactory(confSpace, ecalc):
@@ -47,4 +44,4 @@ def astarFactory(emat, pmat):
 	# return osprey.AStarMPLP(emat, pmat, numIterations=5)
 
 # run K*
-osprey.KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalcFactory, confEcalcFactory, astarFactory)
+osprey.KStar(protein, ligand, confSpace, ecalc, confEcalcFactory, astarFactory)

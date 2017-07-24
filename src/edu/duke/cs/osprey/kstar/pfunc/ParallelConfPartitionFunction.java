@@ -183,9 +183,9 @@ public class ParallelConfPartitionFunction implements PartitionFunction {
 				// try another conf
 				conf = energyConfs.nextConf();
 				if (conf == null) {
-					status = Status.NotEnoughConformations;
+					status = Status.OutOfConformations;
 				} else if (Double.isInfinite(conf.getScore())) {
-					status = Status.NotEnoughFiniteEnergies;
+					status = Status.OutOfLowEnergies;
 				} else {
 					status = Status.Estimating;
 				}

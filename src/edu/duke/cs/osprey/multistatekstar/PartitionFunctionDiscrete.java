@@ -51,7 +51,7 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 			}
 
 			if ((conf = scoreConfs.nextConf()) == null) {
-				if(status != Status.Estimated) status = Status.NotEnoughConformations;
+				if(status != Status.Estimated) status = Status.OutOfConformations;
 				break;
 			}
 
@@ -60,7 +60,7 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 			scoreWeight = boltzmann.calc(conf.getScore());
 
 			if (scoreWeight.compareTo(BigDecimal.ZERO) == 0) {
-				if(status != Status.Estimated) status = Status.NotEnoughFiniteEnergies;
+				if(status != Status.Estimated) status = Status.OutOfLowEnergies;
 				break;
 			}
 
@@ -107,7 +107,7 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 			}
 
 			if ((conf = scoreConfs.nextConf()) == null) {
-				if(status != Status.Estimated) status = Status.NotEnoughConformations;
+				if(status != Status.Estimated) status = Status.OutOfConformations;
 				break;
 			}
 
@@ -116,7 +116,7 @@ public class PartitionFunctionDiscrete extends PartitionFunctionMinimized {
 			scoreWeight = boltzmann.calc(conf.getScore());
 
 			if (scoreWeight.compareTo(BigDecimal.ZERO) == 0) {
-				if(status != Status.Estimated) status = Status.NotEnoughFiniteEnergies;
+				if(status != Status.Estimated) status = Status.OutOfLowEnergies;
 				break;
 			}
 

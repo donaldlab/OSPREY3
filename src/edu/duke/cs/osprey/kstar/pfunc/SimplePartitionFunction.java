@@ -176,9 +176,9 @@ public class SimplePartitionFunction implements PartitionFunction {
 				// try another conf
 				conf = energyConfs.nextConf();
 				if (conf == null) {
-					status = Status.NotEnoughConformations;
-				} else if (Double.isInfinite(conf.getScore())) {
-					status = Status.NotEnoughFiniteEnergies;
+					status = Status.OutOfConformations;
+				} else if (Double.isInfinite(conf.getScore()) || boltzmann.calc(conf.getScore()).compareTo(BigDecimal.ZERO) == 0) {
+					status = Status.OutOfLowEnergies;
 				} else {
 					status = Status.Estimating;
 				}

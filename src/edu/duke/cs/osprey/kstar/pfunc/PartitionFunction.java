@@ -11,8 +11,8 @@ public interface PartitionFunction {
 		
 		Estimating(true),
 		Estimated(false),
-		NotEnoughConformations(false),
-		NotEnoughFiniteEnergies(false);
+		OutOfConformations(false),
+		OutOfLowEnergies(false);
 		
 		private boolean canContinue;
 		
@@ -71,6 +71,37 @@ public interface PartitionFunction {
 			return s.divide(q, RoundingMode.HALF_UP).doubleValue();
 		}
 	}
+
+	public static class Result {
+
+		public final Status status;
+		public final Values values;
+
+		public Result(Status status, Values values) {
+			this.status = status;
+			this.values = values;
+		}
+
+		@Override
+		public String toString() {
+			if (status == PartitionFunction.Status.Estimated) {
+				return String.format("%e", values.qstar.doubleValue());
+			}
+			return status.toString();
+		}
+
+		public static BigDecimal calcKStarScore(Result protein, Result ligand, Result complex) {
+			if (protein.status == PartitionFunction.Status.Estimated
+				&& ligand.status == PartitionFunction.Status.Estimated
+				&& complex.status == PartitionFunction.Status.Estimated) {
+
+				return complex.values.qstar
+					.divide(protein.values.qstar, RoundingMode.HALF_UP)
+					.divide(ligand.values.qstar, RoundingMode.HALF_UP);
+			}
+			return null;
+		}
+	}
 	
 	public static interface ConfListener {
 		void onConf(ScoredConf conf);
@@ -87,4 +118,8 @@ public interface PartitionFunction {
 	
 	void compute();
 	void compute(int maxNumConfs);
+
+	public default Result makeResult() {
+		return new Result(getStatus(), getValues());
+	}
 }

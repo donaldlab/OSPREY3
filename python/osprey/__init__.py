@@ -591,41 +591,24 @@ def DEEPerStrandFlex(strand, pert_file_name, flex_res_list, pdb_file):
 	return bbflex
 
 
-def KStar(proteinConfSpace, ligandConfSpace, complexConfSpace, ecalcFactory, confEcalcFactory, astarFactory, epsilon=0.683):
+def KStar(protein, ligand, complexConfSpace, ecalc, confEcalcFactory, astarFactory, epsilon=None, maxSimultaneousMutations=None):
+	# TODO: docstring
 
-	# TODO: pass in emat
+	# convert functions from python to java
+	confEcalcFactory = jpype.JProxy(jvm.getInnerClass(c.kstar.KStar, 'ConfEnergyCalculatorFactory'), dict={ 'make': confEcalcFactory })
+	astarFactory = jpype.JProxy(c.gmec.ConfSearchFactory, dict={ 'make': astarFactory })
 
-	# TEMP: just compute wild-type partition functions
+	# build settings
+	settingsBuilder = _get_builder(jvm.getInnerClass(c.kstar.KStar, 'Settings'))()
+	if epsilon is not None:
+		settingsBuilder.setEpsilon(epsilon)
+	if maxSimultaneousMutations is not None:
+		settingsBuilder.setMaxSimultaneousMutations(maxSimultaneousMutations)
+	settings = settingsBuilder.build()
 
-	# make the energy calculator
-	ecalc = ecalcFactory(complexConfSpace)
+	kstar = c.kstar.KStar(protein, ligand, complexConfSpace, ecalc, confEcalcFactory, astarFactory, settings)
 
-	def computePfunc(confSpace):
-
-		# get the conformation energy calculator
-		confEcalc = confEcalcFactory(confSpace, ecalc)
-
-		# compute the energy matrix
-		# TODO: take emat subset from complexConfSpace instead of recomputing
-		emat = EnergyMatrix(confEcalc)
-
-		# don't really need pruning here (A* is plenty fast enough already), so use NOP pmat
-		pmat = c.pruning.PruningMatrix(confSpace, 0.0)
-
-		# convert function from python to java
-		confSearchFactory = jpype.JProxy(c.gmec.ConfSearchFactory, dict={ 'make': astarFactory })
-
-		# make the partition function
-		pfunc = c.kstar.pfunc.SimplePartitionFunction(emat, pmat, confSearchFactory, confEcalc)
-		pfunc.setReportProgress(True) # TODO: expose option to turn off
-
-		# compute pfunc for protein
-		pfunc.init(epsilon)
-		pfunc.compute()
-		print('partition function: %e' % pfunc.getValues().qstar.doubleValue())
-		print('effective epsilon: %f' % pfunc.getValues().getEffectiveEpsilon())
-
-	# compute all three partition functions
-	computePfunc(proteinConfSpace)
-	computePfunc(ligandConfSpace)
-	computePfunc(complexConfSpace)
+	# TEMP
+	#score = kstar.calcConfSpaceScore()
+	#print('K* score: %e' % score.doubleValue())
+	kstar.run()

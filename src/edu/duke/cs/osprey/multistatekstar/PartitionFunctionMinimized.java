@@ -180,7 +180,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 					while(numActiveThreads > 0) {
 						try { this.wait(); } catch (InterruptedException e) { e.printStackTrace(); }
 					}
-					if(status != Status.Estimated) status = Status.NotEnoughConformations;
+					if(status != Status.Estimated) status = Status.OutOfConformations;
 					break;
 				}
 
@@ -188,7 +188,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 					while(numActiveThreads > 0) {
 						try { this.wait(); } catch (InterruptedException e) { e.printStackTrace(); }
 					}
-					if(status != Status.Estimated) status = Status.NotEnoughFiniteEnergies;
+					if(status != Status.Estimated) status = Status.OutOfLowEnergies;
 					break;
 				}
 
@@ -274,7 +274,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 					while(numActiveThreads > 0) {
 						try { this.wait(); } catch (InterruptedException e) { e.printStackTrace(); }
 					}
-					if(status != Status.Estimated) status = Status.NotEnoughConformations;
+					if(status != Status.Estimated) status = Status.OutOfConformations;
 					break;
 				}
 
@@ -282,7 +282,7 @@ public class PartitionFunctionMinimized extends ParallelConfPartitionFunction {
 					while(numActiveThreads > 0) {
 						try { this.wait(); } catch (InterruptedException e) { e.printStackTrace(); }
 					}
-					if(status != Status.Estimated) status = Status.NotEnoughFiniteEnergies;
+					if(status != Status.Estimated) status = Status.OutOfLowEnergies;
 					break;
 				}
 

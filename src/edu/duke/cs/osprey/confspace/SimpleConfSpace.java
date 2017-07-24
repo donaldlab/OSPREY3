@@ -1,12 +1,6 @@
 package edu.duke.cs.osprey.confspace;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
 import edu.duke.cs.osprey.dof.DegreeOfFreedom;
@@ -37,24 +31,25 @@ public class SimpleConfSpace implements Serializable {
 		 * shellDist angstroms of any atom in any flexible residue.
 		 */
 		private double shellDist = Double.POSITIVE_INFINITY;
+
+		private List<Strand> strands = new ArrayList<>();
+		private Map<Strand,List<StrandFlex>> strandFlex = new IdentityHashMap<>();
 		
-		public Builder() {
-			confSpace = new SimpleConfSpace();
-		}
-		
-		public Builder addStrand(Strand strand, StrandFlex ... flexType) {
-			addStrand(strand, Arrays.asList(flexType));
+		public Builder addStrand(Strand strand, StrandFlex ... flexTypes) {
+			addStrand(strand, Arrays.asList(flexTypes));
 			return this;
 		}
 		
 		public Builder addStrand(Strand strand, List<StrandFlex> flexTypes) {
-			confSpace.addStrand(strand, flexTypes);
+			strands.add(strand);
+			strandFlex.put(strand, flexTypes);
 			return this;
 		}
 		
 		public Builder addStrands(Strand ... strands) {
 			for (Strand strand : strands) {
-				addStrand(strand);
+				this.strands.add(strand);
+				this.strandFlex.put(strand, Arrays.asList());
 			}
 			return this;
 		}
@@ -65,15 +60,7 @@ public class SimpleConfSpace implements Serializable {
 		}
 		
 		public SimpleConfSpace build() {
-			
-			// make sure we have some design positions
-			if (confSpace.positions.isEmpty()) {
-				throw new IllegalStateException("ConfSpace has no design positions, try adding some strand flexibility");
-			}
-			
-			confSpace.makeShell(shellDist);
-			confSpace.countResConfs();
-			return confSpace;
+			return new SimpleConfSpace(strands, strandFlex, shellDist);
 		}
 	}
 	
@@ -91,6 +78,11 @@ public class SimpleConfSpace implements Serializable {
 			this.resNum = res.getPDBResNumber();
 			this.resFlex = strand.flexibility.get(resNum);
 			this.resConfs = new ArrayList<>();
+		}
+
+		@Override
+		public String toString() {
+			return resNum;
 		}
 	}
 	
@@ -127,11 +119,11 @@ public class SimpleConfSpace implements Serializable {
 		public final Integer rotamerIndex;
 		
 		public PostTemplateModifier postTemplateModifier;
-                
-                public HashMap<String,double[]> dofBounds;//for DEEPer need this, else it's just a rotamer
-                //for EPIC it is necessary to have some kind of persistent representation of the DOFs.  Using names here
-                //so can dynamically create dihedral DOFs, etc. without getting confused
-		                
+
+		public HashMap<String,double[]> dofBounds;//for DEEPer need this, else it's just a rotamer
+		//for EPIC it is necessary to have some kind of persistent representation of the DOFs.  Using names here
+		//so can dynamically create dihedral DOFs, etc. without getting confused
+
 		public ResidueConf(Position pos, int index, ResidueTemplate template, Type type, HashMap<String,double[]> bbVoxel) {
 			this(pos, index, template, type, null, bbVoxel);
 		}
@@ -148,9 +140,9 @@ public class SimpleConfSpace implements Serializable {
 			this.rotamerIndex = rotamerIndex;
 			
 			this.postTemplateModifier = null;
-                        
-                        dofBounds = sidechainDOFBounds(pos,template,rotamerIndex);
-                        dofBounds.putAll(bbVoxel);
+
+			this.dofBounds = sidechainDOFBounds(pos,template,rotamerIndex);
+			this.dofBounds.putAll(bbVoxel);
 		}
 
 		public void updateResidue(ResidueTemplateLibrary templateLib, Residue res) {
@@ -239,56 +231,88 @@ public class SimpleConfSpace implements Serializable {
 	
 	/** The strands */
 	public final List<Strand> strands;
-	
+
+	/** The flexibility of each strand */
+	public final Map<Strand,List<StrandFlex>> strandFlex;
+
+	/** Distance from flexible residues (in Angstroms) within which to include shell residues */
+	public final double shellDist;
+
 	/** The design positions */
 	public final List<Position> positions;
 	
 	/** The residue numbers of the shell residues */
 	public final Set<String> shellResNumbers;
-	
-	/** The flexibility of each strand */
-	public final Map<Strand,List<StrandFlex>> strandFlex; // yeah, map on instance, not identity
-	
-	private Map<Strand,Set<String>> shellResNumbersByStrand;
-	private int[] numResConfsByPos;
-        
-	private SimpleConfSpace() {
-		strands = new ArrayList<>();
+
+	private final Map<Strand,Set<String>> shellResNumbersByStrand;
+	private final int[] numResConfsByPos;
+
+	public SimpleConfSpace(List<Strand> strands, Map<Strand,List<StrandFlex>> strandFlex, double shellDist) {
+
+		this.strands = strands;
+		this.strandFlex = strandFlex;
+		this.shellDist = shellDist;
+
+		// build the design positions
 		positions = new ArrayList<>();
-		shellResNumbers = new HashSet<>();
-		strandFlex = new HashMap<>();
-		
-		shellResNumbersByStrand = new HashMap<>();
-		numResConfsByPos = null;
-	}
-	
-	private void addStrand(Strand strand, List<StrandFlex> flexTypes) {
-		
-		// add the strand
-		strands.add(strand);
-		strandFlex.put(strand, flexTypes);
-		
-		// make the positions
-		for (String resNum : strand.flexibility.getFlexibleResidueNumbers()) {
-			Residue res = strand.mol.getResByPDBResNumber(resNum);
-			Strand.ResidueFlex resFlex = strand.flexibility.get(resNum);
-			
-			// make the pos
-			Position pos = new Position(positions.size(), strand, res);
-			positions.add(pos);
-			
-			// make residue confs from library rotamers
-			for (String resType : resFlex.resTypes) {
-				makeResidueConfsFromTemplate(pos, strand.templateLib.getTemplateOrThrow(resType, true), ResidueConf.Type.Library);
-			}
-			
-			// make residue confs from wild type rotamers
-			if (resFlex.addWildTypeRotamers) {
-				makeResidueConfsFromTemplate(pos, strand.templateLib.getOrMakeWildTypeTemplate(res), ResidueConf.Type.WildType);
+		for (Strand strand : strands) {
+			for (String resNum : strand.flexibility.getFlexibleResidueNumbers()) {
+				Residue res = strand.mol.getResByPDBResNumber(resNum);
+				Strand.ResidueFlex resFlex = strand.flexibility.get(resNum);
+
+				// make the pos
+				Position pos = new Position(positions.size(), strand, res);
+				positions.add(pos);
+
+				// make residue confs from library rotamers
+				for (String resType : resFlex.resTypes) {
+					makeResidueConfsFromTemplate(pos, strand.templateLib.getTemplateOrThrow(resType, true), ResidueConf.Type.Library);
+				}
+
+				// make residue confs from wild type rotamers
+				if (resFlex.addWildTypeRotamers) {
+					makeResidueConfsFromTemplate(pos, strand.templateLib.getOrMakeWildTypeTemplate(res), ResidueConf.Type.WildType);
+				}
 			}
 		}
+
+		// make sure we have some design positions
+		if (positions.isEmpty()) {
+			throw new IllegalArgumentException("ConfSpace has no design positions, try adding some strand flexibility");
+		}
+
+		// make the shell
+		shellResNumbers = new HashSet<>();
+		shellResNumbersByStrand = new IdentityHashMap<>();
+
+		for (Strand strand : strands) {
+
+			Set<String> resNumbers = new HashSet<>();
+
+			for (String staticResNum : strand.flexibility.getStaticResidueNumbers()) {
+				Residue staticRes = strand.mol.getResByPDBResNumber(staticResNum);
+
+				for (String flexResNum : strand.flexibility.getFlexibleResidueNumbers()) {
+					Residue flexRes = strand.mol.getResByPDBResNumber(flexResNum);
+
+					if (staticRes.distanceTo(flexRes) <= shellDist) {
+						resNumbers.add(staticResNum);
+						break;
+					}
+				}
+			}
+
+			shellResNumbers.addAll(resNumbers);
+			shellResNumbersByStrand.put(strand, resNumbers);
+		}
+
+		// count the residue conformations
+		numResConfsByPos = new int[positions.size()];
+		for (int i=0; i<positions.size(); i++) {
+			numResConfsByPos[i] = positions.get(i).resConfs.size();
+		}
 	}
-	
+
 	private void makeResidueConfsFromTemplate(Position pos, ResidueTemplate template, ResidueConf.Type type) {
 		
 		//make one RC for each (backbone voxel, rotamer) pair
@@ -335,40 +359,6 @@ public class SimpleConfSpace implements Serializable {
 					));
 				}
 			}
-		}
-	}
-	
-	private void makeShell(double shellDist) {
-		
-		shellResNumbers.clear();
-		shellResNumbersByStrand.clear();
-	
-		for (Strand strand : strands) {
-			
-			Set<String> resNumbers = new HashSet<>();
-			
-			for (String staticResNum : strand.flexibility.getStaticResidueNumbers()) {
-				Residue staticRes = strand.mol.getResByPDBResNumber(staticResNum);
-				
-				for (String flexResNum : strand.flexibility.getFlexibleResidueNumbers()) {
-					Residue flexRes = strand.mol.getResByPDBResNumber(flexResNum);
-					
-					if (staticRes.distanceTo(flexRes) <= shellDist) {
-						resNumbers.add(staticResNum);
-						break;
-					}
-				}
-			}
-			
-			shellResNumbers.addAll(resNumbers);
-			shellResNumbersByStrand.put(strand, resNumbers);
-		}
-	}
-	
-	private void countResConfs() {
-		numResConfsByPos = new int[positions.size()];
-		for (int i=0; i<positions.size(); i++) {
-			numResConfsByPos[i] = positions.get(i).resConfs.size();
 		}
 	}
 	
@@ -608,4 +598,40 @@ public class SimpleConfSpace implements Serializable {
             else
                 return ans;
         }
+
+	public SimpleConfSpace makeSubspace(Strand strand) {
+		return new Builder()
+			.addStrand(strand, strandFlex.get(strand))
+			.setShellDistance(shellDist)
+			.build();
+	}
+
+	public Map<Position,Position> mapPositionsTo(SimpleConfSpace other) {
+
+		Map<Position,Position> matching = new IdentityHashMap<>();
+
+		for (Position pos : positions) {
+
+			// try to match to the other pos by res num
+			Position matchedPos = null;
+			for (Position otherPos : other.positions) {
+				if (pos.resNum.equals(otherPos.resNum)) {
+					matchedPos = otherPos;
+					break;
+				}
+			}
+
+			// just in case...
+			if (matchedPos != null) {
+				if (pos.resConfs.size() != matchedPos.resConfs.size()) {
+					throw new IllegalStateException("residue conformations for residue " + pos.resNum + " don't match across conformation spaces");
+				}
+				assert (pos.resNum.equals(matchedPos.resNum));
+			}
+
+			matching.put(pos, matchedPos);
+		}
+
+		return matching;
+	}
 }

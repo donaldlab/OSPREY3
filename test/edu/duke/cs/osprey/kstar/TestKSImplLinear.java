@@ -18,7 +18,7 @@ import edu.duke.cs.osprey.kstar.pfunc.PFAbstract;
 import edu.duke.cs.osprey.kstar.pfunc.PFAbstract.EApproxReached;
 import edu.duke.cs.osprey.parallelism.ThreadParallelism;
 
-public class TestKStar {
+public class TestKSImplLinear {
 
 	private void testLinear(KSConfigFileParser cfp) {
 		
