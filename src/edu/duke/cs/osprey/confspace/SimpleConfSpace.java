@@ -244,7 +244,6 @@ public class SimpleConfSpace implements Serializable {
 	/** The residue numbers of the shell residues */
 	public final Set<String> shellResNumbers;
 
-	private final Map<Strand,Set<String>> shellResNumbersByStrand;
 	private final int[] numResConfsByPos;
 
 	public SimpleConfSpace(List<Strand> strands, Map<Strand,List<StrandFlex>> strandFlex, double shellDist) {
@@ -253,9 +252,22 @@ public class SimpleConfSpace implements Serializable {
 		this.strandFlex = strandFlex;
 		this.shellDist = shellDist;
 
+		// make sure all residues are unique
+		Set<String> resNums = new HashSet<>();
+		for (Strand strand : strands) {
+			for (Residue res : strand.mol.residues) {
+				String resNum = res.getPDBResNumber();
+				boolean isUnique = resNums.add(resNum);
+				if (!isUnique) {
+					throw new IllegalArgumentException("residue " + resNum + " appears more than once");
+				}
+			}
+		}
+
 		// build the design positions
 		positions = new ArrayList<>();
 		for (Strand strand : strands) {
+
 			for (String resNum : strand.flexibility.getFlexibleResidueNumbers()) {
 				Residue res = strand.mol.getResByPDBResNumber(resNum);
 				Strand.ResidueFlex resFlex = strand.flexibility.get(resNum);
@@ -281,30 +293,34 @@ public class SimpleConfSpace implements Serializable {
 			throw new IllegalArgumentException("ConfSpace has no design positions, try adding some strand flexibility");
 		}
 
+		// collect all the static,flexible residues
+		List<Residue> staticResidues = new ArrayList<>();
+		List<Residue> flexibleResidues = new ArrayList<>();
+		for (Strand strand : strands) {
+			for (String resNum : strand.flexibility.getStaticResidueNumbers()) {
+				staticResidues.add(strand.mol.getResByPDBResNumber(resNum));
+			}
+			for (String resNum : strand.flexibility.getFlexibleResidueNumbers()) {
+				flexibleResidues.add(strand.mol.getResByPDBResNumber(resNum));
+			}
+		}
+		assert (flexibleResidues.size() == positions.size());
+		assert (staticResidues.size() == resNums.size() - positions.size());
+
 		// make the shell
 		shellResNumbers = new HashSet<>();
-		shellResNumbersByStrand = new IdentityHashMap<>();
+		for (Residue staticRes : staticResidues) {
 
-		for (Strand strand : strands) {
-
-			Set<String> resNumbers = new HashSet<>();
-
-			for (String staticResNum : strand.flexibility.getStaticResidueNumbers()) {
-				Residue staticRes = strand.mol.getResByPDBResNumber(staticResNum);
-
-				for (String flexResNum : strand.flexibility.getFlexibleResidueNumbers()) {
-					Residue flexRes = strand.mol.getResByPDBResNumber(flexResNum);
-
-					if (staticRes.distanceTo(flexRes) <= shellDist) {
-						resNumbers.add(staticResNum);
-						break;
-					}
+			// see if a flexible residue is nearby
+			for (Residue flexibleRes : flexibleResidues) {
+				if (staticRes.distanceTo(flexibleRes) <= shellDist) {
+					shellResNumbers.add(staticRes.getPDBResNumber());
+					break;
 				}
 			}
-
-			shellResNumbers.addAll(resNumbers);
-			shellResNumbersByStrand.put(strand, resNumbers);
 		}
+		assert (shellResNumbers.size() <= staticResidues.size());
+		assert (shellDist != Double.POSITIVE_INFINITY || shellResNumbers.size() == staticResidues.size());
 
 		// count the residue conformations
 		numResConfsByPos = new int[positions.size()];

@@ -510,4 +510,31 @@ public class TestSimpleConfSpace extends TestBase {
 			assertThat(pmol.mol.residues.get(i).indexInMolecule, is(i));
 		}
 	}
+
+	@Test
+	public void twoStrandsShell() {
+
+		Strand strand1 = new Strand.Builder(mol).setResidues(2, 10).build();
+		strand1.flexibility.get(2).setLibraryRotamers("GLY");
+		strand1.flexibility.get(3).setLibraryRotamers("GLY");
+		Strand strand2 = new Strand.Builder(mol).setResidues(11, 20).build();
+		strand2.flexibility.get(11).setLibraryRotamers("GLY");
+		strand2.flexibility.get(12).setLibraryRotamers("GLY");
+		SimpleConfSpace separateConfSpace = new SimpleConfSpace.Builder()
+			.addStrands(strand1, strand2)
+			.setShellDistance(9)
+			.build();
+
+		Strand combinedStrand = new Strand.Builder(mol).setResidues(2, 20).build();
+		combinedStrand.flexibility.get(2).setLibraryRotamers("GLY");
+		combinedStrand.flexibility.get(3).setLibraryRotamers("GLY");
+		combinedStrand.flexibility.get(11).setLibraryRotamers("GLY");
+		combinedStrand.flexibility.get(12).setLibraryRotamers("GLY");
+		SimpleConfSpace combinedConfSpace = new SimpleConfSpace.Builder()
+			.addStrands(combinedStrand)
+			.setShellDistance(9)
+			.build();
+
+		assertThat(separateConfSpace.shellResNumbers, is(combinedConfSpace.shellResNumbers));
+	}
 }
