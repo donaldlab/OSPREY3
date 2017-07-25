@@ -119,6 +119,8 @@ public class BenchmarkPartitionFunction extends TestBase {
 		assertThat(pfunc.getValues().getEffectiveEpsilon(), lessThanOrEqualTo(targetEpsilon));
 		assertThat(pfunc.getValues().qstar, isRelatively(new BigDecimal(qstar), targetEpsilon));
 	}
+
+	private static final String PdbPath2RL0 = "examples/2RL0.kstar/2RL0.min.reduce.pdb";
 	
 	private static void benchmarkProtein() {
 		
@@ -127,7 +129,7 @@ public class BenchmarkPartitionFunction extends TestBase {
 		int strand = 0;
 		String flexibility = "649 650 651 654";
 		
-		KSSearchProblem search = TestPartitionFunction.makeSearch(strand, "648", "654", flexibility);
+		KSSearchProblem search = TestPartitionFunction.makeSearch(PdbPath2RL0, strand, "648", "654", flexibility);
 		
 		benchmark(search, strand, flexibility, targetEpsilon, qstar);
 	}
@@ -139,7 +141,7 @@ public class BenchmarkPartitionFunction extends TestBase {
 		int strand = 1;
 		String flexibility = "156 172 192 193";
 		
-		KSSearchProblem search = TestPartitionFunction.makeSearch(strand, "155", "194", flexibility);
+		KSSearchProblem search = TestPartitionFunction.makeSearch(PdbPath2RL0, strand, "155", "194", flexibility);
 		
 		benchmark(search, strand, flexibility, targetEpsilon, qstar);
 	}
@@ -151,7 +153,7 @@ public class BenchmarkPartitionFunction extends TestBase {
 		int strand = 2;
 		String flexibility = "649 650 651 654 156 172 192 193";
 		
-		KSSearchProblem search = TestPartitionFunction.makeSearch(strand, null, null, flexibility);
+		KSSearchProblem search = TestPartitionFunction.makeSearch(PdbPath2RL0, strand, null, null, flexibility);
 		
 		benchmark(search, strand, flexibility, targetEpsilon, qstar);
 	}

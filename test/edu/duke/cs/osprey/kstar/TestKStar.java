@@ -179,28 +179,18 @@ public class TestKStar {
 		ligand.flexibility.get(213).setLibraryRotamers(Strand.WildType, "HID", "HIE", "LYS", "ARG").addWildTypeRotamers().setContinuous();
 
 		// make the complex conf space ("complex" SimpleConfSpace, har har!)
-		double shellDist = 10.0;
 		SimpleConfSpace proteinConfSpace = new SimpleConfSpace.Builder()
 			.addStrand(protein)
-			.setShellDistance(shellDist)
 			.build();
 		SimpleConfSpace ligandConfSpace = new SimpleConfSpace.Builder()
 			.addStrand(ligand)
-			.setShellDistance(shellDist)
 			.build();
 		SimpleConfSpace complexConfSpace = new SimpleConfSpace.Builder()
 			.addStrands(protein, ligand)
-			.setShellDistance(shellDist)
 			.build();
 
-		// TEMP
-		//double epsilon = 0.99;
-		double epsilon = 0.4;
+		double epsilon = 0.99;
 		KStar kstar = runKStar(ffparams, proteinConfSpace, ligandConfSpace, complexConfSpace, epsilon);
-
-		// TODO NEXTTIME: doesn't quite match these results yet
-		// conf space doesn't seem to be the problem... must be a setting somewhere?
-		// need to check pfunc conf scores and energies, start with wildtype I guess...
 
 		// check the results (values collected with e = 0.1)
 		assertSequence(kstar,   0, "ILE ILE GLN HIE VAL TYR LYS VAL", 1.1838e+42, 2.7098e+7, 1.1195e+66, epsilon);

@@ -36,7 +36,7 @@ public class TestPartitionFunction extends TestBase {
 		MultiTermEnergyFunction.setNumThreads(1);
 	}
 	
-	public static KSSearchProblem makeSearch(int strand, String firstResNumber, String lastResNumber, String flexibility) {
+	public static KSSearchProblem makeSearch(String pdbPath, int strand, String firstResNumber, String lastResNumber, String flexibility) {
 		
 		// configure residue flexibility
 		ResidueFlexibility resFlex = new ResidueFlexibility();
@@ -70,7 +70,7 @@ public class TestPartitionFunction extends TestBase {
 			termini = new ResidueTermini(strand, Integer.valueOf(firstResNumber), Integer.valueOf(lastResNumber));
 		}
 		KSSearchProblem search = new KSSearchProblem(
-			null, "test", "examples/2RL0.kstar/2RL0.min.reduce.pdb", 
+			null, "test", pdbPath,
 			resFlex.flexResList, resFlex.allowedAAs, addWt, doMinimize, useEpic, new EPICSettings(), useTupleExpansion, new LUTESettings(),
 			new DEEPerSettings(), moveableStrands, freeBBZones, useEllipses, useERef, addResEntropy, addWtRots, termini, false
 		);
@@ -157,7 +157,7 @@ public class TestPartitionFunction extends TestBase {
 	}
 	
 	private PFAbstract makeAndComputePfunc(String pfImpl, int strand, String firstRes, String lastRes, String flexibility, double targetEpsilon) {
-		KSSearchProblem search = makeSearch(strand, firstRes, lastRes, flexibility);
+		KSSearchProblem search = makeSearch("examples/2RL0.kstar/2RL0.min.reduce.pdb", strand, firstRes, lastRes, flexibility);
 		PFAbstract pfunc = makePfunc(search, pfImpl, strand, flexibility);
 		PFAbstract.targetEpsilon = targetEpsilon;
 		pfunc.start();

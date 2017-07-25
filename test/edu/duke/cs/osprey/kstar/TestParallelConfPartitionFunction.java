@@ -64,113 +64,86 @@ public class TestParallelConfPartitionFunction extends TestBase {
 		
 		return new Pfunc(ecalc, search, confSearchFactory);
 	}
-	
-	private void testProtein(Parallelism parallelism) {
-		
-		KSSearchProblem search = TestPartitionFunction.makeSearch(0, "648", "654", "649 650 651 654"); 
-		Pfunc pfunc = makePfunc(search, parallelism);
 
-		// compute it
-		final double targetEpsilon = 0.05;
-		pfunc.pfunc.init(targetEpsilon);
-		pfunc.pfunc.compute();
-		
-		assertPfunc(pfunc.pfunc, PartitionFunction.Status.Estimated, targetEpsilon, "4.3704590631e+04" /* e=0.05 */);
-		pfunc.cleanup();
+	private void testStrand(Parallelism parallelism, KSSearchProblem search, double targetEpsilon, String approxQStar) {
+		Pfunc pfunc = makePfunc(search, parallelism);
+		try {
+			pfunc.pfunc.init(targetEpsilon);
+			pfunc.pfunc.compute();
+			assertPfunc(pfunc.pfunc, PartitionFunction.Status.Estimated, targetEpsilon, approxQStar);
+		} finally {
+			pfunc.cleanup();
+		}
 	}
-	
+
 	public static void assertPfunc(PartitionFunction pfunc, PartitionFunction.Status status, double targetEpsilon, String approxQstar) {
 		assertThat(pfunc.getStatus(), is(status));
 		assertThat(pfunc.getValues().getEffectiveEpsilon(), lessThanOrEqualTo(targetEpsilon));
 		double qbound = new BigDecimal(approxQstar).doubleValue()*(1.0 - targetEpsilon);
 		assertThat(pfunc.getValues().qstar.doubleValue(), greaterThanOrEqualTo(qbound));
 	}
-	
-	@Test
-	public void testProteinCpu1() {
-		testProtein(Parallelism.makeCpu(1));
-	}
-	
-	@Test
-	public void testProteinCpu2() {
-		testProtein(Parallelism.makeCpu(2));
-	}
-	
-	@Test
-	public void testProteinGpu1() {
-		testProtein(Parallelism.make(4, 1, 1));
-	}
-	
-	@Test
-	public void testProteinGpu2() {
-		testProtein(Parallelism.make(4, 1, 2));
-	}
-	
-	public void testLigand(Parallelism parallelism) {
-		
-		KSSearchProblem search = TestPartitionFunction.makeSearch(1, "155", "194", "156 172 192 193");
-		Pfunc pfunc = makePfunc(search, parallelism);
 
-		// compute it
+
+	private static final String PdbPath2RL0 = "examples/2RL0.kstar/2RL0.min.reduce.pdb";
+
+	private void test2RL0Protein(Parallelism parallelism) {
+		KSSearchProblem search = TestPartitionFunction.makeSearch(PdbPath2RL0, 0, "648", "654", "649 650 651 654");
 		final double targetEpsilon = 0.05;
-		pfunc.pfunc.init(targetEpsilon);
-		pfunc.pfunc.compute();
-	
-		assertPfunc(pfunc.pfunc, PartitionFunction.Status.Estimated, targetEpsilon, "4.4699772362e+30" /* e=0.05 */);
-		pfunc.cleanup();
+		final String approxQStar = "4.3704590631e+04"; // e=0.05
+		testStrand(parallelism, search, targetEpsilon, approxQStar);
 	}
+	@Test public void test2RL0ProteinCpu1() { test2RL0Protein(Parallelism.makeCpu(1)); }
+	@Test public void test2RL0ProteinCpu2() { test2RL0Protein(Parallelism.makeCpu(2)); }
+	@Test public void test2RL0ProteinGpu1() { test2RL0Protein(Parallelism.make(4, 1, 1)); }
+	@Test public void test2RL0ProteinGpu2() { test2RL0Protein(Parallelism.make(4, 1, 2)); }
 	
-	@Test
-	public void testLigandCpu1() {
-		testLigand(Parallelism.makeCpu(1));
+	public void test2RL0Ligand(Parallelism parallelism) {
+		KSSearchProblem search = TestPartitionFunction.makeSearch(PdbPath2RL0, 1, "155", "194", "156 172 192 193");
+		final double targetEpsilon = 0.05;
+		final String approxQStar = "4.4699772362e+30"; // e=0.05
+		testStrand(parallelism, search, targetEpsilon, approxQStar);
 	}
+	@Test public void test2RL0LigandCpu1() { test2RL0Ligand(Parallelism.makeCpu(1)); }
+	@Test public void test2RL0LigandCpu2() { test2RL0Ligand(Parallelism.makeCpu(2)); }
+	@Test public void test2RL0LigandGpu1() { test2RL0Ligand(Parallelism.make(4, 1, 1)); }
+	@Test public void test2RL0LigandGpu2() { test2RL0Ligand(Parallelism.make(4, 1, 2)); }
 	
-	@Test
-	public void testLigandCpu2() {
-		testLigand(Parallelism.makeCpu(2));
-	}
-	
-	@Test
-	public void testLigandGpu1() {
-		testLigand(Parallelism.make(4, 1, 1));
-	}
-	
-	@Test
-	public void testLigandGpu2() {
-		testLigand(Parallelism.make(4, 1, 2));
-	}
-	
-	public void testComplex(Parallelism parallelism) {
-		
-		KSSearchProblem search = TestPartitionFunction.makeSearch(2, null, null, "649 650 651 654 156 172 192 193");
-		Pfunc pfunc = makePfunc(search, parallelism);
-
-		// compute it
+	public void test2RL0Complex(Parallelism parallelism) {
+		KSSearchProblem search = TestPartitionFunction.makeSearch(PdbPath2RL0, 2, null, null, "649 650 651 654 156 172 192 193");
 		final double targetEpsilon = 0.8;
-		pfunc.pfunc.init(targetEpsilon);
-		pfunc.pfunc.compute();
-	
-		assertPfunc(pfunc.pfunc, PartitionFunction.Status.Estimated, targetEpsilon, "3.5213742379e+54" /* e=0.05 */);
-		pfunc.cleanup();
+		final String approxQStar = "3.5213742379e+54"; // e=0.05
+		testStrand(parallelism, search, targetEpsilon, approxQStar);
 	}
-	
+	@Test public void test2RL0ComplexCpu1() { test2RL0Complex(Parallelism.makeCpu(1)); }
+	@Test public void test2RL0ComplexCpu2() { test2RL0Complex(Parallelism.makeCpu(2)); }
+	@Test public void test2RL0ComplexGpu1() { test2RL0Complex(Parallelism.make(4, 1, 1)); }
+	@Test public void test2RL0ComplexGpu2() { test2RL0Complex(Parallelism.make(4, 1, 2)); }
+
+
+	private static final String PdbPath1GUA = "test-resources/1gua_adj.min.pdb";
+
 	@Test
-	public void testComplexCpu1() {
-		testComplex(Parallelism.makeCpu(1));
+	public void test1GUA11Protein() {
+		KSSearchProblem search = TestPartitionFunction.makeSearch(PdbPath1GUA, 0, "1", "180", "21 24 25 27 29 40");
+		final double targetEpsilon = 0.1;
+		final String approxQStar = "1.1838e+42"; // e=0.1
+		testStrand(Parallelism.makeCpu(1), search, targetEpsilon, approxQStar);
 	}
-	
+
 	@Test
-	public void testComplexCpu2() {
-		testComplex(Parallelism.makeCpu(2));
+	public void test1GUA11Ligand() {
+		KSSearchProblem search = TestPartitionFunction.makeSearch(PdbPath1GUA, 1, "181", "215", "209 213");
+		final double targetEpsilon = 0.1;
+		final String approxQStar = "2.7098e+7"; // e=0.1
+		testStrand(Parallelism.makeCpu(1), search, targetEpsilon, approxQStar);
 	}
-	
+
 	@Test
-	public void testComplexGpu1() {
-		testComplex(Parallelism.make(4, 1, 1));
-	}
-	
-	@Test
-	public void testComplexGpu2() {
-		testComplex(Parallelism.make(4, 1, 2));
+	public void test1GUA11Complex() {
+		// TODO: try null res numbers
+		KSSearchProblem search = TestPartitionFunction.makeSearch(PdbPath1GUA, 1, "1", "215", "21 24 25 27 29 40 209 213");
+		final double targetEpsilon = 0.1; // TEMP, set to 0.9
+		final String approxQStar = "1.1195e+66"; // e=0.1
+		testStrand(Parallelism.makeCpu(1), search, targetEpsilon, approxQStar);
 	}
 }
