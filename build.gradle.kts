@@ -37,6 +37,7 @@ java {
 		}
 		get("test").apply {
 			java.srcDir("test")
+			resources.srcDir("test-resources")
 		}
 	}
 }

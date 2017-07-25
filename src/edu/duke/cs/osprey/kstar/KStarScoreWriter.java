@@ -212,5 +212,22 @@ public interface KStarScoreWriter {
 				);
 			}
 		}
+
+		public static class Test implements Formatter {
+
+			@Override
+			public String format(ScoreInfo info) {
+
+				// for example:
+				// assertSequence(kstar,  0, "PHE ASP GLU THR PHE LYS ILE THR", 2.797907e+04, 4.445880e+30, 4.203126e+50, epsilon);
+				return String.format("assertSequence(kstar, %3d, \"%s\", %-12s, %-12s, %-12s, epsilon);",
+					info.sequenceNumber,
+					info.sequence,
+					info.proteinResult.status == PartitionFunction.Status.Estimated ? String.format("%12e", info.proteinResult.values.qstar.doubleValue()) : "null",
+					info.ligandResult.status == PartitionFunction.Status.Estimated ? String.format("%12e", info.ligandResult.values.qstar.doubleValue()) : "null",
+					info.complexResult.status == PartitionFunction.Status.Estimated ? String.format("%12e", info.complexResult.values.qstar.doubleValue()) : "null"
+				);
+			}
+		}
 	}
 }

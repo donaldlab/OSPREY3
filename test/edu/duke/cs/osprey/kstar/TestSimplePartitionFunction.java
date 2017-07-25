@@ -24,11 +24,14 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class TestSimplePartitionFunction {
 
 	private static ForcefieldParams ffparams;
+	private static Molecule mol;
+	private static ResidueTemplateLibrary templateLib;
 	private static Strand protein;
 	private static Strand ligand;
 
@@ -39,10 +42,10 @@ public class TestSimplePartitionFunction {
 		ffparams = new ForcefieldParams();
 
 		// choose a molecule
-		Molecule mol = PDBIO.readFile("examples/2RL0.kstar/2RL0.min.reduce.pdb");
+		mol = PDBIO.readFile("examples/2RL0.kstar/2RL0.min.reduce.pdb");
 
 		// make sure all strands share the same template library
-		ResidueTemplateLibrary templateLib = new ResidueTemplateLibrary.Builder(ffparams.forcefld)
+		templateLib = new ResidueTemplateLibrary.Builder(ffparams.forcefld)
 				.addMoleculeForWildTypeRotamers(mol)
 				.build();
 
@@ -137,14 +140,20 @@ public class TestSimplePartitionFunction {
 
 	public void calcComplexPfunc(Parallelism parallelism) {
 
+		// NOTE: to match the old code precisely, we need to match the old conf space exactly too
+		// which means we need to keep the same design position order (CCD is of course sensitive to this)
+		// and also add the extra residues in the PDB file that aren't in the strands
 		SimpleConfSpace confSpace = new SimpleConfSpace.Builder()
-			.addStrand(protein)
+			.addStrand(new Strand.Builder(mol).setTemplateLibrary(templateLib).setResidues(153, 154).build())
 			.addStrand(ligand)
+			.addStrand(new Strand.Builder(mol).setTemplateLibrary(templateLib).setResidues(195, 241).build())
+			.addStrand(new Strand.Builder(mol).setTemplateLibrary(templateLib).setResidues(638, 647).build())
+			.addStrand(protein)
 			.build();
 
 		double targetEpsilon = 0.8;
 		PartitionFunction pfunc = calcPfunc(confSpace, parallelism, targetEpsilon);
-		assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, "4.203089e+50" /* e=0.05 */);
+		assertPfunc(pfunc, PartitionFunction.Status.Estimated, targetEpsilon, "3.5213742379e+54" /* e=0.05 */);
 	}
 	@Test public void complex1Cpu() { calcComplexPfunc(Parallelism.make(1, 0, 0)); }
 	@Test public void complex2Cpus() { calcComplexPfunc(Parallelism.make(2, 0, 0)); }

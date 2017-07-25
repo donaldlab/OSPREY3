@@ -32,6 +32,7 @@ public class KStar {
 			private double epsilon = 0.683;
 			private int maxSimultaneousMutations = 1;
 			private KStarScoreWriter.Writers scoreWriters = new KStarScoreWriter.Writers();
+			private boolean showPfuncProgress = false;
 
 			public Builder setEpsilon(double val) {
 				epsilon = val;
@@ -64,19 +65,26 @@ public class KStar {
 				return addScoreFileWriter(file, new KStarScoreWriter.Formatter.Log());
 			}
 
+			public Builder setShowPfuncProgress(boolean val) {
+				showPfuncProgress = val;
+				return this;
+			}
+
 			public Settings build() {
-				return new Settings(epsilon, maxSimultaneousMutations, scoreWriters);
+				return new Settings(epsilon, maxSimultaneousMutations, scoreWriters, showPfuncProgress);
 			}
 		}
 
 		public final double epsilon;
 		public final int maxSimultaneousMutations;
 		public final KStarScoreWriter.Writers scoreWriters;
+		public final boolean showPfuncProgress;
 
-		public Settings(double epsilon, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters) {
+		public Settings(double epsilon, int maxSimultaneousMutations, KStarScoreWriter.Writers scoreWriters, boolean dumpPfuncConfs) {
 			this.epsilon = epsilon;
 			this.maxSimultaneousMutations = maxSimultaneousMutations;
 			this.scoreWriters = scoreWriters;
+			this.showPfuncProgress = dumpPfuncConfs;
 		}
 	}
 
@@ -123,11 +131,10 @@ public class KStar {
 		public EnergyMatrix emat = null;
 		public final Map<Sequence,PartitionFunction.Result> pfuncResults = new HashMap<>();
 
-		public ConfSpaceInfo(ConfSpaceType type, SimpleConfSpace confSpace) {
-
+		public ConfSpaceInfo(ConfSpaceType type, SimpleConfSpace confSpace, ConfEnergyCalculator confEcalc) {
 			this.type = type;
 			this.confSpace = confSpace;
-			this.confEcalc = confEcalcFactory.make(confSpace, ecalc);
+			this.confEcalc = confEcalc;
 		}
 
 		public void calcEmat() {
@@ -173,7 +180,7 @@ public class KStar {
 
 			// make the partition function
 			PartitionFunction pfunc = new SimplePartitionFunction(emat, pmat, confSearchFactory, confEcalc);
-			pfunc.setReportProgress(false); // TODO: expose option to turn off
+			pfunc.setReportProgress(settings.showPfuncProgress);
 
 			// compute it
 			pfunc.init(settings.epsilon);
@@ -186,32 +193,23 @@ public class KStar {
 		}
 	}
 
-	public final Strand protein;
-	public final Strand ligand;
-	public final EnergyCalculator ecalc;
+	public final ConfSpaceInfo protein;
+	public final ConfSpaceInfo ligand;
+	public final ConfSpaceInfo complex;
 	public final ConfEnergyCalculatorFactory confEcalcFactory;
 	public final ConfSearchFactory confSearchFactory;
 	public final Settings settings;
 
-	public final ConfSpaceInfo proteinInfo;
-	public final ConfSpaceInfo ligandInfo;
-	public final ConfSpaceInfo complexInfo;
-
 	public final List<BigDecimal> kstarScores;
 
-	public KStar(Strand protein, Strand ligand, SimpleConfSpace complexConfSpace, EnergyCalculator ecalc, ConfEnergyCalculatorFactory confEcalcFactory, ConfSearchFactory confSearchFactory, Settings settings) {
+	public KStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, EnergyCalculator ecalc, ConfEnergyCalculatorFactory confEcalcFactory, ConfSearchFactory confSearchFactory, Settings settings) {
 
-		this.protein = protein;
-		this.ligand = ligand;
-		this.ecalc = ecalc;
+		this.protein = new ConfSpaceInfo(ConfSpaceType.Protein, protein, confEcalcFactory.make(protein, ecalc));
+		this.ligand = new ConfSpaceInfo(ConfSpaceType.Ligand, ligand, confEcalcFactory.make(ligand, ecalc));
+		this.complex = new ConfSpaceInfo(ConfSpaceType.Complex, complex, confEcalcFactory.make(complex, ecalc));
 		this.confEcalcFactory = confEcalcFactory;
 		this.confSearchFactory = confSearchFactory;
 		this.settings = settings;
-
-		// make conf space infos
-		proteinInfo = new ConfSpaceInfo(ConfSpaceType.Protein, complexConfSpace.makeSubspace(protein));
-		ligandInfo = new ConfSpaceInfo(ConfSpaceType.Ligand, complexConfSpace.makeSubspace(ligand));
-		complexInfo = new ConfSpaceInfo(ConfSpaceType.Complex, complexConfSpace);
 
 		kstarScores = new ArrayList<>();
 	}
@@ -219,20 +217,20 @@ public class KStar {
 	public void run() {
 
 		// compute energy matrices
-		proteinInfo.calcEmat();
-		ligandInfo.calcEmat();
-		complexInfo.calcEmat();
+		protein.calcEmat();
+		ligand.calcEmat();
+		complex.calcEmat();
 
-		Map<SimpleConfSpace.Position,SimpleConfSpace.Position> complexToProteinMap = complexInfo.confSpace.mapPositionsTo(proteinInfo.confSpace);
-		Map<SimpleConfSpace.Position,SimpleConfSpace.Position> complexToLigandMap = complexInfo.confSpace.mapPositionsTo(ligandInfo.confSpace);
+		Map<SimpleConfSpace.Position,SimpleConfSpace.Position> complexToProteinMap = complex.confSpace.mapPositionsTo(protein.confSpace);
+		Map<SimpleConfSpace.Position,SimpleConfSpace.Position> complexToLigandMap = complex.confSpace.mapPositionsTo(ligand.confSpace);
 
 		// collect the wild type sequences
-		proteinInfo.sequences.add(proteinInfo.makeWildTypeSequence());
-		ligandInfo.sequences.add(ligandInfo.makeWildTypeSequence());
-		complexInfo.sequences.add(complexInfo.makeWildTypeSequence());
+		protein.sequences.add(protein.makeWildTypeSequence());
+		ligand.sequences.add(ligand.makeWildTypeSequence());
+		complex.sequences.add(complex.makeWildTypeSequence());
 
 		// collect all the sequences explicitly
-		List<List<SimpleConfSpace.Position>> powersetOfPositions = MathTools.powersetUpTo(complexInfo.confSpace.positions, settings.maxSimultaneousMutations);
+		List<List<SimpleConfSpace.Position>> powersetOfPositions = MathTools.powersetUpTo(complex.confSpace.positions, settings.maxSimultaneousMutations);
 		Collections.reverse(powersetOfPositions); // NOTE: reverse to match order of old code
 		for (List<SimpleConfSpace.Position> mutablePositions : powersetOfPositions) {
 
@@ -249,16 +247,16 @@ public class KStar {
 			for (List<String> mutations : MathTools.cartesianProduct(resTypes)) {
 
 				// build the complex sequence
-				Sequence complexSequence = complexInfo.makeWildTypeSequence();
+				Sequence complexSequence = complex.makeWildTypeSequence();
 				for (int i=0; i<mutablePositions.size(); i++) {
 					complexSequence.set(mutablePositions.get(i).index, mutations.get(i));
 				}
-				complexInfo.sequences.add(complexSequence);
+				complex.sequences.add(complexSequence);
 
 				// split complex sequence into protein/ligand sequences
-				Sequence proteinSequence = proteinInfo.makeWildTypeSequence();
-				Sequence ligandSequence = ligandInfo.makeWildTypeSequence();
-				for (SimpleConfSpace.Position pos : complexInfo.confSpace.positions) {
+				Sequence proteinSequence = protein.makeWildTypeSequence();
+				Sequence ligandSequence = ligand.makeWildTypeSequence();
+				for (SimpleConfSpace.Position pos : complex.confSpace.positions) {
 
 					SimpleConfSpace.Position proteinPos = complexToProteinMap.get(pos);
 					if (proteinPos != null) {
@@ -270,25 +268,25 @@ public class KStar {
 						ligandSequence.set(ligandPos.index, complexSequence.get(pos.index));
 					}
 				}
-				proteinInfo.sequences.add(proteinSequence);
-				ligandInfo.sequences.add(ligandSequence);
+				protein.sequences.add(proteinSequence);
+				ligand.sequences.add(ligandSequence);
 			}
 		}
 
 		// TODO: sequence filtering? do we need to reject some mutation combinations for some reason?
 
-		System.out.println("computing K* scores for " + complexInfo.sequences.size() + " sequences...");
+		System.out.println("computing K* scores for " + complex.sequences.size() + " sequences to epsilon = " + settings.epsilon + " ...");
 		settings.scoreWriters.writeHeader();
 		// TODO: progress bar?
 
 		// compute all the partition functions and K* scores
-		int n = complexInfo.sequences.size();
+		int n = complex.sequences.size();
 		for (int i=0; i<n; i++) {
 
 			// get the pfuncs
-			PartitionFunction.Result proteinResult = proteinInfo.calcPfunc(i);
-			PartitionFunction.Result ligandResult = ligandInfo.calcPfunc(i);
-			PartitionFunction.Result complexResult = complexInfo.calcPfunc(i);
+			PartitionFunction.Result proteinResult = protein.calcPfunc(i);
+			PartitionFunction.Result ligandResult = ligand.calcPfunc(i);
+			PartitionFunction.Result complexResult = complex.calcPfunc(i);
 
 			// compute the K* score if possible
 			BigDecimal kstarScore = PartitionFunction.Result.calcKStarScore(proteinResult, ligandResult, complexResult);
@@ -298,8 +296,8 @@ public class KStar {
 			settings.scoreWriters.writeScore(new KStarScoreWriter.ScoreInfo(
 				i,
 				n,
-				complexInfo.sequences.get(i),
-				complexInfo.confSpace,
+				complex.sequences.get(i),
+				complex.confSpace,
 				proteinResult, ligandResult, complexResult,
 				kstarScore
 			));

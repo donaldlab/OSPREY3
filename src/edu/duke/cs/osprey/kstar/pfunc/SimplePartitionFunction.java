@@ -217,8 +217,8 @@ public class SimplePartitionFunction implements PartitionFunction {
 					// report progress if needed
 					if (isReportingProgress) {
 						MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-						System.out.println(String.format("conf: %4d, energy: %.6f, q*: %12e, q': %12e, epsilon: %.6f, time: %10s, heapMem: %.0f%%",
-							numConfsEvaluated, econf.getEnergy(), values.qstar, values.qprime, values.getEffectiveEpsilon(),
+						System.out.println(String.format("conf: %4d, score: %.6f, energy: %.6f, q*: %12e, q': %12e, epsilon: %.6f, time: %10s, heapMem: %.0f%%",
+							numConfsEvaluated, econf.getScore(), econf.getEnergy(), values.qstar, values.qprime, values.getEffectiveEpsilon(),
 							stopwatch.getTime(2),
 							100f*heapMem.getUsed()/heapMem.getMax()
 						));
