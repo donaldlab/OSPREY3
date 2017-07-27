@@ -1,7 +1,6 @@
 package edu.duke.cs.osprey.kstar;
 
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.confspace.Strand;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
@@ -92,6 +91,9 @@ public class KStar {
 
 		public Sequence(int size) {
 			super(size);
+			for (int i=0; i<size; i++) {
+				add(null);
+			}
 		}
 
 		public Sequence(String resTypes) {
@@ -115,15 +117,8 @@ public class KStar {
 		}
 	}
 
-	public static enum ConfSpaceType {
-		Protein,
-		Ligand,
-		Complex
-	}
-
 	public class ConfSpaceInfo {
 
-		public final ConfSpaceType type;
 		public final SimpleConfSpace confSpace;
 		public final ConfEnergyCalculator confEcalc;
 
@@ -131,8 +126,7 @@ public class KStar {
 		public EnergyMatrix emat = null;
 		public final Map<Sequence,PartitionFunction.Result> pfuncResults = new HashMap<>();
 
-		public ConfSpaceInfo(ConfSpaceType type, SimpleConfSpace confSpace, ConfEnergyCalculator confEcalc) {
-			this.type = type;
+		public ConfSpaceInfo(SimpleConfSpace confSpace, ConfEnergyCalculator confEcalc) {
 			this.confSpace = confSpace;
 			this.confEcalc = confEcalc;
 		}
@@ -146,7 +140,7 @@ public class KStar {
 		public Sequence makeWildTypeSequence() {
 			Sequence sequence = new Sequence(confSpace.positions.size());
 			for (SimpleConfSpace.Position pos : confSpace.positions) {
-				sequence.add(pos.strand.mol.getResByPDBResNumber(pos.resNum).template.name);
+				sequence.set(pos.index, pos.strand.mol.getResByPDBResNumber(pos.resNum).template.name);
 			}
 			return sequence;
 		}
@@ -204,9 +198,9 @@ public class KStar {
 
 	public KStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, EnergyCalculator ecalc, ConfEnergyCalculatorFactory confEcalcFactory, ConfSearchFactory confSearchFactory, Settings settings) {
 
-		this.protein = new ConfSpaceInfo(ConfSpaceType.Protein, protein, confEcalcFactory.make(protein, ecalc));
-		this.ligand = new ConfSpaceInfo(ConfSpaceType.Ligand, ligand, confEcalcFactory.make(ligand, ecalc));
-		this.complex = new ConfSpaceInfo(ConfSpaceType.Complex, complex, confEcalcFactory.make(complex, ecalc));
+		this.protein = new ConfSpaceInfo(protein, confEcalcFactory.make(protein, ecalc));
+		this.ligand = new ConfSpaceInfo(ligand, confEcalcFactory.make(ligand, ecalc));
+		this.complex = new ConfSpaceInfo(complex, confEcalcFactory.make(complex, ecalc));
 		this.confEcalcFactory = confEcalcFactory;
 		this.confSearchFactory = confSearchFactory;
 		this.settings = settings;
@@ -289,7 +283,7 @@ public class KStar {
 			PartitionFunction.Result complexResult = complex.calcPfunc(i);
 
 			// compute the K* score if possible
-			BigDecimal kstarScore = PartitionFunction.Result.calcKStarScore(proteinResult, ligandResult, complexResult);
+			BigDecimal kstarScore = PartitionFunction.calcKStarScore(proteinResult, ligandResult, complexResult);
 			kstarScores.add(kstarScore);
 
 			// report scores

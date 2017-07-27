@@ -219,13 +219,14 @@ public interface KStarScoreWriter {
 			public String format(ScoreInfo info) {
 
 				// for example:
-				// assertSequence(kstar,  0, "PHE ASP GLU THR PHE LYS ILE THR", 2.797907e+04, 4.445880e+30, 4.203126e+50, epsilon);
-				return String.format("assertSequence(kstar, %3d, \"%s\", %-12s, %-12s, %-12s, epsilon);",
+				// assertSequence(kstar,   0, "PHE ASP GLU THR PHE LYS ILE THR", 4.050547e+04, 3.766903e+30, 3.929472e+50, epsilon); // K*(log10) = 15.410836
+				return String.format("assertSequence(kstar, %3d, \"%s\", %-12s, %-12s, %-12s, epsilon); // K*(log10) = %s",
 					info.sequenceNumber,
 					info.sequence,
 					info.proteinResult.status == PartitionFunction.Status.Estimated ? String.format("%12e", info.proteinResult.values.qstar.doubleValue()) : "null",
 					info.ligandResult.status == PartitionFunction.Status.Estimated ? String.format("%12e", info.ligandResult.values.qstar.doubleValue()) : "null",
-					info.complexResult.status == PartitionFunction.Status.Estimated ? String.format("%12e", info.complexResult.values.qstar.doubleValue()) : "null"
+					info.complexResult.status == PartitionFunction.Status.Estimated ? String.format("%12e", info.complexResult.values.qstar.doubleValue()) : "null",
+					PartitionFunction.scoreToLog10String(PartitionFunction.calcKStarScore(info.proteinResult, info.ligandResult, info.complexResult))
 				);
 			}
 		}

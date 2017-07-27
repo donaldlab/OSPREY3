@@ -220,7 +220,7 @@ public class TestSimplePartitionFunction {
 			.addStrand(info.protein)
 			.build();
 
-		final double targetEpsilon = 0.1;
+		final double targetEpsilon = 0.9;
 		final String approxQStar = "1.1838e+42"; // e = 0.1
 		testStrand(info.ffparams, confSpace, Parallelism.makeCpu(1), targetEpsilon, approxQStar);
 	}
@@ -232,7 +232,7 @@ public class TestSimplePartitionFunction {
 			.addStrand(info.ligand)
 			.build();
 
-		final double targetEpsilon = 0.1;
+		final double targetEpsilon = 0.9;
 		final String approxQStar = "2.7098e+7"; // e = 0.1
 		testStrand(info.ffparams, confSpace, Parallelism.makeCpu(1), targetEpsilon, approxQStar);
 	}
@@ -244,7 +244,7 @@ public class TestSimplePartitionFunction {
 			.addStrands(info.protein, info.ligand)
 			.build();
 
-		final double targetEpsilon = 0.1;
+		final double targetEpsilon = 0.9;
 		final String approxQStar = "1.1195e+66"; // e = 0.1
 		testStrand(info.ffparams, confSpace, Parallelism.makeCpu(1), targetEpsilon, approxQStar);
 	}

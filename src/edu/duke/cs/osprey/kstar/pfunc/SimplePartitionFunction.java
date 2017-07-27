@@ -158,7 +158,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 			throw new IllegalStateException("can't continue from status " + status);
 		}
 		
-		int stopAtConf = numConfsEvaluated + maxNumConfs;
+		int numConfsScored = 0;
 		while (true) {
 			
 			ScoredConf conf;
@@ -174,12 +174,13 @@ public class SimplePartitionFunction implements PartitionFunction {
 				}
 				
 				// should we stop anyway?
-				if (!status.canContinue() || numConfsEvaluated >= stopAtConf) {
+				if (!status.canContinue() || numConfsScored >= maxNumConfs) {
 					break;
 				}
 				
 				// try another conf
 				conf = energyConfs.nextConf();
+				numConfsScored++;
 				if (conf == null) {
 					status = Status.OutOfConformations;
 				} else if (Double.isInfinite(conf.getScore()) || boltzmann.calc(conf.getScore()).compareTo(BigDecimal.ZERO) == 0) {
@@ -217,7 +218,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 					// report progress if needed
 					if (isReportingProgress) {
 						MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-						System.out.println(String.format("conf: %4d, score: %.6f, energy: %.6f, q*: %12e, q': %12e, epsilon: %.6f, time: %10s, heapMem: %.0f%%",
+						System.out.println(String.format("conf: %4d, score: %12.6f, energy: %12.6f, q*: %12e, q': %12e, epsilon: %.6f, time: %10s, heapMem: %.0f%%",
 							numConfsEvaluated, econf.getScore(), econf.getEnergy(), values.qstar, values.qprime, values.getEffectiveEpsilon(),
 							stopwatch.getTime(2),
 							100f*heapMem.getUsed()/heapMem.getMax()
