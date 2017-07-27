@@ -189,9 +189,21 @@ public class PDBFileReader {
 
 			if(EnvironmentVars.deleteNonTemplateResidues && !templateAssigned){
 				//residue unrecognized or incomplete...delete it
+                                String warningString = "Warning: deleting unrecognized or incomplete residue "
+                                        + m.residues.get(resNum).fullName;
+
+                                System.out.println( warningString );
+
+                                //also write to special log if there is one
+                                if(EnvironmentVars.deletedResWarningLog!=null)
+                                    EnvironmentVars.deletedResWarningLog.write(warningString+"\n");
+                            
 				m.deleteResidue(resNum);
 			}
 		}
+                
+                if(EnvironmentVars.deletedResWarningLog!=null)
+                    EnvironmentVars.deletedResWarningLog.flush();
 
 		HardCodedResidueInfo.markInterResBonds(m);//assigning templates marks intra-res bonds; we can now mark inter-res too
 	}
