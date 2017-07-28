@@ -1,6 +1,5 @@
 package edu.duke.cs.osprey.kstar;
 
-import com.sun.xml.internal.bind.v2.runtime.unmarshaller.XsiNilLoader;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
@@ -168,16 +167,8 @@ public class BBKStar {
 			}
 		}
 
-		public BigDecimal calcKStarUpperBound() {
-			return PartitionFunction.calcKStarUpperBound(protein.makeResult(), ligand.makeResult(), complex.makeResult());
-		}
-
-		public BigDecimal calcKStarLowerBound() {
-			return PartitionFunction.calcKStarLowerBound(protein.makeResult(), ligand.makeResult(), complex.makeResult());
-		}
-
-		public BigDecimal calcKStarScore() {
-			return PartitionFunction.calcKStarScore(protein.makeResult(), ligand.makeResult(), complex.makeResult());
+		public KStarScore makeScore() {
+			return new KStarScore(protein.makeResult(), ligand.makeResult(), complex.makeResult());
 		}
 	}
 
@@ -319,7 +310,7 @@ public class BBKStar {
 	private class SingleSequenceNode extends Node {
 
 		public final KStar.Sequence sequence;
-		public final Pfuncs kstarLower;
+		public final Pfuncs pfuncs;
 
 		public SingleSequenceNode(KStar.Sequence sequence) {
 
@@ -341,10 +332,10 @@ public class BBKStar {
 				}
 			}
 
-			this.kstarLower = new Pfuncs();
-			this.kstarLower.protein = makePfunc(proteinPfuncs, protein, proteinSequence);
-			this.kstarLower.ligand = makePfunc(ligandPfuncs, ligand, ligandSequence);
-			this.kstarLower.complex = makePfunc(complexPfuncs, complex, sequence);
+			this.pfuncs = new Pfuncs();
+			this.pfuncs.protein = makePfunc(proteinPfuncs, protein, proteinSequence);
+			this.pfuncs.ligand = makePfunc(ligandPfuncs, ligand, ligandSequence);
+			this.pfuncs.complex = makePfunc(complexPfuncs, complex, sequence);
 		}
 
 		public PartitionFunction makePfunc(Map<KStar.Sequence,PartitionFunction> pfuncCache, ConfSpaceInfo info, KStar.Sequence sequence) {
@@ -382,7 +373,7 @@ public class BBKStar {
 		@Override
 		public void estimateScore() {
 
-			kstarLower.estimateMore(settings.numConfsPerBatch);
+			pfuncs.estimateMore(settings.numConfsPerBatch);
 
 			/* TEMP
 			System.out.println("single sequence score: " + sequence);
@@ -394,7 +385,7 @@ public class BBKStar {
 			*/
 
 			// update the score
-			BigDecimal kstarScore = kstarLower.calcKStarUpperBound();
+			BigDecimal kstarScore = pfuncs.makeScore().upperBound;
 			if (kstarScore == null) {
 				// give the lowest score, so this node polls last
 				score = Double.NEGATIVE_INFINITY;
@@ -412,11 +403,11 @@ public class BBKStar {
 	public static class ScoredSequence {
 
 		public final KStar.Sequence sequence;
-		public final BigDecimal kstarScore;
+		public final KStarScore score;
 
-		public ScoredSequence(KStar.Sequence sequence, BigDecimal kstarScore) {
+		public ScoredSequence(KStar.Sequence sequence, KStarScore score) {
 			this.sequence = sequence;
-			this.kstarScore = kstarScore;
+			this.score = score;
 		}
 	}
 
@@ -469,8 +460,8 @@ public class BBKStar {
 
 		System.out.println("computing K* score for wild type sequence to epsilon = " + settings.epsilon + " ...");
 		SingleSequenceNode wtnode = new SingleSequenceNode(complex.makeWildTypeSequence());
-		wtnode.kstarLower.compute();
-		return new ScoredSequence(wtnode.sequence, wtnode.kstarLower.calcKStarScore());
+		wtnode.pfuncs.compute();
+		return new ScoredSequence(wtnode.sequence, wtnode.pfuncs.makeScore());
 	}
 
 	public List<ScoredSequence> calcMutants() {
@@ -494,19 +485,17 @@ public class BBKStar {
 			if (node instanceof SingleSequenceNode) {
 				SingleSequenceNode ssnode = (SingleSequenceNode)node;
 
-				switch (ssnode.kstarLower.getStatus()) {
+				switch (ssnode.pfuncs.getStatus()) {
 					case Estimated:
 
 						// sequence is finished, return it!
-						BigDecimal kstarScore = ssnode.kstarLower.calcKStarScore();
-						scoredSequences.add(new ScoredSequence(ssnode.sequence, kstarScore));
+						KStarScore score = ssnode.pfuncs.makeScore();
+						scoredSequences.add(new ScoredSequence(ssnode.sequence, score));
 
 						// TODO: logging
-						System.out.println(String.format("sequence: %s  kstar: %s  bound:[%s,%s]",
+						System.out.println(String.format("sequence: %s  kstar: %s",
 							ssnode.sequence,
-							Math.log10(kstarScore.doubleValue()),
-							PartitionFunction.scoreToLog10String(ssnode.kstarLower.calcKStarLowerBound()),
-							PartitionFunction.scoreToLog10String(ssnode.kstarLower.calcKStarUpperBound())
+							score
 						));
 
 					break;
@@ -524,10 +513,9 @@ public class BBKStar {
 						scoredSequences.add(new ScoredSequence(ssnode.sequence, null));
 
 						// TODO: logging
-						System.out.println(String.format("unscorable sequence: %s  bound:[%s,%s]",
+						System.out.println(String.format("unscorable sequence: %s  K*: %s",
 							ssnode.sequence,
-							PartitionFunction.scoreToLog10String(ssnode.kstarLower.calcKStarLowerBound()),
-							PartitionFunction.scoreToLog10String(ssnode.kstarLower.calcKStarUpperBound())
+							ssnode.pfuncs.makeScore()
 						));
 				}
 

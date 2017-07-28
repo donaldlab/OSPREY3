@@ -90,69 +90,6 @@ public interface PartitionFunction {
 		}
 	}
 
-	public static BigDecimal calcKStarUpperBound(Result protein, Result ligand, Result complex) {
-
-		BigDecimal proteinLowerBound = protein.values.calcLowerBound();
-		BigDecimal ligandLowerBound = ligand.values.calcLowerBound();
-		if (proteinLowerBound.compareTo(BigDecimal.ZERO) == 0 || ligandLowerBound.compareTo(BigDecimal.ZERO) == 0) {
-			// can't represent infinity in BigDecimal, so use null instead
-			return null;
-		}
-
-		return complex.values.calcUpperBound()
-			.divide(proteinLowerBound, RoundingMode.HALF_UP)
-			.divide(ligandLowerBound, RoundingMode.HALF_UP);
-	}
-
-	public static BigDecimal calcKStarLowerBound(Result protein, Result ligand, Result complex) {
-
-		BigDecimal proteinUpperBound = protein.values.calcUpperBound();
-		BigDecimal ligandUpperBound = ligand.values.calcUpperBound();
-		if (proteinUpperBound.compareTo(BigDecimal.ZERO) == 0 || ligandUpperBound.compareTo(BigDecimal.ZERO) == 0) {
-			// can't represent infinity in BigDecimal, so use null instead
-			return null;
-		}
-
-		return complex.values.calcLowerBound()
-			.divide(proteinUpperBound, RoundingMode.HALF_UP)
-			.divide(ligandUpperBound, RoundingMode.HALF_UP);
-	}
-
-
-	/** guaranteed to be an epsilon-approximation to K* or null */
-	public static BigDecimal calcKStarScore(Result protein, Result ligand, Result complex) {
-		if (protein.status == PartitionFunction.Status.Estimated
-			&& ligand.status == PartitionFunction.Status.Estimated
-			&& complex.status == PartitionFunction.Status.Estimated) {
-
-			return complex.values.qstar
-				.divide(protein.values.qstar, RoundingMode.HALF_UP)
-				.divide(ligand.values.qstar, RoundingMode.HALF_UP);
-		}
-		return null;
-	}
-
-	public static Double scoreToLog10(BigDecimal score) {
-		if (score != null) {
-			return Math.log10(score.doubleValue());
-		}
-		return null;
-	}
-
-	public static String scoreToString(BigDecimal score) {
-		if (score != null) {
-			return String.format("%e", score.doubleValue());
-		}
-		return "none";
-	}
-
-	public static String scoreToLog10String(BigDecimal score) {
-		if (score != null) {
-			return String.format("%f", scoreToLog10(score));
-		}
-		return "none";
-	}
-
 	public static class Result {
 
 		public final Status status;

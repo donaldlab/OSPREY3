@@ -7,8 +7,8 @@ import edu.duke.cs.osprey.tools.TimeFormatter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.function.Function;
 
 public interface KStarScoreWriter {
 
@@ -18,29 +18,16 @@ public interface KStarScoreWriter {
 		public final int numSequences;
 		public final KStar.Sequence sequence;
 		public final SimpleConfSpace complexConfSpace;
-		public final PartitionFunction.Result proteinResult;
-		public final PartitionFunction.Result ligandResult;
-		public final PartitionFunction.Result complexResult;
-		public final BigDecimal kstarScore;
+		public final KStarScore kstarScore;
 		public final long timeNs;
 
-		public ScoreInfo(int sequenceNumber, int numSequences, KStar.Sequence sequence, SimpleConfSpace complexConfSpace, PartitionFunction.Result proteinResult, PartitionFunction.Result ligandResult, PartitionFunction.Result complexResult, BigDecimal kstarScore) {
+		public ScoreInfo(int sequenceNumber, int numSequences, KStar.Sequence sequence, SimpleConfSpace complexConfSpace, KStarScore kstarScore) {
 			this.sequenceNumber = sequenceNumber;
 			this.numSequences = numSequences;
 			this.sequence = sequence;
 			this.complexConfSpace = complexConfSpace;
-			this.proteinResult = proteinResult;
-			this.ligandResult = ligandResult;
-			this.complexResult = complexResult;
 			this.kstarScore = kstarScore;
 			this.timeNs = System.nanoTime();
-		}
-
-		public String kstarLog10() {
-			if (kstarScore != null) {
-				return String.format("%f", Math.log10(kstarScore.doubleValue()));
-			}
-			return "none";
 		}
 	}
 
@@ -160,10 +147,10 @@ public interface KStarScoreWriter {
 					info.sequenceNumber + 1,
 					info.numSequences,
 					info.sequence,
-					info.proteinResult.toString(),
-					info.ligandResult.toString(),
-					info.complexResult.toString(),
-					info.kstarLog10()
+					info.kstarScore.protein.toString(),
+					info.kstarScore.ligand.toString(),
+					info.kstarScore.complex.toString(),
+					info.kstarScore.toString()
 				);
 			}
 		}
@@ -178,6 +165,8 @@ public interface KStarScoreWriter {
 					"Seq ID",
 					"Sequence",
 					"K* Score (Log10)",
+					"K* Lower Bound",
+					"K* Upper Bound",
 					"Total # Confs.",
 					"Complex Partition Function",
 					"Complex Epsilon",
@@ -197,17 +186,19 @@ public interface KStarScoreWriter {
 				return String.join("\t",
 					Integer.toString(info.sequenceNumber),
 					info.sequence.toString(info.complexConfSpace.positions),
-					info.kstarLog10(),
-					Integer.toString(info.proteinResult.numConfs + info.ligandResult.numConfs + info.complexResult.numConfs),
-					String.format("%e", info.complexResult.values.qstar.doubleValue()),
-					Double.toString(info.complexResult.values.getEffectiveEpsilon()),
-					Integer.toString(info.complexResult.numConfs),
-					String.format("%e", info.proteinResult.values.qstar.doubleValue()),
-					Double.toString(info.proteinResult.values.getEffectiveEpsilon()),
-					Integer.toString(info.proteinResult.numConfs),
-					String.format("%e", info.ligandResult.values.qstar.doubleValue()),
-					Double.toString(info.ligandResult.values.getEffectiveEpsilon()),
-					Integer.toString(info.ligandResult.numConfs),
+					info.kstarScore.scoreLog10String(),
+					info.kstarScore.lowerBoundLog10String(),
+					info.kstarScore.upperBoundLog10String(),
+					Integer.toString(info.kstarScore.protein.numConfs + info.kstarScore.ligand.numConfs + info.kstarScore.complex.numConfs),
+					String.format("%e", info.kstarScore.complex.values.qstar.doubleValue()),
+					Double.toString(info.kstarScore.complex.values.getEffectiveEpsilon()),
+					Integer.toString(info.kstarScore.complex.numConfs),
+					String.format("%e", info.kstarScore.protein.values.qstar.doubleValue()),
+					Double.toString(info.kstarScore.protein.values.getEffectiveEpsilon()),
+					Integer.toString(info.kstarScore.protein.numConfs),
+					String.format("%e", info.kstarScore.ligand.values.qstar.doubleValue()),
+					Double.toString(info.kstarScore.ligand.values.getEffectiveEpsilon()),
+					Integer.toString(info.kstarScore.ligand.numConfs),
 					Long.toString((info.timeNs - startNs)/TimeFormatter.NSpS)
 				);
 			}
@@ -218,15 +209,20 @@ public interface KStarScoreWriter {
 			@Override
 			public String format(ScoreInfo info) {
 
-				// for example:
-				// assertSequence(kstar,   0, "PHE ASP GLU THR PHE LYS ILE THR", 4.050547e+04, 3.766903e+30, 3.929472e+50, epsilon); // K*(log10) = 15.410836
-				return String.format("assertSequence(kstar, %3d, \"%s\", %-12s, %-12s, %-12s, epsilon); // K*(log10) = %s",
+				Function<PartitionFunction.Result,String> formatPfunc = (result) -> {
+					if (result.status == PartitionFunction.Status.Estimated) {
+						return String.format("%12e", result.values.qstar.doubleValue());
+					}
+					return "null";
+				};
+
+				return String.format("assertSequence(result, %3d, \"%s\", %-12s, %-12s, %-12s, epsilon); // K*(log10) = %s",
 					info.sequenceNumber,
 					info.sequence,
-					info.proteinResult.status == PartitionFunction.Status.Estimated ? String.format("%12e", info.proteinResult.values.qstar.doubleValue()) : "null",
-					info.ligandResult.status == PartitionFunction.Status.Estimated ? String.format("%12e", info.ligandResult.values.qstar.doubleValue()) : "null",
-					info.complexResult.status == PartitionFunction.Status.Estimated ? String.format("%12e", info.complexResult.values.qstar.doubleValue()) : "null",
-					PartitionFunction.scoreToLog10String(PartitionFunction.calcKStarScore(info.proteinResult, info.ligandResult, info.complexResult))
+					formatPfunc.apply(info.kstarScore.protein),
+					formatPfunc.apply(info.kstarScore.ligand),
+					formatPfunc.apply(info.kstarScore.complex),
+					info.kstarScore.toString()
 				);
 			}
 		}

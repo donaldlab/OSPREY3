@@ -12,7 +12,6 @@ import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
-import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -194,21 +193,18 @@ public class KStar {
 	public final ConfSearchFactory confSearchFactory;
 	public final Settings settings;
 
-	public final List<BigDecimal> kstarScores;
-
 	public KStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, EnergyCalculator ecalc, ConfEnergyCalculatorFactory confEcalcFactory, ConfSearchFactory confSearchFactory, Settings settings) {
-
 		this.protein = new ConfSpaceInfo(protein, confEcalcFactory.make(protein, ecalc));
 		this.ligand = new ConfSpaceInfo(ligand, confEcalcFactory.make(ligand, ecalc));
 		this.complex = new ConfSpaceInfo(complex, confEcalcFactory.make(complex, ecalc));
 		this.confEcalcFactory = confEcalcFactory;
 		this.confSearchFactory = confSearchFactory;
 		this.settings = settings;
-
-		kstarScores = new ArrayList<>();
 	}
 
-	public void run() {
+	public List<KStarScore> run() {
+
+		List<KStarScore> scores = new ArrayList<>();
 
 		// compute energy matrices
 		protein.calcEmat();
@@ -283,8 +279,8 @@ public class KStar {
 			PartitionFunction.Result complexResult = complex.calcPfunc(i);
 
 			// compute the K* score if possible
-			BigDecimal kstarScore = PartitionFunction.calcKStarScore(proteinResult, ligandResult, complexResult);
-			kstarScores.add(kstarScore);
+			KStarScore kstarScore = new KStarScore(proteinResult, ligandResult, complexResult);
+			scores.add(kstarScore);
 
 			// report scores
 			settings.scoreWriters.writeScore(new KStarScoreWriter.ScoreInfo(
@@ -292,9 +288,10 @@ public class KStar {
 				n,
 				complex.sequences.get(i),
 				complex.confSpace,
-				proteinResult, ligandResult, complexResult,
 				kstarScore
 			));
 		}
+
+		return scores;
 	}
 }

@@ -29,9 +29,7 @@ public class TestBBKStar {
 
 		AtomicReference<Results> resultsRef = new AtomicReference<>(null);
 
-		// TEMP
-		//Parallelism parallelism = Parallelism.makeCpu(4);
-		Parallelism parallelism = Parallelism.make(4, 1, 8);
+		Parallelism parallelism = Parallelism.makeCpu(4);
 
 		// how should we compute energies of molecules?
 		new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
@@ -130,11 +128,11 @@ public class TestBBKStar {
 		assertThat(scoredSequence.sequence.toString(), is(sequence));
 
 		// check the K* score
+		Double kstarScoreLog10 = scoredSequence.score.scoreLog10();
 		if (estKstarLog10 == null) {
-			assertThat(scoredSequence.kstarScore, is(nullValue()));
+			assertThat(kstarScoreLog10, is(nullValue()));
 		} else {
-
-			double obsKstarLog10 = PartitionFunction.scoreToLog10(scoredSequence.kstarScore);
+			assertThat(kstarScoreLog10, is(not(nullValue())));
 
 			// combine the pfunc epsilons to get an epsilon value effective for K* scores
 			// (and convert to log10 space)
@@ -145,8 +143,8 @@ public class TestBBKStar {
 			double maxKStarLog10 = minKStarLog10 + 2*kstarEpsilonLog10;
 
 			// make sure the observed score is within epsilon of the bound
-			assertThat(obsKstarLog10, greaterThanOrEqualTo(minKStarLog10 - kstarEpsilonLog10));
-			assertThat(obsKstarLog10, lessThanOrEqualTo(maxKStarLog10 + kstarEpsilonLog10));
+			assertThat(kstarScoreLog10, greaterThanOrEqualTo(minKStarLog10 - kstarEpsilonLog10));
+			assertThat(kstarScoreLog10, lessThanOrEqualTo(maxKStarLog10 + kstarEpsilonLog10));
 		}
 	}
 }

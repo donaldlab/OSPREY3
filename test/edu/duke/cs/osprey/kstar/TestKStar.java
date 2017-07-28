@@ -19,6 +19,7 @@ import edu.duke.cs.osprey.structure.PDBIO;
 import edu.duke.cs.osprey.tools.FileTools;
 import org.junit.Test;
 
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class TestKStar {
@@ -30,9 +31,14 @@ public class TestKStar {
 		public SimpleConfSpace complex;
 	}
 
-	public static KStar runKStar(ConfSpaces confSpaces, double epsilon) {
+	public static class Result {
+		public KStar kstar;
+		public List<KStarScore> scores;
+	}
 
-		AtomicReference<KStar> kstarRef = new AtomicReference<>(null);
+	public static Result runKStar(ConfSpaces confSpaces, double epsilon) {
+
+		AtomicReference<Result> resultRef = new AtomicReference<>(null);
 
 		Parallelism parallelism = Parallelism.makeCpu(4);
 		//Parallelism parallelism = Parallelism.make(4, 1, 8);
@@ -59,18 +65,19 @@ public class TestKStar {
 				};
 
 				// run K*
+				Result result = new Result();
 				KStar.Settings settings = new KStar.Settings.Builder()
 					.setEpsilon(epsilon)
 					.addScoreConsoleWriter(new KStarScoreWriter.Formatter.Test())
 					.build();
-				KStar kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, ecalc, confEcalcFactory, confSearchFactory, settings);
-				kstar.run();
+				result.kstar = new KStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, ecalc, confEcalcFactory, confSearchFactory, settings);
+				result.scores = result.kstar.run();
 
 				// pass back the ref
-				kstarRef.set(kstar);
+				resultRef.set(result);
 			});
 
-		return kstarRef.get();
+		return resultRef.get();
 	}
 
 	public static ConfSpaces make2RL0() {
@@ -125,35 +132,35 @@ public class TestKStar {
 	public void test2RL0() {
 
 		double epsilon = 0.95;
-		KStar kstar = runKStar(make2RL0(), epsilon);
+		Result result = runKStar(make2RL0(), epsilon);
 
 		// check the results (values collected with e = 0.1)
 		// NOTE: these values don't match the ones in the TestKSImplLinear test because the conf spaces are slightly different
-		assertSequence(kstar,   0, "PHE ASP GLU THR PHE LYS ILE THR", 4.357642e+04, 4.400615e+30, 4.201160e+50, epsilon); // K*(log10) = 15.340604
-		assertSequence(kstar,   1, "PHE ASP GLU THR PHE LYS ILE SER", 4.357642e+04, 1.081364e+30, 4.045813e+50, epsilon); // K*(log10) = 15.933782
-		assertSequence(kstar,   2, "PHE ASP GLU THR PHE LYS ILE ASN", 4.357642e+04, 4.736278e+29, 1.854825e+49, epsilon); // K*(log10) = 14.953614
-		assertSequence(kstar,   3, "PHE ASP GLU THR PHE LYS ALA THR", 4.357642e+04, 1.575484e+27, 7.004835e+45, epsilon); // K*(log10) = 14.008732
-		assertSequence(kstar,   4, "PHE ASP GLU THR PHE LYS VAL THR", 4.357642e+04, 5.784135e+28, 9.854485e+47, epsilon); // K*(log10) = 14.592144
-		assertSequence(kstar,   5, "PHE ASP GLU THR PHE LYS LEU THR", 4.357642e+04, null        , 3.644210e+08, epsilon); // K*(log10) = none
-		assertSequence(kstar,   6, "PHE ASP GLU THR PHE LYS PHE THR", 4.357642e+04, 2.840673e+24, null        , epsilon); // K*(log10) = none
-		assertSequence(kstar,   7, "PHE ASP GLU THR PHE LYS TYR THR", 4.357642e+04, 1.437890e+26, null        , epsilon); // K*(log10) = none
-		assertSequence(kstar,   8, "PHE ASP GLU THR PHE ASP ILE THR", 4.357642e+04, 4.322243e+20, 1.253209e+36, epsilon); // K*(log10) = 10.823063
-		assertSequence(kstar,   9, "PHE ASP GLU THR PHE GLU ILE THR", 4.357642e+04, 4.852245e+20, 2.273860e+35, epsilon); // K*(log10) = 10.031569
-		assertSequence(kstar,  10, "PHE ASP GLU THR TYR LYS ILE THR", 4.357642e+04, 4.612469e+30, 2.294709e+50, epsilon); // K*(log10) = 15.057543
-		assertSequence(kstar,  11, "PHE ASP GLU THR ALA LYS ILE THR", 4.357642e+04, 3.323157e+28, 2.171431e+47, epsilon); // K*(log10) = 14.175944
-		assertSequence(kstar,  12, "PHE ASP GLU THR VAL LYS ILE THR", 4.357642e+04, 9.077053e+29, 1.866598e+49, epsilon); // K*(log10) = 14.673854
-		assertSequence(kstar,  13, "PHE ASP GLU THR ILE LYS ILE THR", 4.357642e+04, 3.423402e+30, 1.598381e+50, epsilon); // K*(log10) = 15.029971
-		assertSequence(kstar,  14, "PHE ASP GLU THR LEU LYS ILE THR", 4.357642e+04, 5.394707e+27, 1.045274e+47, epsilon); // K*(log10) = 14.648011
-		assertSequence(kstar,  15, "PHE ASP GLU SER PHE LYS ILE THR", 3.160862e+06, 4.400615e+30, 1.477543e+53, epsilon); // K*(log10) = 16.026221
-		assertSequence(kstar,  16, "PHE ASP GLU ASN PHE LYS ILE THR", 1.494232e+06, 4.400615e+30, 9.591978e+52, epsilon); // K*(log10) = 16.163977
-		assertSequence(kstar,  17, "PHE ASP GLU GLN PHE LYS ILE THR", 2.540001e+06, 4.400615e+30, 3.346637e+53, epsilon); // K*(log10) = 16.476261
-		assertSequence(kstar,  18, "PHE ASP ASP THR PHE LYS ILE THR", 1.218276e+01, 4.400615e+30, 1.470052e+45, epsilon); // K*(log10) = 13.438073
-		assertSequence(kstar,  19, "PHE GLU GLU THR PHE LYS ILE THR", 2.007918e+05, 4.400615e+30, 1.097248e+50, epsilon); // K*(log10) = 14.094045
-		assertSequence(kstar,  20, "TYR ASP GLU THR PHE LYS ILE THR", 1.679096e+04, 4.400615e+30, 2.815375e+46, epsilon); // K*(log10) = 11.580947
-		assertSequence(kstar,  21, "ALA ASP GLU THR PHE LYS ILE THR", 6.128052e+02, 4.400615e+30, 1.672192e+45, epsilon); // K*(log10) = 11.792450
-		assertSequence(kstar,  22, "VAL ASP GLU THR PHE LYS ILE THR", 1.272994e+02, 4.400615e+30, 2.381547e+45, epsilon); // K*(log10) = 12.628520
-		assertSequence(kstar,  23, "ILE ASP GLU THR PHE LYS ILE THR", 5.991998e+02, 4.400615e+30, 2.012657e+46, epsilon); // K*(log10) = 12.882685
-		assertSequence(kstar,  24, "LEU ASP GLU THR PHE LYS ILE THR", 4.629325e+00, 4.400615e+30, 4.735592e+43, epsilon); // K*(log10) = 12.366343
+		assertSequence(result,   0, "PHE ASP GLU THR PHE LYS ILE THR", 4.357642e+04, 4.400615e+30, 4.201160e+50, epsilon); // K*(log10) = 15.340604
+		assertSequence(result,   1, "PHE ASP GLU THR PHE LYS ILE SER", 4.357642e+04, 1.081364e+30, 4.045813e+50, epsilon); // K*(log10) = 15.933782
+		assertSequence(result,   2, "PHE ASP GLU THR PHE LYS ILE ASN", 4.357642e+04, 4.736278e+29, 1.854825e+49, epsilon); // K*(log10) = 14.953614
+		assertSequence(result,   3, "PHE ASP GLU THR PHE LYS ALA THR", 4.357642e+04, 1.575484e+27, 7.004835e+45, epsilon); // K*(log10) = 14.008732
+		assertSequence(result,   4, "PHE ASP GLU THR PHE LYS VAL THR", 4.357642e+04, 5.784135e+28, 9.854485e+47, epsilon); // K*(log10) = 14.592144
+		assertSequence(result,   5, "PHE ASP GLU THR PHE LYS LEU THR", 4.357642e+04, null        , 3.644210e+08, epsilon); // K*(log10) = none
+		assertSequence(result,   6, "PHE ASP GLU THR PHE LYS PHE THR", 4.357642e+04, 2.840673e+24, null        , epsilon); // K*(log10) = none
+		assertSequence(result,   7, "PHE ASP GLU THR PHE LYS TYR THR", 4.357642e+04, 1.437890e+26, null        , epsilon); // K*(log10) = none
+		assertSequence(result,   8, "PHE ASP GLU THR PHE ASP ILE THR", 4.357642e+04, 4.322243e+20, 1.253209e+36, epsilon); // K*(log10) = 10.823063
+		assertSequence(result,   9, "PHE ASP GLU THR PHE GLU ILE THR", 4.357642e+04, 4.852245e+20, 2.273860e+35, epsilon); // K*(log10) = 10.031569
+		assertSequence(result,  10, "PHE ASP GLU THR TYR LYS ILE THR", 4.357642e+04, 4.612469e+30, 2.294709e+50, epsilon); // K*(log10) = 15.057543
+		assertSequence(result,  11, "PHE ASP GLU THR ALA LYS ILE THR", 4.357642e+04, 3.323157e+28, 2.171431e+47, epsilon); // K*(log10) = 14.175944
+		assertSequence(result,  12, "PHE ASP GLU THR VAL LYS ILE THR", 4.357642e+04, 9.077053e+29, 1.866598e+49, epsilon); // K*(log10) = 14.673854
+		assertSequence(result,  13, "PHE ASP GLU THR ILE LYS ILE THR", 4.357642e+04, 3.423402e+30, 1.598381e+50, epsilon); // K*(log10) = 15.029971
+		assertSequence(result,  14, "PHE ASP GLU THR LEU LYS ILE THR", 4.357642e+04, 5.394707e+27, 1.045274e+47, epsilon); // K*(log10) = 14.648011
+		assertSequence(result,  15, "PHE ASP GLU SER PHE LYS ILE THR", 3.160862e+06, 4.400615e+30, 1.477543e+53, epsilon); // K*(log10) = 16.026221
+		assertSequence(result,  16, "PHE ASP GLU ASN PHE LYS ILE THR", 1.494232e+06, 4.400615e+30, 9.591978e+52, epsilon); // K*(log10) = 16.163977
+		assertSequence(result,  17, "PHE ASP GLU GLN PHE LYS ILE THR", 2.540001e+06, 4.400615e+30, 3.346637e+53, epsilon); // K*(log10) = 16.476261
+		assertSequence(result,  18, "PHE ASP ASP THR PHE LYS ILE THR", 1.218276e+01, 4.400615e+30, 1.470052e+45, epsilon); // K*(log10) = 13.438073
+		assertSequence(result,  19, "PHE GLU GLU THR PHE LYS ILE THR", 2.007918e+05, 4.400615e+30, 1.097248e+50, epsilon); // K*(log10) = 14.094045
+		assertSequence(result,  20, "TYR ASP GLU THR PHE LYS ILE THR", 1.679096e+04, 4.400615e+30, 2.815375e+46, epsilon); // K*(log10) = 11.580947
+		assertSequence(result,  21, "ALA ASP GLU THR PHE LYS ILE THR", 6.128052e+02, 4.400615e+30, 1.672192e+45, epsilon); // K*(log10) = 11.792450
+		assertSequence(result,  22, "VAL ASP GLU THR PHE LYS ILE THR", 1.272994e+02, 4.400615e+30, 2.381547e+45, epsilon); // K*(log10) = 12.628520
+		assertSequence(result,  23, "ILE ASP GLU THR PHE LYS ILE THR", 5.991998e+02, 4.400615e+30, 2.012657e+46, epsilon); // K*(log10) = 12.882685
+		assertSequence(result,  24, "LEU ASP GLU THR PHE LYS ILE THR", 4.629325e+00, 4.400615e+30, 4.735592e+43, epsilon); // K*(log10) = 12.366343
 	}
 
 	public static ConfSpaces make1GUA11() {
@@ -208,26 +215,28 @@ public class TestKStar {
 	public void test1GUA_11() {
 
 		double epsilon = 0.99;
-		KStar kstar = runKStar(make1GUA11(), epsilon);
+		Result result = runKStar(make1GUA11(), epsilon);
 
 		// check the results (values collected with e = 0.1)
-		assertSequence(kstar,   0, "ILE ILE GLN HIE VAL TYR LYS VAL", 1.1838e+42, 2.7098e+7, 1.1195e+66, epsilon);
-		assertSequence(kstar,   1, "ILE ILE GLN HIE VAL TYR LYS HID", 1.1838e+42, 5.5334e+7, 3.3455e+66, epsilon);
-		assertSequence(kstar,   2, "ILE ILE GLN HIE VAL TYR LYS HIE", 1.1838e+42, 5.8485e+6, 5.5426e+65, epsilon);
-		assertSequence(kstar,   3, "ILE ILE GLN HIE VAL TYR LYS LYS", 1.1838e+42, 6.3856e+4, 3.3162e+63, epsilon);
-		assertSequence(kstar,   4, "ILE ILE GLN HIE VAL TYR LYS ARG", 1.1838e+42, 1.1527e+5, 5.3772e+64, epsilon);
-		assertSequence(kstar,   5, "ILE ILE GLN HID VAL TYR LYS VAL", 9.7448e+41, 2.7098e+7, 2.6775e+66, epsilon);
+		assertSequence(result,   0, "ILE ILE GLN HIE VAL TYR LYS VAL", 1.1838e+42, 2.7098e+7, 1.1195e+66, epsilon);
+		assertSequence(result,   1, "ILE ILE GLN HIE VAL TYR LYS HID", 1.1838e+42, 5.5334e+7, 3.3455e+66, epsilon);
+		assertSequence(result,   2, "ILE ILE GLN HIE VAL TYR LYS HIE", 1.1838e+42, 5.8485e+6, 5.5426e+65, epsilon);
+		assertSequence(result,   3, "ILE ILE GLN HIE VAL TYR LYS LYS", 1.1838e+42, 6.3856e+4, 3.3162e+63, epsilon);
+		assertSequence(result,   4, "ILE ILE GLN HIE VAL TYR LYS ARG", 1.1838e+42, 1.1527e+5, 5.3772e+64, epsilon);
+		assertSequence(result,   5, "ILE ILE GLN HID VAL TYR LYS VAL", 9.7448e+41, 2.7098e+7, 2.6775e+66, epsilon);
 	}
 
-	public static void assertSequence(KStar kstar, int sequenceIndex, String sequence, Double proteinQStar, Double ligandQStar, Double complexQStar, double epsilon) {
+	public static void assertSequence(Result result, int sequenceIndex, String sequence, Double proteinQStar, Double ligandQStar, Double complexQStar, double epsilon) {
+
+		KStarScore score = result.scores.get(sequenceIndex);
 
 		// check the sequence
-		assertThat(kstar.complex.sequences.get(sequenceIndex), is(new KStar.Sequence(sequence)));
+		assertThat(result.kstar.complex.sequences.get(sequenceIndex), is(new KStar.Sequence(sequence)));
 
 		// check q* values and epsilon
-		assertResult(kstar.protein.pfuncResults.get(kstar.protein.sequences.get(sequenceIndex)), proteinQStar, epsilon);
-		assertResult(kstar.ligand.pfuncResults.get(kstar.ligand.sequences.get(sequenceIndex)), ligandQStar, epsilon);
-		assertResult(kstar.complex.pfuncResults.get(kstar.complex.sequences.get(sequenceIndex)), complexQStar, epsilon);
+		assertResult(score.protein, proteinQStar, epsilon);
+		assertResult(score.ligand, ligandQStar, epsilon);
+		assertResult(score.complex, complexQStar, epsilon);
 	}
 
 	public static void assertResult(PartitionFunction.Result result, Double qstar, double epsilon) {
