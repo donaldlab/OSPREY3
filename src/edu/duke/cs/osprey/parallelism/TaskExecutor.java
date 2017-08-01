@@ -15,7 +15,11 @@ public class TaskExecutor implements AutoCleanable {
 	public int getParallelism() {
 		return 1;
 	}
-	
+
+	public boolean isBusy() {
+		return false;
+	}
+
 	public <T> void submit(Task<T> task, TaskListener<T> listener) {
 		T result = task.run();
 		listener.onFinished(result);

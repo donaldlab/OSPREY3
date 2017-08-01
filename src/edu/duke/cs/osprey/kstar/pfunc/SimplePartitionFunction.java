@@ -3,11 +3,9 @@ package edu.duke.cs.osprey.kstar.pfunc;
 import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.ConfSearch.EnergiedConf;
 import edu.duke.cs.osprey.confspace.ConfSearch.ScoredConf;
-import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
-import edu.duke.cs.osprey.gmec.ConfSearchFactory;
-import edu.duke.cs.osprey.pruning.InvertedPruningMatrix;
-import edu.duke.cs.osprey.pruning.PruningMatrix;
+import edu.duke.cs.osprey.parallelism.TaskExecutor;
+import edu.duke.cs.osprey.parallelism.ThreadPoolTaskExecutor;
 import edu.duke.cs.osprey.tools.Stopwatch;
 
 import java.lang.management.ManagementFactory;
@@ -16,34 +14,35 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 
-// NOTE: this class is mostly a copy of ParallelConfPartitionFunction
-// sadly, we can't change ParallelConfPartitionFunction because we need to maintain backwards compatibility
-// so the changes needed to enable Python scripting will go here instead
 public class SimplePartitionFunction implements PartitionFunction {
 
-    public final EnergyMatrix emat;
-    public final PruningMatrix pmat;
-    public final ConfSearchFactory confSearchFactory;
+	public final ConfSearch confSearch;
     public final ConfEnergyCalculator ecalc;
+
+    /**
+	 * number of conformations to score per batch when refining the partition function upper bound
+	 *
+	 * for single-threaded parallelism, this setting determines how many conformations we should score
+	 * to refine the upper bound *per each* conformation that is minimized to refine the lower bound.
+	 *
+	 * for multi-threaded (including GPUs) parallelism, this setting is less important, since the
+	 * upper bound calculator will automatically run on the main thread during the time the main
+	 * thread would have normally waited for the energy minimizer thread(s).
+	 **/
+    public int scoreConfsBatchSize = 1000;
 
 	private double targetEpsilon = Double.NaN;
 	private Status status = null;
 	private Values values = null;
-	private BoltzmannCalculator boltzmann = new BoltzmannCalculator();
-	private ConfSearch.Splitter.Stream scoreConfs = null;
-	private ConfSearch.Splitter.Stream energyConfs = null;
-	private int numConfsEvaluated = 0;
-	private BigInteger numConfsToScore = null;
-	private BigDecimal qprimeUnevaluated = null;
-	private BigDecimal qprimeUnscored = null;
-	private Stopwatch stopwatch = null;
-	private boolean isReportingProgress = true;
+	private LowerBoundCalculator lowerBound;
+	private UpperBoundCalculator upperBound;
 	private ConfListener confListener = null;
+	private boolean isReportingProgress = false;
+	private Stopwatch stopwatch = new Stopwatch().start();
 
-	public SimplePartitionFunction(EnergyMatrix emat, PruningMatrix pmat, ConfSearchFactory confSearchFactory, ConfEnergyCalculator ecalc) {
-		this.emat = emat;
-		this.pmat = pmat;
-		this.confSearchFactory = confSearchFactory;
+
+	public SimplePartitionFunction(ConfSearch confSearch, ConfEnergyCalculator ecalc) {
+		this.confSearch = confSearch;
 		this.ecalc = ecalc;
 	}
 	
@@ -69,7 +68,7 @@ public class SimplePartitionFunction implements PartitionFunction {
 	
 	@Override
 	public int getNumConfsEvaluated() {
-		return numConfsEvaluated;
+		return lowerBound.numConfsEnergied;
 	}
 	
 	@Override
@@ -84,67 +83,18 @@ public class SimplePartitionFunction implements PartitionFunction {
 		
 		status = Status.Estimating;
 		values = new Values();
-		
-		// compute p*: boltzmann-weight the scores for all pruned conformations
-		values.pstar = calcWeightSumUpperBound(confSearchFactory.make(emat, new InvertedPruningMatrix(pmat)));
-		
-		// make the search tree for computing q*
-		ConfSearch tree = confSearchFactory.make(emat, pmat);
 
-		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(tree);
-		scoreConfs = confsSplitter.makeStream();
-		energyConfs = confsSplitter.makeStream();
-		numConfsEvaluated = 0;
-		numConfsToScore = tree.getNumConformations();
-		qprimeUnevaluated = BigDecimal.ZERO;
-		qprimeUnscored = BigDecimal.ZERO;
-		stopwatch = new Stopwatch().start();
-	}
+		// NOTE: don't use DEE with this pfunc calculator
+		// DEE actually makes the problem harder to solve, not easier
+		// because then we have to deal with p*
+		// if we just don't prune with DEE, the usual q' calculator will handle those confs that would have been pruned
+		// not using DEE won't really slow us down either, since our A* is fast enough without it
+		values.pstar = BigDecimal.ZERO;
 
-	private BigDecimal calcWeightSumUpperBound(ConfSearch tree) {
-		
-		BigDecimal sum = BigDecimal.ZERO;
-		BigDecimal boundOnAll = BigDecimal.ZERO;
-		
-		BigInteger numConfsRemaining = tree.getNumConformations();
-		
-		while (true) {
-			
-			// get the next conf
-			ScoredConf conf = tree.nextConf();
-			if (conf == null) {
-				break;
-			}
-			
-			// compute the boltzmann weight for this conf
-			BigDecimal weight = boltzmann.calc(conf.getScore());
-			if (weight.compareTo(BigDecimal.ZERO) == 0) {
-				break;
-			}
-			
-			// update the sum
-			sum = sum.add(weight);
-			
-			// update the upper bound on the remaining sum
-			numConfsRemaining = numConfsRemaining.subtract(BigInteger.ONE);
-			BigDecimal boundOnRemaining = weight.multiply(new BigDecimal(numConfsRemaining));
-			
-			// update the upper bound on the total sum
-			boundOnAll = sum.add(boundOnRemaining);
-			
-			// stop if the bound is tight enough
-			double effectiveEpsilon = boundOnRemaining.divide(boundOnAll, RoundingMode.HALF_UP).doubleValue();
-			if (effectiveEpsilon <= 0.01) {
-				break;
-			}
-		}
-		
-		return boundOnAll;
-	}
-	
-	@Override
-	public void compute() {
-		compute(Integer.MAX_VALUE);
+		// split the confs between the bound calculators
+		ConfSearch.Splitter confsSplitter = new ConfSearch.Splitter(confSearch);
+		lowerBound = new LowerBoundCalculator(confsSplitter.makeStream(), ecalc);
+		upperBound = new UpperBoundCalculator(confsSplitter.makeStream());
 	}
 
 	@Override
@@ -154,122 +104,254 @@ public class SimplePartitionFunction implements PartitionFunction {
 			throw new IllegalStateException("pfunc was not initialized. Call init() before compute()");
 		}
 		
-		if (!status.canContinue()) {
-			throw new IllegalStateException("can't continue from status " + status);
-		}
-		
 		int numConfsScored = 0;
 		while (true) {
-			
-			ScoredConf conf;
-			
-			// sync to keep from racing the listener thread
-			synchronized (this) {
-			
-				// did we win?
-				boolean hitEpsilonTarget = values.getEffectiveEpsilon() <= targetEpsilon;
-				if (hitEpsilonTarget) {
-					status = Status.Estimated;
-					break;
-				}
-				
-				// should we stop anyway?
-				if (!status.canContinue() || numConfsScored >= maxNumConfs) {
-					break;
-				}
-				
-				// try another conf
-				conf = energyConfs.nextConf();
-				numConfsScored++;
-				if (conf == null) {
-					status = Status.OutOfConformations;
-				} else if (Double.isInfinite(conf.getScore()) || boltzmann.calc(conf.getScore()).compareTo(BigDecimal.ZERO) == 0) {
-					status = Status.OutOfLowEnergies;
-				} else {
-					status = Status.Estimating;
-				}
-			}
-			
-			if (!status.canContinue()) {
-				// we hit a failure condition and need to stop
-				// but wait for current async minimizations to finish in case that pushes over the epsilon target
-				// NOTE: don't wait for finish inside the sync, since that will definitely deadlock
-				ecalc.tasks.waitForFinish();
-				continue;
-			}
-			
-			// do the energy calculation asynchronously
-			ecalc.calcEnergyAsync(conf, (EnergiedConf econf) -> {
 
-				// we're on the listener thread, so sync to keep from racing the main thread
+			// did we hit the epsilon target?
+			if (values.getEffectiveEpsilon() <= targetEpsilon) {
+				status = Status.Estimated;
+				break;
+			}
+
+			// should we stop anyway?
+			if (!status.canContinue() || numConfsScored >= maxNumConfs) {
+				break;
+			}
+
+			// nope, need to do some more work
+
+			// WARNING: if this is too big, we'll never reach the pfunc epsilon!
+			final double upperBoundEpsilon = 0.00001;
+
+			if (ecalc.tasks instanceof ThreadPoolTaskExecutor) {
+
+				// while we're waiting on energy threads, refine q' a bit on the main thread
+				while (upperBound.delta > upperBoundEpsilon && ecalc.tasks.isBusy()) {
+					upperBound.run(scoreConfsBatchSize, upperBoundEpsilon);
+				}
+
+			} else {
+
+				// we're stuck with just the main thread
+				// meaning we need to refine q' explicitly before computing energies
+				upperBound.run(scoreConfsBatchSize, upperBoundEpsilon);
+			}
+
+			// refine the lower bound
+			LowerBoundCalculator.Status lbStatus = lowerBound.energyNextConfAsync((econf) -> {
+
+				// got an energy for the conf
+
+				// we might be on the listener thread, so lock to keep from racing the main thread
 				synchronized (SimplePartitionFunction.this) {
-					
-					// energy calculation done
-					// if this conf has infinite energy, just ignore it
-					// another later conf could still have finite energy
-					if (Double.isInfinite(econf.getEnergy())) {
-						return;
-					}
-					
-					// update pfunc state
-					values.qstar = values.qstar.add(boltzmann.calc(econf.getEnergy()));
-					values.qprime = updateQprime(econf);
-					
-					// report progress if needed
-					if (isReportingProgress) {
-						MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
-						System.out.println(String.format("conf: %4d, score: %12.6f, energy: %12.6f, q*: %12e, q': %12e, epsilon: %.6f, time: %10s, heapMem: %.0f%%",
-							numConfsEvaluated, econf.getScore(), econf.getEnergy(), values.qstar, values.qprime, values.getEffectiveEpsilon(),
-							stopwatch.getTime(2),
-							100f*heapMem.getUsed()/heapMem.getMax()
-						));
-					}
-					
-					// report confs if needed
-					if (confListener != null) {
-						confListener.onConf(econf);
-					}
-					
-					numConfsEvaluated++;
+
+					// update pfunc values
+					values.qstar = lowerBound.weightedEnergySum;
+					values.qprime = upperBound.totalBound.subtract(lowerBound.energiedScores);
+				}
+
+				// report progress if needed
+				if (isReportingProgress) {
+					MemoryUsage heapMem = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
+					System.out.println(String.format("conf: %4d, score: %12.6f, energy: %12.6f, q*: %12e, q': %12e, epsilon: %.6f, time: %10s, heapMem: %.0f%%",
+						lowerBound.numConfsEnergied, econf.getScore(), econf.getEnergy(), values.qstar, values.qprime, values.getEffectiveEpsilon(),
+						stopwatch.getTime(2),
+						100f*heapMem.getUsed()/heapMem.getMax()
+					));
+				}
+
+				// report confs if needed
+				if (confListener != null) {
+					confListener.onConf(econf);
 				}
 			});
+			numConfsScored++;
+
+			// see if the lower bound calculator stalled and wait if it did
+			switch (lbStatus) {
+				case OutOfConfs:
+					status = Status.OutOfConformations;
+					lowerBound.waitForFinish();
+				break;
+				case OutOfLowEnergies:
+					status = Status.OutOfLowEnergies;
+					lowerBound.waitForFinish();
+				break;
+			}
+
+			// make sure the lower bound calc doesn't get ahead of the upper bound calc
+			// otherwise, the bounds will be wrong
+			while (numConfsScored > upperBound.numScoredConfs) {
+				upperBound.scoreNextConf();
+			}
 		}
-		
+
 		// wait for any remaining async minimizations to finish
 		ecalc.tasks.waitForFinish();
 	}
 
-	private BigDecimal updateQprime(EnergiedConf econf) {
-		
-		// look through the conf tree to get conf scores
-		// (which should be lower bounds on the conf energy)
-		while (true) {
-			
-			// read a conf from the tree
-			ScoredConf conf = scoreConfs.nextConf();
-			if (conf == null) {
-				break;
-			}
-			
-			// get the boltzmann weight
-			BigDecimal scoreWeight = boltzmann.calc(conf.getScore());
-			if (scoreWeight.compareTo(BigDecimal.ZERO) == 0) {
-				break;
-			}
-			
-			// update q' parts
-			numConfsToScore = numConfsToScore.subtract(BigInteger.ONE);
-			qprimeUnevaluated = qprimeUnevaluated.add(scoreWeight);
-			qprimeUnscored = scoreWeight.multiply(new BigDecimal(numConfsToScore));
-			
-			// stop if the bound on q' is tight enough
-			double tightness = qprimeUnscored.divide(qprimeUnevaluated.add(qprimeUnscored), RoundingMode.HALF_UP).doubleValue();
-			if (tightness <= 0.01) {
-				break;
-			}
+	public static class LowerBoundCalculator {
+
+		public static enum Status {
+			HasLowEnergies,
+			OutOfConfs,
+			OutOfLowEnergies
 		}
-		
-		qprimeUnevaluated = qprimeUnevaluated.subtract(boltzmann.calc(econf.getScore()));
-		return qprimeUnevaluated.add(qprimeUnscored);
+
+		public final ConfSearch tree;
+		public final ConfEnergyCalculator ecalc;
+
+		public BigDecimal energiedScores = BigDecimal.ZERO;
+		public BigDecimal weightedEnergySum = BigDecimal.ZERO;
+		public int numConfsScored = 0;
+		public int numConfsEnergied = 0;
+
+		private BoltzmannCalculator boltzmann = new BoltzmannCalculator();
+
+		public LowerBoundCalculator(ConfSearch tree, ConfEnergyCalculator ecalc) {
+			this.tree = tree;
+			this.ecalc = ecalc;
+		}
+
+		public Status run(int numConfs) {
+			return run(numConfs, null);
+		}
+
+		public Status run(int numConfs, TaskExecutor.TaskListener<EnergiedConf> confListener) {
+			Status status = Status.HasLowEnergies;
+			for (int i=0; i<numConfs && status == Status.HasLowEnergies; i++) {
+				status = energyNextConfAsync(confListener);
+			}
+			waitForFinish();
+			return status;
+		}
+
+		public Status energyNextConfAsync() {
+			return energyNextConfAsync(null);
+		}
+
+		public Status energyNextConfAsync(TaskExecutor.TaskListener<EnergiedConf> confListener) {
+
+			ScoredConf conf = tree.nextConf();
+			if (conf == null) {
+				return Status.OutOfConfs;
+			}
+			numConfsScored++;
+			if (Double.isInfinite(conf.getScore()) || boltzmann.calc(conf.getScore()).compareTo(BigDecimal.ZERO) == 0) {
+				return Status.OutOfLowEnergies;
+			}
+
+			// do the energy calculation asynchronously
+			ecalc.calcEnergyAsync(conf, (EnergiedConf econf) -> {
+
+				// we might be on the listener thread, so sync to keep from racing the main thread
+				synchronized (LowerBoundCalculator.this) {
+
+					// energy calculation done, update pfunc values
+					if (!Double.isInfinite(econf.getEnergy())) {
+						weightedEnergySum = weightedEnergySum.add(boltzmann.calc(econf.getEnergy()));
+					}
+					energiedScores = energiedScores.add(boltzmann.calc(econf.getScore()));
+					numConfsEnergied++;
+				}
+
+				if (confListener != null) {
+					confListener.onFinished(econf);
+				}
+			});
+
+			return Status.HasLowEnergies;
+		}
+
+		public void waitForFinish() {
+			ecalc.tasks.waitForFinish();
+		}
+
+		@Override
+		public String toString() {
+			return String.format("LowerBoundCalculator   scored: %6d   energied: %6d   energies: %e   scores: %e",
+				numConfsScored,
+				numConfsEnergied,
+				weightedEnergySum.doubleValue(),
+				energiedScores.doubleValue()
+			);
+		}
+	}
+
+	public static class UpperBoundCalculator {
+
+		public final ConfSearch tree;
+		public BigInteger numUnscoredConfs;
+
+		public int numScoredConfs = 0;
+		public BigDecimal weightedScoreSum = BigDecimal.ZERO;
+		public BigDecimal unscoredBound = BigDecimal.ZERO;
+		public BigDecimal totalBound = BigDecimal.ZERO;
+		public double delta = 1.0;
+
+		private BoltzmannCalculator boltzmann = new BoltzmannCalculator();
+
+		public UpperBoundCalculator(ConfSearch tree) {
+			this.tree = tree;
+			this.numUnscoredConfs = tree.getNumConformations();
+		}
+
+		public UpperBoundCalculator run(int numConfs) {
+			boolean canContinue = true;
+			while (canContinue && numConfs > 0) {
+				canContinue = scoreNextConf();
+				numConfs--;
+			}
+			return this;
+		}
+
+		public UpperBoundCalculator run(int numConfs, double epsilon) {
+			boolean canContinue = delta > epsilon;
+			while (canContinue && numConfs > 0) {
+				canContinue = scoreNextConf() && delta > epsilon;
+				numConfs--;
+			}
+			return this;
+		}
+
+		private boolean scoreNextConf() {
+
+			// get the next conf
+			ScoredConf conf = tree.nextConf();
+			if (conf == null) {
+				return false;
+			}
+
+			numScoredConfs++;
+
+			// compute the boltzmann weight for this conf
+			BigDecimal weightedScore = boltzmann.calc(conf.getScore());
+
+			// update counters/sums/bounds
+			weightedScoreSum = weightedScoreSum.add(weightedScore);
+			numUnscoredConfs = numUnscoredConfs.subtract(BigInteger.ONE);
+			unscoredBound = weightedScore.multiply(new BigDecimal(numUnscoredConfs));
+			totalBound = weightedScoreSum.add(unscoredBound);
+
+			// update delta
+			if (totalBound.compareTo(BigDecimal.ZERO) != 0) {
+				delta = unscoredBound.divide(totalBound, RoundingMode.HALF_UP).doubleValue();
+			}
+
+			// keep going if the boltzmann weight is greater than zero
+			return weightedScore.compareTo(BigDecimal.ZERO) > 0;
+		}
+
+		@Override
+		public String toString() {
+			return String.format("UpperBoundCalculator  scored: %8d  sum: %e   unscored: %e  %e   bound: %e   delta: %f",
+				numScoredConfs,
+				weightedScoreSum.doubleValue(),
+				numUnscoredConfs.doubleValue(),
+				unscoredBound.doubleValue(),
+				totalBound.doubleValue(),
+				delta
+			);
+		}
 	}
 }

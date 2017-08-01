@@ -124,6 +124,11 @@ public class ThreadPoolTaskExecutor extends TaskExecutor implements GarbageDetec
 	public int getParallelism() {
 		return threads.pool.getCorePoolSize();
 	}
+
+	@Override
+	public boolean isBusy() {
+		return getNumRunningTasks() >= getParallelism();
+	}
 	
 	@Override
 	public <T> void submit(Task<T> task, TaskListener<T> listener) {

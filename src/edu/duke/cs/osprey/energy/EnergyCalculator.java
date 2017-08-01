@@ -67,12 +67,12 @@ public class EnergyCalculator implements AutoCleanable {
 		 * the type directly.
 		 */
 		private Type type = null;
-		
-		
+
 		private DofTypes dofTypes = DofTypes.Any;
 		private AtomConnectivity.Builder atomConnectivityBuilder = new AtomConnectivity.Builder();
 		private ResPairCache resPairCache;
-		
+		private boolean isMinimizing = true;
+
 		public Builder(SimpleConfSpace confSpace, ForcefieldParams ffparams) {
 			this.ffparams = ffparams;
 			this.atomConnectivityBuilder.addTemplates(confSpace);
@@ -83,7 +83,7 @@ public class EnergyCalculator implements AutoCleanable {
 			this.ffparams = ffparams;
 			this.atomConnectivityBuilder.addTemplates(residues);
 		}
-		
+
 		public Builder setParallelism(Parallelism val) {
 			parallelism = val;
 			return this;
@@ -108,7 +108,12 @@ public class EnergyCalculator implements AutoCleanable {
 			resPairCache = val;
 			return this;
 		}
-		
+
+		public Builder setIsMinimizing(boolean val) {
+			this.isMinimizing = val;
+			return this;
+		}
+
 		public EnergyCalculator build() {
 			
 			// if no explicit type was picked, pick the best one now
@@ -128,10 +133,36 @@ public class EnergyCalculator implements AutoCleanable {
 				resPairCache = new ResPairCache(ffparams, connectivity);
 			}
 			
-			return new EnergyCalculator(parallelism, type, resPairCache);
+			return new EnergyCalculator(parallelism, type, resPairCache, isMinimizing);
 		}
 	}
-	
+
+	public static class SharedBuilder {
+
+		private EnergyCalculator parent;
+
+		private boolean isMinimizing = true;
+
+		public SharedBuilder(EnergyCalculator parent) {
+			this.parent = parent;
+		}
+
+		public SharedBuilder setIsMinimizing(boolean val) {
+			this.isMinimizing = val;
+			return this;
+		}
+
+		public EnergyCalculator build() {
+			return new EnergyCalculator(parent, isMinimizing) {
+
+				@Override
+				public void clean() {
+					// ignore cleanup calls, since we're sharing resources with our parent
+				}
+			};
+		}
+	}
+
 	public static enum Type {
 		
 		CpuOriginalCCD {
@@ -386,15 +417,25 @@ public class EnergyCalculator implements AutoCleanable {
 	public final Type type;
 	public final Type.Context context;
 	public final ResPairCache resPairCache;
+	public final boolean isMinimizing;
 	
-	private EnergyCalculator(Parallelism parallelism, Type type, ResPairCache resPairCache) {
-		
+	private EnergyCalculator(Parallelism parallelism, Type type, ResPairCache resPairCache, boolean isMinimizing) {
 		this.parallelism = parallelism;
 		this.tasks = parallelism.makeTaskExecutor();
 		this.type = type;
+		this.context = type.makeContext(parallelism, resPairCache);
 		this.resPairCache = resPairCache;
-		
-		context = type.makeContext(parallelism, resPairCache);
+		this.isMinimizing = isMinimizing;
+	}
+
+	private EnergyCalculator(EnergyCalculator parent, boolean isMinimizing) {
+
+		this.parallelism = parent.parallelism;
+		this.tasks = parent.tasks;
+		this.type = parent.type;
+		this.context = parent.context;
+		this.resPairCache = parent.resPairCache;
+		this.isMinimizing = isMinimizing;
 	}
 	
 	@Override
@@ -424,7 +465,7 @@ public class EnergyCalculator implements AutoCleanable {
 			
 			// get the energy
 			double energy;
-			if (pmol.dofBounds.size() > 0) {
+			if (isMinimizing && pmol.dofBounds.size() > 0) {
 				
 				// minimize it
 				Minimizer minimizer = context.minimizers.make(new MoleculeObjectiveFunction(pmol, efunc));

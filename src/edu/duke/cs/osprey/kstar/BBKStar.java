@@ -1,18 +1,21 @@
 package edu.duke.cs.osprey.kstar;
 
+import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
-import edu.duke.cs.osprey.gmec.ConfSearchFactory;
+import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
-import edu.duke.cs.osprey.pruning.PruningMatrix;
 
-import java.io.File;
 import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.util.*;
+import java.util.function.Function;
 
 public class BBKStar {
 
@@ -23,7 +26,7 @@ public class BBKStar {
 		public static class Builder {
 
 			private double epsilon = 0.683;
-			private int maxSimultaneousMutations = 1;
+			private int maxSimultaneousMutations = Integer.MAX_VALUE;
 			private boolean showPfuncProgress = false;
 			private int numBestSequences = 1;
 			private int numConfsPerBatch = 8;
@@ -83,35 +86,53 @@ public class BBKStar {
 
 		public final ConfSpaceType type;
 		public final SimpleConfSpace confSpace;
-		public final ConfEnergyCalculator confEcalc;
+		public final ConfEnergyCalculator rigidConfEcalc;
+		public final ConfEnergyCalculator minimizingConfEcalc;
 
-		public EnergyMatrix emat = null;
+		public EnergyMatrix rigidNegatedEmat = null;
+		public EnergyMatrix minimizedEmat = null;
 
-		public ConfSpaceInfo(ConfSpaceType type, SimpleConfSpace confSpace, ConfEnergyCalculator confEcalc) {
+		public ConfSpaceInfo(ConfSpaceType type, SimpleConfSpace confSpace, ConfEnergyCalculator rigidConfEcalc, ConfEnergyCalculator minimizingConfEcalc) {
 			this.type = type;
 			this.confSpace = confSpace;
-			this.confEcalc = confEcalc;
+			this.rigidConfEcalc = rigidConfEcalc;
+			this.minimizingConfEcalc = minimizingConfEcalc;
 		}
 
-		public void calcEmat() {
-			emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
-				.setCacheFile(new File(String.format("/tmp/emat.%s.dat", type))) // TEMP
-				.build()
-				.calcEnergyMatrix();
-		}
+		public void calcEmatsIfNeeded() {
+			if (rigidNegatedEmat == null) {
+				rigidNegatedEmat = new SimplerEnergyMatrixCalculator.Builder(rigidConfEcalc)
+					.build()
+					.calcEnergyMatrix();
 
-		public void fillWildType(KStar.Sequence sequence) {
-			for (SimpleConfSpace.Position pos : confSpace.positions) {
-				if (sequence.get(pos.index) == null) {
-					sequence.set(pos.index, pos.strand.mol.getResByPDBResNumber(pos.resNum).template.name);
-				}
+				// negate the rigid energy matrix, so we can convince A* to return scores
+				// in descending order instead of ascending order
+				// (of course, we'll have to negate the scores returned by A* too)
+				rigidNegatedEmat.negate();
+			}
+			if (minimizedEmat == null) {
+				minimizedEmat = new SimplerEnergyMatrixCalculator.Builder(minimizingConfEcalc)
+					.build()
+					.calcEnergyMatrix();
 			}
 		}
 
 		public KStar.Sequence makeWildTypeSequence() {
-			KStar.Sequence sequence = new KStar.Sequence(confSpace.positions.size());
-			fillWildType(sequence);
-			return sequence;
+			return new KStar.Sequence(confSpace.positions.size()).fillWildType(confSpace);
+		}
+
+		public RCs makeRCs(KStar.Sequence sequence) {
+			return new RCs(confSpace, (pos, resConf) -> {
+
+				// if there's an assignment here, only keep matching RCs
+				String resType = sequence.get(pos.index);
+				if (resType != null) {
+					return resConf.template.name.equals(resType);
+				}
+
+				// otherwise, keep everything
+				return true;
+			});
 		}
 	}
 
@@ -121,34 +142,271 @@ public class BBKStar {
 		Blocked
 	}
 
-	private class Pfuncs {
+	private abstract class Node implements Comparable<Node> {
 
-		public PartitionFunction protein;
-		public PartitionFunction ligand;
-		public PartitionFunction complex;
+		public final KStar.Sequence sequence;
+		public final KStar.Sequence proteinSequence;
+		public final KStar.Sequence ligandSequence;
 
-		public void estimateMore(int numConfs) {
+		/** for comparing in the tree, higher is first */
+		public double score;
+
+		protected Node(KStar.Sequence sequence) {
+
+			this.sequence = sequence;
+
+			// split complex sequence into protein/ligand sequences
+			proteinSequence = BBKStar.this.protein.makeWildTypeSequence();
+			ligandSequence = BBKStar.this.ligand.makeWildTypeSequence();
+			for (SimpleConfSpace.Position pos : BBKStar.this.complex.confSpace.positions) {
+
+				SimpleConfSpace.Position proteinPos = complexToProteinMap.get(pos);
+				if (proteinPos != null) {
+					proteinSequence.set(proteinPos.index, sequence.get(pos.index));
+				}
+
+				SimpleConfSpace.Position ligandPos = complexToLigandMap.get(pos);
+				if (ligandPos != null) {
+					ligandSequence.set(ligandPos.index, sequence.get(pos.index));
+				}
+			}
+
+			this.score = 0;
+		}
+
+		@Override
+		public int compareTo(Node other) {
+			// negate for descending sort
+			return -Double.compare(this.score, other.score);
+		}
+
+		public abstract void estimateScore();
+	}
+
+	public class MultiSequenceNode extends Node {
+
+		public MultiSequenceNode(KStar.Sequence sequence) {
+			super(sequence);
+		}
+
+		public List<Node> makeChildren() {
+
+			List<Node> children = new ArrayList<>();
+
+			List<SimpleConfSpace.Position> positions = complex.confSpace.positions;
+
+			// pick the next design position
+			// TODO: dynamic A*?
+			int posIndex;
+			for (posIndex = 0; posIndex< sequence.size(); posIndex++) {
+				if (sequence.get(posIndex) == null) {
+					break;
+				}
+			}
+			if (posIndex >= sequence.size()) {
+				throw new IllegalStateException("no design positions left to choose");
+			}
+			SimpleConfSpace.Position assignPos = positions.get(posIndex);
+
+			// get the possible assignments
+			Set<String> resTypes = new HashSet<>(assignPos.resFlex.resTypes);
+
+			// add wild-type option if mutations are limited
+			if (settings.maxSimultaneousMutations < positions.size()) {
+				resTypes.add(assignPos.resFlex.wildType);
+			}
+
+			// for each assignment...
+			for (String resType : resTypes) {
+
+				// update the sequence with this assignment
+				KStar.Sequence s = sequence.makeWithAssignment(assignPos.index, resType);
+
+				if (s.isFullyAssigned()) {
+
+					// fully assigned, make single sequence node
+					children.add(new SingleSequenceNode(s));
+
+				} else if (s.countMutations(complex.confSpace) == settings.maxSimultaneousMutations) {
+
+					// mutation limit reached, fill unassigned positions with wild-type
+					s.fillWildType(complex.confSpace);
+					children.add(new SingleSequenceNode(s));
+
+				} else {
+
+					// still partial sequence, make multi-sequence node
+					children.add(new MultiSequenceNode(s));
+				}
+			}
+
+			return children;
+		}
+
+		@Override
+		public void estimateScore() {
+
+			// TODO: expose setting?
+			// NOTE: for the correctness of the bounds, the number of confs must be the same for every node
+			// meaning, it might not be sound to do epsilon-based iterative approximations here
+			final int numConfs = 1000;
+
+			// to compute lower bounds on pfuncs, we'll use the upper bound calculator,
+			// but feed it upper-bound scores in order of greatest upper bound
+			// instead of the usual lower-bound scores in order of smallest lower bound
+			// which means we need to feed A* with a rigid, negated energy matrix
+			// and then negate all the scores returned by A*
+			Function<ConfSearch,ConfSearch> astarNegater = (confSearch) -> new ConfSearch() {
+				@Override
+				public ScoredConf nextConf() {
+					ScoredConf conf = confSearch.nextConf();
+					conf.setScore(-conf.getScore());
+					return conf;
+				}
+
+				@Override
+				public BigInteger getNumConformations() {
+					return confSearch.getNumConformations();
+				}
+
+				@Override
+				public List<ScoredConf> nextConfs(double maxEnergy) {
+					throw new UnsupportedOperationException("some lazy programmer didn't implement this =P");
+				}
+			};
+
+			// calculate a lower bound on the protein partition function
+			BigDecimal proteinLowerBound;
+			{
+				SimplePartitionFunction.UpperBoundCalculator calc = new SimplePartitionFunction.UpperBoundCalculator(
+					astarNegater.apply(confSearchFactory.make(protein.rigidNegatedEmat, protein.makeRCs(proteinSequence)))
+				);
+				calc.run(numConfs);
+				proteinLowerBound = calc.totalBound;
+			}
+
+			// if the first few conf upper bound scores (for the pfunc lower bound) are too high,
+			// then the K* upper bound is also too high
+			if (proteinLowerBound.compareTo(BigDecimal.ZERO) == 0) {
+				score = Double.POSITIVE_INFINITY;
+				return;
+			}
+
+			// calculate a lower bound on the ligand partition function
+			BigDecimal ligandLowerBound;
+			{
+				SimplePartitionFunction.UpperBoundCalculator calc = new SimplePartitionFunction.UpperBoundCalculator(
+					astarNegater.apply(confSearchFactory.make(ligand.rigidNegatedEmat, ligand.makeRCs(ligandSequence)))
+				);
+				calc.run(numConfs);
+				ligandLowerBound = calc.totalBound;
+			}
+
+			// if the first few conf upper bound scores (for the pfunc lower bound) are too high,
+			// then the K* upper bound is also too high
+			if (ligandLowerBound.compareTo(BigDecimal.ZERO) == 0) {
+				score = Double.POSITIVE_INFINITY;
+				return;
+			}
+
+			// NOTE: to compute upper bounds on pfuncs,
+			// we'll use the upper bound calculator in the usual way
+
+			// calculate an upper bound on the complex partition function
+			BigDecimal complexUpperBound;
+			{
+				SimplePartitionFunction.UpperBoundCalculator calc = new SimplePartitionFunction.UpperBoundCalculator(
+					confSearchFactory.make(complex.minimizedEmat, complex.makeRCs(sequence))
+				);
+				calc.run(numConfs);
+				complexUpperBound = calc.totalBound;
+			}
+
+			// if there are no low-energy confs, then make this node last in the queue
+			if (ligandLowerBound.compareTo(BigDecimal.ZERO) == 0) {
+				score = Double.NEGATIVE_INFINITY;
+				return;
+			}
+
+			// compute the node score
+			score = Math.log10(complexUpperBound
+				.divide(proteinLowerBound, RoundingMode.HALF_UP)
+				.divide(ligandLowerBound, RoundingMode.HALF_UP)
+				.doubleValue());
+		}
+
+		@Override
+		public String toString() {
+			return String.format("MultiSequenceNode[score=%12.6f, seq=%s]",
+				score,
+				sequence
+			);
+		}
+	}
+
+	public class SingleSequenceNode extends Node {
+
+		public final PartitionFunction protein;
+		public final PartitionFunction ligand;
+		public final PartitionFunction complex;
+
+		public SingleSequenceNode(KStar.Sequence sequence) {
+			super(sequence);
+
+			// make the partition functions
+			this.protein = makePfunc(proteinPfuncs, BBKStar.this.protein, proteinSequence);
+			this.ligand = makePfunc(ligandPfuncs, BBKStar.this.ligand, ligandSequence);
+			this.complex = makePfunc(complexPfuncs, BBKStar.this.complex, sequence);
+		}
+
+		private PartitionFunction makePfunc(Map<KStar.Sequence,PartitionFunction> pfuncCache, ConfSpaceInfo info, KStar.Sequence sequence) {
+
+			// first check the cache
+			PartitionFunction pfunc = pfuncCache.get(sequence);
+			if (pfunc != null) {
+				return pfunc;
+			}
+
+			// cache miss, need to compute the partition function
+
+			// get RCs for just this sequence
+			RCs rcs = new RCs(info.confSpace, (pos, resConf) -> {
+				return resConf.template.name.equals(sequence.get(pos.index));
+			});
+
+			// make the partition function
+			pfunc = new SimplePartitionFunction(confSearchFactory.make(info.minimizedEmat, rcs), info.minimizingConfEcalc);
+			pfunc.setReportProgress(settings.showPfuncProgress);
+			pfunc.init(settings.epsilon);
+			return pfunc;
+		}
+
+		@Override
+		public void estimateScore() {
+
+			// refine the pfuncs if needed
 			if (protein.getStatus().canContinue()) {
-				protein.compute(numConfs);
+				protein.compute(settings.numConfsPerBatch);
 			}
 			if (ligand.getStatus().canContinue()) {
-				ligand.compute(numConfs);
+				ligand.compute(settings.numConfsPerBatch);
 			}
 			if (complex.getStatus().canContinue()) {
-				complex.compute(numConfs);
+				complex.compute(settings.numConfsPerBatch);
+			}
+
+			// update the score
+			KStarScore kstarScore = makeKStarScore();
+			if (kstarScore.upperBound == null) {
+				// give the lowest score, so this node polls last
+				score = Double.NEGATIVE_INFINITY;
+			} else {
+				score = Math.log10(kstarScore.upperBound.doubleValue());
 			}
 		}
 
-		public void compute() {
-			if (protein.getStatus().canContinue()) {
-				protein.compute();
-			}
-			if (ligand.getStatus().canContinue()) {
-				ligand.compute();
-			}
-			if (complex.getStatus().canContinue()) {
-				complex.compute();
-			}
+		public KStarScore makeKStarScore() {
+			return new KStarScore(protein.makeResult(), ligand.makeResult(), complex.makeResult());
 		}
 
 		public PfuncsStatus getStatus() {
@@ -167,236 +425,13 @@ public class BBKStar {
 			}
 		}
 
-		public KStarScore makeScore() {
-			return new KStarScore(protein.makeResult(), ligand.makeResult(), complex.makeResult());
-		}
-	}
-
-	private abstract class Node implements Comparable<Node> {
-
-		/** for comparing in the tree, higher is first */
-		public double score = 0;
-
-		@Override
-		public int compareTo(Node other) {
-			// negate for descending sort
-			return -Double.compare(this.score, other.score);
-		}
-
-		public abstract void estimateScore();
-	}
-
-	private abstract class InteriorNode extends Node {
-
-		public final KStar.Sequence partialSequence;
-
-		public InteriorNode(KStar.Sequence partialSequence) {
-			this.partialSequence = partialSequence;
-		}
-
-		public List<Node> makeChildren() {
-
-			List<Node> children = new ArrayList<>();
-
-			List<SimpleConfSpace.Position> assignedPositions = getAssignedPositions();
-			List<SimpleConfSpace.Position> unassignedPositions = getUnassignedPositions(assignedPositions);
-			int numMutations = assignedPositions.size();
-
-			// are we assigning the last mutation?
-			if (numMutations == settings.maxSimultaneousMutations - 1) {
-
-				// yup, make single-sequence nodes
-				for (SimpleConfSpace.Position pos : unassignedPositions) {
-					for (String resType : pos.resFlex.resTypes) {
-
-						// we're choosing a mutation, so skip the wild type
-						if (resType.equals(pos.resFlex.wildType)) {
-							continue;
-						}
-
-						// assign this position
-						KStar.Sequence sequence = new KStar.Sequence(partialSequence);
-						sequence.set(pos.index, resType);
-
-						// fill the rest of the positions with wild type
-						complex.fillWildType(sequence);
-						children.add(new SingleSequenceNode(sequence));
-					}
-				}
-
-			} else {
-
-				// nope, make multi-sequence nodes
-				for (SimpleConfSpace.Position pos : unassignedPositions) {
-					for (String resType : pos.resFlex.resTypes) {
-						children.add(new MultiSequenceNode(this, pos, resType));
-					}
-				}
-			}
-
-			return children;
-		}
-
-		public abstract List<SimpleConfSpace.Position> getAssignedPositions();
-
-		public List<SimpleConfSpace.Position> getUnassignedPositions(List<SimpleConfSpace.Position> assignedPositions) {
-			List<SimpleConfSpace.Position> positions = new ArrayList<>();
-			for (SimpleConfSpace.Position pos : complex.confSpace.positions) {
-				if (!assignedPositions.contains(pos)) {
-					positions.add(pos);
-				}
-			}
-			return positions;
-		}
-	}
-
-	private class RootNode extends InteriorNode {
-
-		public RootNode() {
-			super(new KStar.Sequence(complex.confSpace.positions.size()));
-		}
-
-		@Override
-		public List<SimpleConfSpace.Position> getAssignedPositions() {
-			return new ArrayList<>();
-		}
-
-		@Override
-		public void estimateScore() {
-			// nothing to do
-		}
-
 		@Override
 		public String toString() {
-			return "RootNode";
-		}
-	}
-
-	private class MultiSequenceNode extends InteriorNode {
-
-		public final InteriorNode parent;
-		public final SimpleConfSpace.Position pos;
-		public final String resType;
-
-		public MultiSequenceNode(InteriorNode parent, SimpleConfSpace.Position pos, String resType) {
-			super(new KStar.Sequence(parent.partialSequence));
-
-			this.parent = parent;
-			this.pos = pos;
-			this.resType = resType;
-
-			// assign this position
-			this.partialSequence.set(pos.index, resType);
-		}
-
-		@Override
-		public List<SimpleConfSpace.Position> getAssignedPositions() {
-			List<SimpleConfSpace.Position> positions = parent.getAssignedPositions();
-			positions.add(pos);
-			return positions;
-		}
-
-		@Override
-		public void estimateScore() {
-			// TODO
-		}
-
-		@Override
-		public String toString() {
-			return String.format("MultiSequenceNode[score=%12.6f, seq=%s]", score, partialSequence.toString());
-		}
-	}
-
-	private class SingleSequenceNode extends Node {
-
-		public final KStar.Sequence sequence;
-		public final Pfuncs pfuncs;
-
-		public SingleSequenceNode(KStar.Sequence sequence) {
-
-			this.sequence = sequence;
-
-			// split complex sequence into protein/ligand sequences
-			KStar.Sequence proteinSequence = protein.makeWildTypeSequence();
-			KStar.Sequence ligandSequence = ligand.makeWildTypeSequence();
-			for (SimpleConfSpace.Position pos : complex.confSpace.positions) {
-
-				SimpleConfSpace.Position proteinPos = complexToProteinMap.get(pos);
-				if (proteinPos != null) {
-					proteinSequence.set(proteinPos.index, sequence.get(pos.index));
-				}
-
-				SimpleConfSpace.Position ligandPos = complexToLigandMap.get(pos);
-				if (ligandPos != null) {
-					ligandSequence.set(ligandPos.index, sequence.get(pos.index));
-				}
-			}
-
-			this.pfuncs = new Pfuncs();
-			this.pfuncs.protein = makePfunc(proteinPfuncs, protein, proteinSequence);
-			this.pfuncs.ligand = makePfunc(ligandPfuncs, ligand, ligandSequence);
-			this.pfuncs.complex = makePfunc(complexPfuncs, complex, sequence);
-		}
-
-		public PartitionFunction makePfunc(Map<KStar.Sequence,PartitionFunction> pfuncCache, ConfSpaceInfo info, KStar.Sequence sequence) {
-
-			// first check the cache
-			PartitionFunction pfunc = pfuncCache.get(sequence);
-			if (pfunc != null) {
-				return pfunc;
-			}
-
-			// cache miss, need to compute the partition function
-
-			// prune down to just this sequence
-			// TODO: inherit any pruning from e.g. DEE
-			PruningMatrix pmat = new PruningMatrix(info.confSpace, 0.0);
-			for (SimpleConfSpace.Position pos : info.confSpace.positions) {
-				String resType = sequence.get(pos.index);
-
-				for (SimpleConfSpace.ResidueConf rc : pos.resConfs) {
-
-					// if this RC doesn't match the sequence, prune it
-					if (!rc.template.name.equals(resType)) {
-						pmat.setOneBody(pos.index, rc.index, true);
-					}
-				}
-			}
-
-			// make the partition function
-			pfunc = new SimplePartitionFunction(info.emat, pmat, confSearchFactory, info.confEcalc);
-			pfunc.setReportProgress(settings.showPfuncProgress);
-			pfunc.init(settings.epsilon);
-			return pfunc;
-		}
-
-		@Override
-		public void estimateScore() {
-
-			pfuncs.estimateMore(settings.numConfsPerBatch);
-
-			/* TEMP
-			System.out.println("single sequence score: " + sequence);
-			System.out.println("\tprotein:   " + kstarLower.protein.getStatus() + " " + kstarLower.protein.getValues().qstar.doubleValue());
-			System.out.println("\tligand:    " + kstarLower.ligand.getStatus() + " " + kstarLower.ligand.getValues().qstar.doubleValue());
-			System.out.println("\tcomplex:   " + kstarLower.complex.getStatus() + " " + kstarLower.complex.getValues().qstar.doubleValue());
-			System.out.println("\tK* upper:  " + PartitionFunction.scoreToLog10String(kstarLower.calcKStarUpperBound()));
-			System.out.println("\tK* lower:  " + PartitionFunction.scoreToLog10String(kstarLower.calcKStarLowerBound()));
-			*/
-
-			// update the score
-			BigDecimal kstarScore = pfuncs.makeScore().upperBound;
-			if (kstarScore == null) {
-				// give the lowest score, so this node polls last
-				score = Double.NEGATIVE_INFINITY;
-			} else {
-				score = Math.log10(kstarScore.doubleValue());
-			}
-		}
-
-		@Override
-		public String toString() {
-			return String.format("SingleSequenceNode[score=%12.6f, seq=%s]", score, sequence.toString());
+			return String.format("SingleSequenceNode[score=%12.6f, seq=%s, K*=%s]",
+				score,
+				sequence,
+				makeKStarScore()
+			);
 		}
 	}
 
@@ -421,15 +456,31 @@ public class BBKStar {
 	private final Map<SimpleConfSpace.Position,SimpleConfSpace.Position> complexToProteinMap;
 	private final Map<SimpleConfSpace.Position,SimpleConfSpace.Position> complexToLigandMap;
 
+	// TODO: caching these will keep lots of A* trees in memory. is that a problem?
 	private final Map<KStar.Sequence,PartitionFunction> proteinPfuncs;
 	private final Map<KStar.Sequence,PartitionFunction> ligandPfuncs;
 	private final Map<KStar.Sequence,PartitionFunction> complexPfuncs;
 
-	public BBKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, EnergyCalculator ecalc, KStar.ConfEnergyCalculatorFactory confEcalcFactory, ConfSearchFactory confSearchFactory, Settings settings) {
+	public BBKStar(SimpleConfSpace protein, SimpleConfSpace ligand, SimpleConfSpace complex, EnergyCalculator rigidEcalc, EnergyCalculator minimizingEcalc, KStar.ConfEnergyCalculatorFactory confEcalcFactory, ConfSearchFactory confSearchFactory, Settings settings) {
 
-		this.protein = new ConfSpaceInfo(ConfSpaceType.Protein, protein, confEcalcFactory.make(protein, ecalc));
-		this.ligand = new ConfSpaceInfo(ConfSpaceType.Ligand, ligand, confEcalcFactory.make(ligand, ecalc));
-		this.complex = new ConfSpaceInfo(ConfSpaceType.Complex, complex, confEcalcFactory.make(complex, ecalc));
+		this.protein = new ConfSpaceInfo(
+			ConfSpaceType.Protein,
+			protein,
+			confEcalcFactory.make(protein, rigidEcalc),
+			confEcalcFactory.make(protein, minimizingEcalc)
+		);
+		this.ligand = new ConfSpaceInfo(
+			ConfSpaceType.Ligand,
+			ligand,
+			confEcalcFactory.make(ligand, rigidEcalc),
+			confEcalcFactory.make(ligand, minimizingEcalc)
+		);
+		this.complex = new ConfSpaceInfo(
+			ConfSpaceType.Complex,
+			complex,
+			confEcalcFactory.make(complex, rigidEcalc),
+			confEcalcFactory.make(complex, minimizingEcalc)
+		);
 		this.confEcalcFactory = confEcalcFactory;
 		this.confSearchFactory = confSearchFactory;
 		this.settings = settings;
@@ -442,41 +493,20 @@ public class BBKStar {
 		complexPfuncs = new HashMap<>();
 	}
 
-	private void computeEmatsIfNeeded() {
-		if (protein.emat == null) {
-			protein.calcEmat();
-		}
-		if (ligand.emat == null) {
-			ligand.calcEmat();
-		}
-		if (complex.emat == null) {
-			complex.calcEmat();
-		}
-	}
+	public List<ScoredSequence> run() {
 
-	public ScoredSequence calcWildType() {
-
-		computeEmatsIfNeeded();
-
-		System.out.println("computing K* score for wild type sequence to epsilon = " + settings.epsilon + " ...");
-		SingleSequenceNode wtnode = new SingleSequenceNode(complex.makeWildTypeSequence());
-		wtnode.pfuncs.compute();
-		return new ScoredSequence(wtnode.sequence, wtnode.pfuncs.makeScore());
-	}
-
-	public List<ScoredSequence> calcMutants() {
-
-		computeEmatsIfNeeded();
+		protein.calcEmatsIfNeeded();
+		ligand.calcEmatsIfNeeded();
+		complex.calcEmatsIfNeeded();
 
 		List<ScoredSequence> scoredSequences = new ArrayList<>();
 
 		// start the BBK* tree with the root node
 		PriorityQueue<Node> tree = new PriorityQueue<>();
-		tree.add(new RootNode());
+		tree.add(new MultiSequenceNode(new KStar.Sequence(complex.confSpace.positions.size())));
 
 		// start searching the tree
 		System.out.println("computing K* scores for the " + settings.numBestSequences + " best sequences to epsilon = " + settings.epsilon + " ...");
-		scoredSequences.clear();
 		while (!tree.isEmpty() && scoredSequences.size() < settings.numBestSequences) {
 
 			// get the next node
@@ -485,15 +515,16 @@ public class BBKStar {
 			if (node instanceof SingleSequenceNode) {
 				SingleSequenceNode ssnode = (SingleSequenceNode)node;
 
-				switch (ssnode.pfuncs.getStatus()) {
+				// single-sequence node
+				switch (ssnode.getStatus()) {
 					case Estimated:
 
 						// sequence is finished, return it!
-						KStarScore score = ssnode.pfuncs.makeScore();
+						KStarScore score = ssnode.makeKStarScore();
 						scoredSequences.add(new ScoredSequence(ssnode.sequence, score));
 
 						// TODO: logging
-						System.out.println(String.format("sequence: %s  kstar: %s",
+						System.out.println(String.format("finished sequence: %s  kstar: %s",
 							ssnode.sequence,
 							score
 						));
@@ -515,22 +546,20 @@ public class BBKStar {
 						// TODO: logging
 						System.out.println(String.format("unscorable sequence: %s  K*: %s",
 							ssnode.sequence,
-							ssnode.pfuncs.makeScore()
+							ssnode.makeKStarScore()
 						));
 				}
 
-			} else if (node instanceof InteriorNode) {
-				InteriorNode inode = (InteriorNode)node;
+			} else if (node instanceof MultiSequenceNode) {
+				MultiSequenceNode msnode = (MultiSequenceNode)node;
 
 				// partial sequence, expand children
-				List<Node> children = inode.makeChildren();
-				// TODO: parallelize?
+				List<Node> children = msnode.makeChildren();
+				// TODO: parallelize the multi-sequence node scoring here?
 				for (Node child : children) {
 					child.estimateScore();
 				}
 				tree.addAll(children);
-
-				// TODO: do we ever catch-and-release to refine a multi-sequence bound?
 			}
 		}
 

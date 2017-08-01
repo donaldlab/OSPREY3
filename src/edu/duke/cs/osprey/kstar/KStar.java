@@ -1,14 +1,14 @@
 package edu.duke.cs.osprey.kstar;
 
+import edu.duke.cs.osprey.astar.conf.RCs;
+import edu.duke.cs.osprey.confspace.ConfSearch;
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
 import edu.duke.cs.osprey.ematrix.EnergyMatrix;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
-import edu.duke.cs.osprey.gmec.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
-import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.tools.MathTools;
 
 import java.io.File;
@@ -19,6 +19,10 @@ public class KStar {
 
 	public static interface ConfEnergyCalculatorFactory {
 		ConfEnergyCalculator make(SimpleConfSpace confSpace, EnergyCalculator ecalc);
+	}
+
+	public static interface ConfSearchFactory {
+		public ConfSearch make(EnergyMatrix emat, RCs rcs);
 	}
 
 	// *sigh* Java makes this stuff so verbose to do...
@@ -103,6 +107,51 @@ public class KStar {
 			super(resTypes);
 		}
 
+		public Sequence makeWithAssignment(int posIndex, String resType) {
+			Sequence assigned = new Sequence(this);
+			assigned.set(posIndex, resType);
+			return assigned;
+		}
+
+		public Sequence fillWildType(SimpleConfSpace confSpace) {
+			for (SimpleConfSpace.Position pos : confSpace.positions) {
+				if (get(pos.index) == null) {
+					set(pos.index, pos.strand.mol.getResByPDBResNumber(pos.resNum).template.name);
+				}
+			}
+			return this;
+		}
+
+		public int countAssignments() {
+			int count = 0;
+			for (String resType : this) {
+				if (resType != null) {
+					count++;
+				}
+			}
+			return count;
+		}
+
+		public boolean isFullyAssigned() {
+			for (String resType : this) {
+				if (resType == null) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		public int countMutations(SimpleConfSpace confSpace) {
+			int count = 0;
+			for (SimpleConfSpace.Position pos : confSpace.positions) {
+				String resType = get(pos.index);
+				if (resType != null && !resType.equals(pos.resFlex.wildType)) {
+					count++;
+				}
+			}
+			return count;
+		}
+
 		@Override
 		public String toString() {
 			return String.join(" ", this);
@@ -156,23 +205,14 @@ public class KStar {
 
 			// cache miss, need to compute the partition function
 
-			// prune down to just this sequence
-			// TODO: inherit any pruning from e.g. DEE
-			PruningMatrix pmat = new PruningMatrix(confSpace, 0.0);
-			for (SimpleConfSpace.Position pos : confSpace.positions) {
-				String resType = sequence.get(pos.index);
-
-				for (SimpleConfSpace.ResidueConf rc : pos.resConfs) {
-
-					// if this RC doesn't match the sequence, prune it
-					if (!rc.template.name.equals(resType)) {
-						pmat.setOneBody(pos.index, rc.index, true);
-					}
-				}
-			}
+			// get RCs for just this sequence
+			RCs rcs = new RCs(confSpace, (pos, resConf) -> {
+				return resConf.template.name.equals(sequence.get(pos.index));
+			});
 
 			// make the partition function
-			PartitionFunction pfunc = new SimplePartitionFunction(emat, pmat, confSearchFactory, confEcalc);
+			ConfSearch astar = confSearchFactory.make(emat, rcs);
+			PartitionFunction pfunc = new SimplePartitionFunction(astar, confEcalc);
 			pfunc.setReportProgress(settings.showPfuncProgress);
 
 			// compute it

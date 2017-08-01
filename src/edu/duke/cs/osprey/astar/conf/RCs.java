@@ -1,64 +1,37 @@
 package edu.duke.cs.osprey.astar.conf;
 
 import java.util.List;
+import java.util.function.BiPredicate;
 
 import edu.duke.cs.osprey.confspace.SimpleConfSpace;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace.Position;
-import edu.duke.cs.osprey.confspace.SimpleConfSpace.ResidueConf;
 import edu.duke.cs.osprey.pruning.PruningMatrix;
 
 public class RCs {
 	
-	private PruningMatrix pruneMat;
+	private PruningMatrix pruneMat = null;
 	private int[][] unprunedRCsAtPos;
-	private boolean hasConfs;
-	
+
 	public RCs(SimpleConfSpace confSpace) {
-		
-		this.pruneMat = null;
-		
-		int n = confSpace.positions.size();
-		this.hasConfs = n > 0;
-		
-		// pack the rcs into an efficient lookup structure
-		unprunedRCsAtPos = new int[n][];
-		for (Position pos : confSpace.positions) {
-			
-			// no options at this pos? can't have any confs then
-			if (pos.resConfs.isEmpty()) {
-				hasConfs = false;
-			}
-			
-			int[] rcs = new int[pos.resConfs.size()];
-			for (ResidueConf resConf : pos.resConfs) {
-				rcs[resConf.index] = resConf.index;
-			}
-			unprunedRCsAtPos[pos.index] = rcs;
+		this(confSpace, (pos, resConf) -> true);
+	}
+
+	public RCs(SimpleConfSpace confSpace, BiPredicate<SimpleConfSpace.Position,SimpleConfSpace.ResidueConf> filter) {
+		unprunedRCsAtPos = new int[confSpace.positions.size()][];
+		for (SimpleConfSpace.Position pos : confSpace.positions) {
+			unprunedRCsAtPos[pos.index] = pos.resConfs.stream()
+				.filter((resConf) -> filter.test(pos, resConf))
+				.mapToInt((resConf) -> resConf.index)
+				.toArray();
 		}
 	}
-	
+
 	public RCs(List<List<Integer>> rcsAtPos) {
-		
-		this.pruneMat = null;
-		
 		int n = rcsAtPos.size();
-		this.hasConfs = n > 0;
-		
-		// pack the rcs into an efficient lookup structure
 		unprunedRCsAtPos = new int[n][];
 		for (int pos=0; pos<n; pos++) {
-			List<Integer> srcRCs = rcsAtPos.get(pos);
-			
-			// no options at this pos? can't have any confs then
-			if (srcRCs.size() <= 0) {
-				hasConfs = false;
-			}
-			
-			int[] destRCs = new int[srcRCs.size()];
-			for (int i=0; i<srcRCs.size(); i++) {
-				destRCs[i] = srcRCs.get(i);
-			}
-			unprunedRCsAtPos[pos] = destRCs;
+			unprunedRCsAtPos[pos] = rcsAtPos.get(pos).stream()
+				.mapToInt((i) -> i)
+				.toArray();
 		}
 	}
 	
@@ -67,23 +40,21 @@ public class RCs {
 		this.pruneMat = pruneMat;
 		
 		int n = pruneMat.getNumPos();
-		this.hasConfs = n > 0;
-		
+
 		// pack unpruned rotamers into an efficient lookup structure
 		unprunedRCsAtPos = new int[n][];
 		for (int pos=0; pos<n; pos++) {
-			List<Integer> srcRCs = pruneMat.unprunedRCsAtPos(pos);
-			
-			// no options at this pos? can't have any confs then
-			if (srcRCs.size() <= 0) {
-				hasConfs = false;
-			}
-			
-			int[] destRCs = new int[srcRCs.size()];
-			for (int i=0; i<srcRCs.size(); i++) {
-				destRCs[i] = srcRCs.get(i);
-			}
-			unprunedRCsAtPos[pos] = destRCs;
+			unprunedRCsAtPos[pos] = pruneMat.unprunedRCsAtPos(pos).stream()
+				.mapToInt((i) -> i)
+				.toArray();
+		}
+	}
+
+	public RCs(RCs other) {
+		this.pruneMat = other.pruneMat;
+		this.unprunedRCsAtPos = other.unprunedRCsAtPos.clone();
+		for (int i=0; i<this.unprunedRCsAtPos.length; i++) {
+			this.unprunedRCsAtPos[i] = this.unprunedRCsAtPos[i].clone();
 		}
 	}
 	
@@ -92,7 +63,12 @@ public class RCs {
 	}
 	
 	public boolean hasConfs() {
-		return hasConfs;
+		for (int[] rcs : unprunedRCsAtPos) {
+			if (rcs.length > 0) {
+				return true;
+			}
+		}
+		return false;
 	}
 	
 	public int getNumPos() {
@@ -101,8 +77,8 @@ public class RCs {
 	
 	public int getNumTrivialPos() {
 		int count = 0;
-		for (int pos=0; pos<unprunedRCsAtPos.length; pos++) {
-			if (unprunedRCsAtPos[pos].length == 1) {
+		for (int[] rcs : unprunedRCsAtPos) {
+			if (rcs.length == 1) {
 				count++;
 			}
 		}

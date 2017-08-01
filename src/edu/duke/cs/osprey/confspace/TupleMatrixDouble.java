@@ -84,4 +84,13 @@ public class TupleMatrixDouble extends AbstractTupleMatrix<Double> {
     	fill(iter);
     	assert (iter.hasNext() == false);
     }
+
+	public void negate() {
+		for (int i=0; i<oneBody.length; i++) {
+			oneBody[i] = -oneBody[i];
+		}
+		for (int i=0; i<pairwise.length; i++) {
+			pairwise[i] = -pairwise[i];
+		}
+	}
 }

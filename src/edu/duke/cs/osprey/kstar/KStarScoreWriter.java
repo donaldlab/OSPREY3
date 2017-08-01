@@ -203,28 +203,5 @@ public interface KStarScoreWriter {
 				);
 			}
 		}
-
-		public static class Test implements Formatter {
-
-			@Override
-			public String format(ScoreInfo info) {
-
-				Function<PartitionFunction.Result,String> formatPfunc = (result) -> {
-					if (result.status == PartitionFunction.Status.Estimated) {
-						return String.format("%12e", result.values.qstar.doubleValue());
-					}
-					return "null";
-				};
-
-				return String.format("assertSequence(result, %3d, \"%s\", %-12s, %-12s, %-12s, epsilon); // K*(log10) = %s",
-					info.sequenceNumber,
-					info.sequence,
-					formatPfunc.apply(info.kstarScore.protein),
-					formatPfunc.apply(info.kstarScore.ligand),
-					formatPfunc.apply(info.kstarScore.complex),
-					info.kstarScore.toString()
-				);
-			}
-		}
 	}
 }

@@ -12,11 +12,9 @@ import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
 import edu.duke.cs.osprey.energy.forcefield.ForcefieldParams;
-import edu.duke.cs.osprey.gmec.ConfSearchFactory;
 import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
 import edu.duke.cs.osprey.kstar.pfunc.SimplePartitionFunction;
 import edu.duke.cs.osprey.parallelism.Parallelism;
-import edu.duke.cs.osprey.pruning.PruningMatrix;
 import edu.duke.cs.osprey.restypes.ResidueTemplateLibrary;
 import edu.duke.cs.osprey.structure.Molecule;
 import edu.duke.cs.osprey.structure.PDBIO;
@@ -45,25 +43,24 @@ public class TestSimplePartitionFunction {
 
 				// define conf energies
 				SimpleReferenceEnergies eref = new SimplerEnergyMatrixCalculator.Builder(confSpace, ecalc)
-						.build()
-						.calcReferenceEnergies();
+					.build()
+					.calcReferenceEnergies();
 				ConfEnergyCalculator confEcalc = new ConfEnergyCalculator.Builder(confSpace, ecalc)
-						.setReferenceEnergies(eref)
-						.build();
+					.setReferenceEnergies(eref)
+					.build();
 
 				// compute the energy matrix
 				EnergyMatrix emat = new SimplerEnergyMatrixCalculator.Builder(confEcalc)
-						.build()
-						.calcEnergyMatrix();
+					.build()
+					.calcEnergyMatrix();
 
-				// don't really need pruning here (A* is plenty fast enough already), so use NOP pmat
-				PruningMatrix pmat = new PruningMatrix(confSpace, 0);
+				// make the A* search
+				ConfAStarTree astar = new ConfAStarTree.Builder(emat, confSpace)
+					.setTraditional()
+					.build();
 
 				// make the partition function
-				ConfSearchFactory astarFactory = (ematArg, pmatArg) -> new ConfAStarTree.Builder(ematArg, pmatArg)
-						.setTraditional()
-						.build();
-				SimplePartitionFunction pfunc = new SimplePartitionFunction(emat, pmat, astarFactory, confEcalc);
+				SimplePartitionFunction pfunc = new SimplePartitionFunction(astar, confEcalc);
 				pfunc.setReportProgress(true);
 
 				// compute pfunc for protein

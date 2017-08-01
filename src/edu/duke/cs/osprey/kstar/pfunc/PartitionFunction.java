@@ -124,9 +124,12 @@ public interface PartitionFunction {
 	Values getValues();
 	int getParallelism();
 	int getNumConfsEvaluated();
-	
-	void compute();
+
 	void compute(int maxNumConfs);
+
+	default void compute() {
+		compute(Integer.MAX_VALUE);
+	}
 
 	public default Result makeResult() {
 		return new Result(getStatus(), getValues(), getNumConfsEvaluated());

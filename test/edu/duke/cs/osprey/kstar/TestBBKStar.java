@@ -7,25 +7,21 @@ import edu.duke.cs.osprey.astar.conf.ConfAStarTree;
 import edu.duke.cs.osprey.ematrix.SimplerEnergyMatrixCalculator;
 import edu.duke.cs.osprey.energy.ConfEnergyCalculator;
 import edu.duke.cs.osprey.energy.EnergyCalculator;
-import edu.duke.cs.osprey.gmec.ConfSearchFactory;
-import edu.duke.cs.osprey.kstar.pfunc.PartitionFunction;
+import edu.duke.cs.osprey.kstar.KStar.ConfSearchFactory;
 import edu.duke.cs.osprey.parallelism.Parallelism;
 import org.junit.Test;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class TestBBKStar {
 
 	public static class Results {
 		public BBKStar bbkstar;
-		public BBKStar.ScoredSequence wildtype;
-		public List<BBKStar.ScoredSequence> mutants;
+		public List<BBKStar.ScoredSequence> sequences;
 	}
 
-	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, double epsilon) {
+	public static Results runBBKStar(TestKStar.ConfSpaces confSpaces, int numSequences, double epsilon) {
 
 		AtomicReference<Results> resultsRef = new AtomicReference<>(null);
 
@@ -34,7 +30,7 @@ public class TestBBKStar {
 		// how should we compute energies of molecules?
 		new EnergyCalculator.Builder(confSpaces.complex, confSpaces.ffparams)
 			.setParallelism(parallelism)
-			.use((ecalc) -> {
+			.use((minimizingEcalc) -> {
 
 				// how should we define energies of conformations?
 				KStar.ConfEnergyCalculatorFactory confEcalcFactory = (confSpaceArg, ecalcArg) -> {
@@ -46,24 +42,28 @@ public class TestBBKStar {
 				};
 
 				// how should confs be ordered and searched?
-				ConfSearchFactory confSearchFactory = (emat, pmat) -> {
-					return new ConfAStarTree.Builder(emat, pmat)
+				ConfSearchFactory confSearchFactory = (emat, rcs) -> {
+					return new ConfAStarTree.Builder(emat, rcs)
 						.setTraditional()
 						.build();
 				};
+
+				// make a rigid energy calculator too
+				EnergyCalculator rigidEcalc = new EnergyCalculator.SharedBuilder(minimizingEcalc)
+					.setIsMinimizing(false)
+					.build();
 
 				// run BBK*
 				BBKStar.Settings settings = new BBKStar.Settings.Builder()
 					.setEpsilon(epsilon)
 					.setMaxSimultaneousMutations(1)
-					.setNumBestSequences(24)
-					//.setShowPfuncProgress(true) // TEMP
+					.setNumBestSequences(numSequences)
+					//.setShowPfuncProgress(true)
 					.setNumConfsPerBatch(8)
 					.build();
 				Results results = new Results();
-				results.bbkstar = new BBKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, ecalc, confEcalcFactory, confSearchFactory, settings);
-				results.wildtype = results.bbkstar.calcWildType();
-				results.mutants = results.bbkstar.calcMutants();
+				results.bbkstar = new BBKStar(confSpaces.protein, confSpaces.ligand, confSpaces.complex, rigidEcalc, minimizingEcalc, confEcalcFactory, confSearchFactory, settings);
+				results.sequences = results.bbkstar.run();
 
 				// pass back the ref
 				resultsRef.set(results);
@@ -72,79 +72,86 @@ public class TestBBKStar {
 		return resultsRef.get();
 	}
 
-	// NOTE: this test takes ~7 minutes to finish on GPU hardware, so it's disabled by default
-	// TODO: need a shorter test for routine regression testing
-	// sequence order won't necessarily be preserved with a larger epsilon, so can't save time
-	// TEMP: test enabled
 	@Test
 	public void test2RL0() {
 
 		TestKStar.ConfSpaces confSpaces = TestKStar.make2RL0();
-		final double epsilon = 0.1;
-		Results results = runBBKStar(confSpaces, epsilon);
+		final double epsilon = 0.99;
+		final int numSequences = 25;
+		Results results = runBBKStar(confSpaces, numSequences, epsilon);
 
-		assertThat(results.wildtype, is(not(nullValue())));
-		assertThat(results.mutants.size(), is(24));
+		// K* bounds collected with e = 0.1 from original K* algo
+		assertSequence(results, "PHE ASP GLU GLN PHE LYS ILE THR", 16.424659, 16.528464);
+		assertSequence(results, "PHE ASP GLU ASN PHE LYS ILE THR", 16.114634, 16.216578);
+		assertSequence(results, "PHE ASP GLU SER PHE LYS ILE THR", 15.970427, 16.078237);
+		assertSequence(results, "PHE ASP GLU THR PHE LYS ILE SER", 15.881531, 15.985122);
+		assertSequence(results, "PHE ASP GLU THR PHE LYS ILE THR", 15.315503, 15.394524);
+		assertSequence(results, "PHE ASP GLU THR TYR LYS ILE THR", 15.029935, 15.108900);
+		assertSequence(results, "PHE ASP GLU THR ILE LYS ILE THR", 15.005796, 15.081229);
+		assertSequence(results, "PHE ASP GLU THR PHE LYS ILE ASN", 14.923698, 15.009355);
+		assertSequence(results, "PHE ASP GLU THR VAL LYS ILE THR", 14.655568, 14.724370);
+		assertSequence(results, "PHE ASP GLU THR LEU LYS ILE THR", 14.619748, 14.704462);
+		assertSequence(results, "PHE ASP GLU THR PHE LYS VAL THR", 14.561234, 14.647761);
+		assertSequence(results, "PHE ASP GLU THR ALA LYS ILE THR", 14.159251, 14.225284);
+		assertSequence(results, "PHE GLU GLU THR PHE LYS ILE THR", 14.056796, 14.148018);
+		assertSequence(results, "PHE ASP GLU THR PHE LYS ALA THR", 13.987814, 14.064762);
+		assertSequence(results, "PHE ASP ASP THR PHE LYS ILE THR", 13.412206, 13.489261);
+		assertSequence(results, "ILE ASP GLU THR PHE LYS ILE THR", 12.844163, 12.936699);
+		assertSequence(results, "VAL ASP GLU THR PHE LYS ILE THR", 12.612457, 12.677450);
+		assertSequence(results, "LEU ASP GLU THR PHE LYS ILE THR", 12.336269, 12.417254);
+		assertSequence(results, "ALA ASP GLU THR PHE LYS ILE THR", 11.778039, 11.840466);
+		assertSequence(results, "TYR ASP GLU THR PHE LYS ILE THR", 11.550098, 11.633104);
+		assertSequence(results, "PHE ASP GLU THR PHE ASP ILE THR", 10.805317, 10.871671);
+		assertSequence(results, "PHE ASP GLU THR PHE GLU ILE THR", 10.012310, 10.079659);
+		assertSequence(results, "PHE ASP GLU THR PHE LYS LEU THR", null, null);
+		assertSequence(results, "PHE ASP GLU THR PHE LYS PHE THR", null, null);
+		assertSequence(results, "PHE ASP GLU THR PHE LYS TYR THR", null, null);
 
-		// scored collected with e = 0.1 from original K* algo
-		assertSequence(results.wildtype,       "PHE ASP GLU THR PHE LYS ILE THR", 15.340604, epsilon);
-		assertSequence(results.mutants.get(0), "PHE ASP GLU GLN PHE LYS ILE THR", 16.476261, epsilon);
-		assertSequence(results.mutants.get(1), "PHE ASP GLU ASN PHE LYS ILE THR", 16.163977, epsilon);
-		assertSequence(results.mutants.get(2), "PHE ASP GLU SER PHE LYS ILE THR", 16.026221, epsilon);
-		assertSequence(results.mutants.get(3), "PHE ASP GLU THR PHE LYS ILE SER", 15.933782, epsilon);
-		assertSequence(results.mutants.get(4), "PHE ASP GLU THR TYR LYS ILE THR", 15.057543, epsilon);
-		assertSequence(results.mutants.get(5), "PHE ASP GLU THR ILE LYS ILE THR", 15.029971, epsilon);
-		assertSequence(results.mutants.get(6), "PHE ASP GLU THR PHE LYS ILE ASN", 14.953614, epsilon);
-		assertSequence(results.mutants.get(7), "PHE ASP GLU THR VAL LYS ILE THR", 14.673854, epsilon);
-		assertSequence(results.mutants.get(8), "PHE ASP GLU THR LEU LYS ILE THR", 14.648011, epsilon);
-		assertSequence(results.mutants.get(9), "PHE ASP GLU THR PHE LYS VAL THR", 14.592144, epsilon);
-		assertSequence(results.mutants.get(10), "PHE ASP GLU THR ALA LYS ILE THR", 14.175944, epsilon);
-		assertSequence(results.mutants.get(11), "PHE GLU GLU THR PHE LYS ILE THR", 14.094045, epsilon);
-		assertSequence(results.mutants.get(12), "PHE ASP GLU THR PHE LYS ALA THR", 14.008732, epsilon);
-		assertSequence(results.mutants.get(13), "PHE ASP ASP THR PHE LYS ILE THR", 13.438073, epsilon);
-		assertSequence(results.mutants.get(14), "ILE ASP GLU THR PHE LYS ILE THR", 12.882685, epsilon);
-		assertSequence(results.mutants.get(15), "VAL ASP GLU THR PHE LYS ILE THR", 12.628520, epsilon);
-		assertSequence(results.mutants.get(16), "LEU ASP GLU THR PHE LYS ILE THR", 12.366343, epsilon);
-		assertSequence(results.mutants.get(17), "ALA ASP GLU THR PHE LYS ILE THR", 11.792450, epsilon);
-		assertSequence(results.mutants.get(18), "TYR ASP GLU THR PHE LYS ILE THR", 11.580947, epsilon);
-		assertSequence(results.mutants.get(19), "PHE ASP GLU THR PHE ASP ILE THR", 10.823063, epsilon);
-		assertSequence(results.mutants.get(20), "PHE ASP GLU THR PHE GLU ILE THR", 10.031569, epsilon);
-
-		// the unscorable sequences could happen in any order
-		Set<String> unscorableSequences = new HashSet<>();
-		unscorableSequences.add(results.mutants.get(21).sequence.toString());
-		unscorableSequences.add(results.mutants.get(22).sequence.toString());
-		unscorableSequences.add(results.mutants.get(23).sequence.toString());
-		assertThat(unscorableSequences, containsInAnyOrder(
-			"PHE ASP GLU THR PHE LYS LEU THR",
-			"PHE ASP GLU THR PHE LYS PHE THR",
-			"PHE ASP GLU THR PHE LYS TYR THR"
-		));
+		assertThat(results.sequences.size(), is(numSequences));
+		assertDecreasingUpperBounds(results.sequences);
 	}
 
-	private void assertSequence(BBKStar.ScoredSequence scoredSequence, String sequence, Double estKstarLog10, double pfuncEpsilon) {
+	private void assertSequence(Results results, String sequence, Double estKStarLowerLog10, Double estKStarUpperLog10) {
 
-		// check the sequence
-		assertThat(scoredSequence.sequence.toString(), is(sequence));
+		// find the sequence
+		for (BBKStar.ScoredSequence scoredSequence : results.sequences) {
 
-		// check the K* score
-		Double kstarScoreLog10 = scoredSequence.score.scoreLog10();
-		if (estKstarLog10 == null) {
-			assertThat(kstarScoreLog10, is(nullValue()));
-		} else {
-			assertThat(kstarScoreLog10, is(not(nullValue())));
+			if (scoredSequence.sequence.toString().equals(sequence)) {
 
-			// combine the pfunc epsilons to get an epsilon value effective for K* scores
-			// (and convert to log10 space)
-			double kstarEpsilonLog10 = Math.log10(1.0/(1.0 - pfuncEpsilon));
+				// found it
 
-			// we don't know the true K*, but we can bound it based on the estimate given
-			double minKStarLog10 = estKstarLog10;
-			double maxKStarLog10 = minKStarLog10 + 2*kstarEpsilonLog10;
+				// check the K* bounds
+				if (estKStarLowerLog10 != null && estKStarUpperLog10 != null) {
 
-			// make sure the observed score is within epsilon of the bound
-			assertThat(kstarScoreLog10, greaterThanOrEqualTo(minKStarLog10 - kstarEpsilonLog10));
-			assertThat(kstarScoreLog10, lessThanOrEqualTo(maxKStarLog10 + kstarEpsilonLog10));
+					assertThat(scoredSequence.score, is(not(nullValue())));
+
+					// make sure these bounds contain the estimated bounds
+					assertThat(scoredSequence.score.lowerBoundLog10(), lessThanOrEqualTo(estKStarLowerLog10));
+					assertThat(scoredSequence.score.upperBoundLog10(), greaterThanOrEqualTo(estKStarUpperLog10));
+
+				} else {
+					assertThat(scoredSequence.score, is(nullValue()));
+				}
+
+				return;
+			}
+		}
+
+		fail("sequence not found: " + sequence);
+	}
+
+	private void assertDecreasingUpperBounds(List<BBKStar.ScoredSequence> sequences) {
+
+		double minUpperBoundLog10 = Double.POSITIVE_INFINITY;
+		for (BBKStar.ScoredSequence sequence : sequences) {
+
+			if (sequence.score == null) {
+				break;
+			}
+			Double upperBoundLog10 = sequence.score.upperBoundLog10();
+			assertThat(upperBoundLog10, is(not(nullValue())));
+			assertThat(upperBoundLog10, lessThanOrEqualTo(minUpperBoundLog10));
+			minUpperBoundLog10 = upperBoundLog10;
 		}
 	}
 }
